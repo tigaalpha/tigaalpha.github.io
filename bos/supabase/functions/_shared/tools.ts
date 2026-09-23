@@ -10,6 +10,9 @@ import { sumTransactions } from "./business-metrics.ts";
 import { createPayment, confirmPayment } from "./payments.ts";
 import { createLessonSummary } from "./lesson-summary.ts";
 import { push as linePush } from "./line.ts";
+import { attributeReferral } from "./referrals.ts";
+import { executeMarketingTool } from "./marketing-tools.ts";
+import { CHIEF_OF_STAFF_SLUG, departmentBySlug, DEPARTMENTS } from "./departments.ts";
 
 // ISO (UTC) → Bangkok local time for display in messages, e.g. "17:00".
 function formatLessonTime(iso: string): string {
@@ -201,6 +204,22 @@ export const AI_TOOLS: ToolDefinition[] = [
       required: ["status"],
     },
   },
+  {
+    name: "get_my_referral_code",
+    description:
+      "Get or create THIS customer's personal referral code (customer chats only — no id needed, the chat is bound to the caller). Returns the code and a ready-to-share Thai message. Use the moment a happy/enthusiastic customer mentions telling friends, asks about recommending the studio, or you want to equip them to spread the word.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "apply_referral_code",
+    description:
+      "Attribute the CURRENT customer to the referral code they arrived with (e.g. 'เพื่อนให้โค้ด TIGA-XXXX มา'). Call it as soon as the customer mentions any referral code — this credits their friend when the customer eventually pays. Never call it with the customer's own code.",
+    parameters: {
+      type: "object",
+      properties: { referralCode: { type: "string", description: "The referral code the customer mentioned, e.g. TIGA-ABC123." } },
+      required: ["referralCode"],
+    },
+  },
 ];
 
 // Only ever offered to the model on the internal/owner channel (see
@@ -312,7 +331,215 @@ export const OWNER_TOOLS: ToolDefinition[] = [
       required: ["customerId"],
     },
   },
+  // ── Feature Connectors: ระยะที่ 3 — เชื่อมต่อทุกฟีเจอร์ผ่าน Chat ──
+  {
+    name: "list_students",
+    description: "List all students/customers with their name, phone, sales status, course hours remaining, and last activity. Use when the owner asks to see all students, check who's active, or get an overview.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "search_students",
+    description: "Search students by name (partial match). Returns matching students with key details.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Name to search (partial match, case-insensitive)." },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "create_student_from_chat",
+    description:
+      "Create a new student record with optional course and booking in one step. Use when the owner says things like 'สร้างนักเรียนใหม่ชื่อ...', 'เพิ่มลูกค้า...', 'จองให้...'. This creates the student, creates a course if hours are specified, and optionally books the first lesson.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Student's name — required." },
+        phone: { type: "string", description: "Phone number." },
+        age: { type: "number", description: "Student's age." },
+        learningGoal: { type: "string", description: "What they want to learn." },
+        totalHours: { type: "number", description: "Number of course hours to purchase." },
+        courseAmount: { type: "number", description: "Payment amount in THB for the course." },
+        bookingStartTime: { type: "string", description: "ISO datetime for first lesson (optional)." },
+        bookingEndTime: { type: "string", description: "ISO datetime for first lesson end (optional)." },
+        teacherId: { type: "string", description: "Teacher id for booking (optional, use list_teachers to find)." },
+        notes: { type: "string", description: "Any notes about the student." },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "get_student_detail",
+    description: "Get detailed info about a specific student: profile, courses, bookings, payments, and attendance history.",
+    parameters: {
+      type: "object",
+      properties: {
+        customerId: { type: "string", description: "Student's customer id." },
+        studentName: { type: "string", description: "Student's name (if id unknown, search first)." },
+      },
+    },
+  },
+  {
+    name: "list_upcoming_lessons",
+    description: "List all upcoming lessons/bookings for today, this week, or a specific date range. Shows student name, time, teacher, and status.",
+    parameters: {
+      type: "object",
+      properties: {
+        period: { type: "string", enum: ["today", "tomorrow", "week", "range"], description: "Time range to check." },
+        startDate: { type: "string", description: "Start date (YYYY-MM-DD) for range period." },
+        endDate: { type: "string", description: "End date (YYYY-MM-DD) for range period." },
+      },
+    },
+  },
+  {
+    name: "generate_content",
+    description:
+      "Generate marketing content (TikTok script, caption, hook, carousel, etc.) via AI. The AI will create ready-to-use content in the specified language. Use when the owner asks to create content, write a script, make a post, etc.",
+    parameters: {
+      type: "object",
+      properties: {
+        contentType: {
+          type: "string",
+          enum: ["tiktok_script", "caption", "hook", "reels_script", "linkedin_post", "x_thread", "carousel", "content_calendar", "hashtag_strategy", "brand_profile", "voice_guide", "dm_script", "funnel_builder", "email_sequence", "blog_post"],
+          description: "Type of content to generate."
+        },
+        topic: { type: "string", description: "Topic or subject for the content. If not specified, AI picks a relevant topic about TIGA/piano/music." },
+        language: { type: "string", enum: ["th", "en", "zh"], description: "Language for the content (th=Thai, en=English, zh=Chinese)." },
+        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek, deepseek-v3-free). deepseek-v3-free costs nothing." },
+      },
+      required: ["contentType"],
+    },
+  },
+  {
+    name: "generate_images",
+    description:
+      "Analyze a long article and generate cyberpunk-style images (landscape + portrait) for each scene. Use when the owner provides an article and wants images for video制作.",
+    parameters: {
+      type: "object",
+      properties: {
+        article: { type: "string", description: "The full article text to analyze and generate images from." },
+        sceneCount: { type: "number", description: "Number of scenes to break the article into (2-10). Default 4." },
+        model: { type: "string", description: "AI model to use (gemini, claude, gpt, qwen, kimi, glm, grok, deepseek, deepseek-v3-free). deepseek-v3-free costs nothing." },
+      },
+      required: ["article"],
+    },
+  },
+  {
+    name: "generate_voiceover",
+    description:
+      "Convert an article to speech (TTS) with a selected voice. Use when the owner wants to create a voice-over from text.",
+    parameters: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "The article/text to convert to speech." },
+        voiceId: { type: "string", description: "Voice ID (e.g., th-TH-SomchaiMale, en-US-DavidNeural)." },
+        gender: { type: "string", enum: ["male", "female"], description: "Gender of voice." },
+        language: { type: "string", enum: ["th", "en", "zh", "ja", "ko", "vi", "de", "fr", "es", "pt", "it", "ru", "ar", "hi", "id", "ms"], description: "Language for the voice." },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "get_finance_summary",
+    description: "Get a financial summary: revenue, expenses, profit for a period. More detailed than get_business_summary.",
+    parameters: {
+      type: "object",
+      properties: {
+        period: { type: "string", enum: ["today", "week", "month", "quarter", "year"], description: "Time period." },
+        category: { type: "string", description: "Filter by specific category (optional)." },
+      },
+    },
+  },
+  {
+    name: "list_pending_approvals",
+    description: "List all pending approval requests (from AI actions, cancellations, etc.). Use when the owner wants to review what needs approval.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
 ];
+
+const MARKETING_SKILL_TOOLS: ToolDefinition[] = [
+  {
+    name: "use_marketing_skill",
+    description: "Use any of the 24 marketing skills (TikTok Script, Caption, Carousel, Hashtag, Cross-Platform, Content Calendar, DM Script, etc.). Call with the skill name and content topic.",
+    parameters: {
+      type: "object",
+      properties: {
+        skillName: { type: "string", description: "The skill to use, e.g. 'tiktok_script', 'caption_writer', 'hashtag_strategy', 'cross_platform', 'content_calendar', 'dm_script', 'carousel'" },
+        topic: { type: "string", description: "The content topic or brief" },
+        language: { type: "string", enum: ["th", "en", "zh"], description: "Language for the output" },
+        model: { type: "string", description: "AI model to use (optional)" },
+      },
+      required: ["skillName", "topic"],
+    },
+  },
+  {
+    name: "get_daily_priorities",
+    description: "Get the top 3 highest-value tasks to do today, ranked by business impact and difficulty. Returns prioritized list with reasons.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "get_content_performance",
+    description: "Check how past content is performing — which posts got the most engagement, saves, shares. Use to decide what to create next.",
+    parameters: {
+      type: "object",
+      properties: {
+        period: { type: "string", enum: ["week", "month", "quarter"], description: "Time period to analyze" },
+      },
+    },
+  },
+  {
+    name: "schedule_post",
+    description: "Schedule a content post for a specific date/time. Stores the post in Supabase for the Content Calendar.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        content: { type: "string" },
+        platform: { type: "string", enum: ["tiktok", "instagram", "facebook", "youtube", "line", "all"], description: "Platform to post on" },
+        scheduledDate: { type: "string", description: "ISO date string for when to post" },
+      },
+      required: ["title", "content", "platform", "scheduledDate"],
+    },
+  },
+  {
+    name: "get_trend_analysis",
+    description: "Analyze current trends in piano/music education market. Use this when the owner wants to know what's trending or what content to ride.",
+    parameters: { type: "object", properties: { topic: { type: "string", description: "Specific trend topic (optional)" } } },
+  },
+  {
+    name: "create_video_package",
+    description: "Create a complete video package: TikTok Script + Voice Over text + Scene descriptions for images. All-in-one content creation.",
+    parameters: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "The video topic" },
+        style: { type: "string", enum: ["educational", "entertaining", "inspiring", "urgent"], description: "Content style" },
+        languages: { type: "array", items: { type: "string" }, description: "Languages to create in, e.g. ['th', 'en', 'zh']" },
+      },
+      required: ["topic"],
+    },
+  },
+  {
+    name: "repurpose_content",
+    description: "Transform one piece of content into multiple platform formats: TikTok caption → Instagram carousel → Facebook post → LINE message.",
+    parameters: {
+      type: "object",
+      properties: {
+        originalContent: { type: "string", description: "The original content to repurpose" },
+        platforms: { type: "array", items: { type: "string" }, description: "Target platforms, e.g. ['tiktok', 'instagram', 'facebook', 'line']" },
+      },
+      required: ["originalContent"],
+    },
+  },
+  {
+    name: "get_marketing_dashboard",
+    description: "Get a marketing overview: content count, scheduled posts, recent performance, AI cost for marketing. Quick snapshot of marketing health.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+];
+
+export const ALL_OWNER_TOOLS: ToolDefinition[] = [...OWNER_TOOLS, ...MARKETING_SKILL_TOOLS];
 
 // Postgres error code for a violated EXCLUDE/UNIQUE constraint (see
 // migration 0023_booking_race_conditions — the real, atomic double-booking
@@ -353,11 +580,20 @@ export function translateDbError(error: unknown): string {
  * model to call these tools against a completely different customer's
  * record (a prompt-injection-to-database-write path).
  */
+// delegate_to_department is delivered by the caller (chat-core.ts) via the
+// `delegate` callback passed into executeTool — that keeps tools.ts free of
+// an import cycle with chat-core (respond -> executeTool -> respond) while
+// still letting the Chief of Staff command a target department's agent.
+export interface ExecuteToolDeps {
+  delegate?: (targetSlug: string, directive: string) => Promise<Record<string, unknown>>;
+}
+
 export async function executeTool(
   call: ToolCall,
   db: SupabaseClient,
   boundCustomerId: string | null = null,
-  callerId: string | null = null
+  callerId: string | null = null,
+  deps: ExecuteToolDeps = {}
 ): Promise<unknown> {
   const args = call.arguments as Record<string, string | number | undefined>;
 
@@ -766,6 +1002,44 @@ export async function executeTool(
       return { ok: true, lessonLabel, lessonTime, status };
     }
 
+    case "get_my_referral_code": {
+      // Customer-facing counterpart of create_referral_link (owner tool).
+      // Customer chats are bound to the caller, so no id is accepted — an
+      // owner commanding this on someone's behalf gets told to use
+      // create_referral_link instead.
+      if (!boundCustomerId) {
+        throw new Error("Only available in a customer chat — in owner mode use create_referral_link with a customerId");
+      }
+      const { data: customer, error: custErr } = await db
+        .from("customers")
+        .select("id, name, referral_code")
+        .eq("id", boundCustomerId)
+        .maybeSingle();
+      if (custErr || !customer) throw new Error("Customer not found");
+      let code = (customer as { referral_code: string | null }).referral_code;
+      if (!code) {
+        code = "TIGA-" + Date.now().toString(36).toUpperCase().slice(-6) + Math.random().toString(36).slice(2, 5).toUpperCase();
+        const { error: upErr } = await db.from("customers").update({ referral_code: code }).eq("id", boundCustomerId);
+        if (upErr) throw upErr;
+      }
+      return {
+        referralCode: code,
+        shareMessage: `🎁 แนะนำเพื่อนมาเรียนเปียโนที่ Tiga Studio — ให้เพื่อนใช้โค้ด ${code} ตอนทักแชท แล้วเพื่อนจะได้ส่วนลดพิเศษ คุณก็ได้รับรางวัลเมื่อเพื่อนสมัครค่ะ`,
+        // Friend-facing link: the published widget page reads ?ref= and
+        // remembers the code, so one tap opens a chat that attributes itself.
+        referralUrl: `https://tigaalpha.github.io/studio/widget-demo.html?ref=${code}`,
+      };
+    }
+
+    case "apply_referral_code": {
+      if (!boundCustomerId) throw new Error("Only available in a customer chat");
+      const code = String(args.referralCode ?? "").trim();
+      if (!code) throw new Error("referralCode is required");
+      // attributeReferral is idempotent per (code, customer) and handles
+      // self-referral rejection + owner notification server-side.
+      return await attributeReferral(db, code, boundCustomerId, null, null);
+    }
+
     case "mark_payment_paid": {
       if (!callerId) throw new Error("Not authorized: no caller identity for this action");
       await requireOwnerOrAdmin(db, callerId);
@@ -805,8 +1079,10 @@ export async function executeTool(
         body: `${customer.name} — โค้ด ${code}`,
         customer_id: customer.id,
       });
-      const shareMessage = `🎁 แนะนำเพื่อนมาเรียนที่ Tiga Studio รับส่วนลดพิเศษ! ใช้โค้ด ${code} ตอนสมัคร แล้วแจ้งให้ทีมงานทราบได้เลยค่ะ`;
-      return { referralCode: code, shareMessage };
+      const shareMessage = `🎁 แนะนำเพื่อนมาเรียนที่ Tiga Studio รับส่วนลดพิเศษ! ให้เพื่อนใช้โค้ด ${code} ตอนทักแชท หรือส่งลิงก์นี้ให้เพื่อนกดเลย: https://tigaalpha.github.io/studio/widget-demo.html?ref=${code}`;
+      // Codes are multi-use — one referrer can bring several friends; each
+      // friend who pays triggers its own reward reminder (payments.ts).
+      return { referralCode: code, shareMessage, referralUrl: `https://tigaalpha.github.io/studio/widget-demo.html?ref=${code}` };
     }
 
     case "record_transaction": {
@@ -896,11 +1172,22 @@ export async function executeTool(
     case "get_business_summary": {
       const period = String(args.period ?? "today");
       const days = period === "today" ? 1 : period === "week" ? 7 : 30;
-      const start = new Date();
-      if (period === "today") start.setHours(0, 0, 0, 0);
-      else start.setTime(Date.now() - days * 24 * 60 * 60 * 1000);
-      const startISO = start.toISOString();
-      const startDateStr = startISO.slice(0, 10);
+      let startISO: string;
+      let startDateStr: string;
+      if (period === "today") {
+        // Bangkok day boundary (UTC+7, no DST) — using server-local midnight
+        // made "วันนี้" wrong by 7 hours: between 00:00-06:59 Thai time the
+        // summary silently included yesterday's bookings/transactions.
+        const nowShifted = new Date(Date.now() + 7 * 60 * 60 * 1000);
+        startDateStr = nowShifted.toISOString().slice(0, 10);
+        const bkkMidnightShifted = new Date(nowShifted);
+        bkkMidnightShifted.setUTCHours(0, 0, 0, 0);
+        startISO = new Date(bkkMidnightShifted.getTime() - 7 * 60 * 60 * 1000).toISOString();
+      } else {
+        const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        startISO = start.toISOString();
+        startDateStr = startISO.slice(0, 10);
+      }
 
       const [txResult, lessonsResult, leadsResult, wonResult] = await Promise.all([
         db.from("transactions").select("type, amount").gte("transaction_date", startDateStr),
@@ -996,7 +1283,293 @@ export async function executeTool(
       };
     }
 
-    default:
+    // ── Feature Connectors: ระยะที่ 3 — เชื่อมต่อทุกฟีเจอร์ผ่าน Chat ──
+
+    case "list_students": {
+      const { data: students, error: sErr } = await db
+        .from("customers")
+        .select("id, name, phone, sales_status, age, notes, created_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (sErr) throw sErr;
+      // Get course hours for each student
+      const enriched = await Promise.all((students ?? []).map(async (s: Record<string, unknown>) => {
+        const { data: courses } = await db
+          .from("courses")
+          .select("total_hours, current_hour, remaining_hour")
+          .eq("customer_id", s.id)
+          .gt("remaining_hour", 0)
+          .order("started_at", { ascending: false });
+        const totalRemaining = (courses ?? []).reduce((sum: number, c: Record<string, number>) => sum + (c.remaining_hour ?? 0), 0);
+        const totalHours = (courses ?? []).reduce((sum: number, c: Record<string, number>) => sum + (c.total_hours ?? 0), 0);
+        return { ...s, totalRemaining, totalHours };
+      }));
+      return { students: enriched, count: enriched.length };
+    }
+
+    case "search_students": {
+      const query = String(args.query ?? "").trim();
+      if (!query) throw new Error("query is required");
+      const { data: found, error: fErr } = await db
+        .from("customers")
+        .select("id, name, phone, sales_status, age")
+        .ilike("name", `%${query}%`)
+        .limit(20);
+      if (fErr) throw fErr;
+      return { students: found, count: (found ?? []).length };
+    }
+
+    case "create_student_from_chat": {
+      const name = String(args.name ?? "").trim();
+      if (!name) throw new Error("name is required");
+      // Create customer
+      const { data: newCustomer, error: cErr } = await db
+        .from("customers")
+        .insert({
+          name,
+          phone: args.phone ? String(args.phone) : null,
+          age: args.age ? Number(args.age) : null,
+          learning_goal: args.learningGoal ? String(args.learningGoal) : null,
+          notes: args.notes ? String(args.notes) : null,
+        })
+        .select("id, name")
+        .single();
+      if (cErr) throw new Error(translateDbError(cErr));
+      await db.from("sales_status_history").insert({ customer_id: newCustomer.id, to_status: "new_lead", note: "สร้างโดย AI จากแชท" });
+
+      let course = null;
+      let booking = null;
+      // Create course if hours specified
+      if (args.totalHours && Number(args.totalHours) > 0) {
+        const totalHours = Number(args.totalHours);
+        const courseAmount = args.courseAmount ? Number(args.courseAmount) : null;
+        const { data: newCourse, error: crErr } = await db
+          .from("courses")
+          .insert({
+            customer_id: newCustomer.id,
+            total_hours: totalHours,
+            current_hour: 0,
+            remaining_hour: totalHours,
+            course_amount: courseAmount,
+            started_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+        if (!crErr) course = newCourse;
+        // Record payment if amount specified
+        if (courseAmount && courseAmount > 0) {
+          await db.from("transactions").insert({
+            type: "income",
+            category: "course_payment",
+            amount: courseAmount,
+            description: `คอร์ส ${totalHours} ชั่วโมง - ${name}`,
+            customer_id: newCustomer.id,
+            course_id: course?.id,
+          }).catch(() => {});
+          // Mark as won
+          await db.from("customers").update({ sales_status: "won" }).eq("id", newCustomer.id);
+          await db.from("sales_status_history").insert({ customer_id: newCustomer.id, from_status: "new_lead", to_status: "won", note: `ชำระ ${courseAmount} บาท สำหรับ ${totalHours} ชั่วโมง` });
+        }
+      }
+
+      // Book first lesson if time specified
+      if (args.bookingStartTime && args.teacherId) {
+        const startTime = String(args.bookingStartTime);
+        const endTime = args.bookingEndTime ? String(args.bookingEndTime) : new Date(new Date(startTime).getTime() + 60 * 60 * 1000).toISOString();
+        const title = `ทดลอง${name.replace(/\s+/g, "").toUpperCase()}`;
+        const { data: newBooking, error: bErr } = await db
+          .from("bookings")
+          .insert({
+            customer_id: newCustomer.id,
+            course_id: course?.id ?? null,
+            teacher_id: String(args.teacherId),
+            title,
+            lesson_type: "normal",
+            is_trial: true,
+            status: "confirmed",
+            start_time: startTime,
+            end_time: endTime,
+          })
+          .select("id, title, start_time")
+          .single();
+        if (!bErr) booking = newBooking;
+      }
+
+      return { student: newCustomer, course, booking, created: true };
+    }
+
+    case "get_student_detail": {
+      const customerId = args.customerId ? String(args.customerId) : null;
+      const studentName = args.studentName ? String(args.studentName) : null;
+      let targetId = customerId;
+      if (!targetId && studentName) {
+        const { data: found } = await db.from("customers").select("id").ilike("name", `%${studentName}%`).limit(1).maybeSingle();
+        targetId = found?.id;
+      }
+      if (!targetId) throw new Error("ไม่พบนักเรียนที่ระบุ");
+      const [{ data: student }, { data: courses }, { data: bookings }, { data: transactions }] = await Promise.all([
+        db.from("customers").select("*").eq("id", targetId).single(),
+        db.from("courses").select("*").eq("customer_id", targetId).order("started_at", { ascending: false }),
+        db.from("bookings").select("id, title, start_time, end_time, status, lesson_type, is_trial").eq("customer_id", targetId).order("start_time", { ascending: false }).limit(20),
+        db.from("transactions").select("id, type, category, amount, transaction_date, description").eq("customer_id", targetId).order("transaction_date", { ascending: false }).limit(20),
+      ]);
+      return { student, courses: courses ?? [], recentBookings: bookings ?? [], recentTransactions: transactions ?? [] };
+    }
+
+    case "list_upcoming_lessons": {
+      const period = String(args.period ?? "today");
+      let startDate: string;
+      let endDate: string;
+      const now = new Date();
+      if (period === "today") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+      } else if (period === "tomorrow") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2).toISOString();
+      } else if (period === "week") {
+        startDate = now.toISOString();
+        endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      } else {
+        startDate = args.startDate ? String(args.startDate) + "T00:00:00Z" : now.toISOString();
+        endDate = args.endDate ? String(args.endDate) + "T23:59:59Z" : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      }
+      const { data: lessons, error: lErr } = await db
+        .from("bookings")
+        .select("id, title, start_time, end_time, status, lesson_type, is_trial, customer_id")
+        .in("status", ["confirmed", "rescheduled"])
+        .gte("start_time", startDate)
+        .lt("start_time", endDate)
+        .order("start_time", { ascending: true });
+      if (lErr) throw lErr;
+      // Enrich with customer names
+      const enriched = await Promise.all((lessons ?? []).map(async (l: Record<string, unknown>) => {
+        const { data: cust } = await db.from("customers").select("name").eq("id", l.customer_id).maybeSingle();
+        return { ...l, customerName: cust?.name ?? "Unknown" };
+      }));
+      return { lessons: enriched, count: enriched.length, period, startDate, endDate };
+    }
+
+    case "generate_content": {
+      // This is a client-side feature — return instructions for the frontend to call the edge function
+      const contentType = String(args.contentType ?? "tiktok_script");
+      const topic = args.topic ? String(args.topic) : null;
+      const language = args.language ? String(args.language) : "th";
+      const model = args.model ? String(args.model) : "gemini";
+      return {
+        action: "generate_content",
+        contentType,
+        topic,
+        language,
+        model,
+        instruction: `เปิดหน้า Marketing Skills หรือ Video Script Writer แล้วสร้าง ${contentType} หัวข้อ: ${topic || '(สุ่มหัวข้อ TIGA)'} ภาษา: ${language} โมเดล: ${model}`,
+        navigateTo: contentType.includes("script") || contentType === "tiktok_script" || contentType === "reels_script" ? "/video-script-writer" : "/marketing-skills",
+      };
+    }
+
+    case "generate_images": {
+      const article = String(args.article ?? "");
+      if (!article) throw new Error("article is required");
+      const sceneCount = args.sceneCount ? Number(args.sceneCount) : 4;
+      const model = args.model ? String(args.model) : "gemini";
+      return {
+        action: "generate_images",
+        article: article.slice(0, 5000),
+        sceneCount,
+        model,
+        instruction: `เปิดหน้า Image Studio แล้ววางบทความวิเคราะห์เป็น ${sceneCount} ฉาก`,
+        navigateTo: "/images",
+      };
+    }
+
+    case "generate_voiceover": {
+      const text = String(args.text ?? "");
+      if (!text) throw new Error("text is required");
+      const voiceId = args.voiceId ? String(args.voiceId) : null;
+      const gender = args.gender ? String(args.gender) : "female";
+      const lang = args.language ? String(args.language) : "th";
+      return {
+        action: "generate_voiceover",
+        text: text.slice(0, 5000),
+        voiceId,
+        gender,
+        language: lang,
+        instruction: `เปิดหน้า Voice Over แล้วสร้างเสียงจากบทความ`,
+        navigateTo: "/video-articles",
+      };
+    }
+
+    case "get_finance_summary": {
+      const period = String(args.period ?? "month");
+      const now = new Date();
+      let startDate: string;
+      if (period === "today") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+      } else if (period === "week") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      } else if (period === "quarter") {
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      } else if (period === "year") {
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      } else {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      }
+      const endDate = now.toISOString().slice(0, 10);
+      const summary = await sumTransactions(db, startDate, endDate);
+      const categoryFilter = args.category ? String(args.category) : null;
+      let filteredIncome = summary.income;
+      let filteredExpenses = summary.expenses;
+      if (categoryFilter) {
+        filteredIncome = summary.income.filter((t: Record<string, unknown>) => t.category === categoryFilter);
+        filteredExpenses = summary.expenses.filter((t: Record<string, unknown>) => t.category === categoryFilter);
+      }
+      const totalIncome = filteredIncome.reduce((s: number, t: Record<string, number>) => s + (t.amount ?? 0), 0);
+      const totalExpenses = filteredExpenses.reduce((s: number, t: Record<string, number>) => s + (t.amount ?? 0), 0);
+      return {
+        period,
+        startDate,
+        endDate,
+        totalIncome,
+        totalExpenses,
+        profit: totalIncome - totalExpenses,
+        incomeCount: filteredIncome.length,
+        expenseCount: filteredExpenses.length,
+      };
+    }
+
+    case "list_pending_approvals": {
+      const { data: approvals, error: aErr } = await db
+        .from("approvals")
+        .select("id, action_type, action_payload, requested_by, status, created_at, notes")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (aErr) throw aErr;
+      return { approvals: approvals ?? [], count: (approvals ?? []).length };
+    }
+
+    case "delegate_to_department": {
+      // Chief of Staff command channel: deliver the directive into the target
+      // department's own conversation and have that department's agent answer
+      // it immediately (synchronously, so the CoS can quote the result back
+      // to the owner in the same turn). Refuse self/cos targets — delegation
+      // flows downward only (departments.ts).
+      const targetSlug = String(args.department ?? "");
+      const directive = String(args.directive ?? "").trim();
+      if (!directive) return { error: "คำสั่งว่างเปล่า — ระบุ directive ที่ชัดเจน" };
+      if (targetSlug === CHIEF_OF_STAFF_SLUG) return { error: "Chief of Staff ไม่สั่งงานตัวเองได้" };
+      const targetDept = departmentBySlug(targetSlug);
+      if (!targetDept) {
+        return { error: `ไม่พบแผนก "${targetSlug}" — แผนกที่มี: ${DEPARTMENTS.map((d) => d.slug).join(", ")}` };
+      }
+      if (!deps.delegate) return { error: "ระบบส่งงานยังไม่พร้อม ลองใหม่อีกครั้ง" };
+      return await deps.delegate(targetSlug, directive);
+    }
+
+    default: {
+      const marketingResult = await executeMarketingTool(call.name, args as Record<string, unknown>, db);
+      if (marketingResult !== null) return marketingResult;
       throw new Error(`Unknown tool: ${call.name}`);
+    }
   }
 }

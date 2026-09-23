@@ -1,0 +1,1331 @@
+import { useCallback, useEffect, useState } from "react";
+import { sb } from "./supabase-client";
+import { GUEST_TRIAL_MS } from "./shared-infra";
+import { AdminLearningData } from "./AdminLearningData";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADMIN ACTIVITY ANALYTICS — visible ONLY to admin_tier >= 3 (the owner).
+
+   Two views, both backed by is_top_admin()-gated RPCs (see
+   supabase-activity-analytics-migration.sql):
+
+   1. AdminActivity  — who used the app, which pages they stayed on and for
+      how long, which buttons they pressed, where their score went up, plus a
+      live event feed and a per-user drill-down.
+   2. AdminSimBots   — demo-data generator for THIS dashboard only: a roster
+      of simulated users that produce plausible activity rows so the owner can
+      see the dashboard populated before real users arrive, and phase them out
+      gradually. Rows are flagged simulated=true and are NEVER rendered to
+      real learners anywhere in the app.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const NAV_LABELS = {
+  pathway: "⬡ Pathway", sensei: "◈ TIGA Chat", studio: "▶ Studio", videos: "🎬 วิดีโอสอน",
+  profile: "Profile", admin: "Admin", today: "วันนี้", insights: "Insights", eargym: "Ear Gym",
+  reading: "Reading", challenging: "Challenging", songs: "เพลง",
+};
+// minutes to one decimal — the unit the owner actually thinks in when asking
+// "how long did they play before leaving"
+const fmtMin = (ms) => ((Number(ms) || 0) / 60000).toFixed(1);
+const fmtMs = (ms) => {
+  const n = Number(ms) || 0;
+  if (n < 60000) return Math.round(n / 1000) + " วิ";
+  return (n / 60000).toFixed(1) + " นาที";
+};
+/* User list order (owner request): longest total usage FIRST, least last.
+   Sorts by the same dwell figure the row displays (page_time_ms; the anon/
+   per-user views may carry dwell_ms instead — read both). Sort happens ONCE
+   when the RPC data lands, not during render (a .sort() during render would
+   re-sort the same array object every render and thrash React's keys). */
+const sortUsersByDwell = (arr) => (Array.isArray(arr) ? arr.slice().sort((a, b) =>
+  (Number(b && (b.page_time_ms ?? b.dwell_ms)) || 0) - (Number(a && (a.page_time_ms ?? a.dwell_ms)) || 0)
+) : arr);
+const fmtTime = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleString("th-TH", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+};
+const label = (id) => NAV_LABELS[id] || String(id || "—");
+
+/* ── shared: range picker ── */
+function RangePicker({ range, setRange, T }) {
+  return (
+    <div className="billtoggle">
+      {[["1", T("1 วัน", "1d", "1天")], ["7", T("7 วัน", "7d", "7天")], ["30", T("30 วัน", "30d", "30天")], ["all", T("ทั้งหมด", "All", "全部")]].map(([v, l]) => (
+        <button key={v} className={`billtog${range === v ? " on" : ""}`} onClick={() => setRange(v)}>{l}</button>
+      ))}
+    </div>
+  );
+}
+
+function RankRows({ rows, valueFor, T, valueLabel }) {
+  const max = rows.length ? Math.max(...rows.map((r) => Number(valueFor(r)) || 1)) : 1;
+  if (!rows.length) return <div className="admstu-empty">{T("ยังไม่มีข้อมูล", "No data yet", "暂无数据")}</div>;
+  return rows.map((r, i) => (
+    <div key={(r.item_id || r.user_id) + i} className="anrow">
+      <span className="anrow-rank">#{i + 1}</span>
+      <span className="anrow-name" style={{ maxWidth: "42%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label(r.item_id)}</span>
+      <span className="anrow-barwrap"><span className="anrow-bar" style={{ width: `${Math.max(5, ((Number(valueFor(r)) || 0) / max) * 100)}%` }} /></span>
+      <span className="anrow-hits">{valueLabel(Number(valueFor(r)) || 0, r)}</span>
+    </div>
+  ));
+}
+
+
+/* ═══════════════ 3. ANONYMOUS VISITORS ═══════════════
+   Who came to the site and never logged in, and what they did while they were
+   here. This existed nowhere before: logUsage() returned early whenever there
+   was no session, so the admin could see everything members did and nothing at
+   all about the people the advertising actually paid for. Three days of ads
+   bought 393 visits, produced 0 accounts, and left no record to look at.
+
+   The browser column is here for a specific reason — see uaKind() in
+   shared-infra.ts. Google refuses OAuth inside a social app's WebView, so a
+   high "facebook-webview" share is not trivia: it is the number that explains
+   a dead sign-up funnel. */
+const UA_LABEL = {
+  "facebook-webview": "📘 ในแอป Facebook",
+  "instagram-webview": "📷 ในแอป Instagram",
+  "messenger-webview": "💬 ในแอป Messenger",
+  "line-webview": "💚 ในแอป LINE",
+  "tiktok-webview": "🎵 ในแอป TikTok",
+  "android-webview": "📱 ในแอปอื่น (Android)",
+  "ios-webview": "📱 ในแอปอื่น (iOS)",
+  "android-chrome": "✅ Chrome (Android)",
+  "ios-chrome": "✅ Chrome (iOS)",
+  "ios-safari": "✅ Safari",
+  desktop: "🖥️ คอมพิวเตอร์",
+};
+const uaLabel = (u) => UA_LABEL[u] || String(u || "?");
+const isWebview = (u) => String(u || "").includes("webview");
+/* The gate has been seconds and minutes at different times, so print whichever
+   unit reads naturally rather than "0.3 min". */
+/* Load times live in the 0.3-9s range, where fmtSecs' whole-second rounding
+   erases exactly the differences worth seeing (0.4s and 1.4s both become "1s"). */
+const fmtLoad = (ms) => {
+  const n = Number(ms) || 0;
+  return n < 10000 ? (n / 1000).toFixed(1) + "s" : Math.round(n / 1000) + "s";
+};
+const fmtSecs = (ms) => {
+  const s = Math.round((Number(ms) || 0) / 1000);
+  if (s < 90) return s + "s";
+  const m = s / 60;
+  return (Number.isInteger(m) ? m : m.toFixed(1)) + " min";
+};
+
+/* Which door the people who DID get an account came through. Rendered on both
+   admin pages: the activity page asks how many visitors never signed up, and
+   this is the other half of the same question, so it reads as a pair on either.
+   One component rather than two copies — the last thing this dashboard needs is
+   a second place to update when the wording or the maths changes.
+
+   The big number is all-time deliberately. Scoped to the selected range it
+   would read "0 and 0" on a quiet week and look broken rather than
+   informative; the in-range figure is the small line underneath, where a zero
+   is honest instead of alarming. */
+/* navigator.connection.effectiveType, in words. "4g" is the browser's own
+   coarse bucket and covers everything from a weak 4G bar to fibre, so it is
+   named for what it means to a visitor rather than quoted back verbatim. */
+function netLabel(net, T) {
+  if (net === "4g") return T("เน็ตเร็ว (4G/5G/wifi)", "Fast (4G/5G/wifi)", "快速 (4G/5G/wifi)");
+  if (net === "3g") return T("เน็ตปานกลาง (3G)", "Medium (3G)", "中速 (3G)");
+  if (net === "2g") return T("เน็ตช้า (2G)", "Slow (2G)", "慢速 (2G)");
+  if (net === "slow-2g") return T("เน็ตช้ามาก", "Very slow", "极慢");
+  return T("ไม่ทราบ", "Unknown", "未知");
+}
+
+/* ── marketing landing page 1 funnel ──
+   Reads kind='land' rows, which every other panel on this page excludes on
+   purpose: the landing page and the app are two different front doors and
+   mixing their visitor counts is how a comparison stops meaning anything.
+
+   Every step is DISTINCT PEOPLE, not events — "how many got this far" is the
+   only question being asked — and each row carries its conversion off the
+   previous step, because the drop between two steps is the finding, never the
+   absolute number. Renders nothing at all until the page has traffic. */
+const LAND_STEPS = [
+  ["visitors",   "เปิดหน้า",         "Opened the page",   "打开页面"],
+  ["touched",    "กดคีย์เปียโน",      "Played a key",      "弹了琴键"],
+  ["asked",      "กดถามคำถาม",       "Asked a question",  "点了问题"],
+  ["typed",      "พิมพ์คำถามเอง",     "Typed their own",   "自己输入问题"],
+  ["ai_answered","AI ตอบให้จริง",     "AI answered it",    "AI 作答"],
+  ["saw_signup", "เห็นหน้าสมัคร",     "Saw the sign-up",   "看到注册"],
+  ["tried",      "กดปุ่มสมัคร",       "Tapped sign up",    "点击注册"],
+  ["signed_up",  "สมัครสำเร็จ",       "Signed up",         "注册成功"],
+];
+const PAGE_LABELS = { th: "🇹🇭 /landing/", en: "🇬🇧 /landing-en/", zh: "🇨🇳 /landing-zh/" };
+const LESSON_LABELS = {
+  cmajor: "🎼 C major scale", basics: "🎹 Piano ขั้นพื้นฐาน",
+  triad: "🎵 Triad", chords: "🎸 คอร์ดพื้นฐาน",
+};
+
+function LandingFunnelCard({ f, T }) {
+  if (!f || !Number(f.visitors)) return null;
+  const top = Number(f.visitors) || 1;
+  return (
+    <div className="admstu-card" style={{ marginBottom: 10 }}>
+      <div className="admstu-h">
+        {T("หน้าโฆษณา · marketing landing page 1", "Marketing landing page 1", "营销落地页 1")}
+        <span className="admstu-row-sub" style={{ marginLeft: 8, fontWeight: 400 }}>/landing/</span>
+      </div>
+
+      {LAND_STEPS.map(([k, th, en, zh], i) => {
+        const n = Number(f[k]) || 0;
+        const prev = i === 0 ? n : (Number(f[LAND_STEPS[i - 1][0]]) || 0);
+        // conversion off the PREVIOUS step — where people are actually lost
+        const step = i === 0 ? null : (prev ? Math.round((n / prev) * 100) : 0);
+        const last = k === "signed_up";
+        return (
+          <div key={k} className="anrow">
+            <span className="anrow-rank" style={{ opacity: .5 }}>{i + 1}</span>
+            <span className="anrow-name" style={{ maxWidth: "40%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {T(th, en, zh)}
+            </span>
+            <span className="anrow-barwrap">
+              <span className="anrow-bar" style={{
+                width: `${Math.max(2, (n / top) * 100)}%`,
+                background: last && n > 0 ? "#16a34a" : undefined,
+              }} />
+            </span>
+            <span className="anrow-hits" style={{ color: last && n > 0 ? "#16a34a" : undefined }}>
+              {n}{step != null && <span className="admstu-row-sub"> · {step}%</span>}
+            </span>
+          </div>
+        );
+      })}
+
+      <div className="admstu-row" style={{ marginTop: 8, display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <b style={{ fontSize: 17 }}>{Number(f.ai_total) || 0}</b>{" "}
+          <span className="admstu-row-sub">{T("คำถามที่ AI ตอบ", "AI answers given", "AI 回答数")}</span>
+          {!!Number(f.ai_failed) && (
+            <span className="admstu-row-sub" style={{ color: "#c2410c" }}> · {f.ai_failed} {T("ตอบไม่ได้", "failed", "失败")}</span>
+          )}
+        </div>
+        <div>
+          <b style={{ fontSize: 17 }}>{f.dwell_med != null ? fmtSecs(f.dwell_med) : "—"}</b>{" "}
+          <span className="admstu-row-sub">{T("อยู่บนหน้า (ค่ากลาง)", "on page (median)", "停留中位数")}</span>
+        </div>
+        <div>
+          <b style={{ fontSize: 17 }}>{f.dwell_p90 != null ? fmtSecs(f.dwell_p90) : "—"}</b>{" "}
+          <span className="admstu-row-sub">{T("บนสุด 10%", "top 10%", "前 10%")}</span>
+        </div>
+      </div>
+
+      {!!(f.lessons || []).length && (
+        <>
+          <div className="admstu-row-sub" style={{ marginTop: 10 }}>
+            {T("คำถามที่คนเลือก", "Which question they picked", "他们选的问题")}
+          </div>
+          {(f.lessons || []).map((l) => (
+            <div key={l.id} className="anrow">
+              <span className="anrow-name" style={{ maxWidth: "52%" }}>{LESSON_LABELS[l.id] || l.id}</span>
+              <span className="anrow-barwrap">
+                <span className="anrow-bar" style={{ width: `${Math.max(4, (Number(l.people) / top) * 100)}%` }} />
+              </span>
+              <span className="anrow-hits">{l.people}</span>
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* The three campaign URLs, side by side. Summing them would average a
+          Thai market against two foreign ones and tell you nothing. */}
+      {!!(f.pages || []).length && (
+        <>
+          <div className="admstu-row-sub" style={{ marginTop: 10 }}>
+            {T("แยกตามหน้า (ภาษา)", "By landing page", "按落地页")}
+          </div>
+          {(f.pages || []).map((pg) => (
+            <div key={pg.page} className="anrow">
+              <span className="anrow-name" style={{ maxWidth: "44%" }}>
+                {PAGE_LABELS[pg.page] || pg.page}
+              </span>
+              <span className="anrow-barwrap">
+                <span className="anrow-bar" style={{ width: `${Math.max(4, (Number(pg.people) / top) * 100)}%` }} />
+              </span>
+              <span className="anrow-hits">
+                {pg.people}
+                <span className="admstu-row-sub"> · AI {pg.ai} · {T("สมัคร", "joined", "注册")} {pg.signed_up}</span>
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+
+      {(!!Number(f.hit_clock) || !!Number(f.hit_quota)) && (
+        <div className="admstu-row-sub" style={{ marginTop: 8 }}>
+          {T("เจอหน้าสมัครเพราะ", "Sign-up shown by", "触发注册的原因")}:{" "}
+          {T("หมดเวลา 3 นาที", "the 3-min clock", "3 分钟到")} {Number(f.hit_clock) || 0}
+          {" · "}
+          {T("ถามครบ 3 ข้อ", "using all 3 questions", "问完 3 个问题")} {Number(f.hit_quota) || 0}
+        </div>
+      )}
+
+      {!!(f.sources || []).length && (
+        <div className="admstu-row-sub" style={{ marginTop: 10 }}>
+          {T("มาจาก", "From", "来自")}{" "}
+          {(f.sources || []).map((x) => `${x.src} ${x.people}`).join(" · ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SignupMethodCards({ signup, range, T }) {
+  if (!signup) return null;
+  const su = signup;
+  const total = Number(su.total) || 0;
+  const rangeLabel = range === "all"
+    ? T("ทั้งหมด", "all time", "全部")
+    : T(`${range} วันนี้`, `last ${range}d`, `近 ${range} 天`);
+  return (
+    <div className="sumeth">
+      <div className="sumeth-c">
+        <div className="sumeth-k">🔵 {T("ล็อกอินด้วย Google", "Signed in with Google", "用 Google 登录")}</div>
+        <div className="sumeth-v">{su.google ?? 0}<span>{T("คน", "people", "人")}</span></div>
+        <div className="sumeth-s">{T("ใหม่", "new", "新增")} {rangeLabel}: <b>{su.google_new ?? 0}</b></div>
+      </div>
+      <div className="sumeth-c">
+        <div className="sumeth-k">✉️ {T("สมัครสมาชิกใหม่ (อีเมล)", "Signed up with email", "邮箱注册")}</div>
+        <div className="sumeth-v">{su.email ?? 0}<span>{T("คน", "people", "人")}</span></div>
+        <div className="sumeth-s">{T("ใหม่", "new", "新增")} {rangeLabel}: <b>{su.email_new ?? 0}</b></div>
+      </div>
+      {total > 0 && (
+        <div className="sumeth-f">
+          {T(`สมาชิกทั้งหมด ${total} คน`, `${total} members in total`, `共 ${total} 位会员`)}
+          {" · "}{Math.round(((Number(su.google) || 0) / total) * 100)}% Google
+          {" · "}{Math.round(((Number(su.email) || 0) / total) * 100)}% {T("อีเมล", "email", "邮箱")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── device mix — what KIND of device the audience actually owns ──
+   The piano-key layout decision (iPad 4 octaves, desktop 6-8, phone unchanged)
+   was made from an anecdote; these cards are the measured answer. People are
+   distinct anon_id (same person before/after signup is one person), and each
+   row shows the signed-in/signed-out split because the owner asked to see
+   BOTH. dev='?' rows are traffic from before the columns existed — shown but
+   never allowed to win the bar scale (see barDiv), so stale rows don't dwarf
+   real phones/tablets/desktops. Hidden entirely until the RPC exists (same
+   convention as the hourly histogram). */
+const DEV_META = {
+  phone:    { icon: "📱", th: "มือถือ",    en: "Phone",    zh: "手机" },
+  tablet:   { icon: "📱💻", th: "แท็บเล็ต", en: "Tablet",   zh: "平板" },
+  desktop:  { icon: "🖥️", th: "คอมพิวเตอร์", en: "Desktop", zh: "电脑" },
+  "?":       { icon: "❓", th: "ก่อนมีข้อมูล", en: "Pre-tracking", zh: "追踪前" },
+};
+const DEV_BUCKETS = ["phone", "tablet", "desktop", "?"];
+function DeviceMixCards({ devMix, devWidths, T }) {
+  if (!devMix && !devWidths) return null;
+  const rows = ((devMix && devMix.devices) || []).slice()
+    .sort((a, b) => DEV_BUCKETS.indexOf(a.dev) - DEV_BUCKETS.indexOf(b.dev));
+  // '?' rows are old data: exclude them from the bar scaling so a backlog of
+  // pre-migration events can't flatten every real device's bar to a sliver.
+  const realTotal = rows.filter(r => r.dev !== "?").reduce((n, r) => n + (Number(r.people) || 0), 0);
+  const barDiv = Math.max(1, realTotal);
+  const buckets = ((devWidths && devWidths) || []).filter(b => b.bucket !== "?");
+  return (
+    <div className="adminpay-cfg" style={{ marginTop: 10 }}>
+      <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 2 }}>
+        📱💻 {T("อุปกรณ์ที่คนใช้เข้า (คน = จับจากคุกกี้ภายใน)", "Device mix (people per device)", "设备分布")}
+      </div>
+      {!devMix || !rows.length ? (
+        <div className="admstu-empty">{T("ยังไม่มีข้อมูลอุปกรณ์ — ข้อมูลจะเริ่มเก็บหลังอัปเดตนี้", "No device data yet — collection starts with this update", "暂无设备数据")}</div>
+      ) : rows.map((r) => {
+        const m = DEV_META[r.dev] || DEV_META["?"];
+        const people = Number(r.people) || 0;
+        const pct = Math.round((people / barDiv) * 100);
+        const si = Number(r.signed_in) || 0, so = Number(r.signed_out) || 0;
+        return (
+          <div key={r.dev} className="anrow">
+            <span className="anrow-name" style={{ maxWidth: "34%" }}>{m.icon} {T(m.th, m.en, m.zh)}</span>
+            <span className="anrow-barwrap">
+              <span className="anrow-bar" style={{ width: `${Math.max(3, pct)}%` }} />
+            </span>
+            <span className="anrow-hits">
+              {people}{" "}{T("คน", "", "人")}{pct ? ` · ${pct}%` : ""}
+              <span className="admstu-row-sub">
+                {" · "}{T(`ล็อกอิน ${si}`, `${si} signed-in`, `已登录 ${si}`)}{" · "}{T(`ไม่ล็อกอิน ${so}`, `${so} signed-out`, `未登录 ${so}`)}
+              </span>
+            </span>
+          </div>
+        );
+      })}
+      {!!buckets.length && (
+        <div className="admstu-row-sub" style={{ marginTop: 10 }}>
+          {T("ขนาดหน้าจอที่เปิดใช้ (คน · กว้างค่ากลาง)", "Screen widths in use (people · median width)", "屏幕宽度分布")}{":"}
+          {buckets.map((b) => ` ${b.bucket} ${Number(b.people) || 0}${b.med_w ? ` (${Math.round(Number(b.med_w))}px)` : ""}`).join(" ·")}
+        </div>
+      )}
+      {devMix && !!Number(devMix.webviews_people) && (
+        <div className="admstu-row-sub" style={{ marginTop: 6 }}>
+          ⚠️ {devMix.webviews_people}/{devMix.total_people} {T("คนมาจากเบราว์เซอร์ในแอป (สมัครสมาชิกยาก)", "arrived via in-app browsers (hard to sign up)", "来自应用内浏览器")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function AdminAnonVisitors({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [range, setRange] = useState("7");
+  const [ov, setOv] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState(true);
+  const [err, setErr] = useState("");
+  const [sel, setSel] = useState(null);
+  const [trail, setTrail] = useState([]);
+  const [signup, setSignup] = useState(null); // Google vs email sign-up split
+  // Whether the "สมัครแล้ว" tile's breakdown is open. "converted" only ever
+  // meant "this anon_id was later seen with a real user_id" — it said nothing
+  // about which door they walked through. admin_anon_overview now reports that
+  // too (signup_methods), and admin_anon_visitors names it per row (provider),
+  // so the click just reveals what was already being fetched.
+  const [showConvBreak, setShowConvBreak] = useState(false);
+  // Same owner-requested exclusion as AdminActivity (see the note there):
+  // tier-3 admin rows leave every tile + the per-visitor list when ON (default).
+  const [noAdmins, setNoAdmins] = useState(true);
+
+  const since = useCallback(() => {
+    if (range === "all") return null;
+    return new Date(Date.now() - Number(range) * 86400000).toISOString();
+  }, [range]);
+
+  const load = useCallback(async () => {
+    setBusy(true); setErr("");
+    try {
+      const p_since = since();
+      const [a, b, c] = await Promise.all([
+        sb.rpc("admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS, p_exclude_admins: noAdmins }),
+        sb.rpc("admin_anon_visitors", { p_since, p_limit: 200, p_exclude_admins: noAdmins }),
+        sb.rpc("admin_signup_methods", { p_since, p_exclude_admins: noAdmins }),
+      ]);
+      // Legacy-RPC fallback: PostgREST rejects named args a function doesn't
+      // define, so if the exclude-admins migration isn't applied yet, retry
+      // once without the flag (the pre-migration behavior) instead of erroring.
+      const legacy = (r, fn, base) =>
+        r.error && /structure|signature|schema cache|Could not find/i.test(r.error.message || "")
+          ? sb.rpc(fn, base) : Promise.resolve(r);
+      const [a2, b2, c2] = await Promise.all([
+        legacy(a, "admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS }),
+        legacy(b, "admin_anon_visitors", { p_since, p_limit: 200 }),
+        legacy(c, "admin_signup_methods", { p_since }),
+      ]);
+      if (a2.error) throw a2.error;
+      if (b2.error) throw b2.error;
+      setOv(a2.data || null);
+      setRows(b2.data || []);
+      // Not fatal: this page is about visitors, and the sign-up split is extra
+      // context. If the RPC is missing the cards just don't render.
+      setSignup(c2.error ? null : (c2.data || null));
+    } catch (e) {
+      setErr((e && e.message) || "load failed");
+    } finally { setBusy(false); }
+  }, [since, noAdmins]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function openTrail(anon) {
+    setSel(anon); setTrail([]);
+    try {
+      const { data, error } = await sb.rpc("admin_anon_visitor_detail", { p_anon: anon, p_limit: 200 });
+      if (!error) setTrail(data || []);
+    } catch (e) {}
+  }
+
+  const webviewShare = (() => {
+    const b = (ov && ov.browsers) || [];
+    const total = b.reduce((n, x) => n + (Number(x.n) || 0), 0);
+    if (!total) return null;
+    const rows = b.filter(x => isWebview(x.ua)).sort((x, y) => (Number(y.n) || 0) - (Number(x.n) || 0));
+    const wv = rows.reduce((n, x) => n + (Number(x.n) || 0), 0);
+    /* Name the apps actually in the data instead of a fixed guess. The text
+       used to read "Facebook / YouTube / TikTok" whatever the numbers said,
+       which was wrong the moment Instagram became the second largest source
+       at a third of all traffic and went unmentioned. */
+    const names = rows.slice(0, 4).map(x => `${uaLabel(x.ua)} ${x.n}`).join(" · ");
+    return { pct: Math.round((wv / total) * 100), wv, total, names };
+  })();
+
+  return (
+    <div className="admstu">
+      <div className="admstu-head">
+        <div>
+          <div className="admstu-title">{T("ผู้เข้าชมที่ยังไม่ล็อกอิน", "Visitors who never logged in", "未登录访客")}</div>
+          <div className="admstu-sub">{T("คนที่เข้าเว็บมาแล้วทำอะไรบ้าง ก่อนจะสมัครหรือหายไป",
+            "What people did before they signed up — or left", "访客在注册或离开前做了什么")}</div>
+        </div>
+        <RangePicker range={range} setRange={setRange} T={T} />
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--tg-sub, #888)", whiteSpace: "nowrap", cursor: "pointer" }}>
+          <input type="checkbox" checked={noAdmins} onChange={(e) => setNoAdmins(e.target.checked)} />
+          {T("ไม่รวมบัญชีแอดมิน", "Exclude admins", "不含管理员")}
+        </label>
+      </div>
+
+      {err && <div className="lockerr" style={{ margin: "8px 0" }}>{err}</div>}
+      {busy && <div className="admstu-empty">{T("กำลังโหลด...", "Loading...", "加载中...")}</div>}
+
+      {!busy && ov && (
+        <>
+          <div className="admmg-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginBottom: 12 }}>
+            {[
+              { id: "visitors", k: T("ผู้เข้าชม", "Visitors", "访客"), v: ov.visitors },
+              { id: "anon_only", k: T("ยังไม่ล็อกอิน", "Never logged in", "未登录"), v: ov.anon_only },
+              { id: "avg", k: T("เล่นเฉลี่ยคนละ", "Average each", "人均"), v: fmtMin(ov.avg_ms) + T(" นาที", " min", " 分") },
+              { id: "median", k: T("ค่ากลาง", "Median", "中位数"), v: fmtMin(ov.median_ms) + T(" นาที", " min", " 分") },
+              { id: "max", k: T("นานที่สุด", "Longest", "最长"), v: fmtMin(ov.max_ms) + T(" นาที", " min", " 分") },
+              { id: "total_time", k: T("เวลารวม", "Total time", "总时长"), v: fmtMin(ov.dwell_ms) + T(" นาที", " min", " 分") },
+              // One tile used to read "สมัครแล้ว" and count anyone later seen
+              // signed in — which is equally true of a MEMBER COMING BACK. On
+              // 11-12 Sep it showed 8 while the real number of new members was
+              // zero; all eight were accounts opened between June and August.
+              // Two tiles, never re-added, because only the left one answers
+              // "is the sign-up form working".
+              { id: "new_signups", k: T("สมัครใหม่", "New sign-ups", "新注册"), v: ov.new_signups ?? 0 },
+              { id: "returning", k: T("คนเก่ากลับมา", "Members returning", "老用户回访"), v: ov.returning ?? 0 },
+            ].map(({ id, k, v }) => (id === "new_signups" || id === "returning") ? (
+              // The tiles that open something — tappable, and saying so with a
+              // caret, rather than looking identical to their read-only siblings.
+              <button key={id} type="button" className="admmg" disabled={!ov.converted}
+                onClick={() => setShowConvBreak(o => !o)}
+                style={{ padding: "10px 12px", textAlign: "left", cursor: ov.converted ? "pointer" : "default",
+                  border: showConvBreak ? "1px solid #d97757" : "1px solid transparent", font: "inherit", color: "inherit" }}>
+                <div className="admstu-row-sub" style={{ marginBottom: 2, display: "flex", justifyContent: "space-between", gap: 6 }}>
+                  <span>{k}</span>
+                  {!!ov.converted && <span style={{ fontSize: 10, opacity: .7 }}>{showConvBreak ? "▲" : "▼"}</span>}
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: id === "new_signups" ? "#d97757" : "var(--muted)" }}>{v}</div>
+              </button>
+            ) : (
+              <div key={id} className="admmg" style={{ padding: "10px 12px" }}>
+                <div className="admstu-row-sub" style={{ marginBottom: 2 }}>{k}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#d97757" }}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Which door, and — the part that was missing — whether the person
+              walking through it was new. ov.signup_methods now counts NEW
+              members only; returning members get their own line rather than
+              being folded into the same total, because they say nothing about
+              whether the sign-up form works, which is the only question this
+              panel exists to answer. */}
+          {showConvBreak && !!ov.converted && (() => {
+            const sm = ov.signup_methods || {};
+            const g = Number(sm.google) || 0, e = Number(sm.email) || 0;
+            const other = (Number(sm.other) || 0) + (Number(sm.unknown) || 0);
+            const newN = Number(ov.new_signups) || 0, retN = Number(ov.returning) || 0;
+            const conv = rows.filter(r => r.is_new_signup);
+            const back = rows.filter(r => r.converted && !r.is_new_signup);
+            return (
+              <div className="admmg" style={{ marginBottom: 12 }}>
+                <div className="admmg-h">🔑 {T("สมัครใหม่ — ผ่านช่องทางไหน", "New sign-ups — which door", "新注册 — 通过哪种方式")} ({newN})</div>
+                {newN === 0 ? (
+                  <div className="admstu-empty" style={{ marginBottom: 12 }}>
+                    {T("ยังไม่มีใครสมัครใหม่ในช่วงนี้ — ที่เห็นด้านล่างคือสมาชิกเก่าที่กลับมาล็อกอิน",
+                       "Nobody new signed up in this range — everyone below is an existing member logging back in",
+                       "本时段没有新注册 — 下面都是老用户回访登录")}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "2px 0 12px" }}>
+                    <div><b style={{ fontSize: 19 }}>{g}</b> <span className="admstu-row-sub">🔵 Google</span></div>
+                    <div><b style={{ fontSize: 19 }}>{e}</b> <span className="admstu-row-sub">✉️ {T("แอป TIGA (อีเมล)", "TIGA app (email)", "TIGA 应用（邮箱）")}</span></div>
+                    {other > 0 && <div><b style={{ fontSize: 19 }}>{other}</b> <span className="admstu-row-sub">{T("อื่น ๆ / ไม่ทราบ", "other / unknown", "其他/未知")}</span></div>}
+                  </div>
+                )}
+                {back.length > 0 && (
+                  <div className="admstu-row-sub" style={{ margin: "0 0 8px" }}>
+                    ↩︎ {T("สมาชิกเก่ากลับมาล็อกอิน", "existing members logging back in", "老用户回访登录")} <b>{retN}</b> {T("คน", "", "人")}
+                  </div>
+                )}
+                {conv.length ? conv.map(r => (
+                  <div key={r.anon_id} className="anrow">
+                    <span className="anrow-rank" style={{ width: 26 }}>{r.provider === "google" ? "🔵" : r.provider === "email" ? "✉️" : "❔"}</span>
+                    <span className="anrow-name" style={{ maxWidth: "34%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.last_item || "—"}
+                    </span>
+                    <span className="admstu-row-sub" style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {uaLabel(r.ua)} · {r.src || "direct"}
+                    </span>
+                    <span className="anrow-hits">{fmtTime(r.last_seen)}</span>
+                  </div>
+                )) : (
+                  // Only reachable if MORE than the 200-row cap below converted in
+                  // this range — the totals above stay exact either way, only
+                  // this per-person list is capped.
+                  <div className="admstu-empty">
+                    {T("คนสมัครมีมากกว่าที่รายชื่อด้านล่างแสดงได้ — ตัวเลขด้านบนยังถูกต้อง",
+                       "More people signed up than the list below can show — the totals above are still exact",
+                       "本时段注册人数超过下方列表可显示上限 — 以上总数仍准确")}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* The same two cards as the activity page. This page answers "who never
+              made an account"; these say which door the ones who did came
+              through, and the pair only means something read together. */}
+          <SignupMethodCards signup={signup} range={range} T={T} />
+
+          {webviewShare && webviewShare.pct >= 20 && (
+            <div className="anonwv">
+              <b>⚠️ {webviewShare.pct}% {T("เข้ามาจากเบราว์เซอร์ในแอป", "arrived inside an in-app browser", "来自应用内浏览器")}</b>
+              {webviewShare.names && <div className="anonwv-n">{webviewShare.names}</div>}
+              {T("Google ไม่ยอมให้ล็อกอินในเบราว์เซอร์ที่ฝังมากับแอปพวกนี้ — คนกลุ่มนี้จะสมัครด้วย Google ไม่ได้เลย ตอนนี้แอปจะเสนอสมัครด้วยอีเมลให้แทนโดยอัตโนมัติ",
+                "Google refuses to sign people in inside these apps' built-in browsers. These visitors cannot use Google at all — the app now offers them email sign-up instead.",
+                "Google 拒绝在这些应用的内置浏览器中登录，这些访客无法使用 Google 注册 — 应用现已自动改为邮箱注册。")}
+            </div>
+          )}
+
+          {/* How long they lasted, split at the sign-up gate. This is the number
+              that says whether the gate is reachable at all — a gate nobody
+              plays long enough to see cannot convert anyone. The boundaries
+              come from gate_ms, which the server echoed back from the value
+              this app is actually using, so the bars can never be graded
+              against a threshold the app has moved on from. */}
+          {/* ── The wait nobody could see ──
+              Every other number on this page starts counting the moment the app
+              mounts. This one counts from the tap, so it covers the part that
+              used to be invisible: the bundle downloading while a visitor looks
+              at a loading bar. It matters because the two are easy to confuse —
+              someone who waited eight seconds and gave up recorded exactly the
+              same "left almost immediately" as someone who never waited at all.
+              Split by connection class, because the answer is different for a
+              phone on fibre and a phone on a crowded cell. */}
+          {!!(ov.boot && Number(ov.boot.n) > 0) && (
+            <div className="admmg" style={{ marginBottom: 12 }}>
+              <div className="admmg-h">🚀 {T("กว่าแอปจะใช้งานได้ (นับตั้งแต่กดลิงก์)", "How long until the app is usable (from the tap)", "从点击到可用耗时")}</div>
+              {(() => {
+                const b = ov.boot || {};
+                const med = Number(b.median_ms) || 0, p90 = Number(b.p90_ms) || 0;
+                const n = Number(b.n) || 0, slow = Number(b.over3s) || 0;
+                const nets = Array.isArray(b.by_net) ? b.by_net : [];
+                // 3s is where a page stops reading as loading and starts reading
+                // as broken; it is the line worth watching, not an average.
+                const bad = slow && n ? Math.round(100 * slow / n) : 0;
+                return (
+                  <>
+                    <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "2px 0 10px" }}>
+                      <div><b style={{ fontSize: 19, color: med >= 3000 ? "#c2410c" : "#d97757" }}>{fmtLoad(med)}</b> <span className="admstu-row-sub">{T("ค่ากลาง", "median", "中位数")}</span></div>
+                      <div><b style={{ fontSize: 19, color: p90 >= 5000 ? "#c2410c" : "inherit" }}>{fmtLoad(p90)}</b> <span className="admstu-row-sub">{T("ช้าสุด 10%", "slowest 10%", "最慢 10%")}</span></div>
+                      <div><b style={{ fontSize: 19, color: bad >= 25 ? "#c2410c" : "inherit" }}>{bad}%</b> <span className="admstu-row-sub">{T("รอเกิน 3 วินาที", "waited over 3s", "等待超过 3 秒")}</span></div>
+                    </div>
+                    {nets.map(x => (
+                      <div key={x.net} className="anrow">
+                        <span className="anrow-name" style={{ maxWidth: "38%" }}>{netLabel(x.net, T)}</span>
+                        <span className="admstu-row-sub" style={{ flex: 1 }}>{x.n} {T("คน", "people", "人")}</span>
+                        <span className="anrow-hits" style={{ color: Number(x.median_ms) >= 3000 ? "#c2410c" : "inherit" }}>{fmtLoad(x.median_ms)}</span>
+                      </div>
+                    ))}
+                    <div className="admstu-row-sub" style={{ marginTop: 8 }}>
+                      {T("เวลานี้ไม่ถูกนับรวมในตัวเลข \"เล่นนานแค่ไหน\" ด้านล่าง — คนละเรื่องกัน",
+                         "This is not counted in the dwell figures below — they measure different things",
+                         "此数据不计入下方停留时长 — 两者含义不同")}
+                    </div>
+                    {/* Discarded samples are named rather than quietly removed. A tab
+                        opened in the background does not run requestAnimationFrame, so
+                        its "load time" is really the wait for somebody to look at it —
+                        minutes or hours. Those are excluded from the three figures
+                        above; saying so is what keeps the exclusion honest. */}
+                    {Number(b.dropped) > 0 && (
+                      <div className="admstu-row-sub" style={{ marginTop: 2, opacity: .75 }}>
+                        {T(`ไม่นับ ${b.dropped} ครั้งที่เปิดทิ้งไว้เบื้องหลัง (วัดเป็นเวลารอคน ไม่ใช่เวลาโหลด)`,
+                           `${b.dropped} background-tab samples excluded (they measure the wait for a person, not the load)`,
+                           `已排除 ${b.dropped} 次后台标签页样本（衡量的是等待用户，而非加载）`)}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+          <div className="admmg" style={{ marginBottom: 12 }}>
+            <div className="admmg-h">⏱️ {T("เล่นนานแค่ไหนก่อนจะออก", "How long they lasted", "停留时长分布")}</div>
+            {(() => {
+              const a = Number(ov.under30) || 0, b = Number(ov.mid) || 0, c = Number(ov.well_past) || 0;
+              const tot = a + b + c;
+              if (!tot) return <div className="admstu-empty">{T("ยังไม่มีข้อมูล", "No data yet", "暂无数据")}</div>;
+              const gate = fmtSecs(Number(ov.gate_ms) || GUEST_TRIAL_MS);
+              const far = fmtSecs((Number(ov.gate_ms) || GUEST_TRIAL_MS) * 3);
+              const rows = [
+                [T(`ไม่ถึง ${gate} — เข้ามาแล้วออกเลย`, `Under ${gate} — in and straight out`, `不到 ${gate}`), a, "#ff6b81"],
+                // These bars measure TIME, nothing more. They used to be labelled
+                // "saw the sign-up screen", which was an inference from dwell —
+                // and a false one: the gate's effect depends on [isGuest, page],
+                // so it cannot be raised for anyone who never changed page, and
+                // most never do. What was actually shown is its own panel below.
+                [T(`${gate} – ${far} — อยู่ต่ออีกหน่อย`, `${gate} – ${far} — stayed a little`, `${gate} – ${far}`), b, "#ffb236"],
+                [T(`${far} ขึ้นไป — อยู่ต่อจริงจัง`, `${far}+ — stayed properly`, `${far} 以上`), c, "#3ddc84"],
+              ];
+              return rows.map(([lb, n, col]) => (
+                <div key={lb} className="anrow">
+                  <span className="anrow-name" style={{ maxWidth: "52%", whiteSpace: "normal", lineHeight: 1.35 }}>{lb}</span>
+                  <span className="anrow-barwrap">
+                    <span className="anrow-bar" style={{ width: `${Math.max(3, (n / tot) * 100)}%`, background: col }} />
+                  </span>
+                  <span className="anrow-hits">{n} {T("คน", "", "人")} ({Math.round((n / tot) * 100)}%)</span>
+                </div>
+              ));
+            })()}
+          </div>
+
+          {/* ── Was the sign-up screen ever actually shown? ──
+              Counted from a real "gate" event, not guessed from how long
+              somebody stayed. It sits next to the number who never changed
+              page, because the gate is raised by a page change: those two
+              together say whether the door was ever even offered. */}
+          {(() => {
+            const shown = Number(ov.gate_shown) || 0;
+            const stuck = Number(ov.never_navigated) || 0;
+            const moved = Number(ov.navigated) || 0;
+            const guests = Number(ov.anon_only) || 0;
+            if (!guests) return null;
+            return (
+              <div className="admmg" style={{ marginBottom: 12 }}>
+                <div className="admmg-h">🚪 {T("ได้เห็นหน้าชวนสมัครจริงกี่คน", "Who was actually shown the sign-up screen", "实际看到注册页的人数")}</div>
+                <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "2px 0 10px" }}>
+                  <div><b style={{ fontSize: 19, color: shown ? "#d97757" : "#c2410c" }}>{shown}</b> <span className="admstu-row-sub">{T("เห็นแล้ว", "shown", "已显示")}</span></div>
+                  <div><b style={{ fontSize: 19 }}>{moved}</b> <span className="admstu-row-sub">{T("เปลี่ยนหน้า (เด้งได้)", "changed page (gate can fire)", "换过页面")}</span></div>
+                  <div><b style={{ fontSize: 19, color: stuck > moved ? "#c2410c" : "inherit" }}>{stuck}</b> <span className="admstu-row-sub">{T("ไม่เคยเปลี่ยนหน้า (เด้งไม่ได้)", "never changed page (gate cannot fire)", "从未换页")}</span></div>
+                </div>
+                <div className="admstu-row-sub">
+                  {/* This used to read "the gate is only raised on a page change",
+                      which was true until 13 Sep and is not any more — it now
+                      fires off the guest clock itself. A caption that describes
+                      last week's behaviour is the same kind of wrong number this
+                      panel exists to stop printing. */}
+                  {T(`จาก ${guests} คนที่ยังไม่ล็อกอิน — หน้าสมัครเด้งเมื่ออยู่ครบ 10 วินาที`,
+                     `of ${guests} signed-out visitors — the gate is raised once they have stayed 10 seconds`,
+                     `共 ${guests} 位未登录访客 — 停留满 10 秒后弹出注册页`)}
+                </div>
+                {shown === 0 && (
+                  <div className="admstu-row-sub" style={{ marginTop: 6, color: "#c2410c" }}>
+                    {T("ยังไม่มีการบันทึกสักครั้ง — เริ่มเก็บตั้งแต่เวอร์ชันนี้ ตัวเลขจะขึ้นเมื่อมีคนเจอจริง",
+                       "Nothing recorded yet — collection starts with this version; it fills in as people hit it",
+                       "尚无记录 — 本版本开始收集")}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          <div className="admmg-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+            <div className="admmg">
+              <div className="admmg-h">🌐 {T("เข้ามาจากเบราว์เซอร์อะไร", "Which browser", "使用的浏览器")}</div>
+              <RankRows rows={(ov.browsers || []).map(b => ({ item_id: uaLabel(b.ua), n: b.n }))}
+                valueFor={(r) => r.n} T={T} valueLabel={(n) => n + T(" คน", "", " 人")} />
+            </div>
+            <div className="admmg">
+              <div className="admmg-h">📍 {T("มาจากไหน", "Where from", "来源")}</div>
+              <RankRows rows={(ov.sources || []).map(b => ({ item_id: b.src, n: b.n }))}
+                valueFor={(r) => r.n} T={T} valueLabel={(n) => n + T(" คน", "", " 人")} />
+            </div>
+            <div className="admmg">
+              <div className="admmg-h">🎯 {T("ใช้ฟีเจอร์อะไร และนานแค่ไหน", "Features and time spent", "功能与时长")}</div>
+              <RankRows rows={(ov.features || []).map(b => ({ item_id: b.kind + " · " + b.item, n: b.people, ms: b.ms }))}
+                valueFor={(r) => r.n} T={T}
+                valueLabel={(n, r) => n + T(" คน", "p", "人") + (r && Number(r.ms) ? " · " + fmtMin(r.ms) + T(" น.", "m", "分") : "")} />
+            </div>
+            <div className="admmg">
+              <div className="admmg-h">🚪 {T("ทำอะไรเป็นอย่างสุดท้ายก่อนออก", "Last thing before leaving", "离开前最后一步")}</div>
+              <RankRows rows={(ov.exits || []).map(b => ({ item_id: b.kind + " · " + b.item, n: b.n }))}
+                valueFor={(r) => r.n} T={T} valueLabel={(n) => n + T(" คน", "", " 人")} />
+            </div>
+          </div>
+
+          <div className="admmg" style={{ marginTop: 12 }}>
+            <div className="admmg-h">👤 {T("รายคน", "Visitor by visitor", "逐位访客")} ({rows.length})</div>
+            {!rows.length && <div className="admstu-empty">{T("ยังไม่มีข้อมูล", "No data yet", "暂无数据")}</div>}
+            {rows.map(r => (
+              <div key={r.anon_id}>
+                <button className="anrow" style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                  onClick={() => openTrail(r.anon_id === sel ? null : r.anon_id)}>
+                  <span className="anrow-rank">{r.converted ? "✅" : isWebview(r.ua) ? "⚠️" : "👤"}</span>
+                  <span className="anrow-name" style={{ maxWidth: "34%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.last_item || "—"}
+                  </span>
+                  <span className="admstu-row-sub" style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {uaLabel(r.ua)} · {r.src || "direct"} · {r.events} {T("ครั้ง", "events", "次")} · {fmtMs(r.dwell_ms)}
+                  </span>
+                  <span className="anrow-hits">{fmtTime(r.last_seen)}</span>
+                </button>
+                {sel === r.anon_id && (
+                  <div style={{ padding: "4px 0 10px 26px" }}>
+                    {!trail.length && <div className="admstu-empty">{T("กำลังโหลด...", "Loading...", "加载中...")}</div>}
+                    {trail.map((t, i) => (
+                      <div key={i} className="admstu-row-sub" style={{ display: "flex", gap: 10, padding: "2px 0" }}>
+                        <span style={{ opacity: .6, minWidth: 96 }}>{fmtTime(t.created_at)}</span>
+                        <span style={{ flex: 1 }}>{t.signed_in ? "🔓 " : ""}{t.kind} · {label(t.item_id)}</span>
+                        <span style={{ opacity: .6 }}>{t.duration_ms ? fmtMs(t.duration_ms) : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════ 1. ACTIVITY DASHBOARD ═══════════════ */
+export function AdminActivity({ lang, onOpenAnon }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  // Learning Data sub-tab (owner request 2026-09-23): the learning-system
+  // dashboard lives HERE on the analysis page — one toggle to switch between
+  // "กิจกรรมผู้ใช้" (raw events) and "ข้อมูลผู้เรียน" (the §1-§21 loop), so
+  // everything analytical stays in one place instead of a new nav group.
+  const [ldTab, setLdTab] = useState(false);
+  return (
+    <div className="adminpay">
+      {/* ── Learning Data ↔ User Activity toggle (owner request 2026-09-23) ──
+          Learning intelligence (the §1-§21 loop) renders in place of the raw-
+          event dashboard while active; the toggle sits above everything so the
+          two analytical views share one home. */}
+      <div className="billtoggle" style={{ marginBottom: 10 }}>
+        <button className={`billtog${!ldTab ? " on" : ""}`} onClick={() => setLdTab(false)}>{T("กิจกรรมผู้ใช้", "User Activity", "用户活动")}</button>
+        <button className={`billtog${ldTab ? " on" : ""}`} onClick={() => setLdTab(true)}>🎓 {T("ข้อมูลผู้เรียน", "Learning Data", "学习数据")}</button>
+      </div>
+      {ldTab ? <AdminLearningData lang={lang} /> : <ActivityBody lang={lang} onOpenAnon={onOpenAnon} />}
+    </div>
+  );
+}
+
+/* The original activity dashboard body — unchanged, now wrapped by the
+   Learning-Data toggle above (owner request 2026-09-23). */
+function ActivityBody({ lang, onOpenAnon }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const [range, setRange] = useState("7");
+  const [anon, setAnon] = useState(null);   // headline count of signed-out visitors
+  const [signup, setSignup] = useState(null); // Google vs email sign-up split
+  const [landing, setLanding] = useState(null);   // marketing landing page 1 funnel
+  const [langSplit, setLangSplit] = useState(null); // th/en/zh landing-origin split — null until supabase-signup-landing-migration.sql is applied (card hides)
+  const [overview, setOverview] = useState(null);
+  const [users, setUsers] = useState(null);
+  const [sel, setSel] = useState(null);      // selected user uuid
+  const [detail, setDetail] = useState(null);
+  const [showSim, setShowSim] = useState(true);
+  // Exclude the owner's tier-3 admin account from every number on this page.
+  // Default ON — the owner reads these figures for business decisions and uses
+  // the app daily for development, which would otherwise inflate them. The
+  // flag rides to the RPCs as p_exclude_admins (supabase-admin-exclude-admins-
+  // migration.sql); if that migration is not applied yet the RPC call still
+  // works (older functions ignored unknown... actually PostgREST REJECTS
+  // unknown named args, so the call retries once without the flag).
+  const [noAdmins, setNoAdmins] = useState(true);
+  const [hours, setHours] = useState(null);   // [{h:0..23, events, users, time_ms}] — null until admin_activity_hourly exists (RPC error → card stays hidden)
+  const [hourSel, setHourSel] = useState(null); // tapped hour for the detail line
+  // device mix + screen-width histogram — null until admin_device_* RPCs exist
+  // (supabase-usage-device-migration.sql not applied yet → cards stay hidden,
+  // same graceful convention as the hourly histogram above)
+  const [devMix, setDevMix] = useState(null);
+  const [devWidths, setDevWidths] = useState(null);
+
+  // compute the ISO cutoff INSIDE each callback — computing it during render made
+  // `since` a new string every render (Date.now() advances), giving `load` a new
+  // identity every render, re-running the effect in an infinite spinner/data loop
+  // (the "flickering screen" bug).
+  const sinceFor = (r) => (r === "all" ? null : new Date(Date.now() - Number(r) * 86400000).toISOString());
+
+  const load = useCallback(() => {
+    const since = sinceFor(range);
+    // NOTE: deliberately do NOT reset overview/users/detail to null here.
+    // Nulling them shows the ⏳ spinner on every refetch — if anything ever
+    // re-triggers `load` in a tight cycle that IS the flicker. Keeping the
+    // previous data visible while refreshing can only ever look calm.
+    // retryNoAdmins: PostgREST rejects RPCs with named args the function does
+    // not define, so until the exclude-admins migration is applied the first
+    // call fails (PostgREST schema-cache miss) and we retry legacy-style.
+    // NOTE: supabase-js RESOLVES with {error} instead of rejecting, so the
+    // legacy fallback must check the resolved error too — checking only the
+    // rejection path swallowed every failure and blanked the page with zeros
+    // (the "everything reads 0" bug of 2026-09-18).
+    const callRpc = (fn, base, withFlag) => {
+      const legacy = () => (withFlag ? sb.rpc(fn, base) : Promise.resolve({ data: null }));
+      const apply = (r) => {
+        if (r && r.error && withFlag) return legacy().then((r2) => (r2 && r2.data) || null, () => null);
+        return (r && r.data) || null;
+      };
+      return sb.rpc(fn, withFlag ? { ...base, p_exclude_admins: noAdmins } : base)
+        .then(apply, () => legacy().then((r2) => (r2 && r2.data) || null, () => null));
+    };
+    callRpc("admin_activity_overview", { p_since: since, p_include_sim: showSim }, true)
+      .then((d) => setOverview(d || {}), () => setOverview((o) => o || {}));
+    callRpc("admin_activity_users", { p_since: since, p_include_sim: showSim }, true)
+      .then((d) => setUsers(sortUsersByDwell(d || [])), () => setUsers((u) => u || []));
+    // by-hour buckets ( Bangkok wall-clock, computed server-side — see
+    // supabase-activity-hourly-migration.sql ). On failure (RPC not yet applied)
+    // hours stays null and the histogram card is simply not rendered.
+    callRpc("admin_activity_hourly", { p_since: since, p_include_sim: showSim }, true)
+      .then((d) => setHours((d && d.hours) || []), () => setHours(null));
+    // Signed-out visitors are the top line of this page now: they are most of
+    // the traffic and none of them are in the member list below.
+    callRpc("admin_anon_overview", { p_since: since, p_gate_ms: GUEST_TRIAL_MS }, true)
+      .then((d) => setAnon(d || null), () => setAnon(null));
+    // How the people who DID get an account actually got one. The email path
+    // exists because Google will not work inside an in-app browser, so the
+    // split between the two is the measure of whether that was worth building.
+    callRpc("admin_signup_methods", { p_since: since }, true)
+      .then((d) => setSignup(d || null), () => setSignup(null));
+    /* Marketing landing page 1 (/landing/). On failure — the RPC not applied
+       yet — `landing` stays null and the card simply is not rendered, the same
+       convention the hourly histogram uses. This RPC has NO exclude-admins
+       variant (no in-repo definition to extend safely), so it is called
+       plainly. */
+    sb.rpc("admin_landing_funnel", { p_since: since })
+      .then(({ data }) => setLanding(data || null), () => setLanding(null));
+    /* Device mix (phone/tablet/desktop, signed-in vs signed-out) + screen-width
+       buckets — the measured answer to "what does the audience actually own",
+       so piano-key layout decisions stop being made from anecdotes. Same
+       null-on-failure convention as every optional RPC above. */
+    callRpc("admin_device_mix", { p_since: since }, true)
+      .then((d) => setDevMix(d || null), () => setDevMix(null));
+    callRpc("admin_device_widths", { p_since: since }, true)
+      .then((d) => setDevWidths(d || null), () => setDevWidths(null));
+    /* Signup origin by landing-page language (th/en/zh). Optional RPC — same
+       null-on-failure convention as the cards above: until
+       supabase-signup-landing-migration.sql is applied the card simply hides. */
+    sb.rpc("admin_signup_languages", { p_since: since })
+      .then(({ data }) => setLangSplit(data || null), () => setLangSplit(null));
+  }, [range, showSim, noAdmins]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // refresh the feed every 30s while the tab is open (overview only, silently —
+  // never touches users/detail and never clears anything to a spinner)
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if (document.visibilityState === "hidden") return; // don't churn while backgrounded
+      sb.rpc("admin_activity_overview", { p_since: sinceFor(range), p_include_sim: showSim, p_exclude_admins: noAdmins })
+        .then(({ data }) => setOverview(data || {}), () => {});
+    }, 30000);
+    return () => clearInterval(iv);
+  }, [range, showSim]);
+
+  const openUser = (u) => {
+    setSel(u);
+    setDetail(null);
+    sb.rpc("admin_activity_user_detail", { p_user: u.user_id, p_since: sinceFor(range) })
+      .then(({ data }) => setDetail(data || {}), () => setDetail({}));
+  };
+
+  const t = overview?.totals || {};
+
+  const anonWv = (() => {
+    const b = (anon && anon.browsers) || [];
+    const total = b.reduce((n, x) => n + (Number(x.n) || 0), 0);
+    if (!total) return 0;
+    return Math.round((b.filter(x => isWebview(x.ua)).reduce((n, x) => n + (Number(x.n) || 0), 0) / total) * 100);
+  })();
+
+  return (
+    <>
+      {/* ── signed-out visitors, first thing on the page ──
+          They are the majority of the traffic and appear nowhere in the member
+          list below, so burying them was how "393 visits, 0 accounts" stayed
+          invisible for three days. */}
+      {anon && (
+        <button className="anonhero" onClick={() => onOpenAnon && onOpenAnon()}>
+          <div className="anonhero-l">
+            <div className="anonhero-k">{T("ผู้เข้าชมที่ยังไม่ล็อกอิน", "Visitors not logged in", "未登录访客")}</div>
+            <div className="anonhero-v">{anon.anon_only ?? 0}<span>{T("คน", "people", "人")}</span></div>
+          </div>
+          <div className="anonhero-l" style={{ borderLeft: "1px solid var(--bd2)", paddingLeft: 14 }}>
+            <div className="anonhero-k">{T("เล่นเฉลี่ยคนละ", "Average time each", "人均时长")}</div>
+            <div className="anonhero-v">{fmtMin(anon.avg_ms)}<span>{T("นาที", "min", "分")}</span></div>
+          </div>
+          <div className="anonhero-r">
+            <div className="anonhero-s"><b>{fmtMin(anon.median_ms)}</b> {T("นาที — ค่ากลาง (ครึ่งหนึ่งเล่นน้อยกว่านี้)", "min median", "分 中位数")}</div>
+            <div className="anonhero-s"><b>{anon.reached ?? 0}</b> {T(`คนเล่นถึง ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)} (เห็นหน้าชวนสมัคร)`, `reached the ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)} gate`, `达到 ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)}`)}</div>
+            <div className="anonhero-s"><b>{anon.new_signups ?? 0}</b> {T("สมัครใหม่", "new sign-ups", "新注册")}</div>
+            {anonWv >= 20 && <div className="anonhero-w">⚠️ {anonWv}% {T("มาจากเบราว์เซอร์ในแอป", "in-app browser", "应用内浏览器")}</div>}
+          </div>
+          <span className="anonhero-go">{T("ดูรายละเอียด", "Details", "详情")} ›</span>
+        </button>
+      )}
+
+      {/* ── how the people who DID sign up got in ──
+          Second on the page, straight under the visitor count, because it is
+          the other half of the same story: the one above is who never made an
+          account, this is which door the ones who did came through. The email
+          route was built for the ~70% arriving inside an in-app browser, where
+          Google refuses to sign anyone in, so these two numbers are what say
+          whether that route is carrying its weight. */}
+      <SignupMethodCards signup={signup} range={range} T={T} />
+
+      {/* ── device mix — measured, not anecdotal ──
+          The layout decision (iPad 4 octaves, desktop 6-8, phone unchanged) is
+          the kind of call this data was collected to make from evidence. Sits
+          beside the sign-up-methods cards: same "who is actually arriving"
+          question, one row down. */}
+      <DeviceMixCards devMix={devMix} devWidths={devWidths} T={T} />
+
+      {/* ── marketing landing page 1 ──
+          The experiment this card exists to settle: does letting a stranger
+          play a key and get a real lesson BEFORE asking for an account produce
+          the sign-ups that asking first never did. It sits beside the app's own
+          numbers rather than inside them — landing rows are kind='land', which
+          every panel above now excludes. */}
+      <LandingFunnelCard f={landing} T={T} />
+
+      <RangePicker range={range} setRange={setRange} T={T} />
+
+      <label style={{ display: "flex", alignItems: "center", gap: 6, margin: "8px 0", fontSize: 12, color: "var(--tg-sub, #888)" }}>
+        <input type="checkbox" checked={noAdmins} onChange={(e) => setNoAdmins(e.target.checked)} />
+        {T("ไม่รวมบัญชีแอดมิน (ของฉัน)", "Exclude admin accounts (mine)", "不含管理员账号（我的）")}
+      </label>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, margin: "8px 0", fontSize: 12, color: "var(--tg-sub, #888)" }}>
+        <input type="checkbox" checked={showSim} onChange={(e) => setShowSim(e.target.checked)} />
+        {T("รวมข้อมูลจำลอง (บอท)", "Include simulated (bot) data", "包括模拟数据")}
+      </label>
+
+      {overview === null ? <div className="admstu-msg">⏳</div> : (
+        <>
+          {/* totals */}
+          <div className="adminpay-cfg" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {/* "ผู้ใช้ที่ทำกิจกรรม" is count(distinct user_id), and user_id is NULL
+                for a signed-out visitor — count(distinct) drops nulls, so it has
+                always meant MEMBERS. The events and minutes beside it had no such
+                filter and counted everybody, which read as "3 users, 503 events"
+                when the truth was 3 members plus 193 signed-out visitors. Each
+                tile now names its own population and carries the other underneath. */}
+            {[
+              [T("สมาชิกที่ใช้งาน", "Active members", "活跃会员"), t.users ?? 0,
+               T(`ผู้เข้าชมไม่ล็อกอิน ${t.visitors ?? 0}`, `${t.visitors ?? 0} signed-out visitors`, `未登录访客 ${t.visitors ?? 0}`)],
+              [T("เหตุการณ์ (สมาชิก)", "Events (members)", "事件（会员）"), t.member_events ?? 0,
+               T(`ผู้เข้าชม ${t.visitor_events ?? 0}`, `${t.visitor_events ?? 0} from visitors`, `访客 ${t.visitor_events ?? 0}`)],
+              [T("เวลาใช้แอป (สมาชิก)", "App time (members)", "使用时长（会员）"), fmtMs(t.member_ms),
+               T(`ผู้เข้าชม ${fmtMs(t.visitor_ms)}`, `${fmtMs(t.visitor_ms)} from visitors`, `访客 ${fmtMs(t.visitor_ms)}`)],
+              [T("Score ขึ้น/เหตุการณ์คะแนน", "Score events", "分数事件"), t.score_events ?? 0,
+               // `overview`, not `ov` — that name belongs to the visitor panel
+               overview?.boot && Number(overview.boot.n)
+                 ? T(`โหลดเฉลี่ย ${fmtLoad(overview.boot.median_ms)}`, `${fmtLoad(overview.boot.median_ms)} median load`, `加载中位数 ${fmtLoad(overview.boot.median_ms)}`)
+                 : ""],
+            ].map(([k, v, sub]) => (
+              <div key={k} style={{ background: "var(--tg-card, #fff)", borderRadius: 12, padding: "10px 12px" }}>
+                <div style={{ fontSize: 11, opacity: 0.6 }}>{k}</div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{v}</div>
+                {sub ? <div style={{ fontSize: 10.5, opacity: 0.55, marginTop: 1 }}>{sub}</div> : null}
+              </div>
+            ))}
+          </div>
+
+          {/* when users come in — 24h histogram (hours null → RPC missing → skip card) */}
+          {hours && hours.length > 0 && (() => {
+            const evs = hours.map((h) => Number(h.events) || 0);
+            const maxE = Math.max(...evs, 1);
+            const peak = hours.reduce((a, b) => (((Number(b.events) || 0) > (Number(a.events) || 0)) ? b : a), hours[0]);
+            const hh = (n) => String(n).padStart(2, "0");
+            return (
+              <div className="adminpay-cfg">
+                <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 2 }}>🕒 {T("ช่วงเวลาที่ผู้ใช้เข้ามา (เวลาไทย)", "When users come in (Bangkok time)", "用户活跃时段（曼谷时间）")}</div>
+                <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 8 }}>
+                  {T("แตะแท่งเพื่อดูรายละเอียด · ช่วงพีค: ", "Tap a bar for detail · Peak: ", "点击柱子查看详情 · 高峰: ")}
+                  <b>{hh(peak.h)}:00</b> ({Number(peak.events) || 0} {T("ครั้ง", "events", "次")})
+                </div>
+                <div style={{ display: "flex", alignItems: "stretch", gap: 2, height: 90 }}>
+                  {hours.map((h) => {
+                    const ev = Number(h.events) || 0;
+                    const pct = (ev / maxE) * 100;
+                    return (
+                      <div key={h.h}
+                        title={`${hh(h.h)}:00 — ${ev} ${T("ครั้ง", "events", "次")} · ${h.users} ${T("คน", "users", "人")}`}
+                        onClick={() => setHourSel(hourSel === h.h ? null : h.h)}
+                        style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", cursor: "pointer" }}>
+                        {hourSel === h.h && <div style={{ fontSize: 9, textAlign: "center", fontWeight: 700, marginBottom: 2 }}>{ev}</div>}
+                        <div style={{ height: `${Math.max(ev > 0 ? 6 : 2, pct)}%`, background: hourSel === h.h ? "#d97757" : "rgba(217,119,87,.7)", borderRadius: 3 }} />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
+                  {hours.map((h) => (
+                    <div key={h.h} style={{ flex: 1, minWidth: 0, fontSize: 8, textAlign: "center", opacity: h.h % 6 === 0 ? 0.85 : 0.3 }}>{h.h}</div>
+                  ))}
+                </div>
+                {hourSel !== null && (() => {
+                  const h = hours.find((x) => x.h === hourSel);
+                  return h ? (
+                    <div style={{ fontSize: 11, marginTop: 6, background: "var(--tg-card, #f6f6f8)", borderRadius: 8, padding: "6px 10px" }}>
+                      🕒 {hh(h.h)}:00–{hh(h.h)}:59 — <b>{Number(h.events) || 0}</b> {T("เหตุการณ์ · ", "events · ", "事件 · ")}
+                      <b>{h.users}</b> {T("คน · ", "users · ", "人 · ")}{fmtMs(h.time_ms)}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            );
+          })()}
+
+          {/* pages by dwell time */}
+          <div className="adminpay-cfg">
+            <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>📄 {T("หน้าที่ผู้ใช้อยู่นาน → สั้น", "Pages by time spent (long → short)", "页面停留时长")}</div>
+            <RankRows rows={overview.pages || []} valueFor={(r) => r.total_ms} T={T} valueLabel={fmtMs} />
+          </div>
+
+          {/* buttons */}
+          <div className="adminpay-cfg">
+            <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>🔘 {T("ปุ่มที่ถูกกดมากที่สุด", "Most-pressed buttons", "最常点击的按钮")}</div>
+            <RankRows rows={overview.buttons || []} valueFor={(r) => r.hits} T={T} valueLabel={(n) => String(n)} />
+          </div>
+
+          {/* scores */}
+          <div className="adminpay-cfg">
+            <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>🎯 {T("Score ขึ้น (EXP/Coins)", "Score events (EXP/Coins)", "分数事件")}</div>
+            <RankRows rows={overview.scores || []} valueFor={(r) => r.hits} T={T} valueLabel={(n) => String(n)} />
+          </div>
+
+          {/* signup origin by landing-page language (owner request 2026-09-21).
+              Renders only once supabase-signup-landing-migration.sql is applied
+              (admin_signup_languages exists); before that langSplit stays null
+              and the card is invisible — same convention as every optional card. */}
+          {langSplit && Array.isArray(langSplit.split) && langSplit.split.length > 0 && (() => {
+            const FLAG_L = { th: "🇹🇭 ไทย (/landing/)", en: "🇬🇧 English (/landing-en/)", zh: "🇨🇳 中文 (/landing-zh/)", unknown: T("ไม่ทราบแหล่ง (ก่อนระบบนี้ / ล็อกอินตรง)", "Unknown origin (pre-feature / direct)", "未知来源（功能前/直接登录）") };
+            const total = Number(langSplit.total) || 0;
+            return (
+              <div className="adminpay-cfg" style={{ marginBottom: 10 }}>
+                <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>
+                  🌍 {T("แหล่งสมัครตามภาษาแลนดิ้งเพจ", "Signup by landing-page language", "按落地页语言的注册来源")}
+                  <span className="admstu-row-sub" style={{ marginLeft: 8, fontWeight: 400 }}>
+                    {Number(langSplit.with_landing) || 0}/{total} {T("มีตัวตนแหล่งที่มา", "origin known", "已知来源")}
+                  </span>
+                </div>
+                {langSplit.split.map((x) => {
+                  const n = Number(x.people) || 0;
+                  return (
+                    <div key={x.landing} className="anrow">
+                      <span className="anrow-name" style={{ maxWidth: "55%" }}>{FLAG_L[x.landing] || x.landing}</span>
+                      <span className="anrow-barwrap">
+                        <span className="anrow-bar" style={{ width: Math.max(2, (n / Math.max(1, total)) * 100) + "%", background: x.landing === "unknown" ? undefined : "#16a34a" }} />
+                      </span>
+                      <span className="anrow-hits">{n}{total > 0 && <span className="admstu-row-sub"> · {Math.round((n / total) * 100)}%</span>}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* users */}
+          <div className="adminpay-cfg">
+            <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>👥 {T("รายผู้ใช้ (กดเพื่อดูรายละเอียด)", "Users (tap for detail)", "用户列表")}</div>
+            {users === null ? <div className="admstu-msg">⏳</div> : !users.length ? (
+              <div className="admstu-empty">{T("ยังไม่มีข้อมูล", "No data yet", "暂无数据")}</div>
+            ) : users.map((u) => (
+              <button key={u.user_id} onClick={() => openUser(u)}
+                className="admstu-row"
+                style={{ display: "flex", width: "100%", alignItems: "center", gap: 8, padding: "8px 4px", borderBottom: "1px solid var(--tg-line, #eee)", background: "none", border: "none", textAlign: "left" }}>
+                <span style={{ fontSize: 14 }}>{u.simulated ? "🤖" : "👤"}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {u.display_name}{u.simulated && <span style={{ fontSize: 10, opacity: 0.5 }}> (จำลอง)</span>}
+                    {/* Landing-origin flag (owner request 2026-09-21): which
+                        marketing landing page (th/en/zh) the account was born
+                        on. Only renders once the column exists (undefined →
+                        nothing); ❔ marks a genuinely unknown origin. */}
+                    {u.signup_landing != null && (
+                      <span title={"signup_landing: " + u.signup_landing} style={{ marginLeft: 6, fontSize: 11 }}>
+                        {u.signup_landing === "th" ? "🇹🇭" : u.signup_landing === "en" ? "🇬🇧" : u.signup_landing === "zh" ? "🇨🇳" : "❔"}
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ display: "block", fontSize: 10, opacity: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {u.user_id?.slice(0, 8)}… {u.email ? "· " + u.email : ""}
+                  </span>
+                </span>
+                <span style={{ fontSize: 11, opacity: 0.7, textAlign: "right" }}>
+                  {u.events} ครั้ง<br />{fmtMs(u.page_time_ms)}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* per-user drill-down */}
+          {sel && (
+            <div className="adminpay-cfg" style={{ borderColor: "var(--tg-primary, #7c5cff)" }}>
+              <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>
+                {sel.simulated ? "🤖" : "👤"} {sel.display_name} — {T("รายละเอียด", "Detail", "详情")}
+                {sel.signup_landing != null && (
+                  <span title={"signup_landing: " + sel.signup_landing} style={{ marginLeft: 8, fontSize: 12, fontWeight: 400 }}>
+                    {T("มาจากแลนดิ้ง", "via landing", "来自落地页")} {sel.signup_landing === "th" ? "🇹🇭 th" : sel.signup_landing === "en" ? "🇬🇧 en" : sel.signup_landing === "zh" ? "🇨🇳 zh" : "❔"}
+                  </span>
+                )}
+                <button onClick={() => setSel(null)} style={{ float: "right", background: "none", border: "none", fontSize: 16 }}>✕</button>
+              </div>
+              {detail === null ? <div className="admstu-msg">⏳</div> : (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 600, margin: "6px 0 4px" }}>📄 {T("หน้า + เวลาที่อยู่", "Pages + dwell", "页面与停留")}</div>
+                  <RankRows rows={detail.pages || []} valueFor={(r) => r.total_ms} T={T} valueLabel={fmtMs} />
+                  <div style={{ fontSize: 12, fontWeight: 600, margin: "10px 0 4px" }}>🔘 {T("ปุ่มที่กด", "Buttons", "按钮")}</div>
+                  <RankRows rows={detail.buttons || []} valueFor={(r) => r.hits} T={T} valueLabel={(n) => String(n)} />
+                  <div style={{ fontSize: 12, fontWeight: 600, margin: "10px 0 4px" }}>🎯 {T("Score", "Score", "分数")}</div>
+                  <RankRows rows={detail.scores || []} valueFor={(r) => r.hits} T={T} valueLabel={(n) => String(n)} />
+                  <div style={{ fontSize: 12, fontWeight: 600, margin: "10px 0 4px" }}>🕒 {T("กิจกรรมล่าสุด", "Recent events", "最近活动")}</div>
+                  {(detail.recent || []).slice(0, 20).map((r, i) => (
+                    <div key={i} style={{ fontSize: 11, opacity: 0.75, padding: "2px 0", borderBottom: "1px dashed var(--tg-line, #eee)" }}>
+                      {fmtTime(r.created_at)} · {r.kind === "page" ? "📄" : r.kind === "nav" ? "🔘" : r.kind === "score" ? "🎯" : "•"} {label(r.item_id)}{r.duration_ms ? ` · ${fmtMs(r.duration_ms)}` : ""}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* live feed */}
+          <div className="adminpay-cfg">
+            <div className="admstu-nm" style={{ fontSize: 15, marginBottom: 8 }}>🔴 {T("ฟีดสด (อัปเดตทุก 30 วิ)", "Live feed (30s refresh)", "实时动态")}</div>
+            {(overview.recent || []).map((r, i) => (
+              <div key={i} style={{ fontSize: 11, opacity: 0.8, padding: "3px 0", borderBottom: "1px dashed var(--tg-line, #eee)" }}>
+                {fmtTime(r.created_at)} · {r.simulated ? "🤖" : "👤"} <b>{r.who}</b> · {r.kind === "page" ? "📄" : r.kind === "nav" ? "🔘" : r.kind === "score" ? "🎯" : "•"} {label(r.item_id)}{r.duration_ms ? ` · ${fmtMs(r.duration_ms)}` : ""}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/* ═══════════════ 2. DEMO-BOT CONTROL (admin-only) ═══════════════ */
+export function AdminSimBots({ lang }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const [cfg, setCfg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [purgeMsg, setPurgeMsg] = useState(null);
+  const [confirmPurge, setConfirmPurge] = useState(false);
+
+  const load = useCallback(() => {
+    sb.rpc("admin_sim_config").then(({ data }) => setCfg(data || {}), () => setCfg({}));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function save(patch) {
+    setBusy(true);
+    const { data } = await sb.rpc("admin_sim_config", patch);
+    if (data) setCfg(data);
+    setBusy(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    // generate immediately so the owner sees the effect right away
+    sb.rpc("sim_tick").then(() => {}, () => {});
+  }
+
+  // "phase out": shrink the roster by ~20% each press, disable at < 1
+  async function phaseOut() {
+    const next = Math.max(0, Math.floor(((cfg?.bots || 0) * 4) / 5));
+    await save({ p_enabled: next >= 1 ? true : false, p_bots: next });
+  }
+
+  // wipe ALL simulated rows from the database — real data is never touched.
+  async function purgeAll() {
+    if (!confirmPurge) { setConfirmPurge(true); setTimeout(() => setConfirmPurge(false), 4000); return; }
+    setBusy(true);
+    const { data } = await sb.rpc("sim_purge", { p_older_than_days: null });
+    setPurgeMsg(data != null ? `${T("ลบแล้ว", "Deleted", "已删除")} ${data} ${T("แถวข้อมูลจำลอง", "simulated rows", "行模拟数据")}` : T("ลบไม่สำเร็จ", "Delete failed", "删除失败"));
+    setBusy(false);
+    setConfirmPurge(false);
+    setTimeout(() => setPurgeMsg(null), 4000);
+  }
+
+  if (cfg === null) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
+
+  const enabled = !!cfg.enabled;
+  const realUsers = Number(cfg.real_users) || 0;
+  const maxReal = Number(cfg.max_real_users) || 50;
+  const overrideOn = !!cfg.override_auto_off;
+  const autoOff = !!cfg.auto_disabled;
+
+  // keep bots running past the auto-shutdown threshold (owner change of mind)
+  async function setOverride(on) {
+    await save({ p_override_auto_off: on });
+  }
+
+  return (
+    <div className="adminpay">
+      <div className="adminpay-cfg">
+        <div className="admmg-h">🤖 {T("ข้อมูลจำลองสำหรับแดชบอร์ด (Demo Bots)", "Dashboard demo bots", "仪表板模拟数据")}</div>
+        <div className="admstu-row-sub" style={{ margin: "8px 0 12px" }}>
+          {T("สร้างกิจกรรมจำลองให้แดชบอร์ดกิจกรรมมีข้อมูลตั้งแต่วันเปิดตัว — แสดงเฉพาะในหน้าแอดมินเท่านั้น ผู้เรียนตัวจริงไม่เห็นทุกจุด ปิดทีละนิดได้ด้วยปุ่ม \"ลดทีละส่วน\"",
+            "Generates simulated activity so the Activity dashboard has data from day one. Visible ONLY inside the admin console — real learners never see it anywhere. Phase out gradually with \"Reduce\".",
+            "为活动仪表板生成模拟数据，仅管理员可见，学员不会看到。可逐步减少。")}
+        </div>
+
+        {/* launch status: real users vs auto-shutdown threshold */}
+        <div style={{ background: autoOff ? "rgba(46,158,91,.12)" : "var(--tg-card, #f6f6f8)", borderRadius: 12, padding: "10px 12px", margin: "10px 0", fontSize: 12 }}>
+          👥 {T("ผู้ใช้จริง 30 วันล่าสุด", "Real users (last 30d)", "真实用户（近30天）")}: <b>{realUsers}</b> / {maxReal}
+          {autoOff
+            ? <div style={{ color: "#2e9e5b", marginTop: 4, fontWeight: 600 }}>🎉 {T("มีผู้ใช้จริงครบตามเป้า — บอทปิดตัวเองอัตโนมัติแล้ว", "Real-user goal reached — bots have auto-shut down", "真实用户已达目标——机器人已自动关闭")}</div>
+            : <div style={{ opacity: 0.65, marginTop: 4 }}>{T("บอทจะปิดตัวเองอัตโนมัติเมื่อผู้ใช้จริงครบ", "Bots auto-shut down once real users reach", "真实用户达到后将自动关闭机器人")} {maxReal} {T("คน", null, null)}</div>}
+          {overrideOn && (
+            <div style={{ color: "#b8860b", marginTop: 6, fontWeight: 600 }}>
+              ⚡ {T("โหมดเปิดต่อ: บอทจะไม่ปิดอัตโนมัติแม้ผู้ใช้จริงเกินเป้า — คุณเลือกเอง", "Override ON: bots keep running past the threshold — your explicit choice", "覆盖模式：机器人不会自动关闭")}
+            </div>
+          )}
+          {(autoOff || overrideOn) && (
+            <button className={`billtog${overrideOn ? " on" : ""}`} disabled={busy}
+              onClick={() => setOverride(!overrideOn)}
+              style={{ marginTop: 8 }}>
+              {overrideOn
+                ? `🔒 ${T("กลับไปใช้ปิดอัตโนมัติ", "Back to auto-shutdown", "恢复自动关闭")}`
+                : `⚡ ${T("เปลี่ยนใจ — เปิดบอทต่อ (ไม่ปิดอัตโนมัติ)", "Change my mind — keep bots running", "改变主意——继续运行机器人")}`}
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 0" }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{enabled ? "🟢 เปิด" : "⚪ ปิด"}</span>
+          <button className={`billtog${enabled ? " on" : ""}`} disabled={busy}
+            onClick={() => save({ p_enabled: !enabled })}>
+            {enabled ? T("ปิดทั้งหมด", "Turn off", "全部关闭") : T("เปิดใช้งาน", "Enable", "启用")}
+          </button>
+          {saved && <span style={{ fontSize: 11, color: "#2e9e5b" }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</span>}
+        </div>
+
+        <div style={{ margin: "12px 0" }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
+            👥 {T("จำนวนบอท", "Bot count", "机器人数量")}: <b>{cfg.bots}</b> / 50
+          </div>
+          <input type="range" min="0" max="50" value={cfg.bots || 0} disabled={busy}
+            onChange={(e) => setCfg({ ...cfg, bots: Number(e.target.value) })}
+            onMouseUp={(e) => save({ p_bots: Number(e.target.value) })}
+            onTouchEnd={(e) => save({ p_bots: Number(e.target.value) })}
+            style={{ width: "100%" }} />
+        </div>
+
+        <div style={{ margin: "12px 0" }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
+            ⚡ {T("ความถี่กิจกรรม/รอบ", "Activity per tick", "每次活动量")}: <b>{cfg.intensity}</b> (1-5)
+          </div>
+          <input type="range" min="1" max="5" value={cfg.intensity || 2} disabled={busy}
+            onChange={(e) => setCfg({ ...cfg, intensity: Number(e.target.value) })}
+            onMouseUp={(e) => save({ p_intensity: Number(e.target.value) })}
+            onTouchEnd={(e) => save({ p_intensity: Number(e.target.value) })}
+            style={{ width: "100%" }} />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+          <button className="billtog" disabled={busy} onClick={() => save({})}>🔄 {T("สร้างกิจกรรมตอนนี้", "Generate now", "立即生成")}</button>
+          <button className="billtog" disabled={busy || !(cfg.bots > 0)} onClick={phaseOut}>📉 {T("ลดทีละส่วน (ปิดค่อยๆ)", "Phase out (-20%)", "逐步减少")}</button>
+          <button className="billtog" disabled={busy} onClick={purgeAll}
+            style={confirmPurge ? { color: "#c0392b", borderColor: "#c0392b" } : undefined}>
+            {confirmPurge ? `⚠️ ${T("กดอีกครั้งเพื่อยืนยันลบ", "Tap again to confirm", "再次点击确认删除")}` : `🗑️ ${T("ลบข้อมูลบอททั้งหมด", "Delete all bot data", "删除所有机器人数据")}`}
+          </button>
+          {purgeMsg && <span style={{ fontSize: 11, color: "#2e9e5b", alignSelf: "center" }}>✓ {purgeMsg}</span>}
+        </div>
+
+        <div className="admstu-row-sub" style={{ marginTop: 10, fontSize: 11, opacity: 0.55 }}>
+          {T("บอทจะสร้างกิจกรรมใหม่อัตโนมัติทุกครั้งที่เปิดแดชบอร์ด (เว้นอย่างน้อย 5 นาที/รอบ) — แถวที่สร้างมีธง simulated=true แยกจากข้อมูลจริงเสมอ",
+            "Bots regenerate whenever you open the dashboard (throttled to one tick / 5 min). Generated rows are always flagged simulated=true, cleanly separated from real data.",
+            "每次打开仪表板时机器人会自动生成活动（每 5 分钟一次）。生成的数据始终标记为 simulated=true。")}
+        </div>
+      </div>
+    </div>
+  );
+}

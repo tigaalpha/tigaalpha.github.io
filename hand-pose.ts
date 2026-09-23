@@ -52,3 +52,21 @@ export function handRoundness(lm) {
   }
   return curled / FINGER_TIPS.length; // 0 = flat, 1 = nicely curved
 }
+// Approximate wrist droop: wrist (0) sitting notably BELOW the finger-knuckle (MCP) line
+// in image space suggests a collapsed/sagging wrist, a common beginner habit. Heuristic,
+// not a calibrated measurement — camera angle affects it, so it's used as one signal
+// among several, debounced over many frames rather than trusted on any single one.
+export function wristDroop(lm) {
+  const wrist = lm[0];
+  const mcpY = (lm[5].y + lm[9].y + lm[13].y + lm[17].y) / 4;
+  const span = Math.hypot(lm[12].x - wrist.x, lm[12].y - wrist.y) || 1;
+  return (wrist.y - mcpY) / span; // positive = wrist lower than the knuckle line (drooping)
+}
+// Approximate tucked-under thumb: thumb tip (4) pulled in close to the index-finger
+// knuckle (5) relative to palm width, instead of resting in a relaxed curve alongside
+// the hand — another common beginner habit that cramps thumb-crossing technique.
+export function thumbTucked(lm) {
+  const span = Math.hypot(lm[17].x - lm[5].x, lm[17].y - lm[5].y) || 1;
+  const d = Math.hypot(lm[4].x - lm[5].x, lm[4].y - lm[5].y);
+  return d < span * 0.35;
+}

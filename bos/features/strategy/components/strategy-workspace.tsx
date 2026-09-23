@@ -17,7 +17,8 @@ const STRATEGY_MODEL_OPTIONS: { id: string; label: string }[] = [
   { id: "claude", label: "Claude" },
   { id: "gpt", label: "GPT" },
   { id: "grok", label: "Grok" },
-  { id: "deepseek", label: "DeepSeek" },
+  { id: "deepseek", label: "DeepSeek V4" },
+  { id: "deepseek-v3-free", label: "DeepSeek V3 (ฟรี)" },
   { id: "kimi", label: "Kimi" },
   { id: "glm", label: "GLM" },
 ];

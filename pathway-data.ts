@@ -1,4 +1,42 @@
 // Auto-generated from App.tsx — do not manually edit large data
+/* ── Practice cards ──
+   Play Along already holds a full set of scale, interval and chord drills that
+   fall down the screen in time — and until now the only way in was a drawer
+   item most people never open. These put that behind a card in the pathway
+   itself, sitting in the same grid as the lessons it practises: read the
+   lesson on the left, play it to a beat on the right.
+
+   They are NOT stages: they carry no progress, no tier, no completion, and
+   nothing that counts them toward a group being finished. They are doors.
+   `cat` is the Play Along category the door opens on. */
+export const PATHWAY_PRACTICE = {
+  foundation: [
+    {
+      id: "play-scales", icon: "🎼", color: "#c2410c", cat: "major",
+      title: { th: "ฝึกสเกลกับจังหวะ", en: "Scales with the beat", zh: "跟着节奏练音阶" },
+      subtitle: { th: "โน้ตไหลลงมา เล่นตามให้ตรงจังหวะ", en: "Notes fall — play along in time", zh: "音符落下，跟着节奏弹" },
+    },
+    {
+      id: "play-songs", icon: "🎵", color: "#d97757", cat: "songs",
+      title: { th: "ฝึกเล่นเพลง", en: "Practise real songs", zh: "练习弹歌曲" },
+      subtitle: { th: "เพลงเต็มเพลง เล่นตามโน้ตที่ไหลลงมา", en: "Whole songs, note by falling note", zh: "完整歌曲，跟着落下的音符" },
+    },
+    {
+      /* New chord-path doors (owner request): no #5 (Major) and #6 (Minor).
+         Each opens Play Along on a chord-progression drill set, where the
+         learner first picks how many chords — 2, 4 or 8 — then a key. */
+      id: "play-chords-major", icon: "🎹", color: "#b45309", cat: "chords-major",
+      title: { th: "คอร์ดยอดฮิต (Major)", en: "Hit Chords · Major", zh: "热门和弦 · 大调" },
+      subtitle: { th: "ทางคอร์ดเมเจอร์ยอดนิยม เลือก 2/4/8 คอร์ด", en: "Popular major chord paths — pick 2/4/8 chords", zh: "流行大调和弦进行，选 2/4/8 和弦" },
+    },
+    {
+      id: "play-chords-minor", icon: "🌙", color: "#7c3aed", cat: "chords-minor",
+      title: { th: "คอร์ดยอดฮิต (Minor)", en: "Hit Chords · Minor", zh: "热门和弦 · 小调" },
+      subtitle: { th: "ทางคอร์ดไมเนอร์ยอดนิยม เลือก 2/4/8 คอร์ด", en: "Popular minor chord paths — pick 2/4/8 chords", zh: "流行小调和弦进行，选 2/4/8 和弦" },
+    },
+  ],
+};
+
 export const PATHWAY = [
   {
     id: "scale", icon: "🎼", title: { th: "สเกล (Scale)", en: "Scale", zh: "音阶 (Scale)" }, subtitle: { th: "บันไดเสียง — รากฐานของทุกอย่าง", en: "The foundation of everything", zh: "一切的基础" },
@@ -8,6 +46,80 @@ export const PATHWAY = [
       th: "ช่วยสอนเรื่อง 'สเกล (Scale)' บนเปียโนแบบละเอียดให้หน่อยครับ อธิบาย: (1) สเกลคืออะไร (2) โครงสร้างและสูตรระยะห่าง W-W-H-W-W-W-H (3) โน้ตทุกตัวในคีย์นี้ (4) นิ้วที่ใช้ทั้งขาขึ้นและขาลง (5) เทคนิคการสอดนิ้วโป้ง (thumb under) (6) ข้อควรระวังและเคล็ดลับการฝึก ตอบเป็นภาษาไทย ระบุชื่อโน้ตทุกตัวเช่น C4 D4 E4 และยกตัวอย่างเพลงที่ใช้สเกลนี้",
       en: "Teach me 'Scales' on piano in detail: (1) what a scale is (2) structure and W-W-H-W-W-W-H formula (3) all notes in this key (4) fingering for both ascending and descending (5) thumb-under technique (6) practice tips and common mistakes. List all note names like C4 D4 E4 and give example songs using this scale.",
       zh: "详细教我钢琴'音阶'：(1)什么是音阶 (2)结构和 W-W-H-W-W-W-H 公式 (3)此调的所有音符 (4)上行和下行的指法 (5)拇指穿越技巧 (6)练习技巧和常见错误。列出所有音名如 C4 D4 E4，并举例使用此音阶的歌曲。"
+    },
+    /* Written in C and transposed to the chosen key at lesson time. The three
+       minor forms differ only in degrees 6 and 7 — that contrast is the lesson,
+       so they are separate options rather than one "minor" that silently picks one.
+       Melodic minor carries the descent as well (C5 down to C4) because the
+       ascending-raised / descending-natural pair IS the scale; showing only the
+       way up would teach half of it. */
+    scaleType: "major",
+    types: [
+      { id: "major", scaleType: "major", label: { th: "เมเจอร์", en: "Major", zh: "大调" }, symbol: "M",
+        demo: ["C4","D4","E4","F4","G4","A4","B4","C5"], demoFingers: [1,2,3,1,2,3,4,5] },
+      { id: "natural_minor", scaleType: "natural_minor", label: { th: "ไมเนอร์ (Natural)", en: "Minor · Natural", zh: "自然小调" }, symbol: "m",
+        demo: ["C4","D4","Eb4","F4","G4","Ab4","Bb4","C5"], demoFingers: [1,2,3,1,2,3,4,5] },
+      { id: "harmonic_minor", scaleType: "harmonic_minor", label: { th: "ไมเนอร์ (Harmonic)", en: "Minor · Harmonic", zh: "和声小调" }, symbol: "m♮7",
+        demo: ["C4","D4","Eb4","F4","G4","Ab4","B4","C5"], demoFingers: [1,2,3,1,2,3,4,5] },
+      { id: "melodic_minor", scaleType: "melodic_minor", label: { th: "ไมเนอร์ (Melodic)", en: "Minor · Melodic", zh: "旋律小调" }, symbol: "m♮6♮7",
+        demo: ["C4","D4","Eb4","F4","G4","A4","B4","C5","Bb4","Ab4","G4","F4","Eb4","D4","C4"],
+        demoFingers: [1,2,3,1,2,3,4,5,4,3,2,1,3,2,1] },
+    ],
+    typesInfo: {
+      th: `🎼 สเกล 4 แบบที่ต้องรู้ (ตัวอย่างคีย์ C)
+
+1️⃣ เมเจอร์ (Major) — W-W-H-W-W-W-H
+C D E F G A B C · สดใส มั่นคง
+
+2️⃣ ไมเนอร์ ธรรมชาติ (Natural Minor) — W-H-W-W-H-W-W
+C D E♭ F G A♭ B♭ C · เศร้า นุ่ม (ใช้ตัวโน้ตตาม key signature ตรง ๆ ไม่มีการยก)
+
+3️⃣ ไมเนอร์ ฮาร์โมนิก (Harmonic Minor) — ยกขั้นที่ 7 ขึ้นครึ่งเสียง
+C D E♭ F G A♭ B C · ได้ leading note จริง (B→C) คอร์ด V กลายเป็นเมเจอร์
+ช่องว่าง A♭→B เป็น augmented 2nd (1 เสียงครึ่ง) — นั่นคือกลิ่นอายแบบตะวันออกกลางที่ได้ยิน
+
+4️⃣ ไมเนอร์ เมโลดิก (Melodic Minor) — ขาขึ้นยกขั้นที่ 6 และ 7
+ขึ้น: C D E♭ F G A B C
+ลง: C B♭ A♭ G F E♭ D C (กลับเป็น natural minor)
+เหตุผล: ยก 6 ด้วยเพื่อลบช่องว่าง augmented 2nd ทำให้ทำนองขาขึ้นลื่นไหล พอขาลงไม่ต้องวิ่งเข้าหาโทนิกแล้วจึงคืนค่าเดิม
+
+💡 ทั้งสามแบบของไมเนอร์ต่างกันแค่ขั้นที่ 6 กับ 7 เท่านั้น ขั้นที่ 1-5 เหมือนกันหมด`,
+      en: `🎼 The four scales to know (shown in C)
+
+1️⃣ Major — W-W-H-W-W-W-H
+C D E F G A B C · bright and settled
+
+2️⃣ Natural minor — W-H-W-W-H-W-W
+C D E♭ F G A♭ B♭ C · dark and soft; exactly the key signature, nothing raised
+
+3️⃣ Harmonic minor — raise the 7th a semitone
+C D E♭ F G A♭ B C · now there is a real leading note (B→C) and the V chord turns major.
+The gap A♭→B is an augmented 2nd (three semitones) — that leap is the sound people call "Middle Eastern".
+
+4️⃣ Melodic minor — raise the 6th AND 7th going up
+Up: C D E♭ F G A B C
+Down: C B♭ A♭ G F E♭ D C (reverts to natural minor)
+Why: raising the 6th removes that augmented 2nd so the line climbs smoothly; coming down there is no tonic to lean into, so the notes go back.
+
+💡 All three minors share degrees 1-5. Only the 6th and 7th ever change.`,
+      zh: `🎼 必须掌握的四种音阶（以 C 为例）
+
+1️⃣ 大调 (Major) — W-W-H-W-W-W-H
+C D E F G A B C · 明亮、稳定
+
+2️⃣ 自然小调 (Natural Minor) — W-H-W-W-H-W-W
+C D E♭ F G A♭ B♭ C · 忧郁柔和；完全按调号，不升任何音
+
+3️⃣ 和声小调 (Harmonic Minor) — 第7级升半音
+C D E♭ F G A♭ B C · 有了真正的导音 (B→C)，V 级和弦变为大三和弦。
+A♭→B 是增二度（三个半音）——这就是所谓"中东风味"的来源。
+
+4️⃣ 旋律小调 (Melodic Minor) — 上行同时升第6、第7级
+上行：C D E♭ F G A B C
+下行：C B♭ A♭ G F E♭ D C（还原为自然小调）
+原因：升第6级消除了增二度，上行更流畅；下行不需要趋向主音，所以还原。
+
+💡 三种小调的第1-5级完全相同，只有第6、7级在变。`
     },
   },
   {
@@ -20,18 +132,18 @@ export const PATHWAY = [
       zh: "请教我钢琴上的'音程(Interval)'。解释音程是什么、关键音程(3度、5度、八度)、大三度与小三度的区别，以及纯五度。列出音名。"
     },
     types: [
-      { id: "m2", label: { th: "ไมเนอร์ 2",    en: "Minor 2nd",   zh: "小二度" }, symbol: "m2", demo: ["C4","C#4"], demoFingers: [1,2] },
-      { id: "M2", label: { th: "เมเจอร์ 2",    en: "Major 2nd",   zh: "大二度" }, symbol: "M2", demo: ["C4","D4"],  demoFingers: [1,2] },
-      { id: "m3", label: { th: "ไมเนอร์ 3",    en: "Minor 3rd",   zh: "小三度" }, symbol: "m3", demo: ["C4","D#4"], demoFingers: [1,3] },
-      { id: "M3", label: { th: "เมเจอร์ 3",    en: "Major 3rd",   zh: "大三度" }, symbol: "M3", demo: ["C4","E4"],  demoFingers: [1,3] },
-      { id: "P4", label: { th: "เพอร์เฟกต์ 4", en: "Perfect 4th", zh: "纯四度" }, symbol: "P4", demo: ["C4","F4"],  demoFingers: [1,4] },
-      { id: "TT", label: { th: "ไทรโทน",       en: "Tritone",     zh: "三全音" }, symbol: "TT", demo: ["C4","F#4"], demoFingers: [1,4] },
-      { id: "P5", label: { th: "เพอร์เฟกต์ 5", en: "Perfect 5th", zh: "纯五度" }, symbol: "P5", demo: ["C4","G4"],  demoFingers: [1,5] },
-      { id: "m6", label: { th: "ไมเนอร์ 6",    en: "Minor 6th",   zh: "小六度" }, symbol: "m6", demo: ["C4","G#4"], demoFingers: [1,5] },
-      { id: "M6", label: { th: "เมเจอร์ 6",    en: "Major 6th",   zh: "大六度" }, symbol: "M6", demo: ["C4","A4"],  demoFingers: [1,5] },
-      { id: "m7", label: { th: "ไมเนอร์ 7",    en: "Minor 7th",   zh: "小七度" }, symbol: "m7", demo: ["C4","A#4"], demoFingers: [1,5] },
-      { id: "M7", label: { th: "เมเจอร์ 7",    en: "Major 7th",   zh: "大七度" }, symbol: "M7", demo: ["C4","B4"],  demoFingers: [1,5] },
-      { id: "P8", label: { th: "ออกเทฟ",       en: "Octave",      zh: "八度"   }, symbol: "P8", demo: ["C4","C5"],  demoFingers: [1,5] },
+      { id: "m2", label: { th: "ไมเนอร์ 2",    en: "Minor 2nd",   zh: "小二度" }, symbol: "m2", degrees: [[1,0],[2,1]], demo: ["C4","C#4"], demoFingers: [1,2] },
+      { id: "M2", label: { th: "เมเจอร์ 2",    en: "Major 2nd",   zh: "大二度" }, symbol: "M2", degrees: [[1,0],[2,2]], demo: ["C4","D4"],  demoFingers: [1,2] },
+      { id: "m3", label: { th: "ไมเนอร์ 3",    en: "Minor 3rd",   zh: "小三度" }, symbol: "m3", degrees: [[1,0],[3,3]], demo: ["C4","D#4"], demoFingers: [1,3] },
+      { id: "M3", label: { th: "เมเจอร์ 3",    en: "Major 3rd",   zh: "大三度" }, symbol: "M3", degrees: [[1,0],[3,4]], demo: ["C4","E4"],  demoFingers: [1,3] },
+      { id: "P4", label: { th: "เพอร์เฟกต์ 4", en: "Perfect 4th", zh: "纯四度" }, symbol: "P4", degrees: [[1,0],[4,5]], demo: ["C4","F4"],  demoFingers: [1,4] },
+      { id: "TT", label: { th: "ไทรโทน",       en: "Tritone",     zh: "三全音" }, symbol: "TT", degrees: [[1,0],[4,6]], demo: ["C4","F#4"], demoFingers: [1,4] },
+      { id: "P5", label: { th: "เพอร์เฟกต์ 5", en: "Perfect 5th", zh: "纯五度" }, symbol: "P5", degrees: [[1,0],[5,7]], demo: ["C4","G4"],  demoFingers: [1,5] },
+      { id: "m6", label: { th: "ไมเนอร์ 6",    en: "Minor 6th",   zh: "小六度" }, symbol: "m6", degrees: [[1,0],[6,8]], demo: ["C4","G#4"], demoFingers: [1,5] },
+      { id: "M6", label: { th: "เมเจอร์ 6",    en: "Major 6th",   zh: "大六度" }, symbol: "M6", degrees: [[1,0],[6,9]], demo: ["C4","A4"],  demoFingers: [1,5] },
+      { id: "m7", label: { th: "ไมเนอร์ 7",    en: "Minor 7th",   zh: "小七度" }, symbol: "m7", degrees: [[1,0],[7,10]], demo: ["C4","A#4"], demoFingers: [1,5] },
+      { id: "M7", label: { th: "เมเจอร์ 7",    en: "Major 7th",   zh: "大七度" }, symbol: "M7", degrees: [[1,0],[7,11]], demo: ["C4","B4"],  demoFingers: [1,5] },
+      { id: "P8", label: { th: "ออกเทฟ",       en: "Octave",      zh: "八度"   }, symbol: "P8", degrees: [[1,0],[8,12]], demo: ["C4","C5"],  demoFingers: [1,5] },
     ],
   },
   {
@@ -44,10 +156,10 @@ export const PATHWAY = [
       zh: "请教我钢琴上的'三和弦(Triad)'。解释根音、三度、五度，大/小/减/增三和弦的区别，以及流行的和弦进行。列出音名。"
     },
     types: [
-      { id: "major", label: { th: "เมเจอร์", en: "Major",      zh: "大三" }, symbol: "Δ",  demo: ["C4","E4","G4"],   demoFingers: [1,3,5] },
-      { id: "minor", label: { th: "ไมเนอร์", en: "Minor",      zh: "小三" }, symbol: "m",  demo: ["C4","D#4","G4"],  demoFingers: [1,3,5] },
-      { id: "dim",   label: { th: "ดิมินิช", en: "Diminished", zh: "减三" }, symbol: "°",  demo: ["C4","D#4","F#4"], demoFingers: [1,3,5] },
-      { id: "aug",   label: { th: "ออกเมนต์", en: "Augmented", zh: "增三" }, symbol: "+",  demo: ["C4","E4","G#4"],  demoFingers: [1,3,5] },
+      { id: "major", label: { th: "เมเจอร์", en: "Major",      zh: "大三" }, symbol: "Δ",  degrees: [[1,0],[3,4],[5,7]], demo: ["C4","E4","G4"],   demoFingers: [1,3,5] },
+      { id: "minor", label: { th: "ไมเนอร์", en: "Minor",      zh: "小三" }, symbol: "m",  degrees: [[1,0],[3,3],[5,7]], demo: ["C4","D#4","G4"],  demoFingers: [1,3,5] },
+      { id: "dim",   label: { th: "ดิมินิช", en: "Diminished", zh: "减三" }, symbol: "°",  degrees: [[1,0],[3,3],[5,6]], demo: ["C4","D#4","F#4"], demoFingers: [1,3,5] },
+      { id: "aug",   label: { th: "ออกเมนต์", en: "Augmented", zh: "增三" }, symbol: "+",  degrees: [[1,0],[3,4],[5,8]], demo: ["C4","E4","G#4"],  demoFingers: [1,3,5] },
     ],
     typesInfo: {
       th: `🔺 4 ชนิดของ Triad (ตัวอย่างคีย์ C)
@@ -107,14 +219,14 @@ C–E–G♯ · 奇异、神秘
       zh: "请教我钢琴上的'七和弦(7th Chord)'。解释大七、属七、小七和弦，各自的情感差异，以及在爵士/灵魂/放克中的运用。列出音名如 Cmaj7 = C4 E4 G4 B4。"
     },
     types: [
-      { id: "maj7",    label: { th: "เมเจอร์ 7",          en: "Major 7",       zh: "大七"   }, symbol: "maj7", demo: ["C4","E4","G4","B4"],    demoFingers: [1,2,3,5] },
-      { id: "dom7",    label: { th: "โดมินันต์ 7",         en: "Dominant 7",    zh: "属七"   }, symbol: "7",    demo: ["C4","E4","G4","A#4"],   demoFingers: [1,2,3,5] },
-      { id: "min7",    label: { th: "ไมเนอร์ 7",           en: "Minor 7",       zh: "小七"   }, symbol: "m7",   demo: ["C4","D#4","G4","A#4"],  demoFingers: [1,2,3,5] },
-      { id: "minmaj7", label: { th: "ไมเนอร์-เมเจอร์ 7",  en: "Minor-Major 7", zh: "小大七" }, symbol: "mΔ7", demo: ["C4","D#4","G4","B4"],   demoFingers: [1,2,3,5] },
-      { id: "halfdim", label: { th: "ฮาล์ฟดิมินิช",       en: "Half-Dim",      zh: "半减七" }, symbol: "ø7",  demo: ["C4","D#4","F#4","A#4"], demoFingers: [1,2,3,5] },
-      { id: "dim7",    label: { th: "ดิมินิช 7",           en: "Diminished 7",  zh: "减七"   }, symbol: "°7",  demo: ["C4","D#4","F#4","A4"],  demoFingers: [1,2,3,5] },
-      { id: "aug7",    label: { th: "ออกเมนต์ 7",          en: "Augmented 7",   zh: "增七"   }, symbol: "+7",  demo: ["C4","E4","G#4","A#4"],  demoFingers: [1,2,3,5] },
-      { id: "augmaj7", label: { th: "ออกเมนต์-เมเจอร์ 7", en: "Aug-Major 7",  zh: "增大七" }, symbol: "+Δ7", demo: ["C4","E4","G#4","B4"],   demoFingers: [1,2,3,5] },
+      { id: "maj7",    label: { th: "เมเจอร์ 7",          en: "Major 7",       zh: "大七"   }, symbol: "maj7", degrees: [[1,0],[3,4],[5,7],[7,11]], demo: ["C4","E4","G4","B4"],    demoFingers: [1,2,3,5] },
+      { id: "dom7",    label: { th: "โดมินันต์ 7",         en: "Dominant 7",    zh: "属七"   }, symbol: "7",    degrees: [[1,0],[3,4],[5,7],[7,10]], demo: ["C4","E4","G4","A#4"],   demoFingers: [1,2,3,5] },
+      { id: "min7",    label: { th: "ไมเนอร์ 7",           en: "Minor 7",       zh: "小七"   }, symbol: "m7",   degrees: [[1,0],[3,3],[5,7],[7,10]], demo: ["C4","D#4","G4","A#4"],  demoFingers: [1,2,3,5] },
+      { id: "minmaj7", label: { th: "ไมเนอร์-เมเจอร์ 7",  en: "Minor-Major 7", zh: "小大七" }, symbol: "mΔ7", degrees: [[1,0],[3,3],[5,7],[7,11]], demo: ["C4","D#4","G4","B4"],   demoFingers: [1,2,3,5] },
+      { id: "halfdim", label: { th: "ฮาล์ฟดิมินิช",       en: "Half-Dim",      zh: "半减七" }, symbol: "ø7",  degrees: [[1,0],[3,3],[5,6],[7,10]], demo: ["C4","D#4","F#4","A#4"], demoFingers: [1,2,3,5] },
+      { id: "dim7",    label: { th: "ดิมินิช 7",           en: "Diminished 7",  zh: "减七"   }, symbol: "°7",  degrees: [[1,0],[3,3],[5,6],[7,9]], demo: ["C4","D#4","F#4","A4"],  demoFingers: [1,2,3,5] },
+      { id: "aug7",    label: { th: "ออกเมนต์ 7",          en: "Augmented 7",   zh: "增七"   }, symbol: "+7",  degrees: [[1,0],[3,4],[5,8],[7,10]], demo: ["C4","E4","G#4","A#4"],  demoFingers: [1,2,3,5] },
+      { id: "augmaj7", label: { th: "ออกเมนต์-เมเจอร์ 7", en: "Aug-Major 7",  zh: "增大七" }, symbol: "+Δ7", degrees: [[1,0],[3,4],[5,8],[7,11]], demo: ["C4","E4","G#4","B4"],   demoFingers: [1,2,3,5] },
     ],
     typesInfo: {
       th: `7️⃣ 8 ชนิดของ 7th Chord (ตัวอย่างคีย์ C)
@@ -201,18 +313,198 @@ C–E–G♯–B · 梦幻、飘渺
     },
   },
   {
+    id: "progression", icon: "🧭", title: { th: "ทางคอร์ด (Progression)", en: "Chord Progression", zh: "和弦进行 (Progression)" }, subtitle: { th: "ลำดับคอร์ดยอดฮิต I vi ii V — เลือกทางคอร์ดแล้วไล่คีย์", en: "Hit progressions in Roman numerals — pick one, then drill the key", zh: "热门级数进行 I vi ii V — 先选进行，再练调" },
+    level: 5, color: "#d97757", group: "chords",
+    demo: ["C4","E4","G4","A4","C5","E5","D4","F4","A4","G4","B4","D5"], demoMode: "prog", demoFingers: [1,2,3,1,3,5,1,2,4,1,2,4],
+    learn: {
+      th: "ช่วยสอนเรื่อง 'ทางคอร์ด (Chord Progression)' บนเปียโนให้หน่อยครับ อธิบายว่าการเล่นคอร์ดต่อเนื่อง I vi ii V คืออะไร เหตุใดจึงเป็นทางคอร์ดยอดนิยมที่สุดในป๊อป (ดีกรีของสเกล, บทบาท Tonic/Subdominant/Dominant, การ resolve V→I) พร้อมตัวอย่างเพลงดังที่ใช้ และเปรียบเทียบกับ I V vi IV และ ii V I ตอบภาษาไทยและระบุชื่อคอร์ดทุกตัว",
+      en: "Please teach me about 'Chord Progressions' on piano. Explain what playing I vi ii V means, why it is pop's most popular progression (scale degrees, Tonic/Subdominant/Dominant roles, V→I resolution), give famous song examples, and compare with I V vi IV and ii V I. Name every chord.",
+      zh: "请教我钢琴上的'和弦进行(Chord Progression)'。解释 I vi ii V 是什么，为什么它是流行乐最常用的进行（音阶级、主/下属/属功能、V→I 解决），举例名曲，并对比 I V vi IV 和 ii V I。列出每个和弦名。"
+    },
+    types: [
+      { id: "p1645", label: { th: "คลาสสิกป๊อป", en: "Classic Pop", zh: "经典流行" }, symbol: "I vi ii V", romans: ["I","vi","ii","V"], demo: ["C4","E4","G4","A4","C5","E5","D4","F4","A4","G4","B4","D5"], demoFingers: [1,2,3,1,3,5,1,2,4,1,2,4] },
+      { id: "p1564", label: { th: "เพลงฮิต 4 คอร์ด", en: "4-Chord Hit", zh: "四和弦金曲" }, symbol: "I V vi IV", romans: ["I","V","vi","IV"], demo: ["C4","E4","G4","G4","B4","D5","A4","C5","E5","F4","A4","C5"], demoFingers: [1,2,3,1,2,4,1,3,5,1,3,5] },
+      { id: "p251",  label: { th: "เพลงแจ๊ส", en: "Jazz Turn", zh: "爵士进行" }, symbol: "ii V I",  romans: ["ii","V","I"], demo: ["D4","F4","A4","G4","B4","D5","C4","E4","G4"], demoFingers: [1,2,4,1,2,4,1,3,5] },
+      { id: "p6415", label: { th: "เศร้า 4 คอร์ด", en: "Sad 4-Chord", zh: "忧伤四和弦" }, symbol: "vi IV I V", romans: ["vi","IV","I","V"], demo: ["A4","C5","E5","F4","A4","C5","C4","E4","G4","G4","B4","D5"], demoFingers: [1,3,5,1,3,5,1,2,3,1,2,4] },
+    ],
+    typesInfo: {
+      th: `🧭 4 ทางคอร์ดยอดฮิต (ตัวเลข = ดีกรีของสเกล)
+
+1️⃣ I vi ii V — คลาสสิกป๊อป 50s ถึงวันนี้
+C · Am · Dm · G — จบสวยด้วย V→I
+
+2️⃣ I V vi IV — 4 คอร์ดเพลงฮิตทั่วโลก
+C · G · Am · F — สดใส มีพลัง
+
+3️⃣ ii V I — หัวใจของแจ๊ส
+Dm · G · C — การไหลของเสียงที่ลื่นที่สุด
+
+4️⃣ vi IV I V — โทนเศร้า ลึกซึ้ง
+Am · F · C · G — เริ่มที่ relative minor
+
+💡 ตัวเลขโรมันคือ "สูตรสากล" — รู้สูตรเดียว เล่นได้ทุกคีย์ 12 คีย์!`,
+      en: `🧭 The 4 hit progressions (numerals = scale degrees)
+
+1️⃣ I vi ii V — classic pop, 1950s to today
+C · Am · Dm · G — resolves beautifully V→I
+
+2️⃣ I V vi IV — the global 4-chord hit
+C · G · Am · F — bright, powerful
+
+3️⃣ ii V I — the heart of jazz
+Dm · G · C — the smoothest pull in music
+
+4️⃣ vi IV I V — melancholy flip
+Am · F · C · G — starts on the relative minor
+
+💡 Roman numerals are the universal formula — learn one shape, play all 12 keys!`,
+      zh: `🧭 4 种热门进行（数字 = 音阶级）
+
+1️⃣ I vi ii V — 经典流行，从50年代至今
+C · Am · Dm · G — V→I 完美解决
+
+2️⃣ I V vi IV — 全球四和弦金曲
+C · G · Am · F — 明亮有力
+
+3️⃣ ii V I — 爵士乐的核心
+Dm · G · C — 最流畅的和声引力
+
+4️⃣ vi IV I V — 忧伤翻转
+Am · F · C · G — 从关系小调开始
+
+💡 罗马数字是通用公式 — 学会一个形状，12个调都能弹！`,
+    },
+  },
+  {
     id: "tension", icon: "⚡", title: { th: "เทนชั่น (Tension)", en: "Tension", zh: "张力音 (Tension)" }, subtitle: { th: "โน้ตสีสัน 9, 11, 13", en: "Color notes — 9, 11, 13", zh: "色彩音 — 9、11、13" },
-    level: 5, color: "#d97757", group: "advanced",
+    level: 6, color: "#d97757", group: "advanced",
     demo: ["C4","E4","G4","B4","D5"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'เทนชั่น (Tension)' บนเปียโนให้หน่อยครับ อธิบายว่า tension คืออะไร โน้ต 9th, 11th, 13th การสร้าง extended chord และการ resolve ตอบภาษาไทยและระบุชื่อโน้ต เช่น Cmaj9 = C4 E4 G4 B4 D5",
       en: "Please teach me about 'Tension' on piano. Explain 9th, 11th, 13th notes, building extended chords, and resolution. List note names e.g. Cmaj9 = C4 E4 G4 B4 D5.",
       zh: "请教我钢琴上的'张力音(Tension)'。解释9度、11度、13度音符，构建扩展和弦，以及解决。列出音名如 Cmaj9 = C4 E4 G4 B4 D5。"
     },
+    /* The ten 9th-family voicings, written in C and transposed into whichever
+       of the 12 keys the learner picks. No demoFingers on purpose: every one
+       of these spans a major 9th (C4-D5) and the workable fingering depends on
+       hand size and voicing — a blank is honest where 1-2-3-4-5 would not be. */
+    types: [
+      { id: "maj9",     label: { th: "เมเจอร์ 9",            en: "Major 9",         zh: "大九"   }, symbol: "Δ9",     demo: ["C4","E4","G4","B4","D5"]    },
+      { id: "dom9",     label: { th: "โดมินันต์ 9",           en: "Dominant 9",      zh: "属九"   }, symbol: "9",     demo: ["C4","E4","G4","A#4","D5"]   },
+      { id: "min9",     label: { th: "ไมเนอร์ 9",             en: "Minor 9",         zh: "小九"   }, symbol: "m9",    demo: ["C4","D#4","G4","A#4","D5"]  },
+      { id: "m7b5add9", label: { th: "ไมเนอร์ 7♭5 (9)",       en: "Minor 7♭5 (9)",   zh: "半减九" }, symbol: "ø9",    demo: ["C4","D#4","F#4","A#4","D5"] },
+      { id: "ninesus4", label: { th: "ไนน์ ซัส 4",            en: "9 sus4",          zh: "九挂四" }, symbol: "9sus4", demo: ["C4","F4","G4","A#4","D5"]   },
+      { id: "dim9",     label: { th: "ดิมินิช 9",             en: "Diminished 9",    zh: "减九"   }, symbol: "°9",    demo: ["C4","D#4","F#4","A4","D5"]  },
+      { id: "six9",     label: { th: "เมเจอร์ 6/9",           en: "Major 6/9",       zh: "六九"   }, symbol: "6/9",   demo: ["C4","E4","G4","A4","D5"]    },
+      { id: "min69",    label: { th: "ไมเนอร์ 6/9",           en: "Minor 6/9",       zh: "小六九" }, symbol: "m6/9",  demo: ["C4","D#4","G4","A4","D5"]   },
+      { id: "aug9",     label: { th: "ออกเมนต์ 7 (9)",        en: "Augmented 7 (9)", zh: "增九"   }, symbol: "+9",    demo: ["C4","E4","G#4","A#4","D5"]  },
+      { id: "minmaj9",  label: { th: "ไมเนอร์-เมเจอร์ 9",    en: "Minor-Major 9",   zh: "小大九" }, symbol: "mΔ9",   demo: ["C4","D#4","G4","B4","D5"]   },
+    ],
+    typesInfo: {
+      th: `⚡ 10 ชนิดของคอร์ดเทนชั่นตระกูล 9 (ตัวอย่างคีย์ C)
+
+1️⃣ Major 9 (Δ9) — 1-3-5-7-9
+C–E–G–B–D · หรูหรา ลอย สว่าง
+
+2️⃣ Dominant 9 (9) — 1-3-5-♭7-9
+C–E–G–B♭–D · ฟังก์ บลูส์ อยากเคลื่อนต่อ
+
+3️⃣ Minor 9 (m9) — 1-♭3-5-♭7-9
+C–E♭–G–B♭–D · นุ่ม เท่ ละมุน
+
+4️⃣ Minor 7♭5 (9) (ø9) — 1-♭3-♭5-♭7-9
+C–E♭–G♭–B♭–D · ตึง เศร้า ใช้นำเข้า ii–V
+
+5️⃣ 9 sus4 (9sus4) — 1-4-5-♭7-9
+C–F–G–B♭–D · ค้างคา ยังไม่ตัดสินใจ
+
+6️⃣ Diminished 9 (°9) — 1-♭3-♭5-♭♭7-9
+C–E♭–G♭–A–D · มืด บีบ ใช้เป็นสะพาน
+
+7️⃣ Major 6/9 (6/9) — 1-3-5-6-9
+C–E–G–A–D · จบเพลงแบบอบอุ่น ไม่ตึง
+
+8️⃣ Minor 6/9 (m6/9) — 1-♭3-5-6-9
+C–E♭–G–A–D · ไมเนอร์ที่ไม่หม่น
+
+9️⃣ Augmented 7 (9) (+9) — 1-3-♯5-♭7-9
+C–E–G♯–B♭–D · แปลก ดันไปข้างหน้าแรง
+
+🔟 Minor-Major 9 (mΔ9) — 1-♭3-5-7-9
+C–E♭–G–B–D · ลึกลับ หนังสายลับ
+
+💡 ทุกตัวมีโน้ต 9 (D) เหมือนกัน — ที่ต่างกันคือโน้ตตัวที่ 3, 5 และ 7!`,
+      en: `⚡ The 10 tension chords of the 9th family (example in C)
+
+1️⃣ Major 9 (Δ9) — 1-3-5-7-9
+C–E–G–B–D · lush, floating, bright
+
+2️⃣ Dominant 9 (9) — 1-3-5-♭7-9
+C–E–G–B♭–D · funk and blues, wants to move
+
+3️⃣ Minor 9 (m9) — 1-♭3-5-♭7-9
+C–E♭–G–B♭–D · smooth, cool, velvety
+
+4️⃣ Minor 7♭5 (9) (ø9) — 1-♭3-♭5-♭7-9
+C–E♭–G♭–B♭–D · tense and sad, the ii of a minor ii–V
+
+5️⃣ 9 sus4 (9sus4) — 1-4-5-♭7-9
+C–F–G–B♭–D · suspended, undecided
+
+6️⃣ Diminished 9 (°9) — 1-♭3-♭5-♭♭7-9
+C–E♭–G♭–A–D · dark and squeezed, a passing bridge
+
+7️⃣ Major 6/9 (6/9) — 1-3-5-6-9
+C–E–G–A–D · a warm ending with no tension left
+
+8️⃣ Minor 6/9 (m6/9) — 1-♭3-5-6-9
+C–E♭–G–A–D · a minor that is not gloomy
+
+9️⃣ Augmented 7 (9) (+9) — 1-3-♯5-♭7-9
+C–E–G♯–B♭–D · strange, pushes hard forward
+
+🔟 Minor-Major 9 (mΔ9) — 1-♭3-5-7-9
+C–E♭–G–B–D · mysterious, spy-film
+
+💡 Every one of them carries the 9 (D) — what changes is the 3rd, 5th and 7th!`,
+      zh: `⚡ 九和弦家族的10种张力和弦（以C为例）
+
+1️⃣ 大九和弦 (Δ9) — 1-3-5-7-9
+C–E–G–B–D · 华丽、飘逸、明亮
+
+2️⃣ 属九和弦 (9) — 1-3-5-♭7-9
+C–E–G–B♭–D · 放克与蓝调，想要前进
+
+3️⃣ 小九和弦 (m9) — 1-♭3-5-♭7-9
+C–E♭–G–B♭–D · 柔和、时髦、丝滑
+
+4️⃣ 半减九和弦 (ø9) — 1-♭3-♭5-♭7-9
+C–E♭–G♭–B♭–D · 紧张忧伤，小调 ii–V 的 ii
+
+5️⃣ 九挂四 (9sus4) — 1-4-5-♭7-9
+C–F–G–B♭–D · 悬置、未决
+
+6️⃣ 减九和弦 (°9) — 1-♭3-♭5-♭♭7-9
+C–E♭–G♭–A–D · 阴暗紧缩，用作过渡
+
+7️⃣ 大六九和弦 (6/9) — 1-3-5-6-9
+C–E–G–A–D · 温暖的收尾，毫无张力
+
+8️⃣ 小六九和弦 (m6/9) — 1-♭3-5-6-9
+C–E♭–G–A–D · 不阴郁的小调
+
+9️⃣ 增七九和弦 (+9) — 1-3-♯5-♭7-9
+C–E–G♯–B♭–D · 奇异，强力推进
+
+🔟 小大九和弦 (mΔ9) — 1-♭3-5-7-9
+C–E♭–G–B–D · 神秘，谍战片风格
+
+💡 它们都含有9音(D) — 变化的是3音、5音和7音！`,
+    },
   },
   {
     id: "blockchord", icon: "🧱", title: { th: "บล็อกคอร์ดใต้ทำนอง", en: "Block Chords", zh: "块状和弦" }, subtitle: { th: "เล่นคอร์ดพร้อมเมโลดี้", en: "Block Chord Under the Melody", zh: "在旋律下弹奏块状和弦" },
-    level: 6, color: "#d97757", group: "advanced",
+    level: 7, color: "#d97757", group: "advanced",
     demo: ["C4","E4","G4"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'Block Chord ใต้ทำนอง (Block Chord Under the Melody)' บนเปียโนให้หน่อยครับ อธิบายเทคนิคเล่นคอร์ดเต็มพร้อมโน้ตทำนองบนสุด สไตล์ George Shearing และการประยุกต์ใน solo piano ตอบภาษาไทยและระบุชื่อโน้ต",
@@ -222,7 +514,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   {
     id: "slashchord", icon: "➗", title: { th: "สแลชคอร์ด (Slash Chord)", en: "Slash Chord", zh: "斜杠和弦 (Slash Chord)" }, subtitle: { th: "คอร์ดที่มีเบสต่างจากราก", en: "A chord with a different bass note", zh: "低音不同于根音的和弦" },
-    level: 7, color: "#ff5252", group: "advanced",
+    level: 8, color: "#ff5252", group: "advanced",
     demo: ["E4","G4","C5"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'สแลชคอร์ด (Slash Chord)' บนเปียโนให้หน่อยครับ อธิบายว่า C/E คืออะไร การสร้าง bass line ที่เคลื่อนนุ่มนวล และการใช้ใน Gospel/Soul/Ballad ตอบภาษาไทยและระบุชื่อโน้ต",
@@ -232,7 +524,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   {
     id: "padchord", icon: "🌫️", title: { th: "แพดคอร์ด (Pad Chord)", en: "Pad Chord", zh: "铺底和弦 (Pad Chord)" }, subtitle: { th: "Harmony ขั้นสูง — เสียงพื้นหลังที่ลอย", en: "Advanced harmony — floating background", zh: "高级和声 — 漂浮的背景音" },
-    level: 8, color: "#d97757", group: "advanced",
+    level: 9, color: "#d97757", group: "advanced",
     demo: ["C4","G4","B4","D5","E5"], demoMode: "chord",
     learn: {
       th: "ช่วยสอนเรื่อง 'แพดคอร์ด (Pad Chord)' และ voicing ขั้นสูงบนเปียโนให้หน่อยครับ อธิบาย open voicing การกระจายโน้ตแบบ 4th/5th และการใช้ใน EDM/Ambient/Neo Soul เพื่อสร้างบรรยากาศล้ำๆ ตอบภาษาไทยและระบุชื่อโน้ต",
@@ -242,7 +534,7 @@ C–E–G♯–B · 梦幻、飘渺
   },
   /* ───────── BENEFITS OF MUSIC — knowledge chapters (read, no key) ───────── */
   {
-    id: "why-music", icon: "🌍", level: 9, color: "#d97757", group: "benefits",
+    id: "why-music", icon: "🌍", level: 10, color: "#d97757", group: "benefits",
     title: { th: "ประโยชน์ของดนตรี", en: "Why Music Matters", zh: "音乐的力量" },
     subtitle: { th: "ทำไมดนตรีถึงทรงพลัง", en: "The power of music", zh: "为何音乐如此重要" },
     content: {
@@ -282,7 +574,7 @@ In the next 5 chapters we'll see how people really use music in: Business 💼 �
     },
   },
   {
-    id: "music-business", icon: "💼", level: 10, color: "#d97757", group: "benefits",
+    id: "music-business", icon: "💼", level: 11, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีกับธุรกิจ", en: "Music in Business", zh: "音乐与商业" },
     subtitle: { th: "เสียงที่ขายของได้", en: "Sound that sells", zh: "会卖货的声音" },
     content: {
@@ -340,7 +632,7 @@ The classic Milliman (1982) study: slow-tempo music in a supermarket made shoppe
     },
   },
   {
-    id: "music-military", icon: "🎺", level: 11, color: "#d97757", group: "benefits",
+    id: "music-military", icon: "🎺", level: 12, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีในกองทัพ", en: "Music in the Military", zh: "军队中的音乐" },
     subtitle: { th: "สั่งการ ปลุกใจ ข่มขวัญ", en: "Command, morale, intimidation", zh: "指挥·士气·震慑" },
     content: {
@@ -392,7 +684,7 @@ Modern armies have blasted loud music to pressure opponents — e.g. the operati
     },
   },
   {
-    id: "music-nation", icon: "🇹🇭", level: 12, color: "#d97757", group: "benefits",
+    id: "music-nation", icon: "🇹🇭", level: 13, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีกับความเป็นชาติ", en: "Music & National Identity", zh: "音乐与国家认同" },
     subtitle: { th: "เสียงที่หลอมรวมผู้คน", en: "Sound that unites a people", zh: "凝聚人民的声音" },
     content: {
@@ -444,7 +736,7 @@ The most powerful nation-building tool. Thailand plays its anthem nationwide eve
     },
   },
   {
-    id: "music-elite", icon: "👑", level: 13, color: "#d97757", group: "benefits",
+    id: "music-elite", icon: "👑", level: 14, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีกับชนชั้นสูง", en: "Music & the Elite", zh: "音乐与精英阶层" },
     subtitle: { th: "สัญลักษณ์ของอำนาจและรสนิยม", en: "A symbol of power and taste", zh: "权力与品味的象征" },
     content: {
@@ -496,7 +788,7 @@ Royal court music (piphat ensembles) has a long lineage, and King Rama IX (Bhumi
     },
   },
   {
-    id: "music-therapy", icon: "💚", level: 14, color: "#d97757", group: "benefits",
+    id: "music-therapy", icon: "💚", level: 15, color: "#d97757", group: "benefits",
     title: { th: "ดนตรีบำบัด", en: "Music Therapy", zh: "音乐疗法" },
     subtitle: { th: "เยียวยากาย ใจ และสมอง", en: "Healing & wellness", zh: "疗愈与健康" },
     content: {
@@ -557,7 +849,7 @@ Music lowers cortisol, blood pressure and anxiety — used before/during surgery
     },
   },
   {
-    id: "music-marketing", icon: "📣", level: 15, color: "#d97757", group: "benefits",
+    id: "music-marketing", icon: "📣", level: 16, color: "#d97757", group: "benefits",
     title: { th: "การตลาดสำหรับศิลปิน", en: "Marketing for Artists", zh: "音乐人营销" },
     subtitle: { th: "ทำเพลงให้ดังและขายได้", en: "Get heard & get paid", zh: "让作品被听见并变现" },
     content: {

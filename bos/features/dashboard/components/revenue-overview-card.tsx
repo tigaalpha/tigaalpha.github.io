@@ -5,6 +5,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
+import { useT } from "@/lib/language-context";
 import { aggregateByMonth, formatBaht, type MonthlyPoint } from "@/lib/finance";
 
 const GRID = "rgba(100, 116, 139, 0.14)";
@@ -21,6 +22,7 @@ function RevenueTooltip({ active, payload, label }: { active?: boolean; payload?
 }
 
 export function RevenueOverviewCard() {
+  const t = useT();
   const [monthly, setMonthly] = useState<MonthlyPoint[] | null>(null);
 
   useEffect(() => {
@@ -35,8 +37,8 @@ export function RevenueOverviewCard() {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle>Revenue Overview</CardTitle>
-        <span className="rounded-full border border-line/10 bg-line/[0.03] px-2.5 py-1 text-xs text-secondary/45 dark:border-white/5 dark:bg-white/[0.03]">This Year</span>
+        <CardTitle>{t("revenue.title")}</CardTitle>
+        <span className="rounded-full border border-line/10 bg-line/[0.03] px-2.5 py-1 text-xs text-secondary/45 dark:border-white/5 dark:bg-white/[0.03]">{t("revenue.thisYear")}</span>
       </CardHeader>
       <CardContent>
         {!monthly ? (

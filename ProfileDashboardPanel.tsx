@@ -1,8 +1,15 @@
+import { useState } from "react";
 import { L, tr } from "./i18n";
+import { tigaHub } from "./tigamodel/web";   // Capability Hub: learner summary + quest hint from whatever engines are registered
+import { dailySongFor } from "./use-play-along";
+import { readMemory } from "./ai-chat-context";
+import { readPracticeLog } from "./shared-infra";
 import { playUi } from "./music-engine";
 import { isMaxPlan } from "./payment";
 import { logUsage } from "./shared-infra";
 import { sb } from "./supabase-client";
+import { hasParentPin } from "./kid-safety";
+import { ParentGateModal } from "./parent-gate";
 import { SONGS } from "./songs-data";
 /* ── ProfileDashboardPanel ──
    The page==="profile" inline render block, extracted verbatim from
@@ -15,8 +22,9 @@ import { SONGS } from "./songs-data";
    component import. Likewise questToday/readStreak/streakAtRisk/
    QUEST_GOAL are top-level in App.tsx but not exported, so they're
    threaded as props too. ── */
-export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage }) {
+export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [], onOpenParentGate }) {
   const lc = L[lang];
+  const [pgOpen, setPgOpen] = useState(false);
   return (
         <div className="profscroll">
           {(() => {
@@ -46,7 +54,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
                     </div>
                   </div>
                   {chestAvail
-                    ? <button className="dh-chest" onClick={openChestNow}>🎁<span>{lc.dhClaim}</span></button>
+                    ? <button className="dh-chest chestpulse" onClick={openChestNow}>🎁<span>{lc.dhClaim}</span></button>
                     : <button className="dh-chest done" onClick={() => { setPage("studio"); setStudioView("menu"); }}>🎮<span>{lc.dhPlay}</span></button>}
                 </div>
                 {(schoolHW || (homework && homework.text)) && (
@@ -66,6 +74,23 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
               </div>
             );
           })()}
+          {(() => {
+            // TIGA Capability Hub: honest learner summary + today's quest hint.
+            // Both come from real local data via whatever engines are registered;
+            // a null line hides the row instead of showing filler.
+            const summ = tigaHub.learnerSummary(readMemory(), readPracticeLog(), profile);
+            const ds = dailySongFor();
+            const hint = tigaHub.nextQuestHint(readMemory(), profile, { dailySong: ds ? tr(ds, lang) : null });
+            const line = summ && summ.line ? (summ.line[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || summ.line.en) : null;
+            const htip = hint && hint.tip ? (hint.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || hint.tip.en) : null;
+            if (!line && !htip) return null;
+            return (
+              <div className="tigatipbar prof">
+                <span className="tigatipbadge">🧠 TIGA</span>
+                <span>{line || htip}{line && htip ? " · " : ""}{line && htip ? htip : ""}</span>
+              </div>
+            );
+          })()}
           {profile && profile.school_id && (
             <div className="profsec" style={{ margin: "0 14px 10px" }}>
               <div className="profsec-h">🏫 {lc.schoolMyCard}{mySchoolName ? " — " + mySchoolName : ""}</div>
@@ -77,45 +102,32 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
           )}
           {profile && profile.school_id && <ClassQuestSection lang={lang} schoolId={profile.school_id} />}
           {profile && profile.school_id && <SchoolLeaderboardSection lang={lang} schoolId={profile.school_id} />}
-          {/* My Stats + Report Card live as sub-pages of Profile (moved out of the nav) */}
-          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
-            onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } logUsage("nav", "profile-stats"); setPage("insights"); }}>
-            <span className="tdico">📊</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="tdlbl">{lc.navStats}{!isMaxPlan(plan) && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
-              <div className="tdtag">{lang === "th" ? "กราฟการซ้อม · จุดที่ควรเก็บ · ช่วงเวลาที่ซ้อมบ่อย" : lang === "zh" ? "练习图表 · 待加强 · 常练时间" : "Practice charts · weak spots · best hours"}</div>
-            </div>
-            <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
-          </button>
-          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
-            onClick={() => { playUi("click"); logUsage("nav", "profile-report"); setPage("report"); }}>
-            <span className="tdico">🏅</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="tdlbl">{lc.navReport}</div>
-              <div className="tdtag">{lang === "th" ? "สรุปรายสัปดาห์ · คำติชมครู · ใบประกาศนียบัตร" : lang === "zh" ? "每周总结 · 老师评语 · 证书" : "Weekly summary · teacher comment · certificates"}</div>
-            </div>
-            <span className="tdgo">→</span>
-          </button>
-          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
-            onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } setAiModalType("report"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}>
-            <span className="tdico">📋</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="tdlbl">{lang === "th" ? "รายงานพัฒนาการ AI" : lang === "zh" ? "AI 进度报告" : "AI Weekly Report"}{!isMaxPlan(plan) && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
-              <div className="tdtag">{lang === "th" ? "รายงานพัฒนาการรายสัปดาห์ที่ AI สร้างเป็นการส่วนตัว" : lang === "zh" ? "AI 个性化生成的每周进度总结" : "AI-generated personal weekly progress report"}</div>
-            </div>
-            <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
-          </button>
-          <button className="tdstep" style={{ width: "calc(100% - 28px)", margin: "0 14px 10px", cursor: "pointer", textAlign: "left" }}
-            onClick={() => { playUi("click"); if (!isMaxPlan(plan)) { setPricingOpen(true); return; } setAiModalType("plan"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}>
-            <span className="tdico">🗓️</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="tdlbl">{lang === "th" ? "แผนซ้อมส่วนตัว AI" : lang === "zh" ? "AI 练习计划" : "AI Practice Plan"}{!isMaxPlan(plan) && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
-              <div className="tdtag">{lang === "th" ? "แผนซ้อม 7 วัน AI วิเคราะห์จุดอ่อนส่วนตัว" : lang === "zh" ? "AI 根据弱点生成的7天个性化练习计划" : "Personalized 7-day AI plan based on your weak spots"}</div>
-            </div>
-            <span className="tdgo">{isMaxPlan(plan) ? "→" : "👑"}</span>
-          </button>
+
+          {(() => {
+            // Kid-Safety Gate entry (gem plan v4 §3): parents manage the PIN and
+            // the monthly cap here. Guests and signed-in users alike — the PIN is
+            // per device+account (kid-safety.ts), purchases guard themselves in
+            // BuyCurrencyModal regardless of this entry point.
+            const label = hasParentPin(session && session.user && session.user.id)
+              ? (lang === "th" ? "🔒 โหมดผู้ปกครอง — เพดาน & รหัส" : lang === "zh" ? "🔒 家长模式 — 上限与密码" : "🔒 Parent Mode — cap & PIN")
+              : (lang === "th" ? "🔒 ตั้งรหัสผู้ปกครอง" : lang === "zh" ? "🔒 设置家长密码" : "🔒 Set up parent PIN");
+            return (
+              <button className="songbtn ghost" style={{ width: "100%", margin: "10px 14px 0", width: "calc(100% - 28px)" }} onClick={() => { logUsage("kid", "open-manage"); setPgOpen(true); }}>{label}</button>
+            );
+          })()}
           <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins} gems={gems}
-            onOpenShop={() => setShopOpen(true)} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} />
+            onOpenShop={() => setShopOpen(true)} onOpenStorage={onOpenStorage} onOpenPvp={onOpenPvp} onOpenPet={onOpenPet} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill}
+            charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />
+          {pgOpen && (
+            <ParentGateModal
+              lang={lang}
+              uid={session && session.user && session.user.id}
+              mode={hasParentPin(session && session.user && session.user.id) ? "manage" : "setup"}
+              onClose={() => setPgOpen(false)}
+              onVerified={undefined}
+              playUi={playUi}
+            />
+          )}
         </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bot, Pencil, Trash2, Pause, Play, Plus, X } from "lucide-react";
+import { Bot, Pencil, Trash2, Pause, Play, Plus, X, ChevronDown, ChevronRight } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -75,6 +75,7 @@ export function ScheduleManager() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   function reload() {
     const repos = createRepositories(createClient());
@@ -270,7 +271,39 @@ export function ScheduleManager() {
                   รอบถัดไป: {row.active ? new Date(row.next_run_at).toLocaleString("th-TH") : "—"}
                   {row.last_run_at ? ` · รันล่าสุด ${new Date(row.last_run_at).toLocaleString("th-TH")}` : ""}
                 </p>
-                {row.last_run_result ? <p className="rounded-lg bg-line/5 px-3 py-2 text-xs text-secondary/60">{row.last_run_result}</p> : null}
+                {row.last_run_result ? (
+                  <div>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-1.5 rounded-lg bg-line/5 px-3 py-2 text-left text-xs text-secondary/60 hover:bg-line/10 transition-colors"
+                      onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
+                    >
+                      {expandedId === row.id ? (
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span className="truncate">{expandedId === row.id ? "ซ่อนผลลัพธ์" : row.last_run_result}</span>
+                    </button>
+                    {expandedId === row.id ? (
+                      <div className="mt-2 rounded-lg border border-line/10 bg-card p-4 space-y-3">
+                        <div>
+                          <p className="text-xs font-medium text-secondary/50 mb-1">คำสั่งที่ให้ AI ทำ</p>
+                          <p className="text-sm text-secondary/70">{row.instruction}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-secondary/50 mb-1">ผลลัพธ์จาก AI</p>
+                          <div className="whitespace-pre-wrap text-sm text-secondary/80 leading-relaxed">{row.last_run_result}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-secondary/40">
+                          <span>สถานะ: <span className={row.last_run_status === "success" ? "text-success" : "text-danger"}>{row.last_run_status === "success" ? "สำเร็จ" : "ผิดพลาด"}</span></span>
+                          {row.last_run_at && <span>รันล่าสุด: {new Date(row.last_run_at).toLocaleString("th-TH")}</span>}
+                          <span>รอบถัดไป: {new Date(row.next_run_at).toLocaleString("th-TH")}</span>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="flex items-center gap-1 pt-1">
                   <Button variant="ghost" size="icon" onClick={() => startEdit(row)}>
                     <Pencil className="h-4 w-4" />

@@ -2,6 +2,9 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import qrcode from "qrcode-generator";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { apiHeaders } from "./ai-backend";
+import { logUsage } from "./shared-infra";
+import { hasParentPin, PIN_THRESHOLD_THB, getMonthSpend, getSpendCap, isOverCap, recordSpend } from "./kid-safety";
+import { ParentGateModal } from "./parent-gate";
 
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
    No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
@@ -25,11 +28,32 @@ function promptPayPayload(target, amount) {
     acc = "0066" + local; tag = "01";
   }
   const merchant = _ppTLV("00", "A000000677010111") + _ppTLV(tag, acc);
-  let s = _ppTLV("00", "01") + _ppTLV("01", amount > 0 ? "12" : "11") + _ppTLV("29", merchant) + _ppTLV("53", "764") + _ppTLV("58", "TH");
+  // EMVCo data objects, in ascending tag order: 00, 01, 29, 53, 54, 58, 63.
+  // The amount (54) used to be appended after the country code (58) because it
+  // is optional. A bank app parses TLV into a map so either order scans, but
+  // every Thai reference generator emits this order and there is no upside to
+  // being the one QR in the country shaped differently.
+  let s = _ppTLV("00", "01") + _ppTLV("01", amount > 0 ? "12" : "11") + _ppTLV("29", merchant) + _ppTLV("53", "764");
   if (amount > 0) s += _ppTLV("54", Number(amount).toFixed(2));
-  s += "6304";
+  s += _ppTLV("58", "TH") + "6304";
   return s + _ppCrc16(s);
 }
+/* Is the server's Stripe key a live key or a test key? A test key still returns
+   a perfectly valid-looking checkout URL, but it only ever accepts Stripe's test
+   cards — a real customer's card is declined and no money moves. That failure is
+   invisible from the outside, so the app asks the server which mode it is in and
+   refuses to show a card button that cannot take money. Cached per page load. */
+let _stripeModeP: Promise<string> | null = null;
+export function stripeMode(): Promise<string> {
+  if (!_stripeModeP) {
+    _stripeModeP = fetch(SUPABASE_URL + "/functions/v1/stripe-checkout", {
+      method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ probe: true }),
+    }).then(r => r.json()).then(j => (j && j.mode) || "unknown").catch(() => "unknown");
+  }
+  return _stripeModeP;
+}
+
 export function promptPayQR(target, amount) {
   try {
     const payload = promptPayPayload(target, amount);
@@ -39,8 +63,42 @@ export function promptPayQR(target, amount) {
   } catch (e) { return null; }
 }
 
-export const ALIPAY_QR = "./alipay.jpg";
-export const WECHAT_QR = "./wechat.png";
+/* The Alipay / WeChat QR images the owner uploaded. These paths are relative
+   to the page, and the files live in payqr/ — pointing them at the site root
+   (which is where they used to point) makes every Chinese customer's checkout
+   show a broken image instead of a QR to scan, which is exactly as bad as
+   having no Chinese payment method at all. Keep in step with the real files.
+
+   The source of truth is public/payqr/, so Vite copies them into dist/ — which
+   is what Capacitor bundles as the native app (webDir: "dist") and what the OTA
+   updater zips. They used to sit only at the repo root, which GitHub Pages
+   serves next to index.html, so the WEB checkout worked and the Android/iOS one
+   showed a broken image: the relative path resolved inside a bundle that had no
+   payqr/ in it. The build copies them back out to the repo root for Pages. */
+export const ALIPAY_QR = "./payqr/alipay.jpg";
+export const WECHAT_QR = "./payqr/wechat.png";
+
+/* A payment QR that says so when it fails to load. A QR is the whole payment
+   method here — if the file 404s the customer sees a broken-image icon, has no
+   idea anything is wrong, and simply cannot pay. This turns a silent failure
+   into a visible one, for the buyer AND for whoever is watching the launch. */
+export function PayQrImg({ src, alt, lang }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); }, [src]);
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  if (broken) {
+    return (
+      <div className="aicreate-err" style={{ textAlign: "center", lineHeight: 1.6 }}>
+        {T("โหลด QR ไม่สำเร็จ — ทักแอดมินเพื่อรับ QR โดยตรงได้เลย",
+           "This QR failed to load — please contact us and we'll send it to you directly.",
+           "二维码加载失败，请联系我们，我们会直接发给您。")}
+        <div style={{ opacity: .6, fontSize: 11, marginTop: 4, wordBreak: "break-all" }}>{src}</div>
+      </div>
+    );
+  }
+  return <img className="payqr ext" src={src} alt={alt} onError={() => setBroken(true)}
+    style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />;
+}
 
 /* ── premium / freemium + daily free-tier usage limits ── */
 export function isPremium() { try { return localStorage.getItem("tg_premium") === "1"; } catch (e) { return false; } }
@@ -50,6 +108,11 @@ export function getPlan() { try { return localStorage.getItem("tg_plan") || (isP
 export function setPlanLS(p) { try { localStorage.setItem("tg_plan", p); localStorage.setItem("tg_premium", p === "free" ? "0" : "1"); } catch (e) {} }
 // Voice Mode (AI voice teacher) is a Max / Max Family exclusive.
 export function isMaxPlan(p) { const v = p || getPlan(); return v === "max" || v === "maxfamily"; }
+/* The published price list. These three tables are duplicated in the
+   supabase/functions/stripe-checkout edge function, which is what actually
+   charges the card — CHANGE BOTH TOGETHER. A sale is refused outright if they
+   disagree (see `expect` in openStripe below), so a one-sided edit shows up as
+   a failed checkout rather than as a customer billed the wrong amount. */
 export const PLAN_PRICE     = { premium: 1490,  family: 2900,  max: 3999,   maxfamily: 9999  }; // THB
 export const PLAN_PRICE_USD = { premium: 44.99, family: 89.99, max: 119.99, maxfamily: 149.99 }; // USD
 export const PLAN_PRICE_CNY = { premium: 328,   family: 648,   max: 888,    maxfamily: 1088  }; // CNY
@@ -86,20 +149,42 @@ export function b2bYearPriceByCur(cur: string, tier: string): number {
   return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
 }
 export const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
+/* How long a free trial runs — thirty days, the same for everyone.
+
+   It used to be two numbers: ninety days for the founding members (the first
+   100 signups ever — profiles.founding_member, set once at signup by the
+   handle_new_user() trigger, see supabase-founding-member-trial-migration.sql),
+   cut to thirty, against seven for everyone after them. Two numbers meant the
+   app advertised two different trials depending on who was reading, which is
+   the kind of detail a buyer notices and does not ask about — they just stop
+   trusting the page. One number, and the banner, the pricing card and the
+   actual entitlement finally agree.
+
+   Thirty days of Premium-level, uncapped access is real AI cost per head. It
+   is a deliberate trade: the plan is a few hundred committed learners rather
+   than a crowd, and a month is long enough for someone to build a practice
+   habit and see their own progress before being asked to pay.
+
+   The length is NOT stored anywhere — effectivePlan() measures it from
+   profiles.created_at on every read — so this number changes the trial for
+   existing accounts too, not only new ones. Raising it hands a month back to
+   anyone who signed up within the last thirty days. */
+export const TRIAL_DAYS_FOUNDING = 30;   // the first 100 signups ever
+export const TRIAL_DAYS_STANDARD = 30;   // everyone after them — same deal
+export function trialLenDays(p) { return p && p.founding_member ? TRIAL_DAYS_FOUNDING : TRIAL_DAYS_STANDARD; }
 // the live, authoritative plan for a profile row (admins = full; paid only while not expired)
 export function effectivePlan(p) {
   if (!p) return "free";
   if (p.is_admin) return "maxfamily";
   if (p.plan && p.plan !== "free" && p.plan_until && new Date(p.plan_until).getTime() > Date.now()) return p.plan;
-  // 7-day free trial: new accounts get premium-tier access for their first 7 days
-  if (p.created_at && (Date.now() - new Date(p.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000) return "trial";
+  if (p.created_at && (Date.now() - new Date(p.created_at).getTime()) < trialLenDays(p) * 24 * 60 * 60 * 1000) return "trial";
   return "free";
 }
-// returns days remaining in trial (1–7), or -1 if not in trial / trial has expired
+// days remaining in the trial (1–trialLenDays), or -1 if not in trial / expired
 export function trialDaysLeft(p) {
   if (!p || !p.created_at) return -1;
   const elapsed = Date.now() - new Date(p.created_at).getTime();
-  const left = 7 - elapsed / (24 * 60 * 60 * 1000);
+  const left = trialLenDays(p) - elapsed / (24 * 60 * 60 * 1000);
   return left > 0 ? Math.ceil(left) : -1;
 }
 
@@ -124,6 +209,8 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
   const [zhTab, setZhTab] = useState<"ali"|"wx">("ali"); // Chinese tab: alipay | wechat
   const zhFileRef = useRef(null);
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [payMode, setPayMode] = useState("");   // "" | live | test | unknown
+  useEffect(() => { stripeMode().then(setPayMode); }, []);
   const fileRef = useRef(null);
   // guards against a fast double-click/double-tap firing openStripe/onFile twice before
   // React re-renders with the disabled button — state (stripeLoading/st) alone isn't
@@ -146,12 +233,21 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
   const wxQr   = (cfg && cfg.wechat_qr) || WECHAT_QR;
   const stripeOn = !!(cfg && cfg.stripe);
 
-  // payment channels available for this language
-  const channels = [
-    ...(lang === "zh" ? [{ k: "ali", ic: "🔵", label: "Alipay 支付宝", method: "alipay" }] : []),
-    ...(lang === "zh" ? [{ k: "wx",  ic: "🟢", label: "WeChat 微信",   method: "wechat"  }] : []),
-    ...(lang === "th" && ppId  ? [{ k: "pp",  ic: "🇹🇭", label: "PromptPay",    method: "promptpay" }] : []),
+  const acct = (cfg && cfg.bank_account && String(cfg.bank_account).trim()) || "";
+  const swift = (cfg && cfg.bank_swift && String(cfg.bank_swift).trim()) || "";
+
+  /* Ways to pay that land straight in the owner's own account — no gateway
+     between the buyer and the money. PromptPay is Thailand's instant rail, and
+     the plain bank transfer is what everyone else uses (a Thai buyer reading
+     the app in English can still use PromptPay, and an overseas buyer wires to
+     the account/SWIFT). Both were previously Thai-only, which left the English
+     edition with a card as its ONLY option. The Chinese pair are rendered by
+     their own tabbed block further down. */
+  const transferChans = [
+    ...(ppId ? [{ k: "pp", ic: "🇹🇭", label: "PromptPay", method: "promptpay" }] : []),
+    ...(acct ? [{ k: "bank", ic: "🏦", label: T("โอนเข้าบัญชี", "Bank transfer", "银行转账"), method: "banktransfer" }] : []),
   ];
+  const channels = (lang === "th" || lang === "en") ? transferChans : [];
   const [chanKey, setChanKey] = useState("");
   const selChan = channels.find(c => c.k === chanKey) || channels[0] || null;
 
@@ -166,7 +262,12 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
       const res = await fetch(SUPABASE_URL + "/functions/v1/stripe-checkout", {
         method: "POST",
         headers: { ...apiHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: checkout.plan, cycle: checkout.cycle || "month", cur }),
+        // `expect` is the price on the card the buyer just clicked. The server
+        // still computes the real amount itself and never trusts this number —
+        // it only compares, and refuses the sale if the two disagree. That is
+        // what stops the app and the checkout function drifting apart into
+        // charging a price nobody was ever shown.
+        body: JSON.stringify({ plan: checkout.plan, cycle: checkout.cycle || "month", cur, expect: dispAmt }),
       });
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || "no url");
@@ -212,9 +313,23 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
     if (!error) { setCfg(value); playUi("levelup"); }
   }
 
-  const showStripeBtn = lang === "th" || lang === "en";
+  /* A test-mode Stripe key produces a checkout page that looks completely
+     normal and then declines every real card. Showing that button is worse
+     than showing nothing — the buyer concludes their card is the problem and
+     leaves, instead of using PromptPay or a transfer that actually works. So
+     the card button waits for the probe and only appears on a live key. */
+  const stripeUsable = payMode === "live";
+  /* Every language, not just th/en. stripe-checkout prices in thb, usd AND cny
+     and Stripe takes a card in all three, so the Chinese edition had a working
+     rail sitting unused behind a language check — its buyers could only scan
+     Alipay or WeChat, which excludes anyone paying with an overseas card. */
+  const showStripeBtn = stripeUsable;
   const hasQrChannel = channels.length > 0;
   const nothingConfigured = !showStripeBtn && !hasQrChannel && lang !== "zh";
+  // The bank-transfer rail is switched on purely by having an account number
+  // on file. Thai admins never saw this warning because PromptPay alone was
+  // enough to satisfy the old check, so the missing account went unnoticed.
+  const transferMissing = (lang === "th" || lang === "en") && !acct;
 
   return (
     <div className="setov" onClick={onClose}>
@@ -247,7 +362,11 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
                       <span className="paychan-ic">🟢</span> WeChat 微信
                     </button>
                   </div>
-                  <img className="payqr ext" src={zhTab === "wx" ? WECHAT_QR : ALIPAY_QR} alt={zhTab === "wx" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  {/* aliQr/wxQr — the ADMIN-CONFIGURED image, falling back to the
+                      bundled one. This used to render the bundled constants
+                      directly, so replacing a QR from the admin panel changed
+                      nothing on the page it was supposed to change. */}
+                  <PayQrImg src={zhTab === "wx" ? wxQr : aliQr} alt={zhTab === "wx" ? "WeChat Pay QR" : "Alipay QR"} lang={lang} />
                   <p className="pr-sub" style={{ textAlign: "center" }}>
                     {zhTab === "wx"
                       ? `打开微信 → 扫一扫 → 支付 ¥${cnySt.toLocaleString()}`
@@ -269,11 +388,46 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
                     {stripeLoading ? "⏳ " + T("กำลังเปิดหน้าชำระเงินปลอดภัย...", "Opening secure checkout...", "正在打开安全支付页...") : "💳 " + T("จ่ายด้วยบัตร (รองรับทั่วโลก)", "Pay by card — worldwide", "银行卡支付（支持全球）")}
                   </button>
                   {st === "stripe-err" && <div className="aicreate-err">{T("ไม่สามารถเชื่อมต่อ Stripe ได้ ลองใหม่หรือใช้ QR", "Stripe unavailable — try again or use QR below", "Stripe 连接失败，请重试或用下方二维码")}</div>}
-                  {hasQrChannel && <div className="aiNotice">🌍 {T("หรือสแกน QR ด้านล่าง", "Or scan a QR below", "或扫描下方二维码")}</div>}
+                  {(hasQrChannel || lang === "zh") && <div className="aiNotice">🌍 {T("หรือสแกน QR ด้านล่าง", "Or scan a QR below", "或使用上方二维码支付")}</div>}
                 </>
               )}
 
-              {/* ── Thai: PromptPay ── */}
+              {/* ── pick a transfer rail, when more than one is set up ── */}
+              {channels.length > 1 && (
+                <div className="paychans">
+                  {channels.map(c => (
+                    <button key={c.k} className={`paychanbtn${selChan && selChan.k === c.k ? " on" : ""}`}
+                      onClick={() => { playUi("click"); setChanKey(c.k); }}>
+                      <span className="paychan-ic">{c.ic}</span> {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* ── direct bank transfer — the owner's own account, any country ── */}
+              {selChan && selChan.k === "bank" && (
+                <>
+                  <div className="payinfo">
+                    {cfg && cfg.bank && <div>🏦 {T("ธนาคาร", "Bank", "银行")}: <b>{cfg.bank}</b></div>}
+                    {cfg && cfg.name && <div>👤 {T("ชื่อบัญชี", "Account name", "账户名")}: <b>{cfg.name}</b></div>}
+                    <div>#️⃣ {T("เลขที่บัญชี", "Account number", "账号")}: <b>{acct}</b></div>
+                    {swift && <div>🌐 SWIFT / BIC: <b>{swift}</b></div>}
+                    <div>💰 {T("ยอดที่ต้องโอน", "Amount to transfer", "转账金额")}: <b>{fmtPrice(cur, dispAmt)}</b>
+                      {cur !== "thb" && <> · {T("หรือ", "or", "或")} <b>{fmtPrice("thb", amountThb)}</b></>}</div>
+                  </div>
+                  <p className="pr-sub">{T(
+                    "โอนตามยอดด้านบนเข้าบัญชีนี้ แล้วอัปโหลดสลิปเพื่อยืนยัน",
+                    "Transfer the amount above to this account, then upload your transfer receipt to confirm.",
+                    "请按上述金额转账至该账户，然后上传转账凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload receipt", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
+              {/* ── PromptPay ── */}
               {selChan && selChan.k === "pp" && (
                 <>
                   {qr ? <img className="payqr" src={qr} alt="PromptPay QR" /> : <div className="aicreate-err">{T("สร้าง QR ไม่ได้", "Couldn't make QR", "无法生成二维码")}</div>}
@@ -304,6 +458,20 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
                 </div>
               )}
 
+              {payMode === "test" && isAdmin && (
+                <div className="aicreate-err">⚠️ {T(
+                  "Stripe ยังเป็นคีย์ทดสอบ (sk_test) — บัตรจริงจะถูกปฏิเสธทุกใบ ปุ่มจ่ายด้วยบัตรจึงถูกซ่อนไว้ ใส่คีย์ sk_live_ ใน Supabase แล้วปุ่มจะกลับมาเอง",
+                  "Stripe is still on a TEST key (sk_test) — every real card is declined, so the card button is hidden. Add your sk_live_ key in Supabase and the button returns on its own.",
+                  "Stripe 仍使用测试密钥（sk_test），真实银行卡都会被拒绝，因此已隐藏刷卡按钮。在 Supabase 中填入 sk_live_ 密钥后按钮会自动恢复。")}</div>
+              )}
+
+              {transferMissing && isAdmin && (
+                <div className="aiNotice">⚙️ {T(
+                  "ยังไม่ได้ใส่เลขที่บัญชีธนาคาร — ลูกค้าจึงยังไม่เห็นตัวเลือก \u201cโอนเข้าบัญชี\u201d ใส่ได้ที่ แอดมิน › ตั้งค่าช่องทางรับเงิน › โอนเข้าบัญชีโดยตรง",
+                  "No bank account number on file — buyers don\u2019t see the \u201cBank transfer\u201d option at all. Add it in Admin › Payment channel settings › Direct bank transfer.",
+                  "尚未填写银行账号 \u2014 买家看不到\u201c银行转账\u201d选项。请在管理员 › 收款渠道设置 › 银行直接转账中填写。")}</div>
+              )}
+
               {nothingConfigured && !isAdmin && (
                 <div className="aicreate-err">{T("ร้านกำลังตั้งค่าการรับเงิน ลองใหม่อีกครั้งภายหลัง หรือทักแอดมินได้เลย", "Payment is being set up — please try again shortly or contact us.", "收款正在设置中，请稍后再试或联系我们。")}</div>
               )}
@@ -328,7 +496,12 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const tier = schoolCheckout.tier === "plus" ? "school_plus" : "school_standard";
   const tierLabel = schoolCheckout.tier === "plus" ? "Plus" : "Standard";
-  const cur = CURRENCY_BY_LANG[lang] || "thb";
+  /* Deliberately THB regardless of app language. school_submit_payment_request()
+     prices B2B seats in baht and nothing converts them, so showing an English
+     buyer "US$1,720/seat" quoted a total 34x the amount they would be asked to
+     transfer. The preview now uses the same baht math the RPC uses, which makes
+     the figure on this screen the figure that gets charged. */
+  const cur = "thb";
   const uid = session && session.user && session.user.id;
 
   const [step, setStep] = useState("details"); // details | pay
@@ -357,7 +530,11 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
   const ppId = payCfg && payCfg.promptpay;
   const aliQr = (payCfg && payCfg.alipay_qr) || ALIPAY_QR;
   const wxQr = (payCfg && payCfg.wechat_qr) || WECHAT_QR;
+  const acct = (payCfg && payCfg.bank_account && String(payCfg.bank_account).trim()) || "";
+  const swift = (payCfg && payCfg.bank_swift && String(payCfg.bank_swift).trim()) || "";
   const qr = useMemo(() => (activeChan === "promptpay" && ppId && amount) ? promptPayQR(ppId, amount) : null, [activeChan, ppId, amount]);
+  const [payMode, setPayMode] = useState("");
+  useEffect(() => { stripeMode().then(setPayMode); }, []);
 
   function continueToPay() {
     if (!instName.trim()) { setErr(T("กรอกชื่อสถาบันก่อน", "Enter an institution name", "请输入机构名称")); return; }
@@ -427,8 +604,10 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
     } catch { setSt("error"); uploadRef.current = false; }
   }
 
-  const showStripeBtn = lang === "th" || lang === "en";
-  const showPromptPay = lang === "th" && !!ppId;
+  // Same reasoning as CheckoutModal: a test key's card button can never collect.
+  const showStripeBtn = payMode === "live";   // card works in every language
+  const showPromptPay = (lang === "th" || lang === "en") && !!ppId;
+  const showBank = (lang === "th" || lang === "en") && !!acct;
 
   return (
     <div className="setov" onClick={onClose}>
@@ -477,6 +656,9 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
                 {showPromptPay && (
                   <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => payWithQr("promptpay")}>🇹🇭 {T("จ่ายผ่าน PromptPay", "Pay via PromptPay", "PromptPay 付款")}</button>
                 )}
+                {showBank && (
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => payWithQr("banktransfer")}>🏦 {T("โอนเข้าบัญชีธนาคาร", "Pay by bank transfer", "银行转账付款")}</button>
+                )}
                 {lang === "zh" && (<>
                   <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("alipay"); payWithQr("alipay"); }}>🔵 {T("จ่ายผ่าน Alipay", "Pay via Alipay", "支付宝付款")}</button>
                   <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("wechat"); payWithQr("wechat"); }}>🟢 {T("จ่ายผ่าน WeChat", "Pay via WeChat", "微信付款")}</button>
@@ -501,9 +683,30 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
                 </>
               )}
 
+              {activeChan === "banktransfer" && (
+                <>
+                  <div className="payinfo">
+                    {payCfg && payCfg.bank && <div>🏦 {T("ธนาคาร", "Bank", "银行")}: <b>{payCfg.bank}</b></div>}
+                    {payCfg && payCfg.name && <div>👤 {T("ชื่อบัญชี", "Account name", "账户名")}: <b>{payCfg.name}</b></div>}
+                    <div>#️⃣ {T("เลขที่บัญชี", "Account number", "账号")}: <b>{acct}</b></div>
+                    {swift && <div>🌐 SWIFT / BIC: <b>{swift}</b></div>}
+                    <div>💰 {T("ยอดที่ต้องโอน", "Amount to transfer", "转账金额")}: <b>{fmtPrice("thb", amount)}</b></div>
+                  </div>
+                  <p className="pr-sub">{T(
+                    "โอนตามยอดด้านบนเข้าบัญชีนี้ แล้วอัปโหลดสลิปเพื่อยืนยัน",
+                    "Transfer the amount above to this account, then upload your transfer receipt to confirm.",
+                    "请按上述金额转账至该账户，然后上传转账凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload receipt", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
+              )}
+
               {(activeChan === "alipay" || activeChan === "wechat") && (
                 <>
-                  <img className="payqr ext" src={activeChan === "wechat" ? wxQr : aliQr} alt={activeChan === "wechat" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  <PayQrImg src={activeChan === "wechat" ? wxQr : aliQr} alt={activeChan === "wechat" ? "WeChat Pay QR" : "Alipay QR"} lang={lang} />
                   <p className="pr-sub" style={{ textAlign: "center" }}>
                     {activeChan === "wechat"
                       ? `打开微信 → 扫一扫 → 支付 ¥${amount.toLocaleString()}`
@@ -559,9 +762,9 @@ export const GEM_PACKAGES = [
   { gems: 300, thb: 299, bonus: true },
 ];
 
-export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
+export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focusGems = false, shortBy = 0 }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [currencyType, setCurrencyType] = useState<"coins"|"gems">("coins");
+  const [currencyType, setCurrencyType] = useState<"coins"|"gems">(focusGems ? "gems" : "coins");
   const [pkgIdx, setPkgIdx] = useState(0);
   const [st, setSt] = useState("idle");   // idle · submitting · uploading · done · error
   const [reqId, setReqId] = useState(null);
@@ -574,7 +777,30 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
   // submittingRef / SchoolCheckoutModal's submitRef+uploadRef.
   const submitRef = useRef(false);
   const uploadRef = useRef(false);
+  const [payMode, setPayMode] = useState("");
+  const [stripeLoading, setStripeLoading] = useState(false);
+  useEffect(() => { stripeMode().then(setPayMode); }, []);
   const uid = session && session.user && session.user.id;
+
+  /* Kid-Safety Gate (gem plan v4 §3): every real checkout attempt goes through
+     guardThen() — ซื้อครั้งแรกตั้ง PIN ผู้ปกครองก่อน (ครั้งเดียว), หลังจากนั้น
+     ซื้อ >99฿ ต้องใส่ PIN ทุกครั้ง, และถ้ายอดเดือนนี้ถึงเพดานแล้ว lock พร้อม
+     ปุ่มให้ผู้ปกครองเข้าไปแก้ ไม่มีทางลัดข้าม (kill list §12: ห้ามกระตุ้นซื้อ
+     เด็กนอกเบรก §3) */
+  const [gate, setGate] = useState(null);          // null | { mode: "setup"|"verify", after: fn }
+  const [overCap, setOverCap] = useState(false);
+  function guardThen(thb, startFn) {
+    if (isOverCap(getMonthSpend(), getSpendCap())) { setOverCap(true); logUsage("kid", "gate:overcap"); return; }
+    if (!hasParentPin(uid)) { logUsage("kid", "gate:setup-first"); setGate({ mode: "setup", after: startFn }); return; }
+    if (thb > PIN_THRESHOLD_THB) { logUsage("kid", "gate:verify:" + thb); setGate({ mode: "verify", after: startFn }); return; }
+    startFn();
+  }
+
+  /* Conversion plan v4 (item 2): the top-up funnel was invisible — every step
+     below was a guess. One event per real transition, client-side only; the
+     `gem:paid` leg is written by a server trigger (supabase-gem-funnel-v1.sql)
+     because that is the only moment gems actually move. */
+  useEffect(() => { logUsage("gem", "open" + (focusGems ? ":short:" + shortBy : "")); }, []); // eslint-disable-line
 
   const packages = currencyType === "coins" ? COIN_PACKAGES : GEM_PACKAGES;
   const pkg = packages[pkgIdx] || packages[0];
@@ -582,17 +808,50 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
   function switchType(t) {
     if (t === currencyType) return;
     setCurrencyType(t); setPkgIdx(0); setReqId(null); setPrice(null); setChanKey("");
+    logUsage("gem", "tab:" + t);
   }
 
   const ppId = payCfg && payCfg.promptpay;
   const aliQr = (payCfg && payCfg.alipay_qr) || ALIPAY_QR;
   const wxQr = (payCfg && payCfg.wechat_qr) || WECHAT_QR;
+  const acct = (payCfg && payCfg.bank_account && String(payCfg.bank_account).trim()) || "";
+  const swift = (payCfg && payCfg.bank_swift && String(payCfg.bank_swift).trim()) || "";
+  // Same rails as the plan checkout. These were Thai/Chinese only, so the coin
+  // and gem shop told English customers "no payment channel configured for this
+  // language" — i.e. they could not spend money here at all.
   const channels = [
     ...(lang === "zh" ? [{ k: "alipay", ic: "🔵", label: "Alipay 支付宝" }] : []),
     ...(lang === "zh" ? [{ k: "wechat", ic: "🟢", label: "WeChat 微信" }] : []),
-    ...(lang === "th" && ppId ? [{ k: "promptpay", ic: "🇹🇭", label: "PromptPay" }] : []),
+    ...((lang === "th" || lang === "en") && ppId ? [{ k: "promptpay", ic: "🇹🇭", label: "PromptPay" }] : []),
+    ...((lang === "th" || lang === "en") && acct ? [{ k: "banktransfer", ic: "🏦", label: T("โอนเข้าบัญชี", "Bank transfer", "银行转账") }] : []),
   ];
   const qr = useMemo(() => (chanKey === "promptpay" && ppId && price) ? promptPayQR(ppId, price) : null, [chanKey, ppId, price]);
+
+  /* Card checkout for a coin/gem package. Creates the same pending row every
+     other rail creates, then hands its id to the edge function — the price is
+     re-read server-side from that row, so the package a browser asks for can
+     never be cheaper than the one it gets. */
+  async function payByCard() {
+    if (!uid || stripeLoading || submitRef.current) return;
+    submitRef.current = true;
+    setStripeLoading(true);
+    try {
+      const amount = currencyType === "coins" ? pkg.coins : pkg.gems;
+      const { data, error } = await sb.rpc("submit_currency_purchase", { p_currency_type: currencyType, p_amount: amount, p_method: "stripe" });
+      if (error || !data) throw error || new Error("no request");
+      recordSpend(data.price || pkg.thb); /* kid-safety M2: card charges instantly — count toward cap before redirect (safe direction: abandoned checkout over-counts) */
+      const res = await fetch(SUPABASE_URL + "/functions/v1/currency-stripe-checkout", {
+        method: "POST",
+        headers: { ...apiHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: data.id }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.url) throw new Error(j.error || "no url");
+      window.location.href = j.url;
+    } catch {
+      setSt("error"); setStripeLoading(false); submitRef.current = false;
+    }
+  }
 
   async function chooseChannel(k) {
     if (!uid || st === "submitting" || submitRef.current) return;
@@ -600,6 +859,7 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
     setSt("submitting");
     const amount = currencyType === "coins" ? pkg.coins : pkg.gems;
     const { data, error } = await sb.rpc("submit_currency_purchase", { p_currency_type: currencyType, p_amount: amount, p_method: k });
+    logUsage("gem", "pkg:" + currencyType + ":" + amount + ":" + k);
     submitRef.current = false;
     if (error || !data) { setSt("error"); return; }
     setReqId(data.id); setPrice(data.price); setChanKey(k); setSt("idle");
@@ -619,11 +879,17 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
       if (up.error) throw up.error;
       const { error } = await sb.rpc("attach_currency_purchase_slip", { p_id: reqId, p_slip_path: path });
       if (error) throw error;
+      logUsage("gem", "slip");
+      recordSpend(price || pkg.thb); /* kid-safety M2: count toward monthly cap (safe direction: rejected slip over-counts) */
       setSt("done"); playUi("levelup");
     } catch (e) { setSt("error"); uploadRef.current = false; }
   }
 
-  const cur = CURRENCY_BY_LANG[lang] || "thb";
+  /* Coin and gem packages have exactly one price list and it is in baht
+     (_currency_package_price in SQL is the authority). Formatting those same
+     numbers with the app language's symbol told an English buyer a ฿49 pack
+     cost US$49.00 and a Chinese buyer ¥49 — neither figure is ever charged. */
+  const cur = "thb";
   const showQrPicker = channels.length > 0 && !chanKey;
 
   return (
@@ -661,18 +927,44 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
                 </>
               )}
 
+              {showQrPicker && payMode === "live" && (
+                <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={stripeLoading || st === "submitting"} onClick={() => guardThen(pkg.thb, payByCard)}>
+                  {stripeLoading ? "⏳ " + T("กำลังเปิดหน้าชำระเงินปลอดภัย...", "Opening secure checkout...", "正在打开安全支付页...") : "💳 " + T("จ่ายด้วยบัตร (เข้าบัญชีทันที)", "Pay by card — credited instantly", "银行卡支付（即时到账）")}
+                </button>
+              )}
               {showQrPicker && (
                 <>
                   {channels.map(c => (
-                    <button key={c.k} className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={st === "submitting"} onClick={() => chooseChannel(c.k)}>
+                    <button key={c.k} className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={st === "submitting"} onClick={() => guardThen(pkg.thb, () => chooseChannel(c.k))}>
                       {st === "submitting" ? "⏳ " + T("กำลังเตรียม...", "Preparing...", "准备中...") : c.ic + " " + T("จ่ายผ่าน ", "Pay via ", "通过 ") + c.label}
                     </button>
                   ))}
                   {st === "error" && <div className="aicreate-err">{T("ไม่สามารถสร้างคำขอได้ ลองใหม่อีกครั้ง", "Couldn't start the request — try again", "无法创建请求，请重试")}</div>}
                 </>
               )}
-              {!channels.length && !chanKey && (
+              {!channels.length && !chanKey && payMode !== "live" && (
                 <div className="aicreate-err">{T("ยังไม่ได้ตั้งค่าช่องทางรับเงินสำหรับภาษานี้", "No payment channel configured for this language yet", "此语言尚未配置收款渠道")}</div>
+              )}
+
+              {chanKey === "banktransfer" && (
+                <>
+                  <div className="payinfo">
+                    {payCfg && payCfg.bank && <div>🏦 {T("ธนาคาร", "Bank", "银行")}: <b>{payCfg.bank}</b></div>}
+                    {payCfg && payCfg.name && <div>👤 {T("ชื่อบัญชี", "Account name", "账户名")}: <b>{payCfg.name}</b></div>}
+                    <div>#️⃣ {T("เลขที่บัญชี", "Account number", "账号")}: <b>{acct}</b></div>
+                    {swift && <div>🌐 SWIFT / BIC: <b>{swift}</b></div>}
+                    {price ? <div>💰 {T("ยอดที่ต้องโอน", "Amount to transfer", "转账金额")}: <b>{fmtPrice("thb", price)}</b></div> : null}
+                  </div>
+                  <p className="pr-sub">{T(
+                    "โอนตามยอดด้านบนเข้าบัญชีนี้ แล้วอัปโหลดสลิปเพื่อยืนยัน",
+                    "Transfer the amount above to this account, then upload your transfer receipt to confirm.",
+                    "请按上述金额转账至该账户，然后上传转账凭证。")}</p>
+                  <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
+                    {st === "uploading" ? "⏳ " + T("กำลังอัป...", "Uploading...", "上传中...") : "📤 " + T("อัปโหลดสลิป", "Upload receipt", "上传凭证")}
+                  </button>
+                  {st === "error" && <div className="aicreate-err">{T("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง", "Upload failed, try again", "上传失败，请重试")}</div>}
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFile} />
+                </>
               )}
 
               {chanKey === "promptpay" && (
@@ -694,11 +986,11 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
 
               {(chanKey === "alipay" || chanKey === "wechat") && (
                 <>
-                  <img className="payqr ext" src={zhTab === "wechat" ? wxQr : aliQr} alt={zhTab === "wechat" ? "WeChat Pay QR" : "Alipay QR"} style={{ width: "100%", maxWidth: 260, display: "block", margin: "10px auto", borderRadius: 12 }} />
+                  <PayQrImg src={zhTab === "wechat" ? wxQr : aliQr} alt={zhTab === "wechat" ? "WeChat Pay QR" : "Alipay QR"} lang={lang} />
                   <p className="pr-sub" style={{ textAlign: "center" }}>
                     {zhTab === "wechat"
-                      ? `打开微信 → 扫一扫 → 支付 ¥${(price || 0).toLocaleString()}`
-                      : `打开支付宝 → 扫一扫 → 支付 ¥${(price || 0).toLocaleString()}`}
+                      ? `打开微信 → 扫一扫 → 支付 ฿${(price || 0).toLocaleString()}`
+                      : `打开支付宝 → 扫一扫 → 支付 ฿${(price || 0).toLocaleString()}`}
                   </p>
                   <p className="pr-sub" style={{ textAlign: "center", marginTop: 0 }}>付款后上传截图以确认订单</p>
                   <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>
@@ -709,6 +1001,34 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi }) {
                 </>
               )}
             </>
+          )}
+
+          {gate && (
+            <ParentGateModal
+              lang={lang}
+              uid={uid}
+              mode={gate.mode}
+              onClose={() => setGate(null)}
+              onVerified={() => { const fn = gate.after; setGate(null); if (fn) fn(); }}
+              playUi={playUi}
+            />
+          )}
+          {overCap && (
+            <div className="setov" onClick={() => setOverCap(false)}>
+              <div className="setcard pricing" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+                <div className="sethdr"><span>🔒 {T("ครบโควตาเดือนนี้", "Monthly limit reached", "本月额度已用完")}</span><button className="cbtn" onClick={() => setOverCap(false)}>✕</button></div>
+                <div className="setbody">
+                  <p className="pr-sub" style={{ marginTop: 0 }}>
+                    {T("ยอดซื้อเดือนนี้ถึงเพดานที่ผู้ปกครองตั้งไว้แล้ว — ผู้ปกครองเข้าโหมดผู้ปกครองเพื่อปรับเพดานได้",
+                       "This month's purchases reached the parent-set cap — parents can raise it in Parent Mode.",
+                       "本月消费已达家长设置的上限——家长可在家长模式中调整。")}
+                  </p>
+                  <button className="songbtn go" style={{ width: "100%" }} onClick={() => { setOverCap(false); logUsage("kid", "gate:open-manage"); setGate({ mode: "verify", after: null }); }}>
+                    {T("เข้าโหมดผู้ปกครอง", "Open Parent Mode", "打开家长模式")}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

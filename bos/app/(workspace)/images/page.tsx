@@ -26,7 +26,7 @@ export default function ImagesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-secondary">Image Studio</h1>
-        <p className="text-sm text-secondary/50">สร้างภาพนิ่งด้วย AI ไว้ใช้เป็นวัตถุดิบสำหรับวิดีโอแนวตั้ง</p>
+        <p className="text-sm text-secondary/50">วางบทความ → AI วิเคราะห์ → สร้างภาพแนวนอน + แนวตั้ง ทุกฉาก ไว้ทำวิดีโอต่อ</p>
       </div>
       {images && referencePhotos ? (
         <ImageStudio images={images} referencePhotos={referencePhotos} onChanged={reload} />

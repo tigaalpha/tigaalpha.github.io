@@ -41,6 +41,7 @@ const METRIC_LABELS: Record<Metric, string> = {
   shares: "แชร์",
   comments: "คอมเมนต์",
   saves: "บันทึก",
+  downloads: "ดาวน์โหลด",
   reposts: "รีโพสต์",
 };
 
@@ -66,7 +67,7 @@ const CHANNELS: ChannelDef[] = [
   { channel: "youtube", label: "YouTube", icon: Youtube, autoMetrics: ["followers", "views", "likes", "comments"], manualMetrics: [] },
   { channel: "facebook", label: "Facebook", icon: Facebook, autoMetrics: ["followers", "likes", "comments", "shares"], manualMetrics: [] },
   { channel: "instagram", label: "Instagram", icon: Instagram, autoMetrics: ["followers", "likes", "comments"], manualMetrics: ["views", "shares", "saves"] },
-  { channel: "tiktok", label: "TikTok", icon: Music2, autoMetrics: [], manualMetrics: ["followers", "likes", "views", "shares", "comments", "saves"] },
+  { channel: "tiktok", label: "TikTok", icon: Music2, autoMetrics: [], manualMetrics: ["followers", "likes", "views", "shares", "comments", "saves", "downloads"] },
   { channel: "x", label: "X (Twitter)", icon: Twitter, autoMetrics: [], manualMetrics: ["followers", "likes", "views", "shares", "comments", "reposts"] },
 ];
 

@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Bot, Send, X, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Bot, Send, X, Sparkles, Loader2, ClipboardList } from "lucide-react";
+import { ExecutionPlan, parsePlanFromText, type PlanStep } from "./execution-plan";
+import { DailyPrioritiesCard } from "./daily-priorities-card";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { cn, describeFunctionError } from "@/lib/utils";
+import { useT } from "@/lib/language-context";
+import type { DictKey } from "@/lib/i18n";
 import { CHAT_MODELS, DEFAULT_CHAT_MODEL_ID } from "@/lib/chat-models";
 
 interface AssistantMessage {
@@ -21,29 +25,33 @@ interface AiChatResponse {
 }
 
 interface QuickAction {
-  label: string;
+  labelKey: DictKey;
+  /** Command payload sent to the AI backend — kept Thai; the backend prompts are Thai-oriented. */
   text: string;
-  /** true = send immediately (an info query the AI can just answer); false = fill the input so she can add specifics (needs details a canned message can't supply). */
   sendImmediately: boolean;
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: "สรุปวันนี้", text: "สรุปภาพรวมธุรกิจวันนี้ให้หน่อย", sendImmediately: true },
-  { label: "ใครใกล้หมดชั่วโมง", text: "ตอนนี้มีใครที่ชั่วโมงเรียนใกล้หมดบ้าง", sendImmediately: true },
-  { label: "Lead ที่ควรติดตาม", text: "มี lead คนไหนที่ควรติดตามตอนนี้บ้าง", sendImmediately: true },
-  { label: "บันทึกรายรับ", text: "บันทึกรายรับ: ", sendImmediately: false },
-  { label: "เพิ่มความรู้", text: "เพิ่มความรู้ใหม่: ", sendImmediately: false },
+  { labelKey: "fab.qaTodayTasks", text: "แนะนำ 3 งานที่ควรทำวันนี้ เรียงตามคุณค่ามากไปหาน้อย ง่ายไปหายาก", sendImmediately: true },
+  { labelKey: "fab.qaSummary", text: "สรุปภาพรวมธุรกิจวันนี้ให้หน่อย", sendImmediately: true },
+  { labelKey: "fab.qaAllStudents", text: "ดูรายชื่อนักเรียนทั้งหมดหน่อย", sendImmediately: true },
+  { labelKey: "fab.qaLessonsToday", text: "ดูคาบเรียนวันนี้มีอะไรบ้าง", sendImmediately: true },
+  { labelKey: "fab.qaMonthIncome", text: "ดูสรุปการเงินเดือนนี้หน่อย", sendImmediately: true },
+  { labelKey: "fab.qaCreateContent", text: "สร้าง content ใหม่สัก 1 ชิ้น", sendImmediately: true },
+  { labelKey: "fab.qaPlan", text: "วางแผนสร้างนักเรียนใหม่ + จองคาบ + สร้าง content", sendImmediately: true },
+  { labelKey: "fab.qaFollowLeads", text: "มี lead คนไหนที่ควรติดตามตอนนี้บ้าง", sendImmediately: true },
+  { labelKey: "fab.qaVideoPackage", text: "สร้าง Video Package ครบชุด: script + voice + images", sendImmediately: true },
+  { labelKey: "fab.qaRepurpose", text: "แปลง content นี้เป็นทุก platform", sendImmediately: false },
+  { labelKey: "fab.qaMktDashboard", text: "ดูสรุปการตลาดสัปดาห์นี้", sendImmediately: true },
+  { labelKey: "fab.qaAddKnowledge", text: "เพิ่มความรู้ใหม่: ", sendImmediately: false },
 ];
 
 /**
  * TIGA AI AGENT — owner-facing AI assistant, mounted once in AppShell so it
- * floats on every workspace page. Talks to ai-chat with mode:"owner" — gets
- * every customer-facing tool (booking, CRM updates, sales pipeline,
- * knowledge search) plus owner-only tools (recording transactions, writing
- * to the Knowledge Base) that are gated to this internal channel only, on
- * its own conversation channel so it never shows up in the customer Inbox.
+ * floats on every workspace page. Talks to ai-chat with mode:"owner".
  */
 export function FloatingAssistant() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -51,13 +59,46 @@ export function FloatingAssistant() {
   const [error, setError] = useState<string | null>(null);
   const [chatModel, setChatModel] = useState(DEFAULT_CHAT_MODEL_ID);
   const [savingModel, setSavingModel] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const conversationIdRef = useRef<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Plan mode state
+  const [currentPlan, setCurrentPlan] = useState<PlanStep[] | null>(null);
+  const [executingPlan, setExecutingPlan] = useState(false);
+  const [currentPlanStep, setCurrentPlanStep] = useState<number | undefined>(undefined);
+  const [showPlanHint, setShowPlanHint] = useState(false);
+
+  // Restore conversationId from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("tiga-fab-conversation-id");
+      if (saved) conversationIdRef.current = saved;
+    } catch {}
+  }, []);
+
+  // Load previous messages when opened
   useEffect(() => {
     if (!open) return;
     const repos = createRepositories(createClient());
     repos.integrations.get("ai_chat_model").then((v) => setChatModel(v ?? DEFAULT_CHAT_MODEL_ID));
+
+    if (conversationIdRef.current && messages.length === 0) {
+      setLoadingHistory(true);
+      repos.conversations
+        .listMessages(conversationIdRef.current, 50)
+        .then((dbMsgs) => {
+          if (dbMsgs.length > 0) {
+            setMessages(
+              dbMsgs.map((m) => ({
+                role: (m.sender === "customer" || m.sender === "owner") ? "user" as const : "ai" as const,
+                content: m.content,
+              }))
+            );
+          }
+        })
+        .finally(() => setLoadingHistory(false));
+    }
   }, [open]);
 
   function handleQuickAction(action: QuickAction) {
@@ -69,6 +110,29 @@ export function FloatingAssistant() {
     textareaRef.current?.focus();
   }
 
+  function startNewConversation() {
+    setMessages([]);
+    conversationIdRef.current = null;
+    setCurrentPlan(null);
+    setExecutingPlan(false);
+    setCurrentPlanStep(undefined);
+    try { localStorage.removeItem("tiga-fab-conversation-id"); } catch {}
+  }
+
+  function handleApprovePlan() {
+    if (!currentPlan) return;
+    setExecutingPlan(true);
+    setShowPlanHint(false);
+    // Execute plan by sending approval message
+    void send("ทำเลย อนุมัติแผนทั้งหมด");
+  }
+
+  function handleRejectPlan() {
+    setCurrentPlan(null);
+    setShowPlanHint(false);
+    setMessages((prev) => [...prev, { role: "user", content: t("fab.cancelPlan") }, { role: "ai", content: t("fab.cancelPlanReply") }]);
+  }
+
   async function changeChatModel(value: string) {
     setChatModel(value);
     setSavingModel(true);
@@ -77,7 +141,7 @@ export function FloatingAssistant() {
     setSavingModel(false);
   }
 
-  async function send(override?: string) {
+  const send = useCallback(async (override?: string) => {
     const text = (override ?? draft).trim();
     if (!text || sending) return;
 
@@ -95,18 +159,29 @@ export function FloatingAssistant() {
       if (!data) throw new Error("Empty response from ai-chat");
 
       conversationIdRef.current = data.conversationId;
-      setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
+      try { localStorage.setItem("tiga-fab-conversation-id", data.conversationId); } catch {}
+
+      // Check if the reply contains a plan
+      const planSteps = parsePlanFromText(data.reply);
+      if (planSteps && planSteps.length > 0) {
+        setCurrentPlan(planSteps);
+        setShowPlanHint(true);
+        // Show the reply text but also the plan card
+        setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
+      } else {
+        setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
+      }
     } catch (err) {
       setError(await describeFunctionError(err));
     } finally {
       setSending(false);
     }
-  }
+  }, [draft, sending]);
 
   return (
     <>
       {open ? (
-        <div className="fixed bottom-24 right-6 z-50 flex h-[32rem] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-line/10 bg-card shadow-card">
+        <div className="fixed bottom-20 right-4 z-50 flex h-[32rem] max-h-[calc(100dvh-6rem)] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-line/10 bg-card shadow-card sm:right-6">
           <div className="flex items-center justify-between gap-2 border-b border-line/5 px-4 py-3">
             <span className="flex shrink-0 items-center gap-2 text-sm font-semibold text-secondary">
               <Sparkles className="h-4 w-4 text-primary-accent" />
@@ -116,8 +191,8 @@ export function FloatingAssistant() {
               value={chatModel}
               onChange={(e) => void changeChatModel(e.target.value)}
               disabled={savingModel}
-              aria-label="เลือกโมเดล AI"
-              title="กำลังคุยกับโมเดล AI นี้อยู่ — เปลี่ยนได้ที่นี่"
+              aria-label={t("fab.modelAria")}
+              title={t("fab.modelTitle")}
               className="min-w-0 flex-1 truncate rounded-lg border border-line/10 bg-line/5 px-2 py-1 text-xs text-secondary/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               {CHAT_MODELS.map((m) => (
@@ -126,26 +201,37 @@ export function FloatingAssistant() {
                 </option>
               ))}
             </select>
-            <button onClick={() => setOpen(false)} aria-label="ปิด TIGA AI Agent" className="shrink-0">
+            <button
+              onClick={startNewConversation}
+              aria-label={t("fab.newChatAria")}
+              className="shrink-0 rounded-lg bg-line/10 px-2 py-1 text-[10px] text-secondary/60 hover:bg-line/20 transition-colors"
+            >
+              {t("fab.newChat")}
+            </button>
+            <button onClick={() => setOpen(false)} aria-label={t("fab.closeAria")} className="shrink-0">
               <X className="h-4 w-4 text-secondary/60" />
             </button>
           </div>
 
           <div className="flex-1 space-y-2 overflow-y-auto p-3">
-            {messages.length === 0 ? (
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-primary-accent" />
+              </div>
+            ) : null}
+            {messages.length === 0 && !loadingHistory ? (
               <div className="space-y-2">
-                <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">
-                  สั่งงานได้เลย เช่น &quot;เพิ่มลูกค้าใหม่ชื่อ...&quot;, &quot;จองคาบเรียนให้...&quot;,
-                  &quot;เปลี่ยนสถานะการขายของ...&quot;, หรือถามข้อมูลในคลังความรู้
-                </p>
+                {/* Daily Priorities Card — auto-loaded from Supabase */}
+                <DailyPrioritiesCard onAction={(text) => void send(text)} />
+                <p className="rounded-xl bg-line/5 p-3 text-xs text-secondary/60">{t("fab.hint")}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {QUICK_ACTIONS.map((action) => (
+                  {QUICK_ACTIONS.filter((a) => a.labelKey !== "fab.qaTodayTasks").map((action) => (
                     <button
-                      key={action.label}
+                      key={action.labelKey}
                       onClick={() => handleQuickAction(action)}
                       className="rounded-full border border-line/10 bg-line/5 px-3 py-1 text-xs text-secondary/70 hover:bg-line/10"
                     >
-                      {action.label}
+                      {t(action.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -163,6 +249,24 @@ export function FloatingAssistant() {
                 </div>
               </div>
             ))}
+            {/* Execution Plan Card */}
+            {currentPlan && showPlanHint && !executingPlan && (
+              <ExecutionPlan
+                steps={currentPlan}
+                onApprove={handleApprovePlan}
+                onReject={handleRejectPlan}
+                executing={false}
+              />
+            )}
+            {currentPlan && executingPlan && (
+              <ExecutionPlan
+                steps={currentPlan}
+                onApprove={() => {}}
+                onReject={() => {}}
+                executing={true}
+                currentStep={currentPlanStep}
+              />
+            )}
             {error ? <p className="rounded-xl bg-danger/10 px-3 py-2 text-xs text-danger">{error}</p> : null}
           </div>
 
@@ -171,7 +275,7 @@ export function FloatingAssistant() {
               ref={textareaRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="สั่งงาน AI…"
+              placeholder={t("fab.placeholder")}
               className="min-h-10"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -181,22 +285,17 @@ export function FloatingAssistant() {
               }}
             />
             <Button size="icon" onClick={() => void send()} disabled={sending || !draft.trim()}>
-              <Send className="h-4 w-4" />
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
         </div>
       ) : null}
 
-      {/* On mobile the bottom nav bar (fixed bottom-0, md:hidden) would sit
-          under the FAB — lift it above the nav (bottom-[4.75rem]); desktop
-          has no bottom nav, so it stays at bottom-6. When the panel is open
-          on mobile, hide the FAB entirely (the panel has its own close ✕) so
-          it can't cover the chat input. */}
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="เปิด TIGA AI Agent"
+        aria-label={t("fab.openAria")}
         className={cn(
-          "fixed right-6 z-50 h-14 w-14 items-center justify-center rounded-full bg-primary-gradient text-white shadow-card transition-transform hover:scale-105",
+          "fixed right-4 z-50 h-14 w-14 items-center justify-center rounded-full bg-primary-gradient text-white shadow-card transition-transform hover:scale-105 sm:right-6",
           "bottom-[4.75rem] md:bottom-6",
           open ? "hidden md:flex" : "flex"
         )}

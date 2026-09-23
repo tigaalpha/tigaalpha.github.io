@@ -21,6 +21,17 @@ body {
   height: 100%;
 }
 
+/* Mobile: the page must never scroll horizontally. A single wide element
+   (a chart, a long translated string — Google Translate's <font> wrapping is
+   a notorious offender on Android Chrome) used to push the whole page wider
+   than the viewport, making the dashboard "stick out" past the right edge.
+   `clip` (not `hidden`) is used deliberately: it does not create a scroll
+   container, so the sticky header and fixed FABs keep working. */
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   background-color: rgb(var(--page));
   background-image:
@@ -41,6 +52,25 @@ body {
 
 * {
   border-color: rgb(var(--line) / 0.08);
+}
+
+/* Wrong-language flash guard: LANG_INIT_SCRIPT sets data-lang-pending when the
+   stored language differs from the server-rendered default (Thai), hiding the
+   page until the LanguageProvider effect applies the stored language. Removed
+   from the effect (and by a 250ms fallback in the script itself, so a React
+   failure can never leave a blank page). Thai users — the default — never hit
+   this rule at all. */
+html[data-lang-pending] body {
+  visibility: hidden;
+}
+
+/* No horizontal scroll — ever. One too-wide element used to push the whole
+   page sideways on phones (the topbar avatar ended up off-screen). `clip`
+   (not `hidden`) so the page is never a scroll container and position:sticky
+   keeps working; fixed FABs are unaffected. Vertical scrolling untouched. */
+html,
+body {
+  overflow-x: clip;
 }
 
 ::-webkit-scrollbar {

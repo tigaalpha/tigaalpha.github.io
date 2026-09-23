@@ -1,13 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
-  LESSON_MODE, extractNotes, playPianoNote, FINGERING_REF,
+  LESSON_MODE, extractNotes, playPianoNote, FINGERING_REF, THEORY_REF,
 } from "./music-engine";
 import { tr, L, matchFaqTopic } from "./i18n";
 import { stopCloudTTS } from "./speech";
 import { memoryContext, homeworkContext } from "./ai-chat-context";
-import { streamChatCompletion } from "./ai-backend";
+import { getFullKBContext, getStudentContextBlock, getCoachContextBlock } from "./tigamodel/web.js";
+import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { jevTask, jevNoul } from "./jev";
-import { EXP, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
+import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
 /* ── use-chat.ts ──
    Owns the main AI-sensei chat panel: the message list + typed-input box
    + streaming Claude call (send/callClaude), the [play:]-tag reply
@@ -54,10 +55,25 @@ import { EXP, buildAlternatingHistory, curriculumContext, songRecommendationHint
    setMsgs/topicHint/lessonKey/callClaude/isGuest/lang - all unchanged),
    and after useKeyboard()/useGamification() (hand/playSequence/seqTimers/
    gainExp must already exist). ── */
-export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin }) {
+// Lightweight thread persistence — a convenience restore across refreshes,
+// not a full archive: capped short, and scoped to one language slot at a
+// time (switching languages still gets a fresh welcome, same as before this
+// existed; the old thread just waits under its own language's slot until
+// that language comes back around).
+const CHAT_HISTORY_KEY = "tg_chat_history";
+const CHAT_HISTORY_CAP = 24;
+function loadSavedChat(lang) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || "null");
+    if (raw && raw.lang === lang && Array.isArray(raw.msgs) && raw.msgs.length) return raw.msgs;
+  } catch (e) {}
+  return null;
+}
+
+export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, onUpsell }) {
   const lc = L[lang];
 
-  const [msgs, setMsgs] = useState([]);
+  const [msgs, setMsgs] = useState(() => loadSavedChat(lang) || [{ role: "ai", text: lc.welcome }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(false);
@@ -79,16 +95,54 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
   // ends up last.
   const streamingRef = useRef(false);
 
+  // One-tap retry: the last question that went to the live AI (set in
+  // send()/askDirect()), plus a latest-ref handle to callClaude so the
+  // stable retryLast callback never fires a stale closure (callClaude is
+  // re-created every render and closes over msgs/lang; a stale one would
+  // resend a stale conversation history). `slow` drives the typing
+  // indicator's "still connecting" note during long retry windows.
+  const lastAskRef = useRef(null);
+  const callClaudeRef = useRef(null);
+  const [slow, setSlow] = useState(false);
+
+  // Free-plan chat metering (owner-approved 2026-09-18): the pricing card has
+  // always said "AI tutor 5/day" — now it is actually counted. Premium = no cap.
+  // Uses the same tg_usage day-bucket as every other FREE_LIMITS key.
+  function chatUsedToday() {
+    try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === new Date().toISOString().slice(0, 10) ? (u.chat || 0) : 0; } catch (e) { return 0; }
+  }
+  function bumpChatUsage() {
+    if (premium) return; // premium never counts toward the free cap
+    try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); const d = new Date().toISOString().slice(0, 10); if (u.d !== d) u = { d }; u.chat = (u.chat || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {}
+  }
+  function canUseChat(isPremium) { return !!isPremium || chatUsedToday() < 5; }
+
   function pushMessage(msg) { setMsgs(prev => [...prev, msg]); }
   function setLessonContext(hint, key = null) { topicHint.current = hint; lessonKey.current = key; }
 
+  // First mount already has the right thread (restored from storage, or a
+  // fresh welcome — see the useState initializer above); only a REAL
+  // language switch after that should wipe it back to that language's
+  // welcome message, so this guard skips exactly one run.
+  const isFirstMount = useRef(true);
   useEffect(() => {
+    if (isFirstMount.current) { isFirstMount.current = false; return; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     stopCloudTTS();
     setActiveSpk(null);
     setMsgs([{ role: "ai", text: lc.welcome }]);
     setInput("");
   }, [lang]);
+
+  // Persist the thread as it grows, so a refresh doesn't lose it — skipped
+  // while it's still just the bare welcome bubble, so a learner who never
+  // actually chats doesn't leave a stray localStorage entry behind.
+  useEffect(() => {
+    try {
+      if (msgs.length <= 1) { localStorage.removeItem(CHAT_HISTORY_KEY); return; }
+      localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify({ lang, msgs: msgs.slice(-CHAT_HISTORY_CAP) }));
+    } catch (e) {}
+  }, [msgs, lang]);
 
   useEffect(() => {
     // throttle scrolling to one rAF tick — avoids layout thrash while streaming
@@ -111,7 +165,10 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
   }
 
   function buildHistory() {
-    return buildAlternatingHistory(msgs, 6);
+    // Never feed a failed-error bubble into the AI's context: ↻ retry resends
+    // right after removing one, and state updates asynchronously — the filter
+    // (not call timing) is what guarantees the model never sees the apology.
+    return buildAlternatingHistory(msgs.filter(m => !m.error), 6);
   }
 
   // Jev pre-check (task: chat-precheck) — one ~100-500ms structured call that
@@ -145,7 +202,9 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
     if (streamingRef.current) return; // a stream is already in flight — never let two calls interleave
     streamingRef.current = true;
     setLoading(true);
+    setSlow(false);
     const history = buildHistory();
+    let retryHintT = null; // "still connecting" hint timer (12s of round-1 silence)
 
     try {
       // throttle UI updates to ~16fps instead of re-rendering on every token
@@ -171,11 +230,33 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
         pendingFlush = setTimeout(flush, wait);
       };
 
-      // Context parity with the Voice Tutor (which already feeds all of these to
-      // its model): the chat Sensei also sees the learner's cross-session memory
-      // (struggles/mastered/spaced-review due dates), assigned homework, real
-      // position in the Pathway curriculum, and the wider real-song pool — so
-      // it teaches with continuity instead of answering each message cold.
+      /* Three-layer resilience for the request (verified live 2026-09-09:
+         the endpoint answers correctly from a clean network — the failures
+         happen on the last leg, the phone's own connection, or as a
+         "successful" stream that carries zero content):
+           1. streaming attempt
+           2. on a transient provider blip (error before ANY content): one
+              silent streaming retry — no half-written answer is restarted
+           3. non-streaming JSON fallback (stream:false) — a single response
+              instead of an SSE stream, which survives proxies/carriers that
+              stall or buffer event streams; also catches the empty-200 case
+              (a reasoning model can burn the server's whole token budget
+              thinking and stream nothing).
+         An abort (20s of silence) skips the second streaming try (waiting
+         twice for a dead connection helps nobody) and goes straight to the
+         JSON transport. Only if every transport fails does the friendly
+         error bubble appear. */
+      const isAbort = (e) => e && (e.name === "AbortError" || /abort/i.test(String(e.message || "")));
+      // TIGA Model knowledge for THIS question: topical KB slice + the
+      // switch-gated learned block (getFullKBContext awaits the learner) +
+      // who this student is, from the app's own practice memory — so the
+      // teacher answers as a teacher who knows THIS student.
+      const kbContext = await getFullKBContext(userText);
+      const studentBlock = getStudentContextBlock();
+      // AI PIANO COACH (P0): WHAT/WHY/HOW diagnosis from the student's real
+      // practice numbers — lets the teacher answer "ฉันมีปัญหาอะไร/ทำไม/ควรฝึก
+      // ยังไง/BPM เท่าไร" with the student's actual stats, not generic advice.
+      const coachBlock = getCoachContextBlock();
       // Jev pre-check hints ride along as an extra context block when available
       // (mood tells the model which tone to lead with; song/practice intent
       // tells it what kind of reply to produce) — plain context, never a format
@@ -189,26 +270,107 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
         if (precheck.practice != null && precheck.practice >= 0.75) bits.push("The learner wants to practice/drill something — offer one concrete drill next.");
         if (bits.length) jevHint = "\n\n[Tone/intent hint from pre-analysis: " + bits.join(" ") + "]";
       }
-      const acc = await streamChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang) + jevHint, feature: "chat" },
+      let acc = "";
+      let haveBubble = false; // did any streaming attempt reach the response?
+      const runStream = () => streamChatCompletion(
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + kbContext + studentBlock + coachBlock + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang) + jevHint, feature: "chat", stream: true },
         {
-          // insert an empty AI bubble we will fill as tokens arrive
-          onStart: () => { setMsgs(prev => [...prev, { role: "ai", text: "" }]); setLoading(false); },
+          // insert an empty AI bubble we will fill as tokens arrive —
+          // reused, not duplicated, if a retry follows a pre-token failure
+          onStart: () => {
+            haveBubble = true;
+            setMsgs(prev => {
+              const last = prev[prev.length - 1];
+              if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) return prev;
+              return [...prev, { role: "ai", text: "" }];
+            });
+            setLoading(false);
+          },
           onChunk: (soFar) => { latest = soFar; scheduleFlush(); },
         }
       );
+      const runJson = () => fetchChatCompletion(
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + kbContext + studentBlock + coachBlock + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang) + jevHint, feature: "chat", stream: false }
+      );
+      /* One full resilience pass: streaming → silent streaming retry on a
+         transient blip → non-streaming JSON. Three transports because the
+         failures happen on the last leg (the phone's own connection) or as
+         a "successful" stream that carries zero content (a reasoning model
+         can burn the server's whole token budget thinking and stream
+         nothing). An abort (silence) skips the second streaming try —
+         waiting twice for a dead connection helps nobody. */
+      const oneRound = async () => {
+        try {
+          const a = await runStream();
+          if (a.trim()) return a;
+        } catch (e1) {
+          if (isAbort(e1) || latest.trim()) {
+            // abort/mid-stream: JSON only, no double wait on a dead connection
+            return await runJson();
+          }
+        }
+        if (latest.trim()) return latest;
+        // transient blip: one silent streaming retry, then JSON as the net
+        try {
+          await new Promise(r => setTimeout(r, 800));
+          const a2 = await runStream();
+          if (a2.trim()) return a2;
+        } catch (e2) { /* fall through to JSON */ }
+        return await runJson(); // final transport; a throw here → caller's catch
+      };
+      try {
+        acc = await oneRound();
+      } catch (round1Err) {
+        /* Round 1 (all three transports) failed — almost always the phone's
+           own connection dipping rather than the service being down. Showing
+           the error now wastes a perfectly retryable failure, so: brief
+           backoff, one full second round, and a visible "still connecting,
+           retrying automatically" note on the empty bubble so the long wait
+           reads as progress, not a hang. Round 2 only runs while nothing has
+           reached the bubble; anything partial goes to the error path below. */
+        if (!latest.trim()) {
+          // (haveBubble false here means not even the response headers ever
+          // arrived — the pure "never connected" case worth retrying whole.)
+          setMsgs(prev => {
+            const copy = prev.slice();
+            for (let i = copy.length - 1; i >= 0; i--) {
+              if (copy[i].role === "ai" && !String(copy[i].text || "").trim()) {
+                copy[i] = { ...copy[i], text: "", retrying: true };
+                break;
+              }
+            }
+            return copy;
+          });
+          setSlow(true);
+          await new Promise(r => { retryHintT = r; setTimeout(r, 4000); });
+          acc = await oneRound();
+        } else {
+          throw round1Err;
+        }
+      }
       if (pendingFlush) clearTimeout(pendingFlush);
+      setSlow(false);
       latest = acc;
+      // the JSON fallback can succeed without any streaming attempt reaching
+      // the response — make sure a bubble exists before filling it
+      if (acc.trim() && !haveBubble) {
+        setMsgs(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) return prev;
+          return [...prev, { role: "ai", text: "" }];
+        });
+      }
       flush(); // final flush with the complete text
 
       if (acc.trim()) {
         handleAIReply(acc);
       } else {
-        // nothing streamed back — surface a friendly error in the empty bubble
+        // nothing streamed back — friendly error in the empty bubble, with
+        // error:true so the UI renders the one-tap retry button on it
         setMsgs(prev => {
           const copy = prev.slice();
           for (let i = copy.length - 1; i >= 0; i--) {
-            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text: lc.chatErr }; break; }
+            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text: lc.chatErr, error: true }; break; }
           }
           return copy;
         });
@@ -216,13 +378,47 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
       setLoading(false);
     } catch (e) {
       console.error("Chat error:", e);
-      // never surface the raw provider error (401/429 JSON) — friendly copy only
-      setMsgs(prev => [...prev, { role: "ai", text: lc.chatErr }]);
+      if (retryHintT) clearTimeout(retryHintT);
+      /* Two fixes in here. First, the message: an aborted request is a slow
+         CONNECTION, not a busy AI, and telling somebody on weak mobile data
+         that the service is busy sends them away to wait for something that
+         will never change. Second, the bubble: onStart already inserted an
+         empty one, and appending a second left the empty one orphaned above
+         the error — which is the doubled "TIGA CHAT" bubble in the report.
+         Fill the empty bubble if there is one, append only if there is not. */
+      const aborted = (e && (e.name === "AbortError" || /abort/i.test(String(e.message || ""))));
+      const text = aborted ? lc.chatSlow : lc.chatErr;
+      setSlow(false);
+      setMsgs(prev => {
+        const copy = prev.slice();
+        const last = copy[copy.length - 1];
+        if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) {
+          copy[copy.length - 1] = { ...last, text, error: true };
+          return copy;
+        }
+        return [...copy, { role: "ai", text, error: true }];
+      });
       setLoading(false);
     } finally {
       streamingRef.current = false;
     }
   }
+  callClaudeRef.current = callClaude; // keeps retryLast off a stale closure (see refs above)
+
+  // One-tap retry on a failed bubble: resend the exact question that just
+  // failed (lastAskRef) without retyping it. The old error bubble is removed
+  // first so the visible story is "question → (empty, thinking) → answer";
+  // callClaude's empty-bubble handling then fills/reuses correctly.
+  const retryLast = useCallback(() => {
+    const t = lastAskRef.current;
+    if (!t || streamingRef.current || loading) return;
+    setMsgs(prev => {
+      const last = prev[prev.length - 1];
+      if (last && last.role === "ai" && last.error) return prev.slice(0, -1);
+      return prev;
+    });
+    callClaudeRef.current && callClaudeRef.current(t);
+  }, [loading]);
 
   function send() {
     const t = input.trim();
@@ -243,14 +439,17 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
     if (faq) {
       topicHint.current = LESSON_MODE; // curated reading content — don't auto-detect notes from it
       setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
-      gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
-    } else if (!requireLogin("ai")) {
-      gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
-      // tier 2a: Jev pre-check (chat-precheck task) — fast structured classification
-      // BEFORE the LLM. Spam ≥0.9 gets a gentle local refusal with no LLM spend;
-      // everything else flows to the LLM with tone/intent hints attached. A
-      // disabled/slow/failed pre-check falls straight through to the LLM —
-      // identical behavior to before Jev existed.
+      payForAsk(); // reward engaging with the AI sensei
+    } else if (requireLogin("ai")) {
+      // not signed in — requireLogin already showed the gate
+    } else if (canUseChat(premium)) {
+      lastAskRef.current = t; // remembered for the failed-bubble retry button
+      bumpChatUsage();
+      // tier 2a: Jev pre-check (chat-precheck task) — fast structured
+      // classification BEFORE the LLM. Spam ≥0.9 gets a gentle local refusal
+      // with no LLM spend; everything else flows to the LLM with tone/intent
+      // hints attached. A disabled/slow/failed pre-check falls straight
+      // through to the LLM — identical behavior to before Jev existed.
       jevPrecheck(t).then(pc => {
         if (pc && pc.spam != null && pc.spam >= 0.9) {
           const refuse = lang === "th" ? "ขอโทษนะ ฉันช่วยเรื่องการเรียนเปียโนได้อย่างเดียวเลย ลองถามเรื่องการซ้อม ทฤษฎีดนตรี หรือเพลงดูสิ 🎹"
@@ -263,5 +462,44 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
       }).catch(() => callClaude(t));
     }
   }
-  return { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, callClaude, pushMessage, setLessonContext };
+
+  /* Asking a real question is worth coins as well as EXP, so the chat is a
+     place you can earn rather than only spend attention. Capped daily
+     (EARN_CAP.chat): one question deserves a reward, a hundred in a row is a
+     coin printer, and an uncapped chat reward would quietly devalue every
+     price in the shop. */
+  function payForAsk() {
+    gainExp(EXP.ask, { quest: true });
+    if (earnCoins && takeEarn("chat")) earnCoins(EARN.chat);
+  }
+
+  // Same two-tier pipeline as send(), for callers that already know exactly
+  // what to ask (the "Ask TIGA about this" buttons on struggle callouts
+  // elsewhere in the app) instead of routing through the typed input box.
+  function askDirect(text) {
+    const t = String(text || "").trim();
+    if (!t || loading || streamingRef.current) return;
+    topicHint.current = null;
+    lessonKey.current = null;
+    setInput("");
+    setMsgs(prev => [...prev, { role: "user", text: t }]);
+    playPianoNote("C5", 0.1);
+    const faq = matchFaqTopic(t, lang);
+    if (faq) {
+      topicHint.current = LESSON_MODE;
+      setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
+      payForAsk();
+    } else if (requireLogin("ai")) {
+      // not signed in — requireLogin already showed the gate
+    } else if (canUseChat(premium)) {
+      lastAskRef.current = t;
+      bumpChatUsage();
+      callClaude(t);
+      payForAsk();
+    } else {
+      setMsgs(prev => [...prev, { role: "ai", text: lc.freeChatCapped || "🔒 You've used all 5 free AI-tutor messages for today. Upgrade to Premium for unlimited AI tutoring!", upsell: true }]);
+      if (onUpsell) onUpsell();
+    }
+  }
+  return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, retryLast, callClaude, pushMessage, setLessonContext };
 }

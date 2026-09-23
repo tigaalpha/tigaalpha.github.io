@@ -26,9 +26,12 @@ export const CHAT_MODELS: ChatModelOption[] = [
   { id: "gpt", label: "ChatGPT 5.1", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
   { id: "qwen", label: "Qwen3 Max", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
   { id: "kimi", label: "Kimi K2", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
-  { id: "glm", label: "GLM 4.6", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
+  { id: "glm", label: "GLM 5.1", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
+  { id: "glm52", label: "GLM 5.2", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
   { id: "grok", label: "Grok", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
   { id: "deepseek", label: "DeepSeek V4 Flash", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
+  { id: "deepseek-v3-free", label: "DeepSeek V3 (ฟรี)", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
+  { id: "mimo", label: "MiMo 7B RL (Xiaomi)", statusKey: "openrouter", ...OPENROUTER_SIGNUP },
 ];
 
 export const DEFAULT_CHAT_MODEL_ID = "gemini";

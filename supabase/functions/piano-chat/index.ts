@@ -1,15 +1,9 @@
 // piano-chat — Supabase Edge Function (Deno)
 //
-// ⚠️ IMPORTANT CONTEXT FOR WHOEVER DEPLOYS THIS:
-// This file was written WITHOUT read access to the currently-deployed
-// piano-chat function (Supabase MCP access wasn't available in this session).
-// It's a from-scratch reconstruction, built strictly from the wire contract
-// the CLIENT (App.tsx) actually sends/expects — verified line-by-line against
-// the real client code, not guessed. Before replacing your live function with
-// this: diff it against what's currently deployed and confirm nothing you
-// depend on (extra logging, rate limiting, a different default model, etc.)
-// gets silently dropped. Treat this as a reference implementation to merge
-// from, not a blind swap.
+// This file IS the deployed function — deploy from here. (It began as a
+// reconstruction from the client's wire contract, written without read access
+// to the live copy; on 2026-09-10 the live copy was read back, confirmed to
+// match, and this has been the source of truth since.)
 //
 // WIRE CONTRACT (confirmed from App.tsx):
 //   Request:  POST { message: string, conversationHistory: {role,content}[], system: string, stream?: boolean, feature?: string }
@@ -29,11 +23,11 @@
 //               coach (feature "camera"), the admin slip-reader ("slip-check")
 //               and the admin "Teach AI" tab ("admin-chat", which needs
 //               Anthropic's web_search tool + vision image blocks). The
-//               provider is resolved per-feature too: anthropic and gemini are
-//               both supported (vision); deepseek has no vision models, so a
-//               deepseek choice on one of these falls back to the default.
-//               admin-chat is locked to Anthropic because its web_search tool
-//               only exists there.
+//               provider is resolved per-feature too: Anthropic, Gemini and the
+//               one image-reading OpenRouter rung are supported; anything that
+//               cannot see (DeepSeek, the text-only free rungs) falls back to
+//               the default. admin-chat is locked to Anthropic because its
+//               web_search tool only exists there.
 //   Response (stream, default): text/event-stream-shaped body where each
 //             line is `data: {"content":"<token text>"}`, client also
 //             tolerates a trailing `data: [DONE]`. Provider failures are
@@ -41,8 +35,9 @@
 //             the client can show a friendly localized message.
 //   Response (stream:false): `{ "text": "<full reply>" }`.
 //   Response (raw passthrough): Anthropic's own Messages API JSON, unchanged
-//             (client reads `data.content` blocks itself) — Gemini raw replies
-//             are normalized to that same `{content:[{type:"text",...}]}` shape.
+//             (client reads `data.content` blocks itself) — Gemini and
+//             OpenRouter raw replies are normalized to that same
+//             `{content:[{type:"text",...}]}` shape.
 //
 // PER-FEATURE MODEL SELECTION (this file's reason for existing):
 //   Reads an admin-configurable app_settings row (key "ai_models", value
@@ -53,15 +48,30 @@
 //     built-in default (Anthropic Claude Sonnet). No client change, no
 //   redeploy needed to switch models: flip it in /admin → AI Models, it
 //   applies to the very next request of that feature.
+//   NOTE: the app_settings read below runs as the CALLER. The table's read
+//   policy is granted to `authenticated` only, so a real signed-in learner
+//   sees the admin's choices while an anon-key caller reads zero rows and
+//   silently gets the built-in defaults. Anything probing this function with
+//   the anon key is therefore NOT testing the configured models.
 //
 // ENV VARS THIS FUNCTION NEEDS (set via `supabase secrets set`):
-//   ANTHROPIC_API_KEY   — required for Anthropic (the default).
+//   ANTHROPIC_API_KEY   — the built-in default and the ONLY provider the admin
+//                         "Teach AI" tab can use. As of 2026-09-11 this is NOT
+//                         set on this project: api.anthropic.com answers
+//                         401 "x-api-key header is required", so Teach AI is
+//                         dead until a key is added and every other feature
+//                         runs on the free ladder below.
 //   GEMINI_API_KEY      — for Gemini options. https://aistudio.google.com/apikey
 //   DEEPSEEK_API_KEY    — for DeepSeek V4 options (direct API). https://platform.deepseek.com
-//   OPENROUTER_API_KEY  — for DeepSeek V4 via OpenRouter (flat price, no peak
-//                         surcharge, often 2-6x cheaper than direct — the
-//                         admin "AI Models" panel can route any chat-type
-//                         feature to either). https://openrouter.ai/keys
+//   OPENROUTER_API_KEY  — routes any chat-type feature through OpenRouter and
+//                         is what makes the free tier possible. NOTE: OpenRouter
+//                         RETIRES free routes without notice — on 2026-09-10 it
+//                         dropped the free DeepSeek V3 route every feature here
+//                         was pointed at, and as of that date lists no free
+//                         DeepSeek route at all. Free ids therefore live in
+//                         FREE_LADDER below and are walked in order, so a
+//                         retirement costs a moment rather than the feature.
+//                         https://openrouter.ai/keys
 //   SUPABASE_URL / SUPABASE_ANON_KEY — auto-injected by the Supabase
 //                         runtime for every edge function, nothing to set.
 
@@ -79,7 +89,48 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const DEFAULT_MODEL = { provider: "anthropic", model: "claude-sonnet-4-6" };
+/* Free OpenRouter routes, best first. This order is the SAME ranking the admin
+   AI-Models page shows the owner (see AI_PROVIDERS in AdminAIModels.tsx), so
+   what the automatic fallback does and what the panel advertises cannot drift
+   apart. It came from a live bake-off on 2026-09-10: every free route in
+   OpenRouter's catalogue was sent one real task from this app — a Thai child
+   asking why her right hand loses the beat once the left hand joins, under the
+   TIGA tutor system prompt — and judged on Thai that reads like a teacher,
+   obeying "exactly 3 numbered steps", context, and schema-clean JSON.
+
+   That check is also why the list exists at all: the previous default was
+   "deepseek/deepseek-chat-v3-0324:free", which OpenRouter had RETIRED, and as
+   of that date it lists no free DeepSeek route at all — so "free DeepSeek"
+   cannot be honoured by any spelling.
+
+   One deliberate difference from the displayed ranking: "openrouter/free" is
+   shown 4th but sits LAST here. As a primary it is a mediocre pick because it
+   answers from a random free model each call and the teacher's voice drifts;
+   as the final rung it is the best possible one, because it is a router over
+   whatever is free that day and so cannot itself go missing. */
+const FREE_LADDER = [
+  "nvidia/nemotron-3-super-120b-a12b:free",  // #1 smartest, holds the persona
+  "nex-agi/nex-n2.5-pro:free",               // #2 warm Thai, JSON, vision
+  "google/gemma-4-26b-a4b-it:free",          // #3 fastest, cleanest formatting
+  "nvidia/nemotron-3.5-lightning:free",      // #5 1M context, fast
+  "openrouter/free",                         // #4 shown, last here — see above
+];
+// Built-in default for the student chat feature ("chat") ONLY — owner request
+// 2026-09: TIGA Chat runs free, every other feature keeps the Anthropic
+// default. An admin ai_models["chat"] choice always overrides this; it only
+// decides what happens while that row is empty.
+const CHAT_DEFAULT_MODEL = { provider: "openrouter", model: FREE_LADDER[0] };
+// Last resort once EVERY free rung is gone: the cheapest paid route on the
+// same key. Deliberately at the end of the chain rather than second — see
+// providerChain.
+const CHAT_SECOND_CHOICE = { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
 const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"; // used when the active provider's key is missing
+// The one free rung that can actually see an image. The camera coach and the
+// slip reader fall back to it when the paid/quota'd vision providers are gone —
+// a blind rung would answer confidently about a picture it never received. It
+// is also what the admin panel offers as the free choice for those two
+// features (VISION_MODELS in AdminAIModels.tsx — keep the two in step).
+const VISION_FREE_MODEL = "nex-agi/nex-n2.5-pro:free";
 const MAX_TOKENS = 1500;
 // DeepSeek V4 Pro is a reasoning model — its chain-of-thought consumes part of
 // the token budget, so give it more room than the 1500 used elsewhere or a long
@@ -95,18 +146,44 @@ const hasKey = (p: string) =>
   : !!ANTHROPIC_API_KEY;
 
 // A provider whose API key is not configured can never succeed — silently route
-// to one that IS configured (Anthropic ↔ Gemini ↔ DeepSeek ↔ OpenRouter) instead
+// to one that IS configured (Anthropic ↔ OpenRouter ↔ Gemini ↔ DeepSeek) instead
 // of 401/403-ing the learner's every message. Keeps the chat alive when the
 // admin panel points at a provider whose key is missing/expired, or when a key
 // gets revoked mid-flight.
+//
+// OpenRouter sits ahead of Gemini here on purpose. Gemini's free tier is capped
+// PER DAY: once a project spends it, every Gemini call answers 429 until the
+// window rolls over, so preferring it means the reroute lands on a provider
+// that is reliably dead for the rest of the day. Confirmed live 2026-09-11 —
+// with no Anthropic key configured, every feature that fell back this way was
+// answering "Gemini 429: You exceeded your current quota". The OpenRouter free
+// ladder is this app's designated free tier and is rate-limited per hour, not
+// spent for the day, so it is the fallback that actually answers the learner.
 function effective(choice: { provider: string; model: string }): { provider: string; model: string } {
   if (!hasKey(choice.provider)) {
     if (ANTHROPIC_API_KEY) return { provider: "anthropic", model: DEFAULT_MODEL.model };
+    if (OPENROUTER_API_KEY) return { provider: "openrouter", model: FREE_LADDER[0] };
     if (GEMINI_API_KEY) return { provider: "gemini", model: GEMINI_FALLBACK_MODEL };
     if (DEEPSEEK_API_KEY) return { provider: "deepseek", model: "deepseek-v4-flash" };
-    if (OPENROUTER_API_KEY) return { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
   }
   return choice;
+}
+
+// The ordered provider/model chain for one request: the admin's (or built-in)
+// choice first, then every OTHER provider with a configured key.
+function providerChain(primary: { provider: string; model: string }, _feature: string): Array<{ provider: string; model: string }> {
+  const rest = nextProvidersWithKey(primary.provider).map((p) => ({ provider: p, model: defaultModelFor(p) }));
+  /* A free route's next hop has to be another FREE route on the same key.
+     Hopping straight to the paid one — which is what this did — means choosing
+     "free" quietly starts billing the moment the free side hiccups, which is
+     the opposite of what choosing it asked for. Walk the rest of the ladder
+     first; the paid rung stays, but at the END, after free is exhausted. */
+  if (primary.provider === "openrouter" && isFreeRoute(primary.model)) {
+    const rungs = FREE_LADDER.filter((m) => m !== primary.model).map((m) => ({ provider: "openrouter", model: m }));
+    const paid = hasKey(CHAT_SECOND_CHOICE.provider) ? [CHAT_SECOND_CHOICE] : [];
+    return [primary, ...rungs, ...paid, ...rest];
+  }
+  return [primary, ...rest];
 }
 
 // Built-in model id for a provider (used when falling back away from the admin's
@@ -114,14 +191,17 @@ function effective(choice: { provider: string; model: string }): { provider: str
 function defaultModelFor(p: string): string {
   return p === "gemini" ? GEMINI_FALLBACK_MODEL
     : p === "deepseek" ? "deepseek-v4-flash"
-    : p === "openrouter" ? "deepseek/deepseek-v4-flash"
+    : p === "openrouter" ? FREE_LADDER[0]   // free rung, never bill by accident
     : DEFAULT_MODEL.model;
 }
 
 // Providers that have a usable key, in the built-in preference order — this is
 // the auth-failure fallback chain (see isAuthError / withAuthFallback).
+// OpenRouter before Gemini for the reason given on effective(): a spent Gemini
+// day-quota is dead until the window rolls over, so trying it first only costs
+// the learner a round-trip.
 function nextProvidersWithKey(exclude: string): string[] {
-  return ["anthropic", "gemini", "deepseek", "openrouter"].filter((p) => p !== exclude && hasKey(p));
+  return ["anthropic", "openrouter", "gemini", "deepseek"].filter((p) => p !== exclude && hasKey(p));
 }
 
 // A key that is present but invalid/expired answers 401/403 — treat those as
@@ -131,12 +211,57 @@ function nextProvidersWithKey(exclude: string): string[] {
 function isAuthError(msg: string): boolean {
   return /(401|403|unauthorized|authentication|invalid api key|not authorized|permission denied|api key|credential)/i.test(msg);
 }
+/* ── free routes are rate-limited, not billed ──
+   OpenRouter's ":free" models answer 429 once the hour's free quota is spent.
+   For a PAID model a 429 is a real problem the admin should see, which is why
+   quota errors normally surface as-is. For a free one it is the expected
+   steady state, and the whole appeal of picking it — no cost — evaporates if
+   choosing it means the chat dies whenever the quota runs out. So a 429 from
+   a free route is treated exactly like an auth failure: move quietly to the
+   next configured provider and answer the learner. */
+const isFreeRoute = (model: string) =>
+  /:free$/i.test(model || "") || model === "openrouter/free";
+function isRateLimit(msg: string): boolean {
+  return /(429|rate.?limit|too many requests|quota)/i.test(msg);
+}
+/* ── a route that no longer exists ──
+   OpenRouter RETIRES free routes. On 2026-09-10 every feature was pointed at
+   "deepseek/deepseek-chat-v3-0324:free" and OpenRouter had removed it:
+     404 "This model is unavailable for free. The paid version is available
+          now - use this slug instead: deepseek/deepseek-chat-v3-0324"
+   isTransient below happens to catch that on the word "unavailable", but only
+   by accident and with the wrong meaning: retirement is permanent, so the hop
+   must go to another FREE rung rather than being retried as a blip. Naming the
+   case keeps the log honest about why the chain moved. */
+function isDeadRoute(msg: string): boolean {
+  return /(\b404\b|no endpoints found|not a valid model|model not found|unavailable for free|deprecated)/i.test(msg);
+}
+/* ── transient failures are invisible to the learner, so fall through ──
+   2026-09-10 live probe of the then-deployed function: a TIGA Chat request
+   died with `Gemini 503: high demand` while other providers sat unused — the
+   chain only hopped on auth errors and free-route 429s, so ONE provider's
+   outage was a TOTAL outage for the learner (the recurring "AI asks but never
+   answers" report). A provider-side outage (5xx family: "overloaded", "high
+   demand", "service unavailable", "try again later") or an account wall the
+   learner cannot fix (OpenRouter 402 "Insufficient credits") is not their
+   problem to see: hop to the next configured provider instead. A PAID model's
+   429 still surfaces as-is (isRateLimit is deliberately NOT folded in here) —
+   that is the one failure the admin genuinely needs to notice. Mid-stream
+   failures still throw: a half-spliced answer would be worse than an error. */
+function isTransient(msg: string): boolean {
+  // "try again later" is deliberately NOT matched: a paid model's 429 often
+  // carries that phrase, and hopping on it would contradict the rule above
+  // that a paid 429 must surface so the admin sees real quota exhaustion.
+  return /(\b5\d\d\b|internal server error|service unavailable|overloaded|high demand|bad gateway|gateway timeout|temporarily unavailable|unavailable)/i.test(msg)
+    || /(402|insufficient (credits|funds|balance)|credit balance|out of credits)/i.test(msg);
+}
 function effectiveDefault(): { provider: string; model: string } {
   return effective(DEFAULT_MODEL);
 }
 
 // ── which provider/model a given FEATURE should use right now ──
-// Resolution: ai_models[feature] → ai_models["default"] → legacy ai_model → built-in default.
+// Resolution: ai_models[feature] → ai_models["default"] → legacy ai_model → built-in default
+// (the built-in default is the free ladder's top rung for "chat", Anthropic for everything else).
 async function resolveActiveModel(authHeader: string | null, feature: string): Promise<{ provider: string; model: string }> {
   const pick = (map: Record<string, any>, key: string) => {
     const v = map && map[key];
@@ -162,7 +287,7 @@ async function resolveActiveModel(authHeader: string | null, feature: string): P
       if (l) return l;
     }
   } catch (_e) { /* fall through to default */ }
-  return effectiveDefault();
+  return feature === "chat" ? effective(CHAT_DEFAULT_MODEL) : effectiveDefault();
 }
 
 // ── SSE helpers: every provider's raw stream gets normalized to this ──
@@ -280,7 +405,7 @@ async function callGeminiOnce(model: string, system: string, contents: any[]): P
   const body: any = { contents, generationConfig: { maxOutputTokens: MAX_TOKENS } };
   if (system) body.systemInstruction = { parts: [{ text: system }] };
   const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text().catch(() => "")).slice(0, 900)}`);
   const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts;
   return Array.isArray(parts) ? parts.map((p: any) => p.text || "").join("") : "";
@@ -355,12 +480,10 @@ async function callDeepSeekOnce(model: string, system: string, messages: ChatMsg
   return data?.choices?.[0]?.message?.content || "";
 }
 
-// ── OpenRouter (OpenAI-compatible API, streaming) — DeepSeek V4 via the
-// OpenRouter router. Same wire shape as DeepSeek direct; the model id is the
-// OpenRouter route id (e.g. "deepseek/deepseek-v4-flash"). Flat pricing — no
-// DeepSeek peak/off-peak split, and third-party fp8 routes make it 2-6x
-// cheaper than the direct API for the same model family. X-Title identifies
-// the app in the OpenRouter dashboard.
+// ── OpenRouter (OpenAI-compatible API, streaming) — same wire shape as DeepSeek
+// direct; the model id is the OpenRouter route id (a FREE_LADDER rung, or a
+// paid id like "deepseek/deepseek-v4-flash"). X-Title names the app in the
+// OpenRouter dashboard.
 async function* streamOpenRouter(model: string, system: string, messages: ChatMsg[]): AsyncGenerator<string> {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -406,6 +529,11 @@ async function* streamOpenRouter(model: string, system: string, messages: ChatMs
 }
 
 // ── OpenRouter (non-streaming, for stream:false) ──
+// `reasoning: { exclude: true }` matters here in a way it does not on the
+// streaming path: every free rung is a reasoning model, and on a single-shot
+// call they will happily spend the whole token budget thinking and return
+// `content: ""`. That is what silently broke coach-tip / weekly-report /
+// practice-plan — the three features that ask for strict JSON with stream:false.
 async function callOpenRouterOnce(model: string, system: string, messages: ChatMsg[]): Promise<string> {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -418,6 +546,7 @@ async function callOpenRouterOnce(model: string, system: string, messages: ChatM
       model,
       max_tokens: DEEPSEEK_MAX_TOKENS,
       stream: false,
+      reasoning: { exclude: true },
       messages: [
         ...(system ? [{ role: "system", content: system }] : []),
         ...messages,
@@ -426,7 +555,14 @@ async function callOpenRouterOnce(model: string, system: string, messages: ChatM
   });
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
   const data = await res.json();
-  return data?.choices?.[0]?.message?.content || "";
+  const m = data?.choices?.[0]?.message;
+  const out = m?.content || "";
+  if (out.trim()) return out;
+  // Some rungs ignore the exclude flag and put the whole answer in the thinking
+  // field anyway — an answer in the wrong field still beats a blank reply.
+  const think = m?.reasoning || m?.reasoning_content || "";
+  if (think.trim()) { console.error(`[piano-chat] ${model} put its whole answer in reasoning, using that`); return think; }
+  return "";
 }
 
 // ── auth-failure fallback (see isAuthError) ──
@@ -441,45 +577,91 @@ function mkStream(p: string, m: string, system: string, full: ChatMsg[]): AsyncG
 // Streaming with auth fallback: a 401/403 on the FIRST token switches to the
 // next provider with a configured key; a mid-stream failure is never spliced
 // across providers (would corrupt the partial reply already sent).
-async function* withAuthFallback(entries: Array<{ provider: string; gen: AsyncGenerator<string> }>): AsyncGenerator<string> {
+async function* withAuthFallback(entries: Array<{ provider: string; model?: string; gen: AsyncGenerator<string> }>): AsyncGenerator<string> {
+  /* What the chain reports when EVERY rung fails. It used to rethrow whichever
+     error came last, which meant the admin was shown the final fallback's
+     complaint — "Gemini 429" — no matter what the provider they actually chose
+     had said. That is worse than useless: it sent this very investigation
+     chasing a Gemini quota that was not the problem. Keep the FIRST failure
+     (the chosen provider's) and list what else was tried. */
+  const tried: string[] = [];
+  let firstErr: Error | null = null;
+  const exhausted = () =>
+    new Error(`all providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]`);
   for (let i = 0; i < entries.length; i++) {
     let yielded = false;
     try {
       for await (const piece of entries[i].gen) { yielded = true; yield piece; }
-      return;
+      /* A provider can answer 200 and stream NOTHING (a reasoning model that
+         burned its budget thinking) — the client used to rescue this with its
+         own second round, doubling the wait. Empty stream + more chain left →
+         try the next provider here, where it costs nothing. */
+      if (yielded) return;
+      tried.push(`${entries[i].provider}/${entries[i].model}: empty`);
+      if (!firstErr) firstErr = new Error(`${entries[i].provider}/${entries[i].model} streamed zero content`);
+      if (i < entries.length - 1) console.error(`[piano-chat] ${entries[i].provider}/${entries[i].model} streamed zero content -> trying ${entries[i + 1].provider}/${entries[i + 1].model}`);
+      continue;   // last rung falls out of the loop into exhausted() below
     } catch (e) {
       if (yielded) throw e;
       const msg = (e as Error)?.message || "";
-      if (isAuthError(msg) && i < entries.length - 1) {
-        console.error(`[piano-chat] ${entries[i].provider} auth failed (${msg.slice(0, 120)}), falling back to ${entries[i + 1].provider}`);
+      const m = entries[i].model || "";
+      tried.push(`${entries[i].provider}/${m}: ${msg.slice(0, 60)}`);
+      if (!firstErr) firstErr = e as Error;
+      const freeExhausted = isFreeRoute(m) && isRateLimit(msg);
+      const dead = isDeadRoute(msg);
+      const transient = isTransient(msg);
+      if ((isAuthError(msg) || freeExhausted || dead || transient) && i < entries.length - 1) {
+        const why = dead ? "route retired" : freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed";
+        console.error(`[piano-chat] ${entries[i].provider}/${m} ${why} (${msg.slice(0, 160)}) -> trying ${entries[i + 1].provider}/${entries[i + 1].model}`);
         continue;
       }
-      throw e;
+      // the chosen provider's own failure is the one worth surfacing
+      throw i === 0 ? e : exhausted();
     }
   }
+  throw exhausted();
 }
 
 // Non-streaming twin of withAuthFallback.
-async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[]): Promise<string> {
-  const chain = [{ provider, model }, ...nextProvidersWithKey(provider).map((p) => ({ provider: p, model: defaultModelFor(p) }))];
+async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[], feature = ""): Promise<string> {
+  const chain = providerChain({ provider, model }, feature);
+  const tried: string[] = [];
+  let firstErr: Error | null = null;
+  const exhausted = () =>
+    new Error(`all providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]`);
   for (let i = 0; i < chain.length; i++) {
     const c = chain[i];
     try {
-      return c.provider === "gemini"
+      const text = c.provider === "gemini"
         ? await callGeminiOnce(c.model, system, toGeminiContents(full.slice(0, -1), full[full.length - 1]?.content || ""))
         : c.provider === "deepseek" ? await callDeepSeekOnce(c.model, system, full)
         : c.provider === "openrouter" ? await callOpenRouterOnce(c.model, system, full)
         : await callAnthropicOnce(c.model, system, full);
+      // same empty-reply rule as the streaming path: try the next provider
+      // rather than returning a blank the client has to rescue
+      if (text.trim()) return text;
+      tried.push(`${c.provider}/${c.model}: empty`);
+      if (!firstErr) firstErr = new Error(`${c.provider}/${c.model} returned zero content`);
+      if (i < chain.length - 1) console.error(`[piano-chat] ${c.provider}/${c.model} returned zero content -> trying ${chain[i + 1].provider}/${chain[i + 1].model}`);
+      continue;   // last rung falls out of the loop into exhausted() below
     } catch (e) {
       const msg = (e as Error)?.message || "";
-      if (isAuthError(msg) && i < chain.length - 1) {
-        console.error(`[piano-chat] ${c.provider} auth failed (${msg.slice(0, 120)}), falling back to ${chain[i + 1].provider}`);
+      tried.push(`${c.provider}/${c.model}: ${msg.slice(0, 60)}`);
+      if (!firstErr) firstErr = e as Error;
+      // same rule as the streaming path: a spent free quota is not an error,
+      // and neither is a provider outage or an out-of-credits wall
+      const freeExhausted = isFreeRoute(c.model) && isRateLimit(msg);
+      const dead = isDeadRoute(msg);
+      const transient = isTransient(msg);
+      if ((isAuthError(msg) || freeExhausted || dead || transient) && i < chain.length - 1) {
+        const why = dead ? "route retired" : freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed";
+        console.error(`[piano-chat] ${c.provider}/${c.model} ${why} (${msg.slice(0, 160)}) -> trying ${chain[i + 1].provider}/${chain[i + 1].model}`);
         continue;
       }
-      throw e;
+      throw i === 0 ? e : exhausted();
     }
   }
-  throw new Error("no provider available");
+  throw exhausted();
 }
 
 Deno.serve(async (req: Request) => {
@@ -493,7 +675,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     // ── raw passthrough (camera / slip-check / admin Teach AI) — provider
-    // resolved per feature; deepseek falls back (no vision); admin-chat stays Anthropic ──
+    // resolved per feature; anything blind falls back; admin-chat stays Anthropic ──
     if (Array.isArray(body.messages)) {
       return await handleRawPassthrough(body, authHeader, feature);
     }
@@ -511,26 +693,46 @@ Deno.serve(async (req: Request) => {
     const full = [...conversationHistory, { role: "user", content: message }];
 
     if (!wantStream) {
-      const text = await callWithAuthFallback(provider, model, system, full);
+      const text = await callWithAuthFallback(provider, model, system, full, feature);
       return json({ text });
     }
 
-    // Chain: the admin's choice first, then every provider with a configured
-    // key — a 401/403 on the first token hops down the chain automatically.
-    const chain = [{ provider, model }, ...nextProvidersWithKey(provider).map((p) => ({ provider: p, model: defaultModelFor(p) }))];
-    const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, gen: mkStream(c.provider, c.model, system, full) })));
+    // Chain: the admin's (or built-in) choice first, then the rest of the free
+    // ladder if that choice was free, then the paid rung, then every other
+    // provider with a key. Auth failures, spent free quotas, retired routes and
+    // provider outages all hop down it automatically.
+    const chain = providerChain({ provider, model }, feature);
+    const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, model: c.model, gen: mkStream(c.provider, c.model, system, full) })));
 
     const stream = new ReadableStream({
       async start(controller) {
         const enc = new TextEncoder();
+        /* ── keep-alive ──
+           A provider thinking about its first token sends nothing, and the
+           client cannot tell that apart from a dead connection: its stall
+           watchdog was aborting perfectly healthy requests and the learner
+           was told the AI was busy. A comment line is valid SSE that every
+           parser ignores, but it IS a read on the client, which is what
+           resets that watchdog. Sent whenever the stream has been silent for
+           a few seconds — before the first token and between later ones, so
+           a slow reasoning model is never mistaken for a hung one. */
+        let lastSent = Date.now();
+        const ping = setInterval(() => {
+          if (Date.now() - lastSent < 4000) return;
+          try { controller.enqueue(enc.encode(": keep-alive\n\n")); lastSent = Date.now(); } catch (_e) {}
+        }, 2000);
         try {
-          for await (const piece of gen) controller.enqueue(enc.encode(sseChunk(piece)));
+          for await (const piece of gen) {
+            controller.enqueue(enc.encode(sseChunk(piece)));
+            lastSent = Date.now();
+          }
         } catch (e) {
           // Never stream raw provider errors into the chat — typed event instead
           // (see sseError above). Log server-side for diagnosis.
           console.error("[piano-chat] provider stream failed:", (e as Error).message);
           controller.enqueue(enc.encode(sseError((e as Error).message)));
         } finally {
+          clearInterval(ping);
           controller.enqueue(enc.encode(SSE_DONE));
           controller.close();
         }
@@ -545,8 +747,8 @@ Deno.serve(async (req: Request) => {
 });
 
 // ── raw passthrough: Anthropic-style body, per-feature provider ──
-//   "camera"/"slip-check" need vision → anthropic or gemini (deepseek has no
-//   vision, so a deepseek choice falls back to the default).
+//   "camera"/"slip-check" need vision → Anthropic, Gemini, or the one
+//   image-reading OpenRouter rung; anything blind falls back to the default.
 //   "admin-chat" needs Anthropic's web_search tool → always Anthropic (model ID
 //   still switchable among Anthropic models via ai_models).
 // Replies are normalized to Anthropic's {content:[{type:"text",...}]} JSON
@@ -570,25 +772,58 @@ async function handleRawPassthrough(body: any, authHeader: string | null, featur
     return json(data, res.status);
   }
 
-  // camera / slip-check — resolve the feature's model; deepseek/openrouter
-  // (the OpenRouter presets are DeepSeek V4 chat models) have no vision, so a
-  // choice there deterministically falls back to the Anthropic default (never
-  // routes a chat-model id into a vision call).
+  // camera / slip-check — resolve the feature's model. DeepSeek has no vision
+  // at all, and most OpenRouter rungs are text-only, so a choice that cannot
+  // see an image falls back rather than being sent a picture it will silently
+  // ignore. VISION_FREE_MODEL is the exception: it is an OpenRouter rung that
+  // genuinely reads images, and the admin panel offers it as the free
+  // camera-coach option, so it is honoured as picked.
   const cfg = await resolveActiveModel(authHeader, feature);
-  const { provider, model } = cfg.provider === "deepseek" || cfg.provider === "openrouter"
+  const canSee = cfg.provider !== "deepseek" && (cfg.provider !== "openrouter" || cfg.model === VISION_FREE_MODEL);
+  // Where a blind choice lands: Anthropic normally, but a keyless Anthropic can
+  // only 401, so prefer the free rung that can actually read the image.
+  const blindFallback = ANTHROPIC_API_KEY || !OPENROUTER_API_KEY
     ? { provider: "anthropic", model: DEFAULT_MODEL.model }
-    : cfg;
+    : { provider: "openrouter", model: VISION_FREE_MODEL };
+  const { provider, model } = canSee ? cfg : blindFallback;
 
-  if (provider === "gemini") {
+  // Walk the vision-capable providers instead of dying on the first one. The
+  // chat path has had a fallback ladder for a while; this path had none, so a
+  // single Gemini quota 429 reached the learner as a dead camera coach even
+  // though two other keys on this project can read an image perfectly well.
+  // Order: whatever the admin picked, then Anthropic, then the free rung, then
+  // Gemini (when it was not already first).
+  const chain: { provider: string; model: string }[] = [{ provider, model }];
+  if (provider !== "anthropic" && ANTHROPIC_API_KEY) chain.push({ provider: "anthropic", model: DEFAULT_MODEL.model });
+  if (OPENROUTER_API_KEY && !(provider === "openrouter" && model === VISION_FREE_MODEL)) chain.push({ provider: "openrouter", model: VISION_FREE_MODEL });
+  if (provider !== "gemini" && GEMINI_API_KEY) chain.push({ provider: "gemini", model: GEMINI_FALLBACK_MODEL });
+
+  const tried: string[] = [];
+  let firstErr: Error | null = null;
+  for (const step of chain) {
     try {
-      const text = await callGeminiRaw(model, body);
-      return json({ content: [{ type: "text", text }] });
+      const text = step.provider === "gemini"
+        ? await callGeminiRaw(step.model, body)
+        : step.provider === "openrouter"
+        ? await callOpenRouterRaw(step.model, body)
+        : await callAnthropicRaw(step.model, body);
+      if (text.trim()) return json({ content: [{ type: "text", text }] });
+      throw new Error("empty reply");
     } catch (e) {
-      return json({ error: (e as Error).message || "gemini raw failed" }, 502);
+      const err = e instanceof Error ? e : new Error(String(e));
+      tried.push(`${step.provider}/${step.model}: ${err.message.slice(0, 160)}`);
+      // Keep the FIRST failure — the chosen provider's — so the message names
+      // the provider the admin actually configured, not the last straw.
+      if (!firstErr) firstErr = err;
+      console.error(`[piano-chat] vision ${step.provider}/${step.model} failed: ${err.message.slice(0, 200)}`);
     }
   }
+  return json({ error: `all vision providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]` }, 502);
+}
 
-  // anthropic (default) — exact same call as before
+// One Anthropic vision call → the reply text (or throws). Lifted out of the old
+// inline fetch so the chain above can retry into it like any other rung.
+async function callAnthropicRaw(model: string, body: any): Promise<string> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -600,7 +835,46 @@ async function handleRawPassthrough(body: any, authHeader: string | null, featur
     }),
   });
   const data = await res.json().catch(() => ({}));
-  return json(data, res.status);
+  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${JSON.stringify(data?.error || data).slice(0, 300)}`);
+  const parts = data?.content;
+  return Array.isArray(parts) ? parts.filter((b: any) => b?.type === "text").map((b: any) => b.text || "").join("") : "";
+}
+
+// Same raw body, OpenRouter's OpenAI-shaped wire format: image blocks become
+// image_url data URIs and the system prompt becomes a leading system message.
+async function callOpenRouterRaw(model: string, body: any): Promise<string> {
+  const messages: any[] = (body.messages || []).map((m: any) => ({
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: (Array.isArray(m.content) ? m.content : [{ type: "text", text: m.content || "" }]).map((b: any) =>
+      b.type === "image"
+        ? { type: "image_url", image_url: { url: `data:${b.source?.media_type || "image/jpeg"};base64,${b.source?.data || ""}` } }
+        : { type: "text", text: b.text || "" }
+    ),
+  }));
+  if (body.system) messages.unshift({ role: "system", content: String(body.system) });
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "X-Title": "TIGA.AI",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: body.max_tokens || MAX_TOKENS,
+      stream: false,
+      reasoning: { exclude: true },
+      messages,
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  const data = await res.json();
+  const msg = data?.choices?.[0]?.message;
+  const out = msg?.content;
+  if (typeof out === "string" && out.trim()) return out;
+  // Reasoning models occasionally put the whole answer in the thinking field.
+  const think = msg?.reasoning || msg?.reasoning_content;
+  return typeof think === "string" ? think : "";
 }
 
 // Convert the Anthropic-style raw body (text + image content blocks) to a Gemini
@@ -619,7 +893,9 @@ async function callGeminiRaw(model: string, body: any): Promise<string> {
   if (body.system) g.systemInstruction = { parts: [{ text: body.system }] };
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${GEMINI_API_KEY}`;
   const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(g) });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  // 300 chars used to cut off Google's quota-metric name (the URLs in the
+  // message eat the budget), which is exactly the part that says WHICH limit.
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text().catch(() => "")).slice(0, 900)}`);
   const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts;
   return Array.isArray(parts) ? parts.map((p: any) => p.text || "").join("") : "";

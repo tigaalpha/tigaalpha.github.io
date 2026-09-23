@@ -794,7 +794,7 @@ export interface Database {
         Row: {
           id: string;
           channel: "website" | "youtube" | "facebook" | "tiktok" | "instagram" | "x";
-          metric: "followers" | "likes" | "views" | "shares" | "comments" | "saves" | "reposts";
+          metric: "followers" | "likes" | "views" | "shares" | "comments" | "saves" | "reposts" | "downloads";
           value: number;
           source: "auto" | "manual";
           captured_at: string;
@@ -802,7 +802,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["marketing_metric_snapshots"]["Row"]> & {
           channel: "website" | "youtube" | "facebook" | "tiktok" | "instagram" | "x";
-          metric: "followers" | "likes" | "views" | "shares" | "comments" | "saves" | "reposts";
+          metric: "followers" | "likes" | "views" | "shares" | "comments" | "saves" | "reposts" | "downloads";
           value: number;
           source: "auto" | "manual";
         };
@@ -1447,6 +1447,31 @@ export interface Database {
           entity_id: string | null;
           suggested_fix: string;
         }[];
+      };
+      // public.referral_stats() — added by supabase-referral-loop-migration.sql.
+      // Returns the full referral read-model (rows + totals) for the Referral
+      // Tracking page; null when the caller is not staff (RLS-style guard
+      // inside the SECURITY DEFINER function).
+      referral_stats: {
+        Args: Record<string, never>;
+        Returns: {
+          referrals: {
+            id: string;
+            code: string;
+            referrerName: string;
+            referrerPhone: string | null;
+            referredName: string;
+            referredPhone: string | null;
+            status: "code_shared" | "pending" | "trial" | "converted" | "rewarded";
+            createdAt: string;
+          }[];
+          totals: {
+            total: number;
+            attributed: number;
+            converted: number;
+            rewardsPending: number;
+          };
+        } | null;
       };
     };
     Enums: Record<string, never>;

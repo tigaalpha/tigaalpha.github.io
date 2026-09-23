@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { generate } from "./ai-provider.ts";
-import type { ChatMessage } from "./ai-types.ts";
+import type { ChatMessage, ToolDefinition } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
+import { CHIEF_OF_STAFF_SLUG, DELEGATE_TO_DEPARTMENT_TOOL, departmentBySlug, type DepartmentDef } from "./departments.ts";
 import { detectLanguage, LANG_INSTRUCTION } from "./chat-features.ts";
-import { AI_TOOLS, OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
+import { AI_TOOLS, OWNER_TOOLS, ALL_OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
 import { getLatestCompetitorContext } from "./competitor-context.ts";
 import { logAiUsage } from "./usage-logging.ts";
 import { cleanReplyText } from "./text-clean.ts";
@@ -13,6 +14,68 @@ import { refreshLeadScore } from "./lead-score-db.ts";
 
 const MAX_TOOL_ITERATIONS = 4;
 const RECENT_MESSAGE_LIMIT = 12;
+
+// Chief of Staff → department delegation. Delivers the CoS directive into
+// the target department's own conversation (creating it on first use, same
+// "dept:<slug>" tagging the AI Automation Chat page uses), runs that
+// department's agent on it synchronously, and leaves a visible trail in BOTH
+// threads: the directive appears in the department chat, and the department's
+// reply is appended there too. Returns a compact result the CoS model reads
+// as its tool output. Depth guard stops a department from chaining
+// delegation onward (only the CoS even has the tool, but this protects
+// against prompt-injected tool definitions).
+async function delegateDirective(
+  db: SupabaseClient,
+  targetSlug: string,
+  directive: string,
+  depth: number = 0
+): Promise<Record<string, unknown>> {
+  if (depth > 0) return { error: "ไม่อนุญาตให้แผนกส่งงานต่อไปยังแผนกอื่น" };
+  const dept = departmentBySlug(targetSlug);
+  if (!dept || targetSlug === CHIEF_OF_STAFF_SLUG) {
+    return { error: `สั่งงานแผนก "${targetSlug}" ไม่ได้` };
+  }
+
+  const tag = `dept:${targetSlug}`;
+  const { data: existing } = await db
+    .from("conversations")
+    .select("id")
+    .eq("line_user_id", tag)
+    .eq("channel", "internal")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let convId = existing?.id as string | undefined;
+  if (!convId) {
+    const { data: created, error: createErr } = await db
+      .from("conversations")
+      .insert({ channel: "internal", line_user_id: tag })
+      .select("id")
+      .single();
+    if (createErr) return { error: "สร้างแชทของแผนกไม่สำเร็จ" };
+    convId = created.id;
+  }
+
+  try {
+    const result = await respond(
+      db,
+      convId,
+      `[คำสั่งจาก Chief of Staff] ${directive}\n\n(ปฏิบัติภารกิจนี้ตามหน้าที่ของแผนก สรุปผล ข้อเสนอ หรือสิ่งที่ต้องตัดสินใจเป็นข้อความเดียว กระชับ ชัดเจน)`,
+      ["owner", "sales", "booking", "knowledge"],
+      null,
+      { department: dept }
+    );
+    return {
+      department: dept.label,
+      reply: result.reply,
+      needsReview: result.needsReview,
+      note: `ส่งคำสั่งให้${dept.label}แล้ว — คำตอบถูกบันทึกในแชทของ${dept.label}ด้วย สรุปให้เจ้าของฟังต่อได้เลย`,
+    };
+  } catch (error) {
+    return { department: dept.label, error: error instanceof Error ? error.message : "ส่งงานไม่สำเร็จ" };
+  }
+}
+
 // FAQ answers (pricing, hours) can change, so a cached reply isn't reused forever.
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -62,6 +125,21 @@ function isDegenerateReply(content: string): boolean {
 }
 
 const DEGENERATE_FALLBACK = "ขอโทษค่ะ รบกวนพิมพ์คำถามอีกครั้งได้ไหมคะ อยากให้แน่ใจว่าตอบตรงกับที่คุณลูกค้าต้องการค่ะ";
+// Owner-facing: "พิมพ์ใหม่ดิ๊" alone just loops her frustration — tell her the
+// two actions that actually break the failure (switch model / rephrase),
+// since an empty-model reply is usually model-specific, not question-specific.
+const DEGENERATE_FALLBACK_OWNER = "หนูยังสร้างคำตอบไม่สำเร็จค่ะ ลองเปลี่ยนโมเดล AI ที่มุมขวาบนแล้วถามใหม่อีกครั้งนะคะ";
+// Appended as an extra user turn when a generation comes back empty/letterless.
+// Retrying the identical prompt sampled the same degeneration again in
+// production — a corrective instruction changes the sampling context, which
+// is what actually breaks the loop (same principle as the fallback-filter
+// on history below: don't re-feed the failure back to the model)."
+const DEGENERATE_RETRY_NUDGE =
+  "ตอบใหม่ด้วยข้อความจริงที่สมบูรณ์ ห้ามตอบว่าง ห้ามตอบเป็นอีโมจิหรือสัญลักษณ์ล้วน " +
+  "ถ้าคำตอบต้องใช้ตัวเลขหรือข้อมูลระบบ ให้เรียก tool ที่เกี่ยวข้องก่อนแล้วสรุปจากผลลัพธ์ที่ได้";
+function degenerateFallback(isOwnerMode: boolean): string {
+  return isOwnerMode ? DEGENERATE_FALLBACK_OWNER : DEGENERATE_FALLBACK;
+}
 
 // Banned-phrase filter (AI quality loop): the eval data showed the model
 // occasionally leaks internal error/technical detail to customers ("มี
@@ -88,9 +166,21 @@ const BANNED_REPLY_PATTERNS = [
 ];
 
 const BANNED_REPLY_FALLBACK = "ขอโทษค่ะ ขอตรวจสอบกับทีมงานก่อนนะคะ เดี๋ยวจะรีบติดต่อกลับทันทีค่ะ 😊";
+const BANNED_REPLY_FALLBACK_OWNER = "ระบบมีปัญหาชั่วคราวค่ะ ขอตรวจสอบแล้วตอบกลับใหม่นะคะ";
+function bannedReplyFallback(isOwnerMode: boolean): string {
+  return isOwnerMode ? BANNED_REPLY_FALLBACK_OWNER : BANNED_REPLY_FALLBACK;
+}
 
 function hasBannedPhrase(content: string): boolean {
   return BANNED_REPLY_PATTERNS.some((re) => re.test(content));
+}
+
+// AI Automation department options: when a conversation belongs to a
+// department (conversations.line_user_id = "dept:<slug>"), the caller passes
+// the department def so respond() speaks with that department's persona and
+// — for the Chief of Staff only — gains the delegate_to_department tool.
+export interface RespondOptions {
+  department?: DepartmentDef;
 }
 
 export async function respond(
@@ -98,8 +188,10 @@ export async function respond(
   conversationId: string,
   customerMessage: string,
   promptContext: PromptName[] = ["sales", "booking", "knowledge", "customer_service"],
-  callerId: string | null = null
+  callerId: string | null = null,
+  options: RespondOptions = {}
 ): Promise<RespondResult> {
+  const isOwnerMode = promptContext.includes("owner");
   const { count: priorMessageCount } = await db
     .from("messages")
     .select("id", { count: "exact", head: true })
@@ -111,7 +203,11 @@ export async function respond(
   // shouldn't cost a fresh Gemini call. Only applies to the first message —
   // once there's conversation history, a reply is context-dependent and
   // must not be reused verbatim for someone else's conversation.
-  if (isOpeningMessage) {
+  // NEVER for owner mode: the cache holds customer-facing sales replies —
+  // replaying one to the owner (or caching an owner's business answer for a
+  // customer later) is exactly the "AI ตอบมั่ว" failure. Owner questions are
+  // answered fresh with tools every time.
+  if (isOpeningMessage && !isOwnerMode) {
     const questionHash = await hashQuestion(customerMessage);
     const { data: cached } = await db.from("ai_response_cache").select("*").eq("question_hash", questionHash).maybeSingle();
 
@@ -200,7 +296,15 @@ export async function respond(
   // what they type or whether a customer row is linked yet (an unlinked
   // LINE/web user would otherwise get boundCustomerId=null and the old
   // `boundCustomerId === null` gate would wrongly expose owner tools).
-  const tools = conversation?.channel === "internal" ? [...AI_TOOLS, ...OWNER_TOOLS] : AI_TOOLS;
+  const tools = conversation?.channel === "internal" ? [...AI_TOOLS, ...ALL_OWNER_TOOLS] : [...AI_TOOLS];
+
+  // Chief of Staff authority: only the chief_of_staff department conversation
+  // can command other departments (see departments.ts for why the reverse is
+  // never allowed — delegation flows downward only, so a department agent can
+  // never loop delegation back to the CoS or recurse into itself).
+  if (options.department?.slug === CHIEF_OF_STAFF_SLUG) {
+    tools.push(DELEGATE_TO_DEPARTMENT_TOOL as unknown as ToolDefinition);
+  }
 
   // Fetch the most recent RECENT_MESSAGE_LIMIT messages (descending so the
   // limit keeps the newest ones -- including the customer message just
@@ -213,7 +317,10 @@ export async function respond(
     .limit(RECENT_MESSAGE_LIMIT);
   const history = recentHistory ? [...recentHistory].reverse() : recentHistory;
 
-  const systemParts = [buildSystemPrompt(promptContext)];
+  // Department conversations speak with their own persona instead of the
+  // generic owner-assistant prompt; everything layered on top (summary,
+  // policies, playbook, language) still applies to them.
+  const systemParts = [options.department ? options.department.systemPrompt : buildSystemPrompt(promptContext)];
   if (conversation?.summary) {
     systemParts.push(`Summary of earlier messages in this conversation (not repeated below):\n${conversation.summary}`);
   }
@@ -356,14 +463,26 @@ export async function respond(
     if (result.finishReason !== "tool_calls" || !result.message.toolCalls?.length) {
       let usedFallback = false;
       if (isDegenerateReply(result.message.content)) {
-        // A stochastic degenerate reply usually doesn't repeat on a fresh
-        // sample from the same prompt, so retry once before falling back.
-        const retry = await generate(messages, tools);
-        await logAiUsage(db, retry.usage, "chat-core:respond");
-        if (retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)) {
-          result.message.content = retry.message.content;
-        } else {
-          result.message.content = DEGENERATE_FALLBACK;
+        // A degenerate reply (empty / emoji-only) usually doesn't survive a
+        // retry that changes the sampling context: retry up to twice, each
+        // time with a corrective user turn appended, before giving up and
+        // falling back. The old single same-prompt retry still hit the same
+        // attractor whenever the model was stuck (owner saw the "พิมพ์คำถาม
+        // อีกครั้ง" apology repeatedly).
+        let recovered = false;
+        for (let attempt = 0; attempt < 2 && !recovered; attempt += 1) {
+          const retry = await generate(
+            attempt === 0 ? messages : [...messages, { role: "user" as const, content: DEGENERATE_RETRY_NUDGE }],
+            tools
+          );
+          await logAiUsage(db, retry.usage, "chat-core:respond:degenerate-retry");
+          if (retry.finishReason !== "tool_calls" && !isDegenerateReply(retry.message.content)) {
+            result.message.content = retry.message.content;
+            recovered = true;
+          }
+        }
+        if (!recovered) {
+          result.message.content = degenerateFallback(isOwnerMode);
           usedFallback = true;
         }
       }
@@ -379,7 +498,7 @@ export async function respond(
       // reply, and the quality loop (ai-eval-runner) can learn from it.
       if (hasBannedPhrase(result.message.content)) {
         usedFallback = true;
-        result.message.content = BANNED_REPLY_FALLBACK;
+        result.message.content = bannedReplyFallback(isOwnerMode);
         await db.from("conversations").update({ needs_review: true, last_stage: "fallback" }).eq("id", conversationId);
         await db.from("notifications").insert({
           type: "ai_needs_review",
@@ -415,8 +534,9 @@ export async function respond(
 
       // Only cache plain knowledge-lookup answers — a reply that used tools
       // (booking, CRM lookups) is specific to this customer and must not be
-      // replayed to someone else.
-      if (isOpeningMessage && !usedTools) {
+      // replayed to someone else. Owner-mode answers are never cached (see
+      // the cache-read gate above for why).
+      if (isOpeningMessage && !usedTools && !isOwnerMode) {
         const questionHash = await hashQuestion(customerMessage);
         await db.from("ai_response_cache").upsert(
           { question_hash: questionHash, question_text: customerMessage, reply: result.message.content, hits: 1, created_at: new Date().toISOString() },
@@ -438,7 +558,9 @@ export async function respond(
     messages.push(result.message);
 
     for (const call of result.message.toolCalls) {
-      const toolResult = await executeTool(call, db, activeCustomerId, callerId).catch((error: unknown) => ({
+      const toolResult = await executeTool(call, db, activeCustomerId, callerId, {
+        delegate: (targetSlug, directive) => delegateDirective(db, targetSlug, directive, 0),
+      }).catch((error: unknown) => ({
         // A raw Postgres error (has a .code) is translated to a plain Thai
         // message before it ever reaches the model -- confirmed in
         // production that the model will otherwise paraphrase a raw
@@ -463,7 +585,9 @@ export async function respond(
   }
 
   await db.from("conversations").update({ needs_review: true, last_stage: "fallback" }).eq("id", conversationId);
-  const fallback = "ขอโทษค่ะ ขอเวลาตรวจสอบข้อมูลเพิ่มเติมกับทางทีมงานก่อนนะคะ เดี๋ยวจะรีบติดต่อกลับค่ะ";
+  const fallback = isOwnerMode
+    ? "ขอโทษค่ะ ขอเวลาตรวจสอบข้อมูลก่อนนะคะ แล้วจะตอบกลับใหม่ทันทีค่ะ"
+    : "ขอโทษค่ะ ขอเวลาตรวจสอบข้อมูลเพิ่มเติมกับทางทีมงานก่อนนะคะ เดี๋ยวจะรีบติดต่อกลับค่ะ";
   await db.from("messages").insert({ conversation_id: conversationId, sender: "ai", content: fallback, metadata: { fallback: true } });
   return { reply: fallback, needsReview: true };
 }

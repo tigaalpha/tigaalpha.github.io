@@ -87,6 +87,11 @@ export class CustomersRepository {
     if (error) throw error;
   }
 
+  async delete(id: string): Promise<void> {
+    const { error } = await this.db.from("customers").delete().eq("id", id);
+    if (error) throw error;
+  }
+
   // Same "gone quiet" condition as automation-engine-runner's
   // processInactiveCustomerRule (sales_status not won/lost, last_contact_at
   // falling back to created_at), as a read for the Dashboard -- a shorter

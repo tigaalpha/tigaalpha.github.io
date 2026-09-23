@@ -24,6 +24,12 @@ export const MODEL_COSTS: Record<string, ModelCost> = {
   "z-ai/glm-4.6": { inputPer1M: 1.5, outputPer1M: 5, label: "GLM 4.6" },
   "x-ai/grok-4": { inputPer1M: 3, outputPer1M: 15, label: "Grok" },
   "deepseek/deepseek-v4-flash": { inputPer1M: 0.27, outputPer1M: 1.1, label: "DeepSeek V4 Flash" },
+  /* Genuinely zero, not "cheap": OpenRouter's :free routes are rate-limited
+     rather than billed. Without an entry here it would have fallen through to
+     UNKNOWN_MODEL_COST and been reported as $1/$3 per million, which would
+     make the one free model in the roster look like one of the pricier ones
+     on every cost report. */
+  "deepseek/deepseek-chat-v3-0324:free": { inputPer1M: 0, outputPer1M: 0, label: "DeepSeek V3 (ฟรี)" },
 };
 
 /** Fallback for models without an entry — conservative mid-range estimate. */

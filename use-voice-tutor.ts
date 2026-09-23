@@ -3,7 +3,7 @@ import {
   NF, pcOf, getAC, playPianoNote, stopAllPianoNotes, playUi, haptic,
   stopPracticeListeners, startMicListener, _practiceStop, _sfxMuted,
   _ascNotes, chordNotesOf, identifyChord, interpretPlayed, rhythmReport,
-  transposeNotes, vmThinkCue, FINGERING_REF,
+  transposeNotes, vmThinkCue, FINGERING_REF, THEORY_REF,
 } from "./music-engine";
 import { L } from "./i18n";
 import {
@@ -11,6 +11,7 @@ import {
   stopCloudTTS, getVmVoiceKey, setTtsMood, speakCloud, fetchCloudClips, playCloudClips,
 } from "./speech";
 import { readMemory, touchSessionMemory, memoryContext, setHomeworkLS, homeworkContext } from "./ai-chat-context";
+import { getKBContext } from "./tigamodel/web.js";
 import { streamChatCompletion } from "./ai-backend";
 import { jevTask, jevChoice, jevNoul } from "./jev";
 import { dayKey, logActivity } from "./shared-infra";
@@ -619,7 +620,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   // speaking almost immediately instead of waiting for the whole reply.
   async function vmFetchAI(message, history, onSentence) {
     const TERM = ".!?…\n。！？";
-    const body = { message, conversationHistory: history, system: L[langRef.current].vmSys + FINGERING_REF + vmStudentContext() + memoryContext(langRef.current) + homeworkContext(langRef.current) + curriculumContext(langRef.current) + songRecommendationHint(langRef.current), feature: "voice" };
+    const body = { message, conversationHistory: history, system: L[langRef.current].vmSys + FINGERING_REF + THEORY_REF + getKBContext(message) + vmStudentContext() + memoryContext(langRef.current) + homeworkContext(langRef.current) + curriculumContext(langRef.current) + songRecommendationHint(langRef.current), feature: "voice" };
     let lastErr;
     // Try up to twice. On a weak signal a stall watchdog aborts a frozen stream;
     // if nothing was spoken yet we retry, and if a partial reply was already

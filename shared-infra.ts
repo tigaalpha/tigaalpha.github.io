@@ -1,4 +1,10 @@
 import { sb } from "./supabase-client";
+import { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY, readLandingOrigin, clearLandingOrigin } from "./local-identity";
+export { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY, readLandingOrigin, clearLandingOrigin };
+/* anonId/trafficSource/uaKind and the skip-onboard flag moved VERBATIM to
+   local-identity.ts, which imports nothing — the landing bundle needs them
+   and must not reach this file's supabase import. Re-exported so every
+   existing app import keeps resolving. */
 
 /* ── shared-infra.ts ──
    Cross-cutting app infrastructure that isn't specific to any one feature:
@@ -78,12 +84,41 @@ export async function unsubscribePush() {
 // the admin can see what's actually used. Never awaited, never blocks the UI,
 // and any failure (offline, RLS, whatever) is silently swallowed — a missed
 // analytics row is never worth degrading the learner's experience.
-export function logUsage(kind, itemId) {
-  sb.auth.getSession().then(({ data }) => {
-    const uid = data && data.session && data.session.user && data.session.user.id;
-    if (!uid || !itemId) return;
-    sb.from("usage_events").insert({ user_id: uid, kind, item_id: String(itemId) }).then(() => {}, () => {});
-  }, () => {});
+/* Fire-and-forget usage tracking. This used to `return` whenever there was no
+   session, which meant a visitor who never logged in left no trace at all —
+   the admin could see what members did and nothing whatsoever about the people
+   the advertising actually brought in. usage_events.user_id was already
+   nullable; the row just was not being written. */
+export function logUsage(kind, itemId, durationMs = null) {
+  if (!itemId) return;
+  const row = {
+    kind, item_id: String(itemId),
+    anon_id: anonId(), src: trafficSource(), ua: uaKind(),
+    dev: deviceInfo(), dev_w: deviceWidth(),
+  };
+  if (durationMs != null) row.duration_ms = Math.max(0, Math.round(durationMs)); // page dwell time (admin analytics)
+  const send = (uid) => {
+    // user_id must stay null for a signed-out visitor: the anon insert policy
+    // only accepts rows that claim no user.
+    const base = uid ? { ...row, user_id: uid } : row;
+    sb.from("usage_events").insert(base).then(() => {}, (err) => {
+      /* PGRST204 = "column not found in the schema cache": the dev/dev_w
+         columns ship in this bundle BEFORE supabase-usage-device-migration.sql
+         has been applied to the live project. Dropping just the two new
+         fields and resending keeps every event flowing (analytics loses two
+         columns on a few early rows; losing whole rows loses everything).
+         The dev/dev_w pair is the only addition this row has made, so one
+         stripped retry is a complete fallback, not a heuristic. */
+      if (err && err.code === "PGRST204") {
+        const { dev, dev_w, ...rest } = base;
+        sb.from("usage_events").insert(rest).then(() => {}, () => {});
+      }
+    });
+  };
+  sb.auth.getSession().then(
+    ({ data }) => send((data && data.session && data.session.user && data.session.user.id) || null),
+    () => send(null),
+  );
 }
 
 /* ── practice activity log (localStorage) powering the progress dashboard ── */
@@ -109,30 +144,6 @@ export function logActivity(kind, id, ok, miss, sec, skill = null) {
   } catch (e) {}
 }
 
-// B1: Spaced Repetition Review (SRS) — schedule topics at 1/3/7/14/30 day intervals
-export function recordSRS(topicId) {
-  try {
-    const data = JSON.parse(localStorage.getItem("tg_srs") || "{}");
-    const e = data[topicId] || { count: 0 };
-    e.count = (e.count || 0) + 1;
-    e.lastDone = Date.now();
-    const intervals = [1, 3, 7, 14, 30];
-    const days = intervals[Math.min(e.count - 1, intervals.length - 1)];
-    e.nextReview = Date.now() + days * 86400000;
-    data[topicId] = e;
-    localStorage.setItem("tg_srs", JSON.stringify(data));
-  } catch (_) {}
-}
-export function getDueSRS() {
-  try {
-    const data = JSON.parse(localStorage.getItem("tg_srs") || "{}");
-    const now = Date.now();
-    return Object.entries(data)
-      .filter(([, e]: [string, any]) => (e as any).nextReview && (e as any).nextReview <= now)
-      .map(([id, e]: [string, any]) => ({ id, ...(e as any) }));
-  } catch (_) { return []; }
-}
-
 // B2: Note Weakness — track which pitch classes are missed most across song plays
 export function recordNoteMisses(notes) {
   try {
@@ -155,8 +166,35 @@ export function recordNoteMisses(notes) {
    of cumulative use (persists across visits — refreshing buys no extra time),
    tracked separately from any one page's `profile.exp` etc. so it survives
    a guest bouncing between pages. */
-export const GUEST_TRIAL_MS = 5 * 60 * 1000;
-export const GUEST_PROFILE_KEY = "tg_guest_profile";
+/* Five seconds, set by the owner.
+
+   The historical argument against going this low is kept below, because it is
+   the only measured thing the app has on the question:
+
+     0-5 s   40 people   0 signed up
+     5-10 s   4 people   0
+     10-14 s  3 people   0
+     14-20 s  3 people   1          <- first unprompted sign-up
+     20-30 s  3 people   2
+     30 s+    5 people   0
+
+   Every unprompted sign-up landed between 14 and 26 seconds.
+
+   What changed is that a later look at a full day of arrivals showed the
+   number was never the binding constraint: of 90 signed-out visitors, 5 used
+   the menu and 9 opened a lesson. Roughly 80 left without touching anything,
+   most of them inside an in-app browser, and 0 of the 90 signed up. Whatever
+   is losing people happens well before any gate, so the gate is cheap to move
+   and the honest next step is to watch post-gate sign-ups by method on the
+   dashboard rather than argue the second-mark again. */
+export const GUEST_TRIAL_MS = 10 * 1000;
+/* How often the guest clock is written down. It has to stay well under the
+   gate: the gate can only fire on a flushed total, so a tick coarser than
+   GUEST_TRIAL_MS silently postpones it to the next tick. That is not
+   hypothetical — this was a flat 10 s while the gate was 15 s, which made the
+   real gate 20 s, and a 5 s gate would likewise have behaved as a 10 s one.
+   Deriving it from the gate means the two cannot drift apart again. */
+export const GUEST_TICK_MS = Math.max(1000, Math.min(5000, Math.round(GUEST_TRIAL_MS / 4)));
 export const GUEST_MS_KEY = "tg_guest_ms";
 export function freshGuestProfile() {
   return {

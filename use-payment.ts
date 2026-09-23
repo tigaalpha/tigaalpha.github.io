@@ -37,22 +37,49 @@ export function usePayment({ profile, session, setProfile, lang, mascot, require
   const [payCfg, setPayCfg] = useState(null);       // { promptpay, name, bank } from app_settings
   const [stripeReturn, setStripeReturn] = useState<null|"pending"|"done">(null); // ?paid=1 return state
 
-  // Detect Stripe success redirect (?paid=1) — clear URL param, refresh profile after webhook delay
+  /* Stripe success redirect (?paid=1&session_id=). This used to wait four
+     seconds and re-read the profile, hoping the webhook had landed — so a
+     missing STRIPE_WEBHOOK_SECRET, an unregistered endpoint or one failed
+     delivery meant a charged customer simply never got their plan, with
+     nothing in the UI to say so. It now confirms the sale itself against
+     Stripe and fulfils it; the webhook still runs and whichever path arrives
+     first wins, since both go through the same id-keyed SQL function. */
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     if (p.get("paid") !== "1") return;
+    const sid = p.get("session_id");
     const url = new URL(window.location.href);
-    url.searchParams.delete("paid");
+    url.searchParams.delete("paid"); url.searchParams.delete("session_id");
     window.history.replaceState({}, "", url.pathname + (url.search || ""));
     setStripeReturn("pending");
     playUi("levelup");
-    // Give Stripe webhook ~4s to update the profile, then re-fetch
-    const t = setTimeout(() => {
+    const refresh = () => sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
+      .then(({ data }) => { if (data) setProfile(data); setStripeReturn("done"); setTimeout(() => setStripeReturn(null), 4000); });
+    if (!sid) { const t = setTimeout(refresh, 4000); return () => clearTimeout(t); }
+    fetch(SUPABASE_URL + "/functions/v1/verify-stripe-payment", {
+      method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: sid }),
+    }).then(r => r.json()).catch(() => null).then(refresh);
+  }, []);
+
+  /* Coin/gem card purchase returning (?coins_paid=1&req=&session_id=). Same
+     verify-on-return path; the balance is re-read once it has been credited. */
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("coins_paid") == null) return;
+    const sid = p.get("session_id"), ok = p.get("coins_paid") === "1";
+    const url = new URL(window.location.href);
+    url.searchParams.delete("coins_paid"); url.searchParams.delete("req"); url.searchParams.delete("session_id");
+    window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    if (!ok || !sid) return;
+    playUi("levelup");
+    fetch(SUPABASE_URL + "/functions/v1/verify-stripe-payment", {
+      method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: sid }),
+    }).then(r => r.json()).catch(() => null).then(() => {
       sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
-        .then(({ data }) => { if (data) { setProfile(data); } setStripeReturn("done"); });
-      setTimeout(() => setStripeReturn(null), 4000);
-    }, 4000);
-    return () => clearTimeout(t);
+        .then(({ data }) => { if (data) setProfile(data); });
+    });
   }, []);
 
   // Detect School Plan Pro Stripe success redirect (?school_paid=1&req=&session_id=) —

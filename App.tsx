@@ -1,12 +1,42 @@
-import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } from "react";
+import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment, lazy, Suspense } from "react";
+import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-lock";
 import { Capacitor } from "@capacitor/core";
-import { PATHWAY } from "./pathway-data";
+import { PATHWAY, PATHWAY_PRACTICE } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
-import { CSS, useInjectCSS } from "./app-styles";
+import { useInjectCSS } from "./app-styles";
+import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
+import { ItemArt } from "./item-art";
+import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
+/* ── Split off the first screen's dead weight ──
+   The app shipped as one 731 kB (gzip) file, so a first-time visitor had to
+   download the arena, the robot art and the admin console before they could
+   touch a piano key. Measured in an Instagram webview on a mid-range phone,
+   that wait was 1.9s on good 4G and 8.4s on a congested one, of which 78-90%
+   was pure download — and 73% of visitors left within a second of it finally
+   finishing. None of the modules below can be reached from the first screen:
+   the arena lives on the PvP and Profile pages, the console behind an admin
+   passcode. They load when someone actually goes there.
+
+   readSkillSp and skillRank used to be imported here and were never once used
+   in this file — dropped rather than carried into a chunk for nothing. */
+const PvpPage = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpPage })));
+const PvpBanner = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpBanner })));
+const SkillTrack = lazy(() => import("./pvp-arena").then(m => ({ default: m.SkillTrack })));
+import { PetPod, PetPage, PetArt, PET_SPECIES, PET_TYPES, PET_BONUS, PET_COST,
+  adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets } from "./pet-lab";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
+import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
+import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
+import { runTeachingLoopForPractice , tigaHub } from "./tigamodel/web";
+import { buildParentReport } from "./use-practice-coach";
+import { teacherAdviceFor } from "./tigamodel/web";
+import { buildParentReportData } from "./use-practice-coach";
+import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes } from "./use-autoteach";
+import { pickTeachCard, markCardSeen, readKnowledgeStats, bumpKnowledgeStats, readNoteMissMap, cardSourceInfo } from "./tigamodel/knowledge/teach-cards.js";
+import TeachVisual from "./TeachVisual";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { jevTask, jevChoice, jevScore, jevNoul } from "./jev";
 import { withAiCache } from "./ai-cache";
@@ -21,20 +51,23 @@ import {
 import {
   NF, KEYS_12, CHROMA, LESSON_MODE,
   FINGERINGS_RH, FINGERINGS_LH, FINGERING_REF, TRIAD_FINGER_RH, TRIAD_FINGER_LH,
+  SCALE_TYPES, spellScale, spellFromRoot, THEORY_REF,
   getFingers, fingersForNotes, extractNotes, chordNotesOf, identifyChord, interpretPlayed,
   INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL,
   normalizeSeq, noteKeyFrac, transposeNotes, semisFromC,
   getAC, playPianoNote, stopAllPianoNotes, playUi, playClick, playMiss, playWhoosh, playBoom, haptic,
   playComboTone, startAmbient, stopAmbient, vmThinkCue, setSfxVol, setSfxMuted, getSfxVol, getSfxMuted,
   pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP, _practiceStop,
+  progressionNotes, progressionChordLabels, PROG_FINGER_LH, PROG_FINGER_RH,
   startMidiListener, startMicListener, stopPracticeListeners, laneHue, roundRect, rhythmReport,
   SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
-  expandSong, songTechniqueProfile, _ascNotes,
+  expandSong, songTechniqueProfile, estimateSongDifficulty, _ascNotes, noteTypeName,
   MINOR_TYPES, TRIAD_TYPES, SEVENTH_TYPES, INTERVAL_DEFS,
   MAJOR_SCALE_SONGS, MINOR_SCALE_SONGS, TRIAD_SONGS, SEVENTH_SONGS, INTERVAL_SONGS,
+  PROG_LENS, PROGRESSION_SONGS, buildProgressionChords, pcIdx,
   SIGHT_NOTES, SIGHT_NOTES_BASS,
   Piano, GamePiano, StaffSVG, StaffNotes, PlayAlongStaff,
-  PC_SOLFA, PC_SOLFA_TH, EG_INT_BASE, EG_INT_FULL, RC_LEVELS, CHORD_MOODS,
+  PC_SOLFA, PC_SOLFA_TH, EG_INT_BASE, EG_INT_FULL, EG_INT_MASTER, SEVENTH_TYPES, RC_LEVELS, CHORD_MOODS,
   _PC, playBackingChord, songTonic, detectSongMatch,
 } from "./music-engine";
 import { loadHandLandmarker, HAND_BONES, handRoundness } from "./hand-pose";
@@ -45,22 +78,40 @@ import {
 } from "./speech";
 import {
   tr, L, FLAGS, FLAG_NAMES, PATH_GROUPS, BENEFIT_CASES, STAGES_BY_GROUP,
-  localPathwayLesson, matchFaqTopic, COACH_FEATURE_LABELS, EXAM_GRADES,
+  localPathwayLesson, matchFaqTopic, COACH_FEATURE_LABELS, EXAM_GRADES, FAQ_TOPICS,
 } from "./i18n";
 import { Msg, Typing, Input } from "./chat-ui";
+/* Hidden case studies (owner request 2026-09): the whole "Marketing for
+   Artists" stage/group (music-marketing) plus the Carabao case are removed
+   from every surface. This block runs at App module load, after i18n has
+   built PATHWAY-derived caches, so it also: splices the stage out of
+   PATHWAY, rebuilds STAGES_BY_GROUP.benefits, deletes the BENEFIT_CASES
+   group (chat starters + case panels) and splices matching FAQ_TOPICS
+   entries (built at i18n load). pathway-data.ts / i18n.ts data stays
+   verbatim - empty the Sets to bring everything back instantly. */
+const HIDDEN_STAGE_IDS = new Set(["music-marketing"]);
+for (let _pi = PATHWAY.length - 1; _pi >= 0; _pi--) if (HIDDEN_STAGE_IDS.has(PATHWAY[_pi].id)) PATHWAY.splice(_pi, 1);
+STAGES_BY_GROUP.benefits = PATHWAY.filter(s => s.group === "benefits");
+const HIDDEN_CASE_IDS = new Set(["carabao"]);
+const _mmIds = (BENEFIT_CASES["music-marketing"] || []).map(c => c.id);
+const HIDDEN_FAQ_KEYS = new Set([...HIDDEN_STAGE_IDS, ...Array.from(HIDDEN_CASE_IDS), ..._mmIds]);
+delete BENEFIT_CASES["music-marketing"];
+for (const _hid in BENEFIT_CASES) BENEFIT_CASES[_hid] = BENEFIT_CASES[_hid].filter(c => !HIDDEN_CASE_IDS.has(c.id));
+for (let _fi = FAQ_TOPICS.length - 1; _fi >= 0; _fi--) if (HIDDEN_FAQ_KEYS.has(FAQ_TOPICS[_fi].key)) FAQ_TOPICS.splice(_fi, 1);
 import {
   readMemory, recordMemory, touchSessionMemory, memoryContext,
   readHomework, setHomeworkLS, homeworkContext,
 } from "./ai-chat-context";
 import {
-  GUEST_TRIAL_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
+  GUEST_TRIAL_MS, GUEST_TICK_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
   pushSupported, subscribePush, unsubscribePush, logUsage,
-  readActLog, logActivity, recordSRS, getDueSRS, recordNoteMisses, readPracticeLog,
+  readActLog, logActivity, recordNoteMisses, readPracticeLog,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
-  guestHasProgress, mergeGuestProgressIntoProfile,
+  guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
+  readLandingOrigin, clearLandingOrigin, anonId,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync } from "./cloud-sync";
-import { Splash, BannedScreen, GuestGateScreen, ProfileForm, CountUp } from "./app-shell";
+import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone } from "./app-shell";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
@@ -70,18 +121,42 @@ import { SkinThemeSettings } from "./SkinThemeSettings";
 import { SfxMetronomeSettings } from "./SfxMetronomeSettings";
 import { LanguageSettings } from "./LanguageSettings";
 import { AdminAIModels, AdminJevTasks, AdminNav } from "./AdminAIModels";
+import { TigamodelLab } from "./TigamodelLab";
+import { TigamodelBackoffice } from "./TigamodelBackoffice";
+import { learnFromAdminTeaching } from "./tigamodel/web";
 import { ProfileDashboardPanel } from "./ProfileDashboardPanel";
+import { getCoachDiagnosis, getPracticeTimeBudget } from "./tigamodel/web.js";
 import { SenseiView } from "./SenseiView";
 import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
 import { usePayment } from "./use-payment";
 import { useGamification } from "./use-gamification";
 import { useKeyboard } from "./use-keyboard";
-import { usePracticeMode } from "./use-practice-mode";
-import { useSightReading } from "./use-sight-reading";
+import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
+import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
+import { dailySongFor, readDailySongState, DAILY_SONG_REWARD } from "./use-play-along";
 import { useChat } from "./use-chat";
 import { useVoiceTutor } from "./use-voice-tutor";
+import { LeadLandingPage } from "./LeadLandingPage";
+import { PianoLevelQuiz } from "./PianoLevelQuiz";
+import { ReferralDashboard } from "./ReferralDashboard";
+import { LeadSaleDashboard } from "./LeadSaleDashboard";
+/* Shown while a split-off page fetches its code — the same three dots the
+   chat uses, for the same reason: a still frame reads as broken, a moving one
+   reads as working. Sized to roughly hold the page's place so the layout does
+   not jump when the real thing lands. */
+function LazyBits({ tall = false }) {
+  return (
+    <div className="lazybits" style={tall ? { minHeight: "55vh" } : null} role="status" aria-live="polite">
+      <div className="tdd" /><div className="tdd" /><div className="tdd" />
+    </div>
+  );
+}
+
+const AdminActivity = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminActivity })));
+const AdminSimBots = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminSimBots })));
+const AdminAnonVisitors = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminAnonVisitors })));
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
    gates the AI Voice Tutor (mobile-only by design) and native-only integrations. */
@@ -138,10 +213,94 @@ export function vmDisplayText(reply) {
 ════════════════════════════════════════════════════════════ */
 export const EXP = { lesson: 50, chapter: 25, ask: 10, daily: 15 };
 
+/* ── the coin economy ──
+   One table, so what an activity is worth is legible in one place instead of
+   being scattered across a dozen call sites with different magic numbers.
+
+   Reading a Pathway chapter is the BASELINE. A Practice Mode drill pays double
+   it, because playing something is harder than reading about it, and a Studio
+   drill sits between the two. Talking to TIGA pays least per message and is
+   capped daily — a question is worth rewarding, a hundred questions in a row
+   is a coin printer, and an uncapped chat reward would quietly devalue every
+   price in the shop.
+
+   Coins are earned in-app only; nothing here can be bought. */
+export const EARN = {
+  chapter: 10,      // a Pathway chapter, the first time it is read
+  practice: 35,     // a Practice Mode drill — the thing we most want repeated
+  partial: 4,       // per note actually played, when a drill is left early
+  studio: 12,       // a Studio drill finished
+  video: 25,        // a video lesson actually watched, once per video
+  chat: 4,          // one real question to TIGA
+  game: 15,         // opening a Music Game, once per game per day
+};
+/* A YouTube iframe gives us no playback progress, so "watched" has to be
+   inferred: a video pays only after it has been the video on screen, in a
+   visible tab, for this long. Scrolling past a reel of them pays nothing. */
+export const VIDEO_WATCH_MS = 60000;
+/* Daily ceilings on the things you could otherwise repeat forever. Chapters
+   are finite and only pay on a first read, so they need no cap. */
+export const EARN_CAP = { chat: 12, studio: 30, video: 20, partial: 12 };
+
+/* Music Games are links out to somebody else's game, so there is no score to
+   pay on — the only honest signal we have is that you opened one. Each game
+   therefore pays once a day: worth trying all of them, worth nothing to tap
+   the same card twenty times. */
+export function gamesPaidToday() {
+  try {
+    const v = JSON.parse(localStorage.getItem("tg_game_day") || "{}");
+    return v.d === new Date().toDateString() && Array.isArray(v.ids) ? new Set(v.ids) : new Set();
+  } catch (e) { return new Set(); }
+}
+export function takeGameEarn(id) {
+  try {
+    const today = new Date().toDateString();
+    let v = JSON.parse(localStorage.getItem("tg_game_day") || "{}");
+    if (v.d !== today || !Array.isArray(v.ids)) v = { d: today, ids: [] };
+    if (v.ids.includes(String(id))) return false;
+    v.ids.push(String(id));
+    localStorage.setItem("tg_game_day", JSON.stringify(v));
+    return true;
+  } catch (e) { return false; }
+}
+
+/* Videos pay once each, like chapters — rewatching is free and always will be. */
+export function videoPaidSet() {
+  try { return new Set(JSON.parse(localStorage.getItem("tg_video_paid") || "[]")); } catch (e) { return new Set(); }
+}
+export function markVideoPaid(key) {
+  try { const s = videoPaidSet(); s.add(key); localStorage.setItem("tg_video_paid", JSON.stringify([...s])); } catch (e) {}
+}
+
+/** How many of a capped reward are still available today. */
+export function earnLeftToday(kind) {
+  const cap = EARN_CAP[kind];
+  if (!cap) return Infinity;
+  try {
+    const v = JSON.parse(localStorage.getItem("tg_earn_day") || "{}");
+    if (v.d !== new Date().toDateString()) return cap;
+    return Math.max(0, cap - (v[kind] || 0));
+  } catch (e) { return cap; }
+}
+/** Book one unit of a capped reward. Returns false when today's cap is spent. */
+export function takeEarn(kind) {
+  const cap = EARN_CAP[kind];
+  if (!cap) return true;
+  try {
+    const today = new Date().toDateString();
+    let v = JSON.parse(localStorage.getItem("tg_earn_day") || "{}");
+    if (v.d !== today) v = { d: today };
+    if ((v[kind] || 0) >= cap) return false;
+    v[kind] = (v[kind] || 0) + 1;
+    localStorage.setItem("tg_earn_day", JSON.stringify(v));
+    return true;
+  } catch (e) { return true; }
+}
+
 // Rank ladder — each tier needs `min` total EXP. Level number = index + 1.
 // Colors stay within the pink/magenta/wine family, deepening as the learner advances.
 export const LEVELS = [
-  { min: 0,    icon: "🌱", c: "#d97757", th: "มือใหม่",      en: "Novice",      zh: "初学者" },
+  { min: 0,    icon: "🎧", c: "#d97757", th: "มือใหม่",      en: "Novice",      zh: "初学者" },
   { min: 120,  icon: "🎵", c: "#ffa8d2", th: "ผู้เริ่มต้น",   en: "Beginner",    zh: "入门" },
   { min: 300,  icon: "🎶", c: "#ff5fb1", th: "นักเรียน",     en: "Student",     zh: "学生" },
   { min: 560,  icon: "🎹", c: "#d97757", th: "นักฝึก",       en: "Apprentice",  zh: "学徒" },
@@ -153,13 +312,36 @@ export const LEVELS = [
   { min: 5200, icon: "🏆", c: "#ff76d8", th: "ตำนาน",        en: "Legend",      zh: "传奇" },
 ];
 
+/* 99-level ladder — the 10 named tiers above stay as the rank NAMES; the full
+   ladder cycles them with roman-numeral cycles (Novice II … Legend X), so the
+   journey continues far past the original 10-level cap. Levels 1-10 keep the
+   EXACT thresholds the app has always had (no retroactive re-rank for existing
+   players); 11+ continue on a gently accelerating curve. Level 99 = Legend X,
+   the true end of the road — prestige stars only start past THAT point now. */
+const ROMAN = ["", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+export const ALL_LEVELS = (() => {
+  const arr = LEVELS.map(l => ({ ...l }));
+  let min = LEVELS[LEVELS.length - 1].min; // 5200
+  for (let n = 11; n <= 99; n++) {
+    min += 500 + 30 * (n - 11);
+    const cyc = Math.floor((n - 1) / 10) + 1; // 2..10
+    // last cycle has only 9 rungs (91-99) for 10 tiers — skip one middle tier
+    // (Pianist X) so the ladder still ENDS on Legend X at level 99
+    const baseIdx = cyc === 10 ? ((n - 91) < 5 ? (n - 91) : (n - 91) + 1) : (n - 1) % 10;
+    const base = LEVELS[baseIdx];
+    const suf = " " + ROMAN[cyc - 1];
+    arr.push({ min, icon: base.icon, c: base.c, th: base.th + suf, en: base.en + suf, zh: base.zh + suf });
+  }
+  return arr;
+})();
+
 // Resolve total EXP -> { level, tier, progress to next, EXP still needed, ... }
 export function levelInfo(exp) {
   const e = Math.max(0, exp || 0);
   let i = 0;
-  for (let k = 0; k < LEVELS.length; k++) if (e >= LEVELS[k].min) i = k;
-  const tier = LEVELS[i];
-  const next = LEVELS[i + 1] || null;
+  for (let k = 0; k < ALL_LEVELS.length; k++) if (e >= ALL_LEVELS[k].min) i = k;
+  const tier = ALL_LEVELS[i];
+  const next = ALL_LEVELS[i + 1] || null;
   const span = next ? next.min - tier.min : 1;
   return {
     level: i + 1,
@@ -182,7 +364,7 @@ export function levelInfo(exp) {
 const PRESTIGE_STEP = 2000;
 export function prestigeInfo(exp) {
   const e = Math.max(0, exp || 0);
-  const cap = LEVELS[LEVELS.length - 1].min; // 5200 — top of the level ladder
+  const cap = ALL_LEVELS[ALL_LEVELS.length - 1].min; // top of the 99-level ladder (Legend X)
   if (e < cap) return { tier: 0, into: 0, need: PRESTIGE_STEP };
   const past = e - cap;
   return { tier: Math.floor(past / PRESTIGE_STEP), into: past % PRESTIGE_STEP, need: PRESTIGE_STEP - (past % PRESTIGE_STEP) };
@@ -209,6 +391,16 @@ export const BADGES = [
   { id: "lv10",  icon: "👑", metric: "level",   need: 10,   th: "ถึงเลเวล 10",       en: "Reach Lv 10",   zh: "达到10级" },
   { id: "e1000", icon: "💎", metric: "exp",     need: 1000, th: "สะสม 1,000 EXP",    en: "1,000 EXP",     zh: "1,000 EXP" },
   { id: "e5000", icon: "🏆", metric: "exp",     need: 5000, th: "สะสม 5,000 EXP",    en: "5,000 EXP",     zh: "5,000 EXP" },
+  // Auto Teaching 2.0 knowledge badges — metrics come from tg_kstats
+  // (localStorage: quiz answers + knowledge-answer streak) via readKnowledgeStats().
+  { id: "kq1",   icon: "🧠", metric: "kcorrect", need: 1,   th: "ตอบควิซแรก",         en: "First Quiz",     zh: "首次问答" },
+  { id: "kq10",  icon: "🎯", metric: "kcorrect", need: 10,  th: "นักความรู้รุ่นเล็ก",   en: "Quiz Learner",   zh: "问答学徒" },
+  { id: "kq25",  icon: "📘", metric: "kcorrect", need: 25,  th: "นักความรู้",          en: "Knowledge Seeker", zh: "求知者" },
+  { id: "kq100", icon: "📗", metric: "kcorrect", need: 100, th: "ปรมาจารย์ความรู้",    en: "Knowledge Master", zh: "知识大师" },
+  { id: "ks3",   icon: "🧩", metric: "kstreak",  need: 3,   th: "สตรีคความรู้ 3 วัน",   en: "3-Day Knowledge Streak", zh: "知识连续3天" },
+  { id: "ks7",   icon: "🌈", metric: "kstreak",  need: 7,   th: "สตรีคความรู้ 7 วัน",   en: "7-Day Knowledge Streak", zh: "知识连续7天" },
+  { id: "ks14",  icon: "🚀", metric: "kstreak",  need: 14,  th: "สตรีคความรู้ 14 วัน",  en: "14-Day Knowledge Streak", zh: "知识连续14天" },
+  { id: "ks30",  icon: "🏅", metric: "kstreak",  need: 30,  th: "สตรีคความรู้ 30 วัน",  en: "30-Day Knowledge Streak", zh: "知识连续30天" },
 ];
 function badgeMetric(p, metric) {
   const exp = (p && p.exp) || 0;
@@ -216,6 +408,8 @@ function badgeMetric(p, metric) {
   if (metric === "lessons") return (p && p.lessons_done) || 0;
   if (metric === "streak") return (p && p.streak) || 0;
   if (metric === "level") return levelInfo(exp).level;
+  if (metric === "kcorrect") return readKnowledgeStats().correct;
+  if (metric === "kstreak") return readKnowledgeStats().streak;
   return 0;
 }
 export function unlockedBadgeIds(p) {
@@ -229,7 +423,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.25";
+const APP_VER = "13.7.393";
 
 async function signInWith(provider) {
   try {
@@ -376,9 +570,24 @@ const SIGHT_ROUND = 10; // notes per sight-reading round
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOpenStageId, initialSelectedType, userName = "" }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "" }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
+  /* Card numbers run straight through the whole pathway — foundation 01-02,
+     then chords 03-04 — because each stage carries its own `level`. Slotting a
+     practice card into foundation would hand it a number already in use two
+     groups down, so the number comes from position instead: insert anything,
+     and what follows renumbers rather than duplicating. It is only ever a
+     label; nothing in the app keys off it. */
+  const cardNo = useMemo(() => {
+    const m = {}; let n = 0;
+    groups.forEach(g => {
+      (STAGES_BY_GROUP[g.id] || []).forEach(st => { m[st.id] = ++n; });
+      (PATHWAY_PRACTICE[g.id] || []).forEach(pc => { m[pc.id] = ++n; });
+    });
+    return m;
+  }, [groups]);
+
   // initialOpenStageId re-opens the topic the learner just came from (via the
   // Sensei page's "change key" back button) so its key picker is right there —
   // this only matters on first mount, same as any other useState initializer.
@@ -401,7 +610,20 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
     setSelectedType(null);
   }
   function pickType(t) { setSelectedType(t); }
+  /* Hit Chords doors (05/06): the chord-path length (2/4/8) is chosen on the
+     card itself — the picker expands in the grid right under the tapped card,
+     exactly like a lesson card's type/key panel — and the choice then opens
+     the Sensei teaching page for that progression. Only these two cards grow
+     a picker; every other practice door still jumps straight to Play Along. */
+  const [progPickId, setProgPickId] = useState(null); // pc.id of the open Hit Chords door
+  const [progLenChoice, setProgLenChoice] = useState({}); // { pcId: 2|4|8 } remembered while the picker is open
+  function openProgPick(pc) {
+    if (progPickId === pc.id) { setProgPickId(null); return; }
+    logUsage("pathway", pc.id);
+    setProgPickId(pc.id);
+  }
   const pathDone = pathDoneSet();
+  const pathAcc = pathAccMap();   // { stageId: {best,last,lastAt,interval,nextDue} } — .best drives the bronze/silver/gold badge, layered on top of pathDone
   const keyDone = keyDoneMap();   // { stageId: ["c","g",...] } — keys already studied per topic
   const currentStage = PATHWAY.find(s => !pathDone.has(s.id));
   const currentId = currentStage ? currentStage.id : null;
@@ -411,13 +633,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
     setSelectedType(null);
     onLearn(stage, key, t);
   }
-
   return (
     <div className="pathpage">
-      <div className="pathhero">
-        <div className="pathhero-glow" />
-        <div className="pathbadge">◈ PATHWAY OF LEARNING ◈</div>
-      </div>
 
       {groups.map((g, gi) => {
         const stages = STAGES_BY_GROUP[g.id] || [];
@@ -434,7 +651,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
                 <div className="pglabel">{g.label}</div>
                 <div className="pgdesc">{g.desc}</div>
               </div>
-              <span className="pgstep">STEP {gi + 1}</span>
+              <span className="pgstep">{lc.stepLabel.replace("{n}", String(gi + 1))}</span>
             </header>
 
             <div className="pgrid" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "10px" }}>
@@ -449,15 +666,20 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
                 // holds the open card, so its sub-topics sit attached to what was tapped
                 const rowEnd = si % 2 === 1 || si === stages.length - 1;
                 const panelHere = rowEnd && openIdx >= si - (si % 2) && openIdx <= si;
+                // Bronze/silver/gold from the best accuracy actually demonstrated on this
+                // stage's drill — isRead (knowledge chapters) have no drill to grade, so
+                // they stay a plain done checkmark, same as always.
+                const tier = !isRead && pathDone.has(st.id) ? pathTier(pathAcc[st.id] && pathAcc[st.id].best) : null;
+                const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
                 return (
                   <Fragment key={st.id}>
-                  <button id={"pcard-" + st.id} className={`pcard${isOpen ? " active" : ""}${pathDone.has(st.id) ? " done" : ""}${st.id === currentId ? " current" : ""}`}
+                  <button id={"pcard-" + st.id} className={`pcard${isOpen ? " active" : ""}${pathDone.has(st.id) ? " done" : ""}${tier ? " tier-" + tier : ""}${st.id === currentId ? " current" : ""}`}
                     style={{ "--ac": st.color }}
                     onClick={() => isRead ? (BENEFIT_CASES[st.id] ? openCard(st) : onRead(st)) : openCard(st)}>
                     <span className="pcardglow" />
-                    {pathDone.has(st.id) && <span className="pcarddone">✓</span>}
+                    {pathDone.has(st.id) && <span className="pcarddone">{tierIcon[tier] || "✓"}</span>}
                     {st.id === currentId && <span className="pcardhere">{lc.pathHere}</span>}
-                    <span className="pcardlevel">{String(st.level).padStart(2, "0")}</span>
+                    <span className="pcardlevel">{String(cardNo[st.id] || st.level).padStart(2, "0")}</span>
                     <span className="pcardicon" aria-hidden="true">{st.icon}</span>
                     <span className="pcardtitle">{tr(st.title, lang)}</span>
                     <span className="pcardsub">{tr(st.subtitle, lang)}</span>
@@ -525,7 +747,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
                           border: `1px solid ${openStage.color}55`,
                           transition: "all .15s",
                         }}>
-                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "20px", fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
+                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: t.symbol.length > 6 ? 15 : (t.symbol.length > 4 ? 17 : 20), fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
                           <span style={{ fontSize: "10px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2, textAlign: "center" }}>{tr(t.label, lang)}</span>
                         </button>
                       ))}
@@ -569,11 +791,124 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
                 )}
               </div>
                   )}
+                  {/* row-to-row trail segment — was previously only between the 4 group
+                      islands, leaving every stage inside a group visually disconnected */}
+                  {rowEnd && si < stages.length - 1 && (() => {
+                    const rowStages = stages.slice(si - (si % 2), si + 1);
+                    const doneCount = rowStages.filter(s => pathDone.has(s.id)).length;
+                    const nextColor = stages[si + 1].color;
+                    return (
+                      <div className="pnode-connector" style={{ gridColumn: "1 / -1" }} aria-hidden="true">
+                        <span className={`pnode-connector-line${doneCount >= rowStages.length ? " done" : doneCount > 0 ? " half" : ""}`}
+                          style={{ "--nc": nextColor }} />
+                      </div>
+                    );
+                  })()}
                   </Fragment>
                 );
               })}
+
+              {/* The doors into Play Along, in the same grid as the lessons they
+                  practise — read it on one card, play it to a beat on the next.
+                  The drills behind them have existed all along; the only way in
+                  was a drawer item almost nobody opens, so they may as well not
+                  have. Carries no progress and no tick: this is a door, not a
+                  stage, and the group is still finished by its lessons alone. */}
+              {(PATHWAY_PRACTICE[g.id] || []).map(pc => (
+                pc.cat === "chords-major" || pc.cat === "chords-minor" ? (
+                  <Fragment key={pc.id}>
+                    <button id={"pcard-" + pc.id} className={`pcard pcard-play${progPickId === pc.id ? " active" : ""}`} style={{ "--ac": pc.color }}
+                      onClick={() => openProgPick(pc)}>
+                      <span className="pcardglow" />
+                      <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
+                      <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
+                      <span className="pcardtitle">{tr(pc.title, lang)}</span>
+                      <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
+                      <span className="pcardgo">
+                        {lc.playBtn}
+                        <span className="pcardarrow">{progPickId === pc.id ? "▾" : "▶"}</span>
+                      </span>
+                    </button>
+                    {progPickId === pc.id && (
+                      <div className="keypanel" style={{
+                        "--ac": pc.color,
+                        background: "var(--card2)",
+                        border: `1px solid ${pc.color}`,
+                        borderRadius: "14px",
+                        padding: "14px 13px",
+                        marginTop: 0,
+                        gridColumn: "1 / -1",
+                      }}>
+                        <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
+                          <span style={{ fontSize: "18px" }}>{pc.icon}</span>
+                          <span style={{ flex: 1, fontFamily: "'Orbitron',sans-serif", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(pc.title, lang)}</span>
+                          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "9px", color: pc.color, whiteSpace: "nowrap" }}>
+                            {lang === "th" ? "เลือกทางคอร์ด" : lang === "zh" ? "选择和弦进行" : "Pick a chord path"}
+                          </span>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "9px", marginBottom: "12px" }}>
+                          {PROG_LENS.map(n => (
+                            <button key={n} onClick={() => { setProgLenChoice(m => ({ ...m, [pc.id]: n })); }} style={{
+                              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
+                              padding: "13px 8px", borderRadius: "11px", cursor: "pointer",
+                              background: "var(--card3)",
+                              border: `1px solid ${(progLenChoice[pc.id] || 4) === n ? pc.color : pc.color + "55"}`,
+                              transition: "all .15s",
+                            }}>
+                              <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "20px", fontWeight: 900, color: pc.color, lineHeight: 1 }}>{n}</span>
+                              <span style={{ fontSize: "10px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2 }}>
+                                {lang === "th" ? "คอร์ด" : lang === "zh" ? "和弦" : "chords"}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="keygrid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "8px" }}>
+                          {KEYS_12.map(k => (
+                            <button key={k.id} className={`keybtn${k.black ? " black" : ""}`}
+                              style={{
+                                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px",
+                                padding: "11px 5px", borderRadius: "10px", cursor: "pointer",
+                                background: "var(--card3)",
+                                border: "1px solid var(--bd4)",
+                              }}
+                              onClick={() => { setProgPickId(null); onProgression && onProgression(pc, progLenChoice[pc.id] || 4, k.id); }}>
+                              <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>{k.name}</span>
+                              <span style={{ fontSize: "8.5px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", lineHeight: 1.5, marginTop: "10px" }}>
+                          {lang === "th" ? "AI จะสอนทั้งแบบ Block และ Broken พร้อมโหมดฝึก"
+                            : lang === "zh" ? "AI 将以 Block 和 Broken 两种方式教学，并配有练习模式"
+                            : "AI teaches it Block and Broken, with Practice Mode for both"}
+                        </div>
+                      </div>
+                    )}
+                  </Fragment>
+                ) : (
+                  <button key={pc.id} className="pcard pcard-play" style={{ "--ac": pc.color }}
+                    onClick={() => onPlayAlong && onPlayAlong(pc.cat, pc.id)}>
+                    <span className="pcardglow" />
+                    <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
+                    <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
+                    <span className="pcardtitle">{tr(pc.title, lang)}</span>
+                    <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
+                    <span className="pcardgo">
+                      {lc.playBtn}
+                      <span className="pcardarrow">▶</span>
+                    </span>
+                  </button>
+                )
+              ))}
             </div>
           </section>
+
+          {/* Group certificate + Boss Challenge both moved to the dedicated
+              Challenging page (nav) — this in-flow banner used to compete
+              with the pathway's own "what's next" scan for attention right
+              as a group finished; ChallengingPage now owns both, indexed by
+              group so nothing here needs to know their claim/fight state. */}
+
           {gi < groups.length - 1 && (
             <div className="ptrail" aria-hidden="true">
               <span className="ptrail-line" style={{ background: `linear-gradient(180deg, ${gc}, ${STAGES_BY_GROUP[groups[gi + 1].id][0].color})` }} />
@@ -584,17 +919,119 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
         );
       })}
 
-      {/* F5: Certificate — shown when all pathway stages are done */}
-      {pathDone.size >= PATHWAY.length && (
+      {/* Full-course certificate also moved to the Challenging page. */}
+
+      <div className="pathfoot">{lc.pathFoot}</div>
+    </div>
+  );
+});
+
+/* ════════════════════════════════════════════════════════════
+   CHALLENGING — every certificate and Group Boss Challenge in one
+   dedicated arena. Used to live as in-flow banners on the Pathway page,
+   where they competed with the pathway's own "what's next" scan for
+   attention right as a group finished; now Pathway stays a clean map and
+   this page is the "go prove it" destination, reachable from the nav
+   drawer or deep-linked from learnTopic()'s Auto Teaching nudge (see
+   groupChallengeReady()). Locked rows stay visible instead of disappearing
+   so the page always reads as a real challenge list, even for a brand-new
+   learner who hasn't unlocked anything yet.
+════════════════════════════════════════════════════════════ */
+const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, earnCoins, userName = "", focusGroupId, onConsumeFocus, premium = false, onUpsell = null }) {
+  const lc = L[lang];
+  const groups = PATH_GROUPS[lang];
+  const pathDone = pathDoneSet();
+  const bossDone = bossDoneSet();
+  // Certificates are the shareable proof parents post — the weekly report card
+   // itself stays viewable by everyone; saving the image is the premium act
+   // (owner-approved packaging, 2026-09-18). certBusy lives on ChallengingPage;
+   // the premium check rides the save button below.
+  const [certBusy, setCertBusy] = useState(false);
+  const fullReady = pathDone.size >= PATHWAY.length;
+  useEffect(() => {
+    if (!focusGroupId) return;
+    const el = document.getElementById("chal-" + focusGroupId);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (onConsumeFocus) onConsumeFocus(); // one-shot — a later plain drawer visit shouldn't re-scroll here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div className="pathpage">
+      <div className="pathhero">
+        <div className="pathhero-glow" />
+        <div className="pathbadge">◈ {lc.challengingTitle} ◈</div>
+        <div style={{ textAlign: "center", fontSize: "11px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", padding: "0 22px", lineHeight: 1.5 }}>{lc.challengingSub}</div>
+      </div>
+
+      {groups.map(g => {
+        const stages = STAGES_BY_GROUP[g.id] || [];
+        const hasBoss = stages.some(s => !s.content);
+        const doneCount = stages.filter(s => pathDone.has(s.id)).length;
+        const ready = stages.length > 0 && doneCount >= stages.length;
+        return (
+          <div id={"chal-" + g.id} key={g.id}>
+            {ready ? (
+              <>
+                <div className="cert-banner">
+                  <div className="cert-ic">{g.icon}</div>
+                  <div className="cert-body">
+                    <div className="cert-title">{lc.groupCertCompleted}</div>
+                    <div className="cert-sub">{g.label}</div>
+                  </div>
+                  <button className="cert-dl-btn" disabled={certBusy} onClick={() => downloadGroupCert(g, lang, userName, certBusy, setCertBusy, gainExp, earnCoins)}>
+                    📜 {lc.certDownload}
+                  </button>
+                  <button className="cert-share-btn" onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } shareCard({ title: lc.groupCertCompleted, big: g.icon, sub: g.label, lines: ["TiGA Piano AI"] }); }}>
+                    📤 {lc.shareBtn}
+                  </button>
+                </div>
+                {hasBoss && (
+                  <div className={`cert-banner bossbanner${bossDone.has(g.id) ? " done" : ""}`}>
+                    <div className="cert-ic">{bossDone.has(g.id) ? "👑" : "⚔️"}</div>
+                    <div className="cert-body">
+                      <div className="cert-title">{bossDone.has(g.id) ? lc.bossDoneTitle : lc.bossReadyTitle}</div>
+                      <div className="cert-sub">{g.label}</div>
+                    </div>
+                    <button className="cert-dl-btn boss-fight-btn" onClick={() => onBoss(g)}>
+                      {bossDone.has(g.id) ? `↻ ${lc.bossRematch}` : `⚔️ ${lc.bossFight}`}
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="cert-banner locked">
+                <div className="cert-ic">🔒</div>
+                <div className="cert-body">
+                  <div className="cert-title">{g.label}</div>
+                  <div className="cert-sub">{lc.challengingLocked.replace("{n}", doneCount).replace("{t}", stages.length)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {fullReady ? (
         <div className="cert-banner">
           <div className="cert-ic">🏆</div>
           <div className="cert-body">
             <div className="cert-title">{lc.certCompleted}</div>
             <div className="cert-sub">{lc.certTitle}</div>
           </div>
-          <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName)}>
+          <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName, gainExp, earnCoins)}>
             📜 {lc.certDownload}
           </button>
+          <button className="cert-share-btn" onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } shareCard({ title: lc.certCompleted, big: "🏆", sub: lc.certTitle, lines: ["TiGA Piano AI"] }); }}>
+            📤 {lc.shareBtn}
+          </button>
+        </div>
+      ) : (
+        <div className="cert-banner locked">
+          <div className="cert-ic">🔒</div>
+          <div className="cert-body">
+            <div className="cert-title">{lc.certTitle}</div>
+            <div className="cert-sub">{lc.challengingFullLocked}</div>
+          </div>
         </div>
       )}
 
@@ -609,7 +1046,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, initialOp
    practice?" decision that kills most practice habits.
 ════════════════════════════════════════════════════════════ */
 const _v12wait = (ms) => new Promise(r => setTimeout(r, ms));
-const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate }) {
+const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate, onReviewStage }) {
   const T = {
     th: { title: "ซ้อมวันนี้", sub: "แผนซ้อมส่วนตัวของคุณ — สร้างใหม่ให้ทุกวันจากความคืบหน้าจริง ไล่ทำทีละข้อได้เลย", warm: "วอร์มอัพนิ้ว", hw: "การบ้านจากครู", review: "ทบทวนของเดิม", learn: "เรียนเรื่องใหม่", song: "เพลงปิดท้าย", start: "เริ่ม ▶", done: "เสร็จแล้ว ✓", hwBtn: "ทำแล้ว ✓", progress: "ความคืบหน้าวันนี้", allDone: "ครบทุกข้อแล้ว! สุดยอดไปเลยครับ 🎉", bonus: "รับโบนัสประจำวัน +40 EXP · +20 🪙", claimed: "รับโบนัสของวันนี้แล้ว ✓" },
     en: { title: "Practice Today", sub: "Your personal plan — rebuilt every day from your real progress. Just work down the list.", warm: "Finger warm-up", hw: "Teacher's homework", review: "Review", learn: "Something new", song: "Closing song", start: "Start ▶", done: "Done ✓", hwBtn: "Done ✓", progress: "Today's progress", allDone: "All done — amazing work! 🎉", bonus: "Claim daily bonus +40 EXP · +20 🪙", claimed: "Today's bonus claimed ✓" },
@@ -625,15 +1062,24 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   const warm = MAJOR_SCALE_SONGS[seed % MAJOR_SCALE_SONGS.length];
   const hw = homework && homework.text ? homework : null;
 
-  // review = the finished (non-chapter) topic you've gone longest without touching
+  // review = the top-priority due Pathway stage per the unified SM-2-lite
+  // schedule (getDueReviews — same signal StudioPage's SRS modal shows),
+  // falling back to the old "longest since last touched" pick only when
+  // NOTHING is actually due yet, so the daily plan still always suggests
+  // something. "Done today" now means a passing practice attempt actually
+  // happened today (pathAccMap's real lastAt), not just that the lesson was
+  // opened — matches how the stage itself gets marked done (see reviewStage).
+  const due = getDueReviews();
+  const dueStage = due.stages[0] || null;
   const lessonLast = {};
   for (const e of readActLog()) if (e.k === "lesson") { const sid = e.id.split("/")[0]; lessonLast[sid] = Math.max(lessonLast[sid] || 0, e.t); }
   const reviewables = PATHWAY.filter(s => !s.content && doneP.has(s.id))
     .sort((a, b) => (lessonLast[a.id] || 0) - (lessonLast[b.id] || 0));
-  const review = reviewables[0] || null;
+  const review = dueStage ? dueStage.stage : (reviewables[0] || null);
   const reviewKey = review
     ? (KEYS_12.find(k => (keyMap[review.id] || []).includes(k.id.toLowerCase())) || KEYS_12[seed % KEYS_12.length])
     : null;
+  const reviewDoneToday = review ? (() => { const rec = pathAccMap()[review.id]; return !!(rec && rec.lastAt && dayKey(new Date(rec.lastAt)) === dayKey()); })() : false;
 
   // new = adaptive: a critically weak skill takes priority over the next Pathway
   // stage as a soft nudge, never a hard block — "next_stage"/"warmup" fall back
@@ -653,7 +1099,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   const steps = [
     { id: "warm", icon: "🎹", tag: T.warm, label: tr(warm, lang), isDone: doneLog.some(e => e.k === "game" && e.id === warm.id), go: () => onSong(warm) },
     ...(hw ? [{ id: "hw", icon: "📘", tag: T.hw, label: hw.text, isDone: hwDoneToday(), hwStep: true }] : []),
-    ...(review ? [{ id: "review", icon: "🔁", tag: T.review, label: tr(review.title, lang) + (reviewKey ? " · " + reviewKey.name : ""), isDone: doneLog.some(e => e.k === "lesson" && e.id.split("/")[0] === review.id), go: () => onLearn(review, reviewKey, review.types ? review.types[0] : null) }] : []),
+    ...(review ? [{ id: "review", icon: "🔁", tag: T.review, label: tr(review.title, lang) + (reviewKey ? " · " + reviewKey.name : ""), isDone: reviewDoneToday, go: () => onReviewStage(review, reviewKey) }] : []),
     ...(nextAction.type === "fundamentals" ? [{
       id: "new", icon: nextAction.feature === "hand_coach" ? "🖐️" : nextAction.feature === "ear_training" ? "👂" : "🎵",
       tag: T.learn,
@@ -676,6 +1122,22 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   const allDone = nDone === steps.length;
   const pct = Math.round((nDone / steps.length) * 100);
 
+  // AI PIANO COACH (P0, additive): WHAT/WHY/HOW diagnosis + time-adaptive
+  // budget from the student's real numbers. Null when no data yet — the card
+  // simply doesn't render, and the plan above is 100% unchanged.
+  const dx = getCoachDiagnosis();
+  const dxT = {
+    th: { tag: "AI วินิจฉัย", why: "ทำไม", how: "วิธีฝึก" },
+    en: { tag: "AI diagnosis", why: "Why", how: "How to fix" },
+    zh: { tag: "AI 诊断", why: "为什么", how: "怎么练" },
+  }[lang];
+  const budget = dx ? getPracticeTimeBudget(20) : null;
+  const budT = {
+    th: { tag: "แผน 20 นาที (ปรับตามจุดอ่อน)", warmup: "วอร์มอัพ", problem: "จุดพัง", review: "ทบทวน", reading: "อ่านโน้ต", performance: "เล่นโชว์", focus: "โฟกัส" },
+    en: { tag: "20-min plan (adapts to your weak spot)", warmup: "Warm-up", problem: "Problem", review: "Review", reading: "Reading", performance: "Perform", focus: "Focus" },
+    zh: { tag: "20分钟计划（按弱点调整）", warmup: "热身", problem: "难点", review: "复习", reading: "读谱", performance: "展示", focus: "重点" },
+  }[lang];
+
   return (
     <div className="pathpage">
       {onBack && (
@@ -695,6 +1157,32 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
         </div>
         <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
       </div>
+      {dx && (
+        <div className="v12card" style={{ borderColor: "#d9775744" }}>
+          <div style={{ fontSize: "11px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>🩺 {dxT.tag}</div>
+          <div style={{ fontSize: "13.5px", color: "var(--text)", fontWeight: 700, marginBottom: "5px" }}>
+            {dx.what.label} · {dx.what.acc}%
+            <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 400 }}>
+              {" "}({dx.what.count}x · {dx.what.trend === "improving" ? "↑" : dx.what.trend === "worsening" ? "↓" : "→"})
+            </span>
+          </div>
+          <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}><b style={{ color: "#d97757" }}>{dxT.why}:</b> {dx.why[0]}</div>
+          {dx.why[1] && <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}>· {dx.why[1]}</div>}
+          {dx.how.map((h, i) => <div key={i} style={{ fontSize: "12px", color: "var(--text2)" }}><b style={{ color: "#d97757" }}>{i === 0 ? dxT.how + ":" : ""}</b> {h}</div>)}
+          {budget && (
+            <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid var(--bd1)" }}>
+              <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "4px" }}>⏱ {budT.tag}{budget.focus ? ` · ${budT.focus}: ${budget.focus}` : ""}</div>
+              <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                {budget.parts.map(p => (
+                  <span key={p.key} style={{ fontSize: "11px", background: "rgba(217,119,87,.12)", color: "#d97757", borderRadius: "6px", padding: "3px 7px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                    {budT[p.key] || p.key} {p.minutes}′
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {steps.map(s => (
         <div key={s.id} className={`tdstep${s.isDone ? " done" : ""}`}>
           <span className="tdico">{s.isDone ? "✅" : s.icon}</span>
@@ -729,11 +1217,38 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
    melody echo). Practicable anywhere, even without a piano.
 ════════════════════════════════════════════════════════════ */
 const EG_ROUND = 8;
+// One combined "Ear Level" across all 5 tabs (int/chord/echo/melody/cadence)
+// instead of 5 separate, disconnected best-scores with no sense of overall
+// progress — a level up every EAR_LEVEL_STEP points of combined best-score.
+const EAR_LEVEL_STEP = 8;
+function earLevelFor(best) {
+  const total = (best.int || 0) + (best.chord || 0) + (best.echo || 0) + (best.melody || 0) + (best.cadence || 0);
+  return { level: Math.floor(total / EAR_LEVEL_STEP) + 1, total, intoLevel: total % EAR_LEVEL_STEP };
+}
+// Perfect Pitch Ladder — an endless-climb arcade mode layered on top of the
+// same interval-question engine (genQ("int"), just re-pooled off the live
+// streak instead of the persisted best): 3 lives, a shrinking per-question
+// timer, and the exact same 3-tier semitone pools (EG_INT_BASE/FULL/MASTER)
+// the graded "int" tab already uses for its own progression, just re-keyed
+// to the ladder's live streak so difficulty escalates within a single climb.
+const LADDER_LIVES_START = 3;
+const LADDER_TIME_START = 6000, LADDER_TIME_MIN = 2200, LADDER_TIME_STEP = 120;
+function ladderPool(streak) { return streak >= 12 ? EG_INT_MASTER : streak >= 6 ? EG_INT_FULL : EG_INT_BASE; }
+function ladderTimeFor(streak) { return Math.max(LADDER_TIME_MIN, LADDER_TIME_START - streak * LADDER_TIME_STEP); }
+function ladderBestScore() { try { return +(localStorage.getItem("tg_eargym_ladder") || 0); } catch (e) { return 0; } }
+// Returns true only on a genuine improvement (a real new record), not a tie.
+function markLadderBest(streak) { try { if (streak > ladderBestScore()) { localStorage.setItem("tg_eargym_ladder", String(streak)); return true; } return false; } catch (e) { return false; } }
 const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab }) {
   const T = {
-    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶" },
-    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶" },
-    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶" },
+    th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", cadenceTab: "คอร์ดนำ", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶",
+        refSong: "คล้ายเพลง", earLevel: "เลเวลหู", tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
+        ladderTitle: "บันไดเสียงสมบูรณ์แบบ", ladderSub: "ไต่บันได — พลาด 3 ครั้งจบเกม เวลาลดลงเรื่อยๆ", ladderStart: "เริ่มไต่บันได ▶", ladderStreakLbl: "ขั้นบันได", ladderBestLbl: "สถิติสูงสุด", ladderGameOver: "จบเกม!", ladderNewBest: "🏆 สถิติใหม่!", ladderAgain: "ไต่อีกครั้ง ▶" },
+    en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", cadenceTab: "Cadence", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶",
+        refSong: "Sounds like", earLevel: "Ear Level", tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead",
+        ladderTitle: "Perfect Pitch Ladder", ladderSub: "Climb as high as you can — 3 lives, the clock keeps shrinking", ladderStart: "Start climbing ▶", ladderStreakLbl: "Rung", ladderBestLbl: "Best climb", ladderGameOver: "Game over!", ladderNewBest: "🏆 New record!", ladderAgain: "Climb again ▶" },
+    zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", cadenceTab: "和弦引导", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶",
+        refSong: "像这首歌", earLevel: "听力等级", tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式",
+        ladderTitle: "完美音感阶梯", ladderSub: "尽力往上爬 — 3条命，时间越来越短", ladderStart: "开始攀爬 ▶", ladderStreakLbl: "阶数", ladderBestLbl: "最高纪录", ladderGameOver: "游戏结束！", ladderNewBest: "🏆 新纪录！", ladderAgain: "再次攀爬 ▶" },
   }[lang];
   const [tab, setTab] = useState(initialTab || "int");
   const [phase, setPhase] = useState("idle");   // idle | play | done
@@ -743,9 +1258,69 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   const [fb, setFb] = useState(null);            // { ok, answerLabel, pickedKey }
   const [taps, setTaps] = useState([]);
   const [result, setResult] = useState(null);
+  // Melody Echo: answer by playing a real piano/MIDI keyboard instead of
+  // tapping the letter grid — same mic/MIDI singleton and toggle convention
+  // as the Note Reading course's own micMode.
+  const [micMode, setMicMode] = useState(false);
+  const [micSrc, setMicSrc] = useState(null);
+  const [micHeard, setMicHeard] = useState(null);
+  const micTapsRef = useRef([]);
+  // Perfect Pitch Ladder — a separate arcade mode layered on the same
+  // question engine; ladderOn/ladderResult are mutually exclusive with the
+  // normal phase/result pair (only one mode renders at a time).
+  const [ladderOn, setLadderOn] = useState(false);
+  const [ladderLives, setLadderLives] = useState(LADDER_LIVES_START);
+  const [ladderStreak, setLadderStreak] = useState(0);
+  const [ladderTimeLeft, setLadderTimeLeft] = useState(0);
+  const [ladderResult, setLadderResult] = useState(null);
+  const ladderLivesRef = useRef(LADDER_LIVES_START);
+  const ladderStreakRef = useRef(0);
+  const ladderTimerRef = useRef(null);
+  const ladderDeadlineRef = useRef(0);
+  const ladderOnRef = useRef(false); // read inside setTimeout/setInterval callbacks, which close over a stale `ladderOn` otherwise
   const startTRef = useRef(0);
   const roundRef = useRef(0);
   const ROOTS = ["C4", "D4", "E4", "F4", "G4", "A4"];
+  // Standard, widely-taught interval↔reference-song associations — shown on a miss so a
+  // wrong answer becomes a memorable hook instead of just a red flash. Semitone-keyed.
+  const INTERVAL_REF_SONG = {
+    1: { th: "จอว์ส (Jaws)", en: "the Jaws theme", zh: "《大白鲨》主题曲" },
+    2: { th: "สุขสันต์วันเกิด", en: "Happy Birthday", zh: "生日快乐歌" },
+    3: { th: "Greensleeves", en: "Greensleeves", zh: "绿袖子" },
+    4: { th: "When the Saints", en: "When the Saints Go Marching In", zh: "当圣徒进行曲" },
+    5: { th: "เพลงแต่งงาน (Here Comes the Bride)", en: "Here Comes the Bride", zh: "婚礼进行曲" },
+    6: { th: "เดอะซิมป์สันส์", en: "The Simpsons theme", zh: "《辛普森一家》主题曲" },
+    7: { th: "ดาวน้อยกะพริบแสง", en: "Twinkle Twinkle Little Star", zh: "小星星" },
+    8: { th: "The Entertainer", en: "The Entertainer", zh: "《演艺人》" },
+    9: { th: "My Bonnie", en: "My Bonnie Lies Over the Ocean", zh: "My Bonnie" },
+    10: { th: "Star Trek", en: "the Star Trek theme", zh: "《星际迷航》主题曲" },
+    11: { th: "Take On Me (ท่อนฮุก)", en: "Take On Me's chorus leap", zh: "Take On Me（副歌）" },
+    12: { th: "Somewhere Over the Rainbow", en: "Somewhere Over the Rainbow", zh: "《彩虹之上》" },
+  };
+  const NOTE_LETTERS7 = ["C", "D", "E", "F", "G", "A", "B"];
+  // Biases toward stepwise motion (like a real melody) instead of picking every note fully
+  // independently at random, which tended to produce jumpy, non-musical echo sequences.
+  function genEchoPcs(len) {
+    const pcs = [NOTE_LETTERS7[Math.floor(Math.random() * 7)]];
+    for (let i = 1; i < len; i++) {
+      const prevIdx = NOTE_LETTERS7.indexOf(pcs[i - 1]);
+      if (Math.random() < 0.7) {
+        const step = [-2, -1, 1, 2][Math.floor(Math.random() * 4)];
+        pcs.push(NOTE_LETTERS7[Math.min(6, Math.max(0, prevIdx + step))]);
+      } else {
+        pcs.push(NOTE_LETTERS7[Math.floor(Math.random() * 7)]);
+      }
+    }
+    return pcs;
+  }
+  async function playCadence() {
+    const prog = [["C4", "E4", "G4"], ["F4", "A4", "C5"], ["G4", "B4", "D5"], ["C4", "E4", "G4"]];
+    for (const chord of prog) {
+      for (const n of chord) playPianoNote(n, 0.7);
+      await _v12wait(360);
+    }
+    await _v12wait(200);
+  }
 
   async function playCur(c) {
     const q = c || cur;
@@ -755,11 +1330,19 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   }
   function genQ(kind) {
     const root = ROOTS[Math.floor(Math.random() * ROOTS.length)];
-    // Jev ear-adaptive tier: 2 = step up (full pool / longer echoes now), 0 = step
-    // down (base pool / shorter echoes), null/1 = existing best-score thresholds.
-    const jevUp = jevEarTier() === 2, jevDown = jevEarTier() === 0;
-    if (kind === "int") {
-      const pool = (jevUp || (jevDown !== true && (earBest().int || 0) >= 7)) ? EG_INT_FULL : EG_INT_BASE;
+    // Jev ear-adaptive tier (int path only — cadence keeps its own bucket,
+    // ladder keys off the live streak): 2 = step up (full pool now), 0 = step
+    // down (base pool), null/1 = existing best-score thresholds.
+    const jevUp = kind === "int" && jevEarTier() === 2, jevDown = kind === "int" && jevEarTier() === 0;
+    if (kind === "int" || kind === "cadence" || kind === "ladder") {
+      // "cadence" tracks its own best (a separate earLevelFor() bucket) since hearing an
+      // interval in tonal context is a genuinely different skill from hearing it bare;
+      // "ladder" ignores the persisted best entirely — its pool is keyed off the LIVE
+      // climb streak (ladderPool(), module scope) so difficulty escalates within a run.
+      const bestN = kind === "cadence" ? (earBest().cadence || 0) : (earBest().int || 0);
+      const pool = kind === "ladder" ? ladderPool(ladderStreakRef.current)
+        : jevUp ? EG_INT_FULL : jevDown ? EG_INT_BASE
+        : bestN >= EG_ROUND ? EG_INT_MASTER : bestN >= 7 ? EG_INT_FULL : EG_INT_BASE;
       const semi = pool[Math.floor(Math.random() * pool.length)];
       const opts = [...new Set([semi, ...[...pool].sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
       return {
@@ -768,10 +1351,12 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       };
     }
     if (kind === "chord") {
-      const q = TRIAD_TYPES[Math.floor(Math.random() * TRIAD_TYPES.length)];
+      const pool = (earBest().chord || 0) >= EG_ROUND ? [...TRIAD_TYPES, ...SEVENTH_TYPES] : TRIAD_TYPES;
+      const q = pool[Math.floor(Math.random() * pool.length)];
+      const opts = [...new Set([q.key, ...pool.map(t => t.key).sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
       return {
         notes: _ascNotes(chordNotesOf(pcOf(root), q.key), 4), chord: true, answer: q.key,
-        options: TRIAD_TYPES.map(t => ({ key: t.key, label: t.lab[lang] || t.lab.en })),
+        options: opts.map(k => { const t = pool.find(x => x.key === k) || { lab: {} }; return { key: k, label: t.lab[lang] || t.lab.en }; }),
       };
     }
     if (kind === "melody") {
@@ -790,9 +1375,8 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
         options: allOpts.map(s => ({ key: s.id, label: lang === "th" ? s.th : lang === "zh" ? s.zh : s.en })),
       };
     }
-    const len = (jevUp || (jevDown !== true && (earBest().echo || 0) >= 7)) ? 4 : 3;
-    const pcs = [];
-    for (let i = 0; i < len; i++) pcs.push(["C", "D", "E", "F", "G", "A", "B"][Math.floor(Math.random() * 7)]);
+    const len = jevUp || (jevDown !== true && (earBest().echo || 0) >= 7) ? 4 : 3;
+    const pcs = genEchoPcs(len);
     return { notes: pcs.map(p => p + "4"), chord: false, answer: pcs.join(" "), pcs };
   }
   async function playCurMelody(q) {
@@ -805,16 +1389,55 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   function nextQ(kind, myRound) {
     const q = genQ(kind);
     setCur(q); setFb(null); setTaps([]);
+    micTapsRef.current = []; setMicHeard(null);
     if (q.isMelody) {
       setTimeout(() => { if (roundRef.current === myRound) playCurMelody(q); }, 350);
+    } else if (kind === "cadence") {
+      setTimeout(async () => { if (roundRef.current === myRound) { await playCadence(); if (roundRef.current === myRound) playCur(q); } }, 350);
     } else {
       setTimeout(() => { if (roundRef.current === myRound) playCur(q); }, 350);
     }
   }
+  // Melody Echo by real piano/MIDI instead of the letter grid — same singleton
+  // listener + octave-agnostic comparison as tapEcho() below (this course is
+  // about pitch-class/contour recognition, not staff position, so unlike the
+  // Note Reading course's mic mode, only the letter name is compared here).
+  const curRef = useRef(null); curRef.current = cur;
+  const fbRef = useRef(null); fbRef.current = fb;
+  function echoMicInput(d) {
+    if (!curRef.current || fbRef.current || tab !== "echo" || !curRef.current.pcs) return;
+    playPianoNote(d.note, 0.3);
+    setMicHeard(d.note);
+    const pc = pcOf(d.note);
+    micTapsRef.current = [...micTapsRef.current, pc];
+    setTaps(micTapsRef.current);
+    if (micTapsRef.current.length >= curRef.current.pcs.length) {
+      const okAns = micTapsRef.current.join(" ") === curRef.current.pcs.join(" ");
+      answered(okAns, curRef.current.pcs.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" · "), null);
+    }
+  }
+  const micHandlerRef = useRef(() => {});
+  micHandlerRef.current = echoMicInput;
+  useEffect(() => {
+    if (!micMode || tab !== "echo" || phase !== "play") { stopPracticeListeners(); setMicSrc(null); return; }
+    getAC();
+    stopPracticeListeners(); // release any listener another mode left open — never stack
+    const onDetect = (d) => micHandlerRef.current(d);
+    (async () => {
+      const midiOk = await startMidiListener(onDetect, () => setMicSrc({ type: "midi" }));
+      if (!midiOk) await startMicListener(onDetect, () => setMicSrc({ type: "mic" }), () => setMicSrc({ type: "error" }));
+    })();
+    return () => stopPracticeListeners();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [micMode, tab, phase]);
+  useEffect(() => () => stopPracticeListeners(), []); // belt-and-braces: release on unmount
+  useEffect(() => () => clearInterval(ladderTimerRef.current), []); // stop the ladder's countdown if the learner navigates away mid-climb
+
   function startRound() {
     playUi("click");
     const myRound = ++roundRef.current;
     setScore(0); setIdx(0); setResult(null); setPhase("play");
+    micTapsRef.current = []; setMicHeard(null);
     startTRef.current = Date.now();
     nextQ(tab, myRound);
   }
@@ -826,7 +1449,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     setEarBest(tab, finalScore);
     logActivity("ear", tab, finalScore, EG_ROUND - finalScore, Math.max(30, secs));
     logPractice(acc);
-    onReward(xp, stars * 5);
+    onReward(xp, stars * 5, finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
     jevEarRefresh(tab, finalScore, EG_ROUND); // Jev: re-score difficulty for the NEXT round (fire-and-forget)
     setResult({ score: finalScore, stars, xp, coins: stars * 5 });
     setPhase("done");
@@ -851,10 +1474,17 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     let ansLabel;
     if (cur.isMelody) {
       ansLabel = (cur.options.find((x: any) => x.key === cur.answer) || {}).label || cur.answer;
+    } else if (cur.chord) {
+      const t = [...TRIAD_TYPES, ...SEVENTH_TYPES].find(x => x.key === cur.answer);
+      ansLabel = (t || { lab: {} }).lab[lang];
     } else {
-      ansLabel = cur.chord
-        ? (TRIAD_TYPES.find(t => t.key === cur.answer) || { lab: {} }).lab[lang]
-        : (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+      ansLabel = (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+      // Miss on an interval question: name its standard reference song, so the wrong
+      // answer becomes a memorable hook instead of just a red flash and a label.
+      if (!okAns) {
+        const ref = INTERVAL_REF_SONG[Number(cur.answer)];
+        if (ref) ansLabel = `${ansLabel} (${T.refSong}: ${ref[lang] || ref.en})`;
+      }
     }
     answered(okAns, ansLabel || cur.answer, o.key);
   }
@@ -868,11 +1498,92 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       answered(okAns, cur.pcs.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" · "), null);
     }
   }
+
+  // ── Perfect Pitch Ladder — endless-climb arcade mode, mutually exclusive
+  // with the graded phase/result pair above (only one renders at a time).
+  // Reuses cur/fb/taps for "the current question" since the two modes never
+  // show at once; ladderOnRef mirrors ladderOn for the setTimeout/setInterval
+  // callbacks below, which would otherwise close over a stale value. ──
+  function armLadderTimer(streak) {
+    clearInterval(ladderTimerRef.current);
+    const dur = ladderTimeFor(streak);
+    ladderDeadlineRef.current = Date.now() + dur;
+    setLadderTimeLeft(dur);
+    ladderTimerRef.current = setInterval(() => {
+      const left = ladderDeadlineRef.current - Date.now();
+      if (left <= 0) {
+        clearInterval(ladderTimerRef.current);
+        setLadderTimeLeft(0);
+        if (ladderOnRef.current) ladderAnswered(false, null);
+      } else {
+        setLadderTimeLeft(left);
+      }
+    }, 100);
+  }
+  function ladderNextQ() {
+    const q = genQ("ladder");
+    setCur(q); setFb(null); setTaps([]);
+    armLadderTimer(ladderStreakRef.current);
+    setTimeout(() => { if (ladderOnRef.current) playCur(q); }, 350);
+  }
+  function startLadder() {
+    playUi("click");
+    ladderLivesRef.current = LADDER_LIVES_START; setLadderLives(LADDER_LIVES_START);
+    ladderStreakRef.current = 0; setLadderStreak(0);
+    setLadderResult(null);
+    ladderOnRef.current = true; setLadderOn(true);
+    ladderNextQ();
+  }
+  function ladderAnswered(ok, pickedKey) {
+    clearInterval(ladderTimerRef.current);
+    const ansLabel = (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+    setFb({ ok, answerLabel: ansLabel, pickedKey });
+    playUi(ok ? "click" : "wrong");
+    if (ok) {
+      const ns = ladderStreakRef.current + 1;
+      ladderStreakRef.current = ns; setLadderStreak(ns);
+      // a small life back every 10 rungs so a long climb isn't pure attrition
+      if (ns % 10 === 0 && ladderLivesRef.current < LADDER_LIVES_START) {
+        ladderLivesRef.current += 1; setLadderLives(ladderLivesRef.current);
+      }
+      setTimeout(() => { if (ladderOnRef.current) ladderNextQ(); }, 700);
+    } else {
+      const nl = ladderLivesRef.current - 1;
+      ladderLivesRef.current = nl; setLadderLives(nl);
+      if (nl <= 0) setTimeout(() => finishLadder(), 1200);
+      else setTimeout(() => { if (ladderOnRef.current) ladderNextQ(); }, 1200);
+    }
+  }
+  function handleLadderPick(o) {
+    if (!cur || fb || !ladderOn) return;
+    ladderAnswered(o.key === cur.answer, o.key);
+  }
+  // Also doubles as "quit" — leaving mid-climb still banks the streak you
+  // actually reached, same generous treatment every other mode in the app
+  // gives an interrupted session (nobody loses credit for a real streak).
+  function finishLadder() {
+    clearInterval(ladderTimerRef.current);
+    ladderOnRef.current = false; setLadderOn(false);
+    const streak = ladderStreakRef.current;
+    const isNewBest = markLadderBest(streak);
+    const xp = 10 + streak * 2, coins = Math.floor(streak / 2);
+    logActivity("ear", "ladder", streak, 0, Math.max(20, streak * 3));
+    logPractice(Math.min(100, streak * 5));
+    onReward(xp, coins, streak); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
+    setLadderResult({ streak, isNewBest, best: ladderBestScore(), xp, coins });
+    playUi(isNewBest ? "levelup" : "click");
+  }
+
   const best = earBest();
-  const tabs = [["int", "📏", T.int], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo], ["melody", "🎵", T.melody]];
+  const level = earLevelFor(best);
+  // "melody" (Name That Tune) tab restored per the fun/value audit — reference-melody
+  // association is real, widely-taught interval pedagogy (not just variety for its own
+  // sake), and it's the one tab already built on TIGA's own song library.
+  const tabs = [["int", "📏", T.int], ["cadence", "🗝️", T.cadenceTab], ["chord", "🎹", T.chord], ["echo", "🎶", T.echo], ["melody", "🎵", T.melody]];
+  const pickLabel = tab === "int" || tab === "cadence" ? T.pickInt : tab === "chord" ? T.pickChord : tab === "melody" ? T.pickMelody : T.pickEcho;
   return (
     <div className="pathpage">
-      {onBack && (
+      {onBack && !ladderOn && (
         <button onClick={() => { playUi("click"); onBack(); }}
           style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
           ← {L[lang].navStudio}
@@ -881,65 +1592,146 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       <div className="v12hero">
         <div className="v12title">👂 {T.title}</div>
         <div className="v12sub">{T.sub}</div>
-      </div>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-        {tabs.map(([k, ic, lb]) => (
-          <button key={k} onClick={() => { if (phase === "play") return; playUi("click"); setTab(k); setPhase("idle"); setResult(null); }}
-            style={{ flex: 1, padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "13px",
-              border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "#d97757" : "var(--text2)",
-              background: tab === k ? "rgba(217,119,87,.1)" : "var(--card3)" }}>
-            {ic} {lb}<div style={{ fontSize: "9px", color: "var(--muted)", marginTop: "2px" }}>{T.best}: {best[k] || 0}/{EG_ROUND}</div>
-          </button>
-        ))}
-      </div>
-      {phase !== "play" && (
-        <div className="v12card" style={{ textAlign: "center", padding: "24px 14px" }}>
-          {result && (
-            <div style={{ marginBottom: "14px" }}>
-              <div style={{ fontSize: "26px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
-              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
-              <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
-            </div>
-          )}
-          <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
+        <div style={{ display: "inline-block", marginTop: "8px", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", color: "#d97757", border: "1px solid #d9775744", borderRadius: "20px", padding: "4px 12px", background: "rgba(217,119,87,.06)" }}>
+          🎖️ {T.earLevel} {level.level} · {level.intoLevel}/{EAR_LEVEL_STEP}
         </div>
-      )}
-      {phase === "play" && cur && (
+      </div>
+
+      {(ladderOn || ladderResult) ? (
         <div className="v12card" style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
-            <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
-          </div>
-          <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
-          <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
-            {tab === "int" ? T.pickInt : tab === "chord" ? T.pickChord : tab === "melody" ? T.pickMelody : T.pickEcho}
-          </div>
-          {tab !== "echo" && cur.options && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
-              {cur.options.map(o => (
-                <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => pickOption(o)}>{o.label}</button>
-              ))}
+          {ladderResult ? (
+            <div style={{ padding: "10px 4px" }}>
+              <div style={{ fontSize: "30px" }}>🪜</div>
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: "var(--text)", margin: "6px 0 2px" }}>{T.ladderGameOver}</div>
+              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "34px", fontWeight: 900, color: "#a78bfa", lineHeight: 1.1 }}>{ladderResult.streak}</div>
+              {ladderResult.isNewBest ? (
+                <div style={{ fontSize: "12px", color: "#ffd23f", fontWeight: 700, margin: "4px 0" }}>{T.ladderNewBest}</div>
+              ) : (
+                <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", margin: "4px 0" }}>{T.ladderBestLbl}: {ladderResult.best}</div>
+              )}
+              <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "16px" }}>+{ladderResult.xp} EXP · +{ladderResult.coins} 🪙</div>
+              <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderAgain}</button>
+              <button onClick={() => { playUi("click"); setLadderResult(null); }} style={{ display: "block", margin: "12px auto 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "20px", color: "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                ← {T.title}
+              </button>
             </div>
-          )}
-          {tab === "echo" && (
+          ) : cur && (
             <>
-              <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
-                {taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                <span style={{ fontSize: "15px", letterSpacing: "1px" }}>{"❤️".repeat(ladderLives)}{"🖤".repeat(Math.max(0, LADDER_LIVES_START - ladderLives))}</span>
+                <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#a78bfa" }}>🪜 {T.ladderStreakLbl} {ladderStreak}</span>
+                <button onClick={() => { playUi("click"); finishLadder(); }} aria-label="quit" title={T.title}
+                  style={{ background: "none", border: "1px solid var(--bd4)", borderRadius: "50%", width: "22px", height: "22px", color: "#a88b9b", fontSize: "12px", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
-                {["C", "D", "E", "F", "G", "A", "B"].map(p => (
-                  <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapEcho(p)}>
-                    <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
-                    <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
-                  </button>
-                ))}
+              <div style={{ height: "5px", borderRadius: "3px", background: "var(--card3)", overflow: "hidden", marginBottom: "14px" }}>
+                <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, (ladderTimeLeft / ladderTimeFor(ladderStreak)) * 100))}%`, background: ladderTimeLeft < 1500 ? "#ff5252" : "#8b5cf6", transition: "width .1s linear" }} />
               </div>
-              {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid var(--bd4)", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>{T.clear}</button>}
+              <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #a78bfa55", background: "rgba(167,139,250,.08)", color: "#a78bfa", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>{T.pickInt}</div>
+              {cur.options && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+                  {cur.options.map(o => (
+                    <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => handleLadderPick(o)}>{o.label}</button>
+                  ))}
+                </div>
+              )}
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#a78bfa" : "#ff5252") : "transparent" }}>
+                {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
+              </div>
             </>
           )}
-          <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
-            {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
-          </div>
         </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "12px", overflowX: "auto" }}>
+            {tabs.map(([k, ic, lb]) => (
+              <button key={k} onClick={() => { if (phase === "play") return; playUi("click"); setTab(k); setPhase("idle"); setResult(null); }}
+                style={{ flex: "1 0 auto", minWidth: "62px", padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "13px",
+                  border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "#d97757" : "var(--text2)",
+                  background: tab === k ? "rgba(217,119,87,.1)" : "var(--card3)" }}>
+                {ic} {lb}<div style={{ fontSize: "9px", color: "var(--muted)", marginTop: "2px" }}>{T.best}: {best[k] || 0}/{EG_ROUND}</div>
+              </button>
+            ))}
+          </div>
+          {phase !== "play" && (
+            <>
+              <div className="v12card" style={{ textAlign: "center", padding: "16px 14px", marginBottom: "12px", border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+                <div style={{ fontSize: "22px" }}>🪜</div>
+                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#c4b5fd", margin: "4px 0 2px" }}>{T.ladderTitle}</div>
+                <div style={{ fontSize: "10.5px", color: "var(--muted)", marginBottom: "10px" }}>{T.ladderSub}</div>
+                <div style={{ fontSize: "10px", color: "#a78bfa", fontFamily: "'Share Tech Mono',monospace", marginBottom: "10px" }}>{T.ladderBestLbl}: {ladderBestScore()}</div>
+                <button className="tdgo" style={{ fontSize: "12px", padding: "10px 22px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderStart}</button>
+              </div>
+              <div className="v12card" style={{ textAlign: "center", padding: "24px 14px" }}>
+                {result && (
+                  <div style={{ marginBottom: "14px" }}>
+                    <div style={{ fontSize: "26px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
+                    <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
+                    <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+                  </div>
+                )}
+                <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
+              </div>
+            </>
+          )}
+          {phase === "play" && cur && (
+            <div className="v12card" style={{ textAlign: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
+                <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
+                {tab === "echo" && (
+                  <button onClick={() => { playUi("click"); setMicMode(m => !m); }}
+                    style={{ background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "#d97757" : "#a88b9b", padding: "4px 10px", fontSize: "10px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                    {micMode ? T.tapMode : T.pianoMode}
+                  </button>
+                )}
+              </div>
+              <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
+                {pickLabel}
+              </div>
+              {tab !== "echo" && cur.options && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+                  {cur.options.map(o => (
+                    <button key={o.key} className={`egopt${fb && o.key === cur.answer ? " ok" : fb && fb.pickedKey === o.key && !fb.ok ? " bad" : ""}`} onClick={() => pickOption(o)}>{o.label}</button>
+                  ))}
+                </div>
+              )}
+              {tab === "echo" && micMode && (
+                <div style={{ padding: "18px 10px", borderRadius: "12px", border: `1px solid ${micSrc && micSrc.type === "error" ? "#ff5252" : "#d9775744"}`, background: "rgba(217,119,87,.06)" }}>
+                  {micSrc && micSrc.type === "error" ? (
+                    <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.listenErr}</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: "26px", marginBottom: "6px" }} className={micHeard ? "" : "flicker"}>{micSrc ? "🎹" : "🎤"}</div>
+                      <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{micSrc ? T.listenReady : T.listening}</div>
+                      <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}</div>
+                      {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
+                    </>
+                  )}
+                </div>
+              )}
+              {tab === "echo" && !micMode && (
+                <>
+                  <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
+                    {taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
+                    {["C", "D", "E", "F", "G", "A", "B"].map(p => (
+                      <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapEcho(p)}>
+                        <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                        <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid var(--bd4)", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>{T.clear}</button>}
+                </>
+              )}
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
+                {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -949,14 +1741,47 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
    NOTE-READING COURSE — a graded path to real notation literacy:
    treble → ledger lines → bass clef → accidentals → short sequences.
 ════════════════════════════════════════════════════════════ */
-const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
+// Speed rank — finishLevel() already computed elapsed seconds for
+// logActivity's duration field and threw it away; this keeps it, persists a
+// per-level personal best, and grades pace on seconds-per-note (not raw
+// seconds) since level 5's 5 three-note sequences are genuinely more reading
+// work than another level's 10 single notes despite the smaller qn.
+const READ_SPEED_TIERS = [
+  { id: "diamond", icon: "💎", max: 1.0 },
+  { id: "gold",    icon: "🥇", max: 1.8 },
+  { id: "silver",  icon: "🥈", max: 3.0 },
+  { id: "bronze",  icon: "🥉", max: 5.0 },
+];
+function readSpeedRank(secs, notes) {
+  if (!secs || !notes) return null;
+  const perNote = secs / notes;
+  for (const t of READ_SPEED_TIERS) if (perNote <= t.max) return t;
+  return null;
+}
+function readBestTimeMap() { try { return JSON.parse(localStorage.getItem("tg_read_besttime") || "{}"); } catch (e) { return {}; } }
+// Returns true only on a genuine improvement (a real new record), not a tie.
+function markReadBestTime(levelN, secs) {
+  try {
+    const m = readBestTimeMap();
+    const prev = m[levelN];
+    if (prev == null || secs < prev) { m[levelN] = secs; localStorage.setItem("tg_read_besttime", JSON.stringify(m)); return true; }
+    return false;
+  } catch (e) { return false; }
+}
+const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySong }) {
   const T = {
-    th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน",
-        tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน" },
-    en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score",
-        tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead" },
-    zh: { title: "识谱课", sub: "循序渐进学会读谱 — 高音谱号 → 加线 → 低音谱号 → 升号 → 短句", lvl: "关卡", locked: "先在上一关拿到 ⭐⭐", q: "第", what: "这是什么音？", seqWhat: "按顺序点击音名", right: "正确！🎉", wrong: "答案：", done: "本关完成！", again: "再来一次 ▶", play: "开始 ▶", back: "← 选关", score: "得分",
-        tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式" },
+    th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี → เส้นน้อยกุญแจฟา", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน",
+        tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
+        courseDone: "อ่านโน้ตเป็นแล้ว! ลองอ่านเพลงจริงดูสิ", readSong: "อ่านเพลงจริง",
+        readNewBest: "สถิติใหม่!", readBestLbl: "สถิติเดิม" },
+    en: { title: "Note Reading", sub: "Real notation literacy, step by step — treble → ledger lines → bass clef → sharps → phrases → bass ledger lines", lvl: "Level", locked: "Earn ⭐⭐ on the previous level first", q: "Q", what: "Which note is this?", seqWhat: "Tap the note names in order", right: "Correct! 🎉", wrong: "Answer: ", done: "Level complete!", again: "Play again ▶", play: "Start ▶", back: "← Levels", score: "Score",
+        tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead",
+        courseDone: "You can read notation! Try reading a real song", readSong: "Read a real song",
+        readNewBest: "New best!", readBestLbl: "Best" },
+    zh: { title: "识谱课", sub: "循序渐进学会读谱 — 高音谱号 → 加线 → 低音谱号 → 升号 → 短句 → 低音谱加线", lvl: "关卡", locked: "先在上一关拿到 ⭐⭐", q: "第", what: "这是什么音？", seqWhat: "按顺序点击音名", right: "正确！🎉", wrong: "答案：", done: "本关完成！", again: "再来一次 ▶", play: "开始 ▶", back: "← 选关", score: "得分",
+        tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式",
+        courseDone: "你已经会读谱了！试着读一首真正的曲子吧", readSong: "读一首真曲子",
+        readNewBest: "新纪录！", readBestLbl: "最佳" },
   }[lang];
   const [lvl, setLvl] = useState(null);
   const [idx, setIdx] = useState(0);
@@ -977,16 +1802,19 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
   const fbRef = useRef(null); fbRef.current = fb;
   function micInput(d) {
     if (!curRef.current || fbRef.current || !lvl) return;
-    const pc = pcOf(d.note);
     playPianoNote(d.note, 0.3);
     setMicHeard(d.note);
+    // Played on a real piano/MIDI, so octave is real and testable — compare full note
+    // names here (not just letter/pitch-class), unlike the letter-only tap grid below.
+    // A wrong-octave answer used to score as correct, so staff *position* (the actual
+    // point of a grand-staff reading course) was never really being tested.
     if (lvl.seq === 1) {
-      answered(pc === curRef.current.answerPcs[0], lvl);
+      answered(d.note === curRef.current.notes[0], lvl);
     } else {
-      micTapsRef.current = [...micTapsRef.current, pc];
-      setTaps(micTapsRef.current);
-      if (micTapsRef.current.length >= curRef.current.answerPcs.length) {
-        answered(micTapsRef.current.join(" ") === curRef.current.answerPcs.join(" "), lvl);
+      micTapsRef.current = [...micTapsRef.current, d.note];
+      setTaps(micTapsRef.current.map(pcOf));
+      if (micTapsRef.current.length >= curRef.current.notes.length) {
+        answered(micTapsRef.current.join(" ") === curRef.current.notes.join(" "), lvl);
       }
     }
   }
@@ -1024,6 +1852,10 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
     playUi("click");
     runRef.current++;
     setLvl(L); setIdx(0); setScore(0); setResult(null);
+    // Once a level's been starred, a plain 4-option multiple-choice replay (25% guessable)
+    // undercuts the mastery feel — default replays to real piano/MIDI input instead, still
+    // toggleable back via the mode button if the learner genuinely wants to ease back in.
+    if ((stars[L.n] || 0) >= 1) setMicMode(true);
     startTRef.current = Date.now();
     nextQ(L);
   }
@@ -1035,8 +1867,22 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
     setReadCourseStars(L.n, stars);
     logActivity("read", "L" + L.n, finalScore, L.qn - finalScore, Math.max(30, secs));
     logPractice(acc);
-    onReward(xp, stars * 5);
-    setResult({ score: finalScore, stars, xp, coins: stars * 5, qn: L.qn });
+    onReward(xp, stars * 5, finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
+    // Speed rank — only a genuinely cleared level (stars >= 1) sets a record;
+    // racing through a level you're failing shouldn't count as a "best."
+    const prevBest = readBestTimeMap()[L.n];
+    const isNewBestTime = stars >= 1 && markReadBestTime(L.n, secs);
+    const speedRank = stars >= 1 ? readSpeedRank(secs, L.qn * L.seq) : null;
+    // Smart song recommendation — used to always be the exact same first
+    // diff:1 song in the catalog, every single time; now actually reasons
+    // about which songs are easy (re-scored from real note data, not just
+    // trusting the static tag) and varies the pick.
+    let recommendedSong = null;
+    if (L.n === RC_LEVELS[RC_LEVELS.length - 1].n && stars >= 2) {
+      const easyPool = SONGS.filter(s => !s.custom && estimateSongDifficulty(songTechniqueProfile(s)) === 1);
+      recommendedSong = easyPool.length ? easyPool[Math.floor(Math.random() * easyPool.length)] : (SONGS.find(s => s.diff === 1 && !s.custom) || SONGS[0]);
+    }
+    setResult({ score: finalScore, stars, xp, coins: stars * 5, qn: L.qn, secs, prevBest, isNewBestTime, speedRank, recommendedSong });
     playUi(stars >= 2 ? "levelup" : "click");
   }
   function answered(ok, L) {
@@ -1079,21 +1925,29 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
           </button>
         )}
         <div className="v12hero"><div className="v12title">🎼 {T.title}</div><div className="v12sub">{T.sub}</div></div>
-        {RC_LEVELS.map(L => {
-          const open = unlocked(L.n);
-          const st = stars[L.n] || 0;
-          return (
-            <button key={L.n} className="tdstep" style={{ width: "100%", cursor: open ? "pointer" : "default", opacity: open ? 1 : 0.55, textAlign: "left" }}
-              onClick={() => open && startLevel(L)}>
-              <span className="tdico">{open ? L.icon : "🔒"}</span>
-              <div style={{ flex: 1 }}>
-                <div className="tdtag">{T.lvl} {L.n} · {L.clef === "bass" ? "𝄢" : "𝄞"}{L.seq > 1 ? " · x" + L.seq : ""}</div>
-                <div className="tdlbl">{open ? ("⭐".repeat(st) || "—") : T.locked}</div>
-              </div>
-              {open && <span className="tdgo">{T.play}</span>}
-            </button>
-          );
-        })}
+        {(() => {
+          const bestTimes = readBestTimeMap();
+          return RC_LEVELS.map(L => {
+            const open = unlocked(L.n);
+            const st = stars[L.n] || 0;
+            const bestSecs = bestTimes[L.n];
+            const rank = bestSecs != null ? readSpeedRank(bestSecs, L.qn * L.seq) : null;
+            return (
+              <button key={L.n} className="tdstep" style={{ width: "100%", cursor: open ? "pointer" : "default", opacity: open ? 1 : 0.55, textAlign: "left" }}
+                onClick={() => open && startLevel(L)}>
+                <span className="tdico">{open ? L.icon : "🔒"}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="tdtag">{T.lvl} {L.n} · {L.clef === "bass" ? "𝄢" : "𝄞"}{L.seq > 1 ? " · x" + L.seq : ""}</div>
+                  <div className="tdlbl">
+                    {open ? ("⭐".repeat(st) || "—") : T.locked}
+                    {bestSecs != null && <span className="readbest">{rank ? rank.icon : "⏱"} {bestSecs}s</span>}
+                  </div>
+                </div>
+                {open && <span className="tdgo">{T.play}</span>}
+              </button>
+            );
+          });
+        })()}
       </div>
     );
   }
@@ -1115,8 +1969,23 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
         <div className="v12card" style={{ textAlign: "center", padding: "26px 14px" }}>
           <div style={{ fontSize: "28px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
           <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "18px", color: "var(--text)", fontWeight: 900, margin: "8px 0" }}>{result.score}/{result.qn}</div>
-          <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+          <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+          {result.stars >= 1 && (
+            <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>
+              ⏱ {result.secs}s{result.speedRank && <span style={{ marginLeft: 6 }}>{result.speedRank.icon} {result.speedRank.id}</span>}
+              {result.isNewBestTime ? <span style={{ color: "#d97757", fontWeight: 700, marginLeft: 6 }}>🏆 {T.readNewBest}</span>
+                : result.prevBest != null && <span style={{ marginLeft: 6 }}>({T.readBestLbl} {result.prevBest}s)</span>}
+            </div>
+          )}
           <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={() => startLevel(lvl)}>{T.again}</button>
+          {/* Ties "learned to read notation" to "can read a real song" — the whole point of the course. */}
+          {onPlaySong && result.recommendedSong && (
+            <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid var(--bd2)" }}>
+              <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "8px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.courseDone}</div>
+              <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#d97757" }}
+                onClick={() => onPlaySong(result.recommendedSong)}>🎵 {T.readSong}</button>
+            </div>
+          )}
         </div>
       ) : cur && (
         <div className="v12card" style={{ textAlign: "center" }}>
@@ -1136,7 +2005,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
                   <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>
                     {micSrc ? T.listenReady : T.listening}
                   </div>
-                  {lvl.seq > 1 && <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.join(" ")}</div>}
+                  {lvl.seq > 1 && <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>}
                   {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
                 </>
               )}
@@ -1155,7 +2024,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack }) {
               )}
               {lvl.seq > 1 && (
                 <>
-                  <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.join(" ")}</div>
+                  <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
                     {["C", "D", "E", "F", "G", "A", "B"].map(p => (
                       <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapSeq(p)}>
@@ -1402,7 +2271,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
               <div style={{ fontSize: "13.5px", color: earned ? "#d97757" : "var(--text2)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{g.label}</div>
               <div style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>{done}/{stages.length}{earned ? "" : " · " + T.certLock}</div>
             </div>
-            {earned && <button className="tdgo" style={{ borderColor: "#d97757", color: "#d97757", background: "rgba(217,119,87,.08)" }} disabled={busy} onClick={() => saveCert(g)}>{busy ? T.making : T.certGet}</button>}
+            {earned && <button className="tdgo" style={{ borderColor: "#d97757", color: "#d97757", background: "rgba(217,119,87,.08)" }} disabled={busy} onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } saveCert(g); }}>{busy ? T.making : T.certGet}</button>}
           </div>
         );
       })}
@@ -1413,10 +2282,10 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
 /* ── Profile / Gamification page — avatar, level, EXP bar, stats & rank ladder ── */
 /* ── Studio hub: choose Play-Along / Sight-Reading / Hand Coach ── */
 
-const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null,
+const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, onCamera, onExam, onEarGym, onReading, onToday, voiceLocked = false, plan = "", premium = false, freezeCount = 0, onAiReport, onAiPlan, onAnalytics, onUpsell, onRequireLogin, onPlay = null, onParent = null, onChallenging = null, songAnalysis = null, onAskStruggle, onReport = null,
   detectOpen = false, setDetectOpen, detectNotes = [], setDetectNotes, detectMatch = null, setDetectMatch, detectListening = false, setDetectListening,
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
-  mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null }) {
+  mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null, onReviewStage = null }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan);
@@ -1552,8 +2421,16 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     onSchoolJoined && onSchoolJoined(data);
   }
 
-  // B1: SRS — how many topics are due for review
-  const [dueSRS] = useState(() => getDueSRS());
+  // B1: SRS — what's due for review. Recomputed on every render instead of
+  // cached in a useState (the previous `const [dueSRS] = useState(() =>
+  // getDueSRS())` initialized once and then NEVER updated — no setter was
+  // even destructured — so the badge/modal kept showing whatever was true
+  // the moment Studio first mounted, stale for the rest of that mount).
+  // getDueReviews() is a cheap localStorage read, so recomputing it on every
+  // render (this component already re-renders often enough for state churn
+  // elsewhere) is simpler and more robust than reintroducing a cache that
+  // would need its own invalidation.
+  const dueReviews = getDueReviews();
   const [srsOpen, setSrsOpen] = useState(false);
 
   // A2: Goal Planner
@@ -1628,23 +2505,39 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   async function composeGenerate() {
     if (!composeMood || !composeStyle || composeLoading) return;
     if (onRequireLogin && onRequireLogin()) return;
-    if (!canUse("compose", premium)) { setComposeOpen(false); if (onUpsell) onUpsell(); return; }
+    /* Same exact-once gift on the second creation endpoint (1A). */
+    if (!premium && !canUse("compose", premium) && canUseSongGift()) {
+      consumeSongGift();
+    } else if (!canUse("compose", premium)) { setComposeOpen(false); if (onUpsell) onUpsell(); return; }
     setComposeLoading(true); setComposeErr(false);
     try {
       const moods: Record<string,string> = { happy: "happy, bright, uplifting", sad: "melancholic, gentle, wistful", calm: "peaceful, serene, tranquil", energetic: "lively, energetic, playful" };
       const styles: Record<string,string> = { simple: "stepwise simple melody", flowing: "smooth flowing melody with a mix of quarter and half notes", rhythmic: "rhythmic melody with clear strong beats" };
       const moodDesc = moods[composeMood] || "pleasant";
       const styleDesc = styles[composeStyle] || "simple melody";
-      const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.`;
+      // Ties the generated melody back to a real weakness instead of only the
+      // mood/style picker, when one is available. Prefers songAnalysis — the
+      // freshest signal, diagnosed right after whatever they just played —
+      // but falls back to the app's unified SRS due-review queue (the same
+      // dueReviews used for the SRS card badge above, and by TIGA Chat's own
+      // memory context) so Compose isn't blind to a known weak spot just
+      // because they opened it without having just finished a song.
+      const dueStruggle = dueReviews.practice[0];
+      const weaknessLabel = (songAnalysis && songAnalysis.weakness) || (dueStruggle && dueStruggle.label);
+      const weaknessNote = weaknessLabel
+        ? ` Also, gently work in a little extra practice for this recent weak spot without making the melody feel like a drill: ${weaknessLabel}.`
+        : "";
+      const prompt = `Create a ${moodDesc} ${styleDesc} piano melody in ${composeKey} major, 24-32 notes, musical and satisfying for a beginner. The name should reflect the mood.${weaknessNote}`;
       const sys = "You turn a melody request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names C4-B5 only; \"R\"=rest; beats are 0.5,1,1.5,2. Keep it 24-32 notes, melodic and musical.";
-      const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys, feature: "compose" });
+      const acc = await streamChatCompletion({ message: prompt, conversationHistory: [], system: sys + THEORY_REF, feature: "compose" });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
       const obj = JSON.parse(jm[0]);
       const seq = normalizeSeq(obj.seq || []);
       if (seq.length < 6 || !seq.some((x: any[]) => x[0] !== "R")) throw new Error("short");
       const name = String(obj.name || T("เพลงของฉัน", "My Melody", "我的旋律")).slice(0, 40);
       const bpm = Math.min(160, Math.max(60, Math.round(obj.bpm || 90)));
-      const song = { id: "compose_" + Date.now(), diff: 1, bpm, custom: true, th: name, en: name, zh: name, seq };
+      const diff = estimateSongDifficulty(songTechniqueProfile({ seq }));
+      const song = { id: "compose_" + Date.now(), diff, bpm, custom: true, th: name, en: name, zh: name, seq };
       if (!premium) bumpUsage("compose");
       setComposeOpen(false);
       setComposeMood(null); setComposeStyle(null); setComposeKey("C"); setComposePage(1);
@@ -1681,11 +2574,14 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     { k: "quick",   ic: "⚡", c: "#d97757", t: lc.quickTitle,       s: lc.quickSub,          fn: () => { playUi("click"); setQuickOpen(true); } },
     { k: "exam",    ic: "🎓", c: "#d97757", t: lc.studioExam,      s: lc.studioExamSub,      fn: onExam, badge: "PRO" },
     { k: "camera",  ic: "✋", c: "#d97757", t: lc.studioCamera,    s: lc.studioCameraSub,    fn: onCamera },
-    { k: "chordmood",ic:"🎭", c: "#d97757", t: lc.moodBoard,       s: lc.moodBoardSub,       fn: () => { playUi("click"); setMoodBoardOpen(true); } },
-    { k: "moodpick",ic: "🧭", c: "#d97757", t: lc.moodTitle,       s: T("เลือกเวลา+อารมณ์ → AI แนะนำกิจกรรม", "Pick time & mood → get the right activity", "按时间和心情推荐练习"), fn: () => { playUi("click"); setMoodTime(null); setMoodFeel(null); setMoodOpen(true); } },
+    // HIDDEN (not deleted) — overlaps with "moodpick" below; underlying modal/state untouched.
+    // { k: "chordmood",ic:"🎭", c: "#d97757", t: lc.moodBoard,       s: lc.moodBoardSub,       fn: () => { playUi("click"); setMoodBoardOpen(true); } },
+    // HIDDEN (not deleted) — overlaps with "chordmood" above; underlying modal/state untouched.
+    // { k: "moodpick",ic: "🧭", c: "#d97757", t: lc.moodTitle,       s: T("เลือกเวลา+อารมณ์ → AI แนะนำกิจกรรม", "Pick time & mood → get the right activity", "按时间和心情推荐练习"), fn: () => { playUi("click"); setMoodTime(null); setMoodFeel(null); setMoodOpen(true); } },
     { k: "goal",    ic: "🎯", c: "#d97757", t: lc.goalTitle,        s: goalData ? T(`เพลง: ${goalData.songName} — เหลือ ${goalDaysLeft} วัน`, `Goal: "${goalData.songName}" — ${goalDaysLeft} days left`, `目标："${goalData.songName}" — 剩${goalDaysLeft}天`) : lc.goalSub, fn: () => { playUi("click"); setGoalSongId(goalData ? goalData.songId : ""); setGoalDate(goalData ? goalData.date : ""); setGoalOpen(true); } },
-    { k: "srs",     ic: "🧠", c: dueSRS.length ? "#e55" : "#d97757", t: lc.srsTitle, s: dueSRS.length ? `${dueSRS.length} ${lc.srsItems} — ${lc.srsDue}` : lc.srsNone, fn: () => { playUi("click"); setSrsOpen(true); } },
-    { k: "thai",    ic: "🇹🇭", c: "#d97757", t: lc.thaiTitle,       s: lc.thaiSub,             fn: () => { playUi("click"); setThaiOpen(true); } },
+    { k: "srs",     ic: "🧠", c: dueReviews.total ? "#e55" : "#d97757", t: lc.srsTitle, s: dueReviews.total ? `${dueReviews.total} ${lc.srsItems} — ${lc.srsDue}` : lc.srsNone, fn: () => { playUi("click"); setSrsOpen(true); } },
+    // HIDDEN (not deleted) — niche audience per feature audit; underlying modal/state untouched.
+    // { k: "thai",    ic: "🇹🇭", c: "#d97757", t: lc.thaiTitle,       s: lc.thaiSub,             fn: () => { playUi("click"); setThaiOpen(true); } },
     { k: "compose", ic: "🎼", c: "#d97757", t: lc.composeTitle,     s: lc.composeSub,           fn: () => { playUi("click"); setComposeMood(null); setComposeStyle(null); setComposeKey("C"); setComposePage(1); setComposeErr(false); setComposeOpen(true); } },
     { k: "event",   ic: "🎪", c: eventData && eventDaysLeft !== null && eventDaysLeft <= 7 ? "#e55" : "#d97757",
       t: lc.eventTitle,
@@ -1693,11 +2589,17 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           ? (eventDaysLeft !== null && eventDaysLeft <= 0 ? T("ผ่านมาแล้ว 🎉", "Event passed 🎉", "演出已结束 🎉") : `${eventData.name} — ${eventDaysLeft} ${lc.eventDays}`)
           : lc.eventSet,
       fn: () => { playUi("click"); setEvName(eventData ? eventData.name : ""); setEvDate(eventData ? eventData.date : ""); setEventOpen(true); } },
-    { k: "detect",  ic: "🔍", c: "#d97757", t: T("ทายเพลงจากการเล่น", "Song Detector", "猜歌"), s: T("เล่นโน้ตสักไม่กี่ตัว — AI ทายชื่อเพลง", "Play a few notes — AI names the song", "弹几个音符 — AI 猜出歌名"), fn: () => { playUi("click"); setDetectNotes([]); setDetectMatch(null); setDetectListening(false); setDetectOpen(true); } },
+    // HIDDEN (not deleted) — low usage per feature audit; underlying modal/state untouched.
+    // { k: "detect",  ic: "🔍", c: "#d97757", t: T("ทายเพลงจากการเล่น", "Song Detector", "猜歌"), s: T("เล่นโน้ตสักไม่กี่ตัว — AI ทายชื่อเพลง", "Play a few notes — AI names the song", "弹几个音符 — AI 猜出歌名"), fn: () => { playUi("click"); setDetectNotes([]); setDetectMatch(null); setDetectListening(false); setDetectOpen(true); } },
     { k: "battle",  ic: "⚔️", c: "#d97757", t: T("Family Battle 👨‍👩‍👧", "Family Battle", "家庭对战"), s: T("ผลัดกันเล่นเพลงเดียวกัน — ดูว่าใครชนะ!", "Take turns playing the same song — see who wins!", "轮流弹同一首歌 — 看谁赢!"), fn: () => { playUi("click"); setBattleData(null); setBattlePickOpen(true); } },
-    { k: "commute", ic: "🎧", c: "#d97757", t: lc.commuteTitle, s: lc.commuteSub, fn: () => { playUi("click"); stopSpeaking(); setCommuteIdx(null); setCommuteOpen(true); } },
+    // HIDDEN (not deleted) — low discoverability per feature audit; underlying modal/state untouched.
+    // { k: "commute", ic: "🎧", c: "#d97757", t: lc.commuteTitle, s: lc.commuteSub, fn: () => { playUi("click"); stopSpeaking(); setCommuteIdx(null); setCommuteOpen(true); } },
     { k: "parent",  ic: "👨‍👩‍👧", c: "#d97757", t: lc.pdTitle, s: T("ดูพัฒนาการและรายงานความก้าวหน้า", "Track your child's progress", "查看孩子进度报告"), fn: () => { playUi("click"); onParent ? onParent() : null; } },
-    { k: "kru",     ic: "📋", c: "#d97757", t: lc.kruTitle, s: lc.kruSub, fn: () => { playUi("click"); setKruMsg(""); setKruGenResult(""); setKruTab("class"); setKruOpen(true); } },
+    // HIDDEN (not deleted) — superseded by the fuller School Dashboard (School Plan Pro);
+    // underlying modal/state untouched in case a non-school-linked teacher still needs it.
+    // { k: "kru",     ic: "📋", c: "#d97757", t: lc.kruTitle, s: lc.kruSub, fn: () => { playUi("click"); setKruMsg(""); setKruGenResult(""); setKruTab("class"); setKruOpen(true); } },
+    // Moved here from the nav drawer per request — same page (setPage("challenging")), just reached from Studio's card grid now instead of the drawer.
+    { k: "challenging", ic: "🏆", c: "#a78bfa", t: lc.challengingTitle, s: T("ปลดล็อกใบประกาศนียบัตรและเควสบอสทั้งหมด", "Unlock every certificate and boss quest", "解锁所有证书和首领任务"), fn: () => { playUi("click"); onChallenging ? onChallenging() : null; } },
   ];
 
   // Max-exclusive feature cards
@@ -1941,39 +2843,67 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
         </div>
       )}
 
-      {/* B1: SRS Review Modal */}
-      {srsOpen && (
+      {/* B1: SRS Review Modal — dueReviews unifies real Pathway-stage scheduling
+          (SM-2-lite, accuracy-aware) with tg_memory's song/sight-reading
+          struggles, instead of the old blind open-count list. Each stage row
+          shows a real strength meter (best accuracy) instead of a raw open
+          count, and "Review now" deep-links straight into a graded practice
+          session on that exact stage via reviewStage() — not a generic page. */}
+      {srsOpen && (() => {
+        const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
+        const mStreak = memoryStreak();
+        const mTier = memoryStreakTier(mStreak.count || 0);
+        return (
         <div className="modal-ov" onClick={() => setSrsOpen(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div className="modal-hdr"><span>🧠 {lc.srsTitle}</span><button className="modal-x" onClick={() => setSrsOpen(false)}>✕</button></div>
-            {dueSRS.length === 0 ? (
+            <div className="modal-hdr">
+              <span>
+                🧠 {lc.srsTitle}
+                {mStreak.count > 0 && (
+                  <span className="camstreak-badge" title={lc.memoryStreakLbl}>
+                    {mTier ? mTier.icon : "🔥"} {mStreak.count}
+                  </span>
+                )}
+              </span>
+              <button className="modal-x" onClick={() => setSrsOpen(false)}>✕</button>
+            </div>
+            {dueReviews.total === 0 ? (
               <p style={{ margin: "12px 0", fontSize: 14, color: "var(--muted)", textAlign: "center" }}>{lc.srsNone} ✅</p>
             ) : (
               <div>
                 <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--muted)" }}>{lc.srsSub}</p>
-                <div className="srs-list">
-                  {dueSRS.map((item: any) => {
-                    const [sid, kid] = item.id.split("/");
-                    const stage = (typeof PATHWAY !== "undefined" ? PATHWAY : []).find((s: any) => s.id === sid);
-                    const label = stage ? `${tr(stage.title, lang)} · ${kid?.toUpperCase() || ""}` : item.id;
-                    return (
+                {dueReviews.stages.length > 0 && (
+                  <div className="srs-list">
+                    {dueReviews.stages.map(item => (
                       <div key={item.id} className="srs-item">
-                        <span className="srs-ic">🔄</span>
-                        <span className="srs-label">{label}</span>
-                        <span className="srs-count">×{item.count}</span>
+                        <span className="srs-ic">{tierIcon[item.tier] || "🔄"}</span>
+                        <div className="srs-body">
+                          <span className="srs-label">{tr(item.stage.title, lang)}</span>
+                          <div className="wkbar"><div style={{ width: (item.best || 0) + "%" }} /></div>
+                        </div>
+                        <button className="srs-go" onClick={() => { setSrsOpen(false); onReviewStage && onReviewStage(item.stage); }}>{lc.srsReviewNow}</button>
                       </div>
-                    );
-                  })}
-                </div>
-                <button className="pricebtn active" style={{ width: "100%", marginTop: 14 }}
-                  onClick={() => { setSrsOpen(false); onToday && onToday(); }}>
-                  {T("ไปทบทวนเลย →", "Start Review →", "开始复习 →")}
-                </button>
+                    ))}
+                  </div>
+                )}
+                {dueReviews.practice.length > 0 && (
+                  <>
+                    <div className="admstu-sec" style={{ marginTop: dueReviews.stages.length ? 14 : 0, marginBottom: 6 }}>{lc.srsPracticeGroup}</div>
+                    <div className="pd-tags">{dueReviews.practice.map((s, i) => <button key={i} className="pd-tag focus" onClick={() => { setSrsOpen(false); onAskStruggle(s); }}>💬 {s.label}</button>)}</div>
+                  </>
+                )}
+                {dueReviews.stages.length > 0 && (
+                  <button className="pricebtn active" style={{ width: "100%", marginTop: 14 }}
+                    onClick={() => { setSrsOpen(false); onReviewStage && onReviewStage(dueReviews.stages[0].stage); }}>
+                    {T("ไปทบทวนเลย →", "Start Review →", "开始复习 →")}
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* D3: AI Composition Starter Modal */}
       {composeOpen && (
@@ -2175,8 +3105,9 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="lvup-share" onClick={() => { setBattleData(null); setBattlePickOpen(true); }}>↻ {T("เล่นใหม่", "Play Again", "再玩")}</button>
-                <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }}
-                  onClick={() => { const s = battleData.scores; shareLine(T(`⚔️ Family Battle บน TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 ชนะ!" : s[1].acc > s[0].acc ? "P2 ชนะ!" : "เสมอ!"} tigaalpha.github.io`, `⚔️ Family Battle on TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 wins!" : s[1].acc > s[0].acc ? "P2 wins!" : "Draw!"} tigaalpha.github.io`, `⚔️ TiGA Piano AI家庭对战! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1胜!" : s[1].acc > s[0].acc ? "P2胜!" : "平局!"} tigaalpha.github.io`)); }}>🟢 LINE</button>
+                {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
+                {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }}
+                  onClick={() => { const s = battleData.scores; shareLine(T(`⚔️ Family Battle บน TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 ชนะ!" : s[1].acc > s[0].acc ? "P2 ชนะ!" : "เสมอ!"} tigaalpha.github.io`, `⚔️ Family Battle on TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 wins!" : s[1].acc > s[0].acc ? "P2 wins!" : "Draw!"} tigaalpha.github.io`, `⚔️ TiGA Piano AI家庭对战! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1胜!" : s[1].acc > s[0].acc ? "P2胜!" : "平局!"} tigaalpha.github.io`)); }}>🟢 LINE</button>}
                 <button className="lvup-share" onClick={() => { setBattleData(null); }}>✕</button>
               </div>
             </>
@@ -2204,13 +3135,20 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
         </div>
       )}
 
-      {/* Gamification: Lucky Bonus toast */}
+      {/* Gamification: Lucky Bonus toast — and the practice-gem toast, which
+          rides the same slot because two of these on screen at once would be
+          two banners fighting for the same strip of the header. */}
       {luckyToast && (
         <div style={{ position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)", zIndex: 2300,
-          background: "linear-gradient(135deg,#d97757,#f5a623)", color: "#fff", borderRadius: 20,
+          background: luckyToast.kind === "gem" ? "linear-gradient(135deg,#6a5acd,#48c6ef)" : "linear-gradient(135deg,#d97757,#f5a623)",
+          color: "#fff", borderRadius: 20,
           padding: "10px 22px", fontWeight: 700, fontSize: 15, pointerEvents: "none",
-          boxShadow: "0 4px 20px rgba(217,119,87,0.5)", animation: "pop 0.4s ease" }}>
-          ⚡ {T(`LUCKY BONUS! +${luckyToast.xp} EXP`, `LUCKY BONUS! +${luckyToast.xp} EXP`, `幸运奖励! +${luckyToast.xp} EXP`)}
+          boxShadow: luckyToast.kind === "gem" ? "0 4px 20px rgba(90,110,220,0.55)" : "0 4px 20px rgba(217,119,87,0.5)", animation: "pop 0.4s ease" }}>
+          {luckyToast.kind === "gem"
+            ? T(`💎 ได้เพชร +${luckyToast.n}! วันนี้เหลืออีก ${luckyToast.left}`,
+                `💎 Gem earned +${luckyToast.n}! ${luckyToast.left} more today`,
+                `💎 获得宝石 +${luckyToast.n}！今日还剩 ${luckyToast.left}`)
+            : T(`⚡ LUCKY BONUS! +${luckyToast.xp} EXP`, `⚡ LUCKY BONUS! +${luckyToast.xp} EXP`, `⚡ 幸运奖励! +${luckyToast.xp} EXP`)}
         </div>
       )}
 
@@ -2341,6 +3279,49 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           </div>
         </div>
       )}
+
+      {/* ── Stats / Report / AI shortcuts (moved from Profile page) ── */}
+      <div style={{ padding: "0 14px", marginTop: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#999", marginBottom: 8, letterSpacing: 0.5 }}>
+          {T("📊 รายงานและแผนฝึกซ้อม", "📊 Reports & Plans", "📊 报告与练习计划")}
+        </div>
+        <button className="tdstep" style={{ width: "100%", margin: "0 0 10px", cursor: "pointer", textAlign: "left" }}
+          onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAnalytics(); }}>
+          <span className="tdico">📊</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tdlbl">{lc.navStats}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdtag">{lang === "th" ? "กราฟการซ้อม · จุดที่ควรเก็บ · ช่วงเวลาที่ซ้อมบ่อย" : lang === "zh" ? "练习图表 · 待加强 · 常练时间" : "Practice charts · weak spots · best hours"}</div>
+          </div>
+          <span className="tdgo">{isMax ? "→" : "👑"}</span>
+        </button>
+        <button className="tdstep" style={{ width: "100%", margin: "0 0 10px", cursor: "pointer", textAlign: "left" }}
+          onClick={() => { playUi("click"); onReport(); }}>
+          <span className="tdico">🏅</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tdlbl">{lc.navReport}</div>
+            <div className="tdtag">{lang === "th" ? "สรุปรายสัปดาห์ · คำติชมครู · ใบประกาศนียบัตร" : lang === "zh" ? "每周总结 · 老师评语 · 证书" : "Weekly summary · teacher comment · certificates"}</div>
+          </div>
+          <span className="tdgo">→</span>
+        </button>
+        <button className="tdstep" style={{ width: "100%", margin: "0 0 10px", cursor: "pointer", textAlign: "left" }}
+          onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAiReport(); }}>
+          <span className="tdico">📋</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tdlbl">{lang === "th" ? "รายงานพัฒนาการ AI" : lang === "zh" ? "AI 进度报告" : "AI Weekly Report"}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdtag">{lang === "th" ? "รายงานพัฒนาการรายสัปดาห์ที่ AI สร้างเป็นการส่วนตัว" : lang === "zh" ? "AI 个性化生成的每周进度总结" : "AI-generated personal weekly progress report"}</div>
+          </div>
+          <span className="tdgo">{isMax ? "→" : "👑"}</span>
+        </button>
+        <button className="tdstep" style={{ width: "100%", margin: "0 0 10px", cursor: "pointer", textAlign: "left" }}
+          onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAiPlan(); }}>
+          <span className="tdico">🗓️</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tdlbl">{lang === "th" ? "แผนซ้อมส่วนตัว AI" : lang === "zh" ? "AI 练习计划" : "AI Practice Plan"}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdtag">{lang === "th" ? "แผนซ้อม 7 วัน AI วิเคราะห์จุดอ่อนส่วนตัว" : lang === "zh" ? "AI 根据弱点生成的7天个性化练习计划" : "Personalized 7-day AI plan based on your weak spots"}</div>
+          </div>
+          <span className="tdgo">{isMax ? "→" : "👑"}</span>
+        </button>
+      </div>
     </div>
   );
 });
@@ -2393,6 +3374,20 @@ function fmtLikes(n) {
 // local bookmark (🔖) state per video
 function readVidFav(id) { try { return !!JSON.parse(localStorage.getItem("tg_vidfavs") || "{}")[id]; } catch (e) { return false; } }
 function writeVidFav(id, v) { try { const m = JSON.parse(localStorage.getItem("tg_vidfavs") || "{}"); if (v) m[id] = 1; else delete m[id]; localStorage.setItem("tg_vidfavs", JSON.stringify(m)); } catch (e) {} }
+// Subtitle language for the video player — cycles Off -> Thai -> English ->
+// Chinese -> Off via the CC rail button. There's no subtitle text of our own
+// authored per video (these are YouTube embeds, admin-uploaded), so this asks
+// YOUTUBE's OWN caption system for the chosen language via its documented
+// cc_load_policy/cc_lang_pref embed params — real captions today for any
+// video that has at least one caption track (creator-uploaded or YouTube's
+// own auto-generated one), since YouTube auto-translates an existing track
+// into whichever language is requested. Sticky across videos/sessions, same
+// convention as this app's other sticky per-feature preferences.
+const VIDSUB_CYCLE = [null, "th", "en", "zh"];
+const VIDSUB_CC_CODE = { th: "th", en: "en", zh: "zh-Hans" };
+const VIDSUB_NAME = { th: "ไทย", en: "EN", zh: "中文" };
+function readVidSubLang() { try { return localStorage.getItem("tg_vidsub_lang") || null; } catch (e) { return null; } }
+function writeVidSubLang(v) { try { if (v) localStorage.setItem("tg_vidsub_lang", v); else localStorage.removeItem("tg_vidsub_lang"); } catch (e) {} }
 // share a lesson video — native share sheet on mobile (Web Share API), else LINE + clipboard
 function shareVideo(s, lang) {
   let url = null;
@@ -2413,7 +3408,21 @@ function shareVideo(s, lang) {
 function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [faved, setFaved] = useState(() => readVidFav(s.key));
+  const [subLang, setSubLang] = useState(() => readVidSubLang());
+  const [subOpen, setSubOpen] = useState(false);
   if (!active) return <div className="vidplaceholder">🎬</div>;
+  /* The CC button used to CYCLE Off -> TH -> EN -> ZH on each tap, so getting
+     to Chinese meant three taps through two languages you did not want, and
+     nothing on screen ever told you the other options existed. It opens a
+     picker instead: the three languages and Off, all visible, one tap each. */
+  function pickSubLang(v) {
+    setSubLang(v); writeVidSubLang(v); setSubOpen(false);
+    playUi("click"); haptic(6);
+  }
+  // Forces YouTube's own caption system on in the chosen language when a
+  // subtitle language is picked; omitted entirely (today's exact behavior)
+  // when off.
+  const ccParam = subLang ? `&cc_load_policy=1&cc_lang_pref=${VIDSUB_CC_CODE[subLang]}&hl=${VIDSUB_CC_CODE[subLang]}` : "";
   const rail = (
     <div className="vidrail" onClick={e => e.stopPropagation()}>
       <button className={`vidact${likedByMe ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); if (onToggleLike) onToggleLike(); }}>
@@ -2424,6 +3433,26 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
         <span className="vidact-ic">💬</span>
         <span className="vidact-n">{T("ถามครู", "Ask AI", "问老师")}</span>
       </button>
+      <div className="vidsub-wrap">
+        <button className={`vidact${subLang ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); setSubOpen(o => !o); playUi("click"); haptic(6); }}
+          title={T("คำบรรยาย", "Subtitles", "字幕")}>
+          <span className="vidact-ic" style={{ fontWeight: 900, fontSize: 15, letterSpacing: -0.5 }}>CC</span>
+          <span className="vidact-n">{subLang ? VIDSUB_NAME[subLang] : T("ปิด", "Off", "关")}</span>
+        </button>
+        {subOpen && (
+          <div className="vidsub-menu" onClick={e => e.stopPropagation()}>
+            <div className="vidsub-head">{T("คำบรรยาย", "Subtitles", "字幕")}</div>
+            {[["th", "ไทย"], ["en", "English"], ["zh", "中文"]].map(([code, label]) => (
+              <button key={code} className={`vidsub-opt${subLang === code ? " on" : ""}`} onClick={() => pickSubLang(code)}>
+                <span>{label}</span>{subLang === code ? <b>✓</b> : null}
+              </button>
+            ))}
+            <button className={`vidsub-opt${subLang ? "" : " on"}`} onClick={() => pickSubLang(null)}>
+              <span>{T("ปิดคำบรรยาย", "Off", "关闭")}</span>{subLang ? null : <b>✓</b>}
+            </button>
+          </div>
+        )}
+      </div>
       <button className="vidact" onClick={(e) => { e.stopPropagation(); shareVideo(s, lang); }}>
         <span className="vidact-ic">📤</span>
         <span className="vidact-n">{T("แชร์", "Share", "分享")}</span>
@@ -2443,7 +3472,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     return (
       <>
         <iframe className="vidplayer"
-          src={`https://www.youtube-nocookie.com/embed/videoseries?list=${s.playlistId}&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0`}
+          src={`https://www.youtube-nocookie.com/embed/videoseries?list=${s.playlistId}&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0${ccParam}`}
           allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
         {rail}
       </>
@@ -2457,7 +3486,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     return (
       <>
         <iframe className="vidplayer"
-          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3`}
+          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3${ccParam}`}
           allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
         {rail}
       </>
@@ -2481,7 +3510,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     </>
   );
 }
-const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
+const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched }) {
   const lc = L[lang];
   const [categories, setCategories] = useState(null);  // null = loading; each row is one published lesson_videos entry
   const [activeCat, setActiveCat] = useState(null);     // lesson_videos.id of the selected category
@@ -2501,6 +3530,53 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
       else sb.from("video_likes").insert({ user_id: uid, file_id: key }).then(() => {}, () => {});
     }, () => {});
   }
+
+  /* ── paying for a watch ──
+     A YouTube iframe tells us nothing about playback, so a watch is inferred
+     from dwell: the slide has to stay the active one, in a VISIBLE tab, for a
+     full minute before it pays. Scrolling through a reel pays nothing, leaving
+     the tab in the background pays nothing, and each video pays once ever —
+     rewatching is free, exactly like re-reading a chapter. */
+  /* The callback lives in a ref, and that is the whole reason this works.
+     onWatched is written inline at the call site, so it is a NEW function on
+     every render of the app — and the app re-renders constantly. With it in
+     the dependency array the effect tore down and restarted the interval each
+     time, resetting elapsed to zero, so the minute was never once reached and
+     a video could never pay. Held in a ref, the clock depends only on which
+     slide is on screen. */
+  const onWatchedRef = useRef(onWatched);
+  useEffect(() => { onWatchedRef.current = onWatched; }, [onWatched]);
+  const [watchLeft, setWatchLeft] = useState(null);   // seconds until this one pays
+  const [watchPaid, setWatchPaid] = useState(false);
+
+  useEffect(() => {
+    if (!activeKey) { setWatchLeft(null); setWatchPaid(false); return; }
+    if (videoPaidSet().has(activeKey)) { setWatchLeft(null); setWatchPaid(true); return; }
+    setWatchPaid(false);
+    setWatchLeft(Math.ceil(VIDEO_WATCH_MS / 1000));
+    let elapsed = 0, last = Date.now();
+    const id = setInterval(() => {
+      const now = Date.now();
+      // only count time while the tab is actually in front of somebody
+      if (document.visibilityState === "visible") elapsed += now - last;
+      last = now;
+      setWatchLeft(Math.max(0, Math.ceil((VIDEO_WATCH_MS - elapsed) / 1000)));
+      if (elapsed >= VIDEO_WATCH_MS) {
+        clearInterval(id);
+        /* Mark it paid only if a coin actually came out. When the daily cap is
+           already spent onWatched returns false, and marking it here anyway
+           would burn the video forever — it would never pay, not even
+           tomorrow. Left unmarked, it simply pays the next time it is watched. */
+        const f = onWatchedRef.current;
+        if (!videoPaidSet().has(activeKey) && f && f(activeKey)) {
+          markVideoPaid(activeKey);
+          setWatchPaid(true);
+        }
+        setWatchLeft(null);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [activeKey]);
 
   // Each published lesson_videos row is one CATEGORY (its title is the chip
   // label) — pointing at a YouTube playlist, or (legacy) a Drive folder/file.
@@ -2602,6 +3678,14 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
             <VideoSlide s={s} active={activeKey === s.key} lang={lang} onAsk={onAsk}
               likeN={(likes[s.key] || {}).n || 0} likedByMe={!!(likes[s.key] || {}).me} onToggleLike={() => toggleLike(s.key)} />
             <div className="vidtopfade" />
+            {activeKey === s.key && (watchPaid ? (
+              <div className="vidcoin done">🪙 {lc.vidPaid}</div>
+            ) : watchLeft != null ? (
+              <div className="vidcoin">
+                <i style={{ width: `${100 - (watchLeft / (VIDEO_WATCH_MS / 1000)) * 100}%` }} />
+                <b>🪙 +{EARN.video} · {watchLeft}s</b>
+              </div>
+            ) : null)}
           </div>
         ))}
       </div>
@@ -2611,7 +3695,33 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk }) {
 
 /* ── Song picker page (falling-notes play-along) ── */
 const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // level required to unlock by difficulty
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "" }) {
+/* ── Daily Song Quest day card (Play Along plan #8) — hero strip on the
+   song list: today's featured song (same for every device, hash-of-date
+   choice), today's progress (done + stars from tg_daily_song), and a
+   countdown to the next quest. One tap starts the song. ── */
+function DailySongQuestCard({ lang, onPlay }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [state, setState] = useState(() => readDailySongState(new Date().toISOString().slice(0, 10)));
+  const song = useMemo(() => dailySongFor(), []);
+  if (!song) return null;
+  const hoursLeft = 23 - new Date().getHours();
+  const done = !!state.done;
+  const stars = state.stars || 0;
+  return (
+    <button className="setlistbtn" style={{ marginBottom: 10, textAlign: "left" }}
+      onClick={() => { haptic(); onPlay(song); }}>
+      <span className="setlistbtn-tt">📆 {T("ภารกิจเพลงประจำวัน", "Daily Song Quest", "每日歌曲任务")} — {tr(song, lang)}</span>
+      <span className="setlistbtn-sub">
+        {done
+          ? T("✅ สำเร็จแล้ววันนี้ — เล่นซ้ำเพื่อเก็บดาวเพิ่มได้", "✅ Done today — replay to collect more stars", "✅ 今日已完成 — 可重玩拿更多星")
+          : T("เล่นให้จบ 1 รอบรับ " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "Finish it once for " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "完成一次得 " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP")}
+        {"  ·  "}{done ? "★".repeat(stars) + "☆".repeat(Math.max(0, 3 - stars)) + "  ·  " : ""}{T("เหลืออีก ~" + hoursLeft + " ชม.", "~" + hoursLeft + "h left", "剩约" + hoursLeft + "小时")}
+      </span>
+    </button>
+  );
+}
+
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist, initialCat = "songs" }) {
   const lc = L[lang];
   const [filter, setFilter] = useState(-1);   // -1 all · 0 favorites · 1/2/3 by difficulty
   const [favs, setFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_favs") || "[]"); } catch (e) { return []; } });
@@ -2630,11 +3740,23 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   const [humNotes, setHumNotes] = useState<string[]>([]);
   const humTimerRef = useRef<any>(null);
   // Play-Along categories: songs · scales · chords · intervals (all on this one page)
-  const [cat, setCat] = useState("songs");
+  // Read once, on mount: this page is only reached by navigating to it, so it
+  // remounts each time and picks up whatever category sent the visitor here.
+  const [cat, setCat] = useState(initialCat === "chords-major" || initialCat === "chords-minor" ? "progression" : initialCat);
   const [genreFilter, setGenreFilter] = useState("all");
   const [minorType, setMinorType] = useState("natural minor");
   const [triadQual, setTriadQual] = useState("major");
   const [seventhQual, setSeventhQual] = useState("maj7");
+  /* Chord-progression drills (the pathway "Hit Chords" doors): the quality is
+     implied by which door was used ("chords-major"/"chords-minor" map here);
+     the learner picks the chord COUNT — 2, 4 or 8 — first, exactly as asked.
+     initialCat lands directly on the count picker, not the top tab row. */
+  const [progQual, setProgQual] = useState("major");
+  const [progLen, setProgLen] = useState(4);
+  useEffect(() => {
+    if (initialCat === "chords-major") setProgQual("major");
+    else if (initialCat === "chords-minor") setProgQual("minor");
+  }, [initialCat]);
   const play = (s) => { try { localStorage.setItem("tg_last_song", s.id); } catch (e) {} onPlay(s); };
   let lastId = null; try { lastId = localStorage.getItem("tg_last_song"); } catch (e) {}
   const ALL = [...mySongs, ...SONGS];
@@ -2643,18 +3765,24 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   async function generateSong() {
     if (!genText.trim() || generating) return;
     if (onRequireLogin && onRequireLogin()) return;
-    if (!canUse("song", premium)) { setCreateOpen(false); if (onUpsell) onUpsell(); return; }
+    /* Conversion gift (1A): a free member gets song creation exactly once,
+       ever. The regular cap stays 0 — the gift is checked before canUse and
+       burns its own lifetime flag, not the daily bucket. */
+    if (!premium && !canUse("song", premium) && canUseSongGift()) {
+      consumeSongGift();
+    } else if (!canUse("song", premium)) { setCreateOpen(false); if (onUpsell) onUpsell(); return; }
     setGenerating(true); setGenErr(false);
     try {
       const sys = "You turn a song request into a simple one-hand beginner piano melody for a falling-notes game. Output ONLY valid minified JSON, no prose, no markdown: {\"name\":string,\"bpm\":number,\"seq\":[[note,beats],...]}. Notes use scientific names from C4 to B5 only; use \"R\" for a rest; beats are 0.5, 1, 1.5 or 2. Keep it 16-48 notes and recognizable.";
-      const acc = await streamChatCompletion({ message: "Create this song: " + genText, conversationHistory: [], system: sys, feature: "song-gen" });
+      const acc = await streamChatCompletion({ message: "Create this song: " + genText, conversationHistory: [], system: sys + THEORY_REF, feature: "song-gen" });
       const jm = acc.match(/\{[\s\S]*\}/); if (!jm) throw new Error("no json");
       const obj = JSON.parse(jm[0]);
       const seq = normalizeSeq(obj.seq || []);
       if (seq.length < 6 || !seq.some(x => x[0] !== "R")) throw new Error("short");
       const name = String(obj.name || genText).slice(0, 40);
       const bpm = Math.min(180, Math.max(60, Math.round(obj.bpm || 100)));
-      const song = { id: "my_" + Date.now(), diff: 1, bpm, custom: true, th: name, en: name, zh: name, seq };
+      const diff = estimateSongDifficulty(songTechniqueProfile({ seq }));
+      const song = { id: "my_" + Date.now(), diff, bpm, custom: true, th: name, en: name, zh: name, seq };
       const saved = [song, ...mySongs].slice(0, 20);
       setMySongs(saved); try { localStorage.setItem("tg_mysongs", JSON.stringify(saved)); } catch (e) {}
       if (!premium) bumpUsage("song");
@@ -2704,6 +3832,23 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   else if (filter > 0) list = list.filter(s => s.diff === filter && !s.custom);
   if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "classical") === genreFilter);
   list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
+
+  // Setlist / Concert mode — 3 random UNLOCKED songs from whatever's currently
+  // visible (respects the star/genre/favorites filters already applied, same
+  // spirit as "surprise me from what I'm looking at" rather than a whole new
+  // multi-select picker screen).
+  function startSetlistFromList() {
+    const pool = list.filter(s => {
+      const req = SONG_REQ[s.diff] || 1;
+      const locked = !s.custom && level < req;
+      const maxLocked = !s.custom && s.maxOnly && !isMaxPlan(plan);
+      return !locked && !maxLocked;
+    });
+    if (pool.length < 2 || !onStartSetlist) return;
+    const copy = pool.slice(), picked = [];
+    while (picked.length < Math.min(3, copy.length)) picked.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
+    onStartSetlist(picked);
+  }
 
   const Card = (s, pfx = "") => {
     const hue = laneHue((s.seq.find(x => x[0] !== "R") || ["C4"])[0]);
@@ -2755,14 +3900,21 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     { k: "minor",    ic: "🎹", t: { th: "ไมเนอร์สเกล",  en: "Minor Scales", zh: "小调音阶" } },
     { k: "triad",    ic: "🎶", t: { th: "ไทรแอด",       en: "Triads",      zh: "三和弦" } },
     { k: "seventh",  ic: "🎷", t: { th: "คอร์ด 7",      en: "7th Chords",  zh: "七和弦" } },
+    { k: "chords-major", ic: "🎹", t: { th: "คอร์ดเมเจอร์", en: "Chords M",  zh: "大调和弦" } },
+    { k: "chords-minor", ic: "🌙", t: { th: "คอร์ดไมเนอร์", en: "Chords m",  zh: "小调和弦" } },
     { k: "interval", ic: "📏", t: { th: "ขั้นคู่",        en: "Intervals",   zh: "音程" } },
   ];
+  /* Inside a chord-path view the second filter row becomes the chord-count
+     picker (2 / 4 / 8) — the "choose the chord path first" step. Switching
+     counts keeps the key list intact so comparing lengths is one tap. */
+  const progLens = PROG_LENS;
   const drillList = cat === "major" ? MAJOR_SCALE_SONGS
     : cat === "minor" ? (MINOR_SCALE_SONGS[minorType] || [])
     : cat === "triad" ? (TRIAD_SONGS[triadQual] || [])
     : cat === "seventh" ? (SEVENTH_SONGS[seventhQual] || [])
+    : (cat === "chords-major" || cat === "chords-minor") ? (PROGRESSION_SONGS[cat === "chords-major" ? "major" : "minor"][progLen] || [])
     : cat === "interval" ? INTERVAL_SONGS : [];
-  const drillIcon = cat === "interval" ? "📏" : (cat === "triad" || cat === "seventh") ? "🎶" : cat === "minor" ? "🎹" : "🎼";
+  const drillIcon = cat === "interval" ? "📏" : (cat === "triad" || cat === "seventh") ? "🎶" : (cat === "chords-major" || cat === "chords-minor") ? "🎹" : cat === "minor" ? "🎹" : "🎼";
   const drillHint = lang === "th" ? "แตะการ์ดเพื่อเริ่ม — โน้ตจะไหลลงมา เล่นตามให้ตรง (ขึ้นแล้วลง)"
     : lang === "zh" ? "点击卡片开始 — 音符会落下，跟着弹（上行再下行）"
     : "Tap a card to start — notes fall, play along up then down";
@@ -2776,6 +3928,10 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
         <h1 className="pathh1">{lc.songsTitle}</h1>
         <p className="pathguide">{lc.songsSub}</p>
       </div>
+      {/* Daily Song Quest (Play Along plan #8): one featured song per day,
+          deterministic for every device. Playing it to the finish once today
+          completes the quest — bonus paid in finishSong. */}
+      <DailySongQuestCard lang={lang} onPlay={onPlay} />
       {/* category selector — Songs · Scales · Chords · Intervals */}
       <div className="songfilters">
         {cats.map(c => (
@@ -2790,6 +3946,12 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           <div className="songfilters">
             {filters.map(f => <button key={f.k} className={`songfilter${filter === f.k ? " on" : ""}`} onClick={() => setFilter(f.k)}>{f.label}</button>)}
           </div>
+          {list.length >= 2 && (
+            <button className="setlistbtn" onClick={() => { haptic(); startSetlistFromList(); }}>
+              <span className="setlistbtn-tt">{lc.setlistBtn}</span>
+              <span className="setlistbtn-sub">{lc.setlistSub}</span>
+            </button>
+          )}
           <div className="genrefilters">
             {([
               { code:"all",       label:{ th:"🎵 ทั้งหมด",     en:"🎵 All",       zh:"🎵 全部" } },
@@ -2863,6 +4025,14 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           {cat === "seventh" && (
             <div className="songfilters">
               {SEVENTH_TYPES.map(t => <button key={t.key} className={`songfilter${seventhQual === t.key ? " on" : ""}`} onClick={() => { haptic(); setSeventhQual(t.key); }}>{tr(t, lang)}</button>)}
+            </div>
+          )}
+          {/* Chord-path count picker — the "choose how many chords" step the
+              pathway doors land on. Reuses the same filter-chip row the other
+              drill sub-selectors use, so it feels native, not bolted on. */}
+          {(cat === "chords-major" || cat === "chords-minor") && (
+            <div className="songfilters">
+              {progLens.map(n => <button key={n} className={`songfilter${progLen === n ? " on" : ""}`} onClick={() => { haptic(); setProgLen(n); }}>{n} {lang === "th" ? "คอร์ด" : lang === "zh" ? "和弦" : "chords"}</button>)}
             </div>
           )}
           <p className="drillhint">{drillHint}</p>
@@ -3029,8 +4199,22 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
     let alive = true;
     (async () => {
       try {
-        const { data, error } = await sb.rpc("get_leaderboard", { limit_n: 20 });
-        if (error) throw error;
+        /* The per-row bot marker used to be appended here as "\U0001f916".
+           That is not a JavaScript escape — \U is unrecognised, so it renders
+           as the literal text "U0001f916" after every bot's name, which is
+           what players actually saw on the board. The name now stands alone;
+           the disclosure that some rivals are practice bots lives in the
+           footnote under the list, where one real 🤖 says it once. */
+        // v2 = real players + transparently-flagged demo bots (is_bot). Falls
+        // back to the original RPC if the v2 migration hasn't been applied yet.
+        let data = null;
+        const v2 = await sb.rpc("get_leaderboard_v2", { p_limit: 20 });
+        if (!v2.error) data = v2.data;
+        else {
+          const legacy = await sb.rpc("get_leaderboard", { limit_n: 20 });
+          if (legacy.error) throw legacy.error;
+          data = legacy.data;
+        }
         if (!alive) return;
         setRows(data || []);
         const me = (data || []).find(r => r.is_me);
@@ -3061,7 +4245,7 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
                       <div className="lbpod-medal">{medals[pos]}</div>
                       <div className="lbpod-ava">{(r.name || "?").trim().slice(0, 1).toUpperCase()}</div>
                       <div className="lbpod-nm">{r.name}</div>
-                      <div className="lbpod-exp">{r.exp.toLocaleString()}</div>
+                      <div className="lbpod-exp">{(r.exp || 0).toLocaleString()}</div>
                     </div>
                   );
                 })}
@@ -3080,20 +4264,72 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
                 <div key={i} className={`lbrow${r.is_me ? " me" : ""}`} style={{ animationDelay: (i * 35) + "ms" }}>
                   <span className="lbrank">{r.rank}</span>
                   <span className="lbname">{r.name}{r.is_me ? ` · ${lc.lbYouTag}` : ""}</span>
-                  <span className="lbexp">{r.exp.toLocaleString()} <small>EXP</small></span>
+                  <span className="lbexp">{(r.exp || 0).toLocaleString()} <small>EXP</small></span>
                 </div>
               ))}
             </div>
+            {rows.some(r => r.is_bot) && (
+              <div className="leaguereset">🤖 {lang === "th" ? "บอทฝึกหัด — คู่แข่งตัวอย่างสำหรับฝึกซ้อม" : lang === "zh" ? "练习机器人 — 新手练手对手" : "Practice bots — friendly rivals to train against"}</div>
+            )}
           </>}
     </div>
   );
 });
 
+/* Non-Play-Along duel subjects. duels.song_id is a plain unconstrained `text`
+   column server-side (see supabase-gamification-social-migration.sql) — the
+   RPCs never interpret it, so a "activity:" prefix lets these ride the exact
+   same table/functions as song duels with zero backend changes. Only this
+   registry (client-side) and the duel-list renderer below know what the
+   prefix means. Each myBest() reads the SAME personal-best storage that
+   feature's own gamification page already shows the player, so a challenge
+   score is exactly as trustworthy as any other stat already in the app. */
+const ACTIVITY_DUELS = [
+  { key: "arena", icon: "⚔", higherIsBetter: true, unit: "",
+    label: { th: "สนามประลอง PvP", en: "PvP Arena", zh: "PvP 竞技场" },
+    myBest: () => { try { return Number(localStorage.getItem("tg_arena_best") || 0); } catch (e) { return 0; } } },
+  { key: "activity:eargym", icon: "🎧", higherIsBetter: true, unit: "",
+    label: { th: "บันไดโสตศาสตร์", en: "Ear Gym Ladder", zh: "耳朵健身梯" },
+    myBest: () => ladderBestScore() },
+  { key: "activity:sight:treble", icon: "🎼", higherIsBetter: true, unit: "",
+    label: { th: "อ่านโน้ตเร็ว 60วิ (บรรทัดสูง)", en: "Sight-Read Sprint (Treble)", zh: "视奏冲刺（高音谱）" },
+    myBest: () => sightBestMap("tg_sight_best_sprint")["treble"] || 0 },
+  { key: "activity:sight:bass", icon: "🎼", higherIsBetter: true, unit: "",
+    label: { th: "อ่านโน้ตเร็ว 60วิ (บรรทัดต่ำ)", en: "Sight-Read Sprint (Bass)", zh: "视奏冲刺（低音谱）" },
+    myBest: () => sightBestMap("tg_sight_best_sprint")["bass"] || 0 },
+  { key: "activity:noteread", icon: "🎯", higherIsBetter: false, unit: "s",
+    label: { th: "อ่านโน้ต ด่าน 1 (จับเวลา)", en: "Note Reading Lvl 1 (Time)", zh: "识谱 第1关（计时）" },
+    myBest: () => readBestTimeMap()[1] || 0 },
+];
+function duelSubjectLabel(songId, lang) {
+  const act = ACTIVITY_DUELS.find(a => a.key === songId);
+  if (act) return `${act.icon} ${act.label[lang]}`;
+  const song = SONGS.find(s => s.id === songId);
+  return song ? tr(song, lang) : songId;
+}
+function duelFmtScore(songId, score) {
+  if (score == null) return "—";
+  const act = ACTIVITY_DUELS.find(a => a.key === songId);
+  return act ? `${score}${act.unit}` : score;
+}
+// null = pending or a tie (no side to highlight); otherwise "me"/"opp" —
+// respects each activity's own higherIsBetter polarity (Note Reading's best
+// is elapsed seconds, so a LOWER number wins there, unlike every score-based
+// duel subject) instead of assuming "bigger number on screen = winner".
+function duelWinnerSide(d) {
+  if (d.my_score == null || d.opp_score == null || d.my_score === d.opp_score) return null;
+  const act = ACTIVITY_DUELS.find(a => a.key === d.song_id);
+  const higherWins = !act || act.higherIsBetter;
+  return (higherWins ? d.my_score > d.opp_score : d.my_score < d.opp_score) ? "me" : "opp";
+}
+
 /* Friends + async duels (also powers Family Battle, via the same duels table
    with mode:'family' — see supabase-gamification-social-migration.sql). A
-   duel's real result always comes from the player's own recorded game log
-   (readGameLog) — never a typed-in number — so a challenge score is exactly
-   as trustworthy as any other score already shown in this app's own stats. */
+   song duel's real result always comes from the player's own recorded game
+   log (readGameLog); an activity duel's from that activity's own personal-
+   best storage (ACTIVITY_DUELS above) — never a typed-in number — so a
+   challenge score is exactly as trustworthy as any other score already shown
+   in this app's own stats. */
 const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
   const lc = L[lang];
   const [tab, setTab] = useState("friends"); // friends | requests | duels
@@ -3128,15 +4364,23 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
     const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: song.id, p_score: best, p_mode: "duel" });
     if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
   }
-  async function respondDuel(duel) {
-    const best = readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+  async function sendActivityChallenge(friend, act) {
+    const best = act.myBest();
     if (!best) { setMsg(lc.frNoScore); return; }
-    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: best });
+    const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: act.key, p_score: Math.round(best), p_mode: "duel" });
+    if (error) setMsg(error.message || "error"); else { setMsg(lc.frChallengeSent); setChallengeFor(null); load(); }
+  }
+  async function respondDuel(duel) {
+    const act = ACTIVITY_DUELS.find(a => a.key === duel.song_id);
+    const best = act ? act.myBest() : readGameLog().filter(g => g.song === duel.song_id).reduce((m, g) => Math.max(m, g.score || 0), 0);
+    if (!best) { setMsg(lc.frNoScore); return; }
+    const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: Math.round(best) });
     if (!error) { playUi("reward"); load(); }
   }
   const playedSongs = challengeFor
     ? Array.from(new Set(readGameLog().map(g => g.song))).map(id => SONGS.find(s => s.id === id)).filter(Boolean)
     : [];
+  const availableActivities = challengeFor ? ACTIVITY_DUELS.filter(a => a.myBest() > 0) : [];
 
   return (
     <div className="setov" onClick={onClose}>
@@ -3187,21 +4431,25 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
             </>
           ) : (
             <>
-              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => (
-                <div key={d.id} className="frduel">
-                  <div className="frduel-top">
-                    <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
-                    <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+              {(!duels || duels.length === 0) ? <div className="lbempty">{lc.frNoDuels}</div> : duels.map(d => {
+                const win = duelWinnerSide(d);
+                return (
+                  <div key={d.id} className="frduel">
+                    <div className="frduel-top">
+                      <span>{d.mode === "family" ? "👨‍👩‍👧 " : "⚔️ "}{lc.frVs} {d.opp_name}</span>
+                      <span className={`frduel-status ${d.status}`}>{d.status === "done" ? lc.frDone : d.status === "expired" ? lc.frExpired : lc.frPending}</span>
+                    </div>
+                    <div className="frduel-subject">{duelSubjectLabel(d.song_id, lang)}</div>
+                    <div className="frduel-score">
+                      <span className={win === "me" ? "frduel-win" : ""}>{lc.frYou}: {duelFmtScore(d.song_id, d.my_score)}{win === "me" ? " 🏆" : ""}</span>
+                      <span className={win === "opp" ? "frduel-win" : ""}>{d.opp_name}: {duelFmtScore(d.song_id, d.opp_score)}{win === "opp" ? " 🏆" : ""}</span>
+                    </div>
+                    {d.status === "pending" && !d.i_am_a && (
+                      <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
+                    )}
                   </div>
-                  <div className="frduel-score">
-                    <span>{lc.frYou}: {d.my_score ?? "—"}</span>
-                    <span>{d.opp_name}: {d.opp_score ?? "—"}</span>
-                  </div>
-                  {d.status === "pending" && !d.i_am_a && (
-                    <button className="frrow-go" onClick={() => respondDuel(d)}>{lc.frRespond}</button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
@@ -3211,6 +4459,19 @@ const FriendsModal = memo(function FriendsModal({ lang, onClose }) {
             <div className="setcard" style={{ maxWidth: 320 }} onClick={e => e.stopPropagation()}>
               <div className="sethdr"><span>🎯 {challengeFor.name}</span><button className="cbtn" onClick={() => setChallengeFor(null)}>{lc.close}</button></div>
               <div className="setbody">
+                {availableActivities.length > 0 && (
+                  <>
+                    <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frSkillChallenge}</div>
+                    <div className="frsonglist" style={{ marginBottom: 14 }}>
+                      {availableActivities.map(a => (
+                        <button key={a.key} className="frsongpick" onClick={() => sendActivityChallenge(challengeFor, a)}>
+                          {a.icon} {a.label[lang]} <span className="frrow-sub" style={{ marginLeft: 6 }}>{duelFmtScore(a.key, a.myBest())}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="profsec-h" style={{ fontSize: "11px" }}>{lc.frSongChallenge}</div>
                 {playedSongs.length === 0 ? <div className="lbempty">{lc.frPlayFirst}</div> : (
                   <div className="frsonglist">
                     {playedSongs.map(s => <button key={s.id} className="frsongpick" onClick={() => sendChallenge(challengeFor, s)}>{tr(s, lang)}</button>)}
@@ -3295,10 +4556,10 @@ function markBroadcastSeen(id) { try { localStorage.setItem(BROADCAST_SEEN_KEY, 
 // powers the small "recent tips" dashboard list. Not synced server-side.
 const AUTOTEACH_LOG_KEY = "tg_autoteach_log";
 function readAutoTeachLog() { try { return JSON.parse(localStorage.getItem(AUTOTEACH_LOG_KEY) || "[]") || []; } catch (e) { return []; } }
-function logAutoTeachTip(weakness, tip, feature) {
+function logAutoTeachTip(weakness, tip, feature, topic) {
   try {
     const log = readAutoTeachLog();
-    log.push({ t: Date.now(), d: dayKey(), weakness: String(weakness || ""), tip: String(tip || ""), feature: feature || "pathway" });
+    log.push({ t: Date.now(), d: dayKey(), weakness: String(weakness || ""), tip: String(tip || ""), feature: feature || "pathway", topic: topic || "" });
     localStorage.setItem(AUTOTEACH_LOG_KEY, JSON.stringify(log.slice(-50)));
   } catch (e) {}
 }
@@ -3312,7 +4573,8 @@ function actTopicLabel(e, lang) {
   }
   if (e.k === "game") {
     const all = [...SONGS, ...MAJOR_SCALE_SONGS, ...INTERVAL_SONGS,
-      ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat()];
+      ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat(),
+      ...PROG_LENS.flatMap(n => [...PROGRESSION_SONGS.major[n], ...PROGRESSION_SONGS.minor[n]])];
     const s = all.find(x => x.id === e.id);
     return s ? tr(s, lang) : e.id;
   }
@@ -3325,7 +4587,8 @@ function actTopicLabel(e, lang) {
 function actSongOf(e) {
   if (e.k !== "game") return null;
   const all = [...SONGS, ...MAJOR_SCALE_SONGS, ...INTERVAL_SONGS,
-    ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat()];
+    ...Object.values(MINOR_SCALE_SONGS).flat(), ...Object.values(TRIAD_SONGS).flat(), ...Object.values(SEVENTH_SONGS).flat(),
+    ...PROG_LENS.flatMap(n => [...PROGRESSION_SONGS.major[n], ...PROGRESSION_SONGS.minor[n]])];
   return all.find(x => x.id === e.id) || null;
 }
 
@@ -3706,16 +4969,135 @@ function coachStatsToText(s) {
   const skillsTxt = s.skills.filter(sk => sk.score != null).map(sk => `${sk.skill}: ${sk.score}/100`).join(", ") || "not enough data yet for any skill";
   return `Level ${s.level}, ${s.streak}-day streak, ${s.lessonsDone} lessons completed, ${s.badgeCount}/${s.badgeTotal} badges earned, today's quest ${s.questOk ? "done" : "not done yet"}. Last 7 days: practiced ${s.days7}/7 days (${s.min7} min total), accuracy ${s.acc7 == null ? "no data" : s.acc7 + "%"}${s.accPrev != null ? ` (previous week was ${s.accPrev}%)` : ""}. Weakest topics by miss rate across all history: ${weakestTxt}. Skill scores (0-100, higher is better): ${skillsTxt}.`;
 }
+// Weekly Report Card — a letter grade over the SAME rolling 7-day window
+// Daily Mentor's stats tiles already use (this page has never framed "the
+// week" as a Mon-Sun calendar week, so the grade doesn't invent one either).
+// Half consistency (days practiced), half accuracy — pure consistency when
+// there's no accuracy signal at all (some learners only read/listen, never
+// generating an ok/miss tally), rather than unfairly capping the grade at
+// 50 for having nothing to average in.
+function reportCardGrade(days7, acc7) {
+  const score = acc7 == null ? (days7 / 7) * 100 : (days7 / 7) * 50 + (acc7 / 100) * 50;
+  return score >= 90 ? "A+" : score >= 80 ? "A" : score >= 70 ? "B" : score >= 55 ? "C" : score >= 35 ? "D" : "F";
+}
+const REPORT_CARD_RANK = ["F", "D", "C", "B", "A", "A+"];
+const REPORT_CARD_REWARDS = { "A+": [60, 30], "A": [45, 22], "B": [30, 15], "C": [18, 8], "D": [10, 4], "F": [0, 0] };
+const REPORT_CARD_KEY = "tg_reportcards";
+function readReportCards() { try { return JSON.parse(localStorage.getItem(REPORT_CARD_KEY) || "[]"); } catch (e) { return []; } }
+function writeReportCards(a) { try { localStorage.setItem(REPORT_CARD_KEY, JSON.stringify(a.slice(-8))); } catch (e) {} }
+function bestReportCardGrade() {
+  const cards = readReportCards();
+  if (!cards.length) return null;
+  return cards.reduce((best, c) => REPORT_CARD_RANK.indexOf(c.grade) > REPORT_CARD_RANK.indexOf(best) ? c.grade : best, cards[0].grade);
+}
+// A new card can be claimed once 7 days have passed since the last one — a
+// rolling cooldown (not a calendar-week boundary), matching the page's own
+// rolling-7-day framing rather than introducing a second, different notion
+// of "the week" the rest of Daily Mentor doesn't use.
+function reportCardReadyToClaim() {
+  const cards = readReportCards();
+  return !cards.length || Date.now() - cards[cards.length - 1].t >= 7 * 86400000;
+}
+function daysUntilNextReportCard() {
+  const cards = readReportCards();
+  if (!cards.length) return 0;
+  return Math.max(0, Math.ceil((7 * 86400000 - (Date.now() - cards[cards.length - 1].t)) / 86400000));
+}
+// Returns { grade, isNewBest } — isNewBest is false for a first-ever F (a
+// bad first week isn't a "personal best" worth celebrating).
+function claimReportCard(days7, acc7) {
+  const prevBest = bestReportCardGrade();
+  const grade = reportCardGrade(days7, acc7);
+  const cards = readReportCards();
+  cards.push({ grade, days7, acc7, t: Date.now() });
+  writeReportCards(cards);
+  const isNewBest = prevBest == null ? grade !== "F" : REPORT_CARD_RANK.indexOf(grade) > REPORT_CARD_RANK.indexOf(prevBest);
+  return { grade, isNewBest };
+}
 // Shared core of the AI coaching analysis — used by both the Auto Teaching popup (timer-driven,
 // PianoApp) and the dedicated Coach nav page (on-demand, CoachPage). Module-level (not inside
 // either component) since it only needs `lang`/`profile` and the module-level helpers above.
+// Auto-Teach แม่นยำ (แผนข้อ 5): fallback ที่ "ถูกต้องเสมอ" — ถ้า AI ตอบกว้าง/หลุดขอบเขต
+// ประกาศจากข้อมูลจริงของผู้เรียนแทน (จุดอ่อนหนักสุด + โน้ตที่พลาด + คำสอนของโมเดล)
+// ไม่มีทางโชว์ popup ว่างหรือคำแนะนำสากล
+function buildFallbackTip(lang, struggle, strat, noteMisses) {
+  const nm = noteMisses && noteMisses.length ? noteMisses.map(n => n.label).join(", ") : null;
+  const th = {
+    weakness: struggle ? `ท่อน "${struggle.label}" ยังไม่ค่อยผ่าน (แม่นยำ ${struggle.acc}%)` : (nm ? `โน้ต ${nm} พลาดบ่อยในรอบล่าสุด` : "ช่วงนี้ยังไม่มีจุดอ่อนชัดเจน — ไปต่อขั้นถัดไปกัน"),
+    steps: struggle
+      ? [`ซ้อม "${struggle.label}" ช้า ๆ ทีละ 2 ท่อนเล็ก แล้วค่อยเพิ่มความเร็ว`, nm ? `ระวังโน้ต ${nm} เป็นพิเศษ — ลองเล่นแค่โน้ตนั้น 3 ครั้งก่อนรวมท่อน` : "เมื่อแม่นยำเกิน 80% ค่อยเพิ่มความเร็วขึ้นรอบละนิด"]
+      : (nm ? [`ฝึกโน้ต ${nm} แยกทีละเสียง 3 ครั้ง แล้วค่อยเล่นรวมท่อน`, "แตะช้า ๆ ให้ได้ยินเสียงชัดก่อนเร่ง"] : ["ไปเรียนขั้นถัดไปในเส้นทางการเรียนรู้ได้เลย"]),
+  };
+  const zh = {
+    weakness: struggle ? `「${struggle.label}」还不稳（准确率 ${struggle.acc}%）` : (nm ? `最近常错音：${nm}` : "目前没有明显弱点 — 继续下一步吧"),
+    steps: struggle
+      ? [`把「${struggle.label}」拆成两小段慢练，再逐渐加速`, nm ? `特别留意 ${nm} — 先单独弹 3 次再合段` : "准确率超过 80% 后再小幅提速"]
+      : (nm ? [`先单独练 ${nm} 各 3 次，再合回整段`, "慢速弹清楚再提速"] : ["直接去学习路径的下一课吧"]),
+  };
+  const en = {
+    weakness: struggle ? `"${struggle.label}" is still shaky (${struggle.acc}% accuracy)` : (nm ? `Notes ${nm} keep slipping lately` : "No clear weak spot right now — onward to the next step"),
+    steps: struggle
+      ? [`Practice "${struggle.label}" slowly in 2 tiny chunks, then speed up bit by bit`, nm ? `Watch ${nm} especially — play just that note 3 times before joining the phrase` : "Once you pass 80% accuracy, nudge the tempo up slightly"]
+      : (nm ? [`Isolate ${nm} — 3 clean reps each, then rejoin the phrase`, "Slow and clear first, speed later"] : ["Head straight to the next step on your Pathway"]),
+  };
+  const c = lang === "th" ? th : lang === "zh" ? zh : en;
+  return { weakness: c.weakness, steps: c.steps.slice(0, 2), feature: struggle ? "pathway" : "pathway", topic: struggle ? struggle.label : null, strategyId: strat ? strat.name : null, fallback: true };
+}
+
+/* Auto Teaching 2.0 (plan §4.3): pick the learner DATA chart for the coaching
+   popup — strictly from real records, never invented; falls through
+   mini-keyboard → accuracy bars → before/after → level donut, and returns
+   null rather than showing an empty chart. */
+function buildAutoTeachVisual(tip, profile) {
+  try {
+    const miss = readNoteMissMap();
+    if (miss && Object.keys(miss).length) return { type: "mini-keyboard", data: { miss } };
+    const log = readActLog() || [];
+    const byDay = {};
+    for (const e of log) {
+      if (!e || !e.d) continue;
+      const tot = (e.ok || 0) + (e.miss || 0);
+      if (tot < 5) continue; // noise floor — a stray tap isn't a datapoint
+      if (!byDay[e.d]) byDay[e.d] = { ok: 0, tot: 0 };
+      byDay[e.d].ok += e.ok || 0; byDay[e.d].tot += tot;
+    }
+    const days = Object.keys(byDay).sort().slice(-7).map(d => ({ d: d.slice(5), pct: Math.round(100 * byDay[d].ok / Math.max(1, byDay[d].tot)) }));
+    if (days.length >= 2) return { type: "bars", data: { days } };
+    const topic = tip && tip.topic;
+    const rec = [...readAutoTeachOutcomes()].reverse().find(r => r.resolved && r.outcome && r.outcome.after != null && (!topic || r.topic === topic || topic.includes(r.topic) || (r.topic || "").includes(topic)));
+    if (rec && rec.before && rec.before[0]) return { type: "before-after", data: { before: rec.before[0].acc, after: rec.outcome.after, label: rec.topic } };
+    const li = levelInfo((profile && profile.exp) || 0);
+    return { type: "donut", data: { pct: Math.round(100 * (li.progress || 0)), label: `Lv ${li.level}` } };
+  } catch (e) { return null; }
+}
+
 async function generateCoachTip(lang, profile) {
   const mem = readMemory();
-  const struggle = (mem.struggles || [])[0];
+  // Auto-Teach แม่นยำ (แผนข้อ 2): จุดอ่อนเรียงด้วยน้ำหนักความสด (recency half-life 6d)
+  // + ความรุนแรง + ความถี่ และตัดของเก่าเกิน 21 วันทิ้ง — ไม่ใช่เรียงเก่าสุดก่อนแบบเดิม
+  // Prefer a struggle that hasn't already been surfaced in the last few tips — repeating
+  // the identical weak spot every time it fires reads as nagging. Falls back to the top
+  // struggle anyway when it's genuinely the only one on record (still real, worth saying).
+  const recentTopics = new Set(readAutoTeachLog().slice(-5).map(t => t.topic).filter(Boolean));
+  const wStruggles = weightedStruggles();
+  const struggle = wStruggles.find(s => !recentTopics.has(s.label)) || wStruggles[0] || (mem.struggles || [])[0];
+  // Auto-Teach แม่นยำ (แผนข้อ 1+3): โน้ต pitch-class ที่พลาดจริงล่าสุด — ครูรู้ "โน้ตไหน" ไม่ใช่แค่ "เพลงไหน"
+  const noteMissTxt = topNoteMisses(2).map(n => `${n.label}(×${n.count})`).join(", ") || "—";
   const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
-  const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x)` : "—";
+  const struggleTxt = struggle ? `${struggle.label} (${struggle.acc}%, missed ${struggle.count}x${struggle.ageDays != null ? `, ${struggle.ageDays}d ago` : ""})` : "—";
   const profileTxt = coachStatsToText(computeCoachStats(profile, lang));
   const featureKeys = Object.keys(COACH_FEATURE_LABELS).join(", ");
+  // Auto-Teach แม่นยำ (แผนข้อ 4): TIGA Piano Model (teaching loop) วิเคราะห์สัญญาณจริงก่อนเสมอ
+  // — โมเดลเลือกกลยุทธ์การสอน + ดึง KB tip แล้ว AI ภายนอกแค่เรียบเรียงภาษาตามคำตัดสิน
+  const dec = await decideStrategy({
+    accuracy: (mem.recent || [])[0] ? (mem.recent || [])[0].acc : null,
+    repeatedErrors: struggle ? Math.min(struggle.count || 0, 4) : 0,
+    repeatedErrorLabel: struggle ? struggle.label : null,
+    pauses: 0, rhythmScore: null, speedRatio: null, weekAgoAccuracy: (mem.recent || [])[1] ? (mem.recent || [])[1].acc : null,
+  }, runTeachingLoopForPractice);
+  const strat = strategyHint(dec);
+  // Auto-Teach แม่นยำ (แผนข้อ 9): ปรับโทน/ความยาวตามระดับผู้เรียนจริง
+  const tone = learnerTone(profile);
   // Short system = far fewer tokens → avoids Gemini rate-limit. All learner data goes in
   // message. Persona/tone line added deliberately (researched): specialized in absolute
   // beginners, praise-before-correction, always specific, never advanced theory — still
@@ -3726,9 +5108,9 @@ async function generateCoachTip(lang, profile) {
     en: `You are TiGA AI piano teacher, specialized in teaching absolute beginners from zero. Always acknowledge what's going well before suggesting what's next, encouraging not critical, never suggest advanced theory, always specific never generic. Reply ONLY with raw JSON, no other text: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
   };
   const msgByLang = {
-    th: `ข้อมูลผู้เรียน: ${profileTxt}\nซ้อมล่าสุด: ${recentTxt}\nจุดอ่อน: ${struggleTxt}\nfeature ที่เลือกได้: ${featureKeys}\n\nวิเคราะห์แล้วตอบ JSON: weakness ไม่เกิน 12 คำ, steps สูงสุด 3 ข้อ (เจาะจงชื่อเพลง/หัวข้อ ไม่ใช่คำแนะนำทั่วไป), feature เลือกจากรายการเท่านั้น`,
-    zh: `学员数据：${profileTxt}\n最近练习：${recentTxt}\n薄弱点：${struggleTxt}\n可选feature：${featureKeys}\n\n分析后回JSON：weakness≤12字，steps最多3条（具体指明曲目/主题），feature必须从列表选`,
-    en: `Learner data: ${profileTxt}\nRecent sessions: ${recentTxt}\nWeak spot: ${struggleTxt}\nAvailable features: ${featureKeys}\n\nAnalyze and reply JSON: weakness ≤12 words, steps max 3 (name specific song/topic, not generic advice), feature from list only`,
+    th: `ข้อมูลผู้เรียน: ${profileTxt}\nซ้อมล่าสุด: ${recentTxt}\nจุดอ่อน: ${struggleTxt}\nโน้ตที่พลาดบ่อยล่าสุด: ${noteMissTxt}\n${strat ? `กลยุทธ์ที่โมเดลสอนเลือก (ต้องทำตาม ห้ามขัด): ${strat.name || "-"}${strat.modelText ? ` — ${strat.modelText}` : ""}\n` : ""}กฎโทนเสียง: ${tone.rule}\nfeature ที่เลือกได้: ${featureKeys}\n\nวิเคราะห์แล้วตอบ JSON: weakness ไม่เกิน 12 คำ, steps สูงสุด ${tone.tier === "beginner" ? 2 : 3} ข้อ (เจาะจงชื่อเพลง/หัวข้อ ห้ามคำแนะนำกว้าง ๆ อย่าง "ฝึกสม่ำเสมอ"), feature เลือกจากรายการเท่านั้น`,
+    zh: `学员数据：${profileTxt}\n最近练习：${recentTxt}\n薄弱点：${struggleTxt}\n最近常错音：${noteMissTxt}\n${strat ? `模型已选教学策略（必须遵循）：${strat.name || "-"}${strat.modelText ? ` — ${strat.modelText}` : ""}\n` : ""}语气规则：${tone.rule}\n可选feature：${featureKeys}\n\n分析后回JSON：weakness≤12字，steps最多${tone.tier === "beginner" ? 2 : 3}条（具体指明曲目/主题，禁止泛泛建议），feature必须从列表选`,
+    en: `Learner data: ${profileTxt}\nRecent sessions: ${recentTxt}\nWeak spot: ${struggleTxt}\nFrequently missed notes: ${noteMissTxt}\n${strat ? `Teaching strategy chosen by the model (must follow, do not contradict): ${strat.name || "-"}${strat.modelText ? ` — ${strat.modelText}` : ""}\n` : ""}Tone rule: ${tone.rule}\nAvailable features: ${featureKeys}\n\nAnalyze and reply JSON: weakness ≤12 words, steps max ${tone.tier === "beginner" ? 2 : 3} (name specific song/topic, never generic advice like "practice regularly"), feature from list only`,
   };
   const sys = sysByLang[lang] || sysByLang.en;
   const msg = msgByLang[lang] || msgByLang.en;
@@ -3738,7 +5120,7 @@ async function generateCoachTip(lang, profile) {
   // more rather than letting a single flaky reply surface as a hard error.
   async function attempt() {
     try {
-      const txt = await fetchChatCompletion({ message: msg, conversationHistory: [], system: sys, stream: false, feature: "coach-tip" });
+      const txt = await fetchChatCompletion({ message: msg, conversationHistory: [], system: sys + THEORY_REF, stream: false, feature: "coach-tip" });
       if (!txt) return null;
       const fenced = txt.match(/```(?:json)?\s*([\s\S]*?)```/i);
       const body2 = fenced ? fenced[1] : txt;
@@ -3762,19 +5144,24 @@ async function generateCoachTip(lang, profile) {
   if (!jsonTxt) return null;
   const obj = JSON.parse(jsonTxt);
   if (!COACH_FEATURE_LABELS[obj.feature]) obj.feature = "pathway"; // guard against a hallucinated key
-  obj.steps = obj.steps.slice(0, 3); // enforce the "at most 3" cap even if the model overshoots
-  // ── Jev teach-rank: the LLM produced ONE tip; ask Jev (fast, cheap,
-  // no-hallucination scoring) whether that tip actually fits THIS learner right
-  // now. A poor fit (< 1.2 on the 0..3 rubric) demotes the tip → the Auto-Teach
-  // popup falls through to the deterministic recommendation instead. Disabled/
-  // slow/erroring Jev → keep the tip, exactly the pre-Jev behavior.
+  obj.steps = obj.steps.slice(0, tone.tier === "beginner" ? 2 : 3); // enforce the per-level cap
+  obj.topic = struggle ? struggle.label : null; // so the caller can log it and this fn can dodge repeats next time
+  obj.strategyId = strat ? strat.name : null;
+  // Auto-Teach แม่นยำ (แผนข้อ 5): ตรวจก่อนแสดงเสมอ — กว้างเกิน/หลุดขอบเขต/โครงไม่ครบ
+  // → ใช้ fallback จากข้อมูลจริงแทน ไม่โชว์คำแนะนำสากลเด็ดขาด
+  if (!validateTip(obj, Object.keys(COACH_FEATURE_LABELS))) return buildFallbackTip(lang, struggle, strat, topNoteMisses(2));
+  // ── Jev teach-rank: the validated tip is good on its face; ask Jev (fast,
+  // cheap, no-hallucination scoring) whether it fits THIS learner right now.
+  // A poor fit (< 1.2 on the 0..3 rubric) demotes the tip → the deterministic
+  // fallback recommendation shows instead. Disabled/slow/erroring Jev → keep
+  // the tip, exactly the pre-Jev behavior.
   try {
     const r = await jevTask("teach-rank",
       `Learner: ${profileTxt}\nRecent sessions: ${recentTxt}\nKnown weak spot: ${struggleTxt}`,
       { candidates: [obj.steps.join(" / ") + " — target: " + obj.feature] }, 2000);
     if (r.ok && r.answers) {
       const sc = jevScore(r.answers.c0); // 0..3 across the rubric
-      if (sc != null && sc < 1.2) return null; // tip is a poor fit for this learner right now
+      if (sc != null && sc < 1.2) return buildFallbackTip(lang, struggle, strat, topNoteMisses(2));
     }
   } catch (e) { /* keep the tip — Jev unavailable must never hide good advice */ }
   return obj;
@@ -3935,14 +5322,18 @@ function buildSongResultRecommendation(lang, songMeta, songResult) {
 }
 // Admin tier badge — ★★★ Top Tier / ★★ Ops / ★ Support / "" not an admin.
 function adminTierStars(t) { return t >= 3 ? "★★★" : t === 2 ? "★★" : t === 1 ? "★" : ""; }
-const FREE_LIMITS = { song: 2, critique: 3, compose: 2 };   // free actions per day
+/* Free-tier daily caps, owner-approved 2026-09-18. song/compose/styleTransform
+   are 0 on purpose: creation endpoints are the premium product now (the free
+   card no longer advertises them). chat=5 makes the pricing card's "AI tutor
+   5/day" REAL — it was advertised but never counted. critique: 3→1. */
+export const FREE_LIMITS = { song: 0, critique: 1, compose: 0, styleTransform: 0, chat: 5 };   // free actions per day
 function usageToday(key) { try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === dayKey() ? (u[key] || 0) : 0; } catch (e) { return 0; } }
-function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
+export function bumpUsage(key) { try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); if (u.d !== dayKey()) u = { d: dayKey() }; u[key] = (u[key] || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {} }
 // `premium` must be the caller's real, server-synced plan state — never isPremium(),
 // which reads raw localStorage. localStorage.setItem("tg_premium","1") is a one-line
 // browser-console edit that would otherwise remove these daily caps on two endpoints
 // that call a real, real-money AI backend (generateSong/critiqueRecording → piano-chat).
-function canUse(key, premium) { return premium || usageToday(key) < (FREE_LIMITS[key] || 0); }
+export function canUse(key, premium) { return premium || usageToday(key) < (FREE_LIMITS[key] || 0); }
 
 
 
@@ -3987,11 +5378,186 @@ export function readWeekly() {
 }
 export function writeWeekly(w) { try { localStorage.setItem("tg_weekly", JSON.stringify(w)); } catch (e) {} }
 
-/* ── learning-pathway progress (journey map) ── */
-function pathDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_path_done") || "[]")); } catch (e) { return new Set(); } }
-function markPathDone(id) { try { const s = pathDoneSet(); s.add(id); localStorage.setItem("tg_path_done", JSON.stringify([...s])); } catch (e) {} }
+/* ── learning-pathway progress (journey map) ──
+   "Done" (this Set) is the source of truth for everything progression-related
+   — certificates, recommendNext, the "current stage" pointer — and stays a
+   plain boolean exactly as before. It's set from Practice Mode actually
+   passing a stage's own drill (see PATH_PASS_ACCURACY / markPathAccuracy
+   below), not from merely opening the lesson (learnTopic() used to call this
+   immediately, before any skill was ever demonstrated — the readChapter()
+   knowledge-only stages are the one legitimate exception: there's no skill
+   to demonstrate for those, reading IS the whole activity). ── */
+export function pathDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_path_done") || "[]")); } catch (e) { return new Set(); } }
+export function markPathDone(id) { try { const s = pathDoneSet(); s.add(id); localStorage.setItem("tg_path_done", JSON.stringify([...s])); } catch (e) {} }
+// Minimum practice accuracy for a stage to count as done at all.
+export const PATH_PASS_ACCURACY = 50;
+// Per-stage practice record — the single unified signal behind the bronze/
+// silver/gold badge AND spaced-review scheduling. Used to live as two
+// separate, disconnected systems (this store just tracked a flat best-
+// accuracy number; a completely different shared-infra.ts store, tg_srs,
+// scheduled reviews blindly by open-count with zero accuracy input, and
+// fired the instant a lesson was opened — see recordSRS's removal from
+// learnTopic() in the same batch that added this). Now there's one record
+// per stage: { best, last, lastAt, interval, nextDue }.
+//   best    — highest accuracy ever achieved (drives the tier badge)
+//   last    — accuracy of the MOST RECENT attempt (drives the interval math)
+//   lastAt  — when that attempt happened
+//   interval/nextDue — real SM-2-lite spaced review: the interval grows
+//   faster the better the last attempt was, and resets short on a poor one,
+//   instead of the old blind [1,3,7,14,30]-by-open-count lookup.
+export function pathAccMap() {
+  try {
+    const raw = JSON.parse(localStorage.getItem("tg_path_acc") || "{}") || {};
+    let migrated = false;
+    const out = {};
+    for (const id in raw) {
+      const v = raw[id];
+      // Migrate the pre-SRS-unification shape (a bare number) in place, once,
+      // on read — every consumer below can then assume the object shape.
+      if (typeof v === "number") { out[id] = { best: v, last: v, lastAt: 0, interval: 0, nextDue: 0 }; migrated = true; }
+      else out[id] = v;
+    }
+    if (migrated) { try { localStorage.setItem("tg_path_acc", JSON.stringify(out)); } catch (e) {} }
+    return out;
+  } catch (e) { return {}; }
+}
+export function markPathAccuracy(id, accuracy) {
+  try {
+    const m = pathAccMap();
+    const prev = m[id] || null;
+    const best = Math.max(accuracy, prev ? prev.best : 0);
+    // SM-2-lite: how well THIS attempt went scales the next interval, rather
+    // than a fixed schedule indexed only by how many times it's been opened.
+    // A poor showing (below the pass bar) doesn't grow the interval at all —
+    // it resets to "see it again tomorrow," same as a failed SM-2 recall.
+    const factor = accuracy >= 90 ? 2.5 : accuracy >= 75 ? 2 : accuracy >= PATH_PASS_ACCURACY ? 1.3 : 0.5;
+    const interval = accuracy < PATH_PASS_ACCURACY ? 1 : Math.min(60, Math.max(1, Math.round(((prev && prev.interval) || 1) * factor)));
+    const now = Date.now();
+    m[id] = { best, last: accuracy, lastAt: now, interval, nextDue: now + interval * 86400000 };
+    localStorage.setItem("tg_path_acc", JSON.stringify(m));
+  } catch (e) {}
+}
+export function pathTier(accuracy) { return accuracy == null ? null : accuracy >= 90 ? "gold" : accuracy >= 75 ? "silver" : accuracy >= PATH_PASS_ACCURACY ? "bronze" : null; }
+// Unified "what needs review" signal, merging the two real (accuracy-aware)
+// sources: Pathway stages due per the SM-2-lite schedule above, and songs/
+// sight-reading struggles tracked in tg_memory (ai-chat-context.ts's
+// existing "not touched in 2+ days" rule — already real, just never
+// surfaced outside the AI chat prompt before now). Different id schemes
+// (stable stage ids vs. free-text feature labels) are kept as two clearly-
+// labeled groups rather than forced into one homogeneous list — TodayPage's
+// own independent recency-only "what to review" pick is retired in favor
+// of this (see TodayPage's `review` derivation).
+export function getDueReviews() {
+  const now = Date.now();
+  const stages = Object.entries(pathAccMap())
+    .filter(([, e]) => e.nextDue && e.nextDue <= now)
+    .map(([id, e]) => { const stage = PATHWAY.find(s => s.id === id); return stage ? { id, stage, tier: pathTier(e.best), acc: e.last, best: e.best, nextDue: e.nextDue } : null; })
+    .filter(Boolean)
+    .sort((a, b) => a.nextDue - b.nextDue);
+  // Falls back to the old flat 2-day rule for struggle entries recorded
+  // before recordMemory()'s SM-2-lite interval existed (ai-chat-context.ts).
+  const practice = (readMemory().struggles || [])
+    .filter(s => s.last && (now - s.last) >= (s.interval || 2) * 86400000)
+    .map(s => ({ label: s.label, acc: s.acc, count: s.count, last: s.last }));
+  return { stages, practice, total: stages.length + practice.length };
+}
+// Memory Streak — a day-streak for keeping up with SRS review specifically
+// (getDueReviews()'s two signals above), separate from the app's main
+// streak the same way Camera Coach's Posture Streak is: showing up for
+// review is its own habit worth its own streak. No freeze mechanic, same
+// as every other per-feature streak this pass added. Bumped once per day
+// by either genuine review path — completing a due stage's practice drill
+// (finishPractice(), use-practice-mode.ts) or asking about a due struggle
+// (askAboutStruggle() below) — mirroring the main streak's own "credit for
+// a completed session, not for merely opening one" precedent (bumpStreak()
+// fires from logPractice(), never from a session's start).
+const MEMORY_STREAK_TIERS = [
+  { id: "start", icon: "🌱", need: 1 },
+  { id: "bronze", icon: "🥉", need: 3 },
+  { id: "silver", icon: "🥈", need: 7 },
+  { id: "gold", icon: "🥇", need: 14 },
+  { id: "diamond", icon: "💎", need: 30 },
+];
+export function memoryStreakTier(count) {
+  let t = null;
+  for (const tier of MEMORY_STREAK_TIERS) if (count >= tier.need) t = tier;
+  return t;
+}
+export function memoryStreak() { try { return JSON.parse(localStorage.getItem("tg_memory_streak") || "null") || { count: 0, last: "" }; } catch (e) { return { count: 0, last: "" }; } }
+// Returns { count, tier, tierUp, bumped } — bumped is false on a same-day
+// re-call; tierUp is true only on a genuine CLIMB (never a missed-day reset
+// that happens to land on a lower tier), exactly Posture Streak's contract.
+export function bumpMemoryStreak() {
+  const s = memoryStreak(), today = dayKey();
+  const prevTier = memoryStreakTier(s.count || 0);
+  if (s.last === today) return { count: s.count || 0, tier: prevTier, tierUp: false, bumped: false };
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if (s.last === dayKey(y)) s.count = (s.count || 0) + 1;
+  else s.count = 1;
+  s.last = today;
+  try { localStorage.setItem("tg_memory_streak", JSON.stringify(s)); } catch (e) {}
+  const tier = memoryStreakTier(s.count);
+  return { count: s.count, tier, tierUp: !!tier && (!prevTier || tier.need > prevTier.need), bumped: true };
+}
+// Group Boss Challenge — a one-off capstone once every practiceable stage in a
+// group is individually done: all of that group's demos chained into one longer
+// run, at a higher pass bar (BOSS_PASS_ACCURACY) than a normal stage. Deliberately
+// its own tiny Set, not folded into pathAccMap/pathDoneSet — a boss clear isn't
+// "this one stage got better," it's a separate combined-mastery badge, and
+// getDueReviews()'s PATHWAY.find(...) lookup would just silently ignore a boss
+// id anyway (it's never a real stage id), so keeping it fully separate is both
+// simpler and avoids relying on that as the actual isolation mechanism.
+export const BOSS_PASS_ACCURACY = 70;
+export function bossDoneSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_boss_done") || "[]")); } catch (e) { return new Set(); } }
+export function markBossDone(groupId) { try { const s = bossDoneSet(); s.add(groupId); localStorage.setItem("tg_boss_done", JSON.stringify([...s])); } catch (e) {} }
+// True the moment a group's Challenging-Mode row (cert + boss) FIRST becomes
+// available — every stage in the group passed, and it's not a reading-only
+// group (mirrors ChallengingPage's own unlock condition exactly). Used by
+// learnTopic()'s Auto Teaching hook to nudge "you just covered everything
+// this group's Boss Challenge tests — go prove it" without duplicating the
+// unlock rule in two places.
+export function groupChallengeReady(group) {
+  const stages = STAGES_BY_GROUP[group.id] || [];
+  if (!stages.length) return false;
+  const done = pathDoneSet();
+  return stages.every(s => done.has(s.id)) && stages.some(s => !s.content);
+}
+
+// Knowledge Quest — TIGA Chat's own collectible: the 7 "benefits of music"
+// pathway stages (group "benefits") each unlock a handful of curated deep-dive
+// case studies (BENEFIT_CASES), read one at a time inside the chat via
+// readChapter(). A domain badge unlocks only once every case in that domain
+// has actually been opened — tracked at case granularity (not just the
+// existing chapter-level pathDoneSet, which flips true after reading just
+// one case) so the collection can't be completed by accident.
+export function knowledgeDomains() { return PATHWAY.filter(s => s.group === "benefits" && BENEFIT_CASES[s.id]); }
+export function caseReadSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_case_read") || "[]")); } catch (e) { return new Set(); } }
+export function markCaseRead(stageId, caseId) { try { const s = caseReadSet(); s.add(stageId + "/" + caseId); localStorage.setItem("tg_case_read", JSON.stringify([...s])); } catch (e) {} }
+export function domainDoneIds() {
+  const read = caseReadSet();
+  return knowledgeDomains().filter(s => BENEFIT_CASES[s.id].every(c => read.has(s.id + "/" + c.id))).map(s => s.id);
+}
 /* Per-key learning record: which keys of each topic (scale/interval/chord/…) the
    learner has studied, so the pathway can show what's already been covered. */
+// A coaching tip's free text often names a specific key ("practice the C
+// Major scale") — match it against KEYS_12 so a tap on that step opens THAT
+// key, instead of silently substituting whichever key the learner's own
+// progress happens to have queued up next (which could be any of the 12).
+// Longest id first (mirrors extractNotes()'s KNOWN-table scan) so "F#"/"Db"
+// aren't shadowed by a bare "F" match; the bare-letter check is case-
+// sensitive so it doesn't false-positive on the English word "a"/"A" inside
+// an otherwise unrelated sentence.
+function findKeyMentionInText(text) {
+  const t = String(text || "");
+  if (!t) return null;
+  const bySpecificity = KEYS_12.slice().sort((a, b) => b.id.length - a.id.length);
+  for (const k of bySpecificity) {
+    const idEsc = k.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const idRx = new RegExp("(?<![A-Za-z])" + idEsc + "(?![A-Za-z])");
+    if (idRx.test(t) || (k.th && t.includes(k.th)) || (k.zh && k.zh !== k.id && t.includes(k.zh))) return k;
+  }
+  return null;
+}
 function keyDoneMap() { try { return JSON.parse(localStorage.getItem("tg_key_done") || "{}") || {}; } catch (e) { return {}; } }
 function markKeyDone(stageId, keyId) {
   try {
@@ -4071,34 +5637,380 @@ function maybeSnapshotSkills(uid) {
 
 /* ── cosmetics shop: key-skins + background themes (bought with coins) ── */
 const SHOP_SKINS = [
-  { id: "aqua",   icon: "🩵", cost: 0,   rarity: "common",    th: "อความารีน", en: "Aqua",   zh: "水蓝", sw: ["#8ad4ff", "#0e7ab0"] },
-  { id: "sunset", icon: "🧡", cost: 120, rarity: "common",    th: "ตะวันตกดิน", en: "Sunset", zh: "日落", sw: ["#ff9e00", "#ff5d3a"] },
-  { id: "neon",   icon: "💚", cost: 180, rarity: "rare",      th: "นีออน",      en: "Neon",   zh: "霓虹", sw: ["#06ffa5", "#00d488"] },
-  { id: "candy",  icon: "💗", cost: 180, rarity: "rare",      th: "แคนดี้",     en: "Candy",  zh: "糖果", sw: ["#ff76d8", "#cc1b7a"] },
-  { id: "ocean",  icon: "🌊", cost: 200, rarity: "rare",      th: "มหาสมุทร",   en: "Ocean",  zh: "海洋", sw: ["#00d4ff", "#0077b6"], isNew: true },
-  { id: "ice",    icon: "❄️", cost: 200, rarity: "rare",      th: "น้ำแข็ง",    en: "Ice",    zh: "冰霜", sw: ["#d0f4ff", "#0891b2"], isNew: true },
-  { id: "gold",   icon: "💛", cost: 320, rarity: "epic",      th: "ทองคำ",      en: "Gold",   zh: "黄金", sw: ["#ffd23f", "#9a7400"] },
-  { id: "fire",   icon: "🔥", cost: 260, rarity: "epic",      th: "เพลิง",      en: "Fire",   zh: "烈焰", sw: ["#ff6b35", "#6b0f16"], isNew: true },
-  { id: "galaxy", icon: "🪐", cost: 300, rarity: "epic",      th: "กาแล็กซี่",  en: "Galaxy", zh: "银河", sw: ["#c084fc", "#4c1d95"], isNew: true },
-  { id: "prism",  icon: "🌈", cost: 550, rarity: "legendary", th: "ปริซึม",     en: "Prism",  zh: "棱镜", sw: ["#ff5252", "#a855f7", "#00d4ff"], isNew: true },
+  { id: "aqua",   icon: "🩵", art: "key-aqua", cost: 0,   rarity: "common",    th: "นีออนพื้นฐาน", en: "Neon Base",   zh: "霓虹基础", sw: ["#00f0ff", "#004d66"] },
+  { id: "sunset", icon: "🧡", art: "key-sunset", cost: 120, rarity: "common",    th: "เมทริกซ์ส้ม", en: "Matrix Orange", zh: "矩阵橙", sw: ["#ff6600", "#993300"] },
+  { id: "neon",   icon: "💚", art: "key-neon", cost: 180, rarity: "rare",      th: "ไซเบอร์เขียว", en: "Cyber Green", zh: "赛博绿", sw: ["#00ff88", "#006633"] },
+  { id: "candy",  icon: "💗", art: "key-candy", cost: 180, rarity: "rare",      th: "ฮอโลแกรมชมพู", en: "Holo Pink", zh: "全息粉", sw: ["#ff00aa", "#660044"] },
+  { id: "ocean",  icon: "🌊", art: "key-ocean", cost: 200, rarity: "rare",      th: "ดีพไซเบอร์", en: "Deep Cyber", zh: "深空蓝", sw: ["#00ccff", "#003366"], isNew: true },
+  { id: "ice",    icon: "❄️", art: "key-ice", cost: 200, rarity: "rare",      th: "ไครโอฟรอสต์", en: "Cryofrost", zh: "冰晶", sw: ["#aaeeff", "#0066aa"], isNew: true },
+  { id: "gold",   icon: "💛", art: "key-gold", cost: 320, rarity: "epic",      th: "ไชนิ่งโกลด์", en: "Shining Gold", zh: "闪耀金", sw: ["#ffd23f", "#665500"] },
+  { id: "fire",   icon: "🔥", art: "key-fire", cost: 260, rarity: "epic",      th: "นีออนเพลิง", en: "Neon Blaze", zh: "霓虹烈焰", sw: ["#ff3300", "#330000"], isNew: true },
+  { id: "galaxy", icon: "🪐", art: "key-galaxy", cost: 300, rarity: "epic",      th: "ดิจิทัลกาแล็กซี่", en: "Digital Galaxy", zh: "数字银河", sw: ["#cc66ff", "#220055"], isNew: true },
+  { id: "prism",  icon: "🌈", art: "key-prism", cost: 550, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism", zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
+  { id: "jade",   icon: "💚", art: "key-jade", cost: 220, rarity: "rare",      th: "หยกไซเบอร์", en: "Cyber Jade",  zh: "赛博玉", sw: ["#3ddc84", "#0d3a24"], isNew: true },
+  { id: "magma",  icon: "🌋", art: "key-magma", cost: 280, rarity: "epic",      th: "แมกม่าเรืองแสง", en: "Glowing Magma", zh: "熔岩辉光", sw: ["#ff5a1a", "#3a0d00"], isNew: true },
+  { id: "keysakura", icon: "🌸", art: "key-sakura", cost: 300, rarity: "epic",      th: "ซากุระนีออน", en: "Neon Sakura",  zh: "霓虹樱花", sw: ["#ff8fc0", "#5c1236"], isNew: true },
+  { id: "void",   icon: "🕳️", art: "key-void", cost: 600, rarity: "legendary", th: "วอยด์อีเวนต์", en: "Void Horizon", zh: "虚空视界", sw: ["#a86bff", "#0a0616"], isNew: true },
 ];
 const SHOP_THEMES = [
-  { id: "midnight",  icon: "🌌", cost: 0,   rarity: "common",    th: "เที่ยงคืน", en: "Midnight",  zh: "午夜", sw: ["#150c12", "#0a0608"] },
-  { id: "aurora",    icon: "🌠", cost: 150, rarity: "rare",      th: "ออโรร่า",   en: "Aurora",    zh: "极光", sw: ["#0b2a3a", "#0a1326"] },
-  { id: "ember",     icon: "🔥", cost: 150, rarity: "rare",      th: "ถ่านไฟ",    en: "Ember",     zh: "余烬", sw: ["#2a1012", "#180b10"] },
-  { id: "forest",    icon: "🌲", cost: 150, rarity: "rare",      th: "ป่าไม้",    en: "Forest",    zh: "森林", sw: ["#0c2a1c", "#0a1a16"] },
-  { id: "sakura",    icon: "🌸", cost: 200, rarity: "epic",      th: "ซากุระ",    en: "Sakura",    zh: "樱花", sw: ["#3a1a2e", "#220f1c"], isNew: true },
-  { id: "deepsea",   icon: "🐋", cost: 240, rarity: "epic",      th: "ใต้สมุทร",  en: "Deep Sea",  zh: "深海", sw: ["#052030", "#031824"], isNew: true },
-  { id: "volcano",   icon: "🌋", cost: 260, rarity: "epic",      th: "ภูเขาไฟ",   en: "Volcano",   zh: "火山", sw: ["#3a1005", "#220a08"], isNew: true },
-  { id: "starlight", icon: "✨", cost: 450, rarity: "legendary", th: "แสงดาว",    en: "Starlight", zh: "星光", sw: ["#1a0a3a", "#12082a"], isNew: true },
+  { id: "midnight",  icon: "🌌", art: "thm-midnight", cost: 0,   rarity: "common",    th: "ไนท์ซิตี้", en: "Night City",  zh: "夜之城", sw: ["#5b7fd4", "#0a0f22"] },
+  { id: "aurora",    icon: "🌠", art: "thm-aurora", cost: 150, rarity: "rare",      th: "ออโรร่าดิจิทัล", en: "Digital Aurora", zh: "数字极光", sw: ["#43e8b0", "#03202f"] },
+  { id: "ember",     icon: "🔥", art: "thm-ember", cost: 150, rarity: "rare",      th: "ไซเบอร์เอ็มเบอร์", en: "Cyber Ember", zh: "赛博余烬", sw: ["#ff7a3c", "#1a0705"] },
+  { id: "forest",    icon: "🌲", art: "thm-forest", cost: 150, rarity: "rare",      th: "ป่าดิจิทัล", en: "Digital Forest", zh: "数字森林", sw: ["#4fbf7a", "#04160e"] },
+  { id: "sakura",    icon: "🌸", art: "thm-sakura", cost: 200, rarity: "epic",      th: "ไซเบอร์ซากุระ", en: "Cyber Sakura", zh: "赛博樱花", sw: ["#ff8fc0", "#1d0716"], isNew: true },
+  { id: "deepsea",   icon: "🐋", art: "thm-deepsea", cost: 240, rarity: "epic",      th: "โพลาร์ดิป", en: "Polar Deep", zh: "极地深海", sw: ["#3fb6e0", "#01121f"], isNew: true },
+  { id: "volcano",   icon: "🌋", art: "thm-volcano", cost: 260, rarity: "epic",      th: "แกนแมกม่า", en: "Magma Core", zh: "岩浆核心", sw: ["#ff5a1a", "#1c0603"], isNew: true },
+  { id: "starlight", icon: "✨", art: "thm-starlight", cost: 450, rarity: "legendary", th: "สตาร์ไลท์ไซเบอร์", en: "Cyber Starlight", zh: "赛博星光", sw: ["#c79cff", "#0d0620"], isNew: true },
+  { id: "neongrid", icon: "🛣️", art: "thm-neon", cost: 180, rarity: "rare",      th: "กริดนีออน", en: "Neon Grid",    zh: "霓虹网格", sw: ["#ff2d9b", "#0d0320"], isNew: true },
+  { id: "arcade", icon: "👾", art: "thm-arcade", cost: 220, rarity: "epic",      th: "อาร์เคดเรโทร", en: "Retro Arcade", zh: "复古街机", sw: ["#4de1ff", "#0a0a1e"], isNew: true },
+  { id: "zen",    icon: "🪷", art: "thm-zen", cost: 240, rarity: "epic",      th: "สวนเซน", en: "Zen Garden",         zh: "禅意庭园", sw: ["#e0c48a", "#14100a"], isNew: true },
+  { id: "nebula", icon: "🌫️", art: "thm-nebula", cost: 480, rarity: "legendary", th: "เนบิวลาลึก", en: "Deep Nebula", zh: "深空星云", sw: ["#a86bff", "#080418"], isNew: true },
 ];
 const SHOP_FRAMES = [
-  { id: "fr-none",    icon: "⭕", cost: 0,   rarity: "common",    th: "ไม่มีกรอบ", en: "No Frame", zh: "无边框", sw: ["#b0aea5", "#b0aea5"] },
-  { id: "fr-bronze",  icon: "🥉", cost: 100, rarity: "common",    th: "บรอนซ์",    en: "Bronze",   zh: "青铜", sw: ["#cd7f32", "#8a531f"], isNew: true },
-  { id: "fr-silver",  icon: "🥈", cost: 280, rarity: "rare",      th: "เงิน",      en: "Silver",   zh: "白银", sw: ["#d7d7de", "#9a9aa5"], isNew: true },
-  { id: "fr-gold",    icon: "🥇", cost: 500, rarity: "epic",      th: "ทอง",       en: "Gold",     zh: "黄金", sw: ["#ffd23f", "#c9960a"], isNew: true },
-  { id: "fr-diamond", icon: "💎", cost: 900, rarity: "legendary", th: "เพชร",      en: "Diamond",  zh: "钻石", sw: ["#8ad4ff", "#a855f7"], isNew: true },
+  { id: "fr-none",    icon: "⭕", art: "frm-fr-none", cost: 0,   rarity: "common",    th: "ไม่มีกรอบ", en: "No Frame", zh: "无边框", sw: ["#666680", "#666680"] },
+  { id: "fr-bronze",  icon: "🥉", art: "frm-fr-bronze", cost: 100, rarity: "common",    th: "คอปเปอร์ไซเบอร์", en: "Cyber Copper", zh: "赛博铜", sw: ["#cd7f32", "#4d2f10"], isNew: true },
+  { id: "fr-silver",  icon: "🥈", art: "frm-fr-silver", cost: 280, rarity: "rare",      th: "โครเมียม", en: "Chromium", zh: "铬合金", sw: ["#c0c0d0", "#50505a"], isNew: true },
+  { id: "fr-gold",    icon: "🥇", art: "frm-fr-gold", cost: 500, rarity: "epic",      th: "ไนออนโกลด์", en: "Neon Gold", zh: "霓虹金", sw: ["#ffd23f", "#665500"], isNew: true },
+  { id: "fr-diamond", icon: "💎", art: "frm-fr-diamond", cost: 900, rarity: "legendary", th: "ฮอลโลแกรม", en: "Hologram", zh: "全息框", sw: ["#00f0ff", "#aa00ff"], isNew: true },
+  { id: "fr-neon",    icon: "💠", art: "frm-fr-neon", cost: 180, rarity: "rare",      th: "นีออนเอดจ์", en: "Neon Edge",   zh: "霓虹边框", sw: ["#00f0ff", "#0a1a2e"], isNew: true },
+  { id: "fr-circuit", icon: "🔌", art: "frm-fr-circuit", cost: 340, rarity: "rare",      th: "แผงวงจร", en: "Circuit Board",  zh: "电路板", sw: ["#3ddc84", "#0d2a1c"], isNew: true },
+  { id: "fr-laurel",  icon: "🌿", art: "frm-fr-laurel", cost: 620, rarity: "epic",      th: "พวงหรีดทอง", en: "Golden Laurel", zh: "黄金桂冠", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "fr-mecha",   icon: "🦾", art: "frm-fr-mecha", cost: 760, rarity: "epic",      th: "โครงเมค", en: "Mecha Rig",        zh: "机甲框架", sw: ["#b8c2d4", "#232d42"], isNew: true },
+  { id: "fr-prism",   icon: "🌈", art: "frm-fr-prism", cost: 1200, rarity: "legendary", th: "ปริซึมสเปกตรัม", en: "Spectrum Prism", zh: "光谱棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
 ];
+const SHOP_KEYBOARDS = [
+  { id: "kb-classic",  icon: "🎹", art: "kbd-kb-classic", cost: 0,   rarity: "common",    th: "คลาสสิกไซเบอร์", en: "Cyber Classic", zh: "赛博经典", sw: ["#1a1a2e", "#0d0d15"], isNew: false },
+  { id: "kb-neon",     icon: "💚", art: "kbd-kb-neon", cost: 160, rarity: "rare",      th: "นีออนกรีน", en: "Neon Green",  zh: "霓虹绿", sw: ["#00ff66", "#003315"], isNew: true },
+  { id: "kb-rose",     icon: "💗", art: "kbd-kb-rose", cost: 180, rarity: "rare",      th: "ฮอโลชมพู", en: "Holo Pink",  zh: "全息粉", sw: ["#ff00aa", "#440033"], isNew: true },
+  { id: "kb-midnight", icon: "🌙", art: "kbd-kb-midnight", cost: 220, rarity: "rare",      th: "ดิจิทัลไนท์", en: "Digital Night",   zh: "数字之夜", sw: ["#0a0020", "#050010"], isNew: true },
+  { id: "kb-ice",      icon: "❄️", art: "kbd-kb-ice", cost: 280, rarity: "epic",      th: "ไซเบอร์คริสตัล", en: "Cyber Crystal", zh: "赛博水晶", sw: ["#aaeeff", "#003355"], isNew: true },
+  { id: "kb-fire",     icon: "🔥", art: "kbd-kb-fire", cost: 320, rarity: "epic",      th: "นีออนเฟรม", en: "Neon Frame",    zh: "霓虹框架", sw: ["#ff3300", "#330000"], isNew: true },
+  { id: "kb-galaxy",   icon: "🪐", art: "kbd-kb-galaxy", cost: 400, rarity: "epic",      th: "ไซเบอร์กาแล็กซี่", en: "Cyber Galaxy", zh: "赛博银河", sw: ["#cc66ff", "#220055"], isNew: true },
+  { id: "kb-gold",     icon: "💛", art: "kbd-kb-gold", cost: 550, rarity: "legendary", th: "ไชนิ่งไซเบอร์", en: "Shining Cyber", zh: "闪耀赛博", sw: ["#ffd23f", "#665500"], isNew: true },
+  { id: "kb-rainbow",  icon: "🌈", art: "kbd-kb-rainbow", cost: 750, rarity: "legendary", th: "ปริซึมโซล", en: "Soul Prism",  zh: "灵魂棱镜", sw: ["#ff0044", "#aa00ff", "#00ddff"], isNew: true },
+  { id: "kb-jade",   icon: "💚", art: "kbd-kb-jade", cost: 200, rarity: "rare",      th: "หยกไซเบอร์", en: "Cyber Jade",  zh: "赛博玉", sw: ["#3ddc84", "#0d3a24"], isNew: true },
+  { id: "kb-sunset", icon: "🌇", art: "kbd-kb-sunset", cost: 240, rarity: "rare",      th: "ซันเซ็ตไดรฟ์", en: "Sunset Drive", zh: "落日驰骋", sw: ["#ff7a3c", "#3a1400"], isNew: true },
+  { id: "kb-carbon", icon: "🔲", art: "kbd-kb-carbon", cost: 300, rarity: "epic",      th: "คาร์บอนไฟเบอร์", en: "Carbon Fibre", zh: "碳纤维", sw: ["#8a94a8", "#14161f"], isNew: true },
+  { id: "kb-aurora", icon: "🌠", art: "kbd-kb-aurora", cost: 460, rarity: "epic",      th: "ออโรร่า", en: "Aurora",            zh: "极光", sw: ["#43e8b0", "#03202f"], isNew: true },
+];
+const SHOP_STICKERS = [
+  { id: "st-star",     icon: "⭐", art: "stk-st-star", cost: 50,  rarity: "common",    th: "ชิปข้อมูล", en: "Data Chip",       zh: "数据芯片", sw: ["#00f0ff", "#006688"], isNew: false },
+  { id: "st-heart",    icon: "❤️", art: "stk-st-heart", cost: 60,  rarity: "common",    th: "หัวใจไซเบอร์", en: "Cyber Heart",      zh: "赛博之心", sw: ["#ff0044", "#660018"], isNew: false },
+  { id: "st-music",    icon: "🎵", art: "stk-st-music", cost: 80,  rarity: "common",    th: "เสียงดิจิทัล", en: "Digital Sound", zh: "数字音符", sw: ["#aa00ff", "#4400aa"], isNew: true },
+  { id: "st-flame",    icon: "🔥", art: "stk-st-flame", cost: 120, rarity: "rare",      th: "นีออนเฟลม", en: "Neon Flame",      zh: "霓虹之火", sw: ["#ff3300", "#aa0000"], isNew: true },
+  { id: "st-crown",    icon: "👑", art: "stk-st-crown", cost: 200, rarity: "rare",      th: "มงกุฎไซเบอร์", en: "Cyber Crown",      zh: "赛博皇冠", sw: ["#ffd23f", "#664400"], isNew: true },
+  { id: "st-diamond",  icon: "💎", art: "stk-st-diamond", cost: 300, rarity: "epic",      th: "คริสตัลไซเบอร์", en: "Cyber Crystal",    zh: "赛博水晶", sw: ["#00f0ff", "#aa00ff"], isNew: true },
+  { id: "st-rocket",   icon: "🚀", art: "stk-st-rocket", cost: 350, rarity: "epic",      th: "จรวดดิจิทัล", en: "Digital Rocket",     zh: "数字火箭", sw: ["#ff3300", "#001133"], isNew: true },
+  { id: "st-trophy",   icon: "🏆", art: "stk-st-trophy", cost: 500, rarity: "legendary", th: "ถ้วยโซลไซเบอร์", en: "Cyber Soul Trophy", zh: "赛博灵魂杯", sw: ["#ffd23f", "#cd7f32"], isNew: true },
+  { id: "st-magic",    icon: "✨", art: "stk-st-magic", cost: 600, rarity: "legendary", th: "ไซเบอร์โซล", en: "Cyber Soul",      zh: "赛博灵魂", sw: ["#cc66ff", "#ff0044", "#ffd23f"], isNew: true },
+  { id: "st-note8",  icon: "🎶", art: "stk-st-note8", cost: 90,  rarity: "common",    th: "โน้ตเขบ็ต", en: "Beamed Notes", zh: "八分音符", sw: ["#4dc3ff", "#0d2a44"], isNew: true },
+  { id: "st-metro",  icon: "⏱️", art: "stk-st-metro", cost: 140, rarity: "rare",      th: "เมโทรนอม", en: "Metronome",     zh: "节拍器", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "st-bolt",   icon: "⚡", art: "stk-st-bolt", cost: 180, rarity: "rare",      th: "สายฟ้าโอเวอร์ไดรฟ์", en: "Overdrive Bolt", zh: "超载闪电", sw: ["#ffe14d", "#4a3200"], isNew: true },
+  { id: "st-paw",    icon: "🐾", art: "stk-st-paw", cost: 240, rarity: "epic",      th: "อุ้งเท้าคู่หู", en: "Buddy Paw",    zh: "伙伴爪印", sw: ["#ff8fc0", "#5c1236"], isNew: true },
+  { id: "st-medal",  icon: "🎖️", art: "stk-st-medal", cost: 420, rarity: "legendary", th: "เหรียญเกียรติยศ", en: "Honour Medal", zh: "荣誉勋章", sw: ["#ffd23f", "#b04a2a"], isNew: true },
+];
+const SHOP_HATS = [
+  { id: "hat-straw",    icon: "🥽", cost: 0,   art: "visor", rarity: "common",    th: "บังตาออปติก", en: "Optic Visor",      zh: "光学护目镜", sw: ["#8fa6c8", "#00f0ff"] },
+  { id: "hat-beret",    icon: "🪖", cost: 100, art: "helm", rarity: "common",    th: "หมวกเกราะรบ", en: "Combat Helm",      zh: "战斗头盔", sw: ["#7f8a6a", "#2a2f20"] },
+  { id: "hat-headphone",icon: "🎧", cost: 150, art: "phones", rarity: "rare",      th: "ตัวรับสัญญาณเสียง", en: "Audio Receptors", zh: "音频接收器", sw: ["#00f0ff", "#003344"] },
+  { id: "hat-crown",    icon: "👑", cost: 250, art: "crown", rarity: "rare",      th: "มงกุฎผู้บัญชาการ", en: "Command Crown",   zh: "指挥皇冠", sw: ["#ffd23f", "#00f0ff"] },
+  { id: "hat-wizard",   icon: "🧠", cost: 350, art: "brain", rarity: "epic",      th: "โมดูลสมองกล", en: "Cortex Module",    zh: "皮层模块", sw: ["#c78ff5", "#3b0a66"] },
+  { id: "hat-halo",     icon: "🔆", cost: 400, art: "halo", rarity: "epic",      th: "วงแสงโฟตอน", en: "Photon Halo",      zh: "光子光环", sw: ["#ffd23f", "#ff00aa"] },
+  { id: "hat-devil",    icon: "🎯", cost: 500, art: "crest", rarity: "epic",      th: "ระบบล็อกเป้าหมาย", en: "Targeting Crest", zh: "瞄准冠", sw: ["#ff5566", "#3a000c"] },
+  { id: "hat-helmet",   icon: "⛑️", cost: 600, art: "aegis", rarity: "legendary", th: "หมวกเกราะเสริมแรง", en: "Reinforced Helm", zh: "强化头盔", sw: ["#c0c0d0", "#00f0ff"] },
+  { id: "hat-star",     icon: "🌟", cost: 800, art: "diadem", rarity: "legendary", th: "มงกุฎสุริยะ", en: "Solar Crown",      zh: "太阳冠", sw: ["#ffd23f", "#ff0044", "#aa00ff"] },
+  /* ── android head modules ── gear that belongs on a machine rather than on a
+     person: sensors, antennae and processing units, so the shop stocks things
+     the character can plausibly be wearing now that it is a robot. ── */
+  { id: "hat-antenna",  icon: "📡", cost: 120, art: "antenna", rarity: "common",    th: "เสาอากาศรับสัญญาณ", en: "Signal Antenna",   zh: "信号天线", sw: ["#7f8fa8", "#00f0ff"], isNew: true },
+  { id: "hat-bolt",     icon: "🔩", cost: 140, art: "rivets", rarity: "common",    th: "หมุดยึดไทเทเนียม", en: "Titanium Rivets",  zh: "钛合金铆钉", sw: ["#b8c2d4", "#4a5a78"], isNew: true },
+  { id: "hat-scope",    icon: "🔭", cost: 260, art: "scope", rarity: "rare",      th: "กล้องเล็งเป้า", en: "Targeting Scope",  zh: "瞄准镜", sw: ["#00f0ff", "#0a1628"], isNew: true },
+  { id: "hat-beacon",   icon: "💡", cost: 300, art: "beacon", rarity: "rare",      th: "ไฟนำทางฉุกเฉิน", en: "Beacon Node",      zh: "信标灯", sw: ["#ffd23f", "#ff6a00"], isNew: true },
+  { id: "hat-satellite",icon: "🛰️", cost: 460, art: "satellite", rarity: "epic",      th: "โมดูลดาวเทียม", en: "Satellite Uplink", zh: "卫星模块", sw: ["#00f0ff", "#2a3f6a"], isNew: true },
+  { id: "hat-reactor",  icon: "⚛️", cost: 560, art: "atom", rarity: "epic",      th: "แกนปฏิกรณ์สมอง", en: "Neural Reactor",  zh: "神经反应堆", sw: ["#00ffa8", "#00f0ff"], isNew: true },
+  { id: "hat-quantum",  icon: "🌐", cost: 880, art: "orb", rarity: "legendary", th: "คอร์ควอนตัม", en: "Quantum Core",     zh: "量子核心", sw: ["#aa00ff", "#00f0ff", "#ffd23f"], isNew: true },
+  /* ── stage headwear ── */
+  { id: "hat-maestro", icon: "🎩", art: "sigil", cost: 210, rarity: "rare",      th: "หมวกวาทยกร", en: "Maestro Cap",     zh: "指挥官帽", sw: ["#1c2233", "#ffd23f"], isNew: true },
+  { id: "hat-mask",    icon: "🎭", art: "mask", cost: 380, rarity: "epic",      th: "หน้ากากโอเปร่า", en: "Opera Mask",    zh: "歌剧面具", sw: ["#e9edf6", "#aa00ff"], isNew: true },
+  { id: "hat-wreath",  icon: "🌿", art: "wreath", cost: 620, rarity: "legendary", th: "พวงหรีดผู้ชนะ", en: "Victor Wreath", zh: "胜利桂冠", sw: ["#ffd23f", "#3ddc84"], isNew: true },
+  { id: "hat-holo",    icon: "🔮", art: "holo", cost: 740, rarity: "legendary", th: "ตัวฉายโฮโลแกรม", en: "Holo Projector", zh: "全息投影器", sw: ["#7fe8ff", "#12405e"], isNew: true },
+];
+const SHOP_OUTFITS = [
+  { id: "out-tshirt",  icon: "🤖", cost: 0,   art: "out-tshirt", rarity: "common",    th: "โครงมาตรฐาน", en: "Standard Chassis", zh: "标准机身", sw: ["#8b9ec2", "#1a2233"] },
+  { id: "out-hoodie",  icon: "🔗", cost: 120, art: "out-hoodie", rarity: "common",    th: "เกราะข้อต่อ", en: "Linked Plating",   zh: "链接装甲", sw: ["#6d8fbe", "#0d2340"] },
+  { id: "out-jacket",  icon: "⛓️", cost: 180, art: "out-jacket", rarity: "rare",      th: "เกราะโซ่ถัก", en: "Chain Weave",      zh: "锁链编织", sw: ["#00f0ff", "#0a1a2e"] },
+  { id: "out-dress",   icon: "🔷", cost: 200, art: "out-dress", rarity: "rare",      th: "เปลือกคริสตัล", en: "Crystal Shell",  zh: "水晶外壳", sw: ["#ff66c4", "#4a0c38"] },
+  { id: "out-kimono",  icon: "🔥", cost: 300, art: "out-kimono", rarity: "epic",      th: "เกราะระบายความร้อน", en: "Thermal Plating", zh: "热能装甲", sw: ["#ff9a3c", "#5c1400"] },
+  { id: "out-armor",   icon: "🔰", cost: 400, art: "out-armor", rarity: "epic",      th: "เกราะอีจิส", en: "Aegis Plating",     zh: "神盾装甲", sw: ["#5ce1ff", "#0a2a3a"] },
+  { id: "out-tuxedo",  icon: "🌑", cost: 500, art: "out-tuxedo", rarity: "epic",      th: "เกราะพรางสเตลท์", en: "Void Plating",  zh: "虚空装甲", sw: ["#8a94a8", "#0a0d14"] },
+  { id: "out-royal",   icon: "💎", cost: 700, art: "out-royal", rarity: "legendary", th: "เกราะเพชร", en: "Diamond Plating",    zh: "钻石装甲", sw: ["#bfe9ff", "#2a1a5a"] },
+  { id: "out-celestial", icon: "✨", cost: 900, art: "out-celestial", rarity: "legendary", th: "โครงเทพจักรวาล", en: "Celestial Chassis", zh: "天界机身", sw: ["#7fe8ff", "#aa00ff", "#ffd23f"] },
+  /* ── chassis plating ── these are the items that visibly re-plate the avatar,
+     so their swatches are picked to look good ON the armour, not just in the
+     shop list: a light accent first, a deep base second. ── */
+  { id: "out-alloy",   icon: "⚙️", cost: 130, art: "out-alloy", rarity: "common",    th: "โครงโลหะผสม", en: "Alloy Frame",      zh: "合金框架", sw: ["#9aa8c0", "#333e56"], isNew: true },
+  { id: "out-carbon",  icon: "🔲", cost: 210, art: "out-carbon", rarity: "rare",      th: "เกราะคาร์บอนไฟเบอร์", en: "Carbon Weave", zh: "碳纤维装甲", sw: ["#5c6478", "#14161f"], isNew: true },
+  { id: "out-cryo",    icon: "🧊", cost: 280, art: "out-cryo", rarity: "rare",      th: "เกราะไครโอ", en: "Cryo Plating",     zh: "低温装甲", sw: ["#7fe8ff", "#0d3a5c"], isNew: true },
+  { id: "out-magma",   icon: "🌋", cost: 420, art: "out-magma", rarity: "epic",      th: "เกราะแมกม่า", en: "Magma Chassis",    zh: "熔岩机身", sw: ["#ff7a1a", "#5c1400"], isNew: true },
+  { id: "out-prism",   icon: "💠", cost: 520, art: "out-prism", rarity: "epic",      th: "เกราะปริซึม", en: "Prism Chassis",    zh: "棱镜机身", sw: ["#66f0ff", "#2b1a6a"], isNew: true },
+  { id: "out-titan",   icon: "🦾", cost: 820, art: "out-titan", rarity: "legendary", th: "โครงไทตันเมค", en: "Titan Mech Frame", zh: "泰坦机甲", sw: ["#ffd23f", "#3a2a00"], isNew: true },
+];
+const SHOP_WEAPONS = [
+  { id: "wpn-stick",   icon: "🔦", cost: 0,   art: "torch", rarity: "common",    th: "ตัวฉายลำแสง", en: "Beam Projector",   zh: "光束投射器", sw: ["#00f0ff", "#0a1a2e"] },
+  { id: "wpn-sword",   icon: "⚔️", cost: 150, art: "sword", rarity: "common",    th: "ใบมีดโมโน", en: "Mono Blade",         zh: "单分子刀", sw: ["#c0c0d0", "#00f0ff"] },
+  { id: "wpn-axe",     icon: "🪚", cost: 180, art: "cutter", rarity: "rare",      th: "เครื่องตัดพลาสมา", en: "Plasma Cutter", zh: "等离子切割器", sw: ["#ff6a1a", "#00f0ff"] },
+  { id: "wpn-bow",     icon: "💥", cost: 220, art: "piston", rarity: "rare",      th: "ตัวขับแรงกระแทก", en: "Impact Driver", zh: "冲击驱动器", sw: ["#c78ff5", "#ff0044"] },
+  { id: "wpn-staff",   icon: "🌀", cost: 350, art: "coil", rarity: "epic",      th: "ขดลวดวอร์เท็กซ์", en: "Vortex Coil",   zh: "涡流线圈", sw: ["#aa00ff", "#00f0ff"] },
+  { id: "wpn-hammer",  icon: "🔨", cost: 400, art: "hammer", rarity: "epic",      th: "ค้อนเซอร์โว", en: "Servo Hammer",     zh: "伺服锤", sw: ["#c0c0d0", "#ff3300"] },
+  { id: "wpn-blade",   icon: "🗡️", cost: 600, art: "greatsword", rarity: "legendary", th: "ดาบพลาสมา", en: "Plasma Sword",      zh: "等离子剑", sw: ["#00f0ff", "#ffffff"] },
+  { id: "wpn-scythe",  icon: "🛠️", cost: 750, art: "multitool", rarity: "legendary", th: "ชุดเครื่องมือรบ", en: "Multi-Tool Rig", zh: "多功能工具组", sw: ["#b8c2d4", "#ff0044"] },
+  { id: "wpn-celestial", icon: "☄️", cost: 950, art: "lance", rarity: "legendary", th: "หอกดาวหาง", en: "Comet Lance",     zh: "彗星长枪", sw: ["#ffd23f", "#aa00ff", "#00f0ff"] },
+  /* ── arm modules ── engineering and sound gear rather than firearms: this is a
+     children's piano app, and a robot arm that plays music is a better fit for
+     it than a gun anyway. ── */
+  { id: "wpn-wrench",  icon: "🔧", cost: 110, art: "wrench", rarity: "common",    th: "ประแจเซอร์โว", en: "Servo Wrench",     zh: "伺服扳手", sw: ["#b8c2d4", "#00f0ff"], isNew: true },
+  { id: "wpn-driver",  icon: "🪛", cost: 140, art: "driver", rarity: "common",    th: "ไขควงแรงบิด", en: "Torque Driver",    zh: "扭矩螺丝刀", sw: ["#ffd23f", "#4a5a78"], isNew: true },
+  { id: "wpn-magnet",  icon: "🧲", cost: 240, art: "magnet", rarity: "rare",      th: "กรงเล็บแม่เหล็ก", en: "Magnet Claw",      zh: "磁力爪", sw: ["#ff0044", "#00f0ff"], isNew: true },
+  { id: "wpn-keytar",  icon: "🎹", cost: 320, art: "keytar", rarity: "rare",      th: "แขนคีย์ทาร์", en: "Keytar Arm",       zh: "键盘臂", sw: ["#ffffff", "#aa00ff"], isNew: true },
+  { id: "wpn-speaker", icon: "🔊", cost: 440, art: "speaker", rarity: "epic",      th: "ปืนคลื่นเสียง", en: "Sonic Emitter",    zh: "声波发射器", sw: ["#00f0ff", "#0a1628"], isNew: true },
+  { id: "wpn-arm",     icon: "🦾", cost: 640, art: "arm", rarity: "epic",      th: "แขนกลเสริมพลัง", en: "Power Arm",       zh: "动力机械臂", sw: ["#c0c0d0", "#ff6a00"], isNew: true },
+  { id: "wpn-plasma",  icon: "⚡", cost: 900, art: "reactor", rarity: "legendary", th: "ตัวปล่อยพลาสมา", en: "Plasma Coil",     zh: "等离子线圈", sw: ["#00f0ff", "#ffffff", "#aa00ff"], isNew: true },
+  /* ── energy weapons ── the space-opera end of the rack: directed light,
+     thrown charges, and a projected barrier. Kept squarely in sci-fi rather
+     than reality — the blaster fires light, the charges are EMP and pulse
+     rather than fragmentation, and the barrier is defensive. ── */
+  { id: "wpn-laser",   icon: "✴️", cost: 200, art: "beam", rarity: "rare",      th: "ลำแสงเลเซอร์", en: "Laser Beam",       zh: "激光束", sw: ["#ff3366", "#ffffff"], isNew: true },
+  { id: "wpn-blaster", icon: "🔫", cost: 280, art: "blaster", rarity: "rare",      th: "ปืนเลเซอร์", en: "Laser Blaster",     zh: "激光枪", sw: ["#00f0ff", "#0a1a2e"], isNew: true },
+  { id: "wpn-barrier", icon: "🔵", cost: 340, art: "barrier", rarity: "epic",      th: "บาเรียสนามพลัง", en: "Force Barrier",  zh: "力场屏障", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "wpn-charge",  icon: "🧨", cost: 380, art: "charge", rarity: "epic",      th: "ระเบิดพัลส์", en: "Pulse Charge",     zh: "脉冲炸药", sw: ["#ff9a3c", "#5c1400"], isNew: true },
+  { id: "wpn-emp",     icon: "💣", cost: 460, art: "grenade", rarity: "epic",      th: "ระเบิดคลื่นแม่เหล็ก", en: "EMP Grenade", zh: "电磁脉冲弹", sw: ["#8fa6c8", "#0d1520"], isNew: true },
+  { id: "wpn-boomer",  icon: "🪃", cost: 520, art: "boomerang", rarity: "epic",      th: "ใบมีดบูมเมอแรง", en: "Boomerang Blade", zh: "回旋刀刃", sw: ["#ffd23f", "#3a2a00"], isNew: true },
+  { id: "wpn-ion",     icon: "❇️", cost: 700, art: "railgun", rarity: "legendary", th: "ปืนใหญ่ไอออน", en: "Ion Cannon",      zh: "离子炮", sw: ["#7fe8ff", "#12405e"], isNew: true },
+  { id: "wpn-nova",    icon: "🎆", cost: 1000, art: "burst", rarity: "legendary", th: "โนวาเบิร์สต์", en: "Nova Burst",     zh: "新星爆发", sw: ["#ffd23f", "#ff0044", "#aa00ff"], isNew: true },
+  /* ── the music bench ── a piano app's rack should hold the tools a musician
+     owns, not only ordnance. These four are the ones a robot can pick up. ── */
+  { id: "wpn-fork",    icon: "🎼", art: "fork", cost: 170, rarity: "rare",      th: "ส้อมเสียงเรโซแนนซ์", en: "Resonance Fork", zh: "共鸣音叉", sw: ["#7fe8ff", "#0d3a5c"], isNew: true },
+  { id: "wpn-metro",   icon: "⏱️", art: "pendulum", cost: 260, rarity: "rare",      th: "ลูกตุ้มจังหวะ", en: "Tempo Pendulum",  zh: "节拍摆锤", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "wpn-baton",   icon: "🪄", art: "baton", cost: 480, rarity: "epic",      th: "ไม้บาตองวาทยกร", en: "Maestro Baton",  zh: "指挥棒", sw: ["#ffffff", "#c78ff5"], isNew: true },
+  { id: "wpn-disc",    icon: "💿", art: "disc", cost: 820, rarity: "legendary", th: "จานเสียงสังหาร", en: "Vinyl Cutter",     zh: "唱片飞盘", sw: ["#c0c0d0", "#1a1a2e"], isNew: true },
+];
+/* ── robot skins ──
+   The chassis itself is stock now. The first one is free — chosen once, on the
+   first visit to the profile — and every other model is bought outright, at a
+   price that puts it far above any piece of gear: a body is not an accessory,
+   and swapping into one should be the thing a player saves for. Priced 20k-30k,
+   climbing with how hard the build is to earn a reason for. `model` is the id
+   the avatar renders; the item id is namespaced so it cannot collide with gear. */
+const SHOP_MODELS = [
+  { id: "mdl-vanguard", model: "vanguard", cost: 20000, rarity: "legendary", th: "แวนการ์ด", en: "VANGUARD", zh: "先锋",
+    desc: { th: "โครงกระดูกรบ", en: "Combat endoskeleton", zh: "战斗骨架" }, sw: ["#e9f1ff", "#ff2d46"] },
+  { id: "mdl-sentinel", model: "sentinel", cost: 21000, rarity: "legendary", th: "เซนทิเนล", en: "SENTINEL", zh: "哨兵",
+    desc: { th: "หน่วยจู่โจมหนัก", en: "Heavy assault unit", zh: "重装突击" }, sw: ["#4a5a78", "#00f0ff"] },
+  { id: "mdl-reaper", model: "reaper", cost: 30000, rarity: "legendary", th: "รีปเปอร์", en: "REAPER", zh: "死神",
+    desc: { th: "เครื่องจักรสงคราม", en: "War machine", zh: "战争机器" }, sw: ["#0d1220", "#ff2d46"] },
+  { id: "mdl-ronin", model: "ronin", cost: 28000, rarity: "legendary", th: "โรนิน", en: "RONIN", zh: "浪人",
+    desc: { th: "ซามูไรไซเบอร์", en: "Cyber samurai", zh: "赛博武士" }, sw: ["#8c2b34", "#ffd23f"] },
+  { id: "mdl-phantom", model: "phantom", cost: 26000, rarity: "legendary", th: "แฟนธ่อม", en: "PHANTOM", zh: "液金",
+    desc: { th: "โลหะเหลวเปลี่ยนรูป", en: "Mimetic polyalloy", zh: "液态合金" }, sw: ["#f4f8ff", "#6d7f9e"] },
+  { id: "mdl-envoy", model: "envoy", cost: 25000, rarity: "legendary", th: "เอนวอย", en: "ENVOY", zh: "使节",
+    desc: { th: "หุ่นล่ามทองคำ", en: "Protocol unit", zh: "礼仪机器人" }, sw: ["#e8bf58", "#4a340a"], isNew: true },
+  { id: "mdl-talon", model: "talon", cost: 29000, rarity: "legendary", th: "ทาลอน", en: "TALON", zh: "利爪",
+    desc: { th: "นักล่าอุตสาหกรรม", en: "Industrial hunter", zh: "工业猎手" }, sw: ["#7f8ea8", "#ff3b30"], isNew: true },
+  { id: "mdl-sentry", model: "sentry", cost: 23000, rarity: "legendary", th: "เซนทรี", en: "SENTRY", zh: "步兵",
+    desc: { th: "ทหารราบผลิตจำนวนมาก", en: "Line infantry droid", zh: "量产步兵" }, sw: ["#c9b183", "#4f3f27"], isNew: true },
+  { id: "mdl-pip", model: "pip", cost: 22000, rarity: "legendary", th: "พิพ", en: "PIP", zh: "皮普",
+    desc: { th: "หุ่นช่างประจำยาน", en: "Astromech unit", zh: "机修机器人" }, sw: ["#ffffff", "#2f8ede"], isNew: true },
+  { id: "mdl-pebble", model: "pebble", cost: 24000, rarity: "legendary", th: "เพบเบิล", en: "PEBBLE", zh: "圆豆",
+    desc: { th: "หุ่นทรงกลมกลิ้งได้", en: "Rolling unit", zh: "滚球单元" }, sw: ["#ffffff", "#ff8a2a"], isNew: true },
+  { id: "mdl-specter", model: "specter", cost: 22000, rarity: "legendary", th: "สเปกเตอร์", en: "SPECTER", zh: "幻影",
+    desc: { th: "แอนดรอยด์แฝงตัว", en: "Infiltration android", zh: "潜行仿生人" }, sw: ["#dcc3b6", "#3aa8ff"] },
+  { id: "mdl-scout", model: "scout", cost: 26000, rarity: "legendary", th: "สเกาต์", en: "SCOUT", zh: "侦查",
+    desc: { th: "แอนดรอยด์เจรจา", en: "Negotiator android", zh: "谈判仿生人" }, sw: ["#dcc3b6", "#412b1d"], isNew: true },
+  { id: "mdl-meridian", model: "meridian", cost: 31000, rarity: "legendary", th: "เมริเดียน", en: "MERIDIAN", zh: "子午",
+    desc: { th: "แอนดรอยด์ผู้ดูแล", en: "Caretaker android", zh: "看护仿生人" }, sw: ["#c99a6e", "#5aa86a"], isNew: true },
+  { id: "mdl-atlas", model: "atlas", cost: 27000, rarity: "legendary", th: "แอตลาส", en: "ATLAS", zh: "阿特拉斯",
+    desc: { th: "แอนดรอยด์แรงงานหนัก", en: "Heavy labour android", zh: "重劳仿生人" }, sw: ["#8a5636", "#3aa8ff"], isNew: true },
+  { id: "mdl-keeper", model: "keeper", cost: 23000, rarity: "legendary", th: "คีปเปอร์", en: "KEEPER", zh: "守护",
+    desc: { th: "แอนดรอยด์ประจำบ้าน", en: "Domestic android", zh: "家用仿生人" }, sw: ["#dcc3b6", "#2b3149"], isNew: true },
+  { id: "mdl-halcyon", model: "halcyon", cost: 30000, rarity: "legendary", th: "ฮัลไซออน", en: "HALCYON", zh: "宁静",
+    desc: { th: "แอนดรอยด์รุ่นแรก", en: "First-generation android", zh: "初代仿生人" }, sw: ["#d8b56a", "#3aa8ff"], isNew: true },
+  { id: "mdl-aurora", model: "aurora", cost: 27000, rarity: "legendary", th: "ออโรร่า", en: "AURORA", zh: "极光",
+    desc: { th: "แอนดรอยด์ไอดอล", en: "Idol android", zh: "偶像仿生人" }, sw: ["#cbb8f0", "#d6f5ee"] },
+  { id: "mdl-nova", model: "nova", cost: 22000, rarity: "legendary", th: "โนวา", en: "NOVA", zh: "新星",
+    desc: { th: "หุ่นผู้ช่วยตัวจิ๋ว", en: "Little helper unit", zh: "迷你助手" }, sw: ["#ffffff", "#00f0ff"] },
+  { id: "mdl-pixel", model: "pixel", cost: 23000, rarity: "legendary", th: "พิกเซล", en: "PIXEL", zh: "像素",
+    desc: { th: "หุ่นหน้าจอจิ๋ว", en: "Screen-face buddy", zh: "屏幕脸小伙伴" }, sw: ["#0a1020", "#00f0ff"] },
+  { id: "mdl-mochi", model: "mochi", cost: 24000, rarity: "legendary", th: "โมจิ", en: "MOCHI", zh: "麻糬",
+    desc: { th: "หุ่นนุ่มนิ่มสุดน่ารัก", en: "Squishy pocket bot", zh: "软萌口袋机器人" }, sw: ["#ffc9dd", "#ff7aa5"] },
+  /* ── the soft intake ── priced a shade under the originals, because a body
+     that is trying to be liked is an easier sell than one that is trying to
+     be feared, and the shelf should not make cute the expensive taste. */
+  { id: "mdl-pudding", model: "pudding", cost: 22000, rarity: "legendary", th: "พุดดิ้ง", en: "PUDDING", zh: "布丁",
+    desc: { th: "หุ่นเนื้อนุ่มสั่นได้", en: "Wobble-shell unit", zh: "布丁外壳单元" }, sw: ["#ffe3b0", "#ffb9c8"] },
+  { id: "mdl-acorn", model: "acorn", cost: 22000, rarity: "legendary", th: "เอคอร์น", en: "ACORN", zh: "橡实",
+    desc: { th: "หุ่นเปลือกเมล็ด", en: "Seed-shell servitor", zh: "种壳侍从" }, sw: ["#b8d8b0", "#8a6636"] },
+  { id: "mdl-cocoa", model: "cocoa", cost: 23000, rarity: "legendary", th: "โกโก้", en: "COCOA", zh: "可可",
+    desc: { th: "หุ่นเพื่อนตัวอุ่น", en: "Warm-shell companion", zh: "暖壳伙伴" }, sw: ["#c9a07a", "#4a2c1c"] },
+  { id: "mdl-blossom", model: "blossom", cost: 24000, rarity: "legendary", th: "บลอสซั่ม", en: "BLOSSOM", zh: "花萼",
+    desc: { th: "หุ่นมงกุฎกลีบดอก", en: "Petal-crowned herald", zh: "花冠传令者" }, sw: ["#d6a8e0", "#ff9ec9"] },
+  { id: "mdl-pengu", model: "pengu", cost: 23000, rarity: "legendary", th: "เพนกุ", en: "PENGU", zh: "企鹅",
+    desc: { th: "หุ่นดูแลเขตหนาว", en: "Cold-weather steward", zh: "极寒管家" }, sw: ["#e8f2fb", "#ffb340"] },
+  { id: "mdl-bubbly", model: "bubbly", cost: 22000, rarity: "legendary", th: "บับบลี้", en: "BUBBLY", zh: "泡泡",
+    desc: { th: "หุ่นโดมดำน้ำ", en: "Sealed-dome diver", zh: "密封潜水单元" }, sw: ["#9ed4ec", "#c8f0ff"] },
+  { id: "mdl-poppy", model: "poppy", cost: 22000, rarity: "legendary", th: "ป๊อปปี้", en: "POPPY", zh: "波比",
+    desc: { th: "หุ่นผู้ช่วยเสาเดี่ยว", en: "Single-antenna helper", zh: "单天线助手" }, sw: ["#a4e3c8", "#ffd23f"] },
+  { id: "mdl-honey", model: "honey", cost: 24000, rarity: "legendary", th: "ฮันนี่", en: "HONEY", zh: "蜜蜂",
+    desc: { th: "หุ่นผู้ดูแลรัง", en: "Hive keeper", zh: "蜂巢守护者" }, sw: ["#e8bf6a", "#3a2a08"] },
+  { id: "mdl-snowbun", model: "snowbun", cost: 25000, rarity: "legendary", th: "สโนว์บัน", en: "SNOWBUN", zh: "雪团",
+    desc: { th: "หุ่นส่งของเงียบเชียบ", en: "Quiet courier", zh: "静音信使" }, sw: ["#ffffff", "#ffc4d4"] },
+  { id: "mdl-plushy", model: "plushy", cost: 23000, rarity: "legendary", th: "พลัชชี่", en: "PLUSHY", zh: "布偶",
+    desc: { th: "หุ่นตุ๊กตาเย็บมือ", en: "Stitched companion", zh: "缝合布偶" }, sw: ["#efe2cd", "#b09c80"] },
+  /* ── the hard intake ── the top of the shelf. These are the ones somebody
+     saves three weeks for, and the price should say so. */
+  { id: "mdl-wraith", model: "wraith", cost: 30000, rarity: "legendary", th: "เรธ", en: "WRAITH", zh: "幽骸",
+    desc: { th: "หุ่นโครงกลวงลอบเร้น", en: "Hollow-frame infiltrator", zh: "空壳潜入者" }, sw: ["#1b222e", "#7fe8ff"] },
+  { id: "mdl-magnus", model: "magnus", cost: 31000, rarity: "legendary", th: "แม็กนัส", en: "MAGNUS", zh: "巨铁",
+    desc: { th: "โครงล้อมปราการ", en: "Siege frame", zh: "攻城机架" }, sw: ["#6d7b90", "#ff2d46"] },
+  { id: "mdl-saber", model: "saber", cost: 32000, rarity: "legendary", th: "เซเบอร์", en: "SABER", zh: "剑锋",
+    desc: { th: "โครงประลองดาบ", en: "Duelling frame", zh: "决斗机架" }, sw: ["#9fb6d0", "#5ce1ff"] },
+  { id: "mdl-oracle", model: "oracle", cost: 29000, rarity: "legendary", th: "ออราเคิล", en: "ORACLE", zh: "谕者",
+    desc: { th: "หุ่นกลุ่มเซนเซอร์", en: "Sensor cluster", zh: "感测阵列" }, sw: ["#c4d2e2", "#7fe8ff"] },
+  { id: "mdl-korax", model: "korax", cost: 30000, rarity: "legendary", th: "โคแรกซ์", en: "KORAX", zh: "渡鸦",
+    desc: { th: "โครงอีกา", en: "Corvid frame", zh: "鸦形机架" }, sw: ["#2a323d", "#ff3b30"] },
+  { id: "mdl-tempest", model: "tempest", cost: 31000, rarity: "legendary", th: "เทมเพสต์", en: "TEMPEST", zh: "风暴",
+    desc: { th: "หุ่นสกัดกั้นความเร็วสูง", en: "High-speed interceptor", zh: "高速拦截机" }, sw: ["#8fc0e0", "#5ce1ff"] },
+  { id: "mdl-bastion", model: "bastion", cost: 30000, rarity: "legendary", th: "แบสเตียน", en: "BASTION", zh: "壁垒",
+    desc: { th: "หุ่นหัวป้อมปราการ", en: "Bunker head", zh: "堡垒头部单元" }, sw: ["#c8a05c", "#ffb340"] },
+  { id: "mdl-nyx", model: "nyx", cost: 32000, rarity: "legendary", th: "นิกซ์", en: "NYX", zh: "夜阑",
+    desc: { th: "โครงราตรี", en: "Night frame", zh: "夜行机架" }, sw: ["#b98cff", "#e8d3ff"] },
+  { id: "mdl-forge", model: "forge", cost: 29000, rarity: "legendary", th: "ฟอร์จ", en: "FORGE", zh: "熔工",
+    desc: { th: "โครงเตาหลอม", en: "Foundry frame", zh: "熔铸机架" }, sw: ["#a08050", "#ff8a3c"] },
+  { id: "mdl-zenith", model: "zenith", cost: 34000, rarity: "legendary", th: "เซนิธ", en: "ZENITH", zh: "天顶",
+    desc: { th: "โครงพิธีการ", en: "Ceremonial frame", zh: "礼典机架" }, sw: ["#f0d68a", "#ffe9a8"] },
+];
+
+/* ── the menagerie ──
+   Every species on one shelf, at one price. The first pet is still free out
+   of the hatchery; this is where the second one comes from, and where you
+   swap which of them walks beside you. `pet` is the species id — namespaced
+   away from the gear ids the same way a chassis is. */
+const SHOP_PETS = PET_SPECIES.map(sp => ({
+  id: "pet-" + sp.id, pet: sp.id, cost: PET_COST,
+  rarity: sp.look === "cool" ? "epic" : "rare",
+  th: sp.th, en: sp.en, zh: sp.zh,
+  desc: { th: sp.dth, en: sp.den, zh: sp.dzh },
+  sw: sp.sw,
+}));
+
+/* ── the gem tier ──
+   Fifty items that cannot be bought with coins at all. Gems come only from
+   Prestige tier-ups, so this is an endgame rack rather than a second currency
+   to grind: a full mythic loadout is worth +40 combat on top of a chassis's
+   own 40, which is the largest jump anything in the shop offers and the only
+   one you cannot reach by playing more. Priced 4-25 gems, climbing with how
+   much of that jump each piece carries.
+
+   `gem` is the price and `cost` stays 0 — every existing cost check therefore
+   treats these as free and the gem path guards them instead, so nothing that
+   already reads `cost` had to learn about a second currency. ── */
+const GEM_WEAPONS = [
+  { id: "wpn-gwp-0", icon: "💎", art: "pw-0", gem: 4, cost: 0, rarity: "mythic", th: "ดาบสุริยะ", en: "Solar Edge", zh: "太阳之刃", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "wpn-gwp-1", icon: "💎", art: "pw-1", gem: 5, cost: 0, rarity: "mythic", th: "หอกดาวตก", en: "Meteor Lance", zh: "流星长枪", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "wpn-gwp-2", icon: "💎", art: "pw-2", gem: 6, cost: 0, rarity: "mythic", th: "ปืนใหญ่ควาซาร์", en: "Quasar Cannon", zh: "类星体炮", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "wpn-gwp-3", icon: "💎", art: "pw-3", gem: 8, cost: 0, rarity: "mythic", th: "คทาเสียงสวรรค์", en: "Celestial Rod", zh: "天籁法杖", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "wpn-gwp-4", icon: "💎", art: "pw-4", gem: 9, cost: 0, rarity: "mythic", th: "ใบมีดสุญญากาศ", en: "Void Blade", zh: "虚空之刃", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "wpn-gwp-5", icon: "💎", art: "pw-5", gem: 11, cost: 0, rarity: "mythic", th: "ค้อนพัลซาร์", en: "Pulsar Hammer", zh: "脉冲星锤", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "wpn-gwp-6", icon: "💎", art: "pw-6", gem: 13, cost: 0, rarity: "mythic", th: "เลเซอร์ปฐมกาล", en: "Genesis Laser", zh: "创世激光", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "wpn-gwp-7", icon: "💎", art: "pw-7", gem: 16, cost: 0, rarity: "mythic", th: "ธนูโฟตอน", en: "Photon Bow", zh: "光子弓", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "wpn-gwp-8", icon: "💎", art: "pw-8", gem: 20, cost: 0, rarity: "mythic", th: "ตรีศูลพลาสมา", en: "Plasma Trident", zh: "等离子三叉戟", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "wpn-gwp-9", icon: "💎", art: "pw-9", gem: 25, cost: 0, rarity: "mythic", th: "แส้สายฟ้า", en: "Lightning Whip", zh: "闪电鞭", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+const GEM_PLATING = [
+  { id: "out-gpl-0", icon: "💎", art: "pp-0", gem: 4, cost: 0, rarity: "mythic", th: "เกราะสุริยะ", en: "Solar Aegis", zh: "太阳神盾", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "out-gpl-1", icon: "💎", art: "pp-1", gem: 5, cost: 0, rarity: "mythic", th: "เกราะดาวตก", en: "Meteor Carapace", zh: "流星甲壳", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "out-gpl-2", icon: "💎", art: "pp-2", gem: 6, cost: 0, rarity: "mythic", th: "เกราะควาซาร์", en: "Quasar Shell", zh: "类星体外壳", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "out-gpl-3", icon: "💎", art: "pp-3", gem: 8, cost: 0, rarity: "mythic", th: "เกราะสวรรค์", en: "Celestial Mail", zh: "天界锁甲", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "out-gpl-4", icon: "💎", art: "pp-4", gem: 9, cost: 0, rarity: "mythic", th: "เกราะสุญญากาศ", en: "Void Carapace", zh: "虚空甲壳", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "out-gpl-5", icon: "💎", art: "pp-5", gem: 11, cost: 0, rarity: "mythic", th: "เกราะพัลซาร์", en: "Pulsar Aegis", zh: "脉冲星盾", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "out-gpl-6", icon: "💎", art: "pp-6", gem: 13, cost: 0, rarity: "mythic", th: "เกราะปฐมกาล", en: "Genesis Shell", zh: "创世外壳", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "out-gpl-7", icon: "💎", art: "pp-7", gem: 16, cost: 0, rarity: "mythic", th: "เกราะโฟตอน", en: "Photon Mail", zh: "光子锁甲", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "out-gpl-8", icon: "💎", art: "pp-8", gem: 20, cost: 0, rarity: "mythic", th: "เกราะพลาสมา", en: "Plasma Aegis", zh: "等离子盾", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "out-gpl-9", icon: "💎", art: "pp-9", gem: 25, cost: 0, rarity: "mythic", th: "เกราะสายฟ้า", en: "Storm Carapace", zh: "风暴甲壳", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+const GEM_MODULES = [
+  { id: "hat-gmd-0", icon: "💎", art: "pm-0", gem: 4, cost: 0, rarity: "mythic", th: "มงกุฎสุริยะ", en: "Solar Diadem", zh: "太阳冠冕", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "hat-gmd-1", icon: "💎", art: "pm-1", gem: 5, cost: 0, rarity: "mythic", th: "มงกุฎดาวตก", en: "Meteor Circlet", zh: "流星头环", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "hat-gmd-2", icon: "💎", art: "pm-2", gem: 6, cost: 0, rarity: "mythic", th: "มงกุฎควาซาร์", en: "Quasar Crown", zh: "类星体皇冠", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "hat-gmd-3", icon: "💎", art: "pm-3", gem: 8, cost: 0, rarity: "mythic", th: "มงกุฎสวรรค์", en: "Celestial Halo", zh: "天界光环", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "hat-gmd-4", icon: "💎", art: "pm-4", gem: 9, cost: 0, rarity: "mythic", th: "มงกุฎสุญญากาศ", en: "Void Diadem", zh: "虚空冠冕", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "hat-gmd-5", icon: "💎", art: "pm-5", gem: 11, cost: 0, rarity: "mythic", th: "มงกุฎพัลซาร์", en: "Pulsar Circlet", zh: "脉冲星头环", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "hat-gmd-6", icon: "💎", art: "pm-6", gem: 13, cost: 0, rarity: "mythic", th: "มงกุฎปฐมกาล", en: "Genesis Crown", zh: "创世皇冠", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "hat-gmd-7", icon: "💎", art: "pm-7", gem: 16, cost: 0, rarity: "mythic", th: "มงกุฎโฟตอน", en: "Photon Crown", zh: "光子皇冠", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "hat-gmd-8", icon: "💎", art: "pm-8", gem: 20, cost: 0, rarity: "mythic", th: "มงกุฎพลาสมา", en: "Plasma Crown", zh: "等离子皇冠", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "hat-gmd-9", icon: "💎", art: "pm-9", gem: 25, cost: 0, rarity: "mythic", th: "มงกุฎสายฟ้า", en: "Storm Diadem", zh: "风暴冠冕", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+const GEM_CORES = [
+  { id: "acc-gco-0", icon: "💎", art: "pc-0", gem: 4, cost: 0, rarity: "mythic", th: "แกนสุริยะ", en: "Solar Core", zh: "太阳核心", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "acc-gco-1", icon: "💎", art: "pc-1", gem: 5, cost: 0, rarity: "mythic", th: "แกนดาวตก", en: "Meteor Core", zh: "流星核心", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "acc-gco-2", icon: "💎", art: "pc-2", gem: 6, cost: 0, rarity: "mythic", th: "แกนควาซาร์", en: "Quasar Core", zh: "类星体核心", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "acc-gco-3", icon: "💎", art: "pc-3", gem: 8, cost: 0, rarity: "mythic", th: "แกนสวรรค์", en: "Celestial Core", zh: "天界核心", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "acc-gco-4", icon: "💎", art: "pc-4", gem: 9, cost: 0, rarity: "mythic", th: "แกนสุญญากาศ", en: "Void Core", zh: "虚空核心", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "acc-gco-5", icon: "💎", art: "pc-5", gem: 11, cost: 0, rarity: "mythic", th: "แกนพัลซาร์", en: "Pulsar Core", zh: "脉冲星核心", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "acc-gco-6", icon: "💎", art: "pc-6", gem: 13, cost: 0, rarity: "mythic", th: "แกนปฐมกาล", en: "Genesis Core", zh: "创世核心", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "acc-gco-7", icon: "💎", art: "pc-7", gem: 16, cost: 0, rarity: "mythic", th: "แกนโฟตอน", en: "Photon Core", zh: "光子核心", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "acc-gco-8", icon: "💎", art: "pc-8", gem: 20, cost: 0, rarity: "mythic", th: "แกนพลาสมา", en: "Plasma Core", zh: "等离子核心", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "acc-gco-9", icon: "💎", art: "pc-9", gem: 25, cost: 0, rarity: "mythic", th: "แกนสายฟ้า", en: "Storm Core", zh: "风暴核心", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+const GEM_RELICS = [
+  { id: "sticker-grl-0", icon: "💎", art: "pr-0", gem: 4, cost: 0, rarity: "mythic", th: "เรลิกสุริยะ", en: "Solar Relic", zh: "太阳遗物", sw: ["#7fe8ff", "#0d2a44"], isNew: true },
+  { id: "sticker-grl-1", icon: "💎", art: "pr-1", gem: 5, cost: 0, rarity: "mythic", th: "เรลิกดาวตก", en: "Meteor Relic", zh: "流星遗物", sw: ["#ffd23f", "#4a3200"], isNew: true },
+  { id: "sticker-grl-2", icon: "💎", art: "pr-2", gem: 6, cost: 0, rarity: "mythic", th: "เรลิกควาซาร์", en: "Quasar Relic", zh: "类星体遗物", sw: ["#ff5a6e", "#3a0a14"], isNew: true },
+  { id: "sticker-grl-3", icon: "💎", art: "pr-3", gem: 8, cost: 0, rarity: "mythic", th: "เรลิกสวรรค์", en: "Celestial Relic", zh: "天界遗物", sw: ["#a86bff", "#1e0d3a"], isNew: true },
+  { id: "sticker-grl-4", icon: "💎", art: "pr-4", gem: 9, cost: 0, rarity: "mythic", th: "เรลิกสุญญากาศ", en: "Void Relic", zh: "虚空遗物", sw: ["#3ddc84", "#0a3320"], isNew: true },
+  { id: "sticker-grl-5", icon: "💎", art: "pr-5", gem: 11, cost: 0, rarity: "mythic", th: "เรลิกพัลซาร์", en: "Pulsar Relic", zh: "脉冲星遗物", sw: ["#ff9a3c", "#3a1a00"], isNew: true },
+  { id: "sticker-grl-6", icon: "💎", art: "pr-6", gem: 13, cost: 0, rarity: "mythic", th: "เรลิกปฐมกาล", en: "Genesis Relic", zh: "创世遗物", sw: ["#5ce1ff", "#0a2a3a"], isNew: true },
+  { id: "sticker-grl-7", icon: "💎", art: "pr-7", gem: 16, cost: 0, rarity: "mythic", th: "เรลิกโฟตอน", en: "Photon Relic", zh: "光子遗物", sw: ["#ff8fc0", "#3a0d24"], isNew: true },
+  { id: "sticker-grl-8", icon: "💎", art: "pr-8", gem: 20, cost: 0, rarity: "mythic", th: "เรลิกพลาสมา", en: "Plasma Relic", zh: "等离子遗物", sw: ["#e9edf6", "#2a3346"], isNew: true },
+  { id: "sticker-grl-9", icon: "💎", art: "pr-9", gem: 25, cost: 0, rarity: "mythic", th: "เรลิกสายฟ้า", en: "Storm Relic", zh: "风暴遗物", sw: ["#ffe14d", "#3a2c00"], isNew: true },
+];
+
+const MODEL_ITEM = Object.fromEntries(SHOP_MODELS.map(m => [m.model, m.id]));
+
+const SHOP_ACCESSORIES = [
+  { id: "acc-shield",   icon: "🛡️", cost: 0,   art: "shield", rarity: "common",    th: "โล่สนามพลัง", en: "Deflector Shield", zh: "偏导护盾", sw: ["#00f0ff", "#0a1a2e"] },
+  { id: "acc-glasses",  icon: "👁️", cost: 80,  art: "eye", rarity: "common",    th: "ตาเซนเซอร์", en: "Sensor Eye",       zh: "传感之眼", sw: ["#00f0ff", "#ff00aa"] },
+  { id: "acc-wings",    icon: "🚁", cost: 200, art: "rotor", rarity: "rare",      th: "ชุดใบพัดบิน", en: "Rotor Pack",      zh: "旋翼背包", sw: ["#e6eeff", "#00f0ff"] },
+  { id: "acc-amulet",   icon: "🔌", cost: 250, art: "plug", rarity: "rare",      th: "ตัวเชื่อมพลังงาน", en: "Power Link",  zh: "电力接口", sw: ["#ffd23f", "#ff0044"] },
+  { id: "acc-pet",      icon: "🕹️", cost: 350, art: "pad", rarity: "epic",      th: "หน่วยควบคุมระยะไกล", en: "Remote Unit", zh: "遥控单元", sw: ["#ff6a1a", "#ffd23f"] },
+  { id: "acc-petdog",   icon: "🦿", cost: 350, art: "limb", rarity: "epic",      th: "ขากลเสริมกำลัง", en: "Servo Limb",    zh: "伺服义肢", sw: ["#c78ff5", "#ffd23f"] },
+  { id: "acc-cape",     icon: "🎇", cost: 450, art: "trail", rarity: "epic",      th: "ทางพลังงาน", en: "Energy Trail",     zh: "能量尾迹", sw: ["#ff5566", "#0a0d14"] },
+  { id: "acc-phoenix",  icon: "☀️", cost: 700, art: "fusion", rarity: "legendary", th: "แกนฟิวชัน", en: "Fusion Core",       zh: "聚变核心", sw: ["#ffb43c", "#ffd23f"] },
+  { id: "acc-dragon",   icon: "🌌", cost: 900, art: "singularity", rarity: "legendary", th: "โหนดเอกภาวะ", en: "Singularity Node", zh: "奇点节点", sw: ["#7fe8ff", "#ff0044"] },
+  /* ── auxiliary modules ── the bolt-on systems a robot carries: power, storage,
+     cooling, sensors. ── */
+  { id: "acc-battery",  icon: "🔋", cost: 90,  art: "battery", rarity: "common",    th: "เซลล์พลังงานสำรอง", en: "Power Cell",     zh: "备用电池", sw: ["#00ffa8", "#0a3a24"], isNew: true },
+  { id: "acc-chip",     icon: "💾", cost: 160, art: "chip", rarity: "common",    th: "คอร์หน่วยความจำ", en: "Memory Core",     zh: "记忆核心", sw: ["#7f8fa8", "#00f0ff"], isNew: true },
+  { id: "acc-gyro",     icon: "⚙️", cost: 230, art: "gyro", rarity: "rare",      th: "ไจโรรักษาสมดุล", en: "Stabiliser Gyro",  zh: "陀螺稳定器", sw: ["#b8c2d4", "#ffd23f"], isNew: true },
+  { id: "acc-coolant",  icon: "❄️", cost: 290, art: "vent", rarity: "rare",      th: "ระบบระบายความร้อน", en: "Coolant Vents", zh: "冷却系统", sw: ["#7fe8ff", "#0d3a5c"], isNew: true },
+  { id: "acc-thruster", icon: "🚀", cost: 480, art: "thruster", rarity: "epic",      th: "เครื่องยนต์ขับดัน", en: "Thruster Pack",  zh: "推进背包", sw: ["#ff6a00", "#ffd23f"], isNew: true },
+  { id: "acc-drone",    icon: "🛸", cost: 600, art: "drone", rarity: "epic",      th: "โดรนคู่หู", en: "Companion Drone",  zh: "伴飞无人机", sw: ["#aa00ff", "#00f0ff"], isNew: true },
+  { id: "acc-halo",     icon: "💫", cost: 950, art: "halo", rarity: "legendary", th: "วงแหวนพลังงาน", en: "Energy Halo",     zh: "能量光环", sw: ["#ffd23f", "#00f0ff", "#ff00aa"], isNew: true },
+  /* ── stage rig ── */
+  { id: "acc-fork",    icon: "🎵", art: "fork", cost: 190, rarity: "rare",      th: "ส้อมเสียงจูนอัตโนมัติ", en: "Auto-Tune Fork", zh: "自动调音叉", sw: ["#3ddc84", "#0d3a24"], isNew: true },
+  { id: "acc-metro",   icon: "🕰️", art: "pendulum", cost: 270, rarity: "rare",      th: "โมดูลจับจังหวะ", en: "Tempo Module",  zh: "节拍模块", sw: ["#ffd23f", "#4a3a10"], isNew: true },
+  { id: "acc-holo",    icon: "📽️", art: "holo", cost: 540, rarity: "epic",      th: "เวทีโฮโลแกรม", en: "Holo Stage",       zh: "全息舞台", sw: ["#aa00ff", "#00f0ff"], isNew: true },
+  { id: "acc-wreath",  icon: "🏵️", art: "wreath", cost: 880, rarity: "legendary", th: "พวงหรีดแชมป์เปียน", en: "Champion Laurel", zh: "冠军桂冠", sw: ["#ffd23f", "#ff9a3c"], isNew: true },
+];
+
+/* Gem gear sells in its own tabs but is worn from the same four slots, so
+   every lookup of an EQUIPPED id has to see both racks. The shop tabs keep
+   using the coin lists; only the "what am I wearing" path uses these. */
+const ALL_WEAPONS = [...SHOP_WEAPONS, ...GEM_WEAPONS];
+const ALL_OUTFITS = [...SHOP_OUTFITS, ...GEM_PLATING];
+const ALL_HATS = [...SHOP_HATS, ...GEM_MODULES];
+const ALL_ACCESSORIES = [...SHOP_ACCESSORIES, ...GEM_CORES];
+const ALL_STICKERS = [...SHOP_STICKERS, ...GEM_RELICS];
+
 // F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
 function shareLine(text: string) {
   const url = "https://line.me/R/share?text=" + encodeURIComponent(text);
@@ -4108,7 +6020,7 @@ function shareLine(text: string) {
 }
 // D1: Backing chord helpers
 // generate a shareable achievement card image (Web Share API, else download)
-async function shareCard({ title, big, sub, lines = [] }) {
+export async function shareCard({ title, big, sub, lines = [] }) {
   try {
     const W = 640, H = 800, c = document.createElement("canvas"); c.width = W; c.height = H;
     const x = c.getContext("2d");
@@ -4133,8 +6045,37 @@ async function shareCard({ title, big, sub, lines = [] }) {
     }
   } catch (e) {}
 }
-function downloadCertificate(lang, name) {
+// Certificate/boss reward claims — Challenging Mode's cert-download and full-
+// course cert buttons used to only play a "reward" sound effect with zero
+// real EXP/coins behind it, unlike everything else in this gamification
+// pass. One Set (keyed "group:<id>" / "full") gates a one-time claim so
+// repeatedly re-downloading the same PNG can't be farmed for infinite EXP.
+export function certClaimedSet() { try { return new Set(JSON.parse(localStorage.getItem("tg_cert_claimed") || "[]")); } catch (e) { return new Set(); } }
+export function markCertClaimed(id) { try { const s = certClaimedSet(); s.add(id); localStorage.setItem("tg_cert_claimed", JSON.stringify([...s])); } catch (e) {} }
+// Group-level certificate — the same renderCertificatePNG the Report page
+// already offers. Moved here (was a PathwayPage-local closure) so
+// ChallengingPage can call it too, now that the cert banner lives there
+// instead of inline in the Pathway flow.
+export async function downloadGroupCert(g, lang, userName, certBusy, setCertBusy, gainExp, earnCoins) {
+  if (certBusy) return;
+  setCertBusy(true); playUi("reward");
   try {
+    const name = userName || (lang === "th" ? "นักเรียน TiGA" : lang === "zh" ? "TiGA 学员" : "TiGA Student");
+    const url = await renderCertificatePNG({
+      name,
+      course: g.icon + " " + g.label,
+      dateStr: new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "long", day: "numeric" }),
+      lang,
+    });
+    downloadDataURL(url, "tiga-certificate-" + g.id + ".png");
+    const claimId = "group:" + g.id;
+    if (!certClaimedSet().has(claimId)) { markCertClaimed(claimId); gainExp(20, { quest: true }); earnCoins(10); }
+  } catch (e) {}
+  setCertBusy(false);
+}
+function downloadCertificate(lang, name, gainExp, earnCoins) {
+  try {
+    playUi("reward");
     const W = 1000, H = 700, c = document.createElement("canvas"); c.width = W; c.height = H;
     const x = c.getContext("2d");
     // Background
@@ -4185,6 +6126,7 @@ function downloadCertificate(lang, name) {
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tiga-certificate.png"; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 3000);
     }, "image/png");
+    if (!certClaimedSet().has("full")) { markCertClaimed("full"); if (gainExp) gainExp(40, { quest: true }); if (earnCoins) earnCoins(20); }
   } catch (e) {}
 }
 
@@ -4192,6 +6134,71 @@ function getOwned() { try { return JSON.parse(localStorage.getItem("tg_owned") |
 function setOwnedLS(a) { try { localStorage.setItem("tg_owned", JSON.stringify(a)); } catch (e) {} }
 function getEquip(k, def) { try { return localStorage.getItem("tg_" + k) || def; } catch (e) { return def; } }
 function setEquipLS(k, v) { try { localStorage.setItem("tg_" + k, v); } catch (e) {} }
+
+/* ── Activity heatmap — a real day-grid (GitHub-contribution style), unlike
+   ProgressDashboard below (bucketed bar totals per period — can't show WHICH
+   specific days were active, confirmed genuinely absent from the app per the
+   Next-round roadmap plan). Reads the same per-day tg_practice log
+   ProgressDashboard already does; no new data collection. ── */
+const HEATMAP_WEEKS = 14; // ~3.5 months — a real pattern is visible, still fits a narrow mobile viewport without scrolling
+const HeatmapActivity = memo(function HeatmapActivity({ lang }) {
+  const lc = L[lang];
+  const [sel, setSel] = useState(null);
+  const plog = readPracticeLog();
+  // Recomputed on every render (cheap — 98 days) rather than memoized: a
+  // [lang]-only memo dep would show stale data whenever tg_practice changes
+  // without a language switch, e.g. right after finishing a practice session.
+  const today = new Date();
+  const totalDays = HEATMAP_WEEKS * 7;
+  const days = [];
+  for (let i = totalDays - 1; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    const k = dayKey(d);
+    const e = plog[k] || {};
+    days.push({ date: d, key: k, n: e.n || 0, acc: e.n ? Math.round((e.accSum || 0) / e.n) : null });
+  }
+  // pad the front so day 0 lands in its correct Sun-Sat row — builds clean
+  // column-per-week stacks the same way GitHub's own grid does
+  const lead = days.length ? days[0].date.getDay() : 0;
+  const padded = Array.from({ length: lead }, () => null).concat(days);
+  const weeks = [];
+  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+  const maxN = Math.max(1, ...weeks.flat().filter(Boolean).map(d => d.n));
+  const level = (n) => n === 0 ? 0 : n / maxN <= 0.25 ? 1 : n / maxN <= 0.5 ? 2 : n / maxN <= 0.75 ? 3 : 4;
+  const dowLabels = lang === "th" ? ["", "จ", "", "พ", "", "ศ", ""] : lang === "zh" ? ["", "一", "", "三", "", "五", ""] : ["", "M", "", "W", "", "F", ""];
+  const fmtD = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  return (
+    <div className="profsec">
+      <div className="profsec-h">
+        {lc.activityHeatmapTitle}
+        {sel && (
+          <span className="dashtip" style={{ marginLeft: "auto" }}>
+            {fmtD(sel.date)} · {sel.n} {lc.dashSessions}{sel.acc != null ? ` · ${sel.acc}%` : ""}
+          </span>
+        )}
+      </div>
+      <div className="heatmap-wrap">
+        <div className="heatmap-dow">{dowLabels.map((l, i) => <span key={i}>{l}</span>)}</div>
+        <div className="heatmap-grid">
+          {weeks.map((week, wi) => (
+            <div key={wi} className="heatmap-col">
+              {week.map((d, di) => d ? (
+                <button key={di} className={`heatmap-cell lv${level(d.n)}`}
+                  onClick={() => setSel(sel && sel.key === d.key ? null : d)}
+                  aria-label={`${fmtD(d.date)}: ${d.n}`} />
+              ) : <span key={di} className="heatmap-cell empty" aria-hidden="true" />)}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="heatmap-legend">
+        <span>{lc.profLess}</span>
+        {[0, 1, 2, 3, 4].map(l => <span key={l} className={`heatmap-cell lv${l}`} />)}
+        <span>{lc.profMore}</span>
+      </div>
+    </div>
+  );
+});
 
 /* ── Interactive progress dashboard: pick a time range, see activity / accuracy /
    EXP, each compared with the previous equal period. Reads the daily practice log. ── */
@@ -4372,7 +6379,449 @@ const GameStats = memo(function GameStats({ lang }) {
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0 }) {
+/* ── CharacterStage ──
+   The holo-chamber the character is displayed in, and a real turntable: the
+   model can be spun a full 360° by dragging it, by the two nudge buttons, or by
+   leaving the idle spin running, so every side of a build can actually be
+   looked at.
+
+   It is its own component for one specific reason: the spin drives `yaw` at
+   animation rate, and yaw is a real prop of the drawn SVG rather than a CSS
+   transform, so every frame is a React render. Keeping that render inside this
+   subtree means the rest of the (very large) profile page is not re-rendered
+   sixty times a second while the model turns.
+
+   The stage is a dark 3D scene sunk into the light card, the way a game's
+   character screen embeds a rendered viewport in its UI: a perspective floor
+   grid running to a lit horizon, drifting motes, counter-rotating holo rings, a
+   mirrored floor reflection and a scanline sweep.
+
+   Colour is not decorative: the aura, rings and rim light all take the palette
+   of whatever is EQUIPPED (each shop item carries its own `sw` swatch), and the
+   intensity follows the best rarity worn — so gearing up visibly changes the
+   lighting of the whole chamber. */
+const CS_RARITY = { common: 0, rare: 1, epic: 2, legendary: 3 };
+const CharacterStage = memo(function CharacterStage({ lang, model, charHat, charOutfit, charWeapon, charAccessory }) {
+  const [yaw, setYaw] = useState(-16);
+  /* ── it stands still until you ask it not to ──
+     The turntable used to start itself. A model that will not hold still is
+     a model you cannot look at: you never get to see the front of your own
+     robot, the pose you are actually wearing is whatever frame it happened
+     to be on, and the card is doing a render a frame the whole time the
+     page is open. It parks at a slight three-quarter — enough turn to have
+     depth, near enough to front-on to read as a portrait — and the 360°
+     button, the arrows and dragging it all still work exactly as before. */
+  const [spin, setSpin] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const dragRef = useRef(null);
+
+  /* idle turntable. Capped near 30fps on purpose — the figure is drawn twice
+     (itself and its floor reflection) and this runs on phones. */
+  useEffect(() => {
+    if (!spin) return;
+    let raf = 0, last = 0;
+    const tick = (t) => {
+      raf = requestAnimationFrame(tick);
+      if (!last) { last = t; return; }
+      const dt = t - last;
+      if (dt < 32) return;
+      last = t;
+      setYaw(y => wrapYaw(y + (dt / 1000) * 26));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [spin]);
+
+  const grab = (e) => {
+    dragRef.current = { x: e.clientX, y0: yaw };
+    setSpin(false); setTouched(true);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+  };
+  const drag = (e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    setYaw(wrapYaw(d.y0 + (e.clientX - d.x) * 0.85));
+  };
+  const drop = (e) => {
+    dragRef.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+  };
+  const nudge = (d) => { setSpin(false); setTouched(true); setYaw(y => wrapYaw(y + d)); };
+
+  const hat = ALL_HATS.find(x => x.id === charHat);
+  const out = ALL_OUTFITS.find(x => x.id === charOutfit);
+  const wpn = ALL_WEAPONS.find(x => x.id === charWeapon);
+  const acc = ALL_ACCESSORIES.find(x => x.id === charAccessory);
+  const worn = [hat, out, wpn, acc].filter(Boolean);
+  const best = worn.reduce((m, it) => (CS_RARITY[it.rarity] > CS_RARITY[m] ? it.rarity : m), "common");
+  // the chamber's two key lights, picked from the gear actually worn — and
+  // when nothing is worn, from the FRAME, so a fresh account sees its own
+  // machine rather than the same cyan-and-violet every model used to default to
+  const MSK = MODEL_SKIN[model] || MODEL_SKIN.vanguard;
+  const sw = worn.flatMap(it => it.sw || []).filter(Boolean);
+  const keyA = sw[0] || MSK.glow;
+  const keyB = sw.find(c => c !== keyA) || MSK.accent;
+  const rimOf = (it) => (it && it.sw && it.sw[1]) || (it && it.sw && it.sw[0]) || keyA;
+  // The OUTFIT re-plates the armour rather than being pasted on as a garment
+  // sprite — which is what used to make the shirt read as a second body
+  // floating in front of the first.
+  const armorA = (out && out.sw && out.sw[0]) || undefined;
+  const armorB = (out && out.sw && out.sw[1]) || undefined;
+  const power = combatOf(model, [wpn, out, hat, acc]).total;
+
+  /* Equipped items orbit the figure on the same axis the model turns on, so a
+     weapon held at the character's side really does travel round behind it
+     instead of staying pinned to the viewport. */
+  const R = Math.PI / 180;
+  const orbit = (th, r) => { const a = (th + yaw) * R; return { dx: Math.sin(a) * r, z: Math.cos(a) }; };
+  // a chibi is wider at the hands and its head is nearly twice the size, so
+  // headgear and held gear have to be placed against the build, not one offset
+  const rig = MODEL_RIG[model] || MODEL_RIG.vanguard;
+  const wp = orbit(74, rig.chibi ? 50 : 54), ap = orbit(-74, rig.chibi ? 50 : 54);
+  const sYaw = Math.sin(yaw * R), cYaw = Math.cos(yaw * R);
+  const headK = Math.max(0.36, Math.abs(cYaw));
+  const gearStyle = (it, p, rot) => ({
+    "--rim": rimOf(it),
+    top: rig.chibi ? "55%" : "59%",
+    transform: `translateX(calc(-50% + ${p.dx.toFixed(1)}px)) translateY(-50%) rotate(${rot}deg) scale(${(0.78 + 0.22 * Math.abs(p.z)).toFixed(3)})`,
+    zIndex: p.z > 0 ? 9 : 2,
+    opacity: (0.5 + 0.5 * Math.max(0, p.z)).toFixed(2),
+  });
+
+  const figure = (
+    <>
+      <span className="cs-av"><CyberAvatar model={model} yaw={yaw} armorA={armorA} armorB={armorB} glow={keyA} accent={keyB} /></span>
+      {hat && <span className="cs-layer cs-hat" style={{ "--rim": rimOf(hat), transform: `translateX(calc(-50% + ${(3.4 * sYaw).toFixed(1)}px)) scaleX(${headK.toFixed(3)}) scale(${(rig.hs / 1.15).toFixed(3)})` }}><ItemArt art={hat.art} sw={hat.sw} /></span>}
+      {wpn && <span className="cs-layer cs-wpn" style={gearStyle(wpn, wp, -14)}><ItemArt art={wpn.art} sw={wpn.sw} /></span>}
+      {acc && <span className="cs-layer cs-acc" style={gearStyle(acc, ap, 12)}><ItemArt art={acc.art} sw={acc.sw} /></span>}
+    </>
+  );
+
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+
+  return (
+    <div className={`charstage rar-${best}`} style={{ "--keyA": keyA, "--keyB": keyB }}>
+      <div className="cs-sky" />
+      <div className="cs-grid" />
+      <div className="cs-horizon" />
+      <div className="cs-motes">{Array.from({ length: 14 }).map((_, i) => <i key={i} style={{ "--i": i }} />)}</div>
+      <div className="cs-scene">
+        <div className="cs-cast" />
+        <div className="cs-rings"><i className="cs-ring cs-ring1" /><i className="cs-ring cs-ring2" /><i className="cs-ring cs-ring3" /></div>
+        <div className="cs-podium"><i className="cs-podium-top" /><i className="cs-podium-glow" /></div>
+        <div className="cs-figure">
+          <div className="cs-aura" />
+          {figure}
+        </div>
+        <div className="cs-reflect" aria-hidden="true">{figure}</div>
+      </div>
+      <div className="cs-scan" />
+      <div className="cs-vignette" />
+      {/* the whole viewport is the drag handle. touch-action lets a vertical
+          swipe still scroll the page while a horizontal one turns the model. */}
+      <div className="cs-drag" onPointerDown={grab} onPointerMove={drag} onPointerUp={drop} onPointerCancel={drop}
+        role="slider" aria-label={T("หมุนโมเดล", "Rotate model", "旋转模型")} aria-valuenow={Math.round(wrapYaw(yaw))} aria-valuemin={-180} aria-valuemax={180}
+        onKeyDown={(e) => { if (e.key === "ArrowLeft") nudge(-15); else if (e.key === "ArrowRight") nudge(15); }} tabIndex={0} />
+      <div className="cs-hud">
+        <span className="cs-hud-tag">{best.toUpperCase()}</span>
+        <span className="cs-hud-pwr">CMB {power}</span>
+      </div>
+      <div className="cs-turn">
+        <button type="button" className="cs-turn-b" onClick={() => nudge(-45)} aria-label={T("หมุนซ้าย", "Turn left", "向左转")}>◀</button>
+        <button type="button" className={`cs-turn-b wide${spin ? " on" : ""}`} onClick={() => { setSpin(!spin); setTouched(true); }}>
+          <span className="cs-turn-ic">{spin ? "⏸" : "⟳"}</span> 360°
+        </button>
+        <button type="button" className="cs-turn-b" onClick={() => nudge(45)} aria-label={T("หมุนขวา", "Turn right", "向右转")}>▶</button>
+        <span className="cs-turn-deg">{(Math.round(wrapYaw(yaw)) + 360) % 360}°</span>
+      </div>
+      {!touched && <div className="cs-turn-hint">{T("ลากเพื่อหมุนดูรอบตัว 360°", "Drag to spin 360°", "拖动可 360° 旋转")}</div>}
+      <i className="cs-bracket tl" /><i className="cs-bracket tr" /><i className="cs-bracket bl" /><i className="cs-bracket br" />
+    </div>
+  );
+});
+
+/* ── StatBars ──
+   The chassis's combat profile, for the duel mode these models are being built
+   toward: two players answer music questions and the answers drive a fight. It
+   is on screen now, before that mode ships, for two reasons — a number beside a
+   model is the difference between a skin and a character worth saving 30,000
+   coins for, and it is the only thing that makes the weapon rack read as more
+   than decoration once you see the rack raising POWER.
+
+   Every chassis totals the same 40. A shop that sold a strictly better body
+   would be selling a win rather than a character, so what money buys is a
+   shape: REAPER hits hardest and folds fastest, ATLAS is the reverse. */
+const STAT_KEYS = [
+  { k: "pwr", c: "#e0563f", th: "พลัง",   en: "POWER",  zh: "力量" },
+  { k: "arm", c: "#3d86c6", th: "เกราะ",  en: "ARMOUR", zh: "护甲" },
+  { k: "spd", c: "#2fa87a", th: "ความเร็ว", en: "SPEED", zh: "速度" },
+  { k: "syn", c: "#9b6bd6", th: "ซิงค์",  en: "SYNC",   zh: "同步" },
+];
+const StatBars = memo(function StatBars({ lang, stats, compact = false, max = 24 }) {
+  if (!stats) return null;
+  return (
+    <div className={`statbars${compact ? " compact" : ""}`}>
+      {STAT_KEYS.map(st => (
+        <div key={st.k} className="statrow" title={`${tr(st, lang)} ${stats[st.k]}`}>
+          {!compact && <span className="statlbl">{tr(st, lang)}</span>}
+          <span className="stattrack">
+            <i style={{ width: `${Math.min(100, (stats[st.k] / max) * 100).toFixed(1)}%`, background: st.c }} />
+          </span>
+          {!compact && <b className="statval">{stats[st.k]}</b>}
+        </div>
+      ))}
+    </div>
+  );
+});
+
+/* ── ModelDetailModal ──
+   A chassis costs twenty to thirty thousand coins. Buying one off a thumbnail
+   in a grid — one tap, no confirmation — was both a way to lose a fortune by
+   accident and a terrible way to sell: nothing on that card showed what the
+   thing looked like from any angle but the front, or what it would actually do
+   in a fight.
+
+   So the card opens this instead. The model turns a full 360° on its own stage,
+   the stat bars sit under it with the two things it is best at and the two it
+   is worst at named outright, and its three skills are listed with what each
+   one does. Buying happens here, behind a button that says the price. ── */
+const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, running, coins, onBuy, onClose }) {
+  const [yaw, setYaw] = useState(-24);
+  const [spin, setSpin] = useState(() => {
+    try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return true; }
+  });
+  const dragRef = useRef(null);
+  useEffect(() => {
+    if (!spin) return;
+    let raf = 0, last = 0;
+    const tick = (t) => {
+      raf = requestAnimationFrame(tick);
+      if (!last) { last = t; return; }
+      const dt = t - last;
+      if (dt < 32) return;
+      last = t;
+      setYaw(y => wrapYaw(y + (dt / 1000) * 26));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [spin]);
+  if (!item) return null;
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const lc = L[lang];
+  const model = item.model;
+  const st = MODEL_COMBAT[model] || MODEL_COMBAT.vanguard;
+  const cl = classOf(model);
+  const skills = skillsOf(model);
+  const m = CHAR_MODELS.find(x => x.id === model) || CHAR_MODELS[0];
+  // strongest two and weakest two, named — the buyer asked what it is good at
+  const ranked = STAT_KEYS.map(k => ({ ...k, v: st[k.k] })).sort((a, b) => b.v - a.v);
+  const strong = ranked.slice(0, 2), weak = ranked.slice(-2).reverse();
+  const afford = coins >= item.cost;
+
+  const grab = (e) => { dragRef.current = { x: e.clientX, y0: yaw }; setSpin(false); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {} };
+  const drag = (e) => { const d = dragRef.current; if (d) setYaw(wrapYaw(d.y0 + (e.clientX - d.x) * 0.85)); };
+  const drop = (e) => { dragRef.current = null; try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {} };
+
+  return (
+    <div className="setov" onClick={onClose}>
+      <div className="setcard mdv" onClick={e => e.stopPropagation()}>
+        <div className="mdv-hdr">
+          <button className="stgback" onClick={onClose} aria-label={lc.back}>←</button>
+          <span className="mdv-ttl"><b>{item.code || m.code}</b>{tr(m, lang)}</span>
+          <span className="mdv-cls" style={{ "--cc": cl.c }}>
+            <span className="mdv-cls-ic"><ItemArt art={cl.art} sw={[cl.c, "#22283a"]} /></span>{tr(cl, lang)}
+          </span>
+        </div>
+        <div className="mdv-body">
+          <div className="mdv-stage">
+            <CyberAvatar model={model} yaw={yaw} />
+            <div className="mdv-drag" onPointerDown={grab} onPointerMove={drag} onPointerUp={drop} onPointerCancel={drop}
+              role="slider" aria-label={T("หมุนโมเดล", "Rotate model", "旋转模型")} aria-valuenow={Math.round(wrapYaw(yaw))} aria-valuemin={-180} aria-valuemax={180} tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "ArrowLeft") { setSpin(false); setYaw(y => wrapYaw(y - 15)); } else if (e.key === "ArrowRight") { setSpin(false); setYaw(y => wrapYaw(y + 15)); } }} />
+            <div className="cs-turn mdv-turn">
+              <button type="button" className="cs-turn-b" onClick={() => { setSpin(false); setYaw(y => wrapYaw(y - 45)); }} aria-label={T("หมุนซ้าย", "Turn left", "向左转")}>◀</button>
+              <button type="button" className={`cs-turn-b wide${spin ? " on" : ""}`} onClick={() => setSpin(!spin)}><span className="cs-turn-ic">{spin ? "⏸" : "⟳"}</span> 360°</button>
+              <button type="button" className="cs-turn-b" onClick={() => { setSpin(false); setYaw(y => wrapYaw(y + 45)); }} aria-label={T("หมุนขวา", "Turn right", "向右转")}>▶</button>
+              <span className="cs-turn-deg">{(Math.round(wrapYaw(yaw)) + 360) % 360}°</span>
+            </div>
+          </div>
+          <div className="mdv-sub">{tr(m.cls, lang)}</div>
+
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("ค่าพลัง", "Combat stats", "战斗数值")}</span><b>{COMBAT_TOTAL}</b></div>
+            <StatBars lang={lang} stats={st} max={18} />
+            <div className="mdv-pros">
+              {strong.map(k => <span key={k.k} className="mdv-pro">▲ {tr(k, lang)}</span>)}
+              {weak.map(k => <span key={k.k} className="mdv-con">▼ {tr(k, lang)}</span>)}
+            </div>
+            <div className="mdv-fair">{T(`ทุกรุ่นแต้มรวมเท่ากัน ${COMBAT_TOTAL} — ไม่มีรุ่นไหนแรงกว่า มีแต่ถนัดต่างกัน`,
+              `Every chassis totals ${COMBAT_TOTAL}. None is stronger — they are good at different things.`,
+              `每台机体总分均为 ${COMBAT_TOTAL}，没有更强的，只有擅长不同。`)}</div>
+          </div>
+
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("ทักษะประจำสาย", "Class skills", "职业技能")}</span></div>
+            {skills.map((sk, i) => (
+              <div key={i} className={`mdv-skill t-${sk.tier}`}>
+                <span className="mdv-skill-ic"><ItemArt art={sk.art} sw={[cl.c, "#1c2233"]} /></span>
+                <span className="mdv-skill-b">
+                  <span className="mdv-skill-n">{tr(sk.n, lang)}<i>{tr(TIER_LABEL[sk.tier], lang)}</i></span>
+                  <span className="mdv-skill-d">{tr(sk.d, lang)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mdv-foot">
+          {running
+            ? <button className="mdv-buy on" disabled>✓ {lc.shopEquipped}</button>
+            : owned
+              ? <button className="mdv-buy" onClick={() => onBuy(item)}>{lc.shopEquip}</button>
+              : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onBuy(item)}>
+                  {afford ? T("ซื้อ", "Buy", "购买") : T("เหรียญไม่พอ", "Not enough coins", "金币不足")} · 🪙 {item.cost.toLocaleString()}
+                </button>}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/* ── ChestIcon ──
+   A treasure chest at UI scale: banded lid, hasp and lock plate, drawn in
+   currentColor so it takes whatever colour the control it sits in is using.
+   None of the box-shaped emoji read as a chest at 16px — a package looks like
+   a package and a toolbox looks like a toolbox — so this one is drawn. */
+function ChestIcon({ size = 16, className = "" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width={size} height={size} fill="none"
+      stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3.2 10.4a8.8 5.4 0 0 1 17.6 0" />
+      <path d="M3.2 10.4h17.6v8.1a1.6 1.6 0 0 1-1.6 1.6H4.8a1.6 1.6 0 0 1-1.6-1.6Z" />
+      <path d="M3.2 13.4h17.6" />
+      <path d="M10.3 10.4h3.4v5.1h-3.4z" />
+      <path d="M12 12.3v1.3" />
+    </svg>
+  );
+}
+
+/* ── PvpArenaMount ──
+   The arena is a pure component; this is the thin shell that gives it the
+   social data. Friends and open duels come from the SAME RPCs the Friends
+   modal already uses, and a challenge posts through the same duel_challenge —
+   so an arena duel is stored, listed and resolved exactly like a song duel,
+   with no backend change at all. `song_id` is unconstrained text server-side,
+   which is what makes "arena" a legal subject. */
+const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout, onPracticeWeakness }) {
+  const [friends, setFriends] = useState(null);
+  const [duels, setDuels] = useState(null);
+  const load = useCallback(() => {
+    sb.rpc("friend_list").then(({ data, error }) => setFriends(error ? [] : ((data && data.friends) || [])));
+    sb.rpc("duel_list").then(({ data, error }) => setDuels(error ? [] : (data || [])));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  return (
+    <Suspense fallback={<LazyBits tall />}>
+    <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi} onPracticeWeakness={onPracticeWeakness}
+      friends={friends} duels={duels} onApplyLoadout={onApplyLoadout}
+      onChallenge={async (friend, score) => {
+        const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: "arena", p_score: Math.round(score), p_mode: "duel" });
+        if (!error) { playUi("reward"); load(); }
+      }}
+      onRespondDuel={async (duel, score) => {
+        const { error } = await sb.rpc("duel_respond", { p_id: duel.id, p_score: Math.round(score) });
+        if (!error) { playUi("reward"); load(); }
+      }}
+      onShare={(res) => shareCard({
+        title: res.win ? "Victory!" : "Defeat",
+        big: Math.round(res.score).toLocaleString(),
+        sub: res.tier ? (lang === "th" ? res.tier.th : lang === "zh" ? res.tier.zh : res.tier.en) : "",
+        lines: [
+          (lang === "th" ? "คอมโบสูงสุด " : lang === "zh" ? "最高连击 " : "Best combo ") + res.bestCombo,
+          `${res.correct}/${res.asked} ` + (lang === "th" ? "ตอบถูก" : lang === "zh" ? "答对" : "correct"),
+        ],
+      })} />
+    </Suspense>
+  );
+});
+
+/* ── StoragePage ──
+   The shop shows what is for sale; this shows what is yours. Same catalogue,
+   inverted: every category lists only what has been bought or granted, says
+   which piece is currently on the character, and equips straight from the
+   shelf — so a loadout can be changed without wading back through nine hundred
+   coins' worth of things you do not own. Categories you have nothing in are
+   still listed, with the count, because an empty shelf is information too. */
+const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, equipped, charModel, onEquip, onBack, onOpenShop }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const lc = L[lang];
+  const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL, mythic: lang === "th" ? "มหาเทพ" : lang === "zh" ? "神话" : "Mythic" };
+  const RARITY_RANK = { common: 0, rare: 1, epic: 2, legendary: 3 };
+  /* Free starter gear is equipped from the first launch but was never bought,
+     so it is not in `owned` — and a storage page that omits the visor actually
+     on your character is lying about what you have. Anything free, anything
+     bought, and anything currently worn all count as yours. */
+  const groups = cats.map(c => {
+    const worn = (it) => (c.key === "charModel" ? charModel === it.model : equipped[c.key] === it.id);
+    const items = (c.items || []).filter(it => owned.includes(it.id) || it.cost === 0 || worn(it));
+    items.sort((a, b) => (RARITY_RANK[b.rarity] || 0) - (RARITY_RANK[a.rarity] || 0) || (b.cost || 0) - (a.cost || 0));
+    return { ...c, items, total: (c.items || []).length };
+  });
+  const held = groups.reduce((n, g) => n + g.items.length, 0);
+  const total = groups.reduce((n, g) => n + g.total, 0);
+  const worth = groups.reduce((n, g) => n + g.items.reduce((m, it) => m + (it.cost || 0), 0), 0);
+  const best = groups.flatMap(g => g.items).reduce((m, it) => (RARITY_RANK[it.rarity] > RARITY_RANK[m] ? it.rarity : m), "common");
+
+  return (
+    <div className="stgpage">
+      <div className="stghdr">
+        <button className="stgback" onClick={onBack} aria-label={lc.back}>←</button>
+        <span className="stgttl"><ChestIcon size={19} /> {T("คลังไอเทมของฉัน", "Item Storage", "我的道具仓库")}</span>
+        <span className="coinpill">🪙 {coins.toLocaleString()}</span>
+      </div>
+      <div className="stgstats">
+        <div className="stgstat"><b>{held}</b><span>{T("ไอเทมที่มี", "items held", "已拥有")}</span></div>
+        <div className="stgstat"><b>{Math.round((held / Math.max(1, total)) * 100)}%</b><span>{T("สะสมครบ", "collected", "收集度")}</span></div>
+        <div className="stgstat"><b>{worth.toLocaleString()}</b><span>{T("มูลค่ารวม 🪙", "total value 🪙", "总价值 🪙")}</span></div>
+        <div className={`stgstat rar-${best}`}><b>{RARITY_LABEL[best]}</b><span>{T("ระดับสูงสุด", "best rarity", "最高稀有度")}</span></div>
+      </div>
+      {groups.map(g => (
+        <div key={g.key} className="stgsec">
+          <div className="stgsec-h">
+            <span className="stgsec-ic">{g.icon}</span>
+            <span className="stgsec-t">{g.label}</span>
+            <span className="stgsec-n">{g.items.length}/{g.total}</span>
+          </div>
+          {g.items.length === 0 ? (
+            <button className="stgempty" onClick={onOpenShop}>
+              {T("ยังไม่มีไอเทมในหมวดนี้ · แตะเพื่อไปที่ร้านค้า", "Nothing here yet · tap to open the shop", "这里还没有道具 · 点击前往商店")}
+            </button>
+          ) : (
+            <div className="stggrid">
+              {g.items.map(it => {
+                const on = g.key === "charModel" ? charModel === it.model : equipped[g.key] === it.id;
+                return (
+                  <button key={it.id} className={`stgitem ${it.rarity}${on ? " on" : ""}`} onClick={() => onEquip(g.key, it)}>
+                    {it.model
+                      ? <span className="stgitem-head"><CyberAvatar model={it.model} headOnly /></span>
+                      : it.art
+                        ? <span className="stgitem-art"><ItemArt art={it.art} sw={it.sw} /></span>
+                        : <span className="stgitem-ic">{it.icon}</span>}
+                    <span className="stgitem-nm">{tr(it, lang)}</span>
+                    <span className="stgitem-r">{RARITY_LABEL[it.rarity]}</span>
+                    {on && <span className="stgitem-on">✓ {lc.shopEquipped}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+      <button className="stgshop" onClick={onOpenShop}>🛍️ {T("ไปที่ร้านค้า", "Open the shop", "前往商店")}</button>
+    </div>
+  );
+});
+
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPet, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -4450,6 +6899,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
     <div className="profpage" style={{ "--lv-c": color }}>
       <div className="profhero">
         <div className="profhero-glow" />
+        {/* ── pet pod ──
+            Sits beside the avatar rather than in a row of its own: the pet
+            belongs with the character, not with the progress bars, and this is
+            the corner the eye already lands on. It is absolutely positioned so
+            it never pushes the avatar off centre. */}
+        <PetPod lang={lang} onOpen={onOpenPet} />
         <div className="profava-wrap">
           <div className="profava-ring" />
           <div className="profava-frame" />
@@ -4472,6 +6927,99 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             <div className="expfill" style={{ width: `${Math.round(info.progress * 100)}%` }} />
           </div>
           <div className="expnext">{toNext}</div>
+        </div>
+
+        {/* the one thing on this page asking the player to go DO something
+            rather than reporting what they already did — right under the EXP
+            bar so it's the first door anyone sees, not a footnote at the
+            bottom of the skill card it used to hide inside. */}
+        <Suspense fallback={<LazyBits />}><PvpBanner lang={lang} onOpenPvp={onOpenPvp} /></Suspense>
+
+        {/* ── skill track ──
+            Account EXP is what the PLAYER has learned; this is what the CHASSIS
+            has. It belongs to the class rather than the model, so switching
+            between two Strikers keeps the rank and switching class starts a
+            fresh one. */}
+        <Suspense fallback={<LazyBits />}><SkillTrack lang={lang} charModel={charModel} /></Suspense>
+      </div>
+
+      {/* ── Character / Avatar Dress-up Section ── */}
+      <div className="charcard">
+        <div className="charcard-hdr">
+          <span>🎭 {lang === "th" ? "ตัวละครของฉัน" : lang === "zh" ? "我的角色" : "My Character"}</span>
+          {(() => {
+            const m = CHAR_MODELS.find(x => x.id === normalizeModel(charModel));
+            return m ? <span className="char-modelpill"><b>{m.code}</b>{tr(m, lang)}</span> : null;
+          })()}
+        </div>
+        <CharacterStage lang={lang} model={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} />
+        {/* ── battle profile ──
+            What this chassis and this loadout are worth in a fight. The duel
+            mode is not shipped yet; the numbers are, because they are what turn
+            the weapon rack from decoration into a build. */}
+        {(() => {
+          const gear = [ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
+                        ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory)];
+          const st = combatOf(charModel, gear);
+          return (
+            <div className="battlecard">
+              <div className="battlecard-h">
+                <span>⚔️ {lang === "th" ? "โปรไฟล์การต่อสู้" : lang === "zh" ? "战斗档案" : "Battle profile"}</span>
+                <span className="battlecard-t">{st.total}</span>
+              </div>
+              <StatBars lang={lang} stats={st} />
+              <div className="battlecard-sp">
+                <b>{lang === "th" ? "สายอาชีพ" : lang === "zh" ? "职业" : "Class"}</b>
+                <span className="mdv-cls" style={{ "--cc": classOf(charModel).c }}>
+                  <span className="mdv-cls-ic"><ItemArt art={classOf(charModel).art} sw={[classOf(charModel).c, "#22283a"]} /></span>
+                  {tr(classOf(charModel), lang)}
+                </span>
+              </div>
+              <div className="battlecard-skills">
+                {skillsOf(normalizeModel(charModel)).map((sk, i) => (
+                  <div key={i} className={`mdv-skill t-${sk.tier}`}>
+                    <span className="mdv-skill-ic"><ItemArt art={sk.art} sw={[classOf(charModel).c, "#1c2233"]} /></span>
+                    <span className="mdv-skill-b">
+                      <span className="mdv-skill-n">{tr(sk.n, lang)}<i>{tr(TIER_LABEL[sk.tier], lang)}</i></span>
+                      <span className="mdv-skill-d">{tr(sk.d, lang)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <button className="battlecard-soon as-btn" onClick={() => onOpenPvp && onOpenPvp()}>
+                {lang === "th" ? "⚔ เข้าสนามประลอง PvP — ตอบคำถามดนตรีแข่งกัน แล้วหุ่นสู้กันตามผล"
+                  : lang === "zh" ? "⚔ 进入 PvP 竞技场 — 比拼音乐问答，机体依结果开战"
+                  : "⚔ Enter the PvP Arena — answer music questions against an opponent, and your chassis fight it out"}
+              </button>
+            </div>
+          );
+        })()}
+        <div className="char-slots">
+          {[
+            { label: "🥽", val: charHat, items: SHOP_HATS, kind: "charHat" },
+            { label: "🦿", val: charOutfit, items: SHOP_OUTFITS, kind: "charOutfit" },
+            { label: "🦾", val: charWeapon, items: SHOP_WEAPONS, kind: "charWeapon" },
+            { label: "🔋", val: charAccessory, items: SHOP_ACCESSORIES, kind: "charAccessory" },
+          ].map(slot => {
+            const equipped = slot.items.find(x => x.id === slot.val);
+            return (
+              <div key={slot.kind} className="char-slot">
+                <span className="char-slot-ic">
+                  {equipped && equipped.art ? <ItemArt art={equipped.art} sw={equipped.sw} /> : slot.label}
+                </span>
+                <span className="char-slot-nm">{equipped ? tr(equipped, lang) : "—"}</span>
+                <span className="char-slot-rare">{equipped ? (equipped.rarity === "common" ? (lang === "th" ? "ทั่วไป" : lang === "zh" ? "普通" : "Common") : equipped.rarity === "rare" ? (lang === "th" ? "หายาก" : lang === "zh" ? "稀有" : "Rare") : equipped.rarity === "epic" ? (lang === "th" ? "พิเศษ" : lang === "zh" ? "史诗" : "Epic") : (lang === "th" ? "ตำนาน" : lang === "zh" ? "传说" : "Legendary")) : ""}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="char-actions">
+          <button className="songbtn ghost" onClick={() => onOpenShop && onOpenShop()}>
+            🛍️ {lang === "th" ? "ซื้อไอเทมในร้านค้า" : lang === "zh" ? "在商店购买装备" : "Buy items in Shop"}
+          </button>
+          <button className="songbtn ghost stgbtn" onClick={() => onOpenStorage && onOpenStorage()}>
+            <ChestIcon size={15} /> {lang === "th" ? "คลังไอเทม" : lang === "zh" ? "道具仓库" : "Item Storage"}
+          </button>
         </div>
       </div>
 
@@ -4505,6 +7053,9 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         );
       })()}
 
+      {/* activity heatmap — real day-grid, complements the dashboard's period totals below */}
+      <HeatmapActivity lang={lang} />
+
       {/* interactive progress dashboard — range selector + period comparison + charts + game stats */}
       <ProgressDashboard lang={lang} />
 
@@ -4517,7 +7068,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           <div className="profsec">
             <div className="profsec-h">🎯 Auto Teaching</div>
             {struggles.length > 0 && (
-              <div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div>
+              <div className="pd-tags">{struggles.map((s, i) => <button key={i} className="pd-tag focus" onClick={() => onAskStruggle(s)}>💬 {s.label}</button>)}</div>
             )}
             {last ? (
               <div className="atdash-last">
@@ -4526,7 +7077,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
                 <div className="atdash-last-d">{new Date(last.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
               </div>
             ) : (
-              <div className="atdash-empty">{lang === "th" ? "ยังไม่มีคำแนะนำ — กลับไปหน้าเส้นทางการเรียนรู้เพื่อรับคำแนะนำแบบเรียลไทม์" : lang === "zh" ? "暂无建议——返回学习路径页面以获得实时指导" : "No tips yet — head to the Pathway page to get real-time coaching"}</div>
+              <div className="atdash-empty">{lang === "th" ? "ยังไม่มีคำแนะนำ — ไปฝึกที่หน้าไหนก็ได้ในแอป แล้วครู TiGA จะแนะนำแบบเรียลไทม์ให้เอง" : lang === "zh" ? "暂无建议——在应用里练习任意内容，TiGA老师会实时给你建议" : "No tips yet — practice anywhere in the app and Coach TiGA will chime in with real-time tips"}</div>
             )}
           </div>
         );
@@ -4666,17 +7217,94 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         </div>
       </div>
 
+      {/* Knowledge Quest — a separate collection track from the numeric-
+          threshold badges above: each domain unlocks only once every one of
+          its curated "why music matters" case studies has actually been read
+          via the chat (see readChapter's case-level tracking), not from any
+          background stat. */}
+      {(() => {
+        const domains = knowledgeDomains();
+        const domainDone = domainDoneIds();
+        return (
+          <div className="profsec">
+            <div className="profsec-h">
+              {lc.knowledgeQuestTitle}
+              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+                {domainDone.length}/{domains.length}
+              </span>
+            </div>
+            <div className="badgegrid">
+              {domains.map(d => {
+                const got = domainDone.includes(d.id);
+                return (
+                  <div key={d.id} className={`badge${got ? " got" : ""}`} title={tr(d.title, lang)}>
+                    <span className="badge-ic" aria-hidden="true">{got ? d.icon : "🔒"}</span>
+                    <span className="badge-nm">{tr(d.title, lang)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Drill Deck — every drill the learner has practiced becomes a
+          collectible "card": tier icon by best accuracy (reusing pathTier's
+          bronze/silver/gold thresholds — the same bar the Pathway stages
+          themselves are graded against), best streak, and a one-tap replay
+          straight back into that exact drill. tg_practice_best used to be
+          write-only — a real per-drill record existed in localStorage the
+          whole time with no UI anywhere that ever surfaced it. */}
+      {(() => {
+        const bests = readPracticeBests();
+        const deck = Object.entries(bests)
+          .map(([key, d]) => ({ key, ...d }))
+          .filter(d => d.notes && d.notes.length)
+          .sort((a, b) => (b.at || 0) - (a.at || 0));
+        if (!deck.length) return null;
+        const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
+        return (
+          <div className="profsec">
+            <div className="profsec-h">
+              {lc.drillDeckTitle}
+              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+                {deck.length}
+              </span>
+            </div>
+            {deck.map(d => {
+              const tier = pathTier(d.accuracy);
+              return (
+                <div key={d.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 4px" }}>
+                  <span style={{ fontSize: 20, flexShrink: 0, width: 24, textAlign: "center" }} aria-hidden="true">{tier ? tierIcon[tier] : "🎹"}</span>
+                  <div className="wkbody">
+                    <div className="wktop">
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.label}{d.chordStyle && ` · ${d.chordStyle}`}</span>
+                      <b style={{ color: "#d97757", flexShrink: 0, marginLeft: 6, whiteSpace: "nowrap" }}>{d.accuracy}% · 🔥{d.bestStreak}</b>
+                    </div>
+                    <div className="wkbar"><div style={{ width: d.accuracy + "%", background: "#d97757" }} /></div>
+                  </div>
+                  <button onClick={() => onReplayDrill && onReplayDrill(d)}
+                    style={{ flexShrink: 0, background: "rgba(217,119,87,.12)", border: "1px solid #d9775755", borderRadius: 8, color: "#d97757", padding: "7px 11px", fontSize: 13, cursor: "pointer" }}>
+                    ▶
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       <WeeklyLeagueSection lang={lang} />
 
       <LeaderboardSection lang={lang} />
 
       <div className="profsec">
         <div className="profsec-h">{lc.profRanks}</div>
-        {LEVELS.map((lv, i) => {
+        {ALL_LEVELS.map((lv, i) => {
           const lvNum = i + 1;
           const state = lvNum === info.level ? "cur" : lv.min <= exp ? "done" : "locked";
-          const range = i + 1 < LEVELS.length
-            ? `${lv.min.toLocaleString()} – ${(LEVELS[i + 1].min - 1).toLocaleString()} EXP`
+          const range = i + 1 < ALL_LEVELS.length
+            ? `${lv.min.toLocaleString()} – ${(ALL_LEVELS[i + 1].min - 1).toLocaleString()} EXP`
             : `${lv.min.toLocaleString()}+ EXP`;
           return (
             <div key={i} className={`rankrow ${state}`} style={{ "--lv-c": lv.c }}>
@@ -4759,11 +7387,25 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
 });
 
 /* ── Daily Mentor page: shows practice stats, 7-day activity chart, and weak spots. ── */
-const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
+const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell, gainExp, earnCoins, onOpenAiReport }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const isMax = isMaxPlan(plan) || (profile && profile.is_admin);
   const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
   const accDelta = stats.acc7 != null && stats.accPrev != null ? stats.acc7 - stats.accPrev : null;
   const hasData = readActLog().length > 0;
+  const [, setRcTick] = useState(0); // bumped after claimReportCard() writes localStorage, since that write alone doesn't trigger a re-render
+  const rcGrade = reportCardGrade(stats.days7, stats.acc7);
+  const rcBest = bestReportCardGrade();
+  const rcReady = reportCardReadyToClaim();
+  function claimRc() {
+    if (!rcReady) return;
+    const { grade, isNewBest } = claimReportCard(stats.days7, stats.acc7);
+    const [xp, coins] = REPORT_CARD_REWARDS[grade];
+    playUi(isNewBest ? "levelup" : "reward");
+    if (xp && gainExp) gainExp(xp, { quest: true });
+    if (coins && earnCoins) earnCoins(coins);
+    setRcTick(t => t + 1);
+  }
 
   // Monthly skill trend — best-effort: silently empty (not an error) if the
   // RPC isn't deployed yet, or if there's under 2 months of history so far.
@@ -4796,6 +7438,33 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
             "练习统计与待提升项目——每次练习后自动更新。")}
         </div>
 
+        {stats.weakest.length > 0 && (
+        <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--card2)", borderRadius: 12, borderLeft: "3px solid #d97757" }}>
+          <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>
+            💡 {T("คำแนะนำ", "Recommendation", "建议")}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8 }}>
+            {stats.weakest.slice(0, 3).map((w, wi) => {
+              const mins = w.rate > 50 ? 15 : w.rate > 20 ? 10 : 5;
+              const intensity = w.rate > 50 ? T("พลาดบ่อยมาก — ซ้อมเพิ่ม", "miss rate high — practice", "错误率高，练习") : w.rate > 20 ? T("พลาดปานกลาง — ซ้อมเพิ่ม", "moderate misses — practice", "中等错误率，练习") : T("พลาดเล็กน้อย — ทบทวน", "few misses — review", "少量失误，复习");
+              return (
+                <div key={wi} style={{ padding: "4px 0", borderBottom: wi < Math.min(2, stats.weakest.length - 1) ? "1px solid var(--border)" : "none" }}>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>• {w.label}</span>
+                  {" — "}<span style={{ color: "var(--muted)" }}>{intensity}</span>{" "}
+                  <span style={{ fontWeight: 700, color: "#d97757" }}>
+                    {T(`${mins} นาที/วัน`, `${mins} min/day`, `每天 ${mins} 分钟`)}
+                  </span>
+                  {/* citation chip — grounds the suggestion in the exact tally it came from,
+                      instead of reading like an unexplained assertion */}
+                  <span style={{ display: "inline-block", marginLeft: 6, fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 8, background: "var(--card3)", color: "var(--muted)", verticalAlign: "middle" }}>
+                    📊 {T(`จาก ${w.n} ครั้ง · พลาด ${w.rate}%`, `from ${w.n} tries · ${w.rate}% miss`, `来自${w.n}次 · 错误${w.rate}%`)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        )}
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           <div className="instile" style={{ minWidth: 0 }}><b>{stats.level}</b><span>{T("เลเวล", "Level", "等级")}</span></div>
           <div className="instile" style={{ minWidth: 0 }}><b>{stats.streak}🔥</b><span>{T("สตรีค", "Streak", "连续")}</span></div>
@@ -4811,6 +7480,42 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
             <span>{T("แม่นยำ 7 วัน", "7-day accuracy", "7天准确率")}</span>
           </div>
         </div>
+
+        {/* Challenging Mode suggestion — Daily Mentor is the app's "what should I
+            do next" surface, so it should be the one to point the learner at a
+            challenge the moment one's actually ready, same signal learnTopic()'s
+            own nudge uses (groupChallengeReady). Only shown when there's a real
+            certificate or Boss Challenge waiting — not a dead-end CTA for an
+            account that hasn't finished a section yet. */}
+        {(() => {
+          const groups = PATH_GROUPS[lang];
+          const pathDone = pathDoneSet();
+          const fullReady = pathDone.size >= PATHWAY.length;
+          const readyGroups = groups.filter(g => groupChallengeReady(g));
+          if (!fullReady && !readyGroups.length) return null;
+          const body = fullReady
+            ? T("คุณเรียนครบทุกหมวดแล้ว — ไปรับใบประกาศนียบัตรใหญ่ที่หน้าท้าทายได้เลย!",
+                "You've finished every section — claim your Grand Certificate on the Challenging page!",
+                "你已完成所有单元——前往闯关挑战页面领取总证书吧！")
+            : readyGroups.length === 1
+            ? T(`คุณเรียนครบหมวด ${readyGroups[0].label} แล้ว — ไปท้าบอสและรับใบประกาศนียบัตรที่หน้าท้าทายได้เลย!`,
+                `You've covered all of ${readyGroups[0].label} — go fight the Boss Challenge and claim your certificate on the Challenging page!`,
+                `你已学完「${readyGroups[0].label}」的全部内容——前往闯关挑战页面挑战首领并领取证书吧！`)
+            : T(`คุณเรียนครบ ${readyGroups.length} หมวดแล้ว — มีบอสและใบประกาศนียบัตรรอให้ไปพิสูจน์ฝีมือที่หน้าท้าทาย!`,
+                `You've covered ${readyGroups.length} sections — Boss Challenges and certificates are waiting to be claimed on the Challenging page!`,
+                `你已学完 ${readyGroups.length} 个单元——挑战首领和证书正在闯关挑战页面等你！`);
+          return (
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+              <div style={{ fontSize: 13, color: "#c4b5fd", fontWeight: 700, marginBottom: 6 }}>
+                🏆 {T("พร้อมทดสอบตัวเองหรือยัง?", "Ready to test yourself?", "准备好测试了吗？")}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.7, marginBottom: 10 }}>{body}</div>
+              <button className="songbtn go" style={{ width: "100%", background: "#8b5cf6" }} onClick={() => onNavigate("challenging")}>
+                ⚔️ {T("ไปหน้าท้าทาย", "Go to Challenging", "前往闯关挑战")}
+              </button>
+            </div>
+          );
+        })()}
 
         {stats.daily && stats.daily.some(d => d.practiced) && (() => {
           const maxMin = Math.max(1, ...stats.daily.map(d => d.min));
@@ -4914,26 +7619,6 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
                 </div>
               </div>
             ))}
-            <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--card2)", borderRadius: 12, borderLeft: "3px solid #d97757" }}>
-              <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>
-                💡 {T("คำแนะนำ", "Recommendation", "建议")}
-              </div>
-              <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8 }}>
-                {stats.weakest.slice(0, 3).map((w, wi) => {
-                  const mins = w.rate > 50 ? 15 : w.rate > 20 ? 10 : 5;
-                  const intensity = w.rate > 50 ? T("พลาดบ่อยมาก — ซ้อมเพิ่ม", "miss rate high — practice", "错误率高，练习") : w.rate > 20 ? T("พลาดปานกลาง — ซ้อมเพิ่ม", "moderate misses — practice", "中等错误率，练习") : T("พลาดเล็กน้อย — ทบทวน", "few misses — review", "少量失误，复习");
-                  return (
-                    <div key={wi} style={{ padding: "4px 0", borderBottom: wi < Math.min(2, stats.weakest.length - 1) ? "1px solid var(--border)" : "none" }}>
-                      <span style={{ fontWeight: 600, color: "var(--text)" }}>• {w.label}</span>
-                      {" — "}<span style={{ color: "var(--muted)" }}>{intensity}</span>{" "}
-                      <span style={{ fontWeight: 700, color: "#d97757" }}>
-                        {T(`${mins} นาที/วัน`, `${mins} min/day`, `每天 ${mins} 分钟`)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         ) : hasData ? (
           <div style={{ padding: "14px", background: "var(--card2)", borderRadius: 12, textAlign: "center", color: "var(--text2)", fontSize: 13 }}>
@@ -4944,31 +7629,213 @@ const CoachPage = memo(function CoachPage({ lang, profile, onNavigate }) {
             {T("ยังไม่มีข้อมูลการซ้อม — เริ่มฝึกในสตูดิโอแล้วกลับมาดูข้อมูลที่นี่", "No practice data yet — start a session in Studio to see your stats here.", "暂无练习数据——先去练习，数据会自动显示在这里。")}
           </div>
         )}
+
+        {/* Weekly Report Card — a letter grade over the same rolling 7-day
+            window the stats tiles below already use, claimable for real EXP/
+            coins on a 7-day cooldown. Daily Mentor previously had no reward
+            of its own tied to a "week" as a unit at all. */}
+        <div style={{ marginBottom: 16, padding: 16, borderRadius: 14, border: "1px solid #d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+          <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 10 }}>
+            📋 {T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单")}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 44, fontWeight: 900, color: "#d97757", lineHeight: 1 }}>{rcGrade}</div>
+            <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
+              <div>{T(`ซ้อม ${stats.days7}/7 วัน`, `${stats.days7}/7 days practiced`, `练习了 ${stats.days7}/7 天`)}</div>
+              <div>{stats.acc7 == null ? T("ยังไม่มีข้อมูลความแม่นยำ", "No accuracy data yet", "暂无准确率数据") : T(`แม่นยำ ${stats.acc7}%`, `${stats.acc7}% accuracy`, `准确率 ${stats.acc7}%`)}</div>
+              {rcBest && <div style={{ color: "#ffd23f", fontWeight: 700 }}>🏆 {T("สถิติดีที่สุด", "Personal best", "历史最佳")}: {rcBest}</div>}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {rcReady ? (
+              <button className="songbtn go" style={{ flex: 1 }} onClick={claimRc}>
+                🎁 {T(`รับการ์ด (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `Claim card (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`, `领取成绩单 (+${REPORT_CARD_REWARDS[rcGrade][0]} EXP · +${REPORT_CARD_REWARDS[rcGrade][1]} 🪙)`)}
+              </button>
+            ) : (
+              <div style={{ flex: 1, fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                {T(`การ์ดถัดไปพร้อมใน ${daysUntilNextReportCard()} วัน`, `Next card ready in ${daysUntilNextReportCard()} day${daysUntilNextReportCard() === 1 ? "" : "s"}`, `${daysUntilNextReportCard()} 天后可领取下一张`)}
+              </div>
+            )}
+            <button className="songbtn ghost" onClick={() => shareCard({ title: T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单"), big: rcGrade, sub: `${stats.days7}/7 · ${stats.acc7 == null ? "—" : stats.acc7 + "%"}`, lines: ["TiGA Piano AI"] })}>
+              📤 {T("แชร์", "Share", "分享")}
+            </button>
+          </div>
+        </div>
+
+        {/* Max plan: the real thing the teaser below advertises. The AI report/plan
+            modal already existed (Studio menu + Profile), but Daily Mentor - the page
+            whose whole identity is "your AI mentor" - never offered it to the paying
+            users it was sold to (prMax4 in i18n). On-demand generate keeps cost at
+            zero until the learner actually wants it; generation itself lives in
+            PianoApp's aiModal so both surfaces share one cache + one code path. */}
+        {isMax && (
+          <div style={{ marginBottom: 16, padding: 16, borderRadius: 14, border: "1px solid #d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+            <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 4 }}>
+              📋 {T("รายงาน AI รายสัปดาห์ + แผนซ้อม 7 วัน", "Your AI Weekly Report + 7-Day Plan", "AI周报告 + 7天计划")}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6, marginBottom: 10 }}>
+              {T("ครู TiGA เขียนจากสถิติจริงของคุณด้านบน - กดปุ่มเพื่อสร้างได้ทุกเมื่อ เมื่อสถิติเปลี่ยนจะได้เนื้อหาใหม่",
+                "Coach TiGA writes these from your real stats above - tap to generate anytime; changed stats produce a fresh report.",
+                "TiGA老师根据上方的真实数据撰写——随时可生成，数据变化后即得新内容。")}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="songbtn go" style={{ flex: 1 }} onClick={() => onOpenAiReport && onOpenAiReport("report")}>
+                📋 {T("รายงานรายสัปดาห์", "Weekly Report", "每周报告")}
+              </button>
+              <button className="songbtn go" style={{ flex: 1, background: "#8b5cf6" }} onClick={() => onOpenAiReport && onOpenAiReport("plan")}>
+                🗓️ {T("แผนซ้อม 7 วัน", "7-Day Plan", "7天计划")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Free-tier teaser: everything above this line is real, free, deterministic
+            data (zero AI cost) — genuinely useful on its own, not a fake preview. Only
+            the two things that actually cost AI tokens (the written weekly report and
+            the personalized 7-day plan) are gated, and shown here as a blurred, honest
+            preview built from the learner's own real numbers rather than lorem text. */}
+        {!isMax && (() => {
+          const top = stats.weakest[0];
+          const teaserTxt = stats.acc7 != null && top
+            ? T(
+                `สัปดาห์นี้ซ้อมไป ${stats.days7}/7 วัน แม่นยำเฉลี่ย ${stats.acc7}% จุดที่ควรโฟกัสคือ ${top.label} — ครู TiGA เขียนแผนซ้อม 7 วันโดยเฉพาะให้คุณแล้ว พร้อมคำอธิบายละเอียดทีละขั้นตอนว่าทำไมถึงพลาดและควรแก้อย่างไร รวมถึงเพลงและแบบฝึกหัดที่เลือกมาเฉพาะสำหรับจุดอ่อนของคุณโดยตรง...`,
+                `This week you practiced ${stats.days7}/7 days at ${stats.acc7}% average accuracy. Your focus area is ${top.label} — Coach TiGA has already written a personalized 7-day plan explaining exactly why you're missing it and how to fix it, with songs and drills chosen specifically for your weak spot...`,
+                `本周练习了${stats.days7}/7天，平均准确率${stats.acc7}%。你的重点是${top.label}——TiGA老师已经为你写好7天专属计划，详细说明失误原因和改进方法，并挑选了针对你薄弱环节的曲目和练习...`
+              )
+            : T(
+                "ครู TiGA พร้อมเขียนรายงานความก้าวหน้ารายสัปดาห์และแผนซ้อม 7 วันที่ออกแบบเฉพาะคุณ ทันทีที่มีข้อมูลการซ้อมมากพอ...",
+                "Coach TiGA is ready to write your weekly progress report and a personalized 7-day plan as soon as there's enough practice data...",
+                "只要有足够的练习数据，TiGA老师就会为你撰写每周进度报告和专属7天计划..."
+              );
+          return (
+            <div style={{ marginTop: 18, padding: 14, background: "var(--card2)", borderRadius: 14, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 10 }}>
+                📋 {T("รายงาน AI รายสัปดาห์ + แผนซ้อม 7 วัน", "Your AI Weekly Report + 7-Day Plan", "AI周报告 + 7天计划")}
+              </div>
+              <div style={{ position: "relative" }}>
+                <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8, filter: "blur(3.5px)", userSelect: "none" }} aria-hidden="true">
+                  {teaserTxt}
+                </div>
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <button className="songbtn go" onClick={onUpsell}>
+                    🔓 {T("ปลดล็อกด้วย Max", "Unlock with Max", "升级Max解锁")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
 });
 
 /* ── Admin lock screen ── */
-function LockScreen({ lang, onUnlock }) {
+/* Two ways in: the passcode, or this device's fingerprint / face sensor.
+
+   The fingerprint is offered only after a correct passcode has enrolled it,
+   and only on the device that did the enrolling — so it is a shortcut for the
+   person who already had the right to be here, not a second door. It is worth
+   having because the passcode is typed in public: in a cafe or a classroom,
+   a finger cannot be read over your shoulder.
+
+   Worth being plain about what it is not. The console's real protection is
+   server-side, where every query it makes is re-checked against
+   profiles.is_admin, and the passcode lives in the shipped bundle. This makes
+   the doorway harder to walk through casually; it does not make the room
+   itself safer. See biometric-lock.ts. */
+function LockScreen({ lang, tier, checkCode, onUnlocked }) {
   const lc = L[lang];
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
-  function tryUnlock() {
-    if (onUnlock(code)) { setErr(""); }
-    else { setErr(lc.lockErr); setCode(""); }
+  const [avail, setAvail] = useState(false);      // does this device have a sensor
+  const [enrolled, setEnrolled] = useState(() => bioEnrolled(tier));
+  const [busy, setBusy] = useState(false);
+  const [offer, setOffer] = useState(false);      // "turn it on?" after a correct code
+  const [showCode, setShowCode] = useState(() => !bioEnrolled(tier));
+
+  useEffect(() => { let live = true; bioAvailable().then(v => { if (live) setAvail(v); }); return () => { live = false; }; }, []);
+
+  async function scan() {
+    if (busy) return;
+    setBusy(true); setErr("");
+    const ok = await bioVerify(tier);
+    setBusy(false);
+    if (ok) return onUnlocked();
+    /* A failed scan is usually a cancel or the wrong finger, not a broken
+       enrolment — so open the passcode rather than silently doing nothing. */
+    setErr(lc.bioFail);
+    setShowCode(true);
   }
+
+  async function submitCode() {
+    if (!checkCode(code)) { setErr(lc.lockErr); setCode(""); return; }
+    setErr("");
+    /* Ask the device directly rather than trusting `avail`. That flag is filled
+       in by an async probe on mount, and someone who types a six-digit code
+       quickly can beat it — in which case the offer silently never appeared and
+       fingerprint unlock could never be switched on at all. The state is still
+       useful for what it renders; it is just not what decides this. */
+    if (!enrolled && (avail || await bioAvailable())) { setOffer(true); return; }
+    onUnlocked();
+  }
+
+  async function enrollNow() {
+    setBusy(true);
+    const ok = await bioEnroll(tier);
+    setBusy(false);
+    if (ok) setEnrolled(true);
+    else setErr(lc.bioOfferErr);
+    onUnlocked();                        // they are in either way; the code was right
+  }
+
+  if (offer) {
+    return (
+      <div className="lockwrap">
+        <div className="lockicon">🧬</div>
+        <div className="locktitle">{lc.bioOfferT}</div>
+        <div className="locksub">{lc.bioOfferS}</div>
+        <button className="lockbtn" disabled={busy} onClick={enrollNow}>{busy ? "…" : lc.bioOfferYes}</button>
+        <button className="lockalt" onClick={onUnlocked}>{lc.bioOfferNo}</button>
+      </div>
+    );
+  }
+
   return (
     <div className="lockwrap">
       <div className="lockicon">🔐</div>
       <div className="locktitle">{lc.lockTitle}</div>
       <div className="locksub">{lc.lockSub}</div>
-      <input className="lockinput" type="password" value={code}
-        placeholder={lc.lockPlace}
-        onChange={e => setCode(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }} />
-      <div className="lockerr">{err}</div>
-      <button className="lockbtn" onClick={tryUnlock}>{lc.lockEnter}</button>
+
+      {enrolled && (
+        <button className="biobtn" onClick={scan} disabled={busy} aria-label={lc.bioUnlock}>
+          <span className="biobtn-ic">{busy ? "●" : "☝️"}</span>
+          <span>{busy ? lc.bioWait : lc.bioUnlock}</span>
+        </button>
+      )}
+
+      {enrolled && !showCode && (
+        <button className="lockalt" onClick={() => setShowCode(true)}>{lc.bioOr}</button>
+      )}
+
+      {/* Before enrolling there is no button to show — a fingerprint cannot be
+          offered until a correct code has vouched for it — so say so, otherwise
+          the feature is invisible to the one person entitled to switch it on. */}
+      {showCode && avail && !enrolled && (
+        <div className="biohint">{lc.bioHint}</div>
+      )}
+
+      {showCode && (
+        <>
+          <input className="lockinput" type="password" value={code}
+            placeholder={lc.lockPlace}
+            onChange={e => setCode(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") submitCode(); }} />
+          <div className="lockerr">{err}</div>
+          <button className="lockbtn" onClick={submitCode}>{lc.lockEnter}</button>
+        </>
+      )}
+      {!showCode && <div className="lockerr">{err}</div>}
     </div>
   );
 }
@@ -4976,6 +7843,24 @@ function LockScreen({ lang, onUnlock }) {
 /* ── Share gate: free users share FB + TikTok to keep playing past the free limit ── */
 
 /* ── Admin: all students' progress (reads every profile via admin RLS) ── */
+// A controlled <input type="number"> whose state is a NUMBER has a subtle
+// trap: React only writes the DOM back when the typed string and the state
+// value differ LOOSELY, and "010000" == 10000 is true — so typing into a field
+// that currently reads "0" leaves a stray leading zero on screen ("010000")
+// even though the stored value is a perfectly clean 10000. Normalising the raw
+// string here, and writing it back to the input, keeps what's displayed and
+// what's stored identical. Also clamps negatives away: none of these fields
+// (coins, gems, EXP) has any meaning below zero.
+function numFieldProps(val, set) {
+  return {
+    value: val,
+    onChange: (e) => {
+      const raw = String(e.target.value).replace(/^0+(?=\d)/, "");
+      if (raw !== e.target.value) e.target.value = raw;   // keep the DOM in step with the state
+      set(Math.max(0, Number(raw) || 0));
+    },
+  };
+}
 function AdminStudents({ lang, viewerTier }) {
   const tier = viewerTier || 0;
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
@@ -4987,7 +7872,10 @@ function AdminStudents({ lang, viewerTier }) {
   const [mgDays, setMgDays] = useState(30);
   const [mgBusy, setMgBusy] = useState(false);
   const [appointTier, setAppointTier] = useState(0);
-  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); setAppointTier(r.admin_tier || 0); };
+  const [editCoins, setEditCoins] = useState(0);
+  const [editGems, setEditGems] = useState(0);
+  const [editExp, setEditExp] = useState(0);
+  const openUser = (r) => { setSel(r); setMgPlan((r.plan && r.plan !== "free") ? r.plan : "max"); setMgDays(30); setAppointTier(r.admin_tier || 0); setEditCoins(r.coins || 0); setEditGems(r.gems || 0); setEditExp(r.exp || 0); };
   async function applyPlan() {
     if (!sel) return; setMgBusy(true);
     const { error } = await sb.rpc("admin_set_plan", { target: sel.id, new_plan: mgPlan, days: Number(mgDays) || 30 });
@@ -5007,6 +7895,18 @@ function AdminStudents({ lang, viewerTier }) {
     if (!sel) return; setMgBusy(true);
     const { error } = await sb.rpc("admin_appoint", { target: sel.id, new_tier: appointTier });
     setMgBusy(false); if (!error) { setSel(null); load(); } else { alert(error.message || "error"); }
+  }
+  async function saveCurrency() {
+    if (!sel) return; setMgBusy(true);
+    const { error } = await sb.rpc("admin_adjust_currency", {
+      target: sel.id,
+      p_coins: Number(editCoins) || 0,
+      p_gems: Number(editGems) || 0,
+      p_exp: Number(editExp) || 0
+    });
+    setMgBusy(false);
+    if (!error) { playUi("levelup"); setSel({...sel, coins: Number(editCoins)||0, gems: Number(editGems)||0, exp: Number(editExp)||0}); }
+    else { alert(error.message || "error"); }
   }
   // admin_list_students_v2 — bounded (server-side LIMIT) and server-side searched,
   // replacing the old admin_list_students() (unbounded, no search, client-side
@@ -5126,6 +8026,33 @@ function AdminStudents({ lang, viewerTier }) {
             <button className="songbtn go" style={{ width: "100%", marginTop: 8 }} disabled={mgBusy} onClick={doAppoint}>👑 {T("บันทึกระดับแอดมิน", "Save admin tier", "保存管理员等级")}</button>
           </div>
         )}
+        {/* 💰 Currency & Level Management — Top Tier only */}
+        {tier >= 3 && (
+          <div className="admmg">
+            <div className="admmg-h">💰 {T("จัดการเหรียญ/เพชร/คะแนน", "Manage Coins/Gems/EXP", "管理代币/宝石/经验")}</div>
+            <div className="admmg-cur" style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
+              {T("แก้ไขค่าได้อิสระ — กดบันทึกเพื่อบันทึก", "Edit values freely — tap Save to apply", "可自由修改数值 — 点击保存应用")}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <div>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>🪙 {T("เหรียญ (Coins)", "Coins", "代币")}</label>
+                <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editCoins, setEditCoins)} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>💎 {T("เพชร (Gems)", "Gems", "宝石")}</label>
+                <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editGems, setEditGems)} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 11, opacity: 0.6 }}>⭐ {T("คะแนน (EXP)", "EXP Points", "经验值")}</label>
+              <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editExp, setEditExp)} />
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 8 }}>
+              {T("ระดับ", "Level", "等级")} {levelInfo(editExp).level} · {levelInfo(editExp).tier?.icon || "🎵"} {levelInfo(editExp).tier ? (lang === "th" ? levelInfo(editExp).tier.name_th : lang === "zh" ? levelInfo(editExp).tier.name_zh : levelInfo(editExp).tier.name_en) : ""}
+            </div>
+            <button className="songbtn go" style={{ width: "100%", marginTop: 4 }} disabled={mgBusy} onClick={saveCurrency}>💾 {T("บันทึกค่า", "Save currency", "保存数值")}</button>
+          </div>
+        )}
         <div className="pd-stats">
           {Stat((sel.exp || 0).toLocaleString(), "EXP")}
           {Stat(sel.lessons_done || 0, T("บทเรียน", "Lessons", "课程"))}
@@ -5201,6 +8128,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
   const [questBusy, setQuestBusy] = useState(false);
   const [questMsg, setQuestMsg] = useState("");
   const [curQuest, setCurQuest] = useState(null);
+  const [tigaAdv, setTigaAdv] = useState(null); // per-student TIGA pre-lesson advice (Phase 3)
   const loadQuest = useCallback(() => {
     sb.rpc("get_school_quest", { p_school_id: schoolId }).then(({ data, error }) => setCurQuest(error ? null : data));
   }, [schoolId]);
@@ -5305,6 +8233,38 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
         <ProgressDashboard lang={lang} plog={plog} gameLog={pr.gameLog || []} />
         {struggles.length > 0 && <><div className="admstu-sec">{T("ต้องฝึกเพิ่ม", "Needs work", "需加强")}</div><div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label || s}</span>)}</div></>}
         {mastered.length > 0 && <><div className="admstu-sec">{T("ทำได้ดีแล้ว", "Mastered", "已掌握")}</div><div className="pd-tags">{mastered.map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
+        {sel.role === "student" && (() => {
+          const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+          const rep = buildParentReportData(pr);
+          return (
+            <div className="admmg" style={{ marginTop: 12 }}>
+              <div className="admmg-h">👨‍👩‍👧 {T3("รายงานสำหรับผู้ปกครอง", "Parent report", "家长报告")}</div>
+              {!rep || rep.series.filter(d => d.acc != null).length === 0 ? (
+                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{T3("ยังไม่มีข้อมูลซ้อม sync ของนักเรียนคนนี้", "No synced practice data for this student yet", "该学生暂无同步练习数据")}</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 6 }}>
+                    {T3("เฉลี่ยสัปดาห์นี้", "This week", "本周")} <b>{rep.weeklyAvg != null ? rep.weeklyAvg + "%" : "—"}</b>
+                    {rep.trend != null && <b style={{ color: rep.trend > 0 ? "var(--ok,#3f9d63)" : rep.trend < 0 ? "var(--bad,#c4423a)" : "var(--muted)" }}> {rep.trend > 0 ? "▲" : rep.trend < 0 ? "▼" : "▬"} {Math.abs(rep.trend)}%</b>}
+                    {" · "}{T3("ซ้อม", "sessions", "练习")} <b>{rep.sessions7}</b> {T3("รอบ/7วัน", "/7d", "/7天")}
+                    {rep.avgAcc != null && <>{" · "}{T3("แม่นเฉลี่ยรวม", "overall avg", "总平均")} <b>{rep.avgAcc}%</b></>}
+                  </div>
+                  <svg viewBox="0 0 140 40" style={{ width: "100%", height: 72, display: "block" }} preserveAspectRatio="none">
+                    {rep.series.map((d, i) => {
+                      const bw = 140 / rep.series.length;
+                      const h = d.acc != null ? (d.acc / 100) * 32 : 0;
+                      return <rect key={i} x={i * bw + 0.2} y={34 - h} width={Math.max(0.5, bw - 0.5)} height={Math.max(d.acc != null ? 0.8 : 0.2, h)} fill={d.acc != null ? "color-mix(in srgb, var(--accent,#d97757) 75%, var(--card2))" : "var(--bd2,rgba(0,0,0,0.08))"} rx={0.5} />;
+                    })}
+                    <line x1={0} y1={34.5} x2={140} y2={34.5} stroke="var(--bd2,rgba(0,0,0,0.1))" strokeWidth={0.4} />
+                  </svg>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{T3("ความแม่นยำ 14 วันล่าสุด (วันที่ไม่ได้ซ้อม = แท่งว่าง)", "Accuracy, last 14 days (no practice = empty bar)", "近14天准确率（未练习=空柱）")}</div>
+                  {rep.improvements.length > 0 && <div className="pd-tags" style={{ marginTop: 6 }}>{rep.improvements.map((im, i) => <span key={i} className="pd-tag good">{im.label} ✓</span>)}</div>}
+                  {rep.topMiss && <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>🎯 {T3("โฟกัสบ้านนี้สัปดาห์:", "home focus:", "家庭练习重点：")} {T3("โน้ต", "note", "音符")} {rep.topMiss}</div>}
+                </>
+              )}
+            </div>
+          );
+        })()}
         {sel.role === "student" && (
           <button className="songbtn ghost" style={{ width: "100%", marginTop: 12 }} disabled={busy} onClick={removeMember}>✕ {lc.schoolRemoveBtn}</button>
         )}
@@ -5322,9 +8282,9 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
       </div>
       <div style={{ fontSize: 12, color: "var(--muted)", margin: "2px 0 10px" }}>{lc.schoolDashSub}</div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-        {["roster", "invite"].map(t => (
+        {["roster", "tiga", "invite"].map(t => (
           <button key={t} className={`songfilter${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>
-            {t === "roster" ? lc.schoolRoster : lc.schoolInvite}
+            {t === "roster" ? lc.schoolRoster : t === "tiga" ? T("🧠 TIGA", "🧠 TIGA", "🧠 TIGA") : lc.schoolInvite}
           </button>
         ))}
       </div>
@@ -5354,6 +8314,68 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
           {!list.length && <div className="admstu-empty">{lc.schoolNoRoster}</div>}
         </div>
       </>)}
+
+      {/* ── 🧠 TIGA tab (Phase 3, spec §34): class overview + per-student
+          pre-lesson advice, computed from each student's SYNCED progress —
+          the same data school_roster already shows, plus the TIGA layer:
+          risk flags, the coach's diagnosis, and a 30-min lesson plan. ── */}
+      {tab === "tiga" && (() => {
+        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const students = rows.filter(r => r.role === "student");
+        const advs = students.map(st => ({ st, adv: teacherAdviceFor(st.progress || {}) }));
+        const flagged = advs.filter(({ adv }) => adv && adv.flags.some(f => !f.positive)); // positive "ready" flags are good news, not a problem
+        const seen = advs.filter(({ adv }) => adv && !adv.flags.some(f => !f.positive) && adv.summary.daysIdle != null && adv.summary.daysIdle <= 2);
+        const quiet = advs.filter(({ adv }) => !adv || adv.summary.daysIdle == null || adv.summary.daysIdle > 7);
+        return (
+          <>
+            <div className="admmg" style={{ marginBottom: 12 }}>
+              <div className="admmg-h">🧠 {T3("ภาพรวมห้องเรียนโดยครู TIGA", "Class overview by Teacher TIGA", "TIGA 班级概览")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                <button className={`songfilter${true && " on"}`} style={{ cursor: "default" }}>🚩 {T3("ต้องดูแล", "Needs attention", "需关注")} · {flagged.length}</button>
+                <button className="songfilter">✅ {T3("กำลังเดินหน้า", "On track", "正常")} · {seen.length}</button>
+                <button className="songfilter">😴 {T3("เงียบหาย", "Quiet", "沉默")} · {quiet.length}</button>
+              </div>
+              {flagged.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8 }}>{T3("ยังไม่มีใครติดธง — ดูรายคนด้านล่างได้เลย", "No flags right now — see per-student advice below", "暂无预警——查看下方每个学生的建议")}</div>}
+            </div>
+            <div className="admstu-list">
+              {advs.map(({ st, adv }) => {
+                const li = levelInfo(st.exp || 0);
+                return (
+                  <div key={st.member_id} className="admmg" style={{ padding: "10px 12px" }}>
+                    <button className="admstu-row" style={{ width: "100%", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }} onClick={() => { setSel(st); setTab("roster"); }}>
+                      <div className="admstu-av sm">{(st.full_name || st.email || "?").trim().charAt(0).toUpperCase()}</div>
+                      <div className="admstu-row-body">
+                        <div className="admstu-row-nm">{st.full_name || st.email || "—"}</div>
+                        <div className="admstu-row-meta">Lv {li.level} · {T3("แม่นเฉลี่ย", "avg acc", "平均准确")} {adv && adv.summary.avgAcc != null ? adv.summary.avgAcc + "%" : "—"}</div>
+                      </div>
+                    </button>
+                    {adv && adv.flags.length > 0 && (
+                      <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {adv.flags.map((f, i) => (
+                          <span key={i} className="pd-tag focus" title={f.en}>{f.icon} {T3(f.th, f.en, f.zh)}</span>
+                        ))}
+                      </div>
+                    )}
+                    {adv && adv.focus && (
+                      <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>
+                        🎯 <b>{adv.focus.label}</b>{adv.focus.acc != null ? ` · ${adv.focus.acc}%` : ""}{adv.focus.bpm ? ` · ${adv.focus.bpm} BPM` : ""}
+                        {(adv.focus.how || []).slice(0, 1).map((h, i) => <div key={i} style={{ color: "var(--muted)", marginTop: 2 }}>→ {h}</div>)}
+                      </div>
+                    )}
+                    {adv && adv.plan && (
+                      <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>
+                        ⏱ {T3("แผนคาบ 30 นาที", "30-min plan", "30分钟计划")}: {adv.plan.parts.map(p => `${p.key} ${p.minutes}′`).join(" · ")}{adv.plan.focus ? ` (${T3("โฟกัส", "focus", "重点")}: ${adv.plan.focus})` : ""}
+                      </div>
+                    )}
+                    {!adv && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>{T3("ยังไม่มีข้อมูล sync ของนักเรียนคนนี้", "No synced data for this student yet", "该学生暂无同步数据")}</div>}
+                  </div>
+                );
+              })}
+              {!advs.length && <div className="admstu-empty">{T3("ยังไม่มีนักเรียนในโรงเรียน", "No students yet", "暂无学生")}</div>}
+            </div>
+          </>
+        );
+      })()}
 
       {tab === "invite" && (<>
         <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>{lc.schoolCodeHint}</div>
@@ -5632,7 +8654,7 @@ function AdminPayments({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [rows, setRows] = useState(null);
   const [sel, setSel] = useState(null);
-  const [cfg, setCfg] = useState({ promptpay: "", name: "", bank: "", stripe: false, alipay_qr: "", wechat_qr: "" });
+  const [cfg, setCfg] = useState({ promptpay: "", name: "", bank: "", stripe: false, alipay_qr: "", wechat_qr: "", bank_account: "", bank_swift: "" });
   const [cfgSaved, setCfgSaved] = useState(false);
   const [slipUrl, setSlipUrl] = useState(null);
   const [aiBusy, setAiBusy] = useState(false);
@@ -5649,13 +8671,13 @@ function AdminPayments({ lang }) {
       .then(({ data }) => {
         if (data && data.value) {
           const v = data.value;
-          setCfg({ promptpay: v.promptpay || "", name: v.name || "", bank: v.bank || "", stripe: !!v.stripe, alipay_qr: v.alipay_qr || "", wechat_qr: v.wechat_qr || "" });
+          setCfg({ promptpay: v.promptpay || "", name: v.name || "", bank: v.bank || "", stripe: !!v.stripe, alipay_qr: v.alipay_qr || "", wechat_qr: v.wechat_qr || "", bank_account: v.bank_account || "", bank_swift: v.bank_swift || "" });
         }
       });
   }, [load]);
   async function saveCfg() {
     setCfgSaved(false);
-    const value = { promptpay: cfg.promptpay.trim(), name: cfg.name.trim(), bank: cfg.bank.trim(), stripe: cfg.stripe, alipay_qr: cfg.alipay_qr.trim(), wechat_qr: cfg.wechat_qr.trim() };
+    const value = { promptpay: cfg.promptpay.trim(), name: cfg.name.trim(), bank: cfg.bank.trim(), stripe: cfg.stripe, alipay_qr: cfg.alipay_qr.trim(), wechat_qr: cfg.wechat_qr.trim(), bank_account: cfg.bank_account.trim(), bank_swift: cfg.bank_swift.trim() };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "payment", p_value: value });
     if (!error) { setCfgSaved(true); setTimeout(() => setCfgSaved(false), 2500); }
   }
@@ -5766,6 +8788,13 @@ function AdminPayments({ lang }) {
         <input value={cfg.promptpay} onChange={e => setCfg({ ...cfg, promptpay: e.target.value })} placeholder={T("เบอร์ PromptPay หรือเลขผู้เสียภาษี", "PromptPay number or tax ID", "PromptPay 号码或税号")} inputMode="numeric" />
         <input value={cfg.name} onChange={e => setCfg({ ...cfg, name: e.target.value })} placeholder={T("ชื่อบัญชี / ชื่อร้าน", "Account / shop name", "账户/店名")} />
         <input value={cfg.bank} onChange={e => setCfg({ ...cfg, bank: e.target.value })} placeholder={T("ธนาคาร (ไม่บังคับ)", "Bank (optional)", "银行（可选）")} />
+
+        {/* Filling the account number in is what turns on the direct-transfer
+            option in the English checkout — without it a card is the only way
+            an overseas buyer can pay. */}
+        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, marginTop: 12, marginBottom: 2 }}>🏦 {T("โอนเข้าบัญชีโดยตรง (ไทย + อังกฤษ)", "Direct bank transfer (Thai + English)", "银行直接转账（泰文+英文）")}</div>
+        <input value={cfg.bank_account} onChange={e => setCfg({ ...cfg, bank_account: e.target.value })} placeholder={T("เลขที่บัญชีธนาคาร", "Bank account number", "银行账号")} inputMode="numeric" />
+        <input value={cfg.bank_swift} onChange={e => setCfg({ ...cfg, bank_swift: e.target.value })} placeholder={T("SWIFT / BIC (สำหรับโอนจากต่างประเทศ)", "SWIFT / BIC (for overseas transfers)", "SWIFT / BIC（境外汇款用）")} />
 
         <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, marginTop: 12, marginBottom: 2 }}>💳 Stripe (ไทย + อังกฤษ)</div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
@@ -5888,14 +8917,39 @@ function AdminAnalytics({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [range, setRange] = useState("all"); // '7' | '30' | 'all'
   const [stats, setStats] = useState(null);
-  const NAV_LABELS = { pathway: "⬡ PATHWAY", sensei: "◈ TIGA AI", studio: "▶ STUDIO", videos: "🎬 " + T("วิดีโอสอน", "Video Lessons", "视频课程"), profile: "PROFILE", admin: "ADMIN" };
+  /* Measured before this switch existed: 307 of the rows this panel counted
+     were simulated bot traffic — 50 fake users against 18 real members — and
+     the panel had no way to leave them out, because get_usage_stats took no
+     parameter for it. Real people are the default now; the bots are a choice. */
+  const [withBots, setWithBots] = useState(false);
+  /* Owner request: their own tier-3 admin account uses the app daily for
+     development — it must not contaminate customer metrics. Excluded by
+     default on all three admin pages; the checkbox brings it back. Calls the
+     NEW in-repo admin_usage_stats (same row shape as get_usage_stats + the
+     exclusion flag); get_usage_stats stays as the automatic fallback while
+     the migration is not yet applied. */
+  const [noAdmins, setNoAdmins] = useState(true);
+  const NAV_LABELS = { pathway: "⬡ PATHWAY", sensei: "◈ TIGA CHAT", studio: "▶ STUDIO", videos: "🎬 " + T("วิดีโอสอน", "Video Lessons", "视频课程"), profile: "PROFILE", admin: "ADMIN" };
 
   const load = useCallback(() => {
     setStats(null);
     const since = range === "all" ? null : new Date(Date.now() - Number(range) * 86400000).toISOString();
-    sb.rpc("get_usage_stats", { p_kind: null, p_since: since })
-      .then(({ data, error }) => setStats(error ? [] : (data || [])), () => setStats([]));
-  }, [range]);
+    // p_limit 500 against 225 distinct item/kind pairs — the old hard-coded
+     // 200 was silently dropping 25 of them off the bottom of every list.
+    // admin_usage_stats first (it understands p_exclude_admins); on a
+    // PostgREST schema-cache miss (migration not applied yet) fall back to
+    // the original get_usage_stats, bots flag forwarded as-is.
+    sb.rpc("admin_usage_stats", { p_kind: null, p_since: since, p_include_sim: withBots, p_exclude_admins: noAdmins, p_limit: 500 })
+      .then(
+        ({ data, error }) => {
+          if (!error) { setStats(data || []); return; }
+          return sb.rpc("get_usage_stats", { p_kind: null, p_since: since, p_include_sim: withBots, p_limit: 500 })
+            .then(({ data: d2 }) => setStats(d2 || []), () => setStats([]));
+        },
+        () => sb.rpc("get_usage_stats", { p_kind: null, p_since: since, p_include_sim: withBots, p_limit: 500 })
+          .then(({ data: d2 }) => setStats(d2 || []), () => setStats([]))
+      );
+  }, [range, withBots, noAdmins]);
   useEffect(() => { load(); }, [load]);
 
   const byKind = (k) => (stats || []).filter(r => r.kind === k);
@@ -5909,9 +8963,25 @@ function AdminAnalytics({ lang }) {
             <span className="anrow-rank">#{i + 1}</span>
             <span className="anrow-name">{labelFor ? labelFor(r.item_id) : r.item_id}</span>
             <span className="anrow-barwrap"><span className="anrow-bar" style={{ width: `${Math.max(6, (Number(r.hits) / max) * 100)}%` }} /></span>
-            <span className="anrow-hits">{r.hits}</span>
+            {/* members and signed-out visitors were added together with no way
+                to tell them apart; the split rides along with every row now */}
+            <span className="anrow-hits" title={`${r.member_hits ?? 0} member · ${r.visitor_hits ?? 0} visitor`}>
+              {r.hits}
+              {Number(r.visitor_hits) > 0 && (
+                <span style={{ fontSize: 10, opacity: .6, marginLeft: 4 }}>
+                  ({r.member_hits ?? 0}+{r.visitor_hits ?? 0})
+                </span>
+              )}
+            </span>
           </div>
         ))}
+        {!!rows.length && (
+          <div className="admstu-row-sub" style={{ marginTop: 6, fontSize: 10.5 }}>
+            {T("ในวงเล็บ = สมาชิก + ผู้เข้าชมที่ยังไม่ล็อกอิน",
+               "in brackets = members + signed-out visitors",
+               "括号内 = 会员 + 未登录访客")}
+          </div>
+        )}
       </div>
     );
   };
@@ -5923,6 +8993,18 @@ function AdminAnalytics({ lang }) {
           <button key={v} className={`billtog${range === v ? " on" : ""}`} onClick={() => setRange(v)}>{l}</button>
         ))}
       </div>
+      {/* Off by default: these lists are for reading real behaviour, and 50
+          simulated bots against 18 real members drowns it. Same wording as the
+          activity page's checkbox so the two mean the same thing. */}
+      {/* Owner: development logins must never count as customers. */}
+      <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 2px 10px", fontSize: 12.5, cursor: "pointer" }}>
+        <input type="checkbox" checked={noAdmins} onChange={e => setNoAdmins(e.target.checked)} />
+        {T("ไม่รวมบัญชีแอดมิน (ของฉัน)", "Exclude admin accounts (mine)", "不含管理员账号（我的）")}
+      </label>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 2px 10px", fontSize: 12.5, cursor: "pointer" }}>
+        <input type="checkbox" checked={withBots} onChange={e => setWithBots(e.target.checked)} />
+        {T("รวมข้อมูลจำลอง (บอท)", "Include simulated data (bots)", "包含模拟数据（机器人）")}
+      </label>
       {stats === null ? <div className="admstu-msg">⏳</div> : (
         <>
           <Panel title={T("⬡ หัวข้อเส้นทางการเรียนรู้ (Pathway)", "⬡ Pathway topics", "⬡ 学习路径主题")} rows={byKind("pathway")}
@@ -5931,6 +9013,16 @@ function AdminAnalytics({ lang }) {
             labelFor={(id) => NAV_LABELS[id] || id} />
           <Panel title={T("📄 หน้าที่เข้าชม", "📄 Pages visited", "📄 访问的页面")} rows={byKind("page")}
             labelFor={(id) => NAV_LABELS[id] || id} />
+          {/* Game-feature adoption (owner plan 2026-09-19): are people actually
+              finding pets/PvP/shop/storage? nav events are already logged at
+              every entry point, so this needs zero new instrumentation. */}
+          <Panel title={T("🎮 การใช้ฟีเจอร์เกม (สัตว์เลี้ยง/PvP/ร้านค้า)", "🎮 Game-feature adoption (pets/PvP/shop)", "🎮 游戏功能使用（宠物/PvP/商店）")} rows={(stats || []).filter(r => r.kind === "nav" && ["pet", "pvp", "shop", "storage"].includes(r.item_id))}
+            labelFor={(id) => ({ pet: "🐾 " + T("สัตว์เลี้ยง", "Pets", "宠物"), pvp: "⚔ " + T("สนามประลอง PvP", "PvP Arena", "PvP 竞技场"), shop: "🛍 " + T("ร้านค้า", "Shop", "商店"), storage: "📦 " + T("คลังของ", "Storage", "仓库") }[id] || id)} />
+          {/* Auto-Teach effectiveness (owner plan 2026-09-19 #10): tips shown vs
+              followed vs dismissed, and whether the NEXT practice on that topic
+              actually improved. Events land in usage_events as kind="atip". */}
+          <Panel title={T("🎯 ประสิทธิภาพ Auto Teaching", "🎯 Auto Teaching effectiveness", "🎯 自动教学效果")} rows={(stats || []).filter(r => r.kind === "atip")}
+            labelFor={(id) => ({ show: "🎯 " + T("คำแนะนำที่แสดง", "Tips shown", "显示建议"), follow: "✅ " + T("กดตามไปฝึก", "Followed", "跟练了"), dismiss: "✖ " + T("ปิดทิ้ง", "Dismissed", "关闭了"), win: "📈 " + T("ซ้อมถัดไปดีขึ้น", "Next practice improved", "下次练习进步"), loss: "➖ " + T("ซ้อมถัดไปยังเท่าเดิม", "Next practice unchanged", "下次练习无进步") }[id] || id)} />
         </>
       )}
     </div>
@@ -5960,9 +9052,9 @@ function AdminAutoTeach({ lang }) {
       <div className="admmg">
         <div className="admmg-h">⏱️ {T("ความถี่ Auto Teaching (ค่าเริ่มต้นทั้งระบบ)", "Auto Teaching frequency (platform default)", "自动教学频率（系统默认）")}</div>
         <div className="admstu-row-sub" style={{ marginBottom: 10 }}>
-          {T("ทุกกี่นาทีจะมี pop up จากครู AI แนะนำจุดอ่อนระหว่างที่ผู้เรียน Max อยู่หน้าเส้นทางการเรียนรู้ ผู้เรียนสามารถตั้งค่าของตัวเองทับค่านี้ได้",
-            "How often the AI coach pops up with a real-time tip while a Max learner is on the Pathway (home) page. Learners can override this with their own pick.",
-            "Max 学员在学习路径页面时，AI 教练多久弹出一次实时建议。学员可以设置自己的偏好覆盖此默认值。")}
+          {T("ทุกกี่นาทีจะมี pop up จากครู AI แนะนำจุดอ่อน ระหว่างที่ผู้เรียน Max ใช้งานแอปอยู่ (ทุกหน้า ยกเว้นหน้าแอดมิน/โรงเรียน) ผู้เรียนสามารถตั้งค่าของตัวเองทับค่านี้ได้",
+            "How often the AI coach pops up with a real-time tip while a Max learner is anywhere in the app (every page except admin/school dashboards). Learners can override this with their own pick.",
+            "Max 学员在应用内任意页面时（管理员/学校后台除外），AI 教练多久弹出一次实时建议。学员可以设置自己的偏好覆盖此默认值。")}
         </div>
         <div className="setlangs">
           <button className={`setlangbtn${min === 0 ? " on" : ""}`} disabled={busy} onClick={() => save(0)}>{T("ปิด", "Off", "关闭")}</button>
@@ -5976,8 +9068,55 @@ function AdminAutoTeach({ lang }) {
   );
 }
 
-/* ── Admin: broadcast a popup announcement (text + optional image) to every learner's
-   home page, on demand — a one-off push, not a recurring schedule like Auto Teaching. ── */
+/* ── Admin: Weekly Report auto-push — a Monday pg_cron job (see the
+   weekly-report Edge Function) nudges every active Max learner that their
+   Daily Mentor report is ready, deep-linking straight into it. Off by
+   default (the function no-ops until this flips to true) so shipping the
+   cron schedule itself is inert until an admin deliberately turns it on. ── */
+function AdminWeeklyReport({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [enabled, setEnabled] = useState(null); // null = loading
+  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    sb.from("app_settings").select("value").eq("key", "weekly_report").maybeSingle()
+      .then(({ data }) => setEnabled(!!(data && data.value && data.value.enabled)), () => setEnabled(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  async function save(v) {
+    setBusy(true); setSaved(false);
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "weekly_report", p_value: { enabled: v } });
+    setBusy(false);
+    if (!error) { setEnabled(v); setSaved(true); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
+  }
+  if (enabled === null) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
+  return (
+    <div className="admstu">
+      <div className="admmg">
+        <div className="admmg-h">📊 {T("Push รายงานประจำสัปดาห์ (ทุกวันจันทร์)", "Weekly report push (every Monday)", "每周报告推送（每周一）")}</div>
+        <div className="admstu-row-sub" style={{ marginBottom: 10, whiteSpace: "normal" }}>
+          {T("ส่ง push แจ้งผู้เรียน Max ที่ยังใช้งานอยู่ทุกคนว่ารายงาน Daily Mentor ของสัปดาห์นี้พร้อมแล้ว แตะแล้วเข้าหน้ารายงานจริงทันที (ไม่ใช่ AI เขียนข้อความส่ง เป็นเทมเพลตพร้อมสตรีคจริงของแต่ละคน) ผู้เรียนที่ไม่ใช่ Max จะไม่ได้รับ",
+            "Pushes every active Max learner a reminder that this week's Daily Mentor report is ready, deep-linking straight into the real page (a template with each learner's real streak — not an AI-written message). Free/lapsed learners are never sent this.",
+            "向所有仍在有效期内的 Max 学员推送提醒，告知本周 Daily Mentor 报告已生成，点击直达真实报告页面（使用模板+每位学员的真实连续天数，非AI生成文字）。非Max学员不会收到。")}
+        </div>
+        <div className="setlangs">
+          <button className={`setlangbtn${enabled === false ? " on" : ""}`} disabled={busy} onClick={() => save(false)}>{T("ปิด", "Off", "关闭")}</button>
+          <button className={`setlangbtn${enabled === true ? " on" : ""}`} disabled={busy} onClick={() => save(true)}>{T("เปิด", "On", "开启")}</button>
+        </div>
+        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
+        {!enabled && (
+          <div className="admstu-row-sub" style={{ marginTop: 10, opacity: .75 }}>
+            {T("ปัจจุบันปิดอยู่ — ตารางส่งวันจันทร์ทำงานอยู่เบื้องหลังแล้วแต่ไม่ส่งอะไรจนกว่าจะเปิดสวิตช์นี้", "Currently off — the Monday schedule already runs in the background but sends nothing until this switch is on.", "目前已关闭——周一的定时任务已在后台运行，但在开启此开关前不会发送任何内容。")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Admin: broadcast a popup announcement (text + optional image) to every learner,
+   wherever they are in the app, on demand — a one-off push, not a recurring schedule
+   like Auto Teaching. ── */
 function AdminBroadcast({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [cur, setCur] = useState(undefined); // undefined = loading, null = never sent one, object = current
@@ -6012,11 +9151,11 @@ function AdminBroadcast({ lang }) {
   return (
     <div className="admstu">
       <div className="admmg">
-        <div className="admmg-h">📢 {T("ส่งประกาศเด้งหน้าแรก", "Send a home-page popup", "发送首页弹窗公告")}</div>
+        <div className="admmg-h">📢 {T("ส่งประกาศเด้งป๊อปอัป", "Send a popup announcement", "发送弹窗公告")}</div>
         <div className="admstu-row-sub" style={{ marginBottom: 10, whiteSpace: "normal" }}>
-          {T("ข้อความนี้จะเด้งเป็น pop-up ที่หน้าเส้นทางการเรียนรู้ของผู้เรียนทุกคน (เห็นภายในไม่ถึงนาที)",
-            "This shows as a popup on every learner's Pathway (home) page — live within under a minute.",
-            "此消息将以弹窗形式出现在所有学员的学习路径（首页）——不到一分钟内生效。")}
+          {T("ข้อความนี้จะเด้งเป็น pop-up ให้ผู้เรียนทุกคนเห็น ไม่ว่าจะอยู่หน้าไหนของแอป (เห็นภายในไม่ถึงนาที)",
+            "This shows as a popup for every learner, wherever they are in the app — live within under a minute.",
+            "此消息将以弹窗形式出现在所有学员面前，无论他们在应用的哪个页面——不到一分钟内生效。")}
         </div>
         <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={3} className="admstu-search"
           placeholder={T("พิมพ์ข้อความประกาศ...", "Write the announcement...", "输入公告内容…")}
@@ -6045,6 +9184,25 @@ function AdminBroadcast({ lang }) {
   );
 }
 
+/* Optional per-event "spotlight" — points the blanket EXP/coin multiplier at ONE
+   specific feature instead of leaving every event feeling identical ("2x
+   everywhere" doesn't tell anyone what to actually go do). Stored as an extra
+   field on the same event JSON blob (app_settings key "event" is a schemaless
+   jsonb value — see admin_set_app_setting), so this needs zero backend change.
+   Each feature's real page title lives inside that page's own component-local
+   T object (not exported), so this keeps its own small label set rather than
+   reaching into 8 different files for strings. */
+const SPOTLIGHT_FEATURES = [
+  { key: "pathway", icon: "⬡", label: { th: "เส้นทางเรียนรู้", en: "Pathway", zh: "学习路径" } },
+  { key: "coach", icon: "🎯", label: { th: "Daily Mentor", en: "Daily Mentor", zh: "每日导师" } },
+  { key: "playalong", icon: "🎵", label: { th: "เล่นตามเพลง", en: "Play Along", zh: "跟弹" } },
+  { key: "eargym", icon: "🎧", label: { th: "ยิมหู", en: "Ear Gym", zh: "耳朵健身房" } },
+  { key: "reading", icon: "🎼", label: { th: "อ่านโน้ต", en: "Note Reading", zh: "识谱课" } },
+  { key: "sight", icon: "👁️", label: { th: "สายตาไว", en: "Sight-Reading", zh: "视奏" } },
+  { key: "camera", icon: "📷", label: { th: "โค้ชท่ามือ", en: "Camera Coach", zh: "手型教练" } },
+  { key: "challenging", icon: "🏆", label: { th: "ท้าทาย", en: "Challenging", zh: "挑战" } },
+];
+
 /* ── Admin: seasonal/limited-time event — same app_settings + admin_set_app_setting
    mechanism as AdminBroadcast above (key "event" instead of "broadcast"), applying
    temporary EXP/coin multipliers instead of a popup message. See the activeEvent
@@ -6058,6 +9216,7 @@ function AdminEvent({ lang }) {
   const [expMult, setExpMult] = useState(2);
   const [coinMult, setCoinMult] = useState(2);
   const [days, setDays] = useState(2);
+  const [spotlight, setSpotlight] = useState("");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const load = useCallback(() => {
@@ -6074,6 +9233,7 @@ function AdminEvent({ lang }) {
       name_th: nameTh.trim() || nameEn.trim(), name_en: nameEn.trim() || nameTh.trim(), name_zh: nameZh.trim() || nameEn.trim() || nameTh.trim(),
       expMult: Number(expMult) || 1, coinMult: Number(coinMult) || 1,
       ends_at: new Date(Date.now() + (Number(days) || 1) * 86400000).toISOString(),
+      spotlightFeature: spotlight || null,
     };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "event", p_value: value });
     setBusy(false);
@@ -6096,7 +9256,9 @@ function AdminEvent({ lang }) {
         <div className="admmg" style={{ marginBottom: 12 }}>
           <div className="admmg-h">{T("กำลังจัดอีเว้นท์อยู่ตอนนี้", "Currently live", "当前正在进行")}</div>
           <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>
-            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙 · {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
+            {tr({ th: cur.name_th, en: cur.name_en, zh: cur.name_zh }, lang)} · {cur.expMult}× EXP · {cur.coinMult}× 🪙
+            {cur.spotlightFeature ? ` · 🔦 ${SPOTLIGHT_FEATURES.find(f => f.key === cur.spotlightFeature)?.label.en || cur.spotlightFeature}` : ""}
+            {" "}· {T("จนถึง", "until", "至")} {new Date(cur.ends_at).toLocaleString()}
           </div>
           <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={stop}>{T("จบอีเว้นท์นี้ตอนนี้", "End this event now", "立即结束此活动")}</button>
         </div>
@@ -6120,6 +9282,13 @@ function AdminEvent({ lang }) {
             <input className="admstu-search" type="number" min="1" max="30" value={days} onChange={e => setDays(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
           </div>
         </div>
+        <div className="admstu-row-sub" style={{ marginBottom: 4 }}>
+          {T("ฟีเจอร์เด่นประจำอีเว้นท์ (ไม่บังคับ) — แบนเนอร์จะชวนเล่นฟีเจอร์นี้", "Spotlight feature (optional) — the banner points learners at it", "活动焦点功能（可选）— 横幅会引导学员去玩")}
+        </div>
+        <select className="admstu-search" value={spotlight} onChange={e => setSpotlight(e.target.value)} style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }}>
+          <option value="">{T("— ไม่มี (คูณโบนัสทุกฟีเจอร์เท่ากัน) —", "— None (bonus applies evenly everywhere) —", "— 无（各功能奖励相同）—")}</option>
+          {SPOTLIGHT_FEATURES.map(f => <option key={f.key} value={f.key}>{f.icon} {f.label.en}</option>)}
+        </select>
         <button className="songbtn go" style={{ width: "100%" }} disabled={busy || (!nameTh.trim() && !nameEn.trim())} onClick={start}>
           {busy ? "⏳" : "🎉"} {T("เริ่มเลย", "Start now", "立即开始")}
         </button>
@@ -6295,7 +9464,8 @@ function AdminGames({ lang }) {
   }
 
   return (
-    <div style={{ padding: "0 4px 24px" }}>
+    <div className="admstu">
+      <div style={{ padding: "0 4px 24px" }}>
       {/* Header + Add button */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
@@ -6413,14 +9583,23 @@ function AdminGames({ lang }) {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
 
 /* ── Music Games page — shows game cards loaded from admin-managed list ── */
-const GamesPage = memo(function GamesPage({ lang }) {
+const GamesPage = memo(function GamesPage({ lang, earnCoins, gainExp }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [games, setGames] = useState<any[] | null>(null);
+  const [paid, setPaid] = useState(() => gamesPaidToday());
+  const payFor = (id) => {
+    if (!takeGameEarn(id)) return;
+    if (earnCoins) earnCoins(EARN.game);
+    if (gainExp) gainExp(6, { quest: true });
+    try { playUi("reward"); } catch (e) {}
+    setPaid(gamesPaidToday());
+  };
 
   useEffect(() => {
     sb.from("app_settings").select("value").eq("key", "music_games").maybeSingle()
@@ -6428,14 +9607,16 @@ const GamesPage = memo(function GamesPage({ lang }) {
   }, []);
 
   return (
-    <div className="profilewrap">
+    <div className="profpage">
       <div className="profhdr">
         <div className="profavwrap">
           <div style={{ fontSize: 36 }}>🎮</div>
         </div>
         <div className="profname">Music Games</div>
         <div className="profxp-lbl" style={{ color: "var(--muted)", fontSize: 13 }}>
-          {T("เกมดนตรีจากทั่วโลก — กดเพื่อเล่น!", "Music games from around the world — tap to play!", "来自世界各地的音乐游戏 — 点击即玩！")}
+          {T(`เกมดนตรีจากทั่วโลก — เล่นเกมไหนก็ได้ 🪙 +${EARN.game} (เกมละครั้งต่อวัน)`,
+              `Music games from around the world — every game pays 🪙 +${EARN.game}, once each per day`,
+              `来自世界各地的音乐游戏 — 每款游戏 🪙 +${EARN.game}，每天各一次`)}
         </div>
       </div>
       <div style={{ padding: "0 14px 24px" }}>
@@ -6450,7 +9631,7 @@ const GamesPage = memo(function GamesPage({ lang }) {
             {games.map((g: any) => (
               <a key={g.id} href={g.link} target="_blank" rel="noopener noreferrer"
                 style={{ textDecoration: "none", display: "flex", flexDirection: "column", background: "var(--card)", borderRadius: 16, overflow: "hidden", border: "1px solid var(--bd6)", transition: "transform .15s", boxShadow: "0 2px 12px rgba(0,0,0,.12)" }}
-                onClick={() => { try { playUi("click"); } catch(_) {} }}>
+                onClick={() => { try { playUi("click"); } catch(_) {} payFor(g.id); }}>
                 {g.cover ? (
                   <img src={g.cover} alt={g.title} style={{ width: "100%", height: 110, objectFit: "cover" }} />
                 ) : (
@@ -6459,8 +9640,15 @@ const GamesPage = memo(function GamesPage({ lang }) {
                 <div style={{ padding: "10px 12px 14px" }}>
                   <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)", marginBottom: 4 }}>{g.title}</div>
                   {g.desc && <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>{g.desc}</div>}
-                  <div style={{ marginTop: 10, display: "inline-block", background: "#d97757", color: "#fff", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700 }}>
-                    ▶ {T("เล่น", "Play", "开始游戏")}
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ display: "inline-block", background: "#d97757", color: "#fff", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700 }}>
+                      ▶ {T("เล่น", "Play", "开始游戏")}
+                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: paid.has(String(g.id)) ? "var(--muted)" : "#c8891f" }}>
+                      {paid.has(String(g.id))
+                        ? T("รับแล้ววันนี้", "Claimed today", "今日已领")
+                        : `🪙 +${EARN.game}`}
+                    </span>
                   </div>
                 </div>
               </a>
@@ -6487,7 +9675,16 @@ function AdminPage({ lang, onExit, adminTier }) {
   const [loading, setLoading] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
   const [attachedImg, setAttachedImg] = useState(null); // {dataUrl, mediaType, name}
-  const [adminTab, setAdminTab] = useState(tier >= 3 ? "ai" : "students"); // "ai" chat · "students" back-office · "autoteach"
+  /* #admin-payments opens straight on the payment-channel settings. That screen
+     is needed rarely but urgently — a missing bank account or a stale Stripe key
+     stops every sale until someone fixes it — and the admin console is otherwise
+     reachable only by tapping the logo five times and typing the code, which is
+     not something you can talk someone through quickly. The unlock screen and
+     the tier >= 3 check below both still apply; the hash only picks the tab. */
+  const [adminTab, setAdminTab] = useState(() => {
+    if (tier >= 3 && typeof window !== "undefined" && window.location.hash === "#admin-payments") return "payments";
+    return tier >= 3 ? "ai" : "students";   // "ai" chat · "students" back-office · "autoteach"
+  });
   const endRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -6575,6 +9772,11 @@ function AdminPage({ lang, onExit, adminTier }) {
       }
 
       setMsgs(p => [...p, { role: "ai", text: (reply || "").trim() || lc.err }]);
+      // Self-learning (owner's switch in Model Lab gates everything): when ON,
+      // the model harvests teaching candidates from what it just produced
+      // under the owner's supervision in the admin console — that reply IS
+      // the teaching material. Fire-and-forget: never blocks the chat.
+      learnFromAdminTeaching(reply || "").catch(() => {});
     } catch (e) {
       console.error("Admin chat error:", e); // full detail for devs only
       const msg = "" + (e?.message || "");
@@ -6606,17 +9808,27 @@ function AdminPage({ lang, onExit, adminTier }) {
 
       <AdminNav lang={lang} tier={tier} adminTab={adminTab} setAdminTab={setAdminTab} />
 
-      {adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
+      {adminTab === "leadsale" ? <LeadSaleDashboard lang={lang} />
+        : adminTab === "leadlanding" ? <LeadLandingPage lang={lang} />
+        : adminTab === "leadreferral" ? <ReferralDashboard lang={lang} />
+        : adminTab === "leadquiz" ? <PianoLevelQuiz lang={lang} />
+        : adminTab === "students" ? <AdminStudents lang={lang} viewerTier={tier} />
         : adminTab === "schools" ? <AdminSchools lang={lang} viewerTier={tier} />
         : adminTab === "payments" && tier >= 3 ? <AdminPayments lang={lang} />
         : adminTab === "videos" && tier >= 3 ? <AdminVideos lang={lang} />
         : adminTab === "analytics" && tier >= 3 ? <AdminAnalytics lang={lang} />
         : adminTab === "autoteach" && tier >= 2 ? <AdminAutoTeach lang={lang} />
         : adminTab === "broadcast" && tier >= 3 ? <AdminBroadcast lang={lang} />
+        : adminTab === "weeklyreport" && tier >= 3 ? <AdminWeeklyReport lang={lang} />
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
         : adminTab === "jev" && tier >= 3 ? <AdminJevTasks lang={lang} />
+        : adminTab === "tigamodel" && tier >= 3 ? <div className="adminscroll"><TigamodelLab lang={lang} /></div>
+        : adminTab === "tigabackoffice" && tier >= 3 ? <div className="adminscroll"><TigamodelBackoffice lang={lang} /></div>
+        : adminTab === "activity" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminActivity lang={lang} onOpenAnon={() => setAdminTab("anonvisit")} /></Suspense>
+        : adminTab === "anonvisit" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminAnonVisitors lang={lang} /></Suspense>
+        : adminTab === "simbots" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminSimBots lang={lang} /></Suspense>
         : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">
@@ -6720,6 +9932,52 @@ export default function App() {
       if (data && guestHasProgress(loadGuestProfile())) {
         finalData = await mergeGuestProgressIntoProfile(uid, data);
       }
+      /* ── Landing-origin capture (owner request 2026-09-21) ──
+         The marketing landing stamps WHICH language page the visitor signed
+         up from (local-identity.stampLandingOrigin at the OAuth button).
+         Consume it exactly once, at the first login where the server row
+         doesn't carry the answer yet: persist profiles.signup_landing, log
+         a usage event (kind "land", item_id "signed_up_landing:<lang>" —
+         lands in the existing admin analytics stream), then clear the stamp
+         so re-logins never overwrite the original. Written only when lang
+         was never user-chosen (lang === null): a chosen lang means the
+         account predates this feature. */
+      const landingOrigin = readLandingOrigin();
+      if (data && !data.signup_landing && landingOrigin && data.lang == null) {
+        sb.from("profiles").update({ signup_landing: landingOrigin, updated_at: new Date().toISOString() }).eq("id", uid)
+          .then(() => {}, () => {});
+        finalData = { ...(finalData || data), signup_landing: landingOrigin };
+        logUsage("land", "signed_up_landing:" + landingOrigin);
+        clearLandingOrigin();
+      } else if (landingOrigin) {
+        // No eligible row (row creation still pending via handle_new_user,
+        // or the account already carries the answer): don't let a stale
+        // stamp linger — it would mislabel a much later signup.
+        clearLandingOrigin();
+      }
+      /* ── A3 (conversion plan v4): count Google-door signups in the funnel.
+         The stamp only survives to a first login, so its presence here — even
+         when the profiles.update above was skipped (row not ready yet, or the
+         account predates the feature) — still means THIS login came through a
+         landing page. Fire the event unconditionally when a stamp existed so
+         sum(signup events) reconciles with real new members. */
+      if (data && landingOrigin) {
+        logUsage("land", "signup:google");
+      }
+      /* ── A4 (conversion plan v4): identity stitching. The device's anon_id
+         is the only pre-signup identity that exists; pairing it with the real
+         uid at first login lets the dashboard JOIN a signup back onto every
+         guest event that same browser ever emitted (view/piano/ask/ai/gate). */
+      if (data) {
+        const aid = anonId();
+        const stitchKey = "tg_stitched_" + uid;
+        let already = false;
+        try { already = !!localStorage.getItem(stitchKey); } catch (e) {}
+        if (aid && !already) {
+          logUsage("land", "signed_up_from:" + aid);
+          try { localStorage.setItem(stitchKey, "1"); } catch (e) {}
+        }
+      }
       setProfile(finalData || null);
       setProfileReady(true);
       // cloud-sync: two-way sync of the learner's localStorage learning state
@@ -6765,12 +10023,35 @@ export default function App() {
     stopCloudSync(); // flush pending cloud-sync writes first, then stop watching
     try { await sb.auth.signOut(); } catch (e) {}
     setSession(null); setProfile(null);
+    // The admin unlock and the current page are tab-session state — a sign-out
+    // must end both, or the next person on this tab would land straight in the
+    // console the previous session had unlocked.
+    try { sessionStorage.removeItem("tiga_admin_unlocked"); sessionStorage.removeItem("tiga_page"); } catch (e) {}
+    // The adminUnlocked/page STATE both live in PianoApp — App can only clear
+    // the sessionStorage flags; PianoApp's effect (watching `session`) closes
+    // the console itself, and the unmount on session=null resets the page.
+    // BUG FIX 2026-09-21: this function used to call setAdminUnlocked() and
+    // setPage() directly — setters from ANOTHER component's scope — so every
+    // sign-out threw ReferenceError right after auth.signOut().
   }
 
   if (!authReady) return <Splash />;
   if (!profileReady) return <Splash />;
   if (profile && profile.banned && !profile.is_admin) return <BannedScreen onSignOut={signOut} />;
   if (!profile || !profile.onboarded) {
+    // Someone who signed up on /landing/ already answered the "name" ask there
+    // (and the OAuth providers supply an email) — re-asking them here, before
+    // they have seen a single screen of the thing they just joined, is the
+    // leak the landing analytics pointed at. The flag is written only by the
+    // landing sign-up card and consumed once, so an unrelated later login can
+    // never ride it; the profile row still gets onboarded=true, set directly
+    // so the gate stops firing on every future login too. Guests and app-born
+    // sign-ups never see this — they keep the full ProfileForm.
+    if (session && session.user && consumeSkipOnboard()) {
+      sb.from("profiles").update({ onboarded: true, updated_at: new Date().toISOString() }).eq("id", session.user.id)
+        .then(() => loadProfile(session.user.id), () => loadProfile(session.user.id));
+      return <Splash />;
+    }
     return <ProfileForm session={session} onSignOut={signOut} onSaved={() => loadProfile(session.user.id)} />;
   }
   return <PianoApp session={session} profile={profile} setProfile={setProfile} onSignOut={signOut} />;
@@ -6818,7 +10099,35 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_push_primed", "1"); } catch (e) {}
   }
 
-  const [lang, setLang] = useState("en");   // English is the default language on entry
+  // With the first-run language picker SUSPENDED (LANG_PICKER_ENABLED below),
+  // PianoApp can now mount with profile.lang still null — it falls back to
+  // "en" until the user switches language from Settings, and setLang
+  // persists that change the same way as before: profiles.lang for a real
+  // account, the guest's own already-persisted local profile otherwise.
+  /* Thai is the preset. Nearly all arrivals come from the school's own Thai
+     Facebook and Instagram, and until now every one of them opened an English
+     app: a guest has no profile.lang, so the fallback decided the language for
+     them. Anyone can switch in one tap from the flag in the header, and that
+     choice persists — profiles.lang for an account, the local guest profile
+     otherwise — so this only decides what someone sees before they choose. */
+  const [lang, setLangState] = useState(profile.lang || "th");
+  // First-time language picker: SUSPENDED (owner request 2026-09) - the popup
+  // felt like a wall between a new user and the piano. The state/JSX are kept
+  // intact for a future re-enable: flip LANG_PICKER_ENABLED back to true and
+  // the overlay at the bottom of the file lights up again with zero other
+  // edits. Language remains fully switchable any time from Settings via
+  // setLang(), which persists the choice.
+  const LANG_PICKER_ENABLED = false;
+  const [langPickerOpen, setLangPickerOpen] = useState(LANG_PICKER_ENABLED && !profile.lang);
+  function setLang(lg) {
+    setLangState(lg);
+    if (session && session.user && session.user.id) {
+      sb.from("profiles").update({ lang: lg }).eq("id", session.user.id).then(() => {}, () => {});
+    } else {
+      saveGuestProfile({ ...profile, lang: lg });
+    }
+    setProfile(p => ({ ...p, lang: lg }));
+  }
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
 
@@ -6834,12 +10143,112 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [metroBpm, setMetroBpm] = useState(90);
   const [ambientOn, setAmbientOn] = useState(false);
   // coins · daily chest · mascot companion
-  const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
+  const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
+  // bumped on every upgrade so anything reading itemLv() re-renders with it
+  const [itemLvTick, setItemLvTick] = useState(0);
+  // the stable lives in its own storage, so the shelf needs telling when it moves
+  const [petTick, setPetTick] = useState(0);
+  useEffect(() => {
+    const sync = () => setPetTick(t => t + 1);
+    window.addEventListener("tg-pet", sync);
+    return () => window.removeEventListener("tg-pet", sync);
+  }, []);
+  const [shopTab, setShopTab] = useState("all");
+  const [shopSubTab, setShopSubTab] = useState(null);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
   const [buyCurrencyOpen, setBuyCurrencyOpen] = useState(false);
+  /* Conversion funnel (owner-approved 2026-09-19): one trial-stage popup at a
+     time — welcome (d1-3), halfway price-lock (d15-28), closing + direct
+     checkout (d29-30) — plus the expired-trial win-back. Never fires for
+     paying members or admins: effectivePlan maps them to non-trial/non-free,
+     so neither probe matches. Recomputed when plan/profile changes, which
+     also auto-clears the popup the moment a payment lands. */
+  const [convPopup, setConvPopup] = useState(null);
+  useEffect(() => {
+    const next = convPopupFor(profile, plan) || convWinBack(profile, plan);
+    setConvPopup(next);
+    if (next) logConvEvent(next.id, "shown");           // v3 funnel instrumentation
+  }, [profile, plan]);
+  function dismissConvPopup() {
+    if (convPopup) { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "dismissed"); }
+    setConvPopup(null);
+  }
+  /* v3 win-moment proof popup (owner plan §3): fires after a practice session
+     when the teaching loop closed with a real improvement (≥ +5%). Gated by
+     the 1-sell-per-day governor inside proofPopupEligible. Never for paying
+     members — same effectivePlan rule as the skeleton funnel. */
+  /* v3 post-purchase activation (owner plan §5): exactly once per account,
+     the first render where the plan is a PAID one — teacher speaks within
+     60s of payment (this effect runs the moment activatePremium/checkout
+     flips the plan). Guards admins (maxfamily) like the funnel does. */
+  const [activatePopup, setActivatePopup] = useState(false);
+  useEffect(() => {
+    if (plan === "trial" || plan === "free" || plan === "maxfamily") return;
+    if (firstPaidActivation(plan)) { setActivatePopup(true); logConvEvent("activation", "shown"); }
+  }, [plan]);
+  /* v3 win-moment proof popup (owner plan §3): fires after a practice session
+     when the teaching loop closed with a real improvement (≥ +5%). Gated by
+     the 1-sell-per-day governor inside proofPopupEligible. Trial only — same
+     effectivePlan rule as the skeleton funnel. */
+  const [proofPopup, setProofPopup] = useState(null);
+  useEffect(() => {
+    if (plan !== "trial") return;                         // trial only
+    const onProofCheck = () => {
+      if (convPopup) return;                            // skeleton popup wins
+      const next = proofPopupEligible(profile, plan);
+      if (next) { setProofPopup(next); logConvEvent("proof", "shown"); }
+    };
+    window.addEventListener("tiga:practice-done", onProofCheck);
+    return () => window.removeEventListener("tiga:practice-done", onProofCheck);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, plan, convPopup]);
+  /* Game-feature education (owner-approved 2026-09-19): one tip at a time,
+     priority-guarded — a conversion popup or broadcast always wins, and the
+     tip waits for the next quiet render. Fired from the same trigger points
+     the plan names: first coin payout, profile visit with chest available,
+     coin milestones, shop open. */
+  const [eduTip, setEduTip] = useState(null);
+  const firstCoinsSeenRef = useRef(false);
+  useEffect(() => {
+    firstCoinsSeenRef.current = eduSeen("firstCoins");
+  }, []);
+  // earnCoins itself is deep in use-gamification; the cheap correct signal
+  // for "first payout happened" is coins crossing zero upward after a
+  // practice session — checked here so the tip shows at the next quiet gap.
+  // TDZ note: broadcast/autoTeachTip are declared LATER in PianoApp, so
+  // they must be read through refs inside effects — referencing the binding
+  // directly here crashed the whole app at boot (Cannot access before
+  // initialization) and the owner got a blank Home page.
+  const eduBlockersRef = useRef({ broadcast: null, autoTeachTip: null, eduTip: null });
+  useEffect(() => { eduBlockersRef.current = { broadcast, autoTeachTip, eduTip }; });
+  const eduEvalRef = useRef(null);
+  useEffect(() => {
+    eduEvalRef.current = () => {
+      const b = eduBlockersRef.current;
+      if (convPopup || b.broadcast || b.autoTeachTip || b.eduTip) return;   // priority guard
+      const next = eduTipFor({ coins, chestAvail, firstCoinsSeen: firstCoinsSeenRef.current, shopOpenNow: false });
+      if (next) { setEduTip(next); markEduSeen(next.id); }
+    };
+  });
+  useEffect(() => {
+    const t = setTimeout(() => { if (eduEvalRef.current) eduEvalRef.current(); }, 2500);
+    return () => clearTimeout(t);
+  }, [coins, chestAvail]);   // page intentionally not here: declared later in PianoApp (TDZ crash)
+  function dismissEduTip() { setEduTip(null); }
   function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
+  /* Gem monetization plan v4 (item 1): the shop's only response to "not enough
+     gems" was a sad mascot — the moment of wanting was invisible and untapped.
+     This popup fires exactly there (buyWithGems) with two actions: straight
+     into the gem tab of the top-up modal, or an equal-value coins route when
+     one exists (never hides a free path — kill list v2). Fires on the failed
+     attempt only, never automatically. */
+  const [gemShort, setGemShort] = useState(null);   // { short, item }
+  const [gemShortFocus, setGemShortFocus] = useState(false);
+  function openGemShortPopup(shortBy, itemLabel) { setGemShort({ short: shortBy, item: itemLabel }); logUsage("gem", "shortpop:" + shortBy); }
+  function dismissGemShortPopup() { setGemShort(null); }
   // useGamification() is called before usePayment() (mascot must exist in time
   // to pass into usePayment's params) — so earnCoins/gainExp read plan via this
   // ref, kept fresh here now that `plan` exists. See use-gamification.ts header.
@@ -6858,15 +10267,46 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // E1: Register service worker; auto-reload when a new version activates
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-    const onMsg = (e) => { if (e.data && e.data.type === "SW_UPDATED") window.location.reload(); };
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      reg.update().catch(() => {});
+      if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      const t = setTimeout(() => { try { if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" }); } catch(e){} }, 2000);
+      return () => clearTimeout(t);
+    }).catch(() => {});
+    /* Reloading somebody out of a round they are winning is worse than letting
+       them finish on yesterday's build, so hold the reload while a fight is on
+       screen and take the first gap after it. */
+    const onMsg = (e) => {
+      if (!e.data || e.data.type !== "SW_UPDATED") return;
+      const go = () => {
+        // The Admin Console is work, not a round to lose: a reload mid-figure
+        // kicks the owner out of what they were reading and reads as "the app
+        // logs me out by itself". Defer to the first gap instead (same rule as
+        // an active PvP fight). The state is also restored after the reload
+        // (page + adminUnlocked in sessionStorage), so the console reopens
+        // where it was.
+        if (document.querySelector(".pvppage.fight") || document.querySelector(".admstu") || document.querySelector(".adminpay")) { setTimeout(go, 5000); return; }
+        window.location.reload();
+      };
+      go();
+    };
     navigator.serviceWorker.addEventListener("message", onMsg);
     return () => navigator.serviceWorker.removeEventListener("message", onMsg);
   }, []);
+  // Tapping a push notification while the app is already open just focuses the
+  // existing tab (sw.js can't navigate a client it doesn't own) — so the SW posts
+  // a NAVIGATE message into it instead of relying on the URL hash a fresh launch
+  // would read. Same channel as SW_RELOAD/SW_UPDATED above, different message type.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onNav = (e) => { if (e.data && e.data.type === "NAVIGATE" && e.data.page) setPage(e.data.page); };
+    navigator.serviceWorker.addEventListener("message", onNav);
+    return () => navigator.serviceWorker.removeEventListener("message", onNav);
+  }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer });
+  const { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songTigaTip, songSetlistPos, startSetlist, playAlongHand, changePlayAlongHand, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
 
-  // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer while on the Pathway page) ──
+  // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
   useEffect(() => {
     if (!session) return;
@@ -6876,6 +10316,57 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [autoTeachTip, setAutoTeachTip] = useState(null);   // {weakness, tip} currently shown, or null
   const autoTeachBusyRef = useRef(false);
   const autoTeachTimer = useRef(null);
+  // ── Auto Teaching 2.0: the knowledge micro-quiz inside the coaching card.
+  // One 30-second question per card; a correct answer pays +5 gems via the
+  // server (grant_quiz_gem — additive, hard daily cap) for signed-in learners,
+  // or local coins for guests. It never blocks or breaks the tip itself. ──
+  const [teachQuiz, setTeachQuiz] = useState(null); // {card, picked, correct, tleft} | null
+  const teachQuizTimer = useRef(null);
+  useEffect(() => {
+    if (autoTeachTip) return;
+    setTeachQuiz(null);
+    if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; }
+  }, [autoTeachTip]);
+  function openTeachQuiz(card) {
+    if (!card || !card.quiz) return;
+    try { logUsage("atip", "quiz"); } catch (e) {}
+    setTeachQuiz({ card, picked: null, correct: null, tleft: 30 });
+    if (teachQuizTimer.current) clearInterval(teachQuizTimer.current);
+    teachQuizTimer.current = setInterval(() => {
+      setTeachQuiz(q => {
+        if (!q || q.picked !== null) { if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; } return q; }
+        if (q.tleft <= 1) { if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; } bumpKnowledgeStats(false); return { ...q, picked: -1, correct: false, tleft: 0 }; }
+        return { ...q, tleft: q.tleft - 1 };
+      });
+    }, 1000);
+  }
+  function answerTeachQuiz(i) {
+    const q = teachQuiz;
+    if (!q || q.picked !== null || i < 0 || !q.card || !q.card.quiz) return;
+    const ok = i === q.card.quiz.correct;
+    if (teachQuizTimer.current) { clearInterval(teachQuizTimer.current); teachQuizTimer.current = null; }
+    bumpKnowledgeStats(ok);
+    try { logUsage("atip", ok ? "quiz_ok" : "quiz_no"); } catch (e) {}
+    setTeachQuiz({ ...q, picked: i, correct: ok, tleft: 0 });
+    if (ok) rewardTeachGem(q.card);
+  }
+  async function rewardTeachGem(card) {
+    try {
+      if (session && session.user && session.user.id) {
+        const { data: r } = await sb.rpc("grant_quiz_gem", { p_card_id: card ? card.id : null });
+        if (r && r.granted > 0) {
+          setProfile(p => ({ ...(p || {}), gems: r.gems }));
+          playUi("reward");
+          setLuckyToast({ kind: "gem", n: r.granted, left: r.remaining });
+          setTimeout(() => setLuckyToast(null), 3200);
+          return;
+        }
+        // RPC missing (migration not applied yet) or today's cap spent — pay coins instead
+      }
+      earnCoins(15);
+      playUi("reward");
+    } catch (e) { try { earnCoins(15); } catch (e2) {} }
+  }
   // ── Admin broadcast: an announcement (text + optional image) an admin can push to
   // every learner's home page on demand — checked on load and polled while the app is
   // open, so it appears without needing a reload; shown once per broadcast id per device. ──
@@ -6898,6 +10389,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function dismissBroadcast() {
     if (broadcast) markBroadcastSeen(broadcast.id);
     setBroadcast(null);
+  }
+  // Jump straight to an event's spotlighted feature — each SPOTLIGHT_FEATURES
+  // key maps to whatever that feature's real navigation actually is (a plain
+  // page for most, a dedicated opener for the two that are modals over
+  // Studio rather than their own page).
+  function goToSpotlight(key) {
+    playUi("click"); setNavOpen(false);
+    if (key === "playalong") { setPage("studio"); setStudioView("songs"); }
+    else if (key === "sight") { setPage("studio"); setStudioView("menu"); openSight(); }
+    else if (key === "camera") { setPage("studio"); setStudioView("menu"); openCamera(); }
+    else setPage(key);
   }
   // ── Seasonal / limited-time event: same app_settings + admin_set_app_setting
   // mechanism as broadcast above (key "event" instead of "broadcast"), polled the
@@ -6945,11 +10447,44 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle().then(({ data }) => { if (data) setProfile(data); });
     });
   }
-  const [welcomeOpen, setWelcomeOpen] = useState(() => { try { return !localStorage.getItem("tg_welcomed"); } catch (e) { return false; } });
+  // First-run welcome/onboarding card: SUSPENDED (owner request 2026-09) -
+  // same reason as the language picker; two popups before the first piano key
+  // was a churn risk. Kept verbatim behind WELCOME_ENABLED so re-enabling is
+  // a one-line flip; the tg_welcomed flag semantics are untouched (marking
+  // it is harmless and stays correct whenever this comes back).
+  const WELCOME_ENABLED = false;
+  const [welcomeOpen, setWelcomeOpen] = useState(() => { try { return WELCOME_ENABLED && !localStorage.getItem("tg_welcomed"); } catch (e) { return false; } });
   const [owned, setOwned] = useState(getOwned());
   const [skin, setSkin] = useState(getEquip("skin", "aqua"));
   const [theme, setTheme] = useState(getEquip("theme", "midnight"));
   const [frame, setFrame] = useState(getEquip("frame", "fr-none"));
+  const [keyboard, setKeyboard] = useState(getEquip("keyboard", "kb-classic"));
+  const [sticker, setSticker] = useState(getEquip("sticker", "st-star"));
+  /* The character used to be picked from a boy/girl/cute switch; it is now one
+     of five robot models, so an old saved choice is migrated to the model that
+     looks like what that person already had. It also now actually persists —
+     the old switch was read from storage at boot but never written back. */
+  const [charModel, setCharModelState] = useState(() => normalizeModel(getEquip("charModel", getEquip("charGender", "vanguard"))));
+  /* The chassis is a commitment, not a costume. One is chosen free on the first
+     visit to the profile and that grant is recorded as ownership; every other
+     model is stock in the shop at a price no piece of gear comes near, because
+     a body is not an accessory. There is no switcher on the profile any more —
+     you run the model you own, and you change it by buying another. */
+  const [modelChosen, setModelChosen] = useState(() => { try { return localStorage.getItem("tg_charModelSet") === "1"; } catch (e) { return true; } });
+  const [modelPickOpen, setModelPickOpen] = useState(false);
+  const [modelDetail, setModelDetail] = useState(null);   // the shop chassis being inspected
+  const [modelPickSel, setModelPickSel] = useState(null);
+  const [charHat, setCharHat] = useState(getEquip("charHat", "hat-straw"));
+  const [charOutfit, setCharOutfit] = useState(getEquip("charOutfit", "out-tshirt"));
+  const [charWeapon, setCharWeapon] = useState(getEquip("charWeapon", "wpn-stick"));
+  const [charAccessory, setCharAccessory] = useState(getEquip("charAccessory", "acc-shield"));
+  /* One stable array for the equipped loadout. Built inline at the call site it
+     was a new literal on every render of this (very large) component, which
+     defeats the memo() on every page it is handed to. */
+  const equippedGear = useMemo(() => [
+    ALL_WEAPONS.find(x => x.id === charWeapon), ALL_OUTFITS.find(x => x.id === charOutfit),
+    ALL_HATS.find(x => x.id === charHat), ALL_ACCESSORIES.find(x => x.id === charAccessory),
+  ], [charWeapon, charOutfit, charHat, charAccessory]);
   const [mode, setMode] = useState(getEquip("mode", "light"));   // "dark" | "light" — whole-app color scheme; light is the preset for first-time visitors, a saved preference always wins
 
 
@@ -6957,42 +10492,167 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   // ── studio sub-nav + sight-reading + hand coach ──
   const [studioView, setStudioView] = useState("menu");    // menu | songs
+  // which Play Along category to land on — the pathway's practice cards aim at
+  // a specific one (scales, songs) rather than dropping people on the default
+  const [songsCat, setSongsCat] = useState("songs");
   const [earGymInitialTab, setEarGymInitialTab] = useState("int"); // which Ear Gym tab to land on — set before navigating there for skill remediation
 
   const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
-  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp });
-  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, analyzeHands, retryCamera } = useCameraCoach({ lang, premium, setPricingOpen });
+  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly });
+  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera, camGame, camPraise, camMission } = useCameraCoach({ lang, premium, setPricingOpen, onReward: (xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); } });
 
 
   // ── routing + secret admin unlock ──
   // Pathway is the app's one and only starting screen — free navigation via the
   // drawer. Navigation stays drawer-only — a bottom tab bar was tried and
   // removed after it read as more confusing, not less.
-  const [page, setPage] = useState("pathway");
-  useEffect(() => { logUsage("page", page); }, [page]); // usage analytics: which page ends up viewed, however it was reached
+  // A reload (OTA SW_UPDATED / SW_RELOAD / crash recovery) used to dump the
+   // owner back to pathway AND out of the Admin Console they were mid-work in —
+   // both states lived only in React memory. sessionStorage keeps the last page
+   // and the admin unlock for the tab session only (a new tab or an explicit
+   // sign-out still starts clean).
+  const [page, setPage] = useState(() => {
+    try { const p = sessionStorage.getItem("tiga_page"); return p || "pathway"; } catch (e) { return "pathway"; }
+  });
+  useEffect(() => { try { sessionStorage.setItem("tiga_page", page); } catch (e) {} }, [page]);
+  // usage analytics: log each page WITH dwell time.
+  //
+  // Dwell is VISIBLE time, not wall-clock. It used to be (leave − enter), which
+  // meant a tab left open recorded the time the phone spent in someone's pocket
+  // as time spent learning: the live table held single page views of 247, 263
+  // and 280 minutes, all of them a signed-out tab parked on `pathway`. Six rows
+  // out of 903 were carrying the admin's "average time each" tile — it read
+  // 2 min 24 s while the median visitor stayed 1.1 seconds.
+  //
+  // So the clock banks on hide and restarts on show. The previous version did
+  // flush on hide, but then stopped tracking the page entirely to avoid
+  // double-counting, which threw away everything the visitor did after coming
+  // back. Banking keeps both properties: nothing counted twice, nothing lost.
+  const prevPageRef = useRef(null);
+  const dwellMsRef = useRef(0);               // visible ms banked on this page
+  const dwellSinceRef = useRef(Date.now());   // start of the current visible stretch, null while hidden
+  // Ceiling on one page view, matching public.clamp_dwell_ms server-side. The
+  // visible-time clock above catches every case the BROWSER reports — a phone
+  // locking, an app switch, a tab switch — but not a desktop window simply left
+  // open behind another one, where visibilityState stays "visible" for hours.
+  // Nothing in the DOM can tell us whether somebody is looking at that window,
+  // so the honest ceiling is the same 30 minutes analytics products use as a
+  // session timeout. The admin RPCs clamp too; doing it here as well keeps the
+  // raw table clean rather than only the reports built on it.
+  const DWELL_CAP_MS = 30 * 60 * 1000;
+  const takeDwell = () => {
+    if (dwellSinceRef.current != null) {
+      dwellMsRef.current += Date.now() - dwellSinceRef.current;
+      dwellSinceRef.current = null;
+    }
+    const ms = Math.min(dwellMsRef.current, DWELL_CAP_MS);
+    dwellMsRef.current = 0;
+    return ms;
+  };
+  useEffect(() => {
+    const ms = takeDwell();
+    // A page nobody actually saw (changed while the tab was hidden) writes no
+    // row, so `hits` counts times a page was on screen rather than times state
+    // happened to change.
+    if (prevPageRef.current != null && ms > 0) logUsage("page", prevPageRef.current, ms);
+    prevPageRef.current = page;
+    if (document.visibilityState !== "hidden") dwellSinceRef.current = Date.now();
+  }, [page]);
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        const ms = takeDwell();   // flush what was really watched; the page stays current
+        if (prevPageRef.current != null && ms > 0) logUsage("page", prevPageRef.current, ms);
+      } else if (dwellSinceRef.current == null) {
+        dwellSinceRef.current = Date.now();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
   useEffect(() => { if (page !== "sensei") clearSeq(); }, [page]); // stop any Sensei demo audio the instant the learner navigates away
   // remember the most recent non-Sensei page so the Sensei chat's ← button can
   // take the learner back where they came from (pathway lesson, studio, etc.)
   const pageTrackRef = useRef("pathway");
   useEffect(() => { if (page !== "sensei") pageTrackRef.current = page; }, [page]);
+  // Which group card the Challenging page should scroll to on arrival — set
+  // right before navigating there from the Auto Teaching nudge below, so the
+  // learner lands on the exact section they just studied instead of the top
+  // of a page listing all 4.
+  const [challengeFocusGroup, setChallengeFocusGroup] = useState(null);
+  // Auto Teaching → Challenging Mode nudge: a dismissible banner offering a
+  // one-tap jump to test what was just taught, the moment learnTopic() shows
+  // that everything else in this stage's group is already done too (see
+  // maybeNudgeChallenge below / groupChallengeReady in App.tsx module scope).
+  // { groupId, icon, label, kind: "boss" | "full" } | null
+  const [challengeNudge, setChallengeNudge] = useState(null);
+  const challengeNudgeTimer = useRef(null);
+  function maybeNudgeChallenge(stage) {
+    if (!stage || !stage.group) return;
+    const group = (PATH_GROUPS[lang] || []).find(g => g.id === stage.group);
+    if (!group) return;
+    clearTimeout(challengeNudgeTimer.current);
+    if (groupChallengeReady(group)) {
+      setChallengeNudge({ groupId: group.id, icon: group.icon, label: group.label, kind: "boss" });
+      challengeNudgeTimer.current = setTimeout(() => setChallengeNudge(null), 14000);
+    } else if (pathDoneSet().size >= PATHWAY.length && !certClaimedSet().has("full")) {
+      setChallengeNudge({ groupId: null, icon: "🏆", label: "", kind: "full" });
+      challengeNudgeTimer.current = setTimeout(() => setChallengeNudge(null), 14000);
+    }
+  }
 
   // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
   // screen. Two distinct producers, one shared consumer (see render below).
   const [guestGateReason, setGuestGateReason] = useState(null);
+  const gateLoggedRef = useRef(false);   // one "gate" event per visit, not per render
+  const gatePendingRef = useRef(false);  // clock ran out; raise as soon as it is polite to
+  const busyRef = useRef(false);         // a full-screen exercise is running right now
   const [guestMsLeft, setGuestMsLeft] = useState(GUEST_TRIAL_MS); // soft, non-blocking countdown — see corner pill
   // Returns true (and raises the gate) if this guest needs to log in before
   // continuing — call at the top of anything that needs a real account, and
   // bail out if it returns true. reason picks GuestGateScreen's copy:
   // "ai" for AI-backed features, "account" for everything else account-bound.
-  function requireLogin(reason = "account") { if (isGuest) { setGuestGateReason(reason); return true; } return false; }
+  function requireLogin(reason = "account") { if (isGuest) { raiseGate(reason); return true; } return false; }
+  /* Raise the sign-up gate AND write down that it happened.
+     Nothing recorded this before, so the visitor panel's "อยู่ต่อหลังเห็นหน้า
+     ชวนสมัคร" bar was an inference from dwell time, not a measurement — and
+     the inference was wrong: of the 30 people that bar counted, 22 had never
+     changed page, and the effect below can only fire on a page change, so the
+     screen could not have been raised for them at all. One event ends the
+     guessing. Only fires on the transition, never on a re-render. */
+  function raiseGate(reason) {
+    // The write stays OUTSIDE the state updater: React calls updaters twice
+    // under StrictMode, which this app does use, and a log line in there would
+    // have counted every gate twice — precisely the kind of number this whole
+    // pass exists to stop producing. The ref makes it once per visit.
+    if (!gateLoggedRef.current) { gateLoggedRef.current = true; logUsage("gate", reason || "account"); }
+    setGuestGateReason(prev => prev || reason);
+  }
   // Ticks tg_guest_ms forward by real elapsed time, mirroring syncProgress's own
   // interval/visibility wiring (~10226 below) rather than inventing a new style.
   useEffect(() => {
     if (!isGuest) return;
     let last = Date.now();
-    const flush = () => { const now = Date.now(); addGuestMs(now - last); last = now; setGuestMsLeft(Math.max(0, GUEST_TRIAL_MS - getGuestMs())); };
+    const flush = () => {
+      const now = Date.now(); addGuestMs(now - last); last = now;
+      const left = Math.max(0, GUEST_TRIAL_MS - getGuestMs());
+      setGuestMsLeft(left);
+      /* THE GATE IS RAISED HERE, off the clock itself. It used to be raised
+         only by the effect below, whose deps are [isGuest, page] — so it could
+         fire on a page change and nothing else. Measured against live traffic:
+         211 of 221 signed-out visitors never changed page even once (guests
+         only ever reach two pages at all), so 95.5% of people were never once
+         asked to sign up, however long they stayed. That is the whole reason
+         the sign-up count was zero.
+         Mid-exercise is still protected — see the watcher below — but now by
+         waiting for a good moment rather than by never arriving. */
+      if (left <= 0) {
+        gatePendingRef.current = true;
+        if (!busyRef.current) raiseGate("time");
+      }
+    };
     flush();
-    const iv = setInterval(flush, 10000);
+    const iv = setInterval(flush, GUEST_TICK_MS);
     const onHide = () => { if (document.visibilityState === "hidden") flush(); };
     const onPageHide = () => flush();
     document.addEventListener("visibilitychange", onHide);
@@ -7003,7 +10663,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // (exercises/overlays are their own state, layered on top of `page` — `page`
   // itself only changes once the guest has returned to a list/menu).
   useEffect(() => {
-    if (isGuest && getGuestMs() >= GUEST_TRIAL_MS) setGuestGateReason("time");
+    if (isGuest && getGuestMs() >= GUEST_TRIAL_MS) raiseGate("time");
   }, [isGuest, page]);
 
   // School Plan Pro: the teacher dashboard has no nav entry anywhere — it's reached
@@ -7017,8 +10677,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }, [profile]);
 
-  // ── Auto Teaching: while a Max-plan learner is on the Home page, fire a short
-  // real-time coaching card every N minutes (learner's own pick, else the admin's platform default). ──
+  // Weekly-report push deep link (cold launch only — the app wasn't already
+  // running, so there's no service-worker client to postMessage into; see the
+  // NAVIGATE listener below for the "already open" case).
+  useEffect(() => {
+    if (window.location.hash === "#daily-mentor") setPage("coach");
+  }, []);
+
+  // Payment-settings deep link. Stops at the unlock screen unless this browser
+  // has already been unlocked — the hash is a shortcut, not a way in.
+  useEffect(() => {
+    if (window.location.hash === "#admin-payments") setPage("admin");
+  }, []);
+
+  // ── Auto Teaching: while a Max-plan learner is anywhere in the app (any page except
+  // the admin/teacher dashboards, where a beginner-coaching card makes no sense), fire a
+  // short real-time coaching card every N minutes (learner's own pick, else the admin's
+  // platform default). ──
   const autoTeachTipRef = useRef(null);
   useEffect(() => { autoTeachTipRef.current = autoTeachTip; }, [autoTeachTip]);
   // Read fresh inside the timer callback instead of gating the effect below on `page` —
@@ -7029,14 +10704,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => { pageRef.current = page; }, [page]);
   useEffect(() => { songAutoLoopRef.current = songAutoLoop; }, [songAutoLoop]);
   async function fetchAutoTeachTip() {
-    if (pageRef.current !== "pathway") return; // only surface the card while actually on Pathway
+    // App-wide now (was Pathway-only) — admin/school are role dashboards, not learner
+    // practice contexts, so a beginner-coaching card there would be talking about a
+    // profile that isn't the person looking at the screen.
+    if (pageRef.current === "admin" || pageRef.current === "school") return;
     if (autoTeachTipRef.current || autoTeachBusyRef.current) return; // don't clobber an unread tip
     autoTeachBusyRef.current = true;
     try {
       const obj = await generateCoachTip(lang, profile);
       if (obj) {
+        // Auto Teaching 2.0: attach the รู้ไว้ใช่ว่า micro-lesson (it explains
+        // THIS weakness, cited to a real university source) and the learner's
+        // own data chart. Both best-effort — the tip must never fail because
+        // the knowledge layer hiccuped.
+        try {
+          const kcard = pickTeachCard({ level: (profile && profile.level) || 0, struggleLabel: obj.topic || obj.weakness || "" });
+          if (kcard) { markCardSeen(kcard.id); obj.knowledge = kcard; }
+        } catch (e2) {}
+        try { obj.visual = buildAutoTeachVisual(obj, profile); } catch (e2) {}
         setAutoTeachTip(obj);
-        logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature);
+        logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature, obj.topic);
+        try { openAdvice(obj, weightedStruggles()); logUsage("atip", "show"); } catch (e2) {} // วงจรปิด (ข้อ 6): จดสถานะจุดอ่อน ณ ตอนยิงไว้เทียบผลซ้อมถัดไป
       }
     } catch (e) { /* a missed real-time tip silently skips — not worth an error popup mid-practice */ }
     autoTeachBusyRef.current = false;
@@ -7052,8 +10740,39 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => clearInterval(autoTeachTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan, autoTeachMin, lang]);
+  // Auto-Teach แม่นยำ (แผนข้อ 8): ยิงตาม "จังหวะการสอน" ไม่ใช่แค่ตัวจับเวลา —
+  // (a) เพิ่งจบซ้อมที่พลาดเยอะ (<65%) → คำแนะนำมาตอนสมองกำลังถามหาคำตอบ
+  // (b) เพิ่งทำลายสถิติ → โมเมนต์ภูมิใจ รับคำท้าต่อยอดได้ดี
+  // (c) กลับมาหลังห่างหาย ≥3 วัน → ทักตามพร้อมจุดอ่อนล่าสุด ไม่เริ่มจากศูนย์
+  useEffect(() => {
+    if (!premium || !(autoTeachMin > 0)) return;
+    const onPracticeDone = (e) => {
+      const d = (e && e.detail) || {};
+      if (d.accuracy != null && d.accuracy < 65) { setTimeout(() => fetchAutoTeachTip(), 1500); return; }
+      if (d.isNewBest) setTimeout(() => fetchAutoTeachTip(), 2500);
+    };
+    window.addEventListener("tiga:practice-done", onPracticeDone);
+    try {
+      const m = readMemory();
+      const gap = m && m.lastSession ? Date.now() - m.lastSession : 0;
+      if (gap >= 3 * 86400000) setTimeout(() => fetchAutoTeachTip(), 3000);
+    } catch (err) {}
+    return () => window.removeEventListener("tiga:practice-done", onPracticeDone);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [premium, autoTeachMin, lang]);
 
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  // Survives the auto-reload: the owner enters the code once per tab session,
+   // not once per deploy. sessionStorage (not localStorage) on purpose — an
+   // entirely new tab still has to prove it is the same person.
+  const [adminUnlocked, setAdminUnlocked] = useState(() => {
+    try { return sessionStorage.getItem("tiga_admin_unlocked") === "1"; } catch (e) { return false; }
+  });
+  useEffect(() => { try { if (adminUnlocked) sessionStorage.setItem("tiga_admin_unlocked", "1"); else sessionStorage.removeItem("tiga_admin_unlocked"); } catch (e) {} }, [adminUnlocked]);
+  // A sign-out (session → null) must also close the admin console — App's
+  // signOut() clears the sessionStorage flag, this closes the in-memory state
+  // (one call from App used to cross component scopes and throw on every
+  // sign-out — see signOut()'s header).
+  useEffect(() => { if (!session && adminUnlocked) setAdminUnlocked(false); }, [session]);
   const [showLock, setShowLock] = useState(false);
   const tapCount = useRef(0);
   const tapTimer = useRef(null);
@@ -7074,15 +10793,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }
 
-  // secret code — change this to your own
-  const ADMIN_CODE = "tiga2026";
-  function tryUnlock(code) {
-    if (code === ADMIN_CODE) {
-      setAdminUnlocked(true);
-      setShowLock(false);
-      return true;
-    }
-    return false;
+  // secret codes — change these to your own
+  // Top-tier admins (tier 3, i.e. the owner) enter with their own PIN;
+  // lower admin tiers (1–2) keep the staff code.
+  const ADMIN_CODE = "666666";        // staff (admin tier 1–2)
+  const TOP_ADMIN_CODE = "tiga2026";  // owner only (admin tier 3)
+  /* Checking the code and opening the door used to be one function. They are
+     two now because the fingerprint path opens the door without a code, and
+     the enrolment offer needs to know the code was right while still holding
+     the door shut for one more screen. */
+  const adminTier = (profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0);
+  function checkAdminCode(code) {
+    return code === (adminTier >= 3 ? TOP_ADMIN_CODE : ADMIN_CODE);
+  }
+  function openAdmin() {
+    setAdminUnlocked(true);
+    setShowLock(false);
   }
   function exitAdmin() {
     setAdminUnlocked(false);
@@ -7092,12 +10818,43 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, requireLogin });
+  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, retryLast, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, onUpsell: () => setPricingOpen(true) });
   // Which Pathway topic is currently being studied on the Sensei page, so a
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
   const [activeStageId, setActiveStageId] = useState(null);
   const [activeStageType, setActiveStageType] = useState(null); // chosen chord/interval type, if any — lets "Change Key" reopen straight at the key picker
+
+  // Knowledge Quest conversation starters — 3 unread case studies picked at
+  // random each time the chat page is (re)entered, so returning learners see
+  // a fresh invitation to explore instead of the same 3 forever. Recomputes
+  // only on page/lang change, not on every keystroke in the chat input.
+  const chatStarters = useMemo(() => {
+    const read = caseReadSet();
+    const pool = [];
+    for (const stage of knowledgeDomains()) {
+      for (const c of (BENEFIT_CASES[stage.id] || [])) {
+        if (!read.has(stage.id + "/" + c.id)) pool.push({ stage, c });
+      }
+    }
+    const picked = [];
+    /* TIGA hub first (P4): personalized openers from the learner's REAL
+       record (top struggle / just-played song). Merged ahead of the curated
+       pool and badged 🧠; onStarterTap handles them as a direct chat prefill
+       (stage/case null-safe). */
+    try {
+      const tiga = tigaHub.chatStartersFor(readMemory(), readPracticeLog(), profile);
+      const tigaStarters = (tiga && tiga.starters || []).slice(0, 2).map((st, i) => ({
+        tiga: true,
+        stage: { id: "tiga-" + i, th: "ครู TiGA", en: "Teacher TiGA", zh: "TiGA老师" },
+        c: { id: "starter-" + i, th: st.question.th, en: st.question.en, zh: st.question.zh },
+      }));
+      picked.push(...tigaStarters);
+    } catch (e) { /* hub absent → curated pool only */ }
+    while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    return picked;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, lang]);
 
   const uid = session && session.user && session.user.id;
 
@@ -7115,11 +10872,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [uid]);
 
 
-  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, setPage, setMsgs, topicHint, lessonKey, isGuest, callClaude, lang });
+  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly });
 
 
   const { vmOpen, setVmOpen, vmState, vmCaption, setVmCaption, vmMsgs, setVmMsgs, vmNotes, setVmNotes, vmErr, setVmErr, vmActiveRef, vmStateRef, vmRecRef, vmMsgsRef, vmNotesRef, vmFrozenRef, vmPlayReactT, vmSilenceT, vmRestartT, vmWatchdogT, vmListenSeqRef, vmEndRef, vmLastActivityRef, vmIdleNudgedRef, vmIdleTimerRef, vmSelfSpeakingRef, vmEarResetRef, vmEarFlushRef, vmDeafCountRef, vmTallyOkRef, vmTallyMissRef, vmFast, setVmFast, vmFastRef, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmPoly, setVmPoly, vmPolyRef, vmLangOpen, setVmLangOpen, vmMenuOpen, setVmMenuOpen, langRef, vmLastDemoRef, vmStreakRef, vmMissRef, vmFillersRef, vmFillerSrcRef, vmCloudDeadRef, vmLit, setVmLit, vmLitT, vmStaff, setVmStaff, vmInstant, setVmInstant, vmInstantT, vmExpectRef, vmSeqRef, vmEarRef, vmInterruptRef, vmTurnRef, vmSpokenRef, vmSpokeAtRef, vmSessionStartRef, vmActStartRef, vmFillerLastRef, vmInput, setVmInput, openVoice, exitVoice, vmOrbTap, vmOnNote, vmTogglePoly, vmProcess, vmToggle } = useVoiceTutor({ lang, session, profile, homework, setHomework, setPage, setStudioView, setMetroOn, setMetroBpm, metroTimingReport, openCamera, chooseSong, startPractice, lastSeq });
 
+
+  /* The other half of the fix. The gate must not land in the middle of a
+     run — a sight-reading sprint, a song, the camera coach — so the clock
+     above only marks it pending while one is on screen, and this raises it
+     the moment the exercise ends. Five full-screen exercises, listed rather
+     than inferred: everything else on top of a page is a panel the visitor
+     opened themselves and can be interrupted. */
+  useEffect(() => {
+    busyRef.current = !!(practiceOpen || songOpen || sightOpen || camOpen || vmOpen);
+    if (!busyRef.current && gatePendingRef.current && isGuest) raiseGate("time");
+  }, [practiceOpen, songOpen, sightOpen, camOpen, vmOpen, isGuest]);
 
   // close flag menu on outside click
   useEffect(() => {
@@ -7188,6 +10956,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     else if (key === "play_along") { setPage("studio"); setStudioView("songs"); }
     else if (key === "ear_training") { logUsage("nav", "studio-eargym"); setEarGymInitialTab(tab || "int"); setPage("eargym"); }
     else if (key === "reading_course") { logUsage("nav", "studio-reading"); setPage("reading"); }
+    else if (key === "challenging") { logUsage("nav", "coach-challenging"); setPage("challenging"); }
     else { setPage("pathway"); }
   }
   // Auto Teaching popup steps are free text from the AI ("practice Twinkle Twinkle",
@@ -7214,12 +10983,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           }
         }
       }
+      const mentionedKey = findKeyMentionInText(text);
       for (const st of PATHWAY) {
         for (const nt of variants(tr(st.title, lang))) {
-          if (q.includes(nt) || nt.includes(q)) return { type: "stage", stage: st };
+          if (q.includes(nt) || nt.includes(q)) return { type: "stage", stage: st, key: mentionedKey };
         }
         const nid = norm(st.id);
-        if (nid.length >= 3 && q.includes(nid)) return { type: "stage", stage: st };
+        if (nid.length >= 3 && q.includes(nid)) return { type: "stage", stage: st, key: mentionedKey };
       }
     }
     return { type: "feature", feature };
@@ -7233,8 +11003,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     } else if (r.type === "stage") {
       if (r.stage.content) { readChapter(r.stage); }
       else {
+        // Honor a specific key named in the tip's own text first — falling
+        // straight to "whichever key isn't done yet" ignored what the tip
+        // actually said (a tip about the C major scale could open any other
+        // key, whichever the learner's progress happened to have queued up
+        // next), which read as the recommendation being simply wrong.
         const keyMap = keyDoneMap();
-        const key = KEYS_12.find(k => !(keyMap[r.stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
+        const key = r.key || KEYS_12.find(k => !(keyMap[r.stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
         learnTopic(r.stage, key, r.stage.types ? r.stage.types[0] : null);
       }
     } else {
@@ -7291,6 +11066,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const id = setInterval(tick, 60000 / metroBpm);
     return () => clearInterval(id);
   }, [metroOn, metroBpm]);
+  // auto-enable metronome when entering Play Along, sync BPM with song + tempo, disable when exiting
+  const prevSongOpenRef = useRef(false);
+  const prevSongMetaRef = useRef(null);
+  useEffect(() => {
+    if (songOpen && !prevSongOpenRef.current) {
+      prevSongOpenRef.current = true;
+      setMetroOn(true);
+      if (songMeta && songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    }
+    // sync BPM when song changes during play (setlist/retry)
+    if (songOpen && songMeta && songMeta !== prevSongMetaRef.current) {
+      prevSongMetaRef.current = songMeta;
+      if (songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    }
+    // sync BPM when tempo multiplier changes (0.5x, 0.75x, 1x, 1.25x)
+    if (songOpen && songMeta && songMeta.bpm) {
+      setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    }
+    if (!songOpen && prevSongOpenRef.current) {
+      prevSongOpenRef.current = false;
+      prevSongMetaRef.current = null;
+      setMetroOn(false);
+    }
+  }, [songOpen, songMeta, songTempo]);
   // grade the learner's note onsets against the actual metronome clicks (ms-precise)
   function metroTimingReport(noteTimes) {
     const beats = metroBeatTimesRef.current;
@@ -7342,6 +11141,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches);
   const isIOSSafari = isIOSDevice && /Safari/i.test(navigator.userAgent || "") &&
     !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent || ""); // Add to Home Screen only works from actual Safari
+  const isIOSChrome = isIOSDevice && /CriOS/i.test(navigator.userAgent || ""); // Chrome on iOS is just a WebKit skin — Apple never grants it Safari's own home-screen-install entitlement, so it always needs its own "switch to Safari" instructions rather than the generic non-Safari warning
   const [apkInfo, setApkInfo] = useState(null);
   useEffect(() => {
     if (isNative || !(/Android/i.test(navigator.userAgent || "") || isIOSDevice)) return;
@@ -7493,51 +11293,250 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const tc = document.querySelector('meta[name="theme-color"]');
     if (tc) tc.setAttribute("content", mode === "dark" ? "#0d0d0c" : "#faf9f5");
   }, [skin, theme, frame, mode]);
-  const EQUIP_SETTERS = { skin: setSkin, theme: setTheme, frame: setFrame };
+  // ── chassis selection ──
+  // the first model is a grant, so it is written into `owned` like a purchase
+  function commitModel(id) {
+    const n = normalizeModel(id);
+    setCharModelState(n); setEquipLS("charModel", n);
+    const item = MODEL_ITEM[n];
+    if (item && !owned.includes(item)) { const no = [...owned, item]; setOwned(no); setOwnedLS(no); }
+    setModelChosen(true); try { localStorage.setItem("tg_charModelSet", "1"); } catch (e) {}
+    setModelPickOpen(false); setModelPickSel(null);
+    playUi("reward"); mascot("celebrate", 1800);
+  }
+  // the one-time choice is asked for the moment the profile is first opened
+  useEffect(() => { if (page === "profile" && !modelChosen) { setModelPickSel(charModel); setModelPickOpen(true); } }, [page, modelChosen, charModel]);
+  /* The Reassignment Core was the previous answer to "how do I change model" and
+     it is gone — models are bought outright now. Anyone who already paid for one
+     gets their coins back once, rather than being left holding a dead item. */
+  useEffect(() => {
+    let n = 0;
+    try { n = parseInt(localStorage.getItem("tg_modelCores") || "0", 10) || 0; } catch (e) { return; }
+    if (n <= 0) { try { localStorage.removeItem("tg_modelCores"); } catch (e) {} return; }
+    try { localStorage.removeItem("tg_modelCores"); } catch (e) {}
+    const v = getCoins() + n * 5000; setCoinsLS(v); setCoins(v);
+    if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const EQUIP_SETTERS = { skin: setSkin, theme: setTheme, frame: setFrame, keyboard: setKeyboard, sticker: setSticker, charHat: setCharHat, charOutfit: setCharOutfit, charWeapon: setCharWeapon, charAccessory: setCharAccessory };
+  // PvP loadout presets swap between OWNED gear only — this equips, it never
+  // buys, so a preset saved before an item was sold/lost just skips that slot
+  function applyLoadout(rec) {
+    if (!rec) return;
+    if (rec.model) {
+      const n = normalizeModel(rec.model);
+      if (owned.includes(MODEL_ITEM[n])) { setCharModelState(n); setEquipLS("charModel", n); }
+    }
+    if (rec.weapon && owned.includes(rec.weapon)) { setCharWeapon(rec.weapon); setEquipLS("charWeapon", rec.weapon); }
+    if (rec.outfit && owned.includes(rec.outfit)) { setCharOutfit(rec.outfit); setEquipLS("charOutfit", rec.outfit); }
+    if (rec.hat && owned.includes(rec.hat)) { setCharHat(rec.hat); setEquipLS("charHat", rec.hat); }
+    if (rec.accessory && owned.includes(rec.accessory)) { setCharAccessory(rec.accessory); setEquipLS("charAccessory", rec.accessory); }
+    playUi("reward");
+  }
   function buyOrEquip(kind, item) {
+    // a chassis is bought and then RUN — it does not go through the equip
+    // setters because what gets stored is the model id, not the item id
+    if (item.model) {
+      if (!owned.includes(item.id)) {
+        if (coins < item.cost) { mascot("sad", 1400); return; }
+        const v = getCoins() - item.cost; setCoinsLS(v); setCoins(v);
+        if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+        const no = [...owned, item.id]; setOwned(no); setOwnedLS(no);
+        mascot("celebrate", 2400);
+      } else { haptic(6); }
+      setCharModelState(item.model); setEquipLS("charModel", item.model);
+      playUi("reward");
+      return;
+    }
     const setEquip = EQUIP_SETTERS[kind];
     if (owned.includes(item.id)) {
       setEquip(item.id); setEquipLS(kind, item.id);
       playUi("click"); haptic(6);
       return;
     }
+    if (item.gem) { buyWithGems(kind, item); return; }
     if (coins < item.cost) { mascot("sad", 1200); return; }
     const v = getCoins() - item.cost; setCoinsLS(v); setCoins(v); if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
     const no = [...owned, item.id]; setOwned(no); setOwnedLS(no);
     setEquip(item.id); setEquipLS(kind, item.id);
     playUi("reward"); mascot("celebrate", 1800);
   }
-  const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL };
+
+  /* Gems have no client write path — a database trigger rejects any direct
+     write to profiles.gems, deliberately, so that the rarer currency cannot be
+     forged the way coins can. The only server-side spend that exists is the
+     fixed-rate gems→coins conversion, so a gem purchase runs THROUGH it: spend
+     N gems (the server debits them and credits N×25 coins), then immediately
+     debit exactly those N×25 coins for the item. Net effect is −N gems and no
+     coin change, the gem balance stays server-authoritative, and this needed
+     no new RPC and no schema migration.
+
+     The coin credit lands first, so the balance can never go negative. If the
+     app dies between the two halves the player keeps the coins and not the
+     item — recoverable, and never a loss. */
+  async function buyWithGems(kind, item) {
+    if (!session) { requireLogin(); return; }
+    if (gems < item.gem) {
+      mascot("sad", 1400);
+      // Plan v4 item 1: turn the dead end into the funnel's entry — 2-button popup.
+      openGemShortPopup(item.gem - gems, (item.name && (item.name[lang] || item.name.th)) || item.id || "");
+      return;
+    }
+    const ok = await exchangeGems(item.gem);
+    if (!ok) return;
+    const v = Math.max(0, getCoins() - item.gem * 25);
+    setCoinsLS(v); setCoins(v);
+    if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+    const no = [...owned, item.id]; setOwned(no); setOwnedLS(no);
+    const setEquip = EQUIP_SETTERS[kind];
+    if (setEquip) { setEquip(item.id); setEquipLS(kind, item.id); }
+    playUi("reward"); mascot("celebrate", 2400);
+  }
+  const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL, mythic: lang === "th" ? "มหาเทพ" : lang === "zh" ? "神话" : "Mythic" };
+  /* ── the menagerie ──
+     One button does both jobs, the way every other shelf in this shop works:
+     if you do not have the animal it costs coins, and if you do it walks
+     beside you instead of whichever one currently does. Nothing is ever put
+     down for good — the one you swap out keeps its name, its bond and its
+     hunger, and is waiting in the stable when you come back for it. */
+  function buyOrCarryPet(it) {
+    if (ownsSpecies(it.pet)) {
+      if (carriedSpecies() === it.pet) { haptic(6); return; }
+      carryPet(it.pet);
+      setPetTick(t => t + 1);
+      playUi("reward"); haptic(6);
+      return;
+    }
+    if (coins < it.cost) { mascot("sad", 1400); return; }
+    const v = getCoins() - it.cost; setCoinsLS(v); setCoins(v);
+    if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+    adoptPet(it.pet);
+    setPetTick(t => t + 1);
+    playUi("reward"); mascot("celebrate", 2400);
+  }
+
   function renderShopItem(kind, it, equippedId) {
     const own = owned.includes(it.id), eq = equippedId === it.id;
+    if (it.model) {
+      const running = charModel === it.model;
+      return (
+        <button key={it.id} className={`shopitem ${it.rarity} mdlitem${running ? " equipped" : ""}`} onClick={() => { setModelDetail(it.id); playUi("click"); }}>
+          <span className="mdlitem-head"><CyberAvatar model={it.model} headOnly /></span>
+          <span className="shopitem-nm">{tr(it, lang)}</span>
+          <span className="shopitem-desc">{tr(it.desc, lang)}</span>
+          <span className="shopitem-cls" style={{ "--cc": classOf(it.model).c }}>{tr(classOf(it.model), lang)}</span>
+          <StatBars lang={lang} stats={MODEL_COMBAT[it.model]} compact />
+          <span className="shopitem-sp">{tr((MODEL_COMBAT[it.model] || {}).sp, lang)}</span>
+          <span className="shopitem-tag">{running ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost.toLocaleString()}</span>
+        </button>
+      );
+    }
+    if (it.pet) {
+      const have = ownsSpecies(it.pet);
+      const here = carriedSpecies() === it.pet;
+      const sp = PET_SPECIES.find(x => x.id === it.pet) || PET_SPECIES[0];
+      const ty = PET_TYPES[sp.type] || {};
+      return (
+        <button key={it.id} data-tick={petTick}
+          className={`shopitem ${it.rarity} petitem${here ? " equipped" : ""}`}
+          onClick={() => buyOrCarryPet(it)}>
+          <span className="petitem-art"><PetArt species={sp.id} level={1} /></span>
+          <span className="shopitem-nm">{tr(it, lang)}</span>
+          <span className="petitem-type" style={{ "--tc": ty.c }}>{tr(ty, lang)}</span>
+          <span className="shopitem-desc">{tr(it.desc, lang)}</span>
+          <span className="petitem-bonus">{tr(PET_BONUS[sp.bonus] || {}, lang)}</span>
+          <span className="shopitem-tag">
+            {here ? "✓ " + T("อยู่ข้างคุณ", "With you", "在你身边")
+              : have ? T("พาตัวนี้ไป", "Take this one", "带上它")
+                : "🪙 " + it.cost.toLocaleString()}
+          </span>
+        </button>
+      );
+    }
+    /* ── the upgrade rail ──
+       Buying used to be the end of an item's story: a legendary blade was
+       worth exactly what it was worth on the day it was bought, forever, and
+       once you owned the piece you wanted the shop had nothing left to sell
+       you. Every owned item now takes five levels, each one worth a full
+       rarity point, so a rare you actually invest in overtakes a legendary
+       nobody has fed. Gear-slot items only — a keyboard skin has no stat to
+       raise, and pretending otherwise would be a button that lies. */
+    const isGear = /^(wpn|out|hat|acc)-/.test(it.id || "");
+    const lv = isGear ? itemLv(it.id) : 0;
+    const maxed = lv >= ITEM_MAX_LV;
+    const upCost = maxed ? 0 : upgradeCost(it, lv);
+    const canUp = own && isGear && !maxed && coins >= upCost;
+    const doUpgrade = (e) => {
+      e.stopPropagation();          // the card itself equips; this button must not
+      if (!own || !isGear || maxed) return;
+      if (coins < upCost) { mascot("sad", 1200); return; }
+      // the same coin path a purchase takes, so the server copy stays in step
+      const v = getCoins() - upCost; setCoinsLS(v); setCoins(v);
+      if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+      setItemLv(it.id, lv + 1);
+      setItemLvTick(t => t + 1);    // stat bars and the arena re-read on this
+      mascot("celebrate", 1600);
+      playUi("reward");
+    };
     return (
-      <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}`} onClick={() => buyOrEquip(kind, it)}>
+      <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}${lv > 0 ? " upgraded" : ""}`} onClick={() => buyOrEquip(kind, it)}>
         {it.isNew && !own && <span className="shopitem-new">{lc.shopNew}</span>}
-        <span className="shopitem-swwrap">
-          <span className="shopitem-sw" style={{ background: `linear-gradient(135deg,${it.sw.join(",")})` }} />
-          <span className="shopitem-ic">{it.icon}</span>
-        </span>
+        {lv > 0 && <span className={`shopitem-lv${maxed ? " max" : ""}`}>+{lv}</span>}
+        {it.art
+          ? <span className="shopitem-art"><ItemArt art={it.art} sw={it.sw} /></span>
+          : <span className="shopitem-icon-lg">{it.icon}</span>}
         <span className="shopitem-nm">{tr(it, lang)}</span>
         <span className="shopitem-rare">{RARITY_LABEL[it.rarity]}</span>
-        <span className="shopitem-tag">{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : "🪙 " + it.cost}</span>
+        <span className={`shopitem-tag${it.gem ? " gem" : ""}`}>{eq ? "✓ " + lc.shopEquipped : own ? lc.shopEquip : it.gem ? "💎 " + it.gem : "🪙 " + it.cost}</span>
+        {own && isGear && (
+          maxed
+            ? <span className="shopitem-up max">★ {tr({ th: "อัปเกรดเต็ม", en: "Fully upgraded", zh: "已满级" }, lang)}</span>
+            : <span className={`shopitem-up${canUp ? "" : " poor"}`} role="button" tabIndex={0}
+                onClick={doUpgrade}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") doUpgrade(e); }}>
+                ⬆ +{lv + 1} · 🪙 {upCost.toLocaleString()}
+              </span>
+        )}
       </button>
     );
   }
 
 
   // ── learn a topic+key from the pathway menu: send to AI + go to sensei page ──
-  function learnTopic(stage, key, chordType = null) {
-    if (stage && stage.id) { markPathDone(stage.id); if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); setActiveStageType(chordType); }
-    const basePrompt = stage.learn[lang] || stage.learn.en;
+  // Shared demo-sequence builder for a Pathway stage+key(+chord type) — the
+  // part of learnTopic() that has nothing to do with teaching/chat, factored
+  // out so reviewStage() (SRS deep-link, below) can reuse it to jump straight
+  // to a graded practice session without re-running any of the AI-teaching path.
+  function buildStageDemoSeq(stage, key, chordType) {
     const keyId = key ? key.id : "C";
     const keyLabel = key ? key.name : "C";
-    logActivity("lesson", stage.id + "/" + keyId.toLowerCase(), 0, 0, 180); // ~3 min of study per topic-in-key
-    recordSRS(stage.id + "/" + keyId.toLowerCase());
-
     // Use chord-type's demo notes if a type was selected, otherwise stage defaults
     const demoSrc = chordType || stage;
     const semis = semisFromC(keyId);
+    // Chord-progression topics (demoMode "prog"): the selected type carries the
+    // Roman numerals — re-derive the voicing in the drilled key from the theory
+    // engine instead of transposing C's demo (keeps per-degree spelling right),
+    // and pass chordSizes so the demo breathes between chords.
+    if (stage.demoMode === "prog" && chordType && chordType.romans) {
+      const notes = progressionNotes(chordType.romans, keyId);
+      const labels = progressionChordLabels(chordType.romans, keyId);
+      return {
+        notes,
+        mode: "prog",
+        fingers: chordType.romans.map(() => (hand === "left" ? PROG_FINGER_LH : PROG_FINGER_RH).slice()).flat(),
+        chordSizes: chordType.romans.map(() => 3),
+        chordLabels: labels,
+        label: `${tr(chordType.label, lang)} ${tr(stage.title, lang)} · ${keyLabel}`,
+        key: null,
+        stageId: stage.id,
+        // fullTitle is declared near the bottom of this function — computing
+        // it here (same expression) avoids the TDZ ReferenceError that made
+        // every key tap in the Progression picker fail silently in production.
+        keyId, keyLabel, fullTitle: `${tr(chordType.label, lang)} ${tr(stage.title, lang)}`,
+      };
+    }
     const demoNotes = transposeNotes(demoSrc.demo || stage.demo, semis);
+    const scaleType = (chordType && chordType.scaleType) || stage.scaleType || "major";
     let demoFingers = demoSrc.demoFingers || stage.demoFingers || null;
     let chartKey = null;   // canonical key so the chart can recompute fingering on a hand switch
     if (stage.demoMode === "scale") {
@@ -7546,34 +11545,207 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       // (an honest blank beats teaching a wrong fingering). Use the picker's own
       // spelling (keyId) directly — routing it through CHROMA (sharps-only) would
       // silently respell Db/Ab/Eb/Bb as C#/G#/D#/A# and miss the lookup entirely.
-      const scaleKey = keyId.toLowerCase() + " major scale";
+      // The minor/major half matters too: this asked for "<key> major scale"
+      // unconditionally, so every minor scale was handed major fingering.
+      const isMinor = String(scaleType).indexOf("minor") >= 0;
+      const scaleKey = keyId.toLowerCase() + (isMinor ? " minor scale" : " major scale");
       const map = hand === "left" ? FINGERINGS_LH : FINGERINGS_RH;
       const fk = map[scaleKey];
-      demoFingers = fk ? fk.slice(0, demoNotes.length) : null;
+      // Melodic minor's demo runs up AND back down, so it needs more numbers
+      // than the ascending table holds: the descent is the ascent reversed,
+      // minus the shared top note.
+      demoFingers = fk
+        ? (demoNotes.length > fk.length
+            ? fk.concat(fk.slice().reverse().slice(1)).slice(0, demoNotes.length)
+            : fk.slice(0, demoNotes.length))
+        : null;
       // Keep the key ONLY when we have verified data — then switching L/R hand
       // recomputes the correct fingering instead of keeping the other hand's.
       chartKey = fk ? scaleKey : null;
     } else if (demoFingers && hand === "left") {
       demoFingers = demoFingers.slice().reverse();   // triads/intervals mirror for the left hand
     }
-    setLessonContext(LESSON_MODE);
-
     const sTitle = tr(stage.title, lang);
     const typeName = chordType ? tr(chordType.label, lang) : null;
     const fullTitle = typeName ? `${typeName} ${sTitle}` : sTitle;
-
-    const demoParsed = {
+    /* What the lesson PRINTS, which is not what it plays. transposeNotes works
+       in the sharps-only table the synth indexes, so it renders E♭ major as
+       "D♯ F G G♯ A♯ C D" — right pitches, wrong notation, and wrong in a way a
+       teacher would mark. spellScale re-derives the same pitches letter by
+       letter so the page shows E♭ F G A♭ B♭ C D. Playback keeps demoNotes. */
+    let spelled = null;
+    if (stage.demoMode === "scale") {
+      const st = SCALE_TYPES[scaleType] || SCALE_TYPES.major;
+      const minor = scaleType !== "major";
+      spelled = spellScale(keyId, st.up, { minor });
+      if (st.down) spelled = spelled.concat(spellScale(keyId, st.down, { minor }).slice(1));
+    } else if (demoSrc.degrees) {
+      // Same rule for intervals and chords: a chord tone takes the letter its
+      // DEGREE names. That is what makes a diminished 7th read C–E♭–G♭–B𝄫
+      // rather than C–D♯–F♯–A, which names four pitches correctly and every
+      // interval in the chord wrongly.
+      spelled = spellFromRoot(keyId, demoSrc.degrees);
+    }
+    return {
       notes: demoNotes,
       mode: stage.demoMode,
       fingers: demoFingers,
       label: `${fullTitle} · ${keyLabel}`,
       key: chartKey,
       stageId: stage.id,
+      scaleType, spelled,
+      keyId, keyLabel, fullTitle,
     };
+  }
+
+  // SRS review deep-link: skip the AI-teaching flow entirely and land directly
+  // in a graded Practice Mode session on this exact due stage — this is what
+  // getDueReviews()'s "Review now" actions and TodayPage's review step call,
+  // instead of the old behavior of routing to a generic page and losing which
+  // item was actually due. No markKeyDone/logActivity/gainExp here: those are
+  // "I taught/opened this" signals: this path never teaches, and the only
+  // signal that should fire is finishPractice()'s own (accuracy-gated) one.
+  function reviewStage(stage, key = null) {
+    if (!stage) return;
+    // No specific key requested (the due-review list only tracks per-STAGE
+    // scheduling, not per-key) — same "a studied key if there is one, else a
+    // deterministic pick" policy TodayPage's own recommender already uses.
+    if (!key) {
+      const studied = keyDoneMap()[stage.id] || [];
+      key = KEYS_12.find(k => studied.includes(k.id.toLowerCase())) || KEYS_12[daySeed() % KEYS_12.length];
+    }
+    const chordType = stage.types ? stage.types[0] : null;
+    const demoParsed = buildStageDemoSeq(stage, key, chordType);
+    setActiveStageId(stage.id);
+    setActiveStageType(chordType);
+    playSequence(demoParsed); // sets lastSeq.current — startPractice() reads it synchronously below
+    startPractice();
+  }
+
+  // Group Boss Challenge — chains every practiceable (non-content) stage in a
+  // group into one combined Practice Mode run, graded at a higher bar than any
+  // single stage (BOSS_PASS_ACCURACY, see finishPractice's boss branch in
+  // use-practice-mode.ts). Fingering hints are dropped — mixing different
+  // techniques' fingerings across the combined run would be misleading — and
+  // the combined mode is always plain "seq" one-note-at-a-time matching,
+  // since block/scale-specific behavior doesn't generalize across mixed stage
+  // types. Always in C: the boss tests combined breadth, not one specific key.
+  function startBossChallenge(group) {
+    const bossStages = (STAGES_BY_GROUP[group.id] || []).filter(s => !s.content);
+    if (!bossStages.length) return;
+    let notes = [];
+    for (const st of bossStages) {
+      const chordType = st.types ? st.types[0] : null;
+      notes = notes.concat(buildStageDemoSeq(st, null, chordType).notes);
+    }
+    const demoParsed = { notes, mode: "seq", fingers: null, label: `⚔️ ${group.label}`, key: null, stageId: null, bossGroup: group.id };
+    setActiveStageId(null);
+    setActiveStageType(null);
+    playSequence(demoParsed);
+    startPractice();
+  }
+
+  // ── Hit Chords (pathway cards 05/06): teach a hit chord PROGRESSION on the
+  // Sensei page ──
+  // The learner picks the chord-path length (2/4/8) on the pathway card itself,
+  // then this opens the same teaching page every pathway lesson uses: TIGA
+  // explains the progression, the piano plays it, and the Practice button
+  // grades it — in BOTH voicings, because the Block ⇄ Broken toggle on that
+  // page is live for any "chord"-mode demo and this demo is one. Broken walks
+  // the triads note-by-note; block strikes each chord whole, chord by chord
+  // down the progression (see playSequence's chordGroupSize branch). Practice
+  // Mode mirrors both: broken advances one note at a time, block opens one
+  // chord's window at a time (chordGroupSize rides on lastSeq into
+  // use-practice-mode). Deliberately NOT a pathway stage: no markPathDone, no
+  // tier — same door-not-stage rule as the Play Along cards these grew from.
+  const PROG_LABELS = {
+    th: { pickLen: "เลือกทางคอร์ด", chords: "คอร์ด", play: "เล่นให้ฟัง", practice: "ฝึกเลย", broken: "Broken (แยกโน้ต)", block: "Block (รวมโน้ต)" },
+    en: { pickLen: "Pick a chord path", chords: "chords", play: "Hear it", practice: "Practice it", broken: "Broken (one note)", block: "Block (together)" },
+    zh: { pickLen: "选择和弦进行", chords: "和弦", play: "听一遍", practice: "练习", broken: "Broken（分解）", block: "Block（齐奏）" },
+  };
+  function learnProgression(pc, len, keyName = null) {
+    const L = PROG_LABELS[lang] || PROG_LABELS.en;
+    const quality = pc.cat === "chords-minor" ? "minor" : "major";
+    const homePC = pc.cat === "chords-minor" ? "A" : "C"; // each door's home key
+    const pi = keyName ? pcIdx(keyName) : -1;
+    const rootPC = pi >= 0 ? CHROMA[pi] : homePC;
+    const keyLabel = rootPC;
+    const chords = buildProgressionChords(rootPC, quality, len);
+    // One flat playable sequence: broken = each triad climbs root-3-5-octave
+    // (exactly the voicing the Play Along drill grades); the block voicing is
+    // the same notes struck together (playSequence's block branch) — so both
+    // styles teach identical pitches.
+    const notes = chords.flatMap(c => c.notes.concat([c.notes[0].replace(/4$/, "5")]));
+    const degList = chords.map(c => c.name + " (" + c.notes.join(" ") + ")").join(", ");
+    const styleLine = lang === "th"
+      ? "สอน 2 แบบ: Broken = เล่นทีละโน้ต ไต่จากรากขึ้น 3-5 และคู่แปด / Block = กดโน้ตทั้งคอร์ดพร้อมกันทีละคอร์ด"
+      : lang === "zh"
+        ? "两种弹法：Broken＝逐音上行（根音-三音-五音-八度）；Block＝每个和弦整体同时按下，逐个和弦进行。"
+        : "Taught both ways: Broken = the triad climbs one note at a time (root-3-5-octave); Block = each chord struck whole, moving chord by chord.";
+    const romanLine = lang === "th"
+      ? "ทางเสียงของทางคอร์ดนี้คือ " + chords.map(c => c.name).join(" → ") + " — หัวใจของเพลงป๊อปนับหมื่นเพลง"
+      : lang === "zh"
+        ? "这条进行的级数是 " + chords.map(c => c.name).join(" → ") + " — 上万首流行歌的心脏。"
+        : "The sound path is " + chords.map(c => c.name).join(" → ") + " — the heart of ten thousand pop songs.";
+    const title = tr(pc.title, lang) + " · " + keyLabel + " · " + len + " " + L.chords;
+    logActivity("lesson", "hit-chords-" + quality + "-" + len, 0, 0, 180);
+    setLessonContext(LESSON_MODE);
+    setActiveStageId(null);
+    setActiveStageType(null);
+    setPage("sensei");
+    pushMessage({ role: "user", text: "🎹 " + title });
+    pushMessage({ role: "ai", text:
+      (lang === "th" ? "ทางคอร์ดยอดฮิตในคีย์ " + keyLabel + (quality === "major" ? " เมเจอร์" : " ไมเนอร์") + " (" + len + " " + L.chords + ")\n"
+        : lang === "zh" ? keyLabel + (quality === "major" ? " 大调" : " 小调") + "热门和弦进行（" + len + " " + L.chords + "）\n"
+        : "The hit chord path in " + keyLabel + " " + quality + " (" + len + " " + L.chords + "):\n")
+      + romanLine + "\n"
+      + degList + "\n\n"
+      + styleLine + "\n"
+      + (lang === "th" ? "ฟังจากปุ่มเล่น แล้วลองตามด้วยปุ่มฝึก — สลับ Block ⇄ Broken ได้เลย"
+        : lang === "zh" ? "先听一遍，再用练习按钮跟着弹 — Block ⇄ Broken 随时切换"
+        : "Hear it with the play button, then follow with Practice — switch Block ⇄ Broken any time") });
+    // Finger numbers per chord, right-hand canonical (1-3-5 + 5 on the octave
+    // top), mirrored wholesale for the left hand the same way every triad
+    // lesson's demoFingers already mirrors. key stays null so playSequence
+    // uses these as given instead of trying a per-key scale lookup.
+    const fingers = hand === "left"
+      ? notes.map((_, i) => [5, 3, 1, 5][i % 4])
+      : notes.map((_, i) => [1, 3, 5, 5][i % 4]);
+    const demoParsed = { notes, mode: "chord", fingers, label: title, key: null, stageId: null, chordGroupSize: notes.length / len };
+    playSequence(demoParsed); // sets lastSeq for BOTH the demo replay and startPractice below
+    gainExp(EXP.lesson, { lesson: true, quest: true });
+  }
+
+
+  function learnTopic(stage, key, chordType = null) {
+    // NOTE: does NOT markPathDone here — opening/hearing the lesson isn't
+    // demonstrated skill. The stage is marked done (and given a bronze/
+    // silver/gold tier) from inside finishPractice() once the learner
+    // actually passes this stage's own practice drill — see demoParsed's
+    // stageId below, which use-practice-mode.ts reads back out of lastSeq.
+    if (stage && stage.id) { if (key && key.id) markKeyDone(stage.id, key.id); setActiveStageId(stage.id); setActiveStageType(chordType); }
+    const basePrompt = stage.learn[lang] || stage.learn.en;
+    const demoParsed = buildStageDemoSeq(stage, key, chordType);
+    const { keyId, keyLabel, fullTitle, notes: demoNotes, spelled, scaleType } = demoParsed;
+    const sTitle = tr(stage.title, lang);
+    const typeName = chordType ? tr(chordType.label, lang) : null;
+    logActivity("lesson", stage.id + "/" + keyId.toLowerCase(), 0, 0, 180); // ~3 min of study per topic-in-key
+    setLessonContext(LESSON_MODE);
 
     // strict instruction scoped to the specific chord type (if any)
     let strict;
-    if (chordType) {
+    if (chordType && chordType.romans) {
+      // progression type: speak in Roman numerals and name the actual chords
+      const romans = chordType.romans.join(" ");
+      const chords = progressionChordLabels(chordType.romans, keyId); // "C · Am · Dm · G"
+      if (lang === "th") {
+        strict = `สอนเฉพาะทางคอร์ด "${romans}" ของ "${sTitle}" คีย์ ${keyId} (${keyLabel}) เท่านั้น ชื่อคอร์ดคือ ${chords} อธิบายบทบาทของแต่ละคอร์ดในทาง (Tonic/Subdominant/Dominant) และทำไมการเล่นทางนี้เหมาะกับเพลงจริง ห้ามสอนหัวข้ออื่น ตอบภาษาไทย `;
+      } else if (lang === "zh") {
+        strict = `只教授 "${sTitle}"中的级数进行 "${romans}" ，使用 ${keyId} (${keyLabel}) 调。各和弦为 ${chords}，解释每个和弦的角色（主/下属/属）与为什么这个进行适合真实歌曲。不要讲其他主题。 `;
+      } else {
+        strict = `Teach ONLY the progression "${romans}" from "${sTitle}" in the key of ${keyId} (${keyLabel}). The chords are ${chords}. Explain each chord's role (Tonic/Subdominant/Dominant) and why this progression fits real songs. Do not teach other topics. `;
+      }
+    } else if (chordType) {
       const sym = chordType.symbol;
       if (lang === "th") {
         strict = `สอนเฉพาะ "${typeName}" ใน "${sTitle}" คีย์ ${keyId} (${keyLabel}) เท่านั้น อธิบายสูตร โน้ตทุกตัว และความรู้สึกของเสียง ระบุชื่อโน้ตทุกตัวในคีย์ ${keyId} (${keyLabel}). `;
@@ -7599,7 +11771,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (stage.typesInfo && !chordType) intro.push({ role: "ai", text: tr(stage.typesInfo, lang) });
     // tier 1: scale/interval/triad/7th topics are formulaic — answer instantly from
     // the app's own theory engine instead of asking the live AI every time
-    const local = localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes, fullTitle, lang);
+    const local = localPathwayLesson(stage, keyId, keyLabel, chordType, spelled || demoNotes, fullTitle, lang, scaleType);
     if (local) intro.push({ role: "ai", text: local });
     intro.forEach(m => pushMessage(m));
     const dt = setTimeout(() => playSequence(demoParsed), 300);
@@ -7612,12 +11784,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       callClaude(prompt); // tier 2: no prepared answer — ask the live AI
       gainExp(EXP.lesson, { lesson: true, quest: true });
     }
+    maybeNudgeChallenge(stage); // Auto Teaching → "test yourself in Challenging Mode" nudge, see definition above
   }
 
   // open a "benefits of music" knowledge chapter — show curated content in the chat
   function readChapter(stage, caseObj) {
+    /* TIGA hub starters (P4) are chat openers, not book chapters: they carry
+       no real content — route them straight into the chat as a user message
+       so Teacher TiGA answers from the student's own context. */
+    if (stage && stage.tiga && caseObj && caseObj.tiga) {
+      pushMessage({ role: "user", text: tr(caseObj.title, lang) });
+      setPage("sensei");
+      return;
+    }
     if (!caseObj && stage && stage.id) logUsage("pathway", stage.id); // top-level card tap only, not a case-study drill-down
+    /* Coins for reading a chapter, but only the FIRST time it is read —
+       re-reading is free and always will be, and paying for it again would
+       turn the back button into a coin printer. */
+    const firstRead = stage && stage.id && !pathDoneSet().has(stage.id);
     if (stage && stage.id) markPathDone(stage.id);
+    if (firstRead) earnCoins(EARN.chapter);
     if (stage && stage.id) logActivity("read-chapter", stage.id, 0, 0, 120); // ~2 min of reading
     const title = caseObj ? tr(caseObj.title, lang) : tr(stage.title, lang);
     const body = caseObj ? tr(caseObj.content, lang) : tr(stage.content, lang);
@@ -7629,6 +11815,67 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     pushMessage({ role: "user", text: `📚 ${icon} ${title}` });
     pushMessage({ role: "ai", text: body });
     gainExp(EXP.chapter, { quest: true }); // reward reading a knowledge chapter
+
+    // Knowledge Quest — case-level read tracking for the 7 "benefits" domains.
+    // Only a caseObj drill-down counts (the top-level chapter tap just opens
+    // the card of cases, see PathwayPage's openCard), and only domains that
+    // actually have BENEFIT_CASES are trackable at all.
+    if (stage && stage.id && caseObj && caseObj.id && BENEFIT_CASES[stage.id]) {
+      const wasComplete = domainDoneIds().includes(stage.id);
+      markCaseRead(stage.id, caseObj.id);
+      if (!wasComplete && domainDoneIds().includes(stage.id)) {
+        earnCoins(20); gainExp(30, { quest: true });
+        const domainTitle = tr(stage.title, lang);
+        const celebration = lang === "th"
+          ? `🎖️ ปลดล็อกภารกิจความรู้!\n\n${stage.icon} คุณอ่านครบทุกเรื่องในหมวด "${domainTitle}" แล้ว — ปรบมือให้ตัวเองหน่อย! 👏\n\nไปดูเหรียญสะสมทั้งหมดได้ที่หน้าโปรไฟล์`
+          : lang === "zh"
+          ? `🎖️ 知识任务解锁！\n\n${stage.icon} 你已读完"${domainTitle}"分类下的全部案例——为自己鼓掌吧！👏\n\n前往个人主页查看你的完整收藏。`
+          : `🎖️ Knowledge Quest unlocked!\n\n${stage.icon} You've read every case study in "${domainTitle}" — nice work digging deep! 👏\n\nCheck your full collection on the Profile page.`;
+        pushMessage({ role: "ai", text: celebration });
+      }
+    }
+  }
+
+  // "Ask TIGA about this" — jumps straight into a live chat question about a
+  // specific struggle, from wherever that struggle is already surfaced (the
+  // SRS review modal, the Auto Teaching recap on Profile) instead of leaving
+  // the learner to retype it themselves.
+  // NOTE: only sets page + fires the chat question — it does not know about
+  // or close any modal a caller opened it from (StudioPage's SRS modal has
+  // its own local srsOpen state, out of reach from here); callers close their
+  // own UI first, then invoke this.
+  /* Every Studio drill already pays its own tuned amount for how well the run
+     went. This adds the flat Studio rate from EARN on top of that, so
+     finishing a drill in the Studio is worth coins in its own right and the
+     Studio is somewhere you can earn rather than only practise. Capped daily
+     so it cannot be farmed by starting and abandoning drills. */
+  function rewardStudio(xp, c, opts = {}) {
+    if (xp) gainExp(xp, { quest: true });
+    const bonus = takeEarn("studio") ? EARN.studio : 0;
+    if (c || bonus) earnCoins((c || 0) + bonus);
+    if (opts.games) bumpWeekly("games", 1);
+    if (opts.perfect) bumpWeekly("perfect", opts.perfect);
+  }
+
+  function askAboutStruggle(item) {
+    setPage("sensei");
+    // Memory Streak — asking about a tracked struggle is a genuine review of
+    // it, wherever the tap came from (the SRS modal, Profile's Auto Teaching
+    // recap, StudioPage's own tag list) — all read from the same
+    // readMemory().struggles signal getDueReviews() itself filters.
+    const { tierUp, bumped } = bumpMemoryStreak();
+    if (bumped) {
+      earnCoins(5 + (tierUp ? 10 : 0));
+      gainExp(10 + (tierUp ? 25 : 0), { quest: true });
+      playUi(tierUp ? "levelup" : "reward");
+    }
+    const acc = item && item.acc != null ? item.acc : null;
+    const q = lang === "th"
+      ? `ช่วยแนะนำแนวทางฝึกเรื่อง "${item.label}" หน่อยครับ ฉันพลาดเรื่องนี้บ่อย${acc != null ? ` (แม่นยำล่าสุด ${acc}%)` : ""} ควรฝึกหรือทำความเข้าใจอะไรเพิ่มถึงจะดีขึ้น`
+      : lang === "zh"
+      ? `请给我一些关于"${item.label}"的练习建议。我经常在这里出错${acc != null ? `（最近准确率 ${acc}%）` : ""}，该怎么练习或理解才能进步？`
+      : `Can you help me with "${item.label}"? I keep struggling with it${acc != null ? ` (recent accuracy ${acc}%)` : ""}. What should I practice or understand better?`;
+    askDirect(q);
   }
 
   return (
@@ -7636,7 +11883,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       <div className="scan" />
 
       {guestGateReason && (
-        <GuestGateScreen reason={guestGateReason} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
+        <GuestGateScreen reason={guestGateReason} profile={profile} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
       )}
 
       {permPrimerOpen && (() => {
@@ -7691,7 +11938,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         <div className="hdr-r">
           {isGuest && (
-            <button className="guestloginpill" onClick={() => { saveGuestProfile(profile); signInWith("google"); }} title="Login with Google">
+            <button className="guestloginpill" onClick={() => setLoginModalOpen(true)} title="Login or sign up">
               <span className="oauthico">G</span> {T("ล็อกอิน", "Login", "登录")}
               {guestMsLeft > 0 && guestMsLeft < GUEST_TRIAL_MS && (() => {
                 const totalSec = Math.ceil(guestMsLeft / 1000); // whole seconds left, rounded up so it never shows 0:00 while time remains
@@ -7699,7 +11946,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               })()}
             </button>
           )}
-          {premium && plan !== "trial" && (() => { const b = planBadge(plan) || { t: "⭐ PRO", c: "" }; return <span className={`probadge ${b.c}`} title={PLAN_LABEL[plan] || "Premium"}>{b.t}</span>; })()}
+          {/* The plan badge used to sit here. It told the learner something they
+              already knew and could not act on; the two things they actually
+              reach for from anywhere — their character and the world it walks
+              in — take the space instead. */}
+          {/* not gated on sign-in: the drawer does not gate this page either,
+              and a shortcut that disagrees with the menu it shortcuts is worse
+              than no shortcut */}
+          {(
+            <button className="hdrgo" onClick={() => { playUi("click"); logUsage("nav", "profile"); setPage("profile"); }}
+              title={lc.navProfile} aria-label={lc.navProfile}>
+              <RobotGlyph size={23} />
+            </button>
+          )}
+          {!isGuest && <button className="shopbtn" onClick={() => setShopOpen(true)} title={lc.shopTitle} aria-label="Shop"><span className="shopbtn-ic">🛍️</span><span className="shopbtn-coins">🪙 {coins}</span></button>}
           {/* Daily-reward chest button removed from the header per feedback (decluttering) —
               still fully reachable from ProfilePage's own dailyhub chest button, same openChestNow(). */}
           {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title="Metronome" aria-label="Metronome on">🥁 {metroBpm}</button>}
@@ -7729,10 +11989,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {plan === "trial" && (() => {
         const dLeft = trialDaysLeft(profile);
         if (dLeft <= 0) return null;
+        /* Last 5 days switch to loss aversion (strategy phase 4): the banner
+           names exactly what expires and the CTA jumps straight to checkout
+           instead of the generic pricing sheet. */
+        const urgent = dLeft <= 5;
+        const cc = CONV_COPY[lang] || CONV_COPY.en;
         return (
-          <div className="trial-banner">
-            <span className="trial-banner-txt">{lc.trialBanner} · {dLeft} {lc.trialDaysLeft}</span>
-            <button className="trial-banner-btn" onClick={() => { playUi("click"); setPricingOpen(true); }}>{lc.trialUpgrade}</button>
+          <div className={"trial-banner" + (urgent ? " urgent" : "")}>
+            <span className="trial-banner-txt">{urgent ? cc.bannerUrgent.replace("{n}", String(dLeft)) : <>{lc.trialBanner} · {dLeft} {lc.trialDaysLeft}</>}</span>
+            <button className="trial-banner-btn" onClick={() => { playUi("click"); urgent ? startCheckout("premium", billCycle) : setPricingOpen(true); }}>{urgent ? cc.bannerUrgentBtn : lc.trialUpgrade}</button>
           </div>
         );
       })()}
@@ -7742,27 +12007,37 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "admin" && (
         adminUnlocked
           ? <AdminPage lang={lang} onExit={exitAdmin} adminTier={(profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0)} />
-          : <LockScreen lang={lang} onUnlock={tryUnlock} />
+          : <LockScreen lang={lang} tier={adminTier} checkCode={checkAdminCode} onUnlocked={openAdmin} />
       )}
 
       {/* ─── PAGE: HOME (new landing page — UX refactor) ─── */}
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
-        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
+        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
+          onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
+          onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
+          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
+      )}
+
+      {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
+      {page === "challenging" && (
+        <ChallengingPage lang={lang} onBoss={startBossChallenge} gainExp={gainExp} earnCoins={earnCoins} userName={(profile && profile.full_name) || ""} focusGroupId={challengeFocusGroup} onConsumeFocus={() => setChallengeFocusGroup(null)} premium={premium} onUpsell={() => setPricingOpen(true)} />
       )}
 
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
       {page === "today" && (
         <TodayPage lang={lang} exp={(profile && profile.exp) || 0} homework={homework}
           onLearn={learnTopic} onRead={readChapter} onSong={chooseSong} onNavigate={handleCoachNavigate}
-          onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }}
+          onReviewStage={reviewStage}
+          onReward={(xp, c) => rewardStudio(xp, c)}
           onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "eargym" && (
-        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
+        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c, perfect) => rewardStudio(xp, c, { games: 1, perfect })} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "reading" && (
-        <ReadingPage lang={lang} onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
+        <ReadingPage lang={lang} onReward={(xp, c, perfect) => rewardStudio(xp, c, { games: 1, perfect })} onBack={() => { setPage("studio"); setStudioView("menu"); }}
+          onPlaySong={(song) => { chooseSong(song); setPage("studio"); setStudioView("songs"); }} />
       )}
       {page === "insights" && (
         <InsightsPage lang={lang} profile={profile} onSong={chooseSong} onBack={() => setPage("profile")} />
@@ -7778,7 +12053,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </button>
       )}
       {page === "videos" && (
-        <VideoLessonsPage lang={lang} onAsk={(t) => {
+        <VideoLessonsPage lang={lang}
+          onWatched={() => {
+            if (!takeEarn("video")) return false;          // today's ceiling is spent
+            earnCoins(EARN.video); gainExp(EXP.chapter, { quest: true }); playUi("reward");
+            return true;
+          }}
+          onAsk={(t) => {
           playUi("click");
           setInput((lang === "th" ? 'ช่วยสอนเพิ่มเติมจากวิดีโอบทเรียน "' : lang === "zh" ? '请给我详细讲讲视频课程 "' : 'Teach me more about the video lesson "') + t + '"');
           setActiveStageId(null);
@@ -7790,8 +12071,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => setStudioView("menu")} />
-          : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")}
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} onStartSetlist={startSetlist} />
+          : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
               onSongs={() => setStudioView("songs")}
@@ -7800,12 +12081,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               onEarGym={() => { playUi("click"); logUsage("nav", "studio-eargym"); setPage("eargym"); }}
               onReading={() => { playUi("click"); logUsage("nav", "studio-reading"); setPage("reading"); }}
               onToday={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }}
+              onReviewStage={(stage, key) => { playUi("click"); logUsage("nav", "studio-review"); reviewStage(stage, key); }}
               onAiReport={() => { logUsage("nav", "studio-ai-report"); setAiModalType("report"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}
               onAiPlan={() => { logUsage("nav", "studio-ai-plan"); setAiModalType("plan"); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }}
               onAnalytics={() => { logUsage("nav", "studio-analytics"); setPage("insights"); }}
               onUpsell={() => setPricingOpen(true)}
               onPlay={(s) => { logUsage("nav", "studio-quick"); chooseSong(s); }}
               onParent={() => { playUi("click"); premium ? setParentOpen(true) : setPricingOpen(true); }}
+              onChallenging={() => { logUsage("nav", "studio-challenging"); setPage("challenging"); }}
+              onReport={() => { logUsage("nav", "studio-report"); setPage("report"); }}
               detectOpen={detectOpen} setDetectOpen={setDetectOpen} detectNotes={detectNotes} setDetectNotes={setDetectNotes}
               detectMatch={detectMatch} setDetectMatch={setDetectMatch} detectListening={detectListening} setDetectListening={setDetectListening}
               battlePickOpen={battlePickOpen} setBattlePickOpen={setBattlePickOpen} battleData={battleData} setBattleData={setBattleData}
@@ -7823,16 +12107,80 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} />}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+              charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
-      {/* ─── PAGE: COACH (Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} profile={profile} onNavigate={handleCoachNavigate} />}
+      {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
-      {page === "gamepage" && <GamesPage lang={lang} />}
+      {page === "gamepage" && <GamesPage lang={lang} earnCoins={earnCoins} gainExp={gainExp} />}
+      {page === "storage" && (
+        <StoragePage lang={lang} coins={coins} owned={owned} charModel={charModel}
+          cats={[
+            { key: "charModel",     icon: "🤖", label: lang === "th" ? "สกินหุ่นยนต์" : lang === "zh" ? "机器人皮肤" : "Robot skins", items: SHOP_MODELS },
+            { key: "charWeapon",    icon: "🦾", label: lc.shopWeapons,      items: SHOP_WEAPONS },
+            { key: "charHat",       icon: "🥽", label: lc.shopHats,         items: SHOP_HATS },
+            { key: "charOutfit",    icon: "🦿", label: lc.shopOutfits,      items: SHOP_OUTFITS },
+            { key: "charAccessory", icon: "🔋", label: lc.shopAccessories,  items: SHOP_ACCESSORIES },
+            { key: "pet",           icon: "🐾", label: T("สัตว์เลี้ยง", "Pets", "宠物"), items: SHOP_PETS },
+            { key: "skin",          icon: "🎹", label: lc.shopSkins,        items: SHOP_SKINS },
+            { key: "theme",         icon: "🎨", label: lc.shopThemes,       items: SHOP_THEMES },
+            { key: "frame",         icon: "🖼️", label: lc.shopFrames,       items: SHOP_FRAMES },
+            { key: "keyboard",      icon: "⌨️", label: lc.shopKeyboards,    items: SHOP_KEYBOARDS },
+            { key: "sticker",       icon: "🏷️", label: lc.shopStickers,     items: SHOP_STICKERS },
+          ]}
+          equipped={{ skin, theme, frame, keyboard, sticker, charHat, charOutfit, charWeapon, charAccessory }}
+          onEquip={(kind, it) => buyOrEquip(kind, it)}
+          onBack={() => { setPage("profile"); playUi("click"); }}
+          onOpenShop={() => { setShopOpen(true); playUi("click"); }} />
+      )}
+
+      {/* ─── PAGE: PVP ARENA ───
+          The friends list and the duel list are loaded here rather than inside
+          the arena so the page never owns a network call of its own: it is
+          handed data and two callbacks, exactly like every other page. */}
+      {page === "pvp" && (
+        <PvpArenaMount lang={lang} charModel={charModel}
+          gear={equippedGear}
+          onBack={() => { setPage("profile"); playUi("click"); }}
+          playUi={playUi}
+          onApplyLoadout={applyLoadout}
+          onPracticeWeakness={() => { setPage("pathway"); playUi("click"); }}
+          
+          onReward={(xp, c, res) => {
+            // the arena pays its own SP; gainExp is Learning EXP only now
+            if (xp) gainExp(xp, { quest: true });
+            if (c) earnCoins(c);
+            bumpWeekly("games", 1);
+            if (res && res.win) bumpWeekly("perfect", 1);
+            // the arena's personal best is what a challenge is measured against
+            try {
+              const b = Number(localStorage.getItem("tg_arena_best") || 0);
+              if (res && res.score > b) localStorage.setItem("tg_arena_best", String(res.score));
+            } catch (e) {}
+          }} />
+      )}
+
+            {/* ─── PAGE: CYBER PET ───
+          Coins are spent through the same getCoins/setCoinsLS pair the shop
+          uses, so the pantry can never drift from the balance shown anywhere
+          else. Food is a consumable and lives in its own counter map rather
+          than in `owned`, which has no notion of quantity. */}
+      {page === "pet" && (
+        <PetPage lang={lang} coins={coins} playUi={playUi}
+          onBack={() => { setPage("profile"); playUi("click"); }}
+          onSpend={(n) => {
+            if (getCoins() < n) return false;
+            const v = getCoins() - n; setCoinsLS(v); setCoins(v);
+            if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {});
+            return true;
+          }}
+          onReward={(xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); }} />
+      )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} endRef={endRef} input={input} setInput={setInput} send={send} setModal={setModal} />}
+      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} />}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
@@ -7848,15 +12196,29 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         {[
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
-          { p: "sensei", ic: "◈", c: "#d97757", t: lc.navSensei },
-          { p: "coach", ic: "🎯", c: "#d97757", t: "Daily Mentor", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
+          // TIGA CHAT opens the full-screen chat (.mov modal) directly — owner request
+          // 2026-09-22: landing on SenseiView first made the nav item feel broken
+          // ("chat" that doesn't chat). The modal sits above any page, so sensei
+          // stays the page underneath; its back/close returns to SenseiView.
+          { p: "sensei", chat: true, ic: "◈", c: "#d97757", t: lc.navSensei },
+          // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
+          { p: "coach", ic: "🎯", c: "#d97757", t: "AI Daily Mentor" },
+          // the profile row is where your character lives, so it wears a
+          // humanoid android rather than the rank emoji it used to borrow.
+          // It sits high in the list because the character — and the pet pod
+          // beside it — is what people come back to open.
+          { p: "profile", ic: <RobotGlyph size={21} />, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
           { p: "studio", sv: "songs", ic: "🎵", c: "#d97757", t: lc.studioPlayAlong },
           { p: "studio", sv: "menu", ic: "▶", c: "#d97757", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
-          { p: "profile", ic: levelInfo((profile && profile.exp) || 0).tier.icon, c: levelInfo((profile && profile.exp) || 0).tier.c, t: lc.navProfile },
-          { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !isMaxPlan(plan) && !(profile && profile.is_admin) },
+          { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !premium && !(profile && profile.is_admin) },
+          // no pet entry here on purpose — the pet lab is reached from the pod
+          // beside the avatar on the profile, where the character lives
+          // Challenging moved into the Studio card grid (right after Parent
+          // Report, before the MAX Exclusive Features section) per request —
+          // no longer a separate drawer entry, same page either way.
           // no "admin" entry here on purpose — /admin is reachable ONLY via the 5-tap
-          // logo gesture + code (handleLogoTap/tryUnlock), never a visible nav link.
+          // logo gesture + code (handleLogoTap/checkAdminCode), never a visible nav link.
         ].map(it => {
           const isOn = it.p === "studio" ? (page === "studio" && studioView === it.sv) : page === it.p;
           return (
@@ -7864,7 +12226,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             onClick={() => {
               playUi("click"); haptic(6);
               if (it.locked) { setNavOpen(false); setPricingOpen(true); return; }
-              logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); stopPracticeListeners(); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); setNavOpen(false);
+              logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); stopPracticeListeners(); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); if (it.chat) setModal(true); setNavOpen(false);
             }}>
             <span className="drawericon" aria-hidden="true">{it.ic}</span>
             <span className="drawerlabel">{it.t}{it.locked && " 🔒"}</span>
@@ -7892,9 +12254,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <div className="mmsgs">
           {msgs.map((m, i) => (
             <Msg key={i} m={m} idx={i} lang={lang}
-              activeSpk={activeSpk} setActiveSpk={setActiveSpk} onPlay={playSequence} />
+              activeSpk={activeSpk} setActiveSpk={setActiveSpk} onPlay={playSequence} onRetry={retryLast} />
           ))}
-          {loading && <Typing />}
+          {loading && <Typing slow={slow} lang={lang} />}
           <div ref={mendRef} />
         </div>
         <div className="miw">
@@ -7903,16 +12265,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
-      {practiceOpen && <PracticeOverlay practiceModeRef={practiceModeRef} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} />}
+      {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} /></SafeZone>}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} />}
+      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossHp={bossHp} bossMax={bossMax} bossFx={bossFx} kDrop={kDrop} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} /></SafeZone>}
 
       {/* SIGHT-READING overlay */}
-      {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} />}
+      {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightTip={sightTip} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
 
       {/* HAND-POSTURE COACH overlay (camera) */}
-      {camOpen && <CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} />}
+      {camOpen && <SafeZone label="โค้ชท่ามือ" fallbackText="โค้ชท่ามือแสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดใหม่"><CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} camStreakInfo={camStreakInfo} closeCameraAfterRecap={closeCameraAfterRecap} camGame={camGame} camPraise={camPraise} camMission={camMission} /></SafeZone>}
 
       {/* AI VOICE TUTOR overlay */}
       {vmOpen && <VoiceTutorOverlay lang={lang} setLang={setLang} vmLangOpen={vmLangOpen} setVmLangOpen={setVmLangOpen} exitVoice={exitVoice} onBack={() => { exitVoice(); setPage("studio"); }} vmState={vmState} vmErr={vmErr} vmOrbTap={vmOrbTap} vmInstant={vmInstant} vmCaption={vmCaption} vmStaff={vmStaff} vmNotes={vmNotes} vmMsgs={vmMsgs} vmEndRef={vmEndRef} vmLit={vmLit} vmOnNote={vmOnNote} vmMenuOpen={vmMenuOpen} setVmMenuOpen={setVmMenuOpen} vmSpeed={vmSpeed} setVmSpeed={setVmSpeed} vmSpeedRef={vmSpeedRef} vmVoice={vmVoice} setVmVoice={setVmVoice} vmFast={vmFast} setVmFast={setVmFast} vmFastRef={vmFastRef} vmCloudDeadRef={vmCloudDeadRef} vmPoly={vmPoly} vmTogglePoly={vmTogglePoly} vmInput={vmInput} setVmInput={setVmInput} vmEarResetRef={vmEarResetRef} vmActiveRef={vmActiveRef} vmProcess={vmProcess} vmToggle={vmToggle} />}
@@ -7923,7 +12285,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* CHECKOUT — Stripe / PromptPay / Alipay / WeChat */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} playUi={playUi} />}
       {schoolCheckout && <SchoolCheckoutModal lang={lang} schoolCheckout={schoolCheckout} payCfg={payCfg} session={session} onClose={() => setSchoolCheckout(null)} playUi={playUi} />}
-      {buyCurrencyOpen && <BuyCurrencyModal lang={lang} payCfg={payCfg} session={session} onClose={() => setBuyCurrencyOpen(false)} playUi={playUi} />}
+      {buyCurrencyOpen && <BuyCurrencyModal lang={lang} payCfg={payCfg} session={session} onClose={() => { setBuyCurrencyOpen(false); setGemShortFocus(false); }} playUi={playUi} focusGems={gemShortFocus} shortBy={gemShort ? gemShort.short : 0} />}
 
       {/* AI WEEKLY REPORT / AI PRACTICE PLAN MODAL (Max exclusive) */}
       {aiModalOpen && (
@@ -7941,18 +12303,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   onClick={async () => {
                     if (requireLogin("ai")) return;
                     setAiModalLoading(true);
-                    const log = readPracticeLog();
                     const mem = readMemory();
-                    const st = readStreak();
-                    let sessW = 0, accSumW = 0, accNW = 0;
-                    for (let i = 0; i < 7; i++) {
-                      const d = new Date(); d.setDate(d.getDate() - i);
-                      const e = log[dayKey(d)]; if (e) { sessW += e.n; accSumW += (e.accSum || 0); accNW += e.n; }
-                    }
-                    const wkAcc = accNW ? Math.round(accSumW / accNW) : null;
-                    const struggles = (mem.struggles || []).slice(0, 3).map((s) => s.label).join(", ");
                     const mastered = (mem.mastered || []).slice(0, 3).join(", ");
-                    const ctx = `Streak: ${st.count || 0} days. This week: ${sessW} sessions, accuracy ${wkAcc != null ? wkAcc + "%" : "no data"}. Weak spots: ${struggles || "none"}. Mastered: ${mastered || "none"}.`;
+                    // Grounds the report/plan in the same skill-score engine (Dynamics/Rhythm/
+                    // Technique) generateCoachTip() already uses for Auto Teaching — the paid
+                    // report used to run on a thinner, separate context (streak/week-accuracy/
+                    // top-3 struggles only) that never saw the scores shown on the Daily Mentor
+                    // page itself.
+                    const ctx = `${coachStatsToText(computeCoachStats(profile, lang))} Mastered: ${mastered || "none"}.`;
                     const prompt = aiModalType === "report"
                       ? (lang === "th"
                         ? `คุณเป็นครูสอนเปียโน AI ที่เป็นกันเอง เขียนรายงานพัฒนาการเปียโนรายสัปดาห์ที่อบอุ่นและให้กำลังใจ (ประมาณ 150-200 คำ) โดยอิงจากข้อมูลนี้: ${ctx} เขียนเป็นภาษาไทย`
@@ -7991,6 +12349,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   <div style={{ fontSize: "13.5px", lineHeight: 1.75, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "pre-wrap", padding: "4px 0 8px" }}>
                     {aiModalText}
                   </div>
+                  {/* Citation chips — the paragraph above is AI-written, but grounded in
+                      these exact real numbers (the same ones baked into its prompt as
+                      `ctx`), so the claim isn't just taken on faith. */}
+                  {(() => {
+                    const cs = computeCoachStats(profile, lang);
+                    const top = cs.weakest[0];
+                    const bits = [
+                      `🔥 ${cs.streak}${lang === "th" ? " วันติด" : lang === "zh" ? "天连续" : "-day streak"}`,
+                      cs.acc7 != null ? `🎯 ${cs.acc7}%` : null,
+                      top ? `📊 ${top.label}` : null,
+                    ].filter(Boolean);
+                    return bits.length ? (
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, margin: "0 0 10px" }}>
+                        <span style={{ fontSize: 10, color: "var(--muted)" }}>
+                          {lang === "th" ? "อิงจากข้อมูลจริงของคุณ:" : lang === "zh" ? "基于你的真实数据：" : "Based on your real data:"}
+                        </span>
+                        {bits.map((b, i) => (
+                          <span key={i} style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "var(--card3)", color: "var(--text2)" }}>{b}</span>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                   <button className="songbtn" style={{ width: "100%", marginTop: 4 }}
                     onClick={() => { setAiModalText(""); setAiModalLoading(false); }}>
                     {lang === "th" ? "🔄 สร้างใหม่" : lang === "zh" ? "🔄 重新生成" : "🔄 Regenerate"}
@@ -8029,11 +12409,62 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div className="heatgrid" style={{ gridTemplateRows: "repeat(7,1fr)" }}>
                   {heat.map((l, i) => <div key={i} className="heatcell" style={{ background: heatColor(l) }} />)}
                 </div>
+                {/* ── Phase 2 finisher: 14-day accuracy trend + the coach's story
+                    (buildParentReport — same local records, no new storage).
+                    Sections render only when the data supports them. ── */}
+                {(() => {
+                  const rep = buildParentReport({ days: 14 });
+                  if (!rep) return null;
+                  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+                  const bars = rep.series.filter(d => d.acc != null);
+                  return (
+                    <>
+                      <div className="pd-sec">{T("ความแม่นยำ 14 วันล่าสุด", "Accuracy — last 14 days", "近14天准确率")}{rep.trend != null && (
+                        <span style={{ marginLeft: 8, fontWeight: 800, color: rep.trend > 0 ? "var(--ok,#3f9d63)" : rep.trend < 0 ? "var(--bad,#c4423a)" : "var(--muted)" }}>
+                          {rep.trend > 0 ? "▲" : rep.trend < 0 ? "▼" : "▬"} {Math.abs(rep.trend)}%
+                        </span>)}</div>
+                      {bars.length > 0 && (
+                        <svg viewBox="0 0 140 46" style={{ width: "100%", height: 92, display: "block" }} preserveAspectRatio="none">
+                          {rep.series.map((d, i) => {
+                            const bw = 140 / rep.series.length;
+                            const h = d.acc != null ? (d.acc / 100) * 38 : 0;
+                            return <rect key={i} x={i * bw + 0.2} y={40 - h} width={Math.max(0.5, bw - 0.5)} height={Math.max(d.acc != null ? 0.8 : 0.2, h)}
+                              fill={d.acc != null ? "color-mix(in srgb, var(--accent,#d97757) 75%, var(--card2))" : "var(--bd2,rgba(0,0,0,0.08))"} rx={0.6} />;
+                          })}
+                          <line x1={0} y1={40.6} x2={140} y2={40.6} stroke="var(--bd2,rgba(0,0,0,0.1))" strokeWidth={0.4} />
+                        </svg>
+                      )}
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "8px 0 4px" }}>
+                        <span className="pd-tag">{T("ซ้อม 7 วันล่าสุด", "Sessions (7d)", "近7天练习")} · <b>{rep.sessions7}</b></span>
+                        <span className="pd-tag">{T("เวลาสะสม", "Time (7d)", "近7天时长")} · <b>{rep.minutes7} {T("นาที", "min", "分钟")}</b></span>
+                        {rep.weeklyAvg != null && <span className="pd-tag">{T("เฉลี่ยสัปดาห์นี้", "This week avg", "本周均值")} · <b>{rep.weeklyAvg}%</b></span>}
+                      </div>
+                      {rep.improvements && rep.improvements.length > 0 && (
+                        <>
+                          <div className="pd-sec">📈 {T("สิ่งที่ดีขึ้นจริงสัปดาห์นี้", "Actually improved this week", "本周真实进步")}</div>
+                          <div className="pd-tags">{rep.improvements.map((im, i) => (
+                            <span key={i} className="pd-tag good">{im.label}{im.delta != null ? ` (+${Math.round(im.delta)}%)` : " ✓"}</span>
+                          ))}</div>
+                        </>
+                      )}
+                      {rep.focus && (
+                        <>
+                          <div className="pd-sec">🎯 {T("โฟกัสของครู TiGA สัปดาห์นี้", "Coach TiGA's focus this week", "本周教练重点")}</div>
+                          <div className="pd-tag focus" style={{ display: "inline-block" }}>{rep.focus.label}{rep.focus.acc != null ? ` · ${rep.focus.acc}%` : ""}</div>
+                          {(rep.focus.why || []).slice(0, 2).map((w, i) => <div key={i} style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>• {w}</div>)}
+                          {(rep.focus.how || []).slice(0, 2).map((w, i) => <div key={i} style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>→ {w}</div>)}
+                        </>
+                      )}
+                      {rep.homeworkNote && <div className="pd-sec" style={{ fontSize: 12.5 }}>📝 {rep.homeworkNote}</div>}
+                    </>
+                  );
+                })()}
                 {mem.struggles && mem.struggles.length > 0 && <><div className="pd-sec">{lc.pdFocus}</div><div className="pd-tags">{mem.struggles.slice(0, 5).map((s, i) => <span key={i} className="pd-tag focus">{s.label}</span>)}</div></>}
                 {mem.mastered && mem.mastered.length > 0 && <><div className="pd-sec">{lc.pdMastered}</div><div className="pd-tags">{mem.mastered.slice(0, 6).map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
                 <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                   <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => shareCard({ title: nm, big: (st.count || 0) + "🔥", sub: lc.profLevelWord + " " + li.level, lines: [`${sess} ${lc.pdSessions} · ${wkAcc}% ${lc.pdAcc}`] })}>📤 {lc.shareBtn}</button>
-                  <button className="songbtn ghost" style={{ flex: 1, borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${nm} ${lc.profLevelWord} ${li.level} · ${(st.count || 0)}🔥 streak — TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>
+                  {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
+                  {false && <button className="songbtn ghost" style={{ flex: 1, borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${nm} ${lc.profLevelWord} ${li.level} · ${(st.count || 0)}🔥 streak — TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>}
                 </div>
               </div>
             </div>
@@ -8138,8 +12569,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* WELCOME / first-run onboarding */}
-      {welcomeOpen && (
+      {/* WELCOME / first-run onboarding — SUSPENDED (owner request 2026-09):
+          WELCOME_ENABLED above is false so this never mounts. Kept verbatim so
+          re-enabling is a one-line flip. */}
+      {false && welcomeOpen && (
         <div className="chestov" onClick={() => {}}>
           <div className="setcard wlc" onClick={e => e.stopPropagation()}>
             <div className="wlc-mascot">🎹</div>
@@ -8156,32 +12589,219 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* COSMETICS SHOP */}
       {friendsOpen && <FriendsModal lang={lang} onClose={() => setFriendsOpen(false)} />}
+      {loginModalOpen && <LoginModal profile={profile} onGoogleLogin={() => { saveGuestProfile(profile); signInWith("google"); }} onClose={() => setLoginModalOpen(false)} />}
 
-      {shopOpen && (
-        <div className="setov" onClick={() => setShopOpen(false)}>
-          <div className="setcard" onClick={e => e.stopPropagation()}>
-            <div className="sethdr">
-              <span>🛍️ {lc.shopTitle}</span>
-              <span className="coinpill" style={{ marginLeft: "auto", marginRight: 10 }}>🪙 {coins}</span>
-              <button className="cbtn" onClick={() => setShopOpen(false)}>{lc.close}</button>
-            </div>
-            <div className="setbody">
-              <div className="shopsec">🎹 {lc.shopSkins}</div>
-              <div className="shopgrid">
-                {SHOP_SKINS.map(it => renderShopItem("skin", it, skin))}
+      {shopOpen && (() => {
+        /* Categories, gear first. The weapon rack is the biggest and newest part
+           of the shop and it used to sit ninth in a strip that scrolled
+           sideways, so on a phone nobody ever reached it. The strip wraps now
+           instead of scrolling, so every category is on screen at once, and
+           "everything at once" is no longer one of them — it moved to its own
+           control in the top right, where a view switch belongs. */
+        const T2 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        /* ── Consolidated categories: 4 main tabs instead of 15 ── */
+        const shopIntroSeen = eduSeen("shopIntro");
+        const shopIntro = !shopIntroSeen;
+        const ALL_CATS = [
+          { key: "battle",  icon: "🤖", label: T2("สู้รบ", "Battle", "战斗") },
+          { key: "studio",  icon: "🎹", label: T2("สตูดิโอ", "Studio", "工作室") },
+          { key: "prime",   icon: "💎", label: T2("ไพรม์", "Prime", "至尊"), gem: true },
+        ];
+        const SUB_CATS = {
+          battle: [
+            { key: "charModel",     icon: "🤖", label: lang === "th" ? "สกินหุ่น" : lang === "zh" ? "机器人" : "Skins" },
+            { key: "pet",           icon: "🐾", label: T2("สัตว์เลี้ยง", "Pets", "宠物") },
+            { key: "charWeapon",    icon: "⚔️", label: lc.shopWeapons },
+            { key: "charHat",       icon: "🥽", label: lc.shopHats },
+            { key: "charOutfit",    icon: "🦿", label: lc.shopOutfits },
+            { key: "charAccessory", icon: "🔋", label: lc.shopAccessories },
+          ],
+          studio: [
+            { key: "skin",     icon: "🎹", label: lc.shopSkins },
+            { key: "theme",    icon: "🎨", label: lc.shopThemes },
+            { key: "frame",    icon: "🖼️", label: lc.shopFrames },
+            { key: "keyboard", icon: "⌨️", label: lc.shopKeyboards },
+            { key: "sticker",  icon: "🏷️", label: lc.shopStickers },
+          ],
+          prime: [
+            { key: "gemWeapon",    icon: "⚔️", label: T2("อาวุธ", "Weapons", "武器"), gem: true },
+            { key: "gemOutfit",    icon: "🦿", label: T2("เกราะ", "Plating", "装甲"), gem: true },
+            { key: "gemHat",       icon: "🥽", label: T2("โมดูล", "Modules", "模块"), gem: true },
+            { key: "gemAccessory", icon: "🔋", label: T2("แกน", "Cores", "核心"), gem: true },
+            { key: "gemSticker",   icon: "🔮", label: T2("เรลิก", "Relics", "遗物"), gem: true },
+          ],
+        };
+        const allLabel = lang === "th" ? "ทั้งหมด" : lang === "zh" ? "全部" : "All";
+        const CAT_ITEMS = {
+          skin: SHOP_SKINS, theme: SHOP_THEMES, frame: SHOP_FRAMES,
+          keyboard: SHOP_KEYBOARDS, sticker: SHOP_STICKERS,
+          charHat: SHOP_HATS, charOutfit: SHOP_OUTFITS,
+          charWeapon: SHOP_WEAPONS, charAccessory: SHOP_ACCESSORIES, charModel: SHOP_MODELS, pet: SHOP_PETS,
+          gemWeapon: GEM_WEAPONS, gemOutfit: GEM_PLATING, gemHat: GEM_MODULES,
+          gemAccessory: GEM_CORES, gemSticker: GEM_RELICS,
+        };
+        const battleCount = SUB_CATS.battle.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
+        const studioCount = SUB_CATS.studio.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
+        const primeCount  = SUB_CATS.prime.reduce((n, c) => n + (CAT_ITEMS[c.key] || []).length, 0);
+        const CAT_COUNTS = { battle: battleCount, studio: studioCount, prime: primeCount };
+        // a gem tab is a shop CATEGORY, but the thing it sells is worn from an
+        // existing slot — this is the only place the two names differ
+        const CAT_SLOT = {
+          gemWeapon: "charWeapon", gemOutfit: "charOutfit", gemHat: "charHat",
+          gemAccessory: "charAccessory", gemSticker: "sticker",
+        };
+        const CAT_EQUIPPED = {
+          skin, theme, frame, keyboard, sticker,
+          charHat, charOutfit, charWeapon, charAccessory,
+          gemWeapon: charWeapon, gemOutfit: charOutfit, gemHat: charHat,
+          gemAccessory: charAccessory, gemSticker: sticker,
+        };
+        /* Resolve active sub-categories for the current main tab */
+        const activeSubs = (shopTab === "all" || !SUB_CATS[shopTab])
+          ? Object.values(SUB_CATS).flat()
+          : (shopSubTab && SUB_CATS[shopTab].find(s => s.key === shopSubTab))
+            ? SUB_CATS[shopTab].filter(s => s.key === shopSubTab)
+            : SUB_CATS[shopTab];
+        const filtered = activeSubs.flatMap(c => (CAT_ITEMS[c.key] || []).map(it => ({ ...it, _kind: c.key })));
+        const ownedCount = filtered.filter(it => (it.pet ? ownsSpecies(it.pet) : owned.includes(it.id))).length;
+        return (
+          <div className="setov" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>
+            <div className="setcard shop-full" onClick={e => e.stopPropagation()}>
+              {/* ── Header: coins / gems / Top Up button ── */}
+              <div className="sethdr shop-hdr">
+                <span className="shop-hdr-t">🛍️ {lc.shopTitle}</span>
+                <span className="coinpill">🪙 {coins}</span>
+                <span className="coinpill gempill">💎 {gems}</span>
+                <button className="shop-topup-btn" onClick={() => { setShopOpen(false); setShopSubTab(null); openBuyCurrency(); }}>
+                  {lang === "th" ? "💰 เติมเงิน" : lang === "zh" ? "💰 充值" : "💰 Top Up"}
+                </button>
+                <button className="cbtn" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>{lc.close}</button>
               </div>
-              <div className="shopsec">🎨 {lc.shopThemes}</div>
-              <div className="shopgrid">
-                {SHOP_THEMES.map(it => renderShopItem("theme", it, theme))}
+              {/* Shop intro banner (owner plan 2026-09-19 point 6): first visit only —
+                  teaches Battle-vs-Studio in one line, dismissible. */}
+              {shopIntro && (
+                <div className="shopintro" onClick={() => markEduSeen("shopIntro")}>
+                  <span>{lang === "th" ? "🛍️ ร้านค้ามี 2 โลก — Battle คือของใช้สู้จริง · Studio คือของตกแต่ง" : lang === "zh" ? "🛍️ 商店有两个世界——战斗装备真的能打 · 工作室装备负责好看" : "🛍️ Two worlds — Battle gear actually fights · Studio gear decorates"}</span>
+                  <b className="shopintro-x">×</b>
+                </div>
+              )}
+              {/* ── Main category tabs ── */}
+              <div className="shop-tabs">
+                {ALL_CATS.map(c => (
+                  <button key={c.key} className={`shop-tab${shopTab === c.key ? " on" : ""}${c.gem ? " gem" : ""}`}
+                    title={`${c.label} · ${CAT_COUNTS[c.key] || 0}`}
+                    onClick={() => { setShopTab(c.key); setShopSubTab(null); }}>
+                    <span className="shop-tab-ic">{c.icon}</span>
+                    <span className="shop-tab-lbl">{c.label}</span>
+                    <span className="shop-tab-n">{CAT_COUNTS[c.key] || 0}</span>
+                  </button>
+                ))}
               </div>
-              <div className="shopsec">🖼️ {lc.shopFrames}</div>
-              <div className="shopgrid">
-                {SHOP_FRAMES.map(it => renderShopItem("frame", it, frame))}
+              {/* ── Sub-category chips (when a main tab is active) ── */}
+              {shopTab !== "all" && SUB_CATS[shopTab] && (
+                <div className="shop-subtabs">
+                  <button className={`shop-subtab${!shopSubTab ? " on" : ""}`}
+                    onClick={() => setShopSubTab(null)}>
+                    {allLabel}
+                  </button>
+                  {SUB_CATS[shopTab].map(sc => (
+                    <button key={sc.key}
+                      className={`shop-subtab${shopSubTab === sc.key ? " on" : ""}${sc.gem ? " gem" : ""}`}
+                      onClick={() => setShopSubTab(sc.key)}>
+                      <span>{sc.icon}</span> {sc.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* ── Items grid ── */}
+              <div className="setbody shop-body">
+                <div className="shop-summary">
+                  <span>{lang === "th" ? "มีทั้งหมด" : lang === "zh" ? "共" : "Total"}: {filtered.length} {lang === "th" ? "ชิ้น" : lang === "zh" ? "件" : "items"}</span>
+                  <span>{lang === "th" ? "เป็นเจ้าของ" : lang === "zh" ? "已拥有" : "Owned"}: {ownedCount}</span>
+                </div>
+                <div className="shopgrid shop-grid-full">
+                  {filtered.map(it => renderShopItem(CAT_SLOT[it._kind] || it._kind, it, CAT_EQUIPPED[it._kind]))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {modelDetail && (() => {
+        const it = SHOP_MODELS.find(x => x.id === modelDetail);
+        if (!it) return null;
+        return <ModelDetailModal lang={lang} item={it} owned={owned.includes(it.id)} running={charModel === it.model}
+          coins={coins} onClose={() => setModelDetail(null)}
+          onBuy={(m) => { buyOrEquip("charModel", m); setModelDetail(null); }} />;
+      })()}
+
+      {/* ── CHASSIS SELECTION ──
+          Asked once, the first time the profile is opened, and deliberately not
+          dismissible: this is the one decision in the app that cannot be undone
+          for free, so it is made deliberately rather than stumbled into. Every
+          option is shown as the head it actually selects, with its class, and
+          the consequence is stated on the button before it is pressed. */}
+      {modelPickOpen && (() => {
+        const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const sel = modelPickSel || charModel;
+        const selM = CHAR_MODELS.find(m => m.id === sel) || CHAR_MODELS[0];
+        return (
+          <div className="setov mdlpick-ov">
+            <div className="setcard mdlpick" onClick={e => e.stopPropagation()}>
+              <div className="mdlpick-hdr">
+                <div className="mdlpick-ttl">{T("เลือกโครงร่างของคุณ", "Choose your chassis", "选择你的机体")}</div>
+                <div className="mdlpick-sub">{T("เลือกได้ครั้งเดียว ตัวนี้ฟรี — ยิ่งซ้อมเปียโนเก่ง หุ่นของคุณยิ่งเก่งตาม ลองสู้บอทเบา ๆ ดูสนามก่อน (รุ่นอื่นซื้อได้ในร้านค้าหมวดสกินหุ่นยนต์)",
+                                                 "This one is free, and you choose it once. Every other model is bought on the Robot skins shelf.",
+                                                 "这一台免费，只能选一次。其他机型需在商店的机器人皮肤分类购买。")}</div>
+              </div>
+              <div className="mdlpick-body">
+                <div className="mdlpick-stage">
+                  <CyberAvatar model={sel} yaw={-22} pose="ready" />
+                </div>
+                <div className="mdlpick-info">
+                  <span className="mdlpick-code">{selM.code}</span>
+                  <span className="mdlpick-name">{tr(selM, lang)}</span>
+                  <span className="mdlpick-cls">{tr(selM.cls, lang)}</span>
+                </div>
+                {(() => {
+                  const st = MODEL_COMBAT[sel] || MODEL_COMBAT.vanguard;
+                  return (
+                    <div className="mdlpick-stats">
+                      <StatBars lang={lang} stats={st} />
+                      <div className="mdlpick-sp">
+                        <b>{T("สายอาชีพ", "Class", "职业")}</b>
+                        <span className="mdv-cls" style={{ "--cc": classOf(sel).c }}>
+                          <span className="mdv-cls-ic"><ItemArt art={classOf(sel).art} sw={[classOf(sel).c, "#22283a"]} /></span>
+                          {tr(classOf(sel), lang)}
+                        </span>
+                        <span className="mdlpick-spn">{tr(st.sp, lang)}</span>
+                      </div>
+                      <div className="mdlpick-fair">{T(`ทุกรุ่นมีแต้มรวมเท่ากัน ${COMBAT_TOTAL} — ต่างกันที่รูปแบบ`,
+                        `Every chassis totals the same ${COMBAT_TOTAL}. What changes is the shape.`,
+                        `每台机体总分同为 ${COMBAT_TOTAL}，差别在于分配。`)}</div>
+                    </div>
+                  );
+                })()}
+                <div className="mdlpick-grid">
+                  {CHAR_MODELS.map(m => (
+                    <button key={m.id} type="button" className={`char-model${sel === m.id ? " on" : ""}`}
+                      title={`${m.code} · ${tr(m.cls, lang)}`} onClick={() => { setModelPickSel(m.id); playUi("click"); }}>
+                      <span className="char-model-thumb"><CyberAvatar model={m.id} headOnly /></span>
+                      <span className="char-model-nm">{tr(m, lang)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mdlpick-foot">
+                <button className="mdlpick-go" onClick={() => commitModel(sel)}>
+                  {T(`ยืนยัน ${tr(selM, lang)} — เลือกแล้วเปลี่ยนไม่ได้`, `Lock in ${selM.en} — this is permanent`, `确认 ${tr(selM, lang)} — 不可更改`)}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* DAILY CHEST modal — the reward is already resolved before this shows
           (see openChestNow); the wheel only plays back that real outcome */}
@@ -8251,19 +12871,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* seasonal / limited-time event banner — see the activeEvent poll above */}
-      {activeEvent && (
-        <div className="eventbanner">
-          <span className="eventbanner-ic" aria-hidden="true">🎉</span>
-          <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
-          {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
-            <span className="eventbanner-mult">
-              {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
-              {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
-              {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
-            </span>
-          )}
-        </div>
-      )}
+      {activeEvent && (() => {
+        const spot = activeEvent.spotlightFeature && SPOTLIGHT_FEATURES.find(f => f.key === activeEvent.spotlightFeature);
+        return (
+          <div className="eventbanner">
+            <span className="eventbanner-ic" aria-hidden="true">🎉</span>
+            <span className="eventbanner-tx">{tr({ th: activeEvent.name_th, en: activeEvent.name_en, zh: activeEvent.name_zh }, lang)}</span>
+            {(activeEvent.expMult > 1 || activeEvent.coinMult > 1) && (
+              <span className="eventbanner-mult">
+                {activeEvent.expMult > 1 ? `${activeEvent.expMult}× EXP` : ""}
+                {activeEvent.expMult > 1 && activeEvent.coinMult > 1 ? " · " : ""}
+                {activeEvent.coinMult > 1 ? `${activeEvent.coinMult}× 🪙` : ""}
+              </span>
+            )}
+            {spot && (
+              <button className="eventbanner-spot" onClick={() => goToSpotlight(spot.key)}>
+                🔦 {spot.icon} {spot.label[lang]} {lc.eventSpotGo}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Floating mascot companion widget removed per feedback (the floating
           face read as visual clutter). mascotMood/mascot() are left in place
@@ -8280,7 +12908,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lvup-rank">{levelUp.prestige ? `${lc.prestigeWord} ${levelUp.prestige}` : `${lc.profLevelWord} ${levelUp.level} · ${tr(levelUp.tier, lang)}`}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord, big: levelUp.prestige ? `⭐ ${levelUp.prestige}` : lc.profLevelWord + " " + levelUp.level, sub: levelUp.prestige ? lc.prestigeWord : tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
-            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TiGA Piano AI tigaalpha.github.io` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
+            {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
+            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TiGA Piano AI tigaalpha.github.io` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>}
           </div>
         </div>
       )}
@@ -8293,7 +12922,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lvup-rank">{tr(badgeUp, lang)}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareCard({ title: lc.badgeUnlocked, big: badgeUp.icon, sub: tr(badgeUp, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
-            <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareLine(`🎹 ${lc.badgeUnlocked} ${badgeUp.icon} "${tr(badgeUp, lang)}" — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>
+            {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
+            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareLine(`🎹 ${lc.badgeUnlocked} ${badgeUp.icon} "${tr(badgeUp, lang)}" — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>}
           </div>
         </div>
       )}
@@ -8309,7 +12939,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{tr(challengeData.song, lang)}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" style={{ background: "var(--accent)", color: "#fff" }}
-              onClick={(e) => { e.stopPropagation(); setChallengeData(null); setSongMeta(challengeData.song); songDataRef.current = expandSong(challengeData.song); setSongPhase("ready"); setSongResult(null); setSongOpen(true); }}>
+              onClick={(e) => { e.stopPropagation(); setChallengeData(null); setSongMeta(challengeData.song); songDataRef.current = expandSong(challengeData.song, { hand: songHandMode }); setSongPhase("ready"); setSongResult(null); setSongOpen(true); }}>
               🎹 {lang === "th" ? "รับคำท้า!" : lang === "zh" ? "接受挑战!" : "Accept!"}
             </button>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); setChallengeData(null); }}>✕</button>
@@ -8345,21 +12975,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           th: {
             title: "ติดตั้ง TIGA.AI บนมือถือ", sub: "เลือกแพลตฟอร์มของคุณ",
             andT: "Android", andS: apkAvailable ? (apkIsBeta ? "รุ่นทดสอบ (เบต้า)" : "แอพเต็มรูปแบบ") : "เร็วๆ นี้",
-            andF1: "🎙️ AI Voice Tutor", andF2: "🔔 แจ้งเตือนซ้อม", andBtn: "ดาวน์โหลด APK", andNote: "แตะ \"อนุญาตติดตั้งจากแหล่งนี้\" เมื่อ Android ถาม",
+            andF1: "🤖 ครู AI ตอบสด", andF2: "🔔 แจ้งเตือนซ้อม", andBtn: "ดาวน์โหลด APK", andNote: "แตะ \"อนุญาตติดตั้งจากแหล่งนี้\" เมื่อ Android ถาม",
             iosT: "iPhone / iPad", iosS: "เพิ่มไปหน้าจอโฮมจาก Safari",
             iosF1: "🏠 เปิดแบบเต็มจอ", iosF2: "🔔 แจ้งเตือนได้ (iOS 16.4+)", iosBtn: "ดูวิธีติดตั้ง →",
           },
           en: {
             title: "Install TIGA.AI on your phone", sub: "Pick your platform",
             andT: "Android", andS: apkAvailable ? (apkIsBeta ? "Beta build" : "Full app") : "Coming soon",
-            andF1: "🎙️ AI Voice Tutor", andF2: "🔔 Practice reminders", andBtn: "Download APK", andNote: "Tap \"allow install from this source\" when Android asks",
+            andF1: "🤖 Live AI teacher", andF2: "🔔 Practice reminders", andBtn: "Download APK", andNote: "Tap \"allow install from this source\" when Android asks",
             iosT: "iPhone / iPad", iosS: "Add to Home Screen from Safari",
             iosF1: "🏠 Full-screen app", iosF2: "🔔 Notifications too (iOS 16.4+)", iosBtn: "See install steps →",
           },
           zh: {
             title: "在手机上安装 TIGA.AI", sub: "选择你的平台",
             andT: "Android", andS: apkAvailable ? (apkIsBeta ? "测试版" : "完整版应用") : "即将推出",
-            andF1: "🎙️ AI 语音导师", andF2: "🔔 练习提醒", andBtn: "下载 APK", andNote: "系统询问时点击\"允许安装未知来源应用\"",
+            andF1: "🤖 AI 实时老师", andF2: "🔔 练习提醒", andBtn: "下载 APK", andNote: "系统询问时点击\"允许安装未知来源应用\"",
             iosT: "iPhone / iPad", iosS: "从 Safari 添加到主屏幕",
             iosF1: "🏠 全屏应用体验", iosF2: "🔔 也支持通知（iOS 16.4+）", iosBtn: "查看安装步骤 →",
           },
@@ -8406,6 +13036,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           th: {
             title: "ติดตั้งบน iPhone / iPad", sub: "ใช้ Safari เท่านั้น — เบราว์เซอร์อื่นบน iOS ทำแบบนี้ไม่ได้",
             warn: "ดูเหมือนหน้านี้ไม่ได้เปิดใน Safari — เปิดลิงก์นี้ใน Safari ก่อน แล้วทำตามขั้นตอนด้านล่าง",
+            warnChrome: "คุณกำลังใช้ Chrome อยู่ — บน iPhone/iPad มีแค่ Safari เท่านั้นที่ติดตั้งไอคอนแอปแบบเต็มจอได้ (เป็นข้อจำกัดจาก Apple ไม่ใช่จาก Chrome) แตะ ⋯ เพิ่มเติม ที่ด้านล่างจอ แล้วเลือก \"เปิดใน Safari\" จากนั้นทำตามขั้นตอนด้านล่างนี้",
             s1t: "1. แตะปุ่มแชร์", s1b: "ไอคอนสี่เหลี่ยมมีลูกศรชี้ขึ้น อยู่แถบด้านล่าง (หรือด้านบนใน iPad)",
             s2t: "2. เลื่อนหาแล้วแตะ \"เพิ่มไปที่หน้าจอโฮม\"", s2b: "Add to Home Screen",
             s3t: "3. แตะ \"เพิ่ม\" มุมขวาบน", s3b: "เสร็จแล้ว! ไอคอน TIGA.AI จะอยู่บนหน้าจอโฮมของคุณ",
@@ -8415,6 +13046,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           en: {
             title: "Install on iPhone / iPad", sub: "Safari only — other iOS browsers can't do this",
             warn: "This page doesn't look like it's open in Safari — open this link in Safari first, then follow the steps below.",
+            warnChrome: "You're in Chrome — on iPhone/iPad, only Safari can add a real full-screen app icon (that's an Apple rule, not a Chrome limitation). Tap ⋯ More at the bottom of the screen, choose \"Open in Safari,\" then follow the steps below.",
             s1t: "1. Tap the Share button", s1b: "The square with an arrow pointing up, in the bottom bar (top bar on iPad)",
             s2t: "2. Scroll down and tap \"Add to Home Screen\"", s2b: "",
             s3t: "3. Tap \"Add\" in the top-right corner", s3b: "Done! The TIGA.AI icon is now on your Home Screen.",
@@ -8424,6 +13056,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           zh: {
             title: "在 iPhone / iPad 上安装", sub: "仅限 Safari — iOS 上的其他浏览器无法这样做",
             warn: "此页面似乎不是在 Safari 中打开的 — 请先在 Safari 中打开此链接，然后按照以下步骤操作。",
+            warnChrome: "你正在使用 Chrome — 在 iPhone/iPad 上，只有 Safari 才能把应用图标完整安装到主屏幕（这是苹果的限制，与 Chrome 无关）。点击屏幕底部的 ⋯ 更多，选择「在 Safari 中打开」，然后按照以下步骤操作。",
             s1t: "1. 点击分享按钮", s1b: "带向上箭头的方框图标，位于底部工具栏（iPad 在顶部）",
             s2t: "2. 向下滚动并点击\"添加到主屏幕\"", s2b: "",
             s3t: "3. 点击右上角的\"添加\"", s3b: "完成！TIGA.AI 图标现在在你的主屏幕上了。",
@@ -8438,7 +13071,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="apkpop-x" onClick={() => setIosInstallOpen(false)} aria-label="close">×</button>
               <b className="apkpop-title">{c.title}</b>
               <span className="apkpop-sub">{c.sub}</span>
-              {!isIOSSafari && <div className="iosinstall-warn">⚠️ {c.warn}</div>}
+              {isIOSChrome ? <div className="iosinstall-warn">⚠️ {c.warnChrome}</div>
+                : !isIOSSafari && <div className="iosinstall-warn">⚠️ {c.warn}</div>}
               <div className="iosinstall-steps">
                 <div className="iosinstall-step">
                   <span className="iosinstall-stepic">📤</span>
@@ -8498,6 +13132,47 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
+      {/* Gem monetization plan v4 item 1 — gem-shortage popup: fires only from
+          buyWithGems (a real failed purchase attempt), two buttons: top up gems
+          (opens the top-up modal on the gem tab) or take the equal-value coins
+          route when one exists — never blocks or hides the free path. */}
+      {gemShort && (() => {
+        const gs = (lang === "th")
+          ? { t: "เพชรไม่พอ", b: `ต้องใช้อีก ${gemShort.short} 💎 สำหรับ ${gemShort.item || "ไอเทมชิ้นนี้"}`, go: "เติมเพชรเลย", alt: "ดูวิธีอื่น" }
+          : (lang === "zh")
+          ? { t: "钻石不足", b: `还差 ${gemShort.short} 💎 才能获得 ${gemShort.item || "该道具"}`, go: "去充值", alt: "看看其他方法" }
+          : { t: "Not enough gems", b: `You need ${gemShort.short} more 💎 for ${gemShort.item || "this item"}`, go: "Top up gems", alt: "Other ways" };
+        return (
+          <div className="atpopup" onClick={dismissGemShortPopup}>
+            <div className="atpopup-card" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">💎</span>
+                <div className="atpopup-tt">{gs.t}</div>
+                <button className="atpopup-x" onClick={dismissGemShortPopup} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak">{gs.b}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { playUi("click"); logUsage("gem", "shortpop:cta"); setGemShortFocus(true); setGemShort(null); if (requireLogin()) return; if (shopOpen) setShopOpen(false); openBuyCurrency(); }}>{gs.go}</button>
+                <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { playUi("click"); logUsage("gem", "shortpop:alt"); setGemShort(null); setShopOpen(true); }}>{gs.alt}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Auto Teaching → Challenging Mode nudge — see maybeNudgeChallenge() */}
+      {challengeNudge && (
+        <div className="installbanner" style={{ background: "linear-gradient(90deg,#8b5cf6,#a78bfa)" }}>
+          <span className="installbanner-ic" aria-hidden="true">{challengeNudge.icon}</span>
+          <div className="installbanner-tx">
+            <b>{lc.challengeNudgeTitle}</b>
+            <span>{challengeNudge.kind === "full" ? lc.challengeNudgeFull : lc.challengeNudgeBoss.replace("{g}", challengeNudge.label)}</span>
+          </div>
+          <button className="installbanner-go" style={{ background: "#fff", color: "#7c3aed" }} onClick={() => { playUi("click"); clearTimeout(challengeNudgeTimer.current); setChallengeFocusGroup(challengeNudge.groupId); setPage("challenging"); setChallengeNudge(null); }}>{lc.challengeNudgeBtn}</button>
+          <button className="installbanner-x" onClick={() => { clearTimeout(challengeNudgeTimer.current); setChallengeNudge(null); }} aria-label="close">×</button>
+        </div>
+      )}
+
       {/* Admin broadcast — an announcement pushed on demand, shown once per device; takes
           priority over the Auto Teaching tip if both would otherwise be eligible at once. */}
       {broadcast && page === "pathway" && (
@@ -8518,21 +13193,216 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* Auto Teaching — real-time coaching card (Max plan, fires on a timer while on the Pathway page) */}
-      {autoTeachTip && !(broadcast && page === "pathway") && (
-        <div className="atpopup" onClick={() => setAutoTeachTip(null)}>
+      {/* One-time language picker popup — SUSPENDED (owner request 2026-09):
+          LANG_PICKER_ENABLED above is false so this never mounts. Kept verbatim
+          so re-enabling is a one-line flip. */}
+      {false && langPickerOpen && (
+        <div className="apkpopov" style={{ zIndex: 9999 }}>
+          <div className="apkpop apkpop2" onClick={e => e.stopPropagation()} style={{ maxWidth: 340 }}>
+            <img className="apkpop-icon" src="./icon.svg" alt="" />
+            <b className="apkpop-title" style={{ fontSize: 18 }}>{lang === "th" ? "เลือกภาษา" : lang === "zh" ? "选择语言" : "Choose your language"}</b>
+            <span className="apkpop-sub" style={{ marginBottom: 14, display: "block" }}>{lang === "th" ? "จะใช้ภาษานี้ทุกครั้งที่เข้ามา เปลี่ยนได้ทีหลังในตั้งค่า" : lang === "zh" ? "将使用此语言，可在设置中更改" : "This will be used every time you come back — change later in Settings"}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
+              {[{ code: "th", flag: "🇹🇭", label: "ไทย" }, { code: "en", flag: "🇬🇧", label: "English" }, { code: "zh", flag: "🇨🇳", label: "中文" }].map(o => (
+                <button key={o.code} className="lockbtn" style={{ width: "100%" }} onClick={() => {
+                  setLang(o.code);
+                  setLangPickerOpen(false);
+                  const next = { ...profile, lang: o.code };
+                  if (session && session.user && session.user.id) {
+                    sb.from("profiles").update({ lang: o.code }).eq("id", session.user.id).then(() => {}, () => {});
+                  } else {
+                    saveGuestProfile(next);
+                  }
+                  setProfile(next);
+                }}>{o.flag}  {o.label}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Game-feature education tip (owner-approved 2026-09-19): teaches the
+          pets/PvP/chest/shop loop at the exact moment it matters. Every CTA
+          navigates straight to the feature — plan rule 3. */}
+      {eduTip && !convPopup && !broadcast && !autoTeachTip && (() => {
+        const ec = (EDU_COPY[lang] || EDU_COPY.en)[eduTip.kind];
+        const go = () => {
+          playUi("click"); dismissEduTip();
+          if (ec.go === "pet") { logUsage("nav", "pet"); setPage("pet"); }
+          else if (ec.go === "shop") { logUsage("nav", "shop"); setShopOpen(true); }
+          else { setPage("profile"); }
+        };
+        return (
+          <div className="atpopup" onClick={dismissEduTip}>
+            <div className="atpopup-card edupop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{ec.ic}</span>
+                <div className="atpopup-tt">{ec.title}</div>
+                <button className="atpopup-x" onClick={dismissEduTip} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{ec.body}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={go}>{ec.cta}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Conversion-funnel popup (owner-approved 2026-09-19): trial-stage
+          messaging from ครู TIGA AI — welcome / halfway price-lock / closing
+          (checkout in one tap) / expired win-back. One instance, highest-
+          priority phase first; dismissal is remembered per device. */}
+      {convPopup && (() => {
+        const cc = CONV_COPY[lang] || CONV_COPY.en;
+        const cRaw = cc[convPopup.kind];
+        const c = { ...cRaw, body: personalizedBody(convPopup.kind, lang, convPopup.proof, cRaw.body) };
+        return (
+          <div className="atpopup" onClick={dismissConvPopup}>
+            <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
+                <div className="atpopup-tt">{c.title}</div>
+                <button className="atpopup-x" onClick={dismissConvPopup} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              {convPopup.kind === "closing" && <div className="convpop-items">{c.items}</div>}
+              {/* Primary action per phase: closing → direct checkout (3A);
+                  halfway → pricing sheet (2A price-lock); welcome → plain
+                  dismiss; win-back gets a secondary browse-plans button. */}
+              {convPopup.kind === "closing"
+                ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "cta"); setConvPopup(null); startCheckout("premium", billCycle); }}>{c.cta}</button>
+                    <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{c.alt}</button>
+                  </div>
+                : convPopup.kind === "halfway"
+                ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "cta"); setConvPopup(null); setPricingOpen(true); }}>{c.cta}</button>
+                  </div>
+                : <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button className="atpopup-ok" style={{ flex: 1 }} onClick={dismissConvPopup}>{c.cta}</button>
+                    {convPopup.kind === "winback" && <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{(CONV_COPY[lang] || CONV_COPY.en).halfway.cta}</button>}
+                  </div>}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* v3 win-moment proof popup (owner plan §3): the learner's OWN before/
+          after numbers, one per day max, trial only, evidence-gated. CTA opens
+          the existing pricing sheet; secondary goes straight to checkout. */}
+      {proofPopup && !convPopup && (() => {
+        const cc = CONV_COPY[lang] || CONV_COPY.en;
+        const k = cc[proofPopup.kind] || cc.proof;
+        const c = { ...k, body: personalizedBody(proofPopup.kind, lang, proofPopup.proof, k.body) };
+        return (
+          <div className="atpopup" onClick={() => { logConvEvent("proof", "dismissed"); setProofPopup(null); }}>
+            <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
+                <div className="atpopup-tt">{c.title}</div>
+                <button className="atpopup-x" onClick={() => { logConvEvent("proof", "dismissed"); setProofPopup(null); }} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { logConvEvent("proof", "cta"); setProofPopup(null); setPricingOpen(true); }}>{c.cta}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* v3 post-purchase activation (owner plan §5): the teacher's first words
+          after payment — anti-regret + first next step in one tap. */}
+      {activatePopup && (() => {
+        const c = ACTIVATION_COPY[lang] || ACTIVATION_COPY.en;
+        return (
+          <div className="atpopup" onClick={() => setActivatePopup(false)}>
+            <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
+              <div className="atpopup-hd">
+                <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
+                <div className="atpopup-tt">{c.title}</div>
+                <button className="atpopup-x" onClick={() => setActivatePopup(false)} aria-label="close">×</button>
+              </div>
+              <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { logConvEvent("activation", "cta"); setActivatePopup(false); setPage("pathway"); try { fetchAutoTeachTip(); } catch (e) {} }}>{c.cta}</button>
+                <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => setActivatePopup(false)}>{c.alt}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Auto Teaching 2.0 — coaching card: weakness + the learner's own data chart + a cited รู้ไว้ใช่ว่า micro-lesson + 30s knowledge quiz (plan §4; TTS excluded per owner) */}
+      {autoTeachTip && !broadcast && (
+        <div className="atpopup" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
             <div className="atpopup-hd">
               <span className="atpopup-ic" aria-hidden="true">🎯</span>
               <div className="atpopup-tt">{lang === "th" ? "ครู TiGA แนะนำ" : lang === "zh" ? "TiGA老师建议" : "Coach TiGA's Tip"}</div>
-              <button className="atpopup-x" onClick={() => setAutoTeachTip(null)} aria-label="close">×</button>
+              <button className="atpopup-x" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }} aria-label="close">×</button>
             </div>
             <div className="atpopup-weak">{autoTeachTip.weakness}</div>
+            {autoTeachTip.visual && <div style={{ margin: "8px 0 2px", borderRadius: 12, overflow: "hidden" }}><TeachVisual type={autoTeachTip.visual.type} data={autoTeachTip.visual.data} lang={lang} /></div>}
+            {autoTeachTip.knowledge && (() => {
+              const k = autoTeachTip.knowledge;
+              const src = cardSourceInfo(k);
+              const q = k.quiz || null;
+              const KC = {
+                th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 เพชร", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", src: "ที่มา" },
+                en: { knowIt: "Did you know", quiz: "30s quiz +5💎", ok: "Correct! +5 gems", no: "Close! The answer is", streak: "Knowledge streak", days: "days", timeUp: "Time's up!", src: "Source" },
+                zh: { knowIt: "你知道吗", quiz: "30秒问答 +5💎", ok: "答对了！+5钻石", no: "就差一点！答案是", streak: "知识连续", days: "天", timeUp: "时间到！", src: "来源" },
+              }[lang] || {};
+              const ks = readKnowledgeStats();
+              return (
+                <div style={{ margin: "10px 0 4px", padding: "10px 12px", borderRadius: 12, background: "var(--card2,rgba(0,0,0,0.03))", border: "1px solid var(--bd2,rgba(0,0,0,0.06))" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <b style={{ fontSize: 11.5, color: "var(--accent)" }}>💡 {KC.knowIt}</b>
+                    {ks.streak > 0 && <span style={{ fontSize: 10.5, color: "var(--muted)" }}>🔥 {KC.streak} {ks.streak} {KC.days}</span>}
+                  </div>
+                  {k.diagram && <div style={{ margin: "6px 0 2px" }}><TeachVisual type={k.diagram.type} data={k.diagram} lang={lang} /></div>}
+                  <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, color: "var(--text)" }}>{k.concept[lang] || k.concept.th}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>{k.why[lang] || k.why.th}</div>
+                  {q && !teachQuiz && (
+                    <button type="button" onClick={() => openTeachQuiz(k)} style={{ marginTop: 8, width: "100%", padding: "8px 10px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>🧠 {KC.quiz}</button>
+                  )}
+                  {q && teachQuiz && teachQuiz.card && teachQuiz.card.id === k.id && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{q.q[lang] || q.q.th}</span>
+                        {teachQuiz.picked === null && <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{teachQuiz.tleft}s</span>}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                        {q.choices.map((ch, i) => {
+                          const revealed = teachQuiz.picked !== null;
+                          const isRight = i === q.correct;
+                          const bg = revealed ? (isRight ? "rgba(34,197,94,0.16)" : teachQuiz.picked === i ? "rgba(249,115,22,0.16)" : "transparent") : "transparent";
+                          return (
+                            <button key={i} type="button" disabled={revealed} onClick={() => answerTeachQuiz(i)} style={{ textAlign: "left", padding: "7px 10px", borderRadius: 9, border: "1px solid " + (revealed && isRight ? "rgba(34,197,94,0.5)" : "var(--bd2,rgba(0,0,0,0.1))"), background: bg, color: "var(--text)", fontSize: 12, fontWeight: revealed && isRight ? 700 : 500, cursor: revealed ? "default" : "pointer" }}>
+                              {String.fromCharCode(65 + i)}. {ch[lang] || ch.th}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {teachQuiz.picked !== null && (
+                        <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: teachQuiz.correct ? "var(--ok,#16a34a)" : "var(--accent)" }}>
+                          {teachQuiz.picked === -1 ? KC.timeUp : teachQuiz.correct ? KC.ok : `${KC.no} ${q.choices[q.correct][lang] || q.choices[q.correct].th}`}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {src && src.institution && (
+                    <a href={src.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-block", marginTop: 8, fontSize: 10.5, color: "var(--muted)", textDecoration: "underline", textUnderlineOffset: 2 }}>📚 {KC.src}: {src.institution}</a>
+                  )}
+                </div>
+              );
+            })()}
             <ol className="atpopup-steps">
               {autoTeachTip.steps.map((s, i) => (
                 <li key={i}>
                   <button type="button" className="atpopup-step"
-                    onClick={() => { setAutoTeachTip(null); goToCoachStep(s, autoTeachTip.feature); }}>
+                    onClick={() => { try { recordTipAction("follow", autoTeachTip.feature); logUsage("atip", "follow"); } catch (e) {} setAutoTeachTip(null); goToCoachStep(s, autoTeachTip.feature); }}>
                     <span className="atpopup-step-tx">{s}</span>
                     <span className="atpopup-step-go">➜</span>
                   </button>
@@ -8540,10 +13410,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               ))}
             </ol>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { setAutoTeachTip(null); setPage("coach"); }}>
+              <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { try { recordTipAction("follow", autoTeachTip && autoTeachTip.feature); logUsage("atip", "follow"); } catch (e) {} setAutoTeachTip(null); setPage("coach"); }}>
                 {lang === "th" ? "ดูรายละเอียด" : lang === "zh" ? "查看详情" : "Details"}
               </button>
-              <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { setAutoTeachTip(null); handleCoachNavigate(autoTeachTip.feature); }}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
+              <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { try { recordTipAction("follow", autoTeachTip.feature); logUsage("atip", "follow"); } catch (e) {} setAutoTeachTip(null); handleCoachNavigate(autoTeachTip.feature); }}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
             </div>
           </div>
         </div>

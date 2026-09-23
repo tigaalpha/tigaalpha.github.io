@@ -194,6 +194,17 @@ async function generate(
   const body: Record<string, unknown> = {
     contents: toGeminiContents(messages),
     generationConfig: { temperature, maxOutputTokens },
+    // Explicitly disable all safety filters — Gemini's defaults aggressively
+    // block harmless Thai-language business conversations (pricing, payments,
+    // bookings) once the conversation context grows past ~2 turns. Every
+    // category set to BLOCK_NONE so the model never returns an empty response
+    // due to safety filtering.
+    safetySettings: [
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+    ],
   };
 
   // Use the cached copy of the system instruction when one exists (it's
@@ -231,11 +242,19 @@ async function generate(
   const data = (await response.json()) as {
     candidates?: Array<{ content?: { parts?: GeminiPart[] }; finishReason?: string }>;
     usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+    promptFeedback?: { blockReason?: string; safetyRatings?: Array<{ category: string; probability: string }> };
   };
 
   const candidate = data.candidates?.[0];
   const parts = candidate?.content?.parts ?? [];
   const text = parts.map((p) => p.text ?? "").join("").trim();
+
+  // Gemini sometimes returns a candidate with finishReason "SAFETY" and
+  // zero parts — the safety filter fired despite BLOCK_NONE (can happen
+  // with cached content or specific model versions). Return the content as
+  // empty so chat-core's isDegenerateReply / retry / fallback logic handles
+  // it gracefully (throwing would crash the un-wrapped generate() call in
+  // chat-core's while loop).
 
   const toolCalls = parts
     .filter((part): part is GeminiPart & { functionCall: NonNullable<GeminiPart["functionCall"]> } => Boolean(part.functionCall))

@@ -346,6 +346,10 @@ export function MarketingChannelsView() {
         </Card>
       </div>
 
+      <SocialBladeSection />
+
+      <MetricsOverview />
+
       <div>
         <h2 className="text-lg font-semibold text-secondary">กรอกยอดเอง</h2>
         <p className="text-xs text-secondary/40">
@@ -388,5 +392,209 @@ export function MarketingChannelsView() {
         })}
       </div>
     </div>
+  );
+}
+
+// ── Metrics Overview Section ─────────────────────────────────────
+
+const METRIC_LABELS: Record<string, string> = {
+  followers: "ผู้ติดตาม",
+  likes: "ไลก์",
+  views: "ยอดวิว",
+  comments: "คอมเมนต์",
+  shares: "แชร์",
+  engagement: "ปฏิสัมพันธ์",
+};
+
+const CHANNEL_ICONS: Record<string, LucideIcon> = {
+  youtube: Youtube,
+  facebook: Facebook,
+  instagram: Instagram,
+  tiktok: Music2,
+  x: Twitter,
+  website: Globe,
+};
+
+const CHANNEL_LABELS: Record<string, string> = {
+  youtube: "YouTube",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  x: "X (Twitter)",
+  website: "เว็บไซต์",
+};
+
+function MetricsOverview() {
+  const [metrics, setMetrics] = useState<Record<string, Record<string, { value: number; captured_at: string }>> | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.functions.invoke<{ latestMetrics: Record<string, Record<string, { value: number; captured_at: string }>> }>("marketing-metrics-snapshot", { body: {} });
+        if (data?.latestMetrics) setMetrics(data.latestMetrics);
+      } catch { /* silent */ }
+      setLoading(false);
+    }
+    void load();
+  }, []);
+
+  if (loading) return null;
+  if (!metrics || Object.keys(metrics).length === 0) return null;
+
+  const channels = Object.keys(metrics).filter((ch) => metrics[ch] && Object.keys(metrics[ch]).length > 0);
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-secondary">ข้อมูลล่าสุดจากทุกช่องทาง</h2>
+      <p className="text-xs text-secondary/40 mb-3">ยอดล่าสุดที่ดึงได้จากแต่ละช่องทาง (อัปเดตอัตโนมัติทุกชั่วโมง + เมื่อกด sync)</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {channels.map((ch) => {
+          const Icon = CHANNEL_ICONS[ch] ?? Globe;
+          const label = CHANNEL_LABELS[ch] ?? ch;
+          const stats: Record<string, { value: number; captured_at: string }> = metrics[ch] ?? {};
+          const metricKeys = Object.keys(stats);
+          const firstKey = metricKeys[0];
+          const firstMetric = firstKey ? stats[firstKey] : undefined;
+          const latestDate = firstMetric ? new Date(firstMetric.captured_at) : null;
+          return (
+            <Card key={ch}>
+              <CardContent className="space-y-2 pt-6">
+                <div className="flex items-center gap-2">
+                  <Icon className="h-5 w-5 text-secondary/60" />
+                  <p className="font-medium text-secondary">{label}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {metricKeys.map((m) => (
+                    <div key={m}>
+                      <p className="text-xs text-secondary/40">{METRIC_LABELS[m] ?? m}</p>
+                      <p className="text-lg font-semibold text-secondary">{fmtNumber(stats[m]?.value)}</p>
+                    </div>
+                  ))}
+                </div>
+                {latestDate ? (
+                  <p className="text-xs text-secondary/30">อัปเดต {latestDate.toLocaleDateString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                ) : null}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Platform URL Configuration Section ────────────────────────────
+
+function SocialBladeSection() {
+  const [ytUrl, setYtUrl] = useState("");
+  const [ttUrl, setTtUrl] = useState("");
+  const [igUrl, setIgUrl] = useState("");
+  const [fbUrl, setFbUrl] = useState("");
+  const [xUrl, setXUrl] = useState("");
+  const [saving, setSaving] = useState<string | null>(null);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    const repos = createRepositories(createClient());
+    Promise.all([
+      repos.integrations.get("social_blade_youtube"),
+      repos.integrations.get("social_blade_tiktok"),
+      repos.integrations.get("social_blade_instagram"),
+      repos.integrations.get("social_blade_facebook"),
+      repos.integrations.get("social_blade_x"),
+    ]).then(([yt, tt, ig, fb, x]) => {
+      setYtUrl(yt ?? "");
+      setTtUrl(tt ?? "");
+      setIgUrl(ig ?? "");
+      setFbUrl(fb ?? "");
+      setXUrl(x ?? "");
+    });
+  }, []);
+
+  async function saveUrl(key: string, value: string, label: string) {
+    setSaving(label);
+    const repos = createRepositories(createClient());
+    await repos.integrations.set(key, value.trim());
+    setSaving(null);
+  }
+
+  async function handleScrapeNow() {
+    setScraping(true);
+    setScrapeResult(null);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke("marketing-metrics-snapshot", { body: {} });
+      if (error) throw error;
+      // Show platform URL scraping results
+      const pu = (data as Record<string, unknown>).platformUrls as Record<string, { ok: boolean; detail: string }> | undefined;
+      if (pu) {
+        const parts: string[] = [];
+        for (const [ch, res] of Object.entries(pu)) {
+          parts.push(`${ch}: ${res.ok ? "✅ " + res.detail : "❌ " + res.detail}`);
+        }
+        setScrapeResult(parts.join("\n"));
+      } else {
+        setScrapeResult("✅ ซิงค์สำเร็จ");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "ซิงค์ไม่สำเร็จ";
+      setScrapeResult(`❌ ${msg}`);
+    } finally {
+      setScraping(false);
+    }
+  }
+
+  const profiles = [
+    { key: "social_blade_youtube", label: "YouTube", icon: Youtube, value: ytUrl, set: setYtUrl, placeholder: "youtube.com/@username" },
+    { key: "social_blade_tiktok", label: "TikTok", icon: Music2, value: ttUrl, set: setTtUrl, placeholder: "tiktok.com/@username" },
+    { key: "social_blade_instagram", label: "Instagram", icon: Instagram, value: igUrl, set: setIgUrl, placeholder: "instagram.com/username" },
+    { key: "social_blade_facebook", label: "Facebook", icon: Facebook, value: fbUrl, set: setFbUrl, placeholder: "facebook.com/pagename" },
+    { key: "social_blade_x", label: "X (Twitter)", icon: Twitter, value: xUrl, set: setXUrl, placeholder: "x.com/username" },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Social Media Profile URLs (ดึงอัตโนมัติ)</CardTitle>
+        <CardDescription>
+          วาง URL หน้าโปรไฟล์ของแต่ละช่องทาง ระบบจะดึง follower/like count ให้อัตโนมัติ
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {profiles.map(({ key, label, icon: Icon, value, set, placeholder }) => (
+          <div key={key} className="flex items-end gap-2">
+            <Icon className="mb-2.5 h-4 w-4 shrink-0 text-secondary/50" />
+            <div className="flex-1">
+              <label className="text-xs text-secondary/50">{label}</label>
+              <Input
+                placeholder={placeholder}
+                value={value}
+                onChange={(e) => set(e.target.value)}
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => void saveUrl(key, value, label)}
+              disabled={saving === label}
+              className="shrink-0"
+            >
+              {saving === label ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 pt-2">
+          <Button variant="outline" size="sm" onClick={() => void handleScrapeNow()} disabled={scraping}>
+            <RefreshCw className={cn("h-4 w-4", scraping && "animate-spin")} />
+            {scraping ? "กำลังดึงข้อมูล…" : "ดึงข้อมูลตอนนี้"}
+          </Button>
+        </div>
+        {scrapeResult ? (
+          <pre className="whitespace-pre-wrap rounded-lg bg-line/5 p-3 text-xs text-secondary/60">{scrapeResult}</pre>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

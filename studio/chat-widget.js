@@ -35,8 +35,26 @@
 
   var STORAGE_KEY = "tiga_widget_conv";
   var LEAD_KEY = "tiga_widget_lead";
+  var REFERRAL_KEY = "tiga_widget_ref";
   var open = false;
   var messages = [];
+
+  // Referral capture: a visitor arriving via a friend's share link
+  // (?ref=CODE) gets that code remembered, so the moment they submit the
+  // lead form the friend gets credited — even if they come back days later
+  // on a different page of the same browser.
+  function referralCode() {
+    try {
+      var fromUrl = new URLSearchParams(window.location.search).get("ref");
+      if (fromUrl && fromUrl.trim()) {
+        localStorage.setItem(REFERRAL_KEY, fromUrl.trim().toUpperCase());
+        return fromUrl.trim().toUpperCase();
+      }
+      return localStorage.getItem(REFERRAL_KEY);
+    } catch (e) {
+      return null;
+    }
+  }
 
   function conversationId() {
     try {
@@ -66,8 +84,22 @@
 
   function saveLead(name, phone) {
     try {
-      localStorage.setItem(LEAD_KEY, JSON.stringify({ name: name, phone: phone }));
+      var lead = { name: name, phone: phone };
+      var ref = referralCode();
+      if (ref) lead.referralCode = ref;
+      localStorage.setItem(LEAD_KEY, JSON.stringify(lead));
     } catch (e) {}
+  }
+
+  function getReferralCode() {
+    try {
+      var raw = localStorage.getItem(LEAD_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.referralCode) return parsed.referralCode;
+      }
+    } catch (e) {}
+    return referralCode();
   }
 
   var host = document.getElementById("tiga-widget") || document.body;
@@ -188,6 +220,13 @@
     var body = { conversationId: conversationId(), message: text };
     var lead = getLead();
     if (lead) body.lead = lead;
+    // Always send a captured referral code, even without a lead form — the
+    // server attributes it as soon as the visitor identifies themselves.
+    var refCode = getReferralCode();
+    if (refCode) {
+      if (!body.lead) body.lead = {};
+      body.lead.referralCode = refCode;
+    }
 
     fetch(API_URL, {
       method: "POST",

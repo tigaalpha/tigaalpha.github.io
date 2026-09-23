@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import { LANG_INIT_SCRIPT } from "@/lib/i18n";
+import { LanguageProvider } from "@/lib/language-context";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { BASE_PATH } from "@/lib/constants";
 
@@ -21,10 +23,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
       </head>
       <body className="min-h-screen bg-page font-sans antialiased">
         <ServiceWorkerRegister />
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
   );

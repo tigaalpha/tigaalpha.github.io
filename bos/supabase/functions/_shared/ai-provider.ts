@@ -24,7 +24,7 @@ import { MASTER_MODEL_SETTING_KEY, MODEL_TIER_SETTING_KEYS, resolveTierModelId, 
 export type { AIProvider, ChatMessage, ChatRole, GeneratedImage, GenerateResult, ToolCall, ToolDefinition } from "./ai-types.ts";
 export type { ModelTier } from "./model-tiers.ts";
 
-export type ChatModelId = "gemini" | "claude" | "gpt" | "qwen" | "kimi" | "glm" | "grok" | "deepseek";
+export type ChatModelId = "gemini" | "claude" | "gpt" | "qwen" | "kimi" | "glm" | "glm52" | "grok" | "deepseek" | "deepseek-v3-free" | "mimo";
 
 export interface ChatModelDef {
   id: ChatModelId;
@@ -40,9 +40,12 @@ export const CHAT_MODELS: ChatModelDef[] = [
   { id: "gpt", label: "ChatGPT 5.1", envKey: "OPENROUTER_API_KEY" },
   { id: "qwen", label: "Qwen3 Max", envKey: "OPENROUTER_API_KEY" },
   { id: "kimi", label: "Kimi K2", envKey: "OPENROUTER_API_KEY" },
-  { id: "glm", label: "GLM 4.6", envKey: "OPENROUTER_API_KEY" },
+  { id: "glm", label: "GLM 5.1", envKey: "OPENROUTER_API_KEY" },
+  { id: "glm52", label: "GLM 5.2", envKey: "OPENROUTER_API_KEY" },
   { id: "grok", label: "Grok", envKey: "OPENROUTER_API_KEY" },
   { id: "deepseek", label: "DeepSeek V4 Flash", envKey: "OPENROUTER_API_KEY" },
+  { id: "deepseek-v3-free", label: "DeepSeek V3 (ฟรี)", envKey: "OPENROUTER_API_KEY" },
+  { id: "mimo", label: "MiMo 7B RL (Xiaomi)", envKey: "OPENROUTER_API_KEY" },
 ];
 
 // OpenRouter model slugs, one env var per model so the owner can repoint a
@@ -54,9 +57,17 @@ const OPENROUTER_MODEL_SLUGS: Record<Exclude<ChatModelId, "gemini">, { envVar: s
   gpt: { envVar: "OPENAI_CHAT_MODEL", slug: "openai/gpt-5.1" },
   qwen: { envVar: "DASHSCOPE_CHAT_MODEL", slug: "qwen/qwen3-max" },
   kimi: { envVar: "MOONSHOT_CHAT_MODEL", slug: "moonshotai/kimi-k2" },
-  glm: { envVar: "ZHIPU_CHAT_MODEL", slug: "z-ai/glm-4.6" },
+  glm: { envVar: "ZHIPU_CHAT_MODEL", slug: "z-ai/glm-5.1" },
+  glm52: { envVar: "ZHIPU_CHAT_MODEL_52", slug: "z-ai/glm-5.2" },
   grok: { envVar: "XAI_CHAT_MODEL", slug: "x-ai/grok-4" },
   deepseek: { envVar: "DEEPSEEK_CHAT_MODEL", slug: "deepseek/deepseek-v4-flash" },
+  /* The :free suffix is what makes this cost nothing — the same model without
+     it is a normal paid route. OpenRouter rate-limits free routes rather than
+     billing them, so this is the model to pick when the answer matters less
+     than the bill. DEEPSEEK_V3_FREE_MODEL can repoint it without a redeploy
+     if the free route is ever withdrawn. */
+  "deepseek-v3-free": { envVar: "DEEPSEEK_V3_FREE_MODEL", slug: "deepseek/deepseek-chat-v3-0324:free" },
+  mimo: { envVar: "MIMO_CHAT_MODEL", slug: "xiaomi/mimo-7b-rl" },
 };
 
 const DEFAULT_CHAT_MODEL: ChatModelId = "gemini";
@@ -110,7 +121,7 @@ export function modelLabel(modelId: ChatModelId): string {
   return OPENROUTER_MODEL_SLUGS[modelId].slug;
 }
 
-async function generateWithModel(
+export async function generateWithModel(
   modelId: ChatModelId,
   messages: ChatMessage[],
   tools?: ToolDefinition[],
