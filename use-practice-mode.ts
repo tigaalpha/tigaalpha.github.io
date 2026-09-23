@@ -13,6 +13,7 @@ import { fetchChatCompletion } from "./ai-backend";
 import { runTeachingLoopForPractice, reinforceTeachingOutcome } from "./tigamodel/web";
 import { recordNoteMisses, recordTipOutcome, weightedStruggles } from "./use-autoteach";
 import { sb } from "./supabase-client";
+import { jevTask, jevChoice } from "./jev"; // practice-next: Jev picks the result screen's next-step nudge (admin-toggleable)
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
    sequence" session: mic/MIDI/tap-driven note matching (broken = one note
@@ -799,6 +800,34 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const tigaTip = tigaLoop && tigaLoop.response ? { text: tigaLoop.response.text, strategyId: tigaLoop.decision ? tigaLoop.decision.strategy_id : null, states: tigaLoop.states } : null;
 
     setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest, tigaTip });
+
+    // Jev practice-next (admin ⚡ toggle): after the result reveals, one ~70-500ms
+    // call picks the best next step from THIS round's real signals — replay the
+    // same drill / move to the next stage / attempt the group boss / open the
+    // Coach. Grounds the recommendation in accuracy vs. the pass bar, misses,
+    // and what actually unlocked this round (pathUnlocked/bossDefeated). Fails
+    // silently to no nudge — the result screen never depends on Jev. Attached
+    // only if the user is still on THIS result (setPracticeResult replaces on a
+    // new drill, and the label check below matches PracticeOverlay's own guard).
+    if (!isGuest) {
+      jevTask("practice-next", {
+        label,
+        accuracy,
+        miss,
+        bestStreak,
+        rhythmPct,
+        passed: pathUnlocked != null || (practiceStageIdRef.current ? accuracy >= PATH_PASS_ACCURACY : accuracy >= 70),
+        stageUnlocked: pathUnlocked != null,
+        bossDefeated: bossDefeated != null,
+        isNewBest,
+        weekAgoAccuracy,
+      }, {}, 2500).then(r => {
+        const n = jevChoice(r.answers && r.answers.next);
+        if (r.ok && n && (n === "replay" || n === "next_stage" || n === "boss" || n === "coach")) {
+          setPracticeResult(prev => (prev && prev.label === label ? { ...prev, jevNext: n } : prev));
+        }
+      }).catch(() => {});
+    }
 
     // Self-learning outcome reinforcement (owner's Model Lab switch gates it
     // inside the learner): this attempt's accuracy vs the learner's own bar

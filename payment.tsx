@@ -5,6 +5,7 @@ import { apiHeaders } from "./ai-backend";
 import { logUsage } from "./shared-infra";
 import { hasParentPin, PIN_THRESHOLD_THB, getMonthSpend, getSpendCap, isOverCap, recordSpend } from "./kid-safety";
 import { ParentGateModal } from "./parent-gate";
+import { jevTask, jevChoice } from "./jev"; // shop-headline: Jev picks which package to preselect (admin-toggleable; ok:false = keep index 0)
 
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
    No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
@@ -766,6 +767,34 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focus
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [currencyType, setCurrencyType] = useState<"coins"|"gems">(focusGems ? "gems" : "coins");
   const [pkgIdx, setPkgIdx] = useState(0);
+  /* Jev shop-headline (admin ⚡ toggle): one ~70-500ms call asks the decision
+     model which package to preselect for THIS learner (small/mid/large), so
+     the default highlighted pack fits the person opening the shop instead of
+     always being index 0. Best-effort: guests (no JWT) and any disabled/
+     erroring state simply keep the package list exactly as it was. The data
+     sent is app-state only — plan/balance markers already on this device,
+     never profile fields or PII. */
+  useEffect(() => {
+    const uid = session && session.user && session.user.id;
+    if (!uid) return;
+    let alive = true;
+    (async () => {
+      let coinsBal = 0, plan = "free";
+      try { coinsBal = +(localStorage.getItem("tg_coins") || 0); } catch (e) {}
+      try { plan = localStorage.getItem("tg_plan") || "free"; } catch (e) {}
+      const r = await jevTask("shop-headline", {
+        coins: coinsBal,
+        plan,
+        openedFromShortfall: shortBy > 0,
+        shortfallBy: shortBy,
+        currencyType,
+      }, {}, 2500).catch(() => null);
+      if (!alive || !r || !r.ok) return;
+      const p = jevChoice(r.answers && r.answers.package);
+      if (p === "p0" || p === "p1" || p === "p2") setPkgIdx(Number(p[1]));
+    })();
+    return () => { alive = false; };
+  }, []);
   const [st, setSt] = useState("idle");   // idle · submitting · uploading · done · error
   const [reqId, setReqId] = useState(null);
   const [price, setPrice] = useState(null);       // THB, authoritative once set (from the RPC response)

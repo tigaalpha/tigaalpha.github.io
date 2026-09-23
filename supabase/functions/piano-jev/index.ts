@@ -27,6 +27,10 @@
 //   ear-adaptive       score: next Ear Gym difficulty tier
 //   slip-prefilter     noul: is this uploaded image actually a bank slip?
 //   feedback-classify  choice: bucket an admin's learner feedback/report
+//   sight-adaptive     score: next Sight-Reading round difficulty (clef nudge)
+//   coach-focus        choice: which posture signal the camera coach leads with
+//   practice-next      choice: which practice target the result screen pushes
+//   shop-headline      choice: which gem package the top-up modal headlines
 //
 // WIRE CONTRACT:
 //   Request:  POST { task: string, state: string|object, options?: object }
@@ -267,6 +271,56 @@ function buildQuestions(task: string, opts: Record<string, any>): Record<string,
         },
       };
     }
+    case "sight-adaptive": {
+      return {
+        next_difficulty: {
+          type: "score",
+          instructions: { question: "Given the learner's recent Sight-Reading history in the state, how hard should the NEXT round be? 0 = step down (easier clef/round), 1 = stay, 2 = step up (harder clef/longer round)." },
+          criteria: ["Step down — rebuild confidence", "Stay at the current level", "Step up — ready for harder"],
+        },
+      };
+    }
+    case "coach-focus": {
+      return {
+        focus: {
+          type: "choice",
+          instructions: { question: "The camera coach sees this learner's hand-posture signal window. Which SINGLE cue should the AI critique lead with, so the learner fixes the biggest thing first?" },
+          criteria: {
+            roundness: "Fingers too flat — curl them (the measured roundness is the weakest signal)",
+            wrist: "Wrist dropping below key level — raise and relax it",
+            thumb: "Thumb tucked/tense — relax it away from the palm",
+            praise: "All signals fine — lead with praise and keep the learner confident",
+          },
+        },
+      };
+    }
+    case "practice-next": {
+      return {
+        next: {
+          type: "choice",
+          instructions: { question: "The learner just finished this drill and can keep going. Which next step best serves their progress RIGHT NOW?" },
+          criteria: {
+            replay: "Replay the SAME drill — accuracy is still below the passing bar",
+            next_stage: "Move on to the NEXT stage — this one is comfortably passed",
+            boss: "Attempt the group Boss Challenge — the group's stages are done",
+            coach: "Open the Coach — the signals are mixed and need a teacher's plan",
+          },
+        },
+      };
+    }
+    case "shop-headline": {
+      return {
+        package: {
+          type: "choice",
+          instructions: { question: "Which top-up package should be shown FIRST (headlined) in the shop for THIS learner right now?" },
+          criteria: {
+            p0: "The smallest pack — first-time/low-spend learners should start small",
+            p1: "The mid pack with bonus — the best value for a regular learner",
+            p2: "The large pack — this learner is heavily engaged and has bought before",
+          },
+        },
+      };
+    }
     default:
       return null;
   }
@@ -279,6 +333,8 @@ function buildState(task: string, state: any, opts: Record<string, any>): string
   if (task === "teach-rank") return `Piano learner context:\n${s}\n\nCandidate tips (candidates[${opts.candidates?.length || 0}]):\n${(opts.candidates || []).map((c, i) => `${i}: ${c}`).join("\n")}`;
   if (task === "song-rec") return `Piano learner context:\n${s}\n\nSong catalog excerpt (real song ids): ${(opts.ids || []).join(", ")}`;
   if (task === "voice-intent") return `Learner's utterance: ${s}\n\nSong catalog excerpt (valid song ids): ${(opts.ids || []).join(", ") || "(none)"}`;
+  if (task === "coach-focus") return `Real-time hand-posture signal window (camera, averaged over ~20 frames):\n${s}\n\nFocus options: roundness (finger curl), wrist (droop), thumb (tension), praise (all fine)`;
+  if (task === "practice-next") return `Just-finished practice drill context:\n${s}`;
   return s;
 }
 

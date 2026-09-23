@@ -369,6 +369,22 @@ export const JEV_TASKS = [
     howTh: "จัดนักเรียนแต่ละคนเข้าหมวด ก้าวหน้า/ติดขัด/การเงิน/มีส่วนร่วม/เทคนิค + ความเร่งด่วน ให้เจ้าของคนเดียวไล่อ่านได้เร็ว",
     howEn: "Buckets each learner into progress/struggling/billing/engagement/technical + urgency so a solo owner can triage fast.",
     howZh: "将学员分类并标注紧急度，便于独立运营者快速处理" },
+  { id: "sight-adaptive", icon: "🎼", th: "ปรับระดับอ่านโน้ตฉับพลันอัตโนมัติ", en: "Adaptive Sight-Reading difficulty", zh: "视奏自适应难度",
+    howTh: "หลังจบรอบ Jev ให้คะแนนว่ารอบถัดไปควร ง่ายลง/เท่าเดิม/ยากขึ้น (เปลี่ยนกุญแจ/รอบยาวขึ้น) — เกมอ่านโน้ตปรับตามฝีมือจริง",
+    howEn: "After each round Jev scores step-down / stay / step-up (easier clef, longer round) so the next sight-reading round matches the learner.",
+    howZh: "每轮结束后 Jev 评估下一轮视奏难度（降/保持/升）" },
+  { id: "coach-focus", icon: "✋", th: "เลือกจุดโฟกัสครูมือกล้อง", en: "Pick the camera coach's lead cue", zh: "镜头指导焦点",
+    howTh: "Jev เลือกว่าคำแนะนำครูมือควรเริ่มที่อะไร: นิ้วแบน / ข้อมือตก / นิ้วโป้งหุบ / ชม — แก้จุดที่ใหญ่ที่สุดก่อน",
+    howEn: "Jev picks which signal the AI hand critique leads with: flat fingers / dropping wrist / tucked thumb / praise — fixing the biggest issue first.",
+    howZh: "Jev 选择手部指导的首要纠正点" },
+  { id: "practice-next", icon: "🧭", th: "แนะนำก้าวถัดไปหลังจบ drill", en: "Suggest the next step after a drill", zh: "练习后下一步建议",
+    howTh: "หลังจบ drill Jev เลือกว่าควร ซ้ำ drill เดิม / ไปขั้นถัดไป / ลองบอส / เปิดโค้ช — ตามสัญญาณจริงของรอบนั้น",
+    howEn: "After a drill Jev picks replay-the-same / next stage / group boss / open-the-coach, grounded in that round's real signals.",
+    howZh: "Jev 根据本轮表现建议重练/下一关/挑战Boss/找教练" },
+  { id: "shop-headline", icon: "💎", th: "เลือกแพ็กเกจที่แสดงเด่น (ร้านค้า)", en: "Pick the headline gem package (shop)", zh: "商店推荐套餐",
+    howTh: "Jev เลือกว่าร้านค้าควรโชว์แพ็กไหนก่อนสำหรับผู้เรียนคนนี้ — เล็กสำหรับมือใหม่ / กลางสำหรับคนประจำ / ใหญ่สำหรับผู้ใช้หนัก",
+    howEn: "Jev picks which top-up pack the shop headlines for THIS learner — small for newcomers, mid for regulars, large for heavy engaged users.",
+    howZh: "Jev 为不同学员选择优先展示的充值套餐" },
 ];
 
 export function AdminJevTasks({ lang }) {

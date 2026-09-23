@@ -51,6 +51,20 @@ export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGH
                   <div><span>{lc.sightBestStreak}</span><b>{sightDone.bestStreak || 0}</b></div>
                   <div><span>EXP</span><b>+{sightDone.reward}</b></div>
                 </div>
+                {/* Jev sight-adaptive nudge (admin ⚡ toggle): the decision model's
+                    read on whether the NEXT round should step up or step down.
+                    A tappable shortcut that reopens the round at the suggested
+                    clef — never forced, and the bar only renders when Jev is
+                    enabled and confident (jevNudge is absent otherwise). */}
+                {sightDone.jevNudge && (
+                  <button className="tigatipbar" style={{ width: "100%", textAlign: "left", cursor: "pointer", border: "none" }}
+                    onClick={() => { pickSightClef(sightDone.jevNudge === "up" ? (sightClef === "treble" ? "bass" : "both") : (sightClef === "bass" ? "treble" : (sightClef === "both" ? "bass" : "treble"))); openSight("round"); }}>
+                    <span className="tigatipbadge">⚡ Jev</span>
+                    <span>{sightDone.jevNudge === "up"
+                      ? (lang === "th" ? "Jev แนะนำ: รอบหน้าลองยากขึ้น — แตะเพื่อเริ่มเลย" : lang === "zh" ? "Jev 建议：下一轮可以更难 — 点击开始" : "Jev suggests: try a harder next round — tap to start")
+                      : (lang === "th" ? "Jev แนะนำ: รอบหน้าค่อย ๆ ไป — แตะเพื่อเริ่มเลย" : lang === "zh" ? "Jev 建议：下一轮先稳一稳 — 点击开始" : "Jev suggests: take it easier next round — tap to start")}</span>
+                  </button>
+                )}
                 {/* belt progress — the exact numbers captured when this round ended,
                     always visible here so "how close am I" is never a mystery */}
                 <div className="beltprog">

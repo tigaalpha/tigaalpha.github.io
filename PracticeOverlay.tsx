@@ -91,6 +91,24 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
           the exact peak moment where an upgrade feels earned, not gated. */}
       {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA AI ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA AI老师保持下去" : "🔥 You're on a roll — keep it going with Teacher TIGA AI daily"}</button>}
 
+      {/* Jev practice-next (admin ⚡ toggle): the decision model's next-step
+          suggestion from this round's real signals, wired to the matching
+          action — replay stays here, coach navigates, boss/next-stage simply
+          keep the learner moving. Only renders when Jev answered; everything
+          about the screen is otherwise identical. */}
+      {r.jevNext && (
+        <div className="presultai" style={{ borderColor: "#8b5cf6" }}>
+          <div className="presultai-h">⚡ Jev {lang === "th" ? "แนะนำก้าวถัดไป" : lang === "zh" ? "下一步建议" : "suggests the next step"}</div>
+          <div className="presultai-tx">
+            {r.jevNext === "replay" ? (lang === "th" ? "ซ้ำ drill เดิมอีกครั้ง — ความแม่นยำยังต่ำกว่าที่ควรจะเป็น" : lang === "zh" ? "再练一次本条——准确率还没到位" : "Replay this drill — accuracy isn't at the bar yet")
+             : r.jevNext === "next_stage" ? (lang === "th" ? "ไปขั้นถัดไปได้แล้ว — ผ่านสบาย" : lang === "zh" ? "可以进入下一关了——这条已轻松通过" : "Move on to the next stage — this one is comfortably passed")
+             : r.jevNext === "boss" ? (lang === "th" ? "ลองโจทย์บอสของกลุ่มนี้ — พร้อมแล้ว" : lang === "zh" ? "挑战本组Boss——你已准备好" : "Attempt this group's Boss Challenge — you're ready")
+             : (lang === "th" ? "เปิดโค้ชให้ครูวางแผนให้ — สัญญาณผสมกันเล็กน้อย" : lang === "zh" ? "打开教练让老师做规划——信号有些混杂" : "Open the Coach for a teacher's plan — the signals are mixed")}
+          </div>
+          {r.jevNext === "replay" && <button className="songbtn ghost" style={{ marginTop: 8 }} onClick={restartPractice}>↻ {lang === "th" ? "เริ่ม drill เดิม" : lang === "zh" ? "重练本条" : "Replay drill"}</button>}
+        </div>
+      )}
+
       {/* TIGA Model verdict — the teaching loop ran locally on this drill's
           real signals (accuracy/misses/pauses/rhythm). Always visible when it
           has something to say, guests included; the AI flourish below it is

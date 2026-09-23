@@ -8,6 +8,7 @@ import { visionObservationsFromWindow, runTeachingLoopForPractice } from "./tiga
 import { freshGameState, gameStep, missionView, missionSolvedPraise, scoreRank, comboTier, praiseFor, rankUpPraise } from "./camera-coach-game";
 import { API_MODEL } from "./App";
 import { speakCloud, speakDeviceOrNative, stopSpeaking, stopCloudTTS } from "./speech";
+import { jevTask, jevChoice } from "./jev"; // coach-focus: Jev picks the critique's lead cue (admin-toggleable; ok:false = built-in priority)
 /* ── use-camera-coach.ts ──
    Owns the hand-posture camera coach: live MediaPipe hand-landmark
    tracking + shape feedback while the camera runs, and an on-demand AI
@@ -193,12 +194,32 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
         ? "你是专业钢琴老师。看学员弹琴的手型/坐姿照片，给出2-4条简短温暖的建议：手型、指法、手腕、坐姿。先表扬再指出可改进处。除了照片，你还会收到摄像头实时测得的手指弯曲度、手腕水平度和拇指位置数据，请结合两者判断。用中文回答，不要markdown"
         : "You are an expert piano teacher. Look at this photo of the learner's hands/posture at the piano and give 2-4 short, warm tips on hand shape, finger placement, wrist and posture. Praise first, then what to adjust. Alongside the photo you'll also get real-time finger-curl, wrist-level, and thumb-position measurements from the camera — use them together with what you see in the image. Reply in plain text, no markdown.";
       const { hands: handCount, avgRoundness, wristDroop: wd, thumbTuck } = camLastRoundRef.current;
+      // Jev coach-focus (admin ⚡ toggle): instead of the hardcoded roundness >
+      // wrist > thumb priority, one ~70-500ms call picks which measured signal
+      // the critique should LEAD with — the biggest real problem wins, and when
+      // all signals are fine Jev says "praise" so the teacher praises first.
+      // Awaited (capped) because the prompt below must carry the decision; the
+      // LLM itself takes seconds, so this never adds real latency. Unconfigured/
+      // disabled/erroring Jev → focus = null → the built-in priority is unchanged.
+      let jevFocus = null;
+      if (camSignalWindowRef.current.length >= 5) {
+        const n = camSignalWindowRef.current.length;
+        const mR = camSignalWindowRef.current.reduce((s2, w2) => s2 + w2.round, 0) / n;
+        const mW = camSignalWindowRef.current.reduce((s2, w2) => s2 + w2.wrist, 0) / n;
+        const mT = camSignalWindowRef.current.reduce((s2, w2) => s2 + w2.thumb, 0) / n;
+        const jr = await Promise.race([
+          jevTask("coach-focus", { avgRoundness: mR, wristDroop: mW, thumbTuckRatio: mT, frames: n, handsDetected: !!handCount }, {}, 2500),
+          new Promise(res => setTimeout(() => res(null), 3000)),
+        ]).catch(() => null);
+        const f = jr && jr.ok ? jevChoice(jr.answers && jr.answers.focus) : null;
+        if (f === "roundness" || f === "wrist" || f === "thumb" || f === "praise") jevFocus = f;
+      }
       const geomTxt = !handCount
         ? (lang === "th" ? "ข้อมูลกล้องเรียลไทม์: ไม่พบมือในเฟรมล่าสุด" : lang === "zh" ? "实时摄像头数据：最近一帧未检测到手" : "Real-time camera data: no hand detected in the latest frame")
         : (lang === "th" ? `ข้อมูลกล้องเรียลไทม์: พบ ${handCount} มือ, คะแนนความโค้งนิ้วเฉลี่ย ${avgRoundness.toFixed(2)}/1.00 (0=นิ้วเหยียดแบน, 1=โค้งดี), ข้อมือ${wd > 0.15 ? "ตกลงเล็กน้อย" : "อยู่ในระดับดี"}, นิ้วโป้ง${thumbTuck ? "หุบเข้าไปหน่อย" : "ผ่อนคลายดี"}`
           : lang === "zh" ? `实时摄像头数据：检测到${handCount}只手，平均手指弯曲度 ${avgRoundness.toFixed(2)}/1.00（0=手指伸直平放，1=弯曲良好），手腕${wd > 0.15 ? "略微下垂" : "水平良好"}，拇指${thumbTuck ? "收得有点紧" : "放松良好"}`
           : `Real-time camera data: ${handCount} hand(s) detected, average finger-curl score ${avgRoundness.toFixed(2)}/1.00 (0 = flat, 1 = well-curved), wrist ${wd > 0.15 ? "drooping slightly" : "at a good level"}, thumb ${thumbTuck ? "tucked in a bit" : "relaxed"}`);
-      const body = { model: API_MODEL, max_tokens: 500, system: sys + THEORY_REF, feature: "camera", messages: [{ role: "user", content: [
+      const body = { model: API_MODEL, max_tokens: 500, system: sys + THEORY_REF + (jevFocus ? (lang === "th" ? `\n\n[ระบบตัดสินใจ Jev ชี้ว่าคำติชมนี้ควรเริ่มจากประเด็น "${jevFocus}" ก่อน — อธิบายประเด็นนี้เป็นข้อแรก สั้นและชัด]` : lang === "zh" ? `\n\n[Jev 决策指出这条点评应首先聚焦 "${jevFocus}"——把这一点放在第一条建议]` : `\n\n[Jev's decision layer says this critique should LEAD with the "${jevFocus}" cue — make it your first, shortest, clearest point.]`) : ""), feature: "camera", messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
         { type: "text", text: geomTxt + "\n\n" + (lang === "th" ? "ดูมือผมแล้วแนะนำหน่อยครับ" : lang === "zh" ? "看看我的手，给点建议" : "Check my hands and give feedback.") }
       ] }] };

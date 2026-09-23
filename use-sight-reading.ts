@@ -8,6 +8,7 @@ import { logActivity, recordNoteMisses } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { tigaHub } from "./tigamodel/web"; // Capability Hub: intent-based model access — smarter engines upgrade this screen with no UI change
 import { readMemory } from "./ai-chat-context";
+import { jevTask, jevScore } from "./jev"; // sight-adaptive: Jev scores the NEXT round's difficulty (admin-toggleable; ok:false = stay as-is)
 
 // Belt ranking — a cumulative, all-time count of correct reads across every
 // clef and mode (tg_sight_total), the closest honest single number to "how
@@ -270,6 +271,30 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWee
     logPractice(acc);
     logActivity("read", "sight-" + sightClefRef.current, correct, miss, 90);
     recordMemory(lang === "th" ? "อ่านโน้ตฉับพลัน" : lang === "zh" ? "视奏" : "Sight-reading", acc);
+    // Jev sight-adaptive (admin ⚡ toggle): after a round ends, one ~70-500ms
+    // call scores the NEXT round step-down/stay/step-up from this round's real
+    // numbers + the lifetime belt line. When it lands, the result card's clef
+    // picker shows the suggestion (result screens are the natural "what next?"
+    // moment — openSight is a fresh decision the learner makes right there).
+    // Fires only on the "round" mode (sprint is a fixed 60s race by design);
+    // disabled/unconfigured/erroring Jev changes NOTHING (ok:false → no nudge).
+    if (sightModeRef.current === "round" && beltAfter) {
+      jevTask("sight-adaptive", {
+        clef: sightClefRef.current,
+        accuracy: acc,
+        correct, miss,
+        bestStreak: sightBestStreakRef.current,
+        mode: sightModeRef.current,
+        lifetimeTotal: totalAfter,
+        belt: beltAfter.id,
+      }, {}, 2500).then(r => {
+        const sc = jevScore(r.answers && r.answers.next_difficulty);
+        if (r.ok && sc != null && sc !== 1) {
+          const dir = sc === 2 ? "up" : "down";
+          setSightDone(prev => (prev && prev.mode === "round" ? { ...prev, jevNudge: dir } : prev));
+        }
+      }).catch(() => {});
+    }
     earnCoins(5 + Math.round(acc / 20));
     gainExp(reward, { quest: true });
     if (beltUp) { earnCoins(15 + SIGHT_BELTS.findIndex(b => b.id === beltUp.id) * 5); gainExp(40, { quest: true }); }
