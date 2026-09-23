@@ -8,6 +8,7 @@ import {
 import { tr } from "./i18n";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
 import { logActivity, recordNoteMisses } from "./shared-infra";
+import { jevTask, jevScore, jevChoice, jevNoul } from "./jev";
 import { recordMemory } from "./ai-chat-context";
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { logPractice, scoreDynamics, logGame } from "./App";
@@ -695,7 +696,30 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         zh: `你是"TiGA老师"，学员刚弹完歌曲"${label}"，准确率 ${result.acc}%（弹对 ${result.hits}/${result.total} 个音）。弹错的音（按演奏顺序）：${missedTxt}\n\n分析弹错的位置/模式，并给出练习建议。只回JSON {"weakness":"...","steps":["...","..."]} — weakness 不超过15字，说明错误的位置/模式（若全对则给予表扬），steps 为2-4个简短练习步骤，每条不超过15字，用中文，JSON外不要任何文字`,
         en: `You are "Teacher TiGA". The learner just finished playing "${label}" at ${result.acc}% accuracy (${result.hits}/${result.total} notes hit). Notes they missed, in play order: ${missedTxt}.\n\nAnalyze where/what pattern they missed, then give a fix. Reply with JSON only: {"weakness":"...","steps":["...","..."]} — weakness under 15 words naming the spot/pattern they missed (or praise if nothing was missed), steps has 2-4 short fix-it practice steps, each under 15 words, in English. No text outside the JSON.`,
       };
-      const txt = await fetchChatCompletion({ message: "Analyze my run of this song.", conversationHistory: [], system: sysByLang[lang] || sysByLang.en, feature: "song-analysis" });
+      // ── Jev run-classify: score the run's mistake profile first (fast, cheap,
+      // parallel). The dimensions ground the LLM's summary in real signal —
+      // note_misses 0..3, rhythm/dynamics yes/no, biggest_fix one of
+      // notes/rhythm/dynamics/confidence — appended to the prompt as plain
+      // context. Unavailable Jev → empty hint, summary identical to pre-Jev.
+      let jevHint = "";
+      try {
+        const jr = await jevTask("run-classify",
+          `Song: ${label}. Accuracy ${result.acc}% (${result.hits}/${result.total} notes hit). Missed notes in play order: ${missedTxt}.`,
+          {}, 2000);
+        if (jr.ok && jr.answers) {
+          const nm = jevScore(jr.answers.note_misses);
+          const rh = jevNoul(jr.answers.rhythm_issue);
+          const dy = jevNoul(jr.answers.dynamics_issue);
+          const bf = jevChoice(jr.answers.biggest_fix);
+          const dims = [];
+          if (nm != null) dims.push(`wrong-note severity ${nm.toFixed(1)}/3${nm >= 2 ? " (pattern/spot-specific, not random)" : ""}`);
+          if (rh != null) dims.push(`rhythm/timing dominant issue: ${rh >= 0.6 ? "yes" : "no"}`);
+          if (dy != null) dims.push(`touch/dynamics issue: ${dy >= 0.6 ? "yes" : "no"}`);
+          if (bf) dims.push(`highest-impact next fix: ${bf}`);
+          if (dims.length) jevHint = `\n\n[Pre-scored run profile (from structured analysis): ${dims.join("; ")}. Base your weakness + steps on this profile.]`;
+        }
+      } catch (e) {}
+      const txt = await fetchChatCompletion({ message: "Analyze my run of this song." + jevHint, conversationHistory: [], system: sysByLang[lang] || sysByLang.en, feature: "song-analysis" });
       const m = txt.match(/\{[\s\S]*\}/);
       const obj = m ? JSON.parse(m[0]) : null;
       if (obj && obj.weakness && Array.isArray(obj.steps) && obj.steps.length) setSongAnalysis(obj);

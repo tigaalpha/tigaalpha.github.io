@@ -8,6 +8,7 @@ import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
+import { jevTask, jevChoice, jevScore, jevNoul } from "./jev";
 import { withAiCache } from "./ai-cache";
 import {
   isPremium, setPremiumLS, getPlan, setPlanLS, isMaxPlan,
@@ -68,7 +69,7 @@ import { CameraCoachOverlay } from "./CameraCoachOverlay";
 import { SkinThemeSettings } from "./SkinThemeSettings";
 import { SfxMetronomeSettings } from "./SfxMetronomeSettings";
 import { LanguageSettings } from "./LanguageSettings";
-import { AdminAIModels, AdminNav } from "./AdminAIModels";
+import { AdminAIModels, AdminJevTasks, AdminNav } from "./AdminAIModels";
 import { ProfileDashboardPanel } from "./ProfileDashboardPanel";
 import { SenseiView } from "./SenseiView";
 import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
@@ -341,8 +342,23 @@ export function songRecommendationHint(lang) {
     pool = weak && weak.skill === "note_accuracy"
       ? pool.map(s => ({ s, p: songTechniqueProfile(s) })).sort((a, b) => (a.p ? a.p.avgLeap : 99) - (b.p ? b.p.avgLeap : 99)).map(x => x.s)
       : pool.slice().sort((a, b) => a.diff - b.diff);
-    const ids = pool.slice(0, 24).map(s => s.id).join(", ");
+    const poolIds = pool.slice(0, 24).map(s => s.id);
+    const ids = poolIds.join(", ");
     const label = weak ? tr(SKILL_LABELS[weak.skill], lang) : null;
+    // ── Jev song-rec: ALSO ask Jev to pick ONE song from this same pool (fast
+    // structured choice, no hallucination possible — the answer must be one of
+    // OUR ids). jevSongRec() exposes it for "next song" suggestions; disabled/
+    // slow/unavailable Jev simply leaves it unset and the deterministic pool
+    // above stands, exactly the pre-Jev behavior.
+    jevTask("song-rec",
+      `Piano learner; weakest skill: ${weak ? weak.skill : "unknown"}${weak && weak.score != null ? ` (${Math.round(weak.score)}/100)` : ""}`,
+      { ids: poolIds }, 2000)
+      .then(r => {
+        if (!r.ok || !r.answers) return;
+        const pick = jevChoice(r.answers.best_song);
+        if (pick && SONGS.some(s => s.id === pick)) _jevSongRec = pick;
+      })
+      .catch(() => {});
     return lang === "th"
       ? `\n\n[เพลงอื่นที่แนะนำได้ (นอกเหนือจากตัวอย่างเดิม): ${ids}.${label ? ` จุดที่ผู้เรียนควรฝึกเพิ่มตอนนี้: ${label}` : ""}]`
       : lang === "zh"
@@ -350,6 +366,10 @@ export function songRecommendationHint(lang) {
       : `\n\n[Other real songs you can also recommend (beyond the original examples): ${ids}.${label ? ` The learner's current priority skill: ${label}.` : ""}]`;
   } catch (e) { return ""; }
 }
+// module-level Jev song pick (see songRecommendationHint); null until Jev
+// answers, refreshed naturally each time the hint is rebuilt
+let _jevSongRec = null;
+export function jevSongRec() { return _jevSongRec; }
 
 const SIGHT_ROUND = 10; // notes per sight-reading round
 
@@ -735,8 +755,11 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   }
   function genQ(kind) {
     const root = ROOTS[Math.floor(Math.random() * ROOTS.length)];
+    // Jev ear-adaptive tier: 2 = step up (full pool / longer echoes now), 0 = step
+    // down (base pool / shorter echoes), null/1 = existing best-score thresholds.
+    const jevUp = jevEarTier() === 2, jevDown = jevEarTier() === 0;
     if (kind === "int") {
-      const pool = (earBest().int || 0) >= 7 ? EG_INT_FULL : EG_INT_BASE;
+      const pool = (jevUp || (jevDown !== true && (earBest().int || 0) >= 7)) ? EG_INT_FULL : EG_INT_BASE;
       const semi = pool[Math.floor(Math.random() * pool.length)];
       const opts = [...new Set([semi, ...[...pool].sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
       return {
@@ -767,7 +790,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
         options: allOpts.map(s => ({ key: s.id, label: lang === "th" ? s.th : lang === "zh" ? s.zh : s.en })),
       };
     }
-    const len = (earBest().echo || 0) >= 7 ? 4 : 3;
+    const len = (jevUp || (jevDown !== true && (earBest().echo || 0) >= 7)) ? 4 : 3;
     const pcs = [];
     for (let i = 0; i < len; i++) pcs.push(["C", "D", "E", "F", "G", "A", "B"][Math.floor(Math.random() * 7)]);
     return { notes: pcs.map(p => p + "4"), chord: false, answer: pcs.join(" "), pcs };
@@ -804,6 +827,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     logActivity("ear", tab, finalScore, EG_ROUND - finalScore, Math.max(30, secs));
     logPractice(acc);
     onReward(xp, stars * 5);
+    jevEarRefresh(tab, finalScore, EG_ROUND); // Jev: re-score difficulty for the NEXT round (fire-and-forget)
     setResult({ score: finalScore, stars, xp, coins: stars * 5 });
     setPhase("done");
     playUi(stars >= 2 ? "levelup" : "click");
@@ -3320,6 +3344,26 @@ function setReadCourseStars(lvl, stars) {
 }
 /* ── Ear-gym personal bests ── */
 function earBest() { try { return JSON.parse(localStorage.getItem("tg_eargym") || "{}") || {}; } catch (e) { return {}; } }
+// ── Jev ear-adaptive (task: ear-adaptive) — Ear Gym difficulty tier, 0..2
+// (step down / stay / step up), scored from the learner's recent round history.
+// Refreshed once per finished round (finishRound → jevEarRefresh); genQ reads
+// the cached tier inline so the next question never waits on a network call.
+// Unavailable/disabled Jev → tier stays null → the existing earBest()-threshold
+// logic decides difficulty, exactly the pre-Jev behavior.
+let _jevEarTier = null;
+function jevEarTier() { return _jevEarTier; }
+async function jevEarRefresh(game, lastScore, roundN) {
+  try {
+    const best = earBest();
+    const r = await jevTask("ear-adaptive",
+      `Ear-training game: ${game}. Rounds this device session: ${roundN}. Last round: ${lastScore}/${roundN} correct. Personal bests: ${JSON.stringify(best)}`,
+      {}, 2000);
+    if (r.ok && r.answers) {
+      const s = jevScore(r.answers.next_difficulty);
+      if (s != null) _jevEarTier = Math.max(0, Math.min(2, Math.round(s)));
+    }
+  } catch (e) { /* keep last tier */ }
+}
 function setEarBest(game, score) {
   try { const s = earBest(); if ((s[game] || 0) < score) { s[game] = score; localStorage.setItem("tg_eargym", JSON.stringify(s)); } } catch (e) {}
 }
@@ -3719,6 +3763,20 @@ async function generateCoachTip(lang, profile) {
   const obj = JSON.parse(jsonTxt);
   if (!COACH_FEATURE_LABELS[obj.feature]) obj.feature = "pathway"; // guard against a hallucinated key
   obj.steps = obj.steps.slice(0, 3); // enforce the "at most 3" cap even if the model overshoots
+  // ── Jev teach-rank: the LLM produced ONE tip; ask Jev (fast, cheap,
+  // no-hallucination scoring) whether that tip actually fits THIS learner right
+  // now. A poor fit (< 1.2 on the 0..3 rubric) demotes the tip → the Auto-Teach
+  // popup falls through to the deterministic recommendation instead. Disabled/
+  // slow/erroring Jev → keep the tip, exactly the pre-Jev behavior.
+  try {
+    const r = await jevTask("teach-rank",
+      `Learner: ${profileTxt}\nRecent sessions: ${recentTxt}\nKnown weak spot: ${struggleTxt}`,
+      { candidates: [obj.steps.join(" / ") + " — target: " + obj.feature] }, 2000);
+    if (r.ok && r.answers) {
+      const sc = jevScore(r.answers.c0); // 0..3 across the rubric
+      if (sc != null && sc < 1.2) return null; // tip is a poor fit for this learner right now
+    }
+  } catch (e) { /* keep the tip — Jev unavailable must never hide good advice */ }
   return obj;
 }
 // Adaptive routing: a soft nudge toward fixing a critically weak skill instead
@@ -4985,6 +5043,22 @@ function AdminStudents({ lang, viewerTier }) {
     const recent = (mem.recent || []).slice(0, 6);
     const plog = pr.practiceLog || {};
     const Stat = (num, lbl) => <div className="pd-stat"><div className="pd-num">{num}</div><div className="pd-lbl">{lbl}</div></div>;
+    // ── Jev feedback-classify: bucket this learner's situation for the solo
+    // owner's review queue (progress / struggling / billing / engagement /
+    // technical + urgency 0..3), from the SAME progress snapshot the page
+    // already renders — no extra queries, one ~100-500ms structured call.
+    // Unavailable/disabled Jev → null, card simply not shown.
+    const [jevFb, setJevFb] = useState(null);
+    useEffect(() => {
+      let dead = false; setJevFb(null);
+      const st = `Student ${sel.full_name || sel.email || "?"}: level ${li.level}, plan ${(sel.plan || "free")}, streak ${sel.streak || 0} days, lessons done ${sel.lessons_done || 0}. Recent practice: ${(recent || []).map(r => `${r.label} ${r.acc}%`).join("; ") || "none"}. Struggling with: ${(struggles || []).map(s => s.label).join("; ") || "nothing recorded"}.`;
+      jevTask("feedback-classify", st, {}, 2500).then(r => {
+        if (dead || !r.ok || !r.answers) return;
+        const cat = jevChoice(r.answers.category), urg = jevScore(r.answers.urgency);
+        if (cat) setJevFb({ cat, urg: urg == null ? 0 : urg });
+      }).catch(() => {});
+      return () => { dead = true; };
+    }, [sel && sel.id]);
     return (
       <div className="admstu">
         <button className="admstu-back" onClick={() => setSel(null)}>‹ {T("กลับ", "Back", "返回")}</button>
@@ -4996,6 +5070,22 @@ function AdminStudents({ lang, viewerTier }) {
             <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {(sel.plan || "free").toUpperCase()} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
           </div>
         </div>
+        {jevFb && (() => {
+          const CAT = {
+            progress: { ic: "📈", th: "ความก้าวหน้า", en: "Progress", zh: "学习进度" },
+            struggling: { ic: "⚠️", th: "กำลังติดขัด / เสี่ยงเลิกใช้", en: "Struggling / at-risk", zh: "遇到困难" },
+            billing: { ic: "💳", th: "การเงิน/แพ็กเกจ", en: "Billing", zh: "账务" },
+            engagement: { ic: "🔥", th: "การมีส่วนร่วม", en: "Engagement", zh: "活跃度" },
+            technical: { ic: "🛠️", th: "ปัญหาเทคนิค", en: "Technical", zh: "技术问题" },
+          }[jevFb.cat] || { ic: "📌", th: jevFb.cat, en: jevFb.cat, zh: jevFb.cat };
+          const URGLBL = urg => urg >= 3 ? (lang === "th" ? "ด่วนมาก — จัดการทันที" : lang === "zh" ? "紧急 — 立即处理" : "Urgent — act now") : urg >= 2 ? (lang === "th" ? "จัดการวันนี้" : lang === "zh" ? "今日处理" : "Act today") : urg >= 1 ? (lang === "th" ? "ดูสัปดาห์นี้" : lang === "zh" ? "本周处理" : "This week") : (lang === "th" ? "ไว้ก่อนได้" : lang === "zh" ? "可以等待" : "Can wait");
+          return (
+            <div className="admmg" style={{ marginTop: 10 }}>
+              <div className="admmg-h">{CAT.ic} {T(CAT.th, CAT.en, CAT.zh)} · <span style={{ color: jevFb.urg >= 3 ? "#e55" : undefined }}>{URGLBL(jevFb.urg)}</span></div>
+              <div className="admstu-row-sub">{T("จัดหมวดโดย AI (Jev) จากข้อมูลการเรียนของนักเรียน — ใช้อ้างอิง ไม่ใช่คำตัดสิน", "AI (Jev)-classified from this learner's practice data — advisory, not a verdict", "由 AI（Jev）根据练习数据分类 — 仅供参考")}</div>
+            </div>
+          );
+        })()}
         {/* ⚙️ manage: change/suspend plan (Top Tier only) · ban (tier ≥2) */}
         {(tier >= 2) && (
           <div className="admmg">
@@ -5584,6 +5674,26 @@ function AdminPayments({ lang }) {
     if (!sel || !sel.slip_path) return;
     setAiBusy(true); setAiText("");
     try {
+      // ── Jev slip-prefilter: cheap structured check (from the payment record's
+      // own metadata — amount/currency/plan sanity, NOT the image; Jev cannot
+      // see images) before spending a vision-model round-trip. A clearly
+      // implausible submission (absurd amount vs plan, currency mismatch)
+      // short-circuits with a warning instead of a hallucinated slip read.
+      // Unavailable/disabled Jev → no pre-check, aiRead proceeds unchanged.
+      try {
+        const pr = await jevTask("slip-prefilter",
+          `Payment record: kind=${sel.kind || "plan"}; expected amount=${sel.amount} THB; plan=${sel.plan || "-"}; currency=${sel.currency_type || "-"} x ${sel.currency_amount || "-"}; uploaded ${((sel.created_at || "").slice(0, 16).replace("T", " ")) || "unknown time"}; learner plan at upload: ${sel.plan || "n/a"}.`,
+          {}, 1500);
+        if (pr.ok && pr.answers) {
+          const plausible = jevNoul(pr.answers.is_bank_slip);
+          if (plausible != null && plausible < 0.2) {
+            setAiText(T("⚠️ ข้อมูลรายการไม่สมเหตุสมผล (ยอด/แพ็กเกจไม่ตรงกัน) — ตรวจสอบก่อนอนุมัติ ไม่ได้เรียก AI อ่านสลิป",
+              "⚠️ Record metadata is implausible (amount/package mismatch) — verify manually; vision AI not run",
+              "⚠️ 记录信息不合理（金额/套餐不符）— 请人工核验，未运行图像AI"));
+            setAiBusy(false); return;
+          }
+        }
+      } catch (e) {}
       const { data } = await sb.storage.from("slips").createSignedUrl(sel.slip_path, 600);
       const url = data && data.signedUrl; if (!url) throw new Error("no url");
       const blob = await (await fetch(url)).blob();
@@ -6506,6 +6616,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
+        : adminTab === "jev" && tier >= 3 ? <AdminJevTasks lang={lang} />
         : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">

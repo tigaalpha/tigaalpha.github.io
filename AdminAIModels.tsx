@@ -240,11 +240,120 @@ export function AdminAIModels({ lang }) {
   );
 }
 
+/* ── Admin "Jev Tasks" panel: per-task on/off switches for the TypeSafe Jev
+   System One model (structured decisions: classify/route/score/filter — never
+   text generation). Config lives in app_settings "jev_tasks" as
+   { "<task>": { enabled: bool } }; the piano-jev edge function reads it
+   server-side (60s cache) and every app-side call site falls back to its
+   pre-Jev behavior when a task is off or Jev is unavailable, so toggling is
+   zero-risk: nothing breaks, the feature just reverts to the LLM/heuristic
+   path. Requires TYPESAFE_API_KEY on the function's secrets to have any
+   effect. ── */
+export const JEV_TASKS = [
+  { id: "teach-rank", icon: "🎯", th: "จัดอันดับคำแนะนำ Auto Teaching", en: "Rank Auto-Teaching tips", zh: "自动教学建议排序",
+    howTh: "ให้ Jev ให้คะแนนว่าคำแนะนำที่ AI สร้าง เหมาะกับผู้เรียนคนนี้ตอนนี้จริงหรือไม่ ก่อนเด้งป็อปอัป",
+    howEn: "Jev scores whether the AI-generated coaching tip actually fits this learner right now, before the popup shows.",
+    howZh: "Jev 评估 AI 生成的建议是否适合该学员，然后才弹出提示" },
+  { id: "song-rec", icon: "🎵", th: "เลือกเพลงแนะนำถัดไป", en: "Pick the next recommended song", zh: "选择下一首推荐歌曲",
+    howTh: "Jev เลือก 1 เพลงจากคลังจริงของแอปให้เข้ากับระดับและจุดอ่อนของผู้เรียน (เลือกได้เฉพาะเพลงที่มีอยู่ หลอกไม่ได้)",
+    howEn: "Jev picks ONE song from the app's real catalog matching the learner's level + weakest skill (answer must be a real song id).",
+    howZh: "Jev 从真实曲库中挑选一首匹配学员水平的歌曲" },
+  { id: "chat-precheck", icon: "🛡️", th: "คัดกรองแชทก่อนส่งให้ AI หลัก", en: "Pre-check chat before the main AI", zh: "聊天预检",
+    howTh: "จำแนกสแปม/คำถามเรื่องเพลง/อยากซ้อม/อารมณ์ผู้เรียนใน 1 ครั้ง (~0.1-0.5 วิ) — สแปมถูกตอบเองโดยไม่เปลืองโมเดลหลัก อารมณ์ใช้ปรับโทนคำตอบ",
+    howEn: "One parallel call classifies spam / song-intent / practice-intent / mood per message. Spam is answered locally (no LLM spend); mood steers the reply's tone.",
+    howZh: "一次调用并行识别垃圾信息/意图/情绪；垃圾信息本地回复，情绪引导语气" },
+  { id: "voice-intent", icon: "🎙️", th: "จับคำสั่งเสียง → แอ็กชัน", en: "Voice command → app action", zh: "语音指令识别",
+    howTh: "จับว่าประโยคที่พูดต้องการเปิดเพลง/ซ้อม/ฝึกหู/กล้อง/เมโทรนอม ตัวไหน พร้อมเดาเพลงที่ต้องการ แล้วใบ้ให้โมเดลหลัก",
+    howEn: "Classifies which app action a spoken utterance wants (open song / practice / ear / camera / metronome) and hints the main model.",
+    howZh: "识别语音要执行的操作并提示主模型" },
+  { id: "run-classify", icon: "📊", th: "จำแนกรูปแบบความผิดพลาดการเล่น", en: "Classify song-run mistakes", zh: "弹奏错误分类",
+    howTh: "ให้คะแนนโน้ตผิด/จังหวะเพี้ยน/ไดนามิกอ่อน + เลือกว่าควรแก้อะไรก่อน แล้วส่งให้โมเดลหลักเขียนสรุปจากข้อมูลจริง",
+    howEn: "Scores wrong-notes/rhythm/dynamics dimensions + picks the highest-impact fix, grounding the LLM's written summary.",
+    howZh: "为错误维度打分并选择最优先修正点" },
+  { id: "ear-adaptive", icon: "👂", th: "ปรับระดับยิมหูอัตโนมัติ", en: "Adaptive Ear Gym difficulty", zh: "听力房自适应难度",
+    howTh: "หลังจบแต่ละรอบ Jev ให้คะแนนว่ารอบต่อไปควร ง่ายลง/เท่าเดิม/ยากขึ้น — เกมปรับตามฝีมือจริง",
+    howEn: "After each round Jev scores step-down / stay / step-up so the next round matches the learner's real level.",
+    howZh: "每轮结束后 Jev 评估下一轮难度（降/保持/升）" },
+  { id: "slip-prefilter", icon: "🧾", th: "คัดรายการสลิปที่ไม่สมเหตุสมผล (แอดมิน)", en: "Prefilter implausible slips (admin)", zh: "凭证预检（管理员）",
+    howTh: "เช็คความสมเหตุสมผลของรายการ (ยอด/แพ็กเกจ) ก่อนเสียค่าเรียก vision model อ่านสลิปจริง",
+    howEn: "Checks record plausibility (amount/package) BEFORE spending a vision-model call reading the slip image.",
+    howZh: "在调用视觉模型读凭证前先检查合理性" },
+  { id: "feedback-classify", icon: "🗂️", th: "จัดหมวดสถานการณ์นักเรียน (แอดมิน)", en: "Bucket learner situations (admin)", zh: "学员情况分类（管理员）",
+    howTh: "จัดนักเรียนแต่ละคนเข้าหมวด ก้าวหน้า/ติดขัด/การเงิน/มีส่วนร่วม/เทคนิค + ความเร่งด่วน ให้เจ้าของคนเดียวไล่อ่านได้เร็ว",
+    howEn: "Buckets each learner into progress/struggling/billing/engagement/technical + urgency so a solo owner can triage fast.",
+    howZh: "将学员分类并标注紧急度，便于独立运营者快速处理" },
+];
+
+export function AdminJevTasks({ lang }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [cfg, setCfg] = useState(null);   // null = loading; { "<task>": { enabled } }
+  const [busy, setBusy] = useState("");
+  const [saved, setSaved] = useState("");
+
+  const load = useCallback(() => {
+    sb.from("app_settings").select("value").eq("key", "jev_tasks").maybeSingle()
+      .then(r => setCfg((r && r.data && r.data.value && typeof r.data.value === "object") ? r.data.value : {}), () => setCfg({}));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function toggle(taskId) {
+    if (!cfg || busy) return;
+    setBusy(taskId); setSaved("");
+    const cur = cfg[taskId] || {};
+    const next = { ...cfg, [taskId]: { ...cur, enabled: cur.enabled !== true } };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "jev_tasks", p_value: next });
+    setBusy("");
+    if (error) { alert(error.message || "error"); return; }
+    setCfg(next); setSaved(taskId); playUi("click");
+    setTimeout(() => setSaved(""), 2500);
+  }
+
+  if (cfg === null) return <div className="admstu"><div className="admstu-msg">⏳</div></div>;
+
+  return (
+    <div className="admstu">
+      <div className="admmg-h" style={{ margin: "2px 2px 10px", lineHeight: 1.5 }}>
+        ⚡ {T("งานตัดสินใจด้วย Jev (TypeSafe AI)", "Jev decision tasks (TypeSafe AI)", "Jev 决策任务（TypeSafe AI）")}
+      </div>
+      <div className="admstu-row-sub" style={{ margin: "0 2px 12px", whiteSpace: "normal", lineHeight: 1.7 }}>
+        {T("Jev เป็นโมเดล 'ตัดสินใจ' ไม่ใช่โมเดลแชท — เร็วกว่า ~200 เท่า ถูกกว่า ~400 เท่า ใช้กับงานจำแนก/ให้คะแนน/คัดกรอง ส่วนงานสร้างข้อความยังใช้โมเดลหลักเหมือนเดิม (แท็บ 🧠 โมเดล AI)",
+          "Jev is a decision model, not a chat model — ~200x faster, ~400x cheaper for classify/score/filter work. Text generation still runs on the main models (see the 🧠 AI Models tab).",
+          "Jev 是决策模型而非聊天模型 — 分类/评分/过滤快约200倍、省约400倍；文本生成仍由主模型完成（见 🧠 AI 模型）")}
+        <br />🔐 {T("ต้องมี TYPESAFE_API_KEY ใน Supabase secrets ของฟังก์ชัน piano-jev ก่อนจึงจะทำงานจริง — ปิดอยู่ = แอปใช้วิธีเดิมทันที ไม่มีอะไรพัง",
+          "Requires TYPESAFE_API_KEY in the piano-jev function's Supabase secrets to take effect — a disabled task simply falls back to the previous behavior, nothing breaks.",
+          "需在 piano-jev 函数的 Supabase secrets 中配置 TYPESAFE_API_KEY — 关闭的任务回退到原有行为")}
+      </div>
+      {JEV_TASKS.map(t => {
+        const on = cfg[t.id] && cfg[t.id].enabled === true;
+        return (
+          <div className="admmg" key={t.id}>
+            <div className="admmg-h">{t.icon} {T(t.th, t.en, t.zh)}</div>
+            <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal", lineHeight: 1.6 }}>
+              {lang === "th" ? t.howTh : lang === "zh" ? t.howZh : t.howEn}
+            </div>
+            <div className="admmg-row" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button className={`songbtn ${on ? "go" : "ghost"}`} disabled={busy === t.id} onClick={() => toggle(t.id)}
+                style={{ padding: "8px 16px" }}>
+                {busy === t.id ? "⏳" : on ? "✅ " + T("เปิดอยู่", "ON", "已开启") : "⛔ " + T("ปิดอยู่", "OFF", "已关闭")}
+              </button>
+              <span className="admstu-row-sub" style={{ margin: "auto 0 auto auto" }}>
+                {saved === t.id ? <span style={{ color: "#d97757" }}>✓ {T("บันทึกแล้ว — มีผลภายใน ~1 นาที", "Saved — effective within ~1 min", "已保存 — 约1分钟内生效")}</span>
+                  : on ? T("Jev กำลังทำงานนี้", "Jev is handling this", "Jev 正在处理") : T("ใช้วิธีเดิม (ไม่มี Jev)", "Legacy path (no Jev)", "原有路径（无 Jev）")}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── Admin nav: one button that expands into business-category groups ── */
 const ADMIN_NAV_GROUPS = [
   { id: "ai", icon: "🤖", th: "AI และคอนเทนต์", en: "AI & Content", zh: "AI 与内容", items: [
     { id: "ai", icon: "🤖", tier: 3, th: "สอน AI", en: "Teach AI", zh: "训练 AI" },
     { id: "aimodel", icon: "🧠", tier: 3, th: "โมเดล AI", en: "AI Models", zh: "AI 模型" },
+    { id: "jev", icon: "⚡", tier: 3, th: "งาน Jev", en: "Jev Tasks", zh: "Jev 任务" },
     { id: "videos", icon: "🎬", tier: 3, th: "วิดีโอ", en: "Videos", zh: "视频" },
     { id: "autoteach", icon: "⏱️", tier: 2, th: "ตั้งเวลาสอน", en: "Auto Teaching", zh: "自动教学" },
   ]},

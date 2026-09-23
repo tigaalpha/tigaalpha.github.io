@@ -12,6 +12,7 @@ import {
 } from "./speech";
 import { readMemory, touchSessionMemory, memoryContext, setHomeworkLS, homeworkContext } from "./ai-chat-context";
 import { streamChatCompletion } from "./ai-backend";
+import { jevTask, jevChoice, jevNoul } from "./jev";
 import { dayKey, logActivity } from "./shared-infra";
 import { SONGS } from "./songs-data";
 import { curriculumContext, songRecommendationHint, setLessonPlanLS, buildAlternatingHistory, levelInfo, vmDisplayText } from "./App";
@@ -684,11 +685,32 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     if (hit(STOP)) { vmStop(); return true; }
     return false;
   }
+  // Jev voice-intent (task: voice-intent) — classify a spoken utterance into an
+  // app action ~100-500ms into the "thinking" window (which the LLM round-trip
+  // already fills with a warm filler cue, so this adds no perceived latency).
+  // The result is a HINT appended to the message the LLM already receives: the
+  // LLM still writes the reply and still emits the [song:…]/[practice:…]/[ear:…]
+  // tags itself (vmParseSegments parses those exactly as before), but now with a
+  // grounded guess of WHICH action and WHICH song id instead of having to infer
+  // both from free text across 180 songs. Disabled/slow Jev → hint omitted, the
+  // lesson behaves exactly as before.
+  async function jevVoiceHint(text) {
+    try {
+      const ids = SONGS.filter(s => !s.custom && !s.drill).slice(0, 24).map(s => s.id);
+      const r = await jevTask("voice-intent", text, { kinds: ["song", "practice", "ear", "posture", "metro", "homework"], ids }, 1500);
+      if (!r.ok || !r.answers) return "";
+      const action = jevChoice(r.answers.action);
+      const isCmd = jevNoul(r.answers.is_command);
+      if (!action || action === "none" || (isCmd != null && isCmd < 0.5)) return "";
+      return `\n\n(Voice intent pre-analysis — the learner's utterance most likely requests action "${action}"${action === "song" && r.answers.song_hint ? "; candidate song id: " + r.answers.song_hint : ""}. If that matches what they want, emit the matching [${action}:…] tag.)`;
+    } catch (e) { return ""; }
+  }
   async function vmProcess(text) {
     if (!vmActiveRef.current) return;
     clearTimeout(vmPlayReactT.current);
     // instant local commands (not the "I just played" cue) → no AI round-trip
     if (text !== L[langRef.current].vmPlayedCue && vmLocalCommand(text)) return;
+    const jevHintP = jevVoiceHint(text); // fire early — resolves while the filler cue plays
     const myTurn = ++vmTurnRef.current;        // newer turn supersedes any in-flight (barged-in) one
     vmInterruptRef.current = false;            // fresh turn — clear any prior barge-in
     const expSeq = vmSeqRef.current;           // capture the ordered target + ear test before clearing
@@ -775,7 +797,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
       pumping = false;
     };
     let reply = "";
-    try { reply = await vmFetchAI(msg, history, enqueue); } catch (e) { reply = ""; }
+    try { const hint = await jevHintP; reply = await vmFetchAI(msg + (hint || ""), history, enqueue); } catch (e) { reply = ""; }
     while ((segQ.length || pumping) && live()) await vmWait(70);
     if (vmTurnRef.current !== myTurn) return;   // a newer turn (barge-in) took over — abandon this one
     if (!vmActiveRef.current) return;

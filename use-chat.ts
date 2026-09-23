@@ -4,9 +4,10 @@ import {
 } from "./music-engine";
 import { tr, L, matchFaqTopic } from "./i18n";
 import { stopCloudTTS } from "./speech";
-import { memoryContext } from "./ai-chat-context";
+import { memoryContext, homeworkContext } from "./ai-chat-context";
 import { streamChatCompletion } from "./ai-backend";
-import { EXP, buildAlternatingHistory } from "./App";
+import { jevTask, jevNoul } from "./jev";
+import { EXP, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
 /* ── use-chat.ts ──
    Owns the main AI-sensei chat panel: the message list + typed-input box
    + streaming Claude call (send/callClaude), the [play:]-tag reply
@@ -113,10 +114,34 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
     return buildAlternatingHistory(msgs, 6);
   }
 
+  // Jev pre-check (task: chat-precheck) — one ~100-500ms structured call that
+  // classifies the learner's message BEFORE the main LLM round-trip: spam
+  // filtering (protects the AI budget), intent (song/practice request), mood
+  // (drives the reply's tone via the model's own system prompt), and homework
+  // commitments. Every answer feeds the existing pipeline as a HINT — Jev
+  // being disabled/slow/unavailable changes nothing about what the learner
+  // sees; the LLM still answers exactly as it did before. Mood/song/practice
+  // hints are appended to the system prompt; a spam verdict (≥0.9) skips the
+  // LLM entirely with a gentle local reply (the one behavior change, and a
+  // deliberate one — spam never needed an LLM round-trip).
+  async function jevPrecheck(userText) {
+    try {
+      const r = await jevTask("chat-precheck", userText, {}, 2500);
+      if (!r.ok || !r.answers) return null;
+      return {
+        spam: jevNoul(r.answers.is_spam),
+        song: jevNoul(r.answers.is_song_request),
+        practice: jevNoul(r.answers.is_practice_request),
+        mood: r.answers.learner_mood,
+        commitment: jevNoul(r.answers.is_commitment),
+      };
+    } catch (e) { return null; }
+  }
+
   /* Chat via the Supabase Edge Function proxy — streams the reply word-by-word.
      Sends { message, conversationHistory, system }; reads SSE lines of
      `data: {"content":"..."}` produced by the function. */
-  async function callClaude(userText) {
+  async function callClaude(userText, precheck) {
     if (streamingRef.current) return; // a stream is already in flight — never let two calls interleave
     streamingRef.current = true;
     setLoading(true);
@@ -146,8 +171,26 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
         pendingFlush = setTimeout(flush, wait);
       };
 
+      // Context parity with the Voice Tutor (which already feeds all of these to
+      // its model): the chat Sensei also sees the learner's cross-session memory
+      // (struggles/mastered/spaced-review due dates), assigned homework, real
+      // position in the Pathway curriculum, and the wider real-song pool — so
+      // it teaches with continuity instead of answering each message cold.
+      // Jev pre-check hints ride along as an extra context block when available
+      // (mood tells the model which tone to lead with; song/practice intent
+      // tells it what kind of reply to produce) — plain context, never a format
+      // the model must obey, so a missing/low-confidence hint costs nothing.
+      let jevHint = "";
+      if (precheck) {
+        const bits = [];
+        const ms = precheck.mood && precheck.mood.type === "score" ? precheck.mood.score : null;
+        if (ms != null && ms >= 2) bits.push("The learner sounds frustrated or discouraged right now — lead extra warm and keep the next step small.");
+        if (precheck.song != null && precheck.song >= 0.75) bits.push("The learner is asking about a specific song — consider naming a real one they can play [song:…] style.");
+        if (precheck.practice != null && precheck.practice >= 0.75) bits.push("The learner wants to practice/drill something — offer one concrete drill next.");
+        if (bits.length) jevHint = "\n\n[Tone/intent hint from pre-analysis: " + bits.join(" ") + "]";
+      }
       const acc = await streamChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang), feature: "chat" },
+        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang) + jevHint, feature: "chat" },
         {
           // insert an empty AI bubble we will fill as tokens arrive
           onStart: () => { setMsgs(prev => [...prev, { role: "ai", text: "" }]); setLoading(false); },
@@ -202,8 +245,22 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, requireL
       setMsgs(prev => [...prev, { role: "ai", text: tr(faq.content, lang) }]);
       gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
     } else if (!requireLogin("ai")) {
-      callClaude(t); // tier 2: no prepared match — ask the live AI
       gainExp(EXP.ask, { quest: true }); // reward engaging with the AI sensei
+      // tier 2a: Jev pre-check (chat-precheck task) — fast structured classification
+      // BEFORE the LLM. Spam ≥0.9 gets a gentle local refusal with no LLM spend;
+      // everything else flows to the LLM with tone/intent hints attached. A
+      // disabled/slow/failed pre-check falls straight through to the LLM —
+      // identical behavior to before Jev existed.
+      jevPrecheck(t).then(pc => {
+        if (pc && pc.spam != null && pc.spam >= 0.9) {
+          const refuse = lang === "th" ? "ขอโทษนะ ฉันช่วยเรื่องการเรียนเปียโนได้อย่างเดียวเลย ลองถามเรื่องการซ้อม ทฤษฎีดนตรี หรือเพลงดูสิ 🎹"
+            : lang === "zh" ? "抱歉，我只能帮忙学钢琴相关的问题。试试问练习、乐理或歌曲吧 🎹"
+            : "Sorry — I can only help with piano learning. Try asking about practice, theory, or songs 🎹";
+          setMsgs(prev => [...prev, { role: "ai", text: refuse }]);
+          return;
+        }
+        callClaude(t, pc);
+      }).catch(() => callClaude(t));
     }
   }
   return { msgs, setMsgs, input, setInput, loading, setLoading, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, callClaude, pushMessage, setLessonContext };
