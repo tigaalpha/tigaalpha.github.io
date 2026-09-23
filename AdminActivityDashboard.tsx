@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { sb } from "./supabase-client";
 import { GUEST_TRIAL_MS } from "./shared-infra";
+import { AdminLearningData } from "./AdminLearningData";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ADMIN ACTIVITY ANALYTICS — visible ONLY to admin_tier >= 3 (the owner).
@@ -777,6 +778,30 @@ export function AdminAnonVisitors({ lang }) {
 /* ═══════════════ 1. ACTIVITY DASHBOARD ═══════════════ */
 export function AdminActivity({ lang, onOpenAnon }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  // Learning Data sub-tab (owner request 2026-09-23): the learning-system
+  // dashboard lives HERE on the analysis page — one toggle to switch between
+  // "กิจกรรมผู้ใช้" (raw events) and "ข้อมูลผู้เรียน" (the §1-§21 loop), so
+  // everything analytical stays in one place instead of a new nav group.
+  const [ldTab, setLdTab] = useState(false);
+  return (
+    <div className="adminpay">
+      {/* ── Learning Data ↔ User Activity toggle (owner request 2026-09-23) ──
+          Learning intelligence (the §1-§21 loop) renders in place of the raw-
+          event dashboard while active; the toggle sits above everything so the
+          two analytical views share one home. */}
+      <div className="billtoggle" style={{ marginBottom: 10 }}>
+        <button className={`billtog${!ldTab ? " on" : ""}`} onClick={() => setLdTab(false)}>{T("กิจกรรมผู้ใช้", "User Activity", "用户活动")}</button>
+        <button className={`billtog${ldTab ? " on" : ""}`} onClick={() => setLdTab(true)}>🎓 {T("ข้อมูลผู้เรียน", "Learning Data", "学习数据")}</button>
+      </div>
+      {ldTab ? <AdminLearningData lang={lang} /> : <ActivityBody lang={lang} onOpenAnon={onOpenAnon} />}
+    </div>
+  );
+}
+
+/* The original activity dashboard body — unchanged, now wrapped by the
+   Learning-Data toggle above (owner request 2026-09-23). */
+function ActivityBody({ lang, onOpenAnon }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [range, setRange] = useState("7");
   const [anon, setAnon] = useState(null);   // headline count of signed-out visitors
   const [signup, setSignup] = useState(null); // Google vs email sign-up split
@@ -901,7 +926,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
   })();
 
   return (
-    <div className="adminpay">
+    <>
       {/* ── signed-out visitors, first thing on the page ──
           They are the majority of the traffic and appear nowhere in the member
           list below, so burying them was how "393 visits, 0 accounts" stayed
@@ -1163,7 +1188,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
 

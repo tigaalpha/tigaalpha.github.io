@@ -3,6 +3,14 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./app-shell";
 import { logUsage } from "./shared-infra";
+// Learning Data v1 (owner spec §1-§21): session lifecycle lives OUTSIDE React —
+// main.tsx is the only app file that can mount once per real page load, so it is
+// the right owner for "a study run started". App.tsx mounts/unmounts components
+// (guest gate, admin console), which would fork phantom sessions. Everything in
+// learning-data.ts is fire-and-forget and swallows its own errors (§20): boot
+// never waits on it, and nothing user-facing can fail because of it.
+import { initLearningData } from "./learning-data";
+initLearningData();
 
 /* Was this tab ever in the background before the app finished painting?
    It matters because the boot measurement below sits inside requestAnimationFrame,
