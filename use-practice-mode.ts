@@ -113,6 +113,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceChordGrpRef = useRef(-1); // progression block practice: start index of the chord window currently being struck, or -1 when this drill is not a chord-by-chord progression
   const practiceMissRef = useRef(0);
   const practiceNoteMissesRef = useRef([]); // Auto-Teach แม่นยำ (แผนข้อ 1+3): pitch-class ที่พลาดระหว่างซ้อม — flush ตอน finishPractice
+  const practiceMissSnapshotRef = useRef([]); // Learning Data v1: โน้ตที่พลาด 6 ตัวล่าสุดของรอบ — อ่านโดย event tiga:practice-done หลัง flush
   const practicePauseRef = useRef(0);  // gaps > 4 s between consecutive correct hits this drill — TIGA teaching-loop "hesitation" signal (see finishPractice)
   const practiceLastHitRef = useRef(0); // Date.now() of the previous correct hit, for the pause detection above
   const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
@@ -615,6 +616,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     try {
       const noteMisses = (practiceNoteMissesRef.current || []).slice(0, 12);
       practiceNoteMissesRef.current = [];
+      practiceMissSnapshotRef.current = noteMisses.slice(0, 6); // Learning Data v1: สำเนาสำหรับ practice-done event (ref โดน flush ที่นี่แล้ว — ตัว dispatch อยู่ท้าย finish)
       recordNoteMisses(noteMisses);
       // Auto Teaching 2.0 (Phase C): the closed loop also APPENDS the measured
       // before/after to the server-side teaching_outcomes table (append-only;
@@ -807,7 +809,16 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     }
 
     // Auto-Teach แม่นยำ (แผนข้อ 8): ประกาศจังหวะ "เพิ่งจบซ้อม" ให้ครูคาราใน App.tsx (ผลซ้อมเพิ่งรู้ = จังหวะสอนที่ดีที่สุด)
-    try { window.dispatchEvent(new CustomEvent("tiga:practice-done", { detail: { accuracy, isNewBest, label } })); } catch (e) {}
+    // Learning Data v1 (§2/§5/§15): พ่วงข้อมูลดิบของรอบซ้อมนี้ไปด้วย — accuracy/
+    // จำนวนพลาด/ความยาวรอบ/สถานะสถิติ — ทุกอย่างเป็น "สิ่งที่วัดได้" ไม่ใช่ความเห็น
+    // AI (§2); ผู้ฟังที่บันทึกลง learning_observations คือ App.tsx.
+    try { window.dispatchEvent(new CustomEvent("tiga:practice-done", { detail: { accuracy, isNewBest, label,
+      songId: label || null, noteMisses: practiceMissSnapshotRef.current || [],
+      durationSec: practiceTimesRef.current.length ? Math.round((Date.now() - practiceTimesRef.current[0]) / 1000) : null,
+      attempts: total, misses: miss,
+      scoreBefore: typeof weekAgoAccuracy === "number" ? weekAgoAccuracy : null,
+      strategyId: tigaTip && tigaTip.strategyId ? tigaTip.strategyId : null,
+      strategyText: tigaTip && tigaTip.text ? tigaTip.text : null } })); } catch (e) {}
     // Bonus AI flourish on top of an already-complete local result — fetched
     // standalone (not through the shared chat thread/callClaude) so it can
     // render right inside the result screen instead of forcing a page/chat
