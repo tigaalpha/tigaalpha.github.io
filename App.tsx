@@ -5,7 +5,7 @@ import { PATHWAY, PATHWAY_PRACTICE } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { useInjectCSS } from "./app-styles";
 import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
-import { ItemArt } from "./item-art";
+import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 /* ── Split off the first screen's dead weight ──
    The app shipped as one 731 kB (gzip) file, so a first-time visitor had to
@@ -23,7 +23,8 @@ const PvpPage = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpPage
 const PvpBanner = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpBanner })));
 const SkillTrack = lazy(() => import("./pvp-arena").then(m => ({ default: m.SkillTrack })));
 import { PetPod, PetPage, PetArt, PET_SPECIES, PET_TYPES, PET_BONUS, PET_COST,
-  adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets } from "./pet-lab";
+  adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets, usePetTurn } from "./pet-lab";
+import { SpaceStage, prefetchSpace } from "./space-stage";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -131,9 +132,13 @@ import { CameraCoachOverlay } from "./CameraCoachOverlay";
 import { SkinThemeSettings } from "./SkinThemeSettings";
 import { SfxMetronomeSettings } from "./SfxMetronomeSettings";
 import { LanguageSettings } from "./LanguageSettings";
-import { AdminAIModels, AdminJevTasks, AdminNav } from "./AdminAIModels";
-import { TigamodelLab } from "./TigamodelLab";
-import { TigamodelBackoffice } from "./TigamodelBackoffice";
+/* Owner-only tools load with the admin console, not with every student's
+   first visit — they were ~200 kB of the main bundle nobody else ever runs. */
+const AdminAIModels = lazy(() => import("./AdminAIModels").then(m => ({ default: m.AdminAIModels })));
+const AdminJevTasks = lazy(() => import("./AdminAIModels").then(m => ({ default: m.AdminJevTasks })));
+const AdminNav = lazy(() => import("./AdminAIModels").then(m => ({ default: m.AdminNav })));
+const TigamodelLab = lazy(() => import("./TigamodelLab").then(m => ({ default: m.TigamodelLab })));
+const TigamodelBackoffice = lazy(() => import("./TigamodelBackoffice").then(m => ({ default: m.TigamodelBackoffice })));
 import { learnFromAdminTeaching } from "./tigamodel/web";
 import { ProfileDashboardPanel } from "./ProfileDashboardPanel";
 import { getCoachDiagnosis, getPracticeTimeBudget } from "./tigamodel/web.js";
@@ -149,10 +154,10 @@ import { usePlayAlong } from "./use-play-along";
 import { dailySongFor, readDailySongState, DAILY_SONG_REWARD } from "./use-play-along";
 import { useChat } from "./use-chat";
 import { useVoiceTutor } from "./use-voice-tutor";
-import { LeadLandingPage } from "./LeadLandingPage";
+const LeadLandingPage = lazy(() => import("./LeadLandingPage").then(m => ({ default: m.LeadLandingPage })));
 import { PianoLevelQuiz } from "./PianoLevelQuiz";
-import { ReferralDashboard } from "./ReferralDashboard";
-import { LeadSaleDashboard } from "./LeadSaleDashboard";
+const ReferralDashboard = lazy(() => import("./ReferralDashboard").then(m => ({ default: m.ReferralDashboard })));
+const LeadSaleDashboard = lazy(() => import("./LeadSaleDashboard").then(m => ({ default: m.LeadSaleDashboard })));
 /* Shown while a split-off page fetches its code — the same three dots the
    chat uses, for the same reason: a still frame reads as broken, a moving one
    reads as working. Sized to roughly hold the page's place so the layout does
@@ -6413,7 +6418,8 @@ const GameStats = memo(function GameStats({ lang }) {
    lighting of the whole chamber. */
 const CS_RARITY = { common: 0, rare: 1, epic: 2, legendary: 3 };
 const CharacterStage = memo(function CharacterStage({ lang, model, charHat, charOutfit, charWeapon, charAccessory }) {
-  const [yaw, setYaw] = useState(-16);
+  // parked turned to its right, so the weapon hand is the near one
+  const [yaw, setYaw] = useState(18);
   /* ── it stands still until you ask it not to ──
      The turntable used to start itself. A model that will not hold still is
      a model you cannot look at: you never get to see the front of your own
@@ -6472,7 +6478,6 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   const sw = worn.flatMap(it => it.sw || []).filter(Boolean);
   const keyA = sw[0] || MSK.glow;
   const keyB = sw.find(c => c !== keyA) || MSK.accent;
-  const rimOf = (it) => (it && it.sw && it.sw[1]) || (it && it.sw && it.sw[0]) || keyA;
   // The OUTFIT re-plates the armour rather than being pasted on as a garment
   // sprite — which is what used to make the shirt read as a second body
   // floating in front of the first.
@@ -6480,32 +6485,18 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   const armorB = (out && out.sw && out.sw[1]) || undefined;
   const power = combatOf(model, [wpn, out, hat, acc]).total;
 
-  /* Equipped items orbit the figure on the same axis the model turns on, so a
-     weapon held at the character's side really does travel round behind it
-     instead of staying pinned to the viewport. */
-  const R = Math.PI / 180;
-  const orbit = (th, r) => { const a = (th + yaw) * R; return { dx: Math.sin(a) * r, z: Math.cos(a) }; };
-  // a chibi is wider at the hands and its head is nearly twice the size, so
-  // headgear and held gear have to be placed against the build, not one offset
-  const rig = MODEL_RIG[model] || MODEL_RIG.vanguard;
-  const wp = orbit(74, rig.chibi ? 50 : 54), ap = orbit(-74, rig.chibi ? 50 : 54);
-  const sYaw = Math.sin(yaw * R), cYaw = Math.cos(yaw * R);
-  const headK = Math.max(0.36, Math.abs(cYaw));
-  const gearStyle = (it, p, rot) => ({
-    "--rim": rimOf(it),
-    top: rig.chibi ? "55%" : "59%",
-    transform: `translateX(calc(-50% + ${p.dx.toFixed(1)}px)) translateY(-50%) rotate(${rot}deg) scale(${(0.78 + 0.22 * Math.abs(p.z)).toFixed(3)})`,
-    zIndex: p.z > 0 ? 9 : 2,
-    opacity: (0.5 + 0.5 * Math.max(0, p.z)).toFixed(2),
-  });
+  /* The gear is WORN now, not orbited round the figure as loose pictures: the
+     weapon is in the robot's right hand, the hat is fitted to its skull and
+     the accessory rides its forearm, back or hip (CyberAvatar held/hat/acc).
+     So it turns with the body because it is part of the body — the same
+     drawing the arena fights with. */
+  const heldG = useMemo(() => (wpn ? { ...holdOf(wpn.art), node: <ItemArt art={wpn.art} sw={wpn.sw} size={64} /> } : null), [wpn && wpn.id]);
+  const hatG = useMemo(() => (hat ? { ...hatMountOf(hat.art), node: <ItemArt art={hat.art} sw={hat.sw} size={64} /> } : null), [hat && hat.id]);
+  const accG = useMemo(() => (acc ? { at: accMountOf(acc.art), node: <ItemArt art={acc.art} sw={acc.sw} size={64} /> } : null), [acc && acc.id]);
 
   const figure = (
-    <>
-      <span className="cs-av"><CyberAvatar model={model} yaw={yaw} armorA={armorA} armorB={armorB} glow={keyA} accent={keyB} /></span>
-      {hat && <span className="cs-layer cs-hat" style={{ "--rim": rimOf(hat), transform: `translateX(calc(-50% + ${(3.4 * sYaw).toFixed(1)}px)) scaleX(${headK.toFixed(3)}) scale(${(rig.hs / 1.15).toFixed(3)})` }}><ItemArt art={hat.art} sw={hat.sw} /></span>}
-      {wpn && <span className="cs-layer cs-wpn" style={gearStyle(wpn, wp, -14)}><ItemArt art={wpn.art} sw={wpn.sw} /></span>}
-      {acc && <span className="cs-layer cs-acc" style={gearStyle(acc, ap, 12)}><ItemArt art={acc.art} sw={acc.sw} /></span>}
-    </>
+    <span className="cs-av"><CyberAvatar model={model} yaw={yaw} armorA={armorA} armorB={armorB} glow={keyA} accent={keyB}
+      held={heldG} hat={hatG} acc={accG} hand="right" /></span>
   );
 
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -6585,6 +6576,135 @@ const StatBars = memo(function StatBars({ lang, stats, compact = false, max = 24
   );
 });
 
+/* ── the shop's inspection stage ──
+   Everything worth turning over in the hand opens here instead of being
+   bought off a thumbnail: the piece stands on a plinth in the 3D showroom
+   and turns under your finger (with a little weight to the spin), the room
+   holding still while it does. The chassis modal below shares the stage. */
+function ShopStage({ shot, figRef, turn, foot, deg, hint, children }) {
+  return (
+    <div className={`shopstage ${shot}`}>
+      <SpaceStage variant={shot} anchor={figRef} quiet={turn ? turn.quiet : null} />
+      <div className={`shopstage-fig${turn && turn.dragging ? " turning" : ""}`} ref={figRef} data-foot={foot}
+        role="img" tabIndex={0} aria-label={hint} {...(turn ? turn.handlers : {})}>
+        {children}
+      </div>
+      {deg != null && <span className="shopstage-deg" aria-hidden="true">{String(((Math.round(deg) % 360) + 360) % 360).padStart(3, "0")}°</span>}
+      {hint && <span className="shopstage-hint" aria-hidden="true">{hint}</span>}
+    </div>
+  );
+}
+
+/* ── PetDetailModal ── a pet is inspected like a chassis: turned a full 360°,
+   its element and what it does in a fight named, and bought behind a button
+   that says the price — never off a thumbnail in one tap. */
+const PetDetailModal = memo(function PetDetailModal({ lang, item, have, here, coins, onAct, onClose }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const fig = useRef(null);
+  const turn = usePetTurn(null, -28);
+  useEffect(() => { prefetchSpace(); }, []);
+  if (!item) return null;
+  const sp = PET_SPECIES.find(x => x.id === item.pet) || PET_SPECIES[0];
+  const ty = PET_TYPES[sp.type] || {};
+  const afford = coins >= item.cost;
+  return (
+    <div className="setov setov-ob" onClick={onClose}>
+      <div className="setcard mdv pdv ob3" onClick={e => e.stopPropagation()}>
+        <div className="mdv-hdr">
+          <button className="stgback" onClick={onClose} aria-label="back">←</button>
+          <span className="mdv-ttl"><b>{sp.code}</b>{tr(item, lang)}</span>
+          <span className="mdv-cls" style={{ "--cc": ty.c }}>{tr(ty, lang)}</span>
+        </div>
+        <div className="mdv-body">
+          <ShopStage shot="shop-pet" figRef={fig} turn={turn} foot="0.0705" deg={turn.yaw}
+            hint={T("ลากเพื่อหมุนดูรอบตัว", "Drag to turn it around", "拖动旋转查看")}>
+            <PetArt species={sp.id} level={1} yaw={turn.yaw} />
+          </ShopStage>
+          <div className="mdv-sub">{tr(item.desc, lang)}</div>
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("ในสนามประลอง", "In the arena", "在竞技场")}</span></div>
+            <div className="pdv-row"><i>{T("ธาตุ", "Element", "属性")}</i><b style={{ color: "var(--ti1)" }}>{tr(ty, lang)}</b></div>
+            <div className="pdv-row"><i>{T("โบนัส", "Bonus", "加成")}</i><b>{tr(PET_BONUS[sp.bonus] || {}, lang)}</b></div>
+            <div className="mdv-fair">{T("โบนัสทำงานเมื่อความสุขของมันเกิน 50% — ดูแลมันที่ห้องสัตว์เลี้ยง",
+              "The bonus works while its happiness is above 50% — look after it in the Sanctuary",
+              "宠物快乐度高于 50% 时加成生效 —— 在宠物圣所照顾它")}</div>
+          </div>
+        </div>
+        <div className="mdv-foot">
+          {here
+            ? <button className="mdv-buy on" disabled>✓ {T("อยู่ข้างคุณ", "With you", "在你身边")}</button>
+            : have
+              ? <button className="mdv-buy" onClick={() => onAct(item)}>{T("พาตัวนี้ไป", "Take this one", "带上它")}</button>
+              : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onAct(item)}>
+                  {afford ? T("รับเลี้ยง", "Adopt", "领养") : T("เหรียญไม่พอ", "Not enough coins", "金币不足")} · 🪙 {item.cost.toLocaleString()}
+                </button>}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/* ── GearDetailModal ── try it on before you pay for it: your own chassis,
+   wearing everything it wears now with this one piece swapped in, turning on
+   the showroom plinth. What the piece adds to the fight is stated plainly
+   under it. */
+const GearDetailModal = memo(function GearDetailModal({ lang, item, kind, model, worn, own, eq, lv, coins, rarityLabel, onAct, onClose }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const lc = L[lang];
+  const fig = useRef(null);
+  const turn = usePetTurn(null, 18);
+  useEffect(() => { prefetchSpace(); }, []);
+  const slot = kind === "charWeapon" ? "wpn" : kind === "charHat" ? "hat" : kind === "charAccessory" ? "acc" : kind === "charOutfit" ? "out" : null;
+  const pick = (k) => (slot === k ? item : worn[k]);
+  const wpn = pick("wpn"), hat = pick("hat"), acc = pick("acc"), out = pick("out");
+  const heldG = useMemo(() => (wpn && wpn.art ? { ...holdOf(wpn.art), node: <ItemArt art={wpn.art} sw={wpn.sw} size={64} /> } : null), [wpn && wpn.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const hatG = useMemo(() => (hat && hat.art ? { ...hatMountOf(hat.art), node: <ItemArt art={hat.art} sw={hat.sw} size={64} /> } : null), [hat && hat.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const accG = useMemo(() => (acc && acc.art ? { at: accMountOf(acc.art), node: <ItemArt art={acc.art} sw={acc.sw} size={64} /> } : null), [acc && acc.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!item) return null;
+  const MSK = MODEL_SKIN[model] || MODEL_SKIN.vanguard;
+  const armorA = (out && out.sw && out.sw[0]) || undefined;
+  const armorB = (out && out.sw && out.sw[1]) || undefined;
+  const now = combatOf(model, [worn.wpn, worn.out, worn.hat, worn.acc]).total;
+  const next = combatOf(model, [wpn, out, hat, acc]).total;
+  const afford = item.gem ? true : coins >= item.cost;
+  return (
+    <div className="setov setov-ob" onClick={onClose}>
+      <div className="setcard mdv gdv ob3" onClick={e => e.stopPropagation()}>
+        <div className="mdv-hdr">
+          <button className="stgback" onClick={onClose} aria-label="back">←</button>
+          <span className="mdv-ttl"><b className={`gdv-r r-${item.rarity}`}>{rarityLabel}</b>{tr(item, lang)}</span>
+          {item.art && <span className="gdv-ic"><ItemArt art={item.art} sw={item.sw} /></span>}
+        </div>
+        <div className="mdv-body">
+          <ShopStage shot="shop-bot" figRef={fig} turn={turn} foot="0.018" deg={turn.yaw}
+            hint={T("ลองสวมบนหุ่นของคุณ · ลากเพื่อหมุน", "On your chassis · drag to turn", "穿在你的机体上 · 拖动旋转")}>
+            <CyberAvatar model={model} yaw={turn.yaw} armorA={armorA} armorB={armorB} glow={MSK.glow} accent={MSK.accent}
+              held={heldG} hat={hatG} acc={accG} hand="right" />
+          </ShopStage>
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("พลังรวมของหุ่น", "Chassis power", "机体总战力")}</span><b>{next}</b></div>
+            <div className="gdv-delta">
+              <span>{T("ตอนนี้", "Now", "现在")} <b>{now}</b></span>
+              <i aria-hidden="true" />
+              <span>{T("ถ้าสวมชิ้นนี้", "With this", "装备后")} <b className={next > now ? "up" : next < now ? "down" : ""}>{next}{next !== now ? ` (${next > now ? "+" : ""}${next - now})` : ""}</b></span>
+            </div>
+            {lv > 0 && <div className="mdv-fair">{T(`อัปเกรดแล้ว +${lv}`, `Upgraded +${lv}`, `已升级 +${lv}`)}</div>}
+          </div>
+        </div>
+        <div className="mdv-foot">
+          {eq
+            ? <button className="mdv-buy on" disabled>✓ {lc.shopEquipped}</button>
+            : own
+              ? <button className="mdv-buy" onClick={() => onAct(item)}>{lc.shopEquip}</button>
+              : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onAct(item)}>
+                  {afford ? T("ซื้อ", "Buy", "购买") : T("เหรียญไม่พอ", "Not enough coins", "金币不足")} · {item.gem ? "💎 " + item.gem : "🪙 " + item.cost.toLocaleString()}
+                </button>}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 /* ── ModelDetailModal ──
    A chassis costs twenty to thirty thousand coins. Buying one off a thumbnail
    in a grid — one tap, no confirmation — was both a way to lose a fortune by
@@ -6598,6 +6718,7 @@ const StatBars = memo(function StatBars({ lang, stats, compact = false, max = 24
    one does. Buying happens here, behind a button that says the price. ── */
 const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, running, coins, onBuy, onClose }) {
   const [yaw, setYaw] = useState(-24);
+  const mdvFig = useRef(null);
   const [spin, setSpin] = useState(() => {
     try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return true; }
   });
@@ -6634,8 +6755,8 @@ const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, run
   const drop = (e) => { dragRef.current = null; try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {} };
 
   return (
-    <div className="setov" onClick={onClose}>
-      <div className="setcard mdv" onClick={e => e.stopPropagation()}>
+    <div className="setov setov-ob" onClick={onClose}>
+      <div className="setcard mdv ob3" onClick={e => e.stopPropagation()}>
         <div className="mdv-hdr">
           <button className="stgback" onClick={onClose} aria-label={lc.back}>←</button>
           <span className="mdv-ttl"><b>{item.code || m.code}</b>{tr(m, lang)}</span>
@@ -6644,8 +6765,9 @@ const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, run
           </span>
         </div>
         <div className="mdv-body">
-          <div className="mdv-stage">
-            <CyberAvatar model={model} yaw={yaw} />
+          <div className="mdv-stage shopstage shop-bot">
+            <SpaceStage variant="shop-bot" anchor={mdvFig} />
+            <div className="shopstage-fig" ref={mdvFig} data-foot="0.018"><CyberAvatar model={model} yaw={yaw} /></div>
             <div className="mdv-drag" onPointerDown={grab} onPointerMove={drag} onPointerUp={drop} onPointerCancel={drop}
               role="slider" aria-label={T("หมุนโมเดล", "Rotate model", "旋转模型")} aria-valuenow={Math.round(wrapYaw(yaw))} aria-valuemin={-180} aria-valuemax={180} tabIndex={0}
               onKeyDown={(e) => { if (e.key === "ArrowLeft") { setSpin(false); setYaw(y => wrapYaw(y - 15)); } else if (e.key === "ArrowRight") { setSpin(false); setYaw(y => wrapYaw(y + 15)); } }} />
@@ -9817,8 +9939,11 @@ function AdminPage({ lang, onExit, adminTier }) {
         <button className="adminexit" onClick={onExit}>✕ EXIT</button>
       </div>
 
+      <Suspense fallback={<LazyBits />}>
       <AdminNav lang={lang} tier={tier} adminTab={adminTab} setAdminTab={setAdminTab} />
+      </Suspense>
 
+      <Suspense fallback={<LazyBits tall />}>
       {adminTab === "leadsale" ? <LeadSaleDashboard lang={lang} />
         : adminTab === "leadlanding" ? <LeadLandingPage lang={lang} />
         : adminTab === "leadreferral" ? <ReferralDashboard lang={lang} />
@@ -9895,6 +10020,7 @@ function AdminPage({ lang, onExit, adminTier }) {
       </div>
 
       </>) : <AdminStudents lang={lang} viewerTier={tier} />}
+      </Suspense>
     </div>
   );
 }
@@ -10122,6 +10248,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      choice persists — profiles.lang for an account, the local guest profile
      otherwise — so this only decides what someone sees before they choose. */
   const [lang, setLangState] = useState(profile.lang || "th");
+  /* The document says which language it is in. Screen readers pick their
+     voice from it, the browser picks Thai- or CJK-appropriate fallback fonts
+     from it, and the game rooms use it (:lang) to keep letter-spacing off
+     Thai, where spacing out the letters pulls vowels and tone marks away
+     from the consonants they sit on. */
+  useEffect(() => { try { document.documentElement.lang = lang === "zh" ? "zh-CN" : lang; } catch (e) {} }, [lang]);
   // First-time language picker: SUSPENDED (owner request 2026-09) - the popup
   // felt like a wall between a new user and the piano. The state/JSX are kept
   // intact for a future re-enable: flip LANG_PICKER_ENABLED back to true and
@@ -10492,6 +10624,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [modelChosen, setModelChosen] = useState(() => { try { return localStorage.getItem("tg_charModelSet") === "1"; } catch (e) { return true; } });
   const [modelPickOpen, setModelPickOpen] = useState(false);
   const [modelDetail, setModelDetail] = useState(null);   // the shop chassis being inspected
+  const [petDetail, setPetDetail] = useState(null);       // the shop pet being inspected
+  const [gearDetail, setGearDetail] = useState(null);     // {kind, id}: the gear being tried on
   const [modelPickSel, setModelPickSel] = useState(null);
   const [charHat, setCharHat] = useState(getEquip("charHat", "hat-straw"));
   const [charOutfit, setCharOutfit] = useState(getEquip("charOutfit", "out-tshirt"));
@@ -10533,6 +10667,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [page, setPage] = useState(() => {
     try { const p = sessionStorage.getItem("tiga_page"); return p || "pathway"; } catch (e) { return "pathway"; }
   });
+  /* The profile is where the arena, the sanctuary and the shop are entered
+     from: once somebody is on it, fetch the 3D room in idle time (only on a
+     device that will actually draw one), so none of those opens is the
+     moment the download starts. */
+  useEffect(() => { if (page === "profile" || page === "storage" || page === "pvp" || page === "pet") prefetchSpace(); }, [page]);
   useEffect(() => { try { sessionStorage.setItem("tiga_page", page); } catch (e) {} }, [page]);
   // usage analytics: log each page WITH dwell time.
   //
@@ -11434,6 +11573,31 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     playUi("reward"); mascot("celebrate", 2400);
   }
 
+  /* ── the cards follow the pointer ── a mouse or a pen tips the card a few
+     degrees toward itself and slides a glare across the glass. One listener
+     on the grid, the custom properties set on the one card under it; touch
+     is left alone (a finger on a card is a scroll or a tap, not a hover). */
+  function shopTiltOff(e) {
+    const g = e.currentTarget, c = g.__tilt;
+    if (c) { c.classList.remove("tilt"); c.style.removeProperty("--rx"); c.style.removeProperty("--ry"); g.__tilt = null; }
+  }
+  function shopTilt(e) {
+    if (e.pointerType === "touch") return;
+    const g = e.currentTarget;
+    const card = e.target && e.target.closest ? e.target.closest(".shopitem") : null;
+    if (g.__tilt && g.__tilt !== card) shopTiltOff(e);
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    if (!r.width) return;
+    const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    card.style.setProperty("--ry", ((px - 0.5) * 9).toFixed(2) + "deg");
+    card.style.setProperty("--rx", ((0.5 - py) * 7).toFixed(2) + "deg");
+    card.style.setProperty("--gx", (px * 100).toFixed(1) + "%");
+    card.style.setProperty("--gy", (py * 100).toFixed(1) + "%");
+    card.classList.add("tilt");
+    g.__tilt = card;
+  }
+
   function renderShopItem(kind, it, equippedId) {
     const own = owned.includes(it.id), eq = equippedId === it.id;
     if (it.model) {
@@ -11458,7 +11622,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       return (
         <button key={it.id} data-tick={petTick}
           className={`shopitem ${it.rarity} petitem${here ? " equipped" : ""}`}
-          onClick={() => buyOrCarryPet(it)}>
+          onClick={() => { setPetDetail(it.id); playUi("click"); }}>
           <span className="petitem-art"><PetArt species={sp.id} level={1} /></span>
           <span className="shopitem-nm">{tr(it, lang)}</span>
           <span className="petitem-type" style={{ "--tc": ty.c }}>{tr(ty, lang)}</span>
@@ -11498,7 +11662,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       playUi("reward");
     };
     return (
-      <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}${lv > 0 ? " upgraded" : ""}`} onClick={() => buyOrEquip(kind, it)}>
+      <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}${lv > 0 ? " upgraded" : ""}`}
+        onClick={() => { if (isGear && it.art && /^char/.test(kind)) { setGearDetail({ kind, id: it.id }); playUi("click"); } else buyOrEquip(kind, it); }}>
         {it.isNew && !own && <span className="shopitem-new">{lc.shopNew}</span>}
         {lv > 0 && <span className={`shopitem-lv${maxed ? " max" : ""}`}>+{lv}</span>}
         {it.art
@@ -12684,7 +12849,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         const filtered = activeSubs.flatMap(c => (CAT_ITEMS[c.key] || []).map(it => ({ ...it, _kind: c.key })));
         const ownedCount = filtered.filter(it => (it.pet ? ownsSpecies(it.pet) : owned.includes(it.id))).length;
         return (
-          <div className="setov" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>
+          <div className="setov setov-shop" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>
             <div className="setcard shop-full" onClick={e => e.stopPropagation()}>
               {/* ── Header: coins / gems / Top Up button ── */}
               <div className="sethdr shop-hdr">
@@ -12738,13 +12903,32 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   <span>{lang === "th" ? "มีทั้งหมด" : lang === "zh" ? "共" : "Total"}: {filtered.length} {lang === "th" ? "ชิ้น" : lang === "zh" ? "件" : "items"}</span>
                   <span>{lang === "th" ? "เป็นเจ้าของ" : lang === "zh" ? "已拥有" : "Owned"}: {ownedCount}</span>
                 </div>
-                <div className="shopgrid shop-grid-full">
+                <div className="shopgrid shop-grid-full" onPointerMove={shopTilt} onPointerLeave={shopTiltOff}>
                   {filtered.map(it => renderShopItem(CAT_SLOT[it._kind] || it._kind, it, CAT_EQUIPPED[it._kind]))}
                 </div>
               </div>
             </div>
           </div>
         );
+      })()}
+
+      {petDetail && (() => {
+        const it = SHOP_PETS.find(x => x.id === petDetail);
+        if (!it) return null;
+        return <PetDetailModal lang={lang} item={it} have={ownsSpecies(it.pet)} here={carriedSpecies() === it.pet} coins={coins}
+          onClose={() => setPetDetail(null)} onAct={(p) => { buyOrCarryPet(p); setPetDetail(null); }} />;
+      })()}
+
+      {gearDetail && (() => {
+        const pool = gearDetail.kind === "charWeapon" ? ALL_WEAPONS : gearDetail.kind === "charHat" ? ALL_HATS : gearDetail.kind === "charAccessory" ? ALL_ACCESSORIES : ALL_OUTFITS;
+        const it = pool.find(x => x.id === gearDetail.id);
+        if (!it) return null;
+        const worn = { wpn: ALL_WEAPONS.find(x => x.id === charWeapon), hat: ALL_HATS.find(x => x.id === charHat), acc: ALL_ACCESSORIES.find(x => x.id === charAccessory), out: ALL_OUTFITS.find(x => x.id === charOutfit) };
+        const eqId = { charWeapon, charHat, charAccessory, charOutfit }[gearDetail.kind];
+        const RL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL, mythic: lang === "th" ? "มหาเทพ" : lang === "zh" ? "神话" : "Mythic" };
+        return <GearDetailModal lang={lang} item={it} kind={gearDetail.kind} model={charModel} worn={worn}
+          own={owned.includes(it.id)} eq={eqId === it.id} lv={itemLv(it.id)} coins={coins} rarityLabel={RL[it.rarity] || ""}
+          onClose={() => setGearDetail(null)} onAct={(x) => { buyOrEquip(gearDetail.kind, x); setGearDetail(null); }} />;
       })()}
 
       {modelDetail && (() => {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { OBSIDIAN_CSS } from "./obsidian-styles";
 
 export const CSS = `
 /* ── Light/dark mode variables — light is the CSS baseline (:root) so a first-time visit
@@ -3265,7 +3266,7 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .pcf-tags{display:flex;flex-wrap:wrap;gap:5px}
 .pcf-tags span{font-size:10px;padding:2px 8px;border-radius:20px;background:var(--card2);border:1px solid var(--bd1);color:var(--text2)}
 .pcf-tags span:first-child{color:var(--tc,inherit)}
-.pcf-name{width:100%;margin-top:9px;padding:9px 11px;border:1px solid var(--bd4);border-radius:11px;background:var(--card2);color:var(--text);font-size:13px;font-family:inherit}
+.pcf-name{box-sizing:border-box;width:100%;margin-top:9px;padding:9px 11px;border:1px solid var(--bd4);border-radius:11px;background:var(--card2);color:var(--text);font-size:13px;font-family:inherit}
 .pcf-go{width:100%;margin-top:8px;padding:11px;border:none;border-radius:12px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;cursor:pointer}
 
 /* var(--card) rather than a hardcoded white: this stays a plain light stage
@@ -3633,6 +3634,7 @@ html[data-theme="dark"] .anonwv-n{color:#ffc97a}
 .pspot{text-align:left}
 .pspot .pchip{margin:2px}
 
+${OBSIDIAN_CSS}
 `;
 
 export function useInjectCSS() {

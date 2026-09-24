@@ -764,7 +764,7 @@ export const wrapYaw = (d) => ((((d + 180) % 360) + 360) % 360) - 180;
 
 export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOnly = false,
                              armorA: armorAIn, armorB: armorBIn, glow: glowIn, accent: accentIn,
-                             held = null, hat = null, acc = null, mirror = false }) {
+                             held = null, hat = null, acc = null, mirror = false, hand = "near" }) {
   const id = "ca" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const v = normalizeModel(model);
   /* The chassis is the model; the trim and the lights are whatever the
@@ -780,13 +780,13 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   /* ── neon split light ──
      The figure used to stand in a white photo studio: a warm key from the
      upper left, a pale blue bounce off the floor. That is the right rig for a
-     product shot and the wrong one for a cyberpunk arena, where every surface
-     is lit by signage — a magenta key on one side, a cyan fill on the other,
-     and the frame's own emissive colour in between. Changing the colour of
+     product shot and the wrong one for the obsidian arena, where every
+     surface is lit by the room — an electric-violet key on one side, a cyan
+     fill on the other, and the frame's own emissive colour in between. Changing the colour of
      the lights rather than adding passes is what keeps this free: every plate
      already paints the key, the fill and the graze; they just glow now. */
-  const NEON_K = mixc("#ff3fd8", SK.glow, .18);   // magenta key, upper left
-  const NEON_F = mixc("#27f2ff", SK.glow, .22);   // cyan fill, lower right
+  const NEON_K = mixc("#8f6dff", SK.glow, .18);   // electric-violet key, upper left
+  const NEON_F = mixc("#39d8ff", SK.glow, .22);   // cyan fill, lower right
   const grazeC = mixc(NEON_F, SK.glow, .35);
   const fresC = mixc("#9a7bff", SK.glow, .35);
   /* Panel lines are the alloy's own darkest tone taken most of the way to
@@ -2850,9 +2850,16 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   /* The near arm is the one toward the camera: turned right, that is the
      viewer-left arm. It carries whatever is held. */
   const nearL = Y >= 0;
+  const faceR = Y >= 0;
+  /* Which hand holds the weapon. In a fight it is the near hand, whichever
+     way the fighter faces. On a turntable it is the robot's own RIGHT hand —
+     viewer-left while its front is toward us, viewer-right once its back is —
+     so the weapon travels round with the body instead of jumping hands the
+     moment the model turns past front-on. */
+  const holdL = hand === "right" ? Math.abs(Y) <= 90 : nearL;
   const HK = held ? (HELD_ANG[held.kind] ? held.kind : "palm") : null;
   const armOver = HK && pname ? HELD_ARM[HK][pname] : undefined;
-  const PZ = armOver == null ? PZ1 : nearL ? { ...PZ1, armL: armOver } : { ...PZ1, armR: armOver };
+  const PZ = armOver == null ? PZ1 : holdL ? { ...PZ1, armL: armOver } : { ...PZ1, armR: armOver };
   const rot = (d, cx, cy) => `rotate(${d.toFixed(2)} ${cx} ${cy})`;
   const rig = MODEL_RIG[v] || MODEL_RIG.vanguard;
   const CC = classOf(v).c;                    // the duel class this chassis fights as
@@ -3001,7 +3008,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     const W = HK === "palm" ? -90 : (HA[pname] != null ? HA[pname] : HA.idle);
     const g = held.g || [32, 44], ax = held.ax == null ? -90 : held.ax, k = held.k || 1;
     return (
-      <g className="ca-held" transform={`translate(${hx} ${hy}) rotate(${(-theta).toFixed(2)}) scale(${(1 / bw).toFixed(4)} 1)${nearL ? "" : " scale(-1 1)"} rotate(${(W - ax).toFixed(2)}) scale(${k}) translate(${-g[0]} ${-g[1]})`}>
+      <g className="ca-held" transform={`translate(${hx} ${hy}) rotate(${(-theta).toFixed(2)}) scale(${(1 / bw).toFixed(4)} 1)${faceR ? "" : " scale(-1 1)"} rotate(${(W - ax).toFixed(2)}) scale(${k}) translate(${-g[0]} ${-g[1]})`}>
         {held.node}
       </g>
     );
@@ -3060,24 +3067,29 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
      forearm, the back, the hip, or — for the things that are meant to fly —
      a station off the far shoulder. Authored facing right; turned the other
      way it is mirrored onto the other side. */
-  const accAt = (where) => {
+  const accAt = (where, layer = "front") => {
     if (!acc || !acc.node || acc.at !== where || headOnly) return null;
-    /* back kit shows past the shoulder the body is turned away from, which
-       for a figure facing right is the viewer's LEFT */
     const P = chibi
-      ? { back: [18, 128, .95], hip: [90, 262, .52], arm: [110, 188, .6], float: [118, 92, .62] }
-      : { back: [14, 82, 1.0], hip: [85, 246, .56], arm: [100, 194, .64], float: [116, 56, .6] };
-    const [x0, y, k] = P[where];
-    const x = where === "arm" && !nearL ? 120 - x0 : x0;
+      ? { back: [128, .95], hip: [262, .52], arm: [188, .6], float: [92, .62] }
+      : { back: [82, 1.0], hip: [246, .56], arm: [194, .64], float: [56, .6] };
+    const [y, k] = P[where];
+    /* Everything but the forearm mount rides the body round as it turns:
+       placed at an azimuth on the torso, projected like the face features,
+       and drawn behind the body while that side faces away. Authored facing
+       right. */
+    const sY = Math.sin(Y * RAD);
+    let x, z;
+    if (where === "arm") { x = holdL ? (chibi ? 110 : 100) : (chibi ? 10 : 20); z = 1; }
+    else if (where === "back") { x = 60 - 46 * sY - 18 * Math.sign(sY || 1); z = -Math.cos(Y * RAD) + 0.2; }
+    else if (where === "hip") { x = 60 + 28 * Math.sin((Y + 100) * RAD); z = Math.cos((Y + 100) * RAD) + 0.75; }
+    else { x = 60 + 56 * Math.sin((Y + 60) * RAD); z = Math.cos((Y + 60) * RAD) + 0.4; }
+    if ((z > 0 ? "front" : "back") !== layer) return null;
     const el0 = (
-      <g transform={`translate(${x} ${y})${where === "hip" ? " rotate(8)" : ""} scale(${k}) translate(-32 -32)`}>{acc.node}</g>
+      <g transform={`translate(${x.toFixed(2)} ${y})${where === "hip" ? ` rotate(${faceR ? 8 : -8})` : ""} scale(${faceR ? k : -k} ${k}) translate(-32 -32)`}>{acc.node}</g>
     );
     // the bob is a CSS animation, so it goes on a wrapper: on the same element
     // it would replace the placement transform outright
-    const el = where === "float" ? <g className="ca-hover">{el0}</g> : el0;
-    // the forearm mount lives inside the far arm's group, which is already on the right side
-    if (where === "arm" || nearL) return el;
-    return <g transform="translate(120 0) scale(-1 1)">{el}</g>;
+    return where === "float" ? <g className="ca-hover">{el0}</g> : el0;
   };
 
   /* ── the near arm, in front ──
@@ -3092,11 +3104,11 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {plate("M10 160 L30 163 L28 218 L14 216 Z", { deep: .9 })}
                 {castOn("M10 160 L30 163 L28 218 L14 216 Z", .45)}
                 {groove("M13 176 L27 178 M13 192 L27 194", .9, .3)}
-                {!nearL && accAt("arm")}
+                {!holdL && accAt("arm")}
                 {plate("M11 214 L30 217 L29 227 L11 224 Z", { fill: bTrim, deep: .9 })}
                 {/* a hand, not a mitt: palm, three fingers, a thumb */}
                 {plate("M12 226 L29 229 L28 239 L13 237 Z", { deep: .9 })}
-                {nearL && heldAt(20.5, 241, PZ.armL)}
+                {holdL && heldAt(20.5, 241, PZ.armL)}
                 {[0, 1, 2].map(f => (
                   <g key={f}>{plate(`M${13.5 + f * 5} ${237 + f * .4} L${17.6 + f * 5} ${237.6 + f * .4} L${17.2 + f * 5} ${248 - f * 1.2} C${15.6 + f * 5} ${251 - f * 1.2} ${13.6 + f * 5} ${250.6 - f * 1.2} ${13.2 + f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
                 {plate("M11 230 L14.2 230.4 L13.2 241 C11.8 243.6 9.2 243.2 8.8 240.6 Z", { lw: .8, deep: .9 })}
@@ -3105,10 +3117,10 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {plate("M110 160 L90 163 L92 218 L106 216 Z", { deep: .9 })}
                 {castOn("M110 160 L90 163 L92 218 L106 216 Z", .45)}
                 {groove("M107 176 L93 178 M107 192 L93 194", .9, .3)}
-                {nearL && accAt("arm")}
+                {holdL && accAt("arm")}
                 {plate("M109 214 L90 217 L91 227 L109 224 Z", { fill: bTrim, deep: .9 })}
                 {plate("M108 226 L91 229 L92 239 L107 237 Z", { deep: .9 })}
-                {!nearL && heldAt(99.5, 241, -PZ.armR)}
+                {!holdL && heldAt(99.5, 241, -PZ.armR)}
                 {[0, 1, 2].map(f => (
                   <g key={f}>{plate(`M${106.5 - f * 5} ${237 + f * .4} L${102.4 - f * 5} ${237.6 + f * .4} L${102.8 - f * 5} ${248 - f * 1.2} C${104.4 - f * 5} ${251 - f * 1.2} ${106.4 - f * 5} ${250.6 - f * 1.2} ${106.8 - f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
                 {plate("M109 230 L105.8 230.4 L106.8 241 C108.2 243.6 110.8 243.2 111.2 240.6 Z", { lw: .8, deep: .9 })}
@@ -3119,13 +3131,13 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                     build the machined fingers the tall chassis wears */}
                 {[0, 1, 2].map(f => (
                   <g key={f}>{plate(`M${-1 + f * 8} 240 L${-1 + f * 8} 250 C${-1 + f * 8} 255 ${5 + f * 8} 255 ${5 + f * 8} 250 L${5 + f * 8} 240 Z`, { lw: .7, deep: .8 })}</g>))}
-                {nearL && heldAt(10.5, 234, PZ.armL * .8)}
+                {holdL && heldAt(10.5, 234, PZ.armL * .8)}
                 {plate("M9 214 C1 214 -4 222 -4 231 C-4 241 3 248 11 248 C20 248 25 240 25 230 C25 220 18 214 9 214 Z")}
   </>);
   const mittR = headOnly ? null : (<>
                 {[0, 1, 2].map(f => (
                   <g key={f}>{plate(`M${121 - f * 8} 240 L${121 - f * 8} 250 C${121 - f * 8} 255 ${115 - f * 8} 255 ${115 - f * 8} 250 L${115 - f * 8} 240 Z`, { lw: .7, deep: .8 })}</g>))}
-                {!nearL && heldAt(109.5, 234, -PZ.armR * .8)}
+                {!holdL && heldAt(109.5, 234, -PZ.armR * .8)}
                 {plate("M111 214 C119 214 124 222 124 231 C124 241 117 248 109 248 C100 248 95 240 95 230 C95 220 102 214 111 214 Z")}
   </>);
 
@@ -3626,7 +3638,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           )}
           {(front > 0.01 || rear > 0.01) && (
             <g opacity={Math.max(front, rear).toFixed(3)} transform={`translate(0 ${PZ.lift})`}>
-              {accAt("back")}
+              {accAt("back", "back")}{accAt("hip", "back")}{accAt("float", "back")}
               {/* a tail, drawn before the body so the body covers its root and
                   only the puff clears the hip. Sized to peek past x=17, which is
                   where the barrel ends — anything narrower is invisible. */}
@@ -3639,13 +3651,13 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               {/* stubby arms, elbow-less, with mitten hands */}
               <g className="ca-limb" transform={rot(PZ.armL * .8, 22, 154)}>
                 {plate("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z")}
-                {!nearL && accAt("arm")}
+                {!holdL && accAt("arm")}
                 {!(liftArm && nearL) && mittL}
                 {castOn("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z", .55)}
               </g>
               <g className="ca-limb" transform={rot(-PZ.armR * .8, 98, 154)}>
                 {plate("M102 150 C114 154 121 174 120 198 C119 214 112 222 103 220 C96 218 94 198 95 178 C96 164 98 154 102 150 Z")}
-                {nearL && accAt("arm")}
+                {holdL && accAt("arm")}
                 {!(liftArm && !nearL) && mittR}
                 {castOn("M102 150 C114 154 121 174 120 198 C119 214 112 222 103 220 C96 218 94 198 95 178 C96 164 98 154 102 150 Z", .55)}
               </g>
@@ -3718,7 +3730,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M34 264 Q60 274 86 264", 1.4, .4)}
               </g>
               </g>
-              {accAt("hip")}
+              {accAt("back")}{accAt("hip")}
               {/* the near mitt again, in front of the barrel: see liftArm */}
               {liftArm && (
                 <g className="ca-limb" transform={nearL ? rot(PZ.armL * .8, 22, 154) : rot(-PZ.armR * .8, 98, 154)}>
@@ -3797,7 +3809,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                   </g>
                 );
               })()}
-              {accAt("back")}
+              {accAt("back", "back")}{accAt("hip", "back")}{accAt("float", "back")}
               {/* arms swing from the shoulder; the whole limb is one group so
                   bicep, elbow, forearm and hand travel together */}
               <g className="ca-limb" transform={rot(PZ.armL, 24, 108)}>
@@ -3986,7 +3998,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M30 385 L58 385 M62 385 L90 385", 1.6, .45)}
               </g>
               </g>
-              {accAt("hip")}
+              {accAt("back")}{accAt("hip")}
               {/* the near forearm and hand, in front of everything: see liftArm */}
               {liftArm && (
                 <g className="ca-limb" transform={nearL ? rot(PZ.armL, 24, 108) : rot(-PZ.armR, 96, 108)}>

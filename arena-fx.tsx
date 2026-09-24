@@ -24,6 +24,7 @@
 import { useRef, useEffect, useCallback } from "react";
 import { audioBus, getSfxMuted } from "./music-engine";
 
+import { createSpaceBus } from "./space-stage";
 const mf = (m) => 440 * Math.pow(2, (m - 69) / 12);
 const reduced = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } };
 
@@ -1138,7 +1139,65 @@ export function drawRocket(ctx, x, y, ang, colour, flick) {
   ctx.restore();
 }
 
-export function useArenaFx(stage) {
+/* ── the palette gate ──
+   The fight's effects are asked for in every colour a call site ever picked
+   — gold, orange, hot red, lime. The room they go off in is obsidian with
+   cyan and electric violet in it and nothing else, and a fireball that is
+   the one orange thing in a cool room reads as a mistake, not as power. So
+   every colour passes through here once (cached): cool hues snap to the
+   cyan family, violets stay violet, and everything warm becomes plasma
+   violet. Whites and greys are left alone. */
+const GATE = new Map();
+const hsl2hex = (h, s2, l) => {
+  const k = (n) => (n + h / 30) % 12, a = s2 * Math.min(l, 1 - l);
+  const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, "0");
+  return "#" + f(0) + f(8) + f(4);
+};
+export function paletteGate(c) {
+  if (typeof c !== "string") return c;
+  const hit = GATE.get(c);
+  if (hit) return hit;
+  let out = c;
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})([0-9a-f]{2})?$/i.exec(c.trim());
+  if (m) {
+    let h = m[1]; if (h.length === 3) h = h.split("").map(x => x + x).join("");
+    const r = parseInt(h.slice(0, 2), 16) / 255, g = parseInt(h.slice(2, 4), 16) / 255, b = parseInt(h.slice(4, 6), 16) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    const sat = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    let hue = 0;
+    if (d) { hue = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; hue *= 60; if (hue < 0) hue += 360; }
+    if (sat >= 0.2) {
+      const L = Math.min(0.76, Math.max(0.58, l));
+      out = hue >= 150 && hue < 222 ? hsl2hex(193, 0.96, L)          // cyan
+        : hue >= 222 && hue < 300 ? hsl2hex(254, 0.95, Math.max(0.62, L)) // violet
+        : hue >= 60 && hue < 150 ? hsl2hex(186, 0.9, L)               // greens → teal-cyan
+        : hsl2hex(262, 0.9, Math.max(0.66, L));                        // warm → plasma violet
+    }
+  }
+  GATE.set(c, out);
+  return out;
+}
+
+/* The light pooled under a fighter and the shadow at its feet, drawn once
+   into small sprites so the per-frame cost is three drawImage calls. */
+function floorSprites() {
+  const mk = (stops) => {
+    const c = document.createElement("canvas"); c.width = 256; c.height = 64;
+    const g = c.getContext("2d");
+    g.setTransform(1, 0, 0, 0.25, 0, 0);
+    const r = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    stops.forEach(([o, col]) => r.addColorStop(o, col));
+    g.fillStyle = r; g.fillRect(0, 0, 256, 256);
+    return c;
+  };
+  return {
+    me: mk([[0, "rgba(160,236,255,.9)"], [0.35, "rgba(57,216,255,.36)"], [1, "rgba(57,216,255,0)"]]),
+    op: mk([[0, "rgba(200,188,255,.9)"], [0.35, "rgba(125,91,255,.38)"], [1, "rgba(125,91,255,0)"]]),
+    shadow: mk([[0, "rgba(0,1,4,.95)"], [0.5, "rgba(0,1,4,.5)"], [1, "rgba(0,1,4,0)"]]),
+  };
+}
+
+export function useArenaFx(stage, opts = {}) {
   /* TWO canvases, because the arena is drawn on both sides of the fighters.
      The backdrop — sky, city, floor, the wet road — has to be BEHIND them or
      an opaque sky paints straight over their heads. The effects have to be in
@@ -1148,6 +1207,11 @@ export function useArenaFx(stage) {
   const bgRef = useRef(null);
   const canvasRef = useRef(null);
   const stateRef = useRef(null);
+  /* the 3D room's wire: where the fighters stand and the moments it should
+     answer. Created once; the room reads it every frame without React. */
+  const busRef = useRef(null);
+  if (!busRef.current) busRef.current = createSpaceBus();
+  const bus = busRef.current;
 
   useEffect(() => {
     const cv = canvasRef.current;
@@ -1165,13 +1229,14 @@ export function useArenaFx(stage) {
          flash at the moment of contact, and dust is what a kick kicks up */
       swipes: [], stars: [], dust: [],
       // radial speed lines — the single cheapest thing that says "this hit hard"
-      lines: [], rays: [], pools: [],
+      lines: [], rays: [], pools: [], ripples: [],
       // a hex energy shield flaring where a guarded blow landed
       hexes: [],
       // where the two fighters actually are, as fractions of the stage width —
       // once they can walk, a bolt fired from a fixed 24% leaves from thin air
       pos: { me: 0.24, op: 0.76 }, air: { me: 0, op: 0 },
       flash: null, t: 0, raf: 0, w: 0, h: 0, dpr: 1, motes: [], stage: stage || STAGES[0],
+      plain: !!opts.plain, floorY: 0, sprites: null,
     };
     stateRef.current = S;
     const fxctx = cv.getContext("2d");
@@ -1200,6 +1265,13 @@ export function useArenaFx(stage) {
         bg.width = cv.width; bg.height = cv.height;
         bgctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
       }
+      // the line the fighters stand on: the stage's own --pvpfloor
+      try {
+        const st = cv.closest(".pvpstage");
+        const f = st ? parseFloat(getComputedStyle(st).getPropertyValue("--pvpfloor")) : NaN;
+        S.floorY = S.h - (isNaN(f) ? 6 : f);
+      } catch (e) { S.floorY = S.h * 0.9; }
+      if (!S.sprites && S.plain) { try { S.sprites = floorSprites(); } catch (e) { S.sprites = null; } }
       // ambient dust, so the arena has air in it even between hits
       S.motes = Array.from({ length: soft ? 0 : 22 }, () => ({
         x: Math.random() * S.w, y: Math.random() * S.h,
@@ -1234,16 +1306,20 @@ export function useArenaFx(stage) {
          the parts that genuinely move — flickering windows, beacons, lanterns,
          embers, stars, the wet-road smears — are drawn live on top. */
       const bkey = (SG.id || "s") + "|" + Math.round(S.w) + "x" + Math.round(S.h) + "@" + S.dpr;
-      if (!S.bake || S.bake.key !== bkey) {
+      if (!S.plain && (!S.bake || S.bake.key !== bkey)) {
         // a null bake still takes the key, so a failed canvas is not retried
         // sixty times a second for the rest of the match
         S.bake = bakeBackdrop(S.w, S.h, S.dpr, SG, hz, bkey)
           || { cv: null, key: bkey, lit: [], flick: [], beacons: [] };
       }
-      if (S.bake.cv) ctx.drawImage(S.bake.cv, 0, 0, S.w, S.h);
-      ctx.save();
-      liveBackdrop(ctx, S, SG, hz, S.bake);
-      ctx.restore();
+      /* with the 3D room behind it (S.plain) the backdrop canvas carries only
+         what the fight leaves on the floor — the room itself is real now */
+      if (!S.plain) {
+        if (S.bake.cv) ctx.drawImage(S.bake.cv, 0, 0, S.w, S.h);
+        ctx.save();
+        liveBackdrop(ctx, S, SG, hz, S.bake);
+        ctx.restore();
+      }
 
       // ── scorch marks: painted on the floor before anything else, so the
       //    fight leaves a record of where it has already gone off
@@ -1254,35 +1330,48 @@ export function useArenaFx(stage) {
         ctx.save();
         ctx.translate(k.x, k.y); ctx.scale(1, 0.3);
         const g = ctx.createRadialGradient(0, 0, 1, 0, 0, k.r);
-        g.addColorStop(0, `rgba(28,20,16,${a2})`);
-        g.addColorStop(0.6, `rgba(40,28,22,${a2 * 0.5})`);
-        g.addColorStop(1, "rgba(40,28,22,0)");
+        g.addColorStop(0, `rgba(10,12,18,${a2})`);
+        g.addColorStop(0.6, `rgba(16,18,28,${a2 * 0.5})`);
+        g.addColorStop(1, "rgba(16,18,28,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, k.r, 0, 7); ctx.fill();
         ctx.restore();
       }
 
-      for (const m of S.motes) {
+      /* ── the floor under the fighters ── with the room in 3D behind, this is
+         what makes the two DOM figures stand IN it: a pool of their own light
+         spread on the polished floor, a tight shadow where the feet meet it,
+         and the ripple a hit sends across it. */
+      if (S.plain && S.sprites) {
+        const Y = S.floorY || S.h * 0.9;
+        for (const side of ["me", "op"]) {
+          const x = S.w * (S.pos[side] || 0.5), k = 1 - Math.min(0.6, (S.air[side] || 0) * 0.9);
+          const w = Math.min(200, S.w * 0.34) * (0.7 + 0.3 * k), h = w * 0.25;
+          ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.5 * k;
+          ctx.drawImage(S.sprites[side], x - w, Y - h, w * 2, h * 2);
+          ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 0.75 * k;
+          ctx.drawImage(S.sprites.shadow, x - w * 0.36, Y - h * 0.32, w * 0.72, h * 0.64);
+        }
+        ctx.globalAlpha = 1;
+        for (let i = S.ripples.length - 1; i >= 0; i--) {
+          const q = S.ripples[i]; q.p += dt / q.dur;
+          if (q.p >= 1) { S.ripples.splice(i, 1); continue; }
+          const e = 1 - Math.pow(1 - q.p, 2.2), a2 = Math.pow(1 - q.p, 1.6) * 0.7;
+          ctx.save(); ctx.translate(q.x, Y); ctx.scale(1, 0.2);
+          ctx.globalCompositeOperation = "lighter";
+          ctx.strokeStyle = q.c; ctx.globalAlpha = a2; ctx.lineWidth = 2.2 + 3 * (1 - q.p);
+          ctx.beginPath(); ctx.arc(0, 0, 18 + e * q.r, 0, 7); ctx.stroke();
+          ctx.restore();
+        }
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+      }
+
+      if (!S.plain) for (const m of S.motes) {
         m.y += m.vy * dt; if (m.y < 0) { m.y = S.h; m.x = Math.random() * S.w; }
         ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fillStyle = `rgba(${SG.mote},${m.a * 1.5})`; ctx.fill();
       }
 
       // ── from here on it is drawn IN FRONT of the fighters ──
       ctx = fxctx;
-
-      /* ── rain, on the city ──
-         The one thing every neon street has that this one did not. Seventy
-         streaks, positions derived from their index and the clock so there
-         is no per-drop state to keep, all stroked as ONE path. */
-      if (SG.back === "city" && !reduced()) {
-        ctx.beginPath();
-        const H2 = S.h + 40;
-        for (let i = 0; i < 70; i++) {
-          const y = ((i * 211.7 + S.t * (620 + (i % 5) * 60)) % H2) - 20;
-          const x = ((i * 97.31 + y * 0.18) % (S.w + 20)) - 10;
-          ctx.moveTo(x, y); ctx.lineTo(x - 2.4, y + 13 + (i % 3) * 4);
-        }
-        ctx.strokeStyle = "rgba(175,215,255,.2)"; ctx.lineWidth = 1; ctx.stroke();
-      }
 
       /* Everything from here to the smoke is LIGHT, so it composites additively:
          two beams crossing get brighter where they meet, a fireball blows out
@@ -1384,7 +1473,7 @@ export function useArenaFx(stage) {
         const cr = k.r * 0.3 * (1 - k.p * 0.7);
         const cg = ctx.createRadialGradient(k.x, k.y, 0, k.x, k.y, cr);
         cg.addColorStop(0, `rgba(255,255,255,${a2})`);
-        cg.addColorStop(0.5, `rgba(255,246,214,${a2 * .8})`);
+        cg.addColorStop(0.5, `rgba(236,242,255,${a2 * .8})`);
         cg.addColorStop(1, k.c + "00");
         ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(k.x, k.y, cr, 0, 7); ctx.fill();
         ctx.save(); ctx.globalAlpha = a2;
@@ -1437,9 +1526,9 @@ export function useArenaFx(stage) {
         const q = S.pools[i]; q.p += dt / q.dur;
         if (q.p >= 1) { S.pools.splice(i, 1); continue; }
         const a2 = Math.pow(1 - q.p, 2) * 0.6, rr2 = q.r * (0.5 + q.p * 0.9);
-        ctx.save(); ctx.translate(q.x, S.h * 0.9); ctx.scale(1, 0.26);
+        ctx.save(); ctx.translate(q.x, S.floorY || S.h * 0.9); ctx.scale(1, 0.26);
         const g = ctx.createRadialGradient(0, 0, 1, 0, 0, rr2);
-        g.addColorStop(0, `rgba(255,240,210,${a2})`);
+        g.addColorStop(0, `rgba(236,242,255,${a2})`);
         g.addColorStop(0.5, q.c + Math.round(a2 * 160).toString(16).padStart(2, "0"));
         g.addColorStop(1, q.c + "00");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rr2, 0, 7); ctx.fill();
@@ -1526,15 +1615,16 @@ export function useArenaFx(stage) {
         if (f.p <= 0) continue;
         const r = f.r * (0.25 + 0.75 * Math.sqrt(f.p)), a = Math.pow(1 - f.p, 1.6);
         const g = ctx.createRadialGradient(f.x, f.y, r * 0.05, f.x, f.y, r);
-        // a real fireball cools outward AND over time: white → yellow → orange
-        // → dull red, and the white core survives longest at the centre
+        // plasma cools the way a fireball does — outward AND over time — but
+        // through the room's own light: white → ice → violet → deep violet,
+        // with the white core surviving longest at the centre
         const cool = Math.min(1, f.p * 1.4);
         g.addColorStop(0, `rgba(255,255,255,${a})`);
-        g.addColorStop(0.18, `rgba(255,247,205,${a * 0.98})`);
-        g.addColorStop(0.38 + cool * 0.1, `rgba(255,198,64,${a * 0.92})`);
-        g.addColorStop(0.66, `rgba(255,104,28,${a * 0.66})`);
-        g.addColorStop(0.86, `rgba(196,44,14,${a * 0.3})`);
-        g.addColorStop(1, "rgba(120,26,10,0)");
+        g.addColorStop(0.18, `rgba(232,240,255,${a * 0.98})`);
+        g.addColorStop(0.38 + cool * 0.1, `rgba(178,160,255,${a * 0.9})`);
+        g.addColorStop(0.66, `rgba(125,91,255,${a * 0.62})`);
+        g.addColorStop(0.86, `rgba(64,40,160,${a * 0.28})`);
+        g.addColorStop(1, "rgba(30,18,90,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, 7); ctx.fill();
       }
 
@@ -1563,7 +1653,7 @@ export function useArenaFx(stage) {
         const r = k.r0 + (k.r1 - k.r0) * e, a2 = Math.pow(1 - k.p, 2.2) * (k.k == null ? 1 : k.k);
         const g = ctx.createRadialGradient(k.x, k.y, Math.max(1, r * 0.82), k.x, k.y, r * 1.06);
         g.addColorStop(0, "rgba(255,255,255,0)");
-        g.addColorStop(0.6, `rgba(255,246,220,${a2 * 0.5})`);
+        g.addColorStop(0.6, `rgba(236,242,255,${a2 * 0.5})`);
         g.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(k.x, k.y, r * 1.06, 0, 7); ctx.fill();
         ctx.strokeStyle = `rgba(255,255,255,${a2 * 0.7})`; ctx.lineWidth = 1.6 * a2 + 0.4;
@@ -1580,9 +1670,9 @@ export function useArenaFx(stage) {
         e.x += e.vx * dt; e.y += e.vy * dt;
         const a2 = Math.max(0, e.life / e.max) * (0.55 + 0.45 * Math.sin(S.t * e.fl + e.ph));
         const g = ctx.createRadialGradient(e.x, e.y, 0.2, e.x, e.y, e.r * 3.4);
-        g.addColorStop(0, `rgba(255,240,200,${a2})`);
-        g.addColorStop(0.35, `rgba(255,150,50,${a2 * 0.8})`);
-        g.addColorStop(1, "rgba(255,90,20,0)");
+        g.addColorStop(0, `rgba(236,246,255,${a2})`);
+        g.addColorStop(0.35, `rgba(110,205,255,${a2 * 0.75})`);
+        g.addColorStop(1, "rgba(57,140,255,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 3.4, 0, 7); ctx.fill();
       }
 
@@ -1595,7 +1685,7 @@ export function useArenaFx(stage) {
         // smoke lit from inside early on, cooling to plain grey as it drifts
         const g = ctx.createRadialGradient(m.x, m.y, r * 0.1, m.x, m.y, r);
         const warm = Math.max(0, 1 - m.p * 2.2);
-        g.addColorStop(0, `rgba(${Math.round(110 + 120 * warm)},${Math.round(112 + 70 * warm)},${Math.round(126 + 10 * warm)},${a})`);
+        g.addColorStop(0, `rgba(${Math.round(110 + 40 * warm)},${Math.round(112 + 30 * warm)},${Math.round(126 + 100 * warm)},${a})`);
         g.addColorStop(1, "rgba(96,100,116,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, 7); ctx.fill();
       }
@@ -1724,10 +1814,14 @@ export function useArenaFx(stage) {
   const setPos = useCallback((mePos, opPos, meAir, opAir) => {
     const S = stateRef.current; if (!S) return;
     S.pos.me = mePos; S.pos.op = opPos; S.air.me = meAir || 0; S.air.op = opAir || 0;
-  }, []);
+    const P = bus.pos; P.me = mePos; P.op = opPos; P.meAir = meAir || 0; P.opAir = opAir || 0;
+  }, [bus]);
 
   const burst = useCallback((side, power = 1, colour = "#ffd23f", part = "body") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
+    bus.emit({ type: "hit", at: side, power: Math.min(1.6, power) });
+    S.ripples.push({ x: S.w * (S.pos[side] || 0.5), r: 90 + 70 * Math.min(1.6, power), p: 0, dur: 0.75, c: colour });
     const { x, y } = at(side, part);
     S.rings.push({ x, y, r0: 6, r1: 40 + 44 * power, dur: 0.42, c: colour });
     // a hot flash at the point of contact — a hit should look like it hurt
@@ -1755,6 +1849,7 @@ export function useArenaFx(stage) {
   /** A travelling bolt — a blaster round. */
   const bolt = useCallback((from, colour = "#7fe8ff", w = 5, part = "hand") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
     const a = at(from, part), b = at(from === "me" ? "op" : "me", "body");
     S.beams.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.28, c: colour, w });
     muzzle(from, part, colour);
@@ -1763,6 +1858,7 @@ export function useArenaFx(stage) {
   /** A held beam that connects instantly — a laser, from wherever it is fired. */
   const laser = useCallback((from, colour = "#ff4d6a", w = 4, part = "hand") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
     const a = at(from, part), b = at(from === "me" ? "op" : "me", "body");
     S.lasers.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.42, c: colour, w });
     muzzle(from, part, colour);
@@ -1790,6 +1886,7 @@ export function useArenaFx(stage) {
       or a head rather than in mid-air. */
   const muzzle = useCallback((from, part = "hand", colour = "#7fe8ff") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
     const { x, y } = at(from, part);
     S.rings.push({ x, y, r0: 2, r1: 20, dur: 0.2, c: colour });
     // a short hot bloom at the barrel: the flash IS the shot leaving
@@ -1814,6 +1911,8 @@ export function useArenaFx(stage) {
          the fight leaves a record of where it has already gone off. */
   const boom = useCallback((side, power = 1.4, colour = "#ff9a3c", part = "body") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
+    bus.emit({ type: "hit", at: side, power: Math.min(1.8, power * 0.75) });
     const { x, y } = at(side, part);
     S.shock.push({ x, y, r0: 10, r1: 210 * power, p: 0, dur: 0.34 });
     S.rays.push({ x, y, r: 260 * power, n: 9, a0: Math.random() * 6.28, seed: Math.random() * 100, p: 0, dur: 0.4, c: colour });
@@ -1861,6 +1960,7 @@ export function useArenaFx(stage) {
       the same event with different labels. */
   const swipe = useCallback((from, colour = "#ffd6a8", kind = "punch") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
     const a = at(from, kind === "kick" ? "foot" : "hand");
     const b = at(from === "me" ? "op" : "me", "body");
     const dir = b.x > a.x ? 1 : -1;
@@ -1893,6 +1993,8 @@ export function useArenaFx(stage) {
       rippling out from where the blow landed. */
   const shield = useCallback((side, colour = "#5ce1ff") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
+    bus.emit({ type: "guard", at: side, power: 1 });
     const c = at(side, "body"), foe = side === "me" ? "op" : "me";
     const dir = (S.pos[foe] || .5) > (S.pos[side] || .5) ? 1 : -1;
     const r = S.h * 0.2;
@@ -1906,6 +2008,9 @@ export function useArenaFx(stage) {
       as a hit), and dust off the floor when it was a kick. */
   const impact = useCallback((side, power = 1, colour = "#ffd23f", kind = "punch") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
+    bus.emit({ type: "hit", at: side === "me" ? "op" : "me", power: Math.min(1.6, power) });
+    S.ripples.push({ x: S.w * (S.pos[side === "me" ? "op" : "me"] || 0.5), r: 80 + 60 * Math.min(1.6, power), p: 0, dur: 0.65, c: colour });
     const foe = side === "me" ? "op" : "me";
     const { x, y } = at(foe, kind === "kick" ? "foot" : "body");
     const dir = (S.pos[foe] || .5) > (S.pos[side] || .5) ? 1 : -1;
@@ -1962,14 +2067,20 @@ export function useArenaFx(stage) {
   /** A shell that arcs over and detonates where it lands. */
   const lob = useCallback((from, colour = "#ff9a3c", onLand) => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
     const a = at(from, "hand"), b = at(from === "me" ? "op" : "me", "body");
     S.lobs.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.46, arc: S.h * 0.42, c: colour, onLand, trail: 0 });
   }, []);
 
   const flash = useCallback((colour = "#ffffff", a = 0.5, dur = 0.3) => {
     const S = stateRef.current; if (!S) return;
-    S.flash = { c: colour, a, p: 0, dur };
+    const g = paletteGate(colour);
+    colour = /^#[0-9a-f]{6}$/i.test(g) ? "#" + [1, 3, 5].map(i => Math.round(parseInt(g.slice(i, i + 2), 16) * 0.35 + 255 * 0.65).toString(16).padStart(2, "0")).join("") : g;
+    S.flash = { c: colour, a: a * 0.8, p: 0, dur };
   }, []);
 
-  return { canvasRef, bgRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, shield, beam: bolt };
+  /** Stop (or resume) painting the 2D backdrop — the 3D room is behind it. */
+  const setPlain = useCallback((v) => { const S = stateRef.current; if (S) S.plain = !!v; }, []);
+
+  return { canvasRef, bgRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, shield, beam: bolt, bus, setPlain };
 }

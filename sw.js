@@ -7,10 +7,20 @@
 // reinstalls a worker whose BYTES changed, and the build copied this file
 // verbatim, so it never changed, so `activate` below never ran, so the
 // SW_UPDATED message App.tsx reloads on was never sent. Anyone with the app
-// open kept running the build they first loaded. 4cdc9d976611 is replaced at
+// open kept running the build they first loaded. 8ccefcfd3b93 is replaced at
 // build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
 // file now changes exactly when the app does.
-const CACHE = "tiga-v16-4cdc9d976611";
+const CACHE = "tiga-v16-8ccefcfd3b93";
+// v18: content-hashed build output (scripts, styles, fonts, the 3D worker)
+// lives in a cache of its own that a new release does NOT throw away. Its
+// filenames change whenever its bytes do, so a copy can never be stale — yet
+// every release used to delete it along with the per-build cache, and a
+// returning visitor re-downloaded the 3D renderer, the typefaces and every
+// lazy page that had not changed at all. Only the files a release actually
+// changed are fetched now. Oldest entries are pruned past ASSET_MAX.
+const ASSET_CACHE = "tiga-assets-v1";
+const ASSET_MAX = 140;
+const HASHED = /\/bundle\/[^/]*-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/;
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -34,9 +44,13 @@ self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys()
       .then(keys => {
-        const stale = keys.filter(k => k !== CACHE);
+        const stale = keys.filter(k => k !== CACHE && k !== ASSET_CACHE);
         return Promise.all(stale.map(k => caches.delete(k))).then(() => stale.length > 0);
       })
+      .then(wasUpdate => caches.open(ASSET_CACHE)
+        .then(c => c.keys().then(ks => Promise.all(ks.slice(0, Math.max(0, ks.length - ASSET_MAX)).map(k => c.delete(k)))))
+        .catch(() => {})
+        .then(() => wasUpdate))
       .then(wasUpdate => self.clients.claim().then(() => wasUpdate))
       .then(wasUpdate => {
         if (!wasUpdate) return;
@@ -114,12 +128,12 @@ self.addEventListener("fetch", e => {
      visit cost a few kB of HTML instead of the whole bundle. The HTML itself
      stays network-first above, so it is always the freshest index.html that
      decides which hashed file to ask for. */
-  if (url.pathname.includes("/bundle/") && /-[A-Za-z0-9_-]{8,}\.(js|css)$/.test(url.pathname)) {
+  if (HASHED.test(url.pathname)) {
     e.respondWith(
-      caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
-        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+      caches.open(ASSET_CACHE).then(c => c.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+        if (res.ok) c.put(e.request, res.clone());
         return res;
-      }))
+      })))
     );
     return;
   }

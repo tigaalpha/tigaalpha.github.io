@@ -255,7 +255,7 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       <path d={d} fill={`url(#${uid}-fres)`} opacity={o.fres == null ? .5 : o.fres} />
       <path d={d} fill="none" stroke={o.line || edge} strokeWidth={o.lw || 1.4} strokeLinejoin="round" strokeLinecap="round" opacity={o.lineOp == null ? .95 : o.lineOp} />
       {/* the neon edge: a hairline of sign-light riding on top of the dark
-          contact line, magenta where the plate faces up-left, cyan where it
+          contact line, violet where the plate faces up-left, cyan where it
           faces down-right. The contour keeps the separation; this makes it
           glow. */}
       <path d={d} fill="none" stroke={`url(#${uid}-nrim)`} strokeWidth={(o.lw || 1.4) * .5} strokeLinejoin="round" strokeLinecap="round" />
@@ -1728,21 +1728,21 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
           <stop offset="60%" stopColor="#ffffff" stopOpacity=".04" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </radialGradient>
-        {/* Fresnel, lit by signage: the edge turned toward the upper left
-            picks up a magenta key, the one toward the lower right a cyan
-            fill — the same split every robot and pet now stands in, so a
-            weapon held by a fighter is lit by the same room as the fighter. */}
+        {/* Fresnel, lit by the room: the edge turned toward the upper left
+            picks up the electric-violet key, the one toward the lower right
+            the cyan fill — the same split every robot and pet stands in, so
+            a weapon held by a fighter is lit by the same room as the fighter. */}
         <linearGradient id={`${uid}-fres`} x1="0.1" y1="0" x2="0.9" y2="1">
-          <stop offset="0%" stopColor={mix("#ff52dc", C, .15)} stopOpacity=".5" />
-          <stop offset="26%" stopColor={mix("#ff52dc", C, .15)} stopOpacity=".05" />
-          <stop offset="70%" stopColor={mix("#2af0ff", C, .15)} stopOpacity=".05" />
-          <stop offset="100%" stopColor={mix("#2af0ff", C, .15)} stopOpacity=".62" />
+          <stop offset="0%" stopColor={mix("#8f6dff", C, .15)} stopOpacity=".5" />
+          <stop offset="26%" stopColor={mix("#8f6dff", C, .15)} stopOpacity=".05" />
+          <stop offset="70%" stopColor={mix("#39d8ff", C, .15)} stopOpacity=".05" />
+          <stop offset="100%" stopColor={mix("#39d8ff", C, .15)} stopOpacity=".62" />
         </linearGradient>
         <linearGradient id={`${uid}-nrim`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={mix("#ff6ae2", C, .12)} stopOpacity=".95" />
-          <stop offset="38%" stopColor={mix("#ff6ae2", C, .12)} stopOpacity="0" />
-          <stop offset="62%" stopColor={mix("#3ef3ff", C, .12)} stopOpacity="0" />
-          <stop offset="100%" stopColor={mix("#3ef3ff", C, .12)} stopOpacity="1" />
+          <stop offset="0%" stopColor={mix("#a992ff", C, .12)} stopOpacity=".95" />
+          <stop offset="38%" stopColor={mix("#a992ff", C, .12)} stopOpacity="0" />
+          <stop offset="62%" stopColor={mix("#5fe0ff", C, .12)} stopOpacity="0" />
+          <stop offset="100%" stopColor={mix("#5fe0ff", C, .12)} stopOpacity="1" />
         </linearGradient>
         <linearGradient id={`${uid}-spec`} x1="0.06" y1="0" x2="0.7" y2="0.9">
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".6" />

@@ -28,6 +28,7 @@ import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-
 import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { petBonusOf, petById, petLevel, petStage, readPet, PetArt, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
 import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio } from "./arena-fx";
+import { SpaceStage, prefetchSpace } from "./space-stage";
 import { AnswerReveal } from "./note-reveal";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
@@ -1106,6 +1107,17 @@ export const PvpPage = memo(function PvpPage({
   // what the equipped gear actually does in a fight, not just its stat points
   const gearFx = itemEffectsOf(gear);
   const gearArchetypes = [...new Set(gearFx.archetypes)];
+  /* ── the lobby's room ──
+     The lobby opens on the same 3D space as the fight: the robot stands on a
+     plinth in it, wearing what it will fight in, and as the page scrolls the
+     hero rises away and the camera lifts with it. */
+  const lobbyRoot = useRef(null), heroFig = useRef(null);
+  useEffect(() => { prefetchSpace(); }, []);
+  const gOf = (k) => (gear || []).find(g => g && g.id && String(g.id).startsWith(k));
+  const lw = gOf("wpn-"), lh = gOf("hat-"), la = gOf("acc-");
+  const lobbyHeld = useMemo(() => (lw ? { ...holdOf(lw.art), node: <ItemArt art={lw.art} sw={lw.sw} size={64} /> } : null), [lw && lw.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const lobbyHat = useMemo(() => (lh ? { ...hatMountOf(lh.art), node: <ItemArt art={lh.art} sw={lh.sw} size={64} /> } : null), [lh && lh.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const lobbyAcc = useMemo(() => (la ? { at: accMountOf(la.art), node: <ItemArt art={la.art} sw={la.sw} size={64} /> } : null), [la && la.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startFight = (kind, t, name, friend) => {
     setOppKind(kind); setTier(t); setOppName(name || ""); setPendingFriend(friend || null);
@@ -1309,10 +1321,10 @@ export const PvpPage = memo(function PvpPage({
   if (phase === "lobby") {
     const openDuels = (duels || []).filter(d => d.song_id === "arena");
     return (
-      <div className="pvppage">
+      <div className="pvppage x3 pvplobby3" ref={lobbyRoot}>
         <div className="pvphdr">
           <button className="stgback" onClick={onBack} aria-label="back">←</button>
-          <span className="pvphdr-t">⚔ {T("สนามประลอง", "PvP Arena", "竞技场")}</span>
+          <span className="pvphdr-t">{T("สนามประลอง", "PvP Arena", "竞技场")}</span>
           <span className="mdv-cls" style={{ "--cc": clsInfo.c }}>
             <span className="mdv-cls-ic"><ItemArt art={clsInfo.art} sw={[clsInfo.c, "#22283a"]} /></span>{tr3(clsInfo, lang)}
           </span>
@@ -1329,15 +1341,33 @@ export const PvpPage = memo(function PvpPage({
           )}
         </div>
 
+        {/* ── the hero ── the robot, on its plinth in the room, and the few
+            numbers that say who it is. Everything else scrolls up over it. */}
+        <section className="pvphero">
+          <SpaceStage variant="lobby" anchor={heroFig} scroller={lobbyRoot} />
+          <div className="pvphero-fig" ref={heroFig} data-foot="0.018">
+            <CyberAvatar model={me} yaw={24} pose="ready" glow={colorway.glow} accent={colorway.accent}
+              held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} />
+          </div>
+          <div className="pvphero-hud">
+            <span className="hx-k">{T("ยูนิต", "UNIT", "机体")} · {tr3(clsInfo, lang)}</span>
+            <b className="hx-n">{tr3(CHAR_MODELS.find(m => m.id === me) || {}, lang)}</b>
+            <span className="hx-l" />
+            <span className="hx-m"><i>{T("แรงก์สกิล", "SKILL RANK", "技能等级")}</i><b>{String(myRank).padStart(2, "0")}</b></span>
+            <span className="hx-m"><i>{T("ลีก", "LEAGUE", "段位")}</i><b>{tr3(rank.tier, lang)}</b></span>
+            <span className="hx-m"><i>{T("ซีซัน", "SEASON", "赛季")}</i><b>S{season.id}</b></span>
+          </div>
+        </section>
+
         <div className="pvpbody">
           <div className="pvprank" style={{ "--cc": rank.tier.c }} title={rank.next ? `${rank.into}/${rank.need}` : ""}>
-            <span className="pvprank-ic">🎖</span>
+            <span className="pvprank-ic" aria-hidden="true" />
             <span className="pvprank-b">
               <b>{tr3(rank.tier, lang)}</b>
               <span className="pvprank-bar"><i style={{ width: `${Math.round(rank.pct * 100)}%` }} /></span>
             </span>
             {daily.target > 0 && (
-              <span className="pvprank-daily">🎯 {T("เป้าวันนี้", "Today's target", "今日目标")} {daily.target.toLocaleString()}</span>
+              <span className="pvprank-daily">{T("เป้าวันนี้", "Today's target", "今日目标")} {daily.target.toLocaleString()}</span>
             )}
           </div>
           {/* ── the season ──
@@ -1366,7 +1396,6 @@ export const PvpPage = memo(function PvpPage({
             )}
           </div>
           <div className="pvpme">
-            <div className="pvpme-stage"><CyberAvatar model={me} yaw={22} pose="ready" glow={colorway.glow} accent={colorway.accent} /></div>
             <div className="pvpme-b">
               <div className="pvpme-nm">{tr3(CHAR_MODELS.find(m => m.id === me) || {}, lang)}</div>
               <div className="pvpme-rank" style={{ "--cc": clsInfo.c }}>{T("แรงก์สกิล", "Skill rank", "技能等级")} {myRank}</div>
@@ -1409,7 +1438,7 @@ export const PvpPage = memo(function PvpPage({
             </div>
           </div>
 
-          <div className="pvpsec-h">💾 {T("ชุดที่บันทึกไว้", "Loadout Presets", "预设装备")}</div>
+          <div className="pvpsec-h">{T("ชุดที่บันทึกไว้", "Loadout Presets", "预设装备")}</div>
           <div className="pvploadouts">
             {[0, 1, 2].map(i => {
               const rec = loadouts[i];
@@ -1429,7 +1458,7 @@ export const PvpPage = memo(function PvpPage({
             })}
           </div>
 
-          <div className="pvpsec-h">⚔ {T("วาลอร์", "Valor", "荣耀值")} · {valor.toLocaleString()}</div>
+          <div className="pvpsec-h">{T("วาลอร์", "Valor", "荣耀值")}<span className="pvpsec-n">{valor.toLocaleString()}</span></div>
           <div className="pvpcolorways">
             {COLORWAYS.map(cw => {
               const owned = ownedCw.includes(cw.key);
@@ -1445,15 +1474,15 @@ export const PvpPage = memo(function PvpPage({
             })}
           </div>
 
-          <div className="pvpsec-h">⭐ {T("ไฟต์พิเศษ", "Special Fights", "特别对战")}</div>
+          <div className="pvpsec-h">{T("ไฟต์พิเศษ", "Special Fights", "特别对战")}</div>
           <div className="pvptiers">
             <button className="pvptier t-gauntlet" onClick={startGauntlet}>
-              <b>🔥 {T("เกาน์ท์เล็ต", "Gauntlet", "极限远征")}</b>
+              <b>{T("เกาน์ท์เล็ต", "Gauntlet", "极限远征")}</b>
               <i>{T("ลุยรวด 10 ด่าน ไม่พัก HP", "All 10 tiers, no HP rest", "连闯十关，HP 不回复")}</i>
-              <span>🏆 {T("โบนัสก้อนใหญ่เมื่อจบครบ", "Big bonus on a full clear", "全通有大奖")}</span>
+              <span>{T("โบนัสก้อนใหญ่เมื่อจบครบ", "Big bonus on a full clear", "全通有大奖")}</span>
             </button>
             <button className="pvptier t-weeklyboss" onClick={startWeekly}>
-              <b>👑 {T("บอสประจำสัปดาห์", "Weekly Boss", "本周首领")} {weeklyClaimed ? "✓" : ""}</b>
+              <b>{T("บอสประจำสัปดาห์", "Weekly Boss", "本周首领")} {weeklyClaimed ? "✓" : ""}</b>
               <i>{tr3(weekly.tier, lang)} · {T("รางวัล 2 เท่า", "2× rewards", "奖励 2 倍")}</i>
               {/* the week's broken rule, up front — a boss you only discover
                   is cheating after it kills you is not a boss, it is a bug */}
@@ -1462,19 +1491,19 @@ export const PvpPage = memo(function PvpPage({
             </button>
             {/* the one opponent the rival system could never offer: you */}
             <button className={`pvptier t-ghost${ghost ? "" : " off"}`} onClick={ghost ? startGhostFight : undefined} disabled={!ghost}>
-              <b>👤 {T("เงาตัวเอง", "Your Ghost", "自身幽灵")}</b>
+              <b>{T("เงาตัวเอง", "Your Ghost", "自身幽灵")}</b>
               <i>{ghost
                 ? `${tr3(BOT_TIERS.find(t => t.key === ghost.tierKey) || {}, lang)} · ${ghost.score.toLocaleString()} · ${ghost.acc}%`
                 : T("ชนะสักแมตช์แล้วเงาจะถูกบันทึก", "Win a match and your best run is saved here", "赢一场后会保存你的最佳战绩")}</i>
               <span>{ghost ? T("ท้าตัวเองที่เก่งที่สุด", "Fight your best self", "挑战最强的自己") : T("ยังไม่มีเงา", "No ghost yet", "尚无幽灵")}</span>
             </button>
             <button className="pvptier t-rival" onClick={startRivalFight}>
-              <b>😤 {T("คู่ปรับ", "Rival", "劲敌")} {rival.name}</b>
+              <b>{T("คู่ปรับ", "Rival", "劲敌")} {rival.name}</b>
               <i>{tr3(BOT_TIERS.find(t => t.key === rival.tierKey) || {}, lang)}</i>
               <span>{T("สถิติ", "Record", "战绩")} {rival.w}-{rival.l}</span>
             </button>
             <button className="pvptier t-practice" onClick={startPractice}>
-              <b>🎓 {T("โหมดซ้อม", "Practice", "陪练模式")}</b>
+              <b>{T("โหมดซ้อม", "Practice", "陪练模式")}</b>
               <i>{T("ไม่มีเดิมพัน มีติ๊ปสด · ตั้งค่าหุ่นได้", "No stakes, live tips, dummy controls", "无风险、实时提示、可设定木人")}</i>
               <span>{T("ไม่เสียเหรียญ/EXP", "No coins/EXP lost", "不消耗金币/经验")}</span>
             </button>
@@ -1484,8 +1513,8 @@ export const PvpPage = memo(function PvpPage({
               No server to duel across, so the ghost travels as a short code
               somebody can paste on the other end. */}
           <div className="pvpghostbar">
-            <button type="button" onClick={copyGhost} disabled={!ghost}>📋 {T("คัดลอกรหัสเงา", "Copy ghost code", "复制幽灵代码")}</button>
-            <button type="button" onClick={pasteGhost}>📥 {T("สู้กับเงาเพื่อน", "Fight a friend's ghost", "挑战好友幽灵")}</button>
+            <button type="button" onClick={copyGhost} disabled={!ghost}>{T("คัดลอกรหัสเงา", "Copy ghost code", "复制幽灵代码")}</button>
+            <button type="button" onClick={pasteGhost}>{T("สู้กับเงาเพื่อน", "Fight a friend's ghost", "挑战好友幽灵")}</button>
             {ghostNote && <em>{ghostNote}</em>}
           </div>
 
@@ -1494,7 +1523,7 @@ export const PvpPage = memo(function PvpPage({
               place a player finds out that throwing a guarding opponent, or
               cornering one, is a thing the game has an opinion about. */}
           <div className="pvpsec-h">
-            🎯 {T("บททดสอบ", "Combo Trials", "连段试炼")}
+            {T("บททดสอบ", "Combo Trials", "连段试炼")}
             <span className="pvpsec-n">{trialsDone.length}/{TRIALS.length}</span>
             <button type="button" className="pvpsec-t" onClick={() => setShowTrials(v => !v)}>
               {showTrials ? T("ซ่อน", "Hide", "收起") : T("ดู", "Show", "展开")}
@@ -1515,7 +1544,7 @@ export const PvpPage = memo(function PvpPage({
             </div>
           )}
 
-          <div className="pvpsec-h">🤖 {T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
+          <div className="pvpsec-h">{T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
           <div className="pvptiers">
             {BOT_TIERS.map(t => (
               <button key={t.key} className={`pvptier t-${t.key}`} onClick={() => startFight("bot", t, tr3(CHAR_MODELS.find(m => m.id === chassisFor(t.key + Date.now())) || {}, lang))}>
@@ -1526,7 +1555,7 @@ export const PvpPage = memo(function PvpPage({
             ))}
           </div>
 
-          <div className="pvpsec-h">👥 {T("สู้กับผู้เล่นอื่น", "Fight another player", "对战玩家")}</div>
+          <div className="pvpsec-h">{T("สู้กับผู้เล่นอื่น", "Fight another player", "对战玩家")}</div>
           <div className="pvpnote">
             {T("ประลองแบบผลัดกันลง: คุณลงสนามก่อน คะแนนจะถูกส่งไปท้าเพื่อน แล้วเพื่อนลงสนามเดียวกัน ใครคะแนนสูงกว่าชนะ",
                "Turn-based duel: you run the arena, your score is sent as a challenge, and your friend runs the same arena. Higher score wins.",
@@ -1549,7 +1578,7 @@ export const PvpPage = memo(function PvpPage({
           )}
           {openDuels.length > 0 && (
             <>
-              <div className="pvpsec-h">📨 {T("คำท้าที่รออยู่", "Challenges waiting", "待处理的挑战")}</div>
+              <div className="pvpsec-h">{T("คำท้าที่รออยู่", "Challenges waiting", "待处理的挑战")}</div>
               <div className="pvpfriends">
                 {openDuels.map(d => (
                   <button key={d.id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], d.opp_name, { duel: d })}>
@@ -1570,7 +1599,7 @@ export const PvpPage = memo(function PvpPage({
   if (phase === "result" && gauntletSummary) {
     const gs = gauntletSummary;
     return (
-      <div className="pvppage">
+      <div className="pvppage x3">
         <div className="pvphdr">
           <button className="stgback" onClick={() => { setGauntletSummary(null); setPhase("lobby"); }} aria-label="back">←</button>
           <span className="pvphdr-t">{gs.complete ? "🏆 " + T("พิชิตครบ 10 ด่าน!", "GAUNTLET CLEARED!", "十关制霸！") : T("จบเกาน์ท์เล็ต", "Gauntlet Over", "远征结束")}</span>
@@ -1603,7 +1632,7 @@ export const PvpPage = memo(function PvpPage({
     const g = result.spGained;
     const flawlessMul = (result.win && result.flawless) ? 1.4 : 1;
     return (
-      <div className="pvppage">
+      <div className="pvppage x3">
         <div className="pvphdr">
           <button className="stgback" onClick={onBack} aria-label="back">←</button>
           <span className="pvphdr-t">{result.win ? "🏆 " + T("ชนะ!", "Victory!", "胜利！") : T("แพ้", "Defeat", "落败")}</span>
@@ -2365,7 +2394,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     return () => { window.removeEventListener("resize", on); window.removeEventListener("orientationchange", on); };
   }, []);
 
-  const G = useArenaFx(ARENA);
+  /* plain: the arena is a real 3D room now (SpaceStage, below), so the FX
+     canvas no longer paints a skyline behind the fighters — only what the
+     fight leaves on the floor */
+  const G = useArenaFx(ARENA, { plain: true });
+  const [room3d, setRoom3d] = useState(false);
+  const onRoomReady = useCallback(() => setRoom3d(true), []);
+  const onRoomLost = useCallback(() => setRoom3d(false), []);
+  /* the room's two hologram read-outs carry the fight's real numbers */
+  const holo = useRef({});
   const audioRef = useRef(null);
   if (!audioRef.current) audioRef.current = createArenaAudio(ARENA);
   useEffect(() => { const a = audioRef.current; a.start(); return () => a.stop(); }, []);
@@ -2517,6 +2554,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   function announceRound() {
     if (doneRef.current) return;
+    G.bus.emit({ type: "round", n: roundRef.current });
     setAnnounce({ big: T(`ยกที่ ${roundRef.current}`, `ROUND ${roundRef.current}`, `第 ${roundRef.current} 回合`), kind: "round" });
     audioRef.current.sfx("bell");
     later(() => {
@@ -2623,6 +2661,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     setMyPose(winner === "me" ? "win" : "down");
     setOpPose(winner === "me" ? "down" : "win");
     setFinisher(true); setOutcome(winner === "me" ? "win" : "lose");
+    G.bus.emit({ type: "ko", at: loser, power: 1.4 });
     audioRef.current.sfx(winner === "me" ? "ult" : "lose");
     G.flash(winner === "me" ? "#ffd23f" : "#8899aa", .6, .5);
     G.boom(loser, 2.6, winner === "me" ? "#ffd23f" : "#ff2d55");
@@ -2672,6 +2711,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     });
     if (ko) {
       setFinisher(true);
+      G.bus.emit({ type: "ko", at: win ? "op" : "me", power: 1.6 });
       audioRef.current.sfx(win ? "ult" : "lose");
       G.flash(win ? "#ffd23f" : "#8899aa", .6, .5);
       G.boom(win ? "op" : "me", 2.6, win ? "#ffd23f" : "#ff2d55");
@@ -3841,7 +3881,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   }, [comeback]);
 
   return (
-    <div className={`pvppage fight${land ? " land" : ""}`}>
+    <div className={`pvppage x3 fight${land ? " land" : ""}`}>
       <div className="pvphdr">
         <button className="stgback" onClick={onBack} aria-label="back">←</button>
         <span className="pvphdr-t">{T("ยก", "Wave", "波次")} {Math.min(wave, WAVES.length)}/{WAVES.length}</span>
@@ -3861,7 +3901,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       {/* The stage carries the round on its own class: the light drops and the
           room tightens in round 2, and the decider burns. Nothing has to say
           "this one matters" out loud if the room already does. */}
-      <div className={`pvpstage r${Math.min(3, round)}${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}${comeback ? " comeback" : ""}${suddenDeath ? " sudden" : ""}${hitStop ? " hitstop hs-" + hitDir : ""}${corner.me ? " cornerme" : ""}${corner.op ? " cornerop" : ""}${stagger ? " staggered" : ""}${finisher ? " finisher " + (outcome || "") : ""}`}>
+      <div className={`pvpstage x3s r${Math.min(3, round)}${room3d ? " g3" : ""}${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}${comeback ? " comeback" : ""}${suddenDeath ? " sudden" : ""}${hitStop ? " hitstop hs-" + hitDir : ""}${corner.me ? " cornerme" : ""}${corner.op ? " cornerop" : ""}${stagger ? " staggered" : ""}${finisher ? " finisher " + (outcome || "") : ""}`}>
+        {(() => {
+          holo.current = {
+            a: { title: tr3(ARENA, lang), rows: [[T("ยก", "ROUND", "回合"), `${round} / ${MAX_ROUNDS}`], ["BPM", ARENA.bpm], [T("ชนะยก", "ROUNDS", "局分"), `${roundWins.me} — ${roundWins.op}`]] },
+            b: { title: T("สถานะ", "STATUS", "状态"), rows: [["HP", `${Math.max(0, Math.round(myHp))} / ${MY_MAX}`], [T("คู่แข่ง", "RIVAL", "对手"), `${Math.max(0, Math.round(opHp))} / ${OP_MAX}`], [T("คอมโบ", "COMBO", "连击"), String(combo)]] },
+          };
+          return null;
+        })()}
+        <SpaceStage variant="arena" stage={ARENA.id} bus={G.bus} data={holo} onReady={onRoomReady} onLost={onRoomLost} />
         <canvas ref={G.bgRef} className="pvpbg" />
       <canvas ref={G.canvasRef} className="pvpfx" />
         {/* the two walls, lit only for whoever has their back to one */}
@@ -3959,7 +4007,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           style={{ left: 0, right: "auto", transform: `translate3d(${((opX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-opAir * 62).toFixed(1)}px, 0)` }}>
           <div className="pvpfighter-in">
           <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose} mirror
-            glow="#ff7a3c" accent="#ff4d6a" armorA="#2b1a1a" armorB="#8a4a3a" />
+            glow="#8f6dff" accent="#c3b0ff" armorA="#16161f" armorB="#46425e" />
           {flash && flash.side === "op" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {/* the wind-up has to be READABLE or blocking is a coin flip */}
           {botTell && <span className="pvptell">!</span>}
