@@ -1166,7 +1166,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvppage.land .pvparena{background:rgba(255,255,255,.14);border-color:#ffffff2e;color:#dce6fb}
 .pvpbody{max-width:520px;margin:0 auto;padding:13px 13px 0}
 .pvpme{display:flex;gap:11px;padding:12px;border-radius:15px;background:var(--card);border:1px solid var(--bd1)}
-.pvpme-stage{width:96px;flex:none;height:190px;border-radius:11px;background:linear-gradient(178deg,#fff,#eef1f7);border:1px solid var(--bd1);display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* the lobby preview is a slice of the arena, not a white product shot: the
+   frame is lit by signage now, and neon on white reads as a smudge */
+.pvpme-stage{position:relative;width:96px;flex:none;height:190px;border-radius:11px;background:radial-gradient(ellipse 90% 60% at 50% 30%,rgba(255,43,214,.22),transparent 70%),radial-gradient(ellipse 80% 40% at 50% 100%,rgba(63,216,255,.28),transparent 70%),linear-gradient(180deg,#140a2e,#07051a);border:1px solid rgba(120,90,255,.45);box-shadow:inset 0 0 18px rgba(63,216,255,.18);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pvpme-stage::before{content:"";position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(transparent 0 0),repeating-linear-gradient(90deg,rgba(63,216,255,.16) 0 1px,transparent 1px 12px),repeating-linear-gradient(0deg,rgba(63,216,255,.16) 0 1px,transparent 1px 10px);-webkit-mask-image:linear-gradient(transparent,#000);mask-image:linear-gradient(transparent,#000);pointer-events:none}
+.pvpme-stage svg{position:relative}
 .pvpme-stage svg{display:block;height:178px;width:auto}
 .pvpme-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .pvpme-nm{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
@@ -2189,6 +2193,9 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .ca-visor{animation:caVisor 3.4s ease-in-out infinite}
 @keyframes caVisor{0%,100%{opacity:.86}50%{opacity:1}}
 .ca-optic{animation:caVisor 2.2s ease-in-out infinite}
+/* the sigil under every frame: its rune band drifts, nothing else moves */
+.ca-rune{animation:caRune 9s linear infinite}
+@keyframes caRune{to{stroke-dashoffset:-44}}
 .ca-eye{animation:caBlink 6.5s ease-in-out infinite;transform-origin:center;transform-box:fill-box}
 @keyframes caBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.12)}}
 .ca-mouth{animation:caVisor 2.8s ease-in-out infinite}
@@ -2251,7 +2258,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .charstage.rar-legendary .cs-aura{filter:blur(19px);animation-duration:2s}
 .charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:.85}
 .charstage.rar-legendary{box-shadow:inset 0 -34px 44px -34px rgba(20,30,60,.2),inset 0 1px 0 #fff,0 12px 34px -14px #ffb300,0 0 0 1.5px #ffb30099}
-@media (prefers-reduced-motion:reduce){.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.ca-morph,.cs-grid,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan,.cs-turn-hint{animation:none}}
+@media (prefers-reduced-motion:reduce){.ca-rune,.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.ca-morph,.cs-grid,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan,.cs-turn-hint{animation:none}}
 @media (max-width:380px){.charstage{height:344px;--floor:22px}.cs-figure,.cs-reflect{width:114px;height:296px}.cs-aura{height:286px}.cs-cast{width:104px}.cs-hat{width:34px;height:34px;top:-11px}.cs-wpn,.cs-acc{width:34px;height:34px}.char-models{gap:3px}.char-model-nm{font-size:8px}}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}

@@ -639,6 +639,54 @@ function bakeBackdrop(w, h, dpr, SG, hz, key) {
     ctx.beginPath(); ctx.ellipse(cx2, cy, cw, ch, 0, 0, 7); ctx.fill();
   }
 
+  /* ── the sky sigil ──
+     Cyberpunk on its own is a city at night; the fantasy half needs something
+     no city builds. A vast projected rune-wheel hangs over the skyline — two
+     rings, a star of two triangles, the ticks of a clock nobody wrote — in the
+     stage's first neon, drawn additively at low alpha so it reads as light in
+     the haze rather than a shape pasted onto the sky. It sits BEHIND the
+     landmarks and the skyline, so the towers cut across it and it lands at a
+     distance. Baked with everything else here: it costs nothing per frame. */
+  {
+    const NP = SG.neon || ["255,43,214", "63,216,255"];
+    const sx = w * 0.5, sy = hz * 0.5, R = Math.min(w * 0.3, hz * 0.46);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const halo = ctx.createRadialGradient(sx, sy, R * 0.2, sx, sy, R * 1.35);
+    halo.addColorStop(0, `rgba(${NP[0]},.10)`); halo.addColorStop(0.6, `rgba(${NP[0]},.04)`); halo.addColorStop(1, `rgba(${NP[0]},0)`);
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(sx, sy, R * 1.35, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(${NP[0]},.30)`; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(sx, sy, R, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(${NP[0]},.16)`; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(sx, sy, R, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(${NP[1]},.24)`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(sx, sy, R * 0.82, 0, 7); ctx.stroke();
+    ctx.setLineDash([2, 5, 9, 5]);
+    ctx.beginPath(); ctx.arc(sx, sy, R * 0.9, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < 24; i++) {
+      const a = i / 24 * Math.PI * 2, r0 = R * (i % 2 ? 0.93 : 0.86);
+      ctx.beginPath(); ctx.moveTo(sx + Math.cos(a) * r0, sy + Math.sin(a) * r0);
+      ctx.lineTo(sx + Math.cos(a) * R * 0.98, sy + Math.sin(a) * R * 0.98); ctx.stroke();
+    }
+    ctx.strokeStyle = `rgba(${NP[0]},.2)`; ctx.lineWidth = 1.2;
+    for (const off of [-Math.PI / 2, Math.PI / 2]) {
+      ctx.beginPath();
+      for (let k = 0; k < 3; k++) {
+        const a = off + k * Math.PI * 2 / 3;
+        const px = sx + Math.cos(a) * R * 0.8, py = sy + Math.sin(a) * R * 0.8;
+        k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.strokeStyle = `rgba(${NP[1]},.26)`;
+    ctx.beginPath(); ctx.arc(sx, sy, R * 0.3, 0, 7); ctx.stroke();
+    const core = ctx.createRadialGradient(sx, sy, 0, sx, sy, R * 0.3);
+    core.addColorStop(0, `rgba(${NP[1]},.22)`); core.addColorStop(1, `rgba(${NP[1]},0)`);
+    ctx.fillStyle = core; ctx.beginPath(); ctx.arc(sx, sy, R * 0.3, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
   /* ── the landmark ──
      Every stage had a skyline but nothing to look AT: an even field of blocks
      reads as texture, not as a place. Two tapered megastructures sit furthest
@@ -799,6 +847,41 @@ function bakeBackdrop(w, h, dpr, SG, hz, key) {
   for (let i = -6; i <= 6; i++) {
     const x = w / 2 + i * (w / 9);
     ctx.beginPath(); ctx.moveTo(w / 2 + i * 8, hz); ctx.lineTo(x, h); ctx.stroke();
+  }
+  /* ── the duel circle ──
+     The floor was a grid and nothing else, so two fighters stood on a
+     spreadsheet. A summoning circle is projected onto it now, in perspective,
+     spanning both starting marks: the fight happens INSIDE something. */
+  {
+    const NP = SG.neon || ["255,43,214", "63,216,255"];
+    const fy = hz + (h - hz) * 0.52, RX = w * 0.37, RY = (h - hz) * 0.24;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const pool = ctx.createRadialGradient(w / 2, fy, 2, w / 2, fy, RX);
+    pool.addColorStop(0, `rgba(${NP[1]},.12)`); pool.addColorStop(1, `rgba(${NP[1]},0)`);
+    ctx.fillStyle = pool;
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX, RY, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(${NP[1]},.3)`; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX, RY, 0, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(${NP[1]},.08)`; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX, RY, 0, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(${NP[0]},.26)`; ctx.lineWidth = 1.1;
+    ctx.setLineDash([3, 6, 12, 6]);
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX * 0.84, RY * 0.84, 0, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = `rgba(${NP[0]},.16)`;
+    for (const off of [-Math.PI / 2, Math.PI / 2]) {
+      ctx.beginPath();
+      for (let k = 0; k < 3; k++) {
+        const a = off + k * Math.PI * 2 / 3;
+        const px = w / 2 + Math.cos(a) * RX * 0.78, py = fy + Math.sin(a) * RY * 0.78;
+        k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.strokeStyle = `rgba(${NP[1]},.3)`;
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX * 0.24, RY * 0.24, 0, 0, 7); ctx.stroke();
+    ctx.restore();
   }
   return { cv, key, lit, flick, beacons };
 }

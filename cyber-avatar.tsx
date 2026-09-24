@@ -752,8 +752,18 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   /* The room light a silhouette catches is still cool, but it picks up the
      frame's own signature — which is what stops forty machines sharing one
      white-blue edge and reading as the same silhouette in a thumbnail. */
-  const grazeC = mixc("#dbeaff", SK.glow, .42);
-  const fresC = mixc("#bcd8ff", SK.glow, .3);
+  /* ── neon split light ──
+     The figure used to stand in a white photo studio: a warm key from the
+     upper left, a pale blue bounce off the floor. That is the right rig for a
+     product shot and the wrong one for a cyberpunk arena, where every surface
+     is lit by signage — a magenta key on one side, a cyan fill on the other,
+     and the frame's own emissive colour in between. Changing the colour of
+     the lights rather than adding passes is what keeps this free: every plate
+     already paints the key, the fill and the graze; they just glow now. */
+  const NEON_K = mixc("#ff3fd8", SK.glow, .18);   // magenta key, upper left
+  const NEON_F = mixc("#27f2ff", SK.glow, .22);   // cyan fill, lower right
+  const grazeC = mixc(NEON_F, SK.glow, .35);
+  const fresC = mixc("#9a7bff", SK.glow, .35);
   /* Panel lines are the alloy's own darkest tone taken most of the way to
      black, not one blue-black for everything: a bronze outlined in blue reads
      as a bronze sticker on a steel drawing. */
@@ -3106,8 +3116,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           {/* the figure stands on a white studio floor, so the far edge of every
               plate picks the room back up — without it the occlusion pass runs
               a plate to near-black and the silhouette dies into its own shadow */}
-          <stop offset="84%" stopColor="#e8f1ff" stopOpacity="0" />
-          <stop offset="100%" stopColor="#e8f1ff" stopOpacity=".34" />
+          <stop offset="84%" stopColor={NEON_F} stopOpacity="0" />
+          <stop offset="100%" stopColor={NEON_F} stopOpacity=".36" />
         </linearGradient>
         {/* A broad sweep says "lit". A NARROW hot-spot says "metal": real
             specular on a hard surface is a small, very bright kernel that
@@ -3142,14 +3152,14 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="100%" stopColor="#0a1830" stopOpacity=".1" />
         </linearGradient>
         <linearGradient id={`${id}-warm`} x1="0.1" y1="0" x2="0.75" y2="0.85">
-          <stop offset="0%" stopColor="#fff0d6" stopOpacity=".34" />
-          <stop offset="34%" stopColor="#ffe2b4" stopOpacity=".08" />
-          <stop offset="100%" stopColor="#ffe2b4" stopOpacity="0" />
+          <stop offset="0%" stopColor={NEON_K} stopOpacity=".58" />
+          <stop offset="32%" stopColor={NEON_K} stopOpacity=".14" />
+          <stop offset="100%" stopColor={NEON_K} stopOpacity="0" />
         </linearGradient>
         <linearGradient id={`${id}-cool`} x1="0.85" y1="1" x2="0.3" y2="0.15">
-          <stop offset="0%" stopColor="#9dc4ff" stopOpacity=".3" />
-          <stop offset="40%" stopColor="#9dc4ff" stopOpacity=".06" />
-          <stop offset="100%" stopColor="#9dc4ff" stopOpacity="0" />
+          <stop offset="0%" stopColor={NEON_F} stopOpacity=".46" />
+          <stop offset="38%" stopColor={NEON_F} stopOpacity=".08" />
+          <stop offset="100%" stopColor={NEON_F} stopOpacity="0" />
         </linearGradient>
         <radialGradient id={`${id}-hot`} cx="0.29" cy="0.17" r="0.34">
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".78" />
@@ -3175,9 +3185,21 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             render floats on the card, which is the single loudest tell that a
             game character is a sticker rather than a model. */}
         <radialGradient id={`${id}-gnd`} cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0%" stopColor="#0b1526" stopOpacity=".34" />
-          <stop offset="42%" stopColor="#0b1526" stopOpacity=".2" />
+          <stop offset="0%" stopColor="#0b1526" stopOpacity=".42" />
+          <stop offset="42%" stopColor="#0b1526" stopOpacity=".22" />
           <stop offset="100%" stopColor="#0b1526" stopOpacity="0" />
+        </radialGradient>
+        {/* the sigil's light: a floor spill in the frame's own colour and the
+            column that rises out of it, fading long before the chest */}
+        <radialGradient id={`${id}-spill`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stopColor={glow} stopOpacity=".5" />
+          <stop offset="45%" stopColor={glow} stopOpacity=".16" />
+          <stop offset="100%" stopColor={glow} stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`${id}-pillar`} cx="0.5" cy="0.5" r="0.5" fx="0.5" fy="0.5">
+          <stop offset="0%" stopColor={glow} stopOpacity=".26" />
+          <stop offset="35%" stopColor={glow} stopOpacity=".1" />
+          <stop offset="100%" stopColor={glow} stopOpacity="0" />
         </radialGradient>
         {/* the shadow a body casts into its own joints */}
         <radialGradient id={`${id}-ao`} cx="0.5" cy="0.5" r="0.5">
@@ -3196,8 +3218,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={`${id}-bnc`} cx="0.76" cy="0.85" r="0.44">
-          <stop offset="0%" stopColor="#cfe2ff" stopOpacity=".28" />
-          <stop offset="100%" stopColor="#cfe2ff" stopOpacity="0" />
+          <stop offset="0%" stopColor={NEON_F} stopOpacity=".34" />
+          <stop offset="100%" stopColor={NEON_F} stopOpacity="0" />
         </radialGradient>
         {/* the shadow a part in front drops on the part behind it — chin on
             chest, chest on pauldron, pelvis on thigh. Flat vector figures read
@@ -3359,7 +3381,30 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       </defs>
 
       <g transform={headOnly || bh === 1 ? undefined : `translate(60 396) scale(${bh}) translate(-60 -396)`}>
-        {!headOnly && <ellipse cx="60" cy="396" rx={(chibi ? 46 : 42) * bw} ry="8.5" fill={`url(#${id}-gnd)`} />}
+        {!headOnly && (() => {
+          /* ── the summoning plate ──
+             A dark smudge on the floor grounds a figure in a photo; in an
+             arena of neon it reads as a hole. The figure now stands on a
+             holographic sigil instead — a light column rising behind the
+             legs, two projected rings and a slow rune band — so it looks
+             summoned into the fight rather than placed. Nine elements, all
+             static geometry; only the rune band's dash offset animates. */
+          const rx = (chibi ? 46 : 42) * bw;
+          return (
+            <g className="ca-base" aria-hidden="true">
+              <ellipse cx="60" cy="393" rx={rx * .95} ry="150" fill={`url(#${id}-pillar)`} />
+              <ellipse cx="60" cy="393" rx={rx * 1.12} ry="7" fill={`url(#${id}-gnd)`} />
+              <ellipse cx="60" cy="393" rx={rx * 1.2} ry="7" fill={`url(#${id}-spill)`} />
+              <ellipse cx="60" cy="393" rx={rx * 1.05} ry="6.2" fill="none" stroke={glow} strokeWidth="3.2" opacity=".18" />
+              <ellipse cx="60" cy="393" rx={rx * 1.05} ry="6.2" fill="none" stroke={glow} strokeWidth="1.1" opacity=".9" />
+              <ellipse className="ca-rune" cx="60" cy="393" rx={rx * .82} ry="4.9" fill="none" stroke={accent}
+                strokeWidth="1.6" strokeDasharray="1.2 2.4 5 2.4" opacity=".8" />
+              <ellipse cx="60" cy="393" rx={rx * .6} ry="3.6" fill="none" stroke={NEON_K} strokeWidth=".8" opacity=".75" />
+              <path d={`M${60 - rx * 1.3} 393 H${60 - rx * 1.1} M${60 + rx * 1.1} 393 H${60 + rx * 1.3}`} stroke={glow} strokeWidth="1" opacity=".7" />
+              <ellipse cx="60" cy="393" rx={rx * .34} ry="1.8" fill="#ffffff" opacity=".35" />
+            </g>
+          );
+        })()}
         <g transform={headOnly || bw === 1 ? undefined : `translate(60 88) scale(${bw} 1) translate(-60 -88)`}>
         {/* ── body ──
             The same three-view treatment as the head, for the same reason: a

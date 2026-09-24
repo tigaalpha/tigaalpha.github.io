@@ -965,15 +965,19 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           <stop offset="42%" stopColor={T.c} />
           <stop offset="100%" stopColor={B} />
         </radialGradient>
+        {/* Neon split light, the same rig the robots stand in: a magenta key
+            from the upper left and a cyan fill from the lower right, each
+            leaning a little toward the pet's own element so an ember pet and
+            a frost pet still read as different animals under the same signs. */}
         <linearGradient id={`${uid}-warm`} x1="0.12" y1="0" x2="0.78" y2="0.9">
-          <stop offset="0%" stopColor="#fff1d8" stopOpacity=".36" />
-          <stop offset="34%" stopColor="#ffe3b8" stopOpacity=".08" />
-          <stop offset="100%" stopColor="#ffe3b8" stopOpacity="0" />
+          <stop offset="0%" stopColor={mixc("#ff4fdc", T.c, .2)} stopOpacity=".44" />
+          <stop offset="34%" stopColor={mixc("#ff4fdc", T.c, .2)} stopOpacity=".1" />
+          <stop offset="100%" stopColor={mixc("#ff4fdc", T.c, .2)} stopOpacity="0" />
         </linearGradient>
         <linearGradient id={`${uid}-cool`} x1="0.88" y1="1" x2="0.32" y2="0.16">
-          <stop offset="0%" stopColor="#9fc8ff" stopOpacity=".3" />
-          <stop offset="42%" stopColor="#9fc8ff" stopOpacity=".05" />
-          <stop offset="100%" stopColor="#9fc8ff" stopOpacity="0" />
+          <stop offset="0%" stopColor={mixc("#2ff0ff", T.c, .2)} stopOpacity=".46" />
+          <stop offset="42%" stopColor={mixc("#2ff0ff", T.c, .2)} stopOpacity=".08" />
+          <stop offset="100%" stopColor={mixc("#2ff0ff", T.c, .2)} stopOpacity="0" />
         </linearGradient>
         <radialGradient id={`${uid}-glow`}>
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".95" />
