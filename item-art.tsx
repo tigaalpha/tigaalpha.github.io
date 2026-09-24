@@ -113,6 +113,125 @@ const KEY_PROFILE = {
   "key-candy": "sculpt", "key-sakura": "sculpt", "key-jade": "sculpt",
 };
 
+/* ── how a thing is held ──
+   A weapon used to ride the fighter as a picture parked beside the hip at one
+   fixed tilt, so a sword and a railgun hung in the same empty air whatever
+   the arm was doing. To put it IN the hand the rig needs three facts about
+   each drawing: where its grip is (in the same 64-box the art is drawn in),
+   which way it points from that grip (degrees, 0 = +x, -90 = up), and how
+   big it is against a body — a pistol is a hand's length, a greatsword is
+   most of an arm. `kind` picks the stance it is carried in:
+     blade — held by the hilt, edge leading   gun   — pistol grip, muzzle level
+     staff — upright, planted                 palm  — cradled in the hand
+   Anything not listed is cradled, which is right for an orb and harmless for
+   anything else. */
+const HOLD = {
+  sword:      { g: [13, 53],   ax: -46, k: 2.3,  kind: "blade" },
+  greatsword: { g: [32, 55.5], ax: -90, k: 2.9,  kind: "blade" },
+  cutter:     { g: [12, 36],   ax: 0,   k: 1.7,  kind: "blade" },
+  hammer:     { g: [32, 52],   ax: -90, k: 2.0,  kind: "blade" },
+  multitool:  { g: [31, 43],   ax: -60, k: 1.8,  kind: "blade" },
+  wrench:     { g: [32, 41],   ax: -90, k: 1.8,  kind: "blade" },
+  lance:      { g: [14, 50],   ax: -45, k: 2.6,  kind: "blade" },
+  baton:      { g: [16, 50],   ax: -45, k: 1.5,  kind: "blade" },
+  driver:     { g: [20.5, 50], ax: 0,   k: 1.45, kind: "gun" },
+  arm:        { g: [19, 20],   ax: 33,  k: 1.6,  kind: "gun" },
+  magnet:     { g: [32, 15],   ax: 90,  k: 1.4,  kind: "gun" },
+  torch:      { g: [22, 32],   ax: 0,   k: 1.45, kind: "gun" },
+  beam:       { g: [12, 52],   ax: -44, k: 1.9,  kind: "gun" },
+  blaster:    { g: [22, 44],   ax: 0,   k: 1.45, kind: "gun" },
+  piston:     { g: [14.5, 46], ax: 0,   k: 1.45, kind: "gun" },
+  railgun:    { g: [20, 51],   ax: 0,   k: 1.9,  kind: "gun" },
+  keytar:     { g: [10, 46],   ax: -33, k: 1.8,  kind: "gun" },
+  speaker:    { g: [15, 32],   ax: 0,   k: 1.35, kind: "gun" },
+  coil:       { g: [32, 48],   ax: -90, k: 2.3,  kind: "staff" },
+  fork:       { g: [32, 50],   ax: -90, k: 1.6,  kind: "staff" },
+  reactor:    { g: [32, 44],   ax: -90, k: 1.05, kind: "palm" },
+  burst:      { g: [32, 40],   ax: -90, k: 1.0,  kind: "palm" },
+  grenade:    { g: [32, 48],   ax: -90, k: 1.0,  kind: "palm" },
+  charge:     { g: [32, 46],   ax: -90, k: 1.0,  kind: "palm" },
+  barrier:    { g: [32, 52],   ax: -90, k: 1.35, kind: "palm" },
+  pendulum:   { g: [32, 50],   ax: -90, k: 1.1,  kind: "palm" },
+  disc:       { g: [32, 40],   ax: -90, k: 1.05, kind: "palm" },
+  boomerang:  { g: [32, 48],   ax: -90, k: 1.3,  kind: "palm" },
+};
+/* the ten gem primes, drawn in PW order in the pw() form below */
+const HOLD_PW = [
+  { g: [32, 58.5], ax: -90, k: 2.6,  kind: "blade" },   // Solar Edge
+  { g: [13, 51],   ax: -45, k: 2.6,  kind: "blade" },   // Meteor Lance
+  { g: [20, 52],   ax: 0,   k: 1.9,  kind: "gun" },     // Quasar Cannon
+  { g: [32, 48],   ax: -90, k: 2.2,  kind: "staff" },   // Celestial Rod
+  { g: [12.5, 55], ax: -46, k: 2.4,  kind: "blade" },   // Void Blade
+  { g: [32, 50],   ax: -90, k: 2.2,  kind: "blade" },   // Pulsar Hammer
+  { g: [17.5, 50], ax: 0,   k: 1.9,  kind: "gun" },     // Genesis Laser
+  { g: [31, 32],   ax: 0,   k: 1.9,  kind: "gun" },     // Photon Bow
+  { g: [32, 50],   ax: -90, k: 2.6,  kind: "staff" },   // Plasma Trident
+  { g: [12.5, 52], ax: -56, k: 2.1,  kind: "blade" },   // Lightning Whip
+];
+/* ── where a hat sits, and where an accessory rides ──
+   Same idea as HOLD, for the head. A hat is FITTED to the skull it is worn
+   on rather than dropped at a fixed point: the avatar measures the skull and
+   reads its profile (brow, eye line, lip), and each hat says which of those
+   it seats against. Modes:
+     band  — a crown or circlet: its lower edge (g) sits on `to`+dy, scaled to
+             the skull's width at that height (w = the band's drawn width)
+     cap   — a helmet: top edge t on the crown of the skull, lower edge b on
+             `to`+dy, stretched between them
+     ears  — headphones: band over the crown, cups (b) on the eye line
+     ring  — a wreath round the head, centred on `to`+dy
+     face  — worn on the face (visor, mask): projected like a face feature, so
+             it slides round the head as the head turns
+     top   — something bolted on top (antenna, dish), g on the crown +dy
+     float — a halo: hovers above the crown, and bobs so it reads as meant
+   Sizes are in the 64-box; `k` scales the non-fitted modes to a 48-wide skull. */
+const HAT = {
+  visor:     { at: "face",  g: [32, 34], to: "eye",  dy: 0,  k: 0.82 },
+  mask:      { at: "face",  g: [32, 32], to: "mid",  dy: 0,  k: 0.74 },
+  sigil:     { at: "face",  g: [32, 32], to: "brow", dy: -6, k: 0.36 },
+  helm:      { at: "cap",   t: 6,  b: 44, w: 48, to: "brow", dy: 7,  kw: 1.1 },
+  aegis:     { at: "cap",   t: 0,  b: 48, w: 44, to: "lip",  dy: 3,  kw: 1.12 },
+  rivets:    { at: "cap",   t: 10, b: 54, w: 48, to: "brow", dy: 2,  kw: 1.08 },
+  brain:     { at: "cap",   t: 8,  b: 60, w: 52, to: "brow", dy: -3, kw: 1.06, lift: 5 },
+  crown:     { at: "band",  g: [32, 56], w: 44, to: "brow", dy: -4, kw: 1.06 },
+  diadem:    { at: "band",  g: [32, 54], w: 44, to: "brow", dy: -4, kw: 1.06 },
+  phones:    { at: "ears",  t: 8,  b: 50, w: 52, kw: 1.14 },
+  wreath:    { at: "ring",  g: [32, 34], w: 60, to: "brow", dy: 3,  kw: 1.18 },
+  crest:     { at: "top",   g: [32, 50], dy: 5,  k: 0.55 },
+  antenna:   { at: "top",   g: [32, 56], dy: 4,  k: 0.52, dx: 12 },
+  scope:     { at: "top",   g: [28, 50], dy: 5,  k: 0.6,  dx: 8 },
+  beacon:    { at: "top",   g: [32, 58], dy: 3,  k: 0.5 },
+  satellite: { at: "top",   g: [32, 58], dy: 3,  k: 0.6 },
+  holo:      { at: "top",   g: [32, 58], dy: 2,  k: 0.55 },
+  halo:      { at: "float", g: [32, 38], dy: -13, k: 0.74 },
+  atom:      { at: "float", g: [32, 32], dy: -17, k: 0.52 },
+  orb:       { at: "float", g: [32, 32], dy: -17, k: 0.48 },
+};
+// the gem primes (pm-N) are all drawn on one band, M10 40 … L52 53 H12
+const HAT_PM = { at: "band", g: [32, 53], w: 44, to: "brow", dy: -4, kw: 1.06 };
+export function hatMountOf(art) {
+  if (/^pm-\d+$/.test(art || "")) return HAT_PM;
+  return HAT[art] || HAT_PM;
+}
+/* An accessory is one of four things: armour on the off-hand forearm, kit on
+   the back, a charm hung at the hip, or a companion that is SUPPOSED to hover
+   — a drone, an orbiting core. Only the last kind floats, and it bobs so it
+   reads as flying rather than as a sticker that slipped. */
+const ACC = {
+  shield: "arm", eye: "float", rotor: "back", plug: "hip", pad: "hip", limb: "float",
+  trail: "back", fusion: "float", singularity: "float", battery: "hip", chip: "hip",
+  gyro: "float", vent: "back", thruster: "back", drone: "float", halo: "float",
+  fork: "hip", pendulum: "hip", holo: "float", wreath: "back",
+};
+export function accMountOf(art) {
+  return ACC[art] || "float";
+}
+
+export function holdOf(art) {
+  const m = /^pw-(\d+)$/.exec(art || "");
+  if (m) return HOLD_PW[Number(m[1]) % 10];
+  return HOLD[art] || { g: [32, 44], ax: -90, k: 1.1, kind: "palm" };
+}
+
 export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, className = "" }) {
   const uid = "ia" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const A = sw[0] || "#9fb2d2";
@@ -136,7 +255,7 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
       <path d={d} fill={`url(#${uid}-fres)`} opacity={o.fres == null ? .5 : o.fres} />
       <path d={d} fill="none" stroke={o.line || edge} strokeWidth={o.lw || 1.4} strokeLinejoin="round" strokeLinecap="round" opacity={o.lineOp == null ? .95 : o.lineOp} />
       {/* the neon edge: a hairline of sign-light riding on top of the dark
-          contact line, magenta where the plate faces up-left, cyan where it
+          contact line, violet where the plate faces up-left, cyan where it
           faces down-right. The contour keeps the separation; this makes it
           glow. */}
       <path d={d} fill="none" stroke={`url(#${uid}-nrim)`} strokeWidth={(o.lw || 1.4) * .5} strokeLinejoin="round" strokeLinecap="round" />
@@ -1609,21 +1728,21 @@ export const ItemArt = memo(function ItemArt({ art = "module", sw = [], size, cl
           <stop offset="60%" stopColor="#ffffff" stopOpacity=".04" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </radialGradient>
-        {/* Fresnel, lit by signage: the edge turned toward the upper left
-            picks up a magenta key, the one toward the lower right a cyan
-            fill — the same split every robot and pet now stands in, so a
-            weapon held by a fighter is lit by the same room as the fighter. */}
+        {/* Fresnel, lit by the room: the edge turned toward the upper left
+            picks up the electric-violet key, the one toward the lower right
+            the cyan fill — the same split every robot and pet stands in, so
+            a weapon held by a fighter is lit by the same room as the fighter. */}
         <linearGradient id={`${uid}-fres`} x1="0.1" y1="0" x2="0.9" y2="1">
-          <stop offset="0%" stopColor={mix("#ff52dc", C, .15)} stopOpacity=".5" />
-          <stop offset="26%" stopColor={mix("#ff52dc", C, .15)} stopOpacity=".05" />
-          <stop offset="70%" stopColor={mix("#2af0ff", C, .15)} stopOpacity=".05" />
-          <stop offset="100%" stopColor={mix("#2af0ff", C, .15)} stopOpacity=".62" />
+          <stop offset="0%" stopColor={mix("#8f6dff", C, .15)} stopOpacity=".5" />
+          <stop offset="26%" stopColor={mix("#8f6dff", C, .15)} stopOpacity=".05" />
+          <stop offset="70%" stopColor={mix("#39d8ff", C, .15)} stopOpacity=".05" />
+          <stop offset="100%" stopColor={mix("#39d8ff", C, .15)} stopOpacity=".62" />
         </linearGradient>
         <linearGradient id={`${uid}-nrim`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={mix("#ff6ae2", C, .12)} stopOpacity=".95" />
-          <stop offset="38%" stopColor={mix("#ff6ae2", C, .12)} stopOpacity="0" />
-          <stop offset="62%" stopColor={mix("#3ef3ff", C, .12)} stopOpacity="0" />
-          <stop offset="100%" stopColor={mix("#3ef3ff", C, .12)} stopOpacity="1" />
+          <stop offset="0%" stopColor={mix("#a992ff", C, .12)} stopOpacity=".95" />
+          <stop offset="38%" stopColor={mix("#a992ff", C, .12)} stopOpacity="0" />
+          <stop offset="62%" stopColor={mix("#5fe0ff", C, .12)} stopOpacity="0" />
+          <stop offset="100%" stopColor={mix("#5fe0ff", C, .12)} stopOpacity="1" />
         </linearGradient>
         <linearGradient id={`${uid}-spec`} x1="0.06" y1="0" x2="0.7" y2="0.9">
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".6" />

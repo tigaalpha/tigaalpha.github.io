@@ -16,10 +16,15 @@
     "@capacitor/browser": "^8.0.4",
     "@capacitor/core": "^8.5.0",
     "@capgo/capacitor-updater": "^8.51.3",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
+    "@react-three/postprocessing": "^2.19.1",
     "@supabase/supabase-js": "^2.108.2",
+    "postprocessing": "^6.37.8",
     "qrcode-generator": "^2.0.4",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "three": "^0.173.0"
   },
   "devDependencies": {
     "@capacitor/android": "^8.5.0",
