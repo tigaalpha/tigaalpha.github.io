@@ -1166,6 +1166,8 @@ export function useArenaFx(stage) {
       swipes: [], stars: [], dust: [],
       // radial speed lines — the single cheapest thing that says "this hit hard"
       lines: [], rays: [], pools: [],
+      // a hex energy shield flaring where a guarded blow landed
+      hexes: [],
       // where the two fighters actually are, as fractions of the stage width —
       // once they can walk, a bolt fired from a fixed 24% leaves from thin air
       pos: { me: 0.24, op: 0.76 }, air: { me: 0, op: 0 },
@@ -1267,6 +1269,21 @@ export function useArenaFx(stage) {
       // ── from here on it is drawn IN FRONT of the fighters ──
       ctx = fxctx;
 
+      /* ── rain, on the city ──
+         The one thing every neon street has that this one did not. Seventy
+         streaks, positions derived from their index and the clock so there
+         is no per-drop state to keep, all stroked as ONE path. */
+      if (SG.back === "city" && !reduced()) {
+        ctx.beginPath();
+        const H2 = S.h + 40;
+        for (let i = 0; i < 70; i++) {
+          const y = ((i * 211.7 + S.t * (620 + (i % 5) * 60)) % H2) - 20;
+          const x = ((i * 97.31 + y * 0.18) % (S.w + 20)) - 10;
+          ctx.moveTo(x, y); ctx.lineTo(x - 2.4, y + 13 + (i % 3) * 4);
+        }
+        ctx.strokeStyle = "rgba(175,215,255,.2)"; ctx.lineWidth = 1; ctx.stroke();
+      }
+
       /* Everything from here to the smoke is LIGHT, so it composites additively:
          two beams crossing get brighter where they meet, a fireball blows out
          to white in its core, and sparks read as embers rather than as confetti.
@@ -1312,6 +1329,39 @@ export function useArenaFx(stage) {
           const k = w.a0 + (w.a1 - w.a0) * t;
           return [w.x + Math.cos(k) * w.r, w.y + Math.sin(k) * w.r * w.sq];
         };
+        if (w.blade) {
+          /* ── a blade's trail ──
+             Not a line: the crescent an edge cuts through the air, thin where
+             the swing started and full at the edge, white-hot at its leading
+             rim and burning out to the weapon's colour behind it. A strip of
+             afterimage runs inside it so the swing reads as fast metal
+             rather than a painted arc. */
+          const N = 18, o = [], inn = [];
+          const t0 = Math.max(0, e - 0.78);
+          for (let s2 = 0; s2 <= N; s2++) {
+            const t = t0 + (head - t0) * s2 / N, f = s2 / N;
+            const k = w.a0 + (w.a1 - w.a0) * t, th = w.r * (0.04 + 0.5 * f * f);
+            o.push([w.x + Math.cos(k) * w.r, w.y + Math.sin(k) * w.r * w.sq]);
+            inn.push([w.x + Math.cos(k) * (w.r - th), w.y + Math.sin(k) * (w.r - th) * w.sq]);
+          }
+          const g = ctx.createLinearGradient(o[0][0], o[0][1], o[N][0], o[N][1]);
+          g.addColorStop(0, w.c + "00"); g.addColorStop(0.55, w.c + "99"); g.addColorStop(0.9, "#ffffffee"); g.addColorStop(1, "#ffffff");
+          ctx.globalAlpha = a2; ctx.fillStyle = g;
+          ctx.beginPath();
+          o.forEach(([px, py], j) => (j ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+          for (let j = N; j >= 0; j--) ctx.lineTo(inn[j][0], inn[j][1]);
+          ctx.closePath(); ctx.fill();
+          // the edge itself: a hard bright rim along the outside of the cut
+          ctx.strokeStyle = g; ctx.lineWidth = 2.2;
+          ctx.beginPath(); o.forEach(([px, py], j) => (j ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.stroke();
+          // bloom off the leading half, the light a white-hot edge throws
+          ctx.globalAlpha = a2 * 0.35; ctx.lineWidth = 14; ctx.strokeStyle = w.c;
+          ctx.beginPath(); o.slice(N >> 1).forEach(([px, py], j) => (j ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.stroke();
+          ctx.globalAlpha = a2 * 0.6; ctx.lineWidth = 5;
+          ctx.beginPath(); o.slice(N >> 1).forEach(([px, py], j) => (j ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.stroke();
+          ctx.globalAlpha = 1; ctx.restore();
+          continue;
+        }
         for (const [lw, col, al] of [[w.w * 3.2, w.c, .28], [w.w * 1.5, w.c, .7], [w.w * .55, "#ffffff", 1]]) {
           ctx.globalAlpha = a2 * al; ctx.strokeStyle = col; ctx.lineWidth = lw;
           ctx.beginPath();
@@ -1510,7 +1560,7 @@ export function useArenaFx(stage) {
         const k = S.shock[i]; k.p += dt / k.dur;
         if (k.p >= 1) { S.shock.splice(i, 1); continue; }
         const e = 1 - Math.pow(1 - k.p, 3);                 // fast out, then coasts
-        const r = k.r0 + (k.r1 - k.r0) * e, a2 = Math.pow(1 - k.p, 2.2);
+        const r = k.r0 + (k.r1 - k.r0) * e, a2 = Math.pow(1 - k.p, 2.2) * (k.k == null ? 1 : k.k);
         const g = ctx.createRadialGradient(k.x, k.y, Math.max(1, r * 0.82), k.x, k.y, r * 1.06);
         g.addColorStop(0, "rgba(255,255,255,0)");
         g.addColorStop(0.6, `rgba(255,246,220,${a2 * 0.5})`);
@@ -1558,6 +1608,38 @@ export function useArenaFx(stage) {
         ctx.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * r.p, 0, 7);
         ctx.strokeStyle = r.c; ctx.globalAlpha = (1 - r.p) * 0.8;
         ctx.lineWidth = 3 * (1 - r.p) + 0.6; ctx.stroke(); ctx.globalAlpha = 1;
+      }
+
+      // ── the energy shield: a guarded blow lights up the field it hit — a
+      //    bubble of hex cells, brightest where it landed, the ripple running
+      //    out across the cells from there
+      for (let i = S.hexes.length - 1; i >= 0; i--) {
+        const h2 = S.hexes[i]; h2.p += dt / h2.dur;
+        if (h2.p >= 1) { S.hexes.splice(i, 1); continue; }
+        const a2 = Math.pow(1 - h2.p, 1.3), rip = h2.p * 1.25;
+        const RX = h2.r, RY = h2.r * 1.5, cell = h2.r * 0.2;
+        ctx.save();
+        ctx.beginPath(); ctx.ellipse(h2.x, h2.y, RX, RY, 0, 0, 7);
+        ctx.globalAlpha = a2 * 0.16; ctx.fillStyle = h2.c; ctx.fill();
+        ctx.globalAlpha = a2 * 0.9; ctx.strokeStyle = h2.c; ctx.lineWidth = 2; ctx.stroke();
+        ctx.clip();
+        ctx.lineWidth = 1.1;
+        for (let row = -8; row <= 8; row++) {
+          for (let col = -5; col <= 5; col++) {
+            const cx2 = h2.x + (col + (row & 1) * 0.5) * cell * 1.73, cy2 = h2.y + row * cell * 1.5;
+            const d = Math.hypot((cx2 - h2.hx) / RX, (cy2 - h2.hy) / RY);
+            const lit = Math.max(0, 1 - Math.abs(d - rip) * 3.2);
+            if (lit < 0.05) continue;
+            ctx.globalAlpha = a2 * lit;
+            ctx.beginPath();
+            for (let k = 0; k < 6; k++) {
+              const an = Math.PI / 6 + k * Math.PI / 3, px = cx2 + Math.cos(an) * cell * 0.92, py = cy2 + Math.sin(an) * cell * 0.92;
+              k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+            }
+            ctx.closePath(); ctx.stroke();
+          }
+        }
+        ctx.restore();
       }
 
       // ── sparks: real velocity, gravity and drag, so they arc instead of fan
@@ -1783,7 +1865,16 @@ export function useArenaFx(stage) {
     const b = at(from === "me" ? "op" : "me", "body");
     const dir = b.x > a.x ? 1 : -1;
     const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    if (kind === "kick") {
+    if (kind === "slash" || kind === "cleave") {
+      /* a blade cuts a wide arc in front of the one swinging it: a slash
+         comes down across the body from high behind, a cleave is an
+         overhead chop that finishes low in front */
+      const cl = kind === "cleave";
+      S.swipes.push({ x: a.x + dir * S.w * 0.09, y: a.y - S.h * (cl ? 0.04 : 0.07), r: S.w * (cl ? 0.21 : 0.19), sq: cl ? 1.1 : 0.78,
+        a0: dir > 0 ? -Math.PI * (cl ? 0.85 : 0.62) : -Math.PI * (cl ? 0.15 : 0.38),
+        a1: dir > 0 ? Math.PI * (cl ? 0.42 : 0.2) : Math.PI * (cl ? 0.58 : 0.8),
+        p: 0, dur: cl ? 0.34 : 0.26, c: colour, w: 10, blade: 1 });
+    } else if (kind === "kick") {
       // swung up from below: start low behind, finish high in front
       S.swipes.push({ x: mid.x, y: mid.y + S.h * 0.06, r: S.w * 0.13, sq: 1.5,
         a0: dir > 0 ? Math.PI * 0.75 : Math.PI * 0.25,
@@ -1796,6 +1887,17 @@ export function useArenaFx(stage) {
         a1: dir > 0 ? Math.PI * 0.15 : Math.PI * 0.85,
         p: 0, dur: 0.24, c: colour, w: 9 });
     }
+  }, []);
+
+  /** A guarded hit: the defender's energy field lights up in hex cells,
+      rippling out from where the blow landed. */
+  const shield = useCallback((side, colour = "#5ce1ff") => {
+    const S = stateRef.current; if (!S) return;
+    const c = at(side, "body"), foe = side === "me" ? "op" : "me";
+    const dir = (S.pos[foe] || .5) > (S.pos[side] || .5) ? 1 : -1;
+    const r = S.h * 0.2;
+    S.hexes.push({ x: c.x, y: c.y - S.h * 0.02, hx: c.x + dir * r * 0.85, hy: c.y - S.h * 0.05, r, p: 0, dur: 0.5, c: colour });
+    S.rings.push({ x: c.x + dir * r * 0.85, y: c.y - S.h * 0.05, r0: 3, r1: 38, dur: 0.24, c: "#ffffff" });
   }, []);
 
   /** The moment of contact for a melee hit: a spiked flash, a shockwave, a
@@ -1817,9 +1919,17 @@ export function useArenaFx(stage) {
       seed: Math.random() * 100, p: 0, dur: 0.3, c: colour });
     S.rays.push({ x, y, r: 150 * power, n: 6, a0: Math.random() * 6.28, seed: Math.random() * 100, p: 0, dur: 0.28, c: colour });
     S.pools.push({ x, r: 70 * power, p: 0, dur: 0.34, c: colour });
-    // two waves at two speeds: the crack, then the pressure behind it
-    S.shock.push({ x, y, r0: 5, r1: 118 * power, p: 0, dur: 0.24 });
-    S.shock.push({ x, y, r0: 5, r1: 186 * power, p: 0, dur: 0.42 });
+    /* two waves at two speeds: the crack, then the pressure behind it. Kept
+       faint — at full strength the outer one read as a soap bubble blown
+       round both robots, which is the opposite of heavy */
+    S.shock.push({ x, y, r0: 5, r1: 104 * power, p: 0, dur: 0.22, k: 0.7 });
+    S.shock.push({ x, y, r0: 5, r1: 150 * power, p: 0, dur: 0.36, k: 0.3 });
+    /* a hard hit splits the light like a lens does: two thin rings, red and
+       cyan, a few pixels apart — the chromatic fringe of a very bright flash */
+    if (power > 1.15) {
+      S.rings.push({ x: x - 3, y, r0: 8, r1: 70 * power, dur: 0.26, c: "#ff3b6b" });
+      S.rings.push({ x: x + 3, y, r0: 8, r1: 70 * power, dur: 0.26, c: "#3be8ff" });
+    }
     S.balls.push({ x, y, r: 34 * power, p: 0, dur: 0.2 });
     S.balls.push({ x, y, r: 16 * power, p: 0, dur: 0.11 });
     S.flares.push({ x, y, r: 140 * power, p: 0, dur: 0.24, c: colour });
@@ -1861,5 +1971,5 @@ export function useArenaFx(stage) {
     S.flash = { c: colour, a, p: 0, dur };
   }, []);
 
-  return { canvasRef, bgRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, beam: bolt };
+  return { canvasRef, bgRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, shield, beam: bolt };
 }

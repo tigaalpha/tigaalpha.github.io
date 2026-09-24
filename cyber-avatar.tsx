@@ -358,6 +358,30 @@ const POSES = {
   down:   { lean: 16,  armL: -12, armR: -14, legL: -10, legR: 6,  head: 20, lift: 10 },
 };
 
+/* ── holding something ──
+   Where the held thing POINTS, per stance, for a fighter facing right
+   (degrees, 0 = toward the opponent, -90 = straight up). It is a world angle,
+   not an angle on the wrist: the weapon is counter-rotated against the arm,
+   so a sword stays a sword held up in guard however far the arm swings, and
+   comes level only on the stance that actually thrusts it. A cradled thing
+   stays upright whatever the arm does. */
+const HELD_ANG = {
+  blade: { idle: -62, ready: -50, attack: -14, kick: 30,  shoot: -28, throw: -96,  beam: -34, hit: -118, win: -102, down: 78 },
+  gun:   { idle: 36,  ready: 20,  attack: 8,   kick: 14,  shoot: 0,   throw: -34,  beam: 0,   hit: 48,   win: -70,  down: 72 },
+  staff: { idle: -92, ready: -82, attack: -34, kick: -8,  shoot: -22, throw: -118, beam: -28, hit: -120, win: -100, down: 62 },
+  palm:  {},
+};
+/* and where the ARM goes when the hand is full. The bare stances swing the
+   near arm back for a wind-up and let the punch come from the lunge; with a
+   weapon in it, that same arm has to carry the weapon INTO the strike, so a
+   few stances move it forward. Anything not listed keeps its bare angle. */
+const HELD_ARM = {
+  blade: { idle: -4,  ready: -8,  attack: -56, kick: -44 },
+  gun:   { idle: -2,  ready: -6,  attack: -30, kick: -30 },
+  staff: { idle: -6,  ready: -10, attack: -46, kick: -36 },
+  palm:  { idle: -10, ready: -14, attack: -40, kick: -32 },
+};
+
 /* hs = head scale · bw = body width · bh = overall height.
    Every hero model was drawn on ONE torso, so a line of them read as the same
    robot in different hats — which is exactly what they looked like. bw scales
@@ -739,7 +763,8 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 export const wrapYaw = (d) => ((((d + 180) % 360) + 360) % 360) - 180;
 
 export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOnly = false,
-                             armorA: armorAIn, armorB: armorBIn, glow: glowIn, accent: accentIn }) {
+                             armorA: armorAIn, armorB: armorBIn, glow: glowIn, accent: accentIn,
+                             held = null, hat = null, acc = null, mirror = false }) {
   const id = "ca" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const v = normalizeModel(model);
   /* The chassis is the model; the trim and the lights are whatever the
@@ -2813,7 +2838,21 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
      The walk cycle in the Adventure world drives this rig frame by frame - the
      rotations are already about the real joints, so there is nothing to add
      but the numbers. */
-  const PZ = (pose && typeof pose === "object") ? { ...POSES.idle, ...pose } : (POSES[pose] || POSES.idle);
+  const PZ0 = (pose && typeof pose === "object") ? { ...POSES.idle, ...pose } : (POSES[pose] || POSES.idle);
+  /* ── facing ──
+     The stance tables are authored for a fighter facing RIGHT: a punch throws
+     the left arm across toward +x, a kick raises the left leg. A fighter
+     facing left used to throw the same limbs the same way — every strike
+     aimed away from the robot it was fighting. `mirror` swaps the sides so a
+     move always goes toward whoever it is aimed at. */
+  const PZ1 = mirror ? { ...PZ0, armL: PZ0.armR, armR: PZ0.armL, legL: PZ0.legR, legR: PZ0.legL } : PZ0;
+  const pname = typeof pose === "string" ? pose : null;
+  /* The near arm is the one toward the camera: turned right, that is the
+     viewer-left arm. It carries whatever is held. */
+  const nearL = Y >= 0;
+  const HK = held ? (HELD_ANG[held.kind] ? held.kind : "palm") : null;
+  const armOver = HK && pname ? HELD_ARM[HK][pname] : undefined;
+  const PZ = armOver == null ? PZ1 : nearL ? { ...PZ1, armL: armOver } : { ...PZ1, armR: armOver };
   const rot = (d, cx, cy) => `rotate(${d.toFixed(2)} ${cx} ${cy})`;
   const rig = MODEL_RIG[v] || MODEL_RIG.vanguard;
   const CC = classOf(v).c;                    // the duel class this chassis fights as
@@ -2949,6 +2988,147 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
      plate whatever its shape. */
   const castOn = keep("co", (d, op = 1) => <path d={d} fill={`url(#${id}-cast)`} opacity={op} />);
 
+  /* ── the held thing ──
+     Drawn INSIDE the hand's own arm group, between the palm and the fingers,
+     so the fingers close over the grip instead of the weapon hovering beside
+     them. (hx, hy) is the grip point on the hand and theta the rotation the
+     arm group applies; the weapon undoes that turn (and the body's width
+     scale, which would otherwise shear it) and then takes the stance's own
+     angle from HELD_ANG. */
+  const heldAt = (hx, hy, theta) => {
+    if (!held || !held.node || headOnly) return null;
+    const HA = HELD_ANG[HK];
+    const W = HK === "palm" ? -90 : (HA[pname] != null ? HA[pname] : HA.idle);
+    const g = held.g || [32, 44], ax = held.ax == null ? -90 : held.ax, k = held.k || 1;
+    return (
+      <g className="ca-held" transform={`translate(${hx} ${hy}) rotate(${(-theta).toFixed(2)}) scale(${(1 / bw).toFixed(4)} 1)${nearL ? "" : " scale(-1 1)"} rotate(${(W - ax).toFixed(2)}) scale(${k}) translate(${-g[0]} ${-g[1]})`}>
+        {held.node}
+      </g>
+    );
+  };
+  /* ── worn things ──
+     A hat is drawn inside the head's own group, so it tilts, bobs and turns
+     with the head; a face-mounted one (visor, mask) is projected like any
+     other face feature and slides round as the head turns. Its size and its
+     seat come from this model's skull, measured off the skull path, because
+     a chibi dome is half again as wide as a combat skull and sits lower. */
+  const skB = (() => {
+    const n = (String(HEAD.skull || "").match(/-?\d*\.?\d+/g) || []).map(Number);
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (let i = 0; i + 1 < n.length; i += 2) {
+      x0 = Math.min(x0, n[i]); x1 = Math.max(x1, n[i]); y0 = Math.min(y0, n[i + 1]); y1 = Math.max(y1, n[i + 1]);
+    }
+    return x1 > x0 ? { w: x1 - x0, top: y0, bot: y1 } : { w: 48, top: 3, bot: 72 };
+  })();
+  const hatEl = (() => {
+    if (!hat || !hat.node) return null;
+    const PR = HEAD.prof || { brow: 24, nose: 36, lip: 55, chin: 68 };
+    const LV = { eye: PR.nose - 1, mid: (PR.brow + PR.lip) / 2 + 2, brow: PR.brow, nose: PR.nose, lip: PR.lip };
+    const W = skB.w, TOP = skB.top, BOT = skB.bot;
+    // the skull taken as an ellipse: how wide it is at height y
+    const wAt = (y) => {
+      const yc = (TOP + BOT) / 2, b = (BOT - TOP) / 2, t = (y - yc) / b;
+      return W * Math.sqrt(Math.max(0.12, 1 - t * t));
+    };
+    const at = hat.at || "band", g = hat.g || [32, 56];
+    const f = (n) => n.toFixed(3);
+    let tf;
+    if (at === "cap" || at === "ears") {
+      const y0 = TOP - 2 - (hat.lift || 0);
+      const y1 = at === "ears" ? LV.eye : LV[hat.to] + (hat.dy || 0);
+      let kx = (at === "ears" ? W : Math.max(wAt(y1), W * 0.8)) * (hat.kw || 1) / hat.w;
+      const ky = (y1 - y0) / (hat.b - hat.t);
+      // a wide round skull would otherwise flatten a helmet into a pancake
+      if (at === "cap" && kx > ky * 1.45) kx = ky * 1.45;
+      tf = `translate(60 ${f(y0)}) scale(${f(kx)} ${f(ky)}) translate(-32 ${-hat.t})`;
+    } else if (at === "band" || at === "ring") {
+      const y = LV[hat.to] + (hat.dy || 0);
+      // a round chibi skull is very wide at the brow; past a point a crown
+      // sized to it towers over the head instead of sitting on it
+      const k = Math.min(wAt(y) * (hat.kw || 1), 50) / hat.w;
+      tf = `translate(60 ${f(y)}) scale(${f(k)}) translate(${-g[0]} ${-g[1]})`;
+    } else {
+      const k = (hat.k || 0.6) * W / 48, dx = (hat.dx || 0) * W / 48;
+      const y = at === "face" ? LV[hat.to] + (hat.dy || 0) : TOP + (hat.dy || 0);
+      tf = `translate(${f(60 + dx)} ${f(y)}) scale(${f(k)}) translate(${-g[0]} ${-g[1]})`;
+    }
+    const art = <g transform={tf}>{hat.node}</g>;
+    if (at === "face") return face(60 + (hat.dx || 0), art, "hatf");
+    return shell(at === "float" ? <g className="ca-hover">{art}</g> : art, "hats");
+  })();
+  /* An accessory rides one of four places (item-art accMountOf): the off-hand
+     forearm, the back, the hip, or — for the things that are meant to fly —
+     a station off the far shoulder. Authored facing right; turned the other
+     way it is mirrored onto the other side. */
+  const accAt = (where) => {
+    if (!acc || !acc.node || acc.at !== where || headOnly) return null;
+    /* back kit shows past the shoulder the body is turned away from, which
+       for a figure facing right is the viewer's LEFT */
+    const P = chibi
+      ? { back: [18, 128, .95], hip: [90, 262, .52], arm: [110, 188, .6], float: [118, 92, .62] }
+      : { back: [14, 82, 1.0], hip: [85, 246, .56], arm: [100, 194, .64], float: [116, 56, .6] };
+    const [x0, y, k] = P[where];
+    const x = where === "arm" && !nearL ? 120 - x0 : x0;
+    const el0 = (
+      <g transform={`translate(${x} ${y})${where === "hip" ? " rotate(8)" : ""} scale(${k}) translate(-32 -32)`}>{acc.node}</g>
+    );
+    // the bob is a CSS animation, so it goes on a wrapper: on the same element
+    // it would replace the placement transform outright
+    const el = where === "float" ? <g className="ca-hover">{el0}</g> : el0;
+    // the forearm mount lives inside the far arm's group, which is already on the right side
+    if (where === "arm" || nearL) return el;
+    return <g transform="translate(120 0) scale(-1 1)">{el}</g>;
+  };
+
+  /* ── the near arm, in front ──
+     Both arms used to be painted BEHIND the torso, which is right for the far
+     one and wrong for the near one the moment it crosses the body: the arm a
+     fighter shoots with vanished behind its own chest, and the bolt left from
+     nowhere. Turned more than a few degrees, the near forearm and hand are
+     now drawn again last, over the chest and the legs; the upper arm stays
+     where it was, under the pauldron that covers it. */
+  const liftArm = !headOnly && Math.abs(Y) >= 8 && Math.abs(Y) <= 80;
+  const armLowL = headOnly ? null : (<>
+                {plate("M10 160 L30 163 L28 218 L14 216 Z", { deep: .9 })}
+                {castOn("M10 160 L30 163 L28 218 L14 216 Z", .45)}
+                {groove("M13 176 L27 178 M13 192 L27 194", .9, .3)}
+                {!nearL && accAt("arm")}
+                {plate("M11 214 L30 217 L29 227 L11 224 Z", { fill: bTrim, deep: .9 })}
+                {/* a hand, not a mitt: palm, three fingers, a thumb */}
+                {plate("M12 226 L29 229 L28 239 L13 237 Z", { deep: .9 })}
+                {nearL && heldAt(20.5, 241, PZ.armL)}
+                {[0, 1, 2].map(f => (
+                  <g key={f}>{plate(`M${13.5 + f * 5} ${237 + f * .4} L${17.6 + f * 5} ${237.6 + f * .4} L${17.2 + f * 5} ${248 - f * 1.2} C${15.6 + f * 5} ${251 - f * 1.2} ${13.6 + f * 5} ${250.6 - f * 1.2} ${13.2 + f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
+                {plate("M11 230 L14.2 230.4 L13.2 241 C11.8 243.6 9.2 243.2 8.8 240.6 Z", { lw: .8, deep: .9 })}
+  </>);
+  const armLowR = headOnly ? null : (<>
+                {plate("M110 160 L90 163 L92 218 L106 216 Z", { deep: .9 })}
+                {castOn("M110 160 L90 163 L92 218 L106 216 Z", .45)}
+                {groove("M107 176 L93 178 M107 192 L93 194", .9, .3)}
+                {nearL && accAt("arm")}
+                {plate("M109 214 L90 217 L91 227 L109 224 Z", { fill: bTrim, deep: .9 })}
+                {plate("M108 226 L91 229 L92 239 L107 237 Z", { deep: .9 })}
+                {!nearL && heldAt(99.5, 241, -PZ.armR)}
+                {[0, 1, 2].map(f => (
+                  <g key={f}>{plate(`M${106.5 - f * 5} ${237 + f * .4} L${102.4 - f * 5} ${237.6 + f * .4} L${102.8 - f * 5} ${248 - f * 1.2} C${104.4 - f * 5} ${251 - f * 1.2} ${106.4 - f * 5} ${250.6 - f * 1.2} ${106.8 - f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
+                {plate("M109 230 L105.8 230.4 L106.8 241 C108.2 243.6 110.8 243.2 111.2 240.6 Z", { lw: .8, deep: .9 })}
+  </>);
+  const mittL = headOnly ? null : (<>
+                {/* a chibi keeps its mitt, but three soft nubs peek out from
+                    under it — enough to read as a hand without giving a cute
+                    build the machined fingers the tall chassis wears */}
+                {[0, 1, 2].map(f => (
+                  <g key={f}>{plate(`M${-1 + f * 8} 240 L${-1 + f * 8} 250 C${-1 + f * 8} 255 ${5 + f * 8} 255 ${5 + f * 8} 250 L${5 + f * 8} 240 Z`, { lw: .7, deep: .8 })}</g>))}
+                {nearL && heldAt(10.5, 234, PZ.armL * .8)}
+                {plate("M9 214 C1 214 -4 222 -4 231 C-4 241 3 248 11 248 C20 248 25 240 25 230 C25 220 18 214 9 214 Z")}
+  </>);
+  const mittR = headOnly ? null : (<>
+                {[0, 1, 2].map(f => (
+                  <g key={f}>{plate(`M${121 - f * 8} 240 L${121 - f * 8} 250 C${121 - f * 8} 255 ${115 - f * 8} 255 ${115 - f * 8} 250 L${115 - f * 8} 240 Z`, { lw: .7, deep: .8 })}</g>))}
+                {!nearL && heldAt(109.5, 234, -PZ.armR * .8)}
+                {plate("M111 214 C119 214 124 222 124 231 C124 241 117 248 109 248 C100 248 95 240 95 230 C95 220 102 214 111 214 Z")}
+  </>);
+
   /* ── the profile ──
      A parametric squash alone cannot turn a head: past about 45° there is
      nothing left of the face and the silhouette reads as a blank egg. So each
@@ -2975,7 +3155,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   );
 
   return (
-    <svg className={`ca ca-${v} ca-pose-${pose}`} viewBox={headOnly ? (HEAD.hv || "31 1 58 74") : "-20 -16 160 416"} width="100%" height="100%" aria-hidden="true">
+    <svg className={`ca ca-${v} ca-pose-${pname || "live"}`} viewBox={headOnly ? (HEAD.hv || "31 1 58 74") : "-20 -16 160 416"} width="100%" height="100%" aria-hidden="true"
+      overflow={headOnly ? undefined : "visible"}>
       <defs>
         {/* Polished, worn chrome. A hard specular band with dark falloff either
             side is what separates chrome from flat grey — the T-800's finish is
@@ -3445,6 +3626,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           )}
           {(front > 0.01 || rear > 0.01) && (
             <g opacity={Math.max(front, rear).toFixed(3)} transform={`translate(0 ${PZ.lift})`}>
+              {accAt("back")}
               {/* a tail, drawn before the body so the body covers its root and
                   only the puff clears the hip. Sized to peek past x=17, which is
                   where the barrel ends — anything narrower is invisible. */}
@@ -3457,19 +3639,14 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               {/* stubby arms, elbow-less, with mitten hands */}
               <g className="ca-limb" transform={rot(PZ.armL * .8, 22, 154)}>
                 {plate("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z")}
-                {/* a chibi keeps its mitt, but three soft nubs peek out from
-                    under it — enough to read as a hand without giving a cute
-                    build the machined fingers the tall chassis wears */}
-                {[0, 1, 2].map(f => (
-                  <g key={f}>{plate(`M${-1 + f * 8} 240 L${-1 + f * 8} 250 C${-1 + f * 8} 255 ${5 + f * 8} 255 ${5 + f * 8} 250 L${5 + f * 8} 240 Z`, { lw: .7, deep: .8 })}</g>))}
-                {plate("M9 214 C1 214 -4 222 -4 231 C-4 241 3 248 11 248 C20 248 25 240 25 230 C25 220 18 214 9 214 Z")}
+                {!nearL && accAt("arm")}
+                {!(liftArm && nearL) && mittL}
                 {castOn("M18 150 C6 154 -1 174 0 198 C1 214 8 222 17 220 C24 218 26 198 25 178 C24 164 22 154 18 150 Z", .55)}
               </g>
               <g className="ca-limb" transform={rot(-PZ.armR * .8, 98, 154)}>
                 {plate("M102 150 C114 154 121 174 120 198 C119 214 112 222 103 220 C96 218 94 198 95 178 C96 164 98 154 102 150 Z")}
-                {[0, 1, 2].map(f => (
-                  <g key={f}>{plate(`M${121 - f * 8} 240 L${121 - f * 8} 250 C${121 - f * 8} 255 ${115 - f * 8} 255 ${115 - f * 8} 250 L${115 - f * 8} 240 Z`, { lw: .7, deep: .8 })}</g>))}
-                {plate("M111 214 C119 214 124 222 124 231 C124 241 117 248 109 248 C100 248 95 240 95 230 C95 220 102 214 111 214 Z")}
+                {nearL && accAt("arm")}
+                {!(liftArm && !nearL) && mittR}
                 {castOn("M102 150 C114 154 121 174 120 198 C119 214 112 222 103 220 C96 218 94 198 95 178 C96 164 98 154 102 150 Z", .55)}
               </g>
               <g transform={rot(PZ.lean, 60, 280)}>
@@ -3541,6 +3718,13 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M34 264 Q60 274 86 264", 1.4, .4)}
               </g>
               </g>
+              {accAt("hip")}
+              {/* the near mitt again, in front of the barrel: see liftArm */}
+              {liftArm && (
+                <g className="ca-limb" transform={nearL ? rot(PZ.armL * .8, 22, 154) : rot(-PZ.armR * .8, 98, 154)}>
+                  {nearL ? mittL : mittR}
+                </g>
+              )}
             </g>
           )}
         </>}
@@ -3613,6 +3797,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                   </g>
                 );
               })()}
+              {accAt("back")}
               {/* arms swing from the shoulder; the whole limb is one group so
                   bicep, elbow, forearm and hand travel together */}
               <g className="ca-limb" transform={rot(PZ.armL, 24, 108)}>
@@ -3621,29 +3806,14 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {castOn("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z", .85)}
                 {joint(19, 158, 13)}
                 {pivot(19, 158, 6.2)}
-                {plate("M10 160 L30 163 L28 218 L14 216 Z", { deep: .9 })}
-                {castOn("M10 160 L30 163 L28 218 L14 216 Z", .45)}
-                {groove("M13 176 L27 178 M13 192 L27 194", .9, .3)}
-                {plate("M11 214 L30 217 L29 227 L11 224 Z", { fill: bTrim, deep: .9 })}
-                {/* a hand, not a mitt: palm, three fingers, a thumb */}
-                {plate("M12 226 L29 229 L28 239 L13 237 Z", { deep: .9 })}
-                {[0, 1, 2].map(f => (
-                  <g key={f}>{plate(`M${13.5 + f * 5} ${237 + f * .4} L${17.6 + f * 5} ${237.6 + f * .4} L${17.2 + f * 5} ${248 - f * 1.2} C${15.6 + f * 5} ${251 - f * 1.2} ${13.6 + f * 5} ${250.6 - f * 1.2} ${13.2 + f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
-                {plate("M11 230 L14.2 230.4 L13.2 241 C11.8 243.6 9.2 243.2 8.8 240.6 Z", { lw: .8, deep: .9 })}
+                {!(liftArm && nearL) && armLowL}
               </g>
               <g className="ca-limb" transform={rot(-PZ.armR, 96, 108)}>
                 {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", { deep: .9 })}
                 {castOn("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", .85)}
                 {joint(101, 158, 13)}
                 {pivot(101, 158, 6.2)}
-                {plate("M110 160 L90 163 L92 218 L106 216 Z", { deep: .9 })}
-                {castOn("M110 160 L90 163 L92 218 L106 216 Z", .45)}
-                {groove("M107 176 L93 178 M107 192 L93 194", .9, .3)}
-                {plate("M109 214 L90 217 L91 227 L109 224 Z", { fill: bTrim, deep: .9 })}
-                {plate("M108 226 L91 229 L92 239 L107 237 Z", { deep: .9 })}
-                {[0, 1, 2].map(f => (
-                  <g key={f}>{plate(`M${106.5 - f * 5} ${237 + f * .4} L${102.4 - f * 5} ${237.6 + f * .4} L${102.8 - f * 5} ${248 - f * 1.2} C${104.4 - f * 5} ${251 - f * 1.2} ${106.4 - f * 5} ${250.6 - f * 1.2} ${106.8 - f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
-                {plate("M109 230 L105.8 230.4 L106.8 241 C108.2 243.6 110.8 243.2 111.2 240.6 Z", { lw: .8, deep: .9 })}
+                {!(liftArm && !nearL) && armLowR}
               </g>
               {/* pauldrons ride the shoulder line, so they take the same lean */}
               <g transform={rot(PZ.lean, 60, 200)}>
@@ -3816,11 +3986,19 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M30 385 L58 385 M62 385 L90 385", 1.6, .45)}
               </g>
               </g>
+              {accAt("hip")}
+              {/* the near forearm and hand, in front of everything: see liftArm */}
+              {liftArm && (
+                <g className="ca-limb" transform={nearL ? rot(PZ.armL, 24, 108) : rot(-PZ.armR, 96, 108)}>
+                  {nearL ? armLowL : armLowR}
+                </g>
+              )}
             </g>
           )}
         </>}
 
         </g>{/* end body width */}
+        {accAt("float")}
 
         <g transform={headOnly ? undefined : `translate(0 ${PZ.lift}) ${rot(PZ.lean, 60, chibi ? 280 : 200)} translate(60 -12) scale(${hs}) translate(-60 -3) ${rot(PZ.head, 60, 88)}`}>
         {/* ── neck ── */}
@@ -3856,6 +4034,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           {HEAD.shellArt}
         </g>, "shell")}
         {front > 0.01 && <g opacity={front.toFixed(3)}>{HEAD.art}</g>}
+        {hatEl}
         </g>
       </g>
     </svg>

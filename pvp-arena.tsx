@@ -21,11 +21,11 @@
    switching class starts a new track. Ranks gate the skills: the passive is
    yours from rank 1, the active at rank 3, the ultimate at rank 6. ── */
 
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
-import { ItemArt } from "./item-art";
+import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { petBonusOf, petById, petLevel, petStage, readPet, PetArt, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
 import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio } from "./arena-fx";
 import { AnswerReveal } from "./note-reveal";
@@ -2161,6 +2161,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   /* Which of the four movesets the thing in your hand belongs to. With
      nothing equipped the buttons stay exactly what they always were. */
   const wpnKit = (wpn && WPN_ACT[wpnArchetype(wpn.art)]) || null;
+  /* The weapon is drawn IN the hand now (CyberAvatar's `held`), so it moves
+     with the arm, sits in the fist and points where the stance points it.
+     Built once: the chassis is memoised and a new object every tick would
+     rebuild the whole robot. */
+  const heldGear = useMemo(() => (wpn ? { ...holdOf(wpn.art), node: <ItemArt art={wpn.art} sw={wpn.sw} size={64} /> } : null),
+    [wpn && wpn.id]);
   const actFor = (act) => {
     const base = ACT[act];
     if (!base) return null;
@@ -2183,6 +2189,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   /* The loudest thing money buys: the aura tier is the BEST rarity worn, so a
      single legendary reads across the room even on an otherwise plain kit. */
   const myTier = bestRarity(gear || []) || "common";
+  /* the hat and the accessory are drawn on the body too, for the same reason
+     as the weapon: seated on the skull and strapped to the arm, back or hip,
+     instead of pinned beside the robot at a fixed spot */
+  const hatGear = useMemo(() => (myHat ? { ...hatMountOf(myHat.art), node: <ItemArt art={myHat.art} sw={myHat.sw} size={64} /> } : null),
+    [myHat && myHat.id]);
+  const accGear = useMemo(() => (myAcc ? { at: accMountOf(myAcc.art), node: <ItemArt art={myAcc.art} sw={myAcc.sw} size={64} /> } : null),
+    [myAcc && myAcc.id]);
   const gearLv = (wpn ? itemLv(wpn.id) : 0) + (myHat ? itemLv(myHat.id) : 0)
     + (myAcc ? itemLv(myAcc.id) : 0)
     + ((gear || []).filter(g => g && g.id && String(g.id).startsWith("out-")).reduce((a, g) => a + itemLv(g.id), 0));
@@ -2442,7 +2455,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
          going), and the screen takes it (a harder shake and a short white
          flash). A kick swings from the floor and kicks dust up with it. */
       const isKick = mv.sfx === "kick";
-      G.swipe(side, isKick ? "#ffd23f" : colour, isKick ? "kick" : "punch");
+      /* a blade in the hand cuts its own arc (slash across, cleave down)
+         instead of the fist's hook or the boot's sweep */
+      const bladed = mv.part === "weapon";
+      G.swipe(side, isKick && !bladed ? "#ffd23f" : colour, bladed ? (isKick ? "cleave" : "slash") : isKick ? "kick" : "punch");
       a.sfx(isKick ? "kick" : crit ? "crit" : "hit");
       later(() => {
         G.impact(side, power * (isKick ? 1.25 : 1), colour, isKick ? "kick" : "punch");
@@ -2785,7 +2801,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (hasTrait(tier, "wakeup") && botArmorUntilRef.current > now && hitstunRef.current.op <= now) {
       botArmorUntilRef.current = 0;
       audioRef.current.sfx("block");
-      G.burst("op", 1, "#ff8a4c");
+      G.burst("op", 1, "#ff8a4c"); G.shield("op", "#ff8a4c");
       say("op", T("ทนได้!", "ARMOR", "霸体"), "block");
       return;
     }
@@ -2793,7 +2809,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (bossArmorRef.current) {
       bossArmorRef.current = false;
       audioRef.current.sfx("block");
-      G.burst("op", 1.1, "#ffd23f");
+      G.burst("op", 1.1, "#ffd23f"); G.shield("op", "#ffd23f");
       say("op", T("เกราะ!", "ARMOR!", "霸体!"), "block");
       return;
     }
@@ -2840,7 +2856,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (!o.unblockable) {
       // a stagger takes the guard away entirely — that is the whole point of it
       if (now < guardUntil.current && staggerRef.current <= now) {
-        audioRef.current.sfx("block"); G.burst("me", .8, "#5ce1ff");
+        audioRef.current.sfx("block"); G.burst("me", .8, "#5ce1ff"); G.shield("me", "#5ce1ff");
         // chip damage, so turtling forever is not a strategy
         const chip = Math.max(1, Math.round(dmg * 0.12));
         const cHp = Math.max(1, hpRef.current.me - chip);
@@ -2871,7 +2887,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         || (fx.passive === "evade" && Math.random() < 0.2)
         || Math.random() < itemFx.dodge || Math.random() < itemFx.blockChance) {
         if (nb.block > 0) { nb.block = 0; buffRef.current = nb; setBuffs(nb); }
-        audioRef.current.sfx("block"); G.burst("me", .7, "#5ce1ff");
+        audioRef.current.sfx("block"); G.burst("me", .7, "#5ce1ff"); G.shield("me", "#5ce1ff");
         say("me", T("กันได้!", "BLOCKED", "格挡"), "block"); return;
       }
     }
@@ -3130,7 +3146,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // the bot is holding guard: chip it, and let them know a throw beats this
     if (botRef.current.blockUntil > now) {
       audioRef.current.sfx("block");
-      G.burst("op", .6, "#5ce1ff");
+      G.burst("op", .6, "#5ce1ff"); G.shield("op", "#ff9a5c");
       say("op", T("มันกันไว้", "GUARDED", "被格挡"), "block");
       const chip = Math.max(1, Math.round(A.dmg * TAP_DMG * A2.dmg * 0.14));
       const cHp = Math.max(1, hpRef.current.op - chip);
@@ -3906,31 +3922,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           <div className="pvpfbody">
             <span className={`pvpaura r-${myTier}`} aria-hidden="true" />
             <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
-              glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" />
-            {myHat && (
-              <span className={`pvpgear hat r-${myHat.rarity}`} aria-hidden="true">
-                <ItemArt art={myHat.art} sw={myHat.sw} />
-              </span>
-            )}
+              glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" held={heldGear} hat={hatGear} acc={accGear} />
             {/* ── the thing you actually paid for ──
                 It used to be a 46px badge parked behind the hip, so a maxed
                 thousand-coin lance and a free starter torch were the same
                 unreadable smudge and nobody could see what the money bought.
                 It is held now, in front of the body, sized by rarity, lit by
                 its own bolt colour, and it swings when the punch lands. */}
-            {wpn && (
-              <span className={`pvpgear wpn r-${wpn.rarity}${wpnLv >= ITEM_MAX_LV ? " maxed" : ""}`}
-                style={{ "--wglow": myBolt }} aria-hidden="true">
-                <span className="pvpwpn-trail" />
-                <ItemArt art={wpn.art} sw={wpn.sw} />
-                {wpnLv > 0 && <span className="pvpwpn-lv">+{wpnLv}</span>}
-              </span>
-            )}
-            {myAcc && (
-              <span className={`pvpgear acc r-${myAcc.rarity}`} aria-hidden="true">
-                <ItemArt art={myAcc.art} sw={myAcc.sw} />
-              </span>
-            )}
           </div>
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {dizzy.me && <span className="pvpdizzy">✦✦✦</span>}
@@ -3960,7 +3958,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}${botGuard ? " guard" : ""}${botTell ? " tell" : ""}`}
           style={{ left: 0, right: "auto", transform: `translate3d(${((opX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-opAir * 62).toFixed(1)}px, 0)` }}>
           <div className="pvpfighter-in">
-          <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose}
+          <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose} mirror
             glow="#ff7a3c" accent="#ff4d6a" armorA="#2b1a1a" armorB="#8a4a3a" />
           {flash && flash.side === "op" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {/* the wind-up has to be READABLE or blocking is a coin flip */}

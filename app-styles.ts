@@ -1170,8 +1170,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    frame is lit by signage now, and neon on white reads as a smudge */
 .pvpme-stage{position:relative;width:96px;flex:none;height:190px;border-radius:11px;background:radial-gradient(ellipse 90% 60% at 50% 30%,rgba(255,43,214,.22),transparent 70%),radial-gradient(ellipse 80% 40% at 50% 100%,rgba(63,216,255,.28),transparent 70%),linear-gradient(180deg,#140a2e,#07051a);border:1px solid rgba(120,90,255,.45);box-shadow:inset 0 0 18px rgba(63,216,255,.18);display:flex;align-items:center;justify-content:center;overflow:hidden}
 .pvpme-stage::before{content:"";position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(transparent 0 0),repeating-linear-gradient(90deg,rgba(63,216,255,.16) 0 1px,transparent 1px 12px),repeating-linear-gradient(0deg,rgba(63,216,255,.16) 0 1px,transparent 1px 10px);-webkit-mask-image:linear-gradient(transparent,#000);mask-image:linear-gradient(transparent,#000);pointer-events:none}
-.pvpme-stage svg{position:relative}
-.pvpme-stage svg{display:block;height:178px;width:auto}
+.pvpme-stage svg.ca{position:relative}
+.pvpme-stage svg.ca{display:block;height:178px;width:auto}
 .pvpme-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .pvpme-nm{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
 .pvpme-rank{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--cc)}
@@ -1317,14 +1317,16 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    Everything that squashes, lunges, recoils or poses lives on the inner
    element, which does have a transition and can animate freely without ever
    fighting the walk for the same property. */
+/* layout containment only: paint containment clips to this box, and a sword
+   held out in front of the robot reaches well past it */
 .pvpfighter{position:absolute;bottom:var(--pvpfloor,6px);width:44%;height:210px;z-index:3;
-  will-change:transform;contain:layout paint}
+  will-change:transform;contain:layout}
 .pvpfighter-in{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;
   transition:transform .22s cubic-bezier(.34,1.4,.5,1)}
 /* ONE drop-shadow, not two: each one rasterises the entire path subtree, and
    the second (a faint blue bloom) was costing a full extra pass for something
    almost nobody could see. */
-.pvpfighter svg{display:block;height:206px;width:auto;filter:drop-shadow(0 12px 11px rgba(0,0,0,.62))}
+.pvpfighter svg.ca{display:block;height:206px;width:auto;filter:drop-shadow(0 12px 11px rgba(0,0,0,.62))}
 /* the contact shadow, lying ON the floor plane rather than under the sprite:
    an ellipse squashed to the same rake as the grid is what stops a figure
    floating a centimetre above the stage */
@@ -1768,7 +1770,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 /* landscape stands the fighters ON the floor plane and clear of the thumb
    pads: at 70% of a 412px-tall phone their legs ran behind the buttons */
 .pvppage.land .pvpfighter{height:58%}
-.pvppage.land .pvpfighter svg{height:100%}
+.pvppage.land .pvpfighter svg.ca{height:100%}
 .pvppage.land .pvpfighter::before{bottom:-7px;width:96px;height:22px}
 .pvppage.land .pvphps{padding:30px 14px 0}
 /* the wave clock reads under the health bars, not across the fighters — and
@@ -1986,7 +1988,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpres{padding:16px 13px;border-radius:16px;background:var(--card);border:1px solid var(--bd1);text-align:center}
 .pvpres.win{border-color:#ffd23f88;box-shadow:0 0 0 1px #ffd23f33}
 .pvpres-stage{height:210px;display:flex;align-items:center;justify-content:center}
-.pvpres-stage svg{display:block;height:206px;width:auto}
+.pvpres-stage svg.ca{display:block;height:206px;width:auto}
 .pvpres-score{font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:#d97757}
 .pvpres-line{font-family:'Rajdhani',sans-serif;font-style:italic;font-size:12.5px;color:var(--muted);margin-top:2px}
 /* the round score, read the way a cabinet prints it */
@@ -2002,7 +2004,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpbig{width:100%;margin-top:11px;padding:13px 10px;border:none;border-radius:13px;background:linear-gradient(135deg,#e2865f,#d05f43);color:#fff;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
 .pvpres-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
 .pvpghost{padding:12px 8px;border-radius:12px;border:1px solid var(--bd1);background:var(--card);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
-@media (max-width:360px){.pvpstage{height:232px}.pvpfighter{height:168px}.pvpfighter svg{height:166px}.pvpq{font-size:14px}}
+@media (max-width:360px){.pvpstage{height:232px}.pvpfighter{height:168px}.pvpfighter svg.ca{height:166px}.pvpq{font-size:14px}}
 .battlecard-soon.as-btn{display:block;width:100%;text-align:left;cursor:pointer;border:1px solid color-mix(in srgb,#d97757 34%,transparent);background:#d9775712;color:#b4522f;border-radius:11px;padding:9px 11px;font-family:inherit;line-height:1.45}
 .battlecard-soon.as-btn:hover{background:#d9775720}
 .mdv{max-width:440px!important;width:calc(100% - 22px);max-height:93vh!important;display:flex;flex-direction:column;overflow:hidden;background:var(--card)!important;border-color:var(--bd1)!important;box-shadow:0 24px 60px -20px rgba(20,30,60,.45)!important}
@@ -2189,10 +2191,13 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .cs-layer::before{content:"";position:absolute;left:50%;top:50%;width:165%;height:165%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,var(--rim) 0%,transparent 62%);opacity:.32;z-index:-1;pointer-events:none}
 /* the drawn avatar fills the figure box; equipped emoji ride on top of it */
 .cs-av{position:absolute;inset:0;display:block;z-index:5}
-.cs-av svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 10px 12px rgba(20,30,60,.28))}
+.cs-av svg.ca{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 10px 12px rgba(20,30,60,.28))}
 .ca-visor{animation:caVisor 3.4s ease-in-out infinite}
 @keyframes caVisor{0%,100%{opacity:.86}50%{opacity:1}}
 .ca-optic{animation:caVisor 2.2s ease-in-out infinite}
+/* a companion drone or a floating halo is MEANT to hover, so it bobs */
+.ca-hover{animation:caHover 3.4s ease-in-out infinite}
+@keyframes caHover{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 /* the sigil under every frame: its rune band drifts, nothing else moves */
 .ca-rune{animation:caRune 9s linear infinite}
 @keyframes caRune{to{stroke-dashoffset:-44}}
@@ -2258,7 +2263,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .charstage.rar-legendary .cs-aura{filter:blur(19px);animation-duration:2s}
 .charstage.rar-legendary .cs-ring1,.charstage.rar-legendary .cs-ring2{opacity:.85}
 .charstage.rar-legendary{box-shadow:inset 0 -34px 44px -34px rgba(20,30,60,.2),inset 0 1px 0 #fff,0 12px 34px -14px #ffb300,0 0 0 1.5px #ffb30099}
-@media (prefers-reduced-motion:reduce){.ca-rune,.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.ca-morph,.cs-grid,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan,.cs-turn-hint{animation:none}}
+@media (prefers-reduced-motion:reduce){.ca-hover,.ca-rune,.ca-visor,.ca-optic,.ca-core,.ca-eye,.ca-mouth,.ca-led,.ca-led circle,.ca-morph,.cs-grid,.cs-motes i,.cs-ring1,.cs-ring2,.cs-ring3,.cs-podium-glow,.cs-figure,.cs-aura,.cs-scan,.cs-turn-hint{animation:none}}
 @media (max-width:380px){.charstage{height:344px;--floor:22px}.cs-figure,.cs-reflect{width:114px;height:296px}.cs-aura{height:286px}.cs-cast{width:104px}.cs-hat{width:34px;height:34px;top:-11px}.cs-wpn,.cs-acc{width:34px;height:34px}.char-models{gap:3px}.char-model-nm{font-size:8px}}
 .char-slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .char-slot{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px}
