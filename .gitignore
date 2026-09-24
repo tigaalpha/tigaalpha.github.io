@@ -10,3 +10,7 @@ dist-landing/
 
 landing-en/bundle/
 landing-zh/bundle/
+
+# Supabase CLI local state (project ref/org ids — linked per machine)
+supabase/.temp/
+

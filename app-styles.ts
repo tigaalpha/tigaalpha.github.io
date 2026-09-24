@@ -3612,6 +3612,15 @@ html[data-theme="dark"] .anonwv-n{color:#ffc97a}
 .tigahub-chip{display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(124,92,255,.16);border:1px solid rgba(124,92,255,.4);color:#cdb9ff}
 .tigatipbadge{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.5px;padding:3px 8px;border-radius:999px;background:rgba(124,92,255,.25);border:1px solid rgba(124,92,255,.5);color:#cdb9ff}
 
+/* Practice Mode v4 (plan §4): per-note miss-state chips (A2) — green = clean
+   hit is the existing .pchip.done; amber = missed this round; red = was
+   missed at finish (spot launcher list) */
+.pchip--ok{background:rgba(52,199,89,.14);border-color:#34c759;color:#34c759}
+.pchip--retry{background:rgba(255,159,10,.14);border-color:#ffa502;color:#ffa502}
+.pchip--miss{background:rgba(255,82,82,.14);border-color:#ff5252;color:#ff5252}
+.pspot{text-align:left}
+.pspot .pchip{margin:2px}
+
 `;
 
 export function useInjectCSS() {
@@ -3626,4 +3635,3 @@ export function useInjectCSS() {
   }, []);
   return ready;
 }
-
