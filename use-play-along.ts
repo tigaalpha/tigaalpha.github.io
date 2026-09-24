@@ -89,6 +89,82 @@ export const DAILY_SONG_REWARD = { coins: 30, exp: 60 };
    evergreen recommendation engine, ProfilePage's game-stats bars all read
    them directly) - same convention as API_MODEL/logPractice/
    scoreDynamics. ── */
+/* ── crystal sprites ──
+   A cut gem, six facets round a centre, turning about its vertical axis: the
+   width breathes with the spin and the centre slides across, so the facets
+   trade light as it goes — which is what makes it read as a solid rather than
+   a flat hexagon. Each facet is shaded by how squarely it faces a key light up
+   and to the left. Rendered once per (hue, letter, size, turn step) and then
+   blitted; the cache is bounded because a song only has a dozen lanes. */
+const CRYSTAL_CACHE = new Map();
+const HALO_CACHE = new Map();
+// the glow round a crystal, one small bitmap per lane colour and size
+function haloSprite(hue, rr) {
+  const key = `${Math.round(hue)}|${Math.round(rr)}`;
+  let cv = HALO_CACHE.get(key);
+  if (cv) return cv;
+  if (HALO_CACHE.size > 200) HALO_CACHE.clear();
+  const R = Math.max(4, Math.round(rr * 2.2)), S = R * 2;
+  cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+  const c = cv.getContext("2d");
+  const g = c.createRadialGradient(R, R, R * 0.18, R, R, R);
+  g.addColorStop(0, `hsla(${hue},100%,64%,0.55)`); g.addColorStop(1, "rgba(0,0,0,0)");
+  c.fillStyle = g; c.fillRect(0, 0, S, S);
+  HALO_CACHE.set(key, cv);
+  return cv;
+}
+const CRYSTAL_STEPS = 24;
+function crystalSprite(hue, letter, rr, spin, missed, noteScale, dpr) {
+  const step = ((Math.round(spin / (Math.PI * 2) * CRYSTAL_STEPS) % CRYSTAL_STEPS) + CRYSTAL_STEPS) % CRYSTAL_STEPS;
+  const r = Math.round(rr * 2) / 2;
+  const key = `${Math.round(hue)}|${letter}|${r}|${step}|${missed ? 1 : 0}|${dpr}`;
+  let sp = CRYSTAL_CACHE.get(key);
+  if (sp) return sp;
+  if (CRYSTAL_CACHE.size > 1500) CRYSTAL_CACHE.clear();
+  const a = step / CRYSTAL_STEPS * Math.PI * 2;
+  const pad = 3, w = Math.ceil(r * 2 + pad * 2), h = Math.ceil(r * 2.2 + pad * 2);
+  const cv = document.createElement("canvas");
+  cv.width = Math.ceil(w * dpr); cv.height = Math.ceil(h * dpr);
+  const c = cv.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cx = w / 2, cy = h / 2;
+  const sw = 0.72 + 0.28 * Math.abs(Math.cos(a));
+  const ox = Math.sin(a) * r * 0.28;
+  const V = [[0, -1.1], [0.92, -0.38], [0.92, 0.42], [0, 1.1], [-0.92, 0.42], [-0.92, -0.38]];
+  const vx = (k) => cx + V[k][0] * r * sw, vy = (k) => cy + V[k][1] * r;
+  const ccx = cx + ox, ccy = cy - r * 0.08;
+  for (let k = 0; k < 6; k++) {
+    const k2 = (k + 1) % 6;
+    const nxm = (V[k][0] + V[k2][0]) / 2 + ox / r * 0.6, nym = (V[k][1] + V[k2][1]) / 2;
+    const lit = Math.max(0, (-nxm * 0.62 - nym * 0.78) / Math.hypot(nxm || 0.001, nym || 0.001));
+    c.fillStyle = missed
+      ? `rgba(${Math.round(70 + lit * 60)},${Math.round(74 + lit * 60)},${Math.round(88 + lit * 60)},0.5)`
+      : `hsl(${hue},${Math.round(80 + lit * 15)}%,${Math.round(24 + lit * 50)}%)`;
+    c.beginPath(); c.moveTo(ccx, ccy); c.lineTo(vx(k), vy(k)); c.lineTo(vx(k2), vy(k2)); c.closePath(); c.fill();
+  }
+  c.strokeStyle = missed ? "rgba(170,176,190,0.4)" : `hsla(${hue},100%,86%,0.9)`; c.lineWidth = 1;
+  c.beginPath();
+  for (let k = 0; k < 6; k++) { c.moveTo(ccx, ccy); c.lineTo(vx(k), vy(k)); }
+  c.stroke();
+  c.strokeStyle = missed ? "rgba(170,176,190,0.5)" : "rgba(255,255,255,0.92)"; c.lineWidth = 1.3;
+  c.beginPath(); c.moveTo(vx(0), vy(0)); for (let k = 1; k < 6; k++) c.lineTo(vx(k), vy(k)); c.closePath(); c.stroke();
+  if (!missed) {
+    c.fillStyle = "rgba(255,255,255,0.9)";
+    c.beginPath(); c.arc(cx - r * 0.34 * sw, cy - r * 0.46, Math.max(1.2, r * 0.11), 0, Math.PI * 2); c.fill();
+    // the letter shrinks with the crystal, or it would overflow a half-size
+    // one in landscape; a dark halo keeps it legible on any facet
+    const fs = Math.max(8, Math.round(13 * noteScale));
+    c.font = `bold ${fs}px Rajdhani, sans-serif`; c.textAlign = "center";
+    c.lineWidth = 3; c.lineJoin = "round"; c.strokeStyle = `hsla(${hue},80%,14%,0.85)`;
+    c.strokeText(letter, cx, cy + fs * 0.34);
+    c.fillStyle = "rgba(255,255,255,0.98)";
+    c.fillText(letter, cx, cy + fs * 0.34);
+  }
+  sp = { cv, w, h, ox: cx, oy: cy };
+  CRYSTAL_CACHE.set(key, sp);
+  return sp;
+}
+
 export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell }) {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -601,47 +677,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     // positions, just smaller heads, so consecutive notes read as separate.
     const landscape = W > H;
     const noteScale = landscape ? 0.5 : 1;
-    // deep-space nebula backdrop — pre-rendered offscreen once per size, drawn each frame
-    let neb = songNebulaRef.current;
-    if (!neb || neb.w !== W || neb.h !== H) {
-      const nc = document.createElement("canvas"); nc.width = Math.max(1, W); nc.height = Math.max(1, H);
-      const nx = nc.getContext("2d");
-      nx.fillStyle = "#050414"; nx.fillRect(0, 0, W, H);
-      const blobs = [[0.22, 0.24, 0.55, "rgba(148,60,100,0.17)"], [0.82, 0.14, 0.45, "rgba(6,150,214,0.14)"], [0.55, 0.72, 0.6, "rgba(255,82,82,0.08)"], [0.1, 0.85, 0.4, "rgba(217,119,87,0.06)"]];
-      for (const [fx, fy, fr, col] of blobs) {
-        const g0 = nx.createRadialGradient(fx * W, fy * H, 0, fx * W, fy * H, fr * Math.max(W, H));
-        g0.addColorStop(0, col); g0.addColorStop(1, "rgba(0,0,0,0)");
-        nx.fillStyle = g0; nx.fillRect(0, 0, W, H);
-      }
-      neb = songNebulaRef.current = { cv: nc, w: W, h: H };
-    }
-    ctx.drawImage(neb.cv, 0, 0);
-    if (fever) { ctx.fillStyle = "rgba(255,82,82,0.06)"; ctx.fillRect(0, 0, W, H); } // fever = the whole sky heats up
-    // twinkling parallax starfield — bigger stars drift faster (depth), fever = warp speed
-    const drift = fever ? 0.06 : 0.012;
-    for (const s of songStarsRef.current) {
-      const tw = 0.5 + 0.5 * Math.sin(tSec * 1.4 + s.tw);
-      ctx.globalAlpha = 0.2 + 0.55 * tw;
-      ctx.fillStyle = "#ffbcd9";
-      ctx.beginPath(); ctx.arc(s.fx * W, ((s.fy + tSec * drift * s.r) % 1) * H, s.r, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    // a lone shooting star streaks by every ~7s (deterministic from time — no per-frame state)
-    const winId = Math.floor(tSec / 7), winT = (tSec % 7) / 0.9;
-    if (winT < 1) {
-      const rnd = Math.abs(Math.sin(winId * 127.1) * 43758.5453) % 1;
-      const sx = (0.15 + rnd * 0.7 + winT * 0.25) * W, sy = (0.05 + (rnd * 7 % 1) * 0.3 + winT * 0.22) * H;
-      ctx.globalAlpha = Math.sin(winT * Math.PI) * 0.8;
-      ctx.strokeStyle = "#faf0f5"; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 26, sy - 18); ctx.stroke();
-      ctx.globalAlpha = 1; ctx.lineWidth = 1;
-    }
+    /* ── the backdrop: a neon city under a rune-wheel ──
+       Play Along used to be deep space with meteors falling on Earth. The
+       arena the robots fight in is a cyberpunk city at night with a summoning
+       sigil in its sky, and the two modes are one game, so this is the same
+       place seen from the street: a dark skyline, a perspective grid floor
+       running up to it, and the rune-wheel hanging over the lanes. Every bit
+       of it is static, so it is painted ONCE per canvas size into an
+       offscreen and blitted each frame — the per-frame cost is one drawImage,
+       exactly what the nebula it replaces cost. */
     const hitY = H - 8;
     const pxPerSec = hitY / SONG_LEAD;
-    // a faint glowing Earth horizon along the hit-line — what the meteors are falling toward
-    const earthGrad = ctx.createLinearGradient(0, hitY - 30, 0, hitY + 20);
-    earthGrad.addColorStop(0, "rgba(6,150,214,0)"); earthGrad.addColorStop(1, "rgba(6,150,214,0.28)");
-    ctx.fillStyle = earthGrad; ctx.fillRect(0, hitY - 30, W, 38);
     // Each lane's x-position is the actual key it maps to, so a falling note lands
     // directly above the piano key (and the lit key) the learner must press.
     // Map each lane to its real piano key position using noteKeyFrac.
@@ -651,14 +697,151 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const handBaseOct = hand === "left" ? 2 : 4;
     const handNW = hand === "both" ? 28 : 14;
     const laneFrac = lanes.map(ln => noteKeyFrac(ln, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 });
-    for (let i = 0; i < nLane; i++) {
-      const f = laneFrac[i], hue = laneHue(lanes[i]);
-      const cw = f.w * W, cx = f.cx * W - cw / 2;
-      ctx.fillStyle = `hsla(${hue},70%,50%,0.07)`;
-      ctx.fillRect(cx, 0, cw, H);
+    const bakeKey = `${W}|${H}|${dpr}|${hand}|${noteScale}|${lanes.join(",")}`;
+    let neb = songNebulaRef.current;
+    if (!neb || neb.key !== bakeKey) {
+      /* Baked at device resolution, so the per-frame blit is 1:1 rather than
+         a 2x upscale, and the lanes, rails and hit-line are baked into it
+         too: they only move when the song or the hand changes, and stroking
+         them live measured at a third of the frame on a throttled phone. */
+      const nc = document.createElement("canvas"); nc.width = Math.max(1, Math.round(W * dpr)); nc.height = Math.max(1, Math.round(H * dpr));
+      const nx = nc.getContext("2d");
+      nx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const sky = nx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#070318"); sky.addColorStop(0.55, "#0c0626"); sky.addColorStop(1, "#030110");
+      nx.fillStyle = sky; nx.fillRect(0, 0, W, H);
+      for (const [fx, fy, fr, col] of [[0.18, 0.2, 0.55, "rgba(255,43,214,0.13)"], [0.86, 0.16, 0.5, "rgba(40,220,255,0.12)"], [0.5, 0.72, 0.6, "rgba(140,70,255,0.1)"]]) {
+        const g0 = nx.createRadialGradient(fx * W, fy * H, 0, fx * W, fy * H, fr * Math.max(W, H));
+        g0.addColorStop(0, col); g0.addColorStop(1, "rgba(0,0,0,0)");
+        nx.fillStyle = g0; nx.fillRect(0, 0, W, H);
+      }
+      nx.globalCompositeOperation = "lighter";
+      // the rune-wheel: rings, a star of two triangles, clock ticks
+      const sx = W * 0.5, sy = H * 0.3, R = Math.min(W * 0.42, H * 0.24);
+      const halo = nx.createRadialGradient(sx, sy, R * 0.2, sx, sy, R * 1.4);
+      halo.addColorStop(0, "rgba(255,60,220,0.1)"); halo.addColorStop(1, "rgba(255,60,220,0)");
+      nx.fillStyle = halo; nx.beginPath(); nx.arc(sx, sy, R * 1.4, 0, 7); nx.fill();
+      nx.strokeStyle = "rgba(255,70,220,0.26)"; nx.lineWidth = 1.5;
+      nx.beginPath(); nx.arc(sx, sy, R, 0, 7); nx.stroke();
+      nx.strokeStyle = "rgba(255,70,220,0.1)"; nx.lineWidth = 6;
+      nx.beginPath(); nx.arc(sx, sy, R, 0, 7); nx.stroke();
+      nx.strokeStyle = "rgba(60,230,255,0.22)"; nx.lineWidth = 1;
+      nx.beginPath(); nx.arc(sx, sy, R * 0.82, 0, 7); nx.stroke();
+      nx.setLineDash([2, 5, 9, 5]); nx.beginPath(); nx.arc(sx, sy, R * 0.9, 0, 7); nx.stroke(); nx.setLineDash([]);
+      for (let k = 0; k < 24; k++) {
+        const a = k / 24 * Math.PI * 2, r0 = R * (k % 2 ? 0.93 : 0.86);
+        nx.beginPath(); nx.moveTo(sx + Math.cos(a) * r0, sy + Math.sin(a) * r0); nx.lineTo(sx + Math.cos(a) * R * 0.98, sy + Math.sin(a) * R * 0.98); nx.stroke();
+      }
+      nx.strokeStyle = "rgba(255,70,220,0.18)"; nx.lineWidth = 1.2;
+      for (const off of [-Math.PI / 2, Math.PI / 2]) {
+        nx.beginPath();
+        for (let k = 0; k < 3; k++) { const a = off + k * Math.PI * 2 / 3; const px = sx + Math.cos(a) * R * 0.8, py = sy + Math.sin(a) * R * 0.8; k ? nx.lineTo(px, py) : nx.moveTo(px, py); }
+        nx.closePath(); nx.stroke();
+      }
+      nx.strokeStyle = "rgba(60,230,255,0.24)";
+      nx.beginPath(); nx.arc(sx, sy, R * 0.3, 0, 7); nx.stroke();
+      nx.globalCompositeOperation = "source-over";
+      // the skyline: two planes of towers, the far one lighter behind more air
+      const hz = H * 0.8;
+      let seed = 7;
+      const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+      for (let L = 0; L < 2; L++) {
+        let x = -10;
+        while (x < W + 10) {
+          const bw = 18 + rnd() * 34, bh = H * (L ? 0.1 + rnd() * 0.16 : 0.16 + rnd() * 0.26);
+          nx.fillStyle = L ? "rgba(6,3,18,0.96)" : "rgba(22,12,52,0.85)";
+          nx.fillRect(x, hz - bh, bw, bh + 2);
+          const roof = L ? "rgba(60,230,255,0.55)" : "rgba(255,60,210,0.4)";
+          nx.fillStyle = roof; nx.fillRect(x, hz - bh, bw, 1.3);
+          for (let wy = hz - bh + 5; wy < hz - 3; wy += 6) for (let wx = x + 3; wx < x + bw - 3; wx += 5) {
+            if (rnd() < 0.72) continue;
+            nx.fillStyle = rnd() < 0.5 ? `rgba(255,90,220,${L ? 0.55 : 0.3})` : `rgba(80,230,255,${L ? 0.55 : 0.3})`;
+            nx.fillRect(wx, wy, 2, 2.4);
+          }
+          if (L && rnd() < 0.3) { // a vertical sign down the face of a tower
+            const sc = rnd() < 0.5 ? "255,60,210" : "60,230,255", sy0 = hz - bh + 6, sh = Math.min(bh - 10, 26);
+            nx.globalCompositeOperation = "lighter";
+            nx.fillStyle = `rgba(${sc},0.18)`; nx.fillRect(x + bw / 2 - 4, sy0 - 3, 8, sh + 6);
+            nx.fillStyle = `rgba(${sc},0.85)`; nx.fillRect(x + bw / 2 - 1.2, sy0, 2.4, sh);
+            nx.globalCompositeOperation = "source-over";
+          }
+          x += bw + (L ? 1 : 4);
+        }
+      }
+      // street glow where the city meets the floor
+      const sg = nx.createLinearGradient(0, hz - 30, 0, hz + 6);
+      sg.addColorStop(0, "rgba(255,60,210,0)"); sg.addColorStop(1, "rgba(255,60,210,0.28)");
+      nx.fillStyle = sg; nx.fillRect(0, hz - 30, W, 36);
+      // the grid floor, in perspective, running out from under the keys
+      nx.fillStyle = "#04020d"; nx.fillRect(0, hz, W, H - hz);
+      nx.strokeStyle = "rgba(60,230,255,0.22)"; nx.lineWidth = 1;
+      for (let k = 1; k <= 6; k++) { const q = k / 6, gy = hz + (H - hz) * q * q; nx.beginPath(); nx.moveTo(0, gy); nx.lineTo(W, gy); nx.stroke(); }
+      for (let k = -8; k <= 8; k++) { nx.beginPath(); nx.moveTo(W / 2 + k * 10, hz); nx.lineTo(W / 2 + k * W / 7, H); nx.stroke(); }
+      nx.fillStyle = "rgba(255,120,230,0.7)"; nx.fillRect(0, hz - 0.6, W, 1.2);
+      // vignette
+      const vg = nx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.3, W / 2, H * 0.45, Math.max(W, H) * 0.8);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,8,0.55)");
+      nx.fillStyle = vg; nx.fillRect(0, 0, W, H);
+      // the energy the crystals are falling into, pooled along the hit-line
+      const earthGrad = nx.createLinearGradient(0, hitY - 34, 0, hitY + 20);
+      earthGrad.addColorStop(0, "rgba(255,50,210,0)"); earthGrad.addColorStop(1, "rgba(255,50,210,0.3)");
+      nx.fillStyle = earthGrad; nx.fillRect(0, hitY - 34, W, 42);
+      /* lanes are light-rails now: a faint tint and a neon edge on each side
+         that fades out toward the sky, all edges in ONE stroked path */
+      const rail = nx.createLinearGradient(0, 0, 0, hitY);
+      rail.addColorStop(0, "rgba(90,235,255,0)"); rail.addColorStop(1, "rgba(90,235,255,0.32)");
+      nx.beginPath();
+      for (let i = 0; i < nLane; i++) {
+        const f = laneFrac[i], hue = laneHue(lanes[i]);
+        const cw = f.w * W, cx = f.cx * W - cw / 2;
+        nx.fillStyle = `hsla(${hue},90%,55%,0.07)`;
+        nx.fillRect(cx, 0, cw, H);
+        nx.moveTo(cx + 0.5, 0); nx.lineTo(cx + 0.5, hitY);
+        nx.moveTo(cx + cw - 0.5, 0); nx.lineTo(cx + cw - 0.5, hitY);
+      }
+      nx.strokeStyle = rail; nx.lineWidth = 1; nx.stroke();
+      // the hit-line: a charged bar, magenta through cyan, with a glow round it
+      nx.globalCompositeOperation = "lighter";
+      const hb = nx.createLinearGradient(0, 0, W, 0);
+      hb.addColorStop(0, "rgba(255,60,210,0.9)"); hb.addColorStop(0.5, "rgba(80,240,255,0.95)"); hb.addColorStop(1, "rgba(255,60,210,0.9)");
+      nx.fillStyle = "rgba(255,60,210,0.14)"; nx.fillRect(0, hitY - 7, W, 14);
+      nx.fillStyle = hb; nx.fillRect(0, hitY - 1.4, W, 2.8);
+      nx.fillStyle = "rgba(255,255,255,0.7)"; nx.fillRect(0, hitY - 0.4, W, 0.8);
+      // a receptor sigil where each lane meets it
+      for (let i = 0; i < nLane; i++) {
+        const f = laneFrac[i], rx0 = f.cx * W, rs = Math.min(9, f.w * W * 0.28) * noteScale + 3;
+        nx.strokeStyle = `hsla(${laneHue(lanes[i])},100%,70%,0.8)`; nx.lineWidth = 1.2;
+        nx.beginPath(); nx.moveTo(rx0, hitY - rs); nx.lineTo(rx0 + rs, hitY); nx.lineTo(rx0, hitY + rs); nx.lineTo(rx0 - rs, hitY); nx.closePath(); nx.stroke();
+      }
+      nx.globalCompositeOperation = "source-over"; nx.lineWidth = 1;
+      neb = songNebulaRef.current = { cv: nc, key: bakeKey };
     }
-    ctx.strokeStyle = "rgba(217,119,87,0.55)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0, hitY); ctx.lineTo(W, hitY); ctx.stroke(); ctx.lineWidth = 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(neb.cv, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (fever) { ctx.fillStyle = "rgba(255,40,200,0.07)"; ctx.fillRect(0, 0, W, H); } // fever = the whole city overloads
+    // data motes: drifting sparks in the two sign colours, fever = overdrive
+    const drift = fever ? 0.06 : 0.012;
+    for (let si = 0; si < songStarsRef.current.length; si++) {
+      const s = songStarsRef.current[si];
+      const tw = 0.5 + 0.5 * Math.sin(tSec * 1.4 + s.tw);
+      ctx.globalAlpha = 0.2 + 0.55 * tw;
+      ctx.fillStyle = si % 2 ? "#6ff4ff" : "#ff7ae6";
+      ctx.fillRect(s.fx * W, ((s.fy + tSec * drift * s.r) % 1) * H, s.r * 1.4, s.r * 1.4);
+    }
+    ctx.globalAlpha = 1;
+    // a light-trail streaks across the sky every ~7s (deterministic from time — no per-frame state)
+    const winId = Math.floor(tSec / 7), winT = (tSec % 7) / 0.9;
+    if (winT < 1) {
+      const rnd = Math.abs(Math.sin(winId * 127.1) * 43758.5453) % 1;
+      const sx = (0.15 + rnd * 0.7 + winT * 0.25) * W, sy = (0.05 + (rnd * 7 % 1) * 0.3 + winT * 0.22) * H;
+      const st = ctx.createLinearGradient(sx, sy, sx - 40, sy - 28);
+      st.addColorStop(0, "rgba(160,250,255,0.9)"); st.addColorStop(1, "rgba(255,60,210,0)");
+      ctx.globalAlpha = Math.sin(winT * Math.PI);
+      ctx.strokeStyle = st; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 40, sy - 28); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    }
     const drillStart = drillStartSecRef.current, drillEnd = drillEndSecRef.current;
     for (const n of notes) {
       if (drillEnd != null && (n.t < drillStart || n.t > drillEnd)) { if (!n.hit && !n.missed) n.missed = true; continue; } // #1 drill: only the segment falls
@@ -678,54 +861,38 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       const f = laneFrac[n.lane] || noteKeyFrac(n.note, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 };
       const w = Math.max(10, f.w * W - 4), top = y - h, hue = laneHue(n.note);
       const mcx = f.cx * W;
-      const rr = Math.max(7 * noteScale, Math.min(w / 2 - 1, 21) * noteScale); // meteor head radius (+15% cap), halved in landscape
-      const hy = y - rr;                               // head rides the leading (falling) edge
-      const spin = tSec * 1.6 + n.t * 2.3;             // slow tumble, phase unique per note
+      const rr = Math.max(7 * noteScale, Math.min(w / 2 - 1, 21) * noteScale); // crystal half-width (+15% cap), halved in landscape
+      const hy = y - rr * 1.1;                         // the crystal's tip rides the leading (falling) edge
+      const spin = tSec * 1.6 + n.t * 2.3;             // slow turn, phase unique per note
       if (!n.missed) {
-        // fiery tail — its length IS the note's duration, drawn additively so it truly glows
+        // the energy ribbon — its length IS the note's duration, drawn additively so it truly glows
         ctx.globalCompositeOperation = "lighter";
         const flick = 0.85 + 0.15 * Math.sin(now / 55 + n.t * 9);
         const tailTop = top - 6;
         const tg = ctx.createLinearGradient(mcx, hy, mcx, tailTop);
-        tg.addColorStop(0, `hsla(${hue},100%,62%,${0.5 * flick})`);
-        tg.addColorStop(0.5, `hsla(${(hue + 30) % 360},100%,55%,0.22)`);
+        tg.addColorStop(0, `hsla(${hue},100%,62%,${0.46 * flick})`);
+        tg.addColorStop(0.5, `hsla(${(hue + 40) % 360},100%,58%,0.18)`);
         tg.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = tg;
         ctx.beginPath();
-        ctx.moveTo(mcx - rr * 0.85, hy);
-        ctx.quadraticCurveTo(mcx - rr * 0.3, (hy + tailTop) / 2, mcx, tailTop);
-        ctx.quadraticCurveTo(mcx + rr * 0.3, (hy + tailTop) / 2, mcx + rr * 0.85, hy);
+        ctx.moveTo(mcx - rr * 0.7, hy);
+        ctx.quadraticCurveTo(mcx - rr * 0.22, (hy + tailTop) / 2, mcx, tailTop);
+        ctx.quadraticCurveTo(mcx + rr * 0.22, (hy + tailTop) / 2, mcx + rr * 0.7, hy);
         ctx.closePath(); ctx.fill();
-        // heat halo hugging the head
-        const halo = ctx.createRadialGradient(mcx, hy, rr * 0.4, mcx, hy, rr * 2.1);
-        halo.addColorStop(0, `hsla(${hue},100%,64%,${0.5 * flick})`);
-        halo.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = halo;
-        ctx.beginPath(); ctx.arc(mcx, hy, rr * 2.1, 0, Math.PI * 2); ctx.fill();
+        // the glow round the crystal
+        const hs = haloSprite(hue, rr);
+        ctx.globalAlpha = flick;
+        ctx.drawImage(hs, mcx - rr * 2.2, hy - rr * 2.2, rr * 4.4, rr * 4.4);
+        ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = "source-over";
       }
-      // the rock itself — an off-center highlight fakes a lit 3D sphere
-      const body = ctx.createRadialGradient(mcx - rr * 0.4, hy - rr * 0.4, rr * 0.15, mcx, hy, rr);
-      if (n.missed) { body.addColorStop(0, "rgba(150,156,168,0.5)"); body.addColorStop(0.7, "rgba(84,88,100,0.45)"); body.addColorStop(1, "rgba(52,56,66,0.4)"); }
-      else { body.addColorStop(0, `hsla(${hue},55%,72%,1)`); body.addColorStop(0.55, `hsla(${hue},50%,38%,1)`); body.addColorStop(1, `hsla(${hue},60%,16%,1)`); }
-      ctx.fillStyle = body;
-      ctx.beginPath(); ctx.arc(mcx, hy, rr, 0, Math.PI * 2); ctx.fill();
-      // tumbling craters sell the rotation
-      ctx.fillStyle = n.missed ? "rgba(40,44,54,0.5)" : `hsla(${hue},45%,14%,0.75)`;
-      for (let k = 0; k < 3; k++) {
-        const a = spin + k * 2.1;
-        const cxk = mcx + Math.cos(a) * rr * 0.5, cyk = hy + Math.sin(a) * rr * 0.42;
-        const crr = rr * (0.14 + k * 0.045);
-        ctx.beginPath(); ctx.ellipse(cxk, cyk, crr, crr * 0.75, a, 0, Math.PI * 2); ctx.fill();
-      }
-      if (!n.missed) {
-        // the note letter shrinks with the head, or it would overflow a
-        // half-size meteor in landscape
-        const fs = Math.max(8, Math.round(13 * noteScale));
-        ctx.fillStyle = "rgba(255,255,255,0.96)";
-        ctx.font = `bold ${fs}px Rajdhani, sans-serif`; ctx.textAlign = "center";
-        ctx.fillText(pcOf(n.note), mcx, hy + fs * 0.32);
-      }
+      /* The crystal itself comes from a sprite cache: six shaded facets, the
+         edges and the letter are a dozen path fills and a stroked glyph, and
+         paying that for every note on every frame measured at a third of the
+         frame rate on a throttled phone. The turn is quantised to 24 steps,
+         which at this size is indistinguishable from continuous. */
+      const spr = crystalSprite(hue, n.missed ? "" : pcOf(n.note), rr, spin, n.missed, noteScale, dpr);
+      ctx.drawImage(spr.cv, mcx - spr.ox, hy - spr.oy, spr.w, spr.h);
     }
     // ── rockets: a hit launches one from the hit-line, climbing to blow the meteor up ──
     const liveRockets = [];
@@ -742,25 +909,22 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       }
       liveRockets.push(r);
       const ry = hitY + (rTop - hitY) * t;
-      // exhaust flame — additive + flickering
+      /* a plasma dart, not a cartoon rocket: a bright spindle of the lane's
+         colour with a white core and a trail of light behind it */
       ctx.globalCompositeOperation = "lighter";
       const fl = 0.7 + 0.3 * Math.sin(now / 28 + r.t0);
-      const fg = ctx.createRadialGradient(rx, ry + 13, 0, rx, ry + 13, 14 * fl);
-      fg.addColorStop(0, "rgba(255,235,170,0.95)"); fg.addColorStop(0.4, "rgba(255,150,40,0.7)"); fg.addColorStop(1, "rgba(255,60,10,0)");
-      ctx.fillStyle = fg;
-      ctx.beginPath(); ctx.ellipse(rx, ry + 14, 5, 13 * fl, 0, 0, Math.PI * 2); ctx.fill();
+      const trail = ctx.createLinearGradient(rx, ry, rx, ry + 46);
+      trail.addColorStop(0, `hsla(${r.hue},100%,70%,${0.75 * fl})`); trail.addColorStop(1, `hsla(${r.hue},100%,60%,0)`);
+      ctx.fillStyle = trail;
+      ctx.beginPath(); ctx.moveTo(rx - 4, ry); ctx.lineTo(rx + 4, ry); ctx.lineTo(rx, ry + 46); ctx.closePath(); ctx.fill();
+      const dg = ctx.createRadialGradient(rx, ry, 0, rx, ry, 16);
+      dg.addColorStop(0, `hsla(${r.hue},100%,75%,0.8)`); dg.addColorStop(1, `hsla(${r.hue},100%,60%,0)`);
+      ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(rx, ry, 16, 0, Math.PI * 2); ctx.fill();
       ctx.globalCompositeOperation = "source-over";
-      // brushed-metal body + hue-tinted nose cone, fins and a glowing porthole
-      const met = ctx.createLinearGradient(rx - 5, 0, rx + 5, 0);
-      met.addColorStop(0, "#a67e95"); met.addColorStop(0.5, "#fbf2f7"); met.addColorStop(1, "#bb8fa7");
-      ctx.fillStyle = met;
-      roundRect(ctx, rx - 4.5, ry - 6, 9, 15, 3); ctx.fill();
-      ctx.fillStyle = `hsl(${r.hue},85%,60%)`;
-      ctx.beginPath(); ctx.moveTo(rx, ry - 15); ctx.lineTo(rx - 4.5, ry - 5); ctx.lineTo(rx + 4.5, ry - 5); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(rx - 4.5, ry + 4); ctx.lineTo(rx - 9, ry + 10); ctx.lineTo(rx - 4.5, ry + 9); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(rx + 4.5, ry + 4); ctx.lineTo(rx + 9, ry + 10); ctx.lineTo(rx + 4.5, ry + 9); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "#ff94e0";
-      ctx.beginPath(); ctx.arc(rx, ry - 1, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `hsl(${r.hue},100%,62%)`;
+      ctx.beginPath(); ctx.moveTo(rx, ry - 13); ctx.lineTo(rx + 4.6, ry); ctx.lineTo(rx, ry + 8); ctx.lineTo(rx - 4.6, ry); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.moveTo(rx, ry - 9); ctx.lineTo(rx + 1.8, ry); ctx.lineTo(rx, ry + 5); ctx.lineTo(rx - 1.8, ry); ctx.closePath(); ctx.fill();
     }
     songRocketsRef.current = liveRockets;
     // ── blasts: white-hot core + expanding shockwave + gravity-pulled embers ──
@@ -780,7 +944,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       ctx.globalAlpha = 0.75 * fade;
       ctx.strokeStyle = `hsla(${b.hue},100%,80%,1)`;
       ctx.lineWidth = 1 + 2.5 * fade;
-      ctx.beginPath(); ctx.arc(b.x, b.y, (b.big ? 95 : 66) * t + 6, 0, Math.PI * 2); ctx.stroke();
+      { // a hexagonal shockwave — the crystal's own shape, blown outward
+        const rr2 = (b.big ? 95 : 66) * t + 6;
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + Math.PI / 6 + t * 0.6; const px = b.x + Math.cos(a) * rr2, py = b.y + Math.sin(a) * rr2; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.closePath(); ctx.stroke();
+      }
       ctx.lineWidth = 1; ctx.globalAlpha = 1;
       for (let pi = 0; pi < b.parts.length; pi++) {
         const p = b.parts[pi];
@@ -797,7 +966,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (fl && fl.until > now) {
         const a = (fl.until - now) / 220;
         const f = laneFrac[i], cw = f.w * W, cx = f.cx * W - cw / 2;
-        ctx.fillStyle = fl.ok ? `rgba(217,119,87,${0.5 * a})` : `rgba(255,82,82,${0.42 * a})`;
+        ctx.fillStyle = fl.ok ? `rgba(70,235,255,${0.45 * a})` : `rgba(255,60,90,${0.42 * a})`;
         ctx.fillRect(cx, hitY - 42, cw, 50);
       }
     }
