@@ -7,10 +7,10 @@
 // reinstalls a worker whose BYTES changed, and the build copied this file
 // verbatim, so it never changed, so `activate` below never ran, so the
 // SW_UPDATED message App.tsx reloads on was never sent. Anyone with the app
-// open kept running the build they first loaded. 11d6fa2880d4 is replaced at
+// open kept running the build they first loaded. 50923ac84798 is replaced at
 // build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
 // file now changes exactly when the app does.
-const CACHE = "tiga-v16-11d6fa2880d4";
+const CACHE = "tiga-v16-50923ac84798";
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -21,14 +21,29 @@ self.addEventListener("message", e => {
   if (e.data && e.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
+// v17: only an UPDATE tells pages to reload — never a first install. activate
+// used to post SW_UPDATED unconditionally, so the very first time a visitor
+// reached the app (no worker yet, nothing stale anywhere) it still got
+// reloaded ~1.3s after loading: 11 of 92 first visits in the week to 24 Sep,
+// a lower bound, because the boot row is written 1.5s after paint and the
+// reload usually got there first. The landing page registers no worker, so
+// that first visit is exactly the Google-sign-up return — reloaded while the
+// ?code= was being exchanged. A first install is serving the page the build
+// it was just loaded with; there is nothing to reload into.
 self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll({ type: "window" }).then(clients => {
-        clients.forEach(c => c.postMessage({ type: "SW_UPDATED" }));
-      }))
+      .then(keys => {
+        const stale = keys.filter(k => k !== CACHE);
+        return Promise.all(stale.map(k => caches.delete(k))).then(() => stale.length > 0);
+      })
+      .then(wasUpdate => self.clients.claim().then(() => wasUpdate))
+      .then(wasUpdate => {
+        if (!wasUpdate) return;
+        return self.clients.matchAll({ type: "window" }).then(clients => {
+          clients.forEach(c => c.postMessage({ type: "SW_UPDATED" }));
+        });
+      })
   );
 });
 

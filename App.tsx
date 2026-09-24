@@ -89,6 +89,17 @@ import { Msg, Typing, Input } from "./chat-ui";
    group (chat starters + case panels) and splices matching FAQ_TOPICS
    entries (built at i18n load). pathway-data.ts / i18n.ts data stays
    verbatim - empty the Sets to bring everything back instantly. */
+/* Did this page load come straight back from Google? Read at module scope, so
+   it sees the URL BEFORE supabase-js (flowType "pkce", detectSessionInUrl)
+   swaps the ?code= for a session and cleans it off with replaceState. The
+   service-worker auto-reload below holds off while this is true — see there. */
+const AUTH_RETURN = (() => {
+  try {
+    return /[?&](code|error)=/.test(window.location.search || "") ||
+      /(access_token|error_description)=/.test(window.location.hash || "");
+  } catch (e) { return false; }
+})();
+
 const HIDDEN_STAGE_IDS = new Set(["music-marketing"]);
 for (let _pi = PATHWAY.length - 1; _pi >= 0; _pi--) if (HIDDEN_STAGE_IDS.has(PATHWAY[_pi].id)) PATHWAY.splice(_pi, 1);
 STAGES_BY_GROUP.benefits = PATHWAY.filter(s => s.group === "benefits");
@@ -10286,6 +10297,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         // (page + adminUnlocked in sessionStorage), so the console reopens
         // where it was.
         if (document.querySelector(".pvppage.fight") || document.querySelector(".admstu") || document.querySelector(".adminpay")) { setTimeout(go, 5000); return; }
+        /* Nor straight after a Google login. This page is then exchanging the
+           ?code= for a session, and the SKIP_WAITING nudge above lands two
+           seconds in — on a slow phone, mid-exchange. Seen live (1a70eb,
+           19 Sep): signed in from the landing page, then seven app boots in
+           80 seconds in slow/instant pairs and no page ever shown, until they
+           backed out to the landing page and tapped Google all over again.
+           A new build can wait fifteen seconds; a first sign-in cannot. */
+        if (AUTH_RETURN && performance.now() < 15000) { setTimeout(go, 3000); return; }
         window.location.reload();
       };
       go();

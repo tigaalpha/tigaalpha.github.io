@@ -169,8 +169,21 @@ export default function LandingPage1() {
         const { data } = await sb.auth.getSession();
         const s = data && data.session;
         if (!dead && s && s.user && !s.user.is_anonymous) {
+          /* Owner request (2026-09-24): after a Google login the visitor goes
+             straight into the app — not to a strip asking them to tap again.
+             Google is told to return to "/" already, but a signed-in visitor
+             still reaches this page: the Back button out of a slow first app
+             load, a Site-URL fallback, or simply a member tapping an ad again.
+             One of them (1a70eb, 19 Sep) logged in fine, bounced back here,
+             was shown the sign-up gate AGAIN and tapped Google a second time.
+             A member has nothing left to do on a sales page, so leave it.
+             replace(), not assign: Back must not return them here to loop.
+             ?preview keeps the old welcome strip, so the page can still be
+             checked by someone who is signed in. */
+          const preview = /[?&]preview\b/.test(window.location.search);
+          land(preview ? "returning_user" : "returning_user:forward");
+          if (!preview) { window.location.replace(APP_URL); return; }
           setReturningUser(true);
-          land("returning_user");
         }
       } catch (e) { /* no session readable — treat as guest */ }
     })();
