@@ -7,7 +7,8 @@ import {
 } from "./music-engine";
 import { teacherJudgeNote, getPianoTuneOffset } from "./piano-guard";
 import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
-import { logActivity, dayKey } from "./shared-infra";
+import { logActivity, dayKey, logUsage } from "./shared-infra";
+import { buildSpotTarget, SPOT_CAP_NOTES } from "./practice-spot";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
 import { runTeachingLoopForPractice, reinforceTeachingOutcome } from "./tigamodel/web";
@@ -115,6 +116,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceMissRef = useRef(0);
   const practiceNoteMissesRef = useRef([]); // Auto-Teach แม่นยำ (แผนข้อ 1+3): pitch-class ที่พลาดระหว่างซ้อม — flush ตอน finishPractice
   const practiceMissSnapshotRef = useRef([]); // Learning Data v1: โน้ตที่พลาด 6 ตัวล่าสุดของรอบ — อ่านโดย event tiga:practice-done หลัง flush
+  const practiceWrongByIdxRef = useRef(new Map()); // Practice v4 A1/A2: index เป้าหมาย → จำนวนครั้งที่พลาด (Map) — A2 ใช้ render ชิปสี, A1 ใช้หั่น spot drill ผ่าน buildSpotTarget/startSpotPractice
+  const practiceIsSpotRef = useRef(false); // Practice v4 §2.2: รอบนี้เป็น Spot Drill (subset) — finishPractice ไม่นับ bumpWeekly("perfect") (ไม่ใช่รอบเต็ม), bumpWeekly("games") นับตามปกติ
   const practicePauseRef = useRef(0);  // gaps > 4 s between consecutive correct hits this drill — TIGA teaching-loop "hesitation" signal (see finishPractice)
   const practiceLastHitRef = useRef(0); // Date.now() of the previous correct hit, for the pause detection above
   const practiceVelsRef = useRef([]); // MIDI velocities of hit notes this drill — see scoreDynamics()
@@ -316,6 +319,18 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
           practiceStreakRef.current = 0;
           setPracticeStreak(0);
           practiceNoteMissesRef.current.push(String(heardNote || "")); // Auto-Teach แม่นยำ (แผนข้อ 3): จดโน้ตที่พลาดจริงระหว่างซ้อม
+          // Practice v4 §2.3 (block): the wrong strike is charged to the FIRST
+          // still-unhit index of the current chord window (from
+          // practiceChordGrpRef — the same window the matching loop above
+          // walks). One rule, two modes: this is the block branch of it.
+          try {
+            const wlo = practiceChordGrpRef.current >= 0 ? practiceChordGrpRef.current : 0;
+            const wwin = practiceChordGrpRef.current >= 0 ? (((lastSeq.current || {}).chordGroupSize) || targets.length) : targets.length;
+            const whi = Math.min(targets.length, wlo + wwin);
+            for (let wi = wlo; wi < whi; wi++) {
+              if (!hit.has(wi)) { practiceWrongByIdxRef.current.set(wi, (practiceWrongByIdxRef.current.get(wi) || 0) + 1); break; }
+            }
+          } catch (e) {}
         }
         setPracticeHeard({ note: heardNote, ok: isRepeat });
       }
@@ -343,6 +358,9 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         practiceStreakRef.current = 0;
         setPracticeStreak(0);
         practiceNoteMissesRef.current.push(String(targets[idx] || "")); // Auto-Teach แม่นยำ (แผนข้อ 3): โน้ตเป้าหมายที่ตอบผิด
+        // Practice v4 §2.3 (seq): the note being waited on (practiceIdxRef) is
+        // the one the learner got wrong — same rule as block's branch above.
+        practiceWrongByIdxRef.current.set(idx, (practiceWrongByIdxRef.current.get(idx) || 0) + 1);
         setPracticeHeard({ note: heardNote, ok: false });
       }
     }
@@ -447,6 +465,13 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceNoteMissesRef.current = [];   // Auto-Teach แม่นยำ (แผนข้อ 3): เริ่มรอบใหม่ = จดใหม่
+    practiceWrongByIdxRef.current = new Map(); // Practice v4 §2.3: per-index miss counts reset with every fresh drill (start)
+    // Derive from lastSeq.isSpot (same pattern as restartPractice below) rather
+    // than trusting a pre-set flag: startSpotNote() sets the ref BEFORE calling
+    // this function, and a plain `= false` here ran synchronously in the same
+    // tick — wiping it before any note could be heard, so a spot round was
+    // forever graded as a full one (spotUsed never set, "perfect" farmable).
+    practiceIsSpotRef.current = !!(seq && seq.isSpot); // a spot run stays a spot run; a fresh full drill was never one
     practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
     practiceLastHitRef.current = 0;
     practiceVelsRef.current = [];
@@ -519,6 +544,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceNoteMissesRef.current = [];   // Auto-Teach แม่นยำ (แผนข้อ 3): เริ่มรอบใหม่ = จดใหม่
+    practiceWrongByIdxRef.current = new Map(); // Practice v4 §2.3: per-index miss counts reset with every fresh drill (restart/Play Again)
+    practiceIsSpotRef.current = practiceTargetRef.current && (lastSeq.current || {}).isSpot ? true : practiceIsSpotRef.current; // a restart of a spot drill stays a spot run (lastSeq.isSpot set by startSpotPractice below)
     practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
     practiceLastHitRef.current = 0;
     practiceVelsRef.current = [];
@@ -565,6 +592,51 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (style !== chordStyle) setChordStyle(style); // keep the persistent toggle in sync for next render; startPractice(style) below doesn't wait on it
     lastSeq.current = { notes: entry.notes, mode: entry.mode, key: entry.key, label: entry.label, stageId: entry.stageId, bossGroup: entry.bossGroup, chordGroupSize: entry.chordGroupSize || null, fingers: null };
     startPractice(style);
+  }
+
+  /* ── Practice Mode v4 A1 — Spot Drill ("ซ้อมเฉพาะโน้ตที่พลาด") ──
+     Cuts a subset drill of ONLY the missed notes/chords from the JUST-FINISHED
+     round (practiceWrongByIdxRef, §2.3) and starts it immediately, reusing the
+     ordinary startPractice() machinery. Contracts honored here (plan §2.2):
+     T2 — buildSpotTarget emits mode:"seq" for scale/seq cuts, and
+          startPractice only expands `seq.mode === "scale"`, so the subset is
+          NEVER double-expanded. E0-verified; startPractice untouched.
+     T3 — buildSpotTarget never creates stageId/bossGroup fields, so a spot
+          round can never markPathDone/markBossDone or overwrite a real
+          stage's Drill Deck record shape.
+     T4 — block cuts are whole chords with chordGroupSize/chordSizes
+          re-derived, so the block grading window stays honest.
+     T6 — the drill's own bpm rides along so the coach keeps working.
+     Fires "practice","spot:start" usage (D1) and bumps "games" weekly only —
+     "perfect" stays reserved for full rounds (finishPractice's own gate). */
+  function startSpotPractice() {
+    const seq = lastSeq.current || {};
+    const tgt = practiceTargetRef.current;
+    if (!tgt || !tgt.length) return null;
+    const spot = buildSpotTarget({
+      target: tgt,
+      ascNotes: practiceAscRef.current,
+      mode: practiceModeRef.current,
+      chordGroupSize: (seq.chordGroupSize) || 0,
+      chordSizes: seq.chordSizes,
+      wrongByIdx: practiceWrongByIdxRef.current,
+      fallbackPcs: practiceNoteMissesRef.current,
+      label: practiceLabelRef.current || seq.label || "",
+      bpm: (tgt.find(n => n && typeof n.bpm === "number" && n.bpm > 0) || {}).bpm ?? null,
+      key: practiceKeyRef.current,
+    });
+    if (!spot || !spot.notes || !spot.notes.length) return null; // nothing to drill — button stays honest
+    lastSeq.current = { notes: spot.notes, mode: spot.mode, key: spot.key, label: spot.label, chordGroupSize: spot.chordGroupSize || null, chordSizes: spot.chordSizes, fingers: null, isSpot: true, spotBpm: spot.bpm, spotCap: SPOT_CAP_NOTES };
+    startSpotNote();
+    return spot;
+  }
+  // startSpotNote: like replayDrill's hand-off, minus chordStyle override —
+  // a spot cut replays in the style it was graded in (block windows arrive
+  // pre-cut as whole chords, so block still grades correctly).
+  function startSpotNote() {
+    practiceIsSpotRef.current = true;
+    try { logUsage("practice", "spot:start"); } catch (e) {}
+    startPractice();
   }
 
   function exitPractice() {
@@ -681,7 +753,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // Weekly challenges — "games"/"perfect" used to only ever bump from Play
     // Along's finishSong(), so Practice Mode could never complete 6 of the
     // week's 9 rotating challenge types. hits = notes actually played correctly.
-    if (bumpWeekly) { bumpWeekly("games", 1); if (hits) bumpWeekly("perfect", hits); }
+    // Spot drills (practiceIsSpotRef) count toward "games" — a finished drill is
+    // a finished drill — but NEVER toward "perfect": a 4-note subset is not a
+    // full round, and claiming per-note perfects from it would farm the stat.
+    if (bumpWeekly) { bumpWeekly("games", 1); if (hits && !practiceIsSpotRef.current) bumpWeekly("perfect", hits); }
     writePracticeBest(bestKey, {
       accuracy: Math.max(accuracy, prevBest ? prevBest.accuracy : 0),
       bestStreak: Math.max(bestStreak, prevBest ? prevBest.bestStreak : 0),
@@ -703,6 +778,14 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       bossGroup: practiceBossGroupRef.current,
       chordStyle: practiceModeRef.current === "chord" ? chordStyle : null,
     });
+
+    // Practice v4 A1/A2 flush: snapshot this round's per-index miss map for the
+    // result screen (chips render from it via useSpotData) BEFORE the refs reset,
+    // then clear for the next run. Same flush point as practiceMissSnapshotRef
+    // above — the finish boundary is the only place both are consistent.
+    let wrongByIdxSnap = {};
+    try { wrongByIdxSnap = Object.fromEntries(practiceWrongByIdxRef.current); } catch (e) {}
+    practiceWrongByIdxRef.current = new Map();
 
     // Pathway completion — requires actually passing THIS stage's own drill,
     // not just having opened the lesson (see learnTopic()'s header comment).
@@ -763,7 +846,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
        whether accuracy moved vs. the learner's own bar. Null on any failure —
        the loop is an enhancement, never a crash path (same convention as
        kbTipFor). ── */
-    runFinishTeachingAndResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak });
+    runFinishTeachingAndResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, wrongByIdx: wrongByIdxSnap, spotUsed: practiceIsSpotRef.current === true }); // captured BEFORE the flag reset above? no — this runs first; the reset is after the event dispatch
   }
   /* The teaching loop + result hand-off, as its own async step (bug fix
      2026-09-21): runTeachingLoopForPractice() is async (runOnce() has been
@@ -774,7 +857,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
      reveal happen a microtask later. The AI flourish runs after the loop so
      its prompt still gets the real tigaTip context. */
   async function runFinishTeachingAndResult(ctx) {
-    const { label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak } = ctx;
+    const { label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, wrongByIdx: wrongByIdxSnap, spotUsed: isSpotRun } = ctx;
     const weekAgoAccuracy = (() => { try {
       const m = JSON.parse(localStorage.getItem("tg_memory") || "null");
       if (!m || !Array.isArray(m.recent)) return null;
@@ -799,7 +882,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
        e2e) — awaited above, so tigaTip is the REAL resolved loop result. */
     const tigaTip = tigaLoop && tigaLoop.response ? { text: tigaLoop.response.text, strategyId: tigaLoop.decision ? tigaLoop.decision.strategy_id : null, states: tigaLoop.states } : null;
 
-    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest, tigaTip });
+    setPracticeResult({ label, total, hits, miss, accuracy, bestStreak, dyn, rhythm, prevBest, isNewBest, pathUnlocked, bossDefeated, memoryStreak, aiText: null, aiLoading: !isGuest, tigaTip, wrongByIdx: wrongByIdxSnap, spotUsed: isSpotRun });
 
     // Jev practice-next (admin ⚡ toggle): after the result reveals, one ~70-500ms
     // call picks the best next step from THIS round's real signals — replay the
@@ -847,7 +930,10 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       attempts: total, misses: miss,
       scoreBefore: typeof weekAgoAccuracy === "number" ? weekAgoAccuracy : null,
       strategyId: tigaTip && tigaTip.strategyId ? tigaTip.strategyId : null,
-      strategyText: tigaTip && tigaTip.text ? tigaTip.text : null } })); } catch (e) {}
+      strategyText: tigaTip && tigaTip.text ? tigaTip.text : null,
+      spotUsed: isSpotRun === true, // Practice v4 D1: ต่อยอด event เดิม — ผู้ดูแลเห็น adoption ของ Spot Drill ได้จาก event เดียวกัน
+      wrongByIdx: wrongByIdxSnap } })); } catch (e) {}
+    practiceIsSpotRef.current = false; // flag consumed for this run (set again by the next startSpotPractice); isSpotRun captured before this reset
     // Bonus AI flourish on top of an already-complete local result — fetched
     // standalone (not through the shared chat thread/callClaude) so it can
     // render right inside the result screen instead of forcing a page/chat
@@ -871,5 +957,5 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         .catch(() => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiLoading: false } : prev)));
     }
   }
-  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill };
+  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice };
 }
