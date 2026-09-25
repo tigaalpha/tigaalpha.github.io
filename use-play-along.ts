@@ -154,7 +154,7 @@ function crystalSprite(hue, letter, rr, spin, missed, noteScale, dpr) {
     // the letter shrinks with the crystal, or it would overflow a half-size
     // one in landscape; a dark halo keeps it legible on any facet
     const fs = Math.max(8, Math.round(13 * noteScale));
-    c.font = `bold ${fs}px Rajdhani, sans-serif`; c.textAlign = "center";
+    c.font = `500 ${fs}px Prompt, sans-serif`; c.textAlign = "center";
     c.lineWidth = 3; c.lineJoin = "round"; c.strokeStyle = `hsla(${hue},80%,14%,0.85)`;
     c.strokeText(letter, cx, cy + fs * 0.34);
     c.fillStyle = "rgba(255,255,255,0.98)";

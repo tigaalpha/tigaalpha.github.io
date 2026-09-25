@@ -225,13 +225,12 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
                   </div>
                   {/* Hand mode selector — prominent, before Start button */}
                   <div style={{ marginTop: 10, marginBottom: 4 }}>
-                    <div style={{ fontSize: 13, color: "var(--muted, #aaa)", marginBottom: 6, textAlign: "center" }}>
+                    <div className="songhandlbl">
                       {lang === "th" ? "🎹 เลือกมือที่จะฝึก" : lang === "zh" ? "🎹 选择练习的手" : "🎹 Choose hand to practice"}
                     </div>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                    <div className="songhands">
                       {["right", "left", "both"].map(h => (
-                        <button key={h}
-                          style={{ flex: 1, padding: "10px 6px", borderRadius: 10, border: playAlongHand === h ? "2px solid var(--accent, #d97757)" : "1px solid var(--bd1, #444)", background: playAlongHand === h ? "var(--accent, #d97757)" : "var(--card, #222)", color: playAlongHand === h ? "#fff" : "var(--text, #ddd)", fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "center" }}
+                        <button key={h} className={`songhandbtn${playAlongHand === h ? " on" : ""}`}
                           onClick={() => changePlayAlongHand(h)}>
                           {h === "right" ? (lang === "th" ? "🖐️ มือขวา" : lang === "zh" ? "🖐️ 右手" : "🖐️ Right")
                            : h === "left" ? (lang === "th" ? "🤚 มือซ้าย" : lang === "zh" ? "🤚 左手" : "🤚 Left")

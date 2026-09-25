@@ -98,11 +98,11 @@ export class ErrorBoundary extends Component {
           <div className="locksub">ขออภัยในความไม่สะดวก กรุณาโหลดหน้าใหม่อีกครั้ง<br />Sorry about that — please reload the page to continue.</div>
           <button className="lockbtn" onClick={reload}>โหลดใหม่ · Reload</button>
           <details style={{ marginTop: 14, maxWidth: 420, width: "92%", textAlign: "left" }}>
-            <summary style={{ cursor: "pointer", opacity: 0.75, fontSize: 13, fontFamily: "'Share Tech Mono',monospace" }}>
+            <summary style={{ cursor: "pointer", opacity: 0.75, fontSize: 13, fontFamily: "var(--f-num, monospace)" }}>
               รายละเอียด error (แตะเพื่อคัดลอก) · Show error
             </summary>
             <pre onClick={() => { try { navigator.clipboard.writeText(report); this.setState({ copied: true }); } catch (e) {} }}
-              style={{ marginTop: 8, padding: 10, borderRadius: 10, background: "rgba(0,0,0,0.45)", color: "#fca5a5", fontSize: 11, lineHeight: 1.5, maxHeight: 220, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", cursor: "pointer", fontFamily: "'Share Tech Mono',monospace" }}>
+              style={{ marginTop: 8, padding: 10, borderRadius: 10, background: "rgba(0,0,0,0.45)", color: "#fca5a5", fontSize: 11, lineHeight: 1.5, maxHeight: 220, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", cursor: "pointer", fontFamily: "var(--f-num, monospace)" }}>
               {report}{this.state.copied ? "\n\n✓ copied" : ""}
             </pre>
           </details>

@@ -23,6 +23,13 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
     <link rel="apple-touch-icon" href="./icon.svg" />
+    <!-- the interface's type (Prompt, Thai + Latin, the two weights the app
+         uses), fetched alongside the app instead of after it has booted, so a
+         first visit does not paint in a stand-in font and then swap -->
+    <link rel="preload" href="./bundle/prompt-thai-400-BrkKv8cO.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./bundle/prompt-latin-400-BQ9zjSN8.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./bundle/prompt-thai-500-C18pDUoL.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./bundle/prompt-latin-500-CxzxEHZc.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -80,7 +87,7 @@
         #boot .bar i { background: #f5f0ed; }
       }
     </style>
-    <script type="module" crossorigin src="./bundle/index.template-BhP_DgV3.js"></script>
+    <script type="module" crossorigin src="./bundle/index.template-DZmgFlCj.js"></script>
   </head>
   <body>
     <div id="boot">

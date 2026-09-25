@@ -531,7 +531,7 @@ export const SkillTrack = memo(function SkillTrack({ lang, charModel }) {
         <span className="skt-ic" style={{ "--cc": cls.c }}><ItemArt art={cls.art} sw={[cls.c, "#20263a"]} /></span>
         <span className="skt-ttl">
           <b>{T("สกิล", "SKILL", "技能")}</b>
-          <i style={{ color: cls.c }}>{tr3(cls, lang)}</i>
+          <i style={{ "--cc": cls.c }}>{tr3(cls, lang)}</i>
         </span>
         <span className="skt-rank" style={{ "--cc": cls.c }}>{T("แรงก์", "RANK", "等级")} {r.rank}{r.max ? " · MAX" : ""}</span>
       </div>

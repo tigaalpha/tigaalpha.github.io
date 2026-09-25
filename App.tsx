@@ -721,13 +721,13 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                 {/* panel header */}
                 <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
                   <span style={{ fontSize: "18px" }}>{openStage.icon}</span>
-                  <span style={{ flex: 1, fontFamily: "'Orbitron',sans-serif", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(openStage.title, lang)}</span>
+                  <span style={{ flex: 1, fontFamily: "var(--f-app, sans-serif)", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(openStage.title, lang)}</span>
                   {selectedType && (
-                    <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "9px", background: openStage.color + "33", color: openStage.color, borderRadius: "6px", padding: "2px 7px", border: `1px solid ${openStage.color}55` }}>
+                    <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", background: openStage.color + "33", color: openStage.color, borderRadius: "6px", padding: "2px 7px", border: `1px solid ${openStage.color}55` }}>
                       {tr(selectedType.label, lang)}
                     </span>
                   )}
-                  <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "9px", color: openStage.color, whiteSpace: "nowrap" }}>
+                  <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", color: openStage.color, whiteSpace: "nowrap" }}>
                     {openStage.content ? lc.caseSub : openStage.types && !selectedType ? lc.pickType : lc.pickKey}
                   </span>
                 </div>
@@ -737,12 +737,12 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
                     <button onClick={() => onRead(openStage)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "var(--card3)", border: `1px solid ${openStage.color}55`, textAlign: "left" }}>
                       <span style={{ fontSize: "18px" }}>📖</span>
-                      <span style={{ fontSize: "11px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{lc.caseOverview}</span>
+                      <span style={{ fontSize: "11px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{lc.caseOverview}</span>
                     </button>
                     {(BENEFIT_CASES[openStage.id] || []).map(c => (
                       <button key={c.id} onClick={() => onRead(openStage, c)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "var(--card3)", border: "1px solid var(--bd1)", textAlign: "left" }}>
                         <span style={{ fontSize: "18px" }}>{c.icon}</span>
-                        <span style={{ fontSize: "11px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{tr(c.title, lang)}</span>
+                        <span style={{ fontSize: "11px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{tr(c.title, lang)}</span>
                       </button>
                     ))}
                   </div>
@@ -751,7 +751,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                 {/* STEP 1: type picker */}
                 {!openStage.content && openStage.types && !selectedType && (
                   <>
-                    <div style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "10px", textAlign: "center" }}>
+                    <div style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "10px", textAlign: "center" }}>
                       {lc.pickTypeHint}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px", marginBottom: "12px" }}>
@@ -763,8 +763,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                           border: `1px solid ${openStage.color}55`,
                           transition: "all .15s",
                         }}>
-                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: t.symbol.length > 6 ? 15 : (t.symbol.length > 4 ? 17 : 20), fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
-                          <span style={{ fontSize: "10px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2, textAlign: "center" }}>{tr(t.label, lang)}</span>
+                          <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: t.symbol.length > 6 ? 15 : (t.symbol.length > 4 ? 17 : 20), fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
+                          <span style={{ fontSize: "10px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2, textAlign: "center" }}>{tr(t.label, lang)}</span>
                         </button>
                       ))}
                     </div>
@@ -776,7 +776,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                   <>
                     {selectedType && (
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-                        <span style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>{lc.pickKeyHint}</span>
+                        <span style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{lc.pickKeyHint}</span>
                         <button onClick={() => setSelectedType(null)} style={{ fontSize: "9px", color: "var(--muted)", background: "none", border: "1px solid var(--bd4)", borderRadius: "5px", padding: "2px 7px", cursor: "pointer" }}>← {lc.pickType}</button>
                       </div>
                     )}
@@ -793,15 +793,15 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                             border: kdone ? "1px solid #d97757" : "1px solid var(--bd4)",
                           }}
                           onClick={() => chooseKey(openStage, k)}>
-                          {kdone && <span style={{ position: "absolute", top: "3px", right: "4px", fontSize: "10px", color: "#d97757", fontWeight: 900 }}>✓</span>}
-                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: kdone ? "#d97757" : "var(--text)", lineHeight: 1 }}>{k.name}</span>
-                          <span style={{ fontSize: "8.5px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
+                          {kdone && <span style={{ position: "absolute", top: "3px", right: "4px", fontSize: "10px", color: "var(--clay-ink)", fontWeight: 900 }}>✓</span>}
+                          <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: kdone ? "var(--clay-ink)" : "var(--text)", lineHeight: 1 }}>{k.name}</span>
+                          <span style={{ fontSize: "8.5px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
                         </button>
                         );
                       })}
                     </div>
                     {!selectedType && (
-                      <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", lineHeight: 1.5 }}>{lc.pickKeyHint}</div>
+                      <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", lineHeight: 1.5 }}>{lc.pickKeyHint}</div>
                     )}
                   </>
                 )}
@@ -857,8 +857,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                       }}>
                         <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
                           <span style={{ fontSize: "18px" }}>{pc.icon}</span>
-                          <span style={{ flex: 1, fontFamily: "'Orbitron',sans-serif", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(pc.title, lang)}</span>
-                          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "9px", color: pc.color, whiteSpace: "nowrap" }}>
+                          <span style={{ flex: 1, fontFamily: "var(--f-app, sans-serif)", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(pc.title, lang)}</span>
+                          <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", color: pc.color, whiteSpace: "nowrap" }}>
                             {lang === "th" ? "เลือกทางคอร์ด" : lang === "zh" ? "选择和弦进行" : "Pick a chord path"}
                           </span>
                         </div>
@@ -871,8 +871,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                               border: `1px solid ${(progLenChoice[pc.id] || 4) === n ? pc.color : pc.color + "55"}`,
                               transition: "all .15s",
                             }}>
-                              <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "20px", fontWeight: 900, color: pc.color, lineHeight: 1 }}>{n}</span>
-                              <span style={{ fontSize: "10px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2 }}>
+                              <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "20px", fontWeight: 900, color: pc.color, lineHeight: 1 }}>{n}</span>
+                              <span style={{ fontSize: "10px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2 }}>
                                 {lang === "th" ? "คอร์ด" : lang === "zh" ? "和弦" : "chords"}
                               </span>
                             </button>
@@ -888,12 +888,12 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                                 border: "1px solid var(--bd4)",
                               }}
                               onClick={() => { setProgPickId(null); onProgression && onProgression(pc, progLenChoice[pc.id] || 4, k.id); }}>
-                              <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>{k.name}</span>
-                              <span style={{ fontSize: "8.5px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
+                              <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>{k.name}</span>
+                              <span style={{ fontSize: "8.5px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
                             </button>
                           ))}
                         </div>
-                        <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", lineHeight: 1.5, marginTop: "10px" }}>
+                        <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", lineHeight: 1.5, marginTop: "10px" }}>
                           {lang === "th" ? "AI จะสอนทั้งแบบ Block และ Broken พร้อมโหมดฝึก"
                             : lang === "zh" ? "AI 将以 Block 和 Broken 两种方式教学，并配有练习模式"
                             : "AI teaches it Block and Broken, with Practice Mode for both"}
@@ -976,7 +976,7 @@ const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, e
       <div className="pathhero">
         <div className="pathhero-glow" />
         <div className="pathbadge">◈ {lc.challengingTitle} ◈</div>
-        <div style={{ textAlign: "center", fontSize: "11px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", padding: "0 22px", lineHeight: 1.5 }}>{lc.challengingSub}</div>
+        <div style={{ textAlign: "center", fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", padding: "0 22px", lineHeight: 1.5 }}>{lc.challengingSub}</div>
       </div>
 
       {groups.map(g => {
@@ -1158,7 +1158,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
     <div className="pathpage">
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
-          style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          className="pageback">
           ← {L[lang].navStudio}
         </button>
       )}
@@ -1168,29 +1168,29 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
       </div>
       <div className="v12card">
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "7px" }}>
-          <span style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>{T.progress}</span>
-          <span style={{ fontSize: "11px", color: "#d97757", fontFamily: "'Orbitron',sans-serif", fontWeight: 700 }}>{nDone}/{steps.length}</span>
+          <span style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{T.progress}</span>
+          <span style={{ fontSize: "11px", color: "var(--clay-ink)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>{nDone}/{steps.length}</span>
         </div>
         <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
       </div>
       {dx && (
         <div className="v12card" style={{ borderColor: "#d9775744" }}>
-          <div style={{ fontSize: "11px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>🩺 {dxT.tag}</div>
+          <div style={{ fontSize: "11px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "6px" }}>🩺 {dxT.tag}</div>
           <div style={{ fontSize: "13.5px", color: "var(--text)", fontWeight: 700, marginBottom: "5px" }}>
             {dx.what.label} · {dx.what.acc}%
             <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 400 }}>
               {" "}({dx.what.count}x · {dx.what.trend === "improving" ? "↑" : dx.what.trend === "worsening" ? "↓" : "→"})
             </span>
           </div>
-          <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}><b style={{ color: "#d97757" }}>{dxT.why}:</b> {dx.why[0]}</div>
+          <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}><b style={{ color: "var(--clay-ink)" }}>{dxT.why}:</b> {dx.why[0]}</div>
           {dx.why[1] && <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}>· {dx.why[1]}</div>}
-          {dx.how.map((h, i) => <div key={i} style={{ fontSize: "12px", color: "var(--text2)" }}><b style={{ color: "#d97757" }}>{i === 0 ? dxT.how + ":" : ""}</b> {h}</div>)}
+          {dx.how.map((h, i) => <div key={i} style={{ fontSize: "12px", color: "var(--text2)" }}><b style={{ color: "var(--clay-ink)" }}>{i === 0 ? dxT.how + ":" : ""}</b> {h}</div>)}
           {budget && (
             <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid var(--bd1)" }}>
-              <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "4px" }}>⏱ {budT.tag}{budget.focus ? ` · ${budT.focus}: ${budget.focus}` : ""}</div>
+              <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "4px" }}>⏱ {budT.tag}{budget.focus ? ` · ${budT.focus}: ${budget.focus}` : ""}</div>
               <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                 {budget.parts.map(p => (
-                  <span key={p.key} style={{ fontSize: "11px", background: "rgba(217,119,87,.12)", color: "#d97757", borderRadius: "6px", padding: "3px 7px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                  <span key={p.key} style={{ fontSize: "11px", background: "rgba(217,119,87,.12)", color: "var(--clay-ink)", borderRadius: "6px", padding: "3px 7px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>
                     {budT[p.key] || p.key} {p.minutes}′
                   </span>
                 ))}
@@ -1217,10 +1217,10 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
       ))}
       {allDone && (
         <div className="v12card" style={{ textAlign: "center", borderColor: "#d9775766" }}>
-          <div style={{ fontSize: "15px", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, marginBottom: "9px" }}>{T.allDone}</div>
+          <div style={{ fontSize: "15px", color: "var(--clay-ink)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, marginBottom: "9px" }}>{T.allDone}</div>
           {todayBonusClaimed()
-            ? <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>{T.claimed}</div>
-            : <button className="tdgo" style={{ borderColor: "#d97757", color: "#d97757", background: "rgba(217,119,87,.1)" }}
+            ? <div style={{ fontSize: "12px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)" }}>{T.claimed}</div>
+            : <button className="tdgo" style={{ borderColor: "#d97757", color: "var(--clay-ink)", background: "rgba(217,119,87,.1)" }}
                 onClick={() => { playUi("reward"); claimTodayBonus(); onReward(40, 20); bump(); }}>{T.bonus}</button>}
         </div>
       )}
@@ -1601,14 +1601,14 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     <div className="pathpage">
       {onBack && !ladderOn && (
         <button onClick={() => { playUi("click"); onBack(); }}
-          style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          className="pageback">
           ← {L[lang].navStudio}
         </button>
       )}
       <div className="v12hero">
         <div className="v12title">👂 {T.title}</div>
         <div className="v12sub">{T.sub}</div>
-        <div style={{ display: "inline-block", marginTop: "8px", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", color: "#d97757", border: "1px solid #d9775744", borderRadius: "20px", padding: "4px 12px", background: "rgba(217,119,87,.06)" }}>
+        <div style={{ display: "inline-block", marginTop: "8px", fontFamily: "var(--f-num, monospace)", fontSize: "10px", color: "var(--clay-ink)", border: "1px solid #d9775744", borderRadius: "20px", padding: "4px 12px", background: "rgba(217,119,87,.06)" }}>
           🎖️ {T.earLevel} {level.level} · {level.intoLevel}/{EAR_LEVEL_STEP}
         </div>
       </div>
@@ -1618,16 +1618,16 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
           {ladderResult ? (
             <div style={{ padding: "10px 4px" }}>
               <div style={{ fontSize: "30px" }}>🪜</div>
-              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: "var(--text)", margin: "6px 0 2px" }}>{T.ladderGameOver}</div>
-              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "34px", fontWeight: 900, color: "#a78bfa", lineHeight: 1.1 }}>{ladderResult.streak}</div>
+              <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: "var(--text)", margin: "6px 0 2px" }}>{T.ladderGameOver}</div>
+              <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "34px", fontWeight: 900, color: "var(--vio-ink)", lineHeight: 1.1 }}>{ladderResult.streak}</div>
               {ladderResult.isNewBest ? (
                 <div style={{ fontSize: "12px", color: "#ffd23f", fontWeight: 700, margin: "4px 0" }}>{T.ladderNewBest}</div>
               ) : (
-                <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", margin: "4px 0" }}>{T.ladderBestLbl}: {ladderResult.best}</div>
+                <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", margin: "4px 0" }}>{T.ladderBestLbl}: {ladderResult.best}</div>
               )}
-              <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "16px" }}>+{ladderResult.xp} EXP · +{ladderResult.coins} 🪙</div>
-              <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderAgain}</button>
-              <button onClick={() => { playUi("click"); setLadderResult(null); }} style={{ display: "block", margin: "12px auto 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "20px", color: "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+              <div style={{ fontSize: "12px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "16px" }}>+{ladderResult.xp} EXP · +{ladderResult.coins} 🪙</div>
+              <button className="tdgo vio" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startLadder}>{T.ladderAgain}</button>
+              <button onClick={() => { playUi("click"); setLadderResult(null); }} style={{ display: "block", margin: "12px auto 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "20px", color: "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>
                 ← {T.title}
               </button>
             </div>
@@ -1635,15 +1635,15 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                 <span style={{ fontSize: "15px", letterSpacing: "1px" }}>{"❤️".repeat(ladderLives)}{"🖤".repeat(Math.max(0, LADDER_LIVES_START - ladderLives))}</span>
-                <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#a78bfa" }}>🪜 {T.ladderStreakLbl} {ladderStreak}</span>
+                <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "13px", fontWeight: 900, color: "var(--vio-ink)" }}>🪜 {T.ladderStreakLbl} {ladderStreak}</span>
                 <button onClick={() => { playUi("click"); finishLadder(); }} aria-label="quit" title={T.title}
                   style={{ background: "none", border: "1px solid var(--bd4)", borderRadius: "50%", width: "22px", height: "22px", color: "#a88b9b", fontSize: "12px", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
               </div>
               <div style={{ height: "5px", borderRadius: "3px", background: "var(--card3)", overflow: "hidden", marginBottom: "14px" }}>
                 <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, (ladderTimeLeft / ladderTimeFor(ladderStreak)) * 100))}%`, background: ladderTimeLeft < 1500 ? "#ff5252" : "#8b5cf6", transition: "width .1s linear" }} />
               </div>
-              <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #a78bfa55", background: "rgba(167,139,250,.08)", color: "#a78bfa", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
-              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>{T.pickInt}</div>
+              <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid var(--vio-ln)", background: "var(--vio-t)", color: "var(--vio-ink)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, marginBottom: "11px" }}>{T.pickInt}</div>
               {cur.options && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
                   {cur.options.map(o => (
@@ -1651,7 +1651,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
                   ))}
                 </div>
               )}
-              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#a78bfa" : "#ff5252") : "transparent" }}>
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: fb ? (fb.ok ? "var(--vio-ink)" : "#ff5252") : "transparent" }}>
                 {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
               </div>
             </>
@@ -1662,28 +1662,28 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
           <div style={{ display: "flex", gap: "8px", marginBottom: "12px", overflowX: "auto" }}>
             {tabs.map(([k, ic, lb]) => (
               <button key={k} onClick={() => { if (phase === "play") return; playUi("click"); setTab(k); setPhase("idle"); setResult(null); }}
-                style={{ flex: "1 0 auto", minWidth: "62px", padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "13px",
-                  border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "#d97757" : "var(--text2)",
-                  background: tab === k ? "rgba(217,119,87,.1)" : "var(--card3)" }}>
+                style={{ flex: "1 0 auto", minWidth: "62px", padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, fontSize: "13px",
+                  border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "var(--clay-ink)" : "var(--text2)",
+                  background: tab === k ? "rgba(217,119,87,.1)" : "var(--card)" }}>
                 {ic} {lb}<div style={{ fontSize: "9px", color: "var(--muted)", marginTop: "2px" }}>{T.best}: {best[k] || 0}/{EG_ROUND}</div>
               </button>
             ))}
           </div>
           {phase !== "play" && (
             <>
-              <div className="v12card" style={{ textAlign: "center", padding: "16px 14px", marginBottom: "12px", border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+              <div className="v12card" style={{ textAlign: "center", padding: "16px 14px", marginBottom: "12px", border: "1px solid var(--vio-ln)", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
                 <div style={{ fontSize: "22px" }}>🪜</div>
-                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#c4b5fd", margin: "4px 0 2px" }}>{T.ladderTitle}</div>
+                <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "13px", fontWeight: 900, color: "var(--vio-ink)", margin: "4px 0 2px" }}>{T.ladderTitle}</div>
                 <div style={{ fontSize: "10.5px", color: "var(--muted)", marginBottom: "10px" }}>{T.ladderSub}</div>
-                <div style={{ fontSize: "10px", color: "#a78bfa", fontFamily: "'Share Tech Mono',monospace", marginBottom: "10px" }}>{T.ladderBestLbl}: {ladderBestScore()}</div>
-                <button className="tdgo" style={{ fontSize: "12px", padding: "10px 22px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderStart}</button>
+                <div style={{ fontSize: "10px", color: "var(--vio-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "10px" }}>{T.ladderBestLbl}: {ladderBestScore()}</div>
+                <button className="tdgo vio" style={{ fontSize: "12px", padding: "10px 22px" }} onClick={startLadder}>{T.ladderStart}</button>
               </div>
               <div className="v12card" style={{ textAlign: "center", padding: "24px 14px" }}>
                 {result && (
                   <div style={{ marginBottom: "14px" }}>
                     <div style={{ fontSize: "26px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
-                    <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
-                    <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+                    <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
+                    <div style={{ fontSize: "12px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
                   </div>
                 )}
                 <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
@@ -1692,17 +1692,17 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
           )}
           {phase === "play" && cur && (
             <div className="v12card" style={{ textAlign: "center" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", fontFamily: "var(--f-num, monospace)", fontSize: "11px", color: "var(--muted)" }}>
                 <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
                 {tab === "echo" && (
                   <button onClick={() => { playUi("click"); setMicMode(m => !m); }}
-                    style={{ background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "#d97757" : "#a88b9b", padding: "4px 10px", fontSize: "10px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                    style={{ background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "var(--clay-ink)" : "#a88b9b", padding: "4px 10px", fontSize: "10px", cursor: "pointer", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>
                     {micMode ? T.tapMode : T.pianoMode}
                   </button>
                 )}
               </div>
-              <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
-              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
+              <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "var(--clay-ink)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, marginBottom: "11px" }}>
                 {pickLabel}
               </div>
               {tab !== "echo" && cur.options && (
@@ -1715,26 +1715,26 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
               {tab === "echo" && micMode && (
                 <div style={{ padding: "18px 10px", borderRadius: "12px", border: `1px solid ${micSrc && micSrc.type === "error" ? "#ff5252" : "#d9775744"}`, background: "rgba(217,119,87,.06)" }}>
                   {micSrc && micSrc.type === "error" ? (
-                    <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.listenErr}</div>
+                    <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{T.listenErr}</div>
                   ) : (
                     <>
                       <div style={{ fontSize: "26px", marginBottom: "6px" }} className={micHeard ? "" : "flicker"}>{micSrc ? "🎹" : "🎤"}</div>
-                      <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{micSrc ? T.listenReady : T.listening}</div>
-                      <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}</div>
-                      {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
+                      <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{micSrc ? T.listenReady : T.listening}</div>
+                      <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "var(--f-app, sans-serif)", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}</div>
+                      {micHeard && <div style={{ marginTop: "6px", fontFamily: "var(--f-num, monospace)", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
                     </>
                   )}
                 </div>
               )}
               {tab === "echo" && !micMode && (
                 <>
-                  <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
+                  <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "var(--f-app, sans-serif)", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
                     {taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
                     {["C", "D", "E", "F", "G", "A", "B"].map(p => (
                       <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapEcho(p)}>
-                        <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                        <div style={{ fontSize: "15px", fontFamily: "var(--f-app, sans-serif)" }}>{p}</div>
                         <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
                       </button>
                     ))}
@@ -1742,7 +1742,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
                   {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid var(--bd4)", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>{T.clear}</button>}
                 </>
               )}
-              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: fb ? (fb.ok ? "var(--clay-ink)" : "#ff5252") : "transparent" }}>
                 {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
               </div>
             </div>
@@ -1936,7 +1936,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
       <div className="pathpage">
         {onBack && (
           <button onClick={() => { playUi("click"); onBack(); }}
-            style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+            className="pageback">
             ← {L[lang].navStudio}
           </button>
         )}
@@ -1970,13 +1970,13 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
   return (
     <div className="pathpage">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px 10px", gap: "8px", flexWrap: "wrap" }}>
-        <button onClick={() => { playUi("click"); runRef.current++; setLvl(null); setResult(null); }} style={{ background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, flexShrink: 0 }}>{T.back}</button>
-        <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
+        <button onClick={() => { playUi("click"); runRef.current++; setLvl(null); setResult(null); }} className="pageback inline">{T.back}</button>
+        <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "11px", color: "var(--muted)" }}>
           {result ? T.done : `${T.q} ${idx + 1}/${lvl.qn} · ${T.score}: ${score}`}
         </span>
         {!result && (
           <button onClick={() => { playUi("click"); setMicMode(m => !m); }}
-            style={{ marginLeft: "auto", background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "#d97757" : "#a88b9b", padding: "6px 12px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, flexShrink: 0 }}>
+            style={{ marginLeft: "auto", background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "var(--clay-ink)" : "#a88b9b", padding: "6px 12px", fontSize: "11px", cursor: "pointer", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, flexShrink: 0 }}>
             {micMode ? T.tapMode : T.pianoMode}
           </button>
         )}
@@ -1984,12 +1984,12 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
       {result ? (
         <div className="v12card" style={{ textAlign: "center", padding: "26px 14px" }}>
           <div style={{ fontSize: "28px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "18px", color: "var(--text)", fontWeight: 900, margin: "8px 0" }}>{result.score}/{result.qn}</div>
-          <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+          <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "18px", color: "var(--text)", fontWeight: 900, margin: "8px 0" }}>{result.score}/{result.qn}</div>
+          <div style={{ fontSize: "12px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "6px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
           {result.stars >= 1 && (
-            <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>
+            <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "14px" }}>
               ⏱ {result.secs}s{result.speedRank && <span style={{ marginLeft: 6 }}>{result.speedRank.icon} {result.speedRank.id}</span>}
-              {result.isNewBestTime ? <span style={{ color: "#d97757", fontWeight: 700, marginLeft: 6 }}>🏆 {T.readNewBest}</span>
+              {result.isNewBestTime ? <span style={{ color: "var(--clay-ink)", fontWeight: 700, marginLeft: 6 }}>🏆 {T.readNewBest}</span>
                 : result.prevBest != null && <span style={{ marginLeft: 6 }}>({T.readBestLbl} {result.prevBest}s)</span>}
             </div>
           )}
@@ -1997,7 +1997,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
           {/* Ties "learned to read notation" to "can read a real song" — the whole point of the course. */}
           {onPlaySong && result.recommendedSong && (
             <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid var(--bd2)" }}>
-              <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "8px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.courseDone}</div>
+              <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "8px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{T.courseDone}</div>
               <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#d97757" }}
                 onClick={() => onPlaySong(result.recommendedSong)}>🎵 {T.readSong}</button>
             </div>
@@ -2008,21 +2008,21 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
           <div style={{ background: "var(--card)", borderRadius: "12px", padding: "8px 6px", marginBottom: "13px", border: "1px solid var(--bd1)" }}>
             <StaffNotes notes={cur.notes} hideNames clef={lvl.clef} />
           </div>
-          <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
+          <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, marginBottom: "11px" }}>
             {lvl.seq === 1 ? T.what : T.seqWhat}
           </div>
           {micMode ? (
             <div style={{ padding: "18px 10px", borderRadius: "12px", border: `1px solid ${micSrc && micSrc.type === "error" ? "#ff5252" : "#d9775744"}`, background: "rgba(217,119,87,.06)" }}>
               {micSrc && micSrc.type === "error" ? (
-                <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.listenErr}</div>
+                <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{T.listenErr}</div>
               ) : (
                 <>
                   <div style={{ fontSize: "26px", marginBottom: "6px" }} className={micHeard ? "" : "flicker"}>{micSrc ? "🎹" : "🎤"}</div>
-                  <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>
+                  <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>
                     {micSrc ? T.listenReady : T.listening}
                   </div>
-                  {lvl.seq > 1 && <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>}
-                  {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
+                  {lvl.seq > 1 && <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "var(--f-app, sans-serif)", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>}
+                  {micHeard && <div style={{ marginTop: "6px", fontFamily: "var(--f-num, monospace)", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
                 </>
               )}
             </div>
@@ -2032,7 +2032,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
                   {cur.options.map(p => (
                     <button key={p} className={`egopt${fb && p === cur.answerPcs[0] ? " ok" : ""}`} onClick={() => pickPc(p)}>
-                      <div style={{ fontSize: "17px", fontFamily: "'Orbitron',sans-serif" }}>{pcLabel(p)}</div>
+                      <div style={{ fontSize: "17px", fontFamily: "var(--f-app, sans-serif)" }}>{pcLabel(p)}</div>
                       {!p.includes("#") && <div style={{ fontSize: "9.5px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>}
                     </button>
                   ))}
@@ -2040,11 +2040,11 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
               )}
               {lvl.seq > 1 && (
                 <>
-                  <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>
+                  <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "var(--f-app, sans-serif)", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
                     {["C", "D", "E", "F", "G", "A", "B"].map(p => (
                       <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapSeq(p)}>
-                        <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                        <div style={{ fontSize: "15px", fontFamily: "var(--f-app, sans-serif)" }}>{p}</div>
                         <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
                       </button>
                     ))}
@@ -2054,7 +2054,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
               )}
             </>
           )}
-          <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
+          <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: fb ? (fb.ok ? "var(--clay-ink)" : "#ff5252") : "transparent" }}>
             {fb ? (fb.ok ? T.right : T.wrong + cur.answerPcs.map(pcLabel).join(" ")) : "·"}
           </div>
         </div>
@@ -2114,12 +2114,12 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
     <div className="pathpage">
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
-          style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          className="pageback">
           ← {L[lang].navProfile}
         </button>
       )}
       <div className="v12hero"><div className="v12title">📊 {T.title}</div><div className="v12sub">{T.sub}</div></div>
-      {!hasData && <div className="v12card" style={{ textAlign: "center", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, fontSize: "13.5px", padding: "22px 14px" }}>{T.empty}</div>}
+      {!hasData && <div className="v12card" style={{ textAlign: "center", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, fontSize: "13.5px", padding: "22px 14px" }}>{T.empty}</div>}
       <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
         <div className="instile"><b>{Math.round(totalSec / 60)}</b><span>{T.mins}</span></div>
         <div className="instile"><b>{totalOk}</b><span>{T.notes}</span></div>
@@ -2127,31 +2127,31 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
         <div className="instile"><b>{(profile && profile.streak) || 0}🔥</b><span>{T.streak}</span></div>
       </div>
       <div className="v12card">
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>{T.chart}</div>
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "6px" }}>{T.chart}</div>
         <div className="insbarwrap">
           {mins.map((m, i) => <div key={i} className="insbar" style={{ height: Math.max(2, Math.round(m / maxMin * 88)) + "%", opacity: m > 0 ? 1 : 0.25 }} title={Math.round(m / 60) + " min"} />)}
         </div>
         <div style={{ display: "flex", gap: "4px", padding: "2px 2px 0" }}>
-          {mins.map((_, i) => { const d = new Date(start14 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8px", color: "#826575", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getUTCDay()]}</div>; })}
+          {mins.map((_, i) => { const d = new Date(start14 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{WD[d.getUTCDay()]}</div>; })}
         </div>
       </div>
       <div className="v12card">
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>{T.acc}</div>
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "8px" }}>{T.acc}</div>
         <div style={{ display: "flex", gap: "8px" }}>
           <div className="instile"><b style={{ color: acc7 != null && accP != null ? (acc7 >= accP ? "#4caf50" : "#ff5252") : "#d97757" }}>{acc7 == null ? "—" : acc7 + "%"}</b><span>{T.accNow}</span></div>
           <div className="instile"><b style={{ color: "var(--muted)" }}>{accP == null ? "—" : accP + "%"}</b><span>{T.accPrev}</span></div>
         </div>
       </div>
       <div className="v12card">
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>🎯 {T.weak}</div>
-        {weak.length === 0 && <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.weakNone}</div>}
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "8px" }}>🎯 {T.weak}</div>
+        {weak.length === 0 && <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{T.weakNone}</div>}
         {weak.map((w, i) => {
           const song = actSongOf(w.e);
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderTop: i ? "1px solid #ffffff0c" : "none" }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "13px", color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{actTopicLabel(w.e, lang)}</div>
-                <div style={{ fontSize: "10px", color: "#ff5252", fontFamily: "'Share Tech Mono',monospace" }}>{Math.round(w.rate * 100)}% miss · {w.ok + w.miss} n</div>
+                <div style={{ fontSize: "13px", color: "var(--text)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>{actTopicLabel(w.e, lang)}</div>
+                <div style={{ fontSize: "10px", color: "#ff5252", fontFamily: "var(--f-num, monospace)" }}>{Math.round(w.rate * 100)}% miss · {w.ok + w.miss} n</div>
               </div>
               {song && <button className="tdgo" onClick={() => { playUi("click"); onSong(song); }}>{T.weakGo}</button>}
             </div>
@@ -2160,8 +2160,8 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
       </div>
       {bestHour != null && (
         <div className="v12card" style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "5px" }}>⏰ {T.hour}</div>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "19px", color: "#d97757", fontWeight: 900 }}>{String(bestHour).padStart(2, "0")}:00 – {String((bestHour + 1) % 24).padStart(2, "0")}:00</div>
+          <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "5px" }}>⏰ {T.hour}</div>
+          <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "19px", color: "var(--clay-ink)", fontWeight: 900 }}>{String(bestHour).padStart(2, "0")}:00 – {String((bestHour + 1) % 24).padStart(2, "0")}:00</div>
         </div>
       )}
     </div>
@@ -2249,13 +2249,13 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
     <div className="pathpage">
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
-          style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          className="pageback">
           ← {L[lang].navProfile}
         </button>
       )}
       <div className="v12hero"><div className="v12title">🏅 {T.title}</div><div className="v12sub">{T.sub}</div></div>
       <div className="v12card">
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>{T.week}</div>
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "8px" }}>{T.week}</div>
         <div style={{ display: "flex", gap: "7px", marginBottom: "12px" }}>
           <div className="instile"><b>{a.min}</b><span>{T.mins}</span></div>
           <div className="instile"><b>{a.days}/7</b><span>{T.days}</span></div>
@@ -2267,15 +2267,15 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
           {mins7.map((m, i) => <div key={i} className="insbar" style={{ height: Math.max(3, Math.round(m / maxM * 88)) + "%", opacity: m > 0 ? 1 : 0.25 }} />)}
         </div>
         <div style={{ display: "flex", gap: "4px" }}>
-          {mins7.map((_, i) => { const d = new Date(start7 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8.5px", color: "#826575", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getUTCDay()]}</div>; })}
+          {mins7.map((_, i) => { const d = new Date(start7 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{WD[d.getUTCDay()]}</div>; })}
         </div>
       </div>
       <div className="v12card" style={{ borderColor: "#d9775744" }}>
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "7px" }}>💬 {T.comment}</div>
-        <div style={{ fontSize: "13.5px", color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, lineHeight: 1.65 }}>{comment}</div>
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "7px" }}>💬 {T.comment}</div>
+        <div style={{ fontSize: "13.5px", color: "var(--text)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, lineHeight: 1.65 }}>{comment}</div>
       </div>
       <button className="tdgo" disabled={busy} onClick={saveWeekly} style={{ width: "100%", padding: "13px", fontSize: "11.5px", marginBottom: "16px" }}>{busy ? T.making : T.share}</button>
-      <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", margin: "2px 2px 9px" }}>🎓 {T.certs}</div>
+      <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", margin: "2px 2px 9px" }}>🎓 {T.certs}</div>
       {PATH_GROUPS[lang].map(g => {
         const stages = STAGES_BY_GROUP[g.id] || [];
         const done = stages.filter(s => doneP.has(s.id)).length;
@@ -2284,10 +2284,10 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
           <div key={g.id} className={`certrow${earned ? " earned" : ""}`}>
             <span style={{ fontSize: "22px" }}>{earned ? "🏆" : g.icon}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "13.5px", color: earned ? "#d97757" : "var(--text2)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{g.label}</div>
-              <div style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>{done}/{stages.length}{earned ? "" : " · " + T.certLock}</div>
+              <div style={{ fontSize: "13.5px", color: earned ? "var(--clay-ink)" : "var(--text2)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>{g.label}</div>
+              <div style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{done}/{stages.length}{earned ? "" : " · " + T.certLock}</div>
             </div>
-            {earned && <button className="tdgo" style={{ borderColor: "#d97757", color: "#d97757", background: "rgba(217,119,87,.08)" }} disabled={busy} onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } saveCert(g); }}>{busy ? T.making : T.certGet}</button>}
+            {earned && <button className="tdgo" style={{ borderColor: "#d97757", color: "var(--clay-ink)", background: "rgba(217,119,87,.08)" }} disabled={busy} onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } saveCert(g); }}>{busy ? T.making : T.certGet}</button>}
           </div>
         );
       })}
@@ -3139,7 +3139,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
             <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
               {T("🎊 กล่องลึกลับ!", "🎊 Mystery Chest!", "🎊 神秘宝箱！")}
             </div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#d97757", marginBottom: 4 }}>+{mysteryChest.xp} EXP</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "var(--clay-ink)", marginBottom: 4 }}>+{mysteryChest.xp} EXP</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#f5a623", marginBottom: 16 }}>+{mysteryChest.coins} 🪙</div>
             <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
               {T("รางวัลพิเศษสำหรับการเล่นที่ดีเยี่ยม!", "Special reward for your great play!", "超水平发挥的特别奖励！")}
@@ -3305,7 +3305,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAnalytics(); }}>
           <span className="tdico">📊</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="tdlbl">{lc.navStats}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdlbl">{lc.navStats}{!isMax && <span style={{ fontSize: "10px", color: "var(--clay-ink)", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
             <div className="tdtag">{lang === "th" ? "กราฟการซ้อม · จุดที่ควรเก็บ · ช่วงเวลาที่ซ้อมบ่อย" : lang === "zh" ? "练习图表 · 待加强 · 常练时间" : "Practice charts · weak spots · best hours"}</div>
           </div>
           <span className="tdgo">{isMax ? "→" : "👑"}</span>
@@ -3323,7 +3323,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAiReport(); }}>
           <span className="tdico">📋</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="tdlbl">{lang === "th" ? "รายงานพัฒนาการ AI" : lang === "zh" ? "AI 进度报告" : "AI Weekly Report"}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdlbl">{lang === "th" ? "รายงานพัฒนาการ AI" : lang === "zh" ? "AI 进度报告" : "AI Weekly Report"}{!isMax && <span style={{ fontSize: "10px", color: "var(--clay-ink)", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
             <div className="tdtag">{lang === "th" ? "รายงานพัฒนาการรายสัปดาห์ที่ AI สร้างเป็นการส่วนตัว" : lang === "zh" ? "AI 个性化生成的每周进度总结" : "AI-generated personal weekly progress report"}</div>
           </div>
           <span className="tdgo">{isMax ? "→" : "👑"}</span>
@@ -3332,7 +3332,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAiPlan(); }}>
           <span className="tdico">🗓️</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="tdlbl">{lang === "th" ? "แผนซ้อมส่วนตัว AI" : lang === "zh" ? "AI 练习计划" : "AI Practice Plan"}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdlbl">{lang === "th" ? "แผนซ้อมส่วนตัว AI" : lang === "zh" ? "AI 练习计划" : "AI Practice Plan"}{!isMax && <span style={{ fontSize: "10px", color: "var(--clay-ink)", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
             <div className="tdtag">{lang === "th" ? "แผนซ้อม 7 วัน AI วิเคราะห์จุดอ่อนส่วนตัว" : lang === "zh" ? "AI 根据弱点生成的7天个性化练习计划" : "Personalized 7-day AI plan based on your weak spots"}</div>
           </div>
           <span className="tdgo">{isMax ? "→" : "👑"}</span>
@@ -4655,6 +4655,9 @@ function downloadDataURL(url, fname) {
   try { const a = document.createElement("a"); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); } catch (e) {}
 }
 async function renderCertificatePNG({ name, course, dateStr, lang }) {
+  // a canvas only draws in a face that has already arrived: ask for both
+  // weights, Thai and Latin, before the first word is set
+  try { if (document.fonts && document.fonts.load) await Promise.all(["400 26px Prompt", "500 30px Prompt"].map(f => document.fonts.load(f, "กA"))); } catch (e) {}
   try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
   const W = 1200, H = 850;
   const c = document.createElement("canvas"); c.width = W; c.height = H;
@@ -4672,35 +4675,35 @@ async function renderCertificatePNG({ name, course, dateStr, lang }) {
   }
   x.textAlign = "center";
   x.fillStyle = "#d97757";
-  x.font = "700 30px Orbitron, sans-serif";
+  x.font = "500 30px Prompt, sans-serif";
   x.fillText("TG · TIGA.AI PIANO ACADEMY", W / 2, 118);
   x.fillStyle = "#faf9f5";
-  x.font = "900 64px Orbitron, sans-serif";
+  x.font = "500 64px Prompt, sans-serif";
   x.fillText(lang === "th" ? "ประกาศนียบัตร" : lang === "zh" ? "结业证书" : "CERTIFICATE", W / 2, 226);
   x.fillStyle = "#a8a49b";
-  x.font = "600 26px Rajdhani, sans-serif";
+  x.font = "500 26px Prompt, sans-serif";
   x.fillText(lang === "th" ? "มอบให้เพื่อรับรองว่า" : lang === "zh" ? "兹证明" : "This certifies that", W / 2, 300);
   x.fillStyle = "#d97757";
-  x.font = "700 58px Rajdhani, sans-serif";
+  x.font = "500 58px Prompt, sans-serif";
   x.fillText(name, W / 2, 386);
   x.strokeStyle = "#d9775755"; x.lineWidth = 1;
   x.beginPath(); x.moveTo(W / 2 - 300, 408); x.lineTo(W / 2 + 300, 408); x.stroke();
   x.fillStyle = "#a8a49b";
-  x.font = "600 26px Rajdhani, sans-serif";
+  x.font = "500 26px Prompt, sans-serif";
   x.fillText(lang === "th" ? "ได้เรียนจบหลักสูตร" : lang === "zh" ? "已完成课程" : "has successfully completed", W / 2, 464);
   x.fillStyle = "#faf9f5";
-  x.font = "700 40px Rajdhani, sans-serif";
+  x.font = "500 40px Prompt, sans-serif";
   x.fillText(course, W / 2, 528);
   x.fillStyle = "#8f8b82";
-  x.font = "500 22px Rajdhani, sans-serif";
+  x.font = "500 22px Prompt, sans-serif";
   x.fillText((lang === "th" ? "เส้นทางเรียนรู้เปียโน TiGA · " : lang === "zh" ? "TiGA 钢琴学习之路 · " : "TiGA Piano Pathway of Learning · ") + dateStr, W / 2, 596);
   // signature block
   x.strokeStyle = "#a8a49b66"; x.beginPath(); x.moveTo(W / 2 - 170, 700); x.lineTo(W / 2 + 170, 700); x.stroke();
   x.fillStyle = "#d97757";
-  x.font = "700 26px Orbitron, sans-serif";
+  x.font = "500 26px Prompt, sans-serif";
   x.fillText("TiGA AI", W / 2, 738);
   x.fillStyle = "#8f8b82";
-  x.font = "500 19px Rajdhani, sans-serif";
+  x.font = "500 19px Prompt, sans-serif";
   x.fillText(lang === "th" ? "ครูผู้สอน — TiGA AI Piano Studio" : lang === "zh" ? "指导老师 — TiGA AI 钢琴工作室" : "Instructor — TiGA AI Piano Studio", W / 2, 768);
   return c.toDataURL("image/png");
 }
@@ -4714,11 +4717,11 @@ async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) 
   x.fillStyle = bg; x.fillRect(0, 0, W, H);
   x.strokeStyle = "#d97757"; x.lineWidth = 3; x.strokeRect(26, 26, W - 52, H - 52);
   x.textAlign = "center";
-  x.fillStyle = "#d97757"; x.font = "700 30px Orbitron, sans-serif";
+  x.fillStyle = "#d97757"; x.font = "500 30px Prompt, sans-serif";
   x.fillText("TG · TIGA.AI", W / 2, 112);
-  x.fillStyle = "#faf9f5"; x.font = "900 56px Orbitron, sans-serif";
+  x.fillStyle = "#faf9f5"; x.font = "500 56px Prompt, sans-serif";
   x.fillText(lang === "th" ? "สมุดพกประจำสัปดาห์" : lang === "zh" ? "本周成绩单" : "WEEKLY REPORT", W / 2, 200);
-  x.fillStyle = "#d97757"; x.font = "700 44px Rajdhani, sans-serif";
+  x.fillStyle = "#d97757"; x.font = "500 44px Prompt, sans-serif";
   x.fillText(name, W / 2, 272);
   const rows = [
     [lang === "th" ? "นาทีที่ซ้อม" : lang === "zh" ? "练习分钟" : "Minutes practiced", String(mins)],
@@ -4732,14 +4735,14 @@ async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) 
     x.fillStyle = "#171615cc";
     x.fillRect(120, y - 52, W - 240, 84);
     x.strokeStyle = "#ffffff18"; x.lineWidth = 1; x.strokeRect(120, y - 52, W - 240, 84);
-    x.textAlign = "left"; x.fillStyle = "#a8a49b"; x.font = "600 30px Rajdhani, sans-serif";
+    x.textAlign = "left"; x.fillStyle = "#a8a49b"; x.font = "500 30px Prompt, sans-serif";
     x.fillText(k, 152, y + 2);
-    x.textAlign = "right"; x.fillStyle = "#d97757"; x.font = "800 40px Orbitron, sans-serif";
+    x.textAlign = "right"; x.fillStyle = "#d97757"; x.font = "500 40px Prompt, sans-serif";
     x.fillText(v, W - 152, y + 4);
     y += 118;
   }
   x.textAlign = "center";
-  x.fillStyle = "#8f8b82"; x.font = "500 24px Rajdhani, sans-serif";
+  x.fillStyle = "#8f8b82"; x.font = "500 24px Prompt, sans-serif";
   x.fillText(lang === "th" ? "เรียนเปียโนกับครู AI ที่ TiGA AI" : lang === "zh" ? "在 TiGA AI 与 AI 老师学钢琴" : "Learning piano with an AI teacher at TiGA AI", W / 2, H - 96);
   return c.toDataURL("image/png");
 }
@@ -6318,7 +6321,7 @@ const ProgressDashboard = memo(function ProgressDashboard({ lang, plog: plogProp
               <div className="dashdetail-games">
                 {games.slice(-8).map((g, i) => (
                   <div key={i} className="dashgame-row">
-                    <span className="dashgame-song"><b style={{ color: "#d97757" }}>{"★".repeat(g.stars)}</b> {g.song}</span>
+                    <span className="dashgame-song"><b style={{ color: "var(--clay-ink)" }}>{"★".repeat(g.stars)}</b> {g.song}</span>
                     <span className="dashgame-acc">{g.acc}%</span>
                   </div>
                 ))}
@@ -7220,7 +7223,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       <div className="profsec">
         <div className="profsec-h">
           {lc.profProgress}
-          <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)" }}>
+          <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)" }}>
             {activeDays} {lc.profActiveDays}
           </span>
         </div>
@@ -7308,7 +7311,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       <div className="profsec">
         <div className="profsec-h">
           {lc.weeklyTitle}
-          <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+          <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
             {weekDoneCount}/{weekChallenges.length}
           </span>
         </div>
@@ -7333,7 +7336,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       <div className="profsec">
         <div className="profsec-h">
           {lc.profBadges}
-          <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+          <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
             {gotBadges.length}/{BADGES.length}
           </span>
         </div>
@@ -7362,7 +7365,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           <div className="profsec">
             <div className="profsec-h">
               {lc.knowledgeQuestTitle}
-              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+              <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
                 {domainDone.length}/{domains.length}
               </span>
             </div>
@@ -7400,7 +7403,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           <div className="profsec">
             <div className="profsec-h">
               {lc.drillDeckTitle}
-              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+              <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
                 {deck.length}
               </span>
             </div>
@@ -7412,12 +7415,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
                   <div className="wkbody">
                     <div className="wktop">
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.label}{d.chordStyle && ` · ${d.chordStyle}`}</span>
-                      <b style={{ color: "#d97757", flexShrink: 0, marginLeft: 6, whiteSpace: "nowrap" }}>{d.accuracy}% · 🔥{d.bestStreak}</b>
+                      <b style={{ color: "var(--clay-ink)", flexShrink: 0, marginLeft: 6, whiteSpace: "nowrap" }}>{d.accuracy}% · 🔥{d.bestStreak}</b>
                     </div>
                     <div className="wkbar"><div style={{ width: d.accuracy + "%", background: "#d97757" }} /></div>
                   </div>
                   <button onClick={() => onReplayDrill && onReplayDrill(d)}
-                    style={{ flexShrink: 0, background: "rgba(217,119,87,.12)", border: "1px solid #d9775755", borderRadius: 8, color: "#d97757", padding: "7px 11px", fontSize: 13, cursor: "pointer" }}>
+                    style={{ flexShrink: 0, background: "rgba(217,119,87,.12)", border: "1px solid #d9775755", borderRadius: 8, color: "var(--clay-ink)", padding: "7px 11px", fontSize: 13, cursor: "pointer" }}>
                     ▶
                   </button>
                 </div>
@@ -7584,7 +7587,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
                 <div key={wi} style={{ padding: "4px 0", borderBottom: wi < Math.min(2, stats.weakest.length - 1) ? "1px solid var(--border)" : "none" }}>
                   <span style={{ fontWeight: 600, color: "var(--text)" }}>• {w.label}</span>
                   {" — "}<span style={{ color: "var(--muted)" }}>{intensity}</span>{" "}
-                  <span style={{ fontWeight: 700, color: "#d97757" }}>
+                  <span style={{ fontWeight: 700, color: "var(--clay-ink)" }}>
                     {T(`${mins} นาที/วัน`, `${mins} min/day`, `每天 ${mins} 分钟`)}
                   </span>
                   {/* citation chip — grounds the suggestion in the exact tally it came from,
@@ -7605,7 +7608,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
           <div className="instile" style={{ minWidth: 0 }}>
             <b>{stats.acc7 == null ? "—" : stats.acc7 + "%"}
               {accDelta != null && accDelta !== 0 && (
-                <span style={{ fontSize: 9, marginLeft: 3, color: accDelta > 0 ? "#d97757" : "#ff5252" }}>
+                <span style={{ fontSize: 9, marginLeft: 3, color: accDelta > 0 ? "var(--clay-ink)" : "#ff5252" }}>
                   {accDelta > 0 ? "▲" : "▼"}{Math.abs(accDelta)}
                 </span>
               )}
@@ -7638,12 +7641,12 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
                 `You've covered ${readyGroups.length} sections — Boss Challenges and certificates are waiting to be claimed on the Challenging page!`,
                 `你已学完 ${readyGroups.length} 个单元——挑战首领和证书正在闯关挑战页面等你！`);
           return (
-            <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
-              <div style={{ fontSize: 13, color: "#c4b5fd", fontWeight: 700, marginBottom: 6 }}>
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: "1px solid var(--vio-ln)", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+              <div style={{ fontSize: 13, color: "var(--vio-ink)", fontWeight: 700, marginBottom: 6 }}>
                 🏆 {T("พร้อมทดสอบตัวเองหรือยัง?", "Ready to test yourself?", "准备好测试了吗？")}
               </div>
               <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.7, marginBottom: 10 }}>{body}</div>
-              <button className="songbtn go" style={{ width: "100%", background: "#8b5cf6" }} onClick={() => onNavigate("challenging")}>
+              <button className="songbtn go vio" style={{ width: "100%" }} onClick={() => onNavigate("challenging")}>
                 ⚔️ {T("ไปหน้าท้าทาย", "Go to Challenging", "前往闯关挑战")}
               </button>
             </div>
@@ -7731,7 +7734,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
                   <span>{tr(SKILL_LABELS[t.skill], lang)}</span>
                   <span>
                     {t.first} → {t.latest}
-                    <b style={{ marginLeft: 6, color: delta > 0 ? "#d97757" : delta < 0 ? "#ff5252" : "var(--muted)" }}>
+                    <b style={{ marginLeft: 6, color: delta > 0 ? "var(--clay-ink)" : delta < 0 ? "#ff5252" : "var(--muted)" }}>
                       {delta > 0 ? "▲" : delta < 0 ? "▼" : "–"}{Math.abs(delta)}
                     </b>
                   </span>
@@ -7772,7 +7775,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             📋 {T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单")}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 44, fontWeight: 900, color: "#d97757", lineHeight: 1 }}>{rcGrade}</div>
+            <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: 44, fontWeight: 900, color: "var(--clay-ink)", lineHeight: 1 }}>{rcGrade}</div>
             <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
               <div>{T(`ซ้อม ${stats.days7}/7 วัน`, `${stats.days7}/7 days practiced`, `练习了 ${stats.days7}/7 天`)}</div>
               <div>{stats.acc7 == null ? T("ยังไม่มีข้อมูลความแม่นยำ", "No accuracy data yet", "暂无准确率数据") : T(`แม่นยำ ${stats.acc7}%`, `${stats.acc7}% accuracy`, `准确率 ${stats.acc7}%`)}</div>
@@ -7815,7 +7818,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
               <button className="songbtn go" style={{ flex: 1 }} onClick={() => onOpenAiReport && onOpenAiReport("report")}>
                 📋 {T("รายงานรายสัปดาห์", "Weekly Report", "每周报告")}
               </button>
-              <button className="songbtn go" style={{ flex: 1, background: "#8b5cf6" }} onClick={() => onOpenAiReport && onOpenAiReport("plan")}>
+              <button className="songbtn go vio" style={{ flex: 1 }} onClick={() => onOpenAiReport && onOpenAiReport("plan")}>
                 🗓️ {T("แผนซ้อม 7 วัน", "7-Day Plan", "7天计划")}
               </button>
             </div>
@@ -8727,7 +8730,7 @@ function AdminSchools({ lang, viewerTier }) {
               {tier >= 3 && !r.fulfilled_at && r.status === "approved" && (
                 <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
                   {r.slip_path && <button className="songbtn ghost" style={{ padding: "8px 12px" }} onClick={() => viewSlip(r.slip_path)}>📎 {T("ดูสลิป", "View slip", "查看凭证")}</button>}
-                  <span style={{ fontSize: 11, color: "#d97757" }}>⏳ {T("อนุมัติแล้ว รอสร้างโรงเรียน", "Approved — still needs the school created", "已批准——仍需创建学校")}</span>
+                  <span style={{ fontSize: 11, color: "var(--clay-ink)" }}>⏳ {T("อนุมัติแล้ว รอสร้างโรงเรียน", "Approved — still needs the school created", "已批准——仍需创建学校")}</span>
                   <button className="songbtn go" style={{ padding: "8px 12px" }} disabled={busy} onClick={() => prefillFromPayReq(r)}>🏫 {T("เติมฟอร์ม", "Prefill form", "填充表单")}</button>
                 </div>
               )}
@@ -8890,7 +8893,7 @@ function AdminPayments({ lang }) {
           <div>
             <div className="admstu-nm">{sel.full_name || sel.email || "—"} <span className={`adminpay-badge ${st}`}>{st.toUpperCase()}</span></div>
             <div className="admstu-em">{sel.email}</div>
-            <div className="admstu-lv">{isCurrency ? currencyLabel(sel) : (PLAN_LABEL[sel.plan] || sel.plan)} · <b style={{ color: "#d97757" }}>฿{(sel.amount || 0).toLocaleString()}</b> · {(sel.created_at || "").slice(0, 16).replace("T", " ")}</div>
+            <div className="admstu-lv">{isCurrency ? currencyLabel(sel) : (PLAN_LABEL[sel.plan] || sel.plan)} · <b style={{ color: "var(--clay-ink)" }}>฿{(sel.amount || 0).toLocaleString()}</b> · {(sel.created_at || "").slice(0, 16).replace("T", " ")}</div>
           </div>
         </div>
         {slipUrl ? <img className="payslip" src={slipUrl} alt="slip" /> : <div className="admstu-empty">{sel.slip_path ? T("กำลังโหลดสลิป…", "Loading slip…", "加载中…") : T("ไม่มีสลิป", "No slip", "无凭证")}</div>}
@@ -9195,7 +9198,7 @@ function AdminAutoTeach({ lang }) {
             <button key={m} className={`setlangbtn${min === m ? " on" : ""}`} disabled={busy} onClick={() => save(m)}>{m}{T("น.", "m", "分")}</button>
           ))}
         </div>
-        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
+        {saved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
       </div>
     </div>
   );
@@ -9236,7 +9239,7 @@ function AdminWeeklyReport({ lang }) {
           <button className={`setlangbtn${enabled === false ? " on" : ""}`} disabled={busy} onClick={() => save(false)}>{T("ปิด", "Off", "关闭")}</button>
           <button className={`setlangbtn${enabled === true ? " on" : ""}`} disabled={busy} onClick={() => save(true)}>{T("เปิด", "On", "开启")}</button>
         </div>
-        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
+        {saved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
         {!enabled && (
           <div className="admstu-row-sub" style={{ marginTop: 10, opacity: .75 }}>
             {T("ปัจจุบันปิดอยู่ — ตารางส่งวันจันทร์ทำงานอยู่เบื้องหลังแล้วแต่ไม่ส่งอะไรจนกว่าจะเปิดสวิตช์นี้", "Currently off — the Monday schedule already runs in the background but sends nothing until this switch is on.", "目前已关闭——周一的定时任务已在后台运行，但在开启此开关前不会发送任何内容。")}
@@ -9292,7 +9295,7 @@ function AdminBroadcast({ lang }) {
         </div>
         <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={3} className="admstu-search"
           placeholder={T("พิมพ์ข้อความประกาศ...", "Write the announcement...", "输入公告内容…")}
-          style={{ width: "100%", resize: "vertical", boxSizing: "border-box", marginBottom: 8, fontFamily: "'Rajdhani',sans-serif" }} />
+          style={{ width: "100%", resize: "vertical", boxSizing: "border-box", marginBottom: 8, fontFamily: "var(--f-app, sans-serif)" }} />
         <input value={img} onChange={e => setImg(e.target.value)} className="admstu-search"
           placeholder={T("ลิงก์รูปภาพ (ไม่บังคับ)", "Image URL (optional)", "图片链接（可选）")}
           style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }} />
@@ -9300,7 +9303,7 @@ function AdminBroadcast({ lang }) {
         <button className="songbtn go" style={{ width: "100%" }} disabled={busy || !msg.trim()} onClick={send}>
           {busy ? "⏳" : "📢"} {T("ส่งเลย", "Send now", "立即发送")}
         </button>
-        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10, whiteSpace: "normal" }}>✓ {T("ส่งแล้ว — ขึ้นหน้าแรกผู้เรียนทันที", "Sent — now live on every learner's home page", "已发送——已在学员首页生效")}</div>}
+        {saved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginTop: 10, whiteSpace: "normal" }}>✓ {T("ส่งแล้ว — ขึ้นหน้าแรกผู้เรียนทันที", "Sent — now live on every learner's home page", "已发送——已在学员首页生效")}</div>}
       </div>
 
       {cur && cur.active && (
@@ -9425,7 +9428,7 @@ function AdminEvent({ lang }) {
         <button className="songbtn go" style={{ width: "100%" }} disabled={busy || (!nameTh.trim() && !nameEn.trim())} onClick={start}>
           {busy ? "⏳" : "🎉"} {T("เริ่มเลย", "Start now", "立即开始")}
         </button>
-        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10, whiteSpace: "normal" }}>✓ {T("เริ่มแล้ว — ผู้เรียนเห็นแบนเนอร์ทันที", "Started — the banner is now live for every learner", "已开始——横幅已对所有学员生效")}</div>}
+        {saved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginTop: 10, whiteSpace: "normal" }}>✓ {T("เริ่มแล้ว — ผู้เรียนเห็นแบนเนอร์ทันที", "Started — the banner is now live for every learner", "已开始——横幅已对所有学员生效")}</div>}
       </div>
     </div>
   );
@@ -12524,13 +12527,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 </button>
               )}
               {aiModalLoading && (
-                <div style={{ textAlign: "center", padding: "28px 0", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, fontSize: "14px" }}>
+                <div style={{ textAlign: "center", padding: "28px 0", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, fontSize: "14px" }}>
                   ⏳ {lang === "th" ? "กำลังสร้าง..." : lang === "zh" ? "生成中..." : "Generating..."}
                 </div>
               )}
               {aiModalText && (
                 <>
-                  <div style={{ fontSize: "13.5px", lineHeight: 1.75, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "pre-wrap", padding: "4px 0 8px" }}>
+                  <div style={{ fontSize: "13.5px", lineHeight: 1.75, color: "var(--text)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, whiteSpace: "pre-wrap", padding: "4px 0 8px" }}>
                     {aiModalText}
                   </div>
                   {/* Citation chips — the paragraph above is AI-written, but grounded in
