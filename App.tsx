@@ -11549,13 +11549,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try {
       visits = Number(localStorage.getItem("tg_visits") || 0);
       if (!sessionStorage.getItem("tg_visit_counted")) { visits += 1; localStorage.setItem("tg_visits", String(visits)); sessionStorage.setItem("tg_visit_counted", "1"); }
-      if (sessionStorage.getItem("tg_notif_invite_seen")) return;
     } catch (e) {}
     const wait = visits >= 2 ? 1200 : 3 * 60 * 1000;
     const t = setTimeout(async () => {
       if (session) { try { const { data } = await sb.rpc("notif_reward_claimed"); if (data === true) { markNotifDone(); return; } } catch (e) {} }
+      // every app open until claimed — a per-session flag survived refreshes, so it hid for good
       setNotifInvite(true);
-      try { sessionStorage.setItem("tg_notif_invite_seen", "1"); } catch (e) {}
       logUsage("event", "notif-invite");
     }, wait);
     return () => clearTimeout(t);
@@ -13608,7 +13607,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* Admin broadcast — an announcement pushed on demand, shown once per device; takes
           priority over the Auto Teaching tip if both would otherwise be eligible at once. */}
       {notifInvite && !broadcast && (
-        <div className="atpopup" onClick={() => setNotifInvite(false)}>
+        <div className="atpopup notifevt-wrap" onClick={() => setNotifInvite(false)}>
           <div className="atpopup-card notifevt" onClick={e => e.stopPropagation()}>
             <button className="atpopup-x" onClick={() => setNotifInvite(false)} aria-label="close">×</button>
             <div className="notifevt-ic" aria-hidden="true">🔔</div>
@@ -13618,7 +13617,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <span><b>🪙 10,000</b><i>{lang === "th" ? "Coins" : lang === "zh" ? "Coins" : "Coins"}</i></span>
               <span><b>💎 10,000</b><i>{lang === "th" ? "Gems" : lang === "zh" ? "Gems" : "Gems"}</i></span>
             </div>
-            <div className="notifevt-p">{lang === "th" ? "ไปที่ ตั้งค่า → แจ้งเตือน แล้วกดเปิด รางวัลเข้าบัญชีทันที (รับได้ครั้งเดียวต่อบัญชี)" : lang === "zh" ? "前往 设置 → 通知 并开启，奖励立即到账（每个账号限领一次）" : "Go to Settings → Notifications and switch it on — the reward lands instantly (once per account)"}</div>
+            <div className="notifevt-p">{lang === "th" ? "กดเข้าร่วมกิจกรรม แล้วกด \"อนุญาต\" การแจ้งเตือน — รางวัลเข้าบัญชีทันที (รับได้ครั้งเดียวต่อบัญชี)" : lang === "zh" ? "点击参加活动，然后「允许」通知——奖励立即到账（每个账号限领一次）" : "Tap Join, then Allow notifications — the reward lands instantly (once per account)"}</div>
             <button className="notifevt-go" onClick={joinNotifEvent}>{lang === "th" ? "เข้าร่วมกิจกรรม" : lang === "zh" ? "参加活动" : "Join the event"}</button>
           </div>
         </div>
