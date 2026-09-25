@@ -249,8 +249,9 @@ html[data-theme="dark"] .tg .warmup-banner{background:linear-gradient(135deg,#2a
 .tg .replaybtn{height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--clay-ln);background:var(--clay-t1);color:var(--clay-ink);font-family:var(--f-app);font-size:12px;font-weight:500;letter-spacing:0}
 .tg .replaybtn:hover{box-shadow:none;background:var(--clay-t2);border-color:var(--clay-ln)}
 /* the keys: ivory and ebony under a soft light, not white slabs in a blackout */
-.tg .pk.w{border-color:#d9d3c7;border-radius:0 0 7px 7px;background:linear-gradient(180deg,#fff 70%,#f6f3ec);box-shadow:0 2px 3px rgba(40,30,20,.16),inset 0 -3px 0 #ece7dc}
-.tg .pk.b{border-radius:0 0 5px 5px;border-color:#0f0e0c;background:linear-gradient(180deg,#2c2925,#141312 88%,#24211d);box-shadow:0 3px 6px rgba(20,15,10,.45),inset 0 -2px 0 rgba(255,255,255,.06)}
+/* :where keeps this below .pk.w.lit and the skin lit colours */
+:where(.tg) .pk.w{border-color:#d9d3c7;border-radius:0 0 7px 7px;background:linear-gradient(180deg,#fff 70%,#f6f3ec);box-shadow:0 2px 3px rgba(40,30,20,.16),inset 0 -3px 0 #ece7dc}
+:where(.tg) .pk.b{border-radius:0 0 5px 5px;border-color:#0f0e0c;background:linear-gradient(180deg,#2c2925,#141312 88%,#24211d);box-shadow:0 3px 6px rgba(20,15,10,.45),inset 0 -2px 0 rgba(255,255,255,.06)}
 .tg .kn{font-family:var(--f-num);font-size:8px;color:#a39e93}
 .tg .recbtn{min-height:34px;padding:0 16px;border-radius:999px;border:1px solid var(--bd4);background:var(--card);box-shadow:var(--sh1);font-family:var(--f-app);font-size:12.5px;font-weight:500}
 .tg .handbtn{border-radius:16px;border:1px solid var(--bd2);background:var(--card);color:var(--text2);box-shadow:var(--sh1);font-family:var(--f-app);font-size:13px;font-weight:500;letter-spacing:0}
