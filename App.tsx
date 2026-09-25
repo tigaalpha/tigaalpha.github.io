@@ -586,7 +586,7 @@ const SIGHT_ROUND = 10; // notes per sight-reading round
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "" }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   /* Card numbers run straight through the whole pathway — foundation 01-02,
@@ -667,6 +667,11 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                 <div className="pglabel">{g.label}</div>
                 <div className="pgdesc">{g.desc}</div>
               </div>
+              {gi === 0 && onUpgrade && (
+                <button type="button" className="pgupgrade" onClick={onUpgrade}>
+                  <span aria-hidden="true">👑</span> {lang === "th" ? "อัปเกรด Premium" : lang === "zh" ? "升级 Premium" : "Upgrade Premium"}
+                </button>
+              )}
               <span className="pgstep">{lc.stepLabel.replace("{n}", String(gi + 1))}</span>
             </header>
 
@@ -12277,7 +12282,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
           onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
-          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
+          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""}
+          onUpgrade={(premium && plan !== "trial") ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
       )}
 
       {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
