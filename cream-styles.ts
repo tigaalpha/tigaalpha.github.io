@@ -591,4 +591,24 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 .setrow.notifglow{border-radius:12px;box-shadow:0 0 0 2px #d97757,0 0 18px rgba(217,119,87,.55);animation:notifGlowP 1.2s ease-in-out infinite}
 @keyframes notifGlowP{50%{box-shadow:0 0 0 2px #d97757,0 0 4px rgba(217,119,87,.2)}}
 .atpopup.notifevt-wrap{z-index:2600!important}
+
+/* ── strikes with weight ──
+   A strike was a static offset; now the body moves like a blow: a small
+   pull-back, a drive forward with the torso leaning in, a slight overshoot,
+   a settle — and a hit is a recoil with a twist and a bounce. Transform-only
+   keyframes on the wrapper (compositor). Limbs snap out fast, ease back. */
+.pvppage.fight .ca-limb{transition:transform .11s cubic-bezier(.2,.9,.25,1.15)!important}
+.pvppage.fight .pvpfighter.me.lunge .pvpfighter-in{animation:pvpLungeMe .42s cubic-bezier(.3,.7,.3,1) both}
+.pvppage.fight .pvpfighter.op.lunge .pvpfighter-in{animation:pvpLungeOp .42s cubic-bezier(.3,.7,.3,1) both}
+.pvppage.fight .pvpfighter.me.knock .pvpfighter-in{animation:pvpKnockMe .38s cubic-bezier(.2,.8,.3,1) both}
+.pvppage.fight .pvpfighter.op.knock .pvpfighter-in{animation:pvpKnockOp .38s cubic-bezier(.2,.8,.3,1) both}
+@keyframes pvpLungeMe{0%{transform:none}14%{transform:translateX(-5%) rotate(2.5deg) scale(.98,1.02)}
+  42%{transform:translateX(42%) rotate(-5deg) scale(1.06,.97)}62%{transform:translateX(36%) rotate(-3deg) scale(1.03)}100%{transform:translateX(30%) rotate(-1.5deg)}}
+@keyframes pvpLungeOp{0%{transform:none}14%{transform:translateX(5%) rotate(-2.5deg) scale(.98,1.02)}
+  42%{transform:translateX(-42%) rotate(5deg) scale(1.06,.97)}62%{transform:translateX(-36%) rotate(3deg) scale(1.03)}100%{transform:translateX(-30%) rotate(1.5deg)}}
+@keyframes pvpKnockMe{0%{transform:none}22%{transform:translateX(-14%) rotate(-8deg) scale(.97,1.02)}
+  48%{transform:translateX(-9%) rotate(-4deg)}72%{transform:translateX(-11%) rotate(-5deg)}100%{transform:translateX(-8%) rotate(-3deg)}}
+@keyframes pvpKnockOp{0%{transform:none}22%{transform:translateX(14%) rotate(8deg) scale(.97,1.02)}
+  48%{transform:translateX(9%) rotate(4deg)}72%{transform:translateX(11%) rotate(5deg)}100%{transform:translateX(8%) rotate(3deg)}}
+@media (prefers-reduced-motion:reduce){.pvppage.fight .pvpfighter-in{animation:none!important}}
 `;
