@@ -486,7 +486,7 @@ html:not([data-theme="dark"]) .pvpdir *{color:#a8502f!important}
 body:has(.pvppage.fight) .apkpill{display:none!important}
 
 /* lite fight (touch / low-end): keep the look, drop the per-frame repaint */
-.pvppage.fight.lite .pvpfighter *,.pvppage.fight.lite .pvpwall{animation:none!important}
+.pvppage.fight.lite .pvpfighter svg *,.pvppage.fight.lite .pvpwall{animation:none!important}
 .pvppage.fight.lite .pvpfighter,.pvppage.fight.lite .pvpfighter *{filter:none!important;-webkit-box-reflect:none!important}
 .pvppage.fight.lite .pvpfighter{will-change:transform}
 .pvppage.fight.lite *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
@@ -535,7 +535,18 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 /* portrait: lift the skills + arrows column 5% of the screen */
 .pvppage.fight:not(.land) .pvppad-lcol{transform:translateY(-5vh)}
 
-/* lite: pose tweens inside the stage restart on every tick and made the
-   browser rebuild layer data for the whole fight; poses snap instead */
-.pvppage.fight.lite .pvpstage *{transition:none!important}
+/* ── fight motion that reads as weight, not keyframes ──
+   Lunges and knock-backs tween with a slight overshoot (a body that carries
+   momentum and settles), and each fighter breathes and shifts its weight in
+   idle. All of it is transform on wrapper layers, so it runs on the
+   compositor and never repaints the robot's SVG. */
+.pvppage.fight .pvpfighter-in{transition:transform .26s cubic-bezier(.22,1.25,.36,1)}
+.pvppage.fight .pvpfighter.knock .pvpfighter-in{transition-duration:.16s}
+.pvppage.fight .pvpfbody{transform-origin:50% 100%;animation:pvpBreath 2.6s ease-in-out infinite;will-change:transform}
+.pvppage.fight .pvpfighter.op .pvpfbody{animation-duration:2.9s;animation-delay:-1.1s}
+.pvppage.fight .pvpfighter.lunge .pvpfbody,.pvppage.fight .pvpfighter.knock .pvpfbody{animation-play-state:paused}
+@keyframes pvpBreath{0%,100%{transform:translateY(0) rotate(0) scaleY(1)}
+  30%{transform:translateY(-1.2%) rotate(-.6deg) scaleY(1.012)}
+  60%{transform:translateY(-.4%) rotate(.5deg) scaleY(1.004)}}
+@media (prefers-reduced-motion:reduce){.pvppage.fight .pvpfbody{animation:none}.pvppage.fight .pvpfighter-in{transition:none}}
 `;
