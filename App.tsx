@@ -9263,6 +9263,8 @@ function AdminBroadcast({ lang }) {
   const [cur, setCur] = useState(undefined); // undefined = loading, null = never sent one, object = current
   const [msg, setMsg] = useState("");
   const [img, setImg] = useState("");
+  const [tPage, setTPage] = useState("");   // in-app page a tap opens ("" = none)
+  const [tUrl, setTUrl] = useState("");     // or an external link
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const load = useCallback(() => {
@@ -9308,10 +9310,11 @@ function AdminBroadcast({ lang }) {
     catch (e) {
       if (!confirm(T("แปลภาษาอัตโนมัติไม่สำเร็จ — ส่งเป็นข้อความเดิมภาษาเดียวให้ทุกคนไหม?", "Auto-translation failed — send the original text to everyone?", "自动翻译失败——是否向所有人发送原文？"))) { setBusy(false); return; }
     }
-    const value = { id: Date.now(), message: msg.trim(), i18n, image_url: img.trim() || null, active: true };
+    const link = tUrl.trim() ? { url: /^https?:\/\//i.test(tUrl.trim()) ? tUrl.trim() : "https://" + tUrl.trim() } : tPage ? { page: tPage } : null;
+    const value = { id: Date.now(), message: msg.trim(), i18n, image_url: img.trim() || null, link, active: true };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
     setBusy(false);
-    if (!error) { setCur(value); setMsg(""); setImg(""); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
+    if (!error) { setCur(value); setMsg(""); setImg(""); setTPage(""); setTUrl(""); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
   }
   const [reposted, setReposted] = useState(false);
   /* Repost: the same announcement, as-is, under a NEW id. Every device keys
@@ -9319,7 +9322,9 @@ function AdminBroadcast({ lang }) {
   async function repost() {
     if (!cur) return;
     setBusy(true); setReposted(false);
-    const value = { ...cur, id: Date.now(), active: true };
+    // a target picked in the form above applies to the repost too
+    const link = tUrl.trim() ? { url: /^https?:\/\//i.test(tUrl.trim()) ? tUrl.trim() : "https://" + tUrl.trim() } : tPage ? { page: tPage } : (cur.link || null);
+    const value = { ...cur, link, id: Date.now(), active: true };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
     setBusy(false);
     if (!error) { setCur(value); setReposted(true); playUi("levelup"); setTimeout(() => setReposted(false), 2500); } else { alert(error.message || "error"); }
@@ -9354,6 +9359,17 @@ function AdminBroadcast({ lang }) {
           <input type="file" accept="image/*" style={{ display: "none" }} disabled={upBusy}
             onChange={e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; uploadImage(f); }} />
         </label>
+        <div className="admstu-row-sub" style={{ marginBottom: 6, whiteSpace: "normal" }}>
+          🔗 {T("เมื่อผู้ใช้กดรูปหรือข้อความ ให้ไปที่…", "When a user taps the image or text, go to…", "用户点击图片或文字时前往…")}
+        </div>
+        <select value={tPage} onChange={e => { setTPage(e.target.value); if (e.target.value) setTUrl(""); }} className="admstu-search"
+          style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }}>
+          <option value="">{T("— ไม่ลิงก์ (แค่แสดงประกาศ) —", "— No link (just show it) —", "— 无链接（仅展示）—")}</option>
+          {BROADCAST_TARGETS().map(f => <option key={f.key} value={f.key}>{f.icon} {f.label[lang] || f.label.en}</option>)}
+        </select>
+        <input value={tUrl} onChange={e => { setTUrl(e.target.value); if (e.target.value) setTPage(""); }} className="admstu-search"
+          placeholder={T("หรือใส่ลิงก์ภายนอก เช่น https://line.me/…", "Or an external link, e.g. https://line.me/…", "或外部链接，例如 https://line.me/…")}
+          style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }} />
         <div className="admstu-row-sub" style={{ marginBottom: 10, whiteSpace: "normal", opacity: .8 }}>
           {T("พิมพ์ภาษาเดียวพอ — ระบบแปลเป็นไทย/อังกฤษ/จีนให้อัตโนมัติ ผู้เรียนเห็นตามภาษาที่เลือกไว้",
             "Write in one language — it is auto-translated to Thai/English/Chinese and each learner sees their own.",
@@ -9373,6 +9389,7 @@ function AdminBroadcast({ lang }) {
             <div key={k} className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}><b>{k.toUpperCase()}</b> · {cur.i18n[k]}</div>
           ))) : <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>{cur.message}</div>}
           {cur.image_url && <img src={cur.image_url} alt="" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 8, display: "block" }} />}
+          {cur.link && <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>🔗 {cur.link.url || ((BROADCAST_TARGETS().find(f => f.key === cur.link.page) || {}).label || {})[lang] || cur.link.page}</div>}
           <button className="songbtn go" style={{ width: "100%", marginBottom: 8 }} disabled={busy} onClick={repost}>
             {busy ? "⏳" : "🔁"} Repost
           </button>
@@ -9394,6 +9411,16 @@ function AdminBroadcast({ lang }) {
    Each feature's real page title lives inside that page's own component-local
    T object (not exported), so this keeps its own small label set rather than
    reaching into 8 different files for strings. */
+/* Where a tapped announcement can send people: every spotlight feature plus
+   the money and game pages — so a popup ad drives traffic straight there. */
+const BROADCAST_TARGETS = () => [
+  { key: "pricing", icon: "👑", label: { th: "อัปเกรด Premium (หน้าแพ็กเกจ)", en: "Upgrade Premium (pricing)", zh: "升级 Premium（价格）" } },
+  { key: "shop", icon: "🛍️", label: { th: "ร้านค้า", en: "Shop", zh: "商店" } },
+  { key: "pvp", icon: "⚔️", label: { th: "สนามประลอง PvP", en: "PvP Arena", zh: "PvP 竞技场" } },
+  { key: "pet", icon: "🐾", label: { th: "สัตว์เลี้ยง", en: "Pet", zh: "宠物" } },
+  { key: "profile", icon: "👤", label: { th: "โปรไฟล์", en: "Profile", zh: "个人资料" } },
+  ...SPOTLIGHT_FEATURES,
+];
 const SPOTLIGHT_FEATURES = [
   { key: "pathway", icon: "⬡", label: { th: "เส้นทางเรียนรู้", en: "Pathway", zh: "学习路径" } },
   { key: "coach", icon: "🎯", label: { th: "Daily Mentor", en: "Daily Mentor", zh: "每日导师" } },
@@ -10630,6 +10657,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function dismissBroadcast() {
     if (broadcast) markBroadcastSeen(broadcast.id);
     setBroadcast(null);
+  }
+  /* A tapped announcement goes where the admin pointed it: an in-app page
+     (the popup closes and that page opens) or an external link (new tab). */
+  function openBroadcastLink() {
+    const L = broadcast && broadcast.link; if (!L) return;
+    logUsage("broadcast", "tap:" + (L.page || "url"));
+    dismissBroadcast();
+    if (L.url) { try { window.open(L.url, "_blank", "noopener"); } catch (e) {} return; }
+    if (L.page === "pricing") { playUi("click"); setPricingOpen(true); return; }
+    if (L.page === "shop") { playUi("click"); setShopOpen(true); return; }
+    goToSpotlight(L.page);
   }
   // Jump straight to an event's spotlighted feature — each SPOTLIGHT_FEATURES
   // key maps to whatever that feature's real navigation actually is (a plain
@@ -13492,10 +13530,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="atpopup-x" onClick={dismissBroadcast} aria-label="close">×</button>
             </div>
             {broadcast.image_url && (
-              <img src={broadcast.image_url} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block" }}
+              <img src={broadcast.image_url} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block", cursor: broadcast.link ? "pointer" : "default" }}
+                onClick={broadcast.link ? openBroadcastLink : undefined}
                 onError={e => { e.target.style.display = "none"; }} />
             )}
-            <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{(broadcast.i18n && broadcast.i18n[lang]) || broadcast.message}</div>
+            <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap", cursor: broadcast.link ? "pointer" : "default" }}
+              onClick={broadcast.link ? openBroadcastLink : undefined}>{(broadcast.i18n && broadcast.i18n[lang]) || broadcast.message}</div>
             <button className="atpopup-ok" onClick={dismissBroadcast}>{lang === "th" ? "รับทราบ" : lang === "zh" ? "知道了" : "Got it"}</button>
           </div>
         </div>
