@@ -1,4 +1,8 @@
 import { isLowEnd } from "./space-stage";
+/* touch screens (iPad, phones) and weak machines: 1x canvases, and the backdrop
+   painted once instead of cleared and redrawn every frame — two full-screen
+   canvases at 2x density were the bulk of each fight frame on an iPad */
+const LITE = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
 /* ── arena-fx.tsx ──
    Sound and picture for the PvP arena, and nowhere else in the app.
 
@@ -1256,7 +1260,7 @@ export function useArenaFx(stage, opts = {}) {
     const fit = (cw, chh) => {
       let w = cw, h = chh;
       if (w == null || h == null) { const r = cv.getBoundingClientRect(); w = r.width; h = r.height; }
-      const dpr = isLowEnd() ? 1 : Math.min(2, window.devicePixelRatio || 1);
+      const dpr = LITE ? 1 : Math.min(2, window.devicePixelRatio || 1);
       w = Math.max(1, w); h = Math.max(1, h);
       if (dpr === S.dpr && Math.abs(w - S.w) < 0.5 && Math.abs(h - S.h) < 0.5) return;
       S.dpr = dpr; S.w = w; S.h = h;
@@ -1291,7 +1295,9 @@ export function useArenaFx(stage, opts = {}) {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       S.t += dt;
       ctx = bgctx || fxctx;           // the backdrop pass
-      ctx.clearRect(0, 0, S.w, S.h);
+      // lite: a separate backdrop canvas keeps its static bake between frames
+      const bgStill = LITE && bgctx && !S.plain && S.bgDone === (S.bake && S.bake.key) && !S.scorch.length;
+      if (!bgStill) ctx.clearRect(0, 0, S.w, S.h);
       if (bgctx) fxctx.clearRect(0, 0, S.w, S.h);
 
       // ── floor: a perspective grid receding to a horizon behind the fighters
@@ -1315,11 +1321,12 @@ export function useArenaFx(stage, opts = {}) {
       }
       /* with the 3D room behind it (S.plain) the backdrop canvas carries only
          what the fight leaves on the floor — the room itself is real now */
-      if (!S.plain) {
+      if (!S.plain && !bgStill) {
         if (S.bake.cv) ctx.drawImage(S.bake.cv, 0, 0, S.w, S.h);
         ctx.save();
-        liveBackdrop(ctx, S, SG, hz, S.bake);
+        if (!(LITE && bgctx)) liveBackdrop(ctx, S, SG, hz, S.bake);
         ctx.restore();
+        if (LITE && bgctx) S.bgDone = S.scorch.length ? null : S.bake.key;
       }
 
       // ── scorch marks: painted on the floor before anything else, so the
@@ -1366,10 +1373,11 @@ export function useArenaFx(stage, opts = {}) {
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
       }
 
-      if (!S.plain) for (const m of S.motes) {
+      // lite keeps the backdrop canvas still, so the drifting motes go on the fx layer
+      if (!S.plain) { const mc = LITE && bgctx ? fxctx : ctx; for (const m of S.motes) {
         m.y += m.vy * dt; if (m.y < 0) { m.y = S.h; m.x = Math.random() * S.w; }
-        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fillStyle = `rgba(${SG.mote},${m.a * 1.5})`; ctx.fill();
-      }
+        mc.beginPath(); mc.arc(m.x, m.y, m.r, 0, 7); mc.fillStyle = `rgba(${SG.mote},${m.a * 1.5})`; mc.fill();
+      } }
 
       // ── from here on it is drawn IN FRONT of the fighters ──
       ctx = fxctx;
