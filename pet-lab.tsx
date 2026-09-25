@@ -1026,9 +1026,11 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             instead of a shape with a gradient poured into it. The last stop
             keeps the animal's own hue, so nothing dies into navy. */}
         <linearGradient id={`${uid}-body`} x1="0.18" y1="0" x2="0.8" y2="1">
-          <stop offset="0%" stopColor={mixc(A, "#ffffff", .72)} />
-          <stop offset="15%" stopColor={mixc(A, "#ffffff", .18)} />
-          <stop offset="33%" stopColor={mixc(A, "#ffffff", .46)} />
+          {/* glossy vinyl: a clean hot edge, then the pet's own colour at full
+              strength, instead of a white haze across the whole body */}
+          <stop offset="0%" stopColor={mixc(A, "#ffffff", .6)} />
+          <stop offset="12%" stopColor={mixc(A, "#ffffff", .08)} />
+          <stop offset="30%" stopColor={mixc(A, "#ffffff", .22)} />
           <stop offset="58%" stopColor={A2} />
           <stop offset="82%" stopColor={mixc(A2, B, .62)} />
           <stop offset="100%" stopColor={mixc(B, A, .18)} />
@@ -1047,8 +1049,8 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           <stop offset="100%" stopColor={mixc(A, "#fffaf2", .26)} stopOpacity="0" />
         </radialGradient>
         <linearGradient id={`${uid}-soft`} x1="0.2" y1="0" x2="0.78" y2="1">
-          <stop offset="0%" stopColor={mixc(A, "#ffffff", .3)} />
-          <stop offset="34%" stopColor={mixc(A, "#ffffff", .44)} />
+          <stop offset="0%" stopColor={mixc(A, "#ffffff", .22)} />
+          <stop offset="34%" stopColor={mixc(A, "#ffffff", .26)} />
           <stop offset="60%" stopColor={A2} />
           <stop offset="100%" stopColor={mixc(B, A, .18)} />
         </linearGradient>
@@ -1100,13 +1102,15 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         </radialGradient>
         <linearGradient id={`${uid}-occ`} x1="0.12" y1="0" x2="0.88" y2="1">
           <stop offset="0%" stopColor="#000814" stopOpacity="0" />
-          <stop offset="52%" stopColor="#000814" stopOpacity=".06" />
-          <stop offset="100%" stopColor="#000814" stopOpacity=".36" />
+          <stop offset="52%" stopColor="#000814" stopOpacity=".08" />
+          <stop offset="100%" stopColor="#000814" stopOpacity=".46" />
         </linearGradient>
         <linearGradient id={`${uid}-spec`} x1="0.08" y1="0" x2="0.7" y2="0.92">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity=".62" />
-          <stop offset="28%" stopColor="#ffffff" stopOpacity=".17" />
-          <stop offset="58%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".9" />
+          <stop offset="12%" stopColor="#ffffff" stopOpacity=".3" />
+          <stop offset="26%" stopColor="#ffffff" stopOpacity=".02" />
+          <stop offset="31%" stopColor="#ffffff" stopOpacity=".14" />
+          <stop offset="36%" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
       </defs>
 

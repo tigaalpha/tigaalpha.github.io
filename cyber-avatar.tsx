@@ -3174,12 +3174,16 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             side is what separates chrome from flat grey — the T-800's finish is
             plated metal, not paint. */}
         <linearGradient id={`${id}-chrome`} x1="0.1" y1="0" x2="0.9" y2="1">
-          <stop offset="0%" stopColor="#e9f1ff" />
-          <stop offset="18%" stopColor="#9fb2d2" />
-          <stop offset="34%" stopColor="#f4f8ff" />
-          <stop offset="52%" stopColor="#6d7f9e" />
-          <stop offset="74%" stopColor="#33405a" />
-          <stop offset="100%" stopColor="#141b28" />
+          {/* each frame's own alloy tints the chrome, so eight robots are
+              eight metals rather than one grey; the hard band at 30% is the
+              clearcoat that reads as polished rather than painted */}
+          <stop offset="0%" stopColor={mixc("#f2f7ff", SK.s[0], .3)} />
+          <stop offset="17%" stopColor={mixc("#93a8cc", SK.s[1], .45)} />
+          <stop offset="28%" stopColor={mixc("#ffffff", SK.s[2], .12)} />
+          <stop offset="33%" stopColor={mixc("#cfdaee", SK.s[2], .3)} />
+          <stop offset="52%" stopColor={mixc("#5f7194", SK.s[3], .5)} />
+          <stop offset="74%" stopColor={mixc("#28344c", SK.s[4], .5)} />
+          <stop offset="100%" stopColor={mixc("#0b111c", SK.s[5], .4)} />
         </linearGradient>
         <linearGradient id={`${id}-skin`} x1="0.35" y1="0" x2="0.65" y2="1">
           <stop offset="0%" stopColor="#f3e2d8" />
@@ -3299,13 +3303,15 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
         <linearGradient id={`${id}-occ`} x1="0.12" y1="0.02" x2="0.88" y2="1">
           <stop offset="0%" stopColor="#000814" stopOpacity="0" />
           <stop offset="40%" stopColor="#000814" stopOpacity=".05" />
-          <stop offset="72%" stopColor="#000814" stopOpacity=".26" />
-          <stop offset="100%" stopColor="#000814" stopOpacity=".52" />
+          <stop offset="72%" stopColor="#000814" stopOpacity=".32" />
+          <stop offset="100%" stopColor="#000814" stopOpacity=".62" />
         </linearGradient>
         <linearGradient id={`${id}-spec`} x1="0.08" y1="0" x2="0.72" y2="0.92">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity=".62" />
-          <stop offset="22%" stopColor="#ffffff" stopOpacity=".2" />
-          <stop offset="52%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".85" />
+          <stop offset="11%" stopColor="#ffffff" stopOpacity=".32" />
+          <stop offset="24%" stopColor="#ffffff" stopOpacity=".04" />
+          <stop offset="30%" stopColor="#ffffff" stopOpacity=".16" />
+          <stop offset="34%" stopColor="#ffffff" stopOpacity="0" />
           {/* the figure stands on a white studio floor, so the far edge of every
               plate picks the room back up — without it the occlusion pass runs
               a plate to near-black and the silhouette dies into its own shadow */}
@@ -3345,18 +3351,18 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="100%" stopColor="#0a1830" stopOpacity=".1" />
         </linearGradient>
         <linearGradient id={`${id}-warm`} x1="0.1" y1="0" x2="0.75" y2="0.85">
-          <stop offset="0%" stopColor={NEON_K} stopOpacity=".58" />
-          <stop offset="32%" stopColor={NEON_K} stopOpacity=".14" />
+          <stop offset="0%" stopColor={NEON_K} stopOpacity=".38" />
+          <stop offset="32%" stopColor={NEON_K} stopOpacity=".08" />
           <stop offset="100%" stopColor={NEON_K} stopOpacity="0" />
         </linearGradient>
         <linearGradient id={`${id}-cool`} x1="0.85" y1="1" x2="0.3" y2="0.15">
-          <stop offset="0%" stopColor={NEON_F} stopOpacity=".46" />
-          <stop offset="38%" stopColor={NEON_F} stopOpacity=".08" />
+          <stop offset="0%" stopColor={NEON_F} stopOpacity=".3" />
+          <stop offset="38%" stopColor={NEON_F} stopOpacity=".05" />
           <stop offset="100%" stopColor={NEON_F} stopOpacity="0" />
         </linearGradient>
         <radialGradient id={`${id}-hot`} cx="0.29" cy="0.17" r="0.34">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity=".78" />
-          <stop offset="26%" stopColor="#ffffff" stopOpacity=".26" />
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".95" />
+          <stop offset="16%" stopColor="#ffffff" stopOpacity=".3" />
           <stop offset="62%" stopColor="#ffffff" stopOpacity=".04" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </radialGradient>
@@ -3364,7 +3370,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             every silhouette edge picks up the cool of the room. This is what
             keeps a dark chassis from dying into a dark background. */}
         <linearGradient id={`${id}-fres`} x1="0.5" y1="1" x2="0.5" y2="0">
-          <stop offset="0%" stopColor={fresC} stopOpacity=".5" />
+          <stop offset="0%" stopColor={fresC} stopOpacity=".36" />
           <stop offset="30%" stopColor={fresC} stopOpacity=".06" />
           <stop offset="76%" stopColor={fresC} stopOpacity=".05" />
           <stop offset="100%" stopColor={mixc(fresC, "#ffffff", .45)} stopOpacity=".42" />
@@ -3544,8 +3550,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="18%" stopColor={SK.s[1]} />
           <stop offset="34%" stopColor={SK.s[2]} />
           <stop offset="56%" stopColor={SK.s[3]} />
-          <stop offset="78%" stopColor={SK.s[4]} />
-          <stop offset="100%" stopColor={SK.s[5]} />
+          <stop offset="78%" stopColor={mixc(SK.s[4], SK.s[3], .25)} />
+          <stop offset="100%" stopColor={mixc(SK.s[5], "#000000", .3)} />
         </linearGradient>
         <linearGradient id={`${id}-hair`} x1="0" y1="0" x2="0.4" y2="1">
           <stop offset="0%" stopColor="#4a5372" />
