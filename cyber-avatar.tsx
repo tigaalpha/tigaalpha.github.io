@@ -2964,9 +2964,9 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
      what separates a machine that is switched on from one that is painted. */
   const vein = keep("vn", (d, w = 1.4, col = glow) => (
     <g>
-      <path d={d} fill="none" stroke={col} strokeWidth={w * 4.5} strokeLinecap="round" opacity=".14" />
-      <path d={d} fill="none" stroke={col} strokeWidth={w * 1.8} strokeLinecap="round" opacity=".5" />
-      <path d={d} fill="none" stroke="#ffffff" strokeWidth={w * .6} strokeLinecap="round" opacity=".8" />
+      <path d={d} fill="none" stroke={col} strokeWidth={w * 5.5} strokeLinecap="round" opacity=".26" />
+      <path d={d} fill="none" stroke={col} strokeWidth={w * 2} strokeLinecap="round" opacity=".85" />
+      <path d={d} fill="none" stroke="#ffffff" strokeWidth={w * .7} strokeLinecap="round" opacity="1" />
     </g>
   ));
   // an engraved seam: a cut, and the lit edge below where it catches the key
@@ -3182,8 +3182,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
           <stop offset="0%" stopColor={mixc("#f2f7ff", SK.s[0], .3)} />
           <stop offset="17%" stopColor={mixc("#93a8cc", SK.s[1], .45)} />
           <stop offset="28%" stopColor={mixc("#ffffff", SK.s[2], .12)} />
-          <stop offset="33%" stopColor={mixc("#cfdaee", SK.s[2], .3)} />
-          <stop offset="52%" stopColor={mixc("#5f7194", SK.s[3], .5)} />
+          <stop offset="33%" stopColor={mixc("#b8c6de", SK.s[2], .3)} />
+          <stop offset="52%" stopColor={mixc("#46557a", SK.s[3], .5)} />
           <stop offset="74%" stopColor={mixc("#28344c", SK.s[4], .5)} />
           <stop offset="100%" stopColor={mixc("#0b111c", SK.s[5], .4)} />
         </linearGradient>
@@ -3548,10 +3548,12 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             The colours are the model's own, so forty frames are forty alloys
             instead of one gunmetal with forty heads. */}
         <linearGradient id={`${id}-plate`} x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0%" stopColor={SK.s[0]} />
-          <stop offset="18%" stopColor={SK.s[1]} />
-          <stop offset="34%" stopColor={SK.s[2]} />
-          <stop offset="56%" stopColor={SK.s[3]} />
+          {/* film-grade gunmetal: each frame's own hue, pulled darker, so the
+              energy seams and optics are what you see first */}
+          <stop offset="0%" stopColor={mixc(SK.s[0], "#0a0e16", .12)} />
+          <stop offset="18%" stopColor={mixc(SK.s[1], "#0a0e16", .3)} />
+          <stop offset="34%" stopColor={mixc(SK.s[2], "#0a0e16", .18)} />
+          <stop offset="56%" stopColor={mixc(SK.s[3], "#0a0e16", .32)} />
           <stop offset="78%" stopColor={mixc(SK.s[4], SK.s[3], .25)} />
           <stop offset="100%" stopColor={mixc(SK.s[5], "#000000", .3)} />
         </linearGradient>
