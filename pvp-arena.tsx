@@ -28,7 +28,11 @@ import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-
 import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { petBonusOf, petById, petLevel, petStage, readPet, PetArt, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
 import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio } from "./arena-fx";
-import { SpaceStage, prefetchSpace } from "./space-stage";
+import { SpaceStage, prefetchSpace, isLowEnd } from "./space-stage";
+/* touch devices (iPad, phones) and weak machines fight in "lite": the
+   fighters' idle SVG animations, drop-shadows, reflections and the blur
+   behind the pads each forced a full repaint of ~3,000 SVG nodes per frame */
+const LITE_FIGHT = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
 import { AnswerReveal } from "./note-reveal";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
@@ -3881,7 +3885,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   }, [comeback]);
 
   return (
-    <div className={`pvppage x3 fight${land ? " land" : ""}`}>
+    <div className={`pvppage x3 fight${land ? " land" : ""}${LITE_FIGHT ? " lite" : ""}`}>
       <div className="pvphdr">
         <button className="stgback" onClick={onBack} aria-label="back">←</button>
         <span className="pvphdr-t">{T("ยก", "Wave", "波次")} {Math.min(wave, WAVES.length)}/{WAVES.length}</span>

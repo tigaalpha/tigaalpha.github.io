@@ -484,4 +484,10 @@ html:not([data-theme="dark"]) .pvpdir *{color:#a8502f!important}
 
 /* the floating get-the-app button sits on the fight pads: hide it mid-fight */
 body:has(.pvppage.fight) .apkpill{display:none!important}
+
+/* lite fight (touch / low-end): keep the look, drop the per-frame repaint */
+.pvppage.fight.lite .pvpfighter *,.pvppage.fight.lite .pvpwall{animation:none!important}
+.pvppage.fight.lite .pvpfighter,.pvppage.fight.lite .pvpfighter *{filter:none!important;-webkit-box-reflect:none!important}
+.pvppage.fight.lite .pvpfighter{will-change:transform}
+.pvppage.fight.lite *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 `;
