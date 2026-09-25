@@ -4865,7 +4865,10 @@ export function curriculumContext(lang) {
 // minutes — the learner's own override if they picked one, else the admin's platform
 // default, else a safe built-in fallback. 0 = off.
 const AUTO_TEACH_FALLBACK_MIN = 15;
-const AUTO_TEACH_INTERVALS = [5, 10, 15, 30, 60];
+const AUTO_TEACH_INTERVALS = [1, 5, 10, 15, 30, 60];
+// the admin's platform default is stored as JSON, so it can go below a whole
+// minute step (the learner's own pick is a smallint column — whole minutes only)
+const AUTO_TEACH_ADMIN_INTERVALS = [1, 2.5, 5, 10, 15, 30, 60];
 function resolveAutoTeachMin(profile, adminDefaultMin) {
   const own = profile && profile.auto_teach_interval_min;
   if (own != null) return own;
@@ -9199,7 +9202,7 @@ function AdminAutoTeach({ lang }) {
         </div>
         <div className="setlangs">
           <button className={`setlangbtn${min === 0 ? " on" : ""}`} disabled={busy} onClick={() => save(0)}>{T("ปิด", "Off", "关闭")}</button>
-          {AUTO_TEACH_INTERVALS.map(m => (
+          {AUTO_TEACH_ADMIN_INTERVALS.map(m => (
             <button key={m} className={`setlangbtn${min === m ? " on" : ""}`} disabled={busy} onClick={() => save(m)}>{m}{T("น.", "m", "分")}</button>
           ))}
         </div>
