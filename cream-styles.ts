@@ -512,4 +512,11 @@ html:not([data-theme="dark"]) .pvppage.fight .pvpstage>.sp3 *{background:transpa
 .pvppad-lcol .pvpskbtn-ic{width:22px;height:22px}
 .pvppad-lcol .pvpskbtn i{display:none}
 .pvppage.land .pvppad-lcol{display:contents}
+
+/* portrait skills: two square tiles side by side, each its own colour */
+.pvppad-lcol .pvpskbtns{grid-template-columns:repeat(2,76px)!important;gap:9px}
+.pvppad-lcol .pvpskbtn{width:76px;height:76px;aspect-ratio:1;flex-direction:column!important;gap:4px!important;padding:6px!important;border-radius:16px}
+.pvppad-lcol .pvpskbtn b{font-size:10.5px;line-height:1.15}
+html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn{background:linear-gradient(160deg,#ff7eb3,#e0457f)!important;box-shadow:0 8px 18px -10px #e0457f!important}
+html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradient(160deg,#8b7ae6,#5b45c2)!important;box-shadow:0 8px 18px -10px #5b45c2!important}
 `;
