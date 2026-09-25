@@ -1,7 +1,7 @@
 {
   "name": "tiga-piano-ai",
   "private": true,
-  "version": "13.7.430",
+  "version": "13.7.431",
   "type": "module",
   "scripts": {
     "dev": "vite",
