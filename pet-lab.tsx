@@ -1859,7 +1859,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
     if (v.paid === today) return v;
     if (petHappy(v) < 80 || (v.mess || []).length) return v;
     if (onReward) onReward(40, 25);
-    say(T("ดูแลครบวันนี้! +40 EXP +25 เหรียญ", "Fully cared for today! +40 EXP +25 coins", "今日照顾完成！+40 EXP +25 金币"));
+    say(T("ดูแลครบวันนี้! +40 EXP +25 Coins", "Fully cared for today! +40 EXP +25 coins", "今日照顾完成！+40 EXP +25 Coins"));
     playUi("reward");
     return { ...v, paid: today };
   }, [onReward, say, playUi, lang]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -1891,9 +1891,9 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
        never costs anything */
     if (C.cost > 0) {
       if (coins < C.cost || (onSpend && onSpend(C.cost) === false)) {
-        say(T("เหรียญไม่พอ — ไปฝึกซ้อมเก็บเหรียญก่อน",
+        say(T("Coins ไม่พอ — ไปฝึกซ้อมเก็บ Coins ก่อน",
               "Not enough coins — go and practise to earn some",
-              "金币不足 —— 先去练琴赚金币"));
+              "Coins 不足 —— 先去练琴赚 Coins"));
         playUi("wrong"); return;
       }
     }
@@ -1938,7 +1938,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
   }, [pet, save, pop, playUi, payDaily]);
 
   const buy = useCallback((food) => {
-    if (coins < food.cost) { say(T("เหรียญไม่พอ", "Not enough coins", "金币不足")); playUi("wrong"); return; }
+    if (coins < food.cost) { say(T("Coins ไม่พอ", "Not enough coins", "Coins 不足")); playUi("wrong"); return; }
     if (onSpend && onSpend(food.cost) === false) return;
     stash({ ...bag, [food.id]: (bag[food.id] || 0) + 1 });
     playUi("reward");
@@ -2214,7 +2214,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
         if (done) return (
           <div className="pet-exped done">
             <b>{T("มันกลับมาแล้ว!", "It is back!", "它回来了！")}</b>
-            <button onClick={() => { const E = claimExped(); if (E) { onReward && onReward(0, E.coins); say(T(`ได้ ${E.coins} เหรียญ`, `+${E.coins} coins`, `+${E.coins} 金币`)); playUi("reward"); setPet(readPet()); } }}>
+            <button onClick={() => { const E = claimExped(); if (E) { onReward && onReward(0, E.coins); say(T(`ได้ ${E.coins} Coins`, `+${E.coins} coins`, `+${E.coins} Coins`)); playUi("reward"); setPet(readPet()); } }}>
               {T("รับรางวัล", "Collect", "领取")}
             </button>
           </div>
@@ -2284,9 +2284,9 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
       </div>
 
       <p className="pet-why">
-        {T("ทุกอย่างในห้องนี้ใช้เหรียญ — เหรียญได้มาจากการฝึกซ้อมและเรียนในแอปเท่านั้น",
+        {T("ทุกอย่างในห้องนี้ใช้ Coins — Coins ได้มาจากการฝึกซ้อมและเรียนในแอปเท่านั้น",
            "Everything in here costs coins, and coins only come from practising and learning in the app.",
-           "这里的一切都要花金币，而金币只能靠在应用里练习和学习赚取。")}
+           "这里的一切都要花 Coins，而 Coins 只能靠在应用里练习和学习赚取。")}
       </p>
 
       </div>

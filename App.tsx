@@ -3166,9 +3166,9 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           padding: "10px 22px", fontWeight: 700, fontSize: 15, pointerEvents: "none",
           boxShadow: luckyToast.kind === "gem" ? "0 4px 20px rgba(90,110,220,0.55)" : "0 4px 20px rgba(217,119,87,0.5)", animation: "pop 0.4s ease" }}>
           {luckyToast.kind === "gem"
-            ? T(`💎 ได้เพชร +${luckyToast.n}! วันนี้เหลืออีก ${luckyToast.left}`,
+            ? T(`💎 ได้ Gems +${luckyToast.n}! วันนี้เหลืออีก ${luckyToast.left}`,
                 `💎 Gem earned +${luckyToast.n}! ${luckyToast.left} more today`,
-                `💎 获得宝石 +${luckyToast.n}！今日还剩 ${luckyToast.left}`)
+                `💎 获得 Gems +${luckyToast.n}！今日还剩 ${luckyToast.left}`)
             : T(`⚡ LUCKY BONUS! +${luckyToast.xp} EXP`, `⚡ LUCKY BONUS! +${luckyToast.xp} EXP`, `⚡ 幸运奖励! +${luckyToast.xp} EXP`)}
         </div>
       )}
@@ -4100,7 +4100,7 @@ const LEAGUE_TIERS = [
   { tier: 2, icon: "🥈", th: "ซิลเวอร์", en: "Silver", zh: "白银" },
   { tier: 3, icon: "🥇", th: "โกลด์", en: "Gold", zh: "黄金" },
   { tier: 4, icon: "💎", th: "แพลทินัม", en: "Platinum", zh: "铂金" },
-  { tier: 5, icon: "👑", th: "ไดมอนด์", en: "Diamond", zh: "钻石" },
+  { tier: 5, icon: "👑", th: "ไดมอนด์", en: "Diamond", zh: "Gems" },
 ];
 /* School-scoped leaderboard — the teacher-facing SchoolDashboard already shows
    every student's stats; students themselves had zero peer visibility until
@@ -5731,7 +5731,7 @@ const SHOP_STICKERS = [
   { id: "st-metro",  icon: "⏱️", art: "stk-st-metro", cost: 140, rarity: "rare",      th: "เมโทรนอม", en: "Metronome",     zh: "节拍器", sw: ["#ffd23f", "#4a3a10"], isNew: true },
   { id: "st-bolt",   icon: "⚡", art: "stk-st-bolt", cost: 180, rarity: "rare",      th: "สายฟ้าโอเวอร์ไดรฟ์", en: "Overdrive Bolt", zh: "超载闪电", sw: ["#ffe14d", "#4a3200"], isNew: true },
   { id: "st-paw",    icon: "🐾", art: "stk-st-paw", cost: 240, rarity: "epic",      th: "อุ้งเท้าคู่หู", en: "Buddy Paw",    zh: "伙伴爪印", sw: ["#ff8fc0", "#5c1236"], isNew: true },
-  { id: "st-medal",  icon: "🎖️", art: "stk-st-medal", cost: 420, rarity: "legendary", th: "เหรียญเกียรติยศ", en: "Honour Medal", zh: "荣誉勋章", sw: ["#ffd23f", "#b04a2a"], isNew: true },
+  { id: "st-medal",  icon: "🎖️", art: "stk-st-medal", cost: 420, rarity: "legendary", th: "Coins เกียรติยศ", en: "Honour Medal", zh: "荣誉勋章", sw: ["#ffd23f", "#b04a2a"], isNew: true },
 ];
 const SHOP_HATS = [
   { id: "hat-straw",    icon: "🥽", cost: 0,   art: "visor", rarity: "common",    th: "บังตาออปติก", en: "Optic Visor",      zh: "光学护目镜", sw: ["#8fa6c8", "#00f0ff"] },
@@ -5767,7 +5767,7 @@ const SHOP_OUTFITS = [
   { id: "out-kimono",  icon: "🔥", cost: 300, art: "out-kimono", rarity: "epic",      th: "เกราะระบายความร้อน", en: "Thermal Plating", zh: "热能装甲", sw: ["#ff9a3c", "#5c1400"] },
   { id: "out-armor",   icon: "🔰", cost: 400, art: "out-armor", rarity: "epic",      th: "เกราะอีจิส", en: "Aegis Plating",     zh: "神盾装甲", sw: ["#5ce1ff", "#0a2a3a"] },
   { id: "out-tuxedo",  icon: "🌑", cost: 500, art: "out-tuxedo", rarity: "epic",      th: "เกราะพรางสเตลท์", en: "Void Plating",  zh: "虚空装甲", sw: ["#8a94a8", "#0a0d14"] },
-  { id: "out-royal",   icon: "💎", cost: 700, art: "out-royal", rarity: "legendary", th: "เกราะเพชร", en: "Diamond Plating",    zh: "钻石装甲", sw: ["#bfe9ff", "#2a1a5a"] },
+  { id: "out-royal",   icon: "💎", cost: 700, art: "out-royal", rarity: "legendary", th: "เกราะ Gems", en: "Diamond Plating",    zh: "Gems 装甲", sw: ["#bfe9ff", "#2a1a5a"] },
   { id: "out-celestial", icon: "✨", cost: 900, art: "out-celestial", rarity: "legendary", th: "โครงเทพจักรวาล", en: "Celestial Chassis", zh: "天界机身", sw: ["#7fe8ff", "#aa00ff", "#ffd23f"] },
   /* ── chassis plating ── these are the items that visibly re-plate the avatar,
      so their swatches are picked to look good ON the armour, not just in the
@@ -6644,7 +6644,7 @@ const PetDetailModal = memo(function PetDetailModal({ lang, item, have, here, co
             : have
               ? <button className="mdv-buy" onClick={() => onAct(item)}>{T("พาตัวนี้ไป", "Take this one", "带上它")}</button>
               : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onAct(item)}>
-                  {afford ? T("รับเลี้ยง", "Adopt", "领养") : T("เหรียญไม่พอ", "Not enough coins", "金币不足")} · 🪙 {item.cost.toLocaleString()}
+                  {afford ? T("รับเลี้ยง", "Adopt", "领养") : T("Coins ไม่พอ", "Not enough coins", "Coins 不足")} · 🪙 {item.cost.toLocaleString()}
                 </button>}
         </div>
       </div>
@@ -6705,7 +6705,7 @@ const GearDetailModal = memo(function GearDetailModal({ lang, item, kind, model,
             : own
               ? <button className="mdv-buy" onClick={() => onAct(item)}>{lc.shopEquip}</button>
               : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onAct(item)}>
-                  {afford ? T("ซื้อ", "Buy", "购买") : T("เหรียญไม่พอ", "Not enough coins", "金币不足")} · {item.gem ? "💎 " + item.gem : "🪙 " + item.cost.toLocaleString()}
+                  {afford ? T("ซื้อ", "Buy", "购买") : T("Coins ไม่พอ", "Not enough coins", "Coins 不足")} · {item.gem ? "💎 " + item.gem : "🪙 " + item.cost.toLocaleString()}
                 </button>}
         </div>
       </div>
@@ -6819,7 +6819,7 @@ const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, run
             : owned
               ? <button className="mdv-buy" onClick={() => onBuy(item)}>{lc.shopEquip}</button>
               : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onBuy(item)}>
-                  {afford ? T("ซื้อ", "Buy", "购买") : T("เหรียญไม่พอ", "Not enough coins", "金币不足")} · 🪙 {item.cost.toLocaleString()}
+                  {afford ? T("ซื้อ", "Buy", "购买") : T("Coins ไม่พอ", "Not enough coins", "Coins 不足")} · 🪙 {item.cost.toLocaleString()}
                 </button>}
         </div>
       </div>
@@ -8170,17 +8170,17 @@ function AdminStudents({ lang, viewerTier }) {
         {/* 💰 Currency & Level Management — Top Tier only */}
         {tier >= 3 && (
           <div className="admmg">
-            <div className="admmg-h">💰 {T("จัดการเหรียญ/เพชร/คะแนน", "Manage Coins/Gems/EXP", "管理代币/宝石/经验")}</div>
+            <div className="admmg-h">💰 {T("จัดการ Coins/Gems/คะแนน", "Manage Coins/Gems/EXP", "管理代币/Gems/经验")}</div>
             <div className="admmg-cur" style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
               {T("แก้ไขค่าได้อิสระ — กดบันทึกเพื่อบันทึก", "Edit values freely — tap Save to apply", "可自由修改数值 — 点击保存应用")}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
               <div>
-                <label style={{ fontSize: 11, opacity: 0.6 }}>🪙 {T("เหรียญ (Coins)", "Coins", "代币")}</label>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>🪙 {T("Coins (Coins)", "Coins", "代币")}</label>
                 <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editCoins, setEditCoins)} />
               </div>
               <div>
-                <label style={{ fontSize: 11, opacity: 0.6 }}>💎 {T("เพชร (Gems)", "Gems", "宝石")}</label>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>💎 {T("Gems (Gems)", "Gems", "Gems")}</label>
                 <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editGems, setEditGems)} />
               </div>
             </div>
@@ -8875,7 +8875,7 @@ function AdminPayments({ lang }) {
   }
   function currencyLabel(p) {
     const ic = p.currency_type === "gems" ? "💎" : "🪙";
-    const unit = p.currency_type === "gems" ? T("เพชร", "gems", "钻石") : T("เหรียญ", "coins", "金币");
+    const unit = p.currency_type === "gems" ? T("Gems", "gems", "Gems") : T("Coins", "coins", "Coins");
     return `${ic} ${(p.currency_amount || 0).toLocaleString()} ${unit}`;
   }
   async function review(approve) {
@@ -9529,7 +9529,7 @@ function AdminEvent({ lang }) {
             <input className="admstu-search" type="number" min="1" max="10" step="0.5" value={expMult} onChange={e => setExpMult(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
           </div>
           <div style={{ flex: 1 }}>
-            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("ตัวคูณเหรียญ", "Coin multiplier", "金币倍数")}</div>
+            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("ตัวคูณ Coins", "Coin multiplier", "Coins 倍数")}</div>
             <input className="admstu-search" type="number" min="1" max="10" step="0.5" value={coinMult} onChange={e => setCoinMult(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
           </div>
           <div style={{ flex: 1 }}>
@@ -12165,7 +12165,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         earnCoins(20); gainExp(30, { quest: true });
         const domainTitle = tr(stage.title, lang);
         const celebration = lang === "th"
-          ? `🎖️ ปลดล็อกภารกิจความรู้!\n\n${stage.icon} คุณอ่านครบทุกเรื่องในหมวด "${domainTitle}" แล้ว — ปรบมือให้ตัวเองหน่อย! 👏\n\nไปดูเหรียญสะสมทั้งหมดได้ที่หน้าโปรไฟล์`
+          ? `🎖️ ปลดล็อกภารกิจความรู้!\n\n${stage.icon} คุณอ่านครบทุกเรื่องในหมวด "${domainTitle}" แล้ว — ปรบมือให้ตัวเองหน่อย! 👏\n\nไปดู Coins สะสมทั้งหมดได้ที่หน้าโปรไฟล์`
           : lang === "zh"
           ? `🎖️ 知识任务解锁！\n\n${stage.icon} 你已读完"${domainTitle}"分类下的全部案例——为自己鼓掌吧！👏\n\n前往个人主页查看你的完整收藏。`
           : `🎖️ Knowledge Quest unlocked!\n\n${stage.icon} You've read every case study in "${domainTitle}" — nice work digging deep! 👏\n\nCheck your full collection on the Profile page.`;
@@ -13510,9 +13510,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           route when one exists — never blocks or hides the free path. */}
       {gemShort && (() => {
         const gs = (lang === "th")
-          ? { t: "เพชรไม่พอ", b: `ต้องใช้อีก ${gemShort.short} 💎 สำหรับ ${gemShort.item || "ไอเทมชิ้นนี้"}`, go: "เติมเพชรเลย", alt: "ดูวิธีอื่น" }
+          ? { t: "Gems ไม่พอ", b: `ต้องใช้อีก ${gemShort.short} 💎 สำหรับ ${gemShort.item || "ไอเทมชิ้นนี้"}`, go: "เติม Gems เลย", alt: "ดูวิธีอื่น" }
           : (lang === "zh")
-          ? { t: "钻石不足", b: `还差 ${gemShort.short} 💎 才能获得 ${gemShort.item || "该道具"}`, go: "去充值", alt: "看看其他方法" }
+          ? { t: "Gems 不足", b: `还差 ${gemShort.short} 💎 才能获得 ${gemShort.item || "该道具"}`, go: "去充值", alt: "看看其他方法" }
           : { t: "Not enough gems", b: `You need ${gemShort.short} more 💎 for ${gemShort.item || "this item"}`, go: "Top up gems", alt: "Other ways" };
         return (
           <div className="atpopup" onClick={dismissGemShortPopup}>
@@ -13724,9 +13724,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               const src = cardSourceInfo(k);
               const q = k.quiz || null;
               const KC = {
-                th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 เพชร", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", src: "ที่มา" },
+                th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 Gems", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", src: "ที่มา" },
                 en: { knowIt: "Did you know", quiz: "30s quiz +5💎", ok: "Correct! +5 gems", no: "Close! The answer is", streak: "Knowledge streak", days: "days", timeUp: "Time's up!", src: "Source" },
-                zh: { knowIt: "你知道吗", quiz: "30秒问答 +5💎", ok: "答对了！+5钻石", no: "就差一点！答案是", streak: "知识连续", days: "天", timeUp: "时间到！", src: "来源" },
+                zh: { knowIt: "你知道吗", quiz: "30秒问答 +5💎", ok: "答对了！+5 Gems", no: "就差一点！答案是", streak: "知识连续", days: "天", timeUp: "时间到！", src: "来源" },
               }[lang] || {};
               const ks = readKnowledgeStats();
               return (
