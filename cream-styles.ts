@@ -427,6 +427,8 @@ html[data-theme="dark"] .tg .profrankbadge{color:color-mix(in srgb,var(--lv-c,#d
 
 /* owner's call: square-cornered cards, the square logo, the orange menu icon */
 .tg .hdr .lbox,.tg .drawer-brand .lbox{border-radius:5px}
+/* the header wordmark in a true square box */
+.tg .hdr .lbox{width:44px;height:44px;min-width:44px;padding:0;box-sizing:border-box;font-size:11.5px;letter-spacing:0!important;text-indent:0}
 .tg .hamb span{height:2.5px;background:#d97757}
 .tg .hamb span:nth-child(2){width:100%}
 
