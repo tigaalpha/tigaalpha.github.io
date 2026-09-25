@@ -135,6 +135,42 @@ html[lang="th"] .x3,html[lang="th"] .setcard.shop-full,html[lang="th"] .charcard
 .pvphero-fig{position:relative;z-index:2;height:69.7%;margin-bottom:calc(clamp(320px,56vh,470px) * .09);display:flex;align-items:flex-end;justify-content:center}
 .pvphero-fig svg.ca{display:block;height:100%;width:auto;filter:drop-shadow(0 22px 20px rgba(0,0,0,.6));
   -webkit-box-reflect:below -6px linear-gradient(transparent 76%,rgba(255,255,255,.13))}
+/* ── the squad on the plinth ── the pet stands beside the robot ("both"),
+   or alone in its place ("pet"); the art faces left, so it is turned to
+   face into the room like the robot does */
+.pvphero-pet{position:absolute;z-index:3;left:-72%;bottom:0;height:34%;aspect-ratio:144/156;pointer-events:none;
+  transform:scaleX(-1);transform-origin:50% 100%;filter:drop-shadow(0 14px 12px rgba(0,0,0,.45))}
+.pvphero-pet svg{display:block;width:100%;height:100%}
+.pvphero-pet.solo{position:relative;left:auto;height:62%}
+/* ── who fights: robot · pet · both ── */
+.x3 .pvpsquad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 10px}
+.x3 .pvpsquad-b{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;padding:10px 6px 9px;
+  border-radius:14px;cursor:pointer;color:var(--ti1);font-family:var(--f-ui);font-weight:400;font-size:12.5px}
+.x3 .pvpsquad-b b{font-size:21px;line-height:1;font-weight:400;letter-spacing:0}
+.x3 .pvpsquad-b.on{border-color:var(--cy);box-shadow:inset 0 0 0 1px var(--cy),0 6px 18px var(--cys)}
+.x3 .pvpsquad-b.on span{color:var(--cy)}
+.x3 .pvpsquad-b:disabled{opacity:.4;cursor:not-allowed}
+.x3 .pvpsquad-b:focus-visible,.x3 .pvppick-b:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+.x3 .pvpsquad-hint{margin:-2px 2px 10px;font-family:var(--f-ui);font-weight:300;font-size:11.5px;color:var(--ti2)}
+/* the robots you own first, then the rest (locked, with their price) */
+.x3 .pvppick{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 2px 10px;margin:0 0 6px;
+  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.x3 .pvppick::-webkit-scrollbar{display:none}
+.x3 .pvppick-b{flex:0 0 auto;width:76px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px 7px;
+  border-radius:12px;cursor:pointer;scroll-snap-align:start}
+.x3 .pvppick-av{display:block;width:46px;height:46px}
+.x3 .pvppick-av svg{display:block;width:100%;height:100%}
+.x3 .pvppick-b i{font-style:normal;font-family:var(--f-ui);font-weight:400;font-size:10px;line-height:1.2;color:var(--ti2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.x3 .pvppick-b.on{border-color:var(--cy);box-shadow:inset 0 0 0 1px var(--cy)}
+.x3 .pvppick-b.on i{color:var(--cy)}
+.x3 .pvppick-b.locked .pvppick-av{filter:grayscale(1);opacity:.5}
+.x3 .pvppick-b.locked i{color:var(--ti3);font-family:var(--f-data);font-size:9.5px}
+.x3 .pvppick.pets .pvppick-av{transform:scaleX(-1)}
+.x3 .pvppick-b em{font-style:normal;font-family:var(--f-data);font-weight:300;font-size:9px;color:var(--ti3);margin-top:-3px}
+.pvpres-pet{display:block;height:150px;aspect-ratio:144/156;margin:0 auto;transform:scaleX(-1)}
+.pvpres-pet svg{display:block;width:100%;height:100%}
+.pvpres-pet.win{animation:pvpfpetcheer .7s ease 3}
 .pvphero-hud{position:absolute;z-index:3;left:18px;top:22px;display:flex;flex-direction:column;gap:3px;max-width:52%;text-align:left}
 /* on a phone the read-out takes the left column and the robot stands right
    of centre, the way a product shot leaves room for its caption */
@@ -181,7 +217,7 @@ html[lang="th"] .x3,html[lang="th"] .setcard.shop-full,html[lang="th"] .charcard
 .x3 .pvpsec-n{order:2;font-family:var(--f-data);color:var(--ti1);letter-spacing:var(--tk1)}
 .x3 .pvpsec-t{order:4;background:transparent;border:1px solid var(--hair2);color:var(--ti2);border-radius:999px;font-family:var(--f-data);font-size:9px;letter-spacing:var(--tk2);padding:3px 10px}
 /* cards you can press: glass tiles with a single hairline of colour */
-.x3 .pvptier,.x3 .pvploadout,.x3 .pvpcw,.x3 .pvpfriend{
+.x3 .pvptier,.x3 .pvploadout,.x3 .pvpcw,.x3 .pvpfriend,.x3 .pvpsquad-b,.x3 .pvppick-b{
   background:linear-gradient(180deg,rgba(18,23,33,.62),rgba(9,12,19,.7));border:1px solid var(--hair);
   box-shadow:inset 0 1px 0 var(--glhi);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
   transition:border-color .25s ease,transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s ease}

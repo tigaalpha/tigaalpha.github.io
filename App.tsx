@@ -6003,6 +6003,7 @@ const GEM_RELICS = [
 ];
 
 const MODEL_ITEM = Object.fromEntries(SHOP_MODELS.map(m => [m.model, m.id]));
+const MODEL_COST = Object.fromEntries(SHOP_MODELS.map(m => [m.model, m.cost]));   // shown on locked robots in the arena picker
 
 const SHOP_ACCESSORIES = [
   { id: "acc-shield",   icon: "🛡️", cost: 0,   art: "shield", rarity: "common",    th: "โล่สนามพลัง", en: "Deflector Shield", zh: "偏导护盾", sw: ["#00f0ff", "#0a1a2e"] },
@@ -6856,7 +6857,7 @@ function ChestIcon({ size = 16, className = "" }) {
    so an arena duel is stored, listed and resolved exactly like a song duel,
    with no backend change at all. `song_id` is unconstrained text server-side,
    which is what makes "arena" a legal subject. */
-const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout, onPracticeWeakness }) {
+const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout, onPracticeWeakness, ownedModels, onPickModel, onOpenShop }) {
   const [friends, setFriends] = useState(null);
   const [duels, setDuels] = useState(null);
   const load = useCallback(() => {
@@ -6868,6 +6869,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
     <Suspense fallback={<LazyBits tall />}>
     <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi} onPracticeWeakness={onPracticeWeakness}
       friends={friends} duels={duels} onApplyLoadout={onApplyLoadout}
+      ownedModels={ownedModels} onPickModel={onPickModel} onOpenShop={onOpenShop} modelCost={MODEL_COST}
       onChallenge={async (friend, score) => {
         const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: "arena", p_score: Math.round(score), p_mode: "duel" });
         if (!error) { playUi("reward"); load(); }
@@ -12545,6 +12547,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "pvp" && (
         <PvpArenaMount lang={lang} charModel={charModel}
           gear={equippedGear}
+          ownedModels={SHOP_MODELS.filter(m => owned.includes(m.id)).map(m => m.model)}
+          onPickModel={(m) => {
+            // run a chassis you already own, from the arena itself (same rule as a loadout)
+            const n = normalizeModel(m);
+            if (n !== charModel && owned.includes(MODEL_ITEM[n])) { setCharModelState(n); setEquipLS("charModel", n); playUi("click"); }
+          }}
+          onOpenShop={() => { playUi("click"); setShopTab("battle"); setShopSubTab("charModel"); setShopOpen(true); }}
           onBack={() => { setPage("profile"); playUi("click"); }}
           playUi={playUi}
           onApplyLoadout={applyLoadout}
