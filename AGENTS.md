@@ -93,7 +93,9 @@ and see "Hard rules" above before applying any of it.
   paid-plan multipliers (the Max plan's ×2 coins was removed for this), and
   no rewards for merely opening the app. The daily gift chest therefore
   unlocks only after a practice session has been finished that day
-  (`chestAvailable()` in `App.tsx`).
+  (`chestAvailable()` in `App.tsx`). The Max plan's 4 free Streak Freezes a
+  month are an item, not currency, and the owner chose to keep them
+  (2026-09-25) — leave them in.
 - Client-writable absolute values for `exp`/`coins`/`gems`/`admin_tier`/
   `plan` are a known-bad pattern this codebase has explicitly hardened
   against (delta-clamp + column-protection triggers on `profiles`). Any new
