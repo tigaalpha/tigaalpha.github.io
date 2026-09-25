@@ -1,8 +1,10 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Close in-game currency top-ups (Coins/Gems bought with real money)
 --
--- STATUS: NOT APPLIED. Needs the owner's explicit approval before it runs
--- (AGENTS.md hard rule).
+-- STATUS: APPLIED 2026-09-25 on project gsaqgbracxnucdmtmcxz with the owner's
+-- explicit approval (AGENTS.md hard rule). Verified right after: the RPC
+-- raises 'currency top-ups are closed'; a signed-in insert of a valid
+-- kind='currency' row fails RLS (42501); a kind='plan' insert passes RLS.
 --
 -- Owner decision 2026-09-25: TIGA no longer sells Coins or Gems for real money
 -- (legal risk). The app no longer shows any top-up UI; this file closes the

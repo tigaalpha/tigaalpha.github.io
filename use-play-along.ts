@@ -16,7 +16,7 @@ import { recordMemory, readMemory } from "./ai-chat-context";
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { hostOnlineDuel, joinOnlineDuel, leaveOnlineRoom, sendAccept, sendStart, sendScore, sendResult, sendRematch } from "./pvp-online";
 import { analyzeSongRun, buildSongFallback } from "./song-analysis";
-import { buildDrillPlan, nextDrillTempo, bossHpFor, bossComboChip, bossRewardCoins, knowledgeDropFor, smartBackingPlan } from "./mistake-drill";
+import { buildDrillPlan, nextDrillTempo, firstDrillTempo, bossHpFor, bossComboChip, bossRewardCoins, knowledgeDropFor, smartBackingPlan } from "./mistake-drill";
 import { runTeachingLoopForPractice, tigaHub } from "./tigamodel/web.js"; // tigaHub: intent-based model access — smarter engines upgrade the result screen with no UI change
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 
@@ -165,7 +165,7 @@ function crystalSprite(hue, letter, rr, spin, missed, noteScale, dpr) {
   return sp;
 }
 
-export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell }) {
+export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell, profile = null }) {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     // ?pvp=CODE — an online-duel invite: prefill the room code and open the PvP panel
