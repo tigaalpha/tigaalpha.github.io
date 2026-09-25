@@ -3884,6 +3884,27 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     } else if (!comeback) comebackAnnouncedRef.current = false;
   }, [comeback]);
 
+  /* portrait: the skill buttons sit above the arrows, in the empty space
+     left of the attack pads; landscape keeps them centred at the bottom */
+  const skillsEl = (
+      <div className="pvpskills">
+        <div className="pvpgauge"><i style={{ width: `${gauge}%`, background: clsInfo.c }} /></div>
+        <div className="pvpskbtns">
+          <button className={`pvpskbtn${canActive ? " on" : ""}`} disabled={!canActive} onClick={useActive} style={{ "--cc": clsInfo.c }}>
+            <span className="pvpskbtn-ic"><ItemArt art={(activeSk || {}).art || "charge"} sw={[canActive ? clsInfo.c : "#96a0b2", "#20263a"]} /></span>
+            <b>{activeSk ? tr3(activeSk.n, lang) : "—"}</b>
+            <i>{myRank < SKILL_UNLOCK.active ? T(`แรงก์ ${SKILL_UNLOCK.active}`, `Rank ${SKILL_UNLOCK.active}`, `等级 ${SKILL_UNLOCK.active}`) : tr3(FX_TEXT[fx.active], lang)}</i>
+          </button>
+          <button className={`pvpskbtn ult${canUlt ? " on" : ""}`} disabled={!canUlt} onClick={useUlt} style={{ "--cc": clsInfo.c }}>
+            <span className="pvpskbtn-ic"><ItemArt art={(ultSk || {}).art || "burst"} sw={[canUlt ? "#ffd23f" : "#96a0b2", "#20263a"]} /></span>
+            <b>{ultSk ? tr3(ultSk.n, lang) : "—"}</b>
+            <i>{ultUsed ? T("ใช้ไปแล้ว", "Spent", "已使用")
+              : myRank < SKILL_UNLOCK.ultimate ? T(`แรงก์ ${SKILL_UNLOCK.ultimate}`, `Rank ${SKILL_UNLOCK.ultimate}`, `等级 ${SKILL_UNLOCK.ultimate}`)
+              : tr3(FX_TEXT[fx.ult], lang)}</i>
+          </button>
+        </div>
+      </div>
+  );
   return (
     <div className={`pvppage x3 fight${land ? " land" : ""}${LITE_FIGHT ? " lite" : ""}`}>
       <div className="pvphdr">
@@ -4161,6 +4182,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             </div>
           )}
           <div className="pvppad">
+            <div className="pvppad-lcol">
+            {!land && skillsEl}
             <div className="pvppad-l">
               <button className="pvpdir" aria-label={T("ถอย", "Back", "后退")}
                 onPointerDown={() => { dirRef.current = -1; pushMotion(-1); }} onPointerUp={() => { dirRef.current = 0; }}
@@ -4175,6 +4198,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               <button className="pvpdir" aria-label={T("เดินหน้า", "Forward", "前进")}
                 onPointerDown={() => { dirRef.current = 1; pushMotion(1); }} onPointerUp={() => { dirRef.current = 0; }}
                 onPointerLeave={() => { dirRef.current = 0; }} onPointerCancel={() => { dirRef.current = 0; }}>▶</button>
+            </div>
             </div>
             <div className="pvppad-r">
               <button className="pvpact fire" aria-label={kitLabel(0)} onPointerDown={() => attack("fire")}>
@@ -4280,23 +4304,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         </>
       ))}
 
-      <div className="pvpskills">
-        <div className="pvpgauge"><i style={{ width: `${gauge}%`, background: clsInfo.c }} /></div>
-        <div className="pvpskbtns">
-          <button className={`pvpskbtn${canActive ? " on" : ""}`} disabled={!canActive} onClick={useActive} style={{ "--cc": clsInfo.c }}>
-            <span className="pvpskbtn-ic"><ItemArt art={(activeSk || {}).art || "charge"} sw={[canActive ? clsInfo.c : "#96a0b2", "#20263a"]} /></span>
-            <b>{activeSk ? tr3(activeSk.n, lang) : "—"}</b>
-            <i>{myRank < SKILL_UNLOCK.active ? T(`แรงก์ ${SKILL_UNLOCK.active}`, `Rank ${SKILL_UNLOCK.active}`, `等级 ${SKILL_UNLOCK.active}`) : tr3(FX_TEXT[fx.active], lang)}</i>
-          </button>
-          <button className={`pvpskbtn ult${canUlt ? " on" : ""}`} disabled={!canUlt} onClick={useUlt} style={{ "--cc": clsInfo.c }}>
-            <span className="pvpskbtn-ic"><ItemArt art={(ultSk || {}).art || "burst"} sw={[canUlt ? "#ffd23f" : "#96a0b2", "#20263a"]} /></span>
-            <b>{ultSk ? tr3(ultSk.n, lang) : "—"}</b>
-            <i>{ultUsed ? T("ใช้ไปแล้ว", "Spent", "已使用")
-              : myRank < SKILL_UNLOCK.ultimate ? T(`แรงก์ ${SKILL_UNLOCK.ultimate}`, `Rank ${SKILL_UNLOCK.ultimate}`, `等级 ${SKILL_UNLOCK.ultimate}`)
-              : tr3(FX_TEXT[fx.ult], lang)}</i>
-          </button>
-        </div>
-      </div>
+      {land && skillsEl}
     </div>
   );
 });
