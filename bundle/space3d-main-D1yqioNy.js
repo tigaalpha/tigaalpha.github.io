@@ -1,4 +1,4 @@
-import{r as Z,an as cS,j as oe,ao as ep}from"./index.template-BCuwu_Pu.js";/**
+import{r as Z,an as cS,j as oe,ao as ep}from"./index.template-B4KlcYjQ.js";/**
  * @license
  * Copyright 2010-2025 Three.js Authors
  * SPDX-License-Identifier: MIT

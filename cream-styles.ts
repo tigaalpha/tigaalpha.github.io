@@ -469,6 +469,14 @@ html[data-theme="dark"] .tg .profrankbadge{color:color-mix(in srgb,var(--lv-c,#d
 
 .tg .replaybtn{white-space:nowrap}
 
+/* owner's call: square-cornered cards, the square logo, the orange menu icon */
+.tg .pcard,.tg .songcard,.tg .tdstep,.tg .v12card,.tg .cert-banner,.tg .certrow,.tg .dailyhub,.tg .warmup-banner,.tg .event-set-btn,.tg .dailyrec,.tg .instile,.tg .dashcard,.tg .prtier,.tg .skilltrack{border-radius:12px}
+.tg .pgroup.pisland{border-radius:14px}
+.tg .pcardicon,.tg .songcard-ic,.tg .tdico,.tg .pgicon,.tg .cert-ic,.tg .warmup-banner-ic{border-radius:8px}
+.tg .hdr .lbox,.tg .drawer-brand .lbox{border-radius:5px}
+.tg .hamb span{height:2.5px;background:#d97757}
+.tg .hamb span:nth-child(2){width:100%}
+
 /* ══════════ a reading width on wide screens ══════════ */
 @media (min-width:900px){
   /* two columns stay two (a tapped card opens its panel under its own row of
