@@ -2251,6 +2251,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [wave, setWave] = useState(1);
   const fullscreen = useFs();
   const [left, setLeft] = useState(WAVES[0]);
+  const waveBarEl = useRef(null), leftLive = useRef(WAVES[0]);
   // a Gauntlet leg after the first carries whatever fraction of the pool
   // survived the last one — "no rest between rounds" is the whole mechanic
   const [myHp, setMyHp] = useState(() => MY_MAX * Math.max(0.001, Math.min(1, initHpFrac)));
@@ -2329,7 +2330,42 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     later(() => { setBanner(text); later(() => setBanner(null), 2400); }, 650);
   };
   // ── where everyone is standing, and who is off the ground ──
-  const [myX, setMyX] = useState(0.24);
+  /* Positions change every 60ms game tick. As React state they re-rendered
+     the whole fight tree ~16 times a second, which on a slow phone was most
+     of each frame. They only ever feed three transforms, so they live in refs
+     and the setters write those transforms straight to the DOM; a render
+     still reads the refs, so nothing goes stale. */
+  const posX = useRef({ me: 0.24, op: 0.76, pet: 0.12, meAir: 0, opAir: 0 });
+  const meEl = useRef(null), opEl = useRef(null), petEl = useRef(null);
+  const tfOf = (x, air) => `translate3d(${((x * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-(air || 0) * 62).toFixed(1)}px, 0)`;
+  const mkSet = (key) => (v) => {
+    const P = posX.current; const n = typeof v === "function" ? v(P[key]) : v;
+    if (n !== P[key]) P[key] = n;
+  };
+  /* one frame loop eases what is drawn toward where the tick put everyone:
+     smooth motion at the display's rate, and a plain transform write on an
+     already-composited layer (a CSS transition restarted every tick made the
+     browser rebuild its layer data for all ~3,000 SVG nodes each time) */
+  const shown = useRef({ me: 0.24, op: 0.76, pet: 0.12, meAir: 0, opAir: 0 });
+  useEffect(() => {
+    let raf = 0, last = performance.now();
+    const k = (a, b, f) => (Math.abs(b - a) < 0.0004 ? b : a + (b - a) * f);
+    const frame = (now) => {
+      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      const f = 1 - Math.exp(-dt * 22);
+      const P = posX.current, D = shown.current;
+      const pm = D.me, pa = D.meAir, po = D.op, pb = D.opAir, pp = D.pet;
+      D.me = k(D.me, P.me, f); D.meAir = k(D.meAir, P.meAir, f);
+      D.op = k(D.op, P.op, f); D.opAir = k(D.opAir, P.opAir, f); D.pet = k(D.pet, P.pet, f);
+      if ((D.me !== pm || D.meAir !== pa) && meEl.current) meEl.current.style.transform = tfOf(D.me, D.meAir);
+      if ((D.op !== po || D.opAir !== pb) && opEl.current) opEl.current.style.transform = tfOf(D.op, D.opAir);
+      if (D.pet !== pp && petEl.current) petEl.current.style.transform = tfOf(D.pet, 0);
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const setMyX = mkSet("me"), setMyAir = mkSet("meAir"), setOpX = mkSet("op"), setOpAir = mkSet("opAir"), setPetX = mkSet("pet");
   /* ── the pet is a body now ──
      It used to be a sprite pinned inside the fighter's own box, which meant it
      could never be anywhere the robot was not: it slid with every step, stood
@@ -2337,12 +2373,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      own place on the floor instead — its own x, trailing the robot rather than
      welded to it, its own scale from how grown it is, its own contact shadow,
      and it turns to face whoever it is angry at. */
-  const [petX, setPetX] = useState(0.12);
   const petXRef = useRef(0.12);
   const [petAct, setPetAct] = useState("");   // cheer · flinch · win · lose · cast
-  const [opX, setOpX] = useState(0.76);
-  const [myAir, setMyAir] = useState(0);
-  const [opAir, setOpAir] = useState(0);
   const [land, setLand] = useState(() => {
     try { return window.innerWidth > window.innerHeight * 1.25; } catch (e) { return false; }
   });
@@ -3307,8 +3339,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       if (guardMtrRef.current < GUARD_MAX && guardUntil.current < now) {
         const gm = Math.min(GUARD_MAX, guardMtrRef.current + GUARD_REGEN * dt);
         guardMtrRef.current = gm;
-        // the bar is 3px wide; a tenth of a percent is not a visible change
-        setGuardMtr(prev => (Math.abs(prev - gm) < 1 && gm < GUARD_MAX ? prev : gm));
+        // the bar is small; 4-point steps look the same and re-render the fight 2x/s, not 8x/s
+        setGuardMtr(prev => (Math.abs(prev - gm) < 4 && gm < GUARD_MAX ? prev : gm));
       }
       if (staggerRef.current && staggerRef.current <= now) { staggerRef.current = 0; setStagger(false); }
       const stunnedMe = hitstunRef.current.me > now || dizzyUntilRef.current.me > now;
@@ -3578,7 +3610,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       if (doneRef.current) return;
       if (!liveRef.current) return;
       el += 100;
-      setLeft(Math.max(0, total - el));
+      /* the bar moves every 100ms but React only hears about whole seconds:
+         this alone was 10 re-renders of the fight a second */
+      const lf = Math.max(0, total - el); leftLive.current = lf;
+      if (waveBarEl.current) waveBarEl.current.style.width = `${(lf / total) * 100}%`;
+      setLeft(prev => (Math.ceil(prev / 1000) === Math.ceil(lf / 1000) ? prev : lf));
       if (el >= total) { clearInterval(id); toQuiz(); }
     }, 100);
     return () => clearInterval(id);
@@ -3775,7 +3811,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       finish(); return;
     }
     setWave(w => w + 1);
-    setLeft(WAVES[Math.min(wave, WAVES.length - 1)]);
+    leftLive.current = WAVES[Math.min(wave, WAVES.length - 1)]; setLeft(leftLive.current);
     // a healer pet patches you up between waves
     if (PET && PET.k === "heal") {
       const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * PET.v));
@@ -3983,7 +4019,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             stops at this element and the move stays on the compositor.
             The percentage is of THIS element (44% of the stage), hence 100/44. */}
         <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}
-          style={{ transform: `translate3d(${((myX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-myAir * 62).toFixed(1)}px, 0)` }}>
+          ref={meEl} style={{ transform: tfOf(shown.current.me, shown.current.meAir) }}>
           <div className="pvpfighter-in">
           {/* ── .pvpfbody shrink-wraps the chassis SVG ──
               The fighter box is 184px wide and the robot inside it is 79 —
@@ -4017,9 +4053,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             one. The bonus it grants is unchanged; this is the half that was
             missing, which is that you could see it was yours. */}
         {petPic && (
-          <div className={`pvppet3 ${petAct}${beast ? " beast" : ""}${awake ? " awake" : ""}`} title={petById(petPic.species).en}
+          <div ref={petEl} className={`pvppet3 ${petAct}${beast ? " beast" : ""}${awake ? " awake" : ""}`} title={petById(petPic.species).en}
             style={{
-              transform: `translate3d(${((petX * 100 - 22) * (100 / 44)).toFixed(2)}%, 0, 0)`,
+              transform: tfOf(shown.current.pet, 0),
               "--petk": (0.72 + petStage(petPic.bond) * 0.075).toFixed(3),
             }}>
             <span className="pvppet3-sh" aria-hidden="true" />
@@ -4029,7 +4065,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
           </div>
         )}
         <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}${botGuard ? " guard" : ""}${botTell ? " tell" : ""}`}
-          style={{ left: 0, right: "auto", transform: `translate3d(${((opX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-opAir * 62).toFixed(1)}px, 0)` }}>
+          ref={opEl} style={{ left: 0, right: "auto", transform: tfOf(shown.current.op, shown.current.opAir) }}>
           <div className="pvpfighter-in">
           <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose} mirror
             glow="#8f6dff" accent="#c3b0ff" armorA="#16161f" armorB="#46425e" />
@@ -4100,7 +4136,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             <div className="pvpsuddenbar">⚡ {T("ยกชี้ขาด — โดนก่อนแพ้", "SUDDEN DEATH — first hit wins", "生死决战 — 先中招者败")}</div>
           ) : (
             <>
-              <div className="pvpwave"><i style={{ width: `${Math.max(0, (left / waveTotal) * 100)}%` }} /></div>
+              <div className="pvpwave"><i ref={waveBarEl} style={{ width: `${Math.max(0, (Math.min(left, leftLive.current) / waveTotal) * 100)}%` }} /></div>
               <div className="pvpwave-l">{T("คำถามจะมาใน", "Question in", "问题将在")} {Math.ceil(left / 1000)}s</div>
             </>
           )}

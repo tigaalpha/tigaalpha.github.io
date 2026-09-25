@@ -526,16 +526,16 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 .pvppage.fight.land:fullscreen .pvpkeys{top:57%;bottom:auto}
 :-webkit-full-screen .pvppage.fight.land .pvpkeys{top:57%;bottom:auto}
 
-/* fighters and the pet move on a 60ms game tick; without this the eye sees
-   16 hops a second. The compositor glides each hop (transform only, so it
-   never repaints the SVG), on every device. */
-.pvppage.fight .pvpfighter{transition:transform 70ms linear,filter .5s ease,opacity .5s ease;will-change:transform}
-.pvppage.fight .pvppet3{transition:transform 70ms linear;will-change:transform}
-@media (prefers-reduced-motion:reduce){.pvppage.fight .pvpfighter,.pvppage.fight .pvppet3{transition:none}}
+/* fighters/pet are eased by a frame loop in pvp-arena; keep them on their own layers */
+.pvppage.fight .pvpfighter,.pvppage.fight .pvppet3{will-change:transform}
 
 /* header PVP shortcut: styled as .hdrgo (white round, clay line icon) */
 .tg .hdr .hdr-pvp{margin-left:8px}
 
 /* portrait: lift the skills + arrows column 5% of the screen */
 .pvppage.fight:not(.land) .pvppad-lcol{transform:translateY(-5vh)}
+
+/* lite: pose tweens inside the stage restart on every tick and made the
+   browser rebuild layer data for the whole fight; poses snap instead */
+.pvppage.fight.lite .pvpstage *{transition:none!important}
 `;
