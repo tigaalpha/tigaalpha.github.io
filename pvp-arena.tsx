@@ -2837,7 +2837,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [awake, setAwake] = useState(false);
   const FUSION_STAGE = 3;
   const FUSION_DMG = 1.55;
-  const PET_CD = 18000;
+  // short enough that the pet button always feels ready (was 18s and greyed out)
+  const PET_CD = 4000;
   const [petCdEnd, setPetCdEnd] = useState(0);
   const petCmd = petSpec ? (TYPE_CMD[petSpec.type] || TYPE_CMD.steel) : null;
   const burnRef = useRef(0);      // ember: hits land harder while it burns
@@ -4263,7 +4264,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
                 <b>{kitIcon(1)}</b><i>{kitLabel(1)}</i>
               </button>
               {petCmd && (
-                <button className={`pvpact petcmd${Date.now() < petCdEnd ? " cd" : ""}`}
+                <button className="pvpact petcmd"
                   style={{ "--pc": (PET_TYPES[petSpec.type] || PET_TYPES.steel).c }}
                   aria-label={tr3(petCmd, lang)} onPointerDown={sendPet}>
                   <b>🐾</b><i>{tr3(petCmd, lang).toUpperCase()}</i>
