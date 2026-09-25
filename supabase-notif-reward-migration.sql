@@ -1,8 +1,8 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Notification sign-up reward: turn on notifications → 10,000 coins + 10,000 gems
 --
--- STATUS: WRITTEN, NOT YET APPLIED — needs the owner's explicit approval
--- (AGENTS.md hard rule) before running on project gsaqgbracxnucdmtmcxz.
+-- STATUS: APPLIED 2026-09-25 on project gsaqgbracxnucdmtmcxz with the owner's
+-- explicit approval (AGENTS.md hard rule).
 --
 -- Additive + server-gated, per the repo's currency rules:
 --   * credits with coins = coins + 10000 / gems = gems + 10000 (never a client value)
