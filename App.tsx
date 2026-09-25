@@ -171,7 +171,6 @@ function LazyBits({ tall = false }) {
 }
 
 const AdminActivity = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminActivity })));
-const AdminSimBots = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminSimBots })));
 const AdminAnonVisitors = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminAnonVisitors })));
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
@@ -4237,8 +4236,9 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
           data = legacy.data;
         }
         if (!alive) return;
-        setRows(data || []);
-        const me = (data || []).find(r => r.is_me);
+        data = (data || []).filter(r => !r.is_bot);   // demo bots are gone: real players only
+        setRows(data);
+        const me = data.find(r => r.is_me);
         if (me) { setMyRank(me.rank); return; }
         const r = await sb.rpc("get_my_rank");
         if (alive && !r.error) setMyRank(r.data);
@@ -4289,9 +4289,6 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
                 </div>
               ))}
             </div>
-            {rows.some(r => r.is_bot) && (
-              <div className="leaguereset">🤖 {lang === "th" ? "บอทฝึกหัด — คู่แข่งตัวอย่างสำหรับฝึกซ้อม" : lang === "zh" ? "练习机器人 — 新手练手对手" : "Practice bots — friendly rivals to train against"}</div>
-            )}
           </>}
     </div>
   );
@@ -9145,10 +9142,6 @@ function AdminAnalytics({ lang }) {
         <input type="checkbox" checked={noAdmins} onChange={e => setNoAdmins(e.target.checked)} />
         {T("ไม่รวมบัญชีแอดมิน (ของฉัน)", "Exclude admin accounts (mine)", "不含管理员账号（我的）")}
       </label>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 2px 10px", fontSize: 12.5, cursor: "pointer" }}>
-        <input type="checkbox" checked={withBots} onChange={e => setWithBots(e.target.checked)} />
-        {T("รวมข้อมูลจำลอง (บอท)", "Include simulated data (bots)", "包含模拟数据（机器人）")}
-      </label>
       {stats === null ? <div className="admstu-msg">⏳</div> : (
         <>
           <Panel title={T("⬡ หัวข้อเส้นทางการเรียนรู้ (Pathway)", "⬡ Pathway topics", "⬡ 学习路径主题")} rows={byKind("pathway")}
@@ -10090,7 +10083,6 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "tigabackoffice" && tier >= 3 ? <div className="adminscroll"><TigamodelBackoffice lang={lang} /></div>
         : adminTab === "activity" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminActivity lang={lang} onOpenAnon={() => setAdminTab("anonvisit")} /></Suspense>
         : adminTab === "anonvisit" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminAnonVisitors lang={lang} /></Suspense>
-        : adminTab === "simbots" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminSimBots lang={lang} /></Suspense>
         : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">

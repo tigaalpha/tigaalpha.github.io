@@ -811,7 +811,7 @@ function ActivityBody({ lang, onOpenAnon }) {
   const [users, setUsers] = useState(null);
   const [sel, setSel] = useState(null);      // selected user uuid
   const [detail, setDetail] = useState(null);
-  const [showSim, setShowSim] = useState(true);
+  const [showSim] = useState(false);   // simulated (bot) data removed for good
   // Exclude the owner's tier-3 admin account from every number on this page.
   // Default ON — the owner reads these figures for business decisions and uses
   // the app daily for development, which would otherwise inflate them. The
@@ -980,10 +980,6 @@ function ActivityBody({ lang, onOpenAnon }) {
       <label style={{ display: "flex", alignItems: "center", gap: 6, margin: "8px 0", fontSize: 12, color: "var(--tg-sub, #888)" }}>
         <input type="checkbox" checked={noAdmins} onChange={(e) => setNoAdmins(e.target.checked)} />
         {T("ไม่รวมบัญชีแอดมิน (ของฉัน)", "Exclude admin accounts (mine)", "不含管理员账号（我的）")}
-      </label>
-      <label style={{ display: "flex", alignItems: "center", gap: 6, margin: "8px 0", fontSize: 12, color: "var(--tg-sub, #888)" }}>
-        <input type="checkbox" checked={showSim} onChange={(e) => setShowSim(e.target.checked)} />
-        {T("รวมข้อมูลจำลอง (บอท)", "Include simulated (bot) data", "包括模拟数据")}
       </label>
 
       {overview === null ? <div className="admstu-msg">⏳</div> : (
