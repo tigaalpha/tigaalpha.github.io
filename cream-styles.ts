@@ -549,4 +549,6 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
   30%{transform:translateY(-1.2%) rotate(-.6deg) scaleY(1.012)}
   60%{transform:translateY(-.4%) rotate(.5deg) scaleY(1.004)}}
 @media (prefers-reduced-motion:reduce){.pvppage.fight .pvpfbody{animation:none}.pvppage.fight .pvpfighter-in{transition:none}}
+.pvpbody.pvpbody-top{padding-bottom:0}
+.pvpbody.pvpbody-top .pvpsec-h:first-child{margin-top:4px}
 `;
