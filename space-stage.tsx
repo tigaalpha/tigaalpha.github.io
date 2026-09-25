@@ -120,7 +120,14 @@ export function createSpaceBus() {
    data:    a ref holding hologram read-outs, updated without re-rendering */
 export const SpaceStage = memo(function SpaceStage({ variant = "lobby", anchor = null, scroller = null, bus = null, stage = null, className = "", data = null, quiet = null, onReady = null, onLost = null }) {
   // PvP (lobby and fight) on a struggling phone keeps the still backdrop
-  const [tier] = useState(() => ((variant === "arena" || variant === "lobby") && isLowEnd() ? 0 : spaceTier()));
+  // the 3D rooms are obsidian: in light mode the page keeps its light still
+  // backdrop instead, and PvP on a struggling phone does the same
+  const [tier] = useState(() => {
+    let light = false;
+    try { light = document.documentElement.dataset.theme !== "dark"; } catch (e) {}
+    if (light) return 0;
+    return (variant === "arena" || variant === "lobby") && isLowEnd() ? 0 : spaceTier();
+  });
   const [ready, setReady] = useState(false);
   const [dead, setDead] = useState(false);
   const alive = tier > 0 && !dead;

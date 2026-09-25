@@ -39,7 +39,7 @@ const FONT_CSS = [
   face("Prompt", 400, f_prompt_latin_400, "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"),
 ].join("\n");
 
-export const OBSIDIAN_CSS = FONT_CSS + `
+const DARK_CSS = `
 .x3,.setcard.shop-full,.charcard,.stgpage,.petpage.x3,.ob3{
   --ob0:#030407;--ob1:#05070b;--ob2:#0a0d13;
   --gl:rgba(13,17,25,.62);--gl2:rgba(20,25,35,.66);--gl3:rgba(9,12,18,.78);
@@ -643,3 +643,83 @@ html[lang="th"] .x3,html[lang="th"] .setcard.shop-full,html[lang="th"] .charcard
 .x3 .pvpghost{background:transparent;border:1px solid var(--hair3);color:var(--ti1);font-family:var(--f-ui);font-weight:400;border-radius:999px}
 .x3 .pvpres-stage{background:radial-gradient(60% 40% at 50% 92%,rgba(223,232,255,.08),transparent 70%)}
 `;
+
+/* ── the rooms in light mode ──
+   The rooms were drawn in obsidian. In light mode the owner wants them on
+   white, and in dark mode exactly as they are. Rather than hand-maintain a
+   second copy of every rule, the light version is derived from this one:
+   each rule keeps only its colour-bearing declarations, every colour is
+   mapped to its daylight counterpart (near-black glass becomes white,
+   titanium text becomes ink, the cyan and violet deepen so they read on
+   white), and the rule is scoped to light mode. Dark mode never sees it. */
+const hsl = (r, g, b) => {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  if (mx === mn) return [0, 0, l];
+  const d = mx - mn, s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s, l];
+};
+const rgb = (h, s, l) => {
+  const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+  return [f(0), f(8), f(4)];
+};
+function dayColour(r, g, b, a) {
+  let [h, s, l] = hsl(r, g, b);
+  if (s < 0.4 || l < 0.2) {
+    // neutrals: flip light and dark, and warm them toward the app's cream
+    l = 1 - l; h = 40; s = Math.min(s, 0.12);
+    if (l > 0.9) l = 0.9 + (l - 0.9) * 0.9;
+  } else if (l > 0.5) {
+    // bright accents deepen enough to read on white
+    l = 0.38 + (l - 0.5) * 0.25;
+  }
+  const [R, G, B] = rgb(h, s, l);
+  return a == null ? `rgb(${R},${G},${B})` : `rgba(${R},${G},${B},${a})`;
+}
+function dayValue(v) {
+  // one pass over both spellings, so a converted colour is never converted again
+  return v.replace(/#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})\b|rgba?\(([^)]+)\)/gi, (m, x, y) => {
+    if (x) {
+      if (x.length === 3) x = x.split("").map(c => c + c).join("");
+      const n = (i) => parseInt(x.slice(i, i + 2), 16);
+      return dayColour(n(0), n(2), n(4), x.length === 8 ? +(n(6) / 255).toFixed(3) : null);
+    }
+    const v2 = y.split(/[ ,/]+/).filter(Boolean).map(Number);
+    return dayColour(v2[0], v2[1], v2[2], v2.length > 3 ? v2[3] : null);
+  });
+}
+const COLOURED = /color|background|border|shadow|fill|stroke|outline|--/;
+function daylight(css) {
+  let out = "", i = 0;
+  while (i < css.length) {
+    const open = css.indexOf("{", i);
+    if (open < 0) break;
+    const head = css.slice(i, open).replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    if (head.startsWith("@media") || head.startsWith("@supports")) {
+      // one level of nesting: find the block's end, transform its inside
+      let depth = 1, j = open + 1;
+      while (j < css.length && depth) { if (css[j] === "{") depth++; else if (css[j] === "}") depth--; j++; }
+      const inner = daylight(css.slice(open + 1, j - 1));
+      if (inner) out += `${head}{${inner}}\n`;
+      i = j; continue;
+    }
+    const close = css.indexOf("}", open);
+    if (head.startsWith("@")) { i = close + 1; continue; }
+    const decls = css.slice(open + 1, close).split(";").map(d => d.trim()).filter(d => {
+      const k = d.split(":")[0] || "";
+      return k && COLOURED.test(k) && /#|rgb/.test(d);
+    }).map(dayValue);
+    if (decls.length) {
+      const sel = head.split(",").map(x => {
+        x = x.trim();
+        return x.startsWith("html") ? x.replace(/^html/, 'html:not([data-theme="dark"])') : 'html:not([data-theme="dark"]) ' + x;
+      }).join(",");
+      out += `${sel}{${decls.join(";")}}\n`;
+    }
+    i = close + 1;
+  }
+  return out;
+}
+export const OBSIDIAN_CSS = FONT_CSS + DARK_CSS + daylight(DARK_CSS);
