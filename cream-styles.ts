@@ -490,4 +490,11 @@ body:has(.pvppage.fight) .apkpill{display:none!important}
 .pvppage.fight.lite .pvpfighter,.pvppage.fight.lite .pvpfighter *{filter:none!important;-webkit-box-reflect:none!important}
 .pvppage.fight.lite .pvpfighter{will-change:transform}
 .pvppage.fight.lite *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+
+/* PvP quiz keyboard in light mode: a real white/black keyboard, blue answer light */
+html:not([data-theme="dark"]) .x3 .pvpkey{background:linear-gradient(180deg,#fff 78%,#f1eee8)!important;border:1px solid #cfc9bf!important;color:#6b6259!important;box-shadow:inset 0 -3px 0 #e6e1d8,0 2px 3px rgba(40,30,20,.14)!important;backdrop-filter:none!important}
+html:not([data-theme="dark"]) .x3 .pvpkey.blk{background:linear-gradient(180deg,#2c2925,#121110 88%,#24211d)!important;border-color:#0c0b0a!important;color:#e9e4dc!important;box-shadow:0 3px 6px rgba(20,15,10,.45)!important}
+html:not([data-theme="dark"]) .x3 .pvpkey:active{background:linear-gradient(180deg,#eef4ff,#dde8fb)!important}
+html:not([data-theme="dark"]) .x3 .pvpkey.blk:active{background:linear-gradient(180deg,#3a3630,#1a1917)!important}
+html:not([data-theme="dark"]) .x3 .pvpkey.right,html:not([data-theme="dark"]) .x3 .pvpkey.blk.right{background:linear-gradient(180deg,#5cc8ff,#1f8fe0)!important;border-color:#1a7cc4!important;color:#fff!important;box-shadow:0 0 0 2px rgba(92,200,255,.55),0 0 20px rgba(31,143,224,.55)!important}
 `;
