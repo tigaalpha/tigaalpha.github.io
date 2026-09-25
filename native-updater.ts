@@ -32,15 +32,21 @@ export async function initNativeUpdater(currentVersion: string) {
   // One check per tick; if an update is found, set() reloads the app on the new
   // bundle and nothing after this line runs (the interval below is only armed
   // when the check finds nothing to install).
+  let pending = null;
   const check = async () => {
     try {
       const res = await fetch(UPDATE_MANIFEST_URL, { cache: "no-store" });
       if (!res.ok) return;
       const manifest = await res.json();
       if (!manifest || !manifest.version || !manifest.url) return;
-      if (manifest.version === currentVersion) return;
+      if (manifest.version === currentVersion || manifest.version === pending) return;
       const bundle = await CapacitorUpdater.download({ version: manifest.version, url: manifest.url });
-      await CapacitorUpdater.set(bundle); // reloads the app on the new bundle — nothing after this line runs
+      /* next(), not set(): set() restarted the app on the spot, mid-lesson or
+         mid-admin-work, every time a build landed. The new bundle is now
+         queued and applied the next time the app goes to the background or
+         is reopened, so nobody is ever reloaded while using it. */
+      await CapacitorUpdater.next(bundle);
+      pending = manifest.version;
     } catch (e) {
       // offline / bad manifest / download failed — keep running, try again next tick
     }
