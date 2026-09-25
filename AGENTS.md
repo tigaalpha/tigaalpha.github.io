@@ -5,6 +5,11 @@ in this repository. Read this before making changes — it exists so that
 independent agent sessions, run at different times by different tools,
 don't conflict with each other or with the human owner's expectations.
 
+**Talk to the owner in Thai.** Every message written to the owner (answers,
+progress updates, summaries) is in Thai, including after a context reset.
+Code, code comments, commit messages and file contents stay in English as
+they are now.
+
 ## What this is
 
 TIGA.AI — a live, revenue-generating piano-learning web app (Thai/English/
