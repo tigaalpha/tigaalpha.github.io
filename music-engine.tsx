@@ -2635,7 +2635,7 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
             {ledgers.map((ly, k) => <line key={k} x1={x - 12} y1={ly} x2={x + 12} y2={ly} stroke="var(--muted)" strokeWidth="1.3" />)}
             {n.includes("#") && <text x={x - 21} y={y + 5} fontSize="20" fill="var(--muted)" style={{ fontFamily: "Georgia, serif" }}>&#9839;</text>}
             <ellipse cx={x} cy={y} rx="9" ry="6.8" fill="#d97757" transform={`rotate(-18 ${x} ${y})`} />
-            {!hideNames && <text x={x} y={baseY + 30} fontSize="11" fill="var(--muted)" textAnchor="middle" style={{ fontFamily: "'Share Tech Mono',monospace" }}>{pcOf(n)}</text>}
+            {!hideNames && <text x={x} y={baseY + 30} fontSize="11" fill="var(--muted)" textAnchor="middle" style={{ fontFamily: "var(--f-num, monospace)" }}>{pcOf(n)}</text>}
           </g>
         );
       })}
@@ -2929,12 +2929,12 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
     <svg ref={wrapRef} viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
       {/* Which hand this staff is for — stated outright in the one-hand modes
           so there's never any doubt which part is on the page. */}
-      <text x="8" y="14" fontSize="12" fill="rgba(255,255,255,.6)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>
+      <text x="8" y="14" fontSize="12" fill="rgba(255,255,255,.6)" style={{ fontFamily: "var(--f-num, monospace)" }}>
         Key: {keyName}{handMode === "left" ? " · L.H." : handMode === "right" ? " · R.H." : ""}
       </text>
       {grand && <>
-        <text x={W - 10} y={topBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>R.H.</text>
-        <text x={W - 10} y={bassBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "'Share Tech Mono',monospace" }}>L.H.</text>
+        <text x={W - 10} y={topBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "var(--f-num, monospace)" }}>R.H.</text>
+        <text x={W - 10} y={bassBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "var(--f-num, monospace)" }}>L.H.</text>
       </>}
       {staffFurniture(topBase, grand ? "treble" : soloClef, grand ? sigMarksTreble : (soloClef === "bass" ? sigMarksBass : sigMarksTreble), "top")}
       {grand && staffFurniture(bassBase, "bass", sigMarksBass, "bottom")}
