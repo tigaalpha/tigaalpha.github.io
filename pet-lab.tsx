@@ -516,7 +516,8 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
      height and a head size per species turn twelve palette swaps into twelve
      silhouettes without redrawing a single path. */
   const cx = 60, hy = L.hy;
-  const hr = L.hr * (sp.phr || 1);
+  // chibi proportions: a bigger head is most of what reads as "cute"
+  const hr = L.hr * (sp.phr || 1) * 1.12;
   const bw = L.bw * (sp.pw || 1), bh = L.bh * (sp.ph || 1);
   const by = L.by + (L.bh - bh) / 2;   // keep the belly on the ground as it shrinks
   const bTop = by - bh / 2, bBot = by + bh / 2;
@@ -748,7 +749,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   };
 
   /* ── eyes ── one rig, five expressions; every one narrows when sad */
-  const ey = hy + hr * .1, ex = hr * .46, er = hr * .34;
+  const ey = hy + hr * .12, ex = hr * .46, er = hr * .4;   // big, low-set eyes
   const EYES = {
     big: <>{[-1, 1].map(k => {
       const ry = sad ? er * .58 : er * 1.1;
@@ -1318,8 +1319,11 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         </g>
         {/* L6 — a crest between the ears */}
         {has(6) && <g transform={mv(hdx, cx, hy, .55 + .45 * Math.abs(c3))}>{[-1, 0, 1].map(k => (
-          <path key={k} d={`M${cx + k * hr * .34 - hr * .13} ${hy - hr * .84} L${cx + k * hr * .34} ${hy - hr * (k === 0 ? 1.62 : 1.32)} L${cx + k * hr * .34 + hr * .13} ${hy - hr * .84} Z`}
-            fill={T.c} stroke={B} strokeWidth="1.2" strokeLinejoin="round" />))}</g>}
+          /* soft round tufts instead of spikes — the spiked comb made every pet look angry */
+          <g key={k}>
+            <circle cx={cx + k * hr * .3} cy={hy - hr * (k === 0 ? 1.08 : .96)} r={hr * (k === 0 ? .2 : .15)} fill={T.c} stroke={B} strokeWidth="1.2" />
+            <circle cx={cx + k * hr * .3 - hr * .05} cy={hy - hr * (k === 0 ? 1.13 : 1.0)} r={hr * .05} fill="#fff" opacity=".8" />
+          </g>))}</g>}
         {/* L17 — a crown, and L19 the halo over it */}
         {has(17) && (
           <g transform={mv(hdx)}>
