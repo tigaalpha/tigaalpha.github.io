@@ -5,7 +5,7 @@ import {
   weekKey, activeChallenges, readWeekly, writeWeekly, CHALLENGE_REWARD,
   getCoins, setCoinsLS, chestAvailable, claimChest, chestSpinAngle, addFreeze, logExpGain,
 } from "./App";
-import { isMaxPlan, getPlan } from "./payment";
+import { getPlan } from "./payment";
 import { getAC, playUi, playMiss } from "./music-engine";
 import { sb } from "./supabase-client";
 import { ymd, saveGuestProfile, logUsage } from "./shared-infra";
@@ -255,7 +255,10 @@ export function useGamification({ session, profile, setProfile }) {
 
   // coins + mascot + daily chest
   function earnCoins(n) {
-    const mult = (isMaxPlan(planRef.current) ? 2 : 1) * (activeEventRef.current && activeEventRef.current.coinMult > 1 ? activeEventRef.current.coinMult : 1);
+    // Only an admin-run event may boost coins. Paid plans never change how much
+    // currency is earned (owner rule 2026-09-25: Coins/Gems come only from
+    // playing/learning, admin grants and the one-time notification reward).
+    const mult = activeEventRef.current && activeEventRef.current.coinMult > 1 ? activeEventRef.current.coinMult : 1;
     const v = getCoins() + n * mult;
     setCoinsLS(v); setCoins(v);
     if (n > 0) logUsage("score", "coins:+" + (n * mult)); // admin analytics
@@ -316,7 +319,7 @@ export function useGamification({ session, profile, setProfile }) {
   useEffect(() => { setChestAvail(chestAvailable()); }, []);
 
   function openChestNow() {
-    if (chestOpening) return;
+    if (chestOpening || !chestAvailable()) return;   // unlocked only after today's practice (see chestAvailable)
     getAC();
     // resolve the real reward FIRST — the wheel only ever plays back a result
     // that's already locked in, it never decides the outcome itself

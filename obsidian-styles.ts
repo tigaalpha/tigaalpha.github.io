@@ -132,7 +132,7 @@ html[lang="th"] .x3,html[lang="th"] .setcard.shop-full,html[lang="th"] .charcard
 .pvphero::before,.pr3::before{content:"";position:absolute;left:0;right:0;top:0;height:10%;z-index:1;pointer-events:none;background:linear-gradient(#05070b,rgba(5,7,11,0))}
 /* a % margin follows the WIDTH, which pushed the robot's head out of a wide
    hero (tablet, landscape): tie it to the hero's height instead */
-.pvphero-fig{position:relative;z-index:2;height:82%;margin-bottom:calc(clamp(320px,56vh,470px) * .09);display:flex;align-items:flex-end;justify-content:center}
+.pvphero-fig{position:relative;z-index:2;height:69.7%;margin-bottom:calc(clamp(320px,56vh,470px) * .09);display:flex;align-items:flex-end;justify-content:center}
 .pvphero-fig svg.ca{display:block;height:100%;width:auto;filter:drop-shadow(0 22px 20px rgba(0,0,0,.6));
   -webkit-box-reflect:below -6px linear-gradient(transparent 76%,rgba(255,255,255,.13))}
 .pvphero-hud{position:absolute;z-index:3;left:18px;top:22px;display:flex;flex-direction:column;gap:3px;max-width:52%;text-align:left}
