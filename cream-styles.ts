@@ -461,6 +461,8 @@ html:not([data-theme="dark"]) .pvpstandby-card{background:#fffdf9;border-color:#
 html:not([data-theme="dark"]) .pvpstandby-ic{filter:none}
 html:not([data-theme="dark"]) .pvpstandby-card em{color:#a8502f}
 html:not([data-theme="dark"]) .pvpstandby-card b{color:#2b2622;text-shadow:none}
+/* the super's question: the dark card's pale ink vanished on the light card */
+html:not([data-theme="dark"]) .pvpultq-card p{color:var(--clay-ink,#a8502f);text-shadow:none}
 html:not([data-theme="dark"]) .pvpstandby-card p{color:#5c554d}
 html:not([data-theme="dark"]) .pvpstandby-n{color:#7a7168;background:#f4efe7;border-color:#e6ddd1}
 html:not([data-theme="dark"]) .pvpstandby-go{background:#efe9e1;color:#9a9087;border-color:#e2d8cc}
