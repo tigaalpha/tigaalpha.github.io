@@ -381,10 +381,6 @@ export const JEV_TASKS = [
     howTh: "หลังจบ drill Jev เลือกว่าควร ซ้ำ drill เดิม / ไปขั้นถัดไป / ลองบอส / เปิดโค้ช — ตามสัญญาณจริงของรอบนั้น",
     howEn: "After a drill Jev picks replay-the-same / next stage / group boss / open-the-coach, grounded in that round's real signals.",
     howZh: "Jev 根据本轮表现建议重练/下一关/挑战Boss/找教练" },
-  { id: "shop-headline", icon: "💎", th: "เลือกแพ็กเกจที่แสดงเด่น (ร้านค้า)", en: "Pick the headline gem package (shop)", zh: "商店推荐套餐",
-    howTh: "Jev เลือกว่าร้านค้าควรโชว์แพ็กไหนก่อนสำหรับผู้เรียนคนนี้ — เล็กสำหรับมือใหม่ / กลางสำหรับคนประจำ / ใหญ่สำหรับผู้ใช้หนัก",
-    howEn: "Jev picks which top-up pack the shop headlines for THIS learner — small for newcomers, mid for regulars, large for heavy engaged users.",
-    howZh: "Jev 为不同学员选择优先展示的充值套餐" },
 ];
 
 export function AdminJevTasks({ lang }) {

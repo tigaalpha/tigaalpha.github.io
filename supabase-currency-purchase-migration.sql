@@ -1,3 +1,5 @@
+-- SUPERSEDED 2026-09-25: the owner closed Coins/Gems top-ups (legal risk).
+-- Do not re-run this file; see supabase-close-currency-topup-migration.sql.
 -- Currency purchases: buy Coins/Gems with real money (PromptPay / Alipay / WeChat slip-upload)
 -- Run in Supabase SQL Editor (project gsaqgbracxnucdmtmcxz) AFTER human review.
 -- Safe to re-run: every object uses if-not-exists / or-replace.

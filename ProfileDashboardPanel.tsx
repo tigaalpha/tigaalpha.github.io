@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { L, tr } from "./i18n";
 import { tigaHub } from "./tigamodel/web";   // Capability Hub: learner summary + quest hint from whatever engines are registered
 import { dailySongFor } from "./use-play-along";
@@ -6,10 +5,7 @@ import { readMemory } from "./ai-chat-context";
 import { readPracticeLog } from "./shared-infra";
 import { playUi } from "./music-engine";
 import { isMaxPlan } from "./payment";
-import { logUsage } from "./shared-infra";
 import { sb } from "./supabase-client";
-import { hasParentPin } from "./kid-safety";
-import { ParentGateModal } from "./parent-gate";
 import { SONGS } from "./songs-data";
 /* ── ProfileDashboardPanel ──
    The page==="profile" inline render block, extracted verbatim from
@@ -22,9 +18,8 @@ import { SONGS } from "./songs-data";
    component import. Likewise questToday/readStreak/streakAtRisk/
    QUEST_GOAL are top-level in App.tsx but not exported, so they're
    threaded as props too. ── */
-export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [], onOpenParentGate }) {
+export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, setHelpOpen, setFriendsOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
-  const [pgOpen, setPgOpen] = useState(false);
   return (
         <div className="profscroll">
           {(() => {
@@ -103,31 +98,9 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
           {profile && profile.school_id && <ClassQuestSection lang={lang} schoolId={profile.school_id} />}
           {profile && profile.school_id && <SchoolLeaderboardSection lang={lang} schoolId={profile.school_id} />}
 
-          {(() => {
-            // Kid-Safety Gate entry (gem plan v4 §3): parents manage the PIN and
-            // the monthly cap here. Guests and signed-in users alike — the PIN is
-            // per device+account (kid-safety.ts), purchases guard themselves in
-            // BuyCurrencyModal regardless of this entry point.
-            const label = hasParentPin(session && session.user && session.user.id)
-              ? (lang === "th" ? "🔒 โหมดผู้ปกครอง — เพดาน & รหัส" : lang === "zh" ? "🔒 家长模式 — 上限与密码" : "🔒 Parent Mode — cap & PIN")
-              : (lang === "th" ? "🔒 ตั้งรหัสผู้ปกครอง" : lang === "zh" ? "🔒 设置家长密码" : "🔒 Set up parent PIN");
-            return (
-              <button className="songbtn ghost" style={{ width: "100%", margin: "10px 14px 0", width: "calc(100% - 28px)" }} onClick={() => { logUsage("kid", "open-manage"); setPgOpen(true); }}>{label}</button>
-            );
-          })()}
           <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins} gems={gems}
-            onOpenShop={() => setShopOpen(true)} onOpenStorage={onOpenStorage} onOpenPvp={onOpenPvp} onOpenPet={onOpenPet} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill}
+            onOpenShop={() => setShopOpen(true)} onOpenStorage={onOpenStorage} onOpenPvp={onOpenPvp} onOpenPet={onOpenPet} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill}
             charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />
-          {pgOpen && (
-            <ParentGateModal
-              lang={lang}
-              uid={session && session.user && session.user.id}
-              mode={hasParentPin(session && session.user && session.user.id) ? "manage" : "setup"}
-              onClose={() => setPgOpen(false)}
-              onVerified={undefined}
-              playUi={playUi}
-            />
-          )}
         </div>
   );
 }
