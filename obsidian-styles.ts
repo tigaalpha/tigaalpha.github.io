@@ -461,7 +461,6 @@ html[lang="th"] .x3,html[lang="th"] .setcard.shop-full,html[lang="th"] .charcard
 .setcard.shop-full .coinpill.gempill{background:rgba(169,146,255,.07);border-color:rgba(169,146,255,.35);color:#d3c8ff}
 .setcard.shop-full .cbtn{background:transparent;border:1px solid var(--hair2);color:var(--ti2);font-family:var(--f-ui);letter-spacing:var(--tk1)}
 .setcard.shop-full .cbtn:hover{border-color:var(--hair3);color:var(--ti1)}
-.setcard.shop-full .shop-topup-btn{background:transparent;border:1px solid rgba(57,216,255,.55);color:var(--ti1);box-shadow:none;font-family:var(--f-ui);font-weight:400}
 .setcard.shop-full .shopintro{background:rgba(13,17,25,.6);border:1px solid var(--hair2);color:var(--ti2);font-weight:300}
 .setcard.shop-full .shop-tabs{background:transparent;border-bottom:1px solid var(--hair)}
 .setcard.shop-full .shop-tab{background:rgba(13,17,25,.55);border:1px solid var(--hair);color:var(--ti2);font-family:var(--f-ui);font-weight:400;-webkit-backdrop-filter:none;backdrop-filter:none}

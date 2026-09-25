@@ -70,10 +70,18 @@ and see "Hard rules" above before applying any of it.
 - **Never commit real Stripe keys, service-role keys, or other secrets.**
   None currently live in this repo; keep it that way.
 - Don't invent a payment/checkout mechanism from scratch if an equivalent
-  one already exists — `CheckoutModal`/`SchoolCheckoutModal`/
-  `BuyCurrencyModal` in `payment.tsx` are all one PromptPay/Alipay/WeChat
-  slip-upload pattern reused three times; a fourth payment surface should
-  reuse it again, not reinvent it.
+  one already exists — `CheckoutModal`/`SchoolCheckoutModal` in
+  `payment.tsx` are one PromptPay/Alipay/WeChat slip-upload pattern reused
+  twice; a new payment surface should reuse it, not reinvent it.
+- **Never sell in-game currency.** The owner removed every Coins/Gems
+  top-up on 2026-09-25 for legal reasons: `BuyCurrencyModal`, the shop and
+  profile buy buttons, the "top up gems" popup action, the parent PIN /
+  spend cap that only guarded those purchases, and the `?coins_paid=`
+  return handler are all gone, and `supabase-close-currency-topup-migration.sql`
+  closes the server side. Don't add any way to buy Coins, Gems or any other
+  in-game currency with real money unless the owner explicitly asks for it
+  in the current conversation. Free rewards (Practice Mode, quizzes,
+  Prestige, events) and Premium/School plan payments are unaffected.
 - Client-writable absolute values for `exp`/`coins`/`gems`/`admin_tier`/
   `plan` are a known-bad pattern this codebase has explicitly hardened
   against (delta-clamp + column-protection triggers on `profiles`). Any new

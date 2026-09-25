@@ -47,7 +47,6 @@ import {
   yearPrice, planPriceByCur, yearPriceByCur, fmtPrice,
   b2bPriceByCur, b2bYearPriceByCur,
   effectivePlan, trialDaysLeft, planBadge, CheckoutModal, SchoolCheckoutModal,
-  BuyCurrencyModal, COIN_PACKAGES, GEM_PACKAGES,
 } from "./payment";
 import {
   NF, KEYS_12, CHROMA, LESSON_MODE,
@@ -6962,7 +6961,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPet, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPet, onOpenHelp, onOpenFriends, onExchangeGems, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -7506,12 +7505,6 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             <button className="gemrow-x" disabled={gems < 5} onClick={() => onExchangeGems(5)}>{lc.gemExchange}</button>
           </div>
           <div className="leaguereset">{lc.gemHint}</div>
-        </div>
-      )}
-
-      {onBuyCurrency && (
-        <div className="profsec">
-          <button className="songbtn go" style={{ width: "100%" }} onClick={onBuyCurrency}>🪙💎 {lc.buyCurrencyBtn}</button>
         </div>
       )}
 
@@ -10431,7 +10424,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
-  const [buyCurrencyOpen, setBuyCurrencyOpen] = useState(false);
   /* Conversion funnel (owner-approved 2026-09-19): one trial-stage popup at a
      time — welcome (d1-3), halfway price-lock (d15-28), closing + direct
      checkout (d29-30) — plus the expired-trial win-back. Never fires for
@@ -10510,15 +10502,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => clearTimeout(t);
   }, [coins, chestAvail]);   // page intentionally not here: declared later in PianoApp (TDZ crash)
   function dismissEduTip() { setEduTip(null); }
-  function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
-  /* Gem monetization plan v4 (item 1): the shop's only response to "not enough
-     gems" was a sad mascot — the moment of wanting was invisible and untapped.
-     This popup fires exactly there (buyWithGems) with two actions: straight
-     into the gem tab of the top-up modal, or an equal-value coins route when
-     one exists (never hides a free path — kill list v2). Fires on the failed
-     attempt only, never automatically. */
+  /* "Not enough gems" (buyWithGems, on a failed attempt only): says how many
+     are missing and where gems are earned. It used to lead into a paid
+     top-up; the owner closed Coins/Gems top-ups for good on 2026-09-25 (legal
+     risk), so nothing in the app sells in-game currency any more. */
   const [gemShort, setGemShort] = useState(null);   // { short, item }
-  const [gemShortFocus, setGemShortFocus] = useState(false);
   function openGemShortPopup(shortBy, itemLabel) { setGemShort({ short: shortBy, item: itemLabel }); logUsage("gem", "shortpop:" + shortBy); }
   function dismissGemShortPopup() { setGemShort(null); }
   // useGamification() is called before usePayment() (mascot must exist in time
@@ -11745,7 +11733,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (gems < item.gem) {
       mascot("sad", 1400);
       // Plan v4 item 1: turn the dead end into the funnel's entry — 2-button popup.
-      openGemShortPopup(item.gem - gems, (item.name && (item.name[lang] || item.name.th)) || item.id || "");
+      openGemShortPopup(item.gem - gems, item[lang] || item.th || (item.name && (item.name[lang] || item.name.th)) || item.id || "");
       return;
     }
     const ok = await exchangeGems(item.gem);
@@ -12514,7 +12502,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
@@ -12692,7 +12680,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* CHECKOUT — Stripe / PromptPay / Alipay / WeChat */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} playUi={playUi} />}
       {schoolCheckout && <SchoolCheckoutModal lang={lang} schoolCheckout={schoolCheckout} payCfg={payCfg} session={session} onClose={() => setSchoolCheckout(null)} playUi={playUi} />}
-      {buyCurrencyOpen && <BuyCurrencyModal lang={lang} payCfg={payCfg} session={session} onClose={() => { setBuyCurrencyOpen(false); setGemShortFocus(false); }} playUi={playUi} focusGems={gemShortFocus} shortBy={gemShort ? gemShort.short : 0} />}
 
       {/* AI WEEKLY REPORT / AI PRACTICE PLAN MODAL (Max exclusive) */}
       {aiModalOpen && (
@@ -13074,14 +13061,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         return (
           <div className="setov setov-shop" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>
             <div className="setcard shop-full" onClick={e => e.stopPropagation()}>
-              {/* ── Header: coins / gems / Top Up button ── */}
+              {/* ── Header: coins / gems ── */}
               <div className="sethdr shop-hdr">
                 <span className="shop-hdr-t">🛍️ {lc.shopTitle}</span>
                 <span className="coinpill">🪙 {coins}</span>
                 <span className="coinpill gempill">💎 {gems}</span>
-                <button className="shop-topup-btn" onClick={() => { setShopOpen(false); setShopSubTab(null); openBuyCurrency(); }}>
-                  {lang === "th" ? "💰 เติมเงิน" : lang === "zh" ? "💰 充值" : "💰 Top Up"}
-                </button>
                 <button className="cbtn" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>{lc.close}</button>
               </div>
               {/* Shop intro banner (owner plan 2026-09-19 point 6): first visit only —
@@ -13558,16 +13542,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* Gem monetization plan v4 item 1 — gem-shortage popup: fires only from
-          buyWithGems (a real failed purchase attempt), two buttons: top up gems
-          (opens the top-up modal on the gem tab) or take the equal-value coins
-          route when one exists — never blocks or hides the free path. */}
+      {/* Not-enough-gems popup: fires only from buyWithGems (a real failed
+          attempt). Informational: how many are missing and where gems are
+          earned. No top-up route; currency is not sold (owner, 2026-09-25). */}
       {gemShort && (() => {
         const gs = (lang === "th")
-          ? { t: "Gems ไม่พอ", b: `ต้องใช้อีก ${gemShort.short} 💎 สำหรับ ${gemShort.item || "ไอเทมชิ้นนี้"}`, go: "เติม Gems เลย", alt: "ดูวิธีอื่น" }
+          ? { t: "Gems ไม่พอ", b: `ต้องใช้อีก ${gemShort.short} 💎 สำหรับ ${gemShort.item || "ไอเทมชิ้นนี้"}`, ok: "เข้าใจแล้ว" }
           : (lang === "zh")
-          ? { t: "Gems 不足", b: `还差 ${gemShort.short} 💎 才能获得 ${gemShort.item || "该道具"}`, go: "去充值", alt: "看看其他方法" }
-          : { t: "Not enough gems", b: `You need ${gemShort.short} more 💎 for ${gemShort.item || "this item"}`, go: "Top up gems", alt: "Other ways" };
+          ? { t: "Gems 不足", b: `还差 ${gemShort.short} 💎 才能获得 ${gemShort.item || "该道具"}`, ok: "知道了" }
+          : { t: "Not enough gems", b: `You need ${gemShort.short} more 💎 for ${gemShort.item || "this item"}`, ok: "Got it" };
         return (
           <div className="atpopup" onClick={dismissGemShortPopup}>
             <div className="atpopup-card" onClick={e => e.stopPropagation()}>
@@ -13577,9 +13560,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <button className="atpopup-x" onClick={dismissGemShortPopup} aria-label="close">×</button>
               </div>
               <div className="atpopup-weak">{gs.b}</div>
+              <div className="atpopup-weak" style={{ marginTop: 6 }}>{lc.gemHint}</div>
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { playUi("click"); logUsage("gem", "shortpop:cta"); setGemShortFocus(true); setGemShort(null); if (requireLogin()) return; if (shopOpen) setShopOpen(false); openBuyCurrency(); }}>{gs.go}</button>
-                <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { playUi("click"); logUsage("gem", "shortpop:alt"); setGemShort(null); setShopOpen(true); }}>{gs.alt}</button>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { playUi("click"); dismissGemShortPopup(); }}>{gs.ok}</button>
               </div>
             </div>
           </div>

@@ -2603,10 +2603,6 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .shop-full .shopitem.equipped .shopitem-tag{color:#00a6bd}
 .shop-full .shopitem-art svg{filter:drop-shadow(0 2px 4px rgba(20,30,60,.22))}
 
-/* ── Shop Top-Up button (header) ── */
-.shop-topup-btn{display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#f59e0b,#ef4444);border:none;border-radius:20px;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:800;font-family:var(--f-app);color:#fff;letter-spacing:.3px;box-shadow:0 2px 8px rgba(245,158,11,.3);transition:all .2s;white-space:nowrap}
-.shop-topup-btn:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(245,158,11,.4)}
-.shop-topup-btn:active{transform:scale(.97)}
 /* ── Sub-category chips ── */
 .shop-subtabs{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd1);background:var(--card2)}
 .shop-subtab{display:inline-flex;align-items:center;gap:3px;background:var(--card);border:1.5px solid var(--bd1);border-radius:16px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:600;font-family:var(--f-app);color:var(--muted);transition:all .15s;white-space:nowrap}
