@@ -1890,6 +1890,7 @@ const FLAT_OF = { "C#": "D♭", "D#": "E♭", "F#": "G♭", "G#": "A♭", "A#": 
 // the three question kinds whose answer is a note you can physically play
 const PLAYABLE = { iv: 1, degree: 1, scale: 1 };
 const CORNER_ZONE = 0.055, CORNER_DMG = 1.15;
+const SK_CD_ACTIVE = 5000, SK_CD_ULT = 12000;
 const GUARD_MAX = 100, GUARD_HIT_COST = 24, GUARD_REGEN = 8;   // regen per second
 const STAGGER_MS = 3000, STAGGER_DMG = 1.5;
 // the immediate sting of a wrong answer; the stagger that follows is the
@@ -2262,6 +2263,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [q, setQ] = useState(null);
   const [culled, setCulled] = useState([]);
   const [gauge, setGauge] = useState(() => Math.min(100, itemFx.gaugeStart));
+  const skCd = useRef({ a: 0, u: 0 });
+  const [, setSkTick] = useState(0);
   const [ultUsed, setUltUsed] = useState(false);
   const [combo, setCombo] = useState(0);
   const [bestCombo, setBestCombo] = useState(0);
@@ -3826,8 +3829,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   /* ── skills ── */
   function useActive() {
-    if (gauge < 100 || myRank < SKILL_UNLOCK.active || doneRef.current) return;
-    setGauge(0);
+    if (doneRef.current || Date.now() < skCd.current.a) return;
+    skCd.current.a = Date.now() + SK_CD_ACTIVE; setSkTick(t => t + 1); later(() => setSkTick(t => t + 1), SK_CD_ACTIVE);
     const k = fx.active, nb = { ...buffRef.current };
     if (k === "crit") { nb.crit = 1; say("me", tr3(FX_TEXT.crit, lang), "buff"); }
     else if (k === "block") { nb.block = 1; say("me", tr3(FX_TEXT.block, lang), "buff"); }
@@ -3857,8 +3860,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      the only mechanic in the game where knowing the theory and winning the
      fight are literally the same button press. */
   function useUlt() {
-    if (ultUsed || gauge < 100 || myRank < SKILL_UNLOCK.ultimate || doneRef.current) return;
-    setUltUsed(true); setGauge(0);
+    if (doneRef.current || Date.now() < skCd.current.u) return;
+    skCd.current.u = Date.now() + SK_CD_ULT; setSkTick(t => t + 1); later(() => setSkTick(t => t + 1), SK_CD_ULT);
     setUltQ({ q: makeQuestion(lang, weightedTag()), start: Date.now() });
     setUltArmed(false); later(() => setUltArmed(true), ULTQ_ARM);
     audioRef.current.sfx("charge");
@@ -3908,8 +3911,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const mySk = skillsOf(me);
   const activeSk = mySk.find(s => s.tier === "active");
   const ultSk = mySk.find(s => s.tier === "ultimate");
-  const canActive = gauge >= 100 && myRank >= SKILL_UNLOCK.active && !doneRef.current;
-  const canUlt = gauge >= 100 && myRank >= SKILL_UNLOCK.ultimate && !ultUsed && !doneRef.current;
+  /* The two skill buttons used to sit dead until the gauge filled (and the
+     ultimate behind a rank and a once-a-fight rule) — players read that as
+     "broken / still loading". They are live from the first second now, on a
+     short cooldown each so they cannot be spammed. */
+  const canActive = !doneRef.current && Date.now() >= skCd.current.a;
+  const canUlt = !doneRef.current && Date.now() >= skCd.current.u;
   const waveTotal = WAVES[Math.min(wave - 1, WAVES.length - 1)];
   /* Below a quarter tank, the tide should still be turnable — not a mercy
      rule, just a reason to keep fighting instead of watching the bar drain. */
