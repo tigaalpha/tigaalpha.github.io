@@ -538,4 +538,7 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
   font-family:var(--f-app);font-weight:700;font-size:12px;letter-spacing:.04em;color:#fff;
   background:linear-gradient(160deg,#e2865f,#c4623f);box-shadow:0 6px 14px -8px #c4623f,inset 0 1px 0 rgba(255,255,255,.3)}
 .tg .hdr .hdr-pvp:active{transform:scale(.94)}
+
+/* portrait: lift the skills + arrows column 5% of the screen */
+.pvppage.fight:not(.land) .pvppad-lcol{transform:translateY(-5vh)}
 `;
