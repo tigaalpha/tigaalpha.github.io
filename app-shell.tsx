@@ -1,3 +1,4 @@
+import { isChunkLoadError, reloadForNewBuild } from "./chunk-reload";
 import { useState, useEffect, Component } from "react";
 import { sb } from "./supabase-client";
 import { saveGuestProfile } from "./shared-infra";
@@ -38,7 +39,7 @@ import { saveGuestProfile } from "./shared-infra";
 export class SafeZone extends Component {
   constructor(props) { super(props); this.state = { failed: false }; }
   static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch(error, info) { console.error("SafeZone caught:", error, info && info.componentStack); }
+  componentDidCatch(error, info) { if (isChunkLoadError(error)) reloadForNewBuild(); console.error("SafeZone caught:", error, info && info.componentStack); }
   render() {
     if (!this.state.failed) return this.props.children;
     return (
@@ -55,7 +56,7 @@ export class SafeZone extends Component {
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, errText: "", errStack: "", copied: false }; }
   static getDerivedStateFromError(error) { return { hasError: true, errText: String((error && error.message) || error), errStack: String((error && error.stack) || "") }; }
-  componentDidCatch(error, info) { console.error("Uncaught render error:", error, info); }
+  componentDidCatch(error, info) { if (isChunkLoadError(error)) reloadForNewBuild(); console.error("Uncaught render error:", error, info); }
   render() {
     if (!this.state.hasError) return this.props.children;
     // Recovery must beat the two real ways this screen appears:

@@ -1,3 +1,4 @@
+import { isChunkLoadError, reloadForNewBuild } from "../chunk-reload";
 import { Component } from "react";
 
 /* ── landing/landing-utils.tsx ──
@@ -19,7 +20,7 @@ import { Component } from "react";
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error, info) { console.error("Uncaught render error:", error, info); }
+  componentDidCatch(error, info) { if (isChunkLoadError(error)) reloadForNewBuild(); console.error("Uncaught render error:", error, info); }
   render() {
     if (!this.state.hasError) return this.props.children;
     return (
