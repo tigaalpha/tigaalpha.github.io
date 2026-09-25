@@ -10030,6 +10030,16 @@ function AdminPage({ lang, onExit, adminTier }) {
 
 
 /* ════ MAIN ════ */
+/* A new build must never yank someone out of work. The Admin Console is one
+   page (page === "admin") with many sub-views; matching two of its class
+   names left every other admin screen reloading on each deploy. Hold while
+   the admin page is open (any sub-view), or a PvP fight is on screen; the
+   reload happens at the first moment they leave. */
+function holdReload() {
+  try { if (sessionStorage.getItem("tiga_page") === "admin") return true; } catch (e) {}
+  return !!(document.querySelector(".pvppage.fight") || document.querySelector(".admstu") || document.querySelector(".adminpay"));
+}
+
 export default function App() {
   useInjectCSS();
   const [session, setSession] = useState(null);
@@ -10401,7 +10411,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => { planRef.current = plan; }, [plan]);
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    const handler = (e) => { if (e.data && e.data.type === "SW_RELOAD") window.location.reload(); };
+    const handler = (e) => {
+      if (!e.data || e.data.type !== "SW_RELOAD") return;
+      const go = () => { if (holdReload()) { setTimeout(go, 5000); return; } window.location.reload(); };
+      go();
+    };
     navigator.serviceWorker.addEventListener("message", handler);
     return () => navigator.serviceWorker.removeEventListener("message", handler);
   }, []);
@@ -10431,7 +10445,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         // an active PvP fight). The state is also restored after the reload
         // (page + adminUnlocked in sessionStorage), so the console reopens
         // where it was.
-        if (document.querySelector(".pvppage.fight") || document.querySelector(".admstu") || document.querySelector(".adminpay")) { setTimeout(go, 5000); return; }
+        if (holdReload()) { setTimeout(go, 5000); return; }
         /* Nor straight after a Google login. This page is then exchanging the
            ?code= for a session, and the SKIP_WAITING nudge above lands two
            seconds in — on a slow phone, mid-exchange. Seen live (1a70eb,
