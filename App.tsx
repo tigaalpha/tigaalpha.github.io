@@ -10464,8 +10464,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (!("serviceWorker" in navigator)) return;
     const handler = (e) => {
       if (!e.data || e.data.type !== "SW_RELOAD") return;
-      const go = () => { if (holdReload()) { setTimeout(go, 5000); return; } window.location.reload(); };
-      go();
+      // never reload under someone: the new build applies on the next open
+      window.__tgUpdateReady = true;
     };
     navigator.serviceWorker.addEventListener("message", handler);
     return () => navigator.serviceWorker.removeEventListener("message", handler);
@@ -10496,7 +10496,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         // an active PvP fight). The state is also restored after the reload
         // (page + adminUnlocked in sessionStorage), so the console reopens
         // where it was.
-        if (holdReload()) { setTimeout(go, 5000); return; }
+        /* No automatic reload any more, anywhere. A new build used to reload
+           every open page within seconds of landing — and on a day with many
+           releases that meant the app (and the Admin Console) "refreshing by
+           itself" again and again. The service worker already serves the new
+           index.html network-first, so the next time the app is opened it is
+           on the new build; until then the page keeps running untouched. */
+        window.__tgUpdateReady = true; return;
         /* Nor straight after a Google login. This page is then exchanging the
            ?code= for a session, and the SKIP_WAITING nudge above lands two
            seconds in — on a slow phone, mid-exchange. Seen live (1a70eb,
