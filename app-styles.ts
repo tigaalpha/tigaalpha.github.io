@@ -3362,6 +3362,26 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
   78%{transform:scale(calc(var(--petk,.85) * 1.05)) scaleX(-1) translateY(-6px)}
   100%{transform:scale(var(--petk,.85)) scaleX(-1) translateY(0)}}
 @media (prefers-reduced-motion:reduce){.pvppet3,.pvppet3-in{animation:none;transition:none}}
+/* ── pet-only: the pet in the robot's box ──
+   Faces the opponent (the art faces left, hence scaleX(-1)). The box lunges
+   and recoils as it does for a robot; the pose adds squash and stretch on the
+   animal itself. Inside scaleX(-1), a negative translateX moves it forward. */
+.pvpfpet{display:block;height:74%;aspect-ratio:144/156;transform:scaleX(-1);transform-origin:50% 100%;
+  transition:transform .13s cubic-bezier(.2,.9,.25,1.15),filter .2s ease;filter:drop-shadow(0 10px 12px rgba(0,0,0,.34))}
+.pvpfpet svg{display:block;width:100%;height:100%}
+.pvpfpet.p-attack{transform:scaleX(-1) translateX(-12%) rotate(7deg) scale(1.07,.95)}
+.pvpfpet.p-kick{transform:scaleX(-1) translateX(-9%) translateY(-6%) rotate(-9deg) scale(1.05)}
+.pvpfpet.p-shoot,.pvpfpet.p-beam,.pvpfpet.p-throw{transform:scaleX(-1) scale(1.1,.9);filter:drop-shadow(0 0 14px var(--pc,#fff)) drop-shadow(0 10px 12px rgba(0,0,0,.34))}
+.pvpfpet.p-hit,.pvpfpet.flinch{transform:scaleX(-1) translateX(9%) rotate(-7deg) scale(.93)}
+.pvpfpet.p-guard{transform:scaleX(-1) scale(1.05,.84)}
+.pvpfpet.p-jump{transform:scaleX(-1) scale(.94,1.08)}
+.pvpfpet.cast{transform:scaleX(-1) scale(1.12);filter:drop-shadow(0 0 18px var(--pc,#fff)) drop-shadow(0 10px 12px rgba(0,0,0,.34))}
+.pvpfpet.p-win,.pvpfpet.win,.pvpfpet.cheer{animation:pvpfpetcheer .7s ease infinite}
+.pvpfpet.cheer{animation-iteration-count:1}
+.pvpfpet.p-down,.pvpfpet.lose{transform:scaleX(-1) translateY(6%) scale(.9);filter:saturate(.5) drop-shadow(0 8px 10px rgba(0,0,0,.3))}
+@keyframes pvpfpetcheer{0%,60%,100%{transform:scaleX(-1) translateY(0)}35%{transform:scaleX(-1) translateY(-12%) scale(1.06)}78%{transform:scaleX(-1) translateY(-5%)}}
+.pvppage.land .pvpfpet{height:80%}
+@media (prefers-reduced-motion:reduce){.pvpfpet{transition:none;animation:none!important}}
 /* the pet command sits with the attack buttons and wears its element's colour */
 .pvpact.petcmd{background:linear-gradient(180deg,color-mix(in srgb,var(--pc,#8fa6c8) 26%,transparent),color-mix(in srgb,var(--pc,#8fa6c8) 12%,transparent));
   border-color:color-mix(in srgb,var(--pc,#8fa6c8) 55%,transparent)}
