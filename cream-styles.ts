@@ -497,4 +497,19 @@ html:not([data-theme="dark"]) .x3 .pvpkey.blk{background:linear-gradient(180deg,
 html:not([data-theme="dark"]) .x3 .pvpkey:active{background:linear-gradient(180deg,#eef4ff,#dde8fb)!important}
 html:not([data-theme="dark"]) .x3 .pvpkey.blk:active{background:linear-gradient(180deg,#3a3630,#1a1917)!important}
 html:not([data-theme="dark"]) .x3 .pvpkey.right,html:not([data-theme="dark"]) .x3 .pvpkey.blk.right{background:linear-gradient(180deg,#5cc8ff,#1f8fe0)!important;border-color:#1a7cc4!important;color:#fff!important;box-shadow:0 0 0 2px rgba(92,200,255,.55),0 0 20px rgba(31,143,224,.55)!important}
+
+/* the fight room in light mode stands in a painted dusk arena instead of on
+   blank white; one static image, painted once, so it costs nothing per frame */
+html:not([data-theme="dark"]) .pvppage.fight .pvpstage{background:#f3c9a8 url("./img/arena-dusk.svg") center bottom / cover no-repeat!important}
+html:not([data-theme="dark"]) .pvppage.fight .pvpstage>.sp3{background:transparent!important}
+html:not([data-theme="dark"]) .pvppage.fight .pvpstage>.sp3 *{background:transparent!important}
+
+/* portrait fight: skills stacked above the arrows */
+.pvppad-lcol{display:flex;flex-direction:column;gap:9px;min-width:0;flex:1;max-width:210px}
+.pvppad-lcol .pvpskills{margin:0;padding:0;max-width:none}
+.pvppad-lcol .pvpskbtns{grid-template-columns:1fr;gap:7px}
+.pvppad-lcol .pvpskbtn{flex-direction:row;justify-content:center;gap:8px;padding:9px 8px}
+.pvppad-lcol .pvpskbtn-ic{width:22px;height:22px}
+.pvppad-lcol .pvpskbtn i{display:none}
+.pvppage.land .pvppad-lcol{display:contents}
 `;
