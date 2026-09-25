@@ -809,7 +809,7 @@ export const RANK_TIERS = [
   { key: "silver",   th: "ซิลเวอร์",   en: "Silver",   zh: "白银", min: 150,  c: "#c0c0c8" },
   { key: "gold",     th: "โกลด์",      en: "Gold",     zh: "黄金", min: 400,  c: "#ffd23f" },
   { key: "platinum", th: "แพลทินัม",   en: "Platinum", zh: "铂金", min: 800,  c: "#7fd7ff" },
-  { key: "diamond",  th: "ไดมอนด์",    en: "Diamond",  zh: "钻石", min: 1400, c: "#b98cff" },
+  { key: "diamond",  th: "ไดมอนด์",    en: "Diamond",  zh: "Gems", min: 1400, c: "#b98cff" },
 ];
 const RANK_KEY = "tg_pvp_rank";
 export function readRankPts() { try { return Math.max(0, parseInt(localStorage.getItem(RANK_KEY) || "0", 10) || 0); } catch (e) { return 0; } }
@@ -1523,7 +1523,7 @@ export const PvpPage = memo(function PvpPage({
             <button className="pvptier t-practice" onClick={startPractice}>
               <b>{T("โหมดซ้อม", "Practice", "陪练模式")}</b>
               <i>{T("ไม่มีเดิมพัน มีติ๊ปสด · ตั้งค่าหุ่นได้", "No stakes, live tips, dummy controls", "无风险、实时提示、可设定木人")}</i>
-              <span>{T("ไม่เสียเหรียญ/EXP", "No coins/EXP lost", "不消耗金币/经验")}</span>
+              <span>{T("ไม่เสีย Coins/EXP", "No coins/EXP lost", "不消耗 Coins/经验")}</span>
             </button>
           </div>
 

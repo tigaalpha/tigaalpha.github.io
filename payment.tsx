@@ -924,13 +924,13 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focus
   return (
     <div className="setov" onClick={onClose}>
       <div className="setcard pricing" onClick={e => e.stopPropagation()}>
-        <div className="sethdr"><span>🪙 {T("ซื้อเหรียญ/เพชร", "Buy Coins/Gems", "购买金币/宝石")}</span><button className="cbtn" onClick={onClose}>✕</button></div>
+        <div className="sethdr"><span>🪙 {T("ซื้อ Coins/Gems", "Buy Coins/Gems", "购买 Coins/Gems")}</span><button className="cbtn" onClick={onClose}>✕</button></div>
         <div className="setbody">
           {st === "done" ? (
             <div className="payok">
               <div style={{ fontSize: 46 }}>✅</div>
               <div className="payok-h">{T("ได้รับสลิปแล้ว!", "Slip received!", "已收到凭证！")}</div>
-              <p className="pr-sub">{T("กำลังตรวจสอบการชำระเงิน — เหรียญ/เพชรจะเข้าบัญชีอัตโนมัติเมื่อตรวจผ่าน (ปกติไม่เกิน 24 ชม.)", "We're verifying your payment — your coins/gems land automatically once approved (usually within 24h).", "正在核对付款，通过后自动到账（通常24小时内）。")}</p>
+              <p className="pr-sub">{T("กำลังตรวจสอบการชำระเงิน — Coins/Gems จะเข้าบัญชีอัตโนมัติเมื่อตรวจผ่าน (ปกติไม่เกิน 24 ชม.)", "We're verifying your payment — your coins/gems land automatically once approved (usually within 24h).", "正在核对付款，通过后自动到账（通常24小时内）。")}</p>
               <button className="songbtn go" style={{ width: "100%" }} onClick={onClose}>{T("เสร็จสิ้น", "Done", "完成")}</button>
             </div>
           ) : (
@@ -938,8 +938,8 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focus
               {!chanKey && (
                 <>
                   <div className="billtoggle" style={{ marginBottom: 14 }}>
-                    <button className={`billtog${currencyType === "coins" ? " on" : ""}`} onClick={() => switchType("coins")}>🪙 {T("เหรียญ", "Coins", "金币")}</button>
-                    <button className={`billtog${currencyType === "gems" ? " on" : ""}`} onClick={() => switchType("gems")}>💎 {T("เพชร", "Gems", "宝石")}</button>
+                    <button className={`billtog${currencyType === "coins" ? " on" : ""}`} onClick={() => switchType("coins")}>🪙 {T("Coins", "Coins", "Coins")}</button>
+                    <button className={`billtog${currencyType === "gems" ? " on" : ""}`} onClick={() => switchType("gems")}>💎 {T("Gems", "Gems", "Gems")}</button>
                   </div>
                   <div className="genrefilters" style={{ marginBottom: 14 }}>
                     {packages.map((p, i) => (
@@ -950,7 +950,7 @@ export function BuyCurrencyModal({ lang, payCfg, session, onClose, playUi, focus
                     ))}
                   </div>
                   <div className="paysum">
-                    <span>{currencyType === "coins" ? "🪙" : "💎"} {(currencyType === "coins" ? pkg.coins : pkg.gems).toLocaleString()} {currencyType === "coins" ? T("เหรียญ", "Coins", "金币") : T("เพชร", "Gems", "宝石")}</span>
+                    <span>{currencyType === "coins" ? "🪙" : "💎"} {(currencyType === "coins" ? pkg.coins : pkg.gems).toLocaleString()} {currencyType === "coins" ? T("Coins", "Coins", "Coins") : T("Gems", "Gems", "Gems")}</span>
                     <b className="prtier-price">{fmtPrice(cur, pkg.thb)}</b>
                   </div>
                 </>

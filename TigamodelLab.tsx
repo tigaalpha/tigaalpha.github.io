@@ -1259,9 +1259,9 @@ function AtipPreview({ lang = "th", S }) {
   const src = card ? cardSourceInfo(card) : null;
   const q = card && card.quiz ? card.quiz : null;
   const KC = {
-    th: { t: "ตัวอย่างการ์ดที่นักเรียนเห็น", knowIt: "รู้ไว้ใช่ว่า", ok: "ถูกต้อง! ได้ +5 เพชร (จ่ายจริงผ่าน RPC)", no: "ยังไม่ถูก — คำตอบคือ", src: "ที่มา", weak: "ท่อนชอรัสพลาดบ่อยที่โน้ต C และ F (62%)", next: "สุ่มโปรไฟล์ตัวอย่างใหม่", noCard: "ไม่มีการ์ดตรงเงื่อนไข" },
+    th: { t: "ตัวอย่างการ์ดที่นักเรียนเห็น", knowIt: "รู้ไว้ใช่ว่า", ok: "ถูกต้อง! ได้ +5 Gems (จ่ายจริงผ่าน RPC)", no: "ยังไม่ถูก — คำตอบคือ", src: "ที่มา", weak: "ท่อนชอรัสพลาดบ่อยที่โน้ต C และ F (62%)", next: "สุ่มโปรไฟล์ตัวอย่างใหม่", noCard: "ไม่มีการ์ดตรงเงื่อนไข" },
     en: { t: "What learners actually see", knowIt: "Did you know", ok: "Correct! +5 gems (paid via RPC)", no: "Not quite — the answer is", src: "Source", weak: "Chorus keeps missing C and F (62%)", next: "Shuffle sample profile", noCard: "No card matches" },
-    zh: { t: "学生看到的卡片预览", knowIt: "你知道吗", ok: "答对了！+5钻石（RPC 实发）", no: "还差一点——答案是", src: "来源", weak: "副歌常错 C 和 F（62%）", next: "换一个示例", noCard: "没有匹配的卡片" },
+    zh: { t: "学生看到的卡片预览", knowIt: "你知道吗", ok: "答对了！+5 Gems（RPC 实发）", no: "还差一点——答案是", src: "来源", weak: "副歌常错 C 和 F（62%）", next: "换一个示例", noCard: "没有匹配的卡片" },
   }[lang] || {};
   return (
     <div style={S.card}>
