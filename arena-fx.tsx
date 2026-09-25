@@ -1,3 +1,4 @@
+import { isLowEnd } from "./space-stage";
 /* ── arena-fx.tsx ──
    Sound and picture for the PvP arena, and nowhere else in the app.
 
@@ -1255,7 +1256,7 @@ export function useArenaFx(stage, opts = {}) {
     const fit = (cw, chh) => {
       let w = cw, h = chh;
       if (w == null || h == null) { const r = cv.getBoundingClientRect(); w = r.width; h = r.height; }
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const dpr = isLowEnd() ? 1 : Math.min(2, window.devicePixelRatio || 1);
       w = Math.max(1, w); h = Math.max(1, h);
       if (dpr === S.dpr && Math.abs(w - S.w) < 0.5 && Math.abs(h - S.h) < 0.5) return;
       S.dpr = dpr; S.w = w; S.h = h;
@@ -1273,7 +1274,7 @@ export function useArenaFx(stage, opts = {}) {
       } catch (e) { S.floorY = S.h * 0.9; }
       if (!S.sprites && S.plain) { try { S.sprites = floorSprites(); } catch (e) { S.sprites = null; } }
       // ambient dust, so the arena has air in it even between hits
-      S.motes = Array.from({ length: soft ? 0 : 22 }, () => ({
+      S.motes = Array.from({ length: soft ? 0 : isLowEnd() ? 8 : 22 }, () => ({
         x: Math.random() * S.w, y: Math.random() * S.h,
         r: 0.6 + Math.random() * 1.5, vy: -(4 + Math.random() * 12), a: 0.1 + Math.random() * 0.25,
       }));

@@ -63,6 +63,21 @@ export function spaceTier() {
   } catch (e) { t = 0; }
   return (tierCache = Math.min(t, learnedTier()));
 }
+/* A phone that will struggle: few cores, little memory, or a GPU that only
+   earned the lightest 3D tier. PvP on these skips the 3D room entirely and
+   draws its fight canvas at 1x — the fight is the point, and it must not
+   stutter for most people. */
+let lowCache = null;
+export function isLowEnd() {
+  if (lowCache != null) return lowCache;
+  try {
+    const cores = Number(navigator.hardwareConcurrency) || 4;
+    const mem = Number(navigator.deviceMemory) || 4;
+    const coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    lowCache = cores <= 4 || mem <= 3 || (coarse && spaceTier() <= 1);
+  } catch (e) { lowCache = false; }
+  return lowCache;
+}
 export const spaceReduced = () => {
   try { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { return false; }
 };
@@ -104,7 +119,8 @@ export function createSpaceBus() {
    stage:   the arena's id, which sets the room's tone
    data:    a ref holding hologram read-outs, updated without re-rendering */
 export const SpaceStage = memo(function SpaceStage({ variant = "lobby", anchor = null, scroller = null, bus = null, stage = null, className = "", data = null, quiet = null, onReady = null, onLost = null }) {
-  const [tier] = useState(() => spaceTier());
+  // PvP (lobby and fight) on a struggling phone keeps the still backdrop
+  const [tier] = useState(() => ((variant === "arena" || variant === "lobby") && isLowEnd() ? 0 : spaceTier()));
   const [ready, setReady] = useState(false);
   const [dead, setDead] = useState(false);
   const alive = tier > 0 && !dead;

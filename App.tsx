@@ -25,6 +25,7 @@ const SkillTrack = lazy(() => import("./pvp-arena").then(m => ({ default: m.Skil
 import { PetPod, PetPage, PetArt, PET_SPECIES, PET_TYPES, PET_BONUS, PET_COST,
   adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets, usePetTurn } from "./pet-lab";
 import { SpaceStage, prefetchSpace } from "./space-stage";
+import { TabBar } from "./tab-bar";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
@@ -12368,6 +12369,26 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: SENSEI (default) ─── */}
       {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} />}
+
+      {/* ─── TAB BAR ─── the five common destinations, a thumb away. The
+          drawer below still holds everything; this is only the short way. */}
+      {page !== "videos" && page !== "admin" && (
+        <TabBar page={page} lang={lang} onGo={(t, already) => {
+          playUi("click");
+          if (already && t.page !== "sensei") {
+            // the tab you are on: back to the top of it, the way iOS does
+            const sc = document.querySelector(".tg .pathpage, .tg .profscroll, .tg .profpage, .tg .pvppage, .tg .petpage");
+            if (sc) { try { sc.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { sc.scrollTop = 0; } }
+            if (t.page === "studio") setStudioView("menu");
+            return;
+          }
+          logUsage("nav", "tab-" + t.k); stopPracticeListeners(); setNavOpen(false);
+          setPage(t.page);
+          if (t.page === "studio") setStudioView("menu");
+          // like the drawer's TIGA CHAT: the teacher opens straight into the conversation
+          if (t.page === "sensei") setModal(true);
+        }} />
+      )}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
