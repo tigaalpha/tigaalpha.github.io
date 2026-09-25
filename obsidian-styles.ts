@@ -671,9 +671,11 @@ function dayColour(r, g, b, a) {
     // neutrals: flip light and dark, and warm them toward the app's cream
     l = 1 - l; h = 40; s = Math.min(s, 0.12);
     if (l > 0.9) l = 0.9 + (l - 0.9) * 0.9;
-  } else if (l > 0.5) {
-    // bright accents deepen enough to read on white
-    l = 0.38 + (l - 0.5) * 0.25;
+  } else {
+    // accents take the main app's clay orange (#d97757 / ink #a8502f), so a
+    // game room in light mode reads as the same white-orange-grey app
+    h = 15; s = Math.min(s, 0.62);
+    l = l > 0.5 ? 0.42 + (l - 0.5) * 0.3 : Math.max(l, 0.36);
   }
   const [R, G, B] = rgb(h, s, l);
   return a == null ? `rgb(${R},${G},${B})` : `rgba(${R},${G},${B},${a})`;
