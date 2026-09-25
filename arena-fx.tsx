@@ -1599,6 +1599,7 @@ export function useArenaFx(stage, opts = {}) {
       for (let i = S.lobs.length - 1; i >= 0; i--) {
         const b = S.lobs[i]; b.p += dt / b.dur;
         if (b.p >= 1) { S.lobs.splice(i, 1); b.onLand && b.onLand(); continue; }
+        if (b.p <= 0) continue;   // salvo rockets still waiting their turn
         const x = b.x0 + (b.x1 - b.x0) * b.p;
         const y = b.y0 + (b.y1 - b.y0) * b.p - b.arc * 4 * b.p * (1 - b.p);
         // the tangent of the parabola: where it is pointing IS where it is going
@@ -1606,7 +1607,8 @@ export function useArenaFx(stage, opts = {}) {
         const ang = Math.atan2(vy, vx);
         const flick = 0.72 + 0.28 * Math.sin(S.t * 63) + 0.12 * Math.sin(S.t * 149);
 
-        drawRocket(ctx, x, y, ang, b.c, flick);
+        if (b.big) { ctx.save(); ctx.translate(x, y); ctx.scale(b.big, b.big); drawRocket(ctx, 0, 0, ang, b.c, flick); ctx.restore(); }
+        else drawRocket(ctx, x, y, ang, b.c, flick);
 
         /* a smoke trail behind it, so you can see the shell coming and where
            from — a grenade that appears at the target is a magic trick. It
@@ -1614,9 +1616,10 @@ export function useArenaFx(stage, opts = {}) {
         b.trail = (b.trail || 0) + dt;
         if (b.trail > 0.028 && !reduced()) {
           b.trail = 0;
-          const tx2 = x - Math.cos(ang) * 13, ty2 = y - Math.sin(ang) * 13;
+          const tl = 13 * (b.big || 1);
+          const tx2 = x - Math.cos(ang) * tl, ty2 = y - Math.sin(ang) * tl;
           S.smoke.push({ x: tx2, y: ty2, vx: (Math.random() - .5) * 22, vy: -8 - Math.random() * 14,
-            r: 4 + Math.random() * 4, p: 0, dur: 0.5 + Math.random() * 0.35 });
+            r: (4 + Math.random() * 4) * (b.big || 1), p: 0, dur: 0.5 + Math.random() * 0.35 });
           S.embers.push({ x: tx2, y: ty2, vx: (Math.random() - .5) * 40, vy: 10 + Math.random() * 30,
             r: 0.7 + Math.random(), life: 0.3 + Math.random() * 0.3, max: 0.6,
             fl: 30 + Math.random() * 20, ph: Math.random() * 7 });
@@ -2101,8 +2104,31 @@ export function useArenaFx(stage, opts = {}) {
   const lob = useCallback((from, colour = "#ff9a3c", onLand) => {
     const S = stateRef.current; if (!S) return;
     colour = paletteGate(colour);
-    const a = at(from, "hand"), b = at(from === "me" ? "op" : "me", "body");
-    S.lobs.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.46, arc: S.h * 0.42, c: colour, onLand, trail: 0 });
+    const foe = from === "me" ? "op" : "me";
+    const a = from_(from, "hand"), b = at(foe, "body");
+    /* ── a salvo, not a single shell ──
+       One rocket on one arc read as a toy. A volley goes up: several bigger
+       rockets on fanned arcs, launched a beat apart, each blowing up where it
+       lands. Only the LAST one carries onLand, so the fight's damage and
+       timing are exactly what they were — this is spectacle, not balance. */
+    const N = LITE ? 4 : 6;
+    for (let k = 0; k < N; k++) {
+      const last = k === N - 1, t = k / Math.max(1, N - 1);
+      S.lobs.push({
+        x0: a.x, y0: a.y,
+        x1: b.x + (Math.random() - 0.5) * S.w * 0.06, y1: b.y + (Math.random() - 0.5) * S.h * 0.08,
+        p: -k * 0.16, dur: 0.5 + t * 0.12, arc: S.h * (0.3 + t * 0.34 + Math.random() * 0.06),
+        c: colour, trail: 0, big: 1.7,
+        onLand: last ? onLand : () => {
+          const x = S.w * (S.pos[foe] || 0.5);
+          S.balls.push({ x: x + (Math.random() - 0.5) * 40, y: b.y + (Math.random() - 0.5) * 30, r: 34, p: 0, dur: 0.26 });
+          S.shock.push({ x, y: b.y, r0: 6, r1: 80, p: 0, dur: 0.28 });
+        },
+      });
+    }
+    // launch blast at the tubes
+    S.balls.push({ x: a.x, y: a.y, r: 26, p: 0, dur: 0.18 });
+    S.flares.push({ x: a.x, y: a.y, r: 90, p: 0, dur: 0.22, c: colour });
   }, []);
 
   const flash = useCallback((colour = "#ffffff", a = 0.5, dur = 0.3) => {
