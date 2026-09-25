@@ -1294,9 +1294,15 @@ export function useArenaFx(stage, opts = {}) {
     const frame = (now) => {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       S.t += dt;
-      ctx = bgctx || fxctx;           // the backdrop pass
+      /* lite + the room behind (S.plain): the backdrop canvas has nothing
+         static to keep, so everything goes on the fx canvas and the backdrop
+         canvas is cleared once and never uploaded again */
+      const liteFlat = LITE && S.plain && bgctx;
+      if (liteFlat && !S.bgCleared) { bgctx.clearRect(0, 0, S.w, S.h); S.bgCleared = true; }
+      if (!liteFlat) S.bgCleared = false;
+      ctx = liteFlat ? fxctx : (bgctx || fxctx);           // the backdrop pass
       // lite: a separate backdrop canvas keeps its static bake between frames
-      const bgStill = LITE && bgctx && !S.plain && S.bgDone === (S.bake && S.bake.key) && !S.scorch.length;
+      const bgStill = liteFlat || (LITE && bgctx && !S.plain && S.bgDone === (S.bake && S.bake.key) && !S.scorch.length);
       if (!bgStill) ctx.clearRect(0, 0, S.w, S.h);
       if (bgctx) fxctx.clearRect(0, 0, S.w, S.h);
 
