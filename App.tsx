@@ -11560,12 +11560,25 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }, wait);
     return () => clearTimeout(t);
   }, [notifDone, session]);
-  function joinNotifEvent() {
+  async function joinNotifEvent() {
     setNotifInvite(false);
     if (requireLogin()) return;
     if (pushOn) { claimNotifReward(); return; }   // already on: just collect
-    setSettingsOpen(true); setNotifGlow(true);     // take them to Settings → Notification
-    setTimeout(() => setNotifGlow(false), 12000);
+    /* Ask for permission right here, inside the tap — the browser only shows
+       its "Allow notifications?" box for a direct user gesture, so sending
+       people to Settings first meant most of them never saw it. */
+    const perm = typeof Notification !== "undefined" ? Notification.permission : "default";
+    if (perm === "denied") {
+      alert(lang === "th" ? "เบราว์เซอร์นี้เคยบล็อกการแจ้งเตือนของ TIGA ไว้ — แตะไอคอนแม่กุญแจ/ตั้งค่าเว็บไซต์ข้างช่อง URL แล้วเปลี่ยน \"การแจ้งเตือน\" เป็น \"อนุญาต\" จากนั้นกดเข้าร่วมกิจกรรมอีกครั้ง"
+        : lang === "zh" ? "此浏览器之前屏蔽了 TIGA 的通知——点击网址栏旁的锁形/网站设置图标，把「通知」改为「允许」，然后再次参加活动"
+        : "This browser has blocked TIGA's notifications — tap the lock / site-settings icon next to the address bar, set Notifications to Allow, then join again.");
+      return;
+    }
+    const ok = await subscribePush(session.user.id);
+    setPushOn(ok);
+    if (ok) { claimNotifReward(); return; }
+    // dismissed the box: leave the way back open in Settings
+    setSettingsOpen(true); setNotifGlow(true); setTimeout(() => setNotifGlow(false), 12000);
   }
   function saveAutoTeachInterval(min) {
     if (requireLogin()) return;
