@@ -454,4 +454,17 @@ html[data-theme="dark"] .tg .profrankbadge{color:color-mix(in srgb,var(--lv-c,#d
   .tg .pw .handsel,.tg .pw .practicebtn{max-width:760px;margin-left:auto;margin-right:auto}
 }
 @media (prefers-reduced-motion:reduce){.tg .pcard{transition:none}}
+
+/* PvP knowledge-break card in light mode: the app's cream card, clay button */
+html:not([data-theme="dark"]) .pvpstandby{background:rgba(40,30,20,.35)}
+html:not([data-theme="dark"]) .pvpstandby-card{background:#fffdf9;border-color:#ecdcd0;box-shadow:0 26px 60px -22px rgba(60,40,20,.45)}
+html:not([data-theme="dark"]) .pvpstandby-ic{filter:none}
+html:not([data-theme="dark"]) .pvpstandby-card em{color:#a8502f}
+html:not([data-theme="dark"]) .pvpstandby-card b{color:#2b2622;text-shadow:none}
+html:not([data-theme="dark"]) .pvpstandby-card p{color:#5c554d}
+html:not([data-theme="dark"]) .pvpstandby-n{color:#7a7168;background:#f4efe7;border-color:#e6ddd1}
+html:not([data-theme="dark"]) .pvpstandby-go{background:#efe9e1;color:#9a9087;border-color:#e2d8cc}
+html:not([data-theme="dark"]) .pvpstandby-go::before{background:linear-gradient(90deg,#f0c2ae,#e8a488)}
+html:not([data-theme="dark"]) .pvpstandby-go.on{color:#fff;border-color:#c4623f;background:linear-gradient(180deg,#e08563,#c4623f);box-shadow:0 10px 26px -12px #c4623f}
+html:not([data-theme="dark"]) .pvpstandby-card i{color:#8a8178}
 `;
