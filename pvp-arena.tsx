@@ -1363,6 +1363,20 @@ export const PvpPage = memo(function PvpPage({
           </div>
         </section>
 
+        {/* the fight picker sits straight under the robot: the first thing to do here */}
+        <div className="pvpbody pvpbody-top">
+          <div className="pvpsec-h">{T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
+          <div className="pvptiers">
+            {BOT_TIERS.map(t => (
+              <button key={t.key} className={`pvptier t-${t.key}`} onClick={() => startFight("bot", t, tr3(CHAR_MODELS.find(m => m.id === chassisFor(t.key + Date.now())) || {}, lang))}>
+                <b>{tr3(t, lang)}</b>
+                <i>{T("ความแม่น", "Accuracy", "命中率")} {Math.round(t.acc * 100)}%</i>
+                <span>🪙 {t.coins} · ✦ {t.xp} · SP {t.sp}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="pvpbody">
           <div className="pvprank" style={{ "--cc": rank.tier.c }} title={rank.next ? `${rank.into}/${rank.need}` : ""}>
             <span className="pvprank-ic" aria-hidden="true" />
@@ -1547,17 +1561,6 @@ export const PvpPage = memo(function PvpPage({
               })}
             </div>
           )}
-
-          <div className="pvpsec-h">{T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
-          <div className="pvptiers">
-            {BOT_TIERS.map(t => (
-              <button key={t.key} className={`pvptier t-${t.key}`} onClick={() => startFight("bot", t, tr3(CHAR_MODELS.find(m => m.id === chassisFor(t.key + Date.now())) || {}, lang))}>
-                <b>{tr3(t, lang)}</b>
-                <i>{T("ความแม่น", "Accuracy", "命中率")} {Math.round(t.acc * 100)}%</i>
-                <span>🪙 {t.coins} · ✦ {t.xp} · SP {t.sp}</span>
-              </button>
-            ))}
-          </div>
 
           <div className="pvpsec-h">{T("สู้กับผู้เล่นอื่น", "Fight another player", "对战玩家")}</div>
           <div className="pvpnote">
