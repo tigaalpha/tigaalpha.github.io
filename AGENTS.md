@@ -80,8 +80,15 @@ and see "Hard rules" above before applying any of it.
   return handler are all gone, and `supabase-close-currency-topup-migration.sql`
   closes the server side. Don't add any way to buy Coins, Gems or any other
   in-game currency with real money unless the owner explicitly asks for it
-  in the current conversation. Free rewards (Practice Mode, quizzes,
-  Prestige, events) and Premium/School plan payments are unaffected.
+  in the current conversation. Premium/School plan payments are unaffected.
+- **Where Coins/Gems may come from (owner rule, 2026-09-25):** only from
+  playing or learning (practice, songs, lessons, quizzes, PvP, Prestige…),
+  from an admin granting them (admin tools, admin-run events), and the one
+  exception, the one-time notification-opt-in reward. Nothing else: no
+  paid-plan multipliers (the Max plan's ×2 coins was removed for this), and
+  no rewards for merely opening the app. The daily gift chest therefore
+  unlocks only after a practice session has been finished that day
+  (`chestAvailable()` in `App.tsx`).
 - Client-writable absolute values for `exp`/`coins`/`gems`/`admin_tier`/
   `plan` are a known-bad pattern this codebase has explicitly hardened
   against (delta-clamp + column-protection triggers on `profiles`). Any new

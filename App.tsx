@@ -4751,7 +4751,12 @@ async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) 
 /* ── coins (soft currency) + daily reward chest, all localStorage ── */
 export function getCoins() { try { return +(localStorage.getItem("tg_coins") || 0); } catch (e) { return 0; } }
 export function setCoinsLS(v) { try { localStorage.setItem("tg_coins", String(Math.max(0, Math.round(v)))); } catch (e) {} }
-export function chestAvailable() { try { return localStorage.getItem("tg_chest_date") !== dayKey(); } catch (e) { return false; } }
+/* The daily gift pays for learning, not for opening the app. Owner rule
+   (2026-09-25): Coins/Gems come only from playing/learning, admin grants and
+   the one-time notification reward, so the chest unlocks once a practice
+   session has been finished today (logPractice → bumpStreak stamps .last). */
+export function chestClaimedToday() { try { return localStorage.getItem("tg_chest_date") === dayKey(); } catch (e) { return true; } }
+export function chestAvailable() { try { return !chestClaimedToday() && readStreak().last === dayKey(); } catch (e) { return false; } }
 function chestStreak() { try { return +(localStorage.getItem("tg_chest_streak") || 0); } catch (e) { return 0; } }
 export function claimChest() {
   let streak = 1;
@@ -11660,6 +11665,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }
   // the one-time choice is asked for the moment the profile is first opened
   useEffect(() => { if (page === "profile" && !modelChosen) { setModelPickSel(charModel); setModelPickOpen(true); } }, [page, modelChosen, charModel]);
+  // the daily gift unlocks after today's first finished practice, so re-check it whenever the profile (where it lives) opens
+  useEffect(() => { if (page === "profile") setChestAvail(chestAvailable()); }, [page]);   // eslint-disable-line react-hooks/exhaustive-deps
   /* The Reassignment Core was the previous answer to "how do I change model" and
      it is gone — models are bought outright now. Anyone who already paid for one
      gets their coins back once, rather than being left holding a dead item. */
@@ -12502,7 +12509,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} chestLocked={!chestAvail && !chestClaimedToday()} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
