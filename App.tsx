@@ -9870,7 +9870,8 @@ function AdminPage({ lang, onExit, adminTier }) {
      the tier >= 3 check below both still apply; the hash only picks the tab. */
   const [adminTab, setAdminTab] = useState(() => {
     if (tier >= 3 && typeof window !== "undefined" && window.location.hash === "#admin-payments") return "payments";
-    return tier >= 3 ? "ai" : "students";   // "ai" chat · "students" back-office · "autoteach"
+    // the owner opens the console to check who is visiting far more than anything else
+    return tier >= 3 ? "anonvisit" : "students";
   });
   const endRef = useRef(null);
   const fileRef = useRef(null);
