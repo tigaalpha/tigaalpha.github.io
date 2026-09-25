@@ -10363,6 +10363,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_push_primed", "1"); } catch (e) {}
     const ok = await subscribePush(session.user.id);
     setPushOn(ok);
+    if (ok) claimNotifReward();
   }
   function dismissPushPrimer() {
     setPushPrimerOpen(false);
@@ -11518,7 +11519,53 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   async function togglePush() {
     if (requireLogin()) return;
     if (pushOn) { await unsubscribePush(); setPushOn(false); }
-    else { const ok = await subscribePush(session.user.id); setPushOn(ok); }
+    else { const ok = await subscribePush(session.user.id); setPushOn(ok); if (ok) claimNotifReward(); }
+  }
+  /* ── Notification event: turn notifications on → 10,000 coins + 10,000 gems ──
+     Invite timing (owner spec): a first-time visitor sees it once they have
+     been in the app 3 minutes; anyone on their 2nd+ visit who has not joined
+     sees it straight away. The reward is granted by the server
+     (claim_notif_reward: needs a real push subscription, once per account,
+     additive) — the client only asks. */
+  const [notifInvite, setNotifInvite] = useState(false);
+  const [notifGlow, setNotifGlow] = useState(false);
+  const [notifDone, setNotifDone] = useState(() => { try { return localStorage.getItem("tg_notif_reward_done") === "1"; } catch (e) { return false; } });
+  const [notifToast, setNotifToast] = useState(false);
+  const markNotifDone = () => { setNotifDone(true); setNotifInvite(false); setNotifGlow(false); try { localStorage.setItem("tg_notif_reward_done", "1"); } catch (e) {} };
+  async function claimNotifReward() {
+    if (!session) return;
+    const { data: r, error } = await sb.rpc("claim_notif_reward");
+    if (error || !r) return;
+    if (r.ok) {
+      setCoinsLS(r.coins); setCoins(r.coins); setProfile(p => ({ ...(p || {}), coins: r.coins, gems: r.gems }));
+      playUi("levelup"); setNotifToast(true); setTimeout(() => setNotifToast(false), 4200);
+      logUsage("event", "notif-reward");
+      markNotifDone();
+    } else if (r.reason === "already_claimed") markNotifDone();
+  }
+  useEffect(() => {
+    if (notifDone || !pushSupported()) return;
+    let visits = 1;
+    try {
+      visits = Number(localStorage.getItem("tg_visits") || 0);
+      if (!sessionStorage.getItem("tg_visit_counted")) { visits += 1; localStorage.setItem("tg_visits", String(visits)); sessionStorage.setItem("tg_visit_counted", "1"); }
+      if (sessionStorage.getItem("tg_notif_invite_seen")) return;
+    } catch (e) {}
+    const wait = visits >= 2 ? 1200 : 3 * 60 * 1000;
+    const t = setTimeout(async () => {
+      if (session) { try { const { data } = await sb.rpc("notif_reward_claimed"); if (data === true) { markNotifDone(); return; } } catch (e) {} }
+      setNotifInvite(true);
+      try { sessionStorage.setItem("tg_notif_invite_seen", "1"); } catch (e) {}
+      logUsage("event", "notif-invite");
+    }, wait);
+    return () => clearTimeout(t);
+  }, [notifDone, session]);
+  function joinNotifEvent() {
+    setNotifInvite(false);
+    if (requireLogin()) return;
+    if (pushOn) { claimNotifReward(); return; }   // already on: just collect
+    setSettingsOpen(true); setNotifGlow(true);     // take them to Settings → Notification
+    setTimeout(() => setNotifGlow(false), 12000);
   }
   function saveAutoTeachInterval(min) {
     if (requireLogin()) return;
@@ -12866,7 +12913,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="setbody">
               <SkinThemeSettings mode={mode} setMode={setMode} setEquipLS={setEquipLS} lang={lang} />
               <div className="setdiv" />
-              <SfxMetronomeSettings lang={lang} sfxVol={sfxVol} setSfxVol={setSfxVol} setSfxVolState={setSfxVolState} sfxMuted={sfxMuted} setSfxMuted={setSfxMuted} setSfxMutedState={setSfxMutedState} ambientOn={ambientOn} setAmbientOn={setAmbientOn} getAC={getAC} metroOn={metroOn} setMetroOn={setMetroOn} setAdvancedOpen={setAdvancedOpen} setSetAdvancedOpen={setSetAdvancedOpen} metroBpm={metroBpm} setMetroBpm={setMetroBpm} tapTempo={tapTempo} pushOn={pushOn} togglePush={togglePush} />
+              <SfxMetronomeSettings lang={lang} sfxVol={sfxVol} setSfxVol={setSfxVol} setSfxVolState={setSfxVolState} sfxMuted={sfxMuted} setSfxMuted={setSfxMuted} setSfxMutedState={setSfxMutedState} ambientOn={ambientOn} setAmbientOn={setAmbientOn} getAC={getAC} metroOn={metroOn} setMetroOn={setMetroOn} setAdvancedOpen={setAdvancedOpen} setSetAdvancedOpen={setSetAdvancedOpen} metroBpm={metroBpm} setMetroBpm={setMetroBpm} tapTempo={tapTempo} pushOn={pushOn} togglePush={togglePush} pushGlow={notifGlow} />
               <div className="setrow">
                 <label>⭐ Premium</label>
                 <button className={`settoggle${premium ? " on" : ""}`} onClick={() => { const v = !premium; setPremiumLS(v); setPremium(v); const np = v ? (plan === "free" ? "premium" : plan) : "free"; setPlanLS(np); setPlan(np); }}>
@@ -13547,6 +13594,25 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* Admin broadcast — an announcement pushed on demand, shown once per device; takes
           priority over the Auto Teaching tip if both would otherwise be eligible at once. */}
+      {notifInvite && !broadcast && (
+        <div className="atpopup" onClick={() => setNotifInvite(false)}>
+          <div className="atpopup-card notifevt" onClick={e => e.stopPropagation()}>
+            <button className="atpopup-x" onClick={() => setNotifInvite(false)} aria-label="close">×</button>
+            <div className="notifevt-ic" aria-hidden="true">🔔</div>
+            <div className="notifevt-tag">{lang === "th" ? "กิจกรรมพิเศษ" : lang === "zh" ? "限时活动" : "Special event"}</div>
+            <div className="notifevt-h">{lang === "th" ? "เปิดการแจ้งเตือน รับฟรีทันที" : lang === "zh" ? "开启通知，立即免费获得" : "Turn on notifications, get it free"}</div>
+            <div className="notifevt-rw">
+              <span><b>🪙 10,000</b><i>{lang === "th" ? "เหรียญ" : lang === "zh" ? "金币" : "Coins"}</i></span>
+              <span><b>💎 10,000</b><i>{lang === "th" ? "เพชร" : lang === "zh" ? "钻石" : "Gems"}</i></span>
+            </div>
+            <div className="notifevt-p">{lang === "th" ? "ไปที่ ตั้งค่า → แจ้งเตือน แล้วกดเปิด รางวัลเข้าบัญชีทันที (รับได้ครั้งเดียวต่อบัญชี)" : lang === "zh" ? "前往 设置 → 通知 并开启，奖励立即到账（每个账号限领一次）" : "Go to Settings → Notifications and switch it on — the reward lands instantly (once per account)"}</div>
+            <button className="notifevt-go" onClick={joinNotifEvent}>{lang === "th" ? "เข้าร่วมกิจกรรม" : lang === "zh" ? "参加活动" : "Join the event"}</button>
+          </div>
+        </div>
+      )}
+      {notifToast && (
+        <div className="notifevt-toast">🎉 {lang === "th" ? "ได้รับ 10,000 เหรียญ + 10,000 เพชร แล้ว!" : lang === "zh" ? "已获得 10,000 金币 + 10,000 钻石！" : "You got 10,000 coins + 10,000 gems!"}</div>
+      )}
       {broadcast && page === "pathway" && (
         <div className="atpopup" onClick={dismissBroadcast}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>

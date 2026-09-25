@@ -571,4 +571,23 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 @keyframes pgUpSheen{0%,55%{left:-60%}85%,100%{left:130%}}
 @media (prefers-reduced-motion:reduce){.tg .pgupgrade,.tg .pgupgrade::after{animation:none}}
 @media (max-width:380px){.tg .pgupgrade{padding:8px 12px;font-size:12px}}
+
+/* notification event invite */
+.notifevt{position:relative;text-align:center;padding-top:26px!important}
+.notifevt .atpopup-x{position:absolute;top:10px;right:12px}
+.notifevt-ic{font-size:46px;line-height:1;animation:notifRing 1.6s ease-in-out infinite;transform-origin:50% 10%}
+@keyframes notifRing{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-12deg)}30%{transform:rotate(8deg)}40%{transform:rotate(-5deg)}}
+.notifevt-tag{display:inline-block;margin:10px 0 4px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.06em;color:#fff;background:linear-gradient(135deg,#9a6bff,#5b2fd0)}
+.notifevt-h{font-family:var(--f-app);font-weight:700;font-size:19px;color:var(--text,#2b2622);margin:4px 0 12px;text-wrap:balance}
+.notifevt-rw{display:flex;gap:10px;justify-content:center;margin-bottom:12px}
+.notifevt-rw span{flex:1;max-width:150px;display:flex;flex-direction:column;gap:2px;padding:10px 6px;border-radius:14px;background:linear-gradient(160deg,#fff7e6,#ffe9c2);border:1px solid #f2d39a}
+.notifevt-rw b{font-family:var(--f-num);font-size:18px;color:#8a5a00}
+.notifevt-rw i{font-style:normal;font-size:12px;color:#8a6a3a}
+.notifevt-p{font-size:13px;line-height:1.5;color:var(--muted,#6b6259);margin-bottom:14px;text-wrap:balance}
+.notifevt-go{width:100%;padding:13px;border:0;border-radius:14px;cursor:pointer;font-family:var(--f-app);font-weight:700;font-size:15px;color:#fff;
+  background:linear-gradient(135deg,#e2865f,#c4623f);box-shadow:0 10px 22px -10px #c4623f}
+.notifevt-toast{position:fixed;left:50%;top:84px;transform:translateX(-50%);z-index:3000;padding:12px 18px;border-radius:14px;font-weight:700;color:#fff;
+  background:linear-gradient(135deg,#9a6bff,#5b2fd0);box-shadow:0 12px 28px -12px #5b2fd0;white-space:nowrap}
+.setrow.notifglow{border-radius:12px;box-shadow:0 0 0 2px #d97757,0 0 18px rgba(217,119,87,.55);animation:notifGlowP 1.2s ease-in-out infinite}
+@keyframes notifGlowP{50%{box-shadow:0 0 0 2px #d97757,0 0 4px rgba(217,119,87,.2)}}
 `;
