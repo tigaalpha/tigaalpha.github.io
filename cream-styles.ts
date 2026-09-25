@@ -590,4 +590,5 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
   background:linear-gradient(135deg,#9a6bff,#5b2fd0);box-shadow:0 12px 28px -12px #5b2fd0;white-space:nowrap}
 .setrow.notifglow{border-radius:12px;box-shadow:0 0 0 2px #d97757,0 0 18px rgba(217,119,87,.55);animation:notifGlowP 1.2s ease-in-out infinite}
 @keyframes notifGlowP{50%{box-shadow:0 0 0 2px #d97757,0 0 4px rgba(217,119,87,.2)}}
+.atpopup.notifevt-wrap{z-index:2600!important}
 `;
