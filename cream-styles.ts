@@ -467,4 +467,18 @@ html:not([data-theme="dark"]) .pvpstandby-go{background:#efe9e1;color:#9a9087;bo
 html:not([data-theme="dark"]) .pvpstandby-go::before{background:linear-gradient(90deg,#f0c2ae,#e8a488)}
 html:not([data-theme="dark"]) .pvpstandby-go.on{color:#fff;border-color:#c4623f;background:linear-gradient(180deg,#e08563,#c4623f);box-shadow:0 10px 26px -12px #c4623f}
 html:not([data-theme="dark"]) .pvpstandby-card i{color:#8a8178}
+
+/* fight controls in light mode: solid colour tiles, full-colour icons */
+html:not([data-theme="dark"]) .pvpact>b,html:not([data-theme="dark"]) .pvpdir>span:first-child,html:not([data-theme="dark"]) .pvpskbtn>b,html:not([data-theme="dark"]) .pvpopt>b{filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))!important}
+html:not([data-theme="dark"]) .pvpact>i,html:not([data-theme="dark"]) .pvpact i{color:#fff!important;opacity:1;font-weight:600}
+html:not([data-theme="dark"]) .pvpact.fire{background:linear-gradient(160deg,#f08a5d,#d9603b)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 8px 18px -10px #d9603b,inset 0 1px 0 rgba(255,255,255,.35)!important}
+html:not([data-theme="dark"]) .pvpact.jump{background:linear-gradient(160deg,#3cc68a,#1f9a66)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 8px 18px -10px #1f9a66,inset 0 1px 0 rgba(255,255,255,.35)!important}
+html:not([data-theme="dark"]) .pvpact.punch{background:linear-gradient(160deg,#e2865f,#c4623f)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 8px 18px -10px #c4623f,inset 0 1px 0 rgba(255,255,255,.35)!important}
+html:not([data-theme="dark"]) .pvpact.kick{background:linear-gradient(160deg,#e0b43a,#c08a17)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 8px 18px -10px #c08a17,inset 0 1px 0 rgba(255,255,255,.35)!important}
+html:not([data-theme="dark"]) .pvpact.rocket{background:linear-gradient(160deg,#5a9be0,#3673c2)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 8px 18px -10px #3673c2,inset 0 1px 0 rgba(255,255,255,.35)!important}
+html:not([data-theme="dark"]) .pvpact.petcmd{background:linear-gradient(160deg,#b77be0,#8a4fc2)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 8px 18px -10px #8a4fc2,inset 0 1px 0 rgba(255,255,255,.35)!important}
+html:not([data-theme="dark"]) .pvpskbtn,html:not([data-theme="dark"]) .pvpopt{background:linear-gradient(160deg,#8b7ae6,#6a55c9)!important;border-color:transparent!important;box-shadow:0 8px 18px -10px #6a55c9!important}
+html:not([data-theme="dark"]) .pvpskbtn *,html:not([data-theme="dark"]) .pvpopt *{color:#fff!important}
+html:not([data-theme="dark"]) .pvpdir{background:linear-gradient(160deg,#fff7f1,#f6e3d7)!important;border-color:#e9b99f!important;box-shadow:0 6px 14px -10px rgba(160,80,40,.55)!important}
+html:not([data-theme="dark"]) .pvpdir *{color:#a8502f!important}
 `;
