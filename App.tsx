@@ -12122,6 +12122,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </button>
           <div className="lbox flicker" onClick={handleLogoTap}
             style={{ cursor: "pointer" }} title="TIGA">TIGA</div>
+          {/* one-tap shortcut straight into the PvP arena */}
+          <button className="hdr-pvp" onClick={() => { playUi("click"); logUsage("nav", "pvp-hdr"); setPage("pvp"); }}
+            aria-label="PvP" title="PvP">PVP</button>
         </div>
         <div className="hdr-r">
           {isGuest && (

@@ -525,4 +525,17 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 :fullscreen .pvppage.fight.land .pvpkeys{top:57%;bottom:auto}
 .pvppage.fight.land:fullscreen .pvpkeys{top:57%;bottom:auto}
 :-webkit-full-screen .pvppage.fight.land .pvpkeys{top:57%;bottom:auto}
+
+/* fighters and the pet move on a 60ms game tick; without this the eye sees
+   16 hops a second. The compositor glides each hop (transform only, so it
+   never repaints the SVG), on every device. */
+.pvppage.fight .pvpfighter{transition:transform 70ms linear,filter .5s ease,opacity .5s ease;will-change:transform}
+.pvppage.fight .pvppet3{transition:transform 70ms linear;will-change:transform}
+@media (prefers-reduced-motion:reduce){.pvppage.fight .pvpfighter,.pvppage.fight .pvppet3{transition:none}}
+
+/* header PVP shortcut: a square tile the size of the TIGA mark */
+.tg .hdr .hdr-pvp{width:44px;height:44px;min-width:44px;margin-left:8px;padding:0;border:0;border-radius:5px;cursor:pointer;
+  font-family:var(--f-app);font-weight:700;font-size:12px;letter-spacing:.04em;color:#fff;
+  background:linear-gradient(160deg,#e2865f,#c4623f);box-shadow:0 6px 14px -8px #c4623f,inset 0 1px 0 rgba(255,255,255,.3)}
+.tg .hdr .hdr-pvp:active{transform:scale(.94)}
 `;
