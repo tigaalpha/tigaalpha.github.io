@@ -551,4 +551,14 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 @media (prefers-reduced-motion:reduce){.pvppage.fight .pvpfbody{animation:none}.pvppage.fight .pvpfighter-in{transition:none}}
 .pvpbody.pvpbody-top{padding-bottom:0}
 .pvpbody.pvpbody-top .pvpsec-h:first-child{margin-top:4px}
+
+/* the pathway's upgrade call-to-action: the loudest thing in the header, still in the clay family */
+.tg .pgupgrade{flex-shrink:0;margin-left:auto;margin-right:8px;display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border:0;border-radius:999px;cursor:pointer;
+  font-family:var(--f-app);font-weight:600;font-size:13px;color:#fff;white-space:nowrap;
+  background:linear-gradient(135deg,#f0a15c,#d9603b 55%,#b8452a);box-shadow:0 8px 18px -8px #c4623f,inset 0 1px 0 rgba(255,255,255,.35);
+  animation:pgUpPulse 2.6s ease-in-out infinite}
+.tg .pgupgrade:active{transform:scale(.95)}
+@keyframes pgUpPulse{0%,100%{box-shadow:0 8px 18px -8px #c4623f,0 0 0 0 rgba(217,96,59,.45)}50%{box-shadow:0 8px 18px -8px #c4623f,0 0 0 7px rgba(217,96,59,0)}}
+@media (prefers-reduced-motion:reduce){.tg .pgupgrade{animation:none}}
+@media (max-width:380px){.tg .pgupgrade{padding:8px 11px;font-size:12px}}
 `;
