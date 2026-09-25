@@ -669,7 +669,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
               </div>
               {gi === 0 && onUpgrade && (
                 <button type="button" className="pgupgrade" onClick={onUpgrade}>
-                  <span aria-hidden="true">👑</span> {lang === "th" ? "อัปเกรด Premium" : lang === "zh" ? "升级 Premium" : "Upgrade Premium"}
+                  <span className="pgupgrade-crown" aria-hidden="true">👑</span> <span>Upgrade Premium</span>
                 </button>
               )}
               <span className="pgstep">{lc.stepLabel.replace("{n}", String(gi + 1))}</span>

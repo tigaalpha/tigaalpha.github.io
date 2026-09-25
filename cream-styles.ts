@@ -552,13 +552,23 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 .pvpbody.pvpbody-top{padding-bottom:0}
 .pvpbody.pvpbody-top .pvpsec-h:first-child{margin-top:4px}
 
-/* the pathway's upgrade call-to-action: the loudest thing in the header, still in the clay family */
-.tg .pgupgrade{flex-shrink:0;margin-left:auto;margin-right:8px;display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border:0;border-radius:999px;cursor:pointer;
-  font-family:var(--f-app);font-weight:600;font-size:13px;color:#fff;white-space:nowrap;
-  background:linear-gradient(135deg,#f0a15c,#d9603b 55%,#b8452a);box-shadow:0 8px 18px -8px #c4623f,inset 0 1px 0 rgba(255,255,255,.35);
-  animation:pgUpPulse 2.6s ease-in-out infinite}
+/* the pathway's upgrade call-to-action: royal violet with a gold hairline and
+   a slow sheen, so it reads a notch more luxurious than any other button */
+.tg .pgupgrade{position:relative;overflow:hidden;flex-shrink:0;margin-left:auto;margin-right:8px;display:inline-flex;align-items:center;gap:7px;
+  padding:9px 16px;border-radius:999px;cursor:pointer;white-space:nowrap;
+  font-family:var(--f-app);font-weight:600;font-size:13px;letter-spacing:.02em;color:#fff;
+  border:1px solid rgba(255,214,140,.75);
+  background:linear-gradient(135deg,#9a6bff 0%,#6d3fe0 45%,#4a23a8 100%);
+  box-shadow:0 10px 22px -10px #5b2fd0,inset 0 1px 0 rgba(255,255,255,.4),inset 0 -2px 0 rgba(30,10,80,.35);
+  text-shadow:0 1px 1px rgba(30,10,80,.45);animation:pgUpGlow 2.8s ease-in-out infinite}
+.tg .pgupgrade::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);
+  animation:pgUpSheen 3.4s ease-in-out infinite}
+.tg .pgupgrade-crown{filter:drop-shadow(0 1px 1px rgba(60,20,0,.4))}
 .tg .pgupgrade:active{transform:scale(.95)}
-@keyframes pgUpPulse{0%,100%{box-shadow:0 8px 18px -8px #c4623f,0 0 0 0 rgba(217,96,59,.45)}50%{box-shadow:0 8px 18px -8px #c4623f,0 0 0 7px rgba(217,96,59,0)}}
-@media (prefers-reduced-motion:reduce){.tg .pgupgrade{animation:none}}
-@media (max-width:380px){.tg .pgupgrade{padding:8px 11px;font-size:12px}}
+@keyframes pgUpGlow{0%,100%{box-shadow:0 10px 22px -10px #5b2fd0,inset 0 1px 0 rgba(255,255,255,.4),inset 0 -2px 0 rgba(30,10,80,.35),0 0 0 0 rgba(124,77,255,.45)}
+  50%{box-shadow:0 10px 22px -10px #5b2fd0,inset 0 1px 0 rgba(255,255,255,.4),inset 0 -2px 0 rgba(30,10,80,.35),0 0 0 7px rgba(124,77,255,0)}}
+@keyframes pgUpSheen{0%,55%{left:-60%}85%,100%{left:130%}}
+@media (prefers-reduced-motion:reduce){.tg .pgupgrade,.tg .pgupgrade::after{animation:none}}
+@media (max-width:380px){.tg .pgupgrade{padding:8px 12px;font-size:12px}}
 `;
