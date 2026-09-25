@@ -9266,10 +9266,44 @@ function AdminBroadcast({ lang }) {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const [upBusy, setUpBusy] = useState(false);
+  /* An uploaded picture goes to the public "announcements" bucket (admin-only
+     writes, see supabase-announcements-bucket-migration.sql) and its public
+     URL fills the image field, so a pasted link still works exactly as before. */
+  async function uploadImage(file) {
+    if (!file) return;
+    setUpBusy(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const path = `broadcast/${Date.now()}.${ext}`;
+      const up = await sb.storage.from("announcements").upload(path, file, { contentType: file.type, upsert: false });
+      if (up.error) throw up.error;
+      const { data } = sb.storage.from("announcements").getPublicUrl(path);
+      setImg(data.publicUrl);
+    } catch (e) {
+      alert(T("อัปโหลดรูปไม่สำเร็จ: ", "Image upload failed: ", "图片上传失败：") + ((e && e.message) || e));
+    }
+    setUpBusy(false);
+  }
+  /* One message, three languages: the admin writes in whatever language they
+     like and each learner sees it in the app language they chose. */
+  async function translateAll(text) {
+    const prompt = `Translate this in-app announcement for a piano-learning app into Thai, English and Simplified Chinese. Keep the meaning, tone, numbers, prices and emoji exactly; keep it natural for each language. Reply with ONLY a JSON object {"th":"...","en":"...","zh":"..."}.\n\nAnnouncement:\n${text}`;
+    const raw = await fetchChatCompletion({ message: prompt, conversationHistory: [], stream: false, feature: "broadcast-translate" }, { timeoutMs: 40000 });
+    const m = String(raw || "").match(/\{[\s\S]*\}/);
+    const o = m ? JSON.parse(m[0]) : null;
+    if (!o || !o.th || !o.en || !o.zh) throw new Error("bad translation");
+    return { th: String(o.th), en: String(o.en), zh: String(o.zh) };
+  }
   async function send() {
     if (!msg.trim()) return;
     setBusy(true); setSaved(false);
-    const value = { id: Date.now(), message: msg.trim(), image_url: img.trim() || null, active: true };
+    let i18n = null;
+    try { i18n = await translateAll(msg.trim()); }
+    catch (e) {
+      if (!confirm(T("แปลภาษาอัตโนมัติไม่สำเร็จ — ส่งเป็นข้อความเดิมภาษาเดียวให้ทุกคนไหม?", "Auto-translation failed — send the original text to everyone?", "自动翻译失败——是否向所有人发送原文？"))) { setBusy(false); return; }
+    }
+    const value = { id: Date.now(), message: msg.trim(), i18n, image_url: img.trim() || null, active: true };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
     setBusy(false);
     if (!error) { setCur(value); setMsg(""); setImg(""); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
@@ -9298,7 +9332,17 @@ function AdminBroadcast({ lang }) {
           style={{ width: "100%", resize: "vertical", boxSizing: "border-box", marginBottom: 8, fontFamily: "var(--f-app, sans-serif)" }} />
         <input value={img} onChange={e => setImg(e.target.value)} className="admstu-search"
           placeholder={T("ลิงก์รูปภาพ (ไม่บังคับ)", "Image URL (optional)", "图片链接（可选）")}
-          style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }} />
+          style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }} />
+        <label className="songbtn ghost" style={{ width: "100%", display: "block", textAlign: "center", marginBottom: 10, cursor: "pointer", boxSizing: "border-box" }}>
+          {upBusy ? "⏳ " + T("กำลังอัปโหลด…", "Uploading…", "上传中…") : "🖼️ " + T("อัปโหลดรูปภาพ", "Upload an image", "上传图片")}
+          <input type="file" accept="image/*" style={{ display: "none" }} disabled={upBusy}
+            onChange={e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; uploadImage(f); }} />
+        </label>
+        <div className="admstu-row-sub" style={{ marginBottom: 10, whiteSpace: "normal", opacity: .8 }}>
+          {T("พิมพ์ภาษาเดียวพอ — ระบบแปลเป็นไทย/อังกฤษ/จีนให้อัตโนมัติ ผู้เรียนเห็นตามภาษาที่เลือกไว้",
+            "Write in one language — it is auto-translated to Thai/English/Chinese and each learner sees their own.",
+            "只需用一种语言书写——系统自动翻译成泰/英/中文，学员看到自己所选的语言。")}
+        </div>
         {img.trim() && <img src={img.trim()} alt="" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 10, display: "block" }} onError={e => { e.target.style.display = "none"; }} />}
         <button className="songbtn go" style={{ width: "100%" }} disabled={busy || !msg.trim()} onClick={send}>
           {busy ? "⏳" : "📢"} {T("ส่งเลย", "Send now", "立即发送")}
@@ -9309,7 +9353,9 @@ function AdminBroadcast({ lang }) {
       {cur && cur.active && (
         <div className="admmg" style={{ marginTop: 12 }}>
           <div className="admmg-h">{T("กำลังแสดงอยู่ตอนนี้", "Currently live", "当前正在展示")}</div>
-          <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>{cur.message}</div>
+          {cur.i18n ? (["th", "en", "zh"].map(k => (
+            <div key={k} className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}><b>{k.toUpperCase()}</b> · {cur.i18n[k]}</div>
+          ))) : <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>{cur.message}</div>}
           {cur.image_url && <img src={cur.image_url} alt="" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 8, display: "block" }} />}
           <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={takeDown}>
             {T("ยกเลิกประกาศนี้", "Take this down", "撤下此公告")}
@@ -13421,7 +13467,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <img src={broadcast.image_url} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block" }}
                 onError={e => { e.target.style.display = "none"; }} />
             )}
-            <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{broadcast.message}</div>
+            <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{(broadcast.i18n && broadcast.i18n[lang]) || broadcast.message}</div>
             <button className="atpopup-ok" onClick={dismissBroadcast}>{lang === "th" ? "รับทราบ" : lang === "zh" ? "知道了" : "Got it"}</button>
           </div>
         </div>

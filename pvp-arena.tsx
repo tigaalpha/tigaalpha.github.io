@@ -626,7 +626,7 @@ export const WPN_ACT = {
   ordnance: {
     fire:   { move: "shell",   range: 9,    dmg: 0.86, cd: 390,  frame: "fire" },
     rocket: { move: "grenade", range: 9,    dmg: 3.4,  cd: 3400, frame: "rocket" },
-    th: ["ยิงกระสุน", "จรวด"], en: ["SHELL", "ROCKET"], zh: ["炮弹", "火箭"], ic: ["\ud83d\udca3", "\ud83d\ude80"],
+    th: ["ยิง", "จรวด"], en: ["SHOOT", "ROCKET"], zh: ["射击", "火箭"], ic: ["\ud83d\udd2b", "\ud83d\ude80"],
   },
   support: {
     fire:   { move: "pulse",   range: 9,    dmg: 0.64, cd: 290,  frame: "fire" },
