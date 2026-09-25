@@ -1398,6 +1398,7 @@ export function useArenaFx(stage, opts = {}) {
       // ── bolts in flight
       for (let i = S.beams.length - 1; i >= 0; i--) {
         const b = S.beams[i]; b.p += dt / b.dur;
+        if (b.src && b.p < 0.35) { const t = tip(b.src, b.part); if (t) { b.x0 = t.x; b.y0 = t.y; } }
         if (b.p >= 1) { S.beams.splice(i, 1); continue; }
         const x = b.x0 + (b.x1 - b.x0) * b.p, y = b.y0 + (b.y1 - b.y0) * b.p;
         const tail = 96 * (b.x1 > b.x0 ? -1 : 1);
@@ -1579,6 +1580,8 @@ export function useArenaFx(stage, opts = {}) {
       // ── sustained beams: a laser is a held line with a bloom, not a bolt
       for (let i = S.lasers.length - 1; i >= 0; i--) {
         const l = S.lasers[i]; l.p += dt / l.dur;
+        // a held beam stays in the barrel while the arm settles into the shot
+        if (l.src) { const t = tip(l.src, l.part); if (t) { l.x0 = t.x; l.y0 = t.y; } }
         if (l.p >= 1) { S.lasers.splice(i, 1); continue; }
         drawLaser(ctx, l, S.t);
       }
@@ -1819,6 +1822,21 @@ export function useArenaFx(stage, opts = {}) {
     const f = (S.pos[side] || 0.5) + (side === "me" ? lead : -lead);
     return { x: S.w * f, y: S.h * (AT_Y[part] || 0.52) - (S.air[side] || 0) * S.h * 0.16 };
   };
+  /* The real barrel. A guessed point on the stage never lines up with the gun
+     the robot is actually holding (it moves with the pose, the arm, the jump),
+     so for hand/weapon shots the origin is the far end of the drawn weapon,
+     measured in canvas space. Falls back to the guess if nothing is held. */
+  const tip = (side, part) => {
+    if (part !== "hand" && part !== "weapon") return null;
+    const cv = canvasRef.current; if (!cv || typeof document === "undefined") return null;
+    const el = document.querySelector(`.pvpfighter.${side} .ca-held`); if (!el) return null;
+    const r = el.getBoundingClientRect(), c = cv.getBoundingClientRect();
+    if (!r.width || !c.width) return null;
+    const k = (stateRef.current ? stateRef.current.w : c.width) / c.width;
+    const x = (side === "me" ? r.right - r.width * 0.06 : r.left + r.width * 0.06) - c.left;
+    return { x: x * k, y: (r.top + r.height * 0.42 - c.top) * k };
+  };
+  const from_ = (side, part) => tip(side, part) || at(side, part);
   /** Move the canvas to another arena. */
   const setStage = useCallback((next) => {
     const S = stateRef.current; if (!S || !next) return;
@@ -1865,8 +1883,8 @@ export function useArenaFx(stage, opts = {}) {
   const bolt = useCallback((from, colour = "#7fe8ff", w = 5, part = "hand") => {
     const S = stateRef.current; if (!S) return;
     colour = paletteGate(colour);
-    const a = at(from, part), b = at(from === "me" ? "op" : "me", "body");
-    S.beams.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.28, c: colour, w });
+    const a = from_(from, part), b = at(from === "me" ? "op" : "me", "body");
+    S.beams.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.28, c: colour, w, src: from, part });
     muzzle(from, part, colour);
   }, []);
 
@@ -1874,8 +1892,8 @@ export function useArenaFx(stage, opts = {}) {
   const laser = useCallback((from, colour = "#ff4d6a", w = 4, part = "hand") => {
     const S = stateRef.current; if (!S) return;
     colour = paletteGate(colour);
-    const a = at(from, part), b = at(from === "me" ? "op" : "me", "body");
-    S.lasers.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.42, c: colour, w });
+    const a = from_(from, part), b = at(from === "me" ? "op" : "me", "body");
+    S.lasers.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.42, c: colour, w, src: from, part });
     muzzle(from, part, colour);
     /* ── what the far end does about being hit ──
        The beam itself is a held line, and a held line drawn onto somebody is
@@ -1902,7 +1920,7 @@ export function useArenaFx(stage, opts = {}) {
   const muzzle = useCallback((from, part = "hand", colour = "#7fe8ff") => {
     const S = stateRef.current; if (!S) return;
     colour = paletteGate(colour);
-    const { x, y } = at(from, part);
+    const { x, y } = from_(from, part);
     S.rings.push({ x, y, r0: 2, r1: 20, dur: 0.2, c: colour });
     // a short hot bloom at the barrel: the flash IS the shot leaving
     S.balls.push({ x, y, r: 17, p: 0, dur: 0.14 });
