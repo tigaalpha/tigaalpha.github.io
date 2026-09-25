@@ -182,8 +182,9 @@ body {
    so the h1 steps aside (visually only — it stays first for readers and
    screen readers) while the stage is brought up right under it. */
 @media (max-width: 640px) {
-  .lp-h1 { position: absolute; width: 1px; height: 1px; overflow: hidden;
-           clip: rect(0 0 0 0); white-space: nowrap; }
+  /* the promise is visible again, kept to two short lines so the keys
+     still clear the fold */
+  .lp-h1 { font-size: 21px; margin: 2px 0 4px; line-height: 1.3; }
   .lp-stage { position: static; margin-top: 2px; padding-top: 4px; }
   /* Taller keys = a bigger target for the first tap, which is the whole
      conversion for this page. 96px from 74px, and the hint pill re-centers. */
@@ -461,3 +462,18 @@ body {
   .lp-pianowrap:not(.played)::after, .lp-pianowrap:not(.played) .kr,
   .lp-dots i, .lp-caret, .lp-signup, .lp-sticky { animation: none !important; }
 }
+
+/* ── UX pass: one way in, readable quiet text, no fake buttons ── */
+.lp-herocta { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 4px 0 14px; }
+.lp-herocta .lp-btn { width: 100%; }
+.lp-herolink { align-self: center; background: none; border: 0; padding: 6px 10px; font: inherit; font-size: 14px; color: var(--text2); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.lp-send:disabled { opacity: .7; }
+.lp-askfree, .lp-chiphint { font-size: 13px; color: var(--text2); }
+.lp-sub { font-size: 15px; }
+.lp-proof { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 16px; margin: 18px 0 0; }
+.lp-proof div { flex: 0 0 auto; padding: 0; border: 0; background: none; border-radius: 0; display: flex; align-items: baseline; gap: 5px; }
+.lp-proof b { display: inline; font-size: 15px; }
+.lp-proof span { font-size: 13px; color: var(--text2); }
+.lp-langcode { font-size: 11px; margin-left: 3px; color: var(--text2); }
+.lp-top{flex-wrap:nowrap}
+@media (max-width:480px){.lp-top .lp-kicker{display:none}}
