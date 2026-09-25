@@ -9313,6 +9313,17 @@ function AdminBroadcast({ lang }) {
     setBusy(false);
     if (!error) { setCur(value); setMsg(""); setImg(""); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
   }
+  const [reposted, setReposted] = useState(false);
+  /* Repost: the same announcement, as-is, under a NEW id. Every device keys
+     "already seen" on the id, so a new id pops it up again for every learner. */
+  async function repost() {
+    if (!cur) return;
+    setBusy(true); setReposted(false);
+    const value = { ...cur, id: Date.now(), active: true };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
+    setBusy(false);
+    if (!error) { setCur(value); setReposted(true); playUi("levelup"); setTimeout(() => setReposted(false), 2500); } else { alert(error.message || "error"); }
+  }
   async function takeDown() {
     if (!cur) return;
     setBusy(true);
@@ -9362,6 +9373,10 @@ function AdminBroadcast({ lang }) {
             <div key={k} className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}><b>{k.toUpperCase()}</b> · {cur.i18n[k]}</div>
           ))) : <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>{cur.message}</div>}
           {cur.image_url && <img src={cur.image_url} alt="" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 8, display: "block" }} />}
+          <button className="songbtn go" style={{ width: "100%", marginBottom: 8 }} disabled={busy} onClick={repost}>
+            {busy ? "⏳" : "🔁"} Repost
+          </button>
+          {reposted && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginBottom: 8, whiteSpace: "normal" }}>✓ {T("ส่งซ้ำแล้ว — จะเด้งขึ้นให้ผู้ใช้ทุกคนอีกครั้งภายในไม่ถึงนาที", "Reposted — it pops up again for every user within a minute", "已重新发布——一分钟内将再次弹出给所有用户")}</div>}
           <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={takeDown}>
             {T("ยกเลิกประกาศนี้", "Take this down", "撤下此公告")}
           </button>
