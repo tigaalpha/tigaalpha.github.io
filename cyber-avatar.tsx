@@ -342,7 +342,8 @@ const POSES = {
      the table is already a big movement on screen. */
   idle:   { lean: 0,   armL: 0,   armR: 0,   legL: 0,   legR: 0,  head: 0,  lift: 0 },
   ready:  { lean: -4,  armL: 15,  armR: 9,   legL: -5,  legR: -5, head: -3, lift: 0 },
-  attack: { lean: -10, armL: 34,  armR: -12, legL: -8,  legR: -3, head: -6, lift: -3 },
+  // a straight punch: the lead arm drives AT the opponent, the rear hand stays up
+  attack: { lean: -12, armL: -84, armR: 18,  legL: -10, legR: 4,  head: -6, lift: -3 },
   hit:    { lean: 11,  armL: -13, armR: -15, legL: 4,   legR: -8, head: 10, lift: 3 },
   win:    { lean: -5,  armL: 26,  armR: 22,  legL: -4,  legR: -4, head: -13, lift: -9 },
   /* ── fighting stances ──
@@ -352,7 +353,8 @@ const POSES = {
      body whose centre is 60, and the leg at -30 puts the boot at x≈118 against
      a 140 edge. Anything further and the limb leaves the picture. */
   shoot:  { lean: -5,  armL: -34, armR: 10,  legL: -4,  legR: -2, head: -3, lift: 0 },
-  kick:   { lean: 12,  armL: -16, armR: -20, legL: -30, legR: 5,  head: -5, lift: -5 },
+  // arms open for balance so both stay in view while the leg drives through
+  kick:   { lean: 12,  armL: 22,  armR: -24, legL: -38, legR: 6,  head: -5, lift: -5 },
   throw:  { lean: -9,  armL: 30,  armR: -8,  legL: -6,  legR: -2, head: -5, lift: -3 },
   beam:   { lean: -3,  armL: -28, armR: -26, legL: -3,  legR: -3, head: 3,  lift: 0 },
   down:   { lean: 16,  armL: -12, armR: -14, legL: -10, legR: 6,  head: 20, lift: 10 },
