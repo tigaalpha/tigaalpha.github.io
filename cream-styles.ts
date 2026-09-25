@@ -134,49 +134,8 @@ html[data-theme="dark"] .tg .trial-banner:not(.urgent){background:linear-gradien
 
 /* ══════════ the learning path ══════════ */
 .tg .pathpage{padding:14px 0 36px}
-.tg .pgroup{padding:0 12px;margin-bottom:0}
-.tg .pgroup.pisland{margin:0 12px;padding:14px 12px 12px;border:1px solid var(--bd2);border-radius:22px;background:var(--card2)}
-.tg .pgroup.pisland::before{display:none}
-.tg .pgrouphdr{gap:12px;margin:0 2px 12px}
 /* the group's colour moves from a glowing bar into the well its icon sits in */
-.tg .pgbar{display:none}
-.tg .pgicon{width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:20px;
-  background:var(--card);box-shadow:var(--sh1),inset 0 0 0 1px var(--bd2)}
-.tg .pglabel{font-family:var(--f-app);font-size:16px;font-weight:500;letter-spacing:0;line-height:1.35;color:var(--text)}
-.tg .pgdesc{font-family:var(--f-app);font-size:12.5px;line-height:1.45;color:var(--muted);margin-top:1px}
-.tg .pgstep{font-family:var(--f-app);font-size:11px;font-weight:500;letter-spacing:0;color:var(--text2);padding:4px 10px;border-radius:999px;background:var(--card);box-shadow:inset 0 0 0 1px var(--bd2)}
-.tg .pgrid{gap:10px}
-.tg .ptrail{height:26px}
-.tg .ptrail-line{width:1.5px;opacity:1;background:var(--bd4)!important}
-.tg .ptrail-node{width:30px;height:30px;margin-top:-4px;font-size:14px;background:var(--card);border:0;box-shadow:var(--sh2),inset 0 0 0 1px var(--bd2)}
-.tg .pnode-connector-line{height:1.5px}
-.tg .pnode-connector-line.done{box-shadow:none}
 
-.tg .pcard{background:var(--card);border:1px solid var(--bd2);border-top:1px solid var(--bd2);border-radius:18px;padding:14px 14px 12px;
-  box-shadow:var(--sh1);transition:transform .2s cubic-bezier(.2,.7,.2,1),box-shadow .2s,border-color .2s}
-.tg .pcardglow{display:none}
-.tg .pcard:hover{transform:translateY(-2px);border-color:var(--bd4);box-shadow:var(--sh3)}
-.tg .pcard:active{transform:translateY(0) scale(.985)}
-.tg .pcard.current,.tg .pcard.active{animation:none;border-color:var(--ac,#d97757);box-shadow:0 0 0 1px var(--ac,#d97757),var(--sh2)}
-.tg .pcard.active{transform:none}
-.tg .pcardhere{top:12px;right:12px;padding:3px 9px;border-radius:999px;font-family:var(--f-app);font-size:10.5px;font-weight:500;letter-spacing:0;color:#fff;animation:none;
-  background:var(--ac,#d97757);box-shadow:0 3px 8px -4px var(--ac,#d97757)}
-.tg .pcardlevel{font-family:var(--f-num);font-size:11px;font-weight:500;letter-spacing:.04em;margin-bottom:10px;opacity:1;
-  color:var(--ac,#d97757);color:color-mix(in srgb,var(--ac,#d97757) 76%,#000)}
-.tg .pcardicon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:25px;margin-bottom:12px;
-  background:var(--card2);background:color-mix(in srgb,var(--ac,#d97757) 9%,var(--card))}
-.tg .pcardtitle{font-family:var(--f-app);font-size:14.5px;font-weight:500;letter-spacing:0;line-height:1.35;margin-bottom:3px}
-.tg .pcardsub{font-size:12px;line-height:1.5;margin-bottom:12px}
-.tg .pcardkeys{font-family:var(--f-app);font-weight:500;font-size:11px;border-radius:999px;padding:2px 9px;color:var(--clay-ink);background:var(--clay-t1);border-color:var(--clay-ln)}
-.tg .pcardgo{font-family:var(--f-app);font-size:12.5px;font-weight:500;letter-spacing:0;padding-top:10px;border-top:1px solid var(--bd2);
-  color:var(--ac,#d97757);color:color-mix(in srgb,var(--ac,#d97757) 80%,#000)}
-.tg .pcard.pcard-play{background:var(--card)}
-.tg .pcard.pcard-play .pcardgo{font-weight:500}
-.tg .pcarddone{top:12px;right:12px;width:22px;height:22px;font-size:12px;font-weight:500;box-shadow:none!important}
-.tg .pcard.tier-gold{box-shadow:var(--sh1),0 0 0 1px #e8c35e}
-.tg .pathfoot{font-family:var(--f-app);font-size:12px;letter-spacing:0;color:var(--muted);border-top:1px solid var(--bd2);margin:18px 16px 0}
-html[data-theme="dark"] .tg .pcardlevel,html[data-theme="dark"] .tg .pcardgo{color:color-mix(in srgb,var(--ac,#d97757) 70%,#fff)}
-html[data-theme="dark"] .tg .pcardicon{background:color-mix(in srgb,var(--ac,#d97757) 14%,var(--card))}
 
 /* ══════════ buttons ══════════
    One primary: a terracotta pill lit from above. One secondary: paper with a
@@ -453,9 +412,6 @@ html[data-theme="dark"] .tg{--vio-ink:#b9a4ff;--vio-t:rgba(167,139,250,.12);--vi
 /* ══════════ small things ══════════ */
 /* white on the brand terracotta is 3:1 — the small badges and "on" states
    that carry white text stand on the richer shade */
-.tg .pcardhere{background:#b4532f;background:color-mix(in srgb,var(--ac,#d97757) 76%,#000);box-shadow:none}
-.tg .pcard.pcard-play .pcardgo{color:color-mix(in srgb,var(--ac,#d97757) 80%,#000)}
-html[data-theme="dark"] .tg .pcard.pcard-play .pcardgo{color:color-mix(in srgb,var(--ac,#d97757) 70%,#fff)}
 .tg .settoggle.on,.tg .setlangbtn.on{background:var(--clay-btn);color:#fff;border-color:transparent}
 .tg .settoggle,.tg .setlangbtn,.tg .setbtn{font-family:var(--f-app);font-weight:500}
 .tg .billsave{background:var(--clay-t1);color:var(--clay-ink);font-size:10.5px}
@@ -470,12 +426,18 @@ html[data-theme="dark"] .tg .profrankbadge{color:color-mix(in srgb,var(--lv-c,#d
 .tg .replaybtn{white-space:nowrap}
 
 /* owner's call: square-cornered cards, the square logo, the orange menu icon */
-.tg .pcard,.tg .songcard,.tg .tdstep,.tg .v12card,.tg .cert-banner,.tg .certrow,.tg .dailyhub,.tg .warmup-banner,.tg .event-set-btn,.tg .dailyrec,.tg .instile,.tg .dashcard,.tg .prtier,.tg .skilltrack{border-radius:12px}
-.tg .pgroup.pisland{border-radius:14px}
-.tg .pcardicon,.tg .songcard-ic,.tg .tdico,.tg .pgicon,.tg .cert-ic,.tg .warmup-banner-ic{border-radius:8px}
 .tg .hdr .lbox,.tg .drawer-brand .lbox{border-radius:5px}
 .tg .hamb span{height:2.5px;background:#d97757}
 .tg .hamb span:nth-child(2){width:100%}
+
+/* the learning path: small, tight cards, as the previous version had them */
+.tg .pcard{padding:10px 11px 9px}
+.tg .pcardlevel{font-size:11px;margin-bottom:4px}
+.tg .pcardicon{font-size:24px;margin-bottom:5px}
+.tg .pcardtitle{font-size:13px;margin-bottom:2px;line-height:1.3}
+.tg .pcardsub{font-size:11px;line-height:1.4;margin-bottom:7px}
+.tg .pcardgo{padding-top:6px;font-size:10.5px}
+.tg .pgrouphdr{margin-bottom:6px}
 
 /* ══════════ a reading width on wide screens ══════════ */
 @media (min-width:900px){
