@@ -9317,14 +9317,26 @@ function AdminBroadcast({ lang }) {
     if (!error) { setCur(value); setMsg(""); setImg(""); setTPage(""); setTUrl(""); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
   }
   const [reposted, setReposted] = useState(false);
+  // link editor for the announcement already live (prefilled from it)
+  const [eP, setEP] = useState(""), [eU, setEU] = useState(""), [eSaved, setESaved] = useState(false);
+  useEffect(() => { setEP((cur && cur.link && cur.link.page) || ""); setEU((cur && cur.link && cur.link.url) || ""); }, [cur && cur.id]);
+  const editLink = () => eU.trim() ? { url: /^https?:\/\//i.test(eU.trim()) ? eU.trim() : "https://" + eU.trim() } : eP ? { page: eP } : null;
+  /* Save link: same id, so nobody gets the popup again — only where a tap goes changes. */
+  async function saveLink() {
+    if (!cur) return;
+    setBusy(true); setESaved(false);
+    const value = { ...cur, link: editLink() };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
+    setBusy(false);
+    if (!error) { setCur(value); setESaved(true); setTimeout(() => setESaved(false), 2500); } else { alert(error.message || "error"); }
+  }
   /* Repost: the same announcement, as-is, under a NEW id. Every device keys
      "already seen" on the id, so a new id pops it up again for every learner. */
   async function repost() {
     if (!cur) return;
     setBusy(true); setReposted(false);
     // a target picked in the form above applies to the repost too
-    const link = tUrl.trim() ? { url: /^https?:\/\//i.test(tUrl.trim()) ? tUrl.trim() : "https://" + tUrl.trim() } : tPage ? { page: tPage } : (cur.link || null);
-    const value = { ...cur, link, id: Date.now(), active: true };
+    const value = { ...cur, link: editLink(), id: Date.now(), active: true };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
     setBusy(false);
     if (!error) { setCur(value); setReposted(true); playUi("levelup"); setTimeout(() => setReposted(false), 2500); } else { alert(error.message || "error"); }
@@ -9389,7 +9401,21 @@ function AdminBroadcast({ lang }) {
             <div key={k} className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}><b>{k.toUpperCase()}</b> · {cur.i18n[k]}</div>
           ))) : <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>{cur.message}</div>}
           {cur.image_url && <img src={cur.image_url} alt="" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 8, display: "block" }} />}
-          {cur.link && <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>🔗 {cur.link.url || ((BROADCAST_TARGETS().find(f => f.key === cur.link.page) || {}).label || {})[lang] || cur.link.page}</div>}
+          <div className="admstu-row-sub" style={{ marginBottom: 6, whiteSpace: "normal" }}>
+            🔗 {T("แก้ลิงก์ของประกาศนี้ — กดรูปหรือข้อความแล้วไปที่…", "Edit this announcement's link — a tap goes to…", "编辑此公告的链接——点击后前往…")}
+          </div>
+          <select value={eP} onChange={e => { setEP(e.target.value); if (e.target.value) setEU(""); }} className="admstu-search"
+            style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }}>
+            <option value="">{T("— ไม่ลิงก์ (แค่แสดงประกาศ) —", "— No link (just show it) —", "— 无链接（仅展示）—")}</option>
+            {BROADCAST_TARGETS().map(f => <option key={f.key} value={f.key}>{f.icon} {f.label[lang] || f.label.en}</option>)}
+          </select>
+          <input value={eU} onChange={e => { setEU(e.target.value); if (e.target.value) setEP(""); }} className="admstu-search"
+            placeholder={T("หรือใส่ลิงก์ภายนอก เช่น https://line.me/…", "Or an external link, e.g. https://line.me/…", "或外部链接，例如 https://line.me/…")}
+            style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }} />
+          <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8 }} disabled={busy} onClick={saveLink}>
+            💾 {T("บันทึกลิงก์ (ไม่เด้งซ้ำ)", "Save link (no re-popup)", "保存链接（不重新弹出）")}
+          </button>
+          {eSaved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginBottom: 8 }}>✓ {T("บันทึกลิงก์แล้ว", "Link saved", "链接已保存")}</div>}
           <button className="songbtn go" style={{ width: "100%", marginBottom: 8 }} disabled={busy} onClick={repost}>
             {busy ? "⏳" : "🔁"} Repost
           </button>
