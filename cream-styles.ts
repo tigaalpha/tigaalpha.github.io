@@ -533,11 +533,8 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 .pvppage.fight .pvppet3{transition:transform 70ms linear;will-change:transform}
 @media (prefers-reduced-motion:reduce){.pvppage.fight .pvpfighter,.pvppage.fight .pvppet3{transition:none}}
 
-/* header PVP shortcut: a square tile the size of the TIGA mark */
-.tg .hdr .hdr-pvp{width:44px;height:44px;min-width:44px;margin-left:8px;padding:0;border:0;border-radius:5px;cursor:pointer;
-  font-family:var(--f-app);font-weight:700;font-size:12px;letter-spacing:.04em;color:#fff;
-  background:linear-gradient(160deg,#e2865f,#c4623f);box-shadow:0 6px 14px -8px #c4623f,inset 0 1px 0 rgba(255,255,255,.3)}
-.tg .hdr .hdr-pvp:active{transform:scale(.94)}
+/* header PVP shortcut: styled as .hdrgo (white round, clay line icon) */
+.tg .hdr .hdr-pvp{margin-left:8px}
 
 /* portrait: lift the skills + arrows column 5% of the screen */
 .pvppage.fight:not(.land) .pvppad-lcol{transform:translateY(-5vh)}
