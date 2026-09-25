@@ -7582,7 +7582,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
         {stats.weakest.length > 0 && (
         <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--card2)", borderRadius: 12, borderLeft: "3px solid #d97757" }}>
           <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>
-            💡 {T("คำแนะนำ", "Recommendation", "建议")}
+            💡 {T("คำแนะนำจาก TIGA AI", "Recommendations from TIGA AI", "来自 TIGA AI 的建议")}
           </div>
           <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8 }}>
             {stats.weakest.slice(0, 3).map((w, wi) => {
