@@ -12123,8 +12123,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lbox flicker" onClick={handleLogoTap}
             style={{ cursor: "pointer" }} title="TIGA">TIGA</div>
           {/* one-tap shortcut straight into the PvP arena */}
-          <button className="hdr-pvp" onClick={() => { playUi("click"); logUsage("nav", "pvp-hdr"); setPage("pvp"); }}
-            aria-label="PvP" title="PvP">PVP</button>
+          <button className="hdrgo hdr-pvp" onClick={() => { playUi("click"); logUsage("nav", "pvp-hdr"); setPage("pvp"); }}
+            aria-label="PvP" title="PvP">
+            {/* two robots squaring off, in the same line style as the profile glyph */}
+            <svg width="26" height="23" viewBox="0 0 30 26" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="2" y="5" width="7" height="6" rx="1.6" /><path d="M5.5 5V3" /><circle cx="5.5" cy="2.4" r=".7" />
+              <path d="M4.3 8h.01M6.7 8h.01" strokeWidth="2" />
+              <path d="M3.5 11v7h4v-7M4.5 18v5M6.5 18v5M7.5 13l4 -1.5" />
+              <rect x="21" y="5" width="7" height="6" rx="1.6" /><path d="M24.5 5V3" /><circle cx="24.5" cy="2.4" r=".7" />
+              <path d="M23.3 8h.01M25.7 8h.01" strokeWidth="2" />
+              <path d="M22.5 11v7h4v-7M23.5 18v5M25.5 18v5M22.5 13l-4 -1.5" />
+              <path d="M13 9.5l4 4M17 9.5l-4 4" strokeWidth="1.8" />
+            </svg>
+          </button>
         </div>
         <div className="hdr-r">
           {isGuest && (
