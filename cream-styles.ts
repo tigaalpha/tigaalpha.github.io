@@ -481,4 +481,7 @@ html:not([data-theme="dark"]) .pvpskbtn,html:not([data-theme="dark"]) .pvpopt{ba
 html:not([data-theme="dark"]) .pvpskbtn *,html:not([data-theme="dark"]) .pvpopt *{color:#fff!important}
 html:not([data-theme="dark"]) .pvpdir{background:linear-gradient(160deg,#fff7f1,#f6e3d7)!important;border-color:#e9b99f!important;box-shadow:0 6px 14px -10px rgba(160,80,40,.55)!important}
 html:not([data-theme="dark"]) .pvpdir *{color:#a8502f!important}
+
+/* the floating get-the-app button sits on the fight pads: hide it mid-fight */
+body:has(.pvppage.fight) .apkpill{display:none!important}
 `;
