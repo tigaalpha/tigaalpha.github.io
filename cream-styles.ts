@@ -519,4 +519,10 @@ html:not([data-theme="dark"]) .pvppage.fight .pvpstage>.sp3 *{background:transpa
 .pvppad-lcol .pvpskbtn b{font-size:10.5px;line-height:1.15}
 html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn{background:linear-gradient(160deg,#ff7eb3,#e0457f)!important;box-shadow:0 8px 18px -10px #e0457f!important}
 html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradient(160deg,#8b7ae6,#5b45c2)!important;box-shadow:0 8px 18px -10px #5b45c2!important}
+
+/* landscape full screen: the answer keyboard rides up to the fighters' waist
+   line instead of sitting on the bottom edge */
+:fullscreen .pvppage.fight.land .pvpkeys{top:57%;bottom:auto}
+.pvppage.fight.land:fullscreen .pvpkeys{top:57%;bottom:auto}
+:-webkit-full-screen .pvppage.fight.land .pvpkeys{top:57%;bottom:auto}
 `;
