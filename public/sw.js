@@ -21,6 +21,14 @@ const CACHE = "tiga-v16-__BUILD__";
 const ASSET_CACHE = "tiga-assets-v1";
 const ASSET_MAX = 140;
 const HASHED = /\/bundle\/[^/]*-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/;
+// v19: the pre-rendered robot and pet thumbnails (public/sprites/, drawn by
+// scripts/bake-sprites.mjs) carry a hash of their bytes in their names too, so
+// they are served cache-first and kept across releases the same way — but in
+// a cache of their own, so a shelf of seventy-odd images can never push the
+// app's own chunks out of ASSET_CACHE, or the other way round.
+const SPRITE_CACHE = "tiga-sprites-v1";
+const SPRITE_MAX = 300;
+const SPRITE = /\/sprites\/[^/]+\.[0-9a-f]{10}\.webp$/;
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -44,12 +52,12 @@ self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys()
       .then(keys => {
-        const stale = keys.filter(k => k !== CACHE && k !== ASSET_CACHE);
+        const stale = keys.filter(k => k !== CACHE && k !== ASSET_CACHE && k !== SPRITE_CACHE);
         return Promise.all(stale.map(k => caches.delete(k))).then(() => stale.length > 0);
       })
-      .then(wasUpdate => caches.open(ASSET_CACHE)
-        .then(c => c.keys().then(ks => Promise.all(ks.slice(0, Math.max(0, ks.length - ASSET_MAX)).map(k => c.delete(k)))))
-        .catch(() => {})
+      .then(wasUpdate => Promise.all([[ASSET_CACHE, ASSET_MAX], [SPRITE_CACHE, SPRITE_MAX]].map(([name, max]) => caches.open(name)
+        .then(c => c.keys().then(ks => Promise.all(ks.slice(0, Math.max(0, ks.length - max)).map(k => c.delete(k)))))
+        .catch(() => {})))
         .then(() => wasUpdate))
       .then(wasUpdate => self.clients.claim().then(() => wasUpdate))
       .then(wasUpdate => {
@@ -128,9 +136,10 @@ self.addEventListener("fetch", e => {
      visit cost a few kB of HTML instead of the whole bundle. The HTML itself
      stays network-first above, so it is always the freshest index.html that
      decides which hashed file to ask for. */
-  if (HASHED.test(url.pathname)) {
+  const hashed = HASHED.test(url.pathname) ? ASSET_CACHE : SPRITE.test(url.pathname) ? SPRITE_CACHE : null;
+  if (hashed) {
     e.respondWith(
-      caches.open(ASSET_CACHE).then(c => c.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+      caches.open(hashed).then(c => c.match(e.request).then(cached => cached || fetch(e.request).then(res => {
         if (res.ok) c.put(e.request, res.clone());
         return res;
       })))

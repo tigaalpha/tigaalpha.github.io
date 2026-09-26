@@ -7,10 +7,10 @@
 // reinstalls a worker whose BYTES changed, and the build copied this file
 // verbatim, so it never changed, so `activate` below never ran, so the
 // SW_UPDATED message App.tsx reloads on was never sent. Anyone with the app
-// open kept running the build they first loaded. 3cb8e520fe64 is replaced at
+// open kept running the build they first loaded. aedf88798326 is replaced at
 // build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
 // file now changes exactly when the app does.
-const CACHE = "tiga-v16-3cb8e520fe64";
+const CACHE = "tiga-v16-aedf88798326";
 // v18: content-hashed build output (scripts, styles, fonts, the 3D worker)
 // lives in a cache of its own that a new release does NOT throw away. Its
 // filenames change whenever its bytes do, so a copy can never be stale — yet
@@ -21,6 +21,14 @@ const CACHE = "tiga-v16-3cb8e520fe64";
 const ASSET_CACHE = "tiga-assets-v1";
 const ASSET_MAX = 140;
 const HASHED = /\/bundle\/[^/]*-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/;
+// v19: the pre-rendered robot and pet thumbnails (public/sprites/, drawn by
+// scripts/bake-sprites.mjs) carry a hash of their bytes in their names too, so
+// they are served cache-first and kept across releases the same way — but in
+// a cache of their own, so a shelf of seventy-odd images can never push the
+// app's own chunks out of ASSET_CACHE, or the other way round.
+const SPRITE_CACHE = "tiga-sprites-v1";
+const SPRITE_MAX = 300;
+const SPRITE = /\/sprites\/[^/]+\.[0-9a-f]{10}\.webp$/;
 const ASSETS = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -44,12 +52,12 @@ self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys()
       .then(keys => {
-        const stale = keys.filter(k => k !== CACHE && k !== ASSET_CACHE);
+        const stale = keys.filter(k => k !== CACHE && k !== ASSET_CACHE && k !== SPRITE_CACHE);
         return Promise.all(stale.map(k => caches.delete(k))).then(() => stale.length > 0);
       })
-      .then(wasUpdate => caches.open(ASSET_CACHE)
-        .then(c => c.keys().then(ks => Promise.all(ks.slice(0, Math.max(0, ks.length - ASSET_MAX)).map(k => c.delete(k)))))
-        .catch(() => {})
+      .then(wasUpdate => Promise.all([[ASSET_CACHE, ASSET_MAX], [SPRITE_CACHE, SPRITE_MAX]].map(([name, max]) => caches.open(name)
+        .then(c => c.keys().then(ks => Promise.all(ks.slice(0, Math.max(0, ks.length - max)).map(k => c.delete(k)))))
+        .catch(() => {})))
         .then(() => wasUpdate))
       .then(wasUpdate => self.clients.claim().then(() => wasUpdate))
       .then(wasUpdate => {
@@ -128,9 +136,10 @@ self.addEventListener("fetch", e => {
      visit cost a few kB of HTML instead of the whole bundle. The HTML itself
      stays network-first above, so it is always the freshest index.html that
      decides which hashed file to ask for. */
-  if (HASHED.test(url.pathname)) {
+  const hashed = HASHED.test(url.pathname) ? ASSET_CACHE : SPRITE.test(url.pathname) ? SPRITE_CACHE : null;
+  if (hashed) {
     e.respondWith(
-      caches.open(ASSET_CACHE).then(c => c.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+      caches.open(hashed).then(c => c.match(e.request).then(cached => cached || fetch(e.request).then(res => {
         if (res.ok) c.put(e.request, res.clone());
         return res;
       })))

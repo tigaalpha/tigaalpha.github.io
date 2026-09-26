@@ -59,6 +59,7 @@
 
 import { useId, useRef } from "react";
 import { classOf, classKeyOf } from "./model-skills";
+import { Sprite } from "./sprite";
 
 /* The five base chassis. No gender axis — these are models, the way a car or a
    rifle is a model, and further customisation rides on top of whichever is
@@ -871,8 +872,11 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     <g className="ca-led">
       <circle cx={cx} cy={cy} r="5.4" fill="#0d1520" opacity=".8" />
       <circle cx={cx} cy={cy} r="4.3" fill="none" stroke="#8fa6c8" strokeWidth=".5" opacity=".6" />
+      {/* no transform attribute: the spin's CSS transform (app-styles, .ca-led)
+          turns it about its own centre, and a rotate() attribute under that
+          rule's transform-origin threw the ring off its socket to orbit the jaw */}
       <circle cx={cx} cy={cy} r="4.3" fill="none" strokeWidth="1.9" strokeLinecap="round"
-        stroke="currentColor" strokeDasharray="20 8" transform={`rotate(-90 ${cx} ${cy})`} />
+        stroke="currentColor" strokeDasharray="20 8" />
       <circle cx={cx} cy={cy} r="1.5" fill="currentColor" opacity=".9" />
     </g>
   );
@@ -4061,4 +4065,10 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       </g>
     </svg>
   );
+}
+
+/** A chassis as a thumbnail: its baked head (sprite.tsx), shown about `px`
+    CSS pixels wide, or the live head-only drawing when there is no image. */
+export function HeadThumb({ model, px }) {
+  return <Sprite id={"head/" + normalizeModel(model)} px={px}><CyberAvatar model={model} headOnly /></Sprite>;
 }
