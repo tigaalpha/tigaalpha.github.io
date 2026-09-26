@@ -27,6 +27,10 @@
          No browser: list sprites whose drawing changed after they were baked.
          `npm run build` runs this and only warns — a stale sprite shows the
          previous drawing, it breaks nothing.
+     node scripts/bake-sprites.mjs --out=DIR [--v2] [--fx] [--only=…]
+         A preview: draws into DIR (plain names, no manifest, nothing pruned),
+         optionally with the ART_V2 redesign (--v2) and the finishing pass
+         (--fx, see GRADE) switched on, so either can be judged before it ships.
 
    Baking needs Playwright + Chromium, which are deliberately NOT dependencies
    of the app (the cloud dev containers ship both preinstalled). The check
@@ -45,6 +49,7 @@ const CACHE = join(ROOT, "node_modules/.cache/tiga-sprites");
 const argv = process.argv.slice(2);
 const CHECK = argv.includes("--check"), FORCE = argv.includes("--force");
 const ONLY = (argv.find(a => a.startsWith("--only=")) || "").slice(7).split(",").filter(Boolean);
+const PREVIEW = (argv.find(a => a.startsWith("--out=")) || "").slice(6);
 
 /* Render settings. Changing any of them re-bakes everything, because they are
    part of every sprite's source hash.
@@ -52,6 +57,27 @@ const ONLY = (argv.find(a => a.startsWith("--only=")) || "").slice(7).split(",")
          what keeps the 0.3-unit panel lines crisp instead of speckled
      q   WebP quality */
 const BAKE = { v: 1, ss: 2, q: 0.86 };
+
+/* ── the finishing pass ──
+   What a live SVG cannot afford on a phone and a bake does once, on the
+   supersampled image, from its own silhouette:
+     rim     a cool back light: the band of the figure whose neighbour up and
+             to the right is empty, softened and screened on — the edge light
+             that makes a render read as standing in a lit room
+     under   the matching fall-off: the band whose neighbour below is empty,
+             multiplied darker, so the underside of every form turns away
+     bloom   whatever burns brighter than its own surroundings (optics,
+             cores, a glint) glows a little past its edge, at two radii
+   Offsets and radii are in supersampled pixels. GRADE switches it on for the
+   shipped sprites; it is part of their hash only when it is on, so switching
+   it re-bakes everything and leaving it off changes nothing. */
+const GRADE = false;
+const FX = {
+  rim: { dx: 5, dy: -3, blur: 2.5, color: "#d4f0ff", alpha: 0.5 },
+  under: { dx: 0, dy: 7, blur: 6, color: "#050b1a", alpha: 0.28 },
+  bloom: { t: 0.72, m: 0.08, r0: 14, r1: 4, a1: 0.55, r2: 12, a2: 0.35 },
+};
+const FXON = GRADE || argv.includes("--fx");
 
 /* ── what gets baked ──
    `fit` is the range of box shapes (width / height) the sprite is shown in.
@@ -152,7 +178,7 @@ async function loadArt() {
     entryPoints: [join(CACHE, "entry.jsx")], outfile: join(CACHE, "art.mjs"),
     bundle: true, format: "esm", platform: "node", packages: "external",
     loader: { ".ts": "tsx", ".tsx": "tsx" }, jsx: "automatic", logLevel: "error",
-    absWorkingDir: ROOT, define: { __APP_BUILD__: '"sprites"' },
+    absWorkingDir: ROOT, define: { __APP_BUILD__: '"sprites"', ...(PREVIEW && argv.includes("--v2") ? { __ART_V2__: "true" } : {}) },
     external: ["@capacitor-community/text-to-speech"],
     // the 3D room's worker and ?url imports mean nothing to a still drawing
     plugins: [{ name: "stub", setup(b) {
@@ -169,7 +195,7 @@ async function loadArt() {
     .filter(s => !ONLY.length || ONLY.includes(s.key))
     .map(s => {
       const { markup, region } = regionOf(art.markupOf(s), s.fit);
-      return { key: s.key, markup, w: s.w, a: region[2] / region[3], k: sha(JSON.stringify([BAKE, FRAME, s.w, css, markup]), 12) };
+      return { key: s.key, markup, w: s.w, a: region[2] / region[3], k: sha(JSON.stringify([BAKE, FRAME, ...(FXON ? [FX] : []), s.w, css, markup]), 12) };
     });
   console.error = warn;
   return { specs, css };
@@ -207,6 +233,11 @@ const old = readManifest();
 const fresh = (s) => old[s.key] && old[s.key].k === s.k && old[s.key].f.length === s.w.length &&
   old[s.key].f.every(f => existsSync(join(OUT, f)));
 
+if (PREVIEW) {
+  // a preview draws everything asked for into its own folder and stops there
+  mkdirSync(PREVIEW, { recursive: true });
+}
+
 if (CHECK) {
   const stale = specs.filter(s => !old[s.key] || old[s.key].k !== s.k).map(s => s.key);
   if (stale.length) {
@@ -215,7 +246,7 @@ if (CHECK) {
   process.exit(0);
 }
 
-const todo = specs.filter(s => FORCE || !fresh(s));
+const todo = specs.filter(s => PREVIEW || FORCE || !fresh(s));
 const next = ONLY.length ? { ...old } : {};
 for (const s of specs) if (!todo.includes(s)) next[s.key] = old[s.key];
 mkdirSync(OUT, { recursive: true });
@@ -228,7 +259,81 @@ html,body{margin:0;padding:0;background:transparent}
 *,*::before,*::after{transition:none!important}
 #s{position:absolute;left:0;top:0}
 #s>svg{display:block;width:100%;height:100%}
-${css}</style></head><body><div id="s"></div></body></html>`);
+${css}</style></head><body><div id="s"></div><script>
+/* the finishing pass (see FX): image in, canvas out, same size. Colour
+   only ever changes where the figure already is; its alpha is left exactly
+   as drawn, so soft glows and contact shadows keep their fall-off. */
+window.grade = (src, W, H, fx) => {
+  const mk = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; return [c, c.getContext("2d", { willReadFrequently: true })]; };
+  const [base, b] = mk(); b.drawImage(src, 0, 0);
+  const img = b.getImageData(0, 0, W, H), d = img.data, N = W * H;
+  const [mask, m] = mk(); m.drawImage(base, 0, 0);
+  m.globalCompositeOperation = "source-in"; m.fillStyle = "#fff"; m.fillRect(0, 0, W, H);
+  // how much of an edge band (see FX.rim / FX.under) each pixel is in, 0..1
+  const band = ({ dx, dy, blur }) => {
+    const [c, x] = mk(); x.drawImage(mask, 0, 0);
+    x.globalCompositeOperation = "destination-out"; x.drawImage(mask, -dx, -dy);
+    const [c2, x2] = mk(); x2.filter = "blur(" + blur + "px)"; x2.drawImage(c, 0, 0);
+    const a = x2.getImageData(0, 0, W, H).data, out = new Float32Array(N);
+    for (let i = 0; i < N; i++) out[i] = a[i * 4 + 3] / 255;
+    return out;
+  };
+  const hex = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+  if (fx.under) {
+    const u = band(fx.under), [r, g, bl] = hex(fx.under.color), k = fx.under.alpha;
+    for (let i = 0; i < N; i++) {
+      const s = u[i] * k; if (!s) continue;
+      const j = i * 4;
+      d[j] *= 1 - s * (1 - r); d[j + 1] *= 1 - s * (1 - g); d[j + 2] *= 1 - s * (1 - bl);
+    }
+  }
+  if (fx.rim) {
+    const u = band(fx.rim), [r, g, bl] = hex(fx.rim.color), k = fx.rim.alpha;
+    for (let i = 0; i < N; i++) {
+      const s = u[i] * k; if (!s) continue;
+      const j = i * 4;
+      d[j] = 255 - (255 - d[j]) * (1 - s * r); d[j + 1] = 255 - (255 - d[j + 1]) * (1 - s * g); d[j + 2] = 255 - (255 - d[j + 2]) * (1 - s * bl);
+    }
+  }
+  const [out, o] = mk(); o.putImageData(img, 0, 0);
+  if (fx.bloom) {
+    /* Hot means brighter than its own neighbourhood — an optic, a core, a
+       glint — not merely pale: a white helmet is bright everywhere and must
+       not glow. The neighbourhood mean comes from blurring brightness with the
+       figure's alpha, which the canvas keeps premultiplied, so what reads back
+       is the mean over the figure alone, not over the empty air around it. */
+    const { t, m: margin, r0, r1, a1, r2, a2 } = fx.bloom;
+    const vi = new ImageData(W, H), v = vi.data;
+    for (let j = 0; j < d.length; j += 4) { const x = Math.max(d[j], d[j + 1], d[j + 2]); v[j] = v[j + 1] = v[j + 2] = x; v[j + 3] = d[j + 3]; }
+    const [vc, vx] = mk(); vx.putImageData(vi, 0, 0);
+    const [mc, mx] = mk(); mx.filter = "blur(" + r0 + "px)"; mx.drawImage(vc, 0, 0);
+    const mean = mx.getImageData(0, 0, W, H).data;
+    const hot = new ImageData(W, H), h = hot.data;
+    for (let j = 0; j < d.length; j += 4) {
+      const V = v[j] / 255, k = Math.max(0, Math.min(1, (V - t) / (1 - t))) * Math.max(0, Math.min(1, (V - mean[j] / 255 - margin) / .15));
+      if (!k) continue;
+      h[j] = d[j]; h[j + 1] = d[j + 1]; h[j + 2] = d[j + 2]; h[j + 3] = Math.round(d[j + 3] * k);
+    }
+    const [hc, hx] = mk(); hx.putImageData(hot, 0, 0);
+    /* The glow is light falling on the figure's own surface — a visor lighting
+       the helmet round it — so it adds to colour and never to alpha. Light
+       spilling into the empty air would be soft alpha all round the sprite,
+       which WebP stores losslessly: a third more bytes on every thumbnail
+       for a haze nobody would miss. */
+    for (const [rad, al] of [[r1, a1], [r2, a2]]) {
+      if (!al) continue;
+      const [g, gc] = mk(); gc.filter = "blur(" + rad + "px)"; gc.drawImage(hc, 0, 0);
+      const gl = gc.getImageData(0, 0, W, H).data;
+      for (let j = 0; j < d.length; j += 4) {
+        const s = gl[j + 3] / 255 * al; if (!s) continue;
+        d[j] = Math.min(255, d[j] + gl[j] * s); d[j + 1] = Math.min(255, d[j + 1] + gl[j + 1] * s); d[j + 2] = Math.min(255, d[j + 2] + gl[j + 2] * s);
+      }
+    }
+    o.putImageData(img, 0, 0);
+  }
+  return out;
+};
+</script></body></html>`);
   let n = 0;
   for (const s of todo) {
     const f = [];
@@ -243,31 +348,34 @@ ${css}</style></head><body><div id="s"></div></body></html>`);
         }
       }, { html: s.markup, w: w * BAKE.ss, h: h * BAKE.ss, frame: FRAME });
       const png = await page.locator("#s").screenshot({ omitBackground: true, type: "png" });
-      const b64 = await page.evaluate(async ({ png, w, h, q }) => {
+      const b64 = await page.evaluate(async ({ png, w, h, q, fx }) => {
         const bin = atob(png), u8 = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
         const bmp = await createImageBitmap(new Blob([u8], { type: "image/png" }));
+        const src = fx ? window.grade(bmp, bmp.width, bmp.height, fx) : bmp;
         const c = document.createElement("canvas");
         c.width = w; c.height = h;
         const x = c.getContext("2d");
         x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high";
-        x.drawImage(bmp, 0, 0, w, h);
+        x.drawImage(src, 0, 0, w, h);
         const blob = await new Promise(r => c.toBlob(r, "image/webp", q));
         const out = new Uint8Array(await blob.arrayBuffer());
         let str = "";
         for (let i = 0; i < out.length; i += 0x8000) str += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000));
         return btoa(str);
-      }, { png: png.toString("base64"), w, h, q: BAKE.q });
+      }, { png: png.toString("base64"), w, h, q: BAKE.q, fx: FXON ? FX : null });
       const bytes = Buffer.from(b64, "base64");
+      if (PREVIEW) { writeFileSync(join(PREVIEW, `${s.key.replace(/\//g, "-")}-${w}.webp`), bytes); continue; }
       const name = fileOf(s.key, w, bytes);
       writeFileSync(join(OUT, name), bytes);
       f.push(name);
     }
-    next[s.key] = { a: +s.a.toFixed(4), w: s.w, f, k: s.k };
+    if (!PREVIEW) next[s.key] = { a: +s.a.toFixed(4), w: s.w, f, k: s.k };
     if (++n % 10 === 0 || n === todo.length) console.log(`bake-sprites: drew ${n}/${todo.length}`);
   }
   await browser.close();
 }
+if (PREVIEW) { console.log(`bake-sprites: preview of ${todo.length} sprites in ${PREVIEW}`); process.exit(0); }
 
 // drop images nothing points at any more
 const keep = new Set(Object.values(next).flatMap(e => e.f));
