@@ -541,7 +541,7 @@ html[lang="th"] .x3,html[lang="th"] .setcard.shop-full,html[lang="th"] .charcard
 .setcard.shop-full .shopitem-art::after,.stgpage .stgitem-art::after,.setcard.shop-full .petitem-art::after{content:"";position:absolute;left:14%;right:14%;bottom:-3px;height:9px;border-radius:50%;z-index:-1;
   background:radial-gradient(ellipse at 50% 50%,rgba(223,232,255,.16),rgba(223,232,255,0) 70%)}
 .setcard.shop-full .shopitem-art svg,.stgpage .stgitem-art svg{filter:drop-shadow(0 6px 6px rgba(0,0,0,.6))}
-.setcard.shop-full .petitem-art svg{filter:drop-shadow(0 8px 8px rgba(0,0,0,.55))}
+.setcard.shop-full .petitem-art svg,.setcard.shop-full .petitem-art .spr{filter:drop-shadow(0 8px 8px rgba(0,0,0,.55))}
 .setcard.shop-full .shopitem-tag{margin-top:2px;padding:2px 9px;border-radius:999px;font-family:var(--f-data);font-weight:400;font-size:10px;color:#e9dcbd;background:transparent;border:1px solid rgba(216,199,159,.28)}
 .setcard.shop-full .shopitem-tag.gem{color:#d3c8ff;border-color:rgba(169,146,255,.35)}
 .setcard.shop-full .shopitem.equipped .shopitem-tag{color:var(--cy2);border-color:rgba(57,216,255,.45)}

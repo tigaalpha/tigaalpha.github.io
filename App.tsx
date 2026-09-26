@@ -4,7 +4,7 @@ import { Capacitor } from "@capacitor/core";
 import { PATHWAY, PATHWAY_PRACTICE } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { useInjectCSS } from "./app-styles";
-import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
+import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
 import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 /* ── Split off the first screen's dead weight ──
@@ -23,7 +23,7 @@ const PvpPage = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpPage
 const PvpBanner = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpBanner })));
 const SkillTrack = lazy(() => import("./pvp-arena").then(m => ({ default: m.SkillTrack })));
 import { PetPod, PetPage, PetArt, PET_SPECIES, PET_TYPES, PET_BONUS, PET_COST,
-  adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets, usePetTurn } from "./pet-lab";
+  adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets, usePetTurn, PetThumb } from "./pet-lab";
 import { SpaceStage, prefetchSpace } from "./space-stage";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
@@ -6949,7 +6949,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
                 return (
                   <button key={it.id} className={`stgitem ${it.rarity}${on ? " on" : ""}`} onClick={() => onEquip(g.key, it)}>
                     {it.model
-                      ? <span className="stgitem-head"><CyberAvatar model={it.model} headOnly /></span>
+                      ? <span className="stgitem-head"><HeadThumb model={it.model} px={110} /></span>
                       : it.art
                         ? <span className="stgitem-art"><ItemArt art={it.art} sw={it.sw} /></span>
                         : <span className="stgitem-ic">{it.icon}</span>}
@@ -11809,7 +11809,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       const running = charModel === it.model;
       return (
         <button key={it.id} className={`shopitem ${it.rarity} mdlitem${running ? " equipped" : ""}`} onClick={() => { setModelDetail(it.id); playUi("click"); }}>
-          <span className="mdlitem-head"><CyberAvatar model={it.model} headOnly /></span>
+          <span className="mdlitem-head"><HeadThumb model={it.model} px={112} /></span>
           <span className="shopitem-nm">{tr(it, lang)}</span>
           <span className="shopitem-desc">{tr(it.desc, lang)}</span>
           <span className="shopitem-cls" style={{ "--cc": classOf(it.model).c }}>{tr(classOf(it.model), lang)}</span>
@@ -11828,7 +11828,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <button key={it.id} data-tick={petTick}
           className={`shopitem ${it.rarity} petitem${here ? " equipped" : ""}`}
           onClick={() => { setPetDetail(it.id); playUi("click"); }}>
-          <span className="petitem-art"><PetArt species={sp.id} level={1} /></span>
+          <span className="petitem-art"><PetThumb species={sp.id} px={112} /></span>
           <span className="shopitem-nm">{tr(it, lang)}</span>
           <span className="petitem-type" style={{ "--tc": ty.c }}>{tr(ty, lang)}</span>
           <span className="shopitem-desc">{tr(it.desc, lang)}</span>
@@ -13213,7 +13213,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   {CHAR_MODELS.map(m => (
                     <button key={m.id} type="button" className={`char-model${sel === m.id ? " on" : ""}`}
                       title={`${m.code} · ${tr(m.cls, lang)}`} onClick={() => { setModelPickSel(m.id); playUi("click"); }}>
-                      <span className="char-model-thumb"><CyberAvatar model={m.id} headOnly /></span>
+                      <span className="char-model-thumb"><HeadThumb model={m.id} px={70} /></span>
                       <span className="char-model-nm">{tr(m, lang)}</span>
                     </button>
                   ))}

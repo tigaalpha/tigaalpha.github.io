@@ -1058,7 +1058,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    collection deserves room. Same grid language as the shop so the two read as
    two views of one catalogue — but here everything on screen is already yours,
    and tapping puts it on the character. */
-.stgpage{max-width:560px;margin:0 auto;padding:10px 12px 90px}
+/* the width is set, not left to the content: the page sits in the column
+   flex of .tg with auto side margins, so it is only as wide as what is in it —
+   and once thumbnails became images with no width of their own (sprite.tsx),
+   that stopped being the whole screen */
+.stgpage{max-width:560px;width:calc(100% - 24px);margin:0 auto;padding:10px 12px 90px}
 .stghdr{display:flex;align-items:center;gap:9px;padding:6px 2px 12px;position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--bd1)}
 .stgback{width:32px;height:32px;flex-shrink:0;border-radius:9px;border:1px solid var(--bd1);background:var(--card2);color:var(--text);font-size:16px;cursor:pointer}
 .stgback:hover{border-color:#d97757}
@@ -2209,8 +2213,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
    something out. the CSS color property drives it so ring and core follow together. */
 .ca-led{color:#3aa8ff;animation:caLed 5.2s ease-in-out infinite}
 @keyframes caLed{0%,58%,100%{color:#3aa8ff}68%,88%{color:#ffc83a}}
-.ca-led circle:nth-child(3){transform-origin:center;transform-box:fill-box;animation:caSpin2 3.4s linear infinite}
-@keyframes caSpin2{to{transform:rotate(360deg)}}
+.ca-led circle:nth-child(3){transform-origin:center;transform-box:fill-box;transform:rotate(-90deg);animation:caSpin2 3.4s linear infinite}
+@keyframes caSpin2{from{transform:rotate(-90deg)}to{transform:rotate(270deg)}}
 /* the endoskeleton's optics burn steadily rather than pulsing like a UI light */
 .ca-vanguard .ca-optic,.ca-reaper .ca-optic{animation:caEmber 3.6s ease-in-out infinite}
 @keyframes caEmber{0%,100%{opacity:.88}50%{opacity:1}}
@@ -3200,6 +3204,14 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
    in both themes; the one deliberate exception is the room, which is a lit
    scene and stays dark on purpose in either theme. */
 .pa{display:block;width:100%;height:100%}
+/* A baked thumbnail (sprite.tsx) fills its box the way the live SVG it stands
+   in for would. contain:size is what keeps it from reshaping that box: the
+   boxes are sized by aspect-ratio, whose automatic minimum height is the
+   content's, and an <img> brings its own natural height — so a 1:1.12 image
+   stretched a 1:1.05 shop card by 7%. The SVG never had a natural size. It
+   does mean the box must be sized (a width plus aspect-ratio, or px) — every
+   thumbnail box is. */
+.spr{display:block;width:100%;height:100%;contain:size;object-fit:cover;pointer-events:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .pa-bob{animation:pabob 2.6s ease-in-out infinite;transform-origin:60px 120px}
 .pa-sag{animation:pasag 4.4s ease-in-out infinite;transform-origin:60px 120px}
 @keyframes pabob{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-3.5px) scale(.99,1.012)}}

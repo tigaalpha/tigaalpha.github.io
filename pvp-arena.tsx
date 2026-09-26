@@ -23,10 +23,11 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
-import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
+import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
-import { petBonusOf, petById, petLevel, petStage, readPet, allPets, carryPet, PetArt, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
+import { petBonusOf, petById, petLevel, petStage, readPet, allPets, carryPet, PetArt, PetThumb, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
+import { hasSprite } from "./sprite";
 import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio } from "./arena-fx";
 import { SpaceStage, prefetchSpace, isLowEnd } from "./space-stage";
 /* touch devices (iPad, phones) and weak machines fight in "lite": the
@@ -1107,10 +1108,18 @@ const CLASS_WIN_LINES = {
                ult:  { th: "ทุกจังหวะคือศิลปะ",         en: "Every beat, a masterpiece.",      zh: "每一拍都是杰作。" } },
 };
 
-/* One robot head in the arena's robot picker. It builds its SVG only once it
-   scrolls into (or near) the strip's view: all forty heads at once measured
-   ~1.1s on a 4x-throttled CPU, the first handful ~0.1s. */
+/* One robot head in the arena's robot picker. A baked head is an
+   <img loading="lazy"> (sprite.tsx), which already costs nothing until it is
+   near the screen. Only a head with no image falls back to the live drawing,
+   and that one is built only once it scrolls into (or near) the strip's view:
+   all forty live heads at once measured ~1.1s on a 4x-throttled CPU, the
+   first handful ~0.1s. */
 function LazyHead({ model, rootRef }) {
+  return hasSprite("head/" + normalizeModel(model))
+    ? <span className="pvppick-av"><HeadThumb model={model} px={46} /></span>
+    : <LiveLazyHead model={model} rootRef={rootRef} />;
+}
+function LiveLazyHead({ model, rootRef }) {
   const el = useRef(null);
   const [on, setOn] = useState(false);
   useEffect(() => {
@@ -1499,7 +1508,7 @@ export const PvpPage = memo(function PvpPage({
               {pets.map(p => (
                 <button key={p.species} type="button" title={tr3(petById(p.species), lang)}
                   className={`pvppick-b${petNow && p.species === petNow.species ? " on" : ""}`} onClick={() => pickPet(p.species)}>
-                  <span className="pvppick-av"><PetArt species={p.species} level={petLevel(p.bond).lv} mood={p.mood} /></span>
+                  <span className="pvppick-av"><PetThumb species={p.species} level={petLevel(p.bond).lv} mood={p.mood} px={46} /></span>
                   <i>{tr3(petById(p.species), lang)}</i><em>Lv {petLevel(p.bond).lv}</em>
                 </button>
               ))}
@@ -1716,7 +1725,7 @@ export const PvpPage = memo(function PvpPage({
             <div className="pvpfriends">
               {friends.map(f => (
                 <button key={f.user_id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], f.name || f.email || "?", f)}>
-                  <span className="pvpfriend-av"><CyberAvatar model={chassisFor(f.user_id || f.name || "x")} headOnly /></span>
+                  <span className="pvpfriend-av"><HeadThumb model={chassisFor(f.user_id || f.name || "x")} px={34} /></span>
                   <span className="pvpfriend-nm">{f.name || f.email}</span>
                   <span className="pvpfriend-go">{T("ท้า", "Challenge", "挑战")} →</span>
                 </button>
@@ -1729,7 +1738,7 @@ export const PvpPage = memo(function PvpPage({
               <div className="pvpfriends">
                 {openDuels.map(d => (
                   <button key={d.id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], d.opp_name, { duel: d })}>
-                    <span className="pvpfriend-av"><CyberAvatar model={chassisFor(d.opp_name || "x")} headOnly /></span>
+                    <span className="pvpfriend-av"><HeadThumb model={chassisFor(d.opp_name || "x")} px={34} /></span>
                     <span className="pvpfriend-nm">{d.opp_name} · {d.opp_score != null ? d.opp_score : "—"}</span>
                     <span className="pvpfriend-go">{T("รับคำท้า", "Accept", "接受")} →</span>
                   </button>

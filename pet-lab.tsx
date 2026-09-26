@@ -25,6 +25,7 @@
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { ItemArt } from "./item-art";
 import { SpaceStage, prefetchSpace } from "./space-stage";
+import { Sprite } from "./sprite";
 
 /* ══════════════════════ species ══════════════════════ */
 
@@ -1383,6 +1384,14 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   );
 });
 
+/** A pet as a thumbnail. Only a level-1 pet in a good mood — what the shop
+    and the adoption grid show — has a baked image (sprite.tsx); a grown one
+    is drawn live, because every level changes its body. */
+export function PetThumb({ species, level = 1, mood = 80, px }) {
+  const live = <PetArt species={species} level={level} mood={mood} />;
+  return Math.round(level || 1) <= 1 && mood >= 35 ? <Sprite id={`pet/${species}/1`} px={px}>{live}</Sprite> : live;
+}
+
 /* ══════════════════════ the pantry ══════════════════════ */
 
 /* Food is a CONSUMABLE, so it deliberately does not live in the shop's `owned`
@@ -1987,7 +1996,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
             return (
               <button key={sp.id} className={`pet-card${pick === sp.id ? " on" : ""}`} style={{ "--pc": sp.sw[0], "--tc": ty.c }}
                 onClick={() => { setPick(sp.id); playUi("click"); }}>
-                <span className="pc-art"><PetArt species={sp.id} level={1} /></span>
+                <span className="pc-art"><PetThumb species={sp.id} px={100} /></span>
                 <b>{tr3(sp, lang)}</b>
                 <i className="pc-type">{tr3(ty, lang)}</i>
                 <i className="pc-code">{sp.code}</i>
@@ -1998,7 +2007,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
         {sel && (
           <div className="pet-confirm">
             <div className="pcf-row">
-              <span className="pcf-art"><PetArt species={sel.id} level={1} /></span>
+              <span className="pcf-art"><PetThumb species={sel.id} px={74} /></span>
               <div className="pcf-b">
                 <b>{tr3(sel, lang)}</b>
                 <p>{lang === "th" ? sel.dth : lang === "zh" ? sel.dzh : sel.den}</p>
@@ -2200,7 +2209,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
               <button key={o.species} type="button" className={`pet-stall${here ? " on" : ""}`}
                 style={{ "--sc": osp.sw[0] }}
                 onClick={() => { if (!here && carryPet(o.species)) { setPet(readPet()); playUi("reward"); } }}>
-                <span className="ps-art"><PetArt species={o.species} level={petLevel(o.bond).lv} mood={here ? happy : petHappy(o)} /></span>
+                <span className="ps-art"><PetThumb species={o.species} level={petLevel(o.bond).lv} mood={here ? happy : petHappy(o)} px={74} /></span>
                 <b>{o.name || tr3(osp, lang)}</b>
                 <i>{here ? T("อยู่ข้างคุณ", "With you", "在你身边") : "Lv " + petLevel(o.bond).lv}</i>
               </button>

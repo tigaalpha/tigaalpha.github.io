@@ -53,6 +53,21 @@ concerns. If you need the reasoning behind any particular split, `git log
 --oneline --all | grep -i phase` finds the extraction commits — each one
 explains what moved and why.
 
+Robot and pet **thumbnails are pre-rendered images**, not live SVG:
+`scripts/bake-sprites.mjs` (`npm run sprites`) draws every robot head
+(`CyberAvatar headOnly`) and every level-1 pet (`PetArt`) from the real
+components in headless Chromium and writes content-hashed WebPs to
+`public/sprites/` plus the generated `sprites-manifest.ts`. `sprite.tsx`
+(`<Sprite>`, and the `HeadThumb`/`PetThumb` wrappers exported from
+`cyber-avatar.tsx`/`pet-lab.tsx`) shows them and falls back to the live
+drawing when an image is missing. **After changing robot or pet artwork —
+the drawing code or its `.ca-*`/`.pa-*` CSS — run `npm run sprites` and
+commit `public/sprites/` + `sprites-manifest.ts` with it**, or thumbnails
+keep showing the old drawing (`npm run build` prints a warning listing any
+stale sprite; it never fails the build). Baking needs Playwright + Chromium,
+which the cloud containers have preinstalled; it is not a dependency of the
+app. Big live figures (character page, arena, pet room) stay live SVG.
+
 Backend: Supabase (Postgres + Auth + Storage + RLS), project id
 `gsaqgbracxnucdmtmcxz`. Schema/RPC changes live as `supabase-*.sql` files
 at the repo root, one file per feature (e.g.
