@@ -26,7 +26,6 @@ import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { ItemArt } from "./item-art";
 import { SpaceStage, prefetchSpace } from "./space-stage";
 import { Sprite } from "./sprite";
-import { ART_V2 } from "./art-flag";
 
 /* ══════════════════════ species ══════════════════════ */
 
@@ -216,7 +215,7 @@ export const PET_SPECIES = [
 ];
 export const petById = (id) => PET_SPECIES.find(p => p.id === id) || PET_SPECIES[0];
 
-/* ── what animal it is ── (ART_V2)
+/* ── what animal it is ──
    Three body builds and eight skulls could not make thirty-two animals: a
    shelf of them read as one creature in different ear hats. Each species is
    now a KIND of animal, and the kind is drawn where people look first — the
@@ -486,8 +485,6 @@ export const nextGrowth = (lv) => {
 /* Two path helpers do nearly all the geometry — an ellipse and a rounded box.
    Everything (torso, limbs, plates, hatches) is one of those two, which is
    what keeps twelve creatures from drifting into twelve different styles. */
-/** Stable per-path id so each part can clip its own bevel. */
-const hashd = (d) => { let h = 5381; for (let i = 0; i < d.length; i++) h = ((h << 5) + h + d.charCodeAt(i)) | 0; return h; };
 const ell = (x, y, rx, ry) =>
   `M${x - rx} ${y} C${x - rx} ${y - ry * 1.334} ${x + rx} ${y - ry * 1.334} ${x + rx} ${y} C${x + rx} ${y + ry * 1.334} ${x - rx} ${y + ry * 1.334} ${x - rx} ${y} Z`;
 const rr = (x, y, w, h, r) => {
@@ -540,7 +537,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   const A = sp.sw[0], B = sp.sw[1];
   const T = PET_TYPES[sp.type] || PET_TYPES.steel;
   const sad = mood < 35;
-  const KD = ART_V2 ? PET_KIND[sp.id] || null : null;
+  const KD = PET_KIND[sp.id] || null;
   /* a fish swims and a ball rolls — neither stands on legs, whatever the
      species' old build said */
   const build = KD === "fish" || KD === "ball" ? "float" : sp.build;
@@ -631,46 +628,24 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   const M = `url(#${uid}-mech)`;                // the machine half
   const Bm = mixc(B, "#101826", .45);           // steel takes a cooler contour
   // vinyl's contour: the coat's own darkest tone, not a navy ink line
-  const Bv = ART_V2 ? mixc(B, A, .12) : B;
+  const Bv = mixc(B, A, .12);
   /* fill → form shadow → key highlight → outline, same five-pass rig as the
      robots and the gear */
-  const P = (d, f, o = {}) => {
-    /* ── ART_V2: vinyl ──
+  const P = (d, f, o = {}) => (
+    /* ── vinyl ──
        The glass look came from stacking: a magenta key wash, a cyan bounce, a
        white diagonal band and a bevel on every part, each translucent, so
        the body read as lit FROM INSIDE — jelly. A vinyl toy is opaque colour
        with one broad soft gloss where the light lands and a clean contact
        shadow where it does not. Five passes instead of ten, and no clip. */
-    if (ART_V2) return (
-      <g>
-        <path d={d} fill={f} />
-        <path d={d} fill={`url(#${uid}-occ)`} opacity={o.occ == null ? 1 : o.occ} />
-        <path d={d} fill={`url(#${uid}-gloss)`} opacity={o.spec == null ? 1 : Math.min(1, o.spec * 1.2)} />
-        <path d={d} fill={`url(#${uid}-rim)`} />
-        <path d={d} fill="none" stroke={Bv} strokeWidth={o.lw || 1.7} strokeLinejoin="round" opacity={o.lineOp == null ? .95 : o.lineOp} />
-      </g>
-    );
-    const cid = `${uid}-c${Math.abs(hashd(d))}`;
-    return (
-      <g>
-        <path d={d} fill={f} />
-        <path d={d} fill={`url(#${uid}-occ)`} opacity={o.occ == null ? 1 : o.occ} />
-        {/* a warm key and a cool bounce, rather than one white wash */}
-        <path d={d} fill={`url(#${uid}-warm)`} />
-        <path d={d} fill={`url(#${uid}-cool)`} />
-        <path d={d} fill={`url(#${uid}-spec)`} opacity={o.spec == null ? 1 : o.spec} />
-        <path d={d} fill={`url(#${uid}-rim)`} />
-        {/* the bevel: a lit lip along the top edge, a shadow along the bottom.
-            Clipped to the part so it stays a thickness and not an outline. */}
-        <g clipPath={`url(#${cid})`}>
-          <path d={d} fill="none" stroke="#ffffff" strokeWidth={(o.lw || 1.7) * 1.4} strokeLinejoin="round" opacity=".4" transform="translate(0 -1)" />
-          <path d={d} fill="none" stroke="#00060f" strokeWidth={(o.lw || 1.7) * 1.4} strokeLinejoin="round" opacity=".26" transform="translate(0 1.2)" />
-        </g>
-        <path d={d} fill="none" stroke={B} strokeWidth={o.lw || 1.7} strokeLinejoin="round" opacity={o.lineOp == null ? .9 : o.lineOp} />
-        <clipPath id={cid}><path d={d} /></clipPath>
-      </g>
-    );
-  };
+    <g>
+      <path d={d} fill={f} />
+      <path d={d} fill={`url(#${uid}-occ)`} opacity={o.occ == null ? 1 : o.occ} />
+      <path d={d} fill={`url(#${uid}-gloss)`} opacity={o.spec == null ? 1 : Math.min(1, o.spec * 1.2)} />
+      <path d={d} fill={`url(#${uid}-rim)`} />
+      <path d={d} fill="none" stroke={Bv} strokeWidth={o.lw || 1.7} strokeLinejoin="round" opacity={o.lineOp == null ? .95 : o.lineOp} />
+    </g>
+  );
   const seam = (d, o = .45) => <path d={d} fill="none" stroke={B} strokeWidth="1.2" strokeLinecap="round" opacity={o} />;
   /* A bracer is a band clamped AROUND a limb, so it has to be built where that
      limb's own geometry and rotation live. Drawn from outside the limb group
@@ -811,11 +786,11 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
 
   /* ── eyes ── one rig, five expressions; every one narrows when sad */
   const ey = hy + hr * .12, ex = hr * .46, er = hr * .4;   // big, low-set eyes
-  /* ART_V2: blush is paint on the toy, so it stops at the skull's edge — at a
+  /* blush is paint on the toy, so it stops at the skull's edge — at a
      side-on turn it used to hang off the head in the air */
   // (the skull moves with the turn on a quad, so the clip is per angle too)
   const hcId = `${uid}-hc${Math.round(Yp)}`;
-  const onSkin = (el) => (ART_V2 ? <g clipPath={`url(#${hcId})`}>{el}</g> : el);
+  const onSkin = (el) => <g clipPath={`url(#${hcId})`}>{el}</g>;
   const EYES = {
     big: <>{[-1, 1].map(k => {
       const ry = sad ? er * .58 : er * 1.1;
@@ -901,7 +876,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         fill="#fff" opacity=".22" /></g>,
   };
 
-  /* ── the kind's face ── (ART_V2, see PET_KIND)
+  /* ── the kind's face ── (see PET_KIND)
      Every feature sits on the head's sphere through onHead, so it turns with
      the head like the eyes do. y is measured from the eye line down: the
      nose at the bottom of the eyes, the mouth under it. A sad pet turns its
@@ -1116,7 +1091,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       <ellipse cx={cx} cy={GROUND - 9} rx={bw * .5} ry="4" fill="none" stroke={T.c} strokeWidth="2.4" opacity=".55" />
       <ellipse cx={cx} cy={GROUND - 5} rx={bw * .34} ry="3" fill="none" stroke={T.c} strokeWidth="1.6" opacity=".3" /></> });
   }
-  /* ── the kind's silhouette ── (ART_V2, see PET_KIND)
+  /* ── the kind's silhouette ── (see PET_KIND)
      What the animal has instead of, or as well as, the build's limbs. Each is
      a part with a place on the body like any limb, so it turns and sorts
      with the rest. */
@@ -1258,46 +1233,31 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             makes a creature read as something with volume you could pick up
             instead of a shape with a gradient poured into it. The last stop
             keeps the animal's own hue, so nothing dies into navy. */}
-        {ART_V2 ? (
-          /* vinyl: the coat's own colour, lit and turning into its own
-             shadow — no white edge, no step back up. The gloss pass does
-             the shine. */
-          <linearGradient id={`${uid}-body`} x1="0.18" y1="0" x2="0.8" y2="1">
-            <stop offset="0%" stopColor={mixc(A, "#ffffff", .26)} />
-            <stop offset="38%" stopColor={mixc(A, "#ffffff", .06)} />
-            <stop offset="66%" stopColor={A2} />
-            <stop offset="90%" stopColor={mixc(A2, B, .42)} />
-            <stop offset="100%" stopColor={mixc(A2, B, .58)} />
-          </linearGradient>
-        ) : (
+        {/* vinyl: the coat's own colour, lit and turning into its own
+            shadow — no white edge, no step back up. The gloss pass does the
+            shine. */}
         <linearGradient id={`${uid}-body`} x1="0.18" y1="0" x2="0.8" y2="1">
-          {/* glossy vinyl: a clean hot edge, then the pet's own colour at full
-              strength, instead of a white haze across the whole body */}
-          <stop offset="0%" stopColor={mixc(A, "#ffffff", .6)} />
-          <stop offset="12%" stopColor={mixc(A, "#ffffff", .08)} />
-          <stop offset="30%" stopColor={mixc(A, "#ffffff", .22)} />
-          <stop offset="58%" stopColor={A2} />
-          <stop offset="82%" stopColor={mixc(A2, B, .62)} />
-          <stop offset="100%" stopColor={mixc(B, A, .18)} />
+          <stop offset="0%" stopColor={mixc(A, "#ffffff", .26)} />
+          <stop offset="38%" stopColor={mixc(A, "#ffffff", .06)} />
+          <stop offset="66%" stopColor={A2} />
+          <stop offset="90%" stopColor={mixc(A2, B, .42)} />
+          <stop offset="100%" stopColor={mixc(A2, B, .58)} />
         </linearGradient>
-        )}
-        {ART_V2 && KD === "fish" && (
+        {KD === "fish" && (
           <linearGradient id={`${uid}-fin`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor={mixc(mixc(A, T.c, .45), "#ffffff", .3)} />
             <stop offset="100%" stopColor={mixc(A2, T.c, .5)} />
           </linearGradient>
         )}
-        {ART_V2 && <clipPath id={hcId}><path d={(HEADS[sp.head] || HEADS.round)(cx, hy, hr)} transform={mv(hdx)} /></clipPath>}
-        {ART_V2 && (
-          /* one broad soft gloss where the key lands, with a tighter hot core:
-             a moulded toy, not a lamp */
-          <radialGradient id={`${uid}-gloss`} cx="0.34" cy="0.24" r="0.56">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity=".7" />
-            <stop offset="14%" stopColor="#ffffff" stopOpacity=".42" />
-            <stop offset="42%" stopColor="#ffffff" stopOpacity=".1" />
-            <stop offset="72%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        )}
+        <clipPath id={hcId}><path d={(HEADS[sp.head] || HEADS.round)(cx, hy, hr)} transform={mv(hdx)} /></clipPath>
+        {/* one broad soft gloss where the key lands, with a tighter hot core:
+            a moulded toy, not a lamp */}
+        <radialGradient id={`${uid}-gloss`} cx="0.34" cy="0.24" r="0.56">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".7" />
+          <stop offset="14%" stopColor="#ffffff" stopOpacity=".42" />
+          <stop offset="42%" stopColor="#ffffff" stopOpacity=".1" />
+          <stop offset="72%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
         {/* the same material without the crown highlight, for anything that is
             not a sphere: ears, tails, limbs */}
         {/* the pale front, fading out at its edge so it is a MARKING and not
@@ -1312,15 +1272,15 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           <stop offset="100%" stopColor={mixc(A, "#fffaf2", .26)} stopOpacity="0" />
         </radialGradient>
         <linearGradient id={`${uid}-soft`} x1="0.2" y1="0" x2="0.78" y2="1">
-          <stop offset="0%" stopColor={mixc(A, "#ffffff", ART_V2 ? .16 : .22)} />
-          <stop offset="34%" stopColor={mixc(A, "#ffffff", ART_V2 ? .05 : .26)} />
+          <stop offset="0%" stopColor={mixc(A, "#ffffff", .16)} />
+          <stop offset="34%" stopColor={mixc(A, "#ffffff", .05)} />
           <stop offset="60%" stopColor={A2} />
-          <stop offset="100%" stopColor={ART_V2 ? mixc(A2, B, .52) : mixc(B, A, .18)} />
+          <stop offset="100%" stopColor={mixc(A2, B, .52)} />
         </linearGradient>
         <linearGradient id={`${uid}-limb`} x1="0.2" y1="0" x2="0.8" y2="1">
-          <stop offset="0%" stopColor={mixc(A2, "#ffffff", ART_V2 ? .12 : .22)} />
+          <stop offset="0%" stopColor={mixc(A2, "#ffffff", .12)} />
           <stop offset="46%" stopColor={A2} />
-          <stop offset="100%" stopColor={ART_V2 ? mixc(A2, B, .5) : mixc(B, A, .14)} />
+          <stop offset="100%" stopColor={mixc(A2, B, .5)} />
         </linearGradient>
         {/* ── the second material ──
             Half creature, half machine only reads if the machine half is made
@@ -1344,20 +1304,6 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           <stop offset="42%" stopColor={T.c} />
           <stop offset="100%" stopColor={B} />
         </radialGradient>
-        {/* Neon split light, the same rig the robots stand in: a magenta key
-            from the upper left and a cyan fill from the lower right, each
-            leaning a little toward the pet's own element so an ember pet and
-            a frost pet still read as different animals under the same signs. */}
-        <linearGradient id={`${uid}-warm`} x1="0.12" y1="0" x2="0.78" y2="0.9">
-          <stop offset="0%" stopColor={mixc("#ff4fdc", T.c, .2)} stopOpacity=".44" />
-          <stop offset="34%" stopColor={mixc("#ff4fdc", T.c, .2)} stopOpacity=".1" />
-          <stop offset="100%" stopColor={mixc("#ff4fdc", T.c, .2)} stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id={`${uid}-cool`} x1="0.88" y1="1" x2="0.32" y2="0.16">
-          <stop offset="0%" stopColor={mixc("#2ff0ff", T.c, .2)} stopOpacity=".46" />
-          <stop offset="42%" stopColor={mixc("#2ff0ff", T.c, .2)} stopOpacity=".08" />
-          <stop offset="100%" stopColor={mixc("#2ff0ff", T.c, .2)} stopOpacity="0" />
-        </linearGradient>
         <radialGradient id={`${uid}-glow`}>
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".95" />
           <stop offset="40%" stopColor={T.c} stopOpacity=".85" />
@@ -1367,13 +1313,6 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           <stop offset="0%" stopColor="#000814" stopOpacity="0" />
           <stop offset="52%" stopColor="#000814" stopOpacity=".08" />
           <stop offset="100%" stopColor="#000814" stopOpacity=".46" />
-        </linearGradient>
-        <linearGradient id={`${uid}-spec`} x1="0.08" y1="0" x2="0.7" y2="0.92">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity=".9" />
-          <stop offset="12%" stopColor="#ffffff" stopOpacity=".3" />
-          <stop offset="26%" stopColor="#ffffff" stopOpacity=".02" />
-          <stop offset="31%" stopColor="#ffffff" stopOpacity=".14" />
-          <stop offset="36%" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
       </defs>
 

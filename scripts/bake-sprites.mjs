@@ -27,10 +27,10 @@
          No browser: list sprites whose drawing changed after they were baked.
          `npm run build` runs this and only warns — a stale sprite shows the
          previous drawing, it breaks nothing.
-     node scripts/bake-sprites.mjs --out=DIR [--v2] [--fx] [--only=…]
+     node scripts/bake-sprites.mjs --out=DIR [--raw] [--only=…]
          A preview: draws into DIR (plain names, no manifest, nothing pruned),
-         optionally with the ART_V2 redesign (--v2) and the finishing pass
-         (--fx, see GRADE) switched on, so either can be judged before it ships.
+         so a change to the artwork can be judged before it ships; --raw
+         leaves out the finishing pass (see FX) to compare with and without.
 
    Baking needs Playwright + Chromium, which are deliberately NOT dependencies
    of the app (the cloud dev containers ship both preinstalled). The check
@@ -67,17 +67,15 @@ const BAKE = { v: 1, ss: 2, q: 0.86 };
      under   the matching fall-off: the band whose neighbour below is empty,
              multiplied darker, so the underside of every form turns away
      bloom   whatever burns brighter than its own surroundings (optics,
-             cores, a glint) glows a little past its edge, at two radii
-   Offsets and radii are in supersampled pixels. GRADE switches it on for the
-   shipped sprites; it is part of their hash only when it is on, so switching
-   it re-bakes everything and leaving it off changes nothing. */
-const GRADE = false;
+             cores, a glint) lights the surface round it, at two radii
+   Offsets and radii are in supersampled pixels. FX is part of every
+   sprite's hash, so retuning it re-bakes everything. */
 const FX = {
   rim: { dx: 5, dy: -3, blur: 2.5, color: "#d4f0ff", alpha: 0.5 },
   under: { dx: 0, dy: 7, blur: 6, color: "#050b1a", alpha: 0.28 },
   bloom: { t: 0.72, m: 0.08, r0: 14, r1: 4, a1: 0.55, r2: 12, a2: 0.35 },
 };
-const FXON = GRADE || argv.includes("--fx");
+const FXON = !argv.includes("--raw");
 
 /* ── what gets baked ──
    `fit` is the range of box shapes (width / height) the sprite is shown in.
@@ -178,7 +176,7 @@ async function loadArt() {
     entryPoints: [join(CACHE, "entry.jsx")], outfile: join(CACHE, "art.mjs"),
     bundle: true, format: "esm", platform: "node", packages: "external",
     loader: { ".ts": "tsx", ".tsx": "tsx" }, jsx: "automatic", logLevel: "error",
-    absWorkingDir: ROOT, define: { __APP_BUILD__: '"sprites"', ...(PREVIEW && argv.includes("--v2") ? { __ART_V2__: "true" } : {}) },
+    absWorkingDir: ROOT, define: { __APP_BUILD__: '"sprites"' },
     external: ["@capacitor-community/text-to-speech"],
     // the 3D room's worker and ?url imports mean nothing to a still drawing
     plugins: [{ name: "stub", setup(b) {
@@ -195,7 +193,7 @@ async function loadArt() {
     .filter(s => !ONLY.length || ONLY.includes(s.key))
     .map(s => {
       const { markup, region } = regionOf(art.markupOf(s), s.fit);
-      return { key: s.key, markup, w: s.w, a: region[2] / region[3], k: sha(JSON.stringify([BAKE, FRAME, ...(FXON ? [FX] : []), s.w, css, markup]), 12) };
+      return { key: s.key, markup, w: s.w, a: region[2] / region[3], k: sha(JSON.stringify([BAKE, FRAME, FXON ? FX : null, s.w, css, markup]), 12) };
     });
   console.error = warn;
   return { specs, css };

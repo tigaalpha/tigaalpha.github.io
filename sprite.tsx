@@ -17,15 +17,10 @@
    so a missing sprite is a slower thumbnail, never a blank one. */
 import { useState } from "react";
 import { SPRITES } from "./sprites-manifest";
-import { ART_V2 } from "./art-flag";
 
 const DIR = "./sprites/";
-/* The baked stills are the standard art. A device previewing the redesign
-   (ART_V2, see art-flag.ts) draws its thumbnails live instead, so the preview
-   is one art style everywhere rather than old stills around new figures. */
-const LIVE = ART_V2;
 
-export const hasSprite = (id) => !LIVE && !!SPRITES[id];
+export const hasSprite = (id) => !!SPRITES[id];
 
 /** The baked still for `id`, shown about `px` CSS pixels wide (which picks the
     file through srcset), or `children` when there is none. It fills its box
@@ -34,7 +29,7 @@ export const hasSprite = (id) => !LIVE && !!SPRITES[id];
 export function Sprite({ id, px, children = null, className = "" }) {
   const s = SPRITES[id];
   const [bad, setBad] = useState(false);
-  if (!s || bad || LIVE) return children;
+  if (!s || bad) return children;
   const last = s.f.length - 1;
   return (
     <img className={`spr${className ? " " + className : ""}`} alt="" aria-hidden="true" draggable={false}
