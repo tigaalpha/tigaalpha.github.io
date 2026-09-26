@@ -60,7 +60,6 @@
 import { useId, useRef } from "react";
 import { classOf, classKeyOf } from "./model-skills";
 import { Sprite } from "./sprite";
-import { ART_V2 } from "./art-flag";
 
 /* The five base chassis. No gender axis — these are models, the way a car or a
    rifle is a model, and further customisation rides on top of whichever is
@@ -344,8 +343,7 @@ const mixc = (a, b, t) => "#" + hx6(a).map((v, i) => Math.round(v + (hx6(b)[i] -
    order is associative, so the four together ARE a single translucent
    layer, and that layer can be worked out once here and drawn as one
    gradient: the same picture from a quarter of the elements. Each layer is
-   [colour, axis, stops]; the result is sampled along the first layer's axis.
-   (ART_V2 only, with the rest of the redesign.) */
+   [colour, axis, stops]; the result is sampled along the first layer's axis. */
 function stackWash(layers, n = 26) {
   const [a1, a2] = [layers[0][1].slice(0, 2), layers[0][1].slice(2)];
   const along = (ax, u) => {
@@ -501,10 +499,8 @@ export const MODEL_RIG = {
    fight poses already swing the limbs in, so a stance reads the same from
    the front and from three-quarters round, and a pose simply adds to it.
    A frame costs transforms, not new artwork, beyond the beast's claws and
-   tail.
-
-   ART_V2 (art-flag.ts) gates it while the owner reviews the before/after
-   sheets; with it off, the standard frame draws exactly as it always has. */
+   tail. A chibi keeps its own build, and a head drawn alone has no body to
+   stand on, so neither takes a frame. */
 export const FRAME = {
   // a soldier's build: feet under the shoulders, soft knees, arms carried
   balanced: { legLen: 1,    armLen: 1,    limbT: 1.04, sh: 1,  stance: 3,  splay: [5, 5],  knee: [8, 8],   armOut: 7, elbow: [16, 16], hunch: 0 },
@@ -2969,8 +2965,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   const hs = rig.hs;                          // head size against the body
   const chibi = !!rig.chibi;
   /* the frame (see FRAME): every number below is the identity when there is
-     none, so the standard frame draws exactly as it always has */
-  const FRm = ART_V2 && !chibi && !headOnly ? FRAME[MODEL_FRAME[v] || "balanced"] : null;
+     none — a chibi, or a head drawn alone */
+  const FRm = !chibi && !headOnly ? FRAME[MODEL_FRAME[v] || "balanced"] : null;
   const F = { legLen: 1, armLen: 1, limbT: 1, sh: 0, stance: 0, splay: [0, 0], knee: [0, 0], armOut: 0, elbow: [0, 0], hunch: 0, lean: 0, ...(FRm || {}) };
   const bw = (rig.bw || 1) * ((rig.bw || 1) >= 1.1 && (F.bw || 1) > 1 ? 1 : (F.bw || 1)), bh = (rig.bh || 1) * (F.bh || 1);
   const fd = Y >= 0 ? 1 : -1;
@@ -3047,8 +3043,8 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <path d={d} fill={`url(#${id}-spec)`} stroke="none" opacity=".6" />
       <path d={d} fill="none" stroke={inkC} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity=".45" />
     </g>
-  ) : ART_V2 ? (
-    /* ── the plate, eight elements instead of sixteen ──
+  ) : (
+    /* ── the plate, eight elements ──
        The four diagonal washes are one gradient now (stackWash). The bevel's
        two clipped strokes, its clip path and the grazing stroke go too: the
        contour's light line runs a gradient instead — bright along the top
@@ -3062,39 +3058,6 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       {o.deep ? <path d={d} fill={`url(#${id}-depth)`} stroke="none" opacity={o.deep} /> : null}
       <path d={d} fill="none" stroke={inkC} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity=".42" />
       <path d={d} fill="none" stroke={o.line ? o.line : `url(#${id}-lip)`} strokeWidth={(o.lw || 1) * (o.line ? .55 : .8)} strokeLinejoin="round" opacity={o.line ? ".5" : "1"} />
-    </g>
-  ) : (
-    <g>
-      <path d={d} fill={o.fill || bPlate} stroke="none" />
-      <path d={d} fill={`url(#${id}-occ)`} stroke="none" opacity={o.occ == null ? 1 : o.occ} />
-      {/* warm key, cool bounce — light with a colour, not a white wash */}
-      <path d={d} fill={`url(#${id}-warm)`} stroke="none" opacity={o.warm == null ? 1 : o.warm} />
-      <path d={d} fill={`url(#${id}-cool)`} stroke="none" opacity={o.cool == null ? 1 : o.cool} />
-      <path d={d} fill={`url(#${id}-spec)`} stroke="none" opacity={o.spec == null ? 1 : o.spec} />
-      {/* the narrow hot-spot: the pass that makes it metal rather than matte */}
-      <path d={d} fill={`url(#${id}-hot)`} stroke="none" opacity={o.hot == null ? .9 : o.hot} />
-      {/* fresnel across the whole plate, then the grazing edge on top of it */}
-      <path d={d} fill={`url(#${id}-fres)`} stroke="none" opacity={o.fres == null ? .55 : o.fres} />
-      {o.deep ? <path d={d} fill={`url(#${id}-depth)`} stroke="none" opacity={o.deep} /> : null}
-      {/* ── the bevel ──
-          A machined plate has a lip: the top edge catches the key and the
-          bottom edge falls into shadow. Two offset copies of the same outline,
-          clipped to the plate, cost nothing and are the single biggest step
-          from "shape with a gradient" to "part with a thickness". */}
-      <g clipPath={`url(#${id}-c${Math.abs(hashPath(d))})`}>
-        <path d={d} fill="none" stroke="#ffffff" strokeWidth={(o.lw || 1) * 1.5} strokeLinejoin="round" opacity={o.bev == null ? .34 : o.bev} transform="translate(0 -0.9)" />
-        <path d={d} fill="none" stroke={inkC} strokeWidth={(o.lw || 1) * 1.5} strokeLinejoin="round" opacity={o.bev == null ? .3 : o.bev * .9} transform="translate(0 1.1)" />
-      </g>
-      <path d={d} fill="none" stroke={`url(#${id}-graze)`} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity={o.graze == null ? .4 : o.graze} />
-      {/* ── the contour ──
-          A plate's edge is first a CONTACT — the dark hairline where it meets
-          whatever is behind it — and only then a lit edge. Painting one fat
-          near-white outline around every plate is what turns a machine into a
-          sticker, so the dark contour carries the separation and the light
-          line is thinned to a glint on top of it. */}
-      <path d={d} fill="none" stroke={inkC} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity={o.lineOp == null ? .42 : o.lineOp * .47} />
-      <path d={d} fill="none" stroke={o.line || bLine} strokeWidth={(o.lw || 1) * .55} strokeLinejoin="round" opacity={o.lineOp == null ? .5 : o.lineOp * .56} />
-      <clipPath id={`${id}-c${Math.abs(hashPath(d))}`}><path d={d} /></clipPath>
     </g>
   )));
   /* A LIT seam: a channel with energy running through it. Three passes — a
@@ -3547,23 +3510,19 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             far side. Done with gradients rather than SVG filters on purpose —
             filters on a figure this size cost real frames on a phone, and this
             costs nothing. */}
-        {ART_V2 && (
-          <linearGradient id={`${id}-lit`} x1="0.12" y1="0.02" x2="0.88" y2="1">
-            {stackWash([
-              ["#000814", [.12, .02, .88, 1], [[0, "#000814", 0], [.4, "#000814", .05], [.72, "#000814", .32], [1, "#000814", .62]]],
-              [NEON_K, [.1, 0, .75, .85], [[0, NEON_K, .38], [.32, NEON_K, .08], [1, NEON_K, 0]]],
-              [NEON_F, [.85, 1, .3, .15], [[0, NEON_F, .3], [.38, NEON_F, .05], [1, NEON_F, 0]]],
-              ["#ffffff", [.08, 0, .72, .92], [[0, "#ffffff", .85], [.11, "#ffffff", .32], [.24, "#ffffff", .04], [.3, "#ffffff", .16], [.34, "#ffffff", 0], [.84, NEON_F, 0], [1, NEON_F, .36]]],
-            ], 48).map(([u, c, a], i) => <stop key={i} offset={`${(u * 100).toFixed(2)}%`} stopColor={c} stopOpacity={a.toFixed(3)} />)}
-          </linearGradient>
-        )}
-        {ART_V2 && (
-          <linearGradient id={`${id}-lip`} x1="0.5" y1="0" x2="0.5" y2="1">
-            <stop offset="0%" stopColor={mixc(bLine, "#ffffff", .55)} stopOpacity=".85" />
-            <stop offset="38%" stopColor={bLine} stopOpacity=".5" />
-            <stop offset="100%" stopColor={inkC} stopOpacity=".6" />
-          </linearGradient>
-        )}
+        <linearGradient id={`${id}-lit`} x1="0.12" y1="0.02" x2="0.88" y2="1">
+          {stackWash([
+            ["#000814", [.12, .02, .88, 1], [[0, "#000814", 0], [.4, "#000814", .05], [.72, "#000814", .32], [1, "#000814", .62]]],
+            [NEON_K, [.1, 0, .75, .85], [[0, NEON_K, .38], [.32, NEON_K, .08], [1, NEON_K, 0]]],
+            [NEON_F, [.85, 1, .3, .15], [[0, NEON_F, .3], [.38, NEON_F, .05], [1, NEON_F, 0]]],
+            ["#ffffff", [.08, 0, .72, .92], [[0, "#ffffff", .85], [.11, "#ffffff", .32], [.24, "#ffffff", .04], [.3, "#ffffff", .16], [.34, "#ffffff", 0], [.84, NEON_F, 0], [1, NEON_F, .36]]],
+          ], 48).map(([u, c, a], i) => <stop key={i} offset={`${(u * 100).toFixed(2)}%`} stopColor={c} stopOpacity={a.toFixed(3)} />)}
+        </linearGradient>
+        <linearGradient id={`${id}-lip`} x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stopColor={mixc(bLine, "#ffffff", .55)} stopOpacity=".85" />
+          <stop offset="38%" stopColor={bLine} stopOpacity=".5" />
+          <stop offset="100%" stopColor={inkC} stopOpacity=".6" />
+        </linearGradient>
         <linearGradient id={`${id}-occ`} x1="0.12" y1="0.02" x2="0.88" y2="1">
           <stop offset="0%" stopColor="#000814" stopOpacity="0" />
           <stop offset="40%" stopColor="#000814" stopOpacity=".05" />
@@ -3613,16 +3572,6 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
         <linearGradient id={`${id}-depth`} x1="0.5" y1="0" x2="0.5" y2="1">
           <stop offset="0%" stopColor="#0a1830" stopOpacity=".22" />
           <stop offset="100%" stopColor="#0a1830" stopOpacity=".1" />
-        </linearGradient>
-        <linearGradient id={`${id}-warm`} x1="0.1" y1="0" x2="0.75" y2="0.85">
-          <stop offset="0%" stopColor={NEON_K} stopOpacity=".38" />
-          <stop offset="32%" stopColor={NEON_K} stopOpacity=".08" />
-          <stop offset="100%" stopColor={NEON_K} stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id={`${id}-cool`} x1="0.85" y1="1" x2="0.3" y2="0.15">
-          <stop offset="0%" stopColor={NEON_F} stopOpacity=".3" />
-          <stop offset="38%" stopColor={NEON_F} stopOpacity=".05" />
-          <stop offset="100%" stopColor={NEON_F} stopOpacity="0" />
         </linearGradient>
         <radialGradient id={`${id}-hot`} cx="0.29" cy="0.17" r="0.34">
           <stop offset="0%" stopColor="#ffffff" stopOpacity=".95" />

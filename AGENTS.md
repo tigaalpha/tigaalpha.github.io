@@ -67,6 +67,10 @@ keep showing the old drawing (`npm run build` prints a warning listing any
 stale sprite; it never fails the build). Baking needs Playwright + Chromium,
 which the cloud containers have preinstalled; it is not a dependency of the
 app. Big live figures (character page, arena, pet room) stay live SVG.
+The bake also gives each still a finishing pass the live SVG cannot afford
+(rim light, under-shading, bloom — `FX` in the script).
+`node scripts/bake-sprites.mjs --out=DIR` draws a preview into DIR without
+touching the shipped sprites (`--raw` leaves the finishing pass out).
 
 Backend: Supabase (Postgres + Auth + Storage + RLS), project id
 `gsaqgbracxnucdmtmcxz`. Schema/RPC changes live as `supabase-*.sql` files
