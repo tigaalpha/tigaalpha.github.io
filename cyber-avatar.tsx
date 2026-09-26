@@ -60,6 +60,7 @@
 import { useId, useRef } from "react";
 import { classOf, classKeyOf } from "./model-skills";
 import { Sprite } from "./sprite";
+import { ART_V2 } from "./art-flag";
 
 /* The five base chassis. No gender axis — these are models, the way a car or a
    rifle is a model, and further customisation rides on top of whichever is
@@ -502,20 +503,8 @@ export const MODEL_RIG = {
    A frame costs transforms, not new artwork, beyond the beast's claws and
    tail.
 
-   ART_V2 gates it while the owner reviews the before/after sheets: the app
-   build leaves __ART_V2__ undefined, so production draws the standard
-   frame, and the preview renders define it. Opening the app once with
-   ?art=2 turns it on for that device (remembered; ?art=1 turns it off), so
-   the owner can play with the new frames on a real phone before anyone
-   else sees them. */
-const ART_V2 = (typeof __ART_V2__ !== "undefined" && !!__ART_V2__) || (() => {
-  try {
-    const q = new URLSearchParams(location.search).get("art");
-    if (q === "2") localStorage.setItem("tg_art", "2");
-    else if (q === "1") localStorage.removeItem("tg_art");
-    return localStorage.getItem("tg_art") === "2";
-  } catch (e) { return false; }
-})();
+   ART_V2 (art-flag.ts) gates it while the owner reviews the before/after
+   sheets; with it off, the standard frame draws exactly as it always has. */
 export const FRAME = {
   // a soldier's build: feet under the shoulders, soft knees, arms carried
   balanced: { legLen: 1,    armLen: 1,    limbT: 1.04, sh: 1,  stance: 3,  splay: [5, 5],  knee: [8, 8],   armOut: 7, elbow: [16, 16], hunch: 0 },
