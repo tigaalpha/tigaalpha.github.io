@@ -335,6 +335,47 @@ const CLASS_KIT = {
 const hx6 = h => { const t = h.replace("#", ""); return [0, 2, 4].map(i => parseInt(t.slice(i, i + 2), 16)); };
 const mixc = (a, b, t) => "#" + hx6(a).map((v, i) => Math.round(v + (hx6(b)[i] - v) * t).toString(16).padStart(2, "0")).join("");
 
+/* ── one gradient for four ──
+   A plate is lit by four translucent washes painted one over another — the
+   form shadow, the violet key, the cyan bounce and the specular band — and
+   all four run along the same diagonal of the plate's own box (their axes
+   lie within five degrees of each other). Painting translucent layers in
+   order is associative, so the four together ARE a single translucent
+   layer, and that layer can be worked out once here and drawn as one
+   gradient: the same picture from a quarter of the elements. Each layer is
+   [colour, axis, stops]; the result is sampled along the first layer's axis.
+   (ART_V2 only, with the rest of the redesign.) */
+function stackWash(layers, n = 26) {
+  const [a1, a2] = [layers[0][1].slice(0, 2), layers[0][1].slice(2)];
+  const along = (ax, u) => {
+    const px = a1[0] + (a2[0] - a1[0]) * u, py = a1[1] + (a2[1] - a1[1]) * u;
+    const dx = ax[2] - ax[0], dy = ax[3] - ax[1];
+    return ((px - ax[0]) * dx + (py - ax[1]) * dy) / (dx * dx + dy * dy);
+  };
+  const at = (st, t) => {
+    if (t <= st[0][0]) return st[0];
+    for (let i = 1; i < st.length; i++) if (t <= st[i][0]) {
+      const [o0, c0, a0] = st[i - 1], [o1, c1, a1_] = st[i], k = (t - o0) / ((o1 - o0) || 1);
+      return [t, mixc(c0, c1, k), a0 + (a1_ - a0) * k];
+    }
+    return st[st.length - 1];
+  };
+  const out = [];
+  for (let j = 0; j <= n; j++) {
+    const u = j / n;
+    let P = [0, 0, 0], A = 0;
+    for (const [, ax, st] of layers) {
+      const [, c, a] = at(st, clamp(along(ax, u), 0, 1));
+      const rgb = hx6(c);
+      P = P.map((v, i) => rgb[i] * a + v * (1 - a));
+      A = a + A * (1 - a);
+    }
+    const col = A > 0 ? "#" + P.map(v => Math.round(clamp(v / A, 0, 255)).toString(16).padStart(2, "0")).join("") : "#000000";
+    out.push([u, col, A]);
+  }
+  return out;
+}
+
 const POSES = {
   /* Positive swings a limb FORWARD and INWARD, on both sides — the right side
      applies the negative so one number means one thing however it is mirrored.
@@ -427,6 +468,72 @@ export const MODEL_RIG = {
   nyx:     { hs: 1.15, bw: 0.90, bh: 1.02 },
   forge:   { hs: 1.12, bw: 1.16, bh: 0.98 },
   zenith:  { hs: 1.16, bw: 0.98, bh: 1.00 },
+};
+
+/* ── the frame ──
+   MODEL_RIG stretches one torso wider or taller, and a wide robot is still a
+   narrow robot's skeleton scaled up: the same long legs, the same arms
+   hanging dead straight at its sides, the same parade-ground stance. Forty
+   machines read as one mannequin. A frame is the skeleton itself — how long
+   the legs are against the body, how thick the limbs, how far the shoulders
+   sit out, and how the machine carries its weight at rest:
+
+     legLen, armLen  limb length against the standard frame (1)
+     limbT           limb thickness
+     sh, stance      shoulders and hips pushed out, in units per side
+     splay [L, R]    each leg angled out from the hip, in degrees
+     knee  [L, R]    each knee bowed out, in degrees — the foot comes back
+                     level under it, so a bend reads as weight, not a stumble
+     armOut          both arms carried out from the body, in degrees
+     elbow [L, R]    each forearm bent in across the body, in degrees
+     hunch           the head sunk between the shoulders, in units
+     lean            the upper body pitched forward, in degrees: a pitch
+                     toward the viewer is invisible head-on, so this one
+                     does follow the view — none from the front, all of it
+                     side-on
+     bw, bh          multiply the model's own width and height (MODEL_RIG);
+                     a model already built wide (bw 1.1 and up) keeps its own
+                     width, or the widest tanks would crowd the arena
+     claw, tail      the beast frame's feet and tail
+
+   Every one of these bends in the plane of the picture, the same plane the
+   fight poses already swing the limbs in, so a stance reads the same from
+   the front and from three-quarters round, and a pose simply adds to it.
+   A frame costs transforms, not new artwork, beyond the beast's claws and
+   tail.
+
+   ART_V2 gates it while the owner reviews the before/after sheets: the app
+   build leaves __ART_V2__ undefined, so production draws the standard
+   frame, and the preview renders define it. Opening the app once with
+   ?art=2 turns it on for that device (remembered; ?art=1 turns it off), so
+   the owner can play with the new frames on a real phone before anyone
+   else sees them. */
+const ART_V2 = (typeof __ART_V2__ !== "undefined" && !!__ART_V2__) || (() => {
+  try {
+    const q = new URLSearchParams(location.search).get("art");
+    if (q === "2") localStorage.setItem("tg_art", "2");
+    else if (q === "1") localStorage.removeItem("tg_art");
+    return localStorage.getItem("tg_art") === "2";
+  } catch (e) { return false; }
+})();
+export const FRAME = {
+  // a soldier's build: feet under the shoulders, soft knees, arms carried
+  balanced: { legLen: 1,    armLen: 1,    limbT: 1.04, sh: 1,  stance: 3,  splay: [5, 5],  knee: [8, 8],   armOut: 7, elbow: [16, 16], hunch: 0 },
+  // long in the leg and narrow: its weight on one straight leg, the other
+  // bent and turned out, the way a fencer stands between touches
+  slim:     { legLen: 1.08, armLen: 1.04, limbT: .84,  sh: -3, stance: 0,  splay: [8, -2], knee: [14, 0],  armOut: 3, elbow: [18, 6],  hunch: 0, bw: .94, bh: 1.02 },
+  // a tank: short thick legs planted wide and bowed, shoulders out past the hips
+  heavy:    { legLen: .84,  armLen: .97,  limbT: 1.3,  sh: 6,  stance: 7,  splay: [9, 9],  knee: [14, 14], armOut: 8, elbow: [8, 8],   hunch: 0, bw: 1.08 },
+  // crouched low on bowed legs, head sunk into its shoulders, arms long
+  beast:    { legLen: .96,  armLen: 1.14, limbT: 1.16, sh: 4,  stance: 6,  splay: [10, 10], knee: [28, 28], armOut: 6, elbow: [26, 26], hunch: 9, lean: 14, claw: true, tail: true },
+};
+export const MODEL_FRAME = {
+  vanguard: "balanced", ronin: "balanced", envoy: "balanced", meridian: "balanced",
+  keeper: "balanced", oracle: "balanced", zenith: "balanced",
+  phantom: "slim", specter: "slim", scout: "slim", aurora: "slim", halcyon: "slim",
+  wraith: "slim", nyx: "slim", tempest: "slim", saber: "slim",
+  sentinel: "heavy", atlas: "heavy", magnus: "heavy", bastion: "heavy", forge: "heavy", sentry: "heavy",
+  reaper: "beast", talon: "beast", korax: "beast",
 };
 
 /* ── the build ──
@@ -2872,7 +2979,30 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   const KIT = CLASS_KIT[classKeyOf(v)] || CLASS_KIT.striker;
   const hs = rig.hs;                          // head size against the body
   const chibi = !!rig.chibi;
-  const bw = rig.bw || 1, bh = rig.bh || 1;
+  /* the frame (see FRAME): every number below is the identity when there is
+     none, so the standard frame draws exactly as it always has */
+  const FRm = ART_V2 && !chibi && !headOnly ? FRAME[MODEL_FRAME[v] || "balanced"] : null;
+  const F = { legLen: 1, armLen: 1, limbT: 1, sh: 0, stance: 0, splay: [0, 0], knee: [0, 0], armOut: 0, elbow: [0, 0], hunch: 0, lean: 0, ...(FRm || {}) };
+  const bw = (rig.bw || 1) * ((rig.bw || 1) >= 1.1 && (F.bw || 1) > 1 ? 1 : (F.bw || 1)), bh = (rig.bh || 1) * (F.bh || 1);
+  const fd = Y >= 0 ? 1 : -1;
+  /* A splayed, bowed leg stands shorter than a straight one: the thigh (68
+     units, hip to knee) at splay + knee/2 off vertical, the shin (51) at
+     splay - knee/2, the foot level. The body comes down onto whichever leg
+     reaches lower — that one carries the weight, the other rests lighter. */
+  const legDrop = (i) => F.legLen * (68 * (1 - Math.cos((F.splay[i] + F.knee[i] / 2) * RAD)) + 51 * (1 - Math.cos((F.splay[i] - F.knee[i] / 2) * RAD)));
+  const dyUp = FRm ? (1 - F.legLen) * 154 + Math.min(legDrop(0), legDrop(1)) : 0;
+  // the pitch, as the front view sees it (tipped toward where it faces) and
+  // as the drawn side view does (already turned to face +x)
+  const LEAN = F.lean * Math.abs(s) * fd, LEANS = F.lean * Math.abs(s);
+  // arms carried out at the shoulder (viewer-left arm turns +, the right one -)
+  const AOL = F.armOut, AOR = -F.armOut;
+  // forearms bent in across the body
+  const ELB = -F.elbow[0], ERB = F.elbow[1];
+  // a limb scaled about its own joint: thickness across, length along
+  const limbSc = (px, py, len) => (FRm ? `translate(${px} ${py}) scale(${F.limbT} ${len}) translate(${-px} ${-py})` : undefined);
+  // where a scaled limb's joint lands, for the next segment to turn about
+  const jy = (py, y, len) => py + (y - py) * len;
+  const jx = (px, x) => px + (x - px) * F.limbT;
   const bd = MODEL_BUILD[v] || MODEL_BUILD.vanguard;   // pauldron / core / backpack
   const cb = CUTE_BUILD[v] || CUTE_BUILD.nova;         // badge / belly / tail / foot
   const mkBoot = BOOT[cb.foot] || BOOT.round;
@@ -2927,6 +3057,22 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <path d={d} fill={`url(#${id}-occ)`} stroke="none" opacity=".85" />
       <path d={d} fill={`url(#${id}-spec)`} stroke="none" opacity=".6" />
       <path d={d} fill="none" stroke={inkC} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity=".45" />
+    </g>
+  ) : ART_V2 ? (
+    /* ── the plate, eight elements instead of sixteen ──
+       The four diagonal washes are one gradient now (stackWash). The bevel's
+       two clipped strokes, its clip path and the grazing stroke go too: the
+       contour's light line runs a gradient instead — bright along the top
+       edge where the key catches the lip, dark along the bottom where the
+       lip falls into shadow — which is what the bevel was there to say. */
+    <g>
+      <path d={d} fill={o.fill || bPlate} stroke="none" />
+      <path d={d} fill={`url(#${id}-lit)`} stroke="none" />
+      <path d={d} fill={`url(#${id}-hot)`} stroke="none" opacity=".9" />
+      <path d={d} fill={`url(#${id}-fres)`} stroke="none" opacity=".55" />
+      {o.deep ? <path d={d} fill={`url(#${id}-depth)`} stroke="none" opacity={o.deep} /> : null}
+      <path d={d} fill="none" stroke={inkC} strokeWidth={(o.lw || 1) * 1.15} strokeLinejoin="round" opacity=".42" />
+      <path d={d} fill="none" stroke={o.line ? o.line : `url(#${id}-lip)`} strokeWidth={(o.lw || 1) * (o.line ? .55 : .8)} strokeLinejoin="round" opacity={o.line ? ".5" : "1"} />
     </g>
   ) : (
     <g>
@@ -3014,7 +3160,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
     const W = HK === "palm" ? -90 : (HA[pname] != null ? HA[pname] : HA.idle);
     const g = held.g || [32, 44], ax = held.ax == null ? -90 : held.ax, k = held.k || 1;
     return (
-      <g className="ca-held" transform={`translate(${hx} ${hy}) rotate(${(-theta).toFixed(2)}) scale(${(1 / bw).toFixed(4)} 1)${faceR ? "" : " scale(-1 1)"} rotate(${(W - ax).toFixed(2)}) scale(${k}) translate(${-g[0]} ${-g[1]})`}>
+      <g className="ca-held" transform={`translate(${hx} ${hy})${FRm && !chibi ? ` scale(${(1 / F.limbT).toFixed(4)} ${(1 / F.armLen).toFixed(4)})` : ""} rotate(${(-theta).toFixed(2)}) scale(${(1 / bw).toFixed(4)} 1)${faceR ? "" : " scale(-1 1)"} rotate(${(W - ax).toFixed(2)}) scale(${k}) translate(${-g[0]} ${-g[1]})`}>
         {held.node}
       </g>
     );
@@ -3106,6 +3252,112 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
      now drawn again last, over the chest and the legs; the upper arm stays
      where it was, under the pauldron that covers it. */
   const liftArm = !headOnly && Math.abs(Y) >= 8 && Math.abs(Y) <= 80;
+  const armAt = (side) => (FRm ? `translate(${side * F.sh} 0)` : undefined);
+  // the forearm, turned at the elbow where the scaled upper arm puts it
+  const fore = (px, ex, low, bend) => (FRm ? (
+    <g transform={rot(bend, jx(px, ex), jy(108, 158, F.armLen))}><g transform={limbSc(px, 108, F.armLen)}>{low}</g></g>
+  ) : low);
+  /* One hero leg. The thigh swings at the hip; the shin turns at the knee and
+     the foot at the ankle, each about the point where the scaled limb puts
+     that joint — so a held bend never shears a plate. The knee goes toward
+     where the machine faces and the foot comes back level under the hip.
+     side -1 is the viewer-left leg. */
+  const legAt = (side) => (FRm ? `translate(${side * F.stance} 0)` : undefined);
+  /* The rest angles of one leg, as rotations for its hip, knee and ankle.
+     Out is +x for the viewer-right leg and -x for the left, so the signs flip
+     with the side; the ankle undoes what the shin is left at, so the sole
+     stays flat on the floor. */
+  const legRest = (i) => {
+    const sg = i === 0 ? 1 : -1, sp = F.splay[i], kn = F.knee[i];
+    return { hip: sg * (sp + kn / 2), knee: -sg * kn, ankle: -sg * (sp - kn / 2) };
+  };
+  const leg = (side, thigh, shin, foot) => {
+    const hx = side < 0 ? 46 : 74;
+    const hip = side < 0 ? PZ.legL : -PZ.legR;
+    if (!FRm) return <g className="ca-limb" transform={rot(hip, hx, 238)}>{thigh}{shin}{foot}</g>;
+    const R = legRest(side < 0 ? 0 : 1);
+    const sc = limbSc(hx, 238, F.legLen);
+    return (
+      <g transform={legAt(side)}>
+        <g className="ca-limb" transform={rot(hip + R.hip, hx, 238)}>
+          <g transform={sc}>{thigh}</g>
+          <g transform={rot(R.knee, hx, jy(238, 306, F.legLen))}>
+            <g transform={sc}>{shin}</g>
+            <g transform={rot(R.ankle, hx, jy(238, 357, F.legLen))}><g transform={sc}>{foot}</g></g>
+          </g>
+        </g>
+      </g>
+    );
+  };
+  /* The drawn side view carries the same stance, so at three-quarters —
+     where it shows through under the front view — its limbs sit over the
+     front view's instead of standing straight up between them as ghosts.
+     Seen square from the side, the same angles read as a stride: one leg
+     forward, one back. i picks which side's rest angles it borrows. */
+  const sideArm = (i, ex, ey, upper, lower) => (FRm ? (
+    <g transform={`${rot(LEANS, 60, 200)} ${rot(i === 0 ? AOL : AOR, 56, 104)}`}>
+      <g transform={limbSc(56, 104, F.armLen)}>{upper}</g>
+      <g transform={rot(i === 0 ? ELB : ERB, jx(56, ex), jy(104, ey, F.armLen))}><g transform={limbSc(56, 104, F.armLen)}>{lower}</g></g>
+    </g>
+  ) : <>{upper}{lower}</>);
+  /* Until the machine is nearly side-on, the front view's legs are the ones
+     that carry the stance; the drawn side view's legs stand where the front
+     view's hips are, which a splayed stance no longer is, so they fade out
+     rather than show between the front legs as a second pair. */
+  const sideLegOp = FRm ? clamp(1 - Math.max(front, rear), 0, 1) : 1;
+  const sideLeg = (i, hx, thigh, shin, foot) => {
+    if (!FRm) return <>{thigh}{shin}{foot}</>;
+    if (sideLegOp < 0.02) return null;
+    const R = legRest(i);
+    const sc = limbSc(hx, 240, F.legLen);
+    return (
+      <g transform={rot(R.hip, hx, 240)} opacity={sideLegOp < 0.98 ? sideLegOp.toFixed(3) : undefined}>
+        <g transform={sc}>{thigh}</g>
+        <g transform={rot(R.knee, hx, jy(240, 303, F.legLen))}>
+          <g transform={sc}>{shin}</g>
+          <g transform={rot(R.ankle, hx, jy(240, 362, F.legLen))}><g transform={sc}>{foot}</g></g>
+        </g>
+      </g>
+    );
+  };
+  /* ── the beast frame's foot ──
+     A boot says soldier. Three hooked toes on a splayed pad, and a dew claw
+     behind, say it runs on all fours when it wants to — the shape a
+     silhouette is read by at thumbnail size. */
+  const clawFoot = (hx, side) => {
+    const toe = (bx, tx, ty, w) =>
+      `M${bx - w} 370 C${bx - w} 378 ${tx - w * .6} ${ty - 9} ${tx - 1.2} ${ty - 1.5} L${tx} ${ty} L${tx + 1.2} ${ty - 1.5} C${tx + w * .6} ${ty - 9} ${bx + w} 378 ${bx + w} 370 Z`;
+    return <>
+      {plate(`M${hx - 12} 359 L${hx + 12} 359 C${hx + 15} 366 ${hx + 15} 373 ${hx + 11} 377 L${hx - 11} 377 C${hx - 15} 373 ${hx - 15} 366 ${hx - 12} 359 Z`, { fill: bTrim })}
+      {[[-8, -19, 391, 4.2], [0, 0, 395, 4.8], [8, 19, 391, 4.2]].map(([dx, tx, ty, w], i) => (
+        <g key={i}>
+          {plate(toe(hx + dx, hx + tx * .72, ty, w), { lw: .8, deep: .8 })}
+          <path d={`M${hx + tx * .72 - 1.6} ${ty - 5} L${hx + tx * .72} ${ty} L${hx + tx * .72 + 1.6} ${ty - 5} Z`} fill={inkC} opacity=".9" />
+        </g>))}
+      {plate(`M${hx - side * 9} 364 L${hx - side * 20} 380 L${hx - side * 12} 368 Z`, { lw: .7, lite: 1 })}
+    </>;
+  };
+  /* ── and its tail ──
+     Segmented, rooted under the pelvis and swept back away from the way it
+     faces, ending in a blade: a counterweight a hunched machine visibly
+     needs. Drawn before the body so the legs cross in front of it. */
+  const tailArt = F.tail ? (() => {
+    /* armoured segments along a curve that leaves the pelvis low, sweeps out
+       past the hip and rises again: out past the legs it is silhouette, which
+       is the only place a tail is worth drawing */
+    const segs = [[50, 250, 17, 13], [34, 268, 15.5, 12], [18, 280, 14, 11], [4, 284, 12.5, 10], [-9, 280, 11, 9], [-20, 270, 9.5, 8], [-28, 256, 8, 7]];
+    const one = <>
+      {segs.map(([x, y, rx, ry], i) => (
+        <g key={i}>{plate(`M${x - rx} ${y} C${x - rx} ${y - ry * 1.33} ${x + rx} ${y - ry * 1.33} ${x + rx} ${y} C${x + rx} ${y + ry * 1.33} ${x - rx} ${y + ry * 1.33} ${x - rx} ${y} Z`, { lw: 1, lite: 1 })}</g>))}
+      {segs.slice(0, -1).map(([x, y], i) => <circle key={"b" + i} cx={x} cy={y} r="2.2" fill={glow} opacity=".75" className="ca-optic" />)}
+      {/* the blade it ends in */}
+      {plate("M-24 250 L-44 214 L-30 236 L-36 206 L-18 244 Z", { fill: bTrim, line: glow, lw: 1 })}
+    </>;
+    return one;
+  })() : null;
+  // the front view shows it past the hip it trails behind; the side view,
+  // already turned to face +x, trails it straight out the back
+  const tail = tailArt ? <g transform={rot(PZ.lean + LEAN, 60, 200)}>{fd > 0 ? tailArt : <g transform="translate(120 0) scale(-1 1)">{tailArt}</g>}</g> : null;
   const armLowL = headOnly ? null : (<>
                 {plate("M10 160 L30 163 L28 218 L14 216 Z", { deep: .9 })}
                 {castOn("M10 160 L30 163 L28 218 L14 216 Z", .45)}
@@ -3114,7 +3366,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {plate("M11 214 L30 217 L29 227 L11 224 Z", { fill: bTrim, deep: .9 })}
                 {/* a hand, not a mitt: palm, three fingers, a thumb */}
                 {plate("M12 226 L29 229 L28 239 L13 237 Z", { deep: .9 })}
-                {holdL && heldAt(20.5, 241, PZ.armL)}
+                {holdL && heldAt(20.5, 241, PZ.armL + AOL + ELB)}
                 {[0, 1, 2].map(f => (
                   <g key={f}>{plate(`M${13.5 + f * 5} ${237 + f * .4} L${17.6 + f * 5} ${237.6 + f * .4} L${17.2 + f * 5} ${248 - f * 1.2} C${15.6 + f * 5} ${251 - f * 1.2} ${13.6 + f * 5} ${250.6 - f * 1.2} ${13.2 + f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
                 {plate("M11 230 L14.2 230.4 L13.2 241 C11.8 243.6 9.2 243.2 8.8 240.6 Z", { lw: .8, deep: .9 })}
@@ -3126,7 +3378,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {holdL && accAt("arm")}
                 {plate("M109 214 L90 217 L91 227 L109 224 Z", { fill: bTrim, deep: .9 })}
                 {plate("M108 226 L91 229 L92 239 L107 237 Z", { deep: .9 })}
-                {!holdL && heldAt(99.5, 241, -PZ.armR)}
+                {!holdL && heldAt(99.5, 241, -PZ.armR + AOR + ERB)}
                 {[0, 1, 2].map(f => (
                   <g key={f}>{plate(`M${106.5 - f * 5} ${237 + f * .4} L${102.4 - f * 5} ${237.6 + f * .4} L${102.8 - f * 5} ${248 - f * 1.2} C${104.4 - f * 5} ${251 - f * 1.2} ${106.4 - f * 5} ${250.6 - f * 1.2} ${106.8 - f * 5} ${247.6 - f * 1.2} Z`, { lw: .8, deep: .9 })}</g>))}
                 {plate("M109 230 L105.8 230.4 L106.8 241 C108.2 243.6 110.8 243.2 111.2 240.6 Z", { lw: .8, deep: .9 })}
@@ -3306,6 +3558,23 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             far side. Done with gradients rather than SVG filters on purpose —
             filters on a figure this size cost real frames on a phone, and this
             costs nothing. */}
+        {ART_V2 && (
+          <linearGradient id={`${id}-lit`} x1="0.12" y1="0.02" x2="0.88" y2="1">
+            {stackWash([
+              ["#000814", [.12, .02, .88, 1], [[0, "#000814", 0], [.4, "#000814", .05], [.72, "#000814", .32], [1, "#000814", .62]]],
+              [NEON_K, [.1, 0, .75, .85], [[0, NEON_K, .38], [.32, NEON_K, .08], [1, NEON_K, 0]]],
+              [NEON_F, [.85, 1, .3, .15], [[0, NEON_F, .3], [.38, NEON_F, .05], [1, NEON_F, 0]]],
+              ["#ffffff", [.08, 0, .72, .92], [[0, "#ffffff", .85], [.11, "#ffffff", .32], [.24, "#ffffff", .04], [.3, "#ffffff", .16], [.34, "#ffffff", 0], [.84, NEON_F, 0], [1, NEON_F, .36]]],
+            ], 48).map(([u, c, a], i) => <stop key={i} offset={`${(u * 100).toFixed(2)}%`} stopColor={c} stopOpacity={a.toFixed(3)} />)}
+          </linearGradient>
+        )}
+        {ART_V2 && (
+          <linearGradient id={`${id}-lip`} x1="0.5" y1="0" x2="0.5" y2="1">
+            <stop offset="0%" stopColor={mixc(bLine, "#ffffff", .55)} stopOpacity=".85" />
+            <stop offset="38%" stopColor={bLine} stopOpacity=".5" />
+            <stop offset="100%" stopColor={inkC} stopOpacity=".6" />
+          </linearGradient>
+        )}
         <linearGradient id={`${id}-occ`} x1="0.12" y1="0.02" x2="0.88" y2="1">
           <stop offset="0%" stopColor="#000814" stopOpacity="0" />
           <stop offset="40%" stopColor="#000814" stopOpacity=".05" />
@@ -3766,30 +4035,33 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               pauldron, bicep, elbow actuator, forearm, hand; hip, thigh, knee,
               shin, ankle, boot. */}
           {ws > 0.02 && (
-            <g opacity={ws.toFixed(3)} transform={`translate(${(cxs - 60).toFixed(2)} 0)${dir < 0 ? " translate(120 0) scale(-1 1)" : ""}`}>
+            <g opacity={ws.toFixed(3)} transform={`translate(${(cxs - 60).toFixed(2)} ${dyUp.toFixed(2)})${dir < 0 ? " translate(120 0) scale(-1 1)" : ""}`}>
+              {tailArt && <g transform="translate(6 0)">{tailArt}</g>}
               {/* far arm and far leg, behind the body */}
               <g opacity=".55">
-                {plate("M50 104 C44 114 43 132 45 150 L61 152 C63 134 63 116 62 106 Z")}
-                {plate("M46 156 L61 158 L59 214 L48 212 Z")}
-                {plate("M47 212 L59 214 L59 234 C54 241 48 240 46 233 Z")}
-                {plate("M45 240 L64 240 L62 302 L47 302 Z")}
-                {plate("M48 304 L62 304 L60 364 L50 364 Z")}
-                {plate("M46 360 L60 360 L74 378 L74 391 L43 391 L43 375 Z")}
+                {sideArm(1, 55, 158, <>{plate("M50 104 C44 114 43 132 45 150 L61 152 C63 134 63 116 62 106 Z")}</>,
+                  <>{plate("M46 156 L61 158 L59 214 L48 212 Z")}
+                  {plate("M47 212 L59 214 L59 234 C54 241 48 240 46 233 Z")}</>)}
+                {sideLeg(1, 55, <>{plate("M45 240 L64 240 L62 302 L47 302 Z")}</>,
+                  <>{plate("M48 304 L62 304 L60 364 L50 364 Z")}</>,
+                  F.claw ? clawFoot(55, 1) : <>{plate("M46 360 L60 360 L74 378 L74 391 L43 391 L43 375 Z")}</>)}
               </g>
+              <g transform={LEANS ? rot(LEANS, 60, 200) : undefined}>
               {/* torso, seen edge-on: chest forward, shoulder blade back */}
               {plate("M60 84 C71 84 79 92 82 102 L86 126 L84 156 L78 194 L42 194 L38 156 L38 126 L42 102 C46 92 52 84 60 84 Z", { lw: 1.2 })}
+              </g>
               {plate("M43 190 L79 190 L83 220 L77 248 L45 248 L39 220 Z", { fill: bTrim, lw: 1 })}
               {/* near arm, in front of the chest */}
-              {plate("M52 100 C46 110 45 130 47 150 L65 153 C67 134 67 114 66 102 Z")}
-              {joint(56, 155, 11)}
-              {plate("M48 158 L64 161 L62 216 L51 214 Z")}
-              {plate("M50 214 L62 217 L62 238 C57 245 51 244 49 237 Z", { fill: bTrim })}
+              {sideArm(0, 58, 156, <>{plate("M52 100 C46 110 45 130 47 150 L65 153 C67 134 67 114 66 102 Z")}
+                {joint(56, 155, 11)}</>,
+                <>{plate("M48 158 L64 161 L62 216 L51 214 Z")}
+                {plate("M50 214 L62 217 L62 238 C57 245 51 244 49 237 Z", { fill: bTrim })}</>)}
               {/* near leg */}
-              {plate("M49 240 L71 240 L69 302 L51 302 Z")}
-              {joint(60, 303, 13)}
-              {plate("M52 304 L68 304 L66 364 L54 364 Z")}
-              {plate("M50 360 L66 360 L81 378 L81 391 L48 391 L48 375 Z", { fill: bTrim })}
-              <g opacity={profArt.toFixed(3)}>
+              {sideLeg(0, 60, <>{plate("M49 240 L71 240 L69 302 L51 302 Z")}</>,
+                <>{joint(60, 303, 13)}
+                {plate("M52 304 L68 304 L66 364 L54 364 Z")}</>,
+                F.claw ? clawFoot(60, 1) : <>{plate("M50 360 L66 360 L81 378 L81 391 L48 391 L48 375 Z", { fill: bTrim })}</>)}
+              <g opacity={profArt.toFixed(3)} transform={LEANS ? rot(LEANS, 60, 200) : undefined}>
                 {plate("M46 96 L36 104 L36 128 L48 122 Z", { fill: bTrim, line: glow, lw: 1 })}
                 {groove("M44 132 Q60 140 80 134 M46 160 Q60 166 78 160", 1, .5)}
                 <circle cx="80" cy="128" r="5" fill="none" stroke={term ? "#ff2d46" : glow} strokeWidth="1.2" opacity=".85" />
@@ -3798,7 +4070,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
             </g>
           )}
           {(front > 0.01 || rear > 0.01) && (
-            <g opacity={Math.max(front, rear).toFixed(3)} transform={`translate(0 ${PZ.lift})`}>
+            <g opacity={Math.max(front, rear).toFixed(3)} transform={`translate(0 ${(PZ.lift + dyUp).toFixed(2)})`}>
               {/* ── what it carries on its back ──
                   Drawn FIRST, so the arms and the torso cover it and only its
                   outline survives. That outline is the whole point: it is what
@@ -3818,31 +4090,40 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                   </>
                 );
                 return (
-                  <g transform={rot(PZ.lean, 60, 200)} opacity=".95">
-                    {one}<g transform="translate(120 0) scale(-1 1)">{one}</g>
+                  <g transform={rot(PZ.lean + LEAN, 60, 200)} opacity=".95">
+                    <g transform={armAt(-1)}>{one}</g><g transform={armAt(1)}><g transform="translate(120 0) scale(-1 1)">{one}</g></g>
                   </g>
                 );
               })()}
+              {tail}
               {accAt("back", "back")}{accAt("hip", "back")}{accAt("float", "back")}
               {/* arms swing from the shoulder; the whole limb is one group so
                   bicep, elbow, forearm and hand travel together */}
-              <g className="ca-limb" transform={rot(PZ.armL, 24, 108)}>
+              <g transform={armAt(-1)}>
+              <g className="ca-limb" transform={rot(PZ.armL + AOL, 24, 108)}>
+                <g transform={limbSc(24, 108, F.armLen)}>
                 {plate("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z", { deep: .9 })}
                 {/* the pauldron sits over this bicep, so the bicep wears its shadow */}
                 {castOn("M20 104 C11 114 7 134 9 156 L29 159 C32 138 33 116 33 106 Z", .85)}
                 {joint(19, 158, 13)}
                 {pivot(19, 158, 6.2)}
-                {!(liftArm && nearL) && armLowL}
+                </g>
+                {!(liftArm && nearL) && fore(24, 19, armLowL, ELB)}
               </g>
-              <g className="ca-limb" transform={rot(-PZ.armR, 96, 108)}>
+              </g>
+              <g transform={armAt(1)}>
+              <g className="ca-limb" transform={rot(-PZ.armR + AOR, 96, 108)}>
+                <g transform={limbSc(96, 108, F.armLen)}>
                 {plate("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", { deep: .9 })}
                 {castOn("M100 104 C109 114 113 134 111 156 L91 159 C88 138 87 116 87 106 Z", .85)}
                 {joint(101, 158, 13)}
                 {pivot(101, 158, 6.2)}
-                {!(liftArm && !nearL) && armLowR}
+                </g>
+                {!(liftArm && !nearL) && fore(96, 101, armLowR, ERB)}
+              </g>
               </g>
               {/* pauldrons ride the shoulder line, so they take the same lean */}
-              <g transform={rot(PZ.lean, 60, 200)}>
+              <g transform={rot(PZ.lean + LEAN, 60, 200)}>
               {/* spaulders: a domed cap that wraps the shoulder ball, with a trim
                   lame under its lip. The flat outward crescent this replaces read
                   as a paper wing pinned on beside the arm rather than armour
@@ -3869,7 +4150,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                     </g>
                   </>
                 );
-                return <>{one}<g transform="translate(120 0) scale(-1 1)">{one}</g></>;
+                return <><g transform={armAt(-1)}>{one}</g><g transform={armAt(1)}><g transform="translate(120 0) scale(-1 1)">{one}</g></g></>;
               })()}
               {(() => {
                 const crest = (
@@ -3878,10 +4159,10 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                     {KIT.tip && <circle cx={KIT.tip[0]} cy={KIT.tip[1]} r="2.4" fill={mixc(CC, "#ffffff", .55)} className="ca-optic" />}
                   </>
                 );
-                return <>{crest}<g transform="translate(120 0) scale(-1 1)">{crest}</g></>;
+                return <><g transform={armAt(-1)}>{crest}</g><g transform={armAt(1)}><g transform="translate(120 0) scale(-1 1)">{crest}</g></g></>;
               })()}
-              <circle cx="14" cy="118" r="2.9" fill={CC} className="ca-optic" />
-              <circle cx="106" cy="118" r="2.9" fill={CC} className="ca-optic" />
+              <circle cx={14 - F.sh} cy="118" r="2.9" fill={CC} className="ca-optic" />
+              <circle cx={106 + F.sh} cy="118" r="2.9" fill={CC} className="ca-optic" />
               {/* chest shell, then the pectoral plates that sit on it */}
               {plate("M60 84 C73 84 84 91 92 101 L98 126 L95 155 L60 163 L25 155 L22 126 L28 101 C36 91 47 84 60 84 Z", { lw: 1.3 })}
               {plate("M56 96 C45 96 35 104 31 117 L33 142 C42 151 50 154 56 155 Z")}
@@ -3915,12 +4196,12 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               </g>
               {/* hips: the last joint on the body still drawn as a plain seam.
                   Drawn under the legs so the thigh rides on the disc. */}
-              {joint(46, 240, 11)}
-              {joint(74, 240, 11)}
-              {pivot(46, 240, 5.4)}
-              {pivot(74, 240, 5.4)}
-              {/* each leg swings from its own hip */}
-              <g className="ca-limb" transform={rot(PZ.legL, 46, 238)}>
+              <g transform={legAt(-1)}>{joint(46, 240, 11)}{pivot(46, 240, 5.4)}</g>
+              <g transform={legAt(1)}>{joint(74, 240, 11)}{pivot(74, 240, 5.4)}</g>
+              {/* each leg swings from its own hip; a frame sets it out wider,
+                  scales it about the hip, and holds a bend at the knee and the
+                  ankle (see leg) */}
+              {leg(-1, <>
                 {plate("M34 240 L58 240 L56 302 L37 302 Z")}
                 {castOn("M34 240 L58 240 L56 302 L37 302 Z", .9)}
                 {/* the quad panel: a thigh is a slab until something is bolted
@@ -3928,6 +4209,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                     engraved lines */}
                 {plate("M39 248 L53 248 L52 284 L40 284 Z", { fill: bTrim, lw: .8, deep: .8 })}
                 {groove("M42 258 L50 258 M42 268 L50 268", .8, .28)}
+              </>, <>
                 {joint(46, 303, 14)}
                 {plate("M37 298 C41 294 51 294 55 298 C57 306 57 312 55 316 C51 320 41 320 37 316 C35 312 35 306 37 298 Z", { fill: bTrim, line: glow, lw: .9 })}
                 {groove("M39 301 C43 298 49 298 53 301", .9, .5)}
@@ -3938,17 +4220,19 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M40 330 L49 330 M40 344 L49 344", .9, .3)}
                 {plate("M38 352 L55 352 L54 362 L37 362 Z", { fill: bTrim, lw: .8, deep: .8 })}
                 {pivot(46, 357, 4)}
+              </>, F.claw ? clawFoot(46, -1) : <>
                 {plate("M36 360 L55 360 L60 379 L60 392 L29 392 L29 377 Z", { fill: bTrim })}
                 {/* the toe cap, and the split that says the sole is a sole */}
                 {plate("M29 377 L60 379 L60 386 L29 384 Z", { lw: .8, deep: .8 })}
                 {plate("M29 384 L60 384 L60 392 L29 392 Z")}
                 {groove("M39 385 L39 392 M50 385 L50 392", .8, .34)}
-              </g>
-              <g className="ca-limb" transform={rot(-PZ.legR, 74, 238)}>
+              </>)}
+              {leg(1, <>
                 {plate("M62 240 L86 240 L83 302 L64 302 Z")}
                 {castOn("M62 240 L86 240 L83 302 L64 302 Z", .9)}
                 {plate("M67 248 L81 248 L80 284 L68 284 Z", { fill: bTrim, lw: .8, deep: .8 })}
                 {groove("M70 258 L78 258 M70 268 L78 268", .8, .28)}
+              </>, <>
                 {joint(74, 303, 14)}
                 {plate("M65 298 C69 294 79 294 83 298 C85 306 85 312 83 316 C79 320 69 320 65 316 C63 312 63 306 65 298 Z", { fill: bTrim, line: glow, lw: .9 })}
                 {groove("M67 301 C71 298 77 298 81 301", .9, .5)}
@@ -3958,12 +4242,13 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
                 {groove("M71 330 L80 330 M71 344 L80 344", .9, .3)}
                 {plate("M82 352 L65 352 L66 362 L83 362 Z", { fill: bTrim, lw: .8, deep: .8 })}
                 {pivot(74, 357, 4)}
+              </>, F.claw ? clawFoot(74, 1) : <>
                 {plate("M84 360 L65 360 L60 379 L60 392 L91 392 L91 377 Z", { fill: bTrim })}
                 {plate("M91 377 L60 379 L60 386 L91 384 Z", { lw: .8, deep: .8 })}
                 {plate("M60 384 L91 384 L91 392 L60 392 Z")}
                 {groove("M70 385 L70 392 M81 385 L81 392", .8, .34)}
-              </g>
-              <g transform={rot(PZ.lean, 60, 200)}>
+              </>)}
+              <g transform={rot(PZ.lean + LEAN, 60, 200)}>
               {/* chest plating and the power core — gone once the back is toward us */}
               <g opacity={front.toFixed(3)}>
                 {groove("M60 88 L60 160", 1.2, .5)}
@@ -4015,8 +4300,10 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
               {accAt("back")}{accAt("hip")}
               {/* the near forearm and hand, in front of everything: see liftArm */}
               {liftArm && (
-                <g className="ca-limb" transform={nearL ? rot(PZ.armL, 24, 108) : rot(-PZ.armR, 96, 108)}>
-                  {nearL ? armLowL : armLowR}
+                <g transform={armAt(nearL ? -1 : 1)}>
+                <g className="ca-limb" transform={nearL ? rot(PZ.armL + AOL, 24, 108) : rot(-PZ.armR + AOR, 96, 108)}>
+                  {nearL ? fore(24, 19, armLowL, ELB) : fore(96, 101, armLowR, ERB)}
+                </g>
                 </g>
               )}
             </g>
@@ -4024,9 +4311,9 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
         </>}
 
         </g>{/* end body width */}
-        {accAt("float")}
+        {dyUp ? <g transform={`translate(0 ${dyUp.toFixed(2)})`}>{accAt("float")}</g> : accAt("float")}
 
-        <g transform={headOnly ? undefined : `translate(0 ${PZ.lift}) ${rot(PZ.lean, 60, chibi ? 280 : 200)} translate(60 -12) scale(${hs}) translate(-60 -3) ${rot(PZ.head, 60, 88)}`}>
+        <g transform={headOnly ? undefined : `translate(0 ${(PZ.lift + dyUp + F.hunch).toFixed(2)}) ${rot(PZ.lean + LEAN, 60, chibi ? 280 : 200)} translate(60 -12) scale(${hs}) translate(-60 -3) ${rot(PZ.head, 60, 88)}`}>
         {/* ── neck ── */}
         {HEAD.neck || (chibi ? null : (
           <g transform={`translate(60 0) scale(${(0.72 + 0.28 * Math.abs(c)).toFixed(3)} 1) translate(-60 0)`}>
