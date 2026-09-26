@@ -71,6 +71,14 @@ The bake also gives each still a finishing pass the live SVG cannot afford
 (rim light, under-shading, bloom — `FX` in the script).
 `node scripts/bake-sprites.mjs --out=DIR` draws a preview into DIR without
 touching the shipped sprites (`--raw` leaves the finishing pass out).
+In a fight on a touch device ("lite"), the fighters and the pet are shown as
+pictures too, but these are made **on the device** (`figure-cache.tsx`): each
+pose is rendered once from the live component, rasterised, kept in Cache
+Storage and swapped in by `<FigurePic>`, with the live SVG as the fallback.
+The lobby makes the player's poses, the fight only the opponent's, and never
+while a round is live (`pauseFigures`). Stored pictures are keyed by `__ART__`,
+a build-time fingerprint of the art files (vite.config.ts), so art changes
+invalidate them automatically — no manual step, unlike the sprites.
 
 Backend: Supabase (Postgres + Auth + Storage + RLS), project id
 `gsaqgbracxnucdmtmcxz`. Schema/RPC changes live as `supabase-*.sql` files

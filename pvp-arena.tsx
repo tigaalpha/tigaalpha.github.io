@@ -28,12 +28,33 @@ import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-
 import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { petBonusOf, petById, petLevel, petStage, readPet, allPets, carryPet, PetArt, PetThumb, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
 import { hasSprite } from "./sprite";
+import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
 import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio } from "./arena-fx";
 import { SpaceStage, prefetchSpace, isLowEnd } from "./space-stage";
 /* touch devices (iPad, phones) and weak machines fight in "lite": the
    fighters' idle SVG animations, drop-shadows, reflections and the blur
    behind the pads each forced a full repaint of ~3,000 SVG nodes per frame */
 const LITE_FIGHT = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
+/* ── fighters as pictures ── (figure-cache.tsx)
+   With the idle animations off, a lite fighter is a still between pose
+   changes, and a still can be a picture: each pose is drawn once on the
+   device and the fight swaps pictures instead of repainting a thousand paths.
+   The pictures are keyed by everything that changes the drawing — the art
+   itself (__ART__, fingerprinted at build time), model, pose, turn, colours
+   and gear — so a picture is only ever reused for exactly what it shows. */
+const PICS = LITE_FIGHT && FIGURES_OK;
+const ART_KEY = typeof __ART__ !== "undefined" ? __ART__ : "dev";
+const BOT_VB = "-20 -16 160 416", PET_VB = "-12 -18 144 156";
+/* every pose and turn a fight puts a fighter in, the most seen first: the
+   stance, a lunge, taking a hit, a kick, each strike's recovery once the
+   lunge has ended, the specials, and the last word */
+const FIGHT_SHOTS = [["ready", 26], ["attack", 42], ["hit", 14], ["kick", 42], ["attack", 26], ["kick", 26],
+  ["shoot", 26], ["beam", 26], ["throw", 26], ["win", 26], ["down", 26]];
+const gearSig = (gear) => (gear || []).filter(g => g && g.id && /^(wpn|hat|acc)-/.test(String(g.id)))
+  .map(g => `${g.id}:${g.art}:${(g.sw || []).join(",")}`).sort().join("~");
+const meKey = (me, pose, yaw, glow, accent, gsig) => `${ART_KEY}|me|${me}|${pose}|${yaw}|${glow}|${accent}|${gsig}`;
+const opKey = (model, pose, yaw) => `${ART_KEY}|op|${model}|${pose}|${yaw}`;
+const petKey = (species, lv, sad) => `${ART_KEY}|pet|${species}|${lv}|${sad ? 1 : 0}`;
 import { AnswerReveal } from "./note-reveal";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
@@ -1211,6 +1232,32 @@ export const PvpPage = memo(function PvpPage({
   const lobbyHeld = useMemo(() => (lw ? { ...holdOf(lw.art), node: <ItemArt art={lw.art} sw={lw.sw} size={64} /> } : null), [lw && lw.id]);   // eslint-disable-line react-hooks/exhaustive-deps
   const lobbyHat = useMemo(() => (lh ? { ...hatMountOf(lh.art), node: <ItemArt art={lh.art} sw={lh.sw} size={64} /> } : null), [lh && lh.id]);  // eslint-disable-line react-hooks/exhaustive-deps
   const lobbyAcc = useMemo(() => (la ? { at: accMountOf(la.art), node: <ItemArt art={la.art} sw={la.sw} size={64} /> } : null), [la && la.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* ── the fight's pictures of your side, made here ── (see PICS)
+     The lobby is where nothing is moving, so this is where the stills of the
+     robot you are about to fight in — in this colourway, holding this — and
+     of the pet going with it are drawn: a moment after the page settles, one
+     per idle moment, and only the first time; after that they come out of
+     the store. The fight itself only has the opponent left to draw. */
+  const lobbyGearSig = gearSig(gear);
+  const petLvNow = petNow ? petLevel(petNow.bond).lv : 0;
+  useEffect(() => {
+    if (!PICS || phase !== "lobby") return;
+    const t = setTimeout(() => {
+      const jobs = [];
+      /* the pet first: live, its idle bob repaints the whole animal every
+         frame of the fight, so its one picture saves more than any pose */
+      if (squadUsed !== "bot" && petNow) {
+        const sad = petNow.mood < 35, sp0 = petNow.species;
+        jobs.push({ key: petKey(sp0, petLvNow, sad), kind: "pet", el: () => <PetArt species={sp0} level={petLvNow} mood={sad ? 20 : 80} /> });
+      }
+      if (squadUsed !== "pet") for (const [pose, yaw] of FIGHT_SHOTS) {
+        jobs.push({ key: meKey(me, pose, yaw, colorway.glow, colorway.accent, lobbyGearSig), kind: "bot",
+          el: () => <Bot model={me} yaw={yaw} pose={pose} glow={colorway.glow} accent={colorway.accent} armorA="#1b2436" armorB="#41608a" held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} /> });
+      }
+      prepareFigures(jobs);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [phase, me, colorwayKey, squadUsed, lobbyGearSig, petNow && petNow.species, petLvNow]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const startFight = (kind, t, name, friend) => {
     setOppKind(kind); setTier(t); setOppName(name || ""); setPendingFriend(friend || null);
@@ -2396,6 +2443,29 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     [myHat && myHat.id]);
   const accGear = useMemo(() => (myAcc ? { at: accMountOf(myAcc.art), node: <ItemArt art={myAcc.art} sw={myAcc.sw} size={64} /> } : null),
     [myAcc && myAcc.id]);
+  /* the stills this fight will show (see PICS), queued the moment it opens:
+     each one is made in an idle moment and a pose that is not ready yet is
+     simply drawn live, as every pose used to be */
+  const gsig = gearSig(gear);
+  const petLv = petPic ? petLevel(petPic.bond).lv : 1;
+  const meShot = (pose, yaw) => ({ key: meKey(me, pose, yaw, myGlow, myAccent, gsig), kind: "bot",
+    el: () => <Bot model={me} yaw={yaw} pose={pose} glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" held={heldGear} hat={hatGear} acc={accGear} /> });
+  const opShot = (pose, yaw) => ({ key: opKey(oppModel, pose, yaw), kind: "bot",
+    el: () => <Bot model={oppModel} yaw={yaw} pose={pose} mirror glow="#8f6dff" accent="#c3b0ff" armorA="#16161f" armorB="#46425e" /> });
+  const petShot = (sad) => ({ key: petKey(petPic ? petPic.species : "", petLv, sad), kind: "pet",
+    el: () => <PetArt species={petPic.species} level={petLv} mood={sad ? 20 : 80} /> });
+  useEffect(() => {
+    if (!PICS) return;
+    const jobs = [];
+    if (petPic) jobs.push(petShot(petPic.mood < 35));
+    for (const [pose, yaw] of FIGHT_SHOTS) {
+      if (!petOnly) jobs.push(meShot(pose, yaw));
+      jobs.push(opShot(pose, -yaw));
+    }
+    prepareFigures(jobs);
+    // whatever the fight left paused, the pages after it may carry on
+    return () => pauseFigures(false);
+  }, []);
   const gearLv = (wpn ? itemLv(wpn.id) : 0) + (myHat ? itemLv(myHat.id) : 0)
     + (myAcc ? itemLv(myAcc.id) : 0)
     + ((gear || []).filter(g => g && g.id && String(g.id).startsWith("out-")).reduce((a, g) => a + itemLv(g.id), 0));
@@ -2759,6 +2829,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
 
   function announceRound() {
     if (doneRef.current) return;
+    pauseFigures(false);            // the intro is the fight's own quiet moment
     G.bus.emit({ type: "round", n: roundRef.current });
     setAnnounce({ big: T(`ยกที่ ${roundRef.current}`, `ROUND ${roundRef.current}`, `第 ${roundRef.current} 回合`), kind: "round" });
     audioRef.current.sfx("bell");
@@ -2768,6 +2839,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       audioRef.current.sfx("ult");
       G.flash("#ffffff", .3, .25);
       liveRef.current = true;
+      pauseFigures(true);           // nothing new is drawn while it is being fought
       later(() => setAnnounce(null), FIGHT_CALL_MS);
     }, ROUND_INTRO_MS);
   }
@@ -2855,6 +2927,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   function roundOver(winner, byTime) {
     if (doneRef.current || !liveRef.current) return;
     liveRef.current = false;
+    pauseFigures(false);
     const loser = winner === "me" ? "op" : "me";
     // untouched all round is a PERFECT, exactly as the cabinet would call it
     const perfect = (winner === "me" ? hpRef.current.me : hpRef.current.op) >= (winner === "me" ? MY_MAX : OP_MAX) * 0.999;
@@ -2895,6 +2968,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     if (doneRef.current) return;
     doneRef.current = true;
     liveRef.current = false;
+    pauseFigures(false);
     const mHp = hpRef.current.me, oHp = hpRef.current.op;
     const rw = roundWinsRef.current;
     const win = rw.me !== rw.op ? rw.me > rw.op : (mHp / MY_MAX) >= (oHp / OP_MAX);
@@ -4209,11 +4283,19 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
                  lunges; the pose becomes a squash-and-stretch on the animal */
               <span className={`pvpfpet p-${myPose || "ready"}${petAct ? " " + petAct : ""}`}
                 style={{ "--pc": (PET_TYPES[petSpec.type] || PET_TYPES.steel).c }}>
-                <PetArt species={petPic.species} level={petLevel(petPic.bond).lv} mood={petPic.mood} />
+                {(() => {
+                  const live = <PetArt species={petPic.species} level={petLv} mood={petPic.mood} />;
+                  const sad = petPic.mood < 35;
+                  return PICS ? <FigurePic fkey={petShot(sad).key} kind="pet" el={live} cls={"fig-pet" + (sad ? " sad" : "")} vb={PET_VB} /> : live;
+                })()}
               </span>
             ) : (
-              <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
-                glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" held={heldGear} hat={hatGear} acc={accGear} />
+              (() => {
+                const y = lunge === "me" ? 42 : myPose === "hit" ? 14 : 26;
+                const live = <Bot model={me} yaw={y} pose={myPose}
+                  glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" held={heldGear} hat={hatGear} acc={accGear} />;
+                return PICS ? <FigurePic fkey={meShot(myPose, y).key} kind="bot" el={live} cls="ca" vb={BOT_VB} /> : live;
+              })()
             )}
             {/* ── the thing you actually paid for ──
                 It used to be a 46px badge parked behind the hip, so a maxed
@@ -4243,15 +4325,23 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
             }}>
             <span className="pvppet3-sh" aria-hidden="true" />
             <span className="pvppet3-in">
-              <PetArt species={petPic.species} level={petLevel(petPic.bond).lv} mood={petPic.mood} />
+              {(() => {
+                const live = <PetArt species={petPic.species} level={petLv} mood={petPic.mood} />;
+                const sad = petPic.mood < 35;
+                return PICS ? <FigurePic fkey={petShot(sad).key} kind="pet" el={live} cls={"fig-pet" + (sad ? " sad" : "")} vb={PET_VB} /> : live;
+              })()}
             </span>
           </div>
         )}
         <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}${botGuard ? " guard" : ""}${botTell ? " tell" : ""}`}
           ref={opEl} style={{ left: 0, right: "auto", transform: tfOf(shown.current.op, shown.current.opAir) }}>
           <div className="pvpfighter-in">
-          <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose} mirror
-            glow="#8f6dff" accent="#c3b0ff" armorA="#16161f" armorB="#46425e" />
+          {(() => {
+            const y = lunge === "op" ? -42 : opPose === "hit" ? -14 : -26;
+            const live = <Bot model={oppModel} yaw={y} pose={opPose} mirror
+              glow="#8f6dff" accent="#c3b0ff" armorA="#16161f" armorB="#46425e" />;
+            return PICS ? <FigurePic fkey={opShot(opPose, y).key} kind="bot" el={live} cls="ca" vb={BOT_VB} /> : live;
+          })()}
           {flash && flash.side === "op" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {/* the wind-up has to be READABLE or blocking is a coin flip */}
           {botTell && <span className="pvptell">!</span>}
