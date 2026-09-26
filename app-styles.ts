@@ -3358,6 +3358,14 @@ button,.pk,.songlane,.octbtn,.navbtn,a{touch-action:manipulation}
 .pvppet3-in{display:block;width:74px;height:88px;transform:scale(var(--petk,.85));transform-origin:50% 100%;
   animation:pvppetin .5s ease;transition:transform .16s cubic-bezier(.34,1.56,.64,1)}
 .pvppet3-in svg{display:block;width:100%;height:100%}
+/* a pet shown as its picture (figure-cache.tsx): the idle bob its live
+   drawing does inside the SVG moves to the picture as a whole — a transform,
+   so it costs the compositor and not a repaint */
+svg.fig-pet{transform-origin:50% 93%;animation:figPetBob 2.6s ease-in-out infinite}
+svg.fig-pet.sad{animation:figPetSag 4.4s ease-in-out infinite}
+@keyframes figPetBob{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-2.2%) scale(.99,1.012)}}
+@keyframes figPetSag{0%,100%{transform:translateY(.6%) scale(1.006,.99)}50%{transform:translateY(1.6%) scale(1.012,.982)}}
+@media (prefers-reduced-motion:reduce){svg.fig-pet,svg.fig-pet.sad{animation:none}}
 /* the contact shadow — a pet with no shadow floats, whatever its build */
 .pvppet3-sh{position:absolute;bottom:1px;left:50%;width:46px;height:9px;transform:translateX(-50%) scale(var(--petk,.85));
   border-radius:50%;background:radial-gradient(50% 50% at 50% 50%,rgba(6,10,22,.5),rgba(6,10,22,0) 72%)}

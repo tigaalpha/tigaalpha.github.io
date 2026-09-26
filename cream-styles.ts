@@ -488,7 +488,7 @@ html:not([data-theme="dark"]) .pvpdir *{color:#a8502f!important}
 body:has(.pvppage.fight) .apkpill{display:none!important}
 
 /* lite fight (touch / low-end): keep the look, drop the per-frame repaint */
-.pvppage.fight.lite .pvpfighter svg *,.pvppage.fight.lite .pvpwall{animation:none!important}
+.pvppage.fight.lite .pvpfighter svg *,.pvppage.fight.lite .pvppet3 svg *,.pvppage.fight.lite .pvpwall{animation:none!important}
 .pvppage.fight.lite .pvpfighter,.pvppage.fight.lite .pvpfighter *{filter:none!important;-webkit-box-reflect:none!important}
 .pvppage.fight.lite .pvpfighter{will-change:transform}
 .pvppage.fight.lite *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
