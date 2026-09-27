@@ -133,6 +133,29 @@ export function createCapabilityEngine({ kbEntries = null } = {}) {
     index = kbEntries;
   }
 
+  /* ── plan v3 1.4 — memoized route sweep: allRoutes() scored the SAME 1,000
+     routes on every call (summary(), worklist() and the Hub's capability view
+     each trigger a full sweep). Module state changes only when the KB or a
+     registry probe changes, and the probes are pure/synchronous — so one
+     snapshot is valid until invalidateCapabilityCache() is called (self-learner
+     KB approval calls this via web.js). Cost model: first sweep 1,000×
+     scoreRoute (with gen-probe exercise generation), every later call O(n)
+     copy — the grid-measurement flywheel (bench, Model Lab, Hub summary)
+     reads the map many times per session. Invalidate → next call re-sweeps,
+     which is also the honest rollback: nothing else about scoring changes. ── */
+  let _routesCache = null;
+  function allRoutes() {
+    if (_routesCache) return _routesCache.map(r => ({ ...r, parts: { ...r.parts } }));
+    const out = [];
+    for (let t = 0; t < 10; t++) for (let m = 0; m < 10; m++) for (let s = 0; s < 10; s++) {
+      const { score, parts } = scoreRoute(t, m, s);
+      out.push({ t, m, s, score, parts });
+    }
+    _routesCache = out;
+    return out.map(r => ({ ...r, parts: { ...r.parts } }));
+  }
+  function invalidateCapabilityCache() { _routesCache = null; }
+
   function kbProbe(t) {
     const doms = TOPIC_DOMAINS[t] || [];
     let entries = 0, teach = 0;
@@ -184,15 +207,7 @@ export function createCapabilityEngine({ kbEntries = null } = {}) {
     return { score, parts, caps: [...caps.keys()] };
   }
 
-  /* full sweep of all 1,000 routes (t, m, s) */
-  function allRoutes() {
-    const out = [];
-    for (let t = 0; t < 10; t++) for (let m = 0; m < 10; m++) for (let s = 0; s < 10; s++) {
-      const { score, parts } = scoreRoute(t, m, s);
-      out.push({ t, m, s, score, parts });
-    }
-    return out;
-  }
+  /* full sweep of all 1,000 routes (t, m, s) — memoized, see 1.4 above */
 
   /* aggregate: how close is the model to "100%" per the honest engine? */
   function summary() {
@@ -233,5 +248,5 @@ export function createCapabilityEngine({ kbEntries = null } = {}) {
       });
   }
 
-  return { scoreRoute, allRoutes, summary, worklist, kbProbe, needs };
+  return { scoreRoute, allRoutes, summary, worklist, kbProbe, needs, invalidateCapabilityCache };
 }

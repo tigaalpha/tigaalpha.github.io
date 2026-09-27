@@ -16,7 +16,7 @@ import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { hostOnlineDuel, joinOnlineDuel, leaveOnlineRoom, sendAccept, sendStart, sendScore, sendResult, sendRematch } from "./pvp-online";
 import { analyzeSongRun, buildSongFallback } from "./song-analysis";
 import { buildDrillPlan, nextDrillTempo, bossHpFor, bossComboChip, bossRewardCoins, knowledgeDropFor, smartBackingPlan } from "./mistake-drill";
-import { runTeachingLoopForPractice, tigaHub } from "./tigamodel/web.js"; // tigaHub: intent-based model access — smarter engines upgrade the result screen with no UI change
+import { queuedUntilTiga, tigaNow } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5) — hub reads guard on tigaNow() and keep their existing fallbacks
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 
 /* ── Daily Song Quest (Play Along plan #8): one featured song per day, chosen
@@ -31,7 +31,8 @@ export function dailySongFor(d = new Date()) {
      the deterministic day-hash below, exactly as before. */
   try {
     const starMap = (() => { const m = {}; try { for (const k of Object.keys(localStorage)) { if (k.startsWith("tg_best_")) { const v = Number(localStorage.getItem(k) || 0); m[k.slice(8)] = v >= 3 ? 3 : 0; } } } catch (e) {} return m; })();
-    const rec = tigaHub.recommendDailySong(SONGS, { memory: readMemory(), practiceLog: {}, starMap, dayKey: key });
+    const hub = tigaNow();
+    const rec = hub ? hub.tigaHub.recommendDailySong(SONGS, { memory: readMemory(), practiceLog: {}, starMap, dayKey: key }) : null;
     if (rec && rec.song) return rec.song; // reason arrives with the pick — result screen may surface it later
   } catch (e) { /* hub absent → hash fallback */ }
   let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
@@ -145,11 +146,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const [bossHp, setBossHp] = useState(0);               // reactive: HP bar in the HUD
   const [bossMax, setBossMax] = useState(0);             // reactive: HP ceiling for the bar
   const [bossFx, setBossFx] = useState(null);            // {id, kind} hit/defeat/attack flash
+  const [bossVerdict, setBossVerdict] = useState(null);  // plan 2.4: engine verdict when the boss falls — {id, text:{th,en,zh}} | null
   const bossHpRef = useRef(0);
   const bossMaxRef = useRef(1);
   const bossFxT = useRef(null);
   const bossHpDirtyRef = useRef(false);                  // throttle setState to ~5Hz
   const bossHpDirtyAtRef = useRef(0);
+  const bossVerdictRef = useRef(null);                   // plan 2.4: verdict for the CURRENT boss (reset on each boss spawn)
   // #4 Knowledge Drops — perfect hits sometimes drop a one-line fact about
   // the pitch just played; facts collect into a per-device shelf.
   const [kDrop, setKDrop] = useState(null);              // {id, note, text} toast mid-game
@@ -405,6 +408,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setBossHp(bossHpRef.current);
     setBossMax(bossMaxRef.current);
     setBossOn(true);
+    bossVerdictRef.current = null; setBossVerdict(null);   // plan 2.4: fresh boss = fresh verdict
     // #1: fresh run = no drill window, reset per-run knowledge-drop memory
     drillStartSecRef.current = null; drillEndSecRef.current = null;
     kDroppedRef.current = {};
@@ -978,7 +982,16 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (!bossOn) return;
     bossHpRef.current = Math.max(0, bossHpRef.current - base);
     bossHpDirtyRef.current = true;
-    if (bossHpRef.current <= 0) { bossFlash("defeat"); }
+    if (bossHpRef.current <= 0) {
+      bossFlash("defeat");
+      if (!bossVerdictRef.current) {   // plan 2.4: one engine verdict per boss — honest-null when the model hasn't loaded (next boss tries again)
+        const hub = tigaNow();
+        const hits = songHitsRef.current || 0, miss = songMissRef.current || 0;
+        const v = hub ? hub.tigaHub.explainSongResult({ acc: Math.round(hits * 100 / Math.max(1, hits + miss)), stars: null, maxCombo: songMaxComboRef.current || 0, missedNotes: [], topic: 8 }, readMemory()) : null;
+        bossVerdictRef.current = v && v.tip ? { id: Date.now(), text: v.tip } : null;
+        setBossVerdict(bossVerdictRef.current);
+      }
+    }
     else bossFlash("hit");
   }
   // #4: maybe drop a knowledge card on a PERFECT hit — max one per pitch
@@ -996,7 +1009,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     let f = f0;
     try {
       const shelf = JSON.parse(localStorage.getItem("tg_kdrops") || "[]");
-      const ranked = tigaHub.knowledgeForNote(noteName, { candidates: { [f0.pc]: f0 }, shelf });
+      const hub = tigaNow();
+      const ranked = hub ? hub.tigaHub.knowledgeForNote(noteName, { candidates: { [f0.pc]: f0 }, shelf }) : null;
       if (ranked && ranked.fact) f = ranked.fact; else if (ranked === null && shelf.some(x => x.pc === f0.pc)) return; // specialist says "already learned" → keep the drop budget for fresh facts
     } catch (e) { /* hub absent → own-note fact */ }
     kDroppedRef.current[noteName] = true;
@@ -1167,7 +1181,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     reportPvpResult({ score, acc, stars }); // online PvP: my final result → the room (decides the winner on both sides)
     // TIGA hub: real-data coach line for this run (what engine answered shows
     // in the badge). Real MIDI velocity/timing evidence rides along; — never invents.
-    try { setSongTigaTip(tigaHub.explainSongResult({ acc, stars, maxCombo, missedNotes, dyn: scoreDynamics(songVelsRef.current), timing: (songTimingRef.current.ok + songTimingRef.current.miss >= 3) ? songTimingRef.current : null, topic: 8 }, readMemory())); } catch (e) { setSongTigaTip(null); }
+    try { const hub = tigaNow(); setSongTigaTip(hub ? hub.tigaHub.explainSongResult({ acc, stars, maxCombo, missedNotes, dyn: scoreDynamics(songVelsRef.current), timing: (songTimingRef.current.ok + songTimingRef.current.miss >= 3) ? songTimingRef.current : null, topic: 8 }, readMemory()) : null); } catch (e) { setSongTigaTip(null); }
     gainExp(reward, { quest: true });
     // Gamification: variable reward — mystery chest (20% chance on acc >= 70%)
     if (acc >= 70 && Math.random() < 0.20) {
@@ -1232,9 +1246,14 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   // call entirely and get the real-data fallback directly.
   async function fetchSongAnalysis(result, label) {
     if (isGuest) { setSongAnalysis(buildSongFallback(lang, label, result)); return; }
+    // plan 3.1 — TIERED answering: the engine/instant card renders NOW from the
+    // run's real numbers (buildSongFallback — weakness + 2 steps, never
+    // generic); when the external AI reply lands it upgrades in place. The
+    // learner reads a real analysis at 0 ms instead of a spinner for 2–4 s.
+    setSongAnalysis(buildSongFallback(lang, label, result));
     setSongAnalysisBusy(true);
     try {
-      const analysis = await analyzeSongRun(lang, label, result, runTeachingLoopForPractice, ({ system, message }) =>
+      const analysis = await analyzeSongRun(lang, label, result, (stats, opts) => queuedUntilTiga(m => m.runTeachingLoopForPractice(stats, opts)), ({ system, message }) =>
         fetchChatCompletion({ message, conversationHistory: [], system, feature: "song-analysis" }), profile);
       if (analysis) setSongAnalysis(analysis); // analyzeSongRun never returns null
     } catch (e) { /* silent — the score/stars result above already shown, this is a bonus */ }
@@ -1319,5 +1338,5 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }
   }
   return { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songTigaTip, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand,
-    drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, startPvpTogether: startPvpTogether };
+    drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, bossVerdict, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, startPvpTogether: startPvpTogether };
 }

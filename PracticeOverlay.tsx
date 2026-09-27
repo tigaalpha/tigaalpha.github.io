@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { L } from "./i18n";
 import { Piano, pcOf } from "./music-engine";
-import { tigaStrategyLabel, SELF_REPORT_CHOICES, newStudentFeedback, rerunLoopWithSelfReport } from "./tigamodel/web";
+import { tigaStrategyLabel } from "./tiga-strategy-labels";   // light static module (plan v3 1.5)
+import { newStudentFeedback, rerunLoopWithSelfReport } from "./tiga-gateway";   // model fns via the lazy gateway (SELF_REPORT_CHOICES was an unused import — dropped)
 import { sttSupported, getSR } from "./speech";
-import { selfReportFromTranscript } from "./tigamodel/web";
+import { selfReportFromTranscript } from "./tiga-gateway";   // via the lazy gateway
 import { usePracticeCoach } from "./use-practice-coach";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
@@ -301,7 +302,7 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
         repeatedErrors: r.miss >= 2 ? r.miss : 0,
         pauses: 0, rhythmScore: r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null,
         label: r.label,
-      }, choice);
+      }, choice, lang);   // lang (owner plan 1.2): the rerun verdict must speak the app's current language
       if (loop && loop.response && onTipUpdate) {
         onTipUpdate({ text: loop.response.text, strategyId: loop.decision ? loop.decision.strategy_id : null, states: loop.states });
       }
@@ -364,6 +365,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
     prevAccuracy: (r.prevBest && r.prevBest.accuracy) || null,
     strategyId: (r.tigaTip && r.tigaTip.strategyId) || null,
     lang,
+    profile: typeof window !== "undefined" ? (window.__tigaProfile || null) : null,   // plan 2.1: age band for the W adapter (window.__tigaProfile set by PianoApp)
   });
   if (!data) return null;
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -393,7 +395,8 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
 
       {ex && (
         <div className="pcoach-ex">
-          <div className="pcoach-ex-t">➡️ {T("แบบฝึกหัดถัดไป", "Next exercise", "下一个练习")}: <b>{tx(ex.title) || ex.title}</b></div>
+          <div className="pcoach-ex-t">➡️ {T("แบบฝึกหัดถัดไป", "Next exercise", "下一个练习")}: <b>{tx(ex.title) || ex.title}</b>{ex.hVariant && ex.hVariant !== "standard" ? <span className="pcoach-hv"> · {ex.hVariant}</span> : null}</div>
+          {ex.hNote && <div className="presultai-tx" style={{ color: "var(--accent)" }}>🎯 {tx(ex.hNote)}</div>}
           <div className="presultai-tx">{tx(ex.task) || ex.task}</div>
           {Array.isArray(ex.steps) && ex.steps.length > 0 && (
             <ol className="pcoach-steps">

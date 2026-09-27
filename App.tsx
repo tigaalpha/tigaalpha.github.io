@@ -30,12 +30,27 @@ import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
-import { runTeachingLoopForPractice , tigaHub } from "./tigamodel/web";
-import { buildParentReport } from "./use-practice-coach";
-import { teacherAdviceFor } from "./tigamodel/web";
+import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodel } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
+import { tigaStrategyLabel } from "./tiga-strategy-labels";   // light static module (split from tigamodel for the render path)
+import { AdminAIModels } from "./AdminAIModels";
+import { AdminNav } from "./admin-nav";
+const TigamodelLab = lazy(() => import("./TigamodelLab").then(m => ({ default: m.TigamodelLab })));   // admin-only model surfaces (plan v3 1.5)
+const TigamodelBackoffice = lazy(() => import("./TigamodelBackoffice").then(m => ({ default: m.TigamodelBackoffice })));
 import { buildParentReportData } from "./use-practice-coach";
 import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes } from "./use-autoteach";
-import { pickTeachCard, markCardSeen, readKnowledgeStats, bumpKnowledgeStats, readNoteMissMap, cardSourceInfo } from "./tigamodel/knowledge/teach-cards.js";
+/* teach-cards (รู้ไว้ใช่ว่า) loads LAZY (plan v3 1.5): pure data + localStorage
+   helpers that are read at render time — the helpers below keep working while
+   the chunk is in flight by reading the same tg_kstats key directly (one
+   source of truth on disk, zero drift). */
+let _teachCards = null;
+function teachCardsMod() { return _teachCards; }
+function markCardSeen(id) { queuedUntilTiga(tc => tc.markCardSeen(id)); }
+function bumpKnowledgeStats(correct) { queuedUntilTiga(tc => tc.bumpKnowledgeStats(correct)); }
+function _readKStatsLocal() { try { return JSON.parse(localStorage.getItem("tg_kstats") || "null") || { correct: 0, streak: 0 }; } catch (e) { return { correct: 0, streak: 0 }; } }
+function readKnowledgeStats() { const tc = teachCardsMod(); return tc ? tc.readKnowledgeStats() : _readKStatsLocal(); }
+function readNoteMissMap() { const tc = teachCardsMod(); return tc ? tc.readNoteMissMap() : {}; }
+function pickTeachCard(args) { const tc = teachCardsMod(); return tc ? tc.pickTeachCard(args) : null; }
+function cardSourceInfo(k) { const tc = teachCardsMod(); return tc ? tc.cardSourceInfo(k) : null; }
 import TeachVisual from "./TeachVisual";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { withAiCache } from "./ai-cache";
@@ -119,12 +134,8 @@ import { CameraCoachOverlay } from "./CameraCoachOverlay";
 import { SkinThemeSettings } from "./SkinThemeSettings";
 import { SfxMetronomeSettings } from "./SfxMetronomeSettings";
 import { LanguageSettings } from "./LanguageSettings";
-import { AdminAIModels, AdminNav } from "./AdminAIModels";
-import { TigamodelLab } from "./TigamodelLab";
-import { TigamodelBackoffice } from "./TigamodelBackoffice";
-import { learnFromAdminTeaching } from "./tigamodel/web";
+import { AdminAIModels } from "./AdminAIModels";
 import { ProfileDashboardPanel } from "./ProfileDashboardPanel";
-import { getCoachDiagnosis, getPracticeTimeBudget } from "./tigamodel/web.js";
 import { SenseiView } from "./SenseiView";
 import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
 import { usePayment } from "./use-payment";
@@ -1092,7 +1103,7 @@ const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, e
    practice?" decision that kills most practice habits.
 ════════════════════════════════════════════════════════════ */
 const _v12wait = (ms) => new Promise(r => setTimeout(r, ms));
-const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate, onReviewStage }) {
+const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate, onReviewStage, teachCardsReady }) {
   const T = {
     th: { title: "ซ้อมวันนี้", sub: "แผนซ้อมส่วนตัวของคุณ — สร้างใหม่ให้ทุกวันจากความคืบหน้าจริง ไล่ทำทีละข้อได้เลย", warm: "วอร์มอัพนิ้ว", hw: "การบ้านจากครู", review: "ทบทวนของเดิม", learn: "เรียนเรื่องใหม่", song: "เพลงปิดท้าย", start: "เริ่ม ▶", done: "เสร็จแล้ว ✓", hwBtn: "ทำแล้ว ✓", progress: "ความคืบหน้าวันนี้", allDone: "ครบทุกข้อแล้ว! สุดยอดไปเลยครับ 🎉", bonus: "รับโบนัสประจำวัน +40 EXP · +20 🪙", claimed: "รับโบนัสของวันนี้แล้ว ✓" },
     en: { title: "Practice Today", sub: "Your personal plan — rebuilt every day from your real progress. Just work down the list.", warm: "Finger warm-up", hw: "Teacher's homework", review: "Review", learn: "Something new", song: "Closing song", start: "Start ▶", done: "Done ✓", hwBtn: "Done ✓", progress: "Today's progress", allDone: "All done — amazing work! 🎉", bonus: "Claim daily bonus +40 EXP · +20 🪙", claimed: "Today's bonus claimed ✓" },
@@ -1104,6 +1115,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   const seed = daySeed();
   const doneP = pathDoneSet();
   const keyMap = keyDoneMap();
+  void teachCardsReady;   // re-render once the lazy teach-cards chunk has loaded (badges may unhide)
 
   const warm = MAJOR_SCALE_SONGS[seed % MAJOR_SCALE_SONGS.length];
   const hw = homework && homework.text ? homework : null;
@@ -1171,13 +1183,13 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   // AI PIANO COACH (P0, additive): WHAT/WHY/HOW diagnosis + time-adaptive
   // budget from the student's real numbers. Null when no data yet — the card
   // simply doesn't render, and the plan above is 100% unchanged.
-  const dx = getCoachDiagnosis();
+  const dx = useTiga(m => m.getCoachDiagnosis());
   const dxT = {
     th: { tag: "AI วินิจฉัย", why: "ทำไม", how: "วิธีฝึก" },
     en: { tag: "AI diagnosis", why: "Why", how: "How to fix" },
     zh: { tag: "AI 诊断", why: "为什么", how: "怎么练" },
   }[lang];
-  const budget = dx ? getPracticeTimeBudget(20) : null;
+  const budget = dx ? (tigaNow() ? (tigaNow().getPracticeTimeBudget(20) || null) : null) : null;
   const budT = {
     th: { tag: "แผน 20 นาที (ปรับตามจุดอ่อน)", warmup: "วอร์มอัพ", problem: "จุดพัง", review: "ทบทวน", reading: "อ่านโน้ต", performance: "เล่นโชว์", focus: "โฟกัส" },
     en: { tag: "20-min plan (adapts to your weak spot)", warmup: "Warm-up", problem: "Problem", review: "Review", reading: "Reading", performance: "Perform", focus: "Focus" },
@@ -5114,7 +5126,7 @@ async function generateCoachTip(lang, profile) {
     repeatedErrors: struggle ? Math.min(struggle.count || 0, 4) : 0,
     repeatedErrorLabel: struggle ? struggle.label : null,
     pauses: 0, rhythmScore: null, speedRatio: null, weekAgoAccuracy: (mem.recent || [])[1] ? (mem.recent || [])[1].acc : null,
-  }, runTeachingLoopForPractice);
+  }, (stats, opts) => queuedUntilTiga(m => m.runTeachingLoopForPractice(stats, opts)));   // plan v3 1.5: lazy gateway (same signature as runTeachingLoopForPractice)
   const strat = strategyHint(dec);
   // Auto-Teach แม่นยำ (แผนข้อ 9): ปรับโทน/ความยาวตามระดับผู้เรียนจริง
   const tone = learnerTone(profile);
@@ -8089,6 +8101,13 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
   const schoolId = profile.school_id;
   const [tab, setTab] = useState("roster");
   const [rows, setRows] = useState(null);
+  const [teacherAdvs, setTeacherAdvs] = useState([]);   // plan v3 1.5: TIGA tab rows arrive via the lazy gateway
+  const tigaTick = useTiga(null);   // ready tick (0/1) — re-render + refill when the model lands
+  useEffect(() => {
+    if (!rows || !rows.length) return;
+    queuedUntilTiga(m => { try { setTeacherAdvs(rows.filter(r => r.role === "student").map(st => ({ st, adv: m.teacherAdviceFor(st.progress || {}) }))); } catch (e) {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, tigaTick]);
   const [err, setErr] = useState("");
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState("");
@@ -8209,7 +8228,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
         {mastered.length > 0 && <><div className="admstu-sec">{T("ทำได้ดีแล้ว", "Mastered", "已掌握")}</div><div className="pd-tags">{mastered.map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
         {sel.role === "student" && (() => {
           const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
-          const rep = buildParentReportData(pr);
+          const rep = buildParentReportData(pr, { lang });
           return (
             <div className="admmg" style={{ marginTop: 12 }}>
               <div className="admmg-h">👨‍👩‍👧 {T3("รายงานสำหรับผู้ปกครอง", "Parent report", "家长报告")}</div>
@@ -8296,7 +8315,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
       {tab === "tiga" && (() => {
         const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
         const students = rows.filter(r => r.role === "student");
-        const advs = students.map(st => ({ st, adv: teacherAdviceFor(st.progress || {}) }));
+        const advs = teacherAdvs;   // [] until the lazy model loads — the effect below fills it
         const flagged = advs.filter(({ adv }) => adv && adv.flags.some(f => !f.positive)); // positive "ready" flags are good news, not a problem
         const seen = advs.filter(({ adv }) => adv && !adv.flags.some(f => !f.positive) && adv.summary.daysIdle != null && adv.summary.daysIdle <= 2);
         const quiet = advs.filter(({ adv }) => !adv || adv.summary.daysIdle == null || adv.summary.daysIdle > 7);
@@ -9730,7 +9749,7 @@ function AdminPage({ lang, onExit, adminTier }) {
       // the model harvests teaching candidates from what it just produced
       // under the owner's supervision in the admin console — that reply IS
       // the teaching material. Fire-and-forget: never blocks the chat.
-      learnFromAdminTeaching(reply || "").catch(() => {});
+      queuedUntilTiga(m => { try { m.learnFromAdminTeaching(reply || "").catch(() => {}); } catch (e) {} });
     } catch (e) {
       console.error("Admin chat error:", e); // full detail for devs only
       const msg = "" + (e?.message || "");
@@ -9777,8 +9796,8 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
-        : adminTab === "tigamodel" && tier >= 3 ? <div className="adminscroll"><TigamodelLab lang={lang} /></div>
-        : adminTab === "tigabackoffice" && tier >= 3 ? <div className="adminscroll"><TigamodelBackoffice lang={lang} /></div>
+        : adminTab === "tigamodel" && tier >= 3 ? <div className="adminscroll"><Suspense fallback={<LazyBits tall />}><TigamodelLab lang={lang} /></Suspense></div>
+        : adminTab === "tigabackoffice" && tier >= 3 ? <div className="adminscroll"><Suspense fallback={<LazyBits tall />}><TigamodelBackoffice lang={lang} /></Suspense></div>
         : adminTab === "activity" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminActivity lang={lang} onOpenAnon={() => setAdminTab("anonvisit")} /></Suspense>
         : adminTab === "anonvisit" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminAnonVisitors lang={lang} /></Suspense>
         : adminTab === "simbots" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminSimBots lang={lang} /></Suspense>
@@ -9991,6 +10010,19 @@ export default function App() {
 function PianoApp({ session, profile, setProfile, onSignOut }) {
   const cssReady = useInjectCSS();
   const isGuest = !session; // no Supabase session at all — synthetic local profile, see loadGuestProfile()
+  try { window.__tigaProfile = profile || null; } catch (e) {}   // plan v3 2.1: the W adapter reads the age band from here (single writer, always current)
+
+  // plan v3 1.5: tigamodel (~1.18 MB) + teach-cards load LAZY — kick both as
+  // soon as the browser is idle so the first model-driven screen never waits.
+  const [teachCardTick, setTeachCardTick] = useState(0);
+  const tigaReady = useTiga(null);   // ready tick — re-renders when the model lands (chat starters, TIGA tab, budget line fill in)
+  useEffect(() => {
+    preloadTigamodel();
+    import("./tigamodel/knowledge/teach-cards.js").then(m => {
+      _teachCards = m;
+      setTeachCardTick(t => t + 1);
+    }).catch(() => {});
+  }, []);
 
   // one-time "why we ask for mic/camera" disclosure, native app only — the OS's
   // own permission dialog (with the Info.plist/AndroidManifest usage strings)
@@ -10224,7 +10256,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => navigator.serviceWorker.removeEventListener("message", onNav);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songSetlistPos, startSetlist, playAlongHand, changePlayAlongHand, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
+  const { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songSetlistPos, startSetlist, playAlongHand, changePlayAlongHand, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, bossVerdict, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
 
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
@@ -10638,7 +10670,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         // own data chart. Both best-effort — the tip must never fail because
         // the knowledge layer hiccuped.
         try {
-          const kcard = pickTeachCard({ level: (profile && profile.level) || 0, struggleLabel: obj.topic || obj.weakness || "" });
+          const kcard = pickTeachCard({ level: (profile && profile.level) || 0, struggleLabel: obj.topic || obj.weakness || "" });   // null until the lazy chunk lands → popup renders without the card, then fills
           if (kcard) { markCardSeen(kcard.id); obj.knowledge = kcard; }
         } catch (e2) {}
         try { obj.visual = buildAutoTeachVisual(obj, profile); } catch (e2) {}
@@ -10763,7 +10795,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
        pool and badged 🧠; onStarterTap handles them as a direct chat prefill
        (stage/case null-safe). */
     try {
-      const tiga = tigaHub.chatStartersFor(readMemory(), readPracticeLog(), profile);
+      const hub = tigaNow();
+      const tiga = hub ? hub.tigaHub.chatStartersFor(readMemory(), readPracticeLog(), profile) : null;
       const tigaStarters = (tiga && tiga.starters || []).slice(0, 2).map((st, i) => ({
         tiga: true,
         stage: { id: "tiga-" + i, th: "ครู TiGA", en: "Teacher TiGA", zh: "TiGA老师" },
@@ -12179,7 +12212,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} /></SafeZone>}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossHp={bossHp} bossMax={bossMax} bossFx={bossFx} kDrop={kDrop} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} /></SafeZone>}
+      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossHp={bossHp} bossMax={bossMax} bossFx={bossFx} bossVerdict={bossVerdict} kDrop={kDrop} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} /></SafeZone>}
 
       {/* SIGHT-READING overlay */}
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightTip={sightTip} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
@@ -12324,7 +12357,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     (buildParentReport — same local records, no new storage).
                     Sections render only when the data supports them. ── */}
                 {(() => {
-                  const rep = buildParentReport({ days: 14 });
+                  const rep = buildParentReport({ days: 14, lang });
                   if (!rep) return null;
                   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
                   const bars = rep.series.filter(d => d.acc != null);
@@ -13230,7 +13263,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             {autoTeachTip.visual && <div style={{ margin: "8px 0 2px", borderRadius: 12, overflow: "hidden" }}><TeachVisual type={autoTeachTip.visual.type} data={autoTeachTip.visual.data} lang={lang} /></div>}
             {autoTeachTip.knowledge && (() => {
               const k = autoTeachTip.knowledge;
-              const src = cardSourceInfo(k);
+              const src = cardSourceInfo(k);   // null until the lazy chunk lands → "Source" row hides, then fills
               const q = k.quiz || null;
               const KC = {
                 th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 เพชร", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", src: "ที่มา" },

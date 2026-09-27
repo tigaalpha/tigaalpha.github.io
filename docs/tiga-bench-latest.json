@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-27T06:36:15.546Z",
+  "appVersion": "13.7.373",
+  "bundle": {
+    "file": "index.template-CeHGFPOS.js",
+    "bytes": 2717390,
+    "includesTigamodel": true,
+    "tigamodelMinifiedBytes": 1241815
+  },
+  "grid": {
+    "total": 1000000,
+    "started": 130000,
+    "open": 870000,
+    "startedPct": 13
+  },
+  "routes": {
+    "total": 1000,
+    "ready": 1000,
+    "partial": 0,
+    "gaps": 0,
+    "readyPct": 100,
+    "avgScore": 0.98,
+    "weakestCap": "kb"
+  },
+  "perf": {
+    "allRoutesColdMs": 31.04,
+    "allRoutesWarmMs": 0.21,
+    "summaryMs": 2.03,
+    "memoSpeedup": 147.8
+  },
+  "kb": {
+    "theoryEntries": 13414,
+    "performanceEntries": 126
+  },
+  "langs": {
+    "th": true,
+    "en": true,
+    "zh": true
+  },
+  "langsOk": true,
+  "bars": [
+    {
+      "id": "grid-measured",
+      "pass": true
+    },
+    {
+      "id": "routes-ready",
+      "pass": true
+    },
+    {
+      "id": "verdict-multilingual",
+      "pass": true
+    },
+    {
+      "id": "sweep-warm-fast",
+      "pass": true
+    },
+    {
+      "id": "summary-fast",
+      "pass": true
+    },
+    {
+      "id": "main-chunk-budget",
+      "pass": true
+    },
+    {
+      "id": "engine-out-of-main",
+      "pass": true
+    },
+    {
+      "id": "kb-depth",
+      "pass": true
+    }
+  ],
+  "barsOk": true
+}

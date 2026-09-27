@@ -152,6 +152,33 @@ function scoreActionableSteps(text) {
   return hasNum ? 1 : 0.5;
 }
 
+/* plan v3 2.6 — language-match for the app's THREE modes. The base
+   thai-language family only measured Thai; an EN/ZH learner getting Thai text
+   was exactly the class of bug the owner shipped fixes for (v13.7.371+), so
+   it is now a measured case family, not a hope. */
+const ZH_RE = /[\u4E00-\u9FFF]/;
+const TH_RE = /[\u0E00-\u0E7F]/;   // local copy — THAI_RE lives inside eval-suite (not imported here)
+export function scoreLanguageMatch(req, text) {
+  const t = String(text || "");
+  const want = (req.student_context && req.student_context.language) ||
+    (TH_RE.test(req.message || "") ? "th" : ZH_RE.test(req.message || "") ? "zh" : null);
+  if (!want) return 1;   // no explicit language signal → not this family's job
+  if (want === "th") return TH_RE.test(t) ? 1 : 0;
+  if (want === "zh") return (ZH_RE.test(t) && !TH_RE.test(t)) ? 1 : 0;
+  return (/[a-zA-Z]/.test(t) && !TH_RE.test(t)) ? 1 : 0;
+}
+
+/* plan v3 2.6 — W adapter sanity at the eval layer: child-band replies must
+   stay short and simple (the W adapter's own smoke covers content; this
+   catches a provider ignoring the adapter downstream). */
+export function scoreAgeAppropriate(req, text) {
+  const band = req.student_context && req.student_context.ageBand;
+  if (band !== "child") return 1;   // only the child band is bar-ed here (honest scope)
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean).length;
+  if (words === 0) return 0;
+  return words <= 60 ? 1 : 0.5;
+}
+
 const EXTENDED_CASES = [
   ...BASE_CASES,
   { id: "conciseness", fn: (_req, res) => scoreConciseness(res.text) },
@@ -159,11 +186,18 @@ const EXTENDED_CASES = [
   { id: "child-safe", fn: (_req, res) => scoreChildSafe(res.text) },
   { id: "action-ending", fn: (_req, res) => scoreActionEnding(res.text) },
   { id: "actionable-steps", fn: (_req, res) => scoreActionableSteps(res.text) },
+  { id: "language-match", fn: (req, res) => scoreLanguageMatch(req, res.text) },
+  { id: "age-appropriate", fn: (req, res) => scoreAgeAppropriate(req, res.text) },
 ];
 
-/* 12 base probes × 8 base families = 96 + golden-20 × 1 + theory-8 × 1 = 124 */
+/* 12 base probes × 8 base families = 96 + golden-20 × 1 + theory-8 × 1 = 124
+   + plan v3 2.6: 3 trilingual probes + 1 child-band probe = 130 (× 10 families) */
 export const EXTENDED_PROBES = [
   ...BASE_PROBES,
+  { task_type: "chat", message: "This piece feels too hard, where do I start?", student_context: { language: "en", recent: [], struggles: [] } },
+  { task_type: "chat", message: "这首曲子太难了，我该从哪里开始？", student_context: { language: "zh", recent: [], struggles: [] } },
+  { task_type: "coach-tip", message: "Suggest today's practice", student_context: { language: "en", recent: [], struggles: ["note reading"] } },
+  { task_type: "coach-tip", message: "แนะนำการซ้อมวันนี้ให้หน่อย", student_context: { language: "th", ageBand: "child", recent: [], struggles: [] } },
   ...GOLDEN_SITUATIONS.map(g => ({ task_type: "chat", message: g.probe, golden: g })),
   ...THEORY_FACTS.map(f => ({ task_type: "chat", message: f.q, theory: f })),
 ];

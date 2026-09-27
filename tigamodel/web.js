@@ -158,6 +158,14 @@ export function getCapabilityEngine() {
   }
   return _capEngine;
 }
+
+/* plan v3 1.6: the TIGA Bench script re-seeds its bundle per run (fresh KB
+   state each time), so a memoized sweep from a previous session must not
+   leak across runs — the bench calls this once at startup. Production never
+   needs it: reinforceTeachingOutcome already invalidates after KB changes. */
+export function resetCapabilityEngineForTest() {
+  try { getCapabilityEngine().invalidateCapabilityCache(); } catch (e) {}
+}
 export function capabilitySummary() { return getCapabilityEngine().summary(); }
 export function capabilityWorklist(limit = 50) { return getCapabilityEngine().worklist(limit); }
 
@@ -177,6 +185,19 @@ import { GENERATOR_KINDS as _GENERATOR_KINDS } from "./teaching/generator.js";
 export function studentExerciseKinds() {
   try { return _GENERATOR_KINDS(); } catch (e) { return []; }
 }
+
+/* ══ PLAN v3 ระลอก 2 — W/H/Q adaptivity adapters (tigamodel/teaching/adaptivity.js) ══
+   Thin pass-throughs (same pattern as the coach/plm accessors): pure, sync,
+   never throw, honest identity/null when nothing applies. ageBandFromProfile
+   reads the profile fields the app already keeps; no new storage, no engine
+   changes — the adapters decorate AFTER the engines speak. ── */
+import { ageBandFromProfile as _ageBand, forAge as _forAge, forStrategy as _forStrategy, strategyVariant as _strategyVariant, barsFor as _barsFor, QUALITY_BARS as _QUALITY_BARS } from "./teaching/adaptivity.js";
+export function tigaAgeBand(profile) { try { return _ageBand(profile); } catch (e) { return null; } }
+export function tigaForAge(band, content) { try { return _forAge(band, content); } catch (e) { return content; } }
+export function tigaForStrategy(ex, strategyId) { try { return _forStrategy(ex, strategyId); } catch (e) { return ex; } }
+export function tigaStrategyVariant(strategyId) { try { return _strategyVariant(strategyId); } catch (e) { return { variant: "standard", note: null }; } }
+export function tigaBarsFor(surface) { try { return _barsFor(surface); } catch (e) { return null; } }
+export { _QUALITY_BARS as TIGA_QUALITY_BARS };
 
 /* ══ PHASE 3 — TEACHER DASHBOARD ADVICE (spec §34) ══
    The teacher's SchoolDashboard already shows every student's SYNCED real
@@ -253,13 +274,18 @@ export const SELF_REPORT_CHOICES = SELF_REPORT_OPTIONS;
 
 /* Re-run the loop with the learner's answer folded in. stats = the SAME
    practiceStats the first run got (plus weekAgoAccuracy) — the caller holds
-   them; here we only fuse the report. Returns the full new loop result. */
-export async function rerunLoopWithSelfReport(practiceStats, selfReport) {
+   them; here we only fuse the report. Returns the full new loop result.
+   lang = the app's CURRENT language mode (owner plan 1.2: the self-report
+   rerun is a language touchpoint like every other — without it runOnce()
+   defaulted to Thai and an EN/ZH learner got a Thai verdict after answering).
+   Optional + defaulted, so existing callers (and older smoke scripts) stay
+   correct — and it rolls back by simply not passing lang again. */
+export async function rerunLoopWithSelfReport(practiceStats, selfReport, lang) {
   try {
     if (!selfReport || !SELF_REPORT_STATE_KEYS[selfReport]) return null;
     if (!_tiga) initTigamodelWeb();          // idempotent; the poll may be the first tigamodel touch of the session
     if (!_tiga || !_tiga.loop) return null;
-    return await _tiga.loop.runOnce({ practiceStats, selfReport });
+    return await _tiga.loop.runOnce({ practiceStats, selfReport, lang });
   } catch (e) { return null; }
 }
 const SELF_REPORT_STATE_KEYS = { confused: 1, too_easy: 1, too_hard: 1, understand: 1, frustrated: 1, retry: 1, great: 1 };
@@ -375,7 +401,11 @@ export async function learnFromAdminTeaching(replyText) {
   try { return await ensureSelfLearner().learnFromAdmin(replyText); } catch (e) { return { learned: 0, error: String(e?.message || e) }; }
 }
 export async function reinforceTeachingOutcome(signal) {
-  try { return await ensureSelfLearner().reinforceOutcome(signal); } catch (e) { return { applied: false }; }
+  try {
+    const r = await ensureSelfLearner().reinforceOutcome(signal);
+    try { getCapabilityEngine().invalidateCapabilityCache(); } catch (e) {}
+    return r;
+  } catch (e) { return { applied: false }; }
 }
 export async function getLearnedKBContextAsync(matchText) {
   try { return await ensureSelfLearner().getLearnedKBContext(matchText); } catch (e) { return ""; }
@@ -442,6 +472,13 @@ export function tigaStrategyLabel(id, lang) {
   const t = TIGA_STRATEGY_LABELS[id];
   return t ? (t[lang] || t.en) : null;
 }
+
+/* plan v3 1.5: the label vocabulary is ALSO exported as a light standalone
+   module (../tiga-strategy-labels.ts) that render-path UI can import without
+   pulling the whole model tree into the main chunk. web.js re-exports the
+   same definitions so Model Lab/admin always agree with the UI. */
+import { TIGA_STRATEGY_LABELS as _TIGA_LABELS_CHECK, tigaStrategyLabel as _tigaLabelCheck } from "../tiga-strategy-labels";
+void _TIGA_LABELS_CHECK; void _tigaLabelCheck;
 
 /* ── 1,000,000-item development plan (owner directive 2026-09-18): the
    combinatorial capability-spec space in roadmap-1m.js. Thin pass-throughs

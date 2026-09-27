@@ -10,7 +10,7 @@ import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, 
 import { logActivity, dayKey } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
-import { runTeachingLoopForPractice, reinforceTeachingOutcome } from "./tigamodel/web";
+import { queuedUntilTiga } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5)
 import { recordNoteMisses, recordTipOutcome, weightedStruggles } from "./use-autoteach";
 import { sb } from "./supabase-client";
 /* ── use-practice-mode.ts ──
@@ -779,7 +779,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       return prev && prev.acc != null ? prev.acc : null;   // "last time BEFORE this attempt" — the day-keyed guard keeps today's own just-recorded entry from reading as "a week ago"
     } catch (e) { return null; } })();
     const rhythmPct = rhythm ? Math.round((rhythm.ok / (rhythm.ok + rhythm.miss)) * 100) : null;
-    const tigaLoop = await runTeachingLoopForPractice({
+    const tigaLoop = await queuedUntilTiga(m => m.runTeachingLoopForPractice({
       accuracy,
       repeatedErrors: bestStreak === 0 && miss >= 2 ? miss : (miss >= 4 ? miss : 0),
       // miss >= 2 with a broken combo is the loop's own "repeated error"
@@ -790,7 +790,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       rhythmScore: rhythmPct,
       speedRatio: null,
       weekAgoAccuracy,
-    }, { lang });   // verdict speaks the app's current language (th/en/zh)
+    }, { lang }));   // verdict speaks the app's current language (th/en/zh) — queuedUntilTiga(fn) wraps runTeachingLoopForPractice(stats, opts)
     /* runTeachingLoopForPractice is now properly async (the same bug was
        found independently by verify-autoteach on main and by this branch's
        e2e) — awaited above, so tigaTip is the REAL resolved loop result. */
@@ -803,7 +803,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // nudges the chosen strategy's confidence a bounded step. Fire-and-forget
     // — the result screen never waits on it and guests store nothing.
     if (tigaTip && tigaTip.strategyId) {
-      reinforceTeachingOutcome({ strategyId: tigaTip.strategyId, accuracy, prevAccuracy: weekAgoAccuracy }).catch(() => {});
+      queuedUntilTiga(m => m.reinforceTeachingOutcome({ strategyId: tigaTip.strategyId, accuracy, prevAccuracy: weekAgoAccuracy }).catch(() => {}));
     }
 
     // Auto-Teach แม่นยำ (แผนข้อ 8): ประกาศจังหวะ "เพิ่งจบซ้อม" ให้ครูคาราใน App.tsx (ผลซ้อมเพิ่งรู้ = จังหวะสอนที่ดีที่สุด)

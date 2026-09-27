@@ -1,5 +1,5 @@
 import { L, tr } from "./i18n";
-import { tigaHub } from "./tigamodel/web";   // Capability Hub: learner summary + quest hint from whatever engines are registered
+import { useTiga } from "./tiga-gateway";   // Capability Hub via the lazy gateway (plan v3 1.5)
 import { dailySongFor } from "./use-play-along";
 import { readMemory } from "./ai-chat-context";
 import { readPracticeLog } from "./shared-infra";
@@ -21,6 +21,7 @@ import { SONGS } from "./songs-data";
    threaded as props too. ── */
 export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
+  const tiga = useTiga(m => m);   // null until the lazy model lands → the 🧠 bar hides honestly, then fills
   return (
         <div className="profscroll">
           {(() => {
@@ -74,9 +75,9 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
             // TIGA Capability Hub: honest learner summary + today's quest hint.
             // Both come from real local data via whatever engines are registered;
             // a null line hides the row instead of showing filler.
-            const summ = tigaHub.learnerSummary(readMemory(), readPracticeLog(), profile);
+            const summ = tiga ? tiga.tigaHub.learnerSummary(readMemory(), readPracticeLog(), profile) : null;
             const ds = dailySongFor();
-            const hint = tigaHub.nextQuestHint(readMemory(), profile, { dailySong: ds ? tr(ds, lang) : null });
+            const hint = tiga ? tiga.tigaHub.nextQuestHint(readMemory(), profile, { dailySong: ds ? tr(ds, lang) : null }) : null;
             const line = summ && summ.line ? (summ.line[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || summ.line.en) : null;
             const htip = hint && hint.tip ? (hint.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || hint.tip.en) : null;
             if (!line && !htip) return null;

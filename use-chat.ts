@@ -5,7 +5,7 @@ import {
 import { tr, L, matchFaqTopic } from "./i18n";
 import { stopCloudTTS } from "./speech";
 import { memoryContext, homeworkContext } from "./ai-chat-context";
-import { getFullKBContext, getStudentContextBlock, getCoachContextBlock } from "./tigamodel/web.js";
+import { tigaNow } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5)
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
 /* ── use-chat.ts ──
@@ -226,12 +226,13 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       // switch-gated learned block (getFullKBContext awaits the learner) +
       // who this student is, from the app's own practice memory — so the
       // teacher answers as a teacher who knows THIS student.
-      const kbContext = await getFullKBContext(userText);
-      const studentBlock = getStudentContextBlock();
+      const hub = tigaNow();
+      const kbContext = hub ? await hub.getFullKBContext(userText) : "";
+      const studentBlock = hub ? hub.getStudentContextBlock() : "";
       // AI PIANO COACH (P0): WHAT/WHY/HOW diagnosis from the student's real
       // practice numbers — lets the teacher answer "ฉันมีปัญหาอะไร/ทำไม/ควรฝึก
       // ยังไง/BPM เท่าไร" with the student's actual stats, not generic advice.
-      const coachBlock = getCoachContextBlock();
+      const coachBlock = hub ? hub.getCoachContextBlock() : "";
       let acc = "";
       let haveBubble = false; // did any streaming attempt reach the response?
       const runStream = () => streamChatCompletion(

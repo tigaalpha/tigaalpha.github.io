@@ -94,15 +94,15 @@ async function main() {
     }
   });
 
-  check("generator: deterministic per seed (consistency quality bar)", () => {
+  check("generator: deterministic per seed (consistency quality bar — compared BY VALUE: task is a fresh {th,en,zh} object each call, so compare the strings, never identity)", () => {
     const a = gen.generateStudentExercise(4, 2, 42);
     const b = gen.generateStudentExercise(4, 2, 42);
-    if (a.task !== b.task) throw new Error("same seed gave different exercise");
+    if (a.task.th !== b.task.th || a.task.en !== b.task.en || a.task.zh !== b.task.zh) throw new Error("same seed gave different exercise");
   });
 
   check("generator: varies across seeds (student never gets identical sheet)", () => {
     const tasks = new Set();
-    for (let s = 1; s <= 8; s++) tasks.add(gen.generateStudentExercise(1, 3, s).task);
+    for (let s = 1; s <= 8; s++) tasks.add(gen.generateStudentExercise(1, 3, s).task.th);
     if (tasks.size < 2) throw new Error(`only ${tasks.size} variants in 8 seeds`);
   });
 

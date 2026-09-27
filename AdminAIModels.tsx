@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { tigaHub } from "./tigamodel/web"; // Capability Hub: live view of which TIGA engines are registered and what each intent can answer
+import { useTiga } from "./tiga-gateway"; // Capability Hub via the lazy gateway (plan v3 1.5)
 import { sb } from "./supabase-client";
 import { playUi } from "./music-engine";
 
@@ -99,6 +99,7 @@ function providerLabel(p, lang) {
    one be switched independently (provider + model, free-text model ID allowed,
    per-feature voice id for the TTS engine, reset-to-default per feature). ── */
 export function AdminAIModels({ lang }) {
+  const tiga = useTiga(m => m);   // hub status table fills in when the lazy model lands
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [cfg, setCfg] = useState(null);          // null = loading; { default: {provider,model}, "<feature>": {...} }
   const [drafts, setDrafts] = useState({});       // feature -> { provider, model, voice }
@@ -195,7 +196,8 @@ export function AdminAIModels({ lang }) {
           surface at once. This table is the proof: which domains are live
           right now and which intents they serve. */}
       {(() => {
-        const sum = tigaHub.summary();
+        const sum = tiga ? tiga.tigaHub.summary() : null;
+        if (!sum) return null;   // row appears once the lazy model has loaded
         const intentNames = { "sight-reading": ["อ่านโน้ตล่วงหน้า", "Sight-reading", "识谱"], "song-result": ["คำแนะนำหลังจบเพลง", "Song-result coach", "曲目点评"], "quest-hint": ["เคล็ดภารกิจรายวัน", "Daily quest hint", "每日任务提示"], "learner-summary": ["สรุปผู้เรียน", "Learner summary", "学员总结"] };
         return (
           <div className="admsum-row tigahub" style={{ marginTop: 10, whiteSpace: "normal", lineHeight: 1.7 }}>

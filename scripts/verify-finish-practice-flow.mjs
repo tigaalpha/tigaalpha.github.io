@@ -57,6 +57,7 @@ hookSrc = hookSrc
   .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`)
   .replace('from "./piano-guard"', `from "${process.cwd()}/piano-guard.ts"`)
   .replace('from "./tigamodel/web"', `from "${process.cwd()}/${OUT}/ovroot/web.js"`)
+  .replace('from "./tiga-gateway"', `from "${process.cwd()}/tiga-gateway.ts"`)   // plan v3 1.5: real gateway (bundles the real web.js tree through its dynamic import)
   .replace('from "./shared-infra"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
   .replace('from "./ai-chat-context"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
   .replace('from "./ai-backend"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
@@ -97,9 +98,13 @@ export async function fetchChatCompletion() { return ""; }
 `);
 /* web.js FIRST (the hook's rewritten import points at its output).
    The copied tree imports "../supabase-client" — the stub must exist at that
-   relative location (OUT/supabase-client.js) before bundling. */
+   relative location (OUT/supabase-client.js) before bundling. Same for the
+   tiga-strategy-labels shim: web.js (plan v3 1.5) imports the split-out light
+   vocabulary module from the project root, which doesn't exist inside OUT/. */
 writeFileSync(`${OUT}/supabase-client.js`, `export const sb = { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }) }), auth: { getSession: async () => ({ data: { session: null } }) } };
 export default sb;\n`);
+writeFileSync(`${OUT}/tiga-strategy-labels.js`, `export const TIGA_STRATEGY_LABELS = {};
+export function tigaStrategyLabel() { return null; }\n`);
 execSync(
   `cp -r tigamodel ${OUT}/tmsrc && npx esbuild ${OUT}/tmsrc/web.js --bundle --outfile=${OUT}/ovroot/web.js --format=esm --platform=browser --external:react --external:react-dom`,
   { stdio: "pipe" }
@@ -110,6 +115,8 @@ execSync(
 );
 {
   let ovSrc = readFileSync("PracticeOverlay.tsx", "utf8").replaceAll('from "./tigamodel/web"', `from "${process.cwd()}/${OUT}/ovroot/web.js"`)
+    .replaceAll('from "./tiga-gateway"', `from "${process.cwd()}/tiga-gateway.ts"`)   // plan v3 1.5: real gateway (bundles the real web.js tree through its dynamic import) — 2 import sites in this file
+    .replace('from "./tiga-strategy-labels"', `from "${process.cwd()}/tiga-strategy-labels.ts"`)   // plan v3 1.5: light vocabulary module
     /* i18n + music-engine live at the project root — point at the REAL files
        (esbuild bundles their trees; music-engine's React import is external) */
     .replace('from "./i18n"', `from "${process.cwd()}/i18n.ts"`)
@@ -206,6 +213,24 @@ console.log("finishPractice end-to-end (real hook + real teaching loop):");
   /* unknown lang falls back to Thai, never crashes */
   const rX = await web.runTeachingLoopForPractice({ accuracy: 100, repeatedErrors: 0, pauses: 0, rhythmScore: 95 }, { lang: "xx" });
   ok("unknown lang → Thai fallback", /[ก-๙]/.test(rX.response.text));
+}
+
+/* ── 1a. self-report rerun speaks the app's language (owner plan v3 1.2:
+   the rerun AFTER the learner answers the poll is a language touchpoint
+   like every other — it used to drop lang, so runOnce() defaulted to Thai
+   and an EN/ZH learner's verdict flipped back to Thai the moment they
+   answered the direct question). ── */
+{
+  const stats = { accuracy: 40, repeatedErrors: 4, pauses: 1, rhythmScore: 40, label: "C major scale" };
+  const srTh = await web.rerunLoopWithSelfReport(stats, "too_hard", "th");
+  ok("rerun: resolves with a verdict", !!(srTh && srTh.response && typeof srTh.response.text === "string"));
+  ok("rerun th verdict is Thai", /[ก-๙]/.test(srTh.response.text), srTh.response.text.slice(0, 40));
+  const srEn = await web.rerunLoopWithSelfReport(stats, "too_hard", "en");
+  ok("rerun en verdict is English (no Thai glyphs)", !/[ก-๙]/.test(srEn.response.text) && /[a-z]/i.test(srEn.response.text), srEn.response.text.slice(0, 40));
+  const srZh = await web.rerunLoopWithSelfReport(stats, "too_hard", "zh");
+  ok("rerun zh verdict is Chinese (no Thai glyphs)", /[一-龥]/.test(srZh.response.text) && !/[ก-๙]/.test(srZh.response.text), srZh.response.text.slice(0, 40));
+  ok("rerun: other choice (understand) also resolves", !!(await web.rerunLoopWithSelfReport(stats, "understand", "en")));
+  ok("rerun: invalid choice → null (honest, no crash)", (await web.rerunLoopWithSelfReport(stats, "banana", "en")) === null);
 }
 
 /* ── 1b. Practice Coach card speaks the app's language (owner request 2026-09-21:

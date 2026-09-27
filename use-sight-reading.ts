@@ -6,7 +6,7 @@ import {
 import { logPractice } from "./App";
 import { logActivity, recordNoteMisses } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
-import { tigaHub } from "./tigamodel/web"; // Capability Hub: intent-based model access — smarter engines upgrade this screen with no UI change
+import { tigaNow } from "./tiga-gateway";   // Capability Hub via the lazy gateway (plan v3 1.5)
 import { readMemory } from "./ai-chat-context";
 
 // Belt ranking — a cumulative, all-time count of correct reads across every
@@ -191,7 +191,7 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWee
     // engine is registered (skill-graph today) — falls back to a baseline
     // line from real memory when no engine answers. Never throws, never
     // invents: no memory → generic-but-honest starter tip.
-    try { setSightTip(tigaHub.recommendSightReading(readMemory(), { clef: sightClefRef.current })); } catch (e) { setSightTip(null); }
+    try { const hub = tigaNow(); setSightTip(hub ? hub.tigaHub.recommendSightReading(readMemory(), { clef: sightClefRef.current }) : null); } catch (e) { setSightTip(null); }
     armSightSprintClock();
     newSightNote();
     setSightOpen(true);
