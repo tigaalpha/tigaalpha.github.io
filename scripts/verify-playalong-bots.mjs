@@ -161,7 +161,7 @@ if (want("perfect")) {
   rec("boss-down", bossSeen.zeroAt != null && /Boss down/.test(txt), `boss hp 0 at songTime ${bossSeen.zeroAt && bossSeen.zeroAt.toFixed(1)}s · tag ${/Boss down/.test(txt)}`);
   await s.p.waitForTimeout(800);
   const items = s.usage.filter(r => r.kind === "pa").map(r => r.item_id);
-  rec("usage-rows", items.some(i => i.startsWith("start:twinkle")) && items.some(i => /^end:twinkle:3:\d+$/.test(i)) && items.some(i => i.startsWith("fps:")), items.join(" | "));
+  rec("usage-rows", items.some(i => i.startsWith("start:twinkle")) && items.some(i => /^end:twinkle:3:\d+:4$/.test(i)) && items.some(i => i.startsWith("fps:")), items.join(" | "));
   // again within a minute
   await s.p.click(".pl-again"); await bot(s.p); await waitResult(s.p); await stopBot(s.p); await s.p.waitForTimeout(600);
   const items2 = s.usage.filter(r => r.kind === "pa").map(r => r.item_id);
@@ -199,11 +199,17 @@ if (want("drill")) {
   const btn = await s.p.$(".pl-drillbtn");
   const label = btn ? (await btn.textContent()) : "(none)";
   const missBefore = await s.p.evaluate(() => localStorage.getItem("tg_note_miss"));
-  const t0 = Date.now();
-  if (btn) await btn.click();
-  // the first note of the part reaches the line within one bar (at the drill tempo)
-  const first = await s.p.evaluate(() => new Promise(res => { const T = window.__paTest; const id = setInterval(() => { const now = T.now(); const d = T.drill(); if (now == null || !d) return; const ns = T.notes().filter(n => !n.skip); const f = Math.min(...ns.map(n => n.t)) + T.lead; if (now >= f) { clearInterval(id); res({ rung: d.rung }); } }, 20); setTimeout(() => res(null), 15000); }));
-  const firstMs = Date.now() - t0;
+  // Tap it and time, in the page, how long until the part's first note
+  // reaches the line: within one bar at the drill tempo. (Clicked from the
+  // page so a level-up card over the button can't pad the time.)
+  const first = await s.p.evaluate(() => new Promise(res => {
+    const T = window.__paTest, b = document.querySelector(".pl-drillbtn");
+    if (!b) return res(null);
+    const t0 = performance.now(); b.click();
+    const id = setInterval(() => { const now = T.now(); const d = T.drill(); if (now == null || !d) return; const ns = T.notes().filter(n => !n.skip); const f = Math.min(...ns.map(n => n.t)) + T.lead; if (now >= f) { clearInterval(id); res({ rung: d.rung, ms: Math.round(performance.now() - t0) }); } }, 20);
+    setTimeout(() => res(null), 15000);
+  }));
+  const firstMs = first ? first.ms : 99999;
   await bot(s.p);
   const rungs = await s.p.evaluate(() => new Promise(res => { const T = window.__paTest; const seen = []; const id = setInterval(() => { const d = T.drill(); if (d && seen[seen.length - 1] !== d.rung) seen.push(d.rung); if (!d && seen.length) { clearInterval(id); res(seen); } }, 100); setTimeout(() => { clearInterval(id); res(seen); }, 60000); }));
   await stopBot(s.p);
@@ -332,6 +338,101 @@ if (want("staff")) {
   rec("staff-slides", r.xs[0] != null && moved >= steps.length - 3 && jumps === 0, `moved on ${moved}/${steps.length} frames · biggest step ${Math.max(...steps).toFixed(2)}px`);
   rec("boss-bar-kept", r.bossSame, `same boss bar element across hits ${r.bossSame}`);
   await done(s);
+}
+// ── 13. medals and coins: crown on a clean run, each medal pays once, a 4th run of the day pays no coins, a slow run keeps bronze ──
+if (want("medals")) {
+  const s = await session();
+  await openList(s.p); await openSong(s.p, "Velvet Glow");
+  const id = await s.p.evaluate(() => window.__paTest.meta());
+  const runs = [];
+  for (let i = 0; i < 4; i++) {
+    if (i === 0) await start(s.p); else await s.p.click(".pl-again");
+    await bot(s.p); await waitResult(s.p); await stopBot(s.p);
+    runs.push({ tags: await s.p.$eval(".pl-res-tags", e => e.innerText.replace(/\s+/g, " ")), pay: await s.p.$eval(".pl-res-pay", e => e.innerText.replace(/\s+/g, " ")) });
+  }
+  const st = await s.p.evaluate((id) => ({ medal: localStorage.getItem("tg_medal_" + id), runs: JSON.parse(localStorage.getItem("tg_pa_runs") || "{}") }), id);
+  rec("medal-crown-once", /New Crown medal! \+130 🪙 \+500 EXP/.test(runs[0].tags) && !/medal!/.test(runs[1].tags) && st.medal === "4", `run 1: "${runs[0].tags}" · run 2 new medal: ${/medal!/.test(runs[1].tags)} · stored ${st.medal}`);
+  rec("run-coins-3-a-day", runs.slice(0, 3).every(r => /\+20 🪙/.test(r.pay)) && !/🪙/.test(runs[3].pay) && /3 times today/.test(runs[3].pay) && st.runs[id] === 4, runs.map((r, i) => `run ${i + 1}: ${r.pay}`).join(" | "));
+  await done(s);
+  // at 75% speed, 3 stars keep bronze (silver and up need the real speed)
+  const w = await session({ extraLS: { tg_pa_testhook: "1" } });
+  await openList(w.p); await openSong(w.p, "Late Night");
+  await w.p.click(".pl-link[aria-expanded]"); await w.p.waitForTimeout(300);
+  await w.p.click(".songtempobtn >> text=0.75×"); await w.p.waitForTimeout(300);
+  const id2 = await w.p.evaluate(() => window.__paTest.meta());
+  await start(w.p); await bot(w.p); await waitResult(w.p); await stopBot(w.p);
+  const st2 = await w.p.evaluate((id) => ({ medal: localStorage.getItem("tg_medal_" + id), stars: localStorage.getItem("tg_stars_" + id) }), id2);
+  rec("medal-slow-bronze", st2.medal === "1" && st2.stars === "3", `75% speed, ${st2.stars} stars → medal ${st2.medal}`);
+  await done(w);
+}
+// ── 14. practice mode: the song waits for the right key, then records nothing ──
+if (want("practice")) {
+  const s = await session();
+  await openList(s.p); await openSong(s.p, "Twinkle");
+  const before = await s.p.evaluate(() => JSON.stringify(Object.keys(localStorage).filter(k => /^tg_(stars|acc|best|ghost|medal)_|^tg_pa_runs$|^tg_note_miss$/.test(k)).sort().map(k => k + "=" + localStorage.getItem(k))));
+  await s.p.click(".pl-practice-btn"); await s.p.waitForTimeout(300);
+  // nobody presses anything for 7 s: the first note must wait at the line
+  await s.p.waitForTimeout(7000);
+  const w = await s.p.evaluate(() => { const T = window.__paTest; const ns = T.notes(); const f = ns[0]; return { now: T.now(), due: f.t + T.lead, missed: ns.filter(n => n.missed).length, hit: ns.filter(n => n.hit).length }; });
+  // a wrong key does not move it on
+  await s.p.evaluate(() => window.__paTest.press("B5"));
+  await s.p.waitForTimeout(400);
+  const w2 = await s.p.evaluate(() => ({ hit: window.__paTest.notes().filter(n => n.hit).length, missed: window.__paTest.notes().filter(n => n.missed).length }));
+  await s.p.screenshot({ path: `${OUT}/practice-waiting.png` });
+  await bot(s.p);
+  await waitResult(s.p, 120000); await stopBot(s.p);
+  const card = await s.p.$eval(".pl-practice-result", e => e.innerText.replace(/\s+/g, " ")).catch(() => "(no practice card)");
+  const after = await s.p.evaluate(() => JSON.stringify(Object.keys(localStorage).filter(k => /^tg_(stars|acc|best|ghost|medal)_|^tg_pa_runs$|^tg_note_miss$/.test(k)).sort().map(k => k + "=" + localStorage.getItem(k))));
+  await s.p.screenshot({ path: `${OUT}/practice-result.png` });
+  await s.p.waitForTimeout(500);
+  const items = s.usage.filter(r => r.kind === "pa").map(r => r.item_id);
+  rec("practice-waits", Math.abs(w.now - w.due) < 0.08 && w.missed === 0 && w.hit === 0 && w2.hit === 0 && w2.missed === 0, `after 7 s untouched: song clock ${w.now.toFixed(2)} s at the first note's ${w.due.toFixed(2)} s · missed ${w.missed} · a wrong key hit ${w2.hit}`);
+  rec("practice-records-nothing", /\+20 EXP/.test(card) && before === after, `card "${card.slice(0, 80)}" · stored song data unchanged ${before === after}`);
+  rec("practice-usage", items.some(i => /^start:twinkle:practice:/.test(i)) && items.includes("practice:twinkle:done") && !items.some(i => i.startsWith("end:")), items.join(" | "));
+  await done(s);
+}
+// ── 12. the band: on the beat through a stalled frame, 3/4 drums for 3/4 songs, drums only for a piano on the mic ──
+if (want("band")) {
+  const s = await session();
+  await openList(s.p); await openSong(s.p, "Twinkle"); await start(s.p); await bot(s.p);
+  await s.p.waitForTimeout(6500);
+  // a 300 ms stall on the main thread, the kind a busy phone has
+  await s.p.evaluate(() => { const t = performance.now(); while (performance.now() - t < 300) {} });
+  await s.p.waitForTimeout(8000); // past Fever (30% of the notes) so the arpeggio has come in
+  const r = await s.p.evaluate(() => window.__paTest.band());
+  await stopBot(s.p);
+  const off = r.log.map(e => Math.abs(e.when - (r.clock + (r.lead + e.beat * r.spb) / r.tempo)));
+  const worst = Math.max(...off) * 1000;
+  const kicks = r.log.filter(e => e.drum === "kick").map(e => e.pos);
+  const layers = [...new Set(r.log.map(e => e.parts).join(""))].sort().join("");
+  rec("band-on-beat", r.log.length > 20 && worst < 6, `${r.log.length} drum steps booked, furthest from the beat grid ${worst.toFixed(1)} ms (a 300 ms stall in the middle)`);
+  rec("band-4-4", kicks.length > 4 && kicks.every(p => p === 0 || p === 2), `4/4 kicks on beats ${[...new Set(kicks)].map(p => p + 1).join(",")}`);
+  rec("band-layers", /b/.test(layers) && /c/.test(layers) && /a/.test(layers), `layers heard with a clean combo: ${layers} (b bass, c chords, a Fever arpeggio)`);
+  await done(s);
+  const w = await session();
+  await openList(w.p); await openSong(w.p, "Jazz Waltz"); await start(w.p); await bot(w.p);
+  await w.p.waitForTimeout(7000);
+  const r3 = await w.p.evaluate(() => window.__paTest.band());
+  await stopBot(w.p);
+  const k3 = r3.log.filter(e => e.drum === "kick").map(e => e.pos), sn3 = r3.log.filter(e => e.drum === "snare").map(e => e.pos);
+  rec("band-3-4", k3.length > 2 && k3.every(p => p === 0) && sn3.every(p => p === 1 || p === 2), `3/4 kicks on ${[...new Set(k3)].map(p => p + 1).join(",")} · snares on ${[...new Set(sn3)].map(p => p + 1).join(",")}`);
+  await done(w);
+  // a player on a real piano: the mic listens and their presses come from it
+  const m = await session();
+  await openList(m.p); await openSong(m.p, "Twinkle"); await start(m.p);
+  await m.p.evaluate(() => window.__paTest.setSrc("mic"));
+  await m.p.evaluate(() => {
+    const T = window.__paTest; const last = {};
+    const tick = () => { const now = T.now(); if (now != null) { const ns = T.notes(); for (let i = 0; i < ns.length; i++) { const n = ns[i]; if (n.hit || n.missed || n.skip) continue; const due = n.t + T.lead, rt = performance.now(); if (now >= due && now < due + 0.12 && !(last[i] && rt - last[i] < 300)) { last[i] = rt; T.press(n.note, "mic"); } } } window.__micBot = requestAnimationFrame(tick); };
+    window.__micBot = requestAnimationFrame(tick);
+    window.__botStop = () => cancelAnimationFrame(window.__micBot);
+  });
+  await m.p.waitForTimeout(9000);
+  const rm = await m.p.evaluate(() => window.__paTest.band());
+  await stopBot(m.p);
+  const pitched = rm.log.filter(e => e.parts).length;
+  rec("band-mic-drums-only", rm.log.length > 20 && pitched === 0 && rm.state.soft, `${rm.log.length} drum steps, ${pitched} with bass/chords/arpeggio · soft ${rm.state.soft} · combo reached ${rm.state.combo}`);
+  await done(m);
 }
 // ── 11. other pages still open ──
 if (want("pages")) {

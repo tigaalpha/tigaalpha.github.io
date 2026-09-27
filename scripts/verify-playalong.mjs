@@ -110,6 +110,15 @@ function ok(cond, label) { if (cond) { pass++; console.log(`PASS  ${label}`); } 
   ok(calibrate([0.1, 0.1, 0.09, 0.11, 0.1, 0.1, 0.12, 0.08]) === 0.1 && calibrate([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]) === 0.12 && calibrate([0.1]) === 0, "input delay: median of 8 hits, clamped, none from too few");
   ok(JSON.stringify(nextStarGoal(86)) === JSON.stringify({ stars: 3, more: 4 }) && nextStarGoal(95) === null, "next-star goal");
   ok(bossHp(40) === 50 && bossHit("perfect", 3) === 2 && bossHit("good", 10) === 3, "boss hp and damage");
+  const { feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, chestChance } = JD;
+  ok(feverAt(12) === 10 && feverAt(42) === 13 && feverAt(48) === 15, "Fever at 30% of the notes, at least 10");
+  ok(comboMarkExp(11, 42) === 15 && comboMarkExp(21, 42) === 25 && comboMarkExp(32, 42) === 35 && comboMarkExp(42, 42) === 50 && comboMarkExp(20, 42) === 0, "combo marks at 25/50/75/100% of the notes");
+  ok(comboMarkExp(3, 12) === 15 && comboMarkExp(12, 12) === 50, "the shortest song reaches all four marks");
+  ok(medalOf({ stars: 0 }) === 0 && medalOf({ stars: 1 }) === 1 && medalOf({ stars: 2 }) === 2 && medalOf({ stars: 3 }) === 3 && medalOf({ stars: 3, fullCombo: true }) === 4, "medals: bronze → crown");
+  ok(medalOf({ stars: 3, fullCombo: true, tempo: 0.75 }) === 1, "below the real speed a run keeps bronze");
+  ok(MEDAL_REWARD[1].coins === 10 && MEDAL_REWARD[4].coins === 60 && MEDAL_REWARD[4].exp === 200, "first-time medal rewards");
+  ok(runCoins(0) === 0 && runCoins(1) === 10 && runCoins(3) === 20, "run coins: none without a star, 10/15/20");
+  ok(chestChance(0) === 0 && chestChance(3) === 0.2, "one end chest, its chance by stars");
 }
 
 /* ── #10: pvp-online code shape + join validation ── */

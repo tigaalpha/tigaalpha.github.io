@@ -937,7 +937,7 @@ export function playWhoosh() {
     bp.frequency.exponentialRampToValueAtTime(3400, t0 + 0.17);
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.2, t0 + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.1, t0 + 0.03);   // half what it was: it sits under the band now
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
     src.connect(bp); bp.connect(g); g.connect(bus);
     src.start(t0); src.stop(t0 + 0.22);
@@ -954,7 +954,7 @@ export function playBoom(big) {
     o.frequency.setValueAtTime(120, t0);
     o.frequency.exponentialRampToValueAtTime(34, t0 + 0.28);
     const og = ac.createGain();
-    og.gain.setValueAtTime(big ? 0.5 : 0.34, t0);
+    og.gain.setValueAtTime(big ? 0.26 : 0.17, t0);   // about half: the band's kick owns the low end now
     og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
     o.connect(og); og.connect(bus); o.start(t0); o.stop(t0 + 0.34);
     const n = ac.createBufferSource(); n.buffer = _accNoise(ac);
@@ -962,7 +962,7 @@ export function playBoom(big) {
     lp.frequency.setValueAtTime(2600, t0);
     lp.frequency.exponentialRampToValueAtTime(320, t0 + 0.25);
     const ng = ac.createGain();
-    ng.gain.setValueAtTime(big ? 0.28 : 0.18, t0);
+    ng.gain.setValueAtTime(big ? 0.14 : 0.09, t0);
     ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
     n.connect(lp); lp.connect(ng); ng.connect(bus); n.start(t0); n.stop(t0 + 0.3);
     _accMarkSuppress(70, 1000, Date.now() + 350);
@@ -1614,7 +1614,19 @@ export function detectSongKey(song) {
 // root on beat 1, 5th at the bar's midpoint — one octave (3) below the
 // melody's own C4 floor. Returns [{note, beat, dur}, ...] in beat-space,
 // matching the units expandSong() already uses for the melody itself.
-export function generateAccompaniment(song, pickup = 0) {
+/* The song's harmony, one chord per BAR: each bar's melody is scored against
+   the seven diatonic triads of the song's key (a little inertia toward the
+   previous bar's chord, a cadence pull to I or V in the last bar). This is
+   what the left-hand part is built from, and what Play Along's band plays —
+   one source, so the band never plays a different chord from the left hand.
+   Returns [{ at, len, root (pitch-class index), pcs [triad pitch classes],
+   quality }] in beats from the first note.
+
+   opts.split scores each half of a 4-beat bar on its own and opts.primary
+   leans toward I, IV and V: the band uses both, so "Twinkle" is harmonised
+   C | F C | F C | G C instead of C for the whole song. The left-hand part
+   calls it without them and is unchanged. */
+export function songChordBars(song, pickup = 0, opts: any = {}) {
   const timeSig = SONG_TIMESIG[song.id] || "4/4";
   const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
   const key = detectSongKey(song);
@@ -1631,14 +1643,18 @@ export function generateAccompaniment(song, pickup = 0) {
   const totalBeats = beat;
   if (!melNotes.length || totalBeats < 1) return [];
 
-  const events = [];
+  const bars = [];
   let prevDeg = 0;
   // Bars are walked from the pickup onward so the accompaniment's own bars
   // line up with the ones the staff actually draws — an accompaniment on a
   // different bar grid than the melody it accompanies is simply wrong.
   const barStarts = [];
   if (pickup > 0) barStarts.push({ at: 0, len: pickup });
-  for (let b = pickup; b < totalBeats - 1e-6; b += beatsPerBar) barStarts.push({ at: b, len: Math.min(beatsPerBar, totalBeats - b) });
+  for (let b = pickup; b < totalBeats - 1e-6; b += beatsPerBar) {
+    const len = Math.min(beatsPerBar, totalBeats - b);
+    if (opts.split && beatsPerBar === 4 && len === 4) { barStarts.push({ at: b, len: 2 }); barStarts.push({ at: b + 2, len: 2 }); }
+    else barStarts.push({ at: b, len });
+  }
   for (const { at: barStart, len: barLen } of barStarts) {
     if (barLen < 0.5) continue; // trailing sliver — not worth a chord of its own
     const weight = new Array(12).fill(0);
@@ -1647,12 +1663,21 @@ export function generateAccompaniment(song, pickup = 0) {
     for (let deg = 0; deg < 7; deg++) {
       const triad = CHORD_DEF[qualities[deg]].map(s => (degreeRoots[deg] + s) % 12);
       let score = triad.reduce((s, pc) => s + weight[pc], 0);
-      if (deg === prevDeg) score += 0.35; // harmonic inertia
+      if (deg === prevDeg) score += opts.primary ? 0.1 : 0.35; // harmonic inertia
+      if (opts.primary && (deg === 0 || deg === 3 || deg === 4)) score += 0.2; // I, IV, V
       if (barStart + barLen >= totalBeats - 1e-9 && (deg === 0 || deg === 4)) score += 0.5; // cadence
       if (score > bestScore) { bestScore = score; bestDeg = deg; }
     }
     prevDeg = bestDeg;
-    const rootPc = CHROMA[degreeRoots[bestDeg]], fifthPc = CHROMA[(degreeRoots[bestDeg] + 7) % 12];
+    const quality = qualities[bestDeg], root = degreeRoots[bestDeg];
+    bars.push({ at: barStart, len: barLen, root, quality, pcs: CHORD_DEF[quality].map(s => (root + s) % 12) });
+  }
+  return bars;
+}
+export function generateAccompaniment(song, pickup = 0) {
+  const events = [];
+  for (const { at: barStart, len: barLen, root } of songChordBars(song, pickup)) {
+    const rootPc = CHROMA[root], fifthPc = CHROMA[(root + 7) % 12];
     // Split the bar exactly in half — root then fifth. The old version gave
     // the root a flat 2 beats and started the fifth at the bar's midpoint,
     // which in any meter that isn't 4/4 made the two OVERLAP and the bar add
@@ -2488,7 +2513,10 @@ export const Piano = memo(function Piano({ litNote = null, litSet = null, finger
 });
 
 export const SP_WKW = 30, SP_GAP = 2, SP_BKW = 19; // white width, gap, black width
-export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, fingerMap = null, onNote = null, baseOct = 4, octs = 2, scroll = false, fullWidth = false }) {
+export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, fingerMap = null, onNote = null, baseOct = 4, octs = 2, scroll = false, fullWidth = false, litColors = null }) {
+  // litColors (optional): { note: css colour } — a lit key takes the colour of
+  // the note coming down its lane (Play Along); read as --kc by the styles
+  const kc = (n) => (litColors && litColors[n] ? { "--kc": litColors[n] } as any : undefined);
   const { held, flash, onKeyPointerDown, onKeyPointerMove, onKeyPointerUp } = usePianoKeys(onNote);
   const scrollerRef = useRef(null);
   const isLit = (n) => (litSet && litSet.includes(n)) || litNote === n;
@@ -2556,6 +2584,7 @@ export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null
       <div className="gprow" style={fullWidth ? { maxWidth: "none", margin: 0, padding: 0, gap: 0 } : undefined}>
         {whites.map(k => (
           <button key={k.n} className={`gpw${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
+            style={isLit(k.n) ? kc(k.n) : undefined}
             onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
             aria-label={k.l}>
             <span>{k.l}</span>
@@ -2564,7 +2593,7 @@ export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null
         ))}
         {blacks.map(k => (
           <button key={k.n} className={`gpb${isLit(k.n) ? " lit" : ""}${flash === k.n ? " flash" : ""}${held.has(k.n) ? " pressed" : ""}`}
-            style={{ left: (((k.after + 1) / NW) * 100 - bw / 2) + "%", width: bw + "%" }}
+            style={{ left: (((k.after + 1) / NW) * 100 - bw / 2) + "%", width: bw + "%", ...(isLit(k.n) ? kc(k.n) : null) }}
             onPointerDown={(e) => onKeyPointerDown(e, k.n)} onPointerMove={(e) => onKeyPointerMove(e, k.n)} onPointerUp={onKeyPointerUp}
             aria-label={k.l}>
             {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
