@@ -1,6 +1,7 @@
 import { L, tr } from "./i18n";
 import { tigaHub } from "./tigamodel/web";   // Capability Hub: learner summary + quest hint from whatever engines are registered
-import { dailySongFor } from "./use-play-along";
+import { dailySong } from "./play-along-progress";
+import { levelInfo } from "./App";
 import { readMemory } from "./ai-chat-context";
 import { readPracticeLog } from "./shared-infra";
 import { playUi } from "./music-engine";
@@ -74,7 +75,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, chestLo
             // Both come from real local data via whatever engines are registered;
             // a null line hides the row instead of showing filler.
             const summ = tigaHub.learnerSummary(readMemory(), readPracticeLog(), profile);
-            const ds = dailySongFor();
+            const ds = dailySong(levelInfo((profile && profile.exp) || 0).level, plan);
             const hint = tigaHub.nextQuestHint(readMemory(), profile, { dailySong: ds ? tr(ds, lang) : null });
             const line = summ && summ.line ? (summ.line[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || summ.line.en) : null;
             const htip = hint && hint.tip ? (hint.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || hint.tip.en) : null;

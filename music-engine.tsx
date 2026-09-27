@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, memo, useCallback, Fragment } from "react";
 import { isPianoLike } from "./piano-guard";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
 
@@ -885,18 +885,44 @@ export function playClick(accent) {
   } catch (e) {}
 }
 
+/* The miss buzz used to go straight to the speakers, so it was the one game
+   sound the "sound effects off" switch could not silence, and it sat louder
+   than the music. It goes through the effects bus now, at about half the
+   old level. */
 export function playMiss() {
   try {
-    const ac = getAC(), t0 = ac.currentTime;
+    if (_sfxMuted) return;
+    const { ac, bus } = audioBus(), t0 = ac.currentTime;
     const osc = ac.createOscillator(), g = ac.createGain();
     osc.type = "sawtooth";
     osc.frequency.setValueAtTime(175, t0);
     osc.frequency.exponentialRampToValueAtTime(85, t0 + 0.18);
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.08, t0 + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
-    osc.connect(g); g.connect(ac.destination);
+    osc.connect(g); g.connect(bus);
     osc.start(t0); osc.stop(t0 + 0.22);
+  } catch (e) {}
+}
+/* A metronome click at an exact time on the audio clock — scheduled ahead,
+   so it lands on the beat even when the frame that asked for it was late.
+   Play Along keeps its click on the song's own beat grid with this; the
+   free-running metronome (setInterval) drifts off the falling notes. */
+export function playClickAt(when, accent, vol = 1) {
+  try {
+    if (_sfxMuted) return;
+    const { ac, bus } = audioBus();
+    const t0 = Math.max(ac.currentTime, when);
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = "square";
+    const f = accent ? 2000 : 1300;
+    osc.frequency.value = f;
+    _accMarkSuppress(f, 80, Date.now() + Math.max(0, (t0 - ac.currentTime) * 1000) + 120);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime((accent ? 0.34 : 0.2) * vol, t0 + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.045);
+    osc.connect(g); g.connect(bus);
+    osc.start(t0); osc.stop(t0 + 0.06);
   } catch (e) {}
 }
 // rocket launch — a quick airy whoosh (band-passed noise sweeping upward).
@@ -2651,8 +2677,16 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
    Horizontal position comes from a note's BEAT, not its index in the array,
    so a half note visibly occupies twice the space of a quarter and — the
    reason it matters most — the two staves of a grand staff line up
-   vertically on the beat, which index-based spacing can never do. ── */
-export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 0, spanBeats = 20, songMeta, handMode = "right" }) {
+   vertically on the beat, which index-based spacing can never do.
+
+   It scrolls smoothly: the staff furniture (lines, clef, signatures) is one
+   still drawing, and the music is a second drawing on its own layer that
+   slides left every frame by a CSS transform — nothing is laid out or
+   repainted to move it. The glyphs are placed against `startBeat`, a base
+   the caller moves only now and then, and `margin` beats more are drawn past
+   the right edge so the slide never uncovers an empty strip. `liveClock()`
+   gives the window's real start each frame (null = hold still). ── */
+export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 0, spanBeats = 20, margin = 0, liveClock = null, songMeta, handMode = "right" }) {
   // Track the real container size so the drawing is stretched to EXACTLY fill
   // the element's box (width-wise) on any screen/orientation — a fixed-width
   // viewBox letterboxes the staff (empty black on both sides) on anything
@@ -2662,12 +2696,15 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
   const H = grand ? 200 : 150;
   const half = grand ? 6 : 7;                      // half a staff space = one step
   const wrapRef = useRef(null);
+  const moverRef = useRef(null);
   const [wbW, setWbW] = useState(520);
+  const [box, setBox] = useState({ w: 520, h: H });  // the element, in CSS px
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const sync = () => {
       setWbW(Math.max(260, Math.round((el.clientWidth * H) / Math.max(1, el.clientHeight))));
+      setBox(b => (b.w === el.clientWidth && b.h === el.clientHeight) ? b : { w: el.clientWidth, h: el.clientHeight });
     };
     sync();
     const ro = new ResizeObserver(sync);
@@ -2675,7 +2712,7 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
     return () => ro.disconnect();
   }, [H]);
 
-  const list = (notes || []).filter(Boolean).slice(0, 64);
+  const list = (notes || []).filter(Boolean).slice(0, 96); // the drawn window is a bar wider than the visible one (margin)
   const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
   const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
   const sigDenom = parseInt(String(timeSig).split("/")[1], 10) || 4;
@@ -2912,9 +2949,10 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
   const barBeats = [];
   // Bars run from the END of the pickup measure onward — an anacrusis is a
   // short first bar, so its bar line falls at `pickup`, not at beat 4.
-  if (pickup > 1e-9 && pickup > startBeat + 0.01 && pickup <= startBeat + spanBeats) barBeats.push(pickup);
+  const drawnEnd = startBeat + spanBeats + margin;
+  if (pickup > 1e-9 && pickup > startBeat + 0.01 && pickup <= drawnEnd) barBeats.push(pickup);
   const firstBar = pickup + Math.max(0, Math.ceil((startBeat - pickup) / beatsPerBar)) * beatsPerBar;
-  for (let b = firstBar; b <= startBeat + spanBeats; b += beatsPerBar) if (b > startBeat + 0.01 && b > pickup + 1e-9) barBeats.push(b);
+  for (let b = firstBar; b <= drawnEnd; b += beatsPerBar) if (b > startBeat + 0.01 && b > pickup + 1e-9) barBeats.push(b);
   const barTop = topBase - 8 * half;
   const barBottom = grand ? bassBase : topBase;
 
@@ -2925,34 +2963,73 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
   const trebleBeams = layoutBeams(trebleNotes, grand ? "treble" : soloClef, topBase);
   const bassBeams = grand ? layoutBeams(bassNotes, "bass", bassBase) : { info: new Map(), bars: [] };
 
+  // The two drawings share one coordinate system: the still one fills the
+  // box (viewBox 0 0 W H, centred), and the moving one starts at the same
+  // origin, cut off where the music begins (after the time signature) and at
+  // the lines' right end. s = CSS px per viewBox unit.
+  const s = Math.min(box.w / W, box.h / H) || 1;
+  const ox = (box.w - W * s) / 2;
+  const moveW = startX + (spanBeats + margin) * pxPerBeat + 40;
+  const clipL = ox + startX * s, clipW = Math.max(0, (W - 8 - startX) * s);
+  const slide = useRef({ base: startBeat, pxb: pxPerBeat * s, dx: null });
+  const place = (live) => {
+    const el = moverRef.current, st = slide.current;
+    if (!el || live == null) return;
+    const dx = Math.round((live - st.base) * st.pxb * 4) / 4;   // quarter-pixel steps
+    if (dx !== st.dx) { st.dx = dx; el.style.transform = `translate3d(${-dx}px,0,0)`; }
+  };
+  // a new base or size lands together with its offset, before the frame paints
+  useLayoutEffect(() => {
+    slide.current.base = startBeat; slide.current.pxb = pxPerBeat * s; slide.current.dx = null;
+    const el = moverRef.current;
+    if (el) el.style.transform = "translate3d(0,0,0)";
+    if (liveClock) place(liveClock());
+  });
+  useEffect(() => {
+    if (!liveClock) return;
+    let raf = 0;
+    const step = () => { place(liveClock()); raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveClock]);
+
   return (
-    <svg ref={wrapRef} viewBox={`0 0 ${W} ${H}`} className="pastaff" preserveAspectRatio="xMidYMid meet">
-      {/* Which hand this staff is for — stated outright in the one-hand modes
-          so there's never any doubt which part is on the page. */}
-      <text x="8" y="14" fontSize="12" fill="rgba(255,255,255,.6)" style={{ fontFamily: "var(--f-num, monospace)" }}>
-        Key: {keyName}{handMode === "left" ? " · L.H." : handMode === "right" ? " · R.H." : ""}
-      </text>
-      {grand && <>
-        <text x={W - 10} y={topBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "var(--f-num, monospace)" }}>R.H.</text>
-        <text x={W - 10} y={bassBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "var(--f-num, monospace)" }}>L.H.</text>
-      </>}
-      {staffFurniture(topBase, grand ? "treble" : soloClef, grand ? sigMarksTreble : (soloClef === "bass" ? sigMarksBass : sigMarksTreble), "top")}
-      {grand && staffFurniture(bassBase, "bass", sigMarksBass, "bottom")}
-      {/* grand-staff brace + the vertical rule joining the two staves */}
-      {grand && <>
-        <path d={`M6,${barTop} q-5,${(barBottom - barTop) / 4} 0,${(barBottom - barTop) / 2} q5,${(barBottom - barTop) / 4} 0,${(barBottom - barTop) / 2}`}
-          fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="2" />
-        <line x1="8" y1={barTop} x2="8" y2={barBottom} stroke={LINE} strokeWidth="1.6" />
-      </>}
-      {barBeats.map((b, i) => (
-        <line key={"bar" + i} x1={xOf(b) - pxPerBeat * 0.35} y1={barTop} x2={xOf(b) - pxPerBeat * 0.35} y2={barBottom}
-          stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />
-      ))}
-      {trebleBeams.bars.map((b, i) => renderBeam(b, "tb" + i))}
-      {grand && bassBeams.bars.map((b, i) => renderBeam(b, "bb" + i))}
-      {trebleNotes.map((n, i) => renderGlyph(n, i, topBase, grand ? "treble" : soloClef, trebleNotes[i + 1], trebleBeams.info.get(i)))}
-      {grand && bassNotes.map((n, i) => renderGlyph(n, i, bassBase, "bass", bassNotes[i + 1], bassBeams.info.get(i)))}
-    </svg>
+    <div ref={wrapRef} className="pastaff">
+      <svg viewBox={`0 0 ${W} ${H}`} className="pastaff-bg" preserveAspectRatio="xMidYMid meet">
+        {/* Which hand this staff is for — stated outright in the one-hand modes
+            so there's never any doubt which part is on the page. */}
+        <text x="8" y="14" fontSize="12" fill="rgba(255,255,255,.6)" style={{ fontFamily: "var(--f-num, monospace)" }}>
+          Key: {keyName}{handMode === "left" ? " · L.H." : handMode === "right" ? " · R.H." : ""}
+        </text>
+        {grand && <>
+          <text x={W - 10} y={topBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "var(--f-num, monospace)" }}>R.H.</text>
+          <text x={W - 10} y={bassBase - 8 * half - 4} fontSize="11" textAnchor="end" fill="rgba(255,255,255,.45)" style={{ fontFamily: "var(--f-num, monospace)" }}>L.H.</text>
+        </>}
+        {staffFurniture(topBase, grand ? "treble" : soloClef, grand ? sigMarksTreble : (soloClef === "bass" ? sigMarksBass : sigMarksTreble), "top")}
+        {grand && staffFurniture(bassBase, "bass", sigMarksBass, "bottom")}
+        {/* grand-staff brace + the vertical rule joining the two staves */}
+        {grand && <>
+          <path d={`M6,${barTop} q-5,${(barBottom - barTop) / 4} 0,${(barBottom - barTop) / 2} q5,${(barBottom - barTop) / 4} 0,${(barBottom - barTop) / 2}`}
+            fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="2" />
+          <line x1="8" y1={barTop} x2="8" y2={barBottom} stroke={LINE} strokeWidth="1.6" />
+        </>}
+      </svg>
+      <div className="pastaff-clip" style={{ left: clipL, width: clipW }}>
+        <div ref={moverRef} className="pastaff-move" style={{ left: -startX * s, width: moveW * s }}>
+          <svg viewBox={`0 0 ${moveW} ${H}`} preserveAspectRatio="xMinYMid meet">
+            {barBeats.map((b, i) => (
+              <line key={"bar" + i} x1={xOf(b) - pxPerBeat * 0.35} y1={barTop} x2={xOf(b) - pxPerBeat * 0.35} y2={barBottom}
+                stroke="rgba(255,255,255,.55)" strokeWidth="1.6" />
+            ))}
+            {trebleBeams.bars.map((b, i) => renderBeam(b, "tb" + i))}
+            {grand && bassBeams.bars.map((b, i) => renderBeam(b, "bb" + i))}
+            {trebleNotes.map((n, i) => renderGlyph(n, i, topBase, grand ? "treble" : soloClef, trebleNotes[i + 1], trebleBeams.info.get(i)))}
+            {grand && bassNotes.map((n, i) => renderGlyph(n, i, bassBase, "bass", bassNotes[i + 1], bassBeams.info.get(i)))}
+          </svg>
+        </div>
+      </div>
+    </div>
   );
 });
 

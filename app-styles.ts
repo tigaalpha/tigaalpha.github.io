@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { OBSIDIAN_CSS } from "./obsidian-styles";
 import { CREAM_CSS } from "./cream-styles";
+import { PA_CSS } from "./play-along-styles";
 
 export const CSS = `
 /* ── Light/dark mode variables — light is the CSS baseline (:root) so a first-time visit
@@ -971,7 +972,12 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .songprog{height:5px;background:var(--card3);flex-shrink:0}
 .songprog>div{height:100%;background: #d97757;transition:width .15s}
 .songstaffwrap{flex-shrink:0;padding:4px 0;background:#000}
-.pastaff{width:100%;height:101px;display:block}
+.pastaff{width:100%;height:101px;display:block;position:relative;overflow:hidden}
+/* the still furniture, and the music sliding over it on its own layer (PlayAlongStaff) */
+.pastaff-bg{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.pastaff-clip{position:absolute;top:0;height:100%;overflow:hidden}
+.pastaff-move{position:absolute;top:0;height:100%;will-change:transform}
+.pastaff-move>svg{display:block;width:100%;height:100%}
 /* two-hand mode draws a real grand staff (treble + bass), so the strip needs
    room for both — .songstage is flex:1 and gives the height back automatically */
 .songstaffwrap.grand .pastaff{height:150px}
@@ -2722,6 +2728,7 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .genrechip.active{background:#6c47ff;border-color:#6c47ff;color:#fff}
 .drillhint{padding:0 16px 10px;margin:0;color:var(--muted);font-size:12.5px;line-height:1.45}
 .songcontinue{padding:0 14px 4px}
+.songcontinue .songcard{width:100%;box-sizing:border-box} /* a button shrinks to its text outside the grid */
 .songcontinue-lbl{font-family:var(--f-app);font-size:11px;font-weight:700;color:#d97757;letter-spacing:1px;margin-bottom:6px}
 .songcard{position:relative}
 .favbtn{position:absolute;top:7px;right:34px;font-size:18px;line-height:1;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px;z-index:2}
@@ -3672,6 +3679,7 @@ html[data-theme="dark"] .anonwv-n{color:#ffc97a}
 
 ${CREAM_CSS}
 ${OBSIDIAN_CSS}
+${PA_CSS}
 `;
 
 export function useInjectCSS() {
