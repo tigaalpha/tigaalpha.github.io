@@ -53,6 +53,18 @@ concerns. If you need the reasoning behind any particular split, `git log
 --oneline --all | grep -i phase` finds the extraction commits — each one
 explains what moved and why.
 
+**Play Along** (`use-play-along.ts` + `SongPlayOverlay.tsx`) keeps its rules
+in pure modules: `play-along-judge.ts` (timing windows, accuracy, stars,
+mashing, input-delay learning, boss numbers) and `play-along-progress.ts`
+(earned stars and best accuracy per song, locks, the daily song, what to
+play next). `usePlayAlong` runs inside `PianoApp`, so a React state update
+there re-renders the whole app — the running game's fast-changing state
+(HUD, lit keys, staff, effects) lives in `play-along-store.ts` instead, read
+by small subscriber components in the overlay; keep new per-frame or
+per-note state there, not in `useState`. Its neon theme is
+`play-along-styles.ts`, with `pl-` class names: a top-level `.pa-*`/`.ca-*`
+rule is fingerprinted by the sprite bake and would mark every sprite stale.
+
 Robot and pet **thumbnails are pre-rendered images**, not live SVG:
 `scripts/bake-sprites.mjs` (`npm run sprites`) draws every robot head
 (`CyberAvatar headOnly`) and every level-1 pet (`PetArt`) from the real
@@ -178,6 +190,14 @@ confidence than unit-testing a reimplementation. Native-only features
 tracking) are structurally unreachable in a headless/web context — a green
 build there proves the rest of the app still works, nothing about the
 native behavior itself; those need a human on a real device.
+
+For Play Along: `node scripts/verify-playalong.mjs` checks the scoring and
+daily-quest rules from the real modules (needs jsdom, see the script), and
+`npm run build && node scripts/verify-playalong-bots.mjs` plays real songs
+in `dist/` with bots — mashing, clean and early runs, the practice loop,
+the daily song, concerts, pause, the first-time intro, the song list, the
+sliding staff (`ONLY=name,…` runs a subset). The app exposes
+`window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
 
 ## Where to look for current state
 

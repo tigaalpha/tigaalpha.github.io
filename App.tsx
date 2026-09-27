@@ -150,7 +150,7 @@ import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
 import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
-import { dailySongFor, readDailySongState, DAILY_SONG_REWARD } from "./use-play-along";
+import { dailySong, readDailyState, DAILY_SONG_REWARD, songStars, songLengthSec, songLockInfo, nextSongAfter } from "./play-along-progress";
 import { useChat } from "./use-chat";
 import { useVoiceTutor } from "./use-voice-tutor";
 const LeadLandingPage = lazy(() => import("./LeadLandingPage").then(m => ({ default: m.LeadLandingPage })));
@@ -3714,16 +3714,16 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
 
 /* ── Song picker page (falling-notes play-along) ── */
 const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // level required to unlock by difficulty
-/* ── Daily Song Quest day card (Play Along plan #8) — hero strip on the
-   song list: today's featured song (same for every device, hash-of-date
-   choice), today's progress (done + stars from tg_daily_song), and a
-   countdown to the next quest. One tap starts the song. ── */
-function DailySongQuestCard({ lang, onPlay }) {
+/* ── Daily Song Quest day card — the day's song, picked once from the songs
+   this player can open and has not 3-starred yet (play-along-progress
+   dailySong), and whether today's reward has been paid. It resets with the
+   app's other dailies (ymd), so the hours left count to that same moment. ── */
+function DailySongQuestCard({ lang, onPlay, level = 1, plan = "" }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [state, setState] = useState(() => readDailySongState(new Date().toISOString().slice(0, 10)));
-  const song = useMemo(() => dailySongFor(), []);
+  const song = useMemo(() => dailySong(level, plan), [level, plan]);
   if (!song) return null;
-  const hoursLeft = 23 - new Date().getHours();
+  const state = readDailyState();
+  const hoursLeft = Math.max(0, 23 - dayDate().getHours());
   const done = !!state.done;
   const stars = state.stars || 0;
   return (
@@ -3733,15 +3733,21 @@ function DailySongQuestCard({ lang, onPlay }) {
       <span className="setlistbtn-sub">
         {done
           ? T("✅ สำเร็จแล้ววันนี้ — เล่นซ้ำเพื่อเก็บดาวเพิ่มได้", "✅ Done today — replay to collect more stars", "✅ 今日已完成 — 可重玩拿更多星")
-          : T("เล่นให้จบ 1 รอบรับ " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "Finish it once for " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "完成一次得 " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP")}
+          : T("ได้ 1 ดาวขึ้นไป รับ " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "Get 1 star or more for " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "得 1 星以上奖励 " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP")}
         {"  ·  "}{done ? "★".repeat(stars) + "☆".repeat(Math.max(0, 3 - stars)) + "  ·  " : ""}{T("เหลืออีก ~" + hoursLeft + " ชม.", "~" + hoursLeft + "h left", "剩约" + hoursLeft + "小时")}
       </span>
     </button>
   );
 }
 
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist, initialCat = "songs" }) {
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, exp = 0, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist, initialCat = "songs" }) {
   const lc = L[lang];
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [q, setQ] = useState("");
+  const [lockMsg, setLockMsg] = useState(null);
+  const lockMsgT = useRef(null);
+  const showLock = (text) => { setLockMsg(text); clearTimeout(lockMsgT.current); lockMsgT.current = setTimeout(() => setLockMsg(null), 3200); };
+  useEffect(() => () => clearTimeout(lockMsgT.current), []);
   const [filter, setFilter] = useState(-1);   // -1 all · 0 favorites · 1/2/3 by difficulty
   const [favs, setFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_favs") || "[]"); } catch (e) { return []; } });
   const toggleFav = (id) => setFavs(prev => {
@@ -3842,14 +3848,17 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     setHumming(false);
   }
 
+  // difficulty reads as "Level N" — stars on a card now mean stars earned
   const filters = [
-    { k: -1, label: lc.songAll }, { k: 0, label: "★ " + lc.songFav },
-    { k: 1, label: "★" }, { k: 2, label: "★★" }, { k: 3, label: "★★★" },
+    { k: -1, label: lc.songAll }, { k: 0, label: "♥ " + lc.songFav },
+    { k: 1, label: T("ระดับ 1", "Level 1", "难度 1") }, { k: 2, label: T("ระดับ 2", "Level 2", "难度 2") }, { k: 3, label: T("ระดับ 3", "Level 3", "难度 3") },
   ];
   let list = ALL.slice();
   if (filter === 0) list = list.filter(s => favs.includes(s.id));
   else if (filter > 0) list = list.filter(s => s.diff === filter && !s.custom);
   if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "classical") === genreFilter);
+  const qq = q.trim().toLowerCase();
+  if (qq) list = list.filter(s => [s.th, s.en, s.zh].some(t => String(t || "").toLowerCase().includes(qq)));
   list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
 
   // Setlist / Concert mode — 3 random UNLOCKED songs from whatever's currently
@@ -3864,28 +3873,39 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
       return !locked && !maxLocked;
     });
     if (pool.length < 2 || !onStartSetlist) return;
-    const copy = pool.slice(), picked = [];
-    while (picked.length < Math.min(3, copy.length)) picked.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
+    // the count is fixed before picking: `copy` shrinks as songs are taken,
+    // so measuring it in the loop stopped a 3- or 4-song pool at two songs
+    const copy = pool.slice(), picked = [], count = Math.min(3, pool.length);
+    while (picked.length < count) picked.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
     onStartSetlist(picked);
   }
 
+  /* A card says what the player has EARNED on the song (gold stars), how
+     hard it is (level) and how long it is. A locked song says what opens
+     it, instead of only buzzing. */
+  const expToLevel = (req) => { const t = ALL_LEVELS[req - 1]; return t ? Math.max(0, t.min - (exp || 0)) : 0; };
+  const fmtLen = (sec) => Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
   const Card = (s, pfx = "") => {
     const hue = laneHue((s.seq.find(x => x[0] !== "R") || ["C4"])[0]);
     const isFav = favs.includes(s.id);
-    const req = SONG_REQ[s.diff] || 1;
-    const locked = !s.custom && level < req;
-    const maxLocked = !s.custom && s.maxOnly && !isMaxPlan(plan);
-    let pb = 0; try { pb = +(localStorage.getItem("tg_best_" + s.id) || 0); } catch (_) {}
+    const { locked, maxLocked, req } = songLockInfo(s, level, plan);
+    const got = s.custom ? 0 : songStars(s.id);
+    const len = songLengthSec(s);
+    const need = locked ? expToLevel(req) : 0;
     return (
       <button key={pfx + s.id} className={`songcard${locked || maxLocked ? " locked" : ""}`} style={{ "--sc": `hsl(${hue},70%,56%)` }}
-        onClick={() => { if (locked) { haptic(20); playMiss(); } else if (maxLocked) { haptic(20); if (onUpsell) onUpsell(); } else play(s); }}>
+        onClick={() => {
+          if (locked) { haptic(20); showLock(T(`"${tr(s, lang)}" เปิดที่เลเวล ${req} · ขาดอีก ${need.toLocaleString()} EXP — เล่นเพลงที่เปิดอยู่เพื่อเก็บ EXP`, `"${tr(s, lang)}" opens at level ${req} · ${need.toLocaleString()} EXP to go — play open songs to earn it`, `"${tr(s, lang)}" 在 ${req} 级解锁 · 还差 ${need.toLocaleString()} EXP — 弹已解锁的歌来获得`)); }
+          else if (maxLocked) { haptic(20); if (onUpsell) onUpsell(); }
+          else play(s);
+        }}>
         <div className="songcard-ic">{locked ? "🔒" : maxLocked ? "👑" : s.custom ? "🎼" : "🎵"}</div>
         <div className="songcard-body">
           <div className="songcard-nm">{tr(s, lang)}</div>
           <div className="songcard-meta">
-            <span className="songdiff" aria-label={`difficulty ${s.diff}`}>{s.custom ? "✨ AI" : "★".repeat(s.diff) + "☆".repeat(3 - s.diff)}</span>
-            <span>{locked ? lc.lockedLv + req : maxLocked ? (lang === "th" ? "👑 Max เท่านั้น" : lang === "zh" ? "👑 Max 专属" : "👑 Max only") : s.bpm + " BPM"}</span>
-            {pb > 0 && <span className="songcard-pb">PB {pb.toLocaleString()}</span>}
+            {s.custom ? <span>✨ AI</span> : <span className={`songcard-got${got ? " on" : ""}`} aria-label={T(`ได้ ${got} ดาว`, `${got} stars earned`, `已得 ${got} 星`)}>{"★".repeat(got) + "☆".repeat(3 - got)}</span>}
+            {!s.custom && <span className="songcard-lv">{T("ระดับ", "Lv", "难度")} {s.diff}</span>}
+            <span>{locked ? T(`เลเวล ${req} · ขาด ${need.toLocaleString()} EXP`, `Level ${req} · ${need.toLocaleString()} EXP to go`, `${req} 级 · 差 ${need.toLocaleString()} EXP`) : maxLocked ? (lang === "th" ? "👑 Max เท่านั้น" : lang === "zh" ? "👑 Max 专属" : "👑 Max only") : "⏱ " + fmtLen(len)}</span>
           </div>
         </div>
         <span className="songcard-go">{locked ? "🔒" : maxLocked ? "👑" : "▶"}</span>
@@ -3950,7 +3970,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
       {/* Daily Song Quest (Play Along plan #8): one featured song per day,
           deterministic for every device. Playing it to the finish once today
           completes the quest — bonus paid in finishSong. */}
-      <DailySongQuestCard lang={lang} onPlay={onPlay} />
+      <DailySongQuestCard lang={lang} onPlay={onPlay} level={level} plan={plan} />
       {/* category selector — Songs · Scales · Chords · Intervals */}
       <div className="songfilters">
         {cats.map(c => (
@@ -3971,6 +3991,8 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
               <span className="setlistbtn-sub">{lc.setlistSub}</span>
             </button>
           )}
+          <input className="songsearch" type="search" value={q} onChange={e => setQ(e.target.value)}
+            placeholder={T("ค้นหาเพลง", "Search songs", "搜索歌曲")} aria-label={T("ค้นหาเพลง", "Search songs", "搜索歌曲")} />
           <div className="genrefilters">
             {([
               { code:"all",       label:{ th:"🎵 ทั้งหมด",     en:"🎵 All",       zh:"🎵 全部" } },
@@ -4019,12 +4041,24 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
               </div>
             </div>
           )}
-          {lastSong && filter === -1 && (
+          {lockMsg && <div className="songlockmsg" role="status">🔒 {lockMsg}</div>}
+          {lastSong && filter === -1 && !qq && (
             <div className="songcontinue">
               <div className="songcontinue-lbl">↻ {lc.songContinue}</div>
               {Card(lastSong, "c-")}
             </div>
           )}
+          {/* for a returning player only: a new one starts from the top of the
+              list, and the day's song already has its own card above */}
+          {filter === -1 && !qq && lastSong && (() => {
+            const nx = nextSongAfter(!lastSong.custom ? lastSong : null, level, plan, { skipDaily: true });
+            return nx && nx.id !== lastSong.id ? (
+              <div className="songcontinue">
+                <div className="songcontinue-lbl">✦ {T("เพลงแนะนำถัดไป", "Up next", "推荐下一首")}</div>
+                {Card(nx, "n-")}
+              </div>
+            ) : null;
+          })()}
           <div className="songgrid">
             {list.length ? list.map(s => Card(s)) : <div className="songempty">{lc.songFavEmpty}</div>}
           </div>
@@ -10589,7 +10623,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => navigator.serviceWorker.removeEventListener("message", onNav);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songTigaTip, songSetlistPos, startSetlist, playAlongHand, changePlayAlongHand, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true), profile });
+  const { gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songBest, setSongBest, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songCanvasRef, songDataRef, songInputRef, songTigaTip, songRafRef, songHudTimerRef, songPreviewRef, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songMetro, setSongMetro, songIntro, startIntro, skipIntro, drillPlan, drillActive, drillCleared, startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true), profile, level: levelInfo((profile && profile.exp) || 0).level, plan });
 
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
@@ -11369,30 +11403,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const id = setInterval(tick, 60000 / metroBpm);
     return () => clearInterval(id);
   }, [metroOn, metroBpm]);
-  // auto-enable metronome when entering Play Along, sync BPM with song + tempo, disable when exiting
-  const prevSongOpenRef = useRef(false);
-  const prevSongMetaRef = useRef(null);
+  /* Play Along keeps its own click on the song's beat grid (use-play-along
+     scheduleClicks). The free-running metronome here ticks on a timer that
+     starts whenever it is switched on, so inside a song it was always off
+     the beat — and it used to be switched on by entering Play Along. Now it
+     is held off while a song is open and put back as it was afterwards. */
+  const metroBeforeSongRef = useRef(null);
   useEffect(() => {
-    if (songOpen && !prevSongOpenRef.current) {
-      prevSongOpenRef.current = true;
-      setMetroOn(true);
-      if (songMeta && songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    if (songOpen && metroBeforeSongRef.current === null) {
+      metroBeforeSongRef.current = metroOn;
+      if (metroOn) setMetroOn(false);
+    } else if (!songOpen && metroBeforeSongRef.current !== null) {
+      const was = metroBeforeSongRef.current;
+      metroBeforeSongRef.current = null;
+      if (was) setMetroOn(true);
     }
-    // sync BPM when song changes during play (setlist/retry)
-    if (songOpen && songMeta && songMeta !== prevSongMetaRef.current) {
-      prevSongMetaRef.current = songMeta;
-      if (songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
-    }
-    // sync BPM when tempo multiplier changes (0.5x, 0.75x, 1x, 1.25x)
-    if (songOpen && songMeta && songMeta.bpm) {
-      setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
-    }
-    if (!songOpen && prevSongOpenRef.current) {
-      prevSongOpenRef.current = false;
-      prevSongMetaRef.current = null;
-      setMetroOn(false);
-    }
-  }, [songOpen, songMeta, songTempo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songOpen]);
   // grade the learner's note onsets against the actual metronome clicks (ms-precise)
   function metroTimingReport(noteTimes) {
     const beats = metroBeatTimesRef.current;
@@ -12475,7 +12502,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} onStartSetlist={startSetlist} />
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} exp={(profile && profile.exp) || 0} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} onStartSetlist={startSetlist} />
           : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
@@ -12679,7 +12706,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} startSpotPractice={startSpotPractice} practiceWrongByIdxRef={practiceWrongByIdxRef} /></SafeZone>}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossHp={bossHp} bossMax={bossMax} bossFx={bossFx} kDrop={kDrop} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} /></SafeZone>}
+      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay gameStore={gameStore} songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songCanvasRef={songCanvasRef} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} requestSongAnalysis={requestSongAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} pvpOnline={pvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} drillCleared={drillCleared} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossMax={bossMax} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} openKnowledgeShelf={openKnowledgeShelf} pauseSong={pauseSong} resumeSong={resumeSong} restartSong={restartSong} playAgain={playAgain} playNext={playNext} nextSongFor={nextSongFor} songKind={songKind} setSongKind={setSongKind} songMetro={songMetro} setSongMetro={setSongMetro} songIntro={songIntro} startIntro={startIntro} skipIntro={skipIntro} sfxMuted={sfxMuted} onToggleSfx={() => { const m = !sfxMuted; setSfxMuted(m); setSfxMutedState(m); }} /></SafeZone>}
 
       {/* SIGHT-READING overlay */}
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightTip={sightTip} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}

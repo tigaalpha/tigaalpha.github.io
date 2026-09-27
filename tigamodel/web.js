@@ -826,7 +826,7 @@ tigaHub.registerSpecialist("repertoire", {
   },
   nextQuestHint(mem, profile, opts) {
     if (!opts || !opts.dailySong) return null; // only the tie-in voice
-    return { tip: { th: `🎵 เพลงประจำวันวันนี้ (🎵 ${opts.dailySong}) จบ 1 รอบ = ภารกิจสำเร็จ`, en: `🎵 One run of today's song (🎵 ${opts.dailySong}) completes the quest`, zh: `🎵 弹一次今日曲目（🎵 ${opts.dailySong}）即完成任务` } };
+    return { tip: { th: `🎵 เพลงประจำวันวันนี้ (🎵 ${opts.dailySong}) ได้ 1 ดาวขึ้นไป = ภารกิจสำเร็จ`, en: `🎵 One star or more on today's song (🎵 ${opts.dailySong}) completes the quest`, zh: `🎵 今日曲目（🎵 ${opts.dailySong}）得 1 星以上即完成任务` } };
   },
   chatStartersFor(mem, plog, profile) {
     const struggles = ((mem && mem.struggles) || []).map(x => (x && typeof x === "object") ? (x.label || x.th || "") : String(x || "")).filter(Boolean);
