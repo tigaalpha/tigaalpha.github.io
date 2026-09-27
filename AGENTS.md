@@ -200,7 +200,8 @@ daily-quest rules from the real modules (needs jsdom, see the script), and
 `npm run build && node scripts/verify-playalong-bots.mjs` plays real songs
 in `dist/` with bots — mashing, clean and early runs, the practice loop,
 the daily song, concerts, pause, the first-time intro, the song list, the
-sliding staff (`ONLY=name,…` runs a subset). The app exposes
+sliding staff, medals and the run-coin limit, practice mode, the band and
+the click track (`ONLY=name,…` runs a subset). The app exposes
 `window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
 
 ## Where to look for current state

@@ -262,7 +262,7 @@ const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit
         )}
         {setMetro && (
           <button className={`pl-toggle${metro ? " on" : ""}`} onClick={() => setMetro(v => !v)}>
-            ⏱ {T("เสียงนับจังหวะ", "Click track", "节拍声")} · {metro ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
+            ⏱ {T("เสียงนับจังหวะตอนปิดวง", "Click when the band is off", "关乐队时的节拍声")} · {metro ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
           </button>
         )}
         {setFx && (
@@ -512,7 +512,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                         </button>
                         {setSongMetro && (
                           <button className={`pl-toggle${songMetro ? " on" : ""}`} onClick={() => setSongMetro(v => !v)} aria-pressed={!!songMetro}>
-                            ⏱ {T("เสียงนับจังหวะ", "Click track", "节拍声")} · {songMetro ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
+                            ⏱ {T("เสียงนับจังหวะตอนปิดวง", "Click when the band is off", "关乐队时的节拍声")} · {songMetro ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
                           </button>
                         )}
                       </div>

@@ -21,7 +21,7 @@ import { runTeachingLoopForPractice, tigaHub } from "./tigamodel/web.js"; // tig
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 import { createGameStore } from "./play-along-store";
 import { createBand, playChordDing } from "./play-along-band";
-import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance } from "./play-along-judge";
+import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed } from "./play-along-judge";
 import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday } from "./play-along-progress";
 
 export { DAILY_SONG_REWARD };
@@ -503,9 +503,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   songKindRef.current = songKind;
   function setSongKind(v) { setSongKindState(v); lsSet("tg_pa_kind", v ? "1" : "0"); }
   /* The song's own click: scheduled on the audio clock against the song's
-     beat grid (bar lines and pickups included), on by default. */
-  // the song's own click: off unless asked for, the band's drums keep time
-  const [songMetro, setSongMetroState] = useState(() => lsGet("tg_pa_metro", "0") === "1");
+     beat grid (bar lines and pickups included), on by default. It steps
+     aside by itself while the band's drums play (see scheduleClicks), so
+     with the band on the drums keep time and with it off the click does. */
+  const [songMetro, setSongMetroState] = useState(() => lsGet("tg_pa_metro", "1") === "1");
   const songMetroRef = useRef(songMetro);
   songMetroRef.current = songMetro;
   function setSongMetro(v) { const nv = typeof v === "function" ? v(songMetroRef.current) : v; songMetroRef.current = nv; setSongMetroState(nv); lsSet("tg_pa_metro", nv ? "1" : "0"); }
@@ -566,6 +567,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const pausedRef = useRef(null);          // null | { at: songTime } while paused
   const resumeTRef = useRef(null);
   const metroBeatRef = useRef(null);       // next beat index the click scheduler will place
+  const clickLogRef = useRef([]);          // the run's clicks and count-in ticks (the test hook reads it)
   const runMetaRef = useRef(null);         // { id, startedAt, ctx, via } for the usage rows
   const lastEndRef = useRef(null);         // { id, at } — "played again within a minute"
   const againViaRef = useRef(null);        // which button started the next run
@@ -894,6 +896,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     getAC();
     songStartClockRef.current = getAC().currentTime;
     metroBeatRef.current = null;
+    clickLogRef.current = [];
     frameStatRef.current = { n: 0, t0: 0, last: 0, long: 0, active: 0 };
     songRunRef.current = true;
     runMetaRef.current = { id: songIdOf(meta), startedAt: performance.now(), ctx: runCtx(meta), via: againViaRef.current, intro: !!(meta && meta.intro) };
@@ -1098,10 +1101,6 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     return () => document.removeEventListener("visibilitychange", onVis);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  /* Test hook for the Play Along bots (scripts in the session scratchpad):
-     only on a device where tg_pa_testhook is "1", never otherwise. It reads
-     the song clock and the notes and presses keys through the same handler
-     the on-screen keyboard uses — nothing a player could reach. */
   /* Where the reading staff's window starts right now, in beats — read by
      PlayAlongStaff every frame to slide itself (null: nothing is playing, so
      it holds still; paused: it holds where the song stopped). It lives on
@@ -1114,6 +1113,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const spb = 60 / ((meta && meta.bpm) || 90);
     return Math.max(0, Math.max(0, (t - SONG_LEAD) / spb) - beatsPerBarOf(meta));
   };
+  /* Test hook for the Play Along bots (scripts/verify-playalong-bots.mjs):
+     only on a device where tg_pa_testhook is "1", never otherwise. It reads
+     the song clock and the notes and presses keys through the same handler
+     the on-screen keyboard uses — nothing a player could reach. */
   useEffect(() => {
     let on = false; try { on = localStorage.getItem("tg_pa_testhook") === "1"; } catch (e) {}
     if (!on) return;
@@ -1132,6 +1135,9 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       gfx: () => GFX_TIERS[gfxRef.current.tier],
       band: () => bandRef.current ? { log: bandRef.current.log.slice(), state: { ...bandRef.current.state }, clock: songStartClockRef.current, tempo: songTempoRef.current, lead: SONG_LEAD, spb: 60 / ((songMetaRef.current && songMetaRef.current.bpm) || 90), audioNow: getAC().currentTime } : null,
       setSrc: (type) => setSongSrc(type ? { type } : null),
+      clicks: () => clickLogRef.current.slice(),
+      setBand: (v) => setSongBand(v),
+      setMetro: (v) => setSongMetro(v),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1139,7 +1145,9 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
      Beat k sits at songTime = LEAD + k·spb (beat 0 = the first note). Clicks
      are placed up to 150 ms ahead on the audio clock, so a late frame never
      makes a late click. Before the first note lands the click is the
-     count-in and always plays; after it, only with the metronome on. */
+     count-in and always plays; after it, only with the click track on and
+     no band drums playing — and never in a practice pass, which stops and
+     waits, so it has no beat to keep. */
   function scheduleClicks(songTime) {
     const meta = songMetaRef.current;
     if (!meta || !meta.bpm) return;
@@ -1156,11 +1164,15 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (bt > songTime + 0.15 * tempo) break;
       if (bt >= songTime - 0.03 && bt <= endT + 0.01) {
         const countIn = bt < countInEnd - 1e-3;
-        if (countIn || songMetroRef.current) {
+        const drums = !!bandRef.current && songBandRef.current > 0;
+        if (countIn || (songMetroRef.current && !drums && !practiceRef.current)) {
           const accent = (((k - pickupRef.current) % bpb) + bpb) % bpb === 0;
           const when = songStartClockRef.current + bt / tempo;
           // the count-in is the band's drum sticks; the click when there is no band
           if (!(countIn && bandRef.current && bandRef.current.stick(when, accent))) playClickAt(when, accent, countIn ? 1 : 0.7);
+          const cl = clickLogRef.current;
+          cl.push({ beat: k, countIn });
+          if (cl.length > 200) cl.shift();
         }
       }
       k++;
@@ -2108,8 +2120,15 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const clean = g.wrong + g.mash === 0;
     const fullCombo = songMissRef.current === 0 && hits === total && total > 0 && clean;
     const allPerfect = perfects === total && total > 0 && clean;
-    // EXP by how the run went; a run with not one note played earns none
-    const reward = hits > 0 ? Math.round(40 + acc * 0.4 + Math.min(maxCombo, 20) + (allPerfect ? 50 : fullCombo ? 25 : 0)) : 0;
+    // A run where nothing was really played (left to play out on its own, or
+    // mashed — play-along-judge runPlayed) is not practice: it earns no EXP,
+    // and it does not count toward the day's streak (which opens the daily
+    // chest), the daily quest or the weekly "play N games" challenges — each
+    // of those pays coins or EXP, and they are for playing, not for pressing
+    // Start.
+    const played = runPlayed({ hits, mash: g.mash, acc });
+    // EXP by how the run went
+    const reward = played ? Math.round(40 + acc * 0.4 + Math.min(maxCombo, 20) + (allPerfect ? 50 : fullCombo ? 25 : 0)) : 0;
     const prevBest = loadBest();
     const score = songScoreRef.current;
     const newBest = score > prevBest;
@@ -2119,7 +2138,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       try { localStorage.setItem("tg_ghost_" + songId, JSON.stringify(songSamplesRef.current.slice(-240))); } catch (e) {}
     }
     const rec = recordSongResult(songId, stars, acc);
-    logPractice(acc);
+    if (played) logPractice(acc);
     recordMemory(tr(meta, lang), acc);
     logGame({ song: songId, acc, score, stars });
     logActivity("game", songId, hits, Math.max(0, total - hits),
@@ -2154,7 +2173,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     for (const t of medal.gained) { medalCoins += MEDAL_REWARD[t].coins; medalExp += MEDAL_REWARD[t].exp; }
     if (medalCoins) earnCoins(medalCoins);
     if (medalExp) gainExp(medalExp, {});
-    bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
+    if (played) bumpWeekly("games", 1);
+    if (perfects) bumpWeekly("perfect", perfects);
     setSongCountdown(null);
     setSongNextLit(null);
     setSongStaffNotes(EMPTY_STAFF_WIN); staffBaseRef.current = null; staffSigRef.current = "";
@@ -2194,7 +2214,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     // TIGA hub: real-data coach line for this run (what engine answered shows
     // in the badge). Real MIDI velocity/timing evidence rides along; — never invents.
     try { setSongTigaTip(tigaHub.explainSongResult({ acc, stars, maxCombo, missedNotes, dyn: scoreDynamics(songVelsRef.current), timing: (songTimingRef.current.ok + songTimingRef.current.miss >= 3) ? songTimingRef.current : null, topic: 8 }, readMemory())); } catch (e) { setSongTigaTip(null); }
-    gainExp(reward, { quest: true });
+    if (played) gainExp(reward, { quest: true });
     // One chest at the end, its chance by stars (5 / 10 / 20%) — it replaced
     // the lucky-Perfect coins, the 20% mystery chest and the 15% lucky EXP.
     if (Math.random() < chestChance(stars)) {

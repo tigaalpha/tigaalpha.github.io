@@ -137,3 +137,12 @@ export function runCoins(stars) {
 export function chestChance(stars) {
   return [0, 0.05, 0.1, 0.2][Math.max(0, Math.min(3, stars || 0))];
 }
+/* Whether a finished run was really played. Not when no note was hit (the
+   song left to play out on its own), nor when it was mashed: more mash
+   presses than notes hit and nothing left of the accuracy — a mashed run
+   lands a key on a note now and then, most of all in kind mode's wider
+   window. A run that was not played earns no EXP and does not count toward
+   the streak, the daily quest or the weekly challenges, all of which pay. */
+export function runPlayed({ hits = 0, mash = 0, acc = 0 }) {
+  return hits > 0 && (mash < hits || acc > 0);
+}

@@ -6,7 +6,10 @@
    75→85→100%, the daily song pays once, a concert's songs each load their own
    data, "Play again" is on the first screen at 360×640, pause freezes and
    resumes in place, the first-time intro, the song list's stars/length/lock
-   notes/search, the staff slides every frame, and the other pages still open.
+   notes/search, the staff slides every frame, a medal pays once and run
+   coins stop after 3 runs a day, practice mode waits for the right key, the
+   band keeps the beat (4/4, 3/4, drums only for a piano on the mic), the
+   click track steps aside for the band, and the other pages still open.
 
      npm run build && node scripts/verify-playalong-bots.mjs
      ONLY=perfect,drill node scripts/verify-playalong-bots.mjs   # a subset
@@ -131,6 +134,14 @@ async function stopBot(p) { await p.evaluate(() => window.__botStop && window.__
 async function waitResult(p, ms = 90000) { await p.waitForSelector(".pl-result", { timeout: ms }); await p.waitForTimeout(1200); }
 async function starsOf(p) { return p.$$eval(".pl-bigstars span.on", s => s.length); }
 async function resultText(p) { return (await p.$eval(".pl-result", e => e.innerText)).replace(/\s+/g, " "); }
+// what a run pays into outside the song: the streak (it opens the daily
+// chest), the daily quest and the weekly "play N games" challenges
+async function counters(p) {
+  return p.evaluate(() => {
+    const j = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || "null") || d; } catch (e) { return d; } };
+    return { games: j("tg_weekly", {}).games || 0, streakDay: j("tg_streak", {}).last || "", quest: j("tg_guest_profile", {}).quest_count || 0 };
+  });
+}
 const want = (n) => !ONLY.length || ONLY.includes(n);
 async function done(s) { await s.ctx.close(); }
 
@@ -139,26 +150,34 @@ for (const kind of [false, true]) {
   const name = kind ? "mash-kind" : "mash";
   if (!want(name)) continue;
   const s = await session({ kind });
-  await openList(s.p); await openSong(s.p, "Twinkle"); await start(s.p); await mash(s.p);
+  await openList(s.p); await openSong(s.p, "Twinkle");
+  const c0 = await counters(s.p);
+  await start(s.p); await mash(s.p);
   await waitResult(s.p); await stopBot(s.p);
+  const c1 = await counters(s.p);
   const st = await starsOf(s.p);
   await s.p.screenshot({ path: `${OUT}/${name}.png` });
   rec(name, st === 0, `stars ${st} · ${(await resultText(s.p)).slice(0, 120)} · errors ${s.errs.length}`);
+  rec(name + "-counts-nothing", JSON.stringify(c0) === JSON.stringify(c1), `before ${JSON.stringify(c0)} · after ${JSON.stringify(c1)}`);
   await done(s);
 }
 // ── 2. every note on time: 3 stars, boss down before the end, usage rows ──
 if (want("perfect")) {
   const s = await session();
-  await openList(s.p); await openSong(s.p, "Twinkle"); await start(s.p); await bot(s.p);
+  await openList(s.p); await openSong(s.p, "Twinkle");
+  const c0 = await counters(s.p);
+  await start(s.p); await bot(s.p);
   // watch the boss bar
   const bossSeen = await s.p.evaluate(() => new Promise(res => { let zeroAt = null; const id = setInterval(() => { const T = window.__paTest; const b = T.boss(); const now = T.now(); if (b.on && b.hp <= 0 && zeroAt == null) zeroAt = now; if (document.querySelector(".pl-result")) { clearInterval(id); res({ zeroAt }); } }, 100); }));
   await waitResult(s.p); await stopBot(s.p);
+  const c1 = await counters(s.p);
   const st = await starsOf(s.p);
   const txt = await resultText(s.p);
   await s.p.screenshot({ path: `${OUT}/perfect-result.png` });
   const lastT = 28.8; // Twinkle's last note ≈ 27.6 s; a zero before the song ends
   rec("perfect-3stars", st === 3, `stars ${st} · ${txt.slice(0, 140)}`);
   rec("boss-down", bossSeen.zeroAt != null && /Boss down/.test(txt), `boss hp 0 at songTime ${bossSeen.zeroAt && bossSeen.zeroAt.toFixed(1)}s · tag ${/Boss down/.test(txt)}`);
+  rec("perfect-counts", c1.games === c0.games + 1 && c1.quest === c0.quest + 1 && !!c1.streakDay && c1.streakDay !== c0.streakDay, `before ${JSON.stringify(c0)} · after ${JSON.stringify(c1)}`);
   await s.p.waitForTimeout(800);
   const items = s.usage.filter(r => r.kind === "pa").map(r => r.item_id);
   rec("usage-rows", items.some(i => i.startsWith("start:twinkle")) && items.some(i => /^end:twinkle:3:\d+:4$/.test(i)) && items.some(i => i.startsWith("fps:")), items.join(" | "));
@@ -433,6 +452,38 @@ if (want("band")) {
   const pitched = rm.log.filter(e => e.parts).length;
   rec("band-mic-drums-only", rm.log.length > 20 && pitched === 0 && rm.state.soft, `${rm.log.length} drum steps, ${pitched} with bass/chords/arpeggio · soft ${rm.state.soft} · combo reached ${rm.state.combo}`);
   await done(m);
+}
+// ── 15. the click track steps aside for the band: after the count-in it is
+//        silent while the drums play, keeps the beat when the band is off,
+//        and never plays in a practice pass (the song stops and waits) ──
+if (want("click")) {
+  const after = (cl) => cl.filter(c => !c.countIn).length;
+  const s = await session();
+  await openList(s.p); await openSong(s.p, "Twinkle");
+  await s.p.evaluate(() => window.__paTest.setMetro(true));
+  await start(s.p); await bot(s.p);
+  await s.p.waitForTimeout(7000);
+  const c1 = await s.p.evaluate(() => window.__paTest.clicks());
+  await s.p.evaluate(() => window.__paTest.setBand(0));
+  await s.p.waitForTimeout(3000);
+  const c2 = await s.p.evaluate(() => window.__paTest.clicks());
+  await s.p.evaluate(() => window.__paTest.setBand(2));
+  await s.p.waitForTimeout(2500);
+  const c3 = await s.p.evaluate(() => window.__paTest.clicks());
+  await stopBot(s.p);
+  const countIn = c1.filter(c => c.countIn).length;
+  rec("click-quiet-with-band", countIn >= 3 && after(c1) === 0, `count-in ticks ${countIn} · clicks after it with the drums playing ${after(c1)}`);
+  rec("click-when-band-off", after(c2) >= 3 && after(c3) - after(c2) <= 1, `band off 3 s: ${after(c2)} clicks · band back on 2.5 s: ${after(c3) - after(c2)} more`);
+  await done(s);
+  const pr = await session();
+  await openList(pr.p); await openSong(pr.p, "Twinkle");
+  await pr.p.evaluate(() => window.__paTest.setMetro(true));
+  await pr.p.click(".pl-practice-btn"); await pr.p.waitForTimeout(300); await bot(pr.p);
+  await pr.p.waitForTimeout(8000);
+  const cp = await pr.p.evaluate(() => window.__paTest.clicks());
+  await stopBot(pr.p);
+  rec("click-none-in-practice", cp.filter(c => c.countIn).length >= 3 && after(cp) === 0, `practice: count-in ticks ${cp.filter(c => c.countIn).length} · clicks after it ${after(cp)}`);
+  await done(pr);
 }
 // ── 11. other pages still open ──
 if (want("pages")) {
