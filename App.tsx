@@ -30,7 +30,7 @@ import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
-import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodel } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
+import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodelOnInteraction } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
 import { tigaStrategyLabel } from "./tiga-strategy-labels";   // light static module (split from tigamodel for the render path)
 import { AdminAIModels } from "./AdminAIModels";
 import { AdminNav } from "./admin-nav";
@@ -10017,7 +10017,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [teachCardTick, setTeachCardTick] = useState(0);
   const tigaReady = useTiga(null);   // ready tick — re-renders when the model lands (chat starters, TIGA tab, budget line fill in)
   useEffect(() => {
-    preloadTigamodel();
+    preloadTigamodelOnInteraction();   // 5.1: engine loads after the learner's first tap — idle only as fallback (was preloadTigamodel)
     import("./tigamodel/knowledge/teach-cards.js").then(m => {
       _teachCards = m;
       setTeachCardTick(t => t + 1);

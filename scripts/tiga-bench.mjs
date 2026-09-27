@@ -35,6 +35,16 @@ const files = () => {
 const bundleFile = files()[0] || null;
 const bundleBytes = bundleFile ? fs.statSync(path.join("bundle", bundleFile)).size : null;
 
+/* every lazy chunk with its size (plan v3.3 5.5: per-chunk reporting, so a
+   bloated engine chunk is visible, not just the main one) */
+const chunkList = (() => {
+  try {
+    return fs.readdirSync("bundle").filter(f => f.endsWith(".js"))
+      .map(f => ({ file: f, bytes: fs.statSync(path.join("bundle", f)).size }))
+      .sort((a, b) => b.bytes - a.bytes);
+  } catch (e) { return []; }
+})();
+
 /* how much of the main chunk is tigamodel? Minified standalone size — the
    realistic upper bound of what plan v3 1.5 (lazy model loading) can shave
    off the main chunk once ALL static import sites are converted. */
@@ -118,6 +128,12 @@ const BARS = [
     return !txt.includes("runOnce");   // engine-internal method name — survives minification as a property name
   } },
   { id: "kb-depth", desc: "KB seeded: theory ≥ 500, performance ≥ 120 entries", test: () => kbTheory.entries >= 500 && kbPerf.entries >= 120 },
+  { id: "preload-interaction-first", desc: "engine preload waits for the first real interaction (plan v3.3 5.1) — idle is only the fallback", test: () => {
+    try {
+      const g = fs.readFileSync(path.join(ROOT, "tiga-gateway.ts"), "utf8");
+      return g.includes("preloadTigamodelOnInteraction") && g.includes("pointerdown");
+    } catch (e) { return false; }
+  } },
 ];
 
 const barResults = BARS.map(b => {
@@ -132,7 +148,7 @@ const snapshot = {
   version: 1,
   generatedAt: new Date().toISOString(),
   appVersion: null,
-  bundle: { file: bundleFile, bytes: bundleBytes, includesTigamodel: true, tigamodelMinifiedBytes: tigaMinBytes },
+  bundle: { file: bundleFile, bytes: bundleBytes, includesTigamodel: true, tigamodelMinifiedBytes: tigaMinBytes, chunks: chunkList },
   grid: {
     total: grid.total ?? null,
     started: grid.started ?? null,
@@ -163,6 +179,8 @@ console.log(`  grid: ${snapshot.grid.startedPct ?? "?"}% started (${snapshot.gri
 console.log(`  routes READY: ${cap.ready}/${cap.total} (${cap.readyPct}%)  weakest: ${snapshot.routes.weakestCap ?? "-"}`);
 console.log(`  langs th/en/zh pass: ${langs.th}/${langs.en}/${langs.zh}`);
 console.log(`  bundle main: ${bundleBytes ? `${(bundleBytes / 1024 / 1024).toFixed(2)} MB` : "n/a"}${tigaMinBytes ? ` (tigamodel ≈ ${(tigaMinBytes / 1024 / 1024).toFixed(2)} MB, lazy chunk)` : ""}`);
+const lazyLargest = chunkList.find(c => c.file !== bundleFile);
+if (lazyLargest) console.log(`  lazy chunks: ${chunkList.length} files · largest non-main: ${lazyLargest.file} (${(lazyLargest.bytes / 1024 / 1024).toFixed(2)} MB)`);
 console.log(`  quality bars: ${barResults.filter(b => b.pass).length}/${barResults.length} pass`);
 
 /* previous snapshot → delta line (the graph starts here) */

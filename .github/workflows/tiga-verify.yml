@@ -1,0 +1,79 @@
+name: TIGA verify
+
+# Plan v3.3 8.2 — the flywheel's automatic brake: every PR that touches app or
+# model code runs the full verify:tiga chain (~309 checks) and the bench.
+# Red = block merge. Also comments the grid numbers on the PR (extends 4.6's
+# read-only comment with the CI pass/fail that can actually stop a merge).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "App.tsx"
+      - "*.ts"
+      - "*.tsx"
+      - "tigamodel/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/tiga-verify.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: verify:tiga (all smokes + eval)
+        run: npm run verify:tiga
+
+      - name: bench:tiga (grid baseline + Q-bars)
+        run: npm run bench:tiga
+
+      - name: Comment bench numbers on the PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let grid = '-', ready = '-', bars = '-', bundle = '-';
+            try {
+              const s = JSON.parse(fs.readFileSync('docs/tiga-bench-latest.json', 'utf8'));
+              grid = `${s.grid?.startedPct ?? '-'}%`;
+              ready = `${s.routes?.ready ?? '-'}/${s.routes?.total ?? '-'}`;
+              const p = (s.bars || []).filter(b => b.pass).length;
+              bars = `${p}/${(s.bars || []).length}`;
+              bundle = s.bundle?.bytes ? `${(s.bundle.bytes / 1024 / 1024).toFixed(2)} MB` : '-';
+            } catch (e) { /* bench failed — show that instead */ }
+            const verdict = '${{ job.status }}' === 'success' ? '✅ ผ่าน' : '❌ ไม่ผ่าน (แดง = block merge)';
+            const body = [
+              `## TIGA verify (8.2)`,
+              `**ผลตรวจ: ${verdict}**`,
+              ``,
+              `| ตัวชี้วัด | ค่า |`,
+              `|---|---|`,
+              `| กริด 1M เริ่มแล้ว | ${grid} |`,
+              `| เส้นทาง READY | ${ready} |`,
+              `| ด่านคุณภาพ (Q-bars) | ${bars} |`,
+              `| ก้อนหลัก | ${bundle} |`,
+              ``,
+              `แดง = ห้าม merge (กติกา SOP ข้อ ③④) · ตัวเลขจากเอนจินจริง ไม่ใช่มือกรอก`,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

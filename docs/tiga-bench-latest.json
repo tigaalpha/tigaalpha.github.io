@@ -1,12 +1,62 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-27T06:36:15.546Z",
+  "generatedAt": "2026-09-27T23:30:39.165Z",
   "appVersion": "13.7.373",
   "bundle": {
-    "file": "index.template-CeHGFPOS.js",
-    "bytes": 2717390,
+    "file": "index.template-CIeIGv7t.js",
+    "bytes": 2717721,
     "includesTigamodel": true,
-    "tigamodelMinifiedBytes": 1241815
+    "tigamodelMinifiedBytes": 1241815,
+    "chunks": [
+      {
+        "file": "index.template-CIeIGv7t.js",
+        "bytes": 2717721
+      },
+      {
+        "file": "web-DrKg5gah.js",
+        "bytes": 600433
+      },
+      {
+        "file": "pvp-arena-DcnNd8KC.js",
+        "bytes": 178418
+      },
+      {
+        "file": "TigamodelLab-Bv_uAqV2.js",
+        "bytes": 86640
+      },
+      {
+        "file": "AdminActivityDashboard-CPbj4j36.js",
+        "bytes": 53158
+      },
+      {
+        "file": "TigamodelBackoffice-DKVwJpMQ.js",
+        "bytes": 35493
+      },
+      {
+        "file": "university-sources-DkP7OoqL.js",
+        "bytes": 35285
+      },
+      {
+        "file": "teach-cards-CnjUhUNX.js",
+        "bytes": 19633
+      },
+      {
+        "file": "web-BwTAi5Bi.js",
+        "bytes": 5340
+      },
+      {
+        "file": "web-LXS8ZtKH.js",
+        "bytes": 851
+      },
+      {
+        "file": "web-BCDgz3LN.js",
+        "bytes": 813
+      },
+      {
+        "file": "web-DpGsuIAd.js",
+        "bytes": 388
+      }
+    ]
   },
   "grid": {
     "total": 1000000,
@@ -24,10 +74,10 @@
     "weakestCap": "kb"
   },
   "perf": {
-    "allRoutesColdMs": 31.04,
-    "allRoutesWarmMs": 0.21,
-    "summaryMs": 2.03,
-    "memoSpeedup": 147.8
+    "allRoutesColdMs": 32.32,
+    "allRoutesWarmMs": 0.24,
+    "summaryMs": 2.13,
+    "memoSpeedup": 134.7
   },
   "kb": {
     "theoryEntries": 13414,
@@ -70,6 +120,10 @@
     },
     {
       "id": "kb-depth",
+      "pass": true
+    },
+    {
+      "id": "preload-interaction-first",
       "pass": true
     }
   ],

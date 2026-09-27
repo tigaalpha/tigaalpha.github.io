@@ -70,6 +70,33 @@ export function preloadTigamodel() {
   } catch (e) { kick(); }
 }
 
+/** Plan v3.3 5.1 — interaction-first preload: don't fight the learner's first
+    tap for bandwidth. The engine starts loading after the first real usage
+    signal (pointerdown/keydown/touchstart); idle remains only the fallback so
+    a never-interacts flow still gets the model (timeout 8 s). Rollback = call
+    preloadTigamodel() instead (one line in App.tsx). */
+export function preloadTigamodelOnInteraction() {
+  let started = false;
+  const kick = () => {
+    if (started) return;
+    started = true;
+    try {
+      window.removeEventListener("pointerdown", kick);
+      window.removeEventListener("keydown", kick);
+      window.removeEventListener("touchstart", kick);
+    } catch (e) {}
+    tigaPromise();
+  };
+  try {
+    if (typeof window === "undefined") { tigaPromise(); return; }
+    window.addEventListener("pointerdown", kick, { passive: true });
+    window.addEventListener("keydown", kick, { passive: true });
+    window.addEventListener("touchstart", kick, { passive: true });
+    if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(kick, { timeout: 8000 });
+    else setTimeout(kick, 4000);
+  } catch (e) { kick(); }
+}
+
 /* ── forwarded model functions (the lazy-aware surface app UI calls) ──
    Sync fns return null until the model has loaded — every caller already has
    an honest-null fallback (the same behavior a cold-boot stall used to give).
