@@ -57,7 +57,11 @@ explains what moved and why.
 in pure modules: `play-along-judge.ts` (timing windows, accuracy, stars,
 mashing, input-delay learning, boss numbers) and `play-along-progress.ts`
 (earned stars and best accuracy per song, locks, the daily song, what to
-play next). `usePlayAlong` runs inside `PianoApp`, so a React state update
+play next, medals, the per-day run count); `play-along-band.ts` is the
+backing band (drums, bass, chords, the Fever arpeggio), booked ahead on the
+audio clock like the metronome and kept out of the mic's hearing. The
+judge words, score pops and sparks are drawn in the song canvas from cached
+bitmaps, not as DOM elements. `usePlayAlong` runs inside `PianoApp`, so a React state update
 there re-renders the whole app — the running game's fast-changing state
 (HUD, lit keys, staff, effects) lives in `play-along-store.ts` instead, read
 by small subscriber components in the overlay; keep new per-frame or
@@ -196,7 +200,8 @@ daily-quest rules from the real modules (needs jsdom, see the script), and
 `npm run build && node scripts/verify-playalong-bots.mjs` plays real songs
 in `dist/` with bots — mashing, clean and early runs, the practice loop,
 the daily song, concerts, pause, the first-time intro, the song list, the
-sliding staff (`ONLY=name,…` runs a subset). The app exposes
+sliding staff, medals and the run-coin limit, practice mode, the band and
+the click track (`ONLY=name,…` runs a subset). The app exposes
 `window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
 
 ## Where to look for current state

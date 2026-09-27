@@ -18,6 +18,27 @@ export const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // player level needed, by diffi
 const num = (k) => { try { const v = Number(localStorage.getItem(k)); return isFinite(v) ? v : 0; } catch (e) { return 0; } };
 
 export function songStars(id) { return Math.max(0, Math.min(3, num("tg_stars_" + id))); }
+export function songMedal(id) { return Math.max(0, Math.min(4, num("tg_medal_" + id))); }
+/* A medal only ever goes up. Returns the tiers reached for the first time
+   (each pays once — see MEDAL_REWARD in play-along-judge.ts). */
+export function recordMedal(id, tier) {
+  const prev = songMedal(id);
+  if (tier <= prev) return { prev, now: prev, gained: [] };
+  try { localStorage.setItem("tg_medal_" + id, String(tier)); } catch (e) {}
+  const gained = [];
+  for (let t = prev + 1; t <= tier; t++) gained.push(t);
+  return { prev, now: tier, gained };
+}
+/* Runs of each song finished today ({d, <songId>: n}), for the coin limit. */
+export function countRunToday(id) {
+  const d = todayKey();
+  let st = {};
+  try { st = JSON.parse(localStorage.getItem("tg_pa_runs") || "{}") || {}; } catch (e) {}
+  if (st.d !== d) st = { d };
+  st[id] = (+st[id] || 0) + 1;
+  try { localStorage.setItem("tg_pa_runs", JSON.stringify(st)); } catch (e) {}
+  return st[id];
+}
 export function songBestAcc(id) { return Math.max(0, Math.min(100, num("tg_acc_" + id))); }
 
 /* Keeps the best of each; reports whether this run raised the stars. */

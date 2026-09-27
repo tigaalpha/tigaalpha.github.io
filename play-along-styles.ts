@@ -96,18 +96,55 @@ export const PA_CSS = `
 /* pause */
 .pl-pause{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(7,3,24,.8);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .pl-pause.count{background:rgba(7,3,24,.45)}
-.pl-pause-card{display:flex;flex-direction:column;gap:10px;min-width:230px}
+.pl-pause-card{display:flex;flex-direction:column;gap:9px;width:min(340px,calc(100% - 32px));max-height:calc(100% - 24px);overflow-y:auto;overscroll-behavior:contain;padding:2px}
+.pl-pause-row{display:flex;gap:8px}
+.pl-pause-row .songbtn{flex:1}
+.songov.playal .pl-pause .songbtn{min-height:46px;padding:10px 12px !important}
+/* the ready screen's cover, drawn from the melody */
+.pl-cover{width:100%;max-width:420px;aspect-ratio:100/42;border-radius:16px;overflow:hidden;background:#0e0826;box-shadow:0 0 0 1px var(--pl-line),0 12px 30px -12px rgba(140,70,255,.5)}
+.pl-cover img{display:block;width:100%;height:100%;animation:pl-fadein .4s ease-out}
+@keyframes pl-fadein{from{opacity:0}to{opacity:1}}
+/* the result's medal row */
+.pl-medalrow{display:flex;justify-content:center;gap:12px}
+.pl-medalslot{display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.28;filter:grayscale(1)}
+.pl-medalslot.on{opacity:1;filter:none}
+.pl-medalslot .pl-medal{width:24px;height:24px}
+.pl-medalslot small{font-family:var(--f-app);font-size:10.5px;color:var(--pl-dim)}
+.pl-medalslot.new{animation:pl-medalin .5s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes pl-medalin{0%{opacity:0;transform:scale(.3)}100%{opacity:1;transform:scale(1)}}
+/* practice mode (the song waits for the right key) */
+.pl-practice-btn{margin-top:2px}
+.songov.playal .songhud.pl-practicehud{justify-content:center;color:var(--pl-cyan)}
+.pl-practice-done{font-family:var(--f-app);font-size:22px;font-weight:700;color:var(--pl-ink);text-align:center;text-wrap:balance}
+.pl-practice-sub{font-family:var(--f-app);font-size:14px;color:var(--pl-dim);text-align:center;max-width:34ch;text-wrap:balance}
+/* a song's medal: a coin with a ring, bronze → silver → gold → crown */
+.pl-medal{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.18),inset 0 -3px 4px rgba(0,0,0,.18)}
+.pl-medal.m1{background:radial-gradient(circle at 35% 30%,#f3c08e,#b8733a 60%,#7a4520)}
+.pl-medal.m2{background:radial-gradient(circle at 35% 30%,#ffffff,#c6ccd8 55%,#7d8595)}
+.pl-medal.m3{background:radial-gradient(circle at 35% 30%,#fff3b0,#ffc83d 55%,#b8860b)}
+.pl-medal.m4{background:radial-gradient(circle at 35% 30%,#fff,#ff9ff0 40%,#8c46ff 80%);box-shadow:0 0 8px rgba(255,60,210,.6),inset 0 0 0 2px rgba(255,255,255,.45)}
+.pl-medal-new{display:inline-flex;align-items:center;gap:6px}
+.pl-res-pay{display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--f-app);font-size:13.5px;color:var(--pl-dim);font-variant-numeric:tabular-nums}
+.pl-res-cap{font-size:12px;opacity:.85;text-align:center}
+/* a three-way switch (the band's volume) */
+.pl-seg{display:flex;align-items:center;gap:6px;min-height:40px;padding:3px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04)}
+.pl-seg-lbl{padding:0 6px 0 10px;color:var(--pl-dim);font-family:var(--f-app);font-size:13px;white-space:nowrap}
+.pl-seg button{flex:1;min-height:34px;border-radius:999px;border:0;background:transparent;color:var(--pl-dim);font-family:var(--f-app);font-size:13px;cursor:pointer}
+.pl-seg button.on{background:rgba(60,230,255,.16);color:var(--pl-cyan);box-shadow:inset 0 0 0 1px rgba(60,230,255,.5)}
+.pl-seg button:focus-visible{outline:2px solid var(--pl-cyan);outline-offset:2px}
 .pl-pause-t{font-family:var(--f-app);font-size:20px;font-weight:700;color:#fff;text-align:center;margin-bottom:4px}
 .pl-pause-n{font-family:var(--f-app);font-size:84px;font-weight:800;color:#fff;text-shadow:0 0 30px var(--pl-mag);animation:popcount .6s ease-out}
 /* keyboard */
 .songov.playal .gpwrap{background:#070318;border-top:1px solid var(--pl-line)}
 .songov.playal .gpw{background:linear-gradient(180deg,#1b1244,#0e0826);border-color:rgba(140,70,255,.35)}
 .songov.playal .gpw span{color:var(--pl-faint)}
-.songov.playal .gpw.lit{background:linear-gradient(180deg,#7ff1ff,#27b6db);box-shadow:0 0 18px rgba(60,230,255,.65),0 0 36px rgba(60,230,255,.25)}
-.songov.playal .gpw.lit span{color:#04202a}
+.songov.playal .gpw.lit{background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0) 65%),var(--kc,#27b6db);box-shadow:0 0 18px var(--kc,rgba(60,230,255,.65))}
+.songov.playal .gpw.lit span{color:#0a0418}
 .songov.playal .gpw.pressed{filter:brightness(1.35)}
+/* a pressed key sends out a wave of light — a still glow whose opacity and scale animate */
+.songov.playal .gpw.pressed::after,.songov.playal .gpb.pressed::after{content:"";position:absolute;left:-30%;right:-30%;top:-18%;height:60%;pointer-events:none;border-radius:50%;background:radial-gradient(closest-side,var(--kc,rgba(140,240,255,.9)),transparent);animation:pl-keywave .38s ease-out forwards}
 .songov.playal .gpb{background:#05020f;border-color:#2a1d5c;box-shadow:0 4px 8px rgba(0,0,0,.8)}
-.songov.playal .gpb.lit{background:linear-gradient(180deg,#ff7ae6,#ff3cd2);box-shadow:0 0 16px rgba(255,60,210,.75)}
+.songov.playal .gpb.lit{background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 60%),var(--kc,#ff3cd2);box-shadow:0 0 16px var(--kc,rgba(255,60,210,.75))}
 .songov.playal .gpfinger{background:var(--pl-vio)}
 /* result screen */
 .songov.playal .songresult,.tg .songov.playal .songresult{background:#070318;color:var(--pl-ink);padding:14px 16px calc(20px + env(safe-area-inset-bottom,0px));gap:12px;align-items:stretch;text-align:center}
@@ -159,9 +196,12 @@ html[data-theme="dark"] .songcard-got.on{color:#ffd86b}
 @keyframes pl-bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-5px)}}
 @keyframes pl-bosshit{0%{transform:scale(1)}40%{transform:scale(1.35) rotate(-8deg)}100%{transform:scale(1)}}
 @keyframes pl-bossatk{0%,100%{transform:translateX(-50%)}25%{transform:translateX(calc(-50% - 5px))}75%{transform:translateX(calc(-50% + 5px))}}
+@keyframes pl-keywave{0%{opacity:.9;transform:scale(.6)}100%{opacity:0;transform:scale(1.35)}}
 @keyframes pl-bossatk2{0%,100%{transform:translateX(-50%)}25%{transform:translateX(calc(-50% - 5px))}75%{transform:translateX(calc(-50% + 5px))}}
 @keyframes pl-spark{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.6);opacity:0}}
 @media (prefers-reduced-motion: reduce){
   .songov.playal .songstage.shake,.songov.playal .bosshud.fx-attack,.songov.playal .bosshud .bosshud-face,.pl-intro-hint,.pl-bigstars span.on{animation:none !important}
+  .songov.playal .gpw.pressed::after,.songov.playal .gpb.pressed::after{display:none}
+  .pl-medalslot.new,.pl-cover img{animation:none}
 }
 `;

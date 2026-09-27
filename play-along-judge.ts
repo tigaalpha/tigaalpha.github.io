@@ -96,3 +96,53 @@ export function bossHit(grade, combo) {
   const base = grade === "perfect" ? 2 : grade === "great" ? 1.5 : 1;
   return base + (combo > 0 && combo % 10 === 0 ? 2 : 0);
 }
+
+/* ── What a run earns (batch 2) ──
+   Fever and the mid-song combo bonuses scale with the song: the longest song
+   has 48 notes, so fixed marks at combo 50 and 100 never happened. */
+export function feverAt(totalNotes) {
+  return Math.max(10, Math.ceil((totalNotes || 0) * 0.3));
+}
+export const COMBO_MARKS = [[0.25, 15], [0.5, 25], [0.75, 35], [1, 50]];   // [share of the notes, EXP]
+/* The EXP for reaching `combo` without a miss, or 0 when it is not a mark. */
+export function comboMarkExp(combo, totalNotes) {
+  const n = totalNotes || 0;
+  if (n < 4) return 0;
+  for (const [share, exp] of COMBO_MARKS) if (combo === Math.max(1, Math.ceil(n * share))) return exp;
+  return 0;
+}
+
+/* A song's medal: 1 bronze = finished with a star or more, 2 silver = 2 stars,
+   3 gold = 3 stars, 4 crown = 3 stars without breaking the combo. Silver and
+   up need the song's real speed (100% or faster); a slower run keeps bronze. */
+export const MEDALS = ["", "bronze", "silver", "gold", "crown"];
+export function medalOf({ stars = 0, fullCombo = false, tempo = 1 }) {
+  if (stars < 1) return 0;
+  if (tempo < 0.999) return 1;
+  if (stars >= 3) return fullCombo ? 4 : 3;
+  return stars >= 2 ? 2 : 1;
+}
+/* Paid once per song, the first time each medal is reached. */
+export const MEDAL_REWARD = [null, { coins: 10, exp: 50 }, { coins: 20, exp: 100 }, { coins: 40, exp: 150 }, { coins: 60, exp: 200 }];
+
+/* Coins for a finished run: 5 + 5 a star (10 / 15 / 20), none without a star
+   — letting a song play out with nothing pressed earns nothing — and only
+   for a song's first RUN_COIN_RUNS runs of the day. */
+export const RUN_COIN_RUNS = 3;
+export function runCoins(stars) {
+  return stars >= 1 ? Math.min(20, 5 + 5 * stars) : 0;
+}
+/* The one chest at the end of a run, by stars (it replaced three separate
+   random bonuses). */
+export function chestChance(stars) {
+  return [0, 0.05, 0.1, 0.2][Math.max(0, Math.min(3, stars || 0))];
+}
+/* Whether a finished run was really played. Not when no note was hit (the
+   song left to play out on its own), nor when it was mashed: more mash
+   presses than notes hit and nothing left of the accuracy — a mashed run
+   lands a key on a note now and then, most of all in kind mode's wider
+   window. A run that was not played earns no EXP and does not count toward
+   the streak, the daily quest or the weekly challenges, all of which pay. */
+export function runPlayed({ hits = 0, mash = 0, acc = 0 }) {
+  return hits > 0 && (mash < hits || acc > 0);
+}
