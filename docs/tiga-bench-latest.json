@@ -1,35 +1,35 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-28T00:57:41.434Z",
+  "generatedAt": "2026-09-28T01:46:48.919Z",
   "appVersion": "13.7.373",
   "bundle": {
-    "file": "index.template-BICtty3x.js",
-    "bytes": 2717721,
+    "file": "index.template-Cu_HB_66.js",
+    "bytes": 2718655,
     "includesTigamodel": true,
-    "tigamodelMinifiedBytes": 1326254,
+    "tigamodelMinifiedBytes": 1338421,
     "chunks": [
       {
-        "file": "index.template-BICtty3x.js",
-        "bytes": 2717721
+        "file": "index.template-Cu_HB_66.js",
+        "bytes": 2718655
       },
       {
-        "file": "web-FSGdZm4N.js",
-        "bytes": 649838
+        "file": "web-RhAMf8_K.js",
+        "bytes": 657744
       },
       {
-        "file": "pvp-arena-6f4qCOBD.js",
+        "file": "pvp-arena-BROxyI-R.js",
         "bytes": 178418
       },
       {
-        "file": "TigamodelLab-BIhoV4H1.js",
+        "file": "TigamodelLab-nLkOke3I.js",
         "bytes": 86640
       },
       {
-        "file": "AdminActivityDashboard-KGdfy-56.js",
+        "file": "AdminActivityDashboard-v9G6cmp6.js",
         "bytes": 53158
       },
       {
-        "file": "TigamodelBackoffice-CInqIWeP.js",
+        "file": "TigamodelBackoffice-O5x3-ChV.js",
         "bytes": 35493
       },
       {
@@ -41,19 +41,19 @@
         "bytes": 19633
       },
       {
-        "file": "web-BSkK1DYw.js",
+        "file": "web-CAcrXj6a.js",
         "bytes": 5340
       },
       {
-        "file": "web-CDI5VATl.js",
+        "file": "web-XHdwSh4P.js",
         "bytes": 851
       },
       {
-        "file": "web-D6gOJ2dO.js",
+        "file": "web-D2RPiL2F.js",
         "bytes": 813
       },
       {
-        "file": "web-B1eQEgP2.js",
+        "file": "web-CSLNAEEQ.js",
         "bytes": 388
       }
     ]
@@ -74,10 +74,10 @@
     "weakestCap": "kb"
   },
   "perf": {
-    "allRoutesColdMs": 33.63,
-    "allRoutesWarmMs": 0.22,
-    "summaryMs": 2.14,
-    "memoSpeedup": 152.9
+    "allRoutesColdMs": 31.37,
+    "allRoutesWarmMs": 0.2,
+    "summaryMs": 2.03,
+    "memoSpeedup": 156.9
   },
   "kb": {
     "theoryEntries": 13414,

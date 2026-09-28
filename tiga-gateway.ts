@@ -109,6 +109,12 @@ export function rerunLoopWithSelfReport(practiceStats, selfReport, lang) {
     .catch(() => null);
 }
 
+/* plan v3.4 knowledge-pillar surfaces (6.10 parent-report long-term value ·
+   11.4 therapy wellbeing wall): honest-null until the lazy model lands —
+   same contract as every forward above. */
+export function tigaLongTermValue(rep, lang) { return _tigaMod ? _tigaMod.tigaLongTermValueSection(rep, lang) : null; }
+export function tigaTherapyDisclaimer(lang) { return _tigaMod ? _tigaMod.tigaTherapyDisclaimer(lang) : null; }
+
 /** React hook: runs mapper(tigaModule) when the model is loaded and re-renders
     once if the first render happened before the dynamic import landed. mapper
     must be pure/sync and return null when the engines have nothing (honest

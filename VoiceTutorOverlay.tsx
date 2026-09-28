@@ -1,4 +1,5 @@
 import { L, FLAGS, FLAG_NAMES } from "./i18n";
+import { tigaTherapyDisclaimer } from "./tiga-gateway"; // plan v3.4 11.4 — lazy-safe forward, null until tigamodel lands
 import { GamePiano, StaffNotes, playUi, getAC } from "./music-engine";
 import { VM_VOICES } from "./speech";
 /* ── VoiceTutorOverlay ──
@@ -12,6 +13,10 @@ import { VM_VOICES } from "./speech";
    overlay components. ── */
 export function VoiceTutorOverlay({ lang, setLang, vmLangOpen, setVmLangOpen, exitVoice, onBack, vmState, vmErr, vmOrbTap, vmInstant, vmCaption, vmStaff, vmNotes, vmMsgs, vmEndRef, vmLit, vmOnNote, vmMenuOpen, setVmMenuOpen, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmFast, setVmFast, vmFastRef, vmCloudDeadRef, vmPoly, vmTogglePoly, vmInput, setVmInput, vmEarResetRef, vmActiveRef, vmProcess, vmToggle }) {
   const lc = L[lang];
+  /* plan v3.4 11.4 — the wellbeing wall: the voice tutor is the surface most
+     likely to hear something heavier than a lesson, so it carries the
+     KB-grounded trilingual disclaimer (honest-null until the model loads). */
+  const vtDisclaimer = tigaTherapyDisclaimer(lang);
   const backLbl = lang === "th" ? "กลับหน้า Studio" : lang === "zh" ? "返回工作室" : "Back to Studio";
   return (
         <div className="songov vmov">
@@ -106,6 +111,9 @@ export function VoiceTutorOverlay({ lang, setLang, vmLangOpen, setVmLangOpen, ex
                   <input className="vmtextin" value={vmInput} onChange={(e) => setVmInput(e.target.value)} placeholder={lc.vmTypePh} aria-label={lc.vmTypePh} />
                   <button className="vmtextsend" type="submit" aria-label="send">➤</button>
                 </form>
+                {vtDisclaimer && (
+                  <div className="songsrcbar" style={{ color: "var(--text2)" }}>{vtDisclaimer[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || vtDisclaimer.en}</div>
+                )}
                 <div className="songsrcbar">{lc.vmHint}</div>
                 <button className={`vmbig${vmState !== "idle" && vmState !== "error" ? " stop" : ""}`} onClick={vmToggle}>
                   {vmState !== "idle" && vmState !== "error" ? `■ ${lc.vmStop}` : `● ${lc.vmStart}`}

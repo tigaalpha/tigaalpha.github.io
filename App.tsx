@@ -30,7 +30,7 @@ import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
-import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodelOnInteraction } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
+import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodelOnInteraction, tigaLongTermValue } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
 import { tigaStrategyLabel } from "./tiga-strategy-labels";   // light static module (split from tigamodel for the render path)
 import { AdminAIModels } from "./AdminAIModels";
 import { AdminNav } from "./admin-nav";
@@ -12361,6 +12361,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   if (!rep) return null;
                   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
                   const bars = rep.series.filter(d => d.acc != null);
+                  /* plan v3.4 6.10 — the long-term-value story for the parent,
+                     grounded in the education-market KB (honest-null until the
+                     lazy model has loaded — renders only when entries exist). */
+                  const ltv = tigaLongTermValue(rep, lang);
                   return (
                     <>
                       <div className="pd-sec">{T("ความแม่นยำ 14 วันล่าสุด", "Accuracy — last 14 days", "近14天准确率")}{rep.trend != null && (
@@ -12400,6 +12404,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         </>
                       )}
                       {rep.homeworkNote && <div className="pd-sec" style={{ fontSize: 12.5 }}>📝 {rep.homeworkNote}</div>}
+                      {/* plan v3.4 6.10 — KB-grounded long-term value story for the parent */}
+                      {ltv && (
+                        <>
+                          <div className="pd-sec">🌱 {ltv.title[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || ltv.title.en}</div>
+                          {(ltv.lines[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || ltv.lines.th).map((ln, i) => (
+                            <div key={i} style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>• {ln}</div>
+                          ))}
+                        </>
+                      )}
                     </>
                   );
                 })()}

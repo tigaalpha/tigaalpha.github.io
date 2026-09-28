@@ -294,6 +294,13 @@ export function SongPlayOverlay({ pvpOnline, openPvpOnline, closePvpOnline, host
                   <span>{songTigaTip.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || songTigaTip.tip.en}</span>
                 </div>
               )}
+              {/* plan v3.4 6.3 — KB-grounded next-song advice (one step up + a real weak-spot tip) */}
+              {songTigaTip && songTigaTip.nextSong && songTigaTip.nextSong.tip && (
+                <div className="tigatipbar song">
+                  <span className="tigatipbadge">🎵 TIGA</span>
+                  <span>{songTigaTip.nextSong.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || songTigaTip.nextSong.tip.en}</span>
+                </div>
+              )}
               <div className="songstars">{"★".repeat(songResult.stars)}{"☆".repeat(3 - songResult.stars)}</div>
               <div className="songresult-acc"><CountUp value={songResult.acc} dur={700} />%</div>
               <div className="songresult-grid">

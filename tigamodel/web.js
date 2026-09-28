@@ -43,6 +43,7 @@ import { seedMusicMarketing } from "./knowledge/music-marketing.js";   // plan v
 import { seedMusicBusiness } from "./knowledge/music-business.js";   // plan v3.4 6.7
 import { seedMusicEducationMarket } from "./knowledge/music-education-market.js"; // plan v3.4 6.8
 import { seedMusicTherapy } from "./knowledge/music-therapy.js";     // plan v3.4 11.1 (wellbeing frame)
+import { nextSongAdvice, longTermValueSection, careerPathwayReply, calmModeIntro, isoSongPick, therapyDisclaimer } from "./teaching/knowledge-surfaces.js"; // v3.4 6.3/6.4/6.9/6.10/11.2-11.4
 import { seedStageTwoWave } from "./knowledge/expansion-stage2.js";
 import { buildStudentContextFromApp } from "./student/student-model.js";
 import { createCapabilityEngine } from "./teaching/capability-engine.js";
@@ -173,6 +174,15 @@ export function getCapabilityEngine() {
    needs it: reinforceTeachingOutcome already invalidates after KB changes. */
 /* plan v3.4: read-only KB access for smoke/bench (same pattern as the test
    reset hooks — never used by the app runtime) */
+/* plan v3.4 product surfaces — KB-grounded, trilingual, honest-null; exported
+   so the app reaches them through the same lazy gateway as everything else */
+export function tigaNextSongAdvice(memory, lang) { try { return nextSongAdvice(getKnowledgeBaseForTest(), memory, lang); } catch (e) { return null; } }
+export function tigaLongTermValueSection(rep, lang) { try { return longTermValueSection(getKnowledgeBaseForTest(), rep, lang); } catch (e) { return null; } }
+export function tigaCareerPathwayReply(question, lang) { try { return careerPathwayReply(getKnowledgeBaseForTest(), question, lang); } catch (e) { return null; } }
+export function tigaCalmModeIntro(lang) { try { return calmModeIntro(getKnowledgeBaseForTest(), lang); } catch (e) { return null; } }
+export function tigaIsoSongPick(mood, candidates, lang) { try { return isoSongPick(getKnowledgeBaseForTest(), mood, candidates, lang); } catch (e) { return null; } }
+export function tigaTherapyDisclaimer(lang) { try { return therapyDisclaimer(getKnowledgeBaseForTest(), lang); } catch (e) { return null; } }
+
 export function getKnowledgeBaseForTest() {
   if (!_tiga) initTigamodelWeb();
   return _tiga && _tiga.kb ? _tiga.kb : null;

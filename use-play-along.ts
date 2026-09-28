@@ -1181,7 +1181,16 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     reportPvpResult({ score, acc, stars }); // online PvP: my final result → the room (decides the winner on both sides)
     // TIGA hub: real-data coach line for this run (what engine answered shows
     // in the badge). Real MIDI velocity/timing evidence rides along; — never invents.
-    try { const hub = tigaNow(); setSongTigaTip(hub ? hub.tigaHub.explainSongResult({ acc, stars, maxCombo, missedNotes, dyn: scoreDynamics(songVelsRef.current), timing: (songTimingRef.current.ok + songTimingRef.current.miss >= 3) ? songTimingRef.current : null, topic: 8 }, readMemory()) : null); } catch (e) { setSongTigaTip(null); }
+    try {
+      const hub = tigaNow();
+      if (!hub) setSongTigaTip(null);
+      else {
+        const tip = hub.tigaHub.explainSongResult({ acc, stars, maxCombo, missedNotes, dyn: scoreDynamics(songVelsRef.current), timing: (songTimingRef.current.ok + songTimingRef.current.miss >= 3) ? songTimingRef.current : null, topic: 8 }, readMemory());
+        // plan v3.4 6.3: the KB-grounded one-step-up next-song advice rides on the same card
+        const next = hub.tigaNextSongAdvice(readMemory(), lang);
+        setSongTigaTip(next ? { ...tip, nextSong: next } : tip);
+      }
+    } catch (e) { setSongTigaTip(null); }
     gainExp(reward, { quest: true });
     // Gamification: variable reward — mystery chest (20% chance on acc >= 70%)
     if (acc >= 70 && Math.random() < 0.20) {
