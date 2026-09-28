@@ -1,35 +1,35 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-27T23:30:39.165Z",
+  "generatedAt": "2026-09-28T00:57:41.434Z",
   "appVersion": "13.7.373",
   "bundle": {
-    "file": "index.template-CIeIGv7t.js",
+    "file": "index.template-BICtty3x.js",
     "bytes": 2717721,
     "includesTigamodel": true,
-    "tigamodelMinifiedBytes": 1241815,
+    "tigamodelMinifiedBytes": 1326254,
     "chunks": [
       {
-        "file": "index.template-CIeIGv7t.js",
+        "file": "index.template-BICtty3x.js",
         "bytes": 2717721
       },
       {
-        "file": "web-DrKg5gah.js",
-        "bytes": 600433
+        "file": "web-FSGdZm4N.js",
+        "bytes": 649838
       },
       {
-        "file": "pvp-arena-DcnNd8KC.js",
+        "file": "pvp-arena-6f4qCOBD.js",
         "bytes": 178418
       },
       {
-        "file": "TigamodelLab-Bv_uAqV2.js",
+        "file": "TigamodelLab-BIhoV4H1.js",
         "bytes": 86640
       },
       {
-        "file": "AdminActivityDashboard-CPbj4j36.js",
+        "file": "AdminActivityDashboard-KGdfy-56.js",
         "bytes": 53158
       },
       {
-        "file": "TigamodelBackoffice-DKVwJpMQ.js",
+        "file": "TigamodelBackoffice-CInqIWeP.js",
         "bytes": 35493
       },
       {
@@ -41,19 +41,19 @@
         "bytes": 19633
       },
       {
-        "file": "web-BwTAi5Bi.js",
+        "file": "web-BSkK1DYw.js",
         "bytes": 5340
       },
       {
-        "file": "web-LXS8ZtKH.js",
+        "file": "web-CDI5VATl.js",
         "bytes": 851
       },
       {
-        "file": "web-BCDgz3LN.js",
+        "file": "web-D6gOJ2dO.js",
         "bytes": 813
       },
       {
-        "file": "web-DpGsuIAd.js",
+        "file": "web-B1eQEgP2.js",
         "bytes": 388
       }
     ]
@@ -74,10 +74,10 @@
     "weakestCap": "kb"
   },
   "perf": {
-    "allRoutesColdMs": 32.32,
-    "allRoutesWarmMs": 0.24,
-    "summaryMs": 2.13,
-    "memoSpeedup": 134.7
+    "allRoutesColdMs": 33.63,
+    "allRoutesWarmMs": 0.22,
+    "summaryMs": 2.14,
+    "memoSpeedup": 152.9
   },
   "kb": {
     "theoryEntries": 13414,

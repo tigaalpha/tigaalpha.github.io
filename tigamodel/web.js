@@ -39,6 +39,10 @@ import { seedPedagogyExpansion } from "./knowledge/expansion-pedagogy.js";
 import { seedPeaksExpansion } from "./knowledge/expansion-peaks.js";
 import { seedLearnerWave } from "./knowledge/expansion-learner.js";
 import { seedStageWave } from "./knowledge/expansion-stage.js";
+import { seedMusicMarketing } from "./knowledge/music-marketing.js";   // plan v3.4 6.1
+import { seedMusicBusiness } from "./knowledge/music-business.js";   // plan v3.4 6.7
+import { seedMusicEducationMarket } from "./knowledge/music-education-market.js"; // plan v3.4 6.8
+import { seedMusicTherapy } from "./knowledge/music-therapy.js";     // plan v3.4 11.1 (wellbeing frame)
 import { seedStageTwoWave } from "./knowledge/expansion-stage2.js";
 import { buildStudentContextFromApp } from "./student/student-model.js";
 import { createCapabilityEngine } from "./teaching/capability-engine.js";
@@ -95,6 +99,10 @@ export function initTigamodelWeb() {
     // engine flagged these as the thinnest real domains)
     seedStageWave(_tiga.kb);
     seedStageTwoWave(_tiga.kb); // completes performance-domain depth (T8 kb=1.0)
+    seedMusicMarketing(_tiga.kb);      // v3.4 6.1: hook-first · audience · sequencing · arrangement · positioning
+    seedMusicBusiness(_tiga.kb);       // v3.4 6.7: streaming · rights · sync · live · brand/career
+    seedMusicEducationMarket(_tiga.kb);// v3.4 6.8: lifecycle · parents · churn · grade structure
+    seedMusicTherapy(_tiga.kb);        // v3.4 11.1: wellbeing-frame therapy principles (no medical claims)
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   // Reasoning layer (roadmap #62/#73/#75/#78): skill graph + coach (hint
   // ladder, adaptive tempo, recap) — pure, sync, no model call. Attached to
@@ -163,6 +171,13 @@ export function getCapabilityEngine() {
    state each time), so a memoized sweep from a previous session must not
    leak across runs — the bench calls this once at startup. Production never
    needs it: reinforceTeachingOutcome already invalidates after KB changes. */
+/* plan v3.4: read-only KB access for smoke/bench (same pattern as the test
+   reset hooks — never used by the app runtime) */
+export function getKnowledgeBaseForTest() {
+  if (!_tiga) initTigamodelWeb();
+  return _tiga && _tiga.kb ? _tiga.kb : null;
+}
+
 export function resetCapabilityEngineForTest() {
   try { getCapabilityEngine().invalidateCapabilityCache(); } catch (e) {}
 }
