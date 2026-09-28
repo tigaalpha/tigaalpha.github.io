@@ -352,6 +352,12 @@ verify:tiga ~309 checks เขียว · boot smoke + nav sweep ผ่าน
 8.3 `scripts/canary-release.mjs` (ทดสอบ: ขาด CAPGO_TOKEN แจ้งชัด ไม่แตะโปรดักชัน) · 8.4 `npm run report:tiga` + --digest (ทดสอบ: ตัวเลขจากเอนจินจริง) ·
 ระลอก 5: **5.1 ✅ interaction-first preload** (pointerdown/keydown → idle fallback 8 s, Q-bar ที่ 9 ผ่าน) · **5.5 ✅ bench รายงาน chunk ทุกก้อน** (12 lazy chunks ใน snapshot) ·
 5.2/5.3/5.4 ⏳ คิวถัดไป · build เขียว · verify:tiga ~309 checks เขียว · boot smoke ผ่าน
+
+**SQL 4.4 applied + ตรวจครบวงจร (2026-09-27 — owner ส่ง access token ผ่านระบบกุญแจ):** apply ผ่าน
+`scripts/apply-sql.mjs` (management API — ไฟล์เดียวกับที่รีวิว ไม่มีการแก้ SQL) แล้วตรวจ
+`scripts/verify-strategy-outcomes.mjs` **8/8**: บันทึกจริงผ่าน RPC · นับสรุปถูกต้อง · ค่าผิดกฎถูกปฏิเสธที่ฟังก์ชัน ·
+outcome เกินช่วง {-1,0,1} ถูกปฏิเสธ · RLS INSERT-only · ข้อมูลทดสอบถูกล้างเกลี้ยง · เส้นทางแอปจริง (anon) ส่ง+อ่านได้ ·
+**4.3 A/B + 7.6 หลักฐานข้ามอุปกรณ์ปลดล็อกแล้ว**
 4.6–4.8 วงล้ออัตโนมัติ · §6 มุมมองหน้าเดียว — **ยังไม่เริ่มสร้างจนกว่า owner จะยืนยันแผนฉบับนี้**
 
 **คิวที่เสนอ (จาก workOrder + ผลตอบแทน÷ความเสี่ยง — ปรับได้เมื่อ owner ให้คำแนะนำเพิ่ม):**
@@ -377,7 +383,7 @@ verify:tiga ~309 checks เขียว · boot smoke + nav sweep ผ่าน
 | การตัดสินใจที่รอ | รออะไร | ถ้าอนุมัติ | ถ้ายังไม่อนุมัติ |
 |---|---|---|---|
 | ยืนยันแผน v3.3 | คำยืนยันในแชท | เริ่มระลอก 8 (คูณความเร็ว) แล้วตามด้วยระลอก 5 ตาม SOP | แผนรอ ไม่มีอะไรถูกสร้าง |
-| 4.4 `supabase-strategy-outcomes-migration.sql` | **owner อนุมัติแล้ว (2026-09-27)** — เหลือวางไฟล์ใน Supabase SQL Editor แล้วกด Run (ขั้นตอนเดียวจบ) | ปลดล็อก 4.3 A/B + 7.6 หลักฐานข้ามอุปกรณ์ | 7.1–7.5 (ฝั่งเครื่อง) เดินต่อได้ปกติ |
+| 4.4 `supabase-strategy-outcomes-migration.sql` | ✅ **เสร็จสิ้น** — owner อนุมัติ + agent apply + ตรวจครบวงจร 8/8 (2026-09-27) | ปลดล็อกแล้ว: 4.3 A/B + 7.6 หลักฐานข้ามอุปกรณ์ | — |
 | เทสบนเครื่องจริง (Android/PWA) | เวลา owner | ปิดความเสี่ยง lazy chunk ฝั่ง native | งาน lazy ยังไม่นับเป็น "รีลิสใหญ่" |
 
 ค่าใช้จ่าย: ระลอก 5/7 ใช้ infra เดิม (gateway/bench/practice log) → **0 บาท** · ระลอก 6 เป็นการเขียนความรู้ใน repo → **0 บาท** ·
