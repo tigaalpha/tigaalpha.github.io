@@ -1,0 +1,14 @@
+# Minimal supabase CLI config — exists ONLY so `supabase db query --linked`
+# resolves the project ref for scripts/apply-migrations.mjs (the owner's
+# access token comes from the environment).
+# No other CLI feature is configured or used by this repo.
+project_id = "tigaalpha"
+
+[db]
+# The remote project this repo's SQL migrations target (AGENTS.md).
+# `supabase link` writes its record to .temp — the ref below is the same one
+# the apply-migrations script passes explicitly.
+ major_version = 15
+
+[db.pooler]
+enabled = false
