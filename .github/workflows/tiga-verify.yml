@@ -17,6 +17,23 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/tiga-verify.yml"
+  # Plan v3 (docs/06): the brake also fires on direct pushes to main — the
+  # repo's usual flow merges dev branches straight into main without a PR,
+  # which used to mean the only gate (pull_request) never ran. On push this
+  # is an alarm AFTER auto-update's deploy (the two workflows are independent),
+  # not a gate — red here means the just-deployed build failed the model's
+  # own checks: fix forward immediately.
+  push:
+    branches: [main]
+    paths:
+      - "App.tsx"
+      - "*.ts"
+      - "*.tsx"
+      - "tigamodel/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/tiga-verify.yml"
 
 permissions:
   contents: read
@@ -39,11 +56,18 @@ jobs:
       - name: verify:tiga (all smokes + eval)
         run: npm run verify:tiga
 
+      # Plan v3 (docs/06): the plan audits itself — evidence paths exist,
+      # smokes of done/code milestones really pass, owner-gated migrations
+      # can't be claimed done. Fails the run on any lie.
+      - name: plan-check (the plan audits itself)
+        run: node scripts/plan-check.mjs
+
       - name: bench:tiga (grid baseline + Q-bars)
         run: npm run bench:tiga
 
       - name: Comment bench numbers on the PR
-        if: always()
+        # PR-only: push events have no issue number to comment on.
+        if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
