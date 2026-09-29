@@ -326,6 +326,23 @@ export const MILESTONES = [
     acceptance: "provider เกิน budget → คำตอบสำรองจาก KB/กฎที่ตรวจแล้ว (มีที่มา ไม่ห้อย ไม่เดา) — learner-facing floor ไม่เปลี่ยน",
     evidence: ["tigamodel/providers/model-router.js"],
   },
+  {
+    id: "m37-migration-button",
+    title: "docs/11 §1 ปุ่ม apply-migrations — คำสั่งเดียว apply + verify SQL ที่อนุมัติแล้ว",
+    state: "code",
+    deps: ["m03-plan-v3-self-enforcing"],
+    acceptance: "scripts/apply-migrations.mjs: credential-gated (SUPABASE_ACCESS_TOKEN หรือ SUPABASE_DB) · --check ใช้ได้ทันทีไม่แตะ DB · apply แล้ว verify ตามท้ายไฟล์ (ตาราง 7/7 + seed enabled=false + switch row) · re-runnable · ไม่มีทางหลอกสำเร็จ — เมื่อเจ้าของใส่กุญแจใน Settings → Environment คำสั่งเดียวปลดคอขวด",
+    evidence: ["scripts/apply-migrations.mjs", "tigamodel/docs/11-plan-plus-hundredfold.md"],
+    activation: "เจ้าของเพิ่ม SUPABASE_ACCESS_TOKEN ใน Settings → Environment แล้วสั่งรัน node scripts/apply-migrations.mjs (อนุมัติ 2 migration บันทึกแล้วใน OWNER_APPROVALS)",
+  },
+  {
+    id: "m38-auto-learning-loop",
+    title: "docs/11 §2 วงจรเรียนรู้อัตโนมัติ — ผลจริง → น้ำหนัก → แผนถัดไป < 24 ชม.",
+    state: "planned",
+    deps: ["m04-strategy-analyzer", "m05-apply-learning-data"],
+    acceptance: "teaching_outcomes มีข้อมูลจริง + รอบสัปดาห์แรก weights ขยับโดยอัตโนมัติ (ไม่มีมือคนกด) + ตัวเลขเวลาจากซ้อมเสร็จถึงครูปรับตัว < 24 ชม. ถูกวัดจริง",
+    evidence: ["tigamodel/docs/11-plan-plus-hundredfold.md"],
+  },
 ];
 
 export function getPlan() {
