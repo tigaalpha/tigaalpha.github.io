@@ -166,7 +166,7 @@ const Staff = memo(function Staff({ notes, hi, bad }) {
               </text>
             )}
             <text x={x} y={Math.max(11, y - 40)} fontSize="11.5" fontWeight="700" fill={col} textAnchor="middle"
-              fontFamily="'Rajdhani', sans-serif">{n.name}</text>
+              fontFamily="Prompt, 'Noto Sans Thai', sans-serif">{n.name}</text>
           </g>
         );
       })}
@@ -231,7 +231,7 @@ const Keys = memo(function Keys({ notes, hi, bad }) {
               stroke="#0d1424" strokeWidth="1" />
             <rect x={w.i * WW + 0.6} y={KB_H - 10} width={WW - 1.2} height="6" rx="2" fill="#00060f" opacity=".18" />
             {st && <text x={w.i * WW + WW / 2} y={KB_H - 16} fontSize="11" fontWeight="800" textAnchor="middle"
-              fill="#06243a" fontFamily="'Rajdhani',sans-serif">{nameOf(w.midi)}</text>}
+              fill="#06243a" fontFamily="Prompt, 'Noto Sans Thai', sans-serif">{nameOf(w.midi)}</text>}
           </g>
         );
       })}
@@ -248,7 +248,7 @@ const Keys = memo(function Keys({ notes, hi, bad }) {
               stroke="#00060f" strokeWidth="1" />
             <rect x={x + 1} y={1} width={WW * 0.6 - 2} height="5" rx="2" fill="#ffffff" opacity={st ? ".5" : ".14"} />
             {st && <text x={x + WW * 0.3} y={KB_H * 0.62 - 7} fontSize="9.5" fontWeight="800" textAnchor="middle"
-              fill="#06243a" fontFamily="'Rajdhani',sans-serif">{nameOf(b.midi)}</text>}
+              fill="#06243a" fontFamily="Prompt, 'Noto Sans Thai', sans-serif">{nameOf(b.midi)}</text>}
           </g>
         );
       })}

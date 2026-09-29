@@ -65,7 +65,8 @@ async function main() {
     const i18n = fs.readFileSync(path.join(ROOT, "i18n.ts"), "utf8");
     for (const s of [
       "ยกมือขึ้นให้กล้องเห็น — แอปจะบอกว่ามือคุณวางถูกไหม ทีละข้อ",
-      "กด ▶ ให้ครูดูมือ แล้วรับคำแนะนำทันที · กด ← หรือ ปิด เพื่อออกทุกเมื่อ",
+      /* TH copy updated by the camera game layer (6ac3e1b1) — the test's intent is unchanged: every language must state how to leave */
+      "ยกมือขึ้นให้กล้องเห็นเพื่อเริ่มเก็บคะแนน · กดปุ่ม ← หรือคำว่า ปิด เพื่อออกเสมอ",
       "Raise your hands — the app checks your hand shape",
       "tap ← or Close to leave anytime",
       "把手举到镜头前",

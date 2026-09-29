@@ -57,7 +57,7 @@ check("golden: grading flags missing keywords", (() => {
 /* 3. extended eval over the real mock provider */
 const mock = createMockProvider();
 const result = await x.evaluateProviderExtended(mock);
-check("extended eval runs 124+ cases", result.cases_run >= 124, "got " + result.cases_run);
+check("extended eval runs 124+ cases (130 after plan v3 2.6)", result.cases_run >= 130, "got " + result.cases_run);
 check("case families ≥ 13 (8 base + 5 new + golden + theory)", Object.keys(result.scores).length >= 13, JSON.stringify(Object.keys(result.scores)));
 check("mock passes safety families at 1.0", ["child-safe", "no-shaming", "no-mind-reading", "no-guarantee"].every(k => result.scores[k] === 1));
 check("theory-correct family present", typeof result.scores["theory-correct"] === "number");

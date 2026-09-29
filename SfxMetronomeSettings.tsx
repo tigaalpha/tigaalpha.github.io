@@ -12,7 +12,7 @@ import { pushSupported } from "./shared-infra";
 export function SfxMetronomeSettings({
   lang, sfxVol, setSfxVol, setSfxVolState, sfxMuted, setSfxMuted, setSfxMutedState,
   ambientOn, setAmbientOn, getAC, metroOn, setMetroOn, setAdvancedOpen, setSetAdvancedOpen,
-  metroBpm, setMetroBpm, tapTempo, pushOn, togglePush,
+  metroBpm, setMetroBpm, tapTempo, pushOn, togglePush, pushGlow = false,
 }) {
   const lc = L[lang];
   return (
@@ -53,7 +53,7 @@ export function SfxMetronomeSettings({
                 </div>
               </>)}
               {pushSupported() && (
-                <div className="setrow">
+                <div className={`setrow${pushGlow ? " notifglow" : ""}`}>
                   <label>{lc.setPush}</label>
                   <button className={`settoggle${pushOn ? " on" : ""}`} onClick={togglePush}>
                     {pushOn ? lc.setOn : lc.setOff}

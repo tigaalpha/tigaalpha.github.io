@@ -57,10 +57,19 @@ hookSrc = hookSrc
   .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`)
   .replace('from "./piano-guard"', `from "${process.cwd()}/piano-guard.ts"`)
   .replace('from "./tigamodel/web"', `from "${process.cwd()}/${OUT}/ovroot/web.js"`)
+  .replace('from "./tiga-gateway"', `from "${process.cwd()}/tiga-gateway.ts"`)   // plan v3 1.5: real gateway (bundles the real web.js tree through its dynamic import)
   .replace('from "./shared-infra"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
   .replace('from "./ai-chat-context"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
   .replace('from "./ai-backend"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
-  .replace('from "./use-autoteach"', `from "${process.cwd()}/use-autoteach.ts"`);   // real module (pure localStorage, jsdom-safe)
+  .replace('from "./use-autoteach"', `from "${process.cwd()}/use-autoteach.ts"`)   // real module (pure localStorage, jsdom-safe)
+  .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`)   // pure, dependency-free (Practice Mode v4)
+  .replace('from "./jev"', `from "${process.cwd()}/${OUT}/jev-stub.js"`);   // jev calls ai-backend (network) — never ok in jsdom, the hook's fallback path is what runs
+writeFileSync(`${OUT}/jev-stub.js`, `/* jev stub: every task reports not-ok so the hook's pre-Jev fallback path runs —
+   same behavior as a device with no Jev key configured */
+export async function jevTask() { return { ok: false }; }
+export function jevScore() { return null; }
+export function jevChoice() { return null; }
+export function jevNoul() { return null; }\n`);
 writeFileSync(`${OUT}/use-practice-mode.testable.ts`, hookSrc);
 writeFileSync(`${OUT}/music-engine-stub.js`, `/* minimal stand-in for the pieces of music-engine the hook imports:
    audio output + listener lifecycle, no real audio (jsdom) */
@@ -91,15 +100,20 @@ export function getSR() { return null; }
    paths — those resolve fine from the repo root (esbuild runs there), no stubs needed */
 writeFileSync(`${OUT}/infra-stub.js`, `/* shared-infra / ai-chat-context / ai-backend pieces the hook uses */
 export function logActivity() {}
+export function logUsage() {}   // usage analytics — a no-op in the harness
 export function dayKey(d) { const x = d || new Date(); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); }
 export function recordMemory(label, acc) { try { const m = JSON.parse(localStorage.getItem("tg_memory") || "null") || { recent: [] }; m.recent = [{ label, acc, t: dayKey() }, ...(m.recent || []).filter(r => r.label !== label)].slice(0, 12); localStorage.setItem("tg_memory", JSON.stringify(m)); } catch (e) {} }
 export async function fetchChatCompletion() { return ""; }
 `);
 /* web.js FIRST (the hook's rewritten import points at its output).
    The copied tree imports "../supabase-client" — the stub must exist at that
-   relative location (OUT/supabase-client.js) before bundling. */
+   relative location (OUT/supabase-client.js) before bundling. Same for the
+   tiga-strategy-labels shim: web.js (plan v3 1.5) imports the split-out light
+   vocabulary module from the project root, which doesn't exist inside OUT/. */
 writeFileSync(`${OUT}/supabase-client.js`, `export const sb = { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }) }), auth: { getSession: async () => ({ data: { session: null } }) } };
 export default sb;\n`);
+writeFileSync(`${OUT}/tiga-strategy-labels.js`, `export const TIGA_STRATEGY_LABELS = {};
+export function tigaStrategyLabel() { return null; }\n`);
 execSync(
   `cp -r tigamodel ${OUT}/tmsrc && npx esbuild ${OUT}/tmsrc/web.js --bundle --outfile=${OUT}/ovroot/web.js --format=esm --platform=browser --external:react --external:react-dom`,
   { stdio: "pipe" }
@@ -110,12 +124,16 @@ execSync(
 );
 {
   let ovSrc = readFileSync("PracticeOverlay.tsx", "utf8").replaceAll('from "./tigamodel/web"', `from "${process.cwd()}/${OUT}/ovroot/web.js"`)
+    .replaceAll('from "./tiga-gateway"', `from "${process.cwd()}/tiga-gateway.ts"`)   // plan v3 1.5: real gateway (bundles the real web.js tree through its dynamic import) — 2 import sites in this file
+    .replace('from "./tiga-strategy-labels"', `from "${process.cwd()}/tiga-strategy-labels.ts"`)   // plan v3 1.5: light vocabulary module
     /* i18n + music-engine live at the project root — point at the REAL files
        (esbuild bundles their trees; music-engine's React import is external) */
     .replace('from "./i18n"', `from "${process.cwd()}/i18n.ts"`)
     .replace('from "./speech"', `from "${process.cwd()}/${OUT}/speech-stub.js"`)
     .replace('from "./use-practice-coach"', `from "${process.cwd()}/use-practice-coach.ts"`)
-    .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`);
+    .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`)
+    .replace('from "./shared-infra"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)   // overlay only uses logUsage from it (no supabase pull in jsdom)
+    .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`);   // pure, dependency-free (Practice Mode v4)
   writeFileSync(`${OUT}/PracticeOverlay.testable.tsx`, ovSrc);
   execSync(
     `npx esbuild ${OUT}/PracticeOverlay.testable.tsx --bundle --outfile=${OUT}/ovroot/PracticeOverlay.js --format=esm --platform=browser --loader:.tsx=tsx --jsx=automatic --external:react --external:react-dom`,
@@ -206,6 +224,24 @@ console.log("finishPractice end-to-end (real hook + real teaching loop):");
   /* unknown lang falls back to Thai, never crashes */
   const rX = await web.runTeachingLoopForPractice({ accuracy: 100, repeatedErrors: 0, pauses: 0, rhythmScore: 95 }, { lang: "xx" });
   ok("unknown lang → Thai fallback", /[ก-๙]/.test(rX.response.text));
+}
+
+/* ── 1a. self-report rerun speaks the app's language (owner plan v3 1.2:
+   the rerun AFTER the learner answers the poll is a language touchpoint
+   like every other — it used to drop lang, so runOnce() defaulted to Thai
+   and an EN/ZH learner's verdict flipped back to Thai the moment they
+   answered the direct question). ── */
+{
+  const stats = { accuracy: 40, repeatedErrors: 4, pauses: 1, rhythmScore: 40, label: "C major scale" };
+  const srTh = await web.rerunLoopWithSelfReport(stats, "too_hard", "th");
+  ok("rerun: resolves with a verdict", !!(srTh && srTh.response && typeof srTh.response.text === "string"));
+  ok("rerun th verdict is Thai", /[ก-๙]/.test(srTh.response.text), srTh.response.text.slice(0, 40));
+  const srEn = await web.rerunLoopWithSelfReport(stats, "too_hard", "en");
+  ok("rerun en verdict is English (no Thai glyphs)", !/[ก-๙]/.test(srEn.response.text) && /[a-z]/i.test(srEn.response.text), srEn.response.text.slice(0, 40));
+  const srZh = await web.rerunLoopWithSelfReport(stats, "too_hard", "zh");
+  ok("rerun zh verdict is Chinese (no Thai glyphs)", /[一-龥]/.test(srZh.response.text) && !/[ก-๙]/.test(srZh.response.text), srZh.response.text.slice(0, 40));
+  ok("rerun: other choice (understand) also resolves", !!(await web.rerunLoopWithSelfReport(stats, "understand", "en")));
+  ok("rerun: invalid choice → null (honest, no crash)", (await web.rerunLoopWithSelfReport(stats, "banana", "en")) === null);
 }
 
 /* ── 1b. Practice Coach card speaks the app's language (owner request 2026-09-21:

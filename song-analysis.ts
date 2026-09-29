@@ -1,6 +1,7 @@
 import { readMemory } from "./ai-chat-context";
-import { getStudentContextBlock } from "./tigamodel/web.js"; // one shared learner memory across ALL model surfaces
+import { tigaNow } from "./tiga-gateway"; // one shared learner memory across ALL model surfaces (lazy gateway, plan v3 1.5)
 import { validateTip } from "./use-autoteach";
+import { withAiCache } from "./ai-cache";   // plan 3.2: an identical song-run analysis (same song + acc bucket + top misses + lang) is a repeat request — cache it
 
 /* ── song-analysis.ts — วิเคราะห์จบเพลงด้วย TIGA Piano Model (Play Along plan #7)
    อัปเกรดจากการยิง AI ตรงๆ เป็น 3 ชั้น:
@@ -101,7 +102,7 @@ export async function analyzeSongRun(lang, label, result, loopFn, askAi, profile
         repeatedErrors: Math.min((result.missedNotes || []).length, 4),
         repeatedErrorLabel: (result.missedNotes || [])[0] || label,
         pauses: 0, rhythmScore: null, speedRatio: null, weekAgoAccuracy: null,
-      }));
+      }, { lang: L3 }));   // lang (owner plan 1.3): the strategy line must speak the app's language
     } else {
       const { runTeachingLoopForPractice } = await import("./tigamodel/web.js");
       loop = await Promise.resolve(runTeachingLoopForPractice({
@@ -109,7 +110,7 @@ export async function analyzeSongRun(lang, label, result, loopFn, askAi, profile
         repeatedErrors: Math.min((result.missedNotes || []).length, 4),
         repeatedErrorLabel: (result.missedNotes || [])[0] || label,
         pauses: 0, rhythmScore: null, speedRatio: null, weekAgoAccuracy: null,
-      }));
+      }, { lang: L3 }));   // lang (owner plan 1.3): same — never fall back to Thai silently
     }
     if (loop && loop.response) {
       stratLine = strategyLine(loop.decision ? loop.decision.strategy_id : null, loop.response.text || "", L3);
@@ -125,8 +126,15 @@ export async function analyzeSongRun(lang, label, result, loopFn, askAi, profile
       // StudentContext block (model layer spec §13): the SAME memory the
       // teaching loop and coach see now personalizes the external AI too —
       // appended to the message; empty for brand-new students (honest gap).
-      const msg = buildMsg(stratLine)[L3] + (getStudentContextBlock() || "");
-      const txt = await askAi({ system: sys, message: msg });
+      const hub = tigaNow();
+      const msg = buildMsg(stratLine)[L3] + (hub ? (hub.getStudentContextBlock() || "") : "");   // model lazy → empty block until loaded (same honest gap as a brand-new learner)
+      // plan 3.2: content-addressed cache — the prompt bakes in label/acc/missed
+      // notes, but tiny acc jitter (87% vs 88%) would bust the hash, so the key
+      // quantizes acc to 5% buckets and keeps only the top-3 missed notes.
+      // Distinct from the "play-along composition" exclusion in ai-cache.ts's
+      // header: analysis of the SAME performance is deterministic advice, not a
+      // fresh creative artifact.
+      const txt = await withAiCache("songAnalysis", { label, accBucket: Math.round((result.acc || 0) / 5) * 5, missed: (result.missedNotes || []).slice(0, 3), lang: L3 }, 24 * 60 * 60 * 1000, () => askAi({ system: sys, message: msg }));
       const jm = typeof txt === "string" && txt.match(/\{[\s\S]*\}/);
       if (jm) {
         const obj = JSON.parse(jm[0]);

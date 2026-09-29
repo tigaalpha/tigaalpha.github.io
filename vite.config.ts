@@ -1,6 +1,18 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+
+const pkg = JSON.parse(readFileSync(resolve(__dirname, "package.json"), "utf8"));
+/* A fingerprint of everything that draws a fighter. The pictures the arena
+   makes of each pose (figure-cache.tsx) are kept on the device under it, so
+   they are thrown away exactly when the drawing changes — not on every
+   release, which would redraw every robot a player owns after each update. */
+const ART = createHash("sha256")
+  .update(["cyber-avatar.tsx", "pet-lab.tsx", "item-art.tsx", "app-styles.ts", "figure-cache.tsx"]
+    .map(f => readFileSync(resolve(__dirname, f), "utf8")).join("\n"))
+  .digest("hex").slice(0, 10);
 
 export default defineConfig({
   base: "./",
@@ -16,6 +28,13 @@ export default defineConfig({
      it. Assets are content-hashed, so the service worker can serve them
      cache-first and a returning visitor pays nothing at all. */
   plugins: [react()],
+  /* the app's version, for anything on the device that should start over
+     with a new release (the 3D room's learned quality tier, for one) */
+  define: { __APP_BUILD__: JSON.stringify(pkg.version), __ART__: JSON.stringify(ART) },
+  /* The 3D room renders inside a Web Worker. One classic-script bundle: no
+     chunks to chase inside the worker, and it loads in every browser that
+     can transfer a canvas at all. */
+  worker: { format: "iife" },
   build: {
     target: "esnext",
     outDir: "dist",

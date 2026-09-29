@@ -169,8 +169,21 @@ export default function LandingPage1() {
         const { data } = await sb.auth.getSession();
         const s = data && data.session;
         if (!dead && s && s.user && !s.user.is_anonymous) {
+          /* Owner request (2026-09-24): after a Google login the visitor goes
+             straight into the app — not to a strip asking them to tap again.
+             Google is told to return to "/" already, but a signed-in visitor
+             still reaches this page: the Back button out of a slow first app
+             load, a Site-URL fallback, or simply a member tapping an ad again.
+             One of them (1a70eb, 19 Sep) logged in fine, bounced back here,
+             was shown the sign-up gate AGAIN and tapped Google a second time.
+             A member has nothing left to do on a sales page, so leave it.
+             replace(), not assign: Back must not return them here to loop.
+             ?preview keeps the old welcome strip, so the page can still be
+             checked by someone who is signed in. */
+          const preview = /[?&]preview\b/.test(window.location.search);
+          land(preview ? "returning_user" : "returning_user:forward");
+          if (!preview) { window.location.replace(APP_URL); return; }
           setReturningUser(true);
-          land("returning_user");
         }
       } catch (e) { /* no session readable — treat as guest */ }
     })();
@@ -540,7 +553,8 @@ export default function LandingPage1() {
   async function submitAsk(e) {
     e.preventDefault();
     const q = askText.trim();
-    if (!q || asking) return;
+    if (asking) return;
+    if (!q) { try { e.target.querySelector("input").focus(); } catch (err) {} return; }
 
     if (asked >= FREE_ASKS) { openSignup(q, "quota"); return; }
 
@@ -621,7 +635,7 @@ export default function LandingPage1() {
               title={FLAG_NAMES[lg]}
               lang={lg}>
               <span aria-hidden="true">{FLAGS[lg]}</span>
-              <span className="lp-sr">{FLAG_NAMES[lg]}</span>
+              <span className="lp-langcode">{lg === "th" ? "ไทย" : lg === "zh" ? "中文" : "EN"}</span>
             </button>
           ))}
         </nav>
@@ -637,12 +651,12 @@ export default function LandingPage1() {
             browser the button simply opens a normal new tab, which costs a
             visitor nothing. Detection is still used — it decides whether the
             button shouts, and whether the banner below explains why. */}
-        <button type="button"
+        {inApp && <button type="button"
           className={`lp-openbtn${inApp ? " warn" : ""}`}
           onClick={escapeBrowser}
           title={t.openReal}>
           <span aria-hidden="true">⧉</span> {t.openTop}
-        </button>
+        </button>}
       </header>
 
       {inApp && <p className="lp-openwhy">⚠️ {t.openWhy}</p>}
@@ -690,6 +704,30 @@ export default function LandingPage1() {
         </div>
       </div>
       <p className="lp-sub">{t.sub}</p>
+
+      {/* ── the way in, in the first screenful ──
+          Until now the only sign-up entrances were a gate that arrives later
+          and a small link at the foot of the page: somebody who already wanted
+          an account had nowhere to tap. One primary button, one quiet
+          alternative. Inside an in-app browser Google refuses to sign anyone
+          in, so there the primary is the email card instead. */}
+      {!returningUser && !signup && (
+        <div className="lp-herocta">
+          {inApp ? (
+            <button className="lp-btn primary" onClick={() => openSignup("", "hero")}>{t.gateBtn}</button>
+          ) : (
+            <button className="lp-btn google" onClick={async () => {
+              land("hero:google");
+              try { await startGoogleAuth(); }
+              catch (e) { openSignup("", "hero"); }
+            }}><GoogleG /> {t.heroGoogle}</button>
+          )}
+          <button className="lp-herolink" onClick={() => {
+            land("hero:try");
+            bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+          }}>{t.heroTry}</button>
+        </div>
+      )}
 
       <div className="lp-chat">
         <div className="lp-row">
@@ -755,7 +793,7 @@ export default function LandingPage1() {
                 aria-label={t.askPh}
                 disabled={asking}
                 enterKeyHint="send" />
-              <button className="lp-send" type="submit" disabled={asking || !askText.trim()}>
+              <button className="lp-send" type="submit" disabled={asking}>
                 {asking ? "…" : t.askBtn}
               </button>
             </form>
@@ -770,7 +808,7 @@ export default function LandingPage1() {
       {signup
         ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} timeUp={signup.timeUp} t={t} /></div>
         : (
-          <div className="lp-proof">
+          <div className="lp-proof" role="list">
             <div><b>192</b><span>{t.proof1}</span></div>
             <div><b>AI</b><span>{t.proof2}</span></div>
             <div><b>{lang === "th" ? "ฟรี" : lang === "zh" ? "免费" : "Free"}</b><span>{t.proof3}</span></div>

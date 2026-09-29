@@ -35,6 +35,7 @@ import { sb } from "./supabase-client";
    max        scalar number              → Math.max
    lww        scalar                     → newer client_ts wins
    usage      {d: day, k: count}         → d last-write-wins, counters max
+   daycount   {d: day, k: count}         → the later day wins outright, same day: counters max
    pathacc    {stageId: {best,last,lastAt,interval,nextDue}} → per-stage: best
               never regresses, scheduling fields take the newer attempt
    memory     {struggles[],mastered[],recent[],lastSession,sessions}
@@ -57,6 +58,7 @@ const STRATEGY: Record<string, string> = {
   tg_exam: "objunion",             // {examId: [done task indexes]}
   tg_note_miss: "objmax",          // {pitchClass: cumulative misses}
   tg_usage: "usage",               // {d: day, key: count}
+  tg_pa_runs: "daycount",          // Play Along: {d: day, songId: runs today} — the coin limit per song per day
   // {stage: [key ids]}
   tg_key_done: "objunion",
   // composite objects
@@ -88,8 +90,11 @@ const STRATEGY: Record<string, string> = {
 };
 // dynamic-suffix keys (song id appended)
 const PREFIX_STRATEGY: Record<string, string> = {
-  tg_best_: "max",     // best accuracy % per song (scalar number)
+  tg_best_: "max",     // best score per song (scalar number)
   tg_ghost_: "union",  // per-song ghost-note samples (array)
+  tg_stars_: "max",    // Play Along: stars earned per song (0–3)
+  tg_acc_: "max",      // Play Along: best accuracy % per song
+  tg_medal_: "max",    // Play Along: medal per song (1 bronze … 4 crown) — a medal only goes up, so max never re-pays one
 };
 // keys that have a server-side home or are device/guest-local — never synced
 const EXCLUDE = new Set([
@@ -212,6 +217,14 @@ function mergeObjMerge(a: any, b: any, rowTsA: number, rowTsB: number): any {
   }
   return out;
 }
+// {d: "YYYY-MM-DD", k: count}: the later day wins outright (a new day starts
+// from zero, it never inherits yesterday's counts); the same day takes the
+// max of each counter
+function mergeDayCount(a: any, b: any): any {
+  const da = a && a.d, db = b && b.d;
+  if (da && db && da !== db) return da > db ? a : b;
+  return mergeUsage(a, b);
+}
 function mergeUsage(a: any, b: any): any {
   const out: any = {};
   for (const k of Object.keys(a || {})) out[k] = a[k];
@@ -285,6 +298,7 @@ function mergeByMode(mode: string, local: any, cloud: any, localTs: number, clou
     case "objmax": return mergeObjMax(local, cloud);
     case "objmerge": return mergeObjMerge(local, cloud, localTs, cloudTs);
     case "usage": return mergeUsage(local, cloud);
+    case "daycount": return mergeDayCount(local, cloud);
     case "pathacc": return mergePathAcc(local, cloud);
     case "memory": return mergeMemory(local, cloud);
     case "practicelog": return mergePracticeLog(local, cloud);

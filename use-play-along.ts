@@ -1,50 +1,76 @@
 import { useState, useRef, useEffect } from "react";
 import {
-  getAC, playPianoNote, playMiss, playUi, playWhoosh, playBoom, playComboTone,
+  getAC, playPianoNote, playMiss, playUi, playWhoosh, playBoom, playClickAt,
   pcOf, stopPracticeListeners, startMidiListener, startMicListener, laneHue, roundRect,
-  SONG_LEAD, SONG_HITWINDOW, SONG_PERFECT, SONG_DEBOUNCE_MS, SONG_ECHO_MS, SONG_MISSWINDOW,
-  expandSong, normalizeSeq, noteKeyFrac, _PC, playBackingChord, songTonic,
+  SONG_LEAD, SONG_DEBOUNCE_MS, SONG_ECHO_MS,
+  expandSong, normalizeSeq, noteKeyFrac, _PC, playBackingChord, songTonic, pickupBeatsOf, songChordBars,
   songTechniqueProfile, estimateSongDifficulty,
   THEORY_REF,
 } from "./music-engine";
 import { teacherJudgeNote } from "./piano-guard";
 import { tr } from "./i18n";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
-import { logActivity, recordNoteMisses } from "./shared-infra";
+import { logActivity, recordNoteMisses, logUsage } from "./shared-infra";
+import { jevTask, jevScore, jevChoice, jevNoul } from "./jev";
 import { recordMemory, readMemory } from "./ai-chat-context";
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { hostOnlineDuel, joinOnlineDuel, leaveOnlineRoom, sendAccept, sendStart, sendScore, sendResult, sendRematch } from "./pvp-online";
 import { analyzeSongRun, buildSongFallback } from "./song-analysis";
-import { buildDrillPlan, nextDrillTempo, bossHpFor, bossComboChip, bossRewardCoins, knowledgeDropFor, smartBackingPlan } from "./mistake-drill";
-import { runTeachingLoopForPractice, tigaHub } from "./tigamodel/web.js"; // tigaHub: intent-based model access — smarter engines upgrade the result screen with no UI change
+import { buildDrillPlan, nextDrillTempo, firstDrillTempo, bossRewardCoins, knowledgeDropFor, smartBackingPlan } from "./mistake-drill";
+import { queuedUntilTiga, tigaNow } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5) — hub reads guard on tigaNow() and keep their existing fallbacks
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
+import { createGameStore } from "./play-along-store";
+import { createBand, playChordDing } from "./play-along-band";
+import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed } from "./play-along-judge";
+import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday } from "./play-along-progress";
 
-/* ── Daily Song Quest (Play Along plan #8): one featured song per day, chosen
-   deterministically from SONGS so every device sees the same song without any
-   server call (same trick as activeChallenges' weekKey hash). Playing it to
-   the finish once pays a bonus; stars are remembered for the day card. ── */
-export function dailySongFor(d = new Date()) {
-  if (!SONGS || !SONGS.length) return null;
-  const key = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-  /* TIGA hub first: the repertoire specialist picks from the REAL learner
-     record (weak-spot coverage, not-yet-3-star rotation). Anything missing →
-     the deterministic day-hash below, exactly as before. */
-  try {
-    const starMap = (() => { const m = {}; try { for (const k of Object.keys(localStorage)) { if (k.startsWith("tg_best_")) { const v = Number(localStorage.getItem(k) || 0); m[k.slice(8)] = v >= 3 ? 3 : 0; } } } catch (e) {} return m; })();
-    const rec = tigaHub.recommendDailySong(SONGS, { memory: readMemory(), practiceLog: {}, starMap, dayKey: key });
-    if (rec && rec.song) return rec.song; // reason arrives with the pick — result screen may surface it later
-  } catch (e) { /* hub absent → hash fallback */ }
-  let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
-  return SONGS[Math.abs(h) % SONGS.length];
-}
-export function readDailySongState(todayKey) {
-  try {
-    const raw = JSON.parse(localStorage.getItem("tg_daily_song") || "null");
-    if (raw && raw.d === todayKey) return raw;
-  } catch (e) {}
-  return { d: todayKey, done: false, stars: 0 };
-}
-export const DAILY_SONG_REWARD = { coins: 30, exp: 60 };
+export { DAILY_SONG_REWARD };
+
+/* The reading staff's window before a song starts (see setSongStaffNotes). */
+const EMPTY_STAFF_WIN = { list: [], startBeat: 0, spanBeats: 20 };
+
+/* Everything the overlay reads while a song is running. These live in the
+   game store (play-along-store.ts), not React state, so updating them never
+   re-renders PianoApp — see the store's header. */
+const GAME_INIT = {
+  songHud: { score: 0, combo: 0, acc: 100, progress: 0 },
+  songNextLit: null, songNextLit2: null, songFingerMap: {},
+  songStaffNotes: EMPTY_STAFF_WIN, songShake: false, songGo: false,
+  songGhost: null, songBonus: null, songLoopRecap: null, songSetlistPos: null,
+  songFever: false, songAnnounce: null, songSrc: null, songCountdown: null,
+  bossHp: 0, bossFx: null, bossVerdict: null, kDrop: null,   // bossVerdict: plan 2.4 — the engine's verdict the moment the boss falls ({id, text:{th,en,zh}} | null)
+  songPause: null,      // null | { n } — n = resume countdown (0 = paused, waiting)
+  drillHud: null,       // null | { idx, rung, pass, need } while a section is looping
+  songHeardMic: false,  // the first note the mic heard (the intro's sound check)
+};
+const HOT_KEYS = Object.keys(GAME_INIT);
+
+/* The eight-note first song: five neighbouring white keys, up and back. */
+export const INTRO_SONG = {
+  id: "pa_intro", intro: true, custom: true, diff: 1, bpm: 80,
+  th: "ลองก่อน 8 โน้ต", en: "First 8 notes", zh: "先试 8 个音",
+  // up the five fingers and home again, ending on C so the staff reads plain C major
+  seq: [["C4", 1], ["D4", 1], ["E4", 1], ["F4", 1], ["G4", 1], ["E4", 1], ["D4", 1], ["C4", 2]],
+};
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+
+/* The canvas's resolution steps down on a device that cannot keep up. The
+   city, the gems and their glow are drawn at up to 2 canvas pixels per CSS
+   pixel, and on a slow phone the frame goes to filling those pixels — at
+   1.5× the throttled bot run went from ~31 to ~43 fps, and in motion it looks
+   the same. It only steps down during a run, measured over ~1.5 s of frames,
+   and back up one step after three smooth runs in a row; it is kept per
+   device. A steady 30 fps (a phone's power saving) is a cap, not a struggle,
+   and fewer pixels cannot help it, so that is left alone. */
+const GFX_TIERS = [2, 1.5, 1.25, 1];
+// the pause screen's choice: auto learns the step; the others fix it
+// (high = everything at 2×, medium = 1.5× without drifting motes and long
+// trails, low = 1× with the essentials)
+const GFX_MODES = { high: 0, mid: 1, low: 3 };
+const GFX_WINDOW = 90;          // frames per measurement
+const GFX_SLOW_MS = 20;         // a window averaging slower than this (under 50 fps) steps down
+const GFX_SMOOTH_MS = 18;       // a run whose every window beats this (55+ fps) counts as smooth
 /* ── use-play-along.ts ──
    Owns play-along: the falling-notes song-game itself (chooseSong through
    finishSong, the rAF game loop, mic/MIDI input grading), plus everything
@@ -88,7 +114,256 @@ export const DAILY_SONG_REWARD = { coins: 30, exp: 60 };
    evergreen recommendation engine, ProfilePage's game-stats bars all read
    them directly) - same convention as API_MODEL/logPractice/
    scoreDynamics. ── */
-export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell }) {
+/* ── crystal sprites ──
+   A cut gem, six facets round a centre, turning about its vertical axis: the
+   width breathes with the spin and the centre slides across, so the facets
+   trade light as it goes — which is what makes it read as a solid rather than
+   a flat hexagon. Each facet is shaded by how squarely it faces a key light up
+   and to the left. Rendered once per (hue, letter, size, turn step) and then
+   blitted; the cache is bounded because a song only has a dozen lanes. */
+const CRYSTAL_CACHE = new Map();
+/* ── hit effects, drawn in the scene ──
+   The judge word, the score and the sparks used to be DOM boxes created on
+   every hit (a layout and a paint each, plus a big "PERFECT!" over the
+   falling notes). They are drawn on the canvas now, at the lane that was
+   hit, from text rendered once into small bitmaps. */
+const FX_FONT = '"Prompt","Noto Sans Thai","Sukhumvit Set","Thonburi","Leelawadee UI",system-ui,sans-serif';
+const JUDGE_WORD = {
+  th: { perfect: "เพอร์เฟกต์!", great: "เกรท!", good: "ดี!", miss: "พลาด", wrong: "ผิดคีย์", early: "เร็วไป", late: "ช้าไป" },
+  en: { perfect: "PERFECT!", great: "GREAT!", good: "GOOD", miss: "MISS", wrong: "WRONG KEY", early: "early", late: "late" },
+  zh: { perfect: "完美!", great: "很好!", good: "不错", miss: "失误", wrong: "按错", early: "早了", late: "晚了" },
+};
+const JUDGE_COLOR = { perfect: ["#ffe27a", "rgba(255,60,210,0.9)"], great: ["#8ff3ff", "rgba(60,230,255,0.85)"], good: ["#d6c4ff", "rgba(140,70,255,0.8)"], miss: ["#ff8fb0", "rgba(255,60,120,0.7)"], wrong: ["#ff8fb0", "rgba(255,60,120,0.7)"] };
+const TEXT_CACHE = new Map();
+function textSprite(key, lines, dpr) {
+  const k = key + "|" + dpr;
+  let sp = TEXT_CACHE.get(k);
+  if (sp) return sp;
+  if (TEXT_CACHE.size > 160) TEXT_CACHE.clear();
+  const cv = document.createElement("canvas"), c = cv.getContext("2d");
+  const pad = 12;
+  let w = 0, h = pad * 2;
+  for (const ln of lines) { c.font = `${ln.weight || 800} ${ln.size}px ${FX_FONT}`; w = Math.max(w, c.measureText(ln.text).width); h += ln.size * 1.05; }
+  w = Math.ceil(w + pad * 2); h = Math.ceil(h);
+  cv.width = Math.ceil(w * dpr); cv.height = Math.ceil(h * dpr);
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.textAlign = "center"; c.textBaseline = "top";
+  let y = pad;
+  for (const ln of lines) {
+    c.font = `${ln.weight || 800} ${ln.size}px ${FX_FONT}`;
+    c.shadowColor = ln.glow || "transparent"; c.shadowBlur = ln.glow ? 10 : 0;   // the glow, paid once here
+    c.fillStyle = ln.color;
+    c.fillText(ln.text, w / 2, y);
+    y += ln.size * 1.05;
+  }
+  sp = { cv, w, h };
+  TEXT_CACHE.set(k, sp);
+  return sp;
+}
+function judgeSprite(kind, el, lang, dpr) {
+  const words = JUDGE_WORD[lang] || JUDGE_WORD.en;
+  const [color, glow] = JUDGE_COLOR[kind] || JUDGE_COLOR.good;
+  const lines = [{ text: words[kind] || kind, size: kind === "perfect" ? 20 : 17, color, glow }];
+  if (el) lines.push({ text: words[el], size: 11, weight: 600, color: el === "early" ? "#8ff3ff" : "#ffb38f" });
+  return textSprite(`j|${lang}|${kind}|${el || ""}`, lines, dpr);
+}
+/* The score pops are numbers that differ on almost every hit, so they are
+   set from a strip of glyphs ("+0123456789") drawn once per style, one
+   drawImage per character — a bitmap per number cost a canvas and a
+   blurred fillText on nearly every hit. */
+const GLYPHS = "+0123456789";
+const GLYPH_CACHE = new Map();
+function glyphStrip(perfect, dpr) {
+  const key = (perfect ? 1 : 0) + "|" + dpr;
+  let g = GLYPH_CACHE.get(key);
+  if (g) return g;
+  const size = 14, pad = 6, cell = Math.ceil(size * 0.72) + pad * 2, h = Math.ceil(size * 1.3) + pad * 2;
+  const cv = document.createElement("canvas");
+  cv.width = Math.ceil(cell * GLYPHS.length * dpr); cv.height = Math.ceil(h * dpr);
+  const c = cv.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.font = `800 ${size}px ${FX_FONT}`;
+  c.textAlign = "center"; c.textBaseline = "middle";
+  c.shadowColor = perfect ? "rgba(255,190,60,0.7)" : "rgba(140,70,255,0.6)"; c.shadowBlur = 8;
+  c.fillStyle = perfect ? "#ffe27a" : "#e9e4ff";
+  const adv = [];
+  for (let i = 0; i < GLYPHS.length; i++) { c.fillText(GLYPHS[i], cell * i + cell / 2, h / 2); adv.push(Math.ceil(c.measureText(GLYPHS[i]).width)); }
+  g = { cv, cell, h, pad, adv, dpr };
+  GLYPH_CACHE.set(key, g);
+  return g;
+}
+function drawNumberPop(ctx, text, perfect, dpr, cx, cy) {
+  const g = glyphStrip(perfect, dpr);
+  let w = 0;
+  for (const ch of text) { const i = GLYPHS.indexOf(ch); if (i >= 0) w += g.adv[i]; }
+  let x = cx - w / 2;
+  for (const ch of text) {
+    const i = GLYPHS.indexOf(ch);
+    if (i < 0) continue;
+    const adv = g.adv[i];
+    // each glyph sits centred in its cell; place the cell so the glyph lands at x
+    ctx.drawImage(g.cv, i * g.cell * g.dpr, 0, g.cell * g.dpr, g.h * g.dpr, x + adv / 2 - g.cell / 2, cy - g.h / 2, g.cell, g.h);
+    x += adv;
+  }
+  return w;
+}
+const FX_DUR = { judge: 520, pop: 720, spark: 440, ring: 620 };
+let _rmq = null;
+function reducedMotion() {
+  try { if (!_rmq) _rmq = window.matchMedia("(prefers-reduced-motion: reduce)"); return !!_rmq.matches; } catch (e) { return false; }
+}
+
+/* The rune-wheel over the lanes: rings, a star of two triangles, clock
+   ticks. Baked into the backdrop when still; at the top graphics level it
+   is its own bitmap, turned a little every frame. */
+function drawRuneWheel(nx, sx, sy, R) {
+  nx.globalCompositeOperation = "lighter";
+  const halo = nx.createRadialGradient(sx, sy, R * 0.2, sx, sy, R * 1.4);
+  halo.addColorStop(0, "rgba(255,60,220,0.1)"); halo.addColorStop(1, "rgba(255,60,220,0)");
+  nx.fillStyle = halo; nx.beginPath(); nx.arc(sx, sy, R * 1.4, 0, 7); nx.fill();
+  nx.strokeStyle = "rgba(255,70,220,0.26)"; nx.lineWidth = 1.5;
+  nx.beginPath(); nx.arc(sx, sy, R, 0, 7); nx.stroke();
+  nx.strokeStyle = "rgba(255,70,220,0.1)"; nx.lineWidth = 6;
+  nx.beginPath(); nx.arc(sx, sy, R, 0, 7); nx.stroke();
+  nx.strokeStyle = "rgba(60,230,255,0.22)"; nx.lineWidth = 1;
+  nx.beginPath(); nx.arc(sx, sy, R * 0.82, 0, 7); nx.stroke();
+  nx.setLineDash([2, 5, 9, 5]); nx.beginPath(); nx.arc(sx, sy, R * 0.9, 0, 7); nx.stroke(); nx.setLineDash([]);
+  for (let k = 0; k < 24; k++) {
+    const a = k / 24 * Math.PI * 2, r0 = R * (k % 2 ? 0.93 : 0.86);
+    nx.beginPath(); nx.moveTo(sx + Math.cos(a) * r0, sy + Math.sin(a) * r0); nx.lineTo(sx + Math.cos(a) * R * 0.98, sy + Math.sin(a) * R * 0.98); nx.stroke();
+  }
+  nx.strokeStyle = "rgba(255,70,220,0.18)"; nx.lineWidth = 1.2;
+  for (const off of [-Math.PI / 2, Math.PI / 2]) {
+    nx.beginPath();
+    for (let k = 0; k < 3; k++) { const a = off + k * Math.PI * 2 / 3; const px = sx + Math.cos(a) * R * 0.8, py = sy + Math.sin(a) * R * 0.8; k ? nx.lineTo(px, py) : nx.moveTo(px, py); }
+    nx.closePath(); nx.stroke();
+  }
+  nx.strokeStyle = "rgba(60,230,255,0.24)";
+  nx.beginPath(); nx.arc(sx, sy, R * 0.3, 0, 7); nx.stroke();
+  nx.globalCompositeOperation = "source-over"; nx.lineWidth = 1;
+}
+function wheelSprite(R, dpr) {
+  const size = Math.ceil(R * 2.9);
+  const cv = document.createElement("canvas");
+  cv.width = Math.ceil(size * dpr); cv.height = Math.ceil(size * dpr);
+  const c = cv.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawRuneWheel(c, size / 2, size / 2, R);
+  return { cv, size };
+}
+
+/* A note's light ribbon, for one lane colour: a tapered streak, bright
+   where it meets the crystal and fading up the tail. Drawn once, stretched
+   to each note's length. */
+const RIBBON_CACHE = new Map();
+function ribbonSprite(hue) {
+  const key = Math.round(hue);
+  let cv = RIBBON_CACHE.get(key);
+  if (cv) return cv;
+  const w = 48, h = 256;
+  cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const c = cv.getContext("2d");
+  const g = c.createLinearGradient(0, h, 0, 0);
+  g.addColorStop(0, `hsla(${key},100%,64%,0.5)`);
+  g.addColorStop(0.35, `hsla(${(key + 40) % 360},100%,60%,0.22)`);
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  c.fillStyle = g;
+  c.beginPath();
+  c.moveTo(0, h);
+  c.quadraticCurveTo(w * 0.34, h / 2, w / 2, 0);
+  c.quadraticCurveTo(w * 0.66, h / 2, w, h);
+  c.closePath(); c.fill();
+  // a bright core down the middle
+  const core = c.createLinearGradient(0, h, 0, 0);
+  core.addColorStop(0, "rgba(255,255,255,0.35)"); core.addColorStop(0.5, "rgba(255,255,255,0.06)"); core.addColorStop(1, "rgba(255,255,255,0)");
+  c.fillStyle = core; c.fillRect(w / 2 - 1.5, 0, 3, h);
+  RIBBON_CACHE.set(key, cv);
+  return cv;
+}
+/* A lane lighting up from the hit-line as its note comes in. */
+const LANE_GLOW_CACHE = new Map();
+function laneGlowSprite(hue) {
+  const key = Math.round(hue);
+  let cv = LANE_GLOW_CACHE.get(key);
+  if (cv) return cv;
+  cv = document.createElement("canvas"); cv.width = 16; cv.height = 128;
+  const c = cv.getContext("2d");
+  const g = c.createLinearGradient(0, 128, 0, 0);
+  g.addColorStop(0, `hsla(${key},100%,62%,0.55)`); g.addColorStop(0.4, `hsla(${key},100%,60%,0.16)`); g.addColorStop(1, "rgba(0,0,0,0)");
+  c.fillStyle = g; c.fillRect(0, 0, 16, 128);
+  LANE_GLOW_CACHE.set(key, cv);
+  return cv;
+}
+
+const HALO_CACHE = new Map();
+// the glow round a crystal, one small bitmap per lane colour and size
+function haloSprite(hue, rr) {
+  const key = `${Math.round(hue)}|${Math.round(rr)}`;
+  let cv = HALO_CACHE.get(key);
+  if (cv) return cv;
+  if (HALO_CACHE.size > 200) HALO_CACHE.clear();
+  const R = Math.max(4, Math.round(rr * 2.2)), S = R * 2;
+  cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+  const c = cv.getContext("2d");
+  const g = c.createRadialGradient(R, R, R * 0.18, R, R, R);
+  g.addColorStop(0, `hsla(${hue},100%,64%,0.55)`); g.addColorStop(1, "rgba(0,0,0,0)");
+  c.fillStyle = g; c.fillRect(0, 0, S, S);
+  HALO_CACHE.set(key, cv);
+  return cv;
+}
+const CRYSTAL_STEPS = 24;
+function crystalSprite(hue, letter, rr, spin, missed, noteScale, dpr) {
+  const step = ((Math.round(spin / (Math.PI * 2) * CRYSTAL_STEPS) % CRYSTAL_STEPS) + CRYSTAL_STEPS) % CRYSTAL_STEPS;
+  const r = Math.round(rr * 2) / 2;
+  const key = `${Math.round(hue)}|${letter}|${r}|${step}|${missed ? 1 : 0}|${dpr}`;
+  let sp = CRYSTAL_CACHE.get(key);
+  if (sp) return sp;
+  if (CRYSTAL_CACHE.size > 1500) CRYSTAL_CACHE.clear();
+  const a = step / CRYSTAL_STEPS * Math.PI * 2;
+  const pad = 3, w = Math.ceil(r * 2 + pad * 2), h = Math.ceil(r * 2.2 + pad * 2);
+  const cv = document.createElement("canvas");
+  cv.width = Math.ceil(w * dpr); cv.height = Math.ceil(h * dpr);
+  const c = cv.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cx = w / 2, cy = h / 2;
+  const sw = 0.72 + 0.28 * Math.abs(Math.cos(a));
+  const ox = Math.sin(a) * r * 0.28;
+  const V = [[0, -1.1], [0.92, -0.38], [0.92, 0.42], [0, 1.1], [-0.92, 0.42], [-0.92, -0.38]];
+  const vx = (k) => cx + V[k][0] * r * sw, vy = (k) => cy + V[k][1] * r;
+  const ccx = cx + ox, ccy = cy - r * 0.08;
+  for (let k = 0; k < 6; k++) {
+    const k2 = (k + 1) % 6;
+    const nxm = (V[k][0] + V[k2][0]) / 2 + ox / r * 0.6, nym = (V[k][1] + V[k2][1]) / 2;
+    const lit = Math.max(0, (-nxm * 0.62 - nym * 0.78) / Math.hypot(nxm || 0.001, nym || 0.001));
+    c.fillStyle = missed
+      ? `rgba(${Math.round(70 + lit * 60)},${Math.round(74 + lit * 60)},${Math.round(88 + lit * 60)},0.5)`
+      : `hsl(${hue},${Math.round(80 + lit * 15)}%,${Math.round(24 + lit * 50)}%)`;
+    c.beginPath(); c.moveTo(ccx, ccy); c.lineTo(vx(k), vy(k)); c.lineTo(vx(k2), vy(k2)); c.closePath(); c.fill();
+  }
+  c.strokeStyle = missed ? "rgba(170,176,190,0.4)" : `hsla(${hue},100%,86%,0.9)`; c.lineWidth = 1;
+  c.beginPath();
+  for (let k = 0; k < 6; k++) { c.moveTo(ccx, ccy); c.lineTo(vx(k), vy(k)); }
+  c.stroke();
+  c.strokeStyle = missed ? "rgba(170,176,190,0.5)" : "rgba(255,255,255,0.92)"; c.lineWidth = 1.3;
+  c.beginPath(); c.moveTo(vx(0), vy(0)); for (let k = 1; k < 6; k++) c.lineTo(vx(k), vy(k)); c.closePath(); c.stroke();
+  if (!missed) {
+    c.fillStyle = "rgba(255,255,255,0.9)";
+    c.beginPath(); c.arc(cx - r * 0.34 * sw, cy - r * 0.46, Math.max(1.2, r * 0.11), 0, Math.PI * 2); c.fill();
+    // the letter shrinks with the crystal, or it would overflow a half-size
+    // one in landscape; a dark halo keeps it legible on any facet
+    const fs = Math.max(8, Math.round(13 * noteScale));
+    c.font = `500 ${fs}px Prompt, sans-serif`; c.textAlign = "center";
+    c.lineWidth = 3; c.lineJoin = "round"; c.strokeStyle = `hsla(${hue},80%,14%,0.85)`;
+    c.strokeText(letter, cx, cy + fs * 0.34);
+    c.fillStyle = "rgba(255,255,255,0.98)";
+    c.fillText(letter, cx, cy + fs * 0.34);
+  }
+  sp = { cv, w, h, ox: cx, oy: cy };
+  CRYSTAL_CACHE.set(key, sp);
+  return sp;
+}
+
+export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell, profile = null, level = 1, plan = "" }) {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     // ?pvp=CODE — an online-duel invite: prefill the room code and open the PvP panel
@@ -116,12 +391,40 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   // ── play-along (falling-notes song mode) ──
   const [songOpen, setSongOpen] = useState(false);
   const [songMeta, setSongMeta] = useState(null);          // the SONGS entry being played
+  const songMetaRef = useRef(null);                        // the same, for timers and chained runs (a concert's next song)
+  songMetaRef.current = songMeta;
   const [songPhase, setSongPhase] = useState("ready");     // ready | playing | done
   const [songTempo, setSongTempo] = useState(1);
-  const [songHud, setSongHud] = useState({ score: 0, combo: 0, acc: 100, progress: 0 });
   const [songResult, setSongResult] = useState(null);
   const [songAnalysis, setSongAnalysis] = useState(null);   // {weakness, steps} — per-song mistake breakdown, this page only
   const [songAnalysisBusy, setSongAnalysisBusy] = useState(false);
+  /* The game store: every value the overlay reads while a song runs. The
+     setters below keep their old names, so the game code reads the same. */
+  const gameStoreRef = useRef(null);
+  if (!gameStoreRef.current) gameStoreRef.current = createGameStore(GAME_INIT);
+  const gameStore = gameStoreRef.current;
+  const setSongHud = gameStore.setter("songHud");
+  const setSongNextLit = gameStore.setter("songNextLit");
+  const setSongNextLit2 = gameStore.setter("songNextLit2");
+  const setSongFingerMap = gameStore.setter("songFingerMap");
+  const setSongStaffNotes = gameStore.setter("songStaffNotes");
+  const setSongShake = gameStore.setter("songShake");
+  const setSongGo = gameStore.setter("songGo");
+  const setSongGhost = gameStore.setter("songGhost");
+  const setSongBonus = gameStore.setter("songBonus");
+  const setSongLoopRecap = gameStore.setter("songLoopRecap");
+  const setSongSetlistPos = gameStore.setter("songSetlistPos");
+  const setSongFever = gameStore.setter("songFever");
+  const setSongAnnounce = gameStore.setter("songAnnounce");
+  const setSongSrc = gameStore.setter("songSrc");
+  const setSongCountdown = gameStore.setter("songCountdown");
+  const setBossHp = gameStore.setter("bossHp");
+  const setBossFx = gameStore.setter("bossFx");
+  const setBossVerdict = gameStore.setter("bossVerdict");
+  const setKDrop = gameStore.setter("kDrop");
+  const setSongPause = gameStore.setter("songPause");
+  const setDrillHud = gameStore.setter("drillHud");
+  const setSongHeardMic = gameStore.setter("songHeardMic");
   // D2: Style Transformer
   const [stylePickOpen, setStylePickOpen] = useState(false);
   const [styleLoading, setStyleLoading] = useState(false);
@@ -130,29 +433,31 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   // D1: AI Accompaniment — backing chord loop during song play
   const [backingOn, setBackingOn] = useState(false);
   const backingTimerRef = useRef<any>(null);
-  // ── Play Along plan items 1/3/4/8 (this session) ──
-  // #1 Mistake Loop — after a run, the missed notes are bucketed into
-  // loopable segments (buildDrillPlan) and the player can drill JUST the
-  // worst segment on a rising tempo ladder instead of replaying the song.
+  /* ── Practising the section you missed ──
+     After a run, the missed notes are bucketed into loopable sections
+     (buildDrillPlan). Picking one plays JUST that section, after a one-bar
+     count-in, over and over: 90% accuracy moves it up the tempo ladder
+     (75 → 85 → 100%), and passing at full tempo clears it. It is practice,
+     not a run of the song — nothing outside the section is graded or
+     recorded as a weak spot, and it never produces a song result. */
   const [drillPlan, setDrillPlan] = useState(null);      // null | [{idx,start,end,misses,notes}]
-  const [drillActive, setDrillActive] = useState(false); // true while a drill window is loaded
-  const drillTempoRef = useRef(1);                       // ladder rung for the active drill
-  const drillSavedTempoRef = useRef(1);                  // song tempo to restore when the drill ends
-  // #3 Boss Battle — HP is chipped by every hit (bigger for perfects and
-  // every 10× combo) and the boss attacks back on misses. Refs: the game
-  // loop mutates them every frame.
+  const [drillActive, setDrillActive] = useState(false); // true while a section is looping
+  const [drillCleared, setDrillCleared] = useState([]);  // section idx cleared at full tempo, this result screen
+  const drillRef = useRef(null);                         // { seg, start, end, rung, savedTempo, passes }
+  // Boss — every hit chips HP (more for Perfect, more on each 10× combo),
+  // a dropped note makes it strike back. The bar reads the store directly.
   const [bossOn, setBossOn] = useState(false);
-  const [bossHp, setBossHp] = useState(0);               // reactive: HP bar in the HUD
-  const [bossMax, setBossMax] = useState(0);             // reactive: HP ceiling for the bar
-  const [bossFx, setBossFx] = useState(null);            // {id, kind} hit/defeat/attack flash
+  const [bossMax, setBossMax] = useState(0);             // HP ceiling for the bar
+  const bossOnRef = useRef(false);
   const bossHpRef = useRef(0);
   const bossMaxRef = useRef(1);
   const bossFxT = useRef(null);
-  const bossHpDirtyRef = useRef(false);                  // throttle setState to ~5Hz
-  const bossHpDirtyAtRef = useRef(0);
+  const bossVerdictRef = useRef(null);                   // plan 2.4: verdict for the CURRENT boss (reset on each boss spawn)
+  const bossFxSeqRef = useRef(0);
+  const staffBaseRef = useRef(null);   // the staff's layout beat (see hudTick)
+  const staffSigRef = useRef("");      // what the staff last drew
   // #4 Knowledge Drops — perfect hits sometimes drop a one-line fact about
   // the pitch just played; facts collect into a per-device shelf.
-  const [kDrop, setKDrop] = useState(null);              // {id, note, text} toast mid-game
   const [kShelfOpen, setKShelfOpen] = useState(false);
   const [kShelf, setKShelf] = useState([]);              // [{pc, note, text, at}]
   const kDropT = useRef(null);
@@ -167,47 +472,24 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   // C5: Family Battle — same device turn-based competition
   const [battleData, setBattleData] = useState<any>(null); // null | {song, scores:[{score,acc,stars},...], phase:'p1'|'p2'|'done'}
   const [battlePickOpen, setBattlePickOpen] = useState(false);
-  const [songJudge, setSongJudge] = useState(null);   // {kind, id} transient Perfect/Good/Miss
-  const [songNextLit, setSongNextLit] = useState(null); // next note to light on the in-game piano
-  // The reading staff's current window: {list, startBeat, spanBeats}. The
-  // beat bounds travel with the notes because the staff positions everything
-  // by real beat, so it needs to know the window it's drawing, not just what
-  // happens to be in it.
-  const EMPTY_STAFF_WIN = { list: [], startBeat: 0, spanBeats: 20 };
-  const [songStaffNotes, setSongStaffNotes] = useState(EMPTY_STAFF_WIN);
   const [songBest, setSongBest] = useState(0);
-  const [songBursts, setSongBursts] = useState([]);   // particle bursts
-  const [songShake, setSongShake] = useState(false);  // screen shake on milestones
-  const [songGo, setSongGo] = useState(false);        // "GO!" flash at start
-  const songJudgeTimerRef = useRef(null);
   const songShakeT = useRef(null);
   const songGoT = useRef(null);
   const songPerfectsRef = useRef(0);
   const songDebounceRef = useRef({});                 // per-pitch-class onset debounce — one press = one note
   const songEchoRef = useRef({});                     // per-pitch-class time the app last made a sound (mic echo guard)
-  const [songGhost, setSongGhost] = useState(null);   // {diff} vs your best run
   const songSamplesRef = useRef([]);
   const songGhostDataRef = useRef(null);
-  const [songBonus, setSongBonus] = useState(null);   // surprise reward popup {id, text}
-  const [songLoopRecap, setSongLoopRecap] = useState(null); // brief run-summary toast shown between auto-loop restarts, since the full result screen is skipped there — {acc,score,maxCombo,stars,exp}
   const [songTigaTip, setSongTigaTip] = useState(null); // TIGA hub coach line for the finished song ({tip,stars,acc,via} | null) — cleared on every startSongPlay
   // Setlist / Concert mode — chain N songs into one continuous run. The queue
-  // itself lives in a ref (read every frame's worth of bookkeeping in
-  // finishSong, no need to trigger a re-render just to advance it);
-  // songSetlistPos is the one piece the UI actually needs reactively, for a
-  // small "Song 2/4" badge during play.
+  // itself lives in a ref; the store's songSetlistPos drives the "Song 2/4"
+  // badge during play.
   const songSetlistRef = useRef(null);
   const songSetlistIdxRef = useRef(0);
   const songSetlistLogRef = useRef([]);
-  const [songSetlistPos, setSongSetlistPos] = useState(null);
   const songBonusT = useRef(null);
-  const [songFever, setSongFever] = useState(false);
   const songFeverRef = useRef(false);
-  const [songPops, setSongPops] = useState([]);       // flying "+N" score numbers
-  const [songAnnounce, setSongAnnounce] = useState(null); // big combo-tier shout
   const songAnnounceT = useRef(null);
-  const [songSrc, setSongSrc] = useState(null);            // {type:"midi"|"mic"|"error"}
-  const [songCountdown, setSongCountdown] = useState(null);
   // Hand mode for Play Along: "right" (melody), "left" (bass), "both" (melody+bass)
   const [playAlongHand, setPlayAlongHand] = useState("right");
   const playAlongHandRef = useRef(playAlongHand);
@@ -215,12 +497,49 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const [songAutoLoop, setSongAutoLoop] = useState(false);
   const songAutoLoopRef = useRef(false);
   const songLoopRetryT = useRef(null);
-  // Hand-mode: "right" (default, unchanged behavior) | "left" (same melody,
-  // re-fingered for the left hand) | "both" (adds a generated left-hand
-  // accompaniment voice as real, separately-scored gameplay). Sticky across
-  // song choices, same convention as songTempo.
-  const [songFingerMap, setSongFingerMap] = useState({});   // {noteName: finger} for whichever key(s) are currently lit
-  const [songNextLit2, setSongNextLit2] = useState(null);   // second hand's next-due note — only set when both hands are simultaneously active
+  /* Kind mode: a wider window, and a single wrong key only breaks the combo
+     instead of costing accuracy (mashing still costs). The profile has no
+     age, so it starts on for players at level 1–2 until they choose. */
+  const [songKind, setSongKindState] = useState(() => { const v = lsGet("tg_pa_kind", null); return v == null ? (level || 1) <= 2 : v === "1"; });
+  const songKindRef = useRef(songKind);
+  songKindRef.current = songKind;
+  function setSongKind(v) { setSongKindState(v); lsSet("tg_pa_kind", v ? "1" : "0"); }
+  /* The song's own click: scheduled on the audio clock against the song's
+     beat grid (bar lines and pickups included), on by default. It steps
+     aside by itself while the band's drums play (see scheduleClicks), so
+     with the band on the drums keep time and with it off the click does. */
+  const [songMetro, setSongMetroState] = useState(() => lsGet("tg_pa_metro", "1") === "1");
+  const songMetroRef = useRef(songMetro);
+  songMetroRef.current = songMetro;
+  function setSongMetro(v) { const nv = typeof v === "function" ? v(songMetroRef.current) : v; songMetroRef.current = nv; setSongMetroState(nv); lsSet("tg_pa_metro", nv ? "1" : "0"); }
+  // the band's volume: 0 off, 1 soft, 2 normal (play-along-band.ts)
+  const [songBand, setSongBandState] = useState(() => { const v = Math.round(+lsGet("tg_pa_band", 2)); return v >= 0 && v <= 2 ? v : 2; });
+  const songBandRef = useRef(songBand);
+  songBandRef.current = songBand;
+  const bandRef = useRef(null);
+  const bandTimerRef = useRef(null);
+  // Practice mode: the song waits at each note until the right key (no
+  // score, stars, coins or records; 20 EXP for finishing). practiceRef is
+  // the running run; songPractice tells the screens.
+  const practiceRef = useRef(null);         // null | { waitSince, hinted }
+  const fxListRef = useRef([]);             // the scene's hit effects (see pushFx)
+  const [songPractice, setSongPractice] = useState(false);
+  const PRACTICE_EXP = 20;
+  // Play Along's own effect sounds (hit ding, miss, rocket, boom, shouts) —
+  // off here keeps the piano and the band; the app-wide mute silences all
+  const [songFx, setSongFxState] = useState(() => lsGet("tg_pa_fx", "1") === "1");
+  const songFxRef = useRef(songFx);
+  songFxRef.current = songFx;
+  function setSongFx(v) { const nv = !!(typeof v === "function" ? v(songFxRef.current) : v); songFxRef.current = nv; setSongFxState(nv); lsSet("tg_pa_fx", nv ? "1" : "0"); }
+  const fx = (f) => { if (songFxRef.current) f(); };
+  function setSongBand(v) {
+    const nv = Math.max(0, Math.min(2, Math.round(typeof v === "function" ? v(songBandRef.current) : v)));
+    songBandRef.current = nv; setSongBandState(nv); lsSet("tg_pa_band", String(nv));
+    if (bandRef.current) bandRef.current.setLevel(nv);
+  }
+  // The first-song intro: offered once per device, before the first real song.
+  const [songIntro, setSongIntro] = useState(null);      // null | { next: meta } while the intro is offered or playing
+  const introNextRef = useRef(null);
 
   // play-along runtime refs (driven by rAF; kept off React state for 60fps)
   const songCanvasRef = useRef(null);
@@ -231,8 +550,6 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songLastTimeRef = useRef(0);
   const songStartClockRef = useRef(0);
   const drillPlanRef = useRef(null);       // #1 mirrors drillPlan state for HUD-timer closures
-  const drillStartSecRef = useRef(null);   // #1 Mistake Loop window start (sec) or null
-  const drillEndSecRef = useRef(null);     // #1 window end (sec) or null
   const songPopsRef = useRef(0);           // #4 cheap eligibility guard
   const songTempoRef = useRef(1);
   const songRunRef = useRef(false);
@@ -243,6 +560,29 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songMaxComboRef = useRef(0);
   const songHitsRef = useRef(0);
   const songMissRef = useRef(0);
+  // The grades of this run (or this drill pass) and the presses that cost.
+  const songGradesRef = useRef({ perfect: 0, great: 0, good: 0, wrong: 0, mash: 0 });
+  const pressTimesRef = useRef([]);        // real seconds of recent presses, for the mash rule
+  // Learned input delay per input kind; seeded from this device's last runs.
+  const calibRef = useRef({ tap: +lsGet("tg_pa_cal_tap", 0) || 0, mic: +lsGet("tg_pa_cal_mic", 0) || 0, midi: +lsGet("tg_pa_cal_midi", 0) || 0 });
+  const calibSamplesRef = useRef({ tap: [], mic: [], midi: [] });
+  const pausedRef = useRef(null);          // null | { at: songTime } while paused
+  const resumeTRef = useRef(null);
+  const metroBeatRef = useRef(null);       // next beat index the click scheduler will place
+  const clickLogRef = useRef([]);          // the run's clicks and count-in ticks (the test hook reads it)
+  const runMetaRef = useRef(null);         // { id, startedAt, ctx, via } for the usage rows
+  const lastEndRef = useRef(null);         // { id, at } — "played again within a minute"
+  const againViaRef = useRef(null);        // which button started the next run
+  const frameStatRef = useRef({ n: 0, t0: 0, last: 0, long: 0, active: 0 });
+  const gfxRef = useRef(null);
+  if (!gfxRef.current) {
+    let small = false;
+    try { const nav: any = navigator; small = (nav.deviceMemory && nav.deviceMemory <= 3) || (nav.hardwareConcurrency && nav.hardwareConcurrency <= 4); } catch (e) {}
+    const t = Math.round(+lsGet("tg_pa_gfx", small ? 1 : 0));
+    const mode = lsGet("tg_pa_gfx_mode", "auto");
+    gfxRef.current = { auto: t >= 0 && t < GFX_TIERS.length ? t : 0, tier: 0, mode: GFX_MODES[mode] != null || mode === "auto" ? mode : "auto", smooth: +lsGet("tg_pa_gfx_ok", 0) || 0, win: [], windows: 0, slow: false, stalls: [] };
+    gfxRef.current.tier = gfxRef.current.mode === "auto" ? gfxRef.current.auto : GFX_MODES[gfxRef.current.mode];
+  }
   const songTimingRef = useRef({ ok: 0, miss: 0 }); // Rhythm skill: perfect vs good hits, separate from note-pitch ok/miss
   const songVelsRef = useRef([]); // MIDI velocities of hit notes — see scoreDynamics()
   const songLaneFlashRef = useRef({});
@@ -267,13 +607,14 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const [pvpOnline, setPvpOnline] = useState(null); // null | {phase:"idle"|"hosting"|"joining"|"waiting"|"racing"|"waiting-result"|"done", code, role, guestName, hostName, songId, startAt, opp, oppResult, myResult, err, accepted, peerSeen}
   const [codeInput, setCodeInput] = useState("");
   const pvpScoreTickRef = useRef(null);
+  const pvpRacingRef = useRef(false);   // a live duel is running: no pause (the other player keeps going)
   const clearPvpScoreTick = () => { clearInterval(pvpScoreTickRef.current); pvpScoreTickRef.current = null; };
   useEffect(() => () => { clearPvpScoreTick(); leaveOnlineRoom(); }, []);
   function openPvpOnline() {
     if (pvpOnline && (pvpOnline.phase === "hosting" || pvpOnline.phase === "waiting")) return;
     setPvpOnline({ phase: "idle", code: null, role: null, guestName: null, hostName: null, songId: null, startAt: null, opp: null, oppResult: null, myResult: null, err: null, accepted: false, peerSeen: false });
   }
-  function closePvpOnline() { clearPvpScoreTick(); leaveOnlineRoom(); setPvpOnline(null); }
+  function closePvpOnline() { clearPvpScoreTick(); leaveOnlineRoom(); pvpRacingRef.current = false; setPvpOnline(null); }
   async function hostPvpOnline() {
     const name = (profile && (profile.full_name || profile.email)) || "Host";
     setPvpOnline({ phase: "hosting", code: null, role: "host", guestName: null, hostName: name, songId: songMeta ? songMeta.id : null, startAt: null, opp: null, oppResult: null, myResult: null, err: null, accepted: false, peerSeen: false });
@@ -319,7 +660,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const target = (SONGS.find(x => x.id === songId)) || songMeta;
     if (!target) { setPvpOnline(p => p && { ...p, err: "song-not-found" }); return; }
     setPvpOnline(p => p && ({ ...p, phase: "racing", songId, startAt, opp: null, oppResult: null, myResult: null }));
-    chooseSong(target);
+    chooseSong(target, { noIntro: true });
+    pvpRacingRef.current = true;
     const wait = Math.max(0, startAt - Date.now());
     setTimeout(() => startSongPlay(), wait);
     pvpScoreTickRef.current = setInterval(() => {
@@ -328,6 +670,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }, 1000);
   }
   function reportPvpResult(res) {
+    pvpRacingRef.current = false;
     if (!pvpOnline || pvpOnline.phase === "done") return;
     setPvpOnline(p => p && ({ ...p, phase: "waiting-result", myResult: { score: res.score, acc: res.acc, stars: res.stars } }));
     sendResult(res.score, res.acc, res.stars);
@@ -336,21 +679,54 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   function rematchPvpOnline() { sendRematch(); setPvpOnline(p => p && ({ ...p, phase: "waiting", opp: null, oppResult: null, myResult: null, startAt: null })); }
 
   // ════ PLAY-ALONG (falling-notes) controls ════
+  const songTempoStateRef = useRef(1);   // the tempo buttons' value, for timers and chained runs
+  songTempoStateRef.current = songTempo;
+  const songResultRef = useRef(null);
+  songResultRef.current = songResult;
+  const listenersOnRef = useRef(false);
+  const lastSrcRef = useRef("tap");      // the input kind of the latest press, for the late edge of the window
+  const pickupRef = useRef(0);           // beats before the first bar line (the click scheduler's accents)
   function clearSongPreview() {
     songPreviewRef.current.forEach(id => clearTimeout(id));
     songPreviewRef.current = [];
   }
-  function chooseSong(meta) {
+  const songIdOf = (m) => m ? (m.id || m.en || tr(m, "en") || "x") : "x";
+  function chooseSong(meta, opts = null) {
     clearSongPreview();
     songDataRef.current = expandSong(meta, playAlongHand);
+    songMetaRef.current = meta;
     setSongMeta(meta);
     setSongResult(null); setSongTigaTip(null);
     setSongAnalysis(null);
+    setDrillPlan(null); drillPlanRef.current = null; setDrillCleared([]);
     setSongPhase("ready");
     setSongSrc(null);
     setSongCountdown(null);
+    setSongPause(null);
     setSongOpen(true);
+    // the first-song intro is offered once per device, before a real song
+    if (!(opts && opts.noIntro) && !meta.intro && lsGet("tg_pa_intro", "") !== "1") setSongIntro({ next: meta, playing: false });
     getAC(); // unlock audio within the tap gesture
+  }
+  function startIntro() {
+    const next = (songIntro && songIntro.next) || songMetaRef.current;
+    introNextRef.current = next;
+    songDataRef.current = expandSong(INTRO_SONG, "right");
+    songMetaRef.current = INTRO_SONG;
+    setSongMeta(INTRO_SONG);
+    setSongIntro({ next, playing: true });
+    startSongPlay();
+  }
+  function skipIntro() { lsSet("tg_pa_intro", "1"); setSongIntro(null); }
+  function finishIntro() {
+    lsSet("tg_pa_intro", "1");
+    const next = introNextRef.current;
+    introNextRef.current = null;
+    setSongIntro(null);
+    if (next) {
+      chooseSong(next, { noIntro: true });
+      announce(lang === "th" ? "เก่งมาก! ต่อด้วยเพลงจริงเลย" : lang === "zh" ? "太棒了！来弹真的歌吧" : "Nice! Now the real song");
+    } else exitSong();
   }
   // Setlist / Concert mode — queue up 2-5 songs and land on the first one's
   // normal "ready" screen (the learner still taps Start themselves, same as
@@ -375,43 +751,145 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       songPreviewRef.current.push(id);
     }
   }
-  const songKey = () => "tg_best_" + (songMeta ? (songMeta.id || songMeta.en || tr(songMeta, "en") || "x") : "x");
+  const songKey = () => "tg_best_" + songIdOf(songMetaRef.current);
   function loadBest() { try { return +(localStorage.getItem(songKey()) || 0); } catch (e) { return 0; } }
+
+  /* ── usage rows (usage_events, kind "pa") ──
+     One row per event, the fields joined by ":" in item_id the way the rest
+     of the app logs (e.g. "spot:start"); play time rides duration_ms. No
+     table change is needed. A practice section and the intro are not runs. */
+  function logPa(item, ms = null) { try { logUsage("pa", item, ms); } catch (e) {} }
+  function runCtx(meta) {
+    if (practiceRef.current) return "practice";
+    if (pvpRacingRef.current) return "duel";
+    if (songSetlistRef.current) return "concert";
+    const d = readDailyState();
+    return d.id && meta && d.id === meta.id ? "daily" : "free";
+  }
+  function logRunStart() {
+    const rm = runMetaRef.current;
+    if (!rm || rm.intro) return;
+    const le = lastEndRef.current;
+    if (le && performance.now() - le.at < 60000) logPa(`again:${rm.id}:${le.id === rm.id ? "same" : "new"}:${rm.via || "other"}`);
+    lastEndRef.current = null;
+    const st = gameStore.get().songSrc && gameStore.get().songSrc.type;
+    const src = st === "mic" || st === "midi" ? st : "tap"; // no mic/MIDI → the on-screen keys
+    logPa(`start:${rm.id}:${rm.ctx}:${songKindRef.current ? "kind" : "std"}:${playAlongHandRef.current}:${Math.round((songTempoRef.current || 1) * 100)}:${src}`);
+  }
+  function logFps() {
+    const fs = frameStatRef.current;
+    if (!fs.n || !fs.t0 || !fs.last) return;
+    const secs = fs.active / 1000; // time actually drawing: a pause is not slow frames
+    if (secs < 3) return;
+    logPa(`fps:${Math.round(fs.n / secs)}:${fs.long}:x${GFX_TIERS[gfxRef.current.tier]}`);
+  }
+  function logRunQuit() {
+    const rm = runMetaRef.current;
+    if (!rm || rm.intro || !songRunRef.current || songFinishedRef.current || drillRef.current) return;
+    const total = songTotalRef.current || 1, done = songHitsRef.current + songMissRef.current;
+    logPa(`quit:${rm.id}:${Math.round(done / total * 100)}`, performance.now() - rm.startedAt);
+    logFps();
+    gfxRunEnd();
+    runMetaRef.current = null;
+  }
+
+  function resetRunCounters() {
+    songHitsRef.current = 0; songMissRef.current = 0; songPerfectsRef.current = 0;
+    songGradesRef.current = { perfect: 0, great: 0, good: 0, wrong: 0, mash: 0 };
+    pressTimesRef.current = [];
+    calibSamplesRef.current = { tap: [], mic: [], midi: [] };
+    songTimingRef.current = { ok: 0, miss: 0 }; songVelsRef.current = [];
+    staffBaseRef.current = null; staffSigRef.current = "";
+  }
+  async function ensureListeners() {
+    if (listenersOnRef.current) return;
+    listenersOnRef.current = true;
+    stopPracticeListeners(); // release any mic/MIDI another mode left open — never stack listeners
+    const onDetect = (d) => songInputRef.current(d);
+    const midiOk = await startMidiListener(onDetect, () => setSongSrc({ type: "midi" }));
+    if (!midiOk) await startMicListener(onDetect, () => setSongSrc({ type: "mic" }), () => setSongSrc({ type: "error" }));
+  }
+  function stopListeners() { stopPracticeListeners(); listenersOnRef.current = false; }
+  function startLoops() {
+    cancelAnimationFrame(songRafRef.current);
+    songRafRef.current = requestAnimationFrame(() => songLoopRef.current());
+    clearInterval(songHudTimerRef.current);
+    songHudTimerRef.current = setInterval(() => hudTick(), 120);
+    clearInterval(bandTimerRef.current);
+    bandTimerRef.current = setInterval(() => { if (songRunRef.current && !pausedRef.current) bandPump(songNow()); }, 60);
+  }
+  /* ── the band ── */
+  function makeBand(meta, data) {
+    if (bandRef.current) bandRef.current.cut();
+    bandRef.current = null;
+    if (!meta || !meta.bpm || !data) return;
+    const spb = 60 / meta.bpm;
+    bandRef.current = createBand({
+      bars: songChordBars(meta, pickupRef.current, { split: true, primary: true }),
+      beatsPerBar: beatsPerBarOf(meta), pickup: pickupRef.current, spb, lead: SONG_LEAD,
+      endBeat: (data.dur || 0) / spb, hand: playAlongHandRef.current, level: songBandRef.current,
+    });
+  }
+  function stopBand() {
+    clearInterval(bandTimerRef.current); bandTimerRef.current = null;
+    if (bandRef.current) bandRef.current.cut();
+  }
+  /* Who the band plays for right now: while the mic listens, a player on a
+     real piano (their presses come from the mic, or none yet) gets soft
+     drums only; a player tapping the screen gets the full band, its notes
+     kept out of the mic's hearing (see play-along-band.ts). */
+  function bandPump(songTime) {
+    const b = bandRef.current;
+    if (!b || pausedRef.current) return;
+    const src = gameStore.get().songSrc;
+    const micOpen = !!(src && src.type === "mic");
+    const onPiano = micOpen && lastSrcRef.current !== "tap";
+    b.setState({ combo: songComboRef.current, fever: !!songFeverRef.current, pitched: !onPiano, soft: onPiano, micOpen });
+    const tempo = songTempoRef.current || 1, clock = songStartClockRef.current;
+    const dr = drillRef.current;
+    b.pump(songTime, st => clock + st / tempo, tempo, dr ? (dr.firstHit || 0) : 0);
+  }
   // continueSetlist=true skips the score/combo/max-combo reset — called by
   // finishSong() when chaining into the next song of a concert, so a combo
   // built across the boundary survives instead of snapping back to 0.
-  async function startSongPlay(continueSetlist = false) {
+  async function startSongPlay(continueSetlist = false, opts: any = {}) {
     const data = songDataRef.current;
     if (!data) return;
+    const meta = songMetaRef.current;
+    const practice = !!(opts && opts.practice) && !continueSetlist && !(meta && meta.intro);
+    practiceRef.current = practice ? { waitSince: 0, hinted: false } : null;
+    setSongPractice(practice);
+    clearTimeout(resumeTRef.current); pausedRef.current = null; setSongPause(null);
+    drillRef.current = null; setDrillHud(null); setDrillActive(false);
     setSongBest(loadBest());
     songSamplesRef.current = [];
-    try { songGhostDataRef.current = JSON.parse(localStorage.getItem("tg_ghost_" + (songMeta ? (songMeta.id || songMeta.en) : "x")) || "null"); } catch (e) { songGhostDataRef.current = null; }
+    try { songGhostDataRef.current = JSON.parse(localStorage.getItem("tg_ghost_" + songIdOf(meta)) || "null"); } catch (e) { songGhostDataRef.current = null; }
     setSongGhost(null);
     clearSongPreview();
-    for (const n of data.notes) { n.hit = false; n.missed = false; }
+    for (const n of data.notes) { n.hit = false; n.missed = false; n.skip = false; }
     songNotesRef.current = data.notes;
     songLanesRef.current = data.lanes;
     songTotalRef.current = data.total;
     songLastTimeRef.current = data.lastT;
     if (!continueSetlist) { songScoreRef.current = 0; songComboRef.current = 0; songMaxComboRef.current = 0; }
-    songHitsRef.current = 0; songMissRef.current = 0; songPerfectsRef.current = 0;
-    songTimingRef.current = { ok: 0, miss: 0 }; songVelsRef.current = [];
-    songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
+    resetRunCounters();
+    songFeverRef.current = false; setSongFever(false); setSongAnnounce(null);
     songLaneFlashRef.current = {}; songCountdownRef.current = null; songFinishedRef.current = false;
-    // #3 Boss Battle: HP scales with song length — armed every run; the HP
-    // bar only renders while bossOn (result-screen rematch keeps it fair).
-    bossHpRef.current = bossHpFor(songTotalRef.current || (data && data.total) || 0);
+    // Boss: HP from the note count (play-along-judge bossHp), armed every run
+    // except the intro. The bar reads the store, so it moves on every hit.
+    bossOnRef.current = !(meta && meta.intro) && !practice;
+    bossHpRef.current = bossHpOf(songTotalRef.current || data.total || 0);
     bossMaxRef.current = Math.max(1, bossHpRef.current);
-    setBossHp(bossHpRef.current);
+    setBossHp(bossHpRef.current); setBossFx(null);
+    bossVerdictRef.current = null; setBossVerdict(null);   // plan 2.4: fresh boss = fresh verdict
     setBossMax(bossMaxRef.current);
-    setBossOn(true);
-    // #1: fresh run = no drill window, reset per-run knowledge-drop memory
-    drillStartSecRef.current = null; drillEndSecRef.current = null;
+    setBossOn(bossOnRef.current);
     kDroppedRef.current = {};
-    songRocketsRef.current = []; songBlastsRef.current = [];
+    songRocketsRef.current = []; songBlastsRef.current = []; fxListRef.current = [];
     if (!songStarsRef.current.length) songStarsRef.current = Array.from({ length: 50 }, () => ({ fx: Math.random(), fy: Math.random(), r: 0.4 + Math.random() * 1.3, tw: Math.random() * Math.PI * 2 }));
     songDebounceRef.current = {}; songEchoRef.current = {};
-    songTempoRef.current = songTempo || 1;
+    songTempoRef.current = (meta && meta.intro) ? 1 : (songTempoStateRef.current || 1);
+    pickupRef.current = meta ? pickupBeatsOf(meta.seq || [], beatsPerBarOf(meta)) : 0;
     setSongHud({ score: continueSetlist ? songScoreRef.current : 0, combo: continueSetlist ? songComboRef.current : 0, acc: 100, progress: 0 });
     setSongResult(null); setSongTigaTip(null);
     setSongAnalysis(null);
@@ -420,173 +898,379 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongPhase("playing");
     getAC();
     songStartClockRef.current = getAC().currentTime;
+    metroBeatRef.current = null;
+    clickLogRef.current = [];
+    frameStatRef.current = { n: 0, t0: 0, last: 0, long: 0, active: 0 };
     songRunRef.current = true;
-    // D1 (upgraded, plan #8): real per-song progression — major songs get
-    // I–V–vi–IV, minor songs i–VI–III–VII (smartBackingPlan reads the song's
-    // own notes to pick tonic + mode) instead of the old I–IV–V–I loop.
-    if (backingOn && songMeta) {
-      const plan = smartBackingPlan(songMeta);
-      if (plan && plan.chords.length) {
-        const beatMs = (60 / (songMeta.bpm || 90)) * 1000;
-        let ci = 0;
-        const tick = () => { if (!songRunRef.current) return; playBackingChord(plan.chords[ci % plan.chords.length]); ci++; backingTimerRef.current = setTimeout(tick, beatMs * 4); };
-        backingTimerRef.current = setTimeout(tick, 200);
-      }
+    runMetaRef.current = { id: songIdOf(meta), startedAt: performance.now(), ctx: runCtx(meta), via: againViaRef.current, intro: !!(meta && meta.intro) };
+    againViaRef.current = null;
+    // The band (play-along-band.ts) plays along on the audio clock; it
+    // replaces the old chord loop that ran on setTimeout and drifted.
+    if (practice) { if (bandRef.current) bandRef.current.cut(); bandRef.current = null; } // a song that stops and waits has no groove to keep
+    else makeBand(meta, data);
+    // The song starts now; the mic and MIDI join when they are ready. They
+    // used to be awaited first, so a permission prompt the player had not
+    // answered (Chrome asks before Web MIDI now) held the whole song back.
+    startLoops();
+    await Promise.race([ensureListeners(), new Promise(r => setTimeout(r, 1500))]);
+    logRunStart();
+  }
+  /* Straight into another run of the same song — the result screen's main
+     button. The whole point of a short song is "one more go" in one tap. */
+  function playAgain() {
+    if (!songDataRef.current) return;
+    againViaRef.current = "retry";
+    songDataRef.current = expandSong(songMetaRef.current, playAlongHandRef.current);
+    startSongPlay();
+  }
+  function nextSongFor(meta) { return nextSongAfter(meta || songMetaRef.current, level, plan); }
+  function playNext() {
+    const nx = nextSongFor(songMetaRef.current);
+    if (!nx) return;
+    againViaRef.current = "next";
+    lastEndRef.current = lastEndRef.current || null;
+    chooseSong(nx, { noIntro: true });
+  }
+  function hudTick() {
+    if (pausedRef.current) return;
+    const meta = songMetaRef.current;
+    const total = songTotalRef.current || 1;
+    const done = songHitsRef.current + songMissRef.current;
+    const g = songGradesRef.current;
+    const earned = g.perfect * WEIGHT.perfect + g.great * WEIGHT.great + g.good * WEIGHT.good;
+    const cost = ((songKindRef.current ? 0 : g.wrong) + g.mash) * 0.5;
+    setSongHud({
+      score: songScoreRef.current,
+      combo: songComboRef.current,
+      acc: done > 0 ? Math.max(0, Math.min(100, Math.round((earned - cost) / done * 100))) : 100,
+      progress: Math.round(done / total * 100),
+    });
+    // guide: light the next-due note on the in-game piano — both hands' next
+    // note when two are simultaneously in play — and feed a sliding window
+    // to the reading staff so the learner can see where they are, not just
+    // what's next. In two-hand mode BOTH voices go to the staff, which
+    // draws them as a real grand staff (melody in treble, accompaniment in
+    // bass) rather than the single treble line it used to be limited to.
+    const allNotes = songNotesRef.current;
+    const nextByHand = {};
+    for (const n of allNotes) {
+      if (n.hit || n.missed || n.skip) continue;
+      const h = n.hand === "left" ? "left" : "right";
+      if (!nextByHand[h]) nextByHand[h] = n;
+      if (nextByHand.right && nextByHand.left) break;
     }
-    stopPracticeListeners(); // release any mic/MIDI another mode left open — never stack listeners
-    const onDetect = (d) => songInputRef.current(d);
-    const midiOk = await startMidiListener(onDetect, () => setSongSrc({ type: "midi" }));
-    if (!midiOk) await startMicListener(onDetect, () => setSongSrc({ type: "mic" }), () => setSongSrc({ type: "error" }));
-    cancelAnimationFrame(songRafRef.current);
-    songRafRef.current = requestAnimationFrame(() => songLoopRef.current());
-    clearInterval(songHudTimerRef.current);
-    songHudTimerRef.current = setInterval(() => {
-      const total = songTotalRef.current || 1;
-      const done = songHitsRef.current + songMissRef.current;
-      setSongHud({
-        score: songScoreRef.current,
-        combo: songComboRef.current,
-        acc: done > 0 ? Math.round(songHitsRef.current / done * 100) : 100,
-        progress: Math.round(done / total * 100),
-      });
-      // guide: light the next-due note on the in-game piano — both hands' next
-      // note when two are simultaneously in play — and feed a sliding window
-      // to the reading staff so the learner can see where they are, not just
-      // what's next. In two-hand mode BOTH voices go to the staff, which
-      // draws them as a real grand staff (melody in treble, accompaniment in
-      // bass) rather than the single treble line it used to be limited to.
-      const allNotes = songNotesRef.current;
-      const nextByHand = {};
-      for (const n of allNotes) {
-        if (n.hit || n.missed) continue;
-        const h = n.hand === "left" ? "left" : "right";
-        if (!nextByHand[h]) nextByHand[h] = n;
-        if (nextByHand.right && nextByHand.left) break;
-      }
-      const primaryNext = nextByHand.right || nextByHand.left || null;
-      const secondaryNext = (nextByHand.right && nextByHand.left) ? nextByHand.left : null;
-      setSongNextLit(primaryNext ? primaryNext.note : null);
-      setSongNextLit2(secondaryNext ? secondaryNext.note : null);
-      const fm = {};
-      if (primaryNext) fm[primaryNext.note] = primaryNext.finger;
-      if (secondaryNext) fm[secondaryNext.note] = secondaryNext.finger;
-      setSongFingerMap(fm);
-      // Sight-reading window, measured in BEATS rather than in note count:
-      // one bar already played + four bars ahead. A fixed beat span is what
-      // lets the staff space notes by their real rhythmic position (and keeps
-      // both staves of a grand staff aligned on the beat) instead of spacing
-      // them evenly by array index, which made every rhythm look identical.
-      const timeSig = (songMeta && SONG_TIMESIG[songMeta.id]) || "4/4";
-      const beatsPerBar = parseInt(String(timeSig).split("/")[0], 10) || 4;
-      const spanBeats = beatsPerBar * 5;
-      // "Where we are" is read off the SAME CLOCK the falling notes are drawn
-      // from, not off which notes happen to have been played yet. A meteor is
-      // at the hit line when songTime === note.t + SONG_LEAD, so the moment
-      // currently being played is (songTime - SONG_LEAD) — convert that to
-      // beats and the staff and the falling notes are showing the identical
-      // instant of the music by construction.
-      //
-      // Driving it from hit/missed state instead (as before) meant the staff
-      // ran ahead whenever the learner played early and lagged whenever they
-      // stopped playing, so the notation and the meteors disagreed about
-      // where in the bar the song was.
-      const spb = 60 / ((songMeta && songMeta.bpm) || 90);
-      const nowSec = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current - SONG_LEAD;
-      const nowBeat = Math.max(0, nowSec / spb);
-      const winStartBeat = Math.max(0, nowBeat - beatsPerBar);
-      const winEndBeat = winStartBeat + spanBeats;
-      // the note being played right now = the one whose span contains the
-      // clock, else the next one due
-      const melody = allNotes.filter(n => n.hand !== "left");
-      const lead = (melody.length ? melody : allNotes);
-      const curNote = lead.find(n => nowBeat >= n.beat - 0.001 && nowBeat < n.beat + (n.durBeats || 1) - 0.001)
-        || lead.find(n => n.beat >= nowBeat - 0.001) || null;
-      // The staff draws ENGRAVED glyphs (bar-split, tied, rests filled in —
-      // see buildNotation), not the raw played notes: a note held across a
-      // bar line is two tied heads on the page but one note in the game, and
-      // a bar's worth of silence is a rest glyph with no note behind it at
-      // all. srcIdx is what links a drawn head back to the note being graded.
-      const notation = (songDataRef.current && songDataRef.current.notation) || null;
-      const stateOf = (g, voice) => {
-        if (g.kind === "rest" || g.srcIdx == null) return "future";
-        const src = voice[g.srcIdx];
-        if (!src) return "future";
-        if (src.hit || src.missed) return "past";
-        return src === curNote ? "current" : "future";
-      };
-      const inWin = g => g.beat >= winStartBeat - 0.001 && g.beat <= winEndBeat + 0.001;
-      const staffList = [];
-      if (notation) {
-        for (const g of notation.right) if (inWin(g)) staffList.push({ ...g, hand: "right", state: stateOf(g, allNotes) });
-        for (const g of notation.left) if (inWin(g)) staffList.push({ ...g, hand: "left", state: stateOf(g, allNotes) });
-      }
-      setSongStaffNotes({ startBeat: winStartBeat, spanBeats, list: staffList });
-      // #3: flush boss HP to React ~5Hz max (refs are mutated per hit)
-      if (bossOn && bossHpDirtyRef.current) {
-        bossHpDirtyRef.current = false;
-        const nowMs = performance.now();
-        if (nowMs - bossHpDirtyAtRef.current > 200) { bossHpDirtyAtRef.current = nowMs; setBossHp(bossHpRef.current); }
-      }
-      // #1: drill window reached its end → one pass done; climb the ladder or
-      // graduate (1× pass = restore the song's own tempo and stop drilling).
-      if (drillActive && drillEndSecRef.current != null) {
-        const songTimeNow = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
-        if (songTimeNow >= drillEndSecRef.current + 1.2) {
-          const doneSeg = (drillPlanRef.current || []).find(x => Math.abs((x.start - 0.5) - (drillStartSecRef.current || -99)) < 0.6);
-          const rung = drillTempoRef.current;
-          if (rung >= 1) {
-            endDrill();
-            announce(lang === "th" ? "✅ ผ่านดริลแล้ว!" : lang === "zh" ? "✅ 练习通过！" : "✅ Drill cleared!");
-            setSongPhase("ready");
-          } else {
-            const nxt = nextDrillTempo(rung);
-            announce(lang === "th" ? ("⏫ เท็มโป " + Math.round(nxt * 100) + "%") : lang === "zh" ? ("⏫ 速度 " + Math.round(nxt * 100) + "%") : ("⏫ Tempo " + Math.round(nxt * 100) + "%"));
-            if (doneSeg) setTimeout(() => startDrill(doneSeg, nxt), 900);
-            else setTimeout(() => startSongPlay(), 900);
-          }
-        }
-      }
-      // ghost race vs your best run
-      const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
-      songSamplesRef.current.push({ t: +st.toFixed(2), s: songScoreRef.current });
-      const g = songGhostDataRef.current;
-      if (g && g.length) {
-        let gs = 0; for (let i = 0; i < g.length; i++) { if (g[i].t <= st) gs = g[i].s; else break; }
-        setSongGhost({ diff: songScoreRef.current - gs });
-      }
-    }, 120);
+    const primaryNext = nextByHand.right || nextByHand.left || null;
+    const secondaryNext = (nextByHand.right && nextByHand.left) ? nextByHand.left : null;
+    setSongNextLit(primaryNext ? primaryNext.note : null);
+    setSongNextLit2(secondaryNext ? secondaryNext.note : null);
+    const prevFm = gameStore.get().songFingerMap;
+    const fm = {};
+    if (primaryNext) fm[primaryNext.note] = primaryNext.finger;
+    if (secondaryNext) fm[secondaryNext.note] = secondaryNext.finger;
+    const fmSame = Object.keys(fm).length === Object.keys(prevFm).length && Object.keys(fm).every(k => prevFm[k] === fm[k]);
+    if (!fmSame) setSongFingerMap(fm);
+    // Sight-reading window, measured in BEATS rather than in note count:
+    // one bar already played + four bars ahead. A fixed beat span is what
+    // lets the staff space notes by their real rhythmic position (and keeps
+    // both staves of a grand staff aligned on the beat) instead of spacing
+    // them evenly by array index, which made every rhythm look identical.
+    const beatsPerBar = beatsPerBarOf(meta);
+    const spanBeats = beatsPerBar * 5;
+    // "Where we are" is read off the SAME CLOCK the falling notes are drawn
+    // from: a meteor is at the hit line when songTime === note.t + SONG_LEAD,
+    // so the moment being played is (songTime - SONG_LEAD), in beats.
+    const spb = 60 / ((meta && meta.bpm) || 90);
+    const nowSec = songNow() - SONG_LEAD;
+    const nowBeat = Math.max(0, nowSec / spb);
+    /* The staff scrolls smoothly: it slides every frame on its own (see
+       staffClock and PlayAlongStaff), so the glyphs are laid out against a
+       BASE beat that moves only every half bar, and the window is drawn one
+       bar wider than what shows so the slide never uncovers an empty edge.
+       It used to be redrawn ten times a second at a new position — a
+       stepping staff and a full SVG repaint each time. */
+    const liveStart = Math.max(0, nowBeat - beatsPerBar);
+    let base = staffBaseRef.current;
+    if (base == null || liveStart - base > beatsPerBar / 2 || liveStart < base - 0.01) base = staffBaseRef.current = liveStart;
+    const winStartBeat = base;
+    const winEndBeat = winStartBeat + spanBeats + beatsPerBar;
+    // the note being played right now = the one whose span contains the
+    // clock, else the next one due
+    const melody = allNotes.filter(n => n.hand !== "left");
+    const lead = (melody.length ? melody : allNotes);
+    const curNote = lead.find(n => nowBeat >= n.beat - 0.001 && nowBeat < n.beat + (n.durBeats || 1) - 0.001)
+      || lead.find(n => n.beat >= nowBeat - 0.001) || null;
+    // The staff draws ENGRAVED glyphs (bar-split, tied, rests filled in —
+    // see buildNotation), not the raw played notes; srcIdx links a drawn
+    // head back to the note being graded.
+    const notation = (songDataRef.current && songDataRef.current.notation) || null;
+    const stateOf = (g2, voice) => {
+      if (g2.kind === "rest" || g2.srcIdx == null) return "future";
+      const src = voice[g2.srcIdx];
+      if (!src) return "future";
+      if (src.hit || src.missed) return "past";
+      return src === curNote ? "current" : "future";
+    };
+    const inWin = g2 => g2.beat >= winStartBeat - 0.001 && g2.beat <= winEndBeat + 0.001;
+    const staffList = [];
+    if (notation) {
+      for (const g2 of notation.right) if (inWin(g2)) staffList.push({ ...g2, hand: "right", state: stateOf(g2, allNotes) });
+      for (const g2 of notation.left) if (inWin(g2)) staffList.push({ ...g2, hand: "left", state: stateOf(g2, allNotes) });
+    }
+    // republish only when what is drawn changes: a glyph in or out, a state
+    // (played / current) or a new base
+    const sig = base.toFixed(3) + "|" + staffList.map(g2 => g2.beat + g2.hand[0] + g2.state[0]).join(",");
+    if (sig !== staffSigRef.current) { staffSigRef.current = sig; setSongStaffNotes({ startBeat: winStartBeat, spanBeats, margin: beatsPerBar, list: staffList }); }
+    // ghost race vs your best run
+    const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
+    songSamplesRef.current.push({ t: +st.toFixed(2), s: songScoreRef.current });
+    const gd = songGhostDataRef.current;
+    if (gd && gd.length && !drillRef.current) {
+      let gs = 0; for (let i = 0; i < gd.length; i++) { if (gd[i].t <= st) gs = gd[i].s; else break; }
+      const diff = songScoreRef.current - gs;
+      const prev = gameStore.get().songGhost;
+      if (!prev || prev.diff !== diff) setSongGhost({ diff });
+    }
   }
   function exitSong() {
+    logRunQuit();
     songRunRef.current = false;
     cancelAnimationFrame(songRafRef.current);
     clearInterval(songHudTimerRef.current);
+    stopBand();
+    clearTimeout(resumeTRef.current); pausedRef.current = null;
+    clearTimeout(songLoopRetryT.current);
     clearSongPreview();
-    stopPracticeListeners();
+    stopListeners();
     clearTimeout(backingTimerRef.current); backingTimerRef.current = null;
     setSongOpen(false);
     setSongPhase("ready");
     setSongResult(null); setSongTigaTip(null);
-    setSongCountdown(null);
-    setSongNextLit(null);
-    setSongStaffNotes(EMPTY_STAFF_WIN);
-    setSongJudge(null);
-    setSongBursts([]); setSongShake(false); setSongGo(false); setSongGhost(null); setSongBonus(null);
-    songFeverRef.current = false; setSongFever(false); setSongPops([]); setSongAnnounce(null);
-    setDrillPlan(null); setDrillActive(false); drillStartSecRef.current = null; drillEndSecRef.current = null;
+    gameStore.reset(HOT_KEYS); staffBaseRef.current = null; staffSigRef.current = "";
+    songFeverRef.current = false;
+    setDrillPlan(null); setDrillActive(false); setDrillCleared([]); drillRef.current = null;
     drillPlanRef.current = null;
-    setBossOn(false); setBossHp(0); setBossFx(null); setKDrop(null); setKShelfOpen(false);
+    bossOnRef.current = false; setBossOn(false); setKShelfOpen(false);
+    bossVerdictRef.current = null; setBossVerdict(null);
     clearTimeout(bossFxT.current); clearTimeout(kDropT.current);
+    songSetlistRef.current = null; // leaving mid-concert ends the concert
+    practiceRef.current = null; setSongPractice(false);
+    setSongIntro(null); introNextRef.current = null;
+  }
+  /* ── Pause ──
+     The song clock is the audio clock, so pausing is: remember where the
+     song was, stop drawing and grading, and on resume re-anchor the clock
+     there after a 3-2-1. Switching away from the app pauses too. A live
+     online duel never pauses — the other player keeps going. */
+  function songNow() { return (getAC().currentTime - songStartClockRef.current) * (songTempoRef.current || 1); }
+  function canPause() { return songRunRef.current && !songFinishedRef.current && !pausedRef.current && !pvpRacingRef.current; }
+  function pauseSong() {
+    if (!canPause()) return;
+    pausedRef.current = { at: songNow() };
+    cancelAnimationFrame(songRafRef.current);
+    if (bandRef.current) bandRef.current.cut(); // booked notes fall silent; resuming books afresh
+    clearTimeout(resumeTRef.current);
+    setSongPause({ n: 0 });
+  }
+  function resumeSong() {
+    if (!pausedRef.current) return;
+    clearTimeout(resumeTRef.current);
+    let n = 3;
+    setSongPause({ n });
+    playClickAt(getAC().currentTime, true, 0.6);
+    const tick = () => {
+      n--;
+      if (n > 0) { setSongPause({ n }); playClickAt(getAC().currentTime, false, 0.6); resumeTRef.current = setTimeout(tick, 700); return; }
+      const p = pausedRef.current;
+      if (!p) return;
+      songStartClockRef.current = getAC().currentTime - p.at / (songTempoRef.current || 1);
+      pausedRef.current = null;
+      setSongPause(null);
+      metroBeatRef.current = null;
+      frameStatRef.current.last = 0;
+      songRafRef.current = requestAnimationFrame(() => songLoopRef.current());
+    };
+    resumeTRef.current = setTimeout(tick, 700);
+  }
+  function restartSong() {
+    clearTimeout(resumeTRef.current); pausedRef.current = null; setSongPause(null);
+    if (drillRef.current) { beginDrillPass(); startLoops(); return; }
+    logRunQuit();
+    againViaRef.current = "restart";
+    songDataRef.current = expandSong(songMetaRef.current, playAlongHandRef.current);
+    startSongPlay();
+  }
+  useEffect(() => {
+    const onVis = () => { if (document.hidden) pauseSong(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  /* Where the reading staff's window starts right now, in beats — read by
+     PlayAlongStaff every frame to slide itself (null: nothing is playing, so
+     it holds still; paused: it holds where the song stopped). It lives on
+     the store as one stable function, so the staff reaches the song clock
+     without anything new passing through the app root. */
+  if (!gameStore.staffClock) gameStore.staffClock = () => {
+    if (!songRunRef.current) return null;
+    const meta = songMetaRef.current;
+    const t = pausedRef.current ? pausedRef.current.at : songNow();
+    const spb = 60 / ((meta && meta.bpm) || 90);
+    return Math.max(0, Math.max(0, (t - SONG_LEAD) / spb) - beatsPerBarOf(meta));
+  };
+  /* Test hook for the Play Along bots (scripts/verify-playalong-bots.mjs):
+     only on a device where tg_pa_testhook is "1", never otherwise. It reads
+     the song clock and the notes and presses keys through the same handler
+     the on-screen keyboard uses — nothing a player could reach. */
+  useEffect(() => {
+    let on = false; try { on = localStorage.getItem("tg_pa_testhook") === "1"; } catch (e) {}
+    if (!on) return;
+    (window as any).__paTest = {
+      lead: SONG_LEAD,
+      now: () => songRunRef.current && !pausedRef.current ? (getAC().currentTime - songStartClockRef.current) * songTempoRef.current : null,
+      notes: () => (songNotesRef.current || []).map(n => ({ t: n.t, note: n.note, hit: !!n.hit, missed: !!n.missed, skip: !!n.skip, hand: n.hand })),
+      tempo: () => songTempoRef.current,
+      press: (note, source = "tap") => songInputRef.current({ note, freq: null, source }),
+      meta: () => songMetaRef.current && songMetaRef.current.id,
+      paused: () => !!pausedRef.current,
+      drill: () => drillRef.current ? { rung: drillRef.current.rung, passes: drillRef.current.passes, start: drillRef.current.start, end: drillRef.current.end } : null,
+      boss: () => ({ hp: bossHpRef.current, max: bossMaxRef.current, on: bossOnRef.current }),
+      ghost: () => !!songGhostDataRef.current,
+      calib: () => ({ ...calibRef.current }),
+      gfx: () => GFX_TIERS[gfxRef.current.tier],
+      band: () => bandRef.current ? { log: bandRef.current.log.slice(), state: { ...bandRef.current.state }, clock: songStartClockRef.current, tempo: songTempoRef.current, lead: SONG_LEAD, spb: 60 / ((songMetaRef.current && songMetaRef.current.bpm) || 90), audioNow: getAC().currentTime } : null,
+      setSrc: (type) => setSongSrc(type ? { type } : null),
+      clicks: () => clickLogRef.current.slice(),
+      setBand: (v) => setSongBand(v),
+      setMetro: (v) => setSongMetro(v),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  /* ── The song's click, on the song's beat grid ──
+     Beat k sits at songTime = LEAD + k·spb (beat 0 = the first note). Clicks
+     are placed up to 150 ms ahead on the audio clock, so a late frame never
+     makes a late click. Before the first note lands the click is the
+     count-in and always plays; after it, only with the click track on and
+     no band drums playing — and never in a practice pass, which stops and
+     waits, so it has no beat to keep. */
+  function scheduleClicks(songTime) {
+    const meta = songMetaRef.current;
+    if (!meta || !meta.bpm) return;
+    const dr = drillRef.current;
+    const spb = 60 / meta.bpm;
+    const bpb = beatsPerBarOf(meta);
+    const tempo = songTempoRef.current || 1;
+    let k = metroBeatRef.current;
+    if (k == null) k = Math.ceil((songTime - SONG_LEAD) / spb - 1e-6);
+    const countInEnd = dr ? (dr.firstHit || SONG_LEAD) : SONG_LEAD;
+    const endT = dr ? dr.end + SONG_LEAD : songLastTimeRef.current + SONG_LEAD;
+    for (let guard = 0; guard < 16; guard++) {
+      const bt = SONG_LEAD + k * spb;
+      if (bt > songTime + 0.15 * tempo) break;
+      if (bt >= songTime - 0.03 && bt <= endT + 0.01) {
+        const countIn = bt < countInEnd - 1e-3;
+        const drums = !!bandRef.current && songBandRef.current > 0;
+        if (countIn || (songMetroRef.current && !drums && !practiceRef.current)) {
+          const accent = (((k - pickupRef.current) % bpb) + bpb) % bpb === 0;
+          const when = songStartClockRef.current + bt / tempo;
+          // the count-in is the band's drum sticks; the click when there is no band
+          if (!(countIn && bandRef.current && bandRef.current.stick(when, accent))) playClickAt(when, accent, countIn ? 1 : 0.7);
+          const cl = clickLogRef.current;
+          cl.push({ beat: k, countIn });
+          if (cl.length > 200) cl.shift();
+        }
+      }
+      k++;
+    }
+    metroBeatRef.current = k;
+  }
+  /* one frame interval into the resolution control (see GFX_TIERS) */
+  const [songGfx, setSongGfxState] = useState(() => (gfxRef.current ? gfxRef.current.mode : "auto"));
+  function setSongGfx(mode) {
+    const g = gfxRef.current;
+    g.mode = GFX_MODES[mode] != null ? mode : "auto";
+    g.tier = g.mode === "auto" ? g.auto : GFX_MODES[g.mode];
+    g.win = []; g.stalls = [];
+    lsSet("tg_pa_gfx_mode", g.mode);
+    setSongGfxState(g.mode);
+  }
+  function gfxSample(dt) {
+    const g = gfxRef.current;
+    if (g.mode !== "auto") return;          // the player chose a level in the pause screen
+    if (dt > 250) { g.win = []; return; }   // a stall (app switched away, a hiccup) says nothing about the frame rate
+    // three frames held past 50 ms within 2 s: step down now, don't wait for the window
+    if (dt > 50) {
+      const tms = performance.now();
+      g.stalls = g.stalls.filter(x => tms - x < 2000); g.stalls.push(tms);
+      if (g.stalls.length >= 3 && g.tier < GFX_TIERS.length - 1) {
+        g.stalls = []; g.win = []; g.slow = true;
+        g.tier++; g.auto = g.tier; g.smooth = 0; lsSet("tg_pa_gfx", String(g.tier)); lsSet("tg_pa_gfx_ok", "0");
+        return;
+      }
+    }
+    g.win.push(dt);
+    if (g.win.length < (g.windows === 0 && g.tier === 0 ? GFX_WINDOW / 2 : GFX_WINDOW)) return;
+    const w = g.win.sort((a, b) => a - b); g.win = [];
+    g.windows++;
+    // the slowest tenth is left out, so one hiccup on a fast phone never costs it pixels
+    const kept = w.slice(0, Math.ceil(w.length * 0.9));
+    const avg = kept.reduce((a, b) => a + b, 0) / kept.length;
+    const med = w[w.length >> 1], p90 = w[Math.floor(w.length * 0.9)];
+    const capped = med > 31 && med < 36 && p90 < 37;
+    if (avg > GFX_SMOOTH_MS) g.slow = true;
+    if (avg > GFX_SLOW_MS && !capped && g.tier < GFX_TIERS.length - 1) {
+      g.tier = Math.min(GFX_TIERS.length - 1, g.tier + (avg > 28 ? 2 : 1)); // far behind (under ~35 fps): two steps at once
+      g.auto = g.tier; g.smooth = 0; lsSet("tg_pa_gfx", String(g.tier)); lsSet("tg_pa_gfx_ok", "0");
+    }
+  }
+  /* a finished run: three smooth ones in a row earn one step back up */
+  function gfxRunEnd() {
+    const g = gfxRef.current;
+    if (g.mode === "auto" && g.windows >= 3) {
+      if (g.slow) g.smooth = 0;
+      else if (g.tier > 0 && ++g.smooth >= 3) { g.tier--; g.auto = g.tier; g.smooth = 0; lsSet("tg_pa_gfx", String(g.tier)); }
+      lsSet("tg_pa_gfx_ok", String(g.smooth));
+    }
+    g.slow = false; g.windows = 0; g.win = [];
   }
   function songLoop() {
-    if (!songRunRef.current) return;
+    if (!songRunRef.current || pausedRef.current) return;
     const cv = songCanvasRef.current;
     if (!cv) { songRafRef.current = requestAnimationFrame(() => songLoopRef.current()); return; }
     const ac = getAC();
-    const songTime = (ac.currentTime - songStartClockRef.current) * songTempoRef.current;
+    let songTime = (ac.currentTime - songStartClockRef.current) * songTempoRef.current;
+    const pr = practiceRef.current;
+    if (pr) {
+      // Practice: the song waits. When the next note reaches the line
+      // unplayed, the clock is held there (its start slides forward), so the
+      // notes, the staff and the keys all stand still until the right key.
+      let wait = null;
+      for (const n of songNotesRef.current) { if (!n.hit && !n.skip) { wait = n; break; } }
+      const at = wait ? wait.t + SONG_LEAD : null;
+      if (at != null && songTime > at) {
+        songStartClockRef.current += (songTime - at) / (songTempoRef.current || 1);
+        songTime = at;
+        const tms = performance.now();
+        if (!pr.waitSince) { pr.waitSince = tms; pr.hinted = false; }
+        else if (!pr.hinted && tms - pr.waitSince > 3000) { pr.hinted = true; playPianoNote(wait.note, 0.5, 0.3); } // a hint: this is the note
+      } else pr.waitSince = 0;
+    }
+    { // frame pacing for the "fps" usage row: frames, and frames held past 50 ms
+      const fs = frameStatRef.current, tms = performance.now();
+      if (fs.last) { const dt = tms - fs.last; fs.n++; if (dt > 50) fs.long++; if (dt < 1000) fs.active += dt; gfxSample(dt); } else if (!fs.t0) fs.t0 = tms;
+      fs.last = tms;
+    }
+    scheduleClicks(songTime);
+    bandPump(songTime);
     const notes = songNotesRef.current;
     const lanes = songLanesRef.current;
     const nLane = Math.max(1, lanes.length);
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(GFX_TIERS[gfxRef.current.tier], window.devicePixelRatio || 1);
+    // Sprites (crystals, words, numbers) are drawn at the screen's own
+    // density whatever the canvas step, so a step change never redraws them
+    // all mid-song — drawImage scales them down for free.
+    const sdpr = Math.min(2, window.devicePixelRatio || 1);
+    // what the scene draws: 2 everything, 1 no drifting motes or long trails, 0 the essentials
+    const fxLevel = reducedMotion() ? 0 : gfxRef.current.tier === 0 ? 2 : gfxRef.current.tier === 1 ? 1 : 0;
     const W = cv.clientWidth, H = cv.clientHeight;
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     const ctx = cv.getContext("2d");
@@ -600,47 +1284,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     // positions, just smaller heads, so consecutive notes read as separate.
     const landscape = W > H;
     const noteScale = landscape ? 0.5 : 1;
-    // deep-space nebula backdrop — pre-rendered offscreen once per size, drawn each frame
-    let neb = songNebulaRef.current;
-    if (!neb || neb.w !== W || neb.h !== H) {
-      const nc = document.createElement("canvas"); nc.width = Math.max(1, W); nc.height = Math.max(1, H);
-      const nx = nc.getContext("2d");
-      nx.fillStyle = "#050414"; nx.fillRect(0, 0, W, H);
-      const blobs = [[0.22, 0.24, 0.55, "rgba(148,60,100,0.17)"], [0.82, 0.14, 0.45, "rgba(6,150,214,0.14)"], [0.55, 0.72, 0.6, "rgba(255,82,82,0.08)"], [0.1, 0.85, 0.4, "rgba(217,119,87,0.06)"]];
-      for (const [fx, fy, fr, col] of blobs) {
-        const g0 = nx.createRadialGradient(fx * W, fy * H, 0, fx * W, fy * H, fr * Math.max(W, H));
-        g0.addColorStop(0, col); g0.addColorStop(1, "rgba(0,0,0,0)");
-        nx.fillStyle = g0; nx.fillRect(0, 0, W, H);
-      }
-      neb = songNebulaRef.current = { cv: nc, w: W, h: H };
-    }
-    ctx.drawImage(neb.cv, 0, 0);
-    if (fever) { ctx.fillStyle = "rgba(255,82,82,0.06)"; ctx.fillRect(0, 0, W, H); } // fever = the whole sky heats up
-    // twinkling parallax starfield — bigger stars drift faster (depth), fever = warp speed
-    const drift = fever ? 0.06 : 0.012;
-    for (const s of songStarsRef.current) {
-      const tw = 0.5 + 0.5 * Math.sin(tSec * 1.4 + s.tw);
-      ctx.globalAlpha = 0.2 + 0.55 * tw;
-      ctx.fillStyle = "#ffbcd9";
-      ctx.beginPath(); ctx.arc(s.fx * W, ((s.fy + tSec * drift * s.r) % 1) * H, s.r, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    // a lone shooting star streaks by every ~7s (deterministic from time — no per-frame state)
-    const winId = Math.floor(tSec / 7), winT = (tSec % 7) / 0.9;
-    if (winT < 1) {
-      const rnd = Math.abs(Math.sin(winId * 127.1) * 43758.5453) % 1;
-      const sx = (0.15 + rnd * 0.7 + winT * 0.25) * W, sy = (0.05 + (rnd * 7 % 1) * 0.3 + winT * 0.22) * H;
-      ctx.globalAlpha = Math.sin(winT * Math.PI) * 0.8;
-      ctx.strokeStyle = "#faf0f5"; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 26, sy - 18); ctx.stroke();
-      ctx.globalAlpha = 1; ctx.lineWidth = 1;
-    }
+    /* ── the backdrop: a neon city under a rune-wheel ──
+       Play Along used to be deep space with meteors falling on Earth. The
+       arena the robots fight in is a cyberpunk city at night with a summoning
+       sigil in its sky, and the two modes are one game, so this is the same
+       place seen from the street: a dark skyline, a perspective grid floor
+       running up to it, and the rune-wheel hanging over the lanes. Every bit
+       of it is static, so it is painted ONCE per canvas size into an
+       offscreen and blitted each frame — the per-frame cost is one drawImage,
+       exactly what the nebula it replaces cost. */
     const hitY = H - 8;
     const pxPerSec = hitY / SONG_LEAD;
-    // a faint glowing Earth horizon along the hit-line — what the meteors are falling toward
-    const earthGrad = ctx.createLinearGradient(0, hitY - 30, 0, hitY + 20);
-    earthGrad.addColorStop(0, "rgba(6,150,214,0)"); earthGrad.addColorStop(1, "rgba(6,150,214,0.28)");
-    ctx.fillStyle = earthGrad; ctx.fillRect(0, hitY - 30, W, 38);
     // Each lane's x-position is the actual key it maps to, so a falling note lands
     // directly above the piano key (and the lit key) the learner must press.
     // Map each lane to its real piano key position using noteKeyFrac.
@@ -650,24 +1304,211 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const handBaseOct = hand === "left" ? 2 : 4;
     const handNW = hand === "both" ? 28 : 14;
     const laneFrac = lanes.map(ln => noteKeyFrac(ln, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 });
-    for (let i = 0; i < nLane; i++) {
-      const f = laneFrac[i], hue = laneHue(lanes[i]);
-      const cw = f.w * W, cx = f.cx * W - cw / 2;
-      ctx.fillStyle = `hsla(${hue},70%,50%,0.07)`;
-      ctx.fillRect(cx, 0, cw, H);
+    const bakeKey = `${W}|${H}|${dpr}|${hand}|${noteScale}|${lanes.join(",")}|${fxLevel >= 2 ? 1 : 0}`;
+    const wheelX = W * 0.5, wheelY = H * 0.3, wheelR = Math.min(W * 0.42, H * 0.24);
+    let neb = songNebulaRef.current;
+    if (!neb || neb.key !== bakeKey) {
+      /* Baked at device resolution, so the per-frame blit is 1:1 rather than
+         a 2x upscale, and the lanes, rails and hit-line are baked into it
+         too: they only move when the song or the hand changes, and stroking
+         them live measured at a third of the frame on a throttled phone. */
+      const nc = document.createElement("canvas"); nc.width = Math.max(1, Math.round(W * dpr)); nc.height = Math.max(1, Math.round(H * dpr));
+      const nx = nc.getContext("2d");
+      nx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const sky = nx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#070318"); sky.addColorStop(0.55, "#0c0626"); sky.addColorStop(1, "#030110");
+      nx.fillStyle = sky; nx.fillRect(0, 0, W, H);
+      for (const [fx, fy, fr, col] of [[0.18, 0.2, 0.55, "rgba(255,43,214,0.13)"], [0.86, 0.16, 0.5, "rgba(40,220,255,0.12)"], [0.5, 0.72, 0.6, "rgba(140,70,255,0.1)"]]) {
+        const g0 = nx.createRadialGradient(fx * W, fy * H, 0, fx * W, fy * H, fr * Math.max(W, H));
+        g0.addColorStop(0, col); g0.addColorStop(1, "rgba(0,0,0,0)");
+        nx.fillStyle = g0; nx.fillRect(0, 0, W, H);
+      }
+      if (fxLevel < 2) drawRuneWheel(nx, wheelX, wheelY, wheelR); // still; at the top level it turns (below)
+      // the skyline: two planes of towers, the far one lighter behind more air
+      const hz = H * 0.8;
+      // the near towers' windows again, brighter, on a layer of their own
+      // that flashes softly on the beat (top level only)
+      const winTop = Math.floor(hz - H * 0.44);
+      const wl = fxLevel >= 2 ? document.createElement("canvas") : null;
+      let wx2 = null;
+      if (wl) { wl.width = Math.max(1, Math.round(W * dpr)); wl.height = Math.max(1, Math.round((hz - winTop) * dpr)); wx2 = wl.getContext("2d"); wx2.setTransform(dpr, 0, 0, dpr, 0, -winTop * dpr); }
+      let seed = 7;
+      const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+      for (let L = 0; L < 2; L++) {
+        let x = -10;
+        while (x < W + 10) {
+          const bw = 18 + rnd() * 34, bh = H * (L ? 0.1 + rnd() * 0.16 : 0.16 + rnd() * 0.26);
+          nx.fillStyle = L ? "rgba(6,3,18,0.96)" : "rgba(22,12,52,0.85)";
+          nx.fillRect(x, hz - bh, bw, bh + 2);
+          const roof = L ? "rgba(60,230,255,0.55)" : "rgba(255,60,210,0.4)";
+          nx.fillStyle = roof; nx.fillRect(x, hz - bh, bw, 1.3);
+          for (let wy = hz - bh + 5; wy < hz - 3; wy += 6) for (let wx = x + 3; wx < x + bw - 3; wx += 5) {
+            if (rnd() < 0.72) continue;
+            const pink = rnd() < 0.5;
+            nx.fillStyle = pink ? `rgba(255,90,220,${L ? 0.55 : 0.3})` : `rgba(80,230,255,${L ? 0.55 : 0.3})`;
+            nx.fillRect(wx, wy, 2, 2.4);
+            if (wx2 && L) { wx2.fillStyle = pink ? "rgba(255,150,235,0.95)" : "rgba(150,245,255,0.95)"; wx2.fillRect(wx - 0.5, wy - 0.5, 3, 3.4); }
+          }
+          if (L && rnd() < 0.3) { // a vertical sign down the face of a tower
+            const sc = rnd() < 0.5 ? "255,60,210" : "60,230,255", sy0 = hz - bh + 6, sh = Math.min(bh - 10, 26);
+            nx.globalCompositeOperation = "lighter";
+            nx.fillStyle = `rgba(${sc},0.18)`; nx.fillRect(x + bw / 2 - 4, sy0 - 3, 8, sh + 6);
+            nx.fillStyle = `rgba(${sc},0.85)`; nx.fillRect(x + bw / 2 - 1.2, sy0, 2.4, sh);
+            nx.globalCompositeOperation = "source-over";
+          }
+          x += bw + (L ? 1 : 4);
+        }
+      }
+      // street glow where the city meets the floor
+      const sg = nx.createLinearGradient(0, hz - 30, 0, hz + 6);
+      sg.addColorStop(0, "rgba(255,60,210,0)"); sg.addColorStop(1, "rgba(255,60,210,0.28)");
+      nx.fillStyle = sg; nx.fillRect(0, hz - 30, W, 36);
+      // the grid floor, in perspective, running out from under the keys
+      nx.fillStyle = "#04020d"; nx.fillRect(0, hz, W, H - hz);
+      nx.strokeStyle = "rgba(60,230,255,0.22)"; nx.lineWidth = 1;
+      for (let k = 1; k <= 6; k++) { const q = k / 6, gy = hz + (H - hz) * q * q; nx.beginPath(); nx.moveTo(0, gy); nx.lineTo(W, gy); nx.stroke(); }
+      for (let k = -8; k <= 8; k++) { nx.beginPath(); nx.moveTo(W / 2 + k * 10, hz); nx.lineTo(W / 2 + k * W / 7, H); nx.stroke(); }
+      nx.fillStyle = "rgba(255,120,230,0.7)"; nx.fillRect(0, hz - 0.6, W, 1.2);
+      // vignette
+      const vg = nx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.3, W / 2, H * 0.45, Math.max(W, H) * 0.8);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,8,0.55)");
+      nx.fillStyle = vg; nx.fillRect(0, 0, W, H);
+      // the energy the crystals are falling into, pooled along the hit-line
+      const earthGrad = nx.createLinearGradient(0, hitY - 34, 0, hitY + 20);
+      earthGrad.addColorStop(0, "rgba(255,50,210,0)"); earthGrad.addColorStop(1, "rgba(255,50,210,0.3)");
+      nx.fillStyle = earthGrad; nx.fillRect(0, hitY - 34, W, 42);
+      /* lanes are light-rails now: a faint tint and a neon edge on each side
+         that fades out toward the sky, all edges in ONE stroked path */
+      const rail = nx.createLinearGradient(0, 0, 0, hitY);
+      rail.addColorStop(0, "rgba(90,235,255,0)"); rail.addColorStop(1, "rgba(90,235,255,0.32)");
+      nx.beginPath();
+      for (let i = 0; i < nLane; i++) {
+        const f = laneFrac[i], hue = laneHue(lanes[i]);
+        const cw = f.w * W, cx = f.cx * W - cw / 2;
+        nx.fillStyle = `hsla(${hue},90%,55%,0.07)`;
+        nx.fillRect(cx, 0, cw, H);
+        nx.moveTo(cx + 0.5, 0); nx.lineTo(cx + 0.5, hitY);
+        nx.moveTo(cx + cw - 0.5, 0); nx.lineTo(cx + cw - 0.5, hitY);
+      }
+      nx.strokeStyle = rail; nx.lineWidth = 1; nx.stroke();
+      // the hit-line: a charged bar, magenta through cyan, with a glow round it
+      nx.globalCompositeOperation = "lighter";
+      const hb = nx.createLinearGradient(0, 0, W, 0);
+      hb.addColorStop(0, "rgba(255,60,210,0.9)"); hb.addColorStop(0.5, "rgba(80,240,255,0.95)"); hb.addColorStop(1, "rgba(255,60,210,0.9)");
+      nx.fillStyle = "rgba(255,60,210,0.14)"; nx.fillRect(0, hitY - 7, W, 14);
+      nx.fillStyle = hb; nx.fillRect(0, hitY - 1.4, W, 2.8);
+      nx.fillStyle = "rgba(255,255,255,0.7)"; nx.fillRect(0, hitY - 0.4, W, 0.8);
+      // a receptor sigil where each lane meets it
+      for (let i = 0; i < nLane; i++) {
+        const f = laneFrac[i], rx0 = f.cx * W, rs = Math.min(9, f.w * W * 0.28) * noteScale + 3;
+        nx.strokeStyle = `hsla(${laneHue(lanes[i])},100%,70%,0.8)`; nx.lineWidth = 1.2;
+        nx.beginPath(); nx.moveTo(rx0, hitY - rs); nx.lineTo(rx0 + rs, hitY); nx.lineTo(rx0, hitY + rs); nx.lineTo(rx0 - rs, hitY); nx.closePath(); nx.stroke();
+      }
+      nx.globalCompositeOperation = "source-over"; nx.lineWidth = 1;
+      neb = songNebulaRef.current = { cv: nc, key: bakeKey, win: wl, winTop, wheel: fxLevel >= 2 ? wheelSprite(wheelR, dpr) : null };
     }
-    ctx.strokeStyle = "rgba(217,119,87,0.55)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0, hitY); ctx.lineTo(W, hitY); ctx.stroke(); ctx.lineWidth = 1;
-    const drillStart = drillStartSecRef.current, drillEnd = drillEndSecRef.current;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(neb.cv, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // The stage keeps time with the song: beatPhase runs 0→1 through each
+    // beat of the song clock (0 on the beat), downbeat on the bar's first.
+    const metaNow = songMetaRef.current;
+    const spbNow = 60 / ((metaNow && metaNow.bpm) || 90);
+    const beatF = (songTime - SONG_LEAD) / spbNow;
+    const beatPhase = beatF >= 0 ? beatF - Math.floor(beatF) : 1;
+    const downbeat = beatF >= 0 && ((((Math.floor(beatF) - pickupRef.current) % beatsPerBarOf(metaNow)) + beatsPerBarOf(metaNow)) % beatsPerBarOf(metaNow)) === 0;
+    const pulse = Math.pow(1 - beatPhase, 3);
+    if (neb.wheel) { // the rune-wheel turns, slowly (faster in Fever)
+      const sp = neb.wheel;
+      ctx.save(); ctx.translate(wheelX, wheelY); ctx.rotate(tSec * (fever ? 0.22 : 0.05));
+      ctx.drawImage(sp.cv, -sp.size / 2, -sp.size / 2, sp.size, sp.size);
+      ctx.restore();
+    }
+    // Never more than 3 flashes a second (children sensitive to flashing
+    // light): past 180 bpm the windows flash on every other beat.
+    const flashBeat = spbNow / (songTempoRef.current || 1) >= 0.34 || (Math.floor(Math.max(0, beatF)) % 2 === 0);
+    if (neb.win && pulse > 0.02 && flashBeat) { // the city's windows flash on the beat
+      ctx.globalAlpha = pulse * (downbeat ? 0.7 : 0.4);
+      ctx.drawImage(neb.win, 0, neb.winTop, W, neb.win.height / dpr);
+      ctx.globalAlpha = 1;
+    }
+    if (fever) { ctx.fillStyle = "rgba(255,40,200,0.07)"; ctx.fillRect(0, 0, W, H); } // fever = the whole city overloads
+    if (fever && fxLevel >= 2) { // Fever rain: streaks of light falling through the city
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = "rgba(150,240,255,0.35)"; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let k = 0; k < 28; k++) {
+        const rx = ((k * 0.6180339 + 0.13) % 1) * W, speed = 520 + (k % 5) * 90;
+        const ry = ((tSec * speed + k * 97) % (H + 60)) - 30;
+        ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 16);
+      }
+      ctx.stroke();
+      ctx.globalCompositeOperation = "source-over";
+    }
+    // data motes: drifting sparks in the two sign colours, fever = overdrive (top level only)
+    const drift = fever ? 0.06 : 0.012;
+    for (let si = 0; fxLevel >= 2 && si < songStarsRef.current.length; si++) {
+      const s = songStarsRef.current[si];
+      const tw = 0.5 + 0.5 * Math.sin(tSec * 1.4 + s.tw);
+      ctx.globalAlpha = 0.2 + 0.55 * tw;
+      ctx.fillStyle = si % 2 ? "#6ff4ff" : "#ff7ae6";
+      ctx.fillRect(s.fx * W, ((s.fy + tSec * drift * s.r) % 1) * H, s.r * 1.4, s.r * 1.4);
+    }
+    ctx.globalAlpha = 1;
+    // a light-trail streaks across the sky every ~7s (deterministic from time — no per-frame state)
+    const winId = Math.floor(tSec / 7), winT = (tSec % 7) / 0.9;
+    if (winT < 1 && fxLevel >= 2) {
+      const rnd = Math.abs(Math.sin(winId * 127.1) * 43758.5453) % 1;
+      const sx = (0.15 + rnd * 0.7 + winT * 0.25) * W, sy = (0.05 + (rnd * 7 % 1) * 0.3 + winT * 0.22) * H;
+      const st = ctx.createLinearGradient(sx, sy, sx - 40, sy - 28);
+      st.addColorStop(0, "rgba(160,250,255,0.9)"); st.addColorStop(1, "rgba(255,60,210,0)");
+      ctx.globalAlpha = Math.sin(winT * Math.PI);
+      ctx.strokeStyle = st; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 40, sy - 28); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    }
+    // Each lane brightens as its next note comes in (the last half-second),
+    // and the hit-line pulses on the song's beat — brighter on the downbeat.
+    {
+      const near = new Array(nLane).fill(0);
+      for (const n of notes) {
+        if (n.hit || n.missed || n.skip) continue;
+        const dt = n.t + SONG_LEAD - songTime;
+        if (dt > 0.55) break;
+        if (dt > -0.1 && n.lane < nLane) near[n.lane] = Math.max(near[n.lane], 1 - Math.max(0, dt) / 0.55);
+      }
+      ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < nLane; i++) {
+        if (near[i] < 0.02) continue;
+        const f = laneFrac[i], cw = f.w * W, cx = f.cx * W - cw / 2;
+        ctx.globalAlpha = near[i] * 0.5;
+        ctx.drawImage(laneGlowSprite(laneHue(lanes[i])), cx, hitY - H * 0.34, cw, H * 0.34);
+      }
+      if (beatF >= 0 && pulse > 0.02) {
+        ctx.globalAlpha = pulse * (downbeat ? 0.55 : 0.3);
+        ctx.fillStyle = "rgba(255,120,235,1)";
+        ctx.fillRect(0, hitY - 3.5, W, 7);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+    }
+    // A note is missed once the late edge of its window has passed (the
+    // window of the input the player is using, with its learned delay).
+    const lateSrc = lastSrcRef.current;
+    const lateEdge = receiveWindow(songKindRef.current, lateSrc) + (calibRef.current[lateSrc] || 0);
     for (const n of notes) {
-      if (drillEnd != null && (n.t < drillStart || n.t > drillEnd)) { if (!n.hit && !n.missed) n.missed = true; continue; } // #1 drill: only the segment falls
+      if (n.skip) continue; // outside the section being practised: not drawn, not graded
       const hitAt = n.t + SONG_LEAD;
-      if (!n.hit && !n.missed && songTime > hitAt + SONG_MISSWINDOW) {
+      if (!pr && !n.hit && !n.missed && songTime > hitAt + lateEdge) {
         n.missed = true; songComboRef.current = 0; songMissRef.current++;
         if (songFeverRef.current) { songFeverRef.current = false; setSongFever(false); }
         songLaneFlashRef.current[n.lane] = { ok: false, until: now + 220 };
-        playMiss(); flashJudge("miss");
-        if (bossOn && bossHpRef.current > 0) bossFlash("attack"); // #3: the boss strikes back on every dropped note
+        fx(playMiss); flashJudge("miss", null, n.lane);
+        // the melody guide: in kind mode the right note sounds, softly, so a
+        // beginner hears what it should have been (playPianoNote keeps it out
+        // of the mic's hearing)
+        if (songKindRef.current) playPianoNote(n.note, 0.45, 0.3);
+        if (bossOnRef.current && bossHpRef.current > 0) bossFlash("attack"); // the boss strikes back on every dropped note
       }
       if (n.hit) continue;
       const yFrac = (songTime - n.t) / SONG_LEAD;
@@ -677,54 +1518,31 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       const f = laneFrac[n.lane] || noteKeyFrac(n.note, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 };
       const w = Math.max(10, f.w * W - 4), top = y - h, hue = laneHue(n.note);
       const mcx = f.cx * W;
-      const rr = Math.max(7 * noteScale, Math.min(w / 2 - 1, 21) * noteScale); // meteor head radius (+15% cap), halved in landscape
-      const hy = y - rr;                               // head rides the leading (falling) edge
-      const spin = tSec * 1.6 + n.t * 2.3;             // slow tumble, phase unique per note
+      const rr = Math.max(7 * noteScale, Math.min(w / 2 - 1, 21) * noteScale); // crystal half-width (+15% cap), halved in landscape
+      const hy = y - rr * 1.1;                         // the crystal's tip rides the leading (falling) edge
+      const spin = tSec * 1.6 + n.t * 2.3;             // slow turn, phase unique per note
       if (!n.missed) {
-        // fiery tail — its length IS the note's duration, drawn additively so it truly glows
+        // the energy ribbon — its length IS the note's duration, drawn
+        // additively so it glows; one bitmap per colour, stretched to fit
         ctx.globalCompositeOperation = "lighter";
         const flick = 0.85 + 0.15 * Math.sin(now / 55 + n.t * 9);
         const tailTop = top - 6;
-        const tg = ctx.createLinearGradient(mcx, hy, mcx, tailTop);
-        tg.addColorStop(0, `hsla(${hue},100%,62%,${0.5 * flick})`);
-        tg.addColorStop(0.5, `hsla(${(hue + 30) % 360},100%,55%,0.22)`);
-        tg.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = tg;
-        ctx.beginPath();
-        ctx.moveTo(mcx - rr * 0.85, hy);
-        ctx.quadraticCurveTo(mcx - rr * 0.3, (hy + tailTop) / 2, mcx, tailTop);
-        ctx.quadraticCurveTo(mcx + rr * 0.3, (hy + tailTop) / 2, mcx + rr * 0.85, hy);
-        ctx.closePath(); ctx.fill();
-        // heat halo hugging the head
-        const halo = ctx.createRadialGradient(mcx, hy, rr * 0.4, mcx, hy, rr * 2.1);
-        halo.addColorStop(0, `hsla(${hue},100%,64%,${0.5 * flick})`);
-        halo.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = halo;
-        ctx.beginPath(); ctx.arc(mcx, hy, rr * 2.1, 0, Math.PI * 2); ctx.fill();
+        const rb = ribbonSprite(hue);
+        ctx.globalAlpha = flick;
+        ctx.drawImage(rb, mcx - rr * 0.7, tailTop, rr * 1.4, Math.max(1, hy - tailTop));
+        // the glow round the crystal
+        const hs = haloSprite(hue, rr);
+        ctx.drawImage(hs, mcx - rr * 2.2, hy - rr * 2.2, rr * 4.4, rr * 4.4);
+        ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = "source-over";
       }
-      // the rock itself — an off-center highlight fakes a lit 3D sphere
-      const body = ctx.createRadialGradient(mcx - rr * 0.4, hy - rr * 0.4, rr * 0.15, mcx, hy, rr);
-      if (n.missed) { body.addColorStop(0, "rgba(150,156,168,0.5)"); body.addColorStop(0.7, "rgba(84,88,100,0.45)"); body.addColorStop(1, "rgba(52,56,66,0.4)"); }
-      else { body.addColorStop(0, `hsla(${hue},55%,72%,1)`); body.addColorStop(0.55, `hsla(${hue},50%,38%,1)`); body.addColorStop(1, `hsla(${hue},60%,16%,1)`); }
-      ctx.fillStyle = body;
-      ctx.beginPath(); ctx.arc(mcx, hy, rr, 0, Math.PI * 2); ctx.fill();
-      // tumbling craters sell the rotation
-      ctx.fillStyle = n.missed ? "rgba(40,44,54,0.5)" : `hsla(${hue},45%,14%,0.75)`;
-      for (let k = 0; k < 3; k++) {
-        const a = spin + k * 2.1;
-        const cxk = mcx + Math.cos(a) * rr * 0.5, cyk = hy + Math.sin(a) * rr * 0.42;
-        const crr = rr * (0.14 + k * 0.045);
-        ctx.beginPath(); ctx.ellipse(cxk, cyk, crr, crr * 0.75, a, 0, Math.PI * 2); ctx.fill();
-      }
-      if (!n.missed) {
-        // the note letter shrinks with the head, or it would overflow a
-        // half-size meteor in landscape
-        const fs = Math.max(8, Math.round(13 * noteScale));
-        ctx.fillStyle = "rgba(255,255,255,0.96)";
-        ctx.font = `bold ${fs}px Rajdhani, sans-serif`; ctx.textAlign = "center";
-        ctx.fillText(pcOf(n.note), mcx, hy + fs * 0.32);
-      }
+      /* The crystal itself comes from a sprite cache: six shaded facets, the
+         edges and the letter are a dozen path fills and a stroked glyph, and
+         paying that for every note on every frame measured at a third of the
+         frame rate on a throttled phone. The turn is quantised to 24 steps,
+         which at this size is indistinguishable from continuous. */
+      const spr = crystalSprite(hue, n.missed ? "" : pcOf(n.note), rr, spin, n.missed, noteScale, sdpr);
+      ctx.drawImage(spr.cv, mcx - spr.ox, hy - spr.oy, spr.w, spr.h);
     }
     // ── rockets: a hit launches one from the hit-line, climbing to blow the meteor up ──
     const liveRockets = [];
@@ -736,30 +1554,27 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
           x: rx, y: rTop, t0: now, dur: 520, hue: r.hue, big: r.big,
           parts: Array.from({ length: 16 }, (_, k) => ({ a: (k / 16) * Math.PI * 2 + (Math.random() - 0.5) * 0.5, sp: 55 + Math.random() * (r.big ? 120 : 85), sz: 2 + Math.random() * 3 })),
         });
-        playBoom(r.big); // 💥 the payoff
+        fx(() => playBoom(r.big)); // 💥 the payoff
         continue;
       }
       liveRockets.push(r);
       const ry = hitY + (rTop - hitY) * t;
-      // exhaust flame — additive + flickering
+      /* a plasma dart, not a cartoon rocket: a bright spindle of the lane's
+         colour with a white core and a trail of light behind it */
       ctx.globalCompositeOperation = "lighter";
       const fl = 0.7 + 0.3 * Math.sin(now / 28 + r.t0);
-      const fg = ctx.createRadialGradient(rx, ry + 13, 0, rx, ry + 13, 14 * fl);
-      fg.addColorStop(0, "rgba(255,235,170,0.95)"); fg.addColorStop(0.4, "rgba(255,150,40,0.7)"); fg.addColorStop(1, "rgba(255,60,10,0)");
-      ctx.fillStyle = fg;
-      ctx.beginPath(); ctx.ellipse(rx, ry + 14, 5, 13 * fl, 0, 0, Math.PI * 2); ctx.fill();
+      const trail = ctx.createLinearGradient(rx, ry, rx, ry + 46);
+      trail.addColorStop(0, `hsla(${r.hue},100%,70%,${0.75 * fl})`); trail.addColorStop(1, `hsla(${r.hue},100%,60%,0)`);
+      ctx.fillStyle = trail;
+      ctx.beginPath(); ctx.moveTo(rx - 4, ry); ctx.lineTo(rx + 4, ry); ctx.lineTo(rx, ry + 46); ctx.closePath(); ctx.fill();
+      const dg = ctx.createRadialGradient(rx, ry, 0, rx, ry, 16);
+      dg.addColorStop(0, `hsla(${r.hue},100%,75%,0.8)`); dg.addColorStop(1, `hsla(${r.hue},100%,60%,0)`);
+      ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(rx, ry, 16, 0, Math.PI * 2); ctx.fill();
       ctx.globalCompositeOperation = "source-over";
-      // brushed-metal body + hue-tinted nose cone, fins and a glowing porthole
-      const met = ctx.createLinearGradient(rx - 5, 0, rx + 5, 0);
-      met.addColorStop(0, "#a67e95"); met.addColorStop(0.5, "#fbf2f7"); met.addColorStop(1, "#bb8fa7");
-      ctx.fillStyle = met;
-      roundRect(ctx, rx - 4.5, ry - 6, 9, 15, 3); ctx.fill();
-      ctx.fillStyle = `hsl(${r.hue},85%,60%)`;
-      ctx.beginPath(); ctx.moveTo(rx, ry - 15); ctx.lineTo(rx - 4.5, ry - 5); ctx.lineTo(rx + 4.5, ry - 5); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(rx - 4.5, ry + 4); ctx.lineTo(rx - 9, ry + 10); ctx.lineTo(rx - 4.5, ry + 9); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(rx + 4.5, ry + 4); ctx.lineTo(rx + 9, ry + 10); ctx.lineTo(rx + 4.5, ry + 9); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "#ff94e0";
-      ctx.beginPath(); ctx.arc(rx, ry - 1, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `hsl(${r.hue},100%,62%)`;
+      ctx.beginPath(); ctx.moveTo(rx, ry - 13); ctx.lineTo(rx + 4.6, ry); ctx.lineTo(rx, ry + 8); ctx.lineTo(rx - 4.6, ry); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.moveTo(rx, ry - 9); ctx.lineTo(rx + 1.8, ry); ctx.lineTo(rx, ry + 5); ctx.lineTo(rx - 1.8, ry); ctx.closePath(); ctx.fill();
     }
     songRocketsRef.current = liveRockets;
     // ── blasts: white-hot core + expanding shockwave + gravity-pulled embers ──
@@ -779,7 +1594,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       ctx.globalAlpha = 0.75 * fade;
       ctx.strokeStyle = `hsla(${b.hue},100%,80%,1)`;
       ctx.lineWidth = 1 + 2.5 * fade;
-      ctx.beginPath(); ctx.arc(b.x, b.y, (b.big ? 95 : 66) * t + 6, 0, Math.PI * 2); ctx.stroke();
+      { // a hexagonal shockwave — the crystal's own shape, blown outward
+        const rr2 = (b.big ? 95 : 66) * t + 6;
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + Math.PI / 6 + t * 0.6; const px = b.x + Math.cos(a) * rr2, py = b.y + Math.sin(a) * rr2; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.closePath(); ctx.stroke();
+      }
       ctx.lineWidth = 1; ctx.globalAlpha = 1;
       for (let pi = 0; pi < b.parts.length; pi++) {
         const p = b.parts[pi];
@@ -796,9 +1616,61 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (fl && fl.until > now) {
         const a = (fl.until - now) / 220;
         const f = laneFrac[i], cw = f.w * W, cx = f.cx * W - cw / 2;
-        ctx.fillStyle = fl.ok ? `rgba(217,119,87,${0.5 * a})` : `rgba(255,82,82,${0.42 * a})`;
+        ctx.fillStyle = fl.ok ? `rgba(70,235,255,${0.45 * a})` : `rgba(255,60,90,${0.42 * a})`;
         ctx.fillRect(cx, hitY - 42, cw, 50);
       }
+    }
+    // ── hit effects: the judge word and the score at the lane, sparks and
+    //    rings from the hit point (see pushFx; the text is cached bitmaps) ──
+    {
+      const fxl = fxListRef.current;
+      const sparkN = fxLevel >= 2 ? 12 : fxLevel === 1 ? 8 : 5;
+      let keep = 0;
+      for (let i = 0; i < fxl.length; i++) {
+        const e = fxl[i], age = now - e.t0, dur = FX_DUR[e.k] || 500;
+        if (age >= dur || age < 0) continue;
+        fxl[keep++] = e;
+        const t = age / dur;
+        const f = (e.lane != null && laneFrac[e.lane]) || null;
+        const lx = f ? f.cx * W : W / 2;
+        const hue = f ? laneHue(lanes[e.lane]) : 300;
+        if (e.k === "judge") {
+          const spr = judgeSprite(e.kind, e.el, lang, sdpr);
+          const ease = 1 - (1 - t) * (1 - t);
+          const sc = e.kind === "perfect" ? 1 + 0.22 * Math.max(0, 1 - t * 5) : 1;
+          const w = spr.w * sc, h = spr.h * sc;
+          const x = Math.max(w / 2 + 2, Math.min(W - w / 2 - 2, lx));
+          ctx.globalAlpha = Math.min(1, t / 0.12) * (t > 0.6 ? 1 - (t - 0.6) / 0.4 : 1);
+          ctx.drawImage(spr.cv, x - w / 2, hitY - 30 - 16 * ease - h / 2, w, h);
+        } else if (e.k === "pop") {
+          const ease = 1 - (1 - t) * (1 - t);
+          const x = Math.max(34, Math.min(W - 34, lx));
+          ctx.globalAlpha = Math.min(1, t / 0.12) * (t > 0.6 ? 1 - (t - 0.6) / 0.4 : 1);
+          drawNumberPop(ctx, e.text, e.perfect, sdpr, x, hitY - 58 - 44 * ease);
+        } else if (e.k === "spark") {
+          ctx.globalCompositeOperation = "lighter";
+          ctx.fillStyle = `hsl(${hue},100%,70%)`;
+          for (let k = 0; k < sparkN; k++) {
+            const a = -Math.PI * (0.12 + 0.76 * ((k + 0.5) / sparkN)) + Math.sin(e.seed + k * 1.7) * 0.18;
+            const sp = 90 + 70 * ((Math.sin(e.seed * 3 + k * 2.3) + 1) / 2);
+            const tt = age / 1000;
+            const px = lx + Math.cos(a) * sp * tt, py = hitY + Math.sin(a) * sp * tt + 260 * tt * tt;
+            const r = (1 - t) * (k % 3 === 0 ? 3 : 2);
+            ctx.globalAlpha = 1 - t;
+            ctx.fillRect(px - r, py - r, r * 2, r * 2);
+          }
+          ctx.globalCompositeOperation = "source-over";
+        } else if (e.k === "ring") {
+          ctx.globalCompositeOperation = "lighter";
+          ctx.globalAlpha = (1 - t) * 0.9;
+          ctx.strokeStyle = `hsl(${hue},100%,72%)`;
+          ctx.lineWidth = 1 + 2.5 * (1 - t);
+          ctx.beginPath(); ctx.arc(lx, hitY, 10 + 56 * t, 0, Math.PI * 2); ctx.stroke();
+          ctx.globalCompositeOperation = "source-over"; ctx.lineWidth = 1;
+        }
+      }
+      fxl.length = keep;
+      ctx.globalAlpha = 1;
     }
     // Ghost-race trail — the ▲/▼ HUD number (songGhost) only ever tells you the
     // gap right now; this draws the whole race as it develops, both curves
@@ -806,7 +1678,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     // actually watch yourself pull ahead or fall behind over the run instead
     // of just reading one number. Drawn last (on top of the meteors) so a
     // falling note passing behind it never hides it.
-    const ghostData = songGhostDataRef.current;
+    const ghostData = drillRef.current ? null : songGhostDataRef.current;
     if (ghostData && ghostData.length > 1) {
       const dur = Math.max(1, songLastTimeRef.current);
       const maxS = Math.max(ghostData[ghostData.length - 1].s, songScoreRef.current, 100);
@@ -840,11 +1712,15 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       }
       ctx.restore();
     }
-    if (songTime < SONG_LEAD) {
+    if (drillRef.current) { /* a section loop counts itself in with clicks, no 3-2-1 */ }
+    else if (songTime < SONG_LEAD) {
       const c = Math.ceil(SONG_LEAD - songTime);
       if (c !== songCountdownRef.current) { songCountdownRef.current = c; setSongCountdown(c); }
     } else if (songCountdownRef.current !== 0) { songCountdownRef.current = 0; setSongCountdown(null); flashGo(); }
-    if (songTime > songLastTimeRef.current + SONG_LEAD + 1.0) { songFinishRef.current(); return; }
+    const dr = drillRef.current;
+    if (dr) {
+      if (!dr.waiting && songTime > dr.end + SONG_LEAD + receiveWindow(true, "mic") + 0.3) endDrillPass();
+    } else if (songTime > songLastTimeRef.current + SONG_LEAD + 1.0) { songFinishRef.current(); return; }
     songRafRef.current = requestAnimationFrame(() => songLoopRef.current());
   }
   // Tuning-aware pitch-class match for play-along grading (piano-guard.ts).
@@ -859,19 +1735,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     return teacherJudgeNote({ freq: d.freq, targetPC }).ok;
   }
   function handleSongInput(d) {
-    if (!songRunRef.current) return;
+    if (!songRunRef.current || pausedRef.current) return;
     const ac = getAC();
     const songTime = (ac.currentTime - songStartClockRef.current) * songTempoRef.current;
     const inPC = pcOf(d.note);
     const tnow = performance.now();
-    const src = d.source;
+    const src = d.source === "mic" ? "mic" : d.source === "midi" ? "midi" : "tap";
     // Echo/debounce guards key off the EXACT note (pitch + octave), not just
     // pitch class — a real physical press always lands on one exact key, and
     // this matters once a two-hand song can have the melody and the
     // accompaniment sharing a pitch class in different octaves close
-    // together in time (e.g. a right-hand C5 and a left-hand C3 root in the
-    // same beat): keying by pitch class alone would let the second genuine
-    // press wrongly suppress the first as if it were an echo/repeat of it.
+    // together in time.
     //
     // Echo guard: when you TAP, the app plays that note and the mic hears it ~100ms
     // later — ignore a mic onset of the same pitch right after a tap so one tap can't
@@ -881,104 +1755,174 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (tnow - (songDebounceRef.current[d.note] || 0) < SONG_DEBOUNCE_MS) return;
     songDebounceRef.current[d.note] = tnow;
     if (src === "tap") songEchoRef.current[d.note] = tnow; // this tap's sound will echo into the mic
-    // Prefer an exact note (pitch + octave) match first — same two-hand reason
-    // as above — and fall back to the original pitch-class-only search
-    // (deliberately lenient: playing the right note an octave off still
-    // counts) only when no exact candidate is in the hit window.
+    if (src === "mic" && !gameStore.get().songHeardMic) setSongHeardMic(true);
+    lastSrcRef.current = src;
+    const kind = songKindRef.current;
+    const win = receiveWindow(kind, src);
+    const tq = songTime - (calibRef.current[src] || 0); // the press, with this device's delay taken out
+    // How many notes the music asks for right now (hit or not) and whether
+    // any of them is still open — the mash rule and the wrong-key rule.
+    let due = 0, openDue = 0;
+    for (const n of songNotesRef.current) {
+      if (n.skip) continue;
+      if (Math.abs(tq - (n.t + SONG_LEAD)) <= win) { due++; if (!n.hit && !n.missed) openDue++; }
+    }
+    const nowS = tnow / 1000;
+    const recent = pressTimesRef.current.filter(t => nowS - t < MASH_WINDOW);
+    const before = recent.length;
+    recent.push(nowS);
+    pressTimesRef.current = recent;
+    const now = performance.now();
+    if (pressIsMash(before, due)) { wrongPress("mash", inPC, now); return; }
+    // Prefer an exact note (pitch + octave) match first — same two-hand
+    // reason as above — and fall back to a pitch-class match (an octave off
+    // still counts; a mic reading is judged tuning-aware) inside the window.
     let best = null, bestd = 1e9;
     for (const n of songNotesRef.current) {
-      if (n.hit || n.missed || n.note !== d.note) continue;
-      const dt = Math.abs(songTime - (n.t + SONG_LEAD));
+      if (n.hit || n.missed || n.skip || n.note !== d.note) continue;
+      const dt = Math.abs(tq - (n.t + SONG_LEAD));
       if (dt < bestd) { bestd = dt; best = n; }
     }
-    if (!best) {
+    if (!best || bestd > win) {
+      best = null; bestd = 1e9;
       for (const n of songNotesRef.current) {
-        if (n.hit || n.missed || !songPCMatches(d, pcOf(n.note))) continue;
-        const dt = Math.abs(songTime - (n.t + SONG_LEAD));
+        if (n.hit || n.missed || n.skip || !songPCMatches(d, pcOf(n.note))) continue;
+        const dt = Math.abs(tq - (n.t + SONG_LEAD));
         if (dt < bestd) { bestd = dt; best = n; }
       }
     }
-    const now = performance.now();
-    if (best && bestd <= SONG_HITWINDOW) {
-      best.hit = true;
-      const perfect = bestd <= SONG_PERFECT;
-      songRocketsRef.current.push({ lane: best.lane, hue: laneHue(best.note), t0: now, dur: 170, big: perfect }); // launch a rocket to blow up the meteor
-      playWhoosh(); // 🚀 lift-off
-      songHitsRef.current++;
-      songComboRef.current++;
-      const combo = songComboRef.current;
-      if (combo > songMaxComboRef.current) songMaxComboRef.current = combo;
-      if (perfect) songPerfectsRef.current++;
-      // Rhythm/Dynamics skill tracking — timing precision given the note was
-      // already right (kept separate from note-accuracy's own ok/miss so the
-      // same failure is never double-counted across two skills), and MIDI
-      // touch consistency when a velocity is available.
-      if (perfect) songTimingRef.current.ok++; else songTimingRef.current.miss++;
-      if (d.vel != null) songVelsRef.current.push(d.vel);
-      // FEVER MODE — at a big combo the screen goes wild and score doubles.
-      // A sustained fever gets one further escalation moment at combo 60 (past
-      // where the old comboWord/score-mult tiers used to flatline) — a second
-      // "the game still notices you" beat without also inflating the numeric
-      // multiplier, which stays a clean, easy-to-read flat 2x.
-      if (bossOn) bossDamage(perfect ? 2 : 1 + bossComboChip(combo)); // #3: perfects hit 2, every 10× combo chips +2
-      if (perfect) maybeKnowledgeDrop(best.note);                     // #4: facts drop on perfects
-      if (!songFeverRef.current && combo >= 15) { songFeverRef.current = true; setSongFever(true); playUi("levelup"); triggerShake(); announce("🔥 FEVER!"); }
-      else if (songFeverRef.current && combo === 60) { triggerShake(); spawnBurst("combo"); spawnBurst("combo"); playUi("levelup"); announce("🔥🔥 MEGA FEVER!"); }
-      const feverMult = songFeverRef.current ? 2 : 1;
-      // Score multiplier — used to hard-cap at 2x forever past combo 10
-      // (Math.min(combo,10)). Keeps that same fast 1x→2x ramp over the first
-      // 10 notes (unchanged early-game feel), then keeps growing slowly all
-      // the way to 300 instead of flatlining, so a long run/Setlist chain
-      // keeps paying off instead of going numb.
-      const comboMult = combo <= 10 ? 1 + combo * 0.1 : 2 + Math.min(combo - 10, 290) * 0.01;
-      const gained = Math.round((perfect ? 150 : 100) * comboMult * feverMult);
-      songScoreRef.current += gained;
-      pushPop("+" + gained, perfect);     // flying score number
-      playComboTone(combo);               // rising musical ladder
-      if (perfect) spawnBurst("perfect");
-      // combo-tier shout-outs
-      if (combo % 10 === 0) { triggerShake(); spawnBurst("combo"); announce(comboWord(combo)); }
-      // milestone bonus XP — 25/50/100 as before, then every 50 combo beyond
-      // that (150, 200, 250...) instead of stopping dead at 100, ramping up to
-      // a 500 EXP cap so a marathon run always has a next target ahead.
-      if (combo === 25 || combo === 50 || (combo >= 100 && combo % 50 === 0)) {
-        const bonusXp = combo <= 100 ? (combo === 25 ? 50 : combo === 50 ? 100 : 200) : Math.round(Math.min(500, 200 + (combo - 100) * 1.5));
-        gainExp(bonusXp, {});
-        spawnBurst("combo"); spawnBurst("combo"); spawnBurst("combo");
-        setSongBonus({ id: Date.now(), text: `🎯 x${combo} +${bonusXp} EXP!` });
-        clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 1500);
-        playUi("levelup");
-      }
-      // surprise variable bonus on a lucky perfect
-      if (perfect && Math.random() < 0.06) {
-        const bonus = 8 + Math.floor(Math.random() * 18);
-        earnCoins(bonus); spawnBurst("combo"); playUi("reward");
-        setSongBonus({ id: Date.now(), text: "+" + bonus + " 🪙" });
-        clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 900);
-      }
-      songLaneFlashRef.current[best.lane] = { ok: true, until: now + 220 };
-      flashJudge(perfect ? "perfect" : "good");
-      // Voice the hit only for a silent MIDI controller. A tap already sounded via
-      // the keyboard, and mic input means the real piano already sounded — replaying
-      // it would just echo back into the mic and cause phantom extra hits.
-      if (src === "midi") { playPianoNote(best.note, 0.5); songEchoRef.current[pcOf(best.note)] = performance.now(); }
-    } else {
+    const grade = best ? judgeOffset(bestd, kind, src) : null;
+    if (best && grade) hitNote(best, grade, tq - (best.t + SONG_LEAD), songTime - (best.t + SONG_LEAD), src, d, now);
+    else if (openDue > 0) wrongPress("wrong", inPC, now);
+    else {
+      // a stray key with nothing due: no cost, just the lane's red flicker
       const lane = songLanesRef.current.findIndex(x => pcOf(x) === inPC);
       if (lane >= 0) songLaneFlashRef.current[lane] = { ok: false, until: now + 150 };
     }
   }
+  /* A graded hit. `off` is how early (−) or late (+) it was after the learned
+     delay; `rawOff` is the same before it, which is what the delay is
+     learned from. */
+  function hitNote(best, grade, off, rawOff, src, d, now) {
+    best.hit = true;
+    const g = songGradesRef.current;
+    g[grade]++;
+    const perfect = grade === "perfect";
+    const waitMode = !!practiceRef.current; // practice mode: the song waited for this note
+    const practice = !!(drillRef.current || (songMetaRef.current && songMetaRef.current.intro) || waitMode);
+    if (waitMode) practiceRef.current.waitSince = 0;
+    const cs = calibSamplesRef.current[src];
+    // (a press into a waiting song says nothing about the device's delay)
+    if (!waitMode && cs && cs.length < CALIB_HITS) {
+      cs.push(rawOff);
+      if (cs.length === CALIB_HITS) {
+        const c = calibrate(cs);
+        calibRef.current[src] = c;
+        lsSet("tg_pa_cal_" + src, c.toFixed(3));
+      }
+    }
+    songRocketsRef.current.push({ lane: best.lane, hue: laneHue(best.note), t0: now, dur: 170, big: perfect }); // launch a rocket to blow up the meteor
+    fx(playWhoosh); // 🚀 lift-off
+    songHitsRef.current++;
+    songComboRef.current++;
+    const combo = songComboRef.current;
+    if (combo > songMaxComboRef.current) songMaxComboRef.current = combo;
+    if (perfect) songPerfectsRef.current++;
+    // Rhythm/Dynamics skill tracking — timing precision given the note was
+    // already right (kept separate from note-accuracy's own ok/miss so the
+    // same failure is never double-counted across two skills), and MIDI
+    // touch consistency when a velocity is available.
+    if (perfect) songTimingRef.current.ok++; else songTimingRef.current.miss++;
+    if (d.vel != null) songVelsRef.current.push(d.vel);
+    if (bossOnRef.current) bossDamage(bossHit(grade, combo));
+    if (perfect && !practice) maybeKnowledgeDrop(best.note);
+    // FEVER — once the combo reaches 30% of the song's notes (at least 10),
+    // score doubles until a miss, and the band adds its arpeggio.
+    const totalNotes = songTotalRef.current || 0;
+    if (waitMode) {
+      // practice: the hit lands, no score, no Fever — just the note and its sparkle
+      songLaneFlashRef.current[best.lane] = { ok: true, until: now + 220 };
+      flashJudge(grade, null, best.lane);
+      if (src === "midi") { playPianoNote(best.note, 0.5); songEchoRef.current[pcOf(best.note)] = performance.now(); }
+      return;
+    }
+    if (!songFeverRef.current && combo >= feverAt(totalNotes)) { songFeverRef.current = true; setSongFever(true); fx(() => playUi("levelup")); triggerShake(); announce("🔥 FEVER!"); }
+    else if (songFeverRef.current && combo === Math.max(20, Math.ceil(totalNotes * 0.6))) { triggerShake(); spawnBurst("combo"); spawnBurst("combo"); fx(() => playUi("levelup")); announce("🔥🔥 MEGA FEVER!"); }
+    const feverMult = songFeverRef.current ? 2 : 1;
+    const gained = Math.round(POINTS[grade] * comboMultOf(combo) * feverMult);
+    songScoreRef.current += gained;
+    pushPop("+" + gained, perfect, best.lane);     // the score, rising off the lane
+    fx(() => playChordDing(bandRef.current ? bandRef.current.chordAt(best.beat || 0) : null, combo)); // a chord tone, climbing with the combo
+    if (perfect) spawnBurst("perfect", best.lane);
+    // combo-tier shout-outs
+    if (combo % 10 === 0) { triggerShake(); spawnBurst("combo", best.lane); announce(comboWord(combo)); }
+    if (!practice) {
+      // combo marks at 25 / 50 / 75 / 100% of the song's notes without a
+      // miss (play-along-judge COMBO_MARKS) — every song can reach all four.
+      // The random coin drop on a lucky Perfect is gone: the run's rewards
+      // come at the end, including its one chest.
+      const bonusXp = comboMarkExp(combo, totalNotes);
+      if (bonusXp) {
+        gainExp(bonusXp, {});
+        spawnBurst("combo", best.lane);
+        const pct = Math.round(combo / Math.max(1, totalNotes) * 100);
+        setSongBonus({ id: Date.now(), text: `🎯 ${pct >= 100 ? "100%" : "x" + combo} +${bonusXp} EXP!` });
+        clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 1500);
+        fx(() => playUi("levelup"));
+      }
+    }
+    songLaneFlashRef.current[best.lane] = { ok: true, until: now + 220 };
+    flashJudge(grade, perfect ? null : off < 0 ? "early" : "late", best.lane);
+    // Voice the hit only for a silent MIDI controller. A tap already sounded via
+    // the keyboard, and mic input means the real piano already sounded — replaying
+    // it would just echo back into the mic and cause phantom extra hits.
+    if (src === "midi") { playPianoNote(best.note, 0.5); songEchoRef.current[pcOf(best.note)] = performance.now(); }
+  }
+  /* A key that is not the note (or one key too many in a burst): the combo
+     breaks, and the press counts against accuracy — a single wrong key is
+     forgiven in kind mode, mashing never is (see accuracyOf). */
+  function wrongPress(kind, inPC, now) {
+    const g = songGradesRef.current;
+    g[kind]++;
+    if (practiceRef.current) {
+      // practice: no cost — the right note sounds, softly, as the guide
+      const lane = songLanesRef.current.findIndex(x => pcOf(x) === inPC);
+      if (lane >= 0) songLaneFlashRef.current[lane] = { ok: false, until: now + 150 };
+      const wait = (songNotesRef.current || []).find(n => !n.hit && !n.skip);
+      if (wait && now - (practiceRef.current.guideAt || 0) > 600) { practiceRef.current.guideAt = now; playPianoNote(wait.note, 0.45, 0.3); }
+      flashJudge("wrong", null, lane >= 0 ? lane : null);
+      return;
+    }
+    songComboRef.current = 0;
+    if (songFeverRef.current) { songFeverRef.current = false; setSongFever(false); }
+    const lane = songLanesRef.current.findIndex(x => pcOf(x) === inPC);
+    if (lane >= 0) songLaneFlashRef.current[lane] = { ok: false, until: now + 150 };
+    if (kind === "wrong" || g.mash % 4 === 1) flashJudge("wrong", null, lane >= 0 ? lane : null);
+  }
   // ════ plan items 1/3/4/8 helpers ════
   // #3: one boss-fx flash at a time (hit / defeat / attack)
   function bossFlash(kind) {
-    setBossFx({ id: Date.now(), kind });
+    setBossFx({ id: ++bossFxSeqRef.current, kind }); // a counter: consecutive events alternate (see PaBoss)
     clearTimeout(bossFxT.current);
     bossFxT.current = setTimeout(() => setBossFx(null), 700);
   }
-  function bossDamage(base) {
-    if (!bossOn) return;
-    bossHpRef.current = Math.max(0, bossHpRef.current - base);
-    bossHpDirtyRef.current = true;
-    if (bossHpRef.current <= 0) { bossFlash("defeat"); }
+  /* The bar moves on every hit now. It used to be flushed to React from the
+     HUD timer, whose closure had captured bossOn=false before the run began,
+     so the flush never happened and the bar sat at 100% for the whole song. */
+  function bossDamage(dmg) {
+    if (!bossOnRef.current || bossHpRef.current <= 0) return;
+    bossHpRef.current = Math.max(0, bossHpRef.current - dmg);
+    setBossHp(bossHpRef.current);
+    if (bossHpRef.current <= 0) {
+      bossFlash("defeat"); fx(() => playUi("levelup"));
+      if (!bossVerdictRef.current) {   // plan 2.4: one engine verdict per boss
+        const hub = tigaNow();
+        const hits = songHitsRef.current || 0, miss = songMissRef.current || 0;
+        const v = hub ? hub.tigaHub.explainSongResult({ acc: Math.round(hits * 100 / Math.max(1, hits + miss)), stars: null, maxCombo: songMaxComboRef.current || 0, missedNotes: [], topic: 8 }, readMemory()) : null;
+        bossVerdictRef.current = v && v.tip ? { id: Date.now(), text: v.tip } : null;
+        setBossVerdict(bossVerdictRef.current);
+      }
+    }
     else bossFlash("hit");
   }
   // #4: maybe drop a knowledge card on a PERFECT hit — max one per pitch
@@ -996,7 +1940,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     let f = f0;
     try {
       const shelf = JSON.parse(localStorage.getItem("tg_kdrops") || "[]");
-      const ranked = tigaHub.knowledgeForNote(noteName, { candidates: { [f0.pc]: f0 }, shelf });
+      const hub = tigaNow();   // plan v3 1.5: model loads lazy — no engine yet → keep the note's own fact
+      const ranked = hub && hub.tigaHub.knowledgeForNote ? hub.tigaHub.knowledgeForNote(noteName, { candidates: { [f0.pc]: f0 }, shelf }) : null;
       if (ranked && ranked.fact) f = ranked.fact; else if (ranked === null && shelf.some(x => x.pc === f0.pc)) return; // specialist says "already learned" → keep the drop budget for fresh facts
     } catch (e) { /* hub absent → own-note fact */ }
     kDroppedRef.current[noteName] = true;
@@ -1018,38 +1963,108 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   // #1: called from finishSong with this run's graded notes — builds the
   // drill plan shown on the result screen.
   function captureDrillPlan(notes) {
-    const plan = buildDrillPlan(notes, { max: 4 });
-    drillPlanRef.current = plan; // HUD-timer closures read the ref, not state
+    const plan = buildDrillPlan((notes || []).filter(n => !n.skip), { max: 4 });
+    drillPlanRef.current = plan;
     setDrillPlan(plan);
     setDrillActive(false);
   }
-  // #1: drill JUST one segment — start/end seconds become a temporary note
-  // window on a slower ladder rung; finishing one pass climbs the ladder,
-  // 1× pass clears the drill and restores the song tempo.
-  function startDrill(seg, forcedRung) {
-    if (!seg) return;
-    // Save the SONG's tempo (state value — what the tempo buttons last set),
-    // then pick the ladder rung: always start at 75% (or the song's own tempo
-    // if it's already slower) and climb to 1× only after real passes.
-    drillSavedTempoRef.current = songTempo || 1;
-    const rung = forcedRung || firstDrillTempo(drillSavedTempoRef.current);
-    drillTempoRef.current = rung;
-    setSongTempo(rung);
+  /* Loop JUST this section. It used to restart the whole song from 0:00
+     with everything outside the section marked missed — a blank screen for
+     as long as the section was into the song, a few notes, then more blank
+     screen, then a 0-star result, and the tempo never climbed because the
+     timer that should have noticed the pass had captured drillActive=false. */
+  function startDrill(seg) {
+    if (!seg || !songDataRef.current) return;
+    const saved = songTempoStateRef.current || 1;
+    const rung = firstDrillTempo(saved);
+    drillRef.current = { seg, start: Math.max(0, seg.start - 0.5), end: seg.end + 0.5, rung, savedTempo: saved, passes: 0, waiting: false, firstHit: 0 };
     setDrillActive(true);
-    // startSongPlay synchronously resets the drill window and songTempoRef —
-    // so the drill-specific values go back AFTER that call returns (it only
-    // yields at its first await, well past those resets).
-    startSongPlay();
-    songTempoRef.current = rung;
-    drillStartSecRef.current = Math.max(0, seg.start - 0.5);
-    drillEndSecRef.current = seg.end + 0.5;
-    announce(lang === "th" ? ("🎯 ดริล " + (seg.idx + 1) + " · " + (Math.round(rung * 100)) + "%") : lang === "zh" ? ("🎯 练习 " + (seg.idx + 1)) : ("🎯 Drill " + (seg.idx + 1) + " · " + Math.round(rung * 100) + "%"));
+    clearSongPreview();
+    clearTimeout(resumeTRef.current); pausedRef.current = null; setSongPause(null);
+    songFinishedRef.current = false;
+    runMetaRef.current = null; // practice, not a run of the song
+    bossOnRef.current = false; setBossOn(false);
+    setSongPhase("playing");
+    songRunRef.current = true;
+    logPa(`drill:${songIdOf(songMetaRef.current)}:${seg.idx}:start`);
+    if (!bandRef.current) makeBand(songMetaRef.current, songDataRef.current);
+    beginDrillPass();
+    ensureListeners();
+    startLoops();
+  }
+  function beginDrillPass() {
+    const dr = drillRef.current, data = songDataRef.current;
+    if (!dr || !data) return;
+    let first = Infinity;
+    for (const n of data.notes) {
+      const inWin = n.t >= dr.start && n.t <= dr.end;
+      n.hit = false; n.missed = false; n.skip = !inWin;
+      if (inWin && n.t < first) first = n.t;
+    }
+    if (!isFinite(first)) first = dr.start;
+    songNotesRef.current = data.notes;
+    songLanesRef.current = data.lanes;
+    songTotalRef.current = data.notes.filter(n => !n.skip).length;
+    songLastTimeRef.current = dr.end;
+    songScoreRef.current = 0; songComboRef.current = 0; songMaxComboRef.current = 0;
+    resetRunCounters();
+    songFeverRef.current = false; setSongFever(false);
+    songLaneFlashRef.current = {}; songRocketsRef.current = []; songBlastsRef.current = []; fxListRef.current = [];
+    songDebounceRef.current = {}; songEchoRef.current = {};
+    songTempoRef.current = dr.rung;
+    // one bar of count-in clicks, then the section's first note lands
+    const meta = songMetaRef.current;
+    const spb = 60 / ((meta && meta.bpm) || 90);
+    const barSec = beatsPerBarOf(meta) * spb;
+    const s0 = Math.max(0, first + SONG_LEAD - barSec);
+    dr.firstHit = first + SONG_LEAD;
+    dr.waiting = false;
+    songStartClockRef.current = getAC().currentTime - s0 / dr.rung;
+    metroBeatRef.current = null;
+    if (bandRef.current) bandRef.current.cut();
+    pickupRef.current = meta ? pickupBeatsOf(meta.seq || [], beatsPerBarOf(meta)) : 0;
+    songCountdownRef.current = 0; setSongCountdown(null);
+    setSongHud({ score: 0, combo: 0, acc: 100, progress: 0 });
+    setDrillHud({ idx: dr.seg.idx, rung: dr.rung, pass: dr.passes + 1, need: 90 });
+  }
+  function endDrillPass() {
+    const dr = drillRef.current;
+    if (!dr || dr.waiting) return;
+    dr.waiting = true;
+    const g = songGradesRef.current, total = songTotalRef.current || 1;
+    const acc = accuracyOf({ ...g, total, kind: songKindRef.current });
+    dr.passes++;
+    const id = songIdOf(songMetaRef.current);
+    const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+    if (acc >= 90) {
+      gainExp(10, { reason: "pa-drill" });
+      logPa(`drill:${id}:${dr.seg.idx}:${Math.round(dr.rung * 100)}`);
+      if (dr.rung >= 1 - 1e-9) {
+        announce(T("✅ ผ่านท่อนนี้แล้ว!", "✅ Section cleared!", "✅ 这一段过关了！"));
+        setDrillCleared(c => c.includes(dr.seg.idx) ? c : [...c, dr.seg.idx]);
+        setTimeout(() => { if (drillRef.current === dr) endDrill(); }, 1100);
+        return;
+      }
+      dr.rung = nextDrillTempo(dr.rung);
+      announce(T(`⏫ ผ่าน! เท็มโป ${Math.round(dr.rung * 100)}%`, `⏫ Passed! Tempo ${Math.round(dr.rung * 100)}%`, `⏫ 通过！速度 ${Math.round(dr.rung * 100)}%`));
+    } else {
+      announce(T(`อีกรอบ — แม่น ${acc}% ต้องได้ 90%`, `Again — ${acc}%, need 90%`, `再来 — ${acc}%，需要 90%`));
+    }
+    setTimeout(() => { if (drillRef.current === dr && songRunRef.current && !pausedRef.current) beginDrillPass(); }, 1100);
   }
   function endDrill() {
-    setDrillActive(false);
-    drillStartSecRef.current = null; drillEndSecRef.current = null;
-    setSongTempo(drillSavedTempoRef.current);
-    songTempoRef.current = drillSavedTempoRef.current;
+    const dr = drillRef.current;
+    drillRef.current = null;
+    setDrillActive(false); setDrillHud(null);
+    songRunRef.current = false;
+    cancelAnimationFrame(songRafRef.current);
+    clearInterval(songHudTimerRef.current);
+    stopBand();
+    clearTimeout(resumeTRef.current); pausedRef.current = null; setSongPause(null);
+    stopListeners();
+    if (dr) songTempoRef.current = dr.savedTempo;
+    for (const n of (songNotesRef.current || [])) n.skip = false;
+    setSongPhase(songResultRef.current ? "done" : "ready");
   }
 
   // Used to hard-cap at "UNSTOPPABLE!" forever past combo 50 — the shout-out
@@ -1063,87 +2078,128 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     clearTimeout(songAnnounceT.current);
     songAnnounceT.current = setTimeout(() => setSongAnnounce(null), 1100);
   }
-  function pushPop(text, perfect) {
-    const id = Date.now() + Math.random();
-    setSongPops(prev => [...prev.slice(-7), { id, text, perfect, x: 26 + Math.random() * 48 }]);
-    setTimeout(() => setSongPops(prev => prev.filter(p => p.id !== id)), 780);
+  // The scene's hit effects (drawn by songLoop): one list, newest last.
+  function pushFx(e) {
+    const l = fxListRef.current;
+    if (e.k === "judge" && e.lane != null) for (let i = l.length - 1; i >= 0; i--) if (l[i].k === "judge" && l[i].lane === e.lane) l.splice(i, 1); // one word per lane
+    l.push(e);
+    if (l.length > 40) l.shift();
   }
-  function flashJudge(kind) {
-    setSongJudge({ kind, id: Date.now() });
-    clearTimeout(songJudgeTimerRef.current);
-    songJudgeTimerRef.current = setTimeout(() => setSongJudge(null), 650);
-  }
+  function pushPop(text, perfect, lane = null) { pushFx({ k: "pop", text, perfect, lane, t0: performance.now() }); }
+  // kind: perfect | great | good | miss | wrong; el: "early" | "late" | null
+  function flashJudge(kind, el = null, lane = null) { pushFx({ k: "judge", kind, el, lane, t0: performance.now() }); }
   function triggerShake() { setSongShake(true); clearTimeout(songShakeT.current); songShakeT.current = setTimeout(() => setSongShake(false), 380); }
-  function spawnBurst(kind) {
-    const id = Date.now() + Math.random();
-    setSongBursts(prev => [...prev.slice(-4), { id, kind }]);
-    setTimeout(() => setSongBursts(prev => prev.filter(b => b.id !== id)), 760);
-  }
+  function spawnBurst(kind, lane = null) { pushFx({ k: kind === "perfect" ? "spark" : "ring", lane, t0: performance.now(), seed: Math.random() * 6.283 }); }
   function flashGo() { setSongGo(true); clearTimeout(songGoT.current); songGoT.current = setTimeout(() => setSongGo(false), 700); }
+  /* The end of a practice run: 20 EXP, nothing recorded (no stars, best,
+     ghost, medal, coins, weak spots or daily quest), and the result card
+     invites the real round. */
+  function finishPractice() {
+    const meta = songMetaRef.current, id = songIdOf(meta);
+    practiceRef.current = null;
+    gainExp(PRACTICE_EXP, {});
+    const rm = runMetaRef.current;
+    logPa(`practice:${id}:done`, rm ? performance.now() - rm.startedAt : 0);
+    logFps();
+    gfxRunEnd();
+    runMetaRef.current = null;
+    lastEndRef.current = { id, at: performance.now() };
+    setSongCountdown(null); setSongNextLit(null);
+    setSongStaffNotes(EMPTY_STAFF_WIN); staffBaseRef.current = null; staffSigRef.current = "";
+    const g = songGradesRef.current;
+    setSongResult({ practice: true, exp: PRACTICE_EXP, total: songTotalRef.current || 0, wrong: g.wrong + g.mash });
+    setSongPhase("done");
+  }
   function finishSong() {
     if (songFinishedRef.current) return;
     songFinishedRef.current = true;
     songRunRef.current = false;
     cancelAnimationFrame(songRafRef.current);
     clearInterval(songHudTimerRef.current);
-    stopPracticeListeners();
+    stopBand();
+    stopListeners();
+    const meta = songMetaRef.current;
+    if (meta && meta.intro) { finishIntro(); return; }
+    if (practiceRef.current) { finishPractice(); return; }
     const total = songTotalRef.current || 1;
     const hits = songHitsRef.current;
-    const acc = Math.round(hits / total * 100);
-    const stars = acc >= 90 ? 3 : acc >= 70 ? 2 : acc >= 40 ? 1 : 0;
+    const g = songGradesRef.current;
+    const kind = songKindRef.current;
+    // Stars come from accuracy under the timing rules (play-along-judge):
+    // Perfect 100%, Great 80%, Good 50% of a note, minus wrong keys.
+    const acc = accuracyOf({ ...g, total, kind });
+    const stars = starsFor(acc);
     const maxCombo = songMaxComboRef.current;
     const perfects = songPerfectsRef.current;
-    const fullCombo = songMissRef.current === 0 && hits === total && total > 0;
-    const allPerfect = perfects === total && total > 0;
-    const reward = Math.round(40 + acc * 0.4 + Math.min(maxCombo, 20) + (allPerfect ? 50 : fullCombo ? 25 : 0));
+    const clean = g.wrong + g.mash === 0;
+    const fullCombo = songMissRef.current === 0 && hits === total && total > 0 && clean;
+    const allPerfect = perfects === total && total > 0 && clean;
+    // A run where nothing was really played (left to play out on its own, or
+    // mashed — play-along-judge runPlayed) is not practice: it earns no EXP,
+    // and it does not count toward the day's streak (which opens the daily
+    // chest), the daily quest or the weekly "play N games" challenges — each
+    // of those pays coins or EXP, and they are for playing, not for pressing
+    // Start.
+    const played = runPlayed({ hits, mash: g.mash, acc });
+    // EXP by how the run went
+    const reward = played ? Math.round(40 + acc * 0.4 + Math.min(maxCombo, 20) + (allPerfect ? 50 : fullCombo ? 25 : 0)) : 0;
     const prevBest = loadBest();
     const score = songScoreRef.current;
     const newBest = score > prevBest;
+    const songId = songIdOf(meta);
     if (newBest) {
       try { localStorage.setItem(songKey(), String(score)); } catch (e) {} setSongBest(score);
-      try { localStorage.setItem("tg_ghost_" + (songMeta ? (songMeta.id || songMeta.en) : "x"), JSON.stringify(songSamplesRef.current.slice(-240))); } catch (e) {}
+      try { localStorage.setItem("tg_ghost_" + songId, JSON.stringify(songSamplesRef.current.slice(-240))); } catch (e) {}
     }
-    logPractice(acc);
-    recordMemory(tr(songMeta, lang), acc);
-    logGame({ song: (songMeta && songMeta.id) || "song", acc, score, stars });
-    logActivity("game", (songMeta && songMeta.id) || "song", hits, Math.max(0, total - hits),
+    const rec = recordSongResult(songId, stars, acc);
+    if (played) logPractice(acc);
+    recordMemory(tr(meta, lang), acc);
+    logGame({ song: songId, acc, score, stars });
+    logActivity("game", songId, hits, Math.max(0, total - hits),
       songDataRef.current && songDataRef.current.dur ? songDataRef.current.dur / (songTempoRef.current || 1) + SONG_LEAD : 60);
-    const songId = (songMeta && songMeta.id) || "song";
     if (songTimingRef.current.ok + songTimingRef.current.miss >= 3) {
       logActivity("game", songId, songTimingRef.current.ok, songTimingRef.current.miss, 0, "rhythm");
     }
     const dyn = scoreDynamics(songVelsRef.current);
     if (dyn) logActivity("game", songId, dyn.ok, dyn.miss, 0, "dynamics");
-    // Daily Song Quest (plan #8): finishing TODAY's featured song at least
-    // once completes the daily quest — one-time bonus + star record for the
-    // day card on SongListPage. Deterministic day-key, no server round-trip.
+    // Today's song, played to at least one star, pays once (play-along-progress claimDaily).
+    let dailyPaid = false;
     try {
-      const ds = dailySongFor();
-      if (ds && songMeta && ds.id === songMeta.id) {
-        const dkey = new Date().toISOString().slice(0, 10);
-        const st = readDailySongState(dkey);
-        if (!st.done) {
-          st.done = true; st.stars = stars;
-          localStorage.setItem("tg_daily_song", JSON.stringify(st));
-          earnCoins(DAILY_SONG_REWARD.coins); gainExp(DAILY_SONG_REWARD.exp); // play itself already ticked the daily quest via the song reward
-          setSongBonus({ id: Date.now(), text: "📆 +" + DAILY_SONG_REWARD.coins + " 🪙 +" + DAILY_SONG_REWARD.exp + " EXP!" });
-          clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 2200);
-          playUi("reward");
-        } else if (stars > (st.stars || 0)) { st.stars = stars; localStorage.setItem("tg_daily_song", JSON.stringify(st)); }
+      if (claimDaily(songId, stars)) {
+        dailyPaid = true;
+        earnCoins(DAILY_SONG_REWARD.coins); gainExp(DAILY_SONG_REWARD.exp);
+        setSongBonus({ id: Date.now(), text: "📆 +" + DAILY_SONG_REWARD.coins + " 🪙 +" + DAILY_SONG_REWARD.exp + " EXP!" });
+        clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 2200);
+        playUi("reward");
+        logPa(`daily:${songId}`);
       }
-    } catch (e) { /* quest is best-effort — never block the result screen */ }
-    const coinReward = 5 + stars * 10 + (allPerfect ? 20 : fullCombo ? 10 : 0);
-    earnCoins(coinReward);
-    bumpWeekly("games", 1); if (perfects) bumpWeekly("perfect", perfects);
+    } catch (e) { /* the quest is best-effort — never block the result screen */ }
+    // Coins for the run: 10 / 15 / 20 by stars, for the song's first three
+    // runs of the day; after that the song still pays EXP, medals and the
+    // chest, not coins (play-along-judge runCoins / RUN_COIN_RUNS).
+    const runNo = countRunToday(songId);
+    const coinReward = runNo <= RUN_COIN_RUNS ? runCoins(stars) : 0;
+    if (coinReward) earnCoins(coinReward);
+    // The song's medal (bronze → crown); each medal reached for the first
+    // time pays once — coins and EXP, through the same channels as the rest.
+    const medal = recordMedal(songId, medalOf({ stars, fullCombo, tempo: songTempoRef.current || 1 }));
+    let medalCoins = 0, medalExp = 0;
+    for (const t of medal.gained) { medalCoins += MEDAL_REWARD[t].coins; medalExp += MEDAL_REWARD[t].exp; }
+    if (medalCoins) earnCoins(medalCoins);
+    if (medalExp) gainExp(medalExp, {});
+    if (played) bumpWeekly("games", 1);
+    if (perfects) bumpWeekly("perfect", perfects);
     setSongCountdown(null);
     setSongNextLit(null);
-    setSongStaffNotes(EMPTY_STAFF_WIN);
-    const missedNotes = songNotesRef.current.filter(n => n.missed).map(n => n.note);
+    setSongStaffNotes(EMPTY_STAFF_WIN); staffBaseRef.current = null; staffSigRef.current = "";
+    const missedNotes = songNotesRef.current.filter(n => n.missed && !n.skip).map(n => n.note);
     if (missedNotes.length) recordNoteMisses(missedNotes);
-    captureDrillPlan(songNotesRef.current); // #1: heat-map source for the result screen
-    if (drillActive) endDrill();
-    if (bossOn) { // #3: defeat bounty — killed the boss (≥80% of notes) pays by stars
-      if (bossHpRef.current <= 0 && stars >= 1) {
+    captureDrillPlan(songNotesRef.current); // the heat map behind "practise the part you missed"
+    setDrillCleared([]);
+    let bossWon = false;
+    if (bossOnRef.current) { // defeat bounty — killed the boss, paid by stars
+      bossWon = bossHpRef.current <= 0;
+      if (bossWon && stars >= 1) {
         const bounty = bossRewardCoins(stars);
         if (bounty > 0) {
           earnCoins(bounty);
@@ -1151,15 +2207,19 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
           clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 2000);
         }
       }
-      setBossOn(false); setBossHp(0);
+      bossOnRef.current = false; setBossOn(false);
     }
     // Setlist mode: this song's own log entry, always recorded even though the
     // combined concert score (songScoreRef.current, not reset between songs —
     // see startSongPlay's continueSetlist param) is what actually gets shown.
-    if (songSetlistRef.current) songSetlistLogRef.current.push({ song: songMeta, acc, stars });
+    if (songSetlistRef.current) songSetlistLogRef.current.push({ song: meta, acc, stars });
     const setlistDone = songSetlistRef.current && songSetlistIdxRef.current >= songSetlistRef.current.length - 1;
+    const bestAcc = Math.max(acc, rec.prevAcc);
     setSongResult({
       acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes,
+      grades: { perfect: g.perfect, great: g.great, good: g.good, miss: songMissRef.current, wrong: g.wrong, mash: g.mash },
+      prevStars: rec.prevStars, newStars: rec.newStars, bestAcc, goal: nextStarGoal(bestAcc), kind, dailyPaid, bossWon,
+      medal: medal.now, medalNew: medal.gained, medalCoins, medalExp, runNo, coinCapped: runNo > RUN_COIN_RUNS && stars >= 1,
       // only present once every song in a setlist has finished — the concert's
       // combined numbers, for a dedicated recap treatment on the result screen
       setlist: setlistDone ? songSetlistLogRef.current.slice() : null,
@@ -1167,27 +2227,27 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     reportPvpResult({ score, acc, stars }); // online PvP: my final result → the room (decides the winner on both sides)
     // TIGA hub: real-data coach line for this run (what engine answered shows
     // in the badge). Real MIDI velocity/timing evidence rides along; — never invents.
-    try { setSongTigaTip(tigaHub.explainSongResult({ acc, stars, maxCombo, missedNotes, dyn: scoreDynamics(songVelsRef.current), timing: (songTimingRef.current.ok + songTimingRef.current.miss >= 3) ? songTimingRef.current : null, topic: 8 }, readMemory())); } catch (e) { setSongTigaTip(null); }
-    gainExp(reward, { quest: true });
-    // Gamification: variable reward — mystery chest (20% chance on acc >= 70%)
-    if (acc >= 70 && Math.random() < 0.20) {
+    try {
+  const hub = tigaNow();
+  if (!hub) setSongTigaTip(null);
+  else {
+    const tip = hub.tigaHub.explainSongResult({ acc, stars, maxCombo, missedNotes, dyn: scoreDynamics(songVelsRef.current), timing: (songTimingRef.current.ok + songTimingRef.current.miss >= 3) ? songTimingRef.current : null, topic: 8 }, readMemory());
+    // plan v3.4 6.3: the KB-grounded one-step-up next-song advice rides on the same card
+    const next = hub.tigaNextSongAdvice ? hub.tigaNextSongAdvice(readMemory(), lang) : null;
+    setSongTigaTip(next ? { ...tip, nextSong: next } : tip);
+  }
+} catch (e) { setSongTigaTip(null); }
+    if (played) gainExp(reward, { quest: true });
+    // One chest at the end, its chance by stars (5 / 10 / 20%) — it replaced
+    // the lucky-Perfect coins, the 20% mystery chest and the 15% lucky EXP.
+    if (Math.random() < chestChance(stars)) {
       const chestRewards = [[50,5,"💎"],[100,10,"🎁"],[75,8,"⭐"],[150,15,"🏆"],[30,3,"🎵"]];
       const [cxp, ccoins, cicon] = chestRewards[Math.floor(Math.random() * chestRewards.length)];
       setTimeout(() => {
         gainExp(cxp, {}); earnCoins(ccoins);
         setMysteryChest({ xp: cxp, coins: ccoins, icon: cicon });
-        playUi("levelup");
+        fx(() => playUi("levelup"));
       }, 2200);
-    }
-    // Gamification: lucky bonus XP (15% chance after any song completion)
-    if (Math.random() < 0.15) {
-      const bonusXp = [50, 75, 100][Math.floor(Math.random() * 3)];
-      setTimeout(() => {
-        gainExp(bonusXp, {});
-        setLuckyToast({ xp: bonusXp });
-        clearTimeout(luckyToastTimer.current);
-        luckyToastTimer.current = setTimeout(() => setLuckyToast(null), 3000);
-      }, 1000);
     }
     // C5: Family Battle — capture score for current player
     setBattleData((bd: any) => {
@@ -1197,20 +2257,27 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     });
     // D1: stop backing chords when song finishes
     clearTimeout(backingTimerRef.current); backingTimerRef.current = null;
+    // usage rows: the finished run, then the frame pacing it had
+    const rm = runMetaRef.current;
+    if (rm && !rm.intro) { logPa(`end:${songId}:${stars}:${acc}:${medal.gained.length ? medal.now : 0}`, performance.now() - rm.startedAt); logFps(); }
+    gfxRunEnd();
+    runMetaRef.current = null;
+    lastEndRef.current = { id: songId, at: performance.now() };
     if (songSetlistRef.current && !setlistDone) {
       // Setlist mode: chain straight into the next song instead of ending.
       // Score/combo are refs and deliberately NOT reset here (see
-      // startSongPlay's continueSetlist param) — a concert-length combo only
-      // means something if surviving the boundary between songs actually
-      // matters, same reasoning as a real medley.
+      // startSongPlay's continueSetlist param). The next song's data goes
+      // into songMetaRef now, so its own best, ghost and backing load —
+      // the delayed start used to reach them through a stale closure.
       songSetlistIdxRef.current++;
       const nextSong = songSetlistRef.current[songSetlistIdxRef.current];
       setSongSetlistPos({ idx: songSetlistIdxRef.current, total: songSetlistRef.current.length });
       songDataRef.current = expandSong(nextSong, playAlongHandRef.current);
+      songMetaRef.current = nextSong;
       setSongMeta(nextSong);
       setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward, nextSong: tr(nextSong, lang) });
       clearTimeout(songLoopRetryT.current);
-      songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); startSongPlay(true); }, 1800);
+      songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); againViaRef.current = "concert"; startSongPlay(true); }, 1800);
     } else if (songAutoLoopRef.current) {
       // auto-loop: if enabled, restart after a brief pause instead of showing result
       // screen — songResult above is fully populated either way, but the result
@@ -1218,7 +2285,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       // (score, stars, combo, EXP) went completely unseen between restarts.
       setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward });
       clearTimeout(songLoopRetryT.current);
-      songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); startSongPlay(); }, 1800);
+      songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); againViaRef.current = "loop"; startSongPlay(); }, 1800);
     } else {
       if (setlistDone) { songSetlistRef.current = null; setSongSetlistPos(null); }
       setSongPhase("done");
@@ -1234,8 +2301,33 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (isGuest) { setSongAnalysis(buildSongFallback(lang, label, result)); return; }
     setSongAnalysisBusy(true);
     try {
-      const analysis = await analyzeSongRun(lang, label, result, runTeachingLoopForPractice, ({ system, message }) =>
-        fetchChatCompletion({ message, conversationHistory: [], system, feature: "song-analysis" }), profile);
+      // ── Jev run-classify (task: run-classify): score the run's mistake profile
+      // first (fast, ~0.1-0.5s, parallel) — note_misses 0..3, rhythm/dynamics
+      // yes/no, biggest_fix one of notes/rhythm/dynamics/confidence. The hint is
+      // appended to the askAi message so the TIGA-model pipeline (strategy
+      // selection → external AI rendering → validateTip) still owns the result;
+      // unavailable Jev → empty hint, analysis identical to pre-Jev.
+      let jevHint = "";
+      try {
+        const missedJ = (result.missedNotes || []).slice(0, 30);
+        const jr = await jevTask("run-classify",
+          `Song: ${label}. Accuracy ${result.acc}% (${result.hits}/${result.total} notes hit). Missed notes in play order: ${missedJ.length ? missedJ.join(", ") : "none — every note was hit"}.`,
+          {}, 2000);
+        if (jr.ok && jr.answers) {
+          const nm = jevScore(jr.answers.note_misses);
+          const rh = jevNoul(jr.answers.rhythm_issue);
+          const dy = jevNoul(jr.answers.dynamics_issue);
+          const bf = jevChoice(jr.answers.biggest_fix);
+          const dims = [];
+          if (nm != null) dims.push(`wrong-note severity ${nm.toFixed(1)}/3${nm >= 2 ? " (pattern/spot-specific, not random)" : ""}`);
+          if (rh != null) dims.push(`rhythm/timing dominant issue: ${rh >= 0.6 ? "yes" : "no"}`);
+          if (dy != null) dims.push(`touch/dynamics issue: ${dy >= 0.6 ? "yes" : "no"}`);
+          if (bf) dims.push(`highest-impact next fix: ${bf}`);
+          if (dims.length) jevHint = `\n\n[Pre-scored run profile (from structured analysis): ${dims.join("; ")}. Base your weakness + steps on this profile.]`;
+        }
+      } catch (e) {}
+      const analysis = await analyzeSongRun(lang, label, result, (stats, opts) => queuedUntilTiga(m => m.runTeachingLoopForPractice(stats, opts)), ({ system, message }) =>
+        fetchChatCompletion({ message: message + jevHint, conversationHistory: [], system, feature: "song-analysis" }), profile);
       if (analysis) setSongAnalysis(analysis); // analyzeSongRun never returns null
     } catch (e) { /* silent — the score/stars result above already shown, this is a bonus */ }
     setSongAnalysisBusy(false);
@@ -1301,12 +2393,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setStyleLoading(false);
   }
 
-  useEffect(() => {
-    if (songPhase === "done" && songResult && !songAnalysis && !songAnalysisBusy) {
-      fetchSongAnalysis(songResult, tr(songMeta, lang));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [songPhase, songResult]);
+  /* The run analysis is fetched when the player opens it, not after every
+     song: it is a paid AI call, and on the result screen it was one of three
+     competing pieces of advice. */
+  function requestSongAnalysis() {
+    if (songResult && !songAnalysis && !songAnalysisBusy) fetchSongAnalysis(songResult, tr(songMeta, lang));
+  }
   songLoopRef.current = songLoop;
   songInputRef.current = handleSongInput;
   songFinishRef.current = finishSong;
@@ -1318,6 +2410,14 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       songDataRef.current = expandSong(songMeta, h);
     }
   }
-  return { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, songLoopRecap, songTigaTip, songSetlistPos, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand,
-    drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, startPvpTogether: startPvpTogether };
+  return { gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput,
+    songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, requestSongAnalysis,
+    stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef,
+    detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef,
+    battleData, setBattleData, battlePickOpen, setBattlePickOpen, songBest, setSongBest,
+    songAutoLoop, setSongAutoLoop, songAutoLoopRef, songCanvasRef, songDataRef, songInputRef, songTigaTip, songRafRef, songHudTimerRef, songPreviewRef,
+    chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand,
+    pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songMetro, setSongMetro, songBand, setSongBand, songFx, setSongFx, songPractice, songGfx, setSongGfx,
+    songIntro, startIntro, skipIntro,
+    drillPlan, drillActive, drillCleared, startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf };
 }

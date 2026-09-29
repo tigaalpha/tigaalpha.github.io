@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-28T01:46:48.919Z",
+  "appVersion": "13.7.373",
+  "bundle": {
+    "file": "index.template-Cu_HB_66.js",
+    "bytes": 2718655,
+    "includesTigamodel": true,
+    "tigamodelMinifiedBytes": 1338421,
+    "chunks": [
+      {
+        "file": "index.template-Cu_HB_66.js",
+        "bytes": 2718655
+      },
+      {
+        "file": "web-RhAMf8_K.js",
+        "bytes": 657744
+      },
+      {
+        "file": "pvp-arena-BROxyI-R.js",
+        "bytes": 178418
+      },
+      {
+        "file": "TigamodelLab-nLkOke3I.js",
+        "bytes": 86640
+      },
+      {
+        "file": "AdminActivityDashboard-v9G6cmp6.js",
+        "bytes": 53158
+      },
+      {
+        "file": "TigamodelBackoffice-O5x3-ChV.js",
+        "bytes": 35493
+      },
+      {
+        "file": "university-sources-DkP7OoqL.js",
+        "bytes": 35285
+      },
+      {
+        "file": "teach-cards-CnjUhUNX.js",
+        "bytes": 19633
+      },
+      {
+        "file": "web-CAcrXj6a.js",
+        "bytes": 5340
+      },
+      {
+        "file": "web-XHdwSh4P.js",
+        "bytes": 851
+      },
+      {
+        "file": "web-D2RPiL2F.js",
+        "bytes": 813
+      },
+      {
+        "file": "web-CSLNAEEQ.js",
+        "bytes": 388
+      }
+    ]
+  },
+  "grid": {
+    "total": 1000000,
+    "started": 130000,
+    "open": 870000,
+    "startedPct": 13
+  },
+  "routes": {
+    "total": 1000,
+    "ready": 1000,
+    "partial": 0,
+    "gaps": 0,
+    "readyPct": 100,
+    "avgScore": 0.98,
+    "weakestCap": "kb"
+  },
+  "perf": {
+    "allRoutesColdMs": 31.37,
+    "allRoutesWarmMs": 0.2,
+    "summaryMs": 2.03,
+    "memoSpeedup": 156.9
+  },
+  "kb": {
+    "theoryEntries": 13414,
+    "performanceEntries": 126
+  },
+  "langs": {
+    "th": true,
+    "en": true,
+    "zh": true
+  },
+  "langsOk": true,
+  "bars": [
+    {
+      "id": "grid-measured",
+      "pass": true
+    },
+    {
+      "id": "routes-ready",
+      "pass": true
+    },
+    {
+      "id": "verdict-multilingual",
+      "pass": true
+    },
+    {
+      "id": "sweep-warm-fast",
+      "pass": true
+    },
+    {
+      "id": "summary-fast",
+      "pass": true
+    },
+    {
+      "id": "main-chunk-budget",
+      "pass": true
+    },
+    {
+      "id": "engine-out-of-main",
+      "pass": true
+    },
+    {
+      "id": "kb-depth",
+      "pass": true
+    },
+    {
+      "id": "preload-interaction-first",
+      "pass": true
+    }
+  ],
+  "barsOk": true
+}

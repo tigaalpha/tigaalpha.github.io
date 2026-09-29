@@ -5,6 +5,11 @@ in this repository. Read this before making changes — it exists so that
 independent agent sessions, run at different times by different tools,
 don't conflict with each other or with the human owner's expectations.
 
+**Talk to the owner in Thai.** Every message written to the owner (answers,
+progress updates, summaries) is in Thai, including after a context reset.
+Code, code comments, commit messages and file contents stay in English as
+they are now.
+
 ## What this is
 
 TIGA.AI — a live, revenue-generating piano-learning web app (Thai/English/
@@ -48,6 +53,49 @@ concerns. If you need the reasoning behind any particular split, `git log
 --oneline --all | grep -i phase` finds the extraction commits — each one
 explains what moved and why.
 
+**Play Along** (`use-play-along.ts` + `SongPlayOverlay.tsx`) keeps its rules
+in pure modules: `play-along-judge.ts` (timing windows, accuracy, stars,
+mashing, input-delay learning, boss numbers) and `play-along-progress.ts`
+(earned stars and best accuracy per song, locks, the daily song, what to
+play next, medals, the per-day run count); `play-along-band.ts` is the
+backing band (drums, bass, chords, the Fever arpeggio), booked ahead on the
+audio clock like the metronome and kept out of the mic's hearing. The
+judge words, score pops and sparks are drawn in the song canvas from cached
+bitmaps, not as DOM elements. `usePlayAlong` runs inside `PianoApp`, so a React state update
+there re-renders the whole app — the running game's fast-changing state
+(HUD, lit keys, staff, effects) lives in `play-along-store.ts` instead, read
+by small subscriber components in the overlay; keep new per-frame or
+per-note state there, not in `useState`. Its neon theme is
+`play-along-styles.ts`, with `pl-` class names: a top-level `.pa-*`/`.ca-*`
+rule is fingerprinted by the sprite bake and would mark every sprite stale.
+
+Robot and pet **thumbnails are pre-rendered images**, not live SVG:
+`scripts/bake-sprites.mjs` (`npm run sprites`) draws every robot head
+(`CyberAvatar headOnly`) and every level-1 pet (`PetArt`) from the real
+components in headless Chromium and writes content-hashed WebPs to
+`public/sprites/` plus the generated `sprites-manifest.ts`. `sprite.tsx`
+(`<Sprite>`, and the `HeadThumb`/`PetThumb` wrappers exported from
+`cyber-avatar.tsx`/`pet-lab.tsx`) shows them and falls back to the live
+drawing when an image is missing. **After changing robot or pet artwork —
+the drawing code or its `.ca-*`/`.pa-*` CSS — run `npm run sprites` and
+commit `public/sprites/` + `sprites-manifest.ts` with it**, or thumbnails
+keep showing the old drawing (`npm run build` prints a warning listing any
+stale sprite; it never fails the build). Baking needs Playwright + Chromium,
+which the cloud containers have preinstalled; it is not a dependency of the
+app. Big live figures (character page, arena, pet room) stay live SVG.
+The bake also gives each still a finishing pass the live SVG cannot afford
+(rim light, under-shading, bloom — `FX` in the script).
+`node scripts/bake-sprites.mjs --out=DIR` draws a preview into DIR without
+touching the shipped sprites (`--raw` leaves the finishing pass out).
+In a fight on a touch device ("lite"), the fighters and the pet are shown as
+pictures too, but these are made **on the device** (`figure-cache.tsx`): each
+pose is rendered once from the live component, rasterised, kept in Cache
+Storage and swapped in by `<FigurePic>`, with the live SVG as the fallback.
+The lobby makes the player's poses, the fight only the opponent's, and never
+while a round is live (`pauseFigures`). Stored pictures are keyed by `__ART__`,
+a build-time fingerprint of the art files (vite.config.ts), so art changes
+invalidate them automatically — no manual step, unlike the sprites.
+
 Backend: Supabase (Postgres + Auth + Storage + RLS), project id
 `gsaqgbracxnucdmtmcxz`. Schema/RPC changes live as `supabase-*.sql` files
 at the repo root, one file per feature (e.g.
@@ -70,10 +118,27 @@ and see "Hard rules" above before applying any of it.
 - **Never commit real Stripe keys, service-role keys, or other secrets.**
   None currently live in this repo; keep it that way.
 - Don't invent a payment/checkout mechanism from scratch if an equivalent
-  one already exists — `CheckoutModal`/`SchoolCheckoutModal`/
-  `BuyCurrencyModal` in `payment.tsx` are all one PromptPay/Alipay/WeChat
-  slip-upload pattern reused three times; a fourth payment surface should
-  reuse it again, not reinvent it.
+  one already exists — `CheckoutModal`/`SchoolCheckoutModal` in
+  `payment.tsx` are one PromptPay/Alipay/WeChat slip-upload pattern reused
+  twice; a new payment surface should reuse it, not reinvent it.
+- **Never sell in-game currency.** The owner removed every Coins/Gems
+  top-up on 2026-09-25 for legal reasons: `BuyCurrencyModal`, the shop and
+  profile buy buttons, the "top up gems" popup action, the parent PIN /
+  spend cap that only guarded those purchases, and the `?coins_paid=`
+  return handler are all gone, and `supabase-close-currency-topup-migration.sql`
+  closes the server side. Don't add any way to buy Coins, Gems or any other
+  in-game currency with real money unless the owner explicitly asks for it
+  in the current conversation. Premium/School plan payments are unaffected.
+- **Where Coins/Gems may come from (owner rule, 2026-09-25):** only from
+  playing or learning (practice, songs, lessons, quizzes, PvP, Prestige…),
+  from an admin granting them (admin tools, admin-run events), and the one
+  exception, the one-time notification-opt-in reward. Nothing else: no
+  paid-plan multipliers (the Max plan's ×2 coins was removed for this), and
+  no rewards for merely opening the app. The daily gift chest therefore
+  unlocks only after a practice session has been finished that day
+  (`chestAvailable()` in `App.tsx`). The Max plan's 4 free Streak Freezes a
+  month are an item, not currency, and the owner chose to keep them
+  (2026-09-25) — leave them in.
 - Client-writable absolute values for `exp`/`coins`/`gems`/`admin_tier`/
   `plan` are a known-bad pattern this codebase has explicitly hardened
   against (delta-clamp + column-protection triggers on `profiles`). Any new
@@ -129,6 +194,15 @@ confidence than unit-testing a reimplementation. Native-only features
 tracking) are structurally unreachable in a headless/web context — a green
 build there proves the rest of the app still works, nothing about the
 native behavior itself; those need a human on a real device.
+
+For Play Along: `node scripts/verify-playalong.mjs` checks the scoring and
+daily-quest rules from the real modules (needs jsdom, see the script), and
+`npm run build && node scripts/verify-playalong-bots.mjs` plays real songs
+in `dist/` with bots — mashing, clean and early runs, the practice loop,
+the daily song, concerts, pause, the first-time intro, the song list, the
+sliding staff, medals and the run-coin limit, practice mode, the band and
+the click track (`ONLY=name,…` runs a subset). The app exposes
+`window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
 
 ## Where to look for current state
 

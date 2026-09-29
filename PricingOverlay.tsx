@@ -66,7 +66,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
 
                       {/* ── B2B PLUS (Max-equivalent) ── */}
                       <div className="prtier max" style={{ position: "relative", marginTop: 6 }}>
-                        <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "#d97757", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
+                        <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "var(--clay-ink)", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
                           ⚡ {lang === "th" ? "แนะนำ" : lang === "zh" ? "推荐" : "Recommended"}
                         </div>
                         <div className="prtier-top">
@@ -78,7 +78,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                         </div>
                         {b2bYearNote("plus")}
                         <ul className="prfeat"><li>{lc.prMax2}</li><li>{lc.prMax4}</li><li>{lc.prMax7}</li></ul>
-                        <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
+                        <div style={{ fontSize: 10, color: "var(--clay-ink)", fontFamily: "var(--f-app, sans-serif)", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
                         <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk4}</li></ul>
                         <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "plus" }); }}>{lc.prB2bCta}</button>
                       </div>
@@ -94,7 +94,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                         </div>
                         {b2bYearNote("standard")}
                         <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li></ul>
-                        <div style={{ fontSize: 10, color: "#d97757", fontFamily: "'Orbitron',sans-serif", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
+                        <div style={{ fontSize: 10, color: "var(--clay-ink)", fontFamily: "var(--f-app, sans-serif)", letterSpacing: 1, margin: "10px 0 4px" }}>{lc.prB2bPerksLabel}</div>
                         <ul className="prfeat"><li>{lc.prB2bPerk1}</li><li>{lc.prB2bPerk2}</li><li>{lc.prB2bPerk4}</li></ul>
                         <button className="songbtn go" onClick={() => { setPricingOpen(false); setSchoolCheckout({ tier: "standard" }); }}>{lc.prB2bCta}</button>
                       </div>
@@ -112,7 +112,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                     {/* ── PREMIUM — the promoted entry point ── */}
                     <div className={`prtier${plan === "premium" ? " cur" : ""}`}
                       style={{ border: "2.5px solid #d97757", position: "relative", marginTop: 24, paddingTop: 14 }}>
-                      <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "#d97757", color: "#fff", padding: "4px 18px", borderRadius: 20, fontSize: "11px", fontWeight: 900, letterSpacing: 0.5, whiteSpace: "nowrap" }}>
+                      <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "var(--clay-btn)", color: "#fff", padding: "4px 16px", borderRadius: 20, fontSize: "11.5px", fontWeight: 500, whiteSpace: "nowrap" }}>
                         {lang === "th" ? "⭐ เริ่มตรงนี้ — ยอดนิยม" : lang === "zh" ? "⭐ 从这里开始 — 最受欢迎" : "⭐ Start here — Most Popular"}
                       </div>
                       <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span>{priceBlk("premium")}</div>
@@ -146,7 +146,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
 
                     {/* ── MAX ── */}
                     <div className={`prtier max${plan === "max" ? " cur" : ""}`} style={{ position: "relative", marginTop: 6 }}>
-                      <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "#d97757", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
+                      <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "var(--clay-ink)", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
                         ⚡ {lang === "th" ? "ครบทุกฟีเจอร์" : lang === "zh" ? "解锁全部功能" : "Everything unlocked"}
                       </div>
                       <div className="prtier-top"><span className="prtier-nm">👑 Max</span>{priceBlk("max")}</div>
@@ -164,20 +164,20 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
 
                     {/* ── MAX FAMILY ── */}
                     <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`} style={{ position: "relative", marginTop: 6 }}>
-                      <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "#d97757", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
+                      <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "var(--clay-ink)", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
                         🏆 {lang === "th" ? "คุ้มที่สุดต่อคน" : lang === "zh" ? "人均最超值" : "Best value per person"}
                       </div>
                       <div className="prtier-top">
                         <span className="prtier-nm">👑👨‍👩‍👧 Max Family</span>
                         <div style={{ textAlign: "right" }}>
                           {priceBlk("maxfamily")}
-                          <div style={{ fontSize: "9px", color: "#d97757", fontWeight: 800, marginTop: 2 }}>
+                          <div style={{ fontSize: "9px", color: "var(--clay-ink)", fontWeight: 800, marginTop: 2 }}>
                             ≈ {perPersonMxf}/{lang === "th" ? "คน/เดือน" : lang === "zh" ? "人/月" : "person/mo"}
                           </div>
                         </div>
                       </div>
                       {saveLine("maxfamily")}
-                      <div style={{ background: "rgba(217,119,87,.12)", border: "1px solid rgba(217,119,87,.35)", borderRadius: 8, padding: "7px 12px", margin: "6px 0 8px", fontSize: "11px", color: "#d97757", fontWeight: 700, textAlign: "center" }}>
+                      <div style={{ background: "rgba(217,119,87,.12)", border: "1px solid rgba(217,119,87,.35)", borderRadius: 8, padding: "7px 12px", margin: "6px 0 8px", fontSize: "11px", color: "var(--clay-ink)", fontWeight: 700, textAlign: "center" }}>
                         💰 {lang === "th" ? `ประหยัด ${mxfSaveStr}/เดือน เทียบซื้อ Max 10 คนแยก` : lang === "zh" ? `比10人分别买Max每月省${mxfSaveStr}` : `Save ${mxfSaveStr}/mo vs 10 separate Max plans`}
                       </div>
                       <ul className="prfeat">

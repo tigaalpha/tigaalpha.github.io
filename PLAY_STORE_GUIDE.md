@@ -72,7 +72,7 @@ cd android && ./gradlew bundleRelease
 ### 5. ทดสอบก่อนเปิดตัว
 - ไปที่ **Testing → Internal testing** → สร้างเทสเตอร์ 1-5 คน (อีเมล Gmail) →
   กด Promote AAB ขึ้น track นี้ → ส่งลิงก์ Opt-in ให้เทสเตอร์
-- เทสต์บนเครื่องจริง: ล็อกอิน, เรียน, ครู AI (เสียง ElevenLabs), ซื้อเหรียญ, อัปเดต
+- เทสต์บนเครื่องจริง: ล็อกอิน, เรียน, ครู AI (เสียง ElevenLabs), อัปเดต
 
 ### 6. เปิดตัว
 - Internal testing ผ่านเรียบร้อย → **Promote → Production** → กรอกประกาศนโยบาย

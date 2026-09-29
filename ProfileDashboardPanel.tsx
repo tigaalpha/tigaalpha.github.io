@@ -1,15 +1,12 @@
-import { useState } from "react";
 import { L, tr } from "./i18n";
-import { tigaHub } from "./tigamodel/web";   // Capability Hub: learner summary + quest hint from whatever engines are registered
-import { dailySongFor } from "./use-play-along";
+import { useTiga } from "./tiga-gateway";   // Capability Hub via the lazy gateway (plan v3 1.5)
+import { dailySong } from "./play-along-progress";
+import { levelInfo } from "./App";
 import { readMemory } from "./ai-chat-context";
 import { readPracticeLog } from "./shared-infra";
 import { playUi } from "./music-engine";
 import { isMaxPlan } from "./payment";
-import { logUsage } from "./shared-infra";
 import { sb } from "./supabase-client";
-import { hasParentPin } from "./kid-safety";
-import { ParentGateModal } from "./parent-gate";
 import { SONGS } from "./songs-data";
 /* ── ProfileDashboardPanel ──
    The page==="profile" inline render block, extracted verbatim from
@@ -22,9 +19,8 @@ import { SONGS } from "./songs-data";
    component import. Likewise questToday/readStreak/streakAtRisk/
    QUEST_GOAL are top-level in App.tsx but not exported, so they're
    threaded as props too. ── */
-export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [], onOpenParentGate }) {
+export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, chestLocked = false, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, setHelpOpen, setFriendsOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
-  const [pgOpen, setPgOpen] = useState(false);
   return (
         <div className="profscroll">
           {(() => {
@@ -55,7 +51,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
                   </div>
                   {chestAvail
                     ? <button className="dh-chest chestpulse" onClick={openChestNow}>🎁<span>{lc.dhClaim}</span></button>
-                    : <button className="dh-chest done" onClick={() => { setPage("studio"); setStudioView("menu"); }}>🎮<span>{lc.dhPlay}</span></button>}
+                    : <button className="dh-chest done" onClick={() => { setPage("studio"); setStudioView("menu"); }}>{chestLocked ? "🔒" : "🎮"}<span>{chestLocked ? lc.dhUnlock : lc.dhPlay}</span></button>}
                 </div>
                 {(schoolHW || (homework && homework.text)) && (
                   <div className="hwbar">
@@ -78,9 +74,10 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
             // TIGA Capability Hub: honest learner summary + today's quest hint.
             // Both come from real local data via whatever engines are registered;
             // a null line hides the row instead of showing filler.
-            const summ = tigaHub.learnerSummary(readMemory(), readPracticeLog(), profile);
-            const ds = dailySongFor();
-            const hint = tigaHub.nextQuestHint(readMemory(), profile, { dailySong: ds ? tr(ds, lang) : null });
+            const tiga = useTiga(m => m);   // null until the lazy model lands → the 🧠 bar hides honestly, then fills
+            const summ = tiga ? tiga.tigaHub.learnerSummary(readMemory(), readPracticeLog(), profile) : null;
+            const ds = dailySong(levelInfo((profile && profile.exp) || 0).level, plan);
+            const hint = tiga ? tiga.tigaHub.nextQuestHint(readMemory(), profile, { dailySong: ds ? tr(ds, lang) : null }) : null;
             const line = summ && summ.line ? (summ.line[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || summ.line.en) : null;
             const htip = hint && hint.tip ? (hint.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || hint.tip.en) : null;
             if (!line && !htip) return null;
@@ -103,31 +100,9 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
           {profile && profile.school_id && <ClassQuestSection lang={lang} schoolId={profile.school_id} />}
           {profile && profile.school_id && <SchoolLeaderboardSection lang={lang} schoolId={profile.school_id} />}
 
-          {(() => {
-            // Kid-Safety Gate entry (gem plan v4 §3): parents manage the PIN and
-            // the monthly cap here. Guests and signed-in users alike — the PIN is
-            // per device+account (kid-safety.ts), purchases guard themselves in
-            // BuyCurrencyModal regardless of this entry point.
-            const label = hasParentPin(session && session.user && session.user.id)
-              ? (lang === "th" ? "🔒 โหมดผู้ปกครอง — เพดาน & รหัส" : lang === "zh" ? "🔒 家长模式 — 上限与密码" : "🔒 Parent Mode — cap & PIN")
-              : (lang === "th" ? "🔒 ตั้งรหัสผู้ปกครอง" : lang === "zh" ? "🔒 设置家长密码" : "🔒 Set up parent PIN");
-            return (
-              <button className="songbtn ghost" style={{ width: "100%", margin: "10px 14px 0", width: "calc(100% - 28px)" }} onClick={() => { logUsage("kid", "open-manage"); setPgOpen(true); }}>{label}</button>
-            );
-          })()}
           <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins} gems={gems}
-            onOpenShop={() => setShopOpen(true)} onOpenStorage={onOpenStorage} onOpenPvp={onOpenPvp} onOpenPet={onOpenPet} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill}
+            onOpenShop={() => setShopOpen(true)} onOpenStorage={onOpenStorage} onOpenPvp={onOpenPvp} onOpenPet={onOpenPet} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill}
             charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />
-          {pgOpen && (
-            <ParentGateModal
-              lang={lang}
-              uid={session && session.user && session.user.id}
-              mode={hasParentPin(session && session.user && session.user.id) ? "manage" : "setup"}
-              onClose={() => setPgOpen(false)}
-              onVerified={undefined}
-              playUi={playUi}
-            />
-          )}
         </div>
   );
 }

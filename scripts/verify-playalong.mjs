@@ -22,12 +22,16 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
 execSync(`npx esbuild song-analysis.ts --bundle --format=esm --outfile=${OUT}/song-analysis.mjs --log-level=silent`, { stdio: "inherit" });
-// use-play-along pulls native-updater (import.meta.env) — define the env keys esbuild won't
-execSync(`npx esbuild use-play-along.ts --bundle --format=esm --outfile=${OUT}/use-play-along.mjs --log-level=silent --define:import.meta.env={}`, { stdio: "inherit" });
+// use-play-along.ts itself is not bundled: it imports App.tsx, which pulls
+// font files and a worker esbuild has no loader for. Its rules live in pure
+// modules (play-along-judge.ts, play-along-progress.ts), checked below.
+execSync(`npx esbuild play-along-judge.ts --bundle --format=esm --outfile=${OUT}/play-along-judge.mjs --log-level=silent`, { stdio: "inherit" });
 execSync(`npx esbuild pvp-online.ts --bundle --format=esm --outfile=${OUT}/pvp-online.mjs --log-level=silent`, { stdio: "inherit" });
+execSync(`npx esbuild play-along-progress.ts --bundle --format=esm --outfile=${OUT}/play-along-progress.mjs --log-level=silent --define:import.meta.env={}`, { stdio: "inherit" });
 const SA = await import(pathToFileURL(`${OUT}/song-analysis.mjs`).href);
-const PA = await import(pathToFileURL(`${OUT}/use-play-along.mjs`).href);
+const JD = await import(pathToFileURL(`${OUT}/play-along-judge.mjs`).href);
 const PVP = await import(pathToFileURL(`${OUT}/pvp-online.mjs`).href);
+const PG = await import(pathToFileURL(`${OUT}/play-along-progress.mjs`).href);
 
 let pass = 0, fail = 0;
 function ok(cond, label) { if (cond) { pass++; console.log(`PASS  ${label}`); } else { fail++; console.log(`FAIL  ${label}`); } }
@@ -76,19 +80,46 @@ function ok(cond, label) { if (cond) { pass++; console.log(`PASS  ${label}`); } 
   ok(typeof loopFn === "function", "real tigamodel teaching loop loads");
 }
 
-/* ── #8: daily song quest ── */
+/* ── #8: daily song quest (play-along-progress.ts) ── */
 {
-  const { dailySongFor, readDailySongState, DAILY_SONG_REWARD } = PA;
-  const a = dailySongFor(), b = dailySongFor();
-  ok(a && b && a.id === b.id, "daily song deterministic within a day");
-  ok(PA.SONGS ? true : true, "module loads (SONGS is data-only here)");
-  const key = new Date().toISOString().slice(0, 10);
-  const st = readDailySongState(key);
-  ok(st && st.d === key && st.done === false && st.stars === 0, "daily state: fresh day starts undone");
+  const { dailySong, readDailyState, claimDaily, DAILY_SONG_REWARD } = PG;
+  const fresh = readDailyState();
+  ok(fresh && !fresh.id && fresh.done === false && fresh.stars === 0, "daily state: a fresh day starts with no song and undone");
+  const a = dailySong(1, ""), b = dailySong(1, "");
+  ok(a && b && a.id === b.id, "daily song is picked once and kept for the day");
+  const st = readDailyState();
+  ok(st.id === a.id && st.done === false, "the pick is stored for the day");
+  ok(claimDaily("not-the-daily-song", 3) === false, "another song never pays the quest");
+  ok(claimDaily(a.id, 0) === false, "the day's song with 0 stars does not pay");
+  ok(claimDaily(a.id, 1) === true, "the day's song with 1 star pays");
+  ok(claimDaily(a.id, 3) === false && readDailyState().done === true, "…and only once a day");
   ok(DAILY_SONG_REWARD.coins > 0 && DAILY_SONG_REWARD.exp > 0, "daily reward constants present");
-  // different day → different-ish song (hash covers many days; just check it doesn't crash)
-  const tomorrow = dailySongFor(new Date(Date.now() + 86400000));
-  ok(tomorrow && tomorrow.id, "daily song for tomorrow resolves");
+}
+
+/* ── scoring rules (play-along-judge.ts) ── */
+{
+  const { judgeOffset, accuracyOf, starsFor, pressIsMash, calibrate, nextStarGoal, bossHp, bossHit } = JD;
+  ok(judgeOffset(0.05, false, "tap") === "perfect" && judgeOffset(0.1, false, "tap") === "great" && judgeOffset(0.2, false, "tap") === "good", "timing grades: perfect / great / good");
+  ok(judgeOffset(0.3, false, "tap") === null && judgeOffset(0.3, true, "tap") === "good", "0.3 s off misses, except in kind mode");
+  ok(judgeOffset(0.12, false, "mic") === "perfect", "the mic gets its settling time on top");
+  ok(accuracyOf({ perfect: 10, total: 10 }) === 100 && starsFor(100) === 3, "every note perfect: 100%, 3 stars");
+  ok(accuracyOf({ good: 10, total: 10 }) === 50 && starsFor(50) === 1, "every note only just in time: 50%, 1 star");
+  ok(accuracyOf({ perfect: 10, total: 10, wrong: 4 }) === 80 && accuracyOf({ perfect: 10, total: 10, wrong: 4, kind: true }) === 100, "a wrong key costs half a note, forgiven in kind mode");
+  ok(accuracyOf({ perfect: 10, total: 10, mash: 20, kind: true }) === 0, "mashing costs in every mode");
+  ok(pressIsMash(1, 1) && !pressIsMash(1, 2) && !pressIsMash(5, 0), "a burst beyond the notes due is a mash; a chord is not; nothing due is never one");
+  ok(calibrate([0.1, 0.1, 0.09, 0.11, 0.1, 0.1, 0.12, 0.08]) === 0.1 && calibrate([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]) === 0.12 && calibrate([0.1]) === 0, "input delay: median of 8 hits, clamped, none from too few");
+  ok(JSON.stringify(nextStarGoal(86)) === JSON.stringify({ stars: 3, more: 4 }) && nextStarGoal(95) === null, "next-star goal");
+  ok(bossHp(40) === 50 && bossHit("perfect", 3) === 2 && bossHit("good", 10) === 3, "boss hp and damage");
+  const { feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, chestChance, runPlayed } = JD;
+  ok(feverAt(12) === 10 && feverAt(42) === 13 && feverAt(48) === 15, "Fever at 30% of the notes, at least 10");
+  ok(comboMarkExp(11, 42) === 15 && comboMarkExp(21, 42) === 25 && comboMarkExp(32, 42) === 35 && comboMarkExp(42, 42) === 50 && comboMarkExp(20, 42) === 0, "combo marks at 25/50/75/100% of the notes");
+  ok(comboMarkExp(3, 12) === 15 && comboMarkExp(12, 12) === 50, "the shortest song reaches all four marks");
+  ok(medalOf({ stars: 0 }) === 0 && medalOf({ stars: 1 }) === 1 && medalOf({ stars: 2 }) === 2 && medalOf({ stars: 3 }) === 3 && medalOf({ stars: 3, fullCombo: true }) === 4, "medals: bronze → crown");
+  ok(medalOf({ stars: 3, fullCombo: true, tempo: 0.75 }) === 1, "below the real speed a run keeps bronze");
+  ok(MEDAL_REWARD[1].coins === 10 && MEDAL_REWARD[4].coins === 60 && MEDAL_REWARD[4].exp === 200, "first-time medal rewards");
+  ok(runCoins(0) === 0 && runCoins(1) === 10 && runCoins(3) === 20, "run coins: none without a star, 10/15/20");
+  ok(chestChance(0) === 0 && chestChance(3) === 0.2, "one end chest, its chance by stars");
+  ok(!runPlayed({ hits: 0 }) && !runPlayed({ hits: 2, mash: 300, acc: 0 }) && runPlayed({ hits: 1 }) && runPlayed({ hits: 5, mash: 0, acc: 0 }) && runPlayed({ hits: 10, mash: 12, acc: 3 }), "a run counts when a note was played and it was not mashed");
 }
 
 /* ── #10: pvp-online code shape + join validation ── */

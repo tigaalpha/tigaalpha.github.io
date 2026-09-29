@@ -13,18 +13,3 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { flowType: "pkce" },
 });
-
-/* Kid-Safety Gate M3 (gem plan v4 §3): wire the payments fetch for the
-   "การซื้อของลูก" history tab. Injected here (not imported by kid-safety.ts)
-   so the pure PIN/cap logic stays free of the supabase dependency. RLS on
-   `payments` is the real authority over what a user may read — this only
-   selects the user's own currency purchases, newest first. */
-import { _installSbFetch } from "./kid-safety";
-_installSbFetch((uid, limit) =>
-  sb.from("payments")
-    .select("id, amount, currency_type, currency_amount, method, status, created_at")
-    .eq("user_id", uid)
-    .eq("kind", "currency")
-    .order("created_at", { ascending: false })
-    .limit(limit || 50)
-);

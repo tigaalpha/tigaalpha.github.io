@@ -4,8 +4,8 @@ import { Capacitor } from "@capacitor/core";
 import { PATHWAY, PATHWAY_PRACTICE } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { useInjectCSS } from "./app-styles";
-import { CyberAvatar, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
-import { ItemArt } from "./item-art";
+import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
+import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 /* ── Split off the first screen's dead weight ──
    The app shipped as one 731 kB (gzip) file, so a first-time visitor had to
@@ -23,21 +23,33 @@ const PvpPage = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpPage
 const PvpBanner = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpBanner })));
 const SkillTrack = lazy(() => import("./pvp-arena").then(m => ({ default: m.SkillTrack })));
 import { PetPod, PetPage, PetArt, PET_SPECIES, PET_TYPES, PET_BONUS, PET_COST,
-  adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets } from "./pet-lab";
+  adoptPet, carryPet, ownsSpecies, carriedSpecies, allPets, usePetTurn, PetThumb } from "./pet-lab";
+import { SpaceStage, prefetchSpace } from "./space-stage";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
-import { runTeachingLoopForPractice , tigaHub } from "./tigamodel/web";
-import { buildParentReport } from "./use-practice-coach";
-import { teacherAdviceFor } from "./tigamodel/web";
-import { buildParentReportData } from "./use-practice-coach";
+import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodelOnInteraction, tigaLongTermValue } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
+import { buildParentReport, buildParentReportData } from "./use-practice-coach";
 import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes } from "./use-autoteach";
-import { pickTeachCard, markCardSeen, readKnowledgeStats, bumpKnowledgeStats, readNoteMissMap, cardSourceInfo } from "./tigamodel/knowledge/teach-cards.js";
+/* teach-cards (รู้ไว้ใช่ว่า) loads LAZY (plan v3 1.5): pure data + localStorage
+   helpers that are read at render time — the helpers below keep working while
+   the chunk is in flight by reading the same tg_kstats key directly (one
+   source of truth on disk, zero drift). */
+let _teachCards = null;
+function teachCardsMod() { return _teachCards; }
+function markCardSeen(id) { queuedUntilTiga(tc => tc.markCardSeen(id)); }
+function bumpKnowledgeStats(correct) { queuedUntilTiga(tc => tc.bumpKnowledgeStats(correct)); }
+function _readKStatsLocal() { try { return JSON.parse(localStorage.getItem("tg_kstats") || "null") || { correct: 0, streak: 0 }; } catch (e) { return { correct: 0, streak: 0 }; } }
+function readKnowledgeStats() { const tc = teachCardsMod(); return tc ? tc.readKnowledgeStats() : _readKStatsLocal(); }
+function readNoteMissMap() { const tc = teachCardsMod(); return tc ? tc.readNoteMissMap() : {}; }
+function pickTeachCard(args) { const tc = teachCardsMod(); return tc ? tc.pickTeachCard(args) : null; }
+function cardSourceInfo(k) { const tc = teachCardsMod(); return tc ? tc.cardSourceInfo(k) : null; }
 import TeachVisual from "./TeachVisual";
 import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-backend";
+import { jevTask, jevChoice, jevScore, jevNoul } from "./jev";
 import { withAiCache } from "./ai-cache";
 import {
   isPremium, setPremiumLS, getPlan, setPlanLS, isMaxPlan,
@@ -45,7 +57,6 @@ import {
   yearPrice, planPriceByCur, yearPriceByCur, fmtPrice,
   b2bPriceByCur, b2bYearPriceByCur,
   effectivePlan, trialDaysLeft, planBadge, CheckoutModal, SchoolCheckoutModal,
-  BuyCurrencyModal, COIN_PACKAGES, GEM_PACKAGES,
 } from "./payment";
 import {
   NF, KEYS_12, CHROMA, LESSON_MODE,
@@ -88,6 +99,17 @@ import { Msg, Typing, Input } from "./chat-ui";
    group (chat starters + case panels) and splices matching FAQ_TOPICS
    entries (built at i18n load). pathway-data.ts / i18n.ts data stays
    verbatim - empty the Sets to bring everything back instantly. */
+/* Did this page load come straight back from Google? Read at module scope, so
+   it sees the URL BEFORE supabase-js (flowType "pkce", detectSessionInUrl)
+   swaps the ?code= for a session and cleans it off with replaceState. The
+   service-worker auto-reload below holds off while this is true — see there. */
+const AUTH_RETURN = (() => {
+  try {
+    return /[?&](code|error)=/.test(window.location.search || "") ||
+      /(access_token|error_description)=/.test(window.location.hash || "");
+  } catch (e) { return false; }
+})();
+
 const HIDDEN_STAGE_IDS = new Set(["music-marketing"]);
 for (let _pi = PATHWAY.length - 1; _pi >= 0; _pi--) if (HIDDEN_STAGE_IDS.has(PATHWAY[_pi].id)) PATHWAY.splice(_pi, 1);
 STAGES_BY_GROUP.benefits = PATHWAY.filter(s => s.group === "benefits");
@@ -119,12 +141,14 @@ import { CameraCoachOverlay } from "./CameraCoachOverlay";
 import { SkinThemeSettings } from "./SkinThemeSettings";
 import { SfxMetronomeSettings } from "./SfxMetronomeSettings";
 import { LanguageSettings } from "./LanguageSettings";
-import { AdminAIModels, AdminNav } from "./AdminAIModels";
-import { TigamodelLab } from "./TigamodelLab";
-import { TigamodelBackoffice } from "./TigamodelBackoffice";
-import { learnFromAdminTeaching } from "./tigamodel/web";
+/* Owner-only tools load with the admin console, not with every student's
+   first visit — they were ~200 kB of the main bundle nobody else ever runs. */
+const AdminAIModels = lazy(() => import("./AdminAIModels").then(m => ({ default: m.AdminAIModels })));
+const AdminJevTasks = lazy(() => import("./AdminAIModels").then(m => ({ default: m.AdminJevTasks })));
+const AdminNav = lazy(() => import("./AdminAIModels").then(m => ({ default: m.AdminNav })));
+const TigamodelLab = lazy(() => import("./TigamodelLab").then(m => ({ default: m.TigamodelLab })));
+const TigamodelBackoffice = lazy(() => import("./TigamodelBackoffice").then(m => ({ default: m.TigamodelBackoffice })));
 import { ProfileDashboardPanel } from "./ProfileDashboardPanel";
-import { getCoachDiagnosis, getPracticeTimeBudget } from "./tigamodel/web.js";
 import { SenseiView } from "./SenseiView";
 import { VoiceTutorOverlay } from "./VoiceTutorOverlay";
 import { usePayment } from "./use-payment";
@@ -134,13 +158,13 @@ import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
 import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
-import { dailySongFor, readDailySongState, DAILY_SONG_REWARD } from "./use-play-along";
+import { dailySong, readDailyState, DAILY_SONG_REWARD, songStars, songMedal, songLengthSec, songLockInfo, nextSongAfter } from "./play-along-progress";
 import { useChat } from "./use-chat";
 import { useVoiceTutor } from "./use-voice-tutor";
-import { LeadLandingPage } from "./LeadLandingPage";
+const LeadLandingPage = lazy(() => import("./LeadLandingPage").then(m => ({ default: m.LeadLandingPage })));
 import { PianoLevelQuiz } from "./PianoLevelQuiz";
-import { ReferralDashboard } from "./ReferralDashboard";
-import { LeadSaleDashboard } from "./LeadSaleDashboard";
+const ReferralDashboard = lazy(() => import("./ReferralDashboard").then(m => ({ default: m.ReferralDashboard })));
+const LeadSaleDashboard = lazy(() => import("./LeadSaleDashboard").then(m => ({ default: m.LeadSaleDashboard })));
 /* Shown while a split-off page fetches its code — the same three dots the
    chat uses, for the same reason: a still frame reads as broken, a moving one
    reads as working. Sized to roughly hold the page's place so the layout does
@@ -154,7 +178,6 @@ function LazyBits({ tall = false }) {
 }
 
 const AdminActivity = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminActivity })));
-const AdminSimBots = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminSimBots })));
 const AdminAnonVisitors = lazy(() => import("./AdminActivityDashboard").then(m => ({ default: m.AdminAnonVisitors })));
 
 /* true only inside the Capacitor-wrapped iOS/Android app, never on the website —
@@ -422,7 +445,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.392";
+const APP_VER = "13.7.458";
 
 async function signInWith(provider) {
   try {
@@ -535,8 +558,23 @@ export function songRecommendationHint(lang) {
     pool = weak && weak.skill === "note_accuracy"
       ? pool.map(s => ({ s, p: songTechniqueProfile(s) })).sort((a, b) => (a.p ? a.p.avgLeap : 99) - (b.p ? b.p.avgLeap : 99)).map(x => x.s)
       : pool.slice().sort((a, b) => a.diff - b.diff);
-    const ids = pool.slice(0, 24).map(s => s.id).join(", ");
+    const poolIds = pool.slice(0, 24).map(s => s.id);
+    const ids = poolIds.join(", ");
     const label = weak ? tr(SKILL_LABELS[weak.skill], lang) : null;
+    // ── Jev song-rec: ALSO ask Jev to pick ONE song from this same pool (fast
+    // structured choice, no hallucination possible — the answer must be one of
+    // OUR ids). jevSongRec() exposes it for "next song" suggestions; disabled/
+    // slow/unavailable Jev simply leaves it unset and the deterministic pool
+    // above stands, exactly the pre-Jev behavior.
+    jevTask("song-rec",
+      `Piano learner; weakest skill: ${weak ? weak.skill : "unknown"}${weak && weak.score != null ? ` (${Math.round(weak.score)}/100)` : ""}`,
+      { ids: poolIds }, 2000)
+      .then(r => {
+        if (!r.ok || !r.answers) return;
+        const pick = jevChoice(r.answers.best_song);
+        if (pick && SONGS.some(s => s.id === pick)) _jevSongRec = pick;
+      })
+      .catch(() => {});
     return lang === "th"
       ? `\n\n[เพลงอื่นที่แนะนำได้ (นอกเหนือจากตัวอย่างเดิม): ${ids}.${label ? ` จุดที่ผู้เรียนควรฝึกเพิ่มตอนนี้: ${label}` : ""}]`
       : lang === "zh"
@@ -544,13 +582,17 @@ export function songRecommendationHint(lang) {
       : `\n\n[Other real songs you can also recommend (beyond the original examples): ${ids}.${label ? ` The learner's current priority skill: ${label}.` : ""}]`;
   } catch (e) { return ""; }
 }
+// module-level Jev song pick (see songRecommendationHint); null until Jev
+// answers, refreshed naturally each time the hint is rebuilt
+let _jevSongRec = null;
+export function jevSongRec() { return _jevSongRec; }
 
 const SIGHT_ROUND = 10; // notes per sight-reading round
 
 
 
 /* ── Pathway Page ── */
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "" }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   /* Card numbers run straight through the whole pathway — foundation 01-02,
@@ -631,6 +673,11 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                 <div className="pglabel">{g.label}</div>
                 <div className="pgdesc">{g.desc}</div>
               </div>
+              {gi === 0 && onUpgrade && (
+                <button type="button" className="pgupgrade" onClick={onUpgrade}>
+                  <span className="pgupgrade-crown" aria-hidden="true">👑</span> <span>Upgrade Premium</span>
+                </button>
+              )}
               <span className="pgstep">{lc.stepLabel.replace("{n}", String(gi + 1))}</span>
             </header>
 
@@ -685,13 +732,13 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                 {/* panel header */}
                 <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
                   <span style={{ fontSize: "18px" }}>{openStage.icon}</span>
-                  <span style={{ flex: 1, fontFamily: "'Orbitron',sans-serif", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(openStage.title, lang)}</span>
+                  <span style={{ flex: 1, fontFamily: "var(--f-app, sans-serif)", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(openStage.title, lang)}</span>
                   {selectedType && (
-                    <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "9px", background: openStage.color + "33", color: openStage.color, borderRadius: "6px", padding: "2px 7px", border: `1px solid ${openStage.color}55` }}>
+                    <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", background: openStage.color + "33", color: openStage.color, borderRadius: "6px", padding: "2px 7px", border: `1px solid ${openStage.color}55` }}>
                       {tr(selectedType.label, lang)}
                     </span>
                   )}
-                  <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "9px", color: openStage.color, whiteSpace: "nowrap" }}>
+                  <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", color: openStage.color, whiteSpace: "nowrap" }}>
                     {openStage.content ? lc.caseSub : openStage.types && !selectedType ? lc.pickType : lc.pickKey}
                   </span>
                 </div>
@@ -701,12 +748,12 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
                     <button onClick={() => onRead(openStage)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "var(--card3)", border: `1px solid ${openStage.color}55`, textAlign: "left" }}>
                       <span style={{ fontSize: "18px" }}>📖</span>
-                      <span style={{ fontSize: "11px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{lc.caseOverview}</span>
+                      <span style={{ fontSize: "11px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{lc.caseOverview}</span>
                     </button>
                     {(BENEFIT_CASES[openStage.id] || []).map(c => (
                       <button key={c.id} onClick={() => onRead(openStage, c)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "var(--card3)", border: "1px solid var(--bd1)", textAlign: "left" }}>
                         <span style={{ fontSize: "18px" }}>{c.icon}</span>
-                        <span style={{ fontSize: "11px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{tr(c.title, lang)}</span>
+                        <span style={{ fontSize: "11px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{tr(c.title, lang)}</span>
                       </button>
                     ))}
                   </div>
@@ -715,7 +762,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                 {/* STEP 1: type picker */}
                 {!openStage.content && openStage.types && !selectedType && (
                   <>
-                    <div style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "10px", textAlign: "center" }}>
+                    <div style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "10px", textAlign: "center" }}>
                       {lc.pickTypeHint}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px", marginBottom: "12px" }}>
@@ -727,8 +774,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                           border: `1px solid ${openStage.color}55`,
                           transition: "all .15s",
                         }}>
-                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: t.symbol.length > 6 ? 15 : (t.symbol.length > 4 ? 17 : 20), fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
-                          <span style={{ fontSize: "10px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2, textAlign: "center" }}>{tr(t.label, lang)}</span>
+                          <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: t.symbol.length > 6 ? 15 : (t.symbol.length > 4 ? 17 : 20), fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
+                          <span style={{ fontSize: "10px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2, textAlign: "center" }}>{tr(t.label, lang)}</span>
                         </button>
                       ))}
                     </div>
@@ -740,7 +787,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                   <>
                     {selectedType && (
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-                        <span style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>{lc.pickKeyHint}</span>
+                        <span style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{lc.pickKeyHint}</span>
                         <button onClick={() => setSelectedType(null)} style={{ fontSize: "9px", color: "var(--muted)", background: "none", border: "1px solid var(--bd4)", borderRadius: "5px", padding: "2px 7px", cursor: "pointer" }}>← {lc.pickType}</button>
                       </div>
                     )}
@@ -757,15 +804,15 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                             border: kdone ? "1px solid #d97757" : "1px solid var(--bd4)",
                           }}
                           onClick={() => chooseKey(openStage, k)}>
-                          {kdone && <span style={{ position: "absolute", top: "3px", right: "4px", fontSize: "10px", color: "#d97757", fontWeight: 900 }}>✓</span>}
-                          <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: kdone ? "#d97757" : "var(--text)", lineHeight: 1 }}>{k.name}</span>
-                          <span style={{ fontSize: "8.5px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
+                          {kdone && <span style={{ position: "absolute", top: "3px", right: "4px", fontSize: "10px", color: "var(--clay-ink)", fontWeight: 900 }}>✓</span>}
+                          <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: kdone ? "var(--clay-ink)" : "var(--text)", lineHeight: 1 }}>{k.name}</span>
+                          <span style={{ fontSize: "8.5px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
                         </button>
                         );
                       })}
                     </div>
                     {!selectedType && (
-                      <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", lineHeight: 1.5 }}>{lc.pickKeyHint}</div>
+                      <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", lineHeight: 1.5 }}>{lc.pickKeyHint}</div>
                     )}
                   </>
                 )}
@@ -821,8 +868,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                       }}>
                         <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
                           <span style={{ fontSize: "18px" }}>{pc.icon}</span>
-                          <span style={{ flex: 1, fontFamily: "'Orbitron',sans-serif", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(pc.title, lang)}</span>
-                          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "9px", color: pc.color, whiteSpace: "nowrap" }}>
+                          <span style={{ flex: 1, fontFamily: "var(--f-app, sans-serif)", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(pc.title, lang)}</span>
+                          <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", color: pc.color, whiteSpace: "nowrap" }}>
                             {lang === "th" ? "เลือกทางคอร์ด" : lang === "zh" ? "选择和弦进行" : "Pick a chord path"}
                           </span>
                         </div>
@@ -835,8 +882,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                               border: `1px solid ${(progLenChoice[pc.id] || 4) === n ? pc.color : pc.color + "55"}`,
                               transition: "all .15s",
                             }}>
-                              <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "20px", fontWeight: 900, color: pc.color, lineHeight: 1 }}>{n}</span>
-                              <span style={{ fontSize: "10px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2 }}>
+                              <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "20px", fontWeight: 900, color: pc.color, lineHeight: 1 }}>{n}</span>
+                              <span style={{ fontSize: "10px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2 }}>
                                 {lang === "th" ? "คอร์ด" : lang === "zh" ? "和弦" : "chords"}
                               </span>
                             </button>
@@ -852,12 +899,12 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                                 border: "1px solid var(--bd4)",
                               }}
                               onClick={() => { setProgPickId(null); onProgression && onProgression(pc, progLenChoice[pc.id] || 4, k.id); }}>
-                              <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>{k.name}</span>
-                              <span style={{ fontSize: "8.5px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
+                              <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>{k.name}</span>
+                              <span style={{ fontSize: "8.5px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
                             </button>
                           ))}
                         </div>
-                        <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", lineHeight: 1.5, marginTop: "10px" }}>
+                        <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", lineHeight: 1.5, marginTop: "10px" }}>
                           {lang === "th" ? "AI จะสอนทั้งแบบ Block และ Broken พร้อมโหมดฝึก"
                             : lang === "zh" ? "AI 将以 Block 和 Broken 两种方式教学，并配有练习模式"
                             : "AI teaches it Block and Broken, with Practice Mode for both"}
@@ -940,7 +987,7 @@ const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, e
       <div className="pathhero">
         <div className="pathhero-glow" />
         <div className="pathbadge">◈ {lc.challengingTitle} ◈</div>
-        <div style={{ textAlign: "center", fontSize: "11px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", padding: "0 22px", lineHeight: 1.5 }}>{lc.challengingSub}</div>
+        <div style={{ textAlign: "center", fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", padding: "0 22px", lineHeight: 1.5 }}>{lc.challengingSub}</div>
       </div>
 
       {groups.map(g => {
@@ -1105,13 +1152,13 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   // AI PIANO COACH (P0, additive): WHAT/WHY/HOW diagnosis + time-adaptive
   // budget from the student's real numbers. Null when no data yet — the card
   // simply doesn't render, and the plan above is 100% unchanged.
-  const dx = getCoachDiagnosis();
+  const dx = useTiga(m => m.getCoachDiagnosis());
   const dxT = {
     th: { tag: "AI วินิจฉัย", why: "ทำไม", how: "วิธีฝึก" },
     en: { tag: "AI diagnosis", why: "Why", how: "How to fix" },
     zh: { tag: "AI 诊断", why: "为什么", how: "怎么练" },
   }[lang];
-  const budget = dx ? getPracticeTimeBudget(20) : null;
+  const budget = dx ? (tigaNow() ? (tigaNow().getPracticeTimeBudget(20) || null) : null) : null;
   const budT = {
     th: { tag: "แผน 20 นาที (ปรับตามจุดอ่อน)", warmup: "วอร์มอัพ", problem: "จุดพัง", review: "ทบทวน", reading: "อ่านโน้ต", performance: "เล่นโชว์", focus: "โฟกัส" },
     en: { tag: "20-min plan (adapts to your weak spot)", warmup: "Warm-up", problem: "Problem", review: "Review", reading: "Reading", performance: "Perform", focus: "Focus" },
@@ -1122,7 +1169,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
     <div className="pathpage">
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
-          style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          className="pageback">
           ← {L[lang].navStudio}
         </button>
       )}
@@ -1132,29 +1179,29 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
       </div>
       <div className="v12card">
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "7px" }}>
-          <span style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>{T.progress}</span>
-          <span style={{ fontSize: "11px", color: "#d97757", fontFamily: "'Orbitron',sans-serif", fontWeight: 700 }}>{nDone}/{steps.length}</span>
+          <span style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{T.progress}</span>
+          <span style={{ fontSize: "11px", color: "var(--clay-ink)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>{nDone}/{steps.length}</span>
         </div>
         <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
       </div>
       {dx && (
         <div className="v12card" style={{ borderColor: "#d9775744" }}>
-          <div style={{ fontSize: "11px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>🩺 {dxT.tag}</div>
+          <div style={{ fontSize: "11px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "6px" }}>🩺 {dxT.tag}</div>
           <div style={{ fontSize: "13.5px", color: "var(--text)", fontWeight: 700, marginBottom: "5px" }}>
             {dx.what.label} · {dx.what.acc}%
             <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 400 }}>
               {" "}({dx.what.count}x · {dx.what.trend === "improving" ? "↑" : dx.what.trend === "worsening" ? "↓" : "→"})
             </span>
           </div>
-          <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}><b style={{ color: "#d97757" }}>{dxT.why}:</b> {dx.why[0]}</div>
+          <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}><b style={{ color: "var(--clay-ink)" }}>{dxT.why}:</b> {dx.why[0]}</div>
           {dx.why[1] && <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}>· {dx.why[1]}</div>}
-          {dx.how.map((h, i) => <div key={i} style={{ fontSize: "12px", color: "var(--text2)" }}><b style={{ color: "#d97757" }}>{i === 0 ? dxT.how + ":" : ""}</b> {h}</div>)}
+          {dx.how.map((h, i) => <div key={i} style={{ fontSize: "12px", color: "var(--text2)" }}><b style={{ color: "var(--clay-ink)" }}>{i === 0 ? dxT.how + ":" : ""}</b> {h}</div>)}
           {budget && (
             <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid var(--bd1)" }}>
-              <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "4px" }}>⏱ {budT.tag}{budget.focus ? ` · ${budT.focus}: ${budget.focus}` : ""}</div>
+              <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "4px" }}>⏱ {budT.tag}{budget.focus ? ` · ${budT.focus}: ${budget.focus}` : ""}</div>
               <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                 {budget.parts.map(p => (
-                  <span key={p.key} style={{ fontSize: "11px", background: "rgba(217,119,87,.12)", color: "#d97757", borderRadius: "6px", padding: "3px 7px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                  <span key={p.key} style={{ fontSize: "11px", background: "rgba(217,119,87,.12)", color: "var(--clay-ink)", borderRadius: "6px", padding: "3px 7px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>
                     {budT[p.key] || p.key} {p.minutes}′
                   </span>
                 ))}
@@ -1181,10 +1228,10 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
       ))}
       {allDone && (
         <div className="v12card" style={{ textAlign: "center", borderColor: "#d9775766" }}>
-          <div style={{ fontSize: "15px", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, marginBottom: "9px" }}>{T.allDone}</div>
+          <div style={{ fontSize: "15px", color: "var(--clay-ink)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, marginBottom: "9px" }}>{T.allDone}</div>
           {todayBonusClaimed()
-            ? <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>{T.claimed}</div>
-            : <button className="tdgo" style={{ borderColor: "#d97757", color: "#d97757", background: "rgba(217,119,87,.1)" }}
+            ? <div style={{ fontSize: "12px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)" }}>{T.claimed}</div>
+            : <button className="tdgo" style={{ borderColor: "#d97757", color: "var(--clay-ink)", background: "rgba(217,119,87,.1)" }}
                 onClick={() => { playUi("reward"); claimTodayBonus(); onReward(40, 20); bump(); }}>{T.bonus}</button>}
         </div>
       )}
@@ -1310,6 +1357,10 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   }
   function genQ(kind) {
     const root = ROOTS[Math.floor(Math.random() * ROOTS.length)];
+    // Jev ear-adaptive tier (int path only — cadence keeps its own bucket,
+    // ladder keys off the live streak): 2 = step up (full pool now), 0 = step
+    // down (base pool), null/1 = existing best-score thresholds.
+    const jevUp = kind === "int" && jevEarTier() === 2, jevDown = kind === "int" && jevEarTier() === 0;
     if (kind === "int" || kind === "cadence" || kind === "ladder") {
       // "cadence" tracks its own best (a separate earLevelFor() bucket) since hearing an
       // interval in tonal context is a genuinely different skill from hearing it bare;
@@ -1317,6 +1368,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       // climb streak (ladderPool(), module scope) so difficulty escalates within a run.
       const bestN = kind === "cadence" ? (earBest().cadence || 0) : (earBest().int || 0);
       const pool = kind === "ladder" ? ladderPool(ladderStreakRef.current)
+        : jevUp ? EG_INT_FULL : jevDown ? EG_INT_BASE
         : bestN >= EG_ROUND ? EG_INT_MASTER : bestN >= 7 ? EG_INT_FULL : EG_INT_BASE;
       const semi = pool[Math.floor(Math.random() * pool.length)];
       const opts = [...new Set([semi, ...[...pool].sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
@@ -1350,7 +1402,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
         options: allOpts.map(s => ({ key: s.id, label: lang === "th" ? s.th : lang === "zh" ? s.zh : s.en })),
       };
     }
-    const len = (earBest().echo || 0) >= 7 ? 4 : 3;
+    const len = jevUp || (jevDown !== true && (earBest().echo || 0) >= 7) ? 4 : 3;
     const pcs = genEchoPcs(len);
     return { notes: pcs.map(p => p + "4"), chord: false, answer: pcs.join(" "), pcs };
   }
@@ -1425,6 +1477,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     logActivity("ear", tab, finalScore, EG_ROUND - finalScore, Math.max(30, secs));
     logPractice(acc);
     onReward(xp, stars * 5, finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
+    jevEarRefresh(tab, finalScore, EG_ROUND); // Jev: re-score difficulty for the NEXT round (fire-and-forget)
     setResult({ score: finalScore, stars, xp, coins: stars * 5 });
     setPhase("done");
     playUi(stars >= 2 ? "levelup" : "click");
@@ -1559,14 +1612,14 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     <div className="pathpage">
       {onBack && !ladderOn && (
         <button onClick={() => { playUi("click"); onBack(); }}
-          style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          className="pageback">
           ← {L[lang].navStudio}
         </button>
       )}
       <div className="v12hero">
         <div className="v12title">👂 {T.title}</div>
         <div className="v12sub">{T.sub}</div>
-        <div style={{ display: "inline-block", marginTop: "8px", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", color: "#d97757", border: "1px solid #d9775744", borderRadius: "20px", padding: "4px 12px", background: "rgba(217,119,87,.06)" }}>
+        <div style={{ display: "inline-block", marginTop: "8px", fontFamily: "var(--f-num, monospace)", fontSize: "10px", color: "var(--clay-ink)", border: "1px solid #d9775744", borderRadius: "20px", padding: "4px 12px", background: "rgba(217,119,87,.06)" }}>
           🎖️ {T.earLevel} {level.level} · {level.intoLevel}/{EAR_LEVEL_STEP}
         </div>
       </div>
@@ -1576,16 +1629,16 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
           {ladderResult ? (
             <div style={{ padding: "10px 4px" }}>
               <div style={{ fontSize: "30px" }}>🪜</div>
-              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "16px", fontWeight: 900, color: "var(--text)", margin: "6px 0 2px" }}>{T.ladderGameOver}</div>
-              <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "34px", fontWeight: 900, color: "#a78bfa", lineHeight: 1.1 }}>{ladderResult.streak}</div>
+              <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: "var(--text)", margin: "6px 0 2px" }}>{T.ladderGameOver}</div>
+              <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "34px", fontWeight: 900, color: "var(--vio-ink)", lineHeight: 1.1 }}>{ladderResult.streak}</div>
               {ladderResult.isNewBest ? (
                 <div style={{ fontSize: "12px", color: "#ffd23f", fontWeight: 700, margin: "4px 0" }}>{T.ladderNewBest}</div>
               ) : (
-                <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", margin: "4px 0" }}>{T.ladderBestLbl}: {ladderResult.best}</div>
+                <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", margin: "4px 0" }}>{T.ladderBestLbl}: {ladderResult.best}</div>
               )}
-              <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "16px" }}>+{ladderResult.xp} EXP · +{ladderResult.coins} 🪙</div>
-              <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderAgain}</button>
-              <button onClick={() => { playUi("click"); setLadderResult(null); }} style={{ display: "block", margin: "12px auto 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "20px", color: "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+              <div style={{ fontSize: "12px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "16px" }}>+{ladderResult.xp} EXP · +{ladderResult.coins} 🪙</div>
+              <button className="tdgo vio" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startLadder}>{T.ladderAgain}</button>
+              <button onClick={() => { playUi("click"); setLadderResult(null); }} style={{ display: "block", margin: "12px auto 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "20px", color: "#a88b9b", padding: "6px 14px", fontSize: "11px", cursor: "pointer", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>
                 ← {T.title}
               </button>
             </div>
@@ -1593,15 +1646,15 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                 <span style={{ fontSize: "15px", letterSpacing: "1px" }}>{"❤️".repeat(ladderLives)}{"🖤".repeat(Math.max(0, LADDER_LIVES_START - ladderLives))}</span>
-                <span style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#a78bfa" }}>🪜 {T.ladderStreakLbl} {ladderStreak}</span>
+                <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "13px", fontWeight: 900, color: "var(--vio-ink)" }}>🪜 {T.ladderStreakLbl} {ladderStreak}</span>
                 <button onClick={() => { playUi("click"); finishLadder(); }} aria-label="quit" title={T.title}
                   style={{ background: "none", border: "1px solid var(--bd4)", borderRadius: "50%", width: "22px", height: "22px", color: "#a88b9b", fontSize: "12px", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
               </div>
               <div style={{ height: "5px", borderRadius: "3px", background: "var(--card3)", overflow: "hidden", marginBottom: "14px" }}>
                 <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, (ladderTimeLeft / ladderTimeFor(ladderStreak)) * 100))}%`, background: ladderTimeLeft < 1500 ? "#ff5252" : "#8b5cf6", transition: "width .1s linear" }} />
               </div>
-              <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #a78bfa55", background: "rgba(167,139,250,.08)", color: "#a78bfa", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
-              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>{T.pickInt}</div>
+              <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid var(--vio-ln)", background: "var(--vio-t)", color: "var(--vio-ink)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, marginBottom: "11px" }}>{T.pickInt}</div>
               {cur.options && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
                   {cur.options.map(o => (
@@ -1609,7 +1662,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
                   ))}
                 </div>
               )}
-              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#a78bfa" : "#ff5252") : "transparent" }}>
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: fb ? (fb.ok ? "var(--vio-ink)" : "#ff5252") : "transparent" }}>
                 {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
               </div>
             </>
@@ -1620,28 +1673,28 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
           <div style={{ display: "flex", gap: "8px", marginBottom: "12px", overflowX: "auto" }}>
             {tabs.map(([k, ic, lb]) => (
               <button key={k} onClick={() => { if (phase === "play") return; playUi("click"); setTab(k); setPhase("idle"); setResult(null); }}
-                style={{ flex: "1 0 auto", minWidth: "62px", padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "13px",
-                  border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "#d97757" : "var(--text2)",
-                  background: tab === k ? "rgba(217,119,87,.1)" : "var(--card3)" }}>
+                style={{ flex: "1 0 auto", minWidth: "62px", padding: "11px 6px", borderRadius: "12px", cursor: "pointer", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, fontSize: "13px",
+                  border: tab === k ? "1px solid #d97757" : "1px solid var(--bd4)", color: tab === k ? "var(--clay-ink)" : "var(--text2)",
+                  background: tab === k ? "rgba(217,119,87,.1)" : "var(--card)" }}>
                 {ic} {lb}<div style={{ fontSize: "9px", color: "var(--muted)", marginTop: "2px" }}>{T.best}: {best[k] || 0}/{EG_ROUND}</div>
               </button>
             ))}
           </div>
           {phase !== "play" && (
             <>
-              <div className="v12card" style={{ textAlign: "center", padding: "16px 14px", marginBottom: "12px", border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+              <div className="v12card" style={{ textAlign: "center", padding: "16px 14px", marginBottom: "12px", border: "1px solid var(--vio-ln)", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
                 <div style={{ fontSize: "22px" }}>🪜</div>
-                <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "13px", fontWeight: 900, color: "#c4b5fd", margin: "4px 0 2px" }}>{T.ladderTitle}</div>
+                <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "13px", fontWeight: 900, color: "var(--vio-ink)", margin: "4px 0 2px" }}>{T.ladderTitle}</div>
                 <div style={{ fontSize: "10.5px", color: "var(--muted)", marginBottom: "10px" }}>{T.ladderSub}</div>
-                <div style={{ fontSize: "10px", color: "#a78bfa", fontFamily: "'Share Tech Mono',monospace", marginBottom: "10px" }}>{T.ladderBestLbl}: {ladderBestScore()}</div>
-                <button className="tdgo" style={{ fontSize: "12px", padding: "10px 22px", background: "#8b5cf6" }} onClick={startLadder}>{T.ladderStart}</button>
+                <div style={{ fontSize: "10px", color: "var(--vio-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "10px" }}>{T.ladderBestLbl}: {ladderBestScore()}</div>
+                <button className="tdgo vio" style={{ fontSize: "12px", padding: "10px 22px" }} onClick={startLadder}>{T.ladderStart}</button>
               </div>
               <div className="v12card" style={{ textAlign: "center", padding: "24px 14px" }}>
                 {result && (
                   <div style={{ marginBottom: "14px" }}>
                     <div style={{ fontSize: "26px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
-                    <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
-                    <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+                    <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "17px", color: "var(--text)", fontWeight: 900, margin: "6px 0" }}>{T.done} {result.score}/{EG_ROUND}</div>
+                    <div style={{ fontSize: "12px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
                   </div>
                 )}
                 <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px" }} onClick={startRound}>{result ? T.again : T.start}</button>
@@ -1650,17 +1703,17 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
           )}
           {phase === "play" && cur && (
             <div className="v12card" style={{ textAlign: "center" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", fontFamily: "var(--f-num, monospace)", fontSize: "11px", color: "var(--muted)" }}>
                 <span>{T.q} {idx + 1}/{EG_ROUND}</span><span>{T.score}: {score}</span>
                 {tab === "echo" && (
                   <button onClick={() => { playUi("click"); setMicMode(m => !m); }}
-                    style={{ background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "#d97757" : "#a88b9b", padding: "4px 10px", fontSize: "10px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+                    style={{ background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "var(--clay-ink)" : "#a88b9b", padding: "4px 10px", fontSize: "10px", cursor: "pointer", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>
                     {micMode ? T.tapMode : T.pianoMode}
                   </button>
                 )}
               </div>
-              <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "#d97757", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
-              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
+              <button onClick={() => cur.isMelody ? playCurMelody(cur) : playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid #d9775755", background: "rgba(217,119,87,.08)", color: "var(--clay-ink)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>
+              <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, marginBottom: "11px" }}>
                 {pickLabel}
               </div>
               {tab !== "echo" && cur.options && (
@@ -1673,26 +1726,26 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
               {tab === "echo" && micMode && (
                 <div style={{ padding: "18px 10px", borderRadius: "12px", border: `1px solid ${micSrc && micSrc.type === "error" ? "#ff5252" : "#d9775744"}`, background: "rgba(217,119,87,.06)" }}>
                   {micSrc && micSrc.type === "error" ? (
-                    <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.listenErr}</div>
+                    <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{T.listenErr}</div>
                   ) : (
                     <>
                       <div style={{ fontSize: "26px", marginBottom: "6px" }} className={micHeard ? "" : "flicker"}>{micSrc ? "🎹" : "🎤"}</div>
-                      <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{micSrc ? T.listenReady : T.listening}</div>
-                      <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}</div>
-                      {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
+                      <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{micSrc ? T.listenReady : T.listening}</div>
+                      <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "var(--f-app, sans-serif)", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}</div>
+                      {micHeard && <div style={{ marginTop: "6px", fontFamily: "var(--f-num, monospace)", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
                     </>
                   )}
                 </div>
               )}
               {tab === "echo" && !micMode && (
                 <>
-                  <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
+                  <div style={{ minHeight: "26px", marginBottom: "9px", fontFamily: "var(--f-app, sans-serif)", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>
                     {taps.map(p => (lang === "th" ? PC_SOLFA_TH[p] : p)).join(" ")}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
                     {["C", "D", "E", "F", "G", "A", "B"].map(p => (
                       <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapEcho(p)}>
-                        <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                        <div style={{ fontSize: "15px", fontFamily: "var(--f-app, sans-serif)" }}>{p}</div>
                         <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
                       </button>
                     ))}
@@ -1700,7 +1753,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
                   {taps.length > 0 && !fb && <button onClick={() => setTaps([])} style={{ marginTop: "9px", background: "none", border: "1px solid var(--bd4)", borderRadius: "7px", color: "#a88b9b", padding: "4px 12px", fontSize: "11px", cursor: "pointer" }}>{T.clear}</button>}
                 </>
               )}
-              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
+              <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: fb ? (fb.ok ? "var(--clay-ink)" : "#ff5252") : "transparent" }}>
                 {fb ? (fb.ok ? T.right : T.wrong + fb.answerLabel) : "·"}
               </div>
             </div>
@@ -1894,7 +1947,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
       <div className="pathpage">
         {onBack && (
           <button onClick={() => { playUi("click"); onBack(); }}
-            style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+            className="pageback">
             ← {L[lang].navStudio}
           </button>
         )}
@@ -1928,13 +1981,13 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
   return (
     <div className="pathpage">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px 10px", gap: "8px", flexWrap: "wrap" }}>
-        <button onClick={() => { playUi("click"); runRef.current++; setLvl(null); setResult(null); }} style={{ background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, flexShrink: 0 }}>{T.back}</button>
-        <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>
+        <button onClick={() => { playUi("click"); runRef.current++; setLvl(null); setResult(null); }} className="pageback inline">{T.back}</button>
+        <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "11px", color: "var(--muted)" }}>
           {result ? T.done : `${T.q} ${idx + 1}/${lvl.qn} · ${T.score}: ${score}`}
         </span>
         {!result && (
           <button onClick={() => { playUi("click"); setMicMode(m => !m); }}
-            style={{ marginLeft: "auto", background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "#d97757" : "#a88b9b", padding: "6px 12px", fontSize: "11px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, flexShrink: 0 }}>
+            style={{ marginLeft: "auto", background: micMode ? "rgba(217,119,87,.14)" : "none", border: `1px solid ${micMode ? "#d97757" : "var(--bd4)"}`, borderRadius: "20px", color: micMode ? "var(--clay-ink)" : "#a88b9b", padding: "6px 12px", fontSize: "11px", cursor: "pointer", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, flexShrink: 0 }}>
             {micMode ? T.tapMode : T.pianoMode}
           </button>
         )}
@@ -1942,12 +1995,12 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
       {result ? (
         <div className="v12card" style={{ textAlign: "center", padding: "26px 14px" }}>
           <div style={{ fontSize: "28px" }}>{"⭐".repeat(result.stars) || "💪"}</div>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "18px", color: "var(--text)", fontWeight: 900, margin: "8px 0" }}>{result.score}/{result.qn}</div>
-          <div style={{ fontSize: "12px", color: "#d97757", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
+          <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "18px", color: "var(--text)", fontWeight: 900, margin: "8px 0" }}>{result.score}/{result.qn}</div>
+          <div style={{ fontSize: "12px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "6px" }}>+{result.xp} EXP · +{result.coins} 🪙</div>
           {result.stars >= 1 && (
-            <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "14px" }}>
+            <div style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "14px" }}>
               ⏱ {result.secs}s{result.speedRank && <span style={{ marginLeft: 6 }}>{result.speedRank.icon} {result.speedRank.id}</span>}
-              {result.isNewBestTime ? <span style={{ color: "#d97757", fontWeight: 700, marginLeft: 6 }}>🏆 {T.readNewBest}</span>
+              {result.isNewBestTime ? <span style={{ color: "var(--clay-ink)", fontWeight: 700, marginLeft: 6 }}>🏆 {T.readNewBest}</span>
                 : result.prevBest != null && <span style={{ marginLeft: 6 }}>({T.readBestLbl} {result.prevBest}s)</span>}
             </div>
           )}
@@ -1955,7 +2008,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
           {/* Ties "learned to read notation" to "can read a real song" — the whole point of the course. */}
           {onPlaySong && result.recommendedSong && (
             <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid var(--bd2)" }}>
-              <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "8px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.courseDone}</div>
+              <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "8px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{T.courseDone}</div>
               <button className="tdgo" style={{ fontSize: "12px", padding: "12px 26px", background: "#d97757" }}
                 onClick={() => onPlaySong(result.recommendedSong)}>🎵 {T.readSong}</button>
             </div>
@@ -1966,21 +2019,21 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
           <div style={{ background: "var(--card)", borderRadius: "12px", padding: "8px 6px", marginBottom: "13px", border: "1px solid var(--bd1)" }}>
             <StaffNotes notes={cur.notes} hideNames clef={lvl.clef} />
           </div>
-          <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, marginBottom: "11px" }}>
+          <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, marginBottom: "11px" }}>
             {lvl.seq === 1 ? T.what : T.seqWhat}
           </div>
           {micMode ? (
             <div style={{ padding: "18px 10px", borderRadius: "12px", border: `1px solid ${micSrc && micSrc.type === "error" ? "#ff5252" : "#d9775744"}`, background: "rgba(217,119,87,.06)" }}>
               {micSrc && micSrc.type === "error" ? (
-                <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.listenErr}</div>
+                <div style={{ fontSize: "13px", color: "#ff5252", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{T.listenErr}</div>
               ) : (
                 <>
                   <div style={{ fontSize: "26px", marginBottom: "6px" }} className={micHeard ? "" : "flicker"}>{micSrc ? "🎹" : "🎤"}</div>
-                  <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>
+                  <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>
                     {micSrc ? T.listenReady : T.listening}
                   </div>
-                  {lvl.seq > 1 && <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>}
-                  {micHeard && <div style={{ marginTop: "6px", fontFamily: "'Share Tech Mono',monospace", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
+                  {lvl.seq > 1 && <div style={{ minHeight: "20px", marginTop: "8px", fontFamily: "var(--f-app, sans-serif)", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>}
+                  {micHeard && <div style={{ marginTop: "6px", fontFamily: "var(--f-num, monospace)", fontSize: "11px", color: "var(--muted)" }}>♪ {micHeard}</div>}
                 </>
               )}
             </div>
@@ -1990,7 +2043,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
                   {cur.options.map(p => (
                     <button key={p} className={`egopt${fb && p === cur.answerPcs[0] ? " ok" : ""}`} onClick={() => pickPc(p)}>
-                      <div style={{ fontSize: "17px", fontFamily: "'Orbitron',sans-serif" }}>{pcLabel(p)}</div>
+                      <div style={{ fontSize: "17px", fontFamily: "var(--f-app, sans-serif)" }}>{pcLabel(p)}</div>
                       {!p.includes("#") && <div style={{ fontSize: "9.5px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>}
                     </button>
                   ))}
@@ -1998,11 +2051,11 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
               )}
               {lvl.seq > 1 && (
                 <>
-                  <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "'Orbitron',sans-serif", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>
+                  <div style={{ minHeight: "24px", marginBottom: "9px", fontFamily: "var(--f-app, sans-serif)", color: "#ff76d8", fontSize: "14px", letterSpacing: "2px" }}>{taps.map((t, i) => <span key={i} style={{ color: t === cur.answerPcs[i] ? "#79e08a" : "#ff5252" }}>{pcLabel(t)} </span>)}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "6px" }}>
                     {["C", "D", "E", "F", "G", "A", "B"].map(p => (
                       <button key={p} className="egopt" style={{ padding: "13px 2px" }} onClick={() => tapSeq(p)}>
-                        <div style={{ fontSize: "15px", fontFamily: "'Orbitron',sans-serif" }}>{p}</div>
+                        <div style={{ fontSize: "15px", fontFamily: "var(--f-app, sans-serif)" }}>{p}</div>
                         <div style={{ fontSize: "9px", color: "var(--muted)" }}>{lang === "th" ? PC_SOLFA_TH[p] : PC_SOLFA[p]}</div>
                       </button>
                     ))}
@@ -2012,7 +2065,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
               )}
             </>
           )}
-          <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, color: fb ? (fb.ok ? "#d97757" : "#ff5252") : "transparent" }}>
+          <div style={{ minHeight: "24px", marginTop: "12px", fontSize: "13px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: fb ? (fb.ok ? "var(--clay-ink)" : "#ff5252") : "transparent" }}>
             {fb ? (fb.ok ? T.right : T.wrong + cur.answerPcs.map(pcLabel).join(" ")) : "·"}
           </div>
         </div>
@@ -2072,12 +2125,12 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
     <div className="pathpage">
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
-          style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          className="pageback">
           ← {L[lang].navProfile}
         </button>
       )}
       <div className="v12hero"><div className="v12title">📊 {T.title}</div><div className="v12sub">{T.sub}</div></div>
-      {!hasData && <div className="v12card" style={{ textAlign: "center", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, fontSize: "13.5px", padding: "22px 14px" }}>{T.empty}</div>}
+      {!hasData && <div className="v12card" style={{ textAlign: "center", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, fontSize: "13.5px", padding: "22px 14px" }}>{T.empty}</div>}
       <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
         <div className="instile"><b>{Math.round(totalSec / 60)}</b><span>{T.mins}</span></div>
         <div className="instile"><b>{totalOk}</b><span>{T.notes}</span></div>
@@ -2085,31 +2138,31 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
         <div className="instile"><b>{(profile && profile.streak) || 0}🔥</b><span>{T.streak}</span></div>
       </div>
       <div className="v12card">
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "6px" }}>{T.chart}</div>
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "6px" }}>{T.chart}</div>
         <div className="insbarwrap">
           {mins.map((m, i) => <div key={i} className="insbar" style={{ height: Math.max(2, Math.round(m / maxMin * 88)) + "%", opacity: m > 0 ? 1 : 0.25 }} title={Math.round(m / 60) + " min"} />)}
         </div>
         <div style={{ display: "flex", gap: "4px", padding: "2px 2px 0" }}>
-          {mins.map((_, i) => { const d = new Date(start14 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8px", color: "#826575", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getUTCDay()]}</div>; })}
+          {mins.map((_, i) => { const d = new Date(start14 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{WD[d.getUTCDay()]}</div>; })}
         </div>
       </div>
       <div className="v12card">
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>{T.acc}</div>
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "8px" }}>{T.acc}</div>
         <div style={{ display: "flex", gap: "8px" }}>
           <div className="instile"><b style={{ color: acc7 != null && accP != null ? (acc7 >= accP ? "#4caf50" : "#ff5252") : "#d97757" }}>{acc7 == null ? "—" : acc7 + "%"}</b><span>{T.accNow}</span></div>
           <div className="instile"><b style={{ color: "var(--muted)" }}>{accP == null ? "—" : accP + "%"}</b><span>{T.accPrev}</span></div>
         </div>
       </div>
       <div className="v12card">
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>🎯 {T.weak}</div>
-        {weak.length === 0 && <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>{T.weakNone}</div>}
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "8px" }}>🎯 {T.weak}</div>
+        {weak.length === 0 && <div style={{ fontSize: "12.5px", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600 }}>{T.weakNone}</div>}
         {weak.map((w, i) => {
           const song = actSongOf(w.e);
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderTop: i ? "1px solid #ffffff0c" : "none" }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "13px", color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{actTopicLabel(w.e, lang)}</div>
-                <div style={{ fontSize: "10px", color: "#ff5252", fontFamily: "'Share Tech Mono',monospace" }}>{Math.round(w.rate * 100)}% miss · {w.ok + w.miss} n</div>
+                <div style={{ fontSize: "13px", color: "var(--text)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>{actTopicLabel(w.e, lang)}</div>
+                <div style={{ fontSize: "10px", color: "#ff5252", fontFamily: "var(--f-num, monospace)" }}>{Math.round(w.rate * 100)}% miss · {w.ok + w.miss} n</div>
               </div>
               {song && <button className="tdgo" onClick={() => { playUi("click"); onSong(song); }}>{T.weakGo}</button>}
             </div>
@@ -2118,8 +2171,8 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
       </div>
       {bestHour != null && (
         <div className="v12card" style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "5px" }}>⏰ {T.hour}</div>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: "19px", color: "#d97757", fontWeight: 900 }}>{String(bestHour).padStart(2, "0")}:00 – {String((bestHour + 1) % 24).padStart(2, "0")}:00</div>
+          <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "5px" }}>⏰ {T.hour}</div>
+          <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "19px", color: "var(--clay-ink)", fontWeight: 900 }}>{String(bestHour).padStart(2, "0")}:00 – {String((bestHour + 1) % 24).padStart(2, "0")}:00</div>
         </div>
       )}
     </div>
@@ -2131,7 +2184,7 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
    teacher's comment, plus downloadable certificates per finished
    Pathway chapter and a shareable weekly PNG.
 ════════════════════════════════════════════════════════════ */
-const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
+const ReportPage = memo(function ReportPage({ lang, profile, onBack, premium = false, onUpsell = null }) {
   const T = {
     th: { title: "สมุดพก", sub: "สรุปผลการเรียนรายสัปดาห์ + ใบประกาศนียบัตร — บันทึกเป็นรูปส่งให้ผู้ปกครองหรือแชร์ได้เลย", week: "สัปดาห์นี้ (7 วันล่าสุด)", mins: "นาที", days: "วัน", accL: "แม่นยำ", topicsL: "หัวข้อ", gamesL: "เกม", comment: "คำติชมจากครู TiGA", certs: "ใบประกาศนียบัตร", certGet: "⬇ บันทึกใบประกาศ", certLock: "เรียนให้ครบทุกหัวข้อในหมวดนี้", share: "⬇ บันทึกสมุดพกเป็นรูป", making: "กำลังสร้างรูป…", student: "นักเรียน TiGA" },
     en: { title: "Report Card", sub: "A weekly summary with a teacher's comment + downloadable certificates — save as an image for parents or sharing", week: "This week (last 7 days)", mins: "min", days: "days", accL: "accuracy", topicsL: "topics", gamesL: "games", comment: "Teacher TiGA's comment", certs: "Certificates", certGet: "⬇ Save certificate", certLock: "Finish every topic in this chapter", share: "⬇ Save report as image", making: "Rendering…", student: "TiGA Student" },
@@ -2207,13 +2260,13 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
     <div className="pathpage">
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
-          style={{ margin: "12px 2px 0", background: "none", border: "1px solid var(--bd4)", borderRadius: "8px", color: "#a88b9b", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>
+          className="pageback">
           ← {L[lang].navProfile}
         </button>
       )}
       <div className="v12hero"><div className="v12title">🏅 {T.title}</div><div className="v12sub">{T.sub}</div></div>
       <div className="v12card">
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "8px" }}>{T.week}</div>
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "8px" }}>{T.week}</div>
         <div style={{ display: "flex", gap: "7px", marginBottom: "12px" }}>
           <div className="instile"><b>{a.min}</b><span>{T.mins}</span></div>
           <div className="instile"><b>{a.days}/7</b><span>{T.days}</span></div>
@@ -2225,15 +2278,15 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
           {mins7.map((m, i) => <div key={i} className="insbar" style={{ height: Math.max(3, Math.round(m / maxM * 88)) + "%", opacity: m > 0 ? 1 : 0.25 }} />)}
         </div>
         <div style={{ display: "flex", gap: "4px" }}>
-          {mins7.map((_, i) => { const d = new Date(start7 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "8.5px", color: "#826575", fontFamily: "'Share Tech Mono',monospace" }}>{WD[d.getUTCDay()]}</div>; })}
+          {mins7.map((_, i) => { const d = new Date(start7 + i * dayMs); return <div key={i} style={{ flex: 1, textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{WD[d.getUTCDay()]}</div>; })}
         </div>
       </div>
       <div className="v12card" style={{ borderColor: "#d9775744" }}>
-        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", marginBottom: "7px" }}>💬 {T.comment}</div>
-        <div style={{ fontSize: "13.5px", color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, lineHeight: 1.65 }}>{comment}</div>
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "7px" }}>💬 {T.comment}</div>
+        <div style={{ fontSize: "13.5px", color: "var(--text)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, lineHeight: 1.65 }}>{comment}</div>
       </div>
       <button className="tdgo" disabled={busy} onClick={saveWeekly} style={{ width: "100%", padding: "13px", fontSize: "11.5px", marginBottom: "16px" }}>{busy ? T.making : T.share}</button>
-      <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace", margin: "2px 2px 9px" }}>🎓 {T.certs}</div>
+      <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", margin: "2px 2px 9px" }}>🎓 {T.certs}</div>
       {PATH_GROUPS[lang].map(g => {
         const stages = STAGES_BY_GROUP[g.id] || [];
         const done = stages.filter(s => doneP.has(s.id)).length;
@@ -2242,10 +2295,10 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack }) {
           <div key={g.id} className={`certrow${earned ? " earned" : ""}`}>
             <span style={{ fontSize: "22px" }}>{earned ? "🏆" : g.icon}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "13.5px", color: earned ? "#d97757" : "var(--text2)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 }}>{g.label}</div>
-              <div style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "'Share Tech Mono',monospace" }}>{done}/{stages.length}{earned ? "" : " · " + T.certLock}</div>
+              <div style={{ fontSize: "13.5px", color: earned ? "var(--clay-ink)" : "var(--text2)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>{g.label}</div>
+              <div style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{done}/{stages.length}{earned ? "" : " · " + T.certLock}</div>
             </div>
-            {earned && <button className="tdgo" style={{ borderColor: "#d97757", color: "#d97757", background: "rgba(217,119,87,.08)" }} disabled={busy} onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } saveCert(g); }}>{busy ? T.making : T.certGet}</button>}
+            {earned && <button className="tdgo" style={{ borderColor: "#d97757", color: "var(--clay-ink)", background: "rgba(217,119,87,.08)" }} disabled={busy} onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } saveCert(g); }}>{busy ? T.making : T.certGet}</button>}
           </div>
         );
       })}
@@ -3097,7 +3150,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
             <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
               {T("🎊 กล่องลึกลับ!", "🎊 Mystery Chest!", "🎊 神秘宝箱！")}
             </div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#d97757", marginBottom: 4 }}>+{mysteryChest.xp} EXP</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "var(--clay-ink)", marginBottom: 4 }}>+{mysteryChest.xp} EXP</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#f5a623", marginBottom: 16 }}>+{mysteryChest.coins} 🪙</div>
             <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
               {T("รางวัลพิเศษสำหรับการเล่นที่ดีเยี่ยม!", "Special reward for your great play!", "超水平发挥的特别奖励！")}
@@ -3119,9 +3172,9 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           padding: "10px 22px", fontWeight: 700, fontSize: 15, pointerEvents: "none",
           boxShadow: luckyToast.kind === "gem" ? "0 4px 20px rgba(90,110,220,0.55)" : "0 4px 20px rgba(217,119,87,0.5)", animation: "pop 0.4s ease" }}>
           {luckyToast.kind === "gem"
-            ? T(`💎 ได้เพชร +${luckyToast.n}! วันนี้เหลืออีก ${luckyToast.left}`,
+            ? T(`💎 ได้ Gems +${luckyToast.n}! วันนี้เหลืออีก ${luckyToast.left}`,
                 `💎 Gem earned +${luckyToast.n}! ${luckyToast.left} more today`,
-                `💎 获得宝石 +${luckyToast.n}！今日还剩 ${luckyToast.left}`)
+                `💎 获得 Gems +${luckyToast.n}！今日还剩 ${luckyToast.left}`)
             : T(`⚡ LUCKY BONUS! +${luckyToast.xp} EXP`, `⚡ LUCKY BONUS! +${luckyToast.xp} EXP`, `⚡ 幸运奖励! +${luckyToast.xp} EXP`)}
         </div>
       )}
@@ -3263,7 +3316,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAnalytics(); }}>
           <span className="tdico">📊</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="tdlbl">{lc.navStats}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdlbl">{lc.navStats}{!isMax && <span style={{ fontSize: "10px", color: "var(--clay-ink)", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
             <div className="tdtag">{lang === "th" ? "กราฟการซ้อม · จุดที่ควรเก็บ · ช่วงเวลาที่ซ้อมบ่อย" : lang === "zh" ? "练习图表 · 待加强 · 常练时间" : "Practice charts · weak spots · best hours"}</div>
           </div>
           <span className="tdgo">{isMax ? "→" : "👑"}</span>
@@ -3281,7 +3334,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAiReport(); }}>
           <span className="tdico">📋</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="tdlbl">{lang === "th" ? "รายงานพัฒนาการ AI" : lang === "zh" ? "AI 进度报告" : "AI Weekly Report"}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdlbl">{lang === "th" ? "รายงานพัฒนาการ AI" : lang === "zh" ? "AI 进度报告" : "AI Weekly Report"}{!isMax && <span style={{ fontSize: "10px", color: "var(--clay-ink)", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
             <div className="tdtag">{lang === "th" ? "รายงานพัฒนาการรายสัปดาห์ที่ AI สร้างเป็นการส่วนตัว" : lang === "zh" ? "AI 个性化生成的每周进度总结" : "AI-generated personal weekly progress report"}</div>
           </div>
           <span className="tdgo">{isMax ? "→" : "👑"}</span>
@@ -3290,7 +3343,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           onClick={() => { playUi("click"); if (!isMax) { onUpsell(); return; } onAiPlan(); }}>
           <span className="tdico">🗓️</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="tdlbl">{lang === "th" ? "แผนซ้อมส่วนตัว AI" : lang === "zh" ? "AI 练习计划" : "AI Practice Plan"}{!isMax && <span style={{ fontSize: "10px", color: "#d97757", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
+            <div className="tdlbl">{lang === "th" ? "แผนซ้อมส่วนตัว AI" : lang === "zh" ? "AI 练习计划" : "AI Practice Plan"}{!isMax && <span style={{ fontSize: "10px", color: "var(--clay-ink)", fontWeight: 700, marginLeft: 6 }}>👑 Max</span>}</div>
             <div className="tdtag">{lang === "th" ? "แผนซ้อม 7 วัน AI วิเคราะห์จุดอ่อนส่วนตัว" : lang === "zh" ? "AI 根据弱点生成的7天个性化练习计划" : "Personalized 7-day AI plan based on your weak spots"}</div>
           </div>
           <span className="tdgo">{isMax ? "→" : "👑"}</span>
@@ -3669,16 +3722,16 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
 
 /* ── Song picker page (falling-notes play-along) ── */
 const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // level required to unlock by difficulty
-/* ── Daily Song Quest day card (Play Along plan #8) — hero strip on the
-   song list: today's featured song (same for every device, hash-of-date
-   choice), today's progress (done + stars from tg_daily_song), and a
-   countdown to the next quest. One tap starts the song. ── */
-function DailySongQuestCard({ lang, onPlay }) {
+/* ── Daily Song Quest day card — the day's song, picked once from the songs
+   this player can open and has not 3-starred yet (play-along-progress
+   dailySong), and whether today's reward has been paid. It resets with the
+   app's other dailies (ymd), so the hours left count to that same moment. ── */
+function DailySongQuestCard({ lang, onPlay, level = 1, plan = "" }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [state, setState] = useState(() => readDailySongState(new Date().toISOString().slice(0, 10)));
-  const song = useMemo(() => dailySongFor(), []);
+  const song = useMemo(() => dailySong(level, plan), [level, plan]);
   if (!song) return null;
-  const hoursLeft = 23 - new Date().getHours();
+  const state = readDailyState();
+  const hoursLeft = Math.max(0, 23 - dayDate().getHours());
   const done = !!state.done;
   const stars = state.stars || 0;
   return (
@@ -3688,15 +3741,21 @@ function DailySongQuestCard({ lang, onPlay }) {
       <span className="setlistbtn-sub">
         {done
           ? T("✅ สำเร็จแล้ววันนี้ — เล่นซ้ำเพื่อเก็บดาวเพิ่มได้", "✅ Done today — replay to collect more stars", "✅ 今日已完成 — 可重玩拿更多星")
-          : T("เล่นให้จบ 1 รอบรับ " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "Finish it once for " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "完成一次得 " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP")}
+          : T("ได้ 1 ดาวขึ้นไป รับ " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "Get 1 star or more for " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "得 1 星以上奖励 " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP")}
         {"  ·  "}{done ? "★".repeat(stars) + "☆".repeat(Math.max(0, 3 - stars)) + "  ·  " : ""}{T("เหลืออีก ~" + hoursLeft + " ชม.", "~" + hoursLeft + "h left", "剩约" + hoursLeft + "小时")}
       </span>
     </button>
   );
 }
 
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist, initialCat = "songs" }) {
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, exp = 0, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist, initialCat = "songs" }) {
   const lc = L[lang];
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const [q, setQ] = useState("");
+  const [lockMsg, setLockMsg] = useState(null);
+  const lockMsgT = useRef(null);
+  const showLock = (text) => { setLockMsg(text); clearTimeout(lockMsgT.current); lockMsgT.current = setTimeout(() => setLockMsg(null), 3200); };
+  useEffect(() => () => clearTimeout(lockMsgT.current), []);
   const [filter, setFilter] = useState(-1);   // -1 all · 0 favorites · 1/2/3 by difficulty
   const [favs, setFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_favs") || "[]"); } catch (e) { return []; } });
   const toggleFav = (id) => setFavs(prev => {
@@ -3797,14 +3856,17 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     setHumming(false);
   }
 
+  // difficulty reads as "Level N" — stars on a card now mean stars earned
   const filters = [
-    { k: -1, label: lc.songAll }, { k: 0, label: "★ " + lc.songFav },
-    { k: 1, label: "★" }, { k: 2, label: "★★" }, { k: 3, label: "★★★" },
+    { k: -1, label: lc.songAll }, { k: 0, label: "♥ " + lc.songFav },
+    { k: 1, label: T("ระดับ 1", "Level 1", "难度 1") }, { k: 2, label: T("ระดับ 2", "Level 2", "难度 2") }, { k: 3, label: T("ระดับ 3", "Level 3", "难度 3") },
   ];
   let list = ALL.slice();
   if (filter === 0) list = list.filter(s => favs.includes(s.id));
   else if (filter > 0) list = list.filter(s => s.diff === filter && !s.custom);
   if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "classical") === genreFilter);
+  const qq = q.trim().toLowerCase();
+  if (qq) list = list.filter(s => [s.th, s.en, s.zh].some(t => String(t || "").toLowerCase().includes(qq)));
   list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
 
   // Setlist / Concert mode — 3 random UNLOCKED songs from whatever's currently
@@ -3819,28 +3881,41 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
       return !locked && !maxLocked;
     });
     if (pool.length < 2 || !onStartSetlist) return;
-    const copy = pool.slice(), picked = [];
-    while (picked.length < Math.min(3, copy.length)) picked.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
+    // the count is fixed before picking: `copy` shrinks as songs are taken,
+    // so measuring it in the loop stopped a 3- or 4-song pool at two songs
+    const copy = pool.slice(), picked = [], count = Math.min(3, pool.length);
+    while (picked.length < count) picked.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
     onStartSetlist(picked);
   }
 
+  /* A card says what the player has EARNED on the song (gold stars), how
+     hard it is (level) and how long it is. A locked song says what opens
+     it, instead of only buzzing. */
+  const expToLevel = (req) => { const t = ALL_LEVELS[req - 1]; return t ? Math.max(0, t.min - (exp || 0)) : 0; };
+  const fmtLen = (sec) => Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
   const Card = (s, pfx = "") => {
     const hue = laneHue((s.seq.find(x => x[0] !== "R") || ["C4"])[0]);
     const isFav = favs.includes(s.id);
-    const req = SONG_REQ[s.diff] || 1;
-    const locked = !s.custom && level < req;
-    const maxLocked = !s.custom && s.maxOnly && !isMaxPlan(plan);
-    let pb = 0; try { pb = +(localStorage.getItem("tg_best_" + s.id) || 0); } catch (_) {}
+    const { locked, maxLocked, req } = songLockInfo(s, level, plan);
+    const got = s.custom ? 0 : songStars(s.id);
+    const medal = s.custom ? 0 : songMedal(s.id);
+    const len = songLengthSec(s);
+    const need = locked ? expToLevel(req) : 0;
     return (
       <button key={pfx + s.id} className={`songcard${locked || maxLocked ? " locked" : ""}`} style={{ "--sc": `hsl(${hue},70%,56%)` }}
-        onClick={() => { if (locked) { haptic(20); playMiss(); } else if (maxLocked) { haptic(20); if (onUpsell) onUpsell(); } else play(s); }}>
+        onClick={() => {
+          if (locked) { haptic(20); showLock(T(`"${tr(s, lang)}" เปิดที่เลเวล ${req} · ขาดอีก ${need.toLocaleString()} EXP — เล่นเพลงที่เปิดอยู่เพื่อเก็บ EXP`, `"${tr(s, lang)}" opens at level ${req} · ${need.toLocaleString()} EXP to go — play open songs to earn it`, `"${tr(s, lang)}" 在 ${req} 级解锁 · 还差 ${need.toLocaleString()} EXP — 弹已解锁的歌来获得`)); }
+          else if (maxLocked) { haptic(20); if (onUpsell) onUpsell(); }
+          else play(s);
+        }}>
         <div className="songcard-ic">{locked ? "🔒" : maxLocked ? "👑" : s.custom ? "🎼" : "🎵"}</div>
         <div className="songcard-body">
           <div className="songcard-nm">{tr(s, lang)}</div>
           <div className="songcard-meta">
-            <span className="songdiff" aria-label={`difficulty ${s.diff}`}>{s.custom ? "✨ AI" : "★".repeat(s.diff) + "☆".repeat(3 - s.diff)}</span>
-            <span>{locked ? lc.lockedLv + req : maxLocked ? (lang === "th" ? "👑 Max เท่านั้น" : lang === "zh" ? "👑 Max 专属" : "👑 Max only") : s.bpm + " BPM"}</span>
-            {pb > 0 && <span className="songcard-pb">PB {pb.toLocaleString()}</span>}
+            {s.custom ? <span>✨ AI</span> : <span className={`songcard-got${got ? " on" : ""}`} aria-label={T(`ได้ ${got} ดาว`, `${got} stars earned`, `已得 ${got} 星`)}>{"★".repeat(got) + "☆".repeat(3 - got)}</span>}
+            {!s.custom && medal > 0 && <i className={"pl-medal m" + medal} role="img" aria-label={T(`เหรียญ${["", "ทองแดง", "เงิน", "ทอง", "มงกุฎ"][medal]}`, `${["", "Bronze", "Silver", "Gold", "Crown"][medal]} medal`, `${["", "铜", "银", "金", "皇冠"][medal]}牌`)} />}
+            {!s.custom && <span className="songcard-lv">{T("ระดับ", "Lv", "难度")} {s.diff}</span>}
+            <span>{locked ? T(`เลเวล ${req} · ขาด ${need.toLocaleString()} EXP`, `Level ${req} · ${need.toLocaleString()} EXP to go`, `${req} 级 · 差 ${need.toLocaleString()} EXP`) : maxLocked ? (lang === "th" ? "👑 Max เท่านั้น" : lang === "zh" ? "👑 Max 专属" : "👑 Max only") : "⏱ " + fmtLen(len)}</span>
           </div>
         </div>
         <span className="songcard-go">{locked ? "🔒" : maxLocked ? "👑" : "▶"}</span>
@@ -3905,7 +3980,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
       {/* Daily Song Quest (Play Along plan #8): one featured song per day,
           deterministic for every device. Playing it to the finish once today
           completes the quest — bonus paid in finishSong. */}
-      <DailySongQuestCard lang={lang} onPlay={onPlay} />
+      <DailySongQuestCard lang={lang} onPlay={onPlay} level={level} plan={plan} />
       {/* category selector — Songs · Scales · Chords · Intervals */}
       <div className="songfilters">
         {cats.map(c => (
@@ -3926,6 +4001,8 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
               <span className="setlistbtn-sub">{lc.setlistSub}</span>
             </button>
           )}
+          <input className="songsearch" type="search" value={q} onChange={e => setQ(e.target.value)}
+            placeholder={T("ค้นหาเพลง", "Search songs", "搜索歌曲")} aria-label={T("ค้นหาเพลง", "Search songs", "搜索歌曲")} />
           <div className="genrefilters">
             {([
               { code:"all",       label:{ th:"🎵 ทั้งหมด",     en:"🎵 All",       zh:"🎵 全部" } },
@@ -3974,12 +4051,24 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
               </div>
             </div>
           )}
-          {lastSong && filter === -1 && (
+          {lockMsg && <div className="songlockmsg" role="status">🔒 {lockMsg}</div>}
+          {lastSong && filter === -1 && !qq && (
             <div className="songcontinue">
               <div className="songcontinue-lbl">↻ {lc.songContinue}</div>
               {Card(lastSong, "c-")}
             </div>
           )}
+          {/* for a returning player only: a new one starts from the top of the
+              list, and the day's song already has its own card above */}
+          {filter === -1 && !qq && lastSong && (() => {
+            const nx = nextSongAfter(!lastSong.custom ? lastSong : null, level, plan, { skipDaily: true });
+            return nx && nx.id !== lastSong.id ? (
+              <div className="songcontinue">
+                <div className="songcontinue-lbl">✦ {T("เพลงแนะนำถัดไป", "Up next", "推荐下一首")}</div>
+                {Card(nx, "n-")}
+              </div>
+            ) : null;
+          })()}
           <div className="songgrid">
             {list.length ? list.map(s => Card(s)) : <div className="songempty">{lc.songFavEmpty}</div>}
           </div>
@@ -4053,7 +4142,7 @@ const LEAGUE_TIERS = [
   { tier: 2, icon: "🥈", th: "ซิลเวอร์", en: "Silver", zh: "白银" },
   { tier: 3, icon: "🥇", th: "โกลด์", en: "Gold", zh: "黄金" },
   { tier: 4, icon: "💎", th: "แพลทินัม", en: "Platinum", zh: "铂金" },
-  { tier: 5, icon: "👑", th: "ไดมอนด์", en: "Diamond", zh: "钻石" },
+  { tier: 5, icon: "👑", th: "ไดมอนด์", en: "Diamond", zh: "Gems" },
 ];
 /* School-scoped leaderboard — the teacher-facing SchoolDashboard already shows
    every student's stats; students themselves had zero peer visibility until
@@ -4190,8 +4279,9 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
           data = legacy.data;
         }
         if (!alive) return;
-        setRows(data || []);
-        const me = (data || []).find(r => r.is_me);
+        data = (data || []).filter(r => !r.is_bot);   // demo bots are gone: real players only
+        setRows(data);
+        const me = data.find(r => r.is_me);
         if (me) { setMyRank(me.rank); return; }
         const r = await sb.rpc("get_my_rank");
         if (alive && !r.error) setMyRank(r.data);
@@ -4242,9 +4332,6 @@ const LeaderboardSection = memo(function LeaderboardSection({ lang }) {
                 </div>
               ))}
             </div>
-            {rows.some(r => r.is_bot) && (
-              <div className="leaguereset">🤖 {lang === "th" ? "บอทฝึกหัด — คู่แข่งตัวอย่างสำหรับฝึกซ้อม" : lang === "zh" ? "练习机器人 — 新手练手对手" : "Practice bots — friendly rivals to train against"}</div>
-            )}
           </>}
     </div>
   );
@@ -4526,6 +4613,24 @@ const BROADCAST_SEEN_KEY = "tg_broadcast_seen";
 function readBroadcastSeen() { try { return localStorage.getItem(BROADCAST_SEEN_KEY); } catch (e) { return null; } }
 function markBroadcastSeen(id) { try { localStorage.setItem(BROADCAST_SEEN_KEY, String(id)); } catch (e) {} }
 
+/* Render-guard helpers (crash hardening): every field that reaches a JSX text
+   child from AI output, localStorage or a database row is coerced to a string
+   first. React throws error #31 ("Objects are not valid as a React child") —
+   the full-page "เกิดข้อผิดพลาด" crash — when an object lands in a text slot,
+   so a malformed/stale tip or announcement must degrade to readable text,
+   never render raw. Plain objects (e.g. an i18n map) are flattened by joining
+   their string values; everything else falls back to "". */
+function safeStr(v) {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(x => (x == null ? "" : safeStr(x))).filter(Boolean).join(", ");
+  if (typeof v === "object") {
+    try { return Object.values(v).map(x => (x == null ? "" : safeStr(x))).filter(Boolean).join(", "); } catch (e) { return ""; }
+  }
+  return "";
+}
+
 // Auto Teaching tip history (local, same pattern as the practice/activity logs above) —
 // powers the small "recent tips" dashboard list. Not synced server-side.
 const AUTOTEACH_LOG_KEY = "tg_autoteach_log";
@@ -4581,6 +4686,26 @@ function setReadCourseStars(lvl, stars) {
 }
 /* ── Ear-gym personal bests ── */
 function earBest() { try { return JSON.parse(localStorage.getItem("tg_eargym") || "{}") || {}; } catch (e) { return {}; } }
+// ── Jev ear-adaptive (task: ear-adaptive) — Ear Gym difficulty tier, 0..2
+// (step down / stay / step up), scored from the learner's recent round history.
+// Refreshed once per finished round (finishRound → jevEarRefresh); genQ reads
+// the cached tier inline so the next question never waits on a network call.
+// Unavailable/disabled Jev → tier stays null → the existing earBest()-threshold
+// logic decides difficulty, exactly the pre-Jev behavior.
+let _jevEarTier = null;
+function jevEarTier() { return _jevEarTier; }
+async function jevEarRefresh(game, lastScore, roundN) {
+  try {
+    const best = earBest();
+    const r = await jevTask("ear-adaptive",
+      `Ear-training game: ${game}. Rounds this device session: ${roundN}. Last round: ${lastScore}/${roundN} correct. Personal bests: ${JSON.stringify(best)}`,
+      {}, 2000);
+    if (r.ok && r.answers) {
+      const s = jevScore(r.answers.next_difficulty);
+      if (s != null) _jevEarTier = Math.max(0, Math.min(2, Math.round(s)));
+    }
+  } catch (e) { /* keep last tier */ }
+}
 function setEarBest(game, score) {
   try { const s = earBest(); if ((s[game] || 0) < score) { s[game] = score; localStorage.setItem("tg_eargym", JSON.stringify(s)); } } catch (e) {}
 }
@@ -4593,6 +4718,9 @@ function downloadDataURL(url, fname) {
   try { const a = document.createElement("a"); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); } catch (e) {}
 }
 async function renderCertificatePNG({ name, course, dateStr, lang }) {
+  // a canvas only draws in a face that has already arrived: ask for both
+  // weights, Thai and Latin, before the first word is set
+  try { if (document.fonts && document.fonts.load) await Promise.all(["400 26px Prompt", "500 30px Prompt"].map(f => document.fonts.load(f, "กA"))); } catch (e) {}
   try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
   const W = 1200, H = 850;
   const c = document.createElement("canvas"); c.width = W; c.height = H;
@@ -4610,35 +4738,35 @@ async function renderCertificatePNG({ name, course, dateStr, lang }) {
   }
   x.textAlign = "center";
   x.fillStyle = "#d97757";
-  x.font = "700 30px Orbitron, sans-serif";
+  x.font = "500 30px Prompt, sans-serif";
   x.fillText("TG · TIGA.AI PIANO ACADEMY", W / 2, 118);
   x.fillStyle = "#faf9f5";
-  x.font = "900 64px Orbitron, sans-serif";
+  x.font = "500 64px Prompt, sans-serif";
   x.fillText(lang === "th" ? "ประกาศนียบัตร" : lang === "zh" ? "结业证书" : "CERTIFICATE", W / 2, 226);
   x.fillStyle = "#a8a49b";
-  x.font = "600 26px Rajdhani, sans-serif";
+  x.font = "500 26px Prompt, sans-serif";
   x.fillText(lang === "th" ? "มอบให้เพื่อรับรองว่า" : lang === "zh" ? "兹证明" : "This certifies that", W / 2, 300);
   x.fillStyle = "#d97757";
-  x.font = "700 58px Rajdhani, sans-serif";
+  x.font = "500 58px Prompt, sans-serif";
   x.fillText(name, W / 2, 386);
   x.strokeStyle = "#d9775755"; x.lineWidth = 1;
   x.beginPath(); x.moveTo(W / 2 - 300, 408); x.lineTo(W / 2 + 300, 408); x.stroke();
   x.fillStyle = "#a8a49b";
-  x.font = "600 26px Rajdhani, sans-serif";
+  x.font = "500 26px Prompt, sans-serif";
   x.fillText(lang === "th" ? "ได้เรียนจบหลักสูตร" : lang === "zh" ? "已完成课程" : "has successfully completed", W / 2, 464);
   x.fillStyle = "#faf9f5";
-  x.font = "700 40px Rajdhani, sans-serif";
+  x.font = "500 40px Prompt, sans-serif";
   x.fillText(course, W / 2, 528);
   x.fillStyle = "#8f8b82";
-  x.font = "500 22px Rajdhani, sans-serif";
+  x.font = "500 22px Prompt, sans-serif";
   x.fillText((lang === "th" ? "เส้นทางเรียนรู้เปียโน TiGA · " : lang === "zh" ? "TiGA 钢琴学习之路 · " : "TiGA Piano Pathway of Learning · ") + dateStr, W / 2, 596);
   // signature block
   x.strokeStyle = "#a8a49b66"; x.beginPath(); x.moveTo(W / 2 - 170, 700); x.lineTo(W / 2 + 170, 700); x.stroke();
   x.fillStyle = "#d97757";
-  x.font = "700 26px Orbitron, sans-serif";
+  x.font = "500 26px Prompt, sans-serif";
   x.fillText("TiGA AI", W / 2, 738);
   x.fillStyle = "#8f8b82";
-  x.font = "500 19px Rajdhani, sans-serif";
+  x.font = "500 19px Prompt, sans-serif";
   x.fillText(lang === "th" ? "ครูผู้สอน — TiGA AI Piano Studio" : lang === "zh" ? "指导老师 — TiGA AI 钢琴工作室" : "Instructor — TiGA AI Piano Studio", W / 2, 768);
   return c.toDataURL("image/png");
 }
@@ -4652,11 +4780,11 @@ async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) 
   x.fillStyle = bg; x.fillRect(0, 0, W, H);
   x.strokeStyle = "#d97757"; x.lineWidth = 3; x.strokeRect(26, 26, W - 52, H - 52);
   x.textAlign = "center";
-  x.fillStyle = "#d97757"; x.font = "700 30px Orbitron, sans-serif";
+  x.fillStyle = "#d97757"; x.font = "500 30px Prompt, sans-serif";
   x.fillText("TG · TIGA.AI", W / 2, 112);
-  x.fillStyle = "#faf9f5"; x.font = "900 56px Orbitron, sans-serif";
+  x.fillStyle = "#faf9f5"; x.font = "500 56px Prompt, sans-serif";
   x.fillText(lang === "th" ? "สมุดพกประจำสัปดาห์" : lang === "zh" ? "本周成绩单" : "WEEKLY REPORT", W / 2, 200);
-  x.fillStyle = "#d97757"; x.font = "700 44px Rajdhani, sans-serif";
+  x.fillStyle = "#d97757"; x.font = "500 44px Prompt, sans-serif";
   x.fillText(name, W / 2, 272);
   const rows = [
     [lang === "th" ? "นาทีที่ซ้อม" : lang === "zh" ? "练习分钟" : "Minutes practiced", String(mins)],
@@ -4670,14 +4798,14 @@ async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) 
     x.fillStyle = "#171615cc";
     x.fillRect(120, y - 52, W - 240, 84);
     x.strokeStyle = "#ffffff18"; x.lineWidth = 1; x.strokeRect(120, y - 52, W - 240, 84);
-    x.textAlign = "left"; x.fillStyle = "#a8a49b"; x.font = "600 30px Rajdhani, sans-serif";
+    x.textAlign = "left"; x.fillStyle = "#a8a49b"; x.font = "500 30px Prompt, sans-serif";
     x.fillText(k, 152, y + 2);
-    x.textAlign = "right"; x.fillStyle = "#d97757"; x.font = "800 40px Orbitron, sans-serif";
+    x.textAlign = "right"; x.fillStyle = "#d97757"; x.font = "500 40px Prompt, sans-serif";
     x.fillText(v, W - 152, y + 4);
     y += 118;
   }
   x.textAlign = "center";
-  x.fillStyle = "#8f8b82"; x.font = "500 24px Rajdhani, sans-serif";
+  x.fillStyle = "#8f8b82"; x.font = "500 24px Prompt, sans-serif";
   x.fillText(lang === "th" ? "เรียนเปียโนกับครู AI ที่ TiGA AI" : lang === "zh" ? "在 TiGA AI 与 AI 老师学钢琴" : "Learning piano with an AI teacher at TiGA AI", W / 2, H - 96);
   return c.toDataURL("image/png");
 }
@@ -4685,7 +4813,12 @@ async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) 
 /* ── coins (soft currency) + daily reward chest, all localStorage ── */
 export function getCoins() { try { return +(localStorage.getItem("tg_coins") || 0); } catch (e) { return 0; } }
 export function setCoinsLS(v) { try { localStorage.setItem("tg_coins", String(Math.max(0, Math.round(v)))); } catch (e) {} }
-export function chestAvailable() { try { return localStorage.getItem("tg_chest_date") !== dayKey(); } catch (e) { return false; } }
+/* The daily gift pays for learning, not for opening the app. Owner rule
+   (2026-09-25): Coins/Gems come only from playing/learning, admin grants and
+   the one-time notification reward, so the chest unlocks once a practice
+   session has been finished today (logPractice → bumpStreak stamps .last). */
+export function chestClaimedToday() { try { return localStorage.getItem("tg_chest_date") === dayKey(); } catch (e) { return true; } }
+export function chestAvailable() { try { return !chestClaimedToday() && readStreak().last === dayKey(); } catch (e) { return false; } }
 function chestStreak() { try { return +(localStorage.getItem("tg_chest_streak") || 0); } catch (e) { return 0; } }
 export function claimChest() {
   let streak = 1;
@@ -4795,7 +4928,10 @@ export function curriculumContext(lang) {
 // minutes — the learner's own override if they picked one, else the admin's platform
 // default, else a safe built-in fallback. 0 = off.
 const AUTO_TEACH_FALLBACK_MIN = 15;
-const AUTO_TEACH_INTERVALS = [5, 10, 15, 30, 60];
+const AUTO_TEACH_INTERVALS = [1, 5, 10, 15, 30, 60];
+// the admin's platform default is stored as JSON, so it can go below a whole
+// minute step (the learner's own pick is a smallint column — whole minutes only)
+const AUTO_TEACH_ADMIN_INTERVALS = [1, 2.5, 5, 10, 15, 30, 60];
 function resolveAutoTeachMin(profile, adminDefaultMin) {
   const own = profile && profile.auto_teach_interval_min;
   if (own != null) return own;
@@ -5048,7 +5184,7 @@ async function generateCoachTip(lang, profile) {
     repeatedErrors: struggle ? Math.min(struggle.count || 0, 4) : 0,
     repeatedErrorLabel: struggle ? struggle.label : null,
     pauses: 0, rhythmScore: null, speedRatio: null, weekAgoAccuracy: (mem.recent || [])[1] ? (mem.recent || [])[1].acc : null,
-  }, runTeachingLoopForPractice);
+  }, (stats, opts) => queuedUntilTiga(m => m.runTeachingLoopForPractice(stats, opts)));   // plan v3 1.5: lazy gateway (same signature as runTeachingLoopForPractice)
   const strat = strategyHint(dec);
   // Auto-Teach แม่นยำ (แผนข้อ 9): ปรับโทน/ความยาวตามระดับผู้เรียนจริง
   const tone = learnerTone(profile);
@@ -5104,6 +5240,20 @@ async function generateCoachTip(lang, profile) {
   // Auto-Teach แม่นยำ (แผนข้อ 5): ตรวจก่อนแสดงเสมอ — กว้างเกิน/หลุดขอบเขต/โครงไม่ครบ
   // → ใช้ fallback จากข้อมูลจริงแทน ไม่โชว์คำแนะนำสากลเด็ดขาด
   if (!validateTip(obj, Object.keys(COACH_FEATURE_LABELS))) return buildFallbackTip(lang, struggle, strat, topNoteMisses(2));
+  // ── Jev teach-rank: the validated tip is good on its face; ask Jev (fast,
+  // cheap, no-hallucination scoring) whether it fits THIS learner right now.
+  // A poor fit (< 1.2 on the 0..3 rubric) demotes the tip → the deterministic
+  // fallback recommendation shows instead. Disabled/slow/erroring Jev → keep
+  // the tip, exactly the pre-Jev behavior.
+  try {
+    const r = await jevTask("teach-rank",
+      `Learner: ${profileTxt}\nRecent sessions: ${recentTxt}\nKnown weak spot: ${struggleTxt}`,
+      { candidates: [obj.steps.join(" / ") + " — target: " + obj.feature] }, 2000);
+    if (r.ok && r.answers) {
+      const sc = jevScore(r.answers.c0); // 0..3 across the rubric
+      if (sc != null && sc < 1.2) return buildFallbackTip(lang, struggle, strat, topNoteMisses(2));
+    }
+  } catch (e) { /* keep the tip — Jev unavailable must never hide good advice */ }
   return obj;
 }
 // Adaptive routing: a soft nudge toward fixing a critically weak skill instead
@@ -5647,7 +5797,7 @@ const SHOP_STICKERS = [
   { id: "st-metro",  icon: "⏱️", art: "stk-st-metro", cost: 140, rarity: "rare",      th: "เมโทรนอม", en: "Metronome",     zh: "节拍器", sw: ["#ffd23f", "#4a3a10"], isNew: true },
   { id: "st-bolt",   icon: "⚡", art: "stk-st-bolt", cost: 180, rarity: "rare",      th: "สายฟ้าโอเวอร์ไดรฟ์", en: "Overdrive Bolt", zh: "超载闪电", sw: ["#ffe14d", "#4a3200"], isNew: true },
   { id: "st-paw",    icon: "🐾", art: "stk-st-paw", cost: 240, rarity: "epic",      th: "อุ้งเท้าคู่หู", en: "Buddy Paw",    zh: "伙伴爪印", sw: ["#ff8fc0", "#5c1236"], isNew: true },
-  { id: "st-medal",  icon: "🎖️", art: "stk-st-medal", cost: 420, rarity: "legendary", th: "เหรียญเกียรติยศ", en: "Honour Medal", zh: "荣誉勋章", sw: ["#ffd23f", "#b04a2a"], isNew: true },
+  { id: "st-medal",  icon: "🎖️", art: "stk-st-medal", cost: 420, rarity: "legendary", th: "Coins เกียรติยศ", en: "Honour Medal", zh: "荣誉勋章", sw: ["#ffd23f", "#b04a2a"], isNew: true },
 ];
 const SHOP_HATS = [
   { id: "hat-straw",    icon: "🥽", cost: 0,   art: "visor", rarity: "common",    th: "บังตาออปติก", en: "Optic Visor",      zh: "光学护目镜", sw: ["#8fa6c8", "#00f0ff"] },
@@ -5683,7 +5833,7 @@ const SHOP_OUTFITS = [
   { id: "out-kimono",  icon: "🔥", cost: 300, art: "out-kimono", rarity: "epic",      th: "เกราะระบายความร้อน", en: "Thermal Plating", zh: "热能装甲", sw: ["#ff9a3c", "#5c1400"] },
   { id: "out-armor",   icon: "🔰", cost: 400, art: "out-armor", rarity: "epic",      th: "เกราะอีจิส", en: "Aegis Plating",     zh: "神盾装甲", sw: ["#5ce1ff", "#0a2a3a"] },
   { id: "out-tuxedo",  icon: "🌑", cost: 500, art: "out-tuxedo", rarity: "epic",      th: "เกราะพรางสเตลท์", en: "Void Plating",  zh: "虚空装甲", sw: ["#8a94a8", "#0a0d14"] },
-  { id: "out-royal",   icon: "💎", cost: 700, art: "out-royal", rarity: "legendary", th: "เกราะเพชร", en: "Diamond Plating",    zh: "钻石装甲", sw: ["#bfe9ff", "#2a1a5a"] },
+  { id: "out-royal",   icon: "💎", cost: 700, art: "out-royal", rarity: "legendary", th: "เกราะ Gems", en: "Diamond Plating",    zh: "Gems 装甲", sw: ["#bfe9ff", "#2a1a5a"] },
   { id: "out-celestial", icon: "✨", cost: 900, art: "out-celestial", rarity: "legendary", th: "โครงเทพจักรวาล", en: "Celestial Chassis", zh: "天界机身", sw: ["#7fe8ff", "#aa00ff", "#ffd23f"] },
   /* ── chassis plating ── these are the items that visibly re-plate the avatar,
      so their swatches are picked to look good ON the armour, not just in the
@@ -5915,6 +6065,7 @@ const GEM_RELICS = [
 ];
 
 const MODEL_ITEM = Object.fromEntries(SHOP_MODELS.map(m => [m.model, m.id]));
+const MODEL_COST = Object.fromEntries(SHOP_MODELS.map(m => [m.model, m.cost]));   // shown on locked robots in the arena picker
 
 const SHOP_ACCESSORIES = [
   { id: "acc-shield",   icon: "🛡️", cost: 0,   art: "shield", rarity: "common",    th: "โล่สนามพลัง", en: "Deflector Shield", zh: "偏导护盾", sw: ["#00f0ff", "#0a1a2e"] },
@@ -6242,7 +6393,7 @@ const ProgressDashboard = memo(function ProgressDashboard({ lang, plog: plogProp
               <div className="dashdetail-games">
                 {games.slice(-8).map((g, i) => (
                   <div key={i} className="dashgame-row">
-                    <span className="dashgame-song"><b style={{ color: "#d97757" }}>{"★".repeat(g.stars)}</b> {g.song}</span>
+                    <span className="dashgame-song"><b style={{ color: "var(--clay-ink)" }}>{"★".repeat(g.stars)}</b> {g.song}</span>
                     <span className="dashgame-acc">{g.acc}%</span>
                   </div>
                 ))}
@@ -6342,7 +6493,8 @@ const GameStats = memo(function GameStats({ lang }) {
    lighting of the whole chamber. */
 const CS_RARITY = { common: 0, rare: 1, epic: 2, legendary: 3 };
 const CharacterStage = memo(function CharacterStage({ lang, model, charHat, charOutfit, charWeapon, charAccessory }) {
-  const [yaw, setYaw] = useState(-16);
+  // parked turned to its right, so the weapon hand is the near one
+  const [yaw, setYaw] = useState(18);
   /* ── it stands still until you ask it not to ──
      The turntable used to start itself. A model that will not hold still is
      a model you cannot look at: you never get to see the front of your own
@@ -6401,7 +6553,6 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   const sw = worn.flatMap(it => it.sw || []).filter(Boolean);
   const keyA = sw[0] || MSK.glow;
   const keyB = sw.find(c => c !== keyA) || MSK.accent;
-  const rimOf = (it) => (it && it.sw && it.sw[1]) || (it && it.sw && it.sw[0]) || keyA;
   // The OUTFIT re-plates the armour rather than being pasted on as a garment
   // sprite — which is what used to make the shirt read as a second body
   // floating in front of the first.
@@ -6409,32 +6560,18 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
   const armorB = (out && out.sw && out.sw[1]) || undefined;
   const power = combatOf(model, [wpn, out, hat, acc]).total;
 
-  /* Equipped items orbit the figure on the same axis the model turns on, so a
-     weapon held at the character's side really does travel round behind it
-     instead of staying pinned to the viewport. */
-  const R = Math.PI / 180;
-  const orbit = (th, r) => { const a = (th + yaw) * R; return { dx: Math.sin(a) * r, z: Math.cos(a) }; };
-  // a chibi is wider at the hands and its head is nearly twice the size, so
-  // headgear and held gear have to be placed against the build, not one offset
-  const rig = MODEL_RIG[model] || MODEL_RIG.vanguard;
-  const wp = orbit(74, rig.chibi ? 50 : 54), ap = orbit(-74, rig.chibi ? 50 : 54);
-  const sYaw = Math.sin(yaw * R), cYaw = Math.cos(yaw * R);
-  const headK = Math.max(0.36, Math.abs(cYaw));
-  const gearStyle = (it, p, rot) => ({
-    "--rim": rimOf(it),
-    top: rig.chibi ? "55%" : "59%",
-    transform: `translateX(calc(-50% + ${p.dx.toFixed(1)}px)) translateY(-50%) rotate(${rot}deg) scale(${(0.78 + 0.22 * Math.abs(p.z)).toFixed(3)})`,
-    zIndex: p.z > 0 ? 9 : 2,
-    opacity: (0.5 + 0.5 * Math.max(0, p.z)).toFixed(2),
-  });
+  /* The gear is WORN now, not orbited round the figure as loose pictures: the
+     weapon is in the robot's right hand, the hat is fitted to its skull and
+     the accessory rides its forearm, back or hip (CyberAvatar held/hat/acc).
+     So it turns with the body because it is part of the body — the same
+     drawing the arena fights with. */
+  const heldG = useMemo(() => (wpn ? { ...holdOf(wpn.art), node: <ItemArt art={wpn.art} sw={wpn.sw} size={64} /> } : null), [wpn && wpn.id]);
+  const hatG = useMemo(() => (hat ? { ...hatMountOf(hat.art), node: <ItemArt art={hat.art} sw={hat.sw} size={64} /> } : null), [hat && hat.id]);
+  const accG = useMemo(() => (acc ? { at: accMountOf(acc.art), node: <ItemArt art={acc.art} sw={acc.sw} size={64} /> } : null), [acc && acc.id]);
 
   const figure = (
-    <>
-      <span className="cs-av"><CyberAvatar model={model} yaw={yaw} armorA={armorA} armorB={armorB} glow={keyA} accent={keyB} /></span>
-      {hat && <span className="cs-layer cs-hat" style={{ "--rim": rimOf(hat), transform: `translateX(calc(-50% + ${(3.4 * sYaw).toFixed(1)}px)) scaleX(${headK.toFixed(3)}) scale(${(rig.hs / 1.15).toFixed(3)})` }}><ItemArt art={hat.art} sw={hat.sw} /></span>}
-      {wpn && <span className="cs-layer cs-wpn" style={gearStyle(wpn, wp, -14)}><ItemArt art={wpn.art} sw={wpn.sw} /></span>}
-      {acc && <span className="cs-layer cs-acc" style={gearStyle(acc, ap, 12)}><ItemArt art={acc.art} sw={acc.sw} /></span>}
-    </>
+    <span className="cs-av"><CyberAvatar model={model} yaw={yaw} armorA={armorA} armorB={armorB} glow={keyA} accent={keyB}
+      held={heldG} hat={hatG} acc={accG} hand="right" /></span>
   );
 
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -6514,6 +6651,135 @@ const StatBars = memo(function StatBars({ lang, stats, compact = false, max = 24
   );
 });
 
+/* ── the shop's inspection stage ──
+   Everything worth turning over in the hand opens here instead of being
+   bought off a thumbnail: the piece stands on a plinth in the 3D showroom
+   and turns under your finger (with a little weight to the spin), the room
+   holding still while it does. The chassis modal below shares the stage. */
+function ShopStage({ shot, figRef, turn, foot, deg, hint, children }) {
+  return (
+    <div className={`shopstage ${shot}`}>
+      <SpaceStage variant={shot} anchor={figRef} quiet={turn ? turn.quiet : null} />
+      <div className={`shopstage-fig${turn && turn.dragging ? " turning" : ""}`} ref={figRef} data-foot={foot}
+        role="img" tabIndex={0} aria-label={hint} {...(turn ? turn.handlers : {})}>
+        {children}
+      </div>
+      {deg != null && <span className="shopstage-deg" aria-hidden="true">{String(((Math.round(deg) % 360) + 360) % 360).padStart(3, "0")}°</span>}
+      {hint && <span className="shopstage-hint" aria-hidden="true">{hint}</span>}
+    </div>
+  );
+}
+
+/* ── PetDetailModal ── a pet is inspected like a chassis: turned a full 360°,
+   its element and what it does in a fight named, and bought behind a button
+   that says the price — never off a thumbnail in one tap. */
+const PetDetailModal = memo(function PetDetailModal({ lang, item, have, here, coins, onAct, onClose }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const fig = useRef(null);
+  const turn = usePetTurn(null, -28);
+  useEffect(() => { prefetchSpace(); }, []);
+  if (!item) return null;
+  const sp = PET_SPECIES.find(x => x.id === item.pet) || PET_SPECIES[0];
+  const ty = PET_TYPES[sp.type] || {};
+  const afford = coins >= item.cost;
+  return (
+    <div className="setov setov-ob" onClick={onClose}>
+      <div className="setcard mdv pdv ob3" onClick={e => e.stopPropagation()}>
+        <div className="mdv-hdr">
+          <button className="stgback" onClick={onClose} aria-label="back">←</button>
+          <span className="mdv-ttl"><b>{sp.code}</b>{tr(item, lang)}</span>
+          <span className="mdv-cls" style={{ "--cc": ty.c }}>{tr(ty, lang)}</span>
+        </div>
+        <div className="mdv-body">
+          <ShopStage shot="shop-pet" figRef={fig} turn={turn} foot="0.0705" deg={turn.yaw}
+            hint={T("ลากเพื่อหมุนดูรอบตัว", "Drag to turn it around", "拖动旋转查看")}>
+            <PetArt species={sp.id} level={1} yaw={turn.yaw} />
+          </ShopStage>
+          <div className="mdv-sub">{tr(item.desc, lang)}</div>
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("ในสนามประลอง", "In the arena", "在竞技场")}</span></div>
+            <div className="pdv-row"><i>{T("ธาตุ", "Element", "属性")}</i><b style={{ color: "var(--ti1)" }}>{tr(ty, lang)}</b></div>
+            <div className="pdv-row"><i>{T("โบนัส", "Bonus", "加成")}</i><b>{tr(PET_BONUS[sp.bonus] || {}, lang)}</b></div>
+            <div className="mdv-fair">{T("โบนัสทำงานเมื่อความสุขของมันเกิน 50% — ดูแลมันที่ห้องสัตว์เลี้ยง",
+              "The bonus works while its happiness is above 50% — look after it in the Sanctuary",
+              "宠物快乐度高于 50% 时加成生效 —— 在宠物圣所照顾它")}</div>
+          </div>
+        </div>
+        <div className="mdv-foot">
+          {here
+            ? <button className="mdv-buy on" disabled>✓ {T("อยู่ข้างคุณ", "With you", "在你身边")}</button>
+            : have
+              ? <button className="mdv-buy" onClick={() => onAct(item)}>{T("พาตัวนี้ไป", "Take this one", "带上它")}</button>
+              : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onAct(item)}>
+                  {afford ? T("รับเลี้ยง", "Adopt", "领养") : T("Coins ไม่พอ", "Not enough coins", "Coins 不足")} · 🪙 {item.cost.toLocaleString()}
+                </button>}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/* ── GearDetailModal ── try it on before you pay for it: your own chassis,
+   wearing everything it wears now with this one piece swapped in, turning on
+   the showroom plinth. What the piece adds to the fight is stated plainly
+   under it. */
+const GearDetailModal = memo(function GearDetailModal({ lang, item, kind, model, worn, own, eq, lv, coins, rarityLabel, onAct, onClose }) {
+  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const lc = L[lang];
+  const fig = useRef(null);
+  const turn = usePetTurn(null, 18);
+  useEffect(() => { prefetchSpace(); }, []);
+  const slot = kind === "charWeapon" ? "wpn" : kind === "charHat" ? "hat" : kind === "charAccessory" ? "acc" : kind === "charOutfit" ? "out" : null;
+  const pick = (k) => (slot === k ? item : worn[k]);
+  const wpn = pick("wpn"), hat = pick("hat"), acc = pick("acc"), out = pick("out");
+  const heldG = useMemo(() => (wpn && wpn.art ? { ...holdOf(wpn.art), node: <ItemArt art={wpn.art} sw={wpn.sw} size={64} /> } : null), [wpn && wpn.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const hatG = useMemo(() => (hat && hat.art ? { ...hatMountOf(hat.art), node: <ItemArt art={hat.art} sw={hat.sw} size={64} /> } : null), [hat && hat.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const accG = useMemo(() => (acc && acc.art ? { at: accMountOf(acc.art), node: <ItemArt art={acc.art} sw={acc.sw} size={64} /> } : null), [acc && acc.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!item) return null;
+  const MSK = MODEL_SKIN[model] || MODEL_SKIN.vanguard;
+  const armorA = (out && out.sw && out.sw[0]) || undefined;
+  const armorB = (out && out.sw && out.sw[1]) || undefined;
+  const now = combatOf(model, [worn.wpn, worn.out, worn.hat, worn.acc]).total;
+  const next = combatOf(model, [wpn, out, hat, acc]).total;
+  const afford = item.gem ? true : coins >= item.cost;
+  return (
+    <div className="setov setov-ob" onClick={onClose}>
+      <div className="setcard mdv gdv ob3" onClick={e => e.stopPropagation()}>
+        <div className="mdv-hdr">
+          <button className="stgback" onClick={onClose} aria-label="back">←</button>
+          <span className="mdv-ttl"><b className={`gdv-r r-${item.rarity}`}>{rarityLabel}</b>{tr(item, lang)}</span>
+          {item.art && <span className="gdv-ic"><ItemArt art={item.art} sw={item.sw} /></span>}
+        </div>
+        <div className="mdv-body">
+          <ShopStage shot="shop-bot" figRef={fig} turn={turn} foot="0.018" deg={turn.yaw}
+            hint={T("ลองสวมบนหุ่นของคุณ · ลากเพื่อหมุน", "On your chassis · drag to turn", "穿在你的机体上 · 拖动旋转")}>
+            <CyberAvatar model={model} yaw={turn.yaw} armorA={armorA} armorB={armorB} glow={MSK.glow} accent={MSK.accent}
+              held={heldG} hat={hatG} acc={accG} hand="right" />
+          </ShopStage>
+          <div className="mdv-sec">
+            <div className="mdv-sec-h"><span>{T("พลังรวมของหุ่น", "Chassis power", "机体总战力")}</span><b>{next}</b></div>
+            <div className="gdv-delta">
+              <span>{T("ตอนนี้", "Now", "现在")} <b>{now}</b></span>
+              <i aria-hidden="true" />
+              <span>{T("ถ้าสวมชิ้นนี้", "With this", "装备后")} <b className={next > now ? "up" : next < now ? "down" : ""}>{next}{next !== now ? ` (${next > now ? "+" : ""}${next - now})` : ""}</b></span>
+            </div>
+            {lv > 0 && <div className="mdv-fair">{T(`อัปเกรดแล้ว +${lv}`, `Upgraded +${lv}`, `已升级 +${lv}`)}</div>}
+          </div>
+        </div>
+        <div className="mdv-foot">
+          {eq
+            ? <button className="mdv-buy on" disabled>✓ {lc.shopEquipped}</button>
+            : own
+              ? <button className="mdv-buy" onClick={() => onAct(item)}>{lc.shopEquip}</button>
+              : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onAct(item)}>
+                  {afford ? T("ซื้อ", "Buy", "购买") : T("Coins ไม่พอ", "Not enough coins", "Coins 不足")} · {item.gem ? "💎 " + item.gem : "🪙 " + item.cost.toLocaleString()}
+                </button>}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 /* ── ModelDetailModal ──
    A chassis costs twenty to thirty thousand coins. Buying one off a thumbnail
    in a grid — one tap, no confirmation — was both a way to lose a fortune by
@@ -6527,6 +6793,7 @@ const StatBars = memo(function StatBars({ lang, stats, compact = false, max = 24
    one does. Buying happens here, behind a button that says the price. ── */
 const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, running, coins, onBuy, onClose }) {
   const [yaw, setYaw] = useState(-24);
+  const mdvFig = useRef(null);
   const [spin, setSpin] = useState(() => {
     try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return true; }
   });
@@ -6563,8 +6830,8 @@ const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, run
   const drop = (e) => { dragRef.current = null; try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {} };
 
   return (
-    <div className="setov" onClick={onClose}>
-      <div className="setcard mdv" onClick={e => e.stopPropagation()}>
+    <div className="setov setov-ob" onClick={onClose}>
+      <div className="setcard mdv ob3" onClick={e => e.stopPropagation()}>
         <div className="mdv-hdr">
           <button className="stgback" onClick={onClose} aria-label={lc.back}>←</button>
           <span className="mdv-ttl"><b>{item.code || m.code}</b>{tr(m, lang)}</span>
@@ -6573,8 +6840,9 @@ const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, run
           </span>
         </div>
         <div className="mdv-body">
-          <div className="mdv-stage">
-            <CyberAvatar model={model} yaw={yaw} />
+          <div className="mdv-stage shopstage shop-bot">
+            <SpaceStage variant="shop-bot" anchor={mdvFig} />
+            <div className="shopstage-fig" ref={mdvFig} data-foot="0.018"><CyberAvatar model={model} yaw={yaw} /></div>
             <div className="mdv-drag" onPointerDown={grab} onPointerMove={drag} onPointerUp={drop} onPointerCancel={drop}
               role="slider" aria-label={T("หมุนโมเดล", "Rotate model", "旋转模型")} aria-valuenow={Math.round(wrapYaw(yaw))} aria-valuemin={-180} aria-valuemax={180} tabIndex={0}
               onKeyDown={(e) => { if (e.key === "ArrowLeft") { setSpin(false); setYaw(y => wrapYaw(y - 15)); } else if (e.key === "ArrowRight") { setSpin(false); setYaw(y => wrapYaw(y + 15)); } }} />
@@ -6618,7 +6886,7 @@ const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, run
             : owned
               ? <button className="mdv-buy" onClick={() => onBuy(item)}>{lc.shopEquip}</button>
               : <button className={`mdv-buy${afford ? "" : " poor"}`} onClick={() => afford && onBuy(item)}>
-                  {afford ? T("ซื้อ", "Buy", "购买") : T("เหรียญไม่พอ", "Not enough coins", "金币不足")} · 🪙 {item.cost.toLocaleString()}
+                  {afford ? T("ซื้อ", "Buy", "购买") : T("Coins ไม่พอ", "Not enough coins", "Coins 不足")} · 🪙 {item.cost.toLocaleString()}
                 </button>}
         </div>
       </div>
@@ -6651,7 +6919,7 @@ function ChestIcon({ size = 16, className = "" }) {
    so an arena duel is stored, listed and resolved exactly like a song duel,
    with no backend change at all. `song_id` is unconstrained text server-side,
    which is what makes "arena" a legal subject. */
-const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout, onPracticeWeakness }) {
+const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout, onPracticeWeakness, ownedModels, onPickModel, onOpenShop }) {
   const [friends, setFriends] = useState(null);
   const [duels, setDuels] = useState(null);
   const load = useCallback(() => {
@@ -6663,6 +6931,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
     <Suspense fallback={<LazyBits tall />}>
     <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi} onPracticeWeakness={onPracticeWeakness}
       friends={friends} duels={duels} onApplyLoadout={onApplyLoadout}
+      ownedModels={ownedModels} onPickModel={onPickModel} onOpenShop={onOpenShop} modelCost={MODEL_COST}
       onChallenge={async (friend, score) => {
         const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: "arena", p_score: Math.round(score), p_mode: "duel" });
         if (!error) { playUi("reward"); load(); }
@@ -6742,7 +7011,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
                 return (
                   <button key={it.id} className={`stgitem ${it.rarity}${on ? " on" : ""}`} onClick={() => onEquip(g.key, it)}>
                     {it.model
-                      ? <span className="stgitem-head"><CyberAvatar model={it.model} headOnly /></span>
+                      ? <span className="stgitem-head"><HeadThumb model={it.model} px={110} /></span>
                       : it.art
                         ? <span className="stgitem-art"><ItemArt art={it.art} sw={it.sw} /></span>
                         : <span className="stgitem-ic">{it.icon}</span>}
@@ -6761,7 +7030,7 @@ const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, e
   );
 });
 
-const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPet, onOpenHelp, onOpenFriends, onExchangeGems, onBuyCurrency, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOut, onOpenShop, onOpenStorage, onOpenPvp, onOpenPet, onOpenHelp, onOpenFriends, onExchangeGems, coins, gems = 0, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
   const meta = (session && session.user && session.user.user_metadata) || {};
   const exp = (profile && profile.exp) || 0;
@@ -7012,8 +7281,8 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             )}
             {last ? (
               <div className="atdash-last">
-                <div className="atdash-last-w">{last.weakness}</div>
-                <div className="atdash-last-t">{last.tip}</div>
+                <div className="atdash-last-w">{safeStr(last.weakness)}</div>
+                <div className="atdash-last-t">{safeStr(last.tip)}</div>
                 <div className="atdash-last-d">{new Date(last.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
               </div>
             ) : (
@@ -7027,7 +7296,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       <div className="profsec">
         <div className="profsec-h">
           {lc.profProgress}
-          <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)" }}>
+          <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)" }}>
             {activeDays} {lc.profActiveDays}
           </span>
         </div>
@@ -7115,7 +7384,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       <div className="profsec">
         <div className="profsec-h">
           {lc.weeklyTitle}
-          <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+          <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
             {weekDoneCount}/{weekChallenges.length}
           </span>
         </div>
@@ -7140,7 +7409,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
       <div className="profsec">
         <div className="profsec-h">
           {lc.profBadges}
-          <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+          <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
             {gotBadges.length}/{BADGES.length}
           </span>
         </div>
@@ -7169,7 +7438,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           <div className="profsec">
             <div className="profsec-h">
               {lc.knowledgeQuestTitle}
-              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+              <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
                 {domainDone.length}/{domains.length}
               </span>
             </div>
@@ -7207,7 +7476,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           <div className="profsec">
             <div className="profsec-h">
               {lc.drillDeckTitle}
-              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
+              <span style={{ marginLeft: "auto", fontFamily: "var(--f-num, monospace)", fontSize: "10px", fontWeight: 400, color: "var(--muted)", letterSpacing: ".5px" }}>
                 {deck.length}
               </span>
             </div>
@@ -7219,12 +7488,12 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
                   <div className="wkbody">
                     <div className="wktop">
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.label}{d.chordStyle && ` · ${d.chordStyle}`}</span>
-                      <b style={{ color: "#d97757", flexShrink: 0, marginLeft: 6, whiteSpace: "nowrap" }}>{d.accuracy}% · 🔥{d.bestStreak}</b>
+                      <b style={{ color: "var(--clay-ink)", flexShrink: 0, marginLeft: 6, whiteSpace: "nowrap" }}>{d.accuracy}% · 🔥{d.bestStreak}</b>
                     </div>
                     <div className="wkbar"><div style={{ width: d.accuracy + "%", background: "#d97757" }} /></div>
                   </div>
                   <button onClick={() => onReplayDrill && onReplayDrill(d)}
-                    style={{ flexShrink: 0, background: "rgba(217,119,87,.12)", border: "1px solid #d9775755", borderRadius: 8, color: "#d97757", padding: "7px 11px", fontSize: 13, cursor: "pointer" }}>
+                    style={{ flexShrink: 0, background: "rgba(217,119,87,.12)", border: "1px solid #d9775755", borderRadius: 8, color: "var(--clay-ink)", padding: "7px 11px", fontSize: 13, cursor: "pointer" }}>
                     ▶
                   </button>
                 </div>
@@ -7308,12 +7577,6 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         </div>
       )}
 
-      {onBuyCurrency && (
-        <div className="profsec">
-          <button className="songbtn go" style={{ width: "100%" }} onClick={onBuyCurrency}>🪙💎 {lc.buyCurrencyBtn}</button>
-        </div>
-      )}
-
       {(onOpenShop || onOpenFriends || onOpenHelp) && (
         <div className="profsec">
           {onOpenShop && <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8 }} onClick={onOpenShop}>🪙 {lc.shopTitle} · {coins}</button>}
@@ -7381,7 +7644,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
         {stats.weakest.length > 0 && (
         <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--card2)", borderRadius: 12, borderLeft: "3px solid #d97757" }}>
           <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>
-            💡 {T("คำแนะนำ", "Recommendation", "建议")}
+            💡 {T("คำแนะนำจาก TIGA AI", "Recommendations from TIGA AI", "来自 TIGA AI 的建议")}
           </div>
           <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8 }}>
             {stats.weakest.slice(0, 3).map((w, wi) => {
@@ -7391,7 +7654,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
                 <div key={wi} style={{ padding: "4px 0", borderBottom: wi < Math.min(2, stats.weakest.length - 1) ? "1px solid var(--border)" : "none" }}>
                   <span style={{ fontWeight: 600, color: "var(--text)" }}>• {w.label}</span>
                   {" — "}<span style={{ color: "var(--muted)" }}>{intensity}</span>{" "}
-                  <span style={{ fontWeight: 700, color: "#d97757" }}>
+                  <span style={{ fontWeight: 700, color: "var(--clay-ink)" }}>
                     {T(`${mins} นาที/วัน`, `${mins} min/day`, `每天 ${mins} 分钟`)}
                   </span>
                   {/* citation chip — grounds the suggestion in the exact tally it came from,
@@ -7412,7 +7675,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
           <div className="instile" style={{ minWidth: 0 }}>
             <b>{stats.acc7 == null ? "—" : stats.acc7 + "%"}
               {accDelta != null && accDelta !== 0 && (
-                <span style={{ fontSize: 9, marginLeft: 3, color: accDelta > 0 ? "#d97757" : "#ff5252" }}>
+                <span style={{ fontSize: 9, marginLeft: 3, color: accDelta > 0 ? "var(--clay-ink)" : "#ff5252" }}>
                   {accDelta > 0 ? "▲" : "▼"}{Math.abs(accDelta)}
                 </span>
               )}
@@ -7445,12 +7708,12 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
                 `You've covered ${readyGroups.length} sections — Boss Challenges and certificates are waiting to be claimed on the Challenging page!`,
                 `你已学完 ${readyGroups.length} 个单元——挑战首领和证书正在闯关挑战页面等你！`);
           return (
-            <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: "1px solid #a78bfa55", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
-              <div style={{ fontSize: 13, color: "#c4b5fd", fontWeight: 700, marginBottom: 6 }}>
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: "1px solid var(--vio-ln)", background: "linear-gradient(135deg,rgba(167,139,250,.14),rgba(139,92,246,.04))" }}>
+              <div style={{ fontSize: 13, color: "var(--vio-ink)", fontWeight: 700, marginBottom: 6 }}>
                 🏆 {T("พร้อมทดสอบตัวเองหรือยัง?", "Ready to test yourself?", "准备好测试了吗？")}
               </div>
               <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.7, marginBottom: 10 }}>{body}</div>
-              <button className="songbtn go" style={{ width: "100%", background: "#8b5cf6" }} onClick={() => onNavigate("challenging")}>
+              <button className="songbtn go vio" style={{ width: "100%" }} onClick={() => onNavigate("challenging")}>
                 ⚔️ {T("ไปหน้าท้าทาย", "Go to Challenging", "前往闯关挑战")}
               </button>
             </div>
@@ -7538,7 +7801,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
                   <span>{tr(SKILL_LABELS[t.skill], lang)}</span>
                   <span>
                     {t.first} → {t.latest}
-                    <b style={{ marginLeft: 6, color: delta > 0 ? "#d97757" : delta < 0 ? "#ff5252" : "var(--muted)" }}>
+                    <b style={{ marginLeft: 6, color: delta > 0 ? "var(--clay-ink)" : delta < 0 ? "#ff5252" : "var(--muted)" }}>
                       {delta > 0 ? "▲" : delta < 0 ? "▼" : "–"}{Math.abs(delta)}
                     </b>
                   </span>
@@ -7579,7 +7842,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             📋 {T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单")}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 44, fontWeight: 900, color: "#d97757", lineHeight: 1 }}>{rcGrade}</div>
+            <div style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: 44, fontWeight: 900, color: "var(--clay-ink)", lineHeight: 1 }}>{rcGrade}</div>
             <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.7 }}>
               <div>{T(`ซ้อม ${stats.days7}/7 วัน`, `${stats.days7}/7 days practiced`, `练习了 ${stats.days7}/7 天`)}</div>
               <div>{stats.acc7 == null ? T("ยังไม่มีข้อมูลความแม่นยำ", "No accuracy data yet", "暂无准确率数据") : T(`แม่นยำ ${stats.acc7}%`, `${stats.acc7}% accuracy`, `准确率 ${stats.acc7}%`)}</div>
@@ -7622,7 +7885,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
               <button className="songbtn go" style={{ flex: 1 }} onClick={() => onOpenAiReport && onOpenAiReport("report")}>
                 📋 {T("รายงานรายสัปดาห์", "Weekly Report", "每周报告")}
               </button>
-              <button className="songbtn go" style={{ flex: 1, background: "#8b5cf6" }} onClick={() => onOpenAiReport && onOpenAiReport("plan")}>
+              <button className="songbtn go vio" style={{ flex: 1 }} onClick={() => onOpenAiReport && onOpenAiReport("plan")}>
                 🗓️ {T("แผนซ้อม 7 วัน", "7-Day Plan", "7天计划")}
               </button>
             </div>
@@ -7883,6 +8146,22 @@ function AdminStudents({ lang, viewerTier }) {
     const recent = (mem.recent || []).slice(0, 6);
     const plog = pr.practiceLog || {};
     const Stat = (num, lbl) => <div className="pd-stat"><div className="pd-num">{num}</div><div className="pd-lbl">{lbl}</div></div>;
+    // ── Jev feedback-classify: bucket this learner's situation for the solo
+    // owner's review queue (progress / struggling / billing / engagement /
+    // technical + urgency 0..3), from the SAME progress snapshot the page
+    // already renders — no extra queries, one ~100-500ms structured call.
+    // Unavailable/disabled Jev → null, card simply not shown.
+    const [jevFb, setJevFb] = useState(null);
+    useEffect(() => {
+      let dead = false; setJevFb(null);
+      const st = `Student ${sel.full_name || sel.email || "?"}: level ${li.level}, plan ${(sel.plan || "free")}, streak ${sel.streak || 0} days, lessons done ${sel.lessons_done || 0}. Recent practice: ${(recent || []).map(r => `${r.label} ${r.acc}%`).join("; ") || "none"}. Struggling with: ${(struggles || []).map(s => s.label).join("; ") || "nothing recorded"}.`;
+      jevTask("feedback-classify", st, {}, 2500).then(r => {
+        if (dead || !r.ok || !r.answers) return;
+        const cat = jevChoice(r.answers.category), urg = jevScore(r.answers.urgency);
+        if (cat) setJevFb({ cat, urg: urg == null ? 0 : urg });
+      }).catch(() => {});
+      return () => { dead = true; };
+    }, [sel && sel.id]);
     return (
       <div className="admstu">
         <button className="admstu-back" onClick={() => setSel(null)}>‹ {T("กลับ", "Back", "返回")}</button>
@@ -7894,6 +8173,22 @@ function AdminStudents({ lang, viewerTier }) {
             <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {(sel.plan || "free").toUpperCase()} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
           </div>
         </div>
+        {jevFb && (() => {
+          const CAT = {
+            progress: { ic: "📈", th: "ความก้าวหน้า", en: "Progress", zh: "学习进度" },
+            struggling: { ic: "⚠️", th: "กำลังติดขัด / เสี่ยงเลิกใช้", en: "Struggling / at-risk", zh: "遇到困难" },
+            billing: { ic: "💳", th: "การเงิน/แพ็กเกจ", en: "Billing", zh: "账务" },
+            engagement: { ic: "🔥", th: "การมีส่วนร่วม", en: "Engagement", zh: "活跃度" },
+            technical: { ic: "🛠️", th: "ปัญหาเทคนิค", en: "Technical", zh: "技术问题" },
+          }[jevFb.cat] || { ic: "📌", th: jevFb.cat, en: jevFb.cat, zh: jevFb.cat };
+          const URGLBL = urg => urg >= 3 ? (lang === "th" ? "ด่วนมาก — จัดการทันที" : lang === "zh" ? "紧急 — 立即处理" : "Urgent — act now") : urg >= 2 ? (lang === "th" ? "จัดการวันนี้" : lang === "zh" ? "今日处理" : "Act today") : urg >= 1 ? (lang === "th" ? "ดูสัปดาห์นี้" : lang === "zh" ? "本周处理" : "This week") : (lang === "th" ? "ไว้ก่อนได้" : lang === "zh" ? "可以等待" : "Can wait");
+          return (
+            <div className="admmg" style={{ marginTop: 10 }}>
+              <div className="admmg-h">{CAT.ic} {T(CAT.th, CAT.en, CAT.zh)} · <span style={{ color: jevFb.urg >= 3 ? "#e55" : undefined }}>{URGLBL(jevFb.urg)}</span></div>
+              <div className="admstu-row-sub">{T("จัดหมวดโดย AI (Jev) จากข้อมูลการเรียนของนักเรียน — ใช้อ้างอิง ไม่ใช่คำตัดสิน", "AI (Jev)-classified from this learner's practice data — advisory, not a verdict", "由 AI（Jev）根据练习数据分类 — 仅供参考")}</div>
+            </div>
+          );
+        })()}
         {/* ⚙️ manage: change/suspend plan (Top Tier only) · ban (tier ≥2) */}
         {(tier >= 2) && (
           <div className="admmg">
@@ -7937,17 +8232,17 @@ function AdminStudents({ lang, viewerTier }) {
         {/* 💰 Currency & Level Management — Top Tier only */}
         {tier >= 3 && (
           <div className="admmg">
-            <div className="admmg-h">💰 {T("จัดการเหรียญ/เพชร/คะแนน", "Manage Coins/Gems/EXP", "管理代币/宝石/经验")}</div>
+            <div className="admmg-h">💰 {T("จัดการ Coins/Gems/คะแนน", "Manage Coins/Gems/EXP", "管理代币/Gems/经验")}</div>
             <div className="admmg-cur" style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
               {T("แก้ไขค่าได้อิสระ — กดบันทึกเพื่อบันทึก", "Edit values freely — tap Save to apply", "可自由修改数值 — 点击保存应用")}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
               <div>
-                <label style={{ fontSize: 11, opacity: 0.6 }}>🪙 {T("เหรียญ (Coins)", "Coins", "代币")}</label>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>🪙 {T("Coins (Coins)", "Coins", "代币")}</label>
                 <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editCoins, setEditCoins)} />
               </div>
               <div>
-                <label style={{ fontSize: 11, opacity: 0.6 }}>💎 {T("เพชร (Gems)", "Gems", "宝石")}</label>
+                <label style={{ fontSize: 11, opacity: 0.6 }}>💎 {T("Gems (Gems)", "Gems", "Gems")}</label>
                 <input type="number" className="admmg-days" style={{ width: "100%" }} {...numFieldProps(editGems, setEditGems)} />
               </div>
             </div>
@@ -8023,6 +8318,13 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
   const schoolId = profile.school_id;
   const [tab, setTab] = useState("roster");
   const [rows, setRows] = useState(null);
+  const [teacherAdvs, setTeacherAdvs] = useState([]);   // plan v3 1.5: TIGA tab rows arrive via the lazy gateway
+  const tigaTick = useTiga(null);   // ready tick (0/1) — re-render + refill when the model lands
+  useEffect(() => {
+    if (!rows || !rows.length) return;
+    queuedUntilTiga(m => { try { setTeacherAdvs(rows.filter(r => r.role === "student").map(st => ({ st, adv: m.teacherAdviceFor(st.progress || {}) }))); } catch (e) {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, tigaTick]);
   const [err, setErr] = useState("");
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState("");
@@ -8143,7 +8445,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
         {mastered.length > 0 && <><div className="admstu-sec">{T("ทำได้ดีแล้ว", "Mastered", "已掌握")}</div><div className="pd-tags">{mastered.map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
         {sel.role === "student" && (() => {
           const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
-          const rep = buildParentReportData(pr);
+          const rep = buildParentReportData(pr, { lang });
           return (
             <div className="admmg" style={{ marginTop: 12 }}>
               <div className="admmg-h">👨‍👩‍👧 {T3("รายงานสำหรับผู้ปกครอง", "Parent report", "家长报告")}</div>
@@ -8230,7 +8532,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
       {tab === "tiga" && (() => {
         const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
         const students = rows.filter(r => r.role === "student");
-        const advs = students.map(st => ({ st, adv: teacherAdviceFor(st.progress || {}) }));
+        const advs = teacherAdvs;   // [] until the lazy model loads — the effect above fills it
         const flagged = advs.filter(({ adv }) => adv && adv.flags.some(f => !f.positive)); // positive "ready" flags are good news, not a problem
         const seen = advs.filter(({ adv }) => adv && !adv.flags.some(f => !f.positive) && adv.summary.daysIdle != null && adv.summary.daysIdle <= 2);
         const quiet = advs.filter(({ adv }) => !adv || adv.summary.daysIdle == null || adv.summary.daysIdle > 7);
@@ -8502,7 +8804,7 @@ function AdminSchools({ lang, viewerTier }) {
               {tier >= 3 && !r.fulfilled_at && r.status === "approved" && (
                 <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
                   {r.slip_path && <button className="songbtn ghost" style={{ padding: "8px 12px" }} onClick={() => viewSlip(r.slip_path)}>📎 {T("ดูสลิป", "View slip", "查看凭证")}</button>}
-                  <span style={{ fontSize: 11, color: "#d97757" }}>⏳ {T("อนุมัติแล้ว รอสร้างโรงเรียน", "Approved — still needs the school created", "已批准——仍需创建学校")}</span>
+                  <span style={{ fontSize: 11, color: "var(--clay-ink)" }}>⏳ {T("อนุมัติแล้ว รอสร้างโรงเรียน", "Approved — still needs the school created", "已批准——仍需创建学校")}</span>
                   <button className="songbtn go" style={{ padding: "8px 12px" }} disabled={busy} onClick={() => prefillFromPayReq(r)}>🏫 {T("เติมฟอร์ม", "Prefill form", "填充表单")}</button>
                 </div>
               )}
@@ -8604,6 +8906,26 @@ function AdminPayments({ lang }) {
     if (!sel || !sel.slip_path) return;
     setAiBusy(true); setAiText("");
     try {
+      // ── Jev slip-prefilter: cheap structured check (from the payment record's
+      // own metadata — amount/currency/plan sanity, NOT the image; Jev cannot
+      // see images) before spending a vision-model round-trip. A clearly
+      // implausible submission (absurd amount vs plan, currency mismatch)
+      // short-circuits with a warning instead of a hallucinated slip read.
+      // Unavailable/disabled Jev → no pre-check, aiRead proceeds unchanged.
+      try {
+        const pr = await jevTask("slip-prefilter",
+          `Payment record: kind=${sel.kind || "plan"}; expected amount=${sel.amount} THB; plan=${sel.plan || "-"}; currency=${sel.currency_type || "-"} x ${sel.currency_amount || "-"}; uploaded ${((sel.created_at || "").slice(0, 16).replace("T", " ")) || "unknown time"}; learner plan at upload: ${sel.plan || "n/a"}.`,
+          {}, 1500);
+        if (pr.ok && pr.answers) {
+          const plausible = jevNoul(pr.answers.is_bank_slip);
+          if (plausible != null && plausible < 0.2) {
+            setAiText(T("⚠️ ข้อมูลรายการไม่สมเหตุสมผล (ยอด/แพ็กเกจไม่ตรงกัน) — ตรวจสอบก่อนอนุมัติ ไม่ได้เรียก AI อ่านสลิป",
+              "⚠️ Record metadata is implausible (amount/package mismatch) — verify manually; vision AI not run",
+              "⚠️ 记录信息不合理（金额/套餐不符）— 请人工核验，未运行图像AI"));
+            setAiBusy(false); return;
+          }
+        }
+      } catch (e) {}
       const { data } = await sb.storage.from("slips").createSignedUrl(sel.slip_path, 600);
       const url = data && data.signedUrl; if (!url) throw new Error("no url");
       const blob = await (await fetch(url)).blob();
@@ -8622,7 +8944,7 @@ function AdminPayments({ lang }) {
   }
   function currencyLabel(p) {
     const ic = p.currency_type === "gems" ? "💎" : "🪙";
-    const unit = p.currency_type === "gems" ? T("เพชร", "gems", "钻石") : T("เหรียญ", "coins", "金币");
+    const unit = p.currency_type === "gems" ? T("Gems", "gems", "Gems") : T("Coins", "coins", "Coins");
     return `${ic} ${(p.currency_amount || 0).toLocaleString()} ${unit}`;
   }
   async function review(approve) {
@@ -8645,7 +8967,7 @@ function AdminPayments({ lang }) {
           <div>
             <div className="admstu-nm">{sel.full_name || sel.email || "—"} <span className={`adminpay-badge ${st}`}>{st.toUpperCase()}</span></div>
             <div className="admstu-em">{sel.email}</div>
-            <div className="admstu-lv">{isCurrency ? currencyLabel(sel) : (PLAN_LABEL[sel.plan] || sel.plan)} · <b style={{ color: "#d97757" }}>฿{(sel.amount || 0).toLocaleString()}</b> · {(sel.created_at || "").slice(0, 16).replace("T", " ")}</div>
+            <div className="admstu-lv">{isCurrency ? currencyLabel(sel) : (PLAN_LABEL[sel.plan] || sel.plan)} · <b style={{ color: "var(--clay-ink)" }}>฿{(sel.amount || 0).toLocaleString()}</b> · {(sel.created_at || "").slice(0, 16).replace("T", " ")}</div>
           </div>
         </div>
         {slipUrl ? <img className="payslip" src={slipUrl} alt="slip" /> : <div className="admstu-empty">{sel.slip_path ? T("กำลังโหลดสลิป…", "Loading slip…", "加载中…") : T("ไม่มีสลิป", "No slip", "无凭证")}</div>}
@@ -8889,10 +9211,6 @@ function AdminAnalytics({ lang }) {
         <input type="checkbox" checked={noAdmins} onChange={e => setNoAdmins(e.target.checked)} />
         {T("ไม่รวมบัญชีแอดมิน (ของฉัน)", "Exclude admin accounts (mine)", "不含管理员账号（我的）")}
       </label>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 2px 10px", fontSize: 12.5, cursor: "pointer" }}>
-        <input type="checkbox" checked={withBots} onChange={e => setWithBots(e.target.checked)} />
-        {T("รวมข้อมูลจำลอง (บอท)", "Include simulated data (bots)", "包含模拟数据（机器人）")}
-      </label>
       {stats === null ? <div className="admstu-msg">⏳</div> : (
         <>
           <Panel title={T("⬡ หัวข้อเส้นทางการเรียนรู้ (Pathway)", "⬡ Pathway topics", "⬡ 学习路径主题")} rows={byKind("pathway")}
@@ -8946,11 +9264,11 @@ function AdminAutoTeach({ lang }) {
         </div>
         <div className="setlangs">
           <button className={`setlangbtn${min === 0 ? " on" : ""}`} disabled={busy} onClick={() => save(0)}>{T("ปิด", "Off", "关闭")}</button>
-          {AUTO_TEACH_INTERVALS.map(m => (
+          {AUTO_TEACH_ADMIN_INTERVALS.map(m => (
             <button key={m} className={`setlangbtn${min === m ? " on" : ""}`} disabled={busy} onClick={() => save(m)}>{m}{T("น.", "m", "分")}</button>
           ))}
         </div>
-        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
+        {saved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
       </div>
     </div>
   );
@@ -8991,7 +9309,7 @@ function AdminWeeklyReport({ lang }) {
           <button className={`setlangbtn${enabled === false ? " on" : ""}`} disabled={busy} onClick={() => save(false)}>{T("ปิด", "Off", "关闭")}</button>
           <button className={`setlangbtn${enabled === true ? " on" : ""}`} disabled={busy} onClick={() => save(true)}>{T("เปิด", "On", "开启")}</button>
         </div>
-        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
+        {saved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginTop: 10 }}>✓ {T("บันทึกแล้ว", "Saved", "已保存")}</div>}
         {!enabled && (
           <div className="admstu-row-sub" style={{ marginTop: 10, opacity: .75 }}>
             {T("ปัจจุบันปิดอยู่ — ตารางส่งวันจันทร์ทำงานอยู่เบื้องหลังแล้วแต่ไม่ส่งอะไรจนกว่าจะเปิดสวิตช์นี้", "Currently off — the Monday schedule already runs in the background but sends nothing until this switch is on.", "目前已关闭——周一的定时任务已在后台运行，但在开启此开关前不会发送任何内容。")}
@@ -9010,6 +9328,8 @@ function AdminBroadcast({ lang }) {
   const [cur, setCur] = useState(undefined); // undefined = loading, null = never sent one, object = current
   const [msg, setMsg] = useState("");
   const [img, setImg] = useState("");
+  const [tPage, setTPage] = useState("");   // in-app page a tap opens ("" = none)
+  const [tUrl, setTUrl] = useState("");     // or an external link
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const load = useCallback(() => {
@@ -9018,13 +9338,73 @@ function AdminBroadcast({ lang }) {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const [upBusy, setUpBusy] = useState(false);
+  /* An uploaded picture goes to the public "announcements" bucket (admin-only
+     writes, see supabase-announcements-bucket-migration.sql) and its public
+     URL fills the image field, so a pasted link still works exactly as before. */
+  async function uploadImage(file) {
+    if (!file) return;
+    setUpBusy(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const path = `broadcast/${Date.now()}.${ext}`;
+      const up = await sb.storage.from("announcements").upload(path, file, { contentType: file.type, upsert: false });
+      if (up.error) throw up.error;
+      const { data } = sb.storage.from("announcements").getPublicUrl(path);
+      setImg(data.publicUrl);
+    } catch (e) {
+      alert(T("อัปโหลดรูปไม่สำเร็จ: ", "Image upload failed: ", "图片上传失败：") + ((e && e.message) || e));
+    }
+    setUpBusy(false);
+  }
+  /* One message, three languages: the admin writes in whatever language they
+     like and each learner sees it in the app language they chose. */
+  async function translateAll(text) {
+    const prompt = `Translate this in-app announcement for a piano-learning app into Thai, English and Simplified Chinese. Keep the meaning, tone, numbers, prices and emoji exactly; keep it natural for each language. Reply with ONLY a JSON object {"th":"...","en":"...","zh":"..."}.\n\nAnnouncement:\n${text}`;
+    const raw = await fetchChatCompletion({ message: prompt, conversationHistory: [], stream: false, feature: "broadcast-translate" }, { timeoutMs: 40000 });
+    const m = String(raw || "").match(/\{[\s\S]*\}/);
+    const o = m ? JSON.parse(m[0]) : null;
+    if (!o || !o.th || !o.en || !o.zh) throw new Error("bad translation");
+    return { th: String(o.th), en: String(o.en), zh: String(o.zh) };
+  }
   async function send() {
     if (!msg.trim()) return;
     setBusy(true); setSaved(false);
-    const value = { id: Date.now(), message: msg.trim(), image_url: img.trim() || null, active: true };
+    let i18n = null;
+    try { i18n = await translateAll(msg.trim()); }
+    catch (e) {
+      if (!confirm(T("แปลภาษาอัตโนมัติไม่สำเร็จ — ส่งเป็นข้อความเดิมภาษาเดียวให้ทุกคนไหม?", "Auto-translation failed — send the original text to everyone?", "自动翻译失败——是否向所有人发送原文？"))) { setBusy(false); return; }
+    }
+    const link = tUrl.trim() ? { url: /^https?:\/\//i.test(tUrl.trim()) ? tUrl.trim() : "https://" + tUrl.trim() } : tPage ? { page: tPage } : null;
+    const value = { id: Date.now(), message: msg.trim(), i18n, image_url: img.trim() || null, link, active: true };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
     setBusy(false);
-    if (!error) { setCur(value); setMsg(""); setImg(""); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
+    if (!error) { setCur(value); setMsg(""); setImg(""); setTPage(""); setTUrl(""); setSaved(true); playUi("levelup"); setTimeout(() => setSaved(false), 2500); } else { alert(error.message || "error"); }
+  }
+  const [reposted, setReposted] = useState(false);
+  // link editor for the announcement already live (prefilled from it)
+  const [eP, setEP] = useState(""), [eU, setEU] = useState(""), [eSaved, setESaved] = useState(false);
+  useEffect(() => { setEP((cur && cur.link && cur.link.page) || ""); setEU((cur && cur.link && cur.link.url) || ""); }, [cur && cur.id]);
+  const editLink = () => eU.trim() ? { url: /^https?:\/\//i.test(eU.trim()) ? eU.trim() : "https://" + eU.trim() } : eP ? { page: eP } : null;
+  /* Save link: same id, so nobody gets the popup again — only where a tap goes changes. */
+  async function saveLink() {
+    if (!cur) return;
+    setBusy(true); setESaved(false);
+    const value = { ...cur, link: editLink() };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
+    setBusy(false);
+    if (!error) { setCur(value); setESaved(true); setTimeout(() => setESaved(false), 2500); } else { alert(error.message || "error"); }
+  }
+  /* Repost: the same announcement, as-is, under a NEW id. Every device keys
+     "already seen" on the id, so a new id pops it up again for every learner. */
+  async function repost() {
+    if (!cur) return;
+    setBusy(true); setReposted(false);
+    // a target picked in the form above applies to the repost too
+    const value = { ...cur, link: editLink(), id: Date.now(), active: true };
+    const { error } = await sb.rpc("admin_set_app_setting", { p_key: "broadcast", p_value: value });
+    setBusy(false);
+    if (!error) { setCur(value); setReposted(true); playUi("levelup"); setTimeout(() => setReposted(false), 2500); } else { alert(error.message || "error"); }
   }
   async function takeDown() {
     if (!cur) return;
@@ -9047,22 +9427,64 @@ function AdminBroadcast({ lang }) {
         </div>
         <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={3} className="admstu-search"
           placeholder={T("พิมพ์ข้อความประกาศ...", "Write the announcement...", "输入公告内容…")}
-          style={{ width: "100%", resize: "vertical", boxSizing: "border-box", marginBottom: 8, fontFamily: "'Rajdhani',sans-serif" }} />
+          style={{ width: "100%", resize: "vertical", boxSizing: "border-box", marginBottom: 8, fontFamily: "var(--f-app, sans-serif)" }} />
         <input value={img} onChange={e => setImg(e.target.value)} className="admstu-search"
           placeholder={T("ลิงก์รูปภาพ (ไม่บังคับ)", "Image URL (optional)", "图片链接（可选）")}
+          style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }} />
+        <label className="songbtn ghost" style={{ width: "100%", display: "block", textAlign: "center", marginBottom: 10, cursor: "pointer", boxSizing: "border-box" }}>
+          {upBusy ? "⏳ " + T("กำลังอัปโหลด…", "Uploading…", "上传中…") : "🖼️ " + T("อัปโหลดรูปภาพ", "Upload an image", "上传图片")}
+          <input type="file" accept="image/*" style={{ display: "none" }} disabled={upBusy}
+            onChange={e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; uploadImage(f); }} />
+        </label>
+        <div className="admstu-row-sub" style={{ marginBottom: 6, whiteSpace: "normal" }}>
+          🔗 {T("เมื่อผู้ใช้กดรูปหรือข้อความ ให้ไปที่…", "When a user taps the image or text, go to…", "用户点击图片或文字时前往…")}
+        </div>
+        <select value={tPage} onChange={e => { setTPage(e.target.value); if (e.target.value) setTUrl(""); }} className="admstu-search"
+          style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }}>
+          <option value="">{T("— ไม่ลิงก์ (แค่แสดงประกาศ) —", "— No link (just show it) —", "— 无链接（仅展示）—")}</option>
+          {BROADCAST_TARGETS().map(f => <option key={f.key} value={f.key}>{f.icon} {f.label[lang] || f.label.en}</option>)}
+        </select>
+        <input value={tUrl} onChange={e => { setTUrl(e.target.value); if (e.target.value) setTPage(""); }} className="admstu-search"
+          placeholder={T("หรือใส่ลิงก์ภายนอก เช่น https://line.me/…", "Or an external link, e.g. https://line.me/…", "或外部链接，例如 https://line.me/…")}
           style={{ width: "100%", boxSizing: "border-box", marginBottom: 10 }} />
+        <div className="admstu-row-sub" style={{ marginBottom: 10, whiteSpace: "normal", opacity: .8 }}>
+          {T("พิมพ์ภาษาเดียวพอ — ระบบแปลเป็นไทย/อังกฤษ/จีนให้อัตโนมัติ ผู้เรียนเห็นตามภาษาที่เลือกไว้",
+            "Write in one language — it is auto-translated to Thai/English/Chinese and each learner sees their own.",
+            "只需用一种语言书写——系统自动翻译成泰/英/中文，学员看到自己所选的语言。")}
+        </div>
         {img.trim() && <img src={img.trim()} alt="" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 10, display: "block" }} onError={e => { e.target.style.display = "none"; }} />}
         <button className="songbtn go" style={{ width: "100%" }} disabled={busy || !msg.trim()} onClick={send}>
           {busy ? "⏳" : "📢"} {T("ส่งเลย", "Send now", "立即发送")}
         </button>
-        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10, whiteSpace: "normal" }}>✓ {T("ส่งแล้ว — ขึ้นหน้าแรกผู้เรียนทันที", "Sent — now live on every learner's home page", "已发送——已在学员首页生效")}</div>}
+        {saved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginTop: 10, whiteSpace: "normal" }}>✓ {T("ส่งแล้ว — ขึ้นหน้าแรกผู้เรียนทันที", "Sent — now live on every learner's home page", "已发送——已在学员首页生效")}</div>}
       </div>
 
       {cur && cur.active && (
         <div className="admmg" style={{ marginTop: 12 }}>
           <div className="admmg-h">{T("กำลังแสดงอยู่ตอนนี้", "Currently live", "当前正在展示")}</div>
-          <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>{cur.message}</div>
+          {cur.i18n ? (["th", "en", "zh"].map(k => (
+            <div key={k} className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "pre-wrap" }}><b>{k.toUpperCase()}</b> · {cur.i18n[k]}</div>
+          ))) : <div className="admstu-row-sub" style={{ marginBottom: 8, whiteSpace: "normal" }}>{cur.message}</div>}
           {cur.image_url && <img src={cur.image_url} alt="" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 8, display: "block" }} />}
+          <div className="admstu-row-sub" style={{ marginBottom: 6, whiteSpace: "normal" }}>
+            🔗 {T("แก้ลิงก์ของประกาศนี้ — กดรูปหรือข้อความแล้วไปที่…", "Edit this announcement's link — a tap goes to…", "编辑此公告的链接——点击后前往…")}
+          </div>
+          <select value={eP} onChange={e => { setEP(e.target.value); if (e.target.value) setEU(""); }} className="admstu-search"
+            style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }}>
+            <option value="">{T("— ไม่ลิงก์ (แค่แสดงประกาศ) —", "— No link (just show it) —", "— 无链接（仅展示）—")}</option>
+            {BROADCAST_TARGETS().map(f => <option key={f.key} value={f.key}>{f.icon} {f.label[lang] || f.label.en}</option>)}
+          </select>
+          <input value={eU} onChange={e => { setEU(e.target.value); if (e.target.value) setEP(""); }} className="admstu-search"
+            placeholder={T("หรือใส่ลิงก์ภายนอก เช่น https://line.me/…", "Or an external link, e.g. https://line.me/…", "或外部链接，例如 https://line.me/…")}
+            style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }} />
+          <button className="songbtn ghost" style={{ width: "100%", marginBottom: 8 }} disabled={busy} onClick={saveLink}>
+            💾 {T("บันทึกลิงก์ (ไม่เด้งซ้ำ)", "Save link (no re-popup)", "保存链接（不重新弹出）")}
+          </button>
+          {eSaved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginBottom: 8 }}>✓ {T("บันทึกลิงก์แล้ว", "Link saved", "链接已保存")}</div>}
+          <button className="songbtn go" style={{ width: "100%", marginBottom: 8 }} disabled={busy} onClick={repost}>
+            {busy ? "⏳" : "🔁"} Repost
+          </button>
+          {reposted && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginBottom: 8, whiteSpace: "normal" }}>✓ {T("ส่งซ้ำแล้ว — จะเด้งขึ้นให้ผู้ใช้ทุกคนอีกครั้งภายในไม่ถึงนาที", "Reposted — it pops up again for every user within a minute", "已重新发布——一分钟内将再次弹出给所有用户")}</div>}
           <button className="songbtn ghost" style={{ width: "100%", color: "#ff5252" }} disabled={busy} onClick={takeDown}>
             {T("ยกเลิกประกาศนี้", "Take this down", "撤下此公告")}
           </button>
@@ -9080,6 +9502,16 @@ function AdminBroadcast({ lang }) {
    Each feature's real page title lives inside that page's own component-local
    T object (not exported), so this keeps its own small label set rather than
    reaching into 8 different files for strings. */
+/* Where a tapped announcement can send people: every spotlight feature plus
+   the money and game pages — so a popup ad drives traffic straight there. */
+const BROADCAST_TARGETS = () => [
+  { key: "pricing", icon: "👑", label: { th: "อัปเกรด Premium (หน้าแพ็กเกจ)", en: "Upgrade Premium (pricing)", zh: "升级 Premium（价格）" } },
+  { key: "shop", icon: "🛍️", label: { th: "ร้านค้า", en: "Shop", zh: "商店" } },
+  { key: "pvp", icon: "⚔️", label: { th: "สนามประลอง PvP", en: "PvP Arena", zh: "PvP 竞技场" } },
+  { key: "pet", icon: "🐾", label: { th: "สัตว์เลี้ยง", en: "Pet", zh: "宠物" } },
+  { key: "profile", icon: "👤", label: { th: "โปรไฟล์", en: "Profile", zh: "个人资料" } },
+  ...SPOTLIGHT_FEATURES,
+];
 const SPOTLIGHT_FEATURES = [
   { key: "pathway", icon: "⬡", label: { th: "เส้นทางเรียนรู้", en: "Pathway", zh: "学习路径" } },
   { key: "coach", icon: "🎯", label: { th: "Daily Mentor", en: "Daily Mentor", zh: "每日导师" } },
@@ -9162,7 +9594,7 @@ function AdminEvent({ lang }) {
             <input className="admstu-search" type="number" min="1" max="10" step="0.5" value={expMult} onChange={e => setExpMult(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
           </div>
           <div style={{ flex: 1 }}>
-            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("ตัวคูณเหรียญ", "Coin multiplier", "金币倍数")}</div>
+            <div className="admstu-row-sub" style={{ marginBottom: 4 }}>{T("ตัวคูณ Coins", "Coin multiplier", "Coins 倍数")}</div>
             <input className="admstu-search" type="number" min="1" max="10" step="0.5" value={coinMult} onChange={e => setCoinMult(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
           </div>
           <div style={{ flex: 1 }}>
@@ -9180,7 +9612,7 @@ function AdminEvent({ lang }) {
         <button className="songbtn go" style={{ width: "100%" }} disabled={busy || (!nameTh.trim() && !nameEn.trim())} onClick={start}>
           {busy ? "⏳" : "🎉"} {T("เริ่มเลย", "Start now", "立即开始")}
         </button>
-        {saved && <div className="admstu-row-sub" style={{ color: "#d97757", marginTop: 10, whiteSpace: "normal" }}>✓ {T("เริ่มแล้ว — ผู้เรียนเห็นแบนเนอร์ทันที", "Started — the banner is now live for every learner", "已开始——横幅已对所有学员生效")}</div>}
+        {saved && <div className="admstu-row-sub" style={{ color: "var(--clay-ink)", marginTop: 10, whiteSpace: "normal" }}>✓ {T("เริ่มแล้ว — ผู้เรียนเห็นแบนเนอร์ทันที", "Started — the banner is now live for every learner", "已开始——横幅已对所有学员生效")}</div>}
       </div>
     </div>
   );
@@ -9571,7 +10003,8 @@ function AdminPage({ lang, onExit, adminTier }) {
      the tier >= 3 check below both still apply; the hash only picks the tab. */
   const [adminTab, setAdminTab] = useState(() => {
     if (tier >= 3 && typeof window !== "undefined" && window.location.hash === "#admin-payments") return "payments";
-    return tier >= 3 ? "ai" : "students";   // "ai" chat · "students" back-office · "autoteach"
+    // the owner opens the console to check who is visiting far more than anything else
+    return tier >= 3 ? "anonvisit" : "students";
   });
   const endRef = useRef(null);
   const fileRef = useRef(null);
@@ -9664,7 +10097,7 @@ function AdminPage({ lang, onExit, adminTier }) {
       // the model harvests teaching candidates from what it just produced
       // under the owner's supervision in the admin console — that reply IS
       // the teaching material. Fire-and-forget: never blocks the chat.
-      learnFromAdminTeaching(reply || "").catch(() => {});
+      queuedUntilTiga(m => { try { m.learnFromAdminTeaching(reply || "").catch(() => {}); } catch (e) {} });
     } catch (e) {
       console.error("Admin chat error:", e); // full detail for devs only
       const msg = "" + (e?.message || "");
@@ -9694,8 +10127,11 @@ function AdminPage({ lang, onExit, adminTier }) {
         <button className="adminexit" onClick={onExit}>✕ EXIT</button>
       </div>
 
+      <Suspense fallback={<LazyBits />}>
       <AdminNav lang={lang} tier={tier} adminTab={adminTab} setAdminTab={setAdminTab} />
+      </Suspense>
 
+      <Suspense fallback={<LazyBits tall />}>
       {adminTab === "leadsale" ? <LeadSaleDashboard lang={lang} />
         : adminTab === "leadlanding" ? <LeadLandingPage lang={lang} />
         : adminTab === "leadreferral" ? <ReferralDashboard lang={lang} />
@@ -9711,11 +10147,11 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
-        : adminTab === "tigamodel" && tier >= 3 ? <div className="adminscroll"><TigamodelLab lang={lang} /></div>
-        : adminTab === "tigabackoffice" && tier >= 3 ? <div className="adminscroll"><TigamodelBackoffice lang={lang} /></div>
+        : adminTab === "jev" && tier >= 3 ? <AdminJevTasks lang={lang} />
+        : adminTab === "tigamodel" && tier >= 3 ? <div className="adminscroll"><Suspense fallback={<LazyBits tall />}><TigamodelLab lang={lang} /></Suspense></div>
+        : adminTab === "tigabackoffice" && tier >= 3 ? <div className="adminscroll"><Suspense fallback={<LazyBits tall />}><TigamodelBackoffice lang={lang} /></Suspense></div>
         : adminTab === "activity" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminActivity lang={lang} onOpenAnon={() => setAdminTab("anonvisit")} /></Suspense>
         : adminTab === "anonvisit" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminAnonVisitors lang={lang} /></Suspense>
-        : adminTab === "simbots" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminSimBots lang={lang} /></Suspense>
         : adminTab === "ai" && tier >= 3 ? (<>
 
       <div className="mmsgs">
@@ -9771,12 +10207,23 @@ function AdminPage({ lang, onExit, adminTier }) {
       </div>
 
       </>) : <AdminStudents lang={lang} viewerTier={tier} />}
+      </Suspense>
     </div>
   );
 }
 
 
 /* ════ MAIN ════ */
+/* A new build must never yank someone out of work. The Admin Console is one
+   page (page === "admin") with many sub-views; matching two of its class
+   names left every other admin screen reloading on each deploy. Hold while
+   the admin page is open (any sub-view), or a PvP fight is on screen; the
+   reload happens at the first moment they leave. */
+function holdReload() {
+  try { if (sessionStorage.getItem("tiga_page") === "admin") return true; } catch (e) {}
+  return !!(document.querySelector(".pvppage.fight") || document.querySelector(".admstu") || document.querySelector(".adminpay"));
+}
+
 export default function App() {
   useInjectCSS();
   const [session, setSession] = useState(null);
@@ -9948,6 +10395,19 @@ export default function App() {
 function PianoApp({ session, profile, setProfile, onSignOut }) {
   const cssReady = useInjectCSS();
   const isGuest = !session; // no Supabase session at all — synthetic local profile, see loadGuestProfile()
+  try { window.__tigaProfile = profile || null; } catch (e) {}   // plan v3 2.1: the W adapter reads the age band from here (single writer, always current)
+
+  // plan v3 1.5: tigamodel (~1.18 MB) + teach-cards load LAZY — kick both as
+  // soon as the browser is idle so the first model-driven screen never waits.
+  const [teachCardTick, setTeachCardTick] = useState(0);
+  const tigaReady = useTiga(null);   // ready tick — re-renders when the model lands (chat starters, TIGA tab, budget line fill in)
+  useEffect(() => {
+    preloadTigamodelOnInteraction();   // 5.1: engine loads after the learner's first tap — idle only as fallback
+    import("./tigamodel/knowledge/teach-cards.js").then(m => {
+      _teachCards = m;
+      setTeachCardTick(t => t + 1);
+    }).catch(() => {});
+  }, []);
 
   // one-time "why we ask for mic/camera" disclosure, native app only — the OS's
   // own permission dialog (with the Info.plist/AndroidManifest usage strings)
@@ -9980,6 +10440,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     try { localStorage.setItem("tg_push_primed", "1"); } catch (e) {}
     const ok = await subscribePush(session.user.id);
     setPushOn(ok);
+    if (ok) claimNotifReward();
   }
   function dismissPushPrimer() {
     setPushPrimerOpen(false);
@@ -9998,6 +10459,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      choice persists — profiles.lang for an account, the local guest profile
      otherwise — so this only decides what someone sees before they choose. */
   const [lang, setLangState] = useState(profile.lang || "th");
+  /* The document says which language it is in. Screen readers pick their
+     voice from it, the browser picks Thai- or CJK-appropriate fallback fonts
+     from it, and the game rooms use it (:lang) to keep letter-spacing off
+     Thai, where spacing out the letters pulls vowels and tone marks away
+     from the consonants they sit on. */
+  useEffect(() => { try { document.documentElement.lang = lang === "zh" ? "zh-CN" : lang; } catch (e) {} }, [lang]);
   // First-time language picker: SUSPENDED (owner request 2026-09) - the popup
   // felt like a wall between a new user and the piano. The state/JSX are kept
   // intact for a future re-enable: flip LANG_PICKER_ENABLED back to true and
@@ -10046,7 +10513,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
-  const [buyCurrencyOpen, setBuyCurrencyOpen] = useState(false);
   /* Conversion funnel (owner-approved 2026-09-19): one trial-stage popup at a
      time — welcome (d1-3), halfway price-lock (d15-28), closing + direct
      checkout (d29-30) — plus the expired-trial win-back. Never fires for
@@ -10125,15 +10591,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => clearTimeout(t);
   }, [coins, chestAvail]);   // page intentionally not here: declared later in PianoApp (TDZ crash)
   function dismissEduTip() { setEduTip(null); }
-  function openBuyCurrency() { if (requireLogin()) return; setBuyCurrencyOpen(true); }
-  /* Gem monetization plan v4 (item 1): the shop's only response to "not enough
-     gems" was a sad mascot — the moment of wanting was invisible and untapped.
-     This popup fires exactly there (buyWithGems) with two actions: straight
-     into the gem tab of the top-up modal, or an equal-value coins route when
-     one exists (never hides a free path — kill list v2). Fires on the failed
-     attempt only, never automatically. */
+  /* "Not enough gems" (buyWithGems, on a failed attempt only): says how many
+     are missing and where gems are earned. It used to lead into a paid
+     top-up; the owner closed Coins/Gems top-ups for good on 2026-09-25 (legal
+     risk), so nothing in the app sells in-game currency any more. */
   const [gemShort, setGemShort] = useState(null);   // { short, item }
-  const [gemShortFocus, setGemShortFocus] = useState(false);
   function openGemShortPopup(shortBy, itemLabel) { setGemShort({ short: shortBy, item: itemLabel }); logUsage("gem", "shortpop:" + shortBy); }
   function dismissGemShortPopup() { setGemShort(null); }
   // useGamification() is called before usePayment() (mascot must exist in time
@@ -10142,7 +10604,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => { planRef.current = plan; }, [plan]);
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    const handler = (e) => { if (e.data && e.data.type === "SW_RELOAD") window.location.reload(); };
+    const handler = (e) => {
+      if (!e.data || e.data.type !== "SW_RELOAD") return;
+      // never reload under someone: the new build applies on the next open
+      window.__tgUpdateReady = true;
+    };
     navigator.serviceWorker.addEventListener("message", handler);
     return () => navigator.serviceWorker.removeEventListener("message", handler);
   }, []);
@@ -10172,7 +10638,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         // an active PvP fight). The state is also restored after the reload
         // (page + adminUnlocked in sessionStorage), so the console reopens
         // where it was.
-        if (document.querySelector(".pvppage.fight") || document.querySelector(".admstu") || document.querySelector(".adminpay")) { setTimeout(go, 5000); return; }
+        /* No automatic reload any more, anywhere. A new build used to reload
+           every open page within seconds of landing — and on a day with many
+           releases that meant the app (and the Admin Console) "refreshing by
+           itself" again and again. The service worker already serves the new
+           index.html network-first, so the next time the app is opened it is
+           on the new build; until then the page keeps running untouched. */
+        window.__tgUpdateReady = true; return;
+        /* Nor straight after a Google login. This page is then exchanging the
+           ?code= for a session, and the SKIP_WAITING nudge above lands two
+           seconds in — on a slow phone, mid-exchange. Seen live (1a70eb,
+           19 Sep): signed in from the landing page, then seven app boots in
+           80 seconds in slow/instant pairs and no page ever shown, until they
+           backed out to the landing page and tapped Google all over again.
+           A new build can wait fifteen seconds; a first sign-in cannot. */
+        if (AUTH_RETURN && performance.now() < 15000) { setTimeout(go, 3000); return; }
         window.location.reload();
       };
       go();
@@ -10191,7 +10671,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => navigator.serviceWorker.removeEventListener("message", onNav);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songHud, setSongHud, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songJudge, setSongJudge, songNextLit, setSongNextLit, songNextLit2, songFingerMap, songStaffNotes, setSongStaffNotes, songBest, setSongBest, songBursts, setSongBursts, songShake, setSongShake, songGo, setSongGo, songJudgeTimerRef, songShakeT, songGoT, songPerfectsRef, songDebounceRef, songEchoRef, songGhost, setSongGhost, songSamplesRef, songGhostDataRef, songBonus, setSongBonus, songBonusT, songFever, setSongFever, songFeverRef, songPops, setSongPops, songAnnounce, setSongAnnounce, songAnnounceT, songSrc, setSongSrc, songCountdown, setSongCountdown, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songLoopRetryT, songCanvasRef, songDataRef, songNotesRef, songLanesRef, songTotalRef, songLastTimeRef, songStartClockRef, songTempoRef, songRunRef, songRafRef, songHudTimerRef, songScoreRef, songComboRef, songMaxComboRef, songHitsRef, songMissRef, songTimingRef, songVelsRef, songLaneFlashRef, songStarsRef, songRocketsRef, songBlastsRef, songNebulaRef, songCountdownRef, songFinishedRef, songPreviewRef, songLoopRef, songInputRef, songFinishRef, chooseSong, previewSong, startSongPlay, exitSong, styleTransform, songLoopRecap, songTigaTip, songSetlistPos, startSetlist, playAlongHand, changePlayAlongHand, drillPlan, drillActive, startDrill, endDrill, bossOn, bossHp, bossMax, bossFx, kDrop, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true) });
+  const { gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songBest, setSongBest, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songCanvasRef, songDataRef, songInputRef, songTigaTip, songRafRef, songHudTimerRef, songPreviewRef, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songMetro, setSongMetro, songBand, setSongBand, songFx, setSongFx, songPractice, songGfx, setSongGfx, songIntro, startIntro, skipIntro, drillPlan, drillActive, drillCleared, startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true), profile, level: levelInfo((profile && profile.exp) || 0).level, plan });
 
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
@@ -10277,6 +10757,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (broadcast) markBroadcastSeen(broadcast.id);
     setBroadcast(null);
   }
+  /* A tapped announcement goes where the admin pointed it: an in-app page
+     (the popup closes and that page opens) or an external link (new tab). */
+  function openBroadcastLink() {
+    const L = broadcast && broadcast.link; if (!L) return;
+    logUsage("broadcast", "tap:" + (L.page || "url"));
+    dismissBroadcast();
+    if (L.url) { try { window.open(L.url, "_blank", "noopener"); } catch (e) {} return; }
+    if (L.page === "pricing") { playUi("click"); setPricingOpen(true); return; }
+    if (L.page === "shop") { playUi("click"); setShopOpen(true); return; }
+    goToSpotlight(L.page);
+  }
   // Jump straight to an event's spotlighted feature — each SPOTLIGHT_FEATURES
   // key maps to whatever that feature's real navigation actually is (a plain
   // page for most, a dedicated opener for the two that are modals over
@@ -10360,6 +10851,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [modelChosen, setModelChosen] = useState(() => { try { return localStorage.getItem("tg_charModelSet") === "1"; } catch (e) { return true; } });
   const [modelPickOpen, setModelPickOpen] = useState(false);
   const [modelDetail, setModelDetail] = useState(null);   // the shop chassis being inspected
+  const [petDetail, setPetDetail] = useState(null);       // the shop pet being inspected
+  const [gearDetail, setGearDetail] = useState(null);     // {kind, id}: the gear being tried on
   const [modelPickSel, setModelPickSel] = useState(null);
   const [charHat, setCharHat] = useState(getEquip("charHat", "hat-straw"));
   const [charOutfit, setCharOutfit] = useState(getEquip("charOutfit", "out-tshirt"));
@@ -10385,7 +10878,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [earGymInitialTab, setEarGymInitialTab] = useState("int"); // which Ear Gym tab to land on — set before navigating there for skill remediation
 
   const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
-  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly });
+  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightTip, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly });
   const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera, camGame, camPraise, camMission } = useCameraCoach({ lang, premium, setPricingOpen, onReward: (xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); } });
 
 
@@ -10401,6 +10894,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [page, setPage] = useState(() => {
     try { const p = sessionStorage.getItem("tiga_page"); return p || "pathway"; } catch (e) { return "pathway"; }
   });
+  /* The profile is where the arena, the sanctuary and the shop are entered
+     from: once somebody is on it, fetch the 3D room in idle time (only on a
+     device that will actually draw one), so none of those opens is the
+     moment the download starts. */
+  useEffect(() => { if (page === "profile" || page === "storage" || page === "pvp" || page === "pet") prefetchSpace(); }, [page]);
   useEffect(() => { try { sessionStorage.setItem("tiga_page", page); } catch (e) {} }, [page]);
   // usage analytics: log each page WITH dwell time.
   //
@@ -10730,7 +11228,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
        pool and badged 🧠; onStarterTap handles them as a direct chat prefill
        (stage/case null-safe). */
     try {
-      const tiga = tigaHub.chatStartersFor(readMemory(), readPracticeLog(), profile);
+      const hub = tigaNow();
+      const tiga = hub ? hub.tigaHub.chatStartersFor(readMemory(), readPracticeLog(), profile) : null;
       const tigaStarters = (tiga && tiga.starters || []).slice(0, 2).map((st, i) => ({
         tiga: true,
         stage: { id: "tiga-" + i, th: "ครู TiGA", en: "Teacher TiGA", zh: "TiGA老师" },
@@ -10759,7 +11258,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [uid]);
 
 
-  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly });
+  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly });
 
 
   const { vmOpen, setVmOpen, vmState, vmCaption, setVmCaption, vmMsgs, setVmMsgs, vmNotes, setVmNotes, vmErr, setVmErr, vmActiveRef, vmStateRef, vmRecRef, vmMsgsRef, vmNotesRef, vmFrozenRef, vmPlayReactT, vmSilenceT, vmRestartT, vmWatchdogT, vmListenSeqRef, vmEndRef, vmLastActivityRef, vmIdleNudgedRef, vmIdleTimerRef, vmSelfSpeakingRef, vmEarResetRef, vmEarFlushRef, vmDeafCountRef, vmTallyOkRef, vmTallyMissRef, vmFast, setVmFast, vmFastRef, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmPoly, setVmPoly, vmPolyRef, vmLangOpen, setVmLangOpen, vmMenuOpen, setVmMenuOpen, langRef, vmLastDemoRef, vmStreakRef, vmMissRef, vmFillersRef, vmFillerSrcRef, vmCloudDeadRef, vmLit, setVmLit, vmLitT, vmStaff, setVmStaff, vmInstant, setVmInstant, vmInstantT, vmExpectRef, vmSeqRef, vmEarRef, vmInterruptRef, vmTurnRef, vmSpokenRef, vmSpokeAtRef, vmSessionStartRef, vmActStartRef, vmFillerLastRef, vmInput, setVmInput, openVoice, exitVoice, vmOrbTap, vmOnNote, vmTogglePoly, vmProcess, vmToggle } = useVoiceTutor({ lang, session, profile, homework, setHomework, setPage, setStudioView, setMetroOn, setMetroBpm, metroTimingReport, openCamera, chooseSong, startPractice, lastSeq });
@@ -10953,30 +11452,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const id = setInterval(tick, 60000 / metroBpm);
     return () => clearInterval(id);
   }, [metroOn, metroBpm]);
-  // auto-enable metronome when entering Play Along, sync BPM with song + tempo, disable when exiting
-  const prevSongOpenRef = useRef(false);
-  const prevSongMetaRef = useRef(null);
+  /* Play Along keeps its own click on the song's beat grid (use-play-along
+     scheduleClicks). The free-running metronome here ticks on a timer that
+     starts whenever it is switched on, so inside a song it was always off
+     the beat — and it used to be switched on by entering Play Along. Now it
+     is held off while a song is open and put back as it was afterwards. */
+  const metroBeforeSongRef = useRef(null);
   useEffect(() => {
-    if (songOpen && !prevSongOpenRef.current) {
-      prevSongOpenRef.current = true;
-      setMetroOn(true);
-      if (songMeta && songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
+    if (songOpen && metroBeforeSongRef.current === null) {
+      metroBeforeSongRef.current = metroOn;
+      if (metroOn) setMetroOn(false);
+    } else if (!songOpen && metroBeforeSongRef.current !== null) {
+      const was = metroBeforeSongRef.current;
+      metroBeforeSongRef.current = null;
+      if (was) setMetroOn(true);
     }
-    // sync BPM when song changes during play (setlist/retry)
-    if (songOpen && songMeta && songMeta !== prevSongMetaRef.current) {
-      prevSongMetaRef.current = songMeta;
-      if (songMeta.bpm) setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
-    }
-    // sync BPM when tempo multiplier changes (0.5x, 0.75x, 1x, 1.25x)
-    if (songOpen && songMeta && songMeta.bpm) {
-      setMetroBpm(Math.round(songMeta.bpm * (songTempo || 1)));
-    }
-    if (!songOpen && prevSongOpenRef.current) {
-      prevSongOpenRef.current = false;
-      prevSongMetaRef.current = null;
-      setMetroOn(false);
-    }
-  }, [songOpen, songMeta, songTempo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songOpen]);
   // grade the learner's note onsets against the actual metronome clicks (ms-precise)
   function metroTimingReport(noteTimes) {
     const beats = metroBeatTimesRef.current;
@@ -11093,7 +11585,65 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   async function togglePush() {
     if (requireLogin()) return;
     if (pushOn) { await unsubscribePush(); setPushOn(false); }
-    else { const ok = await subscribePush(session.user.id); setPushOn(ok); }
+    else { const ok = await subscribePush(session.user.id); setPushOn(ok); if (ok) claimNotifReward(); }
+  }
+  /* ── Notification event: turn notifications on → 10,000 coins + 10,000 gems ──
+     Invite timing (owner spec): a first-time visitor sees it once they have
+     been in the app 3 minutes; anyone on their 2nd+ visit who has not joined
+     sees it straight away. The reward is granted by the server
+     (claim_notif_reward: needs a real push subscription, once per account,
+     additive) — the client only asks. */
+  const [notifInvite, setNotifInvite] = useState(false);
+  const [notifGlow, setNotifGlow] = useState(false);
+  const [notifDone, setNotifDone] = useState(() => { try { return localStorage.getItem("tg_notif_reward_done") === "1"; } catch (e) { return false; } });
+  const [notifToast, setNotifToast] = useState(false);
+  const markNotifDone = () => { setNotifDone(true); setNotifInvite(false); setNotifGlow(false); try { localStorage.setItem("tg_notif_reward_done", "1"); } catch (e) {} };
+  async function claimNotifReward() {
+    if (!session) return;
+    const { data: r, error } = await sb.rpc("claim_notif_reward");
+    if (error || !r) return;
+    if (r.ok) {
+      setCoinsLS(r.coins); setCoins(r.coins); setProfile(p => ({ ...(p || {}), coins: r.coins, gems: r.gems }));
+      playUi("levelup"); setNotifToast(true); setTimeout(() => setNotifToast(false), 4200);
+      logUsage("event", "notif-reward");
+      markNotifDone();
+    } else if (r.reason === "already_claimed") markNotifDone();
+  }
+  useEffect(() => {
+    if (notifDone || !pushSupported()) return;
+    let visits = 1;
+    try {
+      visits = Number(localStorage.getItem("tg_visits") || 0);
+      if (!sessionStorage.getItem("tg_visit_counted")) { visits += 1; localStorage.setItem("tg_visits", String(visits)); sessionStorage.setItem("tg_visit_counted", "1"); }
+    } catch (e) {}
+    const wait = visits >= 2 ? 1200 : 3 * 60 * 1000;
+    const t = setTimeout(async () => {
+      if (session) { try { const { data } = await sb.rpc("notif_reward_claimed"); if (data === true) { markNotifDone(); return; } } catch (e) {} }
+      // every app open until claimed — a per-session flag survived refreshes, so it hid for good
+      setNotifInvite(true);
+      logUsage("event", "notif-invite");
+    }, wait);
+    return () => clearTimeout(t);
+  }, [notifDone, session]);
+  async function joinNotifEvent() {
+    setNotifInvite(false);
+    if (requireLogin()) return;
+    if (pushOn) { claimNotifReward(); return; }   // already on: just collect
+    /* Ask for permission right here, inside the tap — the browser only shows
+       its "Allow notifications?" box for a direct user gesture, so sending
+       people to Settings first meant most of them never saw it. */
+    const perm = typeof Notification !== "undefined" ? Notification.permission : "default";
+    if (perm === "denied") {
+      alert(lang === "th" ? "เบราว์เซอร์นี้เคยบล็อกการแจ้งเตือนของ TIGA ไว้ — แตะไอคอนแม่กุญแจ/ตั้งค่าเว็บไซต์ข้างช่อง URL แล้วเปลี่ยน \"การแจ้งเตือน\" เป็น \"อนุญาต\" จากนั้นกดเข้าร่วมกิจกรรมอีกครั้ง"
+        : lang === "zh" ? "此浏览器之前屏蔽了 TIGA 的通知——点击网址栏旁的锁形/网站设置图标，把「通知」改为「允许」，然后再次参加活动"
+        : "This browser has blocked TIGA's notifications — tap the lock / site-settings icon next to the address bar, set Notifications to Allow, then join again.");
+      return;
+    }
+    const ok = await subscribePush(session.user.id);
+    setPushOn(ok);
+    if (ok) { claimNotifReward(); return; }
+    // dismissed the box: leave the way back open in Settings
+    setSettingsOpen(true); setNotifGlow(true); setTimeout(() => setNotifGlow(false), 12000);
   }
   function saveAutoTeachInterval(min) {
     if (requireLogin()) return;
@@ -11193,6 +11743,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }
   // the one-time choice is asked for the moment the profile is first opened
   useEffect(() => { if (page === "profile" && !modelChosen) { setModelPickSel(charModel); setModelPickOpen(true); } }, [page, modelChosen, charModel]);
+  // the daily gift unlocks after today's first finished practice, so re-check it whenever the profile (where it lives) opens
+  useEffect(() => { if (page === "profile") setChestAvail(chestAvailable()); }, [page]);   // eslint-disable-line react-hooks/exhaustive-deps
   /* The Reassignment Core was the previous answer to "how do I change model" and
      it is gone — models are bought outright now. Anyone who already paid for one
      gets their coins back once, rather than being left holding a dead item. */
@@ -11266,7 +11818,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (gems < item.gem) {
       mascot("sad", 1400);
       // Plan v4 item 1: turn the dead end into the funnel's entry — 2-button popup.
-      openGemShortPopup(item.gem - gems, (item.name && (item.name[lang] || item.name.th)) || item.id || "");
+      openGemShortPopup(item.gem - gems, item[lang] || item.th || (item.name && (item.name[lang] || item.name.th)) || item.id || "");
       return;
     }
     const ok = await exchangeGems(item.gem);
@@ -11302,13 +11854,38 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     playUi("reward"); mascot("celebrate", 2400);
   }
 
+  /* ── the cards follow the pointer ── a mouse or a pen tips the card a few
+     degrees toward itself and slides a glare across the glass. One listener
+     on the grid, the custom properties set on the one card under it; touch
+     is left alone (a finger on a card is a scroll or a tap, not a hover). */
+  function shopTiltOff(e) {
+    const g = e.currentTarget, c = g.__tilt;
+    if (c) { c.classList.remove("tilt"); c.style.removeProperty("--rx"); c.style.removeProperty("--ry"); g.__tilt = null; }
+  }
+  function shopTilt(e) {
+    if (e.pointerType === "touch") return;
+    const g = e.currentTarget;
+    const card = e.target && e.target.closest ? e.target.closest(".shopitem") : null;
+    if (g.__tilt && g.__tilt !== card) shopTiltOff(e);
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    if (!r.width) return;
+    const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    card.style.setProperty("--ry", ((px - 0.5) * 9).toFixed(2) + "deg");
+    card.style.setProperty("--rx", ((0.5 - py) * 7).toFixed(2) + "deg");
+    card.style.setProperty("--gx", (px * 100).toFixed(1) + "%");
+    card.style.setProperty("--gy", (py * 100).toFixed(1) + "%");
+    card.classList.add("tilt");
+    g.__tilt = card;
+  }
+
   function renderShopItem(kind, it, equippedId) {
     const own = owned.includes(it.id), eq = equippedId === it.id;
     if (it.model) {
       const running = charModel === it.model;
       return (
         <button key={it.id} className={`shopitem ${it.rarity} mdlitem${running ? " equipped" : ""}`} onClick={() => { setModelDetail(it.id); playUi("click"); }}>
-          <span className="mdlitem-head"><CyberAvatar model={it.model} headOnly /></span>
+          <span className="mdlitem-head"><HeadThumb model={it.model} px={112} /></span>
           <span className="shopitem-nm">{tr(it, lang)}</span>
           <span className="shopitem-desc">{tr(it.desc, lang)}</span>
           <span className="shopitem-cls" style={{ "--cc": classOf(it.model).c }}>{tr(classOf(it.model), lang)}</span>
@@ -11326,8 +11903,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       return (
         <button key={it.id} data-tick={petTick}
           className={`shopitem ${it.rarity} petitem${here ? " equipped" : ""}`}
-          onClick={() => buyOrCarryPet(it)}>
-          <span className="petitem-art"><PetArt species={sp.id} level={1} /></span>
+          onClick={() => { setPetDetail(it.id); playUi("click"); }}>
+          <span className="petitem-art"><PetThumb species={sp.id} px={112} /></span>
           <span className="shopitem-nm">{tr(it, lang)}</span>
           <span className="petitem-type" style={{ "--tc": ty.c }}>{tr(ty, lang)}</span>
           <span className="shopitem-desc">{tr(it.desc, lang)}</span>
@@ -11366,7 +11943,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       playUi("reward");
     };
     return (
-      <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}${lv > 0 ? " upgraded" : ""}`} onClick={() => buyOrEquip(kind, it)}>
+      <button key={it.id} className={`shopitem ${it.rarity}${eq ? " equipped" : ""}${lv > 0 ? " upgraded" : ""}`}
+        onClick={() => { if (isGear && it.art && /^char/.test(kind)) { setGearDetail({ kind, id: it.id }); playUi("click"); } else buyOrEquip(kind, it); }}>
         {it.isNew && !own && <span className="shopitem-new">{lc.shopNew}</span>}
         {lv > 0 && <span className={`shopitem-lv${maxed ? " max" : ""}`}>+{lv}</span>}
         {it.art
@@ -11714,7 +12292,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         earnCoins(20); gainExp(30, { quest: true });
         const domainTitle = tr(stage.title, lang);
         const celebration = lang === "th"
-          ? `🎖️ ปลดล็อกภารกิจความรู้!\n\n${stage.icon} คุณอ่านครบทุกเรื่องในหมวด "${domainTitle}" แล้ว — ปรบมือให้ตัวเองหน่อย! 👏\n\nไปดูเหรียญสะสมทั้งหมดได้ที่หน้าโปรไฟล์`
+          ? `🎖️ ปลดล็อกภารกิจความรู้!\n\n${stage.icon} คุณอ่านครบทุกเรื่องในหมวด "${domainTitle}" แล้ว — ปรบมือให้ตัวเองหน่อย! 👏\n\nไปดู Coins สะสมทั้งหมดได้ที่หน้าโปรไฟล์`
           : lang === "zh"
           ? `🎖️ 知识任务解锁！\n\n${stage.icon} 你已读完"${domainTitle}"分类下的全部案例——为自己鼓掌吧！👏\n\n前往个人主页查看你的完整收藏。`
           : `🎖️ Knowledge Quest unlocked!\n\n${stage.icon} You've read every case study in "${domainTitle}" — nice work digging deep! 👏\n\nCheck your full collection on the Profile page.`;
@@ -11822,6 +12400,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </button>
           <div className="lbox flicker" onClick={handleLogoTap}
             style={{ cursor: "pointer" }} title="TIGA">TIGA</div>
+          {/* one-tap shortcut straight into the PvP arena */}
+          <button className="hdrgo hdr-pvp" onClick={() => { playUi("click"); logUsage("nav", "pvp-hdr"); setPage("pvp"); }}
+            aria-label="PvP" title="PvP">
+            {/* two robots squaring off, in the same line style as the profile glyph */}
+            <svg width="26" height="23" viewBox="0 0 30 26" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="2" y="5" width="7" height="6" rx="1.6" /><path d="M5.5 5V3" /><circle cx="5.5" cy="2.4" r=".7" />
+              <path d="M4.3 8h.01M6.7 8h.01" strokeWidth="2" />
+              <path d="M3.5 11v7h4v-7M4.5 18v5M6.5 18v5M7.5 13l4 -1.5" />
+              <rect x="21" y="5" width="7" height="6" rx="1.6" /><path d="M24.5 5V3" /><circle cx="24.5" cy="2.4" r=".7" />
+              <path d="M23.3 8h.01M25.7 8h.01" strokeWidth="2" />
+              <path d="M22.5 11v7h4v-7M23.5 18v5M25.5 18v5M22.5 13l-4 -1.5" />
+              <path d="M13 9.5l4 4M17 9.5l-4 4" strokeWidth="1.8" />
+            </svg>
+          </button>
         </div>
         <div className="hdr-r">
           {isGuest && (
@@ -11903,7 +12495,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
           onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
-          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} />
+          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""}
+          onUpgrade={(premium && plan !== "trial") ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
       )}
 
       {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
@@ -11930,7 +12523,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <InsightsPage lang={lang} profile={profile} onSong={chooseSong} onBack={() => setPage("profile")} />
       )}
       {page === "report" && (
-        <ReportPage lang={lang} profile={profile} onBack={() => setPage("profile")} />
+        <ReportPage lang={lang} profile={profile} onBack={() => setPage("profile")} premium={premium} onUpsell={() => setPricingOpen(true)} />
       )}
 
       {/* ─── PAGE: VIDEO LESSONS ─── */}
@@ -11958,7 +12551,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} onStartSetlist={startSetlist} />
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} exp={(profile && profile.exp) || 0} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} onStartSetlist={startSetlist} />
           : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
@@ -11994,7 +12587,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PROFILE ─── */}
-      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setBuyCurrencyOpen={openBuyCurrency} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
+      {page === "profile" && <ProfileDashboardPanel lang={lang} profile={profile} plan={plan} chestAvail={chestAvail} chestLocked={!chestAvail && !chestClaimedToday()} schoolHW={schoolHW} setSchoolHW={setSchoolHW} homework={homework} setHomework={setHomework} setHomeworkLS={setHomeworkLS} mySchoolName={mySchoolName} coins={coins} gems={gems} session={session} onSignOut={onSignOut} setPage={setPage} setStudioView={setStudioView} setPricingOpen={setPricingOpen} setShopOpen={setShopOpen} onOpenStorage={() => { logUsage("nav", "storage"); setPage("storage"); }} onOpenPvp={() => { logUsage("nav", "pvp"); setPage("pvp"); }} onOpenPet={() => { logUsage("nav", "pet"); setPage("pet"); }} setHelpOpen={setHelpOpen} setFriendsOpen={setFriendsOpen} setAiModalType={setAiModalType} setAiModalText={setAiModalText} setAiModalLoading={setAiModalLoading} setAiModalOpen={setAiModalOpen} earnCoins={earnCoins} buyFreeze={buyFreeze} openChestNow={openChestNow} exchangeGems={exchangeGems} questToday={questToday} readStreak={readStreak} streakAtRisk={streakAtRisk} leaveSchool={leaveSchool} QUEST_GOAL={QUEST_GOAL} ClassQuestSection={ClassQuestSection} SchoolLeaderboardSection={SchoolLeaderboardSection} ProfilePage={ProfilePage} onAskStruggle={askAboutStruggle} onReplayDrill={replayDrill}
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
@@ -12030,6 +12623,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "pvp" && (
         <PvpArenaMount lang={lang} charModel={charModel}
           gear={equippedGear}
+          ownedModels={SHOP_MODELS.filter(m => owned.includes(m.id)).map(m => m.model)}
+          onPickModel={(m) => {
+            // run a chassis you already own, from the arena itself (same rule as a loadout)
+            const n = normalizeModel(m);
+            if (n !== charModel && owned.includes(MODEL_ITEM[n])) { setCharModelState(n); setEquipLS("charModel", n); playUi("click"); }
+          }}
+          onOpenShop={() => { playUi("click"); setShopTab("battle"); setShopSubTab("charModel"); setShopOpen(true); }}
           onBack={() => { setPage("profile"); playUi("click"); }}
           playUi={playUi}
           onApplyLoadout={applyLoadout}
@@ -12152,10 +12752,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
-      {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} /></SafeZone>}
+      {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} startSpotPractice={startSpotPractice} practiceWrongByIdxRef={practiceWrongByIdxRef} /></SafeZone>}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songHud={songHud} songGhost={songGhost} songStaffNotes={songStaffNotes} songShake={songShake} songFever={songFever} songCanvasRef={songCanvasRef} songCountdown={songCountdown} songGo={songGo} songBonus={songBonus} songAnnounce={songAnnounce} songPops={songPops} songJudge={songJudge} songBursts={songBursts} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} backingOn={backingOn} setBackingOn={setBackingOn} songSrc={songSrc} songNextLit={songNextLit} songNextLit2={songNextLit2} songFingerMap={songFingerMap} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} goToRecommendation={goToRecommendation} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} buildSongResultRecommendation={buildSongResultRecommendation} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} songLoopRecap={songLoopRecap} songSetlistPos={songSetlistPos} metroOn={metroOn} setMetroOn={setMetroOn} getAC={getAC} metroBpm={metroBpm} setSongPhase={setSongPhase} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossHp={bossHp} bossMax={bossMax} bossFx={bossFx} kDrop={kDrop} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} /></SafeZone>}
+      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay gameStore={gameStore} songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songCanvasRef={songCanvasRef} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} requestSongAnalysis={requestSongAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} pvpOnline={pvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} drillCleared={drillCleared} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossMax={bossMax} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} openKnowledgeShelf={openKnowledgeShelf} pauseSong={pauseSong} resumeSong={resumeSong} restartSong={restartSong} playAgain={playAgain} playNext={playNext} nextSongFor={nextSongFor} songKind={songKind} setSongKind={setSongKind} songMetro={songMetro} setSongMetro={setSongMetro} songBand={songBand} setSongBand={setSongBand} songFx={songFx} setSongFx={setSongFx} songPractice={songPractice} songGfx={songGfx} setSongGfx={setSongGfx} songIntro={songIntro} startIntro={startIntro} skipIntro={skipIntro} sfxMuted={sfxMuted} onToggleSfx={() => { const m = !sfxMuted; setSfxMuted(m); setSfxMutedState(m); }} /></SafeZone>}
 
       {/* SIGHT-READING overlay */}
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightTip={sightTip} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
@@ -12172,7 +12772,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* CHECKOUT — Stripe / PromptPay / Alipay / WeChat */}
       {checkout && <CheckoutModal lang={lang} checkout={checkout} payCfg={payCfg} session={session} isAdmin={!!(profile && profile.is_admin)} onClose={() => setCheckout(null)} playUi={playUi} />}
       {schoolCheckout && <SchoolCheckoutModal lang={lang} schoolCheckout={schoolCheckout} payCfg={payCfg} session={session} onClose={() => setSchoolCheckout(null)} playUi={playUi} />}
-      {buyCurrencyOpen && <BuyCurrencyModal lang={lang} payCfg={payCfg} session={session} onClose={() => { setBuyCurrencyOpen(false); setGemShortFocus(false); }} playUi={playUi} focusGems={gemShortFocus} shortBy={gemShort ? gemShort.short : 0} />}
 
       {/* AI WEEKLY REPORT / AI PRACTICE PLAN MODAL (Max exclusive) */}
       {aiModalOpen && (
@@ -12227,13 +12826,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 </button>
               )}
               {aiModalLoading && (
-                <div style={{ textAlign: "center", padding: "28px 0", color: "var(--muted)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, fontSize: "14px" }}>
+                <div style={{ textAlign: "center", padding: "28px 0", color: "var(--muted)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, fontSize: "14px" }}>
                   ⏳ {lang === "th" ? "กำลังสร้าง..." : lang === "zh" ? "生成中..." : "Generating..."}
                 </div>
               )}
               {aiModalText && (
                 <>
-                  <div style={{ fontSize: "13.5px", lineHeight: 1.75, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "pre-wrap", padding: "4px 0 8px" }}>
+                  <div style={{ fontSize: "13.5px", lineHeight: 1.75, color: "var(--text)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, whiteSpace: "pre-wrap", padding: "4px 0 8px" }}>
                     {aiModalText}
                   </div>
                   {/* Citation chips — the paragraph above is AI-written, but grounded in
@@ -12300,10 +12899,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     (buildParentReport — same local records, no new storage).
                     Sections render only when the data supports them. ── */}
                 {(() => {
-                  const rep = buildParentReport({ days: 14 });
+                  const rep = buildParentReport({ days: 14, lang });
                   if (!rep) return null;
                   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
                   const bars = rep.series.filter(d => d.acc != null);
+                  /* plan v3.4 6.10 — the long-term-value story for the parent,
+                     grounded in the education-market KB (honest-null until the
+                     lazy model has loaded — renders only when entries exist). */
+                  const ltv = tigaLongTermValue(rep, lang);
                   return (
                     <>
                       <div className="pd-sec">{T("ความแม่นยำ 14 วันล่าสุด", "Accuracy — last 14 days", "近14天准确率")}{rep.trend != null && (
@@ -12343,6 +12946,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         </>
                       )}
                       {rep.homeworkNote && <div className="pd-sec" style={{ fontSize: 12.5 }}>📝 {rep.homeworkNote}</div>}
+                      {/* plan v3.4 6.10 — KB-grounded long-term value story for the parent */}
+                      {ltv && (
+                        <>
+                          <div className="pd-sec">🌱 {ltv.title[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || ltv.title.en}</div>
+                          {(ltv.lines[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || ltv.lines.th).map((ln, i) => (
+                            <div key={i} style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>• {ln}</div>
+                          ))}
+                        </>
+                      )}
                     </>
                   );
                 })()}
@@ -12400,7 +13012,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="setbody">
               <SkinThemeSettings mode={mode} setMode={setMode} setEquipLS={setEquipLS} lang={lang} />
               <div className="setdiv" />
-              <SfxMetronomeSettings lang={lang} sfxVol={sfxVol} setSfxVol={setSfxVol} setSfxVolState={setSfxVolState} sfxMuted={sfxMuted} setSfxMuted={setSfxMuted} setSfxMutedState={setSfxMutedState} ambientOn={ambientOn} setAmbientOn={setAmbientOn} getAC={getAC} metroOn={metroOn} setMetroOn={setMetroOn} setAdvancedOpen={setAdvancedOpen} setSetAdvancedOpen={setSetAdvancedOpen} metroBpm={metroBpm} setMetroBpm={setMetroBpm} tapTempo={tapTempo} pushOn={pushOn} togglePush={togglePush} />
+              <SfxMetronomeSettings lang={lang} sfxVol={sfxVol} setSfxVol={setSfxVol} setSfxVolState={setSfxVolState} sfxMuted={sfxMuted} setSfxMuted={setSfxMuted} setSfxMutedState={setSfxMutedState} ambientOn={ambientOn} setAmbientOn={setAmbientOn} getAC={getAC} metroOn={metroOn} setMetroOn={setMetroOn} setAdvancedOpen={setAdvancedOpen} setSetAdvancedOpen={setSetAdvancedOpen} metroBpm={metroBpm} setMetroBpm={setMetroBpm} tapTempo={tapTempo} pushOn={pushOn} togglePush={togglePush} pushGlow={notifGlow} />
               <div className="setrow">
                 <label>⭐ Premium</label>
                 <button className={`settoggle${premium ? " on" : ""}`} onClick={() => { const v = !premium; setPremiumLS(v); setPremium(v); const np = v ? (plan === "free" ? "premium" : plan) : "free"; setPlanLS(np); setPlan(np); }}>
@@ -12552,16 +13164,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         const filtered = activeSubs.flatMap(c => (CAT_ITEMS[c.key] || []).map(it => ({ ...it, _kind: c.key })));
         const ownedCount = filtered.filter(it => (it.pet ? ownsSpecies(it.pet) : owned.includes(it.id))).length;
         return (
-          <div className="setov" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>
+          <div className="setov setov-shop" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>
             <div className="setcard shop-full" onClick={e => e.stopPropagation()}>
-              {/* ── Header: coins / gems / Top Up button ── */}
+              {/* ── Header: coins / gems ── */}
               <div className="sethdr shop-hdr">
                 <span className="shop-hdr-t">🛍️ {lc.shopTitle}</span>
                 <span className="coinpill">🪙 {coins}</span>
                 <span className="coinpill gempill">💎 {gems}</span>
-                <button className="shop-topup-btn" onClick={() => { setShopOpen(false); setShopSubTab(null); openBuyCurrency(); }}>
-                  {lang === "th" ? "💰 เติมเงิน" : lang === "zh" ? "💰 充值" : "💰 Top Up"}
-                </button>
                 <button className="cbtn" onClick={() => { setShopOpen(false); setShopSubTab(null); }}>{lc.close}</button>
               </div>
               {/* Shop intro banner (owner plan 2026-09-19 point 6): first visit only —
@@ -12606,13 +13215,32 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   <span>{lang === "th" ? "มีทั้งหมด" : lang === "zh" ? "共" : "Total"}: {filtered.length} {lang === "th" ? "ชิ้น" : lang === "zh" ? "件" : "items"}</span>
                   <span>{lang === "th" ? "เป็นเจ้าของ" : lang === "zh" ? "已拥有" : "Owned"}: {ownedCount}</span>
                 </div>
-                <div className="shopgrid shop-grid-full">
+                <div className="shopgrid shop-grid-full" onPointerMove={shopTilt} onPointerLeave={shopTiltOff}>
                   {filtered.map(it => renderShopItem(CAT_SLOT[it._kind] || it._kind, it, CAT_EQUIPPED[it._kind]))}
                 </div>
               </div>
             </div>
           </div>
         );
+      })()}
+
+      {petDetail && (() => {
+        const it = SHOP_PETS.find(x => x.id === petDetail);
+        if (!it) return null;
+        return <PetDetailModal lang={lang} item={it} have={ownsSpecies(it.pet)} here={carriedSpecies() === it.pet} coins={coins}
+          onClose={() => setPetDetail(null)} onAct={(p) => { buyOrCarryPet(p); setPetDetail(null); }} />;
+      })()}
+
+      {gearDetail && (() => {
+        const pool = gearDetail.kind === "charWeapon" ? ALL_WEAPONS : gearDetail.kind === "charHat" ? ALL_HATS : gearDetail.kind === "charAccessory" ? ALL_ACCESSORIES : ALL_OUTFITS;
+        const it = pool.find(x => x.id === gearDetail.id);
+        if (!it) return null;
+        const worn = { wpn: ALL_WEAPONS.find(x => x.id === charWeapon), hat: ALL_HATS.find(x => x.id === charHat), acc: ALL_ACCESSORIES.find(x => x.id === charAccessory), out: ALL_OUTFITS.find(x => x.id === charOutfit) };
+        const eqId = { charWeapon, charHat, charAccessory, charOutfit }[gearDetail.kind];
+        const RL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL, mythic: lang === "th" ? "มหาเทพ" : lang === "zh" ? "神话" : "Mythic" };
+        return <GearDetailModal lang={lang} item={it} kind={gearDetail.kind} model={charModel} worn={worn}
+          own={owned.includes(it.id)} eq={eqId === it.id} lv={itemLv(it.id)} coins={coins} rarityLabel={RL[it.rarity] || ""}
+          onClose={() => setGearDetail(null)} onAct={(x) => { buyOrEquip(gearDetail.kind, x); setGearDetail(null); }} />;
       })()}
 
       {modelDetail && (() => {
@@ -12674,7 +13302,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   {CHAR_MODELS.map(m => (
                     <button key={m.id} type="button" className={`char-model${sel === m.id ? " on" : ""}`}
                       title={`${m.code} · ${tr(m.cls, lang)}`} onClick={() => { setModelPickSel(m.id); playUi("click"); }}>
-                      <span className="char-model-thumb"><CyberAvatar model={m.id} headOnly /></span>
+                      <span className="char-model-thumb"><HeadThumb model={m.id} px={70} /></span>
                       <span className="char-model-nm">{tr(m, lang)}</span>
                     </button>
                   ))}
@@ -12826,7 +13454,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{tr(challengeData.song, lang)}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" style={{ background: "var(--accent)", color: "#fff" }}
-              onClick={(e) => { e.stopPropagation(); setChallengeData(null); setSongMeta(challengeData.song); songDataRef.current = expandSong(challengeData.song, { hand: songHandMode }); setSongPhase("ready"); setSongResult(null); setSongOpen(true); }}>
+              onClick={(e) => { e.stopPropagation(); setChallengeData(null); setSongMeta(challengeData.song); songDataRef.current = expandSong(challengeData.song, { hand: playAlongHand }); setSongPhase("ready"); setSongResult(null); setSongOpen(true); }}>
               🎹 {lang === "th" ? "รับคำท้า!" : lang === "zh" ? "接受挑战!" : "Accept!"}
             </button>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); setChallengeData(null); }}>✕</button>
@@ -13019,16 +13647,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
       )}
 
-      {/* Gem monetization plan v4 item 1 — gem-shortage popup: fires only from
-          buyWithGems (a real failed purchase attempt), two buttons: top up gems
-          (opens the top-up modal on the gem tab) or take the equal-value coins
-          route when one exists — never blocks or hides the free path. */}
+      {/* Not-enough-gems popup: fires only from buyWithGems (a real failed
+          attempt). Informational: how many are missing and where gems are
+          earned. No top-up route; currency is not sold (owner, 2026-09-25). */}
       {gemShort && (() => {
         const gs = (lang === "th")
-          ? { t: "เพชรไม่พอ", b: `ต้องใช้อีก ${gemShort.short} 💎 สำหรับ ${gemShort.item || "ไอเทมชิ้นนี้"}`, go: "เติมเพชรเลย", alt: "ดูวิธีอื่น" }
+          ? { t: "Gems ไม่พอ", b: `ต้องใช้อีก ${gemShort.short} 💎 สำหรับ ${gemShort.item || "ไอเทมชิ้นนี้"}`, ok: "เข้าใจแล้ว" }
           : (lang === "zh")
-          ? { t: "钻石不足", b: `还差 ${gemShort.short} 💎 才能获得 ${gemShort.item || "该道具"}`, go: "去充值", alt: "看看其他方法" }
-          : { t: "Not enough gems", b: `You need ${gemShort.short} more 💎 for ${gemShort.item || "this item"}`, go: "Top up gems", alt: "Other ways" };
+          ? { t: "Gems 不足", b: `还差 ${gemShort.short} 💎 才能获得 ${gemShort.item || "该道具"}`, ok: "知道了" }
+          : { t: "Not enough gems", b: `You need ${gemShort.short} more 💎 for ${gemShort.item || "this item"}`, ok: "Got it" };
         return (
           <div className="atpopup" onClick={dismissGemShortPopup}>
             <div className="atpopup-card" onClick={e => e.stopPropagation()}>
@@ -13038,9 +13665,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <button className="atpopup-x" onClick={dismissGemShortPopup} aria-label="close">×</button>
               </div>
               <div className="atpopup-weak">{gs.b}</div>
+              <div className="atpopup-weak" style={{ marginTop: 6 }}>{lc.gemHint}</div>
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { playUi("click"); logUsage("gem", "shortpop:cta"); setGemShortFocus(true); setGemShort(null); if (requireLogin()) return; if (shopOpen) setShopOpen(false); openBuyCurrency(); }}>{gs.go}</button>
-                <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { playUi("click"); logUsage("gem", "shortpop:alt"); setGemShort(null); setShopOpen(true); }}>{gs.alt}</button>
+                <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { playUi("click"); dismissGemShortPopup(); }}>{gs.ok}</button>
               </div>
             </div>
           </div>
@@ -13062,6 +13689,25 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* Admin broadcast — an announcement pushed on demand, shown once per device; takes
           priority over the Auto Teaching tip if both would otherwise be eligible at once. */}
+      {notifInvite && !broadcast && (
+        <div className="atpopup notifevt-wrap" onClick={() => setNotifInvite(false)}>
+          <div className="atpopup-card notifevt" onClick={e => e.stopPropagation()}>
+            <button className="atpopup-x" onClick={() => setNotifInvite(false)} aria-label="close">×</button>
+            <div className="notifevt-ic" aria-hidden="true">🔔</div>
+            <div className="notifevt-tag">{lang === "th" ? "กิจกรรมพิเศษ" : lang === "zh" ? "限时活动" : "Special event"}</div>
+            <div className="notifevt-h">{lang === "th" ? "เปิดการแจ้งเตือน รับฟรีทันที" : lang === "zh" ? "开启通知，立即免费获得" : "Turn on notifications, get it free"}</div>
+            <div className="notifevt-rw">
+              <span><b>🪙 10,000</b><i>{lang === "th" ? "Coins" : lang === "zh" ? "Coins" : "Coins"}</i></span>
+              <span><b>💎 10,000</b><i>{lang === "th" ? "Gems" : lang === "zh" ? "Gems" : "Gems"}</i></span>
+            </div>
+            <div className="notifevt-p">{lang === "th" ? "กดเข้าร่วมกิจกรรม แล้วกด \"อนุญาต\" การแจ้งเตือน — รางวัลเข้าบัญชีทันที (รับได้ครั้งเดียวต่อบัญชี)" : lang === "zh" ? "点击参加活动，然后「允许」通知——奖励立即到账（每个账号限领一次）" : "Tap Join, then Allow notifications — the reward lands instantly (once per account)"}</div>
+            <button className="notifevt-go" onClick={joinNotifEvent}>{lang === "th" ? "เข้าร่วมกิจกรรม" : lang === "zh" ? "参加活动" : "Join the event"}</button>
+          </div>
+        </div>
+      )}
+      {notifToast && (
+        <div className="notifevt-toast">🎉 {lang === "th" ? "ได้รับ 10,000 Coins + 10,000 Gems แล้ว!" : lang === "zh" ? "已获得 10,000 Coins + 10,000 Gems！" : "You got 10,000 coins + 10,000 gems!"}</div>
+      )}
       {broadcast && page === "pathway" && (
         <div className="atpopup" onClick={dismissBroadcast}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
@@ -13071,10 +13717,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <button className="atpopup-x" onClick={dismissBroadcast} aria-label="close">×</button>
             </div>
             {broadcast.image_url && (
-              <img src={broadcast.image_url} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block" }}
+              <img src={broadcast.image_url} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block", cursor: broadcast.link ? "pointer" : "default" }}
+                onClick={broadcast.link ? openBroadcastLink : undefined}
                 onError={e => { e.target.style.display = "none"; }} />
             )}
-            <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{broadcast.message}</div>
+            <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap", cursor: broadcast.link ? "pointer" : "default" }}
+              onClick={broadcast.link ? openBroadcastLink : undefined}>{safeStr((broadcast.i18n && broadcast.i18n[lang]) || broadcast.message)}</div>
             <button className="atpopup-ok" onClick={dismissBroadcast}>{lang === "th" ? "รับทราบ" : lang === "zh" ? "知道了" : "Got it"}</button>
           </div>
         </div>
@@ -13222,7 +13870,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       })()}
 
       {/* Auto Teaching 2.0 — coaching card: weakness + the learner's own data chart + a cited รู้ไว้ใช่ว่า micro-lesson + 30s knowledge quiz (plan §4; TTS excluded per owner) */}
+      {/* Render-guard: this popup renders at the PianoApp root (outside every
+          other SafeZone), so a malformed AI tip used to be able to throw React
+          #31 and blank the whole app. SafeZone keeps a bad tip a dismissible
+          popup instead of a full-page error; safeStr keeps object-shaped
+          weakness/steps fields from ever reaching a JSX child. */}
       {autoTeachTip && !broadcast && (
+        <SafeZone label="ครู TiGA แนะนำ" fallbackText="คำแนะนำข้อความนี้แสดงไม่สำเร็จ — แอปยังใช้งานได้ตามปกติ แตะปิดเพื่อซ่อนกล่องนี้">
         <div className="atpopup" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
             <div className="atpopup-hd">
@@ -13230,16 +13884,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="atpopup-tt">{lang === "th" ? "ครู TiGA แนะนำ" : lang === "zh" ? "TiGA老师建议" : "Coach TiGA's Tip"}</div>
               <button className="atpopup-x" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }} aria-label="close">×</button>
             </div>
-            <div className="atpopup-weak">{autoTeachTip.weakness}</div>
+            <div className="atpopup-weak">{safeStr(autoTeachTip.weakness)}</div>
             {autoTeachTip.visual && <div style={{ margin: "8px 0 2px", borderRadius: 12, overflow: "hidden" }}><TeachVisual type={autoTeachTip.visual.type} data={autoTeachTip.visual.data} lang={lang} /></div>}
             {autoTeachTip.knowledge && (() => {
               const k = autoTeachTip.knowledge;
               const src = cardSourceInfo(k);
               const q = k.quiz || null;
               const KC = {
-                th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 เพชร", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", src: "ที่มา" },
+                th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 Gems", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", src: "ที่มา" },
                 en: { knowIt: "Did you know", quiz: "30s quiz +5💎", ok: "Correct! +5 gems", no: "Close! The answer is", streak: "Knowledge streak", days: "days", timeUp: "Time's up!", src: "Source" },
-                zh: { knowIt: "你知道吗", quiz: "30秒问答 +5💎", ok: "答对了！+5钻石", no: "就差一点！答案是", streak: "知识连续", days: "天", timeUp: "时间到！", src: "来源" },
+                zh: { knowIt: "你知道吗", quiz: "30秒问答 +5💎", ok: "答对了！+5 Gems", no: "就差一点！答案是", streak: "知识连续", days: "天", timeUp: "时间到！", src: "来源" },
               }[lang] || {};
               const ks = readKnowledgeStats();
               return (
@@ -13286,11 +13940,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               );
             })()}
             <ol className="atpopup-steps">
-              {autoTeachTip.steps.map((s, i) => (
+              {(autoTeachTip.steps || []).map((s, i) => (
                 <li key={i}>
                   <button type="button" className="atpopup-step"
                     onClick={() => { try { recordTipAction("follow", autoTeachTip.feature); logUsage("atip", "follow"); } catch (e) {} setAutoTeachTip(null); goToCoachStep(s, autoTeachTip.feature); }}>
-                    <span className="atpopup-step-tx">{s}</span>
+                    <span className="atpopup-step-tx">{safeStr(s)}</span>
                     <span className="atpopup-step-go">➜</span>
                   </button>
                 </li>
@@ -13304,6 +13958,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </div>
           </div>
         </div>
+        </SafeZone>
       )}
     </div>
   );

@@ -1,8 +1,8 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- TIGA AI — Learning Data System v1 (owner spec, 30 sections, 2026-09-23)
 --
--- STATUS: WRITTEN, NOT YET APPLIED — needs the owner's explicit per-migration
--- approval (AGENTS.md hard rule) before running on project gsaqgbracxnucdmtmcxz.
+-- STATUS: APPLIED 2026-09-25 on project gsaqgbracxnucdmtmcxz with the owner's
+-- explicit approval (AGENTS.md hard rule).
 --
 -- WHAT THIS ADDS (additive only — create-if-not-exists everywhere; nothing
 -- existing is altered, dropped, or re-created):

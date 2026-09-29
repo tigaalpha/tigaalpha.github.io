@@ -21,13 +21,40 @@
    switching class starts a new track. Ranks gate the skills: the passive is
    yours from rank 1, the active at rank 3, the ultimate at rank 6. ── */
 
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
-import { CyberAvatar, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
+import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
-import { ItemArt } from "./item-art";
-import { petBonusOf, petById, petLevel, petStage, readPet, PetArt, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
+import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
+import { petBonusOf, petById, petLevel, petStage, readPet, allPets, carryPet, PetArt, PetThumb, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
+import { hasSprite } from "./sprite";
+import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
 import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio } from "./arena-fx";
+import { SpaceStage, prefetchSpace, isLowEnd } from "./space-stage";
+/* touch devices (iPad, phones) and weak machines fight in "lite": the
+   fighters' idle SVG animations, drop-shadows, reflections and the blur
+   behind the pads each forced a full repaint of ~3,000 SVG nodes per frame */
+const LITE_FIGHT = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
+/* ── fighters as pictures ── (figure-cache.tsx)
+   With the idle animations off, a lite fighter is a still between pose
+   changes, and a still can be a picture: each pose is drawn once on the
+   device and the fight swaps pictures instead of repainting a thousand paths.
+   The pictures are keyed by everything that changes the drawing — the art
+   itself (__ART__, fingerprinted at build time), model, pose, turn, colours
+   and gear — so a picture is only ever reused for exactly what it shows. */
+const PICS = LITE_FIGHT && FIGURES_OK;
+const ART_KEY = typeof __ART__ !== "undefined" ? __ART__ : "dev";
+const BOT_VB = "-20 -16 160 416", PET_VB = "-12 -18 144 156";
+/* every pose and turn a fight puts a fighter in, the most seen first: the
+   stance, a lunge, taking a hit, a kick, each strike's recovery once the
+   lunge has ended, the specials, and the last word */
+const FIGHT_SHOTS = [["ready", 26], ["attack", 42], ["hit", 14], ["kick", 42], ["attack", 26], ["kick", 26],
+  ["shoot", 26], ["beam", 26], ["throw", 26], ["win", 26], ["down", 26]];
+const gearSig = (gear) => (gear || []).filter(g => g && g.id && /^(wpn|hat|acc)-/.test(String(g.id)))
+  .map(g => `${g.id}:${g.art}:${(g.sw || []).join(",")}`).sort().join("~");
+const meKey = (me, pose, yaw, glow, accent, gsig) => `${ART_KEY}|me|${me}|${pose}|${yaw}|${glow}|${accent}|${gsig}`;
+const opKey = (model, pose, yaw) => `${ART_KEY}|op|${model}|${pose}|${yaw}`;
+const petKey = (species, lv, sad) => `${ART_KEY}|pet|${species}|${lv}|${sad ? 1 : 0}`;
 import { AnswerReveal } from "./note-reveal";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
@@ -483,6 +510,40 @@ export function fighterFrom(model, gear, spRank) {
   };
 }
 
+/* ── a pet in the fighter's place ──
+   "Pet only" puts the animal you raised where the robot stands. It fights
+   with what it is rather than with robot gear: its level sets the stats (a
+   Lv1 hatchling is a little under a bare chassis, a Lv20 one is about a
+   geared robot), and its element picks the fighting style. The six elements
+   map onto six of the seven classes, so passives, skills, specials and the
+   class ring all keep working unchanged. */
+export const PET_CLASS = { ember: "striker", steel: "bulwark", volt: "ghost", flora: "engineer", aether: "herald", frost: "tactician" };
+const PET_LEAN = { ember: "pwr", steel: "arm", volt: "spd", flora: "syn", aether: "syn", frost: "arm" };
+export function petFighterFrom(pet, spec, spRank) {
+  const lv = Math.max(1, (pet && petLevel(pet.bond).lv) || 1);
+  const base = 8 + Math.min(1, (lv - 1) / 19) * 8;          // 8 per stat at Lv1 → 16 at Lv20
+  const st = { pwr: base, arm: base, spd: base, syn: base };
+  st[PET_LEAN[spec && spec.type] || "pwr"] += 3;
+  return {
+    model: null, cls: PET_CLASS[spec && spec.type] || "striker", st,
+    maxHp: 90 + st.arm * 4,
+    dmg: 5.5 + st.pwr * 0.62,
+    follow: Math.min(0.45, st.spd / 40),
+    charge: 16 + st.syn,
+    rank: spRank,
+  };
+}
+/* the two skill buttons, named for an animal instead of a chassis; what they
+   DO still comes from the class the element maps to (CLASS_FX) */
+function petSkillsOf(spec) {
+  const t = PET_TYPES[spec && spec.type] || PET_TYPES.steel;
+  const el = { th: t.th.replace(/^สาย/, ""), en: t.en, zh: t.zh.replace(/元$/, "") };
+  return [
+    { tier: "active", art: "charge", n: { th: "สัญชาตญาณนักล่า", en: "Hunter's Instinct", zh: "猎手本能" } },
+    { tier: "ultimate", art: "burst", n: { th: "ระเบิดพลัง" + el.th, en: el.en + " Burst", zh: el.zh + "之爆发" } },
+  ];
+}
+
 /* ══════════════════════ the skill track ══════════════════════ */
 
 /** The per-class SP bars, plus the door to the arena. Lives directly under the
@@ -530,7 +591,7 @@ export const SkillTrack = memo(function SkillTrack({ lang, charModel }) {
         <span className="skt-ic" style={{ "--cc": cls.c }}><ItemArt art={cls.art} sw={[cls.c, "#20263a"]} /></span>
         <span className="skt-ttl">
           <b>{T("สกิล", "SKILL", "技能")}</b>
-          <i style={{ color: cls.c }}>{tr3(cls, lang)}</i>
+          <i style={{ "--cc": cls.c }}>{tr3(cls, lang)}</i>
         </span>
         <span className="skt-rank" style={{ "--cc": cls.c }}>{T("แรงก์", "RANK", "等级")} {r.rank}{r.max ? " · MAX" : ""}</span>
       </div>
@@ -597,6 +658,15 @@ export const MOVES = {
              th: "คลื่นเสียง",      en: "Sonic Pulse",   zh: "音波脉冲" },
   shell:   { pose: "shoot",  part: "weapon", fx: "bolt",    sfx: "shot",  lunge: 0,
              th: "ยิงกระสุน",       en: "Shell Shot",    zh: "炮弹射击" },
+  /* ── a pet fighting on its own ── same buttons, the animal's version */
+  bite:    { pose: "attack", part: "body",   fx: "melee",   sfx: "hit",   lunge: 1,
+             th: "งับ",            en: "Bite",          zh: "撕咬" },
+  claw:    { pose: "kick",   part: "body",   fx: "melee",   sfx: "kick",  lunge: 1,
+             th: "ตะปบ",           en: "Claw",          zh: "爪击" },
+  spit:    { pose: "shoot",  part: "body",   fx: "bolt",    sfx: "shot",  lunge: 0,
+             th: "พ่นพลัง",         en: "Spit",          zh: "喷射" },
+  roar:    { pose: "beam",   part: "body",   fx: "laser",   sfx: "laser", lunge: 0,
+             th: "คำรามธาตุ",       en: "Elemental Roar", zh: "元素咆哮" },
 };
 
 /* ── the weapon IS the moveset ──
@@ -621,7 +691,7 @@ export const WPN_ACT = {
   ordnance: {
     fire:   { move: "shell",   range: 9,    dmg: 0.86, cd: 390,  frame: "fire" },
     rocket: { move: "grenade", range: 9,    dmg: 3.4,  cd: 3400, frame: "rocket" },
-    th: ["ยิงกระสุน", "จรวด"], en: ["SHELL", "ROCKET"], zh: ["炮弹", "火箭"], ic: ["\ud83d\udca3", "\ud83d\ude80"],
+    th: ["ยิง", "จรวด"], en: ["SHOOT", "ROCKET"], zh: ["射击", "火箭"], ic: ["\ud83d\udd2b", "\ud83d\ude80"],
   },
   support: {
     fire:   { move: "pulse",   range: 9,    dmg: 0.64, cd: 290,  frame: "fire" },
@@ -629,6 +699,14 @@ export const WPN_ACT = {
     th: ["คลื่นเสียง", "เรโซแนนซ์"], en: ["PULSE", "RESONATE"], zh: ["音波", "共鸣"], ic: ["\ud83c\udf9a\ufe0f", "\ud83d\udd0a"],
   },
 };
+/* the pet-only kit: every button keeps its timing, damage and range and
+   only what comes out changes (actFor merges these over ACT) */
+const PET_ACT = {
+  punch: { move: "bite" }, kick: { move: "claw" }, fire: { move: "spit" }, rocket: { move: "roar" },
+  th: ["พ่นพลัง", "คำราม"], en: ["SPIT", "ROAR"], zh: ["喷射", "咆哮"], ic: ["\ud83d\udcab", "\ud83c\udf00"],
+};
+// the element's own mark on the pet command, so it is not a second paw next to "claw"
+const PET_ICON = { volt: "\u26a1", ember: "\ud83d\udd25", frost: "\u2744\ufe0f", flora: "\ud83c\udf3f", steel: "\ud83d\udee1\ufe0f", aether: "\u2728" };
 // what each class reaches for; repeats are weights, not typos
 const CLASS_MOVES = {
   striker:   ["punch", "punch", "kick", "kick", "blaster"],
@@ -804,7 +882,7 @@ export const RANK_TIERS = [
   { key: "silver",   th: "ซิลเวอร์",   en: "Silver",   zh: "白银", min: 150,  c: "#c0c0c8" },
   { key: "gold",     th: "โกลด์",      en: "Gold",     zh: "黄金", min: 400,  c: "#ffd23f" },
   { key: "platinum", th: "แพลทินัม",   en: "Platinum", zh: "铂金", min: 800,  c: "#7fd7ff" },
-  { key: "diamond",  th: "ไดมอนด์",    en: "Diamond",  zh: "钻石", min: 1400, c: "#b98cff" },
+  { key: "diamond",  th: "ไดมอนด์",    en: "Diamond",  zh: "Gems", min: 1400, c: "#b98cff" },
 ];
 const RANK_KEY = "tg_pvp_rank";
 export function readRankPts() { try { return Math.max(0, parseInt(localStorage.getItem(RANK_KEY) || "0", 10) || 0); } catch (e) { return 0; } }
@@ -1051,8 +1129,34 @@ const CLASS_WIN_LINES = {
                ult:  { th: "ทุกจังหวะคือศิลปะ",         en: "Every beat, a masterpiece.",      zh: "每一拍都是杰作。" } },
 };
 
+/* One robot head in the arena's robot picker. A baked head is an
+   <img loading="lazy"> (sprite.tsx), which already costs nothing until it is
+   near the screen. Only a head with no image falls back to the live drawing,
+   and that one is built only once it scrolls into (or near) the strip's view:
+   all forty live heads at once measured ~1.1s on a 4x-throttled CPU, the
+   first handful ~0.1s. */
+function LazyHead({ model, rootRef }) {
+  return hasSprite("head/" + normalizeModel(model))
+    ? <span className="pvppick-av"><HeadThumb model={model} px={46} /></span>
+    : <LiveLazyHead model={model} rootRef={rootRef} />;
+}
+function LiveLazyHead({ model, rootRef }) {
+  const el = useRef(null);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (on || !el.current) return;
+    if (typeof IntersectionObserver === "undefined") { setOn(true); return; }
+    const io = new IntersectionObserver((es) => { if (es.some(e => e.isIntersecting)) { setOn(true); io.disconnect(); } },
+      { root: (rootRef && rootRef.current) || null, rootMargin: "0px 160px" });
+    io.observe(el.current);
+    return () => io.disconnect();
+  }, [on]);   // eslint-disable-line react-hooks/exhaustive-deps
+  return <span ref={el} className="pvppick-av">{on ? <CyberAvatar model={model} headOnly /> : null}</span>;
+}
+
 export const PvpPage = memo(function PvpPage({
   lang, charModel = "vanguard", gear = [], onBack, onReward, playUi, friends = null, onChallenge, duels = null, onRespondDuel, onShare, onApplyLoadout, onPracticeWeakness = null,
+  ownedModels = null, onPickModel = null, onOpenShop = null, modelCost = null,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [phase, setPhase] = useState("lobby");    // lobby | fight | result
@@ -1097,6 +1201,17 @@ export const PvpPage = memo(function PvpPage({
   const [ownedCw, setOwnedCw] = useState(() => readOwnedColorways());
   const [practiceMode, setPracticeMode] = useState(false);
   const colorway = colorwayOf(colorwayKey);
+  /* ── who goes in ──
+     The robot alone, the pet alone, or both together. Remembered between
+     visits, and held on the robot while there is no pet to send. */
+  const [pets, setPets] = useState(() => allPets());
+  const petNow = pets[0] || null;                 // allPets() lists the carried one first
+  const petSpecNow = petNow ? petById(petNow.species) : null;
+  const [squad, setSquadState] = useState(() => { try { return localStorage.getItem("tg_pvp_squad") || "both"; } catch (e) { return "both"; } });
+  const squadUsed = petNow ? (["bot", "pet", "both"].includes(squad) ? squad : "both") : "bot";
+  const setSquad = (k) => { setSquadState(k); try { localStorage.setItem("tg_pvp_squad", k); } catch (e) {} if (playUi) playUi("click"); };
+  const pickPet = (speciesId) => { if (carryPet(speciesId)) { setPets(allPets()); if (playUi) playUi("click"); } };
+  const pickRef = useRef(null);                   // the robot strip, for LazyHead's observer
 
   const me = normalizeModel(charModel);
   const myCls = classKeyOf(me);
@@ -1106,6 +1221,43 @@ export const PvpPage = memo(function PvpPage({
   // what the equipped gear actually does in a fight, not just its stat points
   const gearFx = itemEffectsOf(gear);
   const gearArchetypes = [...new Set(gearFx.archetypes)];
+  /* ── the lobby's room ──
+     The lobby opens on the same 3D space as the fight: the robot stands on a
+     plinth in it, wearing what it will fight in, and as the page scrolls the
+     hero rises away and the camera lifts with it. */
+  const lobbyRoot = useRef(null), heroFig = useRef(null);
+  useEffect(() => { prefetchSpace(); }, []);
+  const gOf = (k) => (gear || []).find(g => g && g.id && String(g.id).startsWith(k));
+  const lw = gOf("wpn-"), lh = gOf("hat-"), la = gOf("acc-");
+  const lobbyHeld = useMemo(() => (lw ? { ...holdOf(lw.art), node: <ItemArt art={lw.art} sw={lw.sw} size={64} /> } : null), [lw && lw.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const lobbyHat = useMemo(() => (lh ? { ...hatMountOf(lh.art), node: <ItemArt art={lh.art} sw={lh.sw} size={64} /> } : null), [lh && lh.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const lobbyAcc = useMemo(() => (la ? { at: accMountOf(la.art), node: <ItemArt art={la.art} sw={la.sw} size={64} /> } : null), [la && la.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* ── the fight's pictures of your side, made here ── (see PICS)
+     The lobby is where nothing is moving, so this is where the stills of the
+     robot you are about to fight in — in this colourway, holding this — and
+     of the pet going with it are drawn: a moment after the page settles, one
+     per idle moment, and only the first time; after that they come out of
+     the store. The fight itself only has the opponent left to draw. */
+  const lobbyGearSig = gearSig(gear);
+  const petLvNow = petNow ? petLevel(petNow.bond).lv : 0;
+  useEffect(() => {
+    if (!PICS || phase !== "lobby") return;
+    const t = setTimeout(() => {
+      const jobs = [];
+      /* the pet first: live, its idle bob repaints the whole animal every
+         frame of the fight, so its one picture saves more than any pose */
+      if (squadUsed !== "bot" && petNow) {
+        const sad = petNow.mood < 35, sp0 = petNow.species;
+        jobs.push({ key: petKey(sp0, petLvNow, sad), kind: "pet", el: () => <PetArt species={sp0} level={petLvNow} mood={sad ? 20 : 80} /> });
+      }
+      if (squadUsed !== "pet") for (const [pose, yaw] of FIGHT_SHOTS) {
+        jobs.push({ key: meKey(me, pose, yaw, colorway.glow, colorway.accent, lobbyGearSig), kind: "bot",
+          el: () => <Bot model={me} yaw={yaw} pose={pose} glow={colorway.glow} accent={colorway.accent} armorA="#1b2436" armorB="#41608a" held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} /> });
+      }
+      prepareFigures(jobs);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [phase, me, colorwayKey, squadUsed, lobbyGearSig, petNow && petNow.species, petLvNow]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const startFight = (kind, t, name, friend) => {
     setOppKind(kind); setTier(t); setOppName(name || ""); setPendingFriend(friend || null);
@@ -1309,10 +1461,10 @@ export const PvpPage = memo(function PvpPage({
   if (phase === "lobby") {
     const openDuels = (duels || []).filter(d => d.song_id === "arena");
     return (
-      <div className="pvppage">
+      <div className="pvppage x3 pvplobby3" ref={lobbyRoot}>
         <div className="pvphdr">
           <button className="stgback" onClick={onBack} aria-label="back">←</button>
-          <span className="pvphdr-t">⚔ {T("สนามประลอง", "PvP Arena", "竞技场")}</span>
+          <span className="pvphdr-t">{T("สนามประลอง", "PvP Arena", "竞技场")}</span>
           <span className="mdv-cls" style={{ "--cc": clsInfo.c }}>
             <span className="mdv-cls-ic"><ItemArt art={clsInfo.art} sw={[clsInfo.c, "#22283a"]} /></span>{tr3(clsInfo, lang)}
           </span>
@@ -1329,15 +1481,107 @@ export const PvpPage = memo(function PvpPage({
           )}
         </div>
 
+        {/* ── the hero ── the robot, on its plinth in the room, and the few
+            numbers that say who it is. Everything else scrolls up over it. */}
+        <section className="pvphero">
+          <SpaceStage variant="lobby" anchor={heroFig} scroller={lobbyRoot} />
+          <div className={`pvphero-fig${squadUsed === "pet" ? " petonly" : ""}`} ref={heroFig} data-foot="0.018">
+            {squadUsed !== "pet" && (
+              <CyberAvatar model={me} yaw={24} pose="ready" glow={colorway.glow} accent={colorway.accent}
+                held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} />
+            )}
+            {squadUsed !== "bot" && petNow && (
+              <span className={`pvphero-pet${squadUsed === "pet" ? " solo" : ""}`}>
+                <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} />
+              </span>
+            )}
+          </div>
+          <div className="pvphero-hud">
+            {squadUsed === "pet" ? (<>
+              <span className="hx-k">{T("สัตว์เลี้ยง", "PET", "宠物")} · {tr3(PET_TYPES[petSpecNow.type] || PET_TYPES.steel, lang)}</span>
+              <b className="hx-n">{tr3(petSpecNow, lang)}</b>
+              <span className="hx-l" />
+              <span className="hx-m"><i>{T("เลเวล", "LEVEL", "等级")}</i><b>{String(petLevel(petNow.bond).lv).padStart(2, "0")}</b></span>
+            </>) : (<>
+              <span className="hx-k">{T("ยูนิต", "UNIT", "机体")} · {tr3(clsInfo, lang)}{squadUsed === "both" && petSpecNow ? " + " + tr3(petSpecNow, lang) : ""}</span>
+              <b className="hx-n">{tr3(CHAR_MODELS.find(m => m.id === me) || {}, lang)}</b>
+              <span className="hx-l" />
+              <span className="hx-m"><i>{T("แรงก์สกิล", "SKILL RANK", "技能等级")}</i><b>{String(myRank).padStart(2, "0")}</b></span>
+            </>)}
+            <span className="hx-m"><i>{T("ลีก", "LEAGUE", "段位")}</i><b>{tr3(rank.tier, lang)}</b></span>
+            <span className="hx-m"><i>{T("ซีซัน", "SEASON", "赛季")}</i><b>S{season.id}</b></span>
+          </div>
+        </section>
+
+        {/* the fight picker sits straight under the robot: the first thing to do here */}
+        <div className="pvpbody pvpbody-top">
+          <div className="pvpsec-h">{T("ลงสนาม", "Who fights", "出战")}</div>
+          <div className="pvpsquad" role="radiogroup" aria-label={T("ลงสนาม", "Who fights", "出战")}>
+            {[["bot", "\ud83e\udd16", T("หุ่นยนต์", "Robot", "机器人")],
+              ["pet", "\ud83d\udc3e", T("สัตว์เลี้ยง", "Pet", "宠物")],
+              ["both", "\ud83e\udd16\ud83d\udc3e", T("คู่หู", "Both", "搭档")]].map(([k, ic, lb]) => (
+              <button key={k} type="button" role="radio" aria-checked={squadUsed === k}
+                className={`pvpsquad-b${squadUsed === k ? " on" : ""}`}
+                disabled={k !== "bot" && !petNow} onClick={() => setSquad(k)}>
+                <b aria-hidden="true">{ic}</b><span>{lb}</span>
+              </button>
+            ))}
+          </div>
+          {!petNow && (
+            <p className="pvpsquad-hint">{T("ยังไม่มีสัตว์เลี้ยง — รับตัวแรกได้ฟรีที่หน้าสัตว์เลี้ยง",
+              "No pet yet — your first one is free on the Pet page", "还没有宠物 — 第一只可在宠物页免费领取")}</p>
+          )}
+          {squadUsed !== "pet" && (() => {
+            const mine = new Set([me].concat(ownedModels || []));
+            const list = CHAR_MODELS.slice().sort((a, b) => (mine.has(b.id) ? 1 : 0) - (mine.has(a.id) ? 1 : 0));
+            return (
+              <div className="pvppick" ref={pickRef} aria-label={T("เลือกหุ่นยนต์", "Choose your robot", "选择机器人")}>
+                {list.map(m => {
+                  const own = mine.has(m.id);
+                  return (
+                    <button key={m.id} type="button" title={tr3(m, lang)}
+                      className={`pvppick-b${m.id === me ? " on" : ""}${own ? "" : " locked"}`}
+                      onClick={() => { if (own) { if (m.id !== me && onPickModel) onPickModel(m.id); } else if (onOpenShop) onOpenShop(); }}>
+                      <LazyHead model={m.id} rootRef={pickRef} />
+                      <i>{own ? tr3(m, lang) : "\ud83d\udd12 " + (modelCost && modelCost[m.id] ? modelCost[m.id].toLocaleString() : T("ร้านค้า", "Shop", "商店"))}</i>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          {squadUsed !== "bot" && pets.length > 1 && (
+            <div className="pvppick pets" aria-label={T("เลือกสัตว์เลี้ยง", "Choose your pet", "选择宠物")}>
+              {pets.map(p => (
+                <button key={p.species} type="button" title={tr3(petById(p.species), lang)}
+                  className={`pvppick-b${petNow && p.species === petNow.species ? " on" : ""}`} onClick={() => pickPet(p.species)}>
+                  <span className="pvppick-av"><PetThumb species={p.species} level={petLevel(p.bond).lv} mood={p.mood} px={46} /></span>
+                  <i>{tr3(petById(p.species), lang)}</i><em>Lv {petLevel(p.bond).lv}</em>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="pvpsec-h">{T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
+          <div className="pvptiers">
+            {BOT_TIERS.map(t => (
+              <button key={t.key} className={`pvptier t-${t.key}`} onClick={() => startFight("bot", t, tr3(CHAR_MODELS.find(m => m.id === chassisFor(t.key + Date.now())) || {}, lang))}>
+                <b>{tr3(t, lang)}</b>
+                <i>{T("ความแม่น", "Accuracy", "命中率")} {Math.round(t.acc * 100)}%</i>
+                <span>🪙 {t.coins} · ✦ {t.xp} · SP {t.sp}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="pvpbody">
           <div className="pvprank" style={{ "--cc": rank.tier.c }} title={rank.next ? `${rank.into}/${rank.need}` : ""}>
-            <span className="pvprank-ic">🎖</span>
+            <span className="pvprank-ic" aria-hidden="true" />
             <span className="pvprank-b">
               <b>{tr3(rank.tier, lang)}</b>
               <span className="pvprank-bar"><i style={{ width: `${Math.round(rank.pct * 100)}%` }} /></span>
             </span>
             {daily.target > 0 && (
-              <span className="pvprank-daily">🎯 {T("เป้าวันนี้", "Today's target", "今日目标")} {daily.target.toLocaleString()}</span>
+              <span className="pvprank-daily">{T("เป้าวันนี้", "Today's target", "今日目标")} {daily.target.toLocaleString()}</span>
             )}
           </div>
           {/* ── the season ──
@@ -1366,7 +1610,6 @@ export const PvpPage = memo(function PvpPage({
             )}
           </div>
           <div className="pvpme">
-            <div className="pvpme-stage"><CyberAvatar model={me} yaw={22} pose="ready" glow={colorway.glow} accent={colorway.accent} /></div>
             <div className="pvpme-b">
               <div className="pvpme-nm">{tr3(CHAR_MODELS.find(m => m.id === me) || {}, lang)}</div>
               <div className="pvpme-rank" style={{ "--cc": clsInfo.c }}>{T("แรงก์สกิล", "Skill rank", "技能等级")} {myRank}</div>
@@ -1409,7 +1652,7 @@ export const PvpPage = memo(function PvpPage({
             </div>
           </div>
 
-          <div className="pvpsec-h">💾 {T("ชุดที่บันทึกไว้", "Loadout Presets", "预设装备")}</div>
+          <div className="pvpsec-h">{T("ชุดที่บันทึกไว้", "Loadout Presets", "预设装备")}</div>
           <div className="pvploadouts">
             {[0, 1, 2].map(i => {
               const rec = loadouts[i];
@@ -1429,7 +1672,7 @@ export const PvpPage = memo(function PvpPage({
             })}
           </div>
 
-          <div className="pvpsec-h">⚔ {T("วาลอร์", "Valor", "荣耀值")} · {valor.toLocaleString()}</div>
+          <div className="pvpsec-h">{T("วาลอร์", "Valor", "荣耀值")}<span className="pvpsec-n">{valor.toLocaleString()}</span></div>
           <div className="pvpcolorways">
             {COLORWAYS.map(cw => {
               const owned = ownedCw.includes(cw.key);
@@ -1445,15 +1688,15 @@ export const PvpPage = memo(function PvpPage({
             })}
           </div>
 
-          <div className="pvpsec-h">⭐ {T("ไฟต์พิเศษ", "Special Fights", "特别对战")}</div>
+          <div className="pvpsec-h">{T("ไฟต์พิเศษ", "Special Fights", "特别对战")}</div>
           <div className="pvptiers">
             <button className="pvptier t-gauntlet" onClick={startGauntlet}>
-              <b>🔥 {T("เกาน์ท์เล็ต", "Gauntlet", "极限远征")}</b>
+              <b>{T("เกาน์ท์เล็ต", "Gauntlet", "极限远征")}</b>
               <i>{T("ลุยรวด 10 ด่าน ไม่พัก HP", "All 10 tiers, no HP rest", "连闯十关，HP 不回复")}</i>
-              <span>🏆 {T("โบนัสก้อนใหญ่เมื่อจบครบ", "Big bonus on a full clear", "全通有大奖")}</span>
+              <span>{T("โบนัสก้อนใหญ่เมื่อจบครบ", "Big bonus on a full clear", "全通有大奖")}</span>
             </button>
             <button className="pvptier t-weeklyboss" onClick={startWeekly}>
-              <b>👑 {T("บอสประจำสัปดาห์", "Weekly Boss", "本周首领")} {weeklyClaimed ? "✓" : ""}</b>
+              <b>{T("บอสประจำสัปดาห์", "Weekly Boss", "本周首领")} {weeklyClaimed ? "✓" : ""}</b>
               <i>{tr3(weekly.tier, lang)} · {T("รางวัล 2 เท่า", "2× rewards", "奖励 2 倍")}</i>
               {/* the week's broken rule, up front — a boss you only discover
                   is cheating after it kills you is not a boss, it is a bug */}
@@ -1462,21 +1705,21 @@ export const PvpPage = memo(function PvpPage({
             </button>
             {/* the one opponent the rival system could never offer: you */}
             <button className={`pvptier t-ghost${ghost ? "" : " off"}`} onClick={ghost ? startGhostFight : undefined} disabled={!ghost}>
-              <b>👤 {T("เงาตัวเอง", "Your Ghost", "自身幽灵")}</b>
+              <b>{T("เงาตัวเอง", "Your Ghost", "自身幽灵")}</b>
               <i>{ghost
                 ? `${tr3(BOT_TIERS.find(t => t.key === ghost.tierKey) || {}, lang)} · ${ghost.score.toLocaleString()} · ${ghost.acc}%`
                 : T("ชนะสักแมตช์แล้วเงาจะถูกบันทึก", "Win a match and your best run is saved here", "赢一场后会保存你的最佳战绩")}</i>
               <span>{ghost ? T("ท้าตัวเองที่เก่งที่สุด", "Fight your best self", "挑战最强的自己") : T("ยังไม่มีเงา", "No ghost yet", "尚无幽灵")}</span>
             </button>
             <button className="pvptier t-rival" onClick={startRivalFight}>
-              <b>😤 {T("คู่ปรับ", "Rival", "劲敌")} {rival.name}</b>
+              <b>{T("คู่ปรับ", "Rival", "劲敌")} {rival.name}</b>
               <i>{tr3(BOT_TIERS.find(t => t.key === rival.tierKey) || {}, lang)}</i>
               <span>{T("สถิติ", "Record", "战绩")} {rival.w}-{rival.l}</span>
             </button>
             <button className="pvptier t-practice" onClick={startPractice}>
-              <b>🎓 {T("โหมดซ้อม", "Practice", "陪练模式")}</b>
+              <b>{T("โหมดซ้อม", "Practice", "陪练模式")}</b>
               <i>{T("ไม่มีเดิมพัน มีติ๊ปสด · ตั้งค่าหุ่นได้", "No stakes, live tips, dummy controls", "无风险、实时提示、可设定木人")}</i>
-              <span>{T("ไม่เสียเหรียญ/EXP", "No coins/EXP lost", "不消耗金币/经验")}</span>
+              <span>{T("ไม่เสีย Coins/EXP", "No coins/EXP lost", "不消耗 Coins/经验")}</span>
             </button>
           </div>
 
@@ -1484,8 +1727,8 @@ export const PvpPage = memo(function PvpPage({
               No server to duel across, so the ghost travels as a short code
               somebody can paste on the other end. */}
           <div className="pvpghostbar">
-            <button type="button" onClick={copyGhost} disabled={!ghost}>📋 {T("คัดลอกรหัสเงา", "Copy ghost code", "复制幽灵代码")}</button>
-            <button type="button" onClick={pasteGhost}>📥 {T("สู้กับเงาเพื่อน", "Fight a friend's ghost", "挑战好友幽灵")}</button>
+            <button type="button" onClick={copyGhost} disabled={!ghost}>{T("คัดลอกรหัสเงา", "Copy ghost code", "复制幽灵代码")}</button>
+            <button type="button" onClick={pasteGhost}>{T("สู้กับเงาเพื่อน", "Fight a friend's ghost", "挑战好友幽灵")}</button>
             {ghostNote && <em>{ghostNote}</em>}
           </div>
 
@@ -1494,7 +1737,7 @@ export const PvpPage = memo(function PvpPage({
               place a player finds out that throwing a guarding opponent, or
               cornering one, is a thing the game has an opinion about. */}
           <div className="pvpsec-h">
-            🎯 {T("บททดสอบ", "Combo Trials", "连段试炼")}
+            {T("บททดสอบ", "Combo Trials", "连段试炼")}
             <span className="pvpsec-n">{trialsDone.length}/{TRIALS.length}</span>
             <button type="button" className="pvpsec-t" onClick={() => setShowTrials(v => !v)}>
               {showTrials ? T("ซ่อน", "Hide", "收起") : T("ดู", "Show", "展开")}
@@ -1515,18 +1758,7 @@ export const PvpPage = memo(function PvpPage({
             </div>
           )}
 
-          <div className="pvpsec-h">🤖 {T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
-          <div className="pvptiers">
-            {BOT_TIERS.map(t => (
-              <button key={t.key} className={`pvptier t-${t.key}`} onClick={() => startFight("bot", t, tr3(CHAR_MODELS.find(m => m.id === chassisFor(t.key + Date.now())) || {}, lang))}>
-                <b>{tr3(t, lang)}</b>
-                <i>{T("ความแม่น", "Accuracy", "命中率")} {Math.round(t.acc * 100)}%</i>
-                <span>🪙 {t.coins} · ✦ {t.xp} · SP {t.sp}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="pvpsec-h">👥 {T("สู้กับผู้เล่นอื่น", "Fight another player", "对战玩家")}</div>
+          <div className="pvpsec-h">{T("สู้กับผู้เล่นอื่น", "Fight another player", "对战玩家")}</div>
           <div className="pvpnote">
             {T("ประลองแบบผลัดกันลง: คุณลงสนามก่อน คะแนนจะถูกส่งไปท้าเพื่อน แล้วเพื่อนลงสนามเดียวกัน ใครคะแนนสูงกว่าชนะ",
                "Turn-based duel: you run the arena, your score is sent as a challenge, and your friend runs the same arena. Higher score wins.",
@@ -1540,7 +1772,7 @@ export const PvpPage = memo(function PvpPage({
             <div className="pvpfriends">
               {friends.map(f => (
                 <button key={f.user_id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], f.name || f.email || "?", f)}>
-                  <span className="pvpfriend-av"><CyberAvatar model={chassisFor(f.user_id || f.name || "x")} headOnly /></span>
+                  <span className="pvpfriend-av"><HeadThumb model={chassisFor(f.user_id || f.name || "x")} px={34} /></span>
                   <span className="pvpfriend-nm">{f.name || f.email}</span>
                   <span className="pvpfriend-go">{T("ท้า", "Challenge", "挑战")} →</span>
                 </button>
@@ -1549,11 +1781,11 @@ export const PvpPage = memo(function PvpPage({
           )}
           {openDuels.length > 0 && (
             <>
-              <div className="pvpsec-h">📨 {T("คำท้าที่รออยู่", "Challenges waiting", "待处理的挑战")}</div>
+              <div className="pvpsec-h">{T("คำท้าที่รออยู่", "Challenges waiting", "待处理的挑战")}</div>
               <div className="pvpfriends">
                 {openDuels.map(d => (
                   <button key={d.id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], d.opp_name, { duel: d })}>
-                    <span className="pvpfriend-av"><CyberAvatar model={chassisFor(d.opp_name || "x")} headOnly /></span>
+                    <span className="pvpfriend-av"><HeadThumb model={chassisFor(d.opp_name || "x")} px={34} /></span>
                     <span className="pvpfriend-nm">{d.opp_name} · {d.opp_score != null ? d.opp_score : "—"}</span>
                     <span className="pvpfriend-go">{T("รับคำท้า", "Accept", "接受")} →</span>
                   </button>
@@ -1570,7 +1802,7 @@ export const PvpPage = memo(function PvpPage({
   if (phase === "result" && gauntletSummary) {
     const gs = gauntletSummary;
     return (
-      <div className="pvppage">
+      <div className="pvppage x3">
         <div className="pvphdr">
           <button className="stgback" onClick={() => { setGauntletSummary(null); setPhase("lobby"); }} aria-label="back">←</button>
           <span className="pvphdr-t">{gs.complete ? "🏆 " + T("พิชิตครบ 10 ด่าน!", "GAUNTLET CLEARED!", "十关制霸！") : T("จบเกาน์ท์เล็ต", "Gauntlet Over", "远征结束")}</span>
@@ -1603,7 +1835,7 @@ export const PvpPage = memo(function PvpPage({
     const g = result.spGained;
     const flawlessMul = (result.win && result.flawless) ? 1.4 : 1;
     return (
-      <div className="pvppage">
+      <div className="pvppage x3">
         <div className="pvphdr">
           <button className="stgback" onClick={onBack} aria-label="back">←</button>
           <span className="pvphdr-t">{result.win ? "🏆 " + T("ชนะ!", "Victory!", "胜利！") : T("แพ้", "Defeat", "落败")}</span>
@@ -1611,7 +1843,13 @@ export const PvpPage = memo(function PvpPage({
         <div className="pvpbody">
           <div className={`pvpres ${result.win ? "win" : "lose"}`}>
             <div className="pvpres-stage">
-              <CyberAvatar model={me} yaw={0} pose={result.win ? "win" : "down"} glow={colorway.glow} accent={colorway.accent} />
+              {squadUsed === "pet" && petNow ? (
+                <span className={`pvpres-pet${result.win ? " win" : ""}`}>
+                  <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={result.win ? 100 : 30} />
+                </span>
+              ) : (
+                <CyberAvatar model={me} yaw={0} pose={result.win ? "win" : "down"} glow={colorway.glow} accent={colorway.accent} />
+              )}
             </div>
             <div className="pvpres-score">{result.score}</div>
             {result.win && CLASS_WIN_LINES[myCls] && (
@@ -1720,7 +1958,7 @@ export const PvpPage = memo(function PvpPage({
   return (
     <ArenaFight
       key={`${oppKind}-${tier.key}-${phase}-${gauntlet ? "g" + gauntlet.ix : "x"}`}
-      lang={lang} me={me} gear={gear} myRank={myRank} tier={tier} sp={sp}
+      lang={lang} me={me} gear={gear} myRank={myRank} tier={tier} sp={sp} squad={squadUsed}
       initHpFrac={gauntlet ? gauntlet.hpFrac : 1} colorway={colorway} practice={practiceMode}
       objectives={objectives}
       oppKind={oppKind} oppName={oppName} onDone={finish} onBack={() => setPhase("lobby")} playUi={playUi}
@@ -1854,6 +2092,7 @@ const FLAT_OF = { "C#": "D♭", "D#": "E♭", "F#": "G♭", "G#": "A♭", "A#": 
 // the three question kinds whose answer is a note you can physically play
 const PLAYABLE = { iv: 1, degree: 1, scale: 1 };
 const CORNER_ZONE = 0.055, CORNER_DMG = 1.15;
+const SK_CD_ACTIVE = 5000, SK_CD_ULT = 12000;
 const GUARD_MAX = 100, GUARD_HIT_COST = 24, GUARD_REGEN = 8;   // regen per second
 const STAGGER_MS = 3000, STAGGER_DMG = 1.5;
 // the immediate sting of a wrong answer; the stagger that follows is the
@@ -2099,9 +2338,19 @@ const X_MIN = 0.08, X_MAX = 0.92, GAP_MIN = 0.16;
 // budget; they only actually change when a pose or an angle does
 const Bot = memo(CyberAvatar);
 
-const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppKind, oppName, onDone, onBack, playUi, initHpFrac = 1, sp = null, colorway = null, practice = false, objectives = [] }) {
+const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: myRankIn, tier, oppKind, oppName, onDone, onBack, playUi, initHpFrac = 1, sp = null, colorway = null, practice = false, objectives = [], squad = "both" }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
-  const myCls = classKeyOf(me);
+  /* ── who is fighting ──
+     squad: "bot" the robot alone (no pet at all) · "pet" the pet alone, in the
+     robot's place · "both" the robot with the pet at its heel. Read once at
+     the start, like everything else a fight is decided on. A "pet" squad with
+     no pet to send falls back to the robot. */
+  const petPic = useRef(squad === "bot" ? null : readPet()).current;
+  const petSpec = petPic ? petById(petPic.species) : null;
+  const petOnly = squad === "pet" && !!petSpec;
+  const gear = petOnly ? [] : gearIn;           // a pet fights with what it is, not with robot gear
+  const myCls = petOnly ? (PET_CLASS[petSpec.type] || "striker") : classKeyOf(me);
+  const myRank = petOnly ? (sp ? skillRank(sp[myCls] || 0).rank : 1) : myRankIn;
   const fx = CLASS_FX[myCls] || CLASS_FX.striker;
   const clsInfo = MODEL_CLASS[myCls] || MODEL_CLASS.striker;
   const myGlow = (colorway && colorway.glow) || "#00b8d4", myAccent = (colorway && colorway.accent) || "#7c4dff";
@@ -2120,7 +2369,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   )).current;
   const SFX = stageFx(ARENA);
 
-  const A = useRef(fighterFrom(me, gear, myRank)).current;
+  const A = useRef(petOnly ? petFighterFrom(petPic, petSpec, myRank) : fighterFrom(me, gear, myRank)).current;
   const B = useRef(fighterFrom(oppModel, [], 5)).current;
   // every equipped item's archetype effect, aggregated once for the fight
   const itemFx = useRef(itemEffectsOf(gear)).current;
@@ -2128,17 +2377,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      Read once, at the start of the fight, so a fight cannot change its own
      terms halfway through. A pet under 50% happiness returns null and does
      nothing at all — the care loop is what buys the bonus. */
-  const PET = useRef(petBonusOf()).current;
+  const PET = useRef(squad === "bot" ? null : petBonusOf()).current;
   const petDmg = (PET && PET.k === "dmg" ? 1 + PET.v : 1);
   const petGuard = PET && PET.k === "guard" ? 1 - PET.v : 1;
   const petSp = PET && PET.k === "sp" ? 1 + PET.v : 1;
-  const petPic = useRef(readPet()).current;
   /* ── the pet's element against this opponent ──
      The robot you are fighting is given an element of its own, seeded from its
      chassis so a rematch feels the same and two players facing the same bot see
      the same matchup. Your pet's type is then read against the wheel: a nudge
      the same size as the class ring, not a hard counter. */
-  const petSpec = petPic ? petById(petPic.species) : null;
   const ELEMS = ["volt", "ember", "frost", "flora", "steel", "aether"];
   const oppElem = useRef(ELEMS[Math.abs(String(oppModel).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 11)) % 6]).current;
   const petMatch = petSpec ? typeMatchup(petSpec.type, oppElem) : 0;
@@ -2160,7 +2407,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const wpnLv = wpn ? itemLv(wpn.id) : 0;
   /* Which of the four movesets the thing in your hand belongs to. With
      nothing equipped the buttons stay exactly what they always were. */
-  const wpnKit = (wpn && WPN_ACT[wpnArchetype(wpn.art)]) || null;
+  const wpnKit = petOnly ? PET_ACT : ((wpn && WPN_ACT[wpnArchetype(wpn.art)]) || null);
+  /* The weapon is drawn IN the hand now (CyberAvatar's `held`), so it moves
+     with the arm, sits in the fist and points where the stance points it.
+     Built once: the chassis is memoised and a new object every tick would
+     rebuild the whole robot. */
+  const heldGear = useMemo(() => (wpn ? { ...holdOf(wpn.art), node: <ItemArt art={wpn.art} sw={wpn.sw} size={64} /> } : null),
+    [wpn && wpn.id]);
   const actFor = (act) => {
     const base = ACT[act];
     if (!base) return null;
@@ -2183,6 +2436,36 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   /* The loudest thing money buys: the aura tier is the BEST rarity worn, so a
      single legendary reads across the room even on an otherwise plain kit. */
   const myTier = bestRarity(gear || []) || "common";
+  /* the hat and the accessory are drawn on the body too, for the same reason
+     as the weapon: seated on the skull and strapped to the arm, back or hip,
+     instead of pinned beside the robot at a fixed spot */
+  const hatGear = useMemo(() => (myHat ? { ...hatMountOf(myHat.art), node: <ItemArt art={myHat.art} sw={myHat.sw} size={64} /> } : null),
+    [myHat && myHat.id]);
+  const accGear = useMemo(() => (myAcc ? { at: accMountOf(myAcc.art), node: <ItemArt art={myAcc.art} sw={myAcc.sw} size={64} /> } : null),
+    [myAcc && myAcc.id]);
+  /* the stills this fight will show (see PICS), queued the moment it opens:
+     each one is made in an idle moment and a pose that is not ready yet is
+     simply drawn live, as every pose used to be */
+  const gsig = gearSig(gear);
+  const petLv = petPic ? petLevel(petPic.bond).lv : 1;
+  const meShot = (pose, yaw) => ({ key: meKey(me, pose, yaw, myGlow, myAccent, gsig), kind: "bot",
+    el: () => <Bot model={me} yaw={yaw} pose={pose} glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" held={heldGear} hat={hatGear} acc={accGear} /> });
+  const opShot = (pose, yaw) => ({ key: opKey(oppModel, pose, yaw), kind: "bot",
+    el: () => <Bot model={oppModel} yaw={yaw} pose={pose} mirror glow="#8f6dff" accent="#c3b0ff" armorA="#16161f" armorB="#46425e" /> });
+  const petShot = (sad) => ({ key: petKey(petPic ? petPic.species : "", petLv, sad), kind: "pet",
+    el: () => <PetArt species={petPic.species} level={petLv} mood={sad ? 20 : 80} /> });
+  useEffect(() => {
+    if (!PICS) return;
+    const jobs = [];
+    if (petPic) jobs.push(petShot(petPic.mood < 35));
+    for (const [pose, yaw] of FIGHT_SHOTS) {
+      if (!petOnly) jobs.push(meShot(pose, yaw));
+      jobs.push(opShot(pose, -yaw));
+    }
+    prepareFigures(jobs);
+    // whatever the fight left paused, the pages after it may carry on
+    return () => pauseFigures(false);
+  }, []);
   const gearLv = (wpn ? itemLv(wpn.id) : 0) + (myHat ? itemLv(myHat.id) : 0)
     + (myAcc ? itemLv(myAcc.id) : 0)
     + ((gear || []).filter(g => g && g.id && String(g.id).startsWith("out-")).reduce((a, g) => a + itemLv(g.id), 0));
@@ -2205,6 +2488,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [wave, setWave] = useState(1);
   const fullscreen = useFs();
   const [left, setLeft] = useState(WAVES[0]);
+  const waveBarEl = useRef(null), leftLive = useRef(WAVES[0]);
   // a Gauntlet leg after the first carries whatever fraction of the pool
   // survived the last one — "no rest between rounds" is the whole mechanic
   const [myHp, setMyHp] = useState(() => MY_MAX * Math.max(0.001, Math.min(1, initHpFrac)));
@@ -2212,6 +2496,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [q, setQ] = useState(null);
   const [culled, setCulled] = useState([]);
   const [gauge, setGauge] = useState(() => Math.min(100, itemFx.gaugeStart));
+  const skCd = useRef({ a: 0, u: 0 });
+  const [, setSkTick] = useState(0);
   const [ultUsed, setUltUsed] = useState(false);
   const [combo, setCombo] = useState(0);
   const [bestCombo, setBestCombo] = useState(0);
@@ -2283,7 +2569,42 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     later(() => { setBanner(text); later(() => setBanner(null), 2400); }, 650);
   };
   // ── where everyone is standing, and who is off the ground ──
-  const [myX, setMyX] = useState(0.24);
+  /* Positions change every 60ms game tick. As React state they re-rendered
+     the whole fight tree ~16 times a second, which on a slow phone was most
+     of each frame. They only ever feed three transforms, so they live in refs
+     and the setters write those transforms straight to the DOM; a render
+     still reads the refs, so nothing goes stale. */
+  const posX = useRef({ me: 0.24, op: 0.76, pet: 0.12, meAir: 0, opAir: 0 });
+  const meEl = useRef(null), opEl = useRef(null), petEl = useRef(null);
+  const tfOf = (x, air) => `translate3d(${((x * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-(air || 0) * 62).toFixed(1)}px, 0)`;
+  const mkSet = (key) => (v) => {
+    const P = posX.current; const n = typeof v === "function" ? v(P[key]) : v;
+    if (n !== P[key]) P[key] = n;
+  };
+  /* one frame loop eases what is drawn toward where the tick put everyone:
+     smooth motion at the display's rate, and a plain transform write on an
+     already-composited layer (a CSS transition restarted every tick made the
+     browser rebuild its layer data for all ~3,000 SVG nodes each time) */
+  const shown = useRef({ me: 0.24, op: 0.76, pet: 0.12, meAir: 0, opAir: 0 });
+  useEffect(() => {
+    let raf = 0, last = performance.now();
+    const k = (a, b, f) => (Math.abs(b - a) < 0.0004 ? b : a + (b - a) * f);
+    const frame = (now) => {
+      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      const f = 1 - Math.exp(-dt * 22);
+      const P = posX.current, D = shown.current;
+      const pm = D.me, pa = D.meAir, po = D.op, pb = D.opAir, pp = D.pet;
+      D.me = k(D.me, P.me, f); D.meAir = k(D.meAir, P.meAir, f);
+      D.op = k(D.op, P.op, f); D.opAir = k(D.opAir, P.opAir, f); D.pet = k(D.pet, P.pet, f);
+      if ((D.me !== pm || D.meAir !== pa) && meEl.current) meEl.current.style.transform = tfOf(D.me, D.meAir);
+      if ((D.op !== po || D.opAir !== pb) && opEl.current) opEl.current.style.transform = tfOf(D.op, D.opAir);
+      if (D.pet !== pp && petEl.current) petEl.current.style.transform = tfOf(D.pet, 0);
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const setMyX = mkSet("me"), setMyAir = mkSet("meAir"), setOpX = mkSet("op"), setOpAir = mkSet("opAir"), setPetX = mkSet("pet");
   /* ── the pet is a body now ──
      It used to be a sprite pinned inside the fighter's own box, which meant it
      could never be anywhere the robot was not: it slid with every step, stood
@@ -2291,12 +2612,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      own place on the floor instead — its own x, trailing the robot rather than
      welded to it, its own scale from how grown it is, its own contact shadow,
      and it turns to face whoever it is angry at. */
-  const [petX, setPetX] = useState(0.12);
   const petXRef = useRef(0.12);
   const [petAct, setPetAct] = useState("");   // cheer · flinch · win · lose · cast
-  const [opX, setOpX] = useState(0.76);
-  const [myAir, setMyAir] = useState(0);
-  const [opAir, setOpAir] = useState(0);
   const [land, setLand] = useState(() => {
     try { return window.innerWidth > window.innerHeight * 1.25; } catch (e) { return false; }
   });
@@ -2352,7 +2669,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     return () => { window.removeEventListener("resize", on); window.removeEventListener("orientationchange", on); };
   }, []);
 
-  const G = useArenaFx(ARENA);
+  /* plain: the arena is a real 3D room now (SpaceStage, below), so the FX
+     canvas no longer paints a skyline behind the fighters — only what the
+     fight leaves on the floor */
+  const G = useArenaFx(ARENA, { plain: true });
+  const [room3d, setRoom3d] = useState(false);
+  const onRoomReady = useCallback(() => setRoom3d(true), []);
+  const onRoomLost = useCallback(() => setRoom3d(false), []);
+  /* the room's two hologram read-outs carry the fight's real numbers */
+  const holo = useRef({});
   const audioRef = useRef(null);
   if (!audioRef.current) audioRef.current = createArenaAudio(ARENA);
   useEffect(() => { const a = audioRef.current; a.start(); return () => a.stop(); }, []);
@@ -2442,7 +2767,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
          going), and the screen takes it (a harder shake and a short white
          flash). A kick swings from the floor and kicks dust up with it. */
       const isKick = mv.sfx === "kick";
-      G.swipe(side, isKick ? "#ffd23f" : colour, isKick ? "kick" : "punch");
+      /* a blade in the hand cuts its own arc (slash across, cleave down)
+         instead of the fist's hook or the boot's sweep */
+      const bladed = mv.part === "weapon";
+      G.swipe(side, isKick && !bladed ? "#ffd23f" : colour, bladed ? (isKick ? "cleave" : "slash") : isKick ? "kick" : "punch");
       a.sfx(isKick ? "kick" : crit ? "crit" : "hit");
       later(() => {
         G.impact(side, power * (isKick ? 1.25 : 1), colour, isKick ? "kick" : "punch");
@@ -2501,6 +2829,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   function announceRound() {
     if (doneRef.current) return;
+    pauseFigures(false);            // the intro is the fight's own quiet moment
+    G.bus.emit({ type: "round", n: roundRef.current });
     setAnnounce({ big: T(`ยกที่ ${roundRef.current}`, `ROUND ${roundRef.current}`, `第 ${roundRef.current} 回合`), kind: "round" });
     audioRef.current.sfx("bell");
     later(() => {
@@ -2509,6 +2839,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       audioRef.current.sfx("ult");
       G.flash("#ffffff", .3, .25);
       liveRef.current = true;
+      pauseFigures(true);           // nothing new is drawn while it is being fought
       later(() => setAnnounce(null), FIGHT_CALL_MS);
     }, ROUND_INTRO_MS);
   }
@@ -2596,6 +2927,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   function roundOver(winner, byTime) {
     if (doneRef.current || !liveRef.current) return;
     liveRef.current = false;
+    pauseFigures(false);
     const loser = winner === "me" ? "op" : "me";
     // untouched all round is a PERFECT, exactly as the cabinet would call it
     const perfect = (winner === "me" ? hpRef.current.me : hpRef.current.op) >= (winner === "me" ? MY_MAX : OP_MAX) * 0.999;
@@ -2603,10 +2935,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     w[winner] += 1;
     roundWinsRef.current = w; setRoundWins(w);
     // a decider, and you have a companion to send in: the next round is theirs
-    if (w.me === 1 && w.op === 1 && petSpec) { beastRef.current = true; setBeast(true); }
+    if (w.me === 1 && w.op === 1 && petSpec && !petOnly) { beastRef.current = true; setBeast(true); }
     setMyPose(winner === "me" ? "win" : "down");
     setOpPose(winner === "me" ? "down" : "win");
     setFinisher(true); setOutcome(winner === "me" ? "win" : "lose");
+    G.bus.emit({ type: "ko", at: loser, power: 1.4 });
     audioRef.current.sfx(winner === "me" ? "ult" : "lose");
     G.flash(winner === "me" ? "#ffd23f" : "#8899aa", .6, .5);
     G.boom(loser, 2.6, winner === "me" ? "#ffd23f" : "#ff2d55");
@@ -2635,6 +2968,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (doneRef.current) return;
     doneRef.current = true;
     liveRef.current = false;
+    pauseFigures(false);
     const mHp = hpRef.current.me, oHp = hpRef.current.op;
     const rw = roundWinsRef.current;
     const win = rw.me !== rw.op ? rw.me > rw.op : (mHp / MY_MAX) >= (oHp / OP_MAX);
@@ -2656,6 +2990,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     });
     if (ko) {
       setFinisher(true);
+      G.bus.emit({ type: "ko", at: win ? "op" : "me", power: 1.6 });
       audioRef.current.sfx(win ? "ult" : "lose");
       G.flash(win ? "#ffd23f" : "#8899aa", .6, .5);
       G.boom(win ? "op" : "me", 2.6, win ? "#ffd23f" : "#ff2d55");
@@ -2739,7 +3074,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const [awake, setAwake] = useState(false);
   const FUSION_STAGE = 3;
   const FUSION_DMG = 1.55;
-  const PET_CD = 18000;
+  // short enough that the pet button always feels ready (was 18s and greyed out)
+  const PET_CD = 4000;
   const [petCdEnd, setPetCdEnd] = useState(0);
   const petCmd = petSpec ? (TYPE_CMD[petSpec.type] || TYPE_CMD.steel) : null;
   const burnRef = useRef(0);      // ember: hits land harder while it burns
@@ -2785,7 +3121,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (hasTrait(tier, "wakeup") && botArmorUntilRef.current > now && hitstunRef.current.op <= now) {
       botArmorUntilRef.current = 0;
       audioRef.current.sfx("block");
-      G.burst("op", 1, "#ff8a4c");
+      G.burst("op", 1, "#ff8a4c"); G.shield("op", "#ff8a4c");
       say("op", T("ทนได้!", "ARMOR", "霸体"), "block");
       return;
     }
@@ -2793,7 +3129,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (bossArmorRef.current) {
       bossArmorRef.current = false;
       audioRef.current.sfx("block");
-      G.burst("op", 1.1, "#ffd23f");
+      G.burst("op", 1.1, "#ffd23f"); G.shield("op", "#ffd23f");
       say("op", T("เกราะ!", "ARMOR!", "霸体!"), "block");
       return;
     }
@@ -2840,7 +3176,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     if (!o.unblockable) {
       // a stagger takes the guard away entirely — that is the whole point of it
       if (now < guardUntil.current && staggerRef.current <= now) {
-        audioRef.current.sfx("block"); G.burst("me", .8, "#5ce1ff");
+        audioRef.current.sfx("block"); G.burst("me", .8, "#5ce1ff"); G.shield("me", "#5ce1ff");
         // chip damage, so turtling forever is not a strategy
         const chip = Math.max(1, Math.round(dmg * 0.12));
         const cHp = Math.max(1, hpRef.current.me - chip);
@@ -2871,7 +3207,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         || (fx.passive === "evade" && Math.random() < 0.2)
         || Math.random() < itemFx.dodge || Math.random() < itemFx.blockChance) {
         if (nb.block > 0) { nb.block = 0; buffRef.current = nb; setBuffs(nb); }
-        audioRef.current.sfx("block"); G.burst("me", .7, "#5ce1ff");
+        audioRef.current.sfx("block"); G.burst("me", .7, "#5ce1ff"); G.shield("me", "#5ce1ff");
         say("me", T("กันได้!", "BLOCKED", "格挡"), "block"); return;
       }
     }
@@ -2890,7 +3226,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     hpRef.current.me = mHp; setMyHp(mHp);
     if (mHp / MY_MAX < 0.5) FLAGS.everBelowHalf = true;
     /* the pet awakens — once, when you are genuinely in trouble */
-    if (!awokeRef.current && petSpec && mHp > 0 && mHp / MY_MAX < AWAKEN_AT) {
+    if (!awokeRef.current && petSpec && !petOnly && mHp > 0 && mHp / MY_MAX < AWAKEN_AT) {
       awokeRef.current = true;
       awakenRef.current = now + AWAKEN_MS;
       setAwake(true);
@@ -2989,7 +3325,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       setBestCombo(b => Math.max(b, comboRef.current));
       const R = sp.fx || {};
       /* fused? decided here, once, so the damage and the show agree */
-      const fused = !!petSpec && petPic && petStage(petPic.bond) >= FUSION_STAGE && gauge >= 96;
+      const fused = !!petSpec && !petOnly && petPic && petStage(petPic.bond) >= FUSION_STAGE && gauge >= 96;
       if (fused) {
         setGauge(0);
         petReact("fusion", 1000);
@@ -3130,7 +3466,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     // the bot is holding guard: chip it, and let them know a throw beats this
     if (botRef.current.blockUntil > now) {
       audioRef.current.sfx("block");
-      G.burst("op", .6, "#5ce1ff");
+      G.burst("op", .6, "#5ce1ff"); G.shield("op", "#ff9a5c");
       say("op", T("มันกันไว้", "GUARDED", "被格挡"), "block");
       const chip = Math.max(1, Math.round(A.dmg * TAP_DMG * A2.dmg * 0.14));
       const cHp = Math.max(1, hpRef.current.op - chip);
@@ -3247,8 +3583,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       if (guardMtrRef.current < GUARD_MAX && guardUntil.current < now) {
         const gm = Math.min(GUARD_MAX, guardMtrRef.current + GUARD_REGEN * dt);
         guardMtrRef.current = gm;
-        // the bar is 3px wide; a tenth of a percent is not a visible change
-        setGuardMtr(prev => (Math.abs(prev - gm) < 1 && gm < GUARD_MAX ? prev : gm));
+        // the bar is small; 4-point steps look the same and re-render the fight 2x/s, not 8x/s
+        setGuardMtr(prev => (Math.abs(prev - gm) < 4 && gm < GUARD_MAX ? prev : gm));
       }
       if (staggerRef.current && staggerRef.current <= now) { staggerRef.current = 0; setStagger(false); }
       const stunnedMe = hitstunRef.current.me > now || dizzyUntilRef.current.me > now;
@@ -3518,7 +3854,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       if (doneRef.current) return;
       if (!liveRef.current) return;
       el += 100;
-      setLeft(Math.max(0, total - el));
+      /* the bar moves every 100ms but React only hears about whole seconds:
+         this alone was 10 re-renders of the fight a second */
+      const lf = Math.max(0, total - el); leftLive.current = lf;
+      if (waveBarEl.current) waveBarEl.current.style.width = `${(lf / total) * 100}%`;
+      setLeft(prev => (Math.ceil(prev / 1000) === Math.ceil(lf / 1000) ? prev : lf));
       if (el >= total) { clearInterval(id); toQuiz(); }
     }, 100);
     return () => clearInterval(id);
@@ -3715,7 +4055,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       finish(); return;
     }
     setWave(w => w + 1);
-    setLeft(WAVES[Math.min(wave, WAVES.length - 1)]);
+    leftLive.current = WAVES[Math.min(wave, WAVES.length - 1)]; setLeft(leftLive.current);
     // a healer pet patches you up between waves
     if (PET && PET.k === "heal") {
       const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * PET.v));
@@ -3727,8 +4067,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
 
   /* ── skills ── */
   function useActive() {
-    if (gauge < 100 || myRank < SKILL_UNLOCK.active || doneRef.current) return;
-    setGauge(0);
+    if (doneRef.current || Date.now() < skCd.current.a) return;
+    skCd.current.a = Date.now() + SK_CD_ACTIVE; setSkTick(t => t + 1); later(() => setSkTick(t => t + 1), SK_CD_ACTIVE);
     const k = fx.active, nb = { ...buffRef.current };
     if (k === "crit") { nb.crit = 1; say("me", tr3(FX_TEXT.crit, lang), "buff"); }
     else if (k === "block") { nb.block = 1; say("me", tr3(FX_TEXT.block, lang), "buff"); }
@@ -3758,8 +4098,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
      the only mechanic in the game where knowing the theory and winning the
      fight are literally the same button press. */
   function useUlt() {
-    if (ultUsed || gauge < 100 || myRank < SKILL_UNLOCK.ultimate || doneRef.current) return;
-    setUltUsed(true); setGauge(0);
+    if (doneRef.current || Date.now() < skCd.current.u) return;
+    skCd.current.u = Date.now() + SK_CD_ULT; setSkTick(t => t + 1); later(() => setSkTick(t => t + 1), SK_CD_ULT);
     setUltQ({ q: makeQuestion(lang, weightedTag()), start: Date.now() });
     setUltArmed(false); later(() => setUltArmed(true), ULTQ_ARM);
     audioRef.current.sfx("charge");
@@ -3806,11 +4146,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
   const ultQRef = useRef(null);
   useEffect(() => { ultQRef.current = ultQ && ultQ.q; }, [ultQ]);
 
-  const mySk = skillsOf(me);
+  const mySk = petOnly ? petSkillsOf(petSpec) : skillsOf(me);
   const activeSk = mySk.find(s => s.tier === "active");
   const ultSk = mySk.find(s => s.tier === "ultimate");
-  const canActive = gauge >= 100 && myRank >= SKILL_UNLOCK.active && !doneRef.current;
-  const canUlt = gauge >= 100 && myRank >= SKILL_UNLOCK.ultimate && !ultUsed && !doneRef.current;
+  /* The two skill buttons used to sit dead until the gauge filled (and the
+     ultimate behind a rank and a once-a-fight rule) — players read that as
+     "broken / still loading". They are live from the first second now, on a
+     short cooldown each so they cannot be spammed. */
+  const canActive = !doneRef.current && Date.now() >= skCd.current.a;
+  const canUlt = !doneRef.current && Date.now() >= skCd.current.u;
   const waveTotal = WAVES[Math.min(wave - 1, WAVES.length - 1)];
   /* Below a quarter tank, the tide should still be turnable — not a mercy
      rule, just a reason to keep fighting instead of watching the bar drain. */
@@ -3824,8 +4168,29 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
     } else if (!comeback) comebackAnnouncedRef.current = false;
   }, [comeback]);
 
+  /* portrait: the skill buttons sit above the arrows, in the empty space
+     left of the attack pads; landscape keeps them centred at the bottom */
+  const skillsEl = (
+      <div className="pvpskills">
+        <div className="pvpgauge"><i style={{ width: `${gauge}%`, background: clsInfo.c }} /></div>
+        <div className="pvpskbtns">
+          <button className={`pvpskbtn${canActive ? " on" : ""}`} disabled={!canActive} onClick={useActive} style={{ "--cc": clsInfo.c }}>
+            <span className="pvpskbtn-ic"><ItemArt art={(activeSk || {}).art || "charge"} sw={[canActive ? clsInfo.c : "#96a0b2", "#20263a"]} /></span>
+            <b>{activeSk ? tr3(activeSk.n, lang) : "—"}</b>
+            <i>{myRank < SKILL_UNLOCK.active ? T(`แรงก์ ${SKILL_UNLOCK.active}`, `Rank ${SKILL_UNLOCK.active}`, `等级 ${SKILL_UNLOCK.active}`) : tr3(FX_TEXT[fx.active], lang)}</i>
+          </button>
+          <button className={`pvpskbtn ult${canUlt ? " on" : ""}`} disabled={!canUlt} onClick={useUlt} style={{ "--cc": clsInfo.c }}>
+            <span className="pvpskbtn-ic"><ItemArt art={(ultSk || {}).art || "burst"} sw={[canUlt ? "#ffd23f" : "#96a0b2", "#20263a"]} /></span>
+            <b>{ultSk ? tr3(ultSk.n, lang) : "—"}</b>
+            <i>{ultUsed ? T("ใช้ไปแล้ว", "Spent", "已使用")
+              : myRank < SKILL_UNLOCK.ultimate ? T(`แรงก์ ${SKILL_UNLOCK.ultimate}`, `Rank ${SKILL_UNLOCK.ultimate}`, `等级 ${SKILL_UNLOCK.ultimate}`)
+              : tr3(FX_TEXT[fx.ult], lang)}</i>
+          </button>
+        </div>
+      </div>
+  );
   return (
-    <div className={`pvppage fight${land ? " land" : ""}`}>
+    <div className={`pvppage x3 fight${land ? " land" : ""}${LITE_FIGHT ? " lite" : ""}`}>
       <div className="pvphdr">
         <button className="stgback" onClick={onBack} aria-label="back">←</button>
         <span className="pvphdr-t">{T("ยก", "Wave", "波次")} {Math.min(wave, WAVES.length)}/{WAVES.length}</span>
@@ -3845,7 +4210,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
       {/* The stage carries the round on its own class: the light drops and the
           room tightens in round 2, and the decider burns. Nothing has to say
           "this one matters" out loud if the room already does. */}
-      <div className={`pvpstage r${Math.min(3, round)}${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}${comeback ? " comeback" : ""}${suddenDeath ? " sudden" : ""}${hitStop ? " hitstop hs-" + hitDir : ""}${corner.me ? " cornerme" : ""}${corner.op ? " cornerop" : ""}${stagger ? " staggered" : ""}${finisher ? " finisher " + (outcome || "") : ""}`}>
+      <div className={`pvpstage x3s r${Math.min(3, round)}${room3d ? " g3" : ""}${shake ? " sh" + shake : ""}${overdrive ? " od" : ""}${comeback ? " comeback" : ""}${suddenDeath ? " sudden" : ""}${hitStop ? " hitstop hs-" + hitDir : ""}${corner.me ? " cornerme" : ""}${corner.op ? " cornerop" : ""}${stagger ? " staggered" : ""}${finisher ? " finisher " + (outcome || "") : ""}`}>
+        {(() => {
+          holo.current = {
+            a: { title: tr3(ARENA, lang), rows: [[T("ยก", "ROUND", "回合"), `${round} / ${MAX_ROUNDS}`], ["BPM", ARENA.bpm], [T("ชนะยก", "ROUNDS", "局分"), `${roundWins.me} — ${roundWins.op}`]] },
+            b: { title: T("สถานะ", "STATUS", "状态"), rows: [["HP", `${Math.max(0, Math.round(myHp))} / ${MY_MAX}`], [T("คู่แข่ง", "RIVAL", "对手"), `${Math.max(0, Math.round(opHp))} / ${OP_MAX}`], [T("คอมโบ", "COMBO", "连击"), String(combo)]] },
+          };
+          return null;
+        })()}
+        <SpaceStage variant="arena" stage={ARENA.id} bus={G.bus} data={holo} onReady={onRoomReady} onLost={onRoomLost} />
         <canvas ref={G.bgRef} className="pvpbg" />
       <canvas ref={G.canvasRef} className="pvpfx" />
         {/* the two walls, lit only for whoever has their back to one */}
@@ -3860,7 +4233,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             </div>
             <div className="pvphp-n">
               <span className="pvppips">{[0, 1].map(i => <b key={i} className={roundWins.me > i ? "on" : ""} />)}</span>
-              {tr3(CHAR_MODELS.find(m => m.id === me) || {}, lang)} · {Math.max(0, Math.round(myHp))}
+              {petOnly ? tr3(petSpec, lang) : tr3(CHAR_MODELS.find(m => m.id === me) || {}, lang)} · {Math.max(0, Math.round(myHp))}
             </div>
           </div>
           <div className="pvpvs">
@@ -3894,7 +4267,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             stops at this element and the move stays on the compositor.
             The percentage is of THIS element (44% of the stage), hence 100/44. */}
         <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}
-          style={{ transform: `translate3d(${((myX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-myAir * 62).toFixed(1)}px, 0)` }}>
+          ref={meEl} style={{ transform: tfOf(shown.current.me, shown.current.meAir) }}>
           <div className="pvpfighter-in">
           {/* ── .pvpfbody shrink-wraps the chassis SVG ──
               The fighter box is 184px wide and the robot inside it is 79 —
@@ -3905,12 +4278,24 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
               actual body. */}
           <div className="pvpfbody">
             <span className={`pvpaura r-${myTier}`} aria-hidden="true" />
-            <Bot model={me} yaw={lunge === "me" ? 42 : myPose === "hit" ? 14 : 26} pose={myPose}
-              glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" />
-            {myHat && (
-              <span className={`pvpgear hat r-${myHat.rarity}`} aria-hidden="true">
-                <ItemArt art={myHat.art} sw={myHat.sw} />
+            {petOnly ? (
+              /* the pet in the robot's place: same box, same walk, same
+                 lunges; the pose becomes a squash-and-stretch on the animal */
+              <span className={`pvpfpet p-${myPose || "ready"}${petAct ? " " + petAct : ""}`}
+                style={{ "--pc": (PET_TYPES[petSpec.type] || PET_TYPES.steel).c }}>
+                {(() => {
+                  const live = <PetArt species={petPic.species} level={petLv} mood={petPic.mood} />;
+                  const sad = petPic.mood < 35;
+                  return PICS ? <FigurePic fkey={petShot(sad).key} kind="pet" el={live} cls={"fig-pet" + (sad ? " sad" : "")} vb={PET_VB} /> : live;
+                })()}
               </span>
+            ) : (
+              (() => {
+                const y = lunge === "me" ? 42 : myPose === "hit" ? 14 : 26;
+                const live = <Bot model={me} yaw={y} pose={myPose}
+                  glow={myGlow} accent={myAccent} armorA="#1b2436" armorB="#41608a" held={heldGear} hat={hatGear} acc={accGear} />;
+                return PICS ? <FigurePic fkey={meShot(myPose, y).key} kind="bot" el={live} cls="ca" vb={BOT_VB} /> : live;
+              })()
             )}
             {/* ── the thing you actually paid for ──
                 It used to be a 46px badge parked behind the hip, so a maxed
@@ -3918,19 +4303,6 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
                 unreadable smudge and nobody could see what the money bought.
                 It is held now, in front of the body, sized by rarity, lit by
                 its own bolt colour, and it swings when the punch lands. */}
-            {wpn && (
-              <span className={`pvpgear wpn r-${wpn.rarity}${wpnLv >= ITEM_MAX_LV ? " maxed" : ""}`}
-                style={{ "--wglow": myBolt }} aria-hidden="true">
-                <span className="pvpwpn-trail" />
-                <ItemArt art={wpn.art} sw={wpn.sw} />
-                {wpnLv > 0 && <span className="pvpwpn-lv">+{wpnLv}</span>}
-              </span>
-            )}
-            {myAcc && (
-              <span className={`pvpgear acc r-${myAcc.rarity}`} aria-hidden="true">
-                <ItemArt art={myAcc.art} sw={myAcc.sw} />
-              </span>
-            )}
           </div>
           {flash && flash.side === "me" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {dizzy.me && <span className="pvpdizzy">✦✦✦</span>}
@@ -3945,23 +4317,31 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             fighting, ducking when you get caught and bouncing when you land
             one. The bonus it grants is unchanged; this is the half that was
             missing, which is that you could see it was yours. */}
-        {petPic && (
-          <div className={`pvppet3 ${petAct}${beast ? " beast" : ""}${awake ? " awake" : ""}`} title={petById(petPic.species).en}
+        {petPic && !petOnly && (
+          <div ref={petEl} className={`pvppet3 ${petAct}${beast ? " beast" : ""}${awake ? " awake" : ""}`} title={petById(petPic.species).en}
             style={{
-              transform: `translate3d(${((petX * 100 - 22) * (100 / 44)).toFixed(2)}%, 0, 0)`,
+              transform: tfOf(shown.current.pet, 0),
               "--petk": (0.72 + petStage(petPic.bond) * 0.075).toFixed(3),
             }}>
             <span className="pvppet3-sh" aria-hidden="true" />
             <span className="pvppet3-in">
-              <PetArt species={petPic.species} level={petLevel(petPic.bond).lv} mood={petPic.mood} />
+              {(() => {
+                const live = <PetArt species={petPic.species} level={petLv} mood={petPic.mood} />;
+                const sad = petPic.mood < 35;
+                return PICS ? <FigurePic fkey={petShot(sad).key} kind="pet" el={live} cls={"fig-pet" + (sad ? " sad" : "")} vb={PET_VB} /> : live;
+              })()}
             </span>
           </div>
         )}
         <div className={`pvpfighter op${lunge === "op" ? " lunge" : ""}${opPose === "hit" ? " knock" : ""}${botGuard ? " guard" : ""}${botTell ? " tell" : ""}`}
-          style={{ left: 0, right: "auto", transform: `translate3d(${((opX * 100 - 22) * (100 / 44)).toFixed(2)}%, ${(-opAir * 62).toFixed(1)}px, 0)` }}>
+          ref={opEl} style={{ left: 0, right: "auto", transform: tfOf(shown.current.op, shown.current.opAir) }}>
           <div className="pvpfighter-in">
-          <Bot model={oppModel} yaw={lunge === "op" ? -42 : opPose === "hit" ? -14 : -26} pose={opPose}
-            glow="#ff7a3c" accent="#ff4d6a" armorA="#2b1a1a" armorB="#8a4a3a" />
+          {(() => {
+            const y = lunge === "op" ? -42 : opPose === "hit" ? -14 : -26;
+            const live = <Bot model={oppModel} yaw={y} pose={opPose} mirror
+              glow="#8f6dff" accent="#c3b0ff" armorA="#16161f" armorB="#46425e" />;
+            return PICS ? <FigurePic fkey={opShot(opPose, y).key} kind="bot" el={live} cls="ca" vb={BOT_VB} /> : live;
+          })()}
           {flash && flash.side === "op" && <span className={`pvpflash ${flash.kind}`}>{flash.text}</span>}
           {/* the wind-up has to be READABLE or blocking is a coin flip */}
           {botTell && <span className="pvptell">!</span>}
@@ -4029,7 +4409,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             <div className="pvpsuddenbar">⚡ {T("ยกชี้ขาด — โดนก่อนแพ้", "SUDDEN DEATH — first hit wins", "生死决战 — 先中招者败")}</div>
           ) : (
             <>
-              <div className="pvpwave"><i style={{ width: `${Math.max(0, (left / waveTotal) * 100)}%` }} /></div>
+              <div className="pvpwave"><i ref={waveBarEl} style={{ width: `${Math.max(0, (Math.min(left, leftLive.current) / waveTotal) * 100)}%` }} /></div>
               <div className="pvpwave-l">{T("คำถามจะมาใน", "Question in", "问题将在")} {Math.ceil(left / 1000)}s</div>
             </>
           )}
@@ -4111,6 +4491,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
             </div>
           )}
           <div className="pvppad">
+            <div className="pvppad-lcol">
+            {!land && skillsEl}
             <div className="pvppad-l">
               <button className="pvpdir" aria-label={T("ถอย", "Back", "后退")}
                 onPointerDown={() => { dirRef.current = -1; pushMotion(-1); }} onPointerUp={() => { dirRef.current = 0; }}
@@ -4126,27 +4508,28 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
                 onPointerDown={() => { dirRef.current = 1; pushMotion(1); }} onPointerUp={() => { dirRef.current = 0; }}
                 onPointerLeave={() => { dirRef.current = 0; }} onPointerCancel={() => { dirRef.current = 0; }}>▶</button>
             </div>
+            </div>
             <div className="pvppad-r">
               <button className="pvpact fire" aria-label={kitLabel(0)} onPointerDown={() => attack("fire")}>
                 <b>{kitIcon(0)}</b><i>{kitLabel(0)}</i>
               </button>
-              <button className="pvpact jump" aria-label={T("กระโดด", "Jump", "跳跃")} onPointerDown={jump}>
-                <b>⤴</b><i>{T("กระโดด", "JUMP", "跳跃")}</i>
+              <button className="pvpact jump" aria-label={petOnly ? T("กระโจน", "Pounce", "扑跃") : T("กระโดด", "Jump", "跳跃")} onPointerDown={jump}>
+                <b>⤴</b><i>{petOnly ? T("กระโจน", "POUNCE", "扑跃") : T("กระโดด", "JUMP", "跳跃")}</i>
               </button>
-              <button className="pvpact punch" aria-label={T("ต่อย", "Punch", "拳击")} onPointerDown={() => attack("punch")}>
-                <b>👊</b><i>{T("ต่อย", "PUNCH", "拳击")}</i>
+              <button className="pvpact punch" aria-label={petOnly ? T("งับ", "Bite", "撕咬") : T("ต่อย", "Punch", "拳击")} onPointerDown={() => attack("punch")}>
+                <b>{petOnly ? "🦷" : "👊"}</b><i>{petOnly ? T("งับ", "BITE", "撕咬") : T("ต่อย", "PUNCH", "拳击")}</i>
               </button>
-              <button className="pvpact kick" aria-label={T("เตะ", "Kick", "踢击")} onPointerDown={() => attack("kick")}>
-                <b>🦵</b><i>{T("เตะ", "KICK", "踢击")}</i>
+              <button className="pvpact kick" aria-label={petOnly ? T("ตะปบ", "Claw", "爪击") : T("เตะ", "Kick", "踢击")} onPointerDown={() => attack("kick")}>
+                <b>{petOnly ? "🐾" : "🦵"}</b><i>{petOnly ? T("ตะปบ", "CLAW", "爪击") : T("เตะ", "KICK", "踢击")}</i>
               </button>
               <button className="pvpact rocket" aria-label={kitLabel(1)} onPointerDown={() => attack("rocket")}>
                 <b>{kitIcon(1)}</b><i>{kitLabel(1)}</i>
               </button>
               {petCmd && (
-                <button className={`pvpact petcmd${Date.now() < petCdEnd ? " cd" : ""}`}
+                <button className="pvpact petcmd"
                   style={{ "--pc": (PET_TYPES[petSpec.type] || PET_TYPES.steel).c }}
                   aria-label={tr3(petCmd, lang)} onPointerDown={sendPet}>
-                  <b>🐾</b><i>{tr3(petCmd, lang).toUpperCase()}</i>
+                  <b>{petOnly ? (PET_ICON[petSpec.type] || "🐾") : "🐾"}</b><i>{tr3(petCmd, lang).toUpperCase()}</i>
                 </button>
               )}
             </div>
@@ -4230,23 +4613,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear, myRank, tier, oppK
         </>
       ))}
 
-      <div className="pvpskills">
-        <div className="pvpgauge"><i style={{ width: `${gauge}%`, background: clsInfo.c }} /></div>
-        <div className="pvpskbtns">
-          <button className={`pvpskbtn${canActive ? " on" : ""}`} disabled={!canActive} onClick={useActive} style={{ "--cc": clsInfo.c }}>
-            <span className="pvpskbtn-ic"><ItemArt art={(activeSk || {}).art || "charge"} sw={[canActive ? clsInfo.c : "#96a0b2", "#20263a"]} /></span>
-            <b>{activeSk ? tr3(activeSk.n, lang) : "—"}</b>
-            <i>{myRank < SKILL_UNLOCK.active ? T(`แรงก์ ${SKILL_UNLOCK.active}`, `Rank ${SKILL_UNLOCK.active}`, `等级 ${SKILL_UNLOCK.active}`) : tr3(FX_TEXT[fx.active], lang)}</i>
-          </button>
-          <button className={`pvpskbtn ult${canUlt ? " on" : ""}`} disabled={!canUlt} onClick={useUlt} style={{ "--cc": clsInfo.c }}>
-            <span className="pvpskbtn-ic"><ItemArt art={(ultSk || {}).art || "burst"} sw={[canUlt ? "#ffd23f" : "#96a0b2", "#20263a"]} /></span>
-            <b>{ultSk ? tr3(ultSk.n, lang) : "—"}</b>
-            <i>{ultUsed ? T("ใช้ไปแล้ว", "Spent", "已使用")
-              : myRank < SKILL_UNLOCK.ultimate ? T(`แรงก์ ${SKILL_UNLOCK.ultimate}`, `Rank ${SKILL_UNLOCK.ultimate}`, `等级 ${SKILL_UNLOCK.ultimate}`)
-              : tr3(FX_TEXT[fx.ult], lang)}</i>
-          </button>
-        </div>
-      </div>
+      {land && skillsEl}
     </div>
   );
 });

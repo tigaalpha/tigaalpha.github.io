@@ -1,6 +1,22 @@
 import { useEffect, useState } from "react";
-import { coachTempoTarget, coachRecap, generateStudentExercise, studentExerciseKinds, getCoach, getCoachDiagnosis } from "./tigamodel/web";
+import { tigaNow, tigaPromise, useTiga } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5)
 import { readAutoTeachOutcomes } from "./use-autoteach";
+
+/* ── lazy model access (plan v3 1.5): this module used to statically import
+   tigamodel/web — the edge that pinned the whole ~1.18 MB engine into the
+   main chunk, because App.tsx and PracticeOverlay import it at module top.
+   The sync builders below read the model through the ALREADY-LOADED module
+   (boot preload guarantees it's there in practice) and honestly-null when a
+   build-up happens to beat the import; buildParentReport also re-runs once
+   the model lands, so the story fills in. ── */
+function _model() { const m = tigaNow(); return m; }
+const coachTempoTarget = (a) => { const m = _model(); return m ? m.coachTempoTarget(a) : null; };
+const coachRecap = (a) => { const m = _model(); return m ? m.coachRecap(a) : null; };
+const generateStudentExercise = (a, b, c) => { const m = _model(); return m ? m.generateStudentExercise(a, b, c) : null; };
+const studentExerciseKinds = () => { const m = _model(); return m ? m.studentExerciseKinds() : null; };
+const getCoach = () => { const m = _model(); return m ? m.getCoach() : null; };
+const getCoachDiagnosis = () => { const m = _model(); return m ? m.getCoachDiagnosis() : null; };
+const _kick = () => { tigaPromise(); }; _kick();   // join the boot preload's in-flight import (no duplicate fetch — gateway caches)
 
 /* ── use-practice-coach.ts — TIGA Practice Coach (Phase 2, spec §34) ──
    Wires the ALREADY-BUILT model engines (coach.tempoTarget / coach.recap /
@@ -130,7 +146,7 @@ function nextSkillNode() {
    { tempo, recap, exercise } where any member may be null (honest hide). */
 export function buildPracticeCoachData(args) {
   try {
-    const { label, accuracy, missedNotes = [], rhythmPct = null, dynPct = null, practiceTarget = null, metroBpm = null, prevAccuracy = null, seed = null, strategyId = null, lang = "th" } = (args && typeof args === "object") ? args : {};
+    const { label, accuracy, missedNotes = [], rhythmPct = null, dynPct = null, practiceTarget = null, metroBpm = null, prevAccuracy = null, seed = null, strategyId = null, lang = "th", profile: profileArg = null } = (args && typeof args === "object") ? args : {};
     if (typeof label !== "string" || !label) return null;
 
     /* 1) TEMPO — only when the drill itself carries a BPM suggestion */
@@ -171,11 +187,18 @@ export function buildPracticeCoachData(args) {
     const kinds = studentExerciseKinds();
     const kindLabel = kinds && kinds[topic] ? kinds[topic].kind : null;
 
+    /* ── plan v3 2.1/2.2: W×H adapters decorate AFTER the engines speak ── */
+    const m0 = _model();
+    const ageBand = m0 ? m0.tigaAgeBand(profileArg) : null;   // honest-null: unknown age → untouched content
+    const recapW = recap ? { ...recap, lines: (recap.lines || []).map(l => m0 ? m0.tigaForAge(ageBand, l) : l), homework: (recap && recap.homework && m0 && ageBand) ? m0.tigaForAge(ageBand, recap.homework) : (recap && recap.homework) } : null;
+    const exWH = ex ? m0 ? m0.tigaForStrategy(m0.tigaForAge(ageBand, { ...ex, topic, level, kindLabel }), strategyId) : { ...ex, topic, level, kindLabel } : null;
+
     return {
       tempo: tempo && tempo.bpm ? tempo : null,
-      recap: recap || null,
-      exercise: ex ? { ...ex, topic, level, kindLabel } : null,
+      recap: recapW || null,
+      exercise: exWH,
       worstMissed: worst,
+      ageBand,
     };
   } catch (e) { return null; }
 }
@@ -219,13 +242,16 @@ export function buildParentReportData(pr, { days = 14 } = {}) {
   } catch (e) { return null; }
 }
 
-/* Hook wrapper for PracticeOverlay: recomputes when the result changes. */
+/* Hook wrapper for PracticeOverlay: recomputes when the result changes —
+   and once more when the lazy model lands (plan v3 1.5: the first compute
+   may have run before the import resolved). */
 export function usePracticeCoach(args) {
   const [data, setData] = useState(null);
+  const tigaReady = useTiga(null);
   useEffect(() => {
     setData(args && args.label ? buildPracticeCoachData(args) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [args && args.label, args && args.accuracy, args && args.rhythmPct, args && args.dynPct, args && args.metroBpm, args && args.lang]);
+  }, [args && args.label, args && args.accuracy, args && args.rhythmPct, args && args.dynPct, args && args.metroBpm, args && args.lang, tigaReady]);
   return data;
 }
 
@@ -238,7 +264,7 @@ export function usePracticeCoach(args) {
    IMPROVED this week (tg_memory: masteries + resolved tips that went up),
    and next week's homework focus. Everything nullable — a field the data
    can't support is simply absent. */
-export function buildParentReport({ days = 14 } = {}) {
+export function buildParentReport({ days = 14, lang = "th" } = {}) {
   try {
     if (typeof localStorage === "undefined") return null;
     const plog = JSON.parse(localStorage.getItem("tg_practice_log") || "{}") || {};
@@ -294,7 +320,7 @@ export function buildParentReport({ days = 14 } = {}) {
       sessions7: series.slice(-7).reduce((s, d) => s + d.sessions, 0),
       improvements: improvements.slice(0, 4),
       focus: diag ? { label: diag.what ? diag.what.label : null, acc: diag.what ? diag.what.acc : null, why: diag.why || [], how: diag.how || [], bpm: diag.meta ? diag.meta.bpm : null } : null,
-      homeworkNote: topMiss ? `โฟกัสโน้ต ${topMiss.label} — เล่นช้า 3 รอบให้สมบูรณ์ทุกวัน` : null,
+      homeworkNote: topMiss ? (lang === "zh" ? `专练音符 ${topMiss.label} — 每天慢速完整弹 3 遍` : lang === "en" ? `Focus on the note ${topMiss.label} — play it slowly 3× perfectly every day` : `โฟกัสโน้ต ${topMiss.label} — เล่นช้า 3 รอบให้สมบูรณ์ทุกวัน`) : null,
     };
   } catch (e) { return null; }
 }
