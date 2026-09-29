@@ -191,11 +191,11 @@ export const MILESTONES = [
   },
   {
     id: "m20-jev-policy",
-    title: "§5 Jev ตัดสินเฉพาะจุดกติกาเสมอกัน",
-    state: "planned",
+    title: "§5 Jev ตัดสินเฉพาะจุดกติกาเสมอกัน — ส่งมอบ (แกน pure + wiring + kill switch)",
+    state: "done",
     deps: ["m03-plan-v3-self-enforcing"],
-    acceptance: "smoke-jev-policy: tie → probability แนบใน response; edge ล่ม → กติกาเดิมตอบแทน ไม่มี error โชว์ผู้เรียน; kill switch tiga_jev_policy",
-    evidence: ["tigamodel/teaching/teaching-loop.js", "tigamodel/jev/jev-judgment.js"],
+    acceptance: "jev-tie-breaker.js 9/9 (หากฎ match ทั้งหมด/tie จริง=actions ต่างกัน/provenance แนบ/ไม่เชื่อคำตอบนอกตัวเลือก/fallback = พฤติกรรมเดิม 100%); teaching-loop: decision ของ policy เป็นฐานเสมอ, Jev override เฉพาะ tie + switch เปิด, tie-check (pure) มาก่อน network — ไม่มี tie = ไม่มี call; kill switch tiga_jev_policy default OFF (cache 60s, fail-closed); e2e 45/45 ผ่าน — วงจรเดิมไม่เปลี่ยนเมื่อปิด",
+    evidence: ["tigamodel/teaching/jev-tie-breaker.js", "tigamodel/scripts/smoke-jev-policy.mjs", "tigamodel/teaching/teaching-loop.js"],
   },
   {
     id: "m21-fusion-v1",

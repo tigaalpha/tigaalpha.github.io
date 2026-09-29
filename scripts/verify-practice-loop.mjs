@@ -12,7 +12,7 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
 execSync(
-  `npx esbuild tigamodel/teaching/teaching-loop.js tigamodel/teaching/policy.js tigamodel/teaching/philosophy.js tigamodel/knowledge/knowledge-base.js tigamodel/knowledge/university-seed.js tigamodel/knowledge/university-links.js tigamodel/knowledge/global-theory-seed.js tigamodel/knowledge/global-pedagogy-seed.js tigamodel/knowledge/piano-craft-seed.js tigamodel/knowledge/teacher-craft-seed.js tigamodel/knowledge/repertoire-forms-seed.js tigamodel/knowledge/learner-skills-seed.js tigamodel/core/schema.js tigamodel/knowledge/university-sources.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`,
+  `npx esbuild tigamodel/teaching/teaching-loop.js tigamodel/teaching/jev-tie-breaker.js tigamodel/teaching/policy.js tigamodel/teaching/philosophy.js tigamodel/knowledge/knowledge-base.js tigamodel/knowledge/university-seed.js tigamodel/knowledge/university-links.js tigamodel/knowledge/global-theory-seed.js tigamodel/knowledge/global-pedagogy-seed.js tigamodel/knowledge/piano-craft-seed.js tigamodel/knowledge/teacher-craft-seed.js tigamodel/knowledge/repertoire-forms-seed.js tigamodel/knowledge/learner-skills-seed.js tigamodel/core/schema.js tigamodel/knowledge/university-sources.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`,
   { stdio: "pipe" }
 );
 
