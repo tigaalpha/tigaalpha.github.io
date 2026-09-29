@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-29T11:20:21.219Z",
+  "generatedAt": "2026-09-29T12:26:54.472Z",
   "appVersion": "13.7.460",
   "bundle": {
     "file": "index.template-CNwzAsuL.js",
@@ -102,10 +102,10 @@
     "weakestCap": "kb"
   },
   "perf": {
-    "allRoutesColdMs": 38.84,
-    "allRoutesWarmMs": 0.22,
-    "summaryMs": 2.18,
-    "memoSpeedup": 176.5
+    "allRoutesColdMs": 35.92,
+    "allRoutesWarmMs": 0.19,
+    "summaryMs": 7.21,
+    "memoSpeedup": 189.1
   },
   "kb": {
     "theoryEntries": 13414,
