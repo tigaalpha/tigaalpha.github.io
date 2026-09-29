@@ -101,11 +101,12 @@ export const MILESTONES = [
   },
   {
     id: "m08-skill-state-plans",
-    title: "§3 แผนซ้อมเฉพาะบุคคลผ่าน skill_state (รอ m05)",
-    state: "planned",
+    title: "§3 แผนซ้อมเฉพาะบุคคลผ่าน skill_state — แกนคิดส่งมอบแล้ว รอข้อมูลจริง",
+    state: "code",
     deps: ["m05-apply-learning-data"],
-    acceptance: "smoke-skill-state-plans: ability ต่ำ → drill ง่ายลง ≥1 ระดับ ใน ≥80% ของเคส; นักเรียน 20 คนแรกได้แผน ≥3 รูปแบบ; kill switch tiga_personalized_plans",
-    evidence: ["tigamodel/teaching/coach.js"],
+    acceptance: "smoke-skill-state-plans 10/10: ability ต่ำ→ผ่อนระดับ สูง→เพิ่มระดับ confidence ต่ำ→ไม่ปรับ ไม่มีข้อมูล→null ไม่เดา; kill switch tiga_personalized_plans; pool ไม่มีครบทุกระดับ→เลือกระดับใกล้เป้าไม่แตก",
+    evidence: ["tigamodel/teaching/skill-state-plans.js", "tigamodel/scripts/smoke-skill-state-plans.mjs"],
+    activation: "เมื่อ learning-data apply แล้ว: adapter อ่าน ability จาก learning_update_skill_state → buildPersonalizedPlan(ability, drills, {switchOn}) — wiring อย่างเดียว ไม่มีตรรกะใหม่",
   },
   {
     id: "m09-golden-answers",
@@ -154,6 +155,14 @@ export const MILESTONES = [
     deps: ["m03-plan-v3-self-enforcing"],
     acceptance: "barge-in บน device จริง ความหน่วง <800ms — เจ้าของทดสอบเองตาม AGENTS.md (native หา headless พิสูจน์ไม่ได้)",
     evidence: ["use-voice-tutor.ts"],
+  },
+  {
+    id: "m15-scorecard",
+    title: "เครื่องวัดผลโมเดล 5 ด่านในคำสั่งเดียว (scorecard)",
+    state: "done",
+    deps: ["m03-plan-v3-self-enforcing"],
+    acceptance: "scripts/tiga-scorecard.mjs วัดจริง 5 ด่าน: eval suite 583 เคส (≥75%) / retrieval 24 probe (gate 80%) / policy 5 กฎ 100% / generator 50 ชุด 100% / analyzer 100% — ตกด่านไหน exit 1",
+    evidence: ["scripts/tiga-scorecard.mjs"],
   },
 ];
 

@@ -64,6 +64,8 @@ const SMOKES = {
   "m01-state-audit": ["tigamodel/scripts/smoke.mjs", "tigamodel/scripts/smoke-capability.mjs"],
   "m04-strategy-analyzer": ["tigamodel/scripts/smoke-strategy-analyzer.mjs"],
   "m07-retrieval-eval": ["tigamodel/scripts/smoke-retrieval.mjs"],
+  "m08-skill-state-plans": ["tigamodel/scripts/smoke-skill-state-plans.mjs"],
+  "m15-scorecard": ["scripts/tiga-scorecard.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);
@@ -103,7 +105,7 @@ console.log("\n5) kill switches");
 {
   const SWITCHES = [
     { switch: "tiga_policy_weights", file: "supabase-policy-weights-migration.sql" },
-    { switch: "tiga_personalized_plans", file: "use-practice-mode.ts" },
+    { switch: "tiga_personalized_plans", file: "tigamodel/teaching/skill-state-plans.js" },
     { switch: "tiga_jev_policy", file: "tigamodel/teaching/teaching-loop.js" },
   ];
   for (const { switch: sw, file } of SWITCHES) {
