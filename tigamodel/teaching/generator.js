@@ -348,7 +348,7 @@ function genImprov(level, r) {
      { th: "ใช้โน้ต C-E-G อย่างเดียว เล่นให้ได้ 3 อารมณ์: สนุก เศร้า ตื่นเต้น", en: "Use only C-E-G and make three moods: playful, sad, excited", zh: "只用 C-E-G 弹出三种情绪：欢快、忧伤、激动" }],
     [{ th: "รูปแบบจากคอร์ด", en: "Patterns from a chord", zh: "和弦上的音型" },
      { th: "คอร์ด C ค้างไว้ มือขวาด้นเมโลดี้จากโน้ตในคอร์ด 8 จังหวะ", en: "Hold a C chord; improvise a right-hand melody from chord tones for 8 beats", zh: "按住 C 和弦，右手用和弦音即兴 8 拍" }],
-    [{ th: "คำถามจบลงที่เร", en: "Question ending on the 2nd", zh: "结束在二级音的问句" },
+    [{ th: "คำถามจบลงที่เสียงที่สอง", en: "Question ending on the 2nd", zh: "结束在二级音的问句" },
      { th: "ด้นประโยคที่จบลงที่โน้ต D (รู้สึก 'ยังไม่จบ') แล้วประโยคถัดไปจบที่ C", en: "Improvise a phrase ending on D (feeling unfinished), then one ending on C", zh: "即兴一句结束在 D（感觉没完），下一句结束在 C" }],
     [{ th: "เรียงเพลง 8 ห้อง", en: "Compose an 8-bar piece", zh: "创作 8 小节小曲" },
      { th: "A (4 ห้อง) → A ซ้ำแต่ตกแต่ง → B ใหม่ → กลับ A — เขียน/อัดไว้", en: "A (4 bars) → A again, decorated → new B → back to A — write or record it", zh: "A（4 小节）→ 变化的 A → 新的 B → 回到 A——写下来或录下来" }],
