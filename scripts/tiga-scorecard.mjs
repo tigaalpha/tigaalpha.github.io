@@ -27,7 +27,7 @@ const REAL_SB = readFileSync("supabase-client.ts", "utf8");
 ioSync("supabase-client.ts", "export const sb = null;\n");
 try {
   execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
-  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 } finally {
   ioSync("supabase-client.ts", REAL_SB);
 }
@@ -176,6 +176,45 @@ console.log("╚═════════════════════�
   );
 }
 
+/* ── 8. Speed, measured (docs/10 m33): real latency of the rule brain ── */
+{
+  const ac = await M("performance/answer-cache.js");
+  const N = 200;
+  const states = [{ state: "confusion", probability: 0.9, confidence: 0.9, evidence: ["x"], modalities: [], alternatives: [] }];
+  const pol = policyM.createTeachingPolicy();
+  // warm-up (first-touch JIT/JIT-free noise excluded from the claim)
+  webM.getKBContext("โน้ต C"); pol.evaluate(states, {}, null);
+  let t0 = performance.now();
+  for (let i = 0; i < N; i++) webM.getKBContext("เวลาซ้อมเปียโนต้องนั่งท่าไหน นั่งสูงแค่ไหนดี");
+  const kbMs = (performance.now() - t0) / N;
+  t0 = performance.now();
+  for (let i = 0; i < N; i++) pol.evaluate(states, { repeated_errors: 3 }, null);
+  const polMs = (performance.now() - t0) / N;
+  t0 = performance.now();
+  for (let i = 0; i < N; i++) webM.generateStudentExercise(1, 3, i);
+  const genMs = (performance.now() - t0) / N;
+  // remembered-answer path: serve speed vs the network path (same machine)
+  const cache = ac.createAnswerCache({ enabled: true, confidenceFloor: 0.4 });
+  const key = ac.answerCacheKey({ message: "speed probe" });
+  cache.maybeRemember(key, { status: "ok", text: "cached", provider: "mock", model: "m", trace_id: "t", confidence: 0.95, metadata: {} });
+  t0 = performance.now();
+  for (let i = 0; i < N; i++) cache.lookup(key);
+  const hitMs = (performance.now() - t0) / N;
+  const cases = [
+    { label: "KB context < 100ms", ok: kbMs < 100, v: kbMs },
+    { label: "policy ตัดสิน < 20ms", ok: polMs < 20, v: polMs },
+    { label: "แบบฝึกหัด < 5ms", ok: genMs < 5, v: genMs },
+    { label: "คำตอบจำได้ < 1ms", ok: hitMs < 1, v: hitMs },
+  ];
+  const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
+  const f3 = x => x.toFixed(3);
+  section(
+    "8) ความเร็วที่วัดจริง (สมองกฎ/KB — ไม่รอเครือข่าย)",
+    `เฉลี่ย ${N} รอบ: KB ${f3(kbMs)}ms (เกณฑ์ <100) · policy ${f3(polMs)}ms (<20) · สร้างแบบฝึกหัด ${f3(genMs)}ms (<5) · คำตอบที่จำได้ ${f3(hitMs)}ms (<1) — ทางลัดเดียวที่อนุญาต = จำคำตอบที่ผ่านการตรวจแล้ว (docs/10)`,
+    pct, "100%", pct === 100
+  );
+}
+
 /* ── print ── */
 console.log("| ตัวชี้วัด | คะแนน | เกณฑ์ผ่าน | ผล |");
 console.log("|---|---|---|---|");
@@ -184,5 +223,5 @@ for (const r of rows) {
   console.log(`| <sub>${r.detail}</sub> | | | |`);
 }
 const allPass = rows.every(r => r.pass);
-console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (m12 fusion เข้า scorecard แล้ว)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
+console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (ความเร็วเข้า scorecard แล้ว ด่าน 8)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
 process.exit(allPass ? 0 : 1);

@@ -69,6 +69,7 @@ const SMOKES = {
   "m25-contribution-gate": ["tigamodel/scripts/smoke-contribution-gate.mjs", "tigamodel/scripts/smoke-kb-compliance.mjs"],
   "m20-jev-policy": ["tigamodel/scripts/smoke-jev-policy.mjs", "tigamodel/scripts/smoke-reasoning.mjs"],
   "m12-fusion": ["tigamodel/scripts/smoke-fusion.mjs"],
+  "m32-speed-answer-cache": ["tigamodel/scripts/smoke-answer-cache.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);
@@ -111,6 +112,7 @@ console.log("\n5) kill switches");
     { switch: "tiga_personalized_plans", file: "tigamodel/teaching/skill-state-plans.js" },
     { switch: "tiga_jev_policy", file: "tigamodel/teaching/teaching-loop.js" },
     { switch: "DEFAULT_CHANNEL_WEIGHTS", file: "tigamodel/multimodal/fusion.js" },
+    { switch: "tiga_answer_cache", file: "tigamodel/performance/answer-cache.js" },
   ];
   for (const { switch: sw, file } of SWITCHES) {
     if (!existsSync(file)) { bad(sw, `planned switch file missing: ${file}`); continue; }
