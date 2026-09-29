@@ -91,6 +91,16 @@ ability ต่ำ→ผ่อนระดับ สูง→เพิ่มร�
 งานที่เหลือคือ adapter อ่าน `learning_update_skill_state` มาเป็น array ability เท่านั้น
 (wiring ไม่ใช่ตรรกะใหม่)
 
+## ส่วนที่ 3.7: §7 — เครื่องถ่วงน้ำหนักหลายสัญญาณส่งมอบแล้ว (m12/m21 → done)
+
+`tigamodel/multimodal/fusion.js` + smoke **17/17**: สัญญาณขัดกันหลายช่อง → ฝั่ง weighted-confidence
+สูงกว่าชนะ **deterministic** (ทำซ้ำได้เหมือนเดิม — ยกเว้น timestamp ของ schema ที่ตั้งใจประทับ) ·
+§17 คำตอบตรงจากนักเรียนชนะเสมอ (ไม่ถูกเฉลี่ยทิ้ง) · **weight ต่อช่องตั้ง 0 ได้ = kill switch**
+(`DEFAULT_CHANNEL_WEIGHTS`) · vision/audio weight 0 ตาม §16 — อ้างอิงใบหน้า/เสียงชนะไม่ได้จนกว่าจะมี
+encoder จริงที่มี consent · **provenance แนบทุกคำตัดสิน** (ผู้ชนะ+ผู้แพ้+น้ำหนักที่ใช้ = ตรวจสอบย้อนหลังได้) —
+wired ผ่าน web.js (`fuseMultimodalStates`/`confidentMultimodalStates`) + จดทะเบียน honest registry
+(`multimodal_fusion`) + **scorecard มีด่าน 7 แล้วตลอดไป**
+
 ## ส่วนที่ 3: วิธีใช้งาน (สำหรับเจ้าของและเอเจนต์คนถัดไป)
 
 ```bash

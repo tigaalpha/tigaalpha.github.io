@@ -27,7 +27,7 @@ const REAL_SB = readFileSync("supabase-client.ts", "utf8");
 ioSync("supabase-client.ts", "export const sb = null;\n");
 try {
   execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
-  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 } finally {
   ioSync("supabase-client.ts", REAL_SB);
 }
@@ -144,6 +144,38 @@ console.log("╚═════════════════════�
   );
 }
 
+/* ── 7. Multimodal fusion (m12): confidence-weighted arbiter + kill switch ── */
+{
+  const fus = await M("multimodal/fusion.js");
+  const sig = [
+    { channel: "session",     state: "confusion", probability: 0.8, confidence: 0.75, evidence: ["acc 55%"] },
+    { channel: "history",     state: "confusion", probability: 0.3, confidence: 0.4 },
+    { channel: "self_report", state: "confusion", probability: 0.85, confidence: 0.9 },
+    { channel: "session",     state: "perceived_difficulty", probability: 0.7, confidence: 0.5 },
+    { channel: "history",     state: "perceived_difficulty", probability: 0.6, confidence: 0.8 },
+  ];
+  const r1 = fus.fuseMultimodalSignals({ signals: sig });
+  const r2 = fus.fuseMultimodalSignals({ signals: sig });
+  const noTs = r => JSON.stringify((r || []).map(e => ({ ...e, timestamp: "" })));
+  const det = noTs(r1) === noTs(r2);
+  const confWin = r1 && r1.find(f => f.state === "confusion");
+  const srDominance = confWin && confWin.fusion && confWin.fusion.winner_channel === "self_report";
+  const killed = fus.fuseMultimodalSignals({ signals: sig, weights: { self_report: 0, session: 0 } });
+  const ks = killed && killed.find(f => f.state === "confusion");
+  const killWorks = ks && ks.fusion && ks.fusion.winner_channel === "history";
+  const banned = fus.fuseMultimodalSignals({ signals: [
+    { channel: "vision", state: "enjoyment", probability: 0.99, confidence: 0.99 },
+    { channel: "audio", state: "enjoyment", probability: 0.9, confidence: 0.9 },
+  ]});
+  const cases = [det, !!srDominance, !!killWorks, banned === null];
+  const pct = (cases.filter(Boolean).length / cases.length) * 100;
+  section(
+    "7) ถ่วงน้ำหนักหลายสัญญาณ (fusion)",
+    `ตัดสินซ้ำได้เหมือนเดิม: ${det ? "ใช่" : "ไม่!"} · คำตอบตรงจากนักเรียนชนะเสมอ: ${srDominance ? "ใช่" : "ไม่"} · สวิตช์ปิดต่อช่องได้: ${killWorks ? "ใช่" : "ไม่"} · ช่องห้าม (ใบหน้า/เสียง) ชนะไม่ได้: ${banned === null ? "ใช่" : "ไม่!"}`,
+    pct, "100%", pct === 100
+  );
+}
+
 /* ── print ── */
 console.log("| ตัวชี้วัด | คะแนน | เกณฑ์ผ่าน | ผล |");
 console.log("|---|---|---|---|");
@@ -152,5 +184,5 @@ for (const r of rows) {
   console.log(`| <sub>${r.detail}</sub> | | | |`);
 }
 const allPass = rows.every(r => r.pass);
-console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (m08/m11 ต่อคิว)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
+console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (m12 fusion เข้า scorecard แล้ว)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
 process.exit(allPass ? 0 : 1);
