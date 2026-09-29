@@ -61,7 +61,15 @@ hookSrc = hookSrc
   .replace('from "./shared-infra"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
   .replace('from "./ai-chat-context"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
   .replace('from "./ai-backend"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
-  .replace('from "./use-autoteach"', `from "${process.cwd()}/use-autoteach.ts"`);   // real module (pure localStorage, jsdom-safe)
+  .replace('from "./use-autoteach"', `from "${process.cwd()}/use-autoteach.ts"`)   // real module (pure localStorage, jsdom-safe)
+  .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`)   // pure, dependency-free (Practice Mode v4)
+  .replace('from "./jev"', `from "${process.cwd()}/${OUT}/jev-stub.js"`);   // jev calls ai-backend (network) — never ok in jsdom, the hook's fallback path is what runs
+writeFileSync(`${OUT}/jev-stub.js`, `/* jev stub: every task reports not-ok so the hook's pre-Jev fallback path runs —
+   same behavior as a device with no Jev key configured */
+export async function jevTask() { return { ok: false }; }
+export function jevScore() { return null; }
+export function jevChoice() { return null; }
+export function jevNoul() { return null; }\n`);
 writeFileSync(`${OUT}/use-practice-mode.testable.ts`, hookSrc);
 writeFileSync(`${OUT}/music-engine-stub.js`, `/* minimal stand-in for the pieces of music-engine the hook imports:
    audio output + listener lifecycle, no real audio (jsdom) */
@@ -92,6 +100,7 @@ export function getSR() { return null; }
    paths — those resolve fine from the repo root (esbuild runs there), no stubs needed */
 writeFileSync(`${OUT}/infra-stub.js`, `/* shared-infra / ai-chat-context / ai-backend pieces the hook uses */
 export function logActivity() {}
+export function logUsage() {}   // usage analytics — a no-op in the harness
 export function dayKey(d) { const x = d || new Date(); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); }
 export function recordMemory(label, acc) { try { const m = JSON.parse(localStorage.getItem("tg_memory") || "null") || { recent: [] }; m.recent = [{ label, acc, t: dayKey() }, ...(m.recent || []).filter(r => r.label !== label)].slice(0, 12); localStorage.setItem("tg_memory", JSON.stringify(m)); } catch (e) {} }
 export async function fetchChatCompletion() { return ""; }
@@ -122,7 +131,9 @@ execSync(
     .replace('from "./i18n"', `from "${process.cwd()}/i18n.ts"`)
     .replace('from "./speech"', `from "${process.cwd()}/${OUT}/speech-stub.js"`)
     .replace('from "./use-practice-coach"', `from "${process.cwd()}/use-practice-coach.ts"`)
-    .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`);
+    .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`)
+    .replace('from "./shared-infra"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)   // overlay only uses logUsage from it (no supabase pull in jsdom)
+    .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`);   // pure, dependency-free (Practice Mode v4)
   writeFileSync(`${OUT}/PracticeOverlay.testable.tsx`, ovSrc);
   execSync(
     `npx esbuild ${OUT}/PracticeOverlay.testable.tsx --bundle --outfile=${OUT}/ovroot/PracticeOverlay.js --format=esm --platform=browser --loader:.tsx=tsx --jsx=automatic --external:react --external:react-dom`,
