@@ -32,7 +32,7 @@
 | Core: delta→weight (clamp 0.5–2.0, <5 ตัวอย่าง = 1.0) | `tigamodel/teaching/strategy-analyzer.js` | ✅ smoke 9/9 |
 | เชื่อม policy จริง: reorder กฎตาม weight (first-match-wins ไม่ถูกปลอมแต้ม) | ฟังก์ชัน `applyPolicyWeights` เดียวกัน | ✅ พิสูจน์ END-TO-END ผ่าน `createTeachingPolicy()` จริงว่าเปลี่ยนการตัดสิน |
 | Smoke ตามสัญญาใน docs/05 §1 ครบทุกข้อ | `tigamodel/scripts/smoke-strategy-analyzer.mjs` | ✅ 9/9 (รวม kill switch, malformed rows, stable sort) |
-| SQL: `app_settings.tiga_policy_weights` + RPC set/get + seed switch-off | `supabase-policy-weights-migration.sql` | ⏳ **รออนุมัติเจ้าของ** |
+| SQL: `app_settings.tiga_policy_weights` + RPC set/get + seed switch-off | `supabase-policy-weights-migration.sql` | ✅ อนุมัติแล้ว — รอเจ้าของกด Run ใน SQL Editor |
 
 ทำไม reorder ไม่ใช่ "แก้เล่น ๆ": `policy.js` เลือกกฎแรกที่ match — กฎที่ข้อมูลจริงบอกว่าได้ผล
 จึงได้ลองก่อนเมื่อนักเรียนตรงเงื่อนไขหลายกฎพร้อมกัน ส่วน probability ของ state ไม่ถูกแตะ
@@ -78,11 +78,15 @@ node tigamodel/scripts/smoke-strategy-analyzer.mjs   # ตัวเดียว�
 
 ## ส่วนที่ 4: คิวงานถัดไป (จาก `nextActions()` ของแผนจริง — ไม่ใช่ความเห็น)
 
-1. **รอการตัดสินใจของเจ้าของ (2 รายการ — ถูกที่สุด ปลดล็อกเยอะสุด):**
-   - `supabase-learning-data-migration.sql` → ปลดล็อก §3, §9
-   - `supabase-policy-weights-migration.sql` → เปิด §1 ให้ใช้งานจริง
-2. **พร้อมลงมือ (ไม่ติดอะไร):** §4 retrieval eval, §5 Jev policy, §7 fusion, §8 governor, §10 voice
-3. **ยังบล็อก:** §3, §9 (รอข้อมูลจริงจากข้อ 1)
+**อัปเดตสถานะ 2026-09-29:** เจ้าของอนุมัติ SQL ทั้งสองตัวแล้วในบทสนทนา ("อนุญาต ให้ทำได้ทั้งสองข้อ")
+— `OWNER_APPROVALS` ใน plan-v3.mjs บันทึกอนุมัติแล้ว เหลือขั้น apply ซึ่งทำได้จากเครื่องเจ้าของเท่านั้น
+(sandbox ไม่มี database credential ตามธรรมเนียม repo — ทุก migration ออกแบบให้รันใน Supabase SQL Editor):
+
+1. **Supabase SQL Editor** (project `gsaqgbracxnucdmtmcxz`) → paste → Run:
+   - `supabase-learning-data-migration.sql` → แล้วรัน `node scripts/verify-learning-data.mjs` (ต้อง 21/21)
+   - `supabase-policy-weights-migration.sql` → แล้วตรวจตาม VERIFICATION ท้ายไฟล์ (seed ต้องเป็น `enabled:false`)
+2. **พร้อมลงมือ (ไม่ติดอะไร):** §5 Jev policy, §7 fusion, §8 governor, §10 voice
+3. **ปลดล็อกทันทีเมื่อ apply เสร็จ:** §3 (แผนเฉพาะบุคคล) + §9 (KB ตามปัญหาจริง) + เปิดสวิตช์ §1 (admin_set_policy_weights)
 
 กติกาเหล็กทั้ง 6 ข้ออยู่ใน `STEEL_RULES` ของ `plan-v3.mjs` — ฉบับโค้ดคือฉบับจริง
 เอกสารนี้อธิบายมัน ไม่ได้เป็นเจ้าของมัน

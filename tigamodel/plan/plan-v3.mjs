@@ -28,8 +28,8 @@ export const STEEL_RULES = [
 ];
 
 export const OWNER_APPROVALS = [
-  { item: "learning-data-migration", label: "supabase-learning-data-migration.sql (7 ตาราง + RLS + RPCs)", approved: false },
-  { item: "policy-weights-migration", label: "supabase-policy-weights-migration.sql (RPC + seed switch-off)", approved: false },
+  { item: "learning-data-migration", label: "supabase-learning-data-migration.sql (7 ตาราง + RLS + RPCs)", approved: true, approvedBy: "owner (this conversation, 2026-09-29: อนุญาต ให้ทำได้ทั้งสองข้อ)" },
+  { item: "policy-weights-migration", label: "supabase-policy-weights-migration.sql (RPC + seed switch-off)", approved: true, approvedBy: "owner (this conversation, 2026-09-29: อนุญาต ให้ทำได้ทั้งสองข้อ)" },
 ];
 
 export const MILESTONES = [
@@ -74,19 +74,21 @@ export const MILESTONES = [
   {
     id: "m05-apply-learning-data",
     title: "§2 Apply learning-data migration (ปลดล็อก §3/§9)",
-    state: "awaiting-owner",
+    state: "code",
     deps: ["m03-plan-v3-self-enforcing"],
     acceptance: "dry-run BEGIN/ROLLBACK → apply → verify-learning-data 21/21 → ซ้อมจริง 1 รอบเห็นแถวใน learning_sessions",
     evidence: ["supabase-learning-data-migration.sql", "scripts/verify-learning-data.mjs"],
+    activation: "เจ้าของอนุมัติแล้ว (บันทึกใน OWNER_APPROVALS) — เหลือให้เจ้าของกด Run ไฟล์ SQL ใน Supabase SQL Editor (sandbox ไม่มี database credential ตามธรรมเนียม repo) แล้วรัน scripts/verify-learning-data.mjs",
     needsApproval: "learning-data-migration",
   },
   {
     id: "m06-apply-policy-weights",
     title: "§1(ต่อ) Apply policy-weights migration + รอบแรกของ analyzer กับข้อมูลจริง",
-    state: "awaiting-owner",
+    state: "code",
     deps: ["m04-strategy-analyzer"],
     acceptance: "migration apply ตาม VERIFICATION ในไฟล์ SQL แล้ว analyzer รันกับ outcomes จริง ≥50 รายการ → strategy ดีสุดได้ weight ≥1.2 (log ยืนยัน)",
     evidence: ["supabase-policy-weights-migration.sql", "tigamodel/teaching/strategy-analyzer.js"],
+    activation: "เจ้าของอนุมัติแล้ว — เหลือให้เจ้าของกด Run ไฟล์ SQL ใน Supabase SQL Editor ตรวจ seed (enabled:false) แล้ว top admin เรียก admin_set_policy_weights เมื่อ outcomes จริงพอ (≥50)",
     needsApproval: "policy-weights-migration",
   },
   {
