@@ -75,13 +75,24 @@ async function runSql(sql) {
     const r = await c.query(sql);
     return r;
   }
-  // management-API path: ensure CLI, link-free `db execute` via access token
+  // management-API path: ensure CLI + link record, then `db query` with a real temp file
   const cli = "node_modules/.tmp-supabase-cli/supabase";
   if (!existsSync(cli)) {
     console.log("(downloading supabase CLI on demand…)");
     execSync(`mkdir -p node_modules/.tmp-supabase-cli && curl -sSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz | tar -xz -C node_modules/.tmp-supabase-cli supabase`, { stdio: "inherit" });
   }
-  execSync(`${cli} db execute --project-ref ${PROJECT_REF} --file -`, { input: sql, stdio: ["pipe", "inherit", "inherit"], env: { ...process.env, SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN } });
+  // `--linked` reads the ref from supabase/.temp/project-ref (written by `link`)
+  const refFile = "supabase/.temp/project-ref";
+  if (!existsSync(refFile)) {
+    console.log("(linking project ref once…)");
+    execSync(`${cli} link --project-ref ${PROJECT_REF}`, { stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN } });
+  }
+  const { mkdtempSync, writeFileSync: wf } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const tmpSql = join(mkdtempSync(join(tmpdir(), "apply-sql-")), "migration.sql");
+  wf(tmpSql, sql);
+  execSync(`${cli} db query --linked --file ${tmpSql}`, { stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, SUPABASE_ACCESS_TOKEN: process.env.SUPABASE_ACCESS_TOKEN } });
   return null;
 }
 
