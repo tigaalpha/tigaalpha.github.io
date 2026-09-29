@@ -4605,6 +4605,24 @@ const BROADCAST_SEEN_KEY = "tg_broadcast_seen";
 function readBroadcastSeen() { try { return localStorage.getItem(BROADCAST_SEEN_KEY); } catch (e) { return null; } }
 function markBroadcastSeen(id) { try { localStorage.setItem(BROADCAST_SEEN_KEY, String(id)); } catch (e) {} }
 
+/* Render-guard helpers (crash hardening): every field that reaches a JSX text
+   child from AI output, localStorage or a database row is coerced to a string
+   first. React throws error #31 ("Objects are not valid as a React child") —
+   the full-page "เกิดข้อผิดพลาด" crash — when an object lands in a text slot,
+   so a malformed/stale tip or announcement must degrade to readable text,
+   never render raw. Plain objects (e.g. an i18n map) are flattened by joining
+   their string values; everything else falls back to "". */
+function safeStr(v) {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(x => (x == null ? "" : safeStr(x))).filter(Boolean).join(", ");
+  if (typeof v === "object") {
+    try { return Object.values(v).map(x => (x == null ? "" : safeStr(x))).filter(Boolean).join(", "); } catch (e) { return ""; }
+  }
+  return "";
+}
+
 // Auto Teaching tip history (local, same pattern as the practice/activity logs above) —
 // powers the small "recent tips" dashboard list. Not synced server-side.
 const AUTOTEACH_LOG_KEY = "tg_autoteach_log";
@@ -7255,8 +7273,8 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
             )}
             {last ? (
               <div className="atdash-last">
-                <div className="atdash-last-w">{last.weakness}</div>
-                <div className="atdash-last-t">{last.tip}</div>
+                <div className="atdash-last-w">{safeStr(last.weakness)}</div>
+                <div className="atdash-last-t">{safeStr(last.tip)}</div>
                 <div className="atdash-last-d">{new Date(last.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
               </div>
             ) : (
@@ -13662,7 +13680,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 onError={e => { e.target.style.display = "none"; }} />
             )}
             <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap", cursor: broadcast.link ? "pointer" : "default" }}
-              onClick={broadcast.link ? openBroadcastLink : undefined}>{(broadcast.i18n && broadcast.i18n[lang]) || broadcast.message}</div>
+              onClick={broadcast.link ? openBroadcastLink : undefined}>{safeStr((broadcast.i18n && broadcast.i18n[lang]) || broadcast.message)}</div>
             <button className="atpopup-ok" onClick={dismissBroadcast}>{lang === "th" ? "รับทราบ" : lang === "zh" ? "知道了" : "Got it"}</button>
           </div>
         </div>
@@ -13810,7 +13828,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       })()}
 
       {/* Auto Teaching 2.0 — coaching card: weakness + the learner's own data chart + a cited รู้ไว้ใช่ว่า micro-lesson + 30s knowledge quiz (plan §4; TTS excluded per owner) */}
+      {/* Render-guard: this popup renders at the PianoApp root (outside every
+          other SafeZone), so a malformed AI tip used to be able to throw React
+          #31 and blank the whole app. SafeZone keeps a bad tip a dismissible
+          popup instead of a full-page error; safeStr keeps object-shaped
+          weakness/steps fields from ever reaching a JSX child. */}
       {autoTeachTip && !broadcast && (
+        <SafeZone label="ครู TiGA แนะนำ" fallbackText="คำแนะนำข้อความนี้แสดงไม่สำเร็จ — แอปยังใช้งานได้ตามปกติ แตะปิดเพื่อซ่อนกล่องนี้">
         <div className="atpopup" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }}>
           <div className="atpopup-card" onClick={e => e.stopPropagation()}>
             <div className="atpopup-hd">
@@ -13818,7 +13842,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="atpopup-tt">{lang === "th" ? "ครู TiGA แนะนำ" : lang === "zh" ? "TiGA老师建议" : "Coach TiGA's Tip"}</div>
               <button className="atpopup-x" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }} aria-label="close">×</button>
             </div>
-            <div className="atpopup-weak">{autoTeachTip.weakness}</div>
+            <div className="atpopup-weak">{safeStr(autoTeachTip.weakness)}</div>
             {autoTeachTip.visual && <div style={{ margin: "8px 0 2px", borderRadius: 12, overflow: "hidden" }}><TeachVisual type={autoTeachTip.visual.type} data={autoTeachTip.visual.data} lang={lang} /></div>}
             {autoTeachTip.knowledge && (() => {
               const k = autoTeachTip.knowledge;
@@ -13874,11 +13898,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               );
             })()}
             <ol className="atpopup-steps">
-              {autoTeachTip.steps.map((s, i) => (
+              {(autoTeachTip.steps || []).map((s, i) => (
                 <li key={i}>
                   <button type="button" className="atpopup-step"
                     onClick={() => { try { recordTipAction("follow", autoTeachTip.feature); logUsage("atip", "follow"); } catch (e) {} setAutoTeachTip(null); goToCoachStep(s, autoTeachTip.feature); }}>
-                    <span className="atpopup-step-tx">{s}</span>
+                    <span className="atpopup-step-tx">{safeStr(s)}</span>
                     <span className="atpopup-step-go">➜</span>
                   </button>
                 </li>
@@ -13892,6 +13916,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </div>
           </div>
         </div>
+        </SafeZone>
       )}
     </div>
   );
