@@ -97,7 +97,10 @@ async function main() {
   check("generator: deterministic per seed (consistency quality bar)", () => {
     const a = gen.generateStudentExercise(4, 2, 42);
     const b = gen.generateStudentExercise(4, 2, 42);
-    if (a.task !== b.task) throw new Error("same seed gave different exercise");
+    // content equality, not object identity: generateExercise returns a NEW
+    // object every call (by design), so identity would always differ even
+    // though the seeded PRNG reproduces the exercise byte-for-byte.
+    if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error("same seed gave different exercise");
   });
 
   check("generator: varies across seeds (student never gets identical sheet)", () => {
