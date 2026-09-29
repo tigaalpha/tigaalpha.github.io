@@ -25,6 +25,7 @@ export const STEEL_RULES = [
   "client ห้ามส่งค่า absolute เข้า DB — เดินผ่าน RPC additive/blend ฝั่ง server",
   "ทุก feature ใหม่มี kill switch ใน app_settings — ปิดได้ใน 1 นาทีไม่ต้อง deploy ใหม่",
   "เสร็จ = smoke ใหม่ผ่าน + eval ผ่าน + CI build ผ่าน ใน merge เดียวกัน; SQL แตะของจริงต้องมีอนุมัติเฉพาะรายการจากเจ้าของ",
+  "(เสนอเพิ่ม รอเจ้าของอนุมัติ — docs/07) ห้ามเพิ่มแหล่งความรู้ที่ไม่ผ่านตารางตรวจ: ข้อเท็จจริงสาธารณะ + ถอดความ + ที่มาบันทึกเท่านั้น; ผลงานคุ้มครองลิขสิทธิ์ห้ามเข้า KB โดยไม่มี license; ห้ามใช้ชื่อ/โลโก้สถาบันเชิงพาณิชย์; หมวดใหม่ต้องผ่าน smoke audit ก่อนขึ้น",
 ];
 
 export const OWNER_APPROVALS = [
@@ -157,12 +158,12 @@ export const MILESTONES = [
     evidence: ["use-voice-tutor.ts"],
   },
   {
-    id: "m15-scorecard",
-    title: "เครื่องวัดผลโมเดล 5 ด่านในคำสั่งเดียว (scorecard)",
-    state: "done",
+    id: "m16-legal-knowledge-strategy",
+    title: "แผนกลยุทธ์กฎหมายเรื่องที่มาความรู้ (docs/07) — เอกสารเท่านั้น รอเจ้าของเลือกข้อที่จะลงมือ",
+    state: "planned",
     deps: ["m03-plan-v3-self-enforcing"],
-    acceptance: "scripts/tiga-scorecard.mjs วัดจริง 5 ด่าน: eval suite 583 เคส (≥75%) / retrieval 24 probe (gate 80%) / policy 5 กฎ 100% / generator 50 ชุด 100% / analyzer 100% — ตกด่านไหน exit 1",
-    evidence: ["scripts/tiga-scorecard.mjs"],
+    acceptance: "A: smoke audit ความใกล้เคียงต้นฉบับ (n-gram gate) + B: จัดหมวดแหล่ง + C: กติกาเครื่องหมายการค้า + D: หมวดสุขภาพครบ disclaimer + E: หน้านโยบายแหล่งความรู้ + G: provenance เป็นหลักฐาน; H: ทนาย IP ตรวจก่อนขยายตัว — ทั้งหมดยังไม่เริ่มจนกว่าเจ้าของจะสั่งต่อ",
+    evidence: ["tigamodel/docs/07-legal-knowledge-strategy.md"],
   },
 ];
 
