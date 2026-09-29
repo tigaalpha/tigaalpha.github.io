@@ -27,6 +27,11 @@ export const MULTIMODAL_REGISTRY = [
   { id: "state_estimator", kind: "engine", label: { th: "ประมาณสถานะผู้เรียน (fusion v1)", en: "Student state estimation (fusion v1)", zh: "学习者状态估计" },
     status: "implemented", modalities: ["self_report", "session", "history"], spec: "§14–15" },
 
+  /* ── multimodal signal FUSION — IMPLEMENTED (m12, §7) ── */
+  { id: "multimodal_fusion", kind: "engine", label: { th: "ถ่วงน้ำหนักหลายสัญญาณตาม confidence (m12)", en: "Confidence-weighted multimodal fusion (m12)", zh: "多模态置信度加权融合" },
+    status: "implemented", modalities: ["self_report", "session", "history", "conversation"], spec: "§7",
+    note: "deterministic arbiter (multimodal/fusion.js): higher-confidence channel wins, per-channel weight 0 = kill switch, §17 self-report dominance; vision/audio weight 0 until consented encoders exist (§16)" },
+
   /* ── camera modes — PLANNED (§19) ── */
   { id: "front_camera", kind: "input", label: { th: "กล้องหน้า (สัญญาณที่สังเกตได้)", en: "Front camera (observable signals)", zh: "前置摄像头" },
     status: "planned", modalities: ["vision"], spec: "§19",

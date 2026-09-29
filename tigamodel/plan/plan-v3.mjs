@@ -136,10 +136,10 @@ export const MILESTONES = [
   {
     id: "m12-fusion",
     title: "§7 Multimodal fusion v1 — ถ่วงน้ำหนักตาม confidence",
-    state: "planned",
+    state: "done",
     deps: ["m03-plan-v3-self-enforcing"],
-    acceptance: "smoke-fusion: 3 สัญญาณขัดกัน deterministic → ฝั่ง confidence สูงกว่าชนะทุกช่อง; weight ต่อสัญญาณตั้ง 0 ได้ (kill switch)",
-    evidence: ["tigamodel/student/state-estimator.js", "tigamodel/multimodal/interfaces.js"],
+    acceptance: "fusion.js + smoke-fusion 17/17: 3 สัญญาณขัดกัน deterministic (ทำซ้ำได้เหมือนเดิม ยกเว้น timestamp ของ schema), ฝั่ง weighted-confidence สูงกว่าชนะทุกช่อง, §17 คำตอบตรงจากนักเรียนชนะเสมอ, weight ต่อช่องตั้ง 0 ได้ (DEFAULT_CHANNEL_WEIGHTS kill switch), provenance แนบทุกคำตัดสิน (ผู้ชนะ+ผู้แพ้+น้ำหนัก), vision/audio weight 0 ตาม §16 — ชนะไม่ได้",
+    evidence: ["tigamodel/multimodal/fusion.js", "tigamodel/scripts/smoke-fusion.mjs", "tigamodel/multimodal/interfaces.js"],
   },
   {
     id: "m13-cost-governor",
@@ -199,11 +199,11 @@ export const MILESTONES = [
   },
   {
     id: "m21-fusion-v1",
-    title: "§7 Multimodal fusion — สัญญาณหลายทางชนะด้วย confidence",
-    state: "planned",
+    title: "§7 Multimodal fusion — สัญญาณหลายทางชนะด้วย confidence (ส่งมอบร่วมกับ m12 — งานเดียวกัน)",
+    state: "done",
     deps: ["m03-plan-v3-self-enforcing"],
-    acceptance: "smoke-fusion: 3 สัญญาณขัดกัน deterministic → ฝั่ง confidence สูงกว่าชนะทุกช่อง; weight ต่อสัญญาณตั้ง 0 ได้",
-    evidence: ["tigamodel/student/state-estimator.js", "tigamodel/multimodal/interfaces.js"],
+    acceptance: "เดียวกับ m12: fusion.js deterministic confidence-weighted (smoke-fusion 17/17), §17 self-report dominance, per-channel weight 0 = kill switch (DEFAULT_CHANNEL_WEIGHTS), §16 vision/audio ชนะไม่ได้, provenance แนบทุก estimate; wired ผ่าน web.js (fuseMultimodalStates/confidentMultimodalStates) + จดทะเบียน honest registry (multimodal_fusion) + scorecard ด่าน 7",
+    evidence: ["tigamodel/multimodal/fusion.js", "tigamodel/scripts/smoke-fusion.mjs", "tigamodel/web.js", "scripts/tiga-scorecard.mjs"],
   },
   {
     id: "m22-cost-governor",

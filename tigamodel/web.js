@@ -310,9 +310,24 @@ export function teacherAdviceFor(pr) {
    (direct answer REPLACES performance guesses — spec §17's "คำตอบโดยตรงของ
    นักเรียนควรมีน้ำหนักสูงกว่าการเดาจากใบหน้าเพียงอย่างเดียว"). ── */
 import { estimateStates as _estimateStates, makeStudentFeedback, SELF_REPORT_OPTIONS } from "./student/state-estimator.js";
+/* §7 multimodal fusion (m12) — deterministic confidence-weighted arbiter for
+   combining signals from several channels; per-channel weight 0 = kill switch,
+   self-report dominance per §17, vision/audio can never win (§16). */
+import { fuseMultimodalSignals as _fuseMultimodalSignals, confidentFusion as _confidentFusion, DEFAULT_CHANNEL_WEIGHTS as _FUSION_WEIGHTS } from "./multimodal/fusion.js";
 export function estimateStudentStates(args) {
   try { return _estimateStates(args || {}); } catch (e) { return null; }
 }
+/* Fuse raw channel signals into per-state estimates. args =
+   { signals: [...], weights?: { channel: number } }. Errors/malformed → null. */
+export function fuseMultimodalStates(args) {
+  try { return _fuseMultimodalSignals(args && typeof args === "object" ? args : null); } catch (e) { return null; }
+}
+/* Same, but only states at or above a confidence floor (default 0.5) survive —
+   weak inferences stay evidence, never teaching decisions. */
+export function confidentMultimodalStates(args, floor) {
+  try { return _confidentFusion(args && typeof args === "object" ? args : null, floor); } catch (e) { return null; }
+}
+export const FUSION_CHANNEL_WEIGHTS = _FUSION_WEIGHTS;
 export function newStudentFeedback(args) {
   try { return makeStudentFeedback(args || {}); } catch (e) { return null; }
 }
