@@ -1,5 +1,6 @@
 import { readMemory, writeMemory } from "./ai-chat-context";
 import { logUsage } from "./shared-infra";
+import { recordCoachIntervention, recordTipFollowed } from "./learning-data";
 
 /* ── use-autoteach.ts — แม่นยำสุดของระบบ Auto Teaching (แผน 10 ข้อ อนุมัติ 2026-09-19)
    หน้าที่ของไฟล์นี้ (ทุกอย่าง pure/local — ไม่ network ไม่ SQL):
@@ -127,6 +128,10 @@ export function openAdvice(tip, strugglesNow) {
   try {
     const rec = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, t: Date.now(), topic: (tip && tip.topic) || (tip && tip.weakness) || null, strategyId: (tip && tip.strategyId) || null, before: (strugglesNow || []).slice(0, 3).map(s => ({ label: s.label, acc: s.acc })), resolved: false, outcome: null };
     writeOutcomes([...readAutoTeachOutcomes(), rec]);
+    // Learning Data v1 (§4): การ์ดครูที่โชว์ = intervention หนึ่งครั้ง — บันทึก
+    // ลง learning_interventions พร้อม strategy ที่โมเดลเลือก และข้อความจริงที่ผู้เรียน
+    // อ่าน เพื่อให้ฝั่ง admin ตอบได้ว่า "กลยุทธ์ไหนได้ผล" (best-effort เสมอ)
+    try { recordCoachIntervention({ weakness: tip && tip.weakness, topic: rec.topic, feature: tip && tip.feature, steps: tip && tip.steps }, { strategyId: rec.strategyId }); } catch (e) {}
     return rec.id;
   } catch (e) { return null; }
 }
@@ -160,6 +165,10 @@ export function recordTipAction(action, feature) {
     const list = readAutoTeachOutcomes();
     const rec = [...list].reverse().find(r => !r.action);
     if (rec) { rec.action = action; if (feature) rec.feature = feature; writeOutcomes(list); }
+    // Learning Data v1 (§7): พฤติกรรม "กดตามครู" เป็นข้อเท็จจริงที่วัดได้ —
+    // เขียนลง learning_observations เพื่อให้ฝั่ง admin เห็นอัตราการตามคำแนะนำ
+    // (best-effort, แขก/ยังไม่ apply migration = เงียบ ๆ ผ่านไป)
+    if (action === "follow") { try { recordTipFollowed(feature); } catch (e) {} }
   } catch (e) { /* best-effort */ }
 }
 export function actionStats() {

@@ -1,11 +1,11 @@
 import { L, tr } from "./i18n";
 import { useTiga } from "./tiga-gateway";   // Capability Hub via the lazy gateway (plan v3 1.5)
-import { dailySongFor } from "./use-play-along";
+import { dailySong } from "./play-along-progress";
+import { levelInfo } from "./App";
 import { readMemory } from "./ai-chat-context";
 import { readPracticeLog } from "./shared-infra";
 import { playUi } from "./music-engine";
 import { isMaxPlan } from "./payment";
-import { logUsage } from "./shared-infra";
 import { sb } from "./supabase-client";
 import { SONGS } from "./songs-data";
 /* ── ProfileDashboardPanel ──
@@ -19,9 +19,8 @@ import { SONGS } from "./songs-data";
    component import. Likewise questToday/readStreak/streakAtRisk/
    QUEST_GOAL are top-level in App.tsx but not exported, so they're
    threaded as props too. ── */
-export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, setHelpOpen, setFriendsOpen, setBuyCurrencyOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
+export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, chestLocked = false, schoolHW, setSchoolHW, homework, setHomework, setHomeworkLS, mySchoolName, coins, gems, session, onSignOut, setPage, setStudioView, setPricingOpen, setShopOpen, onOpenStorage, onOpenPvp, onOpenPet, setHelpOpen, setFriendsOpen, setAiModalType, setAiModalText, setAiModalLoading, setAiModalOpen, earnCoins, buyFreeze, openChestNow, exchangeGems, questToday, readStreak, streakAtRisk, leaveSchool, QUEST_GOAL, ClassQuestSection, SchoolLeaderboardSection, ProfilePage, onAskStruggle, onReplayDrill, charModel = "vanguard", charHat = "hat-straw", charOutfit = "out-tshirt", charWeapon = "wpn-stick", charAccessory = "acc-shield", owned = [] }) {
   const lc = L[lang];
-  const tiga = useTiga(m => m);   // null until the lazy model lands → the 🧠 bar hides honestly, then fills
   return (
         <div className="profscroll">
           {(() => {
@@ -52,7 +51,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
                   </div>
                   {chestAvail
                     ? <button className="dh-chest chestpulse" onClick={openChestNow}>🎁<span>{lc.dhClaim}</span></button>
-                    : <button className="dh-chest done" onClick={() => { setPage("studio"); setStudioView("menu"); }}>🎮<span>{lc.dhPlay}</span></button>}
+                    : <button className="dh-chest done" onClick={() => { setPage("studio"); setStudioView("menu"); }}>{chestLocked ? "🔒" : "🎮"}<span>{chestLocked ? lc.dhUnlock : lc.dhPlay}</span></button>}
                 </div>
                 {(schoolHW || (homework && homework.text)) && (
                   <div className="hwbar">
@@ -75,8 +74,9 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
             // TIGA Capability Hub: honest learner summary + today's quest hint.
             // Both come from real local data via whatever engines are registered;
             // a null line hides the row instead of showing filler.
+            const tiga = useTiga(m => m);   // null until the lazy model lands → the 🧠 bar hides honestly, then fills
             const summ = tiga ? tiga.tigaHub.learnerSummary(readMemory(), readPracticeLog(), profile) : null;
-            const ds = dailySongFor();
+            const ds = dailySong(levelInfo((profile && profile.exp) || 0).level, plan);
             const hint = tiga ? tiga.tigaHub.nextQuestHint(readMemory(), profile, { dailySong: ds ? tr(ds, lang) : null }) : null;
             const line = summ && summ.line ? (summ.line[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || summ.line.en) : null;
             const htip = hint && hint.tip ? (hint.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || hint.tip.en) : null;
@@ -101,7 +101,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
           {profile && profile.school_id && <SchoolLeaderboardSection lang={lang} schoolId={profile.school_id} />}
 
           <ProfilePage lang={lang} session={session} profile={profile} onSignOut={onSignOut} coins={coins} gems={gems}
-            onOpenShop={() => setShopOpen(true)} onOpenStorage={onOpenStorage} onOpenPvp={onOpenPvp} onOpenPet={onOpenPet} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onBuyCurrency={() => setBuyCurrencyOpen(true)} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill}
+            onOpenShop={() => setShopOpen(true)} onOpenStorage={onOpenStorage} onOpenPvp={onOpenPvp} onOpenPet={onOpenPet} onOpenHelp={() => setHelpOpen(true)} onOpenFriends={() => setFriendsOpen(true)} onExchangeGems={exchangeGems} onAskStruggle={onAskStruggle} onReplayDrill={onReplayDrill}
             charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />
         </div>
   );

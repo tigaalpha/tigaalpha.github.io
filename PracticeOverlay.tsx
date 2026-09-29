@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logUsage } from "./shared-infra";
 import { L } from "./i18n";
 import { Piano, pcOf } from "./music-engine";
 import { tigaStrategyLabel } from "./tiga-strategy-labels";   // light static module (plan v3 1.5)
@@ -6,6 +7,7 @@ import { newStudentFeedback, rerunLoopWithSelfReport } from "./tiga-gateway";   
 import { sttSupported, getSR } from "./speech";
 import { selfReportFromTranscript } from "./tiga-gateway";   // via the lazy gateway
 import { usePracticeCoach } from "./use-practice-coach";
+import { SPOT_CAP_NOTES } from "./practice-spot";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -33,8 +35,18 @@ function ResultBar({ label, pct, color }) {
     </div>
   );
 }
-function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo, onTipUpdate }) {
+function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo, onTipUpdate, startSpotPractice }) {
   const r = practiceResult;
+  // Practice v4 A1/A2: per-index miss counts flushed by finishPractice into the
+  // result snapshot — chips render the exact missed notes; the launcher's count
+  // is capped by the same SPOT_CAP_NOTES the cutter enforces.
+  const wrongByIdx = (r && r.wrongByIdx) || {};
+  const missIdxs = Object.keys(wrongByIdx).map(Number).filter(n => !isNaN(n) && practiceTarget && practiceTarget[n]).sort((a, b) => a - b);
+  const spotN = Math.min(missIdxs.length, SPOT_CAP_NOTES);
+  // §2.6 spot:clear — dismissing the launcher logs it (KPI guard: a clear is
+  // not a start). Local state only; a new result resets the card naturally.
+  const [spotCleared, setSpotCleared] = useState(false);
+  useEffect(() => { setSpotCleared(false); }, [r && r.label]);
   const dynPct = r.dyn ? Math.round(r.dyn.ok / (r.dyn.ok + r.dyn.miss) * 100) : null;
   const rhythmPct = r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null;
   const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
@@ -67,6 +79,22 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
         {r.isNewBest && <div className="presultbest">{lc.practiceNewBest}</div>}
       </div>
 
+      {/* Practice v4 A1: Spot Drill launcher — only when the just-finished
+          round actually missed something (honest hide otherwise). The cut
+          itself is buildSpotTarget's contract, proven by smoke S1-S8. */}
+      {startSpotPractice && spotN > 0 && !spotCleared && (
+        <div className="presultai pspot">
+          <div className="presultai-h">{lc.practiceSpotBtn}
+            <button className="atpopup-x" style={{ float: "right" }} aria-label="close" onClick={() => { try { logUsage("practice", "spot:clear"); } catch (e) {} setSpotCleared(true); }}>×</button>
+          </div>
+          <div className="presultai-tx">{lc.practiceSpotN.replace("{n}", String(spotN))}</div>
+          <div>{missIdxs.map(i => (
+            <span key={i} className="pchip pchip--miss">{pcOf(practiceTarget[i])}</span>
+          ))}</div>
+          <button className="atpopup-ok" style={{ marginTop: 8 }} onClick={startSpotPractice}>{lc.practiceSpotBtn}</button>
+        </div>
+      )}
+
       <div className="presultstats">
         <div className="presultstat">
           <div className="presultstat-v">{r.accuracy}%</div>
@@ -80,6 +108,10 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
         </div>
       </div>
 
+      {/* §2.5 practiceSpotDone: a just-finished SPOT round says so — the
+          learner knows the small loop paid off and the full drill is next. */}
+      {r.spotUsed && <div className="presultsub" style={{ color: "#34c759" }}>✓ {lc.practiceSpotDone}</div>}
+
       {(dynPct != null || rhythmPct != null) && (
         <div className="presultbars">
           {dynPct != null && <ResultBar label={lc.practiceDynLbl} pct={dynPct} color="#8ad4ff" />}
@@ -91,6 +123,24 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
           only after a genuinely good run (accuracy gate passed via prop) —
           the exact peak moment where an upgrade feels earned, not gated. */}
       {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA AI ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA AI老师保持下去" : "🔥 You're on a roll — keep it going with Teacher TIGA AI daily"}</button>}
+
+      {/* Jev practice-next (admin ⚡ toggle): the decision model's next-step
+          suggestion from this round's real signals, wired to the matching
+          action — replay stays here, coach navigates, boss/next-stage simply
+          keep the learner moving. Only renders when Jev answered; everything
+          about the screen is otherwise identical. */}
+      {r.jevNext && (
+        <div className="presultai" style={{ borderColor: "#8b5cf6" }}>
+          <div className="presultai-h">⚡ Jev {lang === "th" ? "แนะนำก้าวถัดไป" : lang === "zh" ? "下一步建议" : "suggests the next step"}</div>
+          <div className="presultai-tx">
+            {r.jevNext === "replay" ? (lang === "th" ? "ซ้ำ drill เดิมอีกครั้ง — ความแม่นยำยังต่ำกว่าที่ควรจะเป็น" : lang === "zh" ? "再练一次本条——准确率还没到位" : "Replay this drill — accuracy isn't at the bar yet")
+             : r.jevNext === "next_stage" ? (lang === "th" ? "ไปขั้นถัดไปได้แล้ว — ผ่านสบาย" : lang === "zh" ? "可以进入下一关了——这条已轻松通过" : "Move on to the next stage — this one is comfortably passed")
+             : r.jevNext === "boss" ? (lang === "th" ? "ลองโจทย์บอสของกลุ่มนี้ — พร้อมแล้ว" : lang === "zh" ? "挑战本组Boss——你已准备好" : "Attempt this group's Boss Challenge — you're ready")
+             : (lang === "th" ? "เปิดโค้ชให้ครูวางแผนให้ — สัญญาณผสมกันเล็กน้อย" : lang === "zh" ? "打开教练让老师做规划——信号有些混杂" : "Open the Coach for a teacher's plan — the signals are mixed")}
+          </div>
+          {r.jevNext === "replay" && <button className="songbtn ghost" style={{ marginTop: 8 }} onClick={restartPractice}>↻ {lang === "th" ? "เริ่ม drill เดิม" : lang === "zh" ? "重练本条" : "Replay drill"}</button>}
+        </div>
+      )}
 
       {/* TIGA Model verdict — the teaching loop ran locally on this drill's
           real signals (accuracy/misses/pauses/rhythm). Always visible when it
@@ -129,7 +179,7 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
     </div>
   );
 }
-export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, switchPracticeChordStyle, chordGroupSize = 0, onKeepGoing, showKeepGoing = false, metroBpm = null, onSetTempo = null, onTipUpdate = null }) {
+export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, practiceWrongByIdxRef = null, switchPracticeChordStyle, startSpotPractice = null, chordGroupSize = 0, onKeepGoing, showKeepGoing = false, metroBpm = null, onSetTempo = null, onTipUpdate = null }) {
   const lc = L[lang];
         // Grading (use-practice-mode) treats BOTH chord and progression drills
         // as block-style when the toggle says so — the display must gate on the
@@ -151,6 +201,12 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
         const remainingFingerMap = isBlockMode
           ? remainingIdxs.reduce((m, i) => { if (practiceFingers[i] != null) m[practiceTarget[i]] = practiceFingers[i]; return m; }, {})
           : {};
+        // Practice v4 A2: misses so far THIS round — a chip the learner keeps
+        // missing turns amber live (fresh read on every miss-driven re-render;
+        // practiceMiss state changes guarantee the re-render). Flushed into the
+        // result snapshot at finish, where the spot launcher reads it.
+        const liveMissMap = practiceWrongByIdxRef && practiceWrongByIdxRef.current
+          ? Object.fromEntries(practiceWrongByIdxRef.current) : {};
   if (practiceResult) {
     return (
       <div className="practiceov">
@@ -158,7 +214,7 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
           <div className="practicehtitle">{lc.practiceTitle}<small>{practiceLabel}</small></div>
           <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
         </div>
-        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} onTipUpdate={onTipUpdate} />
+        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} onTipUpdate={onTipUpdate} startSpotPractice={startSpotPractice} />
         <div className="practicefoot">
           <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>
           <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
@@ -243,8 +299,8 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
             <div className="practicechips">
               {practiceTarget.map((n, i) => (
                 <span key={i} className={`pchip${isBlockMode
-                  ? (practiceHitIdxs.includes(i) ? " done" : "")
-                  : (i < practiceIdx ? " done" : i === practiceIdx ? " cur" : "")}`}>
+                  ? (practiceHitIdxs.includes(i) ? " done" : liveMissMap[i] ? " pchip--retry" : "")
+                  : (i < practiceIdx ? " done" : i === practiceIdx ? " cur" : liveMissMap[i] ? " pchip--retry" : "")}`}>
                   {pcOf(n)}
                 </span>
               ))}

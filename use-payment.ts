@@ -62,26 +62,6 @@ export function usePayment({ profile, session, setProfile, lang, mascot, require
     }).then(r => r.json()).catch(() => null).then(refresh);
   }, []);
 
-  /* Coin/gem card purchase returning (?coins_paid=1&req=&session_id=). Same
-     verify-on-return path; the balance is re-read once it has been credited. */
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    if (p.get("coins_paid") == null) return;
-    const sid = p.get("session_id"), ok = p.get("coins_paid") === "1";
-    const url = new URL(window.location.href);
-    url.searchParams.delete("coins_paid"); url.searchParams.delete("req"); url.searchParams.delete("session_id");
-    window.history.replaceState({}, "", url.pathname + (url.search || ""));
-    if (!ok || !sid) return;
-    playUi("levelup");
-    fetch(SUPABASE_URL + "/functions/v1/verify-stripe-payment", {
-      method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: sid }),
-    }).then(r => r.json()).catch(() => null).then(() => {
-      sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
-        .then(({ data }) => { if (data) setProfile(data); });
-    });
-  }, []);
-
   // Detect School Plan Pro Stripe success redirect (?school_paid=1&req=&session_id=) —
   // clear the URL params, then verify server-side with Stripe (no webhook dependency,
   // unlike the consumer flow above — verify-school-payment re-checks the session

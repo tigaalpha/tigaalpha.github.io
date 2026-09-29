@@ -16,6 +16,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { useT, useLang } from "@/lib/language-context";
+import { tfmt } from "@/lib/i18n";
 import type { NotificationType, Tables } from "@/types/database";
 
 const ACTIVITY_STYLE: Record<NotificationType, { icon: LucideIcon; bg: string }> = {
@@ -47,29 +49,32 @@ const ACTIVITY_STYLE: Record<NotificationType, { icon: LucideIcon; bg: string }>
   event_notify: { icon: CalendarClock, bg: "bg-purple-500/15 text-purple-600 dark:text-purple-400" },
 };
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return days === 1 ? "1d ago" : `${days}d ago`;
-}
-
 export function RecentActivitiesCard({ notifications }: { notifications: Tables<"notifications">[] }) {
+  const t = useT();
+  const { lang } = useLang();
+
+  function timeAgo(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const minutes = Math.floor(diff / 60_000);
+    if (minutes < 1) return t("activity.justNow");
+    if (minutes < 60) return tfmt(lang, "activity.minAgo", { n: minutes });
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return tfmt(lang, "activity.hourAgo", { n: hours });
+    const days = Math.floor(hours / 24);
+    return days === 1 ? t("activity.yesterday") : tfmt(lang, "activity.dayAgo", { n: days });
+  }
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle>Recent Activities</CardTitle>
+        <CardTitle>{t("activity.title")}</CardTitle>
         <Link href="/notifications" className="text-xs font-medium text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300">
-          View all
+          {t("activity.viewAll")}
         </Link>
       </CardHeader>
       <CardContent>
         {notifications.length === 0 ? (
-          <EmptyState icon={Bell} title="You're all caught up" />
+          <EmptyState icon={Bell} title={t("activity.empty")} />
         ) : (
           <ul className="space-y-1">
             {notifications.map((n) => {

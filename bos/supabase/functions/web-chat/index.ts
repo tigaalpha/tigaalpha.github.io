@@ -39,6 +39,12 @@ Deno.serve(async (req: Request) => {
     const leadName = lead && typeof lead.name === "string" ? lead.name.trim() : "";
     const leadPhone = lead && typeof lead.phone === "string" ? lead.phone.trim() : "";
     const leadLineUserId = lead && typeof lead.lineUserId === "string" ? lead.lineUserId.trim() : "";
+    // Campaign source: the quiz page stamps `quiz-<level>` (the dashboard's
+    // lead-quiz funnel scans lead_source for "quiz" + the level keyword); the
+    // chat widget can omit it and keep the legacy "เว็บไซต์" default below.
+    const leadSource = lead && typeof lead.source === "string" && lead.source.trim()
+      ? lead.source.trim().slice(0, 80)
+      : "";
     // Referral attribution: the widget sends the ?ref= code (from the URL the
     // visitor arrived on) with every lead payload. Applied after the customer
     // row exists — works for both a newly created lead and an existing one
@@ -66,7 +72,7 @@ Deno.serve(async (req: Request) => {
             name: leadName,
             phone: leadPhone || null,
             line_user_id: leadLineUserId || null,
-            lead_source: "เว็บไซต์",
+            lead_source: leadSource || "เว็บไซต์",
           })
           .select("id")
           .single();

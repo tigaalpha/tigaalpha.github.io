@@ -22,6 +22,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = getStoredLang();
     if (stored) setLangState(stored);
+    // Reveal the body now that translated text is in its final language — see
+    // LANG_INIT_SCRIPT for why the attribute exists. Also covers the case where
+    // the script's own 250ms fallback hasn't fired yet.
+    document.documentElement.removeAttribute("data-lang-pending");
   }, []);
 
   const setLang = useCallback((next: Lang) => {

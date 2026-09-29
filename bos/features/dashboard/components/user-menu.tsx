@@ -29,12 +29,12 @@ export function UserMenu({ userName, userEmail }: UserMenuProps) {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-line/5"
+        className="flex shrink-0 items-center gap-2 rounded-xl px-1 py-1 hover:bg-line/5 sm:px-2"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-gradient text-xs font-semibold text-white">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-gradient text-xs font-semibold text-white">
           {userName.slice(0, 1).toUpperCase()}
         </div>
-        <span className="hidden text-sm font-medium text-secondary/80 sm:block dark:text-white/80">{userName}</span>
+        <span className="hidden max-w-[6rem] truncate text-sm font-medium text-secondary/80 sm:block dark:text-white/80">{userName}</span>
       </button>
 
       {open ? (

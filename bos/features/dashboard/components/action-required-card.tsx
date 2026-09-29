@@ -2,6 +2,8 @@ import Link from "next/link";
 import { GraduationCap, UserX, Sparkles, CalendarPlus, AlertTriangle, CheckCircle2, Wallet } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useT, useLang } from "@/lib/language-context";
+import { tfmt, langLocale } from "@/lib/i18n";
 import type { RenewalOpportunity } from "@/services/repositories/courses.repository";
 import type { InactiveLead } from "@/services/repositories/customers.repository";
 import type { Tables } from "@/types/database";
@@ -28,6 +30,9 @@ function daysSince(iso: string): number {
 }
 
 export function ActionRequiredCard({ renewals, inactiveLeads, trials, pendingBookings, problems }: ActionRequiredCardProps) {
+  const t = useT();
+  const { lang } = useLang();
+  const locale = langLocale(lang);
   const nothingToDo = renewals.length === 0 && inactiveLeads.length === 0 && trials.length === 0 && pendingBookings.length === 0 && problems.length === 0;
 
   return (
@@ -35,28 +40,28 @@ export function ActionRequiredCard({ renewals, inactiveLeads, trials, pendingBoo
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-primary-accent" />
-          ต้องทำวันนี้
+          {t("action.title")}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {nothingToDo ? (
-          <EmptyState icon={CheckCircle2} title="ไม่มีอะไรเร่งด่วนวันนี้" />
+          <EmptyState icon={CheckCircle2} title={t("action.empty")} />
         ) : (
           <div className="space-y-4">
             {renewals.length > 0 ? (
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-secondary/50">
                   <GraduationCap className="h-3.5 w-3.5" />
-                  ใกล้หมดชั่วโมง
+                  {t("action.nearEndHours")}
                 </p>
                 {renewals.slice(0, 5).map((r) => (
                   <div key={r.courseId} className="flex items-center gap-2">
                     <div className="min-w-0 flex-1">
-                      <Row href={`/students/detail?id=${r.customerId}`} primary={r.customerName} secondary={`เหลือ ${r.remainingHour} / ${r.totalHours} ชม.`} />
+                      <Row href={`/students/detail?id=${r.customerId}`} primary={r.customerName} secondary={tfmt(lang, "action.hoursLeft", { a: r.remainingHour, b: r.totalHours })} />
                     </div>
                     <Link
                       href={`/accounting?customerId=${r.customerId}&courseId=${r.courseId}`}
-                      title="บันทึกรับเงิน"
+                      title={t("action.recordPayment")}
                       className="shrink-0 rounded-lg bg-line/5 p-2 text-secondary/50 hover:bg-line/10 hover:text-secondary"
                     >
                       <Wallet className="h-3.5 w-3.5" />
@@ -70,10 +75,10 @@ export function ActionRequiredCard({ renewals, inactiveLeads, trials, pendingBoo
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-secondary/50">
                   <UserX className="h-3.5 w-3.5" />
-                  Lead เงียบหายไปนาน
+                  {t("action.coldLeads")}
                 </p>
                 {inactiveLeads.slice(0, 5).map((c) => (
-                  <Row key={c.id} href={`/students/detail?id=${c.id}`} primary={c.name} secondary={`เงียบไป ${daysSince(c.lastActivityAt)} วัน`} />
+                  <Row key={c.id} href={`/students/detail?id=${c.id}`} primary={c.name} secondary={tfmt(lang, "action.quietDays", { n: daysSince(c.lastActivityAt) })} />
                 ))}
               </div>
             ) : null}
@@ -82,14 +87,14 @@ export function ActionRequiredCard({ renewals, inactiveLeads, trials, pendingBoo
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-secondary/50">
                   <Sparkles className="h-3.5 w-3.5" />
-                  Trial วันนี้/พรุ่งนี้
+                  {t("action.trialsToday")}
                 </p>
                 {trials.slice(0, 5).map(({ booking, customerId }) => (
                   <Row
                     key={booking.id}
                     href={`/students/detail?id=${customerId}`}
                     primary={booking.title}
-                    secondary={new Date(booking.start_time).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    secondary={new Date(booking.start_time).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   />
                 ))}
               </div>
@@ -99,14 +104,14 @@ export function ActionRequiredCard({ renewals, inactiveLeads, trials, pendingBoo
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-secondary/50">
                   <CalendarPlus className="h-3.5 w-3.5" />
-                  รอยืนยันการจอง
+                  {t("action.awaitConfirm")}
                 </p>
                 {pendingBookings.slice(0, 5).map((b) => (
                   <Row
                     key={b.id}
                     href="/booking"
                     primary={b.title}
-                    secondary={new Date(b.start_time).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    secondary={new Date(b.start_time).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   />
                 ))}
               </div>
@@ -116,10 +121,10 @@ export function ActionRequiredCard({ renewals, inactiveLeads, trials, pendingBoo
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-secondary/50">
                   <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-                  ปัญหาที่ควรรู้
+                  {t("action.problems")}
                 </p>
                 {problems.slice(0, 5).map((e) => (
-                  <Row key={e.id} href="/system-health" primary={e.message} secondary={e.severity === "error" ? "ผิดพลาด" : "คำเตือน"} />
+                  <Row key={e.id} href="/system-health" primary={e.message} secondary={e.severity === "error" ? t("action.sevError") : t("action.sevWarn")} />
                 ))}
               </div>
             ) : null}

@@ -1,3 +1,8 @@
+import { isLowEnd } from "./space-stage";
+/* touch screens (iPad, phones) and weak machines: 1x canvases, and the backdrop
+   painted once instead of cleared and redrawn every frame — two full-screen
+   canvases at 2x density were the bulk of each fight frame on an iPad */
+const LITE = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
 /* ── arena-fx.tsx ──
    Sound and picture for the PvP arena, and nowhere else in the app.
 
@@ -24,6 +29,7 @@
 import { useRef, useEffect, useCallback } from "react";
 import { audioBus, getSfxMuted } from "./music-engine";
 
+import { createSpaceBus } from "./space-stage";
 const mf = (m) => 440 * Math.pow(2, (m - 69) / 12);
 const reduced = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } };
 
@@ -639,6 +645,54 @@ function bakeBackdrop(w, h, dpr, SG, hz, key) {
     ctx.beginPath(); ctx.ellipse(cx2, cy, cw, ch, 0, 0, 7); ctx.fill();
   }
 
+  /* ── the sky sigil ──
+     Cyberpunk on its own is a city at night; the fantasy half needs something
+     no city builds. A vast projected rune-wheel hangs over the skyline — two
+     rings, a star of two triangles, the ticks of a clock nobody wrote — in the
+     stage's first neon, drawn additively at low alpha so it reads as light in
+     the haze rather than a shape pasted onto the sky. It sits BEHIND the
+     landmarks and the skyline, so the towers cut across it and it lands at a
+     distance. Baked with everything else here: it costs nothing per frame. */
+  {
+    const NP = SG.neon || ["255,43,214", "63,216,255"];
+    const sx = w * 0.5, sy = hz * 0.5, R = Math.min(w * 0.3, hz * 0.46);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const halo = ctx.createRadialGradient(sx, sy, R * 0.2, sx, sy, R * 1.35);
+    halo.addColorStop(0, `rgba(${NP[0]},.10)`); halo.addColorStop(0.6, `rgba(${NP[0]},.04)`); halo.addColorStop(1, `rgba(${NP[0]},0)`);
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(sx, sy, R * 1.35, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(${NP[0]},.30)`; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(sx, sy, R, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(${NP[0]},.16)`; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(sx, sy, R, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(${NP[1]},.24)`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(sx, sy, R * 0.82, 0, 7); ctx.stroke();
+    ctx.setLineDash([2, 5, 9, 5]);
+    ctx.beginPath(); ctx.arc(sx, sy, R * 0.9, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 0; i < 24; i++) {
+      const a = i / 24 * Math.PI * 2, r0 = R * (i % 2 ? 0.93 : 0.86);
+      ctx.beginPath(); ctx.moveTo(sx + Math.cos(a) * r0, sy + Math.sin(a) * r0);
+      ctx.lineTo(sx + Math.cos(a) * R * 0.98, sy + Math.sin(a) * R * 0.98); ctx.stroke();
+    }
+    ctx.strokeStyle = `rgba(${NP[0]},.2)`; ctx.lineWidth = 1.2;
+    for (const off of [-Math.PI / 2, Math.PI / 2]) {
+      ctx.beginPath();
+      for (let k = 0; k < 3; k++) {
+        const a = off + k * Math.PI * 2 / 3;
+        const px = sx + Math.cos(a) * R * 0.8, py = sy + Math.sin(a) * R * 0.8;
+        k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.strokeStyle = `rgba(${NP[1]},.26)`;
+    ctx.beginPath(); ctx.arc(sx, sy, R * 0.3, 0, 7); ctx.stroke();
+    const core = ctx.createRadialGradient(sx, sy, 0, sx, sy, R * 0.3);
+    core.addColorStop(0, `rgba(${NP[1]},.22)`); core.addColorStop(1, `rgba(${NP[1]},0)`);
+    ctx.fillStyle = core; ctx.beginPath(); ctx.arc(sx, sy, R * 0.3, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
   /* ── the landmark ──
      Every stage had a skyline but nothing to look AT: an even field of blocks
      reads as texture, not as a place. Two tapered megastructures sit furthest
@@ -799,6 +853,41 @@ function bakeBackdrop(w, h, dpr, SG, hz, key) {
   for (let i = -6; i <= 6; i++) {
     const x = w / 2 + i * (w / 9);
     ctx.beginPath(); ctx.moveTo(w / 2 + i * 8, hz); ctx.lineTo(x, h); ctx.stroke();
+  }
+  /* ── the duel circle ──
+     The floor was a grid and nothing else, so two fighters stood on a
+     spreadsheet. A summoning circle is projected onto it now, in perspective,
+     spanning both starting marks: the fight happens INSIDE something. */
+  {
+    const NP = SG.neon || ["255,43,214", "63,216,255"];
+    const fy = hz + (h - hz) * 0.52, RX = w * 0.37, RY = (h - hz) * 0.24;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const pool = ctx.createRadialGradient(w / 2, fy, 2, w / 2, fy, RX);
+    pool.addColorStop(0, `rgba(${NP[1]},.12)`); pool.addColorStop(1, `rgba(${NP[1]},0)`);
+    ctx.fillStyle = pool;
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX, RY, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(${NP[1]},.3)`; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX, RY, 0, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(${NP[1]},.08)`; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX, RY, 0, 0, 7); ctx.stroke();
+    ctx.strokeStyle = `rgba(${NP[0]},.26)`; ctx.lineWidth = 1.1;
+    ctx.setLineDash([3, 6, 12, 6]);
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX * 0.84, RY * 0.84, 0, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = `rgba(${NP[0]},.16)`;
+    for (const off of [-Math.PI / 2, Math.PI / 2]) {
+      ctx.beginPath();
+      for (let k = 0; k < 3; k++) {
+        const a = off + k * Math.PI * 2 / 3;
+        const px = w / 2 + Math.cos(a) * RX * 0.78, py = fy + Math.sin(a) * RY * 0.78;
+        k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.strokeStyle = `rgba(${NP[1]},.3)`;
+    ctx.beginPath(); ctx.ellipse(w / 2, fy, RX * 0.24, RY * 0.24, 0, 0, 7); ctx.stroke();
+    ctx.restore();
   }
   return { cv, key, lit, flick, beacons };
 }
@@ -1055,7 +1144,65 @@ export function drawRocket(ctx, x, y, ang, colour, flick) {
   ctx.restore();
 }
 
-export function useArenaFx(stage) {
+/* ── the palette gate ──
+   The fight's effects are asked for in every colour a call site ever picked
+   — gold, orange, hot red, lime. The room they go off in is obsidian with
+   cyan and electric violet in it and nothing else, and a fireball that is
+   the one orange thing in a cool room reads as a mistake, not as power. So
+   every colour passes through here once (cached): cool hues snap to the
+   cyan family, violets stay violet, and everything warm becomes plasma
+   violet. Whites and greys are left alone. */
+const GATE = new Map();
+const hsl2hex = (h, s2, l) => {
+  const k = (n) => (n + h / 30) % 12, a = s2 * Math.min(l, 1 - l);
+  const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, "0");
+  return "#" + f(0) + f(8) + f(4);
+};
+export function paletteGate(c) {
+  if (typeof c !== "string") return c;
+  const hit = GATE.get(c);
+  if (hit) return hit;
+  let out = c;
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})([0-9a-f]{2})?$/i.exec(c.trim());
+  if (m) {
+    let h = m[1]; if (h.length === 3) h = h.split("").map(x => x + x).join("");
+    const r = parseInt(h.slice(0, 2), 16) / 255, g = parseInt(h.slice(2, 4), 16) / 255, b = parseInt(h.slice(4, 6), 16) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    const sat = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    let hue = 0;
+    if (d) { hue = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; hue *= 60; if (hue < 0) hue += 360; }
+    if (sat >= 0.2) {
+      const L = Math.min(0.76, Math.max(0.58, l));
+      out = hue >= 150 && hue < 222 ? hsl2hex(193, 0.96, L)          // cyan
+        : hue >= 222 && hue < 300 ? hsl2hex(254, 0.95, Math.max(0.62, L)) // violet
+        : hue >= 60 && hue < 150 ? hsl2hex(186, 0.9, L)               // greens → teal-cyan
+        : hsl2hex(262, 0.9, Math.max(0.66, L));                        // warm → plasma violet
+    }
+  }
+  GATE.set(c, out);
+  return out;
+}
+
+/* The light pooled under a fighter and the shadow at its feet, drawn once
+   into small sprites so the per-frame cost is three drawImage calls. */
+function floorSprites() {
+  const mk = (stops) => {
+    const c = document.createElement("canvas"); c.width = 256; c.height = 64;
+    const g = c.getContext("2d");
+    g.setTransform(1, 0, 0, 0.25, 0, 0);
+    const r = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    stops.forEach(([o, col]) => r.addColorStop(o, col));
+    g.fillStyle = r; g.fillRect(0, 0, 256, 256);
+    return c;
+  };
+  return {
+    me: mk([[0, "rgba(160,236,255,.9)"], [0.35, "rgba(57,216,255,.36)"], [1, "rgba(57,216,255,0)"]]),
+    op: mk([[0, "rgba(200,188,255,.9)"], [0.35, "rgba(125,91,255,.38)"], [1, "rgba(125,91,255,0)"]]),
+    shadow: mk([[0, "rgba(0,1,4,.95)"], [0.5, "rgba(0,1,4,.5)"], [1, "rgba(0,1,4,0)"]]),
+  };
+}
+
+export function useArenaFx(stage, opts = {}) {
   /* TWO canvases, because the arena is drawn on both sides of the fighters.
      The backdrop — sky, city, floor, the wet road — has to be BEHIND them or
      an opaque sky paints straight over their heads. The effects have to be in
@@ -1065,6 +1212,11 @@ export function useArenaFx(stage) {
   const bgRef = useRef(null);
   const canvasRef = useRef(null);
   const stateRef = useRef(null);
+  /* the 3D room's wire: where the fighters stand and the moments it should
+     answer. Created once; the room reads it every frame without React. */
+  const busRef = useRef(null);
+  if (!busRef.current) busRef.current = createSpaceBus();
+  const bus = busRef.current;
 
   useEffect(() => {
     const cv = canvasRef.current;
@@ -1082,11 +1234,14 @@ export function useArenaFx(stage) {
          flash at the moment of contact, and dust is what a kick kicks up */
       swipes: [], stars: [], dust: [],
       // radial speed lines — the single cheapest thing that says "this hit hard"
-      lines: [], rays: [], pools: [],
+      lines: [], rays: [], pools: [], ripples: [],
+      // a hex energy shield flaring where a guarded blow landed
+      hexes: [],
       // where the two fighters actually are, as fractions of the stage width —
       // once they can walk, a bolt fired from a fixed 24% leaves from thin air
       pos: { me: 0.24, op: 0.76 }, air: { me: 0, op: 0 },
       flash: null, t: 0, raf: 0, w: 0, h: 0, dpr: 1, motes: [], stage: stage || STAGES[0],
+      plain: !!opts.plain, floorY: 0, sprites: null,
     };
     stateRef.current = S;
     const fxctx = cv.getContext("2d");
@@ -1105,7 +1260,7 @@ export function useArenaFx(stage) {
     const fit = (cw, chh) => {
       let w = cw, h = chh;
       if (w == null || h == null) { const r = cv.getBoundingClientRect(); w = r.width; h = r.height; }
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const dpr = LITE ? 1 : Math.min(2, window.devicePixelRatio || 1);
       w = Math.max(1, w); h = Math.max(1, h);
       if (dpr === S.dpr && Math.abs(w - S.w) < 0.5 && Math.abs(h - S.h) < 0.5) return;
       S.dpr = dpr; S.w = w; S.h = h;
@@ -1115,8 +1270,15 @@ export function useArenaFx(stage) {
         bg.width = cv.width; bg.height = cv.height;
         bgctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
       }
+      // the line the fighters stand on: the stage's own --pvpfloor
+      try {
+        const st = cv.closest(".pvpstage");
+        const f = st ? parseFloat(getComputedStyle(st).getPropertyValue("--pvpfloor")) : NaN;
+        S.floorY = S.h - (isNaN(f) ? 6 : f);
+      } catch (e) { S.floorY = S.h * 0.9; }
+      if (!S.sprites && S.plain) { try { S.sprites = floorSprites(); } catch (e) { S.sprites = null; } }
       // ambient dust, so the arena has air in it even between hits
-      S.motes = Array.from({ length: soft ? 0 : 22 }, () => ({
+      S.motes = Array.from({ length: soft ? 0 : isLowEnd() ? 8 : 22 }, () => ({
         x: Math.random() * S.w, y: Math.random() * S.h,
         r: 0.6 + Math.random() * 1.5, vy: -(4 + Math.random() * 12), a: 0.1 + Math.random() * 0.25,
       }));
@@ -1132,8 +1294,16 @@ export function useArenaFx(stage) {
     const frame = (now) => {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       S.t += dt;
-      ctx = bgctx || fxctx;           // the backdrop pass
-      ctx.clearRect(0, 0, S.w, S.h);
+      /* lite + the room behind (S.plain): the backdrop canvas has nothing
+         static to keep, so everything goes on the fx canvas and the backdrop
+         canvas is cleared once and never uploaded again */
+      const liteFlat = LITE && S.plain && bgctx;
+      if (liteFlat && !S.bgCleared) { bgctx.clearRect(0, 0, S.w, S.h); S.bgCleared = true; }
+      if (!liteFlat) S.bgCleared = false;
+      ctx = liteFlat ? fxctx : (bgctx || fxctx);           // the backdrop pass
+      // lite: a separate backdrop canvas keeps its static bake between frames
+      const bgStill = liteFlat || (LITE && bgctx && !S.plain && S.bgDone === (S.bake && S.bake.key) && !S.scorch.length);
+      if (!bgStill) ctx.clearRect(0, 0, S.w, S.h);
       if (bgctx) fxctx.clearRect(0, 0, S.w, S.h);
 
       // ── floor: a perspective grid receding to a horizon behind the fighters
@@ -1149,16 +1319,21 @@ export function useArenaFx(stage) {
          the parts that genuinely move — flickering windows, beacons, lanterns,
          embers, stars, the wet-road smears — are drawn live on top. */
       const bkey = (SG.id || "s") + "|" + Math.round(S.w) + "x" + Math.round(S.h) + "@" + S.dpr;
-      if (!S.bake || S.bake.key !== bkey) {
+      if (!S.plain && (!S.bake || S.bake.key !== bkey)) {
         // a null bake still takes the key, so a failed canvas is not retried
         // sixty times a second for the rest of the match
         S.bake = bakeBackdrop(S.w, S.h, S.dpr, SG, hz, bkey)
           || { cv: null, key: bkey, lit: [], flick: [], beacons: [] };
       }
-      if (S.bake.cv) ctx.drawImage(S.bake.cv, 0, 0, S.w, S.h);
-      ctx.save();
-      liveBackdrop(ctx, S, SG, hz, S.bake);
-      ctx.restore();
+      /* with the 3D room behind it (S.plain) the backdrop canvas carries only
+         what the fight leaves on the floor — the room itself is real now */
+      if (!S.plain && !bgStill) {
+        if (S.bake.cv) ctx.drawImage(S.bake.cv, 0, 0, S.w, S.h);
+        ctx.save();
+        if (!(LITE && bgctx)) liveBackdrop(ctx, S, SG, hz, S.bake);
+        ctx.restore();
+        if (LITE && bgctx) S.bgDone = S.scorch.length ? null : S.bake.key;
+      }
 
       // ── scorch marks: painted on the floor before anything else, so the
       //    fight leaves a record of where it has already gone off
@@ -1169,17 +1344,46 @@ export function useArenaFx(stage) {
         ctx.save();
         ctx.translate(k.x, k.y); ctx.scale(1, 0.3);
         const g = ctx.createRadialGradient(0, 0, 1, 0, 0, k.r);
-        g.addColorStop(0, `rgba(28,20,16,${a2})`);
-        g.addColorStop(0.6, `rgba(40,28,22,${a2 * 0.5})`);
-        g.addColorStop(1, "rgba(40,28,22,0)");
+        g.addColorStop(0, `rgba(10,12,18,${a2})`);
+        g.addColorStop(0.6, `rgba(16,18,28,${a2 * 0.5})`);
+        g.addColorStop(1, "rgba(16,18,28,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, k.r, 0, 7); ctx.fill();
         ctx.restore();
       }
 
-      for (const m of S.motes) {
-        m.y += m.vy * dt; if (m.y < 0) { m.y = S.h; m.x = Math.random() * S.w; }
-        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fillStyle = `rgba(${SG.mote},${m.a * 1.5})`; ctx.fill();
+      /* ── the floor under the fighters ── with the room in 3D behind, this is
+         what makes the two DOM figures stand IN it: a pool of their own light
+         spread on the polished floor, a tight shadow where the feet meet it,
+         and the ripple a hit sends across it. */
+      if (S.plain && S.sprites) {
+        const Y = S.floorY || S.h * 0.9;
+        for (const side of ["me", "op"]) {
+          const x = S.w * (S.pos[side] || 0.5), k = 1 - Math.min(0.6, (S.air[side] || 0) * 0.9);
+          const w = Math.min(200, S.w * 0.34) * (0.7 + 0.3 * k), h = w * 0.25;
+          ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.5 * k;
+          ctx.drawImage(S.sprites[side], x - w, Y - h, w * 2, h * 2);
+          ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 0.75 * k;
+          ctx.drawImage(S.sprites.shadow, x - w * 0.36, Y - h * 0.32, w * 0.72, h * 0.64);
+        }
+        ctx.globalAlpha = 1;
+        for (let i = S.ripples.length - 1; i >= 0; i--) {
+          const q = S.ripples[i]; q.p += dt / q.dur;
+          if (q.p >= 1) { S.ripples.splice(i, 1); continue; }
+          const e = 1 - Math.pow(1 - q.p, 2.2), a2 = Math.pow(1 - q.p, 1.6) * 0.7;
+          ctx.save(); ctx.translate(q.x, Y); ctx.scale(1, 0.2);
+          ctx.globalCompositeOperation = "lighter";
+          ctx.strokeStyle = q.c; ctx.globalAlpha = a2; ctx.lineWidth = 2.2 + 3 * (1 - q.p);
+          ctx.beginPath(); ctx.arc(0, 0, 18 + e * q.r, 0, 7); ctx.stroke();
+          ctx.restore();
+        }
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
       }
+
+      // lite keeps the backdrop canvas still, so the drifting motes go on the fx layer
+      if (!S.plain) { const mc = LITE && bgctx ? fxctx : ctx; for (const m of S.motes) {
+        m.y += m.vy * dt; if (m.y < 0) { m.y = S.h; m.x = Math.random() * S.w; }
+        mc.beginPath(); mc.arc(m.x, m.y, m.r, 0, 7); mc.fillStyle = `rgba(${SG.mote},${m.a * 1.5})`; mc.fill();
+      } }
 
       // ── from here on it is drawn IN FRONT of the fighters ──
       ctx = fxctx;
@@ -1194,6 +1398,7 @@ export function useArenaFx(stage) {
       // ── bolts in flight
       for (let i = S.beams.length - 1; i >= 0; i--) {
         const b = S.beams[i]; b.p += dt / b.dur;
+        if (b.src && b.p < 0.35) { const t = tip(b.src, b.part); if (t) { b.x0 = t.x; b.y0 = t.y; } }
         if (b.p >= 1) { S.beams.splice(i, 1); continue; }
         const x = b.x0 + (b.x1 - b.x0) * b.p, y = b.y0 + (b.y1 - b.y0) * b.p;
         const tail = 96 * (b.x1 > b.x0 ? -1 : 1);
@@ -1229,6 +1434,39 @@ export function useArenaFx(stage) {
           const k = w.a0 + (w.a1 - w.a0) * t;
           return [w.x + Math.cos(k) * w.r, w.y + Math.sin(k) * w.r * w.sq];
         };
+        if (w.blade) {
+          /* ── a blade's trail ──
+             Not a line: the crescent an edge cuts through the air, thin where
+             the swing started and full at the edge, white-hot at its leading
+             rim and burning out to the weapon's colour behind it. A strip of
+             afterimage runs inside it so the swing reads as fast metal
+             rather than a painted arc. */
+          const N = 18, o = [], inn = [];
+          const t0 = Math.max(0, e - 0.78);
+          for (let s2 = 0; s2 <= N; s2++) {
+            const t = t0 + (head - t0) * s2 / N, f = s2 / N;
+            const k = w.a0 + (w.a1 - w.a0) * t, th = w.r * (0.04 + 0.5 * f * f);
+            o.push([w.x + Math.cos(k) * w.r, w.y + Math.sin(k) * w.r * w.sq]);
+            inn.push([w.x + Math.cos(k) * (w.r - th), w.y + Math.sin(k) * (w.r - th) * w.sq]);
+          }
+          const g = ctx.createLinearGradient(o[0][0], o[0][1], o[N][0], o[N][1]);
+          g.addColorStop(0, w.c + "00"); g.addColorStop(0.55, w.c + "99"); g.addColorStop(0.9, "#ffffffee"); g.addColorStop(1, "#ffffff");
+          ctx.globalAlpha = a2; ctx.fillStyle = g;
+          ctx.beginPath();
+          o.forEach(([px, py], j) => (j ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+          for (let j = N; j >= 0; j--) ctx.lineTo(inn[j][0], inn[j][1]);
+          ctx.closePath(); ctx.fill();
+          // the edge itself: a hard bright rim along the outside of the cut
+          ctx.strokeStyle = g; ctx.lineWidth = 2.2;
+          ctx.beginPath(); o.forEach(([px, py], j) => (j ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.stroke();
+          // bloom off the leading half, the light a white-hot edge throws
+          ctx.globalAlpha = a2 * 0.35; ctx.lineWidth = 14; ctx.strokeStyle = w.c;
+          ctx.beginPath(); o.slice(N >> 1).forEach(([px, py], j) => (j ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.stroke();
+          ctx.globalAlpha = a2 * 0.6; ctx.lineWidth = 5;
+          ctx.beginPath(); o.slice(N >> 1).forEach(([px, py], j) => (j ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.stroke();
+          ctx.globalAlpha = 1; ctx.restore();
+          continue;
+        }
         for (const [lw, col, al] of [[w.w * 3.2, w.c, .28], [w.w * 1.5, w.c, .7], [w.w * .55, "#ffffff", 1]]) {
           ctx.globalAlpha = a2 * al; ctx.strokeStyle = col; ctx.lineWidth = lw;
           ctx.beginPath();
@@ -1251,7 +1489,7 @@ export function useArenaFx(stage) {
         const cr = k.r * 0.3 * (1 - k.p * 0.7);
         const cg = ctx.createRadialGradient(k.x, k.y, 0, k.x, k.y, cr);
         cg.addColorStop(0, `rgba(255,255,255,${a2})`);
-        cg.addColorStop(0.5, `rgba(255,246,214,${a2 * .8})`);
+        cg.addColorStop(0.5, `rgba(236,242,255,${a2 * .8})`);
         cg.addColorStop(1, k.c + "00");
         ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(k.x, k.y, cr, 0, 7); ctx.fill();
         ctx.save(); ctx.globalAlpha = a2;
@@ -1304,9 +1542,9 @@ export function useArenaFx(stage) {
         const q = S.pools[i]; q.p += dt / q.dur;
         if (q.p >= 1) { S.pools.splice(i, 1); continue; }
         const a2 = Math.pow(1 - q.p, 2) * 0.6, rr2 = q.r * (0.5 + q.p * 0.9);
-        ctx.save(); ctx.translate(q.x, S.h * 0.9); ctx.scale(1, 0.26);
+        ctx.save(); ctx.translate(q.x, S.floorY || S.h * 0.9); ctx.scale(1, 0.26);
         const g = ctx.createRadialGradient(0, 0, 1, 0, 0, rr2);
-        g.addColorStop(0, `rgba(255,240,210,${a2})`);
+        g.addColorStop(0, `rgba(236,242,255,${a2})`);
         g.addColorStop(0.5, q.c + Math.round(a2 * 160).toString(16).padStart(2, "0"));
         g.addColorStop(1, q.c + "00");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rr2, 0, 7); ctx.fill();
@@ -1342,6 +1580,8 @@ export function useArenaFx(stage) {
       // ── sustained beams: a laser is a held line with a bloom, not a bolt
       for (let i = S.lasers.length - 1; i >= 0; i--) {
         const l = S.lasers[i]; l.p += dt / l.dur;
+        // a held beam stays in the barrel while the arm settles into the shot
+        if (l.src) { const t = tip(l.src, l.part); if (t) { l.x0 = t.x; l.y0 = t.y; } }
         if (l.p >= 1) { S.lasers.splice(i, 1); continue; }
         drawLaser(ctx, l, S.t);
       }
@@ -1359,6 +1599,7 @@ export function useArenaFx(stage) {
       for (let i = S.lobs.length - 1; i >= 0; i--) {
         const b = S.lobs[i]; b.p += dt / b.dur;
         if (b.p >= 1) { S.lobs.splice(i, 1); b.onLand && b.onLand(); continue; }
+        if (b.p <= 0) continue;   // salvo rockets still waiting their turn
         const x = b.x0 + (b.x1 - b.x0) * b.p;
         const y = b.y0 + (b.y1 - b.y0) * b.p - b.arc * 4 * b.p * (1 - b.p);
         // the tangent of the parabola: where it is pointing IS where it is going
@@ -1366,7 +1607,8 @@ export function useArenaFx(stage) {
         const ang = Math.atan2(vy, vx);
         const flick = 0.72 + 0.28 * Math.sin(S.t * 63) + 0.12 * Math.sin(S.t * 149);
 
-        drawRocket(ctx, x, y, ang, b.c, flick);
+        if (b.big) { ctx.save(); ctx.translate(x, y); ctx.scale(b.big, b.big); drawRocket(ctx, 0, 0, ang, b.c, flick); ctx.restore(); }
+        else drawRocket(ctx, x, y, ang, b.c, flick);
 
         /* a smoke trail behind it, so you can see the shell coming and where
            from — a grenade that appears at the target is a magic trick. It
@@ -1374,9 +1616,10 @@ export function useArenaFx(stage) {
         b.trail = (b.trail || 0) + dt;
         if (b.trail > 0.028 && !reduced()) {
           b.trail = 0;
-          const tx2 = x - Math.cos(ang) * 13, ty2 = y - Math.sin(ang) * 13;
+          const tl = 13 * (b.big || 1);
+          const tx2 = x - Math.cos(ang) * tl, ty2 = y - Math.sin(ang) * tl;
           S.smoke.push({ x: tx2, y: ty2, vx: (Math.random() - .5) * 22, vy: -8 - Math.random() * 14,
-            r: 4 + Math.random() * 4, p: 0, dur: 0.5 + Math.random() * 0.35 });
+            r: (4 + Math.random() * 4) * (b.big || 1), p: 0, dur: 0.5 + Math.random() * 0.35 });
           S.embers.push({ x: tx2, y: ty2, vx: (Math.random() - .5) * 40, vy: 10 + Math.random() * 30,
             r: 0.7 + Math.random(), life: 0.3 + Math.random() * 0.3, max: 0.6,
             fl: 30 + Math.random() * 20, ph: Math.random() * 7 });
@@ -1393,15 +1636,16 @@ export function useArenaFx(stage) {
         if (f.p <= 0) continue;
         const r = f.r * (0.25 + 0.75 * Math.sqrt(f.p)), a = Math.pow(1 - f.p, 1.6);
         const g = ctx.createRadialGradient(f.x, f.y, r * 0.05, f.x, f.y, r);
-        // a real fireball cools outward AND over time: white → yellow → orange
-        // → dull red, and the white core survives longest at the centre
+        // plasma cools the way a fireball does — outward AND over time — but
+        // through the room's own light: white → ice → violet → deep violet,
+        // with the white core surviving longest at the centre
         const cool = Math.min(1, f.p * 1.4);
         g.addColorStop(0, `rgba(255,255,255,${a})`);
-        g.addColorStop(0.18, `rgba(255,247,205,${a * 0.98})`);
-        g.addColorStop(0.38 + cool * 0.1, `rgba(255,198,64,${a * 0.92})`);
-        g.addColorStop(0.66, `rgba(255,104,28,${a * 0.66})`);
-        g.addColorStop(0.86, `rgba(196,44,14,${a * 0.3})`);
-        g.addColorStop(1, "rgba(120,26,10,0)");
+        g.addColorStop(0.18, `rgba(232,240,255,${a * 0.98})`);
+        g.addColorStop(0.38 + cool * 0.1, `rgba(178,160,255,${a * 0.9})`);
+        g.addColorStop(0.66, `rgba(125,91,255,${a * 0.62})`);
+        g.addColorStop(0.86, `rgba(64,40,160,${a * 0.28})`);
+        g.addColorStop(1, "rgba(30,18,90,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, 7); ctx.fill();
       }
 
@@ -1427,10 +1671,10 @@ export function useArenaFx(stage) {
         const k = S.shock[i]; k.p += dt / k.dur;
         if (k.p >= 1) { S.shock.splice(i, 1); continue; }
         const e = 1 - Math.pow(1 - k.p, 3);                 // fast out, then coasts
-        const r = k.r0 + (k.r1 - k.r0) * e, a2 = Math.pow(1 - k.p, 2.2);
+        const r = k.r0 + (k.r1 - k.r0) * e, a2 = Math.pow(1 - k.p, 2.2) * (k.k == null ? 1 : k.k);
         const g = ctx.createRadialGradient(k.x, k.y, Math.max(1, r * 0.82), k.x, k.y, r * 1.06);
         g.addColorStop(0, "rgba(255,255,255,0)");
-        g.addColorStop(0.6, `rgba(255,246,220,${a2 * 0.5})`);
+        g.addColorStop(0.6, `rgba(236,242,255,${a2 * 0.5})`);
         g.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(k.x, k.y, r * 1.06, 0, 7); ctx.fill();
         ctx.strokeStyle = `rgba(255,255,255,${a2 * 0.7})`; ctx.lineWidth = 1.6 * a2 + 0.4;
@@ -1447,9 +1691,9 @@ export function useArenaFx(stage) {
         e.x += e.vx * dt; e.y += e.vy * dt;
         const a2 = Math.max(0, e.life / e.max) * (0.55 + 0.45 * Math.sin(S.t * e.fl + e.ph));
         const g = ctx.createRadialGradient(e.x, e.y, 0.2, e.x, e.y, e.r * 3.4);
-        g.addColorStop(0, `rgba(255,240,200,${a2})`);
-        g.addColorStop(0.35, `rgba(255,150,50,${a2 * 0.8})`);
-        g.addColorStop(1, "rgba(255,90,20,0)");
+        g.addColorStop(0, `rgba(236,246,255,${a2})`);
+        g.addColorStop(0.35, `rgba(110,205,255,${a2 * 0.75})`);
+        g.addColorStop(1, "rgba(57,140,255,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 3.4, 0, 7); ctx.fill();
       }
 
@@ -1462,7 +1706,7 @@ export function useArenaFx(stage) {
         // smoke lit from inside early on, cooling to plain grey as it drifts
         const g = ctx.createRadialGradient(m.x, m.y, r * 0.1, m.x, m.y, r);
         const warm = Math.max(0, 1 - m.p * 2.2);
-        g.addColorStop(0, `rgba(${Math.round(110 + 120 * warm)},${Math.round(112 + 70 * warm)},${Math.round(126 + 10 * warm)},${a})`);
+        g.addColorStop(0, `rgba(${Math.round(110 + 40 * warm)},${Math.round(112 + 30 * warm)},${Math.round(126 + 100 * warm)},${a})`);
         g.addColorStop(1, "rgba(96,100,116,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, 7); ctx.fill();
       }
@@ -1475,6 +1719,38 @@ export function useArenaFx(stage) {
         ctx.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * r.p, 0, 7);
         ctx.strokeStyle = r.c; ctx.globalAlpha = (1 - r.p) * 0.8;
         ctx.lineWidth = 3 * (1 - r.p) + 0.6; ctx.stroke(); ctx.globalAlpha = 1;
+      }
+
+      // ── the energy shield: a guarded blow lights up the field it hit — a
+      //    bubble of hex cells, brightest where it landed, the ripple running
+      //    out across the cells from there
+      for (let i = S.hexes.length - 1; i >= 0; i--) {
+        const h2 = S.hexes[i]; h2.p += dt / h2.dur;
+        if (h2.p >= 1) { S.hexes.splice(i, 1); continue; }
+        const a2 = Math.pow(1 - h2.p, 1.3), rip = h2.p * 1.25;
+        const RX = h2.r, RY = h2.r * 1.5, cell = h2.r * 0.2;
+        ctx.save();
+        ctx.beginPath(); ctx.ellipse(h2.x, h2.y, RX, RY, 0, 0, 7);
+        ctx.globalAlpha = a2 * 0.16; ctx.fillStyle = h2.c; ctx.fill();
+        ctx.globalAlpha = a2 * 0.9; ctx.strokeStyle = h2.c; ctx.lineWidth = 2; ctx.stroke();
+        ctx.clip();
+        ctx.lineWidth = 1.1;
+        for (let row = -8; row <= 8; row++) {
+          for (let col = -5; col <= 5; col++) {
+            const cx2 = h2.x + (col + (row & 1) * 0.5) * cell * 1.73, cy2 = h2.y + row * cell * 1.5;
+            const d = Math.hypot((cx2 - h2.hx) / RX, (cy2 - h2.hy) / RY);
+            const lit = Math.max(0, 1 - Math.abs(d - rip) * 3.2);
+            if (lit < 0.05) continue;
+            ctx.globalAlpha = a2 * lit;
+            ctx.beginPath();
+            for (let k = 0; k < 6; k++) {
+              const an = Math.PI / 6 + k * Math.PI / 3, px = cx2 + Math.cos(an) * cell * 0.92, py = cy2 + Math.sin(an) * cell * 0.92;
+              k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+            }
+            ctx.closePath(); ctx.stroke();
+          }
+        }
+        ctx.restore();
       }
 
       // ── sparks: real velocity, gravity and drag, so they arc instead of fan
@@ -1549,6 +1825,21 @@ export function useArenaFx(stage) {
     const f = (S.pos[side] || 0.5) + (side === "me" ? lead : -lead);
     return { x: S.w * f, y: S.h * (AT_Y[part] || 0.52) - (S.air[side] || 0) * S.h * 0.16 };
   };
+  /* The real barrel. A guessed point on the stage never lines up with the gun
+     the robot is actually holding (it moves with the pose, the arm, the jump),
+     so for hand/weapon shots the origin is the far end of the drawn weapon,
+     measured in canvas space. Falls back to the guess if nothing is held. */
+  const tip = (side, part) => {
+    if (part !== "hand" && part !== "weapon") return null;
+    const cv = canvasRef.current; if (!cv || typeof document === "undefined") return null;
+    const el = document.querySelector(`.pvpfighter.${side} .ca-held`); if (!el) return null;
+    const r = el.getBoundingClientRect(), c = cv.getBoundingClientRect();
+    if (!r.width || !c.width) return null;
+    const k = (stateRef.current ? stateRef.current.w : c.width) / c.width;
+    const x = (side === "me" ? r.right - r.width * 0.06 : r.left + r.width * 0.06) - c.left;
+    return { x: x * k, y: (r.top + r.height * 0.42 - c.top) * k };
+  };
+  const from_ = (side, part) => tip(side, part) || at(side, part);
   /** Move the canvas to another arena. */
   const setStage = useCallback((next) => {
     const S = stateRef.current; if (!S || !next) return;
@@ -1559,10 +1850,14 @@ export function useArenaFx(stage) {
   const setPos = useCallback((mePos, opPos, meAir, opAir) => {
     const S = stateRef.current; if (!S) return;
     S.pos.me = mePos; S.pos.op = opPos; S.air.me = meAir || 0; S.air.op = opAir || 0;
-  }, []);
+    const P = bus.pos; P.me = mePos; P.op = opPos; P.meAir = meAir || 0; P.opAir = opAir || 0;
+  }, [bus]);
 
   const burst = useCallback((side, power = 1, colour = "#ffd23f", part = "body") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
+    bus.emit({ type: "hit", at: side, power: Math.min(1.6, power) });
+    S.ripples.push({ x: S.w * (S.pos[side] || 0.5), r: 90 + 70 * Math.min(1.6, power), p: 0, dur: 0.75, c: colour });
     const { x, y } = at(side, part);
     S.rings.push({ x, y, r0: 6, r1: 40 + 44 * power, dur: 0.42, c: colour });
     // a hot flash at the point of contact — a hit should look like it hurt
@@ -1590,16 +1885,18 @@ export function useArenaFx(stage) {
   /** A travelling bolt — a blaster round. */
   const bolt = useCallback((from, colour = "#7fe8ff", w = 5, part = "hand") => {
     const S = stateRef.current; if (!S) return;
-    const a = at(from, part), b = at(from === "me" ? "op" : "me", "body");
-    S.beams.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.28, c: colour, w });
+    colour = paletteGate(colour);
+    const a = from_(from, part), b = at(from === "me" ? "op" : "me", "body");
+    S.beams.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.28, c: colour, w, src: from, part });
     muzzle(from, part, colour);
   }, []);
 
   /** A held beam that connects instantly — a laser, from wherever it is fired. */
   const laser = useCallback((from, colour = "#ff4d6a", w = 4, part = "hand") => {
     const S = stateRef.current; if (!S) return;
-    const a = at(from, part), b = at(from === "me" ? "op" : "me", "body");
-    S.lasers.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.42, c: colour, w });
+    colour = paletteGate(colour);
+    const a = from_(from, part), b = at(from === "me" ? "op" : "me", "body");
+    S.lasers.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.42, c: colour, w, src: from, part });
     muzzle(from, part, colour);
     /* ── what the far end does about being hit ──
        The beam itself is a held line, and a held line drawn onto somebody is
@@ -1625,7 +1922,8 @@ export function useArenaFx(stage) {
       or a head rather than in mid-air. */
   const muzzle = useCallback((from, part = "hand", colour = "#7fe8ff") => {
     const S = stateRef.current; if (!S) return;
-    const { x, y } = at(from, part);
+    colour = paletteGate(colour);
+    const { x, y } = from_(from, part);
     S.rings.push({ x, y, r0: 2, r1: 20, dur: 0.2, c: colour });
     // a short hot bloom at the barrel: the flash IS the shot leaving
     S.balls.push({ x, y, r: 17, p: 0, dur: 0.14 });
@@ -1649,6 +1947,8 @@ export function useArenaFx(stage) {
          the fight leaves a record of where it has already gone off. */
   const boom = useCallback((side, power = 1.4, colour = "#ff9a3c", part = "body") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
+    bus.emit({ type: "hit", at: side, power: Math.min(1.8, power * 0.75) });
     const { x, y } = at(side, part);
     S.shock.push({ x, y, r0: 10, r1: 210 * power, p: 0, dur: 0.34 });
     S.rays.push({ x, y, r: 260 * power, n: 9, a0: Math.random() * 6.28, seed: Math.random() * 100, p: 0, dur: 0.4, c: colour });
@@ -1696,11 +1996,21 @@ export function useArenaFx(stage) {
       the same event with different labels. */
   const swipe = useCallback((from, colour = "#ffd6a8", kind = "punch") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
     const a = at(from, kind === "kick" ? "foot" : "hand");
     const b = at(from === "me" ? "op" : "me", "body");
     const dir = b.x > a.x ? 1 : -1;
     const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    if (kind === "kick") {
+    if (kind === "slash" || kind === "cleave") {
+      /* a blade cuts a wide arc in front of the one swinging it: a slash
+         comes down across the body from high behind, a cleave is an
+         overhead chop that finishes low in front */
+      const cl = kind === "cleave";
+      S.swipes.push({ x: a.x + dir * S.w * 0.09, y: a.y - S.h * (cl ? 0.04 : 0.07), r: S.w * (cl ? 0.21 : 0.19), sq: cl ? 1.1 : 0.78,
+        a0: dir > 0 ? -Math.PI * (cl ? 0.85 : 0.62) : -Math.PI * (cl ? 0.15 : 0.38),
+        a1: dir > 0 ? Math.PI * (cl ? 0.42 : 0.2) : Math.PI * (cl ? 0.58 : 0.8),
+        p: 0, dur: cl ? 0.34 : 0.26, c: colour, w: 10, blade: 1 });
+    } else if (kind === "kick") {
       // swung up from below: start low behind, finish high in front
       S.swipes.push({ x: mid.x, y: mid.y + S.h * 0.06, r: S.w * 0.13, sq: 1.5,
         a0: dir > 0 ? Math.PI * 0.75 : Math.PI * 0.25,
@@ -1715,12 +2025,28 @@ export function useArenaFx(stage) {
     }
   }, []);
 
+  /** A guarded hit: the defender's energy field lights up in hex cells,
+      rippling out from where the blow landed. */
+  const shield = useCallback((side, colour = "#5ce1ff") => {
+    const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
+    bus.emit({ type: "guard", at: side, power: 1 });
+    const c = at(side, "body"), foe = side === "me" ? "op" : "me";
+    const dir = (S.pos[foe] || .5) > (S.pos[side] || .5) ? 1 : -1;
+    const r = S.h * 0.2;
+    S.hexes.push({ x: c.x, y: c.y - S.h * 0.02, hx: c.x + dir * r * 0.85, hy: c.y - S.h * 0.05, r, p: 0, dur: 0.5, c: colour });
+    S.rings.push({ x: c.x + dir * r * 0.85, y: c.y - S.h * 0.05, r0: 3, r1: 38, dur: 0.24, c: "#ffffff" });
+  }, []);
+
   /** The moment of contact for a melee hit: a spiked flash, a shockwave, a
       CONE of sparks and debris thrown the way the blow was going (a punch
       throws material forward — a sphere of sparks reads as an explosion, not
       as a hit), and dust off the floor when it was a kick. */
   const impact = useCallback((side, power = 1, colour = "#ffd23f", kind = "punch") => {
     const S = stateRef.current; if (!S) return;
+    colour = paletteGate(colour);
+    bus.emit({ type: "hit", at: side === "me" ? "op" : "me", power: Math.min(1.6, power) });
+    S.ripples.push({ x: S.w * (S.pos[side === "me" ? "op" : "me"] || 0.5), r: 80 + 60 * Math.min(1.6, power), p: 0, dur: 0.65, c: colour });
     const foe = side === "me" ? "op" : "me";
     const { x, y } = at(foe, kind === "kick" ? "foot" : "body");
     const dir = (S.pos[foe] || .5) > (S.pos[side] || .5) ? 1 : -1;
@@ -1734,9 +2060,17 @@ export function useArenaFx(stage) {
       seed: Math.random() * 100, p: 0, dur: 0.3, c: colour });
     S.rays.push({ x, y, r: 150 * power, n: 6, a0: Math.random() * 6.28, seed: Math.random() * 100, p: 0, dur: 0.28, c: colour });
     S.pools.push({ x, r: 70 * power, p: 0, dur: 0.34, c: colour });
-    // two waves at two speeds: the crack, then the pressure behind it
-    S.shock.push({ x, y, r0: 5, r1: 118 * power, p: 0, dur: 0.24 });
-    S.shock.push({ x, y, r0: 5, r1: 186 * power, p: 0, dur: 0.42 });
+    /* two waves at two speeds: the crack, then the pressure behind it. Kept
+       faint — at full strength the outer one read as a soap bubble blown
+       round both robots, which is the opposite of heavy */
+    S.shock.push({ x, y, r0: 5, r1: 104 * power, p: 0, dur: 0.22, k: 0.7 });
+    S.shock.push({ x, y, r0: 5, r1: 150 * power, p: 0, dur: 0.36, k: 0.3 });
+    /* a hard hit splits the light like a lens does: two thin rings, red and
+       cyan, a few pixels apart — the chromatic fringe of a very bright flash */
+    if (power > 1.15) {
+      S.rings.push({ x: x - 3, y, r0: 8, r1: 70 * power, dur: 0.26, c: "#ff3b6b" });
+      S.rings.push({ x: x + 3, y, r0: 8, r1: 70 * power, dur: 0.26, c: "#3be8ff" });
+    }
     S.balls.push({ x, y, r: 34 * power, p: 0, dur: 0.2 });
     S.balls.push({ x, y, r: 16 * power, p: 0, dur: 0.11 });
     S.flares.push({ x, y, r: 140 * power, p: 0, dur: 0.24, c: colour });
@@ -1769,14 +2103,43 @@ export function useArenaFx(stage) {
   /** A shell that arcs over and detonates where it lands. */
   const lob = useCallback((from, colour = "#ff9a3c", onLand) => {
     const S = stateRef.current; if (!S) return;
-    const a = at(from, "hand"), b = at(from === "me" ? "op" : "me", "body");
-    S.lobs.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y, p: 0, dur: 0.46, arc: S.h * 0.42, c: colour, onLand, trail: 0 });
+    colour = paletteGate(colour);
+    const foe = from === "me" ? "op" : "me";
+    const a = from_(from, "hand"), b = at(foe, "body");
+    /* ── a salvo, not a single shell ──
+       One rocket on one arc read as a toy. A volley goes up: several bigger
+       rockets on fanned arcs, launched a beat apart, each blowing up where it
+       lands. Only the LAST one carries onLand, so the fight's damage and
+       timing are exactly what they were — this is spectacle, not balance. */
+    const N = LITE ? 4 : 6;
+    for (let k = 0; k < N; k++) {
+      const last = k === N - 1, t = k / Math.max(1, N - 1);
+      S.lobs.push({
+        x0: a.x, y0: a.y,
+        x1: b.x + (Math.random() - 0.5) * S.w * 0.06, y1: b.y + (Math.random() - 0.5) * S.h * 0.08,
+        p: -k * 0.16, dur: 0.5 + t * 0.12, arc: S.h * (0.3 + t * 0.34 + Math.random() * 0.06),
+        c: colour, trail: 0, big: 1.7,
+        onLand: last ? onLand : () => {
+          const x = S.w * (S.pos[foe] || 0.5);
+          S.balls.push({ x: x + (Math.random() - 0.5) * 40, y: b.y + (Math.random() - 0.5) * 30, r: 34, p: 0, dur: 0.26 });
+          S.shock.push({ x, y: b.y, r0: 6, r1: 80, p: 0, dur: 0.28 });
+        },
+      });
+    }
+    // launch blast at the tubes
+    S.balls.push({ x: a.x, y: a.y, r: 26, p: 0, dur: 0.18 });
+    S.flares.push({ x: a.x, y: a.y, r: 90, p: 0, dur: 0.22, c: colour });
   }, []);
 
   const flash = useCallback((colour = "#ffffff", a = 0.5, dur = 0.3) => {
     const S = stateRef.current; if (!S) return;
-    S.flash = { c: colour, a, p: 0, dur };
+    const g = paletteGate(colour);
+    colour = /^#[0-9a-f]{6}$/i.test(g) ? "#" + [1, 3, 5].map(i => Math.round(parseInt(g.slice(i, i + 2), 16) * 0.35 + 255 * 0.65).toString(16).padStart(2, "0")).join("") : g;
+    S.flash = { c: colour, a: a * 0.8, p: 0, dur };
   }, []);
 
-  return { canvasRef, bgRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, beam: bolt };
+  /** Stop (or resume) painting the 2D backdrop — the 3D room is behind it. */
+  const setPlain = useCallback((v) => { const S = stateRef.current; if (S) S.plain = !!v; }, []);
+
+  return { canvasRef, bgRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, shield, beam: bolt, bus, setPlain };
 }

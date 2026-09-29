@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
+import { useT } from "@/lib/language-context";
 
 /**
  * Root-level error boundary. app/(workspace)/error.tsx only wraps routed
@@ -12,18 +13,20 @@ import { AlertTriangle } from "lucide-react";
  * except the root layout itself, so it catches those too.
  */
 export default function RootError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const t = useT();
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-page p-6 text-center">
       <AlertTriangle className="h-10 w-10 text-danger" />
       <div>
-        <p className="text-lg font-semibold text-secondary">เกิดข้อผิดพลาดบางอย่าง</p>
+        <p className="text-lg font-semibold text-secondary">{t("error.title")}</p>
         <p className="mt-1 text-sm text-secondary/60">{error.message || "Something went wrong."}</p>
       </div>
       <button
         onClick={reset}
         className="rounded-xl bg-primary-gradient px-4 py-2 text-sm font-medium text-white transition-transform hover:scale-105"
       >
-        ลองใหม่
+        {t("error.retry")}
       </button>
     </div>
   );

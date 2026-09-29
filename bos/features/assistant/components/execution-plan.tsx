@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useT, useLang } from "@/lib/language-context";
+import { tfmt } from "@/lib/i18n";
 
 /* ── Plan Step Types ── */
 
@@ -119,6 +121,7 @@ function StepCard({
   isCurrent: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const t = useT();
   const Icon = getFeatureIcon(step.feature);
   const colorClass = getFeatureColor(step.feature);
 
@@ -173,10 +176,10 @@ function StepCard({
               {step.feature}
             </Badge>
             {step.status === "done" && (
-              <span className="text-[10px] text-green-600">✓ เสร็จ</span>
+              <span className="text-[10px] text-green-600">{t("plan.stepDone")}</span>
             )}
             {step.status === "error" && (
-              <span className="text-[10px] text-red-600">✗ ผิดพลาด</span>
+              <span className="text-[10px] text-red-600">{t("plan.stepError")}</span>
             )}
           </div>
         </div>
@@ -214,6 +217,8 @@ export function ExecutionPlan({
   executing = false,
   currentStep,
 }: ExecutionPlanProps) {
+  const t = useT();
+  const { lang } = useLang();
   const [collapsed, setCollapsed] = useState(false);
 
   const doneCount = steps.filter((s) => s.status === "done").length;
@@ -229,21 +234,21 @@ export function ExecutionPlan({
           <div className="flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold text-secondary">
-              แผนงาน {steps.length} ขั้นตอน
+              {tfmt(lang, "plan.title", { n: steps.length })}
             </span>
             {executing && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 animate-pulse">
-                กำลังทำ...
+                {t("plan.executing")}
               </Badge>
             )}
             {allDone && !hasErrors && (
               <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                เสร็จทั้งหมด ✓
+                {t("plan.allDone")}
               </Badge>
             )}
             {hasErrors && (
               <Badge variant="danger" className="text-[10px] px-1.5 py-0">
-                {errorCount} ผิดพลาด
+                {tfmt(lang, "plan.errors", { n: errorCount })}
               </Badge>
             )}
           </div>
@@ -284,11 +289,11 @@ export function ExecutionPlan({
           <div className="flex gap-2 pt-1">
             <Button onClick={onApprove} className="flex-1" size="sm">
               <CheckCircle2 className="h-4 w-4 mr-1.5" />
-              อนุมัติและทำเลย
+              {t("plan.approve")}
             </Button>
             <Button onClick={onReject} variant="outline" size="sm">
               <XCircle className="h-4 w-4 mr-1.5" />
-              ยกเลิก
+              {t("plan.cancel")}
             </Button>
           </div>
         )}
@@ -296,7 +301,7 @@ export function ExecutionPlan({
         {allDone && !executing && (
           <div className="text-center py-1">
             <p className="text-xs text-green-600 font-medium">
-              🎉 ทำเสร็จทั้งหมดแล้ว! ({doneCount}/{steps.length} ขั้นตอน)
+              {tfmt(lang, "plan.finished", { a: doneCount, b: steps.length })}
             </p>
           </div>
         )}

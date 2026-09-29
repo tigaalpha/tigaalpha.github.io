@@ -588,7 +588,11 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
     assert.ok(app.includes("tigaHub.chatStartersFor"), "chat starters come from the hub");
     assert.ok(app.includes("caseObj.tiga"), "TIGA starters route into chat, not book chapters");
     const pdp = fs.readFileSync("ProfileDashboardPanel.tsx", "utf8");
-    assert.ok(pdp.includes("dailySongFor()"), "quest hint ties to the real daily song");
+    // merged architecture: the profile hint consumes play-along-progress's
+    // dailySong(level, plan) — which itself consults the hub first (below)
+    assert.ok(pdp.includes("dailySong(") && pdp.includes("nextQuestHint"), "quest hint ties to the real daily song");
+    const pap = fs.readFileSync("play-along-progress.ts", "utf8");
+    assert.ok(pap.includes("recommendDailySong"), "daily song consults the repertoire specialist first");
     // P5 engine voice: quest hint with dailySong mentions it
     const q = webM.tigaHub.nextQuestHint({}, null, { dailySong: "Twinkle" });
     assert.ok(q && q.tip.th.includes("Twinkle"), "repertoire quest tie-in names the song");

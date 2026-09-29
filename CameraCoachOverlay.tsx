@@ -38,7 +38,7 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
                 <div className="camgame-score">
                   <span className="camgame-rank">{rank ? rank.icon : "🎯"}</span>
                   <div className="camgame-bar"><div className="camgame-fill" style={{ width: `${Math.round(camGame.score)}%` }} /></div>
-                  <span className="camgame-num" style={{ fontFamily: "'Share Tech Mono',monospace" }}>{Math.round(camGame.score)}</span>
+                  <span className="camgame-num" style={{ fontFamily: "var(--f-num, monospace)" }}>{Math.round(camGame.score)}</span>
                 </div>
                 <div className="camgame-side">
                   {camGame.combo >= 3 && <span className={`camgame-combo c${cti}`}>🔥 {camGame.combo} <small>{comboName}</small></span>}
@@ -54,7 +54,7 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
               <div className="cammission">
                 <div className="cammission-top">
                   <span className="cammission-lbl">🎯 {lc.camMissionLbl}</span>
-                  <span className="cammission-timer" style={{ fontFamily: "'Share Tech Mono',monospace" }}>{camMission.secLeft}s</span>
+                  <span className="cammission-timer" style={{ fontFamily: "var(--f-num, monospace)" }}>{camMission.secLeft}s</span>
                 </div>
                 <div className="cammission-txt">{lang === "th" ? camMission.ch.th : lang === "zh" ? camMission.ch.zh : camMission.ch.en}</div>
                 <div className="cammission-how">{lang === "th" ? camMission.how.th : lang === "zh" ? camMission.how.zh : camMission.how.en}</div>

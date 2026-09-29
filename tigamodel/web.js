@@ -57,6 +57,7 @@ import { createCoach } from "./teaching/coach.js";
 import { plmItem, plmParse, plmRank, plmSample, plmStats, PLM_TOTAL, PLM_DIMENSIONS } from "./roadmap-1m.js";
 import { evaluateProviderExtended, evaluateAllProvidersExtended, regressionVerdict, rubricReply, EXTENDED_PROBES, THEORY_FACTS, GOLDEN_SITUATIONS } from "./evaluation/eval-expanded.js";
 import { sb } from "../supabase-client";
+import { createJevJudgment } from "./jev/jev-judgment.js";
 
 /* Singleton per page load — the lab rebuilds providers when the session
    token changes (login/logout) via reinit(). */
@@ -723,6 +724,29 @@ import { buildDiagnosis as _hubDiag } from "./coach/diagnosis.js";
 function attempt(fn) { try { const v = fn(); return v == null ? null : v; } catch (e) { return null; } }
 const _hubSG = sharedSkillGraph();
 export const tigaHub = createTigaHub();
+
+/* ── Jev judgment engine (TypeSafe System One) — TIGA MODEL's door to typed
+   Choice/Score/Noul judgments. Runs through the jev-judge edge function with
+   the signed-in user's JWT, so the TYPESAFE_API_KEY stays server-side for all
+   three projects (TIGA AI surfaces, this hub, and bos). Judgments COMPOSE
+   with the chat providers: Jev picks/verifies, chat providers explain. ── */
+export const jevJudgment = createJevJudgment({
+  supabaseUrl: (sb && sb.supabaseUrl) || "https://gsaqgbracxnucdmtmcxz.supabase.co",
+  getAccessToken: async () => {
+    try {
+      const { data } = await sb.auth.getSession();
+      return (data && data.session && data.session.access_token) || null;
+    } catch (e) { return null; }
+  },
+});
+tigaHub.registerEngine("jev-judgment", {
+  /* async engine — surfaces await judge() and degrade to their baseline on
+     ok:false, the same contract as every other engine here */
+  judge: (state, questions, opts) => jevJudgment.judge(questions, state, opts),
+  choose: (state, instructions, criteria, opts) => jevJudgment.choose(state, instructions, criteria, opts),
+  noul: (state, instructions, opts) => jevJudgment.noul(state, instructions, opts),
+  score: (state, instructions, levels, opts) => jevJudgment.score(state, instructions, levels, opts),
+}, { note: "TypeSafe Jev (jev-latest) via jev-judge edge function — typed judgments, server-side key" });
 tigaHub.registerEngine("skill-graph", {
   recommendSightReading(mem, cur) {
     const struggles = ((mem && mem.struggles) || []).map(s => (s && typeof s === "object") ? (s.label || s.th || s.en || s.code || "") : (typeof s === "string" ? s : "")).filter(Boolean);
@@ -864,7 +888,7 @@ tigaHub.registerSpecialist("repertoire", {
   },
   nextQuestHint(mem, profile, opts) {
     if (!opts || !opts.dailySong) return null; // only the tie-in voice
-    return { tip: { th: `🎵 เพลงประจำวันวันนี้ (🎵 ${opts.dailySong}) จบ 1 รอบ = ภารกิจสำเร็จ`, en: `🎵 One run of today's song (🎵 ${opts.dailySong}) completes the quest`, zh: `🎵 弹一次今日曲目（🎵 ${opts.dailySong}）即完成任务` } };
+    return { tip: { th: `🎵 เพลงประจำวันวันนี้ (🎵 ${opts.dailySong}) ได้ 1 ดาวขึ้นไป = ภารกิจสำเร็จ`, en: `🎵 One star or more on today's song (🎵 ${opts.dailySong}) completes the quest`, zh: `🎵 今日曲目（🎵 ${opts.dailySong}）得 1 星以上即完成任务` } };
   },
   chatStartersFor(mem, plog, profile) {
     const struggles = ((mem && mem.struggles) || []).map(x => (x && typeof x === "object") ? (x.label || x.th || "") : String(x || "")).filter(Boolean);
