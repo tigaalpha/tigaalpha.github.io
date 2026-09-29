@@ -26,6 +26,7 @@ export const STEEL_RULES = [
   "ทุก feature ใหม่มี kill switch ใน app_settings — ปิดได้ใน 1 นาทีไม่ต้อง deploy ใหม่",
   "เสร็จ = smoke ใหม่ผ่าน + eval ผ่าน + CI build ผ่าน ใน merge เดียวกัน; SQL แตะของจริงต้องมีอนุมัติเฉพาะรายการจากเจ้าของ",
   "(ข้อ 7 มีผลแล้ว 2026-09-29 — docs/07) ห้ามเพิ่มแหล่งความรู้ที่ไม่ผ่านตารางตรวจ: ข้อเท็จจริงสาธารณะ + ถอดความ + ที่มาจดทะเบียนเท่านั้น (kb-compliance smoke บังคับ); ผลงานคุ้มครองลิขสิทธิ์ห้ามเข้า KB โดยไม่มี license; ห้ามใช้ชื่อ/โลโก้สถาบันเชิงพาณิชย์; หมวดสุขภาพต้องมีกรอบ wellbeing ในเนื้อหา",
+  "(ข้อ 8 มีผลแล้ว 2026-09-29 — docs/10) ความเร็วห้ามแลกด้วยความถูกต้อง: ทางลัดเดียวที่อนุญาตคือจำคำตอบที่ผ่านการตรวจแล้ว (status ok + confidence ผ่านเกณฑ์ + provenance ครบ) — ห้าม cache คำตอบที่ไม่แน่ใจ, ห้าม cache ข้ามบริบท, ห้ามตัดขั้นตอน eval/ตรวจเพื่อความเร็ว, ห้ามแต่งตัวเลข latency (scorecard ด่าน 8 วัดจริงทุกรอบ)",
 ];
 
 export const OWNER_APPROVALS = [
@@ -284,6 +285,46 @@ export const MILESTONES = [
     deps: ["m03-plan-v3-self-enforcing"],
     acceptance: "เด็กเลือกบุคลิกครูได้ composeMessage รองรับ tone — เป้าหมาย: สัดส่วนเด็กที่เลิกเรียนเพราะ 'เข้ากับครูไม่ได้' ลดลง (วัดจาก events)",
     evidence: ["tigamodel/teaching/teaching-loop.js"],
+  },
+  {
+    id: "m32-speed-answer-cache",
+    title: "docs/10 §1.1 Answer cache — เร็วโดยจำได้เฉพาะคำตอบที่ผ่านการตรวจ (ไม่หลอน)",
+    state: "done",
+    deps: ["m03-plan-v3-self-enforcing"],
+    acceptance: "answer-cache.js + smoke 20/20: จำได้เฉพาะ status ok + confidence ผ่านเกณฑ์ (uncertain/error/ต่ำกว่าเกณฑ์ = คิดใหม่ทุกครั้ง ห้ามแช่แข็งความไม่แน่ใจ) · คีย์รวม history (บริบทต่าง = คำตอบต่าง ไม่มี leak ข้ามบทสนทนา) · kill switch ในตัวโมดูล default OFF (ปิด = ไม่เก็บไม่เสิร์ฟ เส้นทางเดิม 100%) · จำกัดขนาด LRU · hit คืน response ต้นฉบับพร้อม provenance ครบ · wired ผ่าน web.js (chatThroughAnswerCache/setAnswerCacheEnabled) — kill switch tiga_answer_cache",
+    evidence: ["tigamodel/performance/answer-cache.js", "tigamodel/scripts/smoke-answer-cache.mjs", "tigamodel/docs/10-plan-speed-hundred-millionfold.md"],
+  },
+  {
+    id: "m33-speed-scorecard",
+    title: "docs/10 §1.2 scorecard ด่าน 8 — ความเร็วที่วัดจริงของสมองกฎ/KB ทุกรอบ",
+    state: "done",
+    deps: ["m03-plan-v3-self-enforcing"],
+    acceptance: "scorecard วัดจริง 200 รอบ/ด่าน ต่อการรัน: KB context < 100ms · policy ตัดสิน < 20ms · สร้างแบบฝึกหัด < 5ms · คำตอบที่จำได้ < 1ms — ห้ามแต่งตัวเลข (วัดบนเครื่องที่รันเสมอ)",
+    evidence: ["scripts/tiga-scorecard.mjs", "tigamodel/docs/10-plan-speed-hundred-millionfold.md"],
+  },
+  {
+    id: "m34-speed-kb-hotset",
+    title: "docs/10 §1.3 KB hot-set ordering — คำถามยอดฮิตค้นเจอก่อน",
+    state: "planned",
+    deps: ["m07-retrieval-eval"],
+    acceptance: "เปลี่ยนลำดับการมอง KB ไม่แตะเนื้อหา — retrieval gate ยัง ≥80% + probe 10 อันดับแรกเร็วขึ้นวัดได้",
+    evidence: ["tigamodel/knowledge"],
+  },
+  {
+    id: "m35-speed-short-routing",
+    title: "docs/10 §1.4 routing สายสั้นสำหรับงานเล็ก (คู่กับ m22 cost governor)",
+    state: "planned",
+    deps: ["m13-cost-governor"],
+    acceptance: "eval suite ผ่านเท่าเดิม (เงื่อนไขร่วม) + latency/ต้นทุน p95 ลดตามเป้า §8 — คุณภาพห้ามตก",
+    evidence: ["tigamodel/providers/model-router.js"],
+  },
+  {
+    id: "m36-speed-provider-budget",
+    title: "docs/10 §1.5 timeout/budget ต่อ provider call — ช้าเกิน = ตอบด้วยกฎ/KB ของเรา",
+    state: "planned",
+    deps: ["m03-plan-v3-self-enforcing"],
+    acceptance: "provider เกิน budget → คำตอบสำรองจาก KB/กฎที่ตรวจแล้ว (มีที่มา ไม่ห้อย ไม่เดา) — learner-facing floor ไม่เปลี่ยน",
+    evidence: ["tigamodel/providers/model-router.js"],
   },
 ];
 

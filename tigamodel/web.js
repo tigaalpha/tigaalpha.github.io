@@ -63,6 +63,31 @@ import { createJevJudgment } from "./jev/jev-judgment.js";
    token changes (login/logout) via reinit(). */
 let _tiga = null;
 
+/* docs/10 §1.1 (m32): answer cache — remembers ONLY verified provider answers
+   (status ok + confidence floor) with full provenance; key includes history so
+   different conversations never share answers. DEFAULT OFF (kill switch inside
+   the module; enabling is an admin/app_settings decision) — when off, both
+   storing and serving are dead code paths, so today's behaviour is unchanged. */
+import { createAnswerCache as _createAnswerCache, answerCacheKey as _answerCacheKey, chatThroughCache as _chatThroughCache } from "./performance/answer-cache.js";
+let _answerCache = null;
+export function answerCache() {
+  if (!_answerCache) _answerCache = _createAnswerCache({ enabled: false }); // OFF until switched on
+  return _answerCache;
+}
+export function setAnswerCacheEnabled(on, opts = {}) {
+  const c = answerCache();
+  c.setEnabled(on === true);
+  return c.isEnabled();
+}
+export function newAnswerCache(opts) { return _createAnswerCache(opts || {}); }
+export function answerCacheKeyFor(args) { return _answerCacheKey(args || {}); }
+/* Chat with the answer cache honored (off → identical to chat()). Returns
+   { response, routed, request, cache_hit, cache_provenance? }. */
+export async function chatThroughAnswerCache(args) {
+  try { return await _chatThroughCache({ tiga: getTigamodel(), cache: answerCache(), ...(args || {}) }); }
+  catch (e) { return null; }
+}
+
 export function initTigamodelWeb() {
   _tiga = buildPianoIntelligence({
     providers: [

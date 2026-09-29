@@ -101,6 +101,20 @@ encoder จริงที่มี consent · **provenance แนบทุก�
 wired ผ่าน web.js (`fuseMultimodalStates`/`confidentMultimodalStates`) + จดทะเบียน honest registry
 (`multimodal_fusion`) + **scorecard มีด่าน 7 แล้วตลอดไป**
 
+## ส่วนที่ 3.8: docs/10 — ความเร็วโดยไม่หลอน ส่งมอบแล้ว (m32/m33 → done)
+
+โจทย์เจ้าของ (2026-09-29): เร็วขึ้น 100 ล้านเท่า แต่**ห้ามหลอน ห้ามตอบผิด เก่งเท่าเดิม** —
+แผนเต็มอยู่ `tigamodel/docs/10-plan-speed-hundred-millionfold.md` · กติกาเหล็ก**ข้อ 8** มีผลแล้ว:
+ทางลัดเดียวที่อนุญาต = **จำคำตอบที่ผ่านการตรวจแล้ว** ส่วนที่ส่งมอบวันนี้:
+
+- **m32 answer cache** (`tigamodel/performance/answer-cache.js`, smoke **20/20**): จำได้เฉพาะ status ok +
+confidence ผ่านเกณฑ์ — `uncertain`/`error`/คะแนนต่ำ = คิดใหม่ทุกครั้ง (ห้ามแช่แข็งความไม่แน่ใจ) ·
+คีย์รวมประวัติแชท (บริบทต่าง = คำตอบต่าง) · kill switch **tiga_answer_cache** default OFF
+(ปิด = พฤติกรรมเดิม 100%) · hit คืน response ต้นฉบับพร้อม provenance ครบ (ผู้เรียนเห็นที่มาเดิมทุกตัว)
+- **m33 scorecard ด่าน 8**: ความเร็ว**วัดจริง 200 รอบ**ทุกครั้งที่รัน — KB 0.48ms · policy 0.004ms ·
+แบบฝึกหัด 0.003ms · คำตอบที่จำได้ 0.002ms (ผ่านบาร์ทั้งหมด) — ห้ามแต่งตัวเลขตามกติกา
+- คิวต่อ: m34 KB hot-set · m35 routing สายสั้น (คู่ m22) · m36 provider budget
+
 ## ส่วนที่ 3: วิธีใช้งาน (สำหรับเจ้าของและเอเจนต์คนถัดไป)
 
 ```bash
