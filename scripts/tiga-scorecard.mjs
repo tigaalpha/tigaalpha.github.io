@@ -27,7 +27,7 @@ const REAL_SB = readFileSync("supabase-client.ts", "utf8");
 ioSync("supabase-client.ts", "export const sb = null;\n");
 try {
   execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
-  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 } finally {
   ioSync("supabase-client.ts", REAL_SB);
 }
@@ -127,6 +127,20 @@ console.log("╚═════════════════════�
     "5) ลูปเรียนรู้จากผลจริง (analyzer)",
     `กลยุทธ์ที่ได้ผลกว่าได้น้ำหนักกว่า: ${ordering ? "ใช่" : "ไม่"} · ค่าอยู่ในกรอบ: ${clamped ? "ใช่" : "ไม่"} · ข้อมูลน้อยไม่เดา: ${neutral ? "ใช่" : "ไม่"} · สวิตช์ปิดได้: ${off ? "ใช่" : "ไม่"}`,
     pct, "100%", pct === 100
+  );
+}
+
+/* ── 6. Legal cleanliness (docs/07 A+C+D) ── */
+{
+  const comp = await M("compliance/kb-compliance.js");
+  const { SOURCES } = await import(pathToFileURL("tigamodel/knowledge/university-sources.js").href); // real registry — no silent fallback
+  const entries = [...webM.getKnowledgeBaseForTest()._entries.values()];
+  const rep = comp.auditKB(entries, SOURCES);
+  const pct = 100 - Math.min(100, rep.flags.length);
+  section(
+    "6) ความสะอาดเชิงกฎหมายของคลังความรู้ (ที่มา/ก๊อปยาว/เครื่องหมายการค้า/สุขภาพ)",
+    `ตรวจจริง ${rep.checked.toLocaleString()} entries — ที่มาไม่จดทะเบียน: ${rep.unregistered} · flag รวม: ${rep.flags.length} (JSON: ${JSON.stringify(rep.byCheck)})`,
+    pct, "100% (0 flag)", rep.clean
   );
 }
 
