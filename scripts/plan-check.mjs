@@ -63,6 +63,7 @@ console.log("\n3) smokes actually pass");
 const SMOKES = {
   "m01-state-audit": ["tigamodel/scripts/smoke.mjs", "tigamodel/scripts/smoke-capability.mjs"],
   "m04-strategy-analyzer": ["tigamodel/scripts/smoke-strategy-analyzer.mjs"],
+  "m07-retrieval-eval": ["tigamodel/scripts/smoke-retrieval.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);

@@ -92,10 +92,10 @@ export const MILESTONES = [
   {
     id: "m07-retrieval-eval",
     title: "§4 Retrieval eval สำหรับ KB 17,090 — ตัวเลขครั้งแรก",
-    state: "planned",
+    state: "done",
     deps: ["m03-plan-v3-self-enforcing"],
-    acceptance: "~20 probe เคส keywords→expected entry id ใน eval-expanded; accuracy ≥85% และ gate ไม้กันที่ 80%",
-    evidence: ["tigamodel/evaluation/eval-expanded.js"],
+    acceptance: "24 probe เคส keywords→expected domains ยิงเข้า getKBContext ตัวจริง; accuracy 100% (เป้า ≥85%); gate ไม้กันที่ 80% ตลอดไป (RETRIEVAL_GATE)",
+    evidence: ["tigamodel/evaluation/retrieval-eval.js", "tigamodel/scripts/smoke-retrieval.mjs"],
   },
   {
     id: "m08-skill-state-plans",

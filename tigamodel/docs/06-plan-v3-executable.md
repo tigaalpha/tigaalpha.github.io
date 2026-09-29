@@ -42,6 +42,20 @@
 — weights มาจากการรัน analyzer กับ `admin_strategy_effectiveness` (RPC ที่ apply แล้ว)
 **ทางปิด:** `enabled:false` → ทุกอุปกรณ์กลับลำดับ DEFAULT_POLICY เดิมทันที ไม่ต้อง deploy
 
+### §4 Retrieval eval — **ส่งมอบแล้ว: KB มีตัวเลขครั้งแรกในประวัติ**
+
+| ชิ้น | ไฟล์ | สถานะ |
+|---|---|---|
+| Probe 24 คำถามจริง (th/en) + scorer + gate | `tigamodel/evaluation/retrieval-eval.js` | ✅ |
+| Smoke: ยิงเข้า `getKBContext()` **ตัวจริง** (production path ที่แชทใช้) | `tigamodel/scripts/smoke-retrieval.mjs` | ✅ 8/8 |
+
+**ผล:** accuracy **100%** บน probe ที่ครอบ 19 โดเมน (เป้า ≥85%, **gate ไม้กันที่ 80% ตลอดไป** —
+แก้ KB/keywords ให้ accuracy ตกต่ำกว่านี้ไม่ได้ ถ้าตก = CI แดง) รวม classic failure ที่ต้องไม่เกิด:
+ถามเรื่อง pedal ต้องไม่ได้บล็อก jazz, gibberish ต้องไม่ยิงโดเมนสุ่ม, ถามเปล่า ๆ ได้ core
+เล็ก (motivation+planning) ไม่ใช่ทั้ง KB — probe ออกแบบให้รู้คำตอบล่วงหน้า (known-answer)
+จึงโกหกไม่ได้ และได้เรียนรู้เพิ่มว่า fallback core ของ `getKBContext` มาจาก
+self-learner seeded entries จริง ไม่ใช่ค่าว่าง (ระบบพัฒนาไปจากที่ docs/04 เคยบันทึก)
+
 ### §3 ของแผน (docs/05) — กลไก plan-as-code
 
 | ชิ้น | ไฟล์ |
