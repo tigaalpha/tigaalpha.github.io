@@ -67,6 +67,7 @@ const SMOKES = {
   "m08-skill-state-plans": ["tigamodel/scripts/smoke-skill-state-plans.mjs"],
   "m15-scorecard": ["scripts/tiga-scorecard.mjs"],
   "m25-contribution-gate": ["tigamodel/scripts/smoke-contribution-gate.mjs", "tigamodel/scripts/smoke-kb-compliance.mjs"],
+  "m20-jev-policy": ["tigamodel/scripts/smoke-jev-policy.mjs", "tigamodel/scripts/smoke-reasoning.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);

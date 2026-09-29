@@ -114,7 +114,27 @@ export function initTigamodelWeb() {
     const sg = sharedSkillGraph();
     _tiga.skillGraph = sg;
     _tiga.coach = createCoach({ skillGraph: sg });
-    _tiga.loop = createTeachingLoop({ policy: _tiga.policy, kb: _tiga.kb, skillGraph: sg });
+    _tiga.loop = createTeachingLoop({
+      policy: _tiga.policy, kb: _tiga.kb, skillGraph: sg,
+      // docs/05 §5 (m20): Jev decides only genuine policy ties; the kill
+      // switch (app_settings.tiga_jev_policy) defaults OFF — missing row,
+      // error, or disabled → the shipped first-match behaviour, unchanged.
+      // The switch is cached for 60s: a practice-finish must never wait on
+      // a settings round-trip, and OFF must cost exactly zero network calls.
+      jev: jevJudgment,
+      isJevPolicyEnabled: (() => {
+        let cacheV = null, cacheAt = 0;
+        return async () => {
+          if (cacheV !== null && Date.now() - cacheAt < 60000) return cacheV;
+          try {
+            const r = await sb.from("app_settings").select("value").eq("key", "tiga_jev_policy").maybeSingle();
+            cacheV = !!(r && r.data && r.data.value && r.data.value.enabled === true);
+          } catch (e) { cacheV = false; }
+          cacheAt = Date.now();
+          return cacheV;
+        };
+      })(),
+    });
   } catch (e) { /* reasoning layer is an enhancement, never a failure path */ }
   return _tiga;
 }
