@@ -376,11 +376,11 @@ export const MILESTONES = [
   },
   {
     id: "m43-top-problems-queue",
-    title: "docs/13 §1 top_problems จริง → คิว KB wave (ปิดวงจร C)",
-    state: "planned",
+    title: "docs/13 §1 top_problems จริง → คิว KB wave (วงจร C พร้อม — คิวว่างซื่อสัตย์จนข้อมูลจริงมา)",
+    state: "done",
     deps: ["m40-outcomes-counter"],
-    acceptance: "จัดอันดับปัญหาจริงจาก learning_diagnoses + แปลงเป็นคิว KB wave ที่ผ่าน retrieval gate + กติกาเหล็กข้อ 7 เสมอ",
-    evidence: ["tigamodel/docs/13-plan-plus-hundred-2.md"],
+    acceptance: "problems-to-kb-queue.mjs (read-only): จัดอันดับ learning_diagnoses จริงตามทักษะ → คิว KB wave ต่อ domain (mapping ครบ 7 ทักษะ App SKILLS) · ทักษะไม่รู้จัก = รอ mapping ไม่เดา · DB ว่าง = คิวว่างซื่อสัตย์ (ผลจริงรอบแรก: ยังไม่มี diagnosis ระบุทักษะ) · ทุก entry ใหม่ยังผูกกติกาเหล็กข้อ 7 + retrieval gate เสมอ · smoke 8/8 · npm run morning ครบทุกวงจร",
+    evidence: ["scripts/problems-to-kb-queue.mjs", "tigamodel/scripts/smoke-problems-queue.mjs", "tigamodel/docs/13-plan-plus-hundred-2.md"],
   },
 ];
 

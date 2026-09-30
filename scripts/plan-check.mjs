@@ -72,6 +72,7 @@ const SMOKES = {
   "m32-speed-answer-cache": ["tigamodel/scripts/smoke-answer-cache.mjs"],
   "m39-skill-state-wiring": ["tigamodel/scripts/smoke-skill-state-wiring.mjs"],
   "m40-outcomes-counter": ["tigamodel/scripts/smoke-outcomes-report.mjs"],
+  "m43-top-problems-queue": ["tigamodel/scripts/smoke-problems-queue.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);
