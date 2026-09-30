@@ -71,7 +71,27 @@ between beats — anything new there must stay a cached bitmap or a stroke, neve
 a gradient built per frame, and must not flash more than about three times a
 second. The
 judge words, score pops and sparks are drawn in the song canvas from cached
-bitmaps, not as DOM elements. `usePlayAlong` runs inside `PianoApp`, so a React state update
+bitmaps, not as DOM elements.
+
+**The microphone and the game's own sounds (owner report 2026-09-30: "I pressed
+D and it heard C").** On a phone the speaker is an inch from the mic, so every
+sound the game makes reaches the pitch detector. Rules that keep it honest:
+`createMonoDetector` (`music-engine.tsx`, the mono mic path) low-passes each
+frame at 2.6 kHz (8th order) before it listens — energy above the piano only
+lowers the autocorrelation's clarity, and a clean high tone is read as a
+"note" far below it — and *holds* a note that has fired: the same pitch class
+in the next frames is that note still ringing, not a new press, unless a strike
+(the level jumps 6 dB in a clear tone) says otherwise; without it anything that
+drowned the note for a moment made it fire twice, and a second C while the D is
+due reads as "you pressed C". While a mic listens and no key has been tapped,
+the player is taken for a pianist (`bandPump`): the band plays soft drums only
+and `setMicSafe(true)` switches the game's sounds to their mic-safe voice — the
+hit ding is dropped and the whoosh, boom crackle, level-up chime, miss sound and
+metronome click become noise far above the piano (`hfPing`), never a tone
+inside it. A player who taps gets the full band and their mic is put aside:
+`handleSongInput` lets a mic reading through only when it lands on a note the
+music asks for now. **Any new sound played during a run must be noise, far above
+the piano, or blacklisted (`_accMarkSuppress`), and have a mic-safe voice.** `usePlayAlong` runs inside `PianoApp`, so a React state update
 there re-renders the whole app — the running game's fast-changing state
 (HUD, lit keys, staff, effects) lives in `play-along-store.ts` instead, read
 by small subscriber components in the overlay; keep new per-frame or
@@ -223,7 +243,13 @@ sliding staff, medals and the run-coin limit, practice mode, the band and
 the backing-track / metronome choice, the ready screen's theme and settings, the
 stage (`ONLY=name,…` runs a subset). `node scripts/verify-playalong-band-audio.mjs`
 renders the band offline (Chromium's OfflineAudioContext, no speakers needed) and
-checks its levels, layering, finale and mic blacklist. The app exposes
+checks its levels, layering, finale and mic blacklist.
+`node scripts/verify-playalong-mic-band.mjs` runs the real band, the real sound
+functions and the real detector on such a context with a phone speaker in front
+of a microphone that also hears a synthetic piano, and checks that no wrong key
+is ever read (pianist with the band or the metronome, tapper with the full band)
+and that a drowned note is not fired twice — the test to run after touching any
+game sound, the band's drums, or `createMonoDetector`. The app exposes
 `window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
 
 ## Where to look for current state

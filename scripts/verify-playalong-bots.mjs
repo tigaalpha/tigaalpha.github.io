@@ -9,6 +9,8 @@
    notes/search, the staff slides every frame, a medal pays once and run
    coins stop after 3 runs a day, practice mode waits for the right key, the
    band keeps the beat (4/4, 3/4, drums only for a piano on the mic), the
+   game's own sounds switching to their mic-safe voice for a pianist and a
+   tapping player's mic being put aside, the
    backing track / metronome choice at the top right, the ready screen wears the app's
    theme (light and dark) with its settings open at the top and Start in
    reach, and the other pages still open.
@@ -457,6 +459,42 @@ if (want("band")) {
   const pitched = rm.log.filter(e => e.parts).length;
   rec("band-mic-drums-only", rm.log.length > 20 && pitched === 0 && rm.state.soft, `${rm.log.length} drum steps, ${pitched} with bass/chords/arpeggio · soft ${rm.state.soft} · combo reached ${rm.state.combo}`);
   await done(m);
+}
+// ── 14b. the microphone and the game's own sounds: a player on a real piano (the mic listens and no key was
+//         tapped) is taken for a pianist — the band plays drums only and the game's sounds go to their mic-safe
+//         voice, noise far above the piano instead of chimes inside it; a player who taps the screen gets the full
+//         band and the mic put aside: what it hears counts only when it lands on a note the music asks for ──
+if (want("micsafe")) {
+  const s = await session();
+  await openList(s.p); await openSong(s.p, "Twinkle"); await start(s.p);
+  await s.p.evaluate(() => window.__paTest.setSrc("mic"));                  // the mic is open (there is none in a headless browser)
+  await s.p.waitForTimeout(400);
+  const before = await s.p.evaluate(() => ({ safe: window.__paTest.micSafe(), soft: (window.__paTest.band() || { state: {} }).state.soft }));
+  // the first note, tapped: from here on the player is taken for a tapper
+  const t = await s.p.evaluate(async () => {
+    const T = window.__paTest, ns = T.notes(), lead = T.lead;
+    const waitFor = (x) => new Promise(res => { const id = setInterval(() => { const n = T.now(); if (n != null && n >= x) { clearInterval(id); res(); } }, 8); });
+    await waitFor(ns[0].t + lead + 0.02); T.press(ns[0].note, "tap");
+    await new Promise(r => setTimeout(r, 150));
+    const afterTap = { safe: T.micSafe(), soft: T.band().state.soft, combo: T.combo() };
+    // a false reading from the mic while the second note is due (a C# is nowhere in Twinkle's first bars): it must cost nothing
+    await waitFor(ns[1].t + lead - 0.08); T.press("C#4", "mic");
+    const w1 = T.grades().wrong, c1 = T.combo();
+    T.press(ns[1].note, "tap");
+    // a real piano next to the phone: the mic reading that lands on the third note counts, and then the player is a pianist
+    await waitFor(ns[2].t + lead - 0.02); T.press(ns[2].note, "mic");
+    await new Promise(r => setTimeout(r, 300));
+    return { afterTap, wrongAfterFalse: w1, comboAfterFalse: c1, combo: T.combo(), wrong: T.grades().wrong, safeNow: T.micSafe(), softNow: T.band().state.soft };
+  });
+  rec("mic-safe-for-a-pianist", before.safe === true && before.soft === true, `before any key: the game's sounds in their mic-safe voice ${before.safe} · the band soft ${before.soft}`);
+  rec("mic-safe-off-for-a-tapper", t.afterTap.safe === false && t.afterTap.soft === false && t.afterTap.combo === 1, `after a tap: mic-safe ${t.afterTap.safe} · soft ${t.afterTap.soft} · combo ${t.afterTap.combo}`);
+  rec("tapper-mic-put-aside", t.wrongAfterFalse === 0 && t.comboAfterFalse === 1 && t.combo >= 3 && t.wrong === 0, `a C# heard by the mic while a note was due: wrong keys ${t.wrongAfterFalse}, combo kept ${t.comboAfterFalse} · then the piano beside the phone hit the next note: combo ${t.combo}, wrong ${t.wrong}`);
+  rec("pianist-again-after-a-mic-hit", t.safeNow === true && t.softNow === true, `after a note that came through the mic: mic-safe ${t.safeNow} · soft ${t.softNow}`);
+  await s.p.click(".songhdr .cbtn");
+  await s.p.waitForTimeout(500);
+  const off = await s.p.evaluate(() => window.__paTest ? window.__paTest.micSafe() : null);
+  rec("mic-safe-off-after-the-run", off === false, `after leaving the song: mic-safe ${off}`);
+  await done(s);
 }
 // ── 15. what plays with the song is the player's choice, top right: a backing track (the band) or
 //        a metronome — both buttons always in view, one at a time; the count-in ticks either way, and
