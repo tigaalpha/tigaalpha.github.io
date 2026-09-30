@@ -103,6 +103,11 @@ export function bossHit(grade, combo) {
 export function feverAt(totalNotes) {
   return Math.max(10, Math.ceil((totalNotes || 0) * 0.3));
 }
+/* MEGA Fever: the combo (inside Fever) at which the stage and the band go up
+   another gear — 60% of the song's notes, and never before 20. */
+export function megaAt(totalNotes) {
+  return Math.max(20, Math.ceil((totalNotes || 0) * 0.6));
+}
 export const COMBO_MARKS = [[0.25, 15], [0.5, 25], [0.75, 35], [1, 50]];   // [share of the notes, EXP]
 /* The EXP for reaching `combo` without a miss, or 0 when it is not a mark. */
 export function comboMarkExp(combo, totalNotes) {

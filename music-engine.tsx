@@ -991,7 +991,7 @@ export function _accMarkSuppress(freq, tolCents, untilMs) {
   if (!freq) return;
   const lo = freq * Math.pow(2, -tolCents / 1200), hi = freq * Math.pow(2, tolCents / 1200);
   _accSuppress.push({ lo, hi, until: untilMs });
-  if (_accSuppress.length > 64) _accSuppress.shift();
+  if (_accSuppress.length > 160) _accSuppress.shift();   // the band marks a note and its first partials: ~30 a second in Fever
 }
 export function _accIsSuppressed(freq) {
   if (!freq || !_accSuppress.length) return false;

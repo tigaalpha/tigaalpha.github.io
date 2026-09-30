@@ -151,16 +151,18 @@ const PaBoss = memo(function PaBoss({ store, bossMax, lang }) {
   const face = hp <= 0 ? "😵" : fx && fx.kind === "attack" ? "😡" : "👾";
   /* The bar stays mounted: it used to be re-keyed on every hit to restart
      its animations, which rebuilt the whole bar each note. Now only the face
-     and the spark are keyed, the shake alternates between two copies of its
-     keyframes (so back-to-back attacks each restart it), and the fill slides
-     with a transform, which never needs a layout. */
+     and the spark are keyed, each with a prefix of its own (one shared key
+     made React keep every old face and pile them up across the bar), the
+     shake alternates between two copies of its keyframes (so back-to-back
+     attacks each restart it), and the fill slides with a transform, which
+     never needs a layout. */
   return (
     <>
     <div className={"bosshud" + (fx ? " fx-" + fx.kind + (fx.id % 2 ? " b" : "") : "")} aria-label={T("เลือดบอส", "Boss HP", "首领血量")}>
-      <span className="bosshud-face" key={fx ? fx.id : "idle"}>{face}</span>
+      <span className="bosshud-face" key={fx ? "f" + fx.id : "idle"}>{face}</span>
       <div className="bosshud-track"><div className={"bosshud-fill" + (pct < 30 ? " low" : "")} style={{ transform: `translateX(${pct - 100}%)` }} /></div>
       <span className="bosshud-pct pl-num">{Math.round(pct)}%</span>
-      {fx && fx.kind === "hit" && <span className="bosshud-spark" key={fx.id} />}
+      {fx && fx.kind === "hit" && <span className="bosshud-spark" key={"s" + fx.id} />}
       {hp <= 0 && <span className="bosshud-down">{T("ชนะบอส!", "Boss down!", "击败首领！")}</span>}
       </div>
       {/* plan 2.4: the engine's verdict when the boss falls — real run numbers, 3 languages; hides honestly when no engine answered */}
@@ -234,7 +236,30 @@ const PaSrc = memo(function PaSrc({ store, lang, intro }) {
     </div>
   );
 });
-const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit, sfxMuted, onToggleSfx, band = 2, setBand = null, metro = false, setMetro = null, fxOn = true, setFx = null, gfx = "auto", setGfx = null }) {
+/* What plays with the song: the backing track (the band) or a metronome —
+   two buttons, both always in view. It sits in the header, top right (owner,
+   2026-09-30), and in the pause card. In the header the words are small under
+   the icons so it stays a compact pair on a phone; elsewhere they are written
+   out. */
+const AccompMode = memo(function AccompMode({ lang, mode, setMode, bandOn = true, variant = "hdr" }) {
+  const T = T3(lang);
+  if (!setMode) return null;
+  const opts = [
+    { id: "track", icon: "🎼", short: T("เพลงประกอบ", "Backing", "伴奏"), full: T("เพลงประกอบ (Backing Track)", "Backing track", "伴奏音轨") },
+    { id: "metro", icon: "⏱", short: T("เมโทรนอม", "Metronome", "节拍器"), full: T("เมโทรนอม", "Metronome", "节拍器") },
+  ];
+  return (
+    <div className={`pl-mode pl-mode--${variant}`} role="group" aria-label={T("เสียงที่เล่นประกอบเพลง", "What plays with the song", "伴奏方式")}>
+      {opts.map(o => (
+        <button key={o.id} className={`${mode === o.id ? "on" : ""}${o.id === "track" && mode === "track" && !bandOn ? " quiet" : ""}`} aria-pressed={mode === o.id} aria-label={o.full} title={o.full} onClick={() => setMode(o.id)}>
+          <span className="pl-mode-i">{o.icon}</span>
+          <span className="pl-mode-t">{variant === "hdr" ? o.short : o.full}</span>
+        </button>
+      ))}
+    </div>
+  );
+});
+const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit, sfxMuted, onToggleSfx, band = 2, setBand = null, accomp = "track", setAccomp = null, fxOn = true, setFx = null, gfx = "auto", setGfx = null }) {
   const p = useGameField(store, "songPause");
   const T = T3(lang);
   if (!p) return null;
@@ -248,9 +273,10 @@ const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit
           <button className="songbtn ghost" onClick={onRestart}>↻ {T("เริ่มใหม่", "Restart", "重新开始")}</button>
           <button className="songbtn ghost" onClick={onExit}>✕ {T("ออก", "Quit", "退出")}</button>
         </div>
-        {setBand && (
-          <div className="pl-seg" role="group" aria-label={T("เสียงวงดนตรี", "Band", "乐队")}>
-            <span className="pl-seg-lbl">🥁 {T("วงดนตรี", "Band", "乐队")}</span>
+        {setAccomp && <AccompMode lang={lang} mode={accomp} setMode={setAccomp} bandOn={band > 0} variant="pause" />}
+        {setBand && accomp === "track" && (
+          <div className="pl-seg" role="group" aria-label={T("ความดังเพลงประกอบ", "Backing track volume", "伴奏音量")}>
+            <span className="pl-seg-lbl">🔉 {T("ความดัง", "Volume", "音量")}</span>
             {[0, 1, 2].map(v => (
               <button key={v} className={band === v ? "on" : ""} aria-pressed={band === v} onClick={() => setBand(v)}>
                 {v === 0 ? T("ปิด", "Off", "关") : v === 1 ? T("เบา", "Soft", "轻") : T("ปกติ", "Normal", "正常")}
@@ -267,11 +293,6 @@ const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit
               </button>
             ))}
           </div>
-        )}
-        {setMetro && (
-          <button className={`pl-toggle${metro ? " on" : ""}`} onClick={() => setMetro(v => !v)}>
-            ⏱ {T("เสียงนับจังหวะตอนปิดวง", "Click when the band is off", "关乐队时的节拍声")} · {metro ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
-          </button>
         )}
         {setFx && (
           <button className={`pl-toggle${fxOn ? " on" : ""}`} onClick={() => setFx(v => !v)}>
@@ -384,7 +405,7 @@ const PaSetlistBadge = memo(function PaSetlistBadge({ store, lang }) {
   return <div className="setlistpos ready">🎤 {lc.setlistSong} {setlist.idx + 1}/{setlist.total}</div>;
 });
 
-export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songCanvasRef, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, songInputRef, songAnalysisBusy, songAnalysis, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, startSongPlay, previewSong, shareCard, shareLine, styleTransform, songTigaTip = null, playAlongHand, changePlayAlongHand, drillPlan, drillActive, drillCleared = [], startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songMetro, setSongMetro, songBand = 2, setSongBand, songFx = true, setSongFx, songPractice = false, songGfx = "auto", setSongGfx, songIntro, startIntro, skipIntro, sfxMuted, onToggleSfx }) {
+export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songCanvasRef, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, songInputRef, songAnalysisBusy, songAnalysis, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, startSongPlay, previewSong, shareCard, shareLine, styleTransform, songTigaTip = null, playAlongHand, changePlayAlongHand, drillPlan, drillActive, drillCleared = [], startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songAccomp = "track", setSongAccomp, songBand = 2, setSongBand, songFx = true, setSongFx, songPractice = false, songGfx = "auto", setSongGfx, songIntro, startIntro, skipIntro, sfxMuted, onToggleSfx }) {
   const lc = L[lang];
   const T = T3(lang);
   const store = gameStore;
@@ -440,13 +461,11 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
       <div className="songhdr">
         <div className="songhtitle">{tr(songMeta, lang)}</div>
         <div className="pl-hdr-btns">
-          <button className={`pl-metro${songBand ? " on" : ""}`} onClick={() => setSongBand && setSongBand(b => b ? 0 : 2)} aria-pressed={!!songBand} aria-label={T("วงดนตรีเล่นประกอบ", "Backing band", "伴奏乐队")}>
-            🥁 {songBand ? T("เปิด", "ON", "开") : T("ปิด", "OFF", "关")}
-          </button>
+          <AccompMode lang={lang} mode={songAccomp} setMode={setSongAccomp} bandOn={songBand > 0} variant="hdr" />
           {songPhase === "playing" && !racing && pauseSong && (
             <button className="pl-pausebtn" onClick={pauseSong} aria-label={T("หยุดชั่วคราว", "Pause", "暂停")}>⏸</button>
           )}
-          <button className="cbtn" onClick={exitSong}>{lc.close}</button>
+          <button className="cbtn" onClick={exitSong} aria-label={lc.close}>{songPhase === "playing" ? "✕" : lc.close}</button>
         </div>
       </div>
 
@@ -511,11 +530,6 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                       <button className={`pl-toggle${songAutoLoop ? " on" : ""}`} onClick={() => setSongAutoLoop(v => !v)} aria-pressed={!!songAutoLoop}>
                         🔁 {T("เล่นวน", "Loop", "循环")} · {songAutoLoop ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
                       </button>
-                      {setSongMetro && (
-                        <button className={`pl-toggle${songMetro ? " on" : ""}`} onClick={() => setSongMetro(v => !v)} aria-pressed={!!songMetro}>
-                          ⏱ {T("เสียงนับจังหวะตอนปิดวง", "Click when the band is off", "关乐队时的节拍声")} · {songMetro ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
-                        </button>
-                      )}
                     </div>
                     <div className="pl-set-hint">{T("โหมดใจดี: ช่วงรับโน้ตกว้างขึ้น และกดผิดคีย์เดียวแค่คอมโบหลุด ไม่เสียความแม่น", "Kind mode: a wider window, and one wrong key only breaks the combo", "宽松模式：判定更宽，按错一个键只断连击")}</div>
                     <OnlinePvpPanel pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} songMeta={songMeta} lang={lang} codeInput={codeInput} setCodeInput={setCodeInput} />
@@ -562,7 +576,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
       )}
 
       {songPhase === "playing" && (
-        <PaPause store={store} lang={lang} onResume={resumeSong} onRestart={restartSong} onExit={exitSong} sfxMuted={sfxMuted} onToggleSfx={onToggleSfx} band={songBand} setBand={setSongBand} metro={songMetro} setMetro={setSongMetro} fxOn={songFx} setFx={setSongFx} gfx={songGfx} setGfx={setSongGfx} />
+        <PaPause store={store} lang={lang} onResume={resumeSong} onRestart={restartSong} onExit={exitSong} sfxMuted={sfxMuted} onToggleSfx={onToggleSfx} band={songBand} setBand={setSongBand} accomp={songAccomp} setAccomp={setSongAccomp} fxOn={songFx} setFx={setSongFx} gfx={songGfx} setGfx={setSongGfx} />
       )}
       {songPhase === "done" && songResult && songResult.practice && (
         <div className="songresult pl-result pl-practice-result">
