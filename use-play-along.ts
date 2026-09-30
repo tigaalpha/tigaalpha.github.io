@@ -65,17 +65,18 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
    device. A steady 30 fps (a phone's power saving) is a cap, not a struggle,
    and fewer pixels cannot help it, so that is left alone. */
 const GFX_TIERS = [2, 1.5, 1.25, 1];
-/* The size the stage had when a run last began, per screen and hand. The ready screen's canvas is taller than the playing one
-   (no score row, staff or keyboard yet), so the world it paints in idle time (play-along-stage.ts) is painted for this
-   remembered size; the first run on a new screen just paints it at Start, and remembers. */
+/* The size the stage had when a run last began, per screen, hand and view (the sheet view's stage is a strip above a big
+   staff). The ready screen's canvas is taller than the playing one (no score row, staff or keyboard yet), so the world it
+   paints in idle time (play-along-stage.ts) is painted for this remembered size; the first run on a new screen just paints
+   it at Start, and remembers. */
 const STAGE_SIZE_LS = "tg_pa_stage";
-const stageSizeKey = (hand) => `${window.innerWidth}x${window.innerHeight}|${hand}`;
-function readStageSize(hand) {
-  try { const v = JSON.parse(lsGet(STAGE_SIZE_LS, "{}"))[stageSizeKey(hand)]; return v && v[0] > 0 && v[1] > 0 ? v : null; } catch (e) { return null; }
+const stageSizeKey = (hand, sheet) => `${window.innerWidth}x${window.innerHeight}|${hand}|${sheet ? "s" : "f"}`;
+function readStageSize(hand, sheet) {
+  try { const v = JSON.parse(lsGet(STAGE_SIZE_LS, "{}"))[stageSizeKey(hand, sheet)]; return v && v[0] > 0 && v[1] > 0 ? v : null; } catch (e) { return null; }
 }
-function rememberStageSize(hand, W, H) {
+function rememberStageSize(hand, sheet, W, H) {
   try {
-    const o = JSON.parse(lsGet(STAGE_SIZE_LS, "{}")), k = stageSizeKey(hand);
+    const o = JSON.parse(lsGet(STAGE_SIZE_LS, "{}")), k = stageSizeKey(hand, sheet);
     if (o[k] && o[k][0] === W && o[k][1] === H) return;
     delete o[k]; o[k] = [W, H];
     for (const old of Object.keys(o).slice(0, -6)) delete o[old];       // a handful of screens is plenty
@@ -503,6 +504,20 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (bandRef.current) bandRef.current.setLevel(nv === "track" ? songBandRef.current : 0);
     if (songRunRef.current) announce(nv === "track" ? "🎼 Backing track" : "⏱ Metronome");
   }
+  /* How the song is shown (owner, 2026-09-30): "fall" — gems falling to the keys, the staff above — or "sheet": no falling
+     notes at all, the staff big and sitting on the keys, and no key lit to point the way, for a player who reads and plays
+     without them. Chosen in the header beside the accompaniment and kept. The first-song intro teaches the gems, so it is
+     always shown falling (sheetOn). */
+  const [songView, setSongViewState] = useState(() => lsGet("tg_pa_view", "fall") === "sheet" ? "sheet" : "fall");
+  const songViewRef = useRef(songView);
+  songViewRef.current = songView;
+  const sheetOn = () => songViewRef.current === "sheet" && !(songMetaRef.current && songMetaRef.current.intro);
+  function setSongView(v) {
+    const nv = v === "sheet" ? "sheet" : "fall";
+    if (nv === songViewRef.current) return;
+    songViewRef.current = nv; setSongViewState(nv); lsSet("tg_pa_view", nv);
+    if (songRunRef.current) announce(nv === "sheet" ? "📖 Sheet music" : "☄ Falling notes");
+  }
   // the band's volume: 0 off, 1 soft, 2 normal (play-along-band.ts)
   const [songBand, setSongBandState] = useState(() => { const v = Math.round(+lsGet("tg_pa_band", 2)); return v >= 0 && v <= 2 ? v : 2; });
   const songBandRef = useRef(songBand);
@@ -578,6 +593,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songVelsRef = useRef([]); // MIDI velocities of hit notes — see scoreDynamics()
   const songLaneFlashRef = useRef({});
   const songStarsRef = useRef([]);     // parallax starfield, generated once per song
+  const gemsDrawnRef = useRef(0);      // how many falling notes the last frame drew (the bots read it)
   const songRocketsRef = useRef([]);   // in-flight "rocket launch" anims (a hit → rocket climbs to the meteor)
   const songBlastsRef = useRef([]);    // impact explosions (particle bursts, purely time-derived — no per-frame physics state)
   const songNebulaRef = useRef(null);  // pre-rendered deep-space nebula backdrop (rebuilt only on resize — cheap to draw each frame)
@@ -766,7 +782,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     lastEndRef.current = null;
     const st = gameStore.get().songSrc && gameStore.get().songSrc.type;
     const src = st === "mic" || st === "midi" ? st : "tap"; // no mic/MIDI → the on-screen keys
-    logPa(`start:${rm.id}:${rm.ctx}:${songKindRef.current ? "kind" : "std"}:${playAlongHandRef.current}:${Math.round((songTempoRef.current || 1) * 100)}:${src}`);
+    logPa(`start:${rm.id}:${rm.ctx}:${songKindRef.current ? "kind" : "std"}:${playAlongHandRef.current}:${Math.round((songTempoRef.current || 1) * 100)}:${src}${sheetOn() ? ":sheet" : ""}`);
   }
   function logFps() {
     const fs = frameStatRef.current;
@@ -957,14 +973,16 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (!nextByHand[h]) nextByHand[h] = n;
       if (nextByHand.right && nextByHand.left) break;
     }
+    const sheet = sheetOn();
     const primaryNext = nextByHand.right || nextByHand.left || null;
     const secondaryNext = (nextByHand.right && nextByHand.left) ? nextByHand.left : null;
-    setSongNextLit(primaryNext ? primaryNext.note : null);
-    setSongNextLit2(secondaryNext ? secondaryNext.note : null);
+    // sheet view lights no key: the point of it is to read the note, not to be shown the key
+    setSongNextLit(!sheet && primaryNext ? primaryNext.note : null);
+    setSongNextLit2(!sheet && secondaryNext ? secondaryNext.note : null);
     const prevFm = gameStore.get().songFingerMap;
     const fm = {};
-    if (primaryNext) fm[primaryNext.note] = primaryNext.finger;
-    if (secondaryNext) fm[secondaryNext.note] = secondaryNext.finger;
+    if (!sheet && primaryNext) fm[primaryNext.note] = primaryNext.finger;
+    if (!sheet && secondaryNext) fm[secondaryNext.note] = secondaryNext.finger;
     const fmSame = Object.keys(fm).length === Object.keys(prevFm).length && Object.keys(fm).every(k => prevFm[k] === fm[k]);
     if (!fmSame) setSongFingerMap(fm);
     // Sight-reading window, measured in BEATS rather than in note count:
@@ -973,7 +991,9 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     // both staves of a grand staff aligned on the beat) instead of spacing
     // them evenly by array index, which made every rhythm look identical.
     const beatsPerBar = beatsPerBarOf(meta);
-    const spanBeats = beatsPerBar * 5;
+    /* the sheet view draws the notation larger (see .pl-sheet), so it shows fewer bars: a bar behind the playhead and two
+       ahead on a phone, more where the screen is wider */
+    const spanBeats = beatsPerBar * (!sheet ? 5 : window.innerWidth >= 900 ? 5 : window.innerWidth >= 640 ? 4 : 3);
     // "Where we are" is read off the SAME CLOCK the falling notes are drawn
     // from: a meteor is at the hit line when songTime === note.t + SONG_LEAD,
     // so the moment being played is (songTime - SONG_LEAD), in beats.
@@ -1005,7 +1025,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (g2.kind === "rest" || g2.srcIdx == null) return "future";
       const src = voice[g2.srcIdx];
       if (!src) return "future";
-      if (src.hit || src.missed) return "past";
+      if (src.hit || src.missed) return sheet ? (src.hit ? "hit" : "miss") : "past";      // the sheet view keeps the verdict on the page
       return src === curNote ? "current" : "future";
     };
     const inWin = g2 => g2.beat >= winStartBeat - 0.001 && g2.beat <= winEndBeat + 0.001;
@@ -1016,7 +1036,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }
     // republish only when what is drawn changes: a glyph in or out, a state
     // (played / current) or a new base
-    const sig = base.toFixed(3) + "|" + staffList.map(g2 => g2.beat + g2.hand[0] + g2.state[0]).join(",");
+    const sig = spanBeats + "|" + base.toFixed(3) + "|" + staffList.map(g2 => g2.beat + g2.hand[0] + g2.state[0]).join(",");
     if (sig !== staffSigRef.current) { staffSigRef.current = sig; setSongStaffNotes({ startBeat: winStartBeat, spanBeats, margin: beatsPerBar, list: staffList }); }
     // ghost race vs your best run
     const st = (getAC().currentTime - songStartClockRef.current) * songTempoRef.current;
@@ -1135,7 +1155,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       ghost: () => !!songGhostDataRef.current,
       calib: () => ({ ...calibRef.current }),
       gfx: () => GFX_TIERS[gfxRef.current.tier],
-      bake: () => { const n = songNebulaRef.current; return n ? { ms: n.bakeMs, fx: !!n.spr, world: n.worldMs, prebaked: !!n.prebaked } : null; },
+      bake: () => { const n = songNebulaRef.current; return n ? { ms: n.bakeMs, fx: !!n.spr, world: n.worldMs, prebaked: !!n.prebaked, sheet: !!n.sheet } : null; },
+      view: () => ({ pref: songViewRef.current, sheet: sheetOn() }),
+      setView: (v) => setSongView(v),
+      gems: () => gemsDrawnRef.current,
       band: () => bandRef.current ? { log: bandRef.current.log.slice(), state: { ...bandRef.current.state }, clock: songStartClockRef.current, tempo: songTempoRef.current, lead: SONG_LEAD, spb: 60 / ((songMetaRef.current && songMetaRef.current.bpm) || 90), audioNow: getAC().currentTime } : null,
       setSrc: (type) => setSongSrc(type ? { type } : null),
       clicks: () => clickLogRef.current.slice(),
@@ -1305,7 +1328,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const handBaseOct = hand === "left" ? 2 : 4;
     const handNW = hand === "both" ? 28 : 14;
     const laneFrac = lanes.map(ln => noteKeyFrac(ln, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 });
-    const bakeKey = `${W}|${H}|${dpr}|${hand}|${noteScale}|${lanes.join(",")}|${fxLevel >= 2 ? 1 : 0}`;
+    const sheet = sheetOn();
+    const bakeKey = `${W}|${H}|${dpr}|${hand}|${noteScale}|${lanes.join(",")}|${fxLevel >= 2 ? 1 : 0}|${sheet ? "s" : "f"}`;
     const wheelX = W * 0.5, wheelY = H * 0.3, wheelR = Math.min(W * 0.42, H * 0.24);
     /* The world (sky, city, floor) is painted once per size and kept (play-along-stage.ts); a song only adds its lanes
        and hit-line to a copy of it. The ready screen has usually painted the world already, in the browser's idle
@@ -1315,9 +1339,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       const bakeT0 = performance.now();
       const prebaked = !!getWorld(W, H, dpr, fxLevel >= 2);
       const world = paintWorld(W, H, dpr, fxLevel >= 2);
-      rememberStageSize(hand, W, H);
-      const stage = composeStage(world, { hitY, noteScale, lanes: lanes.map((ln, i) => ({ cx: laneFrac[i].cx, w: laneFrac[i].w, hue: laneHue(ln) })) });
-      neb = songNebulaRef.current = { cv: stage, key: bakeKey, world, win: world.win, winTop: world.winTop, hz: world.hz, wheel: world.wheel, spr: world.spr, prebaked, worldMs: world.bakeMs, bakeMs: performance.now() - bakeT0 };
+      rememberStageSize(hand, sheet, W, H);
+      // the sheet view has no lanes, hit-line or receptors to add: the world itself is the stage (it is only ever read)
+      const stage = sheet ? world.cv : composeStage(world, { hitY, noteScale, lanes: lanes.map((ln, i) => ({ cx: laneFrac[i].cx, w: laneFrac[i].w, hue: laneHue(ln) })) });
+      neb = songNebulaRef.current = { cv: stage, key: bakeKey, sheet, world, win: world.win, winTop: world.winTop, hz: world.hz, wheel: world.wheel, spr: world.spr, prebaked, worldMs: world.bakeMs, bakeMs: performance.now() - bakeT0 };
       // a bake is a long frame the player is not to blame for: keep the frame-rate
       // control from stepping the picture down over it
       frameStatRef.current.skip = 2;
@@ -1376,7 +1401,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     ctx.globalAlpha = 1;
     // Each lane brightens as its next note comes in (the last half-second),
     // and the hit-line pulses on the song's beat — brighter on the downbeat.
-    {
+    // (The sheet view has neither lanes nor a hit-line.)
+    if (!sheet) {
       const near = new Array(nLane).fill(0);
       for (const n of notes) {
         if (n.hit || n.missed || n.skip) continue;
@@ -1401,6 +1427,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }
     // A note is missed once the late edge of its window has passed (the
     // window of the input the player is using, with its learned delay).
+    let gemsDrawn = 0;
     const lateSrc = lastSrcRef.current;
     const lateEdge = receiveWindow(songKindRef.current, lateSrc) + (calibRef.current[lateSrc] || 0);
     for (const n of notes) {
@@ -1418,6 +1445,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         if (bossOnRef.current && bossHpRef.current > 0) bossFlash("attack"); // the boss strikes back on every dropped note
       }
       if (n.hit) continue;
+      if (sheet) continue;                             // the sheet view draws no falling notes: the staff is the score
       const yFrac = (songTime - n.t) / SONG_LEAD;
       if (yFrac < -0.05 || yFrac > 1.4) continue;
       const y = yFrac * hitY;
@@ -1450,7 +1478,9 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
          which at this size is indistinguishable from continuous. */
       const spr = crystalSprite(hue, n.missed ? "" : pcOf(n.note), rr, spin, n.missed, noteScale, sdpr);
       ctx.drawImage(spr.cv, mcx - spr.ox, hy - spr.oy, spr.w, spr.h);
+      gemsDrawn++;
     }
+    gemsDrawnRef.current = gemsDrawn;
     // ── rockets: a hit launches one from the hit-line, climbing to blow the meteor up ──
     const liveRockets = [];
     for (const r of songRocketsRef.current) {
@@ -1741,7 +1771,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         lsSet("tg_pa_cal_" + src, c.toFixed(3));
       }
     }
-    songRocketsRef.current.push({ lane: best.lane, hue: laneHue(best.note), t0: now, dur: 170, big: perfect }); // launch a rocket to blow up the meteor
+    if (!sheetOn()) songRocketsRef.current.push({ lane: best.lane, hue: laneHue(best.note), t0: now, dur: 170, big: perfect }); // launch a rocket to blow up the meteor (the sheet view has none)
     fx(playWhoosh); // 🚀 lift-off
     songHitsRef.current++;
     songComboRef.current++;
@@ -2320,7 +2350,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (songResult && !songAnalysis && !songAnalysisBusy) fetchSongAnalysis(songResult, tr(songMeta, lang));
   }
   /* While a song waits on the ready screen, the stage's world (sky, city, floor) is painted in the browser's idle time,
-     one slice at a time, for the size the stage had when a run last began on this screen (readStageSize), so that pressing
+     one slice at a time, for the size the stage had when a run last began on this screen, in this view (readStageSize), so that pressing
      Start finds it done. play-along-stage.ts keeps it, and what is half painted, for the next visit; a song only adds its lanes. */
   useEffect(() => {
     if (!songOpen || songPhase !== "ready") return;
@@ -2329,7 +2359,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const idle = (fn) => { h = hasIdle ? requestIdleCallback(fn, { timeout: 700 }) : setTimeout(fn, 80); };
     const slice = () => {
       if (dead) return;
-      const size = readStageSize(playAlongHand);
+      const size = readStageSize(playAlongHand, sheetOn());
       if (!size) return;                                                   // a screen this app has not run a song on yet
       const dpr = Math.min(GFX_TIERS[gfxRef.current.tier], window.devicePixelRatio || 1);
       let world = null;
@@ -2338,7 +2368,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     };
     idle(slice);
     return () => { dead = true; if (h != null) { try { hasIdle ? cancelIdleCallback(h) : clearTimeout(h); } catch (e) {} } };
-  }, [songOpen, songPhase, playAlongHand]);
+  }, [songOpen, songPhase, playAlongHand, songView]);
   songLoopRef.current = songLoop;
   songInputRef.current = handleSongInput;
   songFinishRef.current = finishSong;
@@ -2357,7 +2387,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     battleData, setBattleData, battlePickOpen, setBattlePickOpen, songBest, setSongBest,
     songAutoLoop, setSongAutoLoop, songAutoLoopRef, songCanvasRef, songDataRef, songInputRef, songTigaTip, songRafRef, songHudTimerRef, songPreviewRef,
     chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand,
-    pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songAccomp, setSongAccomp, songBand, setSongBand, songFx, setSongFx, songPractice, songGfx, setSongGfx,
+    pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songAccomp, setSongAccomp, songView, setSongView, songBand, setSongBand, songFx, setSongFx, songPractice, songGfx, setSongGfx,
     songIntro, startIntro, skipIntro,
     drillPlan, drillActive, drillCleared, startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf };
 }

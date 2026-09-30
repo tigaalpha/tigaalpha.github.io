@@ -133,11 +133,11 @@ const PaHud = memo(function PaHud({ store, lang, pvpOnline, onStopDrill, practic
     </>
   );
 });
-const PaStaff = memo(function PaStaff({ store, songMeta, handMode }) {
+const PaStaff = memo(function PaStaff({ store, songMeta, handMode, sheet = false }) {
   const win = useGameField(store, "songStaffNotes");
   return (
     <div className={`songstaffwrap${handMode === "both" ? " grand" : ""}`}>
-      <PlayAlongStaff notes={win.list} startBeat={win.startBeat} spanBeats={win.spanBeats} margin={win.margin || 0} liveClock={store.staffClock || null} songMeta={songMeta} handMode={handMode} />
+      <PlayAlongStaff notes={win.list} startBeat={win.startBeat} spanBeats={win.spanBeats} margin={win.margin || 0} liveClock={store.staffClock || null} songMeta={songMeta} handMode={handMode} trim={sheet ? 16 : 0} />
     </div>
   );
 });
@@ -259,7 +259,28 @@ const AccompMode = memo(function AccompMode({ lang, mode, setMode, bandOn = true
     </div>
   );
 });
-const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit, sfxMuted, onToggleSfx, band = 2, setBand = null, accomp = "track", setAccomp = null, fxOn = true, setFx = null, gfx = "auto", setGfx = null }) {
+/* How the song is shown (owner, 2026-09-30): gems falling to the keys, or the sheet alone — no falling notes, the staff big and
+   sitting on the keys, no key lit to point the way — for a player who reads and plays without them. Beside the accompaniment
+   pair in the header, top right, and in the pause card; same compact look, icons over small words in the header. */
+const ViewMode = memo(function ViewMode({ lang, mode, setMode, variant = "hdr" }) {
+  const T = T3(lang);
+  if (!setMode) return null;
+  const opts = [
+    { id: "fall", icon: "🌠", short: T("โน้ตตก", "Falling", "下落"), full: T("โน้ตตก (มีโน้ตตกลงมา)", "Falling notes", "下落音符") },
+    { id: "sheet", icon: "📖", short: T("โน้ตเพลง", "Sheet", "乐谱"), full: T("โน้ตเพลง (ไม่มีโน้ตตก)", "Sheet music, no falling notes", "乐谱模式（没有下落音符）") },
+  ];
+  return (
+    <div className={`pl-view pl-view--${variant}`} role="group" aria-label={T("รูปแบบการเล่น", "How the song is shown", "显示方式")}>
+      {opts.map(o => (
+        <button key={o.id} className={mode === o.id ? "on" : ""} aria-pressed={mode === o.id} aria-label={o.full} title={o.full} onClick={() => setMode(o.id)}>
+          <span className="pl-mode-i">{o.icon}</span>
+          <span className="pl-mode-t">{variant === "hdr" ? o.short : o.full}</span>
+        </button>
+      ))}
+    </div>
+  );
+});
+const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit, sfxMuted, onToggleSfx, band = 2, setBand = null, accomp = "track", setAccomp = null, view = "fall", setView = null, fxOn = true, setFx = null, gfx = "auto", setGfx = null }) {
   const p = useGameField(store, "songPause");
   const T = T3(lang);
   if (!p) return null;
@@ -274,6 +295,7 @@ const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit
           <button className="songbtn ghost" onClick={onExit}>✕ {T("ออก", "Quit", "退出")}</button>
         </div>
         {setAccomp && <AccompMode lang={lang} mode={accomp} setMode={setAccomp} bandOn={band > 0} variant="pause" />}
+        {setView && <ViewMode lang={lang} mode={view} setMode={setView} variant="pause" />}
         {setBand && accomp === "track" && (
           <div className="pl-seg" role="group" aria-label={T("ความดังเพลงประกอบ", "Backing track volume", "伴奏音量")}>
             <span className="pl-seg-lbl">🔉 {T("ความดัง", "Volume", "音量")}</span>
@@ -405,7 +427,7 @@ const PaSetlistBadge = memo(function PaSetlistBadge({ store, lang }) {
   return <div className="setlistpos ready">🎤 {lc.setlistSong} {setlist.idx + 1}/{setlist.total}</div>;
 });
 
-export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songCanvasRef, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, songInputRef, songAnalysisBusy, songAnalysis, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, startSongPlay, previewSong, shareCard, shareLine, styleTransform, songTigaTip = null, playAlongHand, changePlayAlongHand, drillPlan, drillActive, drillCleared = [], startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songAccomp = "track", setSongAccomp, songBand = 2, setSongBand, songFx = true, setSongFx, songPractice = false, songGfx = "auto", setSongGfx, songIntro, startIntro, skipIntro, sfxMuted, onToggleSfx }) {
+export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songCanvasRef, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, songInputRef, songAnalysisBusy, songAnalysis, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, startSongPlay, previewSong, shareCard, shareLine, styleTransform, songTigaTip = null, playAlongHand, changePlayAlongHand, drillPlan, drillActive, drillCleared = [], startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songAccomp = "track", setSongAccomp, songView = "fall", setSongView, songBand = 2, setSongBand, songFx = true, setSongFx, songPractice = false, songGfx = "auto", setSongGfx, songIntro, startIntro, skipIntro, sfxMuted, onToggleSfx }) {
   const lc = L[lang];
   const T = T3(lang);
   const store = gameStore;
@@ -450,6 +472,8 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
     : goal ? T(`เป้ารอบนี้: แม่นอีก ${goal.more}% ได้ ${goal.stars} ดาว`, `Goal: ${goal.more}% more accuracy for ${goal.stars} star${goal.stars > 1 ? "s" : ""}`, `目标：准确率再提高 ${goal.more}% 得 ${goal.stars} 星`)
     : T("ได้ 3 ดาวแล้ว — ลองไม่พลาดเลยสักโน้ต", "3 stars already — try it without a single miss", "已得 3 星 — 试试一个都不错");
 
+  // the sheet view (the first-song intro teaches the falling gems, so it is always shown falling)
+  const sheetView = songView === "sheet" && !intro;
   const worstSeg = Array.isArray(drillPlan) && drillPlan.length ? drillPlan.slice().sort((a, b) => b.misses - a.misses || a.start - b.start)[0] : null;
   const nextSong = songPhase === "done" && nextSongFor ? nextSongFor(songMeta) : null;
 
@@ -457,10 +481,11 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
     // The neon world (.playal) is the game itself. While a song waits to start
     // the screen wears the app's own theme instead — white in light mode, dark
     // in dark mode (owner, 2026-09-30) — and the neon starts with the song.
-    <div className={"songov " + (songPhase === "ready" ? "pl-themed" : "playal")}>
+    <div className={"songov " + (songPhase === "ready" ? "pl-themed" : "playal") + (sheetView ? " pl-sheet" : "")}>
       <div className="songhdr">
         <div className="songhtitle">{tr(songMeta, lang)}</div>
         <div className="pl-hdr-btns">
+          <ViewMode lang={lang} mode={songView} setMode={setSongView} variant="hdr" />
           <AccompMode lang={lang} mode={songAccomp} setMode={setSongAccomp} bandOn={songBand > 0} variant="hdr" />
           {songPhase === "playing" && !racing && pauseSong && (
             <button className="pl-pausebtn" onClick={pauseSong} aria-label={T("หยุดชั่วคราว", "Pause", "暂停")}>⏸</button>
@@ -472,7 +497,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
       {songPhase === "playing" && (
         <>
           <PaHud store={store} lang={lang} pvpOnline={pvpOnline} onStopDrill={endDrill} practice={songPractice} />
-          <PaStaff store={store} songMeta={songMeta} handMode={playAlongHand} />
+          <PaStaff store={store} songMeta={songMeta} handMode={playAlongHand} sheet={sheetView} />
         </>
       )}
 
@@ -546,6 +571,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                   {!songMeta.custom && <div className="pl-goal">{goalText}</div>}
                   {isDaily && !daily.done && <div className="pl-daily">📆 {T(`เพลงประจำวัน · ได้ 1 ดาวขึ้นไปรับ ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `Today's song · 1 star or more pays ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `今日歌曲 · 得 1 星以上奖励 ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`)}</div>}
                   {songKind && <div className="pl-kindnote">{T("โหมดใจดีเปิดอยู่ — ช่วงรับโน้ตกว้างขึ้น", "Kind mode is on — a wider timing window", "宽松模式已开启 — 判定更宽")}</div>}
+                  {sheetView && <div className="pl-kindnote">📖 {T("โหมดโน้ตเพลง — ไม่มีโน้ตตก และไม่มีคีย์เรืองแสงบอกทาง อ่านโน้ตแล้วกดให้ตรงจังหวะ", "Sheet mode — no falling notes and no lit key: read the staff and play on the beat", "乐谱模式 — 没有下落音符，也没有亮键提示：看谱，踩准节拍")}</div>}
                   <div className="songsrc">{lc.songInputHint}</div>
                   {/* Start stays pinned to the bottom edge: the settings above it are
                       tall, and on a short phone the button must never scroll away. */}
@@ -576,7 +602,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
       )}
 
       {songPhase === "playing" && (
-        <PaPause store={store} lang={lang} onResume={resumeSong} onRestart={restartSong} onExit={exitSong} sfxMuted={sfxMuted} onToggleSfx={onToggleSfx} band={songBand} setBand={setSongBand} accomp={songAccomp} setAccomp={setSongAccomp} fxOn={songFx} setFx={setSongFx} gfx={songGfx} setGfx={setSongGfx} />
+        <PaPause store={store} lang={lang} onResume={resumeSong} onRestart={restartSong} onExit={exitSong} sfxMuted={sfxMuted} onToggleSfx={onToggleSfx} band={songBand} setBand={setSongBand} accomp={songAccomp} setAccomp={setSongAccomp} view={songView} setView={setSongView} fxOn={songFx} setFx={setSongFx} gfx={songGfx} setGfx={setSongGfx} />
       )}
       {songPhase === "done" && songResult && songResult.practice && (
         <div className="songresult pl-result pl-practice-result">
