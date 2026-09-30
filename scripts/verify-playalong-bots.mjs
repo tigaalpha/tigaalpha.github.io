@@ -596,9 +596,9 @@ if (want("ready-theme")) {
     await done(s);
   }
 }
-// ── 17. the stage behind the notes: the grand backdrop is baked once and its motion is cheap; at the top
-//        graphics level it moves (and Fever brings the beams), at the lowest it is the still picture, and the
-//        first frames of a run — where the bake happens — are not a stall ──
+// ── 17. the stage behind the notes: the world (sky, city, floor) is painted once and kept, the ready screen paints it while
+//        it waits, a song only adds its lanes, and its motion is cheap; at the top graphics level it moves (and Fever
+//        brings the beams), at the lowest it is the still picture, and the first frames of a run are not a stall ──
 if (want("stage")) {
   for (const [mode, w, h] of [["high", 376, 700], ["low", 376, 700]]) {
     const s = await session({ w, h, extraLS: { tg_pa_gfx_mode: mode } });
@@ -613,7 +613,24 @@ if (want("stage")) {
     const info = await s.p.evaluate(() => ({ bake: window.__paTest.bake(), gfx: window.__paTest.gfx(), fever: !!document.querySelector(".feverbadge, .songstage.fever") }));
     await s.p.screenshot({ path: `${OUT}/stage-${mode}.png` });
     await stopBot(s.p);
-    rec(`stage-${mode}`, info.bake && info.bake.fx === (mode === "high") && worst < 500 && s.errs.length === 0, `bake ran ${info.bake && info.bake.ms.toFixed(0)} ms · moving parts ${info.bake && info.bake.fx} · canvas step ${info.gfx} · slowest frame in the first 3.5 s ${worst.toFixed(0)} ms · errors ${s.errs.length}${s.errs.length ? " " + s.errs[0] : ""}`);
+    rec(`stage-${mode}`, info.bake && info.bake.fx === (mode === "high") && worst < 500 && s.errs.length === 0, `Start's bake ran ${info.bake && info.bake.ms.toFixed(0)} ms (world ${info.bake && info.bake.world.toFixed(0)} ms, ${info.bake && info.bake.prebaked ? "painted on the ready screen" : "painted at Start"}) · moving parts ${info.bake && info.bake.fx} · canvas step ${info.gfx} · slowest frame in the first 3.5 s ${worst.toFixed(0)} ms · errors ${s.errs.length}${s.errs.length ? " " + s.errs[0] : ""}`);
+    await done(s);
+  }
+  // the ready screen paints the world in the browser's idle time, for the size the stage had when a run last began on
+  // this screen — the ready canvas is taller than the playing one — so Start only adds the song's lanes to a copy of it
+  {
+    const s = await session({ w: 376, h: 700, extraLS: { tg_pa_gfx_mode: "high" } });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await start(s.p); await s.p.waitForTimeout(600);
+    const first = await s.p.evaluate(() => ({ b: window.__paTest.bake(), ls: localStorage.getItem("tg_pa_stage") }));
+    let remembered = null; try { remembered = Object.values(JSON.parse(first.ls || "{}"))[0]; } catch (e) {}
+    rec("stage-size-remembered", !!first.b && !first.b.prebaked && Array.isArray(remembered) && remembered[0] === 376 && remembered[1] > 100, `first run on this screen: painted at Start (${first.b && first.b.world.toFixed(0)} ms), remembered ${JSON.stringify(remembered)}`);
+    await s.p.reload({ waitUntil: "load" }); await s.p.waitForTimeout(2500);             // a new visit: nothing painted yet
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await s.p.waitForTimeout(2500);                                                     // the ready screen waits
+    await start(s.p); await s.p.waitForTimeout(600);
+    const b = await s.p.evaluate(() => window.__paTest.bake());
+    rec("stage-prebaked", !!b && b.prebaked === true && b.ms < Math.max(12, b.world * 0.6) && s.errs.length === 0, `on the ready screen the world took ${b && b.world.toFixed(0)} ms of idle time; at Start the bake took ${b && b.ms.toFixed(0)} ms · prebaked ${b && b.prebaked} · errors ${s.errs.length}${s.errs.length ? " " + s.errs[0] : ""}`);
     await done(s);
   }
 }
