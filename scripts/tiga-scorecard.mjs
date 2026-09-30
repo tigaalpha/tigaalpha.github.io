@@ -1,0 +1,306 @@
+#!/usr/bin/env node
+/* tiga-scorecard.mjs — ONE COMMAND, THE WHOLE MODEL'S REPORT CARD.
+   Answers the owner's question "how do we measure this model so we can make
+   it better?" with a tool, not an essay. Runs the REAL modules (repo
+   convention: transpile actual source, never a hand-mirrored copy) and prints
+   a business-readable scorecard where every number traces to a check that
+   actually executed.
+
+   Sections (each maps to a plan-v3 milestone):
+     1. Knowledge quality  — eval-expanded: theory facts + golden situations
+     2. Knowledge fetching — retrieval eval: 24 known-answer probes, gate 80%
+     3. Teaching decisions — policy engine: rules fire on the right states   4. Teacher materials  — exercise generator: deterministic, 10 topics × 5 levels
+   5. Learning loop      — strategy analyzer: outcome→weight math (incl. kill switch)
+   6. Legal cleanliness  — kb-compliance over the real KB
+   7. Multimodal fusion  — confidence-weighted arbiter (m12)
+   8. Measured speed     — rule brain/KB real latency (m33)
+   9. KB hot path        — capped+ranked serving: caps hold, gate holds, faster (m34)
+   10. Cost governor     — per-session spend ceiling enforced by code (m13/m22)
+
+   Exit 1 if any section fails its bar. */
+
+import { execSync } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync as ioSync, readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+const OUT = "node_modules/.tmp-tiga-scorecard";
+rmSync(OUT, { recursive: true, force: true });
+mkdirSync(`${OUT}/p4`, { recursive: true });
+
+const REAL_SB = readFileSync("supabase-client.ts", "utf8");
+ioSync("supabase-client.ts", "export const sb = null;\n");
+try {
+  execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
+  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js tigamodel/performance/kb-hot-path.js tigamodel/performance/cost-governor.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+} finally {
+  ioSync("supabase-client.ts", REAL_SB);
+}
+globalThis.localStorage = { _m: new Map(), getItem(k) { return this._m.has(k) ? this._m.get(k) : null; }, setItem(k, v) { this._m.set(k, String(v)); }, removeItem(k) { this._m.delete(k); } };
+
+const M = (f) => import(pathToFileURL(`${OUT}/${f}`).href);
+const webM = await import(pathToFileURL(`${OUT}/p4/web.js`).href);
+const evalX = await M("evaluation/eval-expanded.js");
+const retr = await M("evaluation/retrieval-eval.js");
+const policyM = await M("teaching/policy.js");
+const genM = await M("teaching/generator.js");
+const analyzer = await M("teaching/strategy-analyzer.js");
+
+const rows = [];
+const section = (name, detail, score, bar, pass) => rows.push({ name, detail, score, bar, pass });
+
+console.log("\n╔══════════════════════════════════════════════════════════╗");
+console.log("║        TIGA MODEL — REPORT CARD (node scripts/tiga-scorecard.mjs)        ║");
+console.log("╚══════════════════════════════════════════════════════════╝\n");
+
+/* ── 1. Knowledge quality: the REAL eval suite vs the REAL provider registry ── */
+{
+  webM.initTigamodelWeb(); // lazy singleton — first caller initializes
+  const tiga = webM.getTigamodel();
+  const results = await evalX.evaluateAllProvidersExtended(tiga.providers.list());
+  const best = results.reduce((a, b) => ((b && b.overall || 0) > (a && a.overall || 0) ? b : a), results[0] || { overall: 0, cases_run: 0 });
+  const pct = (best.overall || 0) * 100;
+  section(
+    "1) คุณภาพความรู้ (eval suite เต็มของระบบ)",
+    `รันจริง ${best.cases_run || 0} เคสกับ provider "${best.provider || "-"}" — ชุดเดียวกับที่ Model Lab ใช้กันเปลี่ยนโมเดล · KB ${webM.getKnowledgeBaseForTest().count().toLocaleString()} entries`,
+    pct, "≥ 75%", pct >= 75
+  );
+}
+
+/* ── 2. Knowledge fetching (retrieval) ── */
+{
+  const scored = retr.RETRIEVAL_PROBES.map(p => ({ score: retr.scoreRetrieval(p, retr.servedLabels(webM.getKBContext(p.q))) }));
+  const acc = retr.retrievalAccuracy(scored);
+  section(
+    "2) การหยิบความรู้ถูกเรื่อง (retrieval)",
+    `${retr.RETRIEVAL_PROBES.length} คำถามจริง (th/en) ยิงเข้า getKBContext ตัว production`,
+    acc * 100, "≥ 80% (gate)", acc >= retr.RETRIEVAL_GATE
+  );
+}
+
+/* ── 3. Teaching decisions (policy fires correctly) ── */
+{
+  const st = (state, p) => [{ state, probability: p, confidence: 0.9, evidence: [], modalities: [], alternatives: [] }];
+  const p = policyM.createTeachingPolicy();
+  const cases = [
+    { label: "สับสน+ยาก → ลดความซับซ้อน", ok: p.evaluate([...st("confusion", 0.9), ...st("perceived_difficulty", 0.85)], {}, null).strategy_id === "simplify-on-confusion" },
+    { label: "เข้าใจต่ำ+พลาดซ้ำ → ย้อนพื้นฐาน", ok: p.evaluate([...st("understanding", 0.2)], { repeated_errors: 3 }, null).strategy_id === "return-to-prerequisite" },
+    { label: "บอกว่าง่าย → เพิ่มท้าทาย", ok: p.evaluate([], {}, "too_easy").strategy_id === "raise-challenge" },
+    { label: "บอกว่ายาก → ลดภาระ", ok: p.evaluate([], {}, "too_hard").strategy_id === "simplify-on-hard-report" },
+    { label: "ไม่มีสัญญาณ → ดำเนินต่อ", ok: p.evaluate([], {}, null).strategy_id === "continue-current-plan" },
+  ];
+  const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
+  section(
+    "3) การตัดสินใจสอน (policy ยิงถูกกฎ)",
+    cases.map(c => `${c.ok ? "✓" : "✗"} ${c.label}`).join(" · "),
+    pct, "100%", pct === 100
+  );
+}
+
+/* ── 4. Teacher materials (generator — topics are the generator's own table) ── */
+{
+  const kinds = webM.studentExerciseKinds();
+  let made = 0, tried = 0;
+  const seen = new Set();
+  for (let t = 0; t < kinds.length; t++) for (let lvl = 1; lvl <= 5; lvl++) {
+    tried++;
+    const ex = webM.generateStudentExercise(t, lvl, `sc-${t}-${lvl}`);
+    if (ex && ex.task && ex.task.th) { made++; seen.add(ex.task.th); }
+  }
+  const det = JSON.stringify(webM.generateStudentExercise(4, 2, 42)) === JSON.stringify(webM.generateStudentExercise(4, 2, 42));
+  const variety = new Set([...Array(8)].map((_, i) => { const x = webM.generateStudentExercise(1, 3, i + 1); return x && x.task && x.task.th; })).size;
+  const pct = (made / tried) * 100;
+  section(
+    "4) การผลิตสื่อการสอน (แบบฝึกหัด)",
+    `${made}/${tried} ชุด (${kinds.length} หัวข้อ × 5 ระดับ) · สร้างซ้ำได้เหมือนเดิม: ${det ? "ใช่" : "ไม่!"} · ต่างกัน 8 ด่าน: ${variety} แบบ`,
+    pct, "100%", pct === 100 && det && variety >= 6
+  );
+}
+
+/* ── 5. Learning loop (analyzer math + kill switch) ── */
+{
+  const rows30 = [];
+  for (let i = 0; i < 12; i++) rows30.push({ strategy_id: "a", n: 12, avg_before: 0.4, avg_after: 0.7, delta: 0.3, improved: 9 });
+  for (let i = 0; i < 10; i++) rows30.push({ strategy_id: "b", n: 10, avg_before: 0.5, avg_after: 0.4, delta: -0.1, improved: 2 });
+  const w = analyzer.computePolicyWeights(rows30);
+  const ordering = w["a"] > w["b"];
+  const clamped = Object.values(w).every(v => v >= analyzer.WEIGHT_MIN && v <= analyzer.WEIGHT_MAX);
+  const neutral = analyzer.computePolicyWeights([{ strategy_id: "c", n: 2, delta: 5, improved: 2 }])["c"] === 1.0;
+  const off = analyzer.applyPolicyWeights(policyM.DEFAULT_POLICY, { enabled: false, weights: { "simplify-on-confusion": 2 } }) === null;
+  const pct = [ordering, clamped, neutral, off].filter(Boolean).length * 25;
+  section(
+    "5) ลูปเรียนรู้จากผลจริง (analyzer)",
+    `กลยุทธ์ที่ได้ผลกว่าได้น้ำหนักกว่า: ${ordering ? "ใช่" : "ไม่"} · ค่าอยู่ในกรอบ: ${clamped ? "ใช่" : "ไม่"} · ข้อมูลน้อยไม่เดา: ${neutral ? "ใช่" : "ไม่"} · สวิตช์ปิดได้: ${off ? "ใช่" : "ไม่"}`,
+    pct, "100%", pct === 100
+  );
+}
+
+/* ── 6. Legal cleanliness (docs/07 A+C+D) ── */
+{
+  const comp = await M("compliance/kb-compliance.js");
+  const { SOURCES } = await import(pathToFileURL("tigamodel/knowledge/university-sources.js").href); // real registry — no silent fallback
+  const entries = [...webM.getKnowledgeBaseForTest()._entries.values()];
+  const rep = comp.auditKB(entries, SOURCES);
+  const pct = 100 - Math.min(100, rep.flags.length);
+  section(
+    "6) ความสะอาดเชิงกฎหมายของคลังความรู้ (ที่มา/ก๊อปยาว/เครื่องหมายการค้า/สุขภาพ)",
+    `ตรวจจริง ${rep.checked.toLocaleString()} entries — ที่มาไม่จดทะเบียน: ${rep.unregistered} · flag รวม: ${rep.flags.length} (JSON: ${JSON.stringify(rep.byCheck)})`,
+    pct, "100% (0 flag)", rep.clean
+  );
+}
+
+/* ── 7. Multimodal fusion (m12): confidence-weighted arbiter + kill switch ── */
+{
+  const fus = await M("multimodal/fusion.js");
+  const sig = [
+    { channel: "session",     state: "confusion", probability: 0.8, confidence: 0.75, evidence: ["acc 55%"] },
+    { channel: "history",     state: "confusion", probability: 0.3, confidence: 0.4 },
+    { channel: "self_report", state: "confusion", probability: 0.85, confidence: 0.9 },
+    { channel: "session",     state: "perceived_difficulty", probability: 0.7, confidence: 0.5 },
+    { channel: "history",     state: "perceived_difficulty", probability: 0.6, confidence: 0.8 },
+  ];
+  const r1 = fus.fuseMultimodalSignals({ signals: sig });
+  const r2 = fus.fuseMultimodalSignals({ signals: sig });
+  const noTs = r => JSON.stringify((r || []).map(e => ({ ...e, timestamp: "" })));
+  const det = noTs(r1) === noTs(r2);
+  const confWin = r1 && r1.find(f => f.state === "confusion");
+  const srDominance = confWin && confWin.fusion && confWin.fusion.winner_channel === "self_report";
+  const killed = fus.fuseMultimodalSignals({ signals: sig, weights: { self_report: 0, session: 0 } });
+  const ks = killed && killed.find(f => f.state === "confusion");
+  const killWorks = ks && ks.fusion && ks.fusion.winner_channel === "history";
+  const banned = fus.fuseMultimodalSignals({ signals: [
+    { channel: "vision", state: "enjoyment", probability: 0.99, confidence: 0.99 },
+    { channel: "audio", state: "enjoyment", probability: 0.9, confidence: 0.9 },
+  ]});
+  const cases = [det, !!srDominance, !!killWorks, banned === null];
+  const pct = (cases.filter(Boolean).length / cases.length) * 100;
+  section(
+    "7) ถ่วงน้ำหนักหลายสัญญาณ (fusion)",
+    `ตัดสินซ้ำได้เหมือนเดิม: ${det ? "ใช่" : "ไม่!"} · คำตอบตรงจากนักเรียนชนะเสมอ: ${srDominance ? "ใช่" : "ไม่"} · สวิตช์ปิดต่อช่องได้: ${killWorks ? "ใช่" : "ไม่"} · ช่องห้าม (ใบหน้า/เสียง) ชนะไม่ได้: ${banned === null ? "ใช่" : "ไม่!"}`,
+    pct, "100%", pct === 100
+  );
+}
+
+/* ── 8. Speed, measured (docs/10 m33): real latency of the rule brain ── */
+{
+  const ac = await M("performance/answer-cache.js");
+  const N = 200;
+  const states = [{ state: "confusion", probability: 0.9, confidence: 0.9, evidence: ["x"], modalities: [], alternatives: [] }];
+  const pol = policyM.createTeachingPolicy();
+  // warm-up (first-touch JIT/JIT-free noise excluded from the claim)
+  webM.getKBContext("โน้ต C"); pol.evaluate(states, {}, null);
+  let t0 = performance.now();
+  for (let i = 0; i < N; i++) webM.getKBContext("เวลาซ้อมเปียโนต้องนั่งท่าไหน นั่งสูงแค่ไหนดี");
+  const kbMs = (performance.now() - t0) / N;
+  t0 = performance.now();
+  for (let i = 0; i < N; i++) pol.evaluate(states, { repeated_errors: 3 }, null);
+  const polMs = (performance.now() - t0) / N;
+  t0 = performance.now();
+  for (let i = 0; i < N; i++) webM.generateStudentExercise(1, 3, i);
+  const genMs = (performance.now() - t0) / N;
+  // remembered-answer path: serve speed vs the network path (same machine)
+  const cache = ac.createAnswerCache({ enabled: true, confidenceFloor: 0.4 });
+  const key = ac.answerCacheKey({ message: "speed probe" });
+  cache.maybeRemember(key, { status: "ok", text: "cached", provider: "mock", model: "m", trace_id: "t", confidence: 0.95, metadata: {} });
+  t0 = performance.now();
+  for (let i = 0; i < N; i++) cache.lookup(key);
+  const hitMs = (performance.now() - t0) / N;
+  const cases = [
+    { label: "KB context < 100ms", ok: kbMs < 100, v: kbMs },
+    { label: "policy ตัดสิน < 20ms", ok: polMs < 20, v: polMs },
+    { label: "แบบฝึกหัด < 5ms", ok: genMs < 5, v: genMs },
+    { label: "คำตอบจำได้ < 1ms", ok: hitMs < 1, v: hitMs },
+  ];
+  const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
+  const f3 = x => x.toFixed(3);
+  section(
+    "8) ความเร็วที่วัดจริง (สมองกฎ/KB — ไม่รอเครือข่าย)",
+    `เฉลี่ย ${N} รอบ: KB ${f3(kbMs)}ms (เกณฑ์ <100) · policy ${f3(polMs)}ms (<20) · สร้างแบบฝึกหัด ${f3(genMs)}ms (<5) · คำตอบที่จำได้ ${f3(hitMs)}ms (<1) — ทางลัดเดียวที่อนุญาต = จำคำตอบที่ผ่านการตรวจแล้ว (docs/10)`,
+    pct, "100%", pct === 100
+  );
+}
+
+/* ── 9. KB hot path (docs/10 §1.3 / docs/14 §2, m34): serving must stay fast
+   AND on-topic with the hot path ON — caps hold on the real seed, the
+   retrieval gate still passes, and the worst path is measurably faster. ── */
+{
+  const hp = await M("performance/kb-hot-path.js");
+  webM.initTigamodelWeb();
+  webM.setKbHotPathEnabled(true);
+  webM.kbHotPath().clearHot();
+  const legacy = (() => { webM.setKbHotPathEnabled(false); const b = webM.getKBContext("คอร์ด C กับ G สลับไม่ทัน"); webM.setKbHotPathEnabled(true); return b; })();
+  const HARMONY_Q = "คอร์ด C กับ G สลับไม่ทัน";
+  webM.kbHotPath().clearHot();
+  const capped = webM.getKBContext(HARMONY_Q);
+  const cappedLines = capped.split("\n").filter(l => l.startsWith("• ")).length;
+  const gateScored = retr.RETRIEVAL_PROBES.map(p => ({ score: retr.scoreRetrieval(p, retr.servedLabels(webM.getKBContext(p.q))) }));
+  const acc = retr.retrievalAccuracy(gateScored);
+  webM.kbHotPath().clearHot();
+  let t0 = performance.now();
+  for (let i = 0; i < 100; i++) { webM.kbHotPath().clearHot(); webM.getKBContext(HARMONY_Q); }
+  const hotMs = (performance.now() - t0) / 100;
+  webM.setKbHotPathEnabled(false); // measure the TRUE legacy path, not the hot path
+  webM.getKBContext(HARMONY_Q); // warm the legacy path
+  t0 = performance.now();
+  for (let i = 0; i < 100; i++) webM.getKBContext(HARMONY_Q);
+  const legacyMs = (performance.now() - t0) / 100;
+  webM.setKbHotPathEnabled(true); // next case (kill switch) re-verifies OFF honestly
+  const cases = [
+    { label: "เพดานถือต่อข้อความ (≤24 บรรทัด/≤8k ตัวอักษร)", ok: cappedLines > 0 && cappedLines <= webM.kbHotPath().config.maxLines && capped.length < legacy.length / 100, v: `${cappedLines} lines` },
+    { label: "retrieval gate ยังผ่าน (hot path เปิด)", ok: acc >= retr.RETRIEVAL_GATE, v: `${(acc * 100).toFixed(0)}%` },
+    { label: "เส้นทางแย่สุดเร็วขึ้นวัดจริง", ok: hotMs < legacyMs, v: `${legacyMs.toFixed(3)}→${hotMs.toFixed(3)}ms` },
+    { label: "kill switch ปิดได้ (OFF = byte-identical)", ok: (() => { webM.setKbHotPathEnabled(false); const b = webM.getKBContext(HARMONY_Q); const same = b === legacy; webM.setKbHotPathEnabled(true); return same; })(), v: "ปิด = เดิมเป๊ะ" },
+  ];
+  const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
+  section(
+    "9) KB hot path — เลือกให้ตรงแทนการเททั้งคลัง (docs/14)",
+    `${cases.map(c => `${c.ok ? "✓" : "✗"} ${c.label} (${c.v})`).join(" · ")} · บล็อกเดิม ${legacy.length.toLocaleString()} → ${capped.length.toLocaleString()} ตัวอักษร`,
+    pct, "100%", pct === 100
+  );
+}
+
+/* ── 10. Cost governor (docs/05 §8 / docs/15 §2, m13/m22): the spend ceiling
+   must be enforced by code — decide-before-call, throttle before the cap,
+   honest uncertain fallback, kill switch restores the untouched path. ── */
+{
+  const cg = await M("performance/cost-governor.js");
+  const g = cg.createCostGovernor({ enabled: true, freeQuota: 40, hardCap: 100 });
+  // real shape: decide before, charge after — 3 units per call crosses the 100 cap at call 34
+  const decisions = [];
+  for (let i = 0; i < 40; i++) { decisions.push(g.decide("sc", 3)); g.charge("sc", 3); }
+  const throttledAt = decisions.findIndex(d => d.decision === "throttle");
+  const warnedOnce = decisions.filter(d => d.reason === "warn_80pct").length === 1;
+  const honest = g.governedResponse({ reason: "hard_cap_reached", spent: 100 });
+  webM.setCostGovernorEnabled(true);
+  webM.costGovernor().clear();
+  webM.costGovernor().charge("sc-sess", 99); // the session's real spend so far — the next call would cross the cap
+  const governed = await webM.chatThroughCostGovernor({ message: "scorecard probe", sessionKey: "sc-sess", estimatedUnits: 2 });
+  const governedHonest = governed && governed.response && governed.response.provider === "cost-governor" && governed.response.status === "uncertain" && governed.response.metadata.governed === true;
+  webM.costGovernor().clear();
+  webM.setCostGovernorEnabled(false);
+  const outOff = await webM.chatThroughCostGovernor({ message: "off path", sessionKey: "sc-sess" });
+  const offUntouched = outOff && outOff.governed === false && outOff.response && outOff.response.status === "ok";
+  const cases = [
+    { label: "เพดานบังคับโดยโค้ด (throttle ก่อนทะลุ 100%)", ok: throttledAt > 0 && throttledAt < 40, v: `throttle@call ${throttledAt + 1}` },
+    { label: "warn ครั้งเดียวที่ 80%", ok: warnedOnce, v: "1 ครั้ง" },
+    { label: "คำตอบ throttle ซื่อสัตย์ (uncertain + ที่มา)", ok: honest.status === "uncertain" && honest.provider === "cost-governor" && honest.metadata.governed === true, v: "ไม่แต่งคำตอบ" },
+    { label: "wiring จริง: throttle ผ่าน chatThroughCostGovernor", ok: !!governedHonest, v: "e2e" },
+    { label: "kill switch ปิด = เส้นทางเดิม 100%", ok: !!offUntouched, v: "เดิมเป๊ะ" },
+  ];
+  const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
+  section(
+    "10) ต้นทุนต่อเซสชันถูกบังคับด้วยโค้ด (cost governor, docs/15)",
+    `${cases.map(c => `${c.ok ? "✓" : "✗"} ${c.label} (${c.v})`).join(" · ")} · tiers free=0 low=1 medium=2 high=4 — ตัวไม่รู้จักจ่าย low ไม่มีทางได้ฟรี`,
+    pct, "100%", pct === 100
+  );
+}
+
+/* ── print ── */
+console.log("| ตัวชี้วัด | คะแนน | เกณฑ์ผ่าน | ผล |");
+console.log("|---|---|---|---|");
+for (const r of rows) {
+  console.log(`| ${r.name} | ${r.score.toFixed(1)}% | ${r.bar} | ${r.pass ? "✅ ผ่าน" : "❌ ไม่ผ่าน"} |`);
+  console.log(`| <sub>${r.detail}</sub> | | | |`);
+}
+const allPass = rows.every(r => r.pass);
+console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (cost governor เข้า scorecard แล้ว ด่าน 10)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
+process.exit(allPass ? 0 : 1);

@@ -1,36 +1,48 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-28T01:46:48.919Z",
-  "appVersion": "13.7.373",
+  "generatedAt": "2026-09-29T12:26:54.472Z",
+  "appVersion": "13.7.460",
   "bundle": {
-    "file": "index.template-Cu_HB_66.js",
-    "bytes": 2718655,
+    "file": "index.template-CNwzAsuL.js",
+    "bytes": 2928201,
     "includesTigamodel": true,
-    "tigamodelMinifiedBytes": 1338421,
+    "tigamodelMinifiedBytes": 1341726,
     "chunks": [
       {
-        "file": "index.template-Cu_HB_66.js",
-        "bytes": 2718655
+        "file": "index.template-CNwzAsuL.js",
+        "bytes": 2928201
       },
       {
-        "file": "web-RhAMf8_K.js",
-        "bytes": 657744
+        "file": "space3d-main-d2KlIVF2.js",
+        "bytes": 957304
       },
       {
-        "file": "pvp-arena-BROxyI-R.js",
-        "bytes": 178418
+        "file": "space3d-worker-DvKmh0Xc.js",
+        "bytes": 953273
       },
       {
-        "file": "TigamodelLab-nLkOke3I.js",
-        "bytes": 86640
+        "file": "web-CQpOrn2U.js",
+        "bytes": 661017
       },
       {
-        "file": "AdminActivityDashboard-v9G6cmp6.js",
-        "bytes": 53158
+        "file": "pvp-arena-BCiULbWv.js",
+        "bytes": 205095
       },
       {
-        "file": "TigamodelBackoffice-O5x3-ChV.js",
-        "bytes": 35493
+        "file": "TigamodelLab-BgFq1jR5.js",
+        "bytes": 86683
+      },
+      {
+        "file": "AdminActivityDashboard-wJvYGGM-.js",
+        "bytes": 69595
+      },
+      {
+        "file": "TigamodelBackoffice-_U3zQDsO.js",
+        "bytes": 35550
+      },
+      {
+        "file": "AdminAIModels-dMw3doiT.js",
+        "bytes": 35442
       },
       {
         "file": "university-sources-DkP7OoqL.js",
@@ -41,19 +53,35 @@
         "bytes": 19633
       },
       {
-        "file": "web-CAcrXj6a.js",
+        "file": "LeadLandingPage-CMIk2fGS.js",
+        "bytes": 13611
+      },
+      {
+        "file": "ReferralDashboard-CwjKjQt5.js",
+        "bytes": 8622
+      },
+      {
+        "file": "LeadSaleDashboard-EGm9AG1r.js",
+        "bytes": 7607
+      },
+      {
+        "file": "space3d-0hYboI3p.js",
+        "bytes": 6174
+      },
+      {
+        "file": "web-BIK-xyOO.js",
         "bytes": 5340
       },
       {
-        "file": "web-XHdwSh4P.js",
+        "file": "web-DOUdB6FR.js",
         "bytes": 851
       },
       {
-        "file": "web-D2RPiL2F.js",
+        "file": "web-FEZSJLuO.js",
         "bytes": 813
       },
       {
-        "file": "web-CSLNAEEQ.js",
+        "file": "web-Osc6Hmpy.js",
         "bytes": 388
       }
     ]
@@ -74,10 +102,10 @@
     "weakestCap": "kb"
   },
   "perf": {
-    "allRoutesColdMs": 31.37,
-    "allRoutesWarmMs": 0.2,
-    "summaryMs": 2.03,
-    "memoSpeedup": 156.9
+    "allRoutesColdMs": 35.92,
+    "allRoutesWarmMs": 0.19,
+    "summaryMs": 7.21,
+    "memoSpeedup": 189.1
   },
   "kb": {
     "theoryEntries": 13414,

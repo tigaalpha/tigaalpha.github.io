@@ -14,6 +14,7 @@
      log observation → decision → response → measured result later. ── */
 
 import { makeStudentStateEstimate, makeDiagnosis, makeObservation } from "../core/schema.js";
+import { findTie, jevChoiceToDecision, firstMatchDecision } from "./jev-tie-breaker.js";
 
 /* Phase 4 (spec §17): self-report vocabulary → the state it directly
    evidences. The student's own answer outranks inference — these values
@@ -30,7 +31,7 @@ function est({ state, probability, confidence, evidence, alternatives }) {
   return makeStudentStateEstimate({ state, probability, confidence, evidence, modalities: ["performance", "conversation"], alternatives });
 }
 
-export function createTeachingLoop({ policy, kb, skillGraph } = {}) {
+export function createTeachingLoop({ policy, kb, skillGraph, jev = null, isJevPolicyEnabled = null } = {}) {
   async function runOnce({ observations = [], practiceStats = null, selfReport = null, studentContext = null, history = [], lang = "th" } = {}) {
     // UI language for every learner-facing string below (owner request
     // 2026-09-21: the verdict must match the app's language mode — Chinese
@@ -120,8 +121,34 @@ export function createTeachingLoop({ policy, kb, skillGraph } = {}) {
       if (i >= 0) states[i] = est2; else states.push(est2);
     }
 
-    // 5. SELECT STRATEGY via configurable policy
-    const decision = policy.evaluate(states, signals, selfReport);
+    // 5. SELECT STRATEGY via configurable policy.
+    // docs/05 §5 (m20): the policy's own decision is ALWAYS the baseline
+    // (custom policies may not even be rule-based). Only when the policy IS
+    // rule-based AND ≥2 rules genuinely match (a tie that first-match-wins
+    // used to settle by code order silently) AND the Jev wiring + kill
+    // switch allow it, Jev's choice overrides. ANYTHING else (no jev,
+    // switch off, not ok:true, unoffered choice) keeps the shipped
+    // decision. The learner never sees an error from this path.
+    let decision = policy.evaluate(states, signals, selfReport);
+    try {
+      // Zero-cost guard first: the (pure) tie check runs before anything
+      // touches the network — no tie (the overwhelmingly common case) means
+      // no settings query, no Jev call, exactly today's cost profile.
+      if (jev && typeof isJevPolicyEnabled === "function") {
+        const jevTie = findTie(policy, states, signals, selfReport);
+        if (jevTie && (await isJevPolicyEnabled())) {
+          const r = await jev.choose(jevTie.state, jevTie.question.instructions, jevTie.question.criteria);
+          if (r && r.ok && r.choice) {
+            const viaJev = jevChoiceToDecision(r.choice, {
+              tiedRules: ((policy.rules || policy) || []).filter(x => jevTie.tied.includes(x.id)),
+              basedOn: states.map(s => `${s.state}@${s.probability.toFixed(2)}`),
+              via: r.via || "jev-tie-breaker",
+            });
+            if (viaJev) decision = viaJev;
+          }
+        }
+      }
+    } catch (e) { /* Jev path degrades — baseline decision stands */ }
 
     // 6. RESPOND — Phase 0 composes the message FROM the decision (no model
     // needed); Phase 1 passes this decision+context to a provider for the

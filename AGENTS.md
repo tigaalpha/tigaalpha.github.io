@@ -58,16 +58,55 @@ in pure modules: `play-along-judge.ts` (timing windows, accuracy, stars,
 mashing, input-delay learning, boss numbers) and `play-along-progress.ts`
 (earned stars and best accuracy per song, locks, the daily song, what to
 play next, medals, the per-day run count); `play-along-band.ts` is the
-backing band (drums, bass, chords, the Fever arpeggio), booked ahead on the
-audio clock like the metronome and kept out of the mic's hearing. The
+backing band (drums, bass, strings, brass and the Fever arpeggio, a finale on
+the last chord), booked ahead on the audio clock like the metronome and kept out
+of the mic's hearing — what plays with a song is the player's choice, the
+backing track or a metronome (`songAccomp`, the pair of buttons in the header's
+top right corner, also in the pause card); `play-along-stage.ts` is the
+world behind the falling notes (sky, moon, planet, aurora, three planes of a
+city, a mirror floor), baked once per canvas size into the backdrop bitmap, with
+its few moving parts (core flare, turning ring, shock-ring, floor line, Fever
+beams) drawn only at the top graphics level and built to cost almost nothing
+between beats — anything new there must stay a cached bitmap or a stroke, never
+a gradient built per frame, and must not flash more than about three times a
+second. The
 judge words, score pops and sparks are drawn in the song canvas from cached
-bitmaps, not as DOM elements. `usePlayAlong` runs inside `PianoApp`, so a React state update
+bitmaps, not as DOM elements.
+
+**The microphone and the game's own sounds (owner report 2026-09-30: "I pressed
+D and it heard C").** On a phone the speaker is an inch from the mic, so every
+sound the game makes reaches the pitch detector. Rules that keep it honest:
+`createMonoDetector` (`music-engine.tsx`, the mono mic path) low-passes each
+frame at 2.6 kHz (8th order) before it listens — energy above the piano only
+lowers the autocorrelation's clarity, and a clean high tone is read as a
+"note" far below it — and *holds* a note that has fired: the same pitch class
+in the next frames is that note still ringing, not a new press, unless a strike
+(the level jumps 6 dB in a clear tone) says otherwise; without it anything that
+drowned the note for a moment made it fire twice, and a second C while the D is
+due reads as "you pressed C". While a mic listens and no key has been tapped,
+the player is taken for a pianist (`bandPump`): the band plays soft drums only
+and `setMicSafe(true)` switches the game's sounds to their mic-safe voice — the
+hit ding is dropped and the whoosh, boom crackle, level-up chime, miss sound and
+metronome click become noise far above the piano (`hfPing`), never a tone
+inside it. A player who taps gets the full band and their mic is put aside:
+`handleSongInput` lets a mic reading through only when it lands on a note the
+music asks for now. **Any new sound played during a run must be noise, far above
+the piano, or blacklisted (`_accMarkSuppress`), and have a mic-safe voice.** `usePlayAlong` runs inside `PianoApp`, so a React state update
 there re-renders the whole app — the running game's fast-changing state
 (HUD, lit keys, staff, effects) lives in `play-along-store.ts` instead, read
 by small subscriber components in the overlay; keep new per-frame or
 per-note state there, not in `useState`. Its neon theme is
 `play-along-styles.ts`, with `pl-` class names: a top-level `.pa-*`/`.ca-*`
 rule is fingerprinted by the sprite bake and would mark every sprite stale.
+**The neon is the game itself, not the whole overlay (owner rule,
+2026-09-30):** while a song waits to start (the ready screen) the overlay
+drops `.playal` and wears `.pl-themed` — the app's own theme, white in light
+mode and dark in dark mode, from the `--bg`/`--card`/`--text`/`--clay` tokens —
+and the neon starts with the song. Keep new ready-screen pieces on those tokens,
+not on neon colours. Its settings panel (speed, hands, kind mode, loop, online
+duel) is always open and first on the screen — never fold it behind a link, a
+player who cannot see a setting does not know it exists — and Start stays
+pinned to the bottom edge.
 
 Robot and pet **thumbnails are pre-rendered images**, not live SVG:
 `scripts/bake-sprites.mjs` (`npm run sprites`) draws every robot head
@@ -201,7 +240,16 @@ daily-quest rules from the real modules (needs jsdom, see the script), and
 in `dist/` with bots — mashing, clean and early runs, the practice loop,
 the daily song, concerts, pause, the first-time intro, the song list, the
 sliding staff, medals and the run-coin limit, practice mode, the band and
-the click track (`ONLY=name,…` runs a subset). The app exposes
+the backing-track / metronome choice, the ready screen's theme and settings, the
+stage (`ONLY=name,…` runs a subset). `node scripts/verify-playalong-band-audio.mjs`
+renders the band offline (Chromium's OfflineAudioContext, no speakers needed) and
+checks its levels, layering, finale and mic blacklist.
+`node scripts/verify-playalong-mic-band.mjs` runs the real band, the real sound
+functions and the real detector on such a context with a phone speaker in front
+of a microphone that also hears a synthetic piano, and checks that no wrong key
+is ever read (pianist with the band or the metronome, tapper with the full band)
+and that a drowned note is not fired twice — the test to run after touching any
+game sound, the band's drums, or `createMonoDetector`. The app exposes
 `window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
 
 ## Where to look for current state

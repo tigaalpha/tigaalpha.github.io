@@ -10,7 +10,12 @@
 
    Every rule is scoped to .songov.playal (and repeated under .tg where the cream
    theme has a rule of its own), so nothing outside Play Along changes. It is
-   appended after the theme sheets, so it wins on equal footing. ── */
+   appended after the theme sheets, so it wins on equal footing.
+
+   The neon world is the game itself. While a song waits to start (the ready
+   screen) the overlay drops .playal and wears .pl-themed instead: the app's
+   own theme, white in light mode and dark in dark mode (owner, 2026-09-30) —
+   see the block at the end of this sheet. ── */
 export const PA_CSS = `
 .songov.playal,.tg .songov.playal{background:#070318;color:#f4f1ff;--pl-mag:#ff3cd2;--pl-cyan:#3ce6ff;--pl-vio:#8c46ff;--pl-ink:#f4f1ff;--pl-dim:#b9b0e6;--pl-faint:#8f86c0;--pl-panel:rgba(20,11,51,.78);--pl-line:rgba(140,70,255,.3)}
 .songov.playal .pl-num{font-variant-numeric:tabular-nums}
@@ -19,10 +24,21 @@ export const PA_CSS = `
 .songov.playal .songhtitle{color:var(--pl-ink);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .songov.playal .cbtn,.tg .songov.playal .cbtn{color:#dcd3ff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14)}
 .pl-hdr-btns{display:flex;gap:8px;align-items:center;flex-shrink:0}
-.pl-metro,.pl-pausebtn{min-height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:var(--pl-dim);font-family:var(--f-app);font-size:13px;font-weight:600;cursor:pointer}
-.pl-metro.on{border-color:var(--pl-cyan);color:var(--pl-cyan);background:rgba(60,230,255,.08)}
-.pl-pausebtn{color:var(--pl-ink);font-size:15px;padding:0 13px}
-.pl-metro:focus-visible,.pl-pausebtn:focus-visible,.pl-link:focus-visible,.pl-toggle:focus-visible,.pl-drillbtn:focus-visible{outline:2px solid var(--pl-cyan);outline-offset:2px}
+.pl-pausebtn{min-height:34px;padding:0 13px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:var(--pl-ink);font-family:var(--f-app);font-size:15px;font-weight:600;cursor:pointer}
+/* what plays with the song — the backing track or a metronome: two buttons,
+   both always in view (owner, 2026-09-30). Icons over small words in the
+   header, so the pair stays compact on a phone; written out on the pause card. */
+.pl-mode{display:inline-flex;gap:2px;padding:2px;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);flex-shrink:0}
+.pl-mode button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;min-width:54px;min-height:38px;padding:2px 6px;border:0;border-radius:12px;background:transparent;color:var(--pl-dim);font-family:var(--f-app);cursor:pointer;line-height:1.15}
+.pl-mode-i{font-size:15px}
+.pl-mode-t{font-size:10px;font-weight:600;white-space:nowrap}
+.pl-mode button.on{background:rgba(60,230,255,.14);color:var(--pl-cyan);box-shadow:inset 0 0 0 1px rgba(60,230,255,.55)}
+.pl-mode button.quiet{opacity:.55}
+.pl-mode--pause{display:flex;width:100%;box-sizing:border-box;border-radius:999px;padding:3px}
+.pl-mode--pause button{flex:1;flex-direction:row;gap:6px;min-height:38px;border-radius:999px}
+.pl-mode--pause .pl-mode-t{font-size:13px}
+@media (min-width:560px){.pl-mode--hdr button{flex-direction:row;gap:6px;min-height:34px}.pl-mode--hdr .pl-mode-t{font-size:12px}}
+.pl-mode button:focus-visible,.pl-pausebtn:focus-visible,.pl-link:focus-visible,.pl-toggle:focus-visible,.pl-drillbtn:focus-visible{outline:2px solid var(--pl-cyan);outline-offset:2px}
 /* HUD + progress + reading strip */
 .songov.playal .songhud{color:var(--pl-dim);background:#0b0620;align-items:center}
 .songov.playal .songhud b{color:#fff;font-variant-numeric:tabular-nums}
@@ -101,7 +117,7 @@ export const PA_CSS = `
 .pl-pause-row .songbtn{flex:1}
 .songov.playal .pl-pause .songbtn{min-height:46px;padding:10px 12px !important}
 /* the ready screen's cover, drawn from the melody */
-.pl-cover{width:100%;max-width:420px;aspect-ratio:100/42;border-radius:16px;overflow:hidden;background:#0e0826;box-shadow:0 0 0 1px var(--pl-line),0 12px 30px -12px rgba(140,70,255,.5)}
+.pl-cover{width:100%;max-width:420px;aspect-ratio:100/26;flex-shrink:0;border-radius:14px;overflow:hidden;background:var(--card2);box-shadow:0 0 0 1px var(--bd4)}
 .pl-cover img{display:block;width:100%;height:100%;animation:pl-fadein .4s ease-out}
 @keyframes pl-fadein{from{opacity:0}to{opacity:1}}
 /* the result's medal row */
@@ -199,6 +215,49 @@ html[data-theme="dark"] .songcard-got.on{color:#ffd86b}
 @keyframes pl-keywave{0%{opacity:.9;transform:scale(.6)}100%{opacity:0;transform:scale(1.35)}}
 @keyframes pl-bossatk2{0%,100%{transform:translateX(-50%)}25%{transform:translateX(calc(-50% - 5px))}75%{transform:translateX(calc(-50% + 5px))}}
 @keyframes pl-spark{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.6);opacity:0}}
+/* ── the ready screen wears the app's own theme (owner, 2026-09-30) ──
+   White in light mode, dark in dark mode; the neon starts with the song. The
+   overlay drops .playal here, so none of the neon rules above match and the
+   app's own cream/obsidian rules for .songhdr, .songbtn, .songtempobtn and
+   .songhandbtn apply again. What is left is the pl- pieces, in the app's
+   tokens (--bg --card --text --clay …), so light, dark and every theme follow. */
+.songov.pl-themed{--pl-ink:var(--text);--pl-dim:var(--text2);--pl-faint:var(--muted);--pl-panel:var(--card);--pl-line:var(--bd4);--pl-cyan:var(--clay-ink)}
+.songov.pl-themed .songhtitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.songov.pl-themed .pl-mode{border-color:var(--bd4);background:var(--card)}
+.songov.pl-themed .pl-mode button{color:var(--text2)}
+.songov.pl-themed .pl-mode button.on{background:var(--clay-t1);color:var(--clay-ink);box-shadow:inset 0 0 0 1px var(--clay)}
+.tg .songov.pl-themed .songready{background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none;justify-content:flex-start;gap:10px;padding:12px 16px 0;overflow-y:auto;overscroll-behavior:contain}
+.songov.pl-themed .pl-introcard{margin:auto}
+.songov.pl-themed .pl-title{color:var(--text)}
+.songov.pl-themed .pl-sub{color:var(--text2)}
+.songov.pl-themed .pl-stars{color:#e0a800}
+.songov.pl-themed .pl-daily{color:#9a6700}
+.songov.pl-themed .pl-kindnote{color:#2f7d5b}
+html[data-theme="dark"] .songov.pl-themed .pl-stars,html[data-theme="dark"] .songov.pl-themed .pl-daily{color:#ffd86b}
+html[data-theme="dark"] .songov.pl-themed .pl-kindnote{color:#8fe3b8}
+.songov.pl-themed .setlistpos{color:var(--clay-ink)}
+.songov.pl-themed .pl-link{text-decoration-color:var(--bd5)}
+.songov.pl-themed .pl-toggle{border:1px solid var(--bd4);background:var(--card2);color:var(--text2)}
+.songov.pl-themed .pl-toggle.on{border-color:var(--clay);background:var(--clay-t1);color:var(--clay-ink)}
+.songov.pl-themed .pl-toggle:focus-visible,.songov.pl-themed .pl-link:focus-visible,.songov.pl-themed .pl-mode button:focus-visible{outline-color:var(--clay)}
+/* the run's settings: always open, at the very top, kept compact so the song
+   and Start still fit under them on a phone */
+.songov.pl-themed .pl-settings{box-sizing:border-box;box-shadow:var(--sh1);gap:8px;padding:10px 12px}
+.pl-set-line{display:flex;align-items:center;gap:10px}
+.pl-set-line .pl-set-lbl{flex:0 0 56px}
+.songov.pl-themed .pl-set-line .songtempo{flex:1;min-width:0;gap:6px;flex-wrap:nowrap;justify-content:flex-start}
+.songov.pl-themed .pl-set-line .songtempobtn{flex:1;min-height:34px;padding:0 4px}
+.songov.pl-themed .pl-set-line .songhands{flex:1;min-width:0;max-width:none;margin:0;gap:6px}
+.songov.pl-themed .pl-set-line .songhandbtn{min-height:38px;padding:4px 6px;font-size:13px;border-radius:12px}
+.songov.pl-themed .pl-settings .songbtn.ghost{min-height:40px;margin-top:2px !important}
+.songov.pl-themed .pl-pvp{background:var(--card2);border:1px solid var(--bd4);color:var(--text)}
+.songov.pl-themed .pl-code{background:var(--card);border:1px solid var(--bd5);color:var(--text)}
+.songov.pl-themed .pl-roomcode{color:var(--text)}
+/* Start (and the practice / preview links) pinned to the bottom edge */
+.songov.pl-themed .pl-startbar{position:sticky;bottom:0;z-index:3;align-self:stretch;margin:0 -16px;padding:16px 16px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:0;background:linear-gradient(to bottom,transparent,var(--bg) 16px)}
+.pl-startrow{display:flex;gap:0 6px;justify-content:center;flex-wrap:nowrap}
+.pl-startrow .pl-link{white-space:nowrap}
+@media (max-height:600px){.songov.pl-themed .pl-cover{display:none}}
 @media (prefers-reduced-motion: reduce){
   .songov.playal .songstage.shake,.songov.playal .bosshud.fx-attack,.songov.playal .bosshud .bosshud-face,.pl-intro-hint,.pl-bigstars span.on{animation:none !important}
   .songov.playal .gpw.pressed::after,.songov.playal .gpb.pressed::after{display:none}

@@ -142,6 +142,10 @@ jobs:
           # been returning 404 for every user, and marketing landing page 1 was
           # committed, deployed and completely unreachable for the same reason.
           cp privacy-policy.html _site/privacy-policy.html
+          # Knowledge-sources policy (docs/07 item E): the public page describing
+          # where the AI teacher's knowledge comes from, Thai legal basis (s.7/32/33)
+          # and the rights-holder contact/takedown path.
+          cp knowledge-sources.html _site/knowledge-sources.html
           # Marketing landing page 1 ships as three URLs, one per market. The
           # en/zh variants reference ../landing/bundle/, so there is exactly
           # one copy of the code behind all three.
@@ -154,7 +158,7 @@ jobs:
           # Fail the deploy loudly rather than shipping a site with a dead
           # marketing URL on it — silence is exactly how this went unnoticed
           # the first time, when the whole page 404'd for hours.
-          for f in privacy-policy.html landing.html landing-en.html landing-zh.html \
+          for f in privacy-policy.html knowledge-sources.html landing.html landing-en.html landing-zh.html \
                    landing/index.html landing-en/index.html landing-zh/index.html; do
             test -s "_site/$f" || { echo "MISSING: _site/$f"; exit 1; }
           done

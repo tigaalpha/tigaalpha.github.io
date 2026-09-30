@@ -19,6 +19,7 @@ const files = [
   "providers/model-router.js",
   "teaching/philosophy.js",
   "teaching/policy.js",
+  "teaching/jev-tie-breaker.js",
   "teaching/teaching-loop.js",
   "student/student-model.js",
   "knowledge/knowledge-base.js",

@@ -19,6 +19,7 @@ const FILES = [
   "tigamodel/teaching/skill-graph.js",
   "tigamodel/teaching/coach.js",
   "tigamodel/teaching/teaching-loop.js",
+  "tigamodel/teaching/jev-tie-breaker.js",
   "tigamodel/knowledge/knowledge-base.js",
 ];
 

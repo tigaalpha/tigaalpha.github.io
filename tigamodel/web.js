@@ -65,6 +65,79 @@ import { createJevJudgment } from "./jev/jev-judgment.js";
    token changes (login/logout) via reinit(). */
 let _tiga = null;
 
+/* docs/10 §1.1 (m32): answer cache — remembers ONLY verified provider answers
+   (status ok + confidence floor) with full provenance; key includes history so
+   different conversations never share answers. DEFAULT OFF (kill switch inside
+   the module; enabling is an admin/app_settings decision) — when off, both
+   storing and serving are dead code paths, so today's behaviour is unchanged. */
+import { createAnswerCache as _createAnswerCache, answerCacheKey as _answerCacheKey, chatThroughCache as _chatThroughCache } from "./performance/answer-cache.js";
+/* docs/10 §1.3 (m34): KB hot path — relevance-ranked, hard-capped KB serving
+   (selection only; content and the line template never change). Singleton
+   like the answer cache, DEFAULT OFF — when off, getKBContext serves the
+   legacy block byte-identically. */
+import { createKBHotPath as _createKBHotPath } from "./performance/kb-hot-path.js";
+/* docs/05 §8 / docs/15 §2 (m13/m22): cost governor — a per-session weighted
+   ledger that decides BEFORE each provider call; throttled sessions degrade
+   to an honest uncertain response (never an invented answer). Singleton
+   like the answer cache, DEFAULT OFF — off = every decision allows, the
+   shipped path unchanged. */
+import { createCostGovernor as _createCostGovernor, chargeForCall as _chargeForCall } from "./performance/cost-governor.js";
+let _answerCache = null;
+export function answerCache() {
+  if (!_answerCache) _answerCache = _createAnswerCache({ enabled: false }); // OFF until switched on
+  return _answerCache;
+}
+export function setAnswerCacheEnabled(on, opts = {}) {
+  const c = answerCache();
+  c.setEnabled(on === true);
+  return c.isEnabled();
+}
+export function newAnswerCache(opts) { return _createAnswerCache(opts || {}); }
+export function answerCacheKeyFor(args) { return _answerCacheKey(args || {}); }
+
+let _costGovernor = null;
+export function costGovernor() {
+  if (!_costGovernor) _costGovernor = _createCostGovernor({ enabled: false }); // OFF until switched on
+  return _costGovernor;
+}
+export function setCostGovernorEnabled(on) {
+  const g = costGovernor();
+  g.setEnabled(on === true);
+  return g.isEnabled();
+}
+/* Chat with the cost governor honored (off → identical to chat()). Decides
+   BEFORE the call using the caller's estimate (default 1 weighted unit);
+   after an allowed call, books the REAL weighted charge from the answering
+   provider's declared() cost tier. A throttle serves the honest governed
+   fallback — never an invented answer. */
+export async function chatThroughCostGovernor(args) {
+  const { message = "", sessionKey = null, preferFree = false, estimatedUnits = null, ...rest } = args || {};
+  try {
+    const g = costGovernor();
+    const tiga = getTigamodel();
+    if (!g.isEnabled() || !sessionKey) {
+      return { ...(await tiga.chat({ message, ...rest })), governed: false };
+    }
+    const est = Number.isFinite(estimatedUnits) && estimatedUnits >= 0 ? estimatedUnits : 1;
+    const d = g.decide(sessionKey, est, { preferFree: preferFree === true });
+    if (d.decision === "throttle") {
+      return { response: g.governedResponse({ reason: d.reason, spent: d.spent, freeQuota: d.freeQuota }), routed: { selected_provider: "cost-governor", reason: d.reason, attempts: [] }, request: null, governed: true };
+    }
+    const out = await tiga.chat({ message, ...rest });
+    const answeredBy = out && out.response && out.response.provider;
+    const declared = answeredBy && tiga.providers.get(answeredBy);
+    const declaredCost = declared && declared.declare ? declared.declare().cost : null;
+    g.charge(sessionKey, _chargeForCall(answeredBy, declaredCost));
+    return { ...out, governed: true };
+  } catch (e) { return null; }
+}
+/* Chat with the answer cache honored (off → identical to chat()). Returns
+   { response, routed, request, cache_hit, cache_provenance? }. */
+export async function chatThroughAnswerCache(args) {
+  try { return await _chatThroughCache({ tiga: getTigamodel(), cache: answerCache(), ...(args || {}) }); }
+  catch (e) { return null; }
+}
+
 export function initTigamodelWeb() {
   _tiga = buildPianoIntelligence({
     providers: [
@@ -118,7 +191,27 @@ export function initTigamodelWeb() {
     const sg = sharedSkillGraph();
     _tiga.skillGraph = sg;
     _tiga.coach = createCoach({ skillGraph: sg });
-    _tiga.loop = createTeachingLoop({ policy: _tiga.policy, kb: _tiga.kb, skillGraph: sg });
+    _tiga.loop = createTeachingLoop({
+      policy: _tiga.policy, kb: _tiga.kb, skillGraph: sg,
+      // docs/05 §5 (m20): Jev decides only genuine policy ties; the kill
+      // switch (app_settings.tiga_jev_policy) defaults OFF — missing row,
+      // error, or disabled → the shipped first-match behaviour, unchanged.
+      // The switch is cached for 60s: a practice-finish must never wait on
+      // a settings round-trip, and OFF must cost exactly zero network calls.
+      jev: jevJudgment,
+      isJevPolicyEnabled: (() => {
+        let cacheV = null, cacheAt = 0;
+        return async () => {
+          if (cacheV !== null && Date.now() - cacheAt < 60000) return cacheV;
+          try {
+            const r = await sb.from("app_settings").select("value").eq("key", "tiga_jev_policy").maybeSingle();
+            cacheV = !!(r && r.data && r.data.value && r.data.value.enabled === true);
+          } catch (e) { cacheV = false; }
+          cacheAt = Date.now();
+          return cacheV;
+        };
+      })(),
+    });
   } catch (e) { /* reasoning layer is an enhancement, never a failure path */ }
   return _tiga;
 }
@@ -294,8 +387,38 @@ export function teacherAdviceFor(pr) {
    (direct answer REPLACES performance guesses — spec §17's "คำตอบโดยตรงของ
    นักเรียนควรมีน้ำหนักสูงกว่าการเดาจากใบหน้าเพียงอย่างเดียว"). ── */
 import { estimateStates as _estimateStates, makeStudentFeedback, SELF_REPORT_OPTIONS } from "./student/state-estimator.js";
+/* §7 multimodal fusion (m12) — deterministic confidence-weighted arbiter for
+   combining signals from several channels; per-channel weight 0 = kill switch,
+   self-report dominance per §17, vision/audio can never win (§16). */
+import { fuseMultimodalSignals as _fuseMultimodalSignals, confidentFusion as _confidentFusion, DEFAULT_CHANNEL_WEIGHTS as _FUSION_WEIGHTS } from "./multimodal/fusion.js";
 export function estimateStudentStates(args) {
   try { return _estimateStates(args || {}); } catch (e) { return null; }
+}
+/* Fuse raw channel signals into per-state estimates. args =
+   { signals: [...], weights?: { channel: number } }. Errors/malformed → null. */
+export function fuseMultimodalStates(args) {
+  try { return _fuseMultimodalSignals(args && typeof args === "object" ? args : null); } catch (e) { return null; }
+}
+/* Same, but only states at or above a confidence floor (default 0.5) survive —
+   weak inferences stay evidence, never teaching decisions. */
+export function confidentMultimodalStates(args, floor) {
+  try { return _confidentFusion(args && typeof args === "object" ? args : null, floor); } catch (e) { return null; }
+}
+export const FUSION_CHANNEL_WEIGHTS = _FUSION_WEIGHTS;
+
+/* docs/12 §1A (m39): the §3 wire — real learner_skill_state rows → the
+   personalized-plan brain. Kill switch (tiga_personalized_plans) is checked
+   inside; switch off / no data / any error → null = callers keep today's
+   behavior. The wire can only ADD a plan on top of a good state. */
+import { fetchSkillStates as _fetchSkillStates, toAbilities as _toAbilities, planForLearner as _planForLearner } from "./teaching/skill-state-wiring.js";
+export async function fetchLearnerSkillStates() {
+  try { return await _fetchSkillStates(sb); } catch (e) { return null; }
+}
+export function learnerAbilitiesFromRows(rows) {
+  try { return _toAbilities(rows); } catch (e) { return null; }
+}
+export async function personalizedPlanForLearner(args) {
+  try { return await _planForLearner(args || {}); } catch (e) { return null; }
 }
 export function newStudentFeedback(args) {
   try { return makeStudentFeedback(args || {}); } catch (e) { return null; }
@@ -564,6 +687,17 @@ const KB_DOMAIN_KEYWORDS = {
   "learner-differences": ["adhd", "สมาธิ", "เด็ก", "ลูก", "มือเล็ก", "ยืดไม่ถึง", "ผู้สูง", "พิเศษ", "hyperfocus", "child"],
 };
 
+let _kbHotPath = null;
+export function kbHotPath() {
+  if (!_kbHotPath) _kbHotPath = _createKBHotPath({ enabled: false }); // OFF until switched on
+  return _kbHotPath;
+}
+export function setKbHotPathEnabled(on) {
+  const hp = kbHotPath();
+  hp.setEnabled(on === true);
+  return hp.isEnabled();
+}
+
 function buildKbIndex(tiga) {
   const byDomain = new Map();
   for (const e of (tiga.kb ? tiga.kb._entries.values() : [])) {
@@ -594,11 +728,25 @@ export function getKBContext(matchText) {
     if (!domains.length) domains = ["motivation", "practice-planning"];
     const top = domains.slice(0, 4); // cap: at most 4 domains per message
 
-    const lines = [];
-    for (const d of top) {
-      const label = KB_DOMAIN_LABEL[d];
-      for (const e of (_kbIndex.get(d) || [])) {
-        lines.push(`• [${label}] ${e.title} — วิธีสอน: ${e.teach}`);
+    /* docs/10 §1.3 (m34): with the hot path ON, lines are relevance-ranked
+       and hard-capped (maxLines/maxChars) — a SELECTION of the domain, not
+       all of it; OFF (default) → the legacy loop below, byte-identical. */
+    let lines = null;
+    let servedIds = null;
+    const hp = _kbHotPath;
+    if (hp && hp.isEnabled()) {
+      const kw = [];
+      for (const d of top) for (const k of (KB_DOMAIN_KEYWORDS[d] || [])) kw.push(String(k).toLowerCase());
+      const sel = hp.select({ domains: top, index: _kbIndex, keywords: kw, labelOf: d => KB_DOMAIN_LABEL[d] || d });
+      if (sel) { lines = sel.lines; servedIds = sel.picked.map(e => e.id); }
+    }
+    if (!lines) {
+      lines = [];
+      for (const d of top) {
+        const label = KB_DOMAIN_LABEL[d];
+        for (const e of (_kbIndex.get(d) || [])) {
+          lines.push(`• [${label}] ${e.title} — วิธีสอน: ${e.teach}`);
+        }
       }
     }
     if (!lines.length) {
@@ -608,6 +756,7 @@ export function getKBContext(matchText) {
       lr.getLearnedKBContext(matchText).catch(() => {});
       return "";
     }
+    if (servedIds && servedIds.length) hp.recordServed(servedIds); // bounded hot-count feed (m34)
     return (
       "\n\n[TIGA KNOWLEDGE BASE — curated teaching knowledge with sources. Use these when relevant; follow the วิธีสอน (how to teach) guidance. Do not contradict them.]\n" +
       lines.join("\n") + "\n"

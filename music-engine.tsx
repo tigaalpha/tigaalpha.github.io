@@ -696,6 +696,21 @@ export function getAC() {
 }
 /* ── master audio bus: global volume + a touch of reverb for a warm piano ── */
 export let _sfxVol = 0.9, _sfxMuted = false, _busGain = null, _busCtx = null;
+/* True while a real piano is being listened to (a Play Along player whose notes reach the game through the
+   microphone): the game's own sounds then keep to what the pitch detector cannot take for a note — noise far above
+   the piano's range (the detector filters everything over 2.6 kHz out before it listens) — instead of the sweeps,
+   chimes and clicks that lie inside it. See setMicSafe, called by Play Along. */
+export let _micSafe = false;
+export function setMicSafe(v) { _micSafe = !!v; }
+/* A short burst of narrow-band noise far above the piano: the mic-safe voice of a chime, a tick or a whoosh — heard as
+   a shimmer, and nothing a pitch detector can read as a note (a sine up there would be read as one a good deal lower). */
+function hfPing(ac, dest, t0, f, vol, tail) {
+  const src = ac.createBufferSource(); src.buffer = _accNoise(ac); src.loop = true;
+  const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = f; bp.Q.value = 6;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + tail);
+  src.connect(bp); bp.connect(g); g.connect(dest); src.start(t0); src.stop(t0 + tail + 0.03);
+}
 export function setSfxVol(v) { _sfxVol = Math.max(0, Math.min(1, v)); if (_busGain) _busGain.gain.value = _sfxMuted ? 0 : _sfxVol; }
 export function setSfxMuted(m) { _sfxMuted = !!m; if (_busGain) _busGain.gain.value = _sfxMuted ? 0 : _sfxVol; }
 export function getSfxVol() { return _sfxVol; }
@@ -893,10 +908,22 @@ export function playMiss() {
   try {
     if (_sfxMuted) return;
     const { ac, bus } = audioBus(), t0 = ac.currentTime;
+    if (_micSafe) {         // the same fall, as a sweep of noise far above the piano (a mic is listening for its next note)
+      const src = ac.createBufferSource(); src.buffer = _accNoise(ac); src.loop = true;
+      const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 3;
+      bp.frequency.setValueAtTime(7500, t0); bp.frequency.exponentialRampToValueAtTime(3600, t0 + 0.18);
+      const ng = ac.createGain();
+      ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.5, t0 + 0.01); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+      src.connect(bp); bp.connect(ng); ng.connect(bus); src.start(t0); src.stop(t0 + 0.22);
+      return;
+    }
     const osc = ac.createOscillator(), g = ac.createGain();
     osc.type = "sawtooth";
     osc.frequency.setValueAtTime(175, t0);
     osc.frequency.exponentialRampToValueAtTime(85, t0 + 0.18);
+    // a falling tone right after a missed note is exactly what a mic listening for the next one hears
+    // as a "note" — the whole sweep (62–250 Hz) is kept out of the detector while it sounds
+    _accMarkSuppress(125, 1200, Date.now() + 320);
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(0.08, t0 + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
@@ -913,6 +940,7 @@ export function playClickAt(when, accent, vol = 1) {
     if (_sfxMuted) return;
     const { ac, bus } = audioBus();
     const t0 = Math.max(ac.currentTime, when);
+    if (_micSafe) { hfPing(ac, bus, t0, accent ? 5200 : 4300, (accent ? 1.4 : 0.9) * vol, 0.03); return; }   // a tick of noise far above the piano: a square tone in its range is read as notes
     const osc = ac.createOscillator(), g = ac.createGain();
     osc.type = "square";
     const f = accent ? 2000 : 1300;
@@ -933,8 +961,8 @@ export function playWhoosh() {
     const { ac, bus } = audioBus(), t0 = ac.currentTime;
     const src = ac.createBufferSource(); src.buffer = _accNoise(ac); src.loop = true;
     const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.2;
-    bp.frequency.setValueAtTime(420, t0);
-    bp.frequency.exponentialRampToValueAtTime(3400, t0 + 0.17);
+    bp.frequency.setValueAtTime(_micSafe ? 4300 : 420, t0);
+    bp.frequency.exponentialRampToValueAtTime(_micSafe ? 9500 : 3400, t0 + 0.17);
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(0.1, t0 + 0.03);   // half what it was: it sits under the band now
@@ -958,9 +986,9 @@ export function playBoom(big) {
     og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
     o.connect(og); og.connect(bus); o.start(t0); o.stop(t0 + 0.34);
     const n = ac.createBufferSource(); n.buffer = _accNoise(ac);
-    const lp = ac.createBiquadFilter(); lp.type = "lowpass";
-    lp.frequency.setValueAtTime(2600, t0);
-    lp.frequency.exponentialRampToValueAtTime(320, t0 + 0.25);
+    const lp = ac.createBiquadFilter(); lp.type = _micSafe ? "highpass" : "lowpass";
+    lp.frequency.setValueAtTime(_micSafe ? 4500 : 2600, t0);
+    lp.frequency.exponentialRampToValueAtTime(_micSafe ? 6500 : 320, t0 + 0.25);   // with a mic listening the crackle is all above the piano
     const ng = ac.createGain();
     ng.gain.setValueAtTime(big ? 0.14 : 0.09, t0);
     ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
@@ -991,7 +1019,7 @@ export function _accMarkSuppress(freq, tolCents, untilMs) {
   if (!freq) return;
   const lo = freq * Math.pow(2, -tolCents / 1200), hi = freq * Math.pow(2, tolCents / 1200);
   _accSuppress.push({ lo, hi, until: untilMs });
-  if (_accSuppress.length > 64) _accSuppress.shift();
+  if (_accSuppress.length > 160) _accSuppress.shift();   // the band marks a note and its first partials: ~30 a second in Fever
 }
 export function _accIsSuppressed(freq) {
   if (!freq || !_accSuppress.length) return false;
@@ -1040,12 +1068,20 @@ export function playUi(kind) {
       : kind === "wrong" ? [[233, 0], [185, 0.1]]
       : [[620, 0]]; // click
     const isClick = kind === "click";
+    if (_micSafe) {         // a mic is listening for the player's piano: shimmer far above it instead of notes inside it
+      const hf = kind === "levelup" ? [4300, 5300, 6300, 8300] : kind === "badge" ? [6300, 9000] : kind === "reward" ? [5300, 7800] : kind === "wrong" ? [6000, 4300] : [5000];
+      seq.forEach(([, t], i) => hfPing(ac, ac.destination, ac.currentTime + t, hf[i], isClick ? 0.5 : 1, isClick ? 0.035 : 0.2));
+      return;
+    }
     for (const [f, t] of seq) {
       const t0 = ac.currentTime + t;
       const osc = ac.createOscillator(), g = ac.createGain();
       osc.type = isClick ? "triangle" : "sine";
       osc.frequency.value = f;
       const tail = isClick ? 0.07 : 0.24;
+      // clean sines inside the piano's range, played while a mic listens (a Fever or a combo mark in Play Along):
+      // keep them out of the pitch detector, like every other sound the game makes
+      _accMarkSuppress(f, 60, Date.now() + (t + tail) * 1000 + 120);
       g.gain.setValueAtTime(0.0001, t0);
       g.gain.exponentialRampToValueAtTime(isClick ? 0.1 : 0.18, t0 + 0.008);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + tail);
@@ -1349,6 +1385,117 @@ export async function startMidiListener(onDetect, onReady) {
     return true;
   } catch (e) { return false; }
 }
+/* A Butterworth low-pass of an even order (a cascade of biquads): out ← in.
+   The piano's notes lie below ~2.1 kHz, so what a frame holds above that is not
+   a note, and in the autocorrelation it only inflates the frame's energy (the
+   clarity gate divides by it) and, when it is a clean tone, is read as a "note"
+   a good deal lower (a pure tone's autocorrelation peaks at every multiple of
+   its period): the band's hats and cymbals, a phone's hiss, a chime. */
+function lowpass(fc, sr, order = 4) {
+  const w0 = 2 * Math.PI * fc / sr, cw = Math.cos(w0), sw = Math.sin(w0), secs = [];
+  for (let k = 1; k <= order / 2; k++) {
+    const Q = 1 / (2 * Math.cos((2 * k - 1) * Math.PI / (2 * order)));
+    const al = sw / (2 * Q), a0 = 1 + al;
+    secs.push({ b0: (1 - cw) / 2 / a0, b1: (1 - cw) / a0, b2: (1 - cw) / 2 / a0, a1: -2 * cw / a0, a2: (1 - al) / a0, z1: 0, z2: 0 });
+  }
+  return (x, y) => {
+    for (const q of secs) q.z1 = q.z2 = 0;
+    for (let i = 0; i < x.length; i++) {
+      let v = x[i];
+      for (let k = 0; k < secs.length; k++) { const q = secs[k], o = q.b0 * v + q.z1; q.z1 = q.b1 * v - q.a1 * o + q.z2; q.z2 = q.b2 * v - q.a2 * o; v = o; }
+      y[i] = v;
+    }
+  };
+}
+/* The monophonic note detector, one microphone frame at a time — the part of
+   startMicListener that decides whether a frame is a piano note, kept apart
+   from the microphone so a test can feed it synthesised frames
+   (scripts/verify-playalong-mic-band.mjs plays the real band through it).
+   feed(buf) takes the latest frame (analyser.fftSize samples); getDb() is
+   asked for the analyser's dB spectrum only when a note is about to fire. */
+export const MONO_LOWPASS_HZ = 2600, MONO_LOWPASS_ORDER = 8;   // the highest note is C7 (2.1 kHz): it passes, and 4.2 kHz is 33 dB down, 5.3 kHz 49 dB
+export function createMonoDetector(sampleRate, onDetect, getDb, opts: any = {}) {
+  let last = null, stable = 0, silence = 2, fired = false;
+  const recent = []; // last few raw frequencies → median smooths jitter & octave glitches
+  const lp = opts.lowpassHz ? lowpass(opts.lowpassHz, sampleRate, opts.lowpassOrder || MONO_LOWPASS_ORDER) : null;
+  let work = null;
+  /* The note that fired and may still be ringing: its pitch, the loudest and the
+     quietest the frames have been since, and how many frames in a row were quiet.
+     While it is held, a frame that reads the same pitch class is the SAME note
+     still sounding — not a new press — unless it comes back with a strike: the
+     level jumps at least 6 dB over its low point, in a clear tone. Without this,
+     anything that drowns the note for a moment (a game sound, a drum hit) made the
+     detector lose it and, once it could be heard again, fire it a second time —
+     and a second C arriving while the D is due reads as "you pressed C". */
+  let held = null;
+  return function feed(input) {
+    let buf = input;
+    if (lp) { if (!work || work.length !== input.length) work = new Float32Array(input.length); lp(input, work); buf = work; }
+    let rms = 0; for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i]; rms = Math.sqrt(rms / buf.length);
+    // piano-guard pass: V2 also returns the clarity ratio the guard needs
+    const _pg = autoCorrelateV2(buf, sampleRate);
+    let f = _pg.f;
+    if (f > 0 && _accIsSuppressed(f)) f = -1; // ignore the game's own backing track, not a real key press
+    const note = f > 0 ? freqToNoteName(f) : null;
+    if (held) {
+      if (rms < held.rmsLow) held.rmsLow = rms;
+      if (rms > held.rmsPeak) held.rmsPeak = rms;
+      held.quiet = rms < Math.max(0.006, held.rmsPeak * 0.08) ? held.quiet + 1 : 0;
+      if (held.quiet >= 3) { held = null; last = null; stable = 0; fired = false; recent.length = 0; silence = 3; }   // the string has been damped: the next press is a new one
+    }
+    if (held && note) {
+      const c = Math.abs(1200 * Math.log2(f / held.f)) % 1200, samePC = Math.min(c, 1200 - c) < 60;
+      if (samePC) {
+        const strike = _pg.clarity >= 0.8 && rms >= Math.max(0.012, held.rmsLow * 2);
+        if (!strike) { silence = 0; return; }      // the same note, still ringing (or an echo of it)
+        held = null; last = f; stable = 1; fired = false; recent.length = 0; recent.push(f);   // struck again
+        return;
+      }
+    }
+    if (note) {
+      silence = 0;
+      recent.push(f); if (recent.length > 4) recent.shift();
+      // piano-guard: how far the raw pitch drifts across this window — a
+      // ringing string holds steady (<~15c); speech/vibrato glides (50c+)
+      let spread = 0;
+      if (recent.length >= 2) {
+        let lo = 0, hi = 0;
+        for (const rf of recent) { const c = 1200 * Math.log2(rf / recent[0]); if (c < lo) lo = c; if (c > hi) hi = c; }
+        spread = hi - lo;
+      }
+      // PITCH-STABILITY GATE: compare raw frequency (not just the quantized note
+      // name) within a 30-cent window. A struck piano string holds dead-steady
+      // once it rings; a sung/hummed/spoken note wanders — even gentle vibrato is
+      // 50+ cents — so anything that drifts resets the streak instead of accumulating.
+      if (last != null && Math.abs(1200 * Math.log2(f / last)) < 30) { stable++; } else { last = f; stable = 1; fired = false; }
+      // fire once per fresh, held-steady note (2 frames ≈ 93ms — faster and more
+      // forgiving of a quieter/noisier signal than requiring a 3rd frame) — still
+      // fast enough for legato/fast playing, since a pitch change re-arms even
+      // without a gap
+      if (stable >= 2 && !fired) {
+        const med = median(recent.slice(-3));
+        const medNote = freqToNoteName(med) || note;
+        if (!hasFormantSpike(getDb(), sampleRate, buf.length, med)) {
+          // THE LISTENING TEACHER — final gate before a note is graded:
+          // harmonicity + steadiness must both say "piano", not voice/room.
+          // (The formant spike check already rejects pure speech; this adds
+          // the steady-ring test so sung/hummed on-pitch notes are rejected too.)
+          if (isPianoLike({ clarity: _pg.clarity, centsSpread: spread })) {
+            fired = true;
+            held = { f: med, rmsLow: rms, rmsPeak: rms, quiet: 0 };
+            onDetect({ note: medNote, freq: med, source: "mic", clarity: _pg.clarity, centsSpread: spread });
+          }
+        }
+      }
+    } else if (held) {
+      // a frame that reads no note while one is held: it is the note still being drowned or damped, not a gap
+      // (the quiet frames are counted above)
+    } else {
+      if (silence < 10) silence++;
+      if (silence >= 3) { last = null; stable = 0; fired = false; recent.length = 0; } // brief gap re-arms repeats
+    }
+  };
+}
 export async function startMicListener(onDetect, onReady, onError, opts) {
   opts = opts || {};
   try {
@@ -1436,54 +1583,10 @@ export async function startMicListener(onDetect, onReady, onError, opts) {
       src.connect(analyser);
       const buf = new Float32Array(analyser.fftSize);
       const db = new Float32Array(analyser.frequencyBinCount);
-      let last = null, stable = 0, silence = 2, fired = false;
-      const recent = []; // last few raw frequencies → median smooths jitter & octave glitches
+      const feed = createMonoDetector(ac.sampleRate, onDetect, () => { analyser.getFloatFrequencyData(db); return db; }, { lowpassHz: MONO_LOWPASS_HZ });
       const tick = () => {
         analyser.getFloatTimeDomainData(buf);
-        // piano-guard pass: V2 also returns the clarity ratio the guard needs
-        const _pg = autoCorrelateV2(buf, ac.sampleRate);
-        let f = _pg.f;
-        if (f > 0 && _accIsSuppressed(f)) f = -1; // ignore the game's own backing track, not a real key press
-        const note = f > 0 ? freqToNoteName(f) : null;
-        if (note) {
-          silence = 0;
-          recent.push(f); if (recent.length > 4) recent.shift();
-          // piano-guard: how far the raw pitch drifts across this window — a
-          // ringing string holds steady (<~15c); speech/vibrato glides (50c+)
-          let spread = 0;
-          if (recent.length >= 2) {
-            let lo = 0, hi = 0;
-            for (const rf of recent) { const c = 1200 * Math.log2(rf / recent[0]); if (c < lo) lo = c; if (c > hi) hi = c; }
-            spread = hi - lo;
-          }
-          // PITCH-STABILITY GATE: compare raw frequency (not just the quantized note
-          // name) within a 30-cent window. A struck piano string holds dead-steady
-          // once it rings; a sung/hummed/spoken note wanders — even gentle vibrato is
-          // 50+ cents — so anything that drifts resets the streak instead of accumulating.
-          if (last != null && Math.abs(1200 * Math.log2(f / last)) < 30) { stable++; } else { last = f; stable = 1; fired = false; }
-          // fire once per fresh, held-steady note (2 frames ≈ 93ms — faster and more
-          // forgiving of a quieter/noisier signal than requiring a 3rd frame) — still
-          // fast enough for legato/fast playing, since a pitch change re-arms even
-          // without a gap
-          if (stable >= 2 && !fired) {
-            const med = median(recent.slice(-3));
-            const medNote = freqToNoteName(med) || note;
-            analyser.getFloatFrequencyData(db);
-            if (!hasFormantSpike(db, ac.sampleRate, analyser.fftSize, med)) {
-              // THE LISTENING TEACHER — final gate before a note is graded:
-              // harmonicity + steadiness must both say "piano", not voice/room.
-              // (The formant spike check already rejects pure speech; this adds
-              // the steady-ring test so sung/hummed on-pitch notes are rejected too.)
-              if (isPianoLike({ clarity: _pg.clarity, centsSpread: spread })) {
-                fired = true;
-                onDetect({ note: medNote, freq: med, source: "mic", clarity: _pg.clarity, centsSpread: spread });
-              }
-            }
-          }
-        } else {
-          if (silence < 10) silence++;
-          if (silence >= 3) { last = null; stable = 0; fired = false; recent.length = 0; } // brief gap re-arms repeats
-        }
+        feed(buf);
         raf = requestAnimationFrame(tick);
       };
       if (onReady) onReady();
