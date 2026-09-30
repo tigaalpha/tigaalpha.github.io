@@ -9,7 +9,7 @@
    notes/search, the staff slides every frame, a medal pays once and run
    coins stop after 3 runs a day, practice mode waits for the right key, the
    band keeps the beat (4/4, 3/4, drums only for a piano on the mic), the
-   click track steps aside for the band, the ready screen wears the app's
+   backing track / metronome choice at the top right, the ready screen wears the app's
    theme (light and dark) with its settings open at the top and Start in
    reach, and the other pages still open.
 
@@ -351,7 +351,7 @@ if (want("staff")) {
     const head = [...document.querySelectorAll(".pastaff-move ellipse")].find(e => { const b = e.getBoundingClientRect(); return b.left > 150 && b.left < 320; });
     const boss = document.querySelector(".bosshud");
     const xs = []; let k = 0;
-    const f = () => { xs.push(head ? head.getBoundingClientRect().left : null); if (++k < 24) requestAnimationFrame(f); else res({ xs, bossSame: document.querySelector(".bosshud") === boss && !!boss }); };
+    const f = () => { xs.push(head ? head.getBoundingClientRect().left : null); if (++k < 24) requestAnimationFrame(f); else res({ xs, bossSame: document.querySelector(".bosshud") === boss && !!boss, faces: document.querySelectorAll(".bosshud-face").length, sparks: document.querySelectorAll(".bosshud-spark").length }); };
     requestAnimationFrame(f);
   }));
   await stopBot(s.p);
@@ -359,6 +359,8 @@ if (want("staff")) {
   const moved = steps.filter(d => d > 0.01).length, jumps = steps.filter(d => d > 3).length;
   rec("staff-slides", r.xs[0] != null && moved >= steps.length - 3 && jumps === 0, `moved on ${moved}/${steps.length} frames · biggest step ${Math.max(...steps).toFixed(2)}px`);
   rec("boss-bar-kept", r.bossSame, `same boss bar element across hits ${r.bossSame}`);
+  // the face and the hit spark once shared a key, so React kept every old face: a row of them grew across the bar
+  rec("boss-one-face", r.faces === 1 && r.sparks <= 1, `${r.faces} face(s) and ${r.sparks} spark(s) on the boss bar after ~9 s of hits`);
   await done(s);
 }
 // ── 13. medals and coins: crown on a clean run, each medal pays once, a 4th run of the day pays no coins, a slow run keeps bronze ──
@@ -425,10 +427,11 @@ if (want("band")) {
   const off = r.log.map(e => Math.abs(e.when - (r.clock + (r.lead + e.beat * r.spb) / r.tempo)));
   const worst = Math.max(...off) * 1000;
   const kicks = r.log.filter(e => e.drum === "kick").map(e => e.pos);
-  const layers = [...new Set(r.log.map(e => e.parts).join(""))].sort().join("");
+  const layers = [...new Set(r.log.map(e => e.parts).join(""))].sort().join(""), extras = [...new Set(r.log.map(e => e.extras || "").join(""))].sort().join("");
   rec("band-on-beat", r.log.length > 20 && worst < 6, `${r.log.length} drum steps booked, furthest from the beat grid ${worst.toFixed(1)} ms (a 300 ms stall in the middle)`);
   rec("band-4-4", kicks.length > 4 && kicks.every(p => p === 0 || p === 2), `4/4 kicks on beats ${[...new Set(kicks)].map(p => p + 1).join(",")}`);
-  rec("band-layers", /b/.test(layers) && /c/.test(layers) && /a/.test(layers), `layers heard with a clean combo: ${layers} (b bass, c chords, a Fever arpeggio)`);
+  rec("band-layers", /b/.test(layers) && /c/.test(layers) && /a/.test(layers), `layers heard with a clean combo: ${layers} (b bass, c strings, a Fever arpeggio)`);
+  rec("band-grand", /d/.test(layers) && /x/.test(layers) && /o/.test(extras) && /f/.test(extras), `the rest of the arrangement: ${layers} + ${extras} (d drone, x brass stabs in Fever, o the opening crash, f the tom fill at the end of a fourth bar)`);
   await done(s);
   const w = await session();
   await openList(w.p); await openSong(w.p, "Jazz Waltz"); await start(w.p); await bot(w.p);
@@ -455,36 +458,60 @@ if (want("band")) {
   rec("band-mic-drums-only", rm.log.length > 20 && pitched === 0 && rm.state.soft, `${rm.log.length} drum steps, ${pitched} with bass/chords/arpeggio · soft ${rm.state.soft} · combo reached ${rm.state.combo}`);
   await done(m);
 }
-// ── 15. the click track steps aside for the band: after the count-in it is
-//        silent while the drums play, keeps the beat when the band is off,
-//        and never plays in a practice pass (the song stops and waits) ──
-if (want("click")) {
+// ── 15. what plays with the song is the player's choice, top right: a backing track (the band) or
+//        a metronome — both buttons always in view, one at a time; the count-in ticks either way, and
+//        a practice pass (the song stops and waits) has no beat to keep ──
+if (want("accomp")) {
   const after = (cl) => cl.filter(c => !c.countIn).length;
-  const s = await session();
+  const lastBeat = async (p) => p.evaluate(() => { const b = window.__paTest.band(); return b && b.log.length ? b.log[b.log.length - 1].beat : -1; });
+  const s = await session({ w: 376, h: 700 });
   await openList(s.p); await openSong(s.p, "Twinkle");
-  await s.p.evaluate(() => window.__paTest.setMetro(true));
+  // both choices are in the header, at the right, already on the ready screen
+  const hdr = await s.p.evaluate(() => {
+    const m = document.querySelector(".songhdr .pl-mode"); if (!m) return null;
+    const r = m.getBoundingClientRect(), cb = document.querySelector(".songhdr .cbtn").getBoundingClientRect();
+    return { left: Math.round(r.left), right: Math.round(r.right), vw: innerWidth, closeRight: Math.round(cb.right), overflow: document.documentElement.scrollWidth > innerWidth,
+      bs: [...m.querySelectorAll("button")].map(b => { const q = b.getBoundingClientRect(); return { label: b.getAttribute("aria-label"), on: b.getAttribute("aria-pressed"), w: Math.round(q.width), h: Math.round(q.height) }; }) };
+  });
+  rec("accomp-both-in-header", !!hdr && hdr.bs.length === 2 && hdr.bs.every(b => b.w >= 40 && b.h >= 32) && hdr.right > hdr.vw * 0.6 && hdr.closeRight <= hdr.vw && !hdr.overflow && hdr.bs[0].on === "true" && hdr.bs[1].on === "false" && /Backing/.test(hdr.bs[0].label) && /Metronome/.test(hdr.bs[1].label), JSON.stringify(hdr));
   await start(s.p); await bot(s.p);
   await s.p.waitForTimeout(7000);
   const c1 = await s.p.evaluate(() => window.__paTest.clicks());
-  await s.p.evaluate(() => window.__paTest.setBand(0));
-  await s.p.waitForTimeout(3000);
+  const b1 = await lastBeat(s.p);
+  rec("accomp-track-is-default", (await s.p.evaluate(() => window.__paTest.accomp())) === "track" && c1.filter(c => c.countIn).length >= 3 && after(c1) === 0 && b1 > 4, `count-in ticks ${c1.filter(c => c.countIn).length} · clicks after it ${after(c1)} · the band has reached beat ${b1}`);
+  // playing: the pair is still in the header, still both in view
+  const hp = await s.p.evaluate(() => { const m = document.querySelector(".songhdr .pl-mode"); const bs = m ? [...m.querySelectorAll("button")].map(b => b.getBoundingClientRect()) : []; return { n: bs.length, ok: bs.every(q => q.width >= 40 && q.right <= innerWidth), pause: !!document.querySelector(".songhdr .pl-pausebtn"), close: document.querySelector(".songhdr .cbtn").textContent.trim(), overflow: document.documentElement.scrollWidth > innerWidth }; });
+  rec("accomp-header-while-playing", hp.n === 2 && hp.ok && hp.pause && !hp.overflow, JSON.stringify(hp));
+  await s.p.screenshot({ path: `${OUT}/accomp-playing.png` });
+  // switch to the metronome in the header: the click takes over, the band stops booking
+  await s.p.click(".songhdr .pl-mode button >> nth=1");
+  const bAt = await lastBeat(s.p);
+  await s.p.waitForTimeout(3200);
   const c2 = await s.p.evaluate(() => window.__paTest.clicks());
-  await s.p.evaluate(() => window.__paTest.setBand(2));
-  await s.p.waitForTimeout(2500);
-  const c3 = await s.p.evaluate(() => window.__paTest.clicks());
-  await stopBot(s.p);
-  const countIn = c1.filter(c => c.countIn).length;
-  rec("click-quiet-with-band", countIn >= 3 && after(c1) === 0, `count-in ticks ${countIn} · clicks after it with the drums playing ${after(c1)}`);
-  rec("click-when-band-off", after(c2) >= 3 && after(c3) - after(c2) <= 1, `band off 3 s: ${after(c2)} clicks · band back on 2.5 s: ${after(c3) - after(c2)} more`);
-  await done(s);
+  const b2 = await lastBeat(s.p);
+  const pressed = await s.p.$$eval(".songhdr .pl-mode button", els => els.map(e => e.getAttribute("aria-pressed")));
+  rec("accomp-metronome", after(c2) >= 3 && b2 - bAt <= 1 && pressed.join() === "false,true" && (await s.p.evaluate(() => window.__paTest.accomp())) === "metro", `clicks ${after(c2)} in 3 s · band moved ${b2 - bAt} beats since the switch · pressed ${pressed.join("/")}`);
+  // and back
+  await s.p.click(".songhdr .pl-mode button >> nth=0");
+  const cAt = after(await s.p.evaluate(() => window.__paTest.clicks()));
+  await s.p.waitForTimeout(2600);
+  const c3 = after(await s.p.evaluate(() => window.__paTest.clicks())), b3 = await lastBeat(s.p);
+  rec("accomp-back-to-track", c3 - cAt <= 1 && b3 - b2 >= 2 && (await s.p.evaluate(() => localStorage.getItem("tg_pa_accomp"))) === "track", `clicks since ${c3 - cAt} · band moved ${b3 - b2} beats · stored ${await s.p.evaluate(() => localStorage.getItem("tg_pa_accomp"))}`);
+  // the pause card shows both, and the band's volume only while the band is the choice
+  await s.p.click(".pl-pausebtn"); await s.p.waitForTimeout(500);
+  const pz = await s.p.evaluate(() => ({ mode: document.querySelectorAll(".pl-pause .pl-mode button").length, vol: !!document.querySelector('.pl-pause [aria-label="Backing track volume"]') }));
+  await s.p.click(".pl-pause .pl-mode button >> nth=1"); await s.p.waitForTimeout(300);
+  const pz2 = await s.p.evaluate(() => ({ vol: !!document.querySelector('.pl-pause [aria-label="Backing track volume"]') }));
+  rec("accomp-in-pause", pz.mode === 2 && pz.vol && !pz2.vol, `pause card: ${pz.mode} mode buttons, volume shown with the band ${pz.vol}, with the metronome ${pz2.vol}`);
+  await stopBot(s.p); await done(s);
   const pr = await session();
   await openList(pr.p); await openSong(pr.p, "Twinkle");
-  await pr.p.evaluate(() => window.__paTest.setMetro(true));
+  await pr.p.evaluate(() => window.__paTest.setAccomp("metro"));
   await pr.p.click(".pl-practice-btn"); await pr.p.waitForTimeout(300); await bot(pr.p);
   await pr.p.waitForTimeout(8000);
   const cp = await pr.p.evaluate(() => window.__paTest.clicks());
   await stopBot(pr.p);
-  rec("click-none-in-practice", cp.filter(c => c.countIn).length >= 3 && after(cp) === 0, `practice: count-in ticks ${cp.filter(c => c.countIn).length} · clicks after it ${after(cp)}`);
+  rec("accomp-none-in-practice", cp.filter(c => c.countIn).length >= 3 && after(cp) === 0, `practice with the metronome chosen: count-in ticks ${cp.filter(c => c.countIn).length} · clicks after it ${after(cp)}`);
   await done(pr);
 }
 // ── 16. the ready screen: the app's own theme (white / dark), the settings always open and
@@ -528,6 +555,27 @@ if (want("ready-theme")) {
       const g = await s.p.evaluate(() => ({ cls: document.querySelector(".songov").className, bg: getComputedStyle(document.querySelector(".songov")).backgroundColor }));
       rec("ready-then-neon", /playal/.test(g.cls) && !/pl-themed/.test(g.cls) && lum(g.bg) < 0.05, `once the song starts: "${g.cls}" on ${g.bg}`);
     }
+    await done(s);
+  }
+}
+// ── 17. the stage behind the notes: the grand backdrop is baked once and its motion is cheap; at the top
+//        graphics level it moves (and Fever brings the beams), at the lowest it is the still picture, and the
+//        first frames of a run — where the bake happens — are not a stall ──
+if (want("stage")) {
+  for (const [mode, w, h] of [["high", 376, 700], ["low", 376, 700]]) {
+    const s = await session({ w, h, extraLS: { tg_pa_gfx_mode: mode } });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await start(s.p);
+    // frame intervals over the first 3.5 s (the count-in, where the backdrop is baked)
+    const fr = await s.p.evaluate(() => new Promise(res => { const ts = []; const t0 = performance.now(); const f = (t) => { ts.push(t); if (t - t0 < 3500) requestAnimationFrame(f); else res(ts); }; requestAnimationFrame(f); }));
+    const gaps = fr.slice(1).map((t, i) => t - fr[i]);
+    const worst = Math.max(...gaps);
+    await bot(s.p);
+    await s.p.waitForTimeout(6500);   // into Fever
+    const info = await s.p.evaluate(() => ({ bake: window.__paTest.bake(), gfx: window.__paTest.gfx(), fever: !!document.querySelector(".feverbadge, .songstage.fever") }));
+    await s.p.screenshot({ path: `${OUT}/stage-${mode}.png` });
+    await stopBot(s.p);
+    rec(`stage-${mode}`, info.bake && info.bake.fx === (mode === "high") && worst < 500 && s.errs.length === 0, `bake ran ${info.bake && info.bake.ms.toFixed(0)} ms · moving parts ${info.bake && info.bake.fx} · canvas step ${info.gfx} · slowest frame in the first 3.5 s ${worst.toFixed(0)} ms · errors ${s.errs.length}${s.errs.length ? " " + s.errs[0] : ""}`);
     await done(s);
   }
 }

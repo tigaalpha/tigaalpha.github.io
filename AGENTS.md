@@ -58,8 +58,18 @@ in pure modules: `play-along-judge.ts` (timing windows, accuracy, stars,
 mashing, input-delay learning, boss numbers) and `play-along-progress.ts`
 (earned stars and best accuracy per song, locks, the daily song, what to
 play next, medals, the per-day run count); `play-along-band.ts` is the
-backing band (drums, bass, chords, the Fever arpeggio), booked ahead on the
-audio clock like the metronome and kept out of the mic's hearing. The
+backing band (drums, bass, strings, brass and the Fever arpeggio, a finale on
+the last chord), booked ahead on the audio clock like the metronome and kept out
+of the mic's hearing — what plays with a song is the player's choice, the
+backing track or a metronome (`songAccomp`, the pair of buttons in the header's
+top right corner, also in the pause card); `play-along-stage.ts` is the
+world behind the falling notes (sky, moon, planet, aurora, three planes of a
+city, a mirror floor), baked once per canvas size into the backdrop bitmap, with
+its few moving parts (core flare, turning ring, shock-ring, floor line, Fever
+beams) drawn only at the top graphics level and built to cost almost nothing
+between beats — anything new there must stay a cached bitmap or a stroke, never
+a gradient built per frame, and must not flash more than about three times a
+second. The
 judge words, score pops and sparks are drawn in the song canvas from cached
 bitmaps, not as DOM elements. `usePlayAlong` runs inside `PianoApp`, so a React state update
 there re-renders the whole app — the running game's fast-changing state
@@ -210,8 +220,10 @@ daily-quest rules from the real modules (needs jsdom, see the script), and
 in `dist/` with bots — mashing, clean and early runs, the practice loop,
 the daily song, concerts, pause, the first-time intro, the song list, the
 sliding staff, medals and the run-coin limit, practice mode, the band and
-the click track, the ready screen's theme and settings (`ONLY=name,…` runs a
-subset). The app exposes
+the backing-track / metronome choice, the ready screen's theme and settings, the
+stage (`ONLY=name,…` runs a subset). `node scripts/verify-playalong-band-audio.mjs`
+renders the band offline (Chromium's OfflineAudioContext, no speakers needed) and
+checks its levels, layering, finale and mic blacklist. The app exposes
 `window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
 
 ## Where to look for current state
