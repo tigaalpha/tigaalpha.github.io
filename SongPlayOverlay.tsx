@@ -3,7 +3,8 @@ import { L, tr } from "./i18n";
 import { PlayAlongStaff, GamePiano, laneHue } from "./music-engine";
 import { CountUp } from "./app-shell";
 import { useGameField } from "./play-along-store";
-import { songStars, songBestAcc, songLengthSec, readDailyState, DAILY_SONG_REWARD } from "./play-along-progress";
+import { songStars, songBestAcc, songLengthSec, readDailyState, DAILY_SONG_REWARD, logSongMood } from "./play-along-progress";
+import { logActivity, logUsage } from "./shared-infra";
 import { nextStarGoal } from "./play-along-judge";
 /* ── SongPlayOverlay ──
    The Play Along (falling-notes song mode) full-screen overlay.
@@ -18,6 +19,15 @@ import { nextStarGoal } from "./play-along-judge";
    song, the result screen plays it again. Everything else is folded away
    until it is wanted, and every button leads somewhere inside Play Along. ── */
 const T3 = (lang) => (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+
+/* ── PLAN v3.8 ระลอก 12 (12.1) — the share signal JoyIndex reads ──
+   One row into the unified activity journal (k="share") from the result
+   card's existing share button, so the joy metric's fifth signal has a real
+   source. No new UI, no prompt — it rides along with what the player does. ── */
+function logSongShare(what: string) {
+  try { logActivity("share", String(what || ""), 0, 0, 0); } catch (e) {}
+  try { logUsage("share", String(what || "")); } catch (e) {}
+}
 const fmtTime = (sec) => { const s2 = Math.max(0, Math.floor(Number(sec) || 0)); return Math.floor(s2 / 60) + ":" + String(s2 % 60).padStart(2, "0"); };
 const starRow = (n) => "★".repeat(Math.max(0, n)) + "☆".repeat(Math.max(0, 3 - n));
 
@@ -410,6 +420,9 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
   const T = T3(lang);
   const store = gameStore;
   const [moreOpen, setMoreOpen] = useState(false);
+  /* 12.2: one mood row per song per run — a fresh result object resets it. */
+  const [moodDone, setMoodDone] = useState(false);
+  useEffect(() => { if (songPhase === "done" && songResult) setMoodDone(false); }, [songPhase, songResult]);
   const kShelfCount = Array.isArray(kShelf) ? kShelf.length : 0;
   // Landscape orientation hint — a one-time lesson, never a recurring nag.
   const ORIENT_SEEN_KEY = "tg_orient_hint_seen";
@@ -634,6 +647,17 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
               {songResult.coinCapped && <span className="pl-res-cap">{T("เพลงนี้ได้เหรียญครบ 3 รอบของวันนี้แล้ว — EXP และเหรียญตรายังได้", "This song has paid coins 3 times today — EXP and medals still count", "这首歌今天已给过 3 次金币——经验和奖牌照常")}</span>}
             </div>
           </div>
+          {/* PLAN v3.8 ระลอก 12 (12.2) — end-of-song mood: one optional tap.
+              Opt-in by construction: no tap = no record, ever; a second tap
+              replaces the song's row for this run. Never required to proceed. */}
+          {songMeta && !songMeta.custom && (
+            <div className="pl-mood" role="group" aria-label={T("อารมณ์หลังจบเพลง (ไม่บังคับ)", "Mood after this song (optional)", "弹完的心情（可选）")}>
+              <span className="pl-mood-q">{T("เล่นจบแล้วรู้สึกยังไง", "How did it feel?", "弹完感觉如何？")}</span>
+              <button className="pl-mood-btn" disabled={moodDone} aria-pressed={moodDone} onClick={() => { if (!moodDone) { logSongMood(songMeta.id, "good"); setMoodDone(true); } }}>😄 {T("ดี", "Good", "好")}</button>
+              <button className="pl-mood-btn" disabled={moodDone} aria-pressed={moodDone} onClick={() => { if (!moodDone) { logSongMood(songMeta.id, "normal"); setMoodDone(true); } }}>🙂 {T("ปกติ", "Normal", "一般")}</button>
+              {moodDone && <span className="pl-mood-thanks">{T("ขอบคุณ", "Thanks", "谢谢")}</span>}
+            </div>
+          )}
           <div className="pl-res-actions">
             <button className="songbtn go pl-again" onClick={playAgain}>↻ {lc.songRetry}</button>
             {nextSong && <button className="songbtn ghost pl-next" onClick={playNext}>{T("เพลงถัดไป", "Next song", "下一首")} ▶</button>}
@@ -712,7 +736,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                 </button>
               )}
               <div className="songready-btns" style={{ marginTop: 10 }}>
-                <button className="songbtn ghost" onClick={() => shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: starRow(songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] })}>📤 {lc.shareBtn}</button>
+                <button className="songbtn ghost" onClick={() => { logSongShare(String(songMeta && songMeta.id || "song")); shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: starRow(songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] }); }}>📤 {lc.shareBtn}</button>
                 <button className="songbtn ghost pl-line" onClick={() => shareLine(`🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TiGA Piano AI tigaalpha.github.io`)}>LINE</button>
               </div>
               {/* C1: Friend Challenge — share a challenge link */}

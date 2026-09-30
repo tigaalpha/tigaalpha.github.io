@@ -49,6 +49,7 @@ const STRATEGY: Record<string, string> = {
   tg_kru: "union",
   tg_mysongs: "union",             // user-created songs
   tg_act_log: "union",             // unified activity journal (see shared-infra)
+  tg_song_mood: "union",           // end-of-song mood taps (12.2, opt-in; append-only {t,d,songId,v})
   tg_game_log: "union",            // per-play falling-notes game log
   // {id: true/1} favorite maps
   tg_vidfavs: "objunion",

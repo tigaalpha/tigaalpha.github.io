@@ -315,10 +315,24 @@ export function studentExerciseKinds() {
    reads the profile fields the app already keeps; no new storage, no engine
    changes — the adapters decorate AFTER the engines speak. ── */
 import { ageBandFromProfile as _ageBand, forAge as _forAge, forStrategy as _forStrategy, strategyVariant as _strategyVariant, barsFor as _barsFor, QUALITY_BARS as _QUALITY_BARS } from "./teaching/adaptivity.js";
+import { joyIndex as _joyIndex, joyNote as _joyNote, joyEmpty as _joyEmpty, JOY_SIGNALS as _JOY_SIGNALS } from "./teaching/joy.js";
 export function tigaAgeBand(profile) { try { return _ageBand(profile); } catch (e) { return null; } }
 export function tigaForAge(band, content) { try { return _forAge(band, content); } catch (e) { return content; } }
 export function tigaForStrategy(ex, strategyId) { try { return _forStrategy(ex, strategyId); } catch (e) { return ex; } }
 export function tigaStrategyVariant(strategyId) { try { return _strategyVariant(strategyId); } catch (e) { return { variant: "standard", note: null }; } }
+/* ── PLAN v3.8 ระลอก 12 (12.1) — JoyIndex v1 SHADOW (tigamodel/teaching/joy.js).
+   The 10th dimension — learner joy — measured from behaviour the app already
+   logs (tg_practice_log + tg_act_log + tg_stars_<id>), five explainable
+   signals, trilingual, honest-null, and wired to nothing: it never changes a
+   run's coins/exp/stars and steers no queue until the 12.6 data rule (30
+   loop rounds) is met. Reads its own localStorage keys when called without
+   arguments (mirrors getCoachDiagnosis above); the smoke passes everything
+   explicitly so it never depends on a browser. ── */
+export function getJoyIndex(opts) { try { return _joyIndex(opts || null); } catch (e) { return null; } }
+export function joyShadowNote(lang) { try { return _joyNote(lang); } catch (e) { return null; } }
+export function joyShadowEmpty(lang) { try { return _joyEmpty(lang); } catch (e) { return null; } }
+export function joySignalList() { try { return _JOY_SIGNALS.map(s => ({ key: s.key, label: { th: s.label.th, en: s.label.en, zh: s.label.zh } })); } catch (e) { return []; } }
+
 export function tigaBarsFor(surface) { try { return _barsFor(surface); } catch (e) { return null; } }
 export { _QUALITY_BARS as TIGA_QUALITY_BARS };
 

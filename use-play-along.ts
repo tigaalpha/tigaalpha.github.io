@@ -25,6 +25,16 @@ import { paintWorld, getWorld, composeStage, drawStageFx } from "./play-along-st
 import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt } from "./play-along-judge";
 import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday } from "./play-along-progress";
 
+/* ── PLAN v3.8 ระลอก 12 (12.1) — the share signal JoyIndex reads ──
+   One row into the unified journal (k="share") from the same shared-
+   infrastructure every other mode reports to, plus a usage event. Called
+   from the result card's existing share buttons — no new UI flow. ── */
+export function logShare(what, ref = null) {
+  try { logActivity("share", String(what || ""), 0, 0, 0); } catch (e) {}
+  try { logUsage("share", String(what || "")); } catch (e) {}
+  return true;
+}
+
 export { DAILY_SONG_REWARD };
 
 /* The reading staff's window before a song starts (see setSongStaffNotes). */
@@ -2140,6 +2150,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       grades: { perfect: g.perfect, great: g.great, good: g.good, miss: songMissRef.current, wrong: g.wrong, mash: g.mash },
       prevStars: rec.prevStars, newStars: rec.newStars, bestAcc, goal: nextStarGoal(bestAcc), kind, dailyPaid, bossWon,
       medal: medal.now, medalNew: medal.gained, medalCoins, medalExp, runNo, coinCapped: runNo > RUN_COIN_RUNS && stars >= 1,
+      // 12.2: the mood taps write ONE row per song per run — reset now
+      moodLogged: false,
       // only present once every song in a setlist has finished — the concert's
       // combined numbers, for a dedicated recap treatment on the result screen
       setlist: setlistDone ? songSetlistLogRef.current.slice() : null,

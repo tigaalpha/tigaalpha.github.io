@@ -82,6 +82,35 @@ const DAILY_KEY = "tg_daily_song";
 export const DAILY_SONG_REWARD = { coins: 30, exp: 60 };
 export function todayKey() { return ymd(new Date()); }
 
+/* ── PLAN v3.8 ระลอก 12 (12.2) — end-of-song mood, one optional tap ──
+   The only ask in the whole round: two buttons (good / normal) on the
+   song-result card. Opt-in — no tap = nothing recorded, ever. No free text,
+   no required survey, no third option to nag with. Feeds the JoyIndex's
+   separate mood channel (context for humans, never the score — see
+   tigamodel/teaching/joy.js).
+
+   Storage: one key, an append-only array capped at the app's usual 1500-row
+   habit, entries {t, d, songId, v} where v is "good" | "normal". Keyed into
+   the account sync with the union rule (append-only, dedupable — the same
+   rule tg_act_log already gets; duplicated taps dedupe by identical JSON). ── */
+export const MOOD_KEY = "tg_song_mood";
+export const MOOD_VALUES = ["good", "normal"];
+export function readSongMoods(): Array<{ t: number; d: string; songId: string; v: string }> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MOOD_KEY) || "[]");
+    return Array.isArray(raw) ? raw.filter((m: any) => m && typeof m === "object" && (m.v === "good" || m.v === "normal")) : [];
+  } catch (e) { return []; }
+}
+export function logSongMood(songId: string | null | undefined, v: "good" | "normal") {
+  try {
+    if (v !== "good" && v !== "normal") return false;
+    const list = readSongMoods();
+    list.push({ t: Date.now(), d: todayKey(), songId: String(songId || ""), v });
+    localStorage.setItem(MOOD_KEY, JSON.stringify(list.slice(-1500)));
+    return true;
+  } catch (e) { return false; }
+}
+
 export function readDailyState() {
   const d = todayKey();
   try {

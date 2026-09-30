@@ -180,6 +180,13 @@ export const PA_CSS = `
 .pl-tag.gold{border-color:rgba(255,216,107,.55);color:#ffd86b}
 .pl-res-actions{display:flex;gap:10px}
 .pl-res-actions .songbtn{flex:1;font-size:16px !important;padding:14px 10px !important;min-height:52px}
+/* 12.2 — end-of-song mood: one optional tap (opt-in; no tap = no record) */
+.pl-mood{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;font-family:var(--f-app)}
+.pl-mood-q{font-size:13.5px;color:var(--pl-dim)}
+.pl-mood-btn{min-height:44px;min-width:96px;padding:10px 14px;border-radius:12px;border:1px solid var(--pl-line);background:var(--pl-panel);color:var(--pl-ink);font-family:var(--f-app);font-size:15px;font-weight:600;cursor:pointer}
+.pl-mood-btn:focus-visible{outline:2px solid var(--pl-cyan);outline-offset:2px}
+.pl-mood-btn:disabled{opacity:.85;cursor:default}
+.pl-mood-thanks{font-size:12.5px;color:var(--pl-faint)}
 .pl-coach{background:var(--pl-panel);border:1px solid var(--pl-line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;text-align:left}
 .pl-coach-goal{font-family:var(--f-app);color:var(--pl-cyan);font-weight:600;font-size:14.5px}
 .pl-tip{font-family:var(--f-app);font-size:13.5px;color:#e8e2ff;line-height:1.5}
