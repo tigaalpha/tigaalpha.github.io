@@ -9,9 +9,12 @@
    Sections (each maps to a plan-v3 milestone):
      1. Knowledge quality  — eval-expanded: theory facts + golden situations
      2. Knowledge fetching — retrieval eval: 24 known-answer probes, gate 80%
-     3. Teaching decisions — policy engine: rules fire on the right states
-     4. Teacher materials  — exercise generator: deterministic, 10 topics × 5 levels
-     5. Learning loop      — strategy analyzer: outcome→weight math (incl. kill switch)
+     3. Teaching decisions — policy engine: rules fire on the right states   4. Teacher materials  — exercise generator: deterministic, 10 topics × 5 levels
+   5. Learning loop      — strategy analyzer: outcome→weight math (incl. kill switch)
+   6. Legal cleanliness  — kb-compliance over the real KB
+   7. Multimodal fusion  — confidence-weighted arbiter (m12)
+   8. Measured speed     — rule brain/KB real latency (m33)
+   9. KB hot path        — capped+ranked serving: caps hold, gate holds, faster (m34)
 
    Exit 1 if any section fails its bar. */
 
@@ -27,7 +30,7 @@ const REAL_SB = readFileSync("supabase-client.ts", "utf8");
 ioSync("supabase-client.ts", "export const sb = null;\n");
 try {
   execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
-  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js tigamodel/performance/kb-hot-path.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 } finally {
   ioSync("supabase-client.ts", REAL_SB);
 }
@@ -215,6 +218,43 @@ console.log("╚═════════════════════�
   );
 }
 
+/* ── 9. KB hot path (docs/10 §1.3 / docs/14 §2, m34): serving must stay fast
+   AND on-topic with the hot path ON — caps hold on the real seed, the
+   retrieval gate still passes, and the worst path is measurably faster. ── */
+{
+  const hp = await M("performance/kb-hot-path.js");
+  webM.initTigamodelWeb();
+  webM.setKbHotPathEnabled(true);
+  webM.kbHotPath().clearHot();
+  const legacy = (() => { webM.setKbHotPathEnabled(false); const b = webM.getKBContext("คอร์ด C กับ G สลับไม่ทัน"); webM.setKbHotPathEnabled(true); return b; })();
+  const HARMONY_Q = "คอร์ด C กับ G สลับไม่ทัน";
+  webM.kbHotPath().clearHot();
+  const capped = webM.getKBContext(HARMONY_Q);
+  const cappedLines = capped.split("\n").filter(l => l.startsWith("• ")).length;
+  const gateScored = retr.RETRIEVAL_PROBES.map(p => ({ score: retr.scoreRetrieval(p, retr.servedLabels(webM.getKBContext(p.q))) }));
+  const acc = retr.retrievalAccuracy(gateScored);
+  webM.kbHotPath().clearHot();
+  let t0 = performance.now();
+  for (let i = 0; i < 100; i++) { webM.kbHotPath().clearHot(); webM.getKBContext(HARMONY_Q); }
+  const hotMs = (performance.now() - t0) / 100;
+  t0 = performance.now();
+  for (let i = 0; i < 100; i++) webM.getKBContext(HARMONY_Q);
+  const legacyMs = (performance.now() - t0) / 100;
+  webM.setKbHotPathEnabled(false);
+  const cases = [
+    { label: "เพดานถือต่อข้อความ (≤24 บรรทัด/≤8k ตัวอักษร)", ok: cappedLines > 0 && cappedLines <= webM.kbHotPath().config.maxLines && capped.length < legacy.length / 100, v: `${cappedLines} lines` },
+    { label: "retrieval gate ยังผ่าน (hot path เปิด)", ok: acc >= retr.RETRIEVAL_GATE, v: `${(acc * 100).toFixed(0)}%` },
+    { label: "เส้นทางแย่สุดเร็วขึ้นวัดจริง", ok: hotMs < legacyMs, v: `${legacyMs.toFixed(3)}→${hotMs.toFixed(3)}ms` },
+    { label: "kill switch ปิดได้ (OFF = byte-identical)", ok: (() => { webM.setKbHotPathEnabled(false); const b = webM.getKBContext(HARMONY_Q); const same = b === legacy; webM.setKbHotPathEnabled(true); return same; })(), v: "ปิด = เดิมเป๊ะ" },
+  ];
+  const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
+  section(
+    "9) KB hot path — เลือกให้ตรงแทนการเททั้งคลัง (docs/14)",
+    `${cases.map(c => `${c.ok ? "✓" : "✗"} ${c.label} (${c.v})`).join(" · ")} · บล็อกเดิม ${legacy.length.toLocaleString()} → ${capped.length.toLocaleString()} ตัวอักษร`,
+    pct, "100%", pct === 100
+  );
+}
+
 /* ── print ── */
 console.log("| ตัวชี้วัด | คะแนน | เกณฑ์ผ่าน | ผล |");
 console.log("|---|---|---|---|");
@@ -223,5 +263,5 @@ for (const r of rows) {
   console.log(`| <sub>${r.detail}</sub> | | | |`);
 }
 const allPass = rows.every(r => r.pass);
-console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (ความเร็วเข้า scorecard แล้ว ด่าน 8)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
+console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (KB hot path เข้า scorecard แล้ว ด่าน 9)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
 process.exit(allPass ? 0 : 1);

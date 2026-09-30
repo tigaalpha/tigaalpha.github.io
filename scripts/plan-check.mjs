@@ -70,6 +70,7 @@ const SMOKES = {
   "m20-jev-policy": ["tigamodel/scripts/smoke-jev-policy.mjs", "tigamodel/scripts/smoke-reasoning.mjs"],
   "m12-fusion": ["tigamodel/scripts/smoke-fusion.mjs"],
   "m32-speed-answer-cache": ["tigamodel/scripts/smoke-answer-cache.mjs"],
+  "m34-speed-kb-hotset": ["tigamodel/scripts/smoke-kb-hot-path.mjs"],
   "m39-skill-state-wiring": ["tigamodel/scripts/smoke-skill-state-wiring.mjs"],
   "m40-outcomes-counter": ["tigamodel/scripts/smoke-outcomes-report.mjs"],
   "m43-top-problems-queue": ["tigamodel/scripts/smoke-problems-queue.mjs"],
@@ -116,6 +117,7 @@ console.log("\n5) kill switches");
     { switch: "tiga_jev_policy", file: "tigamodel/teaching/teaching-loop.js" },
     { switch: "DEFAULT_CHANNEL_WEIGHTS", file: "tigamodel/multimodal/fusion.js" },
     { switch: "tiga_answer_cache", file: "tigamodel/performance/answer-cache.js" },
+    { switch: "tiga_kb_hot_path", file: "tigamodel/performance/kb-hot-path.js" },
   ];
   for (const { switch: sw, file } of SWITCHES) {
     if (!existsSync(file)) { bad(sw, `planned switch file missing: ${file}`); continue; }
