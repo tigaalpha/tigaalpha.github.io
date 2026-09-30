@@ -31,7 +31,7 @@
 
    All sound goes through the app's sound bus, so the app-wide mute silences
    the band too. ── */
-import { audioBus, _accMarkSuppress, _accNoise, _sfxMuted } from "./music-engine";
+import { audioBus, _accMarkSuppress, _accNoise, _sfxMuted, _micSafe } from "./music-engine";
 
 export const BAND_LEVELS = [0, 0.55, 1];   // off, soft, normal
 const LOOKAHEAD = 0.35;                    // seconds booked ahead of the audio clock
@@ -366,7 +366,7 @@ export function createBand(opts) {
    unlike the C-major ladder it replaces. An effect, so it obeys the mute. */
 export function playChordDing(chord, combo, vol = 1) {
   try {
-    if (_sfxMuted) return;
+    if (_sfxMuted || _micSafe) return;      // a bell inside the piano's range is what a microphone hears as the player's next note
     const pcs = chord && chord.pcs && chord.pcs.length ? chord.pcs : [0, 4, 7];
     const i = Math.max(0, combo - 1) % (pcs.length * 2);
     const f = mtof(12 * (i < pcs.length ? 6 : 7) + (pcs[i % pcs.length] % 12));

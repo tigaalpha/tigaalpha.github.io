@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   getAC, playPianoNote, playMiss, playUi, playWhoosh, playBoom, playClickAt,
   pcOf, stopPracticeListeners, startMidiListener, startMicListener, laneHue, roundRect,
-  SONG_LEAD, SONG_DEBOUNCE_MS, SONG_ECHO_MS,
+  SONG_LEAD, SONG_DEBOUNCE_MS, SONG_ECHO_MS, setMicSafe, _micSafe,
   expandSong, normalizeSeq, noteKeyFrac, _PC, playBackingChord, songTonic, pickupBeatsOf, songChordBars,
   songTechniqueProfile, estimateSongDifficulty,
   THEORY_REF,
@@ -698,6 +698,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   songResultRef.current = songResult;
   const listenersOnRef = useRef(false);
   const lastSrcRef = useRef("tap");      // the input kind of the latest press, for the late edge of the window
+  const tappedRef = useRef(false);       // a press has come from the screen in this run (until then the player may be on a real piano)
   const pickupRef = useRef(0);           // beats before the first bar line (the click scheduler's accents)
   function clearSongPreview() {
     songPreviewRef.current.forEach(id => clearTimeout(id));
@@ -807,6 +808,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }
 
   function resetRunCounters() {
+    tappedRef.current = false;
     songHitsRef.current = 0; songMissRef.current = 0; songPerfectsRef.current = 0;
     songGradesRef.current = { perfect: 0, great: 0, good: 0, wrong: 0, mash: 0 };
     pressTimesRef.current = [];
@@ -822,7 +824,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const midiOk = await startMidiListener(onDetect, () => setSongSrc({ type: "midi" }));
     if (!midiOk) await startMicListener(onDetect, () => setSongSrc({ type: "mic" }), () => setSongSrc({ type: "error" }));
   }
-  function stopListeners() { stopPracticeListeners(); listenersOnRef.current = false; }
+  function stopListeners() { stopPracticeListeners(); listenersOnRef.current = false; setMicSafe(false); }
   function startLoops() {
     cancelAnimationFrame(songRafRef.current);
     songRafRef.current = requestAnimationFrame(() => songLoopRef.current());
@@ -848,16 +850,20 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     clearInterval(bandTimerRef.current); bandTimerRef.current = null;
     if (bandRef.current) { if (ring) bandRef.current.ringOut(1.8); else bandRef.current.cut(); }
   }
-  /* Who the band plays for right now: while the mic listens, a player on a
-     real piano (their presses come from the mic, or none yet) gets soft
-     drums only; a player tapping the screen gets the full band, its notes
-     kept out of the mic's hearing (see play-along-band.ts). */
+  /* Who the band plays for right now: while the mic listens, a player who has
+     not tapped the screen (their presses come from the mic, or none yet — the
+     mic cannot tell a pianist from a tapper before the first press) is taken
+     for a pianist and gets soft drums only, and the game's own sounds switch
+     to their mic-safe voice (music-engine setMicSafe); a player tapping the
+     screen gets the full band, its notes kept out of the mic's hearing (see
+     play-along-band.ts) and the mic itself put aside (see handleSongInput). */
   function bandPump(songTime) {
     const b = bandRef.current;
     if (!b || pausedRef.current) return;
     const src = gameStore.get().songSrc;
     const micOpen = !!(src && src.type === "mic");
-    const onPiano = micOpen && lastSrcRef.current !== "tap";
+    const onPiano = micOpen && !(lastSrcRef.current === "tap" && tappedRef.current);
+    setMicSafe(onPiano);
     b.setState({ combo: songComboRef.current, fever: !!songFeverRef.current, mega: !!songFeverRef.current && songComboRef.current >= megaAt(songTotalRef.current), pitched: !onPiano, soft: onPiano, micOpen });
     const tempo = songTempoRef.current || 1, clock = songStartClockRef.current;
     const dr = drillRef.current;
@@ -1158,6 +1164,9 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       setBand: (v) => setSongBand(v),
       setAccomp: (v) => setSongAccomp(v),
       accomp: () => songAccompRef.current,
+      micSafe: () => _micSafe,
+      grades: () => ({ ...songGradesRef.current }),
+      combo: () => songComboRef.current,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1715,6 +1724,27 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (d.freq == null) return pcOf(d.note) === targetPC;
     return teacherJudgeNote({ freq: d.freq, targetPC }).ok;
   }
+  /* The open note a press lands on: the exact note (pitch and octave) first —
+     a two-hand song can have the melody and the accompaniment sharing a pitch
+     class close together in time — then any note of its pitch class (an octave
+     off still counts; a mic reading is judged tuning-aware), inside the window. */
+  function dueNoteFor(d, tq, win) {
+    let best = null, bestd = 1e9;
+    for (const n of songNotesRef.current) {
+      if (n.hit || n.missed || n.skip || n.note !== d.note) continue;
+      const dt = Math.abs(tq - (n.t + SONG_LEAD));
+      if (dt < bestd) { bestd = dt; best = n; }
+    }
+    if (!best || bestd > win) {
+      best = null; bestd = 1e9;
+      for (const n of songNotesRef.current) {
+        if (n.hit || n.missed || n.skip || !songPCMatches(d, pcOf(n.note))) continue;
+        const dt = Math.abs(tq - (n.t + SONG_LEAD));
+        if (dt < bestd) { bestd = dt; best = n; }
+      }
+    }
+    return { best, bestd };
+  }
   function handleSongInput(d) {
     if (!songRunRef.current || pausedRef.current) return;
     const ac = getAC();
@@ -1732,10 +1762,18 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     // later — ignore a mic onset of the same pitch right after a tap so one tap can't
     // become 2–3 hits. (Pure real-piano play never sets this, so repeats stay fine.)
     if (src === "mic" && tnow - (songEchoRef.current[d.note] || 0) < SONG_ECHO_MS) return;
+    // A player who taps the screen has no use for the microphone: what it hears of
+    // the band or of the game's own sounds must not cost them a combo. Their mic
+    // counts only when it lands on a note the music asks for right now — which a
+    // real piano played beside the phone does, and a false reading almost never.
+    if (src === "mic" && tappedRef.current && lastSrcRef.current === "tap") {
+      const m = dueNoteFor(d, songTime - (calibRef.current.mic || 0), receiveWindow(songKindRef.current, "mic"));
+      if (!m.best || !judgeOffset(m.bestd, songKindRef.current, "mic")) return;
+    }
     // Debounce: one press = one note (a sustained key can re-fire the same pitch).
     if (tnow - (songDebounceRef.current[d.note] || 0) < SONG_DEBOUNCE_MS) return;
     songDebounceRef.current[d.note] = tnow;
-    if (src === "tap") songEchoRef.current[d.note] = tnow; // this tap's sound will echo into the mic
+    if (src === "tap") { songEchoRef.current[d.note] = tnow; tappedRef.current = true; } // this tap's sound will echo into the mic
     if (src === "mic" && !gameStore.get().songHeardMic) setSongHeardMic(true);
     lastSrcRef.current = src;
     const kind = songKindRef.current;
@@ -1755,23 +1793,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     pressTimesRef.current = recent;
     const now = performance.now();
     if (pressIsMash(before, due)) { wrongPress("mash", inPC, now); return; }
-    // Prefer an exact note (pitch + octave) match first — same two-hand
-    // reason as above — and fall back to a pitch-class match (an octave off
-    // still counts; a mic reading is judged tuning-aware) inside the window.
-    let best = null, bestd = 1e9;
-    for (const n of songNotesRef.current) {
-      if (n.hit || n.missed || n.skip || n.note !== d.note) continue;
-      const dt = Math.abs(tq - (n.t + SONG_LEAD));
-      if (dt < bestd) { bestd = dt; best = n; }
-    }
-    if (!best || bestd > win) {
-      best = null; bestd = 1e9;
-      for (const n of songNotesRef.current) {
-        if (n.hit || n.missed || n.skip || !songPCMatches(d, pcOf(n.note))) continue;
-        const dt = Math.abs(tq - (n.t + SONG_LEAD));
-        if (dt < bestd) { bestd = dt; best = n; }
-      }
-    }
+    const { best, bestd } = dueNoteFor(d, tq, win);
     const grade = best ? judgeOffset(bestd, kind, src) : null;
     if (best && grade) hitNote(best, grade, tq - (best.t + SONG_LEAD), songTime - (best.t + SONG_LEAD), src, d, now);
     else if (openDue > 0) wrongPress("wrong", inPC, now);

@@ -44,7 +44,7 @@ fs.mkdirSync(OUT, { recursive: true });
 // ── what the band imports from music-engine, on an offline context ──
 const STUB = `
 let _ac = null, _bus = null;
-export let _sfxMuted = false;
+export let _sfxMuted = false, _micSafe = false;
 export function __setContext(ac, path) {
   _ac = ac; _bus = ac.createGain(); _bus.gain.value = 0.9;
   if (!path) { _bus.connect(ac.destination); return; }
