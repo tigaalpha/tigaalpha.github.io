@@ -43,6 +43,7 @@ import { seedMusicMarketing } from "./knowledge/music-marketing.js";   // plan v
 import { seedMusicBusiness } from "./knowledge/music-business.js";   // plan v3.4 6.7
 import { seedMusicEducationMarket } from "./knowledge/music-education-market.js"; // plan v3.4 6.8
 import { seedMusicTherapy } from "./knowledge/music-therapy.js";     // plan v3.4 11.1 (wellbeing frame)
+import { seedMusicInnovation } from "./knowledge/music-innovation.js"; // plan v3.5 6.13 (music innovation — owner pillar 5)
 import { nextSongAdvice, longTermValueSection, careerPathwayReply, calmModeIntro, isoSongPick, therapyDisclaimer } from "./teaching/knowledge-surfaces.js"; // v3.4 6.3/6.4/6.9/6.10/11.2-11.4
 import { seedStageTwoWave } from "./knowledge/expansion-stage2.js";
 import { buildStudentContextFromApp } from "./student/student-model.js";
@@ -105,6 +106,7 @@ export function initTigamodelWeb() {
     seedMusicBusiness(_tiga.kb);       // v3.4 6.7: streaming · rights · sync · live · brand/career
     seedMusicEducationMarket(_tiga.kb);// v3.4 6.8: lifecycle · parents · churn · grade structure
     seedMusicTherapy(_tiga.kb);        // v3.4 11.1: wellbeing-frame therapy principles (no medical claims)
+    seedMusicInnovation(_tiga.kb);     // v3.5 6.13: piano genesis · recording · notation · pedagogy innovation (owner pillar 5)
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   // Reasoning layer (roadmap #62/#73/#75/#78): skill graph + coach (hint
   // ladder, adaptive tempo, recap) — pure, sync, no model call. Attached to

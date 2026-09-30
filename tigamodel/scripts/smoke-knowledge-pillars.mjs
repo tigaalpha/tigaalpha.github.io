@@ -1,5 +1,7 @@
 /* ── smoke-knowledge-pillars.mjs — plan v3.4 gates for the two owner-priority
    knowledge pillars (business + therapy) and the marketing/education KBs.
+   Plan v3.5 6.13: + the fifth owner pillar, MUSIC INNOVATION (piano genesis ·
+   recording · notation · pedagogy innovation · thai-global).
 
    Checks per file:
    • every entry trilingual (th + EN + ZH gloss present in body)
@@ -77,12 +79,28 @@ function checkFile(family, domain, expectMin) {
   return list;
 }
 
-console.log("ตรวจขุมความรู้ใหม่ 4 ขุม (แผน v3.4):\n");
+console.log("ตรวจขุมความรู้ 5 ขุม (แผน v3.4 + v3.5 6.13):\n");
 
 const mkt = checkFile("marketing (6.1)", "music-marketing", 14);
 const biz = checkFile("business (6.7)", "music-business", 14);
 const edu = checkFile("education-market (6.8)", "music-education-market", 12);
 const thx = checkFile("therapy (11.1)", "music-therapy", 10);
+const inn = checkFile("innovation (6.13)", "music-innovation", 18);
+
+/* innovation-specific: entries must stay verifiable — name the real
+   inventor/mechanism/system (no folklore), and carry the bridge lesson
+   (innovation connects home & lesson instead of replacing either). */
+const innFlat = inn.map(e => `${e.id} ${e.title} ${e.body}`).join("\n");
+const INN_ANCHORS = [/[Cc]ristofori/, /[ÉE]rard|escapement/, /Guido/, /[Ss]uzuki/, /MIDI/, /เบรลล์|[Bb]raille/, /ABRSM|Trinity/];
+INN_ANCHORS.every(re => re.test(innFlat))
+  ? ok("innovation: อ้างชื่อผู้คิด/กลไก/ระบบจริงครบ (ตรวจย้อนได้ ไม่ใช่คำเล่าลอย)")
+  : bad(`innovation: ขาดหลักฐานอ้างอิงชื่อจริง → ขาด ${INN_ANCHORS.filter(re => !re.test(innFlat)).length} จุด`);
+inn.some(e => /ต่อสะพาน|bridge/.test(e.body)) ? ok("innovation: มีบทเรียน 'ต่อสะพาน' (บ้าน↔คอร์เรียน) ตามเจตนาขุม") : bad("innovation: ไม่มีบทเรียน bridge");
+const innFamilies = new Set(inn.flatMap(e => e.tags || []));
+/* kb.add() ไม่เก็บ meta — family จึงอ่านจาก tags (แยกทีละ tag, ไม่ join) */
+["piano-genesis", "recording", "notation", "pedagogy", "thai-global"].every(f => innFamilies.has(f))
+  ? ok("innovation: ครบ 5 สาย (genesis · recording · notation · pedagogy · thai-global)")
+  : bad(`innovation: สายขาด → ${["piano-genesis", "recording", "notation", "pedagogy", "thai-global"].filter(f => !innFamilies.has(f)).join(", ")}`);
 
 /* therapy-specific: the hard wellbeing frame */
 const medicalHits = [];
@@ -98,9 +116,9 @@ iso ? ok("therapy: หลัก ISO มีจริง (พื้นฐานข
 const boundary = thx.find(e => /thx:practice:boundary/.test(e.id));
 boundary ? ok("therapy: เส้นแบ่ง 'ครูไม่ให้คำแนะนำทางการแพทย์' มีเป็นข้อบังคับ (11.4 ใช้)") : bad("therapy: ไม่มี entry เส้นแบ่ง boundary");
 
-/* the other three pillars must also carry zero medical claims (defense in depth) */
+/* the other pillars must also carry zero medical claims (defense in depth) */
 const otherMedical = [];
-for (const e of [...mkt, ...biz, ...edu]) {
+for (const e of [...mkt, ...biz, ...edu, ...inn]) {
   const flat = `${e.title} ${e.body}`;
   for (const re of MEDICAL) if (CLAIM_SENTENCE(flat, re)) { otherMedical.push(`${e.id} → ${re}`); break; }
 }

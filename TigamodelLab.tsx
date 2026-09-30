@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
@@ -290,6 +290,7 @@ export function TigamodelLab({ lang = "th" }) {
       <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <button style={S.chip(tab === "chat")} onClick={() => setTab("chat")}>💬 {T("ทดสอบแชท", "Chat test", "聊天测试")}</button>
         <button style={S.chip(tab === "eval")} onClick={() => setTab("eval")}>📊 {T("ประเมินโมเดล", "Eval", "评估")}</button>
+        <button style={S.chip(tab === "measure")} onClick={() => setTab("measure")}>🎯 {T("วัดผลความแม่นยำ", "Accuracy", "准确度")}</button>
         <button style={S.chip(tab === "loop")} onClick={() => setTab("loop")}>🔁 {T("จำลองวงจรสอน", "Teaching loop", "教学循环")}</button>
         <button style={S.chip(tab === "kb")} onClick={() => setTab("kb")}>📚 {T("ความรู้", "Knowledge", "知识")}</button>
         <button style={S.chip(tab === "map")} onClick={() => setTab("map")}>🕸 {T("แผนที่ความรู้", "Knowledge map", "知识图谱")}</button>
@@ -402,6 +403,8 @@ export function TigamodelLab({ lang = "th" }) {
           {chatRows.length === 0 && <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, padding: 18 }}>{T("ยังไม่มีข้อความ", "No messages yet", "暂无消息")}</div>}
         </div>
       )}
+
+      {ready && tab === "measure" && <MeasurePanel lang={lang} S={S} T={T} />}
 
       {ready && tab === "eval" && (
         <div style={S.card}>
@@ -1380,6 +1383,194 @@ function SpecialistPanel({ lang, S, T }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── MeasurePanel — plan v3.5 6.14: THE ACCURACY DASHBOARD (owner: "สร้างฟีเจอร์
+   วัดผลโมเดลไว้ใน TIGA MODEL LAB"). One screen answering: โมเดลวันนี้แม่นแค่ไหน
+   และอ่อนตรงไหน — every number read from REAL state, never invented:
+   • latest extended-eval run → overall + pass-rate per case family (bars)
+   • regression verdict + stored baseline comparison
+   • saved eval-run history (loadEvalRuns) with delta vs previous run
+   • the 5 owner knowledge pillars (KB counts per domain) — ครบ 5 ด้าน
+   • capability engine → READY routes / 1,000 + grid 1M progress
+   Everything here is also reachable raw via the eval/selflearn/plan1m tabs;
+   this panel is the owner's summary, not a second source of truth. ── */
+const MEASURE_PILLARS = [
+  { domain: "music-marketing", icon: "📣", th: "การตลาดดนตรี", en: "Music marketing", zh: "音乐营销" },
+  { domain: "music-business", icon: "💼", th: "ธุรกิจดนตรี", en: "Music business", zh: "音乐商业" },
+  { domain: "music-education-market", icon: "🏫", th: "ตลาดการเรียนดนตรี", en: "Education market", zh: "教育市场" },
+  { domain: "music-innovation", icon: "💡", th: "นวัตกรรมดนตรี", en: "Music innovation", zh: "音乐创新" },
+  { domain: "music-therapy", icon: "🌿", th: "ดนตรีบำบัด", en: "Music therapy", zh: "音乐治疗" },
+];
+function MeasurePanel({ lang, S, T }) {
+  const [runs, setRuns] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [pillars, setPillars] = useState(null);
+  const [routes, setRoutes] = useState(null);
+  const [grid, setGrid] = useState(null);
+  const [baseline, setBaseline] = useState(null);
+
+  useEffect(() => {
+    setRuns(loadEvalRuns());
+    setBaseline(loadEvalExtendedBaseline());
+    (async () => {
+      try {
+        const kb = getKnowledgeBaseForTest();
+        if (kb && kb._entries) {
+          const all = Array.from(kb._entries.values());
+          const ofDomain = (d) => all.filter(e => e.domain === d).length;
+          setPillars(MEASURE_PILLARS.map(p => ({ ...p, count: ofDomain(p.domain) })));
+          setGrid({ totalEntries: all.length });
+        }
+      } catch (e) {}
+      try { setRoutes(capabilitySummary()); } catch (e) {}
+      try { setGrid(g => ({ ...(g || {}), ...(plm1mStats() || {}) })); } catch (e) {}
+    })();
+  }, []);
+
+  async function runNow() {
+    if (busy) return;
+    setBusy(true); setErr("");
+    try {
+      const ext = await runExtendedEvalWithRegression();
+      if (ext && ext.results) saveEvalRun({ results: ext.results, extended: true, verdict: ext.verdict });
+      else {
+        const tiga = getTigamodel();
+        const results = await evaluateAllProviders(tiga.providers.list());
+        saveEvalRun({ results });
+      }
+      setRuns(loadEvalRuns());
+      setBaseline(loadEvalExtendedBaseline());
+    } catch (e) { setErr(String(e?.message || e)); }
+    setBusy(false);
+  }
+
+  const latest = runs[0] || null;
+  const prev = runs[1] || null;
+  const head = latest && latest.results && latest.results[0] || null;
+  const prevHead = prev && prev.results && prev.results[0] || null;
+  const famEntries = head && head.scores ? Object.entries(head.scores) : [];
+  const famPass = famEntries.filter(([, v]) => v >= 1).length;
+  const famPartial = famEntries.filter(([, v]) => v > 0 && v < 1).length;
+  const famFail = famEntries.filter(([, v]) => !v).length;
+  const delta = head && prevHead && typeof head.overall === "number" && typeof prevHead.overall === "number" ? head.overall - prevHead.overall : null;
+  const barColor = (v) => v >= 1 ? S.good : v >= 0.5 ? S.warn : S.bad;
+
+  return (
+    <div>
+      <div style={S.card}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+          <b style={{ fontSize: 15 }}>🎯 {T("ความแม่นยำล่าสุดของโมเดล", "Latest model accuracy", "模型最新准确度")}</b>
+          <button style={S.btn} onClick={runNow} disabled={busy}>{busy ? T("กำลังประเมิน…", "Evaluating…", "评估中…") : T("▶ วัดผลใหม่ตอนนี้", "Measure now", "立即测量")}</button>
+        </div>
+        {!head && !busy && !err && (
+          <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, padding: 14 }}>
+            {T("ยังไม่มีผลวัด — กดวัดผลใหม่ได้เลย", "No measurement yet — run one", "暂无测量——立即运行")}
+          </div>
+        )}
+        {err && <div style={{ color: S.bad, fontSize: 13, marginBottom: 8 }}>⚠️ {err}</div>}
+        {head && (
+          <>
+            <div style={{ display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap", marginBottom: 8 }}>
+              <span style={{ fontSize: 40, fontWeight: 800, color: head.overall >= 0.8 ? S.good : head.overall >= 0.6 ? S.warn : S.bad }}>
+                {(head.overall * 100).toFixed(0)}%
+              </span>
+              {delta != null && (
+                <span style={{ fontSize: 14, fontWeight: 700, color: delta >= 0 ? S.good : S.bad }}>
+                  {delta >= 0 ? "▲" : "▼"} {(delta * 100).toFixed(1)} {T("คะแนนจากรอบก่อน", "vs previous run", "对比上次")}
+                </span>
+              )}
+              <span style={{ ...S.mono, color: "var(--muted)", fontSize: 12 }}>{head.provider} · {new Date(latest.saved_at).toLocaleString()}</span>
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 13, marginBottom: 12 }}>
+              <span style={{ color: S.good }}>✓ {T("ผ่านเต็ม", "full pass", "满分")} <b>{famPass}</b>/{famEntries.length} {T("ตระกูล", "families", "族")}</span>
+              <span style={{ color: S.warn }}>◐ {T("บางส่วน", "partial", "部分")} <b>{famPartial}</b></span>
+              <span style={{ color: S.bad }}>✕ {T("ตก", "fail", "未过")} <b>{famFail}</b></span>
+            </div>
+            {famEntries.map(([k, v]) => (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                <span style={{ width: 150, fontSize: 12, color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={k}>{k}</span>
+                <div style={{ flex: 1, height: 8, background: "var(--bd1)", borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ width: `${Math.max(3, Math.round(v * 100))}%`, height: "100%", background: barColor(v), borderRadius: 4 }} />
+                </div>
+                <span style={{ ...S.mono, width: 46, textAlign: "right", color: barColor(v) }}>{(v * 100).toFixed(0)}%</span>
+              </div>
+            ))}
+            {latest.verdict && (
+              <div style={{ ...S.inner, marginTop: 10, borderLeft: "3px solid " + (latest.verdict.verdict === "block" ? S.bad : latest.verdict.verdict === "warn" ? S.warn : S.good) }}>
+                <b style={{ fontSize: 13 }}>{latest.verdict.verdict === "block" ? "🚨" : latest.verdict.verdict === "warn" ? "⚠️" : "✅"} {T("การตัดสินถดถอย", "Regression verdict", "回归判定")}: {latest.verdict.verdict}</b>
+                <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{lang === "en" ? latest.verdict.message.en : latest.verdict.message.th}</div>
+              </div>
+            )}
+            {baseline && baseline.overall != null && (
+              <div style={{ ...S.mono, marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
+                {T("ฐานเทียบ (baseline) บนเครื่องนี้:", "Baseline on this device:", "本机基线：")} {(baseline.overall * 100).toFixed(0)}%
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div style={S.card}>
+        <div style={{ ...S.h2, marginBottom: 10 }}>📚 {T("ขุมความรู้ 5 ด้านของ owner — ครบหรือยัง", "The owner's 5 knowledge pillars — coverage", "五大知识支柱——覆盖")}</div>
+        {pillars && pillars.map(p => (
+          <div key={p.domain} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid var(--bd1)" }}>
+            <span style={{ fontSize: 13.5 }}>{p.icon} {lang === "en" ? p.en : lang === "zh" ? p.zh : p.th}</span>
+            <span style={{ ...S.mono, fontSize: 13, color: p.count > 0 ? "var(--text)" : S.bad }}>
+              {p.count > 0 ? `✓ ${p.count} entries` : "✕ 0"}
+            </span>
+          </div>
+        ))}
+        {grid && grid.totalEntries != null && (
+          <div style={{ ...S.mono, marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
+            {T("KB รวมทุกโดเมน:", "KB all domains:", "全部知识域：")} <b>{grid.totalEntries.toLocaleString()}</b> entries
+          </div>
+        )}
+      </div>
+
+      {routes && (
+        <div style={S.card}>
+          <div style={{ ...S.h2, marginBottom: 10 }}>⚡ {T("ความพร้อมโมเดล 1,000 เส้นทาง", "1,000-route readiness", "1000条路径就绪度")}</div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13 }}>
+            <span>🟢 {T("พร้อม", "ready", "就绪")} <b>{routes.ready}</b> ({routes.readyPct}%)</span>
+            <span>🟡 {T("บางส่วน", "partial", "部分")} <b>{routes.partial}</b></span>
+            <span>⚪ {T("ช่องว่าง", "gaps", "空白")} <b>{routes.gaps}</b></span>
+            <span>📊 avg <b>{routes.avgScore}</b></span>
+          </div>
+        </div>
+      )}
+
+      {grid && grid.startedPct != null && (
+        <div style={S.card}>
+          <div style={{ ...S.h2, marginBottom: 10 }}>🧭 {T("กริด 1M — เดินแล้ว", "1M grid progress", "百万网格进度")}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+            <span style={{ fontSize: 26, fontWeight: 800 }}>{grid.startedPct}%</span>
+            <span style={{ fontSize: 13, color: "var(--text2)" }}>{(grid.started || 0).toLocaleString()} / {(grid.total || 0).toLocaleString()} specs</span>
+          </div>
+        </div>
+      )}
+
+      <div style={S.card}>
+        <div style={{ ...S.h2, marginBottom: 10 }}>🕘 {T("ประวัติการวัด (เทียบก่อน/หลังสลับโมเดล)", "Measurement history (compare before/after model switch)", "测量历史（换模型前后对比）")}</div>
+        {runs.length === 0 && <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, padding: 12 }}>{T("ยังไม่มีประวัติ", "No history yet", "暂无历史")}</div>}
+        {runs.slice(0, 8).map((r, i) => {
+          const rh = r.results && r.results[0];
+          const rPrev = runs[i + 1] && runs[i + 1].results && runs[i + 1].results[0];
+          const d = rh && rPrev && typeof rh.overall === "number" && typeof rPrev.overall === "number" ? rh.overall - rPrev.overall : null;
+          return (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--bd1)" }}>
+              <span style={{ ...S.mono, fontSize: 12 }}>{new Date(r.saved_at).toLocaleString()}{r.extended ? " · extended" : ""}</span>
+              <span style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                {d != null && <span style={{ fontSize: 12, fontWeight: 700, color: d >= 0 ? S.good : S.bad }}>{d >= 0 ? "▲" : "▼"}{(d * 100).toFixed(1)}</span>}
+                <b style={{ fontSize: 14, color: rh && rh.overall >= 0.8 ? S.good : rh && rh.overall >= 0.6 ? S.warn : S.bad }}>{rh ? (rh.overall * 100).toFixed(0) + "%" : "—"}</b>
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
