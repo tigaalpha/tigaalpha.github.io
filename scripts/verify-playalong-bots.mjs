@@ -9,7 +9,9 @@
    notes/search, the staff slides every frame, a medal pays once and run
    coins stop after 3 runs a day, practice mode waits for the right key, the
    band keeps the beat (4/4, 3/4, drums only for a piano on the mic), the
-   click track steps aside for the band, and the other pages still open.
+   click track steps aside for the band, the ready screen wears the app's
+   theme (light and dark) with its settings open at the top and Start in
+   reach, and the other pages still open.
 
      npm run build && node scripts/verify-playalong-bots.mjs
      ONLY=perfect,drill node scripts/verify-playalong-bots.mjs   # a subset
@@ -269,7 +271,8 @@ if (want("concert")) {
   const s = await session({ extraLS: ghosts });
   await openList(s.p);
   await s.p.click(".genrechip >> text=Jazz"); await s.p.waitForTimeout(500);
-  await s.p.click(".setlistbtn >> text=Concert"); await s.p.waitForTimeout(900);
+  // by its full name: the daily song's button is "…Piano Concerto…" on some days
+  await s.p.click(".setlistbtn >> text=Concert Mode"); await s.p.waitForTimeout(900);
   const pos = await s.p.$eval(".setlistpos", e => e.textContent).catch(() => "(no badge)");
   await start(s.p); await bot(s.p);
   const out = await s.p.evaluate(() => new Promise(res => { const T = window.__paTest; const log = {}, trail = []; let last = ""; const id = setInterval(() => { const m = T.meta(); const now = T.now(); const badge = (document.querySelector(".songsetlist, .pl-setlist") || {}).textContent || ""; const k = m + "|" + (now != null) + "|" + badge + "|" + !!document.querySelector(".pl-result"); if (k !== last) { trail.push(k); last = k; } if (m && now != null) log[m] = log[m] || T.ghost(); if (document.querySelector(".pl-result")) { clearInterval(id); res({ log, trail }); } }, 100); setTimeout(() => { clearInterval(id); res({ log, trail }); }, 150000); }));
@@ -376,8 +379,7 @@ if (want("medals")) {
   // at 75% speed, 3 stars keep bronze (silver and up need the real speed)
   const w = await session({ extraLS: { tg_pa_testhook: "1" } });
   await openList(w.p); await openSong(w.p, "Late Night");
-  await w.p.click(".pl-link[aria-expanded]"); await w.p.waitForTimeout(300);
-  await w.p.click(".songtempobtn >> text=0.75×"); await w.p.waitForTimeout(300);
+  await w.p.click(".songtempobtn >> text=0.75×"); await w.p.waitForTimeout(300);   // the settings are always open
   const id2 = await w.p.evaluate(() => window.__paTest.meta());
   await start(w.p); await bot(w.p); await waitResult(w.p); await stopBot(w.p);
   const st2 = await w.p.evaluate((id) => ({ medal: localStorage.getItem("tg_medal_" + id), stars: localStorage.getItem("tg_stars_" + id) }), id2);
@@ -484,6 +486,50 @@ if (want("click")) {
   await stopBot(pr.p);
   rec("click-none-in-practice", cp.filter(c => c.countIn).length >= 3 && after(cp) === 0, `practice: count-in ticks ${cp.filter(c => c.countIn).length} · clicks after it ${after(cp)}`);
   await done(pr);
+}
+// ── 16. the ready screen: the app's own theme (white / dark), the settings always open and
+//        first on the screen, Start reachable without scrolling; neon only once the song starts ──
+if (want("ready-theme")) {
+  const lum = (rgb) => { const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb || ""); return m ? (0.2126 * +m[1] + 0.7152 * +m[2] + 0.0722 * +m[3]) / 255 : -1; };
+  for (const [mode, w, h] of [["light", 376, 700], ["dark", 376, 700], ["light", 360, 640], ["light", 412, 915]]) {
+    const s = await session({ w, h, extraLS: mode === "dark" ? { tg_mode: "dark" } : {} });
+    await openList(s.p); await openSong(s.p, "Mary");
+    await s.p.waitForSelector(".songready .pl-settings", { timeout: 8000 });
+    await s.p.waitForTimeout(500);
+    const r = await s.p.evaluate(() => {
+      const q = (sel) => document.querySelector(sel);
+      const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom), left: Math.round(b.left), right: Math.round(b.right), h: Math.round(b.height) }; };
+      const root = q(".songov"), ready = q(".songready"), hdr = q(".songhdr"), st = q(".songready .pl-start");
+      const cs = (el, k) => el ? getComputedStyle(el)[k] : "";
+      const settings = q(".pl-settings"), title = q(".songready .pl-title"), tempo = q(".songready .songtempo"), hands = q(".songready .songhands");
+      return {
+        cls: root.className, bg: cs(ready, "backgroundColor"), rootBg: cs(root, "backgroundColor"), hdrBg: cs(hdr, "backgroundColor"),
+        titleColor: cs(title, "color"), startBg: cs(st, "backgroundImage") + " " + cs(st, "backgroundColor"),
+        hdr: box(hdr), settings: box(settings), title: box(title), start: box(st), tempo: box(tempo), hands: box(hands),
+        toggleLink: !!q(".songready [aria-expanded]"), tempoBtns: document.querySelectorAll(".songready .songtempobtn").length, handBtns: document.querySelectorAll(".songready .songhandbtn").length,
+        overflowX: document.documentElement.scrollWidth > window.innerWidth, vh: window.innerHeight,
+        scrolls: ready.scrollHeight > ready.clientHeight,
+      };
+    });
+    const tag = `${mode} ${w}×${h}`;
+    await s.p.screenshot({ path: `${OUT}/ready-${mode}-${w}x${h}.png` });
+    const L = lum(r.bg);
+    rec(`ready-${tag}-theme`, /pl-themed/.test(r.cls) && !/playal/.test(r.cls) && (mode === "dark" ? L >= 0 && L < 0.2 : L > 0.85) && (mode === "dark" ? lum(r.titleColor) > 0.7 : lum(r.titleColor) < 0.3) && !/255, 60, 210|140, 70, 255/.test(r.startBg), `root "${r.cls}" · ground ${r.bg} (luma ${L.toFixed(2)}) · title ${r.titleColor} · Start ${r.startBg.slice(0, 60)}`);
+    rec(`ready-${tag}-settings-first`, !r.toggleLink && r.tempoBtns === 4 && r.handBtns === 3 && r.settings && r.title && r.settings.top >= r.hdr.bottom - 1 && r.settings.top < r.title.top && r.settings.top - r.hdr.bottom < 24, `settings ${JSON.stringify(r.settings)} just under the header (bottom ${r.hdr && r.hdr.bottom}) · above the title (top ${r.title && r.title.top}) · no fold/unfold link ${!r.toggleLink} · ${r.tempoBtns} speeds, ${r.handBtns} hands`);
+    rec(`ready-${tag}-start-reachable`, r.start && r.start.bottom <= r.vh && r.start.top >= 0 && !r.overflowX, `Start ${JSON.stringify(r.start)} in a ${r.vh}px screen · sideways scroll ${r.overflowX} · content scrolls ${r.scrolls}`);
+    // the settings really work without opening anything: pick 0.75× and Left
+    if (mode === "light" && w === 376) {
+      await s.p.click(".songready .songtempobtn >> text=0.75×"); await s.p.click(".songready .songhandbtn >> nth=1");
+      const on = await s.p.$$eval(".songready .songtempobtn.on, .songready .songhandbtn.on", els => els.map(e => e.textContent.trim()));
+      rec("ready-settings-work", on.includes("0.75×") && on.length === 2, `selected: ${on.join(", ")}`);
+      await s.p.click(".songready .songhandbtn >> nth=0"); await s.p.click(".songready .songtempobtn >> text=1×");
+      // Start: the neon world begins
+      await start(s.p); await s.p.waitForTimeout(600);
+      const g = await s.p.evaluate(() => ({ cls: document.querySelector(".songov").className, bg: getComputedStyle(document.querySelector(".songov")).backgroundColor }));
+      rec("ready-then-neon", /playal/.test(g.cls) && !/pl-themed/.test(g.cls) && lum(g.bg) < 0.05, `once the song starts: "${g.cls}" on ${g.bg}`);
+    }
+    await done(s);
+  }
 }
 // ── 11. other pages still open ──
 if (want("pages")) {
