@@ -21,7 +21,7 @@ import { queuedUntilTiga, tigaNow } from "./tiga-gateway";   // tigamodel loads 
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 import { createGameStore } from "./play-along-store";
 import { createBand, playChordDing } from "./play-along-band";
-import { bakeSky, bakeCity, bakeFloor, stageSprites, drawStageFx } from "./play-along-stage";
+import { paintWorld, getWorld, composeStage, drawStageFx } from "./play-along-stage";
 import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt } from "./play-along-judge";
 import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday } from "./play-along-progress";
 
@@ -65,6 +65,23 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
    device. A steady 30 fps (a phone's power saving) is a cap, not a struggle,
    and fewer pixels cannot help it, so that is left alone. */
 const GFX_TIERS = [2, 1.5, 1.25, 1];
+/* The size the stage had when a run last began, per screen and hand. The ready screen's canvas is taller than the playing one
+   (no score row, staff or keyboard yet), so the world it paints in idle time (play-along-stage.ts) is painted for this
+   remembered size; the first run on a new screen just paints it at Start, and remembers. */
+const STAGE_SIZE_LS = "tg_pa_stage";
+const stageSizeKey = (hand) => `${window.innerWidth}x${window.innerHeight}|${hand}`;
+function readStageSize(hand) {
+  try { const v = JSON.parse(lsGet(STAGE_SIZE_LS, "{}"))[stageSizeKey(hand)]; return v && v[0] > 0 && v[1] > 0 ? v : null; } catch (e) { return null; }
+}
+function rememberStageSize(hand, W, H) {
+  try {
+    const o = JSON.parse(lsGet(STAGE_SIZE_LS, "{}")), k = stageSizeKey(hand);
+    if (o[k] && o[k][0] === W && o[k][1] === H) return;
+    delete o[k]; o[k] = [W, H];
+    for (const old of Object.keys(o).slice(0, -6)) delete o[old];       // a handful of screens is plenty
+    lsSet(STAGE_SIZE_LS, JSON.stringify(o));
+  } catch (e) {}
+}
 // the pause screen's choice: auto learns the step; the others fix it
 // (high = everything at 2×, medium = 1.5× without drifting motes and long
 // trails, low = 1× with the essentials)
@@ -212,45 +229,6 @@ const FX_DUR = { judge: 520, pop: 720, spark: 440, ring: 620 };
 let _rmq = null;
 function reducedMotion() {
   try { if (!_rmq) _rmq = window.matchMedia("(prefers-reduced-motion: reduce)"); return !!_rmq.matches; } catch (e) { return false; }
-}
-
-/* The rune-wheel over the lanes: rings, a star of two triangles, clock
-   ticks. Baked into the backdrop when still; at the top graphics level it
-   is its own bitmap, turned a little every frame. */
-function drawRuneWheel(nx, sx, sy, R) {
-  nx.globalCompositeOperation = "lighter";
-  const halo = nx.createRadialGradient(sx, sy, R * 0.2, sx, sy, R * 1.4);
-  halo.addColorStop(0, "rgba(255,60,220,0.1)"); halo.addColorStop(1, "rgba(255,60,220,0)");
-  nx.fillStyle = halo; nx.beginPath(); nx.arc(sx, sy, R * 1.4, 0, 7); nx.fill();
-  nx.strokeStyle = "rgba(255,70,220,0.26)"; nx.lineWidth = 1.5;
-  nx.beginPath(); nx.arc(sx, sy, R, 0, 7); nx.stroke();
-  nx.strokeStyle = "rgba(255,70,220,0.1)"; nx.lineWidth = 6;
-  nx.beginPath(); nx.arc(sx, sy, R, 0, 7); nx.stroke();
-  nx.strokeStyle = "rgba(60,230,255,0.22)"; nx.lineWidth = 1;
-  nx.beginPath(); nx.arc(sx, sy, R * 0.82, 0, 7); nx.stroke();
-  nx.setLineDash([2, 5, 9, 5]); nx.beginPath(); nx.arc(sx, sy, R * 0.9, 0, 7); nx.stroke(); nx.setLineDash([]);
-  for (let k = 0; k < 24; k++) {
-    const a = k / 24 * Math.PI * 2, r0 = R * (k % 2 ? 0.93 : 0.86);
-    nx.beginPath(); nx.moveTo(sx + Math.cos(a) * r0, sy + Math.sin(a) * r0); nx.lineTo(sx + Math.cos(a) * R * 0.98, sy + Math.sin(a) * R * 0.98); nx.stroke();
-  }
-  nx.strokeStyle = "rgba(255,70,220,0.18)"; nx.lineWidth = 1.2;
-  for (const off of [-Math.PI / 2, Math.PI / 2]) {
-    nx.beginPath();
-    for (let k = 0; k < 3; k++) { const a = off + k * Math.PI * 2 / 3; const px = sx + Math.cos(a) * R * 0.8, py = sy + Math.sin(a) * R * 0.8; k ? nx.lineTo(px, py) : nx.moveTo(px, py); }
-    nx.closePath(); nx.stroke();
-  }
-  nx.strokeStyle = "rgba(60,230,255,0.24)";
-  nx.beginPath(); nx.arc(sx, sy, R * 0.3, 0, 7); nx.stroke();
-  nx.globalCompositeOperation = "source-over"; nx.lineWidth = 1;
-}
-function wheelSprite(R, dpr) {
-  const size = Math.ceil(R * 2.9);
-  const cv = document.createElement("canvas");
-  cv.width = Math.ceil(size * dpr); cv.height = Math.ceil(size * dpr);
-  const c = cv.getContext("2d");
-  c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  drawRuneWheel(c, size / 2, size / 2, R);
-  return { cv, size };
 }
 
 /* A note's light ribbon, for one lane colour: a tapered streak, bright
@@ -1157,7 +1135,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       ghost: () => !!songGhostDataRef.current,
       calib: () => ({ ...calibRef.current }),
       gfx: () => GFX_TIERS[gfxRef.current.tier],
-      bake: () => { const n = songNebulaRef.current; return n ? { ms: n.bakeMs, fx: !!n.spr } : null; },
+      bake: () => { const n = songNebulaRef.current; return n ? { ms: n.bakeMs, fx: !!n.spr, world: n.worldMs, prebaked: !!n.prebaked } : null; },
       band: () => bandRef.current ? { log: bandRef.current.log.slice(), state: { ...bandRef.current.state }, clock: songStartClockRef.current, tempo: songTempoRef.current, lead: SONG_LEAD, spb: 60 / ((songMetaRef.current && songMetaRef.current.bpm) || 90), audioNow: getAC().currentTime } : null,
       setSrc: (type) => setSongSrc(type ? { type } : null),
       clicks: () => clickLogRef.current.slice(),
@@ -1329,66 +1307,17 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const laneFrac = lanes.map(ln => noteKeyFrac(ln, handBaseOct, handNW) || { cx: 0.5, w: 1 / 14 });
     const bakeKey = `${W}|${H}|${dpr}|${hand}|${noteScale}|${lanes.join(",")}|${fxLevel >= 2 ? 1 : 0}`;
     const wheelX = W * 0.5, wheelY = H * 0.3, wheelR = Math.min(W * 0.42, H * 0.24);
+    /* The world (sky, city, floor) is painted once per size and kept (play-along-stage.ts); a song only adds its lanes
+       and hit-line to a copy of it. The ready screen has usually painted the world already, in the browser's idle
+       time (the effect near the end of this hook), so Start finds it done. */
     let neb = songNebulaRef.current;
     if (!neb || neb.key !== bakeKey) {
       const bakeT0 = performance.now();
-      /* Baked at device resolution, so the per-frame blit is 1:1 rather than
-         a 2x upscale, and the lanes, rails and hit-line are baked into it
-         too: they only move when the song or the hand changes, and stroking
-         them live measured at a third of the frame on a throttled phone. */
-      const nc = document.createElement("canvas"); nc.width = Math.max(1, Math.round(W * dpr)); nc.height = Math.max(1, Math.round(H * dpr));
-      const nx = nc.getContext("2d");
-      nx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const hz = H * 0.8;
-      bakeSky(nx, W, H, hz, wheelX, wheelY, wheelR);
-      if (fxLevel < 2) drawRuneWheel(nx, wheelX, wheelY, wheelR); // still; at the top level it turns (below)
-      // the near towers' windows again, brighter, on a layer of their own
-      // that flashes softly on the beat (top level only)
-      const winTop = Math.floor(hz - H * 0.44);
-      const wl = fxLevel >= 2 ? document.createElement("canvas") : null;
-      let wx2 = null;
-      if (wl) { wl.width = Math.max(1, Math.round(W * dpr)); wl.height = Math.max(1, Math.round((hz - winTop) * dpr)); wx2 = wl.getContext("2d"); wx2.setTransform(dpr, 0, 0, dpr, 0, -winTop * dpr); }
-      // the city on a canvas of its own (the floor mirrors it), then the floor
-      const city = bakeCity(W, H, hz, dpr, wx2);
-      nx.drawImage(city, 0, 0, city.width, city.height, 0, 0, W, hz);
-      bakeFloor(nx, city, W, H, hz, dpr);
-      // vignette
-      const vg = nx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.3, W / 2, H * 0.45, Math.max(W, H) * 0.8);
-      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,8,0.55)");
-      nx.fillStyle = vg; nx.fillRect(0, 0, W, H);
-      // the energy the crystals are falling into, pooled along the hit-line
-      const earthGrad = nx.createLinearGradient(0, hitY - 34, 0, hitY + 20);
-      earthGrad.addColorStop(0, "rgba(255,50,210,0)"); earthGrad.addColorStop(1, "rgba(255,50,210,0.3)");
-      nx.fillStyle = earthGrad; nx.fillRect(0, hitY - 34, W, 42);
-      /* lanes are light-rails now: a faint tint and a neon edge on each side
-         that fades out toward the sky, all edges in ONE stroked path */
-      const rail = nx.createLinearGradient(0, 0, 0, hitY);
-      rail.addColorStop(0, "rgba(90,235,255,0)"); rail.addColorStop(1, "rgba(90,235,255,0.32)");
-      nx.beginPath();
-      for (let i = 0; i < nLane; i++) {
-        const f = laneFrac[i], hue = laneHue(lanes[i]);
-        const cw = f.w * W, cx = f.cx * W - cw / 2;
-        nx.fillStyle = `hsla(${hue},90%,55%,0.07)`;
-        nx.fillRect(cx, 0, cw, H);
-        nx.moveTo(cx + 0.5, 0); nx.lineTo(cx + 0.5, hitY);
-        nx.moveTo(cx + cw - 0.5, 0); nx.lineTo(cx + cw - 0.5, hitY);
-      }
-      nx.strokeStyle = rail; nx.lineWidth = 1; nx.stroke();
-      // the hit-line: a charged bar, magenta through cyan, with a glow round it
-      nx.globalCompositeOperation = "lighter";
-      const hb = nx.createLinearGradient(0, 0, W, 0);
-      hb.addColorStop(0, "rgba(255,60,210,0.9)"); hb.addColorStop(0.5, "rgba(80,240,255,0.95)"); hb.addColorStop(1, "rgba(255,60,210,0.9)");
-      nx.fillStyle = "rgba(255,60,210,0.14)"; nx.fillRect(0, hitY - 7, W, 14);
-      nx.fillStyle = hb; nx.fillRect(0, hitY - 1.4, W, 2.8);
-      nx.fillStyle = "rgba(255,255,255,0.7)"; nx.fillRect(0, hitY - 0.4, W, 0.8);
-      // a receptor sigil where each lane meets it
-      for (let i = 0; i < nLane; i++) {
-        const f = laneFrac[i], rx0 = f.cx * W, rs = Math.min(9, f.w * W * 0.28) * noteScale + 3;
-        nx.strokeStyle = `hsla(${laneHue(lanes[i])},100%,70%,0.8)`; nx.lineWidth = 1.2;
-        nx.beginPath(); nx.moveTo(rx0, hitY - rs); nx.lineTo(rx0 + rs, hitY); nx.lineTo(rx0, hitY + rs); nx.lineTo(rx0 - rs, hitY); nx.closePath(); nx.stroke();
-      }
-      nx.globalCompositeOperation = "source-over"; nx.lineWidth = 1;
-      neb = songNebulaRef.current = { cv: nc, key: bakeKey, win: wl, winTop, hz, wheel: fxLevel >= 2 ? wheelSprite(wheelR, dpr) : null, spr: fxLevel >= 2 ? stageSprites(W, H, wheelR, dpr) : null, bakeMs: performance.now() - bakeT0 };
+      const prebaked = !!getWorld(W, H, dpr, fxLevel >= 2);
+      const world = paintWorld(W, H, dpr, fxLevel >= 2);
+      rememberStageSize(hand, W, H);
+      const stage = composeStage(world, { hitY, noteScale, lanes: lanes.map((ln, i) => ({ cx: laneFrac[i].cx, w: laneFrac[i].w, hue: laneHue(ln) })) });
+      neb = songNebulaRef.current = { cv: stage, key: bakeKey, world, win: world.win, winTop: world.winTop, hz: world.hz, wheel: world.wheel, spr: world.spr, prebaked, worldMs: world.bakeMs, bakeMs: performance.now() - bakeT0 };
       // a bake is a long frame the player is not to blame for: keep the frame-rate
       // control from stepping the picture down over it
       frameStatRef.current.skip = 2;
@@ -1412,7 +1341,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }
     if (neb.spr) { // the core beats, an outer ring turns against the wheel, a shock-ring on the downbeat, a line of light down the floor, beams in Fever
       const mega = !!fever && songComboRef.current >= megaAt(songTotalRef.current);
-      drawStageFx(ctx, { W, H, hz: neb.hz, wx: wheelX, wy: wheelY, wR: wheelR, tSec, beatF, beatPhase, pulse, downbeat, fever: !!fever, mega, calm: spbNow / (songTempoRef.current || 1) < 0.34, spr: neb.spr });
+      drawStageFx(ctx, { W, H, hz: neb.hz, wx: wheelX, wy: wheelY, wR: wheelR, tSec, beatF, beatPhase, pulse, downbeat, fever: !!fever, mega, calm: spbNow / (songTempoRef.current || 1) < 0.34, spr: neb.spr, world: neb.world });
     }
     // Never more than 3 flashes a second (children sensitive to flashing
     // light): past 180 bpm the windows flash on every other beat.
@@ -1445,18 +1374,6 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       ctx.fillRect(s.fx * W, ((s.fy + tSec * drift * s.r) % 1) * H, s.r * 1.4, s.r * 1.4);
     }
     ctx.globalAlpha = 1;
-    // a light-trail streaks across the sky every ~7s (deterministic from time — no per-frame state)
-    const winId = Math.floor(tSec / 7), winT = (tSec % 7) / 0.9;
-    if (winT < 1 && fxLevel >= 2) {
-      const rnd = Math.abs(Math.sin(winId * 127.1) * 43758.5453) % 1;
-      const sx = (0.15 + rnd * 0.7 + winT * 0.25) * W, sy = (0.05 + (rnd * 7 % 1) * 0.3 + winT * 0.22) * H;
-      const st = ctx.createLinearGradient(sx, sy, sx - 40, sy - 28);
-      st.addColorStop(0, "rgba(160,250,255,0.9)"); st.addColorStop(1, "rgba(255,60,210,0)");
-      ctx.globalAlpha = Math.sin(winT * Math.PI);
-      ctx.strokeStyle = st; ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 40, sy - 28); ctx.stroke();
-      ctx.globalAlpha = 1; ctx.lineWidth = 1;
-    }
     // Each lane brightens as its next note comes in (the last half-second),
     // and the hit-line pulses on the song's beat — brighter on the downbeat.
     {
@@ -2402,6 +2319,26 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   function requestSongAnalysis() {
     if (songResult && !songAnalysis && !songAnalysisBusy) fetchSongAnalysis(songResult, tr(songMeta, lang));
   }
+  /* While a song waits on the ready screen, the stage's world (sky, city, floor) is painted in the browser's idle time,
+     one slice at a time, for the size the stage had when a run last began on this screen (readStageSize), so that pressing
+     Start finds it done. play-along-stage.ts keeps it, and what is half painted, for the next visit; a song only adds its lanes. */
+  useEffect(() => {
+    if (!songOpen || songPhase !== "ready") return;
+    const hasIdle = typeof requestIdleCallback === "function";
+    let dead = false, h = null;
+    const idle = (fn) => { h = hasIdle ? requestIdleCallback(fn, { timeout: 700 }) : setTimeout(fn, 80); };
+    const slice = () => {
+      if (dead) return;
+      const size = readStageSize(playAlongHand);
+      if (!size) return;                                                   // a screen this app has not run a song on yet
+      const dpr = Math.min(GFX_TIERS[gfxRef.current.tier], window.devicePixelRatio || 1);
+      let world = null;
+      try { world = paintWorld(size[0], size[1], dpr, !reducedMotion() && gfxRef.current.tier === 0, 1); } catch (e) { return; }
+      if (!world) idle(slice);
+    };
+    idle(slice);
+    return () => { dead = true; if (h != null) { try { hasIdle ? cancelIdleCallback(h) : clearTimeout(h); } catch (e) {} } };
+  }, [songOpen, songPhase, playAlongHand]);
   songLoopRef.current = songLoop;
   songInputRef.current = handleSongInput;
   songFinishRef.current = finishSong;
