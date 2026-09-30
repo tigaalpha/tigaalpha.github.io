@@ -69,6 +69,11 @@ let _tiga = null;
    the module; enabling is an admin/app_settings decision) — when off, both
    storing and serving are dead code paths, so today's behaviour is unchanged. */
 import { createAnswerCache as _createAnswerCache, answerCacheKey as _answerCacheKey, chatThroughCache as _chatThroughCache } from "./performance/answer-cache.js";
+/* docs/10 §1.3 (m34): KB hot path — relevance-ranked, hard-capped KB serving
+   (selection only; content and the line template never change). Singleton
+   like the answer cache, DEFAULT OFF — when off, getKBContext serves the
+   legacy block byte-identically. */
+import { createKBHotPath as _createKBHotPath } from "./performance/kb-hot-path.js";
 let _answerCache = null;
 export function answerCache() {
   if (!_answerCache) _answerCache = _createAnswerCache({ enabled: false }); // OFF until switched on
@@ -635,6 +640,17 @@ const KB_DOMAIN_KEYWORDS = {
   "learner-differences": ["adhd", "สมาธิ", "เด็ก", "ลูก", "มือเล็ก", "ยืดไม่ถึง", "ผู้สูง", "พิเศษ", "hyperfocus", "child"],
 };
 
+let _kbHotPath = null;
+export function kbHotPath() {
+  if (!_kbHotPath) _kbHotPath = _createKBHotPath({ enabled: false }); // OFF until switched on
+  return _kbHotPath;
+}
+export function setKbHotPathEnabled(on) {
+  const hp = kbHotPath();
+  hp.setEnabled(on === true);
+  return hp.isEnabled();
+}
+
 function buildKbIndex(tiga) {
   const byDomain = new Map();
   for (const e of (tiga.kb ? tiga.kb._entries.values() : [])) {
@@ -665,11 +681,25 @@ export function getKBContext(matchText) {
     if (!domains.length) domains = ["motivation", "practice-planning"];
     const top = domains.slice(0, 4); // cap: at most 4 domains per message
 
-    const lines = [];
-    for (const d of top) {
-      const label = KB_DOMAIN_LABEL[d];
-      for (const e of (_kbIndex.get(d) || [])) {
-        lines.push(`• [${label}] ${e.title} — วิธีสอน: ${e.teach}`);
+    /* docs/10 §1.3 (m34): with the hot path ON, lines are relevance-ranked
+       and hard-capped (maxLines/maxChars) — a SELECTION of the domain, not
+       all of it; OFF (default) → the legacy loop below, byte-identical. */
+    let lines = null;
+    let servedIds = null;
+    const hp = _kbHotPath;
+    if (hp && hp.isEnabled()) {
+      const kw = [];
+      for (const d of top) for (const k of (KB_DOMAIN_KEYWORDS[d] || [])) kw.push(String(k).toLowerCase());
+      const sel = hp.select({ domains: top, index: _kbIndex, keywords: kw, labelOf: d => KB_DOMAIN_LABEL[d] || d });
+      if (sel) { lines = sel.lines; servedIds = sel.picked.map(e => e.id); }
+    }
+    if (!lines) {
+      lines = [];
+      for (const d of top) {
+        const label = KB_DOMAIN_LABEL[d];
+        for (const e of (_kbIndex.get(d) || [])) {
+          lines.push(`• [${label}] ${e.title} — วิธีสอน: ${e.teach}`);
+        }
       }
     }
     if (!lines.length) {
@@ -679,6 +709,7 @@ export function getKBContext(matchText) {
       lr.getLearnedKBContext(matchText).catch(() => {});
       return "";
     }
+    if (servedIds && servedIds.length) hp.recordServed(servedIds); // bounded hot-count feed (m34)
     return (
       "\n\n[TIGA KNOWLEDGE BASE — curated teaching knowledge with sources. Use these when relevant; follow the วิธีสอน (how to teach) guidance. Do not contradict them.]\n" +
       lines.join("\n") + "\n"
