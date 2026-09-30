@@ -63,13 +63,23 @@ the last chord), booked ahead on the audio clock like the metronome and kept out
 of the mic's hearing — what plays with a song is the player's choice, the
 backing track or a metronome (`songAccomp`, the pair of buttons in the header's
 top right corner, also in the pause card); `play-along-stage.ts` is the
-world behind the falling notes (sky, moon, planet, aurora, three planes of a
-city, a mirror floor), baked once per canvas size into the backdrop bitmap, with
-its few moving parts (core flare, turning ring, shock-ring, floor line, Fever
-beams) drawn only at the top graphics level and built to cost almost nothing
-between beats — anything new there must stay a cached bitmap or a stroke, never
-a gradient built per frame, and must not flash more than about three times a
-second. The
+world behind the falling notes (sky, moon, planet, milky way, aurora, four
+planes of a city, a mirror floor). The *world* is painted once per canvas size
+(`paintWorld`, kept two deep, and what is half painted is kept too) and a song
+only adds its lanes and hit-line to a copy of it (`composeStage`, about 3 ms
+where the whole backdrop used to be baked at every Start); the ready screen
+paints the world in idle time, one slice per `requestIdleCallback`, for the size
+the stage had when a run last began on this screen (`tg_pa_stage` — the ready
+canvas is taller than the playing one, so its own size is the wrong one), and
+`stage-prebaked` in the bot suite checks Start then finds it done. What is
+painted stays cheap by area: the sky's soft layers are drawn at a quarter of the
+pixels and stretched once, buildings, windows and stars are one path per
+colour, and the sprites that are only glows are at half resolution. Its few
+moving parts (core flare, turning ring, shock-ring, floor line, Fever beams,
+cars, twinkling stars, beacons, the shooting star) are drawn only at the top
+graphics level and built to cost almost nothing between beats — anything new
+there must stay a cached bitmap or a stroke, never a gradient built per frame,
+and must not flash more than about three times a second. The
 judge words, score pops and sparks are drawn in the song canvas from cached
 bitmaps, not as DOM elements.
 
