@@ -28,17 +28,26 @@ export const PA_CSS = `
 /* what plays with the song — the backing track or a metronome: two buttons,
    both always in view (owner, 2026-09-30). Icons over small words in the
    header, so the pair stays compact on a phone; written out on the pause card. */
-.pl-mode{display:inline-flex;gap:2px;padding:2px;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);flex-shrink:0}
-.pl-mode button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;min-width:54px;min-height:38px;padding:2px 6px;border:0;border-radius:12px;background:transparent;color:var(--pl-dim);font-family:var(--f-app);cursor:pointer;line-height:1.15}
+.pl-mode,.pl-view{display:inline-flex;gap:2px;padding:2px;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);flex-shrink:0}
+.pl-mode button,.pl-view button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;min-width:54px;min-height:38px;padding:2px 6px;border:0;border-radius:12px;background:transparent;color:var(--pl-dim);font-family:var(--f-app);cursor:pointer;line-height:1.15}
 .pl-mode-i{font-size:15px}
 .pl-mode-t{font-size:10px;font-weight:600;white-space:nowrap}
-.pl-mode button.on{background:rgba(60,230,255,.14);color:var(--pl-cyan);box-shadow:inset 0 0 0 1px rgba(60,230,255,.55)}
+.pl-mode button.on,.pl-view button.on{background:rgba(60,230,255,.14);color:var(--pl-cyan);box-shadow:inset 0 0 0 1px rgba(60,230,255,.55)}
 .pl-mode button.quiet{opacity:.55}
-.pl-mode--pause{display:flex;width:100%;box-sizing:border-box;border-radius:999px;padding:3px}
-.pl-mode--pause button{flex:1;flex-direction:row;gap:6px;min-height:38px;border-radius:999px}
-.pl-mode--pause .pl-mode-t{font-size:13px}
-@media (min-width:560px){.pl-mode--hdr button{flex-direction:row;gap:6px;min-height:34px}.pl-mode--hdr .pl-mode-t{font-size:12px}}
-.pl-mode button:focus-visible,.pl-pausebtn:focus-visible,.pl-link:focus-visible,.pl-toggle:focus-visible,.pl-drillbtn:focus-visible{outline:2px solid var(--pl-cyan);outline-offset:2px}
+.pl-mode--pause,.pl-view--pause{display:flex;width:100%;box-sizing:border-box;border-radius:999px;padding:3px}
+.pl-mode--pause button,.pl-view--pause button{flex:1;flex-direction:row;gap:6px;min-height:38px;border-radius:999px}
+.pl-mode--pause .pl-mode-t,.pl-view--pause .pl-mode-t{font-size:13px}
+@media (min-width:560px){.pl-mode--hdr button,.pl-view--hdr button{flex-direction:row;gap:6px;min-height:34px}.pl-mode--hdr .pl-mode-t,.pl-view--hdr .pl-mode-t{font-size:12px}}
+/* the view switch — falling notes or the sheet alone — sits beside that pair; its words are short, so its buttons are narrower */
+.pl-view--hdr button{min-width:42px}
+@media (max-width:430px){
+  .songov.playal .songhdr,.songov.pl-themed .songhdr{padding-left:12px;padding-right:12px}
+  .pl-hdr-btns{gap:6px}
+  .pl-mode--hdr button,.pl-view--hdr button{padding:2px 4px}
+  .pl-pausebtn{padding:0 10px}
+  .songov .songhdr .cbtn{padding-left:10px;padding-right:10px}
+}
+.pl-mode button:focus-visible,.pl-view button:focus-visible,.pl-pausebtn:focus-visible,.pl-link:focus-visible,.pl-toggle:focus-visible,.pl-drillbtn:focus-visible{outline:2px solid var(--pl-cyan);outline-offset:2px}
 /* HUD + progress + reading strip */
 .songov.playal .songhud{color:var(--pl-dim);background:#0b0620;align-items:center}
 .songov.playal .songhud b{color:#fff;font-variant-numeric:tabular-nums}
@@ -48,6 +57,13 @@ export const PA_CSS = `
 .songov.playal .songprog{background:#150b33}
 .songov.playal .songprog>div{background:linear-gradient(90deg,var(--pl-vio),var(--pl-mag))}
 .songov.playal .songstaffwrap{background:#05020f;border-bottom:1px solid rgba(140,70,255,.18)}
+/* the sheet view (owner, 2026-09-30): no falling notes. The stage above is the scene and its hit feedback; the staff comes down
+   between it and the keyboard, so it sits right on the keys, and is drawn larger (the hook shows fewer bars to match). */
+.songov.playal.pl-sheet .songstaffwrap{order:1;padding:0;border-bottom:0;border-top:1px solid rgba(140,70,255,.34)}
+.songov.playal.pl-sheet .gpwrap,.songov.playal.pl-sheet .songsrcbar{order:2}
+.songov.pl-sheet .songstaffwrap .pastaff{height:134px}
+.songov.pl-sheet .songstaffwrap.grand .pastaff{height:210px}
+@media (orientation:landscape) and (max-height:500px){.songov.pl-sheet .songstaffwrap .pastaff{height:90px}.songov.pl-sheet .songstaffwrap.grand .pastaff{height:132px}}
 /* the note being played is marked by a still glow: a pulse inside the
    sliding music layer would repaint that whole layer every frame */
 .songov.playal .pastaff-cur{animation:none;opacity:.85}
@@ -230,9 +246,9 @@ html[data-theme="dark"] .songcard-got.on{color:#ffd86b}
    tokens (--bg --card --text --clay …), so light, dark and every theme follow. */
 .songov.pl-themed{--pl-ink:var(--text);--pl-dim:var(--text2);--pl-faint:var(--muted);--pl-panel:var(--card);--pl-line:var(--bd4);--pl-cyan:var(--clay-ink)}
 .songov.pl-themed .songhtitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.songov.pl-themed .pl-mode{border-color:var(--bd4);background:var(--card)}
-.songov.pl-themed .pl-mode button{color:var(--text2)}
-.songov.pl-themed .pl-mode button.on{background:var(--clay-t1);color:var(--clay-ink);box-shadow:inset 0 0 0 1px var(--clay)}
+.songov.pl-themed .pl-mode,.songov.pl-themed .pl-view{border-color:var(--bd4);background:var(--card)}
+.songov.pl-themed .pl-mode button,.songov.pl-themed .pl-view button{color:var(--text2)}
+.songov.pl-themed .pl-mode button.on,.songov.pl-themed .pl-view button.on{background:var(--clay-t1);color:var(--clay-ink);box-shadow:inset 0 0 0 1px var(--clay)}
 .tg .songov.pl-themed .songready{background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none;justify-content:flex-start;gap:10px;padding:12px 16px 0;overflow-y:auto;overscroll-behavior:contain}
 .songov.pl-themed .pl-introcard{margin:auto}
 .songov.pl-themed .pl-title{color:var(--text)}
@@ -246,7 +262,7 @@ html[data-theme="dark"] .songov.pl-themed .pl-kindnote{color:#8fe3b8}
 .songov.pl-themed .pl-link{text-decoration-color:var(--bd5)}
 .songov.pl-themed .pl-toggle{border:1px solid var(--bd4);background:var(--card2);color:var(--text2)}
 .songov.pl-themed .pl-toggle.on{border-color:var(--clay);background:var(--clay-t1);color:var(--clay-ink)}
-.songov.pl-themed .pl-toggle:focus-visible,.songov.pl-themed .pl-link:focus-visible,.songov.pl-themed .pl-mode button:focus-visible{outline-color:var(--clay)}
+.songov.pl-themed .pl-toggle:focus-visible,.songov.pl-themed .pl-link:focus-visible,.songov.pl-themed .pl-mode button:focus-visible,.songov.pl-themed .pl-view button:focus-visible{outline-color:var(--clay)}
 /* the run's settings: always open, at the very top, kept compact so the song
    and Start still fit under them on a phone */
 .songov.pl-themed .pl-settings{box-sizing:border-box;box-shadow:var(--sh1);gap:8px;padding:10px 12px}

@@ -83,6 +83,24 @@ and must not flash more than about three times a second. The
 judge words, score pops and sparks are drawn in the song canvas from cached
 bitmaps, not as DOM elements.
 
+**The sheet view (owner, 2026-09-30).** Beside the Backing/Metronome pair in the
+header's top right corner, a second pair of buttons chooses how a song is shown
+(`songView`, saved as `tg_pa_view`): `fall`, gems falling to the keys, or `sheet`
+— no falling notes at all, for a player who can read and play without them.
+`.pl-sheet` on the overlay moves the staff (CSS `order`, no remount) from above
+the stage to between it and the keyboard, so it sits on the keys, and draws it
+larger (134 px, 210 px for a grand staff; `hudTick` shows 3 bars on a phone
+instead of 5 so the spacing holds). The stage above it is only the world
+(`neb.cv` is `world.cv`: no lanes, hit-line or receptors); the judge words and
+flashes still rise from the key that was played. No key is lit and no finger
+number is shown — the point is to read the note, not to be shown the key — and a
+note you hit turns green on the staff and one you missed red (`hit`/`miss` states
+of `PlayAlongStaff`) and slides away in that colour. Scoring, the band and the
+metronome are the same in both views. The first-song intro teaches the gems, so
+it is always shown falling (`sheetOn()`). Anything new that draws falling notes
+must stay behind `!sheet` in `songLoop`; the `sheet` bot section covers it, and
+`window.__paTest.gems()` counts the gems the last frame drew.
+
 **The microphone and the game's own sounds (owner report 2026-09-30: "I pressed
 D and it heard C").** On a phone the speaker is an inch from the mic, so every
 sound the game makes reaches the pitch detector. Rules that keep it honest:

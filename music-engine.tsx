@@ -2818,14 +2818,15 @@ export const StaffNotes = memo(function StaffNotes({ notes, hideNames = false, c
    the caller moves only now and then, and `margin` beats more are drawn past
    the right edge so the slide never uncovers an empty strip. `liveClock()`
    gives the window's real start each frame (null = hold still). ── */
-export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 0, spanBeats = 20, margin = 0, liveClock = null, songMeta, handMode = "right" }) {
+export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 0, spanBeats = 20, margin = 0, liveClock = null, songMeta, handMode = "right", trim = 0 }) {
   // Track the real container size so the drawing is stretched to EXACTLY fill
   // the element's box (width-wise) on any screen/orientation — a fixed-width
   // viewBox letterboxes the staff (empty black on both sides) on anything
   // wider than ~350px. Height is fixed via CSS, so glyphs keep their size and
   // only the horizontal spread changes.
   const grand = handMode === "both";
-  const H = grand ? 200 : 150;
+  // trim: units cut off the bottom of a single staff (the room kept below it for low ledger lines) — the sheet view sits the staff on the keys
+  const H = grand ? 200 : 150 - Math.max(0, Math.min(24, trim));
   const half = grand ? 6 : 7;                      // half a staff space = one step
   const wrapRef = useRef(null);
   const moverRef = useRef(null);
@@ -2880,7 +2881,8 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
 
   const topBase = grand ? 30 + 8 * half : 95;                 // bottom line of the upper staff
   const bassBase = grand ? topBase + 8 * half + 8 * half : null; // one full staff-height gap below it
-  const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757" };
+  // hit and miss are the sheet view's verdicts: a note keeps its colour as it slides away, so the bar just played reads as a report
+  const COLOR = { past: "rgba(255,255,255,.32)", current: "#ffd166", future: "#d97757", hit: "rgba(92,242,200,.82)", miss: "rgba(255,107,138,.88)" };
   const LINE = "rgba(255,255,255,.45)";
   const linesOf = (base) => [0, 2, 4, 6, 8].map(s => base - s * half);
 
