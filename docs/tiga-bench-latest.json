@@ -1,19 +1,19 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-29T12:26:54.472Z",
-  "appVersion": "13.7.460",
+  "generatedAt": "2026-09-30T06:16:51.835Z",
+  "appVersion": "13.7.481",
   "bundle": {
-    "file": "index.template-CNwzAsuL.js",
-    "bytes": 2928201,
+    "file": "index.template-BHkYVrLp.js",
+    "bytes": 2951177,
     "includesTigamodel": true,
-    "tigamodelMinifiedBytes": 1341726,
+    "tigamodelMinifiedBytes": 1473801,
     "chunks": [
       {
-        "file": "index.template-CNwzAsuL.js",
-        "bytes": 2928201
+        "file": "index.template-BHkYVrLp.js",
+        "bytes": 2951177
       },
       {
-        "file": "space3d-main-d2KlIVF2.js",
+        "file": "space3d-main-D3AharEA.js",
         "bytes": 957304
       },
       {
@@ -21,27 +21,27 @@
         "bytes": 953273
       },
       {
-        "file": "web-CQpOrn2U.js",
-        "bytes": 661017
+        "file": "web-BjIUOa0K.js",
+        "bytes": 744592
       },
       {
-        "file": "pvp-arena-BCiULbWv.js",
+        "file": "pvp-arena-C1vJvZ1U.js",
         "bytes": 205095
       },
       {
-        "file": "TigamodelLab-BgFq1jR5.js",
-        "bytes": 86683
+        "file": "TigamodelLab-DuuZN0A4.js",
+        "bytes": 95779
       },
       {
-        "file": "AdminActivityDashboard-wJvYGGM-.js",
+        "file": "AdminActivityDashboard-BL0gCbW9.js",
         "bytes": 69595
       },
       {
-        "file": "TigamodelBackoffice-_U3zQDsO.js",
-        "bytes": 35550
+        "file": "TigamodelBackoffice-DMmiyuoi.js",
+        "bytes": 36080
       },
       {
-        "file": "AdminAIModels-dMw3doiT.js",
+        "file": "AdminAIModels-BD2ASQaQ.js",
         "bytes": 35442
       },
       {
@@ -53,35 +53,35 @@
         "bytes": 19633
       },
       {
-        "file": "LeadLandingPage-CMIk2fGS.js",
+        "file": "LeadLandingPage-BJcYuOE9.js",
         "bytes": 13611
       },
       {
-        "file": "ReferralDashboard-CwjKjQt5.js",
+        "file": "ReferralDashboard-CPmDEtxu.js",
         "bytes": 8622
       },
       {
-        "file": "LeadSaleDashboard-EGm9AG1r.js",
+        "file": "LeadSaleDashboard-DSgJslLk.js",
         "bytes": 7607
       },
       {
-        "file": "space3d-0hYboI3p.js",
+        "file": "space3d-Foz4iy5i.js",
         "bytes": 6174
       },
       {
-        "file": "web-BIK-xyOO.js",
+        "file": "web-UaqjHuM3.js",
         "bytes": 5340
       },
       {
-        "file": "web-DOUdB6FR.js",
+        "file": "web-UIKfYke5.js",
         "bytes": 851
       },
       {
-        "file": "web-FEZSJLuO.js",
+        "file": "web-Bra3bsQk.js",
         "bytes": 813
       },
       {
-        "file": "web-Osc6Hmpy.js",
+        "file": "web-Drt3sK4u.js",
         "bytes": 388
       }
     ]
@@ -102,10 +102,10 @@
     "weakestCap": "kb"
   },
   "perf": {
-    "allRoutesColdMs": 35.92,
-    "allRoutesWarmMs": 0.19,
-    "summaryMs": 7.21,
-    "memoSpeedup": 189.1
+    "allRoutesColdMs": 100.68,
+    "allRoutesWarmMs": 0.1,
+    "summaryMs": 0.75,
+    "memoSpeedup": 1006.8
   },
   "kb": {
     "theoryEntries": 13414,
