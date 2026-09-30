@@ -353,6 +353,21 @@ export function confidentMultimodalStates(args, floor) {
   try { return _confidentFusion(args && typeof args === "object" ? args : null, floor); } catch (e) { return null; }
 }
 export const FUSION_CHANNEL_WEIGHTS = _FUSION_WEIGHTS;
+
+/* docs/12 §1A (m39): the §3 wire — real learner_skill_state rows → the
+   personalized-plan brain. Kill switch (tiga_personalized_plans) is checked
+   inside; switch off / no data / any error → null = callers keep today's
+   behavior. The wire can only ADD a plan on top of a good state. */
+import { fetchSkillStates as _fetchSkillStates, toAbilities as _toAbilities, planForLearner as _planForLearner } from "./teaching/skill-state-wiring.js";
+export async function fetchLearnerSkillStates() {
+  try { return await _fetchSkillStates(sb); } catch (e) { return null; }
+}
+export function learnerAbilitiesFromRows(rows) {
+  try { return _toAbilities(rows); } catch (e) { return null; }
+}
+export async function personalizedPlanForLearner(args) {
+  try { return await _planForLearner(args || {}); } catch (e) { return null; }
+}
 export function newStudentFeedback(args) {
   try { return makeStudentFeedback(args || {}); } catch (e) { return null; }
 }
