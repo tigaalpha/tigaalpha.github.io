@@ -342,6 +342,30 @@ export const MILESTONES = [
     acceptance: "teaching_outcomes มีข้อมูลจริง + รอบสัปดาห์แรก weights ขยับโดยอัตโนมัติ (ไม่มีมือคนกด) + ตัวเลขเวลาจากซ้อมเสร็จถึงครูปรับตัว < 24 ชม. ถูกวัดจริง",
     evidence: ["tigamodel/docs/11-plan-plus-hundredfold.md"],
   },
+  {
+    id: "m39-skill-state-wiring",
+    title: "docs/12 §1A สายไฟ §3 — อ่าน learner_skill_state จริง → แผนเฉพาะบุคคล (วงจร A พร้อม รอสวิตช์เปิด)",
+    state: "code",
+    deps: ["m08-skill-state-plans", "m05-apply-learning-data"],
+    acceptance: "สายไฟเสร็จ+smoke 16/16 ครบ (fetch ตารางจริง RLS · shape skill_id · แถวเสียข้าม · ไม่มีข้อมูล = null ไม่เดา · switch ปิด = null · plan = buildPersonalizedPlan ตัวจริง byte-identical · kill switch tiga_personalized_plans ในโมดูล · wired web.js) — สถานะ code เพราะวงจร A เริ่มผลิตแผนจริงเมื่อ admin เปิดสวิตช์เท่านั้น (m08 ยังไม่ activation)",
+    evidence: ["tigamodel/teaching/skill-state-wiring.js", "tigamodel/scripts/smoke-skill-state-wiring.mjs", "tigamodel/docs/12-plan-thousandfold-compound.md"],
+  },
+  {
+    id: "m40-outcomes-counter",
+    title: "docs/12 §1B ตัวนับ 50 outcomes + รายงานพร้อมเปิดสวิตช์ (จุดติดวงจร B)",
+    state: "planned",
+    deps: ["m05-apply-learning-data"],
+    acceptance: "นับจริงจาก teaching_outcomes + สรุป top strategy อัตโนมัติเมื่อครบเกณฑ์ — admin เห็นทันทีว่าเปิด m04/m06 ได้ ไม่ต้องเดา",
+    evidence: ["tigamodel/docs/12-plan-thousandfold-compound.md"],
+  },
+  {
+    id: "m41-compound-dashboard",
+    title: "docs/12 §2 แดชบอร์ดวงจร A→B→C — ผลวันนี้เป็นตัวเลขจริง",
+    state: "planned",
+    deps: ["m39-skill-state-wiring", "m40-outcomes-counter"],
+    acceptance: "แผนเฉพาะคนกี่คน · outcomes เพิ่มเท่าไร · ตอบไม่ได้ลดกี่ % — ทุกตัวมาจากตารางจริง (ไม่มีการประมาณ)",
+    evidence: ["tigamodel/docs/12-plan-thousandfold-compound.md"],
+  },
 ];
 
 export function getPlan() {
