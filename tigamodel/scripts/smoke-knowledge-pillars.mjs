@@ -85,7 +85,7 @@ const mkt = checkFile("marketing (6.1)", "music-marketing", 14);
 const biz = checkFile("business (6.7)", "music-business", 14);
 const edu = checkFile("education-market (6.8)", "music-education-market", 12);
 const thx = checkFile("therapy (11.1)", "music-therapy", 10);
-const inn = checkFile("innovation (6.13)", "music-innovation", 18);
+const inn = checkFile("innovation (6.13)", "music-innovation", 40);
 
 /* innovation-specific: entries must stay verifiable — name the real
    inventor/mechanism/system (no folklore), and carry the bridge lesson
@@ -96,6 +96,25 @@ INN_ANCHORS.every(re => re.test(innFlat))
   ? ok("innovation: อ้างชื่อผู้คิด/กลไก/ระบบจริงครบ (ตรวจย้อนได้ ไม่ใช่คำเล่าลอย)")
   : bad(`innovation: ขาดหลักฐานอ้างอิงชื่อจริง → ขาด ${INN_ANCHORS.filter(re => !re.test(innFlat)).length} จุด`);
 inn.some(e => /ต่อสะพาน|bridge/.test(e.body)) ? ok("innovation: มีบทเรียน 'ต่อสะพาน' (บ้าน↔คอร์เรียน) ตามเจตนาขุม") : bad("innovation: ไม่มีบทเรียน bridge");
+
+/* v3.5 ระลอกขยาย: AI-in-music strands registered into the same domain
+   (owner directive 2026-09-30) — the six AI families must all be present,
+   consent/credit rules must exist, and no entry may claim "AI replaces
+   teachers/musicians" (the human-in-the-loop frame is the pillar's rule). */
+const aiFamilies = new Set(inn.flatMap(e => e.tags || []));
+["ai-industry", "ai-learning", "ai-craft", "ai-integrity", "ai-frontier", "industry-2"].every(f => aiFamilies.has(f))
+  ? ok("innovation+AI: ครบ 6 สาย AI (industry · learning · craft · integrity · frontier · industry-2)")
+  : bad(`innovation+AI: สาย AI ขาด → ${["ai-industry", "ai-learning", "ai-craft", "ai-integrity", "ai-frontier", "industry-2"].filter(f => !aiFamilies.has(f)).join(", ")}`);
+const aiConsent = inn.filter(e => /ai-integrity/.test((e.tags || []).join(" ")));
+/* เช็คระดับตระกูล: ครอบคลุม 3 มโนทัศน์ — สิทธิ์ · ความยินยอม · เครดิต/ค่าสิทธิ์ */
+const aiFlat = aiConsent.map(e => `${e.title} ${e.body}`).join("\n");
+const aiCov = [[/สิทธิ์|rights|权利/], [/อนุญาต|ยินยอม|consent|同意/], [/เครดิต|credit|royalt|署名|版税/]]
+  .filter(([re]) => re.test(aiFlat)).length;
+aiConsent.length >= 4 && aiCov === 3
+  ? ok("innovation+AI: กติกาสิทธิ์/ความยินยอม/เครดิตมีครบ (ai-integrity)")
+  : bad("innovation+AI: ขาดกติกาสิทธิ์/ความยินยอม (ai-integrity)");
+const aiReplace = inn.filter(e => /ai:|AI|AI/.test(`${e.id} ${e.title}`) && /แทนที่(ครู|นักดนตรี)|replaces?\s+(teachers?|musicians?)/i.test(e.body));
+aiReplace.length === 0 ? ok("innovation+AI: ไม่มี entry ใดอ้างว่า 'AI แทนครู/นักดนตรี' (กรอบ human-in-the-loop)") : bad(`innovation+AI: พบ claim AI-แทนคน → ${aiReplace.slice(0, 2).map(e => e.id).join(", ")}`);
 const innFamilies = new Set(inn.flatMap(e => e.tags || []));
 /* kb.add() ไม่เก็บ meta — family จึงอ่านจาก tags (แยกทีละ tag, ไม่ join) */
 ["piano-genesis", "recording", "notation", "pedagogy", "thai-global"].every(f => innFamilies.has(f))

@@ -44,6 +44,7 @@ import { seedMusicBusiness } from "./knowledge/music-business.js";   // plan v3.
 import { seedMusicEducationMarket } from "./knowledge/music-education-market.js"; // plan v3.4 6.8
 import { seedMusicTherapy } from "./knowledge/music-therapy.js";     // plan v3.4 11.1 (wellbeing frame)
 import { seedMusicInnovation } from "./knowledge/music-innovation.js"; // plan v3.5 6.13 (music innovation — owner pillar 5)
+import { seedMusicInnovationAI } from "./knowledge/music-innovation-ai.js"; // v3.5 6.13 ระลอกขยาย: AI in music (owner directive 2026-09-30)
 import { nextSongAdvice, longTermValueSection, careerPathwayReply, calmModeIntro, isoSongPick, therapyDisclaimer } from "./teaching/knowledge-surfaces.js"; // v3.4 6.3/6.4/6.9/6.10/11.2-11.4
 import { seedStageTwoWave } from "./knowledge/expansion-stage2.js";
 import { buildStudentContextFromApp } from "./student/student-model.js";
@@ -107,6 +108,7 @@ export function initTigamodelWeb() {
     seedMusicEducationMarket(_tiga.kb);// v3.4 6.8: lifecycle · parents · churn · grade structure
     seedMusicTherapy(_tiga.kb);        // v3.4 11.1: wellbeing-frame therapy principles (no medical claims)
     seedMusicInnovation(_tiga.kb);     // v3.5 6.13: piano genesis · recording · notation · pedagogy innovation (owner pillar 5)
+    seedMusicInnovationAI(_tiga.kb);   // v3.5 6.13 expansion: AI in the music industry + AI piano pedagogy (owner directive)
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   // Reasoning layer (roadmap #62/#73/#75/#78): skill graph + coach (hint
   // ladder, adaptive tempo, recap) — pure, sync, no model call. Attached to
