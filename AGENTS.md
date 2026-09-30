@@ -68,6 +68,15 @@ by small subscriber components in the overlay; keep new per-frame or
 per-note state there, not in `useState`. Its neon theme is
 `play-along-styles.ts`, with `pl-` class names: a top-level `.pa-*`/`.ca-*`
 rule is fingerprinted by the sprite bake and would mark every sprite stale.
+**The neon is the game itself, not the whole overlay (owner rule,
+2026-09-30):** while a song waits to start (the ready screen) the overlay
+drops `.playal` and wears `.pl-themed` — the app's own theme, white in light
+mode and dark in dark mode, from the `--bg`/`--card`/`--text`/`--clay` tokens —
+and the neon starts with the song. Keep new ready-screen pieces on those tokens,
+not on neon colours. Its settings panel (speed, hands, kind mode, loop, online
+duel) is always open and first on the screen — never fold it behind a link, a
+player who cannot see a setting does not know it exists — and Start stays
+pinned to the bottom edge.
 
 Robot and pet **thumbnails are pre-rendered images**, not live SVG:
 `scripts/bake-sprites.mjs` (`npm run sprites`) draws every robot head
@@ -201,7 +210,8 @@ daily-quest rules from the real modules (needs jsdom, see the script), and
 in `dist/` with bots — mashing, clean and early runs, the practice loop,
 the daily song, concerts, pause, the first-time intro, the song list, the
 sliding staff, medals and the run-coin limit, practice mode, the band and
-the click track (`ONLY=name,…` runs a subset). The app exposes
+the click track, the ready screen's theme and settings (`ONLY=name,…` runs a
+subset). The app exposes
 `window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
 
 ## Where to look for current state

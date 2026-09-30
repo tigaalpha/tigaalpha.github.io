@@ -287,29 +287,28 @@ const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit
     </div>
   );
 });
-/* The song's cover, drawn from its own melody: every note a glowing point
-   at its time (left→right) and pitch (low→high), joined into one line of
-   light in the lanes' colours, over the stage's night sky. Drawn once per
-   song and size, then kept as a picture. */
+/* The song's cover, drawn from its own melody: every note a point at its
+   time (left→right) and pitch (low→high), joined into one line in the lanes'
+   colours. It sits on the ready screen, which wears the app's own theme, so it
+   is drawn on the theme's card colours — a light card in light mode, a
+   near-black one in dark mode — not on the neon night sky. Drawn once per
+   song, size and mode, then kept as a picture. */
 const COVER_CACHE = new Map();
 function drawCover(song, w, h, dpr) {
-  const key = song.id + "|" + w + "|" + h + "|" + dpr;
+  const dark = typeof document !== "undefined" && document.documentElement.dataset.theme === "dark";
+  const key = song.id + "|" + w + "|" + h + "|" + dpr + "|" + (dark ? "d" : "l");
   if (COVER_CACHE.has(key)) return COVER_CACHE.get(key);
   const cv = document.createElement("canvas");
   cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
   const c = cv.getContext("2d");
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const sky = c.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, "#120a33"); sky.addColorStop(1, "#070318");
-  c.fillStyle = sky; c.fillRect(0, 0, w, h);
-  for (const [fx, fy, col] of [[0.2, 0.3, "rgba(255,60,210,0.22)"], [0.85, 0.2, "rgba(60,230,255,0.18)"]]) {
-    const g = c.createRadialGradient(fx * w, fy * h, 0, fx * w, fy * h, w * 0.6);
-    g.addColorStop(0, col); g.addColorStop(1, "rgba(0,0,0,0)");
-    c.fillStyle = g; c.fillRect(0, 0, w, h);
-  }
-  // a faint grid floor
-  c.strokeStyle = "rgba(60,230,255,0.12)"; c.lineWidth = 1;
-  for (let k = 1; k <= 4; k++) { const y = h * (0.72 + 0.07 * k * k / 4); c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+  const ground = c.createLinearGradient(0, 0, 0, h);
+  if (dark) { ground.addColorStop(0, "#211f1c"); ground.addColorStop(1, "#141312"); }
+  else { ground.addColorStop(0, "#ffffff"); ground.addColorStop(1, "#f1efe7"); }
+  c.fillStyle = ground; c.fillRect(0, 0, w, h);
+  // faint staff-like guide lines
+  c.strokeStyle = dark ? "rgba(255,255,255,0.07)" : "rgba(20,20,19,0.08)"; c.lineWidth = 1;
+  for (let k = 1; k <= 4; k++) { const y = Math.round(h * (0.2 + 0.15 * k)) + 0.5; c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
   const seq = (song.seq || []);
   const pts = [];
   let beat = 0;
@@ -318,21 +317,25 @@ function drawCover(song, w, h, dpr) {
   if (pts.length) {
     const lo = Math.min(...pts.map(p => midi(p.note))), hi = Math.max(...pts.map(p => midi(p.note)));
     const span = Math.max(4, hi - lo), total = Math.max(1, beat);
-    const xy = pts.map(p => ({ x: 14 + (p.beat + p.dur / 2) / total * (w - 28), y: h * 0.66 - (midi(p.note) - lo) / span * h * 0.5, hue: laneHue(p.note), d: p.dur }));
-    c.globalCompositeOperation = "lighter";
+    const xy = pts.map(p => ({ x: 14 + (p.beat + p.dur / 2) / total * (w - 28), y: h * 0.8 - (midi(p.note) - lo) / span * h * 0.6, hue: laneHue(p.note), d: p.dur }));
+    // light: solid saturated strokes on the light card; dark: the same light-on-dark glow as the game
+    c.globalCompositeOperation = dark ? "lighter" : "source-over";
     c.lineJoin = "round"; c.lineCap = "round";
-    for (const [lw, a] of [[7, 0.12], [3, 0.35], [1.4, 0.9]]) {
+    const widths = dark ? [[7, 0.12], [3, 0.35], [1.4, 0.9]] : [[6, 0.1], [2.6, 0.28], [1.6, 0.95]];
+    for (const [lw, a] of widths) {
       c.lineWidth = lw;
       for (let i = 1; i < xy.length; i++) {
-        c.strokeStyle = `hsla(${xy[i].hue},100%,66%,${a})`;
+        c.strokeStyle = dark ? `hsla(${xy[i].hue},100%,66%,${a})` : `hsla(${xy[i].hue},78%,44%,${a})`;
         c.beginPath(); c.moveTo(xy[i - 1].x, xy[i - 1].y); c.lineTo(xy[i].x, xy[i].y); c.stroke();
       }
     }
     for (const p of xy) {
-      const r = 2 + Math.min(4, p.d * 1.6);
-      const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3.2);
-      g.addColorStop(0, `hsla(${p.hue},100%,80%,0.95)`); g.addColorStop(0.35, `hsla(${p.hue},100%,62%,0.4)`); g.addColorStop(1, "rgba(0,0,0,0)");
-      c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, r * 3.2, 0, 7); c.fill();
+      const r = 2 + Math.min(3.5, p.d * 1.4);
+      const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3);
+      if (dark) { g.addColorStop(0, `hsla(${p.hue},100%,80%,0.95)`); g.addColorStop(0.35, `hsla(${p.hue},100%,62%,0.4)`); g.addColorStop(1, "rgba(0,0,0,0)"); }
+      else { g.addColorStop(0, `hsla(${p.hue},80%,50%,0.34)`); g.addColorStop(1, `hsla(${p.hue},80%,50%,0)`); }
+      c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, r * 3, 0, 7); c.fill();
+      if (!dark) { c.fillStyle = `hsl(${p.hue},78%,44%)`; c.beginPath(); c.arc(p.x, p.y, r * 0.7, 0, 7); c.fill(); }
     }
     c.globalCompositeOperation = "source-over";
   }
@@ -347,7 +350,7 @@ const PaCover = memo(function PaCover({ song }) {
   useEffect(() => {
     const el = ref.current;
     if (!el || !song) return;
-    const w = Math.max(200, Math.min(420, Math.round(el.clientWidth || 320))), h = Math.round(w * 0.42);
+    const w = Math.max(200, Math.min(420, Math.round(el.clientWidth || 320))), h = Math.round(w * 0.26);
     // after the ready screen has painted — the cover is never in the way of the first frame
     const id = requestAnimationFrame(() => { try { setSrc(drawCover(song, w, h, Math.min(2, window.devicePixelRatio || 1))); } catch (e) {} });
     return () => cancelAnimationFrame(id);
@@ -385,7 +388,6 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
   const lc = L[lang];
   const T = T3(lang);
   const store = gameStore;
-  const [setOpen, setSetOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const kShelfCount = Array.isArray(kShelf) ? kShelf.length : 0;
   // Landscape orientation hint — a one-time lesson, never a recurring nag.
@@ -431,7 +433,10 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
   const nextSong = songPhase === "done" && nextSongFor ? nextSongFor(songMeta) : null;
 
   return (
-    <div className="songov playal">
+    // The neon world (.playal) is the game itself. While a song waits to start
+    // the screen wears the app's own theme instead — white in light mode, dark
+    // in dark mode (owner, 2026-09-30) — and the neon starts with the song.
+    <div className={"songov " + (songPhase === "ready" ? "pl-themed" : "playal")}>
       <div className="songhdr">
         <div className="songhtitle">{tr(songMeta, lang)}</div>
         <div className="pl-hdr-btns">
@@ -462,16 +467,60 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
           )}
           {songPhase === "ready" && (
             <div className="songready pl-ready">
-              <PaSetlistBadge store={store} lang={lang} />
               {songIntro && !songIntro.playing ? (
-                <div className="pl-introcard">
-                  <div className="pl-title">{T("ครั้งแรกใน Play Along?", "First time in Play Along?", "第一次玩 Play Along？")}</div>
-                  <div className="pl-sub">{T("ลองก่อน 8 โน้ต แล้วค่อยเล่นเพลงจริง: กดคีย์ที่เรืองแสงตอนเพชรตกถึงเส้น", "Try 8 notes first: press the glowing key as the gem reaches the line", "先试 8 个音：宝石落到线时按发光的键")}</div>
-                  <button className="songbtn go pl-start" onClick={startIntro}>▶ {T("ลอง 8 โน้ต", "Try 8 notes", "试 8 个音")}</button>
-                  <button className="pl-link" onClick={skipIntro}>{T("ข้าม ไปเพลงเลย", "Skip — go to the song", "跳过，直接开始")}</button>
-                </div>
+                <>
+                  <PaSetlistBadge store={store} lang={lang} />
+                  <div className="pl-introcard">
+                    <div className="pl-title">{T("ครั้งแรกใน Play Along?", "First time in Play Along?", "第一次玩 Play Along？")}</div>
+                    <div className="pl-sub">{T("ลองก่อน 8 โน้ต แล้วค่อยเล่นเพลงจริง: กดคีย์ที่เรืองแสงตอนเพชรตกถึงเส้น", "Try 8 notes first: press the glowing key as the gem reaches the line", "先试 8 个音：宝石落到线时按发光的键")}</div>
+                    <button className="songbtn go pl-start" onClick={startIntro}>▶ {T("ลอง 8 โน้ต", "Try 8 notes", "试 8 个音")}</button>
+                    <button className="pl-link" onClick={skipIntro}>{T("ข้าม ไปเพลงเลย", "Skip — go to the song", "跳过，直接开始")}</button>
+                  </div>
+                </>
               ) : (
                 <>
+                  {/* This run's settings: always open, the first thing on the
+                      screen. Behind a "Settings" link most players never learned
+                      that speed, hands and kind mode can be changed (owner,
+                      2026-09-30). */}
+                  <div className="pl-settings" role="group" aria-label={T("ตั้งค่ารอบนี้", "Settings for this run", "本轮设置")}>
+                    <div className="pl-set-line">
+                      <span className="pl-set-lbl">{T("ความเร็ว", "Speed", "速度")}</span>
+                      <div className="songtempo">
+                        {[0.5, 0.75, 1, 1.25].map(tp => (
+                          <button key={tp} className={`songtempobtn${songTempo === tp ? " on" : ""}`} onClick={() => setSongTempo(tp)} title={tp === 0.5 ? lc.songSlowHint : undefined}>
+                            {tp === 1 ? "1×" : tp + "×"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="pl-set-line">
+                      <span className="pl-set-lbl">{T("มือที่ฝึก", "Hands", "练习的手")}</span>
+                      <div className="songhands">
+                        {["right", "left", "both"].map(h => (
+                          <button key={h} className={`songhandbtn${playAlongHand === h ? " on" : ""}`} onClick={() => changePlayAlongHand(h)}>
+                            {h === "right" ? T("มือขวา", "Right", "右手") : h === "left" ? T("มือซ้าย", "Left", "左手") : T("สองมือ", "Both", "双手")}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="pl-set-row">
+                      <button className={`pl-toggle${songKind ? " on" : ""}`} onClick={() => setSongKind && setSongKind(!songKind)} aria-pressed={!!songKind}>
+                        🌱 {T("โหมดใจดี", "Kind mode", "宽松模式")} · {songKind ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
+                      </button>
+                      <button className={`pl-toggle${songAutoLoop ? " on" : ""}`} onClick={() => setSongAutoLoop(v => !v)} aria-pressed={!!songAutoLoop}>
+                        🔁 {T("เล่นวน", "Loop", "循环")} · {songAutoLoop ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
+                      </button>
+                      {setSongMetro && (
+                        <button className={`pl-toggle${songMetro ? " on" : ""}`} onClick={() => setSongMetro(v => !v)} aria-pressed={!!songMetro}>
+                          ⏱ {T("เสียงนับจังหวะตอนปิดวง", "Click when the band is off", "关乐队时的节拍声")} · {songMetro ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
+                        </button>
+                      )}
+                    </div>
+                    <div className="pl-set-hint">{T("โหมดใจดี: ช่วงรับโน้ตกว้างขึ้น และกดผิดคีย์เดียวแค่คอมโบหลุด ไม่เสียความแม่น", "Kind mode: a wider window, and one wrong key only breaks the combo", "宽松模式：判定更宽，按错一个键只断连击")}</div>
+                    <OnlinePvpPanel pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} songMeta={songMeta} lang={lang} codeInput={codeInput} setCodeInput={setCodeInput} />
+                  </div>
+                  <PaSetlistBadge store={store} lang={lang} />
                   <PaCover song={songMeta} />
                   <div className="pl-title">{tr(songMeta, lang)}</div>
                   <div className="pl-meta">
@@ -483,55 +532,20 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                   {!songMeta.custom && <div className="pl-goal">{goalText}</div>}
                   {isDaily && !daily.done && <div className="pl-daily">📆 {T(`เพลงประจำวัน · ได้ 1 ดาวขึ้นไปรับ ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `Today's song · 1 star or more pays ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `今日歌曲 · 得 1 星以上奖励 ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`)}</div>}
                   {songKind && <div className="pl-kindnote">{T("โหมดใจดีเปิดอยู่ — ช่วงรับโน้ตกว้างขึ้น", "Kind mode is on — a wider timing window", "宽松模式已开启 — 判定更宽")}</div>}
-                  <button className="songbtn go pl-start" onClick={() => startSongPlay()}>▶ {lc.songStart}</button>
-                  {!racing && (
-                    <button className="pl-link pl-practice-btn" onClick={() => startSongPlay(false, { practice: true })}>
-                      🐢 {T("ฝึกก่อน — เพลงรอจนกดถูก", "Practise first — the song waits for you", "先练习——歌曲等你弹对")}
-                    </button>
-                  )}
-                  <div className="pl-ready-row">
-                    <button className="pl-link" onClick={() => setSetOpen(o => !o)} aria-expanded={setOpen}>⚙ {T("ตั้งค่ารอบนี้", "Settings for this run", "本轮设置")} {setOpen ? "▴" : "▾"}</button>
-                    <button className="pl-link" onClick={previewSong}>♪ {lc.songPreview}</button>
-                  </div>
-                  {setOpen && (
-                    <div className="pl-settings">
-                      <div className="pl-set-lbl">{T("ความเร็ว", "Speed", "速度")}</div>
-                      <div className="songtempo">
-                        {[0.5, 0.75, 1, 1.25].map(tp => (
-                          <button key={tp} className={`songtempobtn${songTempo === tp ? " on" : ""}`} onClick={() => setSongTempo(tp)} title={tp === 0.5 ? lc.songSlowHint : undefined}>
-                            {tp === 1 ? "1×" : tp + "×"}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="pl-set-lbl">{T("มือที่จะฝึก", "Hands", "练习的手")}</div>
-                      <div className="songhands">
-                        {["right", "left", "both"].map(h => (
-                          <button key={h} className={`songhandbtn${playAlongHand === h ? " on" : ""}`} onClick={() => changePlayAlongHand(h)}>
-                            {h === "right" ? T("มือขวา", "Right", "右手") : h === "left" ? T("มือซ้าย", "Left", "左手") : T("สองมือ", "Both", "双手")}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="pl-set-row">
-                        <button className={`pl-toggle${songKind ? " on" : ""}`} onClick={() => setSongKind && setSongKind(!songKind)} aria-pressed={!!songKind}>
-                          🌱 {T("โหมดใจดี", "Kind mode", "宽松模式")} · {songKind ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
-                        </button>
-                        <button className={`pl-toggle${songAutoLoop ? " on" : ""}`} onClick={() => setSongAutoLoop(v => !v)} aria-pressed={!!songAutoLoop}>
-                          🔁 {T("เล่นวน", "Loop", "循环")} · {songAutoLoop ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
-                        </button>
-                        {setSongMetro && (
-                          <button className={`pl-toggle${songMetro ? " on" : ""}`} onClick={() => setSongMetro(v => !v)} aria-pressed={!!songMetro}>
-                            ⏱ {T("เสียงนับจังหวะตอนปิดวง", "Click when the band is off", "关乐队时的节拍声")} · {songMetro ? T("เปิด", "on", "开") : T("ปิด", "off", "关")}
-                          </button>
-                        )}
-                      </div>
-                      <div className="pl-set-hint">{T("โหมดใจดี: ช่วงรับโน้ตกว้างขึ้น และกดผิดคีย์เดียวแค่คอมโบหลุด ไม่เสียความแม่น", "Kind mode: a wider window, and one wrong key only breaks the combo", "宽松模式：判定更宽，按错一个键只断连击")}</div>
-                      <OnlinePvpPanel pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} songMeta={songMeta} lang={lang} codeInput={codeInput} setCodeInput={setCodeInput} />
-                    </div>
-                  )}
-                  {!setOpen && pvpOnline && (
-                    <OnlinePvpPanel pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} songMeta={songMeta} lang={lang} codeInput={codeInput} setCodeInput={setCodeInput} />
-                  )}
                   <div className="songsrc">{lc.songInputHint}</div>
+                  {/* Start stays pinned to the bottom edge: the settings above it are
+                      tall, and on a short phone the button must never scroll away. */}
+                  <div className="pl-startbar">
+                    <button className="songbtn go pl-start" onClick={() => startSongPlay()}>▶ {lc.songStart}</button>
+                    <div className="pl-startrow">
+                      {!racing && (
+                        <button className="pl-link pl-practice-btn" onClick={() => startSongPlay(false, { practice: true })}>
+                          🐢 {T("ฝึกก่อน (เพลงรอเรา)", "Practise first (song waits)", "先练习（歌曲等你）")}
+                        </button>
+                      )}
+                      <button className="pl-link" onClick={previewSong}>♪ {lc.songPreview}</button>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
