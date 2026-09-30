@@ -15,6 +15,7 @@
    7. Multimodal fusion  — confidence-weighted arbiter (m12)
    8. Measured speed     — rule brain/KB real latency (m33)
    9. KB hot path        — capped+ranked serving: caps hold, gate holds, faster (m34)
+   10. Cost governor     — per-session spend ceiling enforced by code (m13/m22)
 
    Exit 1 if any section fails its bar. */
 
@@ -30,7 +31,7 @@ const REAL_SB = readFileSync("supabase-client.ts", "utf8");
 ioSync("supabase-client.ts", "export const sb = null;\n");
 try {
   execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
-  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js tigamodel/performance/kb-hot-path.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js tigamodel/performance/kb-hot-path.js tigamodel/performance/cost-governor.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 } finally {
   ioSync("supabase-client.ts", REAL_SB);
 }
@@ -237,10 +238,12 @@ console.log("╚═════════════════════�
   let t0 = performance.now();
   for (let i = 0; i < 100; i++) { webM.kbHotPath().clearHot(); webM.getKBContext(HARMONY_Q); }
   const hotMs = (performance.now() - t0) / 100;
+  webM.setKbHotPathEnabled(false); // measure the TRUE legacy path, not the hot path
+  webM.getKBContext(HARMONY_Q); // warm the legacy path
   t0 = performance.now();
   for (let i = 0; i < 100; i++) webM.getKBContext(HARMONY_Q);
   const legacyMs = (performance.now() - t0) / 100;
-  webM.setKbHotPathEnabled(false);
+  webM.setKbHotPathEnabled(true); // next case (kill switch) re-verifies OFF honestly
   const cases = [
     { label: "เพดานถือต่อข้อความ (≤24 บรรทัด/≤8k ตัวอักษร)", ok: cappedLines > 0 && cappedLines <= webM.kbHotPath().config.maxLines && capped.length < legacy.length / 100, v: `${cappedLines} lines` },
     { label: "retrieval gate ยังผ่าน (hot path เปิด)", ok: acc >= retr.RETRIEVAL_GATE, v: `${(acc * 100).toFixed(0)}%` },
@@ -255,6 +258,42 @@ console.log("╚═════════════════════�
   );
 }
 
+/* ── 10. Cost governor (docs/05 §8 / docs/15 §2, m13/m22): the spend ceiling
+   must be enforced by code — decide-before-call, throttle before the cap,
+   honest uncertain fallback, kill switch restores the untouched path. ── */
+{
+  const cg = await M("performance/cost-governor.js");
+  const g = cg.createCostGovernor({ enabled: true, freeQuota: 40, hardCap: 100 });
+  // real shape: decide before, charge after — 3 units per call crosses the 100 cap at call 34
+  const decisions = [];
+  for (let i = 0; i < 40; i++) { decisions.push(g.decide("sc", 3)); g.charge("sc", 3); }
+  const throttledAt = decisions.findIndex(d => d.decision === "throttle");
+  const warnedOnce = decisions.filter(d => d.reason === "warn_80pct").length === 1;
+  const honest = g.governedResponse({ reason: "hard_cap_reached", spent: 100 });
+  webM.setCostGovernorEnabled(true);
+  webM.costGovernor().clear();
+  webM.costGovernor().charge("sc-sess", 99); // the session's real spend so far — the next call would cross the cap
+  const governed = await webM.chatThroughCostGovernor({ message: "scorecard probe", sessionKey: "sc-sess", estimatedUnits: 2 });
+  const governedHonest = governed && governed.response && governed.response.provider === "cost-governor" && governed.response.status === "uncertain" && governed.response.metadata.governed === true;
+  webM.costGovernor().clear();
+  webM.setCostGovernorEnabled(false);
+  const outOff = await webM.chatThroughCostGovernor({ message: "off path", sessionKey: "sc-sess" });
+  const offUntouched = outOff && outOff.governed === false && outOff.response && outOff.response.status === "ok";
+  const cases = [
+    { label: "เพดานบังคับโดยโค้ด (throttle ก่อนทะลุ 100%)", ok: throttledAt > 0 && throttledAt < 40, v: `throttle@call ${throttledAt + 1}` },
+    { label: "warn ครั้งเดียวที่ 80%", ok: warnedOnce, v: "1 ครั้ง" },
+    { label: "คำตอบ throttle ซื่อสัตย์ (uncertain + ที่มา)", ok: honest.status === "uncertain" && honest.provider === "cost-governor" && honest.metadata.governed === true, v: "ไม่แต่งคำตอบ" },
+    { label: "wiring จริง: throttle ผ่าน chatThroughCostGovernor", ok: !!governedHonest, v: "e2e" },
+    { label: "kill switch ปิด = เส้นทางเดิม 100%", ok: !!offUntouched, v: "เดิมเป๊ะ" },
+  ];
+  const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
+  section(
+    "10) ต้นทุนต่อเซสชันถูกบังคับด้วยโค้ด (cost governor, docs/15)",
+    `${cases.map(c => `${c.ok ? "✓" : "✗"} ${c.label} (${c.v})`).join(" · ")} · tiers free=0 low=1 medium=2 high=4 — ตัวไม่รู้จักจ่าย low ไม่มีทางได้ฟรี`,
+    pct, "100%", pct === 100
+  );
+}
+
 /* ── print ── */
 console.log("| ตัวชี้วัด | คะแนน | เกณฑ์ผ่าน | ผล |");
 console.log("|---|---|---|---|");
@@ -263,5 +302,5 @@ for (const r of rows) {
   console.log(`| <sub>${r.detail}</sub> | | | |`);
 }
 const allPass = rows.every(r => r.pass);
-console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (KB hot path เข้า scorecard แล้ว ด่าน 9)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
+console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (cost governor เข้า scorecard แล้ว ด่าน 10)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
 process.exit(allPass ? 0 : 1);

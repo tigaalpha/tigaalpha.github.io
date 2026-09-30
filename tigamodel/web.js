@@ -74,6 +74,12 @@ import { createAnswerCache as _createAnswerCache, answerCacheKey as _answerCache
    like the answer cache, DEFAULT OFF — when off, getKBContext serves the
    legacy block byte-identically. */
 import { createKBHotPath as _createKBHotPath } from "./performance/kb-hot-path.js";
+/* docs/05 §8 / docs/15 §2 (m13/m22): cost governor — a per-session weighted
+   ledger that decides BEFORE each provider call; throttled sessions degrade
+   to an honest uncertain response (never an invented answer). Singleton
+   like the answer cache, DEFAULT OFF — off = every decision allows, the
+   shipped path unchanged. */
+import { createCostGovernor as _createCostGovernor, chargeForCall as _chargeForCall } from "./performance/cost-governor.js";
 let _answerCache = null;
 export function answerCache() {
   if (!_answerCache) _answerCache = _createAnswerCache({ enabled: false }); // OFF until switched on
@@ -86,6 +92,43 @@ export function setAnswerCacheEnabled(on, opts = {}) {
 }
 export function newAnswerCache(opts) { return _createAnswerCache(opts || {}); }
 export function answerCacheKeyFor(args) { return _answerCacheKey(args || {}); }
+
+let _costGovernor = null;
+export function costGovernor() {
+  if (!_costGovernor) _costGovernor = _createCostGovernor({ enabled: false }); // OFF until switched on
+  return _costGovernor;
+}
+export function setCostGovernorEnabled(on) {
+  const g = costGovernor();
+  g.setEnabled(on === true);
+  return g.isEnabled();
+}
+/* Chat with the cost governor honored (off → identical to chat()). Decides
+   BEFORE the call using the caller's estimate (default 1 weighted unit);
+   after an allowed call, books the REAL weighted charge from the answering
+   provider's declared() cost tier. A throttle serves the honest governed
+   fallback — never an invented answer. */
+export async function chatThroughCostGovernor(args) {
+  const { message = "", sessionKey = null, preferFree = false, estimatedUnits = null, ...rest } = args || {};
+  try {
+    const g = costGovernor();
+    const tiga = getTigamodel();
+    if (!g.isEnabled() || !sessionKey) {
+      return { ...(await tiga.chat({ message, ...rest })), governed: false };
+    }
+    const est = Number.isFinite(estimatedUnits) && estimatedUnits >= 0 ? estimatedUnits : 1;
+    const d = g.decide(sessionKey, est, { preferFree: preferFree === true });
+    if (d.decision === "throttle") {
+      return { response: g.governedResponse({ reason: d.reason, spent: d.spent, freeQuota: d.freeQuota }), routed: { selected_provider: "cost-governor", reason: d.reason, attempts: [] }, request: null, governed: true };
+    }
+    const out = await tiga.chat({ message, ...rest });
+    const answeredBy = out && out.response && out.response.provider;
+    const declared = answeredBy && tiga.providers.get(answeredBy);
+    const declaredCost = declared && declared.declare ? declared.declare().cost : null;
+    g.charge(sessionKey, _chargeForCall(answeredBy, declaredCost));
+    return { ...out, governed: true };
+  } catch (e) { return null; }
+}
 /* Chat with the answer cache honored (off → identical to chat()). Returns
    { response, routed, request, cache_hit, cache_provenance? }. */
 export async function chatThroughAnswerCache(args) {
