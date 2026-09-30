@@ -352,11 +352,11 @@ export const MILESTONES = [
   },
   {
     id: "m40-outcomes-counter",
-    title: "docs/12 §1B ตัวนับ 50 outcomes + รายงานพร้อมเปิดสวิตช์ (จุดติดวงจร B)",
-    state: "planned",
+    title: "docs/13 §1 รายงานเช้า readiness — นับ outcomes จริงบน live DB + verdict อัตโนมัติ (จุดติดวงจร B)",
+    state: "done",
     deps: ["m05-apply-learning-data"],
-    acceptance: "นับจริงจาก teaching_outcomes + สรุป top strategy อัตโนมัติเมื่อครบเกณฑ์ — admin เห็นทันทีว่าเปิด m04/m06 ได้ ไม่ต้องเดา",
-    evidence: ["tigamodel/docs/12-plan-thousandfold-compound.md"],
+    acceptance: "outcomes-report.mjs (read-only ผ่าน CLI เดียวกับ apply-migrations): นับจริง + ต่อกลยุทธ์ + verdict ตามเกณฑ์ล่วงหน้า (≥50 + กลยุทธ์นำ ≥17) — smoke 9/9 (เกณฑ์ 50 มาจากแผน ไม่ใช่การเดา · 50 แบบนำบาง = ยังไม่เปิด · read-only · CLI หาย = แจ้งชัดไม่ปลอมรายงาน) · ผลจริงรอบแรก: 5 outcomes (ขาดอีก 45 — เกิดเองจากนักเรียนจริง ห้ามปลอม) · npm run morning = คำสั่งเช้าเดียว",
+    evidence: ["scripts/outcomes-report.mjs", "tigamodel/scripts/smoke-outcomes-report.mjs", "tigamodel/docs/13-plan-plus-hundred-2.md"],
   },
   {
     id: "m41-compound-dashboard",
@@ -365,6 +365,22 @@ export const MILESTONES = [
     deps: ["m39-skill-state-wiring", "m40-outcomes-counter"],
     acceptance: "แผนเฉพาะคนกี่คน · outcomes เพิ่มเท่าไร · ตอบไม่ได้ลดกี่ % — ทุกตัวมาจากตารางจริง (ไม่มีการประมาณ)",
     evidence: ["tigamodel/docs/12-plan-thousandfold-compound.md"],
+  },
+  {
+    id: "m42-morning-command",
+    title: "docs/13 §1 npm run morning — รายงานเช้ารวมทุกวงจรในคำสั่งเดียว",
+    state: "code",
+    deps: ["m40-outcomes-counter"],
+    acceptance: "คำสั่งเดียวจบ: readiness วงจร B (outcomes จริง) + scorecard 8 ด่าน — หน้าเดียวตัวเลขจริงทุกตัว; ขยายครอบวงจร A/C เมื่อ m41/m43 เข้าคิว",
+    evidence: ["package.json", "tigamodel/docs/13-plan-plus-hundred-2.md"],
+  },
+  {
+    id: "m43-top-problems-queue",
+    title: "docs/13 §1 top_problems จริง → คิว KB wave (ปิดวงจร C)",
+    state: "planned",
+    deps: ["m40-outcomes-counter"],
+    acceptance: "จัดอันดับปัญหาจริงจาก learning_diagnoses + แปลงเป็นคิว KB wave ที่ผ่าน retrieval gate + กติกาเหล็กข้อ 7 เสมอ",
+    evidence: ["tigamodel/docs/13-plan-plus-hundred-2.md"],
   },
 ];
 

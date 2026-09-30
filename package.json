@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "verify:tiga": "node tigamodel/scripts/smoke.mjs && node tigamodel/scripts/smoke-pillar-eval.mjs && node tigamodel/scripts/smoke-knowledge-pillars.mjs && node tigamodel/scripts/smoke-adaptivity.mjs && node tigamodel/scripts/smoke-camera-close.mjs && node tigamodel/scripts/smoke-camera-game.mjs && node tigamodel/scripts/smoke-capability.mjs && node tigamodel/scripts/smoke-diagnosis.mjs && node tigamodel/scripts/smoke-expansion.mjs && node tigamodel/scripts/smoke-measure.mjs && node tigamodel/scripts/smoke-reasoning.mjs && node tigamodel/scripts/smoke-roadmap-1m.mjs && node tigamodel/scripts/smoke-self-learn.mjs && node tigamodel/scripts/smoke-unified.mjs && node scripts/verify-practice-loop.mjs && node scripts/verify-finish-practice-flow.mjs && node scripts/verify-conversion.mjs",
     "bench:tiga": "node scripts/tiga-bench.mjs",
+    "morning": "node scripts/outcomes-report.mjs && node scripts/tiga-scorecard.mjs",
     "cycle:tiga": "node scripts/tiga-cycle.mjs cycle",
     "report:tiga": "node scripts/tiga-cycle.mjs report",
     "sprites": "node scripts/bake-sprites.mjs",
