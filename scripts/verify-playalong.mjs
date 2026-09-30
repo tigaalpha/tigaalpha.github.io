@@ -62,9 +62,12 @@ function ok(cond, label) { if (cond) { pass++; console.log(`PASS  ${label}`); } 
     async () => JSON.stringify({ weakness: "You should practice regularly", steps: ["practice more", "keep going"] }));
   ok(generic && generic.fallback === true, "generic AI reply rejected → real-data fallback");
 
-  // AI returns SPECIFIC advice with the strategy line → accepted, strategy present
+  // AI returns SPECIFIC advice with the strategy line → accepted, strategy present.
+  // Its own label: a song's analysis is cached for a day by song + accuracy
+  // bucket + top misses + language (ai-cache withAiCache), so the same inputs
+  // as the generic case above would replay that reply instead of asking.
   let sawStrategyInSys = false;
-  const specific = await SA.analyzeSongRun("en", "Twinkle", result, loopFn,
+  const specific = await SA.analyzeSongRun("en", "Twinkle (specific reply)", result, loopFn,
     async ({ system }) => {
       sawStrategyInSys = /strategy chosen by the model/i.test(system) || /must follow/i.test(system);
       return JSON.stringify({ weakness: "Repeated C5 misses in the opening phrase", steps: ["Drill C5-E5 slowly 3 times", "Run the opening at 0.8x tempo"] });
