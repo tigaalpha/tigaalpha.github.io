@@ -37,6 +37,16 @@ export const PATHWAY_PRACTICE = {
   ],
 };
 
+/* Card order inside a group, by id, where it is not simply "the lessons, then
+   the doors". Foundation puts the song door second (owner, 2026-10-01): playing
+   real songs is what the app is best at, so it sits beside the very first lesson
+   instead of two rows down. Card numbers follow this order. A card the list does
+   not name goes after the named ones, in its natural order; a group with no
+   entry keeps lessons first, doors after. */
+export const PATHWAY_ORDER = {
+  foundation: ["scale", "play-songs", "interval", "play-scales", "play-chords-major", "play-chords-minor"],
+};
+
 export const PATHWAY = [
   {
     id: "scale", icon: "🎼", title: { th: "สเกล (Scale)", en: "Scale", zh: "音阶 (Scale)" }, subtitle: { th: "บันไดเสียง — รากฐานของทุกอย่าง", en: "The foundation of everything", zh: "一切的基础" },
