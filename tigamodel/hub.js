@@ -265,7 +265,8 @@ export function createTigaHub({ kbEntries = null } = {}) {
   }
 
   /* ── intent: personalized chat openers ──
-     Returns [{question:{th,en,zh}, contextLabel}] or null → caller uses its
+     Returns [{question:{th,en,zh}, label:{th,en,zh}, contextLabel}] (question is worded as the
+     LEARNER'S own message, label is the chip text) or null → caller uses its
      static curated pool. Questions must be answerable from real data only. */
   function chatStartersFor(memory, practiceLog, profile) {
     const hit = route(domainsFor("chat-starters", null), (eng) =>

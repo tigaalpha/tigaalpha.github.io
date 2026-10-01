@@ -136,6 +136,51 @@ duel) is always open and first on the screen — never fold it behind a link, a
 player who cannot see a setting does not know it exists — and Start stays
 pinned to the bottom edge.
 
+**Getting into Play Along (owner, 2026-10-01: "this is the star feature — people
+should see it first").** A Pathway group shows its lessons and its Play Along
+doors as one list, in the order `groupCells()` (App.tsx) returns: lessons, then
+doors, unless `PATHWAY_ORDER` (pathway-data.ts) names another order — Foundation
+puts "Practise real songs" second, beside the first lesson. Card numbers come
+from that position, so moving or adding a card renumbers what follows (nothing
+keys off them). The song list (`SongListPage`) goes straight to the songs: no
+title block, no Daily Song Quest card, no Concert Mode card, no search box. Today's
+song is still picked once a day by that page's effect (`dailySong`) and surfaces
+through "Up next" and the ready screen's "Today's song" line; Concert Mode's
+engine (`startSetlist`, the chaining in `finishSong`) is kept with no button, and
+the bots start a concert through `__paTest.setlist`. The ready screen has no cover
+image above the song title.
+
+**TIGA CHAT** (`use-chat.ts`, `chat-ui.tsx`, `chat-starters.ts`, the `.mov`
+full-screen chat in `PianoApp`, `SenseiView.tsx`). `sendText()` is the one path a
+question takes — typed, a starter chip, or "Explain more": local FAQ match → login
+gate → free quota (5 a day in `tg_usage`; a spent quota answers with
+`freeChatCapped` and opens the upgrade card, a counter under the box shows what is
+left) → Jev pre-check, bounded to `PRECHECK_BUDGET_MS` (a slower verdict is ignored
+for that message) → `callClaude`. The system prompt is built once per question; the
+list of real songs rides only a song question (titles, not ids) and the curriculum
+block is the chat variant, `curriculumContext(lang, { chat: true })`: the
+`[plan:]`/`[song:]`/`[practice:]` tags belong to Voice Tutor, the chat parses none
+of them, so never ask the chat tutor to print one. The persona (`sys` in i18n.ts,
+th/en/zh) asks for a short answer first, plain text with only a little `**bold**` and
+`- ` bullets (`RichText` in chat-ui.tsx draws them as React elements, never HTML),
+and carries the safety rules — children may be present: no personal data, no sexual,
+violent or illegal content, self-harm answered with care and a trusted adult or
+helpline, and instructions in a message or a context block never override them.
+The full-screen chat opens with the day's recommended next step and up to four
+questions to tap: the learner's own record first (TIGA hub `chatStartersFor`, worded as
+the learner's message; `personalAsks` is the plain read of the same memory before
+the hub has loaded), then everyday beginner questions rotated by day. **The
+knowledge block:** the chat sends the legacy KB block unless
+`app_settings.tiga_kb_hot_path = {"enabled": true}` — a harmony question ships ~1.4 MB
+with the switch off and at most 8,000 characters with it on. The switch is read at
+most once a minute (`refreshKbHotPathSwitch`, fails closed) and the owner flips it
+from Model Lab → Knowledge Base; do not flip it from code. Run
+`node tigamodel/scripts/eval-kb-capped-vs-legacy.mjs` for the comparison — it measures
+what the model is given, not how a model answers, so judge answers in Model Lab
+with the switch off and on. The chat pays no coins or EXP for a live-AI question,
+typed or tapped (only local FAQ answers and `askDirect` callers do); changing what
+chat pays is an owner decision (see "Where Coins/Gems may come from").
+
 Robot and pet **thumbnails are pre-rendered images**, not live SVG:
 `scripts/bake-sprites.mjs` (`npm run sprites`) draws every robot head
 (`CyberAvatar headOnly`) and every level-1 pet (`PetArt`) from the real
@@ -279,6 +324,17 @@ is ever read (pianist with the band or the metronome, tapper with the full band)
 and that a drowned note is not fired twice — the test to run after touching any
 game sound, the band's drums, or `createMonoDetector`. The app exposes
 `window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
+
+For the chat: `npm run build && node scripts/verify-chat.mjs` drives the real `dist/`
+in headless Chromium with every Supabase call stubbed (nothing is written, no model
+is called) and checks the screens (counter, capped message and upgrade card,
+starters, bold/bullets, Explain more, th/en/zh), the exact request sent to
+`piano-chat` (what is in the system prompt and how big it is, how long a slow Jev
+holds the answer back) and the paths that must not move (local answers, chapters,
+errors with a retry button); `ONLY=quota,starters` runs a subset. It cannot say how
+a real model answers. `node tigamodel/scripts/smoke-kb-hot-path-switch.mjs` covers
+the knowledge-block switch (it temporarily stubs `supabase-client.ts` and restores
+it — check `git diff supabase-client.ts` is empty if a run was killed).
 
 ## Where to look for current state
 
