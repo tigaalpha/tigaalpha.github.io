@@ -14,8 +14,9 @@ import { playUi } from "./music-engine";
    image, and their shelf is filtered through VISION_MODELS below so a rung that
    cannot see is never offered; the admin "Teach AI" tab stays on Anthropic
    because its web-search tool only exists there. "voice-tts" is the
-   speech-synthesis engine (Gemini TTS vs ElevenLabs) and is used only by the
-   AI Voice Tutor. ── */
+   speech-synthesis engine (Gemini TTS vs ElevenLabs): the AI Voice Tutor and,
+   since 2026-10-01, the speaker button on every chat bubble (Max and Max
+   Family) speak through it. ── */
 
 export const AI_PROVIDERS = {
   anthropic: { icon: "🟠", label: "Anthropic", models: [{ id: "claude-sonnet-4-6", label: "Claude Sonnet" }] },
@@ -56,13 +57,23 @@ export const AI_PROVIDERS = {
   ]},
 };
 
+/* The Gemini speech models, for the voice-tts card — the Gemini chat models above (Flash, Flash-Lite) cannot speak, so the
+   card must never offer them. Newest first: picking the provider button auto-selects the first one, and Save is what applies it.
+   The id is what Google's API is called with; a wrong one only makes the cloud voice fail and the app fall back to the device's
+   own voice, so it is safe to try — and the id is editable below the chips. */
+export const GEMINI_TTS_MODELS = [
+  { id: "gemini-3.8-flash-tts", label: "✨ Gemini 3.8 Flash TTS · ใหม่ล่าสุด (ไทย/อังกฤษ/จีน)" },
+  { id: "gemini-2.5-flash-preview-tts", label: "Gemini 2.5 Flash TTS (รุ่นเดิม)" },
+  { id: "gemini-2.5-pro-preview-tts", label: "Gemini 2.5 Pro TTS (เสียงดีกว่า แพงกว่า)" },
+];
+
 export const AI_FEATURES = [
   { id: "chat", icon: "💬", th: "แชทครู AI (หน้าแรก)", en: "AI Chat (home)", zh: "AI 聊天（首页）", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "voice", icon: "🎙️", th: "เสียงครู AI — บทสนทนา", en: "Voice Tutor — conversation", zh: "语音老师 — 对话", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "voice-tts", icon: "🔊", th: "เสียงครู AI — สังเคราะห์เสียง", en: "Voice Tutor — speech engine", zh: "语音老师 — 语音引擎", prov: ["gemini", "elevenlabs"], tts: true,
-    noteTh: "ใช้เฉพาะโหมดเสียง — ภาษาไทยต้องใช้ Eleven v3 (v2/flash v2.5 ไม่รองรับไทย) เปลี่ยนเสียงได้ที่ ElevenLabs > Voices",
-    noteEn: "Voice mode only — Thai needs Eleven v3 (v2/flash v2.5 don't cover Thai); pick a Voice ID at ElevenLabs → Voices",
-    noteZh: "仅语音模式使用 — 泰语需用 Eleven v3（v2/flash v2.5 不支持泰语）；可在 ElevenLabs → Voices 选择音色" },
+    noteTh: "ใช้กับโหมดเสียงครู AI และปุ่มลำโพงในแชท (Max / Max Family) — แนะนำ Gemini 3.8 Flash TTS: ไทย อังกฤษ จีน เสียงผู้ชายนุ่ม (Algieba) ราว $0.0135/นาที · ถ้าใช้ ElevenLabs ภาษาไทยต้องใช้ Eleven v3 เปลี่ยนเสียงได้ที่ ElevenLabs > Voices",
+    noteEn: "Used by the Voice Tutor and the speaker button in chat (Max / Max Family) — recommended: Gemini 3.8 Flash TTS: Thai, English, Chinese, soft male voice (Algieba), about $0.0135/min · on ElevenLabs Thai needs Eleven v3; pick a Voice ID at ElevenLabs → Voices",
+    noteZh: "用于语音老师和聊天里的朗读按钮（Max / Max Family）— 推荐 Gemini 3.8 Flash TTS：泰语、英语、中文，柔和男声（Algieba），约 $0.0135/分钟 · 若用 ElevenLabs，泰语需 Eleven v3；可在 ElevenLabs → Voices 选择音色" },
   { id: "song-style", icon: "🎨", th: "แปลงสไตล์เพลง", en: "Song style transform", zh: "歌曲风格转换", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "song-analysis", icon: "📊", th: "วิเคราะห์การเล่นเพลง", en: "Song run analysis", zh: "弹奏分析", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
   { id: "compose", icon: "🎼", th: "แต่งทำนอง", en: "Melody composer", zh: "旋律创作", prov: ["anthropic", "gemini", "deepseek", "openrouter"] },
@@ -223,7 +234,7 @@ export function AdminAIModels({ lang }) {
         <br />🌐 {T("OpenRouter — ทางเดียวที่มีรุ่นฟรีจริง (ดูอันดับด้านล่าง)", "OpenRouter — the only route with genuinely free models (ranked below)", "OpenRouter — 唯一有真正免费模型的通道（排名见下）")}
         <br />🔵 {T("Google Gemini — key ฟรี (จำกัด quota) ใช้กับกล้อง/สลิปที่ต้องดูรูป", "Google Gemini — free key (rate-limited), used by camera/slip which need vision", "Google Gemini — 免费密钥（有限额），用于需要视觉的手型/凭证")}
         <br />🟠 {T("Anthropic — คุณภาพสูงสุด ต้องตั้ง ANTHROPIC_API_KEY (ยังไม่ได้ตั้ง)", "Anthropic — highest quality, requires ANTHROPIC_API_KEY (not set yet)", "Anthropic — 质量最高，需要设置 ANTHROPIC_API_KEY（尚未设置）")}
-        <br />🎙️ {T("ElevenLabs — เสียงภาษาไทย (เฉพาะโหมดเสียง) ~$0.10 ต่อ 1,000 ตัวอักษร", "ElevenLabs — Thai voice (voice mode only) ~$0.10 per 1K chars", "ElevenLabs — 泰语语音（仅语音模式）约 $0.10/千字符")}
+        <br />🎙️ {T("ElevenLabs — เสียงภาษาไทย (โหมดเสียง + ปุ่มลำโพงในแชท) ~$0.10 ต่อ 1,000 ตัวอักษร", "ElevenLabs — Thai voice (voice mode + chat speaker) ~$0.10 per 1K chars", "ElevenLabs — 泰语语音（语音模式 + 聊天朗读）约 $0.10/千字符")}
         <br />👁️ {T("กล้อง/สลิป ยังบังคับใช้ Claude/Gemini เสมอ แม้ตั้งเป็น OpenRouter ก็ตาม", "Camera/slip always run on Claude/Gemini, even if set to OpenRouter", "手型/凭证始终使用 Claude/Gemini，即使设为 OpenRouter")}
       </div>
 
@@ -261,7 +272,8 @@ export function AdminAIModels({ lang }) {
     const d = drafts[fid] || cfg.default;
     const providers = isDefault ? ["anthropic", "gemini", "deepseek", "openrouter"] : f.prov;
     const provMeta = AI_PROVIDERS[d.provider] || AI_PROVIDERS.anthropic;
-    const shelf = shelfFor(d.provider, provMeta.models, !isDefault && f.vision);
+    const baseModels = f.tts && d.provider === "gemini" ? GEMINI_TTS_MODELS : provMeta.models;
+    const shelf = shelfFor(d.provider, baseModels, !isDefault && f.vision);
     const isCustom = !shelf.some(m => m.id === d.model);
     return (
       <div className="admmg" key={fid}>
@@ -275,7 +287,7 @@ export function AdminAIModels({ lang }) {
           {providers.map(p => (
             <button key={p} className={`setlangbtn${d.provider === p ? " on" : ""}`} disabled={busyKey === fid}
               onClick={() => {
-                const picks = shelfFor(p, AI_PROVIDERS[p].models, !isDefault && f.vision);
+                const picks = shelfFor(p, f.tts && p === "gemini" ? GEMINI_TTS_MODELS : AI_PROVIDERS[p].models, !isDefault && f.vision);
                 setDraft(fid, { provider: p, model: picks[0] ? picks[0].id : d.model });
               }}>
               {AI_PROVIDERS[p].icon} {AI_PROVIDERS[p].label}

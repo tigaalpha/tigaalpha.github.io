@@ -10579,6 +10579,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => {
     const next = convPopupFor(profile, plan) || convWinBack(profile, plan);
     setConvPopup(next);
+  /* The chat's read-aloud (owner, 2026-10-01) is for Max and Max Family — and the owner's own admin account, as Voice Tutor
+     already allows. Everyone else sees the button with a lock, and a tap opens the plans. */
+  const speakMode = (isMaxPlan(plan) || (profile && profile.is_admin)) ? "on" : "locked";
+  const onSpeakLocked = useCallback(() => { playUi("click"); setPricingOpen(true); }, [setPricingOpen]);
     if (next) logConvEvent(next.id, "shown");           // v3 funnel instrumentation
   }, [profile, plan]);
   function dismissConvPopup() {
@@ -12742,7 +12746,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} />}
+      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} />}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
@@ -12827,6 +12831,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               {chatRec && (
                 <button className="mrec" onClick={() => { playUi("click"); setModal(false); chatRec.fn(); }}>
                   <span className="mrec-ic" aria-hidden="true">{chatRec.icon}</span>
+              speakMode={speakMode} onSpeakLocked={onSpeakLocked}
                   <span className="mrec-tx">{chatRec.label}</span>
                   <span className="mrec-go" aria-hidden="true">→</span>
                 </button>

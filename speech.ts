@@ -7,9 +7,8 @@ import { getAC } from "./music-engine";
    TTS/STT sub-engine: Web Speech API wrappers, cloud-TTS (backend-synthesized
    voice) with an IndexedDB cache, chunking/throttling, and the Voice Mentor
    delivery-style prompt builder. Extracted from App.tsx verbatim — no logic
-   changes — as part of the App.tsx modularization. Note: SpeakBtn/TTS_ENABLED
-   stay in App.tsx for now (they belong with Msg/Typing/Input in chat-ui.tsx,
-   Phase 1.7, since SpeakBtn needs the i18n `L` table which hasn't moved yet). ── */
+   changes — as part of the App.tsx modularization. The chat's read-aloud button
+   (BubbleSpeak) lives in chat-ui.tsx and is built on speakCloud() below. ── */
 
 
 /* ── TTS ── */
@@ -177,7 +176,7 @@ export function speakRobust(text, lang, onDone, onBlocked, rateMul = 1) {
 }
 
 /* Device/native fallback for when cloud TTS fails or is off — used by the chat
-   SpeakBtn and the voice tutor. On the web: speechSynthesis. Inside the Android
+   the chat's read-aloud button and the voice tutor. On the web: speechSynthesis. Inside the Android
    app's WebView speechSynthesis does not exist at all, so use the OS TTS engine
    via the Capacitor plugin instead — always works, no network, no Gemini quota.
    Resolves with true if audio started; onDone fires when playback is done (or
@@ -222,8 +221,10 @@ export function stopSpeaking() {
    quickly, while later chunks are prefetched during playback (low latency). */
 export let _ttsSource = null;
 export let _ttsCancelled = false;
+let _ttsRun = 0;                                        // numbers each speakCloud() call; a stop or a newer call makes an older one stale
 export function stopCloudTTS() {
   _ttsCancelled = true;
+  _ttsRun++;
   if (_ttsSource) { try { _ttsSource.stop(); } catch (e) {} _ttsSource = null; }
 }
 export function b64ToArrayBuffer(b64) {
@@ -383,11 +384,22 @@ export async function ttsThrottle() {
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   _ttsLastReqAt = Date.now();
 }
-export async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000) {
+export async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000, opts = null) {
   const voice = getVmVoiceName();
   const key = ttsKey(s, lang, voice);
   const cached = await ttsCacheGet(key);                // free, instant, offline-safe
   if (cached) { try { return await ac.decodeAudioData(cached); } catch (e) {} }
+  // a clip that has to be paid for first asks the caller's allowance (the chat's read-aloud has one, see ttsBudgetSpend);
+  // a cached clip never reaches here, so a repeat listen is always free
+  if (opts && opts.spend && !opts.spend(s)) throw Object.assign(new Error("tts-budget"), { budget: true });
+  try { return await ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key); }
+  catch (e) {
+    // no clip came of it, so what was taken from the allowance is given back (a stop mid-request keeps it: the request may have run)
+    if (opts && opts.refund && !_ttsCancelled) opts.refund(s);
+    throw e;
+  }
+}
+async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
   let lastErr = null;
   for (let n = 0; n < tries; n++) {
     if (n > 0) await new Promise((r) => setTimeout(r, 1200 * Math.pow(2, n - 1))); // 1.2s, 2.4s
@@ -399,7 +411,7 @@ export async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000) 
       const res = await fetch(TTS_URL, {
         method: "POST",
         headers: apiHeaders(),
-        body: JSON.stringify({ text: styleTTS(s, lang), lang, voice }),
+        body: JSON.stringify(opts && opts.src ? { text: styleTTS(s, lang), lang, voice, src: opts.src } : { text: styleTTS(s, lang), lang, voice }),
         signal: ctrl.signal,
       });
       if (!res.ok) {
@@ -420,9 +432,60 @@ export async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000) 
   throw lastErr || new Error("TTS failed");
 }
 
-export async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1) {
+/* ── The chat's read-aloud (owner, 2026-10-01) ──
+   A speaker button on every message of the chat speaks it in one soft male voice, in the language the message is
+   written in. Paid-plan only (Max and Max Family — see chat-ui.tsx), and it costs real money per word, so besides the
+   clip cache above (a repeat listen is free) each device has a day's allowance of cloud speech, counted in SECONDS of
+   speech: estimated from the text, since Thai, English and Chinese carry very different amounts of speech per character.
+   Past it the button falls back to the device's own voice instead of going silent. */
+export function detectSpeechLang(text, fallback = "en") {
+  let th = 0, zh = 0, la = 0;
+  for (const ch of String(text || "")) {
+    const c = ch.codePointAt(0);
+    if (c >= 0x0E00 && c <= 0x0E7F) th++;
+    else if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF)) zh++;
+    else if ((c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)) la++;
+  }
+  // a Chinese character is a whole syllable, a Latin letter a fraction of one: weigh them so that a Thai or Chinese answer
+  // with a few English terms in it is still Thai or Chinese, and an English answer with one Thai word is still English
+  const sTh = th, sZh = zh * 2, sEn = la / 4;
+  if (!th && !zh) return la ? "en" : fallback;
+  if (sEn > sTh + sZh) return "en";
+  return sZh > sTh ? "zh" : "th";
+}
+const TTS_CHARS_PER_SEC = { th: 11, en: 15, zh: 4.5 };
+export function ttsEstSeconds(text, lang) { return String(text || "").length / (TTS_CHARS_PER_SEC[lang] || 12); }
+export const TTS_DAILY_SECONDS = 300;                   // five minutes of cloud speech a day on a device (about ฿2.5 at today's price)
+const TTS_DAY_KEY = "tg_tts_day";
+function ttsDayKey() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+function ttsDayRead() {
+  try { const r = JSON.parse(localStorage.getItem(TTS_DAY_KEY) || "null"); if (r && r.d === ttsDayKey()) return r; } catch (e) {}
+  return { d: ttsDayKey(), s: 0 };
+}
+export function ttsBudgetLeft() { return Math.max(0, TTS_DAILY_SECONDS - ttsDayRead().s); }
+/* Takes `seconds` from today's allowance; false (and nothing taken) when they do not fit. */
+export function ttsBudgetSpend(seconds) {
+  const r = ttsDayRead();
+  if (r.s + seconds > TTS_DAILY_SECONDS) return false;
+  r.s = +(r.s + seconds).toFixed(2);
+  try { localStorage.setItem(TTS_DAY_KEY, JSON.stringify(r)); } catch (e) {}
+  return true;
+}
+/* Gives `seconds` back — a clip that was paid for but never came. */
+export function ttsBudgetRefund(seconds) {
+  const r = ttsDayRead();
+  r.s = Math.max(0, +(r.s - seconds).toFixed(2));
+  try { localStorage.setItem(TTS_DAY_KEY, JSON.stringify(r)); } catch (e) {}
+}
+
+export async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1, opts = null) {
   stopCloudTTS();
   _ttsCancelled = false;
+  // stopCloudTTS() just gave this call its number. _ttsCancelled alone cannot tell an old call from this one — the next
+  // speakCloud() sets it back to false, and a call that was still fetching would wake up and play over the new one (tap one
+  // chat message's speaker while another is loading) — so every check below also asks whether it is still the latest call.
+  const run = _ttsRun;
+  const stale = () => _ttsCancelled || run !== _ttsRun;
   const clean = cleanForTTS(text);
   if (!clean) { if (onDone) onDone(); return false; }
   const ac = getAC(); // resume/unlock the audio context inside the user gesture
@@ -435,7 +498,7 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
   const chunks = ttsChunks(clean, 3600);
 
   try {
-    let nextP = ttsFetchBuffer(chunks[0], lang, ac);
+    let nextP = ttsFetchBuffer(chunks[0], lang, ac, 3, 30000, opts);
     let firstStarted = false;
     for (let i = 0; i < chunks.length; i++) {
       const curP = nextP;
@@ -448,15 +511,16 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
         console.error("[TIGA TTS] chunk " + (i + 1) + "/" + chunks.length + " failed after retries:", e);
         break;
       }
-      if (_ttsCancelled) return true;
+      if (stale()) return true;
       if (!firstStarted) { firstStarted = true; if (onStart) onStart(); }
       // Resume AudioContext if iOS/Android suspended it between chunks
       if (ac.state !== "running") { try { await ac.resume(); } catch (_) {} }
+      if (stale()) return true;
       // Start prefetching the next chunk NOW — its timeout ticks during the current
       // clip's playback, not from the start of the loop. This fixes the old race where
       // chunks[1]'s timer expired before chunks[0] even finished playing.
       if (i + 1 < chunks.length) {
-        nextP = ttsFetchBuffer(chunks[i + 1], lang, ac);
+        nextP = ttsFetchBuffer(chunks[i + 1], lang, ac, 3, 30000, opts);
         nextP.catch(() => {}); // mark handled: the user may stop playback before we await it
       }
       await new Promise((resolve) => {
@@ -468,13 +532,14 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
         _ttsSource = src;
         try { src.start(); } catch (e) { resolve(); }
       });
-      if (_ttsCancelled) return true;
+      if (stale()) return true;
     }
     _ttsSource = null;
     if (onDone) onDone();
     return true;
   } catch (e) {
-    stopCloudTTS();
+    // only a call that is still the latest may stop the audio: an older one failing late must not cut off a newer one
+    if (run === _ttsRun) stopCloudTTS();
     console.error("[TIGA TTS] Cloud TTS failed, falling back to device voice:", e);
     if (onError) onError(e);
     return false;
