@@ -643,7 +643,8 @@ if (want("stage")) {
     await done(s);
   }
 }
-// ── 18. the sheet view (owner, 2026-09-30): no falling notes, the staff big and on the keys, no key lit to point the way —
+// ── 18. the sheet view (owner, 2026-09-30): no falling notes, the staff big and on the keys — and (owner, 2026-10-01) the next
+//        key lit neon blue with a light running along the keys to it, no finger numbers —
 //        chosen in the header, top right, beside Backing / Metronome ──
 if (want("sheet")) {
   const box = `const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), b: Math.round(b.bottom), w: Math.round(b.width), h: Math.round(b.height) }; };`;
@@ -672,7 +673,7 @@ if (want("sheet")) {
     await start(s.p); await s.p.waitForTimeout(1800);
     const snap = () => s.p.evaluate((boxSrc) => {
       const box = new Function(boxSrc + "return box;")(), T = window.__paTest;
-      return { cls: document.querySelector(".songov").className, gems: T.gems(), lit: document.querySelectorAll(".gpw.lit, .gpb.lit").length, fingers: document.querySelectorAll(".gpfinger").length, staff: box(document.querySelector(".songstaffwrap")), pastaff: box(document.querySelector(".pastaff")), stage: box(document.querySelector(".songstage")), piano: box(document.querySelector(".gpwrap")), view: T.view(), bake: T.bake(), pressed: [...document.querySelectorAll(".songhdr .pl-view button")].map(b => b.getAttribute("aria-pressed")) };
+      return { cls: document.querySelector(".songov").className, gems: T.gems(), lit: document.querySelectorAll(".gpw.lit, .gpb.lit").length, litKeys: [...document.querySelectorAll(".gpw.lit, .gpb.lit")].map(k => ({ ...box(k), kc: getComputedStyle(k).getPropertyValue("--kc").trim() })), runners: [...document.querySelectorAll(".gprun")].map(r => box(r)), fingers: document.querySelectorAll(".gpfinger").length, staff: box(document.querySelector(".songstaffwrap")), pastaff: box(document.querySelector(".pastaff")), stage: box(document.querySelector(".songstage")), piano: box(document.querySelector(".gpwrap")), view: T.view(), bake: T.bake(), pressed: [...document.querySelectorAll(".songhdr .pl-view button")].map(b => b.getAttribute("aria-pressed")) };
     }, box);
     const fall = await snap();
     await s.p.screenshot({ path: `${OUT}/sheet-1-falling.png` });
@@ -683,10 +684,56 @@ if (want("sheet")) {
     const back = await snap();
     rec("sheet-falling-first", !/pl-sheet/.test(fall.cls) && fall.gems > 0 && fall.lit >= 1 && fall.staff.b <= fall.stage.t + 3 && fall.pastaff.h < 120 && fall.view.sheet === false && fall.bake && fall.bake.sheet === false && fall.pressed.join() === "true,false", `class "${fall.cls}" · ${fall.gems} gems drawn · ${fall.lit} key lit · staff ${fall.staff.t}–${fall.staff.b} above the stage ${fall.stage.t}–${fall.stage.b} · staff ${fall.pastaff.h}px`);
     rec("sheet-no-falling-notes", /pl-sheet/.test(sheet.cls) && sheet.gems === 0 && sheet.view.sheet === true && sheet.bake && sheet.bake.sheet === true && sheet.pressed.join() === "false,true", `class "${sheet.cls}" · ${sheet.gems} gems drawn (falling: ${fall.gems}) · stage is the plain world ${sheet.bake && sheet.bake.sheet}`);
-    rec("sheet-no-key-lit", sheet.lit === 0 && sheet.fingers === 0 && fall.lit >= 1, `${sheet.lit} keys lit and ${sheet.fingers} finger numbers in the sheet view (falling: ${fall.lit} lit)`);
+    // the next key is lit neon blue in the sheet view (one colour; the falling view gives each lane its own), with no finger numbers,
+    // and a light sits on it — the same width and the same place as the key — while the falling view has no such light
+    const sameKey = (r, k) => Math.abs((r.l + r.r) / 2 - (k.l + k.r) / 2) <= 2 && Math.abs(r.w - k.w) <= 3;
+    rec("sheet-key-lit-blue", sheet.litKeys.length >= 1 && sheet.litKeys.every(k => /^#2cc6ff$/i.test(k.kc)) && sheet.fingers === 0 && fall.litKeys.length >= 1 && fall.litKeys.every(k => /^hsl\(/.test(k.kc)) && fall.fingers >= 1, `sheet: ${sheet.litKeys.length} key lit, colour ${sheet.litKeys.map(k => k.kc).join("/")}, ${sheet.fingers} finger numbers · falling: ${fall.litKeys.length} lit in ${fall.litKeys.map(k => k.kc).join("/")}, ${fall.fingers} finger numbers`);
+    rec("sheet-light-on-the-key", sheet.runners.length >= 1 && sheet.runners.length === sheet.litKeys.length && sheet.runners.every(r => sheet.litKeys.some(k => sameKey(r, k))) && fall.runners.length === 0 && back.runners.length === 0, `sheet: ${sheet.runners.length} running light at ${JSON.stringify(sheet.runners.map(r => [r.l, r.w]))} on the lit key ${JSON.stringify(sheet.litKeys.map(k => [k.l, k.w]))} · falling: ${fall.runners.length} · back to falling: ${back.runners.length}`);
     rec("sheet-staff-on-the-keys", sheet.staff.t >= sheet.stage.b - 3 && Math.abs(sheet.piano.t - sheet.staff.b) <= 3 && sheet.pastaff.h >= 125 && sheet.stage.h >= 60, `staff ${sheet.staff.t}–${sheet.staff.b}, ${sheet.pastaff.h}px tall (falling: ${fall.pastaff.h}px) · keys start at ${sheet.piano.t} · stage strip ${sheet.stage.t}–${sheet.stage.b} (${sheet.stage.h}px)`);
     rec("sheet-switch-back", !/pl-sheet/.test(back.cls) && back.gems > 0 && back.lit >= 1 && back.staff.b <= back.stage.t + 3 && back.pastaff.h < 120 && s.errs.length === 0, `back to falling: ${back.gems} gems · ${back.lit} key lit · staff ${back.pastaff.h}px · errors ${s.errs.length}${s.errs.length ? " " + s.errs[0] : ""}`);
     await stopBot(s.p);
+    await done(s);
+  }
+  // the light runs: as the song goes it travels from key to key — stretching across the keys between them, not jumping — and settles
+  // on the key that is due; the key itself is lit blue in step with it
+  {
+    const s = await session({ w: 412, h: 915, extraLS: { tg_pa_view: "sheet" } });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await start(s.p); await bot(s.p);
+    const tr = await s.p.evaluate(() => new Promise(res => {
+      const t0 = performance.now(), seen = [];
+      const tick = () => {
+        const r = document.querySelector(".gprun"), lit = document.querySelector(".gpw.lit, .gpb.lit");
+        if (r) { const b = r.getBoundingClientRect(), lb = lit && lit.getBoundingClientRect(); seen.push({ t: Math.round(performance.now() - t0), l: b.left, w: b.width, litL: lb ? lb.left : null, litW: lb ? lb.width : null, cls: r.className }); }
+        if (performance.now() - t0 > 7000) return res(seen);
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }));
+    await stopBot(s.p);
+    const settled = tr.filter(f => f.litL != null && Math.abs(f.l - f.litL) <= 2 && Math.abs(f.w - f.litW) <= 3);
+    const stops = [...new Set(settled.map(f => Math.round(f.litL)))];
+    const stretched = tr.filter(f => f.litW != null && f.w > f.litW + 12);          // wider than the key it is bound for: it is stretching across
+    const between = tr.filter(f => f.litL != null && Math.abs(f.l - f.litL) > 6 && Math.abs(f.l + f.w - (f.litL + f.litW)) > 6);
+    const dirs = [...new Set(tr.map(f => /fwd/.test(f.cls) ? "fwd" : /back/.test(f.cls) ? "back" : "none"))];
+    const last = tr[tr.length - 1];
+    rec("sheet-light-runs", tr.length > 60 && stops.length >= 3 && stretched.length >= 2 && dirs.includes("fwd") && last && Math.abs(last.l - last.litL) <= 2 && s.errs.length === 0, `${tr.length} frames over 7 s · it came to rest on ${stops.length} different keys · ${stretched.length} frames stretched across the keys, ${between.length} wholly between · directions ${dirs.join("/")} · at the end it sits ${last ? Math.round(last.l - last.litL) : "?"} px from the lit key · errors ${s.errs.length}${s.errs.length ? " " + s.errs[0] : ""}`);
+    await done(s);
+  }
+  // a still of the light mid-run: its transitions are slowed for the picture only, so the frame can be caught
+  {
+    const s = await session({ w: 412, h: 915, extraLS: { tg_pa_view: "sheet" } });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await start(s.p); await bot(s.p);
+    await s.p.addStyleTag({ content: ".gprun.fwd{transition:right .6s ease-out,left 2.4s cubic-bezier(.2,.8,.25,1) .1s !important}.gprun.back{transition:left .6s ease-out,right 2.4s cubic-bezier(.2,.8,.25,1) .1s !important}" });
+    let shot = false;
+    for (let i = 0; i < 400 && !shot; i++) {
+      const w = await s.p.evaluate(() => { const r = document.querySelector(".gprun"), l = document.querySelector(".gpw.lit, .gpb.lit"); return r && l ? [r.getBoundingClientRect().width, l.getBoundingClientRect().width] : null; });
+      if (w && w[0] > w[1] * 2.2) { await s.p.screenshot({ path: `${OUT}/sheet-run-midway.png`, clip: { x: 0, y: 500, width: 412, height: 415 } }); shot = true; }
+      else await s.p.waitForTimeout(30);
+    }
+    await stopBot(s.p);
+    rec("sheet-run-picture", shot, shot ? "caught the light stretched across the keys (sheet-run-midway.png)" : "never caught the light mid-run");
     await done(s);
   }
   // the layout holds on a small phone, with both hands (a grand staff), on a phone turned sideways and on a tablet
@@ -698,10 +745,17 @@ if (want("sheet")) {
     const r = await s.p.evaluate((boxSrc) => {
       const box = new Function(boxSrc + "return box;")();
       const q = (x) => document.querySelector(x);
-      return { cls: q(".songov").className, staff: box(q(".songstaffwrap")), pastaff: box(q(".pastaff")), stage: box(q(".songstage")), piano: box(q(".gpwrap")), hdr: box(q(".songhdr")), hud: box(q(".songhud")), overflowX: document.documentElement.scrollWidth > window.innerWidth, vh: window.innerHeight, gems: window.__paTest.gems(), notes: q(".pastaff-move") ? q(".pastaff-move").querySelectorAll("ellipse").length : 0 };
+      return { cls: q(".songov").className, staff: box(q(".songstaffwrap")), pastaff: box(q(".pastaff")), stage: box(q(".songstage")), piano: box(q(".gpwrap")), hdr: box(q(".songhdr")), hud: box(q(".songhud")), overflowX: document.documentElement.scrollWidth > window.innerWidth, vh: window.innerHeight, gems: window.__paTest.gems(), notes: q(".pastaff-move") ? q(".pastaff-move").querySelectorAll("ellipse").length : 0, litKeys: [...document.querySelectorAll(".gpw.lit, .gpb.lit")].map(x => box(x)), runners: [...document.querySelectorAll(".gprun")].map(x => box(x)) };
     }, box);
+    // the running light is on the key it is for, on every keyboard (its own arithmetic: the right hand's two octaves from C4, the left's from C2, both hands' four from C3);
+    // a note may have just changed, so look again for a moment until it has settled
+    const onKey = (r) => r.litKeys.length >= 1 && r.runners.length >= 1 && r.runners.every(x => r.litKeys.some(k => Math.abs((x.l + x.r) / 2 - (k.l + k.r) / 2) <= 2 && Math.abs(x.w - k.w) <= 3));
+    for (let i = 0; i < 8 && !onKey(r); i++) {
+      await s.p.waitForTimeout(150);
+      Object.assign(r, await s.p.evaluate((boxSrc) => { const box = new Function(boxSrc + "return box;")(); return { litKeys: [...document.querySelectorAll(".gpw.lit, .gpb.lit")].map(x => box(x)), runners: [...document.querySelectorAll(".gprun")].map(x => box(x)) }; }, box));
+    }
     await s.p.screenshot({ path: `${OUT}/sheet-${tag.replace(/\s/g, "-")}.png` });
-    rec(`sheet-layout-${tag.replace(/\s/g, "-")}`, /pl-sheet/.test(r.cls) && r.gems === 0 && Math.abs(r.piano.t - r.staff.b) <= 3 && r.staff.t >= r.stage.b - 3 && r.stage.h >= 40 && !r.overflowX && r.piano.b <= r.vh + 1 && r.notes >= 3, `${tag} ${w}×${h} (${hand} hand): staff ${r.staff.t}–${r.staff.b} (${r.pastaff.h}px) on the keys at ${r.piano.t} · stage strip ${r.stage.h}px · ${r.notes} note heads on the page · sideways scroll ${r.overflowX}`);
+    rec(`sheet-layout-${tag.replace(/\s/g, "-")}`, /pl-sheet/.test(r.cls) && r.gems === 0 && Math.abs(r.piano.t - r.staff.b) <= 3 && r.staff.t >= r.stage.b - 3 && r.stage.h >= 40 && !r.overflowX && r.piano.b <= r.vh + 1 && r.notes >= 3 && onKey(r), `${tag} ${w}×${h} (${hand} hand): staff ${r.staff.t}–${r.staff.b} (${r.pastaff.h}px) on the keys at ${r.piano.t} · stage strip ${r.stage.h}px · ${r.notes} note heads on the page · sideways scroll ${r.overflowX} · ${r.litKeys.length} key lit, ${r.runners.length} light on ${r.runners.length ? "it" : "nothing"}${onKey(r) ? "" : " — NOT on the lit key " + JSON.stringify(r.runners.map(x => [x.l, x.w])) + " vs " + JSON.stringify(r.litKeys.map(x => [x.l, x.w]))}`);
     await done(s);
   }
   // the choice is kept, and the ready screen says what the sheet view is

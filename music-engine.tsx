@@ -51,6 +51,18 @@ export function noteKeyFrac(note, baseOct = 4, nwOverride) {
   if (m[2] === "#") return { cx: (base + 1) / NW, w: (1 / NW) * 0.62 };
   return { cx: (base + 0.5) / NW, w: 1 / NW };
 }
+/* Where a note's key sits on a GamePiano of this range, as a % of the key row — the same arithmetic GamePiano lays its keys
+   out with, so a light drawn from it lands on the key. null when the note is not on that keyboard (noteKeyFrac clamps instead). */
+export function gpKeyBox(note, baseOct = 4, octs = 2) {
+  const m = String(note || "").match(/^([A-G])(#?)(\d)$/);
+  if (!m) return null;
+  const NW = octs * 7;
+  const wi = (parseInt(m[3], 10) - baseOct) * 7 + _WHITE_ORD[m[1]];
+  if (wi < 0 || wi > NW - 1) return null;
+  if (m[2] !== "#") return { left: (wi / NW) * 100, width: 100 / NW, black: false };
+  const bw = (100 / NW) * 0.62;
+  return { left: ((wi + 1) / NW) * 100 - bw / 2, width: bw, black: true };
+}
 
 export const _FLAT2 = { DB: "C#", EB: "D#", GB: "F#", AB: "G#", BB: "A#", CB: "B", FB: "E" };
 export function normSongNote(note) {
@@ -2616,9 +2628,11 @@ export const Piano = memo(function Piano({ litNote = null, litSet = null, finger
 });
 
 export const SP_WKW = 30, SP_GAP = 2, SP_BKW = 19; // white width, gap, black width
-export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, fingerMap = null, onNote = null, baseOct = 4, octs = 2, scroll = false, fullWidth = false, litColors = null }) {
+export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null, fingerMap = null, onNote = null, baseOct = 4, octs = 2, scroll = false, fullWidth = false, litColors = null, runners = null }) {
   // litColors (optional): { note: css colour } — a lit key takes the colour of
   // the note coming down its lane (Play Along); read as --kc by the styles
+  // runners (optional): [{ left, width, black, dir }] from gpKeyBox — the light that runs along the top of the keys to the next
+  // one (Play Along's sheet view); dir is which way it last moved, so its leading edge can lead (see .gprun)
   const kc = (n) => (litColors && litColors[n] ? { "--kc": litColors[n] } as any : undefined);
   const { held, flash, onKeyPointerDown, onKeyPointerMove, onKeyPointerUp } = usePianoKeys(onNote);
   const scrollerRef = useRef(null);
@@ -2701,6 +2715,10 @@ export const GamePiano = memo(function GamePiano({ litNote = null, litSet = null
             aria-label={k.l}>
             {isLit(k.n) && fingerMap && fingerMap[k.n] != null && <span className="gpfinger">{fingerMap[k.n]}</span>}
           </button>
+        ))}
+        {runners && runners.map((r, i) => (
+          <i key={i} aria-hidden="true" className={`gprun${r.black ? " b" : ""}${r.dir > 0 ? " fwd" : r.dir < 0 ? " back" : ""}`}
+            style={{ left: r.left + "%", right: (100 - r.left - r.width) + "%" }} />
         ))}
       </div>
     </div>

@@ -17,7 +17,7 @@
    own theme, white in light mode and dark in dark mode (owner, 2026-09-30) —
    see the block at the end of this sheet. ── */
 export const PA_CSS = `
-.songov.playal,.tg .songov.playal{background:#070318;color:#f4f1ff;--pl-mag:#ff3cd2;--pl-cyan:#3ce6ff;--pl-vio:#8c46ff;--pl-ink:#f4f1ff;--pl-dim:#b9b0e6;--pl-faint:#8f86c0;--pl-panel:rgba(20,11,51,.78);--pl-line:rgba(140,70,255,.3)}
+.songov.playal,.tg .songov.playal{background:#070318;color:#f4f1ff;--pl-mag:#ff3cd2;--pl-cyan:#3ce6ff;--pl-run:#2cc6ff;--pl-vio:#8c46ff;--pl-ink:#f4f1ff;--pl-dim:#b9b0e6;--pl-faint:#8f86c0;--pl-panel:rgba(20,11,51,.78);--pl-line:rgba(140,70,255,.3)}
 .songov.playal .pl-num{font-variant-numeric:tabular-nums}
 /* header */
 .songov.playal .songhdr,.tg .songov.playal .songhdr{background:rgba(7,3,24,.94);border-bottom:1px solid var(--pl-line);color:var(--pl-ink)}
@@ -175,6 +175,17 @@ export const PA_CSS = `
 .songov.playal .gpb{background:#05020f;border-color:#2a1d5c;box-shadow:0 4px 8px rgba(0,0,0,.8)}
 .songov.playal .gpb.lit{background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 60%),var(--kc,#ff3cd2);box-shadow:0 0 16px var(--kc,rgba(255,60,210,.75))}
 .songov.playal .gpfinger{background:var(--pl-vio)}
+/* the sheet view's keys (owner, 2026-10-01): the key that is due next is lit neon blue — the one colour, where a falling gem
+   gives each lane its own — and a light runs along the top of the keys to it. The light is one element per lit key (GamePiano
+   runners); its left and right edges are both transitioned, and the edge facing the way it goes is the quick one, so it
+   stretches across to the next key and settles there. Still when nothing moves; it moves only when the next key changes. */
+.songov.playal.pl-sheet .gpw.lit,.songov.playal.pl-sheet .gpb.lit{--kc:var(--pl-run)}
+.songov.playal.pl-sheet .gpw.lit{box-shadow:0 0 14px var(--kc),0 0 34px rgba(44,198,255,.5),inset 0 0 12px rgba(255,255,255,.4)}
+.songov.playal.pl-sheet .gpb.lit{box-shadow:0 0 12px var(--kc),0 0 26px rgba(44,198,255,.55),inset 0 0 8px rgba(255,255,255,.4)}
+.songov.playal .gprun{position:absolute;z-index:7;top:-4px;height:7px;border-radius:4px;pointer-events:none;background:linear-gradient(90deg,rgba(96,214,255,.75),#d9f8ff 26%,#d9f8ff 74%,rgba(96,214,255,.75));box-shadow:0 0 6px 1px #bff0ff,0 0 14px 4px var(--pl-run),0 0 30px 8px rgba(44,198,255,.55);transition:left .26s cubic-bezier(.2,.8,.25,1),right .26s cubic-bezier(.2,.8,.25,1);animation:pl-runin .2s ease-out}
+.songov.playal .gprun.fwd{transition:right .12s ease-out,left .3s cubic-bezier(.2,.8,.25,1) .04s}
+.songov.playal .gprun.back{transition:left .12s ease-out,right .3s cubic-bezier(.2,.8,.25,1) .04s}
+@keyframes pl-runin{from{opacity:0}to{opacity:1}}
 /* result screen */
 .songov.playal .songresult,.tg .songov.playal .songresult{background:#070318;color:var(--pl-ink);padding:14px 16px calc(20px + env(safe-area-inset-bottom,0px));gap:12px;align-items:stretch;text-align:center}
 .songov.playal .songresult>:first-child{margin-top:0}
@@ -278,6 +289,7 @@ html[data-theme="dark"] .songov.pl-themed .pl-kindnote{color:#8fe3b8}
 @media (prefers-reduced-motion: reduce){
   .songov.playal .songstage.shake,.songov.playal .bosshud.fx-attack,.songov.playal .bosshud .bosshud-face,.pl-intro-hint,.pl-bigstars span.on{animation:none !important}
   .songov.playal .gpw.pressed::after,.songov.playal .gpb.pressed::after{display:none}
+  .songov.playal .gprun,.songov.playal .gprun.fwd,.songov.playal .gprun.back{transition:none;animation:none}
   .pl-medalslot.new{animation:none}
 }
 `;
