@@ -304,6 +304,22 @@ export function capabilityWorklist(limit = 50) { return getCapabilityEngine().wo
 export function capabilityPillars() { try { return getCapabilityEngine().pillars(); } catch (e) { return []; } }
 export function capabilityPillarProbe(domain) { try { return getCapabilityEngine().pillarProbe(domain); } catch (e) { return null; } }
 
+/* ── plan v3 ระลอก 7 (7.1/7.2) — LEARNER EVIDENCE. Pure aggregator over the
+   REAL closed-loop rows (tg_atip_outcomes, use-autoteach.ts): per-strategy
+   before/after accuracy, n<30 = "หลักฐานไม่พอ", no rows = null. The caller
+   passes its own rows — the app reads localStorage, the smokes craft their
+   own — one pure path for every surface (Lab scoreboard 7.2, later 7.3). ── */
+import { strategyEvidence as _strategyEvidence, STRATEGY_EVIDENCE_MIN_N as _EV_MIN_N } from "./teaching/evidence.js";
+export const STRATEGY_EVIDENCE_MIN = _EV_MIN_N;
+export function strategyEvidenceFromRows(rows) { try { return _strategyEvidence(rows); } catch (e) { return null; } }
+export function learnerEvidenceNow() {
+  try {
+    let rows = [];
+    if (typeof localStorage !== "undefined") rows = JSON.parse(localStorage.getItem("tg_atip_outcomes") || "[]") || [];
+    return _strategyEvidence(rows);
+  } catch (e) { return null; }
+}
+
 /* ── Exercise generation (capability "gen"): real KB-backed exercises from
    computed data — deterministic per seed, level 1-5, every topic. ── */
 export function generateStudentExercise(topic, level, seed) {

@@ -302,6 +302,7 @@ export function TigamodelLab({ lang = "th" }) {
         <button style={S.chip(tab === "cap")} onClick={() => setTab("cap")}>⚡ {T("ความพร้อมโมเดล", "Readiness", "模型能力")}</button>
         <button style={S.chip(tab === "specialist")} onClick={() => setTab("specialist")}>🎛 {T("โมเดลเชี่ยวชาญ", "Specialists", "专长模型")}</button>
         <button style={S.chip(tab === "atip")} onClick={() => setTab("atip")}>🎓 {T("Auto-Teach 2.0", "Auto-Teach 2.0", "Auto-Teach 2.0")}</button>
+        <button style={S.chip(tab === "evidence")} onClick={() => setTab("evidence")}>🔍 {T("หลักฐานจริง", "Evidence", "真实证据")}</button>
       </div>
 
       {!ready && <div style={S.card}>{T("กำลังเริ่มระบบ…", "Starting…", "启动中…")}</div>}
@@ -309,6 +310,7 @@ export function TigamodelLab({ lang = "th" }) {
       {ready && tab === "kb" && <KnowledgePanel lang={lang} S={S} />}
 
       {ready && tab === "atip" && <AtipPreview lang={lang} S={S} />}
+      {ready && tab === "evidence" && <EvidencePanel lang={lang} S={S} T={T} />}
 
       {ready && tab === "map" && <KnowledgeGraphView lang={lang} S={S} />}
 
@@ -1319,6 +1321,76 @@ function AtipPreview({ lang = "th", S }) {
           <button type="button" onClick={() => { setSeed(s => s + 1); setPicked(null); }} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "1px solid var(--bd2,rgba(0,0,0,0.1))", background: "transparent", color: "var(--text)", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>🎲 {KC.next}</button>
           <button type="button" style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", opacity: 0.7 }}>{lang === "th" ? "เข้าใจแล้ว ลองเลย" : lang === "zh" ? "知道了，试试看" : "Got it, let's try"}</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── EvidencePanel — plan v3 ระลอก 7 (7.2) — THE STRATEGY SCOREBOARD over
+   REAL learner evidence. One row per strategy: n · win rate · mean before→
+   after · mean delta, aggregated by strategyEvidenceFromRows from the REAL
+   tg_atip_outcomes rows the auto-teaching closed loop already writes — this
+   tab invents nothing of its own. The 7.2 gate is visible: n < 30 →
+   "หลักฐานไม่พอ" (viewable, not decidable — honest-null, same rule as
+   12.3/12.5). Lab itself sits behind the admin_tier ≥ 3 gate in App.tsx, so
+   this surface is admin-only by construction (แผน 7.2: เห็นเฉพาะแอดมิน). ── */
+function EvidencePanel({ lang, S, T }) {
+  const [ev, setEv] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        await ensureTigamodelWeb();
+        const m = getTigamodel();
+        if (dead) return;
+        setEv(m && m.learnerEvidenceNow ? m.learnerEvidenceNow() : null);
+      } catch (e) { setEv(null); }
+      if (!dead) setLoaded(true);
+    })();
+    return () => { dead = true; };
+  }, []);
+  const L = {
+    th: { t: "หลักฐานจากผู้เรียนจริง — ต่อกลยุทธ์", sub: "รวมจากวงจรปิด Auto-Teaching (tg_atip_outcomes) บนเครื่องนี้ · n < 30 = ดูได้ ตัดสินไม่ได้", n: "จำนวนรอบจริง", win: "อัตราชนะ", after: "หลังเฉลี่ย", delta: "เปลี่ยนแปลงเฉลี่ย", enough: "ตัดสินได้", notEnough: "หลักฐานไม่พอ", empty: "ยังไม่มีหลักฐานจากผู้เรียนจริงบนเครื่องนี้ — วงจรปิด (ยิง tip → ซ้อม → เทียบผล) จะเขียนแถวหลักฐานเองตอนใช้งานจริง", unattr: "แถวที่ผูกกลยุทธ์ไม่ได้ (นับตรง ๆ ไม่เดาที่มา)", total: "แถวหลักฐานรวม", decidable: "กลยุทธ์ที่ตัดสินได้แล้ว", improved: "ดีขึ้น", worse: "แย่ลง", flat: "คงที่/ลอย" },
+    en: { t: "Real learner evidence — per strategy", sub: "Aggregated from the Auto-Teaching closed loop (tg_atip_outcomes) on this device · n < 30 = viewable, not decidable", n: "real rounds", win: "win rate", after: "mean after", delta: "mean delta", enough: "decidable", notEnough: "not enough evidence", empty: "No real learner evidence on this device yet — the closed loop (tip fired → practice → outcome) writes it as the learner plays", unattr: "Rows without a strategy (counted honestly, never guessed)", total: "evidence rows", decidable: "decidable strategies", improved: "improved", worse: "worse", flat: "flat/floating" },
+    zh: { t: "真实学习者证据——按策略", sub: "汇总自自动教学闭环（tg_atip_outcomes）本机数据 · n < 30 = 可查看，不能决策", n: "真实轮数", win: "胜率", after: "平均后测", delta: "平均变化", enough: "可决策", notEnough: "证据不足", empty: "本机尚无真实学习者证据——闭环（出提示 → 练习 → 比对结果）会在真实使用中自行写入", unattr: "无法归属策略的记录（如实计数，不猜测）", total: "证据记录", decidable: "可决策策略", improved: "变好", worse: "变差", flat: "持平/漂浮" },
+  }[lang] || {};
+  const rows = ev && ev.strategies ? ev.strategies : [];
+  return (
+    <div>
+      <div style={S.card}>
+        <div style={{ ...S.h2, marginBottom: 6 }}>🔍 {L.t}</div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10, lineHeight: 1.5 }}>{L.sub}</div>
+        {!loaded ? (
+          <div style={{ fontSize: 13, color: "var(--muted)" }}>{T("กำลังอ่านหลักฐาน…", "Reading evidence…", "正在读取证据…")}</div>
+        ) : rows.length === 0 ? (
+          <div style={{ fontSize: 13, color: "var(--muted)", padding: "8px 0" }}>🕊 {L.empty}</div>
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12.5, marginBottom: 10 }}>
+              <span>{L.total}: <b>{ev.total}</b>{ev.unattributed ? ` · ${L.unattr}: ${ev.unattributed}` : ""}</span>
+              <span>{L.decidable}: <b style={{ color: ev.strategiesDecidable > 0 ? S.good : S.warn }}>{ev.strategiesDecidable}</b>/{ev.strategiesWithEvidence}</span>
+            </div>
+            {rows.map(s => (
+              <div key={s.strategyId} style={{ padding: "9px 0", borderBottom: "1px solid var(--bd1)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+                  <b style={{ fontSize: 13 }}>{s.strategyId}</b>
+                  <span style={{ ...S.mono, fontSize: 11.5, color: s.enough ? S.good : S.warn }}>
+                    {s.enough ? `✓ ${L.enough}` : `⏳ ${L.notEnough}`}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12.5, marginTop: 3 }}>
+                  <span>{L.n} <b>{s.n}</b></span>
+                  <span>{L.win} <b style={{ color: (s.winRate || 0) >= 0.5 ? S.good : S.warn }}>{s.winRate != null ? Math.round(s.winRate * 100) + "%" : "—"}</b></span>
+                  <span>{L.after} <b>{s.meanAfter != null ? s.meanAfter + "%" : "—"}</b></span>
+                  <span>{L.delta} <b style={{ color: (s.meanDelta || 0) > 0 ? S.good : (s.meanDelta || 0) < 0 ? S.bad : "inherit" }}>{s.meanDelta != null ? (s.meanDelta > 0 ? "+" : "") + s.meanDelta : "—"}</b></span>
+                  <span style={{ color: "var(--muted)", fontSize: 11.5 }}>▲{s.improved} ▼{s.worse} ·{s.flat}</span>
+                </div>
+                {!s.enough && s.enoughNote && <div style={{ ...S.mono, fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>{s.enoughNote[lang] || s.enoughNote.th}</div>}
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
