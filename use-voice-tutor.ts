@@ -693,7 +693,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   // LLM still writes the reply and still emits the [song:…]/[practice:…]/[ear:…]
   // tags itself (vmParseSegments parses those exactly as before), but now with a
   // grounded guess of WHICH action and WHICH song id instead of having to infer
-  // both from free text across 180 songs. Disabled/slow Jev → hint omitted, the
+  // both from free text across 600+ songs. Disabled/slow Jev → hint omitted, the
   // lesson behaves exactly as before.
   async function jevVoiceHint(text) {
     try {

@@ -1,3 +1,5 @@
+import { CLASSICAL_SONGS, CLASSICAL_ERAS, CLASSICAL_TIMESIG } from "./songs-classical";
+
 export const SONGS = [
   { id: "scale", diff: 1, bpm: 90,
     th: "สเกล C เมเจอร์", en: "C Major Scale", zh: "C大调音阶",
@@ -1405,6 +1407,11 @@ export const SONGS = [
           ["F4",1],["A4",0.5],["D5",0.5],["C5",1],["A4",1],
           ["G4",0.5],["F4",0.5],["E4",1],["D4",1],["D4",2]] },
 ];
+// the public-domain classical pieces (songs-src/classical → scripts/build-songs.mjs → songs-classical.ts) follow, in the
+// order of the sources, so the song order every "next song" walk uses is: these, then the classical ones
+SONGS.push(...CLASSICAL_SONGS);
+/** the ids of those pieces: the features that pick a song at random for a quiz or a quick session keep to the songs people know */
+export const CLASSICAL_IDS: Set<string> = new Set(CLASSICAL_SONGS.map(s => s.id));
 
 export const SONG_GENRES: Record<string, string> = {
   // 👶 Kids — nursery rhymes & children's songs
@@ -1452,38 +1459,39 @@ export const SONG_GENRES: Record<string, string> = {
   soul_groove_vamp:"soul", soul_call_response:"soul", soul_motown_step:"soul", soul_sunday_feel:"soul",
   neosoul_velvet:"neosoul", neosoul_sway:"neosoul", neosoul_late_night:"neosoul", neosoul_dorian_dream:"neosoul",
 
-  // 🎹 Classical — Western art music
-  scale:"classical", ode:"classical", furelise:"classical", minuet_g:"classical",
-  entertainer:"classical", turkish_march:"classical", blue_danube:"classical",
-  william_tell:"classical", symphony5:"classical", spring_vivaldi:"classical",
-  canon_d:"classical", prelude_c:"classical", moonlight:"classical",
-  gymnopedié:"classical", nocturne_op9:"classical", ave_maria:"classical",
-  clair_lune:"classical", air_g:"classical", jesu_joy:"classical",
-  toccata_dm:"classical", invention1:"classical", hallelujah_h:"classical",
-  queen_sheba:"classical", water_music:"classical", sarabande:"classical",
-  winter_viv:"classical", summer_viv:"classical", autumn_viv:"classical",
-  surprise_h:"classical", serenade_h:"classical", emperor_h:"classical",
-  kleine_n:"classical", piano_545:"classical", sym40_moz:"classical",
-  lacrimosa:"classical", sonatina_g:"classical", pathetique:"classical",
-  spring_son:"classical", serenade_sch:"classical", military_sch:"classical",
-  wedding_men:"classical", spring_song_men:"classical", traumerei:"classical",
-  happy_farmer:"classical", waltz_min:"classical", raindrop_ch:"classical",
-  lullaby_bra:"classical", hungarian5:"classical", humoresque_dv:"classical",
-  new_world:"classical", morning_gr:"classical", mountain_king:"classical",
-  anitra_gr:"classical", swan_lake_t:"classical", nutcracker_t:"classical",
-  sugar_plum:"classical", sleeping_b:"classical", piano_con_t:"classical",
-  the_swan:"classical", liebestraum:"classical", can_can:"classical",
-  habanera:"classical", toreador:"classical", la_donna:"classical",
-  grand_march_v:"classical", nessun_dorma:"classical", mi_babbino:"classical",
-  bridal_wag:"classical", land_hope:"classical", finlandia:"classical",
-  radetzky:"classical", night_bald:"classical", flight_bumb:"classical",
-  polots_bor:"classical", minuet_boc:"classical", wild_rose:"classical",
-  maple_leaf:"classical", study_czerny:"classical", clementi_son:"classical",
-  burgmuller_ar:"classical", beethoven_sot:"classical", handel_mess:"classical",
-  nimrod_el:"classical", caprice24:"classical", barcarolle:"classical",
-  slavonic_dv:"classical", dance_hours:"classical", intermezzo_br:"classical",
-  wild_horse_sch:"classical", violin_men:"classical", tristesse_ch:"classical",
-  promenade_mus:"classical",
+  // 🎹 Western art music, by era (owner, 2026-10-01: the song list is divided Baroque / Classical / Romantic /
+  // Impressionism). The pieces added in songs-classical.ts carry their era the same way (CLASSICAL_ERAS, merged below).
+  // Two that are not art music of those eras moved out: the C major scale to kids (a first exercise) and Joplin's rags to jazz.
+  // Baroque
+  minuet_g:"baroque", spring_vivaldi:"baroque", canon_d:"baroque", prelude_c:"baroque", air_g:"baroque",
+  jesu_joy:"baroque", toccata_dm:"baroque", invention1:"baroque", hallelujah_h:"baroque", queen_sheba:"baroque",
+  water_music:"baroque", sarabande:"baroque", winter_viv:"baroque", summer_viv:"baroque", autumn_viv:"baroque",
+  handel_mess:"baroque",
+  // Classical
+  ode:"classical", furelise:"classical", turkish_march:"classical", symphony5:"classical", moonlight:"classical",
+  surprise_h:"classical", serenade_h:"classical", emperor_h:"classical", kleine_n:"classical", piano_545:"classical",
+  sym40_moz:"classical", lacrimosa:"classical", sonatina_g:"classical", pathetique:"classical",
+  spring_son:"classical", minuet_boc:"classical", clementi_son:"classical", beethoven_sot:"classical",
+  // Romantic
+  blue_danube:"romantic", william_tell:"romantic", nocturne_op9:"romantic", ave_maria:"romantic",
+  serenade_sch:"romantic", military_sch:"romantic", wedding_men:"romantic", spring_song_men:"romantic",
+  traumerei:"romantic", happy_farmer:"romantic", waltz_min:"romantic", raindrop_ch:"romantic",
+  lullaby_bra:"romantic", hungarian5:"romantic", humoresque_dv:"romantic", new_world:"romantic",
+  morning_gr:"romantic", mountain_king:"romantic", anitra_gr:"romantic", swan_lake_t:"romantic",
+  nutcracker_t:"romantic", sugar_plum:"romantic", sleeping_b:"romantic", piano_con_t:"romantic", the_swan:"romantic",
+  liebestraum:"romantic", can_can:"romantic", habanera:"romantic", toreador:"romantic", la_donna:"romantic",
+  grand_march_v:"romantic", nessun_dorma:"romantic", mi_babbino:"romantic", bridal_wag:"romantic",
+  land_hope:"romantic", finlandia:"romantic", radetzky:"romantic", night_bald:"romantic", flight_bumb:"romantic",
+  polots_bor:"romantic", wild_rose:"romantic", study_czerny:"romantic", burgmuller_ar:"romantic",
+  nimrod_el:"romantic", caprice24:"romantic", barcarolle:"romantic", slavonic_dv:"romantic", dance_hours:"romantic",
+  intermezzo_br:"romantic", wild_horse_sch:"romantic", violin_men:"romantic", tristesse_ch:"romantic",
+  promenade_mus:"romantic",
+  // Impressionism
+  gymnopedié:"impressionism", clair_lune:"impressionism",
+  // ragtime (jazz)
+  entertainer:"jazz", maple_leaf:"jazz",
+  // first exercise (kids)
+  scale:"kids",
 };
 
 // Time signature shown on the Play Along reading staff. Only pieces whose
@@ -1506,3 +1514,21 @@ export const SONG_TIMESIG: Record<string, string> = {
   birthday: "3/4", silent_night: "3/4", scarborough: "3/4", o_xmas_tree: "3/4",
   "gymnopedié": "3/4", down_valley: "3/4", sleeping_b: "3/4",
 };
+
+// the classical pieces' own era and time signature, merged with the ones above (songs-classical.ts is generated)
+Object.assign(SONG_GENRES, CLASSICAL_ERAS);
+Object.assign(SONG_TIMESIG, CLASSICAL_TIMESIG);
+
+/* The four eras the classical repertoire is divided into on the song list (owner, 2026-10-01). Each is also a value of
+   SONG_GENRES, so the era chips use the same filter as the genre chips; `span` and `who` are the line shown under the chips
+   when one is chosen. */
+export const SONG_ERAS = [
+  { code: "baroque",       icon: "🎻", span: "1600–1750", th: "บาโรก",            en: "Baroque",       zh: "巴洛克",
+    who: { th: "บาค · ฮันเดล · วิวัลดี",          en: "Bach · Handel · Vivaldi",          zh: "巴赫 · 亨德尔 · 维瓦尔第" } },
+  { code: "classical",     icon: "🏛️", span: "1750–1820", th: "คลาสสิก",          en: "Classical",     zh: "古典主义",
+    who: { th: "โมสาร์ท · ไฮเดิน · เบโธเฟน",       en: "Mozart · Haydn · Beethoven",       zh: "莫扎特 · 海顿 · 贝多芬" } },
+  { code: "romantic",      icon: "🌹", span: "1820–1900", th: "โรแมนติก",         en: "Romantic",      zh: "浪漫主义",
+    who: { th: "โชแปง · ชูมันน์ · ไชคอฟสกี",       en: "Chopin · Schumann · Tchaikovsky",  zh: "肖邦 · 舒曼 · 柴可夫斯基" } },
+  { code: "impressionism", icon: "🌊", span: "1890–1920", th: "อิมเพรสชันนิสม์", en: "Impressionism", zh: "印象派",
+    who: { th: "เดอบูว์ซี · ซาตี · ลีลี บูล็องเฌร์",   en: "Debussy · Satie · Lili Boulanger", zh: "德彪西 · 萨蒂 · 莉莉·布朗热" } },
+];

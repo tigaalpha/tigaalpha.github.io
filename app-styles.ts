@@ -2753,6 +2753,13 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .genrefilters::-webkit-scrollbar{display:none}
 .genrechip{flex:0 0 auto;padding:5px 13px;border-radius:18px;border:1.5px solid var(--bd2);background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
 .genrechip.active{background:#6c47ff;border-color:#6c47ff;color:#fff}
+/* the line under the chips when an era is chosen: its years, its composers, how many pieces */
+.erainfo{padding:0 16px 8px;font-size:12px;line-height:1.35;color:var(--muted)}
+.erainfo b{color:var(--text);font-weight:700}
+/* the library is long (500+ songs): cards that are off the screen are neither laid out nor painted until they scroll near */
+.songgrid>.songcard{content-visibility:auto;contain-intrinsic-size:auto 72px}
+/* a long title (the classical ones carry a catalogue number and the composer) wraps before the favourite star in the corner, not under it */
+.songgrid .songcard-nm{padding-right:26px;overflow-wrap:anywhere}
 .drillhint{padding:0 16px 10px;margin:0;color:var(--muted);font-size:12.5px;line-height:1.45}
 .songcontinue{padding:0 14px 4px}
 .songcontinue .songcard{width:100%;box-sizing:border-box} /* a button shrinks to its text outside the grid */
