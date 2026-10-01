@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, memo } from "react";
 import { L, tr } from "./i18n";
-import { PlayAlongStaff, GamePiano, laneHue } from "./music-engine";
+import { PlayAlongStaff, GamePiano, laneHue, gpKeyBox } from "./music-engine";
 import { CountUp } from "./app-shell";
 import { useGameField } from "./play-along-store";
 import { songStars, songBestAcc, songLengthSec, readDailyState, DAILY_SONG_REWARD, logSongMood } from "./play-along-progress";
@@ -221,17 +221,39 @@ const PaStageFrame = memo(function PaStageFrame({ store, children }) {
   const fever = useGameField(store, "songFever");
   return <div className={`songstage${shake ? " shake" : ""}${fever ? " fever" : ""}`}>{fever && <div className="feverbg" />}{children}</div>;
 });
-const PaPiano = memo(function PaPiano({ store, handMode, onNote }) {
+const PaPiano = memo(function PaPiano({ store, handMode, sheet, onNote }) {
   const lit1 = useGameField(store, "songNextLit");
   const lit2 = useGameField(store, "songNextLit2");
   const fm = useGameField(store, "songFingerMap");
+  const baseOct = handMode === "left" ? 2 : handMode === "both" ? 3 : 4;
+  const octs = handMode === "both" ? 4 : 2;
   const litSet = useMemo(() => [lit1, lit2].filter(Boolean), [lit1, lit2]);
-  // each lit key glows in its lane's colour, the colour of the gem falling to it
-  const litColors = useMemo(() => { const m = {}; for (const n of litSet) m[n] = `hsl(${Math.round(laneHue(n))},100%,62%)`; return m; }, [litSet]);
+  // each lit key glows in its lane's colour, the colour of the gem falling to it; the sheet view has no gems, so its lit keys
+  // wear one neon blue instead (owner, 2026-10-01 — the colour is in the styles, `.pl-sheet .gpw.lit`)
+  const litColors = useMemo(() => {
+    if (sheet) return null;
+    const m = {}; for (const n of litSet) m[n] = `hsl(${Math.round(laneHue(n))},100%,62%)`;
+    return m;
+  }, [litSet, sheet]);
+  // the sheet view's running light (owner, 2026-10-01): along the top of the keys, to the key that is due next. It remembers
+  // where it was so that the edge facing the way it goes leads and the other follows — it stretches across, then settles.
+  // The memory is written after the commit, not during the render, so StrictMode's second render reads the same past.
+  const prevRun = useRef([]);
+  const runners = useMemo(() => {
+    if (!sheet) return null;
+    const out = [];
+    litSet.forEach((n, i) => {
+      const b = gpKeyBox(n, baseOct, octs);
+      if (!b) return;
+      const cx = b.left + b.width / 2, p = prevRun.current[i];
+      out.push({ ...b, cx, dir: p ? Math.sign(cx - p.cx) : 0 });
+    });
+    return out;
+  }, [sheet, litSet, baseOct, octs]);
+  useEffect(() => { prevRun.current = runners || []; }, [runners]);
   return (
-    <GamePiano fullWidth litSet={litSet} fingerMap={fm} litColors={litColors}
-      baseOct={handMode === "left" ? 2 : handMode === "both" ? 3 : 4}
-      octs={handMode === "both" ? 4 : 2}
+    <GamePiano fullWidth litSet={litSet} fingerMap={fm} litColors={litColors} runners={runners}
+      baseOct={baseOct} octs={octs}
       onNote={onNote} />
   );
 });
@@ -513,7 +535,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                   {!songMeta.custom && <div className="pl-goal">{goalText}</div>}
                   {isDaily && !daily.done && <div className="pl-daily">📆 {T(`เพลงประจำวัน · ได้ 1 ดาวขึ้นไปรับ ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `Today's song · 1 star or more pays ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `今日歌曲 · 得 1 星以上奖励 ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`)}</div>}
                   {songKind && <div className="pl-kindnote">{T("โหมดใจดีเปิดอยู่ — ช่วงรับโน้ตกว้างขึ้น", "Kind mode is on — a wider timing window", "宽松模式已开启 — 判定更宽")}</div>}
-                  {sheetView && <div className="pl-kindnote">📖 {T("โหมดโน้ตเพลง — ไม่มีโน้ตตก และไม่มีคีย์เรืองแสงบอกทาง อ่านโน้ตแล้วกดให้ตรงจังหวะ", "Sheet mode — no falling notes and no lit key: read the staff and play on the beat", "乐谱模式 — 没有下落音符，也没有亮键提示：看谱，踩准节拍")}</div>}
+                  {sheetView && <div className="pl-kindnote">📖 {T("โหมดโน้ตเพลง — ไม่มีโน้ตตก อ่านโน้ตแล้วกดคีย์ที่ไฟสีฟ้าวิ่งไปหา ให้ตรงจังหวะ", "Sheet mode — no falling notes: read the staff and play the key the blue light runs to, on the beat", "乐谱模式 — 没有下落音符：看谱，按蓝色光跑到的琴键，踩准节拍")}</div>}
                   <div className="songsrc">{lc.songInputHint}</div>
                   {/* Start stays pinned to the bottom edge: the settings above it are
                       tall, and on a short phone the button must never scroll away. */}
@@ -538,7 +560,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
 
       {songPhase === "playing" && (
         <>
-          <PaPiano store={store} handMode={playAlongHand} onNote={(n) => songInputRef.current({ note: n, freq: null, source: "tap" })} />
+          <PaPiano store={store} handMode={playAlongHand} sheet={sheetView} onNote={(n) => songInputRef.current({ note: n, freq: null, source: "tap" })} />
           <PaSrc store={store} lang={lang} intro={intro} />
         </>
       )}

@@ -987,9 +987,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const sheet = sheetOn();
     const primaryNext = nextByHand.right || nextByHand.left || null;
     const secondaryNext = (nextByHand.right && nextByHand.left) ? nextByHand.left : null;
-    // sheet view lights no key: the point of it is to read the note, not to be shown the key
-    setSongNextLit(!sheet && primaryNext ? primaryNext.note : null);
-    setSongNextLit2(!sheet && secondaryNext ? secondaryNext.note : null);
+    // the next key is lit in both views — the sheet view draws it neon blue and runs a light to it (PaPiano; owner, 2026-10-01).
+    // Only the finger numbers stay out of the sheet view: reading the note is still the point of it.
+    setSongNextLit(primaryNext ? primaryNext.note : null);
+    setSongNextLit2(secondaryNext ? secondaryNext.note : null);
     const prevFm = gameStore.get().songFingerMap;
     const fm = {};
     if (!sheet && primaryNext) fm[primaryNext.note] = primaryNext.finger;
