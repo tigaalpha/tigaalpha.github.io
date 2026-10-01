@@ -246,5 +246,67 @@
     },
     "barsOk": true,
     "appVersion": "13.7.490"
+  },
+  {
+    "ts": "2026-10-01T04:51:42.636Z",
+    "loopRound": 1,
+    "loopAdvanced": false,
+    "grid": {
+      "started": 136000,
+      "startedPct": 13.6,
+      "total": 1000000
+    },
+    "routes": {
+      "ready": 1000,
+      "total": 1000,
+      "avgScore": 0.98,
+      "weakestCap": "kb"
+    },
+    "weakestPillar": "music-marketing",
+    "pillars": [
+      {
+        "domain": "music-marketing",
+        "entries": 20,
+        "min": 14,
+        "score": 1
+      },
+      {
+        "domain": "music-business",
+        "entries": 14,
+        "min": 14,
+        "score": 1
+      },
+      {
+        "domain": "music-education-market",
+        "entries": 14,
+        "min": 12,
+        "score": 1
+      },
+      {
+        "domain": "music-therapy",
+        "entries": 10,
+        "min": 10,
+        "score": 1
+      },
+      {
+        "domain": "music-innovation",
+        "entries": 50,
+        "min": 40,
+        "score": 1
+      }
+    ],
+    "perf": {
+      "allRoutesWarmMs": 0.11,
+      "summaryMs": 0.99,
+      "kbBytes": 676231,
+      "kbProbeColdMs": 0.37,
+      "kbProbeWarmMs": 0.17
+    },
+    "bundle": {
+      "bytes": 2979870,
+      "tigamodelMinifiedBytes": 1496415
+    },
+    "barsOk": true,
+    "appVersion": "13.7.493"
   }
 ]
