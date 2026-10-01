@@ -1,19 +1,19 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-30T06:16:51.835Z",
-  "appVersion": "13.7.481",
+  "generatedAt": "2026-10-01T00:09:46.436Z",
+  "appVersion": "13.7.486",
   "bundle": {
-    "file": "index.template-BHkYVrLp.js",
-    "bytes": 2951177,
+    "file": "index.template-DOjvz4XQ.js",
+    "bytes": 2962328,
     "includesTigamodel": true,
-    "tigamodelMinifiedBytes": 1473801,
+    "tigamodelMinifiedBytes": 1488417,
     "chunks": [
       {
-        "file": "index.template-BHkYVrLp.js",
-        "bytes": 2951177
+        "file": "index.template-DOjvz4XQ.js",
+        "bytes": 2962328
       },
       {
-        "file": "space3d-main-D3AharEA.js",
+        "file": "space3d-main-DXBB_-hY.js",
         "bytes": 957304
       },
       {
@@ -21,27 +21,27 @@
         "bytes": 953273
       },
       {
-        "file": "web-BjIUOa0K.js",
-        "bytes": 744592
+        "file": "web-B8Z3IW6C.js",
+        "bytes": 750071
       },
       {
-        "file": "pvp-arena-C1vJvZ1U.js",
+        "file": "pvp-arena-DYQpbcBW.js",
         "bytes": 205095
       },
       {
-        "file": "TigamodelLab-DuuZN0A4.js",
+        "file": "TigamodelLab-DboLqHPJ.js",
         "bytes": 95779
       },
       {
-        "file": "AdminActivityDashboard-BL0gCbW9.js",
+        "file": "AdminActivityDashboard-Bb2vfzf9.js",
         "bytes": 69595
       },
       {
-        "file": "TigamodelBackoffice-DMmiyuoi.js",
+        "file": "TigamodelBackoffice-DqraGTGJ.js",
         "bytes": 36080
       },
       {
-        "file": "AdminAIModels-BD2ASQaQ.js",
+        "file": "AdminAIModels-BBavSOWa.js",
         "bytes": 35442
       },
       {
@@ -53,35 +53,35 @@
         "bytes": 19633
       },
       {
-        "file": "LeadLandingPage-BJcYuOE9.js",
+        "file": "LeadLandingPage-CVAjFdmn.js",
         "bytes": 13611
       },
       {
-        "file": "ReferralDashboard-CPmDEtxu.js",
+        "file": "ReferralDashboard-BG67JrK4.js",
         "bytes": 8622
       },
       {
-        "file": "LeadSaleDashboard-DSgJslLk.js",
+        "file": "LeadSaleDashboard-gdBtbmIX.js",
         "bytes": 7607
       },
       {
-        "file": "space3d-Foz4iy5i.js",
+        "file": "space3d-eLlH7oD6.js",
         "bytes": 6174
       },
       {
-        "file": "web-UaqjHuM3.js",
+        "file": "web-JuJbTapJ.js",
         "bytes": 5340
       },
       {
-        "file": "web-UIKfYke5.js",
+        "file": "web-DQGcy3AZ.js",
         "bytes": 851
       },
       {
-        "file": "web-Bra3bsQk.js",
+        "file": "web-tKRzNeX9.js",
         "bytes": 813
       },
       {
-        "file": "web-Drt3sK4u.js",
+        "file": "web-Bw1FKjYB.js",
         "bytes": 388
       }
     ]
@@ -102,10 +102,10 @@
     "weakestCap": "kb"
   },
   "perf": {
-    "allRoutesColdMs": 100.68,
-    "allRoutesWarmMs": 0.1,
-    "summaryMs": 0.75,
-    "memoSpeedup": 1006.8
+    "allRoutesColdMs": 103.3,
+    "allRoutesWarmMs": 0.23,
+    "summaryMs": 0.78,
+    "memoSpeedup": 449.1
   },
   "kb": {
     "theoryEntries": 13414,
@@ -117,6 +117,42 @@
     "zh": true
   },
   "langsOk": true,
+  "joyShadow": {
+    "signals": [
+      "came_back_soon",
+      "played_longer",
+      "off_queue_song",
+      "first_full_combo",
+      "shared_card"
+    ],
+    "fired": [
+      "came_back_soon",
+      "played_longer",
+      "off_queue_song",
+      "first_full_combo",
+      "shared_card"
+    ],
+    "score": 5,
+    "of": 5,
+    "boredom": {
+      "signals": [
+        "wall_too_high",
+        "invisible_progress",
+        "no_song_love",
+        "lonely_practice"
+      ],
+      "kb": [
+        "edu:churn:wall-too-high",
+        "edu:churn:invisible-progress",
+        "edu:churn:no-song-love",
+        "edu:churn:lonely-practice"
+      ],
+      "score": 0,
+      "of": 4
+    },
+    "enough": false,
+    "note": "shadow until 30 loop rounds (plan 12.6) — never part of eval scores"
+  },
   "bars": [
     {
       "id": "grid-measured",
@@ -152,6 +188,18 @@
     },
     {
       "id": "preload-interaction-first",
+      "pass": true
+    },
+    {
+      "id": "joy-shadow-contract",
+      "pass": true
+    },
+    {
+      "id": "boredom-kb-contract",
+      "pass": true
+    },
+    {
+      "id": "joy-formula-smoke-guard",
       "pass": true
     }
   ],

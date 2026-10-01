@@ -12946,6 +12946,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                         </>
                       )}
                       {rep.homeworkNote && <div className="pd-sec" style={{ fontSize: 12.5 }}>📝 {rep.homeworkNote}</div>}
+                      {/* plan v3.8 ระลอก 12 (12.5) — the "สนุกกับการเรียน" line, from the
+                          12.1 joy signals over REAL logged behaviour only (the mood taps
+                          stay out of the score; nothing is invented). NO session today →
+                          the line hides entirely (ข้อมูลไม่พอ = ซ่อน). A careful,
+                          observational line for the parent — it decides nothing. */}
+                      {rep.joyToday && rep.joyToday.score != null && (
+                        <div className="pd-sec" style={{ fontSize: 12.5 }}>
+                          💛 {rep.joyToday.score >= 3 ? T("สนุกกับการเรียน — เห็นสัญญาณชัดว่าวันนี้สนุกจริง", "Enjoys learning — clear signals of genuine fun today", "享受学习——今天有明显的快乐信号")
+                            : rep.joyToday.score >= 1 ? T("มีสัญญาณเล็ก ๆ ว่าสนุกกับการเรียนวันนี้", "Small signals of enjoying learning today", "今天有一些享受学习的小信号")
+                            : T("วันนี้ยังไม่เห็นสัญญาณความสนุกพิเศษ — เป็นวันซ้อมปกติ", "No special fun signals today — an ordinary practice day", "今天没有特别的快乐信号——是普通练习的一天")}
+                        </div>
+                      )}
                       {/* plan v3.4 6.10 — KB-grounded long-term value story for the parent */}
                       {ltv && (
                         <>

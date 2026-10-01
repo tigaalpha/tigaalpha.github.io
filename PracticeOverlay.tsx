@@ -429,6 +429,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
   const tempo = data.tempo;
   const recap = data.recap;
   const ex = data.exercise;
+  const boredom = data.boredom;   // 12.4: high-risk plan swap w/ KB citations, or null = do as before
   const tx = (o) => (o ? (typeof o === "string" ? o : (o[L] || o.en || o.th)) : null);
   return (
     <div className="presultai pcoach" style={{ borderColor: "#8ad4ff" }}>
@@ -460,6 +461,20 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
             </ol>
           )}
           {ex.check && <div className="pcoach-check">✓ {tx(ex.check) || ex.check}</div>}
+        </div>
+      )}
+
+      {/* plan v3.8 ระลอก 12 (12.4): the coach's response to a high boredom
+          risk — a calm plan swap with its KB sources printed underneath, so
+          the reason is always auditable (เหตุผลอ้าง KB เสมอ). Nothing here
+          mentions scores or risks to the learner — just a kind plan. */}
+      {boredom && boredom.change && (
+        <div className="pcoach-ex">
+          <div className="pcoach-ex-t">{"🌙"} {T("วันนี้ปรับแผนให้เบาขึ้น", "Today's plan is lighter", "今天计划轻一点")}</div>
+          <div className="presultai-tx">{tx(boredom.reason)}</div>
+          {Array.isArray(boredom.sources) && boredom.sources.length > 0 && (
+            <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>📚 {boredom.sources.join(" · ")}</div>
+          )}
         </div>
       )}
     </div>

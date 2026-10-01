@@ -1412,6 +1412,10 @@ function MeasurePanel({ lang, S, T }) {
   const [routes, setRoutes] = useState(null);
   const [grid, setGrid] = useState(null);
   const [baseline, setBaseline] = useState(null);
+  const [joy, setJoy] = useState(null);
+  const [risk, setRisk] = useState(null);
+  const [joyEmptyLine, setJoyEmptyLine] = useState(null);
+  const [riskNote, setRiskNote] = useState(null);
 
   useEffect(() => {
     setRuns(loadEvalRuns());
@@ -1430,6 +1434,32 @@ function MeasurePanel({ lang, S, T }) {
       try { setGrid(g => ({ ...(g || {}), ...(plm1mStats() || {}) })); } catch (e) {}
     })();
   }, []);
+
+  /* 12.3/12.5 — the shadow read comes from the SAME engine the app runs
+     (ensureTigamodelWeb + getTigamodel, same as every other panel here);
+     its own effect because the honest-null lines must follow the panel's
+     language. Model absent → the card renders nothing (the standing honest
+     null — no fake placeholder, no loader pretending work). */
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        await ensureTigamodelWeb();
+        const m = getTigamodel();
+        if (dead || !m || !m.getJoyIndex) return;
+        const j = m.getJoyIndex(null);                 // self-read: the app's own localStorage logs
+        const b = m.getBoredomRisk ? m.getBoredomRisk(null) : null;
+        setJoy(j);
+        setRisk(b);
+        if (m.joyShadowEmpty) { const e = m.joyShadowEmpty(lang); if (e && e.line) setJoyEmptyLine(e.line); }
+        if (b && b.enough === false) {
+          if (b.enoughNote) setRiskNote(b.enoughNote[lang] || b.enoughNote.th);
+          else if (m.joyShadowNote) { const n = m.joyShadowNote(lang); if (n) setRiskNote(n); }
+        }
+      } catch (e) { /* shadow read is best-effort — the rest of the panel still renders */ }
+    })();
+    return () => { dead = true; };
+  }, [lang]);
 
   async function runNow() {
     if (busy) return;
@@ -1528,6 +1558,55 @@ function MeasurePanel({ lang, S, T }) {
           <div style={{ ...S.mono, marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
             {T("KB รวมทุกโดเมน:", "KB all domains:", "全部知识域：")} <b>{grid.totalEntries.toLocaleString()}</b> entries
           </div>
+        )}
+      </div>
+
+      {/* ── plan v3.8 ระลอก 12 (12.3/12.5) — JOY & BOREDOM, the shadow read of
+          THIS device's real logs. Model-Lab-ONLY surface (plan 12.3): the
+          learner never sees a risk score. Every number traces to the log
+          field its evidence line names; no practice at all → honest-null
+          line; n < 30 loop rounds → enough:false = observation only, never
+          a decision input (the 7.2 rule, gate opens at 12.6). ── */}
+      <div style={S.card}>
+        <div style={{ ...S.h2, marginBottom: 10 }}>💛 {T("ความสุข & ความเสี่ยงท้อ (เงา — จาก log จริง)", "Joy & boredom risk (shadow — from real logs)", "快乐与倦怠风险（影子——来自真实记录）")}</div>
+        {joy && joy.score != null ? (
+          <>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "baseline", marginBottom: 8 }}>
+              <span style={{ fontSize: 30, fontWeight: 800 }}>{joy.score}<span style={{ fontSize: 15, color: "var(--muted)" }}>/5</span></span>
+              <span style={{ fontSize: 12.5, color: "var(--muted)" }}>{T("สัญญาณความสุขวันนี้ (0 = ยังไม่ยิงสักข้อ)", "joy signals today (0 = none fired yet)", "今日快乐信号（0 = 尚未触发）")}</span>
+              {joy.enough === false && <span style={{ ...S.mono, fontSize: 11.5, color: S.warn }}>⏳ {T("ยังไม่ครบ 30 รอบวงล้อ — สังเกตอย่างเดียว", "under 30 loop rounds — observation only", "未满30轮循环——仅观察")}</span>}
+            </div>
+            {joy.evidence.map(e => (
+              <div key={e.key} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--bd1)" }}>
+                <span style={{ fontSize: 12.5 }}>
+                  {e.fired ? "✓" : "·"} {lang === "en" ? e.label.en : lang === "zh" ? e.label.zh : e.label.th}
+                  <span style={{ ...S.mono, fontSize: 10.5, color: "var(--muted)", display: "block" }}>{e.source}</span>
+                </span>
+                <span style={{ ...S.mono, fontSize: 12.5, color: e.fired ? S.good : "var(--muted)" }}>{e.fired ? T("ยิง", "fired", "触发") : "—"}</span>
+              </div>
+            ))}
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: "var(--muted)", padding: "6px 0" }}>🕊 {joyEmptyLine || T("ยังไม่มีหลักฐานเพียงพอ", "Not enough evidence yet", "证据不足")}</div>
+        )}
+        {risk && risk.score != null && (
+          <>
+            <div style={{ ...S.h2, margin: "14px 0 8px", fontSize: 14 }}>🌊 {T("ความเสี่ยงท้อ — 14 วันล่าสุด (จำแนกตามสาเหตุการเลิกเรียน KB 6.8)", "Boredom risk — last 14 days (classified by KB 6.8 quit causes)", "倦怠风险——近14天（按KB 6.8退课原因分类）")}</div>
+            {risk.enough === false && <div style={{ ...S.mono, fontSize: 11.5, color: S.warn, marginBottom: 6 }}>⏳ {riskNote || T("ยังเก็บข้อมูลไม่ครบ 30 รอบวงล้อ — สังเกตอย่างเดียว", "Fewer than 30 loop rounds — observation only", "未满30轮循环——仅观察")}</div>}
+            <div style={{ display: "flex", gap: 12, alignItems: "baseline", marginBottom: 8 }}>
+              <span style={{ fontSize: 26, fontWeight: 800, color: risk.count >= 2 ? S.bad : risk.count === 1 ? S.warn : S.good }}>{risk.count}<span style={{ fontSize: 13, color: "var(--muted)" }}>/4</span></span>
+              <span style={{ fontSize: 12.5, color: "var(--muted)" }}>{T("ซ้อมจริง", "practice days", "练习天数")} {risk.practicedDays14} {T("วันในหน้าต่าง 14 วัน", "days in the 14-day window", "天在14天窗口内")}</span>
+            </div>
+            {risk.evidence.map(e => (
+              <div key={e.key} style={{ padding: "5px 0", borderBottom: "1px solid var(--bd1)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                  <span style={{ fontSize: 12.5 }}>{e.fired ? "⚠️" : "·"} {lang === "en" ? e.label.en : lang === "zh" ? e.label.zh : e.label.th}</span>
+                  <span style={{ ...S.mono, fontSize: 10.5, color: "var(--muted)" }}>{e.kb}</span>
+                </div>
+                {e.fired && <span style={{ ...S.mono, fontSize: 10.5, color: "var(--muted)", display: "block" }}>{e.source}</span>}
+              </div>
+            ))}
+          </>
         )}
       </div>
 

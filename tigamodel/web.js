@@ -315,7 +315,7 @@ export function studentExerciseKinds() {
    reads the profile fields the app already keeps; no new storage, no engine
    changes — the adapters decorate AFTER the engines speak. ── */
 import { ageBandFromProfile as _ageBand, forAge as _forAge, forStrategy as _forStrategy, strategyVariant as _strategyVariant, barsFor as _barsFor, QUALITY_BARS as _QUALITY_BARS } from "./teaching/adaptivity.js";
-import { joyIndex as _joyIndex, joyNote as _joyNote, joyEmpty as _joyEmpty, JOY_SIGNALS as _JOY_SIGNALS } from "./teaching/joy.js";
+import { joyIndex as _joyIndex, joyNote as _joyNote, joyEmpty as _joyEmpty, JOY_SIGNALS as _JOY_SIGNALS, boredomRisk as _boredomRisk, BOREDOM_RISKS as _BOREDOM_RISKS, boredomResponse as _boredomResponse } from "./teaching/joy.js";
 export function tigaAgeBand(profile) { try { return _ageBand(profile); } catch (e) { return null; } }
 export function tigaForAge(band, content) { try { return _forAge(band, content); } catch (e) { return content; } }
 export function tigaForStrategy(ex, strategyId) { try { return _forStrategy(ex, strategyId); } catch (e) { return ex; } }
@@ -332,6 +332,18 @@ export function getJoyIndex(opts) { try { return _joyIndex(opts || null); } catc
 export function joyShadowNote(lang) { try { return _joyNote(lang); } catch (e) { return null; } }
 export function joyShadowEmpty(lang) { try { return _joyEmpty(lang); } catch (e) { return null; } }
 export function joySignalList() { try { return _JOY_SIGNALS.map(s => ({ key: s.key, label: { th: s.label.th, en: s.label.en, zh: s.label.zh } })); } catch (e) { return []; } }
+
+/* ── PLAN v3.8 ระลอก 12 (12.3) — BOREDOM RISK (ความเบื่อก่อนเลิกเรียน).
+   Same shadow contract as the joy score: classified against the four quit
+   causes the education-market KB names (6.8, edu:churn:*), counted from the
+   same real logs, shown in Model Lab ONLY, honest-null when there is no
+   practice at all, and never a decision input until the 12.6 data rule.
+   boredomResponse(kb, risk, lang) is the 12.4 helper: the coach's calm
+   reply to a high risk — every reason cites its KB id, and a null/low-data
+   risk returns null = "do exactly as before". ── */
+export function getBoredomRisk(opts) { try { return _boredomRisk(opts || null); } catch (e) { return null; } }
+export function boredomRiskList() { try { return _BOREDOM_RISKS.map(r => ({ key: r.key, kb: r.kb, label: { th: r.label.th, en: r.label.en, zh: r.label.zh } })); } catch (e) { return []; } }
+export function boredomResponseFor(kb, risk, lang) { try { return _boredomResponse(kb || (_tiga && _tiga.kb) || null, risk, lang); } catch (e) { return null; } }
 
 export function tigaBarsFor(surface) { try { return _barsFor(surface); } catch (e) { return null; } }
 export { _QUALITY_BARS as TIGA_QUALITY_BARS };

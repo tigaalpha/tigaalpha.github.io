@@ -106,6 +106,31 @@ for (const [lang, re] of [["th", /[ก-๙]/], ["en", /[a-z]/], ["zh", /[一-龥
 }
 const langsOk = Object.values(langs).every(Boolean);
 
+/* ── 8) plan v3.8 ระลอก 12 (12.6) — JOY SHADOW on the bench. The 10th
+   dimension (learner joy) joins the snapshot as its OWN section — never
+   folded into any eval score (the plan's rule: ผลรวมแยกชัดจาก eval
+   สังเคราะห์). Measured here through the REAL module on a crafted,
+   deterministic log dataset (the smoke's own all-5-fire shape), proving
+   the full shadow pipeline works end-to-end on every bench run. ── */
+const JOY_T = new Date("2026-09-30T12:00:00").getTime();
+const JOY_PROBE = () => web.getJoyIndex({
+  practiceLog: { "2026-09-28": { n: 1, accSum: 60 }, "2026-09-30": { n: 2, accSum: 170 } },
+  actLog: [
+    { t: JOY_T, d: "2026-09-30", k: "game", id: "ocean", ok: 30, miss: 10, sec: 60 * 12 },
+    { t: JOY_T + 1, d: "2026-09-30", k: "game", id: "twinkle", ok: 40, miss: 0, sec: 0 },
+    { t: JOY_T + 2, d: "2026-09-30", k: "share", id: "twinkle", ok: 0, miss: 0, sec: 0 },
+  ],
+  starsById: { twinkle: 2 }, daily: { id: "minuet" }, moods: [], now: "2026-09-30",
+});
+const BOREDOM_PROBE = () => web.getBoredomRisk({
+  practiceLog: { "2026-09-26": { n: 1, accSum: 70 }, "2026-09-28": { n: 1, accSum: 70 }, "2026-09-30": { n: 1, accSum: 70 } },
+  actLog: [{ t: JOY_T, d: "2026-09-30", k: "game", id: "my-song", ok: 30, miss: 5, sec: 90 }],
+  daily: { id: "daily-song" }, moods: [], now: "2026-09-30",
+});
+const joyProbe = JOY_PROBE();
+const boredomProbe = BOREDOM_PROBE();
+console.log(`  joy shadow: ${joyProbe ? `${joyProbe.score}/${joyProbe.of} signals` : "MODULE BROKEN"} · boredom ${boredomProbe ? `${boredomProbe.count}/${boredomProbe.of}` : "MODULE BROKEN"} (both wired to nothing until 30 loop rounds — plan 12.6)`);
+
 /* ── 6) summary() aggregation time (Model Lab renders it every open) ── */
 const t2 = performance.now();
 eng.summary();
@@ -132,6 +157,26 @@ const BARS = [
     try {
       const g = fs.readFileSync(path.join(ROOT, "tiga-gateway.ts"), "utf8");
       return g.includes("preloadTigamodelOnInteraction") && g.includes("pointerdown");
+    } catch (e) { return false; }
+  } },
+  { id: "joy-shadow-contract", desc: "JoyIndex stays a shadow: measured + explainable, score === fired count, wired to nothing (enough:false until 12.6's 30 loop rounds)", test: () => {
+    const r = JOY_PROBE();
+    return !!(r && r.shadow === true && r.enough === false && r.score === r.fired.length && r.score === 5 && r.evidence.length === 5 && r.evidence.every(e => e.source && e.source.length));
+  } },
+  { id: "boredom-kb-contract", desc: "boredom risk classifies ONLY by the KB 6.8 quit causes (each cites edu:churn:*) and stays a shadow too", test: () => {
+    const r = BOREDOM_PROBE();
+    const list = web.boredomRiskList();
+    return !!(r && r.shadow === true && r.enough === false && list.length === 4 && list.every(x => /^edu:churn:/.test(x.kb)) && r.count === 0);
+  } },
+  { id: "joy-formula-smoke-guard", desc: "the joy/boredom formulas cannot change silently: both smokes exist, sit in verify:tiga, and the vocab is frozen in source", test: () => {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+      const chain = (pkg.scripts && pkg.scripts["verify:tiga"]) || "";
+      const joySrc = fs.readFileSync(path.join(ROOT, "tigamodel", "teaching", "joy.js"), "utf8");
+      return fs.existsSync(path.join(ROOT, "tigamodel", "scripts", "smoke-joy.mjs"))
+        && fs.existsSync(path.join(ROOT, "tigamodel", "scripts", "smoke-boredom.mjs"))
+        && chain.includes("smoke-joy.mjs") && chain.includes("smoke-boredom.mjs")
+        && joySrc.includes("Object.freeze(JOY_SIGNALS)") && joySrc.includes("Object.freeze(BOREDOM_RISKS)");
     } catch (e) { return false; }
   } },
 ];
@@ -167,6 +212,19 @@ const snapshot = {
   kb: { theoryEntries: kbTheory.entries, performanceEntries: kbPerf.entries },
   langs,
   langsOk,
+  /* plan v3.8 12.6 — the joy/boredom SHADOW read. Deliberately its own
+     section, separate from every eval score: shadow metrics are reported,
+     not graded. enough stays false until the 30-loop-round rule opens the
+     gate (then workOrder weighting joins here, plan 7.3). */
+  joyShadow: {
+    signals: joyProbe ? joyProbe.signals : null,
+    fired: joyProbe ? joyProbe.fired : null,
+    score: joyProbe ? joyProbe.score : null,
+    of: joyProbe ? joyProbe.of : null,
+    boredom: boredomProbe ? { signals: boredomProbe.signals, kb: boredomProbe.kb, score: boredomProbe.score, of: boredomProbe.of } : null,
+    enough: false,
+    note: "shadow until 30 loop rounds (plan 12.6) — never part of eval scores",
+  },
   bars: barResults,
   barsOk,
 };

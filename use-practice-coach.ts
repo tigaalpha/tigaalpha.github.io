@@ -16,6 +16,15 @@ const generateStudentExercise = (a, b, c) => { const m = _model(); return m ? m.
 const studentExerciseKinds = () => { const m = _model(); return m ? m.studentExerciseKinds() : null; };
 const getCoach = () => { const m = _model(); return m ? m.getCoach() : null; };
 const getCoachDiagnosis = () => { const m = _model(); return m ? m.getCoachDiagnosis() : null; };
+const getBoredomResponse = (lang) => {
+  try {
+    const m = _model();
+    if (!m || !m.boredomResponseFor) return null;
+    const risk = m.getBoredomRisk ? m.getBoredomRisk(null) : null;   // shadow read of the real logs
+    return m.boredomResponseFor(null, risk, lang);                   // kb=null → the engine's own seeded KB
+  } catch (e) { return null; }
+};
+const getJoyToday = () => { try { const m = _model(); return m && m.getJoyIndex ? m.getJoyIndex(null) : null; } catch (e) { return null; } };
 const _kick = () => { tigaPromise(); }; _kick();   // join the boot preload's in-flight import (no duplicate fetch — gateway caches)
 
 /* ── use-practice-coach.ts — TIGA Practice Coach (Phase 2, spec §34) ──
@@ -197,6 +206,11 @@ export function buildPracticeCoachData(args) {
       tempo: tempo && tempo.bpm ? tempo : null,
       recap: recapW || null,
       exercise: exWH,
+      /* ── plan v3.8 ระลอก 12 (12.4): the coach's calm answer to a high
+         boredom risk — a plan swap (loved song / relax session) that ALWAYS
+         cites its KB sources, or null = "not enough data → do exactly as
+         before" (the 12.4 contract). Honest-null like everything above. ── */
+      boredom: getBoredomResponse(lang),
       worstMissed: worst,
       ageBand,
     };
@@ -319,6 +333,11 @@ export function buildParentReport({ days = 14, lang = "th" } = {}) {
       minutes7: Math.round(minutes7),
       sessions7: series.slice(-7).reduce((s, d) => s + d.sessions, 0),
       improvements: improvements.slice(0, 4),
+      /* ── plan v3.8 ระลอก 12 (12.5): the "สนุกกับการเรียน" line's data source —
+         the 12.1 joy signals from REAL logged behaviour ONLY (the opt-in
+         mood taps stay out of the score). The renderer hides it when there
+         was no session today (honest-null — ข้อมูลไม่พอ = ซ่อน). ── */
+      joyToday: getJoyToday(),
       focus: diag ? { label: diag.what ? diag.what.label : null, acc: diag.what ? diag.what.acc : null, why: diag.why || [], how: diag.how || [], bpm: diag.meta ? diag.meta.bpm : null } : null,
       homeworkNote: topMiss ? (lang === "zh" ? `专练音符 ${topMiss.label} — 每天慢速完整弹 3 遍` : lang === "en" ? `Focus on the note ${topMiss.label} — play it slowly 3× perfectly every day` : `โฟกัสโน้ต ${topMiss.label} — เล่นช้า 3 รอบให้สมบูรณ์ทุกวัน`) : null,
     };
