@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment, lazy
 import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-lock";
 import { Capacitor } from "@capacitor/core";
 import { PATHWAY, PATHWAY_PRACTICE, PATHWAY_ORDER } from "./pathway-data";
+import { chatAsks, personalAsks } from "./chat-starters";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { useInjectCSS } from "./app-styles";
 import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
@@ -551,7 +552,7 @@ export function buildAlternatingHistory(msgs, limit = 6) {
 // hand movement, easier pitches to nail) using songTechniqueProfile — a
 // content-free proxy, not real hand-specific tagging (songs-data.ts has no
 // such field; see project plan notes on why that needs new authoring).
-export function songRecommendationHint(lang) {
+export function songRecommendationHint(lang, opts: { titles?: boolean } = {}) {
   try {
     const weak = weakestSkills(computeSkillScores(), 1)[0];
     let pool = SONGS.filter(s => !s.maxOnly);
@@ -559,7 +560,8 @@ export function songRecommendationHint(lang) {
       ? pool.map(s => ({ s, p: songTechniqueProfile(s) })).sort((a, b) => (a.p ? a.p.avgLeap : 99) - (b.p ? b.p.avgLeap : 99)).map(x => x.s)
       : pool.slice().sort((a, b) => a.diff - b.diff);
     const poolIds = pool.slice(0, 24).map(s => s.id);
-    const ids = poolIds.join(", ");
+    // the chat prints what it is given, so it gets titles; Voice Tutor writes [song:id] tags, so it keeps ids
+    const ids = opts && opts.titles ? pool.slice(0, 24).map(s => tr(s, lang)).join(", ") : poolIds.join(", ");
     const label = weak ? tr(SKILL_LABELS[weak.skill], lang) : null;
     // ── Jev song-rec: ALSO ask Jev to pick ONE song from this same pool (fast
     // structured choice, no hallucination possible — the answer must be one of
@@ -4857,7 +4859,7 @@ export function setLessonPlanLS(p) { try { p ? localStorage.setItem("tg_lessonpl
 // keys studied, what's next) plus the teacher's saved next-lesson plan — so the
 // voice teacher always knows where this student is on the road, like a human
 // who keeps a notebook per student.
-export function curriculumContext(lang) {
+export function curriculumContext(lang, opts: { chat?: boolean } = {}) {
   try {
     const done = pathDoneSet();
     const keys = keyDoneMap();
@@ -4887,7 +4889,16 @@ export function curriculumContext(lang) {
     }
     const plan = readLessonPlan();
     if (plan && plan.text) parts.push((lang === "th" ? "แผนคาบนี้ที่คุณตั้งไว้: " : lang === "zh" ? "你为本课定的计划: " : "Your saved plan for this lesson: ") + plan.text);
-    const guide = lang === "th"
+    // Voice Tutor teaches a whole lesson along the syllabus and sets the next plan with a
+    // [plan: …] tag it parses. The text chat parses no such tag, so for the chat the block
+    // is only context: it must not ask for a warm-up or print the tag to the learner.
+    const guide = opts && opts.chat
+      ? (lang === "th"
+        ? "ใช้ข้อมูลนี้เพื่อให้คำตอบเข้ากับจุดที่ผู้เรียนอยู่เท่านั้น ถ้าไม่เกี่ยวกับคำถามไม่ต้องพูดถึง และห้ามพิมพ์แท็ก [plan: ...] ในคำตอบ"
+        : lang === "zh"
+        ? "仅用于让回答贴合学员当前进度；与问题无关就不要提；回答中不要输出 [plan: ...] 标签"
+        : "Use this only to fit the answer to where the learner is; leave it out when it does not bear on the question, and never print a [plan: ...] tag in the answer")
+      : lang === "th"
       ? "จัดคาบให้เดินตามหลักสูตรนี้ทีละขั้น เริ่มด้วยวอร์มอัพสั้น ๆ ที่เข้ากับขั้นปัจจุบันก่อนเสมอ และก่อนจบคาบให้ตั้งแผนคาบหน้าด้วย [plan: ...]"
       : lang === "zh"
       ? "按此大纲逐级授课，开课先做贴合当前阶段的简短热身，下课前用 [plan: ...] 定好下节课计划"
@@ -11248,12 +11259,28 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, retryLast, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, onUpsell: () => setPricingOpen(true) });
+  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy: chatBusy, askDirect, retryLast, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, isGuest, onUpsell: () => setPricingOpen(true) });
+  // the line under the chat box: how many free AI messages are left today (a free account only)
+  const chatNote = chatLeft == null ? null : chatLeft > 0 ? lc.chatLeft.replace("{n}", String(chatLeft)) : lc.chatLeftOut;
   // Which Pathway topic is currently being studied on the Sensei page, so a
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
   const [activeStageId, setActiveStageId] = useState(null);
   const [activeStageType, setActiveStageType] = useState(null); // chosen chord/interval type, if any — lets "Change Key" reopen straight at the key picker
+
+  /* The learner's own record as questions they would ask. The TIGA hub answers first
+     (it is the model's view of that record, and its wording is already the learner's
+     voice); before the hub has loaded, or when it has nothing, the plain read of the
+     same memory stands in. Both chat surfaces use it. */
+  function learnerAsks() {
+    try {
+      const hub = tigaNow();
+      const tiga = hub ? hub.tigaHub.chatStartersFor(readMemory(), readPracticeLog(), profile) : null;
+      const fromHub = ((tiga && tiga.starters) || []).slice(0, 2).map((st, i) => ({ key: "hub-" + i, icon: "🧠", personal: true, label: tr(st.label || st.question, lang), q: tr(st.question, lang) }));
+      if (fromHub.length) return fromHub;
+    } catch (e) { /* hub absent → the plain read below */ }
+    try { return personalAsks(readMemory(), lang).slice(0, 2); } catch (e) { return []; }
+  }
 
   // Knowledge Quest conversation starters — 3 unread case studies picked at
   // random each time the chat page is (re)entered, so returning learners see
@@ -11268,24 +11295,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       }
     }
     const picked = [];
-    /* TIGA hub first (P4): personalized openers from the learner's REAL
-       record (top struggle / just-played song). Merged ahead of the curated
-       pool and badged 🧠; onStarterTap handles them as a direct chat prefill
-       (stage/case null-safe). */
+    /* The learner's own record first (a skill they keep missing, the piece they
+       just played), badged 🧠 and worded as a question they would ask — a tap
+       sends it as their message (see readChapter). These came from the hub but
+       were built without the `title` the chip draws, so they showed as blank
+       chips that opened an empty bubble; and they were phrased as the app talking
+       TO the learner. */
     try {
-      const hub = tigaNow();
-      const tiga = hub ? hub.tigaHub.chatStartersFor(readMemory(), readPracticeLog(), profile) : null;
-      const tigaStarters = (tiga && tiga.starters || []).slice(0, 2).map((st, i) => ({
-        tiga: true,
-        stage: { id: "tiga-" + i, th: "ครู TiGA", en: "Teacher TiGA", zh: "TiGA老师" },
-        c: { id: "starter-" + i, th: st.question.th, en: st.question.en, zh: st.question.zh },
-      }));
-      picked.push(...tigaStarters);
-    } catch (e) { /* hub absent → curated pool only */ }
+      for (const a of learnerAsks()) {
+        picked.push({ tiga: true, stage: { id: "tiga-" + a.key, tiga: true, icon: a.icon }, c: { id: a.key, tiga: true, icon: a.icon, title: a.label, ask: a.q } });
+      }
+    } catch (e) { /* no memory → curated pool only */ }
     while (picked.length < 3 && pool.length) picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
     return picked;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, lang]);
+
+  /* The full-screen chat's opening: tappable questions (the learner's own record
+     first, then everyday beginner ones) and the app's pick for what to do next.
+     Re-read each time the chat is opened, so it reflects what was just practised. */
+  const chatChips = useMemo(() => chatAsks(lang, learnerAsks(), dayKey()), [modal, lang]);
+  const chatRec = useMemo(() => (modal ? recommendNext() : null), [modal, lang]);
 
   const uid = session && session.user && session.user.id;
 
@@ -12303,8 +12333,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
        no real content — route them straight into the chat as a user message
        so Teacher TiGA answers from the student's own context. */
     if (stage && stage.tiga && caseObj && caseObj.tiga) {
-      pushMessage({ role: "user", text: tr(caseObj.title, lang) });
       setPage("sensei");
+      sendText(caseObj.ask, { fromChip: true });   // asks the tutor — it used to only drop the line into the thread, unanswered
       return;
     }
     if (!caseObj && stage && stage.id) logUsage("pathway", stage.id); // top-level card tap only, not a case-study drill-down
@@ -12712,7 +12742,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} />}
+      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} />}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
@@ -12786,13 +12816,36 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <div className="mmsgs">
           {msgs.map((m, i) => (
             <Msg key={i} m={m} idx={i} lang={lang}
-              activeSpk={activeSpk} setActiveSpk={setActiveSpk} onPlay={playSequence} onRetry={retryLast} />
+              activeSpk={activeSpk} setActiveSpk={setActiveSpk} onPlay={playSequence} onRetry={retryLast}
+              onMore={i === msgs.length - 1 && !chatBusy ? askMore : null} />
           ))}
           {loading && <Typing slow={slow} lang={lang} />}
+          {/* Before the first question: what to do next, and questions to tap —
+              a beginner no longer meets a blank box. Gone once the talk begins. */}
+          {modal && msgs.length <= 1 && !loading && (
+            <div className="mstarters">
+              {chatRec && (
+                <button className="mrec" onClick={() => { playUi("click"); setModal(false); chatRec.fn(); }}>
+                  <span className="mrec-ic" aria-hidden="true">{chatRec.icon}</span>
+                  <span className="mrec-tx">{chatRec.label}</span>
+                  <span className="mrec-go" aria-hidden="true">→</span>
+                </button>
+              )}
+              <div className="mstarters-hint">💡 {lc.chatTry}</div>
+              <div className="mstarters-row">
+                {chatChips.map(a => (
+                  <button key={a.key} className="starterchip" onClick={() => sendText(a.q, { fromChip: true })}>
+                    <span className="starterchip-ic" aria-hidden="true">{a.icon}</span>
+                    <span className="starterchip-tx">{a.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div ref={mendRef} />
         </div>
         <div className="miw">
-          <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} />
+          <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} note={chatNote} noteOut={chatLeft === 0} />
         </div>
       </div>
 

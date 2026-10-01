@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
@@ -306,7 +306,10 @@ export function TigamodelLab({ lang = "th" }) {
 
       {!ready && <div style={S.card}>{T("กำลังเริ่มระบบ…", "Starting…", "启动中…")}</div>}
 
-      {ready && tab === "kb" && <KnowledgePanel lang={lang} S={S} />}
+      {ready && tab === "kb" && (<>
+        <KbHotPathPanel lang={lang} S={S} T={T} />
+        <KnowledgePanel lang={lang} S={S} />
+      </>)}
 
       {ready && tab === "atip" && <AtipPreview lang={lang} S={S} />}
 
@@ -667,6 +670,64 @@ function CoachPanel({ lang, S, T }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ── KB hot path: the owner's switch for how much knowledge the chat sends the model ──
+   OFF (how it works today): the legacy block — every entry of every matched
+   domain; one harmony question measured 1.38 MB. ON: only the most relevant
+   lines, capped (kbHotPath().config), the same content with only the selection
+   changed. Stored in app_settings.tiga_kb_hot_path; every device picks it up
+   within a minute, no deploy. Fails closed: if the setting cannot be read the
+   chat keeps the legacy block. Flip it only after reading the capped-vs-legacy
+   report (node tigamodel/scripts/eval-kb-capped-vs-legacy.mjs). ── */
+function KbHotPathPanel({ lang, S, T }) {
+  const [on, setOn] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const cfg = (kbHotPath() as any).config || {};
+  useEffect(() => {
+    let alive = true;
+    isKbHotPathSwitchOn().then(v => { if (alive) setOn(!!v); }, () => { if (alive) setOn(false); });
+    return () => { alive = false; };
+  }, []);
+  async function toggle() {
+    if (busy || on === null) return;
+    setBusy(true); setMsg("");
+    try {
+      const next = await setKbHotPathSwitch(!on);
+      setOn(next);
+      setMsg(next
+        ? T("🟢 เปิดแล้ว — แชทจะส่งเฉพาะความรู้ที่เกี่ยวข้องที่สุดให้โมเดล (มีผลภายใน 1 นาทีบนทุกเครื่อง)", "🟢 ON — the chat now sends only the most relevant knowledge to the model (takes effect within a minute on every device)", "🟢 已开启 — 聊天只把最相关的知识发给模型（1 分钟内所有设备生效）")
+        : T("🔴 ปิดแล้ว — แชทกลับไปส่งบล็อกความรู้แบบเดิมทั้งหมด", "🔴 OFF — the chat is back to sending the full legacy knowledge block", "🔴 已关闭 — 聊天恢复发送完整的旧知识块"));
+    } catch (e: any) { setMsg("⚠️ " + (e?.message || "error")); }
+    setBusy(false);
+  }
+  if (on === null) return null;
+  return (
+    <div style={{ ...S.card, marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>
+        {T(
+          `วิธีส่งความรู้ให้โมเดลในแชท: ตอนนี้ส่ง "ทุกเรื่อง" ของหมวดที่ตรงคำถาม (คำถามเรื่องคอร์ดข้อเดียววัดได้ ~1.4 ล้านตัวอักษร) — เมื่อเปิด จะส่งเฉพาะบรรทัดที่เกี่ยวข้องที่สุด ไม่เกิน ${cfg.maxLines || 24} บรรทัด / ${(cfg.maxChars || 8000).toLocaleString()} ตัวอักษร เนื้อหาเหมือนเดิมทุกตัวอักษร เปลี่ยนแค่การเลือก`,
+          `How the chat hands knowledge to the model: today it sends EVERY entry of the matched domains (one chord question measured ~1.4 million characters). When ON it sends only the most relevant lines — at most ${cfg.maxLines || 24} lines / ${(cfg.maxChars || 8000).toLocaleString()} characters — with the content unchanged; only the selection differs.`,
+          `聊天把知识交给模型的方式：目前发送匹配领域的全部条目（一个和弦问题实测约 140 万字符）。开启后只发送最相关的行——最多 ${cfg.maxLines || 24} 行 / ${(cfg.maxChars || 8000).toLocaleString()} 字符——内容不变，只改变选择。`
+        )}
+      </div>
+      <div style={{ ...S.inner, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", borderColor: on ? "color-mix(in srgb, var(--ok, #3f9d63) 45%, var(--bd1))" : "var(--bd1)" }}>
+        <div>
+          <b style={{ fontSize: 15, color: "var(--text)" }}>{on ? "🟢 " : "⚪ "}{T("บล็อกความรู้แบบจำกัด (Hot path)", "Capped knowledge block (hot path)", "限量知识块（Hot path）")}</b>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 3 }}>
+            {on ? T("เปิด — ส่งเฉพาะบรรทัดที่เกี่ยวข้องที่สุด", "ON — only the most relevant lines are sent", "开启 — 只发送最相关的行") : T("ปิด — ส่งบล็อกเดิมทั้งหมด (ค่าเริ่มต้น)", "OFF — the full legacy block is sent (default)", "关闭 — 发送完整的旧知识块（默认）")}
+          </div>
+        </div>
+        <button onClick={toggle} disabled={busy}
+          style={{ padding: "10px 22px", borderRadius: 999, border: "none", cursor: busy ? "wait" : "pointer", fontWeight: 800, fontSize: 14,
+            background: on ? "var(--ok, #3f9d63)" : "var(--bd3)", color: on ? "#fff" : "var(--text)" }}>
+          {busy ? "…" : on ? T("เปิดอยู่ — กดปิด", "ON — tap to turn OFF", "开启 — 点击关闭") : T("ปิดอยู่ — กดเปิด", "OFF — tap to turn ON", "关闭 — 点击开启")}
+        </button>
+      </div>
+      {msg && <div style={{ fontSize: 13, marginTop: 8, color: "var(--text2)" }}>{msg}</div>}
     </div>
   );
 }

@@ -312,10 +312,10 @@ export const MILESTONES = [
   {
     id: "m44-hot-path-switch",
     title: "docs/14 §2 ผูก tiga_kb_hot_path เข้า app_settings — kill switch จบวงแบบเดียวกับ jev/answer-cache",
-    state: "planned",
+    state: "code",
     deps: ["m34-speed-kb-hotset"],
-    acceptance: "สวิตช์ถูกอ่านจาก app_settings (cache 60s, fail-closed แบบ isJevPolicyEnabled) + คำสั่ง/ปุ่ม admin เปิด-ปิดได้ ไม่ต้อง deploy ใหม่ — ปิด = ทุกเส้นทางผู้เรียนเหมือนเดิม 100%",
-    evidence: ["tigamodel/docs/14-plan-thousandfold-speed-quality.md"],
+    acceptance: "สวิตช์ถูกอ่านจาก app_settings.tiga_kb_hot_path (cache 60s, fail-closed แบบ isJevPolicyEnabled — ไม่มีแถว/error/ค่าไม่ใช่ true = ปิด) ก่อนแชทสร้างบล็อก (getFullKBContext รอได้ไม่เกิน ~400ms) + ปุ่ม admin ใน Model Lab แท็บ KB เปิด-ปิดได้ผ่าน admin_set_app_setting ไม่ต้อง deploy ใหม่ — ปิด = ทุกเส้นทางผู้เรียนเหมือนเดิม 100% (byte-identical). smoke-kb-hot-path-switch ครอบคลุมทุกข้อ. สถานะ code: โค้ด+smoke ส่งแล้ว ค่าเริ่มต้น OFF — เปิดใช้จริงรอเจ้าของพลิกสวิตช์หลังอ่านรายงาน m46",
+    evidence: ["tigamodel/web.js", "tigamodel/scripts/smoke-kb-hot-path-switch.mjs", "TigamodelLab.tsx", "tigamodel/docs/14-plan-thousandfold-speed-quality.md"],
   },
   {
     id: "m45-hot-counts-persist",
@@ -330,8 +330,8 @@ export const MILESTONES = [
     title: "docs/14 §2 พิสูจน์ 'เก่งขึ้น' ด้วย eval: คำตอบโดยบล็อก capped ไม่แพ้บล็อกเต็ม",
     state: "planned",
     deps: ["m34-speed-kb-hotset"],
-    acceptance: "eval ชุดเทียบ capped-vs-legacy: capped ไม่แพ้ (เกณฑ์ผ่าน) + token ต่อคำตอบลดลงวัดได้ — คุณภาพวัดด้วย eval suite ไม่ใช่ความรู้สึก (กติกาเหล็กข้อ 2)",
-    evidence: ["tigamodel/docs/14-plan-thousandfold-speed-quality.md"],
+    acceptance: "eval ชุดเทียบ capped-vs-legacy: capped ไม่แพ้ (เกณฑ์ผ่าน) + token ต่อคำตอบลดลงวัดได้ — คุณภาพวัดด้วย eval suite ไม่ใช่ความรู้สึก (กติกาเหล็กข้อ 2). ส่วนออฟไลน์ทำแล้ว (eval-kb-capped-vs-legacy.mjs: ขนาดบล็อก + สัดส่วนบรรทัดตรงประเด็น + retrieval ต่อคำถามจริง — วัดสิ่งที่ 'โมเดลได้รับ' ไม่ใช่คำตอบ); ส่วนที่ยังค้าง = A/B คำตอบจริงกับโมเดลจริงใน Model Lab (สวิตช์ปิดแล้วเปิด) ก่อนเปิดให้ทุกคน",
+    evidence: ["tigamodel/scripts/eval-kb-capped-vs-legacy.mjs", "tigamodel/docs/14-plan-thousandfold-speed-quality.md"],
   },
   {
     id: "m47-governor-switch",

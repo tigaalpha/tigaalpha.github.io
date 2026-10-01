@@ -75,7 +75,7 @@ import { createAnswerCache as _createAnswerCache, answerCacheKey as _answerCache
    (selection only; content and the line template never change). Singleton
    like the answer cache, DEFAULT OFF — when off, getKBContext serves the
    legacy block byte-identically. */
-import { createKBHotPath as _createKBHotPath } from "./performance/kb-hot-path.js";
+import { createKBHotPath as _createKBHotPath, KB_HOT_PATH_SWITCH } from "./performance/kb-hot-path.js";
 /* docs/05 §8 / docs/15 §2 (m13/m22): cost governor — a per-session weighted
    ledger that decides BEFORE each provider call; throttled sessions degrade
    to an honest uncertain response (never an invented answer). Singleton
@@ -801,6 +801,15 @@ const KB_DOMAIN_KEYWORDS = {
   "learner-differences": ["adhd", "สมาธิ", "เด็ก", "ลูก", "มือเล็ก", "ยืดไม่ถึง", "ผู้สูง", "พิเศษ", "hyperfocus", "child"],
 };
 
+/* The keywords of a question that actually fired a KB domain — the reference the
+   capped-vs-legacy report uses to count how many served lines are on topic. */
+export function kbFiredKeywords(matchText) {
+  const text = String(matchText || "").toLowerCase();
+  const out = [];
+  for (const kws of Object.values(KB_DOMAIN_KEYWORDS)) for (const k of kws) if (text.includes(String(k).toLowerCase())) out.push(String(k).toLowerCase());
+  return out;
+}
+
 let _kbHotPath = null;
 export function kbHotPath() {
   if (!_kbHotPath) _kbHotPath = _createKBHotPath({ enabled: false }); // OFF until switched on
@@ -811,6 +820,45 @@ export function setKbHotPathEnabled(on) {
   hp.setEnabled(on === true);
   return hp.isEnabled();
 }
+
+/* ── m44 (docs/14 §2): the hot path's kill switch, read from app_settings ──
+   app_settings.tiga_kb_hot_path = { "enabled": true } turns the capped,
+   relevance-ranked block on. A missing row, an error, or anything else leaves
+   it OFF — the legacy block, byte-identical — so the switch fails closed, the
+   same convention as isJevPolicyEnabled. It is read at most once a minute and
+   never inside getKBContext (which must stay synchronous): getFullKBContext
+   asks for it right before it builds the block. The owner flips it from Model
+   Lab (setKbHotPathSwitch), no deploy needed. */
+const KB_SWITCH_TTL_MS = 60000;
+let _kbSwitchAt = 0;
+let _kbSwitchBusy = null;
+export function refreshKbHotPathSwitch({ force = false } = {}) {
+  if (!force && _kbSwitchAt && Date.now() - _kbSwitchAt < KB_SWITCH_TTL_MS) return Promise.resolve(kbHotPath().isEnabled());
+  if (_kbSwitchBusy) return _kbSwitchBusy;
+  _kbSwitchBusy = (async () => {
+    let on = false;
+    try {
+      const r = sb ? await sb.from("app_settings").select("value").eq("key", KB_HOT_PATH_SWITCH).maybeSingle() : null;
+      on = !!(r && r.data && r.data.value && r.data.value.enabled === true);
+    } catch (e) { on = false; }
+    setKbHotPathEnabled(on);
+    _kbSwitchAt = Date.now();
+    _kbSwitchBusy = null;
+    return on;
+  })();
+  return _kbSwitchBusy;
+}
+/* Admin: write the switch (admin_set_app_setting, the same RPC Model Lab uses for
+   self-learning) and apply it on this device at once. Throws when the write is
+   refused so the panel can say so. */
+export async function setKbHotPathSwitch(on) {
+  const { error } = await sb.rpc("admin_set_app_setting", { p_key: KB_HOT_PATH_SWITCH, p_value: { enabled: on === true } });
+  if (error) throw new Error(error.message || "save failed");
+  setKbHotPathEnabled(on === true);
+  _kbSwitchAt = Date.now();
+  return kbHotPath().isEnabled();
+}
+export async function isKbHotPathSwitchOn() { return refreshKbHotPathSwitch({ force: true }); }
 
 function buildKbIndex(tiga) {
   const byDomain = new Map();
@@ -910,6 +958,8 @@ export function getStudentContextBlock() {
    KB slice + the switch-gated learned block in one string, so production
    surfaces only ever call this. Empty when nothing matches / switch OFF. */
 export async function getFullKBContext(matchText) {
+  // which block getKBContext serves depends on the switch; a slow settings read never holds an answer back for more than a moment (the first message then just uses the current state)
+  try { await Promise.race([refreshKbHotPathSwitch(), new Promise(r => setTimeout(r, 400))]); } catch (e) { /* fail closed: keep the current state */ }
   const base = getKBContext(matchText);
   let learned = "";
   // BUGFIX (owner directive "ใช้ได้จริงๆ"): was `if (_learner)` — but _learner
@@ -1157,13 +1207,26 @@ tigaHub.registerSpecialist("repertoire", {
     if (!opts || !opts.dailySong) return null; // only the tie-in voice
     return { tip: { th: `🎵 เพลงประจำวันวันนี้ (🎵 ${opts.dailySong}) ได้ 1 ดาวขึ้นไป = ภารกิจสำเร็จ`, en: `🎵 One star or more on today's song (🎵 ${opts.dailySong}) completes the quest`, zh: `🎵 今日曲目（🎵 ${opts.dailySong}）得 1 星以上即完成任务` } };
   },
+  /* Worded the way the LEARNER would say it: a tap on the chip sends `question` as their
+     own message (it used to be the app asking the learner something — "want to tell me
+     how it went?" — which, sent as the learner's message, turned the tutor's answer
+     around). `label` is the short chip text. Both come from the real record only. */
   chatStartersFor(mem, plog, profile) {
     const struggles = ((mem && mem.struggles) || []).map(x => (x && typeof x === "object") ? (x.label || x.th || "") : String(x || "")).filter(Boolean);
     const recent = (mem && mem.recent) || [];
     if (!struggles.length && !recent.length) return null; // nothing real → static pool
     const out = [];
-    if (struggles[0]) out.push({ question: { th: `เห็นว่า "${struggles[0]}" ยังติงอยู่ — อยากลองวิธีซ้อมแบบอื่นไหม`, en: `"${struggles[0]}" is still tricky — want a different way to drill it?`, zh: `“${struggles[0]}”还有点难——换个练法？` }, contextLabel: struggles[0] });
-    if (recent[0]) out.push({ question: { th: `รอบล่าสุดเล่น "${typeof recent[0] === "object" ? (recent[0].label || recent[0].song || "") : recent[0]}" มา — อยากเล่าประสบการณ์ให้ฟังไหม`, en: `You just played "${typeof recent[0] === "object" ? (recent[0].label || recent[0].song || "") : recent[0]}" — want to tell me how it went?`, zh: `刚弹完“${typeof recent[0] === "object" ? (recent[0].label || recent[0].song || "") : recent[0]}”——想聊聊感觉吗？` }, contextLabel: "recent" });
+    if (struggles[0]) out.push({
+      question: { th: `ช่วยแนะนำวิธีฝึก "${struggles[0]}" หน่อยครับ ฉันยังพลาดเรื่องนี้อยู่`, en: `Can you help me practise "${struggles[0]}"? I still keep missing it.`, zh: `能帮我练一下“${struggles[0]}”吗？我还是总出错。` },
+      label: { th: `ฝึก "${struggles[0]}"`, en: `Practise "${struggles[0]}"`, zh: `练“${struggles[0]}”` },
+      contextLabel: struggles[0],
+    });
+    const r0 = recent[0] ? String(typeof recent[0] === "object" ? (recent[0].label || recent[0].song || "") : recent[0]).trim() : "";
+    if (r0 && r0 !== struggles[0]) out.push({
+      question: { th: `ช่วยบอกวิธีเล่น "${r0}" ให้ดีขึ้นหน่อยครับ`, en: `How can I play "${r0}" better?`, zh: `怎样才能把“${r0}”弹得更好？` },
+      label: { th: `เล่น "${r0}" ให้ดีขึ้น`, en: `Play "${r0}" better`, zh: `把“${r0}”弹得更好` },
+      contextLabel: "recent",
+    });
     if (out.length) return { starters: out, via: "repertoire" };
     return null;
   },
