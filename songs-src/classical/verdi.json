@@ -1,0 +1,3 @@
+[
+  {"id": "verdi_la_traviata_no_15_scene_and_aria", "era": "romantic", "composer": "G. Verdi", "died": 1901, "year": 1901, "work": "La traviata, No. 15: Scena ed Aria", "en": "La traviata, No. 15: Scene and Aria (Verdi)", "th": "ลา ทราเวียตา หมายเลข 15: ฉากและอารีอา (แวร์ดี)", "zh": "茶花女 第15曲：场景与咏叹调（威尔第）", "key": "Cm", "meter": "4/4", "bpm": 80, "pickup": 0.0, "bars": ["C5:2 B4:1 C5:1", "D5:2 D#5:2", "D5:2 F5:1 D#5:1", "D5:3 R:1", "G5:2 F#5:1 F5:1", "D#5:2 D5:1 C5:1", "C5:2 B4:2"], "conf": "high", "src": "mutopia:VerdiG/Traviata_15/Traviata_15.ly", "license": "Public Domain (Mutopia Project header)"}
+]

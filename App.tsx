@@ -3,7 +3,7 @@ import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-loc
 import { Capacitor } from "@capacitor/core";
 import { PATHWAY, PATHWAY_PRACTICE, PATHWAY_ORDER } from "./pathway-data";
 import { chatAsks, personalAsks } from "./chat-starters";
-import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
+import { SONGS, SONG_GENRES, SONG_TIMESIG, SONG_ERAS, CLASSICAL_IDS } from "./songs-data";
 import { useInjectCSS } from "./app-styles";
 import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
 import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
@@ -1418,7 +1418,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     }
     if (kind === "melody") {
       // D5: Name That Tune — play first 6 non-rest notes of a random song, pick which song
-      const eligible = SONGS.filter(s => !s.custom && !s.drill && s.seq && s.seq.length >= 6);
+      const eligible = SONGS.filter(s => !s.custom && !s.drill && s.seq && s.seq.length >= 6 && !CLASSICAL_IDS.has(s.id));   // a tune people can know: not an obscure Bach chorale among four
       if (eligible.length < 4) return genQ("int"); // fallback if not enough songs
       const correct = eligible[Math.floor(Math.random() * eligible.length)];
       const wrongs = eligible.filter(s => s.id !== correct.id).sort(() => Math.random() - 0.5).slice(0, 3);
@@ -2604,7 +2604,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   }
 
   // Quick 3-min: pick 3 shortest songs (fewest notes × BPM = fastest to play)
-  const quickSongs = [...SONGS].filter(s => !s.maxOnly)
+  const quickSongs = [...SONGS].filter(s => !s.maxOnly && !CLASSICAL_IDS.has(s.id))
     .sort((a, b) => (a.seq.length / a.bpm) - (b.seq.length / b.bpm)).slice(0, 3);
 
   // Warmup: first diff-1 song
@@ -3751,6 +3751,21 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
 });
 
 /* ── Song picker page (falling-notes play-along) ── */
+/* The category chips of the song list: every era of the classical repertoire first (owner, 2026-10-01: Baroque, Classical,
+   Romantic, Impressionism — the biggest part of the library), then the other kinds of music. A song belongs to one of them
+   (SONG_GENRES); the era codes are values of it like the rest. */
+const GENRE_CHIPS = [
+  { code: "all",    label: { th: "🎵 ทั้งหมด",   en: "🎵 All",    zh: "🎵 全部" } },
+  ...SONG_ERAS.map(e => ({ code: e.code, label: { th: `${e.icon} ${e.th}`, en: `${e.icon} ${e.en}`, zh: `${e.icon} ${e.zh}` } })),
+  { code: "kids",   label: { th: "👶 เด็ก",       en: "👶 Kids",   zh: "👶 儿歌" } },
+  { code: "folk",   label: { th: "🌿 โฟล์ค",      en: "🌿 Folk",   zh: "🌿 民谣" } },
+  { code: "gospel", label: { th: "🙏 กอสเปล",     en: "🙏 Gospel", zh: "🙏 福音" } },
+  { code: "jazz",   label: { th: "🎷 แจ๊ส",       en: "🎷 Jazz",   zh: "🎷 爵士" } },
+  { code: "soul",   label: { th: "🎤 โซล",        en: "🎤 Soul",   zh: "🎤 灵魂乐" } },
+  { code: "neosoul", label: { th: "🌙 นีโอโซล",   en: "🌙 Neo-Soul", zh: "🌙 新灵魂乐" } },
+  { code: "carol",  label: { th: "🎄 คริสต์มาส", en: "🎄 Carols", zh: "🎄 圣诞" } },
+  { code: "cn",     label: { th: "🀄 จีน",        en: "🀄 Chinese", zh: "🀄 中文" } },
+];
 const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, exp = 0, premium = false, onUpsell, onRequireLogin, plan = "", initialCat = "songs" }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
@@ -3870,7 +3885,8 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   let list = ALL.slice();
   if (filter === 0) list = list.filter(s => favs.includes(s.id));
   else if (filter > 0) list = list.filter(s => s.diff === filter && !s.custom);
-  if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "classical") === genreFilter);
+  if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "other") === genreFilter);
+  const eraInfo = SONG_ERAS.find(e => e.code === genreFilter) || null;
   list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
 
   /* A card says what the player has EARNED on the song (gold stars), how
@@ -3978,24 +3994,18 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
             {filters.map(f => <button key={f.k} className={`songfilter${filter === f.k ? " on" : ""}`} onClick={() => setFilter(f.k)}>{f.label}</button>)}
           </div>
           <div className="genrefilters">
-            {([
-              { code:"all",       label:{ th:"🎵 ทั้งหมด",     en:"🎵 All",       zh:"🎵 全部" } },
-              { code:"kids",      label:{ th:"👶 เด็ก",         en:"👶 Kids",      zh:"👶 儿歌" } },
-              { code:"classical", label:{ th:"🎹 คลาสสิก",     en:"🎹 Classical", zh:"🎹 古典" } },
-              { code:"folk",      label:{ th:"🌿 โฟล์ค",        en:"🌿 Folk",      zh:"🌿 民谣" } },
-              { code:"gospel",    label:{ th:"🙏 กอสเปล",       en:"🙏 Gospel",    zh:"🙏 福音" } },
-              { code:"jazz",      label:{ th:"🎷 แจ๊ส",         en:"🎷 Jazz",      zh:"🎷 爵士" } },
-              { code:"soul",      label:{ th:"🎤 โซล",          en:"🎤 Soul",      zh:"🎤 灵魂乐" } },
-              { code:"neosoul",   label:{ th:"🌙 นีโอโซล",      en:"🌙 Neo-Soul",  zh:"🌙 新灵魂乐" } },
-              { code:"carol",     label:{ th:"🎄 คริสต์มาส",   en:"🎄 Carols",    zh:"🎄 圣诞" } },
-              { code:"cn",        label:{ th:"🀄 จีน",          en:"🀄 Chinese",   zh:"🀄 中文" } },
-            ] as const).map(g => (
+            {GENRE_CHIPS.map(g => (
               <button key={g.code} className={"genrechip" + (genreFilter === g.code ? " active" : "")}
                 onClick={() => { haptic(); setGenreFilter(g.code); }}>
                 {g.label[lang] ?? g.label.en}
               </button>
             ))}
           </div>
+          {eraInfo && (
+            <div className="erainfo" role="note">
+              <b>{tr(eraInfo, lang)}</b> · {eraInfo.span} · {eraInfo.who[lang] || eraInfo.who.en} · {list.length} {T("เพลง", "pieces", "首")}
+            </div>
+          )}
           <button className="aicreate" onClick={() => { setGenErr(false); setCreateOpen(true); }}>✨ {lc.aiCreate}</button>
           {createOpen && (
             <div className="setov" onClick={() => !generating && setCreateOpen(false)}>

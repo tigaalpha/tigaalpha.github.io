@@ -353,6 +353,43 @@ if (want("list")) {
   rec("list-straight-to-songs", !gone.search && gone.banners === 0 && !gone.hero && firstTop < 450, `first song card top ${firstTop}px of 915 · search ${gone.search} · banners ${gone.banners}`);
   await done(s);
 }
+// ── 10a. the library and its eras (owner, 2026-10-01: more than 500 songs, divided by era) ──
+if (want("eras")) {
+  const s = await session({ exp: 0 });
+  await openList(s.p);
+  const all = await s.p.evaluate(() => ({ cards: document.querySelectorAll(".songgrid .songcard").length, chips: [...document.querySelectorAll(".genrechip")].map(c => c.textContent.trim()) }));
+  rec("eras-500", all.cards > 500, `${all.cards} songs in "All"`);
+  rec("eras-chips", ["Baroque", "Classical", "Romantic", "Impressionism"].every((n, i) => all.chips[i + 1] && all.chips[i + 1].includes(n)) && all.chips[0].includes("All"), all.chips.join(" | "));
+  const chips = await s.p.$$(".genrechip");
+  const seen = {}; let total = 0;
+  for (let i = 1; i <= 4; i++) {
+    await chips[i].click(); await s.p.waitForTimeout(250);
+    const r = await s.p.evaluate(() => ({ cards: document.querySelectorAll(".songgrid .songcard").length, note: (document.querySelector(".erainfo") || {}).innerText || "" }));
+    seen[all.chips[i]] = r.cards; total += r.cards;
+    rec("era-" + i, r.cards >= 40 && new RegExp(String(r.cards)).test(r.note) && /\d{4}[–-]\d{4}/.test(r.note), `${all.chips[i]}: ${r.cards} songs · note "${r.note.replace(/\s+/g, " ")}"`);
+  }
+  // an era is not a level: each has songs a level-1 player can open
+  const open1 = await s.p.evaluate(() => document.querySelectorAll(".songgrid .songcard:not(.locked)").length);
+  rec("era-open-for-level-1", open1 > 0, `Impressionism, level 1 player: ${open1} songs open`);
+  await chips[0].click(); await s.p.waitForTimeout(250);
+  rec("eras-all-again", !(await s.p.$(".erainfo")) && (await s.p.$$(".songgrid .songcard")).length === all.cards, `back to ${all.cards} songs, note gone`);
+  rec("eras-errors", s.errs.length === 0, s.errs.join(" / ") || "none");
+  await done(s);
+}
+// ── 10a'. real scores play and score like any song: a slow 3/4, a pickup, fast sixteenths, a song ──
+if (want("classical")) {
+  for (const name of ["Gymnopédie No. 2 (Satie)", "Chanson du chat – The Cat's Song (Satie)", "Two-Part Invention No. 4 in D minor, BWV 775 (Bach)", "Heidenröslein (Wild Rose), D. 257 (Schubert)"]) {
+    const s = await session({ exp: 50000 });
+    await openList(s.p);
+    const found = await openSong(s.p, name);
+    if (!found) { rec("classical " + name, false, "not in the list"); await done(s); continue; }
+    await start(s.p); await bot(s.p);
+    await waitResult(s.p, 150000); await stopBot(s.p);
+    const st = await starsOf(s.p);
+    rec("classical " + name, st === 3 && s.errs.length === 0, `stars ${st} · ${(await resultText(s.p)).slice(0, 90)} · errors ${s.errs.length}`);
+    await done(s);
+  }
+}
 // ── 10b. the reading staff slides every frame, and the boss bar stays mounted ──
 if (want("staff")) {
   const s = await session();
