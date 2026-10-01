@@ -634,6 +634,143 @@ if (want("stage")) {
     await done(s);
   }
 }
+// ── 18. the sheet view (owner, 2026-09-30): no falling notes, the staff big and on the keys, no key lit to point the way —
+//        chosen in the header, top right, beside Backing / Metronome ──
+if (want("sheet")) {
+  const box = `const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), b: Math.round(b.bottom), w: Math.round(b.width), h: Math.round(b.height) }; };`;
+  // the switch sits in the header beside the accompaniment pair, on the phones people have, in the three languages
+  for (const [w, h, lang] of [[360, 740, "en"], [412, 915, "th"], [390, 844, "zh"]]) {
+    const s = await session({ w, h, lang });
+    await openList(s.p);
+    if (lang === "en") await openSong(s.p, "Twinkle");
+    else { await (await s.p.$$(".songgrid .songcard:not(.locked)"))[0].click(); await s.p.waitForTimeout(900); }      // the names are translated: take the first open song
+    await s.p.waitForSelector(".songhdr", { timeout: 8000 });
+    const r = await s.p.evaluate((boxSrc) => {
+      const box = new Function(boxSrc + "return box;")();
+      const hdr = document.querySelector(".songhdr"), view = hdr.querySelector(".pl-view"), acc = hdr.querySelector(".pl-mode"), title = hdr.querySelector(".songhtitle"), close = hdr.querySelector(".cbtn");
+      return { hdr: box(hdr), view: box(view), acc: box(acc), title: box(title), close: box(close), btns: [...hdr.querySelectorAll(".pl-view button")].map(b => ({ txt: b.textContent.trim(), on: b.classList.contains("on"), pressed: b.getAttribute("aria-pressed"), w: Math.round(b.getBoundingClientRect().width) })), overflow: hdr.scrollWidth > hdr.clientWidth + 1, vw: window.innerWidth, accBtns: hdr.querySelectorAll(".pl-mode button").length };
+    }, box);
+    const tag = `${lang} ${w}×${h}`;
+    await s.p.screenshot({ path: `${OUT}/sheet-header-${lang}-${w}.png`, clip: { x: 0, y: 0, width: w, height: 120 } });
+    const beside = r.view && r.acc && r.view.r <= r.acc.l + 2 && r.acc.l - r.view.r <= 14 && Math.abs(r.view.t - r.acc.t) <= 4 && Math.abs(r.view.b - r.acc.b) <= 4;
+    rec(`sheet-switch-${tag}`, !!r.view && r.btns.length === 2 && r.btns[0].on && !r.btns[1].on && r.btns.every(b => b.txt.length >= 2 && b.w >= 34) && beside && r.title.r <= r.view.l + 1 && r.close.r <= r.vw && !r.overflow && r.accBtns === 2, `switch ${JSON.stringify(r.btns.map(b => b.txt + (b.on ? "*" : "") + " " + b.w + "px"))} at ${r.view && r.view.l}–${r.view && r.view.r}, the accompaniment pair at ${r.acc && r.acc.l}–${r.acc && r.acc.r} · the song's name keeps ${r.title.w}px · header overflow ${r.overflow}`);
+    await done(s);
+  }
+  // in a run: falling → the sheet → falling again, one session
+  {
+    const s = await session({ w: 412, h: 915 });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await start(s.p); await s.p.waitForTimeout(1800);
+    const snap = () => s.p.evaluate((boxSrc) => {
+      const box = new Function(boxSrc + "return box;")(), T = window.__paTest;
+      return { cls: document.querySelector(".songov").className, gems: T.gems(), lit: document.querySelectorAll(".gpw.lit, .gpb.lit").length, fingers: document.querySelectorAll(".gpfinger").length, staff: box(document.querySelector(".songstaffwrap")), pastaff: box(document.querySelector(".pastaff")), stage: box(document.querySelector(".songstage")), piano: box(document.querySelector(".gpwrap")), view: T.view(), bake: T.bake(), pressed: [...document.querySelectorAll(".songhdr .pl-view button")].map(b => b.getAttribute("aria-pressed")) };
+    }, box);
+    const fall = await snap();
+    await s.p.screenshot({ path: `${OUT}/sheet-1-falling.png` });
+    await s.p.click(".songhdr .pl-view button >> nth=1"); await s.p.waitForTimeout(1200);
+    const sheet = await snap();
+    await s.p.screenshot({ path: `${OUT}/sheet-2-sheet.png` });
+    await s.p.click(".songhdr .pl-view button >> nth=0"); await s.p.waitForTimeout(1200);
+    const back = await snap();
+    rec("sheet-falling-first", !/pl-sheet/.test(fall.cls) && fall.gems > 0 && fall.lit >= 1 && fall.staff.b <= fall.stage.t + 3 && fall.pastaff.h < 120 && fall.view.sheet === false && fall.bake && fall.bake.sheet === false && fall.pressed.join() === "true,false", `class "${fall.cls}" · ${fall.gems} gems drawn · ${fall.lit} key lit · staff ${fall.staff.t}–${fall.staff.b} above the stage ${fall.stage.t}–${fall.stage.b} · staff ${fall.pastaff.h}px`);
+    rec("sheet-no-falling-notes", /pl-sheet/.test(sheet.cls) && sheet.gems === 0 && sheet.view.sheet === true && sheet.bake && sheet.bake.sheet === true && sheet.pressed.join() === "false,true", `class "${sheet.cls}" · ${sheet.gems} gems drawn (falling: ${fall.gems}) · stage is the plain world ${sheet.bake && sheet.bake.sheet}`);
+    rec("sheet-no-key-lit", sheet.lit === 0 && sheet.fingers === 0 && fall.lit >= 1, `${sheet.lit} keys lit and ${sheet.fingers} finger numbers in the sheet view (falling: ${fall.lit} lit)`);
+    rec("sheet-staff-on-the-keys", sheet.staff.t >= sheet.stage.b - 3 && Math.abs(sheet.piano.t - sheet.staff.b) <= 3 && sheet.pastaff.h >= 125 && sheet.stage.h >= 60, `staff ${sheet.staff.t}–${sheet.staff.b}, ${sheet.pastaff.h}px tall (falling: ${fall.pastaff.h}px) · keys start at ${sheet.piano.t} · stage strip ${sheet.stage.t}–${sheet.stage.b} (${sheet.stage.h}px)`);
+    rec("sheet-switch-back", !/pl-sheet/.test(back.cls) && back.gems > 0 && back.lit >= 1 && back.staff.b <= back.stage.t + 3 && back.pastaff.h < 120 && s.errs.length === 0, `back to falling: ${back.gems} gems · ${back.lit} key lit · staff ${back.pastaff.h}px · errors ${s.errs.length}${s.errs.length ? " " + s.errs[0] : ""}`);
+    await stopBot(s.p);
+    await done(s);
+  }
+  // the layout holds on a small phone, with both hands (a grand staff), on a phone turned sideways and on a tablet
+  for (const [w, h, hand, tag] of [[360, 640, "right", "small phone"], [412, 915, "both", "both hands"], [740, 360, "right", "landscape"], [820, 1180, "left", "tablet"]]) {
+    const s = await session({ w, h, extraLS: { tg_pa_view: "sheet" } });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    if (hand !== "right") { await s.p.click(`.songready .songhandbtn >> nth=${hand === "left" ? 1 : 2}`); await s.p.waitForTimeout(300); }
+    await start(s.p); await s.p.waitForTimeout(1500);
+    const r = await s.p.evaluate((boxSrc) => {
+      const box = new Function(boxSrc + "return box;")();
+      const q = (x) => document.querySelector(x);
+      return { cls: q(".songov").className, staff: box(q(".songstaffwrap")), pastaff: box(q(".pastaff")), stage: box(q(".songstage")), piano: box(q(".gpwrap")), hdr: box(q(".songhdr")), hud: box(q(".songhud")), overflowX: document.documentElement.scrollWidth > window.innerWidth, vh: window.innerHeight, gems: window.__paTest.gems(), notes: q(".pastaff-move") ? q(".pastaff-move").querySelectorAll("ellipse").length : 0 };
+    }, box);
+    await s.p.screenshot({ path: `${OUT}/sheet-${tag.replace(/\s/g, "-")}.png` });
+    rec(`sheet-layout-${tag.replace(/\s/g, "-")}`, /pl-sheet/.test(r.cls) && r.gems === 0 && Math.abs(r.piano.t - r.staff.b) <= 3 && r.staff.t >= r.stage.b - 3 && r.stage.h >= 40 && !r.overflowX && r.piano.b <= r.vh + 1 && r.notes >= 3, `${tag} ${w}×${h} (${hand} hand): staff ${r.staff.t}–${r.staff.b} (${r.pastaff.h}px) on the keys at ${r.piano.t} · stage strip ${r.stage.h}px · ${r.notes} note heads on the page · sideways scroll ${r.overflowX}`);
+    await done(s);
+  }
+  // the choice is kept, and the ready screen says what the sheet view is
+  {
+    const s = await session({ w: 390, h: 800 });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await s.p.click(".songhdr .pl-view button >> nth=1"); await s.p.waitForTimeout(300);
+    const note = await s.p.evaluate(() => [...document.querySelectorAll(".songready .pl-kindnote")].map(e => e.textContent).join(" | "));
+    await s.p.screenshot({ path: `${OUT}/sheet-ready.png` });
+    await s.p.reload({ waitUntil: "load" }); await s.p.waitForTimeout(2500);
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    const after = await s.p.evaluate(() => ({ ls: localStorage.getItem("tg_pa_view"), pressed: [...document.querySelectorAll(".songhdr .pl-view button")].map(b => b.getAttribute("aria-pressed")), cls: document.querySelector(".songov").className }));
+    rec("sheet-kept", after.ls === "sheet" && after.pressed.join() === "false,true" && /Sheet mode/.test(note), `after a reload: saved "${after.ls}", buttons ${after.pressed.join("/")} · ready screen says "${note.slice(0, 80)}"`);
+    await done(s);
+  }
+  // the staff keeps the verdict: a note you hit turns green, one you missed red, and they slide away in those colours
+  {
+    const s = await session({ w: 412, h: 915, extraLS: { tg_pa_view: "sheet" } });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await start(s.p); await bot(s.p, { skipFrom: 3, skipTo: 4.5 });
+    const seen = await s.p.evaluate(() => new Promise(res => {
+      const t0 = performance.now(); let both = null, hit = false, miss = false;
+      const id = setInterval(() => {
+        const el = document.querySelector(".pastaff-move"); const html = el ? el.innerHTML : "";
+        if (html.includes("rgba(92,242,200")) hit = true; if (html.includes("rgba(255,107,138")) miss = true;
+        if ((hit && miss) || performance.now() - t0 > 20000) { clearInterval(id); res({ hit, miss, at: Math.round(performance.now() - t0), missed: window.__paTest.notes().filter(n => n.missed).length, hits: window.__paTest.notes().filter(n => n.hit).length }); }
+      }, 250);
+    }));
+    await s.p.screenshot({ path: `${OUT}/sheet-verdicts.png` });
+    await stopBot(s.p);
+    rec("sheet-verdicts-on-the-staff", seen.hit && seen.miss, `on the page after ${seen.at} ms: a hit note in green ${seen.hit}, a missed note in red ${seen.miss} (${seen.hits} hit, ${seen.missed} missed so far)`);
+    await done(s);
+  }
+  // the scoring is the same: a clean run is 3 stars and the boss falls, and usage says the run was read from the sheet
+  {
+    const s = await session({ w: 412, h: 915, extraLS: { tg_pa_view: "sheet" } });
+    await openList(s.p); await openSong(s.p, "Velvet Glow"); await start(s.p); await bot(s.p);
+    await waitResult(s.p); await stopBot(s.p);
+    const st = await starsOf(s.p), txt = await resultText(s.p);
+    await s.p.waitForTimeout(600);
+    const items = s.usage.filter(r => r.kind === "pa").map(r => r.item_id);
+    rec("sheet-scores-the-same", st === 3 && /Boss down/.test(txt) && items.some(i => /^start:.*velvet.*:sheet$/.test(i)) && s.errs.length === 0, `stars ${st} · boss ${/Boss down/.test(txt)} · usage ${items.filter(i => i.startsWith("start:")).join(" | ")} · errors ${s.errs.length}`);
+    await done(s);
+  }
+  // the first-song intro teaches the falling gems, so it is always shown falling, whatever was chosen
+  {
+    const s = await session({ intro: false, extraLS: { tg_pa_view: "sheet" } });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await s.p.click(".pl-introcard .songbtn.go"); await s.p.waitForTimeout(1500);
+    const r = await s.p.evaluate(() => ({ cls: document.querySelector(".songov").className, view: window.__paTest.view(), gems: window.__paTest.gems(), hint: !!document.querySelector(".pl-intro-hint") }));
+    rec("sheet-intro-falls", !/pl-sheet/.test(r.cls) && r.view.pref === "sheet" && r.view.sheet === false && r.gems > 0 && r.hint, `intro run: class "${r.cls}" · chosen ${r.view.pref}, shown as sheet ${r.view.sheet} · ${r.gems} gems · hint ${r.hint}`);
+    await done(s);
+  }
+  // practice mode reads from the sheet too: the song waits at the first note, the right key moves it on
+  {
+    const s = await session({ w: 412, h: 915, extraLS: { tg_pa_view: "sheet" } });
+    await openList(s.p); await openSong(s.p, "Twinkle");
+    await s.p.click(".pl-practice-btn"); await s.p.waitForTimeout(2500);
+    const w = await s.p.evaluate(() => { const T = window.__paTest; const n = T.notes()[0]; return { hud: !!document.querySelector(".pl-practicehud"), gems: T.gems(), staff: !!document.querySelector(".pastaff"), cls: document.querySelector(".songov").className, note: n.note, hit: n.hit, now: T.now(), due: n.t + T.lead }; });
+    await s.p.evaluate((note) => window.__paTest.press(note), w.note); await s.p.waitForTimeout(500);
+    const h = await s.p.evaluate(() => window.__paTest.notes()[0].hit);
+    rec("sheet-practice", w.hud && w.gems === 0 && w.staff && /pl-sheet/.test(w.cls) && !w.hit && Math.abs(w.now - w.due) < 0.1 && h === true && s.errs.length === 0, `practice from the sheet: waiting at ${w.now && w.now.toFixed(2)} s for the note due at ${w.due.toFixed(2)} s · ${w.gems} gems · then ${w.note} pressed → hit ${h} · errors ${s.errs.length}`);
+    await done(s);
+  }
+  // the pause card has the switch too
+  {
+    const s = await session({ w: 412, h: 915 });
+    await openList(s.p); await openSong(s.p, "Twinkle"); await start(s.p); await s.p.waitForTimeout(1200);
+    await s.p.click(".pl-pausebtn"); await s.p.waitForTimeout(600);
+    const n = await s.p.evaluate(() => document.querySelectorAll(".pl-pause .pl-view button").length);
+    await s.p.click(".pl-pause .pl-view button >> nth=1"); await s.p.waitForTimeout(300);
+    const v = await s.p.evaluate(() => window.__paTest.view());
+    await s.p.click(".pl-pause .songbtn.go"); await s.p.waitForTimeout(3500);
+    const after = await s.p.evaluate(() => ({ gems: window.__paTest.gems(), cls: document.querySelector(".songov").className }));
+    rec("sheet-in-the-pause-card", n === 2 && v.pref === "sheet" && after.gems === 0 && /pl-sheet/.test(after.cls) && s.errs.length === 0, `${n} buttons on the pause card · chosen ${v.pref} · after resuming ${after.gems} gems, class "${after.cls}" · errors ${s.errs.length}`);
+    await done(s);
+  }
+}
 // ── 11. other pages still open ──
 if (want("pages")) {
   const s = await session({ page: null });
