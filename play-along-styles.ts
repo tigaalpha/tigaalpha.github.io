@@ -175,10 +175,11 @@ export const PA_CSS = `
 .songov.playal .gpb{background:#05020f;border-color:#2a1d5c;box-shadow:0 4px 8px rgba(0,0,0,.8)}
 .songov.playal .gpb.lit{background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 60%),var(--kc,#ff3cd2);box-shadow:0 0 16px var(--kc,rgba(255,60,210,.75))}
 .songov.playal .gpfinger{background:var(--pl-vio)}
-/* the sheet view's keys (owner, 2026-10-01): the key that is due next is lit neon blue — the one colour, where a falling gem
-   gives each lane its own — and a light runs along the top of the keys to it. The light is one element per lit key (GamePiano
-   runners); its left and right edges are both transitioned, and the edge facing the way it goes is the quick one, so it
-   stretches across to the next key and settles there. Still when nothing moves; it moves only when the next key changes. */
+/* the keys (owner, 2026-10-01): a light runs along the top of the keys to the key that is due next, in every mode — falling or
+   sheet, backing track or metronome. In the sheet view that key is lit neon blue too, the one colour, where a falling gem gives
+   each lane its own. The light is one element per lit key (GamePiano runners); its left and right edges are both
+   transitioned, and the edge facing the way it goes is the quick one, so it stretches across to the next key and settles
+   there. Still when nothing moves; it moves only when the next key changes. */
 .songov.playal.pl-sheet .gpw.lit,.songov.playal.pl-sheet .gpb.lit{--kc:var(--pl-run)}
 .songov.playal.pl-sheet .gpw.lit{box-shadow:0 0 14px var(--kc),0 0 34px rgba(44,198,255,.5),inset 0 0 12px rgba(255,255,255,.4)}
 .songov.playal.pl-sheet .gpb.lit{box-shadow:0 0 12px var(--kc),0 0 26px rgba(44,198,255,.55),inset 0 0 8px rgba(255,255,255,.4)}

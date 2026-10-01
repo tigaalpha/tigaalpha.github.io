@@ -675,20 +675,23 @@ if (want("sheet")) {
       const box = new Function(boxSrc + "return box;")(), T = window.__paTest;
       return { cls: document.querySelector(".songov").className, gems: T.gems(), lit: document.querySelectorAll(".gpw.lit, .gpb.lit").length, litKeys: [...document.querySelectorAll(".gpw.lit, .gpb.lit")].map(k => ({ ...box(k), kc: getComputedStyle(k).getPropertyValue("--kc").trim() })), runners: [...document.querySelectorAll(".gprun")].map(r => box(r)), fingers: document.querySelectorAll(".gpfinger").length, staff: box(document.querySelector(".songstaffwrap")), pastaff: box(document.querySelector(".pastaff")), stage: box(document.querySelector(".songstage")), piano: box(document.querySelector(".gpwrap")), view: T.view(), bake: T.bake(), pressed: [...document.querySelectorAll(".songhdr .pl-view button")].map(b => b.getAttribute("aria-pressed")) };
     }, box);
-    const fall = await snap();
+    // a note may have just changed, and the light then takes a moment to arrive: look again until it sits on its key
+    const sameKey = (r, k) => Math.abs((r.l + r.r) / 2 - (k.l + k.r) / 2) <= 2 && Math.abs(r.w - k.w) <= 3;
+    const lightOn = (x) => x.litKeys.length >= 1 && x.runners.length === x.litKeys.length && x.runners.every(r => x.litKeys.some(k => sameKey(r, k)));
+    const settled = async () => { let x = await snap(); for (let i = 0; i < 8 && !lightOn(x); i++) { await s.p.waitForTimeout(150); x = await snap(); } return x; };
+    const fall = await settled();
     await s.p.screenshot({ path: `${OUT}/sheet-1-falling.png` });
     await s.p.click(".songhdr .pl-view button >> nth=1"); await s.p.waitForTimeout(1200);
-    const sheet = await snap();
+    const sheet = await settled();
     await s.p.screenshot({ path: `${OUT}/sheet-2-sheet.png` });
     await s.p.click(".songhdr .pl-view button >> nth=0"); await s.p.waitForTimeout(1200);
-    const back = await snap();
+    const back = await settled();
     rec("sheet-falling-first", !/pl-sheet/.test(fall.cls) && fall.gems > 0 && fall.lit >= 1 && fall.staff.b <= fall.stage.t + 3 && fall.pastaff.h < 120 && fall.view.sheet === false && fall.bake && fall.bake.sheet === false && fall.pressed.join() === "true,false", `class "${fall.cls}" · ${fall.gems} gems drawn · ${fall.lit} key lit · staff ${fall.staff.t}–${fall.staff.b} above the stage ${fall.stage.t}–${fall.stage.b} · staff ${fall.pastaff.h}px`);
     rec("sheet-no-falling-notes", /pl-sheet/.test(sheet.cls) && sheet.gems === 0 && sheet.view.sheet === true && sheet.bake && sheet.bake.sheet === true && sheet.pressed.join() === "false,true", `class "${sheet.cls}" · ${sheet.gems} gems drawn (falling: ${fall.gems}) · stage is the plain world ${sheet.bake && sheet.bake.sheet}`);
     // the next key is lit neon blue in the sheet view (one colour; the falling view gives each lane its own), with no finger numbers,
     // and a light sits on it — the same width and the same place as the key — while the falling view has no such light
-    const sameKey = (r, k) => Math.abs((r.l + r.r) / 2 - (k.l + k.r) / 2) <= 2 && Math.abs(r.w - k.w) <= 3;
     rec("sheet-key-lit-blue", sheet.litKeys.length >= 1 && sheet.litKeys.every(k => /^#2cc6ff$/i.test(k.kc)) && sheet.fingers === 0 && fall.litKeys.length >= 1 && fall.litKeys.every(k => /^hsl\(/.test(k.kc)) && fall.fingers >= 1, `sheet: ${sheet.litKeys.length} key lit, colour ${sheet.litKeys.map(k => k.kc).join("/")}, ${sheet.fingers} finger numbers · falling: ${fall.litKeys.length} lit in ${fall.litKeys.map(k => k.kc).join("/")}, ${fall.fingers} finger numbers`);
-    rec("sheet-light-on-the-key", sheet.runners.length >= 1 && sheet.runners.length === sheet.litKeys.length && sheet.runners.every(r => sheet.litKeys.some(k => sameKey(r, k))) && fall.runners.length === 0 && back.runners.length === 0, `sheet: ${sheet.runners.length} running light at ${JSON.stringify(sheet.runners.map(r => [r.l, r.w]))} on the lit key ${JSON.stringify(sheet.litKeys.map(k => [k.l, k.w]))} · falling: ${fall.runners.length} · back to falling: ${back.runners.length}`);
+    rec("sheet-light-on-the-key", lightOn(sheet) && lightOn(fall) && lightOn(back), `sheet: ${sheet.runners.length} running light at ${JSON.stringify(sheet.runners.map(r => [r.l, r.w]))} on the lit key ${JSON.stringify(sheet.litKeys.map(k => [k.l, k.w]))} · falling: ${fall.runners.length} light on ${fall.litKeys.length} lit key (${lightOn(fall)}) · back to falling: ${lightOn(back)}`);
     rec("sheet-staff-on-the-keys", sheet.staff.t >= sheet.stage.b - 3 && Math.abs(sheet.piano.t - sheet.staff.b) <= 3 && sheet.pastaff.h >= 125 && sheet.stage.h >= 60, `staff ${sheet.staff.t}–${sheet.staff.b}, ${sheet.pastaff.h}px tall (falling: ${fall.pastaff.h}px) · keys start at ${sheet.piano.t} · stage strip ${sheet.stage.t}–${sheet.stage.b} (${sheet.stage.h}px)`);
     rec("sheet-switch-back", !/pl-sheet/.test(back.cls) && back.gems > 0 && back.lit >= 1 && back.staff.b <= back.stage.t + 3 && back.pastaff.h < 120 && s.errs.length === 0, `back to falling: ${back.gems} gems · ${back.lit} key lit · staff ${back.pastaff.h}px · errors ${s.errs.length}${s.errs.length ? " " + s.errs[0] : ""}`);
     await stopBot(s.p);
@@ -831,6 +834,57 @@ if (want("sheet")) {
     await s.p.click(".pl-pause .songbtn.go"); await s.p.waitForTimeout(3500);
     const after = await s.p.evaluate(() => ({ gems: window.__paTest.gems(), cls: document.querySelector(".songov").className }));
     rec("sheet-in-the-pause-card", n === 2 && v.pref === "sheet" && after.gems === 0 && /pl-sheet/.test(after.cls) && s.errs.length === 0, `${n} buttons on the pause card · chosen ${v.pref} · after resuming ${after.gems} gems, class "${after.cls}" · errors ${s.errs.length}`);
+    await done(s);
+  }
+}
+// ── 19. the running light is on the keys in every mode (owner, 2026-10-01: "in Metronome mode too — the light must be in every mode on the
+//        piano keys"): falling or sheet, backing track or metronome, practice, each hand ──
+if (want("light")) {
+  const box = `const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), b: Math.round(b.bottom), w: Math.round(b.width), h: Math.round(b.height) }; };`;
+  const probe = (p) => p.evaluate((boxSrc) => {
+    const box = new Function(boxSrc + "return box;")(), T = window.__paTest;
+    return { view: T.view(), accomp: T.accomp(), litKeys: [...document.querySelectorAll(".gpw.lit, .gpb.lit")].map(k => ({ ...box(k), kc: getComputedStyle(k).getPropertyValue("--kc").trim() })), runners: [...document.querySelectorAll(".gprun")].map(r => ({ ...box(r), bg: getComputedStyle(r).boxShadow })), fingers: document.querySelectorAll(".gpfinger").length };
+  }, box);
+  const same = (r, k) => Math.abs((r.l + r.r) / 2 - (k.l + k.r) / 2) <= 2 && Math.abs(r.w - k.w) <= 3;
+  const on = (x) => x.litKeys.length >= 1 && x.runners.length === x.litKeys.length && x.runners.every(r => x.litKeys.some(k => same(r, k)));
+  const combos = [
+    { tag: "falling+backing", view: "fall", accomp: "track" },
+    { tag: "falling+metronome", view: "fall", accomp: "metro" },
+    { tag: "sheet+backing", view: "sheet", accomp: "track" },
+    { tag: "sheet+metronome", view: "sheet", accomp: "metro" },
+    { tag: "falling+metronome+left", view: "fall", accomp: "metro", hand: 1 },
+    { tag: "sheet+metronome+both", view: "sheet", accomp: "metro", hand: 2 },
+    { tag: "falling+backing+both", view: "fall", accomp: "track", hand: 2 },
+    { tag: "falling+metronome+practice", view: "fall", accomp: "metro", practice: true },
+    { tag: "sheet+metronome+practice", view: "sheet", accomp: "metro", practice: true },
+  ];
+  for (const c of combos) {
+    const s = await session({ w: 412, h: 915, extraLS: { tg_pa_view: c.view, tg_pa_accomp: c.accomp } });
+    await openList(s.p); await openSong(s.p, "Mary Had a Little Lamb");
+    if (c.hand) { await s.p.click(`.songready .songhandbtn >> nth=${c.hand}`); await s.p.waitForTimeout(300); }
+    if (c.practice) await s.p.click(".pl-practice-btn"); else await start(s.p);
+    await s.p.waitForTimeout(c.practice ? 2500 : 1800);
+    let x = await probe(s.p);
+    for (let i = 0; i < 8 && !on(x); i++) { await s.p.waitForTimeout(150); x = await probe(s.p); }
+    const modeOk = x.view.sheet === (c.view === "sheet") && x.accomp === c.accomp;
+    const colourOk = c.view === "sheet" ? x.litKeys.every(k => /^#2cc6ff$/i.test(k.kc)) : x.litKeys.every(k => /^hsl\(/.test(k.kc));
+    // it follows the song: a practice run moves it when the right key is pressed; a timed run moves it by itself
+    let moved = 0, stops = 1;
+    if (c.practice) {
+      const before = x.runners.map(r => r.l);
+      await s.p.evaluate(() => { const T = window.__paTest; const n = T.notes().find(q => !q.hit && !q.missed && !q.skip); if (n) T.press(n.note); });
+      await s.p.waitForTimeout(700);
+      let y = await probe(s.p); for (let i = 0; i < 8 && !on(y); i++) { await s.p.waitForTimeout(150); y = await probe(s.p); }
+      moved = y.runners.some((r, i) => before[i] == null || Math.abs(r.l - before[i]) > 4) ? 1 : 0;
+      stops = on(y) ? 2 : 1;
+    } else {
+      await bot(s.p);
+      const seenAt = await s.p.evaluate(() => new Promise(res => { const t0 = performance.now(), seen = []; const tick = () => { const r = document.querySelector(".gprun"); if (r) seen.push(Math.round(r.getBoundingClientRect().left)); if (performance.now() - t0 > 4500) return res(seen); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }));
+      stops = new Set(seenAt).size; moved = stops >= 3 ? 1 : 0;
+      await stopBot(s.p);
+    }
+    await s.p.screenshot({ path: `${OUT}/light-${c.tag.replace(/\+/g, "-")}.png`, clip: { x: 0, y: 560, width: 412, height: 355 } });
+    rec(`light-${c.tag}`, modeOk && on(x) && colourOk && moved === 1 && (c.view !== "sheet" || x.fingers === 0) && s.errs.length === 0, `view ${x.view.sheet ? "sheet" : "falling"} · ${x.accomp} · ${x.litKeys.length} key lit (${x.litKeys.map(k => k.kc).join("/")}) with ${x.runners.length} light on it (${on(x)}) · fingers ${x.fingers} · it ${c.practice ? "moved after the right key: " + moved : "visited " + stops + " positions in 4.5 s"} · errors ${s.errs.length}${s.errs.length ? " " + s.errs[0] : ""}`);
     await done(s);
   }
 }

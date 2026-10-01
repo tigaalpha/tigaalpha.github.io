@@ -93,17 +93,21 @@ larger (134 px, 210 px for a grand staff; `hudTick` shows 3 bars on a phone
 instead of 5 so the spacing holds). The stage above it is only the world
 (`neb.cv` is `world.cv`: no lanes, hit-line or receptors); the judge words and
 flashes still rise from the key that was played. **The keys (owner, 2026-10-01:
-"make the keys that teach have a running light, neon blue is fine").** The next key
-is lit in the sheet view too, in one neon blue (`--pl-run`, `.pl-sheet .gpw.lit`)
-where a falling gem gives each lane its own colour, and a light runs to it: one
-`.gprun` element per lit key along the top of the keys (`runners` of `GamePiano`,
-placed by `gpKeyBox` — the same arithmetic the keys are laid out with, so it lands
-on the key on all three keyboards: right hand from C4, left from C2, both from
-C3). Its left and right edges are transitioned separately and the edge facing the
-way it goes is the quick one, so it stretches across the keys and settles; it
-moves only when the next key changes (about every 120 ms at most, `hudTick`), and
-reduced motion turns the transition off. Finger numbers stay out of the sheet view
-— reading the note is still the point of it. A note you hit turns green on the
+"make the keys that teach have a running light, neon blue is fine" — and "in
+Metronome mode too, the light must be in every mode on the piano keys").** The next
+key is lit in both views — in the sheet view in one neon blue (`--pl-run`,
+`.pl-sheet .gpw.lit`), where a falling gem gives each lane its own colour — and a
+light runs to it **in every mode**: falling or sheet, backing track or metronome,
+practice, drills, every hand. It is one `.gprun` element per lit key along the top
+of the keys (`runners` of `GamePiano`, placed by `gpKeyBox` — the same arithmetic
+the keys are laid out with, so it lands on the key on all three keyboards: right
+hand from C4, left from C2, both from C3; `PaPiano` draws it whatever the view, so a
+new mode gets it for free — keep it that way). Its left and right edges are
+transitioned separately and the edge facing the way it goes is the quick one, so it
+stretches across the keys and settles; it moves only when the next key changes
+(about every 120 ms at most, `hudTick`), and reduced motion turns the transition
+off. Finger numbers stay out of the sheet view — reading the note is still the
+point of it. A note you hit turns green on the
 staff and one you missed red (`hit`/`miss` states
 of `PlayAlongStaff`) and slides away in that colour. Scoring, the band and the
 metronome are the same in both views. The first-song intro teaches the gems, so
@@ -325,7 +329,8 @@ the daily song, concerts, pause, the first-time intro, the song list, the
 sliding staff, medals and the run-coin limit, practice mode, the band and
 the backing-track / metronome choice, the ready screen's theme and settings, the
 stage, the sheet view (no falling notes, the staff on the keys, the neon-blue lit key
-and the light that runs to it on all three keyboards) (`ONLY=name,…` runs a subset). `node scripts/verify-playalong-band-audio.mjs`
+and the light that runs to it on all three keyboards), the running light in every mode
+(`light`: falling/sheet × backing/metronome × each hand × practice) (`ONLY=name,…` runs a subset). `node scripts/verify-playalong-band-audio.mjs`
 renders the band offline (Chromium's OfflineAudioContext, no speakers needed) and
 checks its levels, layering, finale and mic blacklist.
 `node scripts/verify-playalong-mic-band.mjs` runs the real band, the real sound

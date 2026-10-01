@@ -235,12 +235,12 @@ const PaPiano = memo(function PaPiano({ store, handMode, sheet, onNote }) {
     const m = {}; for (const n of litSet) m[n] = `hsl(${Math.round(laneHue(n))},100%,62%)`;
     return m;
   }, [litSet, sheet]);
-  // the sheet view's running light (owner, 2026-10-01): along the top of the keys, to the key that is due next. It remembers
-  // where it was so that the edge facing the way it goes leads and the other follows — it stretches across, then settles.
-  // The memory is written after the commit, not during the render, so StrictMode's second render reads the same past.
+  // the running light (owner, 2026-10-01: it must be on the keys in every mode — falling or sheet, backing track or metronome,
+  // practice, drills, every hand): along the top of the keys, to the key that is due next. It remembers where it was so
+  // that the edge facing the way it goes leads and the other follows — it stretches across, then settles. The memory is
+  // written after the commit, not during the render, so StrictMode's second render reads the same past.
   const prevRun = useRef([]);
   const runners = useMemo(() => {
-    if (!sheet) return null;
     const out = [];
     litSet.forEach((n, i) => {
       const b = gpKeyBox(n, baseOct, octs);
@@ -249,7 +249,7 @@ const PaPiano = memo(function PaPiano({ store, handMode, sheet, onNote }) {
       out.push({ ...b, cx, dir: p ? Math.sign(cx - p.cx) : 0 });
     });
     return out;
-  }, [sheet, litSet, baseOct, octs]);
+  }, [litSet, baseOct, octs]);
   useEffect(() => { prevRun.current = runners || []; }, [runners]);
   return (
     <GamePiano fullWidth litSet={litSet} fingerMap={fm} litColors={litColors} runners={runners}
