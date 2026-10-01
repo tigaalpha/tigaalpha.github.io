@@ -71,6 +71,7 @@ const SMOKES = {
   "m12-fusion": ["tigamodel/scripts/smoke-fusion.mjs"],
   "m32-speed-answer-cache": ["tigamodel/scripts/smoke-answer-cache.mjs"],
   "m34-speed-kb-hotset": ["tigamodel/scripts/smoke-kb-hot-path.mjs"],
+  "m44-hot-path-switch": ["tigamodel/scripts/smoke-kb-hot-path-switch.mjs"],
   "m13-cost-governor": ["tigamodel/scripts/smoke-cost-governor.mjs"],
   "m22-cost-governor": ["tigamodel/scripts/smoke-cost-governor.mjs"],
   "m39-skill-state-wiring": ["tigamodel/scripts/smoke-skill-state-wiring.mjs"],

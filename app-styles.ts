@@ -248,6 +248,30 @@ html, body, #root{background:var(--bg)}
 .starterchip{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(167,139,250,.1);border:1px solid #a78bfa44;border-radius:20px;padding:6px 12px 6px 8px;cursor:pointer;max-width:220px}
 .starterchip-ic{font-size:14px;flex-shrink:0}
 .starterchip-tx{font-family:var(--f-app);font-size:11.5px;font-weight:600;color:#c4b5fd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* the tutor's answers: a little bold and bullets (see RichText in chat-ui.tsx) */
+.rt>div{min-height:1em}
+.rt .rt-gap{height:6px;min-height:0}
+.rt-li{display:flex;gap:7px;margin:2px 0;align-items:flex-start}
+.rt-dot{flex-shrink:0;color:#d97757;font-weight:700}
+.rt-num{min-width:1.2em}
+.rt strong{font-weight:700;color:var(--text)}
+.morebtn{display:inline-flex;align-items:center;gap:5px;background:none;border:1px dashed #d9775788;border-radius:20px;padding:5px 12px;cursor:pointer;font-size:11px;font-family:var(--f-app);color:var(--text2);letter-spacing:.3px}
+.morebtn:hover{border-style:solid;border-color:#d97757;background:rgba(217,119,87,.1)}
+.morebtn:active{transform:scale(.96)}
+/* free AI messages left today, under the chat box */
+.qnote{font-family:var(--f-num);font-size:10px;color:var(--muted);text-align:center;margin-top:6px}
+.qnote.out{color:#d97757;font-weight:700}
+/* the full-screen chat before the first question: next step + questions to tap */
+.mstarters{display:flex;flex-direction:column;align-items:center;gap:10px;padding:6px 2px 4px}
+.mrec{display:flex;align-items:center;gap:10px;width:100%;max-width:420px;background:rgba(217,119,87,.1);border:1px solid #d9775788;border-radius:14px;padding:12px 14px;cursor:pointer;text-align:left}
+.mrec:active{transform:scale(.985)}
+.mrec-ic{font-size:22px;flex-shrink:0}
+.mrec-tx{flex:1;min-width:0;font-family:var(--f-app);font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
+.mrec-go{font-size:16px;color:#d97757;flex-shrink:0}
+.mstarters-hint{font-family:var(--f-num);font-size:10px;color:#a78bfa;letter-spacing:.5px}
+.mstarters-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.mstarters-row .starterchip{max-width:100%}
+.mstarters-row .starterchip-tx{white-space:normal;text-align:left;overflow:visible}
 .iw{padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));background:var(--card3);border-top:1px solid #d9775733;flex-shrink:0}
 .ir{display:flex;gap:8px;align-items:flex-end}
 .tin{flex:1;background:var(--card3);border:1px solid #d9775733;border-radius:6px;padding:10px 14px;color:var(--text2);font-family:var(--f-app);font-size:14px;resize:none;min-height:44px;max-height:110px;outline:none;transition:border-color .2s}

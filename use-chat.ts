@@ -62,6 +62,13 @@ import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRe
 // that language comes back around).
 const CHAT_HISTORY_KEY = "tg_chat_history";
 const CHAT_HISTORY_CAP = 24;
+const FREE_CHAT_PER_DAY = 5;   // what the pricing card promises ("AI tutor 5/day")
+/* Only a question about songs carries the list of real songs the tutor may name:
+   it is not free (a block of text per call, and a Jev call to pick from it), and
+   on any other question it is noise. Jev's own song verdict (>= 0.75) counts too. */
+const SONG_TALK = /เพลง|song|tune|repertoire|曲|歌/i;
+// How long a message waits for Jev's pre-check before the answer is asked for anyway
+const PRECHECK_BUDGET_MS = 700;
 function loadSavedChat(lang) {
   try {
     const raw = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || "null");
@@ -70,7 +77,7 @@ function loadSavedChat(lang) {
   return null;
 }
 
-export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, onUpsell }) {
+export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, onUpsell, isGuest = false }) {
   const lc = L[lang];
 
   const [msgs, setMsgs] = useState(() => loadSavedChat(lang) || [{ role: "ai", text: lc.welcome }]);
@@ -94,6 +101,8 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
   // against the first call's still-arriving tokens, corrupting whichever bubble
   // ends up last.
   const streamingRef = useRef(false);
+  // the same fact as streamingRef, as state, so the UI can hold buttons (Explain more) back while an answer is still arriving
+  const [busy, setBusy] = useState(false);
 
   // One-tap retry: the last question that went to the live AI (set in
   // send()/askDirect()), plus a latest-ref handle to callClaude so the
@@ -115,7 +124,10 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     if (premium) return; // premium never counts toward the free cap
     try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); const d = new Date().toISOString().slice(0, 10); if (u.d !== d) u = { d }; u.chat = (u.chat || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {}
   }
-  function canUseChat(isPremium) { return !!isPremium || chatUsedToday() < 5; }
+  function canUseChat(isPremium) { return !!isPremium || chatUsedToday() < FREE_CHAT_PER_DAY; }
+  // messages left today, for the counter under the input — null when there is no cap to show
+  // (premium has none; a guest cannot reach the live AI at all, only a login gate)
+  const chatLeft = (premium || isGuest) ? null : Math.max(0, FREE_CHAT_PER_DAY - chatUsedToday());
 
   function pushMessage(msg) { setMsgs(prev => [...prev, msg]); }
   function setLessonContext(hint, key = null) { topicHint.current = hint; lessonKey.current = key; }
@@ -195,12 +207,30 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     } catch (e) { return null; }
   }
 
+  /* The knowledge-block switch (app_settings.tiga_kb_hot_path) is read at most once a
+     minute and the answer will want it a moment from now; asking here lets that read
+     overlap the Jev pre-check instead of following it. Fire-and-forget: it never
+     throws and nothing waits on it here. */
+  function warmKbSwitch() {
+    try { const hub = tigaNow(); if (hub && hub.refreshKbHotPathSwitch) hub.refreshKbHotPathSwitch().catch(() => {}); } catch (e) {}
+  }
+
+  /* The pre-check is a courtesy, not a gate: it used to run to completion (up to
+     2.5 s) before the answer was even requested, so every message paid for it in
+     full. Now the answer waits at most PRECHECK_BUDGET_MS; a verdict that lands
+     later is simply not used for this message (a spam verdict arriving late costs
+     one answer, which is what every message cost before Jev existed). */
+  function jevPrecheckBounded(userText) {
+    return Promise.race([jevPrecheck(userText), new Promise(r => setTimeout(() => r(null), PRECHECK_BUDGET_MS))]);
+  }
+
   /* Chat via the Supabase Edge Function proxy — streams the reply word-by-word.
      Sends { message, conversationHistory, system }; reads SSE lines of
      `data: {"content":"..."}` produced by the function. */
   async function callClaude(userText, precheck) {
     if (streamingRef.current) return; // a stream is already in flight — never let two calls interleave
     streamingRef.current = true;
+    setBusy(true);
     setLoading(true);
     setSlow(false);
     const history = buildHistory();
@@ -267,14 +297,22 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         const bits = [];
         const ms = precheck.mood && precheck.mood.type === "score" ? precheck.mood.score : null;
         if (ms != null && ms >= 2) bits.push("The learner sounds frustrated or discouraged right now — lead extra warm and keep the next step small.");
-        if (precheck.song != null && precheck.song >= 0.75) bits.push("The learner is asking about a specific song — consider naming a real one they can play [song:…] style.");
+        if (precheck.song != null && precheck.song >= 0.75) bits.push("The learner is asking about a specific song — name a real one they can play, by its title.");
         if (precheck.practice != null && precheck.practice >= 0.75) bits.push("The learner wants to practice/drill something — offer one concrete drill next.");
         if (bits.length) jevHint = "\n\n[Tone/intent hint from pre-analysis: " + bits.join(" ") + "]";
       }
+      /* The system prompt is built ONCE per question. It used to be rebuilt for
+         every transport attempt (stream, silent retry, JSON), and each rebuild of
+         the song hint also fired a Jev call. The song list is only included for a
+         question about songs, and the curriculum block is the chat's own variant
+         (it must not tell the tutor to print Voice Tutor's [plan: …] tag). */
+      const songTalk = SONG_TALK.test(userText) || !!(precheck && precheck.song != null && precheck.song >= 0.75);
+      const system = lc.sys + FINGERING_REF + THEORY_REF + kbContext + studentBlock + coachBlock + memoryContext(lang) + homeworkContext(lang)
+        + curriculumContext(lang, { chat: true }) + (songTalk ? songRecommendationHint(lang, { titles: true }) : "") + jevHint;
       let acc = "";
       let haveBubble = false; // did any streaming attempt reach the response?
       const runStream = () => streamChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + kbContext + studentBlock + coachBlock + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang) + jevHint, feature: "chat", stream: true },
+        { message: userText, conversationHistory: history, system, feature: "chat", stream: true },
         {
           // insert an empty AI bubble we will fill as tokens arrive —
           // reused, not duplicated, if a retry follows a pre-token failure
@@ -283,7 +321,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
             setMsgs(prev => {
               const last = prev[prev.length - 1];
               if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) return prev;
-              return [...prev, { role: "ai", text: "" }];
+              return [...prev, { role: "ai", text: "", live: true }];
             });
             setLoading(false);
           },
@@ -291,7 +329,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         }
       );
       const runJson = () => fetchChatCompletion(
-        { message: userText, conversationHistory: history, system: lc.sys + FINGERING_REF + THEORY_REF + kbContext + studentBlock + coachBlock + memoryContext(lang) + homeworkContext(lang) + curriculumContext(lang) + songRecommendationHint(lang) + jevHint, feature: "chat", stream: false }
+        { message: userText, conversationHistory: history, system, feature: "chat", stream: false }
       );
       /* One full resilience pass: streaming → silent streaming retry on a
          transient blip → non-streaming JSON. Three transports because the
@@ -358,7 +396,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         setMsgs(prev => {
           const last = prev[prev.length - 1];
           if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) return prev;
-          return [...prev, { role: "ai", text: "" }];
+          return [...prev, { role: "ai", text: "", live: true }];
         });
       }
       flush(); // final flush with the complete text
@@ -402,6 +440,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       setLoading(false);
     } finally {
       streamingRef.current = false;
+      setBusy(false);
     }
   }
   callClaudeRef.current = callClaude; // keeps retryLast off a stale closure (see refs above)
@@ -421,8 +460,11 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     callClaudeRef.current && callClaudeRef.current(t);
   }, [loading]);
 
-  function send() {
-    const t = input.trim();
+  /* Everything a question goes through, whether it was typed (send), tapped from a
+     starter chip or the "Explain more" button. `fromChip` leaves whatever the
+     learner has typed in the box alone. */
+  function sendText(raw, { fromChip = false } = {}) {
+    const t = String(raw || "").trim();
     if (!t || loading || streamingRef.current) return; // streamingRef stays true after `loading` already cleared (see callClaude) — block a second send for the whole in-flight window, not just its pre-first-token half
     // derive topic hint from what the user actually typed (scale vs chord)
     const lo = t.toLowerCase();
@@ -430,7 +472,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     else if (/\bchord\b|triad|คอร์ด|ไทรแอด|和弦/.test(lo)) topicHint.current = "chord";
     else topicHint.current = null; // let the detector decide from the AI reply
     lessonKey.current = null; // free-typed: don't force a lesson key, detect from text
-    setInput("");
+    if (!fromChip) setInput("");
     setMsgs(prev => [...prev, { role: "user", text: t }]);
     playPianoNote("C5", 0.1);
     // tier 1: does this clearly match a prepared Pathway chapter/case study already in the app?
@@ -446,12 +488,14 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     } else if (canUseChat(premium)) {
       lastAskRef.current = t; // remembered for the failed-bubble retry button
       bumpChatUsage();
+      warmKbSwitch();
       // tier 2a: Jev pre-check (chat-precheck task) — fast structured
       // classification BEFORE the LLM. Spam ≥0.9 gets a gentle local refusal
       // with no LLM spend; everything else flows to the LLM with tone/intent
-      // hints attached. A disabled/slow/failed pre-check falls straight
-      // through to the LLM — identical behavior to before Jev existed.
-      jevPrecheck(t).then(pc => {
+      // hints attached. A disabled, slow (> PRECHECK_BUDGET_MS) or failed
+      // pre-check falls straight through to the LLM — identical behavior to
+      // before Jev existed.
+      jevPrecheckBounded(t).then(pc => {
         if (pc && pc.spam != null && pc.spam >= 0.9) {
           const refuse = lang === "th" ? "ขอโทษนะ ฉันช่วยเรื่องการเรียนเปียโนได้อย่างเดียวเลย ลองถามเรื่องการซ้อม ทฤษฎีดนตรี หรือเพลงดูสิ 🎹"
             : lang === "zh" ? "抱歉，我只能帮忙学钢琴相关的问题。试试问练习、乐理或歌曲吧 🎹"
@@ -461,7 +505,19 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         }
         callClaude(t, pc);
       }).catch(() => callClaude(t));
+    } else {
+      cappedReply();
     }
+  }
+  function send() { sendText(input); }
+  // "Explain more" under a short answer — the answers now start short on purpose
+  function askMore() { sendText(lc.chatMoreQ, { fromChip: true }); }
+
+  /* The free quota is spent: say so in the thread (a typed question used to be
+     met with silence) and open the upgrade card, same as askDirect always did. */
+  function cappedReply() {
+    setMsgs(prev => [...prev, { role: "ai", text: lc.freeChatCapped, upsell: true }]);
+    if (onUpsell) onUpsell();
   }
 
   /* Asking a real question is worth coins as well as EXP, so the chat is a
@@ -495,12 +551,12 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     } else if (canUseChat(premium)) {
       lastAskRef.current = t;
       bumpChatUsage();
+      warmKbSwitch();
       callClaude(t);
       payForAsk();
     } else {
-      setMsgs(prev => [...prev, { role: "ai", text: lc.freeChatCapped || "🔒 You've used all 5 free AI-tutor messages for today. Upgrade to Premium for unlimited AI tutoring!", upsell: true }]);
-      if (onUpsell) onUpsell();
+      cappedReply();
     }
   }
-  return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, askDirect, retryLast, callClaude, pushMessage, setLessonContext };
+  return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy, askDirect, retryLast, callClaude, pushMessage, setLessonContext };
 }

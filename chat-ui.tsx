@@ -61,8 +61,38 @@ export const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setAc
   );
 });
 
+/* ── Light formatting for the tutor's answers ──
+   **bold**, "- " bullets, "1." steps and "#" headings (shown as bold) — and
+   nothing else. The tutor is asked to write plain text with a little of this,
+   and without it the learner sees stray asterisks. It builds React elements,
+   never HTML, so nothing the model writes can inject markup; a line it does not
+   recognise is kept exactly as typed. A message with none of these markers
+   keeps the plain pre-wrap paragraph it always had (see Msg). */
+const RICH_MARKS = /\*\*|^\s*(?:[-•*]|\d+[.)])\s|^#{1,6}\s/m;
+function inlineBold(text: string, keyBase: string) {
+  const parts = text.split(/\*\*([^*\n]+)\*\*/g);
+  return parts.map((t, i) => (i % 2 === 1 ? <strong key={keyBase + i}>{t}</strong> : t));
+}
+function RichText({ text }: { text: string }) {
+  const lines = String(text).split("\n");
+  return (
+    <div className="rt">
+      {lines.map((raw, i) => {
+        if (!raw.trim()) return <div key={i} className="rt-gap" />;
+        const h = raw.match(/^#{1,6}\s+(.*)$/);
+        if (h) return <div key={i}><strong>{inlineBold(h[1], i + "h")}</strong></div>;
+        const b = raw.match(/^\s*(?:[-•*])\s+(.*)$/);
+        if (b) return <div key={i} className="rt-li"><span className="rt-dot" aria-hidden="true">•</span><span>{inlineBold(b[1], i + "b")}</span></div>;
+        const n = raw.match(/^\s*(\d+)[.)]\s+(.*)$/);
+        if (n) return <div key={i} className="rt-li"><span className="rt-dot rt-num" aria-hidden="true">{n[1]}.</span><span>{inlineBold(n[2], i + "n")}</span></div>;
+        return <div key={i}>{inlineBold(raw, i + "p")}</div>;
+      })}
+    </div>
+  );
+}
+
 /* ── Message (memoized: only re-renders when its own props change) ── */
-export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay, onRetry }) {
+export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay, onRetry, onMore = null }) {
   // parse notes only when the message text or language actually changes
   const parsed = useMemo(
     () => (m.role === "ai" && m.text ? extractNotes(m.text) : null),
@@ -77,6 +107,9 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
      already this app's sign for "thinking" and a second, different count would
      be a second sign for the same thing. */
   const waiting = m.role === "ai" && !m.text && !m.img;
+  /* The tutor now answers short on purpose; under the newest live answer a
+     tap asks for the long version. Not on errors, chapters or local replies. */
+  const showMore = !!onMore && m.role === "ai" && !!m.live && !m.error && !waiting && String(m.text || "").length >= 60;
   return (
     <div className={`msg ${m.role === "user" ? "u" : "a"}`}>
       <div className="bbl">
@@ -87,7 +120,9 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
                  aria-label={lang === "th" ? "กำลังคิดคำตอบ" : lang === "zh" ? "正在思考" : "Thinking"}>
               <div className="tdd" /><div className="tdd" /><div className="tdd" />
             </div>
-          : <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{m.text}</p>}
+          : (m.role === "ai" && RICH_MARKS.test(String(m.text || "")))
+            ? <RichText text={String(m.text)} />
+            : <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{m.text}</p>}
       </div>
       {/* the row is skipped entirely when it would be empty, so turning TTS off
           leaves no stray gap under messages that carry no notes */}
@@ -101,7 +136,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
           </button>
         </div>
       )}
-      {m.role === "ai" && !waiting && (TTS_ENABLED || parsed) && (
+      {m.role === "ai" && !waiting && (TTS_ENABLED || parsed || showMore) && (
         <div className="mact">
           {TTS_ENABLED && (
             <SpeakBtn text={m.text} lang={lang} id={idx}
@@ -113,6 +148,11 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
             </button>
           )}
           {parsed && <span className="nlbl">{parsed.label}</span>}
+          {showMore && (
+            <button className="morebtn" onClick={onMore}>
+              <span aria-hidden="true">＋</span><span>{lc.chatMore}</span>
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -136,7 +176,7 @@ export const Typing = memo(function Typing({ slow, lang }) {
   );
 });
 
-export function Input({ val, onChange, onSend, loading, ph }) {
+export function Input({ val, onChange, onSend, loading, ph, note = null, noteOut = false }) {
   function onKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }
   function onInput(e) {
     e.target.style.height = "auto";
@@ -144,11 +184,15 @@ export function Input({ val, onChange, onSend, loading, ph }) {
     onChange(e.target.value);
   }
   return (
-    <div className="ir">
-      <textarea className="tin" value={val} placeholder={ph} aria-label={ph}
-        onChange={onInput} onKeyDown={onKey} rows={1} />
-      <button className="snd" disabled={loading || !val.trim()} onClick={onSend}
-        aria-label={ph}>➤</button>
-    </div>
+    <>
+      <div className="ir">
+        <textarea className="tin" value={val} placeholder={ph} aria-label={ph}
+          onChange={onInput} onKeyDown={onKey} rows={1} />
+        <button className="snd" disabled={loading || !val.trim()} onClick={onSend}
+          aria-label={ph}>➤</button>
+      </div>
+      {/* free messages left today — only for a free account, only when given one */}
+      {note && <div className={"qnote" + (noteOut ? " out" : "")} role="status">{note}</div>}
+    </>
   );
 }

@@ -11,7 +11,7 @@ import { Msg, Typing, Input } from "./chat-ui";
    this page==="sensei" block and stays in PianoApp. lc is derived from lang
    internally. recommendNext/toggleChordStyle are PianoApp closures (not
    top-level, not exported), so they're threaded as props. ── */
-export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap }) {
+export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap, chatNote = null, chatNoteOut = false, onMore = null}) {
   const lc = L[lang];
   return (
         <>
@@ -120,7 +120,8 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
             <div className="msgs">
               {msgs.map((m, i) => (
                 <Msg key={i} m={m} idx={i} lang={lang}
-                  activeSpk={activeSpk} setActiveSpk={setActiveSpk} onPlay={playSequence} onRetry={retryLast} />
+                  activeSpk={activeSpk} setActiveSpk={setActiveSpk} onPlay={playSequence} onRetry={retryLast}
+                  onMore={i === msgs.length - 1 ? onMore : null} />
               ))}
               {loading && <Typing slow={slow} lang={lang} />}
               <div ref={endRef} />
@@ -143,7 +144,7 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               </div>
             )}
             <div className="iw">
-              <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} />
+              <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} note={chatNote} noteOut={chatNoteOut} />
               <div className="hint">{lc.hint}</div>
             </div>
           </div>
