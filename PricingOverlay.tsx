@@ -154,6 +154,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                       <ul className="prfeat">
                         <li>{lc.prMax2}</li>
                         <li>{lc.prMax3}</li>
+                        <li>{lc.prMaxSpk}</li>
                         <li>{lc.prMax4}</li>
                         <li>{lc.prMax5}</li>
                         <li>{lc.prMax6}</li>
@@ -184,6 +185,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                         <li>✓ {lc.prMxf1}</li>
                         <li>✓ {lc.prMxf2}</li>
                         <li>✓ {lc.prMxf3}</li>
+                        <li>✓ {lc.prMaxSpk}</li>
                         <li>✓ {lc.prMax7}</li>
                       </ul>
                       {buyBtn("maxfamily")}

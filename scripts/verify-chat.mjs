@@ -44,18 +44,25 @@ function check(name, ok, detail = "") {
   console.log((ok ? "PASS " : "FAIL ") + name + (detail ? " — " + detail : ""));
 }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+/* a silent mono 16-bit WAV, base64 — what the piano-tts stub returns (the app decodes whatever audio comes back) */
+function silentWav(sec, rate = 24000) {
+  const n = Math.round(sec * rate), data = Buffer.alloc(n * 2), h = Buffer.alloc(44);
+  h.write("RIFF", 0); h.writeUInt32LE(36 + data.length, 4); h.write("WAVEfmt ", 8); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
+  h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write("data", 36); h.writeUInt32LE(data.length, 40);
+  return Buffer.concat([h, data]).toString("base64");
+}
 
 /* A fresh signed-in (or guest) learner. `plan` free|premium; `usage` seeds
    the free-chat counter (tg_usage) the way the app itself writes it. */
-async function newLearner({ lang = "th", plan = "free", guest = false, usage = null, jev = "off", jevDelay = 0, reply = null, ls = {}, chatFail = 0, hotPath = false } = {}) {
+async function newLearner({ lang = "th", plan = "free", guest = false, usage = null, jev = "off", jevDelay = 0, reply = null, ls = {}, chatFail = 0, hotPath = false, tts = "off", admin = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true, serviceWorkers: "block" });
-  const state = { chat: [], jev: [], other: [], profileHits: 0 };
+  const state = { chat: [], jev: [], other: [], profileHits: 0, tts: [] };
   const today = new Date().toISOString().slice(0, 10);
   const profile = {
     id: UID, name: "Tester", onboarded: true, lang, exp: 400, coins: 50, gems: 0,
-    is_admin: false, admin_tier: 0, banned: false, created_at: "2025-01-01T00:00:00Z",
-    plan: plan === "premium" ? "premium" : "free",
-    plan_until: plan === "premium" ? "2099-01-01T00:00:00Z" : null,
+    is_admin: !!admin, admin_tier: 0, banned: false, created_at: "2025-01-01T00:00:00Z",
+    plan: plan === "free" ? "free" : plan,
+    plan_until: plan === "free" ? null : "2099-01-01T00:00:00Z",
   };
   await ctx.route(/supabase\.co/, async (r) => {
     const req = r.request();
@@ -68,6 +75,12 @@ async function newLearner({ lang = "th", plan = "free", guest = false, usage = n
       if (body.stream === false) return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ text }) });
       const sse = "data: " + JSON.stringify({ content: text }) + "\n\n" + "data: [DONE]\n\n";
       return r.fulfill({ status: 200, contentType: "text/event-stream", body: sse });
+    }
+    if (/\/functions\/v1\/piano-tts/.test(url)) {
+      let body = {}; try { body = req.postDataJSON() || {}; } catch (e) {}
+      state.tts.push({ t: Date.now(), body });
+      if (tts === "fail") return r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "stubbed tts failure" }) });
+      return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ audio: silentWav(1.6) }) });
     }
     if (/\/functions\/v1\/piano-jev/.test(url)) {
       let body = {}; try { body = req.postDataJSON() || {}; } catch (e) {}
@@ -374,6 +387,116 @@ if (want("regress")) {
   const hasMore = !!(await E.page.$(".mov .morebtn"));
   check("regress-error-has-retry-not-more", hasRetry && !hasMore, `retry ${hasRetry} · explain-more ${hasMore} · upstream attempts ${E.state.chat.length}`);
   await E.ctx.close();
+}
+
+
+/* ───────── speak: the read-aloud button on every bubble (Max and Max Family only) ───────── */
+if (want("speak")) {
+  console.log("\n# speak — speaker on both kinds of bubble, locked for everyone but Max / Max Family");
+  const btnInfo = (page) => page.evaluate(() => [...document.querySelectorAll(".mov .mmsgs .msg")].map(m => {
+    const bbl = m.querySelector(".bbl"), b = m.querySelector(".bbl .bspk");
+    const rb = bbl.getBoundingClientRect(), rs = b ? b.getBoundingClientRect() : null;
+    return { who: m.classList.contains("u") ? "u" : "a", has: !!b, locked: !!(b && b.classList.contains("lock")), on: !!(b && b.classList.contains("on")),
+      label: b ? b.getAttribute("aria-label") : "", right: rs ? Math.round(rb.right - rs.right) : null, bottom: rs ? Math.round(rb.bottom - rs.bottom) : null, size: rs ? Math.round(rs.width) : 0 };
+  }));
+  // 1. free plan: the lock, in the right place, and a tap opens the plans — never a request to the voice
+  const F = await newLearner({ lang: "th", plan: "free", jev: "off", tts: "ok" });
+  await openChat(F.page);
+  await ask(F.page, "สเกล C เมเจอร์คืออะไร"); await settle(F.page); await F.page.waitForTimeout(400);
+  const fi = await btnInfo(F.page);
+  check("speak-free-lock-on-every-bubble", fi.length >= 3 && fi.every(x => x.has && x.locked), JSON.stringify(fi));
+  check("speak-at-the-bubbles-bottom-right", fi.every(x => x.right != null && x.right >= 0 && x.right <= 14 && x.bottom >= 0 && x.bottom <= 12 && x.size >= 28), JSON.stringify(fi.map(x => [x.who, x.right, x.bottom, x.size])));
+  check("speak-both-roles", fi.some(x => x.who === "u") && fi.some(x => x.who === "a"), fi.map(x => x.who).join(""));
+  check("speak-locked-label-th", fi.every(x => /Max/.test(x.label) && /ฟัง/.test(x.label)), fi[0] && fi[0].label);
+  await F.page.screenshot({ path: "/tmp/claude-0/shots/chat-speak-locked.png" });
+  await F.page.click(".mov .mmsgs .msg.u .bspk"); await F.page.waitForTimeout(700);
+  check("speak-locked-tap-opens-plans", !!(await F.page.$(".setov .setcard.pricing")), "pricing card over the chat");
+  const maxBullet = await F.page.evaluate(() => [...document.querySelectorAll(".setov .prfeat li")].filter(l => /ลำโพง/.test(l.textContent)).length);
+  check("speak-pricing-lists-it-for-max-and-max-family", maxBullet === 2, "bullets " + maxBullet);
+  check("speak-locked-no-voice-request", F.state.tts.length === 0, "requests " + F.state.tts.length);
+  await F.ctx.close();
+
+  // 2. Max: an unlocked button speaks the message in its own language, the state follows, a second tap stops it
+  const M = await newLearner({ lang: "th", plan: "max", jev: "off", tts: "ok", reply: "ครับ 中文 is fine: ใช่ครับ โน้ต C คือโด" });
+  await openChat(M.page);
+  await ask(M.page, "Please say hello in English"); await settle(M.page); await M.page.waitForTimeout(400);
+  const mi = await btnInfo(M.page);
+  check("speak-max-unlocked", mi.length >= 3 && mi.every(x => x.has && !x.locked && /ฟัง/.test(x.label)), JSON.stringify(mi.map(x => [x.who, x.locked, x.label])));
+  await M.page.screenshot({ path: "/tmp/claude-0/shots/chat-speak-max.png" });
+  // the learner's English message: spoken as English
+  await M.page.click(".mov .mmsgs .msg.u .bspk");
+  const seenBusy = await M.page.waitForSelector(".mov .bspk .bspk-spin, .mov .bspk .bspk-bars", { timeout: 4000 }).then(() => true).catch(() => false);
+  check("speak-tap-shows-busy-or-playing", seenBusy);
+  await M.page.waitForFunction(() => !!document.querySelector(".mov .bspk .bspk-bars"), null, { timeout: 8000 }).catch(() => {});
+  const playing = await M.page.evaluate(() => ({ bars: !!document.querySelector(".mov .bspk .bspk-bars"), on: document.querySelectorAll(".mov .bspk.on").length, pressed: (document.querySelector(".mov .bspk.on") || { getAttribute: () => null }).getAttribute("aria-pressed"), label: (document.querySelector(".mov .bspk.on") || { getAttribute: () => "" }).getAttribute("aria-label") }));
+  check("speak-playing-state", playing.bars && playing.on === 1 && playing.pressed === "true" && /หยุด/.test(playing.label), JSON.stringify(playing));
+  await M.page.screenshot({ path: "/tmp/claude-0/shots/chat-speak-playing.png" });
+  const req1 = M.state.tts[0] && M.state.tts[0].body;
+  check("speak-request-english-chat-source", !!req1 && req1.lang === "en" && req1.src === "chat" && /Please say hello in English/.test(req1.text || "") && /Algieba|Schedar|Achird|Puck/.test(req1.voice || ""), JSON.stringify(req1 && { lang: req1.lang, src: req1.src, voice: req1.voice, text: (req1.text || "").slice(-40) }));
+  // only one at a time: a tap on the tutor's answer takes over
+  await M.page.locator(".mov .mmsgs .msg.a").last().locator(".bspk").click(); await M.page.waitForTimeout(500);
+  const one = await M.page.evaluate(() => ({ on: document.querySelectorAll(".mov .bspk.on").length, userOn: !!document.querySelector(".mov .msg.u .bspk.on") }));
+  check("speak-one-at-a-time", one.on === 1 && !one.userOn, JSON.stringify(one));
+  // the tutor's message mixes Thai, Chinese and English: Thai wins
+  await M.page.waitForFunction(() => document.querySelectorAll(".mov .bspk-spin").length === 0, null, { timeout: 8000 }).catch(() => {});
+  const req2 = M.state.tts[1] && M.state.tts[1].body;
+  check("speak-request-mixed-text-is-thai", !!req2 && req2.lang === "th", JSON.stringify(req2 && { lang: req2.lang }));
+  // a tap on the one that speaks stops it
+  await M.page.click(".mov .bspk.on"); await M.page.waitForTimeout(500);
+  const stopped = await M.page.evaluate(() => ({ on: document.querySelectorAll(".mov .bspk.on").length, bars: document.querySelectorAll(".mov .bspk-bars").length, spin: document.querySelectorAll(".mov .bspk-spin").length }));
+  check("speak-tap-again-stops", stopped.on === 0 && stopped.bars === 0 && stopped.spin === 0, JSON.stringify(stopped));
+  // it plays to its end by itself and the button comes back; a repeat listen is free (cached clip, no new request)
+  const before = M.state.tts.length;
+  await M.page.click(".mov .mmsgs .msg.u .bspk");
+  await M.page.waitForFunction(() => document.querySelectorAll(".mov .bspk.on").length === 0, null, { timeout: 12000 }).catch(() => {});
+  await M.page.waitForTimeout(300);
+  const end = await M.page.evaluate(() => document.querySelectorAll(".mov .bspk.on").length);
+  check("speak-ends-by-itself", end === 0);
+  check("speak-repeat-listen-is-cached", M.state.tts.length === before, `requests ${before} -> ${M.state.tts.length}`);
+  const day = await M.page.evaluate(() => JSON.parse(localStorage.getItem("tg_tts_day") || "null"));
+  check("speak-allowance-counted", !!day && day.s > 0 && day.s < 60, JSON.stringify(day));
+  if (M.errors.length) console.log("  page errors:", M.errors.join(" | "));
+  await M.ctx.close();
+
+  // 3. the day's allowance is spent: the device voice reads it, with a short word on why, and no request is made
+  const today = new Date(); const dk = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
+  const B = await newLearner({ lang: "en", plan: "maxfamily", jev: "off", tts: "ok", ls: { tg_tts_day: { d: dk, s: 299 } } });
+  await openChat(B.page);
+  await ask(B.page, "a question long enough to need a few seconds of speech"); await settle(B.page); await B.page.waitForTimeout(300);
+  await B.page.click(".mov .mmsgs .msg.u .bspk"); await B.page.waitForTimeout(900);
+  const note = await B.page.$eval(".mov .bspk-note", e => e.textContent).catch(() => null);
+  check("speak-budget-spent-says-so", /AI voice is used up/.test(note || ""), JSON.stringify(note));
+  check("speak-budget-spent-no-request", B.state.tts.length === 0, "requests " + B.state.tts.length);
+  await B.page.waitForFunction(() => document.querySelectorAll(".mov .bspk.on").length === 0, null, { timeout: 8000 }).catch(() => {});
+  check("speak-budget-spent-button-comes-back", (await B.page.$$(".mov .bspk.on")).length === 0);
+  await B.ctx.close();
+
+  // 4. the voice service fails: the device voice takes over and the allowance is given back
+  const X = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "fail" });
+  await openChat(X.page);
+  await ask(X.page, "this will not be spoken by the cloud"); await settle(X.page); await X.page.waitForTimeout(300);
+  await X.page.click(".mov .mmsgs .msg.u .bspk");
+  await X.page.waitForFunction(() => document.querySelectorAll(".mov .bspk.on").length === 0, null, { timeout: 30000 }).catch(() => {});
+  await X.page.waitForTimeout(300);
+  const xday = await X.page.evaluate(() => JSON.parse(localStorage.getItem("tg_tts_day") || "null"));
+  check("speak-failure-falls-back-and-refunds", X.state.tts.length >= 1 && (await X.page.$$(".mov .bspk.on")).length === 0 && (!xday || xday.s < 0.5), `requests ${X.state.tts.length} · allowance ${JSON.stringify(xday)}`);
+  await X.ctx.close();
+
+  // 5. the owner's admin account hears it too; the Voice-Tutor rule
+  const A = await newLearner({ lang: "en", plan: "free", admin: true, jev: "off", tts: "ok" });
+  await openChat(A.page);
+  const ai = await btnInfo(A.page);
+  check("speak-admin-unlocked", ai.length >= 1 && ai.every(x => x.has && !x.locked), JSON.stringify(ai.map(x => x.locked)));
+  await A.ctx.close();
+
+  // 6. English and Chinese labels
+  for (const [lang, rx] of [["en", /Listen to this message/], ["zh", /朗读这条消息/]]) {
+    const L = await newLearner({ lang, plan: "max", jev: "off", tts: "ok" });
+    await openChat(L.page);
+    const l = await btnInfo(L.page);
+    check(`speak-label-${lang}`, l.length >= 1 && rx.test(l[0].label), l[0] && l[0].label);
+    await L.ctx.close();
+  }
 }
 
 /* ───────── i18n: Thai and Chinese read right ───────── */

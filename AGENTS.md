@@ -195,6 +195,25 @@ with the switch off and on. The chat pays no coins or EXP for a live-AI question
 typed or tapped (only local FAQ answers and `askDirect` callers do); changing what
 chat pays is an owner decision (see "Where Coins/Gems may come from").
 
+**The chat's read-aloud button (owner, 2026-10-01: a speaker at the end of every bubble, "a soft, natural male voice, Thai,
+English and Mandarin, Max and Max Family only, find the best voice at a low cost").** `BubbleSpeak` (`chat-ui.tsx`) sits at the
+bottom-right end of every bubble, the learner's and the tutor's (`Msg` → `canSpeak`; not on a waiting or failed answer), on the
+full-screen chat and the Sensei page alike. `speakMode` is worked out in `PianoApp`: `"on"` for Max, Max Family and the owner's
+admin account, `"locked"` for everyone else — the button shows a small lock and a tap opens the plans (`prMaxSpk` is a bullet
+of both Max cards). It speaks in the language the message is written in (`detectSpeechLang`: Thai wins over a few English
+terms), through `speakCloud` → `piano-tts` with `src:"chat"` and the Voice Tutor's male voices (`VM_VOICES`, default Algieba).
+What keeps it cheap: a clip heard before comes from the local cache and costs nothing; each device has a day's allowance of
+cloud speech (`TTS_DAILY_SECONDS` = 5 minutes, `ttsBudgetSpend` / `ttsBudgetRefund`, counted in estimated seconds, key
+`tg_tts_day`); past it, or when the cloud fails, the device's own voice reads the message — a tap is never silent — and a short
+note says why. `speakCloud` numbers its calls (`_ttsRun`) so an older call that is still fetching can never play over a newer
+one: `node scripts/verify-speech.mjs` runs the real `speech.ts` against a fake audio context and a fake `piano-tts` to prove it,
+and `ONLY=speak node scripts/verify-chat.mjs` covers the button in a browser (locked / unlocked, one at a time, stop, cache,
+allowance, fallback). The engine and model are the admin's choice (AI Models → voice-tts; Gemini speech models have their own
+shelf, `GEMINI_TTS_MODELS`, never the chat models). The server half of the rule — `piano-tts` checking the caller's plan for
+`src:"chat"` and using full BCP-47 language tags — is written in `supabase/functions/piano-tts/index.ts` but **not deployed**
+(hard rules: a function deploy needs the owner's approval); until then the lock in the client is the only gate, as it is for the
+Voice Tutor.
+
 Robot and pet **thumbnails are pre-rendered images**, not live SVG:
 `scripts/bake-sprites.mjs` (`npm run sprites`) draws every robot head
 (`CyberAvatar headOnly`) and every level-1 pet (`PetArt`) from the real
@@ -351,6 +370,7 @@ errors with a retry button); `ONLY=quota,starters` runs a subset. It cannot say 
 a real model answers. `node tigamodel/scripts/smoke-kb-hot-path-switch.mjs` covers
 the knowledge-block switch (it temporarily stubs `supabase-client.ts` and restores
 it — check `git diff supabase-client.ts` is empty if a run was killed).
+`node scripts/verify-speech.mjs` checks the speech engine under the chat's read-aloud (see above) with no browser.
 
 ## Where to look for current state
 

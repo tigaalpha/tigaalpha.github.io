@@ -1,63 +1,93 @@
-import { memo, useMemo, useRef } from "react";
-import { Capacitor } from "@capacitor/core";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
-import { ttsSupported, stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative } from "./speech";
+import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsEstSeconds, ttsBudgetSpend, ttsBudgetRefund } from "./speech";
 
 /* ── chat-ui.tsx ──
    Chat UI atoms shared by every chat surface (Sensei page, expanded chat
    modal): the message bubble (Msg), typing indicator (Typing), text input
-   (Input), and the read-aloud button (SpeakBtn, currently feature-flagged
-   off via TTS_ENABLED while the cloud-TTS quota is sorted out). Extracted
-   from App.tsx verbatim — no logic changes — as part of the App.tsx
-   modularization. ── */
+   (Input), and the read-aloud button at the foot of a bubble (BubbleSpeak).
+   Extracted from App.tsx as part of the App.tsx modularization. ── */
 
 
-/* Read-aloud is on for every platform. Cloud TTS (Gemini) is the primary
-   voice; when its shared quota is out (free tier: ~10 req/min) or on a weak
-   signal, the fallback in speech.ts speaks with the device voice — on the
-   web that is speechSynthesis, and inside the Android app's WebView (where
-   speechSynthesis does not exist) it is the OS TTS engine via the Capacitor
-   plugin, so the button ALWAYS produces sound. The IndexedDB clip cache
-   (ttsCacheGet/ttsCachePut) keeps repeat listens free of the cloud quota. */
-export const TTS_ENABLED = false;
-
-/* ── Speaker button (robust, with fallback message) ── */
-export const SpeakBtn = memo(function SpeakBtn({ text, lang, id, activeId, setActiveId }) {
+/* ── The read-aloud button on a chat bubble (owner, 2026-10-01) ──
+   A small speaker at the bottom-right end of every message — the learner's and the tutor's — that says it aloud in one soft,
+   natural male voice, in the language the message is written in (Thai, English or Mandarin: detectSpeechLang). It is a paid
+   feature: Max and Max Family (and the owner's admin account) hear it; everyone else sees the button with a small lock and a
+   tap opens the plans (mode "locked").
+   The voice is Gemini TTS through the piano-tts function — real money per word — so a clip heard before comes from the local
+   cache for nothing (speech.ts), and each device has a day's allowance of cloud speech (ttsBudgetSpend). When the cloud is out
+   of reach or the allowance is spent the message is read by the device's own voice instead: a tap is never silent.
+   Only one message speaks at a time (activeId is shared by the whole chat); a tap on the one that is speaking stops it. */
+export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId, setActiveId, mode, onLocked }) {
   const lc = L[lang];
-  const supported = ttsSupported();
   const isOn = activeId === id;
+  const [busy, setBusy] = useState(false);          // asked for, no sound yet
+  const [note, setNote] = useState("");             // a few words beside the button: today's AI voice is used up
+  const ticket = useRef(0);                         // a stop, a new tap or another message taking over makes an older run's callbacks stale
+  useEffect(() => { if (!isOn) { ticket.current++; setBusy(false); } }, [isOn]);
+  useEffect(() => () => { ticket.current++; }, []);
+  useEffect(() => {
+    if (!note) return;
+    const t = setTimeout(() => setNote(""), 5000);
+    return () => clearTimeout(t);
+  }, [note]);
 
-  function toggle() {
-    if (isOn) {
-      stopSpeaking();
-      stopCloudTTS();
-      setActiveId(null);
-      return;
-    }
-    getAC(); // unlock audio inside the tap gesture (iOS Safari)
-    setActiveId(id);
-    // try the natural cloud voice first; fall back to the device voice on any error.
-    // No alert popups — a failure just quietly resets the button (the old "blocked
-    // in preview" alert was misleading on the live site and jarring).
-    speakCloud(
-      text, lang,
-      null,                                   // onStart
-      () => setActiveId(null),                // onDone
-      () => {                                 // onError → device/native-voice fallback (never silent on a real device)
-        speakDeviceOrNative(text, lang, () => setActiveId(null), () => setActiveId(null)).catch(() => setActiveId(null));
-      }
-    );
+  function stop() {
+    ticket.current++;
+    stopSpeaking(); stopCloudTTS();
+    setBusy(false); setActiveId(null);
+  }
+  function tap() {
+    if (mode === "locked") { if (onLocked) onLocked(); return; }
+    if (isOn) { stop(); return; }
+    getAC();                                        // unlock audio inside the tap (iOS Safari)
+    const said = detectSpeechLang(text, lang);
+    const t = ++ticket.current;
+    const live = () => t === ticket.current;
+    const done = () => { if (live()) { setBusy(false); setActiveId(null); } };
+    setNote(""); setActiveId(id); setBusy(true);
+    const device = (budget) => {
+      if (!live()) return;                          // stopped, or another message took over, while the cloud was answering
+      if (budget) setNote(lc.spkLimit);
+      setBusy(false);
+      speakDeviceOrNative(text, said, done, done).catch(done);
+    };
+    speakCloud(text, said,
+      () => { if (live()) setBusy(false); },
+      done,
+      (e) => device(!!(e && e.budget)),
+      1,
+      { src: "chat", spend: (s) => ttsBudgetSpend(ttsEstSeconds(s, said)), refund: (s) => ttsBudgetRefund(ttsEstSeconds(s, said)) });
   }
 
+  const locked = mode === "locked";
+  const label = locked ? lc.spkMax : isOn ? lc.spkStop : lc.spkAria;
   return (
-    <button className={`spkbtn${isOn ? " on" : ""}`} onClick={toggle}
-      title={supported ? lc.speak : lc.ttsNo} aria-label={supported ? lc.speak : lc.ttsNo}>
-      <span className="spkwave" aria-hidden="true">
-        <span /><span /><span /><span />
-      </span>
-      <span className="spktxt">{isOn ? lc.speaking : lc.speak}</span>
-    </button>
+    <>
+      {note && <span className="bspk-note" role="status">{note}</span>}
+      <button type="button" className={`bspk${isOn ? " on" : ""}${locked ? " lock" : ""}`} onClick={tap}
+        title={label} aria-label={label} aria-pressed={locked ? undefined : isOn} aria-busy={isOn && busy ? true : undefined}>
+        {isOn && busy
+          ? <span className="bspk-spin" aria-hidden="true" />
+          : isOn
+            ? <span className="bspk-bars" aria-hidden="true"><i /><i /><i /></span>
+            : (
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+                <path d="M4 9.4v5.2h3.7l4.6 4V5.4l-4.6 4H4z" fill="currentColor" />
+                <path d="M15.6 8.6a4.8 4.8 0 0 1 0 6.8M18.1 6a8.4 8.4 0 0 1 0 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            )}
+        {locked && (
+          <span className="bspk-lock" aria-hidden="true">
+            <svg viewBox="0 0 12 12" width="7" height="7" focusable="false">
+              <rect x="2" y="5.2" width="8" height="5.6" rx="1.2" fill="currentColor" />
+              <path d="M3.9 5.4V4a2.1 2.1 0 0 1 4.2 0v1.4" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            </svg>
+          </span>
+        )}
+      </button>
+    </>
   );
 });
 
@@ -92,7 +122,7 @@ function RichText({ text }: { text: string }) {
 }
 
 /* ── Message (memoized: only re-renders when its own props change) ── */
-export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay, onRetry, onMore = null }) {
+export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay, onRetry, onMore = null, speakMode = "off", onSpeakLocked = null }) {
   // parse notes only when the message text or language actually changes
   const parsed = useMemo(
     () => (m.role === "ai" && m.text ? extractNotes(m.text) : null),
@@ -110,6 +140,9 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
   /* The tutor now answers short on purpose; under the newest live answer a
      tap asks for the long version. Not on errors, chapters or local replies. */
   const showMore = !!onMore && m.role === "ai" && !!m.live && !m.error && !waiting && String(m.text || "").length >= 60;
+  /* The speaker sits inside the bubble, at its bottom-right end — on both the tutor's and the learner's messages, but not on an
+     answer that is still coming, a failed one, or one with no words in it. */
+  const canSpeak = speakMode !== "off" && !waiting && !m.error && String(m.text || "").trim().length > 0;
   return (
     <div className={`msg ${m.role === "user" ? "u" : "a"}`}>
       <div className="bbl">
@@ -123,9 +156,14 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
           : (m.role === "ai" && RICH_MARKS.test(String(m.text || "")))
             ? <RichText text={String(m.text)} />
             : <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{m.text}</p>}
+        {canSpeak && (
+          <div className="bblf">
+            <BubbleSpeak text={String(m.text)} lang={lang} id={idx} activeId={activeSpk} setActiveId={setActiveSpk}
+              mode={speakMode} onLocked={onSpeakLocked} />
+          </div>
+        )}
       </div>
-      {/* the row is skipped entirely when it would be empty, so turning TTS off
-          leaves no stray gap under messages that carry no notes */}
+      {/* the row is skipped entirely when it would be empty, so a message with nothing to offer leaves no stray gap under it */}
       {/* One-tap retry on a failed answer — the question is still in the thread
           right above, so ↻ resends it verbatim instead of making the learner
           retype it (the #1 most-requested recovery after a dropped reply). */}
@@ -136,12 +174,8 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
           </button>
         </div>
       )}
-      {m.role === "ai" && !waiting && (TTS_ENABLED || parsed || showMore) && (
+      {m.role === "ai" && !waiting && (parsed || showMore) && (
         <div className="mact">
-          {TTS_ENABLED && (
-            <SpeakBtn text={m.text} lang={lang} id={idx}
-              activeId={activeSpk} setActiveId={setActiveSpk} />
-          )}
           {parsed && (
             <button className="playbtn" onClick={() => onPlay(parsed)}>
               <span>▶</span><span>{lang === "th" ? "เล่นโน้ต" : lang === "zh" ? "演奏" : "PLAY"}</span>

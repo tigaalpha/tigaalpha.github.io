@@ -1,5 +1,11 @@
 // piano-tts — Supabase Edge Function (Deno)
 //
+// ⚠️ 2026-10-01 — the chat read-aloud changes below (src:"chat" plan gate, full
+// BCP-47 language codes with a retry without one) are WRITTEN HERE BUT NOT
+// DEPLOYED: deploying an edge function to the live project needs the owner's
+// explicit approval (AGENTS.md "Hard rules"). The client works against the
+// deployed version as it is — it sends the extra `src` field, which is ignored.
+//
 // ⚠️ IMPORTANT CONTEXT FOR WHOEVER DEPLOYS THIS:
 // This file is a reconstruction written to match the wire contract the
 // CLIENT (speech.ts) actually sends/expects, verified line-by-line against
@@ -13,7 +19,10 @@
 // admin "AI Models" panel, alongside the original Gemini path.
 //
 // WIRE CONTRACT (confirmed from speech.ts):
-//   Request:  POST { text: string, lang: "th"|"en"|"zh", voice?: string }
+//   Request:  POST { text: string, lang: "th"|"en"|"zh", voice?: string, src?: "chat" }
+//             — src:"chat" is the chat bubbles' read-aloud button (Max / Max
+//               Family / admin only): the plan is checked HERE, from the
+//               caller's own profile, so the button's lock is not the only gate.
 //             — text is already styled client-side (speech.ts styleTTS):
 //               a natural-language delivery directive + the quoted content,
 //               e.g. `อ่านด้วยน้ำเสียงครู...\n\n"สวัสดีครับ"`.
@@ -80,8 +89,8 @@ const ELEVEN_DEFAULT_MODEL = Deno.env.get("ELEVEN_TTS_MODEL") ?? "eleven_v3";
 const ELEVEN_DEFAULT_VOICE = Deno.env.get("ELEVEN_TTS_VOICE") ?? "pNInz6obpgDQGcFmaJgB";
 const MAX_RETRIES = 2;
 
-// BCP-47 hint per client lang key (zh → Mandarin). Thai/English map 1:1.
-const LANG_CODE: Record<string, string> = { th: "th", en: "en", zh: "cmn" };
+// BCP-47 hint per client lang key (zh → Mandarin). Gemini TTS names its languages with the full tag.
+const LANG_CODE: Record<string, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN" };
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -124,7 +133,7 @@ function retryAfterMs(errText: string): number {
 }
 
 // One Gemini generateContent call → base64 WAV audio (or throws).
-async function synthOnce(text: string, voice: string, lang: string, model: string): Promise<string> {
+async function synthOnce(text: string, voice: string, lang: string, model: string, withLang = true): Promise<string> {
   // Natural-language style direction + quoted content: exactly what the
   // client already sends (styleTTS). Gemini TTS reads the directive to shape
   // delivery and speaks only the quoted text.
@@ -135,7 +144,7 @@ async function synthOnce(text: string, voice: string, lang: string, model: strin
     },
   };
   const langCode = LANG_CODE[lang];
-  if (langCode) generationConfig.speechConfig.languageCode = langCode;
+  if (langCode && withLang) generationConfig.speechConfig.languageCode = langCode;
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -150,6 +159,9 @@ async function synthOnce(text: string, voice: string, lang: string, model: strin
   );
   if (!res.ok) {
     const errText = (await res.text()).slice(0, 600);
+    // A model that does not take the language hint (or a tag it does not know) answers 400: speak again without it — the
+    // language is detected from the text anyway.
+    if (res.status === 400 && withLang && langCode && /language/i.test(errText)) return synthOnce(text, voice, lang, model, false);
     throw Object.assign(new Error(`Gemini TTS ${res.status}: ${errText}`), { status: res.status });
   }
   const data = await res.json();
@@ -272,6 +284,28 @@ async function synthElevenLabs(text: string, model: string, voiceId: string): Pr
   return { audio: btoa(b64out), fmt: "mp3" };
 }
 
+// The chat's read-aloud is a Max / Max Family feature (and the owner's own account). The caller's plan is read with the
+// caller's own token — the profile row is theirs to read — so a free account cannot reach the voice by calling this function
+// directly. The token itself is already verified by the platform (verify_jwt), the `sub` is only read out of it.
+async function chatVoiceAllowed(authHeader: string | null): Promise<boolean> {
+  try {
+    const jwt = String(authHeader || "").replace(/^Bearer\s+/i, "");
+    const payload = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    const uid = payload && payload.sub;
+    if (!uid) return false;
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=plan,plan_until,is_admin`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: authHeader as string } }
+    );
+    if (!res.ok) return false;
+    const p = (await res.json())?.[0];
+    if (!p) return false;
+    if (p.is_admin) return true;
+    if (p.plan !== "max" && p.plan !== "maxfamily") return false;
+    return !p.plan_until || new Date(p.plan_until).getTime() > Date.now();
+  } catch (_e) { return false; }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200, headers: CORS_HEADERS });
@@ -291,6 +325,9 @@ Deno.serve(async (req: Request) => {
   const lang = typeof payload?.lang === "string" ? payload.lang : "en";
 
   const authHeader = req.headers.get("authorization");
+  if (payload?.src === "chat" && !(await chatVoiceAllowed(authHeader))) {
+    return json({ error: "read-aloud is part of the Max and Max Family plans" }, 403);
+  }
   const cfg = await resolveTtsConfig(authHeader);
 
   try {

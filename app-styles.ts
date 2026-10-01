@@ -202,19 +202,25 @@ html, body, #root{background:var(--bg)}
 .retrybtn:active{transform:scale(.95)}
 .slowhint{margin-top:8px;font-size:11px;color:var(--muted,#8a8172);opacity:.85;animation:slowpulse 1.6s ease-in-out infinite}
 @keyframes slowpulse{0%,100%{opacity:.55}50%{opacity:.95}}
-.spkbtn{display:flex;align-items:center;gap:8px;background: rgba(217,119,87,.09);border:1px solid #d9775755;border-radius:20px;padding:6px 14px 6px 12px;cursor:pointer;font-size:10px;font-family:var(--f-app);letter-spacing:.8px;transition:all .22s;color:#d97757}
-.spkbtn:hover{border-color:#d97757;box-shadow:0 0 14px -4px #d97757;background: rgba(217,119,87,.15)}
-.spkbtn:active{transform:scale(.95)}
-.spkbtn.on{border-color:#ff5252;color:#d97757;box-shadow:0 0 16px -4px #ff5252;background: rgba(255,82,82,.18)}
-.spkwave{display:flex;align-items:center;gap:2px;height:14px}
-.spkwave span{width:2.5px;height:5px;border-radius:2px;background:currentColor;opacity:.55;transition:opacity .2s}
-.spkbtn.on .spkwave span{opacity:1;animation:wave 1s ease-in-out infinite}
-.spkbtn.on .spkwave span:nth-child(1){animation-delay:0s}
-.spkbtn.on .spkwave span:nth-child(2){animation-delay:.15s}
-.spkbtn.on .spkwave span:nth-child(3){animation-delay:.3s}
-.spkbtn.on .spkwave span:nth-child(4){animation-delay:.45s}
+/* the read-aloud button at the bottom-right end of a chat bubble (BubbleSpeak in chat-ui.tsx) */
+.bblf{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:1px -7px -7px 0;min-height:30px}
+.bspk{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:50%;border:1px solid transparent;background:transparent;color:#d97757;cursor:pointer;opacity:.82;transition:opacity .18s,background .18s,border-color .18s,transform .12s}
+.bspk::before{content:"";position:absolute;inset:-7px}
+.bspk:hover{opacity:1;background:rgba(217,119,87,.14)}
+.bspk:active{transform:scale(.9)}
+.bspk:focus-visible{outline:2px solid #d97757;outline-offset:1px;opacity:1}
+.bspk.on{opacity:1;background:rgba(217,119,87,.18);border-color:#d9775788}
+.bspk.lock{color:var(--muted);opacity:.9}
+.bspk-lock{position:absolute;right:0;bottom:0;width:12px;height:12px;border-radius:50%;background:var(--card);border:1px solid #d9775799;color:#d97757;display:flex;align-items:center;justify-content:center}
+.bspk-bars{display:flex;align-items:flex-end;gap:2px;height:14px}
+.bspk-bars i{display:block;width:2.5px;height:4px;border-radius:2px;background:currentColor;animation:wave 1s ease-in-out infinite}
+.bspk-bars i:nth-child(2){animation-delay:.2s}
+.bspk-bars i:nth-child(3){animation-delay:.4s}
+.bspk-spin{display:block;width:15px;height:15px;border-radius:50%;border:2px solid #d9775744;border-top-color:#d97757;animation:bspkspin .8s linear infinite}
 @keyframes wave{0%,100%{height:4px}50%{height:13px}}
-.spktxt{line-height:1}
+@keyframes bspkspin{to{transform:rotate(360deg)}}
+.bspk-note{font-family:var(--f-num);font-size:10px;line-height:1.3;color:var(--muted);text-align:right}
+@media(prefers-reduced-motion:reduce){.bspk-bars i{animation:none;height:9px}.bspk-spin{animation-duration:2.6s}}
 @keyframes spkpulse{0%,100%{opacity:1}50%{opacity:.5}}
 .playbtn{display:flex;align-items:center;gap:5px;background:none;border:1px solid #d9775766;border-radius:4px;padding:4px 11px;cursor:pointer;font-size:10px;font-family:var(--f-app);letter-spacing:.8px;transition:all .2s;color:#d97757}
 .playbtn:hover{border-color:#d97757;box-shadow:0 0 8px #d9775744;background:rgba(217,119,87,.08)}
