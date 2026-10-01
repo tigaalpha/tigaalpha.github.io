@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment, lazy, Suspense } from "react";
 import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-lock";
 import { Capacitor } from "@capacitor/core";
-import { PATHWAY, PATHWAY_PRACTICE } from "./pathway-data";
+import { PATHWAY, PATHWAY_PRACTICE, PATHWAY_ORDER } from "./pathway-data";
 import { SONGS, SONG_GENRES, SONG_TIMESIG } from "./songs-data";
 import { useInjectCSS } from "./app-styles";
 import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_RIG, MODEL_SKIN, MODEL_COMBAT, COMBAT_TOTAL, RobotGlyph, combatOf, normalizeModel, wrapYaw, itemLv, setItemLv, upgradeCost, ITEM_MAX_LV } from "./cyber-avatar";
@@ -158,7 +158,7 @@ import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
 import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
-import { dailySong, readDailyState, DAILY_SONG_REWARD, songStars, songMedal, songLengthSec, songLockInfo, nextSongAfter } from "./play-along-progress";
+import { dailySong, songStars, songMedal, songLengthSec, songLockInfo, nextSongAfter } from "./play-along-progress";
 import { useChat } from "./use-chat";
 import { useVoiceTutor } from "./use-voice-tutor";
 const LeadLandingPage = lazy(() => import("./LeadLandingPage").then(m => ({ default: m.LeadLandingPage })));
@@ -445,7 +445,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.488";
+const APP_VER = "13.7.490";
 
 async function signInWith(provider) {
   try {
@@ -592,6 +592,19 @@ const SIGHT_ROUND = 10; // notes per sight-reading round
 
 
 /* ── Pathway Page ── */
+/* The cards of one group in the order they are shown and numbered: its lessons
+   (stages) and its Play Along doors, lessons first unless PATHWAY_ORDER names a
+   different order for the group (foundation puts the song door second). */
+function groupCells(gid) {
+  const cells = [
+    ...(STAGES_BY_GROUP[gid] || []).map(st => ({ kind: "stage", id: st.id, st })),
+    ...(PATHWAY_PRACTICE[gid] || []).map(pc => ({ kind: "door", id: pc.id, pc })),
+  ];
+  const order = PATHWAY_ORDER[gid];
+  if (!order) return cells;
+  const rank = (id) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
+  return cells.map((cell, i) => ({ cell, i })).sort((a, b) => rank(a.cell.id) - rank(b.cell.id) || a.i - b.i).map(x => x.cell);
+}
 const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
@@ -603,10 +616,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
      label; nothing in the app keys off it. */
   const cardNo = useMemo(() => {
     const m = {}; let n = 0;
-    groups.forEach(g => {
-      (STAGES_BY_GROUP[g.id] || []).forEach(st => { m[st.id] = ++n; });
-      (PATHWAY_PRACTICE[g.id] || []).forEach(pc => { m[pc.id] = ++n; });
-    });
+    groups.forEach(g => { groupCells(g.id).forEach(cell => { m[cell.id] = ++n; }); });
     return m;
   }, [groups]);
 
@@ -655,14 +665,213 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
     setSelectedType(null);
     onLearn(stage, key, t);
   }
+  /* The expanded lesson panel — type picker first (if the stage has types), then
+     the key picker. Rendered inside the grid so it expands right under the tapped
+     row, full width. */
+  function renderStagePanel(openStage) {
+    return (
+    <div className="keypanel" style={{
+      "--ac": openStage.color,
+      background: "var(--card2)",
+      border: `1px solid ${openStage.color}`,
+      borderRadius: "14px",
+      padding: "14px 13px",
+      marginTop: 0,
+      gridColumn: "1 / -1",
+    }}>
+      {/* panel header */}
+      <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
+        <span style={{ fontSize: "18px" }}>{openStage.icon}</span>
+        <span style={{ flex: 1, fontFamily: "var(--f-app, sans-serif)", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(openStage.title, lang)}</span>
+        {selectedType && (
+          <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", background: openStage.color + "33", color: openStage.color, borderRadius: "6px", padding: "2px 7px", border: `1px solid ${openStage.color}55` }}>
+            {tr(selectedType.label, lang)}
+          </span>
+        )}
+        <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", color: openStage.color, whiteSpace: "nowrap" }}>
+          {openStage.content ? lc.caseSub : openStage.types && !selectedType ? lc.pickType : lc.pickKey}
+        </span>
+      </div>
+
+      {/* READ CHAPTER: overview + world-class case-study sub-topics */}
+      {openStage.content && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
+          <button onClick={() => onRead(openStage)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "var(--card3)", border: `1px solid ${openStage.color}55`, textAlign: "left" }}>
+            <span style={{ fontSize: "18px" }}>📖</span>
+            <span style={{ fontSize: "11px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{lc.caseOverview}</span>
+          </button>
+          {(BENEFIT_CASES[openStage.id] || []).map(c => (
+            <button key={c.id} onClick={() => onRead(openStage, c)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "var(--card3)", border: "1px solid var(--bd1)", textAlign: "left" }}>
+              <span style={{ fontSize: "18px" }}>{c.icon}</span>
+              <span style={{ fontSize: "11px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{tr(c.title, lang)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* STEP 1: type picker */}
+      {!openStage.content && openStage.types && !selectedType && (
+        <>
+          <div style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "10px", textAlign: "center" }}>
+            {lc.pickTypeHint}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px", marginBottom: "12px" }}>
+            {openStage.types.map(t => (
+              <button key={t.id} onClick={() => pickType(t)} style={{
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
+                padding: "13px 8px", borderRadius: "11px", cursor: "pointer",
+                background: "var(--card3)",
+                border: `1px solid ${openStage.color}55`,
+                transition: "all .15s",
+              }}>
+                <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: t.symbol.length > 6 ? 15 : (t.symbol.length > 4 ? 17 : 20), fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
+                <span style={{ fontSize: "10px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2, textAlign: "center" }}>{tr(t.label, lang)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* STEP 2: key picker (after type selected, or stage has no types) */}
+      {!openStage.content && (!openStage.types || selectedType) && (
+        <>
+          {selectedType && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+              <span style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{lc.pickKeyHint}</span>
+              <button onClick={() => setSelectedType(null)} style={{ fontSize: "9px", color: "var(--muted)", background: "none", border: "1px solid var(--bd4)", borderRadius: "5px", padding: "2px 7px", cursor: "pointer" }}>← {lc.pickType}</button>
+            </div>
+          )}
+          <div className="keygrid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "8px", marginBottom: selectedType ? "8px" : "12px" }}>
+            {KEYS_12.map(k => {
+              const kdone = (keyDone[openStage.id] || []).includes(k.id.toLowerCase());
+              return (
+              <button key={k.id} className={`keybtn${k.black ? " black" : ""}${kdone ? " kdone" : ""}`}
+                style={{
+                  position: "relative",
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px",
+                  padding: "11px 5px", borderRadius: "10px", cursor: "pointer",
+                  background: "var(--card3)",
+                  border: kdone ? "1px solid #d97757" : "1px solid var(--bd4)",
+                }}
+                onClick={() => chooseKey(openStage, k)}>
+                {kdone && <span style={{ position: "absolute", top: "3px", right: "4px", fontSize: "10px", color: "var(--clay-ink)", fontWeight: 900 }}>✓</span>}
+                <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: kdone ? "var(--clay-ink)" : "var(--text)", lineHeight: 1 }}>{k.name}</span>
+                <span style={{ fontSize: "8.5px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
+              </button>
+              );
+            })}
+          </div>
+          {!selectedType && (
+            <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", lineHeight: 1.5 }}>{lc.pickKeyHint}</div>
+          )}
+        </>
+      )}
+    </div>
+    );
+  }
+  /* The doors into Play Along, in the same grid as the lessons they practise —
+     read it on one card, play it to a beat on the next. The drills behind them
+     have existed all along; the only way in was a drawer item almost nobody
+     opens, so they may as well not have. Carries no progress and no tick: this
+     is a door, not a stage, and the group is still finished by its lessons
+     alone. */
+  function renderDoor(pc) {
+    return (
+      pc.cat === "chords-major" || pc.cat === "chords-minor" ? (
+        <Fragment>
+          <button id={"pcard-" + pc.id} className={`pcard pcard-play${progPickId === pc.id ? " active" : ""}`} style={{ "--ac": pc.color }}
+            onClick={() => openProgPick(pc)}>
+            <span className="pcardglow" />
+            <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
+            <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
+            <span className="pcardtitle">{tr(pc.title, lang)}</span>
+            <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
+            <span className="pcardgo">
+              {lc.playBtn}
+              <span className="pcardarrow">{progPickId === pc.id ? "▾" : "▶"}</span>
+            </span>
+          </button>
+          {progPickId === pc.id && (
+            <div className="keypanel" style={{
+              "--ac": pc.color,
+              background: "var(--card2)",
+              border: `1px solid ${pc.color}`,
+              borderRadius: "14px",
+              padding: "14px 13px",
+              marginTop: 0,
+              gridColumn: "1 / -1",
+            }}>
+              <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
+                <span style={{ fontSize: "18px" }}>{pc.icon}</span>
+                <span style={{ flex: 1, fontFamily: "var(--f-app, sans-serif)", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(pc.title, lang)}</span>
+                <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", color: pc.color, whiteSpace: "nowrap" }}>
+                  {lang === "th" ? "เลือกทางคอร์ด" : lang === "zh" ? "选择和弦进行" : "Pick a chord path"}
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "9px", marginBottom: "12px" }}>
+                {PROG_LENS.map(n => (
+                  <button key={n} onClick={() => { setProgLenChoice(m => ({ ...m, [pc.id]: n })); }} style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
+                    padding: "13px 8px", borderRadius: "11px", cursor: "pointer",
+                    background: "var(--card3)",
+                    border: `1px solid ${(progLenChoice[pc.id] || 4) === n ? pc.color : pc.color + "55"}`,
+                    transition: "all .15s",
+                  }}>
+                    <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "20px", fontWeight: 900, color: pc.color, lineHeight: 1 }}>{n}</span>
+                    <span style={{ fontSize: "10px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2 }}>
+                      {lang === "th" ? "คอร์ด" : lang === "zh" ? "和弦" : "chords"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="keygrid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "8px" }}>
+                {KEYS_12.map(k => (
+                  <button key={k.id} className={`keybtn${k.black ? " black" : ""}`}
+                    style={{
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px",
+                      padding: "11px 5px", borderRadius: "10px", cursor: "pointer",
+                      background: "var(--card3)",
+                      border: "1px solid var(--bd4)",
+                    }}
+                    onClick={() => { setProgPickId(null); onProgression && onProgression(pc, progLenChoice[pc.id] || 4, k.id); }}>
+                    <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>{k.name}</span>
+                    <span style={{ fontSize: "8.5px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
+                  </button>
+                ))}
+              </div>
+              <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", lineHeight: 1.5, marginTop: "10px" }}>
+                {lang === "th" ? "AI จะสอนทั้งแบบ Block และ Broken พร้อมโหมดฝึก"
+                  : lang === "zh" ? "AI 将以 Block 和 Broken 两种方式教学，并配有练习模式"
+                  : "AI teaches it Block and Broken, with Practice Mode for both"}
+              </div>
+            </div>
+          )}
+        </Fragment>
+      ) : (
+        <button className="pcard pcard-play" style={{ "--ac": pc.color }}
+          onClick={() => onPlayAlong && onPlayAlong(pc.cat, pc.id)}>
+          <span className="pcardglow" />
+          <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
+          <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
+          <span className="pcardtitle">{tr(pc.title, lang)}</span>
+          <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
+          <span className="pcardgo">
+            {lc.playBtn}
+            <span className="pcardarrow">▶</span>
+          </span>
+        </button>
+      )
+    );
+  }
   return (
     <div className="pathpage">
 
       {groups.map((g, gi) => {
         const stages = STAGES_BY_GROUP[g.id] || [];
+        const cells = groupCells(g.id);
         const gc = stages[0].color;
         const openStage = stages.find(s => s.id === openStageId);
-        const openIdx = openStage ? stages.indexOf(openStage) : -1;
+        const openPos = openStage ? cells.findIndex(c => c.id === openStage.id) : -1;
         return (
           <Fragment key={g.id}>
           <section className="pgroup pisland" style={{ "--gc": gc }}>
@@ -682,17 +891,30 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
             </header>
 
             <div className="pgrid" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "10px" }}>
-              {stages.map((st, si) => {
+              {cells.map((cell, pos) => {
+                const rowStart = pos - (pos % 2);
+                const rowEnd = pos % 2 === 1 || pos === cells.length - 1;
+                // the expanded panel is injected full-width right after the ROW that
+                // holds the open card, so its sub-topics sit attached to what was tapped
+                const panelHere = rowEnd && openPos >= rowStart && openPos <= pos;
+                // row-to-row trail segment: only between rows made of lessons alone
+                // (a Play Along door carries no progress, so it is not on the trail)
+                const rowCells = cells.slice(rowStart, pos + 1);
+                const nextCell = cells[pos + 1];
+                const trailHere = rowEnd && nextCell && nextCell.kind === "stage" && rowCells.every(c => c.kind === "stage");
+                if (cell.kind === "door") return (
+                  <Fragment key={cell.id}>
+                    {renderDoor(cell.pc)}
+                    {panelHere && openStage && renderStagePanel(openStage)}
+                  </Fragment>
+                );
+                const st = cell.st;
                 const isOpen = openStageId === st.id;
                 const isRead = !!st.content;
                 // Card label: for stages with types, show "เลือกชนิด" when open; otherwise "เลือกคีย์"
                 let cardLabel = isRead ? lc.readBtn : lc.learnBtn;
                 if (isOpen && !isRead) cardLabel = (st.types && !selectedType) ? lc.pickType : lc.pickKey;
                 const nKeys = (keyDone[st.id] || []).length; // keys studied in this topic
-                // the expanded panel is injected full-width right after the ROW that
-                // holds the open card, so its sub-topics sit attached to what was tapped
-                const rowEnd = si % 2 === 1 || si === stages.length - 1;
-                const panelHere = rowEnd && openIdx >= si - (si % 2) && openIdx <= si;
                 // Bronze/silver/gold from the best accuracy actually demonstrated on this
                 // stage's drill — isRead (knowledge chapters) have no drill to grade, so
                 // they stay a plain done checkmark, same as always.
@@ -717,116 +939,15 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                     </span>
                   </button>
 
-                  {/* panel — type picker first (if stage has types), then key picker —
-                      rendered inside the grid so it expands right under the tapped row */}
-                  {panelHere && openStage && (
-              <div className="keypanel" style={{
-                "--ac": openStage.color,
-                background: "var(--card2)",
-                border: `1px solid ${openStage.color}`,
-                borderRadius: "14px",
-                padding: "14px 13px",
-                marginTop: 0,
-                gridColumn: "1 / -1",
-              }}>
-                {/* panel header */}
-                <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
-                  <span style={{ fontSize: "18px" }}>{openStage.icon}</span>
-                  <span style={{ flex: 1, fontFamily: "var(--f-app, sans-serif)", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(openStage.title, lang)}</span>
-                  {selectedType && (
-                    <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", background: openStage.color + "33", color: openStage.color, borderRadius: "6px", padding: "2px 7px", border: `1px solid ${openStage.color}55` }}>
-                      {tr(selectedType.label, lang)}
-                    </span>
-                  )}
-                  <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", color: openStage.color, whiteSpace: "nowrap" }}>
-                    {openStage.content ? lc.caseSub : openStage.types && !selectedType ? lc.pickType : lc.pickKey}
-                  </span>
-                </div>
-
-                {/* READ CHAPTER: overview + world-class case-study sub-topics */}
-                {openStage.content && (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px" }}>
-                    <button onClick={() => onRead(openStage)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "var(--card3)", border: `1px solid ${openStage.color}55`, textAlign: "left" }}>
-                      <span style={{ fontSize: "18px" }}>📖</span>
-                      <span style={{ fontSize: "11px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{lc.caseOverview}</span>
-                    </button>
-                    {(BENEFIT_CASES[openStage.id] || []).map(c => (
-                      <button key={c.id} onClick={() => onRead(openStage, c)} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "5px", padding: "12px 11px", borderRadius: "11px", cursor: "pointer", background: "var(--card3)", border: "1px solid var(--bd1)", textAlign: "left" }}>
-                        <span style={{ fontSize: "18px" }}>{c.icon}</span>
-                        <span style={{ fontSize: "11px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.25 }}>{tr(c.title, lang)}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* STEP 1: type picker */}
-                {!openStage.content && openStage.types && !selectedType && (
-                  <>
-                    <div style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "10px", textAlign: "center" }}>
-                      {lc.pickTypeHint}
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "9px", marginBottom: "12px" }}>
-                      {openStage.types.map(t => (
-                        <button key={t.id} onClick={() => pickType(t)} style={{
-                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
-                          padding: "13px 8px", borderRadius: "11px", cursor: "pointer",
-                          background: "var(--card3)",
-                          border: `1px solid ${openStage.color}55`,
-                          transition: "all .15s",
-                        }}>
-                          <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: t.symbol.length > 6 ? 15 : (t.symbol.length > 4 ? 17 : 20), fontWeight: 900, color: openStage.color, lineHeight: 1 }}>{t.symbol}</span>
-                          <span style={{ fontSize: "10px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2, textAlign: "center" }}>{tr(t.label, lang)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* STEP 2: key picker (after type selected, or stage has no types) */}
-                {!openStage.content && (!openStage.types || selectedType) && (
-                  <>
-                    {selectedType && (
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-                        <span style={{ fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{lc.pickKeyHint}</span>
-                        <button onClick={() => setSelectedType(null)} style={{ fontSize: "9px", color: "var(--muted)", background: "none", border: "1px solid var(--bd4)", borderRadius: "5px", padding: "2px 7px", cursor: "pointer" }}>← {lc.pickType}</button>
-                      </div>
-                    )}
-                    <div className="keygrid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "8px", marginBottom: selectedType ? "8px" : "12px" }}>
-                      {KEYS_12.map(k => {
-                        const kdone = (keyDone[openStage.id] || []).includes(k.id.toLowerCase());
-                        return (
-                        <button key={k.id} className={`keybtn${k.black ? " black" : ""}${kdone ? " kdone" : ""}`}
-                          style={{
-                            position: "relative",
-                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px",
-                            padding: "11px 5px", borderRadius: "10px", cursor: "pointer",
-                            background: "var(--card3)",
-                            border: kdone ? "1px solid #d97757" : "1px solid var(--bd4)",
-                          }}
-                          onClick={() => chooseKey(openStage, k)}>
-                          {kdone && <span style={{ position: "absolute", top: "3px", right: "4px", fontSize: "10px", color: "var(--clay-ink)", fontWeight: 900 }}>✓</span>}
-                          <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: kdone ? "var(--clay-ink)" : "var(--text)", lineHeight: 1 }}>{k.name}</span>
-                          <span style={{ fontSize: "8.5px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
-                        </button>
-                        );
-                      })}
-                    </div>
-                    {!selectedType && (
-                      <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", lineHeight: 1.5 }}>{lc.pickKeyHint}</div>
-                    )}
-                  </>
-                )}
-              </div>
-                  )}
+                  {panelHere && openStage && renderStagePanel(openStage)}
                   {/* row-to-row trail segment — was previously only between the 4 group
                       islands, leaving every stage inside a group visually disconnected */}
-                  {rowEnd && si < stages.length - 1 && (() => {
-                    const rowStages = stages.slice(si - (si % 2), si + 1);
-                    const doneCount = rowStages.filter(s => pathDone.has(s.id)).length;
-                    const nextColor = stages[si + 1].color;
+                  {trailHere && (() => {
+                    const doneCount = rowCells.filter(c => pathDone.has(c.id)).length;
+                    const nextColor = nextCell.st.color;
                     return (
                       <div className="pnode-connector" style={{ gridColumn: "1 / -1" }} aria-hidden="true">
-                        <span className={`pnode-connector-line${doneCount >= rowStages.length ? " done" : doneCount > 0 ? " half" : ""}`}
+                        <span className={`pnode-connector-line${doneCount >= rowCells.length ? " done" : doneCount > 0 ? " half" : ""}`}
                           style={{ "--nc": nextColor }} />
                       </div>
                     );
@@ -834,99 +955,6 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                   </Fragment>
                 );
               })}
-
-              {/* The doors into Play Along, in the same grid as the lessons they
-                  practise — read it on one card, play it to a beat on the next.
-                  The drills behind them have existed all along; the only way in
-                  was a drawer item almost nobody opens, so they may as well not
-                  have. Carries no progress and no tick: this is a door, not a
-                  stage, and the group is still finished by its lessons alone. */}
-              {(PATHWAY_PRACTICE[g.id] || []).map(pc => (
-                pc.cat === "chords-major" || pc.cat === "chords-minor" ? (
-                  <Fragment key={pc.id}>
-                    <button id={"pcard-" + pc.id} className={`pcard pcard-play${progPickId === pc.id ? " active" : ""}`} style={{ "--ac": pc.color }}
-                      onClick={() => openProgPick(pc)}>
-                      <span className="pcardglow" />
-                      <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
-                      <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
-                      <span className="pcardtitle">{tr(pc.title, lang)}</span>
-                      <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
-                      <span className="pcardgo">
-                        {lc.playBtn}
-                        <span className="pcardarrow">{progPickId === pc.id ? "▾" : "▶"}</span>
-                      </span>
-                    </button>
-                    {progPickId === pc.id && (
-                      <div className="keypanel" style={{
-                        "--ac": pc.color,
-                        background: "var(--card2)",
-                        border: `1px solid ${pc.color}`,
-                        borderRadius: "14px",
-                        padding: "14px 13px",
-                        marginTop: 0,
-                        gridColumn: "1 / -1",
-                      }}>
-                        <div className="keypanel-head" style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "13px", paddingBottom: "10px", borderBottom: "1px solid var(--bd1)" }}>
-                          <span style={{ fontSize: "18px" }}>{pc.icon}</span>
-                          <span style={{ flex: 1, fontFamily: "var(--f-app, sans-serif)", fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{tr(pc.title, lang)}</span>
-                          <span style={{ fontFamily: "var(--f-num, monospace)", fontSize: "9px", color: pc.color, whiteSpace: "nowrap" }}>
-                            {lang === "th" ? "เลือกทางคอร์ด" : lang === "zh" ? "选择和弦进行" : "Pick a chord path"}
-                          </span>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "9px", marginBottom: "12px" }}>
-                          {PROG_LENS.map(n => (
-                            <button key={n} onClick={() => { setProgLenChoice(m => ({ ...m, [pc.id]: n })); }} style={{
-                              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
-                              padding: "13px 8px", borderRadius: "11px", cursor: "pointer",
-                              background: "var(--card3)",
-                              border: `1px solid ${(progLenChoice[pc.id] || 4) === n ? pc.color : pc.color + "55"}`,
-                              transition: "all .15s",
-                            }}>
-                              <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "20px", fontWeight: 900, color: pc.color, lineHeight: 1 }}>{n}</span>
-                              <span style={{ fontSize: "10px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, color: "var(--text2)", lineHeight: 1.2 }}>
-                                {lang === "th" ? "คอร์ด" : lang === "zh" ? "和弦" : "chords"}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                        <div className="keygrid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "8px" }}>
-                          {KEYS_12.map(k => (
-                            <button key={k.id} className={`keybtn${k.black ? " black" : ""}`}
-                              style={{
-                                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px",
-                                padding: "11px 5px", borderRadius: "10px", cursor: "pointer",
-                                background: "var(--card3)",
-                                border: "1px solid var(--bd4)",
-                              }}
-                              onClick={() => { setProgPickId(null); onProgression && onProgression(pc, progLenChoice[pc.id] || 4, k.id); }}>
-                              <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "16px", fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>{k.name}</span>
-                              <span style={{ fontSize: "8.5px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 600, color: "var(--muted)", lineHeight: 1 }}>{lang === "th" ? k.th : lang === "zh" ? k.zh : k.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                        <div style={{ textAlign: "center", fontSize: "9.5px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", lineHeight: 1.5, marginTop: "10px" }}>
-                          {lang === "th" ? "AI จะสอนทั้งแบบ Block และ Broken พร้อมโหมดฝึก"
-                            : lang === "zh" ? "AI 将以 Block 和 Broken 两种方式教学，并配有练习模式"
-                            : "AI teaches it Block and Broken, with Practice Mode for both"}
-                        </div>
-                      </div>
-                    )}
-                  </Fragment>
-                ) : (
-                  <button key={pc.id} className="pcard pcard-play" style={{ "--ac": pc.color }}
-                    onClick={() => onPlayAlong && onPlayAlong(pc.cat, pc.id)}>
-                    <span className="pcardglow" />
-                    <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
-                    <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
-                    <span className="pcardtitle">{tr(pc.title, lang)}</span>
-                    <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
-                    <span className="pcardgo">
-                      {lc.playBtn}
-                      <span className="pcardarrow">▶</span>
-                    </span>
-                  </button>
-                )
-              ))}
             </div>
           </section>
 
@@ -3721,37 +3749,13 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
 });
 
 /* ── Song picker page (falling-notes play-along) ── */
-const SONG_REQ = { 1: 1, 2: 2, 3: 4 };   // level required to unlock by difficulty
-/* ── Daily Song Quest day card — the day's song, picked once from the songs
-   this player can open and has not 3-starred yet (play-along-progress
-   dailySong), and whether today's reward has been paid. It resets with the
-   app's other dailies (ymd), so the hours left count to that same moment. ── */
-function DailySongQuestCard({ lang, onPlay, level = 1, plan = "" }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const song = useMemo(() => dailySong(level, plan), [level, plan]);
-  if (!song) return null;
-  const state = readDailyState();
-  const hoursLeft = Math.max(0, 23 - dayDate().getHours());
-  const done = !!state.done;
-  const stars = state.stars || 0;
-  return (
-    <button className="setlistbtn" style={{ marginBottom: 10, textAlign: "left" }}
-      onClick={() => { haptic(); onPlay(song); }}>
-      <span className="setlistbtn-tt">📆 {T("ภารกิจเพลงประจำวัน", "Daily Song Quest", "每日歌曲任务")} — {tr(song, lang)}</span>
-      <span className="setlistbtn-sub">
-        {done
-          ? T("✅ สำเร็จแล้ววันนี้ — เล่นซ้ำเพื่อเก็บดาวเพิ่มได้", "✅ Done today — replay to collect more stars", "✅ 今日已完成 — 可重玩拿更多星")
-          : T("ได้ 1 ดาวขึ้นไป รับ " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "Get 1 star or more for " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP", "得 1 星以上奖励 " + DAILY_SONG_REWARD.coins + " 🪙 + " + DAILY_SONG_REWARD.exp + " EXP")}
-        {"  ·  "}{done ? "★".repeat(stars) + "☆".repeat(Math.max(0, 3 - stars)) + "  ·  " : ""}{T("เหลืออีก ~" + hoursLeft + " ชม.", "~" + hoursLeft + "h left", "剩约" + hoursLeft + "小时")}
-      </span>
-    </button>
-  );
-}
-
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, exp = 0, premium = false, onUpsell, onRequireLogin, plan = "", onStartSetlist, initialCat = "songs" }) {
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, exp = 0, premium = false, onUpsell, onRequireLogin, plan = "", initialCat = "songs" }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [q, setQ] = useState("");
+  /* Today's song is still picked here, once a day, though its card is gone: the
+     ready screen's "Today's song" line and finishSong's payout both read the
+     pick from the saved day state, and nothing else would write it. */
+  useEffect(() => { try { dailySong(level, plan); } catch (e) {} }, [level, plan]);
   const [lockMsg, setLockMsg] = useState(null);
   const lockMsgT = useRef(null);
   const showLock = (text) => { setLockMsg(text); clearTimeout(lockMsgT.current); lockMsgT.current = setTimeout(() => setLockMsg(null), 3200); };
@@ -3865,28 +3869,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   if (filter === 0) list = list.filter(s => favs.includes(s.id));
   else if (filter > 0) list = list.filter(s => s.diff === filter && !s.custom);
   if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "classical") === genreFilter);
-  const qq = q.trim().toLowerCase();
-  if (qq) list = list.filter(s => [s.th, s.en, s.zh].some(t => String(t || "").toLowerCase().includes(qq)));
   list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
-
-  // Setlist / Concert mode — 3 random UNLOCKED songs from whatever's currently
-  // visible (respects the star/genre/favorites filters already applied, same
-  // spirit as "surprise me from what I'm looking at" rather than a whole new
-  // multi-select picker screen).
-  function startSetlistFromList() {
-    const pool = list.filter(s => {
-      const req = SONG_REQ[s.diff] || 1;
-      const locked = !s.custom && level < req;
-      const maxLocked = !s.custom && s.maxOnly && !isMaxPlan(plan);
-      return !locked && !maxLocked;
-    });
-    if (pool.length < 2 || !onStartSetlist) return;
-    // the count is fixed before picking: `copy` shrinks as songs are taken,
-    // so measuring it in the loop stopped a 3- or 4-song pool at two songs
-    const copy = pool.slice(), picked = [], count = Math.min(3, pool.length);
-    while (picked.length < count) picked.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
-    onStartSetlist(picked);
-  }
 
   /* A card says what the player has EARNED on the song (gold stars), how
      hard it is (level) and how long it is. A locked song says what opens
@@ -3970,17 +3953,14 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
 
   return (
     <div className="pathpage songpage">
-      <div className="pathhero">
-        <div className="pathhero-glow" />
-        {onBack && <button className="studioback" onClick={onBack}>‹ {lc.back}</button>}
-        <div className="pathbadge">♪ PLAY ALONG ♪</div>
-        <h1 className="pathh1">{lc.songsTitle}</h1>
-        <p className="pathguide">{lc.songsSub}</p>
-      </div>
-      {/* Daily Song Quest (Play Along plan #8): one featured song per day,
-          deterministic for every device. Playing it to the finish once today
-          completes the quest — bonus paid in finishSong. */}
-      <DailySongQuestCard lang={lang} onPlay={onPlay} level={level} plan={plan} />
+      {/* Straight to the songs (owner, 2026-10-01): the title block, the Daily Song
+          Quest card, the Concert Mode card and the search box that used to sit
+          here pushed the list below the fold. */}
+      {onBack && (
+        <div className="songtop">
+          <button className="studioback" onClick={onBack}>‹ {lc.back}</button>
+        </div>
+      )}
       {/* category selector — Songs · Scales · Chords · Intervals */}
       <div className="songfilters">
         {cats.map(c => (
@@ -3995,14 +3975,6 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           <div className="songfilters">
             {filters.map(f => <button key={f.k} className={`songfilter${filter === f.k ? " on" : ""}`} onClick={() => setFilter(f.k)}>{f.label}</button>)}
           </div>
-          {list.length >= 2 && (
-            <button className="setlistbtn" onClick={() => { haptic(); startSetlistFromList(); }}>
-              <span className="setlistbtn-tt">{lc.setlistBtn}</span>
-              <span className="setlistbtn-sub">{lc.setlistSub}</span>
-            </button>
-          )}
-          <input className="songsearch" type="search" value={q} onChange={e => setQ(e.target.value)}
-            placeholder={T("ค้นหาเพลง", "Search songs", "搜索歌曲")} aria-label={T("ค้นหาเพลง", "Search songs", "搜索歌曲")} />
           <div className="genrefilters">
             {([
               { code:"all",       label:{ th:"🎵 ทั้งหมด",     en:"🎵 All",       zh:"🎵 全部" } },
@@ -4052,16 +4024,17 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
             </div>
           )}
           {lockMsg && <div className="songlockmsg" role="status">🔒 {lockMsg}</div>}
-          {lastSong && filter === -1 && !qq && (
+          {lastSong && filter === -1 && (
             <div className="songcontinue">
               <div className="songcontinue-lbl">↻ {lc.songContinue}</div>
               {Card(lastSong, "c-")}
             </div>
           )}
           {/* for a returning player only: a new one starts from the top of the
-              list, and the day's song already has its own card above */}
-          {filter === -1 && !qq && lastSong && (() => {
-            const nx = nextSongAfter(!lastSong.custom ? lastSong : null, level, plan, { skipDaily: true });
+              list. Today's song, while it is unpaid, is what "Up next" points to —
+              its own card is gone, and this is where the quest now surfaces */}
+          {filter === -1 && lastSong && (() => {
+            const nx = nextSongAfter(!lastSong.custom ? lastSong : null, level, plan);
             return nx && nx.id !== lastSong.id ? (
               <div className="songcontinue">
                 <div className="songcontinue-lbl">✦ {T("เพลงแนะนำถัดไป", "Up next", "推荐下一首")}</div>
@@ -12623,7 +12596,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} exp={(profile && profile.exp) || 0} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} onStartSetlist={startSetlist} />
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} exp={(profile && profile.exp) || 0} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} />
           : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}

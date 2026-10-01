@@ -2719,9 +2719,6 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songfilters::-webkit-scrollbar{display:none}
 .songfilter{flex:0 0 auto;padding:7px 14px;border-radius:20px;border:1px solid var(--bd2);background:var(--card);color:var(--muted);font-family:var(--f-app);font-size:13px;font-weight:700;cursor:pointer}
 .songfilter.on{background: #d97757;color:var(--card2);border-color:transparent}
-.setlistbtn{display:flex;flex-direction:column;align-items:center;gap:2px;width:calc(100% - 28px);margin:0 14px 10px;padding:10px;border-radius:14px;border:1.5px solid #a78bfa55;background:linear-gradient(135deg,rgba(167,139,250,.16),rgba(139,92,246,.05));cursor:pointer}
-.setlistbtn-tt{font-family:var(--f-app);font-size:13px;font-weight:800;color:#c4b5fd}
-.setlistbtn-sub{font-family:var(--f-app);font-size:11px;color:var(--muted)}
 .genrefilters{display:flex;gap:6px;overflow-x:auto;padding:0 14px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .genrefilters::-webkit-scrollbar{display:none}
 .genrechip{flex:0 0 auto;padding:5px 13px;border-radius:18px;border:1.5px solid var(--bd2);background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
@@ -2783,6 +2780,9 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songanalysis-steps{margin:0;padding-left:18px;font-family:var(--f-app);font-size:12.5px;line-height:1.6;color:var(--text2)}
 .songanalysis-steps li{margin-bottom:3px}
 .studioback{position:absolute;left:12px;top:12px;background:rgba(255,255,255,.06);border:1px solid var(--bd4);color:var(--text2);border-radius:9px;padding:6px 12px;font-family:var(--f-app);font-size:13px;font-weight:600;cursor:pointer;z-index:2}
+/* the songs page opens on a back button alone — no title block (owner, 2026-10-01) */
+.songtop{padding:10px 14px 8px}
+.songtop .studioback{position:static}
 /* sight-reading */
 .sightov .practicebody{align-items:stretch}
 .staffwrap{background:var(--card);border:1px solid var(--bd2);border-radius:16px;padding:14px 8px;margin:6px 0;transition:box-shadow .2s,border-color .2s}

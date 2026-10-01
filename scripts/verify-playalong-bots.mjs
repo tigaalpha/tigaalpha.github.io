@@ -4,9 +4,10 @@
    boss before the end, notes pressed 0.3 s early never make 3 stars, the
    "practise the part you missed" loop starts at the part and climbs
    75→85→100%, the daily song pays once, a concert's songs each load their own
-   data, "Play again" is on the first screen at 360×640, pause freezes and
+   data (started through __paTest.setlist: its button is gone from the song
+   list), "Play again" is on the first screen at 360×640, pause freezes and
    resumes in place, the first-time intro, the song list's stars/length/lock
-   notes/search, the staff slides every frame, a medal pays once and run
+   notes and its songs starting high on the screen, the staff slides every frame, a medal pays once and run
    coins stop after 3 runs a day, practice mode waits for the right key, the
    band keeps the beat (4/4, 3/4, drums only for a piano on the mic), the
    game's own sounds switching to their mic-safe voice for a pianist and a
@@ -92,12 +93,16 @@ async function session({ w = 412, h = 915, kind = false, intro = true, exp = 500
   return { ctx, p, errs, usage };
 }
 async function openList(p) { await (await p.$$(".songcard"))[0].click(); await p.waitForTimeout(1200); }
+// the list has no search box: the whole list is on the page, so a song is found by
+// its name, an exact name first (one song's name can sit inside another's)
 async function openSong(p, name) {
-  const s = await p.$(".songsearch");
-  if (s) { await s.fill(name); await p.waitForTimeout(500); }
   const cards = await p.$$(".songgrid .songcard");
-  for (const c of cards) { const t = ((await c.textContent()) || "").toLowerCase(); if (t.includes(name.toLowerCase())) { await c.click(); await p.waitForTimeout(900); return true; } }
-  return false;
+  const want = name.toLowerCase();
+  let pick = null;
+  for (const c of cards) { const nm = await c.$(".songcard-nm"); if (nm && ((await nm.textContent()) || "").trim().toLowerCase() === want) { pick = c; break; } }
+  if (!pick) for (const c of cards) { const t = ((await c.textContent()) || "").toLowerCase(); if (t.includes(want)) { pick = c; break; } }
+  if (!pick) return false;
+  await pick.click(); await p.waitForTimeout(900); return true;
 }
 async function start(p) { await p.click(".songready .songbtn.go"); await p.waitForTimeout(300); }
 // presses each note at its hit time + offset; skip notes whose t is in [skipFrom, skipTo]
@@ -252,9 +257,13 @@ if (want("drill")) {
 if (want("daily")) {
   const s = await session();
   await openList(s.p);
+  // the song list has no Daily Song Quest card any more, but it still picks the day's
+  // song once and writes it down; the ready screen says which song it is
   const id = await s.p.evaluate(() => { try { return JSON.parse(localStorage.getItem("tg_daily_song")).id; } catch (e) { return null; } });
-  const card = await s.p.$(".setlistbtn >> text=Daily Song Quest");
-  if (card) await card.click(); await s.p.waitForTimeout(900);
+  const nm = id ? await s.p.evaluate((i) => window.__paTest.songName(i), id) : null;
+  const opened = !!nm && await openSong(s.p, nm);
+  const line = await s.p.$eval(".pl-daily", e => e.textContent).catch(() => null);
+  rec("daily-ready-line", opened && /Today's song/.test(line || ""), `song ${id} "${nm}" opened ${opened} · line ${JSON.stringify(line)}`);
   await start(s.p); await bot(s.p); await waitResult(s.p); await stopBot(s.p);
   const t1 = await resultText(s.p);
   const st1 = await s.p.evaluate(() => JSON.parse(localStorage.getItem("tg_daily_song")));
@@ -272,9 +281,8 @@ if (want("concert")) {
   for (const id of ["jazz_swing_walk", "jazz_blue_note", "jazz_midnight", "jazz_waltz_swing"]) ghosts["tg_ghost_" + id] = JSON.stringify([{ t: 0, s: 0 }, { t: 60, s: 1 }]);
   const s = await session({ extraLS: ghosts });
   await openList(s.p);
-  await s.p.click(".genrechip >> text=Jazz"); await s.p.waitForTimeout(500);
-  // by its full name: the daily song's button is "…Piano Concerto…" on some days
-  await s.p.click(".setlistbtn >> text=Concert Mode"); await s.p.waitForTimeout(900);
+  // the song list no longer has a Concert Mode button; the engine is still there
+  await s.p.evaluate(() => window.__paTest.setlist(["jazz_swing_walk", "jazz_blue_note", "jazz_midnight"])); await s.p.waitForTimeout(900);
   const pos = await s.p.$eval(".setlistpos", e => e.textContent).catch(() => "(no badge)");
   await start(s.p); await bot(s.p);
   const out = await s.p.evaluate(() => new Promise(res => { const T = window.__paTest; const log = {}, trail = []; let last = ""; const id = setInterval(() => { const m = T.meta(); const now = T.now(); const badge = (document.querySelector(".songsetlist, .pl-setlist") || {}).textContent || ""; const k = m + "|" + (now != null) + "|" + badge + "|" + !!document.querySelector(".pl-result"); if (k !== last) { trail.push(k); last = k; } if (m && now != null) log[m] = log[m] || T.ghost(); if (document.querySelector(".pl-result")) { clearInterval(id); res({ log, trail }); } }, 100); setTimeout(() => { clearInterval(id); res({ log, trail }); }, 150000); }));
@@ -334,14 +342,15 @@ if (want("list")) {
   await openList(s.p);
   await s.p.screenshot({ path: `${OUT}/list.png` });
   const meta = await s.p.$$eval(".songgrid .songcard .songcard-meta", ms => ms.slice(0, 3).map(m => m.innerText.replace(/\s+/g, " ")));
+  const firstTop = await s.p.$eval(".songgrid .songcard", e => Math.round(e.getBoundingClientRect().top));
+  const gone = await s.p.evaluate(() => ({ search: !!document.querySelector(".songsearch"), banners: document.querySelectorAll(".setlistbtn").length, hero: !!document.querySelector(".songpage .pathhero") }));
   const locked = await s.p.$(".songgrid .songcard.locked");
   if (locked) await locked.click(); await s.p.waitForTimeout(300);
   const msg = await s.p.$eval(".songlockmsg", e => e.innerText).catch(() => null);
-  await s.p.fill(".songsearch", "ode to"); await s.p.waitForTimeout(400);
-  const found = await s.p.$$eval(".songgrid .songcard .songcard-nm", ns => ns.map(n => n.textContent));
   rec("list-cards", meta.every(m => /☆|★/.test(m) && /⏱ \d:\d\d|Level \d/.test(m)), meta.join(" | "));
   rec("list-locked", !!msg && /opens at level \d/.test(msg), msg || "(no message)");
-  rec("list-search", found.length >= 1 && found.every(n => /ode to/i.test(n)), found.join(", "));
+  // owner, 2026-10-01: no title block, no Daily/Concert cards, no search box — the songs start high
+  rec("list-straight-to-songs", !gone.search && gone.banners === 0 && !gone.hero && firstTop < 450, `first song card top ${firstTop}px of 915 · search ${gone.search} · banners ${gone.banners}`);
   await done(s);
 }
 // ── 10b. the reading staff slides every frame, and the boss bar stays mounted ──
