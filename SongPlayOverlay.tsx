@@ -340,76 +340,6 @@ const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit
     </div>
   );
 });
-/* The song's cover, drawn from its own melody: every note a point at its
-   time (left→right) and pitch (low→high), joined into one line in the lanes'
-   colours. It sits on the ready screen, which wears the app's own theme, so it
-   is drawn on the theme's card colours — a light card in light mode, a
-   near-black one in dark mode — not on the neon night sky. Drawn once per
-   song, size and mode, then kept as a picture. */
-const COVER_CACHE = new Map();
-function drawCover(song, w, h, dpr) {
-  const dark = typeof document !== "undefined" && document.documentElement.dataset.theme === "dark";
-  const key = song.id + "|" + w + "|" + h + "|" + dpr + "|" + (dark ? "d" : "l");
-  if (COVER_CACHE.has(key)) return COVER_CACHE.get(key);
-  const cv = document.createElement("canvas");
-  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-  const c = cv.getContext("2d");
-  c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const ground = c.createLinearGradient(0, 0, 0, h);
-  if (dark) { ground.addColorStop(0, "#211f1c"); ground.addColorStop(1, "#141312"); }
-  else { ground.addColorStop(0, "#ffffff"); ground.addColorStop(1, "#f1efe7"); }
-  c.fillStyle = ground; c.fillRect(0, 0, w, h);
-  // faint staff-like guide lines
-  c.strokeStyle = dark ? "rgba(255,255,255,0.07)" : "rgba(20,20,19,0.08)"; c.lineWidth = 1;
-  for (let k = 1; k <= 4; k++) { const y = Math.round(h * (0.2 + 0.15 * k)) + 0.5; c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
-  const seq = (song.seq || []);
-  const pts = [];
-  let beat = 0;
-  for (const [note, dur] of seq) { if (note !== "R") pts.push({ note, beat, dur }); beat += dur; }
-  const midi = (n) => { const m = /^([A-G]#?)(\d)$/.exec(n); if (!m) return 60; return (+m[2] + 1) * 12 + ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].indexOf(m[1]); };
-  if (pts.length) {
-    const lo = Math.min(...pts.map(p => midi(p.note))), hi = Math.max(...pts.map(p => midi(p.note)));
-    const span = Math.max(4, hi - lo), total = Math.max(1, beat);
-    const xy = pts.map(p => ({ x: 14 + (p.beat + p.dur / 2) / total * (w - 28), y: h * 0.8 - (midi(p.note) - lo) / span * h * 0.6, hue: laneHue(p.note), d: p.dur }));
-    // light: solid saturated strokes on the light card; dark: the same light-on-dark glow as the game
-    c.globalCompositeOperation = dark ? "lighter" : "source-over";
-    c.lineJoin = "round"; c.lineCap = "round";
-    const widths = dark ? [[7, 0.12], [3, 0.35], [1.4, 0.9]] : [[6, 0.1], [2.6, 0.28], [1.6, 0.95]];
-    for (const [lw, a] of widths) {
-      c.lineWidth = lw;
-      for (let i = 1; i < xy.length; i++) {
-        c.strokeStyle = dark ? `hsla(${xy[i].hue},100%,66%,${a})` : `hsla(${xy[i].hue},78%,44%,${a})`;
-        c.beginPath(); c.moveTo(xy[i - 1].x, xy[i - 1].y); c.lineTo(xy[i].x, xy[i].y); c.stroke();
-      }
-    }
-    for (const p of xy) {
-      const r = 2 + Math.min(3.5, p.d * 1.4);
-      const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3);
-      if (dark) { g.addColorStop(0, `hsla(${p.hue},100%,80%,0.95)`); g.addColorStop(0.35, `hsla(${p.hue},100%,62%,0.4)`); g.addColorStop(1, "rgba(0,0,0,0)"); }
-      else { g.addColorStop(0, `hsla(${p.hue},80%,50%,0.34)`); g.addColorStop(1, `hsla(${p.hue},80%,50%,0)`); }
-      c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, r * 3, 0, 7); c.fill();
-      if (!dark) { c.fillStyle = `hsl(${p.hue},78%,44%)`; c.beginPath(); c.arc(p.x, p.y, r * 0.7, 0, 7); c.fill(); }
-    }
-    c.globalCompositeOperation = "source-over";
-  }
-  const url = cv.toDataURL("image/png");
-  if (COVER_CACHE.size > 40) COVER_CACHE.clear();
-  COVER_CACHE.set(key, url);
-  return url;
-}
-const PaCover = memo(function PaCover({ song }) {
-  const ref = useRef(null);
-  const [src, setSrc] = useState(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || !song) return;
-    const w = Math.max(200, Math.min(420, Math.round(el.clientWidth || 320))), h = Math.round(w * 0.26);
-    // after the ready screen has painted — the cover is never in the way of the first frame
-    const id = requestAnimationFrame(() => { try { setSrc(drawCover(song, w, h, Math.min(2, window.devicePixelRatio || 1))); } catch (e) {} });
-    return () => cancelAnimationFrame(id);
-  }, [song && song.id]);
-  return <div className="pl-cover" ref={ref} aria-hidden="true">{src && <img src={src} alt="" />}</div>;
-});
 /* The four medals of a song as a row: the earned ones lit, the new ones
    popping in one after another. */
 function MedalRow({ tier = 0, gained = [], lang }) {
@@ -573,7 +503,6 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                     <OnlinePvpPanel pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} songMeta={songMeta} lang={lang} codeInput={codeInput} setCodeInput={setCodeInput} />
                   </div>
                   <PaSetlistBadge store={store} lang={lang} />
-                  <PaCover song={songMeta} />
                   <div className="pl-title">{tr(songMeta, lang)}</div>
                   <div className="pl-meta">
                     {!songMeta.custom && <span className="pl-stars" aria-label={T(`ได้ ${earned} ดาว`, `${earned} stars earned`, `已得 ${earned} 星`)}>{starRow(earned)}</span>}

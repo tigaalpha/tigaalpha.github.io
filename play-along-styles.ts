@@ -21,7 +21,7 @@ export const PA_CSS = `
 .songov.playal .pl-num{font-variant-numeric:tabular-nums}
 /* header */
 .songov.playal .songhdr,.tg .songov.playal .songhdr{background:rgba(7,3,24,.94);border-bottom:1px solid var(--pl-line);color:var(--pl-ink)}
-.songov.playal .songhtitle{color:var(--pl-ink);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.songov.playal .songhtitle{display:block;color:var(--pl-ink);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .songov.playal .cbtn,.tg .songov.playal .cbtn{color:#dcd3ff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14)}
 .pl-hdr-btns{display:flex;gap:8px;align-items:center;flex-shrink:0}
 .pl-pausebtn{min-height:34px;padding:0 13px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:var(--pl-ink);font-family:var(--f-app);font-size:15px;font-weight:600;cursor:pointer}
@@ -133,9 +133,6 @@ export const PA_CSS = `
 .pl-pause-row .songbtn{flex:1}
 .songov.playal .pl-pause .songbtn{min-height:46px;padding:10px 12px !important}
 /* the ready screen's cover, drawn from the melody */
-.pl-cover{width:100%;max-width:420px;aspect-ratio:100/26;flex-shrink:0;border-radius:14px;overflow:hidden;background:var(--card2);box-shadow:0 0 0 1px var(--bd4)}
-.pl-cover img{display:block;width:100%;height:100%;animation:pl-fadein .4s ease-out}
-@keyframes pl-fadein{from{opacity:0}to{opacity:1}}
 /* the result's medal row */
 .pl-medalrow{display:flex;justify-content:center;gap:12px}
 .pl-medalslot{display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.28;filter:grayscale(1)}
@@ -228,8 +225,6 @@ export const PA_CSS = `
 .songcard-got.on{color:#e0a800}
 html[data-theme="dark"] .songcard-got.on{color:#ffd86b}
 .songcard-lv{padding:1px 7px;border-radius:999px;border:1px solid var(--bd2);font-size:11px}
-.songsearch{width:100%;box-sizing:border-box;margin:4px 0 8px;padding:10px 14px;border-radius:12px;border:1px solid var(--bd2);background:var(--card);color:var(--text);font-family:var(--f-app);font-size:14px}
-.songsearch:focus-visible{outline:2px solid #8c46ff;outline-offset:1px}
 .songlockmsg{margin:6px 0 10px;padding:10px 12px;border-radius:12px;background:var(--card2);border:1px solid var(--bd2);color:var(--text2);font-family:var(--f-app);font-size:13px;line-height:1.45}
 @keyframes pl-star{0%{transform:scale(0) rotate(-30deg);opacity:0}70%{transform:scale(1.25) rotate(6deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
 @keyframes pl-bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-5px)}}
@@ -245,7 +240,7 @@ html[data-theme="dark"] .songcard-got.on{color:#ffd86b}
    .songhandbtn apply again. What is left is the pl- pieces, in the app's
    tokens (--bg --card --text --clay …), so light, dark and every theme follow. */
 .songov.pl-themed{--pl-ink:var(--text);--pl-dim:var(--text2);--pl-faint:var(--muted);--pl-panel:var(--card);--pl-line:var(--bd4);--pl-cyan:var(--clay-ink)}
-.songov.pl-themed .songhtitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.songov.pl-themed .songhtitle{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .songov.pl-themed .pl-mode,.songov.pl-themed .pl-view{border-color:var(--bd4);background:var(--card)}
 .songov.pl-themed .pl-mode button,.songov.pl-themed .pl-view button{color:var(--text2)}
 .songov.pl-themed .pl-mode button.on,.songov.pl-themed .pl-view button.on{background:var(--clay-t1);color:var(--clay-ink);box-shadow:inset 0 0 0 1px var(--clay)}
@@ -280,10 +275,9 @@ html[data-theme="dark"] .songov.pl-themed .pl-kindnote{color:#8fe3b8}
 .songov.pl-themed .pl-startbar{position:sticky;bottom:0;z-index:3;align-self:stretch;margin:0 -16px;padding:16px 16px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:0;background:linear-gradient(to bottom,transparent,var(--bg) 16px)}
 .pl-startrow{display:flex;gap:0 6px;justify-content:center;flex-wrap:nowrap}
 .pl-startrow .pl-link{white-space:nowrap}
-@media (max-height:600px){.songov.pl-themed .pl-cover{display:none}}
 @media (prefers-reduced-motion: reduce){
   .songov.playal .songstage.shake,.songov.playal .bosshud.fx-attack,.songov.playal .bosshud .bosshud-face,.pl-intro-hint,.pl-bigstars span.on{animation:none !important}
   .songov.playal .gpw.pressed::after,.songov.playal .gpb.pressed::after{display:none}
-  .pl-medalslot.new,.pl-cover img{animation:none}
+  .pl-medalslot.new{animation:none}
 }
 `;

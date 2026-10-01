@@ -612,6 +612,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songPreviewRef = useRef([]);
   const songLoopRef = useRef(() => {});
   const songInputRef = useRef(() => {});
+  const startSetlistRef = useRef((songs) => {});   // always the latest startSetlist — the test hook below calls it
   const songFinishRef = useRef(() => {});
 
   /* ════ ONLINE PvP (plan #10) — realtime duel rooms ════
@@ -1178,6 +1179,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       micSafe: () => _micSafe,
       grades: () => ({ ...songGradesRef.current }),
       combo: () => songComboRef.current,
+      // Concert Mode has no button now (owner, 2026-10-01: its banner came off the song list);
+      // the engine stays and the bots start a concert through here.
+      setlist: (ids) => startSetlistRef.current((ids || []).map(id => SONGS.find(x => x.id === id)).filter(Boolean)),
+      songName: (id) => { const x = SONGS.find(y => y.id === id); return x ? tr(x, "en") : null; },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2383,6 +2388,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }, [songOpen, songPhase, playAlongHand, songView]);
   songLoopRef.current = songLoop;
   songInputRef.current = handleSongInput;
+  startSetlistRef.current = startSetlist;
   songFinishRef.current = finishSong;
   // ════ HAND MODE (right/left/both) ════
   function changePlayAlongHand(h) {
