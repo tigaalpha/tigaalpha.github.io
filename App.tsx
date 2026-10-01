@@ -8312,6 +8312,30 @@ function AdminStudents({ lang, viewerTier }) {
    RPC re-checks is_school_teacher() against the school_members table server
    side, so a teacher structurally cannot see another studio's roster even if
    they somehow found this page. ── */
+/* ── 13.3 teacher-outcome loop (app side). The model's recordTeacherOutcome
+   decides WHAT to append (4.4 payload, no schema change); the app supplies
+   HOW (its own sb.rpc("submit_strategy_outcome")) and keeps the throttle
+   locally: one outcome per student per week, stamped only on a successful
+   append so a failure retries on the next dashboard open. avgAccRecent reads
+   the same practiceLog._recent entries logPractice writes (day-keyed accs). ── */
+const TEACHER_OUTCOME_KEY = "tg_teacher_outcome_ts";
+function teacherOutcomeStampGet() { try { return JSON.parse(localStorage.getItem(TEACHER_OUTCOME_KEY) || "{}") || {}; } catch (e) { return {}; } }
+function teacherOutcomeStampSet(key, ts) { try { const m = teacherOutcomeStampGet(); m[key] = ts; localStorage.setItem(TEACHER_OUTCOME_KEY, JSON.stringify(m)); } catch (e) {} }
+function avgAccRecent(pr, days) {
+  try {
+    const rec = pr && pr.practiceLog && Array.isArray(pr.practiceLog._recent) ? pr.practiceLog._recent : null;
+    if (!rec) return null;
+    const cut = Date.now() - days * 86400000;
+    let s = 0, n = 0;
+    for (const r of rec) {
+      if (!r || !r.d || typeof r.acc !== "number") continue;
+      const ts = new Date(r.d + "T00:00:00").getTime();
+      if (Number.isNaN(ts) || ts < cut) continue;
+      s += r.acc; n++;
+    }
+    return n ? Math.round(s / n) : null;
+  } catch (e) { return null; }
+}
 const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const lc = L[lang];
@@ -8322,7 +8346,50 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
   const tigaTick = useTiga(null);   // ready tick (0/1) — re-render + refill when the model lands
   useEffect(() => {
     if (!rows || !rows.length) return;
-    queuedUntilTiga(m => { try { setTeacherAdvs(rows.filter(r => r.role === "student").map(st => ({ st, adv: m.teacherAdviceFor(st.progress || {}) }))); } catch (e) {} });
+    queuedUntilTiga(m => {
+      try {
+        /* 13.3 — advice first (outcomeNote stays null without evidence — honest-null, "แนะนำแบบเดิม"),
+           then a best-effort weekly append of LAST WEEK's outcome to the 4.4 strategy_outcomes table
+           through the model's recordTeacherOutcome (the model stays pure — the app supplies HOW).
+           Local 7-day stamps keep opening the dashboard from spamming the evidence table; the stamp
+           advances only when the RPC actually accepted the row. */
+        const buildAdv = (pr) => typeof m.teacherAdviceWithEvidence === "function" ? m.teacherAdviceWithEvidence(pr, null) : m.teacherAdviceFor(pr);
+        const stamps = teacherOutcomeStampGet();
+        const now = Date.now();
+        setTeacherAdvs(rows.filter(r => r.role === "student").map(st => {
+          const pr = st.progress || {};
+          const adv = buildAdv(pr);
+          try {
+            const key = String(st.member_id || st.user_id || "");
+            if (adv && key && !(stamps[key] && now - stamps[key] < 7 * 86400000) && typeof m.recordTeacherOutcome === "function") {
+              m.recordTeacherOutcome((p) => {
+                try {
+                  const sid = p && p.p_strategy_id;
+                  sb.rpc("submit_strategy_outcome", p).then(({ error }) => {
+                    if (error || !sid) return;   // PGRST202 (migration not applied yet) lands here — silent by design
+                    teacherOutcomeStampSet(key, now);
+                    // loop closes: the same 4.4 aggregate the policy engine reads fills the
+                    // outcomeNote — cross-device evidence, never a guessed note
+                    sb.rpc("strategy_evidence", { p_strategy_id: sid }).then(({ data }) => {
+                      try {
+                        if (!data) return;
+                        const raw = typeof data === "string" ? JSON.parse(data) : data;
+                        const ev = m.teacherEvidenceShape ? m.teacherEvidenceShape({ counts: { "1": raw.improved || 0, "0": raw.same || 0, "-1": raw.worse || 0 } }) : null;
+                        if (!ev) return;
+                        const withNote = buildAdv(pr);
+                        if (withNote && withNote.outcomeNote) setTeacherAdvs(prev => prev.map(x => (String(x.st.member_id || x.st.user_id || "") === key) ? { st, adv: withNote } : x));
+                      } catch (e) {}
+                    });
+                  });
+                } catch (e) {}
+                return true;   // fire-and-forget: network failures stay silent, never break the dashboard
+              }, { studentId: key, advice: adv, oneWeekAgo: avgAccRecent(pr, 7) });
+            }
+          } catch (e) {}
+          return { st, adv };
+        }));
+      } catch (e) {}
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, tigaTick]);
   const [err, setErr] = useState("");
@@ -8570,6 +8637,11 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
                       <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>
                         🎯 <b>{adv.focus.label}</b>{adv.focus.acc != null ? ` · ${adv.focus.acc}%` : ""}{adv.focus.bpm ? ` · ${adv.focus.bpm} BPM` : ""}
                         {(adv.focus.how || []).slice(0, 1).map((h, i) => <div key={i} style={{ color: "var(--muted)", marginTop: 2 }}>→ {h}</div>)}
+                      </div>
+                    )}
+                    {adv && adv.outcomeNote && (
+                      <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2 }}>
+                        📈 {T3(adv.outcomeNote.th, adv.outcomeNote.en, adv.outcomeNote.zh)}
                       </div>
                     )}
                     {adv && adv.plan && (

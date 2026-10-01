@@ -105,7 +105,7 @@ check("index paging is contiguous", p1.rows[0].index === 0 && p2.rows[0].index =
 const st = mod.plmStats();
 check("stats.total === 1,000,000", st.total === 1000000);
 check("stats.started + stats.open === total", st.started + st.open === 1000000);
-check("stats.started is 13% (130,000 cells — learner wave + student-context coverage)", st.started === 130000 && st.startedPct === 13);
+check("stats.started is 13.6% (136,000 cells — learner wave + student-context + the 13.2 joy/boredom multiplier module)", st.started === 136000 && st.startedPct === 13.6);
 check("every dimension reports 10 values touched except known-open ones", st.byDim.length === 6 && st.byDim.every(d => d.touched <= 10));
 check("plmSample is deterministic per seed", mod.plmSample(42).code === mod.plmSample(42).code && mod.plmSample(7).code !== mod.plmSample(8).code);
 check("sample inside bounds", (() => { for (let s = 1; s <= 200; s++) { const x = mod.plmSample(s); if (x.index < 0 || x.index >= 1000000) return false; } return true; })());

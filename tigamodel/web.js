@@ -289,8 +289,20 @@ export function getKnowledgeBaseForTest() {
 export function resetCapabilityEngineForTest() {
   try { getCapabilityEngine().invalidateCapabilityCache(); } catch (e) {}
 }
+/* bench/test hook (never used by the app runtime — same contract as the other
+   *ForTest hooks): drops the whole model instance so a fresh import re-seeds
+   the 17k-entry KB and a cold kbProbe measures the REAL first-answer cost. */
+export function __resetTigaForTest() {
+  try { _tiga = null; _capEngine = null; } catch (e) {}
+}
 export function capabilitySummary() { return getCapabilityEngine().summary(); }
 export function capabilityWorklist(limit = 50) { return getCapabilityEngine().worklist(limit); }
+
+/* ── plan v3.8 ระลอก 13 (13.1) — per-pillar readiness: the bench's
+   "weakest ขอมุม 5 ขุม" bar and the Lab's pillar card both read through
+   here, so every surface reports the SAME numbers from the SAME engine. ── */
+export function capabilityPillars() { try { return getCapabilityEngine().pillars(); } catch (e) { return []; } }
+export function capabilityPillarProbe(domain) { try { return getCapabilityEngine().pillarProbe(domain); } catch (e) { return null; } }
 
 /* ── Exercise generation (capability "gen"): real KB-backed exercises from
    computed data — deterministic per seed, level 1-5, every topic. ── */
@@ -402,10 +414,84 @@ export function teacherAdviceFor(pr) {
       if (b && Array.isArray(b.parts)) plan = { total: b.total, focus: b.focus || null, parts: b.parts.map(p => ({ key: p.key, minutes: p.minutes, label: p.label || null })) };
     } catch (e) {}
 
-    return { flags, focus, plan, summary: { avgAcc: sum.avgAcc || null, games: sum.games || null, pathDone: sum.pathDone || null, daysIdle } };
+    return { flags, focus, plan, summary: { avgAcc: sum.avgAcc || null, games: sum.games || null, pathDone: sum.pathDone || null, daysIdle }, outcomeNote: null };
   } catch (e) { return null; }
 }
 
+/* ── plan v3.8 ระลอก 13 (13.3) — TEACHER-OUTCOME LOOP v1 (ป้อนกลับครู).
+   4.4 already ships the evidence table (strategy_outcomes + the aggregate-
+   only strategy_evidence RPC); THIS is the teacher's path into it —
+   "ต่อเส้นทางเท่านั้น", no new table, no new RPC:
+
+     recordTeacherOutcome(appender, { studentId, advice, oneWeekAgo })
+        → the app supplies HOW to append (its own sb.rpc("submit_strategy_outcome"))
+          — the model never touches the network and stays pure/sync.
+          Writes ONE row per advised strategy, tagged surface="teacher"…
+          WAIT — the RPC validates surface ∈ {practice, song, sight_reading,
+          camera} and self_report ∈ its fixed enum. The honest mapping that
+          needs NO schema change: surface="practice" (the advice's plan runs
+          in practice), and the advice's own 1-week result rides the outcome
+          column (+1 focus improved, 0 flat, -1 worse). The teacher's origin
+          lives in strategy_id: "teacher:<studentId>:<focus>" — queryable,
+          zero rows invented.
+
+     teacherEvidenceFor(appender-independent) — readEvidence below just
+        passes the caller's RPC-shaped getter through: the Lab/School card
+        renders { counts, winRate } or null (honest-null = แนะนำแบบเดิม).
+
+   teacherAdviceFor keeps its shape; the ONE addition above (outcomeNote:
+   null) is the slot the caller fills with evidence when it has any —
+   advice without evidence stays byte-compatible with today. ── */
+export function recordTeacherOutcome(appender, opts) {
+  try {
+    const o = opts && typeof opts === "object" ? opts : {};
+    const studentId = o.studentId != null ? o.studentId : null;
+    const advice = o.advice != null ? o.advice : null;
+    const oneWeekAgo = o.oneWeekAgo != null ? o.oneWeekAgo : null;
+    if (typeof appender !== "function" || !advice || typeof advice !== "object") return null;
+    const focus = advice.focus && advice.focus.label ? String(advice.focus.label).slice(0, 40) : "general";
+    const sid = "teacher:" + String(studentId || "anon").slice(0, 30) + ":" + focus;
+    const bucketOf = (acc) => (acc == null ? 1 : acc >= 90 ? 3 : acc >= 75 ? 2 : acc >= 50 ? 1 : 0);
+    const after = advice.summary && typeof advice.summary.avgAcc === "number" ? advice.summary.avgAcc : null;
+    const before = oneWeekAgo && typeof oneWeekAgo.avgAcc === "number" ? oneWeekAgo.avgAcc : null;
+    let outcome = 0;
+    if (before != null && after != null) outcome = after > before ? 1 : after < before ? -1 : 0;
+    else outcome = 0;
+    const ok = !!appender({
+      p_strategy_id: sid,
+      p_surface: "practice",
+      p_lang: "th",
+      p_accuracy_bucket: bucketOf(after),
+      p_self_report: null,
+      p_outcome: outcome,
+    });
+    return ok ? { strategy_id: sid, outcome, before, after } : null;
+  } catch (e) { return null; }
+}
+/* read the 4.4 evidence the same way the policy engine does — the CALLER
+   supplies the RPC call (the model never goes online); shape: { counts,
+   winRate } straight from strategy_evidence, null = no data → แนะนำแบบเดิม */
+export function teacherEvidenceShape(raw) {
+  try {
+    if (!raw || typeof raw !== "object") return null;
+    const counts = raw.counts && typeof raw.counts === "object" ? raw.counts : null;
+    if (!counts) return null;
+    const total = (counts["1"] || 0) + (counts["0"] || 0) + (counts["-1"] || 0);
+    if (total <= 0) return null;
+    return { total, winRate: Math.round(((counts["1"] || 0) / total) * 1000) / 1000 };
+  } catch (e) { return null; }
+}
+/* the advice's evidence note: fills outcomeNote ONLY on real evidence —
+   otherwise stays null and the caller does exactly what it does today */
+export function teacherAdviceWithEvidence(pr, evidence) {
+  try {
+    const adv = teacherAdviceFor(pr);
+    if (!adv) return null;
+    const ev = teacherEvidenceShape(evidence);
+    if (!ev) return adv;                       // honest-null: unchanged advice
+    return { ...adv, outcomeNote: { winRate: ev.winRate, total: ev.total, th: `ครั้งก่อนคำแนะนำแบบนี้ช่วยได้ ${Math.round(ev.winRate * 100)}% จาก ${ev.total} รอบที่ติดตาม`, en: `Last time this advice helped ${Math.round(ev.winRate * 100)}% of ${ev.total} followed rounds`, zh: `上次这类建议在${ev.total}次跟进中帮助了${Math.round(ev.winRate * 100)}%` } };
+  } catch (e) { return null; }
+}
 /* ══ PHASE 4 — ADAPTIVE TEACHER (spec §14–15, §17, §21) ══
    Three exports power the self-report micro-poll on the practice result
    screen: the state estimator (multi-source fusion), the feedback record
@@ -523,6 +609,8 @@ export function getUnifiedPlan() {
 }
 export function unifiedSummary() { return getUnifiedPlan().summary(); }
 export function unifiedWorkOrder(limit) { return getUnifiedPlan().workOrder(limit); }
+/* plan v3.8 ระลอก 13 (13.2) — the reward÷risk batch queue (see roadmap-unified.js nextBatch) */
+export function unifiedNextBatch(limit) { try { return getUnifiedPlan().nextBatch(limit); } catch (e) { return []; } }
 
 /* ── AI PIANO COACH P0 (master product directive): WHAT/WHY/HOW diagnosis +
    time-adaptive practice budget + honest student snapshot — all from data

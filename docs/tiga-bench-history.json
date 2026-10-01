@@ -1,0 +1,188 @@
+[
+  {
+    "ts": "2026-10-01T01:42:34.729Z",
+    "loopRound": 1,
+    "loopAdvanced": false,
+    "grid": {
+      "started": 136000,
+      "startedPct": 13.6,
+      "total": 1000000
+    },
+    "routes": {
+      "ready": 1000,
+      "total": 1000,
+      "avgScore": 0.98,
+      "weakestCap": "kb"
+    },
+    "weakestPillar": "music-marketing",
+    "pillars": [
+      {
+        "domain": "music-marketing",
+        "entries": 20,
+        "min": 14,
+        "score": 1
+      },
+      {
+        "domain": "music-business",
+        "entries": 14,
+        "min": 14,
+        "score": 1
+      },
+      {
+        "domain": "music-education-market",
+        "entries": 14,
+        "min": 12,
+        "score": 1
+      },
+      {
+        "domain": "music-therapy",
+        "entries": 10,
+        "min": 10,
+        "score": 1
+      },
+      {
+        "domain": "music-innovation",
+        "entries": 50,
+        "min": 40,
+        "score": 1
+      }
+    ],
+    "perf": {
+      "allRoutesWarmMs": 0.13,
+      "summaryMs": 0.78,
+      "kbBytes": 676231,
+      "kbProbeColdMs": 0.38,
+      "kbProbeWarmMs": 0.24
+    },
+    "bundle": {
+      "bytes": 2968143,
+      "tigamodelMinifiedBytes": 1492835
+    },
+    "barsOk": true,
+    "appVersion": "13.7.488"
+  },
+  {
+    "ts": "2026-10-01T01:43:45.373Z",
+    "loopRound": 1,
+    "loopAdvanced": false,
+    "grid": {
+      "started": 136000,
+      "startedPct": 13.6,
+      "total": 1000000
+    },
+    "routes": {
+      "ready": 1000,
+      "total": 1000,
+      "avgScore": 0.98,
+      "weakestCap": "kb"
+    },
+    "weakestPillar": "music-marketing",
+    "pillars": [
+      {
+        "domain": "music-marketing",
+        "entries": 20,
+        "min": 14,
+        "score": 1
+      },
+      {
+        "domain": "music-business",
+        "entries": 14,
+        "min": 14,
+        "score": 1
+      },
+      {
+        "domain": "music-education-market",
+        "entries": 14,
+        "min": 12,
+        "score": 1
+      },
+      {
+        "domain": "music-therapy",
+        "entries": 10,
+        "min": 10,
+        "score": 1
+      },
+      {
+        "domain": "music-innovation",
+        "entries": 50,
+        "min": 40,
+        "score": 1
+      }
+    ],
+    "perf": {
+      "allRoutesWarmMs": 0.1,
+      "summaryMs": 0.82,
+      "kbBytes": 676231,
+      "kbProbeColdMs": 0.39,
+      "kbProbeWarmMs": 0.19
+    },
+    "bundle": {
+      "bytes": 2968143,
+      "tigamodelMinifiedBytes": 1492835
+    },
+    "barsOk": true,
+    "appVersion": "13.7.488"
+  },
+  {
+    "ts": "2026-10-01T01:44:40.564Z",
+    "loopRound": 1,
+    "loopAdvanced": false,
+    "grid": {
+      "started": 136000,
+      "startedPct": 13.6,
+      "total": 1000000
+    },
+    "routes": {
+      "ready": 1000,
+      "total": 1000,
+      "avgScore": 0.98,
+      "weakestCap": "kb"
+    },
+    "weakestPillar": "music-marketing",
+    "pillars": [
+      {
+        "domain": "music-marketing",
+        "entries": 20,
+        "min": 14,
+        "score": 1
+      },
+      {
+        "domain": "music-business",
+        "entries": 14,
+        "min": 14,
+        "score": 1
+      },
+      {
+        "domain": "music-education-market",
+        "entries": 14,
+        "min": 12,
+        "score": 1
+      },
+      {
+        "domain": "music-therapy",
+        "entries": 10,
+        "min": 10,
+        "score": 1
+      },
+      {
+        "domain": "music-innovation",
+        "entries": 50,
+        "min": 40,
+        "score": 1
+      }
+    ],
+    "perf": {
+      "allRoutesWarmMs": 0.14,
+      "summaryMs": 0.93,
+      "kbBytes": 676231,
+      "kbProbeColdMs": 0.44,
+      "kbProbeWarmMs": 0.15
+    },
+    "bundle": {
+      "bytes": 2969765,
+      "tigamodelMinifiedBytes": 1492835
+    },
+    "barsOk": true,
+    "appVersion": "13.7.488"
+  }
+]

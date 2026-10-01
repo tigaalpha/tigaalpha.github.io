@@ -107,6 +107,29 @@ async function main() {
     if (ms > 500) throw new Error(`took ${ms}ms`);
   });
 
+  /* plan v3.8 ระลอก 13 (13.2) — the reward÷risk batch queue over the work order.
+     Reject criteria (plan §0.11): the grid's startedPct must MOVE per loop
+     round (module batches, not cell-by-cell), every ranking input shown. */
+  check("13.2: nextBatch — reward÷risk ranked, inputs shown, streams not done", () => {
+    const nb = web.unifiedNextBatch(8);
+    if (!Array.isArray(nb) || nb.length !== 8) throw new Error(`got ${nb && nb.length}`);
+    for (let i = 1; i < nb.length; i++) if (nb[i - 1].score < nb[i].score) throw new Error("not reward÷risk-sorted");
+    for (const r of nb) {
+      if (r.status === "done" && r.workOrderRank == null) throw new Error(`${r.n}: unranked row`);
+      if (!(r.rewardPerRoute > 0)) throw new Error(`${r.n}: reward ${r.rewardPerRoute}`);
+      if (!(r.risk >= 0.05)) throw new Error(`${r.n}: risk ${r.risk}`);
+      if (Math.abs(r.score - r.rewardPerRoute / r.risk) > 0.01) throw new Error(`${r.n}: score != reward/risk`);
+      if (r.workOrderRank == null) throw new Error(`${r.n}: missing workOrder rank (not auditable)`);
+    }
+  });
+  check("13.2: grid moves by module batches — the joy module started 2 fresh routes (13% → 13.6%)", () => {
+    const s = web.plm1mStats();
+    if (s.startedPct <= 13) throw new Error(`startedPct did not move: ${s.startedPct}`);
+    const joy = s.modules.find(m => m.name.includes("JoyIndex"));
+    if (!joy) throw new Error("joy module not registered in coverage");
+    if (joy.cells !== 8000) throw new Error(`joy module cells ${joy.cells}, expected 8000 (2 routes × 1,000)`);
+  });
+
   console.log(`\n  ${passed} passed, ${failed} failed`);
   fs.rmSync(OUT, { recursive: true, force: true });
   if (failed > 0) process.exit(1);

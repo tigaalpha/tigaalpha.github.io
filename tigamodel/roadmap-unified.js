@@ -224,6 +224,63 @@ export function createUnifiedPlan({ kbEntries = null } = {}) {
     return { rows, total: all.length, nextOffset: next };
   }
 
+  /* plan v3.8 ระลอก 13 (13.2) — THE NEXT BATCH: which streams to close next,
+     ranked by reward ÷ risk instead of the raw work-order rank.
+
+     reward — the cells this stream would START, weighted by the plan's own
+     priority digits (the same w weights each 1M spec already carries: a
+     stream's reward per opened (t,m,s) route is the mean priority of its
+     cells — every route started fixes 1,000 cells w×h×q freely). Measured
+     from plmStats/priority math, never hand-filled.
+
+     risk — two honest factors: (1) how weak the stream's routes already are
+     on the capability map (avgRouteScore far below READY = harder to close,
+     measured by the engine), (2) a wide stream (many t×m×s routes) is riskier
+     to finish in one batch than a narrow one. Both are computed, not felt.
+
+     score = reward_per_route / risk — a narrow, high-priority stream sitting
+     on already-strong routes sorts first; a broad, low-priority one on weak
+     routes sorts last. Returns the top `limit` with all inputs shown so the
+     ranking is auditable line by line (the plan's explainability rule).
+     Pure + sync, never throws. */
+  function nextBatch(limit = 8) {
+    try {
+      /* the plan's own WHAT weights: the mean priority weight of the topics
+         this stream owns (STREAM_BRIDGE ts → PLM_DIMENSIONS[0].values[t].w) —
+         the same weights every 1M spec's work-order score already uses */
+      const priorityOf = (s) => {
+        try {
+          const { ts } = bridgeOf(groupIdOf(s));
+          const ws = ts.map(t => PLM_DIMENSIONS[0].values[t].w);
+          return ws.length ? ws.reduce((a, x) => a + x, 0) / ws.length : 0;
+        } catch (e) { return 0; }
+      };
+      const rows = allStreams()
+        .filter(s => s.status !== "done" || s.routeShare < 1)
+        .map(s => {
+          const routes = Math.max(1, s.cells / 1000);            // (t,m,s) routes this stream owns
+          const rewardPerRoute = priorityOf(s);                   // plan's own priority weights, per route
+          const weak = s.avgRouteScore != null ? Math.max(0.05, 1 - s.avgRouteScore) : 1;  // capability gap to close
+          const breadth = Math.min(1, routes / 100);              // wide stream = riskier batch
+          const risk = Math.max(0.05, 0.7 * weak + 0.3 * breadth);
+          const score = rewardPerRoute / risk;
+          return {
+            n: s.n, th: s.th, en: s.en, group: s.group, status: s.status, stars: s.stars,
+            cells: s.cells, routes,
+            rewardPerRoute: Math.round(rewardPerRoute * 100) / 100,
+            risk: Math.round(risk * 1000) / 1000,
+            avgRouteScore: s.avgRouteScore,
+            score: Math.round(score * 1000) / 1000,
+            workOrderRank: null,                                  // filled below (auditability)
+          };
+        });
+      const wo = workOrder(500);
+      const rankOf = new Map(wo.map((r, i) => [r.n, i + 1]));
+      for (const r of rows) r.workOrderRank = rankOf.get(r.n) || null;
+      return rows.sort((a, b) => b.score - a.score).slice(0, Math.max(1, limit));
+    } catch (e) { return []; }
+  }
+
   /* groups with per-stream unified statuses (renders exactly like the old
      roadmap tab, but each status now blends hand-set + engine-verified) */
   function groups() {
@@ -238,5 +295,5 @@ export function createUnifiedPlan({ kbEntries = null } = {}) {
     }));
   }
 
-  return { stream, allStreams, summary, workOrder, streamCells, groups, engine: eng };
+  return { stream, allStreams, summary, workOrder, nextBatch, streamCells, groups, engine: eng };
 }

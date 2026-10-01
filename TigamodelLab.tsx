@@ -1416,10 +1416,15 @@ function MeasurePanel({ lang, S, T }) {
   const [risk, setRisk] = useState(null);
   const [joyEmptyLine, setJoyEmptyLine] = useState(null);
   const [riskNote, setRiskNote] = useState(null);
+  const [bench, setBench] = useState(null);   // 13.4 — the latest bench snapshot (docs/tiga-bench-latest.json)
 
   useEffect(() => {
     setRuns(loadEvalRuns());
     setBaseline(loadEvalExtendedBaseline());
+    /* 13.4 — the owner's "ล้านเท่า" card reads the bench snapshot itself (the
+       bundle ships docs/*.json as assets), NOT a hand-copied number — the
+       card can never drift from what the bench measured. */
+    fetch("docs/tiga-bench-latest.json").then(r => (r.ok ? r.json() : null)).then(j => { if (j && j.grid) setBench(j); }).catch(() => {});
     (async () => {
       try {
         const kb = getKnowledgeBaseForTest();
@@ -1609,6 +1614,38 @@ function MeasurePanel({ lang, S, T }) {
           </>
         )}
       </div>
+
+      {/* ── plan v3.8 ระลอก 13 (13.4) — THE OWNER'S "ล้านเท่า" CARD. One glance:
+          รอบวงล้อที่ N · กริด x% · weakest ขุมไหน · KB vs latency — every
+          number read verbatim from the latest bench snapshot (never copied
+          by hand → การ์ดตัวเลขเป๊ะกับ bench by construction). No snapshot
+          (fresh clone / fetch failed) → the card stays hidden: no invented
+          zero, no placeholder pretending data exists. ── */}
+      {bench && bench.grid && (
+        <div style={S.card}>
+          <div style={{ ...S.h2, marginBottom: 10 }}>🧭 {T("ความคืบหน้าล้านเท่า — จาก bench ล่าสุด", "Million-fold progress — from the latest bench", "百万倍进度——来自最新基准")}</div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "baseline", marginBottom: 6 }}>
+            <span style={{ fontSize: 30, fontWeight: 800 }}>{bench.loopRound ?? 1}<span style={{ fontSize: 14, color: "var(--muted)" }}> {T("รอบวงล้อ", "loop round", "轮循环")}</span></span>
+            <span style={{ fontSize: 26, fontWeight: 800 }}>{bench.grid.startedPct ?? "?"}%<span style={{ fontSize: 14, color: "var(--muted)" }}> {T("กริดเริ่มแล้ว", "grid started", "网格已开始")}</span></span>
+            {bench.perf && bench.perf.kbProbeMs != null && (
+              <span style={{ ...S.mono, fontSize: 12.5, color: "var(--muted)" }}>KB {((bench.bundle && bench.bundle.tigamodelMinifiedBytes) || 0) > 0 ? Math.round((bench.bundle.tigamodelMinifiedBytes || 0) / 1024).toLocaleString() + " kB" : "—"} · {bench.perf.kbProbeMs} ms</span>
+            )}
+          </div>
+          {bench.pillars && bench.pillars.length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              {bench.pillars.map((p, i) => (
+                <div key={p.domain} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--bd1)" }}>
+                  <span style={{ fontSize: 12.5 }}>{i === 0 ? "🔻" : "·"} {p.icon} {lang === "en" ? p.en : lang === "zh" ? p.zh : p.th}</span>
+                  <span style={{ ...S.mono, fontSize: 12, color: i === 0 ? S.warn : "var(--muted)" }}>
+                    {p.entries}/{p.min} · {Math.round((p.score || 0) * 100)}%{i === 0 ? " — " + T("อ่อนที่สุด", "weakest", "最弱") : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {bench.generatedAt && <div style={{ ...S.mono, fontSize: 11, color: "var(--muted)", marginTop: 8 }}>{T("bench:", "bench:", "基准：")} {new Date(bench.generatedAt).toLocaleString()}{bench.barsOk === false ? " ⚠️" : " ✓"}</div>}
+        </div>
+      )}
 
       {routes && (
         <div style={S.card}>

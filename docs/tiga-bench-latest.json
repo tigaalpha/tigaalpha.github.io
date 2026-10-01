@@ -1,19 +1,21 @@
 {
-  "version": 1,
-  "generatedAt": "2026-10-01T00:09:46.436Z",
-  "appVersion": "13.7.486",
+  "version": 2,
+  "generatedAt": "2026-10-01T01:44:40.564Z",
+  "appVersion": "13.7.488",
+  "loopRound": 1,
+  "loopAdvanced": false,
   "bundle": {
-    "file": "index.template-DOjvz4XQ.js",
-    "bytes": 2962328,
+    "file": "index.template-goEerNYg.js",
+    "bytes": 2969765,
     "includesTigamodel": true,
-    "tigamodelMinifiedBytes": 1488417,
+    "tigamodelMinifiedBytes": 1492835,
     "chunks": [
       {
-        "file": "index.template-DOjvz4XQ.js",
-        "bytes": 2962328
+        "file": "index.template-goEerNYg.js",
+        "bytes": 2969765
       },
       {
-        "file": "space3d-main-DXBB_-hY.js",
+        "file": "space3d-main-BwEBrrm7.js",
         "bytes": 957304
       },
       {
@@ -21,27 +23,27 @@
         "bytes": 953273
       },
       {
-        "file": "web-B8Z3IW6C.js",
-        "bytes": 750071
+        "file": "web-Cys5OljD.js",
+        "bytes": 760504
       },
       {
-        "file": "pvp-arena-DYQpbcBW.js",
+        "file": "pvp-arena-CXI9uepM.js",
         "bytes": 205095
       },
       {
-        "file": "TigamodelLab-DboLqHPJ.js",
-        "bytes": 95779
+        "file": "TigamodelLab-DZPjGtdX.js",
+        "bytes": 102141
       },
       {
-        "file": "AdminActivityDashboard-Bb2vfzf9.js",
+        "file": "AdminActivityDashboard-DuFfy_bi.js",
         "bytes": 69595
       },
       {
-        "file": "TigamodelBackoffice-DqraGTGJ.js",
+        "file": "TigamodelBackoffice-CfLtiGmM.js",
         "bytes": 36080
       },
       {
-        "file": "AdminAIModels-BBavSOWa.js",
+        "file": "AdminAIModels-COVzTxAN.js",
         "bytes": 35442
       },
       {
@@ -53,44 +55,44 @@
         "bytes": 19633
       },
       {
-        "file": "LeadLandingPage-CVAjFdmn.js",
+        "file": "LeadLandingPage-BQkC71Us.js",
         "bytes": 13611
       },
       {
-        "file": "ReferralDashboard-BG67JrK4.js",
+        "file": "ReferralDashboard-BmnBM0pQ.js",
         "bytes": 8622
       },
       {
-        "file": "LeadSaleDashboard-gdBtbmIX.js",
+        "file": "LeadSaleDashboard-CBcFs0VH.js",
         "bytes": 7607
       },
       {
-        "file": "space3d-eLlH7oD6.js",
+        "file": "space3d-DLWFTA59.js",
         "bytes": 6174
       },
       {
-        "file": "web-JuJbTapJ.js",
+        "file": "web-C84rdyPQ.js",
         "bytes": 5340
       },
       {
-        "file": "web-DQGcy3AZ.js",
+        "file": "web-Ck7Tuo7_.js",
         "bytes": 851
       },
       {
-        "file": "web-tKRzNeX9.js",
+        "file": "web-BsI7hEQ8.js",
         "bytes": 813
       },
       {
-        "file": "web-Bw1FKjYB.js",
+        "file": "web-DazzWUUC.js",
         "bytes": 388
       }
     ]
   },
   "grid": {
     "total": 1000000,
-    "started": 130000,
-    "open": 870000,
-    "startedPct": 13
+    "started": 136000,
+    "open": 864000,
+    "startedPct": 13.6
   },
   "routes": {
     "total": 1000,
@@ -101,15 +103,77 @@
     "avgScore": 0.98,
     "weakestCap": "kb"
   },
+  "pillars": [
+    {
+      "domain": "music-marketing",
+      "th": "การตลาดดนตรี",
+      "en": "Music marketing",
+      "zh": "音乐营销",
+      "entries": 20,
+      "teach": 20,
+      "min": 14,
+      "score": 1,
+      "ready": true
+    },
+    {
+      "domain": "music-business",
+      "th": "ธุรกิจดนตรี",
+      "en": "Music business",
+      "zh": "音乐商业",
+      "entries": 14,
+      "teach": 14,
+      "min": 14,
+      "score": 1,
+      "ready": true
+    },
+    {
+      "domain": "music-education-market",
+      "th": "ตลาดการเรียนดนตรี",
+      "en": "Education market",
+      "zh": "教育市场",
+      "entries": 14,
+      "teach": 14,
+      "min": 12,
+      "score": 1,
+      "ready": true
+    },
+    {
+      "domain": "music-therapy",
+      "th": "ดนตรีบำบัด",
+      "en": "Music therapy",
+      "zh": "音乐治疗",
+      "entries": 10,
+      "teach": 10,
+      "min": 10,
+      "score": 1,
+      "ready": true
+    },
+    {
+      "domain": "music-innovation",
+      "th": "นวัตกรรมดนตรี",
+      "en": "Music innovation",
+      "zh": "音乐创新",
+      "entries": 50,
+      "teach": 50,
+      "min": 40,
+      "score": 1,
+      "ready": true
+    }
+  ],
+  "weakestPillar": "music-marketing",
   "perf": {
-    "allRoutesColdMs": 103.3,
-    "allRoutesWarmMs": 0.23,
-    "summaryMs": 0.78,
-    "memoSpeedup": 449.1
+    "allRoutesColdMs": 20.64,
+    "allRoutesWarmMs": 0.14,
+    "summaryMs": 0.93,
+    "memoSpeedup": 147.4,
+    "kbBytes": 676231,
+    "kbProbeColdMs": 0.44,
+    "kbProbeWarmMs": 0.15
   },
   "kb": {
     "theoryEntries": 13414,
-    "performanceEntries": 126
+    "performanceEntries": 126,
+    "kbProbeEntries": 13414
   },
   "langs": {
     "th": true,
@@ -200,6 +264,18 @@
     },
     {
       "id": "joy-formula-smoke-guard",
+      "pass": true
+    },
+    {
+      "id": "pillar-probes-live",
+      "pass": true
+    },
+    {
+      "id": "kb-latency-recorded",
+      "pass": true
+    },
+    {
+      "id": "teacher-loop-guard",
       "pass": true
     }
   ],

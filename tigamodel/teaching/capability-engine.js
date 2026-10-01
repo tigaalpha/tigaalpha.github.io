@@ -24,6 +24,21 @@ import { PLM_DIMENSIONS, PLM_TOTAL } from "../roadmap-1m.js";
 import { sharedSkillGraph } from "./skill-graph.js";
 import { generateExercise } from "./generator.js";
 
+/* ── plan v3.8 ระลอก 13 (13.1): THE OWNER'S 5 KNOWLEDGE PILLARS as first-class
+   probes. Same domains the MeasurePanel tab already reports per pillar, and
+   the same per-pillar entry floors the knowledge-pillars smoke enforces
+   (14/14/12/10/40 — copied verbatim from the checkFile calls there; the
+   smoke for THIS file cross-checks the two lists stay one bar, never a
+   softer second bar invented here).
+   pillarProbe(domain) reads the injected KB index only — no I/O, no guessing. ── */
+export const PILLAR_DOMAINS = [
+  { domain: "music-marketing",        icon: "📣", th: "การตลาดดนตรี",   en: "Music marketing",    zh: "音乐营销", min: 14 },
+  { domain: "music-business",         icon: "💼", th: "ธุรกิจดนตรี",     en: "Music business",     zh: "音乐商业", min: 14 },
+  { domain: "music-education-market", icon: "🏫", th: "ตลาดการเรียนดนตรี", en: "Education market", zh: "教育市场", min: 12 },
+  { domain: "music-therapy",          icon: "🌿", th: "ดนตรีบำบัด",       en: "Music therapy",      zh: "音乐治疗", min: 10 },
+  { domain: "music-innovation",       icon: "💡", th: "นวัตกรรมดนตรี",   en: "Music innovation",   zh: "音乐创新", min: 40 },
+];
+
 /* ── Topic (T) → primary KB domains the topic draws on ── */
 const TOPIC_DOMAINS = {
   0: ["theory", "harmony"],
@@ -169,6 +184,38 @@ export function createCapabilityEngine({ kbEntries = null } = {}) {
     return { score: Math.min(1, entries ? depth * (0.6 + 0.4 * teachQ) * 1.25 : 0), entries, teach };
   }
 
+  /* 13.1 — one honest probe per owner pillar: real entry count, real teach
+     coverage, score against the pillars' own ≥18 floor. ready = at the floor
+     with teach on every entry — "เริ่มแล้วและสอนได้" (started ≠ done). */
+  function pillarProbe(domain) {
+    try {
+      const meta = PILLAR_DOMAINS.find(p => p.domain === domain) || null;
+      const list = (index && index.get(domain)) || [];
+      const entries = list.length;
+      const teach = list.filter(e => e.teach).length;
+      const min = meta ? meta.min : 18;
+      const depth = entries >= min ? 1 : entries > 0 ? entries / min : 0;
+      const teachQ = entries ? teach / entries : 0;
+      return {
+        domain,
+        th: meta ? meta.th : domain,
+        en: meta ? meta.en : domain,
+        zh: meta ? meta.zh : domain,
+        entries, teach, min,
+        score: Math.min(1, depth * (0.7 + 0.3 * teachQ)),
+        ready: entries >= min && teach === entries,
+      };
+    } catch (e) { return null; }
+  }
+  /* 13.1 — the bench bar: "weakest ขอมุม 5 ขุม" — all five, ranked, the
+     weakest first. Never throws; a broken probe degrades to null. */
+  function pillars() {
+    return PILLAR_DOMAINS
+      .map(p => pillarProbe(p.domain))
+      .filter(Boolean)
+      .sort((a, b) => a.score - b.score);
+  }
+
   /* score one capability for route (t, m, s) */
   function capability(cap, t, m, s) {
     if (cap === "kb") return kbProbe(t);
@@ -248,5 +295,5 @@ export function createCapabilityEngine({ kbEntries = null } = {}) {
       });
   }
 
-  return { scoreRoute, allRoutes, summary, worklist, kbProbe, needs, invalidateCapabilityCache };
+  return { scoreRoute, allRoutes, summary, worklist, kbProbe, pillarProbe, pillars, needs, invalidateCapabilityCache };
 }

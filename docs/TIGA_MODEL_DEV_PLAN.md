@@ -660,6 +660,43 @@ build + verify 0 FAIL + bench 9/9 เขียวทั้งชุด
 - **ตรวจรวมรอบนี้:** verify:tiga ครบทุกสคริปต์ 0 FAIL (smoke 43 · joy 12 · boredom 11 · practice-loop 7 · finish-practice 45 ฯลฯ) ·
   build สะอาด · bundle ใหม่ยืนยันใน dist (getBoredomRisk/boredomResponseFor + joy + pl-mood อยู่ครบ)
 
+**v3.8 ผลการสร้างรอบที่สอง (2026-10-01 — สั่ง "ทำสิ่งที่ค้างอยู่ต่อ" = ระลอก 13 ครบ 13.1–13.6):**
+- **13.1 ✅ probe รายขุม (bench ตอบ weakest รายขุมได้)** — `capability-engine.js`: `PILLAR_DOMAINS` (5 ขุม + min จาก
+  smoke-knowledge-pillars แบบคำต่อคำ: marketing 14 · business 14 · education-market 12 · therapy 10 · innovation 40) ·
+  `pillarProbe(domain)` ({entries, teach, min, score, ready} — depth × teach-quality ตามสูตรเดียวกับ kbProbe) ·
+  `pillars()` เรียงอ่อน→แข็ง · export ผ่าน web.js `capabilityPillars()/capabilityPillarProbe()` · smoke-pillar-probes **7/7**
+  (cross-check floors กับ checkFile ของ smoke-knowledge-pillars) + smoke-capability ขยาย **12/12** เข้า verify:tiga ·
+  bench รายงานทุกรอบ: weakest ปัจจุบัน = **music-marketing 20/14 (score 1.0, ready)** — ทุกขุมผ่าน floor แล้ว เส้นทางไม่ถอย
+- **13.2 ✅ กริดปิดชุด (startedPct ขยับใน snapshot)** — `roadmap-1m.js` COVERAGE_MODULES +1 โมดูล "JoyIndex + boredom risk
+  (ความสุข/ความเบื่อจาก log จริง)" {ts:[5,6], ms:[3,5], ss:[2,6]} = 6,000 เซลล์ → **13% → 13.6% (136,000/1,000,000)** ·
+  `roadmap-unified.js` `nextBatch(limit=8)` คิวชุดถัดไปแบบ reward÷risk (reward จาก PLM_DIMENSIONS, risk = 0.7×weak + 0.3×breadth,
+  แนบ workOrderRank) · smoke-roadmap-1m อัปเดตตามจริง (24/24) · smoke-unified **11/11** (เคส nextBatch ใหม่ 2 เคส)
+- **13.3 ✅ วงป้อนกลับครู v1 (4.4 ต่อเส้นทางเท่านั้น — ไม่แก้ schema ไม่แตะ migration)** — โมเดล (web.js):
+  `recordTeacherOutcome(appender, {studentId, advice, oneWeekAgo})` — appender เป็นของ caller (โมเดลไม่แตะเน็ต) แม็ปลง
+  contract 4.4: surface="practice" · strategy_id=`teacher:<member>:<focus>` (slice 40) · outcome +1/0/-1 จาก avgAcc
+  ก่อน→หลัง (**ไม่มีข้อมูล = 0 ห้ามเดาทิศทาง**) · bucket ตาม bands ของ RPC · `teacherEvidenceShape()` ({total,winRate} หรือ
+  null) · `teacherAdviceWithEvidence()` — outcomeNote (3 ภาษา) เติม**เฉพาะมี evidence จริง** ไม่งั้นคืน advice เดิม
+  byte-identical (honest-null = แนะนำแบบเดิม) · ฝั่งแอป (App.tsx SchoolDashboard): เปิดแท็บ TIGA → append ผลสัปดาห์ก่อน
+  (avgAcc 7 วันจาก practiceLog._recent จริง) ผ่าน `sb.rpc("submit_strategy_outcome")` **1 ครั้ง/นักเรียน/สัปดาห์**
+  (ประทับ tg_teacher_outcome_ts ท้องถิ่น — stamp ขยับเมื่อ RPC รับจริง) แล้วดึง `strategy_evidence` กลับมาเติม outcomeNote
+  ข้ามอุปกรณ์ · render บรรทัด 📈 ใต้ focus เมื่อมีของจริง · smoke-teacher-loop **7/7** (จำลองกฎ validate ของ migration
+  ตรงตัว — payload ผิด = red ทันที)
+- **13.4 ✅ การ์ด "ล้านเท่า" ใน Lab (ตัวเลขเป๊ะกับ bench by construction)** — MeasurePanel (แท็บวัดผล 6.14) การ์ด 🧭 ใหม่:
+  รอบวงล้อที่ N · กริด x% · 5 ขุมเรียงอ่อน→แข็ง (entries/min + score + ชื่อ weakest) · KB kB vs probe ms · อ่านจาก
+  `docs/tiga-bench-latest.json` ที่ vite แพ็กเข้า bundle เอง (fetch เดียว — **ไม่มีเลขพิมพ์มือให้เพี้ยนได้**) · ไม่มี
+  snapshot (fetch พัง/clone ใหม่) = การ์ดซ่อน ไม่มีเลขปลอม
+- **13.5 ✅ KB-size vs latency บันทึกทุกสแนปชอต** — bench section `perf` เพิ่ม `kbBytes` (bytes จริงของ tigamodel/knowledge/**)
+  · `kbProbeColdMs` (engine ใหม่ + KB seed ใหม่จริงผ่าน `__resetTigaForTest` + `?cold=` import — ค่าที่โทรศัพท์จ่ายจริงตอน
+  เปิดครั้งแรก) · `kbProbeWarmMs` · Q-bar ใหม่ `kb-latency-recorded` (cold <250 ms ไม่งั้น bench FAIL — เกินเกณฑ์ = บังคับ
+  ทำ 5.2/5.3 lazy per domain) · ปัจจุบัน: **660 kB source · cold 0.4 ms / warm 0.2 ms ✓** · snapshot version 2
+- **13.6 ✅ bench history + รายงานรอบเดียวจบ** — bench เขียนท้าย `docs/tiga-bench-history.json` (แผน 4.8) **ต่อเมื่อผ่าน
+  gate ทุกด่านเท่านั้น** (bench พัง = ไม่เขียน ไม่เช่นนั้น history ปนรอบที่แดง) · หัว snapshot มี `loopRound/loopAdvanced`
+  (ขยับเมื่อปิดเซลล์ใหม่จริงเท่านั้น — ไม่มีตัวเลขเป่า) · จบรอบพิมพ์บรรทัดเดียวสำหรับ owner เช่น
+  `round 1 · grid 13.6% · weakest music-marketing · KB 0.38ms · bundle 2.83MB` · Q-bar `pillar-probes-live` (bench ต้องตอบ
+  weakest รายขุมได้ทุกรอบ) + `teacher-loop-guard` (smoke 13.3 หลุดจาก verify:tiga ไม่ได้) — **bench 15/15**
+- **ตรวจรวมรอบนี้:** verify:tiga **21 สคริปต์ 0 FAIL** (เพิ่ม smoke-pillar-probes + smoke-teacher-loop) · bench 15/15 ·
+  build สะอาด · snapshot ใหม่ + history แรก (round 1) ยืนยันใน docs · เกณฑ์ปฏิเสธ 13.1–13.6 ผ่านครบทั้ง 6 ข้อ
+
 **v3.5 ผลการสร้างรอบแรก (2026-09-30 — owner ยืนยันแผน + สั่งทำต่อ):**
 - **6.13 ✅ ขุมความรู้ที่ 5 — นวัตกรรมดนตรี** (`tigamodel/knowledge/music-innovation.js` · 21 entries · สาย: กำเนิดเปียโน
   (Cristofori/Érard/Steinway/sostenuto/upright) · สื่อ-การบันทึกเสียง (ม้วนเปียโน→สังเคราะห์→DAW→สตรีมมิง) · สัญกรณ์-เครื่องมือ
@@ -697,7 +734,7 @@ build + verify 0 FAIL + bench 9/9 เขียวทั้งชุด
 
 **ปรับ v3.5:** ต่อท้ายคิวเดิม — หลังเสียบผลิตภัณฑ์ (6.2/6.4/6.9) ครบรอบ ให้เริ่ม **12.1–12.2 (JoyIndex shadow + ปุ่มอารมณ์ opt-in)**
 ก่อนงานเลื่อนสาย (5.2/5.3) — เหตุผล: shadow metric ต้องเริ่มเก็บข้อมูลเร็วที่สุดเพื่อให้ครบ 30 รอบวงล้อได้เร็ว · 12.3–12.6 ตามเมื่อข้อมูลพอ
-(owner ยืนยันแล้ว 2026-09-30 — ระลอก 12 คือคิวถัดไปจริง · **สร้างครบแล้ว 2026-09-30 — คิวถัดไปคือระลอก 13 (13.1/13.2)**)
+(owner ยืนยันแล้ว 2026-09-30 — ระลอก 12 คือคิวถัดไปจริง · **สร้างครบแล้ว 2026-09-30** · **ระลอก 13 สร้างครบแล้ว 2026-10-01 (13.1–13.6) — คิวถัดไปคือ 7.1/7.2 หลักฐานผู้เรียนจริง ตามลำดับที่ยืนยัน**)
 
 ---
 
@@ -706,7 +743,7 @@ build + verify 0 FAIL + bench 9/9 เขียวทั้งชุด
 | การตัดสินใจที่รอ | รออะไร | ถ้าอนุมัติ | ถ้ายังไม่อนุมัติ |
 |---|---|---|---|
 | ยืนยันแผน v3.5 (ระลอก 12 ความสุขผู้เรียน) | ✅ **ยืนยันแล้ว 2026-09-30** — และสั่ง "เริ่มสร้างตามแผนล่าสุด" ต่อเนื่อง | ✅ **ระลอก 12 สร้างครบ 12.1–12.6 แล้ว 2026-09-30** (JoyIndex + ปุ่มอารมณ์ opt-in + มาตรวัดความเบื่อจำแนก churn KB 6.8 + โค้ชตอบสนองอ้าง KB + บรรทัดผู้ปกครอง + bench/Q-bar — smoke 12+11/11 · bench 12/12) — เหลือเพียงรอข้อมูลจริงครบ 30 รอบวงล้อจึงผูก workOrder (7.3) | — |
-| ยืนยันแผน v3.6 (ระลอก 13 วัดล้านเท่าใน bench) | ✅ **ยืนยันแล้ว 2026-09-30** (สั่ง "เริ่มสร้างตามแผนล่าสุด") | คิวถัดไปหลังระลอก 12 — เริ่ม 13.1/13.2 รอบถัดไป (bench จับกริดรายขุมและประวัติรอบวงล้อได้) | — |
+| ยืนยันแผน v3.6 (ระลอก 13 วัดล้านเท่าใน bench) | ✅ **ยืนยันแล้ว 2026-09-30** (สั่ง "เริ่มสร้างตามแผนล่าสุด") | ✅ **ระลอก 13 สร้างครบ 13.1–13.6 แล้ว 2026-10-01** (probe รายขุม + กริด 13.6% + วงป้อนกลับครูบนตาราง 4.4 + การ์ดล้านเท่าใน Lab + KB-vs-latency + bench history — bench 15/15 · verify 21 สคริปต์ 0 FAIL · เกณฑ์ปฏิเสธผ่าน 6/6) | — |
 | ยืนยันแผน v3.7 (ระลอก 14 — ตัวแผนถูกวัด: PlanScore + fact ไฟล์เดียว + คิวตัดสินด้วยตัวเลข) | ✅ **ยืนยันแล้ว 2026-09-30** (สั่ง "เริ่มสร้างตามแผนล่าสุด") | ยังคงเสียบหลัง 13.4 ตามคิวที่ยืนยัน — งานทุกชิ้นหลังจากนั้นมีเกณฑ์รับ/ปฏิเสธครบและคิวจัดอันดับเอง | — |
 | ยืนยันแผน v3.8 (ระลอก 15 — ระบบคูณสะสม: CompoundingIndex + เรียนรู้จากเกณฑ์ปฏิเสธ + X-Factor + Scale ต่อมิติ) | ✅ **ยืนยันแล้ว 2026-09-30** (สั่ง "เริ่มสร้างตามแผนล่าสุด") | ยังคงเสียบต่อหลัง 14.4 ตามคิวที่ยืนยัน — แต่ละรอบวงล้อเริ่มเก่งกว่ารอบก่อนแบบวัดใน bench ได้ ทุกงานใหม่มี X-Factor ก่อนเริ่ม | — |
 | 4.4 `supabase-strategy-outcomes-migration.sql` | ✅ **เสร็จสิ้น** — owner อนุมัติ + agent apply + ตรวจครบวงจร 8/8 (2026-09-27) | ปลดล็อกแล้ว: 4.3 A/B + 7.6 หลักฐานข้ามอุปกรณ์ | — |

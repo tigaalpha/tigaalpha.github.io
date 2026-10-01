@@ -132,6 +132,22 @@ async function main() {
     if (!Array.isArray(sheet) || sheet.length !== 10) throw new Error("sheet must cover 10 topics");
   });
 
+  /* plan v3.8 ระลอก 13 (13.1) — per-pillar probes: the bench's "weakest ขอมุม
+     5 ขุม" bar. Floors are the pillars smoke's own per-pillar bars verbatim;
+     the dedicated smoke-pillar-probes.mjs cross-checks the two stay one bar. */
+  check("13.1: pillar probes — all 5 owner pillars, weakest-first, honest scores", () => {
+    const rows = web.capabilityPillars();
+    if (!Array.isArray(rows) || rows.length !== 5) throw new Error(`got ${rows && rows.length}`);
+    for (let i = 1; i < rows.length; i++) if (rows[i - 1].score > rows[i].score) throw new Error("not weakest-first");
+    for (const r of rows) {
+      if (r.entries < r.min) throw new Error(`${r.domain}: ${r.entries} < ${r.min} — the bench will report this truthfully`);
+      if (r.score <= 0 || r.score > 1) throw new Error(`${r.domain}: score ${r.score}`);
+      if (!r.ready) throw new Error(`${r.domain}: teach coverage incomplete (${r.teach}/${r.entries})`);
+    }
+    const weakest = web.capabilityPillars()[0];
+    if (!weakest.domain) throw new Error("weakest-of-5 not nameable");
+  });
+
   console.log(`\n  ${passed} passed, ${failed} failed`);
   fs.rmSync(OUT, { recursive: true, force: true });
   if (failed > 0) process.exit(1);

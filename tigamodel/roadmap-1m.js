@@ -152,6 +152,15 @@ const COVERAGE_MODULES = [
   { name: "ครูรู้จักนักเรียน (student context + learner wave → chat)", ts: [3, 5, 8, 9], ms: [2], ss: [5], roadmap: [64, 65] },
   { name: "Voice Tutor (เสียงพูด)", ts: [3], ms: [0, 2], ss: [7], roadmap: [] },
   { name: "Camera Coach (กล้อง & มือ)", ts: [1], ms: [5], ss: [8], roadmap: [] },
+  /* plan v3.8 ระลอก 12 (12.1–12.5) — the joy/boredom multiplier module (13.2:
+     one module flips a whole batch, per STREAM_BRIDGE — never cell-by-cell).
+     REAL shipped code: teaching/joy.js measures learner affect from real logs
+     (t=6 จิตวิทยาผู้เรียน), classifies quit causes, and the coach swaps the
+     practice plan in response (t=5 การจัดการซ้อม); m=3 เข้าใจอารมณ์ (affect
+     from behaviour) + m=5 การประเมิน (measured, explainable, smoke-verified);
+     s=2 โหมดซ้อม (the coach card) + s=6 รายงานคืบหน้า (the parent's
+     "สนุกกับการเรียน" line). */
+  { name: "JoyIndex + boredom risk (ความสุข/ความเบื่อจาก log จริง)", ts: [5, 6], ms: [3, 5], ss: [2, 6], roadmap: [] },
 ];
 
 /* ── internals ── */
