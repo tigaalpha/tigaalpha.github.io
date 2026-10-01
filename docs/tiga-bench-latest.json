@@ -1,21 +1,21 @@
 {
   "version": 2,
-  "generatedAt": "2026-10-01T01:44:40.564Z",
-  "appVersion": "13.7.488",
+  "generatedAt": "2026-10-01T01:50:57.135Z",
+  "appVersion": "13.7.490",
   "loopRound": 1,
   "loopAdvanced": false,
   "bundle": {
-    "file": "index.template-goEerNYg.js",
-    "bytes": 2969765,
+    "file": "index.template-CxoyCWTo.js",
+    "bytes": 2964568,
     "includesTigamodel": true,
     "tigamodelMinifiedBytes": 1492835,
     "chunks": [
       {
-        "file": "index.template-goEerNYg.js",
-        "bytes": 2969765
+        "file": "index.template-CxoyCWTo.js",
+        "bytes": 2964568
       },
       {
-        "file": "space3d-main-BwEBrrm7.js",
+        "file": "space3d-main-mvUFphbi.js",
         "bytes": 957304
       },
       {
@@ -23,27 +23,27 @@
         "bytes": 953273
       },
       {
-        "file": "web-Cys5OljD.js",
+        "file": "web-CsWCDASW.js",
         "bytes": 760504
       },
       {
-        "file": "pvp-arena-CXI9uepM.js",
+        "file": "pvp-arena-DIIQQkrZ.js",
         "bytes": 205095
       },
       {
-        "file": "TigamodelLab-DZPjGtdX.js",
+        "file": "TigamodelLab-CH2eQSQS.js",
         "bytes": 102141
       },
       {
-        "file": "AdminActivityDashboard-DuFfy_bi.js",
+        "file": "AdminActivityDashboard-CALeF78n.js",
         "bytes": 69595
       },
       {
-        "file": "TigamodelBackoffice-CfLtiGmM.js",
+        "file": "TigamodelBackoffice-DmbZPOKR.js",
         "bytes": 36080
       },
       {
-        "file": "AdminAIModels-COVzTxAN.js",
+        "file": "AdminAIModels-BHwe2PmG.js",
         "bytes": 35442
       },
       {
@@ -55,35 +55,35 @@
         "bytes": 19633
       },
       {
-        "file": "LeadLandingPage-BQkC71Us.js",
+        "file": "LeadLandingPage-BRyYEqCv.js",
         "bytes": 13611
       },
       {
-        "file": "ReferralDashboard-BmnBM0pQ.js",
+        "file": "ReferralDashboard-cpCUOCkk.js",
         "bytes": 8622
       },
       {
-        "file": "LeadSaleDashboard-CBcFs0VH.js",
+        "file": "LeadSaleDashboard-BKA5c8lF.js",
         "bytes": 7607
       },
       {
-        "file": "space3d-DLWFTA59.js",
+        "file": "space3d-Wmjy1ILJ.js",
         "bytes": 6174
       },
       {
-        "file": "web-C84rdyPQ.js",
+        "file": "web-BOceR6Ik.js",
         "bytes": 5340
       },
       {
-        "file": "web-Ck7Tuo7_.js",
+        "file": "web-DI0rce3U.js",
         "bytes": 851
       },
       {
-        "file": "web-BsI7hEQ8.js",
+        "file": "web-fMbncAGv.js",
         "bytes": 813
       },
       {
-        "file": "web-DazzWUUC.js",
+        "file": "web-Bwti8srj.js",
         "bytes": 388
       }
     ]
@@ -162,13 +162,13 @@
   ],
   "weakestPillar": "music-marketing",
   "perf": {
-    "allRoutesColdMs": 20.64,
-    "allRoutesWarmMs": 0.14,
-    "summaryMs": 0.93,
-    "memoSpeedup": 147.4,
+    "allRoutesColdMs": 21.09,
+    "allRoutesWarmMs": 0.15,
+    "summaryMs": 0.76,
+    "memoSpeedup": 140.6,
     "kbBytes": 676231,
-    "kbProbeColdMs": 0.44,
-    "kbProbeWarmMs": 0.15
+    "kbProbeColdMs": 0.45,
+    "kbProbeWarmMs": 0.16
   },
   "kb": {
     "theoryEntries": 13414,
