@@ -10569,6 +10569,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
+  /* The chat's read-aloud (owner, 2026-10-01) is for Max and Max Family — and the owner's own admin account, as Voice Tutor
+     already allows. Everyone else sees the button with a lock, and a tap opens the plans. */
+  const speakMode = (isMaxPlan(plan) || (profile && profile.is_admin)) ? "on" : "locked";
+  const onSpeakLocked = useCallback(() => { playUi("click"); setPricingOpen(true); }, [setPricingOpen]);
   /* Conversion funnel (owner-approved 2026-09-19): one trial-stage popup at a
      time — welcome (d1-3), halfway price-lock (d15-28), closing + direct
      checkout (d29-30) — plus the expired-trial win-back. Never fires for
@@ -10579,10 +10583,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => {
     const next = convPopupFor(profile, plan) || convWinBack(profile, plan);
     setConvPopup(next);
-  /* The chat's read-aloud (owner, 2026-10-01) is for Max and Max Family — and the owner's own admin account, as Voice Tutor
-     already allows. Everyone else sees the button with a lock, and a tap opens the plans. */
-  const speakMode = (isMaxPlan(plan) || (profile && profile.is_admin)) ? "on" : "locked";
-  const onSpeakLocked = useCallback(() => { playUi("click"); setPricingOpen(true); }, [setPricingOpen]);
     if (next) logConvEvent(next.id, "shown");           // v3 funnel instrumentation
   }, [profile, plan]);
   function dismissConvPopup() {
@@ -12821,6 +12821,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           {msgs.map((m, i) => (
             <Msg key={i} m={m} idx={i} lang={lang}
               activeSpk={activeSpk} setActiveSpk={setActiveSpk} onPlay={playSequence} onRetry={retryLast}
+              speakMode={speakMode} onSpeakLocked={onSpeakLocked}
               onMore={i === msgs.length - 1 && !chatBusy ? askMore : null} />
           ))}
           {loading && <Typing slow={slow} lang={lang} />}
@@ -12831,7 +12832,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               {chatRec && (
                 <button className="mrec" onClick={() => { playUi("click"); setModal(false); chatRec.fn(); }}>
                   <span className="mrec-ic" aria-hidden="true">{chatRec.icon}</span>
-              speakMode={speakMode} onSpeakLocked={onSpeakLocked}
                   <span className="mrec-tx">{chatRec.label}</span>
                   <span className="mrec-go" aria-hidden="true">→</span>
                 </button>
