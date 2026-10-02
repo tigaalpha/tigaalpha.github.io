@@ -39,6 +39,13 @@ export function ymd(d) {
     String(z.getDate()).padStart(2, "0");
 }
 
+/* The owner's LINE Official Account add-friend link ("https://lin.ee/…"). EMPTY on purpose: the
+   2026-10-02 report asked for LINE as the way to reach people the app cannot otherwise reach
+   (2 of 70 had push on), but the channel does not exist yet — creating it is the owner's step
+   (LINE Developers console). While this is empty no LINE button is drawn anywhere; paste the link
+   here and the "add us on LINE" row appears under the result of a song. */
+export const LINE_OA_URL = "";
+
 /* ── Web Push (re-engagement notifications) ──
    This public key is safe to ship in client code — VAPID public keys are
    meant to be public, the matching private key (kept only as a Supabase Edge

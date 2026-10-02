@@ -4,7 +4,7 @@ import { PlayAlongStaff, GamePiano, laneHue, gpKeyBox } from "./music-engine";
 import { CountUp } from "./app-shell";
 import { useGameField } from "./play-along-store";
 import { songStars, songBestAcc, songLengthSec, readDailyState, DAILY_SONG_REWARD, logSongMood } from "./play-along-progress";
-import { logActivity, logUsage } from "./shared-infra";
+import { logActivity, logUsage, LINE_OA_URL } from "./shared-infra";
 import { nextStarGoal } from "./play-along-judge";
 /* ── SongPlayOverlay ──
    The Play Along (falling-notes song mode) full-screen overlay.
@@ -389,7 +389,7 @@ const PaSetlistBadge = memo(function PaSetlistBadge({ store, lang }) {
   return <div className="setlistpos ready">🎤 {lc.setlistSong} {setlist.idx + 1}/{setlist.total}</div>;
 });
 
-export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songCanvasRef, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, songInputRef, songAnalysisBusy, songAnalysis, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, startSongPlay, previewSong, shareCard, shareLine, styleTransform, songTigaTip = null, playAlongHand, changePlayAlongHand, drillPlan, drillActive, drillCleared = [], startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songAccomp = "track", setSongAccomp, songView = "fall", setSongView, songBand = 2, setSongBand, songFx = true, setSongFx, songPractice = false, songGfx = "auto", setSongGfx, songIntro, startIntro, skipIntro, sfxMuted, onToggleSfx }) {
+export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songMeta, lang, songPhase, songResult, songCanvasRef, songDataRef, songTempo, setSongTempo, songAutoLoop, setSongAutoLoop, songInputRef, songAnalysisBusy, songAnalysis, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, profile, exitSong, startSongPlay, previewSong, shareCard, shareLine, styleTransform, songTigaTip = null, playAlongHand, changePlayAlongHand, drillPlan, drillActive, drillCleared = [], startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songAccomp = "track", setSongAccomp, songView = "fall", setSongView, songBand = 2, setSongBand, songFx = true, setSongFx, songPractice = false, songGfx = "auto", setSongGfx, songIntro, startIntro, skipIntro, sfxMuted, onToggleSfx, onRemind = null }) {
   const lc = L[lang];
   const T = T3(lang);
   const store = gameStore;
@@ -639,6 +639,22 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
             <button className="songbtn go pl-again" onClick={playAgain}>↻ {lc.songRetry}</button>
             {nextSong && <button className="songbtn ghost pl-next" onClick={playNext}>{T("เพลงถัดไป", "Next song", "下一首")} ▶</button>}
           </div>
+          {/* A reason to come back, offered at the one moment it is easy to say yes
+              to: the song just ended well. The app passes onRemind only to a signed-in
+              player who has not turned notifications on and has not claimed the
+              one-time notification gift (it reuses joinNotifEvent, so the permission
+              box opens inside this tap). */}
+          {LINE_OA_URL && !songResult.setlist && songResult.stars >= 1 && (
+            <a className="pl-link pl-remind" href={LINE_OA_URL} target="_blank" rel="noopener noreferrer"
+              onClick={() => { try { logUsage("event", "line-oa-tap"); } catch (e) {} }}>
+              💚 {T("เพิ่มเพื่อน LINE รับเพลงประจำวัน", "Add us on LINE for the daily song", "加 LINE 好友收每日歌曲")}
+            </a>
+          )}
+          {onRemind && !songResult.setlist && songResult.stars >= 1 && (
+            <button className="pl-link pl-remind" onClick={onRemind}>
+              🔔 {T("พรุ่งนี้มีเพลงประจำวันใหม่ — ให้ TIGA เตือนไหม", "A new daily song tomorrow — want a reminder?", "明天有新的每日歌曲——要提醒你吗？")}
+            </button>
+          )}
           <div className="pl-coach">
             <div className="pl-coach-goal">
               {songResult.goal

@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { Piano, startPianoNote, releasePianoNote } from "../music-engine";
 import { logLand } from "./land-log";
-import { GUEST_PROFILE_KEY, setSkipOnboard, stampLandingOrigin } from "../local-identity";
-import { inAppBrowser, openInRealBrowser, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
+import { GUEST_PROFILE_KEY, setSkipOnboard, stampLandingOrigin, attributionEvent, handoffUrl, landingVariant } from "../local-identity";
+import { inAppBrowser, openInRealBrowser, escapeUrl, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
 import { LESSONS } from "./landing-lessons";
 import { C, LANGS, FLAGS, FLAG_NAMES, pickLang } from "./landing-copy";
 import { askLandingAI } from "./landing-ai";
@@ -123,6 +123,21 @@ function presetLang() {
 }
 const PRESET = typeof document !== "undefined" ? presetLang() : "th";
 
+/* ── the first-five-seconds test ──
+   66.5% of visitors leave inside five seconds and only 10% of those in an
+   in-app browser ever touch a key. ?v=b on an ad link serves ONE alternative:
+   an outcome headline, the keys lighting up by themselves (silently — sound
+   needs a tap) until the first touch, and a button that goes straight into a
+   real song with no account. ?v=c is the same without the new words. No tag, or
+   ?v=a, is the page exactly as it was; a tag is remembered for the device
+   (local-identity.landingVariant) and rides the "attr" row, so the admin funnel
+   can cut every number by variant. */
+const VARIANT = typeof window !== "undefined" ? landingVariant() : "a";
+const NEW_FX = VARIANT === "b" || VARIANT === "c";     // lights + first-song button
+const NEW_COPY = VARIANT === "b";                      // headline + sub
+/* The song the first-song button opens: universally known, level 1, ~40 s. */
+const FIRST_SONG = "twinkle";
+
 export default function LandingPage1() {
   const [lang, setLang] = useState(() => pickLang(PRESET));
   const t = C[lang];
@@ -207,7 +222,7 @@ export default function LandingPage1() {
        link and no way out. Copying first costs nothing if the jump succeeds. */
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(window.location.href).catch(() => {});
+        navigator.clipboard.writeText(escapeUrl()).catch(() => {});
       }
     } catch (e) {}
     setCopied(true);
@@ -262,6 +277,11 @@ export default function LandingPage1() {
       viewLogged = true;
       land("view");
       land("page:" + PRESET);   // which of the three URLs the ad pointed at
+      /* Which campaign / ad set / creative / variant / time zone — one row, once
+         per device (local-identity.attributionEvent). Without it the funnel can
+         say how many came from "fb" but never which ad. */
+      const attr = attributionEvent(PRESET);
+      if (attr) { try { logLand("attr", attr); } catch (e) {} }
     }
     const leave = () => {
       if (leave.done) return;
@@ -297,6 +317,26 @@ export default function LandingPage1() {
   useEffect(() => {
     if (returningUser) { setSticky(false); setNudged(false); }
   }, [returningUser]);
+
+  /* Variant B/C: the keys play themselves — silently, sound needs a tap — until
+     the first touch (or ~12 s). A page that moves in the first second is a page
+     somebody reads; the pill and the breathing keys alone did not stop 90% of
+     in-app visitors from walking past an untouched piano. Reduced motion: off. */
+  useEffect(() => {
+    if (!NEW_FX) return;
+    try { if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; } catch (e) {}
+    const seq = [["E5"], ["D5"], ["C5"], ["D5"], ["E5"], ["E5"], ["E5"], []];
+    let i = 0, off = false;
+    const stop = () => { if (off) return; off = true; clearInterval(iv); clearTimeout(tm); setLit(l => (l.length && !demoRef.current.voices.length ? [] : l)); };
+    const iv = setInterval(() => {
+      // never fight a real demo or a visitor's own keys
+      if (off || demoRef.current.voices.length || firstKey.current) return;
+      setLit(seq[i % seq.length]); i++;
+    }, 460);
+    const tm = setTimeout(stop, 12000);
+    window.addEventListener("pointerdown", stop, { passive: true, once: true });
+    return () => { stop(); window.removeEventListener("pointerdown", stop); };
+  }, []);
 
   /* hero:seen — logged once, the first time the piano actually enters the
      viewport. Pairs with "piano" (tapped) so the funnel can finally split
@@ -678,19 +718,24 @@ export default function LandingPage1() {
           actually blocks them. One tap opens Chrome/Safari with the link
           already on the clipboard; the dismiss underneath keeps email sign-up
           available for anyone who prefers to stay. */}
-      {signup && inApp && (
+      {/* escapeFull gates it: until 2026-10-02 this read `signup && inApp` only, so the
+          "stay and sign up by e-mail" link below set a state nothing looked at and
+          the overlay could never be closed — every in-app visitor who opened the
+          sign-up card (53 in 30 days) was shut behind a full-screen "open Chrome"
+          wall with the e-mail form out of reach, and not one of them ever tried it. */}
+      {escapeFull && signup && inApp && (
         <div className="lp-escfull" role="dialog" aria-modal="true" aria-label={t.openReal}>
           <div className="lp-escbox">
             <div className="lp-escmark">TIGA</div>
             <h2>{t.escTitle}</h2>
             <p>{t.escBody}</p>
-            <button className="lp-btn primary" onClick={escapeBrowser}>⧉ {t.openReal}</button>
-            <button className="lp-nudgedis" onClick={() => setEscapeFull(false)}>{t.escStay}</button>
+            <button className="lp-btn primary" onClick={() => { land("esc:go"); escapeBrowser(); }}>⧉ {t.openReal}</button>
+            <button className="lp-btn ghost" onClick={() => { land("esc:stay"); setEscapeFull(false); }}>{t.escStay}</button>
           </div>
         </div>
       )}
 
-      <h1 className="lp-h1">{t.h1a}<em>{t.h1b}</em></h1>
+      <h1 className="lp-h1">{NEW_COPY ? t.vb.h1a : t.h1a}<em>{NEW_COPY ? t.vb.h1b : t.h1b}</em></h1>
 
       {/* ── the piano comes FIRST ──
           The old order was headline → paragraph → piano, which on a phone
@@ -703,7 +748,7 @@ export default function LandingPage1() {
           <Piano small litSet={lit} fingerMap={fingers} onNote={onHeroNote} baseOct={4} />
         </div>
       </div>
-      <p className="lp-sub">{t.sub}</p>
+      <p className="lp-sub">{NEW_COPY ? t.vb.sub : t.sub}</p>
 
       {/* ── the way in, in the first screenful ──
           Until now the only sign-up entrances were a gate that arrives later
@@ -713,6 +758,14 @@ export default function LandingPage1() {
           in, so there the primary is the email card instead. */}
       {!returningUser && !signup && (
         <div className="lp-herocta">
+          {/* Variant B/C only: straight into a real song, no account. The app lets a
+              guest play and asks for the account once the song is over (the guest
+              gate waits for a good moment), so the ask arrives with a result in
+              hand instead of in front of a page about piano. */}
+          {NEW_FX && (
+            <a className="lp-btn primary" href={"/?song=" + FIRST_SONG}
+              onClick={() => { land("hero:firstsong"); storeLang(lang); }}>{t.firstSong}</a>
+          )}
           {inApp ? (
             <button className="lp-btn primary" onClick={() => openSignup("", "hero")}>{t.gateBtn}</button>
           ) : (
@@ -817,7 +870,7 @@ export default function LandingPage1() {
 
       <p className="lp-foot">
         {t.footTag}<br />
-        <a href={APP_URL}>{t.enterApp}</a> · <a href="/privacy-policy.html">{t.privacy}</a>
+        <a href={APP_URL}>{t.enterApp}</a> · <a href={"/songs/" + lang + "/"}>{t.allSongs}</a> · <a href="/privacy-policy.html">{t.privacy}</a>
       </p>
 
       {sticky && !signup && !gate && !returningUser && (
@@ -847,6 +900,10 @@ export default function LandingPage1() {
             <button className="lp-btn google" disabled={gateBusy}
               onClick={async () => {
                 land("gate:google");
+                /* Inside Facebook/Instagram Google answers a sign-in with its
+                   "disallowed_useragent" page — 32 visitors a month tapped this
+                   button there and landed on it. Send them to the way out instead. */
+                if (inApp) { escapeBrowser(); return; }
                 setGateBusy(true);
                 try { await startGoogleAuth(); }
                 catch (e) {
@@ -855,7 +912,7 @@ export default function LandingPage1() {
                   requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
                 }
               }}>
-              <GoogleG /> {t.gateGoogle}
+              <GoogleG /> {inApp ? t.googleInApp : t.gateGoogle}
             </button>
             <div className="lp-or">{t.or}</div>
             <button className="lp-btn primary" onClick={() => { land("gate:cta"); setSignup({ q: "", quota: false }); requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>
@@ -877,7 +934,11 @@ export default function LandingPage1() {
    friendly errors — because there must be exactly one way an account is made. */
 function SignupCard({ q, quota, timeUp, t }) {
   const [inApp] = useState(() => inAppBrowser());
-  const [mode, setMode] = useState(() => (inAppBrowser() ? "email" : "pick"));
+  /* "pick" = Google + the ONE-field e-mail link, "email" = the full name/e-mail/
+     password/consent form. In-app visitors used to start on the full form — the
+     longest one on the page, in the browser where it is hardest to type — while
+     the comment further down says the one-field form is the default. It now is. */
+  const [mode, setMode] = useState("pick");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -948,7 +1009,12 @@ function SignupCard({ q, quota, timeUp, t }) {
         options: {
           // Straight into the app once the link is tapped — the landing page
           // has done its job the moment the email leaves this screen.
-          emailRedirectTo: window.location.origin + "/",
+          /* The link is opened later, usually in the mail app's own browser, which
+             knows nothing about this visit. Carrying the anon id, the source and
+             this page's language across (local-identity.handoffUrl) is what lets
+             the new account be filed under the landing — and the campaign — that
+             produced it; before this, 4 of the 6 email accounts could not be. */
+          emailRedirectTo: handoffUrl(window.location.origin + "/", { lg: PRESET, via: "mail" }),
           data: { pdpa_version: PDPA_VERSION, marketing_consent: !!marketing, via: "landing-otp" },
         },
       });
@@ -978,11 +1044,16 @@ function SignupCard({ q, quota, timeUp, t }) {
       const { data, error } = await sb.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: {
-          full_name: name.trim(),
-          pdpa_version: PDPA_VERSION,
-          marketing_consent: !!marketing,
-        } },
+        options: {
+          // the confirmation link is opened later, often in another browser — carry
+          // the visit across so the account is filed under the landing it came from
+          emailRedirectTo: handoffUrl(window.location.origin + "/", { lg: PRESET, via: "mail" }),
+          data: {
+            full_name: name.trim(),
+            pdpa_version: PDPA_VERSION,
+            marketing_consent: !!marketing,
+          },
+        },
       });
       if (error) { setErr(friendlyAuthError(error.message)); return; }
       land("signup:email");
@@ -1019,10 +1090,14 @@ function SignupCard({ q, quota, timeUp, t }) {
               an error screen — worse than no button. The lineLogin code is
               kept below, ready to re-add the moment the owner turns the
               provider on. */}
-          <button className="lp-btn google" onClick={google} disabled={busy}>
-            <GoogleG /> {inApp ? t.googleInApp : t.google}
-          </button>
-          <div className="lp-or">{t.or}</div>
+          {!inApp && (
+            <>
+              <button className="lp-btn google" onClick={google} disabled={busy}>
+                <GoogleG /> {t.google}
+              </button>
+              <div className="lp-or">{t.or}</div>
+            </>
+          )}
           {/* The one-field email path is the DEFAULT — it is the lowest-
               friction way in, and inside webviews it is the only one that
               works without leaving. The full password form stays one tap
@@ -1037,6 +1112,17 @@ function SignupCard({ q, quota, timeUp, t }) {
               {busy ? t.submitBusy : t.otpBtn}
             </button>
           </form>
+          {/* Inside a webview the Google button would end on Google's own refusal
+              page, so it is the way OUT instead — same look, honest label. */}
+          {inApp && (
+            <>
+              <div className="lp-or">{t.or}</div>
+              <button className="lp-btn google" type="button" disabled={busy}
+                onClick={() => { land("openreal"); openInRealBrowser(); }}>
+                <GoogleG /> {t.googleInApp}
+              </button>
+            </>
+          )}
           <button className="lp-btn ghost" onClick={() => setMode("email")}>{t.emailFullBtn}</button>
         </>
       )}

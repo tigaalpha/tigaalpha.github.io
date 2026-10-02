@@ -389,6 +389,16 @@ html, body, #root{background:var(--bg)}
 .pathpage{flex:1;overflow-y:auto;padding:0 0 24px;scrollbar-width:thin;scrollbar-color:#d97757 var(--card3)}
 .pathpage::-webkit-scrollbar{width:4px}
 .pathpage::-webkit-scrollbar-thumb{background:#d97757;border-radius:2px}
+/* the one inline offer at the top of the Pathway page until a first song is finished (not a popup: the owner shut the first-run welcome card, two popups before the first key were a churn risk) */
+.songmore{height:2px;width:100%;pointer-events:none}
+.pfirstsong{display:flex;align-items:center;gap:12px;width:calc(100% - 28px);margin:10px 14px 4px;padding:12px 14px;border-radius:16px;border:1.5px solid #d97757;background:linear-gradient(135deg,rgba(217,119,87,.16),rgba(217,119,87,.06));color:var(--text);cursor:pointer;text-align:left;font-family:inherit;position:relative}
+.pfirstsong:active{transform:scale(.99)}
+.pfs-ic{font-size:26px;flex:0 0 auto}
+.pfs-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.pfs-tx b{font-size:15px;line-height:1.3}
+.pfs-tx small{font-size:12px;opacity:.7;line-height:1.35}
+.pfs-go{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#d97757;color:#fff;font-size:14px}
+.pfs-x{position:absolute;top:2px;right:6px;background:none;border:0;color:var(--muted,#888);font-size:15px;line-height:1;padding:6px;cursor:pointer;opacity:.6}
 .pathhero{position:relative;text-align:center;padding:10px 16px 0;margin-bottom:4px;overflow:hidden;border-bottom:1px solid #d977571f}
 .pathhero-glow{position:absolute;top:-60%;left:50%;transform:translateX(-50%);width:280px;height:280px;pointer-events:none}
 .pathbadge{position:relative;display:inline-block;font-family:var(--f-num);font-size:8px;letter-spacing:3px;color:#d97757;border:1px solid #d9775744;border-radius:20px;padding:4px 15px;margin-bottom:12px;background:rgba(217,119,87,.05)}
@@ -493,6 +503,19 @@ html, body, #root{background:var(--bg)}
 .instile{flex:1;background:var(--card2);border:1px solid var(--bd1);border-radius:12px;padding:11px 6px;text-align:center;min-width:0}
 .instile b{display:block;font-family:var(--f-app);font-size:16px;color:#d97757;margin-bottom:3px}
 .instile span{font-size:9.5px;color:var(--muted);font-family:var(--f-app);font-weight:600;line-height:1.2;display:block}
+/* Daily Mentor: the recommendations box opens with a violet tab that says it was made by the AI for this learner — the violet of the
+   "Go to Challenging" button (owner, 2026-10-02: people took it for plain text). A label, not a button: no pressed state, no pointer. */
+.mentai{margin-bottom:16px;border-radius:14px;overflow:hidden;background:var(--card2);border:1px solid var(--vio-ln,rgba(124,78,228,.32));box-shadow:0 10px 24px -16px rgba(100,60,200,.6)}
+.mentai-tab{position:relative;display:flex;align-items:center;gap:11px;padding:11px 14px;color:#fff;overflow:hidden;background:linear-gradient(180deg,#7f52ea,#6a3dd8);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.mentai-tab::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:40%;pointer-events:none;background:linear-gradient(100deg,transparent,rgba(255,255,255,.3),transparent);transform:skewX(-20deg);animation:mentAiSheen 4.6s ease-in-out infinite}
+@keyframes mentAiSheen{0%,62%{left:-60%}92%,100%{left:130%}}
+.mentai-spark{flex:none;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+.mentai-tx{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.mentai-tx b{font-family:var(--f-app);font-size:14.5px;font-weight:800;line-height:1.25;color:#fff;text-shadow:0 1px 1px rgba(30,10,80,.35)}
+.mentai-tx i{font-style:normal;font-family:var(--f-app);font-size:11.5px;font-weight:600;line-height:1.3;color:rgba(255,255,255,.88)}
+.mentai-chip{position:relative;flex:none;font-family:var(--f-num,var(--f-app));font-size:11px;font-weight:800;letter-spacing:.8px;padding:3px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.55);color:#fff;background:rgba(255,255,255,.12)}
+.mentai-body{padding:10px 14px 12px}
+@media (prefers-reduced-motion:reduce){.mentai-tab::after{animation:none;display:none}}
 .certrow{display:flex;align-items:center;gap:11px;padding:12px;border-radius:13px;border:1px solid var(--bd2);background:var(--card2);margin-bottom:9px}
 .certrow.earned{border-color:#d9775766;background:var(--card3)}
 .pcard{position:relative;display:flex;flex-direction:column;text-align:left;background:var(--card2);border:1px solid var(--bd1);border-top:2px solid var(--ac,#d97757);border-radius:13px;padding:13px;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s;overflow:hidden;font-family:var(--f-app);color:var(--text2);min-height:130px;width:100%}
@@ -2760,6 +2783,12 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songgrid>.songcard{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* a long title (the classical ones carry a catalogue number and the composer) wraps before the favourite star in the corner, not under it */
 .songgrid .songcard-nm{padding-right:26px;overflow-wrap:anywhere}
+/* the orange heading that opens each section of the song grid — a category or an era, then its years and how many songs it holds (owner, 2026-10-02) */
+.songsec{display:flex;align-items:baseline;gap:9px;margin:16px 2px -3px;padding:0;font-family:var(--f-app);min-width:0}
+.songgrid>.songsec:first-child{margin-top:2px}
+.songsec-nm{flex:0 1 auto;min-width:0;font-size:16px;font-weight:800;line-height:1.25;color:var(--clay,#d97757)}
+.songsec-sub{flex:0 0 auto;font-size:11.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.songsec::after{content:"";flex:1 1 12px;min-width:12px;height:1px;align-self:center;background:linear-gradient(90deg,rgba(217,119,87,.5),rgba(217,119,87,0))}
 .drillhint{padding:0 16px 10px;margin:0;color:var(--muted);font-size:12.5px;line-height:1.45}
 .songcontinue{padding:0 14px 4px}
 .songcontinue .songcard{width:100%;box-sizing:border-box} /* a button shrinks to its text outside the grid */
