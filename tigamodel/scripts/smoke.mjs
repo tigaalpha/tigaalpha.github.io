@@ -20,6 +20,7 @@ const files = [
   "teaching/philosophy.js",
   "teaching/policy.js",
   "teaching/jev-tie-breaker.js",
+  "teaching/persona.js",
   "teaching/teaching-loop.js",
   "student/student-model.js",
   "knowledge/knowledge-base.js",

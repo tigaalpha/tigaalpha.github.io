@@ -18,6 +18,7 @@ const FILES = [
   "tigamodel/teaching/policy.js",
   "tigamodel/teaching/skill-graph.js",
   "tigamodel/teaching/coach.js",
+  "tigamodel/teaching/persona.js",
   "tigamodel/teaching/teaching-loop.js",
   "tigamodel/teaching/jev-tie-breaker.js",
   "tigamodel/knowledge/knowledge-base.js",
