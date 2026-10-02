@@ -1,4 +1,7 @@
 import { sb } from "./supabase-client";
+import { shouldAttemptWrite, shouldDropQueue, userFromSession, type SessionUser } from "./learning-session-gate";
+import { setActTraceSink } from "./shared-infra";
+import { shouldTraceActEntry, bumpTraceState, actEntryToTrace } from "./activity-trace";
 
 /* ── learning-data.ts — TIGA AI Learning Data System v1 (owner spec, 2026-09-23)
    Client side of the §1-§21 loop: ผู้เรียน → เริ่มเรียน → สังเกต → วิเคราะห์ →
@@ -48,9 +51,30 @@ function idem(prefix) {
   return `${prefix}:${u}`;
 }
 
-function signedIn() {
-  try { return !!(sb && sb.auth && sb.auth._sessionReady && sb.auth._sessionReady()); } catch (e) {}
-  return true; // can't tell → attempt the call; RLS/auth rejects it harmlessly
+/* Who is signed in — and WHY this is not a one-liner any more.
+   The old version asked `sb.auth._sessionReady()`, which does not exist in
+   @supabase/supabase-js 2.x: `_sessionReady` is undefined, the `&&` chain
+   short-circuits to falsy, and the answer was "signed out" for EVERY learner,
+   forever. Evidence from the live DB: learning_sessions had 160 rows (that RPC
+   has no gate) while every gated write — observations, diagnoses,
+   interventions, practice events — sat at exactly 0.
+   Now: unknown (undefined) → attempt and let RLS decide, known-signed-out
+   (null) → don't write and drop the queue, real id → write. The rules live in
+   learning-session-gate.ts so they can be smoke-tested without a network. */
+let _sessionUser: SessionUser = undefined;
+function signedIn() { return shouldAttemptWrite(_sessionUser); }
+
+/* Resolve the real auth state at boot and keep it fresh (a learner who signs
+   in mid-visit is a writer from then on). Best-effort: a failure leaves the
+   state "unknown", which still attempts the write. */
+export function refreshSessionUser(): Promise<SessionUser> {
+  try {
+    if (!sb || !sb.auth || typeof sb.auth.getSession !== "function") return Promise.resolve(_sessionUser);
+    return sb.auth.getSession().then(
+      ({ data }) => (_sessionUser = userFromSession(data && data.session)),
+      () => _sessionUser,
+    );
+  } catch (e) { return Promise.resolve(_sessionUser); }
 }
 
 /* ── offline queue (§20/§21): every failed write retries once, later ───────── */
@@ -91,12 +115,16 @@ function isMissingRpc(err) {
 
 async function callRpc(fn, args) {
   try {
-    const { error } = await sb.rpc(fn, args);
+    const { data, error } = await sb.rpc(fn, args);
     if (error) {
       if (isMissingRpc(error)) return null;           // feature not deployed yet → silent
       throw new Error(error.message || String(error));
     }
-    return true;
+    // Most RPCs return void, but a few (learning_intervene) return the row's
+    // uuid — §5 needs it to link the follow-up practice back to the advice it
+    // answered. Truthiness is unchanged for every existing caller: still true on
+    // success (a bare uuid is truthy), still null on a swallowed failure.
+    return data === undefined || data === null ? true : data;
   } catch (e) {
     enqueue({ fn, args });
     return null;
@@ -376,7 +404,7 @@ export function recordTipFollowed(feature) {
 export function recordCoachIntervention(tip, strategy) {
   try {
     if (!tip) return null;
-    return learningIntervene({
+    return learningIntervene({ // returns the intervention uuid when the row lands
       strategyId: (strategy && strategy.strategyId) || tip.strategy || "continue-current-plan",
       actions: Array.isArray(tip.steps) ? tip.steps.slice(0, 3) : [],
       message: tip.weakness || "",
@@ -390,13 +418,18 @@ export function recordCoachIntervention(tip, strategy) {
 }
 
 // The learner followed the tip — link that practice run back to it (§5).
-export function recordFollowUpPractice(feature, ok, accAfter) {
+// `interventionId` is the uuid learning_intervene returned when the advice was
+// shown: with it the server can answer "did THAT advice help THIS learner",
+// which is the whole point of the before/after loop (plan 18 §P4). Without it
+// the row is still written, just unlinked — never dropped, never faked.
+export function recordFollowUpPractice(feature, ok, accAfter, interventionId) {
   try {
     return learningPractice({
       what: `follow-up:${feature || "coach"}`,
       skill: feature || null,
       succeeded: !!ok,
       scoreAfter: typeof accAfter === "number" ? accAfter : null,
+      interventionId: interventionId || null,
     });
   } catch (e) { return null; }
 }
@@ -420,13 +453,92 @@ export function initLearningData() {
     if (wired) return; // StrictMode double-mounts — one session per page, always
     wired = true;
     startLearningSession("app-open");
-    flushLearningQueue();
     wirePracticeDone();
+    // ติดตั้งปลายทางของ trace ก่อน flush (ไม่เขียนอะไรทันที — สวิตช์ปิดไว้
+    // และไม่ล็อกอินก็ไม่เขียน ตามเดิม)
+    setActTraceSink(onActLogged);
+    refreshTraceSwitch();
+    // Resolve who is signed in BEFORE flushing, so a guest's queue is dropped
+    // instead of retried 300 times, and a signed-in learner's queue lands now.
+    refreshSessionUser().then((u) => {
+      try { if (shouldDropQueue(u)) lsSet(QUEUE_KEY, []); } catch (e) {}
+      flushLearningQueue();
+    }, () => flushLearningQueue());
+    try {
+      if (sb && sb.auth && typeof sb.auth.onAuthStateChange === "function") {
+        sb.auth.onAuthStateChange(() => { refreshSessionUser(); });
+      }
+    } catch (e) {}
     window.addEventListener("pagehide", () => { try { completeLearningSession(false); } catch (e) {} });
     document.addEventListener("visibilitychange", () => {
       try { if (document.visibilityState === "hidden") completeLearningSession(false); } catch (e) {}
     });
   } catch (e) {}
+}
+
+/* ── แผน 18: trace ของโหมดที่ไม่ใช่ practice-mode (ear / อ่านโน้ต / drill) ──
+   ก่อนหน้านี้ตาราง learning_* ได้ข้อมูลจาก practice-mode ทางเดียว ผู้เรียนที่ซ้อม
+   ear gym หรืออ่านโน้ตทุกวันก็ไม่เคยทิ้งร่องรอยสักแถว — "ไม่มีข้อมูล = ไม่มีครู"
+   จึงเป็นจริงแม้กับคนที่ซ้อมเยอะ ตอนนี้ทุก act-log ที่มีตัวเลขพอ (≥5 ครั้ง)
+   กลายเป็น observation + practice event หนึ่งชุด
+
+   กติกาที่ทำให้ตัวเลขยังซื่อสัตย์ (ทั้งหมดอยู่ใน activity-trace.ts ซึ่งเป็น pure
+   และมี smoke พิสูจน์): ต่ำกว่า 5 ครั้ง = การแตะเล่น ไม่ใช่รอบซ้อม · หนึ่งทักษะ
+   ต่อวันเท่านั้น (เก็บแถวล่าสุด) · ไม่เกิน 8 รายการต่อวัน · ไม่มีการตัดสินใจใด ๆ
+   เป็นแค่ข้อเท็จจริงที่เครื่องวัดได้ (§2)
+
+   kill switch (owner): app_settings.tiga_activity_trace = {"enabled":true}
+   ค่าเริ่มต้น OFF และ fail-closed — ปิดไว้ = ตารางมีแต่แถวของ practice-mode
+   เหมือนเดิมทุกประการ เจ้าของเปิดเอง (ไม่มี deploy) */
+const TRACE_SWITCH = "tiga_activity_trace";
+const TRACE_STATE_KEY = "tg_trace_state";
+let _traceAt = 0, _traceOn = false;
+async function refreshTraceSwitch({ force = false } = {}) {
+  if (!force && _traceAt && Date.now() - _traceAt < 60000) return _traceOn;
+  let on = false;
+  try {
+    const r = sb ? await sb.from("app_settings").select("value").eq("key", TRACE_SWITCH).maybeSingle() : null;
+    on = !!(r && r.data && r.data.value && r.data.value.enabled === true);
+  } catch (e) { on = false; }
+  _traceOn = on; _traceAt = Date.now();
+  return _traceOn;
+}
+function traceState() { return lsGet(TRACE_STATE_KEY) || { day: "", sent: {} }; }
+export async function isActivityTraceSwitchOn() { return refreshTraceSwitch({ force: true }); }
+/* เขียนผ่าน RPC เดียวกับทุกสวิตช์ในโปรเจกต์นี้ (admin เท่านั้น) — เจ้าของเปิดเองจาก
+   Model Lab ไม่มี deploy */
+export async function setActivityTraceSwitch(on) {
+  const { error } = await sb.rpc("admin_set_app_setting", { p_key: TRACE_SWITCH, p_value: { enabled: on === true } });
+  if (error) throw new Error(error.message || "save failed");
+  _traceOn = on === true; _traceAt = Date.now();
+  return _traceOn;
+}
+export const ACTIVITY_TRACE_SWITCH = TRACE_SWITCH;
+
+function onActLogged(entry) {
+  try {
+    // ไม่มี session = ผู้เยี่ยมชม → ไม่มีแถวบนเซิร์ฟเวอร์ให้เขียน (RLS จะปฏิเสธอยู่แล้ว)
+    if (!signedIn()) return;
+    /* fail-closed: ยังไม่รู้ค่าสวิตช์ = ไม่เขียน (แต่ขออ่านค่าไว้เผื่อรอบถัดไป)
+       สวิตช์นี้เปิด = ตารางเริ่มมีแถวใหม่ที่ก่อนหน้านี้ไม่มี จึงต้องเป็นคำสั่ง
+       ของเจ้าของ ไม่ใช่ค่าเริ่มต้นของโค้ด */
+    if (!_traceAt) { refreshTraceSwitch(); return; }
+    if (!_traceOn) return;
+    const verdict = shouldTraceActEntry(entry, traceState());
+    if (!verdict.ok) return;
+    const tr = actEntryToTrace(entry);
+    if (!tr) return;
+    lsSet(TRACE_STATE_KEY, bumpTraceState(traceState(), verdict.key));
+    learningObserve("activity_log", tr.skill, { attempts: tr.attempts, misses: tr.misses, accuracy: tr.accuracy, seconds: tr.seconds }, { label: tr.label, source_kind: tr.source_kind, source_id: tr.source_id });
+    learningPractice({
+      what: `${tr.source_kind}:${tr.source_id}`,
+      skill: tr.skill,
+      durationSec: tr.seconds,
+      attempts: tr.attempts,
+      succeeded: tr.accuracy >= 65,
+      scoreAfter: tr.accuracy,
+    });
+  } catch (e) { /* §20 — a missing trace must never break practice */ }
 }
 
 /* ── the app's own "practice finished" event → learning data (§2/§5/§15) ────

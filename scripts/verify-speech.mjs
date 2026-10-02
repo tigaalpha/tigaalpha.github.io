@@ -44,13 +44,13 @@ function freshWorld() {
   const store = new Map();
   globalThis.localStorage = { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
   globalThis.window = globalThis;
-  globalThis.__played = []; globalThis.__fetches = [];
+  globalThis.__played = []; globalThis.__fetches = []; globalThis.__playedRate = 1;
   globalThis.__ac = {
     state: "running", destination: {}, resume: async () => {},
     decodeAudioData: async (buf) => ({ id: buf.byteLength }),
     createBufferSource() {
       const n = { buffer: null, playbackRate: { value: 1 }, connect() {}, onended: null,
-        start() { globalThis.__played.push(this.buffer.id); this._t = setTimeout(() => this.onended && this.onended(), globalThis.__clipMs || 60); },
+        start() { globalThis.__played.push(this.buffer.id); globalThis.__playedRate = this.playbackRate.value; this._t = setTimeout(() => this.onended && this.onended(), globalThis.__clipMs || 60); },
         stop() { clearTimeout(this._t); setTimeout(() => this.onended && this.onended(), 0); } };
       return n;
     },
@@ -170,6 +170,57 @@ async function load() {
   await S4.speakCloud("heard twice", "en", null, () => {}, () => {}, 1, opt);
   // (no IndexedDB here, so only the in-memory cache can answer — the browser run of verify-chat.mjs covers IndexedDB)
   check("second-listen-is-not-paid-again", globalThis.__fetches.length === first && spent4 === 1, `requests ${first} -> ${globalThis.__fetches.length} · spent ${spent4}`);
+}
+
+// 6. speed + chunking (owner 2026-10-02: "มันอ่านช้า / โหลดช้า / อ่านไม่ครบ")
+{
+  freshWorld();
+  const S = await load();
+  check("chat-speed-is-faster-than-natural", S.CHAT_TTS_RATE > 1 && S.CHAT_TTS_RATE <= 1.25, "rate " + S.CHAT_TTS_RATE);
+  // the first clip is the one the learner waits for, so it must be the short one
+  const long = ("ประโยคภาษาไทยความยาวปานมากสำหรับการทดสอบการตัดก้อนเสียง ".repeat(120)).trim();
+  const chunks = S.ttsChunks(long, S.TTS_CHUNK_CHARS, S.TTS_FIRST_CHUNK_CHARS);
+  check("first-chunk-is-shorter-than-the-rest", chunks[0].length < chunks[1].length,
+    `first ${chunks[0].length} vs next ${chunks[1].length}`);
+  check("no-chunk-goes-over-the-limit", chunks.every((c, i) => c.length <= (i === 0 ? S.TTS_FIRST_CHUNK_CHARS : S.TTS_CHUNK_CHARS)),
+    JSON.stringify(chunks.map(c => c.length)));
+  check("chunks-keep-every-word", chunks.join(" ").replace(/\s+/g, " ").trim() === long.replace(/\s+/g, " ").trim(),
+    `joined ${chunks.join(" ").replace(/\s+/g, " ").trim().length} vs ${long.replace(/\s+/g, " ").trim().length}`);
+  check("a-long-message-is-many-chunks", chunks.length >= 5, chunks.length + " chunks");
+}
+
+// 7. the whole message is charged once — never half a message in the cloud
+//    voice then silence when the day's allowance runs out mid-way
+{
+  freshWorld(); fakeTts({ delay: 0 });
+  const S = await load();
+  let spent = 0, refunded = 0;
+  const seen = [];
+  const long = "ประโยคไทยยาว ๆ สำหรับทดสอบว่าอ่านครบทุกก้อนในข้อความเดียวกัน ";
+  await S.speakCloud(long.repeat(60), "th", null, () => {}, () => {}, 1,
+    { src: "chat", spend: (t) => { spent++; seen.push(t.length); return true; }, refund: () => { refunded++; } });
+  check("a-multi-chunk-message-is-charged-once", spent === 1, "spend calls: " + spent);
+  check("the-charge-covers-the-whole-message", seen.length === 1 && seen[0] > 1000, "charged for " + (seen[0] || 0) + " chars");
+  check("every-chunk-was-requested-and-played", globalThis.__fetches.length >= 3 && globalThis.__played.length >= 3,
+    `requests ${globalThis.__fetches.length} · played ${globalThis.__played.length}`);
+
+  // the allowance that cannot cover the whole message must refuse UP FRONT,
+  // so the caller reads all of it with the device voice instead of a clipped cloud one
+  freshWorld(); fakeTts({ delay: 0 });
+  const S2 = await load();
+  let err = null;
+  await S2.speakCloud(long.repeat(60), "th", null, () => {}, (e) => { err = e; }, 1,
+    { src: "chat", spend: () => false, refund: () => {} });
+  check("not-enough-for-the-whole-message → fall back whole, never half", !!err && err.budget === true && globalThis.__fetches.length === 0,
+    `budget ${!!(err && err.budget)} · requests ${globalThis.__fetches.length}`);
+}
+
+// 8. the audio really is played faster, not just requested faster
+{
+  freshWorld(); fakeTts({ delay: 0 });
+  const S = await load();
+  await S.speakCloud("เร็วขึ้นนะครับ", "th", null, () => {}, () => {}, S.CHAT_TTS_RATE, null);
+  check("cloud-clip-plays-at-the-chat-rate", globalThis.__playedRate >= 1.1, "rate " + globalThis.__playedRate);
 }
 
 console.log(`\n${pass}/${pass + fail} passed`);

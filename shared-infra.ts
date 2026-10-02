@@ -134,6 +134,10 @@ export function readPracticeLog() { try { return JSON.parse(localStorage.getItem
 ════════════════════════════════════════════════════════════ */
 export const ACT_LOG_KEY = "tg_act_log";
 export function readActLog() { try { return JSON.parse(localStorage.getItem(ACT_LOG_KEY) || "[]") || []; } catch (e) { return []; } }
+/* ปลายทางของ trace (แผน 18) — learning-data.ts ติดตั้งตัวรับตอนบูต. ว่าง = มีแค่
+   localStorage ตามเดิม ไม่มีใครฟัง ไม่มีอะไรเขียนออกไปที่ไหน */
+let actTraceSink = null;
+export function setActTraceSink(fn) { actTraceSink = typeof fn === "function" ? fn : null; }
 export function logActivity(kind, id, ok, miss, sec, skill = null) {
   try {
     const a = readActLog();
@@ -141,6 +145,12 @@ export function logActivity(kind, id, ok, miss, sec, skill = null) {
     if (skill) entry.skill = skill; // explicit skill tag — see skillsOfActivity(); older entries infer skill from kind/id instead
     a.push(entry);
     localStorage.setItem(ACT_LOG_KEY, JSON.stringify(a.slice(-1500)));
+    // แผน 18: ทุกอย่างที่ซ้อมควรเป็นหลักฐาน 1 รอบ ไม่ใช่แค่ practice-mode
+    // ตัวตัดสินใจ (ควรส่งไหม/โควตา) อยู่ใน activity-trace.ts จริง ๆ และถูกติดตั้งจาก
+    // learning-data.ts ตอนบูต (มันรู้สถานะผู้เรียนอยู่แล้ว) — การเชื่อมแบบ
+    // register/listen ตรง ๆ แทนการ import ทั้งสองทาง กันวงจรนอก (shared-infra
+    // อยู่ล่าง learning-data แล้ว) และไม่แตะของผู้เรียนเลยเมื่อไม่มีผู้ฟัง
+    try { if (actTraceSink) actTraceSink(entry); } catch (e) {}
   } catch (e) {}
 }
 

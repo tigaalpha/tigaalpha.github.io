@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory, isCostGovernorSwitchOn, setCostGovernorSwitch, costGovernor, isProviderBudgetSwitchOn, setProviderBudgetSwitch, providerBudget, isShortRoutingSwitchOn, setShortRoutingSwitch, shortRoutingConfig, isPersonaSwitchOn, setPersonaSwitch, teacherPersona, isPersonalizedPlansSwitchOn, setPersonalizedPlansSwitch } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory, isCostGovernorSwitchOn, setCostGovernorSwitch, costGovernor, isProviderBudgetSwitchOn, setProviderBudgetSwitch, providerBudget, isShortRoutingSwitchOn, setShortRoutingSwitch, shortRoutingConfig, isPersonaSwitchOn, setPersonaSwitch, teacherPersona, isPersonalizedPlansSwitchOn, setPersonalizedPlansSwitch, readPolicyWeights, computeAndApplyPolicyWeights, strategyEffectivenessRows } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
 import { tigaHub } from "./tigamodel/web.js"; // Phase 5: live specialist/capability view from the Capability Hub
 import { sb } from "./supabase-client";
+import { isActivityTraceSwitchOn, setActivityTraceSwitch } from "./learning-data";
 import { tr } from "./i18n"; // pick th/en/zh out of the tigamodel modules' {th,en,zh} fields
 import { AI_PROVIDERS } from "./AdminAIModels";
 import { pickTeachCard, cardSourceInfo, TEACH_CARDS } from "./tigamodel/knowledge/teach-cards.js";
@@ -335,6 +336,8 @@ export function TigamodelLab({ lang = "th" }) {
         <ShortRoutingPanel lang={lang} S={S} T={T} />
         <TeacherPersonaPanel lang={lang} S={S} T={T} />
         <PersonalizedPlansPanel lang={lang} S={S} T={T} />
+        <ActivityTracePanel lang={lang} S={S} T={T} />
+        <PolicyWeightsPanel lang={lang} S={S} T={T} />
         <KnowledgePanel lang={lang} S={S} />
       </>)}
 
@@ -943,6 +946,138 @@ function PersonalizedPlansPanel({ lang, S, T }) {
         "ON — a plan appears only from real skill data with confidence ≥ 0.5; the weakest skill gets the nearest-level drill. No data = no plan",
         "开启 — 仅在有真实技能数据且置信度≥0.5时生成计划；最弱技能得到最接近等级的练习。无数据=无计划")}
       offText={T("ปิด — ผู้เรียนได้แผนเดิมตามปกติ (ค่าเริ่มต้น)", "OFF — learners get today's plan as before (default)", "关闭 — 学习者照常使用原计划（默认）")} />
+  );
+}
+
+/* ── แผน 18: trace ของโหมดที่ไม่ใช่ practice-mode ──
+   เดิมตาราง learning_* ได้ข้อมูลจาก practice-mode ทางเดียว ผู้เรียนที่ซ้อม ear gym /
+   อ่านโน้ต / drill ทุกวันจึงไม่เคยทิ้งร่องรอยสักแถว ("ไม่มีข้อมูล = ไม่มีครู")
+   สวิตช์นี้เปิดการเขียนหลักฐานจากสามโหมดนั้น โดยยึดเกณฑ์กันปริมาณที่เขียนไว้
+   (≥5 ครั้งต่อรอบ · หนึ่งทักษะต่อวัน · ไม่เกิน 8 รายการต่อวัน — พิสูจน์ด้วย
+   smoke-activity-trace 21/21) ปิดไว้ = พฤติกรมเดิมทุกประการ */
+function ActivityTracePanel({ lang, S, T }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    let alive = true;
+    isActivityTraceSwitchOn().then(v => { if (alive) setOn(!!v); }, () => { if (alive) setOn(false); });
+    return () => { alive = false; };
+  }, []);
+  async function toggle() {
+    if (busy || on === null) return;
+    setBusy(true); setMsg("");
+    try { setOn(await setActivityTraceSwitch(!on)); setMsg(""); }
+    catch (e: any) { setMsg("⚠️ " + (e?.message || "error")); }
+    setBusy(false);
+  }
+  if (on === null) return null;
+  return (
+    <OwnerSwitchPanel S={S} T={T} on={on} busy={busy} msg={msg} toggle={toggle}
+      title={T("หลักฐานจาก ear gym / อ่านโน้ต / drill", "Traces from ear gym / reading / drills", "来自听力/视奏/练习的证据")}
+      onText={T("เปิด — ทุกรอบที่ซ้อม (≥5 ครั้ง) กลายเป็นหลักฐาน 1 รอบบนเซิร์ฟเวอร์ หนึ่งทักษะต่อวัน ไม่เกิน 8 รายการต่อวัน (ไม่ใช่ทุกการแตะปุ่ม)",
+        "ON — every real round (≥5 attempts) becomes one server-side trace; one skill per day, at most 8 a day (never every tap)",
+        "开启 — 每轮练习（≥5 次）记为一条服务器证据；每天每个技能一条，最多 8 条（不会每次点击都记）")}
+      offText={T("ปิด — ตารางมีแค่แถวของ practice-mode เหมือนเดิม (ค่าเริ่มต้น)",
+        "OFF — only practice-mode rows land, exactly as before (default)",
+        "关闭 — 只有 practice-mode 记录写入，与原来相同（默认）")} />
+  );
+}
+
+/* ── แผน 18 §P5: "ครูที่ปรับตัวเอง" — ปุ่มหลังบ้านเดียวสำหรับกลยุทธ์ → น้ำหนัก ──
+   strategy-analyzer.js คำนวณน้ำหนักจากผลการสอนจริงมานานแล้ว แต่ไม่มีทางเปิดใช้:
+   เจ้าของต้องไปรันเองทุกครั้ง ปุ่มนี้จึงทำแค่ "อ่านผลจริง → คำนวณ → เขียนกลับ" สามขั้น
+   โดยยึดหลักความซื่อสัตย์เดิม: กลยุทธ์ที่มีตัวอย่างไม่ถึง 5 ครั้งได้น้ำหนัก 1.0 (กลาง ๆ =
+   ยังไม่รู้) · ค่าถูก clamp ไว้ใน 0.5–2.0 เสมอ · ปุ่มนี้ไม่เปิดสวิตช์เอง — เจ้าของกด
+   "เปิดใช้" ต่างหาก ปิดไว้ = ครูใช้กติกาเดิมทุกประการ · ผลจริงคือ outcomes จาก
+   แผนที่แล้ว ไม่มี = บอกตรง ๆ ว่ายังไม่มีข้อมูล ไม่แต่งตัวเลข */
+function PolicyWeightsPanel({ lang, S, T }) {
+  const [st, setSt] = useState<any>(null);
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const load = async () => {
+    const [w, r] = await Promise.all([readPolicyWeights(), strategyEffectivenessRows()]);
+    setSt(w); setRows(r);
+  };
+  useEffect(() => { load(); }, []);
+  async function run(enabled: boolean) {
+    if (busy) return;
+    setBusy(true); setMsg("");
+    try {
+      const res: any = await computeAndApplyPolicyWeights({ enabled });
+      if (res && res.ok) {
+        setMsg(T(
+          `บันทึกแล้วจาก ${res.rows} กลยุทธ์ / ${res.total} outcomes — สวิตช์ ${res.enabled ? "เปิด" : "ยังปิดอยู่"}`,
+          `Saved from ${res.rows} strategies / ${res.total} outcomes — switch ${res.enabled ? "ON" : "still OFF"}`,
+          `已根据 ${res.rows} 个策略 / ${res.total} 条 outcomes 保存 — 开关${res.enabled ? "开启" : "仍关闭"}`));
+        await load();
+      } else {
+        setMsg(T("ยังไม่มีผลการสอนจริงพอให้คำนวณ — ยังไม่แตะค่าใด ๆ",
+          "Not enough real outcomes yet — nothing was written",
+          "真实 outcomes 尚不足 — 未写入任何值"));
+      }
+    } catch (e: any) { setMsg("⚠️ " + (e?.message || "error")); }
+    setBusy(false);
+  }
+  const totalN = (rows || []).reduce((n: number, r: any) => n + (Number(r && r.n) || 0), 0);
+  const enough = totalN >= 5;
+  return (
+    <div style={S.card}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+        {T("น้ำหนักกลยุทธ์จากผลจริง (Strategy → policy weights)", "Strategy weights from real outcomes", "从真实结果推导的策略权重")}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.7, marginBottom: 8 }}>
+        {T("อ่านผลการสอนจริงจากเซิร์ฟเวอร์ → คำนวณน้ำหนักต่อกลยุทธ์ → เขียนกลับ น้ำหนักยิ่งสูงยิ่งถูกเลือกเร็วขึ้นเมื่อกติกาเข้าครบ แต่ไม่มีการเปลี่ยนความน่าจะเป็นปลอม",
+          "Reads real teaching outcomes → computes a weight per strategy → writes them back. Higher weight wins ties of applicability earlier; no probability is faked.",
+          "读取真实教学结果 → 计算各策略权重 → 写回。权重越高越优先，但不会伪造概率")}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
+        {st
+          ? T(`สถานะปัจจุบัน: สวิตช์ ${st.enabled ? "เปิดอยู่" : "ปิดอยู่"} · คำนวณล่าสุด ${st.computedAt || "—"} · ${Object.keys(st.weights || {}).length} กลยุทธ์`,
+              `Current: ${st.enabled ? "ON" : "OFF"} · last computed ${st.computedAt || "—"} · ${Object.keys(st.weights || {}).length} strategies`,
+              `当前：${st.enabled ? "开启" : "关闭"} · 最近计算 ${st.computedAt || "—"} · ${Object.keys(st.weights || {}).length} 个策略`)
+          : T("อ่านค่าไม่ได้ (ถือว่าปิด)", "Couldn't read the setting (treated as OFF)", "无法读取设置（视为关闭）")}
+      </div>
+      {rows && rows.length > 0 ? (
+        <div style={{ ...S.inner, marginBottom: 8 }}>
+          {rows.map((r: any, i: number) => {
+            const w = st && st.weights ? st.weights[r.strategy_id] : null;
+            return (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, padding: "3px 0" }}>
+                <span style={{ color: "var(--text2)" }}>{r.strategy_id} <span style={{ color: "var(--muted)" }}>(n={r.n})</span></span>
+                <b style={{ color: "var(--accent, #d97757)" }}>
+                  {w != null ? Number(w).toFixed(2) : T("ยังไม่คำนวณ", "not computed", "未计算")}
+                  {r.delta != null ? <span style={{ color: "var(--muted)", fontWeight: 400 }}> · Δ{Number(r.delta).toFixed(2)}</span> : null}
+                </b>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
+          {T("ยังไม่มีผลการสอนจริงในระบบ — ต้องเกิดจากผู้เรียนจริง ห้ามปลอม",
+            "No real outcomes in the system yet — they must come from real learners, never faked",
+            "系统中尚无真实 outcomes — 必须来自真实学员，不可伪造")}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button onClick={() => run(false)} disabled={busy || !enough} style={{ ...S.btn, flex: 1 }}>
+          {busy ? "…" : T("คำนวณแล้วเก็บไว้ (ยังไม่เปิดใช้)", "Compute & store (stay OFF)", "计算并保存（暂不启用）")}
+        </button>
+        <button onClick={() => run(true)} disabled={busy || !enough} style={{ ...S.btn, flex: 1 }}>
+          {busy ? "…" : T("คำนวณและเปิดใช้", "Compute & turn ON", "计算并启用")}
+        </button>
+      </div>
+      {!enough && (
+        <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 8 }}>
+          {T(`ต้องมี outcomes อย่างน้อย 5 รายการ (มี ${totalN}) ปุ่มจึงจะกดได้ — เกณฑ์นี้มาจากแผน ไม่ใช่การเดา`,
+              `Needs at least 5 outcomes (has ${totalN}) before the buttons unlock — the threshold comes from the plan, not a guess`,
+              `至少需要 5 条 outcomes（现有 ${totalN}）按钮才会解锁 — 该阈值来自计划，非猜测`)}
+        </div>
+      )}
+      {msg ? <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 8 }}>{msg}</div> : null}
+    </div>
   );
 }
 

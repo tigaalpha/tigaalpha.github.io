@@ -14,6 +14,17 @@ import { getAC } from "./music-engine";
 /* ── TTS ── */
 export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN" };
 export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92 };
+/* ── เร็วขึ้น (เจ้าของ 2026-10-02: "มันอ่านช้า") ──
+   ค่าเดิมคือ 1 = ได้ยิ้ตามจังหวะที่โมเดลพูด และเส้นทางสำรองของเครื่องยิ่งช้าลง
+   (TTS_RATE ไทย 0.9 = ช้ากว่าปกติอยู่แล้ว) ผู้เรียนกดฟังแล้วต้องรอนานและอ่านยาว
+   1.15 = เร็วขึ้นชัดเจนแต่ยังเป็นธรรมชาติ (เกิน ~1.3 ผู้ฟังจะได้ยินเสียง "แหล่น")
+   ใช้กับแชทอย่างเดียว — Voice Tutor มีปุ่มปรับความเร็วของตัวเองอยู่แล้ว ไม่แตะ */
+export const CHAT_TTS_RATE = 1.15;
+/* ขนาดก้อนเสียงต่อคำขอ: ยิ่งเล็ก ยิ่งได้ยิ้เร็ว (แต่ยิงเซิร์ฟเวอร์บ่อยขึ้น ต้องไม่ต่ำเกินไป)
+   700 ตัวอักษร ≈ ประมาณ 40–60 วินาทีของเสียงไทย — สั้นพอที่จะไม่รู้สึกว่ารอ
+   ชิ้นแรก 380 ตัวอักษร ≈ 2–3 ประโยค เพื่อให้เสียงแรกดังเร็วที่สุด */
+export const TTS_CHUNK_CHARS = 700;
+export const TTS_FIRST_CHUNK_CHARS = 380;
 
 export function ttsSupported() {
   return typeof window !== "undefined" &&
@@ -236,15 +247,22 @@ export function b64ToArrayBuffer(b64) {
 }
 // Split into ~130-char chunks at sentence enders, then at spaces (works for Thai,
 // which often has no sentence punctuation), so the first clip is short = fast.
-export function ttsChunks(text, max = 130) {
+export function ttsChunks(text, max = 130, firstMax = 0) {
   const out = [];
+  // The FIRST chunk is what the learner waits for, so it gets a tighter budget:
+  // a short first clip synthesises (and downloads) in a fraction of the time,
+  // which is the whole difference between "it loads" and "it hangs" on a long
+  // answer. Everything after it can be bigger — it is fetched while the first
+  // clip is already playing (see speakCloud's look-ahead).
+  const limitFor = (i) => (firstMax > 0 && i === 0 ? Math.min(firstMax, max) : max);
   const sentences = text.match(/[^.!?。！？\n]+[.!?。！？\n]*/g) || [text];
   for (let s of sentences) {
     s = s.trim();
     if (!s) continue;
-    while (s.length > max) {
-      let cut = s.lastIndexOf(" ", max);
-      if (cut < max * 0.6) cut = max; // no good space nearby — hard cut
+    while (s.length > limitFor(out.length)) {
+      const lim = limitFor(out.length);
+      let cut = s.lastIndexOf(" ", lim);
+      if (cut < lim * 0.6) cut = lim; // no good space nearby — hard cut
       out.push(s.slice(0, cut).trim());
       s = s.slice(cut).trim();
     }
@@ -495,10 +513,21 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
   // in practice. One request = one continuous clip: no seams between clips (the
   // "choppy" complaint) and no second call to trip Gemini's rate limit (the
   // "stops after one line" complaint).
-  const chunks = ttsChunks(clean, 3600);
+  const chunks = ttsChunks(clean, TTS_CHUNK_CHARS, TTS_FIRST_CHUNK_CHARS);
+
+  /* โควตาคิดทีเดียวทั้งข้อความ ไม่ใช่ทีละก้อน — เดิมคิดทีละก้อน พอโควตาหมดกลาง
+     ข้อความฟังจะ "หยุดกลางคัน" (ครูอ่านไม่ครบ ซึ่งแย่กว่าไม่อ่านเลย) ตอนนี้ถ้าเงิน
+     ไม่พอสำหรับทั้งข้อความ → ไม่เริ่มเลย แล้วไปอ่านทั้งข้อความด้วยเสียงเครื่องแทน
+     (ครูอ่านได้ครบเสมอ ไม่ว่าจะเสียงไหน) */
+  let charged = false;
+  const msgOpts = opts ? {
+    ...opts,
+    spend: (s) => { if (charged) return true; charged = true; return opts.spend(clean); },
+    refund: (s) => { if (!charged) return; charged = false; if (opts.refund) opts.refund(clean); },
+  } : null;
 
   try {
-    let nextP = ttsFetchBuffer(chunks[0], lang, ac, 3, 30000, opts);
+    let nextP = ttsFetchBuffer(chunks[0], lang, ac, 3, 30000, msgOpts);
     let firstStarted = false;
     for (let i = 0; i < chunks.length; i++) {
       const curP = nextP;
@@ -520,7 +549,7 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
       // clip's playback, not from the start of the loop. This fixes the old race where
       // chunks[1]'s timer expired before chunks[0] even finished playing.
       if (i + 1 < chunks.length) {
-        nextP = ttsFetchBuffer(chunks[i + 1], lang, ac, 3, 30000, opts);
+        nextP = ttsFetchBuffer(chunks[i + 1], lang, ac, 3, 30000, msgOpts);
         nextP.catch(() => {}); // mark handled: the user may stop playback before we await it
       }
       await new Promise((resolve) => {

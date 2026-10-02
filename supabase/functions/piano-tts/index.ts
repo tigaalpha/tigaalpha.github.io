@@ -325,10 +325,17 @@ Deno.serve(async (req: Request) => {
   const lang = typeof payload?.lang === "string" ? payload.lang : "en";
 
   const authHeader = req.headers.get("authorization");
-  if (payload?.src === "chat" && !(await chatVoiceAllowed(authHeader))) {
+  /* เจ้าของ 2026-10-02: "มันโหลดช้า" — สองการอ่านนี้เดิมทำ **ทีละอัน** แล้วค่อยเริ่ม
+     สังเคราะห์เสียง ทำให้ทุกครั้งที่กดฟังเสียเวลารอ DB ไปหนึ่งรอบก่อนเสียงจะได้เริ่ม
+     อ่านทั้งสอง (ตรวจแผน + อ่านค่าเครื่องยนต์) พร้อมกันได้ ผลเหมือนกันทุกประการ
+     เพียงเวลารอลดลงไปหนึ่ง round trip (~100–300 มิลลิวินาทีที่ผู้เรียนรู้สึกได้จริง) */
+  const [allowed, cfg] = await Promise.all([
+    payload?.src === "chat" ? chatVoiceAllowed(authHeader) : Promise.resolve(true),
+    resolveTtsConfig(authHeader),
+  ]);
+  if (!allowed) {
     return json({ error: "read-aloud is part of the Max and Max Family plans" }, 403);
   }
-  const cfg = await resolveTtsConfig(authHeader);
 
   try {
     if (cfg.provider === "elevenlabs") {

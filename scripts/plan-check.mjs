@@ -93,7 +93,11 @@ const SMOKES = {
      the script exits 0 with a loud "ยืนยันไม่ได้" when the DB is unreachable,
      so an offline merge is never reported as a pass */
   "m26-contribution-store-live": ["scripts/verify-knowledge-contributions.mjs"],
+  "m05-learning-wire-live": ["scripts/check-learning-wire.mjs"],
   "m31-teacher-persona": ["tigamodel/scripts/smoke-teacher-persona.mjs"],
+  /* แผน 18: หน่วยตัดสินใจเดียวที่ทั้ง Daily Mentor และ Auto-Teach ใช้ร่วมกัน —
+     ไม่มีข้อมูล = ไม่มีคำสั่ง · ไม่เดาตัวเลข · คำเดิมไม่ยิงซ้ำ */
+  "m53-mentor-one-loop": ["tigamodel/scripts/smoke-learner-signal.mjs", "tigamodel/scripts/smoke-activity-trace.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);
