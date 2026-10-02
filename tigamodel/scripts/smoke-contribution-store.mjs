@@ -25,9 +25,11 @@ const OUT = "node_modules/.tmp-smoke-contrib-store";
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(`${OUT}/p4`, { recursive: true });
 execSync(`npx esbuild tigamodel/compliance/contribution-store.js --bundle --outfile=${OUT}/p4/store.js --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+execSync(`npx esbuild tigamodel/compliance/kb-compliance.js --bundle --outfile=${OUT}/p4/gate.js --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 
-const { submissionToRow, moderateArgs, canModerate, queueStats, approvalBlockers, reasonsOf, CONTRIBUTION_STATUSES, DECIDABLE_STATUSES } =
+const { submissionToRow, moderateArgs, canModerate, queueStats, approvalBlockers, reasonsOf, creditSourceFor, creditedEntryFor, sourceIdFor, CONTRIBUTION_STATUSES, DECIDABLE_STATUSES } =
   await import(pathToFileURL(`${OUT}/p4/store.js`).href);
+const { auditKB } = await import(pathToFileURL(`${OUT}/p4/gate.js`).href);
 
 const SQL = readFileSync("supabase-knowledge-contributions-migration.sql", "utf8");
 
@@ -142,6 +144,70 @@ check("queue stats count only what is there", () => {
   assert.deepStrictEqual([...CONTRIBUTION_STATUSES], ["pending", "approved", "rejected"]);
 });
 
+console.log("\nB2) เครดิตผู้ร่วมสร้าง (m27)");
+check("only an APPROVED row earns credit — a pending row yields no entry", () => {
+  const row = { ...submissionToRow(goodSub), contributor_name: "ครูเต" };
+  assert.strictEqual(creditedEntryFor({ ...row, status: "pending" }), null, "pending = no credit yet");
+  assert.strictEqual(creditedEntryFor({ ...row, status: "rejected" }), null, "rejected = no credit");
+  assert.strictEqual(creditedEntryFor(null), null);
+});
+
+check("an approved row becomes a REGISTERED source carrying the author's name", () => {
+  const row = { ...submissionToRow(goodSub), status: "approved", contributor_name: "ครูเต" };
+  const id = sourceIdFor(row);
+  assert.strictEqual(id, "tiga-contrib:11111111-2222-3333-4444-555555555555", "own-work keeps the gate's own-work id");
+  const reg = creditSourceFor(row);
+  assert.strictEqual(Object.keys(reg).length, 1);
+  const src = reg[id];
+  assert.strictEqual(src.contributor_name, "ครูเต", "the name lives in the registry, not a comment");
+  assert.strictEqual(src.contributor_id, "11111111-2222-3333-4444-555555555555");
+  assert.strictEqual(src.license, "contributor-own-work");
+  assert.ok(src.title.includes("ครูเต"), "and in the human-readable title");
+  assert.strictEqual(creditSourceFor({ ...row, license: "" }), null, "no declared license = no source record");
+  assert.strictEqual(sourceIdFor({ contributor_id: "", title: "x" }), null);
+});
+
+check("a public-fact contribution gets a contrib: id that REQUIRES the registry", () => {
+  const factSub = {
+    content: { title: "จังหวะช้าแบบมือขวา", body: "ฝึกจังหวะช้าด้วยมือขวาเดี่ยวก่อน แล้วค่อยเพิ่มมือซ้ายทีละจังหวะ", domain: "accompaniment" },
+    license: "cc-by",
+    source: { kind: "public-fact", url: "https://example.edu/beat", excerpt: "practice the slow beat with the right hand first before adding the left" },
+    contributor: { id: "11111111-2222-3333-4444-555555555555", name: "อาจารย์ใหญ่" },
+  };
+  const row = { ...submissionToRow(factSub), status: "approved", contributor_name: "อาจารย์ใหญ่" };
+  const id = sourceIdFor(row);
+  assert.ok(id.startsWith("contrib:"), `public-fact id: ${id}`);
+  const built = creditedEntryFor(row);
+  assert.strictEqual(built.entry.source, id, "the entry cites the id the gate gave it");
+  assert.ok(built.sources[id], "and the registry holds that exact id");
+  assert.strictEqual(built.sources[id].notes, factSub.source.excerpt, "the declared excerpt is the stored evidence");
+  assert.strictEqual(built.sources[id].url, "https://example.edu/beat");
+});
+
+check("the credited entry passes the REAL legal scanner (attribution included)", () => {
+  const row = { ...submissionToRow(goodSub), status: "approved", contributor_name: "ครูเต" };
+  const built = creditedEntryFor(row);
+  assert.ok(built && built.entry && built.sources, "the approved row becomes an entry + its registry");
+  assert.strictEqual(built.entry.source, sourceIdFor(row), "the entry cites its own registry id");
+  const rep = auditKB([built.entry], built.sources);
+  assert.strictEqual(rep.flags.length, 0, `no flags: ${JSON.stringify(rep.flags)}`);
+  assert.strictEqual(rep.byCheck.attribution || 0, 0, "an unregistered citation would flag here");
+  assert.strictEqual(built.label.th, "โดย ครูเต");
+  assert.strictEqual(built.label.en, "by ครูเต");
+});
+
+check("a public-fact entry WITHOUT its registry is flagged — the credit is what makes it traceable", () => {
+  const factSub = {
+    content: { title: "จังหวะช้าแบบมือขวา", body: "ฝึกจังหวะช้าด้วยมือขวาเดี่ยวก่อน แล้วค่อยเพิ่มมือซ้ายทีละจังหวะ", domain: "accompaniment" },
+    license: "cc-by",
+    source: { kind: "public-fact", url: "https://example.edu/beat", excerpt: "practice the slow beat with the right hand first before adding the left" },
+    contributor: { id: "11111111-2222-3333-4444-555555555555", name: "อาจารย์ใหญ่" },
+  };
+  const built = creditedEntryFor({ ...submissionToRow(factSub), status: "approved", contributor_name: "อาจารย์ใหญ่" });
+  const orphan = auditKB([built.entry], {});
+  assert.ok((orphan.byCheck.attribution || 0) > 0, "an uncredited source is an untraceable citation");
+});
+
 console.log("\nC) ไฟล์ SQL (เขียนแล้ว ยังไม่ apply)");
 check("the file says it is NOT applied and needs owner approval", () => {
   assert.ok(/NOT APPLIED/.test(SQL), "the header must say it has not been applied");
@@ -187,6 +253,12 @@ check("read paths are admin-gated, bounded and additive", () => {
   assert.ok(/limit greatest\(1, least\(coalesce\(p_limit, 50\), 200\)\)/.test(SQL), "the limit is bounded server-side");
   assert.ok(/create table if not exists/.test(SQL) && /create or replace function/.test(SQL), "re-runnable throughout");
   assert.ok(/create policy "knowledge_contributions insert own pending"/.test(SQL), "policies are dropped first → idempotent");
+});
+
+check("the contributor's name is stored, so the credit outlives the session (m27)", () => {
+  assert.ok(/contributor_name\s+text,/.test(SQL), "the column exists on the table");
+  const queue = SQL.slice(SQL.indexOf("admin_contributions_queue"));
+  assert.ok(/c\.contributor_name/.test(queue), "and the queue hands it to the reviewer");
 });
 
 check("the file carries its own verification queries", () => {

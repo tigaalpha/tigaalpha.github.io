@@ -32,7 +32,7 @@ const REAL_SB = readFileSync("supabase-client.ts", "utf8");
 ioSync("supabase-client.ts", "export const sb = null;\n");
 try {
   execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
-  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js tigamodel/performance/kb-hot-path.js tigamodel/performance/cost-governor.js tigamodel/evaluation/compound-dashboard.js tigamodel/evaluation/before-after.js tigamodel/compliance/contribution-store.js tigamodel/compliance/contribution-gate.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js tigamodel/performance/kb-hot-path.js tigamodel/performance/cost-governor.js tigamodel/evaluation/compound-dashboard.js tigamodel/evaluation/before-after.js tigamodel/compliance/contribution-store.js tigamodel/compliance/contribution-gate.js tigamodel/compliance/kb-compliance.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 } finally {
   ioSync("supabase-client.ts", REAL_SB);
 }
@@ -371,6 +371,12 @@ console.log("╚═════════════════════�
   const noAdminNoDecision = store.moderateArgs("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "approved", "ok", { adminTier: 0 }).ok === false;
   const reasonRequired = store.moderateArgs("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "approved", "  ", { adminTier: 3 }).reason === "a written reason is required";
   const gateRejectedBlocked = store.approvalBlockers({ gate_verdict: "rejected", contributor_id: "x", license: "cc-by" }).length > 0;
+  /* m27: the credit is what makes a contributed entry traceable */
+  const compliance = await M("compliance/kb-compliance.js");
+  const approvedRow = { ...store.submissionToRow(sub), status: "approved", contributor_name: "ครูเต" };
+  const credited = store.creditedEntryFor(approvedRow);
+  const creditedClean = !!credited && compliance.auditKB([credited.entry], credited.sources).flags.length === 0;
+  const noCreditYet = store.creditedEntryFor({ ...store.submissionToRow(sub), status: "pending" }) === null;
 
   const cases = [
     { label: "ช่องว่าง = ยังไม่มีข้อมูล ไม่ใช่ 0", ok: allUnavailable && noZeroFabrication, v: "0 → null" },
@@ -384,6 +390,7 @@ console.log("╚═════════════════════�
     { label: "ไม่ใช่แอดมิน = ตัดสินไม่ได้", ok: noAdminNoDecision, v: "admin only" },
     { label: "ต้องเขียนเหตุผลทุกครั้ง", ok: reasonRequired, v: "บังคับ" },
     { label: "แถวที่ประตูไม่ผ่าน อนุมัติไม่ได้", ok: gateRejectedBlocked, v: "ต้องแก้ต้นทาง" },
+    { label: "เครดิตผู้ร่วมสร้างอยู่ในแหล่งที่มาจริง (entry ผ่าน scanner)", ok: creditedClean && noCreditYet, v: "approved เท่านั้น" },
   ];
   const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
   section(

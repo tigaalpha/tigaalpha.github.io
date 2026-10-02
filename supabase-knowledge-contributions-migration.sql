@@ -33,7 +33,8 @@
 --   select column_name, data_type from information_schema.columns
 --    where table_schema='public' and table_name='knowledge_contributions'
 --    order by ordinal_position;
---   -- expect: status | text, license | text, gate_reasons | jsonb,
+--   -- expect: status | text, license | text, contributor_name | text,
+--   --         gate_reasons | jsonb,
 --   --         reviewed_by | uuid, reviewed_at | timestamptz
 --   -- 2. an ordinary learner CANNOT write a status other than 'pending'
 --   insert into knowledge_contributions
@@ -59,6 +60,7 @@ create table if not exists public.knowledge_contributions (
   domain        text not null default 'pedagogy',
 
   -- what the contributor declared — the gate's input, kept verbatim for audit
+  contributor_name text,                      -- display name at submission time (m27 credit)
   license       text not null,
   source_kind   text not null,                 -- 'own-work' | 'public-fact'
   source_url    text,
@@ -135,6 +137,7 @@ create or replace function public.admin_contributions_queue(
 returns table (
   id            uuid,
   contributor_id uuid,
+  contributor_name text,
   created_at    timestamptz,
   title         text,
   body          text,
@@ -150,7 +153,7 @@ returns table (
   reviewed_at   timestamptz
 )
 language sql stable security definer set search_path = public as $$
-  select c.id, c.contributor_id, c.created_at, c.title, c.body, c.teach, c.domain,
+  select c.id, c.contributor_id, c.contributor_name, c.created_at, c.title, c.body, c.teach, c.domain,
          c.license, c.source_kind, c.source_url, c.gate_verdict, c.gate_reasons,
          c.status, c.review_note, c.reviewed_at
     from public.knowledge_contributions c

@@ -40,7 +40,7 @@ C: 0 diagnosis ที่ระบุทักษะ + ยังไม่มี b
 **สถานะจริง: `learning_practice_events` = 0 แถว** → สคริปต์พิมพ์ว่า "ยังไม่มีแถวซ้อมจริงในตาราง —
 เกิดเองเมื่อนักเรียนซ้อม ห้ามปลอม" (ผลจาก `scripts/compound-dashboard.mjs` จริง)
 
-## ส่วนที่ 3: คิวความรู้จากคนภายนอก (m26, docs/09 ชั้น 1)
+## ส่วนที่ 3: คิวความรู้จากคนภายนอก (m26 + m27, docs/09 ชั้น 1)
 
 - `tigamodel/compliance/contribution-store.js` (pure): แถวที่ผู้ส่งสร้าง **status เป็น
   `pending` เสมอ** (ค่าที่ client ส่งมาถูกทิ้ง), เหตุผลจากประตูครบทุกข้อ, `moderateArgs` ต้องมี
@@ -51,6 +51,21 @@ C: 0 diagnosis ที่ระบุทักษะ + ยังไม่มี b
   + trigger stamp ผู้ตัดสินและเวลา — additive, re-runnable
 - ⚠️ **ยังไม่ apply** (repo hard rule: migration ต้องได้อนุมัติเจ้าของในบทสนทนานี้ก่อน)
   — `OWNER_APPROVALS` มีรายการ `knowledge-contributions: approved: false` แล้ว
+
+**m27 — เครดิตผู้ร่วมสร้างที่อยู่ถาวร:** เฉพาะแถวที่ **approved** เท่านั้นที่ได้ entry
+(`creditedEntryFor`) · entry อ้าง source id ตัวเดียวกับที่ประตูเลือก (`tiga-contrib:<id>`
+สำหรับ own-work, `contrib:<id>:<title>` สำหรับ public-fact) · registry เก็บ `contributor_name`
++ `license` + `excerpt` ไว้ ชื่ออยู่ใน**บันทึกแหล่งที่มา** ไม่ใช่คอมเมนต์ · smoke พิสูจน์กับ
+scanner ตัวจริงว่า entry ที่มีเครดิตผ่าน 0 flag และ public-fact ที่ไม่มี registry จะถูก flag
+attribution จริง ๆ (เครดิตคือสิ่งที่ทำให้คำอ้างสืบยาวได้ ไม่ใช่แค่ข้อความสวย ๆ) · คอลัมน์
+`contributor_name` เพิ่มใน SQL และคิวส่งต่อให้ผู้ตรวจ
+
+## ส่วนที่ 3b: m11 ปิดที่ m20 แล้ว (ไม่มีงานซ้ำ)
+
+`m11-jev-policy` กับ `m20-jev-policy` อ้างคำสั่งเดียวกันเป๊ะ (jev-tie-breaker +
+teaching-loop + kill switch `tiga_jev_policy` + smoke) — รวม m11 เป็น `done` ที่ชี้ m20
+แทนการทิ้ง milestone ที่ "planned" ไว้ให้ดูเหมือนยังต้องทำ · ตรวจพบตอน
+`plan-check` ว่าสวิตช์นี้ถูกสัญญาไว้ใน m11 แต่คีย์อยู่ที่ `jev-tie-breaker.js` จึงแก้ไฟล์ที่ตรวจให้ตรง
 
 ## ส่วนที่ 4: m36 ปิดที่ m48 แล้ว และปุ่ม short routing ใน Lab
 
@@ -65,9 +80,9 @@ C: 0 diagnosis ที่ระบุทักษะ + ยังไม่มี b
 | ด่าน | ผล |
 |---|---|
 | smoke-compound-dashboard (ใหม่) | 19/19 |
-| smoke-contribution-store (ใหม่) | 17/17 |
+| smoke-contribution-store (ใหม่) | 23/23 (รวมเครดิตผู้ร่วมสร้าง m27) |
 | smoke-routing-bridge (มีข้อใหม่) | 8/8 |
-| plan-check (รัน smoke จริงทุก milestone) | 93 passed / 0 failed |
+| plan-check (รัน smoke จริงทุก milestone) | 94 passed / 0 failed |
 | scorecard | ด้าน 1–12 (ด่าน 12 = ความซื่อสัตย์ของแดชบอร์ด + คิวความรู้) ผ่าน 100% |
 | scripts/compound-dashboard.mjs (live DB) | วัดได้ 6/7 ช่อง · หลักฐานรายคน = ยังไม่มีแถวซ้อม |
 
@@ -77,5 +92,5 @@ C: 0 diagnosis ที่ระบุทักษะ + ยังไม่มี b
 - **วงจร B**: รอ `teaching_outcomes` ≥ 50 (ตอนนี้ 5 — เกิดเองจากการซ้อมจริง ห้ามปลอม)
 - **วงจร C**: รอ `learning_diagnoses` ที่ระบุทักษะ (0 แถว) + baseline อัตรา ตอบไม่ได้ก่อน wave
 - **m24**: รอ `learning_practice_events` มีแถวจริงจากนักเรียน
-- **m26**: รอเจ้าของอนุมัติ apply migration
+- **m26**: รอเจ้าของอนุมัติ apply migration · **m27**: ต่อเนื่องจาก m26 (ไม่มี entry จริงจนกว่านั้น)
 - **m09/m10/m17/m18/m19/m38**: ต้องมีข้อมูลจริง/เกณฑ์เวลาจริงก่อน ทำ "ตอนนี้" = ปลอม
