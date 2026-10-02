@@ -312,6 +312,10 @@ in the code, and what it replaced:
   per topic); what a model writes on that page is the weekly report and the 7-day plan further down — if the wording is ever
   challenged, that is the line to look at. The `mentor` bot section covers the tab (three languages, narrow phones, dark theme,
   reduced motion).
+- **Ads: on hold (owner, 2026-10-02: "don't do anything about ads yet, park it").** A Google AdSense plan exists as a document (where
+  banners could go, what they would cost in returning players, the gates to pass first); the owner asked for the plan only and then put
+  it aside. There is no ad script, ad slot, ad consent banner or AdSense account wiring in the repo, and none is to be added until the
+  owner says so in the current conversation.
 - **The song list is drawn in slices** (60 cards, 120 more when its end comes near; `.songmore` is the sentinel) so a chip switch
   does not build 1,067 cards. Bots that count or look for a card past the first screen call `expandList()` first. The classical
   library is NOT lazy-loaded: 40+ places read `SONGS` synchronously (the daily song would re-pick if its saved id were not there
