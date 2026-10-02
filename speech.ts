@@ -24,7 +24,12 @@ export const CHAT_TTS_RATE = 1.15;
    700 ตัวอักษร ≈ ประมาณ 40–60 วินาทีของเสียงไทย — สั้นพอที่จะไม่รู้สึกว่ารอ
    ชิ้นแรก 380 ตัวอักษร ≈ 2–3 ประโยค เพื่อให้เสียงแรกดังเร็วที่สุด */
 export const TTS_CHUNK_CHARS = 700;
-export const TTS_FIRST_CHUNK_CHARS = 380;
+// The first clip is what the learner waits for, so it is deliberately short: a
+// 240-char clip synthesises and downloads in a fraction of the time of a long one,
+// and the rest of the message is prefetched while it plays. 2026-10-02: 380 → 240
+// after "กดปุ่มแล้วต้องรีบนาน" — every extra second here is a second of silence
+// before the voice starts.
+export const TTS_FIRST_CHUNK_CHARS = 240;
 
 export function ttsSupported() {
   return typeof window !== "undefined" &&
@@ -259,14 +264,27 @@ export function ttsChunks(text, max = 130, firstMax = 0) {
   for (let s of sentences) {
     s = s.trim();
     if (!s) continue;
+    // a sentence longer than the budget is cut at a word boundary
     while (s.length > limitFor(out.length)) {
       const lim = limitFor(out.length);
       let cut = s.lastIndexOf(" ", lim);
       if (cut < lim * 0.6) cut = lim; // no good space nearby — hard cut
-      out.push(s.slice(0, cut).trim());
+      const head = s.slice(0, cut).trim();
+      if (head) out.push(head);
       s = s.slice(cut).trim();
     }
-    if (s) out.push(s);
+    // Then PACK it into the chunk being filled, instead of starting a new one per
+    // sentence. This used to emit one request per sentence, so a tutor answer of
+    // ten short sentences became ten synthesised clips, each separated by the global
+    // 1.2s request gap — that is the "กดแล้วรอนาน" the owner reported, and ten
+    // requests in a row is also what runs into the provider's rate limit part-way
+    // through a message. Packing keeps the same words in far fewer round trips.
+    // The FIRST chunk is the exception: it is what the learner is waiting for, so it
+    // stays one sentence — the shortest clip that still says something real, which is
+    // the fastest possible "กดแล้วมาเลย".
+    const i = out.length - 1;
+    if (i > 0 && out[i].length + 1 + s.length <= limitFor(i)) out[i] = (out[i] + " " + s).trim();
+    else if (s) out.push(s);
   }
   return out.length ? out : [text];
 }
@@ -402,6 +420,20 @@ export async function ttsThrottle() {
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   _ttsLastReqAt = Date.now();
 }
+/* Nothing in the read-aloud chain may wait forever. A fetch that never settles and
+   a clip whose `onended` never arrives both used to end playback silently, in the
+   middle of the message, with nothing on screen — the owner reported it as "อ่าน
+   ไปสองบรรทัดแล้วหยุด" (2026-10-02). Every wait below has a ceiling instead. */
+export const TTS_CHUNK_WAIT_MS = 20000;    // a chunk that has not arrived in this long is not going to arrive
+export function withTimeout(p, ms, tag) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const to = setTimeout(() => { if (settled) return; settled = true; reject(Object.assign(new Error(tag || "timeout"), { wait: true })); }, ms);
+    p.then(v => { if (settled) return; settled = true; clearTimeout(to); resolve(v); },
+      e => { if (settled) return; settled = true; clearTimeout(to); reject(e); });
+  });
+}
+
 export async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000, opts = null) {
   const voice = getVmVoiceName();
   const key = ttsKey(s, lang, voice);
@@ -532,13 +564,19 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
     for (let i = 0; i < chunks.length; i++) {
       const curP = nextP;
       let buf;
-      try { buf = await curP; }
+      // Nothing here may wait forever. A chunk promise that never settles — a hung
+      // fetch, an IndexedDB read that never answers — used to leave playback dead
+      // after the first clip with no error and nothing on screen.
+      try { buf = await withTimeout(curP, TTS_CHUNK_WAIT_MS, "tts-chunk-wait"); }
       catch (e) {
         if (i === 0) throw e; // nothing played yet → let the caller fall back to the device voice
-        // Retries are already exhausted here. Stop cleanly instead of silently
-        // dropping this chunk and every one after it.
-        console.error("[TIGA TTS] chunk " + (i + 1) + "/" + chunks.length + " failed after retries:", e);
-        break;
+        // The cloud cannot finish this message. Do NOT stop here: a `break` used to
+        // drop this chunk AND every one after it, so a long answer could end two
+        // lines in. Hand the unread remainder to the caller instead, which reads it
+        // with the device voice — the message still reaches the learner in full, and
+        // nothing already read is read twice.
+        console.warn("[TIGA TTS] chunk " + (i + 1) + "/" + chunks.length + " unavailable, device voice reads the rest:", e);
+        throw Object.assign(e instanceof Error ? e : new Error(String(e)), { rest: chunks.slice(i).join(" ").trim() });
       }
       if (stale()) return true;
       if (!firstStarted) { firstStarted = true; if (onStart) onStart(); }
@@ -557,9 +595,17 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
         src.buffer = buf;
         if (rateMul && rateMul !== 1) src.playbackRate.value = Math.max(0.5, Math.min(1.8, rateMul));
         src.connect(ac.destination);
-        src.onended = resolve;
+        let done = false;
+        let watchdog = null;
+        const finish = () => { if (done) return; done = true; if (watchdog) clearTimeout(watchdog); resolve(); };
+        src.onended = finish;
+        // The decoded buffer says how long it really is. An AudioContext suspended
+        // when a phone takes audio focus never fires `onended`, and that alone used
+        // to freeze the loop mid-message; the watchdog is what guarantees it advances.
+        const dur = (buf && buf.duration ? buf.duration : 8) / (src.playbackRate.value || 1);
+        watchdog = setTimeout(finish, (dur + 4) * 1000);
         _ttsSource = src;
-        try { src.start(); } catch (e) { resolve(); }
+        try { src.start(); } catch (e) { finish(); }
       });
       if (stale()) return true;
     }
