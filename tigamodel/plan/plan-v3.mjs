@@ -32,7 +32,7 @@ export const STEEL_RULES = [
 export const OWNER_APPROVALS = [
   { item: "learning-data-migration", label: "supabase-learning-data-migration.sql (7 ตาราง + RLS + RPCs)", approved: true, approvedBy: "owner (this conversation, 2026-09-29: อนุญาต ให้ทำได้ทั้งสองข้อ)" },
   { item: "policy-weights-migration", label: "supabase-policy-weights-migration.sql (RPC + seed switch-off)", approved: true, approvedBy: "owner (this conversation, 2026-09-29: อนุญาต ให้ทำได้ทั้งสองข้อ)" },
-  { item: "knowledge-contributions", label: "supabase-knowledge-contributions-migration.sql (ตาราง knowledge_contributions + RLS + RPC อนุมัติโดยผู้ดูแล)", approved: false, approvedBy: "ยังไม่อนุมัติ — ไฟล์เขียนแล้ว รอเจ้าของสั่ง apply ในบทสนทนานี้ (repo hard rule)" },
+  { item: "knowledge-contributions", label: "supabase-knowledge-contributions-migration.sql (ตาราง knowledge_contributions + RLS + RPC อนุมัติโดยผู้ดูแล)", approved: true, approvedBy: "owner (2026-10-02, บทสนทนานี้: ให้ SUPABASE_ACCESS_TOKEN แล้วสั่ง 'ทำงานที่ค้างต่อได้เลย' — migration นี้คือรายการเดียวที่ผมขออนุมัติไว้ก่อนหน้า)" },
 ];
 
 export const MILESTONES = [
@@ -240,11 +240,11 @@ export const MILESTONES = [
   },
   {
     id: "m26-contribution-store",
-    title: "ที่เก็บข้อเสนอความรู้ + กติกาหน้าอนุมัติผู้ใหญ่ (SQL เขียนแล้ว รอเจ้าของอนุมัติ apply)",
-    state: "code",
+    title: "ที่เก็บข้อเสนอความรู้ + กติกาหน้าอนุมัติผู้ใหญ่ (APPLIED 2026-10-02 ด้วยอนุมัติเจ้าของ)",
+    state: "done",
     deps: ["m25-contribution-gate", "m05-apply-learning-data"],
-    acceptance: "contribution-store.js (pure): แถวที่ผู้ส่งสร้าง status เป็น 'pending' เสมอ (ค่าที่ client ส่งมาถูกทิ้ง) · เหตุผลจากประตูครบทุกข้อ · moderateArgs ต้องมี admin_tier + id จริง + สถานะที่ตัดสินได้ + เหตุผลเขียน (โมเดลอนุมัติเองไม่ได้) · approvalBlockers ห้ามอนุมัติแถวที่ gate ไม่ผ่าน/ไม่มีผู้ส่ง/ไม่มี license · queueStats นับเฉพาะที่มี · supabase-knowledge-contributions-migration.sql: ตาราง + RLS (insert ได้เฉพาะแถวตัวเองสถานะ pending, อ่านเฉพาะแถวตัวเอง, ไม่มี policy UPDATE/DELETE) + RPC admin_moderate_contribution / _queue / _count + trigger stamp ผู้ตัดสิน·เวลา — additive re-runnable · smoke-contribution-store 17/17 · ยังไม่ apply (repo hard rule: รอเจ้าของอนุมัติในบทสนทนานี้)",
-    evidence: ["tigamodel/compliance/contribution-store.js", "tigamodel/scripts/smoke-contribution-store.mjs", "supabase-knowledge-contributions-migration.sql", "tigamodel/compliance/contribution-gate.js"],
+    acceptance: "contribution-store.js (pure): แถวที่ผู้ส่งสร้าง status เป็น 'pending' เสมอ (ค่าที่ client ส่งมาถูกทิ้ง) · เหตุผลจากประตูครบทุกข้อ · moderateArgs ต้องมี admin_tier + id จริง + สถานะที่ตัดสินได้ + เหตุผลเขียน (โมเดลอนุมัติเองไม่ได้) · approvalBlockers ห้ามอนุมัติแถวที่ gate ไม่ผ่าน/ไม่มีผู้ส่ง/ไม่มี license · queueStats นับเฉพาะที่มี · supabase-knowledge-contributions-migration.sql: ตาราง + RLS (insert ได้เฉพาะแถวตัวเองสถานะ pending, อ่านเฉพาะแถวตัวเอง, ไม่มี policy UPDATE/DELETE) + RPC admin_moderate_contribution / _queue / _count + trigger stamp ผู้ตัดสิน·เวลา — additive re-runnable · smoke-contribution-store 17/17 · APPLIED 2026-10-02 ด้วยอนุมัติเจ้าของในบทสนทนานี้ (ให้ SUPABASE_ACCESS_TOKEN + สั่งทำงานที่ค้างต่อ) — ยืนยันบน live DB จริง verify-knowledge-contributions 11/11: ตารางมี · คอลัมน์ครบ 12 · status check constraint · RLS เปิด · policy 2 ตัวพอดี (insert own pending + select own) · ไม่มี policy UPDATE/DELETE · RPC 3 ตัว SECURITY DEFINER ครบ · trigger stamp ติด · re-run เป็น no-op",
+    evidence: ["tigamodel/compliance/contribution-store.js", "tigamodel/scripts/smoke-contribution-store.mjs", "supabase-knowledge-contributions-migration.sql", "tigamodel/compliance/contribution-gate.js", "scripts/verify-knowledge-contributions.mjs", "scripts/apply-migrations.mjs"],
     needsApproval: "knowledge-contributions",
   },
   {
@@ -252,7 +252,7 @@ export const MILESTONES = [
     title: "เครดิตผู้ร่วมสร้างติดตาวรา (provenance ขยายจากแหล่ง→คน)",
     state: "code",
     deps: ["m26-contribution-store"],
-    acceptance: "contribution-store.js: เฉพาะแถวที่ APPROVED เท่านั้นที่ได้เครดิต (pending/rejected → ไม่มี entry) · entry ที่ได้อ้าง source id ตัวเดียวกับที่ประตูเลือก (own-work = tiga-contrib:<id>, public-fact = contrib:<id>:<title>) · registry SOURCES เก็บ contributor_name + license + excerpt ไว้ (ชื่ออยู่ในบันทึกแหล่งที่มา ไม่ใช่คอมเมนต์) · entry ที่มีเครดิตผ่าน scanner ตัวจริง 0 flag และ public-fact ที่ไม่มี registry จะถูก flag attribution จริง (พิสูจน์ว่าเครดิตคือสิ่งที่ทำให้คำอ้างสืบยาวได้) · คอลัมน์ contributor_name ใน SQL + queue ส่งต่อให้ผู้ตรวจ · smoke-contribution-store 23/23 · ด่าน 12 ของ scorecard ตรวจเครดิตซ้ำอีกชั้น — สถานะ code เพราะยังไม่มีแถวจริงจนกว่าเจ้าของอนุมัติ apply (m26)",
+    acceptance: "contribution-store.js: เฉพาะแถวที่ APPROVED เท่านั้นที่ได้เครดิต (pending/rejected → ไม่มี entry) · entry ที่ได้อ้าง source id ตัวเดียวกับที่ประตูเลือก (own-work = tiga-contrib:<id>, public-fact = contrib:<id>:<title>) · registry SOURCES เก็บ contributor_name + license + excerpt ไว้ (ชื่ออยู่ในบันทึกแหล่งที่มา ไม่ใช่คอมเมนต์) · entry ที่มีเครดิตผ่าน scanner ตัวจริง 0 flag และ public-fact ที่ไม่มี registry จะถูก flag attribution จริง (พิสูจน์ว่าเครดิตคือสิ่งที่ทำให้คำอ้างสืบยาวได้) · คอลัมน์ contributor_name ใน SQL + queue ส่งต่อให้ผู้ตรวจ · smoke-contribution-store 23/23 · ด่าน 12 ของ scorecard ตรวจเครดิตซ้ำอีกชั้น — สถานะ code เพราะตาราง apply แล้ว (m26) แต่ยังไม่มีแถวจริงให้อนุมัติ ชื่อผู้ร่วมสร้างจึงยังไม่เคยไปแสดงใน UI ครั้งแรก",
     evidence: ["tigamodel/compliance/contribution-store.js", "tigamodel/scripts/smoke-contribution-store.mjs", "supabase-knowledge-contributions-migration.sql", "tigamodel/compliance/kb-compliance.js"],
   },
   {
@@ -419,10 +419,10 @@ export const MILESTONES = [
   {
     id: "m42-morning-command",
     title: "docs/13 §1 npm run morning — รายงานเช้ารวมทุกวงจรในคำสั่งเดียว",
-    state: "code",
+    state: "done",
     deps: ["m40-outcomes-counter"],
-    acceptance: "คำสั่งเดียวจบ: readiness วงจร B (outcomes จริง) + scorecard 8 ด่าน — หน้าเดียวตัวเลขจริงทุกตัว; ขยายครอบวงจร A/C เมื่อ m41/m43 เข้าคิว",
-    evidence: ["package.json", "tigamodel/docs/13-plan-plus-hundred-2.md"],
+    acceptance: "คำสั่งเดียวจบครบทุกวงจรตามที่แผนสัญญาไว้ (วัดจริง 2026-10-02): outcomes-report (readiness วงจร B) + problems-to-kb-queue (คิววงจร C) + compound-dashboard (บอร์ดวงจร A/B/C พร้อมหลักฐานก่อน-หลังรายคน m24) + tiga-scorecard 12 ด้าน (เดิม 8 → 12) — ทุกตัวเลขมาจากตารางจริง ช่องที่วัดไม่ได้พิมพ์ว่า 'ยังไม่มีข้อมูลจริง (ไม่ประมาณ)' ไม่ใช่ 0 · สวิตช์ทุกตัว default OFF ยังเป็นคำสั่งของเจ้าของ",
+    evidence: ["package.json", "scripts/compound-dashboard.mjs", "scripts/outcomes-report.mjs", "scripts/problems-to-kb-queue.mjs", "scripts/tiga-scorecard.mjs", "tigamodel/docs/13-plan-plus-hundred-2.md"],
   },
   {
     id: "m43-top-problems-queue",

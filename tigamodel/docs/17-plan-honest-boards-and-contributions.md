@@ -49,8 +49,17 @@ C: 0 diagnosis ที่ระบุทักษะ + ยังไม่มี b
   (pending/approved/rejected) + RLS (insert ได้เฉพาะแถวตัวเองสถานะ pending, อ่านเฉพาะแถวตัวเอง,
   **ไม่มี policy UPDATE/DELETE**) + RPC `admin_moderate_contribution` / `_queue` / `_count`
   + trigger stamp ผู้ตัดสินและเวลา — additive, re-runnable
-- ⚠️ **ยังไม่ apply** (repo hard rule: migration ต้องได้อนุมัติเจ้าของในบทสนทนานี้ก่อน)
-  — `OWNER_APPROVALS` มีรายการ `knowledge-contributions: approved: false` แล้ว
+- ✅ **APPLIED 2026-10-02 ด้วยอนุมัติเจ้าของในบทสนทนานี้** (เจ้าของให้ `SUPABASE_ACCESS_TOKEN`
+  แล้วสั่ง "ทำงานที่ค้างต่อได้เลย" — migration นี้คือรายการเดียวที่ขออนุมัติไว้ก่อนหน้า)
+  รันด้วยปุ่มเดียว `node scripts/apply-migrations.mjs --only=contributions` แล้ว **re-run เป็น no-op**
+  (additive จริงตามที่ออกแบบไว้)
+- **ยืนยันบน live DB จริง — `scripts/verify-knowledge-contributions.mjs` 11/11**:
+  ตารางมี · คอลัมน์ครบ 12 · `status` มี check constraint · **RLS เปิด** · **policy 2 ตัวพอดี**
+  (insert own pending + select own) · **ไม่มี policy UPDATE/DELETE** (คำตัดสินแก้ไขเองไม่ได้) ·
+  RPC 3 ตัวเป็น SECURITY DEFINER ครบ · `admin_moderate_contribution` pin `search_path` ·
+  trigger stamp ผู้ตัดสิน/เวลาติดอยู่ · อ่านได้จริง (แถว 0 ตอนนี้)
+- สคริปต์นี้ถูกเสียบเข้า `plan-check` ทุกครั้งที่ merge (95 ข้อ) และเข้า `npm run morning`
+  — ถ้าวันไหนต่อ DB ไม่ได้มันจะพิมพ์ "ยืนยันไม่ได้รอบนี้" **ไม่ใช่ผ่าน**
 
 **m27 — เครดิตผู้ร่วมสร้างที่อยู่ถาวร:** เฉพาะแถวที่ **approved** เท่านั้นที่ได้ entry
 (`creditedEntryFor`) · entry อ้าง source id ตัวเดียวกับที่ประตูเลือก (`tiga-contrib:<id>`
@@ -82,7 +91,8 @@ teaching-loop + kill switch `tiga_jev_policy` + smoke) — รวม m11 เป�
 | smoke-compound-dashboard (ใหม่) | 19/19 |
 | smoke-contribution-store (ใหม่) | 23/23 (รวมเครดิตผู้ร่วมสร้าง m27) |
 | smoke-routing-bridge (มีข้อใหม่) | 8/8 |
-| plan-check (รัน smoke จริงทุก milestone) | 94 passed / 0 failed |
+| verify-knowledge-contributions (live DB) | 11/11 — migration apply แล้วและรูปร่างถูกตามที่ออกแบบ |
+| plan-check (รัน smoke จริงทุก milestone + ตรวจ live) | 95 passed / 0 failed |
 | scorecard | ด้าน 1–12 (ด่าน 12 = ความซื่อสัตย์ของแดชบอร์ด + คิวความรู้) ผ่าน 100% |
 | scripts/compound-dashboard.mjs (live DB) | วัดได้ 6/7 ช่อง · หลักฐานรายคน = ยังไม่มีแถวซ้อม |
 
@@ -92,5 +102,9 @@ teaching-loop + kill switch `tiga_jev_policy` + smoke) — รวม m11 เป�
 - **วงจร B**: รอ `teaching_outcomes` ≥ 50 (ตอนนี้ 5 — เกิดเองจากการซ้อมจริง ห้ามปลอม)
 - **วงจร C**: รอ `learning_diagnoses` ที่ระบุทักษะ (0 แถว) + baseline อัตรา ตอบไม่ได้ก่อน wave
 - **m24**: รอ `learning_practice_events` มีแถวจริงจากนักเรียน
-- **m26**: รอเจ้าของอนุมัติ apply migration · **m27**: ต่อเนื่องจาก m26 (ไม่มี entry จริงจนกว่านั้น)
+- **m26**: ✅ เสร็จ (apply แล้ว) · **m27**: รอแถวจริง (ตอนนี้ตาราง 0 แถว — ชื่อผู้ร่วมสร้างยังไม่เคยไปแสดง)
 - **m09/m10/m17/m18/m19/m38**: ต้องมีข้อมูลจริง/เกณฑ์เวลาจริงก่อน ทำ "ตอนนี้" = ปลอม
+
+> บันทึกความจริง: การมี access token ไม่ได้ทำให้วงจร A/B/C เดินได้ข้ามหนึ่งขั้น —
+> ทั้งสามวงจรรอ **แถวข้อมูลจากนักเรียนจริง** ซึ่งต้องเกิดเอง การเขียนแถวปลอมเพื่อให้ตัวเลข
+> ดูดีคือการทำลายงานทั้งหมดที่ทำมา
