@@ -44,13 +44,14 @@ function freshWorld() {
   const store = new Map();
   globalThis.localStorage = { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
   globalThis.window = globalThis;
-  globalThis.__played = []; globalThis.__fetches = []; globalThis.__playedRate = 1;
+  globalThis.__played = []; globalThis.__fetches = []; globalThis.__playedRate = 1; globalThis.__noOnend = false;
   globalThis.__ac = {
     state: "running", destination: {}, resume: async () => {},
-    decodeAudioData: async (buf) => ({ id: buf.byteLength }),
+    // duration matters: the playback watchdog reads the real length off the buffer
+    decodeAudioData: async (buf) => ({ id: buf.byteLength, duration: 0.05 }),
     createBufferSource() {
       const n = { buffer: null, playbackRate: { value: 1 }, connect() {}, onended: null,
-        start() { globalThis.__played.push(this.buffer.id); globalThis.__playedRate = this.playbackRate.value; this._t = setTimeout(() => this.onended && this.onended(), globalThis.__clipMs || 60); },
+        start() { globalThis.__played.push(this.buffer.id); globalThis.__playedRate = this.playbackRate.value; if (globalThis.__noOnend) return; this._t = setTimeout(() => this.onended && this.onended(), globalThis.__clipMs || 60); },
         stop() { clearTimeout(this._t); setTimeout(() => this.onended && this.onended(), 0); } };
       return n;
     },
@@ -58,12 +59,14 @@ function freshWorld() {
   globalThis.__clipMs = 60;
 }
 // a fake piano-tts: each request answers after `delay` ms with a clip whose size says which text it was (so "which one played" is visible)
-function fakeTts({ delay = 0, fail = false } = {}) {
+function fakeTts({ delay = 0, fail = false, failFrom = 0 } = {}) {
+  let seen = 0;
   globalThis.fetch = async (url, init) => {
     const body = JSON.parse(init.body);
     globalThis.__fetches.push(body);
+    seen++;
     await sleep(delay);
-    if (fail) return { ok: false, status: 500, json: async () => ({ error: "stub" }) };
+    if (fail || (failFrom && seen >= failFrom)) return { ok: false, status: 500, json: async () => ({ error: "stub" }) };
     const q = /"([\s\S]*)"/.exec(body.text);
     const bytes = Buffer.alloc(100 + (q ? q[1].length : 0)).toString("base64");
     return { ok: true, status: 200, json: async () => ({ audio: bytes }) };
@@ -221,6 +224,60 @@ async function load() {
   const S = await load();
   await S.speakCloud("เร็วขึ้นนะครับ", "th", null, () => {}, () => {}, S.CHAT_TTS_RATE, null);
   check("cloud-clip-plays-at-the-chat-rate", globalThis.__playedRate >= 1.1, "rate " + globalThis.__playedRate);
+}
+
+// 9. a long message must never stop half-way
+//    (owner, 2026-10-02, from a phone screenshot: "อ่านไปประมาณสองบรรทัดแล้วหยุด")
+{
+  // 9a. the first clip is short, so the voice starts sooner
+  freshWorld(); fakeTts({ delay: 0 });
+  const S = await load();
+  check("first-chunk-is-short-so-the-voice-starts-sooner", S.TTS_FIRST_CHUNK_CHARS <= 260,
+    "first chunk " + S.TTS_FIRST_CHUNK_CHARS + " chars");
+  const parts = S.ttsChunks("A".repeat(900) + ".", S.TTS_CHUNK_CHARS, S.TTS_FIRST_CHUNK_CHARS);
+  check("the-first-chunk-really-is-the-short-one", parts[0].length <= S.TTS_FIRST_CHUNK_CHARS,
+    "chunk sizes: " + parts.map(x => x.length).join(", "));
+  // short sentences must be PACKED, not one request each: the owner's answer above
+  // used to become six synthesised clips and now becomes two
+  const multi = "One sentence here. A second sentence follows. A third one too. And a fourth to finish it off.";
+  const packed = S.ttsChunks(multi, S.TTS_CHUNK_CHARS, S.TTS_FIRST_CHUNK_CHARS);
+  check("short-sentences-are-packed-into-few-requests", packed.length <= 2,
+    `4 sentences → ${packed.length} request(s)`);
+  check("packing-keeps-every-word", packed.join(" ").replace(/\s+/g, " ").trim() === multi,
+    "joined: " + packed.join(" "));
+
+  // 9b. a chunk the cloud cannot deliver must NOT swallow the rest of the message.
+  //     It used to `break`, which ended the reading two lines in.
+  freshWorld(); fakeTts({ delay: 0, failFrom: 2 });
+  const S2 = await load();
+  let err = null;
+  const msg = [
+    "The C major scale has eight notes and it follows a whole whole half pattern.",
+    "The right hand ascends with the thumb going under after the third finger.",
+    "The left hand ascends with finger three going over the thumb.",
+    "Descending simply reverses those fingerings back down to the bottom C.",
+    "Play the right hand alone at sixty beats per minute before adding the left.",
+    "Focus on the thumb-under motion and keep the wrist loose throughout.",
+    "Once it is smooth, put both hands together and count out loud.",
+  ].join(" ");
+  await S2.speakCloud(msg, "en", null, () => {}, (e) => { err = e; }, 1,
+    { src: "chat", spend: () => true, refund: () => {} });
+  check("a-chunk-failing-mid-message-is-reported-not-swallowed", !!err, "onError fired");
+  check("the-unread-remainder-is-handed-to-the-caller", !!(err && err.rest && err.rest.length > 50),
+    err && err.rest ? "rest " + err.rest.length + " chars" : "no rest");
+  check("the-remainder-is-the-tail-not-the-whole-message", !!(err && err.rest && err.rest.length < msg.length),
+    err && err.rest ? err.rest.length + " of " + msg.length + " chars" : "");
+  check("the-part-already-played-was-not-read-twice", globalThis.__played.length >= 1,
+    "played " + globalThis.__played.length + " clip(s) before handing over");
+
+  // 9c. a clip whose `onended` never arrives — what a phone does when it takes
+  //     audio focus — must not freeze the loop for good
+  freshWorld(); fakeTts({ delay: 0 });
+  globalThis.__noOnend = true;
+  const S3 = await load();
+  let finished = false;
+  await S3.speakCloud("A short line the phone will never report the end of.", "en", () => {}, () => { finished = true; }, () => {}, 1, null);
+  check("a-clip-without-onended-still-finishes", finished, "onDone fired (watchdog)");
 }
 
 console.log(`\n${pass}/${pass + fail} passed`);

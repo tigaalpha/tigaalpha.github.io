@@ -47,16 +47,20 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
     const live = () => t === ticket.current;
     const done = () => { if (live()) { setBusy(false); setActiveId(null); } };
     setNote(""); setActiveId(id); setBusy(true);
-    const device = (budget) => {
+    const device = (budget, rest) => {
       if (!live()) return;                          // stopped, or another message took over, while the cloud was answering
       if (budget) setNote(lc.spkLimit);
       setBusy(false);
-      speakDeviceOrNative(text, said, done, done).catch(done);
+      // `rest` is what the cloud did not get to: the cloud voice already read the
+      // first part, so the device voice continues from there instead of repeating
+      // the whole message. Without it (first chunk failed, or the day's allowance
+      // was short) `rest` is empty and the device reads everything, as before.
+      speakDeviceOrNative(rest || text, said, done, done).catch(done);
     };
     speakCloud(text, said,
       () => { if (live()) setBusy(false); },
       done,
-      (e) => device(!!(e && e.budget)),
+      (e) => device(!!(e && e.budget), e && e.rest),
       CHAT_TTS_RATE,
       { src: "chat", spend: (s) => ttsBudgetSpend(ttsEstSeconds(s, said)), refund: (s) => ttsBudgetRefund(ttsEstSeconds(s, said)) });
   }

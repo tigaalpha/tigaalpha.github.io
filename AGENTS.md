@@ -245,14 +245,26 @@ full-screen chat and the Sensei page alike. `speakMode` is worked out in `PianoA
 admin account, `"locked"` for everyone else — the button shows a small lock and a tap opens the plans (`prMaxSpk` is a bullet
 of both Max cards). It speaks in the language the message is written in (`detectSpeechLang`: Thai wins over a few English
 terms), through `speakCloud` → `piano-tts` with `src:"chat"` and the Voice Tutor's male voices (`VM_VOICES`, default Algieba).
-**Speed and reading all of it (owner, 2026-10-02: "it reads slowly and doesn't finish the whole chat").** A long tutor
-answer is cut into chunks by `ttsChunks` (`speech.ts`) and fetched one at a time: the first chunk is deliberately short
-(`TTS_FIRST_CHUNK_CHARS` = 380) so the reading starts within a second, later chunks are bigger (`TTS_CHUNK_CHARS` = 700)
-so one network round trip covers more text, and each one is prefetched while the previous is still playing. The chat speaks
-at `CHAT_TTS_RATE` = 1.15 (Voice Tutor keeps `TTS_RATE`), which is also what `BubbleSpeak` plays at. **The day's allowance
-is charged once for the whole message, not per chunk** (`speakCloud`'s `msgOpts.charged`): if the whole message will not
-fit, nothing cloud-based starts and the device's own voice reads the entire message — the old code ran out mid-answer and
-stopped. A message is therefore always read to the end, by the cloud or by the phone. On the server the two `await`s in
+**Speed and reading all of it (owner, 2026-10-02: "it reads slowly and doesn't finish the whole chat", then, from a phone
+screenshot: "อ่านไปประมาณสองบรรทัดแล้วหยุด" — and "กดปุ๊บแล้วมาเลย").** A long tutor answer is cut into chunks by
+`ttsChunks` (`speech.ts`) and fetched one at a time. **Short sentences are PACKED into one chunk** (`TTS_CHUNK_CHARS` = 700),
+not one request each — that used to turn a ten-sentence answer into ten synthesised clips with the global 1.2s request gap
+between them, which is what made a tap feel slow and is also what ran into the provider's rate limit part-way through a
+message. The measured effect on the answer in that screenshot (575 chars): **6 requests → 2**; on a twice-longer one
+(1,151 chars): **12 → 3**. The **first** chunk is the exception and stays a single sentence (`TTS_FIRST_CHUNK_CHARS` = 240
+is its ceiling), because that is the clip the learner waits for and the shortest real one is the fastest. Each later chunk is
+prefetched while the previous plays. The chat speaks at `CHAT_TTS_RATE` = 1.15 (Voice Tutor keeps `TTS_RATE`), which is
+also what `BubbleSpeak` plays at. **The day's allowance is charged once for the whole message, not per chunk**
+(`speakCloud`'s `msgOpts.charged`): if the whole message will not fit, nothing cloud-based starts and the device's own voice
+reads the entire message — the old code ran out mid-answer and stopped.
+
+**Nothing in that loop may wait forever.** Two silent stalls used to end a reading two lines in, with no error on screen:
+`await`ing a chunk promise with no ceiling (a hung fetch, or an IndexedDB read that never answers), and waiting only on
+`onended`, which a phone never fires when it takes audio focus and suspends the AudioContext. Both now have a watchdog
+(`withTimeout` / `TTS_CHUNK_WAIT_MS`, and a per-clip watchdog sized off the decoded buffer's real duration). **And a chunk
+that fails mid-message no longer `break`s** — it hands the unread remainder to the caller as `error.rest`, and
+`BubbleSpeak` reads exactly that with the device voice, so the message always finishes and nothing already read is read
+twice. A message is therefore always read to the end, by the cloud or by the phone. On the server the two `await`s in
 `piano-tts` (`chatVoiceAllowed` and `resolveTtsConfig`) became one `Promise.all`, saving a round trip — that file is
 still **not deployed**, so production still pays it. What keeps it cheap: a clip heard before comes from the local cache and costs nothing; each device has a day's allowance of
 cloud speech (`TTS_DAILY_SECONDS` = 5 minutes, `ttsBudgetSpend` / `ttsBudgetRefund`, counted in estimated seconds, key
@@ -532,7 +544,8 @@ a real model answers. `node tigamodel/scripts/smoke-kb-hot-path-switch.mjs` cove
 the knowledge-block switch (it temporarily stubs `supabase-client.ts` and restores
 it — check `git diff supabase-client.ts` is empty if a run was killed).
 `node scripts/verify-speech.mjs` checks the speech engine under the chat's read-aloud (see above) with no browser —
-32 checks, including the chunk sizes, the single charge per message, and the rate actually played.
+41 checks, including the chunk packing and sizes, the single charge per message, the rate actually played, a chunk failing
+mid-message (the rest is handed on, nothing is read twice) and a clip whose `onended` never arrives.
 
 For the growth instrumentation: `node scripts/verify-campaign-funnel.mjs` (no browser) and, after `npm run build`,
 `node scripts/verify-landing-attribution.mjs` (Chromium, every Supabase call stubbed).
