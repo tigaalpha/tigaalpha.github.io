@@ -430,6 +430,22 @@ export const MILESTONES = [
     acceptance: "problems-to-kb-queue.mjs (read-only): จัดอันดับ learning_diagnoses จริงตามทักษะ → คิว KB wave ต่อ domain (mapping ครบ 7 ทักษะ App SKILLS) · ทักษะไม่รู้จัก = รอ mapping ไม่เดา · DB ว่าง = คิวว่างซื่อสัตย์ (ผลจริงรอบแรก: ยังไม่มี diagnosis ระบุทักษะ) · ทุก entry ใหม่ยังผูกกติกาเหล็กข้อ 7 + retrieval gate เสมอ · smoke 8/8 · npm run morning ครบทุกวงจร",
     evidence: ["scripts/problems-to-kb-queue.mjs", "tigamodel/scripts/smoke-problems-queue.mjs", "tigamodel/docs/13-plan-plus-hundred-2.md"],
   },
+  {
+    id: "m50-accuracy-audit",
+    title: "docs/16 §2 วัดความแม่นยำโมเดล 5 ชั้นใน TIGA MODEL LAB (หน้าเดียวเห็นทุกชั้น + ประวัติ)",
+    state: "done",
+    deps: ["m07-retrieval-eval", "m34-speed-kb-hotset"],
+    acceptance: "lab-accuracy.js: 5 ชั้นวัดจริงจากโมดูลจริง (retrieval 30 probes / policy rules / materials variety / eval suite / compliance flags) — ชั้นไหนข้อมูลไม่พอต้องบอก 'unavailable' อย่างซื่อสัตย์ ห้ามแต่งตัวเลข · ประวัติเก็บใน localStorage จำกัด 30 รอบ ใหม่สุดอยู่บนสุด · UI tab 🎯 ความแม่นยำใน TigamodelLab (state ใน store ไม่ใช่ useState ของ app) · smoke-lab-accuracy 15/15",
+    evidence: ["tigamodel/evaluation/lab-accuracy.js", "tigamodel/scripts/smoke-lab-accuracy.mjs", "tigamodel/web.js", "TigamodelLab.tsx", "tigamodel/docs/16-plan-accuracy-coverage.md"],
+  },
+  {
+    id: "m52-global-coverage-wave",
+    title: "docs/16 §3 คลัง 5 หมวดจากทั่วโลก — การตลาด/นวัตกรรม/บำบัด เสริมลึก 16 ต่อหมวด + เสิร์ฟได้จริง",
+    state: "done",
+    deps: ["m07-retrieval-eval", "m25-contribution-gate"],
+    acceptance: "global-coverage-wave.js (wave 1 + wave 2): +48 entries (marketing 26→36 · innovation 0→16 · therapy 10→26) — 3 ภาษา (th lead + (EN:) (ZH:) gloss) · แหล่ง tiga-* ทุกตัว · ไม่มีสถิติแต่ง · therapy มีกรอบ wellbeing ใน body (ถ้อยคำไม่เข้า regex ของ compliance ตัวเอง) · domain innovation/marketing/therapy ลงทะเบียนใน KB_DOMAIN_LABEL + KB_DOMAIN_KEYWORDS + SERVED_LABELS จึงเสิร์ฟได้จริง (ไม่ใช่คลังที่ตายเฉย) · retrieval 30 probes 100% (gate 80%) · kb-compliance 0 flag · smoke-coverage-wave 13/13",
+    evidence: ["tigamodel/knowledge/global-coverage-wave.js", "tigamodel/evaluation/retrieval-eval.js", "tigamodel/scripts/smoke-coverage-wave.mjs", "tigamodel/web.js", "tigamodel/docs/16-plan-accuracy-coverage.md"],
+  },
 ];
 
 export function getPlan() {

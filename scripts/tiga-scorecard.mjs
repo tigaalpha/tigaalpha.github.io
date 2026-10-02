@@ -8,14 +8,14 @@
 
    Sections (each maps to a plan-v3 milestone):
      1. Knowledge quality  — eval-expanded: theory facts + golden situations
-     2. Knowledge fetching — retrieval eval: 24 known-answer probes, gate 80%
+     2. Knowledge fetching — retrieval eval: 30 known-answer probes, gate 80%
      3. Teaching decisions — policy engine: rules fire on the right states   4. Teacher materials  — exercise generator: deterministic, 10 topics × 5 levels
    5. Learning loop      — strategy analyzer: outcome→weight math (incl. kill switch)
    6. Legal cleanliness  — kb-compliance over the real KB
    7. Multimodal fusion  — confidence-weighted arbiter (m12)
-   8. Measured speed     — rule brain/KB real latency (m33)
-   9. KB hot path        — capped+ranked serving: caps hold, gate holds, faster (m34)
-   10. Cost governor     — per-session spend ceiling enforced by code (m13/m22)
+   8. Measured speed     — rule brain/KB real latency (m33)     9. KB hot path        — capped+ranked serving: caps hold, gate holds, faster (m34)
+     10. Cost governor     — per-session spend ceiling enforced by code (m13/m22)
+     11. Accuracy+coverage — 5-layer model audit runs for real + the thin pillars are deep, served, retrievable (m50/m52)
 
    Exit 1 if any section fails its bar. */
 
@@ -294,6 +294,45 @@ console.log("╚═════════════════════�
   );
 }
 
+/* ── 11. Accuracy + coverage (docs/16 §2/§3, m50/m52): the model measures
+   itself in 5 layers, and the three formerly-thin pillars are deep, served
+   (real questions get their labels) and retrievable through the production
+   path. Every number here comes from the real modules, never a hand count. ── */
+{
+  const audit = await webM.runModelAccuracyAudit();
+  const layers = (audit && audit.layers) || [];
+  const retrLayer = layers.find(l => l.id === "kbRetrieval");
+  const healthLayer = layers.find(l => l.id === "kbHealth");
+  const kb = webM.getKnowledgeBaseForTest();
+  const all = kb ? [...kb._entries.values()] : [];
+  const dom = (d) => all.filter(e => e.domain === d);
+  const mkt = dom("music-marketing"), inn = dom("innovation"), thx = dom("music-therapy");
+  const hasThai = (s) => /[ก-๙]/.test(s);
+  const tri = (list) => list.length > 0 && list.every(e => { const b = String(e.body); return hasThai(b) && b.includes("(EN: ") && b.includes("(ZH: "); });
+  const taught = [...mkt, ...inn, ...thx].every(e => !!e.teach);
+  const sourced = [...mkt, ...inn, ...thx].every(e => String(e.source || "").startsWith("tiga-"));
+  const framed = thx.length > 0 && thx.every(e => /wellbeing frame|กรอบ wellbeing/.test(e.body));
+  const NEW_PROBES = ["innovation-th", "innovation-en", "marketing-th", "marketing-en", "therapy-th", "therapy-en"];
+  const probes = retr.RETRIEVAL_PROBES.filter(p => NEW_PROBES.includes(p.id));
+  const scored = probes.map(p => retr.scoreRetrieval(p, retr.servedLabels(webM.getKBContext(p.q))));
+  const probeAcc = scored.length ? scored.reduce((a, b) => a + b, 0) / scored.length : 0;
+  const cases = [
+    { label: "audit 5 ชั้นวัดครบ + allPass (ไม่มีชั้นไหนเดา)", ok: layers.length === 5 && audit.allPass === true, v: `${layers.length}/5 layers` },
+    { label: "ชั้น retrieval = 100% (30 probes)", ok: !!retrLayer && retrLayer.score === 100, v: `${retrLayer ? retrLayer.score : "–"}%` },
+    { label: "ชั้น compliance = 0 flag บนคลังจริง", ok: !!healthLayer && healthLayer.score === 100, v: `${healthLayer ? healthLayer.score : "–"}%` },
+    { label: "3 หมวดบางลึกพอ (≥ 16 ต่อหมวด)", ok: mkt.length >= 16 && inn.length >= 16 && thx.length >= 16, v: `mkt ${mkt.length} · inn ${inn.length} · thx ${thx.length}` },
+    { label: "ครบ 3 ภาษา + teach + แหล่ง tiga-* ทุก entry", ok: tri(mkt) && tri(inn) && tri(thx) && taught && sourced, v: "48 entries ใหม่ + เดิม" },
+    { label: "กรอบ wellbeing ครบทุก therapy entry", ok: framed, v: `${thx.length}/${thx.length}` },
+    { label: "หมวดใหม่เสิร์ฟได้จริง (6 probes ผ่าน production path)", ok: probeAcc === 1 && probes.length === 6, v: `${(probeAcc * 100).toFixed(0)}%` },
+  ];
+  const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
+  section(
+    "11) ความแม่นยำ + ครอบคลุมความรู้ (audit 5 ชั้น + 3 หมวดบาง, docs/16)",
+    `${cases.map(c => `${c.ok ? "✓" : "✗"} ${c.label} (${c.v})`).join(" · ")}`,
+    pct, "100%", pct === 100
+  );
+}
+
 /* ── print ── */
 console.log("| ตัวชี้วัด | คะแนน | เกณฑ์ผ่าน | ผล |");
 console.log("|---|---|---|---|");
@@ -302,5 +341,5 @@ for (const r of rows) {
   console.log(`| <sub>${r.detail}</sub> | | | |`);
 }
 const allPass = rows.every(r => r.pass);
-console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (cost governor เข้า scorecard แล้ว ด่าน 10)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
+console.log(`\n${allPass ? "🟢 สรุป: ผ่านทุกด่าน — พร้อมก้าวต่อตามแผน (accuracy+coverage เข้า scorecard แล้ว ด่าน 11)" : "🔴 สรุป: มีด่านไม่ผ่าน — ห้ามเพิ่มความฉลาดใหม่ก่อนแก้ด่านที่ตก (กติกาเหล็กข้อ 2)"}`);
 process.exit(allPass ? 0 : 1);

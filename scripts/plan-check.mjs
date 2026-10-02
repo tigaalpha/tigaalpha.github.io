@@ -76,6 +76,8 @@ const SMOKES = {
   "m39-skill-state-wiring": ["tigamodel/scripts/smoke-skill-state-wiring.mjs"],
   "m40-outcomes-counter": ["tigamodel/scripts/smoke-outcomes-report.mjs"],
   "m43-top-problems-queue": ["tigamodel/scripts/smoke-problems-queue.mjs"],
+  "m50-accuracy-audit": ["tigamodel/scripts/smoke-lab-accuracy.mjs"],
+  "m52-global-coverage-wave": ["tigamodel/scripts/smoke-coverage-wave.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);
