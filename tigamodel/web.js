@@ -830,6 +830,7 @@ export const FUSION_CHANNEL_WEIGHTS = _FUSION_WEIGHTS;
    inside; switch off / no data / any error → null = callers keep today's
    behavior. The wire can only ADD a plan on top of a good state. */
 import { fetchSkillStates as _fetchSkillStates, toAbilities as _toAbilities, planForLearner as _planForLearner, SKILL_STATE_WIRING_SWITCH as SKILL_STATE_SWITCH } from "./teaching/skill-state-wiring.js";
+import { computePolicyWeights, applyPolicyWeights, MIN_SAMPLES } from "./teaching/strategy-analyzer.js";
 export const PERSONALIZED_PLANS_SWITCH = SKILL_STATE_SWITCH || "tiga_personalized_plans";
 
 /* Owner switch, same convention as every other one: app_settings row, read at
@@ -864,6 +865,49 @@ export async function setPersonalizedPlansSwitch(on) {
   return _ppOn;
 }
 export async function isPersonalizedPlansSwitchOn() { return refreshPersonalizedPlansSwitch({ force: true }); }
+
+/* ── แผน 18 §P5: ปุ่มหลังบ้านเดียวสำหรับ "ครูที่ปรับตัวเอง" ──
+   strategy-analyzer.js เขียนเสร็จและมี kill switch พร้อมแล้ว แต่ไม่มีทางเปิดใช้:
+   เจ้าของต้องรันเองทุกครั้ง ตัวนี้จึงทำแค่สามอย่างที่ต้องทำบนเซิร์ฟเวอร์เท่านั้น —
+   อ่านผลจริงผ่าน RPC admin_strategy_effectiveness (apply ไปแล้ว) · คำนวณด้วย
+   computePolicyWeights() ตัวจริง · เขียนกลับผ่าน admin_set_policy_weights (top admin)
+   ไม่มีการเปิดสวิตช์เอง: ปุ่มนี้ส่ง enabled ตามสิ่งที่เจ้าของกด และถ้าข้อมูลไม่พอ
+   (น้อยกว่า MIN_SAMPLES ต่อกลยุทธ์) ค่าทุกตัวจะเป็น 1.0 = กลาง ๆ = ไม่มีผล
+   ปุ่มยังไม่กด = พฤติกรมเดิม 100% และ device อื่นได้ค่าใหม่ใน ≤60 วินาทีตามธรรมเนียมเดิม */
+export const POLICY_WEIGHTS_KEY = "tiga_policy_weights";
+let _pwAt = 0;
+export async function readPolicyWeights() {
+  try {
+    const { data, error } = await sb.rpc("get_policy_weights");
+    if (error) throw new Error(error.message || "read failed");
+    const v = data && typeof data === "object" ? data : null;
+    if (!v) return null;
+    return { enabled: v.enabled === true, weights: (v.weights && typeof v.weights === "object") ? v.weights : {}, computedAt: v.computed_at || null };
+  } catch (e) { return null; }
+}
+/* rows = ผลจริงจาก admin_strategy_effectiveness. คืน null เมื่อไม่มีข้อมูลเลย —
+   "ยังไม่รู้" ต้องไม่กลายเป็น "ผลเป็นกลาง" ในหน้าจอ */
+export async function strategyEffectivenessRows() {
+  try {
+    const { data, error } = await sb.rpc("admin_strategy_effectiveness");
+    if (error) throw new Error(error.message || "rpc failed");
+    return Array.isArray(data) ? data : null;
+  } catch (e) { return null; }
+}
+/* คำนวณ + เขียนในขั้นตอนเดียว (เจ้าของกดปุ่ม = อนุมัติรอบนั้น) */
+export async function computeAndApplyPolicyWeights({ enabled = false } = {}) {
+  const rows = await strategyEffectivenessRows();
+  if (!rows || !rows.length) return { ok: false, why: "no-data" };
+  const weights = computePolicyWeights(rows);
+  const total = rows.reduce((n, r) => n + (Number(r && r.n) || 0), 0);
+  if (!Object.keys(weights).length) return { ok: false, why: "no-weights" };
+  const { error } = await sb.rpc("admin_set_policy_weights", {
+    p_value: { enabled: enabled === true, weights, computed_at: new Date().toISOString().replace(/\.\d+Z$/, "Z") },
+  });
+  if (error) return { ok: false, why: error.message || "write failed" };
+  _pwAt = Date.now();
+  return { ok: true, weights, rows: rows.length, total, enabled: enabled === true };
+}
 
 export async function fetchLearnerSkillStates() {
   try { return await _fetchSkillStates(sb); } catch (e) { return null; }

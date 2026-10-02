@@ -448,6 +448,14 @@ export const MILESTONES = [
     acceptance: "global-coverage-wave.js (wave 1 + wave 2): +48 entries (marketing 26→36 · innovation 0→16 · therapy 10→26) — 3 ภาษา (th lead + (EN:) (ZH:) gloss) · แหล่ง tiga-* ทุกตัว · ไม่มีสถิติแต่ง · therapy มีกรอบ wellbeing ใน body (ถ้อยคำไม่เข้า regex ของ compliance ตัวเอง) · domain innovation/marketing/therapy ลงทะเบียนใน KB_DOMAIN_LABEL + KB_DOMAIN_KEYWORDS + SERVED_LABELS จึงเสิร์ฟได้จริง (ไม่ใช่คลังที่ตายเฉย) · retrieval 30 probes 100% (gate 80%) · kb-compliance 0 flag · smoke-coverage-wave 13/13",
     evidence: ["tigamodel/knowledge/global-coverage-wave.js", "tigamodel/evaluation/retrieval-eval.js", "tigamodel/scripts/smoke-coverage-wave.mjs", "tigamodel/web.js", "tigamodel/docs/16-plan-accuracy-coverage.md"],
   },
+  {
+    id: "m53-mentor-one-loop",
+    title: "docs/18 วงจรเดียว: AI Daily Mentor × Auto Teaching ตอบคำเดียวกันจากหลักฐานเดียวกัน",
+    state: "code",
+    deps: ["m05-apply-learning-data", "m08-skill-state-plans"],
+    acceptance: "learner-signal.ts (pure ไม่มี localStorage/network) รวม weightedStruggles + computeSkillScores + pickDrillPlan → nextAction อันเดียว: smoke-learner-signal 39/39 (ไม่มีข้อมูล→null ไม่เดา · <8 ครั้ง→คะแนน null ไม่ใช่ 0 · <4 ครั้ง→ไม่นับเป็นจุดอ่อน · confidence<0.5 ไม่ขยับระดับ · deterministic · หลักฐานแข็งสุดมาก่อน · โควตาฟรี 2/วัน) · หน้า Mentor = การ์ดเดียว 'วันนี้ฝึกอะไร·กี่นาที·เพราะอะไร(ตัวเลขจริง)' + ปุ่มเดียว ฝึกเลย (goToCoachStep) ที่เหลือย้ายใต้ 'ดูเพิ่มเติม' ไม่ลบอะไร · Auto-Teach ยิง decision เดียวกัน (obj.decisionId) + ไม่ยิงซ้ำภายใน 24 ชม. · ฟรี 2 ครั้ง/วันแล้วชี้ไปแผน (เจ้าของตัดสิน 2026-10-02) · ผลก่อน/หลังผูก intervention id จริงบนเซิร์ฟเวอร์ (recordFollowUpPractice) · ไม่มีตัวเลขปลอมทุกจุด",
+    evidence: ["learner-signal.ts", "tigamodel/scripts/smoke-learner-signal.mjs", "learning-data.ts", "use-autoteach.ts", "App.tsx", "tigamodel/docs/18-plan-mentor-autoteach-one-loop.md"],
+  },
 ];
 
 export function getPlan() {

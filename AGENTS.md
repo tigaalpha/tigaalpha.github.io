@@ -245,7 +245,16 @@ full-screen chat and the Sensei page alike. `speakMode` is worked out in `PianoA
 admin account, `"locked"` for everyone else — the button shows a small lock and a tap opens the plans (`prMaxSpk` is a bullet
 of both Max cards). It speaks in the language the message is written in (`detectSpeechLang`: Thai wins over a few English
 terms), through `speakCloud` → `piano-tts` with `src:"chat"` and the Voice Tutor's male voices (`VM_VOICES`, default Algieba).
-What keeps it cheap: a clip heard before comes from the local cache and costs nothing; each device has a day's allowance of
+**Speed and reading all of it (owner, 2026-10-02: "it reads slowly and doesn't finish the whole chat").** A long tutor
+answer is cut into chunks by `ttsChunks` (`speech.ts`) and fetched one at a time: the first chunk is deliberately short
+(`TTS_FIRST_CHUNK_CHARS` = 380) so the reading starts within a second, later chunks are bigger (`TTS_CHUNK_CHARS` = 700)
+so one network round trip covers more text, and each one is prefetched while the previous is still playing. The chat speaks
+at `CHAT_TTS_RATE` = 1.15 (Voice Tutor keeps `TTS_RATE`), which is also what `BubbleSpeak` plays at. **The day's allowance
+is charged once for the whole message, not per chunk** (`speakCloud`'s `msgOpts.charged`): if the whole message will not
+fit, nothing cloud-based starts and the device's own voice reads the entire message — the old code ran out mid-answer and
+stopped. A message is therefore always read to the end, by the cloud or by the phone. On the server the two `await`s in
+`piano-tts` (`chatVoiceAllowed` and `resolveTtsConfig`) became one `Promise.all`, saving a round trip — that file is
+still **not deployed**, so production still pays it. What keeps it cheap: a clip heard before comes from the local cache and costs nothing; each device has a day's allowance of
 cloud speech (`TTS_DAILY_SECONDS` = 5 minutes, `ttsBudgetSpend` / `ttsBudgetRefund`, counted in estimated seconds, key
 `tg_tts_day`); past it, or when the cloud fails, the device's own voice reads the message — a tap is never silent — and a short
 note says why. `speakCloud` numbers its calls (`_ttsRun`) so an older call that is still fetching can never play over a newer
@@ -463,6 +472,53 @@ and that a drowned note is not fired twice — the test to run after touching an
 game sound, the band's drums, or `createMonoDetector`. The app exposes
 `window.__paTest` for it only when `localStorage.tg_pa_testhook` is "1".
 
+For the learning-data wire (what turns a practice session into the rows
+`learning_*`, `learner_skill_state` and the honest dashboard numbers read):
+`node scripts/check-learning-wire.mjs` queries the LIVE DB read-only and says
+whether anything lands and whether the 8 client RPCs still exist with the
+argument names the client sends; `node tigamodel/scripts/smoke-learning-wire.mjs`
+covers the gate itself. Both are wired into `plan-check` / `npm run verify:tiga`.
+The gate lives in `learning-session-gate.ts` because it has to be testable
+without a network: "unknown auth state → attempt the write and let RLS decide,
+known signed-out → don't write and drop the queue". An earlier version asked
+`sb.auth._sessionReady()`, which does not exist in supabase-js 2.x, so every
+gated write returned early and the tables stayed at 0 rows for a month without
+an error — never write a probe against an API that isn't there.
+
+**One mentor loop (docs/18).** `learner-signal.ts` is the single decision
+unit: Daily Mentor's top card and the Auto Teaching popup both read
+`learnerSignal()` for "what to practise now", so they cannot answer differently.
+It is pure (no localStorage, no network) so `tigamodel/scripts/smoke-learner-signal.mjs`
+can pin the honesty rules with fixtures (39 checks): no data → `nextAction: null`,
+fewer than 8 attempts → skill score `null` (never 0), fewer than 4 attempts → not
+a weak spot, `confidence < 0.5` never moves a drill level, input order irrelevant.
+The card shows one answer with real numbers and one button (`goToCoachStep` →
+`resolveCoachStep`); everything else on that page lives under a "see more"
+`<details>` — don't add boxes above the fold, and never render an object's
+`{th,en,zh}` raw into JSX (React #31: use `tr()`).
+The popup carries the same decision (`obj.decisionId`) and won't repeat it
+inside 24h. It also never appears on top of a game in progress (owner
+2026-10-02: it interrupted Play Along and PvP): `atipDelivery()` in
+learner-signal.ts returns `defer` while a song is open or the learner is on
+the arena/games page, the pending tip is remembered, and it fires once ~0.9 s
+after the activity ends (not over the result screen); the free allowance is 2 tips/day (owner's decision 2026-10-02),
+after which it shows one line pointing at the plan. Before/after is measured
+per intervention id (`learning_intervene` returns the uuid → `openAdvice` stores
+it → `recordFollowUpPractice`), and the proof line only renders when there is a
+real measured delta. Separately, `activity-trace.ts` decides which act-log rows
+from ear/reading/drills become real traces (≥5 attempts, one skill per day, ≤8
+a day — 21 checks) behind the owner switch `tiga_activity_trace`, default OFF.
+Never turn that switch on from code.
+
+For the Mentor card (docs/18 §P2): `npm run build && node scripts/verify-mentor-card.mjs`
+drives the real `dist/` in headless Chromium — the card says what/how long/why,
+one tap lands in the thing it names, no data gives an honest "not enough yet"
+card, all three languages render, the old cards are still there under "See more",
+and React #31 is asserted absent. It exits 1 with "this check did NOT run" when
+Playwright/Chromium are missing (as they are in some containers) — that is not a
+pass, so never report the browser pass from there. `ONLY=card,nodevice` runs a
+subset.
+
 For the chat: `npm run build && node scripts/verify-chat.mjs` drives the real `dist/`
 in headless Chromium with every Supabase call stubbed (nothing is written, no model
 is called) and checks the screens (counter, capped message and upgrade card,
@@ -473,7 +529,8 @@ errors with a retry button); `ONLY=quota,starters` runs a subset. It cannot say 
 a real model answers. `node tigamodel/scripts/smoke-kb-hot-path-switch.mjs` covers
 the knowledge-block switch (it temporarily stubs `supabase-client.ts` and restores
 it — check `git diff supabase-client.ts` is empty if a run was killed).
-`node scripts/verify-speech.mjs` checks the speech engine under the chat's read-aloud (see above) with no browser.
+`node scripts/verify-speech.mjs` checks the speech engine under the chat's read-aloud (see above) with no browser —
+32 checks, including the chunk sizes, the single charge per message, and the rate actually played.
 
 For the growth instrumentation: `node scripts/verify-campaign-funnel.mjs` (no browser) and, after `npm run build`,
 `node scripts/verify-landing-attribution.mjs` (Chromium, every Supabase call stubbed).

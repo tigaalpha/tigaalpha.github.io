@@ -1,6 +1,7 @@
 import { readMemory, writeMemory } from "./ai-chat-context";
 import { logUsage } from "./shared-infra";
-import { recordCoachIntervention, recordTipFollowed } from "./learning-data";
+import { recordCoachIntervention, recordTipFollowed, recordFollowUpPractice } from "./learning-data";
+import { weightedStrugglesOf, repeatWindowOpen, freeQuotaState } from "./learner-signal";
 
 /* ── use-autoteach.ts — แม่นยำสุดของระบบ Auto Teaching (แผน 10 ข้อ อนุมัติ 2026-09-19)
    หน้าที่ของไฟล์นี้ (ทุกอย่าง pure/local — ไม่ network ไม่ SQL):
@@ -24,7 +25,7 @@ import { recordCoachIntervention, recordTipFollowed } from "./learning-data";
 
 const LS_OUT = "tg_atip_outcomes";
 const DAY = 86400000;
-const HALF_LIFE = 6 * DAY;      // จุดอ่อนอายุ 6 วัน = น้ำหนักเหลือครึ่ง
+const HALF_LIFE = 6 * DAY;      // จุดอ่อนอายุ 6 วัน = น้ำหนักเหลือครึ่ง (ค่าจริงอยู่ใน learner-signal.ts)
 const EXPIRE = 21 * DAY;        // 21 วันไม่เจอซ้ำ = ถือว่าหายแล้ว หยุดพูดถึง
 
 export function readAutoTeachOutcomes() {
@@ -32,19 +33,13 @@ export function readAutoTeachOutcomes() {
 }
 function writeOutcomes(list) { try { localStorage.setItem(LS_OUT, JSON.stringify(list.slice(-40))); } catch (e) {} }
 
-/* ข้อ 2 — จุดอ่อนถ่วงน้ำหนัก + หมดอายุ */
+/* ข้อ 2 — จุดอ่อนถ่วงน้ำหนัก + หมดอายุ
+   กติกาย้ายไปอยู่ใน learner-signal.ts (โมดูล pure ตัวเดียวที่หน้า Daily Mentor
+   ใช้ร่วมกัน) เพื่อไม่ให้สองที่คำนวณน้ำหนักจุดอ่อนคนละชุดแล้วออกมาขัดกันอีก —
+   ฟังก์ชันนี้ยังคงหน้าที่เดิม: อ่าน tg_memory แล้วส่งเข้าไปคำนวณ */
 export function weightedStruggles(now = Date.now()) {
   const m = readMemory();
-  return (m.struggles || [])
-    .filter(s => s.last && (now - s.last) <= EXPIRE)             // หมดอายุ → ตัดทิ้ง
-    .map(s => {
-      const age = Math.max(0, now - s.last);
-      const recency = Math.pow(0.5, age / HALF_LIFE);            // 1.0 สดใหม่ → 0.5 ทุก 6 วัน
-      const severity = 1 - Math.min(1, Math.max(0, (s.acc || 0) / 100)); // ยิ่งแม่นยำต่ำ ยิ่งหนัก
-      const freq = Math.min(1, (s.count || 1) / 5);              // พลาดบ่อย = หนักขึ้น
-      return { ...s, weight: +(0.5 * recency + 0.3 * severity + 0.2 * freq).toFixed(3), ageDays: Math.floor(age / DAY) };
-    })
-    .sort((a, b) => b.weight - a.weight);
+  return weightedStrugglesOf((m && m.struggles) || [], now);
 }
 
 /* ข้อ 1+3 — โน้ตที่พลาดจริงระหว่างซ้อม (pitch class เพราะ octave สลับได้ในโน้ตเดียวกัน)
@@ -123,15 +118,20 @@ export function learnerTone(profile) {
   return { tier: "intermediate", rule: "เจาะจง มีเหตุผลสั้น ๆ ประกอบ 1 ประโยค" };
 }
 
-/* ข้อ 6 — วงจรปิด: ตอนยิง tip จด snapshot จุดอ่อนไว้ แล้วเทียบผลซ้อมถัดไป */
-export function openAdvice(tip, strugglesNow) {
+/* ข้อ 6 — วงจรปิด: ตอนยิง tip จด snapshot จุดอ่อนไว้ แล้วเทียบผลซ้อมถัดไป
+   `decisionId` คือ id ของ nextAction ที่ส่งมาจาก learner-signal (แผน 18 §P3):
+   ข้อความเดียวกันต้องมี id เดียวกันทั้งในป๊อปอัปและในการ์ด Mentor ไม่งั้นผู้เรียน
+   เจอคำเดียวกันสองที่โดยไม่มีใครอธิบายว่าทำไม */
+export function openAdvice(tip, strugglesNow, decisionId) {
   try {
-    const rec = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, t: Date.now(), topic: (tip && tip.topic) || (tip && tip.weakness) || null, strategyId: (tip && tip.strategyId) || null, before: (strugglesNow || []).slice(0, 3).map(s => ({ label: s.label, acc: s.acc })), resolved: false, outcome: null };
-    writeOutcomes([...readAutoTeachOutcomes(), rec]);
+    const rec = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, t: Date.now(), topic: (tip && tip.topic) || (tip && tip.weakness) || null, decisionId: decisionId || null, strategyId: (tip && tip.strategyId) || null, before: (strugglesNow || []).slice(0, 3).map(s => ({ label: s.label, acc: s.acc })), resolved: false, outcome: null };
     // Learning Data v1 (§4): การ์ดครูที่โชว์ = intervention หนึ่งครั้ง — บันทึก
     // ลง learning_interventions พร้อม strategy ที่โมเดลเลือก และข้อความจริงที่ผู้เรียน
     // อ่าน เพื่อให้ฝั่ง admin ตอบได้ว่า "กลยุทธ์ไหนได้ผล" (best-effort เสมอ)
-    try { recordCoachIntervention({ weakness: tip && tip.weakness, topic: rec.topic, feature: tip && tip.feature, steps: tip && tip.steps }, { strategyId: rec.strategyId }); } catch (e) {}
+    // เก็บ uuid ที่ server ให้มาไว้ผูกกับรอบซ้อมถัดไป (แผน 18 §P4 — ก่อน/หลังจริง);
+    // เขียนหลังจากนั้นเพื่อให้แถวในเครื่องมี id ตั้งแต่ต้น (ไม่มี id = ไม่แต่ง)
+    try { rec.interventionId = recordCoachIntervention({ weakness: tip && tip.weakness, topic: rec.topic, feature: tip && tip.feature, steps: tip && tip.steps }, { strategyId: rec.strategyId }) || null; } catch (e) {}
+    writeOutcomes([...readAutoTeachOutcomes(), rec]);
     return rec.id;
   } catch (e) { return null; }
 }
@@ -148,6 +148,10 @@ export function recordTipOutcome(topic, afterStruggles) {
     else rec.outcome = { delta: null, improved: null, after: null };
     rec.resolved = true;
     writeOutcomes(list);
+    // แผน 18 §P4: ผลก่อน/หลังต้องผูกกับ intervention จริงบนเซิร์ฟเวอร์ด้วย ไม่ใช่แค่
+    // นับในเครื่อง — ไม่มี intervention id (ยังไม่ล็อกอิน/เซิร์ฟเวอร์ไม่ตอบ) ก็ยังเขียน
+    // แถวตามปกติ แต่ไม่แต่ง id ขึ้นมาเอง
+    try { recordFollowUpPractice(rec.feature || rec.topic, rec.outcome && rec.outcome.improved === true, rec.outcome ? rec.outcome.after : null, rec.interventionId || null); } catch (e) {}
     // ข้อ 10: ผลก่อน/หลังขึ้น server ด้วย (usage_events kind="atip") เพื่อการ์ด admin รวมทุกเครื่อง
     try { if (rec.outcome && rec.outcome.improved === true) logUsage("atip", "win"); else if (rec.outcome && rec.outcome.improved === false) logUsage("atip", "loss"); } catch (e) {}
     // Auto Teaching 2.0 (Phase C): return the resolved record (after-accuracy
@@ -171,6 +175,34 @@ export function recordTipAction(action, feature) {
     if (action === "follow") { try { recordTipFollowed(feature); } catch (e) {} }
   } catch (e) { /* best-effort */ }
 }
+/* ── แผน 18 §P3: "คำเดียวในที่เดียว" — จำว่าคำไหนถูกส่งไปแล้ว ──
+   ถ้าหน้า Mentor เพิ่งบอกเรื่องเดียวกันภายใน 24 ชม. ป๊อปอัปต้องถือว่าส่งแล้ว
+   ไม่ยิงซ้ำ (ผู้เรียนเจอคำเดียวกันสองที่ = "ครูสองคนที่ไม่รู้จักกัน") —
+   ตัวกตัดสินใจซ้ำหรือไม่อยู่ใน learner-signal.repeatWindowOpen (pure + เทสต์ได้) */
+export function readAdviceMarks() {
+  return readAutoTeachOutcomes()
+    .filter(r => r && r.decisionId && r.t)
+    .map(r => ({ id: r.decisionId, t: r.t }));
+}
+export function adviceRepeatBlocked(decisionId, now = Date.now()) {
+  return repeatWindowOpen(readAdviceMarks(), decisionId, now);
+}
+/* โควตาฟรีต่อวัน (เจ้าของตัดสิน 2026-10-02: ฟรี 2 ครั้ง/วัน แล้วชี้ไปแผน) — นับจาก
+   คำแนะนำที่ยิงจริงวันนี้เท่านั้น ไม่ใช้สวิตช์ใด ๆ (ปิดสวิตช์ = พฤติกรมเดิม 100%) */
+export function adviceDeliveredToday(now = Date.now()) {
+  const start = new Date(now); start.setHours(0, 0, 0, 0);
+  return readAutoTeachOutcomes().filter(r => r && r.t >= start.getTime()).length;
+}
+export function adviceQuota(freePerDay = 2, now = Date.now()) {
+  return freeQuotaState(adviceDeliveredToday(now), freePerDay);
+}
+export function markAdviceDelivered(id) {
+  try { localStorage.setItem("tg_atip_last_delivered", JSON.stringify({ id, t: Date.now() })); } catch (e) {}
+}
+export function readLastDelivered() {
+  try { return JSON.parse(localStorage.getItem("tg_atip_last_delivered") || "null") || null; } catch (e) { return null; }
+}
+
 export function actionStats() {
   const list = readAutoTeachOutcomes();
   const followed = list.filter(r => r.action === "follow").length;

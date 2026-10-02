@@ -34,7 +34,12 @@ import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay,
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodelOnInteraction, tigaLongTermValue } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
 import { buildParentReport, buildParentReportData } from "./use-practice-coach";
-import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes } from "./use-autoteach";
+import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes, readAdviceMarks, markAdviceDelivered, adviceDeliveredToday } from "./use-autoteach";
+/* แผน 18 §P1: หน่วยตัดสินใจเดียวของครู — pure, ไม่มี localStorage/network.
+   ทั้งหน้า Daily Mentor และป๊อปอัป Auto Teaching อ่านจากที่นี่ที่เดียว
+   (skillScoresOf = กติกาเดิมของ computeSkillScores · weightedStrugglesOf = กติกา
+   เดิมของ use-autoteach · learnerSignal = ตัวตัดสินใจรวม · repeatWindowOpen = กันยิงคำเดิมซ้ำ) */
+import { learnerSignal, skillScoresOf, skillsOfActivity, weakestSkills, repeatWindowOpen, freeQuotaState, atipDelivery, SKILL_FEATURE } from "./learner-signal";
 /* teach-cards (รู้ไว้ใช่ว่า) loads LAZY (plan v3 1.5): pure data + localStorage
    helpers that are read at render time — the helpers below keep working while
    the chunk is in flight by reading the same tg_kstats key directly (one
@@ -5046,7 +5051,11 @@ function resolveAutoTeachMin(profile, adminDefaultMin) {
 // `skill` tag on the entry (see logActivity's 6th param) at the few new call
 // sites that actually measure them. Improvisation still has no capture path
 // at all today and stays deliberately absent rather than faked.
-const SKILLS = ["note_accuracy", "sight_reading", "ear_training", "chord_knowledge", "dynamics", "rhythm", "technique"];
+//
+// The RULES now live in learner-signal.ts (one pure module shared with the
+// Auto Teaching popup — plan 18 §P1). Two copies of "how many attempts before
+// a skill gets a number" is how the two surfaces would drift apart and start
+// disagreeing again, so the constants and the scorer are imported, not copied.
 const SKILL_LABELS = {
   note_accuracy: { th: "ความแม่นยำโน้ต", en: "Note Accuracy", zh: "音符准确度" },
   sight_reading: { th: "การอ่านโน้ต (Sight Reading)", en: "Sight Reading", zh: "视奏（Sight Reading）" },
@@ -5060,38 +5069,8 @@ const SKILL_LABELS = {
   // narrow proxy — hand curvature/shape while playing, not full technique
   technique: { th: "ท่ามือ (Hand Shape)", en: "Hand Technique", zh: "手型（Technique）" },
 };
-function skillsOfActivity(e) {
-  if (e.skill) return [e.skill]; // explicit tag (Dynamics/Rhythm/Technique) — trust it over the kind/id guess below
-  switch (e.k) {
-    case "drill": case "game": return ["note_accuracy"];
-    case "read": return ["sight_reading"];
-    // Ear Gym's "chord" tab is the only place chord *correctness* (not just
-    // viewing a lesson) is ever measured — it doubles as the sole Chord
-    // Knowledge signal, framed to the learner as "chord recognition by ear".
-    case "ear": return e.id === "chord" ? ["ear_training", "chord_knowledge"] : ["ear_training"];
-    default: return []; // "voice"/"lesson"/"read-chapter" carry no correctness signal
-  }
-}
-const SKILL_MIN_N = 8;            // fewer attempts than this -> null ("not enough data"), never a guessed number
-const SKILL_HALFLIFE_DAYS = 14;   // recent practice counts more; mirrors computeCoachStats' own 7-day/prev-7-day cadence
 function computeSkillScores() {
-  const log = readActLog(), now = Date.now();
-  const buckets = {};
-  for (const e of log) {
-    if (e.ok + e.miss < 1) continue;
-    const w = Math.pow(0.5, (now - e.t) / 86400000 / SKILL_HALFLIFE_DAYS);
-    for (const sk of skillsOfActivity(e)) {
-      const b = buckets[sk] || (buckets[sk] = { wOk: 0, wTot: 0, n: 0 });
-      b.wOk += e.ok * w; b.wTot += (e.ok + e.miss) * w; b.n += e.ok + e.miss;
-    }
-  }
-  return SKILLS.map(sk => {
-    const b = buckets[sk];
-    return { skill: sk, score: b && b.n >= SKILL_MIN_N ? Math.round(b.wOk / b.wTot * 100) : null, n: b ? b.n : 0 };
-  });
-}
-function weakestSkills(scores, n = 2) {
-  return scores.filter(s => s.score != null).sort((a, b) => a.score - b.score).slice(0, n);
+  return skillScoresOf(readActLog());
 }
 // Dynamics scoring (MIDI velocity only — mic input's autoGainControl flattens
 // loudness before it ever reaches the pitch detector, so there's nothing to
@@ -5254,16 +5233,30 @@ function buildAutoTeachVisual(tip, profile) {
   } catch (e) { return null; }
 }
 
-async function generateCoachTip(lang, profile) {
+async function generateCoachTip(lang, profile, decision) {
   const mem = readMemory();
   // Auto-Teach แม่นยำ (แผนข้อ 2): จุดอ่อนเรียงด้วยน้ำหนักความสด (recency half-life 6d)
   // + ความรุนแรง + ความถี่ และตัดของเก่าเกิน 21 วันทิ้ง — ไม่ใช่เรียงเก่าสุดก่อนแบบเดิม
   // Prefer a struggle that hasn't already been surfaced in the last few tips — repeating
   // the identical weak spot every time it fires reads as nagging. Falls back to the top
   // struggle anyway when it's genuinely the only one on record (still real, worth saying).
+  //
+  // แผน 18 §P3: ถ้าหน้า Daily Mentor มี nextAction อยู่แล้ว ให้พูด "เรื่องเดียวกัน"
+  // เสมอ — ครูหนึ่งคน หน้าจอหนึ่งคำตอบ decision มาจากโมดูลเดียวกันทั้งคู่
   const recentTopics = new Set(readAutoTeachLog().slice(-5).map(t => t.topic).filter(Boolean));
   const wStruggles = weightedStruggles();
-  const struggle = wStruggles.find(s => !recentTopics.has(s.label)) || wStruggles[0] || (mem.struggles || [])[0];
+  const decidedStruggle = decision && decision.kind !== "skill"
+    ? {
+      label: decision.label,
+      acc: decision.reasonKind === "miss_rate"
+        ? Math.max(0, 100 - decision.evidence[0].rate)
+        : (decision.evidence[0] && typeof decision.evidence[0].acc === "number" ? decision.evidence[0].acc : 0),
+      count: decision.evidence[0] ? (decision.evidence[0].miss || decision.evidence[0].count || 1) : 1,
+      ageDays: decision.evidence[0] ? decision.evidence[0].ageDays : null,
+    }
+    : null;
+  const struggle = decidedStruggle
+    || wStruggles.find(s => !recentTopics.has(s.label)) || wStruggles[0] || (mem.struggles || [])[0];
   // Auto-Teach แม่นยำ (แผนข้อ 1+3): โน้ต pitch-class ที่พลาดจริงล่าสุด — ครูรู้ "โน้ตไหน" ไม่ใช่แค่ "เพลงไหน"
   const noteMissTxt = topNoteMisses(2).map(n => `${n.label}(×${n.count})`).join(", ") || "—";
   const recentTxt = (mem.recent || []).slice(0, 5).map(r => `${r.label} (${r.acc}%)`).join(", ") || "—";
@@ -5330,9 +5323,18 @@ async function generateCoachTip(lang, profile) {
   obj.steps = obj.steps.slice(0, tone.tier === "beginner" ? 2 : 3); // enforce the per-level cap
   obj.topic = struggle ? struggle.label : null; // so the caller can log it and this fn can dodge repeats next time
   obj.strategyId = strat ? strat.name : null;
+  // แผน 18 §P3: ป๊อปอัปผูกกับการ์ดในหน้า Mentor ด้วย id เดียวกัน — จะได้รู้ว่า
+  // "คำนี้ถูกส่งไปแล้ว" และห้ามยิงซ้ำภายใน 24 ชม. (openAdvice บันทึก id นี้)
+  obj.decisionId = decision ? decision.id : null;
+  obj.decisionMinutes = decision ? decision.minutes : null;
+  obj.decisionEvidence = decision ? decision.evidence[0] : null;
   // Auto-Teach แม่นยำ (แผนข้อ 5): ตรวจก่อนแสดงเสมอ — กว้างเกิน/หลุดขอบเขต/โครงไม่ครบ
   // → ใช้ fallback จากข้อมูลจริงแทน ไม่โชว์คำแนะนำสากลเด็ดขาด
-  if (!validateTip(obj, Object.keys(COACH_FEATURE_LABELS))) return buildFallbackTip(lang, struggle, strat, topNoteMisses(2));
+  if (!validateTip(obj, Object.keys(COACH_FEATURE_LABELS))) {
+    const fb = buildFallbackTip(lang, struggle, strat, topNoteMisses(2));
+    fb.decisionId = obj.decisionId; fb.decisionMinutes = obj.decisionMinutes; fb.decisionEvidence = obj.decisionEvidence;
+    return fb;
+  }
   // ── Jev teach-rank: the validated tip is good on its face; ask Jev (fast,
   // cheap, no-hallucination scoring) whether it fits THIS learner right now.
   // A poor fit (< 1.2 on the 0..3 rubric) demotes the tip → the deterministic
@@ -5356,10 +5358,9 @@ async function generateCoachTip(lang, profile) {
 // destination (they're practiced everywhere already), so they're surfaced via
 // the skill callouts/AI narrative but deliberately can't redirect navigation.
 const CRITICAL_SKILL_SCORE = 55; // starting guess — tune once there's real usage data
-const SKILL_REMEDIATION = {
-  sight_reading: "reading_course", ear_training: "ear_training", chord_knowledge: "ear_training",
-  technique: "hand_coach",
-};
+/* ตารางนี้ย้ายไปอยู่ใน learner-signal.ts (SKILL_FEATURE) แล้ว เพราะ nextAction ต้องบอก
+   ปุ่ม "ฝึกเลย" ว่าจะพาไปไหน — สองชุดในสองไฟล์คือสองคำตอบที่จะขัดกันในวันหนึ่ง */
+const SKILL_REMEDIATION = SKILL_FEATURE;
 // Absolute-beginner fundamentals, in the order real beginner-piano method books use
 // (hand position -> hands-on rhythm/playing -> simple ear work -> only then theory) —
 // researched against Faber Piano Adventures' Primer sequence. PATHWAY itself has no
@@ -7682,11 +7683,28 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
   );
 });
 
-/* ── Daily Mentor page: shows practice stats, 7-day activity chart, and weak spots. ── */
-const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onUpsell, gainExp, earnCoins, onOpenAiReport }) {
+/* ── Daily Mentor page: ONE card that answers "what do I do now?" (plan 18 §P2),
+   and everything else the page has always had — folded under "ดูเพิ่มเติม"
+   rather than deleted. The card's decision comes from learner-signal.ts, the
+   SAME object the Auto Teaching popup fires, so the two can never disagree. ── */
+const COACH_SKIP_KEY = "tg_coach_skip_day";
+const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onGoStep, onUpsell, gainExp, earnCoins, onOpenAiReport }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan) || (profile && profile.is_admin);
+  const [, setTick] = useState(0);   // bumped when a skip / claim writes localStorage
   const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
+  /* หน่วยตัดสินใจเดียว (แผน 18 §P1) — อ่านของจริงจาก act log + tg_memory ผ่าน
+     pure module เดียวกับป๊อปอัป ถ้าไม่มีข้อมูลพอจะได้ nextAction = null
+     (การ์ดจะบอกว่ายังซ้อมไม่พอ ไม่ใช่การ์ดว่าง) */
+  const signal = useMemo(() => {
+    try {
+      return learnerSignal({
+        log: readActLog(),
+        struggles: (readMemory() || {}).struggles || [],
+        labelOf: e => actTopicLabel(e, lang),
+      });
+    } catch (e) { return learnerSignal({}); }
+  }, [stats, lang]);
   const accDelta = stats.acc7 != null && stats.accPrev != null ? stats.acc7 - stats.accPrev : null;
   const hasData = readActLog().length > 0;
   const [, setRcTick] = useState(0); // bumped after claimReportCard() writes localStorage, since that write alone doesn't trigger a re-render
@@ -7702,6 +7720,43 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
     if (coins && earnCoins) earnCoins(coins);
     setRcTick(t => t + 1);
   }
+
+  /* ── การ์ดเดียวบนสุด: วันนี้ฝึกอะไร · กี่นาที · เพราะอะไร (มีตัวเลขจริง) ── */
+  function skippedToday() { try { return localStorage.getItem(COACH_SKIP_KEY) === new Date().toDateString(); } catch (e) { return false; } }
+  function skipToday() {
+    try { localStorage.setItem(COACH_SKIP_KEY, new Date().toDateString()); } catch (e) {}
+    setTick(t => t + 1);
+  }
+  const skipped = skippedToday();
+  const act = skipped ? null : signal.nextAction;
+  /* ผลก่อน/หลังของคำแนะนำเดิม (แผน 18 §P4) — บรรทัดนี้โผล่เฉพาะเมื่อมีตัวเลขจริง
+     ที่วัดได้เท่านั้น ไม่มีข้อมูล = ไม่มีบรรทัด (ห้ามเขียน "กำลังดีขึ้น!" ลอย ๆ) */
+  let lastProof = null;
+  try {
+    lastProof = [...readAutoTeachOutcomes()].reverse()
+      .find(r => r && r.resolved && r.outcome && typeof r.outcome.delta === "number") || null;
+  } catch (e) { lastProof = null; }
+  function startAction() {
+    playUi("click"); haptic(6);
+    if (!act) return;
+    if (act.stepText && onGoStep) onGoStep(act.stepText, act.feature);
+    else onNavigate(act.feature, act.tab);
+    try { logUsage("nav", "coach-action"); } catch (e) {}
+  }
+  const actTitle = act
+    ? (act.kind === "skill" ? tr(SKILL_LABELS[act.skill], lang) : act.label)
+    : null;
+  const actWhy = act ? (act.reasonKind === "miss_rate"
+    ? T(`จาก ${act.evidence[0].n} ครั้ง · พลาด ${act.evidence[0].miss} ครั้ง (${act.evidence[0].rate}%)`,
+        `from ${act.evidence[0].n} tries · ${act.evidence[0].miss} misses (${act.evidence[0].rate}%)`,
+        `来自${act.evidence[0].n}次 · 错过${act.evidence[0].miss}次（${act.evidence[0].rate}%）`)
+    : act.reasonKind === "recent_struggle"
+    ? T(`ซ้อมล่าสุดแม่นยำ ${act.evidence[0].acc}% · พลาดซ้ำ ${act.evidence[0].count} ครั้ง`,
+        `last time ${act.evidence[0].acc}% accurate · missed ${act.evidence[0].count}×`,
+        `最近准确率${act.evidence[0].acc}% · 错过${act.evidence[0].count}次`)
+    : T(`คะแนนทักษะนี้ ${act.evidence[0].score}/100 จาก ${act.evidence[0].n} ครั้ง`,
+        `skill score ${act.evidence[0].score}/100 over ${act.evidence[0].n} tries`,
+        `该技能得分${act.evidence[0].score}/100（共${act.evidence[0].n}次）`)) : null;
 
   // Monthly skill trend — best-effort: silently empty (not an error) if the
   // RPC isn't deployed yet, or if there's under 2 months of history so far.
@@ -7728,6 +7783,81 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
     <div className="profscroll">
       <div className="profsec">
         <div className="profsec-h">🎯 {T("Daily Mentor", "Daily Mentor", "Daily Mentor")}</div>
+
+        {/* ── การ์ดเดียว: "วันนี้ฝึกอะไร" (แผน 18 §P2) ──
+            หน้าแรกของหน้านี้ต้องตอบคำถามเดียวให้ได้โดยไม่ต้องเลื่อน:
+            ทำอะไร · กี่นาที · เพราะอะไร (ตัวเลขจริง) — ปุ่มหลักปุ่มเดียว "ฝึกเลย"
+            ที่พาไปถึงสิ่งที่เลือกไว้จริง (resolveCoachStep/goToCoachStep ของ PianoApp)
+            ไม่มีข้อมูลพอ → การ์ด "ยังซ้อมไม่พอ" + ปุ่มไปเล่น ไม่ใช่การ์ดว่าง */}
+        <div style={{ marginBottom: 14, padding: 16, borderRadius: 14, border: "1px solid #d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+          {act ? (
+            <>
+              <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>
+                {T("วันนี้ควรฝึก", "Today's focus", "今日重点")}
+              </div>
+              <div style={{ fontSize: 17, color: "var(--text)", fontWeight: 700, lineHeight: 1.4 }}>
+                {actTitle}
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6, lineHeight: 1.7 }}>
+                <b style={{ color: "var(--clay-ink)" }}>{act.minutes} {T("นาที", "min", "分钟")}</b>
+                {" · "}
+                {/* เหตุผลที่มีหลักฐานเสมอ (UX rule 4 ของแผน 18) — ไม่มีตัวเลข = ไม่มีบรรทัดนี้ */}
+                {actWhy}
+              </div>
+              {/* ผลก่อน/หลัง (แผน 18 §P4) — บรรทัดเดียว แสดงเฉพาะเมื่อวัดได้จริง */}
+              {lastProof && typeof lastProof.outcome.delta === "number" && (
+                <div style={{ fontSize: 12, color: lastProof.outcome.delta >= 0 ? "var(--clay-ink)" : "#ff5252", marginTop: 6 }}>
+                  ▸ {lastProof.outcome.improved === true
+                    ? T(`ก่อนหน้านี้ครูแนะนำ "${lastProof.topic}" แล้ว วันนี้ดีขึ้น ${Math.abs(Math.round(lastProof.outcome.delta))}%`,
+                        `last advice on "${lastProof.topic}" — you're ${Math.abs(Math.round(lastProof.outcome.delta))}% better now`,
+                        `之前建议过「${lastProof.topic}」，现在提升了${Math.abs(Math.round(lastProof.outcome.delta))}%`)
+                    : T(`ก่อนหน้านี้ครูแนะนำ "${lastProof.topic}" — รอบล่าสุดยังไม่ดีขึ้น (${Math.round(lastProof.outcome.delta)}%)`,
+                        `last advice on "${lastProof.topic}" — the latest round didn't improve (${Math.round(lastProof.outcome.delta)}%)`,
+                        `之前建议过「${lastProof.topic}」——最近一轮暂无改善（${Math.round(lastProof.outcome.delta)}%）`)}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="songbtn go" style={{ flex: 1 }} onClick={startAction}>
+                  🎹 {T("ฝึกเลย", "Practice now", "立即练习")}
+                </button>
+                <button className="songbtn ghost" onClick={skipToday}>
+                  {T("ข้ามวันนี้", "Skip today", "今天跳过")}
+                </button>
+              </div>
+            </>
+          ) : skipped ? (
+            <>
+              <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+                {T("ข้ามวันนี้แล้ว — พรุ่งนี้มาดูใหม่ได้เลย", "Skipped for today — come back tomorrow", "今天已跳过——明天再来看看")}
+              </div>
+              <button className="songbtn ghost" style={{ marginTop: 10 }} onClick={skipToday}>
+                {T("ดูคำแนะนำวันนี้อยู่ดี", "Show today's focus again", "重新显示今日建议")}
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 700, marginBottom: 4 }}>
+                {T("ยังซ้อมไม่พอให้บอกได้", "Not enough practice yet", "练习还不够，暂时无法判断")}
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--text2)", lineHeight: 1.7 }}>
+                {T("ลองซ้อมอีก 2 รอบ (อ่านโน้ตหรือเล่นเพลง) แล้วกลับมาดู — ครูจะบอกได้ตรง ๆ ว่าให้ฝึกอะไร เพราะอะไร",
+                  "Try 2 more rounds (sight-reading or a song), then come back — the tutor will tell you exactly what to practise, and why.",
+                  "再练习 2 轮（视奏或弹曲子）后回来——老师会明确告诉你该练什么、为什么。")}
+              </div>
+              <button className="songbtn go" style={{ marginTop: 12, width: "100%" }} onClick={() => onNavigate("play_along")}>
+                🎵 {T("ไปเล่นเพลง", "Go play a song", "去弹首曲子")}
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* ── ทุกอย่างที่หน้านี้มีอยู่เดิม ย้ายมาอยู่ใต้ "ดูเพิ่มเติม" (แผน 18 §P2
+            ข้อ 3 ของเจ้าของ): ไม่ลบอะไรทิ้ง แต่หน้าแรกเหลือคำตอบเดียว
+            (กติกาคุณภาพ: ตัวเลขและการ์ดเดิมยังอยู่ครบ ครบ 3 ภาษา) ── */}
+        <details className="coach-more" style={{ marginBottom: 8 }}>
+          <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--clay-ink)", padding: "10px 0", listStyle: "none" }}>
+            ▾ {T("ดูเพิ่มเติม", "See more", "查看更多")}
+          </summary>
         <div className="admstu-row-sub" style={{ marginBottom: 12, whiteSpace: "normal", overflow: "visible", textOverflow: "clip" }}>
           {T("สถิติการซ้อมและจุดที่ควรฝึกเพิ่ม อัปเดตอัตโนมัติหลังทุกเซสชัน",
             "Your practice stats and weak spots — updated automatically after every session.",
@@ -7859,8 +7989,12 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
           );
         })()}
 
-        {/* Skill Score breakdown — this page is already Max/Max Family-only via the nav
-            lock, so no extra plan check is needed here. */}
+        {/* Skill Score breakdown — the page is NOT plan-gated (owner decision
+            2026-10-02: AI Daily Mentor stays open to everyone, including free
+            accounts and guests; an earlier comment here claimed a Max/Max
+            Family nav lock that never existed in the drawer). Everything above
+            this line is real local data, so showing it to all is safe — only
+            the two AI-calling buttons below carry their own isMax check. */}
         {stats.skills.some(s => s.score != null) && (
           <div style={{ marginBottom: 16 }}>
             <div className="admstu-sec" style={{ marginBottom: 6 }}>🧭 {T("คะแนนทักษะ", "Skill Scores", "技能评分")}</div>
@@ -8031,6 +8165,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             </div>
           );
         })()}
+        </details>
       </div>
     </div>
   );
@@ -10872,6 +11007,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       .then(({ data }) => setAutoTeachDefaultMin((data && data.value && data.value.default_min) ?? AUTO_TEACH_FALLBACK_MIN), () => {});
   }, [session]);
   const [autoTeachTip, setAutoTeachTip] = useState(null);   // {weakness, tip} currently shown, or null
+  /* แผน 18 §P3 (เจ้าของตัดสิน 2026-10-02): ฟรี 2 ครั้ง/วันแล้ว "ชี้ไปแผน" —
+     ตัวเลขที่เหลือ/โควตาที่ใช้ไปแล้วมาจาก freeQuotaState() ตัวเดียวกับที่เกตใช้
+     จึงไม่มีทางโชว์เลขที่ไม่ตรงกับที่ระบบนับจริง */
+  const [autoTeachUpsellHint, setAutoTeachUpsellHint] = useState(null);
   const autoTeachBusyRef = useRef(false);
   const autoTeachTimer = useRef(null);
   // ── Auto Teaching 2.0: the knowledge micro-quiz inside the coaching card.
@@ -11303,15 +11442,78 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const pageRef = useRef(page);
   useEffect(() => { pageRef.current = page; }, [page]);
   useEffect(() => { songAutoLoopRef.current = songAutoLoop; }, [songAutoLoop]);
+  /* ── เจ้าของ 2026-10-02: "ตอนเล่น play along และ pvp ไม่ให้ popup ขึ้น ขอให้ขึ้นตอนจบ ──
+     ป๊อปอัปเดิมยิงจาก timer ทุก N นาทีโดยไม่รู้ว่าผู้เรียนกำลังเล่นอยู่ กล่องจึง
+     บังหมอกใบ/ตัวโน้ตตรงจังหวะที่กำลังตัดสินใจว่าจะกดโน้ตไหน — เสียทั้งจังหวะการเล่น
+     และความน่าเชื่อถือของครู วิธีแก้ที่ไม่ตัดสิ่งที่ครูดีออก: ตอนยิงเจอช่วงที่
+     ห้ามขัดจังหวะ ให้ "จดไว้ว่ามีคำแนะนำค้าง" แล้วไปยิงตอนจบกิจกรรมนั้นทีเดียว
+     (ไม่ยิงซ้ำซ้อน ไม่เผาเงินโมเดลล่วงหน้า และผู้เรียนได้คำแนะนำครบโควตาเหมือนเดิม) */
+  const atipBlockedRef = useRef(false);   // ตอนนี้อยู่ในช่วงที่ห้ามขัดจังหวะหรือไม่
+  const atipPendingRef = useRef(false);   // มีคำแนะนำที่ "ค้าง" รอจังหวะที่ปลอดภัยไหม
+  function autoTeachBlocked() {
+    return !!(songOpen || pageRef.current === "pvp" || pageRef.current === "gamepage");
+  }
+  /* กติกาการส่งอยู่ใน learner-signal.ts (atipDelivery) เพื่อให้ทดสอบได้จริง
+     ไม่ใช่ "หวังว่าลำดับ if ถูก" — send = ส่งเลย · defer = จดค้าง รอจบกิจกรรม ·
+     skip = ยังไม่ตอนของมัน (การ์ดเดิมยังไม่อ่าน / กำลังดึงอยู่) */
+  function atipPlan() {
+    return atipDelivery({
+      blocked: autoTeachBlocked(),
+      tipShown: !!autoTeachTipRef.current,
+      busy: autoTeachBusyRef.current,
+    });
+  }
+  function markBlockedNow() {
+    const blocked = autoTeachBlocked();
+    const was = atipBlockedRef.current;
+    atipBlockedRef.current = blocked;
+    return { blocked, was };
+  }
+  /* ── แผน 18 §P3: ป๊อปอัปยิง "คำสั่งเดียวกับการ์ดในหน้า Mentor" ──
+     เดิม generateCoachTip() ตัดสินใจเองจาก tg_memory.struggles อีกชุด จึงตอบไม่ตรงกับ
+     หน้า Daily Mentor ที่อ่าน act log — ผู้เรียนเจอสองคำแนะนำที่ขัดกันโดยไม่มีใครอธิบาย
+     ตอนนี้ทั้งสองอ่าน learnerSignal() ตัวเดียว: popup ถามหา nextAction แล้วยิง
+     คำแนะนำ "เรื่องนั้น" เท่านั้น และถ้าคำนี้ถูกส่งไปแล้วใน 24 ชม. ก็ไม่ยิงซ้ำ */
+  function coachSignal() {
+    try {
+      return learnerSignal({
+        log: readActLog(),
+        struggles: (readMemory() || {}).struggles || [],
+        labelOf: e => actTopicLabel(e, lang),
+      });
+    } catch (e) { return learnerSignal({}); }
+  }
+  /* เกตตามเจ้าของ 2026-10-02: ฟรี 2 ครั้ง/วัน แล้วชี้ไปแผน — แทนเกตเดิมที่ปิดทั้งหมด
+     สำหรับคนที่ไม่ได้ซื้อแผน (ฟรี 2 ครั้งแรกคือการได้ลองของจริง ไม่ใช่การล็อก) */
+  const ATIP_FREE_PER_DAY = 2;
+  function autoTeachAllowed() {
+    try {
+      if (premium || (profile && profile.is_admin)) return { ok: true, why: "plan" };
+      const q = adviceQuota(ATIP_FREE_PER_DAY);
+      return q.spent ? { ok: false, why: "quota", quota: q } : { ok: true, why: "free", quota: q };
+    } catch (e) { return { ok: false, why: "error" }; }
+  }
   async function fetchAutoTeachTip() {
     // App-wide now (was Pathway-only) — admin/school are role dashboards, not learner
     // practice contexts, so a beginner-coaching card there would be talking about a
     // profile that isn't the person looking at the screen.
     if (pageRef.current === "admin" || pageRef.current === "school") return;
-    if (autoTeachTipRef.current || autoTeachBusyRef.current) return; // don't clobber an unread tip
+    /* กำลังเล่นอยู่ = ยังไม่ตอนของครู — จดว่ามีคำแนะนำค้างไว้ แล้วไปยิงตอนจบ
+       (effect ด้านล่าง) ยิงตอนนี้ = บังหน้าจอเล่นและเผาเงินโมเดลเปล่า ๆ */
+    const deliver = atipPlan();
+    if (deliver === "skip") return;   // don't clobber an unread tip / don't double-fetch
+    if (deliver === "defer") { atipPendingRef.current = true; return; }
+    /* โควตา: แผนได้ไม่จำกัด · ฟรี 2 ครั้ง/วัน (เจ้าของตัดสิน 2026-10-02) แล้วชี้ไปแผน */
+    const allow = autoTeachAllowed();
+    if (!allow.ok) { setAutoTeachUpsellHint(allow); return; }
+    /* คำเดียวในที่เดียว: ถ้าการ์ดในหน้า Mentor (หรือป๊อปอัปก่อนหน้านี้) พูดเรื่องเดียวกัน
+       ไปแล้วใน 24 ชม. ไม่ยิงซ้ำ — ผู้เรียนไม่ควรเจอคำเดียวกันสองที่ */
+    let decision = null;
+    try { decision = coachSignal().nextAction; } catch (e) {}
+    if (decision && adviceRepeatBlocked(decision.id)) return;
     autoTeachBusyRef.current = true;
     try {
-      const obj = await generateCoachTip(lang, profile);
+      const obj = await generateCoachTip(lang, profile, decision);
       if (obj) {
         // Auto Teaching 2.0: attach the รู้ไว้ใช่ว่า micro-lesson (it explains
         // THIS weakness, cited to a real university source) and the learner's
@@ -11324,18 +11526,40 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         try { obj.visual = buildAutoTeachVisual(obj, profile); } catch (e2) {}
         setAutoTeachTip(obj);
         logAutoTeachTip(obj.weakness, obj.steps.join(" / "), obj.feature, obj.topic);
-        try { openAdvice(obj, weightedStruggles()); logUsage("atip", "show"); } catch (e2) {} // วงจรปิด (ข้อ 6): จดสถานะจุดอ่อน ณ ตอนยิงไว้เทียบผลซ้อมถัดไป
+        setAutoTeachUpsellHint(null);   // the free allowance was genuinely used
+        /* วงจรปิด (ข้อ 6): จดสถานะจุดอ่อน ณ ตอนยิงไว้เทียบผลซ้อมถัดไป พร้อม
+           decisionId ของการ์ด — หน้า Mentor อ่าน id เดียวกันนี้ (แผน 18 §P3/P4) */
+        try { openAdvice(obj, weightedStruggles(), (obj.decisionId || (decision && decision.id))); logUsage("atip", "show"); } catch (e2) {}
       }
     } catch (e) { /* a missed real-time tip silently skips — not worth an error popup mid-practice */ }
     autoTeachBusyRef.current = false;
+    atipPendingRef.current = false;   // ส่งแล้ว (หรือไม่มีอะไรให้ส่ง) = ไม่มีอะไรค้าง
   }
+  /* ── "ขึ้นตอนจบกิจกรรม" ──
+     จังหวะที่ปลอดภัยคือหลังเล่นเพลงจบ (songOpen false = หน้าสรุปขึ้นแล้ว) หรือ
+     หลังออกจากสนาม PvP ครูจึงพูดตอนที่ผู้เรียนหยุดเล่นแล้ว ไม่ใช่ตอนกำลังตัดสินใจกดโน้ต
+     หน่วงไว้ 0.9 วินาทีให้หน้าสรุปของเพลงวาดเสร็จก่อนกล่องครูโผล่ทับ
+     ยิงครั้งเดียวต่อช่วงที่ค้าง (เคลียร์ flag ก่อนยิง ไม่งั้น timer จะยิงซ้ำ) */
+  const atipFlushTimer = useRef(null);
+  useEffect(() => {
+    const { blocked, was } = markBlockedNow();
+    if (blocked || !was || !atipPendingRef.current) return;
+    atipPendingRef.current = false;
+    clearTimeout(atipFlushTimer.current);
+    atipFlushTimer.current = setTimeout(() => { try { fetchAutoTeachTip(); } catch (e) {} }, 900);
+    return () => clearTimeout(atipFlushTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songOpen, page]);
   // resolves to a primitive (not the whole profile object), so unrelated profile writes
   // (EXP gain, streak bump, etc. all replace the profile object on every practice round)
   // don't restart this effect and keep resetting the countdown before it ever fires
   const autoTeachMin = resolveAutoTeachMin(profile, autoTeachDefaultMin);
   useEffect(() => {
     clearInterval(autoTeachTimer.current);
-    if (!premium || !(autoTeachMin > 0)) return;
+    // เดิม: if (!premium ...) return — คนฟรีไม่เคยได้รับคำแนะนำอัตโนมัติเลย
+    // ตอนนี้ผ่านแล้ว โควตาฟรี 2 ครั้ง/วันคุมอยู่ใน autoTeachAllowed() ข้างบน (เจ้าของตัดสิน
+    // 2026-10-02) — ตัวตั้งเวลาเองยังเหมือนเดิมทุกประการ
+    if (!(autoTeachMin > 0)) return;
     autoTeachTimer.current = setInterval(fetchAutoTeachTip, autoTeachMin * 60 * 1000);
     return () => clearInterval(autoTeachTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -11345,7 +11569,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // (b) เพิ่งทำลายสถิติ → โมเมนต์ภูมิใจ รับคำท้าต่อยอดได้ดี
   // (c) กลับมาหลังห่างหาย ≥3 วัน → ทักตามพร้อมจุดอ่อนล่าสุด ไม่เริ่มจากศูนย์
   useEffect(() => {
-    if (!premium || !(autoTeachMin > 0)) return;
+    // เหตุผลเดียวกับ timer ข้างบน: จังหวะการสอนใช้ได้ทั้งคนฟรี (โควตา 2/วัน) และคนแผน
+    if (!(autoTeachMin > 0)) return;
     const onPracticeDone = (e) => {
       const d = (e && e.detail) || {};
       if (d.accuracy != null && d.accuracy < 65) { setTimeout(() => fetchAutoTeachTip(), 1500); return; }
@@ -12841,7 +13066,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onGoStep={goToCoachStep} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
       {page === "gamepage" && <GamesPage lang={lang} earnCoins={earnCoins} gainExp={gainExp} />}
@@ -14161,6 +14386,34 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           #31 and blank the whole app. SafeZone keeps a bad tip a dismissible
           popup instead of a full-page error; safeStr keeps object-shaped
           weakness/steps fields from ever reaching a JSX child. */}
+      {/* แผน 18 §P3: โควตาฟรีหมดแล้ว — บรรทัดเดียวบอกตรง ๆ ว่าใช้ไปเท่าไร และชี้ไปแผน
+          ไม่ใช่ป๊อปอัปลอย ๆ (กติกาคุณภาพข้อ 3: ปุ่มหลัก 1 ปุ่ม · ไม่เพิ่มกล่องใหม่นอกการ์ด) */}
+      {autoTeachUpsellHint && !autoTeachTip && !broadcast && (
+        <div className="atpopup" onClick={() => setAutoTeachUpsellHint(null)}>
+          <div className="atpopup-card" onClick={e => e.stopPropagation()}>
+            <div className="atpopup-hd">
+              <span className="atpopup-ic" aria-hidden="true">🎯</span>
+              <div className="atpopup-tt">{lang === "th" ? "ครู TiGA แนะนำ" : lang === "zh" ? "TiGA老师建议" : "Coach TiGA's Tip"}</div>
+              <button className="atpopup-x" onClick={() => setAutoTeachUpsellHint(null)} aria-label="close">×</button>
+            </div>
+            <div className="atpopup-weak">
+              {lang === "th"
+                ? `วันนี้ใช้คำแนะนำอัตโนมัติครบ ${autoTeachUpsellHint.quota ? autoTeachUpsellHint.quota.cap : ATIP_FREE_PER_DAY} ครั้งแล้ว (ฟรีทุกวัน) — หน้า Daily Mentor ยังบอกได้ตลอดว่าวันนี้ควรฝึกอะไร ไม่ต้องรอครูอัตโนมัติ`
+                : lang === "zh"
+                ? `今天的自动提示已用完（每日免费 ${ATIP_FREE_PER_DAY} 次）。Daily Mentor 页面随时告诉你今天该练什么，不用等自动提示。`
+                : `You've used today's ${autoTeachUpsellHint.quota ? autoTeachUpsellHint.quota.cap : ATIP_FREE_PER_DAY} free tips. The Daily Mentor page still tells you what to practise today — you never have to wait for an automatic tip.`}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { setAutoTeachUpsellHint(null); setPage("coach"); }}>
+                {lang === "th" ? "ดูหน้า Daily Mentor" : lang === "zh" ? "查看 Daily Mentor" : "Open Daily Mentor"}
+              </button>
+              <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { setAutoTeachUpsellHint(null); setPricingOpen(true); }}>
+                {lang === "th" ? "ดูแผน" : lang === "zh" ? "查看套餐" : "See plans"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {autoTeachTip && !broadcast && (
         <SafeZone label="ครู TiGA แนะนำ" fallbackText="คำแนะนำข้อความนี้แสดงไม่สำเร็จ — แอปยังใช้งานได้ตามปกติ แตะปิดเพื่อซ่อนกล่องนี้">
         <div className="atpopup" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }}>

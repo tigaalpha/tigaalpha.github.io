@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
-import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsEstSeconds, ttsBudgetSpend, ttsBudgetRefund } from "./speech";
+import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsEstSeconds, ttsBudgetSpend, ttsBudgetRefund, CHAT_TTS_RATE } from "./speech";
 
 /* ── chat-ui.tsx ──
    Chat UI atoms shared by every chat surface (Sensei page, expanded chat
@@ -57,7 +57,7 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
       () => { if (live()) setBusy(false); },
       done,
       (e) => device(!!(e && e.budget)),
-      1,
+      CHAT_TTS_RATE,
       { src: "chat", spend: (s) => ttsBudgetSpend(ttsEstSeconds(s, said)), refund: (s) => ttsBudgetRefund(ttsEstSeconds(s, said)) });
   }
 
