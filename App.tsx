@@ -3790,6 +3790,16 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     return next;
   });
   const [mySongs, setMySongs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_mysongs") || "[]"); } catch (e) { return []; } });
+  // "AI Create Song" card on the song list: OFF (owner request 2026-10-02, from a
+  // screenshot: the card sat between the era note and "Continue", pushing the songs
+  // themselves below the fold on a phone). Nothing else on the page changed — the
+  // filters, the era note, Continue, Up next and the grid are untouched.
+  // The state, the generator and the modal are kept intact, so flipping this back
+  // to true brings the card and the whole create flow back with zero other edits
+  // (same pattern as LANG_PICKER_ENABLED). Songs a learner already made with it
+  // stay in `mySongs` and keep working; the hum/play-to-create mic path just
+  // becomes unreachable until it is on again.
+  const AI_CREATE_SONG_ENABLED = false;
   const [createOpen, setCreateOpen] = useState(false);
   const [genText, setGenText] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -4011,8 +4021,12 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
               <b>{tr(eraInfo, lang)}</b> · {eraInfo.span} · {eraInfo.who[lang] || eraInfo.who.en} · {list.length} {T("เพลง", "pieces", "首")}
             </div>
           )}
+          {/* AI_CREATE_SONG_ENABLED is false above, so neither of these mounts. Kept
+              verbatim so re-enabling is a one-line flip. */}
+          {AI_CREATE_SONG_ENABLED && (
           <button className="aicreate" onClick={() => { setGenErr(false); setCreateOpen(true); }}>✨ {lc.aiCreate}</button>
-          {createOpen && (
+          )}
+          {AI_CREATE_SONG_ENABLED && createOpen && (
             <div className="setov" onClick={() => !generating && setCreateOpen(false)}>
               <div className="setcard" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
                 <div className="sethdr"><span>✨ {lc.aiCreate}</span><button className="cbtn" onClick={() => !generating && setCreateOpen(false)}>{lc.close}</button></div>
