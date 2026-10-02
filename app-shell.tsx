@@ -1,7 +1,8 @@
 import { isChunkLoadError, reloadForNewBuild } from "./chunk-reload";
 import { useState, useEffect, Component } from "react";
 import { sb } from "./supabase-client";
-import { saveGuestProfile } from "./shared-infra";
+import { saveGuestProfile, setSkipOnboard, logUsage } from "./shared-infra";
+import { handoffUrl } from "./local-identity";
 /* ── app-shell.tsx ──
    Small presentational components clustered around the App() root: the
    membership-gate screens (Splash/BannedScreen/GuestGateScreen/ProfileForm,
@@ -203,7 +204,9 @@ export function inAppBrowser() {
    nothing otherwise — so the caller always keeps the copy-link fallback
    visible rather than relying on this having worked. */
 export function openInRealBrowser() {
-  const url = window.location.href;
+  // handoffUrl() adds the anon id / original source / browser kind, so the real
+  // browser on the other side continues the same visitor (local-identity.ts).
+  const url = handoffUrl(window.location.href);
   const ua = navigator.userAgent || "";
   try {
     if (/Android/i.test(ua)) {
@@ -444,6 +447,69 @@ export function LoginModal({ profile, onGoogleLogin, onClose }) {
 // button by design (matches "ต้องล็อกอิน" — login is genuinely required to
 // continue past this point), but it always appears at a natural stopping
 // point (next navigation / on tap), never yanked up mid-exercise.
+/* ── one field: e-mail me a link ──
+   The guest gate used to offer only the long forms below (name, password, a
+   consent tick, LINE, Facebook, Instagram, TikTok, YouTube) and Google — which
+   is refused inside Facebook/Instagram. The landing page's one-field e-mail
+   link is what real people actually completed there (6 of the 51 accounts since
+   7 Sep came that way, every one of the 4 who tried it finished), so the gate,
+   which is where a guest who just played a song is asked to join, gets the same
+   door at the top. The link is opened later and usually in another browser, so
+   it carries the visit across (local-identity.handoffUrl) like the landing's. */
+function MagicLinkForm({ profile }) {
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState("");
+  async function send(e) {
+    e.preventDefault();
+    if (busy) return;
+    if (!email.trim()) { setErr("กรุณากรอกอีเมล · Please enter your email"); return; }
+    setBusy(true); setErr("");
+    try {
+      saveGuestProfile(profile);
+      setSkipOnboard();
+      const { error } = await sb.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: handoffUrl(window.location.origin + "/", { via: "mail" }),
+          data: { pdpa_version: PDPA_VERSION, marketing_consent: false, via: "app-gate-otp" },
+        },
+      });
+      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      logUsage("gate", "otp:sent");
+      setDone(true);
+    } catch (e2) {
+      setErr(friendlyAuthError(e2 && e2.message));
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (done) {
+    return (
+      <div className="au-warn" role="status" style={{ width: "100%", textAlign: "left" }}>
+        <b>✉️ ส่งลิงก์แล้ว · Link sent</b>
+        เปิดอีเมลแล้วกดลิงก์เพื่อเข้าเล่นต่อ ไม่ต้องมีรหัสผ่าน · Open your email and tap the link — no password needed.
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={send} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
+      <input type="email" inputMode="email" autoComplete="email" enterKeyHint="go" placeholder="your@email.com"
+        value={email} onChange={e => setEmail(e.target.value)} aria-label="Email"
+        style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "inherit", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
+      <button type="submit" disabled={busy}
+        style={{ width: "100%", padding: "12px 22px", borderRadius: 13, border: "2px solid #d97757", background: busy ? "rgba(217,119,87,0.5)" : "linear-gradient(135deg, #d97757, #c25e3f)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
+        {busy ? "..." : "✉️ ส่งลิงก์เข้าสู่ระบบฟรี · Email me a free link"}
+      </button>
+      {err && <div style={{ fontSize: 12.5, color: "#ff8a80", lineHeight: 1.4 }}>{err}</div>}
+      <div style={{ fontSize: 11, opacity: 0.55, lineHeight: 1.5, textAlign: "center" }}>
+        ช่องเดียว ไม่ต้องตั้งรหัสผ่าน · การสมัครถือว่ารับทราบ <a href="privacy-policy.html" target="_blank" rel="noopener noreferrer">นโยบายความเป็นส่วนตัว</a>
+      </div>
+    </form>
+  );
+}
+
 export function GuestGateScreen({ reason, profile, onLogin }) {
   const [gateInApp] = useState(() => inAppBrowser());
   const [showSignup, setShowSignup] = useState(false);
@@ -729,6 +795,8 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
         <div className="locktitle welcome">{c.title}</div>
         <div className="locksub">{c.sub}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", maxWidth: 300, marginTop: 8 }}>
+          <MagicLinkForm profile={profile} />
+          <div style={{ fontSize: 12, opacity: 0.55 }}>หรือ · or</div>
           <LoginOptions profile={profile} onGoogleLogin={onLogin} />
           <div style={{ marginTop: 12, textAlign: "center" }}>
             <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 10 }}>หรือสมัครสมาชิกฟรีด้านล่าง · Or sign up free below</div>

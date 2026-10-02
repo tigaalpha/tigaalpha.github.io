@@ -107,6 +107,7 @@ export const PA_CSS = `
 .pl-start{min-width:min(78vw,260px);font-size:17px !important;padding:14px 26px !important}
 .songov.playal .songbtn.go,.tg .songov.playal .songbtn.go{background:linear-gradient(90deg,var(--pl-vio),var(--pl-mag));color:#fff;border:0;box-shadow:0 8px 26px -10px var(--pl-mag)}
 .songov.playal .songbtn.ghost,.tg .songov.playal .songbtn.ghost{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16);color:#e8e2ff;box-shadow:none}
+.pl-remind{display:block;margin:4px auto 0;text-align:center;max-width:92%}
 .pl-link{background:none;border:0;color:var(--pl-dim);font-family:var(--f-app);font-size:13px;padding:8px 10px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(185,176,230,.4)}
 .pl-ready-row{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
 .pl-settings{width:min(92vw,440px);background:var(--pl-panel);border:1px solid var(--pl-line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;text-align:left}

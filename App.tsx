@@ -159,7 +159,7 @@ import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
 import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
-import { dailySong, songStars, songMedal, songLengthSec, songLockInfo, nextSongAfter } from "./play-along-progress";
+import { dailySong, songStars, songMedal, songLengthSec, songLockInfo, songPlayable, nextSongAfter } from "./play-along-progress";
 import { useChat } from "./use-chat";
 import { useVoiceTutor } from "./use-voice-tutor";
 const LeadLandingPage = lazy(() => import("./LeadLandingPage").then(m => ({ default: m.LeadLandingPage })));
@@ -607,7 +607,7 @@ function groupCells(gid) {
   const rank = (id) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
   return cells.map((cell, i) => ({ cell, i })).sort((a, b) => rank(a.cell.id) - rank(b.cell.id) || a.i - b.i).map(x => x.cell);
 }
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null, onFirstSong = null }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   /* Card numbers run straight through the whole pathway — foundation 01-02,
@@ -865,8 +865,46 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
       )
     );
   }
+  /* The first song, offered inline — never a popup. Until a Play Along song has
+     been finished (any star on any song) or the offer is closed, the first thing
+     on this page is one tap into a real song. The 2026-10-02 report: 539 people
+     opened this page in a month, 6 opened Play Along, and the D7 return rate of
+     the accounts made since 7 Sep was 0%. A song played is the cheapest reason
+     to come back. */
+  const firstSongOffer = useMemo(() => {
+    if (!onFirstSong) return false;
+    try {
+      if (localStorage.getItem("tg_pa_first_x") === "1") return false;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("tg_stars_") && Number(localStorage.getItem(k)) > 0) return false;
+      }
+    } catch (e) {}
+    return true;
+  }, [onFirstSong]);
+  const [offerGone, setOfferGone] = useState(false);
+  const offerLogged = useRef(false);
+  useEffect(() => {
+    if (firstSongOffer && !offerLogged.current) { offerLogged.current = true; logUsage("nav", "pathway-firstsong:shown"); }
+  }, [firstSongOffer]);
+  const T3 = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   return (
     <div className="pathpage">
+
+      {firstSongOffer && !offerGone && (
+        <div style={{ position: "relative" }}>
+          <button type="button" className="pfirstsong" onClick={onFirstSong}>
+            <span className="pfs-ic" aria-hidden="true">🎵</span>
+            <span className="pfs-tx">
+              <b>{T3("เล่นเพลงแรกของคุณ", "Play your first song", "弹你的第一首歌")}</b>
+              <small>{T3("ใช้เวลาราว 1 นาที ได้ดาวทันที ไม่ต้องอ่านโน้ต", "About a minute · earn your first star · no sheet music", "约 1 分钟 · 马上拿到星星 · 不用识谱")}</small>
+            </span>
+            <span className="pfs-go" aria-hidden="true">▶</span>
+          </button>
+          <button type="button" className="pfs-x" aria-label={T3("ปิด", "Close", "关闭")}
+            onClick={() => { try { localStorage.setItem("tg_pa_first_x", "1"); } catch (e) {} setOfferGone(true); logUsage("nav", "pathway-firstsong:closed"); }}>✕</button>
+        </div>
+      )}
 
       {groups.map((g, gi) => {
         const stages = STAGES_BY_GROUP[g.id] || [];
@@ -3766,6 +3804,19 @@ const GENRE_CHIPS = [
   { code: "carol",  label: { th: "🎄 คริสต์มาส", en: "🎄 Carols", zh: "🎄 圣诞" } },
   { code: "cn",     label: { th: "🀄 จีน",        en: "🀄 Chinese", zh: "🀄 中文" } },
 ];
+/* The song grid is cut into sections, each opened by an orange heading with its name (owner, 2026-10-02, with a screenshot:
+   "put the era's name, in orange, at the spot marked in red" — the start of the grid, under Continue / Up next). The first
+   two are not categories: the player's own AI songs, and — while the whole library is shown — the favourites, which already
+   floated to the top of it. Then the songs everyone knows come first, so a beginner's list still opens on the songs they know,
+   and the four eras of the classical repertoire follow in the order of time, then the style pieces. A song with no category in
+   SONG_GENRES lands in "other" at the end, so a new song never goes missing. A chosen chip shows one heading, its own. */
+const SONG_SECTIONS = ["mine", "fav", "kids", "folk", "carol", "gospel", "cn", "baroque", "classical", "romantic", "impressionism", "jazz", "soul", "neosoul", "other"];
+const SEC_RANK: Record<string, number> = Object.fromEntries(SONG_SECTIONS.map((k, i) => [k, i]));
+const SEC_LABEL: Record<string, { th: string; en: string; zh: string }> = {
+  ...Object.fromEntries(GENRE_CHIPS.filter(g => g.code !== "all").map(g => [g.code, g.label])),
+  mine:  { th: "✨ เพลงที่ฉันสร้าง", en: "✨ My songs",   zh: "✨ 我的歌曲" },
+  other: { th: "🎵 เพลงอื่น ๆ",     en: "🎵 More songs", zh: "🎵 更多歌曲" },
+};
 const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, exp = 0, premium = false, onUpsell, onRequireLogin, plan = "", initialCat = "songs" }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
@@ -3887,13 +3938,40 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   else if (filter > 0) list = list.filter(s => s.diff === filter && !s.custom);
   if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "other") === genreFilter);
   const eraInfo = SONG_ERAS.find(e => e.code === genreFilter) || null;
-  list.sort((a, b) => (b.custom ? 1 : 0) - (a.custom ? 1 : 0) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
+  /* The section a song is shown under (SONG_SECTIONS). Favourites form a section of their own only above the rest of the whole
+     library — in a chip they stay inside their category, and in the Favorites filter every song is one — and, as before, the
+     player's own songs come first, then favourites, then the easier songs. */
+  const favUp = genreFilter === "all" && filter !== 0;
+  const secOf = (s) => s.custom ? "mine" : favUp && favs.includes(s.id) ? "fav" : (SONG_GENRES[s.id] || "other");
+  list.sort((a, b) => (SEC_RANK[secOf(a)] ?? 99) - (SEC_RANK[secOf(b)] ?? 99) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
+  const secCount: Record<string, number> = {};
+  for (const s of list) { const k = secOf(s); secCount[k] = (secCount[k] || 0) + 1; }
 
   /* A card says what the player has EARNED on the song (gold stars), how
      hard it is (level) and how long it is. A locked song says what opens
      it, instead of only buzzing. */
   const expToLevel = (req) => { const t = ALL_LEVELS[req - 1]; return t ? Math.max(0, t.min - (exp || 0)) : 0; };
   const fmtLen = (sec) => Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+  /* The list is drawn in slices: 60 cards first, 120 more each time the end comes near.
+     With 1,067 songs the old "every card at once" cost a chip switch 20–120 ms on a
+     desktop and ~0.5 s on a phone with the CPU slowed 4–6× (the 2026-10-02 report).
+     A new filter starts again from the first slice; browsers without IntersectionObserver
+     get everything at once, as before. */
+  const SONG_SLICE0 = 60, SONG_SLICE = 120;
+  const [shown, setShown] = useState(SONG_SLICE0);
+  const moreRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => { setShown(SONG_SLICE0); }, [cat, filter, genreFilter, mySongs.length]);
+  useEffect(() => {
+    if (shown >= list.length) return;
+    if (typeof IntersectionObserver === "undefined") { setShown(list.length); return; }
+    const el = moreRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((ents) => {
+      if (ents.some(e => e.isIntersecting)) setShown(n => Math.min(list.length, n + SONG_SLICE));
+    }, { rootMargin: "1200px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shown, list.length]);
   const Card = (s, pfx = "") => {
     const hue = laneHue((s.seq.find(x => x[0] !== "R") || ["C4"])[0]);
     const isFav = favs.includes(s.id);
@@ -3927,6 +4005,26 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
       </button>
     );
   };
+  /* The orange heading that opens a section of the grid: its name, and for an era the years it covers, then how many songs the
+     section holds under the filters now on (all of them, not only the slice drawn so far). */
+  const SecHead = (k: string) => {
+    const era = SONG_ERAS.find(e => e.code === k);
+    return (
+      <h3 key={"sec-" + k} className="songsec" data-sec={k}>
+        <span className="songsec-nm">{k === "fav" ? "♥ " + lc.songFav : tr(SEC_LABEL[k] || SEC_LABEL.other, lang)}</span>
+        <span className="songsec-sub">{era ? era.span + " · " : ""}{secCount[k]}</span>
+      </h3>
+    );
+  };
+  const gridItems: any[] = [];
+  {
+    let prevSec = "";
+    for (const s of list.slice(0, shown)) {
+      const k = secOf(s);
+      if (k !== prevSec) { prevSec = k; gridItems.push(SecHead(k)); }
+      gridItems.push(Card(s));
+    }
+  }
   // A drill card (scale / chord / interval) — no lock, no fav, just launch.
   const DrillCard = (s, icon) => {
     const fn = s.seq.find(x => x[0] !== "R") || ["C4"];
@@ -4055,8 +4153,9 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
             ) : null;
           })()}
           <div className="songgrid">
-            {list.length ? list.map(s => Card(s)) : <div className="songempty">{lc.songFavEmpty}</div>}
+            {list.length ? gridItems : <div className="songempty">{lc.songFavEmpty}</div>}
           </div>
+          {shown < list.length && <div ref={moreRef} className="songmore" aria-hidden="true" />}
         </>
       ) : (
         <>
@@ -7636,11 +7735,21 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
         </div>
 
         {stats.weakest.length > 0 && (
-        <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--card2)", borderRadius: 12, borderLeft: "3px solid #d97757" }}>
-          <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>
-            💡 {T("คำแนะนำจาก TIGA AI", "Recommendations from TIGA AI", "来自 TIGA AI 的建议")}
+        <div className="mentai">
+          {/* The box opens with a violet tab, in the violet of the "Go to Challenging" button below, that says it was made by
+              the AI for this learner (owner, 2026-10-02: "they take it for plain text, though it comes from advanced AI —
+              make it a prominent tab, like the purple button: Generate โดย AI เพื่อคุณโดยเฉพาะ"). For the record, the list
+              under it is computed on the device from the practice log (computeCoachStats → weakest); what the model writes is
+              the weekly report and the 7-day plan further down. A label, not a button: nothing happens on a tap. */}
+          <div className="mentai-tab" role="note">
+            <span className="mentai-spark" aria-hidden="true">✨</span>
+            <span className="mentai-tx">
+              <b>{T("Generate โดย AI เพื่อคุณโดยเฉพาะ", "Generated by AI, just for you", "AI 为你量身生成")}</b>
+              <i>{T("คำแนะนำจาก TIGA AI", "Recommendations from TIGA AI", "来自 TIGA AI 的建议")}</i>
+            </span>
+            <span className="mentai-chip" aria-hidden="true">AI</span>
           </div>
-          <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8 }}>
+          <div className="mentai-body" style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.8 }}>
             {stats.weakest.slice(0, 3).map((w, wi) => {
               const mins = w.rate > 50 ? 15 : w.rate > 20 ? 10 : 5;
               const intensity = w.rate > 50 ? T("พลาดบ่อยมาก — ซ้อมเพิ่ม", "miss rate high — practice", "错误率高，练习") : w.rate > 20 ? T("พลาดปานกลาง — ซ้อมเพิ่ม", "moderate misses — practice", "中等错误率，练习") : T("พลาดเล็กน้อย — ทบทวน", "few misses — review", "少量失误，复习");
@@ -10362,7 +10471,19 @@ export default function App() {
          landing page. Fire the event unconditionally when a stamp existed so
          sum(signup events) reconciles with real new members. */
       if (data && landingOrigin) {
-        logUsage("land", "signup:google");
+        /* This used to be a hard-coded "signup:google" for EVERY landing sign-up,
+           so the funnel filed the email accounts under Google (the 2026-10-02
+           report read "all 23 came through Google"; the auth table says 45 of
+           the 51 sign-ups since 7 Sep were Google and 6 were email). The real
+           provider decides the name now; an email account is "email-link" so it
+           cannot be confused with the landing's own submit-time "signup:email-otp". */
+        let prov = "google";
+        try {
+          const { data: sd } = await sb.auth.getSession();
+          const p = sd && sd.session && sd.session.user && sd.session.user.app_metadata && sd.session.user.app_metadata.provider;
+          if (p && p !== "google") prov = p === "email" ? "email-link" : String(p).slice(0, 20);
+        } catch (e) {}
+        logUsage("land", "signup:" + prov);
       }
       /* ── A4 (conversion plan v4): identity stitching. The device's anon_id
          is the only pre-signup identity that exists; pairing it with the real
@@ -11139,6 +11260,30 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (window.location.hash === "#daily-mentor") setPage("coach");
   }, []);
 
+  /* ── ?song=<id> — a link that opens ONE song's ready screen ──
+     The 2026-10-02 report: 539 people opened the lessons page in a month and 6
+     opened Play Along, the product's best feature. A short video, a share card
+     or the landing page's "play your first song" button can now point straight
+     at a song (marketing rec #7): /?song=twinkle. The id is looked up in SONGS;
+     an unknown or still-locked one just lands on the song list. The parameter
+     is removed from the address so a refresh does not reopen it. Guests are
+     fine — the app already lets a guest play and asks for the account later. */
+  useEffect(() => {
+    let sid = "";
+    try { sid = new URLSearchParams(window.location.search).get("song") || ""; } catch (e) {}
+    if (!sid) return;
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete("song");
+      window.history.replaceState({}, "", u.pathname + (u.search || "") + u.hash);
+    } catch (e) {}
+    const meta = SONGS.find(x => x.id === sid);
+    logUsage("nav", "deeplink-song:" + sid.slice(0, 40) + (meta ? "" : ":unknown"));
+    setPage("studio"); setStudioView("songs");
+    const lvl = levelInfo((profile && profile.exp) || 0).level;
+    if (meta && songPlayable(meta, lvl, plan)) chooseSong(meta);
+  }, []);
+
   // Payment-settings deep link. Stops at the unlock screen unless this browser
   // has already been unlocked — the hash is a shortcut, not a way in.
   useEffect(() => {
@@ -11671,6 +11816,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // time a real streak is actually at risk — the exact moment a reminder
   // would matter, tied to the same streakAtRisk() the in-app UI already uses.
   const [pushOn, setPushOn] = useState(() => typeof Notification !== "undefined" && Notification.permission === "granted");
+  /* The optional marketing purpose (PDPA): never pre-ticked, one tap each way. Written to the
+     profile with its timestamp so who agreed, and when, is on record. */
+  const marketingOn = !!(profile && profile.marketing_consent);
+  function toggleMarketing() {
+    if (requireLogin()) return;
+    const next = !marketingOn;
+    setProfile(p => (p ? { ...p, marketing_consent: next } : p));
+    logUsage("event", next ? "marketing-consent-on" : "marketing-consent-off");
+    sb.from("profiles").update({ marketing_consent: next, marketing_consent_at: new Date().toISOString() }).eq("id", session.user.id).then(() => {}, () => {});
+  }
   async function togglePush() {
     if (requireLogin()) return;
     if (pushOn) { await unsubscribePush(); setPushOn(false); }
@@ -12585,7 +12740,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
           onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
           initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""}
-          onUpgrade={(premium && plan !== "trial") ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
+          onUpgrade={(premium && plan !== "trial") ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }}
+          onFirstSong={() => {
+            playUi("click"); logUsage("nav", "pathway-firstsong");
+            const first = SONGS.find(x => x.id === "twinkle") || SONGS.find(x => x.diff === 1 && !x.custom);
+            setSongsCat("songs"); setStudioView("songs"); setPage("studio");
+            if (first) chooseSong(first);
+          }} />
       )}
 
       {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
@@ -12868,7 +13029,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} startSpotPractice={startSpotPractice} practiceWrongByIdxRef={practiceWrongByIdxRef} /></SafeZone>}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
-      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay gameStore={gameStore} songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songCanvasRef={songCanvasRef} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} requestSongAnalysis={requestSongAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} pvpOnline={pvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} drillCleared={drillCleared} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossMax={bossMax} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} openKnowledgeShelf={openKnowledgeShelf} pauseSong={pauseSong} resumeSong={resumeSong} restartSong={restartSong} playAgain={playAgain} playNext={playNext} nextSongFor={nextSongFor} songKind={songKind} setSongKind={setSongKind} songAccomp={songAccomp} setSongAccomp={setSongAccomp} songView={songView} setSongView={setSongView} songBand={songBand} setSongBand={setSongBand} songFx={songFx} setSongFx={setSongFx} songPractice={songPractice} songGfx={songGfx} setSongGfx={setSongGfx} songIntro={songIntro} startIntro={startIntro} skipIntro={skipIntro} sfxMuted={sfxMuted} onToggleSfx={() => { const m = !sfxMuted; setSfxMuted(m); setSfxMutedState(m); }} /></SafeZone>}
+      {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay gameStore={gameStore} songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songCanvasRef={songCanvasRef} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} requestSongAnalysis={requestSongAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} pvpOnline={pvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} drillCleared={drillCleared} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossMax={bossMax} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} openKnowledgeShelf={openKnowledgeShelf} pauseSong={pauseSong} resumeSong={resumeSong} restartSong={restartSong} playAgain={playAgain} playNext={playNext} nextSongFor={nextSongFor} songKind={songKind} setSongKind={setSongKind} songAccomp={songAccomp} setSongAccomp={setSongAccomp} songView={songView} setSongView={setSongView} songBand={songBand} setSongBand={setSongBand} songFx={songFx} setSongFx={setSongFx} songPractice={songPractice} songGfx={songGfx} setSongGfx={setSongGfx} songIntro={songIntro} startIntro={startIntro} skipIntro={skipIntro} sfxMuted={sfxMuted} onToggleSfx={() => { const m = !sfxMuted; setSfxMuted(m); setSfxMutedState(m); }} onRemind={(session && pushSupported() && !pushOn && !notifDone) ? () => { logUsage("event", "pa-remind-tap"); joinNotifEvent(); } : null} /></SafeZone>}
 
       {/* SIGHT-READING overlay */}
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightTip={sightTip} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
@@ -13137,7 +13298,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="setbody">
               <SkinThemeSettings mode={mode} setMode={setMode} setEquipLS={setEquipLS} lang={lang} />
               <div className="setdiv" />
-              <SfxMetronomeSettings lang={lang} sfxVol={sfxVol} setSfxVol={setSfxVol} setSfxVolState={setSfxVolState} sfxMuted={sfxMuted} setSfxMuted={setSfxMuted} setSfxMutedState={setSfxMutedState} ambientOn={ambientOn} setAmbientOn={setAmbientOn} getAC={getAC} metroOn={metroOn} setMetroOn={setMetroOn} setAdvancedOpen={setAdvancedOpen} setSetAdvancedOpen={setSetAdvancedOpen} metroBpm={metroBpm} setMetroBpm={setMetroBpm} tapTempo={tapTempo} pushOn={pushOn} togglePush={togglePush} pushGlow={notifGlow} />
+              <SfxMetronomeSettings lang={lang} sfxVol={sfxVol} setSfxVol={setSfxVol} setSfxVolState={setSfxVolState} sfxMuted={sfxMuted} setSfxMuted={setSfxMuted} setSfxMutedState={setSfxMutedState} ambientOn={ambientOn} setAmbientOn={setAmbientOn} getAC={getAC} metroOn={metroOn} setMetroOn={setMetroOn} setAdvancedOpen={setAdvancedOpen} setSetAdvancedOpen={setSetAdvancedOpen} metroBpm={metroBpm} setMetroBpm={setMetroBpm} tapTempo={tapTempo} pushOn={pushOn} togglePush={togglePush} pushGlow={notifGlow} marketing={session ? { on: marketingOn, toggle: toggleMarketing } : null} />
               <div className="setrow">
                 <label>⭐ Premium</label>
                 <button className={`settoggle${premium ? " on" : ""}`} onClick={() => { const v = !premium; setPremiumLS(v); setPremium(v); const np = v ? (plan === "free" ? "premium" : plan) : "free"; setPlanLS(np); setPlan(np); }}>

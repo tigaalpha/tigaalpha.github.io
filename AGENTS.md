@@ -187,7 +187,17 @@ the app has by the *shape of its melody* (`dump_app_songs.mjs` + `assemble.py --
 found, not only the same notes). The song list's category chips are the eras in `SONG_ERAS` (`songs-data.ts`:
 baroque, classical, romantic, impressionism): `SONG_GENRES[id]` holds an id's era (or kids/folk/gospel/jazz/soul/neosoul/
 carol/cn), `GENRE_CHIPS` in App.tsx lists the chips and `eraInfo` is the one-line note under a chosen era; the song grid
-uses `content-visibility:auto` so 1,000+ cards cost nothing off screen. A piece's level (`diff`) is worked out by
+uses `content-visibility:auto` so 1,000+ cards cost nothing off screen. **The grid is cut into sections with an orange heading
+each (owner, 2026-10-02, with a screenshot: "put the era's name, in orange, at the spot marked in red" — the start of the grid,
+under Continue / Up next).** `SONG_SECTIONS` (App.tsx, above `SongListPage`) is their order: the player's own AI songs (`mine`), the
+favourites (`fav`, a section of its own only while the whole library is shown and the Favorites filter is off — in a chip they stay
+inside their category, as they always floated to the top), then Kids, Folk, Carols, Gospel, Chinese, the four eras in the order of
+time, Jazz, Soul, Neo-Soul and `other`. The everyday songs come first on purpose: a new player's list still opens on the songs they
+know, and the era chips stay the way into the classical repertoire; putting the eras first is one array. The heading is
+`h3.songsec` (`.songsec-nm` in `--clay` orange `#d97757`, `.songsec-sub` the era's years and how many songs the section holds under
+the filters now on); a chosen chip shows its one heading. The headings ride the sliced rendering (a section's heading is drawn with
+its first card), so counting cards in a bot is still `.songgrid .songcard`. The `headings` bot section checks the order, the counts,
+th/en/zh, favourites and the player's own songs. A piece's level (`diff`) is worked out by
 `levelOf` in `build-songs.mjs` against the profile of the hand-made level-1 and level-2 songs (range, leaps, notes per second,
 length): the app's own `estimateSongDifficulty` was made for short beginner tunes and rates nine real classical melodies in ten
 level 3, so it is not used there; the level lock (`SONG_REQ`) then needs no per-song work. The random pickers that make a song
@@ -246,6 +256,66 @@ shelf, `GEMINI_TTS_MODELS`, never the chat models). The server half of the rule 
 `src:"chat"` and using full BCP-47 language tags — is written in `supabase/functions/piano-tts/index.ts` but **not deployed**
 (hard rules: a function deploy needs the owner's approval); until then the lock in the client is the only gate, as it is for the
 Voice Tutor.
+
+**Growth, measurement and the first minutes (owner, 2026-10-02: "fix every problem in the users report").** What is
+in the code, and what it replaced:
+
+- **Where a visit came from.** `local-identity.ts` (imports nothing, shared by the landing and the app) writes ONE
+  `usage_events` row per device, kind `attr`, `item_id` `first;s=fb;c=<utm_campaign>;t=<utm_term, the ad set>;k=<utm_content,
+  the creative>;v=<variant>;lg=th;tz=Asia/Bangkok;nl=th-TH;oua=<in-app browser it escaped from>` (`attributionEvent`), and a
+  `touch;…` row when a later visit carries different tags. Click ids (`fbclid`…) are kept as presence only. No column was added:
+  the table has none and a column needs a migration. The ad-link recipe is in the admin card (Meta: `utm_source=fb&utm_medium=paid&
+  utm_campaign={{campaign.name}}&utm_term={{adset.name}}&utm_content={{ad.name}}`, plus `&v=b` for the landing variant).
+- **The escape from an in-app browser carries the person.** 79% of visitors open the page inside Facebook's/Instagram's own
+  browser and sign up at 0.12% against 2.2% elsewhere; the "open in your browser" jump used to lose them (new storage = a
+  stranger with source "direct"). `handoffUrl()` adds `hid` (anon id), `hat` (minute), `hsrc`, `hua` (browser kind) — and `hlg`,
+  `hvia=mail` for a magic-link e-mail, which is opened later and usually in the mail app's own browser; `adoptHandoff()` runs in
+  `landing-main.tsx` and `main.tsx` BEFORE anything reads the anon id, adopts it only when the browser has none and the link is
+  fresh (30 min; 24 h for mail), stamps the landing language for a mail link, and strips the fields from the address bar. The
+  landing logs `escape:arrived[-known]:<browser>`; the app logs the real provider (`signup:google` / `signup:email-link`, it was
+  hard-coded `signup:google` for every landing sign-up).
+- **Admin funnel by campaign / ad set / creative / browser / variant / language / region / escape:** `AdminCampaignFunnel.tsx`
+  (loads on request, pages `usage_events` by id, no RPC) over the pure `campaign-funnel.ts`. A visitor's browser is the one on
+  their FIRST row. `node scripts/verify-campaign-funnel.mjs` tests the real maths and the real handoff code;
+  `node scripts/verify-landing-attribution.mjs` drives the built landing in Chromium (tags, variant, escape link, mail link).
+- **Landing fixes that were bugs, not opinions.** The full-screen "open Chrome" overlay inside a webview could never be closed
+  (`escapeFull` was set and never read) and the sign-up card behind it opened on the LONGEST form: 53 in-app visitors reached it in
+  30 days and none tried the e-mail form. The overlay is now gated by `escapeFull`, the card opens on the one-field e-mail link
+  everywhere, and inside a webview its Google button is the honest "needs your real browser" way out (Google answers a webview
+  with `disallowed_useragent`; 32 visitors a month tapped it). The trial promise now says 30 days (`TRIAL_DAYS_STANDARD` is 30 for
+  everyone; the page said 7 and "first 100 only"). `?v=b` serves ONE alternative first screen (outcome headline, keys lighting by
+  themselves until the first touch, a "play your first song" button into `/?song=twinkle`); `?v=c` is the same without the new
+  words; no tag is the page as it was. The variant sticks to the device (`landingVariant`) and rides the `attr` row.
+- **First minutes in the app.** `?song=<id>` opens that song's ready screen (`PianoApp`; unknown or still-locked ids land on the
+  list); the song pages below link to it. Until a first Play Along star exists the Pathway page shows ONE inline "play your first
+  song" offer — never a popup (the owner shut the first-run welcome card: two popups before the first key were a churn risk);
+  its taps are `nav` rows `pathway-firstsong[:shown|:closed]`. The guest gate (`app-shell.tsx`) has the one-field "e-mail me a
+  link" form at its top (`MagicLinkForm`) above the long forms. The result of a song may offer "remind me tomorrow" (push, reusing
+  `joinNotifEvent` and its one-time reward, signed-in players only) and, when `LINE_OA_URL` in `shared-infra.ts` is filled in, an
+  "add us on LINE" link — it is EMPTY because the LINE channel does not exist yet. Settings has an unticked, optional "e-mail me
+  news and the daily song" switch writing `profiles.marketing_consent` + `_at`.
+- **Not applied / not deployed (hard rules).** `supabase/functions/return-reminders/index.ts` and
+  `supabase-return-reminders-migration.sql`: day 1/3/7 push nudges to people with a push subscription who have not been back,
+  off by default (`app_settings.return_reminders.enabled`), cron block commented. LINE and e-mail are not wired (no channel token,
+  no e-mail provider). The weekly parent e-mail report needs an e-mail provider first.
+- **Song pages for search.** `node scripts/build-song-pages.mjs` (run by `npm run build`) writes one static page per song in th/en/zh
+  (`songs/<lang>/<id>.html`, no JavaScript, hreflang, a link into `/?song=<id>`), a song index per language, `sitemap.xml` and
+  `robots.txt` (there were none). A page's file name is the song's id with accents folded away (`gymnopedié` → `gymnopedie.html`,
+  `slugOf`: a sitemap wants plain ASCII); `?song=<id>` keeps the real id. Classical pages leave the note names off: the app plays a piece in its own, often transposed,
+  key. Every page names `og-card.png` as its share image, and `npm run build` now copies `public/og-card.png` to the site root — it
+  never was, so the landing pages' link preview (the og:image they have named since the card was made) was a 404 on the live site. `SITE_URL=… node scripts/build-song-pages.mjs` re-points everything the day the site moves to its own domain.
+- **Daily Mentor's recommendations open with a violet tab (owner, 2026-10-02: "they take it for plain text, though it comes from
+  advanced AI — make it a prominent tab, like the purple button: Generate โดย AI เพื่อคุณโดยเฉพาะ").** `.mentai` / `.mentai-tab`
+  (`CoachPage` in App.tsx, styles in app-styles.ts): the gradient of the "Go to Challenging" button, a sparkle, "Generated by AI, just
+  for you" over "Recommendations from TIGA AI" (th/en/zh), an "AI" chip, a slow sheen that reduced motion switches off. A label, not a
+  button. For the record, the list under it is computed on the device from the practice log (`computeCoachStats` → `weakest`, miss rate
+  per topic); what a model writes on that page is the weekly report and the 7-day plan further down — if the wording is ever
+  challenged, that is the line to look at. The `mentor` bot section covers the tab (three languages, narrow phones, dark theme,
+  reduced motion).
+- **The song list is drawn in slices** (60 cards, 120 more when its end comes near; `.songmore` is the sentinel) so a chip switch
+  does not build 1,067 cards. Bots that count or look for a card past the first screen call `expandList()` first. The classical
+  library is NOT lazy-loaded: 40+ places read `SONGS` synchronously (the daily song would re-pick if its saved id were not there
+  yet), so that is a careful change of its own, not a quick win.
 
 Robot and pet **thumbnails are pre-rendered images**, not live SVG:
 `scripts/bake-sprites.mjs` (`npm run sprites`) draws every robot head
@@ -405,13 +475,17 @@ the knowledge-block switch (it temporarily stubs `supabase-client.ts` and restor
 it — check `git diff supabase-client.ts` is empty if a run was killed).
 `node scripts/verify-speech.mjs` checks the speech engine under the chat's read-aloud (see above) with no browser.
 
+For the growth instrumentation: `node scripts/verify-campaign-funnel.mjs` (no browser) and, after `npm run build`,
+`node scripts/verify-landing-attribution.mjs` (Chromium, every Supabase call stubbed).
+
 For the song catalogue: `node scripts/verify-songs.mjs songs-src/classical` (form, key, range, public-domain limits, no tune
 twice or already in the app) and `node scripts/build-songs.mjs --check` (the generated `songs-classical.ts` matches its source),
 then the `list`, `eras` (more than 1,000 songs, the four era chips and their notes) and `classical` (real scores played to 3 stars:
 a slow 3/4, a pickup, fast sixteenths, a song, three art songs from the OpenScore Lieder) sections of
-`scripts/verify-playalong-bots.mjs` for the song list in a browser. The song list renders every card (no paging): with 1,067 of them a chip
-switch takes 20–120 ms on a desktop and up to ~0.5 s with the CPU slowed 4–6×, so keep a card cheap (`content-visibility:auto` does the rest) and
-reach for progressive rendering before the library grows much further.
+`scripts/verify-playalong-bots.mjs` for the song list in a browser (add `headings` for the orange section headings and `mentor` for the
+Daily Mentor tab). The song list is drawn in slices (see "Growth, measurement and the first minutes"): drawing every one of the 1,067 cards
+used to cost a chip switch 20–120 ms on a desktop and up to ~0.5 s with the CPU slowed 4–6×, so keep a card cheap (`content-visibility:auto`
+does the rest) and keep new per-card work out of the first slice.
 
 ## Where to look for current state
 

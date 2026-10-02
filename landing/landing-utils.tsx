@@ -1,4 +1,5 @@
 import { isChunkLoadError, reloadForNewBuild } from "../chunk-reload";
+import { handoffUrl } from "../local-identity";
 import { Component } from "react";
 
 /* ── landing/landing-utils.tsx ──
@@ -61,9 +62,15 @@ export function inAppBrowser() {
   return false;
 }
 
-/* ── VERBATIM from app-shell.tsx openInRealBrowser ── */
+/* ── from app-shell.tsx openInRealBrowser, plus the handoff fields ──
+   The URL that leaves the in-app browser carries the visitor's anon id, original
+   source and browser kind (local-identity.handoffUrl) so the page that opens on
+   the other side can pick the same person up instead of meeting a stranger.
+   escapeUrl() is exported because the copy-link fallback must copy THE SAME
+   address: a link pasted into Safari has to stitch just like the Chrome jump. */
+export function escapeUrl() { return handoffUrl(window.location.href); }
 export function openInRealBrowser() {
-  const url = window.location.href;
+  const url = escapeUrl();
   const ua = navigator.userAgent || "";
   try {
     if (/Android/i.test(ua)) {

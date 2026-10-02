@@ -357,6 +357,7 @@ body {
   padding: 13px 16px; border-radius: 13px; font: inherit; font-size: 15px; font-weight: 700;
   cursor: pointer; border: 1px solid transparent;
 }
+a.lp-btn { text-decoration: none; }  /* the first-song button is a real link */
 .lp-btn.google { background: #fff; color: #1f1f1f; border-color: #dadce0; }
 .lp-btn.google:active { background: #f1f3f4; }
 /* LINE's brand green — the button must read as "the LINE thing" at a glance,

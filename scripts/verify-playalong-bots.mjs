@@ -93,14 +93,26 @@ async function session({ w = 412, h = 915, kind = false, intro = true, exp = 500
   return { ctx, p, errs, usage };
 }
 async function openList(p) { await (await p.$$(".songcard"))[0].click(); await p.waitForTimeout(1200); }
-// the list has no search box: the whole list is on the page, so a song is found by
-// its name, an exact name first (one song's name can sit inside another's)
+// the list is drawn in slices (60 cards, then 120 more as its end comes near — SongListPage): scroll the end into view until all of it is there
+async function expandList(p) {
+  for (let i = 0; i < 40; i++) {
+    const more = await p.$(".songmore");
+    if (!more) break;
+    await more.scrollIntoViewIfNeeded().catch(() => {}); await p.waitForTimeout(120);
+  }
+}
+// the list has no search box: a song is found by its name, an exact name first (one song's name can sit inside another's);
+// the first look is at the cards on screen, then the rest of the list is drawn and looked through
 async function openSong(p, name) {
-  const cards = await p.$$(".songgrid .songcard");
   const want = name.toLowerCase();
-  let pick = null;
-  for (const c of cards) { const nm = await c.$(".songcard-nm"); if (nm && ((await nm.textContent()) || "").trim().toLowerCase() === want) { pick = c; break; } }
-  if (!pick) for (const c of cards) { const t = ((await c.textContent()) || "").toLowerCase(); if (t.includes(want)) { pick = c; break; } }
+  const find = async () => {
+    const cards = await p.$$(".songgrid .songcard");
+    for (const c of cards) { const nm = await c.$(".songcard-nm"); if (nm && ((await nm.textContent()) || "").trim().toLowerCase() === want) return c; }
+    for (const c of cards) { const t = ((await c.textContent()) || "").toLowerCase(); if (t.includes(want)) return c; }
+    return null;
+  };
+  let pick = await find();
+  if (!pick) { await expandList(p); pick = await find(); }
   if (!pick) return false;
   await pick.click(); await p.waitForTimeout(900); return true;
 }
@@ -344,8 +356,9 @@ if (want("list")) {
   const meta = await s.p.$$eval(".songgrid .songcard .songcard-meta", ms => ms.slice(0, 3).map(m => m.innerText.replace(/\s+/g, " ")));
   const firstTop = await s.p.$eval(".songgrid .songcard", e => Math.round(e.getBoundingClientRect().top));
   const gone = await s.p.evaluate(() => ({ search: !!document.querySelector(".songsearch"), banners: document.querySelectorAll(".setlistbtn").length, hero: !!document.querySelector(".songpage .pathhero") }));
-  const locked = await s.p.$(".songgrid .songcard.locked");
-  if (locked) await locked.click(); await s.p.waitForTimeout(300);
+  let locked = await s.p.$(".songgrid .songcard.locked");
+  if (!locked) { await expandList(s.p); locked = await s.p.$(".songgrid .songcard.locked"); }   // none in the first slice: draw the rest of the list
+  if (locked) { await locked.scrollIntoViewIfNeeded().catch(() => {}); await locked.click(); } await s.p.waitForTimeout(300);
   const msg = await s.p.$eval(".songlockmsg", e => e.innerText).catch(() => null);
   rec("list-cards", meta.every(m => /☆|★/.test(m) && /⏱ \d:\d\d|Level \d/.test(m)), meta.join(" | "));
   rec("list-locked", !!msg && /opens at level \d/.test(msg), msg || "(no message)");
@@ -357,13 +370,17 @@ if (want("list")) {
 if (want("eras")) {
   const s = await session({ exp: 0 });
   await openList(s.p);
+  const first = await s.p.evaluate(() => document.querySelectorAll(".songgrid .songcard").length);
+  rec("list-slices-first", first > 0 && first <= 100, `${first} cards drawn first (of 1,000+)`);
+  await expandList(s.p);
   const all = await s.p.evaluate(() => ({ cards: document.querySelectorAll(".songgrid .songcard").length, chips: [...document.querySelectorAll(".genrechip")].map(c => c.textContent.trim()) }));
-  rec("eras-1000", all.cards > 1000, `${all.cards} songs in "All"`);
+  rec("eras-1000", all.cards > 1000, `${all.cards} songs in "All" once the whole list has been scrolled in`);
   rec("eras-chips", ["Baroque", "Classical", "Romantic", "Impressionism"].every((n, i) => all.chips[i + 1] && all.chips[i + 1].includes(n)) && all.chips[0].includes("All"), all.chips.join(" | "));
   const chips = await s.p.$$(".genrechip");
   const seen = {}; let total = 0;
   for (let i = 1; i <= 4; i++) {
     await chips[i].click(); await s.p.waitForTimeout(250);
+    await expandList(s.p);
     const r = await s.p.evaluate(() => ({ cards: document.querySelectorAll(".songgrid .songcard").length, note: (document.querySelector(".erainfo") || {}).innerText || "" }));
     seen[all.chips[i]] = r.cards; total += r.cards;
     rec("era-" + i, r.cards >= 40 && new RegExp(String(r.cards)).test(r.note) && /\d{4}[–-]\d{4}/.test(r.note), `${all.chips[i]}: ${r.cards} songs · note "${r.note.replace(/\s+/g, " ")}"`);
@@ -372,9 +389,170 @@ if (want("eras")) {
   const open1 = await s.p.evaluate(() => document.querySelectorAll(".songgrid .songcard:not(.locked)").length);
   rec("era-open-for-level-1", open1 > 0, `Impressionism, level 1 player: ${open1} songs open`);
   await chips[0].click(); await s.p.waitForTimeout(250);
+  await expandList(s.p);
   rec("eras-all-again", !(await s.p.$(".erainfo")) && (await s.p.$$(".songgrid .songcard")).length === all.cards, `back to ${all.cards} songs, note gone`);
   rec("eras-errors", s.errs.length === 0, s.errs.join(" / ") || "none");
   await done(s);
+}
+// ── 10a-2. the song grid is cut into sections, each opened by an orange heading with the category's or era's name (owner, 2026-10-02: "put the era's name, in orange, at the spot marked in red") ──
+if (want("headings")) {
+  // the grid in document order: a heading, then the cards under it — {nm, sub, n (cards drawn under it), color, sec, top}
+  const readGrid = (p) => p.evaluate(() => {
+    const out = []; let cur = null;
+    for (const el of document.querySelectorAll(".songgrid > .songsec, .songgrid > .songcard")) {
+      if (el.classList.contains("songsec")) {
+        const nm = el.querySelector(".songsec-nm"), sub = el.querySelector(".songsec-sub");
+        cur = { nm: nm.textContent.trim(), sub: sub.textContent.trim(), n: 0, color: getComputedStyle(nm).color, sec: el.dataset.sec, top: Math.round(el.getBoundingClientRect().top), bottom: Math.round(el.getBoundingClientRect().bottom), firstCardTop: null, tag: el.tagName };
+        out.push(cur);
+      } else if (cur) { if (cur.firstCardTop == null) cur.firstCardTop = Math.round(el.getBoundingClientRect().top); cur.n++; }
+      else out.push({ orphan: true });
+    }
+    return out;
+  });
+  const ORANGE = "rgb(217, 119, 87)";
+  const tail = (h) => Number((h.sub.match(/(\d+)\s*$/) || [])[1]);
+  const names = (g) => g.map(h => h.nm.replace(/^[^A-Za-z฀-๿一-鿿]+/, ""));
+  const levelBtn = async (p, i) => (await p.$$(".songfilters"))[1] ? (await (await p.$$(".songfilters"))[1].$$(".songfilter"))[i] : null;
+
+  // (a) a new player, English: the first thing on the grid is an orange "Kids" heading, above its first card, and every section is complete once the list has been drawn
+  {
+    const s = await session({ exp: 0 });
+    await openList(s.p);
+    await s.p.screenshot({ path: `${OUT}/headings.png` });
+    let g = await readGrid(s.p);
+    const h0 = g[0] || {};
+    rec("heading-opens-grid", !h0.orphan && /Kids/.test(h0.nm || "") && h0.color === ORANGE && h0.tag === "H3" && h0.bottom <= h0.firstCardTop, `first: "${h0.nm}" · ${h0.color} · bottom ${h0.bottom} ≤ first card ${h0.firstCardTop}`);
+    await expandList(s.p);
+    g = await readGrid(s.p);
+    const want12 = ["Kids", "Folk", "Carols", "Gospel", "Chinese", "Baroque", "Classical", "Romantic", "Impressionism", "Jazz", "Soul", "Neo-Soul"];
+    const got = names(g);
+    rec("headings-order", JSON.stringify(got) === JSON.stringify(want12), got.join(" › "));
+    rec("headings-orange", g.every(h => h.color === ORANGE), `${g.length} headings, all ${ORANGE}`);
+    const bad = g.filter(h => tail(h) !== h.n);
+    const sum = g.reduce((n, h) => n + h.n, 0);
+    rec("headings-counts", bad.length === 0 && sum > 1000, `${g.length} sections hold ${sum} songs; the count in each heading matches its cards (${bad.map(h => h.nm + " says " + tail(h) + " has " + h.n).join("; ") || "all do"})`);
+    const eras = g.filter(h => /^(Baroque|Classical|Romantic|Impressionism)/.test(h.nm.replace(/^\W+/, "")));
+    rec("headings-era-years", eras.length === 4 && eras.every(h => /\d{4}[–-]\d{4} · \d+/.test(h.sub)), eras.map(h => h.nm + " " + h.sub).join(" | "));
+    // a chosen chip shows one heading, its own, with its years
+    const chips = await s.p.$$(".genrechip");
+    await chips[1].click(); await s.p.waitForTimeout(250);
+    await s.p.screenshot({ path: `${OUT}/headings-era.png` });
+    await expandList(s.p);
+    const gb = await readGrid(s.p);
+    rec("heading-one-chip", gb.length === 1 && /Baroque/.test(gb[0].nm) && /^1600–1750 · \d+$/.test(gb[0].sub) && tail(gb[0]) === gb[0].n, gb.map(h => `${h.nm} ${h.sub} (${h.n} cards)`).join(" | "));
+    // the level chips keep the sections, with fewer songs: level 1 has most kinds of music and the counts still match
+    await chips[0].click(); await s.p.waitForTimeout(250);
+    const lvBtn = await levelBtn(s.p, 2);
+    if (lvBtn) { await lvBtn.click(); await s.p.waitForTimeout(250); await expandList(s.p); }
+    const g1 = await readGrid(s.p);
+    rec("headings-level-1", !!lvBtn && g1.length >= 8 && g1.every(h => tail(h) === h.n) && /Kids/.test(g1[0].nm) && g1[0].n === 10, `level 1: ${g1.map(h => names([h])[0] + " " + h.n).join(", ")}`);
+    rec("headings-errors", s.errs.length === 0, s.errs.join(" / ") || "none");
+    await done(s);
+  }
+  // (b) Thai and Chinese: the names are translated, and the era is named in the player's language
+  for (const [lang, first, era] of [["th", /เด็ก/, /บาโรก/], ["zh", /儿歌/, /巴洛克/]]) {
+    const s = await session({ exp: 0, lang });
+    await openList(s.p);
+    const g = await readGrid(s.p);
+    await expandList(s.p);
+    const all = await readGrid(s.p);
+    rec("headings-" + lang, first.test((g[0] || {}).nm || "") && all.some(h => era.test(h.nm)) && all.every(h => h.color === ORANGE), `${lang}: ${all.map(h => h.nm).join(" › ")}`);
+    await done(s);
+  }
+  // (c) favourites float to a section of their own, above the rest of the whole library, and are not listed twice; the player's own songs come before them
+  {
+    const mine = JSON.stringify([{ id: "my_1", diff: 1, bpm: 100, custom: true, th: "Mine", en: "Mine", zh: "Mine", seq: [["C4", 1], ["D4", 1], ["E4", 1], ["F4", 1], ["G4", 1], ["A4", 1], ["B4", 1], ["C5", 1]] }]);
+    const s = await session({ exp: 0, extraLS: { tg_favs: JSON.stringify(["twinkle", "furelise"]), tg_mysongs: mine } });
+    await openList(s.p);
+    await expandList(s.p);
+    const g = await readGrid(s.p);
+    const nm = names(g);
+    const total = g.reduce((n, h) => n + h.n, 0);
+    const plain = await s.p.evaluate(() => document.querySelectorAll(".songgrid .songcard").length);
+    rec("headings-mine-fav", nm[0] === "My songs" && g[0].n === 1 && nm[1] === "Favorites" && g[1].n === 2 && nm[2] === "Kids" && g[2].n === 12 && total === plain && total > 1000, `${g.slice(0, 4).map(h => h.nm + " " + h.n).join(" › ")} · ${total} cards drawn, none listed twice`);
+    // the Favorites filter is every favourite, by category
+    const fbtn = await levelBtn(s.p, 1);
+    if (fbtn) { await fbtn.click(); await s.p.waitForTimeout(250); }
+    const gf = await readGrid(s.p);
+    rec("headings-favorites-filter", !!fbtn && JSON.stringify(names(gf)) === JSON.stringify(["Kids", "Classical"]) && gf.every(h => h.n === 1), gf.map(h => h.nm + " " + h.n).join(" › "));
+    rec("headings-fav-errors", s.errs.length === 0, s.errs.join(" / ") || "none");
+    await done(s);
+  }
+  // (d) a returning player: Continue and Up next stay where they were, and the first heading opens the grid right under them — the spot the owner marked in red
+  {
+    const s = await session({ exp: 5000, extraLS: { tg_last_song: "scale", tg_stars_scale: "3" } });
+    await openList(s.p);
+    const r = await s.p.evaluate(() => {
+      const lbls = [...document.querySelectorAll(".songcontinue-lbl")].map(e => e.textContent.trim());
+      const conts = [...document.querySelectorAll(".songcontinue")];
+      const head = document.querySelector(".songgrid > .songsec"), first = document.querySelector(".songgrid > .songcard");
+      const q = (e) => e.getBoundingClientRect();
+      return { lbls, n: conts.length, contBottom: Math.round(q(conts[conts.length - 1]).bottom), headTop: Math.round(q(head).top), headBottom: Math.round(q(head).bottom), firstTop: Math.round(q(first).top), headName: head.querySelector(".songsec-nm").textContent.trim(), color: getComputedStyle(head.querySelector(".songsec-nm")).color };
+    });
+    await s.p.screenshot({ path: `${OUT}/headings-continue.png` });
+    rec("heading-under-continue", r.n === 2 && /Continue/.test(r.lbls[0]) && /Up next/.test(r.lbls[1]) && r.contBottom <= r.headTop && r.headBottom <= r.firstTop && /Kids/.test(r.headName) && r.color === ORANGE, `${r.lbls.join(" · ")} · Up next card ends ${r.contBottom} → heading "${r.headName}" ${r.headTop}–${r.headBottom} → first card ${r.firstTop}`);
+    rec("headings-continue-errors", s.errs.length === 0, s.errs.join(" / ") || "none");
+    await done(s);
+  }
+}
+// ── 10a-3. Daily Mentor: the recommendations open with a prominent violet tab that says they were made by the AI for this learner (owner, 2026-10-02) ──
+if (want("mentor")) {
+  const now = Date.now();
+  const log = JSON.stringify([
+    { t: now - 3600e3, d: "2026-10-02", k: "game", id: "merrily", ok: 10, miss: 23, sec: 120 },
+    { t: now - 7200e3, d: "2026-10-02", k: "game", id: "yankee_doodle", ok: 15, miss: 23, sec: 100 },
+    { t: now - 9000e3, d: "2026-10-02", k: "read", id: "sight-treble", ok: 38, miss: 58, sec: 200 },
+  ]);
+  const TEXT = { en: ["Generated by AI, just for you", "Recommendations from TIGA AI"], th: ["Generate โดย AI เพื่อคุณโดยเฉพาะ", "คำแนะนำจาก TIGA AI"], zh: ["AI 为你量身生成", "来自 TIGA AI 的建议"] };
+  for (const lang of ["en", "th", "zh"]) {
+    const s = await session({ exp: 5000, lang, page: "coach", extraLS: { tg_act_log: log } });
+    await s.p.waitForSelector(".mentai-tab", { timeout: 8000 }).catch(() => {});
+    const r = await s.p.evaluate(() => {
+      const box = document.querySelector(".mentai"), tab = document.querySelector(".mentai-tab");
+      if (!tab) return null;
+      const cs = getComputedStyle(tab), tb = tab.getBoundingClientRect(), bb = box.getBoundingClientRect();
+      const b = tab.querySelector("b"), i = tab.querySelector("i");
+      const spill = [...tab.querySelectorAll(".mentai-spark,.mentai-tx,.mentai-chip")].some(k => { const r = k.getBoundingClientRect(); return r.right > tb.right + 0.5 || r.left < tb.left - 0.5; }) || b.scrollWidth > b.clientWidth + 1 || i.scrollWidth > i.clientWidth + 1;
+      return { main: b.textContent.trim(), sub: i.textContent.trim(), bg: cs.backgroundImage, color: cs.color, role: tab.getAttribute("role"), tabW: Math.round(tb.width), boxW: Math.round(bb.width), over: spill, bFont: parseFloat(getComputedStyle(b).fontSize), bWeight: getComputedStyle(b).fontWeight, items: [...document.querySelectorAll(".mentai-body > div")].length, cursor: cs.cursor, spark: !!tab.querySelector(".mentai-spark"), chip: (tab.querySelector(".mentai-chip") || {}).textContent };
+    });
+    if (lang === "en" && r) { await s.p.screenshot({ path: `${OUT}/mentor-ai-tab.png` }); const el = await s.p.$(".mentai"); if (el) await el.screenshot({ path: `${OUT}/mentor-ai-box.png` }); }
+    rec("mentor-tab-" + lang, !!r && r.main === TEXT[lang][0] && r.sub === TEXT[lang][1] && /127, 82, 234/.test(r.bg) && r.color === "rgb(255, 255, 255)" && r.role === "note" && Math.abs(r.boxW - r.tabW) <= 2 && !r.over && r.bFont >= 14 && Number(r.bWeight) >= 700 && r.items === 3 && r.cursor !== "pointer" && r.spark && r.chip === "AI", r ? `"${r.main}" / "${r.sub}" · violet gradient ${/127, 82, 234/.test(r.bg)} · white text · ${r.tabW}px = box ${r.boxW}px · ${r.items} items under it` : "(no tab)");
+    if (lang === "en") {
+      // narrow phones: nothing spills out of the tab, on a 320 px screen too
+      for (const w of [360, 320]) {
+        await s.p.setViewportSize({ width: w, height: 800 }); await s.p.waitForTimeout(250);
+        const n = await s.p.evaluate(() => {
+          const t = document.querySelector(".mentai-tab"), r = t.getBoundingClientRect(), b = t.querySelector("b"), i = t.querySelector("i");
+          const spill = [...t.querySelectorAll(".mentai-spark,.mentai-tx,.mentai-chip")].some(k => { const q = k.getBoundingClientRect(); return q.right > r.right + 0.5 || q.left < r.left - 0.5; }) || b.scrollWidth > b.clientWidth + 1 || i.scrollWidth > i.clientWidth + 1;
+          return { over: spill, right: Math.round(r.right), vw: innerWidth, docOver: document.documentElement.scrollWidth > innerWidth + 1 };
+        });
+        const box = await s.p.$(".mentai"); if (box) await box.screenshot({ path: `${OUT}/mentor-ai-box-${w}.png` });
+        rec("mentor-tab-narrow-" + w, !n.over && n.right <= n.vw && !n.docOver, `${w}px: tab right edge ${n.right}/${n.vw} · tab overflow ${n.over} · page overflow ${n.docOver}`);
+      }
+      await s.p.setViewportSize({ width: 412, height: 915 });
+      // dark theme: the tab keeps white on violet, the box takes the dark card colour
+      await s.p.evaluate(() => { document.documentElement.setAttribute("data-theme", "dark"); }); await s.p.waitForTimeout(250);
+      const d = await s.p.evaluate(() => { const box = document.querySelector(".mentai"), tab = document.querySelector(".mentai-tab"); return { color: getComputedStyle(tab).color, bg: getComputedStyle(box).backgroundColor, tabBg: getComputedStyle(tab).backgroundImage }; });
+      await s.p.screenshot({ path: `${OUT}/mentor-ai-tab-dark.png` });
+      rec("mentor-tab-dark", d.color === "rgb(255, 255, 255)" && /127, 82, 234/.test(d.tabBg), `dark: text ${d.color} · tab ${/127, 82, 234/.test(d.tabBg) ? "violet" : d.tabBg} · box ${d.bg}`);
+      await s.p.evaluate(() => { document.documentElement.setAttribute("data-theme", "light"); });
+      // reduced motion: the sheen sweeping over the tab stops
+      const moving = await s.p.evaluate(() => getComputedStyle(document.querySelector(".mentai-tab"), "::after").animationName);
+      await s.p.emulateMedia({ reducedMotion: "reduce" }); await s.p.waitForTimeout(200);
+      const still = await s.p.evaluate(() => { const a = getComputedStyle(document.querySelector(".mentai-tab"), "::after"); return a.animationName + "/" + a.display; });
+      rec("mentor-tab-reduced-motion", /mentAiSheen/.test(moving) && /^none/.test(still), `motion: ${moving} · reduced: ${still}`);
+    }
+    rec("mentor-errors-" + lang, s.errs.length === 0, s.errs.join(" / ") || "none");
+    await done(s);
+  }
+  // nothing to recommend yet: no empty violet box
+  {
+    const s = await session({ exp: 5000, page: "coach" });
+    await s.p.waitForSelector(".profscroll", { timeout: 8000 }).catch(() => {});
+    await s.p.waitForTimeout(600);
+    rec("mentor-no-tab-without-data", !(await s.p.$(".mentai")), "no practice yet → no box");
+    await done(s);
+  }
 }
 // ── 10a'. real scores play and score like any song: a slow 3/4, a pickup, fast sixteenths, a song, and three art songs from the OpenScore Lieder (2/4, a fast 3/4, a slow 3/4) ──
 if (want("classical")) {

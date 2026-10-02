@@ -11,6 +11,11 @@ import { logUsage } from "./shared-infra";
 // learning-data.ts is fire-and-forget and swallows its own errors (§20): boot
 // never waits on it, and nothing user-facing can fail because of it.
 import { initLearningData } from "./learning-data";
+import { adoptHandoff, attributionEvent } from "./local-identity";
+/* A visitor who tapped "open in your browser" inside Facebook/Instagram arrives
+   carrying their anon id; it must be adopted before anything below reads it
+   (the first read fixes the id for the device). See local-identity.handoffUrl. */
+const arrival = adoptHandoff();
 initLearningData();
 
 /* Was this tab ever in the background before the app finished painting?
@@ -37,6 +42,15 @@ createRoot(document.getElementById("root")).render(
     </ErrorBoundary>
   </StrictMode>
 );
+
+/* One row per device saying which campaign / ad set / creative / time zone the
+   visit came from, plus the arrival from an in-app browser escape. Both ride
+   usage_events as ordinary rows (kind "attr" / "land"): no schema change. */
+try {
+  if (arrival) logUsage("land", "escape:arrived" + (arrival.adopted ? "" : "-known") + ":" + (arrival.ua || "?"));
+  const attr = attributionEvent("app");
+  if (attr) logUsage("attr", attr);
+} catch (e) {}
 
 /* Take down the boot screen from index.template.html once React has actually
    painted. requestAnimationFrame twice puts this after the first real frame,

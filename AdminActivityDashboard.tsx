@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { sb } from "./supabase-client";
 import { GUEST_TRIAL_MS } from "./shared-infra";
 import { AdminLearningData } from "./AdminLearningData";
+import { CampaignFunnelCard } from "./AdminCampaignFunnel";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ADMIN ACTIVITY ANALYTICS — visible ONLY to admin_tier >= 3 (the owner).
@@ -974,6 +975,11 @@ function ActivityBody({ lang, onOpenAnon }) {
           numbers rather than inside them — landing rows are kind='land', which
           every panel above now excludes. */}
       <LandingFunnelCard f={landing} T={T} />
+
+      {/* the same funnel cut by campaign / ad set / creative / browser / variant /
+          language / region / in-app escape — computed from raw events, loaded on
+          request (AdminCampaignFunnel.tsx) */}
+      <CampaignFunnelCard range={range} T={T} />
 
       <RangePicker range={range} setRange={setRange} T={T} />
 

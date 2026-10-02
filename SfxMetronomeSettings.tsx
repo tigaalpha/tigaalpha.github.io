@@ -12,7 +12,7 @@ import { pushSupported } from "./shared-infra";
 export function SfxMetronomeSettings({
   lang, sfxVol, setSfxVol, setSfxVolState, sfxMuted, setSfxMuted, setSfxMutedState,
   ambientOn, setAmbientOn, getAC, metroOn, setMetroOn, setAdvancedOpen, setSetAdvancedOpen,
-  metroBpm, setMetroBpm, tapTempo, pushOn, togglePush, pushGlow = false,
+  metroBpm, setMetroBpm, tapTempo, pushOn, togglePush, pushGlow = false, marketing = null,
 }) {
   const lc = L[lang];
   return (
@@ -57,6 +57,17 @@ export function SfxMetronomeSettings({
                   <label>{lc.setPush}</label>
                   <button className={`settoggle${pushOn ? " on" : ""}`} onClick={togglePush}>
                     {pushOn ? lc.setOn : lc.setOff}
+                  </button>
+                </div>
+              )}
+              {/* PDPA: the optional "news and the daily song by e-mail" purpose, off until a
+                  person turns it on and off again whenever they like. Google and one-field
+                  e-mail sign-ups were never asked at all (2 of 70 accounts had said yes). */}
+              {marketing && (
+                <div className="setrow">
+                  <label>{lang === "th" ? "รับข่าวและเพลงประจำวันทางอีเมล (ไม่บังคับ)" : lang === "zh" ? "接收邮件通知与每日歌曲（可选）" : "Email me news and the daily song (optional)"}</label>
+                  <button className={`settoggle${marketing.on ? " on" : ""}`} onClick={marketing.toggle}>
+                    {marketing.on ? lc.setOn : lc.setOff}
                   </button>
                 </div>
               )}
