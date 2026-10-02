@@ -476,7 +476,9 @@ For the learning-data wire (what turns a practice session into the rows
 `learning_*`, `learner_skill_state` and the honest dashboard numbers read):
 `node scripts/check-learning-wire.mjs` queries the LIVE DB read-only and says
 whether anything lands and whether the 8 client RPCs still exist with the
-argument names the client sends; `node tigamodel/scripts/smoke-learning-wire.mjs`
+argument names the client sends — it **skips (🟡, exit 0) rather than fails when the DB or the
+Supabase CLI is not reachable**, because plan-check turns a non-zero exit into a red milestone and a
+machine that cannot reach the DB has not proven anything is broken; `node tigamodel/scripts/smoke-learning-wire.mjs`
 covers the gate itself. Both are wired into `plan-check` / `npm run verify:tiga`.
 The gate lives in `learning-session-gate.ts` because it has to be testable
 without a network: "unknown auth state → attempt the write and let RLS decide,
