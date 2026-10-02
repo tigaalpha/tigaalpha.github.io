@@ -90,9 +90,11 @@ domain `innovation` / `music-marketing` / `music-therapy` ลงทะเบี�
 ## ส่วนที่ 5: งานถัดไปในแผน (ยังไม่ทำ — รอเจ้าของสั่ง)
 
 - **m44/m47**: ผูก kill switch `tiga_kb_hot_path` / `tiga_cost_governor` เข้า
-  app_settings (เปิด-ปิดได้ไม่ต้อง deploy)
+  app_settings (เปิด-ปิดได้ไม่ต้อง deploy) — **เสร็จแล้ว** ดู docs/15 §2
 - **m35/m48/m49**: routing สายสั้น · budget/timeout ต่อ call · สะพาน governor→router
-- **m45/m46**: hot counts ข้ามเซสชัน · eval พิสูจน์ capped ไม่แพ้ legacy
+  — **เสร็จแล้ว** ดู docs/15 §2 และ §4 (รวมปุ่มใน Lab)
+- **m45/m46**: hot counts ข้ามเซสชัน · eval พิสูจน์ capped ไม่แพ้ legacy — **เสร็จแล้ว**
 - **วงจร A/B/C** ยังติดข้อมูลจริง (ห้ามปลอม): B รอ teaching_outcomes ≥50 (ตอนนี้ 5) ·
   A รอเจ้าของเปิด `tiga_personalized_plans` · C รอ learning_diagnoses ระบุทักษะ
+  (แดชบอร์ดวงจร + หลักฐานก่อน-หลัง + คิวความรู้: **docs/17**)
 - **ผลิตภัณฑ์**: เปิดสวิตช์ตัวไหน = คำสั่งเจ้าของเท่านั้น (default OFF เสมอ)

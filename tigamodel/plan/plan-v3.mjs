@@ -32,6 +32,7 @@ export const STEEL_RULES = [
 export const OWNER_APPROVALS = [
   { item: "learning-data-migration", label: "supabase-learning-data-migration.sql (7 ตาราง + RLS + RPCs)", approved: true, approvedBy: "owner (this conversation, 2026-09-29: อนุญาต ให้ทำได้ทั้งสองข้อ)" },
   { item: "policy-weights-migration", label: "supabase-policy-weights-migration.sql (RPC + seed switch-off)", approved: true, approvedBy: "owner (this conversation, 2026-09-29: อนุญาต ให้ทำได้ทั้งสองข้อ)" },
+  { item: "knowledge-contributions", label: "supabase-knowledge-contributions-migration.sql (ตาราง knowledge_contributions + RLS + RPC อนุมัติโดยผู้ดูแล)", approved: false, approvedBy: "ยังไม่อนุมัติ — ไฟล์เขียนแล้ว รอเจ้าของสั่ง apply ในบทสนทนานี้ (repo hard rule)" },
 ];
 
 export const MILESTONES = [
@@ -224,10 +225,10 @@ export const MILESTONES = [
   {
     id: "m24-before-after-dashboard",
     title: "แดชบอร์ดก่อน-หลังต่อเด็ก (หลักฐานผลลัพธ์สำหรับพ่อแม่/ครู)",
-    state: "planned",
-    deps: ["m18-skill-state-real"],
-    acceptance: "พ่อแม่เห็นตัวเลขก่อน-หลังของลูกจากข้อมูลจริง (เช่น อ่านโน้ตเร็วขึ้น X% ใน 6 สัปดาห์) — จาก learning_practice_events ไม่ใช่คำโฆษณา",
-    evidence: ["tigamodel/docs/08-plan-ten-millionfold.md"],
+    state: "code",
+    deps: ["m05-apply-learning-data"],
+    acceptance: "before-after.js (pure): เทียบรอบแรกกับรอบล่าสุดของทักษะเดียวกันจาก learning_practice_events จริง · ย้อนแถวไม่มีคะแนน = มีแค่ 'นาทีที่ซ้อม' ไม่กลายเป็นตัวเลข · คนละทักษะไม่เทียบกัน · 1 ครั้งไม่เป็นเทรนด์ (claimable ต้อง ≥3 ครั้ง, cohort ≥10 ครั้ง) · ถดถอยรายงานตรงๆ · ตารางว่าง = 'ยังไม่มีข้อมูล' ไม่ใช่ 0% · smoke-compound-dashboard 19/19 · scripts/compound-dashboard.mjs พิมพ์หลักฐานรายคนจาก live DB (read-only) · สถานะ code เพราะต้องมีแถวซ้อมจริงก่อน (learning_practice_events = 0 แถวตอนนี้ — เกิดเองจากนักเรียนจริง ห้ามปลอม)",
+    evidence: ["tigamodel/evaluation/before-after.js", "tigamodel/scripts/smoke-compound-dashboard.mjs", "scripts/compound-dashboard.mjs", "tigamodel/docs/08-plan-ten-millionfold.md"],
   },
   {
     id: "m25-contribution-gate",
@@ -239,11 +240,12 @@ export const MILESTONES = [
   },
   {
     id: "m26-contribution-store",
-    title: "ที่เก็บข้อเสนอความรู้ + หน้าอนุมัติผู้ใหญ่ (รอ Learning Data apply)",
-    state: "planned",
+    title: "ที่เก็บข้อเสนอความรู้ + กติกาหน้าอนุมัติผู้ใหญ่ (SQL เขียนแล้ว รอเจ้าของอนุมัติ apply)",
+    state: "code",
     deps: ["m25-contribution-gate", "m05-apply-learning-data"],
-    acceptance: "ตาราง knowledge_contributions (pending/approved/rejected) + RPC additive + หน้า admin — โมเดลไม่มีสิทธิ์ตัดสินเอง เจ้าของ/แอดมินเท่านั้น",
-    evidence: ["tigamodel/compliance/contribution-gate.js"],
+    acceptance: "contribution-store.js (pure): แถวที่ผู้ส่งสร้าง status เป็น 'pending' เสมอ (ค่าที่ client ส่งมาถูกทิ้ง) · เหตุผลจากประตูครบทุกข้อ · moderateArgs ต้องมี admin_tier + id จริง + สถานะที่ตัดสินได้ + เหตุผลเขียน (โมเดลอนุมัติเองไม่ได้) · approvalBlockers ห้ามอนุมัติแถวที่ gate ไม่ผ่าน/ไม่มีผู้ส่ง/ไม่มี license · queueStats นับเฉพาะที่มี · supabase-knowledge-contributions-migration.sql: ตาราง + RLS (insert ได้เฉพาะแถวตัวเองสถานะ pending, อ่านเฉพาะแถวตัวเอง, ไม่มี policy UPDATE/DELETE) + RPC admin_moderate_contribution / _queue / _count + trigger stamp ผู้ตัดสิน·เวลา — additive re-runnable · smoke-contribution-store 17/17 · ยังไม่ apply (repo hard rule: รอเจ้าของอนุมัติในบทสนทนานี้)",
+    evidence: ["tigamodel/compliance/contribution-store.js", "tigamodel/scripts/smoke-contribution-store.mjs", "supabase-knowledge-contributions-migration.sql", "tigamodel/compliance/contribution-gate.js"],
+    needsApproval: "knowledge-contributions",
   },
   {
     id: "m27-contributor-credit",
@@ -354,7 +356,7 @@ export const MILESTONES = [
     title: "docs/15 §4 สะพาน governor → router: โซน warn เอนไปผู้ให้ถูกอัตโนมัติ",
     state: "code",
     deps: ["m13-cost-governor", "m35-speed-short-routing"],
-    acceptance: "เซสชันเข้าโซน warn (≥80% quota) → prefer_cost free-first อัตโนมัติใน candidatesFor — throttle ห้วนเป็นทางสุดท้ายเท่านั้น · eval เท่าเดิม. ทำแล้ว: router.route รับ preferCost ต่อการเรียก (ค่าเริ่มต้น = เดิม), chatThroughCostGovernor ส่ง 'free-first' เมื่อ governor บอก warn และ routed.reason = 'warn_zone_free_first' (บอกเหตุผลตรง ๆ) · smoke 7/7",
+    acceptance: "เซสชันเข้าโซน warn (≥80% quota) → prefer_cost free-first อัตโนมัติใน candidatesFor — throttle ห้วนเป็นทางสุดท้ายเท่านั้น · eval เท่าเดิม. ทำแล้ว: router.route รับ preferCost ต่อการเรียก (ค่าเริ่มต้น = เดิม), chatThroughCostGovernor ส่ง 'free-first' เมื่อ governor บอก warn และ routed.reason = 'warn_zone_free_first' (บอกเหตุผลตรง ๆ) · smoke 8/8 (รวมข้อที่พิสูจน์ว่าปุ่มใน Lab อ่านค่าจาก router ตัวจริง)",
     evidence: ["tigamodel/providers/model-router.js", "tigamodel/docs/15-plan-cost-speed-improve.md", "tigamodel/scripts/smoke-routing-bridge.mjs", "tigamodel/index.js", "tigamodel/web.js"],
   },
   {
@@ -362,16 +364,16 @@ export const MILESTONES = [
     title: "docs/10 §1.4 + docs/15 §4 routing สายสั้นสำหรับงานเล็ก (ต่อยอด cost governor)",
     state: "code",
     deps: ["m13-cost-governor"],
-    acceptance: "งานเล็กไม่เข้าคิวโมเดลใหญ่ (ตัดสินจาก declared latency/cost ของ router เดิม) · eval suite ผ่านเท่าเดิม (เงื่อนไขร่วม) + latency/ต้นทุน p95 ลดตามเป้า §8 — คุณภาพห้ามตก. ทำแล้ว: สัญญาณขนาด = นับตัวอักษรจริงของ system+message+history (≤1,500 = งานเล็ก) ไม่เดา · boost เฉพาะผู้ให้ที่ประกาศตัวว่า fast/free · kill switch tiga_short_routing default OFF (OFF = ลำดับเดิมทุกตัวอักษร) · mock floor ยังอยู่ท้ายสุดเสมอ · smoke 7/7",
+    acceptance: "งานเล็กไม่เข้าคิวโมเดลใหญ่ (ตัดสินจาก declared latency/cost ของ router เดิม) · eval suite ผ่านเท่าเดิม (เงื่อนไขร่วม) + latency/ต้นทุน p95 ลดตามเป้า §8 — คุณภาพห้ามตก. ทำแล้ว: สัญญาณขนาด = นับตัวอักษรจริงของ system+message+history (≤1,500 = งานเล็ก) ไม่เดา · boost เฉพาะผู้ให้ที่ประกาศตัวว่า fast/free · kill switch tiga_short_routing default OFF (OFF = ลำดับเดิมทุกตัวอักษร) · mock floor ยังอยู่ท้ายสุดเสมอ · ปุ่มใน TIGA MODEL LAB (ShortRoutingPanel) อ่านเกณฑ์จาก router.policy ตัวจริง ไม่ใช่ตัวเลขที่พิมพ์ในป้าย · smoke 8/8",
     evidence: ["tigamodel/providers/model-router.js", "tigamodel/docs/15-plan-cost-speed-improve.md", "tigamodel/scripts/smoke-routing-bridge.mjs", "tigamodel/web.js"],
   },
   {
     id: "m36-speed-provider-budget",
-    title: "docs/10 §1.5 timeout/budget ต่อ provider call — ช้าเกิน = ตอบด้วยกฎ/KB ของเรา",
-    state: "planned",
+    title: "docs/10 §1.5 timeout/budget ต่อ provider call — ช้าเกิน = ตอบด้วยกฎ/KB ของเรา (ส่งมอบแล้วใน m48)",
+    state: "done",
     deps: ["m03-plan-v3-self-enforcing"],
-    acceptance: "provider เกิน budget → คำตอบสำรองจาก KB/กฎที่ตรวจแล้ว (มีที่มา ไม่ห้อย ไม่เดา) — learner-facing floor ไม่เปลี่ยน",
-    evidence: ["tigamodel/providers/model-router.js"],
+    acceptance: "ส่งมอบใน m48 (provider-budget.js + สวิตช์ + wiring + smoke 9/9 + ปุ่มใน Lab) — m36 เป็น milestone เดียวกันเชิงเนื้อหา จึงรวมเป็น done ที่นี่และไม่ต้องมีโค้ดซ้ำ: soft 8s/hard 20s ต่อ provider call · เกินกำหนด → status 'uncertain', provider 'rule-brain', metadata.sources = label ที่ส่งจริง · kill switch tiga_provider_budget default OFF (ปิด = พาธเดิม byte-identical ไม่มี timer) · quality เป็นเงื่อนไขร่วม (บรรทัด KB ที่ส่งผ่านประตูกฎหมายเท่านั้น, จำกัด 6 บรรทัด) · 3 ภาษา",
+    evidence: ["tigamodel/performance/provider-budget.js", "tigamodel/scripts/smoke-provider-budget.mjs", "tigamodel/web.js", "TigamodelLab.tsx", "tigamodel/docs/15-plan-cost-speed-improve.md"],
   },
   {
     id: "m37-migration-button",
@@ -409,10 +411,10 @@ export const MILESTONES = [
   {
     id: "m41-compound-dashboard",
     title: "docs/12 §2 แดชบอร์ดวงจร A→B→C — ผลวันนี้เป็นตัวเลขจริง",
-    state: "planned",
+    state: "code",
     deps: ["m39-skill-state-wiring", "m40-outcomes-counter"],
-    acceptance: "แผนเฉพาะคนกี่คน · outcomes เพิ่มเท่าไร · ตอบไม่ได้ลดกี่ % — ทุกตัวมาจากตารางจริง (ไม่มีการประมาณ)",
-    evidence: ["tigamodel/docs/12-plan-thousandfold-compound.md"],
+    acceptance: "compound-dashboard.js (pure) + scripts/compound-dashboard.mjs (read-only ผ่าน CLI เดียวกับ m40/m43): ทุกช่องคือตัวเลขที่นับได้จริงหรือ 'ยังไม่มีข้อมูลจริง (ไม่ประมาณ)' — ไม่มีช่องไหนเป็น 0 ปลอม · เกณฑ์เปิดสวิตช์เป็นตัวเลขของแผนเอง (A 20 คน m08 / B 50 outcomes m40) · เทรนด์ต้องมี 2 หน้าต่างจริง (สัปดาห์นี้ vs สัปดาห์ก่อน) · อัตรา ตอบไม่ได้ คิดเป็น % ได้ต่อเมื่อมี baseline ก่อน wave · วงจร A พร้อมก็ต่อเมื่อสวิตช์เปิด · smoke-compound-dashboard 19/19 (รวม null/NaN/string เข้าไปก็ไม่พังและไม่กลายเป็นตัวเลข) · ผลจริงรอบแรก: A 0 คน (สวิตช์ปิด), B 5 outcomes (ขาด 45), C 0 diagnosis ที่ระบุทักษะ + % ตอบไม่ได้ = ยังไม่มี baseline → วัดได้ 6/7 ช่อง — สถานะ code เพราะแดชบอร์ดรันได้จริงทุกเช้าแต่วงจร A ยังรอสวิตช์ tiga_personalized_plans (m39) เปิดก่อน",
+    evidence: ["tigamodel/evaluation/compound-dashboard.js", "tigamodel/scripts/smoke-compound-dashboard.mjs", "scripts/compound-dashboard.mjs", "tigamodel/docs/12-plan-thousandfold-compound.md"],
   },
   {
     id: "m42-morning-command",

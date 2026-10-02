@@ -301,6 +301,13 @@ export async function setShortRoutingSwitch(on) {
   return applyShortRouting(on === true);
 }
 export async function isShortRoutingSwitchOn() { return refreshShortRoutingSwitch({ force: true }); }
+/* what the owner sees next to the switch: the REAL threshold the router uses,
+   read from the router's own policy — never a number typed into a label. */
+export function shortRoutingConfig() {
+  let policy = {};
+  try { const t = getTigamodel(); if (t && t.router && t.router.policy) policy = t.router.policy; } catch (e) {}
+  return { on: _srOn, smallChars: Number.isFinite(policy.small_chars) && policy.small_chars > 0 ? Math.floor(policy.small_chars) : 1500 };
+}
 
 /* ── m48 (docs/15 §4): a real deadline per provider call, and when it is
    missed the learner gets the app's own VERIFIED knowledge (the same KB lines

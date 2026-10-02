@@ -16,6 +16,7 @@
    8. Measured speed     — rule brain/KB real latency (m33)     9. KB hot path        — capped+ranked serving: caps hold, gate holds, faster (m34)
      10. Cost governor     — per-session spend ceiling enforced by code (m13/m22)
      11. Accuracy+coverage — 5-layer model audit runs for real + the thin pillars are deep, served, retrievable (m50/m52)
+     12. Loop honesty — the compound board and the before/after proof refuse to invent a number (m41/m24), and a client can never approve a contributed entry (m26)
 
    Exit 1 if any section fails its bar. */
 
@@ -31,7 +32,7 @@ const REAL_SB = readFileSync("supabase-client.ts", "utf8");
 ioSync("supabase-client.ts", "export const sb = null;\n");
 try {
   execSync(`npx esbuild tigamodel/web.js --bundle --outfile=${OUT}/p4/web.js --format=esm --platform=node --loader:.js=js --packages=external`, { stdio: "pipe" });
-  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js tigamodel/performance/kb-hot-path.js tigamodel/performance/cost-governor.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
+  execSync(`npx esbuild tigamodel/evaluation/eval-expanded.js tigamodel/evaluation/eval-suite.js tigamodel/evaluation/retrieval-eval.js tigamodel/teaching/policy.js tigamodel/teaching/generator.js tigamodel/core/schema.js tigamodel/teaching/strategy-analyzer.js tigamodel/compliance/kb-compliance.js tigamodel/multimodal/fusion.js tigamodel/performance/answer-cache.js tigamodel/performance/kb-hot-path.js tigamodel/performance/cost-governor.js tigamodel/evaluation/compound-dashboard.js tigamodel/evaluation/before-after.js tigamodel/compliance/contribution-store.js tigamodel/compliance/contribution-gate.js --outdir=${OUT} --format=esm --platform=node --loader:.js=js`, { stdio: "pipe" });
 } finally {
   ioSync("supabase-client.ts", REAL_SB);
 }
@@ -328,6 +329,65 @@ console.log("╚═════════════════════�
   const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
   section(
     "11) ความแม่นยำ + ครอบคลุมความรู้ (audit 5 ชั้น + 3 หมวดบาง, docs/16)",
+    `${cases.map(c => `${c.ok ? "✓" : "✗"} ${c.label} (${c.v})`).join(" · ")}`,
+    pct, "100%", pct === 100
+  );
+}
+
+/* ── 12. Loop honesty (docs/12 §2 m41, docs/08 m24, docs/09 m26): the two
+   dashboards that talk to PARENTS and the store that lets outsiders
+   contribute must both refuse to invent a number, and nobody but an adult
+   may approve. Checked here on the real modules so this file is the one
+   command that says so out loud. ── */
+{
+  const board = await M("evaluation/compound-dashboard.js");
+  const proof = await M("evaluation/before-after.js");
+  const store = await M("compliance/contribution-store.js");
+
+  const empty = board.compoundBoard({}, {});
+  const allUnavailable = empty.loops.every(l => l.metrics.every(m => m.status === "unavailable"));
+  const noZeroFabrication = empty.loops.every(l => l.metrics.every(m => m.value === null));
+  const filled = board.compoundBoard({ skillStateLearners: 25, outcomes: 60, outcomesRecent: 7, outcomesPrior: 2, strategiesWithOutcomes: 3, diagnosesWithSkill: 9 }, { personalizedPlans: true });
+  const barsAreThePlan = board.LOOP_BARS.plans === 20 && board.LOOP_BARS.outcomes === 50;
+  const switchGatesA = filled.loops[0].ready === true && board.compoundBoard({ skillStateLearners: 25 }, { personalizedPlans: false }).loops[0].ready === false;
+  const junk = board.compoundBoard({ outcomes: NaN, skillStateLearners: "12" }, {});
+  const junkHonest = junk.loops.every(l => l.metrics.every(m => m.status === "unavailable"));
+
+  const oneRun = proof.beforeAfterBoard([{ learner_id: "k1", skill: "rhythm", created_at: "2026-10-01T00:00:00Z", score_before: 60, score_after: 70, duration_sec: 300 }]);
+  const noClaimFromOneRun = oneRun.learners[0].claimable === false && oneRun.cohort.avgDeltaPts === null;
+  const twoSkills = proof.learnerProof([
+    { skill: "rhythm", created_at: "2026-10-01T00:00:00Z", score_before: 50, score_after: 55 },
+    { skill: "rhythm", created_at: "2026-10-05T00:00:00Z", score_before: 55, score_after: 60 },
+    { skill: "rhythm", created_at: "2026-10-09T00:00:00Z", score_before: 60, score_after: 65 },
+    { skill: "note_accuracy", created_at: "2026-10-10T00:00:00Z", score_before: 60, score_after: 60 },
+  ]);
+  const skillsNotMixed = twoSkills.skill === "rhythm" && twoSkills.to === 65;
+  const emptyProof = proof.beforeAfterBoard([]);
+  const emptyProofHonest = emptyProof.cohort.status === "insufficient" && emptyProof.cohort.avgDeltaPts === null;
+
+  const sub = { content: { title: "ทดสอบ", body: "เนื้อหาทดสอบ", domain: "rhythm" }, license: "contributor-own-work", source: { kind: "own-work" }, contributor: { id: "11111111-2222-3333-4444-555555555555" } };
+  const row = store.submissionToRow({ ...sub, status: "approved" });
+  const clientCannotApprove = row.status === "pending";
+  const noAdminNoDecision = store.moderateArgs("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "approved", "ok", { adminTier: 0 }).ok === false;
+  const reasonRequired = store.moderateArgs("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "approved", "  ", { adminTier: 3 }).reason === "a written reason is required";
+  const gateRejectedBlocked = store.approvalBlockers({ gate_verdict: "rejected", contributor_id: "x", license: "cc-by" }).length > 0;
+
+  const cases = [
+    { label: "ช่องว่าง = ยังไม่มีข้อมูล ไม่ใช่ 0", ok: allUnavailable && noZeroFabrication, v: "0 → null" },
+    { label: "ตัวเลขเสีย (NaN/ข้อความ) ไม่กลายเป็นตัวเลข", ok: junkHonest, v: "unavailable" },
+    { label: "เกณฑ์เปิดสวิตช์ = ตัวเลขของแผน (20/50)", ok: barsAreThePlan, v: "A 20 · B 50" },
+    { label: "วงจร A พร้อมก็ต่อเมื่อสวิตช์เปิด", ok: switchGatesA, v: "สวิตช์เป็นเงื่อนไข" },
+    { label: "1 ครั้งที่ซ้อมไม่เป็นเทรนด์ (ไม่มี % ปลอม)", ok: noClaimFromOneRun, v: "claimable=false" },
+    { label: "คนละทักษะไม่ถูกเทียบรวมกัน", ok: skillsNotMixed, v: "rhythm 55→65" },
+    { label: "ตารางว่าง = ไม่มีเทรนด์ ไม่ใช่ 0%", ok: emptyProofHonest, v: "insufficient" },
+    { label: "client ส่ง status=approved ก็ยังเป็น pending", ok: clientCannotApprove, v: "RLS + โมดูล" },
+    { label: "ไม่ใช่แอดมิน = ตัดสินไม่ได้", ok: noAdminNoDecision, v: "admin only" },
+    { label: "ต้องเขียนเหตุผลทุกครั้ง", ok: reasonRequired, v: "บังคับ" },
+    { label: "แถวที่ประตูไม่ผ่าน อนุมัติไม่ได้", ok: gateRejectedBlocked, v: "ต้องแก้ต้นทาง" },
+  ];
+  const pct = (cases.filter(c => c.ok).length / cases.length) * 100;
+  section(
+    "12) ความซื่อสัตย์ของแดชบอร์ดและคิวความรู้ (ไม่แต่งตัวเลข, ไม่ให้ AI อนุมัติเอง)",
     `${cases.map(c => `${c.ok ? "✓" : "✗"} ${c.label} (${c.v})`).join(" · ")}`,
     pct, "100%", pct === 100
   );
