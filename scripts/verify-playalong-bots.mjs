@@ -353,12 +353,12 @@ if (want("list")) {
   rec("list-straight-to-songs", !gone.search && gone.banners === 0 && !gone.hero && firstTop < 450, `first song card top ${firstTop}px of 915 · search ${gone.search} · banners ${gone.banners}`);
   await done(s);
 }
-// ── 10a. the library and its eras (owner, 2026-10-01: more than 500 songs, divided by era) ──
+// ── 10a. the library and its eras (owner, 2026-10-01: more than 500 songs, then more than 1,000, divided by era) ──
 if (want("eras")) {
   const s = await session({ exp: 0 });
   await openList(s.p);
   const all = await s.p.evaluate(() => ({ cards: document.querySelectorAll(".songgrid .songcard").length, chips: [...document.querySelectorAll(".genrechip")].map(c => c.textContent.trim()) }));
-  rec("eras-500", all.cards > 500, `${all.cards} songs in "All"`);
+  rec("eras-1000", all.cards > 1000, `${all.cards} songs in "All"`);
   rec("eras-chips", ["Baroque", "Classical", "Romantic", "Impressionism"].every((n, i) => all.chips[i + 1] && all.chips[i + 1].includes(n)) && all.chips[0].includes("All"), all.chips.join(" | "));
   const chips = await s.p.$$(".genrechip");
   const seen = {}; let total = 0;
@@ -376,9 +376,9 @@ if (want("eras")) {
   rec("eras-errors", s.errs.length === 0, s.errs.join(" / ") || "none");
   await done(s);
 }
-// ── 10a'. real scores play and score like any song: a slow 3/4, a pickup, fast sixteenths, a song ──
+// ── 10a'. real scores play and score like any song: a slow 3/4, a pickup, fast sixteenths, a song, and three art songs from the OpenScore Lieder (2/4, a fast 3/4, a slow 3/4) ──
 if (want("classical")) {
-  for (const name of ["Gymnopédie No. 2 (Satie)", "Chanson du chat – The Cat's Song (Satie)", "Two-Part Invention No. 4 in D minor, BWV 775 (Bach)", "Heidenröslein (Wild Rose), D. 257 (Schubert)"]) {
+  for (const name of ["Gymnopédie No. 2 (Satie)", "Chanson du chat – The Cat's Song (Satie)", "Two-Part Invention No. 4 in D minor, BWV 775 (Bach)", "Heidenröslein (Wild Rose), D. 257 (Schubert)", "Die Forelle – The Trout (Schubert)", "Ständchen, Op. 14 No. 7 (Brahms)", "Mondnacht – Moonlit Night, Op. 39 No. 5 (Schumann)"]) {
     const s = await session({ exp: 50000 });
     await openList(s.p);
     const found = await openSong(s.p, name);

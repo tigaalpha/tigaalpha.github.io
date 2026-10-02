@@ -165,23 +165,33 @@ the bots start a concert through `__paTest.setlist`. The ready screen has no cov
 image above the song title.
 
 **The song catalogue (owner, 2026-10-01: "find classical pieces older than 75 years — Play Along should
-have more than 500 songs — and divide the song list by era: Baroque / Classical / Romantic / Impressionism").**
+have more than 500 songs — and divide the song list by era: Baroque / Classical / Romantic / Impressionism"; later the same
+day: "add more until the app has 1,000 songs, only older than 75 years, and say on the landing page, in all three languages,
+that the app has more than 1,000 songs").**
 `songs-data.ts` holds the hand-made songs (pop, folk, kids, carols and the first classical set) and appends
 `CLASSICAL_SONGS` from `songs-classical.ts`, which is **generated** — never edit it: the source is
 `songs-src/classical/*.json` (one object per piece), checked by `node scripts/verify-songs.mjs songs-src/classical`
 and written by `node scripts/build-songs.mjs` (`--check` fails when the module is stale). **A classical tune is never
 written from memory:** each one is extracted from a typeset public-domain score — Mutopia Project sources whose header says
-`Public Domain` (not the CC BY / BY-SA ones) and OpenScore Lieder (CC0) — and its `src` field names the file;
-`songs-src/tools/` is the pipeline (LilyPond → MIDI → top voice → quantised bars; `README.md` there), so more pieces are added
-the same way, and `songs-src/README.md` is the file format. The public-domain rule is the composer's death in 1950 or earlier
-**and** the piece written in 1929 or earlier. The song list's category chips are the eras in `SONG_ERAS` (`songs-data.ts`:
+`Public Domain` (not the CC BY / BY-SA ones) and OpenScore Lieder (CC0: the vocal line of an art song, which is where most of the
+Romantic and all of the Impressionist songs come from) — and its `src` field names the file;
+`songs-src/tools/` is the pipeline (LilyPond → MIDI → top voice → quantised bars; MusicXML read directly for OpenScore; `README.md`
+there), so more pieces are added the same way, and `songs-src/README.md` is the file format. The public-domain rule is the
+composer's death in 1950 or earlier **and** the piece written in 1929 or earlier; for OpenScore only composers who died in 1929 or
+earlier are used (`COMPOSERS` in `extract_openscore.py`), because a song's own date is not in its file. The library stands at 1,067
+songs (875 pieces: 373 from Mutopia and 502 from OpenScore from scores); **the landing page's proof strip (`landing/landing-copy.ts`, `proof1`) and the free-plan bullet
+(`prFree1` in i18n.ts) say "1,000+"** — that claim must stay true, so a change that takes the library below 1,000 must change that
+copy in the same release (`eras-1000` in the bot suite fails below it). A piece **keeps its id** when the library is generated again
+(`finalize.py` reads the files it replaces; players' stars are filed under the id), and a new piece is checked against every song
+the app has by the *shape of its melody* (`dump_app_songs.mjs` + `assemble.py --os`: a copy in another key or from another edition is
+found, not only the same notes). The song list's category chips are the eras in `SONG_ERAS` (`songs-data.ts`:
 baroque, classical, romantic, impressionism): `SONG_GENRES[id]` holds an id's era (or kids/folk/gospel/jazz/soul/neosoul/
 carol/cn), `GENRE_CHIPS` in App.tsx lists the chips and `eraInfo` is the one-line note under a chosen era; the song grid
-uses `content-visibility:auto` so 600+ cards cost nothing off screen. A piece's level (`diff`) is worked out by
+uses `content-visibility:auto` so 1,000+ cards cost nothing off screen. A piece's level (`diff`) is worked out by
 `levelOf` in `build-songs.mjs` against the profile of the hand-made level-1 and level-2 songs (range, leaps, notes per second,
 length): the app's own `estimateSongDifficulty` was made for short beginner tunes and rates nine real classical melodies in ten
 level 3, so it is not used there; the level lock (`SONG_REQ`) then needs no per-song work. The random pickers that make a song
-quiz or a quick session (`melody` in the ear quiz, `quickSongs`) skip `CLASSICAL_IDS` — four obscure titles are no quiz — while the
+quiz or a quick session (`melody` in the ear quiz, `quickSongs`) skip `CLASSICAL_IDS` — obscure titles are no quiz — while the
 daily song and "next song" draw from every open song. Several older hand-made classical songs are approximations of the real
 tune rather than the score (Gymnopédie No. 1, Für Elise, the Raindrop Prelude, Air on the G String and others); they are kept
 (players have stars on them), their score versions were left out so no work shows twice, and replacing one in place is the
@@ -397,8 +407,11 @@ it — check `git diff supabase-client.ts` is empty if a run was killed).
 
 For the song catalogue: `node scripts/verify-songs.mjs songs-src/classical` (form, key, range, public-domain limits, no tune
 twice or already in the app) and `node scripts/build-songs.mjs --check` (the generated `songs-classical.ts` matches its source),
-then the `list`, `eras` (more than 500 songs, the four era chips and their notes) and `classical` (real scores played to 3 stars:
-a slow 3/4, a pickup, fast sixteenths, a song) sections of `scripts/verify-playalong-bots.mjs` for the song list in a browser.
+then the `list`, `eras` (more than 1,000 songs, the four era chips and their notes) and `classical` (real scores played to 3 stars:
+a slow 3/4, a pickup, fast sixteenths, a song, three art songs from the OpenScore Lieder) sections of
+`scripts/verify-playalong-bots.mjs` for the song list in a browser. The song list renders every card (no paging): with 1,067 of them a chip
+switch takes 20–120 ms on a desktop and up to ~0.5 s with the CPU slowed 4–6×, so keep a card cheap (`content-visibility:auto` does the rest) and
+reach for progressive rendering before the library grows much further.
 
 ## Where to look for current state
 

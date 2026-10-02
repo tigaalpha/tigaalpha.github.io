@@ -1,0 +1,3 @@
+[
+  {"id": "massenet_elegie_elegy", "era": "romantic", "composer": "J. Massenet", "died": 1912, "year": 1912, "work": "Élégie, song for voice and piano", "en": "Élégie – Elegy (Massenet)", "th": "เอเลฌี – เพลงอาลัย (มัสเนต์)", "zh": "悲歌（马斯奈）", "key": "Fm", "meter": "4/4", "bpm": 54, "pickup": 0.0, "bars": ["F4:1 F5:1 D#5:1 D5:1", "C#5:1 C5:0.75 F4:0.25 G#4:2", "C5:1 A#4:0.75 F4:0.25 G4:2", "C5:1 A#4:0.75 C4:0.25 G4:1 G#4:0.75 C4:0.25", "F4:0.75 R:0.25 F5:1 D#5:1 D5:1", "C#5:1 C5:0.75 F4:0.25 G#4:2"], "conf": "high", "src": "openscore:scores/Massenet,_Jules/_/Élégie/lc29026391.mxl", "license": "CC0 1.0 (OpenScore Lieder transcription of a public-domain score)", "note": "transposed +1 semitone(s) to fit C4-B5"}
+]

@@ -2756,7 +2756,7 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 /* the line under the chips when an era is chosen: its years, its composers, how many pieces */
 .erainfo{padding:0 16px 8px;font-size:12px;line-height:1.35;color:var(--muted)}
 .erainfo b{color:var(--text);font-weight:700}
-/* the library is long (500+ songs): cards that are off the screen are neither laid out nor painted until they scroll near */
+/* the library is long (1,000+ songs): cards that are off the screen are neither laid out nor painted until they scroll near */
 .songgrid>.songcard{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* a long title (the classical ones carry a catalogue number and the composer) wraps before the favourite star in the corner, not under it */
 .songgrid .songcard-nm{padding-right:26px;overflow-wrap:anywhere}

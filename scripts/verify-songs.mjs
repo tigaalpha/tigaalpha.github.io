@@ -154,7 +154,9 @@ export function checkPiece(p, ctx = {}) {
   }
   const info = { len, notes: notes.length, bars: p.bars.length, first, last: lastN, open: openingOf(notes.map(x => x[0])), maxLeap };
   if (ctx.dupes) {
-    for (const o of ctx.dupes) if (o.id !== p.id && o.open === info.open) E(`opens exactly like "${o.id}" — the same tune twice?`);
+    // ten notes that use fewer than three pitch classes (a repeated note, a trill) say nothing about which tune it is
+    const informative = new Set(info.open.split(",")).size >= 3;
+    if (informative) for (const o of ctx.dupes) if (o.id !== p.id && o.open === info.open) E(`opens exactly like "${o.id}" — the same tune twice?`);
   }
   return { errs, warns, info };
 }

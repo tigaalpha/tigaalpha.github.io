@@ -1,7 +1,9 @@
 # Classical pieces for Play Along
 
 Owner, 2026-10-01: "find classical pieces older than 75 years and add them, so Play Along has more than 500 songs,
-and divide the song list by era: Baroque / Classical / Romantic / Impressionism."
+and divide the song list by era: Baroque / Classical / Romantic / Impressionism" — and later that day "add more until the app has
+1,000 songs, only older than 75 years". The library now holds 875 pieces here (373 from Mutopia, 502 from OpenScore Lieder) beside the
+192 hand-made songs: 1,067 in the app.
 
 This folder holds the **source** of those pieces: `classical/*.json`, one file per composer, one object per piece.
 `scripts/build-songs.mjs` turns it into `songs-classical.ts` (generated, never edited by hand), which `songs-data.ts`
