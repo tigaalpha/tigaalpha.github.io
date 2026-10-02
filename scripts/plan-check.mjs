@@ -89,17 +89,23 @@ const SMOKES = {
   "m24-before-after-dashboard": ["tigamodel/scripts/smoke-compound-dashboard.mjs"],
   "m26-contribution-store": ["tigamodel/scripts/smoke-contribution-store.mjs"],
   "m27-contributor-credit": ["tigamodel/scripts/smoke-contribution-store.mjs"],
+  /* the APPLIED claim itself is re-checked against the live DB on every merge;
+     the script exits 0 with a loud "ยืนยันไม่ได้" when the DB is unreachable,
+     so an offline merge is never reported as a pass */
+  "m26-contribution-store-live": ["scripts/verify-knowledge-contributions.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);
-  if (!m || !["done", "code"].includes(m.state)) { ok(`${id}: skipped (state=${m ? m.state : "missing"})`); continue; }
+  const label = m ? m.id : id;                      // live checks may key off their own id
+  if (!m && !id.endsWith("-live")) { ok(`${id}: skipped (no such milestone)`); continue; }
+  if (m && !["done", "code"].includes(m.state)) { ok(`${id}: skipped (state=${m.state})`); continue; }
   for (const s of scripts) {
     try {
       const out = execSync(`node ${s} 2>/dev/null`, { encoding: "utf8", timeout: 180000 });
       const tail = out.trim().split("\n").pop();
-      ok(`${id}: ${s} → ${tail}`);
+      ok(`${label}: ${s} → ${tail}`);
     } catch (e) {
-      bad(id, `${s} FAILED:\n${String(e.stdout || e.message).split("\n").slice(-8).join("\n")}`);
+      bad(label, `${s} FAILED:\n${String(e.stdout || e.message).split("\n").slice(-8).join("\n")}`);
     }
   }
 }

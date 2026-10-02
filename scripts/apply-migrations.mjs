@@ -20,6 +20,7 @@
      node scripts/apply-migrations.mjs                  # apply both + verify
      node scripts/apply-migrations.mjs --only=learning  # one migration
      node scripts/apply-migrations.mjs --only=policy
+     node scripts/apply-migrations.mjs --only=contributions
 
    Verify steps run the checks the migration files themselves prescribe:
      learning-data: table presence + p_session_key RPCs respond (verify-learning-data suite covers the client contract; here we smoke the live DB)
@@ -30,9 +31,11 @@ import { execSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 
 const PROJECT_REF = "gsaqgbracxnucdmtmcxz"; // repo-baked project (AGENTS.md)
+const CLI = "node_modules/.tmp-supabase-cli/supabase";
 const MIGRATIONS = [
   { id: "learning", file: "supabase-learning-data-migration.sql", label: "Learning Data v1 (7 ตาราง + RLS + RPCs)" },
   { id: "policy", file: "supabase-policy-weights-migration.sql", label: "Policy weights (RPC + seed switch-off)" },
+  { id: "contributions", file: "supabase-knowledge-contributions-migration.sql", label: "Knowledge contributions (ตาราง + RLS + RPC อนุมัติโดยผู้ดูแล)" },
 ];
 const args = process.argv.slice(2);
 const checkOnly = args.includes("--check");
@@ -76,7 +79,7 @@ async function runSql(sql) {
     return r;
   }
   // management-API path: ensure CLI + link record, then `db query` with a real temp file
-  const cli = "node_modules/.tmp-supabase-cli/supabase";
+  const cli = CLI;
   if (!existsSync(cli)) {
     console.log("(downloading supabase CLI on demand…)");
     execSync(`mkdir -p node_modules/.tmp-supabase-cli && curl -sSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz | tar -xz -C node_modules/.tmp-supabase-cli supabase`, { stdio: "inherit" });
@@ -123,6 +126,25 @@ async function verify(m) {
     }
     console.log("   verify: (management-API path) re-run this script with SUPABASE_DB for the deep check");
     return true;
+  }
+  if (m.id === "contributions") {
+    /* the deep check lives in its own read-only script so plan-check can run it
+       on every merge — here we only confirm the table landed */
+    const q = `select count(*)::int as tables from information_schema.tables where table_schema='public' and table_name='knowledge_contributions';`;
+    try {
+      const { mkdtempSync: mk, writeFileSync: wf } = await import("node:fs");
+      const { tmpdir: td } = await import("node:os");
+      const { join: jn } = await import("node:path");
+      const f = jn(mk(jn(td(), "apply-verify-")), "q.sql");
+      wf(f, q);
+      const r = spawnSync(CLI, ["db", "query", "--linked", "--file", f], { encoding: "utf8", env: { ...process.env } });
+      const n = r.status === 0 && /│\s*1\s*│/.test(r.stdout) ? 1 : 0;
+      console.log(`   verify: knowledge_contributions present = ${n}/1 ${n === 1 ? "✅" : "❌"} · deep check: node scripts/verify-knowledge-contributions.mjs`);
+      return n === 1;
+    } catch (e) {
+      console.log(`   verify: ❌ ${String(e.message).slice(0, 160)}`);
+      return false;
+    }
   }
   return true;
 }
