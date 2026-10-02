@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory, isCostGovernorSwitchOn, setCostGovernorSwitch, costGovernor, isProviderBudgetSwitchOn, setProviderBudgetSwitch, providerBudget } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory, isCostGovernorSwitchOn, setCostGovernorSwitch, costGovernor, isProviderBudgetSwitchOn, setProviderBudgetSwitch, providerBudget, isShortRoutingSwitchOn, setShortRoutingSwitch, shortRoutingConfig } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
@@ -331,6 +331,7 @@ export function TigamodelLab({ lang = "th" }) {
         <KbHotPathPanel lang={lang} S={S} T={T} />
         <CostGovernorPanel lang={lang} S={S} T={T} />
         <ProviderBudgetPanel lang={lang} S={S} T={T} />
+        <ShortRoutingPanel lang={lang} S={S} T={T} />
         <KnowledgePanel lang={lang} S={S} />
       </>)}
 
@@ -796,6 +797,34 @@ function CostGovernorPanel({ lang, S, T }) {
       title={T("เพดานต้นทุนต่อวัน (Cost governor)", "Daily spend ceiling (cost governor)", "每日花费上限（Cost governor）")}
       onText={T(`เปิด — ทุกคำถามถูกนับหน่วยจริง (ฟรี ${cfg.freeQuota ?? 40} / เพดาน ${cfg.hardCap ?? 100}) และหยุดก่อนทะลุ`, `ON — every question is counted in real units (free ${cfg.freeQuota ?? 40} / cap ${cfg.hardCap ?? 100}) and stops before the cap`, `开启 — 每个问题按真实用量计单位（免费 ${cfg.freeQuota ?? 40} / 上限 ${cfg.hardCap ?? 100}），到顶前停住`)}
       offText={T("ปิด — ไม่นับ ไม่หยุด (ค่าเริ่มต้น)", "OFF — no counting, no stopping (default)", "关闭 — 不计数、不限流（默认）")} />
+  );
+}
+/* m35 (docs/15 §4): short routing — a question the router MEASURED as small
+   may skip the big-model queue for a provider that declared itself fast or
+   free. The threshold shown is the router's own policy value, not a label. */
+function ShortRoutingPanel({ lang, S, T }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    let alive = true;
+    isShortRoutingSwitchOn().then(v => { if (alive) setOn(!!v); }, () => { if (alive) setOn(false); });
+    return () => { alive = false; };
+  }, []);
+  async function toggle() {
+    if (busy || on === null) return;
+    setBusy(true); setMsg("");
+    try { setOn(await setShortRoutingSwitch(!on)); setMsg(""); }
+    catch (e: any) { setMsg("⚠️ " + (e?.message || "error")); }
+    setBusy(false);
+  }
+  if (on === null) return null;
+  const cfg = (shortRoutingConfig() as any) || {};
+  return (
+    <OwnerSwitchPanel S={S} T={T} on={on} busy={busy} msg={msg} toggle={toggle}
+      title={T("จัดเส้นทางคำถามสั้น (Short routing)", "Short-question routing (short routing)", "短问题路由（short routing）")}
+      onText={T(`เปิด — คำถามที่วัดได้ไม่เกิน ${(cfg.smallChars ?? 1500).toLocaleString()} ตัวอักษร จะเลือกผู้ให้บริการที่ประกาศว่าเร็วหรือฟรีก่อน`, `ON — a question measured at no more than ${(cfg.smallChars ?? 1500).toLocaleString()} characters prefers a provider that declared itself fast or free`, `开启 — 长度不超过 ${(cfg.smallChars ?? 1500).toLocaleString()} 字符的问题优先选自称快速或免费的供应商`)}
+      offText={T("ปิด — ทุกคำถามใช้เส้นทางเดิมตามนโยบายเดิม (ค่าเริ่มต้น)", "OFF — every question takes the same route as before (default)", "关闭 — 所有问题按原路径处理（默认）")} />
   );
 }
 function ProviderBudgetPanel({ lang, S, T }) {

@@ -85,6 +85,9 @@ const SMOKES = {
   "m43-top-problems-queue": ["tigamodel/scripts/smoke-problems-queue.mjs"],
   "m50-accuracy-audit": ["tigamodel/scripts/smoke-lab-accuracy.mjs"],
   "m52-global-coverage-wave": ["tigamodel/scripts/smoke-coverage-wave.mjs"],
+  "m41-compound-dashboard": ["tigamodel/scripts/smoke-compound-dashboard.mjs"],
+  "m24-before-after-dashboard": ["tigamodel/scripts/smoke-compound-dashboard.mjs"],
+  "m26-contribution-store": ["tigamodel/scripts/smoke-contribution-store.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);
@@ -130,6 +133,10 @@ console.log("\n5) kill switches");
     { switch: "tiga_answer_cache", file: "tigamodel/performance/answer-cache.js" },
     { switch: "tiga_kb_hot_path", file: "tigamodel/performance/kb-hot-path.js" },
     { switch: "tiga_cost_governor", file: "tigamodel/performance/cost-governor.js" },
+    { switch: "tiga_provider_budget", file: "tigamodel/performance/provider-budget.js" },
+    /* the m35 switch key lives where the setting is read (web.js); the
+       router itself holds the policy flag (policy.short_routing) */
+    { switch: "tiga_short_routing", file: "tigamodel/web.js" },
   ];
   for (const { switch: sw, file } of SWITCHES) {
     if (!existsSync(file)) { bad(sw, `planned switch file missing: ${file}`); continue; }

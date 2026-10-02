@@ -128,6 +128,19 @@ await check("the floor never fails hard: every provider erroring still returns a
   assert.ok(["ok", "uncertain", "error"].includes(out.response.status), "a structured status, never a throw");
 });
 
+await check("the Lab panel reads the threshold from the router, and it follows the switch", async () => {
+  fake.setRow("tiga_short_routing", { enabled: true });
+  await web.refreshShortRoutingSwitch({ force: true });
+  let cfg = web.shortRoutingConfig();
+  assert.strictEqual(cfg.on, true, "the panel must show the live state, not a guess");
+  assert.strictEqual(cfg.smallChars, web.getTigamodel().router.policy.small_chars, "the number shown IS the router's own");
+  assert.ok(cfg.smallChars > 0, "a threshold must be a real number");
+  await web.setShortRoutingSwitch(false);
+  cfg = web.shortRoutingConfig();
+  assert.strictEqual(cfg.on, false, "turning the switch off updates the panel read");
+  assert.strictEqual(cfg.smallChars, web.getTigamodel().router.policy.small_chars, "and the threshold is unchanged by the switch");
+});
+
 console.log("\nB) wiring: สวิตช์ m35 + สะพาน m49");
 await check("the m35 switch: default OFF, fails closed, caches, writes via admin RPC", async () => {
   fake.setRow("tiga_short_routing", undefined); fake.setThrow(false);
