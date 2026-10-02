@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory, isCostGovernorSwitchOn, setCostGovernorSwitch, costGovernor, isProviderBudgetSwitchOn, setProviderBudgetSwitch, providerBudget } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
@@ -329,6 +329,8 @@ export function TigamodelLab({ lang = "th" }) {
 
       {ready && tab === "kb" && (<>
         <KbHotPathPanel lang={lang} S={S} T={T} />
+        <CostGovernorPanel lang={lang} S={S} T={T} />
+        <ProviderBudgetPanel lang={lang} S={S} T={T} />
         <KnowledgePanel lang={lang} S={S} />
       </>)}
 
@@ -744,6 +746,81 @@ function CoachPanel({ lang, S, T }) {
         )}
       </div>
     </div>
+  );
+}
+
+/* ── m47 (docs/15 §2) + m48 (docs/15 §4): the two chat-path switches the owner
+   controls, same honest shape as the hot-path panel — read from app_settings,
+   fail closed, written through the admin RPC, no deploy. OFF is the shipped
+   behaviour, so both start grey. ── */
+function OwnerSwitchPanel({ S, T, on, busy, msg, toggle, title, onText, offText }) {
+  return (
+    <div style={{ ...S.card, marginBottom: 12 }}>
+      <div style={{ ...S.inner, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", borderColor: on ? "color-mix(in srgb, var(--ok, #3f9d63) 45%, var(--bd1))" : "var(--bd1)" }}>
+        <div>
+          <b style={{ fontSize: 15, color: "var(--text)" }}>{on ? "🟢 " : "⚪ "}{title}</b>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 3 }}>{on ? onText : offText}</div>
+        </div>
+        <button onClick={toggle} disabled={busy}
+          style={{ padding: "10px 22px", borderRadius: 999, border: "none", cursor: busy ? "wait" : "pointer", fontWeight: 800, fontSize: 14,
+            background: on ? "var(--ok, #3f9d63)" : "var(--bd3)", color: on ? "#fff" : "var(--text)" }}>
+          {busy ? "…" : on ? T("เปิดอยู่ — กดปิด", "ON — tap to turn OFF", "开启 — 点击关闭") : T("ปิดอยู่ — กดเปิด", "OFF — tap to turn ON", "关闭 — 点击开启")}
+        </button>
+      </div>
+      {msg && <div style={{ fontSize: 13, marginTop: 8, color: "var(--text2)" }}>{msg}</div>}
+    </div>
+  );
+}
+/* the two panels below keep their own tiny state so they read like the
+   hot-path one above (no shared hook cleverness in an admin surface) */
+function CostGovernorPanel({ lang, S, T }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    let alive = true;
+    isCostGovernorSwitchOn().then(v => { if (alive) setOn(!!v); }, () => { if (alive) setOn(false); });
+    return () => { alive = false; };
+  }, []);
+  async function toggle() {
+    if (busy || on === null) return;
+    setBusy(true); setMsg("");
+    try { setOn(await setCostGovernorSwitch(!on)); setMsg(""); }
+    catch (e: any) { setMsg("⚠️ " + (e?.message || "error")); }
+    setBusy(false);
+  }
+  if (on === null) return null;
+  const cfg = (costGovernor() as any).config || {};
+  return (
+    <OwnerSwitchPanel S={S} T={T} on={on} busy={busy} msg={msg} toggle={toggle}
+      title={T("เพดานต้นทุนต่อวัน (Cost governor)", "Daily spend ceiling (cost governor)", "每日花费上限（Cost governor）")}
+      onText={T(`เปิด — ทุกคำถามถูกนับหน่วยจริง (ฟรี ${cfg.freeQuota ?? 40} / เพดาน ${cfg.hardCap ?? 100}) และหยุดก่อนทะลุ`, `ON — every question is counted in real units (free ${cfg.freeQuota ?? 40} / cap ${cfg.hardCap ?? 100}) and stops before the cap`, `开启 — 每个问题按真实用量计单位（免费 ${cfg.freeQuota ?? 40} / 上限 ${cfg.hardCap ?? 100}），到顶前停住`)}
+      offText={T("ปิด — ไม่นับ ไม่หยุด (ค่าเริ่มต้น)", "OFF — no counting, no stopping (default)", "关闭 — 不计数、不限流（默认）")} />
+  );
+}
+function ProviderBudgetPanel({ lang, S, T }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    let alive = true;
+    isProviderBudgetSwitchOn().then(v => { if (alive) setOn(!!v); }, () => { if (alive) setOn(false); });
+    return () => { alive = false; };
+  }, []);
+  async function toggle() {
+    if (busy || on === null) return;
+    setBusy(true); setMsg("");
+    try { setOn(await setProviderBudgetSwitch(!on)); setMsg(""); }
+    catch (e: any) { setMsg("⚠️ " + (e?.message || "error")); }
+    setBusy(false);
+  }
+  if (on === null) return null;
+  const cfg = (providerBudget() as any).config || {};
+  return (
+    <OwnerSwitchPanel S={S} T={T} on={on} busy={busy} msg={msg} toggle={toggle}
+      title={T("เส้นตายการตอบ (Provider budget)", "Answer deadline (provider budget)", "回答时限（Provider budget）")}
+      onText={T(`เปิด — โมเดลช้าเกิน ${Math.round((cfg.hardMs ?? 20000) / 1000)} วินาที → ตอบด้วยคลังความรู้ที่ตรวจแล้ว (ระบุที่มา, ไม่แต่งคำตอบ)`, `ON — a model slower than ${Math.round((cfg.hardMs ?? 20000) / 1000)}s is answered from the checked knowledge base (sourced, never invented)`, `开启 — 模型超过 ${Math.round((cfg.hardMs ?? 20000) / 1000)} 秒则用已审核知识库回答（注明来源，不编造）`)}
+      offText={T("ปิด — ช้าแค่ไหนก็รอตามเดิม (ค่าเริ่มต้น)", "OFF — wait as long as it takes (default)", "关闭 — 一直等（默认）")} />
   );
 }
 

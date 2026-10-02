@@ -38,9 +38,12 @@ export function buildPianoIntelligence({
 
   const router = createModelRouter({ policy: routerPolicy });
 
-  async function chat({ message, studentContext = null, taskType = "chat", history = [], options = {} } = {}) {
+  async function chat({ message, studentContext = null, taskType = "chat", history = [], options = {}, routing = {} } = {}) {
     const req = makeTIGARequest({ taskType, message, history, studentContext, options: { system: philosophySystemPrompt(studentContext?.language || "th"), ...options } });
-    const { response, routed } = await router.route(req);
+    /* routing = { preferCost, sizeHint } — the m49 warn-zone override and the
+       m35 size hint travel with THIS call only; the router's own policy is
+       untouched, so the next call routes exactly as before. */
+    const { response, routed } = await router.route(req, routing || {});
     return { response, routed, request: req };
   }
 
