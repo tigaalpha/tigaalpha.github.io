@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory, isCostGovernorSwitchOn, setCostGovernorSwitch, costGovernor, isProviderBudgetSwitchOn, setProviderBudgetSwitch, providerBudget, isShortRoutingSwitchOn, setShortRoutingSwitch, shortRoutingConfig } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory, isCostGovernorSwitchOn, setCostGovernorSwitch, costGovernor, isProviderBudgetSwitchOn, setProviderBudgetSwitch, providerBudget, isShortRoutingSwitchOn, setShortRoutingSwitch, shortRoutingConfig, isPersonaSwitchOn, setPersonaSwitch, teacherPersona } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
@@ -332,6 +332,7 @@ export function TigamodelLab({ lang = "th" }) {
         <CostGovernorPanel lang={lang} S={S} T={T} />
         <ProviderBudgetPanel lang={lang} S={S} T={T} />
         <ShortRoutingPanel lang={lang} S={S} T={T} />
+        <TeacherPersonaPanel lang={lang} S={S} T={T} />
         <KnowledgePanel lang={lang} S={S} />
       </>)}
 
@@ -825,6 +826,62 @@ function ShortRoutingPanel({ lang, S, T }) {
       title={T("จัดเส้นทางคำถามสั้น (Short routing)", "Short-question routing (short routing)", "短问题路由（short routing）")}
       onText={T(`เปิด — คำถามที่วัดได้ไม่เกิน ${(cfg.smallChars ?? 1500).toLocaleString()} ตัวอักษร จะเลือกผู้ให้บริการที่ประกาศว่าเร็วหรือฟรีก่อน`, `ON — a question measured at no more than ${(cfg.smallChars ?? 1500).toLocaleString()} characters prefers a provider that declared itself fast or free`, `开启 — 长度不超过 ${(cfg.smallChars ?? 1500).toLocaleString()} 字符的问题优先选自称快速或免费的供应商`)}
       offText={T("ปิด — ทุกคำถามใช้เส้นทางเดิมตามนโยบายเดิม (ค่าเริ่มต้น)", "OFF — every question takes the same route as before (default)", "关闭 — 所有问题按原路径处理（默认）")} />
+  );
+}
+/* m31 (docs/05 §5): the teacher's TONE — a parameter on the same voice, never
+   a different model. OFF (default) means every learner hears exactly the lines
+   the teaching loop has always composed. */
+function TeacherPersonaPanel({ lang, S, T }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [tone, setTone] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    let alive = true;
+    isPersonaSwitchOn().then(v => { if (!alive) return; setOn(!!v); setTone((teacherPersona() as any)?.persona?.() ?? null); },
+      () => { if (alive) setOn(false); });
+    return () => { alive = false; };
+  }, []);
+  async function pick(next: string) {
+    if (busy || on === null) return;
+    setBusy(true); setMsg("");
+    try { await setPersonaSwitch(on, next); setTone(next); setMsg(""); }
+    catch (e: any) { setMsg("⚠️ " + (e?.message || "error")); }
+    setBusy(false);
+  }
+  async function toggle() {
+    if (busy || on === null) return;
+    setBusy(true); setMsg("");
+    try { setOn(await setPersonaSwitch(!on, tone ?? undefined)); setMsg(""); }
+    catch (e: any) { setMsg("⚠️ " + (e?.message || "error")); }
+    setBusy(false);
+  }
+  if (on === null) return null;
+  const tones = (teacherPersona() as any)?.options?.() ?? [];
+  return (
+    <>
+      <OwnerSwitchPanel S={S} T={T} on={on} busy={busy} msg={msg} toggle={toggle}
+        title={T("บุคลิกครู (Teacher persona)", "Teacher persona", "教师人设（Teacher persona）")}
+        onText={T("เปิด — ครูพูดด้วยน้ำเสียงที่เลือกไว้ (การตัดสินใจสอนไม่เปลี่ยน)", "ON — the teacher speaks in the chosen voice (the teaching decision is unchanged)", "开启 — 老师用选定的语气说话（教学决策不变）")}
+        offText={T("ปิด — ทุกคำตอบเป็นประโยคเดิมทุกตัวอักษร (ค่าเริ่มต้น)", "OFF — every line is exactly as it was (default)", "关闭 — 每句话与原来完全一致（默认）")} />
+      <div style={{ ...S.card, marginBottom: 12 }}>
+        <div style={{ fontSize: 12.5, color: "var(--text2)" }}>
+          {T("เลือกน้ำเสียงครู (มีผลเมื่อเปิดสวิตช์ข้างบน): เป้าหมายคือเด็กที่เลิกซ้อมเพราะ 'เข้ากับครูไม่ได้' — ตัวเลือกไม่เปลี่ยนสิ่งที่ครูสอน เปลี่ยนแค่วิธีพูด",
+            "Pick the teacher's voice (applies once the switch above is on): the target is the learner who stopped practising because 'the teacher wasn't for me' — the choice changes how it is said, never what is taught",
+            "选择老师的语气（需先开启上方开关）：目标是那些因为「跟老师不合适」而停止练习的学员——只改说话方式，不改教学内容")}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          {tones.map((t: any) => (
+            <button key={t.id} onClick={() => pick(t.id)} disabled={busy || !on}
+              style={S.chip(on && tone === t.id)}>
+              {t.id === "warm" ? T("อบอุ่น", "Warm", "温暖")
+                : t.id === "strict" ? T("เข้มงวด", "Strict", "严格")
+                  : T("ตลก", "Playful", "轻松")}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 function ProviderBudgetPanel({ lang, S, T }) {

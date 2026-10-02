@@ -281,11 +281,11 @@ export const MILESTONES = [
   },
   {
     id: "m31-teacher-persona",
-    title: "ครู AI ปรับบุคลิกได้ (เข้มงวด/อบอุ่น/ตลก) — พารามิเตอร์ tone ไม่ใช่โมเดลใหม่",
-    state: "planned",
+    title: "ครู AI ปรับบุคลิกได้ (อบอุ่น/เข้มงวด/ตลก) — พารามิเตอร์ tone ไม่ใช่โมเดลใหม่",
+    state: "code",
     deps: ["m03-plan-v3-self-enforcing"],
-    acceptance: "เด็กเลือกบุคลิกครูได้ composeMessage รองรับ tone — เป้าหมาย: สัดส่วนเด็กที่เลิกเรียนเพราะ 'เข้ากับครูไม่ได้' ลดลง (วัดจาก events)",
-    evidence: ["tigamodel/teaching/teaching-loop.js"],
+    acceptance: "persona.js (pure) + composeMessage รับ persona: การตัดสินใจสอนไม่เปลี่ยนเลย (policy ตัดสินเหมือนเดิมทุกข้อ) เปลี่ยนแค่น้ำเสียงนำหน้าประโยค · 3 บุคลิก × 3 ภาษา ครบทุกช่อง (ไม่มีตัวเลือกตายในตัวเลือกบนหน้าจอ) · kill switch tiga_teacher_persona default OFF และอยู่ INSIDE โมดุล — caller ส่ง persona มาเองก็ข้ามสวิตช์ไม่ได้ · OFF = ข้อความเดิมทุกตัวอักษร · เพิ่มอย่างเดียว ไม่แก้/ไม่ตัดประโยคเดิม (คำแนะนำพบแพทย์และกรอบ wellbeing รอดทุกบุคลิก) · ภาษาที่ไม่รู้/บุคลิกที่ไม่รู้ = ไม่มีคำนำ ไม่เดาแปล · wired web.js (fail-closed 60s + admin RPC) + ปุ่มใน Lab · smoke-teacher-persona 12/12 (จับบั๊กจริงได้ 3 จุด: คีย์บุคลิกพิมพ์ผิดเป็น playable ทำให้ตัวเลือกตาย · composeMessage พังเมื่อไม่มี L · caller แอบข้ามสวิตช์ได้) — สถานะ code เพราะเป้าหมายจริงของมิลสโตนคือสัดส่วนเด็กที่เลิกซ้อมเพราะ 'เข้ากับครูไม่ได้' ลดลง ซึ่งวัดจาก events ที่ยังไม่มี",
+    evidence: ["tigamodel/teaching/persona.js", "tigamodel/teaching/teaching-loop.js", "tigamodel/scripts/smoke-teacher-persona.mjs", "tigamodel/web.js", "TigamodelLab.tsx", "tigamodel/docs/05-plan-v2-measurable.md"],
   },
   {
     id: "m32-speed-answer-cache",

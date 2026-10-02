@@ -76,13 +76,21 @@ teaching-loop + kill switch `tiga_jev_policy` + smoke) — รวม m11 เป�
 แทนการทิ้ง milestone ที่ "planned" ไว้ให้ดูเหมือนยังต้องทำ · ตรวจพบตอน
 `plan-check` ว่าสวิตช์นี้ถูกสัญญาไว้ใน m11 แต่คีย์อยู่ที่ `jev-tie-breaker.js` จึงแก้ไฟล์ที่ตรวจให้ตรง
 
-## ส่วนที่ 4: m36 ปิดที่ m48 แล้ว และปุ่ม short routing ใน Lab
+## ส่วนที่ 4: m36 ปิดที่ m48 แล้ว · ปุ่ม short routing · และ m31 บุคลิกครู
 
 - **m36** (docs/10 §1.5 timeout/budget ต่อ provider call) เนื้อหาเดียวกับ **m48** ที่ส่งมอบไปแล้ว
   (`provider-budget.js` soft 8s / hard 20s + kill switch `tiga_provider_budget` + smoke 9/9 + ปุ่มใน Lab)
   → รวมเป็น `done` ที่นี่ ไม่ต้องมีโค้ดซ้ำสองชุด
 - **m35** เพิ่มปุ่ม `ShortRoutingPanel` ใน TIGA MODEL LAB (แท็บ KB) — เจ้าของพลิกเองได้โดยไม่ต้อง deploy
   และตัวเลขที่ปุ่มแสดงคือ `router.policy.small_chars` ตัวจริง ไม่ใช่ค่าที่พิมพ์ในป้าย (smoke ข้อที่ 6)
+- **m31 บุคลิกครู** (`persona.js` + `composeMessage`) — เป้าหมายคือเด็กที่เลิกซ้อมเพราะ
+  "เข้ากับครูไม่ได้" · **การตัดสินใจสอนไม่เปลี่ยนเลย** (policy ตัดสินเหมือนเดิมทุกข้อ) เปลี่ยนแค่
+  ประโยคนำหน้า 3 บุคลิก (อบอุ่น/เข้มงวด/ตลก) × 3 ภาษา · เพิ่มอย่างเดียว ไม่แก้ไม่ตัดประโยคเดิม
+  (คำแนะนำ "พบแพทย์" และกรอบ wellbeing รอดครบทุกบุคลิก) · kill switch `tiga_teacher_persona`
+  default OFF และอยู่**ในโมดุล** — caller ส่ง persona มาเองก็ข้ามสวิตช์ไม่ได้ (smoke จับได้จริงตอน
+  พัฒนา: ก่อนแก้ caller ส่ง persona มาแล้วบังคับใช้ได้แม้สวิตช์ปิด) · ปุ่มเลือกบุคลิกใน Lab
+  · **สถานะ `code`** เพราะเป้าหมายจริงคือ "สัดส่วนเด็กที่เลิกซ้อมลดลง" ซึ่งวัดจาก events
+  ที่ยังไม่มี — อย่าวัดเป็น % เอง
 
 ## ส่วนที่ 5: ผล verify รอบนี้ (วัดจริง)
 
@@ -91,8 +99,9 @@ teaching-loop + kill switch `tiga_jev_policy` + smoke) — รวม m11 เป�
 | smoke-compound-dashboard (ใหม่) | 19/19 |
 | smoke-contribution-store (ใหม่) | 23/23 (รวมเครดิตผู้ร่วมสร้าง m27) |
 | smoke-routing-bridge (มีข้อใหม่) | 8/8 |
+| smoke-teacher-persona (ใหม่) | 12/12 · จับบั๊กจริง 3 จุดระหว่างพัฒนา (คีย์บุคลิกพิมพ์ผิด / composeMessage พังเมื่อไม่มี L / caller ข้ามสวิตช์) |
 | verify-knowledge-contributions (live DB) | 11/11 — migration apply แล้วและรูปร่างถูกตามที่ออกแบบ |
-| plan-check (รัน smoke จริงทุก milestone + ตรวจ live) | 95 passed / 0 failed |
+| plan-check (รัน smoke จริงทุก milestone + ตรวจ live) | 97 passed / 0 failed |
 | scorecard | ด้าน 1–12 (ด่าน 12 = ความซื่อสัตย์ของแดชบอร์ด + คิวความรู้) ผ่าน 100% |
 | scripts/compound-dashboard.mjs (live DB) | วัดได้ 6/7 ช่อง · หลักฐานรายคน = ยังไม่มีแถวซ้อม |
 

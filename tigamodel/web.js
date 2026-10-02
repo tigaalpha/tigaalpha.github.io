@@ -17,6 +17,7 @@ import { createMockProvider } from "./providers/mock-provider.js";
 import { registerProvider, listProviders } from "./providers/provider-interface.js";
 import { createTeachingPolicy } from "./teaching/policy.js";
 import { createTeachingLoop } from "./teaching/teaching-loop.js";
+import { createPersona, teacherPersonaSwitch, PERSONA_SWITCH, PERSONAS, DEFAULT_PERSONA } from "./teaching/persona.js";
 import { evaluateProvider, evaluateAllProviders } from "./evaluation/eval-suite.js";
 import { makeTIGARequest } from "./core/schema.js";
 import { createUniversitySeededKnowledgeBase } from "./knowledge/university-seed.js";
@@ -352,6 +353,63 @@ export async function setProviderBudgetSwitch(on) {
 }
 export async function isProviderBudgetSwitchOn() { return refreshProviderBudgetSwitch({ force: true }); }
 
+/* ── m31 (docs/05 §5): the teacher's TONE, same owner-controlled convention as
+   every other switch — read at most once a minute, fail closed to OFF, written
+   through the admin RPC, no deploy. OFF means the learner hears exactly the
+   sentences the loop has always composed. ── */
+let _persona = null;
+export function teacherPersona() {
+  if (!_persona) _persona = teacherPersonaSwitch();   // the ONE switch state, owned by persona.js
+  return _persona;
+}
+export function setTeacherPersonaEnabled(on) {
+  teacherPersona().setEnabled(on === true);
+  return teacherPersona().isEnabled();
+}
+export function setTeacherPersonaTone(tone) {
+  return teacherPersona().setPersona(tone);
+}
+let _personaAt = 0;
+let _personaBusy = null;
+export function refreshPersonaSwitch({ force = false } = {}) {
+  if (!force && _personaAt && Date.now() - _personaAt < 60000) return Promise.resolve(teacherPersona().isEnabled());
+  if (_personaBusy) return _personaBusy;
+  _personaBusy = (async () => {
+    let on = false;
+    try {
+      const r = sb ? await sb.from("app_settings").select("value").eq("key", PERSONA_SWITCH).maybeSingle() : null;
+      const v = r && r.data && r.data.value;
+      on = !!(v && v.enabled === true);
+      if (on && PERSONAS.includes(v.persona)) teacherPersona().setPersona(v.persona);
+    } catch (e) { on = false; }
+    setTeacherPersonaEnabled(on);
+    _personaAt = Date.now();
+    _personaBusy = null;
+    return on;
+  })();
+  return _personaBusy;
+}
+export async function setPersonaSwitch(on, persona) {
+  const tone = PERSONAS.includes(persona) ? persona : teacherPersona().persona();
+  const { error } = await sb.rpc("admin_set_app_setting", { p_key: PERSONA_SWITCH, p_value: { enabled: on === true, persona: tone } });
+  if (error) throw new Error(error.message || "save failed");
+  teacherPersona().setPersona(tone);
+  setTeacherPersonaEnabled(on === true);
+  _personaAt = Date.now();
+  return teacherPersona().isEnabled();
+}
+export async function isPersonaSwitchOn() { return refreshPersonaSwitch({ force: true }); }
+
+/* what composeMessage should use RIGHT NOW: null when the switch is off (the
+   shipped path), otherwise the tone the owner picked. One function so no
+   caller can pass a tone the switch does not allow. */
+export function personaFor() {
+  try {
+    const p = teacherPersona();
+    return p && p.isEnabled() ? p.persona() : null;
+  } catch (e) { return null; }
+}
+
 /* The honest fallback for THIS question, or null when the switch is off / the
    KB has nothing real for it (the caller then keeps its own error). */
 export function kbFallbackFor(question, lang = "th") {
@@ -430,6 +488,8 @@ export function initTigamodelWeb() {
       // The switch is cached for 60s: a practice-finish must never wait on
       // a settings round-trip, and OFF must cost exactly zero network calls.
       jev: jevJudgment,
+      /* m31: with the persona switch OFF (default) this is null and
+         composeMessage returns the shipped text byte-identical. */
       isJevPolicyEnabled: (() => {
         let cacheV = null, cacheAt = 0;
         return async () => {
@@ -797,7 +857,7 @@ export async function rerunLoopWithSelfReport(practiceStats, selfReport, lang) {
     if (!selfReport || !SELF_REPORT_STATE_KEYS[selfReport]) return null;
     if (!_tiga) initTigamodelWeb();          // idempotent; the poll may be the first tigamodel touch of the session
     if (!_tiga || !_tiga.loop) return null;
-    return await _tiga.loop.runOnce({ practiceStats, selfReport, lang });
+    return await _tiga.loop.runOnce({ practiceStats, selfReport, lang, persona: personaFor() });
   } catch (e) { return null; }
 }
 const SELF_REPORT_STATE_KEYS = { confused: 1, too_easy: 1, too_hard: 1, understand: 1, frustrated: 1, retry: 1, great: 1 };
@@ -950,7 +1010,7 @@ export async function runTeachingLoopForPractice(practiceStats, { selfReport = n
     if (!_tiga) initTigamodelWeb();
     const tiga = _tiga;
     if (!tiga || !tiga.loop) return null;
-    return await tiga.loop.runOnce({ practiceStats, selfReport, lang, observations: observations || [] });
+    return await tiga.loop.runOnce({ practiceStats, selfReport, lang, observations: observations || [], persona: personaFor() });
   } catch (e) { return null; }
 }
 

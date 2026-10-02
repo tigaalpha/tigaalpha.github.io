@@ -15,6 +15,7 @@
 
 import { makeStudentStateEstimate, makeDiagnosis, makeObservation } from "../core/schema.js";
 import { findTie, jevChoiceToDecision, firstMatchDecision } from "./jev-tie-breaker.js";
+import { applyPersona as personaApply } from "./persona.js";
 
 /* Phase 4 (spec §17): self-report vocabulary → the state it directly
    evidences. The student's own answer outranks inference — these values
@@ -32,7 +33,7 @@ function est({ state, probability, confidence, evidence, alternatives }) {
 }
 
 export function createTeachingLoop({ policy, kb, skillGraph, jev = null, isJevPolicyEnabled = null } = {}) {
-  async function runOnce({ observations = [], practiceStats = null, selfReport = null, studentContext = null, history = [], lang = "th" } = {}) {
+  async function runOnce({ observations = [], practiceStats = null, selfReport = null, studentContext = null, history = [], lang = "th", persona = null } = {}) {
     // UI language for every learner-facing string below (owner request
     // 2026-09-21: the verdict must match the app's language mode — Chinese
     // users got Thai, Thai users got mixed EN). Defaults to Thai, the
@@ -156,7 +157,7 @@ export function createTeachingLoop({ policy, kb, skillGraph, jev = null, isJevPo
     // map to knowledge entries, whose `teach` line becomes the appended tip
     // (GROUP 4.2 of the owner's gap audit 2026-09-17 — the loop previously
     // never read the KB at all). Unknown id / missing kb → no tip, no crash.
-    const message = composeMessage(decision, { selfReport, practiceStats, studentContext, L });
+    const message = composeMessage(decision, { selfReport, practiceStats, studentContext, L, persona, lang });
     const kbTip = kbTipFor(issues, kb, L);
     const finalText = kbTip ? `${message}\n\n${kbTip}` : message;
 
@@ -328,13 +329,24 @@ function kbTipFor(issues, kb, L) {
   return null;
 }
 
-function composeMessage(decision, { selfReport, practiceStats, L } = {}) {
-  const a = decision.actions;
-  if (selfReport === "too_easy") return L.tooEasy;
-  if (selfReport === "too_hard") return L.tooHard;
-  if (a.includes("reduce_complexity") || a.includes("simplify")) return L.simplify;
-  if (a.includes("return_to_prerequisite")) return L.prerequisite;
-  if (a.includes("shorten_activity")) return L.shorten;
-  if (practiceStats && typeof practiceStats.accuracy === "number" && practiceStats.accuracy >= 95) return L.praise;
-  return L.neutral;
+/* The learner's line for a decision. The DECISION never changes here — the
+   policy already picked the strategy and this function only phrases it.
+   `persona` (m31) adds a short lead line in the teacher's chosen tone when the
+   switch is on; OFF (the default) returns the shipped text byte-identical. */
+export function composeMessage(decision, { selfReport, practiceStats, L = null, persona = null, lang = "th" } = {}) {
+  const a = (decision && decision.actions) || [];
+  /* the loop always passes its own language table; a direct caller that does
+     not gets the same one for the language (th is the product's default) */
+  const T = L || LANGS[lang] || LANGS.th;
+  let text;
+  if (selfReport === "too_easy") text = T.tooEasy;
+  else if (selfReport === "too_hard") text = T.tooHard;
+  else if (a.includes("reduce_complexity") || a.includes("simplify")) text = T.simplify;
+  else if (a.includes("return_to_prerequisite")) text = T.prerequisite;
+  else if (a.includes("shorten_activity")) text = T.shorten;
+  else if (practiceStats && typeof practiceStats.accuracy === "number" && practiceStats.accuracy >= 95) text = T.praise;
+  else text = T.neutral;
+  /* persona only picks WHICH voice; whether there is a voice at all is the
+     module's own switch (OFF by default) — a caller cannot opt out of it */
+  return personaApply(text, { persona, lang });
 }

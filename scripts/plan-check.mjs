@@ -93,6 +93,7 @@ const SMOKES = {
      the script exits 0 with a loud "ยืนยันไม่ได้" when the DB is unreachable,
      so an offline merge is never reported as a pass */
   "m26-contribution-store-live": ["scripts/verify-knowledge-contributions.mjs"],
+  "m31-teacher-persona": ["tigamodel/scripts/smoke-teacher-persona.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);
@@ -145,6 +146,7 @@ console.log("\n5) kill switches");
     /* the m35 switch key lives where the setting is read (web.js); the
        router itself holds the policy flag (policy.short_routing) */
     { switch: "tiga_short_routing", file: "tigamodel/web.js" },
+    { switch: "tiga_teacher_persona", file: "tigamodel/teaching/persona.js" },
   ];
   for (const { switch: sw, file } of SWITCHES) {
     if (!existsSync(file)) { bad(sw, `planned switch file missing: ${file}`); continue; }
