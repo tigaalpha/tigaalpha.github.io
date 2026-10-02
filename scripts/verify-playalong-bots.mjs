@@ -478,6 +478,22 @@ if (want("headings")) {
     rec("headings-fav-errors", s.errs.length === 0, s.errs.join(" / ") || "none");
     await done(s);
   }
+  // (d) a returning player: Continue and Up next stay where they were, and the first heading opens the grid right under them — the spot the owner marked in red
+  {
+    const s = await session({ exp: 5000, extraLS: { tg_last_song: "scale", tg_stars_scale: "3" } });
+    await openList(s.p);
+    const r = await s.p.evaluate(() => {
+      const lbls = [...document.querySelectorAll(".songcontinue-lbl")].map(e => e.textContent.trim());
+      const conts = [...document.querySelectorAll(".songcontinue")];
+      const head = document.querySelector(".songgrid > .songsec"), first = document.querySelector(".songgrid > .songcard");
+      const q = (e) => e.getBoundingClientRect();
+      return { lbls, n: conts.length, contBottom: Math.round(q(conts[conts.length - 1]).bottom), headTop: Math.round(q(head).top), headBottom: Math.round(q(head).bottom), firstTop: Math.round(q(first).top), headName: head.querySelector(".songsec-nm").textContent.trim(), color: getComputedStyle(head.querySelector(".songsec-nm")).color };
+    });
+    await s.p.screenshot({ path: `${OUT}/headings-continue.png` });
+    rec("heading-under-continue", r.n === 2 && /Continue/.test(r.lbls[0]) && /Up next/.test(r.lbls[1]) && r.contBottom <= r.headTop && r.headBottom <= r.firstTop && /Kids/.test(r.headName) && r.color === ORANGE, `${r.lbls.join(" · ")} · Up next card ends ${r.contBottom} → heading "${r.headName}" ${r.headTop}–${r.headBottom} → first card ${r.firstTop}`);
+    rec("headings-continue-errors", s.errs.length === 0, s.errs.join(" / ") || "none");
+    await done(s);
+  }
 }
 // ── 10a-3. Daily Mentor: the recommendations open with a prominent violet tab that says they were made by the AI for this learner (owner, 2026-10-02) ──
 if (want("mentor")) {
