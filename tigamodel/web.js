@@ -829,15 +829,57 @@ export const FUSION_CHANNEL_WEIGHTS = _FUSION_WEIGHTS;
    personalized-plan brain. Kill switch (tiga_personalized_plans) is checked
    inside; switch off / no data / any error → null = callers keep today's
    behavior. The wire can only ADD a plan on top of a good state. */
-import { fetchSkillStates as _fetchSkillStates, toAbilities as _toAbilities, planForLearner as _planForLearner } from "./teaching/skill-state-wiring.js";
+import { fetchSkillStates as _fetchSkillStates, toAbilities as _toAbilities, planForLearner as _planForLearner, SKILL_STATE_WIRING_SWITCH as SKILL_STATE_SWITCH } from "./teaching/skill-state-wiring.js";
+export const PERSONALIZED_PLANS_SWITCH = SKILL_STATE_SWITCH || "tiga_personalized_plans";
+
+/* Owner switch, same convention as every other one: app_settings row, read at
+   most once a minute, fail closed to OFF, written through the admin RPC, no
+   deploy. OFF (default) = the learner never gets a personalized plan and
+   today's plan stands; planForLearner re-checks the value itself, so a caller
+   can never sneak past the switch by passing switchOn:true. */
+let _ppAt = 0;
+let _ppBusy = null;
+let _ppOn = false;
+export function refreshPersonalizedPlansSwitch({ force = false } = {}) {
+  if (!force && _ppAt && Date.now() - _ppAt < 60000) return Promise.resolve(_ppOn);
+  if (_ppBusy) return _ppBusy;
+  _ppBusy = (async () => {
+    let on = false;
+    try {
+      const r = sb ? await sb.from("app_settings").select("value").eq("key", PERSONALIZED_PLANS_SWITCH).maybeSingle() : null;
+      on = !!(r && r.data && r.data.value && r.data.value.enabled === true);
+    } catch (e) { on = false; }
+    _ppOn = on === true;
+    _ppAt = Date.now();
+    _ppBusy = null;
+    return _ppOn;
+  })();
+  return _ppBusy;
+}
+export async function setPersonalizedPlansSwitch(on) {
+  const { error } = await sb.rpc("admin_set_app_setting", { p_key: PERSONALIZED_PLANS_SWITCH, p_value: { enabled: on === true } });
+  if (error) throw new Error(error.message || "save failed");
+  _ppOn = on === true;
+  _ppAt = Date.now();
+  return _ppOn;
+}
+export async function isPersonalizedPlansSwitchOn() { return refreshPersonalizedPlansSwitch({ force: true }); }
+
 export async function fetchLearnerSkillStates() {
   try { return await _fetchSkillStates(sb); } catch (e) { return null; }
 }
 export function learnerAbilitiesFromRows(rows) {
   try { return _toAbilities(rows); } catch (e) { return null; }
 }
+/* The switch value is injected here (and WINS over anything a caller passes)
+   so no caller can build a plan while the switch is off; the wiring itself
+   still fails closed to null. Read once if nobody has yet — the Lab panel is
+   not the only thing that may open this. */
 export async function personalizedPlanForLearner(args) {
-  try { return await _planForLearner(args || {}); } catch (e) { return null; }
+  try {
+    if (!_ppAt) await refreshPersonalizedPlansSwitch();
+    return await _planForLearner({ ...(args || {}), switchOn: _ppOn });
+  } catch (e) { return null; }
 }
 export function newStudentFeedback(args) {
   try { return makeStudentFeedback(args || {}); } catch (e) { return null; }

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory, isCostGovernorSwitchOn, setCostGovernorSwitch, costGovernor, isProviderBudgetSwitchOn, setProviderBudgetSwitch, providerBudget, isShortRoutingSwitchOn, setShortRoutingSwitch, shortRoutingConfig, isPersonaSwitchOn, setPersonaSwitch, teacherPersona } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory, isCostGovernorSwitchOn, setCostGovernorSwitch, costGovernor, isProviderBudgetSwitchOn, setProviderBudgetSwitch, providerBudget, isShortRoutingSwitchOn, setShortRoutingSwitch, shortRoutingConfig, isPersonaSwitchOn, setPersonaSwitch, teacherPersona, isPersonalizedPlansSwitchOn, setPersonalizedPlansSwitch } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
 import { tigaHub } from "./tigamodel/web.js"; // Phase 5: live specialist/capability view from the Capability Hub
 import { sb } from "./supabase-client";
+import { tr } from "./i18n"; // pick th/en/zh out of the tigamodel modules' {th,en,zh} fields
 import { AI_PROVIDERS } from "./AdminAIModels";
 import { pickTeachCard, cardSourceInfo, TEACH_CARDS } from "./tigamodel/knowledge/teach-cards.js";
 import TeachVisual from "./TeachVisual";
@@ -333,6 +334,7 @@ export function TigamodelLab({ lang = "th" }) {
         <ProviderBudgetPanel lang={lang} S={S} T={T} />
         <ShortRoutingPanel lang={lang} S={S} T={T} />
         <TeacherPersonaPanel lang={lang} S={S} T={T} />
+        <PersonalizedPlansPanel lang={lang} S={S} T={T} />
         <KnowledgePanel lang={lang} S={S} />
       </>)}
 
@@ -724,7 +726,7 @@ function CoachPanel({ lang, S, T }) {
         </div>
         {tempo && (
           <div style={{ ...S.mono, marginTop: 8 }}>
-            → <b style={{ fontSize: 15, color: "var(--accent, #d97757)" }}>{tempo.bpm} BPM</b> ({tempo.step >= 0 ? "+" : ""}{tempo.step}) · {tempo.reason}
+            → <b style={{ fontSize: 15, color: "var(--accent, #d97757)" }}>{tempo.bpm} BPM</b> ({tempo.step >= 0 ? "+" : ""}{tempo.step}) · {tr(tempo.reasonT, lang) || tempo.reason}
             {tempo.band && <span> · {tempo.band.pctOfGoal}% {T("ของเป้า", "of goal", "占目标")}</span>}
           </div>
         )}
@@ -907,6 +909,40 @@ function ProviderBudgetPanel({ lang, S, T }) {
       title={T("เส้นตายการตอบ (Provider budget)", "Answer deadline (provider budget)", "回答时限（Provider budget）")}
       onText={T(`เปิด — โมเดลช้าเกิน ${Math.round((cfg.hardMs ?? 20000) / 1000)} วินาที → ตอบด้วยคลังความรู้ที่ตรวจแล้ว (ระบุที่มา, ไม่แต่งคำตอบ)`, `ON — a model slower than ${Math.round((cfg.hardMs ?? 20000) / 1000)}s is answered from the checked knowledge base (sourced, never invented)`, `开启 — 模型超过 ${Math.round((cfg.hardMs ?? 20000) / 1000)} 秒则用已审核知识库回答（注明来源，不编造）`)}
       offText={T("ปิด — ช้าแค่ไหนก็รอตามเดิม (ค่าเริ่มต้น)", "OFF — wait as long as it takes (default)", "关闭 — 一直等（默认）")} />
+  );
+}
+
+/* ── m08 (docs/05 §3): the LAST owner switch that had no button — the
+   personalized practice plans built from per-skill ability. OFF (default) is
+   exactly today's behaviour: the learner gets the plan the app already builds.
+   ON, a plan only ever appears when there is a real learner_skill_state row AND
+   confidence >= 0.5 — weak inferences stay evidence, never a level change —
+   and even then it can only ADD a plan on top of a good state, never degrade
+   one. No rows yet = no plan, which is the honest answer, not a bug. ── */
+function PersonalizedPlansPanel({ lang, S, T }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    let alive = true;
+    isPersonalizedPlansSwitchOn().then(v => { if (alive) setOn(!!v); }, () => { if (alive) setOn(false); });
+    return () => { alive = false; };
+  }, []);
+  async function toggle() {
+    if (busy || on === null) return;
+    setBusy(true); setMsg("");
+    try { setOn(await setPersonalizedPlansSwitch(!on)); setMsg(""); }
+    catch (e: any) { setMsg("⚠️ " + (e?.message || "error")); }
+    setBusy(false);
+  }
+  if (on === null) return null;
+  return (
+    <OwnerSwitchPanel S={S} T={T} on={on} busy={busy} msg={msg} toggle={toggle}
+      title={T("แผนฝึกเฉพาะคน (Personalized plans)", "Personalized practice plans", "个性化练习计划")}
+      onText={T("เปิด — แผนจะมีเมื่อมีข้อมูลทักษะจริงและมั่นใจพอ (≥0.5) เท่านั้น ทักษะที่อ่อนสุดได้รับแบบฝึกหัดที่ใกล้ระดับ — ไม่มีข้อมูล = ไม่มีแผน",
+        "ON — a plan appears only from real skill data with confidence ≥ 0.5; the weakest skill gets the nearest-level drill. No data = no plan",
+        "开启 — 仅在有真实技能数据且置信度≥0.5时生成计划；最弱技能得到最接近等级的练习。无数据=无计划")}
+      offText={T("ปิด — ผู้เรียนได้แผนเดิมตามปกติ (ค่าเริ่มต้น)", "OFF — learners get today's plan as before (default)", "关闭 — 学习者照常使用原计划（默认）")} />
   );
 }
 
@@ -1170,10 +1206,11 @@ function CapabilityPanel({ lang, S, T }) {
       </div>
       {ex && (
         <div style={{ ...S.card, background: "var(--bg2, rgba(0,0,0,0.04))" }}>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>{ex.title}</div>
-          <div style={{ fontSize: 13, margin: "4px 0" }}>{ex.task}</div>
-          {ex.steps.map((s, i) => <div key={i} style={{ fontSize: 12, color: "var(--text2)" }}>• {s}</div>)}
-          <div style={{ fontSize: 12, marginTop: 4 }}>✔ {ex.check}</div>
+          {/* every field of a generated exercise is a {th,en,zh} object (tigamodel/teaching/generator.js) — tr() picks the app's language; rendering the object itself is React error #31 */}
+          <div style={{ fontSize: 14, fontWeight: 700 }}>{tr(ex.title, lang)}</div>
+          <div style={{ fontSize: 13, margin: "4px 0" }}>{tr(ex.task, lang)}</div>
+          {(ex.steps || []).map((s, i) => <div key={i} style={{ fontSize: 12, color: "var(--text2)" }}>• {tr(s, lang)}</div>)}
+          <div style={{ fontSize: 12, marginTop: 4 }}>✔ {tr(ex.check, lang)}</div>
         </div>
       )}
       <button style={{ ...S.btn, marginTop: 8 }} onClick={() => setSeed(s => s + 1)}>{T("🎲 สุ่มแบบฝึกหัดใหม่", "🎲 New exercise", "🎲 换一个")}</button>
@@ -1268,9 +1305,9 @@ function OneMPlanPanel({ lang, S, T }) {
             <b style={{ fontSize: 13.5, color: "var(--text)" }}>🎲 #{fmt(sampleItem.index)} <span style={S.mono}>{sampleItem.code}</span></b>
             <button style={{ ...S.btnGhost, padding: "3px 10px", fontSize: 12 }} onClick={() => setSampleItem(null)}>✕</button>
           </div>
-          <div style={{ fontSize: 13.5, color: "var(--text)", marginTop: 4 }}>{sampleItem.title.th}</div>
-          <div style={{ ...S.mono, marginTop: 3 }}>{sampleItem.body.th} · {T("ลำดับ", "priority", "优先")} {sampleItem.priority}</div>
-          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{T("เกณฑ์ตรวจรับ", "acceptance", "验收")}: {sampleItem.criterion.th}</div>
+          <div style={{ fontSize: 13.5, color: "var(--text)", marginTop: 4 }}>{tr(sampleItem.title, lang)}</div>
+          <div style={{ ...S.mono, marginTop: 3 }}>{tr(sampleItem.body, lang)} · {T("ลำดับ", "priority", "优先")} {sampleItem.priority}</div>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{T("เกณฑ์ตรวจรับ", "acceptance", "验收")}: {tr(sampleItem.criterion, lang)}</div>
         </div>
       )}
 

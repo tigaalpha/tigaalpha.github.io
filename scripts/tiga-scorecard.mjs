@@ -99,21 +99,34 @@ console.log("╚═════════════════════�
 
 /* ── 4. Teacher materials (generator — topics are the generator's own table) ── */
 {
+  /* every field a generated exercise carries is a {th,en,zh} OBJECT, and the
+     lab renders it through i18n.tr() — a bare object in a JSX text slot is
+     React error #31 ("objects are not valid as a React child"), which is what
+     crashed the Model Lab page. Assert the render is always possible. */
+  const tr = (f, l) => f == null ? "" : (typeof f === "string" ? f : (f[l] || f.en || f.th || Object.values(f)[0] || ""));
   const kinds = webM.studentExerciseKinds();
   let made = 0, tried = 0;
+  let renderable = true, firstBad = "";
   const seen = new Set();
   for (let t = 0; t < kinds.length; t++) for (let lvl = 1; lvl <= 5; lvl++) {
     tried++;
     const ex = webM.generateStudentExercise(t, lvl, `sc-${t}-${lvl}`);
     if (ex && ex.task && ex.task.th) { made++; seen.add(ex.task.th); }
+    for (const l of ["th", "en", "zh"]) {
+      const parts = ex ? [tr(ex.title, l), tr(ex.task, l), ...(ex.steps || []).map(s => tr(s, l)), tr(ex.check, l)] : [];
+      if (!ex || parts.some(p => typeof p !== "string" || !p.trim())) {
+        renderable = false;
+        if (!firstBad) firstBad = `topic ${t} level ${lvl} lang ${l}`;
+      }
+    }
   }
   const det = JSON.stringify(webM.generateStudentExercise(4, 2, 42)) === JSON.stringify(webM.generateStudentExercise(4, 2, 42));
   const variety = new Set([...Array(8)].map((_, i) => { const x = webM.generateStudentExercise(1, 3, i + 1); return x && x.task && x.task.th; })).size;
   const pct = (made / tried) * 100;
   section(
     "4) การผลิตสื่อการสอน (แบบฝึกหัด)",
-    `${made}/${tried} ชุด (${kinds.length} หัวข้อ × 5 ระดับ) · สร้างซ้ำได้เหมือนเดิม: ${det ? "ใช่" : "ไม่!"} · ต่างกัน 8 ด่าน: ${variety} แบบ`,
-    pct, "100%", pct === 100 && det && variety >= 6
+    `${made}/${tried} ชุด (${kinds.length} หัวข้อ × 5 ระดับ) · สร้างซ้ำได้เหมือนเดิม: ${det ? "ใช่" : "ไม่!"} · ต่างกัน 8 ด่าน: ${variety} แบบ · ทุกฟิลด์แสดงผลเป็นข้อความได้ครบ 3 ภาษา (React #31): ${renderable ? "ใช่" : "ไม่! " + firstBad}`,
+    pct, "100%", pct === 100 && det && variety >= 6 && renderable
   );
 }
 
