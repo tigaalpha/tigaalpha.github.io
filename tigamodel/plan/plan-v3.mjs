@@ -128,11 +128,11 @@ export const MILESTONES = [
   },
   {
     id: "m11-jev-policy",
-    title: "§5 Jev ตัดสินใจเฉพาะจุดที่กติกาเสมอกัน (fallback กติกาเดิมเสมอ)",
-    state: "planned",
+    title: "§5 Jev ตัดสินใจเฉพาะจุดที่กติกาเสมอกัน (ส่งมอบแล้วใน m20)",
+    state: "done",
     deps: ["m03-plan-v3-self-enforcing"],
-    acceptance: "smoke-jev-policy: tie → probability แนบใน response; edge ล่ม → คำตอบจากกติกาเดิม ไม่มี error โชว์ผู้เรียน; kill switch tiga_jev_policy",
-    evidence: ["tigamodel/teaching/teaching-loop.js", "tigamodel/jev/jev-judgment.js"],
+    acceptance: "เนื้อหาเดียวกับ m20 ที่ส่งมอบแล้ว — รวมเป็น done ที่นี่แทนการมีสองรายการที่อ้างคำสั่งเดียวกัน: jev-tie-breaker.js (tie จริงเท่านั้นที่ถาม Jev · provenance แนบ · เชื่อเฉพาะตัวเลือกในบริบท) · teaching-loop ใช้ decision ของ policy เป็นฐานเสมอ · kill switch tiga_jev_policy default OFF (cache 60s, fail-closed) · fallback = พฤติกรรมเดิม 100% ไม่มี error โชว์ผู้เรียน · smoke-jev-policy 9/9 + smoke-reasoning 14/14 + e2e 45/45",
+    evidence: ["tigamodel/teaching/jev-tie-breaker.js", "tigamodel/scripts/smoke-jev-policy.mjs", "tigamodel/teaching/teaching-loop.js"],
   },
   {
     id: "m12-fusion",
@@ -250,10 +250,10 @@ export const MILESTONES = [
   {
     id: "m27-contributor-credit",
     title: "เครดิตผู้ร่วมสร้างติดตาวรา (provenance ขยายจากแหล่ง→คน)",
-    state: "planned",
+    state: "code",
     deps: ["m26-contribution-store"],
-    acceptance: "entry จากประตูแสดงชื่อผู้ร่วมสร้างตลอดไป (KB provenance + UI ที่มา) — จูงใจคนดีเข้าร่วม",
-    evidence: ["tigamodel/compliance/contribution-gate.js"],
+    acceptance: "contribution-store.js: เฉพาะแถวที่ APPROVED เท่านั้นที่ได้เครดิต (pending/rejected → ไม่มี entry) · entry ที่ได้อ้าง source id ตัวเดียวกับที่ประตูเลือก (own-work = tiga-contrib:<id>, public-fact = contrib:<id>:<title>) · registry SOURCES เก็บ contributor_name + license + excerpt ไว้ (ชื่ออยู่ในบันทึกแหล่งที่มา ไม่ใช่คอมเมนต์) · entry ที่มีเครดิตผ่าน scanner ตัวจริง 0 flag และ public-fact ที่ไม่มี registry จะถูก flag attribution จริง (พิสูจน์ว่าเครดิตคือสิ่งที่ทำให้คำอ้างสืบยาวได้) · คอลัมน์ contributor_name ใน SQL + queue ส่งต่อให้ผู้ตรวจ · smoke-contribution-store 23/23 · ด่าน 12 ของ scorecard ตรวจเครดิตซ้ำอีกชั้น — สถานะ code เพราะยังไม่มีแถวจริงจนกว่าเจ้าของอนุมัติ apply (m26)",
+    evidence: ["tigamodel/compliance/contribution-store.js", "tigamodel/scripts/smoke-contribution-store.mjs", "supabase-knowledge-contributions-migration.sql", "tigamodel/compliance/kb-compliance.js"],
   },
   {
     id: "m28-teacher-offline",

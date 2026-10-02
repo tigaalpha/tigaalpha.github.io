@@ -99,6 +99,68 @@ export function queueStats(rows) {
   return out;
 }
 
+/* ── m27: the credit the contributor keeps forever ──
+   A contributed entry cites `contrib:<id>:<title>` — which kb-compliance would
+   flag as an untraceable source unless that id is REGISTERED. So an approved
+   row becomes two things at once: a registered source carrying the author's
+   name (the provenance the UI shows) and the KB entry that cites it. The
+   author's name is part of the source record, not a comment — that is what
+   makes "โดย <ชื่อ>" permanent rather than a promise. */
+export function sourceIdFor(row) {
+  const id = row && row.contributor_id;
+  const title = String((row && row.title) || "").trim().slice(0, 24);
+  if (!id || !title) return null;
+  /* the gate's own two conventions, mirrored exactly: own-work is our own
+     reasoning (tiga-*), a public-fact claim cites the public source and needs
+     a registered record. Guessing an id here would orphan the entry. */
+  const ownWork = String(row.source_kind || "") === "own-work"
+    && ["contributor-own-work", "cc0", "public-domain"].includes(String(row.license || ""));
+  return ownWork ? `tiga-contrib:${id}` : `contrib:${id}:${title}`;
+}
+
+/* the registry entry (SOURCES shape) — null when the row cannot carry credit */
+export function creditSourceFor(row, { site = "tiga contributors", sourceId = null } = {}) {
+  const id = sourceId || sourceIdFor(row);
+  if (!id || !String((row && row.license) || "").trim()) return null;
+  const name = String((row && row.contributor_name) || "").trim();
+  const who = name || "ผู้ร่วมสร้างที่ไม่ระบุชื่อ";
+  return {
+    [id]: {
+      title: `${who} — ${String(row.title).trim()}`,
+      url: row.source_url ? String(row.source_url) : null,
+      site,
+      institution: "TIGA contributors",
+      read_at: "contributed",
+      reliability: "contributed",
+      license: String(row.license).trim(),
+      contributor_id: String(row.contributor_id),
+      contributor_name: name || null,
+      /* public-fact: the excerpt the contributor declared is the evidence the
+         verbatim check runs against — the same record shape as every
+         registered source */
+      notes: row.source_excerpt ? String(row.source_excerpt) : null,
+    },
+  };
+}
+
+/* the KB entry an APPROVED row becomes, plus the registry it needs — returns
+   null for anything not approved: credit is earned by the decision, not by the
+   submission. */
+export function creditedEntryFor(row, review) {
+  if (!row || row.status !== "approved") return null;
+  const rev = review && typeof review === "object" ? review : reviewContribution({ content: row, license: row.license, source: { kind: row.source_kind, url: row.source_url, excerpt: row.source_excerpt }, contributor: { id: row.contributor_id, name: row.contributor_name } });
+  if (!rev || rev.verdict !== "clean") return null;
+  const entry = rev.entry;
+  if (!entry || !entry.source_id) return null;
+  /* keyed by the id the GATE chose, never a re-derived one */
+  const sources = creditSourceFor(row, { sourceId: entry.source_id }) || {};
+  return {
+    entry: { id: entry.source_id, domain: entry.domain, title: entry.title, body: entry.body, teach: entry.teach, source: entry.source_id },
+    sources,
+    label: { th: `โดย ${row.contributor_name || "ผู้ร่วมสร้าง"}`, en: `by ${row.contributor_name || "a contributor"}`, zh: `来自 ${row.contributor_name || "贡献者"}` },
+  };
+}
+
 /* The one thing a moderator must never do: approve something the gate rejected,
    or approve a row with no contributor attached. Checked client-side so the UI
    cannot even offer the button; the server re-checks what it must. */

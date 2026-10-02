@@ -88,6 +88,7 @@ const SMOKES = {
   "m41-compound-dashboard": ["tigamodel/scripts/smoke-compound-dashboard.mjs"],
   "m24-before-after-dashboard": ["tigamodel/scripts/smoke-compound-dashboard.mjs"],
   "m26-contribution-store": ["tigamodel/scripts/smoke-contribution-store.mjs"],
+  "m27-contributor-credit": ["tigamodel/scripts/smoke-contribution-store.mjs"],
 };
 for (const [id, scripts] of Object.entries(SMOKES)) {
   const m = byId.get(id);
@@ -128,7 +129,8 @@ console.log("\n5) kill switches");
   const SWITCHES = [
     { switch: "tiga_policy_weights", file: "supabase-policy-weights-migration.sql" },
     { switch: "tiga_personalized_plans", file: "tigamodel/teaching/skill-state-plans.js" },
-    { switch: "tiga_jev_policy", file: "tigamodel/teaching/teaching-loop.js" },
+    /* the jev switch key is named in the tie-breaker (teaching-loop consumes it) */
+    { switch: "tiga_jev_policy", file: "tigamodel/teaching/jev-tie-breaker.js" },
     { switch: "DEFAULT_CHANNEL_WEIGHTS", file: "tigamodel/multimodal/fusion.js" },
     { switch: "tiga_answer_cache", file: "tigamodel/performance/answer-cache.js" },
     { switch: "tiga_kb_hot_path", file: "tigamodel/performance/kb-hot-path.js" },
