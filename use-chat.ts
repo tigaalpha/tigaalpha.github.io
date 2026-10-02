@@ -215,6 +215,36 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     try { const hub = tigaNow(); if (hub && hub.refreshKbHotPathSwitch) hub.refreshKbHotPathSwitch().catch(() => {}); } catch (e) {}
   }
 
+  /* m48 (docs/15 §4): when the live model is too slow / fails, the app answers
+     from its own verified knowledge (the same KB lines, with their labels)
+     instead of an error bubble. Returns null with the switch OFF (default) or
+     when the KB has nothing real for this question — then the chat keeps its
+     old error path exactly. */
+  function kbFallbackText(q) {
+    try {
+      const hub = tigaNow();
+      if (!hub || !hub.kbFallbackFor) return null;
+      const fb = hub.kbFallbackFor(q, lang);
+      return fb && fb.text ? fb.text : null;
+    } catch (e) { return null; }
+  }
+
+  /* The same warm-up for the cost governor (m47, docs/15 §2): the switch
+     (app_settings.tiga_cost_governor) and the chat's declared cost tier are
+     read at most once a minute, so asking here overlaps the pre-check instead
+     of delaying the answer. Fire-and-forget; never throws, never blocks. */
+  function warmGovernance() {
+    try {
+      const hub = tigaNow();
+      if (!hub) return;
+      if (hub.refreshCostGovernorSwitch) hub.refreshCostGovernorSwitch().catch(() => {});
+      if (hub.refreshChatDeclaredCost) hub.refreshChatDeclaredCost().catch(() => {});
+      if (hub.refreshCostGovernorUser) hub.refreshCostGovernorUser().catch(() => {});
+      if (hub.refreshProviderBudgetSwitch) hub.refreshProviderBudgetSwitch().catch(() => {});
+      if (hub.refreshShortRoutingSwitch) hub.refreshShortRoutingSwitch().catch(() => {});
+    } catch (e) {}
+  }
+
   /* The pre-check is a courtesy, not a gate: it used to run to completion (up to
      2.5 s) before the answer was even requested, so every message paid for it in
      full. Now the answer waits at most PRECHECK_BUDGET_MS; a verdict that lands
@@ -233,6 +263,23 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     setBusy(true);
     setLoading(true);
     setSlow(false);
+    /* m47 (docs/15 §2): the cost governor decides BEFORE the edge call, with
+       the learner's real session key. Switch OFF (the default) → governed:false
+       and nothing below changes; throttled → an honest in-thread line, the same
+       one the free-quota cap uses, and NO provider call at all. */
+    let govGate = null;
+    try {
+      const hubGov = tigaNow();
+      if (hubGov && hubGov.chatGovernanceGate) govGate = await hubGov.chatGovernanceGate({ message: userText });
+    } catch (e) { govGate = null; }
+    if (govGate && govGate.throttled) {
+      setMsgs(prev => [...prev, { role: "ai", text: lc.chatGovernedCapped, upsell: true }]);
+      if (onUpsell) onUpsell();
+      setLoading(false);
+      setBusy(false);
+      streamingRef.current = false;
+      return;
+    }
     const history = buildHistory();
     let retryHintT = null; // "still connecting" hint timer (12s of round-1 silence)
 
@@ -403,13 +450,21 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
 
       if (acc.trim()) {
         handleAIReply(acc);
+        /* a real answer happened → book its REAL weighted cost against the
+           day's budget (m47). A refused/error answer books nothing. */
+        try {
+          const hubGov = tigaNow();
+          if (hubGov && hubGov.chargeGovernedChat) hubGov.chargeGovernedChat(govGate && govGate.sessionKey);
+        } catch (e) {}
       } else {
-        // nothing streamed back — friendly error in the empty bubble, with
-        // error:true so the UI renders the one-tap retry button on it
+        // nothing streamed back — with the provider budget ON the verified KB
+        // answers instead (m48); otherwise the friendly error in the empty
+        // bubble, with error:true so the UI renders the one-tap retry button
+        const fb = kbFallbackText(userText);
         setMsgs(prev => {
           const copy = prev.slice();
           for (let i = copy.length - 1; i >= 0; i--) {
-            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text: lc.chatErr, error: true }; break; }
+            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text: fb || lc.chatErr, error: !fb }; break; }
           }
           return copy;
         });
@@ -426,16 +481,17 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
          the error — which is the doubled "TIGA CHAT" bubble in the report.
          Fill the empty bubble if there is one, append only if there is not. */
       const aborted = (e && (e.name === "AbortError" || /abort/i.test(String(e.message || ""))));
-      const text = aborted ? lc.chatSlow : lc.chatErr;
+      const fb = kbFallbackText(userText); // m48: verified knowledge instead of a dead end (switch OFF → null)
+      const text = fb || (aborted ? lc.chatSlow : lc.chatErr);
       setSlow(false);
       setMsgs(prev => {
         const copy = prev.slice();
         const last = copy[copy.length - 1];
         if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) {
-          copy[copy.length - 1] = { ...last, text, error: true };
+          copy[copy.length - 1] = { ...last, text, error: !fb };
           return copy;
         }
-        return [...copy, { role: "ai", text, error: true }];
+        return [...copy, { role: "ai", text, error: !fb }];
       });
       setLoading(false);
     } finally {
@@ -489,6 +545,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       lastAskRef.current = t; // remembered for the failed-bubble retry button
       bumpChatUsage();
       warmKbSwitch();
+      warmGovernance();
       // tier 2a: Jev pre-check (chat-precheck task) — fast structured
       // classification BEFORE the LLM. Spam ≥0.9 gets a gentle local refusal
       // with no LLM spend; everything else flows to the LLM with tone/intent

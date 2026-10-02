@@ -83,7 +83,8 @@ import { createKBHotPath as _createKBHotPath, KB_HOT_PATH_SWITCH } from "./perfo
    to an honest uncertain response (never an invented answer). Singleton
    like the answer cache, DEFAULT OFF — off = every decision allows, the
    shipped path unchanged. */
-import { createCostGovernor as _createCostGovernor, chargeForCall as _chargeForCall } from "./performance/cost-governor.js";
+import { createCostGovernor as _createCostGovernor, chargeForCall as _chargeForCall, COST_GOVERNOR_SWITCH } from "./performance/cost-governor.js";
+import { createProviderBudget as _createProviderBudget, kbFallbackResponse as _kbFallbackResponse, PROVIDER_BUDGET_SWITCH } from "./performance/provider-budget.js";
 /* docs/16 §2 (m50): the model's accuracy audit as data — the CI scorecard's
    numbers, computable in the browser from these REAL modules so TIGA MODEL
    LAB renders them live and admins can re-run after any model change. */
@@ -129,7 +130,7 @@ export async function chatThroughCostGovernor(args) {
     if (d.decision === "throttle") {
       return { response: g.governedResponse({ reason: d.reason, spent: d.spent, freeQuota: d.freeQuota }), routed: { selected_provider: "cost-governor", reason: d.reason, attempts: [] }, request: null, governed: true };
     }
-    const out = await tiga.chat({ message, ...rest });
+    const out = await tiga.chat({ message, ...rest, routing: (d && d.warn) ? { preferCost: "free-first" } : {} });
     const answeredBy = out && out.response && out.response.provider;
     const declared = answeredBy && tiga.providers.get(answeredBy);
     const declaredCost = declared && declared.declare ? declared.declare().cost : null;
@@ -137,6 +138,222 @@ export async function chatThroughCostGovernor(args) {
     return { ...out, governed: true };
   } catch (e) { return null; }
 }
+/* ── m47 (docs/15 §2): the cost governor's kill switch (app_settings), the REAL
+   per-learner session key, and the honest declared cost of one chat call.
+   Same shape as the m44 hot-path switch on purpose: read at most once a
+   minute, fail CLOSED (no row / error → OFF), written through the same admin
+   RPC, and OFF means the caller's path is byte-for-byte the old one. ── */
+const CG_SWITCH_TTL_MS = 60000;
+let _cgSwitchAt = 0;
+let _cgSwitchBusy = null;
+export function refreshCostGovernorSwitch({ force = false } = {}) {
+  if (!force && _cgSwitchAt && Date.now() - _cgSwitchAt < CG_SWITCH_TTL_MS) return Promise.resolve(costGovernor().isEnabled());
+  if (_cgSwitchBusy) return _cgSwitchBusy;
+  _cgSwitchBusy = (async () => {
+    let on = false;
+    try {
+      const r = sb ? await sb.from("app_settings").select("value").eq("key", COST_GOVERNOR_SWITCH).maybeSingle() : null;
+      on = !!(r && r.data && r.data.value && r.data.value.enabled === true);
+    } catch (e) { on = false; }
+    setCostGovernorEnabled(on);
+    _cgSwitchAt = Date.now();
+    _cgSwitchBusy = null;
+    return on;
+  })();
+  return _cgSwitchBusy;
+}
+export async function setCostGovernorSwitch(on) {
+  const { error } = await sb.rpc("admin_set_app_setting", { p_key: COST_GOVERNOR_SWITCH, p_value: { enabled: on === true } });
+  if (error) throw new Error(error.message || "save failed");
+  setCostGovernorEnabled(on === true);
+  _cgSwitchAt = Date.now();
+  return costGovernor().isEnabled();
+}
+export async function isCostGovernorSwitchOn() { return refreshCostGovernorSwitch({ force: true }); }
+
+/* The REAL session key: the signed-in user when we know it, else a per-device
+   guest id — bucketed by calendar day so the free ceiling is a DAILY budget
+   (docs/05 §8: 40 free questions), never an all-time one. Nothing invented:
+   same key all day for the same learner, different for the next one. */
+const CG_GUEST_KEY = "tiga_cost_governor_guest";
+let _cgUserId = null;
+export function setCostGovernorUserId(id) { _cgUserId = id ? String(id) : null; }
+export async function refreshCostGovernorUser() {
+  try {
+    if (sb && sb.auth) {
+      const { data } = await sb.auth.getSession();
+      const uid = data && data.session && data.session.user && data.session.user.id;
+      if (uid) { _cgUserId = String(uid); return _cgUserId; }
+      _cgUserId = null; // signed out: the budget must NOT stay attached to the last account
+    }
+  } catch (e) { /* a blip must not wipe a good id — keep the cache */ }
+  return _cgUserId;
+}
+export function costGovernorSessionKey(day = null) {
+  let who = _cgUserId;
+  if (!who) {
+    try {
+      who = localStorage.getItem(CG_GUEST_KEY);
+      if (!who) {
+        who = `guest-${(typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem(CG_GUEST_KEY, who);
+      }
+    } catch (e) { who = "guest-anon"; }
+  }
+  const d = day || new Date().toISOString().slice(0, 10);
+  return `cg:${who}:${d}`;
+}
+
+/* The honest declared cost of ONE chat call, read from the SAME app_settings
+   row the edge function reads (ai_models → the "chat" feature) — so the ledger
+   books what the backend is actually configured to call, with no redeploy and
+   no guessing. Unknown provider/model NEVER rides free (chargeForCall's rule):
+   it is charged like "low". The shipped chat default IS the openrouter free
+   ladder, which the model ids name with ":free". */
+let _cgAiModels = null;
+let _cgAiAt = 0;
+export async function refreshChatDeclaredCost({ force = false } = {}) {
+  if (!force && _cgAiAt && Date.now() - _cgAiAt < CG_SWITCH_TTL_MS) return chatDeclaredCostTier();
+  try {
+    const r = sb ? await sb.from("app_settings").select("value").eq("key", "ai_models").maybeSingle() : null;
+    _cgAiModels = r && r.data && r.data.value && typeof r.data.value === "object" ? r.data.value : null;
+  } catch (e) { _cgAiModels = null; }
+  _cgAiAt = Date.now();
+  return chatDeclaredCostTier();
+}
+export function chatDeclaredCostTier(feature = "chat") {
+  try {
+    const row = _cgAiModels;
+    const m = row && row[feature] ? row[feature] : (row && row["default"] ? row["default"] : null);
+    const provider = String((m && m.provider) || "").toLowerCase();
+    const model = String((m && m.model) || "").toLowerCase();
+    if (!provider && !model) return "free"; // nothing configured = the shipped free ladder
+    if (/:free\b/.test(model) || model === "openrouter/free" || model.endsWith("/free")) return "free";
+    if (provider === "gemini") return /flash/.test(model) ? "low" : "medium";
+    if (provider === "anthropic") return "medium";
+    return "low"; // unknown → never free
+  } catch (e) { return "low"; }
+}
+
+/* The gate the REAL chat asks BEFORE the edge call. Switch OFF or no key →
+   { governed: false } and the caller takes the untouched path. Throttled →
+   an honest uncertain response (never an invented answer) plus the reason. */
+export async function chatGovernanceGate({ sessionKey = null, estimatedUnits = 1, message = "" } = {}) {
+  try { await Promise.race([refreshCostGovernorSwitch(), new Promise(r => setTimeout(r, 400))]); } catch (e) { /* fail closed: keep current state */ }
+  const g = costGovernor();
+  let key = sessionKey;
+  if (!key) { await refreshCostGovernorUser(); key = costGovernorSessionKey(); }
+  if (!g.isEnabled() || !key) return { governed: false, throttled: false, reason: g.isEnabled() ? "no_session_key" : "switch_off", sessionKey: key };
+  const est = Number.isFinite(estimatedUnits) && estimatedUnits >= 0 ? estimatedUnits : 1;
+  const d = g.decide(key, est);
+  if (d.decision === "throttle") {
+    return { governed: true, throttled: true, reason: d.reason, spent: d.spent, freeQuota: d.freeQuota, sessionKey: key, response: g.governedResponse({ reason: d.reason, spent: d.spent, freeQuota: d.freeQuota }) };
+  }
+  return { governed: true, throttled: false, reason: d.reason, spent: d.spent, freeQuota: d.freeQuota, warn: d.warn === true, sessionKey: key, response: null };
+}
+
+/* Book the REAL weighted cost AFTER an allowed, real answer (one call = the
+   declared tier above). OFF switch → no-op, ledger stays empty. */
+export function chargeGovernedChat(sessionKey = null) {
+  try {
+    const g = costGovernor();
+    const key = sessionKey || costGovernorSessionKey();
+    if (!g.isEnabled() || !key) return false;
+    g.charge(key, _chargeForCall("chat", chatDeclaredCostTier()));
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ── m35 (docs/15 §4): short routing — a small measured request may skip the
+   big-model queue for a provider that DECLARED itself fast/free. The switch
+   lives on the router (policy.short_routing) and defaults OFF; the reader here
+   is the same fail-closed, 60s-cached convention as every other switch, and
+   the size signal is counted characters, never a guess. ── */
+const SR_SWITCH = "tiga_short_routing";
+let _srAt = 0;
+let _srBusy = null;
+let _srOn = false;
+function applyShortRouting(on) {
+  _srOn = on === true;
+  try { const t = getTigamodel(); if (t && t.router && t.router.setShortRouting) t.router.setShortRouting(_srOn); } catch (e) {}
+  return _srOn;
+}
+export function refreshShortRoutingSwitch({ force = false } = {}) {
+  if (!force && _srAt && Date.now() - _srAt < 60000) return Promise.resolve(_srOn);
+  if (_srBusy) return _srBusy;
+  _srBusy = (async () => {
+    let on = false;
+    try {
+      const r = sb ? await sb.from("app_settings").select("value").eq("key", SR_SWITCH).maybeSingle() : null;
+      on = !!(r && r.data && r.data.value && r.data.value.enabled === true);
+    } catch (e) { on = false; }
+    applyShortRouting(on);
+    _srAt = Date.now();
+    _srBusy = null;
+    return _srOn;
+  })();
+  return _srBusy;
+}
+export async function setShortRoutingSwitch(on) {
+  const { error } = await sb.rpc("admin_set_app_setting", { p_key: SR_SWITCH, p_value: { enabled: on === true } });
+  if (error) throw new Error(error.message || "save failed");
+  _srAt = Date.now();
+  return applyShortRouting(on === true);
+}
+export async function isShortRoutingSwitchOn() { return refreshShortRoutingSwitch({ force: true }); }
+
+/* ── m48 (docs/15 §4): a real deadline per provider call, and when it is
+   missed the learner gets the app's own VERIFIED knowledge (the same KB lines
+   the chat already built, with their labels) instead of an error bubble or a
+   stall. Switch OFF (default) → the chat's old path, untouched: the fallback is
+   never even built. The answer is honest about what it is: provider
+   "rule-brain", status "uncertain", sources listed. ── */
+let _providerBudget = null;
+export function providerBudget() {
+  if (!_providerBudget) _providerBudget = _createProviderBudget({ enabled: false }); // OFF until switched on
+  return _providerBudget;
+}
+export function setProviderBudgetEnabled(on) {
+  providerBudget().setEnabled(on === true);
+  return providerBudget().isEnabled();
+}
+const PB_SWITCH_TTL_MS = 60000;
+let _pbSwitchAt = 0;
+let _pbSwitchBusy = null;
+export function refreshProviderBudgetSwitch({ force = false } = {}) {
+  if (!force && _pbSwitchAt && Date.now() - _pbSwitchAt < PB_SWITCH_TTL_MS) return Promise.resolve(providerBudget().isEnabled());
+  if (_pbSwitchBusy) return _pbSwitchBusy;
+  _pbSwitchBusy = (async () => {
+    let on = false;
+    try {
+      const r = sb ? await sb.from("app_settings").select("value").eq("key", PROVIDER_BUDGET_SWITCH).maybeSingle() : null;
+      on = !!(r && r.data && r.data.value && r.data.value.enabled === true);
+    } catch (e) { on = false; }
+    setProviderBudgetEnabled(on);
+    _pbSwitchAt = Date.now();
+    _pbSwitchBusy = null;
+    return on;
+  })();
+  return _pbSwitchBusy;
+}
+export async function setProviderBudgetSwitch(on) {
+  const { error } = await sb.rpc("admin_set_app_setting", { p_key: PROVIDER_BUDGET_SWITCH, p_value: { enabled: on === true } });
+  if (error) throw new Error(error.message || "save failed");
+  setProviderBudgetEnabled(on === true);
+  _pbSwitchAt = Date.now();
+  return providerBudget().isEnabled();
+}
+export async function isProviderBudgetSwitchOn() { return refreshProviderBudgetSwitch({ force: true }); }
+
+/* The honest fallback for THIS question, or null when the switch is off / the
+   KB has nothing real for it (the caller then keeps its own error). */
+export function kbFallbackFor(question, lang = "th") {
+  try {
+    if (!providerBudget().isEnabled()) return null;
+    return _kbFallbackResponse({ block: getKBContext(question), lang, budgetMs: providerBudget().config.hardMs, maxLines: providerBudget().config.maxLines });
+  } catch (e) { return null; }
+}
+
 /* Chat with the answer cache honored (off → identical to chat()). Returns
    { response, routed, request, cache_hit, cache_provenance? }. */
 export async function chatThroughAnswerCache(args) {
@@ -873,6 +1090,7 @@ export function refreshKbHotPathSwitch({ force = false } = {}) {
       on = !!(r && r.data && r.data.value && r.data.value.enabled === true);
     } catch (e) { on = false; }
     setKbHotPathEnabled(on);
+    if (on) { const rows = readHotStore(); if (rows) kbHotPath().restoreHot(rows); } // m45: resume the real serving order
     _kbSwitchAt = Date.now();
     _kbSwitchBusy = null;
     return on;
@@ -890,6 +1108,45 @@ export async function setKbHotPathSwitch(on) {
   return kbHotPath().isEnabled();
 }
 export async function isKbHotPathSwitchOn() { return refreshKbHotPathSwitch({ force: true }); }
+
+/* ── m45 (docs/14 §2): hot counts that survive a page reload ──
+   Only what was REALLY served is stored (entry id + its serve count, capped),
+   per device, in a try/catch so private mode / a full quota just skips it.
+   Loaded when the switch turns ON, written a beat after real serves, cleared
+   by the admin. Switch OFF → nothing is read, nothing is written, and the
+   ranking cannot use a count that is not from a real serve. */
+const HOT_STORE_KEY = "tiga_kb_hot_counts";
+function readHotStore() {
+  try {
+    const raw = localStorage.getItem(HOT_STORE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v : null;
+  } catch (e) { return null; }
+}
+function writeHotStore() {
+  try {
+    const hp = kbHotPath();
+    if (!hp.isEnabled()) return false;
+    localStorage.setItem(HOT_STORE_KEY, JSON.stringify(hp.snapshotHot()));
+    return true;
+  } catch (e) { return false; }
+}
+let _hotSaveT = null;
+function persistHotSoon() {
+  try {
+    if (_hotSaveT) return;
+    _hotSaveT = setTimeout(() => { _hotSaveT = null; writeHotStore(); }, 1500);
+  } catch (e) { /* no timers / no storage → nothing to persist */ }
+}
+export function clearKbHotCounts() {
+  kbHotPath().clearHot();
+  try { localStorage.removeItem(HOT_STORE_KEY); } catch (e) {}
+  return true;
+}
+export function kbHotCountStore() {
+  return { entries: kbHotPath().snapshotHot().length, stored: (readHotStore() || []).length, key: HOT_STORE_KEY };
+}
 
 function buildKbIndex(tiga) {
   const byDomain = new Map();
@@ -949,7 +1206,7 @@ export function getKBContext(matchText) {
       lr.getLearnedKBContext(matchText).catch(() => {});
       return "";
     }
-    if (servedIds && servedIds.length) hp.recordServed(servedIds); // bounded hot-count feed (m34)
+    if (servedIds && servedIds.length) { hp.recordServed(servedIds); persistHotSoon(); } // bounded hot-count feed (m34) + m45 persist
     return (
       "\n\n[TIGA KNOWLEDGE BASE — curated teaching knowledge with sources. Use these when relevant; follow the วิธีสอน (how to teach) guidance. Do not contradict them.]\n" +
       lines.join("\n") + "\n"

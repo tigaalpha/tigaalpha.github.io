@@ -119,6 +119,7 @@ export function createKBHotPath(opts = {}) {
     hotBoostMax: Number.isFinite(opts.hotBoostMax) && opts.hotBoostMax >= 0 ? opts.hotBoostMax : KB_HOT_PATH_DEFAULTS.hotBoostMax,
   };
   const hot = new Map();  // entry id → serve count (grows only by real serves while enabled)
+  const HOT_PERSIST_MAX = 200; // m45: bounded on-disk hot list (ids + counts only)
   const hayMemo = new WeakMap(); // entry object → memoized lowercase haystack (performance contract)
   const baseCache = new Map();   // cacheKey → { levels: [{ s, entries[] }] } — one full ranking per keyword set
   const BASE_CACHE_MAX = 64;
@@ -261,10 +262,42 @@ export function createKBHotPath(opts = {}) {
     } catch (e) { return null; }
   }
 
+  /* m45 (docs/14 §2): hot counts that survive a page reload. snapshotHot()
+     exports the REAL serving order (highest count first, ties by id) capped at
+     `max` entries; restoreHot() takes that list back. Nothing is invented —
+     a count is only ever what recordServed() saw a real serve — and the input
+     is validated (numbers only, positive, de-duplicated, bounded) so a
+     corrupted store can never poison the ranking. */
+  function snapshotHot(max = HOT_PERSIST_MAX) {
+    try {
+      const cap = Number.isFinite(max) && max > 0 ? Math.floor(max) : HOT_PERSIST_MAX;
+      return [...hot.entries()]
+        .map(([id, n]) => [String(id), n])
+        .sort((a, b) => (b[1] - a[1]) || cmpStr(a[0], b[0]))
+        .slice(0, cap);
+    } catch (e) { return []; }
+  }
+  function restoreHot(list) {
+    try {
+      if (!enabled || !Array.isArray(list)) return 0;
+      const cap = HOT_PERSIST_MAX;
+      let restored = 0;
+      for (const row of list.slice(0, cap)) {
+        if (!Array.isArray(row) || row.length !== 2) continue;
+        const id = String(row[0] == null ? "" : row[0]);
+        const n = Number(row[1]);
+        if (!id || !Number.isFinite(n) || n <= 0) continue;
+        hot.set(id, Math.floor(n));
+        restored++;
+      }
+      return restored;
+    } catch (e) { return 0; }
+  }
+
   function stats() {
     const top = [...hot.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
     return { enabled, hotEntries: hot.size, hotTop: top, cachedKeywordSets: baseCache.size, config: { ...cfg } };
   }
 
-  return { select, recordServed, setEnabled, isEnabled, clearHot, hotCount, stats, config: cfg };
+  return { select, recordServed, setEnabled, isEnabled, clearHot, hotCount, snapshotHot, restoreHot, stats, config: cfg };
 }
