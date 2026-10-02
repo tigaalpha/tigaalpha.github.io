@@ -64,7 +64,11 @@ def in_key_share(key, bars):
 
 
 by_comp = collections.defaultdict(list)
-used = set(existing_ids)
+# a piece keeps the id it already has (players' stars are filed under it): found by the score it comes from and its name, in the files about to be replaced
+known = {}
+for f in glob.glob(f'{OUT}/*.json'):
+    for p0 in json.load(open(f, encoding='utf-8')): known[(p0['src'], p0['en'])] = p0['id']
+used = set(existing_ids) | set(known.values())
 skipped = []
 
 
@@ -73,10 +77,13 @@ def emit(pool, kind):
         t = titles.get(r['pid'] + '|' + r['mid'])
         if not t or t.get('skip'): skipped.append((kind, i, 'no title' if not t else 'skip')); continue
         info = r['info']; short, full, died, era, th, zh = ex.COMP[r['code']]
-        pid = make_id(short, t['en'])
-        base = pid; n = 2
-        while pid in used:
-            pid = (base[:36] + f'_{n}'); n += 1
+        src = info['path'] if kind == 'openscore' else 'mutopia:' + info['path']
+        pid = base = make_id(short, t['en'])
+        if (src, t['en']) in known: pid = known[(src, t['en'])]
+        else:
+            n = 2
+            while pid in used:
+                pid = (base[:36] + f'_{n}'); n += 1
         if pid in exclude or base in exclude or (r['pid'] + '|' + r['mid']) in exclude: skipped.append((kind, i, 'excluded')); continue
         used.add(pid)
         m = re.search(r'(1[4-9]\d\d)', info.get('date') or '')
@@ -87,7 +94,7 @@ def emit(pool, kind):
             'en': t['en'], 'th': t['th'], 'zh': t['zh'],
             'key': r['key'], 'meter': r['meter'], 'bpm': r['bpm'], 'pickup': r['pickup'], 'bars': r['bars'],
             'conf': 'high',
-            'src': info['path'] if kind == 'openscore' else 'mutopia:' + info['path'],
+            'src': src,
             'license': LICENSE[kind],
         }
         if in_key_share(r['key'], r['bars']) < 0.88:            # chromatic or modal writing (Debussy, Satie): the notes are the score's, so the key check is relaxed

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """cands.json (extract.py) -> a ranked, de-duplicated list of the pieces worth a place in the song list: pool.json + pool.tsv
-(cands-os.json from extract_openscore.py -> pool-os.json with --os; it leaves out what pool.json already holds)
+(cands-os.json from extract_openscore.py -> pool-os.json with --os; it leaves out what the app already holds: the tunes in pool.json and, when
+$SONGS_WORK/app-songs.json exists (node songs-src/tools/dump_app_songs.mjs), every song of the app, found by the shape of the melody — the
+intervals, so a copy in another key or from another edition is found too)
 
-  python3 songs-src/tools/assemble.py [--os]
+  python3 songs-src/tools/assemble.py [--os [--take=N] [--cap=N]]       --take: at most N pieces that are not named yet (the best-ranked ones), --cap: at most N per composer
 
 Nothing here judges the music (it comes from the score): it chooses WHICH extracted tunes are worth a place in the song list —
 tune-like (few rests, in key), playable, not a copy of another — and names them from the score's own header."""
@@ -74,13 +76,42 @@ def opening(r, n=14):
 
 SKIP_CODES = {'SousaJP'}
 def norm(t): return re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()
+
+PCN = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
+def midi_of(nm):
+    m = re.match(r'^([A-G])(#?)(-?\d)$', nm)
+    return 12 * (int(m.group(3)) + 1) + PCN[m.group(1)] + (1 if m.group(2) else 0)
+SHL, SHD = 10, 4        # a shingle is 10 successive intervals with at least 4 different sizes: a plain scale or a repeated note is in every tune
+def shingles(pitches):
+    iv = [b - a for a, b in zip(pitches, pitches[1:])]
+    return {tuple(iv[i:i + SHL]) for i in range(len(iv) - SHL + 1) if len(set(iv[i:i + SHL])) >= SHD}
+def pitches_of(r):
+    return [midi_of(t.split(':')[0]) for b in r['bars'] for t in b.split() if not t.startswith('R:')]
+SH_OF = {}                                   # id -> the shingles of a tune already taken
+SH_INDEX = collections.defaultdict(list)     # shingle -> ids
+def sh_add(id_, sh):
+    SH_OF[id_] = sh
+    for g in sh: SH_INDEX[g].append(id_)
+def sh_clash(sh):
+    """the id of a tune that is the same melody (a copy, in another key or from another edition), or None"""
+    cnt = collections.Counter(j for g in sh for j in SH_INDEX.get(g, ()))
+    for j, n in cnt.most_common():
+        if n >= 8 or (n >= 4 and n >= 0.5 * min(len(sh), len(SH_OF[j]))): return j
+    return None
+
 pool = []
 seen_open = {}
 seen_work = {}
-if OS:      # nothing the Mutopia pool already holds is taken a second time
+named = set()
+if OS:      # nothing the app already holds is taken a second time
+    named = {k for k, v in json.load(open(f'{WORK}/titles-by-key.json')).items() if not v.get('skip')} if os.path.exists(f'{WORK}/titles-by-key.json') else set()
     for r0 in json.load(open(f'{WORK}/pool.json')):
         seen_open[opening(r0)] = r0['pid']
         seen_work[(r0['code'], norm(r0['info']['title']), norm(r0.get('mvt', '')), norm(r0['info']['opus']))] = r0['pid']
+    if os.path.exists(f'{WORK}/app-songs.json'):
+        for s0 in json.load(open(f'{WORK}/app-songs.json')): sh_add('app:' + s0['id'], shingles([midi_of(n) for n in s0['notes']]))
+    else:
+        for r0 in json.load(open(f'{WORK}/pool.json')): sh_add('pool:' + r0['pid'], shingles(pitches_of(r0)))
 def quality(r):
     q = 0.0
     q += {'A': 3.0, 'B': 0.5}[r['tier']]
@@ -106,6 +137,9 @@ for r in rows:
     r['short_rests'] = round(rest_stats(r), 3)
     r['q'] = quality(r)
 rows.sort(key=lambda r: -r['q'])
+dropped = []; n_new = 0; per_comp = collections.Counter()
+TAKE = next((int(a.split('=')[1]) for a in sys.argv if a.startswith('--take=')), 0)
+CAP = next((int(a.split('=')[1]) for a in sys.argv if a.startswith('--cap=')), 0)
 for r in rows:
     if r['code'] in SKIP_CODES: continue
     if r['tier'] == 'A':
@@ -119,6 +153,14 @@ for r in rows:
     if k in seen_open: continue
     wk = (r['code'], norm(r['info']['title']), norm(r.get('mvt', '')), norm(r['info']['opus']))
     if wk in seen_work: continue            # the same work again (another paper size, another key): the best-ranked one is already in
+    if OS:
+        new_piece = (r['pid'] + '|' + r['mid']) not in named
+        if new_piece and ((TAKE and n_new >= TAKE) or (CAP and per_comp[r['code']] >= CAP)): continue
+        sh = shingles(pitches_of(r))
+        j = None if (r['pid'] + '|' + r['mid']) in named else sh_clash(sh)      # a piece that is already named is in the app: it is the app's copy that the others are compared with
+        if j: dropped.append((r['info']['title'], r['code'], j)); continue
+        sh_add('os:' + r['pid'], sh)
+        n_new += new_piece; per_comp[r['code']] += 1
     seen_open[k] = r['pid']; seen_work[wk] = r['pid']
     pool.append(r)
 
@@ -129,7 +171,9 @@ with open(f'{WORK}/{tag}.tsv', 'w') as f:
     for i, r in enumerate(pool):
         info = r['info']
         f.write('\t'.join(map(str, [i, round(r['q'], 1), r['tier'], r['code'], info['title'], info['opus'], r.get('mvt', ''), info['instrument'][:22], r['meter'], r['bpm'], r['key'], len(r['bars']), r['notes'], r['sec'], r['semis'], r['rest'], r['pid'], r['mid']])) + '\n')
+if OS and '-v' in sys.argv:
+    for t, code, j in dropped: print('  left out:', code, t, '== same melody as', j)
 c = collections.Counter((r['code'], r['tier']) for r in pool)
-print(len(rows), 'extracted ok;', len(pool), 'in the pool')
+print(len(rows), 'extracted ok;', len(pool), 'in the pool' + (f'; {len(dropped)} left out as a melody the app already has' if OS else ''))
 print('tier A', sum(1 for r in pool if r['tier'] == 'A'), '· tier B', sum(1 for r in pool if r['tier'] == 'B'))
 print(sorted(((k, v) for k, v in collections.Counter(r['code'] for r in pool if r['tier'] == 'A').items()), key=lambda x: -x[1])[:30])

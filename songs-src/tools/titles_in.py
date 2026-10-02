@@ -4,7 +4,8 @@
   python3 titles_in.py [--os] [N]        N batches (default 6)
 
 Each row: i (the index in the pool), key (the score it is about: `pid|file` — names are stored by it, so they survive a new extraction run), era, composer (short name, use exactly), composer_th / composer_zh,
-raw_title / opus / movement / instrument / date (from the score's header: noisy, may be German or French), key_in_app +
+raw_title / opus / movement / instrument / date (from the score's header: noisy, may be German or French), src (the folder the score is in: for an
+OpenScore song `<composer>/<collection>/<number>_<title>/<file>`, so the song's number in its collection is there), key_in_app +
 transposed_semitones (the excerpt is played in key_in_app: never take a key for a title from it), bars, meter, tempo.
 The answer is a JSON array in titles-out[-os]/batch_K.json: {"i", "en", "th", "zh", "work"} per row (or {"i", "skip": true});
 `python3 check_titles.py titles-in/batch_K.json titles-out/batch_K.json` lists what is wrong with it, and
@@ -25,7 +26,7 @@ for i, r in enumerate(pool):
     if '--missing' in sys.argv and (r['pid'] + '|' + r['mid']) in named: continue
     info = r['info']; short, full, died, era, th, zh = ex.COMP[r['code']]
     rows.append({'i': i, 'key': r['pid'] + '|' + r['mid'], 'era': era, 'composer': short, 'composer_th': th, 'composer_zh': zh,
-                 'raw_title': info.get('title', ''), 'opus': info.get('opus', ''), 'movement': r.get('mvt', ''), 'instrument': info.get('instrument', ''),
+                 'raw_title': info.get('title', ''), 'opus': info.get('opus', ''), 'src': info.get('path', '').replace('openscore:scores/', ''), 'movement': r.get('mvt', ''), 'instrument': info.get('instrument', ''),
                  'key_in_app': r['key'], 'transposed_semitones': r['semis'], 'date': info.get('date', ''),
                  'bars': len(r['bars']), 'meter': r['meter'], 'tempo': r['bpm']})
 d = f'{WORK}/titles-in-os' if OS else f'{WORK}/titles-in'

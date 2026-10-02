@@ -13,6 +13,7 @@ Mutopia Project (LilyPond sources, header "Public Domain")        OpenScore Lied
         extract.py / extract_openscore.py   one tune per score: top voice, quantised to sixteenths on the bar grid,
                                             a pickup or not, cut at a cadence, folded into C4–B5, a playable bpm, the key
         assemble.py [--os]        choose which tunes are tune-like and playable, drop copies → pool.json / pool-os.json
+                                  (--os also drops a melody the app already has, found by its intervals: dump_app_songs.mjs)
         titles_in.py [--os]       rows to name → titles-in[-os]/batch_K.json   (names: see below)
         finalize.py               pool + names → songs-src/classical/<composer>.json
 node scripts/verify-songs.mjs songs-src/classical      # public domain, bars add up, range, key, titles, no copies
@@ -31,7 +32,9 @@ duration the same). **Do not add a classical piece to this folder that did not c
 
 Only scores whose Mutopia header says `Public Domain` are used (not CC BY / CC BY-SA, which ask for credit or share-alike),
 plus OpenScore Lieder (CC0 transcriptions of public-domain editions), and only when the composer died in 1950 or earlier
-**and** the piece was written in 1929 or earlier. Each piece records its source in `src` and `license`. The tune in the app is a
+**and** the piece was written in 1929 or earlier. For OpenScore the rule is stricter: only composers who died in **1929 or earlier**
+(`COMPOSERS` in `extract_openscore.py`), so every song of theirs is old enough whatever its date; a composer who died 1930–1950 is left
+out because the date of an individual song cannot be checked from the file. Each piece records its source in `src` and `license`. The tune in the app is a
 one-note-at-a-time simplification of the score, which is ours; the notes of the work are the composer's.
 
 ## Setting up (about 2 GB, a few minutes)
@@ -48,10 +51,10 @@ git -C mutopia sparse-checkout set --cone ftp
 python3 -m venv venv  && venv/bin/pip  install lilypond==2.25.12
 python3 -m venv v224  && v224/bin/pip  install lilypond==2.24.3
 
-# 3. OpenScore Lieder, only the composers wanted (Impressionism lives here: Mutopia has almost none)
+# 3. OpenScore Lieder: every MusicXML file of the corpus (about 1,460 songs, 28 MB). Impressionism lives here (Mutopia has almost none),
+#    and so do the song composers of the 19th century
 git clone --depth 1 --filter=blob:none --sparse https://github.com/OpenScore/Lieder.git openscore
-git -C openscore sparse-checkout set "scores/Debussy,_Claude" "scores/Satie,_Erik" "scores/Boulanger,_Lili" \
-    "scores/Delius,_Frederick" "scores/Chausson,_Ernest"
+git -C openscore sparse-checkout set --no-cone '/scores/**/*.mxl'
 ```
 
 ## Running it
@@ -68,7 +71,10 @@ python3 $T/extract.py                        # → cands.json and a count of why
 python3 $T/assemble.py                       # → pool.json (+ pool.tsv, one readable line per piece)
 # OpenScore
 python3 $T/extract_openscore.py              # → cands-os.json
-python3 $T/assemble.py --os                  # → pool-os.json: the songs the Mutopia pool does not already hold
+node $T/dump_app_songs.mjs                   # → app-songs.json: the tunes of every song in the app now (to find a melody it already has)
+python3 $T/assemble.py --os --take=450 --cap=45
+                                             # → pool-os.json: what the app does not already hold, best-ranked first; at most 450 pieces
+                                             #   that are not named yet and at most 45 per composer (a piece already named always stays)
 ```
 
 `extract.py ID_REGEX` runs a subset, `compile_all.py PATH_REGEX` compiles a subset, `extract_openscore.py Debussy` one composer.
@@ -80,7 +86,9 @@ Everything is deterministic: the same inputs give the same `pool.json`.
 (English / Thai / Chinese, each ending with the composer in brackets) are written from that header by reading it:
 
 ```bash
-python3 $T/titles_in.py [--os] [N]           # → titles-in[-os]/batch_1..N.json, rows with the header and the composer's Thai/Chinese name
+python3 $T/titles_in.py [--os] [--missing] [N]
+                                             # → titles-in[-os]/batch_1..N.json, rows with the header and the composer's Thai/Chinese name
+                                             #   (--missing: only the pieces with no name yet → batch_m1..mN)
 # write titles-out[-os]/batch_K.json: [{"i", "en", "th", "zh", "work"} ...]  (or {"i", "skip": true})
 python3 $T/check_titles.py titles-in/batch_K.json titles-out/batch_K.json     # lists every problem, "OK" when there is none
 ```
@@ -93,7 +101,8 @@ Do not write out lyrics: a song's title is its first line at most.
 `exclude-ids.json` lists ids to leave out after naming (a tune found to be a copy).
 
 ```bash
-python3 $T/finalize.py                       # → songs-src/classical/<composer>.json  (replaces the folder's contents)
+python3 $T/titles_merge.py [--os]            # files the checked answers under the key of their score → titles-by-key.json
+python3 $T/finalize.py                       # → songs-src/classical/<composer>.json  (replaces the folder's contents; a piece keeps its id)
 node scripts/verify-songs.mjs songs-src/classical
 node scripts/build-songs.mjs
 ```
