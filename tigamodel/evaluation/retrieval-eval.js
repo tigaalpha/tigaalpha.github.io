@@ -22,7 +22,8 @@ export const SERVED_LABELS = new Set([
   "PEDAL", "EXPRESSION", "TECHNIQUE", "JAZZ", "EAR TRAINING", "MEMORIZATION",
   "PRACTICE PLANS", "PERFORMANCE", "MOTIVATION", "THAI MUSIC", "RHYTHM",
   "THEORY", "HARMONY", "REPERTOIRE", "FORM", "ACCOMPANIMENT", "IMPROVISATION",
-  "LEARNER DIFFERENCES", "SIGHT READING",
+  "LEARNER DIFFERENCES", "SIGHT READING", "MUSIC INNOVATION",
+  "MUSIC MARKETING", "MUSIC THERAPY",
 ]);
 
 /* 24 probes. expect = labels that MUST appear; forbid = labels whose
@@ -53,6 +54,14 @@ export const RETRIEVAL_PROBES = [
   { id: "accomp-th", q: "มือซ้ายเล่นเบสไม่ลื่นเลย", expect: ["ACCOMPANIMENT"], forbid: ["JAZZ"] },
   { id: "improv-th", q: "อยากด้นสด แต่งเพลงเองได้ไหม", expect: ["IMPROVISATION"], forbid: ["PEDAL"] },
   { id: "learner-th", q: "ลูกสมาธิสั้นเรียนเปียโนได้ไหม", expect: ["LEARNER DIFFERENCES"], forbid: ["JAZZ"] },
+  /* docs/16 §3 (m52) coverage wave: the owner's new categories must be
+     retrievable too — innovation (new domain), marketing/therapy domains */
+  { id: "innovation-th", q: "นวัตกรรมเทคโนโลยีมีอะไรช่วยเรียนเปียโนบ้าง", expect: ["MUSIC INNOVATION"], forbid: ["JAZZ"] },
+  { id: "innovation-en", q: "how has digital piano technology changed learning", expect: ["MUSIC INNOVATION"], forbid: [] },
+  { id: "marketing-th", q: "อยากทำคลิปโปรโมทคอร์สเปียโนให้มีคนรู้จัก", expect: ["MUSIC MARKETING"], forbid: ["JAZZ"] },
+  { id: "marketing-en", q: "how should a piano teacher market lessons online", expect: ["MUSIC MARKETING"], forbid: [] },
+  { id: "therapy-th", q: "ดนตรีบำบัดกับสุขภาวะในการเรียนเปียโน", expect: ["MUSIC THERAPY"], forbid: ["JAZZ"] },
+  { id: "therapy-en", q: "how is music used for wellbeing in piano teaching", expect: ["MUSIC THERAPY"], forbid: [] },
   /* no topical hit → the honest small core (motivation + planning), never
      the whole KB and never a random domain */
   { id: "core-empty", q: "", expect: ["MOTIVATION", "PRACTICE PLANS"], forbid: ["JAZZ", "PEDAL"] },

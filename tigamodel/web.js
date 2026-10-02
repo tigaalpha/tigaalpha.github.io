@@ -45,6 +45,7 @@ import { seedMusicEducationMarket } from "./knowledge/music-education-market.js"
 import { seedMusicTherapy } from "./knowledge/music-therapy.js";     // plan v3.4 11.1 (wellbeing frame)
 import { seedMusicInnovation } from "./knowledge/music-innovation.js"; // plan v3.5 6.13 (music innovation — owner pillar 5)
 import { seedMusicInnovationAI } from "./knowledge/music-innovation-ai.js"; // v3.5 6.13 ระลอกขยาย: AI in music (owner directive 2026-09-30)
+import { seedGlobalCoverageWave } from "./knowledge/global-coverage-wave.js"; // docs/16 §3 (m52): marketing/innovation/therapy world wave
 import { nextSongAdvice, longTermValueSection, careerPathwayReply, calmModeIntro, isoSongPick, therapyDisclaimer } from "./teaching/knowledge-surfaces.js"; // v3.4 6.3/6.4/6.9/6.10/11.2-11.4
 import { seedStageTwoWave } from "./knowledge/expansion-stage2.js";
 import { buildStudentContextFromApp } from "./student/student-model.js";
@@ -53,6 +54,7 @@ import { generateExercise, generateSheet } from "./teaching/generator.js";
 import { createUnifiedPlan } from "./roadmap-unified.js";
 import { buildCoachContextBlock, practiceTimeBudget, buildDiagnosis, buildStudentSnapshot } from "./coach/diagnosis.js";
 import { SOURCES, COVERAGE, GLOBAL_COVERAGE, listSourceIds } from "./knowledge/university-sources.js";
+import { auditKB as _auditKB } from "./compliance/kb-compliance.js";
 import { createSelfLearner } from "./learning/self-learner.js";
 import { sharedSkillGraph } from "./teaching/skill-graph.js";
 import { createCoach } from "./teaching/coach.js";
@@ -82,6 +84,10 @@ import { createKBHotPath as _createKBHotPath, KB_HOT_PATH_SWITCH } from "./perfo
    like the answer cache, DEFAULT OFF — off = every decision allows, the
    shipped path unchanged. */
 import { createCostGovernor as _createCostGovernor, chargeForCall as _chargeForCall } from "./performance/cost-governor.js";
+/* docs/16 §2 (m50): the model's accuracy audit as data — the CI scorecard's
+   numbers, computable in the browser from these REAL modules so TIGA MODEL
+   LAB renders them live and admins can re-run after any model change. */
+import { runModelAccuracyAudit as _runModelAccuracyAudit, loadAccuracyHistory as _loadAccHistory, saveAccuracyRun as _saveAccRun, clearAccuracyHistory as _clearAccHistory } from "./evaluation/lab-accuracy.js";
 let _answerCache = null;
 export function answerCache() {
   if (!_answerCache) _answerCache = _createAnswerCache({ enabled: false }); // OFF until switched on
@@ -182,6 +188,7 @@ export function initTigamodelWeb() {
     seedMusicTherapy(_tiga.kb);        // v3.4 11.1: wellbeing-frame therapy principles (no medical claims)
     seedMusicInnovation(_tiga.kb);     // v3.5 6.13: piano genesis · recording · notation · pedagogy innovation (owner pillar 5)
     seedMusicInnovationAI(_tiga.kb);   // v3.5 6.13 expansion: AI in the music industry + AI piano pedagogy (owner directive)
+    seedGlobalCoverageWave(_tiga.kb);  // docs/16 §3 (m52): owner coverage directive — marketing/innovation/therapy world-craft wave (legal tiga-* sources, wellbeing frame)
   } catch (e) { /* keep the base seed if anything unexpected happens */ }
   // Reasoning layer (roadmap #62/#73/#75/#78): skill graph + coach (hint
   // ladder, adaptive tempo, recap) — pure, sync, no model call. Attached to
@@ -794,6 +801,9 @@ const KB_DOMAIN_LABEL = {
   form: "FORM", accompaniment: "ACCOMPANIMENT", improvisation: "IMPROVISATION",
   "learner-differences": "LEARNER DIFFERENCES",
   "sight-reading": "SIGHT READING",
+  "innovation": "MUSIC INNOVATION",
+  "music-marketing": "MUSIC MARKETING",
+  "music-therapy": "MUSIC THERAPY",
 };
 const KB_DOMAIN_KEYWORDS = {
   "sight-reading": ["อ่านโน้ต", "อ่านสายตา", "sight", "reading", "ledger", "บรรทัดโน้ต", "ตัวโน้ต", "กวาดตา"],
@@ -815,6 +825,11 @@ const KB_DOMAIN_KEYWORDS = {
   accompaniment: ["ประกอบ", "มือซ้าย", "left hand", "alberti", "ostinato", "เบส", "bass", "arpeggio", "บล็อกคอร์ด", "accomp"],
   improvisation: ["ด้นสด", "improvis", "แต่งเพลง", "แต่งสด"],
   "learner-differences": ["adhd", "สมาธิ", "เด็ก", "ลูก", "มือเล็ก", "ยืดไม่ถึง", "ผู้สูง", "พิเศษ", "hyperfocus", "child"],
+  "innovation": ["นวัตกรรม", "innovation", "technology", "เทคโนโลยี", "digital", "ดิจิทัล", "midi", "synthesizer", "ซินธิ", "app", "แอป", "edtech", "online lesson", "เรียนออนไลน์", "ai"],
+  /* docs/16 §3 (m52): the thin pillars become SERVABLE — marketing/therapy
+     questions now get their labelled lines instead of falling to the core. */
+  "music-marketing": ["การตลาด", "marketing", "market", "ตลาด", "โปรโมท", "โฆษณา", "คลิป", "content", "คอนเทนต์", "โซเชียล", "social", "รีวิว", "ราคา", "แบรนด์", "brand", "บอกต่อ", "นักเรียนใหม่"],
+  "music-therapy": ["บำบัด", "wellbeing", "สุขภาวะ", "อารมณ์", "เครียด", "สงบ", "ผ่อนคลาย", "ดูแลใจ"],
 };
 
 /* The keywords of a question that actually fired a KB domain — the reference the
@@ -1252,6 +1267,39 @@ tigaHub.registerSpecialist("ear-training", {
     return { specialist: "ear-training", clef: (cur && cur.clef) || "treble", tip: { th: "👂 (ผู้เชี่ยวชาญฝึกหู) ปิดตา 10 วินาทีก่อนเริ่ม — ฟังโน้ตในหัวก่อนเห็นบนหน้าจอ", en: "👁️ (ear specialist) Close your eyes for 10s first — hear the note before you see it", zh: "👂（练耳专长）先闭眼10秒——先在脑中听音再看屏幕" } };
   },
 }, { note: "sound-before-sight drills" });
+
+/* ── docs/16 §2 (m50): TIGA MODEL LAB accuracy audit — five measured layers
+   (retrieval/policy/materials/answer-quality/KB-health) computed HERE from
+   the real modules (the eval suite is async; compliance reads the real KB),
+   plus a bounded per-browser history the admin can re-run against. ── */
+export async function runModelAccuracyAudit() {
+  try {
+    if (!_tiga) initTigamodelWeb();
+    const tiga = _tiga;
+    // Layer 4 input: the REAL extended eval suite against the REAL provider registry
+    let bestOverall, casesRun, provider;
+    try {
+      const results = await evaluateAllProvidersExtended(tiga.providers.list());
+      const best = (results || []).reduce((a, b) => ((b && b.overall || 0) > (a && a.overall || 0) ? b : a), (results || [])[0] || null);
+      if (best && Number.isFinite(best.overall)) { bestOverall = best.overall; casesRun = best.cases_run; provider = best.provider; }
+    } catch (e) { /* no eval this run → the layer stays honestly unavailable */ }
+    // Layer 5 input: the REAL compliance audit over the REAL KB
+    let auditResult;
+    try { auditResult = _auditKB([...tiga.kb._entries.values()], SOURCES); } catch (e) { /* unavailable → layer absent */ }
+    const args = {
+      getKBContext,
+      policy: tiga && tiga.policy,
+      generateStudentExercise: (...a) => generateStudentExercise(...a),
+      kinds: (typeof studentExerciseKinds === "function") ? studentExerciseKinds() : [],
+      bestOverall, casesRun, provider, auditResult,
+      kbCount: tiga && tiga.kb ? tiga.kb.count() : null,
+    };
+    return _runModelAccuracyAudit(args);
+  } catch (e) { return { overall: null, allPass: false, layers: [], unavailable: ["all"], ranAt: null, error: String(e?.message || e) }; }
+}
+export function accuracyAuditHistory() { return _loadAccHistory(typeof localStorage !== "undefined" ? localStorage : null); }
+export function saveAccuracyAuditRun(run) { return _saveAccRun(typeof localStorage !== "undefined" ? localStorage : null, run); }
+export function clearAccuracyAuditHistory() { return _clearAccHistory(typeof localStorage !== "undefined" ? localStorage : null); }
 
 export function loadChatSessions() { return readStore(CHAT_STORE_KEY, []); }
 export function appendChatSession(session) {

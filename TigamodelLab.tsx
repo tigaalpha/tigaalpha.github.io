@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch } from "./tigamodel/web.js";
+import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, createTeachingPolicy, createTeachingLoop, getUniversitySources, appendChatSession, saveEvalRun, loadEvalRuns, getSelfLearner, isSelfLearningEnabled, setSelfLearningEnabled, getSkillGraph, getCoach, plm1mStats, plm1mRank, plm1mSample, PLM1M_DIMENSIONS, runExtendedEvalWithRegression, loadEvalExtendedBaseline, getKnowledgeBaseForTest, getStudentContextBlock, getKBContext, capabilitySummary, capabilityWorklist, generateStudentExercise, kbHotPath, isKbHotPathSwitchOn, setKbHotPathSwitch, runModelAccuracyAudit, accuracyAuditHistory, saveAccuracyAuditRun, clearAccuracyAuditHistory } from "./tigamodel/web.js";
 import { ROADMAP_GROUPS, ROADMAP_STATUS, roadmapProgress } from "./tigamodel/roadmap-100.js";
 import { getUnifiedPlan, getCapabilityEngine } from "./tigamodel/web.js";
 import { KnowledgeGraphView } from "./tigamodel-lab-graph.tsx";
@@ -81,6 +81,13 @@ export function TigamodelLab({ lang = "th" }) {
   const [evalResults, setEvalResults] = useState(null);
   const [evalErr, setEvalErr] = useState("");
   const [evalVerdict, setEvalVerdict] = useState(null);
+
+  // 🎯 accuracy audit tab (docs/16 §2, m50): five measured layers from the
+  // real modules + a bounded per-browser history the admin can re-run against
+  const [accAudit, setAccAudit] = useState(null);
+  const [accHistory, setAccHistory] = useState([]);
+  const [accBusy, setAccBusy] = useState(false);
+  const [accErr, setAccErr] = useState("");
 
   // "which model are we on right now" — read from the same app_settings row
   // piano-chat resolves from, so the label cannot drift from reality.
@@ -259,6 +266,18 @@ export function TigamodelLab({ lang = "th" }) {
     setEvalBusy(false);
   }
 
+  async function runAccuracyAudit() {
+    if (accBusy) return;
+    setAccBusy(true); setAccErr("");
+    try {
+      const audit = await runModelAccuracyAudit();
+      const stamped = { ...audit, ranAt: new Date().toISOString() };
+      setAccAudit(stamped);
+      setAccHistory(saveAccuracyAuditRun(stamped));
+    } catch (e) { setAccErr(String(e?.message || e)); }
+    setAccBusy(false);
+  }
+
   async function runLoop() {
     if (!loopRef.current) return;
     setLoopErr("");
@@ -290,7 +309,8 @@ export function TigamodelLab({ lang = "th" }) {
       <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <button style={S.chip(tab === "chat")} onClick={() => setTab("chat")}>💬 {T("ทดสอบแชท", "Chat test", "聊天测试")}</button>
         <button style={S.chip(tab === "eval")} onClick={() => setTab("eval")}>📊 {T("ประเมินโมเดล", "Eval", "评估")}</button>
-        <button style={S.chip(tab === "measure")} onClick={() => setTab("measure")}>🎯 {T("วัดผลความแม่นยำ", "Accuracy", "准确度")}</button>
+        <button style={S.chip(tab === "measure")} onClick={() => setTab("measure")}>📈 {T("สรุปวัดผลโมเดล", "Measure summary", "测量汇总")}</button>
+        <button style={S.chip(tab === "accuracy")} onClick={() => { setTab("accuracy"); if (!accAudit && !accBusy) { setAccHistory(accuracyAuditHistory()); runAccuracyAudit(); } }}>🎯 {T("Audit 5 ชั้น", "5-layer audit", "五层审计")}</button>
         <button style={S.chip(tab === "loop")} onClick={() => setTab("loop")}>🔁 {T("จำลองวงจรสอน", "Teaching loop", "教学循环")}</button>
         <button style={S.chip(tab === "kb")} onClick={() => setTab("kb")}>📚 {T("ความรู้", "Knowledge", "知识")}</button>
         <button style={S.chip(tab === "map")} onClick={() => setTab("map")}>🕸 {T("แผนที่ความรู้", "Knowledge map", "知识图谱")}</button>
@@ -451,6 +471,57 @@ export function TigamodelLab({ lang = "th" }) {
                       <span key={k} style={{ color: v >= 1 ? S.good : v >= 0.5 ? S.warn : S.bad }}>{k}: {v}</span>
                     ))}
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {ready && tab === "accuracy" && (
+        <div style={S.card}>
+          <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 10 }}>
+            {T("ตรวจความแม่นยำของโมเดล 5 ชั้นจากโมดูลจริง: การหยิบความรู้ · การตัดสินใจสอน · สื่อการสอน · คุณภาพคำตอบ · ความสะอาดของคลังความรู้ — รันซ้ำได้ทุกครั้งที่เปลี่ยนโมเดล", "Audit the model's accuracy in five real-module layers: knowledge retrieval · teaching decisions · teaching materials · answer quality · knowledge-base cleanliness — re-run after every model change", "五个真实模块层面审计模型准确性：知识检索·教学决策·教材·答案质量·知识库清洁——换模型后可随时重跑")}
+          </div>
+          <button style={S.btn} onClick={runAccuracyAudit} disabled={accBusy}>{accBusy ? T("กำลังตรวจจริง…", "Auditing…", "审计中…") : T("▶ ตรวจความแม่นยำตอนนี้", "Run accuracy audit now", "立即审计")}</button>
+          {accErr && <div style={{ color: S.bad, marginTop: 10, fontSize: 13 }}>{accErr}</div>}
+          {accAudit && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <b style={{ fontSize: 16, color: "var(--text)" }}>{T("ความแม่นยำรวม", "Overall accuracy", "总体准确度")}</b>
+                <span style={{ fontSize: 22, fontWeight: 800, color: accAudit.allPass ? S.good : S.bad }}>
+                  {accAudit.overall == null ? "—" : accAudit.overall.toFixed(1) + "%"} {accAudit.allPass ? "✅" : "❌"}
+                </span>
+              </div>
+              {accAudit.layers.map(l => (
+                <div key={l.id} style={{ ...S.inner, marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <b style={{ fontSize: 13.5, color: "var(--text)" }}>{l.name}</b>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: l.pass ? S.good : S.bad }}>{l.score.toFixed(1)}%</span>
+                  </div>
+                  <div style={{ height: 6, background: "var(--bd2, rgba(0,0,0,0.08))", borderRadius: 3, overflow: "hidden", marginTop: 4 }}>
+                    <div style={{ width: Math.max(0, Math.min(100, l.score)) + "%", height: "100%", background: l.pass ? S.good : l.score >= l.bar * 0.75 ? S.warn : S.bad }} />
+                  </div>
+                  <div style={{ ...S.mono, fontSize: 11, color: "var(--text2)", marginTop: 4 }}>{l.detail} · เกณฑ์ผ่าน ≥ {l.bar}%</div>
+                </div>
+              ))}
+              {accAudit.unavailable && accAudit.unavailable.length > 0 && (
+                <div style={{ fontSize: 12, color: S.warn, marginTop: 6 }}>
+                  {T("ชั้นที่วัดไม่ได้รอบนี้ (แสดงผลซื่อสัตย์ ไม่เดาตัวเลข): ", "Layers unavailable this run (shown honestly, never guessed): ", "本轮不可用层（诚实显示，不猜数字）：")}{accAudit.unavailable.join(", ")}
+                </div>
+              )}
+            </div>
+          )}
+          {accHistory.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <b style={{ fontSize: 13.5, color: "var(--text)" }}>{T("ประวัติการตรวจ (เครื่องนี้, เก็บสูงสุด 30 รอบ)", "Audit history (this device, last 30 runs)", "审计历史（本机，最近30次）")}</b>
+                <button style={{ ...S.chip(false), fontSize: 11 }} onClick={() => { clearAccuracyAuditHistory(); setAccHistory([]); }}>{T("ล้างประวัติ", "Clear", "清除")}</button>
+              </div>
+              {accHistory.slice(0, 10).map((r, i) => (
+                <div key={r.saved_at + "-" + i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text2)", padding: "3px 0", borderBottom: "1px solid var(--bd2, rgba(0,0,0,0.05))" }}>
+                  <span style={S.mono}>{new Date(r.saved_at).toLocaleString()}</span>
+                  <span style={{ fontWeight: 700, color: r.allPass ? S.good : S.bad }}>{r.overall == null ? "—" : r.overall.toFixed(1) + "%"} {r.allPass ? "✅" : "❌"}</span>
                 </div>
               ))}
             </div>
