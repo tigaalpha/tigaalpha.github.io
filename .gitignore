@@ -14,3 +14,6 @@ landing-zh/bundle/
 # Supabase CLI local state (project ref/org ids — linked per machine)
 supabase/.temp/
 
+
+# Python bytecode from songs-src/tools
+__pycache__/

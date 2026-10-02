@@ -1,0 +1,3 @@
+[
+  {"id": "rossini_l_invito_the_invitation", "era": "romantic", "composer": "G. Rossini", "died": 1868, "year": 1868, "work": "L'invito, no. 5 of Soirées musicales", "en": "L'invito – The Invitation (Rossini)", "th": "ลินวีโต – คำเชิญ (รอสซินี)", "zh": "邀请（罗西尼）", "key": "C", "meter": "3/4", "bpm": 79, "pickup": 0.0, "bars": ["E4:0.5 A4:0.25 B4:0.25 C5:1.5 B4:0.5", "A4:0.5 A4:1.5 G4:0.5 F4:0.5", "E4:2 F4:0.75 G4:0.25", "E4:1 R:2", "E4:0.5 A4:0.25 B4:0.25 C5:1.5 B4:0.5", "A4:0.5 R:0.5 C5:2", "G5:1.5 E5:0.5 C5:0.5 A4:0.5", "G4:1 E5:1.5 D5:0.5", "C5:3"], "conf": "high", "src": "openscore:scores/Rossini,_Gioachino/Soirées_musicales/5_L’invito/lc30064748.mxl", "license": "CC0 1.0 (OpenScore Lieder transcription of a public-domain score)"}
+]
