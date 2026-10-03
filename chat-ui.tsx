@@ -2,12 +2,27 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
 import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsEstSeconds, ttsBudgetSpend, ttsBudgetRefund, CHAT_TTS_RATE } from "./speech";
+import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
 
 /* ── chat-ui.tsx ──
    Chat UI atoms shared by every chat surface (Sensei page, expanded chat
    modal): the message bubble (Msg), typing indicator (Typing), text input
    (Input), and the read-aloud button at the foot of a bubble (BubbleSpeak).
    Extracted from App.tsx as part of the App.tsx modularization. ── */
+
+/* ── The chat's read-aloud (T2S) — OFF (owner, 2026-10-02) ──
+   "ปิดระบบ t2s ในฟีเจอร์ tiga chat ทั้งหมด ซ่อนไว้ก่อน เทคโนโลยียังไม่พร้อม".
+   One flag, every surface obeys it:
+   - Msg below never renders BubbleSpeak, so no speaker appears in the chat (the
+     Sensei page or the full-screen chat) whatever plan the learner is on.
+   - PricingOverlay hides the "🔊 ปุ่มลำโพงในแชท" bullet on the Max and Max Family
+     cards — a plan must never advertise a feature that is switched off.
+   - speech.ts, the clip cache, the day's cloud allowance and the piano-tts edge
+     function are all untouched, as is Voice Tutor (use-voice-tutor.ts, its own
+     TTS_RATE). Turning this back on is one `true`.
+   Kept as a const literal so esbuild drops the dead branch from the bundle
+   (same pattern as AI_CREATE_SONG_ENABLED / LANG_PICKER_ENABLED). */
+export const CHAT_TTS_ENABLED = false;
 
 
 /* ── The read-aloud button on a chat bubble (owner, 2026-10-01) ──
@@ -125,8 +140,84 @@ function RichText({ text }: { text: string }) {
   );
 }
 
+/* ── The question back (plan 19 §5-C) ──
+   The tutor closes an explanation with one checkable question; this renders it
+   as three buttons. Tapping is the whole interaction — no typing, no second
+   round-trip — because the point is to make the chat something you PLAY rather
+   than something you read. The answer comes from chat-coach.ts, which either
+   read the tutor's own [? … ] line or built the check from note names the
+   tutor wrote, so it is always a fact the tutor can stand behind. */
+export const AskRow = memo(function AskRow({ ask, lang, onAnswer, onMark }) {
+  const lc = L[lang];
+  const [picked, setPicked] = useState(null);
+  if (!ask) return null;
+  const right = picked === ask.answer;
+  const done = picked !== null;
+  return (
+    <div className="askbox">
+      <div className="askq">{ask.q}</div>
+      <div className="askopts">
+        {ask.opts.map((o, i) => {
+          const isRight = i === ask.answer;
+          // after an answer, the right one is marked and the wrong one that was
+          // chosen is marked too — never leave the learner guessing which one
+          // the app thought was right.
+          const cls = !done ? "" : isRight ? " ok" : (i === picked ? " no" : "");
+          return (
+            <button key={i} type="button" className={`askopt${cls}`} disabled={done} onClick={() => { setPicked(i); if (onAnswer) onAnswer(i === ask.answer); }}>
+              <span>{o}</span>
+              {done && isRight && <b aria-hidden="true">✓</b>}
+            </button>
+          );
+        })}
+      </div>
+      {done && (
+        <>
+          <div className={"askverdict" + (right ? " ok" : " no")} role="status">{right ? lc.chkGot : lc.chkNo}</div>
+          {!right && (
+            <button type="button" className="askagain" onClick={() => setPicked(null)}>{lc.chkTry}</button>
+          )}
+          {/* Marking it is what makes the loop measurable: the learner's own
+              answer (not the model's guess about it) goes into the same memory
+              the tutor reads next session. */}
+          <div className="askmark">
+            <button type="button" className="markbtn yes" onClick={() => onMark && onMark(right ? 100 : 70)}>
+              <span aria-hidden="true">✓</span><span>{lc.chkDone}</span>
+            </button>
+            <button type="button" className="markbtn no" onClick={() => onMark && onMark(50)}>
+              <span aria-hidden="true">↺</span><span>{lc.chkNotYet}</span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+});
+
+/* ── Progress strip under the input (plan 19 §5-A) ──
+   Zero cost: every number here already exists (profile.streak, today's chat
+   count, the daily quest). The chat was the only page with no visible progress
+   at all, which is most of why reading it felt like homework rather than a
+   session you are part of. */
+export function ChatProgress({ lang, streak, askedToday, questCount, questGoal, expToday }) {
+  const lc = L[lang];
+  if (!streak && !askedToday && !questCount) return null;
+  return (
+    <div className="chatprog" role="status">
+      {streak > 0 && <span className="cp-i">🔥 {streak} {lc.chkDay}</span>}
+      {askedToday > 0 && <span className="cp-i">💬 {askedToday} {lc.chkStreak}</span>}
+      {questCount > 0 && (
+        <span className="cp-i">
+          🎯 {Math.min(questCount, questGoal)}/{questGoal} {lc.chkQuest}
+        </span>
+      )}
+      {expToday > 0 && <span className="cp-i cp-exp">+{expToday} EXP</span>}
+    </div>
+  );
+}
+
 /* ── Message (memoized: only re-renders when its own props change) ── */
-export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay, onRetry, onMore = null, speakMode = "off", onSpeakLocked = null }) {
+export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay, onRetry, onMore = null, speakMode = "off", onSpeakLocked = null, onMark = null, onGoStep = null }) {
   // parse notes only when the message text or language actually changes
   const parsed = useMemo(
     () => (m.role === "ai" && m.text ? extractNotes(m.text) : null),
@@ -141,12 +232,20 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
      already this app's sign for "thinking" and a second, different count would
      be a second sign for the same thing. */
   const waiting = m.role === "ai" && !m.text && !m.img;
+  /* The tutor's [? … ] check line is markup, not prose: it is split out here so
+     the bubble shows the explanation and the buttons show the question. Pure
+     and cheap (a regex over the last lines), so it costs nothing per token
+     while the answer streams in. */
+  const split = useMemo(() => (m.role === "ai" && m.text && !m.error ? splitAskLine(m.text) : null), [m.role, m.text, m.error]);
+  const bodyText = split ? split.text : (m.text || "");
+  const ask = useMemo(() => (split && split.had && m.live !== false && !m.error ? askQuestionOf(m.text, lang) : null), [m, m.text, split, lang]);
+  const act = useMemo(() => (m.role === "ai" && !m.error && !waiting && onGoStep ? nextActionOf(String(m.text || ""), lang) : null), [m.role, m.text, m.error, waiting, onGoStep, lang]);
   /* The tutor now answers short on purpose; under the newest live answer a
      tap asks for the long version. Not on errors, chapters or local replies. */
   const showMore = !!onMore && m.role === "ai" && !!m.live && !m.error && !waiting && String(m.text || "").length >= 60;
   /* The speaker sits inside the bubble, at its bottom-right end — on both the tutor's and the learner's messages, but not on an
      answer that is still coming, a failed one, or one with no words in it. */
-  const canSpeak = speakMode !== "off" && !waiting && !m.error && String(m.text || "").trim().length > 0;
+  const canSpeak = CHAT_TTS_ENABLED && speakMode !== "off" && !waiting && !m.error && String(m.text || "").trim().length > 0;
   return (
     <div className={`msg ${m.role === "user" ? "u" : "a"}`}>
       <div className="bbl">
@@ -157,9 +256,9 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
                  aria-label={lang === "th" ? "กำลังคิดคำตอบ" : lang === "zh" ? "正在思考" : "Thinking"}>
               <div className="tdd" /><div className="tdd" /><div className="tdd" />
             </div>
-          : (m.role === "ai" && RICH_MARKS.test(String(m.text || "")))
-            ? <RichText text={String(m.text)} />
-            : <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{m.text}</p>}
+          : (m.role === "ai" && RICH_MARKS.test(bodyText))
+            ? <RichText text={bodyText} />
+            : <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{bodyText}</p>}
         {canSpeak && (
           <div className="bblf">
             <BubbleSpeak text={String(m.text)} lang={lang} id={idx} activeId={activeSpk} setActiveId={setActiveSpk}
@@ -175,6 +274,22 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
         <div className="mact">
           <button className="retrybtn" onClick={onRetry}>
             <span>↻</span><span>{lang === "th" ? "ลองส่งใหม่" : lang === "zh" ? "重试" : "Retry"}</span>
+          </button>
+        </div>
+      )}
+      {m.role === "ai" && ask && !waiting && (
+        <AskRow ask={ask} lang={lang}
+          onAnswer={(ok) => { if (onMark) onMark(ok ? 100 : 55, ask); }}
+          onMark={(acc, a) => { if (onMark) onMark(acc, a || ask); }} />
+      )}
+      {/* One next action, and only when the answer is actually about doing
+          something — a button on every reply is a button nobody reads. The
+          destination is resolved by PianoApp's own resolveCoachStep, so there
+          is exactly one routing table in the app. */}
+      {m.role === "ai" && act && !waiting && !m.error && onGoStep && (
+        <div className="mact">
+          <button className="actbtn" onClick={() => onGoStep(act.step)}>
+            <span aria-hidden="true">{act.icon}</span><span>{act.label}</span>
           </button>
         </div>
       )}

@@ -3,6 +3,7 @@ import {
   LESSON_MODE, extractNotes, playPianoNote, FINGERING_REF, THEORY_REF,
 } from "./music-engine";
 import { tr, L, matchFaqTopic } from "./i18n";
+import { logUsage } from "./shared-infra";
 import { stopCloudTTS } from "./speech";
 import { memoryContext, homeworkContext } from "./ai-chat-context";
 import { tigaNow } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5)
@@ -130,6 +131,32 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
   const chatLeft = (premium || isGuest) ? null : Math.max(0, FREE_CHAT_PER_DAY - chatUsedToday());
 
   function pushMessage(msg) { setMsgs(prev => [...prev, msg]); }
+
+  /* How short the answers actually are, and how much the chat earned today.
+     Both are read by the progress strip under the input (so the learner sees
+     their own progress) and logged per answer (so "the answers got shorter"
+     is a number in usage_events, not an impression). Kept in localStorage:
+     this is device-local UI, the same pattern as tg_usage / tg_chat_history. */
+  const [chatStats, setChatStats] = useState(() => {
+    try { const s = JSON.parse(localStorage.getItem("tg_chat_stats") || "null"); const d = new Date().toISOString().slice(0, 10); return (s && s.d === d) ? s : { d, asked: 0, exp: 0 }; } catch (e) { return { d: new Date().toISOString().slice(0, 10), asked: 0, exp: 0 }; }
+  });
+  const bumpChatStats = useCallback((patch) => {
+    setChatStats(prev => {
+      const d = new Date().toISOString().slice(0, 10);
+      const cur = prev.d === d ? prev : { d, asked: 0, exp: 0 };
+      const next = { ...cur, ...patch };
+      try { localStorage.setItem("tg_chat_stats", JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+  }, []);
+  /* One log row per real answer: its length and line count are exactly what
+     plan 19 §2 set out to measure, and they are comparable before/after any
+     persona change without needing a browser session. */
+  const logAnswerLen = useCallback((text) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    try { logUsage("chat-answer-len", String(t.length)); } catch (e) {}
+  }, []);
   function setLessonContext(hint, key = null) { topicHint.current = hint; lessonKey.current = key; }
 
   // First mount already has the right thread (restored from storage, or a
@@ -447,6 +474,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         });
       }
       flush(); // final flush with the complete text
+      if (acc.trim()) logAnswerLen(acc);
 
       if (acc.trim()) {
         handleAIReply(acc);
@@ -546,6 +574,12 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       bumpChatUsage();
       warmKbSwitch();
       warmGovernance();
+      // A real question to the tutor is worth EXP — it used to pay nothing at
+      // all on this path (only the local FAQ tier did), so asking a good
+      // question was the one learning action with no reward. Paid here, before
+      // the answer: a dropped connection must not cost the learner the reward
+      // for asking.
+      payForAsk("live");
       // tier 2a: Jev pre-check (chat-precheck task) — fast structured
       // classification BEFORE the LLM. Spam ≥0.9 gets a gentle local refusal
       // with no LLM spend; everything else flows to the LLM with tone/intent
@@ -582,8 +616,15 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
      (EARN_CAP.chat): one question deserves a reward, a hundred in a row is a
      coin printer, and an uncapped chat reward would quietly devalue every
      price in the shop. */
-  function payForAsk() {
+  function payForAsk(kind = "live") {
     gainExp(EXP.ask, { quest: true });
+    // Live AI answers pay EXP only — no coins (plan 19 §3B, owner-approved):
+    // the coins economy is the one place with a hard no-sell rule, and EXP is
+    // the reward that feeds the quest and the level the learner can see.
+    if (kind === "live") {
+      bumpChatStats({ asked: (chatStats.asked || 0) + 1, exp: (chatStats.exp || 0) + EXP.ask });
+      return;                              // no coins for a live answer — see the note above
+    }
     if (earnCoins && takeEarn("chat")) earnCoins(EARN.chat);
   }
 
@@ -615,5 +656,5 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       cappedReply();
     }
   }
-  return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy, askDirect, retryLast, callClaude, pushMessage, setLessonContext };
+  return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats };
 }

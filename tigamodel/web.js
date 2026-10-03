@@ -1202,12 +1202,34 @@ const KB_DOMAIN_KEYWORDS = {
   "music-therapy": ["บำบัด", "wellbeing", "สุขภาวะ", "อารมณ์", "เครียด", "สงบ", "ผ่อนคลาย", "ดูแลใจ"],
 };
 
+/* Keyword matching, WITH word boundaries.
+   `text.includes(k)` fires on any SUBSTRING, which is how "ai" (an innovation
+   keyword) matched "tr-AI-ning" and "ch-AI-n" — so almost every question that
+   mentioned training dragged the whole MUSIC INNOVATION domain in beside it, and
+   the two domains then split the 24-line cap between themselves. It also made
+   the on-topic percentage meaningless, because a line counted as on-topic when
+   it merely contained those same stray letters.
+
+   ASCII keywords match on word boundaries (`\bai\b`); CJK ones cannot (Thai and
+   Chinese have no spaces), so they keep substring matching — which is correct
+   there, since "หู" really is a substring of "ฝึกหู". Exported so getKBContext,
+   kbFiredKeywords and the hot path all agree on one definition of "fired". */
+export function kbKeywordHit(text, k) {
+  const t = String(text || ""), w = String(k || "").toLowerCase();
+  if (!w) return false;
+  // CJK / Thai: no word boundaries exist, so substring IS the match
+  if (/[\u0e00-\u0e7f\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/.test(w)) return t.toLowerCase().includes(w);
+  // ASCII/Latin: \b does not fire next to a letter, so "ai" stays out of
+  // "training", "chained" and "detail" — those are different words.
+  return new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`, "i").test(t);
+}
+
 /* The keywords of a question that actually fired a KB domain — the reference the
    capped-vs-legacy report uses to count how many served lines are on topic. */
 export function kbFiredKeywords(matchText) {
-  const text = String(matchText || "").toLowerCase();
+  const text = String(matchText || "");
   const out = [];
-  for (const kws of Object.values(KB_DOMAIN_KEYWORDS)) for (const k of kws) if (text.includes(String(k).toLowerCase())) out.push(String(k).toLowerCase());
+  for (const kws of Object.values(KB_DOMAIN_KEYWORDS)) for (const k of kws) if (kbKeywordHit(text, k)) out.push(String(k).toLowerCase());
   return out;
 }
 
@@ -1324,7 +1346,7 @@ export function getKBContext(matchText) {
     let domains = [];
     if (text) {
       for (const [d, kws] of Object.entries(KB_DOMAIN_KEYWORDS)) {
-        if (kws.some(k => text.includes(k))) domains.push(d);
+        if (kws.some(k => kbKeywordHit(text, k))) domains.push(d);
       }
     }
     // no topical hit → serve a small always-relevant core, not the whole KB
