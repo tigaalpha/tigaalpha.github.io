@@ -96,7 +96,7 @@ import {
   tr, L, FLAGS, FLAG_NAMES, PATH_GROUPS, BENEFIT_CASES, STAGES_BY_GROUP,
   localPathwayLesson, matchFaqTopic, COACH_FEATURE_LABELS, EXAM_GRADES, FAQ_TOPICS,
 } from "./i18n";
-import { Msg, Typing, Input } from "./chat-ui";
+import { Msg, Typing, Input, ChatProgress, CHAT_TTS_ENABLED } from "./chat-ui";
 /* Hidden case studies (owner request 2026-09): the whole "Marketing for
    Artists" stage/group (music-marketing) plus the Carabao case are removed
    from every surface. This block runs at App module load, after i18n has
@@ -10729,8 +10729,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [loginModalOpen, setLoginModalOpen] = useState(false); // optional-side login (corner pill) — GuestGateScreen is the forced-side equivalent, see app-shell.tsx
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
   /* The chat's read-aloud (owner, 2026-10-01) is for Max and Max Family — and the owner's own admin account, as Voice Tutor
-     already allows. Everyone else sees the button with a lock, and a tap opens the plans. */
-  const speakMode = (isMaxPlan(plan) || (profile && profile.is_admin)) ? "on" : "locked";
+     already allows. Everyone else sees the button with a lock, and a tap opens the plans.
+     SUSPENDED (owner, 2026-10-02: "ปิดระบบ t2s ในฟีเจอร์ tiga chat ทั้งหมด ซ่อนไว้ก่อน เทคโนโลยียังไม่พร้อม"):
+     CHAT_TTS_ENABLED is false, so the whole chat reads "off" and Msg renders no
+     speaker anywhere. The rule below is unchanged — it starts working again on its own
+     the day that flag goes back to true. */
+  const speakMode = !CHAT_TTS_ENABLED ? "off" : ((isMaxPlan(plan) || (profile && profile.is_admin)) ? "on" : "locked");
   const onSpeakLocked = useCallback(() => { playUi("click"); setPricingOpen(true); }, [setPricingOpen]);
   /* Conversion funnel (owner-approved 2026-09-19): one trial-stage popup at a
      time — welcome (d1-3), halfway price-lock (d15-28), closing + direct
@@ -11512,9 +11516,33 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy: chatBusy, askDirect, retryLast, callClaude, pushMessage, setLessonContext } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, isGuest, onUpsell: () => setPricingOpen(true) });
+  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy: chatBusy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, isGuest, onUpsell: () => setPricingOpen(true) });
   // the line under the chat box: how many free AI messages are left today (a free account only)
   const chatNote = chatLeft == null ? null : chatLeft > 0 ? lc.chatLeft.replace("{n}", String(chatLeft)) : lc.chatLeftOut;
+  /* Plan 19 §5-A: the progress strip under the input. Every number is read,
+     never fetched — profile.streak, the day's own ask count and the daily quest
+     (gainExp already bumps quest_count, so a question that paid EXP moves this
+     bar too). The chat used to be the one page with no visible progress at all. */
+  const chatProg = {
+    streak: (profile && profile.streak) || 0,
+    askedToday: (chatStats && chatStats.asked) || 0,
+    questCount: (profile && profile.quest_date === new Date().toISOString().slice(0, 10)) ? (profile.quest_count || 0) : 0,
+    questGoal: QUEST_GOAL,
+    expToday: (chatStats && chatStats.exp) || 0,
+  };
+  /* Plan 19 §6-E: the learner says whether they understood, and that is what
+     goes into memory (recordMemory's SM-2-lite) — the tutor reads it next
+     session. The tutor never guesses this about itself: being wrong about it
+     is worse than having no record. The label is the question that was asked,
+     trimmed, because there is no topic id on a chat answer. */
+  const markUnderstood = useCallback((acc, ask) => {
+    try {
+      const label = String((ask && (ask.q || (ask.opts && ask.opts[ask.answer]))) || "").trim().slice(0, 40);
+      if (!label) return;
+      recordMemory(label, acc);
+      playUi("click");
+    } catch (e) {}
+  }, [playUi]);
   // Which Pathway topic is currently being studied on the Sensei page, so a
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
@@ -12919,7 +12947,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onGoStep={goToCoachStep} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onGoStep={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
       {page === "gamepage" && <GamesPage lang={lang} earnCoins={earnCoins} gainExp={gainExp} />}
@@ -12995,7 +13023,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} />}
+      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} onMark={markUnderstood} onGoStep={handleCoachNavigate} chatProg={chatProg} />}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
@@ -13071,6 +13099,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <Msg key={i} m={m} idx={i} lang={lang}
               activeSpk={activeSpk} setActiveSpk={setActiveSpk} onPlay={playSequence} onRetry={retryLast}
               speakMode={speakMode} onSpeakLocked={onSpeakLocked}
+              onMark={markUnderstood} onGoStep={handleCoachNavigate}
               onMore={i === msgs.length - 1 && !chatBusy ? askMore : null} />
           ))}
           {loading && <Typing slow={slow} lang={lang} />}
@@ -13099,6 +13128,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div ref={mendRef} />
         </div>
         <div className="miw">
+          <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} />
           <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} note={chatNote} noteOut={chatLeft === 0} />
         </div>
       </div>

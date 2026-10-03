@@ -1,6 +1,6 @@
 import { L, tr } from "./i18n";
 import { Piano, playUi } from "./music-engine";
-import { Msg, Typing, Input } from "./chat-ui";
+import { Msg, Typing, Input, ChatProgress } from "./chat-ui";
 /* ── SenseiView ──
    The default page (page==="sensei"), extracted verbatim from PianoApp's
    inline JSX as part of Phase 2 componentization — no logic changes. The
@@ -11,7 +11,7 @@ import { Msg, Typing, Input } from "./chat-ui";
    this page==="sensei" block and stays in PianoApp. lc is derived from lang
    internally. recommendNext/toggleChordStyle are PianoApp closures (not
    top-level, not exported), so they're threaded as props. ── */
-export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap, chatNote = null, chatNoteOut = false, onMore = null, speakMode = "off", onSpeakLocked = null}) {
+export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap, chatNote = null, chatNoteOut = false, onMore = null, speakMode = "off", onSpeakLocked = null, onMark = null, onGoStep = null, chatProg = null}) {
   const lc = L[lang];
   return (
         <>
@@ -121,7 +121,7 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               {msgs.map((m, i) => (
                 <Msg key={i} m={m} idx={i} lang={lang}
                   activeSpk={activeSpk} setActiveSpk={setActiveSpk} onPlay={playSequence} onRetry={retryLast}
-                  speakMode={speakMode} onSpeakLocked={onSpeakLocked}
+                  speakMode={speakMode} onSpeakLocked={onSpeakLocked} onMark={onMark} onGoStep={onGoStep}
                   onMore={i === msgs.length - 1 ? onMore : null} />
               ))}
               {loading && <Typing slow={slow} lang={lang} />}
@@ -145,6 +145,7 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               </div>
             )}
             <div className="iw">
+              {chatProg && <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} />}
               <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} note={chatNote} noteOut={chatNoteOut} />
               <div className="hint">{lc.hint}</div>
             </div>

@@ -188,7 +188,31 @@ tune rather than the score (Gymnopédie No. 1, Für Elise, the Raindrop Prelude,
 owner's call.
 
 **TIGA CHAT** (`use-chat.ts`, `chat-ui.tsx`, `chat-starters.ts`, the `.mov`
-full-screen chat in `PianoApp`, `SenseiView.tsx`). `sendText()` is the one path a
+full-screen chat in `PianoApp`, `SenseiView.tsx`).
+
+**TIGA CHAT that does something (owner, 2026-10-02: "ให้ใช้แล้วสนุกกว่านี้… มีความรู้สึกของเกมมากขึ้น" — plan 19).**
+Three pieces, and the rule each one obeys: **`chat-coach.ts` (new) derives both the question and the action
+from the answer text, with no extra model call** — a quiz that needed a second round-trip would make the
+app slower and dearer for the one feature meant to make it better. `smoke-chat-coach.mjs` (46 checks) pins
+it. **Docs:** plan + measured results are `tigamodel/docs/19-plan-chat-fun-and-teaching.md`; `node scripts/measure-chat-cost.mjs` re-measures what one question costs, and `eval-kb-capped-vs-legacy.mjs` must be **exit 0** before anyone turns the hot-path switch on. `askQuestionOf()` reads the tutor's own `[? question | wrong | wrong | ✓ right]` closing line, or builds
+the check from octave-qualified note names **the tutor just wrote** (so the answer is a fact). **A check
+that cannot be answered correctly is worse than no check**, so: fewer than 3 distinct `C4`-style notes → no
+question; a bare `C` is ambiguous across octaves → never used; a repeated note is one note; a MALFORMED
+`[?…]` line → no question at all and never one invented out of the notes inside it; a long prose answer →
+none. `splitAskLine()` strips every `[?` line from the bubble, so what the learner sees and what is played
+come from one rule. `AskRow` (`chat-ui.tsx`) renders it as three 44px buttons and, once answered, a verdict
+plus **✓ เข้าใจแล้ว / ↺ ยังงั้น** → `markUnderstood` in `PianoApp` → `recordMemory()` (SM-2-lite) — the
+LEARNER says whether they understood, never the tutor guessing about itself. `nextActionOf()` returns ONE
+button and only when the answer is actually about doing something; **its `step` must be a key
+`handleCoachNavigate` really knows** (`ear_training` / `sight_reading` / `play_along`) — wiring it to
+`goToCoachStep` instead, as the first attempt did, falls through to `setPage("pathway")` and lands the
+learner on a menu instead of the drill (six checks fail if a non-key ever comes back). `ChatProgress` is the
+strip above the input on both chat surfaces: streak, questions today, today's quest, EXP today — all read
+from `profile`/`tg_chat_stats`, **zero requests**. A live AI answer now pays `EXP.ask` (it paid nothing
+before: only the local FAQ tier did, so asking a good question was the one learning action with no reward)
+and **no coins**; each real answer is logged as `usage_events` `kind='chat-answer-len'` so "the answers got
+shorter" is a number, not an impression. `node scripts/measure-chat-cost.mjs` measures what a question
+actually costs. `sendText()` is the one path a
 question takes — typed, a starter chip, or "Explain more": local FAQ match → login
 gate → free quota (5 a day in `tg_usage`; a spent quota answers with
 `freeChatCapped` and opens the upgrade card, a counter under the box shows what is
@@ -207,6 +231,18 @@ The full-screen chat opens with the day's recommended next step and up to four
 questions to tap: the learner's own record first (TIGA hub `chatStartersFor`, worded as
 the learner's message; `personalAsks` is the plain read of the same memory before
 the hub has loaded), then everyday beginner questions rotated by day. **The
+**The KB's keyword match has WORD BOUNDARIES (fixed 2026-10-02).** `getKBContext()` picks domains with
+`kbKeywordHit()` (`tigamodel/web.js`), NOT `text.includes()`: ASCII keywords match on word boundaries, Thai/
+Chinese/Japanese keep substring matching because those scripts have no word spaces ("หู" really is inside
+"ฝึกหู"). **Why this was a real bug, not a nicety:** the `innovation` keyword list contains `"ai"`, so plain
+`includes` matched **tr-ai-ning** and **ch-ai-n** — nearly every question mentioning training dragged the whole
+MUSIC INNOVATION domain in beside EAR TRAINING, and the two then split the hot path's 24-line cap, crowding out
+the content that was actually asked for. It also made `eval-kb-capped-vs-legacy.mjs`'s on-topic percentage
+meaningless (a line counted as on-topic for containing two stray letters); that eval **exited 1** on `ear-en`
+(54%) and `innovation-en` (50%) until the fix and passes 100%/100% after it. `smoke-kb-keyword-match.mjs`
+(18 checks) pins it — **add a case there for any new KB keyword, especially a short one.** A keyword that can
+appear inside another word costs real money: the domain it wrongly pulls in spends the capped block's budget.
+
 knowledge block:** the chat sends the legacy KB block unless
 `app_settings.tiga_kb_hot_path = {"enabled": true}` — a harmony question ships ~1.4 MB
 with the switch off and at most 8,000 characters with it on. The switch is read at
@@ -219,7 +255,15 @@ typed or tapped (only local FAQ answers and `askDirect` callers do); changing wh
 chat pays is an owner decision (see "Where Coins/Gems may come from").
 
 **The chat's read-aloud button (owner, 2026-10-01: a speaker at the end of every bubble, "a soft, natural male voice, Thai,
-English and Mandarin, Max and Max Family only, find the best voice at a low cost").** `BubbleSpeak` (`chat-ui.tsx`) sits at the
+English and Mandarin, Max and Max Family only, find the best voice at a low cost"). SUSPENDED — see the kill switch below.**
+
+**Chat T2S kill switch (owner, 2026-10-02: "ปิดระบบ t2s ในฟีเจอร์ tiga chat ทั้งหมด ซ่อนไว้ก่อน เทคโนโลยียังไม่พร้อม").**
+`CHAT_TTS_ENABLED = false` in `chat-ui.tsx` is the one switch; three read points obey it: `Msg`'s `canSpeak` (no `BubbleSpeak`
+renders in any chat, so no speaker appears whatever the plan), `PianoApp`'s `speakMode` in App.tsx (returns `"off"`), and
+`PricingOverlay`'s `prMaxSpk` bullet on the Max and Max Family cards (a plan must never advertise a switched-off feature).
+`i18n.ts` keeps the `spk*`/`prMaxSpk` strings and `.bspk*` CSS in `app-styles.ts` stays — one `true` brings it all back.
+The speech engine, the clip cache, the day's cloud allowance and the `piano-tts` edge function are untouched, and **Voice
+Tutor (`use-voice-tutor.ts`, its own `TTS_RATE`) is a different feature and is not affected by this switch.** `BubbleSpeak` (`chat-ui.tsx`) sits at the
 bottom-right end of every bubble, the learner's and the tutor's (`Msg` → `canSpeak`; not on a waiting or failed answer), on the
 full-screen chat and the Sensei page alike. `speakMode` is worked out in `PianoApp`: `"on"` for Max, Max Family and the owner's
 admin account, `"locked"` for everyone else — the button shows a small lock and a tap opens the plans (`prMaxSpk` is a bullet

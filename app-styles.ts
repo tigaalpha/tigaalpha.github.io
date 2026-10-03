@@ -197,6 +197,39 @@ html, body, #root{background:var(--bg)}
 .msg.a .bbl{background:var(--card3);border:1px solid #d9775722;border-radius:2px 8px 8px 8px;color:var(--text2)}
 .atag{font-family:var(--f-app);font-size:8px;color:#d97757;letter-spacing:1px;margin-bottom:5px}
 .mact{display:flex;gap:6px;margin-top:7px;align-items:center;flex-wrap:wrap}
+/* ── the question back (plan 19 §5-C) ──
+   The tutor's check, as three tappable options. Sized for a thumb (44px tall
+   minimum) and given a real pressed state, because tapping it IS the whole
+   interaction — it has to feel like a game button, not a web link. Colours are
+   the app's clay tokens, not a new palette: right/wrong read instantly, and the
+   marked option stays marked while the rest fade back. */
+.askbox{margin-top:9px;padding:10px 12px;border-radius:12px;background:var(--card3,#faf7f2);border:1px solid #d9775733}
+.askq{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:8px;line-height:1.4}
+.askopts{display:flex;flex-wrap:wrap;gap:6px}
+.askopt{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid #d9775766;background:var(--card,#fff);color:var(--text);font-family:var(--f-app);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;-webkit-tap-highlight-color:transparent}
+.askopt:hover:not(:disabled){border-color:#d97757;background:rgba(217,119,87,.08)}
+.askopt:active:not(:disabled){transform:scale(.96)}
+.askopt:disabled{cursor:default;opacity:.55}
+.askopt.ok{border-color:#16a34a;background:rgba(22,163,74,.12);color:#15803d;opacity:1;font-weight:700}
+.askopt.ok b{font-size:13px}
+.askopt.no{border-color:#dc2626;background:rgba(220,38,38,.1);color:#b91c1c;opacity:1}
+.askverdict{margin-top:8px;font-size:12px;font-weight:800;letter-spacing:.2px}
+.askverdict.ok{color:#15803d}
+.askverdict.no{color:#b91c1c}
+.askagain{margin-top:6px;background:none;border:1px dashed #d9775788;border-radius:20px;padding:5px 12px;cursor:pointer;font-size:11px;font-family:var(--f-app);color:var(--clay-ink,#d97757)}
+.askmark{display:flex;gap:6px;margin-top:9px;padding-top:8px;border-top:1px dashed #d9775722}
+.markbtn{display:inline-flex;align-items:center;gap:5px;min-height:38px;padding:6px 13px;border-radius:20px;border:1px solid #d9775744;background:none;font-family:var(--f-app);font-size:11.5px;font-weight:700;cursor:pointer;transition:all .18s;color:var(--text2)}
+.markbtn:hover{border-color:#d97757;background:rgba(217,119,87,.08)}
+.markbtn.yes{color:#15803d}
+.markbtn.no{color:var(--muted,#8a8172)}
+@media(prefers-reduced-motion:reduce){.askopt,.markbtn{transition:none}.askopt:active:not(:disabled){transform:none}}
+/* ── the next action (plan 19 §5-D) — one button, same shape as ▶ PLAY ── */
+.actbtn{display:inline-flex;align-items:center;gap:5px;min-height:38px;background:none;border:1px solid #d9775766;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:11.5px;font-family:var(--f-app);font-weight:700;letter-spacing:.3px;color:#d97757;transition:all .2s}
+.actbtn:hover{border-color:#d97757;background:rgba(217,119,87,.1);box-shadow:0 0 10px -3px #d97757}
+.actbtn:active{transform:scale(.96)}
+/* ── progress strip under the input (plan 19 §5-A) — read-only, no states ── */
+.chatprog{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:6px 14px;background:var(--card3,#faf7f2);border-top:1px solid #d9775722;font-size:10.5px;font-weight:700;color:var(--muted,#8a8172);letter-spacing:.2px}
+.cp-exp{color:#d97757;font-family:var(--f-num)}
 .retrybtn{display:inline-flex;align-items:center;gap:6px;background:rgba(217,119,87,.08);border:1px dashed #d9775788;border-radius:20px;padding:6px 16px;cursor:pointer;font-size:11px;font-family:var(--f-app);letter-spacing:.8px;color:#d97757;transition:all .22s}
 .retrybtn:hover{border-style:solid;border-color:#d97757;background:rgba(217,119,87,.15);box-shadow:0 0 14px -4px #d97757}
 .retrybtn:active{transform:scale(.95)}
