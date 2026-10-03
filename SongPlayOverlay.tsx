@@ -331,9 +331,9 @@ const PaPause = memo(function PaPause({ store, lang, onResume, onRestart, onExit
         {setBand && accomp === "track" && (
           <div className="pl-seg" role="group" aria-label={T("ความดังเพลงประกอบ", "Backing track volume", "伴奏音量")}>
             <span className="pl-seg-lbl">🔉 {T("ความดัง", "Volume", "音量")}</span>
-            {[0, 1, 2].map(v => (
+            {[0, 1, 2, 3].map(v => (
               <button key={v} className={band === v ? "on" : ""} aria-pressed={band === v} onClick={() => setBand(v)}>
-                {v === 0 ? T("ปิด", "Off", "关") : v === 1 ? T("เบา", "Soft", "轻") : T("ปกติ", "Normal", "正常")}
+                {v === 0 ? T("ปิด", "Off", "关") : v === 1 ? T("เบา", "Soft", "轻") : v === 2 ? T("ปกติ", "Normal", "正常") : T("เต็ม", "Full", "完整")}
               </button>
             ))}
           </div>

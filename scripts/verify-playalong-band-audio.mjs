@@ -74,7 +74,7 @@ import * as ME from "__STUB__";
 const SR = 44100;
 const CH = { C: [0, 4, 7], F: [5, 9, 0], G: [7, 11, 2], Am: [9, 0, 4] }, ROOT = { C: 0, F: 5, G: 7, Am: 9 };
 window.__render = async function (cfg) {
-  const { seconds = 27, bpm = 100, bpb = 4, hand = "right", level = 2, segs, prog, phone = false } = cfg;
+  const { seconds = 27, bpm = 100, bpb = 4, hand = "right", level = 2, style = "", segs, prog, phone = false } = cfg;
   ME.__marks.length = 0;
   const real = new OfflineAudioContext(2, Math.round(SR * seconds), SR);
   let fake = 0;
@@ -84,7 +84,7 @@ window.__render = async function (cfg) {
   const spb = 60 / bpm, lead = 2.4, bars = []; let at = 0;
   for (const name of prog) { const len = bpb === 4 ? 2 : bpb; bars.push({ at, len, root: ROOT[name], quality: "maj", pcs: CH[name] }); at += len; }
   const endBeat = at;
-  const band = B.createBand({ bars, beatsPerBar: bpb, pickup: 0, spb, lead, endBeat, hand, level });
+  const band = B.createBand({ bars, beatsPerBar: bpb, pickup: 0, spb, lead, endBeat, hand, level, bpm, style });
   const stateAt = (beat) => { let st = {}; for (const [from, s] of segs) if (beat >= from) st = { ...st, ...s }; return st; };
   const songEnd = lead + endBeat * spb + 3;
   for (let t = 0; t < songEnd; t += 0.06) { fake = t; band.setState(stateAt((t - lead) / spb)); band.pump(t, x => x, 1, 0); }
@@ -125,6 +125,11 @@ const SCEN = {
   mic: { segs: [[-99, { ...CLEAN, combo: 30, fever: true, micOpen: true }]] },
   waltz: { bpb: 3, bpm: 120, segs: [[-99, { ...CLEAN, combo: 30, fever: true }]] },
   left: { hand: "left", segs: [[-99, { ...CLEAN, combo: 30, fever: true }]] },
+  // plan 23: the band's new fourth level, and the styles that pick their own kit
+  full: { level: 3, segs: [[-99, { ...CLEAN, combo: 30, fever: true, mega: true }]] },
+  baroque: { style: "baroque", bpb: 3, bpm: 96, segs: [[-99, { ...CLEAN, combo: 30 }]] },
+  jazz: { style: "jazz", segs: [[-99, { ...CLEAN, combo: 30, fever: true }]] },
+  romance: { style: "romantic", segs: [[-99, { ...CLEAN, combo: 30 }]] },
 };
 
 const dir = path.join(OUT, "src"); fs.mkdirSync(dir, { recursive: true });
@@ -170,6 +175,16 @@ const perSec = mic.marks.length / 21;
 ok(mic.marks.length > 200 && mic.marks.every(m => m.freq <= 1800 && m.tol >= 45) && fev.marks.length === 0 && perSec < 45, `mic open: ${mic.marks.length} blacklist marks (${perSec.toFixed(0)}/s, all ≤ 1.8 kHz, none with the mic closed)`);
 const waltz = await run("waltz"), left = await run("left");
 ok(waltz.clip === 0 && left.clip === 0 && waltz.log.some(e => e.parts.includes("b")) && !left.log.some(e => e.parts.includes("b")), `3/4 time renders, and the left-hand mode plays no bass (waltz peak ${db(waltz.peak).toFixed(1)}, left ${db(left.peak).toFixed(1)} dBFS)`);
+// plan 23 (M6): "full" is 1.35× normal, so it has to be measured, not assumed
+const full = await run("full");
+ok(full.clip === 0 && db(full.peak) <= -2 && full.peak > build_.peak, `"full" is louder than "normal" and still does not clip: ${db(full.peak).toFixed(1)} dBFS peak vs ${db(build_.peak).toFixed(1)}`);
+for (const name of ["baroque", "jazz", "romance"]) {
+  const s2 = await run(name);
+  const drums = new Set(s2.log.map(e => e.drum).filter(Boolean));
+  ok(s2.clip === 0 && s2.peak > 0 && s2.log.some(e => e.parts), `${name}: renders with its own kit (${[...drums].join(",") || "no drums"}), peak ${db(s2.peak).toFixed(1)} dBFS`);
+}
+const bq = await run("baroque");
+ok(!bq.log.some(e => e.drum === "snare") && !bq.log.some(e => e.drum === "kick"), `a baroque piece gets no drum kit at all`);
 await browser.close();
 console.log(`\n${pass} PASS, ${fail} FAIL · spectrograms in ${OUT}`);
 process.exit(fail ? 1 : 0);

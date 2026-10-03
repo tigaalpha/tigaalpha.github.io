@@ -79,10 +79,18 @@ export function calibrate(offsets) {
   return Math.max(-CALIB_MAX, Math.min(CALIB_MAX, med));
 }
 
-/* The combo multiplier the game has always used: ×1 climbing to ×2 over the
-   first 10 notes, then slowly on up to ×4.9 at combo 300. */
+/* The combo multiplier: ×1 climbing to ×2 over the first 10 notes, then on up.
+   The old curve was "2 + (combo − 10) × 0.01, capped at +2.9", which puts the top
+   of the ladder at combo 300 — and the longest song in this game has 48 notes,
+   so the best a player could ever reach was ×2.38. Measured: playing better took
+   the multiplier from ×2.20 to ×2.38 across the whole back half of the longest
+   song, which is not a reward anyone can feel. The climb is now steep enough to
+   still be moving where a real run actually ends (×3.0 at combo 48) and it is
+   capped at ×6 rather than growing without a ceiling. */
 export function comboMult(combo) {
-  return combo <= 10 ? 1 + combo * 0.1 : 2 + Math.min(combo - 10, 290) * 0.01;
+  const c = Math.max(0, Math.round(Number(combo) || 0));
+  if (c <= 10) return 1 + c * 0.1;
+  return Math.min(6, 2 + (c - 10) * 0.0266);
 }
 
 /* ── Boss ──
@@ -99,14 +107,23 @@ export function bossHit(grade, combo) {
 
 /* ── What a run earns (batch 2) ──
    Fever and the mid-song combo bonuses scale with the song: the longest song
-   has 48 notes, so fixed marks at combo 50 and 100 never happened. */
+   has 48 notes, so fixed marks at combo 50 and 100 never happened.
+
+   The floors on these two used to put them OUT OF REACH rather than early:
+   `max(10, …)` and `max(20, …)` mean a 12-note song could never enter Mega Fever
+   at all, and Mega is the loudest thing the game has — the stage, the band and
+   the screen all change together. Both are now clamped to the song's own length
+   so every song can reach both, and the floors only ever raise the mark on songs
+   long enough to afford them. */
 export function feverAt(totalNotes) {
-  return Math.max(10, Math.ceil((totalNotes || 0) * 0.3));
+  const n = Math.max(1, Math.round(Number(totalNotes) || 0));
+  return Math.max(1, Math.min(n, Math.max(4, Math.ceil(n * 0.3))));
 }
 /* MEGA Fever: the combo (inside Fever) at which the stage and the band go up
-   another gear — 60% of the song's notes, and never before 20. */
+   another gear — 60% of the song's notes, clamped so no song is locked out. */
 export function megaAt(totalNotes) {
-  return Math.max(20, Math.ceil((totalNotes || 0) * 0.6));
+  const n = Math.max(1, Math.round(Number(totalNotes) || 0));
+  return Math.max(1, Math.min(n, Math.max(8, Math.ceil(n * 0.6))));
 }
 export const COMBO_MARKS = [[0.25, 15], [0.5, 25], [0.75, 35], [1, 50]];   // [share of the notes, EXP]
 /* The EXP for reaching `combo` without a miss, or 0 when it is not a mark. */
@@ -141,6 +158,26 @@ export function runCoins(stars) {
    random bonuses). */
 export function chestChance(stars) {
   return [0, 0.05, 0.1, 0.2][Math.max(0, Math.min(3, stars || 0))];
+}
+
+/* ── Playing the same song again (plan 25 · D1) ──
+   Coins stop after the third run of a day and a medal pays once, so from the
+   fourth run of a song the ONLY thing still climbing was EXP and the personal
+   best. That is not nothing, but it is the flattest possible reason to press
+   Start again. This adds a reward that belongs to repetition itself and keeps
+   climbing with it: EXP by how many times this player has played THIS song.
+
+   It is EXP, never coins — EXP is progression, coins are the paid currency, and
+   plan 25 rule 4 keeps paid-currency numbers out of reach without the owner's
+   say-so. The first run deliberately pays nothing (a first play already pays
+   40 + acc·0.4 + combo), so the reward reads as "come back", not as a tax. */
+export const REPLAY_EXP = [0, 0, 15, 25, 40, 60, 90, 130];
+/** EXP for the Nth played run of a song. 0 on the first, and it never decreases
+ *  as N grows — that non-decreasing climb is the whole point of the feature. */
+export function replayExp(playCount) {
+  const n = Math.max(0, Math.round(Number(playCount) || 0));
+  if (n < 2) return 0;
+  return REPLAY_EXP[Math.min(n, REPLAY_EXP.length - 1)];
 }
 /* Whether a finished run was really played. Not when no note was hit (the
    song left to play out on its own), nor when it was mashed: more mash

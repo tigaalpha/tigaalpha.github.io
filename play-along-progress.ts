@@ -39,6 +39,20 @@ export function countRunToday(id) {
   try { localStorage.setItem("tg_pa_runs", JSON.stringify(st)); } catch (e) {}
   return st[id];
 }
+
+/* How many times this player has ever actually PLAYED this song (plan 25 · D1).
+   Counted over all time, not per day, because the reward it feeds —
+   play-along-judge `replayExp` — is the reason to come back to a song you
+   already know. Only a run that was really played is counted: a song left to
+   play out on its own would otherwise fill the counter for free. */
+export function songPlayCount(id) {
+  return Math.max(0, num("tg_count_" + id));
+}
+export function bumpPlayCount(id) {
+  const n = songPlayCount(id) + 1;
+  try { localStorage.setItem("tg_count_" + id, String(n)); } catch (e) {}
+  return n;
+}
 export function songBestAcc(id) { return Math.max(0, Math.min(100, num("tg_acc_" + id))); }
 
 /* Keeps the best of each; reports whether this run raised the stars. */

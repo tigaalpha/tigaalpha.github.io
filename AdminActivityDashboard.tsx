@@ -372,7 +372,14 @@ function DeviceMixCards({ devMix, devWidths, T }) {
 
 export function AdminAnonVisitors({ lang }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const [range, setRange] = useState("7");
+  /* Owner request 2026-10-03: this is the screen they open the admin console
+     for — "เวลาเข้าระบบ admin อยากให้เห็นหน้านี้แบบ 1 วัน เป็น preset ... เพราะดูบ่อย".
+     The console already lands here (App.tsx opens `anonvisit` for tier >= 3) and
+     "Exclude admins" already starts on, so the only thing that did not match
+     what they see was the range: it opened on 7 days. Opening on 1 day puts the
+     live picture — people who came in today, what they did before signing up or
+     left — in front of them without a tap. 7d/30d/All are still one tap away. */
+  const [range, setRange] = useState("1");
   const [ov, setOv] = useState(null);
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(true);
@@ -803,7 +810,9 @@ export function AdminActivity({ lang, onOpenAnon }) {
    Learning-Data toggle above (owner request 2026-09-23). */
 function ActivityBody({ lang, onOpenAnon }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
-  const [range, setRange] = useState("7");
+  // Preset 1d: the owner reads this page every day and only ever asks about
+  // today, so the first thing on screen must be today. 1d/7d/30d/All still work.
+  const [range, setRange] = useState("1");
   const [anon, setAnon] = useState(null);   // headline count of signed-out visitors
   const [signup, setSignup] = useState(null); // Google vs email sign-up split
   const [landing, setLanding] = useState(null);   // marketing landing page 1 funnel

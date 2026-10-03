@@ -746,9 +746,28 @@ export function audioBus() {
     if (!_busGain || _busCtx !== ac) return;
     try {
       const conv = ac.createConvolver();
+      /* 18 ms of silence in front of the tail. A room's own distance is exactly
+         that: the note arrives before its reflections do, so the piano's attack
+         stays an attack instead of being smeared by a wash of reverb that starts
+         on the same millisecond. Measured with scripts/verify-audio-bus-ir.mjs,
+         this takes the reverb arriving in the first 40 ms from 4.3 dB under the
+         following 200 ms down to 8.3 dB under it.
+
+         The unit-energy step below is NOT what makes the level right — ConvolverNode.normalize
+         defaults to true, so the browser already rescales this response for us, and
+         normalising an already-normalised response is a no-op. It is here so the
+         response reads as "one unit of energy" to anyone reading it, and so the
+         offline measurements and the browser agree without a special case. */
       const len = Math.floor(ac.sampleRate * 1.5);
-      const buf = ac.createBuffer(2, len, ac.sampleRate);
-      for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+      const pre = Math.round(ac.sampleRate * 0.018);
+      const buf = ac.createBuffer(2, pre + len, ac.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) d[pre + i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
+        let e = 0; for (let i = 0; i < d.length; i++) e += d[i] * d[i];
+        const k = e > 0 ? 1 / Math.sqrt(e) : 0;
+        for (let i = 0; i < d.length; i++) d[i] *= k;
+      }
       conv.buffer = buf;
       const wet = ac.createGain(); wet.gain.value = 0.13;
       _busGain.connect(conv); conv.connect(wet); wet.connect(ac.destination);
