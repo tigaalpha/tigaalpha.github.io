@@ -1,3 +1,6 @@
+> รอบถัดไปของเรื่อง “ให้คนกลับมาเรียนซ้ำ” อยู่ที่ `26-plan-sensei-page-teaching-loop.md`
+> (หน้า “ครู AI” มีของที่มีอยู่แล้วทั้งแผนวันนี้ + คิวรีวิว + streak ซ่อนอยู่ลึกเกินไป)
+
 # แผน 25 · ให้ backing track "เพราะ" ขึ้น และให้ผู้เล่น "สนุกขึ้นเรื่อย ๆ อยากเล่นซ้ำ"
 
 > ต่อจาก `23-plan-band-per-song-instrumentation.md` · `23b-plan-band-sound-review.md` ·

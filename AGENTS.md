@@ -104,7 +104,31 @@ Both are fixed. `scripts/verify-audio-bus-ir.mjs` (6 checks) measures the bus on
 its own — **wet/dry −14.8 dB, peak −7.9 dBFS, zero clipped samples**, the room is
 fine, so do not go looking for a bus bug that is not there. Retractions are in
 §11.7 of `23b`; the next rounds of work are `24-plan-band-sound-next.md` (the
-sound) and `25-plan-play-along-juice-and-replay.md` (why a player comes back).
+sound), `25-plan-play-along-juice-and-replay.md` (why a player comes back) and
+`26-plan-sensei-page-teaching-loop.md` (the practice page the learner stands on).
+
+**The practice page already has a lesson plan — it is just two taps away.**
+Plan 26 · `SenseiView.tsx` is the Teacher tab. `TodayPage` (`App.tsx:1227`)
+already builds the real daily plan — warm-up, homework, the SRS due stage
+(`getDueReviews`, `App.tsx:5650`), the next thing, a song — and counts
+`nDone/steps`; it was reachable only from a card inside Studio and had no tab.
+That count is now computed by **`buildTodaySteps()`** (`App.tsx:1159`, extracted
+verbatim) and rendered on the Teacher page too, so the two surfaces cannot
+disagree — call that function, never re-derive it. The streak/quest/EXP bar
+(`chat-ui.tsx:202`) moved from under the chat input to the top of the page and
+renders at zero via its `always` prop (line 204's early return is kept for every
+other caller). The page also surfaces three things that were already on the
+device and read by nothing: the last drill, replayable (`readPracticeBests` +
+`replayDrill`), the pitch classes the learner actually misses
+(`recordNoteMisses` / the `readNoteMisses` reader added beside it), and, once
+the plan is genuinely finished, last session's accuracy against the one before.
+All of it moves existing signals — no new numbers, no new economy.
+`scripts/smoke-app-boot.mjs` asserts P1/P2/P5/P6/P7 against the real page and
+seeds the two stores they read; **P7's positive path is still uncovered** — do
+not read that as tested. Two traps cost time here: putting that block above the
+`usePracticeMode` destructure throws a TDZ `ReferenceError` on every render, and
+the smoke script used to leave `.smoke-*.js` files behind in the tracked
+`bundle/` directory on every run.
 
 **A reward loop that pays once is not a loop.** Plan 25 · `play-along-judge.ts`,
 `play-along-progress.ts`. `comboMult` used to climb to ×4.9 at combo 300, which the

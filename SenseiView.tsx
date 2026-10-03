@@ -1,5 +1,5 @@
 import { L, tr } from "./i18n";
-import { Piano, playUi } from "./music-engine";
+import { Piano, playUi, playPianoNote } from "./music-engine";
 import { Msg, Typing, Input, ChatProgress } from "./chat-ui";
 /* ── SenseiView ──
    The default page (page==="sensei"), extracted verbatim from PianoApp's
@@ -11,10 +11,92 @@ import { Msg, Typing, Input, ChatProgress } from "./chat-ui";
    this page==="sensei" block and stays in PianoApp. lc is derived from lang
    internally. recommendNext/toggleChordStyle are PianoApp closures (not
    top-level, not exported), so they're threaded as props. ── */
-export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap, chatNote = null, chatNoteOut = false, onMore = null, speakMode = "off", onSpeakLocked = null, onMark = null, onGoStep = null, chatProg = null}) {
+export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap, chatNote = null, chatNoteOut = false, onMore = null, speakMode = "off", onSpeakLocked = null, onMark = null, onGoStep = null, chatProg = null, todayPlan = null, todayTags = null, onTodayOpen = null, resumeCard = null, onResumeDrill = null, missCard = null, sessionDone = null}) {
   const lc = L[lang];
+  const tt = todayTags || {};
+  const TT = {
+    th: { doneTitle: "ครบทุกข้อของวันนี้แล้ว", lastDrill: "เล่นซ้ำ", missed: "พลาดบ่อย" },
+    en: { doneTitle: "Today's plan is done", lastDrill: "Play again", missed: "Missed most" },
+    zh: { doneTitle: "今日计划已完成", lastDrill: "再练一次", missed: "最常错" },
+  }[lang];
+  const planNext = todayPlan && todayPlan.next;
   return (
         <>
+          {/* Plan 26 · P2 — the goal bar sits at the TOP now, not buried under the
+              chat input, and it renders even when streak/quest are still zero:
+              a brand-new learner is exactly who most needs to see a target. */}
+          {chatProg && <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} always />}
+          {/* Plan 26 · P1 + P3 — today's plan on the page the learner stands on.
+              The numbers come from buildTodaySteps(), the SAME function TodayPage
+              renders, so the two can never disagree. One button, and it runs the
+              first step that is not done yet (or opens the full plan for the
+              homework step, which has no "go" of its own and must not be ticked
+              off from here without doing it). */}
+          {todayPlan && todayPlan.total > 0 && (
+            <div className="todaybar">
+              <button className="todaybar-btn" onClick={() => {
+                playUi("click");
+                if (!planNext) { onTodayOpen && onTodayOpen(); return; }
+                if (planNext.go) planNext.go(); else onTodayOpen && onTodayOpen();
+              }}>
+                <span className="todaybar-ic" aria-hidden="true">{planNext ? planNext.icon : "✅"}</span>
+                <span className="todaybar-tx">
+                  <b className="todaybar-tag">{planNext ? planNext.tag : tt.allDoneShort}</b>
+                  <span className="todaybar-lb">{planNext ? planNext.label : ""}</span>
+                </span>
+                <span className="todaybar-ct">{todayPlan.done}/{todayPlan.total}</span>
+              </button>
+              <div className="todaybar-track" role="progressbar" aria-valuemin={0} aria-valuemax={todayPlan.total} aria-valuenow={todayPlan.done}>
+                <div className="todaybar-fill" style={{ width: todayPlan.pct + "%" }} />
+              </div>
+            </div>
+          )}
+          {/* Plan 26 · P7 — shown only when the whole plan is actually done, and
+              only with two REAL numbers from readPracticeLog()._recent (the
+              learner's last session and the one before it). No number is ever
+              invented to fill this card in. */}
+          {sessionDone && (
+            <div className="todaydone">
+              <span className="todaydone-ic" aria-hidden="true">🎉</span>
+              <span className="todaydone-tx">
+                <b>{TT.doneTitle}</b>
+                <span className="todaydone-acc">
+                  {sessionDone.before}% <span className="todaydone-arrow" aria-hidden="true">→</span> <b>{sessionDone.after}%</b>
+                  {sessionDone.delta !== 0 && (
+                    <em className={sessionDone.delta > 0 ? "up" : "down"}>
+                      {sessionDone.delta > 0 ? "+" : ""}{sessionDone.delta}
+                    </em>
+                  )}
+                </span>
+              </span>
+            </div>
+          )}
+          {/* Plan 26 · P5 — the learner's own last drill, one tap from playing
+              it again. The drill comes from readPracticeBests(), the same store
+              the profile's Drill Deck replays from. */}
+          {resumeCard && (
+            <button className="resumebar" onClick={() => onResumeDrill && onResumeDrill(resumeCard)}>
+              <span className="resumebar-ic" aria-hidden="true">⏯</span>
+              <span className="resumebar-tx">
+                <b className="resumebar-tag">{TT.lastDrill}</b>
+                <span className="resumebar-lb">{resumeCard.label}</span>
+              </span>
+              <span className="resumebar-acc">{resumeCard.accuracy}%</span>
+            </button>
+          )}
+          {/* Plan 26 · P6 — pitch classes the learner actually misses, counted
+              by recordNoteMisses() on every drill and, until now, read by
+              nothing on screen. Tap plays the note; it does not navigate away. */}
+          {missCard && (
+            <div className="missbar">
+              <span className="missbar-lbl">{TT.missed}</span>
+              {missCard.map(m => (
+                <button key={m.pc} className="misschip" onClick={() => { playPianoNote(m.pc + "4", 0.4); }} title={TT.missed + ` · ${m.n}×`}>
+                  {m.pc}<em>{m.n}</em>
+                </button>
+              ))}
+            </div>
+          )}
           <button className="senseiback" onClick={() => { playUi("click"); onBack(); }} aria-label={activeStageId ? lc.backChangeKey : lc.back}>
             <span>←</span> {activeStageId ? lc.backChangeKey : lc.back}
           </button>
@@ -145,7 +227,8 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               </div>
             )}
             <div className="iw">
-              {chatProg && <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} />}
+              {/* ChatProgress moved to the top of the page (plan 26 · P2) — it is
+                  the learner's goal, not a footnote under a text box. */}
               <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} note={chatNote} noteOut={chatNoteOut} />
               <div className="hint">{lc.hint}</div>
             </div>

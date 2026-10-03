@@ -90,6 +90,20 @@ for (const f of readdirSync(B)) {
     writeFileSync(join(B, f), src.replaceAll(`"./${mainName}"`, `"./${copyName}"`));
   }
 }
+/* Seed the two stores plan 26's P5/P6 read, BEFORE the bundle boots, so the
+   page under test has something real to render. Both are inert data stores —
+   neither one influences boot, routing, or any other assertion here — and
+   without them the resume/miss cards legitimately render nothing and the checks
+   below could not tell "works" from "never fires". P7 (plan-complete) is NOT
+   seeded: it needs a whole finished day's plan, which is not something a smoke
+   test should fake. */
+try {
+  localStorage.setItem("tg_practice_best", JSON.stringify({
+    "Smoke Scale": { accuracy: 82, bestStreak: 7, at: Date.now() - 3600000, notes: ["C4", "D4", "E4", "F4"], mode: "scale", key: "C", label: "Smoke Scale", chordStyle: null },
+  }));
+  localStorage.setItem("tg_note_miss", JSON.stringify({ "F#": 4, "D": 3, "Bb": 2 }));
+} catch (e) { errors.push("seed: " + e); }
+
 try { await import("file://" + tmp); } catch (e) { errors.push("bundle import: " + (e && e.stack || e)); }
 
 /* let boot effects settle — supabase getSession resolves through the fetch
@@ -101,6 +115,10 @@ function restoreChunks() {
   try {
     for (const f of readdirSync(B)) {
       if (f.endsWith(".js.smoke.bak")) { writeFileSync(join(B, f.replace(/\.smoke\.bak$/, "")), readFileSync(join(B, f), "utf8")); rmSync(join(B, f)); }
+      /* The rewritten lazy-chunk copies (".smoke-<name>.js") were never removed —
+         every run used to leave one hidden file per chunk behind in the tracked
+         bundle/ directory, so a test run dirtied the repo it was testing. */
+      if (f.startsWith(".smoke-") && f.endsWith(".js")) rmSync(join(B, f), { force: true });
     }
     rmSync(join(B, ".smoke-bundle.mjs"), { force: true });
   } catch (e) {}
@@ -143,6 +161,22 @@ for (const b of navBtns) {
     sweepFail = true; click(q(".hamb")); await settle(); continue;
   }
   if (errors.length > before) { ok(`page '${label}' threw: ` + errors[errors.length - 1].split("\n")[0].slice(0, 120), false); sweepFail = true; }
+  /* Plan 26 · P1/P2: whenever the Teacher page (the one with the piano block)
+     is the page on screen, today's plan and the goal bar must both be there.
+     Asserted here rather than in a unit test because this sweep is the only
+     thing that actually mounts the real page. */
+  if (q(".pw")) {
+    ok("Teacher page shows today's plan (plan 26 · P1)", !!q(".todaybar"));
+    ok("Teacher page shows the goal bar at the top (plan 26 · P2)", !!q(".chatprog-top"));
+    const ct = q(".todaybar-ct");
+    ok("plan count reads done/total", !!ct && /^\d+\/\d+$/.test((ct.textContent || "").trim()));
+    ok("Teacher page offers the last drill to replay (plan 26 · P5)", !!q(".resumebar"));
+    ok("Teacher page shows the most-missed notes (plan 26 · P6)", !!q(".missbar") && qa(".misschip").length === 3);
+    /* P7 renders only on a genuinely finished day, which this boot does not
+       fake — so its absence here is the correct outcome, asserted so a
+       regression that made it always-show would be caught too. */
+    ok("plan-complete card stays hidden with no finished day (plan 26 · P7)", !q(".todaydone"));
+  }
   /* reopen the drawer for the next item (a click usually navigates + closes it) */
   if (!q(".draweritem") || !(q(".draweritem").getClientRects().length)) { click(q(".hamb")); await settle(); }
 }
