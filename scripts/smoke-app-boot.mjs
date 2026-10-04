@@ -12,6 +12,13 @@ const B = "bundle";
 const idx = readdirSync(B).find(f => f.startsWith("index.template-") && f.endsWith(".js"));
 if (!idx) { console.error("no bundle"); process.exit(1); }
 const code = readFileSync(join(B, idx), "utf8");
+/* The size of the original shelf, from the manifest the app itself reads at
+   runtime. The pathway's song door states that number to the user, so the
+   number it states is checked against this rather than taken on faith. */
+const shelfN = (() => {
+  try { return JSON.parse(readFileSync("public/originals/index.json", "utf8")).n; }
+  catch (e) { return null; }
+})();
 
 /* ── browser-ish globals BEFORE any bundle code runs ── */
 const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
@@ -176,6 +183,18 @@ for (const b of navBtns) {
        fake — so its absence here is the correct outcome, asserted so a
        regression that made it always-show would be caught too. */
     ok("plan-complete card stays hidden with no finished day (plan 26 · P7)", !q(".todaydone"));
+  }
+  /* The pathway's "Practise real songs" card tells the learner how big the
+     shelf is (owner, 2026-10-04). That is a claim about data, so it is
+     compared with the data: index.json is the manifest originals-store.ts
+     reads, and n is how many pieces it actually holds. */
+  const pcards = qa(".pcard");
+  if (pcards.length) {
+    const songDoor = pcards.find(c => /ฝึกเล่นเพลง|Practise real songs|练习弹歌曲/.test(c.textContent || ""));
+    ok("the pathway has the song-practise card", !!songDoor, songDoor ? (songDoor.textContent || "").replace(/\s+/g, " ").trim().slice(0, 90) : `${pcards.length} cards, none matched`);
+    const doorTxt = (songDoor ? songDoor.textContent : "").replace(/\s+/g, " ");
+    ok("that card states the shelf size", /100,000|100000/.test(doorTxt), doorTxt.match(/[^ ]*100,000\+?[^ ]*/)?.[0] || "no number");
+    ok("the number it states is backed by the shelf", typeof shelfN === "number" && shelfN >= 100000, `index.json n = ${shelfN}`);
   }
   /* reopen the drawer for the next item (a click usually navigates + closes it) */
   if (!q(".draweritem") || !(q(".draweritem").getClientRects().length)) { click(q(".hamb")); await settle(); }

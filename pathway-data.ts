@@ -19,7 +19,16 @@ export const PATHWAY_PRACTICE = {
     {
       id: "play-songs", icon: "🎵", color: "#d97757", cat: "songs",
       title: { th: "ฝึกเล่นเพลง", en: "Practise real songs", zh: "练习弹歌曲" },
-      subtitle: { th: "เพลงเต็มเพลง เล่นตามโน้ตที่ไหลลงมา", en: "Whole songs, note by falling note", zh: "完整歌曲，跟着落下的音符" },
+      /* The size of the shelf, stated here the way the landing proof strip
+         states it (owner, 2026-10-04): 100,000 originals live in
+         public/originals/*.json and every one opens in Play Along. The claim
+         is checked against that data in scripts/smoke-app-boot.mjs, which
+         fails if the card outruns the shelf. */
+      subtitle: {
+        th: "มากกว่า 100,000 เพลงในแอป เป็นเพลงที่เราแต่งเอง เล่นตามได้ทุกเพลง",
+        en: "More than 100,000 songs in the app — ours, and every one of them playable",
+        zh: "应用内超过 100,000 首 · 全部由我们原创，每首都能跟弹",
+      },
     },
     {
       /* New chord-path doors (owner request): no #5 (Major) and #6 (Minor).
