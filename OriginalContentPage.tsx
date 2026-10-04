@@ -165,7 +165,11 @@ export default function OriginalContentPage({ lang, onBack, onPlay, level = 1, e
   };
 
   return (
-    <div className="songpage">
+    /* .pathpage is the scroll container — the whole app scrolls inside it
+       (flex:1; overflow-y:auto), not the window. Without it the page rendered
+       one screenful of cards and could not be scrolled down at all
+       (owner, 2026-10-04). */
+    <div className="pathpage songpage">
       <div className="songtop">
         <button className="studioback" onClick={onBack}>‹ {T("ย้อนกลับ", "Back", "返回")}</button>
         <h1 className="songh1">✨ {T("Original Content", "Original Content", "Original Content 原创内容")}</h1>

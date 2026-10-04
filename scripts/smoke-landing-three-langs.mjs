@@ -6,7 +6,7 @@
    document.documentElement.lang, so a grep can prove the string exists but
    never that a visitor is shown it, nor which language they get.
 
-   The headline assertion is not "10,000+ is in the file" but that 10,000+
+   The headline assertion is not "100,000+ is in the file" but that 100,000+
    is what the page shows AND that the app really holds that many pieces.
    A claim nobody may ship on faith, so it counts them from the data.
 
@@ -46,15 +46,22 @@ function countJsonDir(dir) {
 }
 const classical = countJsonDir("songs-src/classical");
 const origIndex = JSON.parse(readFileSync("public/originals/index.json", "utf8"));
-const originals = Array.isArray(origIndex.songs) ? origIndex.songs.length : origIndex.songs;
+/* index.json stopped carrying the rows when the shelf passed 10,000: it is a
+   manifest now (n / indexShards) and the rows live in index-NNN.json. Reading
+   `.songs` here would yield undefined and every count below would be NaN, which
+   is how a headline check passes for the wrong reason. n is the number the app
+   itself reads at runtime (originals-store.ts loadOriginalManifest). */
+if (Array.isArray(origIndex.songs)) { no("index.json still carries every row", "it should be a manifest with n"); }
+const originals = typeof origIndex.n === "number" ? origIndex.n : NaN;
+const HEADLINE = 100000;
 
 console.log("== the headline number is a fact, not a claim ==");
-if (originals + classical >= 10000)
-  ok(`app holds ${originals} originals + ${classical} classical = ${originals + classical}, so "10,000+" does not overstate it`);
+if (originals + classical >= HEADLINE)
+  ok(`app holds ${originals} originals + ${classical} classical = ${originals + classical}, so "${HEADLINE.toLocaleString()}+" does not overstate it`);
 else
-  no('"10,000+" overstates the library', `only ${originals + classical} pieces found`);
-if (originals + classical > 10000) ok('pieces exist above the headline number, as "+" says');
-else no('"+" needs pieces above 10,000', `${originals + classical} is not more than 10,000`);
+  no(`"${HEADLINE.toLocaleString()}+" overstates the library`, `only ${originals + classical} pieces found`);
+if (originals + classical > HEADLINE) ok('pieces exist above the headline number, as "+" says');
+else no('"+" needs pieces above 100,000', `${originals + classical} is not more than ${HEADLINE.toLocaleString()}`);
 
 /* ── one boot per language ────────────────────────────────────────────── */
 function globals(lang) {
@@ -101,9 +108,9 @@ writeFileSync(tmp, code.replace(/import\.meta\.url/g, JSON.stringify("https://ti
 const cleanup = () => { try { rmSync(tmp); } catch (e) {} };
 
 const EXPECT = {
-  th: { proof1: "เพลงในแอป ให้เล่นตามได้ทั้งหมด", proof3: "ทดลองฟรี ไม่ต้องใช้บัตร", days: "7 วัน" },
-  en: { proof1: "songs in the app, every one of them playable", proof3: "free to try, no card needed", days: "7 days" },
-  zh: { proof1: "首应用内曲目，全部可跟弹", proof3: "免费试用，无需银行卡", days: "7 天" },
+  th: { proof1: "เพลงที่เราแต่งเอง เล่นตามได้ทุกเพลง", proof3: "ทดลองฟรี ไม่ต้องใช้บัตร", days: "7 วัน", songs: "100,000+" },
+  en: { proof1: "songs we wrote ourselves, every one playable", proof3: "free to try, no card needed", days: "7 days", songs: "100,000+" },
+  zh: { proof1: "我们的原创曲目，全部可跟弹", proof3: "免费试用，无需银行卡", days: "7 天", songs: "100,000+" },
 };
 
 for (const lang of ["th", "en", "zh"]) {
@@ -132,7 +139,7 @@ for (const lang of ["th", "en", "zh"]) {
   else {
     const cells = strip.querySelectorAll("div");
     const b = cells[0] && cells[0].querySelector("b");
-    if (b && b.textContent.trim() === "10,000+") ok(`${lang}: strip headlines 10,000+`);
+    if (b && b.textContent.trim() === E.songs) ok(`${lang}: strip headlines ${E.songs}`);
     else no(`${lang}: strip headline`, b ? `"${b.textContent.trim()}"` : "(no <b>)");
 
     const s1 = cells[0] && cells[0].querySelector("span");

@@ -154,6 +154,13 @@ await settle(1500);
 const ocFetches = fetched.slice(beforeOC);
 ok("the Original Content page loads the manifest and one page", ocFetches.join(", ") === "index.json, index-000.json", ocFetches.join(", "));
 ok("the page is titled Original Content", !!q(".songh1") && /Original Content/i.test(txt(q(".songh1"))), q(".songh1") ? txt(q(".songh1")) : "—");
+/* Scrolling happens inside .pathpage (flex:1; overflow-y:auto) — the window
+   itself does not scroll in this app. jsdom cannot lay out, so this asserts the
+   class that gives the page its scroll container; without it the user is stuck
+   on the first screenful of cards (owner, 2026-10-04). */
+const ocRoot = q(".songpage");
+ok("the page lives in the app's scroll container", !!ocRoot && ocRoot.classList.contains("pathpage"),
+  ocRoot ? "root classes: ." + ocRoot.className : "no .songpage");
 ok("it says how many pieces there are", /100,000|100000/.test(body()), (body().match(/[^<>]*100,000[^<>]*/) || ["—"])[0].slice(0, 90));
 /* the three axes and the families under them — this is the sub-filing the
    button was asked for, so its absence is the failure that matters */
