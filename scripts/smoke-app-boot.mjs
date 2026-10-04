@@ -208,6 +208,12 @@ for (const b of navBtns) {
     ok("the pathway has the Practice card", !!songDoor, songDoor ? (songDoor.textContent || "").replace(/\s+/g, " ").trim().slice(0, 90) : `${pcards.length} cards, none matched`);
     const doorTxt = (songDoor ? songDoor.textContent : "").replace(/\s+/g, " ");
     ok("that card states the shelf size", /100,000|100000/.test(doorTxt), doorTxt.match(/[^ ]*100,000\+?[^ ]*/)?.[0] || "no number");
+    /* It names the three shelves the card opens: classical, jazz and the
+       originals. Naming a shelf nobody can reach would be a promise the app
+       does not keep, so the three names have to be there. */
+    ok("that card names classical, jazz and originals",
+      /[Cc]lassical|คลาสสิก|古典/.test(doorTxt) && /[Jj]azz|แจ๊ส|爵士/.test(doorTxt) && /original|แต่งเอง|原创|Original/i.test(doorTxt),
+      doorTxt.slice(0, 110));
     ok("the number it states is backed by the shelf", typeof shelfN === "number" && shelfN >= 100000, `index.json n = ${shelfN}`);
     /* The "Play your first song" banner is gone (owner, 2026-10-04): it sat
        above STEP 1 and pushed the pathway below the fold, saying what card 02
