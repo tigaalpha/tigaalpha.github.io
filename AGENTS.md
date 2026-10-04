@@ -10,6 +10,27 @@ progress updates, summaries) is in Thai, including after a context reset.
 Code, code comments, commit messages and file contents stay in English as
 they are now.
 
+## Delivery — commit, push and deploy are pre-authorised (owner, 2026-10-04)
+The owner authorised all three up front, for every task: once a change's checks
+pass, commit it, push it, and deploy it without asking again. Anything in this
+file that says the Changes panel owns commits and pushes is superseded — the
+panel is still useful for review and PRs, but it is no longer the delivery
+path.
+
+What that does NOT cover, because no task implies it: running SQL or
+migrations against the live database, deploying the Supabase Edge Functions, and
+anything destructive on a remote (force-push, history rewrite, deleting a tag).
+When part of a change needs one of those, finish and ship everything else, then
+say plainly what is left — the chat-quota work is the case in point: the client
+half is live, and the `piano-chat` function that raises `ai_paused` still needs
+an owner-run `supabase functions deploy piano-chat` before it does anything.
+
+`git push` regularly needs a merge first. The OTA auto-release bot commits to
+`main` about every hour, so a push from a long task session is usually rejected
+as non-fast-forward. Merge `origin/main`, resolve the bundle filename churn by
+rebuilding (`npm run build`) rather than by picking a side, re-run the checks,
+then push.
+
 ## What this is
 
 TIGA.AI — a live, revenue-generating piano-learning web app (Thai/English/
