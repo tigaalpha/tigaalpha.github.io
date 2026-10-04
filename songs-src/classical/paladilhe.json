@@ -1,0 +1,3 @@
+[
+  {"id":"paladilhe_psyche","era":"romantic","composer":"É. Paladilhe","died":1926,"year":1926,"work":"Psyché","en":"Psyché (Paladilhe)","th":"พิสเชอ – จิตวิญญาณ (ปาลาดิล)","zh":"普绪刻（帕拉迪尔）","key":"Ab","meter":"4/4","bpm":64,"pickup":1.5,"bars":["C5:0.5 C5:0.5 C5:0.5","C#5:1.5 G4:0.5 G4:2","R:1 G#4:1 G#4:0.5 G#4:0.5 C5:0.5 D#5:0.5","F4:2 F4:1 R:1","R:1 G#4:0.5 G#4:0.5 G#4:1 G#4:0.75 F5:0.25","D#5:2.5 R:0.5 C4:1","C#4:1 F4:1 G#4:1.5 G4:0.5"],"conf":"high","src":"openscore:scores/Paladilhe,_Émile/_/Psyché/lc30321734.mxl","license":"CC0 1.0 (OpenScore Lieder transcription of a public-domain score)","note":"transposed +2 semitone(s) to fit C4-B5"}
+]

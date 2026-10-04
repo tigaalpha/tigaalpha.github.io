@@ -1,90 +1,176 @@
-/* Headless verification of the conversion funnel (owner-approved strategy
-   2026-09-19): transpiles the REAL use-conversion.ts with esbuild and drives
-   its phase logic with synthetic profiles — welcome / halfway / closing /
-   win-back windows, paid-member exclusion, dismissal memory, and the
-   song-creation gift flags. */
+/* Headless verification of the conversion funnel (owner decision 2026-10-04):
+   transpiles the REAL use-conversion.ts with esbuild and drives its phase
+   logic with synthetic profiles — the seven-day ladder (welcome d1-3, first-week
+   proof d5-6, last-day closing d7), paid-member exclusion, dismissal memory,
+   and the song-creation gift flags.
+
+   Rewritten for the 7-day Max trial. It used to assert the 30-day ladder
+   (welcome d1-3 / halfway d15-28 / closing d29-30) against a hard-coded
+   trialLenDays of 30; both the stub and the day fixtures below now match what
+   payment.tsx actually ships, so a future change to TRIAL_DAYS_STANDARD fails
+   this file loudly instead of silently testing a ladder that no longer exists.
+
+   The stub is derived from the REAL payment.tsx constants below rather than
+   typed in by hand — see TRIAL_DAYS_FROM_SOURCE. */
 import { execSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const OUT = "node_modules/.tmp-conv-verify";
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
+// Read the REAL trial length out of payment.tsx so the stub can never drift.
+const paymentSrc = readFileSync("payment.tsx", "utf8");
+const grab = (name) => {
+  const m = paymentSrc.match(new RegExp(`export const ${name}\\s*=\\s*(\\d+)`));
+  if (!m) throw new Error(`verify-conversion: cannot read ${name} from payment.tsx`);
+  return Number(m[1]);
+};
+const TRIAL_DAYS_FROM_SOURCE = grab("TRIAL_DAYS_STANDARD");
+const FOUNDING_DAYS_FROM_SOURCE = grab("TRIAL_DAYS_FOUNDING");
+
 // esbuild-transpile the real source (repo convention: no hand-mirrored copies)
 execSync(`npx esbuild use-conversion.ts --bundle --format=esm --outfile=${OUT}/use-conversion.mjs`, { stdio: "pipe" });
-// stub the only cross-file import (payment.tsx pulls React/Supabase)
-writeFileSync(`${OUT}/payment.mjs`, `export const trialLenDays = (p) => (p && p.founding_member ? 30 : 30);\n`);
+// Stub the only cross-file import (payment.tsx pulls React/Supabase). Both
+// helpers the funnel imports have to exist here: trialLenDays for the day
+// maths, and isTrialPlan for "are they inside a trial of EITHER tier" — the
+// promotion cohort's TRIAL_MAX is a second plan string, and a stub missing it
+// would make the funnel look like it only ever ran for Premium trials.
+const TRIAL_MAX_LITERAL = (paymentSrc.match(/export const TRIAL_MAX\s*=\s*"([^"]+)"/) || [])[1];
+if (!TRIAL_MAX_LITERAL) throw new Error("verify-conversion: cannot read TRIAL_MAX from payment.tsx");
+// PLAN_PRICE is read out of the real source too: the funnel's quoted prices
+// are generated from it, so a stub with made-up numbers would make every
+// price assertion below pass no matter what payment.tsx actually says.
+const grabPrices = () => {
+  const tbl = paymentSrc.match(/export const PLAN_PRICE\s*=\s*\{([^}]+)\}/);
+  if (!tbl) throw new Error("verify-conversion: cannot read PLAN_PRICE from payment.tsx");
+  const out = {};
+  for (const m of tbl[1].matchAll(/(\w+)\s*:\s*(\d+)/g)) out[m[1]] = Number(m[2]);
+  return out;
+};
+const PRICES = grabPrices();
+console.log(`\n  (real PLAN_PRICE: premium=${PRICES.premium}, max=${PRICES.max})`);
+writeFileSync(`${OUT}/payment.mjs`,
+  `export const TRIAL_MAX = ${JSON.stringify(TRIAL_MAX_LITERAL)};\n` +
+  `export const PLAN_PRICE = ${JSON.stringify(PRICES)};\n` +
+  `export const trialLenDays = (p) => (p && p.founding_member ? ${FOUNDING_DAYS_FROM_SOURCE} : ${TRIAL_DAYS_FROM_SOURCE});\n` +
+  `export const isTrialPlan = (p) => p === "trial" || p === TRIAL_MAX;\n`);
 // rewrite the import to the stub
-const { readFileSync, writeFileSync: w } = await import("node:fs");
 let src = readFileSync(`${OUT}/use-conversion.mjs`, "utf8");
 src = src.replace(/from\s*"\.\/payment"/, `from "./payment.mjs"`);
-w(`${OUT}/use-conversion.mjs`, src);
+writeFileSync(`${OUT}/use-conversion.mjs`, src);
 
 const C = await import(pathToFileURL(`${OUT}/use-conversion.mjs`).href);
 
 let pass = 0, fail = 0;
-let pp = null;
+let p = null;
 let ps = null;
 function ok(cond, label) { if (cond) { pass++; console.log(`  ok: ${label}`); } else { fail++; console.error(`FAIL: ${label}`); } }
 
 const DAY = 86400000;
-// ageDays = full days ago PLUS a 2-minute buffer so "day 15" fixtures land
-// firmly inside day 15 regardless of test-execution milliseconds.
+// ageDays = full days ago PLUS a 2-minute buffer so "day 7" fixtures land
+// firmly inside day 7 regardless of test-execution milliseconds.
 const prof = (ageDays, founding = false) => ({ created_at: new Date(Date.now() - (ageDays * DAY + 120 * 1000)).toISOString(), founding_member: founding });
+
+console.log(`\n  (real payment.tsx: TRIAL_DAYS_STANDARD=${TRIAL_DAYS_FROM_SOURCE}, TRIAL_DAYS_FOUNDING=${FOUNDING_DAYS_FROM_SOURCE})`);
+ok(TRIAL_DAYS_FROM_SOURCE === 7 && FOUNDING_DAYS_FROM_SOURCE === 7, "payment.tsx ships a 7-day trial for everyone");
 
 // ── trialDay ──
 ok(C.trialDay(prof(0)) === 1, "trialDay: signup today = day 1");
-ok(C.trialDay(prof(14)) === 15, "trialDay: 14 days ago = day 15");
-ok(C.trialDay(prof(31)) === -1, "trialDay: past trial = -1");
+ok(C.trialDay(prof(6)) === 7, "trialDay: 6 days ago = day 7 (the last day)");
+ok(C.trialDay(prof(7)) === -1, "trialDay: past trial = -1");
 ok(C.trialDay(null) === -1, "trialDay: null profile = -1");
 
 // ── welcome window (d1-3) ──
-let p = C.convPopupFor(prof(0), "trial");
+p = C.convPopupFor(prof(0), "trial");
 ok(p && p.kind === "welcome" && p.id === "d0", "day 1 → welcome popup");
+ok(C.convPopupFor(prof(2), "trial") && C.convPopupFor(prof(2), "trial").kind === "welcome", "day 3 → still welcome");
 
-// ── gap (d4-14): nothing ──
-ok(C.convPopupFor(prof(7), "trial") === null, "day 8 → no popup (quiet phase)");
+// ── gap (d4): nothing, without proof ──
+ok(C.convPopupFor(prof(3), "trial") === null, "day 4 → no popup (quiet phase)");
 
-// ── halfway (d15-28) ──
-p = C.convPopupFor(prof(14), "trial");
-ok(p && p.kind === "halfway" && p.id === "d15", "day 15 → halfway popup");
-ok(C.convPopupFor(prof(27), "trial") && C.convPopupFor(prof(27), "trial").kind === "halfway", "day 28 → still halfway");
-
-// ── closing (d29-30) ──
-p = C.convPopupFor(prof(28), "trial");
-ok(p && p.kind === "closing" && p.id === "d29", "day 29 → closing popup");
-p = C.convPopupFor(prof(29.5), "trial");
-ok(p && p.kind === "closing", "day 30 → closing popup");
+// ── closing: the LAST day exactly, never the day before ──
+p = C.convPopupFor(prof(5), "trial");
+ok(p === null, "day 6 → NOT the closing popup (the day before is not the last day)");
+p = C.convPopupFor(prof(6), "trial");
+ok(p && p.kind === "closing" && p.id === "closing", "day 7 → closing popup");
+p = C.convPopupFor(prof(6.5), "trial");
+ok(p && p.kind === "closing", "day 7, later in the day → still closing");
+ok(C.convPopupFor(prof(7), "trial") === null, "day 8 → trial over, no popup");
 
 // ── paid members never see any of it ──
 ok(C.convPopupFor(prof(0), "premium") === null, "premium → no popup");
 ok(C.convPopupFor(prof(0), "max") === null, "max → no popup");
+ok(C.convPopupFor(prof(6), "max") === null, "paid max on day 7 → no popup");
 ok(C.convPopupFor(null, "trial") === null, "null profile → no popup");
 
+// ── the promotion cohort (TRIAL_MAX) walks the SAME ladder ────────────────
+// The first 10,000 signups sit on a second plan string. If the funnel only
+// matched plain "trial" they would get a Max entitlement and no sales moment
+// at all — free AI for a week, which is the opposite of the promotion.
+const promo = "trialmax";
+ok(C.convPopupFor(prof(0), promo) && C.convPopupFor(prof(0), promo).kind === "welcome", "promo day 1 → welcome popup");
+ok(C.convPopupFor(prof(6), promo) && C.convPopupFor(prof(6), promo).kind === "closing", "promo day 7 → closing popup");
+ok(C.convPopupFor(prof(8), promo) === null, "promo day 8 → nothing (trial over)");
+ok(C.convWinBack(prof(8), promo) === null, "promo day 8 + still on the trial plan string → no win-back");
+
 // ── win-back: expired trial on free plan ──
-p = C.convWinBack(prof(35), "free");
+p = C.convWinBack(prof(8), "free");
 ok(p && p.kind === "winback" && p.id === "wb", "expired + free → win-back popup");
-ok(C.convWinBack(prof(10), "free") === null, "still inside trial (free edge) → no win-back");
-ok(C.convWinBack(prof(35), "premium") === null, "expired but paying → no win-back");
+ok(C.convWinBack(prof(2), "free") === null, "still inside trial (free edge) → no win-back");
+ok(C.convWinBack(prof(8), "premium") === null, "expired but paying → no win-back");
 
 // ── dismissal memory (per device, once per id) ──
 globalThis.localStorage = (() => { let m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = v; }, removeItem: k => { delete m[k]; } }; })();
-ok(C.convSeen("d15") === false, "dismissal memory: unseen id = false");
-C.markConvSeen("d15");
-ok(C.convSeen("d15") === true, "dismissal memory: marked id = true");
-ok(C.convPopupFor(prof(14), "trial") === null, "dismissed halfway doesn't re-fire");
+ok(C.convSeen("closing") === false, "dismissal memory: unseen id = false");
+C.markConvSeen("closing");
+ok(C.convSeen("closing") === true, "dismissal memory: marked id = true");
+ok(C.convPopupFor(prof(6), "trial") === null, "dismissed closing doesn't re-fire");
 
 // ── song-creation gift (decision 1A) ──
 ok(C.canUseSongGift() === true, "song gift: available before first use");
 C.consumeSongGift();
 ok(C.canUseSongGift() === false, "song gift: gone after one use (lifetime)");
 
-// ── copy integrity: every language has every key ──
+// ── copy integrity: every language, BOTH tiers, and the real prices ────────
+// The promotion splits the trial in two, so the copy splits too. Reading the
+// wrong table out loud would tell a Premium member to "keep Max" — a plan they
+// were never given — which is the failure this block exists to prevent.
+const MAX_PRICE = PRICES.max.toLocaleString("en-US");
+const STD_PRICE = PRICES.premium.toLocaleString("en-US");
 for (const lang of ["th", "en", "zh"]) {
-  const cc = C.CONV_COPY[lang];
-  ok(cc && cc.bannerUrgent.includes("{n}") && cc.welcome.title && cc.halfway.title && cc.closing.items && cc.winback.title && cc.closing.cta, `copy ${lang}: all keys present`);
+  for (const [label, tbl, tier, price] of [
+    ["promo/Max", C.CONV_COPY, "Max", MAX_PRICE],
+    ["standard/Premium", C.STANDARD_COPY, "Premium", STD_PRICE],
+  ]) {
+    const cc = tbl[lang];
+    ok(cc && cc.bannerUrgent.includes("{n}") && cc.welcome.title && cc.closing.items && cc.winback.title && cc.closing.cta,
+      `copy ${lang} ${label}: all keys present`);
+    ok(cc && cc.closing.alt && cc.winbackAlt && cc.d7proof.title && cc.proof.title,
+      `copy ${lang} ${label}: alt + winbackAlt + both proof kinds present`);
+    const priced = JSON.stringify(cc);
+    ok(priced.includes(tier), `copy ${lang} ${label}: names its own tier (${tier})`);
+    ok(priced.includes(price), `copy ${lang} ${label}: quotes the real ${tier} price ${price}`);
+    const otherPrice = tier === "Max" ? STD_PRICE : MAX_PRICE;
+    ok(!priced.includes(otherPrice), `copy ${lang} ${label}: never quotes the other tier's price (${otherPrice})`);
+  }
+  ok(C.CONV_COPY[lang].closing.body.includes(MAX_PRICE), `copy ${lang}: promo last-day body carries the Max price`);
+  ok(C.STANDARD_COPY[lang].closing.body.includes(STD_PRICE), `copy ${lang}: standard last-day body carries the Premium price`);
 }
+
+// ── the copy selector picks the right table, and so does the checkout tier ──
+// A hardcoded "max" checkout would send a post-cap member to a plan page for
+// something they were never given — the promotion quietly costing real sales.
+ok(C.convCopyFor("th", promo) === C.CONV_COPY.th, "convCopyFor: promotion cohort gets the Max copy");
+ok(C.convCopyFor("th", "trial") === C.STANDARD_COPY.th, "convCopyFor: post-cap signup gets the Premium copy");
+ok(C.convCopyFor("en", promo) === C.CONV_COPY.en, "convCopyFor: english promotion copy");
+ok(C.convCopyFor("xx", promo) === C.CONV_COPY.en, "convCopyFor: unknown language falls back to english");
+ok(C.convCheckoutTier(promo) === "max", "convCheckoutTier: promo checkout opens Max");
+ok(C.convCheckoutTier("trial") === "premium", "convCheckoutTier: post-cap checkout opens Premium");
+ok(C.convCheckoutTier("max") === "premium", "convCheckoutTier: non-trial defaults to Premium, never silently Max");
+ok(C.trialPriceThb(promo) === MAX_PRICE && C.trialPriceThb("trial") === STD_PRICE, "trialPriceThb: both tiers, formatted from PLAN_PRICE");
+ok(C.trialTierName(promo) === "Max" && C.trialTierName("trial") === "Premium", "trialTierName: both tiers");
 
 // ══ v3: Personalized Proof Funnel ══
 ok(typeof C.proofStats === "function" && typeof C.proofPopupEligible === "function" && typeof C.firstPaidActivation === "function" && typeof C.personalizedBody === "function" && typeof C.logConvEvent === "function" && !!C.ACTIVATION_COPY, "v3 exports present");
@@ -101,34 +187,50 @@ localStorage.setItem("tg_atip_outcomes", "[]");
 ps = C.proofStats();
 ok(ps.improvedCount === 0 && ps.bestDelta === null, "proofStats: empty data -> honest zeros/nulls");
 
-// convD7 via convPopupFor: only day 5-9 + real proof + unseen + slot free
+// convD7 via convPopupFor: day 5-6 + real proof + unseen + slot free
 localStorage.setItem("tg_atip_outcomes", JSON.stringify([{ resolved: true, outcome: { improved: true, delta: 9 } }]));
-p = C.convPopupFor(prof(7), "trial");
-ok(p && p.id === "d7" && p.kind === "d7proof" && p.proof.bestDelta === 9, "v3: day 8 + proof -> d7proof popup (fills the quiet phase)");
-ok(C.convPopupFor(prof(12), "trial") === null, "v3: day 13 -> no d7 popup (outside window)");
+p = C.convPopupFor(prof(4), "trial");
+ok(p && p.id === "d7" && p.kind === "d7proof" && p.proof.bestDelta === 9, "v3: day 5 + proof -> d7proof popup");
+ok(C.convPopupFor(prof(3), "trial") === null, "v3: day 4 + proof -> no d7 popup (window opens at d5)");
+// Day 7 belongs to the closing popup even when there is proof to show: two
+// sales popups on one day is the nudge fatigue the sell gate exists to stop.
+// (Clear the dismissal memory first — the test above deliberately dismissed
+// "closing", and a dismissed last-day popup must stay dismissed.)
+localStorage.removeItem("tg_conv_seen");
+ok(C.convPopupFor(prof(6), "trial") && C.convPopupFor(prof(6), "trial").kind === "closing", "v3: day 7 + proof -> closing still wins over d7proof");
+C.markConvSeen("closing");
+ok(C.convPopupFor(prof(6), "trial") === null, "v3: day 7 dismissed -> nothing, and d7proof does not take over its slot");
 localStorage.setItem("tg_atip_outcomes", "[]");
-ok(C.convPopupFor(prof(7), "trial") === null, "v3: day 8 without proof -> nothing (no evidence, no pitch)");
+ok(C.convPopupFor(prof(4), "trial") === null, "v3: day 5 without proof -> nothing (no evidence, no pitch)");
 
 // 1-sell-per-day governor
 localStorage.setItem("tg_atip_outcomes", JSON.stringify([{ resolved: true, outcome: { improved: true, delta: 9 } }]));
+p = C.convPopupFor(prof(4), "trial");
 ok(C.sellSlotToday() === 1, "v3: sell slot consumed by the d7 popup");
-ok(C.proofPopupEligible(prof(7), "trial") === null, "v3: proof popup blocked when today's slot is used");
+ok(C.proofPopupEligible(prof(4), "trial") === null, "v3: proof popup blocked when today's slot is used");
 localStorage.setItem("tg_sell_day", JSON.stringify({ d: new Date().toDateString(), used: 0 }));
-pp = C.proofPopupEligible(prof(7), "trial");
+let pp = C.proofPopupEligible(prof(4), "trial");
 ok(pp && pp.id === "proof" && pp.kind === "proof", "v3: proof popup fires on a freed slot (win moment)");
-ok(C.proofPopupEligible(prof(7), "trial") === null, "v3: proof popup capped at once per 7 days");
-ok(C.proofPopupEligible(prof(7), "premium") === null, "v3: proof popup never for paying members");
+ok(C.proofPopupEligible(prof(4), "trial") === null, "v3: proof popup capped at once per 7 days");
+ok(C.proofPopupEligible(prof(4), "premium") === null, "v3: proof popup never for paying members");
 localStorage.setItem("tg_atip_outcomes", JSON.stringify([{ resolved: true, outcome: { improved: true, delta: 2 } }]));
 localStorage.setItem("tg_sell_day", JSON.stringify({ d: new Date().toDateString(), used: 0 }));
 localStorage.setItem("tg_proof_last", "0");
-ok(C.proofPopupEligible(prof(7), "trial") === null, "v3: bestDelta < 5 -> no proof popup (bar is real improvement)");
+ok(C.proofPopupEligible(prof(4), "trial") === null, "v3: bestDelta < 5 -> no proof popup (bar is real improvement)");
 
 // personalized copy: real numbers when proof exists, original copy otherwise
-ok(C.personalizedBody("d7proof", "en", { improvedCount: 2, bestDelta: 12, sessions: 5 }, "GEN").includes("+12%"), "v3: en body carries the real number");
-ok(C.personalizedBody("d7proof", "th", { improvedCount: 1, bestDelta: 12 }, "GEN").includes("+12%") && /[ก-๙]/.test(C.personalizedBody("d7proof", "th", { improvedCount: 1, bestDelta: 12 }, "GEN")), "v3: th body Thai + number");
-ok(C.personalizedBody("d7proof", "zh", { improvedCount: 1, bestDelta: 12 }, "GEN").includes("+12%"), "v3: zh body carries the number");
-ok(C.personalizedBody("halfway", "en", { improvedCount: 0, bestDelta: null }, "GENERIC") === "GENERIC", "v3: no proof -> honest generic fallback (never a proud zero)");
-ok(C.personalizedBody("closing", "en", { improvedCount: 3, bestDelta: 8, sessions: 23 }, null).includes("23 sessions"), "v3: closing personalized names sessions when known");
+ok(C.personalizedBody("d7proof", "en", { improvedCount: 2, bestDelta: 12, sessions: 5 }, "GEN", promo).includes("+12%"), "v3: en body carries the real number");
+ok(C.personalizedBody("d7proof", "th", { improvedCount: 1, bestDelta: 12 }, "GEN", promo).includes("+12%") && /[ก-๙]/.test(C.personalizedBody("d7proof", "th", { improvedCount: 1, bestDelta: 12 }, "GEN", promo)), "v3: th body Thai + number");
+ok(C.personalizedBody("d7proof", "zh", { improvedCount: 1, bestDelta: 12 }, "GEN", promo).includes("+12%"), "v3: zh body carries the number");
+ok(C.personalizedBody("closing", "en", { improvedCount: 0, bestDelta: null }, "GENERIC", promo) === "GENERIC", "v3: no proof -> honest generic fallback (never a proud zero)");
+ok(C.personalizedBody("closing", "en", { improvedCount: 3, bestDelta: 8, sessions: 23 }, null, promo).includes("23 sessions"), "v3: closing personalized names sessions when known");
+for (const lang of ["th", "en", "zh"]) {
+  const promoBody = C.personalizedBody("closing", lang, { improvedCount: 2, bestDelta: 11, sessions: 4 }, null, promo);
+  ok(promoBody.includes(MAX_PRICE) && promoBody.includes("Max"), `v3: ${lang} promo closing body quotes Max at ${MAX_PRICE}`);
+  const stdBody = C.personalizedBody("closing", lang, { improvedCount: 2, bestDelta: 11, sessions: 4 }, null, "trial");
+  ok(stdBody.includes(STD_PRICE) && stdBody.includes("Premium") && !stdBody.includes("Max"),
+    `v3: ${lang} post-cap closing body quotes Premium at ${STD_PRICE} and never mentions Max`);
+}
 
 // post-purchase activation: exactly once, paid only, admins excluded
 ok(C.firstPaidActivation("premium") === true, "v3: first paid moment fires activation");

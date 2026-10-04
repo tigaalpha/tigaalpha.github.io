@@ -2,7 +2,7 @@ import { L } from "./i18n";
 import { CHAT_TTS_ENABLED } from "./chat-ui";
 import {
   fmtPrice, planPriceByCur, yearPriceByCur, b2bPriceByCur, b2bYearPriceByCur,
-  CURRENCY_BY_LANG, trialDaysLeft,
+  CURRENCY_BY_LANG, trialDaysLeft, isTrialPlan,
 } from "./payment";
 /* ── PricingOverlay ──
    The "Choose Your Plan" modal (pricingOpen), extracted verbatim from
@@ -18,7 +18,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
           <div className="setcard pricing" onClick={e => e.stopPropagation()}>
             <div className="sethdr"><span>✦ {lc.prTitle}</span><button className="cbtn" onClick={() => setPricingOpen(false)}>{lc.close}</button></div>
             <div className="setbody">
-              {plan === "trial" && trialDaysLeft(profile) > 0 && (
+              {isTrialPlan(plan) && trialDaysLeft(profile) > 0 && (
                 <div style={{ background: "rgba(217,119,87,.12)", border: "1.5px solid #d97757", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
                   {lc.trialBanner} · {trialDaysLeft(profile)} {lc.trialDaysLeft}
                 </div>
@@ -41,7 +41,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                   : null;
                 const buyBtn = (tier) => plan === tier
                   ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => startCheckout(tier, yr ? "year" : "month")}>{(plan === "free" || plan === "trial") ? lc.prGet : lc.prSwitch}</button>;
+                  : <button className="songbtn go" onClick={() => startCheckout(tier, yr ? "year" : "month")}>{(plan === "free" || isTrialPlan(plan)) ? lc.prGet : lc.prSwitch}</button>;
                 // Max Family savings vs 10 × individual Max
                 const mxfMaxUnit = planPriceByCur(cur, "max");
                 const mxfFamilyUnit = planPriceByCur(cur, "maxfamily");
@@ -122,7 +122,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                       {plan === "premium"
                         ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
                         : <button className="songbtn go" style={{ fontWeight: 900 }} onClick={() => startCheckout("premium", yr ? "year" : "month")}>
-                            {(plan === "free" || plan === "trial")
+                            {(plan === "free" || isTrialPlan(plan))
                               ? (lang === "th" ? "🚀 สมัคร Premium เลย" : lang === "zh" ? "🚀 立即订阅 Premium" : "🚀 Get Premium Now")
                               : lc.prSwitch}
                           </button>}
@@ -196,7 +196,7 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                     <div className={`prtier free${plan === "free" ? " cur" : ""}`}>
                       <div className="prtier-top"><span className="prtier-nm">🎁 Free</span><span className="prtier-price">{freeLabel}</span></div>
                       <ul className="prfeat"><li>{lc.prFree1}</li><li>{lc.prFree2}</li></ul>
-                      {plan !== "free" && plan !== "trial" && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
+                      {plan !== "free" && !isTrialPlan(plan) && <button className="songbtn ghost" onClick={() => choosePlan("free")}>{lc.prDowngrade}</button>}
                     </div>
                     </>)}
                   </>

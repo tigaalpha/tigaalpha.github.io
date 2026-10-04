@@ -1,0 +1,3 @@
+[
+  {"id":"ferrari_le_sommeil","era":"romantic","composer":"G. Ferrari","died":1921,"year":1921,"work":"Le Sommeil","en":"Le Sommeil (Ferrari)","th":"เลอ ซอมเมย์ – การหลับสนิท (แฟร์รารี)","zh":"睡眠（费拉里）","key":"Eb","meter":"3/4","bpm":79,"pickup":1,"bars":["F#4:0.5 F#4:0.5","G4:0.5 G4:0.25 G#4:0.25 A#4:0.5 G4:0.5 A#4:0.25 G4:0.25 A#4:0.25 C5:0.25","D5:3","R:3","R:3","R:0.25 F4:0.5 F4:0.25 A#4:0.25 A#4:0.5 A#4:0.25 F5:0.25 C5:0.5 C5:0.25","D5:0.5 A#4:0.5 A#4:1 A#4:0.25 C5:0.5 D5:0.25","G5:0.5 G5:0.5 F5:0.5 F5:0.5 D#5:0.5 D#5:0.5"],"conf":"high","src":"openscore:scores/Ferrari,_Gabrielle/_/Le_Sommeil/lc6567603.mxl","license":"CC0 1.0 (OpenScore Lieder transcription of a public-domain score)"}
+]

@@ -101,10 +101,31 @@ export function PayQrImg({ src, alt, lang }) {
 export function isPremium() { try { return localStorage.getItem("tg_premium") === "1"; } catch (e) { return false; } }
 export function setPremiumLS(v) { try { localStorage.setItem("tg_premium", v ? "1" : "0"); } catch (e) {} }
 /* Subscription tier — switchable any time: "free" | "premium" | "family" | "max". */
+/* A TRIAL is a fourth and fifth value, not a flag on "free": "trial" is the
+   ordinary seven-day Premium trial, and TRIAL_MAX is the promotion cohort's
+   seven-day MAX trial (the first PROMO_MAX_USERS signups ever). They are
+   deliberately separate strings so no single boolean can accidentally widen
+   the promotion — anything that must apply to both uses isTrialPlan(). */
+export const TRIAL_MAX = "trialmax";
 export function getPlan() { try { return localStorage.getItem("tg_plan") || (isPremium() ? "premium" : "free"); } catch (e) { return "free"; } }
 export function setPlanLS(p) { try { localStorage.setItem("tg_plan", p); localStorage.setItem("tg_premium", p === "free" ? "0" : "1"); } catch (e) {} }
-// Voice Mode (AI voice teacher) is a Max / Max Family exclusive.
-export function isMaxPlan(p) { const v = p || getPlan(); return v === "max" || v === "maxfamily"; }
+/* Voice Mode (AI voice teacher) is a Max / Max Family exclusive — and so is
+   the PROMOTION trial, the first PROMO_MAX_USERS signups ever, who get seven
+   days of the FULL Max plan. Everyone after the cap gets the same seven days
+   at Premium (see effectivePlan, which is what decides which trial a profile
+   is in).
+
+   This is the single switch every Max-only surface reads (App.tsx voice mode
+   + monthly freezes, play-along-progress.ts maxOnly song locks,
+   ProfileDashboardPanel), so accepting TRIAL_MAX here unlocks all of them at
+   once and there is no second place to keep in sync.
+
+   It accepts TRIAL_MAX and NOT plain TRIAL — that distinction is the whole
+   point of the promotion, and collapsing them would hand Max to every
+   signup forever. Anything that asks "are they still inside their trial?"
+   must use isTrialPlan(), which is true for BOTH; anything that asks "do they
+   get Max features?" must use this. */
+export function isMaxPlan(p) { const v = p || getPlan(); return v === "max" || v === "maxfamily" || v === TRIAL_MAX; }
 /* The published price list. These three tables are duplicated in the
    supabase/functions/stripe-checkout edge function, which is what actually
    charges the card — CHANGE BOTH TOGETHER. A sale is refused outright if they
@@ -146,37 +167,57 @@ export function b2bYearPriceByCur(cur: string, tier: string): number {
   return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
 }
 export const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
-/* How long a free trial runs — thirty days, the same for everyone.
+/* How long a free trial runs — SEVEN days for everyone. Seven is the LENGTH;
+   what the seven days are WORTH is the promotion (see below).
 
-   It used to be two numbers: ninety days for the founding members (the first
-   100 signups ever — profiles.founding_member, set once at signup by the
-   handle_new_user() trigger, see supabase-founding-member-trial-migration.sql),
-   cut to thirty, against seven for everyone after them. Two numbers meant the
-   app advertised two different trials depending on who was reading, which is
-   the kind of detail a buyer notices and does not ask about — they just stop
-   trusting the page. One number, and the banner, the pricing card and the
-   actual entitlement finally agree.
+   Two things used to live here and both are gone:
 
-   Thirty days of Premium-level, uncapped access is real AI cost per head. It
-   is a deliberate trade: the plan is a few hundred committed learners rather
-   than a crowd, and a month is long enough for someone to build a practice
-   habit and see their own progress before being asked to pay.
+   It used to be two LENGTHS — ninety days for the founding members (the
+   first 100 signups), then thirty for everyone. Two lengths meant the page
+   advertised a different trial depending on who was reading, which is the
+   kind of detail a buyer notices and does not ask about — they just stop
+   trusting the page. One length, for everyone.
+
+   What replaced them is a TIER split rather than a length split: the first
+   PROMO_MAX_USERS signups ever (profiles.founding_member, set once at signup
+   by the handle_new_user() trigger — see supabase-promo-max-10000-migration.sql)
+   get seven days at Max; everyone after the cap gets the same seven days at
+   Premium. The cap is the owner's growth play (2026-10-04): Max is uncapped
+   AI, so it is the most expensive thing to give away, and it is given away to
+   the first 10,000 signups to get the library in front of as many people as
+   possible and let word of mouth do the rest.
 
    The length is NOT stored anywhere — effectivePlan() measures it from
    profiles.created_at on every read — so this number changes the trial for
-   existing accounts too, not only new ones. Raising it hands a month back to
-   anyone who signed up within the last thirty days. */
-export const TRIAL_DAYS_FOUNDING = 30;   // the first 100 signups ever
-export const TRIAL_DAYS_STANDARD = 30;   // everyone after them — same deal
+   existing accounts too, not only new ones. */
+export const TRIAL_DAYS_FOUNDING = 7;   // promotion members
+export const TRIAL_DAYS_STANDARD = 7;   // everyone after the cap — same length, Premium tier
+/* The promotion cap. This number lives HERE and in the handle_new_user()
+   trigger's backfill count in supabase-promo-max-10000-migration.sql — change
+   both in the same release, or the app will keep handing out Max to signups
+   the database has already stopped marking as promotion members. The trigger
+   is the one that decides; this constant is what the app and the docs read. */
+export const PROMO_MAX_USERS = 10000;
 export function trialLenDays(p) { return p && p.founding_member ? TRIAL_DAYS_FOUNDING : TRIAL_DAYS_STANDARD; }
+/* Inside a trial of EITHER tier. This is what every "is the countdown still
+   running / should the trial funnel fire" question must ask — the old code
+   wrote `plan === "trial"` inline in a dozen places, which would have silently
+   skipped the promotion cohort the moment it became its own plan string. */
+export function isTrialPlan(p) { return p === "trial" || p === TRIAL_MAX; }
 // the live, authoritative plan for a profile row (admins = full; paid only while not expired)
 export function effectivePlan(p) {
   if (!p) return "free";
   if (p.is_admin) return "maxfamily";
   if (p.plan && p.plan !== "free" && p.plan_until && new Date(p.plan_until).getTime() > Date.now()) return p.plan;
-  if (p.created_at && (Date.now() - new Date(p.created_at).getTime()) < trialLenDays(p) * 24 * 60 * 60 * 1000) return "trial";
+  if (p.created_at && (Date.now() - new Date(p.created_at).getTime()) < trialLenDays(p) * 24 * 60 * 60 * 1000) return promoTrialPlan(p);
   return "free";
 }
+/* Which of the two trials this profile is in. Kept separate from effectivePlan
+   because it is the ONLY place the Max/Premium split is decided — every Max
+   gate in the app reaches it through isMaxPlan(TRIAL_MAX) downstream, so
+   there is exactly one line to change if the promotion is ever switched off
+   or its cap moved. */
+export function promoTrialPlan(p) { return p && p.founding_member ? TRIAL_MAX : "trial"; }
 // days remaining in the trial (1–trialLenDays), or -1 if not in trial / expired
 export function trialDaysLeft(p) {
   if (!p || !p.created_at) return -1;
@@ -191,6 +232,11 @@ export function planBadge(p) {
     : p === "max" ? { t: "👑 MAX", c: "max" }
     : p === "family" ? { t: "👨‍👩‍👧 FAMILY", c: "fam" }
     : p === "premium" ? { t: "⭐ PRO", c: "" }
+    // The promotion cohort gets a badge that names BOTH facts — they are on a
+    // trial AND it is Max. Showing plain "🎁 TRIAL" to the first 10,000 signups
+    // would hide the thing being advertised; showing "👑 MAX" alone would stop
+    // them knowing the trial has an end date.
+    : p === TRIAL_MAX ? { t: "🎁 MAX TRIAL", c: "trial" }
     : p === "trial" ? { t: "🎁 TRIAL", c: "trial" }
     : null;
 }

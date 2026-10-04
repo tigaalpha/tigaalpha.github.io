@@ -2874,6 +2874,11 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .favbtn{position:absolute;top:7px;right:34px;font-size:18px;line-height:1;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px;z-index:2}
 .favbtn.on{color:#d97757;text-shadow:0 0 10px #d9775766}
 .songempty{grid-column:1/-1;text-align:center;color:var(--muted);font-family:var(--f-app);font-size:14px;padding:24px}
+/* The "our own" shelf: a line saying how many pieces there are and that they are ours, and
+   the Original badge on every card. The badge uses the same accent the section headings use,
+   so a reader can tell at a glance that this shelf is not someone else's repertoire. */
+.songorigbar{font-family:var(--f-app);font-size:12px;color:var(--muted);padding:0 14px 10px;line-height:1.5}
+.songcard-og{font-size:9.5px;font-weight:700;letter-spacing:.4px;padding:1px 6px;border-radius:999px;color:#d97757;border:1px solid #d9775755;background:#d9775714}
 .aicreate{display:block;width:calc(100% - 28px);margin:0 14px 10px;padding:11px;border-radius:13px;border:1px solid #d9775755;background:var(--card3);color:var(--text);font-family:var(--f-app);font-size:13px;font-weight:700;cursor:pointer}
 .aicreate:active{transform:scale(.99)}
 .aicreate-hint{font-family:var(--f-app);font-size:13px;color:var(--muted);margin:0 0 10px;line-height:1.4}

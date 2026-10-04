@@ -1,20 +1,25 @@
 /* ── use-conversion.ts ──
-   Trial-conversion funnel (owner-approved strategy 2026-09-19: "turn
-   signed-in members into paying members within 30 days"). The trial is a
-   full-featured Premium month, so there is no quota wall to trip over —
-   the funnel therefore runs on DAY-BASED moments instead:
+   Trial-conversion funnel (owner decision 2026-10-04). The trial is now SEVEN
+   days at FULL MAX level (see isMaxPlan in payment.tsx), so the day-based
+   skeleton was re-cut to fit a week:
 
-     d1–3   welcome    meet ครู TIGA AI, set the 4-week expectation
-     d15–28 halfway    progress proof + "continue before the trial ends and
-                        today's price is locked for good" (decision 2A:
-                        no discount, price-lock framing only)
-     d29–30 closing    show exactly what expires with the trial, CTA opens
-                        the PromptPay CheckoutModal in one tap (3A)
+     d1–3   welcome    meet ครู TIGA AI, set the 7-day expectation
+     d5–6   d7proof    the learner's OWN before/after numbers, only when
+                        there is real evidence behind them (never a proud +0)
+     d7     closing    "today is the LAST day" + exactly what Max unlocks,
+                        CTA opens the CheckoutModal for Max in one tap (3A)
      expired win-back  teacher still remembers you — nothing is lost (4A)
 
+   The old thirty-day ladder had a halfway price-lock at d15–28 that a
+   seven-day trial can never reach, so it was removed from the probe instead
+   of left as dead code pretending to run.
+
    Every popup is dismissed-once-per-trial via localStorage, never re-fires
-   for paying members (plan !== "trial"/"free") or admins (effectivePlan
-   maps them to "maxfamily", so they never match either branch).
+   for paying members (plan is neither a trial nor "free") or admins
+   (effectivePlan maps them to "maxfamily", so they never match either
+   branch). Both trial tiers — "trial" (Premium) and TRIAL_MAX (the first
+   10,000 signups) — go through the whole funnel, hence isTrialPlan() rather
+   than a string compare.
 
    Also owns the one-time song-creation GIFT for free members (decision 1A):
    the free card advertises creation as locked; the gift lets a free member
@@ -22,42 +27,109 @@
    earned rather than gated. Lifetime-once via localStorage, deliberately
    separate from the day-bucketed tg_usage counters (those reset daily). ── */
 
-import { trialLenDays } from "./payment";
+import { trialLenDays, isTrialPlan, TRIAL_MAX, PLAN_PRICE } from "./payment";
 
-export const CONV_COPY = {
-  th: {
-    bannerUrgent: "⏳ อีก {n} วัน — หลังจบคุณจะเสีย: ครู AI ไม่จำกัด · สร้างเพลง · เกม · สมุดพก",
-    bannerUrgentBtn: "รักษาสิทธิ์",
-    welcome: { ic: "🎓", title: "ครู TIGA AI มาแนะนำตัว", body: "ยินดีต้อนรับสู่ TIGA.AI!\n\n30 วันข้างหน้าคุณใช้ได้เต็มรูปแบบ — ครู AI ไม่จำกัด สร้างเพลงได้ เกมทุกเกมเล่นได้ ผมจะพาเรียนทีละขั้นแบบครูตัวจริง แล้วสรุปความก้าวหน้าให้ฟังทุกสัปดาห์", cta: "🚀 เริ่มสัปดาห์แรกกันเลย" },
-    halfway: { ic: "📈", title: "ครึ่งทางแล้ว — ไปได้ดีมาก!", body: "คุณเดินผ่านครึ่งแรกของโปรแกรม 30 วันแล้ว ทุกสถิติ ใบประกาศ และกราฟพัฒนาการของคุณถูกเก็บไว้ต่อเนื่อง\n\nสมาชิกที่ต่ออายุก่อนทดลองหมด จะล็อกราคาเดิมไว้ได้ตลอดไป", cta: "⭐ ดูแพ็กเกจสมาชิก" },
-    closing: { ic: "⏳", title: "ใกล้หมดแล้ว — สิ่งที่กำลังจะหายไป", body: "ทดลองใช้ของคุณใกล้จบแล้ว หลังจากนี้:", items: "♾️ ครู AI ไม่จำกัด\n🎵 สร้างเพลง AI\n🎮 เกมดนตรีทุกเกม\n📋 สมุดพก + ใบประกาศ", cta: "💳 โอนเงินสมัครเลย (พร้อมเพย์)", alt: "ดูทุกแพ็กเกจ" },
-    winback: { ic: "🧠", title: "ครู TIGA AI ยังจำคุณได้", body: "ทุกความก้าวหน้า ใบประกาศ และสถิติของคุณยังเก็บอยู่ครบถ้วน กลับมาเรียนต่อได้ทันทีเลย — ไม่มีอะไรหายไป", cta: "💙 กลับมาเรียนต่อ" },
-    // v3 kinds — body is normally overridden by personalizedBody() with the
-    // learner's own numbers; these bodies are the defensive generic fallback.
-    d7proof: { ic: "🏅", title: "พิสูจน์แล้วในสัปดาห์แรก", body: "คำแนะนำของครู TIGA ได้ผลจริงกับการซ้อมของคุณ\n\nล็อกราคา 1,490฿ ไว้ตอนนี้ — ราคาเดิมตลอดไป ไม่มีขึ้น", cta: "⭐ ล็อกราคา 1,490฿ ตลอดไป" },
-    proof: { ic: "📈", title: "ครูคนนี้ทำให้คุณดีขึ้นจริง", body: "จุดที่เคยติดของคุณดีขึ้นจากการซ้อมจริง\n\nล็อกสิทธิ์ครูคนนี้ไว้หลังทดลองจบ — 1,490฿/เดือน ราคาเดิมตลอดไป", cta: "⭐ ล็อกสิทธิ์ไว้" },
+/* ══ WHICH COPY A TRIAL GETS ══════════════════════════════════════════════
+   The promotion splits the trial into two tiers, so the copy has to split too.
+   CONV_COPY speaks for the PROMOTION cohort (first 10,000 signups): they are
+   genuinely on Max, so naming Max and quoting ฿3,999 is honest. STANDARD_COPY
+   speaks for everyone AFTER the cap: same seven days, ⭐Premium at ฿1,490.
+   Reading the wrong table out loud is not a cosmetic bug — it tells a Premium
+   member to "keep Max", which is a plan they never had.
+
+   Prices are never typed as literals. Both come from PLAN_PRICE, the same
+   table the checkout charges from, so a price change in one place cannot
+   leave the funnel quoting a number nobody was ever offered. */
+const fmtThb = (n) => n.toLocaleString("en-US");   // 1490 -> "1,490"
+export function trialPriceThb(plan) { return fmtThb(PLAN_PRICE[plan === TRIAL_MAX ? "max" : "premium"]); }
+export function trialTierName(plan) { return plan === TRIAL_MAX ? "Max" : "Premium"; }
+/* The plan the closing CTA should open checkout for — the tier the member is
+   actually on. Hardcoding "max" would send a post-cap member to a plan page
+   for something they were never given. */
+export function convCheckoutTier(plan) { return plan === TRIAL_MAX ? "max" : "premium"; }
+export function convCopyFor(lang, plan) {
+  return (plan === TRIAL_MAX ? CONV_COPY : STANDARD_COPY)[lang]
+      || (plan === TRIAL_MAX ? CONV_COPY : STANDARD_COPY).en;
+}
+
+/* ── the funnel copy, built from the tier ──────────────────────────────────
+   ONE table, parameterised by (tier name, price, what-you-lose, perks). The
+   old code had the prices typed in as literals — "3,999" in eight places —
+   which is exactly how the previous build ended up quoting 1,490฿ (the
+   Premium price) while giving away a Max trial. They now come from PLAN_PRICE,
+   the same object the checkout charges from, so there is no second copy of the
+   number to forget.
+
+   Tier words and prices are the ONLY differences between the promotion cohort
+   (Max) and everyone after the 10,000 cap (Premium). The shape of the
+   messages — welcome, first-week proof, last-day warning, win-back — is
+   identical, because the promotion changes what the seven days are worth, not
+   what the seven days are. */
+function copyTable(t) {
+  const { name, price, perks } = t;
+  return {
+    th: {
+      bannerUrgent: `⏳ อีก {n} วัน — หลังจบ ${name} จะหมด: ${perks.th}`,
+      bannerUrgentBtn: `ต่อ ${name}`,
+      winbackAlt: "ดูทุกแพ็กเกจ",
+      welcome: { ic: "🎓", title: "ครู TIGA AI มาแนะนำตัว", body: `ยินดีต้อนรับสู่ TIGA.AI!\n\n7 วันข้างหน้าคุณได้ ${name} เต็มรูปแบบ — ครู AI ไม่จำกัด ${perks.th} และเกมทุกเกม ผมจะพาเรียนทีละขั้นแบบครูตัวจริง`, cta: "🚀 เริ่มวันแรกกันเลย" },
+      closing: { ic: "⏳", title: "วันสุดท้ายของการทดลองเล่นฟรี 7 วัน", body: `วันนี้เป็นวันสุดท้ายของการทดลองเล่นฟรี 7 วัน หากอยากใช้แพ็กเกจ ${name} ต่อ กรุณาจ่ายเงินต่อเดือน ${price} บาท`, items: perks.items, cta: `💳 ต่อ ${name} ${price} บาท/เดือน`, alt: "ดูทุกแพ็กเกจ" },
+      winback: { ic: "🧠", title: "ครู TIGA AI ยังจำคุณได้", body: "ทุกความก้าวหน้า ใบประกาศ และสถิติของคุณยังเก็บอยู่ครบถ้วน กลับมาเรียนต่อได้ทันทีเลย — ไม่มีอะไรหายไป", cta: "💙 กลับมาเรียนต่อ" },
+      // v3 kinds — body is normally overridden by personalizedBody() with the
+      // learner's own numbers; these bodies are the defensive generic fallback.
+      d7proof: { ic: "🏅", title: "พิสูจน์แล้วในสัปดาห์แรก", body: `คำแนะนำของครู TIGA ได้ผลจริงกับการซ้อมของคุณ\n\n${name} ต่อได้วันนี้ที่ ${price} บาท/เดือน`, cta: `⭐ ต่อ ${name} ${price} บาท/เดือน` },
+      proof: { ic: "📈", title: "ครูคนนี้ทำให้คุณดีขึ้นจริง", body: `จุดที่เคยติดของคุณดีขึ้นจากการซ้อมจริง\n\nเก็บครูคนนี้ไว้หลังทดลองจบ — ${name} ${price} บาท/เดือน`, cta: `⭐ ต่อ ${name} ไว้เลย` },
+    },
+    en: {
+      bannerUrgent: `⏳ {n} days left — then ${name} ends: ${perks.en}`,
+      bannerUrgentBtn: `Keep ${name}`,
+      winbackAlt: "Browse all plans",
+      welcome: { ic: "🎓", title: "Meet Teacher TIGA AI", body: `Welcome to TIGA.AI!\n\nFor the next 7 days you get the full ${name} plan — unlimited AI teacher, ${perks.en}, and every game. I'll guide you step by step like a real teacher.`, cta: "🚀 Start day one" },
+      closing: { ic: "⏳", title: "Last day of your 7-day free trial", body: `Today is the last day of your 7-day free trial. To keep the ${name} plan, pay ${price} baht per month.`, items: perks.itemsEn, cta: `💳 Keep ${name} — ฿${price}/month`, alt: "Browse all plans" },
+      winback: { ic: "🧠", title: "Teacher TIGA AI still remembers you", body: "All your progress, certificates and stats are exactly where you left them. You can continue right where you stopped — nothing is lost.", cta: "💙 Continue learning" },
+      d7proof: { ic: "🏅", title: "Proven in week one", body: `Teacher TIGA's coaching is already working on your real practice.\n\nKeep ${name} from today at ${price} baht per month.`, cta: `⭐ Keep ${name} — ${price}฿/month` },
+      proof: { ic: "📈", title: "The coaching is working", body: `Your trouble spots are improving from real practice.\n\nKeep this teacher after the trial — ${name} at ${price} baht per month.`, cta: `⭐ Keep ${name}` },
+    },
+    zh: {
+      bannerUrgent: `⏳ 还剩 {n} 天 — 到期后 ${name} 结束：${perks.zh}`,
+      bannerUrgentBtn: `续费 ${name}`,
+      winbackAlt: "查看全部套餐",
+      welcome: { ic: "🎓", title: "认识TIGA AI老师", body: `欢迎来到TIGA.AI！\n\n接下来7天你将获得完整 ${name} 套餐——AI老师不限次、${perks.zh}、以及所有游戏。我会像真正的老师一样一步步带你学。`, cta: "🚀 开始第一天" },
+      closing: { ic: "⏳", title: "7 天免费试用的最后一天", body: `今天是 7 天免费试用的最后一天。如需继续使用 ${name} 套餐，请每月支付 ${price} 泰铢。`, items: perks.itemsZh, cta: `💳 续费 ${name} ฿${price}/月`, alt: "查看全部套餐" },
+      winback: { ic: "🧠", title: "TIGA AI老师还记得你", body: "你的全部进度、证书和统计都原样保存，随时可以接着学——什么都没有丢失。", cta: "💙 继续学习" },
+      d7proof: { ic: "🏅", title: "第一周已验证", body: `TIGA 老师的指导对你的真实练习已经见效。\n\n今天起以 ${price} 泰铢/月 继续使用 ${name}。`, cta: `⭐ 续费 ${name} ฿${price}/月` },
+      proof: { ic: "📈", title: "指导见效了", body: `你的薄弱点正在真实练习中改善。\n\n试用结束后保留这位老师——${name} ${price} 泰铢/月。`, cta: `⭐ 续费 ${name}` },
+    },
+  };
+}
+
+/* The promotion cohort: the first 10,000 signups, on Max. */
+export const CONV_COPY = copyTable({
+  name: "Max",
+  price: fmtThb(PLAN_PRICE.max),
+  perks: {
+    th: "ครูเสียงพูดคุยสด · เพลง Exclusive · Daily Mentor",
+    en: "a live voice teacher, every exclusive piece, Daily Mentor",
+    zh: "实时语音老师、全部独家曲目、Daily Mentor",
+    items: "♾️ ครู AI ไม่จำกัด\n🎙️ ครูเสียงพูดคุยสด\n👑 เพลง Exclusive ทั้งหมด\n📊 Daily Mentor + รายงานรายสัปดาห์",
+    itemsEn: "♾️ Unlimited AI teacher\n🎙️ Live voice teacher\n👑 Every exclusive piece\n📊 Daily Mentor + weekly AI report",
+    itemsZh: "♾️ AI老师不限次\n🎙️ 实时语音老师\n👑 全部独家曲目\n📊 Daily Mentor + 每周AI报告",
   },
-  en: {
-    bannerUrgent: "⏳ {n} days left — then you lose: unlimited AI teacher · song creation · games · practice book",
-    bannerUrgentBtn: "Lock it in",
-    welcome: { ic: "🎓", title: "Meet Teacher TIGA AI", body: "Welcome to TIGA.AI!\n\nFor the next 30 days everything is fully unlocked — unlimited AI teacher, song creation, every game. I'll guide you step by step like a real teacher and report your progress every week.", cta: "🚀 Start week one" },
-    halfway: { ic: "📈", title: "Halfway there — great pace!", body: "You're past the first half of the 30-day program. Every stat, certificate and progress chart you've earned keeps building up.\n\nMembers who continue before the trial ends lock in today's price for good.", cta: "⭐ See membership plans" },
-    closing: { ic: "⏳", title: "Almost over — what you're about to lose", body: "Your free trial ends soon. After that:", items: "♾️ Unlimited AI teacher\n🎵 AI song creation\n🎮 Every music game\n📋 Practice book + certificates", cta: "💳 Pay & continue (PromptPay)", alt: "Browse all plans" },
-    winback: { ic: "🧠", title: "Teacher TIGA AI still remembers you", body: "All your progress, certificates and stats are exactly where you left them. You can continue right where you stopped — nothing is lost.", cta: "💙 Continue learning" },
-    d7proof: { ic: "🏅", title: "Proven in week one", body: "Teacher TIGA's coaching is already working on your real practice.\n\nLock in 1,490฿ now — this price forever, never raised for you.", cta: "⭐ Lock 1,490฿ forever" },
-    proof: { ic: "📈", title: "The coaching is working", body: "Your trouble spots are improving from real practice.\n\nKeep this teacher after the trial — 1,490฿/mo, this price forever.", cta: "⭐ Lock it in" },
+});
+
+/* Everyone after the cap: the same seven days, at ⭐Premium. */
+export const STANDARD_COPY = copyTable({
+  name: "Premium",
+  price: fmtThb(PLAN_PRICE.premium),
+  perks: {
+    th: "สร้างเพลง AI · เกมดนตรีทุกเกม · สมุดพก",
+    en: "AI song creation, every music game, the practice book",
+    zh: "AI作曲、全部音乐游戏、练习册",
+    items: "♾️ ครู AI ไม่จำกัด\n🎵 สร้างเพลง AI\n🎮 เกมดนตรีทุกเกม\n📋 สมุดพก + ใบประกาศ",
+    itemsEn: "♾️ Unlimited AI teacher\n🎵 AI song creation\n🎮 Every music game\n📋 Practice book + certificates",
+    itemsZh: "♾️ AI老师不限次\n🎵 AI作曲\n🎮 全部音乐游戏\n📋 练习册 + 证书",
   },
-  zh: {
-    bannerUrgent: "⏳ 还剩 {n} 天 — 到期后失去：AI老师不限次 · AI作曲 · 全部游戏 · 练习册",
-    bannerUrgentBtn: "锁定权益",
-    welcome: { ic: "🎓", title: "认识TIGA AI老师", body: "欢迎来到TIGA.AI！\n\n接下来30天所有功能全部开放——AI老师不限次、AI作曲、全部游戏。我会像真正的老师一样一步步带你学，每周向你汇报进步。", cta: "🚀 开始第一周" },
-    halfway: { ic: "📈", title: "已过半程——非常棒！", body: "30天计划已过半，你的所有数据、证书和进步曲线都在持续累积。\n\n试用期内续费可永久锁定当前价格。", cta: "⭐ 查看会员套餐" },
-    closing: { ic: "⏳", title: "即将到期——你将失去", body: "免费试用即将结束，届时：", items: "♾️ AI老师不限次\n🎵 AI作曲\n🎮 全部音乐游戏\n📋 练习册 + 证书", cta: "💳 立即扫码支付", alt: "查看全部套餐" },
-    winback: { ic: "🧠", title: "TIGA AI老师还记得你", body: "你的全部进度、证书和统计都原样保存，随时可以接着学——什么都没有丢失。", cta: "💙 继续学习" },
-    d7proof: { ic: "🏅", title: "第一周已验证", body: "TIGA 老师的指导对你的真实练习已经见效。\n\n现在锁定 1,490฿——永久价格，永不上调。", cta: "⭐ 永久锁定 1,490฿" },
-    proof: { ic: "📈", title: "指导见效了", body: "你的薄弱点正在真实练习中改善。\n\n试用结束后保留这位老师——1,490฿/月，永久价格。", cta: "⭐ 锁定权益" },
-  },
-};
+});
 
 // ── dismissal memory: once per popup id per device ─────────────────────────
 const SEEN_KEY = "tg_conv_seen";
@@ -135,14 +207,17 @@ function takeSellSlot() {
   } catch (e) { return false; }
 }
 
-// ── d7 first-proof popup ─────────────────────────────────────────────────
-// The original funnel is silent d3–d14 — exactly where a learner's first
-// closed loop lands. Shows ONCE, only when there is a real improved outcome
-// to speak (no evidence → no popup; the skeleton funnels handle those).
+// ── first-week proof popup ───────────────────────────────────────────────
+// The funnel is silent d4 — exactly where a learner's first closed loop
+// lands. Shows ONCE, only when there is a real improved outcome to speak (no
+// evidence → no popup; the skeleton funnels handle those). Stopped one day
+// short of the trial end on purpose: the LAST day belongs to the closing
+// "today is your last day" popup, and two sales popups on the same day is
+// exactly the nudge fatigue the one-sell-per-day gate exists to prevent.
 export function convD7(profile, plan) {
-  if (plan !== "trial" || !profile || !profile.created_at) return null;
+  if (!isTrialPlan(plan) || !profile || !profile.created_at) return null;
   const day = trialDay(profile);
-  if (day < 5 || day > 9 || convSeen("d7")) return null;
+  if (day < 5 || day > trialLenDays(profile) - 1 || convSeen("d7")) return null;
   const p = proofStats();
   if (!(p.improvedCount >= 1)) return null;        // no proof, no pitch
   if (!takeSellSlot()) return null;                 // someone sold today already
@@ -155,7 +230,7 @@ export function convD7(profile, plan) {
 // sell gate. Called from the same "tiga:practice-done" flow the funnel uses.
 const PROOF_LAST_KEY = "tg_proof_last";
 export function proofPopupEligible(profile, plan, now = Date.now()) {
-  if (plan !== "trial" || !profile) return null;
+  if (!isTrialPlan(plan) || !profile) return null;
   const p = proofStats();
   if (!(p.improvedCount >= 1 && p.bestDelta != null && p.bestDelta >= 5)) return null;
   try {
@@ -183,22 +258,26 @@ export function logConvEvent(popupId, what) {
 // re-trials of the same device must not replay a "first payment" celebration).
 const ACTIVATED_KEY = "tg_paid_activated";
 export function firstPaidActivation(plan) {
-  if (plan === "trial" || plan === "free") return false;
+  if (isTrialPlan(plan) || plan === "free") return false;
   try { if (localStorage.getItem(ACTIVATED_KEY)) return false; } catch (e) { return false; }
   try { localStorage.setItem(ACTIVATED_KEY, "1"); } catch (e) {}
   return true;
 }
 
 // Which one-time funnel popup should be up right now — highest priority
-// first (closing > halfway > welcome), null when none applies or it was
+// first (closing > welcome > proof), null when none applies or it was
 // already dismissed. plan comes from usePayment (effectivePlan), so paying
 // members and admins never match.
+//
+// `closing` fires on the LAST day of the trial exactly (day >= trialLenDays),
+// not the day before it as the old thirty-day ladder did: with a seven-day
+// trial, "the day before it ends" is already day 6, and the owner asked for
+// the warning to read as "today is your last day" on day 7 itself.
 export function convPopupFor(profile, plan) {
-  if (plan !== "trial" || !profile || !profile.created_at) return null;
+  if (!isTrialPlan(plan) || !profile || !profile.created_at) return null;
   const day = trialDay(profile);
   if (day < 1) return null;
-  if (day >= trialLenDays(profile) - 1) return convSeen("d29") ? null : { id: "d29", kind: "closing", day };
-  if (day >= 15) return convSeen("d15") ? null : { id: "d15", kind: "halfway", day };
+  if (day >= trialLenDays(profile)) return convSeen("closing") ? null : { id: "closing", kind: "closing", day };
   if (day <= 3) return convSeen("d0") ? null : { id: "d0", kind: "welcome", day };
   const d7 = convD7(profile, plan);
   if (d7) return d7;
@@ -217,40 +296,44 @@ export function convWinBack(profile, plan) {
 /* ══ PERSONALIZED COPY (v3 Phase 1) ══
    v2's insight: the skeleton popups spoke generic praise while the learner's
    real before/after evidence sat one read away. These builders return the
-   popup body text for d15/d29/d7/proof: PERSONALIZED when the proof data
+   popup body text for closing/d7proof/proof: PERSONALIZED when the proof data
    supports it (improvedCount >= 1), otherwise the ORIGINAL generic copy —
    a fallback, never a proud zero. Pure functions of (lang, proof) so the
-   e2e asserts all three languages on the real module. */
-export function personalizedBody(popupKind, lang, proof, generic) {
+   e2e asserts all three languages on the real module.
+
+   The old "halfway" builder is gone with the d15 phase it served: a
+   seven-day trial never reaches day 15, so it could only ever return dead
+   copy.
+
+   `plan` is the trial tier this member is actually on, and every price and
+   tier name below is read from PLAN_PRICE through trialPriceThb/trialTierName.
+   The earlier build hard-coded 3,999฿ while the table it belonged to quoted
+   1,490฿ — the funnel and its own copy disagreed about what it was selling. */
+export function personalizedBody(popupKind, lang, proof, generic, plan) {
   const L = lang === "th" || lang === "zh" ? lang : "en";
+  const price = trialPriceThb(plan);
+  const tier = trialTierName(plan);
   const hasProof = proof && proof.improvedCount >= 1 && proof.bestDelta != null;
-  if (popupKind === "halfway" && hasProof) {
-    return {
-      th: `ครึ่งทางแล้ว — ครู TIGA ช่วยคุณแม่นขึ้น ${proof.improvedCount} จุด (ดีขึ้นถึง +${proof.bestDelta}%) จากการซ้อมจริงของคุณ\n\nสถิติทั้งหมดนี้เดินต่อเมื่อคุณล็อกราคาไว้ — สมาชิกที่ต่อก่อนทดลองหมด ล็อกราคาเดิมตลอดไป`,
-      en: `Halfway there — Teacher TIGA has already improved ${proof.improvedCount} of your weak spots (up to +${proof.bestDelta}%) from your real practice.\n\nAll of this keeps building when you lock in your price — members who continue before the trial ends lock today's price for good.`,
-      zh: `已过半程——TIGA 老师已帮你改善了 ${proof.improvedCount} 个薄弱点（最高 +${proof.bestDelta}%），全部来自你的真实练习。\n\n试用结束前续费即可永久锁定当前价格，这些进步会继续累积。`,
-    }[L];
-  }
   if (popupKind === "closing" && hasProof) {
     const sess = proof.sessions ? `${proof.sessions}${L === "th" ? " เซสชัน" : L === "zh" ? " 次练习" : " sessions"}, ` : "";
     return {
-      th: `ทดลองใช้กำลังจบ — ของคุณที่กำลังจะหายไป: ${sess}ความจำ ${proof.improvedCount} จุดของครู (ดีขึ้น +${proof.bestDelta}%) และทุกสถิติที่สะสมมา\n\nหลังหมดอายุ: ครู AI ไม่จำกัด · สร้างเพลง · เกมทุกเกม · สมุดพก`,
-      en: `Your trial is ending — what you're about to lose: ${sess}a teacher who improved ${proof.improvedCount} of your weak spots (+${proof.bestDelta}%), and every stat you built.\n\nAfter it ends: unlimited AI teacher · song creation · every game · practice book.`,
-      zh: `试用即将结束——你将失去：${sess}已改善 ${proof.improvedCount} 个薄弱点的 AI 老师（+${proof.bestDelta}%），以及所有累计数据。\n\n到期后：AI老师不限次 · AI作曲 · 全部游戏 · 练习册。`,
+      th: `วันนี้เป็นวันสุดท้ายของการทดลองเล่นฟรี 7 วัน — ของคุณที่จะหายไป: ${sess}ความจำ ${proof.improvedCount} จุดของครู (ดีขึ้น +${proof.bestDelta}%) และทุกสถิติที่สะสมมา\n\nหากอยากใช้แพ็กเกจ ${tier} ต่อ กรุณาจ่ายเงินต่อเดือน ${price} บาท`,
+      en: `Today is the last day of your 7-day free trial — what you'd lose: ${sess}a teacher who improved ${proof.improvedCount} of your weak spots (+${proof.bestDelta}%), and every stat you built.\n\nTo keep the ${tier} plan, pay ${price} baht per month.`,
+      zh: `今天是 7 天免费试用的最后一天——你将失去：${sess}已改善 ${proof.improvedCount} 个薄弱点的 AI 老师（+${proof.bestDelta}%），以及所有累计数据。\n\n如需继续使用 ${tier} 套餐，请每月支付 ${price} 泰铢。`,
     }[L];
   }
   if (popupKind === "d7proof" && hasProof) {
     return {
-      th: `สัปดาห์แรกพิสูจน์แล้ว — หลังครู TIGA แนะนำ คุณแม่นขึ้น +${proof.bestDelta}% ในจุดที่เคยติด${proof.improvedCount > 1 ? ` (รวม ${proof.improvedCount} จุด)` : ""}\n\nผู้ที่ล็อกราคาตอนพิสูจน์ได้ จะได้ราคา 1,490฿ นี้ตลอดไป — ไม่มีขึ้นราคา`,
-      en: `Proven in week one — after Teacher TIGA's coaching you improved +${proof.bestDelta}% on spots you used to miss${proof.improvedCount > 1 ? ` (${proof.improvedCount} spots)` : ""}.\n\nLock in while it's proven: 1,490฿/month, this price forever — never raised for you.`,
-      zh: `第一周已验证——经 TIGA 老师指导，你在曾经常错的点上提升了 +${proof.bestDelta}%${proof.improvedCount > 1 ? `（共 ${proof.improvedCount} 个点）` : ""}。\n\n现在锁定价格：1,490฿/月，永久保持——永不上调。`,
+      th: `สัปดาห์แรกพิสูจน์แล้ว — หลังครู TIGA แนะนำ คุณแม่นขึ้น +${proof.bestDelta}% ในจุดที่เคยติด${proof.improvedCount > 1 ? ` (รวม ${proof.improvedCount} จุด)` : ""}\n\n${tier} ต่อได้วันนี้ที่ ${price} บาท/เดือน — เท่าราคาแผน ${tier} ตามปกติ`,
+      en: `Proven in week one — after Teacher TIGA's coaching you improved +${proof.bestDelta}% on spots you used to miss${proof.improvedCount > 1 ? ` (${proof.improvedCount} spots)` : ""}.\n\nKeep ${tier} from today: ${price} baht per month, the normal ${tier} price.`,
+      zh: `第一周已验证——经 TIGA 老师指导，你在曾经常错的点上提升了 +${proof.bestDelta}%${proof.improvedCount > 1 ? `（共 ${proof.improvedCount} 个点）` : ""}。\n\n今天起续费 ${tier}：${price} 泰铢/月，即 ${tier} 套餐正常价格。`,
     }[L];
   }
   if (popupKind === "proof" && hasProof) {
     return {
-      th: `คำแนะนำของครูได้ผลจริง — จุดที่เคยติดของคุณดีขึ้น +${proof.bestDelta}%\n\nครูคนนี้จำความก้าวหน้าของคุณได้ทุกจุด ล็อกสิทธิ์ไว้หลังทดลองจบ (1,490฿/เดือน ราคาเดิมตลอดไป)`,
-      en: `The coaching is working — your trouble spot improved +${proof.bestDelta}%.\n\nThis teacher remembers every step of your progress. Lock it in before the trial ends (1,490฿/mo, this price forever).`,
-      zh: `指导见效了——你的薄弱点提升了 +${proof.bestDelta}%。\n\n这位老师记得你进步的每一步。试用结束前锁定权益（1,490฿/月，永久价格）。`,
+      th: `คำแนะนำของครูได้ผลจริง — จุดที่เคยติดของคุณดีขึ้น +${proof.bestDelta}%\n\nครูคนนี้จำความก้าวหน้าของคุณได้ทุกจุด เก็บไว้หลังทดลองจบ (${tier} ${price} บาท/เดือน)`,
+      en: `The coaching is working — your trouble spot improved +${proof.bestDelta}%.\n\nThis teacher remembers every step of your progress. Keep it after the trial (${tier} at ${price} baht per month).`,
+      zh: `指导见效了——你的薄弱点提升了 +${proof.bestDelta}%。\n\n这位老师记得你进步的每一步。试用结束后保留（${tier} ${price} 泰铢/月）。`,
     }[L];
   }
   return generic || null; // honest fallback: the original generic copy

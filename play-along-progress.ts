@@ -67,6 +67,10 @@ export function recordSongResult(id, stars, acc) {
 
 export function songLockInfo(song, level, plan) {
   if (!song || song.custom) return { locked: false, maxLocked: false, req: 1 };
+  /* TiGA's own practice pieces (the "our own" shelf) are written to be played by anybody:
+     they are the app's own exercises, not repertoire unlocked by progress, so a new
+     learner on level 1 can open one and something to practise is never behind a gate. */
+  if (song.original || song.og) return { locked: false, maxLocked: false, req: 1 };
   const req = SONG_REQ[song.diff] || 1;
   return { locked: (level || 1) < req, maxLocked: !!song.maxOnly && !isMaxPlan(plan), req };
 }
@@ -82,7 +86,9 @@ export function songLengthSec(song) {
   return Math.round(beats * 60 / song.bpm);
 }
 export function beatsPerBarOf(song) {
-  const ts = (song && SONG_TIMESIG[song.id]) || "4/4";
+  /* a generated piece carries its own meter (they are written in 3/4 and 2/4 as well as
+     4/4); everything else keeps reading the table, which is unchanged. */
+  const ts = (song && (song.meter || SONG_TIMESIG[song.id])) || "4/4";
   return parseInt(String(ts).split("/")[0], 10) || 4;
 }
 

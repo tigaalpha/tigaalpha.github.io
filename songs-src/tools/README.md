@@ -20,6 +20,48 @@ node scripts/verify-songs.mjs songs-src/classical      # public domain, bars add
 node scripts/build-songs.mjs                           # → songs-classical.ts (generated; never edit by hand)
 ```
 
+## The other folder: `songs-src/originals/` — pieces TiGA composed itself
+
+Ten thousand playable pieces is out of reach by harvesting scores: the public-domain ceiling for this app was measured, not
+guessed — 1,185 pieces in the library plus roughly 1,000–1,500 more reachable from Mutopia, so about 2,200–2,700. It IS
+reachable by **composing**: a piece written here is ours, so it carries no third-party licence question at all, and producing
+it costs nothing.
+
+```
+songs-src/tools/gen_originals.mjs --count=10000     # → songs-src/originals/orig-00..19.json  (deterministic; same
+                                                    #   command = byte-identical files on any machine)
+node scripts/verify-originals.mjs songs-src/originals   # bars, range, key, level, titles, no two tunes alike
+node scripts/build-originals.mjs                   # → public/originals/index.json + songs-00..19.json
+node scripts/verify-originals-shelf.mjs            # drives the real bundle to the shelf in jsdom
+```
+
+`npm run songs:originals` runs all three; `npm run songs:check` is the read-only version (also re-checks the classical side).
+
+**Nothing is copied.** Every note comes from a seeded pseudo-random walk constrained by ordinary tonal rules — the diatonic
+scale of the key and mode, chord tones on the strong beats, the leading tone resolving upward at the cadence, mostly stepwise
+motion, the tritone never taken as a melodic leap. No motif, phrase or bar of any existing piece is an input. What is taken
+from the 1,185 classical pieces is statistical, not musical: how wide a piece of a given level spans, how far it leaps, how
+fast its notes move, how long it lasts — all measured by `levelOf`/`profileOf` in `scripts/build-songs.mjs`, which is also what
+**measures** a generated piece's level rather than being told one.
+
+**Why it is rule-based and not a model.** A model call per piece would cost money on every regeneration, would not be
+reproducible, and could not be checked note by note. The app already trusts this approach: `music-engine.tsx` composes scale,
+chord and interval drills by rule (`makeScaleSong` / `makeChordSong` / `makeIntervalSong`) and ships them as real playable
+songs. This is that idea at library size.
+
+**Why the titles read as one title in three languages.** `originals-lexicon.mjs` holds every idea as ONE row — Thai, English
+and Chinese together — and a title joins rows, so "quiet" is the same word in all three. The three word orders are kept apart
+on purpose, because the languages do not share one: English puts the quality first (*Quiet River*), Thai puts the head noun
+first (*แม่น้ำเงียบ*), Chinese puts the place first and takes 的 (*黄昏时宁静的河*). The words are enumerated, never sampled —
+sampling 4,000 titles out of ~14,400 collides often — and each form keeps its own counter.
+
+**How the app gets them.** Not from the bundle: 4.3 MB of notes would be downloaded before a learner played anything, and the
+song library is already read synchronously in forty places. `scripts/build-originals.mjs` writes `public/originals/index.json`
+(1.2 MB: the shelf — id, level, tempo, three titles, first note, length; **no notes**) and twenty `songs-NN.json` shards
+(158 KB each, 500 pieces with their tunes). `originals-store.ts` fetches the index when the shelf is opened and one shard when
+a piece is chosen. On GitHub Pages that is the same static host the rest of the site uses, so there is no database, no
+migration and no API key.
+
 ## Why scores and not memory
 
 A tune typed from memory is a guess, and a wrong note in a famous theme is worse than no song. A typeset score is the

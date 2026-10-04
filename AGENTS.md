@@ -263,10 +263,35 @@ Romantic and all of the Impressionist songs come from) — and its `src` field n
 `songs-src/tools/` is the pipeline (LilyPond → MIDI → top voice → quantised bars; MusicXML read directly for OpenScore; `README.md`
 there), so more pieces are added the same way, and `songs-src/README.md` is the file format. The public-domain rule is the
 composer's death in 1950 or earlier **and** the piece written in 1929 or earlier; for OpenScore only composers who died in 1929 or
-earlier are used (`COMPOSERS` in `extract_openscore.py`), because a song's own date is not in its file. The library stands at 1,067
-songs (875 pieces: 373 from Mutopia and 502 from OpenScore from scores); **the landing page's proof strip (`landing/landing-copy.ts`, `proof1`) and the free-plan bullet
-(`prFree1` in i18n.ts) say "1,000+"** — that claim must stay true, so a change that takes the library below 1,000 must change that
-copy in the same release (`eras-1000` in the bot suite fails below it). A piece **keeps its id** when the library is generated again
+earlier are used (`COMPOSERS` in `extract_openscore.py`), because a song's own date is not in its file. The library stands at 11,377
+songs: 1,377 from a real score (1,185 classical pieces plus the 192 originals in `songs-data.ts`) plus the 10,000 we wrote ourselves;
+**the landing page's proof strip (`landing/LandingPage1.tsx` heading the `proof1` copy) and the free-plan bullet
+(`prFree1` in i18n.ts) say "10,000+"** — that claim must stay true, so a change that takes the library below 10,000 must change that
+copy in the same release (`eras-1000` in the bot suite fails below it). The number lives in TWO places and they must agree: the `<b>`
+above `proof1` in `landing/LandingPage1.tsx` carries the digits, `proof1` itself only carries the words.
+
+**Ten thousand more, written by us (owner, 2026-10-04).** The public-domain ceiling was measured, not guessed — 1,185 pieces plus
+roughly 1,000–1,500 more reachable from Mutopia, so about 2,200–2,700 — so ten thousand playable pieces is out of reach by
+harvesting scores at all. It is reachable by **composing**, and a piece we wrote carries no third-party licence question.
+`songs-src/tools/gen_originals.mjs` writes `songs-src/originals/orig-00..19.json` (10,000 pieces), `node
+scripts/verify-originals.mjs songs-src/originals` re-derives everything from the written bars and refuses to pass unless every bar
+adds up, every note is inside C4..B5, ≥85% of the notes are in the declared mode, no two pieces are the same tune, no title repeats
+in any of the three languages and none of them lands on a title the app already had, and `node scripts/build-originals.mjs` turns
+them into what the app fetches. **The piece is a pure function of its index** — the same command writes byte-identical files on
+any machine — and its level is *measured* by the app's own `levelOf`, never asserted. Nothing is copied: no motif, phrase or bar of
+any existing piece is an input; what is taken from the classical library is statistical (range, leap, density, length), and the app
+already trusts rule-composed music — `music-engine.tsx` ships scale/chord/interval drills built the same way. `npm run
+songs:originals` regenerates and checks; `npm run songs:check` is the read-only version.
+**They are NOT in the bundle** (`songs-classical.ts` stays at the classical 1,185): `build-originals.mjs` writes
+`public/originals/index.json` (1.2 MB — the shelf: id, level, tempo, three titles, first note, length, **no notes**) and twenty
+`songs-NN.json` shards (158 KB each, 500 pieces with their tunes), and `originals-store.ts` fetches the index when the shelf opens
+and one shard when a piece is chosen. Same static host as the rest of the site, so no database and no migration. The shelf is a
+chip of its own (`ORIGINAL_SHELF` in `originals-store.ts`), a section of its own (`SONG_SECTIONS`), every card carries a
+`.songcard-og` badge, and **`songLockInfo` returns unlocked for them** — they are exercises, not repertoire behind a gate, so a
+level-1 guest can open any of the ten thousand. A row without notes reads its colour and clock from the index (`hn`, `len`);
+`beatsPerBarOf` reads a generated piece's own `meter`, because some are 3/4 and 2/4. `node scripts/verify-originals-shelf.mjs`
+drives the real bundle in jsdom through the whole flow (17 checks); Playwright is not installed in every container, so that file —
+not a browser pass — is the evidence the shelf works. A piece **keeps its id** when the library is generated again
 (`finalize.py` reads the files it replaces; players' stars are filed under the id), and a new piece is checked against every song
 the app has by the *shape of its melody* (`dump_app_songs.mjs` + `assemble.py --os`: a copy in another key or from another edition is
 found, not only the same notes). The song list's category chips are the eras in `SONG_ERAS` (`songs-data.ts`:
@@ -456,8 +481,8 @@ in the code, and what it replaced:
   (`escapeFull` was set and never read) and the sign-up card behind it opened on the LONGEST form: 53 in-app visitors reached it in
   30 days and none tried the e-mail form. The overlay is now gated by `escapeFull`, the card opens on the one-field e-mail link
   everywhere, and inside a webview its Google button is the honest "needs your real browser" way out (Google answers a webview
-  with `disallowed_useragent`; 32 visitors a month tapped it). The trial promise now says 30 days (`TRIAL_DAYS_STANDARD` is 30 for
-  everyone; the page said 7 and "first 100 only"). `?v=b` serves ONE alternative first screen (outcome headline, keys lighting by
+  with `disallowed_useragent`; 32 visitors a month tapped it). The trial promise now says SEVEN DAYS (`TRIAL_DAYS_STANDARD` is 7 for
+  everyone; the page had said 7 with "first 100 only", then 30 for everyone, and is now 7 again with the cap raised to 10,000). `?v=b` serves ONE alternative first screen (outcome headline, keys lighting by
   themselves until the first touch, a "play your first song" button into `/?song=twinkle`); `?v=c` is the same without the new
   words; no tag is the page as it was. The variant sticks to the device (`landingVariant`) and rides the `attr` row.
 - **First minutes in the app.** `?song=<id>` opens that song's ready screen (`PianoApp`; unknown or still-locked ids land on the
@@ -468,6 +493,49 @@ in the code, and what it replaced:
   `joinNotifEvent` and its one-time reward, signed-in players only) and, when `LINE_OA_URL` in `shared-infra.ts` is filled in, an
   "add us on LINE" link — it is EMPTY because the LINE channel does not exist yet. Settings has an unticked, optional "e-mail me
   news and the daily song" switch writing `profiles.marketing_consent` + `_at`.
+- **Promotion: the first 10,000 signups get 7 days of MAX (owner, 2026-10-04).** A growth play, not a pricing change: Max is the
+  uncapped-AI tier and the most expensive thing to give away (voice teacher, Priority AI, exclusive pieces, Daily Mentor, 4 Streak
+  Freezes a month), so it goes to the first 10,000 accounts to put the 11,000-song library in front of as many people as possible
+  and let word of mouth carry the rest. Everyone AFTER the cap gets the same seven days at ⭐Premium.
+  The LENGTH is one number (`TRIAL_DAYS_FOUNDING` = `TRIAL_DAYS_STANDARD` = 7); the TIER is the split. There are now two trial plan
+  strings, not a flag on one: `"trial"` (Premium) and `TRIAL_MAX` = `"trialmax"` (the promotion cohort), chosen by the single function
+  `promoTrialPlan(p)` — the only line that decides who gets Max. `isMaxPlan()` accepts `TRIAL_MAX` and deliberately NOT plain
+  `"trial"`; collapsing them would hand Max to every signup forever. **Anything asking "are they inside a trial?" must use
+  `isTrialPlan(plan)`**, true for both — the old inline `plan === "trial"` was replaced across `App.tsx`, `PricingOverlay.tsx` and
+  `use-conversion.ts`, because a leftover would have silently skipped the whole sales funnel for the first 10,000 (Max access, no
+  pitch). The cohort is `profiles.founding_member`, a plain boolean set ONCE at signup by the `handle_new_user()` trigger — a FIXED
+  set of accounts, not computed on read, so deleting a row can never re-open the promotion. `PROMO_MAX_USERS` in `payment.tsx` and the
+  `< 10000` count inside the trigger are THE SAME NUMBER IN TWO PLACES; change both in one release.
+  `scripts/verify-promo-max.mjs` (28 assertions; `npm run verify:promo`) drives the real `payment.tsx` and asserts the two cohorts
+  have genuinely different entitlements — that failure mode is silent in both directions, so it is checked directly.
+- **The conversion ladder was re-cut to a week (owner, 2026-10-04).** Welcome d1–3, first-week proof d5–6, last-day closing **on d7
+  itself** (it fired the day *before* under the 30-day ladder, which on a 7-day trial was already d6), then win-back once expired.
+  The closing copy is the owner's wording and quotes the real Max price — it used to say 1,490฿, which is the ⭐Premium price, so the
+  funnel was offering a cheaper upgrade than the Max it was giving away. `scripts/verify-conversion.mjs` asserts all of this and reads
+  the trial length out of `payment.tsx` itself.
+- **Landing copy deliberately names NO tier (owner decision, 2026-10-04).** `landing/landing-copy.ts` (`sticky`, `trialLine`) says
+  only "free trial 7 days" and never says Max, never says Premium, and never mentions the 10,000 cap. That is deliberate and it is the
+  only wording that stays TRUE on both sides of the cap — an earlier draft said "Max free 7 days", which was accurate at ~70 signups
+  and would have started lying at signup 10,001. **Do not add a "first 10,000 only!" scarcity line** — the owner was asked and chose
+  not to advertise the cap. The tier IS named where it is verifiably true: inside the app, where `convCopyFor(lang, plan)` reads the
+  member's actual plan.
+- **Funnel copy is generated from the tier, from PLAN_PRICE (owner decision, 2026-10-04).** `use-conversion.ts` has ONE copy builder
+  (`copyTable`) instantiated twice — `CONV_COPY` (promo cohort: Max, ฿3,999) and `STANDARD_COPY` (post-cap: Premium, ฿1,490). Every
+  price is interpolated from `PLAN_PRICE`, the object checkout charges from; no price is typed as a literal anywhere. That is the fix
+  for a real bug: the previous build hard-coded 3,999฿ in eight places and quoted 1,490฿ elsewhere in the same funnel, so the
+  messages and the checkout disagreed about what was being sold. `convCheckoutTier(plan)` picks the tier the closing CTA opens —
+  hardcoding "max" would send a post-cap member to a plan page for something they never had. `personalizedBody(..., plan)` takes the
+  same plan and prices its personal stats with it. `verify-conversion.mjs` asserts, per language and per tier, that each table names
+  its own tier, quotes its own price, and NEVER contains the other tier's price.
+- **Two migrations are written and NEITHER IS APPLIED — the owner must run both, in the Supabase SQL editor, after review.**
+  (1) `supabase-promo-max-10000-migration.sql` — raises the trigger cap 100 → 10,000 and marks every current signup as a promotion
+  member (the ~70 existing members count as part of the 10,000, per the owner). Read its STEP 0 first: it grants to every eligible
+  row, so confirm the count before running STEP 1. (2) `supabase-grant-max-one-year-migration.sql` — gives those same members Max for
+  a YEAR, stored in `profiles.plan` / `plan_until`; skips admins (they already resolve to maxfamily, so writing `max` would
+  downgrade them), skips banned, skips anyone with a live subscription, and is re-runnable (second run = `UPDATE 0`). They compose
+  cleanly — `effectivePlan()` tests a live paid plan BEFORE the trial — so approving one alone is still correct, it just gives less
+  than the owner asked for. The trial alone could do neither job: trial length is measured from `profiles.created_at`, so every
+  pre-existing account is past day 7 the moment the new rule lands.
 - **Not applied / not deployed (hard rules).** `supabase/functions/return-reminders/index.ts` and
   `supabase-return-reminders-migration.sql`: day 1/3/7 push nudges to people with a push subscription who have not been back,
   off by default (`app_settings.return_reminders.enabled`), cron block commented. LINE and e-mail are not wired (no channel token,
@@ -703,7 +771,9 @@ mid-message (the rest is handed on, nothing is read twice) and a clip whose `one
 For the growth instrumentation: `node scripts/verify-campaign-funnel.mjs` (no browser) and, after `npm run build`,
 `node scripts/verify-landing-attribution.mjs` (Chromium, every Supabase call stubbed).
 
-For the song catalogue: `node scripts/verify-songs.mjs songs-src/classical` (form, key, range, public-domain limits, no tune
+For the song catalogue: `npm run songs:check` runs the whole read-only side — `verify-songs.mjs` on the classical pieces (form, key, range, public-domain limits, no tune
+twice or already in the app), `verify-originals.mjs songs-src/originals` on our own ten thousand (bars, range, key, measured level, titles, no two tunes alike) and both
+`--check` builders. Individually: `node scripts/verify-songs.mjs songs-src/classical` (form, key, range, public-domain limits, no tune
 twice or already in the app) and `node scripts/build-songs.mjs --check` (the generated `songs-classical.ts` matches its source),
 then the `list`, `eras` (more than 1,000 songs, the four era chips and their notes) and `classical` (real scores played to 3 stars:
 a slow 3/4, a pickup, fast sixteenths, a song, three art songs from the OpenScore Lieder) sections of

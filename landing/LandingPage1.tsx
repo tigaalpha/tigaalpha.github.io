@@ -862,7 +862,7 @@ export default function LandingPage1() {
         ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} timeUp={signup.timeUp} t={t} /></div>
         : (
           <div className="lp-proof" role="list">
-            <div><b>1,000+</b><span>{t.proof1}</span></div>
+            <div><b>10,000+</b><span>{t.proof1}</span></div>
             <div><b>AI</b><span>{t.proof2}</span></div>
             <div><b>{lang === "th" ? "ฟรี" : lang === "zh" ? "免费" : "Free"}</b><span>{t.proof3}</span></div>
           </div>

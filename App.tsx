@@ -30,7 +30,7 @@ import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
-import { CONV_COPY, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
+import { convCopyFor, convCheckoutTier, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodelOnInteraction, tigaLongTermValue } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
 import { buildParentReport, buildParentReportData } from "./use-practice-coach";
@@ -62,7 +62,7 @@ import {
   PLAN_PRICE, CURRENCY_BY_LANG, PLAN_LABEL,
   yearPrice, planPriceByCur, yearPriceByCur, fmtPrice,
   b2bPriceByCur, b2bYearPriceByCur,
-  effectivePlan, trialDaysLeft, planBadge, CheckoutModal, SchoolCheckoutModal,
+  effectivePlan, trialDaysLeft, planBadge, isTrialPlan, CheckoutModal, SchoolCheckoutModal,
 } from "./payment";
 import {
   NF, KEYS_12, CHROMA, LESSON_MODE,
@@ -165,6 +165,7 @@ import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
 import { dailySong, songStars, songMedal, songLengthSec, songLockInfo, songPlayable, nextSongAfter } from "./play-along-progress";
+import { loadOriginalIndex, loadOriginalSong, ORIGINAL_SHELF } from "./originals-store";
 import { useChat } from "./use-chat";
 import { useVoiceTutor } from "./use-voice-tutor";
 const LeadLandingPage = lazy(() => import("./LeadLandingPage").then(m => ({ default: m.LeadLandingPage })));
@@ -3818,6 +3819,11 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
    (SONG_GENRES); the era codes are values of it like the rest. */
 const GENRE_CHIPS = [
   { code: "all",    label: { th: "🎵 ทั้งหมด",   en: "🎵 All",    zh: "🎵 全部" } },
+  // TiGA's own practice pieces, written by songs-src/tools/gen_originals.mjs and fetched from
+  // ./originals/ rather than shipped in the bundle (scripts/build-originals.mjs explains why).
+  // A section of their own, first in the chip row: they are the largest shelf on the page and
+  // they are the only songs nobody else composed.
+  { code: ORIGINAL_SHELF, label: { th: "✨ แบบฝึกหัดของเรา", en: "✨ Our Own", zh: "✨ 我们的原创" } },
   ...SONG_ERAS.map(e => ({ code: e.code, label: { th: `${e.icon} ${e.th}`, en: `${e.icon} ${e.en}`, zh: `${e.icon} ${e.zh}` } })),
   { code: "kids",   label: { th: "👶 เด็ก",       en: "👶 Kids",   zh: "👶 儿歌" } },
   { code: "folk",   label: { th: "🌿 โฟล์ค",      en: "🌿 Folk",   zh: "🌿 民谣" } },
@@ -3834,7 +3840,7 @@ const GENRE_CHIPS = [
    floated to the top of it. Then the songs everyone knows come first, so a beginner's list still opens on the songs they know,
    and the four eras of the classical repertoire follow in the order of time, then the style pieces. A song with no category in
    SONG_GENRES lands in "other" at the end, so a new song never goes missing. A chosen chip shows one heading, its own. */
-const SONG_SECTIONS = ["mine", "fav", "kids", "folk", "carol", "gospel", "cn", "baroque", "classical", "romantic", "impressionism", "jazz", "soul", "neosoul", "other"];
+const SONG_SECTIONS = ["mine", "fav", ORIGINAL_SHELF, "kids", "folk", "carol", "gospel", "cn", "baroque", "classical", "romantic", "impressionism", "jazz", "soul", "neosoul", "other"];
 const SEC_RANK: Record<string, number> = Object.fromEntries(SONG_SECTIONS.map((k, i) => [k, i]));
 const SEC_LABEL: Record<string, { th: string; en: string; zh: string }> = {
   ...Object.fromEntries(GENRE_CHIPS.filter(g => g.code !== "all").map(g => [g.code, g.label])),
@@ -3896,7 +3902,32 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     if (initialCat === "chords-major") setProgQual("major");
     else if (initialCat === "chords-minor") setProgQual("minor");
   }, [initialCat]);
-  const play = (s) => { try { localStorage.setItem("tg_last_song", s.id); } catch (e) {} onPlay(s); };
+  /* TiGA's own pieces (the "our own" shelf) carry no notes until their shard is fetched, so
+     tapping one loads the shard and then hands the finished song to the same onPlay every
+     other song uses. One tap in flight at a time: a second tap on another row while a shard
+     is loading is ignored rather than queued, so a fast tapper cannot open two songs. */
+  const [origs, setOrigs] = useState(null);
+  const [origErr, setOrigErr] = useState(false);
+  const [origBusy, setOrigBusy] = useState(null);
+  useEffect(() => {
+    if (genreFilter !== ORIGINAL_SHELF || origs) return;
+    let live = true;
+    loadOriginalIndex().then(rows => { if (live) rows.length ? setOrigs(rows) : setOrigErr(true); })
+      .catch(() => { if (live) setOrigErr(true); });
+    return () => { live = false; };
+  }, [genreFilter, origs]);
+  const play = (s) => {
+    try { localStorage.setItem("tg_last_song", s.id); } catch (e) {}
+    if (s && s.og) {
+      if (origBusy) return;
+      setOrigBusy(s.id);
+      loadOriginalSong(s)
+        .then(full => { if (full) { setOrigBusy(null); onPlay(full); } else setOrigErr(true); })
+        .catch(() => setOrigErr(true));
+      return;
+    }
+    onPlay(s);
+  };
   let lastId = null; try { lastId = localStorage.getItem("tg_last_song"); } catch (e) {}
   const ALL = [...mySongs, ...SONGS];
   const lastSong = lastId ? ALL.find(s => s.id === lastId) : null;
@@ -3970,13 +4001,23 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   let list = ALL.slice();
   if (filter === 0) list = list.filter(s => favs.includes(s.id));
   else if (filter > 0) list = list.filter(s => s.diff === filter && !s.custom);
-  if (genreFilter !== "all") list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "other") === genreFilter);
+  if (genreFilter === ORIGINAL_SHELF) {
+    /* our own pieces: the rows come from the fetched index, never from SONGS — they are not
+       in the bundle at all. The level and favourites filters still apply, so the same filter
+       row above the shelf works on it. */
+    const rows = origs ? origs.map(r => ({ id: r.id, diff: r.diff, bpm: r.bpm, th: r.th, en: r.en, zh: r.zh, hn: r.hn, len: r.len, k: r.k, og: true })) : [];
+    list = filter === 0 ? rows.filter(s => favs.includes(s.id))
+      : filter > 0 ? rows.filter(s => s.diff === filter)
+      : rows;
+  } else if (genreFilter !== "all") {
+    list = list.filter(s => s.custom ? false : (SONG_GENRES[s.id] || "other") === genreFilter);
+  }
   const eraInfo = SONG_ERAS.find(e => e.code === genreFilter) || null;
   /* The section a song is shown under (SONG_SECTIONS). Favourites form a section of their own only above the rest of the whole
      library — in a chip they stay inside their category, and in the Favorites filter every song is one — and, as before, the
      player's own songs come first, then favourites, then the easier songs. */
   const favUp = genreFilter === "all" && filter !== 0;
-  const secOf = (s) => s.custom ? "mine" : favUp && favs.includes(s.id) ? "fav" : (SONG_GENRES[s.id] || "other");
+  const secOf = (s) => s.custom ? "mine" : s.og ? ORIGINAL_SHELF : favUp && favs.includes(s.id) ? "fav" : (SONG_GENRES[s.id] || "other");
   list.sort((a, b) => (SEC_RANK[secOf(a)] ?? 99) - (SEC_RANK[secOf(b)] ?? 99) || (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0) || a.diff - b.diff);
   const secCount: Record<string, number> = {};
   for (const s of list) { const k = secOf(s); secCount[k] = (secCount[k] || 0) + 1; }
@@ -4007,13 +4048,17 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     return () => io.disconnect();
   }, [shown, list.length]);
   const Card = (s, pfx = "") => {
-    const hue = laneHue((s.seq.find(x => x[0] !== "R") || ["C4"])[0]);
+    /* a shelf row has no notes yet, so its colour and its clock are read from the index
+       (the first note and the length) rather than from the tune; both are the real values,
+       carried through from songs-src/originals at build time. */
+    const hue = laneHue(((s.seq ? s.seq.find(x => x[0] !== "R") : null) || [s.hn || "C4"])[0]);
     const isFav = favs.includes(s.id);
     const { locked, maxLocked, req } = songLockInfo(s, level, plan);
     const got = s.custom ? 0 : songStars(s.id);
     const medal = s.custom ? 0 : songMedal(s.id);
-    const len = songLengthSec(s);
+    const len = s.og ? (s.len || 0) : songLengthSec(s);
     const need = locked ? expToLevel(req) : 0;
+    const loading = s.og && origBusy === s.id;
     return (
       <button key={pfx + s.id} className={`songcard${locked || maxLocked ? " locked" : ""}`} style={{ "--sc": `hsl(${hue},70%,56%)` }}
         onClick={() => {
@@ -4021,17 +4066,18 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           else if (maxLocked) { haptic(20); if (onUpsell) onUpsell(); }
           else play(s);
         }}>
-        <div className="songcard-ic">{locked ? "🔒" : maxLocked ? "👑" : s.custom ? "🎼" : "🎵"}</div>
+        <div className="songcard-ic">{loading ? "⏳" : locked ? "🔒" : maxLocked ? "👑" : s.custom ? "🎼" : s.og ? "✨" : "🎵"}</div>
         <div className="songcard-body">
           <div className="songcard-nm">{tr(s, lang)}</div>
           <div className="songcard-meta">
             {s.custom ? <span>✨ AI</span> : <span className={`songcard-got${got ? " on" : ""}`} aria-label={T(`ได้ ${got} ดาว`, `${got} stars earned`, `已得 ${got} 星`)}>{"★".repeat(got) + "☆".repeat(3 - got)}</span>}
             {!s.custom && medal > 0 && <i className={"pl-medal m" + medal} role="img" aria-label={T(`เหรียญ${["", "ทองแดง", "เงิน", "ทอง", "มงกุฎ"][medal]}`, `${["", "Bronze", "Silver", "Gold", "Crown"][medal]} medal`, `${["", "铜", "银", "金", "皇冠"][medal]}牌`)} />}
             {!s.custom && <span className="songcard-lv">{T("ระดับ", "Lv", "难度")} {s.diff}</span>}
-            <span>{locked ? T(`เลเวล ${req} · ขาด ${need.toLocaleString()} EXP`, `Level ${req} · ${need.toLocaleString()} EXP to go`, `${req} 级 · 差 ${need.toLocaleString()} EXP`) : maxLocked ? (lang === "th" ? "👑 Max เท่านั้น" : lang === "zh" ? "👑 Max 专属" : "👑 Max only") : "⏱ " + fmtLen(len)}</span>
+            {s.og && <span className="songcard-og">{T("แต่งเอง", "Original", "原创")}</span>}
+            <span>{loading ? T("กำลังโหลด…", "Loading…", "加载中…") : locked ? T(`เลเวล ${req} · ขาด ${need.toLocaleString()} EXP`, `Level ${req} · ${need.toLocaleString()} EXP to go`, `${req} 级 · 差 ${need.toLocaleString()} EXP`) : maxLocked ? (lang === "th" ? "👑 Max เท่านั้น" : lang === "zh" ? "👑 Max 专属" : "👑 Max only") : "⏱ " + fmtLen(len)}</span>
           </div>
         </div>
-        <span className="songcard-go">{locked ? "🔒" : maxLocked ? "👑" : "▶"}</span>
+        <span className="songcard-go">{loading ? "⏳" : locked ? "🔒" : maxLocked ? "👑" : "▶"}</span>
         {s.custom
           ? <span className="favbtn del" role="button" tabIndex={0} aria-label="Delete" onClick={(e) => { e.stopPropagation(); haptic(); delSong(s.id); }}>🗑</span>
           : !locked && !maxLocked && <span className={`favbtn${isFav ? " on" : ""}`} role="button" tabIndex={0} aria-label="Favorite" aria-pressed={isFav}
@@ -4190,8 +4236,24 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
               </div>
             ) : null;
           })()}
+          {genreFilter === ORIGINAL_SHELF && (
+            /* The shelf says what it is doing: these pieces arrive in two requests, and a
+               failed one is a retry button rather than an empty list. */
+            <div className="songorigbar" role="status">
+              {!origs && !origErr
+                ? T("กำลังโหลดแบบฝึกหัดของเรา…", "Loading our own practice pieces…", "正在加载我们的原创…")
+                : origErr
+                  ? <>{T("โหลดแบบฝึกหัดไม่สำเร็จ", "Could not load our own pieces", "原创加载失败")} ·{" "}
+                    <button className="songbtn ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                      onClick={() => { setOrigErr(false); setOrigs(null); }}>{T("ลองใหม่", "Retry", "重试")}</button></>
+                  : T(`${origs.length.toLocaleString()} เพลง · แต่งเองทั้งหมด · เล่นได้ทุกคน`,
+                      `${origs.length.toLocaleString()} pieces · all written here · open to everyone`,
+                      `${origs.length.toLocaleString()} 首 · 全部原创 · 人人可弹`)}
+            </div>
+          )}
           <div className="songgrid">
-            {list.length ? gridItems : <div className="songempty">{lc.songFavEmpty}</div>}
+            {list.length ? gridItems
+              : <div className="songempty">{genreFilter === ORIGINAL_SHELF ? (origErr ? "" : T("กำลังโหลด…", "Loading…", "加载中…")) : lc.songFavEmpty}</div>}
           </div>
           {shown < list.length && <div ref={moreRef} className="songmore" aria-hidden="true" />}
         </>
@@ -10878,12 +10940,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      the day that flag goes back to true. */
   const speakMode = !CHAT_TTS_ENABLED ? "off" : ((isMaxPlan(plan) || (profile && profile.is_admin)) ? "on" : "locked");
   const onSpeakLocked = useCallback(() => { playUi("click"); setPricingOpen(true); }, [setPricingOpen]);
-  /* Conversion funnel (owner-approved 2026-09-19): one trial-stage popup at a
-     time — welcome (d1-3), halfway price-lock (d15-28), closing + direct
-     checkout (d29-30) — plus the expired-trial win-back. Never fires for
-     paying members or admins: effectivePlan maps them to non-trial/non-free,
-     so neither probe matches. Recomputed when plan/profile changes, which
-     also auto-clears the popup the moment a payment lands. */
+  /* Conversion funnel (owner decision 2026-10-04): one trial-stage popup at a
+     time on the SEVEN-DAY Max trial — welcome (d1-3), first-week proof (d5-6),
+     last-day closing + direct Max checkout (d7) — plus the expired-trial
+     win-back. Never fires for paying members or admins: effectivePlan maps
+     them to non-trial/non-free, so neither probe matches. Recomputed when
+     plan/profile changes, which also auto-clears the popup the moment a
+     payment lands. */
   const [convPopup, setConvPopup] = useState(null);
   useEffect(() => {
     const next = convPopupFor(profile, plan) || convWinBack(profile, plan);
@@ -10904,7 +10967,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      flips the plan). Guards admins (maxfamily) like the funnel does. */
   const [activatePopup, setActivatePopup] = useState(false);
   useEffect(() => {
-    if (plan === "trial" || plan === "free" || plan === "maxfamily") return;
+    if (isTrialPlan(plan) || plan === "free" || plan === "maxfamily") return;
     if (firstPaidActivation(plan)) { setActivatePopup(true); logConvEvent("activation", "shown"); }
   }, [plan]);
   /* v3 win-moment proof popup (owner plan §3): fires after a practice session
@@ -10913,7 +10976,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      effectivePlan rule as the skeleton funnel. */
   const [proofPopup, setProofPopup] = useState(null);
   useEffect(() => {
-    if (plan !== "trial") return;                         // trial only
+    if (!isTrialPlan(plan)) return;                       // trial only (either tier)
     const onProofCheck = () => {
       if (convPopup) return;                            // skeleton popup wins
       const next = proofPopupEligible(profile, plan);
@@ -13068,18 +13131,20 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>}
 
       {/* ─── TRIAL BANNER — shown on all pages while trial is active ─── */}
-      {plan === "trial" && (() => {
+      {isTrialPlan(plan) && (() => {
         const dLeft = trialDaysLeft(profile);
         if (dLeft <= 0) return null;
-        /* Last 5 days switch to loss aversion (strategy phase 4): the banner
+        /* Last 2 days switch to loss aversion (strategy phase 4): the banner
            names exactly what expires and the CTA jumps straight to checkout
-           instead of the generic pricing sheet. */
-        const urgent = dLeft <= 5;
-        const cc = CONV_COPY[lang] || CONV_COPY.en;
+           instead of the generic pricing sheet. The window was 5 days while
+           the trial ran 30; on the seven-day trial it would have been urgent
+           from day 2, which is not urgency but nagging. */
+        const urgent = dLeft <= 2;
+        const cc = convCopyFor(lang, plan);
         return (
           <div className={"trial-banner" + (urgent ? " urgent" : "")}>
             <span className="trial-banner-txt">{urgent ? cc.bannerUrgent.replace("{n}", String(dLeft)) : <>{lc.trialBanner} · {dLeft} {lc.trialDaysLeft}</>}</span>
-            <button className="trial-banner-btn" onClick={() => { playUi("click"); urgent ? startCheckout("premium", billCycle) : setPricingOpen(true); }}>{urgent ? cc.bannerUrgentBtn : lc.trialUpgrade}</button>
+            <button className="trial-banner-btn" onClick={() => { playUi("click"); urgent ? startCheckout(convCheckoutTier(plan), billCycle) : setPricingOpen(true); }}>{urgent ? cc.bannerUrgentBtn : lc.trialUpgrade}</button>
           </div>
         );
       })()}
@@ -13099,7 +13164,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
           onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
           initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""}
-          onUpgrade={(premium && plan !== "trial") ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }}
+          onUpgrade={(premium && !isTrialPlan(plan)) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }}
           onFirstSong={() => {
             playUi("click"); logUsage("nav", "pathway-firstsong");
             const first = SONGS.find(x => x.id === "twinkle") || SONGS.find(x => x.diff === 1 && !x.custom);
@@ -14431,14 +14496,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         );
       })()}
 
-      {/* Conversion-funnel popup (owner-approved 2026-09-19): trial-stage
-          messaging from ครู TIGA AI — welcome / halfway price-lock / closing
-          (checkout in one tap) / expired win-back. One instance, highest-
-          priority phase first; dismissal is remembered per device. */}
+      {/* Conversion-funnel popup (owner decision 2026-10-04): trial-stage
+          messaging from ครู TIGA AI — welcome (d1-3) / first-week proof (d5-6) /
+          last-day closing + direct checkout (d7) / expired win-back. One
+          instance, highest-priority phase first; dismissal is remembered per
+          device. The copy AND the checkout tier both follow the plan: the
+          promotion cohort is told about Max at ฿3,999, everyone after the cap
+          about Premium at ฿1,490. */}
       {convPopup && (() => {
-        const cc = CONV_COPY[lang] || CONV_COPY.en;
+        const cc = convCopyFor(lang, plan);
         const cRaw = cc[convPopup.kind];
-        const c = { ...cRaw, body: personalizedBody(convPopup.kind, lang, convPopup.proof, cRaw.body) };
+        const c = { ...cRaw, body: personalizedBody(convPopup.kind, lang, convPopup.proof, cRaw.body, plan) };
         return (
           <div className="atpopup" onClick={dismissConvPopup}>
             <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
@@ -14449,21 +14517,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               </div>
               <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
               {convPopup.kind === "closing" && <div className="convpop-items">{c.items}</div>}
-              {/* Primary action per phase: closing → direct checkout (3A);
-                  halfway → pricing sheet (2A price-lock); welcome → plain
-                  dismiss; win-back gets a secondary browse-plans button. */}
+              {/* Primary action per phase: closing → direct checkout for the
+                  tier this member is actually on (3A); every other kind is a
+                  plain dismiss, except win-back which also gets a secondary
+                  browse-plans button. */}
               {convPopup.kind === "closing"
                 ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "cta"); setConvPopup(null); startCheckout("premium", billCycle); }}>{c.cta}</button>
+                    <button className="atpopup-ok" style={{ flex: 1.4 }} onClick={() => { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "cta"); setConvPopup(null); startCheckout(convCheckoutTier(plan), billCycle); }}>{c.cta}</button>
                     <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{c.alt}</button>
-                  </div>
-                : convPopup.kind === "halfway"
-                ? <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button className="atpopup-ok" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "cta"); setConvPopup(null); setPricingOpen(true); }}>{c.cta}</button>
                   </div>
                 : <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <button className="atpopup-ok" style={{ flex: 1 }} onClick={dismissConvPopup}>{c.cta}</button>
-                    {convPopup.kind === "winback" && <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{(CONV_COPY[lang] || CONV_COPY.en).halfway.cta}</button>}
+                    {convPopup.kind === "winback" && <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { markConvSeen(convPopup.id); setConvPopup(null); setPricingOpen(true); }}>{cc.winbackAlt}</button>}
                   </div>}
             </div>
           </div>
@@ -14474,9 +14539,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           after numbers, one per day max, trial only, evidence-gated. CTA opens
           the existing pricing sheet; secondary goes straight to checkout. */}
       {proofPopup && !convPopup && (() => {
-        const cc = CONV_COPY[lang] || CONV_COPY.en;
+        const cc = convCopyFor(lang, plan);
         const k = cc[proofPopup.kind] || cc.proof;
-        const c = { ...k, body: personalizedBody(proofPopup.kind, lang, proofPopup.proof, k.body) };
+        const c = { ...k, body: personalizedBody(proofPopup.kind, lang, proofPopup.proof, k.body, plan) };
         return (
           <div className="atpopup" onClick={() => { logConvEvent("proof", "dismissed"); setProofPopup(null); }}>
             <div className="atpopup-card convpop" onClick={e => e.stopPropagation()}>
