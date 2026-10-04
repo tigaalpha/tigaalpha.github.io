@@ -141,6 +141,13 @@ ok("the song page rendered", qa(".songcard").length > 0, `${qa(".songcard").leng
 /* ── 1b. the "Original Content" button, and the page behind it (owner, 2026-10-04) ── */
 const ocBtn = q(".songocbtn");
 ok("the Original Content button sits on the song page", !!ocBtn, ocBtn ? txt(ocBtn) : "no .songocbtn");
+/* It has to be a SIBLING of Back inside .songtop — that container is the flex
+   row, and the owner marked a spot beside Back rather than below it. jsdom
+   cannot measure layout, so this asserts the structure the layout depends on. */
+ok("the button shares one row with Back", !!ocBtn && !!ocBtn.parentElement
+  && ocBtn.parentElement.classList.contains("songtop")
+  && !!q(".songtop .studioback"),
+  ocBtn && ocBtn.parentElement ? "parent: ." + ocBtn.parentElement.className : "—");
 const beforeOC = fetched.length;
 click(ocBtn);
 await settle(1500);
