@@ -1188,8 +1188,15 @@ const KB_DOMAIN_KEYWORDS = {
   motivation: ["เบื่อ", "เลิก", "ท้อ", "แรงใจ", "motivat", "รางวัล", "แต้ม", "ชม", "streak", "อยากเล่น"],
   culture: ["เพลงไทย", "ลูกทุ่ง", "หมอลำ", "thai music", "ขิม", "จะเข้"],
   rhythm: ["จังหวะ", "rhythm", "beat", "note value", "ครึ่งจังหวะ", "crotchet", "quaver", "โน้ตตัว"],
-  theory: ["ทฤษฎี", "theory", "บันไดเสียง", "scale", "mode", "คู่เสียง", "interval", "key", "คีย์", "เซมิโทน", "solfege", "transpose", "ย้ายคีย์"],
-  harmony: ["คอร์ด", "chord", "harmony", "inversion", "voice leading", "modulation", "เปลี่ยนคีย์", "cadence", "7th", "slash", "tension"],
+  /* "สเกล" is the word Thai students actually TYPE — the app's own pathway page
+     titles the lesson สเกล (Scale) and every scale drill is labelled เมเจอร์/
+     ไมเนอร์, but the retrieval table only knew the formal synonym "บันไดเสียง".
+     So "สอนสเกลให้หน่อย" matched no domain at all and fell through to the
+     MOTIVATION + PRACTICE PLANS core: the chat was told to ground its answer in
+     those lines and told not to contradict them, with no scale fact anywhere in
+     the prompt — which is how a scale question got answered wrongly. */
+  theory: ["ทฤษฎี", "theory", "บันไดเสียง", "สเกล", "scale", "mode", "คู่เสียง", "interval", "key", "คีย์", "เซมิโทน", "solfege", "solfège", "transpose", "ย้ายคีย์", "โมเอด", "mode"],
+  harmony: ["คอร์ด", "chord", "harmony", "inversion", "voice leading", "modulation", "เปลี่ยนคีย์", "cadence", "7th", "slash", "tension", "ทริแอด", "triad", "คอร์ดเสียง", "แจ้งเกอร์"],
   repertoire: ["เพลงคลาสสิก", "ยุค", "baroque", "คลาสสิก", "โรแมนติก", "bach", "mozart", "beethoven", "chopin", "ผู้แต่ง", "composer"],
   form: ["ฟอร์ม", "form", "ABA", "rondo", "โซนาต", "sonatina", "sonata", "variation", "โครงเพลง"],
   accompaniment: ["ประกอบ", "มือซ้าย", "left hand", "alberti", "ostinato", "เบส", "bass", "arpeggio", "บล็อกคอร์ด", "accomp"],

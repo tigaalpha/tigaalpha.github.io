@@ -9,13 +9,15 @@
    • interval × chord-context recognition (hear the interval inside a chord)
    All entries remain real, computed, teachable facts — zero filler. ── */
 
+import { spellFrom, spellFromDown, spellInterval, withOctaves, LETTERS, splitNote } from "./spelling.js";
+
+/* Root names this file walks. NOTE NAMES no longer come from this table: the
+   old `spell()` walked the pitch classes and so taught, for instance, the key
+   of E as "E F# Ab A B Db Eb E" — the right pitches, the wrong letters. Every
+   note name is now spelled letter-first by spelling.js. */
 const SH = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
-const IS_BLACK = (pc) => pc.includes("#");
-const spell = (rootIdx, steps, oct = 4) => steps.map(s => {
-  const abs = rootIdx + s;
-  return SH[((abs % 12) + 12) % 12] + (oct + Math.floor(abs / 12));
-});
+const spell = (rootIdx, steps, oct = 4, degrees) =>
+  withOctaves(spellFrom(SH[((rootIdx % 12) + 12) % 12], steps, degrees), oct);
 
 /* 1. NOTE ROLES: notes in 2 octaves (C3-B5, 36 notes) × 5 learning roles */
 export function genNoteRoles() {
@@ -30,7 +32,11 @@ export function genNoteRoles() {
   for (let r = 0; r < 12; r++) {
     for (const oct of [3, 4, 5]) {
       const pc = SH[r];
-      if (oct === 5 && SH.indexOf(pc) > 6) continue; // B5 is the top of this range
+      /* The range this function claims is C3–B5, which is all 12 pitch classes in
+         each of octaves 3, 4 and 5 = 36 notes. The old guard skipped every pitch
+         class above index 6 (G, Ab, A, Bb, B) in octave 5, so it stopped at
+         F♯5 and delivered 31 of the 36. Every octave-5 pitch class is inside
+         C3–B5, so no guard is needed here. */
       const note = pc + oct;
       for (const [rid, rname, rhow] of ROLES) {
         out.push({
@@ -283,17 +289,28 @@ export function genDegreeSinging() {
 export function genScalePatterns() {
   const out = [];
   const maj = [0, 2, 4, 5, 7, 9, 11, 12];
+  /* Each label now names the degrees the PATTERN actually walks. The "thirds"
+     row used to read "ข้ามองศา 1-3-2-4" while the code emitted 1-5-2-6-3-7-4-8
+     — a student drilling the printed figure was drilling the wrong exercise.
+     "pairs" is a plain scalar run, not an accent exercise, so it says so. */
   const PATTERNS = [
-    ["thirds", [0, 4, 1, 5, 2, 6, 3, 7], "โน้ตข้ามองศา 1-3-2-4", "โป้งซ้อมใต้แม่นยำขึ้นเพราะระยะกว้างขึ้น"],
-    ["fourths", [0, 5, 1, 6, 2, 7], "โน้ตข้าม 1-4", "ยืดนิ้ว 4 ให้เป็นอิสระจากนิ้วอื่น"],
-    ["step-back", [0, 1, 0, 2, 1, 3, 2, 4], "ขึ้น-ถอย 1 องศา", "สร้างการควบคุม 'ย้อน' ที่เพลงจริงต้องใช้"],
-    ["triads", [0, 2, 4, 2, 4, 6, 4, 6, 0], "ไล่คอร์ดไต่ขึ้น", "รู้สึกฮาร์มอนีวิ่งขึ้นไปกับเมโลดี้"],
-    ["pairs", [0, 1, 2, 3, 4, 5, 6, 7], "คู่โน้ตเน้นหน้า (1,1-2,2-3)", "จังหวะคู่เน้นหน้าฝึกน้ำหนักนิ้วคู่"],
+    ["thirds", [0, 4, 1, 5, 2, 6, 3, 7], "โน้ตข้ามสลับ 1-5-2-6-3-7-4-8 (อาร์เปจโจคู่สาม)", "โป้งซ้อมใต้แม่นยำขึ้นเพราะระยะกว้างขึ้น"],
+    ["fourths", [0, 5, 1, 6, 2, 7], "โน้ตข้ามคู่ที่สี่ 1-6-2-7-3-8", "ยืดนิ้ว 4 ให้เป็นอิสระจากนิ้วอื่น"],
+    ["step-back", [0, 1, 0, 2, 1, 3, 2, 4], "ขึ้น-ถอย 1 องศา (1-2-1-3-2-4-3-5)", "สร้างการควบคุม 'ย้อน' ที่เพลงจริงต้องใช้"],
+    ["triads", [0, 2, 4, 2, 4, 6, 4, 6, 0], "ไล่คอร์ดไต่ขึ้น (1-3-5-3-5-7-5-7-1)", "รู้สึกฮาร์มอนีวิ่งขึ้นไปกับเมโลดี้"],
+    ["pairs", [0, 1, 2, 3, 4, 5, 6, 7], "ไล่สเกลขึ้นราบ 1-2-3-4-5-6-7-8", "เป็นรูปแบบพื้นฐาน ต้องไล่คล่องก่อนลองรูปอื่น"],
   ];
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
     for (const [pid, idxs, pdesc, pwhy] of PATTERNS) {
-      const notes = idxs.map(i => SH[((r + maj[Math.min(i, 7)]) % 12 + 12) % 12] + (4 + Math.floor((r + maj[Math.min(i, 7)]) / 12)));
+      /* The octave comes from the scale POSITION (a note past the octave marker
+         belongs to the next octave), not from comparing letters — a pattern
+         like 1-5-2-6-3-7-4-8 jumps around the scale, so letter-order would
+         invent octaves that are not there. Only the NAME is letter-first. */
+      const notes = idxs.map(i => {
+        const semi = maj[Math.min(i, 7)];
+        return spellFrom(key, [semi], [Math.min(i, 7) + 1])[0] + (4 + Math.floor((r + semi) / 12));
+      });
       out.push({
         id: `exp:scalepat:${key}-${pid}`,
         type: "strategy", domain: "technique",

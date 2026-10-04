@@ -1,3 +1,5 @@
+import { spellFrom, spellInterval, withOctaves, stackDegrees, stepDegrees } from "./spelling.js";
+
 /* ── tigamodel/knowledge/expansion-canvas.js ──
    The CANVAS wave — final push past 10,000 with the remaining real
    cross-product dimensions:
@@ -12,10 +14,19 @@
    All real, canonical, teachable — zero filler. ── */
 
 const SH = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-const spell = (rootIdx, steps, oct = 4) => steps.map(s => {
-  const abs = rootIdx + s;
-  return SH[((abs % 12) + 12) % 12] + (oct + Math.floor(abs / 12));
-});
+/* NOTE NAMES are letter-first (see knowledge/spelling.js). The pitch-class
+   walk this replaced got the pitch right and the LETTER wrong whenever the
+   root carried an accidental — it taught "C♯ major" as C♯ F G♯, where F
+   natural is not E♯. Only the OCTAVE still comes from the walk, because
+   register is what the walk was right about. Reference: Open Music Theory,
+   "Triads" — a chord's letters are always root, third, fifth. */
+const spell = (rootIdx, steps, oct = 4, degrees) => {
+  const root = SH[((rootIdx % 12) + 12) % 12];
+  /* Octaves come from walking the LETTERS, not from the semitone offset. The
+     offset arithmetic only worked when the octave happened to line up with the
+     letter wrap, and quietly put a chord's fifth below its third. */
+  return withOctaves(spellFrom(root, steps, degrees), oct);
+};
 
 /* 1. RHYTHM VALUE × METER: how each value behaves in each meter */
 export function genRhythmMeter() {
@@ -79,7 +90,9 @@ export function genChordInSong() {
     ["outro", "ปิดเพลง", "กลับ I ช้าลง มักจบ IV→I หรือ V→I"],
   ];
   for (const [label, r, ct] of CHORDS) {
-    const notes = spell(r, ct === "maj" ? [0, 4, 7] : [0, 3, 7]);
+    /* the chord's letter comes from its stacked degrees (1-3-5); the walk this
+       replaced spelled Am's minor third as B♯ instead of C */
+    const notes = spell(r, ct === "maj" ? [0, 4, 7] : [0, 3, 7], 4, stackDegrees(3));
     for (const [rid, rname, rtip] of ROLES) {
       out.push({
         id: `exp:chordsong:${label}-${rid}`,

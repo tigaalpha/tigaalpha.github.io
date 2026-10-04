@@ -1,3 +1,5 @@
+import { spellFrom, spellInterval, withOctaves, stackDegrees, stepDegrees } from "./spelling.js";
+
 /* ── tigamodel/knowledge/expansion-peaks.js ──
    PEAKS wave — final real dimensions to cross 10,000:
    • piano key map: all 88 keys with octave + frequency
@@ -15,10 +17,19 @@
 const SH = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 const SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const PC = { C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, F: 5, "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11 };
-const spell = (rootIdx, steps, oct = 4) => steps.map(s => {
-  const abs = rootIdx + s;
-  return SH[((abs % 12) + 12) % 12] + (oct + Math.floor(abs / 12));
-});
+/* NOTE NAMES are letter-first (see knowledge/spelling.js). The pitch-class
+   walk this replaced got the pitch right and the LETTER wrong whenever the
+   root carried an accidental — it taught "C♯ major" as C♯ F G♯, where F
+   natural is not E♯. Only the OCTAVE still comes from the walk, because
+   register is what the walk was right about. Reference: Open Music Theory,
+   "Triads" — a chord's letters are always root, third, fifth. */
+const spell = (rootIdx, steps, oct = 4, degrees) => {
+  const root = SH[((rootIdx % 12) + 12) % 12];
+  /* Octaves come from walking the LETTERS, not from the semitone offset. The
+     offset arithmetic only worked when the octave happened to line up with the
+     letter wrap, and quietly put a chord's fifth below its third. */
+  return withOctaves(spellFrom(root, steps, degrees), oct);
+};
 const freq = midi => (440 * Math.pow(2, (midi - 69) / 12)).toFixed(2);
 
 /* 1. PIANO KEY MAP: all 88 real keys */
@@ -53,11 +64,17 @@ export function genInversions() {
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
     for (const [tid, tname, steps] of TYPES) {
-      const tones = spell(r, steps);
+      /* a chord's degrees come from its type, not from its semitone count */
+      const degs = stackDegrees(steps.length);
+      const tones = spell(r, steps, 4, degs);
       for (const [pid, pname, pdesc] of POS) {
         if (tid.includes("7") && pid === "2nd") continue; // 7th chords: 3rd inv exists but keep grid consistent
-        const invSteps = pid === "root" ? steps : pid === "1st" ? steps.slice(1).concat(steps[0] + 12) : steps.slice(2).concat(steps.slice(0, 2).map(s => s + 12));
-        const invNotes = spell(r, invSteps);
+        /* an inversion puts the next chord tone in the bass and re-stacks the
+           rest an octave up; the degrees move with it (+7 = one octave) */
+        const n = pid === "root" ? 0 : pid === "1st" ? 1 : 2;
+        const invSteps = [...steps.slice(n), ...steps.slice(0, n).map((s) => s + 12)];
+        const invDegs = [...degs.slice(n), ...degs.slice(0, n).map((d) => d + 7)];
+        const invNotes = spell(r, invSteps, 4, invDegs);
         out.push({
           id: `peak:inv:${key}-${tid}-${pid}`,
           type: "fact", domain: "harmony",
@@ -89,7 +106,9 @@ export function genDegrees() {
   ];
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
-    const notes = spell(r, maj);
+    /* the scale sits on degrees 1-7 of its own tonic, so those are the
+       degrees its notes carry */
+    const notes = spell(r, maj, 4, stepDegrees(7));
     FN.forEach(([deg, fname, fdesc], i) => {
       out.push({
         id: `peak:deg:${key}-${deg}`,
@@ -143,7 +162,10 @@ export function genModes() {
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
     for (const [mid, mname, steps, mdesc] of MODES) {
-      const notes = spell(r, steps);
+      /* a MODE is a rotated major scale, so its notes still carry degrees 1-7
+         of its own tonic. Without them the walk spelled Dorian's minor 3rd as
+         D♯ and Locrian's b2 as C♯ — right pitch, wrong letter. */
+      const notes = spell(r, steps, 4, stepDegrees(7));
       out.push({
         id: `peak:mode:${mid}-${key}`,
         type: "fact", domain: "theory",
@@ -162,6 +184,23 @@ export function genModes() {
 /* 6. EXOTIC SCALES × KEYS */
 export function genExoticScales() {
   const out = [];
+  /* Each scale also declares the DEGREE each of its notes carries, keyed by
+     scale id. That is the whole difference between a minor pentatonic and a
+     scale whose third is minor with a flattened fifth — the degrees fix the
+     letters, so the pitch walk can no longer spell the blues scale's minor 3rd
+     as D♯. Declared here rather than in the table above so the table keeps
+     reading as one line per scale. */
+  const EXOTIC_DEGREES = {
+    "minor-blues": [1, 3, 4, 5, 5, 7],
+    "major-pent": [1, 2, 3, 5, 6],
+    "minor-pent": [1, 3, 4, 5, 7],
+    "whole-tone": [1, 2, 3, 4, 5, 6],
+    /* half-whole diminished = 1 b2 #2 3 #4 5 6 b7, so it uses BOTH the flat and
+       the sharp of its second letter (Db then D# from D♭) — one degree per
+       letter, exactly as the scale is read */
+    "dim-hw": [1, 2, 2, 3, 4, 5, 6, 7],
+    "chromatic": [1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7],
+  };
   const SCALES = [
     ["minor-blues", "บลูส์ไมเนอร์", [0, 3, 5, 6, 7, 10], "เสียงบลูส์แท้ มี blue note ที่ b5"],
     ["major-pent", "เพนทาโทนิก major", [0, 2, 4, 7, 9], "5 โน้ตเล่นอะไรก็เพราะ เหมาะเริ่มด้น"],
@@ -173,7 +212,10 @@ export function genExoticScales() {
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
     for (const [sid, sname, steps, sdesc] of SCALES) {
-      const notes = spell(r, steps);
+      const degrees = EXOTIC_DEGREES[sid];
+      /* each scale declares the DEGREE each note carries; the degrees fix the
+         letters, so the walk can no longer spell blues' b3 as D♯ */
+      const notes = spell(r, steps, 4, degrees);
       out.push({
         id: `peak:exotic:${sid}-${key}`,
         type: "fact", domain: "theory",

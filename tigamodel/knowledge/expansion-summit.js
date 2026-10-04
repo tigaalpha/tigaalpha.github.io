@@ -1,3 +1,5 @@
+import { spellFrom, spellInterval, withOctaves, stackDegrees } from "./spelling.js";
+
 /* ── tigamodel/knowledge/expansion-summit.js ──
    SUMMIT wave — the last real cross-products needed to clear 10,000:
    • chord voicings: every key × core chord type × 8 voicing styles
@@ -10,15 +12,29 @@
    All canonical, computed, teachable. ── */
 
 const SH = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-const spell = (rootIdx, steps, oct = 4) => steps.map(s => {
-  const abs = rootIdx + s;
-  return SH[((abs % 12) + 12) % 12] + (oct + Math.floor(abs / 12));
-});
+/* NOTE NAMES are letter-first (see knowledge/spelling.js). The pitch-class
+   walk this replaced got the pitch right and the LETTER wrong whenever the
+   root carried an accidental — it taught "C♯ major" as C♯ F G♯, where F
+   natural is not E♯. Only the OCTAVE still comes from the walk, because
+   register is what the walk was right about. Reference: Open Music Theory,
+   "Triads" — a chord's letters are always root, third, fifth. */
+const spell = (rootIdx, steps, oct = 4, degrees) => {
+  const root = SH[((rootIdx % 12) + 12) % 12];
+  /* Octaves come from walking the LETTERS, not from the semitone offset. The
+     offset arithmetic only worked when the octave happened to line up with the
+     letter wrap, and quietly put a chord's fifth below its third. */
+  return withOctaves(spellFrom(root, steps, degrees), oct);
+};
 const PC = { C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, F: 5, "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11 };
 
 /* 1. CHORD VOICINGS: key × chord type × voicing style */
 export function genVoicings() {
   const out = [];
+  /* A chord's letters are fixed by the degrees it stacks, not by its
+     semitone count: 3 semitones above C is E♭ in a minor chord and would be
+     D♯ in something else. The walk this replaced guessed, and taught "C minor"
+     as C D♯ G — a chord that has no name. Reference: Open Music Theory,
+     "Triads". */
   const TYPES = [
     ["maj", "major", [0, 4, 7]], ["min", "minor", [0, 3, 7]], ["dom7", "dominant 7", [0, 4, 7, 10]],
     ["maj7", "major 7", [0, 4, 7, 11]], ["min7", "minor 7", [0, 3, 7, 10]],
@@ -36,7 +52,7 @@ export function genVoicings() {
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
     for (const [tid, tname, steps] of TYPES) {
-      const tones = spell(r, steps);
+      const tones = spell(r, steps, 4, stackDegrees(steps.length));
       for (const [vid, vname, vtip] of VOICINGS) {
         out.push({
           id: `summit:voicing:${key}-${tid}-${vid}`,
@@ -57,20 +73,26 @@ export function genVoicings() {
 /* 2. FAMOUS PROGRESSIONS × EVERY KEY */
 export function genProgressionKeys() {
   const out = [];
+  /* The roman numeral is what fixes each chord's letter, so an entry names the
+     SCALE DEGREE it sits on instead of a semitone offset. Walking the pitch
+     table (SH[(r + off) % 12]) taught IV of D♭ major as F♯ — the same pitch as
+     G♭, but a letter that turns IV into something else entirely. */
   const ROMAN = {
-    "I-V-vi-IV": [[0, "maj", "I"], [7, "maj", "V"], [9, "min", "vi"], [5, "maj", "IV"]],
-    "vi-IV-I-V": [[9, "min", "vi"], [5, "maj", "IV"], [0, "maj", "I"], [7, "maj", "V"]],
-    "ii-V-I": [[2, "min7", "ii7"], [7, "dom7", "V7"], [0, "maj7", "Imaj7"]],
-    "I-vi-ii-V": [[0, "maj", "I"], [9, "min", "vi"], [2, "min7", "ii7"], [7, "dom7", "V7"]],
-    "I-IV-V": [[0, "maj", "I"], [5, "maj", "IV"], [7, "maj", "V"]],
-    "12-bar-blues": [[7, "dom7", "I7"], [7, "dom7", "I7"], [7, "dom7", "I7"], [7, "dom7", "I7"], [0, "dom7", "IV7"], [0, "dom7", "IV7"], [7, "dom7", "I7"], [7, "dom7", "I7"], [2, "dom7", "V7"], [0, "dom7", "IV7"], [7, "dom7", "I7"], [7, "dom7", "V7"]],
+    "I-V-vi-IV": [[1, "maj", "I"], [5, "maj", "V"], [6, "min", "vi"], [4, "maj", "IV"]],
+    "vi-IV-I-V": [[6, "min", "vi"], [4, "maj", "IV"], [1, "maj", "I"], [5, "maj", "V"]],
+    "ii-V-I": [[2, "min7", "ii7"], [5, "dom7", "V7"], [1, "maj7", "Imaj7"]],
+    "I-vi-ii-V": [[1, "maj", "I"], [6, "min", "vi"], [2, "min7", "ii7"], [5, "dom7", "V7"]],
+    "I-IV-V": [[1, "maj", "I"], [4, "maj", "IV"], [5, "maj", "V"]],
+    /* blues makes every chord a dominant 7th, so these are deliberately NOT
+       the diatonic qualities — the check skips the blues progression for that
+       reason rather than "fixing" an idiom into a wrong one */
+    "12-bar-blues": [[1, "dom7", "I7"], [1, "dom7", "I7"], [1, "dom7", "I7"], [1, "dom7", "I7"], [4, "dom7", "IV7"], [4, "dom7", "IV7"], [1, "dom7", "I7"], [1, "dom7", "I7"], [5, "dom7", "V7"], [5, "dom7", "V7"], [4, "dom7", "IV7"], [1, "dom7", "I7"]],
   };
-  const CT = { maj: [0, 4, 7], min: [0, 3, 7], dom7: [0, 4, 7, 10], min7: [0, 3, 7, 10], maj7: [0, 4, 7, 11], dom7b: [0, 4, 7, 10] };
-  const stepsOf = t => CT[t] || CT.maj;
+  const MAJ_STEPS = [0, 2, 4, 5, 7, 9, 11];
   for (const [pname, degrees] of Object.entries(ROMAN)) {
     for (let r = 0; r < 12; r++) {
       const key = SH[r];
-      const chords = degrees.map(([off, t, label]) => `${label}: ${SH[(r + off) % 12]}${t === "maj" ? "" : t === "min" ? "m" : t === "dom7" ? "7" : t === "min7" ? "m7" : "maj7"}`);
+      const chords = degrees.map(([deg, t, label]) => `${label}: ${spellInterval(key, deg, MAJ_STEPS[deg - 1], "up")}${t === "maj" ? "" : t === "min" ? "m" : t === "dom7" ? "7" : t === "min7" ? "m7" : "maj7"}`);
       out.push({
         id: `summit:progkey:${pname}-${key}`,
         type: "fact", domain: "harmony",
@@ -118,19 +140,26 @@ export function genHanonVariants() {
 /* 4. INTERVAL × EVERY NOTE PAIR × DIRECTION */
 export function genIntervalPairs() {
   const out = [];
+  /* Each entry names the DEGREE it spans, and the degree is what fixes the
+     letter of the target note. The pitch-class walk this replaced
+     (SH[(r ± semis) % 12]) taught "major 2nd down from D♭ = B", but B is a
+     minor 7th below D♭; a major 2nd below D♭ is B♭. Reference: Wikipedia /
+     Open Music Theory, "Intervals (music)". A tritone is named as a 4th here
+     (the augmented 4th), the usual way up; going down it is a diminished 4th
+     of the same size, which is why the check accepts either spelling. */
   const IV = [
-    ["m2", "2 เสียงเล็ก", 1, "Jaws (สองโน้ตกัด)"], ["M2", "2 เสียงใหญ่", 2, "Happy Birthday (สองโน้ตแรก)"],
-    ["m3", "3 เสียงเล็ก", 3, "Greensleeves เปิด"], ["M3", "3 เสียงใหญ่", 4, "Oh When the Saints เปิด"],
-    ["P4", "4 เสียงสามัญ", 5, "Here Comes the Bride เปิด"], ["TT", "ไตรโทน (เสียงชวนกลัว)", 6, "The Simpsons เปิด"],
-    ["P5", "5 เสียงสามัญ", 7, "Star Wars แตรเปิด"], ["m6", "6 เสียงเล็ก", 8, "The Entertainer ตอนกลาง"],
-    ["M6", "6 เสียงใหญ่", 9, "My Bonnie เปิด"], ["m7", "7 เสียงเล็ก", 10, "Star Trek ธีม"],
-    ["M7", "7 เสียงใหญ่", 11, "Take On Me เสียงวิ่งขึ้น"], ["P8", "อ็อกเทฟ", 12, "Somewhere Over the Rainbow สองโน้ตแรก"],
+    ["m2", "2 เสียงเล็ก", 1, 2, "Jaws (สองโน้ตกัด)"], ["M2", "2 เสียงใหญ่", 2, 2, "Happy Birthday (สองโน้ตแรก)"],
+    ["m3", "3 เสียงเล็ก", 3, 3, "Greensleeves เปิด"], ["M3", "3 เสียงใหญ่", 4, 3, "Oh When the Saints เปิด"],
+    ["P4", "4 เสียงสามัญ", 5, 4, "Here Comes the Bride เปิด"], ["TT", "ไตรโทน (เสียงชวนกลัว)", 6, 4, "The Simpsons เปิด"],
+    ["P5", "5 เสียงสามัญ", 7, 5, "Star Wars แตรเปิด"], ["m6", "6 เสียงเล็ก", 8, 6, "The Entertainer ตอนกลาง"],
+    ["M6", "6 เสียงใหญ่", 9, 6, "My Bonnie เปิด"], ["m7", "7 เสียงเล็ก", 10, 7, "Star Trek ธีม"],
+    ["M7", "7 เสียงใหญ่", 11, 7, "Take On Me เสียงวิ่งขึ้น"], ["P8", "อ็อกเทฟ", 12, 8, "Somewhere Over the Rainbow สองโน้ตแรก"],
   ];
   for (let r = 0; r < 12; r++) {
     const from = SH[r];
-    for (const [iid, iname, semis, ref] of IV) {
-      const up = SH[(r + semis) % 12];
-      const down = SH[((r - semis) % 12 + 12) % 12];
+    for (const [iid, iname, semis, deg, ref] of IV) {
+      const up = spellInterval(from, deg, semis, "up");
+      const down = spellInterval(from, deg, semis, "down");
       out.push({
         id: `summit:ivpair:${from}-${iid}`,
         type: "fact", domain: "ear-training",
@@ -157,7 +186,7 @@ export function genChordToneRoles() {
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
     for (const [tid, steps, roles] of TYPES) {
-      const tones = spell(r, steps);
+      const tones = spell(r, steps, 4, stackDegrees(steps.length));
       tones.forEach((tone, i) => {
         out.push({
           id: `summit:tonerole:${key}-${tid}-${i}`,
@@ -299,16 +328,21 @@ export function genMemorySystems() {
 /* 10. CADENCE × EVERY KEY (harmonic close practice) */
 export function genCadenceKeys() {
   const out = [];
+  /* The two chords of a cadence are named by their roman numerals, so each
+     entry gives the scale DEGREE — that is what fixes the letter. Walking the
+     pitch table (SH[(r + a) % 12]) taught the dominant of F♯ major as D♭,
+     which is a minor 3rd above the tonic, not its dominant. */
   const CAD = [
-    ["authentic", "V→I (authentic)", [7, 0], "จบเด็ดขาด เหมาะปิดเพลง"],
-    ["half", "x→V (half)", [0, 7], "จบ 'ค้าง' ต้องรีบไปต่อ ใช้กลางเพลง"],
-    ["plagal", "IV→I (plagal)", [5, 0], "จบแบบ 'อาเมน' เก่าแก่ นิ่งลึก"],
-    ["deceptive", "V→vi (deceptive)", [7, 9], "หลอกฟัง — คาด I แต่ได้ vi สร้างอารมณ์เซอร์ไพรส์"],
+    ["authentic", "V→I (authentic)", [5, 1], "จบเด็ดขาด เหมาะปิดเพลง"],
+    ["half", "x→V (half)", [1, 5], "จบ 'ค้าง' ต้องรีบไปต่อ ใช้กลางเพลง"],
+    ["plagal", "IV→I (plagal)", [4, 1], "จบแบบ 'อาเมน' เก่าแก่ นิ่งลึก"],
+    ["deceptive", "V→vi (deceptive)", [5, 6], "หลอกฟัง — คาด I แต่ได้ vi สร้างอารมณ์เซอร์ไพรส์"],
   ];
+  const MAJ_STEPS = [0, 2, 4, 5, 7, 9, 11];
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
-    for (const [cid, cname, [a, b], cdesc] of CAD) {
-      const c1 = SH[(r + a) % 12], c2 = SH[(r + b) % 12];
+    for (const [cid, cname, [da, db], cdesc] of CAD) {
+      const c1 = spellInterval(key, da, MAJ_STEPS[da - 1], "up"), c2 = spellInterval(key, db, MAJ_STEPS[db - 1], "up");
       out.push({
         id: `summit:cadence:${cid}-${key}`,
         type: "fact", domain: "harmony",

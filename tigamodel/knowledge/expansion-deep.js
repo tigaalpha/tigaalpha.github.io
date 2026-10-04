@@ -1,3 +1,5 @@
+import { spellFrom, spellInterval, withOctaves, stackDegrees, stepDegrees } from "./spelling.js";
+
 /* ── tigamodel/knowledge/expansion-deep.js ──
    The DEEP SYSTEMATIC wave — pushes the KB past 10,000 by crossing the
    remaining real theory dimensions the earlier waves left singletons:
@@ -12,10 +14,23 @@
 const SH = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 const IS_BLACK = (pc) => pc.includes("#");
-const spell = (rootIdx, steps, oct = 4) => steps.map(s => {
-  const abs = rootIdx + s;
-  return SH[((abs % 12) + 12) % 12] + (oct + Math.floor(abs / 12));
-});
+/* Spell a chord from a root NAME. A diatonic chord's root is a scale DEGREE, so
+   its letter has to come from the degree: walking the pitch table taught the
+   mediant of C♯ major as "F" instead of E♯, naming a chord that does not exist. */
+const spellRoot = (rootName, steps, degrees, oct = 4) => withOctaves(spellFrom(rootName, steps, degrees), oct);
+/* NOTE NAMES are letter-first (see knowledge/spelling.js). The pitch-class
+   walk this replaced got the pitch right and the LETTER wrong whenever the
+   root carried an accidental — it taught "C♯ major" as C♯ F G♯, where F
+   natural is not E♯. Only the OCTAVE still comes from the walk, because
+   register is what the walk was right about. Reference: Open Music Theory,
+   "Triads" — a chord's letters are always root, third, fifth. */
+const spell = (rootIdx, steps, oct = 4, degrees) => {
+  const root = SH[((rootIdx % 12) + 12) % 12];
+  /* Octaves come from walking the LETTERS, not from the semitone offset. The
+     offset arithmetic only worked when the octave happened to line up with the
+     letter wrap, and quietly put a chord's fifth below its third. */
+  return withOctaves(spellFrom(root, steps, degrees), oct);
+};
 const freq = (pc, oct) => {
   const pcIdx = SH.indexOf(pc.length > 1 ? pc[0] + "#" : pc);
   return 440 * Math.pow(2, ((oct - 4) * 12 + (pcIdx - 9)) / 12);
@@ -50,6 +65,11 @@ export function genKeyboardMap() {
 export function genDegreeVocabulary() {
   const out = [];
   const maj = [0, 2, 4, 5, 7, 9, 11];
+  /* the degrees each quality actually stacks. A plain triad is 1-3-5, but a sus
+     chord REPLACES the third with the 2nd or the 4th, and a 6th chord puts the
+     6th where the 7th would go — stackDegrees would spell a sus4's second tone
+     as a doubly-flattened third. */
+  const QUAL_DEGREES = { maj: [1, 3, 5], maj7: [1, 3, 5, 7], maj9: [1, 3, 5, 7, 9], "6": [1, 3, 5, 6], sus2: [1, 2, 5], sus4: [1, 4, 5] };
   const QUALS = [
     ["maj", [0, 4, 7], "เมเจอร์พื้นฐาน — เสียงที่เริ่มต้นทุกอย่าง"],
     ["maj7", [0, 4, 7, 11], "เมเจอร์เซเวนท์ — เพิ่มสี 'ฝันหวาน' นุ่มลึก"],
@@ -61,10 +81,11 @@ export function genDegreeVocabulary() {
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
     for (let deg = 0; deg < 7; deg++) {
-      const degRootIdx = r + maj[deg];
-      const degRoot = SH[((degRootIdx % 12) + 12) % 12];
+      /* the chord root is the chord ON that scale degree, so it is spelled
+         from the degree (spellInterval), not from a pitch index */
+      const degRoot = spellInterval(key, deg + 1, maj[deg], "up");
       for (const [q, steps, feel] of QUALS) {
-        const notes = spell(degRootIdx, steps);
+        const notes = spellRoot(degRoot, steps, QUAL_DEGREES[q]);
         out.push({
           id: `exp:degvocab:${key}-${deg}-${q}`,
           type: "fact", domain: "harmony",
@@ -87,10 +108,14 @@ export function genKeyPracticePlans() {
   const maj = [0, 2, 4, 5, 7, 9, 11];
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
-    const scale = spell(r, [...maj, 12]);
-    const triadI = spell(r, [0, 4, 7]);
-    const triadV = spell(r + 7, [0, 4, 7]);
-    const triadIV = spell(r + 5, [0, 4, 7]);
+    const scale = spell(r, [...maj, 12], 4, stepDegrees(8));
+    /* I, IV and V are scale DEGREES of the key, so each is spelled from its
+       degree — adding the degree's semitone offset to the key index and naming
+       the result from the pitch table taught IV of D♭ major as F♯ */
+    const triadAt = (deg) => spellRoot(spellInterval(key, deg, maj[deg - 1], "up"), [0, 4, 7], stackDegrees(3));
+    const triadI = triadAt(1);
+    const triadIV = triadAt(4);
+    const triadV = triadAt(5);
     out.push({
       id: `exp:keyplan:${key}`,
       type: "strategy", domain: "practice-planning",
@@ -217,10 +242,14 @@ export function genProgressionFragments() {
           // bound this wave (7×6×5×4=840 fragments/key was past 10k alone).
           for (let d = 0; d < 7; d++) {
             if (d === a || d === b || d === c) continue;
+            /* each fragment chord is the diatonic triad ON a degree, so its root carries
+           that degree's letter — spelled from the degree, not from a pitch
+           index, which named the mediant of C♯ major "F" instead of E♯ */
             const ch = [a, b, c, d].map(deg => {
-              const ri = r + maj[deg];
-              const notes = spell(ri, STEPS[QUAL[deg]]);
-              return `${ROMAN[deg]} (${SH[((ri % 12) + 12) % 12]}${QUAL[deg] === "maj" ? "" : QUAL[deg] === "min" ? "m" : "°"}: ${notes.join("-")})`;
+              const chRoot = spellInterval(key, deg + 1, maj[deg], "up");
+              const steps = STEPS[QUAL[deg]];
+              const notes = spellRoot(chRoot, steps, stackDegrees(3));
+              return `${ROMAN[deg]} (${chRoot}${QUAL[deg] === "maj" ? "" : QUAL[deg] === "min" ? "m" : "°"}: ${notes.join("-")})`;
             });
             out.push({
               id: `exp:progfrag:${key}-${a}${b}${c}${d}`,

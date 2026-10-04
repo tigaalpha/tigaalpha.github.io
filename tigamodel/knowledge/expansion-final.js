@@ -8,27 +8,36 @@
    • family/group lesson plans + duet skills
    All computed or canonical facts — zero filler. ── */
 
+import { spellFrom, spellInterval, withOctaves, stackDegrees } from "./spelling.js";
+
+/* Root names this file walks. The old spelling used the pitch-class table for
+   note names too, which is what taught wrong letters; note names now come from
+   spelling.js, which is letter-first. */
 const SH = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-const spell = (rootIdx, steps, oct = 4) => steps.map(s => {
-  const abs = rootIdx + s;
-  return SH[((abs % 12) + 12) % 12] + (oct + Math.floor(abs / 12));
-});
+const spell = (rootIdx, steps, oct = 4, degrees) =>
+  withOctaves(spellFrom(SH[((rootIdx % 12) + 12) % 12], steps, degrees), oct);
 
 /* 1. EAR TRAINING COMPLETE: interval (13) × note (12) × direction (2) */
 export function genEarMatrix() {
   const out = [];
+  /* Each entry declares the DEGREE its name claims — that degree is what fixes
+     the LETTER of the target note. Walking the chroma table instead (the old
+     SH[(r ± s) % 12]) got the pitch right and the letter wrong whenever the
+     root carried a flat: it taught "major 2nd down from D♭ = B", but a major
+     2nd below D♭ is B♭; D♭→B spelled out is a minor 7th. An octave is degree
+     8, not degree 1, so it is listed as 8 here.
+     Reference: Wikipedia / Open Music Theory, "Intervals (music)". */
   const INTS = [
-    [1, "ครึ่งเสียง (minor 2nd)", "ตึง"], [2, "ทั้งเสียง (major 2nd)", "เดิน"], [3, "ไมเนอร์ 3rd", "เศร้า"],
-    [4, "เมเจอร์ 3rd", "สดใส"], [5, "คู่ 4", "ลอย"], [6, "tritone", "ไม่นิ่ง"],
-    [7, "คู่ 5", "มั่นคง"], [8, "ไมเนอร์ 6th", "ลึกเศร้า"], [9, "เมเจอร์ 6th", "อบอุ่น"],
-    [10, "ไมเนอร์ 7th", "เย็นแจ๊ส"], [11, "เมเจอร์ 7th", "ฝันหวาน"], [12, "ออกเทฟ", "กว้าง"],
+    [1, 2, "ครึ่งเสียง (minor 2nd)", "ตึง"], [2, 2, "ทั้งเสียง (major 2nd)", "เดิน"], [3, 3, "ไมเนอร์ 3rd", "เศร้า"],
+    [4, 3, "เมเจอร์ 3rd", "สดใส"], [5, 4, "คู่ 4", "ลอย"], [6, 4, "tritone", "ไม่นิ่ง"],
+    [7, 5, "คู่ 5", "มั่นคง"], [8, 6, "ไมเนอร์ 6th", "ลึกเศร้า"], [9, 6, "เมเจอร์ 6th", "อบอุ่น"],
+    [10, 7, "ไมเนอร์ 7th", "เย็นแจ๊ส"], [11, 7, "เมเจอร์ 7th", "ฝันหวาน"], [12, 8, "ออกเทฟ", "กว้าง"],
   ];
   for (let r = 0; r < 12; r++) {
     const root = SH[r];
-    for (const [s, name, feel] of INTS) {
+    for (const [s, deg, name, feel] of INTS) {
       for (const dir of ["up", "down"]) {
-        const targetIdx = dir === "up" ? r + s : r - s;
-        const target = SH[((targetIdx % 12) + 12) % 12];
+        const target = spellInterval(root, deg, s, dir);
         out.push({
           id: `exp:earmatrix:${root}-${s}-${dir}`,
           type: "fact", domain: "ear-training",
@@ -50,11 +59,16 @@ export function genHandVoicings() {
   const out = [];
   const TRS = { maj: [0, 4, 7], min: [0, 3, 7], dom7: [0, 4, 7, 10], maj7: [0, 4, 7, 11], min7: [0, 3, 7, 10] };
   for (const [ct, steps] of Object.entries(TRS)) {
+    /* a chord's letters come from the degrees it stacks; without them the walk
+       spelled C minor's third as D♯ — a chord that has no name */
+    const degs = stackDegrees(steps.length);
     for (let r = 0; r < 12; r++) {
       const root = SH[r];
       const lhRoot = spell(r, [0], 2)[0];
-      const lhFifth = spell(r + 7, [0], 2)[0];
-      const rhNotes = spell(r, steps, 4);
+      /* the left hand plays the chord's FIFTH, which is degree 5 of that
+         chord — naming it by the pitch table gave F♯ major a left hand on D♭ */
+      const lhFifth = spellInterval(root, 5, 7, "up") + "2";
+      const rhNotes = spell(r, steps, 4, degs);
       const suffix = ct === "maj" ? "" : ct;
       out.push({
         id: `exp:voicing:${root}-${ct}`,
