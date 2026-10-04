@@ -30,9 +30,32 @@
 --             them, so they are excluded outright.
 --   banned  — a suspended account gains nothing from a free year, and
 --             granting it would be the wrong direction to err in.
---   active paying members — anyone whose plan_until is still in the future is
---             left exactly as they are; this grants Max to the people the
---             owner asked about (free / lapsed), not to customers.
+--   already-active Max / MaxFamily — anyone whose plan_until is still in the
+--             future is left exactly as they are. Owner decision 2026-10-04:
+--             "คนที่อยู่แพ็กเกจ Max อยู่แล้ว ก็ให้เขาใช้แพ็กเกจ Max ไปได้หนึ่งปี
+--             เหมือนเดิม / คนที่ได้ฟรีหนึ่งปีไปก็ให้เขาใช้ฟรีหนึ่งปีเหมือนเดิม" — the
+--             people who already hold the free year KEEP it. Re-granting
+--             would silently roll their expiry forward another 365 days and
+--             cost nothing to the owner while quietly over-promising.
+--
+-- ── MEASURED AGAINST THE LIVE DATABASE (2026-10-04, project
+--    gsaqgbracxnucdmtmcxz) ────────────────────────────────────────────────
+-- The counts below were read from public.profiles, not estimated. Total 70.
+--
+--   granted  56 rows = 55 on plan='free' + 1 on plan='max' with an
+--                    ALREADY-EXPIRED plan_until (that one is a lapsed Max,
+--                    and the owner asked for lapsed people to be put back
+--                    on Max too).
+--   kept     11 rows = 10 already-active Max (267-337 days left) + 1
+--                    already-active MaxFamily (~27 years left).
+--   skipped   3 rows = admins. effectivePlan() renders them MaxFamily, i.e.
+--                    above Max, so nothing is owed to them.
+--
+-- Note the 55 free rows are NOT all "free" to the app: 11 of them signed up
+-- within the last 7 days and are inside their Max trial RIGHT NOW, because
+-- the trial is computed from created_at on every read and never written to
+-- the column. See supabase-admin-list-students-trial-columns-migration.sql —
+-- without it the admin console keeps showing those eleven as FREE.
 --
 -- ── RE-RUNNABLE ───────────────────────────────────────────────────────────
 -- The WHERE clause only matches rows that are free, unset, or lapsed. After

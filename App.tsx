@@ -8402,6 +8402,18 @@ function numFieldProps(val, set) {
 function AdminStudents({ lang, viewerTier }) {
   const tier = viewerTier || 0;
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  /* What the learner ACTUALLY has right now, not what the column says.
+     The list used to render profiles.plan directly, so a member inside
+     their 7-day Max trial — whose stored plan is still "free", because the
+     trial is measured from created_at on every read and never written — was
+     shown to the owner as FREE. That is how "ทุกคนดูเป็นฟรี" happened while
+     eleven people were actually on Max. effectivePlan() is the same function
+     the app itself gates on, so this cannot disagree with what the member
+     gets. */
+  const livePlan = (r) => effectivePlan({
+    plan: r.plan, plan_until: r.plan_until, created_at: r.created_at,
+    founding_member: r.founding_member, is_admin: (r.admin_tier || 0) > 0,
+  });
   const [rows, setRows] = useState(null);   // null = loading
   const [err, setErr] = useState("");
   const [sel, setSel] = useState(null);
@@ -8505,7 +8517,7 @@ function AdminStudents({ lang, viewerTier }) {
           <div>
             <div className="admstu-nm">{sel.full_name || "—"} {sel.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(sel.admin_tier)} ADMIN</span>}{sel.banned && <span className="adminpay-badge rejected">BANNED</span>}</div>
             <div className="admstu-em">{sel.email || "—"}</div>
-            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {(sel.plan || "free").toUpperCase()} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
+            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {isMaxPlan(livePlan(sel)) ? "👑 MAX" : (livePlan(sel) || "free").toUpperCase()} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
           </div>
         </div>
         {jevFb && (() => {
@@ -8529,7 +8541,7 @@ function AdminStudents({ lang, viewerTier }) {
           <div className="admmg">
             <div className="admmg-h">⚙️ {T("จัดการผู้ใช้", "Manage user", "用户管理")}</div>
             {tier >= 3 && (<>
-              <div className="admmg-cur">{T("แพลนปัจจุบัน", "Current plan", "当前套餐")}: <b>{(sel.plan || "free").toUpperCase()}</b>{sel.plan_until ? " · " + T("ถึง", "until", "至") + " " + String(sel.plan_until).slice(0, 10) : ""}</div>
+              <div className="admmg-cur">{T("แพลนปัจจุบัน", "Current plan", "当前套餐")}: <b>{isMaxPlan(livePlan(sel)) ? "MAX" : (livePlan(sel) || "free").toUpperCase()}</b>{sel.plan_until && sel.plan_until > new Date().toISOString() ? " · " + T("ถึง", "until", "至") + " " + String(sel.plan_until).slice(0, 10) : sel.created_at && trialDaysLeft({ created_at: sel.created_at, founding_member: sel.founding_member }) > 0 ? " · " + T("ทดลองเหลือ", "trial left", "试用剩余") + " " + trialDaysLeft({ created_at: sel.created_at, founding_member: sel.founding_member }) + " " + T("วัน", "days", "天") : ""}</div>
               <div className="admmg-row">
                 <select className="admmg-sel" value={mgPlan} onChange={e => setMgPlan(e.target.value)}>
                   <option value="premium">⭐ Premium</option>
@@ -8626,7 +8638,7 @@ function AdminStudents({ lang, viewerTier }) {
             <button key={r.id} className="admstu-row" onClick={() => openUser(r)}>
               <div className="admstu-av sm">{(r.full_name || r.email || "?").trim().charAt(0).toUpperCase()}</div>
               <div className="admstu-row-body">
-                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(r.admin_tier)}</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{r.plan && r.plan !== "free" && <span className="adminpay-badge approved">{r.plan.toUpperCase()}</span>}</div>
+                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(r.admin_tier)}</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{isMaxPlan(livePlan(r)) && <span className="adminpay-badge approved">MAX</span>}{!isMaxPlan(livePlan(r)) && livePlan(r) !== "free" && <span className="adminpay-badge approved">{livePlan(r).toUpperCase()}</span>}</div>
                 <div className="admstu-row-meta">Lv {li.level} · {(r.exp || 0).toLocaleString()} EXP · {r.lessons_done || 0} {T("บท", "lessons", "课")} · {(r.streak || 0)}🔥{sum.games ? " · " + sum.games + " " + T("เกม", "games", "游戏") : ""}</div>
                 <div className="admstu-row-sub">{r.email}{r.last_active ? " · " + r.last_active : ""}</div>
               </div>
