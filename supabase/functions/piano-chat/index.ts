@@ -120,9 +120,11 @@ const FREE_LADDER = [
 // default. An admin ai_models["chat"] choice always overrides this; it only
 // decides what happens while that row is empty.
 const CHAT_DEFAULT_MODEL = { provider: "openrouter", model: FREE_LADDER[0] };
-// Last resort once EVERY free rung is gone: the cheapest paid route on the
-// same key. Deliberately at the end of the chain rather than second — see
-// providerChain.
+// The cheapest PAID route on the same key ($0.27/M in, $1.10/M out). NOT part of
+// the chat chain any more: owner decision 2026-10-04 — when the free ladder is
+// spent the tutor pauses with `ai_paused` instead of quietly answering on this.
+// Kept as the reference price for the deliberate alternative (re-add it as the
+// last rung in providerChain to pay for answers instead of pausing).
 const CHAT_SECOND_CHOICE = { provider: "openrouter", model: "deepseek/deepseek-v4-flash" };
 const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"; // used when the active provider's key is missing
 // The one free rung that can actually see an image. The camera coach and the
@@ -173,15 +175,21 @@ function effective(choice: { provider: string; model: string }): { provider: str
 // choice first, then every OTHER provider with a configured key.
 function providerChain(primary: { provider: string; model: string }, _feature: string): Array<{ provider: string; model: string }> {
   const rest = nextProvidersWithKey(primary.provider).map((p) => ({ provider: p, model: defaultModelFor(p) }));
-  /* A free route's next hop has to be another FREE route on the same key.
-     Hopping straight to the paid one — which is what this did — means choosing
-     "free" quietly starts billing the moment the free side hiccups, which is
-     the opposite of what choosing it asked for. Walk the rest of the ladder
-     first; the paid rung stays, but at the END, after free is exhausted. */
+  /* A free route's chain is FREE ROUTES ONLY — owner decision 2026-10-04.
+     It used to be: primary -> rest of the free ladder -> CHAT_SECOND_CHOICE
+     (deepseek-v4-flash, $0.27/M in) -> every other provider with a key. That
+     tail is what turned "the free teacher is busy" into a bill: one NEMOTRON
+     429 and the learner's question was answered by a model this key pays for,
+     with nobody asked and nobody told.
+
+     The free allowance is the whole product's free tier, so when it is spent
+     the honest answer is a short pause ("back soon"), not a silent upgrade to a
+     paid rung. WithAuthFallback / callWithAuthFallback recognise an all-free
+     chain that ran out of quota and raise `ai_paused`, which the client shows
+     in the learner's language with no retry button. */
   if (primary.provider === "openrouter" && isFreeRoute(primary.model)) {
     const rungs = FREE_LADDER.filter((m) => m !== primary.model).map((m) => ({ provider: "openrouter", model: m }));
-    const paid = hasKey(CHAT_SECOND_CHOICE.provider) ? [CHAT_SECOND_CHOICE] : [];
-    return [primary, ...rungs, ...paid, ...rest];
+    return [primary, ...rungs];
   }
   return [primary, ...rest];
 }
@@ -224,6 +232,21 @@ const isFreeRoute = (model: string) =>
 function isRateLimit(msg: string): boolean {
   return /(429|rate.?limit|too many requests|quota)/i.test(msg);
 }
+/* ── the free tier is spent: pause, and say so ──
+   Both client paths surface whatever text arrives in the error:
+     streaming     — the server sends sseError(message); the client throws it
+     non-streaming — 500 {error: message}
+   so the marker below is the contract. Client side it is `/ai_paused/` in
+   use-chat.ts, which swaps in the localized "back soon" line and withholds the
+   retry button (retrying a spent quota only spends it faster). Keep both ends
+   in step. */
+const FREE_PAUSED = "ai_paused: the free teacher (NEMOTRON ladder) has no quota left right now — back soon.";
+/* True when every rung in a chain is a free one, so the ONLY thing that can end
+   this request is a spent free allowance. A mixed chain that fails is an
+   ordinary provider failure and must not be dressed up as a pause. */
+const allFreeRungs = (models: Array<string | undefined>) =>
+  models.length > 0 && models.every((m) => isFreeRoute(m || ""));
+
 /* ── a route that no longer exists ──
    OpenRouter RETIRES free routes. On 2026-09-10 every feature was pointed at
    "deepseek/deepseek-chat-v3-0324:free" and OpenRouter had removed it:
@@ -586,8 +609,14 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
      (the chosen provider's) and list what else was tried. */
   const tried: string[] = [];
   let firstErr: Error | null = null;
+  let spentFreeQuota = false;
   const exhausted = () =>
-    new Error(`all providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]`);
+    /* Every rung was free and the allowance ran out → the pause message, not a
+       provider complaint. The learner sees "back soon"; the log keeps the
+       tried-list so the admin can still see WHICH rungs 429'd. */
+    spentFreeQuota
+      ? new Error(`${FREE_PAUSED} [tried: ${tried.join(" ; ")}]`)
+      : new Error(`all providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]`);
   for (let i = 0; i < entries.length; i++) {
     let yielded = false;
     try {
@@ -608,6 +637,7 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
       tried.push(`${entries[i].provider}/${m}: ${msg.slice(0, 60)}`);
       if (!firstErr) firstErr = e as Error;
       const freeExhausted = isFreeRoute(m) && isRateLimit(msg);
+      if (freeExhausted) spentFreeQuota = true;
       const dead = isDeadRoute(msg);
       const transient = isTransient(msg);
       if ((isAuthError(msg) || freeExhausted || dead || transient) && i < entries.length - 1) {
@@ -615,6 +645,11 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
         console.error(`[piano-chat] ${entries[i].provider}/${m} ${why} (${msg.slice(0, 160)}) -> trying ${entries[i + 1].provider}/${entries[i + 1].model}`);
         continue;
       }
+      /* Last rung, or a failure no hop can fix. An all-free chain that ran out
+         of allowance ends as the pause signal even on rung 0 — otherwise the
+         very first NEMOTRON 429 would surface as a raw 429 the learner cannot
+         read. */
+      if (spentFreeQuota && allFreeRungs(entries.map((e) => e.model))) throw exhausted();
       // the chosen provider's own failure is the one worth surfacing
       throw i === 0 ? e : exhausted();
     }
@@ -625,10 +660,14 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
 // Non-streaming twin of withAuthFallback.
 async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[], feature = ""): Promise<string> {
   const chain = providerChain({ provider, model }, feature);
+  const chainIsFree = allFreeRungs(chain.map((c) => c.model));
   const tried: string[] = [];
   let firstErr: Error | null = null;
+  let spentFreeQuota = false;
   const exhausted = () =>
-    new Error(`all providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]`);
+    spentFreeQuota
+      ? new Error(`${FREE_PAUSED} [tried: ${tried.join(" ; ")}]`)
+      : new Error(`all providers failed — ${firstErr?.message || "no content"} [tried: ${tried.join(" ; ")}]`);
   for (let i = 0; i < chain.length; i++) {
     const c = chain[i];
     try {
@@ -651,6 +690,7 @@ async function callWithAuthFallback(provider: string, model: string, system: str
       // same rule as the streaming path: a spent free quota is not an error,
       // and neither is a provider outage or an out-of-credits wall
       const freeExhausted = isFreeRoute(c.model) && isRateLimit(msg);
+      if (freeExhausted) spentFreeQuota = true;
       const dead = isDeadRoute(msg);
       const transient = isTransient(msg);
       if ((isAuthError(msg) || freeExhausted || dead || transient) && i < chain.length - 1) {
@@ -658,6 +698,7 @@ async function callWithAuthFallback(provider: string, model: string, system: str
         console.error(`[piano-chat] ${c.provider}/${c.model} ${why} (${msg.slice(0, 160)}) -> trying ${chain[i + 1].provider}/${chain[i + 1].model}`);
         continue;
       }
+      if (chainIsFree && spentFreeQuota) throw exhausted();
       throw i === 0 ? e : exhausted();
     }
   }

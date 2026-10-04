@@ -64,7 +64,27 @@ import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRe
 // that language comes back around).
 const CHAT_HISTORY_KEY = "tg_chat_history";
 const CHAT_HISTORY_CAP = 24;
-const FREE_CHAT_PER_DAY = 5;   // what the pricing card promises ("AI tutor 5/day")
+/* ── the daily question cap, by plan ──────────────────────────────────────────────
+   The teacher answers from a FREE route (Nemotron first, then the rest of the free
+   ladder). That allowance is finite and it is shared by every learner on the app —
+   OpenRouter answers 1,000 free calls a DAY for the whole key, not per person — so this
+   cap is the AI budget, not a marketing flourish: free 2, Premium 5, Max 10. A Max trial
+   is a Max, so it reads 10 like any other Max.
+
+   One number, one place. `chatQuota` is handed to the UI so the line under the input
+   shows the SAME cap this gate enforces; when one of them changes, both change. */
+const CHAT_QUOTA_BY_PLAN = { free: 2, premium: 5, family: 5, max: 10, maxfamily: 10, trialmax: 10 };
+const CHAT_QUOTA_DEFAULT = 2;
+function chatQuotaFor(plan) {
+  const q = CHAT_QUOTA_BY_PLAN[plan || "free"];
+  return typeof q === "number" ? q : CHAT_QUOTA_DEFAULT;
+}
+/* The free tier is PAUSED, not broken. The server raises this when every free
+   rung has spent its allowance (see FREE_PAUSED in piano-chat/index.ts) and,
+   since 2026-10-04, deliberately does NOT fall through to a paid model. It
+   reaches the client as the error text of a typed SSE error event or a 500, so
+   the marker in the message is the contract between the two ends. */
+const isAiPaused = (e) => /ai_paused/.test(String((e && e.message) || e || ""));
 /* Only a question about songs carries the list of real songs the tutor may name:
    it is not free (a block of text per call, and a Jev call to pick from it), and
    on any other question it is noise. Jev's own song verdict (>= 0.75) counts too. */
@@ -79,7 +99,7 @@ function loadSavedChat(lang) {
   return null;
 }
 
-export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, onUpsell, isGuest = false }) {
+export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, plan, onUpsell, isGuest = false }) {
   const lc = L[lang];
 
   const [msgs, setMsgs] = useState(() => loadSavedChat(lang) || [{ role: "ai", text: lc.welcome }]);
@@ -119,17 +139,22 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
   // Free-plan chat metering (owner-approved 2026-09-18): the pricing card has
   // always said "AI tutor 5/day" — now it is actually counted. Premium = no cap.
   // Uses the same tg_usage day-bucket as every other FREE_LIMITS key.
+  /* EVERY plan counts now, not just the free one: the free-route allowance is shared by
+     the whole app, so a Premium learner who asks 200 questions is spending the same
+     budget a free learner spends. Counting only free users left the expensive half of
+     the traffic invisible. */
+  const chatQuota = chatQuotaFor(plan);
   function chatUsedToday() {
     try { const u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); return u.d === new Date().toISOString().slice(0, 10) ? (u.chat || 0) : 0; } catch (e) { return 0; }
   }
   function bumpChatUsage() {
-    if (premium) return; // premium never counts toward the free cap
     try { let u = JSON.parse(localStorage.getItem("tg_usage") || "{}"); const d = new Date().toISOString().slice(0, 10); if (u.d !== d) u = { d }; u.chat = (u.chat || 0) + 1; localStorage.setItem("tg_usage", JSON.stringify(u)); } catch (e) {}
   }
-  function canUseChat(isPremium) { return !!isPremium || chatUsedToday() < FREE_CHAT_PER_DAY; }
-  // messages left today, for the counter under the input — null when there is no cap to show
-  // (premium has none; a guest cannot reach the live AI at all, only a login gate)
-  const chatLeft = (premium || isGuest) ? null : Math.max(0, FREE_CHAT_PER_DAY - chatUsedToday());
+  function canUseChat() { return chatUsedToday() < chatQuota; }
+  /* questions left today, for the counter under the input. It is a number for every
+     plan now, because every plan has a cap — the line that used to be hidden for
+     paying learners is the one that tells them what the cap is. */
+  const chatLeft = Math.max(0, chatQuota - chatUsedToday());
 
   function pushMessage(msg) { setMsgs(prev => [...prev, msg]); }
 
@@ -437,6 +462,11 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
           const a = await runStream();
           if (a.trim()) return a;
         } catch (e1) {
+          /* The free allowance is spent (server marker `ai_paused`). Every
+             transport below hits the same wall — retrying only spends the
+             remaining ladder rungs faster and makes the learner wait ~30s for
+             an answer that will never come. Straight to the paused message. */
+          if (isAiPaused(e1)) throw e1;
           if (isAbort(e1) || latest.trim()) {
             // abort/mid-stream: JSON only, no double wait on a dead connection
             return await runJson();
@@ -448,7 +478,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
           await new Promise(r => setTimeout(r, 800));
           const a2 = await runStream();
           if (a2.trim()) return a2;
-        } catch (e2) { /* fall through to JSON */ }
+        } catch (e2) { if (isAiPaused(e2)) throw e2; /* fall through to JSON */ }
         return await runJson(); // final transport; a throw here → caller's catch
       };
       try {
@@ -461,7 +491,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
            retrying automatically" note on the empty bubble so the long wait
            reads as progress, not a hang. Round 2 only runs while nothing has
            reached the bubble; anything partial goes to the error path below. */
-        if (!latest.trim()) {
+        if (!latest.trim() && !isAiPaused(round1Err)) {
           // (haveBubble false here means not even the response headers ever
           // arrived — the pure "never connected" case worth retrying whole.)
           setMsgs(prev => {
@@ -529,17 +559,22 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
          the error — which is the doubled "TIGA CHAT" bubble in the report.
          Fill the empty bubble if there is one, append only if there is not. */
       const aborted = (e && (e.name === "AbortError" || /abort/i.test(String(e.message || ""))));
+      /* The AI can be PAUSED, not broken: when the free allowance is spent the server
+         stops answering instead of quietly billing a paid model, and says so with the
+         marker `ai_paused`. That is a wait, not a failure — so it gets its own line
+         ("back shortly"), and NO retry button, because retrying cannot help. */
+      const paused = isAiPaused(e);
       const fb = kbFallbackText(userText); // m48: verified knowledge instead of a dead end (switch OFF → null)
-      const text = fb || (aborted ? lc.chatSlow : lc.chatErr);
+      const text = fb || (paused ? lc.chatAiPaused : aborted ? lc.chatSlow : lc.chatErr);
       setSlow(false);
       setMsgs(prev => {
         const copy = prev.slice();
         const last = copy[copy.length - 1];
         if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) {
-          copy[copy.length - 1] = { ...last, text, error: !fb };
+          copy[copy.length - 1] = { ...last, text, error: !fb && !paused };
           return copy;
         }
-        return [...copy, { role: "ai", text, error: !fb }];
+        return [...copy, { role: "ai", text, error: !fb && !paused }];
       });
       setLoading(false);
     } finally {
@@ -589,7 +624,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       payForAsk(); // reward engaging with the AI sensei
     } else if (requireLogin("ai")) {
       // not signed in — requireLogin already showed the gate
-    } else if (canUseChat(premium)) {
+    } else if (canUseChat()) {
       lastAskRef.current = t; // remembered for the failed-bubble retry button
       bumpChatUsage();
       warmKbSwitch();
@@ -666,7 +701,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       payForAsk();
     } else if (requireLogin("ai")) {
       // not signed in — requireLogin already showed the gate
-    } else if (canUseChat(premium)) {
+    } else if (canUseChat()) {
       lastAskRef.current = t;
       bumpChatUsage();
       warmKbSwitch();
@@ -676,7 +711,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       cappedReply();
     }
   }
-  return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats };
+  return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, chatQuota, busy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats };
 }
 
 /* ── plan 21 §V2 · choose the reference blocks the question actually needs ────

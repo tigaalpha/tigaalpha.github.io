@@ -30,6 +30,16 @@ export const MODEL_COSTS: Record<string, ModelCost> = {
      make the one free model in the roster look like one of the pricier ones
      on every cost report. */
   "deepseek/deepseek-chat-v3-0324:free": { inputPer1M: 0, outputPer1M: 0, label: "DeepSeek V3 (ฟรี)" },
+  /* The rest of the free ladder actually in use (piano-chat FREE_LADDER).
+     Same reasoning as above, and same bug if they were missing: without an
+     entry every one of them fell through to UNKNOWN_MODEL_COST ($1/$3 per
+     million) — so the ONE route the app actually runs on, NEMOTRON, was the
+     most expensive line on the cost report at roughly 3x a paid Gemini call. */
+  "nvidia/nemotron-3-super-120b-a12b:free": { inputPer1M: 0, outputPer1M: 0, label: "NEMOTRON 3 Super (ฟรี)" },
+  "nvidia/nemotron-3.5-lightning:free": { inputPer1M: 0, outputPer1M: 0, label: "NEMOTRON 3.5 Lightning (ฟรี)" },
+  "nex-agi/nex-n2.5-pro:free": { inputPer1M: 0, outputPer1M: 0, label: "NEX N2.5 Pro (ฟรี)" },
+  "google/gemma-4-26b-a4b-it:free": { inputPer1M: 0, outputPer1M: 0, label: "Gemma 4 26B (ฟรี)" },
+  "openrouter/free": { inputPer1M: 0, outputPer1M: 0, label: "OpenRouter Free Router" },
 };
 
 /** Fallback for models without an entry — conservative mid-range estimate. */

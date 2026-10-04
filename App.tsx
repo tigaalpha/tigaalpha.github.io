@@ -11776,9 +11776,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy: chatBusy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, isGuest, onUpsell: () => setPricingOpen(true) });
+  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy: chatBusy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats, chatQuota } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, plan, isGuest, onUpsell: () => setPricingOpen(true) });
   // the line under the chat box: how many free AI messages are left today (a free account only)
-  const chatNote = chatLeft == null ? null : chatLeft > 0 ? lc.chatLeft.replace("{n}", String(chatLeft)) : lc.chatLeftOut;
+  /* The cap is per plan (free 2 / Premium 5 / Max 10), so the line under the input reads
+     the SAME number the gate in use-chat.ts enforces — `chatQuota` — instead of a
+     hardcoded 5. The denominator is replaced here, never written into the copy. */
+  const chatNote = chatLeft == null ? null : chatLeft > 0
+    ? lc.chatLeft.replace("{n}", String(chatLeft)).replace("{d}", String(chatQuota))
+    : lc.chatLeftOut.replace("{d}", String(chatQuota));
   /* Plan 19 §5-A: the progress strip under the input. Every number is read,
      never fetched — profile.streak, the day's own ask count and the daily quest
      (gainExp already bumps quest_count, so a question that paid EXP moves this
