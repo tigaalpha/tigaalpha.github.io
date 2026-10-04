@@ -46,7 +46,10 @@ function signatureOf(notes) {
 export function checkOriginal(p) {
   const errs = [], warns = [];
   const E = (m) => errs.push(m), W = (m) => warns.push(m);
-  if (!/^og_\d{5}$/.test(p.id || "")) E(`id "${p.id}" must look like og_00001`);
+  /* Six digits: the shelf went to 100,000 pieces, and a five-digit pad silently
+     ran og_100000 into a check that only knew og_99999 — which is how a shelf
+     that generates fine was refused at the build. */
+  if (!/^og_\d{6}$/.test(p.id || "")) E(`id "${p.id}" must look like og_000001`);
   for (const k of ["en", "th", "zh"]) if (typeof p[k] !== "string" || !p[k].trim()) E(`field "${k}" is missing`);
   if (typeof p.th === "string" && !/[฀-๿]/.test(p.th)) E(`th "${p.th}" has no Thai in it`);
   if (typeof p.zh === "string" && !/[一-鿿]/.test(p.zh)) E(`zh "${p.zh}" has no Chinese in it`);

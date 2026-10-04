@@ -2929,8 +2929,18 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songanalysis-steps li{margin-bottom:3px}
 .studioback{position:absolute;left:12px;top:12px;background:rgba(255,255,255,.06);border:1px solid var(--bd4);color:var(--text2);border-radius:9px;padding:6px 12px;font-family:var(--f-app);font-size:13px;font-weight:600;cursor:pointer;z-index:2}
 /* the songs page opens on a back button alone — no title block (owner, 2026-10-01) */
-.songtop{padding:10px 14px 8px}
-.songtop .studioback{position:static}
+.songtop{padding:10px 14px 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.songtop .studioback{position:static;flex:0 0 auto}
+/* the Original Content page's own heading, sitting next to Back on the same row */
+.songh1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em;color:var(--text1);display:flex;align-items:center;gap:6px}
+.songh1 small{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0}
+/* the entry button on the song list, next to Back (owner marked the spot on
+   the song page, so it sits on the same row rather than under it) */
+.songocbtn{margin:0;padding:8px 13px;border-radius:11px;border:1px solid #d9775766;background:linear-gradient(180deg,#d9775718,#d9775708);color:#d97757;font-family:var(--f-app);font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;text-align:left}
+.songocbtn:hover{background:linear-gradient(180deg,#d9775730,#d9775714)}
+.songocbtn b{font-weight:800}
+.songocbtn span{color:var(--muted);font-weight:600;font-size:12px;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:430px){.songocbtn span{display:none}}
 /* sight-reading */
 .sightov .practicebody{align-items:stretch}
 .staffwrap{background:var(--card);border:1px solid var(--bd2);border-radius:16px;padding:14px 8px;margin:6px 0;transition:box-shadow .2s,border-color .2s}

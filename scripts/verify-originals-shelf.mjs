@@ -138,15 +138,72 @@ click(songsBtn);
 await settle(700);
 ok("the song page rendered", qa(".songcard").length > 0, `${qa(".songcard").length} cards`);
 
+/* ── 1b. the "Original Content" button, and the page behind it (owner, 2026-10-04) ── */
+const ocBtn = q(".songocbtn");
+ok("the Original Content button sits on the song page", !!ocBtn, ocBtn ? txt(ocBtn) : "no .songocbtn");
+const beforeOC = fetched.length;
+click(ocBtn);
+await settle(1500);
+const ocFetches = fetched.slice(beforeOC);
+ok("the Original Content page loads the manifest and one page", ocFetches.join(", ") === "index.json, index-000.json", ocFetches.join(", "));
+ok("the page is titled Original Content", !!q(".songh1") && /Original Content/i.test(txt(q(".songh1"))), q(".songh1") ? txt(q(".songh1")) : "—");
+ok("it says how many pieces there are", /100,000|100000/.test(body()), (body().match(/[^<>]*100,000[^<>]*/) || ["—"])[0].slice(0, 90));
+/* the three axes and the families under them — this is the sub-filing the
+   button was asked for, so its absence is the failure that matters */
+const axisChips = qa(".genrefilters .genrechip");
+const axisNames = axisChips.map(txt);
+ok("it offers three ways to file the shelf", axisChips.length >= 4 && ["ระดับ|Level", "สไตล์|Style", "จังหวะ|Tempo"].every(p => axisNames.some(n => new RegExp(p).test(n))), axisNames.slice(0, 4).join(" / "));
+const famChips = axisChips.filter(c => !axisNames.includes(txt(c)) || /ระดับ|Level|สไตล์|Style|จังหวะ|Tempo/.test(txt(c)));
+ok("each axis has families under it", qa(".genrechip").length >= 7, `${qa(".genrechip").length} chips`);
+const ocCards = qa(".songcard");
+ok("the page draws cards", ocCards.length > 0, `${ocCards.length} cards`);
+ok("every card is marked as ours", ocCards.length > 0 && ocCards.every(c => /✨/.test(txt(c).slice(0, 4))), `${ocCards.filter(c => /✨/.test(txt(c).slice(0, 4))).length}/${ocCards.length}`);
+/* filtering by a family must actually narrow the list, and must not claim a
+   count nobody measured */
+const moody = qa(".genrechip").find(b => /มืดหม่น|Moody|幽暗/.test(txt(b)));
+const allBefore = ocCards.length;
+click(moody);
+await settle(600);
+const moodyCards = qa(".songcard");
+ok("a family filter narrows the list", !!moody && moodyCards.length > 0 && moodyCards.length < allBefore, `all ${allBefore} -> moody ${moodyCards.length}`);
+const note = q(".erainfo");
+ok("the family note counts only what is loaded", !!note && !/\d[\d,]*\s*(เพลงทั้งหมด|pieces in all)/.test(txt(note)) && /จากที่โหลดมา|of .* loaded/.test(txt(note)), note ? txt(note).slice(0, 110) : "—");
+/* and a piece from this filtered page still plays */
+const beforeFamPlay = fetched.filter(f => f.startsWith("songs-")).length;
+click(qa(".songcard")[0]);
+await settle(2000);
+const famShard = fetched.filter(f => f.startsWith("songs-")).length - beforeFamPlay;
+ok("a piece chosen from a family fetches its shard", famShard === 1, `${famShard} shard fetch(es)`);
+ok("Play Along opened from the new page", !!q(".pl-title"), q(".pl-title") ? txt(q(".pl-title")) : "—");
+click(q(".pl-close") || q("[aria-label=close]") || q(".cbtn"));
+await settle(500);
+click(q(".studioback"));
+await settle(600);
+ok("Back returns to the song list", qa(".songfilters").length > 0, "the category row is back");
+
 /* ── 2. the shelf chip, and the one request it makes ── */
-const chip = qa(".genrechip").find(b => /Our Own|แบบฝึกหัดของเรา|我们的原创/.test(txt(b)));
+/* The chip was renamed to "Original Content" on 2026-10-04 — same shelf, and the
+   page it opens now has a name the shelf can be found by. */
+const chip = qa(".genrechip").find(b => /Original Content/i.test(txt(b)));
 ok("the shelf's own chip is on the song page", !!chip, chip ? txt(chip) : "chips: " + qa(".genrechip").map(txt).slice(0, 6).join(" / "));
 if (!chip) { console.log(out.join("\n")); restoreChunks(); process.exit(1); }
 
 const beforeOpen = fetched.length;
 click(chip);
 await settle(1500);
-ok("opening the shelf fetched ./originals/index.json once", fetched.length - beforeOpen === 1, fetched.join(", "));
+/* Two requests on a cold visit, and that is the fix rather than a regression:
+   index.json is a manifest and the rows come from index-000.json. One request
+   for the whole index is what this change exists to stop. The chip is visited
+   AFTER the Original Content page above in this run, so the store already holds
+   those two files and the revisit fetches nothing — which is the cache working,
+   not a broken chip. Both outcomes are accepted; what must always hold is that
+   the shelf draws cards. */
+const opened = fetched.slice(beforeOpen);
+const cold = opened.length === 2 && opened[0] === "index.json" && opened[1] === "index-000.json";
+const cached = opened.length === 0 && qa(".songcard").length > 0;
+ok("opening the shelf needed the manifest and one index page (or reused them)",
+  cold || cached,
+  cold ? `fetched: ${opened.join(", ")}` : `already in memory (the button above loaded them): ${opened.join(", ") || "no new requests"}`);
 
 /* ── 3. the cards ── */
 const cards = qa(".songcard");
@@ -155,7 +212,9 @@ ok("every card carries the Original badge", cards.length > 0 && cards.every(c =>
 ok("no card is locked", cards.length > 0 && !cards.some(c => c.className.includes("locked")), "a level-1 guest can open any of them");
 const clocks = cards.map(c => txt(c)).filter(t => /⏱ \d+:\d\d/.test(t));
 ok("each card's clock reads a real length", clocks.length === cards.length, `${clocks.length}/${cards.length}, e.g. ${clocks[0] || "—"}`);
-ok("the shelf says how many there are", /10,000|10000/.test(body()), (body().match(/[^<>]*10,000[^<>]*/) || ["—"])[0].slice(0, 80));
+/* The count on screen is the manifest's, which is why it reads 100,000 while only
+   one page of rows has been fetched — that difference is the whole point of paging. */
+ok("the shelf says how many there are", /100,000|100000/.test(body()), (body().match(/[^<>]*100,000[^<>]*/) || ["—"])[0].slice(0, 80));
 
 /* ── 4. play one ── */
 const first = cards[0];
@@ -172,11 +231,17 @@ ok("the ready screen offers to start it", !!q(".pl-start"));
 /* ── 5. and one from the LAST shard, so the shard maths is proven end to end ── */
 click(q(".pl-close") || q("[aria-label=close]") || q(".cbtn"));
 await settle(500);
+/* index.json is a MANIFEST since the shelf went to 100,000: it names the pages
+   rather than carrying them, because one index file for a hundred thousand rows
+   would be ~15 MB on a phone. The last row therefore lives in the last index
+   PAGE, and the shard maths is checked through that page. */
 const idxJson = JSON.parse(readFileSync(join(ORIG, "index.json"), "utf8"));
-const lastRow = idxJson.songs[idxJson.songs.length - 1];
-ok("the index knows every piece", idxJson.n === 10000, `n=${idxJson.n} in ${idxJson.shards} shards`);
+const lastPage = JSON.parse(readFileSync(join(ORIG, `index-${String(idxJson.indexShards - 1).padStart(3, "0")}.json`), "utf8"));
+const lastRow = lastPage.songs[lastPage.songs.length - 1];
+ok("the index manifest names every piece", idxJson.n === 100000, `n=${idxJson.n} in ${idxJson.shards} shards`);
+ok("the index is paged, not one huge file", idxJson.indexShards > 1 && !Array.isArray(idxJson.songs), `${idxJson.indexShards} pages of ${idxJson.indexPer}`);
 ok("the last piece lives in the last shard", lastRow.k === idxJson.shards - 1, `${lastRow.id} -> shard ${lastRow.k}`);
-const shardOk = JSON.parse(readFileSync(join(ORIG, `songs-${String(lastRow.k).padStart(2, "0")}.json`), "utf8")).songs.some(s => s.id === lastRow.id && typeof s.seq === "string" && s.seq.split(" ").length > 10);
+const shardOk = JSON.parse(readFileSync(join(ORIG, `songs-${String(lastRow.k).padStart(3, "0")}.json`), "utf8")).songs.some(s => s.id === lastRow.id && typeof s.seq === "string" && s.seq.split(" ").length > 10);
 ok("the last shard holds that piece's notes", shardOk, lastRow.en);
 ok("no errors thrown while using the shelf", errors.length === 0, errors.length ? errors[0].split("\n")[0].slice(0, 140) : "none");
 

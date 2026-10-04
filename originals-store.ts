@@ -1,26 +1,34 @@
 /* originals-store.ts — fetches TiGA's own practice pieces, and only when they are needed.
 
-   The ten thousand originals are NOT in the bundle (see scripts/build-originals.mjs for why).
-   Two requests serve them:
+   The originals are NOT in the bundle (see scripts/build-originals.mjs for why), and at
+   100,000 pieces neither is the shelf index — one index.json was 1.5 MB at ten thousand
+   and grows linearly, so a hundred thousand would have cost a learner ~15 MB on a phone
+   to draw the first sixty cards. Three requests serve them instead:
 
-     ./originals/index.json      once, when the learner opens the "our own" shelf: the ten
-                                 thousand rows — id, level, tempo, the three titles, the first
-                                 note (the card's colour) and the length (its clock). No notes.
-     ./originals/songs-NN.json   the 500 pieces' tunes, fetched when one of them is chosen.
+     ./originals/index.json       a manifest of a few hundred bytes: how many pieces there
+                                 are, and how many pages the index is cut into. Fetched once.
+     ./originals/index-NNN.json   one page of 500 rows — id, level, tempo, the three titles,
+                                 the first note (the card's colour) and the length (its clock).
+                                 No notes. Fetched only when the learner scrolls that far.
+     ./originals/songs-NN.json    the 500 pieces' tunes, fetched when one of them is chosen.
 
    Every fetch is remembered for the life of the page, and a request already in flight is
-   shared rather than repeated, so opening the shelf twice costs one request and playing
-   twenty pieces from one shard costs one. Nothing here writes to localStorage: these files
-   are versioned with the build, so a stale copy in storage would be worse than a re-fetch.
+   shared rather than repeated, so opening the shelf twice costs one request, scrolling back
+   costs none, and playing twenty pieces from one shard costs one. Nothing here writes to
+   localStorage: these files are versioned with the build, so a stale copy in storage would be
+   worse than a re-fetch.
 
-   A failed fetch is an ordinary return of null (the shelf shows a retry), never a throw at
-   the render: a missing file must not blank the app the way a malformed AI tip once did. */
+   A failed fetch is an ordinary return of an empty page (the shelf shows a retry), never a
+   throw at the render: a missing file must not blank the app the way a malformed AI tip
+   once did. */
 
 export type OriginalMeta = {
   id: string; diff: number; bpm: number; th: string; en: string; zh: string;
   hn: string;   // the first note, for the card's colour — the real tune arrives later
   len: number;  // seconds, so the card's clock is right before the notes are loaded
   k: number;    // which shard holds the tune
+  mode?: string;   // the family a piece is filed under on the Original Content page
+  meter?: string;
 };
 export type OriginalSong = {
   id: string; diff: number; bpm: number; th: string; en: string; zh: string;
@@ -35,8 +43,11 @@ export const ORIGINAL_SHELF = "original";
 /* './' matches vite.config.ts base "./" and the way sprite.tsx asks for ./sprites/ */
 const DIR = "./originals/";
 
-let indexPromise: Promise<OriginalMeta[]> | null = null;
-let indexRows: OriginalMeta[] | null = null;
+export type OriginalManifest = { n: number; indexShards: number; indexPer: number };
+
+let manifestPromise: Promise<OriginalManifest | null> | null = null;
+const pagePromises = new Map<number, Promise<OriginalMeta[]>>();
+const pageRows = new Map<number, OriginalMeta[]>();
 const shardPromises = new Map<number, Promise<Map<string, any>>>();
 const shardSongs = new Map<number, Map<string, any>>();
 
@@ -49,15 +60,37 @@ async function fetchJson(url: string): Promise<any> {
   return res.json();
 }
 
-/** the shelf. Resolves to [] when the files are missing; the caller shows a retry. */
-export function loadOriginalIndex(): Promise<OriginalMeta[]> {
-  if (indexRows) return Promise.resolve(indexRows);
-  if (!indexPromise) {
-    indexPromise = fetchJson(DIR + "index.json")
-      .then(j => { indexRows = (j && Array.isArray(j.songs)) ? j.songs : []; return indexRows; })
-      .catch(() => { indexPromise = null; return [] as OriginalMeta[]; });
+/** the manifest: how many pieces there are and how the index is cut up. null when missing. */
+export function loadOriginalManifest(): Promise<OriginalManifest | null> {
+  if (!manifestPromise) {
+    manifestPromise = fetchJson(DIR + "index.json")
+      .then(j => (j && typeof j.n === "number" && j.n > 0
+        ? { n: j.n, indexShards: j.indexShards || 1, indexPer: j.indexPer || j.n }
+        : null))
+      .catch(() => { manifestPromise = null; return null; });
   }
-  return indexPromise;
+  return manifestPromise;
+}
+
+/**
+ * One page of shelf rows. A page already in memory costs nothing; one in flight is shared
+ * rather than fetched twice. An unreadable page is an empty page, never a throw.
+ */
+export function loadOriginalPage(page: number): Promise<OriginalMeta[]> {
+  const done = pageRows.get(page);
+  if (done) return Promise.resolve(done);
+  let p = pagePromises.get(page);
+  if (!p) {
+    p = fetchJson(DIR + `index-${String(page).padStart(3, "0")}.json`)
+      .then(j => {
+        const rows: OriginalMeta[] = (j && Array.isArray(j.songs)) ? j.songs : [];
+        pageRows.set(page, rows);
+        return rows;
+      })
+      .catch(() => { pagePromises.delete(page); return [] as OriginalMeta[]; });
+    pagePromises.set(page, p);
+  }
+  return p;
 }
 
 function loadShard(k: number): Promise<Map<string, any>> {

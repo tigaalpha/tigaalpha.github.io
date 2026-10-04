@@ -165,7 +165,8 @@ import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
 import { dailySong, songStars, songMedal, songLengthSec, songLockInfo, songPlayable, nextSongAfter } from "./play-along-progress";
-import { loadOriginalIndex, loadOriginalSong, ORIGINAL_SHELF } from "./originals-store";
+import { loadOriginalManifest, loadOriginalPage, loadOriginalSong, ORIGINAL_SHELF } from "./originals-store";
+import OriginalContentPage from "./OriginalContentPage";
 import { useChat } from "./use-chat";
 import { useVoiceTutor } from "./use-voice-tutor";
 const LeadLandingPage = lazy(() => import("./LeadLandingPage").then(m => ({ default: m.LeadLandingPage })));
@@ -3823,7 +3824,7 @@ const GENRE_CHIPS = [
   // ./originals/ rather than shipped in the bundle (scripts/build-originals.mjs explains why).
   // A section of their own, first in the chip row: they are the largest shelf on the page and
   // they are the only songs nobody else composed.
-  { code: ORIGINAL_SHELF, label: { th: "✨ แบบฝึกหัดของเรา", en: "✨ Our Own", zh: "✨ 我们的原创" } },
+  { code: ORIGINAL_SHELF, label: { th: "✨ Original Content", en: "✨ Original Content", zh: "✨ Original Content 原创内容" } },
   ...SONG_ERAS.map(e => ({ code: e.code, label: { th: `${e.icon} ${e.th}`, en: `${e.icon} ${e.en}`, zh: `${e.icon} ${e.zh}` } })),
   { code: "kids",   label: { th: "👶 เด็ก",       en: "👶 Kids",   zh: "👶 儿歌" } },
   { code: "folk",   label: { th: "🌿 โฟล์ค",      en: "🌿 Folk",   zh: "🌿 民谣" } },
@@ -3847,7 +3848,7 @@ const SEC_LABEL: Record<string, { th: string; en: string; zh: string }> = {
   mine:  { th: "✨ เพลงที่ฉันสร้าง", en: "✨ My songs",   zh: "✨ 我的歌曲" },
   other: { th: "🎵 เพลงอื่น ๆ",     en: "🎵 More songs", zh: "🎵 更多歌曲" },
 };
-const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, exp = 0, premium = false, onUpsell, onRequireLogin, plan = "", initialCat = "songs" }) {
+const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, exp = 0, premium = false, onUpsell, onRequireLogin, plan = "", initialCat = "songs", onOpenOriginal }) {
   const lc = L[lang];
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   /* Today's song is still picked here, once a day, though its card is gone: the
@@ -3906,16 +3907,36 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
      tapping one loads the shard and then hands the finished song to the same onPlay every
      other song uses. One tap in flight at a time: a second tap on another row while a shard
      is loading is ignored rather than queued, so a fast tapper cannot open two songs. */
+  /* The shelf is PAGED. index.json is only a manifest, so the learner downloads one
+     page of rows at a time instead of the whole hundred-thousand-row index — at
+     100,000 pieces that single file would be ~15 MB on a phone, paid in full to draw
+     the first sixty cards. origs holds the pages fetched so far and origTotal the
+     real count, which is what the header says. */
   const [origs, setOrigs] = useState(null);
+  const [origTotal, setOrigTotal] = useState(0);
+  const [origPages, setOrigPages] = useState(0);
+  const [origPerPage, setOrigPerPage] = useState(500);
   const [origErr, setOrigErr] = useState(false);
   const [origBusy, setOrigBusy] = useState(null);
   useEffect(() => {
     if (genreFilter !== ORIGINAL_SHELF || origs) return;
     let live = true;
-    loadOriginalIndex().then(rows => { if (live) rows.length ? setOrigs(rows) : setOrigErr(true); })
-      .catch(() => { if (live) setOrigErr(true); });
+    loadOriginalManifest().then(m => {
+      if (!live) return;
+      if (!m || !m.n) { setOrigErr(true); return; }
+      setOrigTotal(m.n);
+      setOrigPerPage(m.indexPer || 500);
+      return loadOriginalPage(0).then(rows => {
+        if (!live) return;
+        if (!rows.length) { setOrigErr(true); return; }
+        setOrigs(rows); setOrigPages(1);
+      });
+    }).catch(() => { if (live) setOrigErr(true); });
     return () => { live = false; };
   }, [genreFilter, origs]);
+  /* One more page when the list has run past what has been fetched — placed
+     below the slice state it depends on, since a dependency array is read during
+     render and `shown` is not in scope this far up. */
   const play = (s) => {
     try { localStorage.setItem("tg_last_song", s.id); } catch (e) {}
     if (s && s.og) {
@@ -4036,6 +4057,24 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   const [shown, setShown] = useState(SONG_SLICE0);
   const moreRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => { setShown(SONG_SLICE0); }, [cat, filter, genreFilter, mySongs.length]);
+  /* One more page of the originals shelf when the card list has run past what has
+     been fetched. It has to live HERE, not beside the other shelf state: this
+     component reads `shown` in a dependency array, and `shown` is not in scope
+     above its own declaration. */
+  useEffect(() => {
+    if (genreFilter !== ORIGINAL_SHELF || !origs || !origTotal) return;
+    const have = origs.length;
+    if (have >= origTotal || shown < have) return;
+    const nextPage = Math.floor(have / origPerPage);
+    if (nextPage <= origPages - 1) return;
+    let live = true;
+    loadOriginalPage(nextPage).then(rows => {
+      if (!live || !rows.length) return;
+      setOrigs(prev => (prev ? prev.concat(rows) : rows));
+      setOrigPages(p => Math.max(p, nextPage + 1));
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [genreFilter, origs, origTotal, origPages, origPerPage, shown]);
   useEffect(() => {
     if (shown >= list.length) return;
     if (typeof IntersectionObserver === "undefined") { setShown(list.length); return; }
@@ -4155,6 +4194,15 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
       {onBack && (
         <div className="songtop">
           <button className="studioback" onClick={onBack}>‹ {lc.back}</button>
+          {/* The whole shelf has its own page now (owner, 2026-10-04): a hundred
+              thousand pieces behind one filter chip is a wall with no way in. */}
+          {cat === "songs" && (
+            <button className="songocbtn" onClick={() => { haptic(); onOpenOriginal && onOpenOriginal(); }}>
+              <span aria-hidden="true">✨</span>
+              <b>{T("Original Content", "Original Content", "Original Content 原创内容")}</b>
+              <span>{T("เพลงที่เราแต่งเอง · แบ่งตามหมวด", "written here · filed by kind", "我们的原创 · 分类浏览")}</span>
+            </button>
+          )}
         </div>
       )}
       {/* category selector — Songs · Scales · Chords · Intervals */}
@@ -4246,9 +4294,9 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
                   ? <>{T("โหลดแบบฝึกหัดไม่สำเร็จ", "Could not load our own pieces", "原创加载失败")} ·{" "}
                     <button className="songbtn ghost" style={{ fontSize: 12, padding: "4px 10px" }}
                       onClick={() => { setOrigErr(false); setOrigs(null); }}>{T("ลองใหม่", "Retry", "重试")}</button></>
-                  : T(`${origs.length.toLocaleString()} เพลง · แต่งเองทั้งหมด · เล่นได้ทุกคน`,
-                      `${origs.length.toLocaleString()} pieces · all written here · open to everyone`,
-                      `${origs.length.toLocaleString()} 首 · 全部原创 · 人人可弹`)}
+                  : T(`${(origTotal || origs.length).toLocaleString()} เพลง · แต่งเองทั้งหมด · เล่นได้ทุกคน`,
+                      `${(origTotal || origs.length).toLocaleString()} pieces · all written here · open to everyone`,
+                      `${(origTotal || origs.length).toLocaleString()} 首 · 全部原创 · 人人可弹`)}
             </div>
           )}
           <div className="songgrid">
@@ -13237,7 +13285,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: STUDIO (play-along / sight-reading / hand coach) ─── */}
       {page === "studio" && (
         studioView === "songs"
-          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} exp={(profile && profile.exp) || 0} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} />
+          ? <SongListPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} exp={(profile && profile.exp) || 0} premium={premium} plan={plan} initialCat={songsCat} onUpsell={() => setPricingOpen(true)} onRequireLogin={() => requireLogin("ai")} onPlay={chooseSong} onOpenOriginal={() => setStudioView("originals")} onBack={() => { setSongsCat("songs"); setStudioView("menu"); }} />
+          : studioView === "originals"
+          ? <OriginalContentPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} exp={(profile && profile.exp) || 0} premium={premium} plan={plan} onPlay={chooseSong} onBack={() => setStudioView("songs")} />
           : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
               onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}

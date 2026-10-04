@@ -333,7 +333,7 @@ function compose(idx, level, rnd) {
     const m = midiOf(n); if (m < 60 || m > 83) { bump("note out of C4..B5: " + n); return null; }
   }
   const allNotes = bars.join(" ").split(/\s+/).filter(Boolean).map(t => t.split(":")[0]).filter(n => n !== "R");
-  return { id: `og_${String(idx + 1).padStart(5, "0")}`, era: "original", key: keyName, mode, meter, bpm, pickup, bars, level: levelOf({ bars, bpm }), notes: noteCount, sig: signatureOf(allNotes) };
+  return { id: `og_${String(idx + 1).padStart(6, "0")}`, era: "original", key: keyName, mode, meter, bpm, pickup, bars, level: levelOf({ bars, bpm }), notes: noteCount, sig: signatureOf(allNotes) };
 }
 
 /* ── titles ───────────────────────────────────────────────────────────────────────
@@ -351,7 +351,16 @@ function compose(idx, level, rnd) {
 const formCount = [0, 0, 0, 0, 0];
 function titleFor(n) {
   const A = ADJ.length, N = NOUN.length, P = PLACE.length;
-  const form = n % 5, p = formCount[form]++;
+  const form = n % 5;
+  /* form0 and form1 are the same shape, so they draw from ONE counter. They
+     used to have one each and both counted from zero, which made every form1
+     title a form0 duplicate — a fifth of the shelf thrown away on a title that
+     was guaranteed to be rejected. Sharing formCount[0] makes them a single
+     walk of the pair grid: 40,000 successive pairs out of a grid that has to
+     be wider than 40,000 or this stalls. Walking it twice, even along the
+     other axis, does NOT help — both forms cover every (adjective, noun)
+     pair, so they collide wherever their two index ranges overlap. */
+  const p = form < 2 ? formCount[0]++ : formCount[form]++;
   if (form < 2) {                                    // quality + noun, two of the five slots
     const a = ADJ[p % A], nw = NOUN[Math.floor(p / A) % N];
     return { th: `${nw.th}${a.th}`, en: `${a.en} ${nw.en}`, zh: `${a.zh}的${nw.zh}` };
@@ -368,8 +377,27 @@ function titleFor(n) {
   return { th: `${nw.th}${a.th}${a2.th}`, en: `${a.en} ${a2.en} ${nw.en}`, zh: `${a.zh}${a2.zh}的${nw.zh}` };
 }
 
+/** the note-signatures of every song already in the app, so a new piece cannot be one of them */
+async function existingAppSignatures() {
+  const { build } = await import("esbuild");
+  const { pathToFileURL } = await import("node:url");
+  const r = await build({
+    stdin: {
+      contents: `import { SONGS } from "./songs-data";
+        export const SIGS = SONGS.map(s => (s.seq || []).filter(x => x[0] !== "R").map(x => x[0]));`,
+      resolveDir: ROOT, loader: "ts",
+    },
+    bundle: true, format: "esm", write: false, platform: "node", logLevel: "silent",
+  });
+  const tmp = path.join(ROOT, "node_modules/.cache", "originals-gen-songs.mjs");
+  fs.mkdirSync(path.dirname(tmp), { recursive: true });
+  fs.writeFileSync(tmp, r.outputFiles[0].text);
+  const { SIGS } = await import(pathToFileURL(tmp).href + "?t=" + Date.now());
+  return new Set(SIGS.filter(Boolean).map(signatureOf).filter(Boolean));
+}
+
 /* ── run ─────────────────────────────────────────────────────────────────────────── */
-function main() {
+async function main() {
   const args = Object.fromEntries(process.argv.slice(2).map(a => {
     const m = /^--([^=]+)(?:=(.*))?$/.exec(a); return m ? [m[1], m[2] === undefined ? "1" : m[2]] : [a, "1"];
   }));
@@ -379,6 +407,14 @@ function main() {
 
   const pieces = [];
   const seenEn = new Set(), seenTh = new Set(), seenZh = new Set(), seenSig = new Set();
+  /* The app's own pieces are a fixed set of tunes that will never change. A draw
+     that lands on one of them is not a new piece, it is a copy of a song that is
+     already in the library under someone else's name — and at 100,000 draws the
+     odds of hitting one are no longer theoretical (one draw did, and
+     verify-originals refused the whole build over it). So the signatures of the
+     existing library are loaded here and rejected at the draw, exactly the way
+     a duplicate among the new pieces already was. */
+  for (const sig of await existingAppSignatures()) seenSig.add(sig);
   let idx = 0, guard = 0;
   while (pieces.length < COUNT && guard < COUNT * 60) {
     // the attempt number is part of the seed on purpose: a rejected draw must try a
@@ -403,7 +439,7 @@ function main() {
   for (const f of fs.readdirSync(OUT).filter(f => f.endsWith(".json"))) fs.unlinkSync(path.join(OUT, f));
   for (let i = 0; i < pieces.length; i += PER_FILE) {
     const part = pieces.slice(i, i + PER_FILE);
-    fs.writeFileSync(path.join(OUT, `orig-${String(i / PER_FILE).padStart(2, "0")}.json`), JSON.stringify(part));
+    fs.writeFileSync(path.join(OUT, `orig-${String(i / PER_FILE).padStart(3, "0")}.json`), JSON.stringify(part));
   }
   const byLevel = pieces.reduce((a, p) => (a[p.level] = (a[p.level] || 0) + 1, a), {});
   console.log(`gen_originals: ${pieces.length} original pieces in ${Math.ceil(pieces.length / PER_FILE)} files -> ${path.relative(ROOT, OUT)}`);

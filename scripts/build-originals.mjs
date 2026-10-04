@@ -61,8 +61,32 @@ function build() {
   const index = pieces.map((p, i) => ({
     id: p.id, diff: p.level, bpm: p.bpm, th: p.th, en: p.en, zh: p.zh,
     hn: firstNote(p), len: secs(p), k: Math.floor(i / PER_SHARD),
+    /* mode and metre ride in the index, not only in the tune shard: the Original
+       Content page divides a hundred thousand pieces into families, and it has to
+       be able to file a card by its family before anyone has opened its notes.
+       Two short strings cost about four bytes a row and save opening a shard
+       per piece just to learn what style it was in. */
+    mode: p.mode || "", meter: p.meter || "4/4",
   }));
-  files.set("index.json", JSON.stringify({ v: 1, n: pieces.length, shards, per: PER_SHARD, songs: index }));
+
+  /* The index is SHARDED, and at 100,000 pieces that is the whole point.
+     One index.json held 1.5 MB at 10,000 pieces; the row grows linearly, so
+     at 100,000 the same file is ~15 MB — downloaded in full, on a phone, the
+     moment a learner opened the shelf, to render the first sixty cards. So
+     index.json is now a manifest of a few hundred bytes naming the pages, and
+     the rows live in index-NN.json. The learner pays for the page they are
+     looking at, exactly as they already pay only for the tune they play. */
+  const indexShards = Math.ceil(index.length / PER_SHARD);
+  files.set("index.json", JSON.stringify({
+    v: 2, n: pieces.length, shards, per: PER_SHARD,
+    indexShards, indexPer: PER_SHARD,
+  }));
+  for (let s = 0; s < indexShards; s++) {
+    files.set(`index-${String(s).padStart(3, "0")}.json`, JSON.stringify({
+      v: 2, page: s, n: index.length,
+      songs: index.slice(s * PER_SHARD, (s + 1) * PER_SHARD),
+    }));
+  }
 
   for (let s = 0; s < shards; s++) {
     const part = pieces.slice(s * PER_SHARD, (s + 1) * PER_SHARD);
@@ -90,5 +114,6 @@ for (const f of fs.readdirSync(OUT).filter(f => f.endsWith(".json"))) fs.unlinkS
 let total = 0;
 for (const [name, body] of files) { fs.writeFileSync(path.join(OUT, name), body); total += body.length; }
 const idx = files.get("index.json").length, shard = files.get("songs-00.json").length;
-console.log(`build-originals: ${files.size - 1} shards + index -> ${path.relative(ROOT, OUT)}`);
-console.log(`  index.json ${(idx / 1024).toFixed(0)} KB (no notes) · one shard ${(shard / 1024).toFixed(0)} KB of 500 pieces · all ${(total / 1024 / 1024).toFixed(1)} MB, none of it in the bundle`);
+const page = files.get("index-000.json").length;
+console.log(`build-originals: ${files.size - 1} files -> ${path.relative(ROOT, OUT)}`);
+console.log(`  index.json ${(idx / 1024).toFixed(1)} KB (manifest only) · one index page ${(page / 1024).toFixed(0)} KB of 500 rows · one tune shard ${(shard / 1024).toFixed(0)} KB of 500 pieces · all ${(total / 1024 / 1024).toFixed(1)} MB, none of it in the bundle`);

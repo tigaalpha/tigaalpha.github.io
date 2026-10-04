@@ -13,7 +13,7 @@
     "cycle:tiga": "node scripts/tiga-cycle.mjs cycle",
     "report:tiga": "node scripts/tiga-cycle.mjs report",
     "sprites": "node scripts/bake-sprites.mjs",
-    "songs:originals": "node songs-src/tools/gen_originals.mjs --count=10000 && node scripts/verify-originals.mjs songs-src/originals && node scripts/build-originals.mjs",
+    "songs:originals": "node songs-src/tools/gen_originals.mjs --count=100000 && node scripts/verify-originals.mjs songs-src/originals && node scripts/build-originals.mjs",
     "verify:promo": "node scripts/verify-promo-max.mjs && node scripts/verify-conversion.mjs",
     "verify:landing": "node scripts/smoke-landing-three-langs.mjs",
     "songs:check": "node scripts/build-songs.mjs --check && node scripts/build-originals.mjs --check && node scripts/verify-songs.mjs songs-src/classical && node scripts/verify-originals.mjs songs-src/originals",
