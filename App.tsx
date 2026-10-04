@@ -614,7 +614,7 @@ function groupCells(gid) {
   const rank = (id) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
   return cells.map((cell, i) => ({ cell, i })).sort((a, b) => rank(a.cell.id) - rank(b.cell.id) || a.i - b.i).map(x => x.cell);
 }
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null, onFirstSong = null }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   /* Card numbers run straight through the whole pathway — foundation 01-02,
@@ -872,46 +872,17 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
       )
     );
   }
-  /* The first song, offered inline — never a popup. Until a Play Along song has
-     been finished (any star on any song) or the offer is closed, the first thing
-     on this page is one tap into a real song. The 2026-10-02 report: 539 people
-     opened this page in a month, 6 opened Play Along, and the D7 return rate of
-     the accounts made since 7 Sep was 0%. A song played is the cheapest reason
-     to come back. */
-  const firstSongOffer = useMemo(() => {
-    if (!onFirstSong) return false;
-    try {
-      if (localStorage.getItem("tg_pa_first_x") === "1") return false;
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith("tg_stars_") && Number(localStorage.getItem(k)) > 0) return false;
-      }
-    } catch (e) {}
-    return true;
-  }, [onFirstSong]);
-  const [offerGone, setOfferGone] = useState(false);
-  const offerLogged = useRef(false);
-  useEffect(() => {
-    if (firstSongOffer && !offerLogged.current) { offerLogged.current = true; logUsage("nav", "pathway-firstsong:shown"); }
-  }, [firstSongOffer]);
-  const T3 = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  /* The "Play your first song" banner that used to sit at the top of this page
+     is gone (owner, 2026-10-04). It was an offer pinned above the pathway for
+     anyone who had not finished a song yet, and it pushed STEP 1 below the
+     fold — the same problem as the title block, the Daily Song Quest card and
+     the Concert Mode card that came off this page in September. Practice is
+     still one tap away: card 02 on this very grid opens Play Along on the
+     songs, so the offer was saying what the card beside it already says. */
   return (
     <div className="pathpage">
 
-      {firstSongOffer && !offerGone && (
-        <div style={{ position: "relative" }}>
-          <button type="button" className="pfirstsong" onClick={onFirstSong}>
-            <span className="pfs-ic" aria-hidden="true">🎵</span>
-            <span className="pfs-tx">
-              <b>{T3("เล่นเพลงแรกของคุณ", "Play your first song", "弹你的第一首歌")}</b>
-              <small>{T3("ใช้เวลาราว 1 นาที ได้ดาวทันที ไม่ต้องอ่านโน้ต", "About a minute · earn your first star · no sheet music", "约 1 分钟 · 马上拿到星星 · 不用识谱")}</small>
-            </span>
-            <span className="pfs-go" aria-hidden="true">▶</span>
-          </button>
-          <button type="button" className="pfs-x" aria-label={T3("ปิด", "Close", "关闭")}
-            onClick={() => { try { localStorage.setItem("tg_pa_first_x", "1"); } catch (e) {} setOfferGone(true); logUsage("nav", "pathway-firstsong:closed"); }}>✕</button>
-        </div>
-      )}
+      {/* the "Play your first song" banner used to sit here — removed, see above */}
 
       {groups.map((g, gi) => {
         const stages = STAGES_BY_GROUP[g.id] || [];
@@ -4198,9 +4169,9 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
               thousand pieces behind one filter chip is a wall with no way in. */}
           {cat === "songs" && (
             <button className="songocbtn" onClick={() => { haptic(); onOpenOriginal && onOpenOriginal(); }}>
-              <span aria-hidden="true">✨</span>
+              <span className="songocbtn-ic" aria-hidden="true">🎼</span>
               <b>{T("Original Content", "Original Content", "Original Content 原创内容")}</b>
-              <span>{T("เพลงที่เราแต่งเอง · แบ่งตามหมวด", "written here · filed by kind", "我们的原创 · 分类浏览")}</span>
+              <span className="songocbtn-sub">{T("เพลงที่เราแต่งเอง · แบ่งตามหมวด", "written here · filed by kind", "我们的原创 · 分类浏览")}</span>
             </button>
           )}
         </div>
@@ -13223,14 +13194,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
           onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
-          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""}
-          onUpgrade={(premium && !isTrialPlan(plan)) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }}
-          onFirstSong={() => {
-            playUi("click"); logUsage("nav", "pathway-firstsong");
-            const first = SONGS.find(x => x.id === "twinkle") || SONGS.find(x => x.diff === 1 && !x.custom);
-            setSongsCat("songs"); setStudioView("songs"); setPage("studio");
-            if (first) chooseSong(first);
-          }} />
+          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""}onUpgrade={(premium && !isTrialPlan(plan)) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
       )}
 
       {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}

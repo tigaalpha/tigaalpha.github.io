@@ -18,12 +18,13 @@ export const PATHWAY_PRACTICE = {
     },
     {
       id: "play-songs", icon: "🎵", color: "#d97757", cat: "songs",
-      title: { th: "ฝึกเล่นเพลง", en: "Practise real songs", zh: "练习弹歌曲" },
-      /* The size of the shelf, stated here the way the landing proof strip
-         states it (owner, 2026-10-04): 100,000 originals live in
-         public/originals/*.json and every one opens in Play Along. The claim
-         is checked against that data in scripts/smoke-app-boot.mjs, which
-         fails if the card outruns the shelf. */
+      title: { th: "ฝึกฝีมือ", en: "Practice", zh: "练习" },
+      /* The card is called Practice, in all three languages (owner,
+         2026-10-04): it is the door to the practice itself, not a description
+         of one kind of piece. The size of the shelf is stated under it the way
+         the landing proof strip states it — 100,000 originals live in
+         public/originals/*.json and every one opens in Play Along, and
+         scripts/smoke-app-boot.mjs fails if this card outruns that data. */
       subtitle: {
         th: "มากกว่า 100,000 เพลงในแอป เป็นเพลงที่เราแต่งเอง เล่นตามได้ทุกเพลง",
         en: "More than 100,000 songs in the app — ours, and every one of them playable",

@@ -424,14 +424,8 @@ html, body, #root{background:var(--bg)}
 .pathpage::-webkit-scrollbar-thumb{background:#d97757;border-radius:2px}
 /* the one inline offer at the top of the Pathway page until a first song is finished (not a popup: the owner shut the first-run welcome card, two popups before the first key were a churn risk) */
 .songmore{height:2px;width:100%;pointer-events:none}
-.pfirstsong{display:flex;align-items:center;gap:12px;width:calc(100% - 28px);margin:10px 14px 4px;padding:12px 14px;border-radius:16px;border:1.5px solid #d97757;background:linear-gradient(135deg,rgba(217,119,87,.16),rgba(217,119,87,.06));color:var(--text);cursor:pointer;text-align:left;font-family:inherit;position:relative}
-.pfirstsong:active{transform:scale(.99)}
-.pfs-ic{font-size:26px;flex:0 0 auto}
-.pfs-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-.pfs-tx b{font-size:15px;line-height:1.3}
-.pfs-tx small{font-size:12px;opacity:.7;line-height:1.35}
-.pfs-go{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#d97757;color:#fff;font-size:14px}
-.pfs-x{position:absolute;top:2px;right:6px;background:none;border:0;color:var(--muted,#888);font-size:15px;line-height:1;padding:6px;cursor:pointer;opacity:.6}
+/* (the .pfirstsong / .pfs-* rules for the removed "Play your first song"
+   banner were deleted with it — 2026-10-04) */
 .pathhero{position:relative;text-align:center;padding:10px 16px 0;margin-bottom:4px;overflow:hidden;border-bottom:1px solid #d977571f}
 .pathhero-glow{position:absolute;top:-60%;left:50%;transform:translateX(-50%);width:280px;height:280px;pointer-events:none}
 .pathbadge{position:relative;display:inline-block;font-family:var(--f-num);font-size:8px;letter-spacing:3px;color:#d97757;border:1px solid #d9775744;border-radius:20px;padding:4px 15px;margin-bottom:12px;background:rgba(217,119,87,.05)}
@@ -2935,12 +2929,17 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
 .songh1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em;color:var(--text1);display:flex;align-items:center;gap:6px}
 .songh1 small{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0}
 /* the entry button on the song list, next to Back (owner marked the spot on
-   the song page, so it sits on the same row rather than under it) */
-.songocbtn{margin:0;padding:8px 13px;border-radius:11px;border:1px solid #d9775766;background:linear-gradient(180deg,#d9775718,#d9775708);color:#d97757;font-family:var(--f-app);font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;text-align:left}
-.songocbtn:hover{background:linear-gradient(180deg,#d9775730,#d9775714)}
-.songocbtn b{font-weight:800}
-.songocbtn span{color:var(--muted);font-weight:600;font-size:12px;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width:430px){.songocbtn span{display:none}}
+   the song page, so it sits on the same row rather than under it). Purple with
+   white text and its own icon slot (owner, 2026-10-04) — the one solid block of
+   colour on a page of outlines, so the way into the shelf is the thing the eye
+   lands on first. */
+.songocbtn{margin:0;padding:9px 14px;border-radius:12px;border:1px solid #ffffff2e;background:linear-gradient(180deg,#8b5cf6,#6d28d9);color:#fff;font-family:var(--f-app);font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;text-align:left;box-shadow:0 6px 18px -10px #6d28d9}
+.songocbtn:hover{background:linear-gradient(180deg,#9d78f8,#7c3aed)}
+.songocbtn:active{transform:scale(.99)}
+.songocbtn b{font-weight:800;color:#fff}
+.songocbtn-ic{font-size:15px;line-height:1;flex:0 0 auto}
+.songocbtn-sub{color:#ffffffc7;font-weight:600;font-size:12px;margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:430px){.songocbtn-sub{display:none}}
 /* sight-reading */
 .sightov .practicebody{align-items:stretch}
 .staffwrap{background:var(--card);border:1px solid var(--bd2);border-radius:16px;padding:14px 8px;margin:6px 0;transition:box-shadow .2s,border-color .2s}

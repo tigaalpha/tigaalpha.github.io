@@ -204,11 +204,15 @@ for (const b of navBtns) {
      reads, and n is how many pieces it actually holds. */
   const pcards = qa(".pcard");
   if (pcards.length) {
-    const songDoor = pcards.find(c => /ฝึกเล่นเพลง|Practise real songs|练习弹歌曲/.test(c.textContent || ""));
-    ok("the pathway has the song-practise card", !!songDoor, songDoor ? (songDoor.textContent || "").replace(/\s+/g, " ").trim().slice(0, 90) : `${pcards.length} cards, none matched`);
+    const songDoor = pcards.find(c => /ฝึกฝีมือ|Practice|练习/.test(c.textContent || ""));
+    ok("the pathway has the Practice card", !!songDoor, songDoor ? (songDoor.textContent || "").replace(/\s+/g, " ").trim().slice(0, 90) : `${pcards.length} cards, none matched`);
     const doorTxt = (songDoor ? songDoor.textContent : "").replace(/\s+/g, " ");
     ok("that card states the shelf size", /100,000|100000/.test(doorTxt), doorTxt.match(/[^ ]*100,000\+?[^ ]*/)?.[0] || "no number");
     ok("the number it states is backed by the shelf", typeof shelfN === "number" && shelfN >= 100000, `index.json n = ${shelfN}`);
+    /* The "Play your first song" banner is gone (owner, 2026-10-04): it sat
+       above STEP 1 and pushed the pathway below the fold, saying what card 02
+       beside it already says. */
+    ok("the first-song banner is gone", !q(".pfirstsong") && !bodyTxt().includes("Play your first song"));
   }
   /* reopen the drawer for the next item (a click usually navigates + closes it) */
   if (!q(".draweritem") || !(q(".draweritem").getClientRects().length)) { click(q(".hamb")); await settle(); }
