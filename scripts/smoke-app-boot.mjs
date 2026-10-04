@@ -116,6 +116,20 @@ try { await import("file://" + tmp); } catch (e) { errors.push("bundle import: "
 /* let boot effects settle — supabase getSession resolves through the fetch
    stub (network-free), then the gate decides splash vs auth vs home */
 await new Promise(r => setTimeout(r, 2500));
+/* Sample the root AFTER the app has actually painted, not at a fixed instant.
+   The single 2.5s wait was a race: the bundle boots behind an async splash
+   (the boot log says "Not implemented: HTMLCanvasElement's getContext()" —
+   jsdom has no canvas, so whatever draws the splash gives up and the boot
+   takes whatever time it takes). On a loaded machine it passed, on a busy one
+   the root was still the 130-character splash and the check failed with
+   nothing wrong with the app. Waiting for paint keeps the assertion honest —
+   it still fails if the app never gets past the splash — and stops it failing
+   for reasons that have nothing to do with the app. */
+{
+  const root = window.document.getElementById("root");
+  const painted = () => root && root.innerHTML.length > 200 && !root.querySelector(".lockicon");
+  for (let i = 0; i < 40 && !painted(); i++) await new Promise(r => setTimeout(r, 250));
+}
 
 /* restore any chunk files we rewrote, so the real bundle dir stays clean */
 function restoreChunks() {

@@ -20,7 +20,7 @@
    has loaded 500 of 100,000 says 100,000, not 500.
 */
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { loadOriginalManifest, loadOriginalPage, loadOriginalSong, ORIGINAL_SHELF } from "./originals-store";
+import { loadOriginalManifest, loadOriginalPage, loadOriginalSong, resetOriginalCache, ORIGINAL_SHELF } from "./originals-store";
 import type { OriginalMeta } from "./originals-store";
 
 /* ── the families ────────────────────────────────────────────────────────────
@@ -77,10 +77,19 @@ export default function OriginalContentPage({ lang, onBack, onPlay, level = 1, e
   const [family, setFamily] = useState("all");
   const [shown, setShown] = useState(SLICE0);
   const [busy, setBusy] = useState<string | null>(null);
+  /* Bumped by the retry button. The load ran in an effect with no dependencies,
+     so before this existed the button cleared the error, the page re-rendered
+     as "Loading…" and then sat there forever with nothing in flight: a retry
+     that retried nothing (seen on a phone, 2026-10-04). */
+  const [attempt, setAttempt] = useState(0);
   const moreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let live = true;
+    setErr(false);
+    setManifest(null);
+    setRows(null);
+    setPages(0);
     loadOriginalManifest().then(m => {
       if (!live) return;
       if (!m || !m.n) { setErr(true); return; }
@@ -92,7 +101,7 @@ export default function OriginalContentPage({ lang, onBack, onPlay, level = 1, e
       });
     }).catch(() => { if (live) setErr(true); });
     return () => { live = false; };
-  }, []);
+  }, [attempt]);
 
   /* one more page when the list has run past what is in memory */
   useEffect(() => {
@@ -179,7 +188,7 @@ export default function OriginalContentPage({ lang, onBack, onPlay, level = 1, e
         {err
           ? <>{T("โหลดไม่สำเร็จ", "Could not load", "加载失败")} ·{" "}
             <button className="songbtn ghost" style={{ fontSize: 12, padding: "4px 10px" }}
-              onClick={() => { setErr(false); setRows(null); }}>{T("ลองใหม่", "Retry", "重试")}</button></>
+              onClick={() => { resetOriginalCache(); setAttempt(a => a + 1); }}>{T("ลองใหม่", "Retry", "重试")}</button></>
           : !manifest
             ? T("กำลังโหลด…", "Loading…", "加载中…")
             : T(`${total.toLocaleString()} เพลง · แต่งเองทั้งหมดที่นี่ ไม่ใช่ของคนอื่น · เล่นได้ทุกคน`,

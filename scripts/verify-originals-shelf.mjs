@@ -34,10 +34,14 @@ const ok = (name, cond, extra) => { out.push(`${cond ? "PASS" : "FAIL"} ${name}$
 /* ── the fetch the app will see: our own files from disk, everything else inert ── */
 const fetched = [];
 const fetchLog = [];
+/* Set while the "the network is down" part of the test runs: every shelf fetch
+   rejects, the way a phone that lost the connection mid-request does. */
+let shelfOffline = false;
 globalThis.fetch = async (url) => {
   const u = String(url && url.url ? url.url : url);
   fetchLog.push(u);
   const m = /\/originals\/([^/?#]+)$/.exec(u);
+  if (m && shelfOffline) throw new TypeError("Failed to fetch");
   if (m) {
     const f = join(ORIG, m[1]);
     fetched.push(m[1]);
@@ -148,11 +152,38 @@ ok("the button shares one row with Back", !!ocBtn && !!ocBtn.parentElement
   && ocBtn.parentElement.classList.contains("songtop")
   && !!q(".songtop .studioback"),
   ocBtn && ocBtn.parentElement ? "parent: ." + ocBtn.parentElement.className : "—");
+
+/* ── 1c. what happens when the shelf cannot be read (owner, 2026-10-04) ──
+   The page used to sit on "Loading…" with no cards and no way out: the load
+   effect had no dependencies, so the Retry button cleared the error, put the
+   page back into its loading state and re-ran nothing. A learner on a phone
+   who lost signal for one request was stuck like that. It must now say it
+   failed, and Retry must actually ask again. */
+shelfOffline = true;
+click(ocBtn);
+await settle(1200);
+const failNote = q(".songorigbar");
+const retryBtn = Array.from((failNote || document).querySelectorAll ? (failNote || document).querySelectorAll("button") : []).find(b => /ลองใหม่|Retry|重试/.test(txt(b)));
+ok("a failed load says so instead of loading forever", !!failNote && /โหลดไม่สำเร็จ|Could not load|加载失败/.test(txt(failNote)), failNote ? txt(failNote).slice(0, 60) : "no status line");
+ok("it offers a retry", !!retryBtn, retryBtn ? txt(retryBtn) : "no retry button");
+ok("no cards are drawn from a failed load", qa(".songcard").length === 0, `${qa(".songcard").length} cards`);
+const failsBefore = fetched.length;
+shelfOffline = false;
+click(retryBtn);
+await settle(2000);
+const refetched = fetched.slice(failsBefore);
+ok("retry asks again and the page loads", qa(".songcard").length > 0
+  && refetched.join(", ") === "index.json, index-000.json",
+  `refetched: ${refetched.join(", ") || "nothing"} · ${qa(".songcard").length} cards`);
+/* The page is already open and loaded from the failure/retry block above, so
+   clicking the button again must NOT re-download it — the store keeps what it
+   has read for the life of the page. The "one manifest + one page" claim is
+   asserted there, on the genuine first open. */
 const beforeOC = fetched.length;
 click(ocBtn);
-await settle(1500);
-const ocFetches = fetched.slice(beforeOC);
-ok("the Original Content page loads the manifest and one page", ocFetches.join(", ") === "index.json, index-000.json", ocFetches.join(", "));
+await settle(1200);
+ok("re-opening the shelf costs no new request", qa(".songcard").length > 0 && fetched.length === beforeOC,
+  `${fetched.length - beforeOC} new request(s) · ${qa(".songcard").length} cards`);
 ok("the page is titled Original Content", !!q(".songh1") && /Original Content/i.test(txt(q(".songh1"))), q(".songh1") ? txt(q(".songh1")) : "—");
 /* Scrolling happens inside .pathpage (flex:1; overflow-y:auto) — the window
    itself does not scroll in this app. jsdom cannot lay out, so this asserts the

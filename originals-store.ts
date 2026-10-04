@@ -54,10 +54,38 @@ const shardSongs = new Map<number, Map<string, any>>();
 const pairs = (s: string): Array<[string, number]> =>
   s.split(" ").map(t => { const i = t.indexOf(":"); return [t.slice(0, i), +t.slice(i + 1)] as [string, number]; });
 
+/* A stalled request is worse than a failed one. On a phone a fetch can sit
+   pending for minutes behind a service worker that is starting up or behind a
+   radio that dropped a packet, and until it settles the page can only say
+   "Loading…" — which is what a learner saw on 2026-10-04. 15s is longer than
+   any of these files takes on a 4G phone (index.json is ~150 bytes, an index
+   page ~78 KB) and short enough that a dead network becomes an offer to retry
+   rather than a spinner that never ends. */
+const FETCH_TIMEOUT_MS = 15000;
+
 async function fetchJson(url: string): Promise<any> {
-  const res = await fetch(url, { cache: "default" });
-  if (!res.ok) throw new Error(`${url} -> ${res.status}`);
-  return res.json();
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { cache: "default", signal: ctl.signal });
+    if (!res.ok) throw new Error(`${url} -> ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Forget everything already in flight or in memory, so a retry after a failure
+ * is a real retry. Without this the page can clear its error, re-render, and
+ * read the same failed promise — a "Retry" button that retries nothing.
+ */
+export function resetOriginalCache(): void {
+  manifestPromise = null;
+  pagePromises.clear();
+  pageRows.clear();
+  shardPromises.clear();
+  shardSongs.clear();
 }
 
 /** the manifest: how many pieces there are and how the index is cut up. null when missing. */
