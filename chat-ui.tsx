@@ -199,18 +199,27 @@ export const AskRow = memo(function AskRow({ ask, lang, onAnswer, onMark }) {
    count, the daily quest). The chat was the only page with no visible progress
    at all, which is most of why reading it felt like homework rather than a
    session you are part of. */
-export function ChatProgress({ lang, streak, askedToday, questCount, questGoal, expToday }) {
+export function ChatProgress({ lang, streak, askedToday, questCount, questGoal, expToday, always = false }) {
   const lc = L[lang];
-  if (!streak && !askedToday && !questCount) return null;
+  /* `always` (plan 26 · P2): used where this bar is the page's goal line rather
+     than a footnote — a learner whose streak is still 0 is exactly the one who
+     most needs to see what they are working towards, so there the bar renders
+     even at zero. The default keeps the old behaviour everywhere else. */
+  if (!always && !streak && !askedToday && !questCount) return null;
+  const questDone = Math.min(questCount || 0, questGoal || 0);
   return (
-    <div className="chatprog" role="status">
-      {streak > 0 && <span className="cp-i">🔥 {streak} {lc.chkDay}</span>}
+    <div className={"chatprog" + (always ? " chatprog-top" : "")} role="status">
+      {always
+        ? <span className="cp-i">🔥 {streak || 0} {lc.chkDay}</span>
+        : streak > 0 && <span className="cp-i">🔥 {streak} {lc.chkDay}</span>}
       {askedToday > 0 && <span className="cp-i">💬 {askedToday} {lc.chkStreak}</span>}
-      {questCount > 0 && (
-        <span className="cp-i">
-          🎯 {Math.min(questCount, questGoal)}/{questGoal} {lc.chkQuest}
-        </span>
-      )}
+      {always
+        ? <span className="cp-i">🎯 {questDone}/{questGoal} {lc.chkQuest}</span>
+        : questCount > 0 && (
+          <span className="cp-i">
+            🎯 {questDone}/{questGoal} {lc.chkQuest}
+          </span>
+        )}
       {expToday > 0 && <span className="cp-i cp-exp">+{expToday} EXP</span>}
     </div>
   );

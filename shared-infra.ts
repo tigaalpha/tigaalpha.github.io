@@ -173,6 +173,23 @@ export function recordNoteMisses(notes) {
   } catch (_) {}
 }
 
+/* The reader for exactly what recordNoteMisses() writes — pitch class (no
+   octave) → how many times the learner has missed it. Added for plan 26 · P6,
+   which shows these counts on the practice page; before this the numbers were
+   written on every drill and never once read back by anything in the UI. */
+export function readNoteMisses() {
+  try {
+    const raw = JSON.parse(localStorage.getItem("tg_note_miss") || "{}") || {};
+    const out = [];
+    for (const pc in raw) {
+      const n = Number(raw[pc]) || 0;
+      if (n > 0) out.push({ pc, n });
+    }
+    out.sort((a, b) => b.n - a.n || a.pc.localeCompare(b.pc));
+    return out;
+  } catch (_) { return []; }
+}
+
 /* ── Guest mode ──
    No session = no locked door: land straight in the app with a synthetic
    profile-shaped object standing in for a real Supabase row. Every existing

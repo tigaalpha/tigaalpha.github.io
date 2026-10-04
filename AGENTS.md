@@ -62,7 +62,92 @@ backing band (drums, bass, strings, brass and the Fever arpeggio, a finale on
 the last chord), booked ahead on the audio clock like the metronome and kept out
 of the mic's hearing — what plays with a song is the player's choice, the
 backing track or a metronome (`songAccomp`, the pair of buttons in the header's
-top right corner, also in the pause card); `play-along-stage.ts` is the
+top right corner, also in the pause card). **The band arranges itself for the
+piece** (plan 23): `createBand` takes `style` and `bpm`, `use-play-along.ts`
+passes `SONG_GENRES[meta.id]` (`songs-data.ts:1416`, which holds a genre or era
+for all 1,067 songs), and `BAND_STYLES` in `play-along-band.ts` turns it into a
+kit, a lead voice and a pad — a Baroque piece books no drums at all, a jazz one
+rides the cymbal, and the drums follow the metre (3/4 is a waltz with no snare,
+2/4 a march) instead of a fixed 4/4 rock beat, which 375 of the 875 classical
+pieces are not. **A style the table does not know must fall through to the old
+band exactly**, since a song the player wrote has no genre; `scripts/smoke-band-style.mjs`
+(224 checks, no speakers needed — every style in every metre, plus Fever,
+the finale and the left hand) pins that and every kit. The plan and its
+results are in `tigamodel/docs/23-plan-band-per-song-instrumentation.md`, next to
+`22-plan-play-along-backing-track.md` ("why does it feel like there is no backing
+track").
+
+**Sound, measured rather than guessed (plan 23 §11).** `scripts/band-audio-lab.mjs`
+is an offline Web Audio engine — AudioParam ramps, PolyBLEP oscillators, RBJ
+filters, a delay line, the app's own bus — and `scripts/analyze-band-sound.mjs`
+drives the **real** `play-along-band.ts` through it for real songs from
+`songs-data.ts` and measures level, clipping, spectral balance, how much the song
+moves, and whether the player can hear their own note over the band. Three
+numbers decide any change to the mix: **no clipped samples at all**, **no more than
+~90 % of the energy below 250 Hz** (measured 80–91 % after the review), and **the
+band 12 dB or more below the player's own note** at the melody's pitch
+(`renderMelodyRef` plays it exactly as `playPianoNote` does). `createBand` also
+takes `mel` now — the player's notes — and keeps its octave-5/6 voices out of the
+way where they sound; a caller that passes nothing gets the old booking.
+`tigamodel/docs/23b-plan-band-sound-review.md` has the before/after tables.
+
+**The lab has to behave like the browser, or its numbers are fiction.** Two
+mistakes here cost real time, and both failed quietly: `ConvolverNode.normalize`
+**defaults to `true`**, so a browser rescales every impulse response it is handed
+— the lab convolved the raw one and ran ~+17 dB hot, which looked exactly like an
+app-wide "drowned in a loud room" bug and was nothing of the kind. And `bandMix()`
+rounded both ends of every frequency band to the nearest bin and read the range
+inclusively, so each boundary bin was counted twice: a single spike at 60 Hz came
+out as **200 %** of the total energy, and the `sub` column inflated to 38 % on
+exactly the bass-heavy styles the measurement exists to judge (real value: 8 %).
+Both are fixed. `scripts/verify-audio-bus-ir.mjs` (6 checks) measures the bus on
+its own — **wet/dry −14.8 dB, peak −7.9 dBFS, zero clipped samples**, the room is
+fine, so do not go looking for a bus bug that is not there. Retractions are in
+§11.7 of `23b`; the next rounds of work are `24-plan-band-sound-next.md` (the
+sound), `25-plan-play-along-juice-and-replay.md` (why a player comes back) and
+`26-plan-sensei-page-teaching-loop.md` (the practice page the learner stands on).
+
+**The practice page already has a lesson plan — it is just two taps away.**
+Plan 26 · `SenseiView.tsx` is the Teacher tab. `TodayPage` (`App.tsx:1227`)
+already builds the real daily plan — warm-up, homework, the SRS due stage
+(`getDueReviews`, `App.tsx:5650`), the next thing, a song — and counts
+`nDone/steps`; it was reachable only from a card inside Studio and had no tab.
+That count is now computed by **`buildTodaySteps()`** (`App.tsx:1159`, extracted
+verbatim) and rendered on the Teacher page too, so the two surfaces cannot
+disagree — call that function, never re-derive it. The streak/quest/EXP bar
+(`chat-ui.tsx:202`) moved from under the chat input to the top of the page and
+renders at zero via its `always` prop (line 204's early return is kept for every
+other caller). The page also surfaces three things that were already on the
+device and read by nothing: the last drill, replayable (`readPracticeBests` +
+`replayDrill`), the pitch classes the learner actually misses
+(`recordNoteMisses` / the `readNoteMisses` reader added beside it), and, once
+the plan is genuinely finished, last session's accuracy against the one before.
+All of it moves existing signals — no new numbers, no new economy.
+`scripts/smoke-app-boot.mjs` asserts P1/P2/P5/P6/P7 against the real page and
+seeds the two stores they read; **P7's positive path is still uncovered** — do
+not read that as tested. Two traps cost time here: putting that block above the
+`usePracticeMode` destructure throws a TDZ `ReferenceError` on every render, and
+the smoke script used to leave `.smoke-*.js` files behind in the tracked
+`bundle/` directory on every run.
+
+**A reward loop that pays once is not a loop.** Plan 25 · `play-along-judge.ts`,
+`play-along-progress.ts`. `comboMult` used to climb to ×4.9 at combo 300, which the
+longest song (48 notes) can never reach — it topped out at **×2.38**, so playing
+better barely moved the number; it now passes ×3.0 at combo 48 under a real ×6 cap.
+`feverAt`/`megaAt` had floors of 10 and 20, which did not make them *early*, they
+made them **impossible** — Mega Fever was unreachable on any song under 20 notes.
+Both are now clamped to the song's own length, so every song reaches both. Coins
+still stop after the third run of a day (`RUN_COIN_RUNS`) and medals pay once, so
+the reward for repetition is `replayExp` — EXP by how many times this player has
+played this song (0 on the first run, climbing, capped). **EXP only, never coins:
+coins are the paid currency and stay out of reach unasked.** The play counter is
+`tg_count_<id>`; a run that was not really played does not move it
+(`runPlayed`). Before changing scoring or rewards, run
+`scripts/verify-playalong.mjs` — 50 checks — and change the number, never the
+feeling. Before believing any number, ask what it passed through, check it against
+the API's spec, and check that any percentages which should sum to 100 do.
+
+`play-along-stage.ts` is the
 world behind the falling notes (sky, moon, planet, milky way, aurora, four
 planes of a city, a mirror floor). The *world* is painted once per canvas size
 (`paintWorld`, kept two deep, and what is half painted is kept too) and a song
@@ -214,7 +299,31 @@ full-screen chat in `PianoApp`, `SenseiView.tsx`).
 Three pieces, and the rule each one obeys: **`chat-coach.ts` (new) derives both the question and the action
 from the answer text, with no extra model call** — a quiz that needed a second round-trip would make the
 app slower and dearer for the one feature meant to make it better. `smoke-chat-coach.mjs` (46 checks) pins
-it. **Docs:** plan + measured results are `tigamodel/docs/19-plan-chat-fun-and-teaching.md`; `node scripts/measure-chat-cost.mjs` re-measures what one question costs, and `eval-kb-capped-vs-legacy.mjs` must be **exit 0** before anyone turns the hot-path switch on. `askQuestionOf()` reads the tutor's own `[? question | wrong | wrong | ✓ right]` closing line, or builds
+it. **Docs:** plan + measured results are `tigamodel/docs/19-plan-chat-fun-and-teaching.md` (7 of its 8 phases are
+shipped; phase 3, the hot-path switch, is **not** on — see below); `node scripts/measure-chat-cost.mjs`
+re-measures what one question costs, and `eval-kb-capped-vs-legacy.mjs` must be **exit 0** before anyone
+turns the hot-path switch on. The next round of this feature is
+`tigamodel/docs/20-plan-chat-fun-megaton.md` (the chat as a *game*): five leaks measured from the shipped
+code — **`chatProg.streak` is `profile.streak`, the app-wide PRACTICE streak, shown as if it were the
+chat's own** (so a learner who asks for 10 days and never plays sees `🔥 0`), and `tg_chat_stats` stores only
+`{d, asked, exp}` — no streak, no right-answer count, so there is nothing to build a game on yet;
+answering an `AskRow` correctly calls `recordMemory()` and **nothing appears on screen**; `withAiCache`
+is still never called from `use-chat.ts`; and the fixed prompt is **8,480 chars** per question against a
+49,248 median and a 1,392,371 worst case. Read §6 of that doc before adding anything to the chat — it
+lists the ten rules that plan must not break. **`21-plan-chat-teach-retrieval-speed.md` is the current round** — it answers
+the owner's three questions (does chat actually use what TIGA Model learned? is it fast? does it teach?). The
+measured answers: chat **does** pull the knowledge in — `hub.getFullKBContext()` /
+`getStudentContextBlock()` / `getCoachContextBlock()` at `use-chat.ts:358-364` — but **only 3 of 4 layers**.
+Layer 2 (owner-taught, `getLearnedKBContext`) returns `""` while `s.enabled` is false, and layer 4 is
+discarded outright by `.filter(e => !e.strategy)` at `self-learner.js:182`. It is slow because retrieval
+picks the **wrong** thing, not because it sends too much: `grep -cE "embedding|vector|cosine|similarity"`
+over `web.js` + `use-chat.ts` returns **0** — there is no semantic search anywhere, matching is keyword-only
+(`kbKeywordHit`), so one question draws **1,383,891 chars** and the next draws **1,427** — a ~990x spread on
+one function. And the teaching loop **does not close**: `markUnderstood` records into memory and `.actbtn`
+sends the learner off to practise, but nothing ever measures whether it worked
+(`grep -c "accAfter|retest|verify_learned"` = 0), and `learnerSignal` has never entered the chat prompt at
+all. Read §6 of that doc before adding anything to the chat — it lists the ten rules that plan must not break.
+`askQuestionOf()` reads the tutor's own `[? question | wrong | wrong | ✓ right]` closing line, or builds
 the check from octave-qualified note names **the tutor just wrote** (so the answer is a fact). **A check
 that cannot be answered correctly is worse than no check**, so: fewer than 3 distinct `C4`-style notes → no
 question; a bare `C` is ambiguous across octaves → never used; a repeated note is one note; a MALFORMED

@@ -2618,6 +2618,50 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .senseiback{display:flex;align-items:center;gap:6px;margin:8px 12px 0;padding:8px 13px;border-radius:20px;border:1px solid #d9775744;background:rgba(217,119,87,.08);color:var(--text2);font-family:var(--f-app);font-size:13px;font-weight:600;cursor:pointer;align-self:flex-start}
 .senseiback:active{transform:scale(.97);background:rgba(217,119,87,.16)}
 .senseiback span:first-child{font-size:15px}
+
+/* Today's plan, on the page the learner stands on (plan 26 · P1/P3). One row,
+   one button: it runs the first step not done yet, and the bar under it is the
+   real nDone/steps from buildTodaySteps() — the same numbers the full plan
+   page shows. Sized to sit above the back button without pushing the piano
+   off a phone screen. */
+.todaybar{margin:8px 12px 0;padding:10px 12px 9px;border-radius:15px;border:1px solid #d9775744;background:var(--card3);box-shadow:var(--sh1)}
+.todaybar-btn{display:flex;align-items:center;gap:10px;width:100%;padding:0;border:none;background:none;cursor:pointer;text-align:left}
+.todaybar-btn:active{opacity:.7}
+.todaybar-ic{font-size:19px;flex-shrink:0;line-height:1}
+.todaybar-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.todaybar-tag{font-family:var(--f-app);font-size:9.5px;font-weight:800;letter-spacing:.4px;color:#d97757;text-transform:uppercase}
+.todaybar-lb{font-family:var(--f-app);font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.todaybar-ct{font-family:var(--f-num,monospace);font-size:13px;font-weight:800;color:#d97757;flex-shrink:0}
+.todaybar-track{margin-top:9px;height:5px;border-radius:999px;background:#d9775722;overflow:hidden}
+.todaybar-fill{height:100%;border-radius:999px;background:#d97757;transition:width .35s ease}
+/* the goal bar at the top of the page (plan 26 · P2) needs a bottom edge
+   instead of the top one it had under the chat input */
+.chatprog.chatprog-top{border-top:none;border-bottom:1px solid #d9775722;margin-bottom:2px}
+
+/* P5/P6/P7 — resume, missed notes, plan-complete. All three sit between the
+   plan bar and the back button, and all three collapse to nothing when there
+   is no real data behind them, so a brand-new learner sees only the plan. */
+.resumebar{display:flex;align-items:center;gap:9px;width:calc(100% - 24px);margin:7px 12px 0;padding:8px 12px;border-radius:13px;border:1px solid var(--bd2);background:var(--card);cursor:pointer;text-align:left}
+.resumebar:active{transform:scale(.99)}
+.resumebar-ic{font-size:15px;color:#d97757;flex-shrink:0}
+.resumebar-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.resumebar-tag{font-family:var(--f-app);font-size:9px;font-weight:800;letter-spacing:.5px;color:var(--muted);text-transform:uppercase}
+.resumebar-lb{font-family:var(--f-app);font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resumebar-acc{font-family:var(--f-num,monospace);font-size:12.5px;font-weight:800;color:#d97757;flex-shrink:0}
+.missbar{display:flex;align-items:center;gap:6px;margin:7px 12px 0;flex-wrap:wrap}
+.missbar-lbl{font-family:var(--f-app);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.3px}
+.misschip{display:inline-flex;align-items:baseline;gap:3px;padding:4px 9px;border-radius:999px;border:1px solid #d9775744;background:rgba(217,119,87,.08);color:var(--text2);font-family:var(--f-num,monospace);font-size:12px;font-weight:700;cursor:pointer}
+.misschip:active{background:rgba(217,119,87,.18)}
+.misschip em{font-style:normal;font-size:9.5px;color:var(--muted)}
+.todaydone{display:flex;align-items:center;gap:10px;margin:7px 12px 0;padding:9px 12px;border-radius:13px;border:1px solid #d9775766;background:rgba(217,119,87,.1)}
+.todaydone-ic{font-size:19px;flex-shrink:0}
+.todaydone-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.todaydone-tx b{font-family:var(--f-app);font-size:13px;color:var(--text)}
+.todaydone-acc{font-family:var(--f-num,monospace);font-size:12px;color:var(--muted)}
+.todaydone-arrow{color:var(--muted)}
+.todaydone-acc em{font-style:normal;font-weight:800;margin-left:5px}
+.todaydone-acc em.up{color:var(--ok,#16a34a)}
+.todaydone-acc em.down{color:var(--accent)}
 .hwbar{display:flex;align-items:center;gap:9px;margin:6px 12px 0;padding:9px 13px;width:calc(100% - 24px);border-radius:13px;border:1px solid #d9775733;background:var(--card3)}
 .hwbar-ic{font-size:17px;flex-shrink:0}
 .hwbar-tx{flex:1;min-width:0;font-family:var(--f-app);font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -1188,8 +1188,15 @@ const KB_DOMAIN_KEYWORDS = {
   motivation: ["เบื่อ", "เลิก", "ท้อ", "แรงใจ", "motivat", "รางวัล", "แต้ม", "ชม", "streak", "อยากเล่น"],
   culture: ["เพลงไทย", "ลูกทุ่ง", "หมอลำ", "thai music", "ขิม", "จะเข้"],
   rhythm: ["จังหวะ", "rhythm", "beat", "note value", "ครึ่งจังหวะ", "crotchet", "quaver", "โน้ตตัว"],
-  theory: ["ทฤษฎี", "theory", "บันไดเสียง", "scale", "mode", "คู่เสียง", "interval", "key", "คีย์", "เซมิโทน", "solfege", "transpose", "ย้ายคีย์"],
-  harmony: ["คอร์ด", "chord", "harmony", "inversion", "voice leading", "modulation", "เปลี่ยนคีย์", "cadence", "7th", "slash", "tension"],
+  /* "สเกล" is the word Thai students actually TYPE — the app's own pathway page
+     titles the lesson สเกล (Scale) and every scale drill is labelled เมเจอร์/
+     ไมเนอร์, but the retrieval table only knew the formal synonym "บันไดเสียง".
+     So "สอนสเกลให้หน่อย" matched no domain at all and fell through to the
+     MOTIVATION + PRACTICE PLANS core: the chat was told to ground its answer in
+     those lines and told not to contradict them, with no scale fact anywhere in
+     the prompt — which is how a scale question got answered wrongly. */
+  theory: ["ทฤษฎี", "theory", "บันไดเสียง", "สเกล", "scale", "mode", "คู่เสียง", "interval", "key", "คีย์", "เซมิโทน", "solfege", "solfège", "transpose", "ย้ายคีย์", "โมเอด", "mode"],
+  harmony: ["คอร์ด", "chord", "harmony", "inversion", "voice leading", "modulation", "เปลี่ยนคีย์", "cadence", "7th", "slash", "tension", "ทริแอด", "triad", "คอร์ดเสียง", "แจ้งเกอร์"],
   repertoire: ["เพลงคลาสสิก", "ยุค", "baroque", "คลาสสิก", "โรแมนติก", "bach", "mozart", "beethoven", "chopin", "ผู้แต่ง", "composer"],
   form: ["ฟอร์ม", "form", "ABA", "rondo", "โซนาต", "sonatina", "sonata", "variation", "โครงเพลง"],
   accompaniment: ["ประกอบ", "มือซ้าย", "left hand", "alberti", "ostinato", "เบส", "bass", "arpeggio", "บล็อกคอร์ด", "accomp"],
@@ -1333,6 +1340,84 @@ function buildKbIndex(tiga) {
   return byDomain;
 }
 
+/* plan 21 §V1 — the character budget for one question's knowledge block.
+   Measured, not guessed: the worst question sent 1,392,371 chars, the median
+   49,248, and an answer is four lines. 12,000 leaves room for the whole block
+   plus the rest of the prompt while cutting the worst case by ~99%. It is
+   exported so the smoke can pin it and so a future change to this number is a
+   deliberate, reviewed edit rather than a silent regression. */
+export const KB_PROMPT_CHAR_CAP = 12000;
+
+/* Order KB lines for one question. `domains` is the top-4 slice that produced
+   them; lines are grouped by the "[LABEL]" each line starts with, so the
+   round-robin can find its group without being handed the entries again.
+
+   Within a domain: lines whose text matches a keyword the question fired come
+   first (ties keep their original order). Across domains: round-robin, which
+   is what stops one domain from consuming the whole character budget. A
+   question that fired no keyword keeps the input order untouched — there is
+   nothing to rank by, and inventing an ordering would only add noise. */
+export function rankKbLines(lines, matchText, domains) {
+  const arr = Array.isArray(lines) ? lines : [];
+  const text = String(matchText || "").toLowerCase();
+  let kw = [];
+  for (const kws of Object.values(KB_DOMAIN_KEYWORDS)) for (const k of kws) if (kbKeywordHit(text, k)) kw.push(String(k).toLowerCase());
+  if (!kw.length) return arr.slice();
+  const scoreOf = (ln) => {
+    const low = String(ln).toLowerCase();
+    let n = 0;
+    for (const k of kw) if (low.includes(k)) n++;
+    return n;
+  };
+  // group by domain label, in the order the domains were selected
+  const labels = (Array.isArray(domains) ? domains : []).map(d => KB_DOMAIN_LABEL[d] || d).filter(Boolean);
+  const groups = labels.map(lb => ({ lb, rows: [] }));
+  for (let i = 0; i < arr.length; i++) {
+    const ln = arr[i];
+    const m = /^•\s*\[([^\]]*)\]/.exec(String(ln));
+    const g = m ? groups.find(x => x.lb === m[1]) : null;
+    if (g) g.rows.push({ ln, i, n: scoreOf(ln) });
+    else (groups[0] || (groups[0] = { lb: "", rows: [] })).rows.push({ ln, i, n: scoreOf(ln) });
+  }
+  for (const g of groups) g.rows.sort((a, b) => (b.n - a.n) || (a.i - b.i));
+  const out = [];
+  let added = true;
+  while (added) {
+    added = false;
+    for (const g of groups) {
+      const r = g.rows.shift();
+      if (r) { out.push(r.ln); added = true; }
+    }
+  }
+  return out;
+}
+
+/* plan 21 §V1 — the pre-V1 expansion, kept as a real exported function so the
+   eval can compare the shipped capped block against what the chat used to send
+   instead of re-deriving it. Same domain selection, same lines, NO cap and NO
+   ranking: that whole-domain block is precisely what cost 1.38M chars, and it
+   is the only honest baseline for "did capping lose anything". */
+export function uncappedKbLines(matchText) {
+  try {
+    if (!_tiga) initTigamodelWeb();
+    const tiga = _tiga;
+    if (!tiga || !tiga.kb) return [];
+    if (!_kbIndex) _kbIndex = buildKbIndex(tiga);
+    if (!_kbIndex.size) return [];
+    const text = String(matchText || "").toLowerCase();
+    let domains = [];
+    if (text) for (const [d, kws] of Object.entries(KB_DOMAIN_KEYWORDS)) if (kws.some(k => kbKeywordHit(text, k))) domains.push(d);
+    if (!domains.length) domains = ["motivation", "practice-planning"];
+    const top = domains.slice(0, 4);
+    const out = [];
+    for (const d of top) {
+      const label = KB_DOMAIN_LABEL[d];
+      for (const e of (_kbIndex.get(d) || [])) out.push(`• [${label}] ${e.title} — วิธีสอน: ${e.teach}`);
+    }
+    return out;
+  } catch (e) { return []; }
+}
+
 export function getKBContext(matchText) {
   try {
     // sync init — ensureTigamodelWeb() is async and would return a Promise here
@@ -1360,8 +1445,18 @@ export function getKBContext(matchText) {
     let servedIds = null;
     const hp = _kbHotPath;
     if (hp && hp.isEnabled()) {
-      const kw = [];
-      for (const d of top) for (const k of (KB_DOMAIN_KEYWORDS[d] || [])) kw.push(String(k).toLowerCase());
+      /* Only the keywords THIS question actually fired, not every keyword the
+         selected domains happen to own. The old list handed select() all 8 of
+         PERFORMANCE's words for a message that only said เวที/ใจสั่น, so an
+         entry matched on "กี่นาที" or "วันละ" — words the learner never wrote —
+         and was served as if it were relevant. That is what left
+         performance-th at 42% on-topic while the uncapped block scored 63%.
+         Falls back to the full domain list when nothing fired, which is the
+         no-keyword case where a broad block is the right answer. */
+      const fired = kbFiredKeywords(text);
+      const kw = fired.length
+        ? fired.slice()
+        : top.flatMap(d => (KB_DOMAIN_KEYWORDS[d] || []).map(k => String(k).toLowerCase()));
       const sel = hp.select({ domains: top, index: _kbIndex, keywords: kw, labelOf: d => KB_DOMAIN_LABEL[d] || d });
       if (sel) { lines = sel.lines; servedIds = sel.picked.map(e => e.id); }
     }
@@ -1373,6 +1468,35 @@ export function getKBContext(matchText) {
           lines.push(`• [${label}] ${e.title} — วิธีสอน: ${e.teach}`);
         }
       }
+      /* plan 21 §V1 — the legacy branch above served a WHOLE domain. One
+         question ("minor chord ต่างจาก major") pulled 1,383,891 chars, and
+         the smallest question pulled 1,427 — a ~990x spread decided by which
+         domain a keyword happened to land in, not by what the learner asked.
+
+         The cap is a CHARACTER budget, not a line count, because the thing
+         that hurt was bytes, not rows.
+
+         Order matters as much as the cap, and the first attempt at this got it
+         WRONG: ranking the whole block by keyword score dropped on-topic
+         accuracy on two probes (performance-th 63%→29%, harmony-en
+         100%→17%) and eval-kb-capped-vs-legacy.mjs failed, correctly. A
+         single keyword can pull four domains into the top-4 slice, and sorting
+         by score then spends the entire budget on whichever one matched most,
+         starving the rest. So this takes the hot path's own shape instead,
+         which is the shape already measured at 100% retrieval: within each
+         domain, best-matching lines first; across domains, ROUND-ROBIN, so no
+         domain can eat the budget and every domain the question touched
+         contributes. Order is deterministic — no clocks, no randomness — so
+         the same question always produces the same block. */
+      const ranked = rankKbLines(lines, text, top);
+      let chars = 0;
+      const capped = [];
+      for (const ln of ranked) {
+        const add = ln.length + 1;
+        if (capped.length && chars + add > KB_PROMPT_CHAR_CAP) break;
+        capped.push(ln); chars += add;
+      }
+      lines = capped.length ? capped : ranked.slice(0, 1);
     }
     if (!lines.length) {
       // switch-gated learned knowledge still injects even without a topical

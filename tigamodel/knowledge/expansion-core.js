@@ -14,6 +14,8 @@
    id/type/domain/title/body/teach/confidence and are plain data — the
    seeder just kb.add()s them. ── */
 
+import { spellFrom, spellFromDown, spellInterval, splitNote, pcOf, stackDegrees, stepDegrees } from "./spelling.js";
+
 export const SHARP_ORDER = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 export const FLAT_EQUIV = { "C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb" };
 export const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
@@ -75,14 +77,21 @@ export function midiOf(pcName, octave) { return SHARP_ORDER.indexOf(pcName) < 0 
 
 function pcName(idx) { const i = ((idx % 12) + 12) % 12; return SHARP_ORDER[i]; }
 
-function noteName(pcIdx, octave) { return pcName(pcIdx) + octave; }
-
-function notesFrom(rootPc, steps, startOct = 4) {
-  /* spell ascending from C(startOct) of root; keep octave math honest */
-  const rootIdx = SHARP_ORDER.indexOf(rootPc);
-  return steps.map((s, i) => {
-    const abs = rootIdx + s;
-    return noteName(abs, startOct + Math.floor(abs / 12));
+/* Name the notes of a chord/scale on `rootPc` from its semitone offsets.
+   The CHROMA walk this replaced got the pitch right and the LETTER wrong the
+   moment the root carried an accidental — it taught "C♯ major" as C♯ F G♯,
+   where F natural is not E♯. Notes are named letter-first (see
+   knowledge/spelling.js and Open Music Theory, "Triads"), so the letter is
+   derived here and only the octave comes from the old walk. */
+function notesFrom(rootPc, steps, startOct = 4, degrees) {
+  const names = spellFrom(rootPc, steps, degrees);
+  let oct = startOct;
+  let prevLetter = -1;
+  return names.map((n) => {
+    const li = LETTERS.indexOf(splitNote(n).letter);
+    if (prevLetter >= 0 && li <= prevLetter) oct++;
+    prevLetter = li;
+    return n + oct;
   });
 }
 
@@ -93,7 +102,10 @@ export function genScales() {
   const out = [];
   for (const [key, sc] of Object.entries(SCALES)) {
     for (const root of SHARP_ORDER) {
-      const notes = notesFrom(root, sc.steps, 4).map((n, i) => i === 0 ? n : n);
+      /* degrees are 1..n: a scale IS the plain stacked form, and passing them
+         explicitly is what keeps a minor 3rd from being spelled as a
+         flattened 2nd (Dorian's E♭ must not come out as D♭). */
+      const notes = notesFrom(root, sc.steps, 4, sc.steps.map((_, i) => i + 1));
       const label = `${root} ${sc.th}`;
       out.push({
         id: `exp:scale:${root}-${key}`,
@@ -115,7 +127,13 @@ export function genChords() {
   const out = [];
   for (const [ct, ch] of Object.entries(CHORD_TYPES)) {
     for (const root of SHARP_ORDER) {
-      const notes = notesFrom(root, ch.steps, 4);
+      /* A chord stacks in thirds, so its degrees come straight off its own
+         labels: maj [1,3,5], min [1,3,5] with a flat third, sus2 [1,2,5].
+         Deriving them from `deg` keeps the label and the spelling from ever
+         drifting apart. */
+      const degNums = ch.deg.map((d) => parseInt(String(d).replace(/[^\d]/g, ""), 10));
+      if (degNums[0] !== 1) degNums.unshift(1);          // only maj writes the root out
+      const notes = notesFrom(root, ch.steps, 4, degNums);
       out.push({
         id: `exp:chord:${root}-${ct}`,
         type: "fact", domain: "harmony",
@@ -137,13 +155,18 @@ export function genDiatonic() {
   const majSteps = SCALES.major.steps;
   const chordByDeg = ["maj", "min", "min", "maj", "maj", "min", "dim"];
   for (const root of SHARP_ORDER) {
-    const rootIdx = SHARP_ORDER.indexOf(root);
-    const scaleNotes = majSteps.slice(0, 7).map((s, i) => notesFrom(root, [s], 4)[0]);
+    const scaleNotes = majSteps.slice(0, 7).map((s, i) => notesFrom(root, [s], 4, [i + 1])[0]);
     for (let d = 0; d < 7; d++) {
       const chType = chordByDeg[d];
-      const chRoot = SHARP_ORDER[(rootIdx + majSteps[d]) % 12];
+      /* A diatonic chord is built ON a scale degree, and that degree's LETTER
+         is what fixes the chord's root letter. Walking the pitch-class table
+         instead (SHARP_ORDER[(rootIdx + majSteps[d]) % 12]) taught the triad on
+         degree 3 of C♯ major as "F" — but C♯ major's mediant is E♯, so the
+         chord was named E♯ minor and spelled F–A–C. Reference: Open Music
+         Theory, "Triads" — a chord's tones are spelled from its own root. */
+      const chRoot = spellInterval(root, d + 1, majSteps[d], "up");
       const ch = CHORD_TYPES[chType];
-      const notes = notesFrom(chRoot, ch.steps, 4);
+      const notes = notesFrom(chRoot, ch.steps, 4, stackDegrees(ch.steps.length));
       out.push({
         id: `exp:diatonic:${root}-${d}`,
         type: "fact", domain: "harmony",
@@ -174,12 +197,14 @@ export function genProgressions() {
   const majSteps = SCALES.major.steps;
   for (const root of SHARP_ORDER) {
     for (const p of PROGS) {
-      const rootIdx = SHARP_ORDER.indexOf(root);
       const chords = p.romans.map(r => {
         const d = ROMAN_TO_DEG[r];
-        const chRoot = SHARP_ORDER[(rootIdx + majSteps[d]) % 12];
+        /* the chord root carries the LETTER of the scale degree it sits on,
+           so ii in a flat key is spelled on the 2nd letter, not on whichever
+           pitch class happens to be a 2nd away */
+        const chRoot = spellInterval(root, d + 1, majSteps[d], "up");
         const ct = chordByDeg[d];
-        const notes = notesFrom(chRoot, CHORD_TYPES[ct].steps, 4);
+        const notes = notesFrom(chRoot, CHORD_TYPES[ct].steps, 4, stackDegrees(CHORD_TYPES[ct].steps.length));
         return `${chRoot}${ct === "maj" ? "" : ct} (${notes.join("-")})`;
       });
       out.push({
@@ -244,24 +269,29 @@ export function genFrequencies() {
 /* G. Intervals ครบ 13 ชนิด × 12 ราก — ระยะห่าง + เสียงที่รู้สึก */
 export function genIntervals() {
   const out = [];
+  /* Each interval declares the DEGREE its name claims, and that degree is what
+     fixes the letter of the target note. The chroma walk this replaced derived
+     the target from the pitch alone, so it taught "C♯ + major 3rd = F" — F
+     natural, when the major 3rd above C♯ is E♯ (Wikipedia / Open Music
+     Theory, "Intervals (music)"). The degrees below are the standard
+     numbering; an octave names degree 8, not degree 1. */
   const INTS = [
-    { s: 1, th: "เซมิโทน (ครึ่งเสียง)", feel: "ตึงเครียด กดดัน" },
-    { s: 2, th: "ทั้งเสียง (โทน)", feel: "เดินได้สบาย เป็นกลาง" },
-    { s: 3, th: "คู่เสียงไมเนอร์ 3rd", feel: "เศร้า" },
-    { s: 4, th: "คู่เสียงเมเจอร์ 3rd", feel: "สดใส" },
-    { s: 5, th: "คู่ 4 เสียง", feel: "ลอย ศักดิ์สิทธิ์" },
-    { s: 6, th: "คู่เสียง Tritone", feel: "ไม่นิ่ง เรียกความอยากแก้" },
-    { s: 7, th: "คู่ 5 เสียง", feel: "มั่นคง สมบูรณ์" },
-    { s: 8, th: "คู่เสียงไมเนอร์ 6th", feel: "เศร้ากว่าที่คิด ลึก" },
-    { s: 9, th: "คู่เสียงเมเจอร์ 6th", feel: "อบอุ่น หวาน" },
-    { s: 10, th: "คู่เสียงไมเนอร์ 7th", feel: "แจ๊ส เหงา เย็น" },
-    { s: 11, th: "คู่เสียงเมเจอร์ 7th", feel: "ฝันหวาน ลอย" },
-    { s: 12, th: "คู่ 8 เสียง (ออกเทฟ)", feel: "เดียวกันแต่สูงขึ้น" },
+    { s: 1, deg: 2, th: "เซมิโทน (ครึ่งเสียง)", feel: "ตึงเครียด กดดัน" },
+    { s: 2, deg: 2, th: "ทั้งเสียง (โทน)", feel: "เดินได้สบาย เป็นกลาง" },
+    { s: 3, deg: 3, th: "คู่เสียงไมเนอร์ 3rd", feel: "เศร้า" },
+    { s: 4, deg: 3, th: "คู่เสียงเมเจอร์ 3rd", feel: "สดใส" },
+    { s: 5, deg: 4, th: "คู่ 4 เสียง", feel: "ลอย ศักดิ์สิทธิ์" },
+    { s: 6, deg: 4, th: "คู่เสียง Tritone", feel: "ไม่นิ่ง เรียกความอยากแก้" },
+    { s: 7, deg: 5, th: "คู่ 5 เสียง", feel: "มั่นคง สมบูรณ์" },
+    { s: 8, deg: 6, th: "คู่เสียงไมเนอร์ 6th", feel: "เศร้ากว่าที่คิด ลึก" },
+    { s: 9, deg: 6, th: "คู่เสียงเมเจอร์ 6th", feel: "อบอุ่น หวาน" },
+    { s: 10, deg: 7, th: "คู่เสียงไมเนอร์ 7th", feel: "แจ๊ส เหงา เย็น" },
+    { s: 11, deg: 7, th: "คู่เสียงเมเจอร์ 7th", feel: "ฝันหวาน ลอย" },
+    { s: 12, deg: 8, th: "คู่ 8 เสียง (ออกเทฟ)", feel: "เดียวกันแต่สูงขึ้น" },
   ];
   for (const root of SHARP_ORDER) {
-    const ri = SHARP_ORDER.indexOf(root);
     for (const it of INTS) {
-      const target = SHARP_ORDER[(ri + it.s) % 12];
+      const target = spellInterval(root, it.deg, it.s, "up");
       out.push({
         id: `exp:interval:${root}-${it.s}`,
         type: "fact", domain: "ear-training",

@@ -3,13 +3,14 @@ import {
   LESSON_MODE, extractNotes, playPianoNote, FINGERING_REF, THEORY_REF,
 } from "./music-engine";
 import { tr, L, matchFaqTopic } from "./i18n";
-import { logUsage } from "./shared-infra";
+import { logUsage, readActLog } from "./shared-infra";
+import { learnerSignal } from "./learner-signal";
 import { stopCloudTTS } from "./speech";
-import { memoryContext, homeworkContext } from "./ai-chat-context";
+import { memoryContext, homeworkContext, learnerSignalContext, readMemory } from "./ai-chat-context";
 import { tigaNow } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5)
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { jevTask, jevNoul } from "./jev";
-import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRecommendationHint } from "./App";
+import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRecommendationHint, actTopicLabel } from "./App";
 /* ── use-chat.ts ──
    Owns the main AI-sensei chat panel: the message list + typed-input box
    + streaming Claude call (send/callClaude), the [play:]-tag reply
@@ -381,7 +382,26 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
          question about songs, and the curriculum block is the chat's own variant
          (it must not tell the tutor to print Voice Tutor's [plan: …] tag). */
       const songTalk = SONG_TALK.test(userText) || !!(precheck && precheck.song != null && precheck.song >= 0.75);
-      const system = lc.sys + FINGERING_REF + THEORY_REF + kbContext + studentBlock + coachBlock + memoryContext(lang) + homeworkContext(lang)
+      /* plan 21 §V2 — the two reference blocks were sent on EVERY question
+         whether or not it touched them: 4,070 + 1,142 = 5,212 chars, 61.5% of
+         the fixed prompt, re-read by the model on every message. They are
+         sent when the question is actually about that subject, and a question
+         that is about neither still gets both (see refForQuestion) — dropping
+         a reference must never cost the tutor the knowledge it needed. */
+      const refs = refForQuestion(userText);
+      /* plan 21 §V4b — the aim. The tutor had the memory LIST but not the
+         decision the Mentor card already computes from the same act log. Pure
+         local computation, no model call; "" when the app cannot say, because a
+         tutor that invents a weakness is worse than a silent one. */
+      let signalBlock = "";
+      try {
+        signalBlock = learnerSignalContext(lang, learnerSignal({
+          log: readActLog(),
+          struggles: (readMemory() || {}).struggles || [],
+          labelOf: e => actTopicLabel(e, lang),
+        }));
+      } catch (e) { signalBlock = ""; }
+      const system = lc.sys + refs + kbContext + studentBlock + coachBlock + signalBlock + memoryContext(lang) + homeworkContext(lang)
         + curriculumContext(lang, { chat: true }) + (songTalk ? songRecommendationHint(lang, { titles: true }) : "") + jevHint;
       let acc = "";
       let haveBubble = false; // did any streaming attempt reach the response?
@@ -657,4 +677,33 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     }
   }
   return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats };
+}
+
+/* ── plan 21 §V2 · choose the reference blocks the question actually needs ────
+   FINGERING_REF (1,142) and THEORY_REF (4,070) were concatenated onto EVERY
+   system prompt. That is 5,212 chars — 61.5% of the fixed prompt — re-read by
+   the model on every message, including "อยากรู้ว่าทำไมมือซ้ายถึงซ้อนเสียง",
+   where half of it is about finger numbers the learner never mentioned.
+
+   The rule here is deliberately asymmetric, because the two mistakes are not
+   equal: sending a reference that turned out to be unnecessary costs tokens,
+   while withholding one the question needed makes the tutor confidently wrong
+   about a chord's spelling. So a question is only spared a block when its
+   subject is unambiguous, and anything we cannot place gets BOTH — the same
+   behaviour as before. A learned "how are you" is worth the tokens; a tutor
+   inventing a note name is not.
+
+   Subjects are matched on the words a learner actually types in any of the
+   three languages, not on the internal domain ids the KB uses. */
+const FINGER_WORDS = /นิ้ว|มือ(ขวา|ซ้าย)?\s*(วาง|วางนิ้ว|ซ้อน|ท่า)|fingering|finger|hand\s*(position|shape)|thumb|指法|手指|手型|指/i;
+const THEORY_WORDS = /ทฤษฎี|เทียบเสียง|คีย์|คอร์ด|แคดงซ์|บันทึกเสียง|เลขครึ่ง|อินเทอร์วัล|chord|interval|key\s*signature|major|minor|diminished|augmented|scal(e|ing)|theory|tonic|cadence|和弦|音阶|调号|乐理|音程/i;
+
+export function refForQuestion(text) {
+  const t = String(text || "");
+  if (!t.trim()) return FINGERING_REF + THEORY_REF;
+  const fingering = FINGER_WORDS.test(t);
+  const theory = THEORY_WORDS.test(t);
+  // neither clearly → both (unchanged behaviour); one clearly → that one only
+  if (!fingering && !theory) return FINGERING_REF + THEORY_REF;
+  return (fingering ? FINGERING_REF : "") + (theory ? THEORY_REF : "");
 }

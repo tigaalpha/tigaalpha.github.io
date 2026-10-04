@@ -113,8 +113,37 @@ function ok(cond, label) { if (cond) { pass++; console.log(`PASS  ${label}`); } 
   ok(calibrate([0.1, 0.1, 0.09, 0.11, 0.1, 0.1, 0.12, 0.08]) === 0.1 && calibrate([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]) === 0.12 && calibrate([0.1]) === 0, "input delay: median of 8 hits, clamped, none from too few");
   ok(JSON.stringify(nextStarGoal(86)) === JSON.stringify({ stars: 3, more: 4 }) && nextStarGoal(95) === null, "next-star goal");
   ok(bossHp(40) === 50 && bossHit("perfect", 3) === 2 && bossHit("good", 10) === 3, "boss hp and damage");
-  const { feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, chestChance, runPlayed } = JD;
-  ok(feverAt(12) === 10 && feverAt(42) === 13 && feverAt(48) === 15, "Fever at 30% of the notes, at least 10");
+  const { feverAt, megaAt, comboMult, replayExp, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, chestChance, runPlayed } = JD;
+  /* plan 25 · D4 — REPLACED, deliberately and to a stricter contract. The old
+     rule was "30 % of the notes, at least 10", whose floor put Fever and Mega
+     out of reach on short songs (a 12-note song could never enter Mega at all).
+     The new rule is the old one clamped to the song's own length, so the new
+     check is the stronger claim: EVERY song length reaches BOTH marks. */
+  ok(feverAt(4) === 4 && feverAt(12) === 4 && feverAt(20) === 6 && feverAt(30) === 9 && feverAt(42) === 13 && feverAt(48) === 15,
+     "D4 Fever: 30% of the notes, never past the song's own last note");
+  ok(megaAt(1) <= 1 && megaAt(5) <= 5 && megaAt(12) <= 12 && megaAt(20) <= 20 && megaAt(48) <= 48
+     && megaAt(12) === 8 && megaAt(48) === 29 && megaAt(20) < megaAt(30) && megaAt(30) < megaAt(48),
+     "D4 Mega Fever: EVERY song can reach it, and it still climbs with length");
+  ok(megaAt(12) > feverAt(12) && megaAt(20) > feverAt(20) && megaAt(48) > feverAt(48),
+     "D4 Mega always comes after Fever on the same song");
+  ok(feverAt(0) >= 1 && megaAt(0) >= 1, "D4 a song with no notes does not divide by zero");
+  /* plan 25 · D3 — the multiplier has to still be MOVING where a run actually
+     ends. The old curve topped out at ×2.38 for the longest song (48 notes)
+     because its ceiling sat at combo 300. */
+  ok(comboMult(0) === 1 && comboMult(10) === 2, "D3 combo multiplier: ×1 → ×2 over the first 10");
+  ok(comboMult(48) >= 3, "D3 combo multiplier: ×3 or more at the longest song's note count (was ×2.38)");
+  ok(comboMult(20) < comboMult(30) && comboMult(30) < comboMult(40) && comboMult(40) < comboMult(48),
+     "D3 combo multiplier: still climbing across the whole back half of a run");
+  ok(comboMult(100000) <= 6, "D3 combo multiplier: capped, never unbounded");
+  /* plan 25 · D1 — the reward for coming back. Must be non-decreasing (that is
+     the feature) and must not pay on the first run (a first play already pays
+     40 + acc·0.4 + combo). */
+  ok(replayExp(1) === 0, "D1 the first play of a song gets no replay bonus");
+  ok(replayExp(2) > 0 && replayExp(3) > replayExp(2) && replayExp(4) > replayExp(3) && replayExp(5) > replayExp(4)
+     && replayExp(6) > replayExp(5) && replayExp(7) > replayExp(6),
+     "D1 the replay bonus grows every run — this is the 4th-run fix");
+  ok(replayExp(99) === replayExp(7) && replayExp(99) > 0, "D1 the replay bonus caps instead of running away");
+  ok(replayExp(0) === 0 && replayExp(-5) === 0, "D1 no count means no bonus");
   ok(comboMarkExp(11, 42) === 15 && comboMarkExp(21, 42) === 25 && comboMarkExp(32, 42) === 35 && comboMarkExp(42, 42) === 50 && comboMarkExp(20, 42) === 0, "combo marks at 25/50/75/100% of the notes");
   ok(comboMarkExp(3, 12) === 15 && comboMarkExp(12, 12) === 50, "the shortest song reaches all four marks");
   ok(medalOf({ stars: 0 }) === 0 && medalOf({ stars: 1 }) === 1 && medalOf({ stars: 2 }) === 2 && medalOf({ stars: 3 }) === 3 && medalOf({ stars: 3, fullCombo: true }) === 4, "medals: bronze → crown");

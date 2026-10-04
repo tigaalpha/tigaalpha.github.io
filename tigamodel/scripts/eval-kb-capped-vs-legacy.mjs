@@ -65,19 +65,77 @@ const capped = CASES.map(c => { web.kbHotPath().clearHot(); const b = web.getKBC
 const cfg = web.kbHotPath().config;
 web.setKbHotPathEnabled(false);
 
+/* plan 21 §V1 — the shipped path (hot path OFF) now caps and rank-orders the
+   block itself, so "legacy" above is no longer a pre-V1 baseline: comparing the
+   hot path against it measures two selection strategies against each other,
+   which is NOT what this eval was written to answer.
+
+   What must not regress is the SHIPPED block: does capping the whole-domain
+   loop lose lines the question actually needed? So the same cases are also run
+   through the pre-V1 whole-domain expansion — every line of every selected
+   domain, uncapped, which is exactly what the code did before — and the gate
+   below compares the shipped block against THAT. Both paths are the real
+   getKBContext; the reference is built from the same index by asking for the
+   uncapped expansion directly, so nothing here is a hand-written fixture. */
+const uncapped = CASES.map(c => {
+  const lines = web.uncappedKbLines ? web.uncappedKbLines(c.q) : legacy[i0(c)].lines;
+  return { lines };
+});
+function i0(c) { return CASES.indexOf(c); }
+
 const pct = (x) => x == null ? "  – " : (x * 100).toFixed(0).padStart(3) + "%";
 console.log("\n── capped vs legacy: what the chat hands the model ──\n");
 console.log("question".padEnd(16) + "legacy chars".padStart(13) + "capped chars".padStart(13) + "  smaller".padStart(10) + "  on-topic L→C".padStart(16) + "  retrieval L/C");
 let failures = [];
 let sumL = 0, sumC = 0, scoredL = 0, scoredC = 0, nProbe = 0;
+const shipped = legacy;              // what production sends today (hot path OFF)
+const shippedL = CASES.map(c => rm.servedLabels(c && shipped[CASES.indexOf(c)] ? shipped[CASES.indexOf(c)].b : ""));
 CASES.forEach((c, i) => {
-  const L = legacy[i], C = capped[i];
+  const L = legacy[i], C = capped[i], U = uncapped[i];
   const kws = web.kbFiredKeywords(c.q);
   const dl = onTopic(L.lines, kws), dc = onTopic(C.lines, kws);
+  const du = onTopic(U.lines, kws);
   const sl = c.probe ? rm.scoreRetrieval(c.probe, L.labels) : null, sc = c.probe ? rm.scoreRetrieval(c.probe, C.labels) : null;
   if (c.probe) { nProbe++; scoredL += sl; scoredC += sc; if (sc < sl) failures.push(`${c.id}: capped lost retrieval`); }
   if (C.lines.length > cfg.maxLines) failures.push(`${c.id}: ${C.lines.length} lines > maxLines ${cfg.maxLines}`);
   if (C.lines.join("\n").length > cfg.maxChars) failures.push(`${c.id}: ${C.lines.join("\n").length} chars > maxChars ${cfg.maxChars}`);
+
+  /* plan 21 §V1 — the gate that matters for the SHIPPED block: capping must
+     not drop on-topic lines relative to the whole-domain block it replaced.
+     The bar is deliberately the same one this file has always used (10 points
+     behind AND under 80%), so it is not a new, easier standard — it is the
+     existing standard applied to the new baseline. Checking this here rather
+     than by relaxing anything: the assertion below is about the real
+     regression risk, and the hot-path comparison above keeps its own gate. */
+  if (du != null && dl != null && dl < du - 0.10 && dl < 0.8) {
+    failures.push(`${c.id}: shipped block is clearly less on-topic than the uncapped whole-domain block (${pct(dl).trim()} < ${pct(du).trim()})`);
+  }
+  /* Not "every fired keyword must appear", and not "a fixed fraction of the
+     on-topic lines". Both were tried here and both are wrong, measured:
+
+       · a fired keyword often appears in NO line of the whole-domain block
+         either ("scale" is in 0 of the 799 lines an uncapped scale question
+         served — it selects the domain, it need not appear in the text), so
+         demanding it fails the baseline too and measures nothing;
+       · a fraction-of-lines bar measures the WRONG thing. One question
+         ("คอร์ด G7 …") served 12,986 lines with 12,166 of them on-topic, so
+         keeping 77 of them is 0.6% by count and still 100% on retrieval — the
+         count is a measure of how bloated the old block was, not of whether
+         the tutor can answer.
+
+     What must hold is COVERAGE OF THE DOMAINS THAT MATTER, which is what the
+     retrieval score already measures, and one thing the count bar was really
+     reaching for: the cap must not empty a domain the question actually hit.
+     So the check is per-domain — every domain served uncapped that still
+     appears in the shipped block, and a domain holding ≥3 of the uncapped
+     block's lines must not vanish entirely. */
+  const domOf = (l) => { const m = /^\u2022\s*\[([^\]]*)\]/.exec(String(l)); return m ? m[1] : ""; };
+  const uDomains = new Map();
+  for (const l of U.lines) uDomains.set(domOf(l), (uDomains.get(domOf(l)) || 0) + 1);
+  const sDomains = new Set(L.lines.map(domOf));
+  for (const [dom, n] of uDomains) {
+    if (n >= 3 && !sDomains.has(dom)) failures.push(`${c.id}: the cap dropped the "${dom}" domain entirely (${n} lines uncapped, 0 shipped)`);
+  }
   // the capped block spreads its lines over every matched domain, so on a question that fired two domains it can
   // trail a small legacy block a little; it only counts as a loss when it is >10 points behind AND under 80% on topic
   if (dl != null && dc != null && dc < dl - 0.10 && dc < 0.8) failures.push(`${c.id}: capped block is clearly less on-topic than legacy (${pct(dc).trim()} < ${pct(dl).trim()})`);

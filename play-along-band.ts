@@ -33,8 +33,35 @@
    the band too. ── */
 import { audioBus, _accMarkSuppress, _accNoise, _sfxMuted, _micSafe } from "./music-engine";
 
-export const BAND_LEVELS = [0, 0.55, 1];   // off, soft, normal
+export const BAND_LEVELS = [0, 0.55, 1, 1.35];   // off, soft, normal, full
 const LOOKAHEAD = 0.35;                    // seconds booked ahead of the audio clock
+
+/* ── the arrangement per song (owner, 2026-10-03: "the backing track has to be
+   beautiful — add whatever sounds suit the piece") ──
+   Before this the band played one kit for all 1,067 songs: a Baroque fugue and
+   a jazz shuffle got the same rock drums. The song's genre/era was already in
+   the data — SONG_GENRES (songs-data.ts), one value per song — but createBand
+   never saw it. The caller passes it as `style` and this table turns it into a
+   kit, a lead voice and a pad.
+
+   A style this table does not know (a song the player wrote, an id missing from
+   SONG_GENRES) falls through to `rock`, which is byte-for-byte what the band
+   has always played — nothing changes for a song we cannot place. */
+export const BAND_STYLES = {
+  baroque:       { drums: "none",    lead: "harpsichord", pad: "continuo" },
+  classical:     { drums: "timpani", lead: "strings",     pad: "strings"   },
+  romantic:      { drums: "soft",    lead: "strings",     pad: "strings"   },
+  impressionism: { drums: "none",    lead: "celesta",     pad: "softpad"   },
+  kids:          { drums: "clap",    lead: "pluck",       pad: "musicbox"  },
+  folk:          { drums: "clap",    lead: "pluck",       pad: "pluck"     },
+  cn:            { drums: "soft",    lead: "pluck",       pad: "pluck"     },
+  carol:         { drums: "none",    lead: "organ",       pad: "organ"     },
+  gospel:        { drums: "soft",    lead: "organ",       pad: "strings"   },
+  jazz:          { drums: "ride",    lead: "pluck",       pad: "comping"   },
+  soul:          { drums: "soft",    lead: "epiano",      pad: "strings"   },
+  neosoul:       { drums: "soft",    lead: "epiano",      pad: "pad"       },
+};
+const styleOf = (s) => BAND_STYLES[s] || null;      // null = the default rock band
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 // a chord's notes as MIDI numbers, stacked upward from the root at `oct`:
 // root, third, fifth, root an octave up (C3 = 48)
@@ -46,9 +73,66 @@ function stack(c, oct) {
 
 /* opts: bars (songChordBars, split), beatsPerBar, pickup, spb (seconds per
    beat at 1×), lead (song time of the first note), endBeat (last beat to
-   play, from the first note), hand. */
+   play, from the first note), hand, bpm (the song's tempo — only the
+   density, never the pitch), style (a key of BAND_STYLES). */
 export function createBand(opts) {
   const { bars, beatsPerBar: bpb, pickup, spb, lead, endBeat, hand } = opts;
+  const kit = styleOf(opts.style);
+  /* M4 — the tempo decides how busy the band is, never what it plays. A slow
+     ballad at 52 bpm and a shuffle at 180 bpm were given the same sixteenth-note
+     hats. Derived from the song's own bpm, so the same song always books the
+     same thing. */
+  const bpm = opts.bpm || 0;
+  const slow = bpm > 0 && bpm < 70, fast = bpm >= 140;
+  /* ── M7 · the player's own notes, so the band can leave them room ──
+     The caller passes `mel` (the same melody the player is about to play, as
+     {beat, dur, midi}). Where a melody note is sounding, the voices that live
+     in the melody's octave drop away or move down: the accompaniment's job is
+     to sit under the player, not to play the tune over them. Without `mel` —
+     a drill, a caller that does not have it — melBusy() is false everywhere
+     and the band is exactly what it was. */
+  const melList = (opts.mel || []).slice().sort((a, b) => a.beat - b.beat);
+  let melAt = 0;
+  function melBusy(beat) {
+    while (melAt > 0 && melList[melAt - 1] && melList[melAt - 1].beat > beat) melAt--;
+    while (melAt < melList.length && melList[melAt].beat + melList[melAt].dur <= beat) melAt++;
+    const n = melList[melAt];
+    return !!(n && n.beat <= beat && beat < n.beat + n.dur);
+  }
+  const lastBar = Math.max(0, Math.floor((endBeat - pickup) / bpb + 1e-6));
+  /* ── M7 · the shape of the song. A band that plays every bar at the same
+     volume is the reason a backing track sounds like a metronome with notes.
+     A four-bar phrase: it sits back, rises, lifts on the fourth bar and
+     breathes after it; the first two bars of the song start behind the
+     player, and the last one leans in. Everything the band plays is scaled by
+     it, so the arc is in the drum hit and in the pad alike.
+     ── M10 · the phrase has to be the SONG's metre, not 4/4's. Measured on the
+     real band, 3/4 came out at 1.5 dB of movement across the whole piece —
+     indistinguishable from flat — because a three-beat bar cannot hold a
+     four-beat phrase without the peak and the trough landing on the same
+     strength. Each metre gets a curve shaped for it: a waltz leans on ONE and
+     lifts on TWO, a march pushes every downbeat. */
+  const LIFT = bpb === 3 ? [0.34, 1, 0.45]
+    : bpb === 2 ? [0.55, 1]
+    : bpb === 6 ? [0.45, 0.95, 0.5, 1, 0.6, 0.55]
+    : [0.7, 0.86, 0.78, 1];
+  function arcAt(bar, p, onBeat) {
+    const lift = LIFT[((bar % LIFT.length) + LIFT.length) % LIFT.length];
+    const intro = bar < 2 ? 0.72 : 1;
+    const coda = bar >= lastBar - 1 ? 1.12 : 1;
+    const beat = p === 0 ? 1.18 : (onBeat ? 0.92 : 0.76);
+    return lift * intro * coda * beat;
+  }
+  /* ── ขั้น 0 · the test hook. `solo` names which layers the band is allowed to
+     play, so scripts/measure-band-parts.mjs can render one voice at a time and
+     measure what each one contributes instead of guessing from the mix. A
+     caller that passes nothing plays everything, exactly as before. */
+  const SOLO = opts.solo ? new Set([].concat(opts.solo)) : null;
+  const on = (k) => !SOLO || SOLO.has(k);
+  /* M1 — the drums follow the song's metre. 375 of the 875 classical pieces are
+     3/4 and 123 are 2/4, and a waltz played with a rock backbeat is the loudest
+     wrong thing this band was doing. */
+  const waltz = bpb === 3, march = bpb === 2;
   let level = opts.level == null ? 2 : opts.level;
   let chain = null, nextHalf = null;        // the run's audio chain; next half-beat to book
   let wasFever = false, lastTempo = 0;
@@ -68,18 +152,79 @@ export function createBand(opts) {
     if (chain) return chain;
     const { ac, bus } = audioBus();
     const mix = ac.createGain();
+    /* M7 · the band's own bus. Measured on the real band, 12 bars, combo 12:
+       voices → air (a shelf that puts the hats, the celesta and the harpsichord
+       back on top of a mix that had 96 % of its energy under 250 Hz) → a soft
+       saturator → the compressor → the master.
+       The saturator is there because the band's own sum peaked at +2.2 dBFS
+       before any limiting — on a phone every downbeat was hard-clipping, and
+       hard clipping is the sound of "cheap". A tanh curve takes those peaks
+       down smoothly, so it reads as a bigger band, not a broken one. */
+    const air = ac.createBiquadFilter();
+    air.type = "highshelf"; air.frequency.value = 4200; air.gain.value = 4.5;
+    const sat = ac.createWaveShaper ? ac.createWaveShaper() : null;
+    if (sat) {
+      /* A ceiling that is transparent below 0.7 and leans on anything above it:
+         y = x / (1 + |x|³)^⅓. The gain at small signals is exactly 1 — a tanh
+         curve with a make-up gain would quietly add 6 dB to the whole band,
+         which is how the first version of this measured louder than the one it
+         replaced. */
+      const curve = new Float32Array(2049);
+      for (let i = 0; i < curve.length; i++) {
+        const x = (i / 1024) - 1;
+        curve[i] = Math.sign(x) * Math.abs(x) / Math.cbrt(1 + Math.pow(Math.abs(x), 3));
+      }
+      sat.curve = curve; sat.oversample = "2x";
+    }
     const comp = ac.createDynamicsCompressor();
-    comp.threshold.value = -22; comp.knee.value = 14; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.16;
+    comp.threshold.value = -20; comp.knee.value = 16; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.18;
+    /* M11 · the band's level is BOUNDED BY THE PLAYER'S OWN NOTE, not by taste.
+       The band is the only thing here measured against something outside
+       itself: playPianoNote plays the learner's note at a fixed level, so
+       turning the band up moves the melody-mask number by exactly the same
+       number of decibels. Lifting the master by 1 dB spends 1 dB of the margin
+       that keeps the learner able to hear themselves play. That margin is worth
+       more than loudness — a backing track the player cannot hear themselves
+       over is the exact failure Play Along exists to avoid — so the master sits
+       where the mask gate allows, not where the loudness wants it. */
     const master = ac.createGain();
-    master.gain.value = BAND_LEVELS[level] * 0.8;
-    mix.connect(comp); comp.connect(master); master.connect(bus);
+    master.gain.value = BAND_LEVELS[level] * 0.21;
+    if (sat) { mix.connect(air); air.connect(sat); sat.connect(comp); }
+    else mix.connect(comp);
+    comp.connect(master); master.connect(bus);
     const send = ac.createGain(); send.gain.value = 1;
     const delay = ac.createDelay(1.2); delay.delayTime.value = 0.75 * spb;
-    const fb = ac.createGain(); fb.gain.value = 0.32;
+    const fb = ac.createGain(); fb.gain.value = 0.3;
     const dark = ac.createBiquadFilter(); dark.type = "lowpass"; dark.frequency.value = 2600;
     send.connect(delay); delay.connect(dark); dark.connect(fb); fb.connect(delay); dark.connect(mix);
-    chain = { mix, master, send, delay };
+    chain = { mix, master, send, delay, pans: {}, ac };
     return chain;
+  }
+  /* ── M8 · where each voice SITS. The band used to arrive as one point in the
+     middle of the head: measured on the real code there was no panner anywhere
+     in it, so every kick, pad and pluck summed to a single mono channel. Width
+     is the cheapest thing there is to fix and it is most of what "the band is
+     in the room" is made of. Bass and kick stay centred — a panned bass reads as
+     a mistake — and the voices that can carry a place are pushed off it.
+
+     The positions are static per voice, chosen by what the instrument is, never
+     random: a real kit puts the toms to the side of the kick and the cymbals
+     across the top, and a section divides left and right. Equal-power law is
+     the browser's own, so the same positions land the same way on every device.
+
+     Falls back to the plain mix on any browser without StereoPannerNode, so
+     this can never be the thing that breaks the band. */
+  const PAN = { drums: 0.1, b: 0, n: 0.3, c: -0.4, l: 0.45, x: -0.15, m: 0.35, a: -0.45 };
+  function panTo(kind) {
+    const c = node(), p = PAN[kind] || 0;
+    if (!p) return c.mix;
+    let n = c.pans[kind];
+    if (n === undefined) {
+      n = c.ac && c.ac.createStereoPanner ? c.ac.createStereoPanner() : null;
+      if (n) { try { n.pan.value = p; n.connect(c.mix); } catch (e) { n = null; } }
+      c.pans[kind] = n;
+    }
+    return n || c.mix;
   }
   function suppress(f, when, dur, partials = 1) {
     if (!f || !state.micOpen) return;
@@ -95,17 +240,17 @@ export function createBand(opts) {
     o.frequency.setValueAtTime(170, when);
     o.frequency.exponentialRampToValueAtTime(52, when + 0.11);   // starts high enough for a phone speaker to carry it
     g.gain.setValueAtTime(0.0001, when);
-    g.gain.exponentialRampToValueAtTime(0.5 * v, when + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.38 * v, when + 0.004);
     g.gain.exponentialRampToValueAtTime(0.0001, when + 0.22);
-    o.connect(g); g.connect(node().mix); o.start(when); o.stop(when + 0.24);
+    o.connect(g); g.connect(panTo("drums")); o.start(when); o.stop(when + 0.24);
     const k = ac.createOscillator(), kg = ac.createGain();            // the knock: what a phone speaker actually plays of a kick
     k.type = "triangle";
     k.frequency.setValueAtTime(340, when); k.frequency.exponentialRampToValueAtTime(130, when + 0.045);
     kg.gain.setValueAtTime(0.0001, when);
-    kg.gain.exponentialRampToValueAtTime(0.2 * v, when + 0.003);
+    kg.gain.exponentialRampToValueAtTime(0.14 * v, when + 0.003);
     kg.gain.exponentialRampToValueAtTime(0.0001, when + 0.07);
-    k.connect(kg); kg.connect(node().mix); k.start(when); k.stop(when + 0.08);
-    noiseHit(when, 0.1 * v, "bandpass", 3200, 1.2, 0.012);          // the beater's click
+    k.connect(kg); kg.connect(panTo("drums")); k.start(when); k.stop(when + 0.08);
+    noiseHit(when, 0.09 * v, "bandpass", 3200, 1.2, 0.012, false, panTo("drums"));          // the beater's click
   }
   function noiseHit(when, v, type, freq, q, dur, loop = false, dest = null) {
     const { ac } = audioBus(), n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
@@ -114,24 +259,35 @@ export function createBand(opts) {
     g.gain.setValueAtTime(0.0001, when);
     g.gain.exponentialRampToValueAtTime(v, when + 0.002);
     g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-    n.connect(f); f.connect(g); g.connect(dest || node().mix); n.start(when); n.stop(when + dur + 0.02);
+    n.connect(f); f.connect(g); g.connect(dest || panTo("drums")); n.start(when); n.stop(when + dur + 0.02);
   }
   function snare(when, v) {
-    noiseHit(when, 0.26 * v, "bandpass", 1900, 0.8, 0.15);
-    noiseHit(when, 0.1 * v, "highpass", 5200, 0.7, 0.07);
+    noiseHit(when, 0.24 * v, "bandpass", 1900, 0.8, 0.15);
+    noiseHit(when, 0.11 * v, "highpass", 5200, 0.7, 0.07);
     const { ac } = audioBus(), o = ac.createOscillator(), g = ac.createGain();   // the body
     o.type = "triangle";
     o.frequency.setValueAtTime(330, when); o.frequency.exponentialRampToValueAtTime(230, when + 0.06);
     g.gain.setValueAtTime(0.0001, when);
-    g.gain.exponentialRampToValueAtTime(0.14 * v, when + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.12 * v, when + 0.003);
     g.gain.exponentialRampToValueAtTime(0.0001, when + 0.09);
-    o.connect(g); g.connect(node().mix); o.start(when); o.stop(when + 0.1);
+    o.connect(g); g.connect(panTo("drums")); o.start(when); o.stop(when + 0.1);
   }
   function clap(when, v) {                     // three quick bursts, a hand-clap
     for (let k = 0; k < 3; k++) noiseHit(when + k * 0.011, 0.11 * v, "bandpass", 1500, 1.4, 0.05);
   }
-  const hat = (when, v, open) => open ? noiseHit(when, 0.07 * v, "highpass", 6500, 0.7, 0.16) : noiseHit(when, 0.08 * v, "highpass", 7000, 0.7, 0.04);
-  function crash(when, v) { noiseHit(when, 0.13 * v, "highpass", 4800, 0.6, 1.3, true); }
+  /* M9 · the cymbals are the one place brightness is FREE: they sit at 5–8 kHz,
+     two octaves above anything the pitch detector or the player's note lives
+     in, so they can be turned up as far as they like without ever masking the
+     tune. They were also doing almost nothing — the whole mix measured 0.0 % of
+     its energy above 2.5 kHz, which is what "the hat is there but you cannot
+     hear it" looks like on a meter. */
+  const hat = (when, v, open) => open ? noiseHit(when, 0.15 * v, "highpass", 6500, 0.7, 0.16) : noiseHit(when, 0.16 * v, "highpass", 7000, 0.7, 0.045);
+  // the jazz ride: a ringing ping, not the flat tick of a hat
+  const ride = (when, v) => {
+    noiseHit(when, 0.15 * v, "bandpass", 6200, 0.9, 0.26);
+    noiseHit(when, 0.07 * v, "highpass", 8200, 0.7, 0.11);
+  };
+  function crash(when, v) { noiseHit(when, 0.2 * v, "highpass", 4800, 0.6, 1.3, true); }
   function tom(when, f, v) {
     const { ac } = audioBus(), o = ac.createOscillator(), g = ac.createGain();
     o.type = "sine";
@@ -139,13 +295,13 @@ export function createBand(opts) {
     g.gain.setValueAtTime(0.0001, when);
     g.gain.exponentialRampToValueAtTime(0.26 * v, when + 0.004);
     g.gain.exponentialRampToValueAtTime(0.0001, when + 0.3);
-    o.connect(g); g.connect(node().mix); o.start(when); o.stop(when + 0.32);
+    o.connect(g); g.connect(panTo("drums")); o.start(when); o.stop(when + 0.32);
     const h = ac.createOscillator(), hg = ac.createGain();            // its second partial, which a phone can play
     h.type = "triangle"; h.frequency.setValueAtTime(f * 2.7, when); h.frequency.exponentialRampToValueAtTime(f * 2, when + 0.08);
     hg.gain.setValueAtTime(0.0001, when);
     hg.gain.exponentialRampToValueAtTime(0.13 * v, when + 0.004);
     hg.gain.exponentialRampToValueAtTime(0.0001, when + 0.2);
-    h.connect(hg); hg.connect(node().mix); h.start(when); h.stop(when + 0.22);
+    h.connect(hg); hg.connect(panTo("drums")); h.start(when); h.stop(when + 0.22);
   }
 
   // ── the pitched voices ──
@@ -166,7 +322,7 @@ export function createBand(opts) {
     g.gain.exponentialRampToValueAtTime(1, when + a);
     g.gain.setValueAtTime(1, Math.max(when + a, end - r));
     g.gain.exponentialRampToValueAtTime(0.0001, end);
-    f.connect(g); g.connect(c.mix);
+    f.connect(g); g.connect(o.pan ? panTo(o.pan) : c.mix);
     if (o.echo) { const s = ac.createGain(); s.gain.value = o.echo; g.connect(s); s.connect(c.send); }
     const det = o.detune == null ? 7 : o.detune;
     for (const m of midis) {
@@ -177,34 +333,106 @@ export function createBand(opts) {
         vg.gain.value = o.v;
         osc.connect(vg); vg.connect(f); osc.start(when); osc.stop(end + 0.05);
       }
+      /* M9 · the upper partials, as their own layer. Every voice here is one
+         oscillator per note through one lowpass, and a sawtooth's harmonics
+         fall as 1/n — by the eighth harmonic the amplitude is already a tenth
+         of the fundamental's. That is why the whole band measured 0.1 % of its
+         energy between 800 and 2500 Hz and 0.0 % above 2500 Hz, and why the
+         +4.5 dB shelf at 4.2 kHz had nothing to lift: a real section's upper
+         strings are not the low one's harmonics, they are separate players.
+         Four and six times the root is where a chord stops sounding like a note
+         and starts sounding like a chord, and on a C4 that lands at 1.0 and
+         1.6 kHz — ABOVE the octave the player's tune lives in, which is why
+         this adds brightness without adding masking. */
+      if (o.shimmer) {
+        for (const [mul, amp] of o.shimmer) {
+          if (fr * mul > 12000) continue;
+          const s1 = ac.createOscillator(), s1g = ac.createGain();
+          s1.type = o.shimmerType || "sawtooth"; s1.frequency.value = fr * mul;
+          s1g.gain.value = o.v * amp;
+          s1.connect(s1g); s1g.connect(f); s1.start(when); s1.stop(end + 0.05);
+          if (det) {
+            const s2 = ac.createOscillator(), s2g = ac.createGain();
+            s2.type = o.shimmerType || "sawtooth"; s2.frequency.value = fr * mul; s2.detune.value = -det;
+            s2g.gain.value = o.v * amp;
+            s2.connect(s2g); s2g.connect(f); s2.start(when); s2.stop(end + 0.05);
+          }
+        }
+      }
       suppress(fr, when, dur, o.partials || 3);
     }
   }
-  // one bass note: a saw through a closing filter for the attack, a sine under it
-  function bass(when, m, dur, v) {
+  // one bass note: a saw through a closing filter for the attack, a sine under it.
+  // sing: the soul voice — no saw edge, more sine under it, a slower filter.
+  function bass(when, m, dur, v, sing = false) {
     const { ac } = audioBus(), fr = mtof(m);
     const g = ac.createGain(), f = ac.createBiquadFilter();
     f.type = "lowpass"; f.Q.value = 1.1;
-    f.frequency.setValueAtTime(950, when); f.frequency.exponentialRampToValueAtTime(280, when + Math.min(0.2, dur));
+    /* M9 · the bass closed at 280 Hz, which threw away every harmonic above it
+       and left the mix with 81–92 % of its energy under 250 Hz. Opened a little
+       so the note keeps its growl (harmonics 3–7 of a C2 land in 800–2500 Hz),
+       and brought down in level — the bass is the loudest thing in the band and
+       it lives entirely below the player's octave, so trimming it buys brightness
+       AND melody headroom at the same time. */
+    f.frequency.setValueAtTime(sing ? 700 : 1100, when); f.frequency.exponentialRampToValueAtTime(sing ? 260 : 420, when + Math.min(0.2, dur));
     g.gain.setValueAtTime(0.0001, when);
     g.gain.exponentialRampToValueAtTime(v, when + 0.008);
     g.gain.setValueAtTime(v, when + dur * 0.7);
     g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
     const a = ac.createOscillator(), b = ac.createOscillator(), bg = ac.createGain();
-    a.type = "sawtooth"; a.frequency.value = fr; b.type = "sine"; b.frequency.value = fr; bg.gain.value = 0.9;
-    a.connect(f); b.connect(bg); bg.connect(f); f.connect(g); g.connect(node().mix);
+    a.type = sing ? "triangle" : "sawtooth"; a.frequency.value = fr; b.type = "sine"; b.frequency.value = fr; bg.gain.value = sing ? 1.2 : 0.75;
+    a.connect(f); b.connect(bg); bg.connect(f); f.connect(g); g.connect(panTo("b"));
     a.start(when); b.start(when); a.stop(when + dur + 0.03); b.stop(when + dur + 0.03);
     suppress(fr, when, dur, 3);
   }
+  /* M3 — the four voices the styles asked for, all built from the bus the band
+     already has. Every one of them calls suppress() like the rest, so with the
+     mic open none of their notes is heard as the player's next note. */
+  // harpsichord: a quill on a wire — plucked, bright, gone almost at once
+  function harpsichord(when, midis, dur, v) {
+    const { ac } = audioBus(), c = node();
+    const g = ac.createGain(), f = ac.createBiquadFilter();
+    f.type = "lowpass"; f.Q.value = 0.9;
+    f.frequency.setValueAtTime(5200, when);
+    f.frequency.exponentialRampToValueAtTime(2400, when + Math.min(0.35, dur));
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(v, when + 0.006);
+    g.gain.setValueAtTime(v * 0.78, when + dur * 0.5);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    f.connect(g); g.connect(panTo("l"));
+    const s = ac.createGain(); s.gain.value = 0.12; g.connect(s); s.connect(c.send);
+    for (const m of midis) {
+      const fr = mtof(m);
+      for (const d of [-6, 6]) {                       // two strings a hair apart: the quill's chorus
+        const o = ac.createOscillator(), og = ac.createGain();
+        o.type = "triangle"; o.frequency.value = fr; o.detune.value = d; og.gain.value = 0.55;
+        const o2 = ac.createOscillator(), o2g = ac.createGain();
+        o2.type = "square"; o2.frequency.value = fr * 2; o2g.gain.value = 0.1;
+        o.connect(og); o2.connect(o2g); og.connect(f); o2g.connect(f);
+        o.start(when); o.stop(when + dur + 0.02); o2.start(when); o2.stop(when + dur + 0.02);
+      }
+      suppress(fr, when, dur, 3);
+    }
+  }
+  // organ: drawbars that start together and hold — section() with the right filter
+  /* The organ is the one lead that sits exactly where the player's tune lives —
+     measured, it pulled the carol style up to −14.2 dB under the player's note,
+     inside the masking gate and past it. No shimmer here, and a little quieter:
+     drawbars are supposed to be the wall behind the tune, not the tune. */
+  const organ = (when, midis, dur, v) =>
+    section(when, midis, dur, { v: v * 0.42, type: "square", attack: 0.05, release: 0.22, cutoff: 2400, q: 0.5, detune: 4, partials: 5, pan: "l" });
+  // celesta: a struck metal bar — no edge at all, and it rings into the echo
+  const celesta = (when, midis, dur, v) =>
+    section(when, midis, dur, { v: v * 0.9, type: "sine", attack: 0.004, release: Math.min(0.5, dur * 0.7), cutoff: 7000, q: 0.4, detune: 0, echo: 0.35, partials: 3, pan: "l" });
   // a plucked note for the arpeggio: a triangle with a sine an octave up, short, sent to the echo
-  function pluck(when, m, dur, v) {
+  function pluck(when, m, dur, v, pan = "l") {
     const { ac } = audioBus(), c = node(), fr = mtof(m);
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, when);
     g.gain.exponentialRampToValueAtTime(v, when + 0.004);
     g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
     const s = ac.createGain(); s.gain.value = 0.42;
-    g.connect(c.mix); g.connect(s); s.connect(c.send);
+    g.connect(panTo(pan)); g.connect(s); s.connect(c.send);
     const a = ac.createOscillator(), b = ac.createOscillator(), bg = ac.createGain();
     a.type = "triangle"; a.frequency.value = fr; b.type = "sine"; b.frequency.value = fr * 2; bg.gain.value = 0.35;
     a.connect(g); b.connect(bg); bg.connect(g);
@@ -248,43 +476,76 @@ export function createBand(opts) {
     const full = state.pitched && !state.soft;
     const L1 = full && state.combo >= 3, L2 = full && state.combo >= 8;
     const fever = full && state.fever, mega = fever && state.mega;
-    // ── drums: kick on 1 (and 3 in 4/4), snare on the backbeats, hats between
-    let drum = "hat";
-    if (onBeat) {
-      if (p === 0 || (bpb === 4 && p === 2)) { kick(when, dv); drum = "kick"; }
-      else { snare(when, (bpb === 3 ? 0.6 : 1) * dv); drum = "snare"; if (fever) clap(when, 0.8); }
+    const c = chordAt(beat);
+    const kitdrums = kit ? kit.drums : "rock";
+    /* M7 · the shape of the song, applied to every voice — and whether the
+       player's own note is sounding here, which decides how high the band is
+       allowed to reach. */
+    const A = arcAt(bar, p, onBeat);
+    const melHere = melBusy(beat);
+    // ── M1 · M2 · M4 · the drums follow the song's metre and its style.
+    //    A waltz has no snare (ONE-two-three is carried by the bass and the
+    //    chords), a march is all snare, a kit we do not have keeps a soft tick
+    //    so the player never loses the beat, and a slow piece drops the
+    //    off-beat hats instead of hurrying them along.
+    let drum = "";
+    if (on("drums")) if (onBeat) {
+      if (kitdrums === "none") { hat(when, 0.34 * dv * A, false); drum = "tick"; }
+      else if (waltz) { if (p === 0) { kick(when, 0.85 * dv * A); drum = "kick"; } else { hat(when, 0.3 * dv * A, false); drum = "tick"; } }
+      else if (march) { snare(when, (p === 0 ? 1 : 0.62) * dv * A); drum = "snare"; }
+      else if (kitdrums === "clap") {
+        if (p === 0 || p === 2) { kick(when, dv * A); drum = "kick"; } else { clap(when, 0.9 * dv * A); drum = "clap"; }
+      }
+      else if (kitdrums === "ride") { ride(when, dv * A * (p === 0 ? 1.1 : 0.8)); drum = "ride"; }
+      else if (kitdrums === "timpani") { tom(when, 72, 0.7 * dv * A); drum = "timp"; }
+      else if (kitdrums === "soft") {
+        if (p === 0) { kick(when, 0.72 * dv * A); drum = "kick"; } else { hat(when, 0.6 * dv * A, false); drum = "hat"; }
+      }
+      else if (p === 0 || p === 2) { kick(when, dv * A); drum = "kick"; }
+      else { snare(when, dv * A); drum = "snare"; if (fever) clap(when, 0.8 * A); }
     }
-    hat(when, (onBeat ? 1 : L2 ? 0.75 : 0.7) * dv, !onBeat && L2);          // open hats on the off-beats from combo 8
-    if (mega) hat(when + beatSec * 0.25, 0.5, false);                          // sixteenths
+    if (on("drums")) {
+      if (kitdrums !== "none" && !waltz && !march) { hat(when, (onBeat ? 1 : L2 ? 0.75 : 0.7) * dv * A, !onBeat && L2); if (!onBeat) drum = "hat"; }   // open hats on the off-beats from combo 8
+      else if (kitdrums === "none" && !onBeat && fast && fever) { hat(when, 0.4 * dv * A, false); drum = "hat"; }
+      if (mega) { hat(when + beatSec * 0.25, 0.5 * A, false); if (!drum) drum = "hat"; }      // sixteenths
+    }
     const entry = { beat, when, drum, pos, parts: "", extras: "" };   // parts: the pitched layers; extras: crash and toms
     log.push(entry);
     if (log.length > 400) log.shift();
-    if (!full) return;
-    const c = chordAt(beat);
-    if (!c) return;
+    if (!full || !c) return;
     const chordStart = Math.abs(beat - c.at) < 1e-6;
     const last = c === bars[bars.length - 1];
     const finale = chordStart && last && L1 && bars.length > 1;
     // ── the opening: a crash on the first note of the song
-    if (beat < 1e-6) { crash(when, 0.55); entry.extras += "o"; }
+    if (beat < 1e-6 && kitdrums !== "none") { crash(when, 0.55); entry.extras += "o"; }
     // ── the end of every fourth bar: a fill of toms, and a crash on the bar after it
-    if (L2 && (bar + 1) % 4 === 0 && Math.abs(pos - (bpb - 0.5)) < 1e-6) {
+    if (L2 && kitdrums !== "none" && kitdrums !== "ride" && (bar + 1) % 4 === 0 && Math.abs(pos - (bpb - 0.5)) < 1e-6) {
       tom(when, 200, 0.8); tom(when + beatSec * 0.17, 150, 0.8); tom(when + beatSec * 0.34, 105, 0.9);
       entry.extras += "f";
     }
-    if (L2 && bar > 0 && bar % 4 === 0 && p === 0 && onBeat) { crash(when, 0.4); entry.extras += "k"; }
+    if (L2 && kitdrums !== "none" && bar > 0 && bar % 4 === 0 && p === 0 && onBeat) { crash(when, 0.4); entry.extras += "k"; }
     // ── bass: root, root, fifth, root on the beats (waltz: root, fifth, fifth), and an octave bump
     //    on the off-beats in Fever. Not when the player has the left hand.
-    if (L1 && hand === "right" && !finale) {
+    const sing = kit && (kit.lead === "epiano" || kit.pad === "strings" || kit.pad === "pad");
+    if (L1 && hand === "right" && !finale && on("b")) {
       const root = 12 * 3 + c.root;                                            // C2 = 36
       const fifth = root + ((c.pcs[2] - c.root + 12) % 12);
+      /* M7 · the last eighth before a chord change steps to the next root
+         instead of repeating itself. A bass that only says "root, fifth" is
+         what makes a loop sound like a loop — the approach note is the whole
+         difference, and it costs one note. */
+      const nx = bars.find((b) => b.at > c.at + 1e-6);
+      const nxRoot = nx ? 12 * 3 + nx.root : null;
       if (onBeat) {
         const long = p === 0 || (bpb === 4 && p === 2);
         const m = bpb === 4 ? (p === 2 ? fifth : root) : (p === 0 ? root : fifth);
-        bass(when, m, beatSec * (long ? 0.92 : 0.45), long ? 0.3 : 0.24);
+        bass(when, m, beatSec * (long ? 0.92 : 0.45) * (fast ? 0.8 : 1), (long ? 0.13 : 0.11) * (slow ? 0.85 : 1) * A, sing);
         entry.parts += "b";
       } else if (fever) {
-        bass(when, root + 12, beatSec * 0.32, 0.17);
+        bass(when, root + 12, beatSec * 0.32, 0.095 * A, sing);
+        entry.parts += "b";
+      } else if (nxRoot != null && Math.abs(pos - (bpb - 0.5)) < 1e-6) {
+        bass(when, root + (((nxRoot - root) % 12) + 12) % 12, beatSec * 0.4, 0.1 * A, sing);
         entry.parts += "b";
       }
     }
@@ -293,31 +554,81 @@ export function createBand(opts) {
       const dur = Math.min(c.len, Math.max(1, endBeat - c.at + 1)) * beatSec;
       const low = hand === "right";
       const notes = stack(c, low ? 3 : 4);
-      if (!finale && state.combo >= 1) {                                       // (before a first hit the band cannot know it is not a piano on the mic)
-        section(when, [notes[0], notes[2]], dur * 0.98, { v: 0.03, type: "sine", attack: 0.25, release: 0.4, cutoff: 3000, detune: 0, partials: 2 });
+      if (!finale && state.combo >= 1 && on("n")) {                             // (before a first hit the band cannot know it is not a piano on the mic)
+        section(when, [notes[0], notes[2]], dur * 0.98, { v: 0.03 * A, type: "sine", attack: 0.25, release: 0.4, cutoff: 3000, detune: 0, partials: 2, echo: 0.08, pan: "n" });
         entry.parts += "d";
       }
-      if (L2 || finale) {
-        section(when, notes, dur * (finale ? 1.6 : 0.98), { v: 0.026, type: "sawtooth", attack: finale ? 0.05 : 0.16, release: finale ? 1.2 : 0.4, cutoff: 1350, q: 0.7, detune: 7, partials: 3 });
+      if ((L2 || finale) && on("c")) {
+        /* ── M9 · the pad is the band's body, and it was the reason the whole mix
+           measured 81–92 % of its energy under 250 Hz with almost nothing above
+           800 Hz. Two causes, both here: the pad sat at v 0.03–0.042 while the
+           bass sat at 0.16–0.20, and its filter closed at 1500–2100 Hz, which
+           removed the saw's own harmonics — the part of a chord you actually
+           hear as "chord" rather than as "note". Opened up and brought forward;
+           the bass came down to match. Every line here is checked against the
+           melody-masking gate (M12), because this is the one part of the band
+           that lives in the player's octave. */
+        /* The filter is opened, the LEVEL IS NOT. Measured: opening the pad to
+           3100–3800 Hz moved the mix from 6.4–18.1 % to 9.1–25.1 % of its energy
+           into 250–800 Hz and lifted the centroid from 109–164 Hz to 123–189 Hz
+           — a real improvement. Raising its level on top of that pushed the band
+           up against the player's own note (median went from −17.9 to −15.5 dB,
+           and carol's p90 to −12.0 dB), so the level went back to where it was.
+           The brightness stays; the loudness does not. */
+        const pad = kit && kit.pad === "strings" ? { v: 0.035, cutoff: 3400 }     // a string pad opens up over the same notes
+          : kit && kit.pad === "continuo" ? { v: 0.036, cutoff: 3800 }
+          : kit && (kit.pad === "softpad" || kit.pad === "pad") ? { v: 0.03, cutoff: 2400 }
+          : { v: 0.04, cutoff: 3100 };                                        // the band as it was before M2
+        section(when, notes, dur * (finale ? 1.6 : 0.98), { ...pad, v: pad.v * A, type: "sawtooth", attack: finale ? 0.05 : 0.16, release: finale ? 1.2 : 0.4, q: 0.7, detune: 7, partials: 3, echo: finale ? 0.22 : 0.1, pan: "c", shimmer: [[4, 0.13], [6, 0.07]] });
         entry.parts += "c";
       }
-      if (fever || finale) {                                                   // brass stabs on the chord changes
-        const br = stack(c, 4).slice(0, 3);
-        section(when, br, beatSec * (finale ? 1.2 : 0.34), { v: 0.05, type: "sawtooth", attack: 0.012, release: 0.14, cutoff: 3600, cutoff2: 950, sweep: 0.13, q: 0.8, detune: 6, echo: 0.3, partials: 3 });
+      // ── M2 · M3 · the style's own voice on the chord change: harpsichord, organ,
+      //    celesta, or a plucked guitar for the folk/kids styles.
+      if (kit && kit.lead !== "strings" && kit.lead !== "epiano" && (L1 || finale) && on("l")) {
+        /* M7 · when the player's note is sounding, this voice drops an octave
+           instead of doubling it an octave up. */
+        const led = stack(c, melHere ? 4 : (low ? 5 : 6)).slice(0, 3);
+        const ldur = beatSec * (waltz ? 1 : (fever ? 0.9 : 2));
+        const lv = 0.05 * A * (melHere ? 0.7 : 1);
+        if (kit.lead === "harpsichord") harpsichord(when, led, ldur, lv);
+        else if (kit.lead === "organ") organ(when, led, ldur * 1.2, lv);
+        else if (kit.lead === "celesta") celesta(when, [led[0] + 12, led[1] + 12], ldur, lv);
+        else pluck(when, led[2], ldur * 0.9, lv);                             // folk / kids / cn: a guitar pluck
+        entry.parts += "l";
+      }
+      if ((fever || finale) && on("x")) {                                      // brass stabs on the chord changes
+        const br = stack(c, melHere ? 3 : 4).slice(0, 3);
+        section(when, br, beatSec * (finale ? 1.2 : 0.34), { v: 0.045 * A, type: "sawtooth", attack: 0.012, release: 0.14, cutoff: 3600, cutoff2: 950, sweep: 0.13, q: 0.8, detune: 6, echo: 0.3, partials: 3, pan: "x" });
         entry.parts += "x";
+      }
+      /* M7 · the run into the end: the bar before the last chord lifts, so the
+         finale arrives instead of simply starting. */
+      if (L2 && !finale && bar === lastBar - 1 && kitdrums !== "none") {
+        crash(when, 0.5 * A);
+        entry.extras += "s";
       }
       if (finale) {                                                            // the finale: everything at once
         kick(when, 1); crash(when, 1);
-        bass(when, 12 * 3 + c.root, beatSec * 2, 0.34);
+        bass(when, 12 * 3 + c.root, beatSec * 2, 0.26);
         tom(when, 90, 0.9);
         entry.parts += "!";
       }
     }
+    // ── M5 · the strings stop being a pad: a line moves over the chord, a note
+    //    or two above it, in the notes of the chord playing now. Only for the
+    //    styles that ARE string music — the default band is left as it was.
+    if (kit && kit.lead === "strings" && L1 && onBeat && !finale && !melHere && on("m")) {
+      /* M7 · the line moves where the player's note is NOT — the gaps are the
+         only place a counter-line does not fight the tune. */
+      const mel = 12 * 5 + (c.pcs[(bar + p) % c.pcs.length] - c.root + 12) % 12 + (p === 2 ? 12 : 0);
+      section(when, [mel], beatSec * (waltz ? 0.8 : 0.9), { v: 0.016 * A, type: "sawtooth", attack: 0.09, release: 0.22, cutoff: 2600, q: 0.6, detune: 9, partials: 3, echo: 0.12, pan: "m" });
+      entry.parts += "m";
+    }
     // ── Fever: an arpeggio of the chord, plucked, up and down, on every half-beat
-    if (fever && !finale) {
+    if (fever && !finale && !(melHere && !onBeat) && on("a")) {
       const k = Math.round((beat - c.at) * 2), pat = [0, 1, 2, 3, 2, 1], idx = pat[((k % 6) + 6) % 6];
       const off = idx === 3 ? 12 : (c.pcs[idx] - c.root + 12) % 12;            // root, third, fifth, octave
-      pluck(when, 12 * 6 + c.root + off + (mega ? 12 : 0), beatSec * 0.42, 0.075);   // C5 = 72
+      pluck(when, 12 * (melHere ? 5 : 6) + c.root + off + (mega ? 12 : 0), beatSec * 0.42, 0.06 * A, "a");   // C5 = 72
       entry.parts += "a";
     }
   }
@@ -328,7 +639,7 @@ export function createBand(opts) {
     state,
     chordAt,
     setState(s) { Object.assign(state, s); },
-    setLevel(l) { level = l; if (chain) chain.master.gain.value = BAND_LEVELS[level] * 0.8; },
+    setLevel(l) { level = l; if (chain) chain.master.gain.value = BAND_LEVELS[level] * 0.21; },
     /* Stop what is booked (pause, a new pass, the end): the master fades and
        is dropped, so notes already booked go silent with it. */
     cut() {

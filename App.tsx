@@ -132,7 +132,7 @@ import {
 import {
   GUEST_TRIAL_MS, GUEST_TICK_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
   pushSupported, subscribePush, unsubscribePush, logUsage,
-  readActLog, logActivity, recordNoteMisses, readPracticeLog,
+  readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
   readLandingOrigin, clearLandingOrigin, anonId,
@@ -1146,14 +1146,18 @@ const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, e
    practice?" decision that kills most practice habits.
 ════════════════════════════════════════════════════════════ */
 const _v12wait = (ms) => new Promise(r => setTimeout(r, ms));
-const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate, onReviewStage }) {
-  const T = {
-    th: { title: "ซ้อมวันนี้", sub: "แผนซ้อมส่วนตัวของคุณ — สร้างใหม่ให้ทุกวันจากความคืบหน้าจริง ไล่ทำทีละข้อได้เลย", warm: "วอร์มอัพนิ้ว", hw: "การบ้านจากครู", review: "ทบทวนของเดิม", learn: "เรียนเรื่องใหม่", song: "เพลงปิดท้าย", start: "เริ่ม ▶", done: "เสร็จแล้ว ✓", hwBtn: "ทำแล้ว ✓", progress: "ความคืบหน้าวันนี้", allDone: "ครบทุกข้อแล้ว! สุดยอดไปเลยครับ 🎉", bonus: "รับโบนัสประจำวัน +40 EXP · +20 🪙", claimed: "รับโบนัสของวันนี้แล้ว ✓" },
-    en: { title: "Practice Today", sub: "Your personal plan — rebuilt every day from your real progress. Just work down the list.", warm: "Finger warm-up", hw: "Teacher's homework", review: "Review", learn: "Something new", song: "Closing song", start: "Start ▶", done: "Done ✓", hwBtn: "Done ✓", progress: "Today's progress", allDone: "All done — amazing work! 🎉", bonus: "Claim daily bonus +40 EXP · +20 🪙", claimed: "Today's bonus claimed ✓" },
-    zh: { title: "今日练习", sub: "你的专属计划 — 每天根据真实进度重新生成，逐项完成即可。", warm: "手指热身", hw: "老师的作业", review: "复习", learn: "学点新的", song: "结尾曲", start: "开始 ▶", done: "完成 ✓", hwBtn: "已完成 ✓", progress: "今日进度", allDone: "全部完成，太棒了！🎉", bonus: "领取每日奖励 +40 EXP · +20 🪙", claimed: "今日奖励已领取 ✓" },
-  }[lang];
-  const [, setTick] = useState(0);
-  const bump = () => setTick(t => t + 1);
+/* ── The daily plan, in one function (plan 26 · P1) ──────────────────────────
+   This used to live inline inside TodayPage, which meant the ONLY place in the
+   app that knew "how far through today's plan am I" was a page reachable from
+   a card inside Studio, two taps from where the learner actually stands. The
+   learner's own practice page had no idea.
+
+   It is extracted here, byte-for-byte the same logic, so TodayPage and the
+   Teacher tab (SenseiView) are guaranteed to show THE SAME NUMBERS — the plan's
+   acceptance criterion is "identical to TodayPage", not "similar to". Do not
+   re-implement any of this for another surface; call this. */
+function buildTodaySteps(T, lang, exp, homework, h) {
+  const { onSong, onReviewStage, onLearn, onRead, onNavigate } = h;
   const doneLog = todayEntries();
   const seed = daySeed();
   const doneP = pathDoneSet();
@@ -1196,7 +1200,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
     .map(id => SONGS.find(s => s.id === id)).filter(Boolean);
   const song = pool.length ? pool[seed % pool.length] : SONGS[0];
 
-  const steps = [
+  return [
     { id: "warm", icon: "🎹", tag: T.warm, label: tr(warm, lang), isDone: doneLog.some(e => e.k === "game" && e.id === warm.id), go: () => onSong(warm) },
     ...(hw ? [{ id: "hw", icon: "📘", tag: T.hw, label: hw.text, isDone: hwDoneToday(), hwStep: true }] : []),
     ...(review ? [{ id: "review", icon: "🔁", tag: T.review, label: tr(review.title, lang) + (reviewKey ? " · " + reviewKey.name : ""), isDone: reviewDoneToday, go: () => onReviewStage(review, reviewKey) }] : []),
@@ -1218,6 +1222,21 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
     }] : nextStage ? [{ id: "new", icon: "✨", tag: T.learn, label: tr(nextStage.title, lang) + (nextKey ? " · " + nextKey.name : ""), isDone: doneLog.some(e => (e.k === "lesson" || e.k === "read-chapter") && e.id.split("/")[0] === nextStage.id), go: () => nextStage.content ? onRead(nextStage) : onLearn(nextStage, nextKey, nextStage.types ? nextStage.types[0] : null) }] : []),
     { id: "song", icon: "🚀", tag: T.song, label: tr(song, lang), isDone: doneLog.some(e => e.k === "game" && e.id === song.id), go: () => onSong(song) },
   ];
+}
+
+/* Step tags for the daily plan — module scope (plan 26 · P1) so the Teacher
+   tab can label the SAME steps TodayPage shows without copying the strings. */
+const TODAY_TAGS = {
+  th: { title: "ซ้อมวันนี้", sub: "แผนซ้อมส่วนตัวของคุณ — สร้างใหม่ให้ทุกวันจากความคืบหน้าจริง ไล่ทำทีละข้อได้เลย", warm: "วอร์มอัพนิ้ว", hw: "การบ้านจากครู", review: "ทบทวนของเดิม", learn: "เรียนเรื่องใหม่", song: "เพลงปิดท้าย", start: "เริ่ม ▶", done: "เสร็จแล้ว ✓", hwBtn: "ทำแล้ว ✓", progress: "ความคืบหน้าวันนี้", allDone: "ครบทุกข้อแล้ว! สุดยอดไปเลยครับ 🎉", bonus: "รับโบนัสประจำวัน +40 EXP · +20 🪙", claimed: "รับโบนัสของวันนี้แล้ว ✓", today: "วันนี้", stepsLeft: "ขั้นตอน", allDoneShort: "ครบทุกข้อแล้ว 🎉" },
+  en: { title: "Practice Today", sub: "Your personal plan — rebuilt every day from your real progress. Just work down the list.", warm: "Finger warm-up", hw: "Teacher's homework", review: "Review", learn: "Something new", song: "Closing song", start: "Start ▶", done: "Done ✓", hwBtn: "Done ✓", progress: "Today's progress", allDone: "All done — amazing work! 🎉", bonus: "Claim daily bonus +40 EXP · +20 🪙", claimed: "Today's bonus claimed ✓", today: "Today", stepsLeft: "steps", allDoneShort: "All done 🎉" },
+  zh: { title: "今日练习", sub: "你的专属计划 — 每天根据真实进度重新生成，逐项完成即可。", warm: "手指热身", hw: "老师的作业", review: "复习", learn: "学点新的", song: "结尾曲", start: "开始 ▶", done: "完成 ✓", hwBtn: "已完成 ✓", progress: "今日进度", allDone: "全部完成，太棒了！🎉", bonus: "领取每日奖励 +40 EXP · +20 🪙", claimed: "今日奖励已领取 ✓", today: "今天", stepsLeft: "步骤", allDoneShort: "全部完成 🎉" },
+};
+
+const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate, onReviewStage }) {
+  const T = TODAY_TAGS[lang];
+  const [, setTick] = useState(0);
+  const bump = () => setTick(t => t + 1);
+  const steps = buildTodaySteps(T, lang, exp, homework, { onSong, onReviewStage, onLearn, onRead, onNavigate });
   const nDone = steps.filter(s => s.isDone).length;
   const allDone = nDone === steps.length;
   const pct = Math.round((nDone / steps.length) * 100);
@@ -4746,7 +4765,9 @@ function logAutoTeachTip(weakness, tip, feature, topic) {
   } catch (e) {}
 }
 // friendly display label for an activity entry (drill ids, "stage/key" lessons, …)
-function actTopicLabel(e, lang) {
+/* exported for use-chat (plan 21 §V4b): the chat needs the SAME label the Mentor
+   card uses, so the tutor and the card can never name the weak spot differently */
+export function actTopicLabel(e, lang) {
   if (e.k === "lesson" || e.k === "read-chapter") {
     const [sid, key] = e.id.split("/");
     const st = PATHWAY.find(s => s.id === sid);
@@ -11761,6 +11782,77 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly });
 
+  /* Plan 26 · P1/P3/P4 — today's plan, on the page the learner actually stands
+     on. buildTodaySteps() is the SAME function TodayPage renders, so the count
+     here can never disagree with the full plan page; nothing is recomputed
+     here. `planTick` is the only thing that forces a rebuild, and it is bumped
+     by exactly the events that can change an answer: practice opening or
+     finishing (markPathAccuracy writes localStorage before setPracticeResult,
+     so the recompute reads the fresh value). Reading the whole activity log on
+     every render of a 14k-line component would be wasteful for a number that
+     changes a handful of times a day.
+
+     It sits here, directly after usePracticeMode, because it reads
+     practiceOpen/practiceResult — declaring it above the destructure throws a
+     TDZ ReferenceError on the very first render (caught by
+     scripts/smoke-app-boot.mjs). Do not move it up. */
+  const [planTick, setPlanTick] = useState(0);
+  useEffect(() => { setPlanTick(t => t + 1); }, [practiceOpen, !!practiceResult]);
+  /* Landing on this page re-reads it: homework can be ticked off on the plan
+     page, which does not touch any state this component holds. */
+  const onSenseiPage = page === "sensei";
+  const todayPlan = useMemo(() => {
+    const steps = buildTodaySteps(TODAY_TAGS[lang], lang, (profile && profile.exp) || 0, homework, {
+      onSong: chooseSong, onReviewStage: reviewStage, onLearn: learnTopic, onRead: readChapter, onNavigate: handleCoachNavigate,
+    });
+    const done = steps.filter(s => s.isDone).length;
+    return {
+      total: steps.length, done,
+      pct: steps.length ? Math.round((done / steps.length) * 100) : 0,
+      next: steps.find(s => !s.isDone) || null,
+    };
+  }, [lang, planTick, onSenseiPage]);
+
+  /* Plan 26 · P5/P6/P7 — three small things this page can say because the data
+     has been sitting on the device the whole time and nothing ever read it:
+     P5 the learner's own last drill, replayable in one tap (readPracticeBests
+     is what the profile's Drill Deck already renders; replayDrill is the same
+     hand-off it uses). P6 the pitch classes they actually miss, counted by
+     recordNoteMisses() on every drill. P7, once the plan is done, their real
+     last-session accuracy next to the one before it — both from
+     readPracticeLog()._recent, which logPractice() appends to per drill.
+     Every one of them returns null when there is no data, and a null card
+     renders nothing. */
+  const resumeCard = useMemo(() => {
+    const deck = Object.entries(readPracticeBests()).map(([key, d]) => ({ key, ...d }))
+      .filter(d => d.notes && d.notes.length)
+      .sort((a, b) => (b.at || 0) - (a.at || 0));
+    const d = deck[0];
+    return d ? { key: d.key, label: d.label, accuracy: d.accuracy, bestStreak: d.bestStreak, at: d.at } : null;
+  }, [planTick, onSenseiPage]);
+
+  const missCard = useMemo(() => {
+    const top = readNoteMisses().slice(0, 3);
+    return top.length ? top : null;
+  }, [planTick, onSenseiPage]);
+
+  const sessionDone = useMemo(() => {
+    if (!todayPlan || todayPlan.total < 2 || todayPlan.done < todayPlan.total) return null;
+    const recent = (readPracticeLog() || {})._recent;
+    if (!Array.isArray(recent) || recent.length < 2) return null;
+    const now = dayKey();
+    let todayAcc = null, prevAcc = null;
+    for (let i = recent.length - 1; i >= 0; i--) {
+      const e = recent[i];
+      if (e.acc == null) continue;
+      if (e.d === now) { if (todayAcc == null) todayAcc = e.acc; }
+      else if (prevAcc == null) prevAcc = e.acc;
+      if (todayAcc != null && prevAcc != null) break;
+    }
+    if (todayAcc == null || prevAcc == null) return null;
+    return { before: prevAcc, after: todayAcc, delta: todayAcc - prevAcc };
+  }, [planTick, onSenseiPage]);
+
 
   const { vmOpen, setVmOpen, vmState, vmCaption, setVmCaption, vmMsgs, setVmMsgs, vmNotes, setVmNotes, vmErr, setVmErr, vmActiveRef, vmStateRef, vmRecRef, vmMsgsRef, vmNotesRef, vmFrozenRef, vmPlayReactT, vmSilenceT, vmRestartT, vmWatchdogT, vmListenSeqRef, vmEndRef, vmLastActivityRef, vmIdleNudgedRef, vmIdleTimerRef, vmSelfSpeakingRef, vmEarResetRef, vmEarFlushRef, vmDeafCountRef, vmTallyOkRef, vmTallyMissRef, vmFast, setVmFast, vmFastRef, vmSpeed, setVmSpeed, vmSpeedRef, vmVoice, setVmVoice, vmPoly, setVmPoly, vmPolyRef, vmLangOpen, setVmLangOpen, vmMenuOpen, setVmMenuOpen, langRef, vmLastDemoRef, vmStreakRef, vmMissRef, vmFillersRef, vmFillerSrcRef, vmCloudDeadRef, vmLit, setVmLit, vmLitT, vmStaff, setVmStaff, vmInstant, setVmInstant, vmInstantT, vmExpectRef, vmSeqRef, vmEarRef, vmInterruptRef, vmTurnRef, vmSpokenRef, vmSpokeAtRef, vmSessionStartRef, vmActStartRef, vmFillerLastRef, vmInput, setVmInput, openVoice, exitVoice, vmOrbTap, vmOnNote, vmTogglePoly, vmProcess, vmToggle } = useVoiceTutor({ lang, session, profile, homework, setHomework, setPage, setStudioView, setMetroOn, setMetroBpm, metroTimingReport, openCamera, chooseSong, startPractice, lastSeq });
 
@@ -13184,7 +13276,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} onMark={markUnderstood} onGoStep={handleCoachNavigate} chatProg={chatProg} />}
+      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} onMark={markUnderstood} onGoStep={handleCoachNavigate} chatProg={chatProg} todayPlan={todayPlan} todayTags={TODAY_TAGS[lang]} onTodayOpen={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }} resumeCard={resumeCard} onResumeDrill={(d) => { playUi("click"); logUsage("practice", "resume-drill"); replayDrill(d); }} missCard={missCard} sessionDone={sessionDone} />}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}

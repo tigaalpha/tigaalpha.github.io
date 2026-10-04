@@ -163,22 +163,36 @@ export function splitNote(note) {
   return [m[1], parseInt(m[2], 10)];
 }
 // transpose a list of notes by N semitones, keeping them in range C4..B5
+//
+// It ALWAYS returns sharps-only names, including when N is 0. That is the
+// engine's one spelling for playback: the frequency table (NF), noteToMidi(),
+// every <Piano>/<GamePiano> key name and noteKeyFrac() are all sharps-only, so
+// a flat that survives this function is a note that neither sounds
+// (playPianoNote finds no NF entry) nor lights a key.
+//
+// The old first line was `if (!semis) return notes.slice();` — a short-circuit
+// that skipped the flat→sharp step entirely for N=0, i.e. for the key of C.
+// pathway-data.ts writes the three minor-scale demos in flats ("Eb4","Ab4",
+// "Bb4") because that is the correct spelling to READ, and every other demo in
+// that file happens to be written with sharps, so only C minor was hit: the
+// Pathway "Scale" lesson for C natural / harmonic / melodic minor printed
+// E♭ A♭ B♭ in the lesson text while three of its black keys stayed dark and
+// silent on the keyboard. Normalising here fixes it for any caller, rather than
+// editing the one data file that happens to trip over it.
 export function transposeNotes(notes, semis) {
-  if (!semis) return notes.slice();
+  if (!Array.isArray(notes)) return [];
+  const s = Number(semis) || 0;
   return notes.map(note => {
-    const sp = splitNote(note);
-    if (!sp) return note;
-    let idx = CHROMA.indexOf(sp[0].replace("b", "#") === sp[0] ? sp[0] : sp[0]);
-    // handle flats by mapping to sharps
-    const flatMap = { "Db":"C#","Eb":"D#","Gb":"F#","Ab":"G#","Bb":"A#" };
-    let name = flatMap[sp[0]] || sp[0];
-    idx = CHROMA.indexOf(name);
+    /* splitNote() only knows "#"/"b"; lesson data also writes the glyphs ♭/♯, so
+       fold those to ASCII here rather than letting them pass through dead */
+    const sp = splitNote(String(note).replace(/♭/g, "b").replace(/♯/g, "#"));
+    if (!sp) return note;                       // rests ("R") and anything unparseable pass through
+    const acc = sp[0].slice(1).replace(/\u266d/g, "b").replace(/\u266f/g, "#");
+    const letter = sp[0].charAt(0).toUpperCase() + acc;
+    const idx = CHROMA.indexOf(_FLAT2[letter.toUpperCase()] || letter);   // _FLAT2's keys are upper-case
     if (idx < 0) return note;
-    let oct = sp[1];
-    let abs = idx + semis;
-    oct += Math.floor(abs / 12);
-    abs = ((abs % 12) + 12) % 12;
-    return CHROMA[abs] + oct;
+    const abs = idx + s;                        // sharps from the note's own octave
+    return CHROMA[((abs % 12) + 12) % 12] + (sp[1] + Math.floor(abs / 12));
   });
 }
 // ── Roman-numeral chord progressions (e.g. I vi ii V) ──
@@ -455,10 +469,19 @@ export function extractNotes(text, hand = "right", hint = null, forceKey = null)
       .replace(/♯/g, "#").replace(/♭/g, "b");
     const wantMode = scaleFirst ? "scale" : chordFirst ? "chord" : null;
     if (wantMode) {
-      // try common qualifiers for this key+mode
+      /* Which QUALIFIER to ask for, read off the text — the same test the
+         non-forced branch below already uses. The candidate list used to be
+         fixed with "major" first, so a lesson in ANY minor key was answered
+         with that key's MAJOR scale whenever "c major scale" happened to be
+         in KNOWN (it always is): asking for C minor scale played
+         C-D-E-F-G-A-B-C. Order the candidates by what the text actually says
+         and fall back to the other quality only if that one does not exist. */
+      const wantMinor = lo.includes("minor") || lo.includes("min ") || /\bm\b/.test(lo)
+        || /ไมเนอร/.test(lo) || /小调/.test(lo);
+      const qualities = wantMinor ? ["minor", "major"] : ["major", "minor"];
       const candidates = wantMode === "scale"
-        ? [`${root} major scale`, `${root} minor scale`, `${root} scale`]
-        : [`${root} major`, `${root} minor`, `${root} maj`, `${root} min`];
+        ? [...qualities.map(q => `${root} ${q} scale`), `${root} scale`]
+        : [...qualities.flatMap(q => [`${root} ${q}`, `${root} ${q.slice(0, 3)}`]), `${root} scale`];
       for (const cand of candidates) {
         const hit = KNOWN.find(e => e.k === cand && e.m === wantMode);
         if (hit) {
@@ -746,9 +769,28 @@ export function audioBus() {
     if (!_busGain || _busCtx !== ac) return;
     try {
       const conv = ac.createConvolver();
+      /* 18 ms of silence in front of the tail. A room's own distance is exactly
+         that: the note arrives before its reflections do, so the piano's attack
+         stays an attack instead of being smeared by a wash of reverb that starts
+         on the same millisecond. Measured with scripts/verify-audio-bus-ir.mjs,
+         this takes the reverb arriving in the first 40 ms from 4.3 dB under the
+         following 200 ms down to 8.3 dB under it.
+
+         The unit-energy step below is NOT what makes the level right — ConvolverNode.normalize
+         defaults to true, so the browser already rescales this response for us, and
+         normalising an already-normalised response is a no-op. It is here so the
+         response reads as "one unit of energy" to anyone reading it, and so the
+         offline measurements and the browser agree without a special case. */
       const len = Math.floor(ac.sampleRate * 1.5);
-      const buf = ac.createBuffer(2, len, ac.sampleRate);
-      for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+      const pre = Math.round(ac.sampleRate * 0.018);
+      const buf = ac.createBuffer(2, pre + len, ac.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) d[pre + i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
+        let e = 0; for (let i = 0; i < d.length; i++) e += d[i] * d[i];
+        const k = e > 0 ? 1 / Math.sqrt(e) : 0;
+        for (let i = 0; i < d.length; i++) d[i] *= k;
+      }
       conv.buffer = buf;
       const wet = ac.createGain(); wet.gain.value = 0.13;
       _busGain.connect(conv); conv.connect(wet); wet.connect(ac.destination);
@@ -1949,10 +1991,27 @@ export function _drillSeq(noteNames) {
   return noteNames.map((n, i) => [n, i === noteNames.length - 1 ? 2 : 1]);
 }
 // One-octave scale, up then back down (classic practice shape).
+/* Melodic minor's DESCENT is natural minor — that asymmetric form IS the scale,
+   and the lesson text (i18n.ts SCALE_TYPE_INFO, all three languages) teaches
+   exactly that. Reversing the ascending run instead made the drill play the
+   raised 6th and 7th going down too, so the piano contradicted the text
+   printed right above it: the student read "coming down it reverts to natural
+   minor" and heard B♮-A♮ instead of B♭-A♭. Scale drill note names stay in the
+   sharps-only table the synth indexes (they are playback data, not printed
+   notation); the Pathway lesson prints the correctly spelled form separately
+   via spellScale(), which already handles the descent. */
 export function makeScaleSong(rootPC, rootNm, scaleType, label, bpm = 84) {
   const pcs = scaleNotesOf(rootPC, scaleType);
   const asc = _ascNotes(pcs, 4);
-  const all = [...asc, pcs[0] + "5", ...asc.slice().reverse()];
+  const descPcs = scaleType === "melodic minor" ? scaleNotesOf(rootPC, "natural minor") : pcs;
+  /* The descent is degrees 7..1 in octave 4 — all seven of them sit below the
+     top note (which was just played as the octave), so the octave is fixed
+     rather than walked. (An earlier attempt walked the octave and produced
+     nonsense like B-1; a second dropped the closing tonic. The drill test pins
+     the pitch AND octave of every note of every scale type, which is what
+     caught both.) */
+  const desc = descPcs.slice().reverse().map(pc => pc + "4");
+  const all = [...asc, pcs[0] + "5", ...desc];
   return {
     id: "sc_" + scaleType.replace(/\s+/g, "") + "_" + rootPC, drill: true, cat: "scale", diff: 1, bpm,
     th: rootNm + " " + label.th, en: rootNm + " " + label.en, zh: rootNm + label.zh, seq: _drillSeq(all),

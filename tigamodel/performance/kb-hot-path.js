@@ -147,11 +147,33 @@ export function createKBHotPath(opts = {}) {
     return h;
   }
 
+  /* plan 21 §V1 follow-up — this score is why the capped block was less on-topic
+     than the whole-domain one, and the cause is not the cap. Every entry
+     carries a `teach` field, and the KB contains whole families of
+     knowledge-CHECK entries ("A อยู่ในคอร์ด C ไหม", "…อยู่ในคอร์ด Bbmin ไหม")
+     whose teach text mentions the very keyword the question fired. Twenty of
+     those scored exactly like a real teaching line, filled all 24 slots, and
+     pushed out the lines that answer "what is a 7th chord inversion".
+
+     Dropping `teach` from the score entirely was tried first and is wrong the
+     other way: on sight-th it demoted every legitimate "อ่านโน้ต ระดับ N"
+     entry (the level number IS the teaching) and the block fell to 50%.
+
+     So a check entry scores from its TITLE only. That is the field that says
+     what the entry is: "อยู่ในคอร์ด … ไหม" is a question the tutor asks, and
+     asking is not teaching. "อ่านโน้ต ระดับ 10" is a topic the tutor covers,
+     and keeps its score from the teach field as before. Weight 2 is unchanged
+     because the hot boost's documented contract is "below one keyword hit". */
   function relScoreOf(e, keywords) {
+    const title = String(e.title || "").toLowerCase();
+    const teach = String(e.teach || "").toLowerCase();
+    const isCheck = /[?？]\s*$/.test(title) || /ไหม\s*$/.test(title);
     let s = 0;
     for (let i = 0; i < keywords.length; i++) {
       const k = keywords[i];
-      if (k && hayOf(e).includes(k)) s += 2;
+      if (!k) continue;
+      if (title.includes(k)) s += 2;
+      else if (!isCheck && teach.includes(k)) s += 2;
     }
     return s;
   }
@@ -227,30 +249,100 @@ export function createKBHotPath(opts = {}) {
         const entries = index.get(d);
         if (!entries || !entries.length) continue;
         const label = labelOf ? String(labelOf(d) || d) : String(d);
-        seqs.push({ domain: d, label, next: makeSeq(baseFor(cacheKey + "\u0003" + d, entries, kw)) });
+        const base = baseFor(cacheKey + "\u0003" + d, entries, kw);
+        // which entries the question actually matched, by the same score the
+        // ranking used — pass 1 of the fill below serves only these
+        /* "Matched" for the FILL decision is deliberately NOT "scored positive".
+           relScoreOf credits title and teach, and a teaching note legitimately
+           mentions เวที without answering anything about it: for "ขึ้นเล่นบนเวที
+           แล้วใจสั่นมาก", 58 of 126 PERFORMANCE entries scored positive while only
+           37 of those lines actually contain a fired keyword. Serving the other
+           21 first is what left that block at 42% on-topic against 63% for the
+           uncapped block.
+
+           So this asks the question that decides service order: would this line
+           READ as relevant — does a fired keyword appear in the line the tutor
+           receives? Relevance SCORE still orders the matched ones among
+           themselves; this only decides who is allowed in before the budget
+           runs out, and a domain whose lines all miss is still served (never
+           starved) because pass 2 and pass 3 are unconditional. */
+        const hitIds = new Set();
+        for (const lv of base.levels) for (const e of lv.entries) {
+          if (!kw.length) { if (lv.s > 0) hitIds.add(e.id); continue; }
+          if (kw.some(k => hotPathLine(e, label).toLowerCase().includes(k))) hitIds.add(e.id);
+        }
+        seqs.push({ domain: d, label, next: makeSeq(base), hitIds, unmatched: [] });
       }
       if (!seqs.length) return null;
 
+      /* Two passes over the same domain sequences (plan 21 §V1 follow-up).
+         The single-pass version filled the budget in relevance-level order per
+         domain, but the round-robin then walked on into the level that has NO
+         keyword at all while lines that DID match were still queued behind it —
+         on performance-th that spent 14 of 24 slots on "2 สัปดาห์ก่อน…" and
+         "การปรวด…" and left the block at 42% on-topic against 63% for the
+         uncapped block it replaced.
+
+         So: pass 1 serves only what the question actually matched (any entry
+         with a keyword hit, in the existing relevance order). Pass 2 fills
+         whatever room is left from the rest. A domain with fewer matches than
+         the budget still gets topped up, so no domain starves — but a line the
+         question had evidence for can never be crowded out by one it did not.
+         The budget itself (maxLines/maxChars) is unchanged; this only decides
+         what fills it first. */
       const picked = [];
       const byDomain = {};
       let chars = 0;
-      let addedInPass = true;
-      while (picked.length < cfg.maxLines && addedInPass) {
-        addedInPass = false;
-        for (const c of seqs) {
-          if (picked.length >= cfg.maxLines) break;
-          let e;
-          while ((e = c.next()) != null) {
-            const line = hotPathLine(e, c.label);
-            const n = line.length + 1; // + the join newline
-            if (chars + n > cfg.maxChars) continue; // too big — try the next entry
-            picked.push({ entry: e, domain: c.domain, label: c.label, line });
-            byDomain[c.domain] = (byDomain[c.domain] || 0) + 1;
-            chars += n;
-            addedInPass = true;
-            break;
-          }
+      const room = () => cfg.maxLines - picked.length && cfg.maxChars - chars > 0;
+      const take = (c, wantMatch) => {
+        while (room()) {
+          const e = c.next();
+          if (e == null) return false;
+          const line = hotPathLine(e, c.label);
+          const n = line.length + 1;
+          if (chars + n > cfg.maxChars) continue;
+          if (wantMatch && !c.hitIds.has(e.id)) { c.unmatched.push(e); continue; } // hold for pass 2
+          picked.push({ entry: e, domain: c.domain, label: c.label, line });
+          byDomain[c.domain] = (byDomain[c.domain] || 0) + 1;
+          chars += n;
+          return true;
         }
+        return false;
+      };
+      /* pass 1 — every domain the question fired on gets served FIRST, one
+         matched line each, before any domain may take a second. The original
+         loop was round-robin, but only while each domain still had a matched
+         line, so a domain with more matches than the whole budget (HARMONY
+         served 40 lines uncapped) filled all 24 slots by itself and the second
+         domain the question hit — ACCOMPANIMENT, from "เบส" — never appeared
+         at all. One line each is the guarantee; the surplus is round-robin. */
+      for (const c of seqs) {
+        if (!room()) break;
+        take(c, true);          // this domain's guaranteed first matched line
+      }
+      for (const c of seqs) {   // surplus, round-robin
+        while (room()) { if (!take(c, true)) break; }
+      }
+      /* pass 2 — the budget is not full yet, so the question ran out of MATCHED
+         lines before it ran out of room. Fill the rest from everything left,
+         still round-robin, because a domain the question fired on must still
+         appear: the earlier version of this guarded pass 2 with "skip a domain
+         that already has a line", which silenced a second domain entirely and
+         broke the multi-domain check in smoke-kb-hot-path.mjs. */
+      for (const c of seqs) {
+        for (const e of c.unmatched) {
+          if (!room()) break;
+          const line = hotPathLine(e, c.label);
+          const n = line.length + 1;
+          if (chars + n > cfg.maxChars) continue;
+          picked.push({ entry: e, domain: c.domain, label: c.label, line });
+          byDomain[c.domain] = (byDomain[c.domain] || 0) + 1;
+          chars += n;
+          break;
+        }
+      }
+      for (const c of seqs) {
+        while (room()) { if (!take(c, false)) break; }
       }
       if (!picked.length) return null;
       return {

@@ -3,13 +3,13 @@ import {
   getAC, playPianoNote, playMiss, playUi, playWhoosh, playBoom, playClickAt,
   pcOf, stopPracticeListeners, startMidiListener, startMicListener, laneHue, roundRect,
   SONG_LEAD, SONG_DEBOUNCE_MS, SONG_ECHO_MS, setMicSafe, _micSafe,
-  expandSong, normalizeSeq, noteKeyFrac, _PC, playBackingChord, songTonic, pickupBeatsOf, songChordBars,
+  expandSong, normalizeSeq, noteKeyFrac, _PC, _PCI, playBackingChord, songTonic, pickupBeatsOf, songChordBars,
   songTechniqueProfile, estimateSongDifficulty,
   THEORY_REF,
 } from "./music-engine";
 import { teacherJudgeNote } from "./piano-guard";
 import { tr } from "./i18n";
-import { SONGS, SONG_TIMESIG } from "./songs-data";
+import { SONGS, SONG_TIMESIG, SONG_GENRES } from "./songs-data";
 import { logActivity, recordNoteMisses, logUsage } from "./shared-infra";
 import { jevTask, jevScore, jevChoice, jevNoul } from "./jev";
 import { recordMemory, readMemory } from "./ai-chat-context";
@@ -22,8 +22,8 @@ import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 import { createGameStore } from "./play-along-store";
 import { createBand, playChordDing } from "./play-along-band";
 import { paintWorld, getWorld, composeStage, drawStageFx } from "./play-along-stage";
-import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt } from "./play-along-judge";
-import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday } from "./play-along-progress";
+import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt, replayExp } from "./play-along-judge";
+import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday, songPlayCount, bumpPlayCount } from "./play-along-progress";
 
 /* ── PLAN v3.8 ระลอก 12 (12.1) — the share signal JoyIndex reads ──
    One row into the unified journal (k="share") from the same shared-
@@ -528,8 +528,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     songViewRef.current = nv; setSongViewState(nv); lsSet("tg_pa_view", nv);
     if (songRunRef.current) announce(nv === "sheet" ? "📖 Sheet music" : "☄ Falling notes");
   }
-  // the band's volume: 0 off, 1 soft, 2 normal (play-along-band.ts)
-  const [songBand, setSongBandState] = useState(() => { const v = Math.round(+lsGet("tg_pa_band", 2)); return v >= 0 && v <= 2 ? v : 2; });
+  // the band's volume: 0 off, 1 soft, 2 normal, 3 full (play-along-band.ts)
+  const [songBand, setSongBandState] = useState(() => { const v = Math.round(+lsGet("tg_pa_band", 2)); return v >= 0 && v <= 3 ? v : 2; });
   const songBandRef = useRef(songBand);
   songBandRef.current = songBand;
   const bandRef = useRef(null);
@@ -549,7 +549,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   function setSongFx(v) { const nv = !!(typeof v === "function" ? v(songFxRef.current) : v); songFxRef.current = nv; setSongFxState(nv); lsSet("tg_pa_fx", nv ? "1" : "0"); }
   const fx = (f) => { if (songFxRef.current) f(); };
   function setSongBand(v) {
-    const nv = Math.max(0, Math.min(2, Math.round(typeof v === "function" ? v(songBandRef.current) : v)));
+    const nv = Math.max(0, Math.min(3, Math.round(typeof v === "function" ? v(songBandRef.current) : v)));
     songBandRef.current = nv; setSongBandState(nv); lsSet("tg_pa_band", String(nv));
     if (bandRef.current && songAccompRef.current === "track") bandRef.current.setLevel(nv);
   }
@@ -838,7 +838,24 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     clearInterval(bandTimerRef.current);
     bandTimerRef.current = setInterval(() => { if (songRunRef.current && !pausedRef.current) bandPump(songNow()); }, 60);
   }
-  /* ── the band ── */
+  /* ── the band ──
+     The band gets the player's own notes as well as the chords (plan 23 §11):
+     where the tune is sounding, its voices stay out of that octave and fill the
+     gaps instead. Read from meta.seq, not from expandSong's notes, because the
+     left-hand and two-hand modes put a different set of notes there. */
+  function melodyForBand(meta) {
+    const out = [];
+    let beat = 0;
+    for (const [note, dur] of (meta && meta.seq) || []) {
+      if (note !== "R") {
+        const m = /^([A-G][#b]?)(-?\d+)$/.exec(note);
+        const pc = m ? _PCI[m[1].toUpperCase()] : null;
+        if (pc != null) out.push({ beat, dur, midi: (parseInt(m[2], 10) + 1) * 12 + pc });
+      }
+      beat += dur;
+    }
+    return out;
+  }
   function makeBand(meta, data) {
     if (bandRef.current) bandRef.current.cut();
     bandRef.current = null;
@@ -848,6 +865,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       bars: songChordBars(meta, pickupRef.current, { split: true, primary: true }),
       beatsPerBar: beatsPerBarOf(meta), pickup: pickupRef.current, spb, lead: SONG_LEAD,
       endBeat: (data.dur || 0) / spb, hand: playAlongHandRef.current, level: songAccompRef.current === "track" ? songBandRef.current : 0,
+      bpm: meta.bpm, style: SONG_GENRES[meta.id] || "", mel: melodyForBand(meta),
     });
   }
   // ring: the song ended by itself, so its last chord fades out instead of being cut
@@ -2107,6 +2125,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     // of those pays coins or EXP, and they are for playing, not for pressing
     // Start.
     const played = runPlayed({ hits, mash: g.mash, acc });
+    /* Plan 25 · D1 — the reward for coming back to a song you already know.
+       Coins stop after the third run of a day (below) and a medal pays once, so
+       this is the part of a replay that still grows. Only a run that was really
+       played moves the counter, and the bonus is EXP, never coins: coins are the
+       paid currency and plan 25 rule 4 keeps that out of reach unasked. */
+    const playCount = played ? bumpPlayCount(songId) : songPlayCount(songId);
+    const replayBonus = played ? replayExp(playCount) : 0;
     // EXP by how the run went
     const reward = played ? Math.round(40 + acc * 0.4 + Math.min(maxCombo, 20) + (allPerfect ? 50 : fullCombo ? 25 : 0)) : 0;
     const prevBest = loadBest();
@@ -2183,6 +2208,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const bestAcc = Math.max(acc, rec.prevAcc);
     setSongResult({
       acc, score, maxCombo, stars, exp: reward, coins: coinReward, total, hits, best: Math.max(score, prevBest), newBest, fullCombo, allPerfect, missedNotes,
+      // plan 25 · D1: how many times this song has been played, and the extra
+      // EXP that came from coming back to it. Shown so the reward is legible
+      // rather than an invisible number in a counter.
+      playCount, replayBonus,
       grades: { perfect: g.perfect, great: g.great, good: g.good, miss: songMissRef.current, wrong: g.wrong, mash: g.mash },
       prevStars: rec.prevStars, newStars: rec.newStars, bestAcc, goal: nextStarGoal(bestAcc), kind, dailyPaid, bossWon,
       medal: medal.now, medalNew: medal.gained, medalCoins, medalExp, runNo, coinCapped: runNo > RUN_COIN_RUNS && stars >= 1,
@@ -2205,7 +2234,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongTigaTip(next ? { ...tip, nextSong: next } : tip);
   }
 } catch (e) { setSongTigaTip(null); }
-    if (played) gainExp(reward, { quest: true });
+    if (played) gainExp(reward + replayBonus, { quest: true });
     // One chest at the end, its chance by stars (5 / 10 / 20%) — it replaced
     // the lucky-Perfect coins, the 20% mystery chest and the 15% lucky EXP.
     if (Math.random() < chestChance(stars)) {
@@ -2243,7 +2272,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       songDataRef.current = expandSong(nextSong, playAlongHandRef.current);
       songMetaRef.current = nextSong;
       setSongMeta(nextSong);
-      setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward, nextSong: tr(nextSong, lang) });
+      setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward + replayBonus, nextSong: tr(nextSong, lang) });
       clearTimeout(songLoopRetryT.current);
       songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); againViaRef.current = "concert"; startSongPlay(true); }, 1800);
     } else if (songAutoLoopRef.current) {
@@ -2251,7 +2280,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       // screen — songResult above is fully populated either way, but the result
       // screen itself never mounts here, so without this the run's own outcome
       // (score, stars, combo, EXP) went completely unseen between restarts.
-      setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward });
+      setSongLoopRecap({ acc, score, maxCombo, stars, exp: reward + replayBonus });
       clearTimeout(songLoopRetryT.current);
       songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); againViaRef.current = "loop"; startSongPlay(); }, 1800);
     } else {

@@ -1,3 +1,5 @@
+import { spellFrom, spellInterval, withOctaves, stackDegrees, stepDegrees } from "./spelling.js";
+
 /* ── tigamodel/knowledge/expansion-matrix.js ──
    The COMBINATORIAL wave that scales the KB past 10,000 real entries
    (owner directive 2026-09-18). Nothing here is filler: every generator
@@ -8,10 +10,27 @@
    systematically. ── */
 
 const SH = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-const spell = (rootIdx, steps, oct = 4) => steps.map(s => {
-  const abs = rootIdx + s;
-  return SH[((abs % 12) + 12) % 12] + (oct + Math.floor(abs / 12));
-});
+/* NOTE NAMES are letter-first (see knowledge/spelling.js). The pitch-class
+   walk this replaced got the pitch right and the LETTER wrong whenever the
+   root carried an accidental — it taught "C♯ major" as C♯ F G♯, where F
+   natural is not E♯. Only the OCTAVE still comes from the walk, because
+   register is what the walk was right about. Reference: Open Music Theory,
+   "Triads" — a chord's letters are always root, third, fifth. */
+const spell = (rootIdx, steps, oct = 4, degrees) => {
+  const root = SH[((rootIdx % 12) + 12) % 12];
+  /* Octaves come from walking the LETTERS, not from the semitone offset. The
+     offset arithmetic only worked when the octave happened to line up with the
+     letter wrap, and quietly put a chord's fifth below its third. */
+  return withOctaves(spellFrom(root, steps, degrees), oct);
+};
+/* Spell a chord from a root NAME rather than a pitch index. A diatonic chord's
+   root is a scale degree, so its letter comes from the degree; passing the
+   index instead would throw that letter away. Octaves come from walking the
+   letters (withOctaves), so G-B-D above a G root prints G4 B4 D5 — the
+   semitone-offset arithmetic only worked when the octave happened to line up
+   with the letter wrap, and printed the fifth BELOW the third. */
+const spellRoot = (rootName, steps, degrees, oct = 4) => withOctaves(spellFrom(rootName, steps, degrees), oct);
+const stripOct = (n) => String(n).replace(/\d+$/, "");
 
 /* 1. Chord inversions: every triad/7th × 12 roots × each inversion */
 export function genInversions() {
@@ -21,12 +40,22 @@ export function genInversions() {
     dom7: [0, 4, 7, 10], maj7: [0, 4, 7, 11], min7: [0, 3, 7, 10],
   };
   for (const [ct, steps] of Object.entries(TRS)) {
+    /* the chord's degrees are fixed by the type (1-3-5, or 1-3-5-7 for the
+       sevenths), so the letters never depend on guessing from a semitone count */
+    const degs = stackDegrees(steps.length);
     for (let r = 0; r < 12; r++) {
       const root = SH[r];
-      const tight = spell(r, steps);
+      const tight = spell(r, steps, 4, degs);
+      /* An inversion moves the lowest tone up an octave and re-stacks the
+         chord above it — so the DEGREES move with it (the old 3rd becomes
+         degree 1 of the new shape, i.e. degree 10 above the root). The old
+         rotation put a bare +12 in the middle and left the tail at its old
+         pitch, which printed the bass note as a step below the chord and named
+         the bass from the pitch table (SH[(r + steps[inv]) % 12]). */
       const invs = steps.map((_, inv) => {
-        const rotated = [...steps.slice(inv), 12, ...steps.slice(0, inv)];
-        return { inv, notes: spell(r, rotated), bass: SH[((r + steps[inv]) % 12 + 12) % 12] };
+        const semis = [...steps.slice(inv), ...steps.slice(0, inv).map((s) => s + 12)];
+        const invDegs = [...degs.slice(inv), ...degs.slice(0, inv).map((d) => d + 7)];
+        return { inv, notes: spell(r, semis, 4, invDegs), bass: stripOct(spell(r, [steps[inv]], 4, [degs[inv]])[0]) };
       });
       for (const { inv, notes, bass } of invs) {
         const suffix = ct === "maj" ? "" : ct;
@@ -73,10 +102,15 @@ export function genScaleFingering() {
 export function genArpeggios() {
   const out = [];
   const ARPS = { maj: [0, 4, 7, 12, 16, 19, 24], min: [0, 3, 7, 12, 15, 19, 24], dom7: [0, 4, 7, 10, 12, 16, 19, 22] };
+  /* an arpeggio is the chord's own degrees repeated an octave apart, so the
+   degrees are derived from the chord rather than guessed per note */
+  const ARP_DEGREES = { maj: [1, 3, 5], min: [1, 3, 5], dom7: [1, 3, 5, 7] };
   for (const [ct, steps] of Object.entries(ARPS)) {
+    const per = ARP_DEGREES[ct];
+    const octaves = Math.ceil(steps.length / per.length);
     for (let r = 0; r < 12; r++) {
       const root = SH[r];
-      const notes = spell(r, steps);
+      const notes = spell(r, steps, 4, steps.map((_, i) => per[i % per.length] + 7 * Math.floor(i / per.length)));
       out.push({
         id: `exp:arp:${root}-${ct}`,
         type: "fact", domain: "technique",
@@ -96,23 +130,34 @@ export function genArpeggios() {
 export function genCadences() {
   const out = [];
   const maj = [0, 2, 4, 5, 7, 9, 11];
+  /* A cadence names its chords by roman numeral, so each entry gives the scale
+     DEGREE — that is what fixes the chord's letter. The version this replaced
+     added the degree's semitone offset to the key index and named the result
+     from the pitch table, so IV of D♭ major came out as F♯, and it also passed
+     "maj" for every chord, which taught the submediant of a deceptive cadence
+     (a MINOR chord) as a major one. */
   const CADS = [
-    { id: "authentic", th: "Authentic (V→I)", from: 4, to: 0, feel: "จบเต็ม ๆ มั่นคง — ปลายประโยคใหญ่" },
-    { id: "half", th: "Half (x→V)", from: 3, to: 4, feel: "ห้อยคำถาม — กลางประโยค ยังไม่จบ" },
-    { id: "plagal", th: "Plagal (IV→I)", from: 3, to: 0, feel: 'จบนุ่ม "อาเมน" — เพลงศาสนา/โรแมนติก' },
-    { id: "deceptive", th: "Deceptive (V→vi)", from: 4, to: 5, feel: "หลอก — เดาว่าจะจบแต่หักไปที่ vi ตื่นเต้นเล็กๆ" },
+    { id: "authentic", th: "Authentic (V→I)", from: 5, to: 1, feel: "จบเต็ม ๆ มั่นคง — ปลายประโยคใหญ่" },
+    { id: "half", th: "Half (x→V)", from: 4, to: 5, feel: "ห้อยคำถาม — กลางประโยค ยังไม่จบ" },
+    { id: "plagal", th: "Plagal (IV→I)", from: 4, to: 1, feel: 'จบนุ่ม "อาเมน" — เพลงศาสนา/โรแมนติก' },
+    { id: "deceptive", th: "Deceptive (V→vi)", from: 5, to: 6, feel: "หลอก — เดาว่าจะจบแต่หักไปที่ vi ตื่นเต้นเล็กๆ" },
   ];
+  /* the diatonic triad quality on each degree of a major scale */
+  const DIATONIC_QUALITY = ["maj", "min", "min", "maj", "maj", "min", "dim"];
+  const TRIAD_STEPS = { maj: [0, 4, 7], min: [0, 3, 7], dim: [0, 3, 6] };
   for (let r = 0; r < 12; r++) {
     const root = SH[r];
     for (const c of CADS) {
-      const notes = (deg, type) => {
-        const ri = r + maj[deg];
-        const steps = type === "maj" ? [0, 4, 7] : [0, 3, 7];
-        return spell(ri, steps).join(" ");
+      /* the chord root carries the LETTER of the degree, so the whole chord is
+         spelled from that degree's note name, never from a pitch index */
+      const notes = (deg) => {
+        const chRoot = spellInterval(root, deg, maj[deg - 1], "up");
+        const q = DIATONIC_QUALITY[deg - 1];
+        const steps = TRIAD_STEPS[q];
+        return spellRoot(chRoot, steps, stackDegrees(3));
       };
-      const vIsMin = false;
-      const fromTxt = c.id === "plagal" ? notes(c.from, "maj") : notes(c.from, "maj");
-      const toTxt = notes(c.to, "maj");
+      const fromTxt = notes(c.from);
+      const toTxt = notes(c.to);
       out.push({
         id: `exp:cadence:${root}-${c.id}`,
         type: "fact", domain: "harmony",
@@ -278,7 +323,10 @@ export function genHarmonization() {
   for (let r = 0; r < 12; r++) {
     const key = SH[r];
     for (let deg = 0; deg < 7; deg++) {
-      const melRoot = SH[(r + maj[deg]) % 12];
+      /* the melody note is a scale DEGREE of the key, so its letter comes from
+         the degree — walking the pitch table here taught degree 4 of D♭ major
+         as F♯ rather than G♭ */
+      const melRoot = spellInterval(key, deg + 1, maj[deg], "up");
       const opts = [0, 3, 4].map(d => DEG_FN[d]);
       out.push({
         id: `exp:harm:${key}-${deg}`,

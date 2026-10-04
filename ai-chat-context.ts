@@ -80,3 +80,59 @@ export function homeworkContext(lang) {
   const lbl = lang === "th" ? "การบ้านที่คุณสั่งไว้คราวก่อน (ถามว่าเขาฝึกหรือยัง แล้วตรวจ/ให้ฟีดแบ็ก)" : lang === "zh" ? "你上次布置的作业（先问他练了没，然后检查/反馈）" : "Homework you assigned last time (ask if they did it, then check and give feedback)";
   return "\n\n[" + lbl + ": " + h.text + "]";
 }
+
+/* ── learnerSignal → prompt block (plan 21 §V4b) ──────────────────────────
+   The tutor already had the memory LIST ("เคยติด: a, b, c"), which is what the
+   learner struggled with before. What it never had is the DECISION the rest of
+   the app already computes and already trusts: `learnerSignal()` — the same
+   function use-autoteach and the Daily Mentor card read, from the same act log
+   and the same `tg_memory`. So the tutor could name past mistakes but could not
+   aim at the one that is hurting now.
+
+   This adds only the aim. It costs ~150 chars, against the 3,000+ that plan 21
+   §V2 saves on every message, and it adds NO model call — the signal is
+   computed locally from data the app already has.
+
+   Honest-gap rule (the same one the rest of the module follows): when the app
+   cannot say what to practise, `nextAction` is null and this returns "" rather
+   than guessing. A tutor that invents a weakness is worse than one that is
+   silent about it. When it does know, it gets the evidence too — "40% miss rate
+   over 12 attempts" — so the tutor can speak from the learner's own numbers the
+   way `getCoachContextBlock()` already lets it.
+
+   `signal` is passed in rather than read here: the act log and the label
+   function live in the app layer, and this module is imported by that layer —
+   reading them here would close a cycle. */
+export function learnerSignalContext(lang, signal) {
+  const s = signal && typeof signal === "object" ? signal : null;
+  if (!s) return "";
+  const weak = Array.isArray(s.skillScores) ? s.skillScores.filter(x => x && x.score != null) : [];
+  const parts = [];
+  const na = s.nextAction;
+  if (na && na.label) {
+    const why = na.evidence && na.evidence[0] && na.evidence[0].n
+      ? ` (${na.evidence[0].n} ครั้ง)`
+      : "";
+    parts.push((lang === "th" ? "ควรให้ความสำคัญตอนนี้: " : lang === "zh" ? "现在该关注： " : "Focus right now: ") + asPlain(na.label) + why);
+  }
+  // only skills that are genuinely weak — a strong skill is not an instruction
+  const bad = weak.filter(x => x.score != null && x.score < 55).sort((a, b) => a.score - b.score).slice(0, 2);
+  if (bad.length) {
+    parts.push((lang === "th" ? "ทักษะที่ยังไม่แน่น: " : lang === "zh" ? "还不稳的技能： " : "Still weak: ")
+      + bad.map(x => `${asPlain(x.skill)} ${x.score}%`).join(", "));
+  }
+  if (!parts.length) return "";
+  const head = lang === "th" ? "สัญญาณจากการฝึกของเขา (ใช้เล็งเฉพาะตรงนี้ ไม่ต้องย้ำเรื่องที่เขาทำได้แล้ว)"
+    : lang === "zh" ? "来自他练习的信号（只针对这里，不用重复他已经会的）"
+    : "Signals from their practice (aim here; do not repeat what they already do well)";
+  return "\n\n[" + head + ": " + parts.join(" · ") + "]";
+}
+
+/* A label may be {th,en,zh}; a prompt block is text, so pick the language and
+   never let an object reach the string (React #31 territory). */
+function asPlain(v) {
+  if (v == null) return "";
+  if (typeof v === "string") return v.slice(0, 60);
+  if (typeof v === "object") return String(v.th || v.en || v.zh || "").slice(0, 60);
+  return String(v).slice(0, 60);
+}
