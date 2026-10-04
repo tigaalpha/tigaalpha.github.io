@@ -864,7 +864,7 @@ export default function LandingPage1() {
           <div className="lp-proof" role="list">
             <div><b>10,000+</b><span>{t.proof1}</span></div>
             <div><b>AI</b><span>{t.proof2}</span></div>
-            <div><b>{lang === "th" ? "ฟรี" : lang === "zh" ? "免费" : "Free"}</b><span>{t.proof3}</span></div>
+            <div><b>{t.proofDays}</b><span>{t.proof3}</span></div>
           </div>
         )}
 

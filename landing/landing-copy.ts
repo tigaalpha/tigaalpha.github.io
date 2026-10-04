@@ -69,7 +69,13 @@ export const C = {
     nudgeLine: "ถูกใจคำตอบนี้ไหม? สมัครฟรีแล้วถามได้ไม่จำกัด พร้อมเซฟความคืบหน้าของคุณ",
     nudgeBtn: "สมัครฟรี 5 วินาที",
     nudgeDismiss: "ไว้ก่อนนะ",
-    proof1: "เพลงในแอป ให้เล่นตามได้ทั้งหมด", proof2: "ถามได้ทุกเรื่อง", proof3: "ไม่ต้องใช้บัตร",
+    proof1: "เพลงในแอป ให้เล่นตามได้ทั้งหมด", proof2: "ถามได้ทุกเรื่อง", proof3: "ทดลองฟรี ไม่ต้องใช้บัตร",
+    /* The 7-day promise belongs where it is always on screen. The sticky bar
+       only fades in after 15s and the trial line only exists inside the
+       signup card, so a visitor who reads the page top to bottom and leaves
+       never saw "7 วัน" at all. No tier is named: the checkout is what
+       decides a tier, and the cap is an internal promotion detail. */
+    proofDays: "7 วัน",
     signupTitleQ: "คำถามของคุณพร้อมแล้ว 🎹",
     signupTitle: "เปิดห้องเรียนของคุณเอง 🎹",
     signupBody: "สี่คำตอบเมื่อกี้เป็นบทเรียนสำเร็จรูป — ของจริงคือ TIGA ตอบคำถามของคุณเองได้ไม่จำกัด จำได้ว่าคุณติดตรงไหน และเลือกแบบฝึกให้ตรงจุดอ่อน สมัครฟรี ไม่ต้องใช้บัตร",
@@ -144,7 +150,8 @@ export const C = {
     nudgeLine: "Like that answer? Sign up free to ask without limit — and keep your progress.",
     nudgeBtn: "Sign up in 5 seconds",
     nudgeDismiss: "Maybe later",
-    proof1: "songs in the app, every one of them playable", proof2: "ask it anything", proof3: "no card needed",
+    proof1: "songs in the app, every one of them playable", proof2: "ask it anything", proof3: "free to try, no card needed",
+    proofDays: "7 days",
     signupTitleQ: "Your question is ready 🎹",
     signupTitle: "Open your own classroom 🎹",
     signupBody: "Those four answers are ready-made lessons. The real thing is TIGA answering your own questions, with no limit — remembering where you got stuck and picking exercises for exactly that. Free, no card needed.",
@@ -219,7 +226,8 @@ export const C = {
     nudgeLine: "喜欢这个回答？免费注册即可无限提问，并保存你的学习进度。",
     nudgeBtn: "5 秒完成注册",
     nudgeDismiss: "以后再说",
-    proof1: "首应用内曲目，全部可跟弹", proof2: "什么都能问", proof3: "无需银行卡",
+    proof1: "首应用内曲目，全部可跟弹", proof2: "什么都能问", proof3: "免费试用，无需银行卡",
+    proofDays: "7 天",
     signupTitleQ: "你的问题准备好了 🎹",
     signupTitle: "开一间属于你的教室 🎹",
     signupBody: "刚才那四个回答是现成的课程。真正厉害的是 TIGA 能无限回答你自己的问题，记住你卡在哪里，并针对你的弱项挑练习。免费注册，无需银行卡。",
