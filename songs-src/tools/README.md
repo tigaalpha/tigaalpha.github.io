@@ -37,6 +37,32 @@ node scripts/verify-originals-shelf.mjs            # drives the real bundle to t
 
 `npm run songs:originals` runs all three; `npm run songs:check` is the read-only version (also re-checks the classical side).
 
+### The jazz & blues shelf — `songs-src/originals/jazz-000.json`
+
+```
+node songs-src/tools/gen_originals_jazz.mjs --count=500     # 500 pieces (blues 246 / swing 187 / bossa 67)
+node scripts/verify-originals.mjs songs-src/originals
+node scripts/build-originals.mjs
+```
+
+A **second composer**, not a flag on the one above. The general generator writes tonal pieces — a diatonic walk, a chord tone
+on every strong beat, a half close on the dominant — which is right for its hundred thousand pieces and wrong for this music: a
+blues head lives on the b5 and the #4, a bebop line approaches its target chromatically from both sides, a shuffle eighth is
+long-short (written `0.75` then `0.25`, never `0.5` + `0.5`), and a walking bass climbs by fourths under the head. Same file
+format, same ids (`og_100501`…`og_101000`), same measured level, same verifier, same determinism rule.
+
+Three idioms, all single-line: **blues** on a 12-bar (or 8-bar) form, head alternating with walking bars; **swing** on a
+ii–V–I or a turnaround with bebop approaches; **bossa** in two-beat bars of sixteenths. Every piece declares one of the seven
+modes `verify-originals.mjs` knows, so the verifier's own 85% in-mode rule still applies — and the blue notes are what spends
+it. A piece may put at most 12% of its notes outside its mode (`BLUE_BUDGET`); the composer counts them as it writes and throws
+the draw away over budget. Measured on the shelf as shipped: **5.4%** of the blues pieces' notes and **6.4%** of the swing
+pieces' are outside the declared mode, which is a blues head with blue notes in it, not a scale with a passing one.
+
+`build-originals.mjs` reads `jazz-*.json` **before** `orig-*.json`, on purpose: the Original Content page filters only the index
+page it has loaded (500 rows), so jazz pieces written last would sit on the last of 201 pages and their family would show nothing.
+First on the shelf means the whole family is on page 0. Their `style` rides into the index row as `sty` (only on those rows, so
+the other hundred thousand rows are byte-for-byte unchanged), and `OriginalContentPage` files them under **Jazz & Blues**.
+
 **Nothing is copied.** Every note comes from a seeded pseudo-random walk constrained by ordinary tonal rules — the diatonic
 scale of the key and mode, chord tones on the strong beats, the leading tone resolving upward at the cadence, mostly stepwise
 motion, the tritone never taken as a melodic leap. No motif, phrase or bar of any existing piece is an input. What is taken

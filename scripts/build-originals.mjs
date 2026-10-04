@@ -33,8 +33,16 @@ const firstNote = (p) => { for (const bar of p.bars) for (const t of bar.split(/
 
 function load() {
   if (!fs.existsSync(SRC)) { console.error(`build-originals: ${path.relative(ROOT, SRC)} does not exist — run node songs-src/tools/gen_originals.mjs first`); process.exit(1); }
+  /* jazz-*.json first, then orig-*.json in order. The order is the shelf's order, and the
+     Original Content page filters only the rows it has loaded: it fetches ONE index page
+     (500 rows) and draws the cards from it. Jazz & blues pieces written last would sit on
+     the very last page of a 201-page shelf, so the Jazz & Blues family would show nothing
+     until a learner scrolled past a hundred thousand cards. First on the shelf means the
+     whole family is on page 0, where the filter can actually find it. */
+  const files = fs.readdirSync(SRC).filter(f => f.endsWith(".json")).sort();
+  files.sort((a, b) => (a.startsWith("jazz-") ? 0 : 1) - (b.startsWith("jazz-") ? 0 : 1) || (a < b ? -1 : 1));
   const out = [];
-  for (const f of fs.readdirSync(SRC).filter(f => f.endsWith(".json")).sort()) {
+  for (const f of files) {
     for (const p of JSON.parse(fs.readFileSync(path.join(SRC, f), "utf8"))) out.push(p);
   }
   return out;
@@ -67,6 +75,13 @@ function build() {
        Two short strings cost about four bytes a row and save opening a shard
        per piece just to learn what style it was in. */
     mode: p.mode || "", meter: p.meter || "4/4",
+    /* the idiom, for the pieces that have one. Written ONLY when the composer set it: the
+       key is absent on every ordinary piece, so the hundred thousand rows that are not
+       jazz or blues stay byte-for-byte what they were, and a jazz row carries ~10 bytes.
+       The Original Content page files these under its Jazz & Blues family, so without it
+       five hundred real blues would sit in the shelf with no way to tell them from the
+       rest except by listening to all of it. */
+    ...(p.style ? { sty: p.style } : {}),
   }));
 
   /* The index is SHARDED, and at 100,000 pieces that is the whole point.
@@ -78,12 +93,12 @@ function build() {
      looking at, exactly as they already pay only for the tune they play. */
   const indexShards = Math.ceil(index.length / PER_SHARD);
   files.set("index.json", JSON.stringify({
-    v: 2, n: pieces.length, shards, per: PER_SHARD,
+    v: 3, n: pieces.length, shards, per: PER_SHARD,
     indexShards, indexPer: PER_SHARD,
   }));
   for (let s = 0; s < indexShards; s++) {
     files.set(`index-${String(s).padStart(3, "0")}.json`, JSON.stringify({
-      v: 2, page: s, n: index.length,
+      v: 3, page: s, n: index.length,
       songs: index.slice(s * PER_SHARD, (s + 1) * PER_SHARD),
     }));
   }

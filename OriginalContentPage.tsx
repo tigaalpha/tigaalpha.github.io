@@ -49,10 +49,16 @@ const FAMILIES: Record<Axis, Family[]> = {
   style: [
     { code: "bright", icon: "☀️", match: r => r.mode === "major" || r.mode === "lydian", th: "สดใส", en: "Bright", zh: "明亮",
       blurb: "โหมด major / lydian · ฟังสบาย" },
-    { code: "moody", icon: "🌙", match: r => r.mode === "minor" || r.mode === "aeolian" || r.mode === "phrygian", th: "มืดหม่น", en: "Moody", zh: "幽暗",
+    { code: "moody", icon: "🌙", match: r => /(^| )minor$/.test(r.mode || "") || r.mode === "aeolian" || r.mode === "phrygian", th: "มืดหม่น", en: "Moody", zh: "幽暗",
       blurb: "โหมด minor / aeolian / phrygian · เศร้า ๆ" },
     { code: "modal", icon: "🎭", match: r => r.mode === "dorian" || r.mode === "mixolydian" || r.mode === "locrian", th: "โหมดพิเศษ", en: "Modal", zh: "调式",
       blurb: "dorian / mixolydian / locrian · สีพิเศษ" },
+    /* The jazz & blues shelf. It is filed by the IDIOM the composer wrote it in, not by
+       the mode: a blues head in D mixolydian is the same piece as one in G mixolydian, and
+       both are a blues — which is why this family cannot be read off the mode the way the
+       three above it are. `sty` is only present on a piece that has one. */
+    { code: "jazzblues", icon: "🎷", match: r => !!r.sty, th: "แจ๊ส & บลูส", en: "Jazz & Blues", zh: "爵士与蓝调",
+      blurb: "บลูส 12 ห้อง · ซวิง · บอสซ่านโนวา · เสียงชูตและโน้ตบลูส" },
   ],
   tempo: [
     { code: "slow", icon: "🐢", match: r => r.bpm < 70, th: "ช้า", en: "Slow", zh: "慢速",
@@ -158,7 +164,7 @@ export default function OriginalContentPage({ lang, onBack, onPlay, level = 1, e
     const loading = busy === s.id;
     return (
       <button key={s.id} className="songcard" style={{ "--sc": `hsl(${hue},70%,56%)` } as any} onClick={() => play(s)}>
-        <div className="songcard-ic">{loading ? "⏳" : "✨"}</div>
+        <div className="songcard-ic">{loading ? "⏳" : s.sty ? "🎷" : "✨"}</div>
         <div className="songcard-body">
           <div className="songcard-nm">{s[lang] || s.en}</div>
           <div className="songcard-meta">

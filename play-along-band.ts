@@ -58,6 +58,14 @@ export const BAND_STYLES = {
   carol:         { drums: "none",    lead: "organ",       pad: "organ"     },
   gospel:        { drums: "soft",    lead: "organ",       pad: "strings"   },
   jazz:          { drums: "ride",    lead: "pluck",       pad: "comping"   },
+  /* the jazz & blues originals carry their idiom in the index row's `sty` and no genre
+     of their own (they are not in SONG_GENRES — they are not even in the bundle), so
+     without these three keys a blues would ride the default rock kit: a snare backbeat
+     under a shuffle. blues/swing/bossa book the ride cymbal and the comping pad, which
+     is what the pieces themselves are written for. */
+  blues:         { drums: "ride",    lead: "pluck",       pad: "comping"   },
+  swing:         { drums: "ride",    lead: "pluck",       pad: "comping"   },
+  bossa:         { drums: "clap",    lead: "epiano",      pad: "comping"   },
   soul:          { drums: "soft",    lead: "epiano",      pad: "strings"   },
   neosoul:       { drums: "soft",    lead: "epiano",      pad: "pad"       },
 };

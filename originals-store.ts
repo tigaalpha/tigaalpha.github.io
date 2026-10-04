@@ -29,11 +29,17 @@ export type OriginalMeta = {
   k: number;    // which shard holds the tune
   mode?: string;   // the family a piece is filed under on the Original Content page
   meter?: string;
+  sty?: string;    // the idiom, when the composer set one: "blues" | "swing" | "bossa".
+                   // Absent on the ordinary pieces, so "is this jazz?" is one truthy check
+                   // and not a guess from the key or the tempo.
 };
 export type OriginalSong = {
   id: string; diff: number; bpm: number; th: string; en: string; zh: string;
   seq: Array<[string, number]>;
   key: string; mode: string; meter: string;
+  sty?: string;    // the idiom, for the jazz & blues pieces — the backing band books its
+                   // kit from this (play-along-band.ts BAND_STYLES), because a piece with
+                   // no genre of its own would otherwise get the default rock backbeat
   original: true;
 };
 
@@ -143,7 +149,7 @@ function loadShard(k: number): Promise<Map<string, any>> {
  * The playable song for one shelf row, with its notes. Resolves to null when the shard cannot
  * be read, so the caller can say so instead of opening an empty song.
  */
-export async function loadOriginalSong(meta: { id: string; k: number; diff: number; bpm: number; th: string; en: string; zh: string }): Promise<OriginalSong | null> {
+export async function loadOriginalSong(meta: { id: string; k: number; diff: number; bpm: number; th: string; en: string; zh: string; sty?: string }): Promise<OriginalSong | null> {
   const shard = await loadShard(meta.k);
   const raw = shard.get(meta.id);
   if (!raw || typeof raw.seq !== "string") return null;
@@ -152,6 +158,7 @@ export async function loadOriginalSong(meta: { id: string; k: number; diff: numb
     th: meta.th, en: meta.en, zh: meta.zh,
     seq: pairs(raw.seq),
     key: raw.key || "", mode: raw.mode || "", meter: raw.meter || "4/4",
+    ...(meta.sty ? { sty: meta.sty } : {}),
     original: true,
   };
 }

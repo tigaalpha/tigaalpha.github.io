@@ -270,6 +270,20 @@ songs: 1,377 from a real score (1,185 classical pieces plus the 192 originals in
 copy in the same release (`eras-1000` in the bot suite fails below it). The number lives in TWO places and they must agree: the `<b>`
 above `proof1` in `landing/LandingPage1.tsx` carries the digits, `proof1` itself only carries the words.
 
+**Jazz & blues on the same shelf (2026-10-04).** 500 pieces written by a SECOND composer,
+`songs-src/tools/gen_originals_jazz.mjs` (`npm run songs:jazz`), because the rules the general generator follows — a diatonic
+walk, a chord tone on every strong beat — are the wrong rules for this music. `songs-src/originals/jazz-000.json`, ids
+`og_100501`…`og_101000`, three idioms: **blues** on a 12-bar form (head alternating with walking-bass bars), **swing** on a
+ii–V–I with bebop approaches, **bossa** in two-beat bars. Shuffle eighths are written long-short (`0.75` + `0.25`), never
+`0.5` + `0.5`. Blue notes (b5, #4) are outside the declared mode, and `verify-originals.mjs` still demands 85% in mode, so a
+piece may spend at most `BLUE_BUDGET` = 12% of its notes outside it and the composer counts them as it writes — measured on the
+shelf as shipped, 5.4% (blues) and 6.4% (swing) of notes are outside the mode. Two things make them findable: `build-originals.mjs`
+reads `jazz-*.json` FIRST (the page filters only the index page it loaded — 500 rows — so pieces written last would sit on page
+201 of 201 and their family would show nothing), and their `style` rides into the index row as `sty`, which `OriginalContentPage`
+files under **Jazz & Blues**; the card mark is 🎷 there and ✨ elsewhere. `sty` is written only on those rows, so the other
+hundred thousand index rows stay byte-for-byte identical. `gen_originals.mjs` now deletes only `orig-*.json` when it rewrites —
+it used to delete every json in the folder, which would have quietly destroyed the jazz shelf on the next `npm run songs:originals`.
+
 **Ten thousand more, written by us (owner, 2026-10-04).** The public-domain ceiling was measured, not guessed — 1,185 pieces plus
 roughly 1,000–1,500 more reachable from Mutopia, so about 2,200–2,700 — so ten thousand playable pieces is out of reach by
 harvesting scores at all. It is reachable by **composing**, and a piece we wrote carries no third-party licence question.

@@ -436,7 +436,11 @@ async function main() {
   }
 
   fs.mkdirSync(OUT, { recursive: true });
-  for (const f of fs.readdirSync(OUT).filter(f => f.endsWith(".json"))) fs.unlinkSync(path.join(OUT, f));
+  /* only this generator's own files are removed. It used to delete every .json in the
+     folder, which quietly destroyed songs-src/originals/jazz-000.json (the jazz & blues
+     shelf, written by gen_originals_jazz.mjs) the next time anyone ran `npm run
+     songs:originals` — a different generator's work is not this one's to delete. */
+  for (const f of fs.readdirSync(OUT).filter(f => /^orig-\d+\.json$/.test(f))) fs.unlinkSync(path.join(OUT, f));
   for (let i = 0; i < pieces.length; i += PER_FILE) {
     const part = pieces.slice(i, i + PER_FILE);
     fs.writeFileSync(path.join(OUT, `orig-${String(i / PER_FILE).padStart(3, "0")}.json`), JSON.stringify(part));

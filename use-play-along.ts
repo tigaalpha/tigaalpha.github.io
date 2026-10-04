@@ -865,7 +865,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       bars: songChordBars(meta, pickupRef.current, { split: true, primary: true }),
       beatsPerBar: beatsPerBarOf(meta), pickup: pickupRef.current, spb, lead: SONG_LEAD,
       endBeat: (data.dur || 0) / spb, hand: playAlongHandRef.current, level: songAccompRef.current === "track" ? songBandRef.current : 0,
-      bpm: meta.bpm, style: SONG_GENRES[meta.id] || "", mel: melodyForBand(meta),
+      bpm: meta.bpm, style: SONG_GENRES[meta.id] || meta.sty || "", mel: melodyForBand(meta),
     });
   }
   // ring: the song ended by itself, so its last chord fades out instead of being cut
