@@ -954,6 +954,10 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 /* conversion funnel (owner-approved 2026-09-19): urgent trial banner, closing-popup item list, practice-result keep-going pill */
 .trial-banner.urgent{background:linear-gradient(90deg,#b45309,#d97757)}
 .convpop-items{background:var(--card2);border:1px solid var(--bd2);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13px;line-height:1.9;white-space:pre-wrap}
+/* Day-7 consequence line ("if you don't pay you are left on Free"). Warm-tinted
+   and bold so it reads as the cost of doing nothing, not as another perk — the
+   perk list directly below it is the neutral card it refers to. */
+.convpop-loss{background:linear-gradient(135deg,#d9775722,#8b5cf618);border:1px solid #d9775766;border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13.5px;line-height:1.7;font-weight:600;color:var(--text);white-space:pre-wrap}
 .presultkeep{width:100%;margin-top:10px;padding:11px 12px;border:1px solid #d9775755;background:linear-gradient(135deg,#d9775722,#8b5cf622);border-radius:12px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer}
 /* game-feature education (owner plan 2026-09-19) */
 @keyframes chestpulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 #d9775766}50%{transform:scale(1.04);box-shadow:0 0 0 8px #d9775700}}

@@ -14560,6 +14560,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <button className="atpopup-x" onClick={dismissConvPopup} aria-label="close">×</button>
               </div>
               <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
+              {/* The consequence, in its own line. `loss` is deliberately not
+                  part of `body`: personalizedBody() replaces `body` wholesale
+                  whenever the learner has proof data, so a warning folded into
+                  the body would vanish for exactly the day-7 members who
+                  practised — i.e. the ones with the most to lose. */}
+              {convPopup.kind === "closing" && c.loss && <div className="convpop-loss">{c.loss}</div>}
               {convPopup.kind === "closing" && <div className="convpop-items">{c.items}</div>}
               {/* Primary action per phase: closing → direct checkout for the
                   tier this member is actually on (3A); every other kind is a
