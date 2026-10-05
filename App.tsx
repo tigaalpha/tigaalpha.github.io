@@ -58,7 +58,7 @@ import { setAccessToken, streamChatCompletion, fetchChatCompletion } from "./ai-
 import { jevTask, jevChoice, jevScore, jevNoul } from "./jev";
 import { withAiCache } from "./ai-cache";
 import {
-  isPremium, setPremiumLS, getPlan, setPlanLS, isMaxPlan,
+  isPremium, setPremiumLS, getPlan, setPlanLS, isMaxPlan, canonicalPlan,
   PLAN_PRICE, CURRENCY_BY_LANG, PLAN_LABEL,
   yearPrice, planPriceByCur, yearPriceByCur, fmtPrice,
   b2bPriceByCur, b2bYearPriceByCur,
@@ -2753,10 +2753,10 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
         ))}
       </div>
 
-      {/* ── Max Exclusive section ── */}
+      {/* ── Premium Exclusive section ── */}
       <div className="studio-max-hdr">
-        <span className="studio-max-badge">👑 MAX</span>
-        <span>{T("ฟีเจอร์พิเศษเฉพาะ Max", "Max Exclusive Features", "Max 专属功能")}</span>
+        <span className="studio-max-badge">⭐ PREMIUM</span>
+        <span>{T("ฟีเจอร์พิเศษสำหรับ Premium", "Premium Exclusive Features", "Premium 专属功能")}</span>
         {!isMax && <button className="studio-max-unlock" onClick={() => { playUi("click"); onUpsell && onUpsell(); }}>
           {T("อัปเกรด →", "Upgrade →", "升级 →")}
         </button>}
@@ -7340,7 +7340,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         <div className="expwrap">
           <div className="exprow">
             <span><span className="expnum">{exp.toLocaleString()}</span> EXP</span>
-            <span>{info.isMax ? "MAX" : `${info.nextMin.toLocaleString()} EXP`}</span>
+            <span>{info.isMax ? "PREMIUM" : `${info.nextMin.toLocaleString()} EXP`}</span>
           </div>
           <div className="expbar">
             <div className="expfill" style={{ width: `${Math.round(info.progress * 100)}%` }} />
@@ -8274,7 +8274,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
                 </div>
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <button className="songbtn go" onClick={onUpsell}>
-                    🔓 {T("ปลดล็อกด้วย Max", "Unlock with Max", "升级Max解锁")}
+                    🔓 {T("ปลดล็อกด้วย Premium", "Unlock with Premium", "升级Premium解锁")}
                   </button>
                 </div>
               </div>
@@ -8437,7 +8437,7 @@ function AdminStudents({ lang, viewerTier }) {
   const [err, setErr] = useState("");
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState("");
-  const [mgPlan, setMgPlan] = useState("max");
+  const [mgPlan, setMgPlan] = useState("premium");
   const [mgDays, setMgDays] = useState(30);
   const [mgBusy, setMgBusy] = useState(false);
   const [appointTier, setAppointTier] = useState(0);
@@ -8536,7 +8536,7 @@ function AdminStudents({ lang, viewerTier }) {
           <div>
             <div className="admstu-nm">{sel.full_name || "—"} {sel.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(sel.admin_tier)} ADMIN</span>}{sel.banned && <span className="adminpay-badge rejected">BANNED</span>}</div>
             <div className="admstu-em">{sel.email || "—"}</div>
-            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {isMaxPlan(livePlan(sel)) ? "👑 MAX" : (livePlan(sel) || "free").toUpperCase()} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
+            <div className="admstu-lv">{li.tier && li.tier.icon} {T("ระดับ", "Level", "等级")} {li.level} · {(livePlan(sel) || "free").toUpperCase()} · {T("ใช้ล่าสุด", "Last active", "最近活跃")}: {sel.last_active || "—"}</div>
           </div>
         </div>
         {jevFb && (() => {
@@ -8560,13 +8560,11 @@ function AdminStudents({ lang, viewerTier }) {
           <div className="admmg">
             <div className="admmg-h">⚙️ {T("จัดการผู้ใช้", "Manage user", "用户管理")}</div>
             {tier >= 3 && (<>
-              <div className="admmg-cur">{T("แพลนปัจจุบัน", "Current plan", "当前套餐")}: <b>{isMaxPlan(livePlan(sel)) ? "MAX" : (livePlan(sel) || "free").toUpperCase()}</b>{sel.plan_until && sel.plan_until > new Date().toISOString() ? " · " + T("ถึง", "until", "至") + " " + String(sel.plan_until).slice(0, 10) : sel.created_at && trialDaysLeft({ created_at: sel.created_at, founding_member: sel.founding_member }) > 0 ? " · " + T("ทดลองเหลือ", "trial left", "试用剩余") + " " + trialDaysLeft({ created_at: sel.created_at, founding_member: sel.founding_member }) + " " + T("วัน", "days", "天") : ""}</div>
+              <div className="admmg-cur">{T("แพลนปัจจุบัน", "Current plan", "当前套餐")}: <b>{(livePlan(sel) || "free").toUpperCase()}</b>{sel.plan_until && sel.plan_until > new Date().toISOString() ? " · " + T("ถึง", "until", "至") + " " + String(sel.plan_until).slice(0, 10) : sel.created_at && trialDaysLeft({ created_at: sel.created_at, founding_member: sel.founding_member }) > 0 ? " · " + T("ทดลองเหลือ", "trial left", "试用剩余") + " " + trialDaysLeft({ created_at: sel.created_at, founding_member: sel.founding_member }) + " " + T("วัน", "days", "天") : ""}</div>
               <div className="admmg-row">
                 <select className="admmg-sel" value={mgPlan} onChange={e => setMgPlan(e.target.value)}>
                   <option value="premium">⭐ Premium</option>
-                  <option value="family">👨‍👩‍👧 Family</option>
-                  <option value="max">👑 Max</option>
-                  <option value="maxfamily">👑 Max Family</option>
+                  <option value="free">🎁 Free</option>
                 </select>
                 <input className="admmg-days" type="number" min="1" value={mgDays} onChange={e => setMgDays(e.target.value)} />
                 <span className="admmg-d">{T("วัน", "days", "天")}</span>
@@ -8657,7 +8655,7 @@ function AdminStudents({ lang, viewerTier }) {
             <button key={r.id} className="admstu-row" onClick={() => openUser(r)}>
               <div className="admstu-av sm">{(r.full_name || r.email || "?").trim().charAt(0).toUpperCase()}</div>
               <div className="admstu-row-body">
-                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(r.admin_tier)}</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{isMaxPlan(livePlan(r)) && <span className="adminpay-badge approved">MAX</span>}{!isMaxPlan(livePlan(r)) && livePlan(r) !== "free" && <span className="adminpay-badge approved">{livePlan(r).toUpperCase()}</span>}</div>
+                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(r.admin_tier)}</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{isMaxPlan(livePlan(r)) && <span className="adminpay-badge approved">PRO</span>}{!isMaxPlan(livePlan(r)) && livePlan(r) !== "free" && <span className="adminpay-badge approved">{livePlan(r).toUpperCase()}</span>}</div>
                 <div className="admstu-row-meta">Lv {li.level} · {(r.exp || 0).toLocaleString()} EXP · {r.lessons_done || 0} {T("บท", "lessons", "课")} · {(r.streak || 0)}🔥{sum.games ? " · " + sum.games + " " + T("เกม", "games", "游戏") : ""}</div>
                 <div className="admstu-row-sub">{r.email}{r.last_active ? " · " + r.last_active : ""}</div>
               </div>
@@ -9696,9 +9694,9 @@ function AdminAutoTeach({ lang }) {
       <div className="admmg">
         <div className="admmg-h">⏱️ {T("ความถี่ Auto Teaching (ค่าเริ่มต้นทั้งระบบ)", "Auto Teaching frequency (platform default)", "自动教学频率（系统默认）")}</div>
         <div className="admstu-row-sub" style={{ marginBottom: 10 }}>
-          {T("ทุกกี่นาทีจะมี pop up จากครู AI แนะนำจุดอ่อน ระหว่างที่ผู้เรียน Max ใช้งานแอปอยู่ (ทุกหน้า ยกเว้นหน้าแอดมิน/โรงเรียน) ผู้เรียนสามารถตั้งค่าของตัวเองทับค่านี้ได้",
-            "How often the AI coach pops up with a real-time tip while a Max learner is anywhere in the app (every page except admin/school dashboards). Learners can override this with their own pick.",
-            "Max 学员在应用内任意页面时（管理员/学校后台除外），AI 教练多久弹出一次实时建议。学员可以设置自己的偏好覆盖此默认值。")}
+          {T("ทุกกี่นาทีจะมี pop up จากครู AI แนะนำจุดอ่อน ระหว่างที่ผู้เรียน Premium ใช้งานแอปอยู่ (ทุกหน้า ยกเว้นหน้าแอดมิน/โรงเรียน) ผู้เรียนสามารถตั้งค่าของตัวเองทับค่านี้ได้",
+            "How often the AI coach pops up with a real-time tip while a Premium learner is anywhere in the app (every page except admin/school dashboards). Learners can override this with their own pick.",
+            "Premium 学员在应用内任意页面时（管理员/学校后台除外），AI 教练多久弹出一次实时建议。学员可以设置自己的偏好覆盖此默认值。")}
         </div>
         <div className="setlangs">
           <button className={`setlangbtn${min === 0 ? " on" : ""}`} disabled={busy} onClick={() => save(0)}>{T("ปิด", "Off", "关闭")}</button>
@@ -9739,9 +9737,9 @@ function AdminWeeklyReport({ lang }) {
       <div className="admmg">
         <div className="admmg-h">📊 {T("Push รายงานประจำสัปดาห์ (ทุกวันจันทร์)", "Weekly report push (every Monday)", "每周报告推送（每周一）")}</div>
         <div className="admstu-row-sub" style={{ marginBottom: 10, whiteSpace: "normal" }}>
-          {T("ส่ง push แจ้งผู้เรียน Max ที่ยังใช้งานอยู่ทุกคนว่ารายงาน Daily Mentor ของสัปดาห์นี้พร้อมแล้ว แตะแล้วเข้าหน้ารายงานจริงทันที (ไม่ใช่ AI เขียนข้อความส่ง เป็นเทมเพลตพร้อมสตรีคจริงของแต่ละคน) ผู้เรียนที่ไม่ใช่ Max จะไม่ได้รับ",
-            "Pushes every active Max learner a reminder that this week's Daily Mentor report is ready, deep-linking straight into the real page (a template with each learner's real streak — not an AI-written message). Free/lapsed learners are never sent this.",
-            "向所有仍在有效期内的 Max 学员推送提醒，告知本周 Daily Mentor 报告已生成，点击直达真实报告页面（使用模板+每位学员的真实连续天数，非AI生成文字）。非Max学员不会收到。")}
+          {T("ส่ง push แจ้งผู้เรียน Premium ที่ยังใช้งานอยู่ทุกคนว่ารายงาน Daily Mentor ของสัปดาห์นี้พร้อมแล้ว แตะแล้วเข้าหน้ารายงานจริงทันที (ไม่ใช่ AI เขียนข้อความส่ง เป็นเทมเพลตพร้อมสตรีคจริงของแต่ละคน) ผู้เรียนที่ไม่ใช่ Premium จะไม่ได้รับ",
+            "Pushes every active Premium learner a reminder that this week's Daily Mentor report is ready, deep-linking straight into the real page (a template with each learner's real streak — not an AI-written message). Free/lapsed learners are never sent this.",
+            "向所有仍在有效期内的 Premium 学员推送提醒，告知本周 Daily Mentor 报告已生成，点击直达真实报告页面（使用模板+每位学员的真实连续天数，非AI生成文字）。非Premium学员不会收到。")}
         </div>
         <div className="setlangs">
           <button className={`setlangbtn${enabled === false ? " on" : ""}`} disabled={busy} onClick={() => save(false)}>{T("ปิด", "Off", "关闭")}</button>
@@ -10995,10 +10993,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   /* v3 post-purchase activation (owner plan §5): exactly once per account,
      the first render where the plan is a PAID one — teacher speaks within
      60s of payment (this effect runs the moment activatePremium/checkout
-     flips the plan). Guards admins (maxfamily) like the funnel does. */
+     flips the plan). Admins are guarded by is_admin below, which is what the
+     old `plan === "maxfamily"` comparison was really testing — effectivePlan
+     used to hand admins that string, and hands them "premium" now, so the
+     string compare would have started letting admins see a purchase popup. */
   const [activatePopup, setActivatePopup] = useState(false);
   useEffect(() => {
-    if (isTrialPlan(plan) || plan === "free" || plan === "maxfamily") return;
+    if (isTrialPlan(plan) || canonicalPlan(plan) === "free") return;
+    if (profile && profile.is_admin) return;
     if (firstPaidActivation(plan)) { setActivatePopup(true); logConvEvent("activation", "shown"); }
   }, [plan]);
   /* v3 win-moment proof popup (owner plan §3): fires after a practice session

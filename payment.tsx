@@ -100,42 +100,60 @@ export function PayQrImg({ src, alt, lang }) {
 /* ── premium / freemium + daily free-tier usage limits ── */
 export function isPremium() { try { return localStorage.getItem("tg_premium") === "1"; } catch (e) { return false; } }
 export function setPremiumLS(v) { try { localStorage.setItem("tg_premium", v ? "1" : "0"); } catch (e) {} }
-/* Subscription tier — switchable any time: "free" | "premium" | "family" | "max". */
-/* A TRIAL is a fourth and fifth value, not a flag on "free": "trial" is the
-   ordinary seven-day Premium trial, and TRIAL_MAX is the promotion cohort's
-   seven-day MAX trial (the first PROMO_MAX_USERS signups ever). They are
-   deliberately separate strings so no single boolean can accidentally widen
-   the promotion — anything that must apply to both uses isTrialPlan(). */
-export const TRIAL_MAX = "trialmax";
+/* Subscription tier — switchable any time: "free" | "premium".
+   A TRIAL is a third value, not a flag on "free": "trial" is the seven-day
+   Premium trial. TRIAL_MAX survives only as the string the promotion cohort's
+   old rows still carry in profiles.plan — it is not a tier anybody can buy. */
+/* Legacy plan strings still sitting in profiles.plan from before the two-plan
+   simplification (owner, 2026-10-04: "แค่สองแพ็กเกจ ฟรี กับ พรีเมียม").
+   Nobody buys them any more and nothing in the UI offers them, but the rows
+   are real and paid-for, so every read goes through canonicalPlan() first.
+   Which is the whole trick: the database is left exactly as it is (no
+   migration, no chance of stranding somebody's subscription), and the app
+   simply treats those four strings as the Premium they now are. */
+export const LEGACY_PLANS = ["family", "max", "maxfamily", "trialmax"];
+/* The old promotion trial's string. It is NOT a plan anymore — canonicalPlan
+   folds it into Premium like the others — but isTrialPlan() below still has to
+   recognise it, because it means "these seven trial days are still running"
+   and that question is asked separately from "what can they use". Folding it
+   first (as this function used to) answered the wrong one: a founding member
+   mid-trial would have been told their trial was over. */
+const TRIAL_MAX_LEGACY = "trialmax";
+export function canonicalPlan(p) {
+  const v = p || getPlan();
+  return LEGACY_PLANS.indexOf(v) >= 0 ? "premium" : v;
+}
+export function isPremiumPlan(p) {
+  const v = canonicalPlan(p);
+  return v === "premium" || v === "trial";
+}
 export function getPlan() { try { return localStorage.getItem("tg_plan") || (isPremium() ? "premium" : "free"); } catch (e) { return "free"; } }
-export function setPlanLS(p) { try { localStorage.setItem("tg_plan", p); localStorage.setItem("tg_premium", p === "free" ? "0" : "1"); } catch (e) {} }
-/* Voice Mode (AI voice teacher) is a Max / Max Family exclusive — and so is
-   the PROMOTION trial, the first PROMO_MAX_USERS signups ever, who get seven
-   days of the FULL Max plan. Everyone after the cap gets the same seven days
-   at Premium (see effectivePlan, which is what decides which trial a profile
-   is in).
+export function setPlanLS(p) { try { const c = canonicalPlan(p); localStorage.setItem("tg_plan", c); localStorage.setItem("tg_premium", c === "free" ? "0" : "1"); } catch (e) {} }
+/* Everything Max and Max Family used to gate is now in Premium, so "does this
+   profile get the full feature set?" is true for every paid tier INCLUDING the
+   trial — there is no longer a second, richer tier to keep separate.
 
-   This is the single switch every Max-only surface reads (App.tsx voice mode
-   + monthly freezes, play-along-progress.ts maxOnly song locks,
-   ProfileDashboardPanel), so accepting TRIAL_MAX here unlocks all of them at
-   once and there is no second place to keep in sync.
-
-   It accepts TRIAL_MAX and NOT plain TRIAL — that distinction is the whole
-   point of the promotion, and collapsing them would hand Max to every
-   signup forever. Anything that asks "are they still inside their trial?"
-   must use isTrialPlan(), which is true for BOTH; anything that asks "do they
-   get Max features?" must use this. */
-export function isMaxPlan(p) { const v = p || getPlan(); return v === "max" || v === "maxfamily" || v === TRIAL_MAX; }
+   The name and the shape are kept on purpose: this is the one switch twenty
+   call sites across the app read (App.tsx voice mode + monthly freezes,
+   play-along-progress.ts maxOnly song locks, ProfileDashboardPanel), and
+   renaming it would mean touching all of them for no behavioural gain. What
+   changed is what it answers, not how it is spelled. */
+export function isMaxPlan(p) { return isPremiumPlan(p); }
 /* The published price list. These three tables are duplicated in the
    supabase/functions/stripe-checkout edge function, which is what actually
    charges the card — CHANGE BOTH TOGETHER. A sale is refused outright if they
    disagree (see `expect` in openStripe below), so a one-sided edit shows up as
    a failed checkout rather than as a customer billed the wrong amount. */
-export const PLAN_PRICE     = { premium: 1490,  family: 2900,  max: 3999,   maxfamily: 9999  }; // THB
-export const PLAN_PRICE_USD = { premium: 44.99, family: 89.99, max: 119.99, maxfamily: 149.99 }; // USD
-export const PLAN_PRICE_CNY = { premium: 328,   family: 648,   max: 888,    maxfamily: 1088  }; // CNY
+export const PLAN_PRICE     = { premium: 1490,  family: 1490,  max: 1490,   maxfamily: 1490  }; // THB
+export const PLAN_PRICE_USD = { premium: 44.99, family: 44.99, max: 44.99,  maxfamily: 44.99 }; // USD
+export const PLAN_PRICE_CNY = { premium: 328,   family: 328,   max: 328,    maxfamily: 328   }; // CNY
 export const CURRENCY_BY_LANG: Record<string,string> = { th: "thb", en: "usd", zh: "cny" };
-export const PLAN_LABEL = { premium: "⭐ Premium", family: "👨‍👩‍👧 Family", max: "👑 Max", maxfamily: "👑👨‍👩‍👧 Max Family" };
+export const PLAN_LABEL = { premium: "⭐ Premium", family: "⭐ Premium", max: "⭐ Premium", maxfamily: "⭐ Premium" };
+/* Only these two are sellable. Kept as an explicit list rather than inferred
+   from the price keys, because the price keys still carry the legacy ids (an
+   existing subscriber's renewal has to find its price) while the CHECKOUT
+   must refuse to open a session for a tier that is no longer on sale. */
+export const BUYABLE_PLANS = ["free", "premium"];
 // yearly = 12 months − 3% off
 export function yearPrice(p: string) { return Math.round((PLAN_PRICE[p] || 0) * 12 * 0.97); }
 export function planPriceByCur(cur: string, p: string): number {
@@ -157,7 +175,7 @@ export function fmtPrice(cur: string, amount: number): string {
 // tier keeps B2B correctly pegged automatically instead of needing a manual re-sync.
 // Math.ceil (never round-to-nearest) is what guarantees the ≥15% floor survives rounding.
 export const B2B_MULT = 1.15;
-export function b2bBaseTier(tier: string) { return tier === "plus" ? "max" : "premium"; }
+export function b2bBaseTier(_tier: string) { return "premium"; }
 export function b2bPriceByCur(cur: string, tier: string): number {
   const n = planPriceByCur(cur, b2bBaseTier(tier)) * B2B_MULT;
   return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
@@ -166,7 +184,7 @@ export function b2bYearPriceByCur(cur: string, tier: string): number {
   const n = yearPriceByCur(cur, b2bBaseTier(tier)) * B2B_MULT;
   return cur === "usd" ? Math.ceil(n) - 0.01 : Math.ceil(n / 10) * 10;
 }
-export const YEAR_PLANS = ["premium", "max", "maxfamily"];   // tiers that offer a yearly option
+export const YEAR_PLANS = ["premium"];   // tiers that offer a yearly option
 /* How long a free trial runs — SEVEN days for everyone. Seven is the LENGTH;
    what the seven days are WORTH is the promotion (see below).
 
@@ -198,26 +216,35 @@ export const TRIAL_DAYS_STANDARD = 7;   // everyone after the cap — same lengt
    the database has already stopped marking as promotion members. The trigger
    is the one that decides; this constant is what the app and the docs read. */
 export const PROMO_MAX_USERS = 10000;
-export function trialLenDays(p) { return p && p.founding_member ? TRIAL_DAYS_FOUNDING : TRIAL_DAYS_STANDARD; }
+export function trialLenDays(_p) { return TRIAL_DAYS_STANDARD; }
 /* Inside a trial of EITHER tier. This is what every "is the countdown still
    running / should the trial funnel fire" question must ask — the old code
    wrote `plan === "trial"` inline in a dozen places, which would have silently
    skipped the promotion cohort the moment it became its own plan string. */
-export function isTrialPlan(p) { return p === "trial" || p === TRIAL_MAX; }
+export function isTrialPlan(p) { const v = p || getPlan(); return v === "trial" || v === TRIAL_MAX_LEGACY; }
 // the live, authoritative plan for a profile row (admins = full; paid only while not expired)
 export function effectivePlan(p) {
   if (!p) return "free";
-  if (p.is_admin) return "maxfamily";
-  if (p.plan && p.plan !== "free" && p.plan_until && new Date(p.plan_until).getTime() > Date.now()) return p.plan;
+  /* Admins were maxfamily, which no longer exists as a tier — they are simply
+     Premium now, and every paid feature is in Premium, so this is not a
+     downgrade of anything they could reach before. */
+  if (p.is_admin) return "premium";
+  /* canonicalPlan() is what folds a paid "max"/"maxfamily"/"family" row into
+     "premium" here: the subscription is real and unexpired, so the member
+     keeps every feature it had — and is billed the Premium price from their
+     next renewal (owner decision, 2026-10-04). */
+  if (p.plan && p.plan !== "free" && p.plan_until && new Date(p.plan_until).getTime() > Date.now()) return canonicalPlan(p.plan);
   if (p.created_at && (Date.now() - new Date(p.created_at).getTime()) < trialLenDays(p) * 24 * 60 * 60 * 1000) return promoTrialPlan(p);
   return "free";
 }
-/* Which of the two trials this profile is in. Kept separate from effectivePlan
-   because it is the ONLY place the Max/Premium split is decided — every Max
-   gate in the app reaches it through isMaxPlan(TRIAL_MAX) downstream, so
-   there is exactly one line to change if the promotion is ever switched off
-   or its cap moved. */
-export function promoTrialPlan(p) { return p && p.founding_member ? TRIAL_MAX : "trial"; }
+/* Which trial this profile is in. There is now only one answer: "trial".
+   The founding_member branch used to hand the first PROMO_MAX_USERS signups a
+   Max trial and everyone else a Premium one; with one paid tier that split no
+   longer means anything, and leaving it in would hand the oldest accounts a
+   plan string the rest of the app had to keep understanding forever. The
+   founding_member column and PROMO_MAX_USERS stay — the trigger still sets
+   it, and it is history worth keeping — but the app no longer branches on it. */
+export function promoTrialPlan(_p) { return "trial"; }
 // days remaining in the trial (1–trialLenDays), or -1 if not in trial / expired
 export function trialDaysLeft(p) {
   if (!p || !p.created_at) return -1;
@@ -226,19 +253,13 @@ export function trialDaysLeft(p) {
   return left > 0 ? Math.ceil(left) : -1;
 }
 
-// short header badge per tier
+// short header badge per tier — two tiers plus the trial, and the legacy
+// strings fold into Premium before this ever sees them (canonicalPlan).
 export function planBadge(p) {
-  return p === "maxfamily" ? { t: "👑 MAX FAMILY", c: "maxfam" }
-    : p === "max" ? { t: "👑 MAX", c: "max" }
-    : p === "family" ? { t: "👨‍👩‍👧 FAMILY", c: "fam" }
-    : p === "premium" ? { t: "⭐ PRO", c: "" }
-    // The promotion cohort gets a badge that names BOTH facts — they are on a
-    // trial AND it is Max. Showing plain "🎁 TRIAL" to the first 10,000 signups
-    // would hide the thing being advertised; showing "👑 MAX" alone would stop
-    // them knowing the trial has an end date.
-    : p === TRIAL_MAX ? { t: "🎁 MAX TRIAL", c: "trial" }
-    : p === "trial" ? { t: "🎁 TRIAL", c: "trial" }
-    : null;
+  const v = canonicalPlan(p);
+  if (v === "trial") return { t: "🎁 TRIAL", c: "trial" };
+  if (v === "premium") return { t: "⭐ PRO", c: "" };
+  return null;
 }
 
 /* ── Checkout modal — multi-gateway: Stripe (th+en), PromptPay (th), Alipay+WeChat (zh) ── */

@@ -16,10 +16,10 @@
 
    Every popup is dismissed-once-per-trial via localStorage, never re-fires
    for paying members (plan is neither a trial nor "free") or admins
-   (effectivePlan maps them to "maxfamily", so they never match either
-   branch). Both trial tiers — "trial" (Premium) and TRIAL_MAX (the first
-   10,000 signups) — go through the whole funnel, hence isTrialPlan() rather
-   than a string compare.
+   (effectivePlan maps them to "premium", so they never match either branch).
+   There is one trial now, but it is still reached through isTrialPlan()
+   rather than a string compare — that is what keeps a legacy "trialmax" row
+   in the funnel instead of silently skipping the member.
 
    Also owns the one-time song-creation GIFT for free members (decision 1A):
    the free card advertises creation as locked; the gift lets a free member
@@ -27,30 +27,29 @@
    earned rather than gated. Lifetime-once via localStorage, deliberately
    separate from the day-bucketed tg_usage counters (those reset daily). ── */
 
-import { trialLenDays, isTrialPlan, TRIAL_MAX, PLAN_PRICE } from "./payment";
+import { trialLenDays, isTrialPlan, canonicalPlan, PLAN_PRICE } from "./payment";
 
 /* ══ WHICH COPY A TRIAL GETS ══════════════════════════════════════════════
-   The promotion splits the trial into two tiers, so the copy has to split too.
-   CONV_COPY speaks for the PROMOTION cohort (first 10,000 signups): they are
-   genuinely on Max, so naming Max and quoting ฿3,999 is honest. STANDARD_COPY
-   speaks for everyone AFTER the cap: same seven days, ⭐Premium at ฿1,490.
-   Reading the wrong table out loud is not a cosmetic bug — it tells a Premium
-   member to "keep Max", which is a plan they never had.
+   There is one answer now. The funnel used to split on the promotion cohort —
+   first 10,000 signups were quoted Max at ฿3,999, everyone after the cap was
+   quoted Premium at ฿1,490 — because there genuinely were two paid tiers to
+   land on. There is one now (owner, 2026-10-04), so every reader of this file
+   gets the same Premium table and the same ฿1,490.
 
-   Prices are never typed as literals. Both come from PLAN_PRICE, the same
+   The old signature took the plan so it could pick a table; the parameter is
+   kept so the callers do not change, and it is deliberately IGNORED rather
+   than quietly reintroduced — a member who somehow still carries "max" must
+   hear about the plan they can actually buy, not one that is gone.
+
+   Prices are never typed as literals. They come from PLAN_PRICE, the same
    table the checkout charges from, so a price change in one place cannot
    leave the funnel quoting a number nobody was ever offered. */
 const fmtThb = (n) => n.toLocaleString("en-US");   // 1490 -> "1,490"
-export function trialPriceThb(plan) { return fmtThb(PLAN_PRICE[plan === TRIAL_MAX ? "max" : "premium"]); }
-export function trialTierName(plan) { return plan === TRIAL_MAX ? "Max" : "Premium"; }
-/* The plan the closing CTA should open checkout for — the tier the member is
-   actually on. Hardcoding "max" would send a post-cap member to a plan page
-   for something they were never given. */
-export function convCheckoutTier(plan) { return plan === TRIAL_MAX ? "max" : "premium"; }
-export function convCopyFor(lang, plan) {
-  return (plan === TRIAL_MAX ? CONV_COPY : STANDARD_COPY)[lang]
-      || (plan === TRIAL_MAX ? CONV_COPY : STANDARD_COPY).en;
-}
+export function trialPriceThb(_plan) { return fmtThb(PLAN_PRICE.premium); }
+export function trialTierName(_plan) { return "Premium"; }
+/* The plan the closing CTA should open checkout for — the only sellable tier. */
+export function convCheckoutTier(_plan) { return "premium"; }
+export function convCopyFor(lang, _plan) { return CONV_COPY[lang] || CONV_COPY.en; }
 
 /* ── the funnel copy, built from the tier ──────────────────────────────────
    ONE table, parameterised by (tier name, price, what-you-lose, perks). The
@@ -103,33 +102,29 @@ function copyTable(t) {
   };
 }
 
-/* The promotion cohort: the first 10,000 signups, on Max. */
+/* The one trial table. Its perk list is the UNION of what the two old tables
+   advertised: Premium's AI song creation and games, and the Max/Max Family
+   items (live voice teacher, every exclusive piece, Daily Mentor, the weekly
+   AI report) — because Premium now contains all of them. Leaving the Max items
+   out would have made the funnel advertise LESS than the plan it is selling,
+   which is the one mistake here that would cost actual money. */
 export const CONV_COPY = copyTable({
-  name: "Max",
-  price: fmtThb(PLAN_PRICE.max),
-  perks: {
-    th: "ครูเสียงพูดคุยสด · เพลง Exclusive · Daily Mentor",
-    en: "a live voice teacher, every exclusive piece, Daily Mentor",
-    zh: "实时语音老师、全部独家曲目、Daily Mentor",
-    items: "♾️ ครู AI ไม่จำกัด\n🎙️ ครูเสียงพูดคุยสด\n👑 เพลง Exclusive ทั้งหมด\n📊 Daily Mentor + รายงานรายสัปดาห์",
-    itemsEn: "♾️ Unlimited AI teacher\n🎙️ Live voice teacher\n👑 Every exclusive piece\n📊 Daily Mentor + weekly AI report",
-    itemsZh: "♾️ AI老师不限次\n🎙️ 实时语音老师\n👑 全部独家曲目\n📊 Daily Mentor + 每周AI报告",
-  },
-});
-
-/* Everyone after the cap: the same seven days, at ⭐Premium. */
-export const STANDARD_COPY = copyTable({
   name: "Premium",
   price: fmtThb(PLAN_PRICE.premium),
   perks: {
-    th: "สร้างเพลง AI · เกมดนตรีทุกเกม · สมุดพก",
-    en: "AI song creation, every music game, the practice book",
-    zh: "AI作曲、全部音乐游戏、练习册",
-    items: "♾️ ครู AI ไม่จำกัด\n🎵 สร้างเพลง AI\n🎮 เกมดนตรีทุกเกม\n📋 สมุดพก + ใบประกาศ",
-    itemsEn: "♾️ Unlimited AI teacher\n🎵 AI song creation\n🎮 Every music game\n📋 Practice book + certificates",
-    itemsZh: "♾️ AI老师不限次\n🎵 AI作曲\n🎮 全部音乐游戏\n📋 练习册 + 证书",
+    th: "ครูเสียงพูดคุยสด · เพลง Exclusive · สร้างเพลง AI · ทุกเกม",
+    en: "a live voice teacher, every exclusive piece, AI song creation, every game",
+    zh: "实时语音老师、全部独家曲目、AI作曲、全部游戏",
+    items: "♾️ ครู AI 10 คำถาม/วัน\n🎙️ ครูเสียงพูดคุยสด\n👑 เพลง Exclusive ทั้งหมด\n🎵 สร้างเพลง AI\n🎮 เกมดนตรีทุกเกม\n📊 Daily Mentor + รายงานรายสัปดาห์",
+    itemsEn: "♾️ AI tutor, 10 questions/day\n🎙️ Live voice teacher\n👑 Every exclusive piece\n🎵 AI song creation\n🎮 Every music game\n📊 Daily Mentor + weekly AI report",
+    itemsZh: "♾️ AI老师 10个提问/天\n🎙️ 实时语音老师\n👑 全部独家曲目\n🎵 AI作曲\n🎮 全部音乐游戏\n📊 Daily Mentor + 每周AI报告",
   },
 });
+
+/* Kept as a name because it was imported as the non-promotion table; it is the
+   same object now, and saying so is better than deleting an export that a
+   reader would assume had moved. */
+export const STANDARD_COPY = CONV_COPY;
 
 // ── dismissal memory: once per popup id per device ─────────────────────────
 const SEEN_KEY = "tg_conv_seen";
@@ -258,7 +253,7 @@ export function logConvEvent(popupId, what) {
 // re-trials of the same device must not replay a "first payment" celebration).
 const ACTIVATED_KEY = "tg_paid_activated";
 export function firstPaidActivation(plan) {
-  if (isTrialPlan(plan) || plan === "free") return false;
+  if (isTrialPlan(plan) || canonicalPlan(plan) === "free") return false;
   try { if (localStorage.getItem(ACTIVATED_KEY)) return false; } catch (e) { return false; }
   try { localStorage.setItem(ACTIVATED_KEY, "1"); } catch (e) {}
   return true;

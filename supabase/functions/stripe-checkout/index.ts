@@ -25,12 +25,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
         not the other now fails loudly instead of silently charging the wrong
         person the wrong money. */
 const PRICES: Record<string, Record<string, number>> = {
-  thb: { premium: 1490,  family: 2900,  max: 3999,   maxfamily: 9999   },
-  usd: { premium: 44.99, family: 89.99, max: 119.99, maxfamily: 149.99 },
-  cny: { premium: 328,   family: 648,   max: 888,    maxfamily: 1088   },
+  thb: { premium: 1490,  family: 1490,  max: 1490,   maxfamily: 1490   },
+  usd: { premium: 44.99, family: 44.99, max: 44.99,  maxfamily: 44.99 },
+  cny: { premium: 328,   family: 328,   max: 328,    maxfamily: 328   },
 };
-const LABELS: Record<string, string> = { premium: "TiGA AI Premium", family: "TiGA AI Family", max: "TiGA AI Max", maxfamily: "TiGA AI Max Family" };
-const YEAR_PLANS = ["premium", "max", "maxfamily"];
+const LABELS: Record<string, string> = { premium: "TiGA AI Premium", family: "TiGA AI Premium", max: "TiGA AI Premium", maxfamily: "TiGA AI Premium" };
+/* Only Premium can be bought (owner, 2026-10-04: two packages, free + premium).
+   The legacy ids are still in PRICES and LABELS on purpose: a subscriber whose
+   profiles.plan still reads "max" has a real, paid subscription, and when it
+   renews or they switch, this must find a price for them — ฿1,490, the Premium
+   price they are being moved onto — rather than 400 on "Unknown plan" and
+   stranding a paying customer mid-subscription. */
+const YEAR_PLANS = ["premium"];
+/* What checkout will actually open a session for. "free" is never bought (the
+   app switches it locally), so this list is the single on-sale set. */
+const BUYABLE = ["premium"];
 const SITE = "https://tigaalpha.github.io";
 
 // yearly = 12 months − 3%, rounded the way yearPriceByCur() rounds
@@ -78,6 +87,11 @@ serve(async (req) => {
     const currency = ["thb", "usd", "cny"].includes(cur) ? cur : "thb";
     const monthly = PRICES[currency][plan];
     if (!monthly) return new Response(JSON.stringify({ error: "Unknown plan" }), { status: 400, headers });
+    /* The price tables still carry the legacy ids so a renewal finds its
+       number (see above). This is what stops that from also meaning "still on
+       sale": a session for a plan nobody is offered is refused, rather than
+       quietly charging a legacy id that no page lists any more. */
+    if (!BUYABLE.includes(plan)) return new Response(JSON.stringify({ error: "Unknown plan" }), { status: 400, headers });
     const yearly = cycle === "year" && YEAR_PLANS.includes(plan);
     const amount = yearly ? yearOf(currency, monthly) : monthly;
     const days = yearly ? 365 : 30;

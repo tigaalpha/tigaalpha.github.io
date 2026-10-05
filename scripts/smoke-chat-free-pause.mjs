@@ -167,7 +167,13 @@ if (quotaSrc) {
     const [k, v] = p.split(":").map((s) => s.trim());
     return [k, Number(v)];
   }));
-  eq(table, { free: 2, premium: 5, family: 5, max: 10, maxfamily: 10, trialmax: 10 }, "caps are free 2 / premium 5 / max 10");
+  /* CHANGED ON PURPOSE (owner, 2026-10-04): Premium absorbs Max, so it inherits
+     Max's 10/day rather than keeping its old 5 — and the three retired tiers
+     are gone from the table entirely, folded into Premium by canonicalPlan()
+     instead of being listed. smoke-two-plans.mjs pins the same table from the
+     other side (a legacy row resolving to 10); between them neither the number
+     nor the retirement can drift unnoticed. */
+  eq(table, { free: 2, premium: 10, trial: 10 }, "caps are free 2 / Premium 10 (Max's old number)");
 }
 
 // ══ 8. client ⇄ server marker agreement ═════════════════════════════════════

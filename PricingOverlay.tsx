@@ -2,17 +2,30 @@ import { L } from "./i18n";
 import { CHAT_TTS_ENABLED } from "./chat-ui";
 import {
   fmtPrice, planPriceByCur, yearPriceByCur, b2bPriceByCur, b2bYearPriceByCur,
-  CURRENCY_BY_LANG, trialDaysLeft, isTrialPlan,
+  CURRENCY_BY_LANG, trialDaysLeft, isTrialPlan, canonicalPlan,
 } from "./payment";
 /* ── PricingOverlay ──
-   The "Choose Your Plan" modal (pricingOpen), extracted verbatim from
-   PianoApp's inline JSX as part of Phase 2 componentization — no logic
-   changes. Pricing/currency helpers import directly from payment.tsx (pure
-   functions, no PianoApp-instance state); lc is derived from lang the same
-   way PianoApp itself derives it, rather than threading a redundant prop.
-   ── */
-export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, startCheckout, choosePlan, setPricingOpen, setSchoolCheckout }) {
+   The "Choose Your Plan" modal (pricingOpen), extracted from PianoApp's inline
+   JSX as part of Phase 2 componentization. Pricing/currency helpers import
+   directly from payment.tsx (pure functions, no PianoApp-instance state); lc is
+   derived from lang the same way PianoApp itself derives it, rather than
+   threading a redundant prop.
+
+   TWO CARDS, free and Premium (owner, 2026-10-04: "แค่สองแพ็กเกจ ฟรี กับ พรีเมียม").
+   It used to be five: Premium, Family, Max, Max Family and Free, listed as a
+   price ladder. Four tiers is not a choice, it is a decision — and the person
+   reading it has to work out which one is FOR THEM, which is the work a pricing
+   page is supposed to have already done. The ladder is gone and Premium now
+   carries everything the upper three tiers sold, including the per-person
+   family framing, so nothing was taken away to achieve it.
+
+   `plan` arriving as a legacy string ("max", "maxfamily") is folded by
+   canonicalPlan() before anything compares it: a subscriber whose row predates
+   the merge must see their own card marked as current, not a page that appears
+   to have forgotten them. ── */
+export function PricingOverlay({ plan: rawPlan, profile, billCycle, setBillCycle, lang, startCheckout, choosePlan, setPricingOpen, setSchoolCheckout }) {
   const lc = L[lang];
+  const plan = canonicalPlan(rawPlan);
   return (
         <div className="setov" onClick={() => setPricingOpen(false)}>
           <div className="setcard pricing" onClick={e => e.stopPropagation()}>
@@ -39,17 +52,15 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                 const saveLine = (tier) => yr
                   ? <div className="pr-yrsave">💚 {lc.prSave3} · ≈ {dispPerMoFromYr(tier)}/{lc.prMonth}</div>
                   : null;
-                const buyBtn = (tier) => plan === tier
-                  ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
-                  : <button className="songbtn go" onClick={() => startCheckout(tier, yr ? "year" : "month")}>{(plan === "free" || isTrialPlan(plan)) ? lc.prGet : lc.prSwitch}</button>;
-                // Max Family savings vs 10 × individual Max
-                const mxfMaxUnit = planPriceByCur(cur, "max");
-                const mxfFamilyUnit = planPriceByCur(cur, "maxfamily");
-                const mxfSave = 10 * mxfMaxUnit - mxfFamilyUnit;
-                const mxfSaveStr = fmtPrice(cur, cur === "usd" ? Math.round(mxfSave * 100) / 100 : Math.round(mxfSave));
-                // per-person price (Max Family / 10, Family / 3)
-                const perPersonMxf = fmtPrice(cur, cur === "usd" ? Math.round(mxfFamilyUnit / 10 * 100) / 100 : Math.round(mxfFamilyUnit / 10));
-                const perPersonFam = fmtPrice(cur, cur === "usd" ? Math.round(planPriceByCur(cur,"family") / 3 * 100) / 100 : Math.round(planPriceByCur(cur,"family") / 3));
+                // The per-family-member figure Max Family used to quote, now
+                // computed off the ONE price there is. It still earns its place
+                // on the card: "≈ ฿xxx/คน" is the number that makes a ฿1,490
+                // look right to someone who used to look at ฿9,999 for ten
+                // people. At one profile per Premium (owner, 2026-10-04) this
+                // is the unit price of the plan itself, not a seat discount —
+                // shown because it is true, not because it is a tier.
+                const premiumUnit = planPriceByCur(cur, "premium");
+                const perPerson = fmtPrice(cur, cur === "usd" ? Math.round(premiumUnit * 100) / 100 : Math.round(premiumUnit));
                 const freeLabel = cur === "usd" ? "US$0" : cur === "cny" ? "¥0" : "฿0";
                 const isB2B = billCycle === "b2b";
                 const b2bPriceBlk = (tier) => <span className="prtier-price">{fmtPrice(cur, b2bPriceByCur(cur, tier))}<small>/{lc.prMonth}/{lc.prSeat}</small></span>;
@@ -103,22 +114,41 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                       <div className="pr-note">{lc.prB2bSeatNote}</div>
                     </>) : (<>
 
-                    {/* Cheapest first. The ladder used to run the other way,
-                        opening on ฿9,999 Max Family, which asks someone who has
-                        not paid anything yet to start at the top of the price
-                        list. Premium leads now and carries the highlight; the
-                        bigger tiers still make their own case further down, to
-                        a reader who has already decided to buy something. */}
-
-                    {/* ── PREMIUM — the promoted entry point ── */}
-                    <div className={`prtier${plan === "premium" ? " cur" : ""}`}
+                    {/* ── PREMIUM — the only thing there is to buy ──
+                        The list below is the union of what the four old cards
+                        each claimed, so a member who used to read "this is what
+                        Max gave me" finds the same line here. Dropping any of
+                        them would make the merged plan look WEAKER than the
+                        tiers it replaced, which is the one way this change
+                        could lose money instead of gaining it. */}
+                    <div className={`prtier max${plan === "premium" ? " cur" : ""}`}
                       style={{ border: "2.5px solid #d97757", position: "relative", marginTop: 24, paddingTop: 14 }}>
                       <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "var(--clay-btn)", color: "#fff", padding: "4px 16px", borderRadius: 20, fontSize: "11.5px", fontWeight: 500, whiteSpace: "nowrap" }}>
-                        {lang === "th" ? "⭐ เริ่มตรงนี้ — ยอดนิยม" : lang === "zh" ? "⭐ 从这里开始 — 最受欢迎" : "⭐ Start here — Most Popular"}
+                        {lang === "th" ? "⚡ ครบทุกฟีเจอร์" : lang === "zh" ? "⚡ 解锁全部功能" : "⚡ Everything unlocked"}
                       </div>
-                      <div className="prtier-top"><span className="prtier-nm">⭐ Premium</span>{priceBlk("premium")}</div>
+                      <div className="prtier-top">
+                        <span className="prtier-nm">⭐ Premium</span>
+                        <div style={{ textAlign: "right" }}>
+                          {priceBlk("premium")}
+                          <div style={{ fontSize: "9px", color: "var(--clay-ink)", fontWeight: 800, marginTop: 2 }}>
+                            ≈ {perPerson}/{lang === "th" ? "คน/เดือน" : lang === "zh" ? "人/月" : "person/mo"}
+                          </div>
+                        </div>
+                      </div>
                       {saveLine("premium")}
-                      <ul className="prfeat"><li>{lc.prF2}</li><li>{lc.prF3}</li><li>{lc.prF5}</li></ul>
+                      <ul className="prfeat">
+                        <li>{lc.prF2}</li>
+                        <li>{lc.prF3}</li>
+                        {/* the live voice teacher only while the feature is actually on — the
+                            flag used to gate this line on the Max card and is kept doing so */}
+                        {CHAT_TTS_ENABLED && <li>{lc.prMaxSpk}</li>}
+                        <li>{lc.prMax3}</li>
+                        <li>{lc.prMax4}</li>
+                        <li>{lc.prMax5}</li>
+                        <li>{lc.prMax6}</li>
+                        <li>{lc.prMax7}</li>
+                        <li>{lc.prF5}</li>
+                      </ul>
                       {plan === "premium"
                         ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
                         : <button className="songbtn go" style={{ fontWeight: 900 }} onClick={() => startCheckout("premium", yr ? "year" : "month")}>
@@ -126,70 +156,6 @@ export function PricingOverlay({ plan, profile, billCycle, setBillCycle, lang, s
                               ? (lang === "th" ? "🚀 สมัคร Premium เลย" : lang === "zh" ? "🚀 立即订阅 Premium" : "🚀 Get Premium Now")
                               : lc.prSwitch}
                           </button>}
-                    </div>
-
-                    {/* ── FAMILY (monthly only) ── */}
-                    {!yr && (
-                      <div className={`prtier${plan === "family" ? " cur" : ""}`}>
-                        <div className="prtier-top">
-                          <span className="prtier-nm">👨‍👩‍👧 Family</span>
-                          <div style={{ textAlign: "right" }}>
-                            {priceBlk("family")}
-                            <div style={{ fontSize: "9px", color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>
-                              ≈ {perPersonFam}/{lang === "th" ? "คน" : lang === "zh" ? "人" : "person"}
-                            </div>
-                          </div>
-                        </div>
-                        <ul className="prfeat"><li>{lc.prFam1}</li><li>{lc.prFam2}</li></ul>
-                        {buyBtn("family")}
-                      </div>
-                    )}
-
-                    {/* ── MAX ── */}
-                    <div className={`prtier max${plan === "max" ? " cur" : ""}`} style={{ position: "relative", marginTop: 6 }}>
-                      <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "var(--clay-ink)", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
-                        ⚡ {lang === "th" ? "ครบทุกฟีเจอร์" : lang === "zh" ? "解锁全部功能" : "Everything unlocked"}
-                      </div>
-                      <div className="prtier-top"><span className="prtier-nm">👑 Max</span>{priceBlk("max")}</div>
-                      {saveLine("max")}
-                      <ul className="prfeat">
-                        <li>{lc.prMax2}</li>
-                        <li>{lc.prMax3}</li>
-                        {CHAT_TTS_ENABLED && <li>{lc.prMaxSpk}</li>}
-                        <li>{lc.prMax4}</li>
-                        <li>{lc.prMax5}</li>
-                        <li>{lc.prMax6}</li>
-                        <li>{lc.prMax7}</li>
-                      </ul>
-                      {buyBtn("max")}
-                    </div>
-
-                    {/* ── MAX FAMILY ── */}
-                    <div className={`prtier maxfam${plan === "maxfamily" ? " cur" : ""}`} style={{ position: "relative", marginTop: 6 }}>
-                      <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "var(--clay-ink)", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
-                        🏆 {lang === "th" ? "คุ้มที่สุดต่อคน" : lang === "zh" ? "人均最超值" : "Best value per person"}
-                      </div>
-                      <div className="prtier-top">
-                        <span className="prtier-nm">👑👨‍👩‍👧 Max Family</span>
-                        <div style={{ textAlign: "right" }}>
-                          {priceBlk("maxfamily")}
-                          <div style={{ fontSize: "9px", color: "var(--clay-ink)", fontWeight: 800, marginTop: 2 }}>
-                            ≈ {perPersonMxf}/{lang === "th" ? "คน/เดือน" : lang === "zh" ? "人/月" : "person/mo"}
-                          </div>
-                        </div>
-                      </div>
-                      {saveLine("maxfamily")}
-                      <div style={{ background: "rgba(217,119,87,.12)", border: "1px solid rgba(217,119,87,.35)", borderRadius: 8, padding: "7px 12px", margin: "6px 0 8px", fontSize: "11px", color: "var(--clay-ink)", fontWeight: 700, textAlign: "center" }}>
-                        💰 {lang === "th" ? `ประหยัด ${mxfSaveStr}/เดือน เทียบซื้อ Max 10 คนแยก` : lang === "zh" ? `比10人分别买Max每月省${mxfSaveStr}` : `Save ${mxfSaveStr}/mo vs 10 separate Max plans`}
-                      </div>
-                      <ul className="prfeat">
-                        <li>✓ {lc.prMxf1}</li>
-                        <li>✓ {lc.prMxf2}</li>
-                        <li>✓ {lc.prMxf3}</li>
-                        {CHAT_TTS_ENABLED && <li>✓ {lc.prMaxSpk}</li>}
-                        <li>✓ {lc.prMax7}</li>
-                      </ul>
-                      {buyBtn("maxfamily")}
                     </div>
 
                     {/* ── FREE ── */}

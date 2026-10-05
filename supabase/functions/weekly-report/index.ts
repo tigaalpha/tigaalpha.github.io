@@ -44,12 +44,15 @@ Deno.serve(async (req) => {
   }
   webpush.setVapidDetails("mailto:admin@tigaalpha.github.io", VAPID_PUBLIC, VAPID_PRIVATE);
 
-  // "Active Max" mirrors the client's effectivePlan() (payment.tsx) exactly:
-  // plan in (max, maxfamily) with plan_until still in the future, OR an admin
-  // account. Two plain queries merged in JS rather than one clever filter
-  // string — easier to see is correct, and this table is tiny.
+  // "Active Premium" mirrors the client's effectivePlan() (payment.tsx): any
+  // PAID plan whose plan_until is still in the future, OR an admin account.
+  // The legacy strings are in that list because the database was deliberately
+  // left alone (owner, 2026-10-04) — an existing "max" row is a real paid
+  // subscription and must keep getting its weekly report. Two plain queries
+  // merged in JS rather than one clever filter string — easier to see is
+  // correct, and this table is tiny.
   const [{ data: maxRows, error: e1 }, { data: adminRows, error: e2 }] = await Promise.all([
-    supabase.from("profiles").select("id, streak, lang, plan_until").eq("banned", false).in("plan", ["max", "maxfamily"]),
+    supabase.from("profiles").select("id, streak, lang, plan_until").eq("banned", false).in("plan", ["premium", "family", "max", "maxfamily"]),
     supabase.from("profiles").select("id, streak, lang").eq("banned", false).eq("is_admin", true),
   ]);
   if (e1 || e2) return new Response(JSON.stringify({ error: (e1 || e2)!.message }), { status: 500, headers: { "Content-Type": "application/json" } });

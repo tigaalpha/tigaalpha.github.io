@@ -301,7 +301,13 @@ async function chatVoiceAllowed(authHeader: string | null): Promise<boolean> {
     const p = (await res.json())?.[0];
     if (!p) return false;
     if (p.is_admin) return true;
-    if (p.plan !== "max" && p.plan !== "maxfamily") return false;
+    /* The voice tutor is in Premium now — but this reads the RAW profiles.plan,
+       which for an existing subscriber still says "max"/"maxfamily" because the
+       database was deliberately left alone (owner, 2026-10-04). Dropping those
+       two strings here would lock every current Max owner out of a feature they
+       have paid for, on the server, where no client-side canonicalPlan() can
+       rescue them. So every paid string is accepted, legacy ones included. */
+    if (p.plan !== "premium" && p.plan !== "max" && p.plan !== "maxfamily" && p.plan !== "family") return false;
     return !p.plan_until || new Date(p.plan_until).getTime() > Date.now();
   } catch (_e) { return false; }
 }

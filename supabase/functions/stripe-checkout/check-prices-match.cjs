@@ -34,7 +34,11 @@ const fn = {
 const yearApp = (cur, monthly) => { const n = monthly * 12 * 0.97; return cur === "usd" ? Math.round(n * 100) / 100 : Math.round(n); };
 // the function's rule, from the edge source
 const yearFn  = (cur, monthly) => { const n = monthly * 12 * 0.97; return cur === "usd" ? Math.round(n * 100) / 100 : Math.round(n); };
-const YEAR_PLANS = ["premium", "max", "maxfamily"];
+/* Only Premium offers a yearly option now (owner, 2026-10-04: two packages).
+   The legacy ids are still compared below because both price tables still
+   carry them — a renewal for an existing "max" subscriber has to find a price,
+   and the point of this guard is that it is the SAME price in both files. */
+const YEAR_PLANS = ["premium"];
 const sym = { thb: "฿", usd: "US$", cny: "¥" };
 
 let bad = 0, checked = 0;

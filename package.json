@@ -18,6 +18,7 @@
     "verify:promo": "node scripts/verify-promo-max.mjs && node scripts/verify-conversion.mjs",
     "verify:landing": "node scripts/smoke-landing-three-langs.mjs",
     "verify:chat-free": "node scripts/smoke-chat-free-pause.mjs",
+    "verify:plans": "node scripts/smoke-two-plans.mjs",
     "songs:check": "node scripts/build-songs.mjs --check && node scripts/build-originals.mjs --check && node scripts/verify-songs.mjs songs-src/classical && node scripts/verify-originals.mjs songs-src/originals",
     "release": "npm run build && node scripts/publish-update.mjs && npx cap sync"
   },

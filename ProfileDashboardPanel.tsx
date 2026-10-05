@@ -43,9 +43,9 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, chestLo
                     </div>
                     <div className="dh-goalbar"><div style={{ width: qPct + "%" }} /></div>
                     <div className="dh-actions">
-                      {(sInfo.freezes || 0) > 0 && <span className="dh-freeze">🛡️ {sInfo.freezes}{isMaxPlan(plan) ? " · Max" : ""}</span>}
+                      {(sInfo.freezes || 0) > 0 && <span className="dh-freeze">🛡️ {sInfo.freezes}{isMaxPlan(plan) ? " · Premium" : ""}</span>}
                       {(sInfo.freezes || 0) === 0 && (isMaxPlan(plan)
-                        ? <span className="dh-freeze" style={{ opacity: 0.65, fontSize: "10px" }}>🛡️ {lang === "th" ? "รับ 4 ใบ/เดือน · Max" : lang === "zh" ? "每月4次 · Max" : "4 free/month · Max"}</span>
+                        ? <span className="dh-freeze" style={{ opacity: 0.65, fontSize: "10px" }}>🛡️ {lang === "th" ? "รับ 4 ใบ/เดือน · Premium" : lang === "zh" ? "每月4次 · Premium" : "4 free/month · Premium"}</span>
                         : <button className="dh-buyfreeze" onClick={buyFreeze}>🛡️ {lc.dhFreeze} 120🪙</button>)}
                     </div>
                   </div>

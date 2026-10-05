@@ -3,6 +3,7 @@ import {
   LESSON_MODE, extractNotes, playPianoNote, FINGERING_REF, THEORY_REF,
 } from "./music-engine";
 import { tr, L, matchFaqTopic } from "./i18n";
+import { canonicalPlan } from "./payment";
 import { logUsage, readActLog } from "./shared-infra";
 import { learnerSignal } from "./learner-signal";
 import { stopCloudTTS } from "./speech";
@@ -68,15 +69,22 @@ const CHAT_HISTORY_CAP = 24;
    The teacher answers from a FREE route (Nemotron first, then the rest of the free
    ladder). That allowance is finite and it is shared by every learner on the app —
    OpenRouter answers 1,000 free calls a DAY for the whole key, not per person — so this
-   cap is the AI budget, not a marketing flourish: free 2, Premium 5, Max 10. A Max trial
-   is a Max, so it reads 10 like any other Max.
+   cap is the AI budget, not a marketing flourish: free 2, Premium 10.
+
+   10 is what Max used to get, and it is the number the owner picked when Max and
+   Max Family were folded into Premium (2026-10-04): the point of the merge was that
+   Premium stops being the smaller plan, so it cannot keep the smaller cap.
+
+   Only the two canonical plans are listed, and canonicalPlan() is applied on the way
+   in — so a subscriber whose row still says "max" reads 10 here for as long as their
+   subscription lasts, without this table needing to know that "max" ever existed.
 
    One number, one place. `chatQuota` is handed to the UI so the line under the input
    shows the SAME cap this gate enforces; when one of them changes, both change. */
-const CHAT_QUOTA_BY_PLAN = { free: 2, premium: 5, family: 5, max: 10, maxfamily: 10, trialmax: 10 };
+const CHAT_QUOTA_BY_PLAN = { free: 2, premium: 10, trial: 10 };
 const CHAT_QUOTA_DEFAULT = 2;
 function chatQuotaFor(plan) {
-  const q = CHAT_QUOTA_BY_PLAN[plan || "free"];
+  const q = CHAT_QUOTA_BY_PLAN[canonicalPlan(plan)];
   return typeof q === "number" ? q : CHAT_QUOTA_DEFAULT;
 }
 /* The free tier is PAUSED, not broken. The server raises this when every free
