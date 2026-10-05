@@ -733,6 +733,29 @@ work by two agents at the same time — rare, but if it happens, don't push
 directly to a branch the other session is actively using, and don't merge
 to `main` while the other agent's work is uncommitted elsewhere.
 
+### Hook order is checked by the build, not by reading
+`npm run build` runs `scripts/check-hook-order.mjs` (`npm run verify:hooks`) before
+vite, and fails on any hook called conditionally or after a return. This is not
+theoretical: two such bugs shipped to `tigaalpha.github.io` on 2026-10-05 and
+crashed the whole app with `Error: Minified React error #310` — "Rendered more
+hooks than during the previous render". The ErrorBoundary showed the user only
+three frames, all inside react-dom (`updateWorkInProgressHook` → `useReducer` →
+`useState`), so the stack never named the component and the production bundle
+could not be searched for it.
+
+The two that were real: `AdminStudents` in `App.tsx` had `useState`/`useEffect`
+inside `if (sel) { … }`, so opening a student in the admin screen took the hook
+count from 0 to 2; `Outline` in `tigamodel-lab-graph.tsx` had
+`if (!S) return null` *above* two `useMemo` calls. Fixing either means moving
+the hooks above the guard or splitting the guarded half into its own component —
+never deleting the effect.
+
+So: every hook runs on every render. Guard the *rendering* (`if (sel) return …`),
+not the hook. A hook behind `&&`, `?:`, a loop, a switch case, or after any
+`return` in the same function is a production crash waiting for the account
+state that reaches it — the crash test (`smoke-app-boot.mjs`) cannot see it,
+because it never signs in as an admin.
+
 ## Testing
 
 No committed unit-test suite and no CI test job. Verification for this

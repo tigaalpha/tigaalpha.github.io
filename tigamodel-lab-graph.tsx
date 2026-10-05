@@ -270,7 +270,6 @@ function ForceGraph({ nodes, edges, focusId, setFocusId, S }) {
 
 /* ── linked bullet-point outline (domain → entry → relations) ── */
 function Outline({ nodes, edges, focusId, setFocusId, T, S }) {
-  if (!S) return null; // styles prop missing → render nothing rather than crash the whole app
   const byDomain = useMemo(() => {
     const m = new Map();
     nodes.forEach(n => { if (!m.has(n.domain)) m.set(n.domain, []); m.get(n.domain).push(n); });
@@ -288,6 +287,12 @@ function Outline({ nodes, edges, focusId, setFocusId, T, S }) {
     });
     return m;
   }, [edges]);
+  // styles prop missing → render nothing rather than crash the whole app.
+  // This guard has to sit BELOW the two hooks above: returning before them made
+  // the hook count depend on whether the styles had arrived yet, which is
+  // React's "rendered more hooks than during the previous render" crash
+  // (Minified React error #310).
+  if (!S) return null;
   const REL_LABEL = {
     requires: (t) => T("ต้องมีก่อน: ", "requires: ", "先决条件："),
     "requires-back": (t) => T("เป็นรากฐานของ: ", "foundation for: ", "是…的基础："),

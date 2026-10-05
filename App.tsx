@@ -8500,34 +8500,45 @@ function AdminStudents({ lang, viewerTier }) {
     return () => clearTimeout(t);
   }, [q, load]);
 
+  /* ── Selected student: derived values plus the Jev feedback-classify hook
+     pair. Hoisted above both early returns on purpose — they used to sit
+     INSIDE `if (sel) { … }`, so this component's hook count jumped from 0 to 2
+     the moment an admin opened a student, and back to 0 on the way out. React
+     rejects that with "Rendered more hooks than during the previous render" —
+     the crash the ErrorBoundary shows as "Minified React error #310" — and it
+     takes the whole app down, not just the admin screen. Both hooks now run on
+     every render; `sel` being null just means the card below is not drawn.
+     scripts/check-hook-order.mjs keeps this from coming back. */
+  const li = levelInfo((sel && sel.exp) || 0);
+  const pr = (sel && sel.progress) || {};
+  const sum = pr.summary || {};
+  const mem = pr.memory || {};
+  const struggles = (mem.struggles || []).slice(0, 8);
+  const mastered = (mem.mastered || []).slice(0, 12);
+  const recent = (mem.recent || []).slice(0, 6);
+  const plog = pr.practiceLog || {};
+  // ── Jev feedback-classify: bucket this learner's situation for the solo
+  // owner's review queue (progress / struggling / billing / engagement /
+  // technical + urgency 0..3), from the SAME progress snapshot the page
+  // already renders — no extra queries, one ~100-500ms structured call.
+  // Unavailable/disabled Jev → null, card simply not shown.
+  const [jevFb, setJevFb] = useState(null);
+  useEffect(() => {
+    let dead = false; setJevFb(null);
+    if (!sel) return () => { dead = true; };
+    const st = `Student ${sel.full_name || sel.email || "?"}: level ${li.level}, plan ${(sel.plan || "free")}, streak ${sel.streak || 0} days, lessons done ${sel.lessons_done || 0}. Recent practice: ${(recent || []).map(r => `${r.label} ${r.acc}%`).join("; ") || "none"}. Struggling with: ${(struggles || []).map(s => s.label).join("; ") || "nothing recorded"}.`;
+    jevTask("feedback-classify", st, {}, 2500).then(r => {
+      if (dead || !r.ok || !r.answers) return;
+      const cat = jevChoice(r.answers.category), urg = jevScore(r.answers.urgency);
+      if (cat) setJevFb({ cat, urg: urg == null ? 0 : urg });
+    }).catch(() => {});
+    return () => { dead = true; };
+  }, [sel && sel.id]);
+
   if (rows === null) return <div className="admstu"><div className="admstu-msg">⏳ {T("กำลังโหลดข้อมูลนักเรียน...", "Loading students...", "正在加载学生...")}</div></div>;
 
   if (sel) {
-    const li = levelInfo(sel.exp || 0);
-    const pr = sel.progress || {};
-    const sum = pr.summary || {};
-    const mem = pr.memory || {};
-    const struggles = (mem.struggles || []).slice(0, 8);
-    const mastered = (mem.mastered || []).slice(0, 12);
-    const recent = (mem.recent || []).slice(0, 6);
-    const plog = pr.practiceLog || {};
     const Stat = (num, lbl) => <div className="pd-stat"><div className="pd-num">{num}</div><div className="pd-lbl">{lbl}</div></div>;
-    // ── Jev feedback-classify: bucket this learner's situation for the solo
-    // owner's review queue (progress / struggling / billing / engagement /
-    // technical + urgency 0..3), from the SAME progress snapshot the page
-    // already renders — no extra queries, one ~100-500ms structured call.
-    // Unavailable/disabled Jev → null, card simply not shown.
-    const [jevFb, setJevFb] = useState(null);
-    useEffect(() => {
-      let dead = false; setJevFb(null);
-      const st = `Student ${sel.full_name || sel.email || "?"}: level ${li.level}, plan ${(sel.plan || "free")}, streak ${sel.streak || 0} days, lessons done ${sel.lessons_done || 0}. Recent practice: ${(recent || []).map(r => `${r.label} ${r.acc}%`).join("; ") || "none"}. Struggling with: ${(struggles || []).map(s => s.label).join("; ") || "nothing recorded"}.`;
-      jevTask("feedback-classify", st, {}, 2500).then(r => {
-        if (dead || !r.ok || !r.answers) return;
-        const cat = jevChoice(r.answers.category), urg = jevScore(r.answers.urgency);
-        if (cat) setJevFb({ cat, urg: urg == null ? 0 : urg });
-      }).catch(() => {});
-      return () => { dead = true; };
-    }, [sel && sel.id]);
     return (
       <div className="admstu">
         <button className="admstu-back" onClick={() => setSel(null)}>‹ {T("กลับ", "Back", "返回")}</button>
