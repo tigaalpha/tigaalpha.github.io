@@ -2,6 +2,9 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "env": {
+    "NODE_OPTIONS": "--max-old-space-size=4096"
+  },
   "framework": null,
   "headers": [
     {
