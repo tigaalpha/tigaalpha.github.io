@@ -55,8 +55,24 @@ ok(pkgVersion.split(".").length === 3, `package.json version has three parts (${
 const now = codeOf(pkgVersion);
 ok(now > 0, `the shipped version maps to a positive versionCode (${now})`);
 
-// every step the release train actually takes from here
-const upcoming = ["13.7.527", "13.7.999", "13.8.0", "13.9.12", "13.10.0", "14.0.0", "20.1.1"];
+/* Every step the release train actually takes FROM THE CURRENT VERSION.
+
+   These are derived from package.json rather than written out, because the
+   first version of this test hardcoded "13.7.527" as a hypothetical future
+   release — and the OTA bot shipped exactly that within the hour, at which
+   point the test failed on a version that had stopped being in the future. A
+   test that names a version is a test with an expiry date. */
+const [maj, vmin, pat] = pkgVersion.split(".").map(Number);
+const bump = (M, m, p) => `${M}.${m}.${p}`;
+const upcoming = [
+  bump(maj, vmin, pat + 1),      // the hourly OTA patch bump — the common case
+  bump(maj, vmin, pat + 2),
+  bump(maj, vmin, 999),          // the end of this minor's patch range
+  bump(maj, vmin + 1, 0),        // THE CASE THAT USED TO REGRESS
+  bump(maj, vmin + 1, 12),
+  bump(maj, vmin + 3, 0),        // a two-digit minor, which overflowed the old formula
+  bump(maj + 1, 0, 0),
+];
 let prev = now;
 for (const v of upcoming) {
   const c = codeOf(v);
@@ -64,10 +80,12 @@ for (const v of upcoming) {
   prev = c;
 }
 
-// the old formula, on the same versions — this is the bug being prevented
+/* The regression, stated in terms of the REAL current version so it stays true
+   however far the bot has bumped: the old formula put the next minor BELOW the
+   patch it follows. If this ever stops failing, the canary has rotted. */
 const oldOf = (v) => { const [a, b, c] = v.split(".").map(Number); return a * 10000 + b * 100 + c; };
-ok(oldOf("13.8.0") < oldOf("13.7.526"),
-  "confirmed: the old formula really did regress here (this is the bug, kept as a canary)");
+ok(oldOf(bump(maj, vmin + 1, 0)) < oldOf(pkgVersion),
+  `confirmed: the old formula regresses at ${bump(maj, vmin + 1, 0)} (this is the bug, kept as a canary)`);
 
 // Play's hard ceiling
 ok(codeOf("2100.0.0") <= 2100000000, "major 2100 is still inside Play's versionCode ceiling");
