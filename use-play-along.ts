@@ -974,6 +974,24 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     lastEndRef.current = lastEndRef.current || null;
     chooseSong(nx, { noIntro: true });
   }
+  /* The second way a run could hang: the song's clock IS the audio clock, and
+     a phone can stop it. A suspended AudioContext — an audio-focus loss, a
+     call, a browser reclaiming the device, a live mic session — freezes
+     currentTime, and then no comparison of songTime against the song's end
+     can ever come true, so the watchdog above would sit there politely
+     comparing a number that never moves. So the ending also carries a
+     wall-clock deadline: a run that has been going longer than its own length
+     plus a wide margin is finished whether or not the audio clock moved.
+     Practice is exempt on purpose — there the clock is *meant* to stop and
+     wait for the player between notes. */
+  function runOverByWallClock() {
+    const rm = runMetaRef.current;
+    if (!rm || rm.intro || practiceRef.current) return false;
+    const tempo = songTempoRef.current || 1;
+    const songSec = (songLastTimeRef.current + SONG_LEAD + 1.0) / tempo;
+    if (!isFinite(songSec) || songSec <= 0) return false;
+    return (performance.now() - rm.startedAt) / 1000 > songSec + songSec * 0.5 + 10;
+  }
   function hudTick() {
     if (pausedRef.current) return;
     // The watchdog for the result screen. The frame loop above owns the
@@ -983,6 +1001,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     // the player on a stage that stopped moving. finishSong is idempotent
     // (songFinishedRef), so finishing twice is harmless.
     if (songRunEnded(songNow())) { songFinishRef.current(); return; }
+    if (songRunRef.current && !songFinishedRef.current && !drillRef.current && !pausedRef.current && runOverByWallClock()) { songFinishRef.current(); return; }
     const meta = songMetaRef.current;
     const total = songTotalRef.current || 1;
     const done = songHitsRef.current + songMissRef.current;
@@ -2140,6 +2159,26 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     clearInterval(songHudTimerRef.current);
     stopBand(true);
     stopListeners();
+    /* From here the run IS over — the player is owed a result screen whatever
+       the reward bookkeeping does. A hundred lines of EXP, medals, the daily
+       payout and the concert chain used to sit between the last note and
+       setSongPhase("done"), so one throw anywhere in them left the stage
+       frozen on its last frame with no assessment AND silently swallowed the
+       rewards. settleRun is that bookkeeping; the catch below is the
+       guarantee, and it records what failed so the next report is evidence. */
+    try { settleRun(); }
+    catch (e) {
+      try { logPa(`finish-error:${String((e && (e as any).message) || e).slice(0, 80)}`); } catch (e2) {}
+      if (!songResultRef.current) setSongResult(bareResult());
+      setSongPhase("done");
+    }
+  }
+  /* What a finished run owes the player even when the bookkeeping failed: a
+     real screen with the run's own numbers in it, never a blank one. */
+  function bareResult() {
+    return { acc: 0, score: songScoreRef.current, maxCombo: songMaxComboRef.current, stars: 0, exp: 0, coins: 0, total: songTotalRef.current || 0, hits: songHitsRef.current, best: loadBest(), newBest: false, fullCombo: false, allPerfect: false, missedNotes: [], playCount: 0, replayBonus: 0, grades: null, prevStars: 0, newStars: false, bestAcc: 0, goal: null, kind: songKindRef.current, dailyPaid: false, bossWon: false, medal: 0, medalNew: [], medalCoins: 0, medalExp: 0, runNo: 0, coinCapped: false, moodLogged: false, setlist: null };
+  }
+  function settleRun() {
     const meta = songMetaRef.current;
     if (meta && meta.intro) { finishIntro(); return; }
     if (practiceRef.current) { finishPractice(); return; }

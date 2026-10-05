@@ -64,6 +64,28 @@ rec("hudTick's watchdog sits after the pause guard, so a pause is not overwritte
 rec("hudTick still runs on its own interval (it is not called from the frame loop)",
   /songHudTimerRef\.current = setInterval\(\(\) => hudTick\(\), 120\)/.test(PA));
 
+/* the guarantee: a finished run reaches its result screen whatever the
+   bookkeeping does, and a stopped audio clock cannot strand it either */
+rec("the reward bookkeeping is isolated in settleRun, not inline in finishSong",
+  (PA.match(/function settleRun\(/g) || []).length === 1
+  && /function finishSong\(\)[\s\S]{0,900}try \{ settleRun\(\); \}/.test(PA));
+rec("finishSong catches a failed settle and still ends on the result screen",
+  /catch \(e\) \{[\s\S]{0,600}setSongPhase\("done"\);/.test(PA));
+rec("a failed settle still shows a real result, not a blank screen",
+  /if \(!songResultRef\.current\) setSongResult\(bareResult\(\)\);/.test(PA)
+  && /function bareResult\(\) \{[\s\S]{0,1200}score: songScoreRef\.current/.test(PA));
+rec("a failed settle is recorded, so the next report is evidence not a guess",
+  /finish-error:/.test(PA));
+rec("a stopped audio clock cannot strand a run (a wall-clock deadline exists)",
+  /function runOverByWallClock\(\)/.test(PA)
+  && /performance\.now\(\) - rm\.startedAt\) \/ 1000 > songSec \+ songSec \* 0\.5 \+ 10/.test(PA));
+rec("the wall-clock deadline is asked from hudTick's interval too",
+  /runOverByWallClock\(\)\) \{ songFinishRef\.current\(\); return; \}/.test(hudTick));
+rec("practice is exempt from the wall-clock deadline (its clock waits on purpose)",
+  /function runOverByWallClock\(\)[\s\S]{0,300}practiceRef\.current\) return false;/.test(PA));
+rec("a drill is exempt from the wall-clock deadline (it loops one section)",
+  /runOverByWallClock\(\)\) \{ songFinishRef/.test(hudTick) && /!drillRef\.current && !pausedRef\.current && runOverByWallClock\(\)/.test(hudTick));
+
 /* ── 3 + the result screen: the real modules ───────────────────────────── */
 const STUBS = {
   "./app-shell": `
