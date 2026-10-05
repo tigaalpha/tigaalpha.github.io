@@ -591,7 +591,7 @@ in the code, and what it replaced:
   hardcoding "max" would send a post-cap member to a plan page for something they never had. `personalizedBody(..., plan)` takes the
   same plan and prices its personal stats with it. `verify-conversion.mjs` asserts, per language and per tier, that each table names
   its own tier, quotes its own price, and NEVER contains the other tier's price.
-- **Two migrations are written and NEITHER IS APPLIED — the owner must run both, in the Supabase SQL editor, after review.**
+- **Three migrations are written and NONE IS APPLIED — the owner must run them, in the Supabase SQL editor, after review.**
   (1) `supabase-promo-max-10000-migration.sql` — raises the trigger cap 100 → 10,000 and marks every current signup as a promotion
   member (the ~70 existing members count as part of the 10,000, per the owner). Read its STEP 0 first: it grants to every eligible
   row, so confirm the count before running STEP 1. (2) `supabase-grant-max-one-year-migration.sql` — gives those same members Max for
@@ -600,6 +600,20 @@ in the code, and what it replaced:
   cleanly — `effectivePlan()` tests a live paid plan BEFORE the trial — so approving one alone is still correct, it just gives less
   than the owner asked for. The trial alone could do neither job: trial length is measured from `profiles.created_at`, so every
   pre-existing account is past day 7 the moment the new rule lands.
+  (3) `supabase-grant-pro-7-days-migration.sql` — owner 2026-10-05: Pro for 7 DAYS to everyone in the app who does not already
+  have it, where Pro is the existing Premium plan. It writes `plan='premium'` (the canonical string, never a legacy `max`/`family`)
+  plus `plan_until = now() + interval '7 days'`. Its WHERE clause is a deliberate mirror of `effectivePlan()` rather than a second
+  set of rules: skips admins (both `is_admin` and `admin_tier > 0`, because the admin console derives admin from the tier and an
+  `admin_tier`-only admin must not be handed an expiring row), skips banned, skips every ACTIVE paid row including the legacy
+  strings ("คนที่ได้อยู่แล้วไม่ต้องไปทำอะไร"), and skips members still inside their trial — the owner ruled "ไม่นับ ให้ทดลอง 7 วัน
+  ตามเดิม", which also keeps `isTrialPlan()` true so their countdown UI survives. Lapsed subscribers ARE included: `effectivePlan()`
+  already calls them free. If (2) was already run, its rows read as active paid and (3) skips every one of them. `npm run
+  verify:progrant` (`scripts/smoke-pro-grant.mjs`) is the guard: it loads the REAL `payment.tsx`, runs the real `effectivePlan()`
+  over a fixture of admins/banned/active-legacy/lapsed/in-trial profiles, and fails if the SQL's WHERE clause disagrees about who
+  already has Pro — plus it pins the 7 days to `TRIAL_DAYS_STANDARD` so the grant and the trial cannot drift apart. Its checks read
+  the SQL with comments stripped and only up to the statement's first `;`, because a text match over the whole file is satisfiable by
+  the migration's own prose and by its verification queries. None of these files is applied automatically:
+  `scripts/apply-migrations.mjs` runs three NAMED migrations, never a glob.
 - **Not applied / not deployed (hard rules).** `supabase/functions/return-reminders/index.ts` and
   `supabase-return-reminders-migration.sql`: day 1/3/7 push nudges to people with a push subscription who have not been back,
   off by default (`app_settings.return_reminders.enabled`), cron block commented. LINE and e-mail are not wired (no channel token,
