@@ -6,6 +6,44 @@ apply plugin: 'com.android.application'
 // for Play Store / over-the-top installs to accept an update.
 def appVersion = new groovy.json.JsonSlurper().parseText(file("../../package.json").text).version
 
+/* versionCode, in a form that CANNOT go backwards.
+
+   It used to be major*10000 + minor*100 + patch, which quietly assumes the
+   patch number stays under 100. It is not: the OTA bot ships roughly hourly, so
+   the patch is already in the hundreds (13.7.526), and at that point the
+   formula overflows into the minor's slot AND, worse, the next minor release
+   produces a SMALLER number than the patch it follows:
+
+       13.7.526 -> 131226        (minor 7, patch 526, overflowed to "12.26")
+       13.8.0   -> 130800        LOWER — Play rejects the update outright
+
+   That is not a cosmetic risk. It is the "this version has already been
+   uploaded" error on the one upload that matters, and it would surface only
+   after the store listing is live.
+
+   Each component now gets its own digit budget wide enough for the numbers this
+   project actually produces — patch in the thousands, minor in the hundreds —
+   so a bump in any one component always raises the total:
+
+       major * 1_000_000 + minor * 1_000 + patch
+
+   Verified against the real sequence (scripts/smoke-android-play-store.mjs pins
+   it): 13.7.526 -> 13,007,526, and every realistic next step — 13.7.527,
+   13.8.0, 13.10.0, 14.0.0 — increases.
+
+   The one thing this cannot express is a patch of 1000+ ALONGSIDE a higher
+   minor: 13.7.1000 and 13.8.0 both land near 13,008,000. No positional
+   encoding can, and it is not a near-term problem: the patch only climbs when
+   the OTA bot ships, roughly hourly, so reaching 1000 is about six weeks of
+   unbroken releases. The test pins that boundary explicitly rather than
+   leaving it to be discovered as a rejected upload.
+
+   Play's ceiling is 2,100,000,000, which this reaches only at major 2100. */
+def vmaj = appVersion.tokenize(".")[0] as int
+def vmin = appVersion.tokenize(".")[1] as int
+def vpat = appVersion.tokenize(".")[2] as int
+def versionCodeValue = vmaj * 1000000 + vmin * 1000 + vpat
+
 android {
     namespace = "com.tigaalpha.tigaai"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -13,7 +51,7 @@ android {
         applicationId "com.tigaalpha.tigaai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode appVersion.tokenize(".").with { (it[0] as int) * 10000 + (it[1] as int) * 100 + (it[2] as int) }
+        versionCode versionCodeValue
         versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

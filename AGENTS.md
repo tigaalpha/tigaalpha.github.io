@@ -10,20 +10,49 @@ progress updates, summaries) is in Thai, including after a context reset.
 Code, code comments, commit messages and file contents stay in English as
 they are now.
 
-## Delivery — commit, push and deploy are pre-authorised (owner, 2026-10-04)
-The owner authorised all three up front, for every task: once a change's checks
-pass, commit it, push it, and deploy it without asking again. Anything in this
-file that says the Changes panel owns commits and pushes is superseded — the
-panel is still useful for review and PRs, but it is no longer the delivery
-path.
+## Delivery — the owner's four steps, every time (owner, 2026-10-04)
+Every change ships in the same four steps, with no asking first:
 
-What that does NOT cover, because no task implies it: running SQL or
-migrations against the live database, deploying the Supabase Edge Functions, and
-anything destructive on a remote (force-push, history rewrite, deleting a tag).
+  1. **Push**      2. **Commit**      3. **Deploy**      4. **Vercel**
+
+Committed and pushed without asking, for every task. Anything in this file that
+says the Changes panel owns commits and pushes is superseded — the panel is
+still useful for review and PRs, but it is no longer the delivery path.
+
+### Vercel is deployed BY the push, not by a separate command
+The Vercel project is connected to this GitHub repo and builds `main`
+automatically, so **step 1 already performs step 4**. Evidence, not assumption:
+the Vercel deployments list shows Production deploys whose commit SHAs are this
+repo's own (`be6924390`, `1ab2596b`, `b74baa32b`), one per push. There is no
+`vercel deploy` step to run and no Vercel token in this environment — running
+one would be guessing at a second, competing path to production. So: push, then
+say plainly that the Vercel deploy has been triggered and what its state is.
+The owner can read the result at vercel.com/tiga2/tigaa.
+
+The deploy used to fail on every push at roughly one minute, which is where the
+SPA bundle step starts; `vercel.json` now sets `NODE_OPTIONS` for the build
+after the heap ceiling was measured (OOM at 1,024 MB, passes at 1,400 MB). If
+a Vercel build ever fails again with no useful line, that heap ceiling is the
+first thing to check.
+
+### What still needs the owner, because no code task implies it
+- SQL / migrations against the live database
+- `supabase functions deploy <name>` — the Edge Functions are NOT covered by the
+  git push, and several changes here are client-side only until the owner runs
+  them (`piano-chat`, `piano-tts`, `weekly-report`, `stripe-checkout`)
+- anything destructive on a remote (force-push, history rewrite, deleting a tag)
+
 When part of a change needs one of those, finish and ship everything else, then
-say plainly what is left — the chat-quota work is the case in point: the client
-half is live, and the `piano-chat` function that raises `ai_paused` still needs
-an owner-run `supabase functions deploy piano-chat` before it does anything.
+say plainly what is left. Do not report it as done.
+
+### Android / Play Store
+`android/` is a first-class target, not an afterthought: a change to the app
+should keep the Capacitor project buildable, and Play Store rules are pinned by
+`scripts/smoke-android-play-store.mjs` (`npm run verify:android`). Two of those
+checks exist because they were false once — the versionCode formula and the
+signing-key ignore rule. Read `PLAY_STORE_GUIDE.md` before touching release
+config; it names what is still the owner's to do (the $25 account, the release
+keystore, the first upload).
 
 `git push` regularly needs a merge first. The OTA auto-release bot commits to
 `main` about every hour, so a push from a long task session is usually rejected

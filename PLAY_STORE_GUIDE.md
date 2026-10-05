@@ -23,7 +23,12 @@
   `https://tigaalpha.github.io/privacy-policy.html` (หลัง push ไฟล์นี้ขึ้น main แล้ว)
 - ✅ **ระบบอัปเดตตัวเอง (OTA)** — มีแล้ว แต่**ต้องปิดสำหรับ build ที่ลง Play** (ทำไว้แล้วในโค้ด ดูขั้นตอน 3)
 - ✅ **Versioning อัตโนมัติ** — `versionCode`/`versionName` อ่านจาก `package.json` ตรงๆ
-  (เช่น 13.7.18 → versionCode 130718) ขยับขึ้นทุก release อัตโนมัติ
+  (เช่น 13.7.526 → versionCode 13007526) ขยับขึ้นทุก release อัตโนมัติ
+  ⚠️ **เคยเป็นบั๊กจริง แก้แล้ว (2026-10-04)** สูตรเดิม `major*10000 + minor*100 + patch`
+  คิดช่อง patch ไว้แค่ 2 หลัก ซึ่งพังทันทีเพราะ OTA ปล่อยทุกชั่วโมง (patch ไปถึง 526 แล้ว)
+  → minor รุ่นถัดไปจะได้ versionCode **เล็กกว่า** patch ก่อนหน้า และ Play จะปฏิเสธ
+  ตอนนี้ใช้ `major*1_000_000 + minor*1_000 + patch` แล้ว ตรวจด้วย
+  `npm run verify:android` (33 เคส) — เคสที่เป็น canary ยังทดสอบว่าสูตรเดิมพังจริง
 
 ## ขั้นตอนขึ้น Play Store (ทีละขั้น)
 
