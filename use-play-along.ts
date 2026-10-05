@@ -976,6 +976,13 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }
   function hudTick() {
     if (pausedRef.current) return;
+    // The watchdog for the result screen. The frame loop above owns the
+    // drawing; this owns the ending. hudTick runs on its own 120 ms interval,
+    // so a run whose frames stopped (a throw, a throttled or dropped rAF
+    // chain) still finishes and still shows the assessment instead of leaving
+    // the player on a stage that stopped moving. finishSong is idempotent
+    // (songFinishedRef), so finishing twice is harmless.
+    if (songRunEnded(songNow())) { songFinishRef.current(); return; }
     const meta = songMetaRef.current;
     const total = songTotalRef.current || 1;
     const done = songHitsRef.current + songMissRef.current;
@@ -1290,10 +1297,41 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }
     g.slow = false; g.windows = 0; g.win = [];
   }
+  /* Is this run over? ONE truth, two callers.
+     The frame loop asks it every frame and hudTick asks it 8 times a second,
+     so the result screen no longer depends on the requestAnimationFrame chain
+     being alive: before, a single frame that threw (or a chain the browser
+     dropped) left a finished song sitting on the stage forever with no
+     assessment — the player had to back out and start again to see their
+     score. A non-finite clock or a non-finite song end is treated as "not
+     over" rather than compared, because `x > NaN` is false for every x and
+     would hang the run exactly the same way. */
+  function songRunEnded(songTime: number): boolean {
+    if (drillRef.current) return false;                                  // a section loop ends on its own pass/fail, not on the song
+    if (!songRunRef.current || songFinishedRef.current || pausedRef.current) return false;
+    const end = songLastTimeRef.current;
+    if (!isFinite(songTime) || !isFinite(end)) return false;
+    return songTime > end + SONG_LEAD + 1.0;
+  }
   function songLoop() {
     if (!songRunRef.current || pausedRef.current) return;
+    let keepGoing = true;
+    try {
+      keepGoing = songFrame();
+    } catch (e) {
+      /* One bad frame must not end the run. The stage keeps its last picture
+         and the clock keeps running, so the song still reaches its result
+         screen — the alternative was a silent, permanent freeze, because an
+         exception inside a rAF callback kills the chain and nothing ever
+         schedules the next frame. */
+      try { logPa(`draw-error:${String((e && (e as any).message) || e).slice(0, 80)}`); } catch (e2) {}
+    }
+    if (keepGoing && songRunRef.current) songRafRef.current = requestAnimationFrame(() => songLoopRef.current());
+  }
+  /* One frame of the song. False = the run is over, do not schedule another. */
+  function songFrame(): boolean {
     const cv = songCanvasRef.current;
-    if (!cv) { songRafRef.current = requestAnimationFrame(() => songLoopRef.current()); return; }
+    if (!cv) { songRafRef.current = requestAnimationFrame(() => songLoopRef.current()); return false; }
     const ac = getAC();
     let songTime = (ac.currentTime - songStartClockRef.current) * songTempoRef.current;
     const pr = practiceRef.current;
@@ -1691,8 +1729,8 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const dr = drillRef.current;
     if (dr) {
       if (!dr.waiting && songTime > dr.end + SONG_LEAD + receiveWindow(true, "mic") + 0.3) endDrillPass();
-    } else if (songTime > songLastTimeRef.current + SONG_LEAD + 1.0) { songFinishRef.current(); return; }
-    songRafRef.current = requestAnimationFrame(() => songLoopRef.current());
+    } else if (songRunEnded(songTime)) { songFinishRef.current(); return false; }
+    return true;
   }
   // Tuning-aware pitch-class match for play-along grading (piano-guard.ts).
   // MIDI/tap are digital — exact class, as always. A MIC note is judged by the

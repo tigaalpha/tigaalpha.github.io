@@ -21,6 +21,7 @@
     "verify:plans": "node scripts/smoke-two-plans.mjs",
     "verify:android": "node scripts/smoke-android-play-store.mjs",
     "verify:hooks": "node scripts/check-hook-order.mjs",
+    "verify:paend": "node scripts/verify-playalong-end.mjs",
     "verify:progrant": "node scripts/smoke-pro-grant.mjs",
     "songs:check": "node scripts/build-songs.mjs --check && node scripts/build-originals.mjs --check && node scripts/verify-songs.mjs songs-src/classical && node scripts/verify-originals.mjs songs-src/originals",
     "release": "npm run build && node scripts/publish-update.mjs && npx cap sync"

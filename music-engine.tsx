@@ -1921,7 +1921,11 @@ export function expandSong(song, opts) {
   leftNotes.forEach((n, i) => { n.finger = lf[i]; });
   const lanes = Array.from(new Set(notes.map(n => n.note))).sort((a, b) => noteToMidi(a) - noteToMidi(b));
   for (const n of notes) n.lane = lanes.indexOf(n.note);
-  const lastT = notes.reduce((m, n) => Math.max(m, n.t), 0);
+  /* The song's own end, in seconds. A note time that is not a finite number is
+     read as 0 rather than poisoning the reduce: `lastT` is what the run's end
+     is compared against, and a NaN there makes every comparison false, so the
+     song would play to its last note and then never finish. */
+  const lastT = notes.reduce((m, n) => Math.max(m, isFinite(n.t) ? n.t : 0), 0);
   // Engrave both voices once, here, where the notes are — the reading staff
   // then just draws the window it needs instead of re-deriving bar/tie/rest
   // structure on every HUD tick. srcIdx points back into `notes`, so a

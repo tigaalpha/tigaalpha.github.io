@@ -770,6 +770,31 @@ not the hook. A hook behind `&&`, `?:`, a loop, a switch case, or after any
 state that reaches it — the crash test (`smoke-app-boot.mjs`) cannot see it,
 because it never signs in as an admin.
 
+### A finished song must not depend on the frame loop to reach its result
+Reported 2026-10-05: after a song ends in Play Along it does not go to the
+assessment page. The result screen was never the problem — it renders
+correctly for a finished run, and `scripts/verify-playalong-end.mjs` proves
+that against the real component. What could strand a run was the ending,
+which lived entirely inside the `requestAnimationFrame` chain in
+`use-play-along.ts`: one frame that threw, or a chain the browser dropped, and
+`songFinishedRef`/`songRunRef` stayed true, the stage froze on its last picture
+and `setSongPhase("done")` never ran — the only way to the score was to back
+out and start again. Two rules came out of it:
+
+- the end of a run is `songRunEnded(songTime)`, one function, asked by the
+  frame loop **and** by `hudTick`'s own 120 ms interval. The drawing may die;
+  the ending may not.
+- `songLoop` wraps `songFrame()` in try/catch and reschedules. An exception
+  inside a rAF callback kills the chain and nothing ever schedules the next
+  frame, so an unguarded frame is a silent permanent freeze.
+
+Same shape as the hook-order bug: a green build and `smoke-app-boot.mjs` prove
+the app *starts*, not that a run ends. And `x > NaN` is false for every `x`,
+so one non-finite note time in `expandSong`'s `lastT` reduce hangs a run
+exactly as silently — hence the finite guard there, and the check that runs the
+real `expandSong` over all 1,377 shipped songs and parses all 100,500
+originals' beat strings.
+
 ## Testing
 
 No committed unit-test suite and no CI test job. Verification for this
