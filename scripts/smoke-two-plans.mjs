@@ -98,6 +98,22 @@ ok(P.isMaxPlan(trial), "the trial passes the old isMaxPlan gate");
 eq(P.planBadge(trial).t, "🎁 TRIAL", "the trial still badges as a trial");
 ok(P.isTrialPlan("trialmax"), "a legacy trialmax row still counts as a trial");
 
+/* The seam between the two halves of the trial promise, which nothing pinned
+   until it was asked for. The day-7 popup (use-conversion's `closing`) is only
+   shown to a member the app still calls a trial — App passes the live plan
+   into convPopupFor, and isTrialPlan() reads that string. If effectivePlan()
+   stopped answering "trial" on the LAST day, the popup would silently stop
+   reaching anybody at all: the trial would still look fine on day 2 (the case
+   asserted above) and simply have no sales moment on day 7. Both ends are real
+   behaviour and neither test could see the other fail. */
+const lastDay = P.effectivePlan({ plan: "free", created_at: new Date(Date.now() - (6 * 864e5 + 3600 * 1000)).toISOString() });
+eq(lastDay, "trial", "the LAST trial day still resolves to trial — otherwise the day-7 notice never reaches anyone");
+ok(P.isPremiumPlan(lastDay), "the trial still has the full feature set on its very last day");
+eq(P.trialDaysLeft({ created_at: new Date(Date.now() - (6 * 864e5 + 3600 * 1000)).toISOString() }), 1,
+  "trialDaysLeft reads 1 on that day, so the countdown and the plan agree");
+const day8 = P.effectivePlan({ plan: "free", created_at: new Date(Date.now() - (7 * 864e5 + 3600 * 1000)).toISOString() });
+eq(day8, "free", "the day AFTER the trial the profile is genuinely free — which is what the day-7 notice promises");
+
 // ══ 5. prices: one number, in both tables ══════════════════════════════════
 for (const cur of ["thb", "usd", "cny"]) {
   const tbl = { thb: P.PLAN_PRICE, usd: P.PLAN_PRICE_USD, cny: P.PLAN_PRICE_CNY }[cur];
