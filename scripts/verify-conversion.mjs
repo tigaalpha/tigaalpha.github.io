@@ -57,10 +57,20 @@ const grabPrices = () => {
   return out;
 };
 const PRICES = grabPrices();
-console.log(`\n  (real PLAN_PRICE: premium=${PRICES.premium}, max=${PRICES.max})`);
+/* yearPrice() is copied in as the REAL formula rather than a number, for the
+   same reason PLAN_PRICE is read from source: the day-7 message now quotes a
+   yearly price, and a stub with a hard-coded one would make every assertion
+   below pass even if payment.tsx changed the discount or the monthly price.
+   Parsed out of the source so the test breaks loudly if it is renamed. */
+const YEAR_FN = paymentSrc.match(/export function yearPrice\([^)]*\)\s*\{([^}]*)\}/);
+if (!YEAR_FN) throw new Error("verify-conversion: cannot read yearPrice() from payment.tsx");
+const YEAR_PRICE_FROM_SOURCE = new Function("PLAN_PRICE", `return (p) => {${YEAR_FN[1]}\n}`)(PRICES);
+const STD_YEAR = YEAR_PRICE_FROM_SOURCE("premium").toLocaleString("en-US");
+console.log(`\n  (real PLAN_PRICE: premium=${PRICES.premium}, max=${PRICES.max}; real yearPrice(premium)=${YEAR_PRICE_FROM_SOURCE("premium")})`);
 writeFileSync(`${OUT}/payment.mjs`,
   `export const TRIAL_MAX = ${JSON.stringify(TRIAL_MAX_LITERAL)};\n` +
   `export const PLAN_PRICE = ${JSON.stringify(PRICES)};\n` +
+  `export const yearPrice = (p) => {${YEAR_FN[1]}\n};\n` +
   `export const trialLenDays = (p) => (p && p.founding_member ? ${FOUNDING_DAYS_FROM_SOURCE} : ${TRIAL_DAYS_FROM_SOURCE});\n` +
   `export const isTrialPlan = (p) => p === "trial" || p === TRIAL_MAX;\n`);
 // rewrite the import to the stub
@@ -172,6 +182,32 @@ for (const lang of ["th", "en", "zh"]) {
   ok(cc.closing.body.includes(STD_PRICE), `copy ${lang}: last-day body carries the Premium price`);
 }
 
+/* ── day 7 must quote BOTH cadences, monthly and yearly ─────────────────────
+   Owner 2026-10-05: "…ค่าใช้จ่ายจะอยู่ที่ 1,490 บาทต่อเดือน หรือต่อปีอยู่ที่
+   17,344 บาท". Only quoting the month left a member who wants to commit for a
+   year with no number to weigh.
+
+   Two numbers, one source. Both are compared against the REAL yearPrice()
+   formula read out of payment.tsx above, never against a literal — the whole
+   point is that neither figure can drift from what checkout charges. The
+   yearly figure is asserted on BOTH day-7 bodies, because personalizedBody()
+   replaces the generic body wholesale for anyone with proof data, so fixing
+   only copyTable's body would ship a yearly price to exactly the members who
+   practised and nothing to everyone else. */
+ok(YEAR_PRICE_FROM_SOURCE("premium") === 17344,
+  `yearPrice(premium) = ${YEAR_PRICE_FROM_SOURCE("premium")} — the yearly figure is 12 months less 3%, as the owner quoted (17,344)`);
+const YEAR_TOL = { th: "บาทต่อปี", en: "per year", zh: "每年" };
+for (const lang of ["th", "en", "zh"]) {
+  const cl = C.CONV_COPY[lang].closing;
+  ok(cl.body.includes(STD_YEAR), `day-7 ${lang}: generic body quotes the real yearly price ${STD_YEAR}`);
+  ok(cl.body.includes(YEAR_TOL[lang]), `day-7 ${lang}: generic body labels that figure as per-year`);
+  // same fixture shape as `proofish` below — only improvedCount >= 1 matters
+  const pb = C.personalizedBody("closing", lang, { improvedCount: 3, bestDelta: 12, sessions: 4 }, cl.body, "trial");
+  ok(pb.includes(STD_YEAR), `day-7 ${lang}: the PROOF body also quotes the yearly price ${STD_YEAR} (it replaces the generic one wholesale)`);
+  ok(pb.includes(YEAR_TOL[lang]), `day-7 ${lang}: the PROOF body labels the yearly figure as per-year`);
+  ok(pb.includes(STD_PRICE), `day-7 ${lang}: the PROOF body still quotes the monthly price ${STD_PRICE}`);
+}
+
 // ── day 7 must state the CONSEQUENCE, not only the price (owner 2026-10-05) ──
 /* "ถ้าไม่จ่ายเงิน … คุณจะเหลือแพ็กเกจฟรี และไม่สามารถใช้สิ่งที่เคยใช้ได้ในโปร".
    The old copy only ever said "to keep Premium, pay X" — it never said what
@@ -222,6 +258,8 @@ ok(C.trialPriceThb(promo) === STD_PRICE && C.trialPriceThb("trial") === STD_PRIC
   "trialPriceThb: every plan string is quoted the one real Premium price, formatted from PLAN_PRICE");
 ok(C.trialTierName(promo) === "Premium" && C.trialTierName("trial") === "Premium",
   "trialTierName: the plan argument is ignored — everyone is told Premium");
+ok(C.trialYearPriceThb(promo) === STD_YEAR && C.trialYearPriceThb("trial") === STD_YEAR,
+  "trialYearPriceThb: the yearly figure comes from yearPrice(), formatted the same way as the monthly one");
 
 // ══ v3: Personalized Proof Funnel ══
 ok(typeof C.proofStats === "function" && typeof C.proofPopupEligible === "function" && typeof C.firstPaidActivation === "function" && typeof C.personalizedBody === "function" && typeof C.logConvEvent === "function" && !!C.ACTIVATION_COPY, "v3 exports present");
