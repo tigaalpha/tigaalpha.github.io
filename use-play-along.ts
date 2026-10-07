@@ -2174,14 +2174,31 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     }
   }
   /* What a finished run owes the player even when the bookkeeping failed: a
-     real screen with the run's own numbers in it, never a blank one. */
+     real screen with the run's own numbers in it, never a blank one.
+     The numbers come off the refs, not off literals: this object feeds the
+     assessment screen, so `acc: 0` / `stars: 0` / `goal: null` here is what
+     made a finished run report "0% — All 3 stars! — +0 EXP". Rewards stay 0
+     on purpose: nothing was granted, and paying them here would double-pay
+     the moment the failure above is fixed. */
   function bareResult() {
-    return { acc: 0, score: songScoreRef.current, maxCombo: songMaxComboRef.current, stars: 0, exp: 0, coins: 0, total: songTotalRef.current || 0, hits: songHitsRef.current, best: loadBest(), newBest: false, fullCombo: false, allPerfect: false, missedNotes: [], playCount: 0, replayBonus: 0, grades: null, prevStars: 0, newStars: false, bestAcc: 0, goal: null, kind: songKindRef.current, dailyPaid: false, bossWon: false, medal: 0, medalNew: [], medalCoins: 0, medalExp: 0, runNo: 0, coinCapped: false, moodLogged: false, setlist: null };
+    const g = songGradesRef.current;
+    const total = songTotalRef.current || 1;
+    const acc = accuracyOf({ ...g, total, kind: songKindRef.current });
+    const stars = starsFor(acc);
+    return { acc, score: songScoreRef.current, maxCombo: songMaxComboRef.current, stars, exp: 0, coins: 0, total, hits: songHitsRef.current, best: loadBest(), newBest: false, fullCombo: false, allPerfect: false, missedNotes: [], playCount: 0, replayBonus: 0, grades: { perfect: g.perfect, great: g.great, good: g.good, miss: songMissRef.current, wrong: g.wrong, mash: g.mash }, prevStars: 0, newStars: false, bestAcc: acc, goal: nextStarGoal(acc), kind: songKindRef.current, dailyPaid: false, bossWon: false, medal: 0, medalNew: [], medalCoins: 0, medalExp: 0, runNo: 0, coinCapped: false, moodLogged: false, setlist: null };
   }
   function settleRun() {
     const meta = songMetaRef.current;
     if (meta && meta.intro) { finishIntro(); return; }
     if (practiceRef.current) { finishPractice(); return; }
+    /* songId FIRST: it was declared below its own first use (bumpPlayCount),
+       and a `const` read before its initialization is a ReferenceError — so
+       this function threw on the very first line that needed it, every run,
+       and the catch in finishSong showed the fallback screen: 0%, +0 EXP,
+       no medal, no TIGA coach line, no auto-loop/concert chain (reported
+       2026-10-05 as "the assessment is wrong" and "the analysis never
+       appears"). Declaration order inside a function is part of correctness. */
+    const songId = songIdOf(meta);
     const total = songTotalRef.current || 1;
     const hits = songHitsRef.current;
     const g = songGradesRef.current;
@@ -2214,7 +2231,6 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const prevBest = loadBest();
     const score = songScoreRef.current;
     const newBest = score > prevBest;
-    const songId = songIdOf(meta);
     if (newBest) {
       try { localStorage.setItem(songKey(), String(score)); } catch (e) {} setSongBest(score);
       try { localStorage.setItem("tg_ghost_" + songId, JSON.stringify(songSamplesRef.current.slice(-240))); } catch (e) {}

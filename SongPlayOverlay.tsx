@@ -659,7 +659,13 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
             <div className="pl-coach-goal">
               {songResult.goal
                 ? T(`แม่นอีก ${songResult.goal.more}% ได้ ${songResult.goal.stars} ดาว`, `${songResult.goal.more}% more accuracy for ${songResult.goal.stars} star${songResult.goal.stars > 1 ? "s" : ""}`, `准确率再提高 ${songResult.goal.more}% 得 ${songResult.goal.stars} 星`)
-                : T("ได้ 3 ดาวเต็มแล้ว!", "All 3 stars!", "满 3 星！")}
+                /* Only claim the sweep when the run actually has the three
+                   stars under it: goal is null at bestAcc ≥ 90, which can be a
+                   past best while THIS run scored less — the line used to read
+                   "All 3 stars!" over a 0%/2-star result. */
+                : songResult.stars >= 3
+                  ? T("ได้ 3 ดาวเต็มแล้ว!", "All 3 stars!", "满 3 星！")
+                  : T("เป้าหมายถัดไป: แม่น 50% ได้ 1 ดาว", "Next goal: 50% accuracy for your first star", "下一个目标：准确率 50% 得第一颗星")}
             </div>
             {songTigaTip && songTigaTip.tip && (
               <div className="pl-tip"><span className="pl-tip-badge">TIGA</span> {songTigaTip.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || songTigaTip.tip.en}</div>

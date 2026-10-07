@@ -18,6 +18,12 @@
         never be `x > NaN` (always false — a run that never ends), checked by
         running the REAL expandSong over every song the app ships
 
+     4. the assessment's numbers come off the run's own refs, and the
+        bookkeeping can read its own variables: a `const` read before its
+        declaration is a ReferenceError on EVERY run (not a rare one), which
+        is exactly what turned a finished song into "0% — All 3 stars! —
+        +0 EXP" with the TIGA coach line missing (report 2026-10-05)
+
    Plus the result screen itself, rendered for real from a finished run.
 
      node scripts/verify-playalong-end.mjs                                  */
@@ -85,6 +91,78 @@ rec("practice is exempt from the wall-clock deadline (its clock waits on purpose
   /function runOverByWallClock\(\)[\s\S]{0,300}practiceRef\.current\) return false;/.test(PA));
 rec("a drill is exempt from the wall-clock deadline (it loops one section)",
   /runOverByWallClock\(\)\) \{ songFinishRef/.test(hudTick) && /!drillRef\.current && !pausedRef\.current && runOverByWallClock\(\)/.test(hudTick));
+
+/* ── 4: the assessment's numbers, and code that can read its own variables ──
+   settleRun read `songId` before its own `const`. A `const` is not hoisted, so
+   that is a ReferenceError on the first line needing it — every run — and the
+   catch in finishSong showed the fallback: acc 0, stars 0, goal null ("All 3
+   stars!"), +0 EXP. The TIGA coach line, the medals, the EXP and the concert
+   chain all sit BELOW that line, which is why the analysis never appeared
+   either. A green build cannot see this: the throw is at runtime and the
+   fallback is still a valid screen. */
+const { parse: parseTs } = createRequire(import.meta.url)("@babel/parser");
+const patternNames = (n, out = []) => {
+  if (!n) return out;
+  if (n.type === "Identifier") out.push(n.name);
+  else if (n.type === "ObjectPattern") n.properties.forEach(p => patternNames(p.value || p.argument, out));
+  else if (n.type === "ArrayPattern") n.elements.forEach(e => patternNames(e, out));
+  else if (n.type === "RestElement" || n.type === "AssignmentPattern") patternNames(n.argument || n.left, out);
+  return out;
+};
+/* Reads that happen before their own declaration inside one function body.
+   Nested functions are skipped on purpose: they are deferred, so reading an
+   outer const from one is legal. What is left is the straight-line class —
+   the one that broke the assessment. */
+function tdzViolations(src, fnName) {
+  const ast = parseTs(src, { sourceType: "module", plugins: ["typescript", "jsx"], errorRecovery: true });
+  let fn = null;
+  const find = (n) => {
+    if (fn || !n || typeof n !== "object") return;
+    if (Array.isArray(n)) { for (const x of n) find(x); return; }
+    if (typeof n.type !== "string") return;
+    if (n.type === "FunctionDeclaration" && n.id && n.id.name === fnName) { fn = n; return; }
+    for (const k of Object.keys(n)) { if (k === "loc" || k === "start" || k === "end" || k === "range") continue; find(n[k]); }
+  };
+  find(ast.program);
+  if (!fn) return [`${fnName}: not found in source`];
+  const decls = new Map(), refs = [];
+  const isFn = (n) => n.type === "FunctionDeclaration" || n.type === "FunctionExpression" || n.type === "ArrowFunctionExpression";
+  const walk = (n) => {
+    if (!n || typeof n !== "object") return;
+    if (Array.isArray(n)) { for (const x of n) walk(x); return; }
+    if (typeof n.type !== "string") return;
+    // deferred: a named nested function is hoisted, and any nested function's
+    // body runs later — neither is a read that can hit the temporal dead zone
+    if (n !== fn && isFn(n)) { if (n.id && n.id.name) decls.set(n.id.name, fn.start); return; }
+    if (n.type === "VariableDeclarator") { walk(n.init); patternNames(n.id).forEach(nm => decls.set(nm, n.id.start)); return; }
+    if (n.type === "Identifier") { refs.push({ name: n.name, start: n.start }); return; }
+    if (n.type === "MemberExpression") { walk(n.object); if (n.computed) walk(n.property); return; }
+    if (n.type === "ObjectProperty") { if (n.computed) walk(n.key); walk(n.value); return; }
+    if (n.type === "LabeledStatement") { walk(n.body); return; }
+    for (const k of Object.keys(n)) { if (k === "loc" || k === "start" || k === "end" || k === "range" || k === "leadingComments" || k === "trailingComments") continue; walk(n[k]); }
+  };
+  walk(fn.body);
+  const out = [];
+  for (const r of refs) {
+    const d = decls.get(r.name);
+    if (d !== undefined && r.start < d) out.push(`${fnName}: \`${r.name}\` read before its declaration`);
+  }
+  return out;
+}
+/* the premise: this is a hard runtime error, not a warning */
+rec("a read before its declaration throws — it is not merely stale, it is fatal",
+  (() => { try { new Function("const first = later; const later = 1; return first;")(); return false; }
+          catch (e) { return /before initialization|TDZ/i.test(String(e && e.message)); } })());
+{
+  const bad = ["finishSong", "bareResult", "settleRun"].flatMap(fn => tdzViolations(PA, fn));
+  rec("no read-before-declaration in the ending (finishSong / bareResult / settleRun)",
+    bad.length === 0, bad.slice(0, 3).join(" · "));
+}
+const BARE = PA.slice(PA.indexOf("function bareResult("), PA.indexOf("function settleRun("));
+rec("bareResult reports the run's own accuracy/stars/goal, never the literals 0 and null",
+  /accuracyOf\(/.test(BARE) && /starsFor\(acc\)/.test(BARE) && /nextStarGoal\(acc\)/.test(BARE)
+  && !/acc:\s*0\b/.test(BARE) && !/stars:\s*0\b/.test(BARE) && !/goal:\s*null/.test(BARE)
+  && /grades:\s*\{/.test(BARE));
 
 /* ── 3 + the result screen: the real modules ───────────────────────────── */
 const STUBS = {
@@ -213,6 +291,81 @@ try {
   const concert = render({ ...base, songPhase: "done", songResult: { ...finished, setlist: [{ song: { th: "A" }, stars: 3 }, { song: { th: "B" }, stars: 1 }] } });
   rec("a finished concert lands on its own recap", /concertrecap/.test(concert) && /pl-again/.test(concert));
 } catch (e) { rec("a finished concert lands on its own recap", false, "threw: " + (e && e.message)); }
+
+/* the two lines the 2026-10-05 report circled: the sweep claimed over a run
+   that does not have three stars, and the TIGA coach slot left empty */
+try {
+  const sweep = render({ ...base, songPhase: "done", songResult: { ...finished, stars: 2, goal: null, bestAcc: 95 } });
+  rec("goal:null does not claim \"All 3 stars!\" over a 2-star run",
+    !sweep.includes("All 3 stars") && !sweep.includes("ได้ 3 ดาวเต็มแล้ว"));
+} catch (e) { rec("goal:null does not claim \"All 3 stars!\" over a 2-star run", false, "threw: " + (e && e.message)); }
+try {
+  const crown = render({ ...base, songPhase: "done", songResult: { ...finished, stars: 3, goal: null } });
+  rec("a run that really has three stars still says \"All 3 stars!\"",
+    crown.includes("All 3 stars") || crown.includes("ได้ 3 ดาวเต็มแล้ว"));
+} catch (e) { rec("a run that really has three stars still says \"All 3 stars!\"", false, "threw: " + (e && e.message)); }
+try {
+  const tipped = render({ ...base, songPhase: "done", songResult: finished,
+    songTigaTip: { tip: { th: "คำแนะนำจาก TIGA MODEL", en: "from the model", zh: "模型建议" } } });
+  rec("the TIGA coach card fills the slot the report circled (it is reachable on the happy path)",
+    /pl-tip/.test(tipped) && tipped.includes("คำแนะนำจาก TIGA MODEL"));
+} catch (e) { rec("the TIGA coach card fills the slot the report circled", false, "threw: " + (e && e.message)); }
+
+/* ── mutation: the exact regression, put back by hand ────────────────────
+   Each mutant must be caught by the checks above; the sources are strings
+   only, so nothing on disk changes. */
+{
+  const decl = "    const songId = songIdOf(meta);\n    const total = songTotalRef.current || 1;";
+  const use = "    const playCount = played ? bumpPlayCount(songId) : songPlayCount(songId);";
+  const moved = PA.includes(decl) && PA.includes(use)
+    && tdzViolations(PA.replace(decl, "    const total = songTotalRef.current || 1;")
+        .replace("    const newBest = score > prevBest;",
+                 "    const newBest = score > prevBest;\n    const songId = songIdOf(meta);"), "settleRun");
+  rec("mutation is caught: declaring songId back below its use goes red",
+    Array.isArray(moved) && moved.length > 0, moved && moved[0]);
+}
+{
+  const lying = BARE
+    .replace(/const g = songGradesRef\.current;[\s\S]*?goal: nextStarGoal\(acc\)/,
+      "return { acc: 0, score: songScoreRef.current, stars: 0, grades: null, goal: null");
+  const stillHonest = /accuracyOf\(/.test(lying) && /starsFor\(acc\)/.test(lying) && /nextStarGoal\(acc\)/.test(lying)
+    && !/acc:\s*0\b/.test(lying) && !/stars:\s*0\b/.test(lying) && !/goal:\s*null/.test(lying);
+  rec("mutation is caught: hardcoding acc 0 / stars 0 / goal null back goes red",
+    !stillHonest && lying !== BARE);
+}
+/* the screen-level mutant needs the real component, so build it from source */
+async function renderSource(src) {
+  const plugMut = {
+    name: "pa-end-mut",
+    setup(b) {
+      b.onResolve({ filter: /^REAL_OVERLAY$/ }, () => ({ path: "mut", namespace: "mut" }));
+      b.onLoad({ filter: /.*/, namespace: "mut" }, () => ({ contents: src, loader: "tsx", resolveDir: process.cwd() }));
+      b.onResolve({ filter: /^ENTRY$/ }, () => ({ path: "entry-mut.js", namespace: "entry" }));
+      b.onLoad({ filter: /.*/, namespace: "entry" }, () => ({ contents: entry, loader: "js", resolveDir: path.resolve(".") }));
+      b.onResolve({ filter: /^\.\/(app-shell|play-along-store|play-along-progress|shared-infra|i18n|play-along-judge|music-engine)$/ }, (a) => ({ path: a.path, namespace: "stub" }));
+      b.onLoad({ filter: /.*/, namespace: "stub" }, (a) => ({ contents: STUBS[a.path] || "export {};", loader: "js", resolveDir: path.resolve(".") }));
+    },
+  };
+  const b2 = await build({
+    entryPoints: ["ENTRY"], bundle: true, format: "cjs", write: false, platform: "node",
+    external: ["react", "react-dom", "react/jsx-runtime"], jsx: "automatic",
+    loader: { ".ts": "ts", ".tsx": "tsx" },
+    define: { "process.env.NODE_ENV": '\"production\"' },
+    plugins: [plugMut], logLevel: "error",
+  });
+  const m = { exports: {} };
+  new Function("require", "module", "exports", b2.outputFiles[0].text)(nodeRequire, m, m.exports);
+  return ReactDOMServer.renderToStaticMarkup(React.createElement(m.exports.SongPlayOverlay,
+    { ...base, songPhase: "done", songResult: { ...finished, stars: 2, goal: null, bestAcc: 95 } }));
+}
+try {
+  const SO = fs.readFileSync("SongPlayOverlay.tsx", "utf8");
+  const ungated = SO.includes("songResult.stars >= 3")
+    ? await renderSource(SO.replace("songResult.stars >= 3", "true"))
+    : null;
+  rec("mutation is caught: without the 3-star gate the screen claims the sweep on a 2-star run",
+    ungated !== null && (ungated.includes("All 3 stars") || ungated.includes("ได้ 3 ดาวเต็มแล้ว")));
+} catch (e) { rec("mutation is caught: without the 3-star gate the screen claims the sweep", false, "threw: " + (e && e.message)); }
 
 /* every song the app ships ends at a finite time */
 const songEntry = `
