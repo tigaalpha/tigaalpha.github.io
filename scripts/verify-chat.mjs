@@ -220,6 +220,23 @@ if (want("quota")) {
   await G.ctx.close();
 }
 
+if (want("kid")) {
+  console.log("\n# kid mode — the tutor is told to talk to a six-year-old");
+  for (const [lang, rx] of [["en", /Kid mode: the learner may be only 6/], ["th", /โหมดเด็ก: ผู้เรียนอาจอายุเพียง 6 ขวบ/], ["zh", /儿童模式：学习者可能只有 6 岁/]]) {
+    const K = await newLearner({ lang, plan: "premium", jev: "off", ls: { tg_kid: "1" } });
+    await openChat(K.page);
+    await ask(K.page, lang === "th" ? "ซ้อม hanon ยังไงดี" : lang === "zh" ? "怎么练 hanon" : "how do I practise hanon"); await settle(K.page);
+    const sys = (K.state.chat[0] && K.state.chat[0].body.system) || "";
+    check(`kid-prompt-${lang}`, rx.test(sys), sys.length + " chars");
+    await K.ctx.close();
+  }
+  const N = await newLearner({ lang: "en", plan: "premium", jev: "off" });
+  await openChat(N.page);
+  await ask(N.page, "how do I practise hanon"); await settle(N.page);
+  check("kid-prompt-absent-when-off", !/Kid mode:/.test((N.state.chat[0] && N.state.chat[0].body.system) || ""));
+  await N.ctx.close();
+}
+
 /* ───────── starters: the full-screen chat's opening ───────── */
 if (want("starters")) {
   console.log("\n# starters — full-screen chat before the first question");

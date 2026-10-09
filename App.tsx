@@ -132,7 +132,7 @@ import {
 import {
   GUEST_TRIAL_MS, GUEST_TICK_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
   pushSupported, subscribePush, unsubscribePush, logUsage,
-  readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses, readRecentNoteMisses, readKidPref, writeKidPref, kidModeOn,
+  readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses, readRecentNoteMisses, readKidPref, writeKidPref, kidModeOn, setKidNow, kidPromptBlock,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
   readLandingOrigin, clearLandingOrigin, anonId,
@@ -12308,6 +12308,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // plan 27 · P1-5 — kid mode: shorter words on the practice screens. Chosen in Settings, or on by itself for a profile aged 9 or under.
   const [kidPref, setKidPrefState] = useState(() => readKidPref());
   const kidOn = kidModeOn(profile, kidPref);
+  setKidNow(kidOn);   // the prompt builders (chat, coaching tip) read it outside React
   function toggleKid() { const next = !kidOn; writeKidPref(next); setKidPrefState(next ? "1" : "0"); try { logUsage("nav", "kid:" + (next ? "on" : "off")); } catch (e) {} }
   const marketingOn = !!(profile && profile.marketing_consent);
   function toggleMarketing() {
@@ -13080,7 +13081,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   return (
     <UxCtx.Provider value={uxOn}>
-    <div className={"tg" + (uxOn ? " ux2" : "")} style={{ opacity: cssReady ? 1 : 0, transition: "opacity .15s" }}>
+    <div className={"tg" + (uxOn ? " ux2" : "") + (kidOn ? " kid" : "")} style={{ opacity: cssReady ? 1 : 0, transition: "opacity .15s" }}>
       <div className="scan" />
 
       {guestGateReason && (

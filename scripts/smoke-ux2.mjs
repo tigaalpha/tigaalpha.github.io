@@ -51,5 +51,37 @@ async function open({ ux, page = "pathway", w = 412, q = "" }) {
 { const { ctx, p } = await open({ ux: null, q: "?ux=2" });
   check("?ux=2 turns it on for a device without the switch", (await p.$$(".tabbar .tab")).length === 5);
   await ctx.close(); }
+{ const { ctx, p } = await open({ ux: null, q: "" });
+  await ctx.close(); }
+// ── kid mode across the app ──
+async function openKid(kid, page = "pathway") {
+  const ctx = await b.newContext({ viewport: { width: 412, height: 800 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
+  await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await ctx.addInitScript(({ kid, page }) => {
+    sessionStorage.setItem("tiga_page", page);
+    localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: "en", age: "adult", level: "beginner", exp: 5000 })); localStorage.setItem("tg_lang", "en");
+    localStorage.setItem("tg_orient_hint_seen", "1"); localStorage.setItem("tg_3d_tier", "0"); localStorage.setItem("tg_pa_intro", "1");
+    localStorage.setItem("tg_edu_seen", '{"firstCoins":1,"chest":1,"pet":1,"shop":1,"rich":1,"shopIntro":1}');
+    if (kid != null) localStorage.setItem("tg_kid", kid);
+    const si = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === "tg_guest_ms") return; return si.call(this, k, v); };
+    const gi = Storage.prototype.getItem; Storage.prototype.getItem = function (k) { return k === "tg_guest_ms" ? "0" : gi.call(this, k); };
+  }, { kid, page });
+  const p = await ctx.newPage(); await p.goto(BASE, { waitUntil: "load" }); await p.waitForTimeout(2200);
+  for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(250); }
+  return { ctx, p };
+}
+for (const page of ["pathway", "studio", "sensei", "profile"]) {
+  const { ctx, p } = await openKid("1", page);
+  const m = await p.evaluate(() => { const bs = [...document.querySelectorAll(".tg.kid button")].filter(e => e.offsetParent && e.getBoundingClientRect().height > 0); return { kid: !!document.querySelector(".tg.kid"), small: bs.filter(e => e.getBoundingClientRect().height < 40).length, n: bs.length }; });
+  check(`kid mode on "${page}": the root wears .kid and touch targets are at least ~40 px`, m.kid && m.small <= Math.max(2, Math.floor(m.n * 0.08)), JSON.stringify(m));
+  await ctx.close();
+}
+{ const { ctx, p } = await openKid("1", "pathway");
+  const d = await p.evaluate(() => { const e = document.querySelector(".pcardsub"); return e ? getComputedStyle(e).display : "none-found"; });
+  check("kid mode hides the card sub-lines on the pathway", d === "none" || d === "none-found", d);
+  await ctx.close(); }
+{ const { ctx, p } = await openKid("0", "pathway");
+  check("kid mode off: no .kid class", !(await p.$(".tg.kid")));
+  await ctx.close(); }
 await b.close(); server.close();
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

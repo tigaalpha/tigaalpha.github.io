@@ -4,7 +4,7 @@ import {
 } from "./music-engine";
 import { tr, L, matchFaqTopic } from "./i18n";
 import { canonicalPlan } from "./payment";
-import { logUsage, readActLog } from "./shared-infra";
+import { logUsage, readActLog, kidPromptBlock } from "./shared-infra";
 import { learnerSignal } from "./learner-signal";
 import { stopCloudTTS } from "./speech";
 import { memoryContext, homeworkContext, learnerSignalContext, readMemory } from "./ai-chat-context";
@@ -436,7 +436,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         }));
       } catch (e) { signalBlock = ""; }
       const system = lc.sys + refs + kbContext + studentBlock + coachBlock + signalBlock + memoryContext(lang) + homeworkContext(lang)
-        + curriculumContext(lang, { chat: true }) + (songTalk ? songRecommendationHint(lang, { titles: true }) : "") + jevHint;
+        + curriculumContext(lang, { chat: true }) + (songTalk ? songRecommendationHint(lang, { titles: true }) : "") + jevHint + kidPromptBlock(lang);
       let acc = "";
       let haveBubble = false; // did any streaming attempt reach the response?
       const runStream = () => streamChatCompletion(
