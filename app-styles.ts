@@ -920,7 +920,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicenow-note.target{color:#d97757;text-shadow:0 0 18px #d9775777}
 .practicenow-note.heard{color:var(--muted)}
 .practicenow-note.heard.doubt{color:var(--muted);font-size:30px;opacity:.7}
-/* ══════ KID MODE — the whole app, not only the practice screen (owner 2026-10-09). `.kid` on the root; set by Settings 🧒 or by a profile aged ≤ 9.
+/* ══════ KID MODE — the whole app, not only the practice screen (owner 2026-10-09). .kid on the root; set by Settings (kid toggle) or by a profile aged 9 or under.
    Fewer words, bigger things to touch, the grown-up detail out of sight. Nothing is removed from the app: leaving the mode brings it all back. ══════ */
 .tg.kid .pcardsub,.tg.kid .pcardlevel,.tg.kid .pgsub,.tg.kid .songcard-meta .songcard-lv,.tg.kid .songcard-og,
 .tg.kid .missbar,.tg.kid .chatstarters-hint,.tg.kid .iw .hint,.tg.kid .practicetip-more,.tg.kid .todaybar-tag,
