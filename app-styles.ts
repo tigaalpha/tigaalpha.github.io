@@ -936,6 +936,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .tg.kid .starterchip,.tg.kid .starterch{font-size:16px;padding:12px 14px}
 .tg.kid .msg .bbl{font-size:17px;line-height:1.6}
 .tg.kid .songsec-nm{font-size:22px}
+.handtoggle{min-height:48px}
+.handtoggle .handswap{opacity:.55;font-size:15px;margin-left:2px}
+.practiceov{height:100dvh}
+.practicebody{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));min-height:0}
+@media (max-height:640px){.practicebody{gap:8px;padding:8px 12px}.practicebody .piano{transform-origin:top center}.practicenow-note{font-size:34px}.fhand{width:96px;height:57px}.practicetip{display:none}}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
 .practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}
