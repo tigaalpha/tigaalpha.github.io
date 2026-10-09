@@ -192,6 +192,7 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
             <button className={`practicebtn${hasSeq && !seqPlaying ? " ready" : ""}`} disabled={!hasSeq} onClick={startPractice}
               title={hasSeq ? lc.practiceBtn : lc.practiceNoSeq}>
               {hasSeq ? lc.practiceBtn : lc.practiceNoSeq}
+              {hasSeq && fingerChart && fingerChart.label && <span className="practicebtn-sub">{fingerChart.label}{fingerChart.notes ? " · " + fingerChart.notes.length + (lang === "th" ? " โน้ต" : lang === "zh" ? " 个音" : " notes") : ""}</span>}
             </button>
           </div>
           <div className="cw">

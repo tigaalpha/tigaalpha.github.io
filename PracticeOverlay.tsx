@@ -25,6 +25,28 @@ import { SPOT_CAP_NOTES } from "./practice-spot";
 const SOLFEGE_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา", G: "ซอล", A: "ลา", B: "ที" };
 const SOLFEGE_EN = { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Ti" };
 function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : SOLFEGE_EN; return (m[base] || "") + (String(pc || "").length > 1 ? "♯" : ""); }
+// plan 27 · P1-3: a hand that points at the finger to use — a child sees "this one", not a number to decode.
+// A right hand seen from above has the thumb on the left; a left hand is its mirror image.
+function FingerHand({ finger, hand }) {
+  const H = [30, 44, 50, 44, 34];          // finger heights, thumb → little finger
+  const order = hand === "left" ? [4, 3, 2, 1, 0] : [0, 1, 2, 3, 4];
+  return (
+    <svg className="fhand" width="128" height="76" viewBox="0 0 128 76" role="img" aria-label={"finger " + finger}>
+      {order.map((fi, pos) => {
+        const on = finger === fi + 1;
+        const h = H[fi], x = 8 + pos * 23, y = 54 - h;
+        return (
+          <g key={fi}>
+            <rect x={x} y={y} width="19" height={h + 10} rx="9.5" className={"fhand-f" + (on ? " on" : "")} />
+            {on && <text x={x + 9.5} y={y + 15} textAnchor="middle" className="fhand-n">{fi + 1}</text>}
+          </g>
+        );
+      })}
+      <rect x="6" y="52" width="116" height="22" rx="10" className="fhand-palm" />
+    </svg>
+  );
+}
+function starsOf(acc) { return acc >= 90 ? 3 : acc >= 70 ? 2 : 1; }
 function comboBadge(streak) {
   if (streak < 3) return null;
   const fire = streak >= 8 ? "🔥🔥🔥" : streak >= 5 ? "🔥🔥" : "🔥";
@@ -99,6 +121,7 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
         </div>
       )}
 
+      <div className="presultstars" aria-label={starsOf(r.accuracy) + " stars"}>{[1, 2, 3].map(n => <span key={n} className={n <= starsOf(r.accuracy) ? "on" : ""}>★</span>)}</div>
       <div className="presultstats">
         <div className="presultstat">
           <div className="presultstat-v">{r.accuracy}%</div>
@@ -291,6 +314,7 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
                     ? (remainingNotes.length ? remainingNotes.map(n => pcOf(n)).join(" · ") : "✓")
                     : (practiceTarget[practiceIdx] ? pcOf(practiceTarget[practiceIdx]) : "✓")}
                 </div>
+                {!isBlockMode && practiceTarget[practiceIdx] && practiceFingers[practiceIdx] != null && <FingerHand finger={practiceFingers[practiceIdx]} hand={hand} />}
                 {!isBlockMode && practiceTarget[practiceIdx] && <div className="practicenow-sol">{solfegeOf(pcOf(practiceTarget[practiceIdx]), lang)}</div>}
               </div>
               <div className="practicenow-box">
@@ -301,9 +325,9 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
               </div>
             </div>
 
-            <div className="practicechips">
+            <div className={`practicechips${isBlockMode ? "" : " pdots"}`}>
               {practiceTarget.map((n, i) => (
-                <span key={i} className={`pchip${isBlockMode
+                <span key={i} title={pcOf(n)} className={`pchip${isBlockMode
                   ? (practiceHitIdxs.includes(i) ? " done" : liveMissMap[i] ? " pchip--retry" : "")
                   : (i < practiceIdx ? " done" : i === practiceIdx ? " cur" : liveMissMap[i] ? " pchip--retry" : "")}`}>
                   {pcOf(n)}
