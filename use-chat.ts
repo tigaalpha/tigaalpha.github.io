@@ -120,6 +120,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
   const endRef = useRef(null);
   const mendRef = useRef(null);
   const topicHint = useRef(null); // "scale" | "chord" — what the current lesson is about
+  const lessonSeq = useRef(null); // the exact demo sequence of the lesson on screen — every lesson answer carries it, so the chip plays what the lesson teaches
   const lessonKey = useRef(null); // the key id picked in the lesson (e.g. "F", "Bb") — forces correct key
   // true from callClaude()'s start until its stream fully resolves (success or
   // error) — deliberately separate from `loading`, which flips false as soon as
@@ -191,7 +192,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     if (!t) return;
     try { logUsage("chat-answer-len", String(t.length)); } catch (e) {}
   }, []);
-  function setLessonContext(hint, key = null) { topicHint.current = hint; lessonKey.current = key; }
+  function setLessonContext(hint, key = null, seq = null) { topicHint.current = hint; lessonKey.current = key; lessonSeq.current = hint === LESSON_MODE ? seq : null; }
 
   // First mount already has the right thread (restored from storage, or a
   // fresh welcome — see the useState initializer above); only a REAL
@@ -356,7 +357,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         setMsgs(prev => {
           const copy = prev.slice();
           for (let i = copy.length - 1; i >= 0; i--) {
-            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text }; break; }
+            if (copy[i].role === "ai") { copy[i] = { ...copy[i], text, ...(topicHint.current === LESSON_MODE && lessonSeq.current ? { seq: lessonSeq.current } : {}) }; break; }
           }
           return copy;
         });
