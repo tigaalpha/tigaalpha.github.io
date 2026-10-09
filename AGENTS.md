@@ -686,6 +686,7 @@ in the code, and what it replaced:
   `node scripts/smoke-practice-mic-doubt.mjs` (17 checks) runs the REAL hook in jsdom.
 - **Jev stays in the chat's path (owner, 2026-10-09: "call Jev to check too — it is free").** `jevPrecheck` runs before every live-AI question; do not skip it to
   save cost.
+- **Plan 28 phase A (2026-10-09).** Left/Right hand is ONE toggle button (`.handtoggle`, Teacher page and Practice). The challenge nudge ("Ready to test yourself?") waits while a practice is open or an EXP toast shows and hides itself after 4.5 s. Practice fits one screen down to 320x568 (`@media (max-height:640px/600px)` blocks in `app-styles.ts`). `node scripts/smoke-layout-a.mjs` (Playwright, `dist/` built first, ~4 min; `SIZES=320x568 LANGS=en` for a subset) checks 4 sizes x th/en/zh x kid/adult: one hand button, no horizontal scroll, the "n / N" row above the footer, no primary button covered. NOT done: a full `OverlayQueue` (only the nudge is queued; the EXP toast stays top-fixed and the auto-teach popup keeps `atipDelivery`).
 - `node scripts/smoke-ux2.mjs` drives the built app for the premium interface (off by default, `?ux=2`/`?ux=0`, five tabs, 320 px, and NO large Pathway title — the owner struck it out on 2026-10-09; do not bring it back).
   `verify-chat.mjs` was brought back in line with what ships (2 free / 10 Premium questions a day, the persona's current wording, the KB ceiling, the
   suspended speaker via `SPEAK=1`).
