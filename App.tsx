@@ -11148,6 +11148,22 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     document.addEventListener("visibilitychange", onVis);
     return () => { navigator.serviceWorker.removeEventListener("message", onMsg); document.removeEventListener("visibilitychange", onVis); };
   }, []);
+  const tabGo = (t, already) => {
+          playUi("click"); haptic(6);
+          if (already && t.page !== "sensei") {
+            // the tab you are on: back to the top of it, the way iOS does (the studio's song list goes back to its menu)
+            if (t.page === "studio" && studioView !== "menu") { setStudioView("menu"); return; }
+            const root = document.querySelector(".tg");
+            const sc = root && Array.from(root.children).find((el: any) => el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY));
+            if (sc) { try { (sc as any).scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { (sc as any).scrollTop = 0; } }
+            return;
+          }
+          logUsage("nav", "tab-" + t.k); stopPracticeListeners(); setNavOpen(false);
+          setPage(t.page);
+          if (t.page === "studio") setStudioView("menu");
+          // like the drawer's TIGA CHAT: the teacher opens straight into the conversation
+          if (t.page === "sensei") setModal(true);
+        };
   // Tapping a push notification while the app is already open just focuses the
   // existing tab (sw.js can't navigate a client it doesn't own) — so the SW posts
   // a NAVIGATE message into it instead of relying on the URL hash a fresh launch
@@ -13154,8 +13170,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <button className="hamb" onClick={() => { playUi("click"); setNavOpen(true); }} aria-label="Menu">
             <span /><span /><span />
           </button>
-          <div className="lbox flicker" onClick={handleLogoTap}
-            style={{ cursor: "pointer" }} title="TIGA">TIGA</div>
+          <div className="lbox lmark" onClick={handleLogoTap}
+            style={{ cursor: "pointer" }} title="TIGA" role="img" aria-label="TIGA">
+            {/* the mark: three piano keys under a rounded lid, drawn in the same 1.6 line style as the other header glyphs */}
+            <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3.5" y="6" width="25" height="20" rx="5" />
+              <path d="M11.8 18v8M20.2 18v8" />
+              <rect x="9" y="6" width="5.6" height="12" rx="1.6" fill="currentColor" stroke="none" />
+              <rect x="17.4" y="6" width="5.6" height="12" rx="1.6" fill="currentColor" stroke="none" />
+            </svg>
+          </div>
           {/* one-tap shortcut straight into the PvP arena */}
           <button className="hdrgo hdr-pvp" onClick={() => { playUi("click"); logUsage("nav", "pvp-hdr"); setPage("pvp"); }}
             aria-label="PvP" title="PvP">
@@ -13426,27 +13450,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} onMark={markUnderstood} onGoStep={handleCoachNavigate} chatProg={chatProg} todayPlan={todayPlan} todayTags={TODAY_TAGS[lang]} onTodayOpen={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }} resumeCard={resumeCard} onResumeDrill={(d) => { playUi("click"); logUsage("practice", "resume-drill"); replayDrill(d); }} missCard={missCard} sessionDone={sessionDone} />}
+      {page === "sensei" && <div className="sensei-scroll"><SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} onMark={markUnderstood} onGoStep={handleCoachNavigate} chatProg={chatProg} todayPlan={todayPlan} todayTags={TODAY_TAGS[lang]} onTodayOpen={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }} resumeCard={resumeCard} onResumeDrill={(d) => { playUi("click"); logUsage("practice", "resume-drill"); replayDrill(d); }} missCard={missCard} sessionDone={sessionDone} /></div>}
 
       {/* ─── TAB BAR ─── (premium interface, ux2.ts) the five common destinations, a thumb away; the drawer below still holds
           everything. It is the last child of the column, so every page simply ends above it. */}
       {uxOn && page !== "videos" && page !== "admin" && (
-        <TabBar page={page} lang={lang} onGo={(t, already) => {
-          playUi("click"); haptic(6);
-          if (already && t.page !== "sensei") {
-            // the tab you are on: back to the top of it, the way iOS does (the studio's song list goes back to its menu)
-            if (t.page === "studio" && studioView !== "menu") { setStudioView("menu"); return; }
-            const root = document.querySelector(".tg");
-            const sc = root && Array.from(root.children).find((el: any) => el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY));
-            if (sc) { try { (sc as any).scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { (sc as any).scrollTop = 0; } }
-            return;
-          }
-          logUsage("nav", "tab-" + t.k); stopPracticeListeners(); setNavOpen(false);
-          setPage(t.page);
-          if (t.page === "studio") setStudioView("menu");
-          // like the drawer's TIGA CHAT: the teacher opens straight into the conversation
-          if (t.page === "sensei") setModal(true);
-        }} />
+        <TabBar page={page} lang={lang} onGo={tabGo} />
       )}
 
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
@@ -13555,6 +13564,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} />
           <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} note={chatNote} noteOut={chatLeft === 0} />
         </div>
+        {uxOn && modal && <TabBar page="sensei" lang={lang} onGo={(t, already) => { setModal(false); tabGo(t, already); }} />}
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
