@@ -882,10 +882,8 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
      the Concert Mode card that came off this page in September. Practice is
      still one tap away: card 02 on this very grid opens Play Along on the
      songs, so the offer was saying what the card beside it already says. */
-  const uxTitle = useContext(UxCtx);   // AX-4: the premium interface gives the page a large title
   return (
     <div className="pathpage">
-      {uxTitle && <div className="uxtitle"><h1>{lc.pathTitle}</h1><p>{lc.pathSub}</p></div>}
 
       {/* the "Play your first song" banner used to sit here — removed, see above */}
 
