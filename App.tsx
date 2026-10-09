@@ -7973,10 +7973,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
         {/* ── ทุกอย่างที่หน้านี้มีอยู่เดิม ย้ายมาอยู่ใต้ "ดูเพิ่มเติม" (แผน 18 §P2
             ข้อ 3 ของเจ้าของ): ไม่ลบอะไรทิ้ง แต่หน้าแรกเหลือคำตอบเดียว
             (กติกาคุณภาพ: ตัวเลขและการ์ดเดิมยังอยู่ครบ ครบ 3 ภาษา) ── */}
-        <details className="coach-more" style={{ marginBottom: 8 }}>
-          <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--clay-ink)", padding: "10px 0", listStyle: "none" }}>
-            ▾ {T("ดูเพิ่มเติม", "See more", "查看更多")}
-          </summary>
+        <div className="coach-more" style={{ marginBottom: 8 }}>
         <div className="admstu-row-sub" style={{ marginBottom: 12, whiteSpace: "normal", overflow: "visible", textOverflow: "clip" }}>
           {T("สถิติการซ้อมและจุดที่ควรฝึกเพิ่ม อัปเดตอัตโนมัติหลังทุกเซสชัน",
             "Your practice stats and weak spots — updated automatically after every session.",
@@ -8284,7 +8281,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             </div>
           );
         })()}
-        </details>
+        </div>
       </div>
     </div>
   );

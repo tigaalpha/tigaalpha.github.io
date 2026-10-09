@@ -18,7 +18,7 @@ export const PATHWAY_PRACTICE = {
     },
     {
       id: "play-songs", icon: "🎵", color: "#d97757", cat: "songs",
-      title: { th: "ฝึกฝีมือ", en: "Practice", zh: "练习" },
+      title: { th: "ฝึกเล่นเพลง", en: "Song Practice", zh: "歌曲练习" },
       /* The card is called Practice, in all three languages (owner,
          2026-10-04): it is the door to the practice itself, not a description
          of one kind of piece. The three shelves it opens are named because that
