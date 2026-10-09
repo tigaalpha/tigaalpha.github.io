@@ -13172,13 +13172,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </button>
           <div className="lbox lmark" onClick={handleLogoTap}
             style={{ cursor: "pointer" }} title="TIGA" role="img" aria-label="TIGA">
-            {/* the mark: three piano keys under a rounded lid, drawn in the same 1.6 line style as the other header glyphs */}
-            <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="3.5" y="6" width="25" height="20" rx="5" />
-              <path d="M11.8 18v8M20.2 18v8" />
-              <rect x="9" y="6" width="5.6" height="12" rx="1.6" fill="currentColor" stroke="none" />
-              <rect x="17.4" y="6" width="5.6" height="12" rx="1.6" fill="currentColor" stroke="none" />
-            </svg>
+            <span className="lmark-tx">TIGA</span>
           </div>
           {/* one-tap shortcut straight into the PvP arena */}
           <button className="hdrgo hdr-pvp" onClick={() => { playUi("click"); logUsage("nav", "pvp-hdr"); setPage("pvp"); }}
