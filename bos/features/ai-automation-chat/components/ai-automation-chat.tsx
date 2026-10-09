@@ -310,6 +310,14 @@ function ThreadView({
         </div>
       </div>
 
+      {canDelegate && (
+        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center">
+          <p className="text-[11px] leading-snug text-amber-800">
+            👑 <span className="font-semibold">Chief of Staff = CEO ของทุกแผนก</span> — พิมพ์คำสั่งที่นี่ เช่น “ให้การตลาดวางแผนแคมเปญเปิดเทอม” หรือ “สั่งกลยุทธ์วิเคราะห์คู่แข่ง” แล้วคำสั่งจะถูกส่งเข้าแชทของแผนกนั้นโดยอัตโนมัติ พร้อมสรุปผลกลับมาในแชทนี้
+          </p>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50">
         {messages.length === 0 && (
@@ -319,18 +327,14 @@ function ThreadView({
             <p className="mt-1 text-xs text-gray-400">เริ่มสนทนากับ AI {dept.label} ได้เลย</p>
           </div>
         )}
-        {canDelegate && messages.length === 0 && (
-          <div className="mx-auto max-w-md rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center">
-            <p className="text-xs font-medium text-amber-800">
-              👑 Chief of Staff สั่งงานแผนกอื่นได้ทุกแผนก
-            </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
-              พิมพ์คำสั่ง เช่น "ให้การตลาดวางแผนแคมเปญเปิดเทอม" หรือ "สั่งฝ่ายขายติดตาม lead ค้าง 7 วัน" — คำสั่งจะถูกส่งเข้าแชทของแผนกนั้นโดยอัตโนมัติ และแผนกจะตอบกลับในแชทของมันเอง
-            </p>
-          </div>
-        )}
         {messages.map((msg) => {
-          const isOwner = msg.sender === "owner";
+          // In these dept threads the human side is stored as "customer"
+          // (respond() inserts the owner's message and the Chief of Staff
+          // directive from delegateDirective() that way); the AI answers as
+          // "ai". "owner" stays covered for staff replies sent from the
+          // Inbox. Without this every bubble rendered left/white and the
+          // owner couldn't tell their order from the department's reply.
+          const isOwner = msg.sender === "owner" || msg.sender === "customer";
           return (
             <div
               key={msg.id}
