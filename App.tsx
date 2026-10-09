@@ -11133,7 +11133,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       go();
     };
     navigator.serviceWorker.addEventListener("message", onMsg);
-    return () => navigator.serviceWorker.removeEventListener("message", onMsg);
+    /* Stale open sessions: a phone keeps an installed app alive in the background for days,
+       so "the next time the app is opened" never came and those users stayed on an old build.
+       Coming back to the app after a real absence is a safe moment: look for a new worker,
+       and if one is already waiting or has activated, reload — unless a round, a practice or
+       a fight is on screen (they finish first; the check repeats on the next return). */
+    let hiddenAt = 0;
+    const onVis = () => {
+      if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+      navigator.serviceWorker.getRegistration().then(reg => { if (!reg) return; reg.update().catch(() => {}); if (reg.waiting) { window.__tgUpdateReady = true; reg.waiting.postMessage({ type: "SKIP_WAITING" }); } }).catch(() => {});
+      const away = hiddenAt ? Date.now() - hiddenAt : 0;
+      if (!window.__tgUpdateReady || away < 20000) return;
+      if (document.querySelector(".practiceov, .playal, .sightov, .vtov, .mov")) return;
+      try { if (sessionStorage.getItem("tiga_page") === "pvp") return; } catch (e) {}
+      window.location.reload();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { navigator.serviceWorker.removeEventListener("message", onMsg); document.removeEventListener("visibilitychange", onVis); };
   }, []);
   // Tapping a push notification while the app is already open just focuses the
   // existing tab (sw.js can't navigate a client it doesn't own) — so the SW posts
