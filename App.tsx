@@ -165,6 +165,7 @@ import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
 import { TabBar } from "./tab-bar";
+import { Piano as PianoGlyph } from "lucide-react";
 import { uxEnabled } from "./ux2";
 import { UxCtx, Ico, Chev } from "./ux-icons";
 import { dailySong, songStars, songMedal, songLengthSec, songLockInfo, songPlayable, nextSongAfter } from "./play-along-progress";
@@ -13172,6 +13173,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </button>
           <div className="lbox lmark" onClick={handleLogoTap}
             style={{ cursor: "pointer" }} title="TIGA" role="img" aria-label="TIGA">
+            <PianoGlyph size={22} strokeWidth={1.7} aria-hidden="true" />
             <span className="lmark-tx">TIGA</span>
           </div>
           {/* one-tap shortcut straight into the PvP arena */}
