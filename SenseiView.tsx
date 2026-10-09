@@ -15,9 +15,9 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
   const lc = L[lang];
   const tt = todayTags || {};
   const TT = {
-    th: { doneTitle: "ครบทุกข้อของวันนี้แล้ว", lastDrill: "เล่นซ้ำ", missed: "พลาดบ่อย" },
-    en: { doneTitle: "Today's plan is done", lastDrill: "Play again", missed: "Missed most" },
-    zh: { doneTitle: "今日计划已完成", lastDrill: "再练一次", missed: "最常错" },
+    th: { doneTitle: "ครบทุกข้อของวันนี้แล้ว", lastDrill: "เล่นซ้ำ", missed: "พลาดบ่อย 7 วันนี้" },
+    en: { doneTitle: "Today's plan is done", lastDrill: "Play again", missed: "Missed most this week" },
+    zh: { doneTitle: "今日计划已完成", lastDrill: "再练一次", missed: "本周最常错" },
   }[lang];
   const planNext = todayPlan && todayPlan.next;
   return (

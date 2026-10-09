@@ -919,6 +919,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicenow-note{font-family:var(--f-app);font-size:36px;font-weight:900;line-height:1}
 .practicenow-note.target{color:#d97757;text-shadow:0 0 18px #d9775777}
 .practicenow-note.heard{color:var(--muted)}
+.practicenow-note.heard.doubt{color:var(--muted);font-size:30px;opacity:.7}
+.practicenow-sol{margin-top:4px;font-family:var(--f-app);font-size:20px;font-weight:700;color:var(--clay-ink,#a8512f);text-align:center}
+.practicetip-more{display:block;margin-top:6px;font-size:12px;color:var(--muted)}
+.practicetip-more summary{cursor:pointer;list-style:none;display:inline-block;padding:2px 10px;border-radius:12px;border:1px solid var(--bd2)}
+.practicetip-more summary::-webkit-details-marker{display:none}
 .practicenow-note.heard.ok{color:#d97757;text-shadow:0 0 16px #d9775788}
 .practicenow-note.heard.bad{color:#ff5252;text-shadow:0 0 16px #ff525288;animation:shake .3s}
 .practicechips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}

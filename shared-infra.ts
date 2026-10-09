@@ -170,7 +170,26 @@ export function recordNoteMisses(notes) {
       data[pc] = (data[pc] || 0) + 1;
     }
     localStorage.setItem("tg_note_miss", JSON.stringify(data));
+    // plan 27 · P0-3: the same misses by DAY, so the page can say "this week" instead of a lifetime total
+    const byDay = JSON.parse(localStorage.getItem("tg_note_miss_d") || "{}") || {};
+    const today = new Date().toISOString().slice(0, 10);
+    const row = byDay[today] || (byDay[today] = {});
+    for (const n of notes) { const pc = String(n).replace(/\d/g, ""); if (pc) row[pc] = (row[pc] || 0) + 1; }
+    const keep = Object.keys(byDay).sort().slice(-30);
+    const out = {}; for (const k of keep) out[k] = byDay[k];
+    localStorage.setItem("tg_note_miss_d", JSON.stringify(out));
   } catch (_) {}
+}
+/* Misses of the last `days` days (plan 27 · P0-3), same shape as readNoteMisses(): [{pc, n}] most missed first. Only misses recorded
+   since the by-day log began are here — the old lifetime total is not guessed into a week. */
+export function readRecentNoteMisses(days = 7) {
+  try {
+    const byDay = JSON.parse(localStorage.getItem("tg_note_miss_d") || "{}") || {};
+    const from = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+    const sum: Record<string, number> = {};
+    for (const d of Object.keys(byDay)) if (d >= from) for (const pc in byDay[d]) sum[pc] = (sum[pc] || 0) + (Number(byDay[d][pc]) || 0);
+    return Object.keys(sum).filter(pc => sum[pc] > 0).map(pc => ({ pc, n: sum[pc] })).sort((a, b) => b.n - a.n || a.pc.localeCompare(b.pc));
+  } catch (_) { return []; }
 }
 
 /* The reader for exactly what recordNoteMisses() writes — pitch class (no

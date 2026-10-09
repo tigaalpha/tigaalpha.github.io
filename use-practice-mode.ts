@@ -128,6 +128,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceStageIdRef = useRef(null); // Pathway stage id this drill grades, if launched from learnTopic() — null for Studio/AI-custom drills
   const practiceBossGroupRef = useRef(null); // Pathway group id, if this is a Group Boss Challenge run — see startBossChallenge()
   const practiceHandlerRef = useRef(() => {});
+  const micMuteUntilRef = useRef(0);   // plan 27 · P0-2: the app's own note must not be heard back as the learner's
+  const micDoubtRef = useRef(null);    // plan 27 · P0-1: a mic reading that does not match is only a MISS once it repeats
   const lastInputRef = useRef(null);   // for the cross-source de-duplication below
   const practiceHeardTimer = useRef(null);
   const tuneOffsetRef = useRef(0);
@@ -189,6 +191,20 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (v.learned) setPracticeTune(Math.round(v.tuneOffset));
     return v.ok;
   }
+  /* P0-1 — "not sure" is not "wrong". The microphone also hears the room, the speaker and a note still ringing, so ONE reading that
+     does not match the target is only shown (as "heard"), never charged: no miss, no broken combo, nothing in the weak-notes log.
+     The same wrong pitch class twice within 2.5 s is a real wrong key and is judged as before. Taps and MIDI are exact and are
+     never doubted. Returns true when the reading was set aside. */
+  function micDoubt(d, heardNote) {
+    if (d.freq == null) return false;
+    const pc = pcOf(heardNote), now = Date.now(), prev = micDoubtRef.current;
+    if (prev && prev.pc === pc && now - prev.t < 2500) { micDoubtRef.current = null; return false; }
+    micDoubtRef.current = { pc, t: now };
+    setPracticeHeard({ note: heardNote, ok: false, doubt: true });
+    clearTimeout(practiceHeardTimer.current);
+    practiceHeardTimer.current = setTimeout(() => setPracticeHeard(null), 650);
+    return true;
+  }
   function handlePlayedNote(d) {
     if (!practiceActiveRef.current) return;
     // accept legacy string calls too, just in case
@@ -208,6 +224,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       if (last && last.pc === pc && last.src !== src && now - last.t < DUP_WINDOW_MS) return;
       lastInputRef.current = { pc, src, t: now };
     }
+    // P0-2: for a moment after the app plays the learner's note back, the microphone is hearing the app, not the learner
+    if (d.freq != null && Date.now() < micMuteUntilRef.current) return;
     // Polyphonic mic detection reports everything it heard in one strike as
     // d.notes. In BLOCK practice that batch is the whole point: the learner is
     // being asked to strike the chord's notes TOGETHER, so a genuine attempt
@@ -276,7 +294,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         practiceStreakRef.current += 1;
         if (practiceStreakRef.current > practiceBestStreakRef.current) practiceBestStreakRef.current = practiceStreakRef.current;
         setPracticeStreak(practiceStreakRef.current);
-        playPianoNote(targets[matchedIdx], 0.5);
+        playPianoNote(targets[matchedIdx], 0.5); micMuteUntilRef.current = Date.now() + 450;
         setPracticeHeard({ note: heardNote, ok: true });
         countHitPause();
         // "how many done" across the WHOLE drill: for a plain chord lo is 0, so
@@ -313,6 +331,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         const isRepeat = practiceChordGrpRef.current >= 0
           ? targets.some(tn => pcOf(tn) === pcOf(heardNote))
           : targets.some((tn, i) => hit.has(i) && pcOf(tn) === pcOf(heardNote));
+        if (!isRepeat && micDoubt(d, heardNote)) return;
         if (!isRepeat) {
           practiceMissRef.current += 1;
           setPracticeMiss(practiceMissRef.current);
@@ -345,7 +364,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         practiceStreakRef.current += 1;
         if (practiceStreakRef.current > practiceBestStreakRef.current) practiceBestStreakRef.current = practiceStreakRef.current;
         setPracticeStreak(practiceStreakRef.current);
-        playPianoNote(targets[idx], 0.5);
+        playPianoNote(targets[idx], 0.5); micMuteUntilRef.current = Date.now() + 450;
         setPracticeHeard({ note: heardNote, ok: true });
         countHitPause();
         const next = idx + 1;
@@ -353,6 +372,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         setPracticeIdx(next);
         if (next >= targets.length) finishPractice();
       } else {
+        if (micDoubt(d, heardNote)) return;
         practiceMissRef.current += 1;
         setPracticeMiss(practiceMissRef.current);
         practiceStreakRef.current = 0;
