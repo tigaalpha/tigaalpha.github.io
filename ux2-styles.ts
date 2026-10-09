@@ -9,6 +9,8 @@
 export const UX2_CSS = `
 /* ══════════ AX-1 · the tab bar ══════════
    The last child of the full-height column: pages are flex:1, so they end above it. */
+/* owner 2026-10-09: the Arena and Me tabs replace the two header shortcuts (PvP, profile robot) */
+.ux2 .hdr .hdrgo{display:none}
 .ux2 .tabbar{flex-shrink:0;margin-top:auto;position:relative;z-index:25;display:flex;align-items:stretch;justify-content:space-around;
   padding:5px 8px calc(5px + env(safe-area-inset-bottom,0px));
   background:var(--card);border-top:1px solid var(--bd2);box-shadow:0 -12px 30px -24px rgba(20,20,19,.5)}

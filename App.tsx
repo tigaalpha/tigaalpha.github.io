@@ -11641,7 +11641,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const atipBlockedRef = useRef(false);   // ตอนนี้อยู่ในช่วงที่ห้ามขัดจังหวะหรือไม่
   const atipPendingRef = useRef(false);   // มีคำแนะนำที่ "ค้าง" รอจังหวะที่ปลอดภัยไหม
   function autoTeachBlocked() {
-    return !!(songOpen || pageRef.current === "pvp" || pageRef.current === "gamepage");
+    // plan 28 · A2: a practice run in progress and a visible EXP toast also hold a tip back (it shows at the next gap)
+    return !!(songOpen || pageRef.current === "pvp" || pageRef.current === "gamepage" || document.querySelector(".practiceov, .exptoast"));
   }
   /* กติกาการส่งอยู่ใน learner-signal.ts (atipDelivery) เพื่อให้ทดสอบได้จริง
      ไม่ใช่ "หวังว่าลำดับ if ถูก" — send = ส่งเลย · defer = จดค้าง รอจบกิจกรรม ·
