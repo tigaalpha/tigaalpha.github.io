@@ -11471,10 +11471,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     clearTimeout(challengeNudgeTimer.current);
     if (groupChallengeReady(group)) {
       setChallengeNudge({ groupId: group.id, icon: group.icon, label: group.label, kind: "boss" });
-      challengeNudgeTimer.current = setTimeout(() => setChallengeNudge(null), 14000);
     } else if (pathDoneSet().size >= PATHWAY.length && !certClaimedSet().has("full")) {
       setChallengeNudge({ groupId: null, icon: "🏆", label: "", kind: "full" });
-      challengeNudgeTimer.current = setTimeout(() => setChallengeNudge(null), 14000);
     }
   }
 
@@ -11909,6 +11907,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
 
   const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceHelp, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly });
+  // One overlay queue (plan 28 · A2): the challenge nudge waits while a practice is open and
+  // then shows for ~4 s, so it never sits on top of a primary button during an activity.
+  useEffect(() => {
+    if (!challengeNudge || practiceOpen || expToast) return;
+    clearTimeout(challengeNudgeTimer.current);
+    challengeNudgeTimer.current = setTimeout(() => setChallengeNudge(null), 4500);
+    return () => clearTimeout(challengeNudgeTimer.current);
+  }, [challengeNudge, practiceOpen, expToast]);
 
   /* Plan 26 · P1/P3/P4 — today's plan, on the page the learner actually stands
      on. buildTodaySteps() is the SAME function TodayPage renders, so the count
@@ -14478,7 +14484,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       })()}
 
       {/* Auto Teaching → Challenging Mode nudge — see maybeNudgeChallenge() */}
-      {challengeNudge && (
+      {challengeNudge && !practiceOpen && !expToast && (
         <div className="installbanner" style={{ background: "linear-gradient(90deg,#8b5cf6,#a78bfa)" }}>
           <span className="installbanner-ic" aria-hidden="true">{challengeNudge.icon}</span>
           <div className="installbanner-tx">

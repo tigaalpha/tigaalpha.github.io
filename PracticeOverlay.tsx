@@ -292,13 +292,14 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, practiceMode
 
             {/* hand picker — finger numbers update to the correct hand */}
             <div className="handsel practicehand" style={{ maxWidth: "360px", margin: "12px auto 2px", justifyContent: "center" }}>
-              <button className={`handbtn${hand === "left" ? " on" : ""}`}
-                onClick={() => setHand("left")} aria-pressed={hand === "left"} title={lc.leftHand}>
-                <span className="handlbl">{lc.leftHand}</span>
-              </button>
-              <button className={`handbtn${hand === "right" ? " on" : ""}`}
-                onClick={() => setHand("right")} aria-pressed={hand === "right"} title={lc.rightHand}>
-                <span className="handlbl">{lc.rightHand}</span>
+              <button className="handbtn on handtoggle" onClick={() => setHand(hand === "left" ? "right" : "left")}
+                title={hand === "left" ? lc.leftHand : lc.rightHand} aria-label={hand === "left" ? lc.leftHand : lc.rightHand}>
+                <svg className="handsvg" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true" style={{ flexShrink: 0, transform: hand === "right" ? "scaleX(-1)" : undefined }}>
+                  <path d="M11 14V7.5a1.8 1.8 0 0 1 3.6 0V13M14.6 13V6a1.8 1.8 0 0 1 3.6 0v7M18.2 13.5V8a1.8 1.8 0 0 1 3.6 0v8.5c0 4.5-2.6 8-7.4 8-3 0-4.6-1.2-6.4-3.6l-2.8-3.8a1.9 1.9 0 0 1 3-2.3l1.8 2V9a1.8 1.8 0 0 1 3.6 0v5"
+                    stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="handlbl">{hand === "left" ? lc.leftHand : lc.rightHand}</span>
+                <span className="handswap" aria-hidden="true">⇄</span>
               </button>
             </div>
 
