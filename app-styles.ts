@@ -959,6 +959,20 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @media (max-width:390px){.hdr .hdr-r,.hdr .logo{gap:5px}.guestloginpill{padding-left:8px!important;padding-right:10px!important;font-size:12px!important}.tg .hdr .lbox.lmark{padding:0 9px 0 7px}}
 @media (max-width:370px){.guestloginpill-timer,.guestloginpill .oauthico{display:none}.hdr .hdrgo{width:35px!important;height:38px!important}.tg .hdr .lbox.lmark svg{width:17px;height:17px}.tg .hdr .lbox.lmark{height:38px}.tg .hdr .hamb{width:34px}.lmark-tx{font-size:10.5px}.hdr .flagbtn{padding-left:8px!important;padding-right:6px!important;min-width:0!important}.hdr .hdr-r{gap:4px}.hdr{padding-left:8px!important;padding-right:8px!important}}
 @media (max-height:660px){.tg.kid .practicebody{gap:7px;padding-top:8px;padding-bottom:8px}.tg.kid .practicechips{gap:4px}}
+.nowcard{display:flex;flex-direction:column;gap:6px;align-items:stretch;text-align:left;margin:10px 14px 4px;padding:14px 16px;border-radius:18px;background:var(--card);border:1.5px solid #d9775766;box-shadow:0 6px 22px -14px #d97757}
+.nowcard-tag{font-family:var(--f-app);font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#d97757}
+.nowcard-t{font-family:var(--f-app);font-size:17px;font-weight:700;line-height:1.25;color:var(--text)}
+.nowcard-s{font-size:12px;color:var(--muted);line-height:1.35}
+.nowcard-go{margin-top:6px;width:100%;min-height:52px;font-size:16px}
+.nowcard-sub{background:none;border:none;color:#d97757;font-family:var(--f-app);font-size:13px;font-weight:700;padding:8px 0 0;cursor:pointer;text-align:center}
+.nowcard-rec{cursor:pointer}
+.sv-more{margin:8px 0 0}
+.sv-more>summary{cursor:pointer;list-style:none;font-size:12px;font-weight:700;color:var(--clay-ink,#b45a3a);padding:6px 2px}
+.sv-more>summary::-webkit-details-marker{display:none}
+.sv-more>summary::before{content:"▾ "}
+.fchart-hand{display:flex;flex-direction:column;align-items:center}
+.fchart-hand .fchart-head{align-self:stretch}
+.fchart-notes{font-size:11px;color:var(--muted);letter-spacing:.04em;text-align:center}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
 .practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}
