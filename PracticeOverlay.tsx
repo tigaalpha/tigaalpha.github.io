@@ -27,7 +27,7 @@ const SOLFEGE_EN = { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "
 function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : SOLFEGE_EN; return (m[base] || "") + (String(pc || "").length > 1 ? "♯" : ""); }
 // plan 27 · P1-3: a hand that points at the finger to use — a child sees "this one", not a number to decode.
 // A right hand seen from above has the thumb on the left; a left hand is its mirror image.
-function FingerHand({ finger, hand }) {
+export function FingerHand({ finger, hand }) {
   const H = [30, 44, 50, 44, 34];          // finger heights, thumb → little finger
   const order = hand === "left" ? [4, 3, 2, 1, 0] : [0, 1, 2, 3, 4];
   return (

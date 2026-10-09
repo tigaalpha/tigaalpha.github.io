@@ -1,6 +1,7 @@
 import { L, tr } from "./i18n";
 import { Piano, playUi, playPianoNote } from "./music-engine";
 import { Msg, Typing, Input, ChatProgress } from "./chat-ui";
+import { FingerHand } from "./PracticeOverlay";
 /* ── SenseiView ──
    The default page (page==="sensei"), extracted verbatim from PianoApp's
    inline JSX as part of Phase 2 componentization — no logic changes. The
@@ -15,9 +16,9 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
   const lc = L[lang];
   const tt = todayTags || {};
   const TT = {
-    th: { doneTitle: "ครบทุกข้อของวันนี้แล้ว", lastDrill: "เล่นซ้ำ", missed: "พลาดบ่อย 7 วันนี้" },
-    en: { doneTitle: "Today's plan is done", lastDrill: "Play again", missed: "Missed most this week" },
-    zh: { doneTitle: "今日计划已完成", lastDrill: "再练一次", missed: "本周最常错" },
+    th: { doneTitle: "ครบทุกข้อของวันนี้แล้ว", lastDrill: "เล่นซ้ำ", missed: "พลาดบ่อย 7 วันนี้", now: "ตอนนี้", start: "เริ่มฝึก", more: "เพิ่มเติม", notes: "โน้ต", min: "นาที", listen: "ฟังตัวอย่างก่อน" },
+    en: { doneTitle: "Today's plan is done", lastDrill: "Play again", missed: "Missed most this week", now: "Now", start: "Start", more: "More", notes: "notes", min: "min", listen: "Listen to the demo first" },
+    zh: { doneTitle: "今日计划已完成", lastDrill: "再练一次", missed: "本周最常错", now: "现在", start: "开始", more: "更多", notes: "个音", min: "分钟", listen: "先听示范" },
   }[lang];
   const planNext = todayPlan && todayPlan.next;
   return (
@@ -100,14 +101,29 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
           <button className="senseiback" onClick={() => { playUi("click"); onBack(); }} aria-label={activeStageId ? lc.backChangeKey : lc.back}>
             <span>←</span> {activeStageId ? lc.backChangeKey : lc.back}
           </button>
+          {/* Plan 28 · B1 — ONE card answers "what do I do now": what, how many notes, about how long, and one big button.
+              With a demo on the keys it is the practice run of that demo; without one it is the same recommendation
+              the Daily Mentor shows (recommendNext), so the pages cannot disagree. */}
           {(() => {
             const rec = recommendNext();
+            const nNotes = fingerChart && fingerChart.notes ? fingerChart.notes.length : 0;
+            const mins = Math.max(1, Math.round(nNotes / 6));
+            if (hasSeq) {
+              return (
+                <div className="nowcard">
+                  <span className="nowcard-tag">{TT.now}</span>
+                  <b className="nowcard-t">{fingerChart && fingerChart.label ? fingerChart.label : lc.practiceBtn}</b>
+                  <span className="nowcard-s">{nNotes ? `${nNotes} ${TT.notes} · ~${mins} ${TT.min}` : ""}{rec && rec.label ? ` · ${lc.recFor}: ${rec.label}` : ""}</span>
+                  <button className={`practicebtn nowcard-go${!seqPlaying ? " ready" : ""}`} onClick={startPractice} title={lc.practiceBtn}>▶ {TT.start}</button>
+                  <button className="nowcard-sub" onClick={togglePlayPause}>{seqPlaying ? "⏸ " + lc.demoPause : "👂 " + TT.listen}</button>
+                </div>
+              );
+            }
             return (
-              <button className="dailyrec" onClick={rec.fn}>
-                <span className="dailyrec-lbl">{lc.recFor}</span>
-                <span className="dailyrec-ic">{rec.icon}</span>
-                <span className="dailyrec-txt">{rec.label}</span>
-                <span className="dailyrec-go">→</span>
+              <button className="nowcard nowcard-rec" onClick={rec.fn}>
+                <span className="nowcard-tag">{TT.now}</span>
+                <b className="nowcard-t"><span aria-hidden="true">{rec.icon}</span> {rec.label}</b>
+                <span className="nowcard-s">{lc.recFor} →</span>
               </button>
             );
           })()}
@@ -131,6 +147,7 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               </div>
             )}
             <Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} baseOct={pianoOct} onNote={handleMainKey} />
+            <details className="sv-more"><summary>{TT.more}</summary>
             <div className="recbar">
               <button className={`recbtn${recording ? " on" : ""}`} onClick={toggleRecord}>
                 {recording ? `■ ${lc.recStop}` : `● ${lc.recRecord}`}
@@ -147,23 +164,22 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               {recording && <span className="recdot">● REC</span>}
             </div>
 
-            {/* persistent fingering chart — shows finger numbers for current hand */}
-            {fingerChart && fingerChart.notes.some(p => p.finger != null) && (
-              <div className="fchart">
-                <div className="fchart-head">
-                  <span className="fchart-title">{lc.fingerLabel}</span>
-                  <span className="fchart-key">{fingerChart.label}</span>
+            </details>
+            {/* Plan 28 · B3 — the finger table is a hand: the finger for the note that is lit (demo or key) is the one that glows,
+                the same drawing the practice screen uses; the note names stay as quiet text below. */}
+            {fingerChart && fingerChart.notes.some(p => p.finger != null) && (() => {
+              const cur = fingerChart.notes.find(p => p.note === litNote);
+              return (
+                <div className="fchart fchart-hand">
+                  <div className="fchart-head">
+                    <span className="fchart-title">{lc.fingerLabel}</span>
+                    <span className="fchart-key">{fingerChart.label}</span>
+                  </div>
+                  <FingerHand finger={cur && cur.finger != null ? cur.finger : 0} hand={hand} />
+                  <div className="fchart-notes">{fingerChart.notes.map(p => p.note.replace(/[0-9]/g, "")).join(" · ")}</div>
                 </div>
-                <div className="fchart-row" style={{ display: "flex", gap: "4px", overflowX: "auto", paddingBottom: "2px" }}>
-                  {fingerChart.notes.map((p, i) => (
-                    <div key={i} className="fchart-cell" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", flexShrink: 0, minWidth: "34px" }}>
-                      <span className="fchart-finger" style={{ background: hand === "left" ? "#d97757" : "#ff5252" }}>{p.finger != null ? p.finger : "·"}</span>
-                      <span className="fchart-note">{p.note.replace(/[45]/, "")}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div className="handsel" style={{ display: "flex", marginTop: "10px", padding: "0 2px" }}>
               <button className="handbtn on handtoggle" onClick={() => setHand(hand === "left" ? "right" : "left")}
@@ -176,15 +192,6 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
                 <span className="handswap" aria-hidden="true">⇄</span>
               </button>
             </div>
-            {/* "Now you try" — the demo and the graded run used to be two separate
-                taps a learner had to notice on their own; a short glow right as the
-                demo finishes playing (hasSeq true, seqPlaying just went false) makes
-                the bridge between them obvious instead of relying on discovery. */}
-            <button className={`practicebtn${hasSeq && !seqPlaying ? " ready" : ""}`} disabled={!hasSeq} onClick={startPractice}
-              title={hasSeq ? lc.practiceBtn : lc.practiceNoSeq}>
-              {hasSeq ? lc.practiceBtn : lc.practiceNoSeq}
-              {hasSeq && fingerChart && fingerChart.label && <span className="practicebtn-sub">{fingerChart.label}{fingerChart.notes ? " · " + fingerChart.notes.length + (lang === "th" ? " โน้ต" : lang === "zh" ? " 个音" : " notes") : ""}</span>}
-            </button>
           </div>
           <div className="cw">
             <div className="chdr">
