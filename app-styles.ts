@@ -949,6 +949,11 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pcardkeys{font-size:9px}
 .pcardgo{font-size:8.1px}
 .tg.kid .pcardtitle{font-size:18px}
+.sensei-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
+.sensei-scroll>*{flex-shrink:0}
+.lbox.lmark{width:38px;min-width:38px;height:38px;padding:0;box-sizing:border-box;border:1.5px solid #d9775755;border-radius:20px;background:var(--card);color:#d97757}
+.tg .hdr .lbox.lmark{width:44px;min-width:44px;height:44px;padding:0;border:1.5px solid #d9775755;border-radius:50%;background:var(--card);color:var(--clay,#d97757)}
+.lbox.lmark svg{display:block}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
 .practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}
