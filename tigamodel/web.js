@@ -1307,6 +1307,35 @@ export function getKBContext(matchText) {
           lines.push(`• [${label}] ${e.title} — วิธีสอน: ${e.teach}`);
         }
       }
+      /* Safety ceiling for the switch-OFF path (found 2026-10-09: "TIGA CHAT does not
+         answer"). A harmony/scale/key question matched domains of 50k–1.4M characters and
+         the whole lot went into the system prompt — past the context window of the free
+         models the chat runs on, so every rung of the ladder failed and the learner got the
+         error bubble. A block that already fits is served untouched; a bigger one is cut
+         to the lines that share the most words with the question, in their original order,
+         under the same 24 lines / 8,000 characters the hot path uses. The switch still
+         decides whether the smarter hot-path selector is used. */
+      const CAP_LINES = 24, CAP_CHARS = 8000;
+      const total = lines.reduce((n, l) => n + l.length + 1, 0);
+      if (total > CAP_CHARS || lines.length > CAP_LINES) {
+        const words = (text.match(/[a-z0-9\u0E00-\u0E7F\u4E00-\u9FFF#♭♯]{2,}/g) || []).filter((w, i, a) => a.indexOf(w) === i);
+        const scored = lines.map((l, i) => {
+          const low = l.toLowerCase();
+          let sc = 0;
+          for (const w of words) if (low.includes(w)) sc += w.length > 3 ? 2 : 1;
+          return { l, i, sc };
+        }).sort((a, b) => b.sc - a.sc || a.i - b.i);
+        const keep = [];
+        let used = 0;
+        for (const x of scored) {
+          if (keep.length >= CAP_LINES) break;
+          const len = Math.min(x.l.length, 600) + 1;
+          if (used + len > CAP_CHARS) continue;
+          keep.push({ ...x, l: x.l.length > 600 ? x.l.slice(0, 600) + "…" : x.l });
+          used += len;
+        }
+        lines = keep.sort((a, b) => a.i - b.i).map(x => x.l);
+      }
     }
     if (!lines.length) {
       // switch-gated learned knowledge still injects even without a topical

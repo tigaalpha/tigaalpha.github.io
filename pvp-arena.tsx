@@ -1160,6 +1160,12 @@ export const PvpPage = memo(function PvpPage({
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [phase, setPhase] = useState("lobby");    // lobby | fight | result
+  // tell the app a fight is live, so a coaching tip waits for the result screen instead of landing mid-round
+  useEffect(() => {
+    const live = phase === "fight";
+    window.dispatchEvent(new CustomEvent("tiga:pvp-fight", { detail: { live } }));
+    return () => { if (live) window.dispatchEvent(new CustomEvent("tiga:pvp-fight", { detail: { live: false } })); };
+  }, [phase]);
   const [tier, setTier] = useState(BOT_TIERS[3]);  // veteran/"Medium" - the bot-fight default, and also the fixed baseline a player-vs-player duel scores against
   const [oppKind, setOppKind] = useState("bot");  // bot | player
   const [oppName, setOppName] = useState("");
