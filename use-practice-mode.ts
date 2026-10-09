@@ -93,6 +93,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const [practiceHitIdxs, setPracticeHitIdxs] = useState([]); // which target indices are hit — block-style chord/interval practice only (order-independent, so this can differ from practiceIdx's implied "first N")
   const [practiceMiss, setPracticeMiss] = useState(0);
   const [practiceHeard, setPracticeHeard] = useState(null); // {note, ok} last detected
+  const [practiceHelp, setPracticeHelp] = useState(null);   // plan 27 · P2-1: {idx, level} while the app is helping with a note the learner keeps missing
   const [practiceSrc, setPracticeSrc] = useState(null);     // {type:"midi"|"mic"|"error"}
   const [practiceTune, setPracticeTune] = useState(null);   // learned tuning offset (cents) to show
   const [practiceStreak, setPracticeStreak] = useState(0);  // consecutive correct hits, resets on a real miss
@@ -370,6 +371,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         const next = idx + 1;
         practiceIdxRef.current = next;
         setPracticeIdx(next);
+        setPracticeHelp(null);
         if (next >= targets.length) finishPractice();
       } else {
         if (micDoubt(d, heardNote)) return;
@@ -382,6 +384,20 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         // the one the learner got wrong — same rule as block's branch above.
         practiceWrongByIdxRef.current.set(idx, (practiceWrongByIdxRef.current.get(idx) || 0) + 1);
         setPracticeHeard({ note: heardNote, ok: false });
+        /* P2-1 — help at the moment of need, not after the round. Second miss on the same note: play it so the learner HEARS what is
+           wanted. Third: play the note before it and then it, the little slice that leads in. No extra penalty, and the mic is shut
+           while the app speaks so its own help is never heard back as the learner's answer. */
+        try {
+          const wrongHere = practiceWrongByIdxRef.current.get(idx) || 0;
+          if (wrongHere === 2 || wrongHere === 3) {
+            const tgt = targets[idx];
+            micMuteUntilRef.current = Date.now() + (wrongHere === 3 && idx > 0 ? 1800 : 1100);
+            if (wrongHere === 3 && idx > 0) { playPianoNote(targets[idx - 1], 0.5); setTimeout(() => playPianoNote(tgt, 0.55), 650); }
+            else playPianoNote(tgt, 0.55);
+            setPracticeHelp({ idx, level: wrongHere });
+            logUsage("practice", "help:" + wrongHere);
+          }
+        } catch (e) {}
       }
     }
     clearTimeout(practiceHeardTimer.current);
@@ -509,6 +525,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     setPracticeHitIdxs([]);
     setPracticeMiss(0);
     setPracticeHeard(null);
+    setPracticeHelp(null);
     setPracticeSrc(null);
     setPracticeTune(null);
     setPracticeStreak(0);
@@ -977,5 +994,5 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         .catch(() => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiLoading: false } : prev)));
     }
   }
-  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice };
+  return { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceHelp, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice };
 }

@@ -674,6 +674,21 @@ in the code, and what it replaced:
   melodic / major, `scaleLesson`), and (3) a printed run of eight note names that climbs from a root back to it is played as printed
   (`scaleFromNoteRun`). `node scripts/smoke-extract-notes.mjs` (11 checks, the real `extractNotes`) pins it. Chords with a qualifier the
   KNOWN table does not hold (dim, sus, 7ths, extended) still have no chip unless the lesson's own `seq` supplies one — never guess a sound.
+- **The two practice pages, plan 27 (`tigamodel/docs/27-plan-practice-pages.md`).** Shipped: (P0) in Practice Mode a microphone reading that does not match
+  the target is shown as an ear 👂 and is a MISS only when the same wrong pitch class repeats within 2.5 s (`micDoubt`, `use-practice-mode.ts`); taps and MIDI are
+  judged at once; the mic is shut for 450 ms after the app plays the learner's note (1.1–1.8 s while it plays help); the weak-notes log is also kept by day
+  (`tg_note_miss_d`, `readRecentNoteMisses`) and the Teacher page says "this week". (P1) the note path is dots with the sung name (โด เร มี / Do Re Mi) under the
+  letter, a hand drawing points at the finger (`FingerHand`), accuracy is hidden until three attempts, stars on the result, the "next step" card is
+  not truncated and the practice button names what it practises. **Kid mode** (`kidModeOn`, `shared-infra.ts`; Settings 🧒): `tg_kid` "1"/"0", absent = follow the profile
+  (`age` ≤ 9 or `ageBand` "child"); today it only shortens the practice screen. (P2) a note missed twice is played to the learner (level 2), missed three times the
+  note before it and then it (level 3) — no extra penalty (`practiceHelp`); the result says in one sentence how this round compares with the last. NOT done: P1-1's
+  solo big key, P2-2's automatic difficulty step, P2-3's separate rhythm star, P2-5's before/after measurement through `learning_intervene`.
+  `node scripts/smoke-practice-mic-doubt.mjs` (17 checks) runs the REAL hook in jsdom.
+- **Jev stays in the chat's path (owner, 2026-10-09: "call Jev to check too — it is free").** `jevPrecheck` runs before every live-AI question; do not skip it to
+  save cost.
+- `node scripts/smoke-ux2.mjs` drives the built app for the premium interface (off by default, `?ux=2`/`?ux=0`, five tabs, 320 px, large Pathway title).
+  `verify-chat.mjs` was brought back in line with what ships (2 free / 10 Premium questions a day, the persona's current wording, the KB ceiling, the
+  suspended speaker via `SPEAK=1`).
 - **The song list is drawn in slices** (60 cards, 120 more when its end comes near; `.songmore` is the sentinel) so a chip switch
   does not build 1,067 cards. Bots that count or look for a card past the first screen call `expandList()` first. The classical
   library is NOT lazy-loaded: 40+ places read `SONGS` synchronously (the daily song would re-pick if its saved id were not there

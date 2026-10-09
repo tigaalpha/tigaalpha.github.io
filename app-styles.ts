@@ -926,6 +926,9 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicechips.pdots .pchip.cur{width:auto;height:auto;min-width:34px;padding:5px 10px;font-size:13px;border-radius:12px;animation:none;box-shadow:0 0 0 3px rgba(217,119,87,.28)}
 .practicechips.pdots .pchip.done{background:#34c759;border-color:#34c759}
 .practicechips.pdots .pchip--retry{background:#ffa502;border-color:#ffa502}
+.practicehelp{margin:6px auto 0;max-width:340px;text-align:center;padding:8px 12px;border-radius:12px;background:rgba(217,119,87,.14);border:1px solid #d9775766;color:var(--text);font-family:var(--f-app);font-size:14px;font-weight:700}
+.presultmsg{text-align:center;font-family:var(--f-app);font-size:15px;font-weight:700;color:var(--text);margin:4px 8px 8px;line-height:1.4}
+.presultmsg.kid{font-size:19px}
 .fhand{display:block;margin:6px auto 0}
 .fhand-f{fill:var(--card3);stroke:var(--bd2);stroke-width:1.5}
 .fhand-f.on{fill:#d97757;stroke:#d97757}
