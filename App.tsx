@@ -132,7 +132,7 @@ import {
 import {
   GUEST_TRIAL_MS, GUEST_TICK_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
   pushSupported, subscribePush, unsubscribePush, logUsage,
-  readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses,
+  readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses, readRecentNoteMisses,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
   readLandingOrigin, clearLandingOrigin, anonId,
@@ -11960,7 +11960,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [planTick, onSenseiPage]);
 
   const missCard = useMemo(() => {
-    const top = readNoteMisses().slice(0, 3);
+    const top = readRecentNoteMisses(7).slice(0, 3);
     return top.length ? top : null;
   }, [planTick, onSenseiPage]);
 

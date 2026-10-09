@@ -21,6 +21,10 @@ import { SPOT_CAP_NOTES } from "./practice-spot";
    is still live. ── */
 // Combo badge escalates in tier, not just count — a small "you're on a roll"
 // signal beyond the raw number, same spirit as a rhythm game's combo meter.
+// plan 27 · P1-1: the note's sung name under the letter, so a child who cannot read C D E can still tell which key is meant
+const SOLFEGE_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา", G: "ซอล", A: "ลา", B: "ที" };
+const SOLFEGE_EN = { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Ti" };
+function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : SOLFEGE_EN; return (m[base] || "") + (String(pc || "").length > 1 ? "♯" : ""); }
 function comboBadge(streak) {
   if (streak < 3) return null;
   const fire = streak >= 8 ? "🔥🔥🔥" : streak >= 5 ? "🔥🔥" : "🔥";
@@ -287,11 +291,12 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
                     ? (remainingNotes.length ? remainingNotes.map(n => pcOf(n)).join(" · ") : "✓")
                     : (practiceTarget[practiceIdx] ? pcOf(practiceTarget[practiceIdx]) : "✓")}
                 </div>
+                {!isBlockMode && practiceTarget[practiceIdx] && <div className="practicenow-sol">{solfegeOf(pcOf(practiceTarget[practiceIdx]), lang)}</div>}
               </div>
               <div className="practicenow-box">
                 <div className="practicenow-lbl">{lc.practiceHeard}</div>
-                <div className={`practicenow-note heard${practiceHeard ? (practiceHeard.ok ? " ok" : " bad") : ""}`}>
-                  {practiceHeard ? pcOf(practiceHeard.note) : "–"}
+                <div className={`practicenow-note heard${practiceHeard ? (practiceHeard.ok ? " ok" : practiceHeard.doubt ? " doubt" : " bad") : ""}`}>
+                  {practiceHeard ? (practiceHeard.doubt ? "👂" : pcOf(practiceHeard.note)) : "–"}
                 </div>
               </div>
             </div>
@@ -310,12 +315,12 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
               <div className="practicefill" style={{ width: `${practiceTarget.length ? Math.round(practiceIdx / practiceTarget.length * 100) : 0}%` }} />
             </div>
             <div className="practicestats">
-              <span>{lc.practiceAcc}: <b>{(practiceIdx + practiceMiss) > 0 ? Math.round(practiceIdx / (practiceIdx + practiceMiss) * 100) : 100}%</b></span>
+              <span>{lc.practiceAcc}: <b>{(practiceIdx + practiceMiss) >= 3 ? Math.round(practiceIdx / (practiceIdx + practiceMiss) * 100) + "%" : "–"}</b></span>
               <span>✓ <b>{practiceIdx}</b> / {practiceTarget.length}</span>
               {comboBadge(practiceStreak) && <span key={practiceStreak} className="sightstreak practicecombo">{comboBadge(practiceStreak)}</span>}
             </div>
 
-            <div className="practicetip">{lc.practiceHint}<br />{lc.practiceMicTip}</div>
+            <div className="practicetip">{lc.practiceHint}<details className="practicetip-more"><summary aria-label="info">ⓘ</summary>{lc.practiceMicTip}</details></div>
           </div>
           <div className="practicefoot">
             <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>
