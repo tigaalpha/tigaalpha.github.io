@@ -173,23 +173,50 @@ function effective(choice: { provider: string; model: string }): { provider: str
 
 // The ordered provider/model chain for one request: the admin's (or built-in)
 // choice first, then every OTHER provider with a configured key.
-function providerChain(primary: { provider: string; model: string }, _feature: string): Array<{ provider: string; model: string }> {
-  const rest = nextProvidersWithKey(primary.provider).map((p) => ({ provider: p, model: defaultModelFor(p) }));
-  /* A free route's chain is FREE ROUTES ONLY — owner decision 2026-10-04.
-     It used to be: primary -> rest of the free ladder -> CHAT_SECOND_CHOICE
-     (deepseek-v4-flash, $0.27/M in) -> every other provider with a key. That
-     tail is what turned "the free teacher is busy" into a bill: one NEMOTRON
-     429 and the learner's question was answered by a model this key pays for,
-     with nobody asked and nobody told.
+/* ── automatic model switching (owner, 2026-10-09) ──
+   "When Nemotron hits its limit, move to Gemini 2.5 Flash by itself; when Nemotron is back, swing back."
+   Two pieces:
+   1. A route that answers 429 (free quota) or 404 (retired) goes on COOLDOWN in this isolate's memory. While it
+      cools, providerChain leaves it out, so the learner is not made to wait for a rung that is known to fail — the
+      question goes straight to the next one. When the cooldown ends the route is simply in the chain again, first in
+      line: that is the swing back, with no state to clear and nothing for the admin to reset.
+   2. A FREE primary is followed by Gemini 2.5 Flash (when GEMINI_API_KEY is set) BEFORE the other free rungs. The rest of
+      the free ladder stays behind it as a last resort. The admin can turn this off per feature (`autoSwitch: false` in
+      app_settings.ai_models[feature], the checkbox on the AI Models page); a manual choice of any provider/model as the
+      PRIMARY still works exactly as before.
+   The cooldown map lives in the isolate, which Supabase recycles often: worst case a fresh isolate tries the limited
+   route once more and learns it again. That costs one round trip, never a wrong answer. */
+const COOL_FREE_429_MS = 90_000;        // a free rung that said "limit": try it again in a minute and a half
+const COOL_GEMINI_429_MS = 10 * 60_000; // Gemini's free tier is capped per DAY; do not hammer it
+const COOL_DEAD_MS = 60 * 60_000;       // a retired route will not come back within the hour
+const cooling = new Map<string, number>();
+const coolKey = (provider: string, model: string) => `${provider}/${model}`;
+function markCool(provider: string, model: string, ms: number) { cooling.set(coolKey(provider, model), Date.now() + ms); }
+function isCooling(provider: string, model: string): boolean {
+  const k = coolKey(provider, model);
+  const until = cooling.get(k);
+  if (!until) return false;
+  if (Date.now() >= until) { cooling.delete(k); return false; }
+  return true;
+}
+type ChainItem = { provider: string; model: string; meter?: boolean };
+// metered = a route whose 429 means "the allowance is spent" rather than "something is broken"
+const isMetered = (c: ChainItem) => c.meter === true || isFreeRoute(c.model);
 
-     The free allowance is the whole product's free tier, so when it is spent
-     the honest answer is a short pause ("back soon"), not a silent upgrade to a
-     paid rung. WithAuthFallback / callWithAuthFallback recognise an all-free
-     chain that ran out of quota and raise `ai_paused`, which the client shows
-     in the learner's language with no retry button. */
+function providerChain(primary: { provider: string; model: string; autoSwitch?: boolean }, _feature: string): ChainItem[] {
+  const rest = nextProvidersWithKey(primary.provider).map((p) => ({ provider: p, model: defaultModelFor(p) }));
+  /* A free route's chain never reaches a PAID model — owner decision 2026-10-04 (one NEMOTRON 429 used to be answered by a
+     model this key pays for, with nobody asked). Gemini 2.5 Flash is the owner's own choice of fallback (2026-10-09) and
+     runs on the free tier of its key; the paid OpenRouter rung stays out. All-free + spent allowance still ends as
+     `ai_paused`. */
   if (primary.provider === "openrouter" && isFreeRoute(primary.model)) {
-    const rungs = FREE_LADDER.filter((m) => m !== primary.model).map((m) => ({ provider: "openrouter", model: m }));
-    return [primary, ...rungs];
+    const rungs: ChainItem[] = FREE_LADDER.filter((m) => m !== primary.model).map((m) => ({ provider: "openrouter", model: m }));
+    const gem: ChainItem[] = primary.autoSwitch !== false && GEMINI_API_KEY
+      ? [{ provider: "gemini", model: GEMINI_FALLBACK_MODEL, meter: true }] : [];
+    const full: ChainItem[] = [{ provider: primary.provider, model: primary.model }, ...gem, ...rungs];
+    const live = full.filter((c) => !isCooling(c.provider, c.model));
+    // everything cooling: ask the primary anyway rather than answering with nothing
+    return live.length ? live : [full[0]];
   }
   return [primary, ...rest];
 }
@@ -285,10 +312,13 @@ function effectiveDefault(): { provider: string; model: string } {
 // ── which provider/model a given FEATURE should use right now ──
 // Resolution: ai_models[feature] → ai_models["default"] → legacy ai_model → built-in default
 // (the built-in default is the free ladder's top rung for "chat", Anthropic for everything else).
-async function resolveActiveModel(authHeader: string | null, feature: string): Promise<{ provider: string; model: string }> {
+async function resolveActiveModel(authHeader: string | null, feature: string): Promise<{ provider: string; model: string; autoSwitch?: boolean }> {
   const pick = (map: Record<string, any>, key: string) => {
     const v = map && map[key];
-    if (v && typeof v.provider === "string" && typeof v.model === "string") return effective(v);
+    if (v && typeof v.provider === "string" && typeof v.model === "string") {
+      const e = effective(v);
+      return v.autoSwitch === false ? { ...e, autoSwitch: false } : e;
+    }
     return null;
   };
   try {
@@ -600,7 +630,7 @@ function mkStream(p: string, m: string, system: string, full: ChatMsg[]): AsyncG
 // Streaming with auth fallback: a 401/403 on the FIRST token switches to the
 // next provider with a configured key; a mid-stream failure is never spliced
 // across providers (would corrupt the partial reply already sent).
-async function* withAuthFallback(entries: Array<{ provider: string; model?: string; gen: AsyncGenerator<string> }>): AsyncGenerator<string> {
+async function* withAuthFallback(entries: Array<{ provider: string; model?: string; meter?: boolean; gen: AsyncGenerator<string> }>): AsyncGenerator<string> {
   /* What the chain reports when EVERY rung fails. It used to rethrow whichever
      error came last, which meant the admin was shown the final fallback's
      complaint — "Gemini 429" — no matter what the provider they actually chose
@@ -636,9 +666,10 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
       const m = entries[i].model || "";
       tried.push(`${entries[i].provider}/${m}: ${msg.slice(0, 60)}`);
       if (!firstErr) firstErr = e as Error;
-      const freeExhausted = isFreeRoute(m) && isRateLimit(msg);
-      if (freeExhausted) spentFreeQuota = true;
+      const freeExhausted = (isFreeRoute(m) || entries[i].meter === true) && isRateLimit(msg);
+      if (freeExhausted) { spentFreeQuota = true; markCool(entries[i].provider, m, entries[i].provider === "gemini" ? COOL_GEMINI_429_MS : COOL_FREE_429_MS); }
       const dead = isDeadRoute(msg);
+      if (dead) markCool(entries[i].provider, m, COOL_DEAD_MS);
       const transient = isTransient(msg);
       if ((isAuthError(msg) || freeExhausted || dead || transient) && i < entries.length - 1) {
         const why = dead ? "route retired" : freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed";
@@ -649,7 +680,7 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
          of allowance ends as the pause signal even on rung 0 — otherwise the
          very first NEMOTRON 429 would surface as a raw 429 the learner cannot
          read. */
-      if (spentFreeQuota && allFreeRungs(entries.map((e) => e.model))) throw exhausted();
+      if (spentFreeQuota && entries.every((e) => e.meter === true || isFreeRoute(e.model || ""))) throw exhausted();
       // the chosen provider's own failure is the one worth surfacing
       throw i === 0 ? e : exhausted();
     }
@@ -658,9 +689,9 @@ async function* withAuthFallback(entries: Array<{ provider: string; model?: stri
 }
 
 // Non-streaming twin of withAuthFallback.
-async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[], feature = ""): Promise<string> {
-  const chain = providerChain({ provider, model }, feature);
-  const chainIsFree = allFreeRungs(chain.map((c) => c.model));
+async function callWithAuthFallback(provider: string, model: string, system: string, full: ChatMsg[], feature = "", autoSwitch?: boolean): Promise<string> {
+  const chain = providerChain({ provider, model, autoSwitch }, feature);
+  const chainIsFree = chain.every(isMetered);
   const tried: string[] = [];
   let firstErr: Error | null = null;
   let spentFreeQuota = false;
@@ -689,9 +720,10 @@ async function callWithAuthFallback(provider: string, model: string, system: str
       if (!firstErr) firstErr = e as Error;
       // same rule as the streaming path: a spent free quota is not an error,
       // and neither is a provider outage or an out-of-credits wall
-      const freeExhausted = isFreeRoute(c.model) && isRateLimit(msg);
-      if (freeExhausted) spentFreeQuota = true;
+      const freeExhausted = isMetered(c) && isRateLimit(msg);
+      if (freeExhausted) { spentFreeQuota = true; markCool(c.provider, c.model, c.provider === "gemini" ? COOL_GEMINI_429_MS : COOL_FREE_429_MS); }
       const dead = isDeadRoute(msg);
+      if (dead) markCool(c.provider, c.model, COOL_DEAD_MS);
       const transient = isTransient(msg);
       if ((isAuthError(msg) || freeExhausted || dead || transient) && i < chain.length - 1) {
         const why = dead ? "route retired" : freeExhausted ? "free quota spent" : transient ? "transient provider failure" : "auth failed";
@@ -727,14 +759,14 @@ Deno.serve(async (req: Request) => {
     const system: string = body.system ?? "";
     const wantStream = body.stream !== false;
 
-    const { provider, model } = await resolveActiveModel(authHeader, feature);
+    const { provider, model, autoSwitch } = await resolveActiveModel(authHeader, feature);
 
     // The full message list every provider call needs (Gemini gets its own
     // {role,parts} shape via toGeminiContents).
     const full = [...conversationHistory, { role: "user", content: message }];
 
     if (!wantStream) {
-      const text = await callWithAuthFallback(provider, model, system, full, feature);
+      const text = await callWithAuthFallback(provider, model, system, full, feature, autoSwitch);
       return json({ text });
     }
 
@@ -742,8 +774,8 @@ Deno.serve(async (req: Request) => {
     // ladder if that choice was free, then the paid rung, then every other
     // provider with a key. Auth failures, spent free quotas, retired routes and
     // provider outages all hop down it automatically.
-    const chain = providerChain({ provider, model }, feature);
-    const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, model: c.model, gen: mkStream(c.provider, c.model, system, full) })));
+    const chain = providerChain({ provider, model, autoSwitch }, feature);
+    const gen = withAuthFallback(chain.map((c) => ({ provider: c.provider, model: c.model, meter: c.meter, gen: mkStream(c.provider, c.model, system, full) })));
 
     const stream = new ReadableStream({
       async start(controller) {

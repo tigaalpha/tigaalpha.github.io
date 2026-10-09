@@ -656,6 +656,15 @@ in the code, and what it replaced:
   Arena / Me; the ☰ drawer stays), Lucide line icons in place of chrome emoji (`<Ico>`, `<Chev>`), motion and touch rules (page
   rise, card stagger, press spring, sheet slide, no sticky hover on touch, reduced motion honoured), large left-aligned titles and a
   segmented language control.
+- **Automatic model switching in `piano-chat` (owner, 2026-10-09: "when Nemotron hits its limit, switch to Gemini 2.5 Flash by itself, and
+  come back when it recovers; keep the manual switch in Admin").** `providerChain` (supabase/functions/piano-chat/index.ts): a FREE
+  OpenRouter primary is followed by Gemini 2.5 Flash first, then the rest of the free ladder; the paid rung stays out. A route that
+  answers 429 (or 404 = retired) goes on a cooldown in the isolate's memory (90 s for a free rung, 10 min for Gemini whose free tier is
+  capped per day, 1 h for a retired route) and is left out of the chain until it ends — that is both the switch and the swing back, with no
+  state to reset. `ai_models[feature].autoSwitch === false` turns it off; the AI Models page has a checkbox for it on free OpenRouter
+  cards, and picking any provider/model as primary there is the manual switch, unchanged. `node scripts/smoke-piano-chat-switch.mjs` runs
+  the real function with a fake fetch. **The function is NOT deployed** — until the owner runs `supabase functions deploy piano-chat`
+  the live one keeps walking the free ladder only.
 - **The song list is drawn in slices** (60 cards, 120 more when its end comes near; `.songmore` is the sentinel) so a chip switch
   does not build 1,067 cards. Bots that count or look for a card past the first screen call `expandList()` first. The classical
   library is NOT lazy-loaded: 40+ places read `SONGS` synchronously (the daily song would re-pick if its saved id were not there

@@ -146,7 +146,7 @@ export function AdminAIModels({ lang }) {
     const d = drafts[fid];
     if (!d || !d.model || !d.model.trim()) return;
     setBusyKey(fid); setSavedKey("");
-    const next = { ...cfg, [fid]: { provider: d.provider, model: d.model.trim(), ...(d.voice && d.voice.trim() ? { voice: d.voice.trim() } : {}) } };
+    const next = { ...cfg, [fid]: { provider: d.provider, model: d.model.trim(), ...(d.voice && d.voice.trim() ? { voice: d.voice.trim() } : {}), ...(d.autoSwitch === false ? { autoSwitch: false } : {}) } };
     const { error } = await sb.rpc("admin_set_app_setting", { p_key: "ai_models", p_value: next });
     setBusyKey("");
     if (error) { alert(error.message || "error"); return; }
@@ -312,6 +312,15 @@ export function AdminAIModels({ lang }) {
           <button className="songbtn go" disabled={busyKey === fid || !d.model || !d.model.trim()}
             onClick={() => save(fid)}>{busyKey === fid ? "⏳" : T("บันทึก", "Save", "保存")}</button>
         </div>
+        {!f.tts && !f.vision && d.provider === "openrouter" && /:free$|^openrouter\/free$/.test(d.model || "") && (
+          <label className="admstu-row-sub" style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 8, whiteSpace: "normal", cursor: "pointer" }}>
+            <input type="checkbox" checked={d.autoSwitch !== false} disabled={busyKey === fid}
+              onChange={e => setDraft(fid, { autoSwitch: e.target.checked ? undefined : false })} style={{ marginTop: 3 }} />
+            <span>{T("สลับไป Gemini 2.5 Flash อัตโนมัติเมื่อโมเดลฟรีติดลิมิต และกลับมาใช้โมเดลฟรีเองเมื่อหายติด (กด “บันทึก” เพื่อใช้ค่านี้)",
+              "Switch to Gemini 2.5 Flash automatically when the free model hits its limit, and come back to it by itself when it recovers (press Save to apply)",
+              "免费模型达到限额时自动切换到 Gemini 2.5 Flash，恢复后自动切回（点击保存生效）")}</span>
+          </label>
+        )}
         <div className="admmg-row" style={{ marginTop: 8 }}>
           {!isDefault && (
             <button className="songbtn ghost" disabled={busyKey === fid} onClick={() => resetToDefault(fid)}
