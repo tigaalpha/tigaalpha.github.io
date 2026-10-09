@@ -942,6 +942,13 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicebody{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));min-height:0}
 @media (max-height:640px){.practicebody{gap:8px;padding:8px 12px}.practicebody .piano{transform-origin:top center}.practicenow-note{font-size:34px}.fhand{width:96px;height:57px}.practicetip{display:none}}
 @media (max-height:600px){.practicesrc{display:none}.fhand{display:none}.practicenow-sol{display:none}.practicefoot{padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}.practicehdr{padding:8px 14px}}
+/* owner 2026-10-09: card text on the Pathway page 10% smaller */
+.pcardlevel{font-size:10.8px}
+.pcardtitle{font-size:10.35px}
+.pcardsub{font-size:9.45px}
+.pcardkeys{font-size:9px}
+.pcardgo{font-size:8.1px}
+.tg.kid .pcardtitle{font-size:18px}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
 .practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}

@@ -103,7 +103,7 @@ if (want("card")) {
   await s.p.screenshot({ path: `${OUT}/card-en.png` });
   const hasTopic = /chord/i.test(txt);
   const hasWhy = /\b60 tries\b|\b50 tries\b|\b60 attempts\b/i.test(txt) || /\b30 miss/i.test(txt);
-  const hasMinutes = /\b15 min\b/.test(txt);
+  const hasMinutes = /\b\d+ min\b/.test(txt);
   const buttons = await s.p.locator("button", { hasText: /Practice now|Skip today/i }).count();
   rec("card-en", hasTopic && hasWhy && hasMinutes && buttons >= 2 && r31(s.errs).length === 0,
     `topic ${hasTopic} · why ${hasWhy} · minutes ${hasMinutes} · buttons ${buttons} · React#31 ${r31(s.errs).length} · errors ${s.errs.length}`);
@@ -148,19 +148,17 @@ if (want("langs")) {
   }
 }
 
-// ── 5. nothing was deleted: the old cards moved under "See more", which is
-//      closed on arrival so the first screen stays one answer ──
+// ── 5. nothing was deleted, and (owner 2026-10-09) nothing is hidden: the older cards are always
+//      shown under the top answer, with no "See more" to tap ──
 if (want("more")) {
   const s = await mentor({ lang: "en", log: actLog() });
-  const before = await body(s.p);
-  const collapsed = await s.p.locator("details.coach-more").evaluate(el => !el.open).catch(() => false);
-  await s.p.locator("summary", { hasText: /See more/i }).first().click();
   await s.p.waitForTimeout(500);
   const after = await body(s.p);
+  const noToggle = (await s.p.locator("summary", { hasText: /See more/i }).count()) === 0;
   await s.p.screenshot({ path: `${OUT}/seemore.png`, fullPage: false });
-  const kept = /7-Day Activity|Weekly Report Card/i.test(after) && after.length > before.length;
-  rec("see-more-keeps-everything", collapsed && kept && r31(s.errs).length === 0,
-    `collapsed on arrival ${collapsed} · old cards still there ${kept} · React#31 ${r31(s.errs).length}`);
+  const kept = /7-Day Activity|Weekly Report Card/i.test(after);
+  rec("see-more-always-open", noToggle && kept && r31(s.errs).length === 0,
+    `no See more toggle ${noToggle} · old cards visible at once ${kept} · React#31 ${r31(s.errs).length}`);
   await s.done();
 }
 

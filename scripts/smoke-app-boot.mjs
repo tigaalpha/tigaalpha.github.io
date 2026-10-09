@@ -205,7 +205,7 @@ for (const b of navBtns) {
      reads, and n is how many pieces it actually holds. */
   const pcards = qa(".pcard");
   if (pcards.length) {
-    const songDoor = pcards.find(c => /ฝึกฝีมือ|Practice|练习/.test(c.textContent || ""));
+    const songDoor = pcards.find(c => /ฝึกเล่นเพลง|ฝึกฝีมือ|Practice|练习/.test(c.textContent || ""));
     ok("the pathway has the Practice card", !!songDoor, songDoor ? (songDoor.textContent || "").replace(/\s+/g, " ").trim().slice(0, 90) : `${pcards.length} cards, none matched`);
     const doorTxt = (songDoor ? songDoor.textContent : "").replace(/\s+/g, " ");
     ok("that card states the shelf size", /100,000|100000/.test(doorTxt), doorTxt.match(/[^ ]*100,000\+?[^ ]*/)?.[0] || "no number");
