@@ -952,9 +952,9 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .sensei-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
 .sensei-scroll>*{flex-shrink:0}
 .lbox.lmark{width:38px;min-width:38px;height:38px;padding:0;box-sizing:border-box;border:1.5px solid #d9775755;border-radius:20px;background:var(--card);color:#d97757}
-.tg .hdr .lbox.lmark{width:44px;min-width:44px;height:44px;padding:0;border:1.5px solid #d9775755;border-radius:50%;background:var(--card);color:var(--clay,#d97757)}
-@media (max-width:390px){.lmark-tx{font-size:11.5px;letter-spacing:.1em}}
-.lmark-tx{font-family:var(--f-app);font-weight:800;font-size:13px;letter-spacing:.16em;line-height:1;color:var(--clay,#d97757);cursor:pointer;margin-left:-2px}
+.tg .hdr .lbox.lmark{width:auto;min-width:0;height:44px;padding:0 14px 0 11px;gap:6px;border:1.5px solid #d9775755;border-radius:999px;background:var(--card);color:var(--clay,#d97757)}
+@media (max-width:390px){.tg .hdr .lbox.lmark{padding:0 10px 0 8px;gap:4px}.tg .hdr .lbox.lmark svg{width:19px;height:19px}.lmark-tx{font-size:11.5px;letter-spacing:.1em}}
+.lmark-tx{font-family:var(--f-app);font-weight:800;font-size:13px;letter-spacing:.16em;line-height:1;color:var(--clay,#d97757);margin-right:-.16em}
 .lbox.lmark svg{display:block}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
