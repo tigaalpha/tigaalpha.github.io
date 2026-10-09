@@ -34,7 +34,7 @@ async function open({ ux, page = "pathway", w = 412, q = "" }) {
 { const { ctx, p, errs } = await open({ ux: "1" });
   check("on by switch: one tab bar with five tabs", (await p.$$(".tabbar .tab")).length === 5);
   check("Learn is the active tab on the pathway", await p.$eval(".tab.on", e => e.dataset.tab) === "learn");
-  check("the pathway has a large title", !!(await p.$(".uxtitle h1")));
+  check("the pathway has NO large title (the owner did not like it, 2026-10-09)", !(await p.$(".uxtitle")));
   await p.click('.tab[data-tab="practice"]'); await p.waitForTimeout(900);
   check("tapping Practice opens the studio and marks it active", await p.$eval(".tab.on", e => e.dataset.tab) === "practice" && !!(await p.$(".studiocard, .studiohero, .pathhero")));
   await p.click('.tab[data-tab="learn"]'); await p.waitForTimeout(700);

@@ -686,7 +686,7 @@ in the code, and what it replaced:
   `node scripts/smoke-practice-mic-doubt.mjs` (17 checks) runs the REAL hook in jsdom.
 - **Jev stays in the chat's path (owner, 2026-10-09: "call Jev to check too — it is free").** `jevPrecheck` runs before every live-AI question; do not skip it to
   save cost.
-- `node scripts/smoke-ux2.mjs` drives the built app for the premium interface (off by default, `?ux=2`/`?ux=0`, five tabs, 320 px, large Pathway title).
+- `node scripts/smoke-ux2.mjs` drives the built app for the premium interface (off by default, `?ux=2`/`?ux=0`, five tabs, 320 px, and NO large Pathway title — the owner struck it out on 2026-10-09; do not bring it back).
   `verify-chat.mjs` was brought back in line with what ships (2 free / 10 Premium questions a day, the persona's current wording, the KB ceiling, the
   suspended speaker via `SPEAK=1`).
 - **The song list is drawn in slices** (60 cards, 120 more when its end comes near; `.songmore` is the sentinel) so a chip switch
