@@ -10,10 +10,11 @@ const server = http.createServer((req, res) => { let p = decodeURIComponent(req.
 await new Promise(r => server.listen(0, "127.0.0.1", r));
 let browser;
 try { browser = await pw.chromium.launch({ executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium" }); } catch (e) { console.log("this check did NOT run:", e.message.slice(0, 100)); process.exit(1); }
-const SIZES = [[320, 568], [360, 640], [390, 844], [430, 932]];
+const SIZES = process.env.SIZES ? process.env.SIZES.split(";").map(x => x.split("x").map(Number)) : [[320, 568], [360, 640], [390, 844], [430, 932]];
 const LANGS = (process.env.LANGS || "th,en,zh").split(","); const fails = []; let n = 0;
 for (const [w, h] of SIZES) for (const lang of LANGS) for (const kid of [false, true]) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
+  await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort());
   await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   await ctx.addInitScript(({ lang, kid }) => {
     sessionStorage.setItem("tiga_page", "pathway");
@@ -24,7 +25,7 @@ for (const [w, h] of SIZES) for (const lang of LANGS) for (const kid of [false, 
     const gi = Storage.prototype.getItem; Storage.prototype.getItem = function (k) { return k === "tg_guest_ms" ? "0" : gi.call(this, k); };
   }, { lang, kid });
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 100)));
-  const tag = `${w}x${h} ${lang} ${kid ? "kid" : "adult"}`;
+  const tag = `${w}x${h} ${lang} ${kid ? "kid" : "adult"}`; if (process.env.V) console.log("run", tag);
   try {
     await p.goto(`http://127.0.0.1:${server.address().port}/`, { waitUntil: "load" }); await p.waitForTimeout(2000);
     for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
