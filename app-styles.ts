@@ -920,6 +920,22 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicenow-note.target{color:#d97757;text-shadow:0 0 18px #d9775777}
 .practicenow-note.heard{color:var(--muted)}
 .practicenow-note.heard.doubt{color:var(--muted);font-size:30px;opacity:.7}
+/* ══════ KID MODE — the whole app, not only the practice screen (owner 2026-10-09). `.kid` on the root; set by Settings 🧒 or by a profile aged ≤ 9.
+   Fewer words, bigger things to touch, the grown-up detail out of sight. Nothing is removed from the app: leaving the mode brings it all back. ══════ */
+.tg.kid .pcardsub,.tg.kid .pcardlevel,.tg.kid .pgsub,.tg.kid .songcard-meta .songcard-lv,.tg.kid .songcard-og,
+.tg.kid .missbar,.tg.kid .chatstarters-hint,.tg.kid .iw .hint,.tg.kid .practicetip-more,.tg.kid .todaybar-tag,
+.tg.kid .atpopup-sub,.tg.kid .studio-max-hdr,.tg.kid .songsec-sub,.tg.kid .uxtitle p{display:none}
+.tg.kid .pcardtitle{font-size:20px;line-height:1.2}
+.tg.kid .pcardicon{transform:scale(1.3);transform-origin:left center;margin-bottom:6px}
+.tg.kid .songcard-nm{font-size:17px;line-height:1.25;white-space:normal}
+.tg.kid .songcard{min-height:64px}
+.tg.kid button,.tg.kid .tab{min-height:48px}
+.tg.kid .tab-lb{font-size:13px}
+.tg.kid .dailyrec-txt{font-size:17px}
+.tg.kid .practicebtn,.tg.kid .recbtn,.tg.kid .handbtn{font-size:17px;min-height:54px}
+.tg.kid .starterchip,.tg.kid .starterch{font-size:16px;padding:12px 14px}
+.tg.kid .msg .bbl{font-size:17px;line-height:1.6}
+.tg.kid .songsec-nm{font-size:22px}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
 .practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}

@@ -321,3 +321,17 @@ export function kidModeOn(profile: any, pref: string | null = readKidPref()): bo
     return !!(profile && profile.ageBand === "child");
   } catch (e) { return false; }
 }
+
+/* The kid-mode flag as the non-React code (prompt builders) sees it: PianoApp sets it on every render from kidModeOn(). */
+let _kidNow = false;
+export function setKidNow(on: boolean) { _kidNow = !!on; }
+export function isKidNow() { return _kidNow; }
+/* What the AI tutor is told in kid mode. Appended to the system prompt of the chat and of the coaching tip. */
+export function kidPromptBlock(lang: string): string {
+  if (!_kidNow) return "";
+  return lang === "th"
+    ? "\n\n[โหมดเด็ก: ผู้เรียนอาจอายุเพียง 6 ขวบ — ใช้คำง่ายมาก ประโยคสั้น ๆ ไม่เกิน 2 ประโยค ห้ามใช้ศัพท์ทฤษฎีโดยไม่อธิบายด้วยของใกล้ตัว ใช้ชื่อโน้ต โด เร มี ฟา ซอล ลา ที คู่กับตัวอักษร และชวนให้ลองกดคีย์ทีละอย่าง ใจดีและให้กำลังใจเสมอ]"
+    : lang === "zh"
+    ? "\n\n[儿童模式：学习者可能只有 6 岁——用很简单的词，句子很短，最多 2 句；不解释就不用理论术语，用身边的东西打比方；音名用 Do Re Mi 加字母；一次只让他按一个键；永远温柔、多鼓励]"
+    : "\n\n[Kid mode: the learner may be only 6 years old — use very simple words and short sentences, at most 2; never use a theory word without explaining it with something from daily life; name notes Do Re Mi next to their letters; ask for one key at a time; always kind and encouraging]";
+}
