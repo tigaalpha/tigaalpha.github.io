@@ -229,8 +229,8 @@ export function ChatProgress({ lang, streak, askedToday, questCount, questGoal, 
 export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, onPlay, onRetry, onMore = null, speakMode = "off", onSpeakLocked = null, onMark = null, onGoStep = null }) {
   // parse notes only when the message text or language actually changes
   const parsed = useMemo(
-    () => (m.role === "ai" && m.text ? extractNotes(m.text) : null),
-    [m.role, m.text]
+    () => (m.role === "ai" && m.text && !m.noSeq ? (m.seq && Array.isArray(m.seq.notes) && m.seq.notes.length ? m.seq : extractNotes(m.text)) : null),
+    [m.role, m.text, m.seq, m.noSeq]
   );
   const lc = L[lang];
   /* An answer is placed in the thread the moment it is asked for and filled in

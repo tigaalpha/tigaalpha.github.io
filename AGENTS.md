@@ -665,6 +665,15 @@ in the code, and what it replaced:
   cards, and picking any provider/model as primary there is the manual switch, unchanged. `node scripts/smoke-piano-chat-switch.mjs` runs
   the real function with a fake fetch. **The function is NOT deployed** — until the owner runs `supabase functions deploy piano-chat`
   the live one keeps walking the free ladder only.
+- **What the chat prints and what the keys play are ONE thing (owner, 2026-10-09: the chat taught C natural minor, the play chip under it
+  said C MAJOR SCALE and played C D E F G A B C).** Two causes, both fixed: `extractNotes` (`music-engine.tsx`) only knew the English
+  word "minor", so Thai "ไมเนอร์" / Chinese "小调" lessons were read as major (`hasMinorWord`), and the chip re-read the *words* of a
+  lesson instead of using what the lesson built. Now (1) a lesson message carries its own `seq` (`learnTopic` passes the demo it built;
+  `use-chat.ts` stamps it on live-AI answers while `topicHint` is `LESSON_MODE`; `Msg` in `chat-ui.tsx` uses `m.seq` first, `m.noSeq`
+  hides the chip on the four-scales comparison card), (2) a header line "… สเกล · C" decides root and quality (natural / harmonic /
+  melodic / major, `scaleLesson`), and (3) a printed run of eight note names that climbs from a root back to it is played as printed
+  (`scaleFromNoteRun`). `node scripts/smoke-extract-notes.mjs` (11 checks, the real `extractNotes`) pins it. Chords with a qualifier the
+  KNOWN table does not hold (dim, sus, 7ths, extended) still have no chip unless the lesson's own `seq` supplies one — never guess a sound.
 - **The song list is drawn in slices** (60 cards, 120 more when its end comes near; `.songmore` is the sentinel) so a chip switch
   does not build 1,067 cards. Bots that count or look for a card past the first screen call `expandList()` first. The classical
   library is NOT lazy-loaded: 40+ places read `SONGS` synchronously (the daily song would re-pick if its saved id were not there

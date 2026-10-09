@@ -12926,7 +12926,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const sTitle = tr(stage.title, lang);
     const typeName = chordType ? tr(chordType.label, lang) : null;
     logActivity("lesson", stage.id + "/" + keyId.toLowerCase(), 0, 0, 180); // ~3 min of study per topic-in-key
-    setLessonContext(LESSON_MODE);
+    setLessonContext(LESSON_MODE, null, demoParsed);
 
     // strict instruction scoped to the specific chord type (if any)
     let strict;
@@ -12964,11 +12964,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
     const intro = [{ role: "user", text: `📚 ${stage.icon} ${fullTitle} · ${keyLabel}` }];
     // when no specific type chosen, show the curated type reference card
-    if (stage.typesInfo && !chordType) intro.push({ role: "ai", text: tr(stage.typesInfo, lang) });
+    if (stage.typesInfo && !chordType) intro.push({ role: "ai", text: tr(stage.typesInfo, lang), noSeq: true });   // a card that compares four scales has no single sequence to play
     // tier 1: scale/interval/triad/7th topics are formulaic — answer instantly from
     // the app's own theory engine instead of asking the live AI every time
     const local = localPathwayLesson(stage, keyId, keyLabel, chordType, spelled || demoNotes, fullTitle, lang, scaleType);
-    if (local) intro.push({ role: "ai", text: local });
+    if (local) intro.push({ role: "ai", text: local, seq: demoParsed });   // the chip under the lesson plays exactly what the lesson built, never a re-read of its words
     intro.forEach(m => pushMessage(m));
     const dt = setTimeout(() => playSequence(demoParsed), 300);
     seqTimers.current.push(dt);

@@ -920,6 +920,22 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicenow-note.target{color:#d97757;text-shadow:0 0 18px #d9775777}
 .practicenow-note.heard{color:var(--muted)}
 .practicenow-note.heard.doubt{color:var(--muted);font-size:30px;opacity:.7}
+/* plan 27 · P1 — the practice screen for a six-year-old */
+.practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
+.practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}
+.practicechips.pdots .pchip.cur{width:auto;height:auto;min-width:34px;padding:5px 10px;font-size:13px;border-radius:12px;animation:none;box-shadow:0 0 0 3px rgba(217,119,87,.28)}
+.practicechips.pdots .pchip.done{background:#34c759;border-color:#34c759}
+.practicechips.pdots .pchip--retry{background:#ffa502;border-color:#ffa502}
+.fhand{display:block;margin:6px auto 0}
+.fhand-f{fill:var(--card3);stroke:var(--bd2);stroke-width:1.5}
+.fhand-f.on{fill:#d97757;stroke:#d97757}
+.fhand-palm{fill:var(--card3);stroke:var(--bd2);stroke-width:1.5}
+.fhand-n{font-family:var(--f-app);font-size:13px;font-weight:900;fill:#fff}
+.presultstars{display:flex;justify-content:center;gap:8px;font-size:44px;line-height:1;margin:6px 0 10px}
+.presultstars span{color:var(--bd2)}
+.presultstars span.on{color:#f5b301;text-shadow:0 0 14px #f5b30188;animation:uxEnter .5s both}
+.dailyrec-txt.big{white-space:normal;overflow:visible}
+.practicebtn-sub{display:block;font-size:12px;font-weight:600;opacity:.8;margin-top:2px}
 .practicenow-sol{margin-top:4px;font-family:var(--f-app);font-size:20px;font-weight:700;color:var(--clay-ink,#a8512f);text-align:center}
 .practicetip-more{display:block;margin-top:6px;font-size:12px;color:var(--muted)}
 .practicetip-more summary{cursor:pointer;list-style:none;display:inline-block;padding:2px 10px;border-radius:12px;border:1px solid var(--bd2)}
@@ -2611,11 +2627,11 @@ button.pd-tag.focus:hover{background:rgba(217,119,87,.22)}
 .dh-chest:not(.done){animation:chestwiggle 1.4s ease-in-out infinite}
 .dh-chest.done{background: #d97757}
 .dh-chest:active{transform:scale(.95)}
-.dailyrec{display:flex;align-items:center;gap:8px;margin:6px 12px 0;padding:9px 13px;width:calc(100% - 24px);border-radius:13px;border:1px solid #d9775733;background:var(--card3);cursor:pointer;text-align:left}
+.dailyrec{display:flex;align-items:center;gap:10px;margin:6px 12px 0;padding:13px 14px;width:calc(100% - 24px);border-radius:13px;border:1px solid #d9775733;background:var(--card3);cursor:pointer;text-align:left}
 .dailyrec:active{transform:scale(.99)}
 .dailyrec-lbl{font-family:var(--f-app);font-size:9px;font-weight:800;letter-spacing:.5px;color:#d97757;flex-shrink:0}
 .dailyrec-ic{font-size:18px;flex-shrink:0}
-.dailyrec-txt{flex:1;min-width:0;font-family:var(--f-app);font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dailyrec-txt{flex:1;min-width:0;font-family:var(--f-app);font-size:14.5px;font-weight:700;line-height:1.3;color:var(--text);white-space:normal}
 .dailyrec-go{color:#d97757;font-weight:800;flex-shrink:0}
 /* quick "change key" back button on the Sensei page — returns to Pathway with
    the same topic's key picker already open, instead of a ☰-menu round trip */

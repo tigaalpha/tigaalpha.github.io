@@ -447,6 +447,71 @@ export const KNOWN = [
   {k:"f# minor",n:["F#4","A4","C#5"],m:"chord"},{k:"f# min",n:["F#4","A4","C#5"],m:"chord"},
 ].sort((a,b) => b.k.length - a.k.length);
 
+/* ── What kind of scale does this text TEACH? (owner report 2026-10-09: the chat taught C natural minor — "C D E♭ F G A♭ B♭ C" —
+   while the play chip under it said C MAJOR SCALE and played C D E F G A B C.) The old reader only knew the English word
+   "minor", so a Thai ("ไมเนอร์") or Chinese ("小调") lesson was read as major and the keys above the chat disagreed with the words.
+   The header line of a lesson ("🎼 ไมเนอร์ (Natural) สเกล (Scale) · C") is authoritative; only when it says nothing about the
+   quality is the rest of the text asked. Returns null when the text is not a lesson header at all, so ordinary chat prose keeps
+   the old path untouched. ── */
+const RX_MINOR = /minor|\bmin\b|ไมเนอร์|ไมเนอร|小调|小調|小三/i;
+const RX_MAJOR = /major|\bmaj\b|เมเจอร์|เมเจอร|大调|大調/i;
+export function hasMinorWord(s) { return RX_MINOR.test(s || ""); }
+export function scaleLesson(text) {
+  const lines = String(text || "").split(/\r?\n/);
+  for (let i = 0; i < Math.min(lines.length, 6); i++) {
+    const L = lines[i];
+    const h = /·[ \t]*([A-Ga-g][#b♯♭]?)[ \t]*$/.exec(L);
+    if (!h || !/scale|สเกล|音阶|音階/i.test(L)) continue;
+    const root = h[1].charAt(0).toUpperCase() + h[1].slice(1).replace(/♯/g, "#").replace(/♭/g, "b");
+    let q = null;
+    if (/harmonic|ฮาร์โมนิก|和声|和聲/i.test(L)) q = "harmonic minor";
+    else if (/melodic|เมโลดิก|旋律/i.test(L)) q = "melodic minor";
+    else if (/natural|ธรรมชาติ|自然/i.test(L)) q = "natural minor";
+    else if (RX_MINOR.test(L)) q = "natural minor";
+    else if (RX_MAJOR.test(L)) q = "major";
+    if (q) return { root, quality: q };
+  }
+  return null;
+}
+function scaleFromLesson(sl, hand) {
+  const r = pcIdx(sl.root); if (r < 0) return null;
+  const up = SCALE_DEF[sl.quality]; if (!up) return null;
+  const names = [...up, 12].map(st => r + st);                       // root … root an octave up
+  const downSteps = sl.quality === "melodic minor" ? SCALE_DEF["natural minor"] : null;   // classical melodic minor comes back down natural
+  const all = downSteps ? names.concat([...downSteps].reverse().map(st => r + st)) : names;
+  const notes = all.map(abs => CHROMA[abs % 12] + (4 + Math.floor(abs / 12)));
+  const rootKey = String(sl.root).toLowerCase().replace(/♯/g, "#");
+  const tbl = sl.quality === "major" ? `${rootKey} major scale` : `${rootKey} minor scale`;
+  let f = getFingers(tbl, "scale", hand);
+  if (f && notes.length > f.length) f = f.concat(f.slice().reverse().slice(1)).slice(0, notes.length);
+  else if (f) f = f.slice(0, notes.length);
+  const label = `${sl.root.toUpperCase()} ${sl.quality} scale`.toUpperCase();
+  return { notes, label, mode: "scale", fingers: f, key: f ? tbl : null };
+}
+
+/* When the answer prints the scale's own notes ("โน้ตทั้งหมด: C D E♭ F G A♭ B♭ C") those notes ARE what the learner reads, so they
+   are what must play. Accepts one run of 8–9 note names that climbs from a root back to the same root. */
+function scaleFromNoteRun(text, hand) {
+  const m = /(?:^|[:：\s])((?:[A-G][#♯b♭]?[ \t,–\-→·]+){7}[A-G][#♯b♭]?)(?![A-Za-z0-9#♯♭])/m.exec(String(text || ""));
+  if (!m) return null;
+  const toks = m[1].split(/[ \t,–\-→·]+/).filter(Boolean);
+  const pcs = toks.map(t => pcIdx(t.replace(/♯/g, "#").replace(/♭/g, "b")));
+  if (pcs.some(x => x < 0) || pcs[0] !== pcs[pcs.length - 1]) return null;
+  let abs = pcs[0], notes = [CHROMA[pcs[0]] + "4"];
+  for (let i = 1; i < pcs.length; i++) {
+    let d = (pcs[i] - (abs % 12) + 12) % 12; if (d === 0) d = 12;        // always climb
+    if (d > 4) return null;                                                // a scale never leaps more than an augmented 2nd
+    abs += d; notes.push(CHROMA[abs % 12] + (4 + Math.floor(abs / 12)));
+  }
+  const rootName = CHROMA[pcs[0]];
+  const set = pcs.slice(0, -1).map(p => (p - pcs[0] + 12) % 12).join(",");
+  let q = null; for (const name of ["major", "natural minor", "harmonic minor", "melodic minor"]) if (SCALE_DEF[name].join(",") === set) { q = name; break; }
+  const rootKey = rootName.toLowerCase();
+  const tbl = q === "major" ? `${rootKey} major scale` : q ? `${rootKey} minor scale` : null;
+  const f = tbl ? getFingers(tbl, "scale", hand) : null;
+  return { notes, label: (q ? `${rootName} ${q} scale` : `${rootName} scale`).toUpperCase(), mode: "scale", fingers: f ? f.slice(0, notes.length) : null, key: f ? tbl : null };
+}
+
 export function extractNotes(text, hand = "right", hint = null, forceKey = null) {
   const lo = text.toLowerCase();
 
@@ -459,6 +524,14 @@ export function extractNotes(text, hand = "right", hint = null, forceKey = null)
     const wantsChord = /\bchord\b|triad|คอร์ด|ไทรแอด|和弦/.test(lo);
     scaleFirst = wantsScale && !wantsChord;
     chordFirst = wantsChord && !wantsScale;
+  }
+
+  // A lesson header that states root AND quality decides the sequence — what the chat prints is what the keys play.
+  if (scaleFirst || (!chordFirst && /scale|สเกล|音阶|音階/i.test(lo))) {
+    const sl = scaleLesson(text);
+    if (sl) { const hit = scaleFromLesson(sl, hand); if (hit) return hit; }
+    const run = scaleFromNoteRun(text, hand);
+    if (run) return run;
   }
 
   // ── HIGHEST PRIORITY: an explicit key was chosen in the lesson picker ──
@@ -476,8 +549,7 @@ export function extractNotes(text, hand = "right", hint = null, forceKey = null)
          in KNOWN (it always is): asking for C minor scale played
          C-D-E-F-G-A-B-C. Order the candidates by what the text actually says
          and fall back to the other quality only if that one does not exist. */
-      const wantMinor = lo.includes("minor") || lo.includes("min ") || /\bm\b/.test(lo)
-        || /ไมเนอร/.test(lo) || /小调/.test(lo);
+      const wantMinor = lo.includes("minor") || lo.includes("min ") || /\bm\b/.test(lo) || hasMinorWord(lo);
       const qualities = wantMinor ? ["minor", "major"] : ["major", "minor"];
       const candidates = wantMode === "scale"
         ? [...qualities.map(q => `${root} ${q} scale`), `${root} scale`]
@@ -518,9 +590,13 @@ export function extractNotes(text, hand = "right", hint = null, forceKey = null)
   if (scaleFirst || chordFirst) {
     const wantMode = scaleFirst ? "scale" : "chord";
     let e = matchInMode(wantMode);
+    // "c scale" (no quality named) matched, but the text says minor in Thai/Chinese/English: that is the minor scale
+    if (e && wantMode === "scale" && /^[a-g][#b]? scale$/.test(e.k) && hasMinorWord(lo) && !RX_MAJOR.test(lo)) {
+      e = KNOWN.find(x => x.k === e.k.replace(" scale", " minor scale")) || e;
+    }
     if (!e) {
       const roots = ["a#","c#","d#","f#","g#","ab","bb","db","eb","gb","a","b","c","d","e","f","g"];
-      const qualifiers = lo.includes("minor") || lo.includes("min ") || /\bm\b/.test(lo) ? "minor" : "major";
+      const qualifiers = lo.includes("minor") || lo.includes("min ") || /\bm\b/.test(lo) || hasMinorWord(lo) ? "minor" : "major";
       let foundRoot = null;
       // Our own lesson text states the key in its header ("🎼 Major scale · D").
       // That is authoritative — trust it over whatever the prose happens to contain.
