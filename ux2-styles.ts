@@ -91,4 +91,13 @@ export const UX2_CSS = `
 .ux2 .setlangs{gap:0;padding:3px;border-radius:12px;background:var(--clay-t1);border:1px solid var(--bd2)}
 .ux2 .setlangbtn{border:0;background:transparent;border-radius:9px}
 .ux2 .setlangbtn.on{background:var(--card);color:var(--clay-ink);box-shadow:0 1px 3px rgba(20,20,19,.18)}
+
+/* iOS-style switch: the same on/off button, drawn as a track and a knob (its words stay in the DOM for screen readers) */
+.ux2 .settoggle{position:relative;width:52px;min-width:52px;height:31px;padding:0;border:0;border-radius:16px;font-size:0;color:transparent;
+  background:var(--bd2);transition:background .22s ease}
+.ux2 .settoggle::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;
+  box-shadow:0 2px 5px rgba(20,20,19,.3);transition:transform .28s cubic-bezier(.3,1.4,.5,1)}
+.ux2 .settoggle.on{background:var(--clay-btn,var(--clay))}
+.ux2 .settoggle.on::after{transform:translateX(21px)}
+@media (prefers-reduced-motion:reduce){.ux2 .settoggle,.ux2 .settoggle::after{transition:none}}
 `;

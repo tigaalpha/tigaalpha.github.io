@@ -61,7 +61,7 @@ function ResultBar({ label, pct, color }) {
     </div>
   );
 }
-function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo, onTipUpdate, startSpotPractice }) {
+function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo, onTipUpdate, startSpotPractice }) {
   const r = practiceResult;
   // Practice v4 A1/A2: per-index miss counts flushed by finishPractice into the
   // result snapshot — chips render the exact missed notes; the launcher's count
@@ -121,6 +121,15 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
         </div>
       )}
 
+      {(() => {
+        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const acc = r.accuracy, prev = r.prevBest && r.prevBest.accuracy;
+        const msg = prev != null && acc > prev ? T3(`เก่งขึ้น +${acc - prev}% จากครั้งก่อน! ลองอีกครั้งไหม?`, `Better by ${acc - prev}% than last time! Try again?`, `比上次进步 ${acc - prev}%！再试一次？`)
+          : acc >= 90 && prev != null && prev >= 90 ? T3("แม่นมากสองครั้งติด! ลองมืออีกข้าง หรือเปลี่ยนคีย์ดูนะ", "Super accurate twice in a row! Try the other hand or a new key.", "连续两次很准！试试另一只手或换个调。")
+          : acc < 60 ? T3("ไม่เป็นไร ค่อย ๆ เล่นช้า ๆ เริ่มจากโน้ตที่พลาดก่อนนะ", "That is okay. Go slowly and start with the notes you missed.", "没关系，慢慢来，先练弹错的音。")
+          : T3("ดีมาก! ลองอีกรอบให้แม่นขึ้นอีกนิด", "Nice! One more round to get even cleaner.", "很好！再来一轮会更准。");
+        return <div className={`presultmsg${kid ? " kid" : ""}`}>{msg}</div>;
+      })()}
       <div className="presultstars" aria-label={starsOf(r.accuracy) + " stars"}>{[1, 2, 3].map(n => <span key={n} className={n <= starsOf(r.accuracy) ? "on" : ""}>★</span>)}</div>
       <div className="presultstats">
         <div className="presultstat">
@@ -206,7 +215,7 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
     </div>
   );
 }
-export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, practiceWrongByIdxRef = null, switchPracticeChordStyle, startSpotPractice = null, chordGroupSize = 0, onKeepGoing, showKeepGoing = false, metroBpm = null, onSetTempo = null, onTipUpdate = null }) {
+export function PracticeOverlay({ practiceHelp = null, kid = false, practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, practiceWrongByIdxRef = null, switchPracticeChordStyle, startSpotPractice = null, chordGroupSize = 0, onKeepGoing, showKeepGoing = false, metroBpm = null, onSetTempo = null, onTipUpdate = null }) {
   const lc = L[lang];
         // Grading (use-practice-mode) treats BOTH chord and progression drills
         // as block-style when the toggle says so — the display must gate on the
@@ -241,7 +250,7 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
           <div className="practicehtitle">{lc.practiceTitle}<small>{practiceLabel}</small></div>
           <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
         </div>
-        <PracticeResultView practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} onTipUpdate={onTipUpdate} startSpotPractice={startSpotPractice} />
+        <PracticeResultView kid={kid} practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} onTipUpdate={onTipUpdate} startSpotPractice={startSpotPractice} />
         <div className="practicefoot">
           <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>
           <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
@@ -306,6 +315,12 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
                 onNote={(n) => practiceHandlerRef.current({ note: n, freq: null })} />
             )}
 
+            {practiceHelp && practiceHelp.idx === practiceIdx && (
+              <div className="practicehelp" role="status">{(lang === "th"
+                ? (practiceHelp.level === 3 ? "👂 ฟังสองโน้ตนี้ แล้วลองใหม่นะ" : "👂 ฟังโน้ตนี้ แล้วลองกดตามนะ")
+                : lang === "zh" ? (practiceHelp.level === 3 ? "👂 听这两个音，再试一次" : "👂 先听这个音，再按")
+                : (practiceHelp.level === 3 ? "👂 Listen to these two notes, then try again" : "👂 Listen to this note, then press it"))}</div>
+            )}
             <div className="practicenow">
               <div className="practicenow-box">
                 <div className="practicenow-lbl">{lc.practicePlay}</div>
@@ -339,12 +354,12 @@ export function PracticeOverlay({ practiceModeRef, chordStyle, practiceTarget, p
               <div className="practicefill" style={{ width: `${practiceTarget.length ? Math.round(practiceIdx / practiceTarget.length * 100) : 0}%` }} />
             </div>
             <div className="practicestats">
-              <span>{lc.practiceAcc}: <b>{(practiceIdx + practiceMiss) >= 3 ? Math.round(practiceIdx / (practiceIdx + practiceMiss) * 100) + "%" : "–"}</b></span>
+              {!kid && <span>{lc.practiceAcc}: <b>{(practiceIdx + practiceMiss) >= 3 ? Math.round(practiceIdx / (practiceIdx + practiceMiss) * 100) + "%" : "–"}</b></span>}
               <span>✓ <b>{practiceIdx}</b> / {practiceTarget.length}</span>
               {comboBadge(practiceStreak) && <span key={practiceStreak} className="sightstreak practicecombo">{comboBadge(practiceStreak)}</span>}
             </div>
 
-            <div className="practicetip">{lc.practiceHint}<details className="practicetip-more"><summary aria-label="info">ⓘ</summary>{lc.practiceMicTip}</details></div>
+            <div className="practicetip">{kid ? (lang === "th" ? "กดคีย์สีส้ม 👆" : lang === "zh" ? "按橙色的键 👆" : "Press the orange key 👆") : lc.practiceHint}<details className="practicetip-more"><summary aria-label="info">ⓘ</summary>{lc.practiceMicTip}</details></div>
           </div>
           <div className="practicefoot">
             <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>

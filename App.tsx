@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, memo, useCallback, Fragment, lazy, Suspense } from "react";
+import { useState, useRef, useEffect, useMemo, memo, useCallback, useContext, Fragment, lazy, Suspense } from "react";
 import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-lock";
 import { Capacitor } from "@capacitor/core";
 import { PATHWAY, PATHWAY_PRACTICE, PATHWAY_ORDER } from "./pathway-data";
@@ -132,7 +132,7 @@ import {
 import {
   GUEST_TRIAL_MS, GUEST_TICK_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
   pushSupported, subscribePush, unsubscribePush, logUsage,
-  readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses, readRecentNoteMisses,
+  readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses, readRecentNoteMisses, readKidPref, writeKidPref, kidModeOn,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
   readLandingOrigin, clearLandingOrigin, anonId,
@@ -882,8 +882,10 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
      the Concert Mode card that came off this page in September. Practice is
      still one tap away: card 02 on this very grid opens Play Along on the
      songs, so the offer was saying what the card beside it already says. */
+  const uxTitle = useContext(UxCtx);   // AX-4: the premium interface gives the page a large title
   return (
     <div className="pathpage">
+      {uxTitle && <div className="uxtitle"><h1>{lc.pathTitle}</h1><p>{lc.pathSub}</p></div>}
 
       {/* the "Play your first song" banner used to sit here — removed, see above */}
 
@@ -11908,7 +11910,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [uid]);
 
 
-  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly });
+  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceHelp, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly });
 
   /* Plan 26 · P1/P3/P4 — today's plan, on the page the learner actually stands
      on. buildTodaySteps() is the SAME function TodayPage renders, so the count
@@ -12305,6 +12307,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [pushOn, setPushOn] = useState(() => typeof Notification !== "undefined" && Notification.permission === "granted");
   /* The optional marketing purpose (PDPA): never pre-ticked, one tap each way. Written to the
      profile with its timestamp so who agreed, and when, is on record. */
+  // plan 27 · P1-5 — kid mode: shorter words on the practice screens. Chosen in Settings, or on by itself for a profile aged 9 or under.
+  const [kidPref, setKidPrefState] = useState(() => readKidPref());
+  const kidOn = kidModeOn(profile, kidPref);
+  function toggleKid() { const next = !kidOn; writeKidPref(next); setKidPrefState(next ? "1" : "0"); try { logUsage("nav", "kid:" + (next ? "on" : "off")); } catch (e) {} }
   const marketingOn = !!(profile && profile.marketing_consent);
   function toggleMarketing() {
     if (requireLogin()) return;
@@ -13534,7 +13540,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
-      {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} startSpotPractice={startSpotPractice} practiceWrongByIdxRef={practiceWrongByIdxRef} /></SafeZone>}
+      {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceHelp={practiceHelp} kid={kidOn} practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} startSpotPractice={startSpotPractice} practiceWrongByIdxRef={practiceWrongByIdxRef} /></SafeZone>}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
       {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay gameStore={gameStore} songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songCanvasRef={songCanvasRef} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} requestSongAnalysis={requestSongAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} pvpOnline={pvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} drillCleared={drillCleared} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossMax={bossMax} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} openKnowledgeShelf={openKnowledgeShelf} pauseSong={pauseSong} resumeSong={resumeSong} restartSong={restartSong} playAgain={playAgain} playNext={playNext} nextSongFor={nextSongFor} songKind={songKind} setSongKind={setSongKind} songAccomp={songAccomp} setSongAccomp={setSongAccomp} songView={songView} setSongView={setSongView} songBand={songBand} setSongBand={setSongBand} songFx={songFx} setSongFx={setSongFx} songPractice={songPractice} songGfx={songGfx} setSongGfx={setSongGfx} songIntro={songIntro} startIntro={startIntro} skipIntro={skipIntro} sfxMuted={sfxMuted} onToggleSfx={() => { const m = !sfxMuted; setSfxMuted(m); setSfxMutedState(m); }} onRemind={(session && pushSupported() && !pushOn && !notifDone) ? () => { logUsage("event", "pa-remind-tap"); joinNotifEvent(); } : null} /></SafeZone>}
@@ -13812,6 +13818,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <button className={`settoggle${premium ? " on" : ""}`} onClick={() => { const v = !premium; setPremiumLS(v); setPremium(v); const np = v ? (plan === "free" ? "premium" : plan) : "free"; setPlanLS(np); setPlan(np); }}>
                   {premium ? lc.setOn : lc.setOff}
                 </button>
+              </div>
+              <div className="setrow">
+                <label>🧒 {lang === "th" ? "โหมดเด็ก (คำสั้น ๆ ง่าย ๆ)" : lang === "zh" ? "儿童模式（更简单的话）" : "Kid mode (short, simple words)"}</label>
+                <button className={`settoggle${kidOn ? " on" : ""}`} onClick={toggleKid}>{kidOn ? lc.setOn : lc.setOff}</button>
               </div>
               <button className="setbtn wide" style={{ width: "100%" }} onClick={() => { setSettingsOpen(false); premium ? setParentOpen(true) : setPricingOpen(true); }}>👨‍👩‍👧 {lc.pdTitle}{!premium && " 🔒"}</button>
               <div className="setdiv" />
