@@ -109,6 +109,7 @@ try {
     "Smoke Scale": { accuracy: 82, bestStreak: 7, at: Date.now() - 3600000, notes: ["C4", "D4", "E4", "F4"], mode: "scale", key: "C", label: "Smoke Scale", chordStyle: null },
   }));
   localStorage.setItem("tg_note_miss", JSON.stringify({ "F#": 4, "D": 3, "Bb": 2 }));
+  localStorage.setItem("tg_note_miss_d", JSON.stringify({ [new Date().toISOString().slice(0, 10)]: { "F#": 4, "D": 3, "Bb": 2 } }));   // plan 27 · P0-3: the page now reads the by-day log
 } catch (e) { errors.push("seed: " + e); }
 
 try { await import("file://" + tmp); } catch (e) { errors.push("bundle import: " + (e && e.stack || e)); }
