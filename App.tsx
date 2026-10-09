@@ -164,6 +164,9 @@ import { usePracticeMode, readPracticeBests } from "./use-practice-mode";
 import { useSightReading, sightBestMap } from "./use-sight-reading";
 import { useCameraCoach } from "./use-camera-coach";
 import { usePlayAlong } from "./use-play-along";
+import { TabBar } from "./tab-bar";
+import { uxEnabled } from "./ux2";
+import { UxCtx, Ico, Chev } from "./ux-icons";
 import { dailySong, songStars, songMedal, songLengthSec, songLockInfo, songPlayable, nextSongAfter } from "./play-along-progress";
 import { loadOriginalManifest, loadOriginalPage, loadOriginalSong, ORIGINAL_SHELF } from "./originals-store";
 import OriginalContentPage from "./OriginalContentPage";
@@ -792,12 +795,12 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
             onClick={() => openProgPick(pc)}>
             <span className="pcardglow" />
             <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
-            <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
+            <span className="pcardicon" aria-hidden="true"><Ico e={pc.icon} size={26} /></span>
             <span className="pcardtitle">{tr(pc.title, lang)}</span>
             <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
             <span className="pcardgo">
               {lc.playBtn}
-              <span className="pcardarrow">{progPickId === pc.id ? "▾" : "▶"}</span>
+              <span className="pcardarrow">{progPickId === pc.id ? "▾" : <Chev size={15} />}</span>
             </span>
           </button>
           {progPickId === pc.id && (
@@ -861,12 +864,12 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
           onClick={() => onPlayAlong && onPlayAlong(pc.cat, pc.id)}>
           <span className="pcardglow" />
           <span className="pcardlevel">{String(cardNo[pc.id] || 0).padStart(2, "0")}</span>
-          <span className="pcardicon" aria-hidden="true">{pc.icon}</span>
+          <span className="pcardicon" aria-hidden="true"><Ico e={pc.icon} size={26} /></span>
           <span className="pcardtitle">{tr(pc.title, lang)}</span>
           <span className="pcardsub">{tr(pc.subtitle, lang)}</span>
           <span className="pcardgo">
             {lc.playBtn}
-            <span className="pcardarrow">▶</span>
+            <span className="pcardarrow"><Chev size={15} /></span>
           </span>
         </button>
       )
@@ -895,7 +898,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
           <section className="pgroup pisland" style={{ "--gc": gc }}>
             <header className="pgrouphdr">
               <span className="pgbar" style={{ background: gc }} />
-              <span className="pgicon">{g.icon}</span>
+              <span className="pgicon"><Ico e={g.icon} size={22} /></span>
               <div className="pginfo">
                 <div className="pglabel">{g.label}</div>
                 <div className="pgdesc">{g.desc}</div>
@@ -947,7 +950,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                     {pathDone.has(st.id) && <span className="pcarddone">{tierIcon[tier] || "✓"}</span>}
                     {st.id === currentId && <span className="pcardhere">{lc.pathHere}</span>}
                     <span className="pcardlevel">{String(cardNo[st.id] || st.level).padStart(2, "0")}</span>
-                    <span className="pcardicon" aria-hidden="true">{st.icon}</span>
+                    <span className="pcardicon" aria-hidden="true"><Ico e={st.icon} size={26} /></span>
                     <span className="pcardtitle">{tr(st.title, lang)}</span>
                     <span className="pcardsub">{tr(st.subtitle, lang)}</span>
                     {nKeys > 0 && !isRead && <span className="pcardkeys">🎹 {lc.keysLearned.replace("{n}", nKeys)}</span>}
@@ -985,7 +988,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
           {gi < groups.length - 1 && (
             <div className="ptrail" aria-hidden="true">
               <span className="ptrail-line" style={{ background: `linear-gradient(180deg, ${gc}, ${STAGES_BY_GROUP[groups[gi + 1].id][0].color})` }} />
-              <span className="ptrail-node" style={{ borderColor: STAGES_BY_GROUP[groups[gi + 1].id][0].color }}>{groups[gi + 1].icon}</span>
+              <span className="ptrail-node" style={{ borderColor: STAGES_BY_GROUP[groups[gi + 1].id][0].color }}><Ico e={groups[gi + 1].icon} size={18} /></span>
             </div>
           )}
           </Fragment>
@@ -2707,7 +2710,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       {/* B5: Daily Warmup Banner */}
       {!warmupDone && (
         <div className="warmup-banner">
-          <div className="warmup-banner-ic">🌅</div>
+          <div className="warmup-banner-ic"><Ico e="🌅" size={26} /></div>
           <div className="warmup-banner-body">
             <div className="warmup-banner-title">{lc.warmupTitle}</div>
             <div className="warmup-banner-sub">{lc.warmupSub}</div>
@@ -2722,7 +2725,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       {/* E4: Event Countdown */}
       {eventData && eventDaysLeft !== null && (
         <div className="event-countdown" onClick={() => { playUi("click"); setEvName(eventData.name); setEvDate(eventData.date); setEventOpen(true); }}>
-          <span className="event-ic">🎯</span>
+          <span className="event-ic"><Ico e="🎯" size={18} /></span>
           <span className="event-name">{eventData.name}</span>
           <span className="event-days">{eventDaysLeft > 0 ? `${eventDaysLeft} ${lc.eventDays}` : T("วันนี้!", "Today!", "今天!")}</span>
           {eventDaysLeft > 0 && <span className="event-hint">{lc.eventPractice} ~{Math.round(30 / Math.max(1, eventDaysLeft) * 60)} {lc.eventMin}</span>}
@@ -2730,7 +2733,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       )}
       {!eventData && (
         <button className="event-set-btn" onClick={() => { playUi("click"); setEvName(""); setEvDate(""); setEventOpen(true); }}>
-          🎯 {lc.eventSet}
+          <Ico e="🎯" size={17} className="uxi-inl" /> {lc.eventSet}
         </button>
       )}
 
@@ -2743,12 +2746,12 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
       <div className="songgrid">
         {cards.map(c => (
           <button key={c.k} className="songcard" style={{ "--sc": c.c } as React.CSSProperties} onClick={c.fn}>
-            <div className="songcard-ic">{c.ic}</div>
+            <div className="songcard-ic"><Ico e={c.ic} /></div>
             <div className="songcard-body">
               <div className="songcard-nm">{c.t}{c.badge && <span className="songcard-badge">{c.badge}</span>}</div>
               <div className="songcard-meta"><span>{c.s}</span></div>
             </div>
-            <span className="songcard-go">▶</span>
+            <span className="songcard-go"><Chev /></span>
           </button>
         ))}
       </div>
@@ -2766,14 +2769,14 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           <button key={c.k} className={`songcard studio-max-card${isMax ? "" : " locked"}${c.active ? " active" : ""}`}
             style={{ "--sc": "#d97757" } as React.CSSProperties} onClick={c.fn}>
             <div className="songcard-ic" style={{ position: "relative" }}>
-              {c.ic}
+              <Ico e={c.ic} />
               {!isMax && <span className="max-lock-ico">🔒</span>}
             </div>
             <div className="songcard-body">
               <div className="songcard-nm">{c.t}</div>
               <div className="songcard-meta"><span>{c.s}</span></div>
             </div>
-            <span className="songcard-go">{isMax ? (c.active ? "✓" : "▶") : "👑"}</span>
+            <span className="songcard-go">{isMax ? (c.active ? "✓" : <Chev />) : <Ico e="👑" size={18} />}</span>
           </button>
         ))}
       </div>
@@ -4076,7 +4079,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           else if (maxLocked) { haptic(20); if (onUpsell) onUpsell(); }
           else play(s);
         }}>
-        <div className="songcard-ic">{loading ? "⏳" : locked ? "🔒" : maxLocked ? "👑" : s.custom ? "🎼" : s.og ? "✨" : "🎵"}</div>
+        <div className="songcard-ic">{loading ? "⏳" : <Ico e={locked ? "🔒" : maxLocked ? "👑" : s.custom ? "🎼" : s.og ? "✨" : "🎵"} />}</div>
         <div className="songcard-body">
           <div className="songcard-nm">{tr(s, lang)}</div>
           <div className="songcard-meta">
@@ -4087,7 +4090,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
             <span>{loading ? T("กำลังโหลด…", "Loading…", "加载中…") : locked ? T(`เลเวล ${req} · ขาด ${need.toLocaleString()} EXP`, `Level ${req} · ${need.toLocaleString()} EXP to go`, `${req} 级 · 差 ${need.toLocaleString()} EXP`) : maxLocked ? (lang === "th" ? "👑 Max เท่านั้น" : lang === "zh" ? "👑 Max 专属" : "👑 Max only") : "⏱ " + fmtLen(len)}</span>
           </div>
         </div>
-        <span className="songcard-go">{loading ? "⏳" : locked ? "🔒" : maxLocked ? "👑" : "▶"}</span>
+        <span className="songcard-go">{loading ? "⏳" : locked ? <Ico e="🔒" size={17} /> : maxLocked ? <Ico e="👑" size={17} /> : <Chev />}</span>
         {s.custom
           ? <span className="favbtn del" role="button" tabIndex={0} aria-label="Delete" onClick={(e) => { e.stopPropagation(); haptic(); delSong(s.id); }}>🗑</span>
           : !locked && !maxLocked && <span className={`favbtn${isFav ? " on" : ""}`} role="button" tabIndex={0} aria-label="Favorite" aria-pressed={isFav}
@@ -4164,7 +4167,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           here pushed the list below the fold. */}
       {onBack && (
         <div className="songtop">
-          <button className="studioback" onClick={onBack}>‹ {lc.back}</button>
+          <button className="studioback" onClick={onBack}><Ico e="‹" size={18} className="uxi-inl" /> {lc.back}</button>
           {/* The whole shelf has its own page now (owner, 2026-10-04): a hundred
               thousand pieces behind one filter chip is a wall with no way in. */}
           {cat === "songs" && (
@@ -11370,6 +11373,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [page, setPage] = useState(() => {
     try { const p = sessionStorage.getItem("tiga_page"); return p || "pathway"; } catch (e) { return "pathway"; }
   });
+  /* The premium interface (ux2.ts): the tab bar, one icon language, motion, large titles. Behind one switch — on for the admin
+     account and for /?ux=2 — until the owner says it is for everyone. `kbd` on <html> while a text field has focus lets the CSS
+     take the tab bar out of the way of the on-screen keyboard. */
+  const uxOn = useMemo(() => uxEnabled(!!(profile && profile.is_admin)), [profile && profile.is_admin]);
+  useEffect(() => {
+    if (!uxOn) return;
+    const root = document.documentElement;
+    const field = (el) => !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !/^(checkbox|radio|button|range|submit|reset|file|color)$/i.test(el.type || "");
+    const on = (e) => { if (field(e.target)) root.classList.add("kbd"); };
+    const off = () => root.classList.remove("kbd");
+    document.addEventListener("focusin", on); document.addEventListener("focusout", off);
+    return () => { document.removeEventListener("focusin", on); document.removeEventListener("focusout", off); root.classList.remove("kbd"); };
+  }, [uxOn]);
   /* The profile is where the arena, the sanctuary and the shop are entered
      from: once somebody is on it, fetch the 3D room in idle time (only on a
      device that will actually draw one), so none of those opens is the
@@ -13059,7 +13075,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }
 
   return (
-    <div className="tg" style={{ opacity: cssReady ? 1 : 0, transition: "opacity .15s" }}>
+    <UxCtx.Provider value={uxOn}>
+    <div className={"tg" + (uxOn ? " ux2" : "")} style={{ opacity: cssReady ? 1 : 0, transition: "opacity .15s" }}>
       <div className="scan" />
 
       {guestGateReason && (
@@ -13387,6 +13404,27 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: SENSEI (default) ─── */}
       {page === "sensei" && <SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} onMark={markUnderstood} onGoStep={handleCoachNavigate} chatProg={chatProg} todayPlan={todayPlan} todayTags={TODAY_TAGS[lang]} onTodayOpen={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }} resumeCard={resumeCard} onResumeDrill={(d) => { playUi("click"); logUsage("practice", "resume-drill"); replayDrill(d); }} missCard={missCard} sessionDone={sessionDone} />}
 
+      {/* ─── TAB BAR ─── (premium interface, ux2.ts) the five common destinations, a thumb away; the drawer below still holds
+          everything. It is the last child of the column, so every page simply ends above it. */}
+      {uxOn && page !== "videos" && page !== "admin" && (
+        <TabBar page={page} lang={lang} onGo={(t, already) => {
+          playUi("click"); haptic(6);
+          if (already && t.page !== "sensei") {
+            // the tab you are on: back to the top of it, the way iOS does (the studio's song list goes back to its menu)
+            if (t.page === "studio" && studioView !== "menu") { setStudioView("menu"); return; }
+            const root = document.querySelector(".tg");
+            const sc = root && Array.from(root.children).find((el: any) => el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY));
+            if (sc) { try { (sc as any).scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { (sc as any).scrollTop = 0; } }
+            return;
+          }
+          logUsage("nav", "tab-" + t.k); stopPracticeListeners(); setNavOpen(false);
+          setPage(t.page);
+          if (t.page === "studio") setStudioView("menu");
+          // like the drawer's TIGA CHAT: the teacher opens straight into the conversation
+          if (t.page === "sensei") setModal(true);
+        }} />
+      )}
+
       {/* ─── SIDE DRAWER NAV (hamburger) ─── */}
       {navOpen && <div className="drawer-scrim" onClick={() => setNavOpen(false)} />}
       <nav className={`drawer${navOpen ? " open" : ""}`} aria-hidden={!navOpen}>
@@ -13433,16 +13471,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               if (it.locked) { setNavOpen(false); setPricingOpen(true); return; }
               logUsage("nav", it.p + (it.sv ? "-" + it.sv : "")); stopPracticeListeners(); setPage(it.p); if (it.p === "studio") setStudioView(it.sv); if (it.chat) setModal(true); setNavOpen(false);
             }}>
-            <span className="drawericon" aria-hidden="true">{it.ic}</span>
+            <span className="drawericon" aria-hidden="true">{typeof it.ic === "string" ? <Ico e={it.ic} size={21} /> : it.ic}</span>
             <span className="drawerlabel">{it.t}{it.locked && " 🔒"}</span>
             {isOn && <span className="drawerdot" />}
           </button>
           );
         })}
         <div className="drawer-foot">
-          <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon">✦</span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>
-          <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setSettingsOpen(true); }}><span className="drawericon">⚙️</span><span className="drawerlabel">{lc.setTitle}</span></button>
-          {onSignOut && <button className="draweritem sub" onClick={() => { playUi("click"); onSignOut(); }}><span className="drawericon">⏻</span><span className="drawerlabel">{lc.signOut}</span></button>}
+          <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon"><Ico e="✦" size={20} /></span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>
+          <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setSettingsOpen(true); }}><span className="drawericon"><Ico e="⚙️" size={20} /></span><span className="drawerlabel">{lc.setTitle}</span></button>
+          {onSignOut && <button className="draweritem sub" onClick={() => { playUi("click"); onSignOut(); }}><span className="drawericon"><Ico e="⏻" size={20} /></span><span className="drawerlabel">{lc.signOut}</span></button>}
         </div>
       </nav>
 
@@ -14751,5 +14789,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </SafeZone>
       )}
     </div>
+    </UxCtx.Provider>
   );
 }

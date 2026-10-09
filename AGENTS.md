@@ -632,6 +632,30 @@ in the code, and what it replaced:
   per topic); what a model writes on that page is the weekly report and the 7-day plan further down — if the wording is ever
   challenged, that is the line to look at. The `mentor` bot section covers the tab (three languages, narrow phones, dark theme,
   reduced motion).
+- **Ads: on hold (owner, 2026-10-02: "don't do anything about ads yet, park it").** A Google AdSense plan exists as a document (where
+  banners could go, what they would cost in returning players, the gates to pass first); the owner asked for the plan only and then put
+  it aside. There is no ad script, ad slot, ad consent banner or AdSense account wiring in the repo, and none is to be added until the
+  owner says so in the current conversation.
+- **TIGA CHAT's knowledge block has a ceiling even with the switch off (2026-10-09, "it does not answer or answers badly").** The
+  legacy block put every teaching line of up to four matched domains into the system prompt: a chord, scale or key question
+  shipped 50 kB–1.4 MB, far past the context window of the free models the chat runs on (`app_settings.ai_models.chat` is
+  `nvidia/nemotron-3-super-120b-a12b:free`; there is no Anthropic key on the project), so every rung of `piano-chat`'s ladder failed
+  and the learner got the error bubble. `getKBContext` (`tigamodel/web.js`) now cuts any block above 24 lines / 8,000 characters to
+  the lines sharing the most words with the question, in their original order; a block that already fits is untouched. The hot-path
+  switch still chooses the smarter selector — flipping it stays the owner's call. Server-side, the free ladder in
+  `supabase/functions/piano-chat` still lists `nex-agi/nex-n2.5-pro:free`, which OpenRouter retired (404 in the `landing-chat` logs):
+  harmless (the chain hops) but one wasted round trip per reply; fixing it is a function deploy, so it waits for approval.
+- **Coaching tips never land mid-game (owner, 2026-10-09: "Auto Teaching popup must not interrupt Play Along or PvP — show it when
+  the activity ends").** `fetchAutoTeachTip` (App.tsx) keeps a tip it generates while a Play Along song is open and not yet at its
+  result screen, or a PvP fight is live (`PvpPage` announces it with the `tiga:pvp-fight` window event), in `pendingTipRef`; when the
+  activity ends the tip is shown ~1.8 s later through `showAutoTeachTip` (which also does the logging, so a held tip is counted once,
+  when it is seen).
+- **Premium interface ("AX" series, `ux2.ts`, `ux2-styles.ts`, `tab-bar.tsx`, `ux-icons.tsx`).** Everything is under the class `ux2`
+  on the app root and ships behind one switch: on for the admin account, `/?ux=2` turns it on for a device, `/?ux=0` off. Making it
+  the default for everyone is the last line of `uxEnabled`, an owner decision. It adds a bottom tab bar (Learn / Practice / Teacher /
+  Arena / Me; the ☰ drawer stays), Lucide line icons in place of chrome emoji (`<Ico>`, `<Chev>`), motion and touch rules (page
+  rise, card stagger, press spring, sheet slide, no sticky hover on touch, reduced motion honoured), large left-aligned titles and a
+  segmented language control.
 - **The song list is drawn in slices** (60 cards, 120 more when its end comes near; `.songmore` is the sentinel) so a chip switch
   does not build 1,067 cards. Bots that count or look for a card past the first screen call `expandList()` first. The classical
   library is NOT lazy-loaded: 40+ places read `SONGS` synchronously (the daily song would re-pick if its saved id were not there

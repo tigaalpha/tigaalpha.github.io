@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { OBSIDIAN_CSS } from "./obsidian-styles";
 import { CREAM_CSS } from "./cream-styles";
 import { PA_CSS } from "./play-along-styles";
+import { UX2_CSS } from "./ux2-styles";
 
 export const CSS = `
 /* ── Light/dark mode variables — light is the CSS baseline (:root) so a first-time visit
@@ -3841,6 +3842,7 @@ html[data-theme="dark"] .anonwv-n{color:#ffc97a}
 ${CREAM_CSS}
 ${OBSIDIAN_CSS}
 ${PA_CSS}
+${UX2_CSS}
 `;
 
 export function useInjectCSS() {
