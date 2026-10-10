@@ -3834,6 +3834,7 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
   const lockMsgT = useRef(null);
   const showLock = (text) => { setLockMsg(text); clearTimeout(lockMsgT.current); lockMsgT.current = setTimeout(() => setLockMsg(null), 3200); };
   useEffect(() => () => clearTimeout(lockMsgT.current), []);
+  const [filtersOpen, setFiltersOpen] = useState(false);   // level / favourites live behind one button
   const [filter, setFilter] = useState(-1);   // -1 all · 0 favorites · 1/2/3 by difficulty
   const [favs, setFavs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_favs") || "[]"); } catch (e) { return []; } });
   const toggleFav = (id) => setFavs(prev => {
@@ -4172,10 +4173,8 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
           {/* The whole shelf has its own page now (owner, 2026-10-04): a hundred
               thousand pieces behind one filter chip is a wall with no way in. */}
           {cat === "songs" && (
-            <button className="songocbtn" onClick={() => { haptic(); onOpenOriginal && onOpenOriginal(); }}>
-              <span className="songocbtn-ic" aria-hidden="true">🎼</span>
-              <b>{T("Original Content", "Original Content", "Original Content 原创内容")}</b>
-              <span className="songocbtn-sub">{T("เพลงที่เราแต่งเอง · แบ่งตามหมวด", "written here · filed by kind", "我们的原创 · 分类浏览")}</span>
+            <button className={"songfiltbtn" + (filter !== -1 ? " on" : "")} aria-expanded={filtersOpen} onClick={() => { haptic(); setFiltersOpen(o => !o); }}>
+              ⚙ {T("ตัวกรอง", "Filter", "筛选")}{filter !== -1 && <i className="songfiltdot" aria-hidden="true" />}
             </button>
           )}
         </div>
@@ -4191,13 +4190,13 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
 
       {cat === "songs" ? (
         <>
-          <div className="songfilters">
+          <div className="songfilters" hidden={!filtersOpen && filter === -1}>
             {filters.map(f => <button key={f.k} className={`songfilter${filter === f.k ? " on" : ""}`} onClick={() => setFilter(f.k)}>{f.label}</button>)}
           </div>
           <div className="genrefilters">
             {GENRE_CHIPS.map(g => (
               <button key={g.code} className={"genrechip" + (genreFilter === g.code ? " active" : "")}
-                onClick={() => { haptic(); setGenreFilter(g.code); }}>
+                onClick={() => { haptic(); if (g.code === ORIGINAL_SHELF && onOpenOriginal) onOpenOriginal(); else setGenreFilter(g.code); }}>
                 {g.label[lang] ?? g.label.en}
               </button>
             ))}
