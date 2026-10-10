@@ -2867,7 +2867,17 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       later(() => {
         G.impact(side, power * (isKick ? 1.25 : 1), colour, isKick ? "kick" : "punch");
         // each chassis lands in its own class colour on top of the move's, so two robots never hit the same way
-        try { const cc = classOf(side === "me" ? me : oppModel); if (cc && cc.c) G.burst(foe, power * 0.7, cc.c); } catch (e) {}
+        try {
+          const mid = side === "me" ? me : oppModel, cc = classOf(mid);
+          if (cc && cc.c) {
+            G.burst(foe, power * 0.7, cc.c);
+            // and one more flourish that belongs to this chassis alone (picked from its id)
+            const h3 = idHash(mid) % 3;
+            if (h3 === 0) G.boom(foe, 0.55 * power, cc.c);
+            else if (h3 === 1) later(() => G.burst(foe, power * 0.5, cc.c), 70);
+            else G.flash(cc.c, 0.14, 0.14);
+          }
+        } catch (e) {}
         G.flash("#ffffff", big ? .5 : crit ? .3 : .18, .16);
         setShake(big ? 3 : crit ? 3 : 2);
         a.sfx("hit");
