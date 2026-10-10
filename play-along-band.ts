@@ -34,7 +34,11 @@
 import { audioBus, _accMarkSuppress, _accNoise, _sfxMuted, _micSafe } from "./music-engine";
 
 export const BAND_LEVELS = [0, 0.55, 1, 1.35];   // off, soft, normal, full
-const LOOKAHEAD = 0.35;                    // seconds booked ahead of the audio clock
+const LOOKAHEAD = 0.35;
+/* the band's master gain. Owner 2026-10-10: "the backing track is too quiet, ten percent louder" — 0.21 -> 0.231 (+0.83 dB).
+   Checked against the three numbers that decide the mix (no clipping, <= 90 % of the energy under 250 Hz, band >= 12 dB under the
+   player's note): the quietest margin before the change was the carol style at -13.4 dB, so it lands at about -12.6 dB. */
+const MASTER = 0.231;                    // seconds booked ahead of the audio clock
 
 /* ── the arrangement per song (owner, 2026-10-03: "the backing track has to be
    beautiful — add whatever sounds suit the piece") ──
@@ -196,7 +200,7 @@ export function createBand(opts) {
        over is the exact failure Play Along exists to avoid — so the master sits
        where the mask gate allows, not where the loudness wants it. */
     const master = ac.createGain();
-    master.gain.value = BAND_LEVELS[level] * 0.21;
+    master.gain.value = BAND_LEVELS[level] * MASTER;
     if (sat) { mix.connect(air); air.connect(sat); sat.connect(comp); }
     else mix.connect(comp);
     comp.connect(master); master.connect(bus);
@@ -469,6 +473,8 @@ export function createBand(opts) {
      harp: the chord rolled upward, each string a hair after the last
      strum: a guitar strum, the strings struck from the bass up in a few milliseconds
      vibes: a struck metal bar that rings into the echo ── */
+  // a hair of human timing on the extra instruments (deterministic per beat, so the same song always plays the same)
+  const hum = (beat, k) => { const x = Math.sin(beat * 12.9898 + k * 78.233) * 43758.5453; return ((x - Math.floor(x)) - 0.5) * 0.014; };
   function windLine(when, m, dur, v, kind) {
     const { ac } = audioBus();
     const rich = kind === "oboe" ? 0.55 : 0.3;
@@ -694,19 +700,19 @@ export function createBand(opts) {
             const pc = (c.pcs[idx] - c.root + 12) % 12;
             const m = (nm === "flute" ? 12 * 7 : nm === "oboe" ? 12 * 6 : 12 * 5) + c.root % 12 + pc;
             const ld = beatSec * (waltz ? 1.4 : 1.8);
-            if (nm === "sax") saxLine(when, m, ld, ev); else windLine(when, m, ld, ev, nm);
+            if (nm === "sax") saxLine(when + hum(beat, i), m, ld, ev); else windLine(when + hum(beat, i), m, ld, ev, nm);
             entry.parts += "w";
           }
         } else if (nm === "horn") {
           if (chordStart && on("e")) { hornPad(when, stack(c, 3).slice(1, 3), Math.min(c.len, Math.max(1, endBeat - c.at + 1)) * beatSec * 0.96, 0.03 * A); entry.parts += "e"; }
         } else if (nm === "harp") {
-          if (chordStart && on("h")) { harpRoll(when, stack(c, melHere ? 4 : 5), beatSec, 0.04 * A); entry.parts += "h"; }
+          if (chordStart && on("h")) { harpRoll(when + hum(beat, i), stack(c, melHere ? 4 : 5), beatSec, 0.04 * A); entry.parts += "h"; }
         } else if (nm === "strum") {
-          if ((chordStart || (onBeat && p === Math.floor(bpb / 2) && bpb === 4)) && on("h")) { strumChord(when, stack(c, 4), beatSec, 0.04 * A, !chordStart); entry.parts += "h"; }
+          if ((chordStart || (onBeat && p === Math.floor(bpb / 2) && bpb === 4)) && on("h")) { strumChord(when + hum(beat, i), stack(c, 4), beatSec, 0.04 * A, !chordStart); entry.parts += "h"; }
         } else if (nm === "vibes") {
           if (!melHere && !onBeat && (bar + Math.round(pos * 2)) % 2 === 0 && on("h")) {
             const pc = (c.pcs[(bar + Math.round(pos * 2)) % 3] - c.root + 12) % 12;
-            vibesNote(when, 12 * 6 + c.root % 12 + pc, beatSec * 1.2, 0.03 * A); entry.parts += "h";
+            vibesNote(when + hum(beat, i), 12 * 6 + c.root % 12 + pc, beatSec * 1.2, 0.03 * A); entry.parts += "h";
           }
         }
       }
@@ -726,7 +732,7 @@ export function createBand(opts) {
     state,
     chordAt,
     setState(s) { Object.assign(state, s); },
-    setLevel(l) { level = l; if (chain) chain.master.gain.value = BAND_LEVELS[level] * 0.21; },
+    setLevel(l) { level = l; if (chain) chain.master.gain.value = BAND_LEVELS[level] * MASTER; },
     /* Stop what is booked (pause, a new pass, the end): the master fades and
        is dropped, so notes already booked go silent with it. */
     cut() {
