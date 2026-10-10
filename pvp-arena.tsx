@@ -215,6 +215,9 @@ export function makeQuestion(lang, forceKind) {
         : lang === "zh" ? `哪个音不在 ${root} 大调音阶中？`
         : `Which note is NOT in the ${root} major scale?`,
       opts: shuffle([ans, ...wrong]), ans,
+      // every key outside the scale is a right answer, not only the one the
+      // question happened to name (owner, 2026-10-10)
+      inScale: notes,
     };
   }
   const t = pick(TRIADS);
@@ -3960,6 +3963,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   function isRight(choice, qq) {
     if (choice == null || !qq) return false;
     if (!PLAYABLE[qq.tag]) return choice === qq.ans;
+    if (qq.tag === "scale" && qq.inScale) {
+      try { const pc = parseName(choice).pc; return !qq.inScale.some(n => parseName(n).pc === pc); } catch (e) { /* fall through to the single answer */ }
+    }
     try { return parseName(choice).pc === parseName(qq.ans).pc; } catch (e) { return choice === qq.ans; }
   }
 
@@ -4608,7 +4614,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
             <div className="pvpkeys" role="group" aria-label={T("เลือกโน้ต", "Pick the note", "选择音符")}>
               {KEYS.map(k => {
                 const dim = culled.some(c => { try { return parseName(c).pc === parseName(k.n).pc; } catch (e) { return false; } });
-                const isAns = locked && (() => { try { return parseName(q.ans).pc === parseName(k.n).pc; } catch (e) { return false; } })();
+                const isAns = locked && (() => { try { return q.tag === "scale" && q.inScale ? isRight(k.n, q) : parseName(q.ans).pc === parseName(k.n).pc; } catch (e) { return false; } })();
                 return (
                   <button key={k.n} type="button"
                     className={`pvpkey${k.b ? " blk" : ""}${dim ? " culled" : ""}${isAns ? " right" : ""}`}
