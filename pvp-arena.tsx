@@ -2866,6 +2866,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       a.sfx(isKick ? "kick" : crit ? "crit" : "hit");
       later(() => {
         G.impact(side, power * (isKick ? 1.25 : 1), colour, isKick ? "kick" : "punch");
+        // each chassis lands in its own class colour on top of the move's, so two robots never hit the same way
+        try { const cc = classOf(side === "me" ? me : oppModel); if (cc && cc.c) G.burst(foe, power * 0.7, cc.c); } catch (e) {}
         G.flash("#ffffff", big ? .5 : crit ? .3 : .18, .16);
         setShake(big ? 3 : crit ? 3 : 2);
         a.sfx("hit");
