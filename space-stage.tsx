@@ -118,6 +118,14 @@ export function createSpaceBus() {
    bus:     createSpaceBus(), for the arena
    stage:   the arena's id, which sets the room's tone
    data:    a ref holding hologram read-outs, updated without re-rendering */
+/* Will this page get the real-time room (and so own its backdrop), or the still one? The arena
+   draws its own 2D scene when the answer is no (owner, 2026-10-10: ten hand-drawn places). */
+export function wantsRoom(variant) {
+  let light = false;
+  try { light = document.documentElement.dataset.theme !== "dark"; } catch (e) {}
+  if (light) return false;
+  return !((variant === "arena" || variant === "lobby") && isLowEnd()) && spaceTier() > 0;
+}
 export const SpaceStage = memo(function SpaceStage({ variant = "lobby", anchor = null, scroller = null, bus = null, stage = null, className = "", data = null, quiet = null, onReady = null, onLost = null }) {
   // PvP (lobby and fight) on a struggling phone keeps the still backdrop
   // the 3D rooms are obsidian: in light mode the page keeps its light still
