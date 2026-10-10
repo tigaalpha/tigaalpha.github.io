@@ -399,6 +399,17 @@ const POSES = {
   throw:  { lean: -9,  armL: 30,  armR: -8,  legL: -6,  legR: -2, head: -5, lift: -3 },
   beam:   { lean: -3,  armL: -28, armR: -26, legL: -3,  legR: -3, head: 3,  lift: 0 },
   down:   { lean: 16,  armL: -12, armR: -14, legL: -10, legR: 6,  head: 20, lift: 10 },
+  /* ── a wider vocabulary of strikes (owner, 2026-10-10: "too few moves, too stiff") ──
+     Same convention as above. Each one has its own centre of gravity: a hook
+     throws the whole body round it, an uppercut dips and rises, a push kick
+     keeps the torso upright where a roundhouse leans away from the leg. */
+  wind:   { lean: 7,   armL: 38,  armR: 8,   legL: 6,   legR: -7, head: 5,  lift: 3 },    // the coil before a big strike
+  jab:    { lean: -5,  armL: -62, armR: 30,  legL: -5,  legR: 4,  head: -3, lift: -1 },
+  hook:   { lean: -17, armL: -72, armR: 36,  legL: -12, legR: 8,  head: -9, lift: -4 },
+  upper:  { lean: 5,   armL: -102, armR: 14, legL: -7,  legR: 6,  head: -11, lift: -9 },
+  front:  { lean: 6,   armL: 14,  armR: -12, legL: -30, legR: 4,  head: -2, lift: -2 },
+  round:  { lean: 19,  armL: 30,  armR: -30, legL: -40, legR: 8,  head: -7, lift: -6 },
+  sweep:  { lean: 14,  armL: 20,  armR: -10, legL: -22, legR: 15, head: 3,  lift: 7 },
 };
 
 /* ── holding something ──
@@ -409,9 +420,9 @@ const POSES = {
    comes level only on the stance that actually thrusts it. A cradled thing
    stays upright whatever the arm does. */
 const HELD_ANG = {
-  blade: { idle: -62, ready: -50, attack: -14, kick: 30,  shoot: -28, throw: -96,  beam: -34, hit: -118, win: -102, down: 78 },
-  gun:   { idle: 36,  ready: 20,  attack: 8,   kick: 14,  shoot: 0,   throw: -34,  beam: 0,   hit: 48,   win: -70,  down: 72 },
-  staff: { idle: -92, ready: -82, attack: -34, kick: -8,  shoot: -22, throw: -118, beam: -28, hit: -120, win: -100, down: 62 },
+  blade: { wind: -96, jab: -22, hook: -8, upper: -70, front: 24, round: 30, sweep: 44, idle: -62, ready: -50, attack: -14, kick: 30,  shoot: -28, throw: -96,  beam: -34, hit: -118, win: -102, down: 78 },
+  gun:   { wind: -20, jab: 6, hook: 4, upper: -30, front: 16, round: 18, sweep: 30, idle: 36,  ready: 20,  attack: 8,   kick: 14,  shoot: 0,   throw: -34,  beam: 0,   hit: 48,   win: -70,  down: 72 },
+  staff: { wind: -110, jab: -26, hook: -20, upper: -80, front: -6, round: -4, sweep: 10, idle: -92, ready: -82, attack: -34, kick: -8,  shoot: -22, throw: -118, beam: -28, hit: -120, win: -100, down: 62 },
   palm:  {},
 };
 /* and where the ARM goes when the hand is full. The bare stances swing the
