@@ -435,7 +435,8 @@ if (want("headings")) {
     const eras = g.filter(h => /^(Baroque|Classical|Romantic|Impressionism)/.test(h.nm.replace(/^\W+/, "")));
     rec("headings-era-years", eras.length === 4 && eras.every(h => /\d{4}[–-]\d{4} · \d+/.test(h.sub)), eras.map(h => h.nm + " " + h.sub).join(" | "));
     // a chosen chip shows one heading, its own, with its years
-    const chips = await s.p.$$(".genrechip");
+    const chips = [];
+    for (const h of await s.p.$$(".genrechip")) if (!/Original Content/.test(await h.innerText())) chips.push(h);
     await chips[1].click(); await s.p.waitForTimeout(250);
     await s.p.screenshot({ path: `${OUT}/headings-era.png` });
     await expandList(s.p);
