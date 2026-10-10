@@ -31,7 +31,7 @@ import { petBonusOf, petById, petLevel, petStage, readPet, allPets, carryPet, Pe
 import { hasSprite } from "./sprite";
 import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
 import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio, STAGES } from "./arena-fx";
-import { SpaceStage, prefetchSpace, isLowEnd } from "./space-stage";
+import { SpaceStage, wantsRoom, prefetchSpace, isLowEnd } from "./space-stage";
 /* touch devices (iPad, phones) and weak machines fight in "lite": the
    fighters' idle SVG animations, drop-shadows, reflections and the blur
    behind the pads each forced a full repaint of ~3,000 SVG nodes per frame */
@@ -2474,6 +2474,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   // A duel against another player keeps the seeded stage so both sides fight in the same room.
   const ARENA = useRef((() => {
     if (oppKind === "player") return pickStage(String(oppName).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 7));
+    try { const f = localStorage.getItem("tg_pvp_stage_force"); if (f != null && f !== "") return STAGES[(parseInt(f, 10) || 0) % STAGES.length]; } catch (e) {}   // for the screenshot bots
     let last = -1; try { last = parseInt(localStorage.getItem("tg_pvp_stage") || "-1", 10); } catch (e) {}
     let i = Math.floor(Math.random() * STAGES.length);
     if (i === last) i = (i + 1 + Math.floor(Math.random() * (STAGES.length - 1))) % STAGES.length;
@@ -2790,10 +2791,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   /* plain: the arena is a real 3D room now (SpaceStage, below), so the FX
      canvas no longer paints a skyline behind the fighters — only what the
      fight leaves on the floor */
-  const G = useArenaFx(ARENA, { plain: true });
+  const G = useArenaFx(ARENA, { plain: wantsRoom("arena") });
   const [room3d, setRoom3d] = useState(false);
   const onRoomReady = useCallback(() => setRoom3d(true), []);
-  const onRoomLost = useCallback(() => setRoom3d(false), []);
+  const onRoomLost = useCallback(() => { setRoom3d(false); try { G.setPlain(false); } catch (e) {} }, []);
   /* the room's two hologram read-outs carry the fight's real numbers */
   const holo = useRef({});
   const audioRef = useRef(null);
