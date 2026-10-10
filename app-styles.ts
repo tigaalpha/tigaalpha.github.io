@@ -976,6 +976,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 /* plan 28 · C4: touch targets of at least 44px on the two practice pages (kid mode raises them to 54px above) */
 .practicefoot button,.handtoggle,.nowcard-go,.recbtn,.octbtn,.replaybtn,.practicebtn{min-height:44px}
 .presultnext{display:block;margin:6px auto 0;min-height:48px;padding:0 20px}
+.presultstars-rhythm{font-size:.7em;margin-top:-2px}
+.presultstars-lbl{font-family:var(--f-app);font-size:11px;letter-spacing:.08em;color:var(--muted);margin-right:8px;vertical-align:middle}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
 .practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}
