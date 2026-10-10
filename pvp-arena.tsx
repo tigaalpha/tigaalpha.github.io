@@ -50,7 +50,10 @@ const BOT_VB = "-20 -16 160 416", PET_VB = "-12 -18 144 156";
    stance, a lunge, taking a hit, a kick, each strike's recovery once the
    lunge has ended, the specials, and the last word */
 const FIGHT_SHOTS = [["ready", 26], ["attack", 42], ["hit", 14], ["kick", 42], ["attack", 26], ["kick", 26],
-  ["shoot", 26], ["beam", 26], ["throw", 26], ["win", 26], ["down", 26]];
+  ["shoot", 26], ["beam", 26], ["throw", 26], ["win", 26], ["down", 26],
+  // the wider strike set (poses in cyber-avatar.tsx); a missing picture just falls back to the live drawing
+  ["wind", 26], ["jab", 42], ["hook", 42], ["upper", 42], ["front", 42], ["round", 42], ["sweep", 42],
+  ["jab", 26], ["hook", 26], ["upper", 26], ["front", 26], ["round", 26], ["sweep", 26]];
 const gearSig = (gear) => (gear || []).filter(g => g && g.id && /^(wpn|hat|acc)-/.test(String(g.id)))
   .map(g => `${g.id}:${g.art}:${(g.sw || []).join(",")}`).sort().join("~");
 const meKey = (me, pose, yaw, glow, accent, gsig) => `${ART_KEY}|me|${me}|${pose}|${yaw}|${glow}|${accent}|${gsig}`;
@@ -2159,6 +2162,17 @@ const WRONG_CHIP = 0.08;
    can land, and a longer tail where you are committed and punishable. The
    rocket is the extreme of both — the biggest hit in the game, and the one
    that gets you counter-hit if you throw it out at nothing. */
+const STRIKE_VAR = { punch: ["attack", "jab", "hook", "upper"], kick: ["kick", "front", "round", "sweep"] };
+// weights in the order above, per class
+const STRIKE_W = {
+  striker:   { punch: [2, 1, 4, 2], kick: [2, 1, 3, 1] },
+  bulwark:   { punch: [3, 1, 2, 1], kick: [1, 4, 1, 1] },
+  ghost:     { punch: [1, 4, 1, 2], kick: [1, 2, 2, 4] },
+  tactician: { punch: [2, 3, 1, 1], kick: [2, 3, 1, 1] },
+  engineer:  { punch: [3, 2, 2, 1], kick: [2, 3, 1, 2] },
+  herald:    { punch: [1, 2, 2, 3], kick: [2, 1, 4, 1] },
+  virtuoso:  { punch: [1, 2, 3, 3], kick: [1, 1, 4, 3] },
+};
 const FRAMES = {
   punch:  { startup: 70,  recover: 150 },
   kick:   { startup: 130, recover: 250 },
@@ -3176,6 +3190,25 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     setPetAct(kind);
     later(() => setPetAct(a => (a === kind ? "" : a)), ms);
   }
+  /* ── which punch, which kick ──
+     Every class has a habit: a striker throws hooks, a ghost jabs and sweeps,
+     a bulwark pushes you off with front kicks. The pick is weighted by class,
+     never repeats the move it just threw, and is remembered per side so the
+     frame where the blow lands shows the same swing that was started. */
+  const varRef = useRef({ me: null, op: null });
+  function poseFor(side, mv, fresh) {
+    const base = MOVES[mv] ? MOVES[mv].pose : "attack";
+    const tab = mv === "punch" ? STRIKE_VAR.punch : mv === "kick" ? STRIKE_VAR.kick : null;
+    if (!tab) return base;
+    const last = varRef.current[side];
+    if (!fresh && last && last.mv === mv) return last.pose;
+    const w = (STRIKE_W[side === "me" ? A.cls : B.cls] || STRIKE_W.striker)[mv];
+    let tot = 0; const ws = tab.map((p, i) => (last && last.pose === p ? 0 : w[i])); ws.forEach(x => { tot += x; });
+    let r = Math.random() * tot, pick = tab[0];
+    for (let i = 0; i < tab.length; i++) { r -= ws[i]; if (r <= 0) { pick = tab[i]; break; } }
+    varRef.current[side] = { mv, pose: pick };
+    return pick;
+  }
   function hitOp(dmg, kind, moveKey, opts) {
     if (doneRef.current) return;
     const o = opts || {};
@@ -3218,7 +3251,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     bot.startup = 0; bot.recover = now + HITSTUN_MS; bot.state = "hurt"; bot.act = null;
     setBotTell(false); setBotGuard(false);
     const mv = moveKey || pickMove(myCls);
-    setMyPose(MOVES[mv].pose); setOpPose("hit");
+    setMyPose(poseFor("me", mv, false)); setOpPose("hit");
     strike("me", counter ? "crit" : kind, myBolt, mv);
     if (counter) { FLAGS.counters += 1; say("op", T("สวนกลับ!", "COUNTER!", "反击!"), "crit"); }
     else say("op", "-" + d, kind === "crit" ? "crit" : "dmg");
@@ -3329,7 +3362,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     // exactly that harsher reset
     comboRef.current = SFX.comboFullReset ? 0 : Math.floor(comboRef.current / 2); setCombo(comboRef.current);
     const mv = moveKey || pickMove(oppCls);
-    setOpPose(MOVES[mv].pose); setMyPose("hit");
+    setOpPose(poseFor("op", mv, true)); setMyPose("hit");
     strike("op", counter ? "crit" : "hit", "#ff7a3c", mv);
     say("me", counter ? T("โดนสวน!", "COUNTER!", "被反击!") : "-" + d, "dmg");
     if (mHp > 0 && noteStunHit("me", now)) {
@@ -3519,7 +3552,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     cdRef.current[act] = now + cd;
     setCool(c => ({ ...c, [act]: now + cd }));
     myAtkRef.current = { startup: now + F.startup, recover: now + F.startup + F.recover, act };
-    setMyPose(MOVES[A2.move].pose);
+    {
+      // a kick coils first (the chamber), then extends; a punch is too quick to show a coil
+      const sp1 = poseFor("me", A2.move, true);
+      if (A2.move === "kick" && F.startup >= 100) { setMyPose("wind"); later(() => setMyPose(sp1), Math.round(F.startup * 0.5)); }
+      else setMyPose(sp1);
+    }
     later(() => resolveAttack(act, A2), F.startup);
   }
 
@@ -3707,7 +3745,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
           } else {
             // whiffed into thin air, and now it has to stand there and wear it
             audioRef.current.sfx("miss");
-            setOpPose(MOVES[A2.move].pose);
+            setOpPose(poseFor("op", A2.move, true));
             say("op", T("พลาด!", "WHIFF", "落空"), "miss");
             later(() => setOpPose("ready"), 320);
             practiceTip("punish", T("มันพลาด — ตอนนี้แหละ สวนกลับเลย!",
