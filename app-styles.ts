@@ -1396,6 +1396,17 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpsk-b span{font-size:10px;line-height:1.35;color:var(--muted)}
 /* a flex row so a section head can carry a counter and a toggle on the right
    without either of them needing to be positioned */
+.pvpgo{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-height:64px;justify-content:center;border:0;border-radius:18px;background:linear-gradient(180deg,#d97757,#b4532f);color:#fff;font-family:var(--f-app);cursor:pointer;box-shadow:0 10px 24px -12px #b4532f}
+.pvpgo b{font-size:20px;font-weight:800}.pvpgo span{font-size:12.5px;font-weight:600;opacity:.9}
+.pvpgo:active{transform:scale(.99)}
+.pvplvl{padding:10px 4px 2px}.pvplvl input{width:100%;min-height:36px;accent-color:#d97757}
+.pvplvl-t{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}.pvplvl-t b{color:var(--text)}
+.pvplvl-r{margin-top:4px;text-align:center;font-size:12px;color:var(--muted)}
+.pvptabs{display:flex;gap:6px;margin:12px 0 4px}
+.pvptab{flex:1;min-height:44px;border-radius:22px;border:1.5px solid var(--bd2);background:transparent;color:var(--muted);font-family:var(--f-app);font-size:14px;font-weight:700;cursor:pointer;position:relative}
+.pvptab.on{border-color:#d97757;color:#d97757;background:#d977571a}
+.pvptab-dot{font-style:normal;margin-left:6px;background:#d97757;color:#fff;border-radius:9px;padding:1px 6px;font-size:11px}
+.pvptiers.pvptiers-rows{grid-template-columns:1fr}
 .pvpsec-h{display:flex;align-items:center;margin:16px 2px 8px;font-family:var(--f-app);font-size:13px;font-weight:700;color:var(--text)}
 /* Two columns rather than three: ten cards at three-across leaves an orphan
    card alone on its own row, and the longer labels ("Fairly Hard Mode") need
