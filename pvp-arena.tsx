@@ -1547,7 +1547,7 @@ export const PvpPage = memo(function PvpPage({
             <div className="pvplvl-r">{T("ความแม่นบอท", "Bot accuracy", "机器人命中率")} {Math.round(BOT_TIERS[tierIdx].acc * 100)}% · 🪙 {BOT_TIERS[tierIdx].coins} · ✦ {BOT_TIERS[tierIdx].xp} · SP {BOT_TIERS[tierIdx].sp}</div>
           </div>
           <div className="pvptabs" role="tablist">
-            {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("ตัวฉัน", "My unit", "我的机体")]].map(([k, lb]) => (
+            {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("ตัวฉัน", "My unit", "我的机体")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
               <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => setLobbyTab(k)}>
                 {lb}{k === "friends" && openDuels.length > 0 && <i className="pvptab-dot">{openDuels.length}</i>}
               </button>
@@ -2162,6 +2162,8 @@ const WRONG_CHIP = 0.08;
    can land, and a longer tail where you are committed and punishable. The
    rocket is the extreme of both — the biggest hit in the game, and the one
    that gets you counter-hit if you throw it out at nothing. */
+// the Friends tab is parked (owner, 2026-10-10); flip to true to bring it and its code back
+const PVP_FRIENDS_TAB = false;
 const STRIKE_VAR = { punch: ["attack", "jab", "hook", "upper"], kick: ["kick", "front", "round", "sweep"] };
 // weights in the order above, per class
 const STRIKE_W = {
