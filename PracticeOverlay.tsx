@@ -182,6 +182,11 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
               {T3("🎯 ฝึกเฉพาะโน้ตที่พลาด", "🎯 Drill the missed notes", "🎯 只练错的音")}
             </button>
           )}
+          {clean3 && onSetTempo && metroBpm > 0 && (
+            <button className="atpopup-ok presultnext" onClick={() => { try { logUsage("practice", "next:faster"); } catch (e) {} onSetTempo(Math.round(metroBpm * 1.1)); restartPractice(); }}>
+              {T("⏩ เร็วขึ้น 10%", "⏩ 10% faster", "⏩ 加快 10%")}
+            </button>
+          )}
           {steady && (
             <button className="atpopup-ok presultnext" onClick={() => { try { logUsage("practice", "next:other-hand"); } catch (e) {} setHand(hand === "left" ? "right" : "left"); restartPractice(); }}>
               {T3("🤚 ลองมืออีกข้าง", "🤚 Try the other hand", "🤚 换另一只手")}
@@ -389,7 +394,7 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
                 : lang === "zh" ? (practiceHelp.level === 3 ? "👂 听这两个音，再试一次" : "👂 先听这个音，再按")
                 : (practiceHelp.level === 3 ? "👂 Listen to these two notes, then try again" : "👂 Listen to this note, then press it"))}</div>
             )}
-            <div className="practicenow">
+            <div className={"practicenow" + (practiceHeard ? "" : " solo")}>
               <div className="practicenow-box">
                 <div className="practicenow-lbl">{lc.practicePlay}</div>
                 <div className="practicenow-note target">
@@ -400,12 +405,14 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
                 {!isBlockMode && practiceTarget[practiceIdx] && practiceFingers[practiceIdx] != null && <FingerHand finger={practiceFingers[practiceIdx]} hand={hand} />}
                 {!isBlockMode && practiceTarget[practiceIdx] && <div className="practicenow-sol">{solfegeOf(pcOf(practiceTarget[practiceIdx]), lang)}</div>}
               </div>
-              <div className="practicenow-box">
+              {/* plan 27 · P1-1: the "heard" box appears only once there is something heard, so until then
+                  the key to press is alone on the screen and as big as it can be */}
+              {practiceHeard && <div className="practicenow-box">
                 <div className="practicenow-lbl">{lc.practiceHeard}</div>
                 <div className={`practicenow-note heard${practiceHeard ? (practiceHeard.ok ? " ok" : practiceHeard.doubt ? " doubt" : " bad") : ""}`}>
                   {practiceHeard ? (practiceHeard.doubt ? "👂" : pcOf(practiceHeard.note)) : "–"}
                 </div>
-              </div>
+              </div>}
             </div>
 
             <div className={`practicechips${isBlockMode ? "" : " pdots"}`}>
