@@ -4689,19 +4689,26 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
               <button className="pvpact punch" aria-label={petOnly ? T("งับ", "Bite", "撕咬") : T("ต่อย", "Punch", "拳击")} onPointerDown={() => attack("punch")}>
                 <b>{petOnly ? "🦷" : "👊"}</b><i>{petOnly ? T("งับ", "BITE", "撕咬") : T("ต่อย", "PUNCH", "拳击")}</i>
               </button>
+              {petCmd ? (<>
+                <button className="pvpact petcmd"
+                  style={{ "--pc": (PET_TYPES[petSpec.type] || PET_TYPES.steel).c }}
+                  aria-label={tr3(petCmd, lang)} onPointerDown={sendPet}>
+                  <b>{petOnly ? (PET_ICON[petSpec.type] || "🐾") : "🐾"}</b><i>{tr3(petCmd, lang).toUpperCase()}</i>
+                </button>
+              <button className="pvpact rocket" aria-label={kitLabel(1)} onPointerDown={() => attack("rocket")}>
+                <b>{kitIcon(1)}</b><i>{kitLabel(1)}</i>
+              </button>
+              <button className="pvpact kick" aria-label={petOnly ? T("ตะปบ", "Claw", "爪击") : T("เตะ", "Kick", "踢击")} onPointerDown={() => attack("kick")}>
+                <b>{petOnly ? "🐾" : "🦵"}</b><i>{petOnly ? T("ตะปบ", "CLAW", "爪击") : T("เตะ", "KICK", "踢击")}</i>
+              </button>
+              </>) : (<>
               <button className="pvpact kick" aria-label={petOnly ? T("ตะปบ", "Claw", "爪击") : T("เตะ", "Kick", "踢击")} onPointerDown={() => attack("kick")}>
                 <b>{petOnly ? "🐾" : "🦵"}</b><i>{petOnly ? T("ตะปบ", "CLAW", "爪击") : T("เตะ", "KICK", "踢击")}</i>
               </button>
               <button className="pvpact rocket" aria-label={kitLabel(1)} onPointerDown={() => attack("rocket")}>
                 <b>{kitIcon(1)}</b><i>{kitLabel(1)}</i>
               </button>
-              {petCmd && (
-                <button className="pvpact petcmd"
-                  style={{ "--pc": (PET_TYPES[petSpec.type] || PET_TYPES.steel).c }}
-                  aria-label={tr3(petCmd, lang)} onPointerDown={sendPet}>
-                  <b>{petOnly ? (PET_ICON[petSpec.type] || "🐾") : "🐾"}</b><i>{tr3(petCmd, lang).toUpperCase()}</i>
-                </button>
-              )}
+              </>)}
             </div>
           </div>
         </>
