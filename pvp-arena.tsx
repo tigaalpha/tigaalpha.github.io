@@ -1899,7 +1899,7 @@ export const PvpPage = memo(function PvpPage({
     return (
       <div className="pvppage x3">
         <div className="pvphdr">
-          <button className="stgback" onClick={onBack} aria-label="back">←</button>
+          <button className="stgback" onClick={() => setPhase("lobby")} aria-label="back">←</button>
           <span className="pvphdr-t">{result.win ? "🏆 " + T("ชนะ!", "Victory!", "胜利！") : T("แพ้", "Defeat", "落败")}</span>
         </div>
         <div className="pvpbody">
