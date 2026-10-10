@@ -33,25 +33,6 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               first step that is not done yet (or opens the full plan for the
               homework step, which has no "go" of its own and must not be ticked
               off from here without doing it). */}
-          {todayPlan && todayPlan.total > 0 && (
-            <div className="todaybar">
-              <button className="todaybar-btn" onClick={() => {
-                playUi("click");
-                if (!planNext) { onTodayOpen && onTodayOpen(); return; }
-                if (planNext.go) planNext.go(); else onTodayOpen && onTodayOpen();
-              }}>
-                <span className="todaybar-ic" aria-hidden="true">{planNext ? planNext.icon : "✅"}</span>
-                <span className="todaybar-tx">
-                  <b className="todaybar-tag">{planNext ? planNext.tag : tt.allDoneShort}</b>
-                  <span className="todaybar-lb">{planNext ? planNext.label : ""}</span>
-                </span>
-                <span className="todaybar-ct">{todayPlan.done}/{todayPlan.total}</span>
-              </button>
-              <div className="todaybar-track" role="progressbar" aria-valuemin={0} aria-valuemax={todayPlan.total} aria-valuenow={todayPlan.done}>
-                <div className="todaybar-fill" style={{ width: todayPlan.pct + "%" }} />
-              </div>
-            </div>
-          )}
           {/* Plan 26 · P7 — shown only when the whole plan is actually done, and
               only with two REAL numbers from readPracticeLog()._recent (the
               learner's last session and the one before it). No number is ever
@@ -121,24 +102,6 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               </div>
             )}
             <Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} baseOct={pianoOct} onNote={handleMainKey} />
-            <details className="sv-more"><summary>{TT.more}</summary>
-            <div className="recbar">
-              <button className={`recbtn${recording ? " on" : ""}`} onClick={toggleRecord}>
-                {recording ? `■ ${lc.recStop}` : `● ${lc.recRecord}`}
-              </button>
-              {hasSeq && <button className="recbtn" onClick={togglePlayPause} title={seqPlaying ? lc.demoPause : lc.demoPlay}>
-                {seqPlaying ? "⏸" : "▶"} {seqPlaying ? lc.demoPause : lc.demoPlay}
-              </button>}
-              {hasClip && !recording && <button className="recbtn ghost" onClick={playClip} disabled={playingClip}>
-                ▶ {playingClip ? lc.recPlaying : lc.recPlay}
-              </button>}
-              {hasClip && !recording && <button className="recbtn ai" onClick={critiqueRecording}>
-                🎓 {lc.recCritique}
-              </button>}
-              {recording && <span className="recdot">● REC</span>}
-            </div>
-
-            </details>
             {/* Plan 28 · B3 — the finger table is a hand: the finger for the note that is lit (demo or key) is the one that glows,
                 the same drawing the practice screen uses; the note names stay as quiet text below. */}
             {fingerChart && fingerChart.notes.some(p => p.finger != null) && (() => {
@@ -166,6 +129,19 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
                 <span className="handswap" aria-hidden="true">⇄</span>
               </button>
             </div>
+            <div className="recbar">
+              <button className={`recbtn${recording ? " on" : ""}`} onClick={toggleRecord}>
+                {recording ? `■ ${lc.recStop}` : `● ${lc.recRecord}`}
+              </button>
+              {hasClip && !recording && <button className="recbtn ghost" onClick={playClip} disabled={playingClip}>
+                ▶ {playingClip ? lc.recPlaying : lc.recPlay}
+              </button>}
+              {hasClip && !recording && <button className="recbtn ai" onClick={critiqueRecording}>
+                🎓 {lc.recCritique}
+              </button>}
+              {recording && <span className="recdot">● REC</span>}
+            </div>
+
           </div>
           {/* Plan 28 · B1 — ONE card answers "what do I do now": what, how many notes, about how long, and one big button.
               With a demo on the keys it is the practice run of that demo; without one it is the same recommendation

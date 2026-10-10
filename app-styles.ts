@@ -987,11 +987,14 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .nowcard-sub{flex:0 1 auto;padding:0 4px;font-size:12px;line-height:1.2;text-align:left;max-width:48%;white-space:nowrap}
 .fchart-hand{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 10px;padding:6px 12px}
 .fchart-hand .fchart-head{flex:1 0 100%}
-.fchart-hand .fhand{width:78px;height:46px;margin:0}
+.fchart-hand .fhand{width:104px;height:65px;margin:0}
 .fchart-notes{flex:1 1 0;text-align:right;font-size:11px}
 .sensei-scroll .handsel{margin-top:6px!important}
 .sensei-scroll .pw{padding-top:4px}
 .sensei-scroll .senseiback{margin-top:4px;margin-bottom:0}
+.sensei-scroll .recbar{margin-top:6px}
+.sensei-scroll .pw .piano{margin-bottom:0}
+.sensei-scroll .fchart{margin-top:2px}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
 .practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}
@@ -1002,9 +1005,16 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .presultmsg{text-align:center;font-family:var(--f-app);font-size:15px;font-weight:700;color:var(--text);margin:4px 8px 8px;line-height:1.4}
 .presultmsg.kid{font-size:19px}
 .fhand{display:block;margin:6px auto 0}
-.fhand-f{fill:var(--card3);stroke:var(--bd2);stroke-width:1.5}
-.fhand-f.on{fill:#d97757;stroke:#d97757}
-.fhand-palm{fill:var(--card3);stroke:var(--bd2);stroke-width:1.5}
+.fhand-f{fill:url(#fhandMetal);stroke:var(--muted);stroke-opacity:.6;stroke-width:1.4}
+.fhand-f.on{fill:#d97757;stroke:#b4522f}
+.fhand-fg.on{filter:drop-shadow(0 0 5px #d97757aa)}
+.fhand-j{fill:var(--muted);fill-opacity:.7}
+.fhand-j.on{fill:#fff6}
+.fhand-core{fill:#d97757;filter:drop-shadow(0 0 4px #d97757)}
+.fhand-line{stroke:var(--muted);stroke-opacity:.5;stroke-width:1.2;stroke-linecap:round}
+.fhand-wrist{fill:var(--card3);stroke:var(--muted);stroke-opacity:.6;stroke-width:1.3}
+.fhand-bolt{fill:var(--muted);fill-opacity:.8}
+.fhand-palm{fill:url(#fhandMetal);stroke:var(--muted);stroke-opacity:.65;stroke-width:1.6}
 .fhand-n{font-family:var(--f-app);font-size:13px;font-weight:900;fill:#fff}
 .presultstars{display:flex;justify-content:center;gap:8px;font-size:44px;line-height:1;margin:6px 0 10px}
 .presultstars span{color:var(--bd2)}
