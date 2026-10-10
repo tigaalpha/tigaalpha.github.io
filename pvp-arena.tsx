@@ -30,7 +30,7 @@ import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { petBonusOf, petById, petLevel, petStage, readPet, allPets, carryPet, PetArt, PetThumb, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
 import { hasSprite } from "./sprite";
 import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
-import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio } from "./arena-fx";
+import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio, STAGES } from "./arena-fx";
 import { SpaceStage, prefetchSpace, isLowEnd } from "./space-stage";
 /* touch devices (iPad, phones) and weak machines fight in "lite": the
    fighters' idle SVG animations, drop-shadows, reflections and the blur
@@ -1196,6 +1196,8 @@ export const PvpPage = memo(function PvpPage({
   const [showTrials, setShowTrials] = useState(false);
   // the lobby is one big "Fight" button, a level slider and three tabs (owner, 2026-10-10)
   useEffect(() => exitFsAndUnlock, []);   // leaving the PvP page restores portrait + normal screen
+  // a finished fight (or the lobby) is always portrait and out of full screen; a new fight re-enters it from its own tap
+  useEffect(() => { if (phase !== "fight") exitFsAndUnlock(); }, [phase]);
   const [lobbyTab, setLobbyTab] = useState("fight");
   const [rpgTick, setRpgTick] = useState(0);   // re-reads the robot's level after a fight or a point spent
   const [tierIdx, setTierIdx] = useState(() => { try { const v = parseInt(localStorage.getItem("tg_pvp_tier") || "3", 10); return v >= 0 && v < BOT_TIERS.length ? v : 3; } catch (e) { return 3; } });
@@ -2004,7 +2006,7 @@ export const PvpPage = memo(function PvpPage({
           )}
           <div className="pvpres-btns">
             <button className="pvpghost" onClick={() => setPhase("lobby")}>{T("กลับสนาม", "Back to arena", "返回竞技场")}</button>
-            <button className="pvpghost" onClick={() => setPhase("fight")}>{T("สู้อีกครั้ง", "Rematch", "再战")}</button>
+            <button className="pvpghost" onClick={() => { enterFs(); setPhase("fight"); }}>{T("สู้อีกครั้ง", "Rematch", "再战")}</button>
           </div>
           {onShare && (
             <button className="pvpghost pvpshare" onClick={() => onShare(result)}>📤 {T("แชร์ผลการต่อสู้", "Share this fight", "分享战绩")}</button>
@@ -2468,9 +2470,16 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
      against the same chassis stays in the same place, and so two players
      fighting the same bot see the same room. Computed early because its
      small combat trade-off (SFX) feeds the HP pools below. */
-  const ARENA = useRef(pickStage(
-    String(oppKind === "player" ? oppName : oppModel).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 7)
-  )).current;
+  // a random future city / lab / station each fight, never the same one twice running (owner, 2026-10-10).
+  // A duel against another player keeps the seeded stage so both sides fight in the same room.
+  const ARENA = useRef((() => {
+    if (oppKind === "player") return pickStage(String(oppName).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 7));
+    let last = -1; try { last = parseInt(localStorage.getItem("tg_pvp_stage") || "-1", 10); } catch (e) {}
+    let i = Math.floor(Math.random() * STAGES.length);
+    if (i === last) i = (i + 1 + Math.floor(Math.random() * (STAGES.length - 1))) % STAGES.length;
+    try { localStorage.setItem("tg_pvp_stage", String(i)); } catch (e) {}
+    return STAGES[i];
+  })()).current;
   const SFX = stageFx(ARENA);
 
   // the robot's own level stats (pet-only fights have none); all-zero points change nothing
