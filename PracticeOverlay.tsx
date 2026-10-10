@@ -28,21 +28,40 @@ function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCa
 // plan 27 · P1-3: a hand that points at the finger to use — a child sees "this one", not a number to decode.
 // A right hand seen from above has the thumb on the left; a left hand is its mirror image.
 export function FingerHand({ finger, hand }) {
+  // A little robot hand: each finger is stacked metal segments with round joints, a palm plate with a glowing core and a wrist cuff
+  // with bolts. The finger for the note in play turns clay-orange and glows; the number rides on its tip.
   const H = [30, 44, 50, 44, 34];          // finger heights, thumb → little finger
   const order = hand === "left" ? [4, 3, 2, 1, 0] : [0, 1, 2, 3, 4];
   return (
-    <svg className="fhand" width="128" height="76" viewBox="0 0 128 76" role="img" aria-label={"finger " + finger}>
+    <svg className="fhand" width="128" height="80" viewBox="0 0 128 80" role="img" aria-label={"finger " + finger}>
+      <defs>
+        <linearGradient id="fhandMetal" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" style={{ stopColor: "var(--card3)" }} />
+          <stop offset=".5" style={{ stopColor: "var(--card2)" }} />
+          <stop offset="1" style={{ stopColor: "var(--card3)" }} />
+        </linearGradient>
+      </defs>
       {order.map((fi, pos) => {
         const on = finger === fi + 1;
-        const h = H[fi], x = 8 + pos * 23, y = 54 - h;
+        const h = H[fi], x = 8 + pos * 23, top = 54 - h;
+        const nSeg = fi === 0 ? 2 : 3, gap = 2.5, segH = (h + 6 - gap * (nSeg - 1)) / nSeg;
         return (
-          <g key={fi}>
-            <rect x={x} y={y} width="19" height={h + 10} rx="9.5" className={"fhand-f" + (on ? " on" : "")} />
-            {on && <text x={x + 9.5} y={y + 15} textAnchor="middle" className="fhand-n">{fi + 1}</text>}
+          <g key={fi} className={"fhand-fg" + (on ? " on" : "")}>
+            {Array.from({ length: nSeg }).map((_, k) => (
+              <rect key={k} x={x} y={top + k * (segH + gap)} width="19" height={segH} rx={k === 0 ? 8 : 3.5} className={"fhand-f" + (on ? " on" : "")} />
+            ))}
+            {Array.from({ length: nSeg - 1 }).map((_, k) => (
+              <circle key={"j" + k} cx={x + 9.5} cy={top + (k + 1) * (segH + gap) - gap / 2} r="1.7" className={"fhand-j" + (on ? " on" : "")} />
+            ))}
+            {on && <text x={x + 9.5} y={top + 11} textAnchor="middle" className="fhand-n">{fi + 1}</text>}
           </g>
         );
       })}
-      <rect x="6" y="52" width="116" height="22" rx="10" className="fhand-palm" />
+      <rect x="6" y="52" width="116" height="20" rx="8" className="fhand-palm" />
+      <circle cx="64" cy="62" r="4.2" className="fhand-core" />
+      <path d="M18 62h30M80 62h30" className="fhand-line" />
+      <rect x="40" y="72" width="48" height="7" rx="3" className="fhand-wrist" />
+      <circle cx="46" cy="75.5" r="1.3" className="fhand-bolt" /><circle cx="82" cy="75.5" r="1.3" className="fhand-bolt" />
     </svg>
   );
 }

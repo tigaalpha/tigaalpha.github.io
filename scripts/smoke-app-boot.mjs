@@ -188,10 +188,9 @@ for (const b of navBtns) {
      Asserted here rather than in a unit test because this sweep is the only
      thing that actually mounts the real page. */
   if (q(".pw")) {
-    ok("Teacher page shows today's plan (plan 26 · P1)", !!q(".todaybar"));
+    // owner 2026-10-10: the warm-up plan card (.todaybar, "F# Major 0/4") was struck out of the Teacher page; the Now card replaces it
+    ok("Teacher page has no plan card, the Now card instead (plan 28)", !q(".todaybar") && (!!q(".nowcard")));
     ok("Teacher page shows the goal bar at the top (plan 26 · P2)", !!q(".chatprog-top"));
-    const ct = q(".todaybar-ct");
-    ok("plan count reads done/total", !!ct && /^\d+\/\d+$/.test((ct.textContent || "").trim()));
     ok("Teacher page offers the last drill to replay (plan 26 · P5)", !!q(".resumebar"));
     ok("Teacher page shows the most-missed notes (plan 26 · P6)", !!q(".missbar") && qa(".misschip").length === 3);
     /* P7 renders only on a genuinely finished day, which this boot does not
