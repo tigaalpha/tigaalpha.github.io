@@ -826,6 +826,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       accuracy: Math.max(accuracy, prevBest ? prevBest.accuracy : 0),
       bestStreak: Math.max(bestStreak, prevBest ? prevBest.bestStreak : 0),
       at: Date.now(),
+      // the last four rounds' accuracy, oldest first, so "clean three times" / "missed twice" is read from what happened (plan 27 · P2-2)
+      hist: [...(prevBest && Array.isArray(prevBest.hist) ? prevBest.hist : []), accuracy].slice(-4),
       // Drill Deck — replay data, always refreshed to the drill just played
       // regardless of whether accuracy/streak improved (unlike the two
       // fields above, this isn't a "max", just "what this drill currently

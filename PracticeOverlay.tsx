@@ -163,13 +163,25 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
         const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
         const acc = r.accuracy, prev = r.prevBest && r.prevBest.accuracy;
         const msg = prev != null && acc > prev ? T3(`เก่งขึ้น +${acc - prev}% จากครั้งก่อน! ลองอีกครั้งไหม?`, `Better by ${acc - prev}% than last time! Try again?`, `比上次进步 ${acc - prev}%！再试一次？`)
+          : clean3 ? T3("แม่นมากสามรอบติด! ถึงเวลาลองมืออีกข้าง หรือเปลี่ยนคีย์", "Three clean rounds in a row! Time for the other hand or a new key.", "连续三轮很准！该换另一只手或换个调了。")
           : acc >= 90 && prev != null && prev >= 90 ? T3("แม่นมากสองครั้งติด! ลองมืออีกข้าง หรือเปลี่ยนคีย์ดูนะ", "Super accurate twice in a row! Try the other hand or a new key.", "连续两次很准！试试另一只手或换个调。")
+          : weak2 ? T3("สองรอบติดที่ยังพลาดเยอะ — ลองแยกฝึกเฉพาะโน้ตที่พลาดก่อน แล้วค่อยเล่นทั้งเพลง", "Two rough rounds in a row — drill just the missed notes first, then the whole run.", "连续两轮不太顺 — 先单独练错的音，再整段弹。")
           : acc < 60 ? T3("ไม่เป็นไร ค่อย ๆ เล่นช้า ๆ เริ่มจากโน้ตที่พลาดก่อนนะ", "That is okay. Go slowly and start with the notes you missed.", "没关系，慢慢来，先练弹错的音。")
           : T3("ดีมาก! ลองอีกรอบให้แม่นขึ้นอีกนิด", "Nice! One more round to get even cleaner.", "很好！再来一轮会更准。");
         // plan 28 · D3: two clean rounds in a row earns ONE next step, offered only on that evidence (never from thin data)
-        const steady = acc >= 90 && prev != null && prev >= 90 && setHand;
+        const hist = (r.prevBest && Array.isArray(r.prevBest.hist)) ? r.prevBest.hist : [];
+        const last2 = hist.slice(-2);
+        // plan 27 · P2-2: three clean rounds, or two weak ones in a row, read from the saved history
+        const clean3 = acc >= 90 && last2.length === 2 && last2.every(a => a >= 90);
+        const weak2 = acc < 60 && hist.length >= 1 && hist[hist.length - 1] < 60;
+        const steady = ((acc >= 90 && prev != null && prev >= 90) || clean3) && setHand;
         return <>
           <div className={`presultmsg${kid ? " kid" : ""}`}>{msg}</div>
+          {weak2 && typeof startSpotPractice === "function" && !(spotN > 0 && !spotCleared) && (
+            <button className="atpopup-ok presultnext" onClick={() => { try { logUsage("practice", "next:drill-missed"); } catch (e) {} startSpotPractice(); }}>
+              {T3("🎯 ฝึกเฉพาะโน้ตที่พลาด", "🎯 Drill the missed notes", "🎯 只练错的音")}
+            </button>
+          )}
           {steady && (
             <button className="atpopup-ok presultnext" onClick={() => { try { logUsage("practice", "next:other-hand"); } catch (e) {} setHand(hand === "left" ? "right" : "left"); restartPractice(); }}>
               {T3("🤚 ลองมืออีกข้าง", "🤚 Try the other hand", "🤚 换另一只手")}
