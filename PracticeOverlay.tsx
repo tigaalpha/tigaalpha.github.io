@@ -140,6 +140,11 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
         </>;
       })()}
       <div className="presultstars" aria-label={starsOf(r.accuracy) + " stars"}>{[1, 2, 3].map(n => <span key={n} className={n <= starsOf(r.accuracy) ? "on" : ""}>★</span>)}</div>
+      {rhythmPct != null && (
+        <div className="presultstars presultstars-rhythm" aria-label={"rhythm " + starsOf(rhythmPct) + " stars"}>
+          <span className="presultstars-lbl">{lc.practiceRhythmLbl}</span>{[1, 2, 3].map(n => <span key={n} className={n <= starsOf(rhythmPct) ? "on" : ""}>★</span>)}
+        </div>
+      )}
       <div className="presultstats">
         <div className="presultstat">
           <div className="presultstat-v">{r.accuracy}%</div>
