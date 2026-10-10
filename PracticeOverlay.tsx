@@ -33,16 +33,16 @@ export function FingerHand({ finger, hand }) {
   // Drawn as a right hand; a left hand is the same drawing mirrored, and the finger number is placed in screen space so it never flips.
   const mirror = hand === "left";
   const F = [
-    { n: 1, bx: 36, by: 80, h: 40, w: 16, a: -42 },   // thumb
-    { n: 2, bx: 45, by: 70, h: 56, w: 14.5, a: -6 },
-    { n: 3, bx: 61, by: 68, h: 64, w: 15, a: -1 },
-    { n: 4, bx: 77, by: 70, h: 58, w: 14.5, a: 4 },
-    { n: 5, bx: 92, by: 74, h: 44, w: 13, a: 11 },
+    { n: 1, bx: 37, by: 88, h: 46, w: 18, a: -40 },   // thumb
+    { n: 2, bx: 47, by: 73, h: 58, w: 16, a: -7 },
+    { n: 3, bx: 63, by: 71, h: 66, w: 16.5, a: -1 },
+    { n: 4, bx: 79, by: 73, h: 60, w: 16, a: 4.5 },
+    { n: 5, bx: 94, by: 78, h: 46, w: 14, a: 12 },
   ];
   const place = (x, y) => (mirror ? 128 - x : x);
   const rad = (d) => d * Math.PI / 180;
   return (
-    <svg className="fhand" width="128" height="116" viewBox="0 0 128 116" role="img" aria-label={"finger " + finger}>
+    <svg className="fhand" width="128" height="112" viewBox="0 0 128 112" role="img" aria-label={"finger " + finger}>
       <defs>
         <linearGradient id="fhandMetal" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" style={{ stopColor: "var(--card3)" }} />
@@ -51,7 +51,7 @@ export function FingerHand({ finger, hand }) {
         </linearGradient>
       </defs>
       <g transform={mirror ? "translate(128 0) scale(-1 1)" : undefined}>
-        <path d="M33 72 L99 72 L97 92 Q95 98 87 98 L45 98 Q37 98 35 92 Z" className="fhand-palm" />
+        <path d="M37 71 L99 74 Q102 86 91 97 L47 97 Q30 95 28 83 Q28 74 37 71 Z" className="fhand-palm" />
         {F.map((fg) => {
           const on = finger === fg.n;
           const nSeg = fg.n === 1 ? 2 : 3, gap = 1.8;
@@ -60,7 +60,7 @@ export function FingerHand({ finger, hand }) {
           return (
             <g key={fg.n} transform={`rotate(${fg.a} ${fg.bx} ${fg.by})`} className={"fhand-fg" + (on ? " on" : "")}>
               {segs.map((s, k) => {
-                const sh = s * fg.h - gap, w = fg.w * (1 - k * 0.1);
+                const sh = s * fg.h - gap, w = fg.w * Math.pow(0.88, k);
                 y -= sh + gap;
                 const el = <rect key={k} x={fg.bx - w / 2} y={y + gap} width={w} height={sh + gap / 2} rx={Math.min(w / 2, 6.5)} className={"fhand-f" + (on ? " on" : "")} />;
                 return el;
@@ -72,10 +72,10 @@ export function FingerHand({ finger, hand }) {
             </g>
           );
         })}
-        <circle cx="66" cy="86" r="4.6" className="fhand-core" />
-        <path d="M42 86h14M76 86h14" className="fhand-line" />
-        <rect x="48" y="98" width="38" height="9" rx="3.5" className="fhand-wrist" />
-        <circle cx="54" cy="102.5" r="1.3" className="fhand-bolt" /><circle cx="80" cy="102.5" r="1.3" className="fhand-bolt" />
+        <circle cx="68" cy="86" r="4.6" className="fhand-core" />
+        <path d="M46 86h12M78 86h12" className="fhand-line" />
+        <rect x="49" y="97" width="38" height="9" rx="3.5" className="fhand-wrist" />
+        <circle cx="55" cy="101.5" r="1.3" className="fhand-bolt" /><circle cx="81" cy="101.5" r="1.3" className="fhand-bolt" />
       </g>
       {F.filter((fg) => fg.n === finger).map((fg) => {
         const d = fg.h * 0.8, ar = rad(fg.a);
