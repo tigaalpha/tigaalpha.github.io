@@ -973,6 +973,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .fchart-hand{display:flex;flex-direction:column;align-items:center}
 .fchart-hand .fchart-head{align-self:stretch}
 .fchart-notes{font-size:11px;color:var(--muted);letter-spacing:.04em;text-align:center}
+/* plan 28 · C4: touch targets of at least 44px on the two practice pages (kid mode raises them to 54px above) */
+.practicefoot button,.handtoggle,.nowcard-go,.recbtn,.octbtn,.replaybtn,.practicebtn{min-height:44px}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
 .practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}
