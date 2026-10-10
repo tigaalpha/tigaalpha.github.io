@@ -488,6 +488,20 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                 </>
               ) : (
                 <>
+                  {/* The song's name and details come first (owner, 2026-10-10), above the run settings. */}
+                  <PaSetlistBadge store={store} lang={lang} />
+                  <div className="pl-title">{tr(songMeta, lang)}</div>
+                  <div className="pl-meta">
+                    {!songMeta.custom && <span className="pl-stars" aria-label={T(`ได้ ${earned} ดาว`, `${earned} stars earned`, `已得 ${earned} 星`)}>{starRow(earned)}</span>}
+                    {!songMeta.custom && <span>{T("ระดับ", "Level", "难度")} {songMeta.diff}</span>}
+                    {lenSec > 0 && <span>⏱ {fmtTime(lenSec)}</span>}
+                    {bestAcc > 0 && <span>{T("ดีที่สุด", "Best", "最佳")} {bestAcc}%</span>}
+                  </div>
+                  {!songMeta.custom && <div className="pl-goal">{goalText}</div>}
+                  {isDaily && !daily.done && <div className="pl-daily">📆 {T(`เพลงประจำวัน · ได้ 1 ดาวขึ้นไปรับ ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `Today's song · 1 star or more pays ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `今日歌曲 · 得 1 星以上奖励 ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`)}</div>}
+                  {songKind && <div className="pl-kindnote">{T("โหมดใจดีเปิดอยู่ — ช่วงรับโน้ตกว้างขึ้น", "Kind mode is on — a wider timing window", "宽松模式已开启 — 判定更宽")}</div>}
+                  {sheetView && <div className="pl-kindnote">📖 {T("โหมดโน้ตเพลง — ไม่มีโน้ตตก อ่านโน้ตแล้วกดคีย์ที่ไฟสีฟ้าวิ่งไปหา ให้ตรงจังหวะ", "Sheet mode — no falling notes: read the staff and play the key the blue light runs to, on the beat", "乐谱模式 — 没有下落音符：看谱，按蓝色光跑到的琴键，踩准节拍")}</div>}
+                  <div className="songsrc">{lc.songInputHint}</div>
                   {/* This run's settings: always open, the first thing on the
                       screen. Behind a "Settings" link most players never learned
                       that speed, hands and kind mode can be changed (owner,
@@ -524,19 +538,6 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                     <div className="pl-set-hint">{T("โหมดใจดี: ช่วงรับโน้ตกว้างขึ้น และกดผิดคีย์เดียวแค่คอมโบหลุด ไม่เสียความแม่น", "Kind mode: a wider window, and one wrong key only breaks the combo", "宽松模式：判定更宽，按错一个键只断连击")}</div>
                     <OnlinePvpPanel pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} songMeta={songMeta} lang={lang} codeInput={codeInput} setCodeInput={setCodeInput} />
                   </div>
-                  <PaSetlistBadge store={store} lang={lang} />
-                  <div className="pl-title">{tr(songMeta, lang)}</div>
-                  <div className="pl-meta">
-                    {!songMeta.custom && <span className="pl-stars" aria-label={T(`ได้ ${earned} ดาว`, `${earned} stars earned`, `已得 ${earned} 星`)}>{starRow(earned)}</span>}
-                    {!songMeta.custom && <span>{T("ระดับ", "Level", "难度")} {songMeta.diff}</span>}
-                    {lenSec > 0 && <span>⏱ {fmtTime(lenSec)}</span>}
-                    {bestAcc > 0 && <span>{T("ดีที่สุด", "Best", "最佳")} {bestAcc}%</span>}
-                  </div>
-                  {!songMeta.custom && <div className="pl-goal">{goalText}</div>}
-                  {isDaily && !daily.done && <div className="pl-daily">📆 {T(`เพลงประจำวัน · ได้ 1 ดาวขึ้นไปรับ ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `Today's song · 1 star or more pays ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `今日歌曲 · 得 1 星以上奖励 ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`)}</div>}
-                  {songKind && <div className="pl-kindnote">{T("โหมดใจดีเปิดอยู่ — ช่วงรับโน้ตกว้างขึ้น", "Kind mode is on — a wider timing window", "宽松模式已开启 — 判定更宽")}</div>}
-                  {sheetView && <div className="pl-kindnote">📖 {T("โหมดโน้ตเพลง — ไม่มีโน้ตตก อ่านโน้ตแล้วกดคีย์ที่ไฟสีฟ้าวิ่งไปหา ให้ตรงจังหวะ", "Sheet mode — no falling notes: read the staff and play the key the blue light runs to, on the beat", "乐谱模式 — 没有下落音符：看谱，按蓝色光跑到的琴键，踩准节拍")}</div>}
-                  <div className="songsrc">{lc.songInputHint}</div>
                   {/* Start stays pinned to the bottom edge: the settings above it are
                       tall, and on a short phone the button must never scroll away. */}
                   <div className="pl-startbar">

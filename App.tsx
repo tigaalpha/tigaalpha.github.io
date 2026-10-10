@@ -4240,23 +4240,19 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
             </div>
           )}
           {lockMsg && <div className="songlockmsg" role="status">🔒 {lockMsg}</div>}
-          {lastSong && filter === -1 && (
-            <div className="songcontinue">
-              <div className="songcontinue-lbl">↻ {lc.songContinue}</div>
-              {Card(lastSong, "c-")}
-            </div>
-          )}
-          {/* for a returning player only: a new one starts from the top of the
-              list. Today's song, while it is unpaid, is what "Up next" points to —
-              its own card is gone, and this is where the quest now surfaces */}
-          {filter === -1 && lastSong && (() => {
+          {/* Continue + Up next share ONE block with one heading, so the top of the list
+              reads as "where you were / where to go" and not as two more sections. */}
+          {lastSong && filter === -1 && (() => {
             const nx = nextSongAfter(!lastSong.custom ? lastSong : null, level, plan);
-            return nx && nx.id !== lastSong.id ? (
-              <div className="songcontinue">
-                <div className="songcontinue-lbl">✦ {T("เพลงแนะนำถัดไป", "Up next", "推荐下一首")}</div>
-                {Card(nx, "n-")}
+            const up = nx && nx.id !== lastSong.id ? nx : null;
+            return (
+              <div className="songcontinue songnow">
+                <div className="songcontinue-lbl">↻ {lc.songContinue}</div>
+                {Card(lastSong, "c-")}
+                {up && <div className="songnow-up">✦ {T("เพลงแนะนำถัดไป", "Up next", "推荐下一首")}</div>}
+                {up && Card(up, "n-")}
               </div>
-            ) : null;
+            );
           })()}
           {genreFilter === ORIGINAL_SHELF && (
             /* The shelf says what it is doing: these pieces arrive in two requests, and a
