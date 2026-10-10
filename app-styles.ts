@@ -1396,6 +1396,17 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvpsk-b span{font-size:10px;line-height:1.35;color:var(--muted)}
 /* a flex row so a section head can carry a counter and a toggle on the right
    without either of them needing to be positioned */
+.pvprpg-bar{position:relative;height:22px;border-radius:11px;background:var(--bd1);overflow:hidden}
+.pvprpg-bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#d97757,#f0a07c);border-radius:11px}
+.pvprpg-bar.sk i{background:linear-gradient(90deg,#6c47ff,#9d84ff)}
+.pvprpg-bar em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:11.5px;font-weight:700;color:var(--text)}
+.pvprpg-free{margin:8px 2px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}.pvprpg-free b{color:var(--text);font-size:15px}
+.pvprpg-reset{margin-left:auto;min-height:36px;padding:0 12px;border-radius:18px;border:1.5px solid var(--bd2);background:transparent;color:var(--muted);font-size:12.5px;font-weight:700;cursor:pointer}
+.pvprpg-row{display:flex;align-items:center;gap:8px;padding:4px 0}
+.pvprpg-k{flex:1;display:flex;flex-direction:column;min-width:0}.pvprpg-k b{font-size:14px;color:var(--text)}.pvprpg-k i{font-style:normal;font-size:11.5px;color:var(--muted)}
+.pvprpg-row button{width:44px;height:44px;border-radius:22px;border:1.5px solid var(--bd2);background:var(--card);color:var(--text);font-size:20px;font-weight:700;cursor:pointer}
+.pvprpg-row button:disabled{opacity:.35;cursor:default}
+.pvprpg-v{min-width:52px;text-align:center;font-weight:800;font-size:16px;color:var(--text)}.pvprpg-v small{font-weight:600;font-size:11px;color:var(--muted)}
 .pvpgo{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-height:64px;justify-content:center;border:0;border-radius:18px;background:linear-gradient(180deg,#d97757,#b4532f);color:#fff;font-family:var(--f-app);cursor:pointer;box-shadow:0 10px 24px -12px #b4532f}
 .pvpgo b{font-size:20px;font-weight:800}.pvpgo span{font-size:12.5px;font-weight:600;opacity:.9}
 .pvpgo:active{transform:scale(.99)}
