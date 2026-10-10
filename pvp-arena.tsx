@@ -21,6 +21,7 @@
    switching class starts a new track. Ranks gate the skills: the passive is
    yours from rank 1, the active at rank 3, the ultimate at rank 6. ── */
 
+import { addRpgExp, rpgOf, rpgMods, spendPoint, resetPoints, RPG_STATS, RPG_MAX_LV, STAT_CAP } from "./pvp-rpg";
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
@@ -1192,6 +1193,7 @@ export const PvpPage = memo(function PvpPage({
   const [showTrials, setShowTrials] = useState(false);
   // the lobby is one big "Fight" button, a level slider and three tabs (owner, 2026-10-10)
   const [lobbyTab, setLobbyTab] = useState("fight");
+  const [rpgTick, setRpgTick] = useState(0);   // re-reads the robot's level after a fight or a point spent
   const [tierIdx, setTierIdx] = useState(() => { try { const v = parseInt(localStorage.getItem("tg_pvp_tier") || "3", 10); return v >= 0 && v < BOT_TIERS.length ? v : 3; } catch (e) { return 3; } });
   const pickTier = (i) => { setTierIdx(i); try { localStorage.setItem("tg_pvp_tier", String(i)); } catch (e) {} };
   // the lobby's own throwaway timers, cleared if the page goes away under them
@@ -1385,6 +1387,7 @@ export const PvpPage = memo(function PvpPage({
           const bonus = { coins: 1000, xp: 150, sp: 300 };
           const final = { coins: totals.coins + bonus.coins, xp: totals.xp + bonus.xp, sp: totals.sp + bonus.sp };
           const gained = addSkillSp(myCls, final.sp);
+          if (squadUsed !== "pet") addRpgExp(me, final.xp);
           setSp(readSkillSp()); try { window.dispatchEvent(new Event("tg-skillsp")); } catch (e) {}
           if (onReward) onReward(final.xp, final.coins, res);
           setGauntlet(null);
@@ -1402,6 +1405,7 @@ export const PvpPage = memo(function PvpPage({
       }
       // lost — the run ends here, paying out whatever was already banked
       const gained = gauntlet.totals.sp ? addSkillSp(myCls, gauntlet.totals.sp) : null;
+      if (squadUsed !== "pet" && gauntlet.totals.xp) addRpgExp(me, gauntlet.totals.xp);
       setSp(readSkillSp()); try { window.dispatchEvent(new Event("tg-skillsp")); } catch (e) {}
       if (onReward && (gauntlet.totals.coins || gauntlet.totals.xp)) onReward(gauntlet.totals.xp, gauntlet.totals.coins, res);
       setGauntlet(null);
@@ -1460,6 +1464,7 @@ export const PvpPage = memo(function PvpPage({
     const coins = Math.round((won ? t.coins : Math.round(t.coins * 0.25)) * flawlessMul);
     const xp = Math.round((won ? t.xp : Math.round(t.xp * 0.3)) * flawlessMul);
     const gained = addSkillSp(myCls, Math.round((won ? t.sp : Math.round(t.sp * 0.35)) * flawlessMul));
+    if (squadUsed !== "pet" && !practiceMode) { const lv = addRpgExp(me, xp); if (lv && lv.leveled) setRpgTick(x => x + 1); }
     setSp(readSkillSp());
     try { window.dispatchEvent(new Event("tg-skillsp")); } catch (e) {}
     // the arena pays SP directly above, so its EXP must not ALSO trickle into
@@ -1468,7 +1473,7 @@ export const PvpPage = memo(function PvpPage({
     if (onReward) onReward(xp, coins, res);
     res.spGained = gained;
     if (playUi) playUi(won ? "reward" : "click");
-  }, [myCls, onReward, playUi, gauntlet, isWeekly, weekly, isRival, rival, practiceMode, lang, isGhost, objectives]);
+  }, [myCls, me, squadUsed, onReward, playUi, gauntlet, isWeekly, weekly, isRival, rival, practiceMode, lang, isGhost, objectives]);
 
   /* ── lobby ── */
   if (phase === "lobby") {
@@ -1632,6 +1637,31 @@ export const PvpPage = memo(function PvpPage({
 
           </>)}
           {lobbyTab === "me" && (<>
+          {squadUsed !== "pet" && (() => {
+            const rpg = rpgOf(me);
+            const sr = skillRank(sp[myCls] || 0);
+            const LBL = { str: ["STR", T("พลังโจมตี", "Damage", "攻击")], dex: ["DEX", T("ความไวโจมตี", "Attack speed", "攻速")], int: ["INT", T("เกจสกิล / แรงสกิล", "Gauge & skill power", "技能槽/技能威力")], luk: ["LUK", T("โอกาสคริติคอล", "Crit chance", "暴击率")], agi: ["AGI", T("ความเร็ว / หลบ", "Speed & dodge", "速度/闪避")] };
+            const bump = (k, d) => { if (spendPoint(me, k, d)) { if (playUi) playUi("click"); setRpgTick(x => x + 1); } };
+            return (
+              <div className="pvprpg">
+                <div className="pvpsec-h">{T("เลเวลหุ่นยนต์", "Robot level", "机器人等级")}<span className="pvpsec-n">Lv {rpg.lv}{rpg.lv >= RPG_MAX_LV ? " MAX" : ""}</span></div>
+                <div className="pvprpg-bar"><i style={{ width: `${Math.round(rpg.pct * 100)}%` }} /><em>{rpg.max ? "MAX" : `${rpg.into} / ${rpg.need} EXP`}</em></div>
+                <div className="pvprpg-free">{T("แต้มที่ใช้ได้", "Points to spend", "可分配点数")}: <b>{rpg.free}</b>
+                  {rpg.spent > 0 && <button type="button" className="pvprpg-reset" onClick={() => { resetPoints(me); setRpgTick(x => x + 1); }}>{T("รีเซ็ต", "Reset", "重置")}</button>}
+                </div>
+                {RPG_STATS.map(k => (
+                  <div key={k} className="pvprpg-row">
+                    <span className="pvprpg-k"><b>{LBL[k][0]}</b><i>{LBL[k][1]}</i></span>
+                    <button type="button" aria-label={LBL[k][0] + " −"} disabled={rpg.pts[k] < 1} onClick={() => bump(k, -1)}>−</button>
+                    <span className="pvprpg-v">{rpg.pts[k]}<small>/{STAT_CAP}</small></span>
+                    <button type="button" aria-label={LBL[k][0] + " +"} disabled={rpg.free < 1 || rpg.pts[k] >= STAT_CAP} onClick={() => bump(k, 1)}>+</button>
+                  </div>
+                ))}
+                <div className="pvpsec-h">{T("เลเวลสกิล", "Skill level", "技能等级")}<span className="pvpsec-n">Rank {sr.rank}{sr.max ? " MAX" : ""}</span></div>
+                <div className="pvprpg-bar sk"><i style={{ width: `${Math.round(sr.pct * 100)}%` }} /><em>{sr.max ? "MAX" : `${sr.into} / ${sr.need} SP`}</em></div>
+              </div>
+            );
+          })()}
           <div className="pvpsec-h">{T("ลงสนาม", "Who fights", "出战")}</div>
           <div className="pvpsquad" role="radiogroup" aria-label={T("ลงสนาม", "Who fights", "出战")}>
             {[["bot", "\ud83e\udd16", T("หุ่นยนต์", "Robot", "机器人")],
@@ -2407,7 +2437,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   )).current;
   const SFX = stageFx(ARENA);
 
-  const A = useRef(petOnly ? petFighterFrom(petPic, petSpec, myRank) : fighterFrom(me, gear, myRank)).current;
+  // the robot's own level stats (pet-only fights have none); all-zero points change nothing
+  const RPG = useRef(rpgMods(petOnly ? null : rpgOf(me).pts)).current;
+  const A = useRef((() => {
+    const a = petOnly ? petFighterFrom(petPic, petSpec, myRank) : fighterFrom(me, gear, myRank);
+    return { ...a, dmg: a.dmg * RPG.dmg, follow: Math.min(0.6, a.follow + RPG.crit), charge: a.charge * RPG.charge };
+  })()).current;
   const B = useRef(fighterFrom(oppModel, [], 5)).current;
   // every equipped item's archetype effect, aggregated once for the fight
   const itemFx = useRef(itemEffectsOf(gear)).current;
@@ -3243,7 +3278,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       if (graceRef.current > 0) { graceRef.current = 0; setGraceLeft(0); audioRef.current.sfx("block"); say("me", T("ยกโทษให้", "FREE MISS", "免罚"), "block"); return; }
       if (nb.fortress > 0 || nb.block > 0 || nb.phase > 0
         || (fx.passive === "evade" && Math.random() < 0.2)
-        || Math.random() < itemFx.dodge || Math.random() < itemFx.blockChance) {
+        || Math.random() < itemFx.dodge + RPG.dodge || Math.random() < itemFx.blockChance) {
         if (nb.block > 0) { nb.block = 0; buffRef.current = nb; setBuffs(nb); }
         audioRef.current.sfx("block"); G.burst("me", .7, "#5ce1ff"); G.shield("me", "#5ce1ff");
         say("me", T("กันได้!", "BLOCKED", "格挡"), "block"); return;
@@ -3371,7 +3406,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       }
       FLAGS.specialsLanded += 1;
       lastWasSpecialRef.current = true;
-      const dmg = A.dmg * TAP_DMG * sp.dmg * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1) * (awakenRef.current > Date.now() ? 1.3 : 1)
+      const dmg = A.dmg * TAP_DMG * sp.dmg * RPG.spell * (fx.passive === "power" ? 1.25 : 1) * petDmg * petElemDmg * (burnRef.current > Date.now() ? 1.18 : 1) * (awakenRef.current > Date.now() ? 1.3 : 1)
         * (comeback ? COMEBACK_DMG : 1) * (suddenDeath ? SUDDEN_DEATH_DMG : 1)
         * (SFX.dmgDeal || 1) * (matchup === 1 ? 1 + MATCHUP_DMG : matchup === -1 ? 1 - MATCHUP_DMG : 1)
         * (synergy ? SYNERGY_DMG : 1)
@@ -3480,7 +3515,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     const U = usedRef.current;
     if (act === "punch" || act === "kick") U.melee += 1; else U.ranged += 1;
     const F = FRAMES[A2.frame || act] || FRAMES.punch;
-    const cd = A2.cd * (act === "rocket" ? itemFx.rocketCdMul : 1);
+    const cd = A2.cd * RPG.cdMul * (act === "rocket" ? itemFx.rocketCdMul : 1);
     cdRef.current[act] = now + cd;
     setCool(c => ({ ...c, [act]: now + cd }));
     myAtkRef.current = { startup: now + F.startup, recover: now + F.startup + F.recover, act };
@@ -3626,7 +3661,9 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       }
       if (staggerRef.current && staggerRef.current <= now) { staggerRef.current = 0; setStagger(false); }
       const stunnedMe = hitstunRef.current.me > now || dizzyUntilRef.current.me > now;
-      if (dirRef.current && !stunnedMe) P.me = Math.min(X_MAX, Math.max(X_MIN, P.me + dirRef.current * WALK * dt));
+      if (dirRef.current && !stunnedMe) P.me = Math.min(X_MAX, Math.max(X_MIN, P.me + dirRef.current * WALK * RPG.walk * dt));
+      // no key held and nobody within reach: ease off the wall instead of parking in the corner
+      else if (!stunnedMe && !dirRef.current && P.me < 0.24 && Math.abs(P.op - P.me) > ACT.kick.range * 1.3) P.me = Math.min(0.24, P.me + 0.10 * dt);
 
       const bot = botRef.current;
       const gap = Math.abs(P.op - P.me);
@@ -3818,7 +3855,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
         else if (bot.state === "recover") botDir = 0;                              // committed, cannot move
         // hold the distance the style wants: step out if crowded, step in if
         // the player has drifted further away than it likes to fight
-        else if (bot.state === "spacing") botDir = gap < STYLE.gap * 0.85 ? 1 : gap > STYLE.gap * 1.15 ? -1 : 0;
+        else if (bot.state === "spacing") {
+          // never back INTO the wall to make room: with the wall behind it the bot stays
+          // and fights (owner, 2026-10-10: robots got stuck against a side)
+          const wallBehind = P.op > X_MAX - 0.14;
+          botDir = gap < STYLE.gap * 0.85 ? (wallBehind ? 0 : 1) : gap > STYLE.gap * 1.15 ? -1 : 0;
+        }
+        // out of reach of anything and drifting toward an edge: walk back to the middle
+        if (botDir === 0 && P.op > 0.76 && gap > ACT.kick.range * 1.3) botDir = -0.7;
       }
       const botSpeed = bot.state === "jumpin" ? 1.5 : 1;
       P.op = Math.min(X_MAX, Math.max(X_MIN, P.op + botDir * WALK * 0.68 * botSpeed * dt));

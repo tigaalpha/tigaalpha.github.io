@@ -1,0 +1,25 @@
+// Checks the robot level / stat module (pvp-rpg.ts) with the real source, no browser.
+import { build } from "esbuild"; import fs from "node:fs"; import path from "node:path"; import os from "node:os";
+const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "rpg-")), "m.mjs");
+await build({ entryPoints: ["pvp-rpg.ts"], bundle: true, format: "esm", outfile: out, logLevel: "silent" });
+const store = {}; globalThis.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
+const m = await import(out); let fail = 0;
+const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ") + n + (d ? " — " + d : "")); if (!c) fail++; };
+const z = m.rpgMods(null);
+ok("zero points change nothing", z.dmg === 1 && z.cdMul === 1 && z.charge === 1 && z.spell === 1 && z.crit === 0 && z.walk === 1 && z.dodge === 0);
+let r = m.rpgOf("a"); ok("new robot: level 1, no points", r.lv === 1 && r.free === 0);
+ok("no points to spend at level 1", m.spendPoint("a", "str", 1) === false);
+const up = m.addRpgExp("a", m.expForLevel(5)); r = m.rpgOf("a");
+ok("EXP levels it up", up.leveled && r.lv === 5, "lv " + r.lv);
+ok("3 points per level", r.free === 12, "free " + r.free);
+ok("spend a point", m.spendPoint("a", "str", 1) && m.rpgOf("a").free === 11 && m.rpgOf("a").pts.str === 1);
+ok("take it back", m.spendPoint("a", "str", -1) && m.rpgOf("a").free === 12);
+ok("cannot go below 0", m.spendPoint("a", "dex", -1) === false);
+for (let i = 0; i < 12; i++) m.spendPoint("a", "luk", 1);
+ok("cannot overspend", m.rpgOf("a").free === 0 && m.spendPoint("a", "agi", 1) === false);
+m.resetPoints("a"); ok("reset gives every point back", m.rpgOf("a").free === 12 && m.rpgOf("a").spent === 0);
+ok("robots are separate", m.rpgOf("b").lv === 1 && m.rpgOf("b").exp === 0);
+m.addRpgExp("c", 1e9); ok("level cap", m.rpgOf("c").lv === m.RPG_MAX_LV && m.rpgOf("c").pct === 1);
+const mx = m.rpgMods({ str: 40, dex: 40, int: 40, luk: 40, agi: 40 });
+ok("capped stats stay sane", mx.dmg <= 1.5 && mx.cdMul >= 0.75 && mx.crit <= 0.2 && mx.dodge <= 0.12 && mx.walk <= 1.33, JSON.stringify(mx));
+console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
