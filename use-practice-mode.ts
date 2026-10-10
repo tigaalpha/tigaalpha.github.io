@@ -14,6 +14,7 @@ import { fetchChatCompletion } from "./ai-backend";
 import { queuedUntilTiga } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5)
 import { recordNoteMisses, recordTipOutcome, weightedStruggles } from "./use-autoteach";
 import { sb } from "./supabase-client";
+import { learningIntervene, learningPractice } from "./learning-data";
 import { jevTask, jevChoice } from "./jev"; // practice-next: Jev picks the result screen's next-step nudge (admin-toggleable)
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
@@ -117,6 +118,8 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
   const practiceMissRef = useRef(0);
   const practiceNoteMissesRef = useRef([]); // Auto-Teach แม่นยำ (แผนข้อ 1+3): pitch-class ที่พลาดระหว่างซ้อม — flush ตอน finishPractice
   const practiceMissSnapshotRef = useRef([]); // Learning Data v1: โน้ตที่พลาด 6 ตัวล่าสุดของรอบ — อ่านโดย event tiga:practice-done หลัง flush
+  // plan 28 · D5: the help given for a note (level 2 or 3) and whether the learner's next try at that note worked (written through the existing learning_* gate: signed-out learners write nothing)
+  const helpIvRef = useRef(null);
   const practiceWrongByIdxRef = useRef(new Map()); // Practice v4 A1/A2: index เป้าหมาย → จำนวนครั้งที่พลาด (Map) — A2 ใช้ render ชิปสี, A1 ใช้หั่น spot drill ผ่าน buildSpotTarget/startSpotPractice
   const practiceIsSpotRef = useRef(false); // Practice v4 §2.2: รอบนี้เป็น Spot Drill (subset) — finishPractice ไม่นับ bumpWeekly("perfect") (ไม่ใช่รอบเต็ม), bumpWeekly("games") นับตามปกติ
   const practicePauseRef = useRef(0);  // gaps > 4 s between consecutive correct hits this drill — TIGA teaching-loop "hesitation" signal (see finishPractice)
@@ -205,6 +208,28 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     clearTimeout(practiceHeardTimer.current);
     practiceHeardTimer.current = setTimeout(() => setPracticeHeard(null), 650);
     return true;
+  }
+  /* D5 — did the help work? openHelpLoop records the help as an intervention (skill "practice-note", strategy "practice-help-L2/L3"); closeHelpLoop
+     records the learner's very next try at that same note against it. Both go through learning-data's own gate, so a signed-out
+     learner writes nothing and a failed write only queues; nothing here can slow, block or change the round. */
+  function openHelpLoop(idx, level) {
+    try {
+      const rec = { idx, level, id: null, done: false };
+      helpIvRef.current = rec;
+      const p = learningIntervene({ strategyId: "practice-help-L" + level, skill: "practice-note", actions: [{ type: "play-note", level }], expected: "the next try at this note is correct" });
+      if (p && typeof p.then === "function") p.then((id) => { if (typeof id === "string") rec.id = id; }, () => {});
+    } catch (e) {}
+  }
+  function closeHelpLoop(idx, ok) {
+    try {
+      const rec = helpIvRef.current;
+      if (!rec || rec.done || rec.idx !== idx) return;
+      rec.done = true;
+      helpIvRef.current = null;
+      const send = () => learningPractice({ interventionId: rec.id, what: "help-followup:L" + rec.level, skill: "practice-note", attempts: 1, succeeded: ok });
+      // the intervention id arrives asynchronously; give it a moment, and write the row unlinked rather than never
+      if (rec.id) send(); else setTimeout(send, 800);
+    } catch (e) {}
   }
   function handlePlayedNote(d) {
     if (!practiceActiveRef.current) return;
@@ -371,6 +396,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         const next = idx + 1;
         practiceIdxRef.current = next;
         setPracticeIdx(next);
+        closeHelpLoop(idx, true);
         setPracticeHelp(null);
         if (next >= targets.length) finishPractice();
       } else {
@@ -384,6 +410,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         // the one the learner got wrong — same rule as block's branch above.
         practiceWrongByIdxRef.current.set(idx, (practiceWrongByIdxRef.current.get(idx) || 0) + 1);
         setPracticeHeard({ note: heardNote, ok: false });
+        closeHelpLoop(idx, false);
         /* P2-1 — help at the moment of need, not after the round. Second miss on the same note: play it so the learner HEARS what is
            wanted. Third: play the note before it and then it, the little slice that leads in. No extra penalty, and the mic is shut
            while the app speaks so its own help is never heard back as the learner's answer. */
@@ -396,6 +423,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
             else playPianoNote(tgt, 0.55);
             setPracticeHelp({ idx, level: wrongHere });
             logUsage("practice", "help:" + wrongHere);
+            openHelpLoop(idx, wrongHere);
           }
         } catch (e) {}
       }
@@ -501,7 +529,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceNoteMissesRef.current = [];   // Auto-Teach แม่นยำ (แผนข้อ 3): เริ่มรอบใหม่ = จดใหม่
-    practiceWrongByIdxRef.current = new Map(); // Practice v4 §2.3: per-index miss counts reset with every fresh drill (start)
+    helpIvRef.current = null; practiceWrongByIdxRef.current = new Map(); // Practice v4 §2.3: per-index miss counts reset with every fresh drill (start)
     // Derive from lastSeq.isSpot (same pattern as restartPractice below) rather
     // than trusting a pre-set flag: startSpotNote() sets the ref BEFORE calling
     // this function, and a plain `= false` here ran synchronously in the same
@@ -581,7 +609,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     practiceHitsRef.current = 0;
     practiceMissRef.current = 0;
     practiceNoteMissesRef.current = [];   // Auto-Teach แม่นยำ (แผนข้อ 3): เริ่มรอบใหม่ = จดใหม่
-    practiceWrongByIdxRef.current = new Map(); // Practice v4 §2.3: per-index miss counts reset with every fresh drill (restart/Play Again)
+    helpIvRef.current = null; practiceWrongByIdxRef.current = new Map(); // Practice v4 §2.3: per-index miss counts reset with every fresh drill (restart/Play Again)
     practiceIsSpotRef.current = practiceTargetRef.current && (lastSeq.current || {}).isSpot ? true : practiceIsSpotRef.current; // a restart of a spot drill stays a spot run (lastSeq.isSpot set by startSpotPractice below)
     practicePauseRef.current = 0;   // TIGA loop signals reset with every fresh drill — same lifecycle as the counters above
     practiceLastHitRef.current = 0;
