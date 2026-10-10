@@ -638,7 +638,7 @@ export function createBand(opts) {
            up against the player's own note (median went from −17.9 to −15.5 dB,
            and carol's p90 to −12.0 dB), so the level went back to where it was.
            The brightness stays; the loudness does not. */
-        const pad = kit && kit.pad === "strings" ? { v: 0.035, cutoff: 3400 }     // a string pad opens up over the same notes
+        const pad = kit && kit.pad === "strings" ? { v: 0.031, cutoff: 3400 }     // a string pad opens up over the same notes (trimmed from 0.035 when the master went to 0.2657: the classical waltz sat at -11.7 dB under the player)
           : kit && kit.pad === "continuo" ? { v: 0.036, cutoff: 3800 }
           : kit && (kit.pad === "softpad" || kit.pad === "pad") ? { v: 0.03, cutoff: 2400 }
           : { v: 0.04, cutoff: 3100 };                                        // the band as it was before M2
