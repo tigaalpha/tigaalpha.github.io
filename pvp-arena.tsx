@@ -1195,6 +1195,7 @@ export const PvpPage = memo(function PvpPage({
   const [ghostNote, setGhostNote] = useState(null);
   const [showTrials, setShowTrials] = useState(false);
   // the lobby is one big "Fight" button, a level slider and three tabs (owner, 2026-10-10)
+  useEffect(() => exitFsAndUnlock, []);   // leaving the PvP page restores portrait + normal screen
   const [lobbyTab, setLobbyTab] = useState("fight");
   const [rpgTick, setRpgTick] = useState(0);   // re-reads the robot's level after a fight or a point spent
   const [tierIdx, setTierIdx] = useState(() => { try { const v = parseInt(localStorage.getItem("tg_pvp_tier") || "3", 10); return v >= 0 && v < BOT_TIERS.length ? v : 3; } catch (e) { return 3; } });
@@ -2377,6 +2378,22 @@ async function toggleFs() {
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
     // best effort: a phone that cannot lock just stays in whatever it is in
     try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch (e) {}
+  } catch (e) {}
+}
+/** Leaving PvP puts the phone back the way it was: orientation unlocked (so it follows the
+    hand again, portrait in the app) and out of full screen (owner, 2026-10-10). */
+function exitFsAndUnlock() {
+  // snap back to portrait, then let go so the phone follows the hand again
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock("portrait").then(() => setTimeout(() => { try { screen.orientation.unlock(); } catch (e) {} }, 700), () => { try { screen.orientation.unlock(); } catch (e) {} });
+    } else if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+  } catch (e) {}
+  try {
+    if (fsOn()) {
+      const r = document.exitFullscreen ? document.exitFullscreen() : (document.webkitExitFullscreen && document.webkitExitFullscreen());
+      if (r && r.catch) r.catch(() => {});
+    }
   } catch (e) {}
 }
 /** Starting a fight puts the screen in full screen and landscape by itself (owner,
