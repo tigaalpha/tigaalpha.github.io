@@ -145,7 +145,9 @@ class N {
     this.buf = new Float32Array(BLOCK);
     this.from = Infinity; this.until = -Infinity;
   }
-  connect(n) { n.src.push(this); this.dst.push(n); return n; }
+  // an LFO wired into an AudioParam (the band's vibrato) is a modulation of a few cents: it does not change level or spectrum
+  // balance, so the lab accepts the connection and does not render it
+  connect(n) { if (n instanceof Param) return n; n.src.push(this); this.dst.push(n); return n; }
   disconnect() { for (const n of this.src) n.dst = n.dst.filter((d) => d !== this); this.src = []; }
   in(i) { let s = 0; for (const n of this.src) s += n.buf[i]; return s; }
   /* when this node can still make a sound — lets the renderer skip the ~95 %

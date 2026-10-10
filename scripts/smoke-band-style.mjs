@@ -182,6 +182,15 @@ const uniq = (a) => [...new Set(a)];
   check("M3 impressionism books its lead voice", /l/.test(parts("impressionism")), parts("impressionism"));
   check("M3 folk books a lead voice", /l/.test(parts("folk")), parts("folk"));
   check("M3 the strings styles play a moving line (M5)", /m/.test(parts("classical")), parts("classical"));
+  // the orchestra's other instruments (owner 2026-10-10): every style that names a voice books it, a style the table does not know books none
+  const partsSet = (st) => new Set(rect(st).log.flatMap((e) => (e.parts || "").split("")));
+  const want = { baroque: "wh", classical: "we", romantic: "eh", impressionism: "wh", kids: "hw", folk: "hw", cn: "wh", carol: "we", gospel: "ew", jazz: "hw", blues: "wh", swing: "wh", bossa: "h", soul: "we", neosoul: "hw" };
+  for (const [st, letters] of Object.entries(want)) {
+    const got = partsSet(st);
+    check(`M13 ${st} books its extra instruments (${letters})`, letters.split("").every((l) => got.has(l)), [...got].join(""));
+  }
+  const dflt = partsSet("");
+  check("M13 the default band books no extra instrument", !["w", "e", "h"].some((l) => dflt.has(l)), [...dflt].join(""));
   check("M3 the default band plays NO extra lead line", !/l/.test(parts("")) && !/m/.test(parts("")), parts(""));
 }
 
