@@ -144,7 +144,7 @@ export const STAGES = [
     ],
   },
   {
-    id: "magma", th: "หลุมลาวา", en: "Magma Pit", zh: "熔岩坑",
+    id: "magma", th: "แกนเตาปฏิกรณ์", en: "Reactor Core", zh: "反应堆核心",
     sky: ["#4a1c10", "#2a0e0a", "#120505"],
     grid: "rgba(255,140,70,.22)", horizon: "255,120,50",
     spots: [[0.22, "255,170,90"], [0.78, "255,90,40"]],
@@ -159,7 +159,7 @@ export const STAGES = [
     ],
   },
   {
-    id: "frost", th: "ลานน้ำแข็ง", en: "Frost Vault", zh: "霜之殿",
+    id: "frost", th: "ห้องแล็บแช่แข็ง", en: "Cryo Lab", zh: "低温实验室",
     sky: ["#173a52", "#0e2436", "#050f18"],
     grid: "rgba(150,225,255,.26)", horizon: "150,225,255",
     spots: [[0.24, "180,240,255"], [0.76, "120,190,255"]],
@@ -174,7 +174,7 @@ export const STAGES = [
     ],
   },
   {
-    id: "ashfall", th: "ม่านเถ้า", en: "Ashfall", zh: "落灰之地",
+    id: "ashfall", th: "ซากมหานครล่ม", en: "Fallen Megacity", zh: "坠落都市",
     sky: ["#3d0a20", "#22061a", "#0c0210"],
     grid: "rgba(255,90,150,.22)", horizon: "255,90,150",
     spots: [[0.22, "255,120,170"], [0.78, "255,210,63"]],
@@ -189,7 +189,7 @@ export const STAGES = [
     ],
   },
   {
-    id: "void", th: "ห้วงอวกาศ", en: "Deep Void", zh: "深空",
+    id: "void", th: "สถานีโคจร", en: "Orbital Station", zh: "轨道空间站",
     sky: ["#2a1b4a", "#170f2e", "#06040f"],
     grid: "rgba(180,140,255,.20)", horizon: "170,130,255",
     spots: [[0.24, "190,150,255"], [0.76, "120,220,255"]],
@@ -204,7 +204,7 @@ export const STAGES = [
     ],
   },
   {
-    id: "bloom", th: "เรือนยอดเรืองแสง", en: "Glow Canopy", zh: "辉光林冠",
+    id: "bloom", th: "สวนชีวภาพในโดม", en: "Bio-Dome Garden", zh: "生态穹顶花园",
     sky: ["#0a2e26", "#06201c", "#020c0a"],
     grid: "rgba(90,255,190,.20)", horizon: "90,255,190",
     spots: [[0.24, "120,255,200"], [0.76, "255,220,120"]],
@@ -219,7 +219,7 @@ export const STAGES = [
     ],
   },
   {
-    id: "gilt", th: "ระเบียงทองคำ", en: "The Gilded Tier", zh: "鎏金层",
+    id: "gilt", th: "เพนต์เฮาส์เหนือเมฆ", en: "Skyline Penthouse", zh: "云上顶层",
     sky: ["#2e2208", "#1c1405", "#0a0702"],
     grid: "rgba(255,200,90,.20)", horizon: "255,200,90",
     spots: [[0.24, "255,224,150"], [0.76, "200,150,255"]],
@@ -234,7 +234,7 @@ export const STAGES = [
     ],
   },
   {
-    id: "tide", th: "ใต้กระแสน้ำ", en: "The Undertide", zh: "潮下",
+    id: "tide", th: "ฐานใต้ทะเลลึก", en: "Deep-Sea Habitat", zh: "深海基地",
     sky: ["#031a2e", "#021221", "#00070f"],
     grid: "rgba(70,190,255,.18)", horizon: "70,190,255",
     spots: [[0.24, "90,210,255"], [0.76, "140,120,255"]],
@@ -249,7 +249,7 @@ export const STAGES = [
     ],
   },
   {
-    id: "requiem", th: "บทเพลงอาลัย", en: "Requiem Vault", zh: "安魂殿",
+    id: "requiem", th: "มหาวิหารข้อมูล", en: "Data Cathedral", zh: "数据大教堂",
     sky: ["#2a0714", "#18040e", "#080105"],
     grid: "rgba(255,120,140,.20)", horizon: "255,120,140",
     spots: [[0.24, "255,150,160"], [0.76, "230,230,255"]],
@@ -264,7 +264,7 @@ export const STAGES = [
     ],
   },
   {
-    id: "dojo", th: "โดโจกลางคืน", en: "Night Dojo", zh: "夜之道场",
+    id: "dojo", th: "ซอยนีออนโดโจ", en: "Neon Dojo Alley", zh: "霓虹道场巷",
     sky: ["#2f2418", "#1c1610", "#0a0806"],
     grid: "rgba(255,205,140,.18)", horizon: "255,190,120",
     spots: [[0.24, "255,215,160"], [0.76, "255,170,110"]],
