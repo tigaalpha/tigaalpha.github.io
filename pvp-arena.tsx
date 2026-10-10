@@ -1267,6 +1267,7 @@ export const PvpPage = memo(function PvpPage({
   }, [phase, me, colorwayKey, squadUsed, lobbyGearSig, petNow && petNow.species, petLvNow]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const startFight = (kind, t, name, friend) => {
+    enterFs();
     setOppKind(kind); setTier(t); setOppName(name || ""); setPendingFriend(friend || null);
     // seeded on the day and the tier, so losing and retrying hands back the
     // SAME three — a retry is a second go at what you were doing, not new
@@ -1275,6 +1276,7 @@ export const PvpPage = memo(function PvpPage({
     setPhase("fight"); if (playUi) playUi("click");
   };
   const startWeekly = () => {
+    enterFs();
     // the rule rides on the tier object, which the fight already receives —
     // no new prop for something only one opponent in the game ever has
     const boosted = { ...weekly.tier, coins: weekly.tier.coins * 2, xp: weekly.tier.xp * 2, sp: weekly.tier.sp * 2, bossRule: weekly.rule };
@@ -1282,11 +1284,13 @@ export const PvpPage = memo(function PvpPage({
     startFight("bot", boosted, weekly.name);
   };
   const startRivalFight = () => {
+    enterFs();
     const t = BOT_TIERS.find(x => x.key === rival.tierKey) || BOT_TIERS[2];
     setIsRival(true);
     startFight("bot", t, rival.name);
   };
   const startGhostFight = () => {
+    enterFs();
     if (!ghost) return;
     const t = BOT_TIERS.find(x => x.key === ghost.tierKey) || BOT_TIERS[3];
     setIsGhost(true);
@@ -1311,6 +1315,7 @@ export const PvpPage = memo(function PvpPage({
     startFight("player", t, g.name || "GHOST");
   };
   const startPractice = () => {
+    enterFs();
     setPracticeMode(true);
     startFight("bot", BOT_TIERS[3], T("โหมดซ้อม", "Practice Bot", "陪练机器人"));
   };
@@ -1345,6 +1350,7 @@ export const PvpPage = memo(function PvpPage({
     if (playUi) playUi("reward");
   };
   const startGauntlet = () => {
+    enterFs();
     setGauntlet({ ix: 0, hpFrac: 1, totals: { coins: 0, xp: 0, sp: 0 }, cleared: [] });
     startFight("bot", BOT_TIERS[0], tr3(CHAR_MODELS.find(m => m.id === chassisFor("gauntlet0" + Date.now())) || {}, lang));
   };
@@ -2322,6 +2328,18 @@ async function toggleFs() {
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
     // best effort: a phone that cannot lock just stays in whatever it is in
     try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch (e) {}
+  } catch (e) {}
+}
+/** Starting a fight puts the screen in full screen and landscape by itself (owner,
+    2026-10-10). Only ever enters, never exits, and only from inside a tap — the
+    browser refuses it anywhere else, and a refusal is silent. */
+function enterFs() {
+  try {
+    if (fsOn()) return;
+    const el = document.documentElement;
+    const r = el.requestFullscreen ? el.requestFullscreen({ navigationUI: "hide" }) : (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
+    const lock = () => { try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(() => {}); } catch (e) {} };
+    if (r && r.then) r.then(lock, () => {}); else lock();
   } catch (e) {}
 }
 /** The button, plus the state that keeps its icon honest when the user leaves
