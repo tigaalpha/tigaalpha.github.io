@@ -180,8 +180,10 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
                   <span className="nowcard-tag">{TT.now}</span>
                   <b className="nowcard-t">{fingerChart && fingerChart.label ? fingerChart.label : lc.practiceBtn}</b>
                   <span className="nowcard-s">{nNotes ? `${nNotes} ${TT.notes} · ~${mins} ${TT.min}` : ""}{rec && rec.label ? ` · ${lc.recFor}: ${rec.label}` : ""}</span>
-                  <button className={`practicebtn nowcard-go${!seqPlaying ? " ready" : ""}`} onClick={startPractice} title={lc.practiceBtn}>▶ {TT.start}</button>
-                  <button className="nowcard-sub" onClick={togglePlayPause}>{seqPlaying ? "⏸ " + lc.demoPause : "👂 " + TT.listen}</button>
+                  <div className="nowcard-act">
+                    <button className={`practicebtn nowcard-go${!seqPlaying ? " ready" : ""}`} onClick={startPractice} title={lc.practiceBtn}>▶ {TT.start}</button>
+                    <button className="nowcard-sub" onClick={togglePlayPause} title={TT.listen}>{seqPlaying ? "⏸ " + lc.demoPause : "👂 " + TT.listen}</button>
+                  </div>
                 </div>
               );
             }

@@ -978,6 +978,20 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .presultnext{display:block;margin:6px auto 0;min-height:48px;padding:0 20px}
 .presultstars-rhythm{font-size:.7em;margin-top:-2px}
 .presultstars-lbl{font-family:var(--f-app);font-size:11px;letter-spacing:.08em;color:var(--muted);margin-right:8px;vertical-align:middle}
+/* owner 2026-10-10: a smaller Now card, so the piano, fingers and hand toggle all fit on the first screen */
+.nowcard{gap:2px;margin:6px 12px 2px;padding:9px 12px;border-radius:14px}
+.nowcard-t{font-size:15px}
+.nowcard-s{font-size:11px;line-height:1.3}
+.nowcard-act{display:flex;align-items:center;gap:8px;margin-top:6px}
+.nowcard-go{margin-top:0;flex:1 1 auto;min-height:44px;font-size:15px}
+.nowcard-sub{flex:0 1 auto;padding:0 4px;font-size:12px;line-height:1.2;text-align:left;max-width:48%;white-space:nowrap}
+.fchart-hand{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 10px;padding:6px 12px}
+.fchart-hand .fchart-head{flex:1 0 100%}
+.fchart-hand .fhand{width:78px;height:46px;margin:0}
+.fchart-notes{flex:1 1 0;text-align:right;font-size:11px}
+.sensei-scroll .handsel{margin-top:6px!important}
+.sensei-scroll .pw{padding-top:4px}
+.sensei-scroll .senseiback{margin-top:4px;margin-bottom:0}
 /* plan 27 · P1 — the practice screen for a six-year-old */
 .practicechips.pdots{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px}
 .practicechips.pdots .pchip{min-width:0;width:16px;height:16px;padding:0;font-size:0;border-radius:50%}
