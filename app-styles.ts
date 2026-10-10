@@ -3044,6 +3044,12 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
    white text and its own icon slot (owner, 2026-10-04) — the one solid block of
    colour on a page of outlines, so the way into the shelf is the thing the eye
    lands on first. */
+.songfiltbtn{margin-left:auto;min-height:44px;padding:0 14px;border-radius:22px;border:1.5px solid var(--bd2);background:transparent;color:var(--text);font-family:var(--f-app);font-size:13.5px;font-weight:700;cursor:pointer;position:relative}
+.songfiltbtn.on{border-color:var(--clay);color:var(--clay)}
+.songfiltdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--clay);margin-left:6px;vertical-align:middle}
+.songfilters[hidden]{display:none}
+.songfilter,.genrechip{min-height:40px}
+.genrechip.active{background:var(--clay);border-color:var(--clay)}
 .songocbtn{margin:0;padding:9px 14px;border-radius:12px;border:1px solid #ffffff2e;background:linear-gradient(180deg,#8b5cf6,#6d28d9);color:#fff;font-family:var(--f-app);font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;text-align:left;box-shadow:0 6px 18px -10px #6d28d9}
 .songocbtn:hover{background:linear-gradient(180deg,#9d78f8,#7c3aed)}
 .songocbtn:active{transform:scale(.99)}

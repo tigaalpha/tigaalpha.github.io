@@ -373,10 +373,11 @@ if (want("eras")) {
   const first = await s.p.evaluate(() => document.querySelectorAll(".songgrid .songcard").length);
   rec("list-slices-first", first > 0 && first <= 100, `${first} cards drawn first (of 1,000+)`);
   await expandList(s.p);
-  const all = await s.p.evaluate(() => ({ cards: document.querySelectorAll(".songgrid .songcard").length, chips: [...document.querySelectorAll(".genrechip")].map(c => c.textContent.trim()) }));
+  const all = await s.p.evaluate(() => ({ cards: document.querySelectorAll(".songgrid .songcard").length, chips: [...document.querySelectorAll(".genrechip")].map(c => c.textContent.trim()).filter(t => !/Original Content/.test(t)) }));
   rec("eras-1000", all.cards > 1000, `${all.cards} songs in "All" once the whole list has been scrolled in`);
   rec("eras-chips", ["Baroque", "Classical", "Romantic", "Impressionism"].every((n, i) => all.chips[i + 1] && all.chips[i + 1].includes(n)) && all.chips[0].includes("All"), all.chips.join(" | "));
-  const chips = await s.p.$$(".genrechip");
+  const chips = [];
+  for (const h of await s.p.$$(".genrechip")) if (!/Original Content/.test(await h.innerText())) chips.push(h);   // that chip opens its own page now
   const seen = {}; let total = 0;
   for (let i = 1; i <= 4; i++) {
     await chips[i].click(); await s.p.waitForTimeout(250);
@@ -434,7 +435,8 @@ if (want("headings")) {
     const eras = g.filter(h => /^(Baroque|Classical|Romantic|Impressionism)/.test(h.nm.replace(/^\W+/, "")));
     rec("headings-era-years", eras.length === 4 && eras.every(h => /\d{4}[–-]\d{4} · \d+/.test(h.sub)), eras.map(h => h.nm + " " + h.sub).join(" | "));
     // a chosen chip shows one heading, its own, with its years
-    const chips = await s.p.$$(".genrechip");
+    const chips = [];
+    for (const h of await s.p.$$(".genrechip")) if (!/Original Content/.test(await h.innerText())) chips.push(h);
     await chips[1].click(); await s.p.waitForTimeout(250);
     await s.p.screenshot({ path: `${OUT}/headings-era.png` });
     await expandList(s.p);
