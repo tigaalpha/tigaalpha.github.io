@@ -502,6 +502,18 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                   {songKind && <div className="pl-kindnote">{T("โหมดใจดีเปิดอยู่ — ช่วงรับโน้ตกว้างขึ้น", "Kind mode is on — a wider timing window", "宽松模式已开启 — 判定更宽")}</div>}
                   {sheetView && <div className="pl-kindnote">📖 {T("โหมดโน้ตเพลง — ไม่มีโน้ตตก อ่านโน้ตแล้วกดคีย์ที่ไฟสีฟ้าวิ่งไปหา ให้ตรงจังหวะ", "Sheet mode — no falling notes: read the staff and play the key the blue light runs to, on the beat", "乐谱模式 — 没有下落音符：看谱，按蓝色光跑到的琴键，踩准节拍")}</div>}
                   <div className="songsrc">{lc.songInputHint}</div>
+                  {/* Start sits right under the song details (owner, 2026-10-10), above the run settings. */}
+                  <div className="pl-startbar">
+                    <button className="songbtn go pl-start" onClick={() => startSongPlay()}>▶ {lc.songStart}</button>
+                    <div className="pl-startrow">
+                      {!racing && (
+                        <button className="pl-link pl-practice-btn" onClick={() => startSongPlay(false, { practice: true })}>
+                          🐢 {T("ฝึกก่อน (เพลงรอเรา)", "Practise first (song waits)", "先练习（歌曲等你）")}
+                        </button>
+                      )}
+                      <button className="pl-link" onClick={previewSong}>♪ {lc.songPreview}</button>
+                    </div>
+                  </div>
                   {/* This run's settings: always open, the first thing on the
                       screen. Behind a "Settings" link most players never learned
                       that speed, hands and kind mode can be changed (owner,
@@ -537,19 +549,6 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                     </div>
                     <div className="pl-set-hint">{T("โหมดใจดี: ช่วงรับโน้ตกว้างขึ้น และกดผิดคีย์เดียวแค่คอมโบหลุด ไม่เสียความแม่น", "Kind mode: a wider window, and one wrong key only breaks the combo", "宽松模式：判定更宽，按错一个键只断连击")}</div>
                     <OnlinePvpPanel pvpOnline={pvpOnline} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} songMeta={songMeta} lang={lang} codeInput={codeInput} setCodeInput={setCodeInput} />
-                  </div>
-                  {/* Start stays pinned to the bottom edge: the settings above it are
-                      tall, and on a short phone the button must never scroll away. */}
-                  <div className="pl-startbar">
-                    <button className="songbtn go pl-start" onClick={() => startSongPlay()}>▶ {lc.songStart}</button>
-                    <div className="pl-startrow">
-                      {!racing && (
-                        <button className="pl-link pl-practice-btn" onClick={() => startSongPlay(false, { practice: true })}>
-                          🐢 {T("ฝึกก่อน (เพลงรอเรา)", "Practise first (song waits)", "先练习（歌曲等你）")}
-                        </button>
-                      )}
-                      <button className="pl-link" onClick={previewSong}>♪ {lc.songPreview}</button>
-                    </div>
                   </div>
                 </>
               )}
