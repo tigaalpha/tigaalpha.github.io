@@ -2164,7 +2164,10 @@ const WRONG_CHIP = 0.08;
    that gets you counter-hit if you throw it out at nothing. */
 // the Friends tab is parked (owner, 2026-10-10); flip to true to bring it and its code back
 const PVP_FRIENDS_TAB = false;
-const STRIKE_VAR = { punch: ["attack", "jab", "hook", "upper"], kick: ["kick", "front", "round", "sweep"] };
+const STRIKE_VAR = { punch: ["attack", "jab", "hook", "upper"], kick: ["kick", "front", "round", "sweep"],
+  // what a carried blade and an animal's own weapons do (weights: a plain default, tilted per robot below)
+  slash: ["attack", "jab", "hook"], cleave: ["kick", "upper", "round"], bite: ["attack", "jab", "upper"], claw: ["kick", "front", "sweep"] };
+const idHash = (str) => String(str || "x").split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 17) >>> 0;
 // weights in the order above, per class
 const STRIKE_W = {
   striker:   { punch: [2, 1, 4, 2], kick: [2, 1, 3, 1] },
@@ -3200,11 +3203,14 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   const varRef = useRef({ me: null, op: null });
   function poseFor(side, mv, fresh) {
     const base = MOVES[mv] ? MOVES[mv].pose : "attack";
-    const tab = mv === "punch" ? STRIKE_VAR.punch : mv === "kick" ? STRIKE_VAR.kick : null;
+    const tab = STRIKE_VAR[mv] || null;
     if (!tab) return base;
     const last = varRef.current[side];
     if (!fresh && last && last.mv === mv) return last.pose;
-    const w = (STRIKE_W[side === "me" ? A.cls : B.cls] || STRIKE_W.striker)[mv];
+    const cw = (STRIKE_W[side === "me" ? A.cls : B.cls] || STRIKE_W.striker)[mv] || tab.map((_, i) => (i === 0 ? 2 : 1));
+    // every chassis and every animal leans its own way, so two robots of one class still differ
+    const hid = idHash(side === "me" ? (petOnly ? (petPic && petPic.species) : me) : oppModel);
+    const w = cw.map((x, i) => x * (1 + 0.9 * (((hid >> (i * 3)) & 3) === 0 ? 1 : 0)));
     let tot = 0; const ws = tab.map((p, i) => (last && last.pose === p ? 0 : w[i])); ws.forEach(x => { tot += x; });
     let r = Math.random() * tot, pick = tab[0];
     for (let i = 0; i < tab.length; i++) { r -= ws[i]; if (r <= 0) { pick = tab[i]; break; } }

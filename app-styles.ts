@@ -3696,6 +3696,13 @@ svg.fig-pet.sad{animation:figPetSag 4.4s ease-in-out infinite}
   transition:transform .13s cubic-bezier(.2,.9,.25,1.15),filter .2s ease;filter:drop-shadow(0 10px 12px rgba(0,0,0,.34))}
 .pvpfpet svg{display:block;width:100%;height:100%}
 .pvpfpet.p-attack{transform:scaleX(-1) translateX(-12%) rotate(7deg) scale(1.07,.95)}
+.pvpfpet.p-jab{transform:scaleX(-1) translateX(-9%) rotate(3deg) scale(1.04,.98)}
+.pvpfpet.p-hook{transform:scaleX(-1) translateX(-14%) rotate(13deg) scale(1.08,.94)}
+.pvpfpet.p-upper{transform:scaleX(-1) translateX(-8%) translateY(-9%) rotate(-12deg) scale(.98,1.1)}
+.pvpfpet.p-front{transform:scaleX(-1) translateX(-11%) rotate(-3deg) scale(1.09,.97)}
+.pvpfpet.p-round{transform:scaleX(-1) translateX(-7%) translateY(-4%) rotate(-17deg) scale(1.06)}
+.pvpfpet.p-sweep{transform:scaleX(-1) translateX(-10%) translateY(5%) rotate(9deg) scale(1.1,.88)}
+.pvpfpet.p-wind{transform:scaleX(-1) translateX(5%) rotate(-5deg) scale(.96,1.03)}
 .pvpfpet.p-kick{transform:scaleX(-1) translateX(-9%) translateY(-6%) rotate(-9deg) scale(1.05)}
 .pvpfpet.p-shoot,.pvpfpet.p-beam,.pvpfpet.p-throw{transform:scaleX(-1) scale(1.1,.9);filter:drop-shadow(0 0 14px var(--pc,#fff)) drop-shadow(0 10px 12px rgba(0,0,0,.34))}
 .pvpfpet.p-hit,.pvpfpet.flinch{transform:scaleX(-1) translateX(9%) rotate(-7deg) scale(.93)}
