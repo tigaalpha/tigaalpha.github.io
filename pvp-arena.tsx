@@ -1187,6 +1187,10 @@ export const PvpPage = memo(function PvpPage({
   const [isGhost, setIsGhost] = useState(false);
   const [ghostNote, setGhostNote] = useState(null);
   const [showTrials, setShowTrials] = useState(false);
+  // the lobby is one big "Fight" button, a level slider and three tabs (owner, 2026-10-10)
+  const [lobbyTab, setLobbyTab] = useState("fight");
+  const [tierIdx, setTierIdx] = useState(() => { try { const v = parseInt(localStorage.getItem("tg_pvp_tier") || "3", 10); return v >= 0 && v < BOT_TIERS.length ? v : 3; } catch (e) { return 3; } });
+  const pickTier = (i) => { setTierIdx(i); try { localStorage.setItem("tg_pvp_tier", String(i)); } catch (e) {} };
   // the lobby's own throwaway timers, cleared if the page goes away under them
   const lobbyTimers = useRef([]);
   const later0 = (fn, ms) => { const t = setTimeout(fn, ms); lobbyTimers.current.push(t); return t; };
@@ -1515,6 +1519,110 @@ export const PvpPage = memo(function PvpPage({
 
         {/* the fight picker sits straight under the robot: the first thing to do here */}
         <div className="pvpbody pvpbody-top">
+          <button className="pvpgo" onClick={() => startFight("bot", BOT_TIERS[tierIdx], tr3(CHAR_MODELS.find(m => m.id === chassisFor(BOT_TIERS[tierIdx].key + Date.now())) || {}, lang))}>
+            <b>▶ {T("สู้เลย", "Fight", "开战")}</b>
+            <span>{tr3(BOT_TIERS[tierIdx], lang)}</span>
+          </button>
+          <div className="pvplvl">
+            <input type="range" min={0} max={BOT_TIERS.length - 1} step={1} value={tierIdx} onChange={e => { pickTier(parseInt(e.target.value, 10)); }}
+              aria-label={T("ระดับความยาก", "Difficulty", "难度")} />
+            <div className="pvplvl-t"><span>{T("ง่าย", "Easy", "简单")}</span><b>{tierIdx + 1}/{BOT_TIERS.length}</b><span>{T("นรก", "Hell", "地狱")}</span></div>
+            <div className="pvplvl-r">{T("ความแม่นบอท", "Bot accuracy", "机器人命中率")} {Math.round(BOT_TIERS[tierIdx].acc * 100)}% · 🪙 {BOT_TIERS[tierIdx].coins} · ✦ {BOT_TIERS[tierIdx].xp} · SP {BOT_TIERS[tierIdx].sp}</div>
+          </div>
+          <div className="pvptabs" role="tablist">
+            {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("ตัวฉัน", "My unit", "我的机体")]].map(([k, lb]) => (
+              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => setLobbyTab(k)}>
+                {lb}{k === "friends" && openDuels.length > 0 && <i className="pvptab-dot">{openDuels.length}</i>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="pvpbody">
+          {lobbyTab === "fight" && (<>
+          <div className="pvpsec-h">{T("ไฟต์พิเศษ", "Special Fights", "特别对战")}</div>
+          <div className="pvptiers pvptiers-rows">
+            <button className="pvptier t-gauntlet" onClick={startGauntlet}>
+              <b>{T("เกาน์ท์เล็ต", "Gauntlet", "极限远征")}</b>
+              <i>{T("ลุยรวด 10 ด่าน ไม่พัก HP", "All 10 tiers, no HP rest", "连闯十关，HP 不回复")}</i>
+              <span>{T("โบนัสก้อนใหญ่เมื่อจบครบ", "Big bonus on a full clear", "全通有大奖")}</span>
+            </button>
+            <button className="pvptier t-weeklyboss" onClick={startWeekly}>
+              <b>{T("บอสประจำสัปดาห์", "Weekly Boss", "本周首领")} {weeklyClaimed ? "✓" : ""}</b>
+              <i>{tr3(weekly.tier, lang)} · {T("รางวัล 2 เท่า", "2× rewards", "奖励 2 倍")}</i>
+              {/* the week's broken rule, up front — a boss you only discover
+                  is cheating after it kills you is not a boss, it is a bug */}
+              <em className="pvpbossrule">⚠ {tr3(BOSS_RULES[weekly.rule] || {}, lang)}</em>
+              <span>🪙 {weekly.tier.coins * 2} · ✦ {weekly.tier.xp * 2} · SP {weekly.tier.sp * 2}</span>
+            </button>
+            {/* the one opponent the rival system could never offer: you */}
+            <button className={`pvptier t-ghost${ghost ? "" : " off"}`} onClick={ghost ? startGhostFight : undefined} disabled={!ghost}>
+              <b>{T("เงาตัวเอง", "Your Ghost", "自身幽灵")}</b>
+              <i>{ghost
+                ? `${tr3(BOT_TIERS.find(t => t.key === ghost.tierKey) || {}, lang)} · ${ghost.score.toLocaleString()} · ${ghost.acc}%`
+                : T("ชนะสักแมตช์แล้วเงาจะถูกบันทึก", "Win a match and your best run is saved here", "赢一场后会保存你的最佳战绩")}</i>
+              <span>{ghost ? T("ท้าตัวเองที่เก่งที่สุด", "Fight your best self", "挑战最强的自己") : T("ยังไม่มีเงา", "No ghost yet", "尚无幽灵")}</span>
+            </button>
+            <button className="pvptier t-rival" onClick={startRivalFight}>
+              <b>{T("คู่ปรับ", "Rival", "劲敌")} {rival.name}</b>
+              <i>{tr3(BOT_TIERS.find(t => t.key === rival.tierKey) || {}, lang)}</i>
+              <span>{T("สถิติ", "Record", "战绩")} {rival.w}-{rival.l}</span>
+            </button>
+            <button className="pvptier t-practice" onClick={startPractice}>
+              <b>{T("โหมดซ้อม", "Practice", "陪练模式")}</b>
+              <i>{T("ไม่มีเดิมพัน มีติ๊ปสด · ตั้งค่าหุ่นได้", "No stakes, live tips, dummy controls", "无风险、实时提示、可设定木人")}</i>
+              <span>{T("ไม่เสีย Coins/EXP", "No coins/EXP lost", "不消耗 Coins/经验")}</span>
+            </button>
+          </div>
+
+          </>)}
+          {lobbyTab === "friends" && (<>
+          <div className="pvpsec-h">{T("สู้กับผู้เล่นอื่น", "Fight another player", "对战玩家")}</div>
+          <div className="pvpnote">
+            {T("ประลองแบบผลัดกันลง: คุณลงสนามก่อน คะแนนจะถูกส่งไปท้าเพื่อน แล้วเพื่อนลงสนามเดียวกัน ใครคะแนนสูงกว่าชนะ",
+               "Turn-based duel: you run the arena, your score is sent as a challenge, and your friend runs the same arena. Higher score wins.",
+               "回合制对决：你先进入竞技场，分数作为挑战发出，好友再挑战同一场，分高者胜。")}
+          </div>
+          {friends === null ? (
+            <div className="pvpempty">{T("กำลังโหลดรายชื่อเพื่อน…", "Loading friends…", "正在加载好友…")}</div>
+          ) : friends.length === 0 ? (
+            <div className="pvpempty">{T("ยังไม่มีเพื่อนในระบบ — เพิ่มเพื่อนก่อนจึงจะท้าประลองได้", "No friends yet — add one before you can challenge.", "还没有好友 — 先添加好友才能挑战。")}</div>
+          ) : (
+            <div className="pvpfriends">
+              {friends.map(f => (
+                <button key={f.user_id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], f.name || f.email || "?", f)}>
+                  <span className="pvpfriend-av"><HeadThumb model={chassisFor(f.user_id || f.name || "x")} px={34} /></span>
+                  <span className="pvpfriend-nm">{f.name || f.email}</span>
+                  <span className="pvpfriend-go">{T("ท้า", "Challenge", "挑战")} →</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {openDuels.length > 0 && (
+            <>
+              <div className="pvpsec-h">{T("คำท้าที่รออยู่", "Challenges waiting", "待处理的挑战")}</div>
+              <div className="pvpfriends">
+                {openDuels.map(d => (
+                  <button key={d.id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], d.opp_name, { duel: d })}>
+                    <span className="pvpfriend-av"><HeadThumb model={chassisFor(d.opp_name || "x")} px={34} /></span>
+                    <span className="pvpfriend-nm">{d.opp_name} · {d.opp_score != null ? d.opp_score : "—"}</span>
+                    <span className="pvpfriend-go">{T("รับคำท้า", "Accept", "接受")} →</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {/* ── the ghost's travel form ──
+              No server to duel across, so the ghost travels as a short code
+              somebody can paste on the other end. */}
+          <div className="pvpghostbar">
+            <button type="button" onClick={copyGhost} disabled={!ghost}>{T("คัดลอกรหัสเงา", "Copy ghost code", "复制幽灵代码")}</button>
+            <button type="button" onClick={pasteGhost}>{T("สู้กับเงาเพื่อน", "Fight a friend's ghost", "挑战好友幽灵")}</button>
+            {ghostNote && <em>{ghostNote}</em>}
+          </div>
+
+          </>)}
+          {lobbyTab === "me" && (<>
           <div className="pvpsec-h">{T("ลงสนาม", "Who fights", "出战")}</div>
           <div className="pvpsquad" role="radiogroup" aria-label={T("ลงสนาม", "Who fights", "出战")}>
             {[["bot", "\ud83e\udd16", T("หุ่นยนต์", "Robot", "机器人")],
@@ -1561,19 +1669,6 @@ export const PvpPage = memo(function PvpPage({
               ))}
             </div>
           )}
-          <div className="pvpsec-h">{T("โหมดต่อสู้", "Fight Mode", "战斗模式")}</div>
-          <div className="pvptiers">
-            {BOT_TIERS.map(t => (
-              <button key={t.key} className={`pvptier t-${t.key}`} onClick={() => startFight("bot", t, tr3(CHAR_MODELS.find(m => m.id === chassisFor(t.key + Date.now())) || {}, lang))}>
-                <b>{tr3(t, lang)}</b>
-                <i>{T("ความแม่น", "Accuracy", "命中率")} {Math.round(t.acc * 100)}%</i>
-                <span>🪙 {t.coins} · ✦ {t.xp} · SP {t.sp}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="pvpbody">
           <div className="pvprank" style={{ "--cc": rank.tier.c }} title={rank.next ? `${rank.into}/${rank.need}` : ""}>
             <span className="pvprank-ic" aria-hidden="true" />
             <span className="pvprank-b">
@@ -1688,50 +1783,6 @@ export const PvpPage = memo(function PvpPage({
             })}
           </div>
 
-          <div className="pvpsec-h">{T("ไฟต์พิเศษ", "Special Fights", "特别对战")}</div>
-          <div className="pvptiers">
-            <button className="pvptier t-gauntlet" onClick={startGauntlet}>
-              <b>{T("เกาน์ท์เล็ต", "Gauntlet", "极限远征")}</b>
-              <i>{T("ลุยรวด 10 ด่าน ไม่พัก HP", "All 10 tiers, no HP rest", "连闯十关，HP 不回复")}</i>
-              <span>{T("โบนัสก้อนใหญ่เมื่อจบครบ", "Big bonus on a full clear", "全通有大奖")}</span>
-            </button>
-            <button className="pvptier t-weeklyboss" onClick={startWeekly}>
-              <b>{T("บอสประจำสัปดาห์", "Weekly Boss", "本周首领")} {weeklyClaimed ? "✓" : ""}</b>
-              <i>{tr3(weekly.tier, lang)} · {T("รางวัล 2 เท่า", "2× rewards", "奖励 2 倍")}</i>
-              {/* the week's broken rule, up front — a boss you only discover
-                  is cheating after it kills you is not a boss, it is a bug */}
-              <em className="pvpbossrule">⚠ {tr3(BOSS_RULES[weekly.rule] || {}, lang)}</em>
-              <span>🪙 {weekly.tier.coins * 2} · ✦ {weekly.tier.xp * 2} · SP {weekly.tier.sp * 2}</span>
-            </button>
-            {/* the one opponent the rival system could never offer: you */}
-            <button className={`pvptier t-ghost${ghost ? "" : " off"}`} onClick={ghost ? startGhostFight : undefined} disabled={!ghost}>
-              <b>{T("เงาตัวเอง", "Your Ghost", "自身幽灵")}</b>
-              <i>{ghost
-                ? `${tr3(BOT_TIERS.find(t => t.key === ghost.tierKey) || {}, lang)} · ${ghost.score.toLocaleString()} · ${ghost.acc}%`
-                : T("ชนะสักแมตช์แล้วเงาจะถูกบันทึก", "Win a match and your best run is saved here", "赢一场后会保存你的最佳战绩")}</i>
-              <span>{ghost ? T("ท้าตัวเองที่เก่งที่สุด", "Fight your best self", "挑战最强的自己") : T("ยังไม่มีเงา", "No ghost yet", "尚无幽灵")}</span>
-            </button>
-            <button className="pvptier t-rival" onClick={startRivalFight}>
-              <b>{T("คู่ปรับ", "Rival", "劲敌")} {rival.name}</b>
-              <i>{tr3(BOT_TIERS.find(t => t.key === rival.tierKey) || {}, lang)}</i>
-              <span>{T("สถิติ", "Record", "战绩")} {rival.w}-{rival.l}</span>
-            </button>
-            <button className="pvptier t-practice" onClick={startPractice}>
-              <b>{T("โหมดซ้อม", "Practice", "陪练模式")}</b>
-              <i>{T("ไม่มีเดิมพัน มีติ๊ปสด · ตั้งค่าหุ่นได้", "No stakes, live tips, dummy controls", "无风险、实时提示、可设定木人")}</i>
-              <span>{T("ไม่เสีย Coins/EXP", "No coins/EXP lost", "不消耗 Coins/经验")}</span>
-            </button>
-          </div>
-
-          {/* ── the ghost's travel form ──
-              No server to duel across, so the ghost travels as a short code
-              somebody can paste on the other end. */}
-          <div className="pvpghostbar">
-            <button type="button" onClick={copyGhost} disabled={!ghost}>{T("คัดลอกรหัสเงา", "Copy ghost code", "复制幽灵代码")}</button>
-            <button type="button" onClick={pasteGhost}>{T("สู้กับเงาเพื่อน", "Fight a friend's ghost", "挑战好友幽灵")}</button>
-            {ghostNote && <em>{ghostNote}</em>}
-          </div>
-
           {/* ── the trials ──
               Everything the fight can do, listed by name. This is the only
               place a player finds out that throwing a guarding opponent, or
@@ -1758,41 +1809,7 @@ export const PvpPage = memo(function PvpPage({
             </div>
           )}
 
-          <div className="pvpsec-h">{T("สู้กับผู้เล่นอื่น", "Fight another player", "对战玩家")}</div>
-          <div className="pvpnote">
-            {T("ประลองแบบผลัดกันลง: คุณลงสนามก่อน คะแนนจะถูกส่งไปท้าเพื่อน แล้วเพื่อนลงสนามเดียวกัน ใครคะแนนสูงกว่าชนะ",
-               "Turn-based duel: you run the arena, your score is sent as a challenge, and your friend runs the same arena. Higher score wins.",
-               "回合制对决：你先进入竞技场，分数作为挑战发出，好友再挑战同一场，分高者胜。")}
-          </div>
-          {friends === null ? (
-            <div className="pvpempty">{T("กำลังโหลดรายชื่อเพื่อน…", "Loading friends…", "正在加载好友…")}</div>
-          ) : friends.length === 0 ? (
-            <div className="pvpempty">{T("ยังไม่มีเพื่อนในระบบ — เพิ่มเพื่อนก่อนจึงจะท้าประลองได้", "No friends yet — add one before you can challenge.", "还没有好友 — 先添加好友才能挑战。")}</div>
-          ) : (
-            <div className="pvpfriends">
-              {friends.map(f => (
-                <button key={f.user_id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], f.name || f.email || "?", f)}>
-                  <span className="pvpfriend-av"><HeadThumb model={chassisFor(f.user_id || f.name || "x")} px={34} /></span>
-                  <span className="pvpfriend-nm">{f.name || f.email}</span>
-                  <span className="pvpfriend-go">{T("ท้า", "Challenge", "挑战")} →</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {openDuels.length > 0 && (
-            <>
-              <div className="pvpsec-h">{T("คำท้าที่รออยู่", "Challenges waiting", "待处理的挑战")}</div>
-              <div className="pvpfriends">
-                {openDuels.map(d => (
-                  <button key={d.id} className="pvpfriend" onClick={() => startFight("player", BOT_TIERS[3], d.opp_name, { duel: d })}>
-                    <span className="pvpfriend-av"><HeadThumb model={chassisFor(d.opp_name || "x")} px={34} /></span>
-                    <span className="pvpfriend-nm">{d.opp_name} · {d.opp_score != null ? d.opp_score : "—"}</span>
-                    <span className="pvpfriend-go">{T("รับคำท้า", "Accept", "接受")} →</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+          </>)}
         </div>
       </div>
     );
