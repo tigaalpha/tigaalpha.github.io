@@ -3044,6 +3044,9 @@ html[data-theme="dark"] body[data-theme="starlight"] .tg{background:radial-gradi
    white text and its own icon slot (owner, 2026-10-04) — the one solid block of
    colour on a page of outlines, so the way into the shelf is the thing the eye
    lands on first. */
+.songnow{display:flex;flex-direction:column;gap:8px;padding:12px;margin:0 14px 12px;border-radius:16px;background:var(--card);border:1px solid var(--bd2)}
+.songnow .songcontinue-lbl{margin:0}
+.songnow-up{font-size:12px;font-weight:700;color:var(--muted);margin-top:4px}
 .songfiltbtn{margin-left:auto;min-height:44px;padding:0 14px;border-radius:22px;border:1.5px solid var(--bd2);background:transparent;color:var(--text);font-family:var(--f-app);font-size:13.5px;font-weight:700;cursor:pointer;position:relative}
 .songfiltbtn.on{border-color:var(--clay);color:var(--clay)}
 .songfiltdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--clay);margin-left:6px;vertical-align:middle}
