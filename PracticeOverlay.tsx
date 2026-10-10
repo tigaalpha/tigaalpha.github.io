@@ -28,12 +28,21 @@ function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCa
 // plan 27 · P1-3: a hand that points at the finger to use — a child sees "this one", not a number to decode.
 // A right hand seen from above has the thumb on the left; a left hand is its mirror image.
 export function FingerHand({ finger, hand }) {
-  // A little robot hand: each finger is stacked metal segments with round joints, a palm plate with a glowing core and a wrist cuff
-  // with bolts. The finger for the note in play turns clay-orange and glows; the number rides on its tip.
-  const H = [30, 44, 50, 44, 34];          // finger heights, thumb → little finger
-  const order = hand === "left" ? [4, 3, 2, 1, 0] : [0, 1, 2, 3, 4];
+  // A robot hand with a human outline: four tapered capsule fingers that splay a little, a thumb that leaves the palm at an angle,
+  // metal segments with round joints, a palm plate with a glowing core and a wrist cuff. Finger 1 is the thumb, 5 the little finger.
+  // Drawn as a right hand; a left hand is the same drawing mirrored, and the finger number is placed in screen space so it never flips.
+  const mirror = hand === "left";
+  const F = [
+    { n: 1, bx: 36, by: 80, h: 40, w: 16, a: -42 },   // thumb
+    { n: 2, bx: 45, by: 70, h: 56, w: 14.5, a: -6 },
+    { n: 3, bx: 61, by: 68, h: 64, w: 15, a: -1 },
+    { n: 4, bx: 77, by: 70, h: 58, w: 14.5, a: 4 },
+    { n: 5, bx: 92, by: 74, h: 44, w: 13, a: 11 },
+  ];
+  const place = (x, y) => (mirror ? 128 - x : x);
+  const rad = (d) => d * Math.PI / 180;
   return (
-    <svg className="fhand" width="128" height="80" viewBox="0 0 128 80" role="img" aria-label={"finger " + finger}>
+    <svg className="fhand" width="128" height="116" viewBox="0 0 128 116" role="img" aria-label={"finger " + finger}>
       <defs>
         <linearGradient id="fhandMetal" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" style={{ stopColor: "var(--card3)" }} />
@@ -41,27 +50,37 @@ export function FingerHand({ finger, hand }) {
           <stop offset="1" style={{ stopColor: "var(--card3)" }} />
         </linearGradient>
       </defs>
-      {order.map((fi, pos) => {
-        const on = finger === fi + 1;
-        const h = H[fi], x = 8 + pos * 23, top = 54 - h;
-        const nSeg = fi === 0 ? 2 : 3, gap = 2.5, segH = (h + 6 - gap * (nSeg - 1)) / nSeg;
-        return (
-          <g key={fi} className={"fhand-fg" + (on ? " on" : "")}>
-            {Array.from({ length: nSeg }).map((_, k) => (
-              <rect key={k} x={x} y={top + k * (segH + gap)} width="19" height={segH} rx={k === 0 ? 8 : 3.5} className={"fhand-f" + (on ? " on" : "")} />
-            ))}
-            {Array.from({ length: nSeg - 1 }).map((_, k) => (
-              <circle key={"j" + k} cx={x + 9.5} cy={top + (k + 1) * (segH + gap) - gap / 2} r="1.7" className={"fhand-j" + (on ? " on" : "")} />
-            ))}
-            {on && <text x={x + 9.5} y={top + 11} textAnchor="middle" className="fhand-n">{fi + 1}</text>}
-          </g>
-        );
+      <g transform={mirror ? "translate(128 0) scale(-1 1)" : undefined}>
+        <path d="M33 72 L99 72 L97 92 Q95 98 87 98 L45 98 Q37 98 35 92 Z" className="fhand-palm" />
+        {F.map((fg) => {
+          const on = finger === fg.n;
+          const nSeg = fg.n === 1 ? 2 : 3, gap = 1.8;
+          const segs = nSeg === 3 ? [0.4, 0.33, 0.27] : [0.55, 0.45];
+          let y = fg.by;
+          return (
+            <g key={fg.n} transform={`rotate(${fg.a} ${fg.bx} ${fg.by})`} className={"fhand-fg" + (on ? " on" : "")}>
+              {segs.map((s, k) => {
+                const sh = s * fg.h - gap, w = fg.w * (1 - k * 0.1);
+                y -= sh + gap;
+                const el = <rect key={k} x={fg.bx - w / 2} y={y + gap} width={w} height={sh + gap / 2} rx={Math.min(w / 2, 6.5)} className={"fhand-f" + (on ? " on" : "")} />;
+                return el;
+              })}
+              {segs.slice(0, -1).map((s, k) => {
+                const jy = fg.by - segs.slice(0, k + 1).reduce((t, v) => t + v * fg.h, 0) + 0.2;
+                return <circle key={"j" + k} cx={fg.bx} cy={jy} r="1.6" className={"fhand-j" + (on ? " on" : "")} />;
+              })}
+            </g>
+          );
+        })}
+        <circle cx="66" cy="86" r="4.6" className="fhand-core" />
+        <path d="M42 86h14M76 86h14" className="fhand-line" />
+        <rect x="48" y="98" width="38" height="9" rx="3.5" className="fhand-wrist" />
+        <circle cx="54" cy="102.5" r="1.3" className="fhand-bolt" /><circle cx="80" cy="102.5" r="1.3" className="fhand-bolt" />
+      </g>
+      {F.filter((fg) => fg.n === finger).map((fg) => {
+        const d = fg.h * 0.8, ar = rad(fg.a);
+        return <text key={fg.n} x={place(fg.bx + Math.sin(ar) * d, 0)} y={fg.by - Math.cos(ar) * d + 4} textAnchor="middle" className="fhand-n">{fg.n}</text>;
       })}
-      <rect x="6" y="52" width="116" height="20" rx="8" className="fhand-palm" />
-      <circle cx="64" cy="62" r="4.2" className="fhand-core" />
-      <path d="M18 62h30M80 62h30" className="fhand-line" />
-      <rect x="40" y="72" width="48" height="7" rx="3" className="fhand-wrist" />
-      <circle cx="46" cy="75.5" r="1.3" className="fhand-bolt" /><circle cx="82" cy="75.5" r="1.3" className="fhand-bolt" />
     </svg>
   );
 }

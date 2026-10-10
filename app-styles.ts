@@ -987,7 +987,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .nowcard-sub{flex:0 1 auto;padding:0 4px;font-size:12px;line-height:1.2;text-align:left;max-width:48%;white-space:nowrap}
 .fchart-hand{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 10px;padding:6px 12px}
 .fchart-hand .fchart-head{flex:1 0 100%}
-.fchart-hand .fhand{width:104px;height:65px;margin:0}
+.fchart-hand .fhand{width:96px;height:87px;margin:0}
 .fchart-notes{flex:1 1 0;text-align:right;font-size:11px}
 .sensei-scroll .handsel{margin-top:6px!important}
 .sensei-scroll .pw{padding-top:4px}
