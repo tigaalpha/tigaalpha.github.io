@@ -40,7 +40,13 @@ const LOOKAHEAD = 0.35;
    player's note): the quietest margin before the change was the carol style at -13.4 dB, so it lands at about -12.6 dB.
    Owner 2026-10-10, again: "another fifteen percent" -> 0.231 -> 0.2657 (+1.2 dB). That alone would take carol (organ) and the
    classical waltz past the 12 dB gate, so the organ drawbars are trimmed to compensate (see organ below). */
-const MASTER = 0.2657;                    // seconds booked ahead of the audio clock
+const MASTER = 0.2923;
+/* ...and ten percent more again (owner, 2026-10-10). The three numbers that decide the mix have no room left for a plain gain
+   increase — the classical waltz and carol sat 0.3 and 0.8 dB above the 12 dB gate — and the voices that decide them are the ones
+   that live in the player's octave (the section() voices: pads, strings, organ, celesta, horn, wind, sax, vibes). So this time the
+   master goes up and those voices are held where they were (SECT = 1 / (0.2923 / 0.2657)): drums, bass, harpsichord and plucks get
+   the full ten percent, the voices that could mask the tune get none. */
+const SECT = 0.2657 / 0.2923;                    // seconds booked ahead of the audio clock
 
 /* ── the arrangement per song (owner, 2026-10-03: "the backing track has to be
    beautiful — add whatever sounds suit the piece") ──
@@ -355,7 +361,7 @@ export function createBand(opts) {
         const osc = ac.createOscillator(), vg = ac.createGain();
         osc.type = o.type || "sawtooth"; osc.frequency.value = fr; osc.detune.value = d;
         if (vib) vib.connect(osc.detune);
-        vg.gain.value = o.v;
+        vg.gain.value = o.v * SECT;
         osc.connect(vg); vg.connect(f); osc.start(when); osc.stop(end + 0.05);
       }
       /* M9 · the upper partials, as their own layer. Every voice here is one
@@ -374,12 +380,12 @@ export function createBand(opts) {
           if (fr * mul > 12000) continue;
           const s1 = ac.createOscillator(), s1g = ac.createGain();
           s1.type = o.shimmerType || "sawtooth"; s1.frequency.value = fr * mul;
-          s1g.gain.value = o.v * amp;
+          s1g.gain.value = o.v * amp * SECT;
           s1.connect(s1g); s1g.connect(f); s1.start(when); s1.stop(end + 0.05);
           if (det) {
             const s2 = ac.createOscillator(), s2g = ac.createGain();
             s2.type = o.shimmerType || "sawtooth"; s2.frequency.value = fr * mul; s2.detune.value = -det;
-            s2g.gain.value = o.v * amp;
+            s2g.gain.value = o.v * amp * SECT;
             s2.connect(s2g); s2g.connect(f); s2.start(when); s2.stop(end + 0.05);
           }
         }
