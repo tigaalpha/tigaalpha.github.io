@@ -101,32 +101,6 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
           <button className="senseiback" onClick={() => { playUi("click"); onBack(); }} aria-label={activeStageId ? lc.backChangeKey : lc.back}>
             <span>←</span> {activeStageId ? lc.backChangeKey : lc.back}
           </button>
-          {/* Plan 28 · B1 — ONE card answers "what do I do now": what, how many notes, about how long, and one big button.
-              With a demo on the keys it is the practice run of that demo; without one it is the same recommendation
-              the Daily Mentor shows (recommendNext), so the pages cannot disagree. */}
-          {(() => {
-            const rec = recommendNext();
-            const nNotes = fingerChart && fingerChart.notes ? fingerChart.notes.length : 0;
-            const mins = Math.max(1, Math.round(nNotes / 6));
-            if (hasSeq) {
-              return (
-                <div className="nowcard">
-                  <span className="nowcard-tag">{TT.now}</span>
-                  <b className="nowcard-t">{fingerChart && fingerChart.label ? fingerChart.label : lc.practiceBtn}</b>
-                  <span className="nowcard-s">{nNotes ? `${nNotes} ${TT.notes} · ~${mins} ${TT.min}` : ""}{rec && rec.label ? ` · ${lc.recFor}: ${rec.label}` : ""}</span>
-                  <button className={`practicebtn nowcard-go${!seqPlaying ? " ready" : ""}`} onClick={startPractice} title={lc.practiceBtn}>▶ {TT.start}</button>
-                  <button className="nowcard-sub" onClick={togglePlayPause}>{seqPlaying ? "⏸ " + lc.demoPause : "👂 " + TT.listen}</button>
-                </div>
-              );
-            }
-            return (
-              <button className="nowcard nowcard-rec" onClick={rec.fn}>
-                <span className="nowcard-tag">{TT.now}</span>
-                <b className="nowcard-t"><span aria-hidden="true">{rec.icon}</span> {rec.label}</b>
-                <span className="nowcard-s">{lc.recFor} →</span>
-              </button>
-            );
-          })()}
           <div className="pw">
             <div className="plblrow">
               <span className="plbl">{lc.pianoLabel}</span>
@@ -193,6 +167,32 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
               </button>
             </div>
           </div>
+          {/* Plan 28 · B1 — ONE card answers "what do I do now": what, how many notes, about how long, and one big button.
+              With a demo on the keys it is the practice run of that demo; without one it is the same recommendation
+              the Daily Mentor shows (recommendNext), so the pages cannot disagree. */}
+          {(() => {
+            const rec = recommendNext();
+            const nNotes = fingerChart && fingerChart.notes ? fingerChart.notes.length : 0;
+            const mins = Math.max(1, Math.round(nNotes / 6));
+            if (hasSeq) {
+              return (
+                <div className="nowcard">
+                  <span className="nowcard-tag">{TT.now}</span>
+                  <b className="nowcard-t">{fingerChart && fingerChart.label ? fingerChart.label : lc.practiceBtn}</b>
+                  <span className="nowcard-s">{nNotes ? `${nNotes} ${TT.notes} · ~${mins} ${TT.min}` : ""}{rec && rec.label ? ` · ${lc.recFor}: ${rec.label}` : ""}</span>
+                  <button className={`practicebtn nowcard-go${!seqPlaying ? " ready" : ""}`} onClick={startPractice} title={lc.practiceBtn}>▶ {TT.start}</button>
+                  <button className="nowcard-sub" onClick={togglePlayPause}>{seqPlaying ? "⏸ " + lc.demoPause : "👂 " + TT.listen}</button>
+                </div>
+              );
+            }
+            return (
+              <button className="nowcard nowcard-rec" onClick={rec.fn}>
+                <span className="nowcard-tag">{TT.now}</span>
+                <b className="nowcard-t"><span aria-hidden="true">{rec.icon}</span> {rec.label}</b>
+                <span className="nowcard-s">{lc.recFor} →</span>
+              </button>
+            );
+          })()}
           <div className="cw">
             <div className="chdr">
               <div className="ailbl"><div className="dot" />{lc.aiLabel}</div>
