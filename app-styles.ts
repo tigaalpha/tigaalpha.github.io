@@ -915,6 +915,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .practicesrc.err{background:rgba(255,82,82,.08);border-color:#ff525233;color:#ff5252}
 .practicenow{display:flex;align-items:center;justify-content:center;gap:30px;padding:4px 0}
 .practicenow-box{text-align:center}
+.practicenow.solo .practicenow-note.target{font-size:56px}
 .practicenow-lbl{font-family:var(--f-num);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px}
 .practicenow-note{font-family:var(--f-app);font-size:36px;font-weight:900;line-height:1}
 .practicenow-note.target{color:#d97757;text-shadow:0 0 18px #d9775777}
@@ -940,7 +941,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .handtoggle .handswap{opacity:.55;font-size:15px;margin-left:2px}
 .practiceov{height:100dvh}
 .practicebody{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));min-height:0}
-@media (max-height:640px){.practicebody{gap:8px;padding:8px 12px}.practicebody .piano{transform-origin:top center}.practicenow-note{font-size:34px}.fhand{width:96px;height:57px}.practicetip{display:none}}
+@media (max-height:640px){.practicenow.solo .practicenow-note.target{font-size:34px}.practicebody{gap:8px;padding:8px 12px}.practicebody .piano{transform-origin:top center}.practicenow-note{font-size:34px}.fhand{width:96px;height:57px}.practicetip{display:none}}
 @media (max-height:600px){.practicesrc{display:none}.fhand{display:none}.practicenow-sol{display:none}.practicefoot{padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}.practicehdr{padding:8px 14px}}
 /* owner 2026-10-09: card text on the Pathway page 10% smaller */
 .pcardlevel{font-size:10.8px}
