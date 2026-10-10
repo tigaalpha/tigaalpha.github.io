@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { logUsage } from "./shared-infra";
 import { L } from "./i18n";
-import { Piano, pcOf } from "./music-engine";
+import { Piano, pcOf, haptic } from "./music-engine";
 import { tigaStrategyLabel } from "./tiga-strategy-labels";   // light static module (plan v3 1.5)
 import { newStudentFeedback, rerunLoopWithSelfReport } from "./tiga-gateway";   // model fns via the lazy gateway (SELF_REPORT_CHOICES was an unused import — dropped)
 import { sttSupported, getSR } from "./speech";
@@ -215,7 +215,10 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
     </div>
   );
 }
-export function PracticeOverlay({ practiceHelp = null, kid = false, practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, practiceWrongByIdxRef = null, switchPracticeChordStyle, startSpotPractice = null, chordGroupSize = 0, onKeepGoing, showKeepGoing = false, metroBpm = null, onSetTempo = null, onTipUpdate = null }) {
+export function PracticeOverlay({ practiceHelp = null, kid = false, detail = false, practiceModeRef, chordStyle, practiceTarget, practiceHitIdxs, practiceFingers, lang, practiceLabel, exitPractice, practiceSrc, practiceTune, hand, setHand, practiceIdx, practiceHeard, practiceMiss, practiceStreak = 0, practiceResult = null, restartPractice, practiceHandlerRef, practiceWrongByIdxRef = null, switchPracticeChordStyle, startSpotPractice = null, chordGroupSize = 0, onKeepGoing, showKeepGoing = false, metroBpm = null, onSetTempo = null, onTipUpdate = null }) {
+  // plan 28 · C3: a light tap when the right key lands (nothing on a miss; the phone buzzes only if it can)
+  const prevIdxRef = useRef(practiceIdx);
+  useEffect(() => { if (practiceIdx > prevIdxRef.current) { try { haptic(6); } catch (e) {} } prevIdxRef.current = practiceIdx; }, [practiceIdx]);
   const lc = L[lang];
         // Grading (use-practice-mode) treats BOTH chord and progression drills
         // as block-style when the toggle says so — the display must gate on the
@@ -356,6 +359,7 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, practiceMode
             </div>
             <div className="practicestats">
               {!kid && <span>{lc.practiceAcc}: <b>{(practiceIdx + practiceMiss) >= 3 ? Math.round(practiceIdx / (practiceIdx + practiceMiss) * 100) + "%" : "–"}</b></span>}
+              {detail && <span>{lang === "th" ? "พลาด" : lang === "zh" ? "错误" : "Misses"}: <b>{practiceMiss}</b></span>}
               <span>✓ <b>{practiceIdx}</b> / {practiceTarget.length}</span>
               {comboBadge(practiceStreak) && <span key={practiceStreak} className="sightstreak practicecombo">{comboBadge(practiceStreak)}</span>}
             </div>

@@ -132,7 +132,7 @@ import {
 import {
   GUEST_TRIAL_MS, GUEST_TICK_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
   pushSupported, subscribePush, unsubscribePush, logUsage,
-  readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses, readRecentNoteMisses, readKidPref, writeKidPref, kidModeOn, setKidNow, kidPromptBlock,
+  readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses, readRecentNoteMisses, readKidPref, writeKidPref, readDetailPref, writeDetailPref, kidModeOn, setKidNow, kidPromptBlock,
   loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
   readLandingOrigin, clearLandingOrigin, anonId,
@@ -12346,6 +12346,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [kidPref, setKidPrefState] = useState(() => readKidPref());
   const kidOn = kidModeOn(profile, kidPref);
   setKidNow(kidOn);   // the prompt builders (chat, coaching tip) read it outside React
+  // plan 28 · C1: "detailed" density for adults (accuracy %, misses, full finger numbers); kid mode always wins and stays simple
+  const [detailPref, setDetailPref] = useState(() => readDetailPref());
+  const detailOn = detailPref && !kidOn;
+  function toggleDetail() { const next = !detailPref; writeDetailPref(next); setDetailPref(next); try { logUsage("nav", "detail:" + (next ? "on" : "off")); } catch (e) {} }
   function toggleKid() { const next = !kidOn; writeKidPref(next); setKidPrefState(next ? "1" : "0"); try { logUsage("nav", "kid:" + (next ? "on" : "off")); } catch (e) {} }
   const marketingOn = !!(profile && profile.marketing_consent);
   function toggleMarketing() {
@@ -13118,7 +13122,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
   return (
     <UxCtx.Provider value={uxOn}>
-    <div className={"tg" + (uxOn ? " ux2" : "") + (kidOn ? " kid" : "")} style={{ opacity: cssReady ? 1 : 0, transition: "opacity .15s" }}>
+    <div className={"tg" + (uxOn ? " ux2" : "") + (kidOn ? " kid" : "") + (detailOn ? " detail" : "")} style={{ opacity: cssReady ? 1 : 0, transition: "opacity .15s" }}>
       <div className="scan" />
 
       {guestGateReason && (
@@ -13565,7 +13569,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>
 
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
-      {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceHelp={practiceHelp} kid={kidOn} practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} startSpotPractice={startSpotPractice} practiceWrongByIdxRef={practiceWrongByIdxRef} /></SafeZone>}
+      {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceHelp={practiceHelp} kid={kidOn} detail={detailOn} practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} startSpotPractice={startSpotPractice} practiceWrongByIdxRef={practiceWrongByIdxRef} /></SafeZone>}
 
       {/* PLAY-ALONG overlay — falling-notes song mode */}
       {songOpen && songMeta && <SafeZone label="หน้าเล่นเพลง" fallbackText="หน้าเล่นเพลงส่วนนี้แสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดเพลงใหม่"><SongPlayOverlay gameStore={gameStore} songMeta={songMeta} lang={lang} songPhase={songPhase} songResult={songResult} songCanvasRef={songCanvasRef} songDataRef={songDataRef} songTempo={songTempo} setSongTempo={setSongTempo} songAutoLoop={songAutoLoop} setSongAutoLoop={setSongAutoLoop} songInputRef={songInputRef} songAnalysisBusy={songAnalysisBusy} songAnalysis={songAnalysis} requestSongAnalysis={requestSongAnalysis} stylePickOpen={stylePickOpen} setStylePickOpen={setStylePickOpen} styleLoading={styleLoading} profile={profile} exitSong={exitSong} startSongPlay={startSongPlay} previewSong={previewSong} shareCard={shareCard} shareLine={shareLine} styleTransform={styleTransform} playAlongHand={playAlongHand} changePlayAlongHand={changePlayAlongHand} openPvpOnline={openPvpOnline} closePvpOnline={closePvpOnline} hostPvpOnline={hostPvpOnline} joinPvpOnline={joinPvpOnline} acceptPvpOnline={acceptPvpOnline} startPvpTogether={startPvpTogether} rematchPvpOnline={rematchPvpOnline} pvpOnline={pvpOnline} codeInput={codeInput} setCodeInput={setCodeInput} songTigaTip={songTigaTip} drillPlan={drillPlan} drillActive={drillActive} drillCleared={drillCleared} startDrill={startDrill} endDrill={endDrill} bossOn={bossOn} bossMax={bossMax} kShelfOpen={kShelfOpen} setKShelfOpen={setKShelfOpen} kShelf={kShelf} openKnowledgeShelf={openKnowledgeShelf} pauseSong={pauseSong} resumeSong={resumeSong} restartSong={restartSong} playAgain={playAgain} playNext={playNext} nextSongFor={nextSongFor} songKind={songKind} setSongKind={setSongKind} songAccomp={songAccomp} setSongAccomp={setSongAccomp} songView={songView} setSongView={setSongView} songBand={songBand} setSongBand={setSongBand} songFx={songFx} setSongFx={setSongFx} songPractice={songPractice} songGfx={songGfx} setSongGfx={setSongGfx} songIntro={songIntro} startIntro={startIntro} skipIntro={skipIntro} sfxMuted={sfxMuted} onToggleSfx={() => { const m = !sfxMuted; setSfxMuted(m); setSfxMutedState(m); }} onRemind={(session && pushSupported() && !pushOn && !notifDone) ? () => { logUsage("event", "pa-remind-tap"); joinNotifEvent(); } : null} /></SafeZone>}
@@ -13847,6 +13851,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="setrow">
                 <label>🧒 {lang === "th" ? "โหมดเด็ก (คำสั้น ๆ ง่าย ๆ)" : lang === "zh" ? "儿童模式（更简单的话）" : "Kid mode (short, simple words)"}</label>
                 <button className={`settoggle${kidOn ? " on" : ""}`} onClick={toggleKid}>{kidOn ? lc.setOn : lc.setOff}</button>
+              </div>
+              <div className="setrow">
+                <label>📊 {lang === "th" ? "โหมดละเอียด (เปอร์เซ็นต์ความแม่นยำ จำนวนที่พลาด)" : lang === "zh" ? "详细模式（准确率、错误次数）" : "Detailed mode (accuracy %, misses)"}</label>
+                <button className={`settoggle${detailOn ? " on" : ""}`} disabled={kidOn} onClick={toggleDetail}>{detailOn ? lc.setOn : lc.setOff}</button>
               </div>
               <button className="setbtn wide" style={{ width: "100%" }} onClick={() => { setSettingsOpen(false); premium ? setParentOpen(true) : setPricingOpen(true); }}>👨‍👩‍👧 {lc.pdTitle}{!premium && " 🔒"}</button>
               <div className="setdiv" />

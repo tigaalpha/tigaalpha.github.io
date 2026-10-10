@@ -310,6 +310,8 @@ export async function mergeGuestProgressIntoProfile(uid, real) {
 /* ── Kid mode (plan 27 · P1-5; owner 2026-10-09: "even a 6-year-old must understand") ──
    Shorter words on the practice screens. On by choice (Settings), or by itself when the profile's age says child (≤ 9) and the
    learner has not chosen. `tg_kid`: "1" on, "0" off, absent = follow the age. */
+export function readDetailPref(): boolean { try { return localStorage.getItem("tg_detail") === "1"; } catch (e) { return false; } }
+export function writeDetailPref(on: boolean) { try { localStorage.setItem("tg_detail", on ? "1" : "0"); } catch (e) {} }
 export function readKidPref(): string | null { try { return localStorage.getItem("tg_kid"); } catch (e) { return null; } }
 export function writeKidPref(on: boolean) { try { localStorage.setItem("tg_kid", on ? "1" : "0"); } catch (e) {} }
 export function kidModeOn(profile: any, pref: string | null = readKidPref()): boolean {
