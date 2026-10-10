@@ -48,26 +48,26 @@ const LOOKAHEAD = 0.35;                    // seconds booked ahead of the audio 
    SONG_GENRES) falls through to `rock`, which is byte-for-byte what the band
    has always played — nothing changes for a song we cannot place. */
 export const BAND_STYLES = {
-  baroque:       { drums: "none",    lead: "harpsichord", pad: "continuo" },
-  classical:     { drums: "timpani", lead: "strings",     pad: "strings"   },
-  romantic:      { drums: "soft",    lead: "strings",     pad: "strings"   },
-  impressionism: { drums: "none",    lead: "celesta",     pad: "softpad"   },
-  kids:          { drums: "clap",    lead: "pluck",       pad: "musicbox"  },
-  folk:          { drums: "clap",    lead: "pluck",       pad: "pluck"     },
-  cn:            { drums: "soft",    lead: "pluck",       pad: "pluck"     },
-  carol:         { drums: "none",    lead: "organ",       pad: "organ"     },
-  gospel:        { drums: "soft",    lead: "organ",       pad: "strings"   },
-  jazz:          { drums: "ride",    lead: "pluck",       pad: "comping"   },
+  baroque:       { drums: "none",    lead: "harpsichord", pad: "continuo", extra: ["flute", "harp"] },
+  classical:     { drums: "timpani", lead: "strings",     pad: "strings",   extra: ["oboe", "horn"] },
+  romantic:      { drums: "soft",    lead: "strings",     pad: "strings",   extra: ["horn", "harp"] },
+  impressionism: { drums: "none",    lead: "celesta",     pad: "softpad",   extra: ["flute", "harp"] },
+  kids:          { drums: "clap",    lead: "pluck",       pad: "musicbox",  extra: ["vibes", "flute"] },
+  folk:          { drums: "clap",    lead: "pluck",       pad: "pluck",     extra: ["strum", "flute"] },
+  cn:            { drums: "soft",    lead: "pluck",       pad: "pluck",     extra: ["flute", "harp"] },
+  carol:         { drums: "none",    lead: "organ",       pad: "organ",     extra: ["flute", "horn"] },
+  gospel:        { drums: "soft",    lead: "organ",       pad: "strings",   extra: ["horn", "sax"] },
+  jazz:          { drums: "ride",    lead: "pluck",       pad: "comping",   extra: ["vibes", "sax"] },
   /* the jazz & blues originals carry their idiom in the index row's `sty` and no genre
      of their own (they are not in SONG_GENRES — they are not even in the bundle), so
      without these three keys a blues would ride the default rock kit: a snare backbeat
      under a shuffle. blues/swing/bossa book the ride cymbal and the comping pad, which
      is what the pieces themselves are written for. */
-  blues:         { drums: "ride",    lead: "pluck",       pad: "comping"   },
-  swing:         { drums: "ride",    lead: "pluck",       pad: "comping"   },
-  bossa:         { drums: "clap",    lead: "epiano",      pad: "comping"   },
-  soul:          { drums: "soft",    lead: "epiano",      pad: "strings"   },
-  neosoul:       { drums: "soft",    lead: "epiano",      pad: "pad"       },
+  blues:         { drums: "ride",    lead: "pluck",       pad: "comping",   extra: ["sax", "vibes"] },
+  swing:         { drums: "ride",    lead: "pluck",       pad: "comping",   extra: ["sax", "vibes"] },
+  bossa:         { drums: "clap",    lead: "epiano",      pad: "comping",   extra: ["vibes", "strum"] },
+  soul:          { drums: "soft",    lead: "epiano",      pad: "strings",   extra: ["sax", "horn"] },
+  neosoul:       { drums: "soft",    lead: "epiano",      pad: "pad",       extra: ["vibes", "sax"] },
 };
 const styleOf = (s) => BAND_STYLES[s] || null;      // null = the default rock band
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -222,7 +222,7 @@ export function createBand(opts) {
 
      Falls back to the plain mix on any browser without StereoPannerNode, so
      this can never be the thing that breaks the band. */
-  const PAN = { drums: 0.1, b: 0, n: 0.3, c: -0.4, l: 0.45, x: -0.15, m: 0.35, a: -0.45 };
+  const PAN = { drums: 0.1, b: 0, n: 0.3, c: -0.4, l: 0.45, x: -0.15, m: 0.35, a: -0.45, w: 0.5, e: -0.35, h: -0.25, v: 0.25 };
   function panTo(kind) {
     const c = node(), p = PAN[kind] || 0;
     if (!p) return c.mix;
@@ -333,11 +333,22 @@ export function createBand(opts) {
     f.connect(g); g.connect(o.pan ? panTo(o.pan) : c.mix);
     if (o.echo) { const s = ac.createGain(); s.gain.value = o.echo; g.connect(s); s.connect(c.send); }
     const det = o.detune == null ? 7 : o.detune;
+    /* a player's vibrato: a slow pitch wobble that arrives a moment after the note starts (a held string, a sax, a flute never
+       vibrates from the first instant). One LFO per section, in cents, feeding every oscillator's detune. */
+    let vib = null;
+    if (o.vib) {
+      const lfo = ac.createOscillator(), lg = ac.createGain();
+      lfo.type = "sine"; lfo.frequency.value = o.vib.rate || 5.2;
+      lg.gain.setValueAtTime(0, when); lg.gain.linearRampToValueAtTime(o.vib.depth || 10, when + (o.vib.delay || 0.25));
+      lfo.connect(lg); lfo.start(when); lfo.stop(end + 0.05);
+      vib = lg;
+    }
     for (const m of midis) {
       const fr = mtof(m);
       for (const d of det ? [-det, det] : [0]) {
         const osc = ac.createOscillator(), vg = ac.createGain();
         osc.type = o.type || "sawtooth"; osc.frequency.value = fr; osc.detune.value = d;
+        if (vib) vib.connect(osc.detune);
         vg.gain.value = o.v;
         osc.connect(vg); vg.connect(f); osc.start(when); osc.stop(end + 0.05);
       }
@@ -446,6 +457,42 @@ export function createBand(opts) {
     a.connect(g); b.connect(bg); bg.connect(g);
     a.start(when); b.start(when); a.stop(when + dur + 0.03); b.stop(when + dur + 0.03);
     suppress(fr, when, dur + 0.3, 2);
+  }
+
+  /* ── the orchestra's other instruments (owner, 2026-10-10: "add strings, winds, more variety so the backing is beautiful and
+     practising feels real"). All of them are built from the same oscillators and bus as the rest of the band, all of them call
+     suppress() so the mic never hears them as the player's note, and each sits in the stereo field by what it is. They only
+     play for a style that names them (BAND_STYLES.extra); every other song keeps the band it always had.
+     flute / oboe: a breathy sine-and-triangle line with a delayed vibrato and a puff of air at the start
+     sax: a reedy saw through a moving filter with a wide vibrato
+     horn: a warm, slow-attack brass pad that sits below the tune
+     harp: the chord rolled upward, each string a hair after the last
+     strum: a guitar strum, the strings struck from the bass up in a few milliseconds
+     vibes: a struck metal bar that rings into the echo ── */
+  function windLine(when, m, dur, v, kind) {
+    const { ac } = audioBus();
+    const rich = kind === "oboe" ? 0.55 : 0.3;
+    section(when, [m], dur, { v: v * 0.9, type: "triangle", attack: kind === "flute" ? 0.07 : 0.05, release: 0.25, cutoff: kind === "oboe" ? 3200 : 4200, q: 0.5, detune: 0, vib: { rate: 5.4, depth: kind === "flute" ? 14 : 11, delay: 0.3 }, shimmer: [[2, rich]], shimmerType: "sine", partials: 3, echo: 0.2, pan: "w" });
+    // the breath: a quick burst of air above the pitch at the start (noise, so the pitch detector rejects it)
+    try {
+      noiseHit(when, 0.012 * v / 0.05, "bandpass", Math.min(8000, mtof(m) * 3), 1.4, 0.07);
+    } catch (e) {}
+  }
+  function saxLine(when, m, dur, v) {
+    section(when, [m], dur, { v: v * 0.8, type: "sawtooth", attack: 0.04, release: 0.2, cutoff: 1800, cutoff2: 2800, sweep: 0.3, q: 1.4, detune: 3, vib: { rate: 5.8, depth: 18, delay: 0.22 }, partials: 4, echo: 0.14, pan: "w" });
+  }
+  function hornPad(when, midis, dur, v) {
+    section(when, midis, dur, { v: v * 0.8, type: "sawtooth", attack: 0.16, release: 0.4, cutoff: 1000, cutoff2: 1500, sweep: 0.5, q: 0.7, detune: 4, partials: 3, echo: 0.12, pan: "e" });
+  }
+  function harpRoll(when, midis, beatSec, v) {
+    midis.forEach((m, k) => pluck(when + k * 0.065, m, beatSec * 1.7, v * (1 - k * 0.06), "h"));
+  }
+  function strumChord(when, midis, beatSec, v, up = false) {
+    const seq = up ? midis.slice().reverse() : midis;
+    seq.forEach((m, k) => pluck(when + k * 0.024, m, beatSec * 1.1, v * (up ? 0.8 : 1), "h"));
+  }
+  function vibesNote(when, m, dur, v) {
+    section(when, [m], Math.min(dur, 1.4), { v: v * 1.0, type: "sine", attack: 0.004, release: 0.9, cutoff: 6000, q: 0.4, detune: 0, shimmer: [[4, 0.18]], shimmerType: "sine", echo: 0.4, partials: 3, pan: "v" });
   }
 
   /* Book every half-beat from where we are up to LOOKAHEAD ahead.
@@ -631,6 +678,38 @@ export function createBand(opts) {
       const mel = 12 * 5 + (c.pcs[(bar + p) % c.pcs.length] - c.root + 12) % 12 + (p === 2 ? 12 : 0);
       section(when, [mel], beatSec * (waltz ? 0.8 : 0.9), { v: 0.016 * A, type: "sawtooth", attack: 0.09, release: 0.22, cutoff: 2600, q: 0.6, detune: 9, partials: 3, echo: 0.12, pan: "m" });
       entry.parts += "m";
+    }
+    /* ── the style's other instruments. The first joins with the combo's first layer (3), the second with the strings (8). They
+       leave the player alone the same way the string line does: a line only plays where the player's note is NOT sounding, and a
+       voice that lives in the player's octave is only a pad below it. Nothing here runs for a style without `extra`. */
+    if (kit && kit.extra && !finale) {
+      for (let i = 0; i < 2; i++) {
+        const nm = kit.extra[i];
+        if (!nm || !(i === 0 ? L1 : L2)) continue;
+        const ev = 0.026 * A;
+        if (nm === "flute" || nm === "oboe" || nm === "sax") {
+          const gap = onBeat && (p === 0 || p === Math.floor(bpb / 2)) && !melHere && !(slow && p !== 0);
+          if (gap && on("w")) {
+            const idx = (bar * 2 + p + i) % 3;
+            const pc = (c.pcs[idx] - c.root + 12) % 12;
+            const m = (nm === "flute" ? 12 * 7 : nm === "oboe" ? 12 * 6 : 12 * 5) + c.root % 12 + pc;
+            const ld = beatSec * (waltz ? 1.4 : 1.8);
+            if (nm === "sax") saxLine(when, m, ld, ev); else windLine(when, m, ld, ev, nm);
+            entry.parts += "w";
+          }
+        } else if (nm === "horn") {
+          if (chordStart && on("e")) { hornPad(when, stack(c, 3).slice(1, 3), Math.min(c.len, Math.max(1, endBeat - c.at + 1)) * beatSec * 0.96, 0.03 * A); entry.parts += "e"; }
+        } else if (nm === "harp") {
+          if (chordStart && on("h")) { harpRoll(when, stack(c, melHere ? 4 : 5), beatSec, 0.04 * A); entry.parts += "h"; }
+        } else if (nm === "strum") {
+          if ((chordStart || (onBeat && p === Math.floor(bpb / 2) && bpb === 4)) && on("h")) { strumChord(when, stack(c, 4), beatSec, 0.04 * A, !chordStart); entry.parts += "h"; }
+        } else if (nm === "vibes") {
+          if (!melHere && !onBeat && (bar + Math.round(pos * 2)) % 2 === 0 && on("h")) {
+            const pc = (c.pcs[(bar + Math.round(pos * 2)) % 3] - c.root + 12) % 12;
+            vibesNote(when, 12 * 6 + c.root % 12 + pc, beatSec * 1.2, 0.03 * A); entry.parts += "h";
+          }
+        }
+      }
     }
     // ── Fever: an arpeggio of the chord, plucked, up and down, on every half-beat
     if (fever && !finale && !(melHere && !onBeat) && on("a")) {
