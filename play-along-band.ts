@@ -37,8 +37,10 @@ export const BAND_LEVELS = [0, 0.55, 1, 1.35];   // off, soft, normal, full
 const LOOKAHEAD = 0.35;
 /* the band's master gain. Owner 2026-10-10: "the backing track is too quiet, ten percent louder" — 0.21 -> 0.231 (+0.83 dB).
    Checked against the three numbers that decide the mix (no clipping, <= 90 % of the energy under 250 Hz, band >= 12 dB under the
-   player's note): the quietest margin before the change was the carol style at -13.4 dB, so it lands at about -12.6 dB. */
-const MASTER = 0.231;                    // seconds booked ahead of the audio clock
+   player's note): the quietest margin before the change was the carol style at -13.4 dB, so it lands at about -12.6 dB.
+   Owner 2026-10-10, again: "another fifteen percent" -> 0.231 -> 0.2657 (+1.2 dB). That alone would take carol (organ) and the
+   classical waltz past the 12 dB gate, so the organ drawbars are trimmed to compensate (see organ below). */
+const MASTER = 0.2657;                    // seconds booked ahead of the audio clock
 
 /* ── the arrangement per song (owner, 2026-10-03: "the backing track has to be
    beautiful — add whatever sounds suit the piece") ──
@@ -443,7 +445,7 @@ export function createBand(opts) {
      inside the masking gate and past it. No shimmer here, and a little quieter:
      drawbars are supposed to be the wall behind the tune, not the tune. */
   const organ = (when, midis, dur, v) =>
-    section(when, midis, dur, { v: v * 0.42, type: "square", attack: 0.05, release: 0.22, cutoff: 2400, q: 0.5, detune: 4, partials: 5, pan: "l" });
+    section(when, midis, dur, { v: v * 0.33, type: "square", attack: 0.05, release: 0.22, cutoff: 2400, q: 0.5, detune: 4, partials: 5, pan: "l" });
   // celesta: a struck metal bar — no edge at all, and it rings into the echo
   const celesta = (when, midis, dur, v) =>
     section(when, midis, dur, { v: v * 0.9, type: "sine", attack: 0.004, release: Math.min(0.5, dur * 0.7), cutoff: 7000, q: 0.4, detune: 0, echo: 0.35, partials: 3, pan: "l" });
