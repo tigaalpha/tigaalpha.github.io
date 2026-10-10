@@ -285,7 +285,7 @@ html[data-theme="dark"] .songov.pl-themed .pl-kindnote{color:#8fe3b8}
 .songov.pl-themed .pl-code{background:var(--card);border:1px solid var(--bd5);color:var(--text)}
 .songov.pl-themed .pl-roomcode{color:var(--text)}
 /* Start (and the practice / preview links) pinned to the bottom edge */
-.songov.pl-themed .pl-startbar{position:sticky;bottom:0;z-index:3;align-self:stretch;margin:0 -16px;padding:16px 16px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:0;background:linear-gradient(to bottom,transparent,var(--bg) 16px)}
+.songov.pl-themed .pl-startbar{position:static;z-index:3;align-self:stretch;margin:0 -16px;padding:16px 16px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:0;background:linear-gradient(to bottom,transparent,var(--bg) 16px)}
 .pl-startrow{display:flex;gap:0 6px;justify-content:center;flex-wrap:nowrap}
 .pl-startrow .pl-link{white-space:nowrap}
 @media (prefers-reduced-motion: reduce){
