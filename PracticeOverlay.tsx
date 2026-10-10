@@ -61,7 +61,7 @@ function ResultBar({ label, pct, color }) {
     </div>
   );
 }
-function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo, onTipUpdate, startSpotPractice }) {
+function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo, onTipUpdate, startSpotPractice, hand = "right", setHand = null }) {
   const r = practiceResult;
   // Practice v4 A1/A2: per-index miss counts flushed by finishPractice into the
   // result snapshot — chips render the exact missed notes; the launcher's count
@@ -128,7 +128,16 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
           : acc >= 90 && prev != null && prev >= 90 ? T3("แม่นมากสองครั้งติด! ลองมืออีกข้าง หรือเปลี่ยนคีย์ดูนะ", "Super accurate twice in a row! Try the other hand or a new key.", "连续两次很准！试试另一只手或换个调。")
           : acc < 60 ? T3("ไม่เป็นไร ค่อย ๆ เล่นช้า ๆ เริ่มจากโน้ตที่พลาดก่อนนะ", "That is okay. Go slowly and start with the notes you missed.", "没关系，慢慢来，先练弹错的音。")
           : T3("ดีมาก! ลองอีกรอบให้แม่นขึ้นอีกนิด", "Nice! One more round to get even cleaner.", "很好！再来一轮会更准。");
-        return <div className={`presultmsg${kid ? " kid" : ""}`}>{msg}</div>;
+        // plan 28 · D3: two clean rounds in a row earns ONE next step, offered only on that evidence (never from thin data)
+        const steady = acc >= 90 && prev != null && prev >= 90 && setHand;
+        return <>
+          <div className={`presultmsg${kid ? " kid" : ""}`}>{msg}</div>
+          {steady && (
+            <button className="atpopup-ok presultnext" onClick={() => { try { logUsage("practice", "next:other-hand"); } catch (e) {} setHand(hand === "left" ? "right" : "left"); restartPractice(); }}>
+              {T3("🤚 ลองมืออีกข้าง", "🤚 Try the other hand", "🤚 换另一只手")}
+            </button>
+          )}
+        </>;
       })()}
       <div className="presultstars" aria-label={starsOf(r.accuracy) + " stars"}>{[1, 2, 3].map(n => <span key={n} className={n <= starsOf(r.accuracy) ? "on" : ""}>★</span>)}</div>
       <div className="presultstats">
@@ -253,7 +262,7 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
           <div className="practicehtitle">{lc.practiceTitle}<small>{practiceLabel}</small></div>
           <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
         </div>
-        <PracticeResultView kid={kid} practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} onTipUpdate={onTipUpdate} startSpotPractice={startSpotPractice} />
+        <PracticeResultView kid={kid} practiceResult={practiceResult} lang={lang} lc={lc} restartPractice={restartPractice} exitPractice={exitPractice} onKeepGoing={onKeepGoing} showKeepGoing={showKeepGoing} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} onTipUpdate={onTipUpdate} startSpotPractice={startSpotPractice} hand={hand} setHand={setHand} />
         <div className="practicefoot">
           <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>
           <button className="practiceexit" onClick={exitPractice}>✕ {lc.practiceExit}</button>
