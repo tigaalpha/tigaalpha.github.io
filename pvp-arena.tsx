@@ -22,7 +22,8 @@
    yours from rank 1, the active at rank 3, the ultimate at rank 6. ── */
 
 import { addRpgExp, rpgOf, rpgMods, spendPoint, resetPoints, RPG_STATS, RPG_MAX_LV, STAT_CAP } from "./pvp-rpg";
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo, lazy, Suspense } from "react";
+const AdventurePage = lazy(() => import("./adventure").then(m => ({ default: m.AdventurePage })));   // Adventure Mode: its own chunk, fetched only when entered
 import { createPortal } from "react-dom";
 import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
@@ -1199,6 +1200,7 @@ export const PvpPage = memo(function PvpPage({
   // a finished fight (or the lobby) is always portrait and out of full screen; a new fight re-enters it from its own tap
   useEffect(() => { if (phase !== "fight") exitFsAndUnlock(); }, [phase]);
   const [lobbyTab, setLobbyTab] = useState("fight");
+  const [advOpen, setAdvOpen] = useState(false);
   const [rpgTick, setRpgTick] = useState(0);   // re-reads the robot's level after a fight or a point spent
   const [tierIdx, setTierIdx] = useState(() => { try { const v = parseInt(localStorage.getItem("tg_pvp_tier") || "3", 10); return v >= 0 && v < BOT_TIERS.length ? v : 3; } catch (e) { return 3; } });
   const pickTier = (i) => { setTierIdx(i); try { localStorage.setItem("tg_pvp_tier", String(i)); } catch (e) {} };
@@ -1482,6 +1484,13 @@ export const PvpPage = memo(function PvpPage({
   }, [myCls, me, squadUsed, onReward, playUi, gauntlet, isWeekly, weekly, isRival, rival, practiceMode, lang, isGhost, objectives]);
 
   /* ── lobby ── */
+  if (phase === "lobby" && advOpen) {
+    return (
+      <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2400, background: "#02070c", color: "#9dffd6", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>🪐 Adventure…</div>}>
+        <AdventurePage lang={lang} me={me} colorway={colorway} held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} petNow={petNow} onBack={() => setAdvOpen(false)} playUi={playUi} />
+      </Suspense>
+    );
+  }
   if (phase === "lobby") {
     const openDuels = (duels || []).filter(d => d.song_id === "arena");
     return (
@@ -1520,6 +1529,9 @@ export const PvpPage = memo(function PvpPage({
               </span>
             )}
           </div>
+          <button type="button" className="pvpadv" onClick={() => { if (playUi) playUi("click"); setAdvOpen(true); }} aria-label="Adventure Mode">
+            <span aria-hidden="true">🪐</span><b>Adventure</b><i>{T("ผจญภัยดาวต่างดาว", "Alien planets", "外星冒险")}</i>
+          </button>
           <div className="pvphero-hud">
             {squadUsed === "pet" ? (<>
               <span className="hx-k">{T("สัตว์เลี้ยง", "PET", "宠物")} · {tr3(PET_TYPES[petSpecNow.type] || PET_TYPES.steel, lang)}</span>

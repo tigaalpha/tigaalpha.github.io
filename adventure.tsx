@@ -1,0 +1,469 @@
+/* ── adventure.tsx · ADVENTURE MODE (owner, 2026-10-12) ──
+   A robot (and its pet) runs through a planet, fights the alien monsters it meets, and levels up.
+   Side-scrolling, real-time, drawn entirely in code: no image or model file is downloaded, so the
+   page opens as soon as its chunk (this file) has arrived and every picture is baked in a few
+   milliseconds. Two graphics modes share one engine:
+     · standard — device pixel ratio 1, 30 frames a second, three parallax layers, a handful of particles;
+     · high     — up to 2x pixels, 60 frames, extra fog and light layers, glow sprites, more particles,
+                  camera ease and screen shake.
+   The robot's level, the five stats (STR/DEX/INT/LUK/AGI) and the skill rank are the SAME ones PvP uses
+   (pvp-rpg.ts and the skill SP in pvp-arena.tsx): EXP won here is EXP won there. What drops here is EXP
+   and skill points only: nothing in this mode sells, pays coins or touches the shop. Phase 1: one playable
+   planet (the other four are on the map, locked), three monsters, no boss yet. ── */
+import { useEffect, useRef, useState, useMemo, memo } from "react";
+import { CyberAvatar } from "./cyber-avatar";
+import { PetArt, petLevel } from "./pet-lab";
+import { addRpgExp, rpgOf, rpgMods, RPG_MAX_LV } from "./pvp-rpg";
+import { addSkillSp, readSkillSp, skillRank } from "./pvp-arena";
+import { classKeyOf } from "./model-skills";
+import { isLowEnd, spaceTier } from "./space-stage";
+
+const VH = 360, GROUND = 300, WORLD = 5200, TILE = 960;
+const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+/* the five planets (only the first is playable in this phase) */
+export const PLANETS = [
+  { id: "luma",   th: "ลูมา · ดาวป่าเรืองแสง",   en: "Luma · the glowing jungle", zh: "卢玛 · 荧光丛林",   c: ["#04131c", "#0a3a3a", "#1c8a6a"], glow: "90,255,200", acc: "255,120,220", ok: true },
+  { id: "ferro",  th: "เฟอร์โร · ทะเลทรายเหล็ก",  en: "Ferro · the iron desert",   zh: "费罗 · 钢铁沙漠",   c: ["#1a0d05", "#4a2410", "#b8672c"], glow: "255,170,90", acc: "255,90,60",  ok: false },
+  { id: "kryo",   th: "ไครโอ · ดาวน้ำแข็งคริสตัล", en: "Kryo · the crystal ice",    zh: "克里奥 · 水晶冰原", c: ["#061427", "#123a63", "#6fc4ff"], glow: "150,225,255", acc: "120,160,255", ok: false },
+  { id: "pyra",   th: "ไพรา · เตาปฏิกรณ์ลาวา",    en: "Pyra · the lava reactor",   zh: "派拉 · 熔岩反应堆", c: ["#1c0606", "#5a1408", "#ff6a2a"], glow: "255,120,50", acc: "255,200,60",  ok: false },
+  { id: "nexa",   th: "เน็กซา · เมืองซากอวกาศ",   en: "Nexa · the wreck city",     zh: "内克萨 · 残骸之城", c: ["#0a0518", "#2a1250", "#9a5cff"], glow: "190,150,255", acc: "63,240,208",  ok: false },
+];
+
+/* ── monsters ── */
+const MON = {
+  glowbug:     { hp: 34, dmg: 9,  speed: 70,  exp: 12, w: 46, h: 34, cd: 1100, name: ["กลอว์บัก", "Glowbug", "荧虫"] },
+  thornback:   { hp: 96, dmg: 15, speed: 38,  exp: 30, w: 78, h: 44, cd: 1500, name: ["ธอร์นแบ็ก", "Thornback", "刺背兽"] },
+  sporecaster: { hp: 52, dmg: 11, speed: 30,  exp: 26, w: 52, h: 60, cd: 2200, name: ["สปอร์คาสเตอร์", "Sporecaster", "孢子术士"], ranged: true },
+};
+
+/* ── painting helpers ── */
+function layer(w, h, fn) { const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); const x = c.getContext("2d"); fn(x, c.width, c.height); return c; }
+function glowSprite(rgb, r) { return layer(r * 2, r * 2, (x, w, h) => { const g = x.createRadialGradient(r, r, 0, r, r, r); g.addColorStop(0, `rgba(${rgb},0.9)`); g.addColorStop(0.35, `rgba(${rgb},0.3)`); g.addColorStop(1, `rgba(${rgb},0)`); x.fillStyle = g; x.fillRect(0, 0, w, h); }); }
+
+/** All of the planet's backdrop, baked once for this canvas size. Layers are tiles that repeat sideways. */
+function bakePlanet(P, cw, ch, k, high) {
+  const rgb = P.glow, acc = P.acc;
+  const sky = layer(cw, ch, (x, w, h) => {
+    const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, P.c[0]); g.addColorStop(0.55, P.c[1]); g.addColorStop(1, P.c[2]); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    for (let i = 0; i < (high ? 90 : 45); i++) { x.fillStyle = `rgba(255,255,255,${0.15 + rnd(i + 5) * 0.55})`; const s = (0.6 + rnd(i + 9) * 1.2) * k; x.fillRect(rnd(i) * w, rnd(i + 40) * h * 0.62, s, s); }
+    // two moons and a ringed neighbour: the sky says "another planet" before anything else does
+    const m1 = x.createRadialGradient(w * 0.72, h * 0.2, 0, w * 0.72, h * 0.2, h * 0.16); m1.addColorStop(0, "rgba(255,255,255,.95)"); m1.addColorStop(0.5, `rgba(${rgb},.55)`); m1.addColorStop(1, `rgba(${rgb},0)`); x.fillStyle = m1; x.beginPath(); x.arc(w * 0.72, h * 0.2, h * 0.16, 0, 7); x.fill();
+    x.fillStyle = `rgba(${acc},.5)`; x.beginPath(); x.arc(w * 0.2, h * 0.14, h * 0.05, 0, 7); x.fill();
+    x.strokeStyle = `rgba(${acc},.4)`; x.lineWidth = 2 * k; x.beginPath(); x.ellipse(w * 0.2, h * 0.14, h * 0.09, h * 0.022, -0.35, 0, 7); x.stroke();
+    if (high) { for (let b = 0; b < 3; b++) { const gg = x.createLinearGradient(0, 0, w, 0); gg.addColorStop(0, `rgba(${rgb},0)`); gg.addColorStop(0.5, `rgba(${rgb},.07)`); gg.addColorStop(1, `rgba(${acc},0)`); x.fillStyle = gg; x.beginPath(); x.moveTo(0, h * (0.1 + b * 0.12)); x.quadraticCurveTo(w * 0.5, h * (0.02 + b * 0.1), w, h * (0.22 + b * 0.1)); x.lineTo(w, h * (0.3 + b * 0.1)); x.quadraticCurveTo(w * 0.5, h * (0.12 + b * 0.1), 0, h * (0.2 + b * 0.1)); x.fill(); } }
+  });
+  const tileW = TILE * k;
+  const mk = (f, hh, alpha, shade) => layer(tileW, ch, (x, w, h) => {
+    const base = GROUND * k;
+    x.fillStyle = `rgba(${shade},${alpha})`;
+    x.beginPath(); x.moveTo(0, h);
+    for (let i = 0; i <= 24; i++) { const px = (i / 24) * w, py = base - hh * k * (0.3 + 0.7 * Math.abs(Math.sin(i * 0.9 + f) * Math.cos(i * 0.37 + f * 2))); x.lineTo(px, py); }
+    x.lineTo(w, h); x.closePath(); x.fill();
+  });
+  const far = mk(1, 120, 0.85, "4,30,40");
+  const mid = layer(tileW, ch, (x, w, h) => {
+    const base = GROUND * k;
+    x.fillStyle = "rgba(2,22,28,.92)"; x.fillRect(0, base - 6 * k, w, h);
+    for (let i = 0; i < 14; i++) {                    // giant glowing mushrooms / spore trees
+      const cx = (i + 0.5 + (rnd(i + 3) - 0.5) * 0.5) / 14 * w, th = (70 + rnd(i) * 80) * k, tw = (6 + rnd(i + 1) * 6) * k;
+      x.fillStyle = "rgba(3,40,44,.95)"; x.beginPath(); x.moveTo(cx - tw, base); x.quadraticCurveTo(cx + (rnd(i + 2) - 0.5) * 20 * k, base - th * 0.5, cx, base - th); x.quadraticCurveTo(cx + tw * 0.3, base - th * 0.5, cx + tw, base); x.fill();
+      const cr = (22 + rnd(i + 7) * 26) * k, col = i % 3 ? rgb : acc;
+      const cg = x.createRadialGradient(cx, base - th, 0, cx, base - th, cr * 1.7); cg.addColorStop(0, `rgba(${col},.5)`); cg.addColorStop(1, `rgba(${col},0)`); x.fillStyle = cg; x.beginPath(); x.arc(cx, base - th, cr * 1.7, 0, 7); x.fill();
+      x.fillStyle = `rgba(${col},.85)`; x.beginPath(); x.ellipse(cx, base - th, cr, cr * 0.55, 0, Math.PI, 0); x.fill();
+      x.fillStyle = "rgba(255,255,255,.7)"; for (let s = 0; s < 4; s++) x.fillRect(cx + (s - 1.5) * cr * 0.4, base - th - cr * 0.2, 2 * k, 2 * k);
+    }
+  });
+  const near = layer(tileW, ch, (x, w, h) => {
+    const base = GROUND * k;
+    for (let i = 0; i < 10; i++) {                   // foreground ferns, dark, with a lit edge
+      const cx = (i + 0.3 + rnd(i + 21) * 0.5) / 10 * w, fh = (36 + rnd(i + 30) * 44) * k;
+      x.strokeStyle = `rgba(${rgb},.55)`; x.lineWidth = 2 * k; x.fillStyle = "rgba(2,16,20,.96)";
+      for (let b = -2; b <= 2; b++) { x.beginPath(); x.moveTo(cx, base + 24 * k); x.quadraticCurveTo(cx + b * 14 * k, base - fh * 0.7, cx + b * 26 * k, base - fh * (1 - Math.abs(b) * 0.18)); x.quadraticCurveTo(cx + b * 12 * k, base - fh * 0.5, cx, base + 24 * k); x.fill(); x.stroke(); }
+    }
+  });
+  const ground = layer(tileW, ch, (x, w, h) => {
+    const base = GROUND * k, g = x.createLinearGradient(0, base, 0, h); g.addColorStop(0, "#0b3a38"); g.addColorStop(0.08, "#06242a"); g.addColorStop(1, "#02090f"); x.fillStyle = g; x.fillRect(0, base, w, h - base);
+    x.fillStyle = `rgba(${rgb},.9)`; x.fillRect(0, base, w, 2 * k);
+    x.fillStyle = `rgba(${rgb},.18)`; x.fillRect(0, base + 2 * k, w, 6 * k);
+    for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(${i % 4 ? rgb : acc},${0.25 + rnd(i) * 0.4})`; x.fillRect(rnd(i + 60) * w, base + (6 + rnd(i + 80) * 50) * k, (1 + rnd(i) * 2) * k, (1 + rnd(i) * 2) * k); }
+  });
+  let fog = null;
+  if (high) fog = layer(tileW, ch, (x, w, h) => { const base = GROUND * k; for (let i = 0; i < 6; i++) { const cx = (i + 0.5) / 6 * w, g = x.createRadialGradient(cx, base - 8 * k, 0, cx, base - 8 * k, 160 * k); g.addColorStop(0, `rgba(${rgb},.16)`); g.addColorStop(1, `rgba(${rgb},0)`); x.save(); x.translate(0, base); x.scale(1, 0.18); x.translate(0, -base); x.fillStyle = g; x.beginPath(); x.arc(cx, base - 8 * k, 160 * k, 0, 7); x.fill(); x.restore(); } });
+  const glows = { green: glowSprite(rgb, 40 * k), pink: glowSprite(acc, 40 * k), white: glowSprite("255,255,255", 30 * k), red: glowSprite("255,70,90", 40 * k) };
+  return { sky, far, mid, near, ground, fog, glows };
+}
+
+/* ── the three monsters, drawn from a few shapes each (cheap: no gradients built per frame) ── */
+function drawMonster(x, m, t, k, G) {
+  const d = MON[m.type], bob = Math.sin(t * 5 + m.ph) * 2;
+  x.save(); x.translate(m.x, 0);
+  const flip = m.face < 0 ? -1 : 1; x.scale(flip, 1);
+  const hit = m.hurt > 0;
+  const body = hit ? "#ffffff" : m.type === "glowbug" ? "#0e5a4a" : m.type === "thornback" ? "#3a1030" : "#2a1a66";
+  const glow = m.type === "glowbug" ? "90,255,200" : m.type === "thornback" ? "255,70,90" : "190,130,255";
+  if (m.type === "glowbug") {
+    const y = GROUND - m.y - 6 + bob * 0.5;
+    x.strokeStyle = "#063d33"; x.lineWidth = 3; for (let i = 0; i < 3; i++) { const lx = -14 + i * 12, ph = Math.sin(t * 12 + i + m.ph) * 4; x.beginPath(); x.moveTo(lx, y); x.lineTo(lx - 6, y + 12 + ph); x.lineTo(lx - 2, y + 14 + ph); x.stroke(); }
+    x.fillStyle = body; x.beginPath(); x.ellipse(0, y - 4, 22, 16, 0, 0, 7); x.fill();
+    x.fillStyle = hit ? "#fff" : "#1fae8d"; x.beginPath(); x.ellipse(-4, y - 9, 11, 6, -0.2, 0, 7); x.fill();
+    x.fillStyle = `rgb(${glow})`; for (let i = 0; i < 3; i++) { x.beginPath(); x.arc(10 + i * 4, y - 8 - (i % 2) * 3, 2.6, 0, 7); x.fill(); }
+    x.fillStyle = `rgba(${glow},.9)`; for (let i = 0; i < 4; i++) { x.beginPath(); x.arc(-14 + i * 7, y - 2, 1.8, 0, 7); x.fill(); }
+  } else if (m.type === "thornback") {
+    const y = GROUND - m.y + bob * 0.3;
+    x.fillStyle = "#1c0a18"; for (let i = 0; i < 4; i++) x.fillRect(-28 + i * 17, y - 8, 9, 10 + Math.sin(t * 6 + i * 1.7 + m.ph) * 2);
+    x.fillStyle = body; x.beginPath(); x.moveTo(-38, y - 6); x.quadraticCurveTo(-30, y - 38, 0, y - 36); x.quadraticCurveTo(34, y - 34, 40, y - 12); x.lineTo(30, y - 4); x.lineTo(-34, y - 4); x.closePath(); x.fill();
+    x.fillStyle = hit ? "#fff" : "#7a1f5a"; for (let i = 0; i < 5; i++) { x.beginPath(); x.moveTo(-26 + i * 13, y - 28 + Math.abs(i - 2) * 3); x.lineTo(-20 + i * 13, y - 50 + Math.abs(i - 2) * 6); x.lineTo(-14 + i * 13, y - 30 + Math.abs(i - 2) * 3); x.closePath(); x.fill(); }
+    x.fillStyle = `rgb(${glow})`; x.beginPath(); x.arc(30, y - 20, 4, 0, 7); x.fill(); x.fillStyle = "rgba(255,70,90,.35)"; x.beginPath(); x.arc(30, y - 20, 9, 0, 7); x.fill();
+    x.fillStyle = `rgba(${glow},.8)`; x.fillRect(-6, y - 22, 14, 3);
+  } else {
+    const y = GROUND - 56 - m.y + Math.sin(t * 2.4 + m.ph) * 6;
+    x.strokeStyle = hit ? "#fff" : "#6a46cc"; x.lineWidth = 2.5; for (let i = 0; i < 5; i++) { const lx = -14 + i * 7; x.beginPath(); x.moveTo(lx, y + 10); x.quadraticCurveTo(lx + Math.sin(t * 3 + i + m.ph) * 8, y + 28, lx + Math.sin(t * 2.2 + i) * 10, y + 44); x.stroke(); }
+    x.fillStyle = body; x.beginPath(); x.ellipse(0, y, 26, 20, 0, Math.PI, 0); x.lineTo(26, y + 10); x.lineTo(-26, y + 10); x.closePath(); x.fill();
+    x.fillStyle = hit ? "#fff" : "rgba(160,110,255,.55)"; x.beginPath(); x.ellipse(0, y - 4, 18, 12, 0, Math.PI, 0); x.fill();
+    x.fillStyle = `rgb(${glow})`; for (let i = 0; i < 3; i++) { x.beginPath(); x.arc(-10 + i * 10, y - 6 + (i % 2) * 3, 3.2, 0, 7); x.fill(); }
+    x.fillStyle = "#e9ff9a"; x.beginPath(); x.arc(14, y + 2, 4.5, 0, 7); x.fill();
+  }
+  x.restore();
+}
+
+const CSS = `
+.adv{position:fixed;inset:0;z-index:2400;background:#02070c;color:#e8fffa;font-family:var(--f-app,system-ui);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.adv-px{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
+.adv-px svg{width:100%;height:100%;display:block;overflow:visible}
+.adv-top{position:absolute;left:0;right:0;top:0;display:flex;gap:8px;align-items:center;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:linear-gradient(180deg,rgba(0,8,14,.7),rgba(0,8,14,0));z-index:4}
+.adv-btn{min-width:44px;min-height:44px;border-radius:22px;border:1.5px solid rgba(140,255,220,.5);background:rgba(4,24,30,.62);color:#e8fffa;font-size:13px;font-weight:800;padding:0 14px;cursor:pointer;backdrop-filter:blur(4px)}
+.adv-hud{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.adv-bar{position:relative;height:13px;border-radius:7px;background:rgba(255,255,255,.12);overflow:hidden}.adv-bar i{position:absolute;inset:0 auto 0 0;border-radius:7px}
+.adv-bar b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.4px;text-shadow:0 1px 2px #000}
+.adv-hp i{background:linear-gradient(90deg,#ff4d6d,#ff9a6d)}.adv-xp i{background:linear-gradient(90deg,#3ddc97,#9dffd6)}.adv-sk i{background:linear-gradient(90deg,#7b61ff,#c3b0ff)}
+.adv-lv{font-size:12px;font-weight:900;letter-spacing:.6px;color:#9dffd6}
+.adv-pad{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:10px 14px calc(14px + env(safe-area-inset-bottom,0px));z-index:4;pointer-events:none}
+.adv-pad>div{display:flex;gap:10px;pointer-events:auto}
+.adv-key{width:68px;height:68px;border-radius:22px;border:2px solid rgba(140,255,220,.55);background:rgba(4,30,36,.6);color:#fff;font-size:26px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;backdrop-filter:blur(4px)}
+.adv-key small{font-size:9.5px;font-weight:800;letter-spacing:.5px;margin-top:-2px}
+.adv-key.on,.adv-key:active{background:rgba(61,220,151,.45)}
+.adv-key.atk{width:84px;height:84px;border-radius:42px;background:linear-gradient(160deg,#ff8a5d,#d9482b);border-color:transparent}
+.adv-key.skl{background:linear-gradient(160deg,#7b61ff,#4a35c9);border-color:transparent}.adv-key.cd{opacity:.45}
+.adv-banner{position:absolute;left:50%;top:26%;transform:translateX(-50%);z-index:5;pointer-events:none;text-align:center;animation:advb 1.8s ease-out forwards}
+.adv-banner b{display:block;font-size:30px;font-weight:900;letter-spacing:2px;color:#ffe08a;text-shadow:0 0 18px #ffb43a,0 2px 0 #000}.adv-banner span{font-size:13px;color:#e8fffa;text-shadow:0 1px 2px #000}
+@keyframes advb{0%{opacity:0;transform:translate(-50%,10px) scale(.7)}12%{opacity:1;transform:translate(-50%,0) scale(1.1)}20%{transform:translate(-50%,0) scale(1)}80%{opacity:1}100%{opacity:0}}
+.adv-menu{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;background:radial-gradient(120% 90% at 50% 0%,#0b2a35,#02070c);padding:calc(14px + env(safe-area-inset-top,0px)) 14px 14px;overflow-y:auto}
+.adv-menu h2{margin:6px 0 2px;font-size:22px;letter-spacing:1px}.adv-menu p{margin:0 0 12px;color:#9fd8cc;font-size:13px}
+.adv-planets{display:flex;flex-direction:column;gap:10px}
+.adv-planet{position:relative;display:flex;align-items:center;gap:12px;min-height:76px;border-radius:18px;border:1.5px solid rgba(140,255,220,.35);padding:10px 14px;color:#fff;text-align:left;cursor:pointer;overflow:hidden}
+.adv-planet.lock{opacity:.5;cursor:default}
+.adv-orb{flex:0 0 52px;height:52px;border-radius:50%;box-shadow:inset -8px -8px 14px rgba(0,0,0,.5),0 0 22px var(--g)}
+.adv-planet b{font-size:15px;display:block}.adv-planet small{color:#cfeee6;font-size:12px}
+.adv-planet em{margin-left:auto;font-style:normal;font-size:11px;font-weight:800;padding:4px 9px;border-radius:12px;background:rgba(255,255,255,.14)}
+.adv-gfx{display:flex;gap:6px;margin:10px 0 4px}.adv-gfx button{flex:1;min-height:44px;border-radius:14px;border:1.5px solid rgba(140,255,220,.4);background:transparent;color:#cfeee6;font-weight:800;font-size:13px;cursor:pointer}
+.adv-gfx button.on{background:rgba(61,220,151,.3);border-color:#3ddc97;color:#fff}
+@media (prefers-reduced-motion:reduce){.adv-banner{animation:none;opacity:1}}
+`;
+
+type Gfx = "standard" | "high";
+function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx"); if (v === "standard" || v === "high") return v; } catch (e) {} return (isLowEnd() || spaceTier() <= 1) ? "standard" : "high"; }
+
+const T3 = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+
+/** The page: a planet menu, then the run itself. */
+export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null }: any) {
+  const [planet, setPlanet] = useState(null);
+  const [gfx, setGfx] = useState<Gfx>(defaultGfx);
+  useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
+  const t = (th, en, zh) => T3(lang, th, en, zh);
+  return (
+    <div className="adv" role="region" aria-label="Adventure Mode">
+      <style>{CSS}</style>
+      {!planet ? (
+        <div className="adv-menu">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
+            <h2 style={{ flex: 1 }}>🪐 Adventure Mode</h2>
+          </div>
+          <p>{t("หุ่นยนต์และสัตว์เลี้ยงออกผจญภัยในดาวต่างดาว สู้มอนสเตอร์ เก็บ EXP เพิ่มเลเวลและสกิล (EXP เดียวกับ PvP)", "Take your robot and pet across alien planets, fight monsters and earn EXP for levels and skills (the same EXP as PvP).", "带着机器人和宠物探索外星球，打怪获得经验，升级并提升技能（与 PvP 共用经验）。")}</p>
+          <div className="adv-planets">
+            {PLANETS.map(P => (
+              <button key={P.id} className={"adv-planet" + (P.ok ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!P.ok}
+                onClick={() => { if (P.ok) { playUi && playUi("click"); setPlanet(P); } }}>
+                <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
+                <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{P.ok ? t("แผนที่ 1 · เล่นได้", "Map 1 · playable", "地图 1 · 可玩") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
+                <em>{P.ok ? "▶" : "🔒"}</em>
+              </button>
+            ))}
+          </div>
+          <div className="adv-gfx" role="radiogroup" aria-label="Graphics">
+            {(["standard", "high"] as Gfx[]).map(g => (
+              <button key={g} role="radio" aria-checked={gfx === g} className={gfx === g ? "on" : ""} onClick={() => setGfx(g)}>
+                {g === "standard" ? t("กราฟิกมาตรฐาน (เครื่องทั่วไป)", "Standard graphics", "标准画质") : t("กราฟิกสูง (เครื่องแรง)", "High graphics", "高画质")}
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: 11.5 }}>{t("ระบบเลือกให้ตามเครื่องของคุณ เปลี่ยนเองได้", "Chosen for your device; change it any time.", "已按设备自动选择，可随时更改。")}</p>
+        </div>
+      ) : (
+        <Run key={planet.id + gfx} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
+          onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
+      )}
+    </div>
+  );
+});
+
+/** One run on one planet. The game state lives in refs and a canvas: React only draws the HUD (a few times a second). */
+const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx }: any) {
+  const high = gfx === "high";
+  const cvRef = useRef<HTMLCanvasElement>(null);
+  const pxRef = useRef<HTMLDivElement>(null);
+  const petRef = useRef<HTMLDivElement>(null);
+  const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false });
+  const [pose, setPose] = useState("ready");
+  const [hud, setHud] = useState<any>({ hp: 1, hpMax: 1, lv: 1, xp: 0, xpNeed: 1, sk: 0, skNeed: 1, kills: 0, skCd: 0 });
+  const [banner, setBanner] = useState<any>(null);
+  const [down, setDown] = useState(false);
+  const cls = useMemo(() => classKeyOf(me), [me]);
+  const t = (th, en, zh) => T3(lang, th, en, zh);
+
+  useEffect(() => {
+    const cv = cvRef.current; if (!cv) return undefined;
+    const ctx = cv.getContext("2d", { alpha: false }); if (!ctx) return undefined;
+    const dprCap = high ? 2 : 1;
+    let cw = 0, ch = 0, k = 1, dpr = 1, bake: any = null, camX = 0, vw = 0;
+    const resize = () => {
+      dpr = Math.min(dprCap, window.devicePixelRatio || 1);
+      const r = cv.getBoundingClientRect(); const w = Math.max(320, Math.round(r.width)), h = Math.max(200, Math.round(r.height));
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      cw = cv.width; ch = cv.height; k = ch / VH; vw = cw / k;
+      bake = bakePlanet(P, cw, ch, k, high);
+    };
+    resize();
+    const onResize = () => resize(); window.addEventListener("resize", onResize);
+
+    /* ── the robot, from the same numbers PvP uses ── */
+    const stat = () => { const info = rpgOf(me); return { info, mods: rpgMods(info.pts) }; };
+    let { info, mods } = stat();
+    const skillOf = () => skillRank(readSkillSp()[cls] || 0);
+    const hpMaxOf = (lv) => 120 + lv * 11;
+    const pl: any = { x: 160, y: 0, vy: 0, face: 1, hp: hpMaxOf(info.lv), atkCd: 0, sklCd: 0, hurtT: 0, inv: 0, dead: 0, ground: true, swing: 0 };
+    const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: MON[type].hp, face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, i });
+    const mons: any[] = [];
+    const pattern = ["glowbug", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster"];
+    for (let i = 0; i < 17; i++) mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i));
+    const parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [];
+    const maxParts = high ? 140 : 26;
+    const addPart = (x, y, vx, vy, life, col, sz) => { if (parts.length < maxParts) parts.push({ x, y, vx, vy, life, max: life, col, sz }); };
+    const fireflies = Array.from({ length: high ? 46 : 12 }, (_, i) => ({ x: rnd(i + 200) * WORLD, y: 120 + rnd(i + 230) * 170, ph: rnd(i + 260) * 6 }));
+    let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
+    const step = high ? 1 / 60 : 1 / 30;
+
+    const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
+    const dmgOf = () => { const base = (9 + info.lv * 1.5) * mods.dmg; const crit = Math.random() < 0.08 + mods.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
+    const hurtMon = (m, v, crit, kx) => {
+      m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
+      pop(m.x, GROUND - m.y - 60, String(v), crit ? "#ffd23f" : "#ffffff");
+      for (let i = 0; i < (high ? 7 : 3); i++) addPart(m.x, GROUND - m.y - 20, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, crit ? "255,210,60" : "255,255,255", 2.5);
+      if (m.hp <= 0) {
+        m.dead = 1; m.resp = 14; kills++;
+        const d = MON[m.type];
+        const rpg = addRpgExp(me, d.exp); addSkillSp(cls, Math.max(1, Math.round(d.exp / 3)));
+        pop(m.x, GROUND - 90, "+" + d.exp + " EXP", "#9dffd6");
+        for (let i = 0; i < (high ? 22 : 8); i++) addPart(m.x, GROUND - m.y - 24, (Math.random() - 0.5) * 340, -Math.random() * 280, 0.8, i % 2 ? P.glow : P.acc, 3);
+        if (rpg && rpg.leveled) { const r2 = rpgOf(me); info = r2; mods = rpgMods(r2.pts); pl.hp = hpMaxOf(r2.lv); setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r2.lv + (r2.free > 0 ? " · " + t("มีแต้มสถานะ " + r2.free, r2.free + " stat points", r2.free + " 点属性") : "") }); playUi && playUi("reward"); }
+        else info = rpgOf(me);
+      }
+    };
+    const attack = () => {
+      if (pl.dead || pl.atkCd > 0) return;
+      pl.atkCd = 0.42 * mods.cdMul; pl.swing = 0.18; setPose("attack"); setTimeout(() => setPose("ready"), 170);
+      slashes.push({ x: pl.x + pl.face * 34, y: pl.y + 44, face: pl.face, life: 0.18 });
+      for (const m of mons) {
+        if (m.dead) continue; const dx = (m.x - pl.x) * pl.face;
+        if (dx > -10 && dx < 92 + MON[m.type].w / 2 && Math.abs(m.y - pl.y) < 70) { const d = dmgOf(); hurtMon(m, d.v, d.crit, pl.face * 160); }
+      }
+    };
+    const skill = () => {
+      const sr = skillOf();
+      if (pl.dead || pl.sklCd > 0) return;
+      pl.sklCd = 4.5 / (1 + 0.04 * (sr.rank - 1)); pl.swing = 0.3; setPose("kick"); setTimeout(() => setPose("ready"), 260);
+      shake = Math.max(shake, high ? 7 : 3);
+      for (let a = 0; a < (high ? 28 : 10); a++) { const ang = (a / (high ? 28 : 10)) * Math.PI * 2; addPart(pl.x, GROUND - pl.y - 40, Math.cos(ang) * 320, Math.sin(ang) * 220, 0.5, "123,97,255", 3.5); }
+      slashes.push({ x: pl.x, y: pl.y + 40, face: 0, life: 0.3, nova: true });
+      for (const m of mons) {
+        if (m.dead) continue;
+        if (Math.abs(m.x - pl.x) < 190 && Math.abs(m.y - pl.y) < 110) { const base = (9 + info.lv * 1.5) * mods.dmg * 3.2 * (1 + 0.08 * (sr.rank - 1)) * mods.spell; hurtMon(m, Math.round(base), true, Math.sign(m.x - pl.x) * 260); }
+      }
+    };
+    const hurtPlayer = (v, from) => {
+      if (pl.inv > 0 || pl.dead) return;
+      pl.hp -= v; pl.inv = 0.7; pl.vy = 0; pl.x += Math.sign(pl.x - from) * 26; shake = Math.max(shake, 4);
+      pop(pl.x, GROUND - pl.y - 100, "-" + v, "#ff6b81");
+      for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 50, (Math.random() - 0.5) * 200, -Math.random() * 150, 0.4, "255,90,110", 2.5);
+      if (pl.hp <= 0) { pl.hp = 0; pl.dead = 2.2; setDown(true); }
+    };
+
+    const sim = (dt) => {
+      time += dt;
+      const kk = keys.current;
+      if (pl.dead > 0) { pl.dead -= dt; if (pl.dead <= 0) { pl.dead = 0; pl.hp = hpMaxOf(info.lv); pl.x = 160; pl.y = 0; pl.inv = 1.5; camX = 0; setDown(false); } }
+      else {
+        const sp = 150 * mods.walk; let dx = 0; if (kk.l) dx -= 1; if (kk.r) dx += 1;
+        pl.x = Math.max(40, Math.min(WORLD - 60, pl.x + dx * sp * dt)); if (dx) pl.face = dx;
+        if (kk.jump && pl.ground) { pl.vy = 360; pl.ground = false; }
+        if (kk.atk) attack(); if (kk.skl) skill();
+        pl.vy -= 900 * dt; pl.y += pl.vy * dt; if (pl.y <= 0) { pl.y = 0; pl.vy = 0; pl.ground = true; }
+        pl.atkCd -= dt; pl.sklCd -= dt; pl.inv -= dt; pl.swing -= dt;
+      }
+      for (const m of mons) {
+        if (m.dead) { m.resp -= dt; if (m.resp <= 0 && Math.abs(pl.x - m.hx) > 640) { m.dead = 0; m.hp = MON[m.type].hp; m.x = m.hx; m.y = 0; m.vx = 0; } continue; }
+        const d = MON[m.type]; m.hurt -= dt; m.cd -= dt * 1000;
+        const dxp = pl.x - m.x, dist = Math.abs(dxp);
+        m.face = dxp > 0 ? 1 : -1;
+        const aggro = dist < 520 && pl.dead <= 0;
+        let mv = 0;
+        if (aggro) {
+          if (d.ranged) { if (dist > 300) mv = Math.sign(dxp); else if (dist < 190) mv = -Math.sign(dxp); }
+          else if (dist > 40) mv = Math.sign(dxp);
+        }
+        m.x += (mv * d.speed + m.vx) * dt; m.vx *= 0.86;
+        if (m.type === "glowbug" && aggro && m.y <= 0 && dist < 260 && Math.random() < 0.02) m.vy = 240;
+        m.vy -= 700 * dt; m.y += m.vy * dt; if (m.y < 0) { m.y = 0; m.vy = 0; }
+        if (d.ranged) {
+          if (aggro && dist < 420 && m.cd <= 0) { m.cd = d.cd; shots.push({ x: m.x + m.face * 18, y: 56, vx: m.face * 190, life: 2.4, d: d.dmg }); }
+        } else if (aggro && dist < d.w / 2 + 26 && Math.abs(pl.y - m.y) < 50 && m.cd <= 0) { m.cd = d.cd; hurtPlayer(d.dmg + Math.round(info.lv * 0.4), m.x); }
+      }
+      for (const s of shots) { s.x += s.vx * dt; s.life -= dt; if (Math.abs(s.x - pl.x) < 18 && Math.abs(s.y - pl.y - 40) < 40 && s.life > 0) { hurtPlayer(s.d, s.x); s.life = 0; } }
+      for (let i = shots.length - 1; i >= 0; i--) if (shots[i].life <= 0) shots.splice(i, 1);
+      for (const p of parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 520 * dt; }
+      for (let i = parts.length - 1; i >= 0; i--) if (parts[i].life <= 0) parts.splice(i, 1);
+      for (const p of pops) { p.life -= dt; p.y -= 38 * dt; }
+      for (let i = pops.length - 1; i >= 0; i--) if (pops[i].life <= 0) pops.splice(i, 1);
+      for (const s of slashes) s.life -= dt; for (let i = slashes.length - 1; i >= 0; i--) if (slashes[i].life <= 0) slashes.splice(i, 1);
+      // camera: the robot a little ahead of centre, eased
+      const target = Math.max(0, Math.min(WORLD - vw, pl.x - vw * 0.42 + pl.face * 30));
+      camX += (target - camX) * (high ? 0.12 : 0.2);
+      shake *= 0.86;
+      if (!finished && pl.x > WORLD - 140) { finished = true; setBanner({ k: Date.now(), a: t("ผ่านแผนที่!", "MAP CLEAR!", "通关！"), b: t("ประตูวาร์ปรออยู่ — บอสมาในระยะถัดไป", "The warp gate is open — the boss comes in the next update", "传送门已开启——首领将在下次更新登场") }); }
+    };
+
+    const draw = (tm) => {
+      const sx = (high && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0, sy = (high && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(bake.sky, sx, sy);
+      const tile = (img, f, a = 1) => { const w = img.width, off = -((camX * f * k) % w + w) % w; if (a !== 1) ctx.globalAlpha = a; for (let x0 = off + sx; x0 < cw; x0 += w) ctx.drawImage(img, x0, sy); if (a !== 1) ctx.globalAlpha = 1; };
+      tile(bake.far, 0.15); tile(bake.mid, 0.4);
+      if (bake.fog) tile(bake.fog, 0.55);
+      tile(bake.ground, 1);
+      // world layer
+      ctx.setTransform(k, 0, 0, k, -camX * k + sx, sy);
+      // fireflies
+      ctx.globalCompositeOperation = "lighter";
+      for (const f of fireflies) { const fx = f.x + Math.sin(tm * 0.6 + f.ph) * 14, fy = f.y + Math.sin(tm * 0.9 + f.ph * 2) * 10; if (fx < camX - 20 || fx > camX + vw + 20) continue; ctx.globalAlpha = 0.5 + 0.5 * Math.sin(tm * 2 + f.ph); ctx.fillStyle = `rgb(${P.glow})`; ctx.fillRect(fx, fy, 2, 2); }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+      // monsters
+      for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; drawMonster(ctx, m, tm, k, GROUND);
+        if (m.hp < MON[m.type].hp) { const w = 40, y0 = GROUND - m.y - (m.type === "sporecaster" ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / MON[m.type].hp), 5); } }
+      // spores + slashes
+      for (const s of shots) { ctx.fillStyle = "#e9ff9a"; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 5, 0, 7); ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.drawImage(bake.glows.green, s.x - 20, GROUND - s.y - 20, 40, 40); ctx.globalCompositeOperation = "source-over"; } }
+      for (const s of slashes) {
+        const q = 1 - s.life / (s.nova ? 0.3 : 0.18); ctx.save(); ctx.globalCompositeOperation = "lighter";
+        if (s.nova) { ctx.strokeStyle = `rgba(160,130,255,${1 - q})`; ctx.lineWidth = 5 * (1 - q) + 1; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 30 + q * 170, 0, 7); ctx.stroke(); }
+        else { ctx.strokeStyle = `rgba(255,230,160,${1 - q})`; ctx.lineWidth = 6 * (1 - q) + 1; ctx.beginPath(); ctx.arc(s.x - s.face * 30, GROUND - s.y, 56 + q * 18, s.face > 0 ? -0.9 : Math.PI - 0.9 + 1.8 - 1.8, s.face > 0 ? 0.9 : Math.PI + 0.9); ctx.stroke(); }
+        ctx.restore();
+      }
+      // particles (glow in high mode)
+      ctx.globalCompositeOperation = "lighter";
+      for (const p of parts) { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = `rgb(${p.col})`; ctx.fillRect(p.x - p.sz / 2, p.y - p.sz / 2 + 0, p.sz, p.sz); }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+      // damage numbers
+      ctx.textAlign = "center"; ctx.font = "800 15px system-ui,sans-serif";
+      for (const p of pops) { ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = "#000"; ctx.fillText(p.txt, p.x + 1, p.y + 1); ctx.fillStyle = p.col; ctx.fillText(p.txt, p.x, p.y); }
+      ctx.globalAlpha = 1;
+      // the shadow under the robot
+      ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(pl.x, GROUND + 3, 26 - Math.min(10, pl.y * 0.05), 5, 0, 0, 7); ctx.fill();
+      // the warp gate at the end of the map
+      { const gx = WORLD - 90; if (gx > camX - 60 && gx < camX + vw + 60) { ctx.strokeStyle = `rgba(${P.acc},.9)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 26, 62, 0, 0, 7); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},${0.18 + 0.1 * Math.sin(tm * 3)})`; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 24, 60, 0, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; } }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      tile(bake.near, 1.25);
+      // light + vignette (high): one baked-free pass, a couple of fills
+      if (high) { const g = ctx.createRadialGradient(cw / 2, ch * 0.55, ch * 0.3, cw / 2, ch * 0.55, ch * 1.1); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,6,10,.55)"); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
+      // the robot and its pet are DOM figures placed over the canvas
+      const px = pxRef.current; if (px) {
+        const cssK = k / dpr, bw = 80 * cssK, bh = 128 * cssK;
+        px.style.width = bw + "px"; px.style.height = bh + "px";
+        const flick = pl.inv > 0 && Math.floor(tm * 20) % 2 === 0 ? 0.35 : 1;
+        px.style.opacity = pl.dead > 0 ? "0.25" : String(flick);
+        px.style.transform = `translate(${(pl.x - camX) * cssK - bw / 2}px,${(GROUND - pl.y) * cssK - bh + 6 * cssK}px)`;
+      }
+      const pe = petRef.current; if (pe) {
+        const cssK = k / dpr, pw = 52 * cssK, bobY = Math.abs(Math.sin(tm * 6)) * 4 * cssK * (keys.current.l || keys.current.r ? 1 : 0.2);
+        const ptx = pl.x - pl.face * 56; pe.style.width = pw + "px"; pe.style.height = pw + "px";
+        pe.style.transform = `translate(${(ptx - camX) * cssK - pw / 2}px,${(GROUND) * cssK - pw + 4 * cssK - bobY}px) scaleX(${pl.face > 0 ? 1 : -1})`;
+      }
+    };
+
+    const loop = (now) => {
+      raf = requestAnimationFrame(loop);
+      let dt = Math.min(0.1, (now - last) / 1000); last = now;
+      if (hitStop > 0) { hitStop -= dt; dt = 0; }
+      acc += dt; let n = 0;
+      while (acc >= step && n < 4) { sim(step); acc -= step; n++; }
+      if (n > 0 || dt === 0) draw(time);
+      hudT += dt;
+      if (hudT > 0.15) {
+        hudT = 0; const sr = skillOf();
+        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, skCd: Math.max(0, pl.sklCd) });
+      }
+    };
+    raf = requestAnimationFrame(loop);
+
+    // keyboard (desktop)
+    const kd = (e, v) => {
+      const kk = keys.current; const c = e.code;
+      if (c === "ArrowLeft" || c === "KeyA") kk.l = v; else if (c === "ArrowRight" || c === "KeyD") kk.r = v;
+      else if (c === "ArrowUp" || c === "KeyW" || c === "Space") kk.jump = v; else if (c === "KeyJ" || c === "KeyZ") kk.atk = v; else if (c === "KeyK" || c === "KeyX") kk.skl = v; else return;
+      e.preventDefault();
+    };
+    const dn = (e) => kd(e, true), up = (e) => kd(e, false);
+    window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
+    (window as any).__advTest = { state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; }, fps: () => 0 };
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
+  }, [P, high, me, cls]);
+
+  const hold = (name) => ({
+    onPointerDown: (e) => { e.preventDefault(); (keys.current as any)[name] = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (er) {} },
+    onPointerUp: () => { (keys.current as any)[name] = false; }, onPointerCancel: () => { (keys.current as any)[name] = false; }, onLostPointerCapture: () => { (keys.current as any)[name] = false; },
+  });
+  const pct = (a, b) => Math.max(0, Math.min(100, (a / Math.max(1, b)) * 100)) + "%";
+  return (
+    <>
+      <canvas ref={cvRef} />
+      <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} /> : null}</div>
+      <div ref={pxRef} className="adv-px" aria-hidden="true">
+        <CyberAvatar model={me} yaw={26} pose={pose} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} />
+      </div>
+      <div className="adv-top">
+        <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
+        <div className="adv-hud">
+          <div className="adv-lv">Lv {hud.lv} · {P.en.split(" · ")[0]} · ☠ {hud.kills}</div>
+          <div className="adv-bar adv-hp"><i style={{ width: pct(hud.hp, hud.hpMax) }} /><b>HP {Math.round(hud.hp)} / {hud.hpMax}</b></div>
+          <div className="adv-bar adv-xp"><i style={{ width: pct(hud.xp, hud.xpNeed) }} /><b>EXP</b></div>
+          <div className="adv-bar adv-sk"><i style={{ width: pct(hud.sk, hud.skNeed) }} /><b>{t("สกิล", "SKILL", "技能")} R{hud.rank || 1}</b></div>
+        </div>
+        <button className="adv-btn" onClick={onGfx} aria-label="graphics">{high ? "HD" : "SD"}</button>
+      </div>
+      {banner && <div key={banner.k} className="adv-banner"><b>{banner.a}</b><span>{banner.b}</span></div>}
+      {down && <div className="adv-banner" style={{ animation: "none" }}><b style={{ color: "#ff8fa3" }}>{t("ล้ม!", "DOWN!", "倒下了！")}</b><span>{t("กำลังกลับจุดเริ่ม…", "Back to the start…", "回到起点…")}</span></div>}
+      <div className="adv-pad">
+        <div>
+          <button className="adv-key" aria-label="left" {...hold("l")}>◀</button>
+          <button className="adv-key" aria-label="right" {...hold("r")}>▶</button>
+        </div>
+        <div>
+          <button className={"adv-key skl" + (hud.skCd > 0 ? " cd" : "")} aria-label="skill" {...hold("skl")}>✦<small>{t("สกิล", "SKILL", "技能")}</small></button>
+          <button className="adv-key" aria-label="jump" {...hold("jump")}>⤴<small>{t("กระโดด", "JUMP", "跳")}</small></button>
+          <button className="adv-key atk" aria-label="attack" {...hold("atk")}>⚔<small>{t("โจมตี", "ATTACK", "攻击")}</small></button>
+        </div>
+      </div>
+    </>
+  );
+});
