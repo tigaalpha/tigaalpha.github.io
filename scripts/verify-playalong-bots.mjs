@@ -70,7 +70,8 @@ async function session({ w = 412, h = 915, kind = false, intro = true, exp = 500
     if (req.method() === "POST" && req.url().includes("/rest/v1/usage_events")) { try { usage.push(JSON.parse(req.postData() || "{}")); } catch (e) {} }
     r.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
-  await ctx.addInitScript(({ kind, intro, exp, extraLS, lang, page }) => {
+  await ctx.addInitScript(({ kind, intro, exp, extraLS, lang, page, stage }) => {
+    if (stage != null && stage !== "") localStorage.setItem("tg_pa_stage_force", stage);   // PA_STAGE=n forces backdrop n (0 city, 1-9 the futuristic places)
     if (page) sessionStorage.setItem("tiga_page", page);
     localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "Tester", lang, age: "adult", level: "beginner", exp }));
     localStorage.setItem("tg_lang", lang); localStorage.setItem("tg_orient_hint_seen", "1"); localStorage.setItem("tg_3d_tier", "0");
@@ -85,7 +86,7 @@ async function session({ w = 412, h = 915, kind = false, intro = true, exp = 500
     Storage.prototype.setItem = function (k, v) { if (k === "tg_guest_ms") return; return si.call(this, k, v); };
     try { navigator.mediaDevices.getUserMedia = () => Promise.reject(new Error("no mic")); } catch (e) {}
     try { Object.defineProperty(navigator, "requestMIDIAccess", { value: () => Promise.reject(new Error("no midi")), configurable: true }); } catch (e) {}
-  }, { kind, intro, exp, extraLS, lang, page });
+  }, { kind, intro, exp, extraLS, lang, page, stage: process.env.PA_STAGE });
   const p = await ctx.newPage();
   const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200)));
   await p.goto(BASE, { waitUntil: "load" }); await p.waitForTimeout(2500);
