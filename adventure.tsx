@@ -17,6 +17,9 @@ import { addRpgExp, rpgOf, rpgMods, RPG_MAX_LV } from "./pvp-rpg";
 import { addSkillSp, readSkillSp, skillRank } from "./pvp-arena";
 import { classKeyOf } from "./model-skills";
 import { isLowEnd, spaceTier } from "./space-stage";
+import { Piano } from "./music-engine";
+import { recordMemory } from "./ai-chat-context";
+import { nextQuestion, judgeKeys, recordAnswer, readLadder, readDone, learnedTopics } from "./quiz-quest";
 
 const VH = 360, GROUND = 300, WORLD = 5200, TILE = 960;
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -159,6 +162,17 @@ const CSS = `
 .adv-planet em{margin-left:auto;font-style:normal;font-size:11px;font-weight:800;padding:4px 9px;border-radius:12px;background:rgba(255,255,255,.14)}
 .adv-gfx{display:flex;gap:6px;margin:10px 0 4px}.adv-gfx button{flex:1;min-height:44px;border-radius:14px;border:1.5px solid rgba(140,255,220,.4);background:transparent;color:#cfeee6;font-weight:800;font-size:13px;cursor:pointer}
 .adv-gfx button.on{background:rgba(61,220,151,.3);border-color:#3ddc97;color:#fff}
+
+.adv-quiz{position:absolute;inset:0;z-index:7;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,6,12,.72);backdrop-filter:blur(3px);padding:0}
+.adv-qcard{width:100%;max-width:640px;max-height:96%;overflow-y:auto;background:linear-gradient(180deg,#0b2a35,#061821);border:1.5px solid rgba(140,255,220,.5);border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+.adv-qhead{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;letter-spacing:.6px;color:#9dffd6}.adv-qhead i{font-style:normal;margin-left:auto;color:#ffe08a}
+.adv-qq{font-size:16.5px;line-height:1.35;font-weight:700;color:#fff}
+.adv-qopts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.adv-qopt{min-height:48px;border-radius:14px;border:1.5px solid rgba(140,255,220,.45);background:rgba(4,30,36,.7);color:#fff;font-weight:800;font-size:14.5px;cursor:pointer;padding:6px 10px}
+.adv-qopt.ok{background:rgba(61,220,151,.4);border-color:#3ddc97}.adv-qopt.no{background:rgba(255,77,109,.35);border-color:#ff6b81}
+.adv-qpiano{border-radius:12px;overflow:hidden}
+.adv-qgo{min-height:48px;border-radius:24px;border:0;background:linear-gradient(180deg,#3ddc97,#1f9a66);color:#04201a;font-weight:900;font-size:15px;cursor:pointer}.adv-qgo:disabled{opacity:.4}
+.adv-qres{border-radius:14px;padding:10px 12px;font-size:13.5px;line-height:1.4}.adv-qres.good{background:rgba(61,220,151,.22);color:#c9ffe9}.adv-qres.bad{background:rgba(255,160,90,.18);color:#ffe3c9}
+.adv-qres b{display:block;margin-bottom:3px}
 @media (prefers-reduced-motion:reduce){.adv-banner{animation:none;opacity:1}}
 `;
 
@@ -221,8 +235,33 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
   const [hud, setHud] = useState<any>({ hp: 1, hpMax: 1, lv: 1, xp: 0, xpNeed: 1, sk: 0, skNeed: 1, kills: 0, skCd: 0 });
   const [banner, setBanner] = useState<any>(null);
   const [down, setDown] = useState(false);
+  const [quiz, setQuiz] = useState<any>(null);
+  const quizOn = useRef(false);
+  (window as any).__advQuiz = quiz;   // the smoke test reads the open question from here
+  const beaconRef = useRef<any>(null);
   const cls = useMemo(() => classKeyOf(me), [me]);
   const t = (th, en, zh) => T3(lang, th, en, zh);
+  // a beacon asks three questions, gently harder: from what THIS learner has finished in the Pathway
+  beaconRef.current = () => {
+    const qs: any[] = []; const base = readLadder().lvl;
+    for (let i = 0; i < 3; i++) qs.push(nextQuestion(lang, { level: Math.min(5, base + (i === 2 ? 1 : 0)) }));
+    setQuiz({ qs, i: 0, sel: [], res: null, right: 0, learned: qs[0].learned });
+  };
+  const finishQuiz = (q: any) => {
+    setQuiz(null); quizOn.current = false;
+    if (q && q.right > 0) setBanner({ k: Date.now(), a: t("ทบทวนสำเร็จ!", "REVIEW DONE!", "复习完成！"), b: t(`ตอบถูก ${q.right}/3 — ได้ EXP และแต้มสกิล`, `${q.right}/3 right — EXP and skill points earned`, `答对 ${q.right}/3，获得经验和技能点`) });
+  };
+  const answerQuiz = (ok: boolean) => {
+    const cur = quiz; if (!cur || cur.res) return; const q = cur.qs[cur.i].q;
+    const l = recordAnswer(ok, q.topic);
+    try { recordMemory(q.label, ok ? 100 : 55); } catch (e) {}
+    if (ok) {
+      const exp = 10 + 6 * q.tier + (l.streak >= 2 ? 6 : 0);
+      try { const r = addRpgExp(me, exp); addSkillSp(cls, 2 + q.tier); if (r && r.leveled) setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r.lv }); } catch (e) {}
+    }
+    setQuiz({ ...cur, res: ok ? "good" : "bad", right: cur.right + (ok ? 1 : 0) });
+  };
+  const nextQuiz = () => { const cur = quiz; if (!cur) return; if (cur.i >= cur.qs.length - 1) finishQuiz(cur); else setQuiz({ ...cur, i: cur.i + 1, sel: [], res: null }); };
 
   useEffect(() => {
     const cv = cvRef.current; if (!cv) return undefined;
@@ -250,6 +289,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const pattern = ["glowbug", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster"];
     for (let i = 0; i < 17; i++) mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i));
     const parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [];
+    const beacons: any[] = [1300, 2650, 3950].map(x => ({ x, used: false }));   // knowledge beacons: review questions from what the learner has studied
     const maxParts = high ? 140 : 26;
     const addPart = (x, y, vx, vy, life, col, sz) => { if (parts.length < maxParts) parts.push({ x, y, vx, vy, life, max: life, col, sz }); };
     const fireflies = Array.from({ length: high ? 46 : 12 }, (_, i) => ({ x: rnd(i + 200) * WORLD, y: 120 + rnd(i + 230) * 170, ph: rnd(i + 260) * 6 }));
@@ -302,6 +342,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
 
     const sim = (dt) => {
+      if (quizOn.current) return;
       time += dt;
       const kk = keys.current;
       if (pl.dead > 0) { pl.dead -= dt; if (pl.dead <= 0) { pl.dead = 0; pl.hp = hpMaxOf(info.lv); pl.x = 160; pl.y = 0; pl.inv = 1.5; camX = 0; setDown(false); } }
@@ -338,6 +379,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       for (const p of pops) { p.life -= dt; p.y -= 38 * dt; }
       for (let i = pops.length - 1; i >= 0; i--) if (pops[i].life <= 0) pops.splice(i, 1);
       for (const s of slashes) s.life -= dt; for (let i = slashes.length - 1; i >= 0; i--) if (slashes[i].life <= 0) slashes.splice(i, 1);
+      for (const b of beacons) if (!b.used && pl.dead <= 0 && Math.abs(pl.x - b.x) < 64) { b.used = true; keys.current.l = keys.current.r = keys.current.atk = keys.current.skl = keys.current.jump = false; quizOn.current = true; if (beaconRef.current) beaconRef.current(); }
       // camera: the robot a little ahead of centre, eased
       const target = Math.max(0, Math.min(WORLD - vw, pl.x - vw * 0.42 + pl.face * 30));
       camX += (target - camX) * (high ? 0.12 : 0.2);
@@ -380,6 +422,11 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       ctx.globalAlpha = 1;
       // the shadow under the robot
       ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(pl.x, GROUND + 3, 26 - Math.min(10, pl.y * 0.05), 5, 0, 0, 7); ctx.fill();
+      for (const b of beacons) { if (b.x < camX - 40 || b.x > camX + vw + 40) continue; const a = b.used ? 0.25 : 0.55 + 0.25 * Math.sin(tm * 3);
+        ctx.globalCompositeOperation = "lighter"; const bg = ctx.createLinearGradient(0, GROUND - 150, 0, GROUND); bg.addColorStop(0, `rgba(255,224,138,0)`); bg.addColorStop(1, `rgba(255,224,138,${a * 0.5})`); ctx.fillStyle = bg; ctx.fillRect(b.x - 14, GROUND - 150, 28, 150); ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = b.used ? "#3a4a52" : "#ffe08a"; ctx.beginPath(); ctx.moveTo(b.x - 9, GROUND); ctx.lineTo(b.x - 4, GROUND - 46); ctx.lineTo(b.x + 4, GROUND - 46); ctx.lineTo(b.x + 9, GROUND); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.arc(b.x, GROUND - 58 + Math.sin(tm * 2.4) * 3, 10, 0, 7); ctx.fillStyle = b.used ? "#52646c" : "#fff6c8"; ctx.fill();
+        if (!b.used) { ctx.fillStyle = "#04201a"; ctx.font = "900 13px system-ui"; ctx.textAlign = "center"; ctx.fillText("?", b.x, GROUND - 53 + Math.sin(tm * 2.4) * 3); } }
       // the warp gate at the end of the map
       { const gx = WORLD - 90; if (gx > camX - 60 && gx < camX + vw + 60) { ctx.strokeStyle = `rgba(${P.acc},.9)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 26, 62, 0, 0, 7); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},${0.18 + 0.1 * Math.sin(tm * 3)})`; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 24, 60, 0, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; } }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -425,7 +472,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; }, fps: () => 0 };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; }, fps: () => 0 };
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
@@ -453,6 +500,12 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       </div>
       {banner && <div key={banner.k} className="adv-banner"><b>{banner.a}</b><span>{banner.b}</span></div>}
       {down && <div className="adv-banner" style={{ animation: "none" }}><b style={{ color: "#ff8fa3" }}>{t("ล้ม!", "DOWN!", "倒下了！")}</b><span>{t("กำลังกลับจุดเริ่ม…", "Back to the start…", "回到起点…")}</span></div>}
+      {quiz && <QuizCard quiz={quiz} lang={lang} onKey={(pc, name) => {
+        const cur = quiz; if (cur.res) return; const q = cur.qs[cur.i].q;
+        if (q.kind === "key") answerQuiz(judgeKeys(q, [pc]));
+        else { const has = cur.sel.some((x) => x.pc === pc); setQuiz({ ...cur, sel: has ? cur.sel.filter((x) => x.pc !== pc) : [...cur.sel, { pc, name }] }); }
+      }} onConfirm={() => { const cur = quiz; const q = cur.qs[cur.i].q; answerQuiz(judgeKeys(q, cur.sel.map((x) => x.pc))); }}
+        onChoice={(ok) => answerQuiz(ok)} onNext={nextQuiz} onSkip={() => finishQuiz(quiz)} />}
       <div className="adv-pad">
         <div>
           <button className="adv-key" aria-label="left" {...hold("l")}>◀</button>
@@ -467,3 +520,44 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     </>
   );
 });
+
+/** The question card: choice buttons or a piano to tap; a wrong answer shows the right notes lit on the keys and why. */
+function QuizCard({ quiz, lang, onKey, onConfirm, onChoice, onNext, onSkip }: any) {
+  const item = quiz.qs[quiz.i], q = item.q;
+  const t = (th, en, zh) => T3(lang, th, en, zh);
+  const [picked, setPicked] = useState<number | null>(null);
+  useEffect(() => setPicked(null), [quiz.i]);
+  const lit = quiz.res ? (quiz.res === "bad" || q.kind !== "choice" ? q.teach.lit : []) : quiz.sel.map((x) => x.name + "");
+  const learnedNames = (quiz.learned || []).map((x) => ({ scale: t("สเกล", "Scales", "音阶"), triad: t("คอร์ด", "Chords", "和弦"), interval: t("ช่วงเสียง", "Intervals", "音程"), seventh: t("คอร์ด 7", "7th chords", "七和弦") }[x] || x)).join(" · ");
+  return (
+    <div className="adv-quiz" role="dialog" aria-modal="true">
+      <div className="adv-qcard">
+        <div className="adv-qhead">
+          <span>📡 {t("ทบทวนความรู้", "KNOWLEDGE BEACON", "知识信标")} {quiz.i + 1}/{quiz.qs.length}</span>
+          <i>Lv {q.tier}</i>
+        </div>
+        {quiz.i === 0 && <div style={{ fontSize: 11.5, color: "#9fd8cc" }}>{learnedNames ? t("คำถามมาจากสิ่งที่คุณเรียนแล้ว: ", "Asked from what you have studied: ", "题目来自你学过的内容：") + learnedNames : t("ยังไม่ได้เรียนหัวข้อไหน — ลองเรียนใน Pathway แล้วกลับมา คำถามจะยากขึ้น", "Nothing studied yet — learn in Pathway and the questions will grow with you.", "还没学过内容——去 Pathway 学习后题目会更丰富。")}</div>}
+        <div className="adv-qq">{q.q}</div>
+        {q.kind === "choice" && (
+          <div className="adv-qopts">{q.opts.map((o, i) => (
+            <button key={i} className={"adv-qopt" + (quiz.res ? (o.ok ? " ok" : picked === i ? " no" : "") : "")} disabled={!!quiz.res} onClick={() => { setPicked(i); onChoice(o.ok); }}>{o.label}</button>
+          ))}</div>
+        )}
+        {(q.kind !== "choice" || (quiz.res === "bad")) && (
+          <div className="adv-qpiano"><Piano litSet={lit} small onNote={(n) => { const m = /^([A-G]#?)/.exec(String(n)); if (!m) return; const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]; const pc = names.indexOf(m[1]); if (pc >= 0 && !quiz.res && q.kind !== "choice") onKey(pc, m[1] + "4"); }} /></div>
+        )}
+        {q.kind === "keys" && !quiz.res && <button className="adv-qgo" disabled={quiz.sel.length === 0} onClick={onConfirm}>{t("ยืนยัน", "Confirm", "确认")} ({quiz.sel.length})</button>}
+        {quiz.res && (
+          <div className={"adv-qres " + quiz.res}>
+            <b>{quiz.res === "good" ? t("ถูกต้อง! ✓", "Correct! ✓", "答对了！✓") : t("ยังไม่ใช่ — ดูคีย์ที่เรืองแสงบนเปียโน", "Not quite — see the lit keys on the piano", "不对——看琴键上亮起的音")}</b>
+            {q.teach.why}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          {quiz.res && <button className="adv-qgo" style={{ flex: 1 }} onClick={onNext}>{quiz.i >= quiz.qs.length - 1 ? t("จบการทบทวน", "Finish", "完成") : t("ข้อต่อไป", "Next", "下一题")}</button>}
+          {!quiz.res && <button className="adv-qopt" style={{ flex: "0 0 auto" }} onClick={onSkip}>{t("ข้าม", "Skip", "跳过")}</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
