@@ -385,6 +385,9 @@ const CSS = `
 .adv-qres{border-radius:14px;padding:10px 12px;font-size:13.5px;line-height:1.4}.adv-qres.good{background:rgba(61,220,151,.22);color:#c9ffe9}.adv-qres.bad{background:rgba(255,160,90,.18);color:#ffe3c9}
 .adv-qres b{display:block;margin-bottom:3px}
 @media (prefers-reduced-motion:reduce){.adv-banner{animation:none;opacity:1}}
+/* round pad buttons (owner, 2026-10-11) */
+.adv .pvpdir,.adv .pvpact,.adv-pad .pvppad-r .pvpact.rocket{border-radius:50%!important;aspect-ratio:1/1}.adv .pvpdir{width:54px;height:54px}.adv .pvpact,.adv-pad .pvppad-r .pvpact.rocket{width:58px;height:58px}@media (max-width:600px){.adv .pvpdir{width:48px;height:48px}.adv .pvpact,.adv-pad .pvppad-r .pvpact.rocket{width:52px;height:52px}}
+.adv .pvpact.ult i{max-width:48px}
 `;
 
 type Gfx = "standard" | "high";

@@ -4039,6 +4039,12 @@ ${UX2_CSS}
 .askverdict.pop{animation:askpop .45s cubic-bezier(.2,1.5,.4,1)}
 @keyframes askpop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:reduce){.chhsheet,.chbadgetoast,.chbadgetoast-ic,.askverdict.pop{animation:none}.chquest-bar span{transition:none}}
+/* round control pads (owner, 2026-10-11): every PvP / Adventure / online / survival pad button is a circle, never a rounded square */
+.pvpdir,.pvpact{border-radius:50%!important;aspect-ratio:1/1;padding:0}
+.pvpdir{width:54px;height:54px}.pvpact{width:60px;height:60px}.pvppad-r .pvpact.rocket{grid-column:auto!important;width:60px}
+.pvppage.land .pvpdir{width:58px;height:58px}.pvppage.land .pvpact{width:62px;height:62px}
+.pvpact i{max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 `;
 
 export function useInjectCSS() {
