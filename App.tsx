@@ -11857,7 +11857,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [badgeToast, setBadgeToast] = useState(null);
   const [chatQuestTick, setChatQuestTick] = useState(0);
   useEffect(() => { try { const fresh = evalBadges(); if (fresh.length) setBadgeToast(fresh[0]); } catch (e) {} }, [threads]);   // first chat, 5 chats, 4 categories, streak, a pin
-  const [chatPiano, setChatPiano] = useState(() => { try { return localStorage.getItem("tg_chat_piano") === "1"; } catch (e) { return false; } });   // the chat's piano starts folded: more room for the talk
+  const [chatPiano, setChatPiano] = useState(() => { try { return localStorage.getItem("tg_chat_piano") !== "0"; } catch (e) { return true; } });   // the chat's piano is OPEN by default (owner, 2026-10-12); the 🎹 button folds it and the choice is remembered
   const markUnderstood = useCallback((acc, ask) => {
     try {
       const label = String((ask && (ask.q || (ask.opts && ask.opts[ask.answer]))) || "").trim().slice(0, 40);
