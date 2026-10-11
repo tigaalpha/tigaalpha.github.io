@@ -28,14 +28,22 @@ async function run(kind, up, label) {
   const n0 = await p.evaluate(() => window.__advTest.rocketsN());
   await p.evaluate(() => window.__advTest.rocketNow()); await p.waitForTimeout(60);
   const fired = (await p.evaluate(() => window.__advTest.rocketsN())) - n0, live = await p.evaluate(() => window.__advTest.rocketsLive());
-  ok(label + ": one press fires " + (up >= 4 ? 3 : up >= 2 ? 2 : 1) + " (live " + live + ")", fired === (kind === "nuke" || kind === "big" ? 1 : up >= 4 ? 3 : up >= 2 ? 2 : 1) && live === fired, "fired " + fired + " live " + live);
+  ok(label + ": one press fires " + (up >= 4 ? 4 : up >= 2 ? 3 : 2) + " (live " + live + ")", fired === (kind === "nuke" || kind === "big" ? 1 : up >= 4 ? 4 : up >= 2 ? 3 : 2) && live === fired, "fired " + fired + " live " + live);
   ok(label + ": no errors", errs.length === 0, errs.join("|")); await ctx.close();
 }
 await run("mini", 0, "mini"); await run("mini", 4, "mini salvo Lv4"); await run("homing", 2, "homing salvo Lv2"); await run("big", 4, "big"); await run("nuke", 0, "nuke");
+{ const { ctx, p, errs } = await open({ tg_adv_done: JSON.stringify(["luma"]) });
+  await p.evaluate(() => document.querySelector(".adv-planet").click()); await p.waitForFunction(() => !!window.__advTest, null, { timeout: 8000 });
+  ok("a lightning button is on the pad", !!(await p.$(".pvpact.zap")));
+  const z0 = await p.evaluate(() => window.__advTest.zapsN()); await p.evaluate(() => window.__advTest.zapNow()); await p.evaluate(() => window.__advTest.zapNow());
+  ok("lightning has a short cooldown (a second instant zap is refused)", (await p.evaluate(() => window.__advTest.zapsN())) - z0 === 1);
+  await p.evaluate(() => { const b = document.querySelector(".pvpact.zap"); b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); }); await p.waitForTimeout(1200);
+  ok("holding lightning keeps zapping", (await p.evaluate(() => window.__advTest.zapsN())) - z0 >= 4);
+  ok("zap: no errors", errs.length === 0, errs.join("|")); await ctx.close(); }
 { const { ctx, p, errs } = await open({ tg_adv_done: JSON.stringify(["luma"]), tg_adv_load: JSON.stringify({ rocket: "nuke" }) });
   await p.evaluate(() => document.querySelector(".adv-planet").click()); await p.waitForFunction(() => !!window.__advTest, null, { timeout: 8000 });
   ok("the nuke stays locked until Nexa is cleared (falls back to the first rocket)", await p.evaluate(() => window.__advTest.load().rocket === "homing"));
   await p.evaluate(() => { const b = document.querySelector(".pvpact.rocket"); b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); }); await p.waitForTimeout(2500);
-  ok("holding the rocket button keeps launching them", (await p.evaluate(() => window.__advTest.rocketsN())) >= 1);
+  ok("holding the rocket button keeps launching them", (await p.evaluate(() => window.__advTest.rocketsN())) >= 8);
   await ctx.close(); }
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
