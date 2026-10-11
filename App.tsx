@@ -6187,6 +6187,10 @@ const SHOP_MODELS = [
     desc: { th: "โครงเตาหลอม", en: "Foundry frame", zh: "熔铸机架" }, sw: ["#a08050", "#ff8a3c"] },
   { id: "mdl-zenith", model: "zenith", cost: 34000, rarity: "legendary", th: "เซนิธ", en: "ZENITH", zh: "天顶",
     desc: { th: "โครงพิธีการ", en: "Ceremonial frame", zh: "礼典机架" }, sw: ["#f0d68a", "#ffe9a8"] },
+  { id: "mdl-nimbus", model: "nimbus", cost: 36000, rarity: "legendary", th: "นิมบัส", en: "NIMBUS", zh: "云冕",
+    desc: { th: "โครงมนุษย์ไฮเทค", en: "Humanoid frame", zh: "类人机架" }, sw: ["#e6eaee", "#7fe8ff"] },
+  { id: "mdl-kestrel", model: "kestrel", cost: 36000, rarity: "legendary", th: "เคสเตรล", en: "KESTREL", zh: "红隼",
+    desc: { th: "โครงวิ่งคล่อง", en: "Runner frame", zh: "疾行机架" }, sw: ["#f4f5f6", "#ff8a2b"] },
 ];
 
 /* ── the menagerie ──
