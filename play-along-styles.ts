@@ -86,6 +86,7 @@ export const PA_CSS = `
 .songov.playal .feverbg{animation:none;opacity:1;background:radial-gradient(ellipse at 50% 100%,rgba(255,60,210,.22),rgba(140,70,255,.08) 55%,transparent 75%)}
 .pl-hands{position:absolute;left:8px;bottom:4%;z-index:4;display:flex;gap:6px;pointer-events:none}
 .pl-hands.two{right:8px;justify-content:space-between}
+.pl-hands.rt{left:auto;right:8px}   /* a right-hand-only song: the hand on the right of the screen; left-hand-only: on the left (the default) */
 .pl-hand{padding:4px 6px;border-radius:14px;background:rgba(10,6,28,.5);border:1px solid rgba(140,90,255,.35)}
 .pl-hand{display:flex;flex-direction:column;align-items:center}.pl-hand .fhand{width:112px;height:98px}
 .pl-hands.two .pl-hand .fhand{width:92px;height:80px}

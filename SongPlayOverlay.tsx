@@ -230,7 +230,7 @@ const PaHands = memo(function PaHands({ store, handMode, lang }) {
   const hands = handMode === "both" ? ["left", "right"] : [handMode === "left" ? "left" : "right"];
   const names = FINGER_NAME[lang] || FINGER_NAME.en;
   return (
-    <div className={"pl-hands" + (hands.length > 1 ? " two" : "")} aria-hidden="true">
+    <div className={"pl-hands" + (hands.length > 1 ? " two" : hands[0] === "right" ? " rt" : " lf")} aria-hidden="true">
       {hands.map(h => (
         <div key={h} className="pl-hand">
           <FingerHand finger={hf[h]} hand={h} />
