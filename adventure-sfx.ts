@@ -6,7 +6,7 @@ import { playSig, type Voice } from "./fx-voice";
 import { getSfxMuted } from "./music-engine";
 
 export type AdvSfx = { play: (kind: string, v?: Voice | null) => void; setOn: (on: boolean) => void; close: () => void };
-const GAP: Record<string, number> = { punch: 90, kick: 120, fire: 70, hit: 55, pop: 80, pickup: 60, hurt: 120, jump: 100, dash: 150, skill: 200, spell: 300, slam: 200, pet: 90, win: 500 };
+const GAP: Record<string, number> = { punch: 90, kick: 120, fire: 70, hit: 55, pop: 80, pickup: 60, hurt: 120, jump: 100, dash: 150, skill: 200, spell: 300, slam: 200, pet: 90, win: 500, rocket: 400, boom: 120 };
 export function createAdvSfx(): AdvSfx {
   let ac: AudioContext | null = null, bus: GainNode | null = null, nz: AudioBuffer | null = null, on = true; const last: Record<string, number> = {};
   const ensure = () => {
@@ -49,6 +49,8 @@ export function createAdvSfx(): AdvSfx {
         case "hurt": tone("sine", 220, 80, 0.3, 0.2); tone("square", 340, 120, 0.1, 0.14); break;
         case "slam": tone("sine", 90, 28, 0.5, 0.5); hiss(300, 0.4, 0.5, "lowpass", 120); break;
         case "pet": tone("triangle", 900, 500, 0.1, 0.1); sigKind = "shot"; break;
+        case "rocket": hiss(2600, 0.25, 0.5, "bandpass", 500); tone("sawtooth", 240, 90, 0.1, 0.45); tone("sine", 190, 48, 0.3, 0.16); sigKind = "lob"; break;
+        case "boom": hiss(240, 0.5, 0.6, "lowpass"); tone("sine", 150, 28, 0.5, 0.6); break;
         case "win": [0, 4, 7, 12].forEach((st, i) => tone("triangle", 440 * Math.pow(2, st / 12), 440 * Math.pow(2, st / 12), 0.2, 0.5, i * 0.11)); break;
       }
       if (v && sigKind) playSig(A, out, N, t, v, sigKind, 0.9);
