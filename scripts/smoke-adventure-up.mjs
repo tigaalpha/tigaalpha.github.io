@@ -25,7 +25,7 @@ async function open(pre) {
   const { ctx, p, errs } = await open({ tg_adv_crystals: "100" });
   const crys = () => p.evaluate(() => Number(localStorage.getItem("tg_adv_crystals") || 0));
   const ups = () => p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_up") || "{}"));
-  ok("workshop lists 4 upgrade lines and 3 quests", (await p.locator(".adv-up").count()) === 4 && (await p.locator(".adv-q").count()) === 3);
+  ok("workshop lists 5 upgrade lines and 3 quests", (await p.locator(".adv-up").count()) === 5 && (await p.locator(".adv-q").count()) === 3);
   await p.locator('.adv-up[data-up="atk"]').click(); await p.waitForTimeout(150);
   ok("buying level 1 costs 12 and sets the level", (await crys()) === 88 && (await ups()).atk === 1, "crys " + (await crys()));
   await p.locator('.adv-up[data-up="atk"]').click(); await p.waitForTimeout(150);
