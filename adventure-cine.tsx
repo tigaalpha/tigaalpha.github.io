@@ -162,6 +162,7 @@ function sceneObjective(x: Cx, W: number, H: number, t: number, P: any) {
 
 export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway, onDone }: any) {
   const plan = useRef(cinePlan(P)).current; const total = plan.reduce((a, q) => a + q.dur, 0); const starts = useRef((() => { let a = 0; return plan.map(s => { const v = a; a += s.dur; return v; }); })()).current;
+  const [rot, setRot] = useState(false); useEffect(() => { const chk = () => setRot(window.innerHeight > window.innerWidth); const id = setTimeout(chk, 700); window.addEventListener("resize", chk); return () => { clearTimeout(id); window.removeEventListener("resize", chk); }; }, []);   // a phone that will not turn: the film is turned instead
   const cvRef = useRef<HTMLCanvasElement>(null); const [idx, setIdx] = useState(0); const idxRef = useRef(0); const t0 = useRef(performance.now()); const skipTo = useRef(0);
   const type = TYPE[P.id] || "jungle"; const eye = hexRgb(colorway && colorway.glow ? colorway.glow : "#7fe8ff"); const objIdx = plan.length - 1;
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
@@ -194,7 +195,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
   const kind = plan[Math.min(idx, plan.length - 1)].kind, cap = captionFor(P, kind, lang), goals = GOAL[P.id] || GOAL.luma;
   const next = () => { if (idxRef.current < objIdx) skipTo.current = starts[idxRef.current + 1] - (performance.now() - t0.current) / 1000 + 0.05; };
   return (
-    <div className="adv-cine" onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; next(); }}>
+    <div className={"adv-cine" + (rot ? " rot" : "")} onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; next(); }}>
       <canvas ref={cvRef} />
       <button className="ac-skip" onClick={() => onDone()} aria-label="skip">{t("ข้าม ⏭", "Skip ⏭", "跳过 ⏭")}</button>
       {kind === "approach" && <div key="ttl" className="ac-title"><small>{t("บทที่ ", "CHAPTER ", "第") + (CH.indexOf(P.id) + 1) + t("", "", "章") + " · " + t("ปลายทาง", "DESTINATION", "目的地")}</small><b>{T3(lang, P.th, P.en, P.zh).split(" · ")[0]}</b></div>}

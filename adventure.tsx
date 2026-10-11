@@ -32,10 +32,10 @@ const readCrystals = (): number => { try { return Math.max(0, parseInt(localStor
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(readCrystals() + n)); } catch (e) {} };
 /* ── phase 3.2: crystal upgrades, daily quests, difficulty ──
    Crystals come from playing only and are never for sale. Each of the three lines has 5 levels at +5 % each, so the ceiling is a fixed +25 %. */
-export const UP_LINES = ["atk", "hp", "skl"] as const;
+export const UP_LINES = ["atk", "hp", "skl", "rkt"] as const;   // rkt: rocket salvo (1 > 2 at Lv2 > 3 at Lv4) and 6 % faster reload per level
 export const UP_MAX = 5;
 export const upCost = (lv: number) => 12 * Math.pow(2, lv);   // 12, 24, 48, 96, 192
-export const readUps = (): any => { try { const v = JSON.parse(localStorage.getItem("tg_adv_up") || "{}") || {}; const o: any = {}; for (const k of UP_LINES) o[k] = Math.max(0, Math.min(UP_MAX, v[k] | 0)); return o; } catch (e) { return { atk: 0, hp: 0, skl: 0 }; } };
+export const readUps = (): any => { try { const v = JSON.parse(localStorage.getItem("tg_adv_up") || "{}") || {}; const o: any = {}; for (const k of UP_LINES) o[k] = Math.max(0, Math.min(UP_MAX, v[k] | 0)); return o; } catch (e) { return { atk: 0, hp: 0, skl: 0, rkt: 0 }; } };
 export function buyUp(line: string): boolean {
   const u = readUps(); if (!(UP_LINES as readonly string[]).includes(line) || u[line] >= UP_MAX) return false;
   const c = upCost(u[line]); if (readCrystals() < c) return false;
@@ -51,6 +51,9 @@ export const GUNS = [
 ];
 export const ROCKETS = [
   { id: "homing",  req: null,    th: "จรวดนำวิถี",   en: "Homing rocket",  zh: "追踪火箭" },
+  { id: "mini",    req: null,    th: "จรวดลูกเล็ก",   en: "Mini rocket",    zh: "小型火箭" },
+  { id: "big",     req: "kryo",  th: "จรวดลูกใหญ่",   en: "Big rocket",     zh: "大型火箭" },
+  { id: "nuke",    req: "nexa",  th: "จรวดนิวเคลียร์", en: "Nuclear rocket", zh: "核火箭" },
   { id: "cluster", req: "jovia", th: "จรวดคลัสเตอร์", en: "Cluster rocket", zh: "集束火箭" },
   { id: "napalm",  req: "pyra",  th: "จรวดนาปาล์ม",  en: "Napalm rocket",  zh: "凝固汽油火箭" },
 ];
@@ -307,7 +310,7 @@ const CSS = `
 .adv-clear{position:absolute;left:50%;top:24%;transform:translateX(-50%);z-index:7;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 18px;border-radius:18px;background:rgba(4,20,26,.88);border:1.5px solid rgba(255,214,90,.6);box-shadow:0 0 30px rgba(255,214,90,.25);min-width:240px;animation:advc .4s ease-out}
 .adv-clear .ac-coins{color:#ffe08a;font-weight:800}.adv-clear b{font-size:20px;color:#ffe08a;letter-spacing:1px}.adv-clear small{opacity:.85}.adv-clear .go{background:linear-gradient(135deg,#7b61ff,#4a35c9);border-color:transparent;padding:0 18px;font-size:14px}.adv-clear .adv-btn{min-height:44px;border-radius:14px}
 @keyframes advc{from{transform:translateX(-50%) scale(.85);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
-.adv-cine{position:absolute;inset:0;z-index:8;background:#000;overflow:hidden;touch-action:manipulation}.adv-cine canvas{position:absolute;inset:0;width:100%;height:100%}
+.adv-cine.rot{position:fixed;inset:auto;top:0;left:100vw;width:100vh;height:100vw;transform-origin:top left;transform:rotate(90deg);z-index:60}.adv-cine{position:absolute;inset:0;z-index:8;background:#000;overflow:hidden;touch-action:manipulation}.adv-cine canvas{position:absolute;inset:0;width:100%;height:100%}
 .ac-skip{position:absolute;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:3;min-height:40px;padding:0 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.4);background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:13px}
 .ac-cap{position:absolute;left:6%;right:6%;bottom:calc(11% + 6px);text-align:center;font-size:clamp(14px,2.6vw,22px);font-weight:700;line-height:1.35;color:#f4f8ff;text-shadow:0 2px 10px #000,0 0 20px rgba(120,190,255,.5);animation:acc 4s ease both;pointer-events:none}
 @keyframes acc{0%{opacity:0;transform:translateY(8px)}12%{opacity:1;transform:none}88%{opacity:1}100%{opacity:0}}
@@ -375,13 +378,15 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const [strike, setStrike] = useState<any>(null);
   const [pro, setPro] = useState(() => { try { return localStorage.getItem("tg_adv_prologue") === null && localStorage.getItem("tg_adv_nocine") !== "1"; } catch (e) { return false; } });   // the opening film, once, before the first map menu
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
+  const filming = (pro && !planet) || (!!planet && cined !== planet.id && !nocine);
+  useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
   const nextOf = (cur: any) => { const dn = readDone(); const idx = PLANETS.findIndex(q => q.id === cur.id); return PLANETS.slice(idx + 1).find(Q => Q.ok && (!Q.req || dn.includes(Q.req))) || null; };   // the orbital-strike result (which bases are gone) before an Ashfall run
   const open = (P) => P.ok && (!P.req || done.includes(P.req));
   const t = (th, en, zh) => T3(lang, th, en, zh);
   return (
     <div className="adv" role="region" aria-label="Adventure Mode">
       <style>{CSS}</style>
-      {pro && !planet ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={PROLOGUE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_prologue", "1"); } catch (e) {} setPro(false); }} /></Suspense> : !planet ? (
+      {pro && !planet ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={PROLOGUE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_prologue", "1"); } catch (e) {} setPro(false); exitFsAndUnlock(); }} /></Suspense> : !planet ? (
         <div className="adv-menu">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
@@ -404,7 +409,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
             <b>{t("โรงงาน — อัปเกรดด้วยคริสตัล ◆ " + crystals, "Workshop — upgrade with crystals ◆ " + crystals, "工坊 — 用晶体 ◆ " + crystals + " 升级")}</b>
             {UP_LINES.map(l => (
               <button key={l} className="adv-up" data-up={l} disabled={ups[l] >= UP_MAX || crystals < upCost(ups[l])} onClick={() => { if (buyUp(l)) { playUi && playUi("click"); setTick(x => x + 1); } }}>
-                <span>{l === "atk" ? t("พลังโจมตี", "Attack", "攻击") : l === "hp" ? t("เลือด", "Health", "生命") : t("สกิลเร็วขึ้น", "Skill speed", "技能速度")} · Lv {ups[l]}/{UP_MAX} (+{ups[l] * 5}%)</span>
+                <span>{l === "atk" ? t("พลังโจมตี", "Attack", "攻击") : l === "hp" ? t("เลือด", "Health", "生命") : l === "rkt" ? t("จรวดยิงชุด/รีโหลดไว", "Rocket salvo & reload", "火箭齐射/装填") : t("สกิลเร็วขึ้น", "Skill speed", "技能速度")} · Lv {ups[l]}/{UP_MAX} (+{ups[l] * 5}%)</span>
                 <em>{ups[l] >= UP_MAX ? "MAX" : "◆ " + upCost(ups[l])}</em>
               </button>
             ))}
@@ -745,12 +750,19 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     };
     const fireRocket = () => {
       if (pl.dead || pl.rockCd > 0) return;
-      pl.rockCd = 3.4 * mods.cdMul; rocketN++; sfx.play("rocket", rv); pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
-      const k3 = LOAD.rocket, ox = pl.x + pl.face * 28, oy = pl.y + 52;
+      const k3 = LOAD.rocket, salvo = k3 === "nuke" || k3 === "big" ? 1 : 1 + (UPS.rkt >= 2 ? 1 : 0) + (UPS.rkt >= 4 ? 1 : 0);
+      pl.rockCd = ({ mini: 0.9, big: 5, nuke: 14 } as any)[k3] * 1 || 3.4; pl.rockCd *= mods.cdMul * (1 - 0.06 * UPS.rkt); rocketN += salvo; sfx.play("rocket", rv); pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
+      const ox = pl.x + pl.face * 28, oy = pl.y + 52;
       shake = Math.max(shake, high ? 4 : 2); blasts.push({ x: ox, y: oy, r: 34, life: 0.18, max: 0.18, flash: true });   // muzzle flash
       for (let a = 0; a < (high ? 14 : 6); a++) { smoke.push({ x: ox - pl.face * 10, y: oy + (Math.random() - 0.5) * 12, vx: -pl.face * (60 + Math.random() * 120), vy: (Math.random() - 0.3) * 40, life: 0.6 + Math.random() * 0.3, max: 0.9, r: 4 + Math.random() * 5 }); }   // backblast
-      if (k3 === "homing") rockets.push({ k: k3, x: ox, y: oy, vx: pl.face * 300, vy: 40, life: 2.6 });
-      else rockets.push({ k: k3, x: ox, y: oy, vx: pl.face * 380, vy: 210, life: 2.4, g: 520 });
+      const SC: any = { mini: 0.62, big: 1.5, nuke: 2.3 };
+      for (let q = 0; q < salvo; q++) {   // a salvo fans out a little so the missiles do not sit on each other
+        const fan = (q - (salvo - 1) / 2), sc = SC[k3] || 1;
+        if (k3 === "homing" || k3 === "mini") rockets.push({ k: k3, sc, x: ox, y: oy + fan * 10, vx: pl.face * (k3 === "mini" ? 420 : 300), vy: 40 + fan * 90, life: 2.6 });
+        else if (k3 === "big" || k3 === "nuke") rockets.push({ k: k3, sc, x: ox, y: oy, vx: pl.face * (k3 === "nuke" ? 230 : 300), vy: k3 === "nuke" ? 60 : 90, life: 3.2, g: k3 === "nuke" ? 60 : 120 });
+        else rockets.push({ k: k3, sc, x: ox, y: oy + fan * 10, vx: pl.face * 380, vy: 210 + fan * 80, life: 2.4, g: 520 });
+      }
+      if (k3 === "nuke") { shake = Math.max(shake, high ? 9 : 5); }
     };
     const kickMove = () => {
       if (pl.dead || pl.kickCd > 0) return;
@@ -899,7 +911,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       }
       for (let i = bolts.length - 1; i >= 0; i--) if (bolts[i].life <= 0) bolts.splice(i, 1);
       for (const r of rockets) {
-        if (r.k === "homing") { let tx: number | null = null, ty = 40; let bd = 520; for (const m of mons) { if (m.dead) continue; const dd = Math.abs(m.x - r.x); if (dd < bd) { bd = dd; tx = m.x; ty = m.y + 24; } } if (boss.active && !boss.dead && Math.abs(boss.x - r.x) < bd) { tx = boss.x; ty = 70; }
+        if (r.k === "homing" || r.k === "mini") { let tx: number | null = null, ty = 40; let bd = 520; for (const m of mons) { if (m.dead) continue; const dd = Math.abs(m.x - r.x); if (dd < bd) { bd = dd; tx = m.x; ty = m.y + 24; } } if (boss.active && !boss.dead && Math.abs(boss.x - r.x) < bd) { tx = boss.x; ty = 70; }
           if (tx !== null) { const ax = tx - r.x, ay = ty - r.y, L = Math.hypot(ax, ay) || 1; r.vx += (ax / L * 520 - r.vx) * Math.min(1, 3.2 * dt); r.vy += (ay / L * 520 - r.vy) * Math.min(1, 3.2 * dt); } }
         else r.vy -= r.g * dt;
         r.x += r.vx * dt; r.y += r.vy * dt; r.life -= dt; r.sm = (r.sm || 0) - dt;
@@ -908,6 +920,9 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
         if (!boom && boss.active && !boss.dead && Math.abs(boss.x - r.x) < 70 && r.y < 150) boom = true;
         if (boom) { r.dead = true; const yy = Math.max(0, r.y);
           if (r.k === "homing") explode(r.x, yy, 95, 3.2, "255,170,60");
+          else if (r.k === "mini") explode(r.x, yy, 48, 1.3, "255,200,100");
+          else if (r.k === "big") { explode(r.x, yy, 170, 7, "255,140,50"); shake = Math.max(shake, high ? 12 : 6); }
+          else if (r.k === "nuke") { explode(r.x, yy, 460, 16, "255,255,230"); shake = high ? 22 : 12; blasts.push({ x: r.x, y: yy, r: 900, life: 0.7, max: 0.7, flash: true }); for (let q = 0; q < 3; q++) blasts.push({ x: r.x + (q - 1) * 90, y: yy + q * 30, r: 380, life: 0.9 + q * 0.2, max: 1.3 }); for (let q = 0; q < (high ? 26 : 10); q++) smoke.push({ x: r.x + (Math.random() - 0.5) * 220, y: yy + Math.random() * 260, vx: (Math.random() - 0.5) * 90, vy: 40 + Math.random() * 110, life: 1.8 + Math.random() * 1.2, max: 3, r: 24 + Math.random() * 30 }); pop(r.x, GROUND - yy - 160, t("นิวเคลียร์!", "NUKE!", "核爆！"), "#fff2c0"); }
           else if (r.k === "cluster") { explode(r.x, yy, 60, 1.4, "255,200,90"); for (let q = 0; q < 5; q++) rockets.push({ k: "bomblet", x: r.x + (q - 2) * 8, y: yy + 10, vx: (q - 2) * 90, vy: 150 + (q % 2) * 70, life: 0.7 + q * 0.06, g: 600 }); }
           else if (r.k === "napalm") { explode(r.x, yy, 60, 1.2, "255,120,40"); fires.push({ x: r.x, life: 3.5, tick: 0 }); }
           else if (r.k === "bomblet") explode(r.x, yy, 55, 1.0, "255,210,120"); }
@@ -975,7 +990,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       // smoke first (behind the missiles), then the missiles, then the fireballs
       for (const q of smoke) { const a = Math.max(0, q.life / q.max); ctx.fillStyle = `rgba(${150 + 60 * (1 - a) | 0},${140 + 50 * (1 - a) | 0},${130 + 40 * (1 - a) | 0},${0.5 * a})`; ctx.beginPath(); ctx.arc(q.x, GROUND - q.y, q.r, 0, 7); ctx.fill(); }
       for (const r of rockets) {
-        const ry = GROUND - r.y, ang = Math.atan2(-r.vy, r.vx), big = r.k !== "bomblet", L = big ? 36 : 20, W2 = big ? 4.2 : 2.6;
+        const ry = GROUND - r.y, ang = Math.atan2(-r.vy, r.vx), big = r.k !== "bomblet", SCL = r.sc || 1, L = (big ? 36 : 20) * SCL, W2 = (big ? 4.2 : 2.6) * SCL;
         ctx.save(); ctx.translate(r.x, ry); ctx.rotate(ang);
         ctx.globalCompositeOperation = "lighter"; const fl = (big ? 24 : 12) + Math.random() * (big ? 14 : 6);                                   // the exhaust: a hot teardrop
         const eg = ctx.createLinearGradient(-L / 2, 0, -L / 2 - fl, 0); eg.addColorStop(0, "rgba(255,255,230,.95)"); eg.addColorStop(0.35, "rgba(255,180,60,.8)"); eg.addColorStop(1, "rgba(255,70,20,0)");
@@ -984,7 +999,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
         ctx.globalCompositeOperation = "source-over";
         ctx.fillStyle = r.k === "napalm" ? "#7a2a10" : "#4a5668"; ctx.beginPath(); ctx.moveTo(-L * 0.3, -W2 * 1.1); ctx.lineTo(-L / 2 - 2, -W2 * 2.6); ctx.lineTo(-L / 2 + 6, -W2 * 0.6); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(-L * 0.3, W2 * 1.1); ctx.lineTo(-L / 2 - 2, W2 * 2.6); ctx.lineTo(-L / 2 + 6, W2 * 0.6); ctx.closePath(); ctx.fill();   // fins
         const bg = ctx.createLinearGradient(0, -W2, 0, W2); bg.addColorStop(0, "#f4f7fb"); bg.addColorStop(0.5, "#aab6c6"); bg.addColorStop(1, "#5d6b7e"); ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(-L / 2, -W2); ctx.lineTo(L * 0.22, -W2); ctx.lineTo(L * 0.22, W2); ctx.lineTo(-L / 2, W2); ctx.closePath(); ctx.fill();   // the body
-        ctx.fillStyle = r.k === "cluster" ? "#ffd23f" : r.k === "napalm" ? "#ff7a2a" : "#e4455b"; ctx.fillRect(-L * 0.12, -W2, L * 0.1, W2 * 2);                  // a coloured band by type
+        ctx.fillStyle = r.k === "cluster" ? "#ffd23f" : r.k === "napalm" ? "#ff7a2a" : r.k === "mini" ? "#5ad1ff" : r.k === "big" ? "#8a5cff" : r.k === "nuke" ? "#b6ff3b" : "#e4455b"; ctx.fillRect(-L * 0.12, -W2, L * 0.1, W2 * 2);                  // a coloured band by type
         ctx.beginPath(); ctx.moveTo(L * 0.22, -W2); ctx.quadraticCurveTo(L * 0.42, -W2 * 0.5, L / 2 + 3, 0); ctx.quadraticCurveTo(L * 0.42, W2 * 0.5, L * 0.22, W2); ctx.closePath(); ctx.fillStyle = "#d9d2c4"; ctx.fill();   // the nose cone
         ctx.fillStyle = "#ff3b30"; ctx.beginPath(); ctx.moveTo(L * 0.38, -W2 * 0.35); ctx.lineTo(L / 2 + 3, 0); ctx.lineTo(L * 0.38, W2 * 0.35); ctx.closePath(); ctx.fill();
         ctx.restore();
