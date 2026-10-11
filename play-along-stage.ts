@@ -35,7 +35,23 @@
    ring and the floor line only ever move, and on a fast tempo the flare is
    halved. ── */
 
+import { drawFutureScene, FUTURE_PAL } from "./future-scenes";
 const TAU = Math.PI * 2;
+
+/* ── ten places (owner, 2026-10-12: "ten backdrops, a different one at random for each song") ──
+   0 is the neon city below; 1–9 are the hand-drawn futuristic places of future-scenes.ts (also the PvP arena's),
+   painted over the same night sky, wheel and stars, with their own palette. A place is picked when a song's ready
+   screen opens (rollStageTheme) and never repeats the one before; the baked world is kept per place and size. */
+export const STAGE_THEME_IDS = ["city", "magma", "frost", "ashfall", "void", "bloom", "gilt", "tide", "requiem", "dojo"];
+let THEME = 0, LAST_THEME = -1;
+export const stageThemeId = () => THEME;
+export function rollStageTheme(force = null) {
+  if (force == null) { try { const f = localStorage.getItem("tg_pa_stage_force"); if (f != null && f !== "") force = parseInt(f, 10) || 0; } catch (e) {} }   // for the screenshot bots
+  let t = force != null ? ((force % STAGE_THEME_IDS.length) + STAGE_THEME_IDS.length) % STAGE_THEME_IDS.length : Math.floor(Math.random() * STAGE_THEME_IDS.length);
+  if (force == null && t === LAST_THEME) t = (t + 1 + Math.floor(Math.random() * (STAGE_THEME_IDS.length - 1))) % STAGE_THEME_IDS.length;
+  THEME = t; LAST_THEME = t; return t;
+}
+const palOf = (t) => (t > 0 ? FUTURE_PAL[STAGE_THEME_IDS[t]] : null);
 function rng(seed) { let s = seed; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; }
 function canvas(w, h) { const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
 
@@ -85,19 +101,29 @@ export function worldSteps(W, H, dpr, fx2) {
   const world: any = { key: worldKey(W, H, dpr, fx2), cv, W, H, dpr, hz, wx, wy, wR, winTop, win: null, wheel: null, spr: null, stars: [], beacons: [], signs: [], bakeMs: 0 };
   const timed = (fn) => () => { const t0 = performance.now(); fn(); world.bakeMs += performance.now() - t0; };
   const steps = [
-    timed(() => bakeSkySoft(nx, W, H, hz, wx, wy, wR, dpr)),
+    timed(() => bakeSkySoft(nx, W, H, hz, wx, wy, wR, dpr, palOf(THEME))),
     timed(() => { bakeSkyDetail(nx, W, H, hz, wx, wy, wR, world); if (!fx2) drawRuneWheel(nx, wx, wy, wR); }),   // the wheel is still at the low levels; at the top it turns (the frame loop draws it)
     timed(() => {
       let wx2 = null;
       if (fx2) { const wl = canvas(W * dpr, (hz - winTop) * dpr); wx2 = wl.getContext("2d"); wx2.setTransform(dpr, 0, 0, dpr, 0, -winTop * dpr); world.win = wl; }
-      bakeCity(nx, W, H, hz, dpr, wx2, world);
+      const pal = palOf(THEME);
+      if (!pal) bakeCity(nx, W, H, hz, dpr, wx2, world);
+      else {
+        // a hand-drawn place instead of the city; its lights are kept as the world's beacons (they pulse on the beat)
+        const beacons = [], lit = [];
+        nx.save(); nx.globalAlpha = 0.9;
+        try { drawFutureScene(nx, pal, W, H, hz, lit, beacons); } catch (e) {}
+        nx.restore(); nx.globalAlpha = 1; nx.globalCompositeOperation = "source-over";
+        for (const b of beacons) world.beacons.push({ x: b.x, y: b.y, ph: 0 });
+        world.cars = false;
+      }
     }),
     timed(() => bakeFloor(nx, W, H, hz, dpr, world)),
     timed(() => { if (fx2) { world.wheel = wheelSprite(wR, dpr); world.spr = stageSprites(W, H, wR, dpr); } }),
   ];
   return { world, steps };
 }
-const worldKey = (W, H, dpr, fx2) => `${W}|${H}|${dpr}|${fx2 ? 1 : 0}`;
+const worldKey = (W, H, dpr, fx2) => `${W}|${H}|${dpr}|${fx2 ? 1 : 0}|t${THEME}`;
 const flush = (world) => world.cv.getContext("2d").getImageData(0, 0, 1, 1);      // a canvas's work is deferred until something reads it: make the bake pay it, not the first frame
 /* A world painted from start to finish, kept by no one (the tests and the profiler use it). */
 export function bakeWorld(W, H, dpr, fx2) {
@@ -175,20 +201,24 @@ function vignette(cx, W, H) {
 /* The sky, from the top of the canvas to the horizon at hz (bakeSkySoft). Every soft layer in it (the night, the sun's glow, the nebulae, the
    moon's disc, the shafts of light, the clouds, the aurora, the milky way, the vignette) is painted at a quarter of the pixels
    and stretched in one copy — a smooth glow loses nothing and costs by area. */
-function bakeSkySoft(nx, W, H, hz, wx, wy, wR, dpr) {
+function bakeSkySoft(nx, W, H, hz, wx, wy, wR, dpr, pal = null) {
   const rnd = rng(31);
   const qs = Math.max(0.5, dpr / 4), sk = canvas(W * qs, (hz + 2) * qs), sx = sk.getContext("2d");
   sx.setTransform(qs, 0, 0, qs, 0, 0);
   // the night, deepening upward, warming to a coral horizon
   const sky = sx.createLinearGradient(0, 0, 0, hz);
+  if (pal) { sky.addColorStop(0, "#02010a"); sky.addColorStop(0.45, pal.sky[2]); sky.addColorStop(0.8, pal.sky[1]); sky.addColorStop(1, pal.sky[0]); } else {
   sky.addColorStop(0, "#03010b"); sky.addColorStop(0.38, "#0a0524"); sky.addColorStop(0.66, "#1a0a48"); sky.addColorStop(0.84, "#46125f"); sky.addColorStop(0.94, "#86206f"); sky.addColorStop(1, "#bd3a78");
+  }
   sx.fillStyle = sky; sx.fillRect(0, 0, W, hz + 2);
   sx.globalCompositeOperation = "lighter";
   // the sun that has just gone: a glow on the horizon the skyline stands against
   const sun = sx.createRadialGradient(W * 0.5, hz, 0, W * 0.5, hz, W * 0.75);
-  sun.addColorStop(0, "rgba(255,150,70,0.8)"); sun.addColorStop(0.22, "rgba(255,90,130,0.46)"); sun.addColorStop(0.55, "rgba(255,60,190,0.16)"); sun.addColorStop(1, "rgba(255,60,190,0)");
+  if (pal) { const h = pal.horizon; sun.addColorStop(0, `rgba(${h},0.7)`); sun.addColorStop(0.22, `rgba(${h},0.34)`); sun.addColorStop(0.55, `rgba(${pal.neon[0]},0.12)`); sun.addColorStop(1, `rgba(${pal.neon[0]},0)`); }
+  else { sun.addColorStop(0, "rgba(255,150,70,0.8)"); sun.addColorStop(0.22, "rgba(255,90,130,0.46)"); sun.addColorStop(0.55, "rgba(255,60,190,0.16)"); sun.addColorStop(1, "rgba(255,60,190,0)"); }
   sx.save(); sx.translate(W * 0.5, hz); sx.scale(1, 0.5); sx.translate(-W * 0.5, -hz); sx.fillStyle = sun; sx.fillRect(0, hz - W, W, W * 2); sx.restore();
-  for (const [fx, fy, fr, col] of [[0.14, 0.22, 0.5, "rgba(255,43,214,0.16)"], [0.9, 0.14, 0.46, "rgba(40,220,255,0.15)"], [0.5, 0.74, 0.62, "rgba(140,70,255,0.16)"], [0.04, 0.5, 0.34, "rgba(40,230,200,0.1)"], [0.68, 0.38, 0.3, "rgba(255,90,220,0.09)"]]) {
+  const glowsAll = pal ? [[0.14, 0.22, 0.5, `rgba(${pal.neon[0]},0.14)`], [0.9, 0.14, 0.46, `rgba(${pal.neon[1]},0.14)`], [0.5, 0.74, 0.62, `rgba(${pal.horizon},0.12)`]] : null;
+  for (const [fx, fy, fr, col] of glowsAll ? glowsAll : [[0.14, 0.22, 0.5, "rgba(255,43,214,0.16)"], [0.9, 0.14, 0.46, "rgba(40,220,255,0.15)"], [0.5, 0.74, 0.62, "rgba(140,70,255,0.16)"], [0.04, 0.5, 0.34, "rgba(40,230,200,0.1)"], [0.68, 0.38, 0.3, "rgba(255,90,220,0.09)"]]) {
     const g = sx.createRadialGradient(fx * W, fy * H, 0, fx * W, fy * H, fr * Math.max(W, H));
     g.addColorStop(0, col); g.addColorStop(1, "rgba(0,0,0,0)");
     sx.fillStyle = g; sx.fillRect(0, 0, W, hz + 2);
@@ -573,7 +603,7 @@ export function drawStageFx(ctx, S) {
   }
   if (world) {
     // cars in the sky: lights crossing the city on three lanes, each in its own time and direction
-    for (let i = 0; i < 3; i++) {
+    if (world.cars !== false) for (let i = 0; i < 3; i++) {
       const dir = i % 2 ? -1 : 1, speed = 11 + i * 7, span = W + 80, u = ((tSec * speed + i * 137) % span + span) % span;
       const x = dir > 0 ? u - 40 : W + 40 - u, y = hz * (0.5 + i * 0.07) + Math.sin(tSec * 0.4 + i) * 2;
       const c = i === 1 ? "120,235,255" : "255,120,225";

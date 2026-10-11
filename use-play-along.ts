@@ -21,7 +21,7 @@ import { queuedUntilTiga, tigaNow } from "./tiga-gateway";   // tigamodel loads 
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 import { createGameStore } from "./play-along-store";
 import { createBand, playChordDing } from "./play-along-band";
-import { paintWorld, getWorld, composeStage, drawStageFx } from "./play-along-stage";
+import { paintWorld, getWorld, composeStage, drawStageFx, rollStageTheme } from "./play-along-stage";
 import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt, replayExp } from "./play-along-judge";
 import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday, songPlayCount, bumpPlayCount } from "./play-along-progress";
 
@@ -2501,8 +2501,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   /* While a song waits on the ready screen, the stage's world (sky, city, floor) is painted in the browser's idle time,
      one slice at a time, for the size the stage had when a run last began on this screen, in this view (readStageSize), so that pressing
      Start finds it done. play-along-stage.ts keeps it, and what is half painted, for the next visit; a song only adds its lanes. */
+  const readyRolled = useRef(false);
   useEffect(() => {
-    if (!songOpen || songPhase !== "ready") return;
+    if (!songOpen) { readyRolled.current = false; return; }
+    if (songPhase !== "ready") { readyRolled.current = false; return; }
+    // a new backdrop each time a song's ready screen opens (not on a hand or view change within it)
+    if (!readyRolled.current) { readyRolled.current = true; rollStageTheme(); }
     const hasIdle = typeof requestIdleCallback === "function";
     let dead = false, h = null;
     const idle = (fn) => { h = hasIdle ? requestIdleCallback(fn, { timeout: 700 }) : setTimeout(fn, 80); };
