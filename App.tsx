@@ -97,6 +97,7 @@ import {
   localPathwayLesson, matchFaqTopic, COACH_FEATURE_LABELS, EXAM_GRADES, FAQ_TOPICS,
 } from "./i18n";
 import { Msg, Typing, Input, ChatProgress, CHAT_TTS_ENABLED, ChatHistoryButtons, ChatHistorySheet } from "./chat-ui";
+import { addUnderstood } from "./chat-store";
 /* Hidden case studies (owner request 2026-09): the whole "Marketing for
    Artists" stage/group (music-marketing) plus the Carabao case are removed
    from every surface. This block runs at App module load, after i18n has
@@ -11853,11 +11854,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      session. The tutor never guesses this about itself: being wrong about it
      is worse than having no record. The label is the question that was asked,
      trimmed, because there is no topic id on a chat answer. */
+  const [chatPiano, setChatPiano] = useState(() => { try { return localStorage.getItem("tg_chat_piano") === "1"; } catch (e) { return false; } });   // the chat's piano starts folded: more room for the talk
   const markUnderstood = useCallback((acc, ask) => {
     try {
       const label = String((ask && (ask.q || (ask.opts && ask.opts[ask.answer]))) || "").trim().slice(0, 40);
       if (!label) return;
       recordMemory(label, acc);
+      if (acc >= 70) addUnderstood(chatThreadId.current);   // the chat's knowledge log (device-only tally)
       playUi("click");
     } catch (e) {}
   }, [playUi]);
@@ -13520,10 +13523,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <button className="vmback" onClick={() => setModal(false)} aria-label={lc.back} title={lc.back}>←</button>
             <div className="mlbl"><div className="dot" />⤢ {lc.aiLabel}</div>
           </div>
+          <button type="button" className={"chhbtn" + (chatPiano ? " on" : "")} aria-pressed={chatPiano} aria-label="Piano" title="Piano" onClick={() => { playUi("click"); setChatPiano(v => { const n = !v; try { localStorage.setItem("tg_chat_piano", n ? "1" : "0"); } catch (e) {} return n; }); }}><span aria-hidden="true">🎹</span></button>
           <ChatHistoryButtons lang={lang} count={threads.length} onHistory={() => { playUi("click"); setHistoryOpen(true); }} onNew={() => { playUi("click"); newChat(); }} />
-          <button className="cbtn" onClick={() => setModal(false)}>{lc.close}</button>
+          <button className="cbtn" aria-label={lc.close} title={lc.close} onClick={() => setModal(false)}>✕</button>
         </div>
-        <div className="mpw"><Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} small /></div>
+        {chatPiano && <div className="mpw"><Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} small /></div>}
         <div className="mmsgs">
           {msgs.map((m, i) => (
             <Msg key={i} m={m} idx={i} lang={lang}
