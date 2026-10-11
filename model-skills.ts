@@ -605,6 +605,19 @@ export const MODEL_SKILLS = {
        "เซ็นเซอร์บนหัวสแกนจุดอ่อน ท่าถัดไปทุกท่าเป็นคริติคอล",
        "The sensor on top maps every weak point; the next strikes all land critical.",
        "头顶传感器扫描弱点，接下来的攻击全部暴击。") ] },
+  volta: { cls: "engineer", skills: [
+    sk("passive", "wrench", "งานซ้ำไม่เคยเพี้ยน", "Repeatable", "分毫不差",
+       "ตอบถูกท่าเดิมซ้ำ ๆ ได้แต้มเพิ่มขึ้นทีละน้อย",
+       "Repeating the same right answer adds a little more each time.",
+       "重复答对同一类题，加分逐步提高。"),
+    sk("active", "coil", "ใช้งานได้จริง", "Hands On", "上手作业",
+       "ใช้มือทั้งสองจับงานพร้อมกัน โจมตีติดกันสองครั้ง",
+       "Works with both hands at once: two strikes back to back.",
+       "双手同时作业，连续两击。"),
+    sk("ultimate", "fusion", "สายพานสมบูรณ์", "Assembly Line", "流水线",
+       "ต่อท่าเป็นสายยาว ทุกท่าที่ต่อกันแรงขึ้นเรื่อย ๆ",
+       "Chains strikes like a line: every link in the chain hits harder.",
+       "连招如流水线，每一环都比上一环更重。") ] },
 };
 
 /* the class a chassis belongs to, for anything that just needs the label */

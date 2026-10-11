@@ -6191,6 +6191,8 @@ const SHOP_MODELS = [
     desc: { th: "โครงมนุษย์ไฮเทค", en: "Humanoid frame", zh: "类人机架" }, sw: ["#e6eaee", "#7fe8ff"] },
   { id: "mdl-kestrel", model: "kestrel", cost: 36000, rarity: "legendary", th: "เคสเตรล", en: "KESTREL", zh: "红隼",
     desc: { th: "โครงวิ่งคล่อง", en: "Runner frame", zh: "疾行机架" }, sw: ["#f4f5f6", "#ff8a2b"] },
+  { id: "mdl-volta", model: "volta", cost: 38000, rarity: "legendary", th: "โวลตา", en: "VOLTA", zh: "伏塔",
+    desc: { th: "โครงมนุษย์โรงงาน", en: "Factory humanoid", zh: "工厂类人机架" }, sw: ["#c8cdd2", "#0b0c0e"] },
 ];
 
 /* ── the menagerie ──
