@@ -23,11 +23,11 @@ async function open(pre) {
 }
 
 
-const ALLDONE = ["luma", "ferro", "jovia", "kryo", "pyra"];
+const ALLDONE = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "kryo"];
 {
   const o = await open({});
   const l0 = await o.p.evaluate(() => [...document.querySelectorAll(".adv-load button")].map(b => [b.dataset.w, b.disabled]));
-  ok("a new player has only the Pulse gun and the Homing rocket", l0.filter(x => !x[1]).map(x => x[0]).join() === "pulse,homing", JSON.stringify(l0));
+  ok("a new player has only the Pulse gun and the Homing and Mini rockets", l0.filter(x => !x[1]).map(x => x[0]).join() === "pulse,homing,mini", JSON.stringify(l0));
   await o.ctx.close();
   const o2 = await open({ tg_adv_done: JSON.stringify(ALLDONE) });
   ok("clearing planets unlocks every gun and rocket", (await o2.p.evaluate(() => [...document.querySelectorAll(".adv-load button")].every(b => !b.disabled))));
