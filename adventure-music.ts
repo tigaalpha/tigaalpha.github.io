@@ -45,6 +45,7 @@ MOODS.cobalt = { ...MOODS.ferro, bpm: 118, root: 47, wLead: "square", gain: 0.7 
 MOODS.helios = { ...MOODS.jovia, bpm: 132, root: 62, scale: LYD, wLead: "sawtooth", gain: 0.62 };
 MOODS.departure = { ...MOODS.luma, bpm: 118, gain: 0.64 };
 MOODS.asteroids = { ...MOODS.nexa, bpm: 124, gain: 0.6 };
+MOODS.gasskim = { ...MOODS.jovia, bpm: 130, gain: 0.6 };
 MOODS.dyson = { ...MOODS.helios, bpm: 126, gain: 0.62 };
 MOODS.voidgate = { ...MOODS.nexa, bpm: 138, gain: 0.6 };
 MOODS.ashfall = { ...MOODS.pyra, bpm: 112, root: 50, scale: MIN, gain: 0.6 };
