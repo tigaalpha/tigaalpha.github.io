@@ -177,6 +177,7 @@ function layer(w, h, fn) { const c = document.createElement("canvas"); c.width =
 function glowSprite(rgb, r) { return layer(r * 2, r * 2, (x, w, h) => { const g = x.createRadialGradient(r, r, 0, r, r, r); g.addColorStop(0, `rgba(${rgb},0.9)`); g.addColorStop(0.35, `rgba(${rgb},0.3)`); g.addColorStop(1, `rgba(${rgb},0)`); x.fillStyle = g; x.fillRect(0, 0, w, h); }); }
 
 /** All of the planet's backdrop, baked once for this canvas size. Layers are tiles that repeat sideways. */
+const MID_STYLE: any = { ferro: "mesa", cobalt: "mesa", jovia: "pillar", kryo: "ice", pyra: "volcano", helios: "volcano", nexa: "ruins", dyson: "ruins", ashfall: "ruins" };
 function bakePlanet(P, cw, ch, k, high) {
   const rgb = P.glow, acc = P.acc;
   const sky = layer(cw, ch, (x, w, h) => {
@@ -200,6 +201,19 @@ function bakePlanet(P, cw, ch, k, high) {
   const mid = layer(tileW, ch, (x, w, h) => {
     const base = GROUND * k;
     x.fillStyle = "rgba(2,22,28,.92)"; x.fillRect(0, base - 6 * k, w, h);
+    const sty = MID_STYLE[P.id] || "mush";
+    if (sty !== "mush") {                              // per-planet skyline (owner 2026-10-11: terrain shapes per planet)
+      const N = sty === "ruins" ? 12 : 10;
+      for (let i = 0; i < N; i++) {
+        const cx = (i + 0.5 + (rnd(i + 3) - 0.5) * 0.4) / N * w, th = (60 + rnd(i) * 110) * k, tw = (18 + rnd(i + 1) * 26) * k, col = i % 3 ? rgb : acc;
+        x.fillStyle = "rgba(3,26,32,.96)";
+        if (sty === "mesa") { x.fillRect(cx - tw, base - th, tw * 2, th); x.fillRect(cx - tw * 1.3, base - th, tw * 2.6, 8 * k); x.fillStyle = `rgba(${col},.5)`; for (let r = 1; r < 4; r++) x.fillRect(cx - tw, base - th + r * th * 0.22, tw * 2, 2 * k); }
+        else if (sty === "pillar") { x.beginPath(); x.ellipse(cx, base - th * 0.5, tw * 0.9, th * 0.5, 0, 0, 7); x.fill(); for (let r = 0; r < 4; r++) { x.fillStyle = `rgba(${col},${0.25 - r * 0.04})`; x.fillRect(cx - tw * 1.4, base - th + r * th * 0.24, tw * 2.8, 5 * k); } }
+        else if (sty === "ice") { x.beginPath(); x.moveTo(cx - tw, base); x.lineTo(cx - tw * 0.2, base - th); x.lineTo(cx + tw * 0.5, base - th * 0.6); x.lineTo(cx + tw, base); x.closePath(); x.fill(); x.strokeStyle = `rgba(${col},.8)`; x.lineWidth = 2 * k; x.beginPath(); x.moveTo(cx - tw * 0.2, base - th); x.lineTo(cx - tw * 0.05, base - th * 0.2); x.stroke(); }
+        else if (sty === "volcano") { x.beginPath(); x.moveTo(cx - tw * 2, base); x.lineTo(cx - tw * 0.5, base - th); x.lineTo(cx + tw * 0.5, base - th); x.lineTo(cx + tw * 2, base); x.closePath(); x.fill(); const lg = x.createRadialGradient(cx, base - th, 0, cx, base - th, tw * 2.2); lg.addColorStop(0, `rgba(${acc},.9)`); lg.addColorStop(1, `rgba(${acc},0)`); x.fillStyle = lg; x.beginPath(); x.arc(cx, base - th, tw * 2.2, 0, 7); x.fill(); x.strokeStyle = `rgba(${acc},.7)`; x.lineWidth = 2 * k; x.beginPath(); x.moveTo(cx, base - th); x.lineTo(cx + tw * 0.4, base - th * 0.2); x.stroke(); }
+        else { const bw = tw * 1.4; x.fillRect(cx - bw, base - th, bw * 2, th); x.fillStyle = "rgba(2,16,20,.98)"; x.beginPath(); x.moveTo(cx - bw, base - th); x.lineTo(cx - bw * 0.2, base - th - 16 * k); x.lineTo(cx + bw * 0.4, base - th + 6 * k); x.lineTo(cx + bw, base - th - 8 * k); x.lineTo(cx + bw, base - th); x.closePath(); x.fill(); x.fillStyle = `rgba(${col},.8)`; for (let wy = 0; wy < th - 12 * k; wy += 18 * k) for (let wx = -1; wx <= 1; wx += 2) if (rnd(i * 31 + wy + wx) > 0.55) x.fillRect(cx + wx * bw * 0.45 - 2 * k, base - th + 10 * k + wy, 4 * k, 6 * k); }
+      }
+    } else
     for (let i = 0; i < 14; i++) {                    // giant glowing mushrooms / spore trees
       const cx = (i + 0.5 + (rnd(i + 3) - 0.5) * 0.5) / 14 * w, th = (70 + rnd(i) * 80) * k, tw = (6 + rnd(i + 1) * 6) * k;
       x.fillStyle = "rgba(3,40,44,.95)"; x.beginPath(); x.moveTo(cx - tw, base); x.quadraticCurveTo(cx + (rnd(i + 2) - 0.5) * 20 * k, base - th * 0.5, cx, base - th); x.quadraticCurveTo(cx + tw * 0.3, base - th * 0.5, cx + tw, base); x.fill();
