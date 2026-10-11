@@ -3,7 +3,7 @@ import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
 import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsEstSeconds, ttsBudgetSpend, ttsBudgetRefund, CHAT_TTS_RATE } from "./speech";
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
-import { CATS, CAT_ICON, catLevel } from "./chat-store";
+import { CATS, CAT_ICON, catLevel, readKnow, catPoints } from "./chat-store";
 
 /* ── chat-ui.tsx ──
    Chat UI atoms shared by every chat surface (Sensei page, expanded chat
@@ -396,6 +396,9 @@ export function ChatHistorySheet({ open, lang, threads, activeId, onClose, onOpe
   const [hidden, setHidden] = useState([]);   // deleted a moment ago: hidden now, really removed after 5 s unless undone
   useEffect(() => { if (!open) { setQ(""); setMenu(null); } }, [open]);
   // each category's level: how many threads are filed in it (a thread is a question asked and kept)
+  const know = useMemo(() => (open ? readKnow() : {}), [open, threads]);
+  const pts = useMemo(() => catPoints(threads, know), [threads, know]);
+  const understood = useMemo(() => CATS.reduce((a, c) => a + (know[c] || 0), 0), [know]);
   const counts = useMemo(() => { const c = { all: threads.length }; for (const k of CATS) c[k] = 0; for (const t of threads) c[t.cat] = (c[t.cat] || 0) + 1; return c; }, [threads]);
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -422,11 +425,16 @@ export function ChatHistorySheet({ open, lang, threads, activeId, onClose, onOpe
           <button type="button" role="tab" aria-selected={cat === "all"} className={"chhcat" + (cat === "all" ? " on" : "")} onClick={() => setCat("all")}>
             {HT(lang, "ทั้งหมด", "All", "全部")} <i>{counts.all}</i>
           </button>
-          {CATS.map(k => { const lv = catLevel(counts[k] || 0); return (
+          {CATS.map(k => { const lv = catLevel(pts[k] || 0); return (
             <button type="button" role="tab" aria-selected={cat === k} key={k} className={"chhcat" + (cat === k ? " on" : "")} onClick={() => setCat(k)}>
               <span aria-hidden="true">{CAT_ICON[k]}</span> {catName(k, lang)} <i>Lv {lv.lv}</i>
               <span className="chhcat-bar"><span style={{ width: Math.round(lv.pct * 100) + "%" }} /></span>
             </button>); })}
+        </div>
+        <div className="chhknow" aria-label={HT(lang, "สมุดความรู้", "Knowledge log", "知识记录")}>
+          <span>💡 {HT(lang, "เข้าใจแล้ว", "Understood", "已理解")} <b>{understood}</b></span>
+          <span>💬 {HT(lang, "แชต", "Chats", "对话")} <b>{counts.all}</b></span>
+          <span>⭐ {HT(lang, "ปักหมุด", "Pinned", "置顶")} <b>{threads.filter(t => t.pinned).length}</b></span>
         </div>
         <div className="chhlist">
           {list.length === 0 && (

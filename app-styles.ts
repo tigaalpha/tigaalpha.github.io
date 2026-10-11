@@ -4018,6 +4018,8 @@ ${UX2_CSS}
 .chhmove{position:absolute;right:8px;top:100%;z-index:3;margin-top:2px;display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:14px;background:var(--bg);border:1.5px solid var(--bd2);box-shadow:0 12px 28px -14px rgba(0,0,0,.5)}
 .chhmove button{min-height:40px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--text);text-align:left;font-size:13.5px;cursor:pointer}.chhmove button.on{background:#d977571a;color:#d97757}
 .chhundo{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 14px;border-radius:14px;background:var(--text);color:var(--bg);font-size:13px}.chhundo button{margin-left:auto;border:0;background:transparent;color:#f0a07c;font-weight:800;font-size:13.5px;cursor:pointer;min-height:36px}
+.chhknow{display:flex;gap:10px;flex-wrap:wrap;padding:6px 4px 8px;font-size:12px;color:var(--muted)}.chhknow b{color:var(--text)}
+.chhbtn.on{border-color:#d97757;color:#d97757}
 @media (prefers-reduced-motion:reduce){.chhsheet{animation:none}}
 `;
 

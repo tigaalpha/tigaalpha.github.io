@@ -39,6 +39,12 @@ ok("capped at 100 live conversations", m.listMeta().length <= 100);
 const big = Array.from({ length: 200 }, (_, i) => ({ role: i % 2 ? "ai" : "user", text: "x".repeat(8000) }));
 const idb = m.newId(); m.saveThread(idb, "en", big); const back = m.readMsgs(idb);
 ok("long thread is capped in length and size", back.length === m.MAX_MSGS && back[0].text.length === m.MAX_TEXT);
+// knowledge log
+const kid = m.newId(); m.saveThread(kid, "en", [welcome, { role: "user", text: "chord question" }, { role: "ai", text: "a" }, { role: "user", text: "more chords" }, { role: "ai", text: "b" }]);
+ok("understood is counted under the conversation's category", m.addUnderstood(kid) === "theory" && m.readKnow().theory === 1);
+ok("no thread, no count", m.addUnderstood(null) === null && m.readKnow().theory === 1);
+const pts = m.catPoints(m.listMeta(), m.readKnow());
+ok("points = questions asked + 2 per understood", pts.theory >= 2 * 1 + 2 && typeof pts.ear === "number", JSON.stringify(pts));
 // sync
 await m.pushThread(idb); ok("push sends a row owned by the user", upserts.length === 1 && upserts[0].user_id === "u1" && upserts[0].id === idb && upserts[0].category);
 uidv = null; upserts = []; await m.pushThread(idb); ok("signed out: nothing is sent", upserts.length === 0);

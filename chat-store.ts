@@ -93,6 +93,24 @@ export function migrateLegacy(): string | null {
   return id;
 }
 
+/* ── the knowledge log ──
+   Every "I understood" the learner taps on a tutor check is counted under the category of the
+   conversation it happened in. Device-only, a plain tally: it feeds the category levels and the
+   summary line, and nothing else (no EXP, no coins). */
+const KNOW = "tg_chat_know";
+export const readKnow = (): Record<string, number> => { const k = rd(KNOW); return k && typeof k === "object" ? k : {}; };
+export function addUnderstood(threadId: string | null) {
+  if (!threadId) return null;
+  const m = listMeta(true).find(x => x.id === threadId); const cat: Cat = m ? m.cat : "other";
+  const k = readKnow(); k[cat] = (k[cat] || 0) + 1; wr(KNOW, k); return cat;
+}
+/** What a category's level counts: the questions asked in it, plus two for every "understood". */
+export function catPoints(threads: Meta[], know: Record<string, number>) {
+  const out: Record<string, number> = {}; for (const c of CATS) out[c] = 2 * (know[c] || 0);
+  for (const t of threads) out[t.cat] = (out[t.cat] || 0) + Math.max(0, Math.floor((t.n - 1) / 2));
+  return out;
+}
+
 /* ── account sync ── */
 let syncOff = false;
 const missing = (e: any) => !!e && (e.code === "42P01" || e.code === "PGRST205" || /chat_threads/.test(String(e.message || "")) && /does not exist|not find|schema cache/i.test(String(e.message || "")));
