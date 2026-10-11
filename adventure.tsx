@@ -11,8 +11,10 @@
    and skill points only: nothing in this mode sells, pays coins or touches the shop. Phase 1: one playable
    planet (the other four are on the map, locked), three monsters, no boss yet. ── */
 import { useEffect, useRef, useState, useMemo, memo } from "react";
-import { CyberAvatar } from "./cyber-avatar";
-import { PetArt, petLevel } from "./pet-lab";
+import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
+import { createAdvSfx } from "./adventure-sfx";
+import { voiceOf } from "./fx-voice";
+import { PetArt, petLevel, petById, PET_TYPES } from "./pet-lab";
 import { addRpgExp, rpgOf, rpgMods, RPG_MAX_LV } from "./pvp-rpg";
 import { addSkillSp, readSkillSp, skillRank, enterFs, exitFsAndUnlock } from "./pvp-arena";
 import { classKeyOf } from "./model-skills";
@@ -350,9 +352,11 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
   (window as any).__advQuiz = quiz;   // the smoke test reads the open question from here
   const beaconRef = useRef<any>(null);
   const castRef = useRef<any>(null), spellFire = useRef<any>(null);
-  const musicRef = useRef<any>(null);
+  const musicRef = useRef<any>(null), sfxRef = useRef<any>(null);
+  const musicOnRef = useRef(true);
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
-  useEffect(() => { if (musicRef.current) musicRef.current.setOn(musicOn); try { localStorage.setItem("tg_adv_music", musicOn ? "1" : "0"); } catch (e) {} }, [musicOn]);
+  musicOnRef.current = musicOn;
+  useEffect(() => { if (sfxRef.current) sfxRef.current.setOn(musicOn); if (musicRef.current) musicRef.current.setOn(musicOn); try { localStorage.setItem("tg_adv_music", musicOn ? "1" : "0"); } catch (e) {} }, [musicOn]);
   useEffect(() => { if (musicRef.current) musicRef.current.duck(!!quiz); }, [quiz]);
   const cls = useMemo(() => classKeyOf(me), [me]);
   const t = (th, en, zh) => T3(lang, th, en, zh);
@@ -397,6 +401,14 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       bake = bakePlanet(P, cw, ch, k, high);
     };
     // phase 3.0: where do players leave, how does it run on a real phone? one cheap row per event, no migration (usage_events kind "adv")
+    // who is fighting decides how it sounds and how its attacks look (fx-voice.ts): per robot id + class, per pet element
+    const sfx = createAdvSfx(); sfxRef.current = sfx; sfx.setOn(musicOnRef.current);
+    const hashOf = (x: string) => String(x || "x").split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 17) >>> 0;
+    const rid = hashOf(me), rGlow: string = ((MODEL_SKIN as any)[me] && (MODEL_SKIN as any)[me].glow) || "#7fe8ff";
+    const BOLT_STYLE = (rid >>> 3) % 4, NOVA_STYLE = (rid >>> 5) % 5;
+    const rv = voiceOf(me, cls);
+    const petType: string = petNow ? ((petById(petNow.species) as any).type || "steel") : "steel", petCol: string = (PET_TYPES as any)[petType] ? (PET_TYPES as any)[petType].c : "#8fa6c8";
+    const pv = petNow ? voiceOf("", "", { type: petType, species: petNow.species, mv: "spit" }) : null;
     const mus = createAdvMusic(P.id); musicRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); }
     const t0 = performance.now(); let frames = 0, ended = false; logUsage("adv", "start:" + P.id + ":" + (high ? "hd" : "sd"));
     resize();
@@ -435,11 +447,11 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     let spellG = 0;
     const hurtMon = (m, v, crit, kx) => {
       spellG = Math.min(100, spellG + 5);
-      m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
+      sfx.play("hit"); m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
       pop(m.x, GROUND - m.y - 60, String(v), crit ? "#ffd23f" : "#ffffff");
       for (let i = 0; i < (high ? 7 : 3); i++) addPart(m.x, GROUND - m.y - 20, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, crit ? "255,210,60" : "255,255,255", 2.5);
       if (m.hp <= 0) {
-        m.dead = 1; m.resp = 14; kills++;
+        m.dead = 1; m.resp = 14; kills++; sfx.play("pop");
         const d = MON[m.type];
         const gain = Math.round(d.exp * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.max(1, Math.round(gain / 3)));
         pop(m.x, GROUND - 90, "+" + gain + " EXP", "#9dffd6");
@@ -457,9 +469,10 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       let best: any = null, bd = 340;
       for (const m of mons) { if (m.dead) continue; const d0 = Math.abs(m.x - pl.x); if (d0 < bd) { bd = d0; best = m; } }
       if (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < bd) { best = null; bd = 0; }
+      sfx.play("pet", pv);
       const px0 = pl.x - pl.face * 56; const v = Math.max(1, Math.round(dmgOf().v * 0.28));
-      if (best) { pet.push({ x: px0, y: 30, tx: best.x, ty: best.y + 20, life: 0.25, v, m: best }); }
-      else if (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < 340) pet.push({ x: px0, y: 30, tx: boss.x, ty: 60, life: 0.25, v, b: true });
+      if (best) { pet.push({ x: px0, y: 30, tx: best.x, ty: best.y + 20, life: 0.25, v, m: best, ty2: petType }); }
+      else if (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < 340) pet.push({ x: px0, y: 30, tx: boss.x, ty: 60, life: 0.25, v, b: true, ty2: petType });
     };
     const hurtBoss = (v, crit, kx) => {
       if (!boss.active || boss.dead) return;
@@ -473,7 +486,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
         for (let i = 0; i < 12; i++) drops.push({ x: boss.x + (i - 6) * 16, y: 40 + i * 6, vy: 220, t: "cry" });
         drops.push({ x: boss.x, y: 60, vy: 220, t: "hp" });
         for (let i = 0; i < (high ? 50 : 16); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 520, -Math.random() * 380, 1, i % 2 ? P.glow : P.acc, 4);
-        markDone(P.id); shake = 10; questDone(bumpQuest("boss", 1)); logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
+        markDone(P.id); shake = 10; sfx.play("win"); questDone(bumpQuest("boss", 1)); logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
         info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
         const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1];
         setBanner({ k: Date.now(), a: t("เอาชนะบอสแล้ว! +" + gain + " EXP", "BOSS DOWN! +" + gain + " EXP", "击败首领！+" + gain + " 经验"), b: nx && nx.ok ? t("ปลดล็อก " + nx.en.split(" · ")[0] + " แล้ว", nx.en.split(" · ")[0] + " unlocked", "已解锁 " + nx.en.split(" · ")[0]) : t("ประตูวาร์ปเปิดแล้ว", "The warp gate is open", "传送门已开启") });
@@ -483,8 +496,9 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const attack = () => {
       if (pl.dead || pl.atkCd > 0) return;
       pl.combo = pl.comboT > 0 ? pl.combo + 1 : 1; const finisher = pl.combo >= 3; pl.maxCombo = Math.max(pl.maxCombo, pl.combo); pl.comboT = 0.75; if (finisher) pl.combo = 0;
+      sfx.play("punch", rv);
       pl.atkCd = (finisher ? 0.6 : 0.34) * mods.cdMul; pl.swing = 0.18; setPose("attack"); setTimeout(() => setPose("ready"), 170);
-      slashes.push({ x: pl.x + pl.face * 34, y: pl.y + 44, face: pl.face, life: finisher ? 0.26 : 0.18, max: finisher ? 0.26 : 0.18 });
+      slashes.push({ col: rGlow, x: pl.x + pl.face * 34, y: pl.y + 44, face: pl.face, life: finisher ? 0.26 : 0.18, max: finisher ? 0.26 : 0.18 });
       if (finisher) { shake = Math.max(shake, 5); pop(pl.x, GROUND - pl.y - 120, "×3!", "#ffd23f"); }
       for (const m of mons) {
         if (m.dead) continue; const dx = (m.x - pl.x) * pl.face;
@@ -495,10 +509,11 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const skill = () => {
       const sr = skillOf();
       if (pl.dead || pl.sklCd > 0) return;
+      sfx.play("skill", rv);
       pl.sklCd = 4.5 * (1 - 0.05 * UPS.skl) / (1 + 0.04 * (sr.rank - 1)); pl.swing = 0.3; setPose("kick"); setTimeout(() => setPose("ready"), 260);
       shake = Math.max(shake, high ? 7 : 3);
       for (let a = 0; a < (high ? 28 : 10); a++) { const ang = (a / (high ? 28 : 10)) * Math.PI * 2; addPart(pl.x, GROUND - pl.y - 40, Math.cos(ang) * 320, Math.sin(ang) * 220, 0.5, "123,97,255", 3.5); }
-      slashes.push({ x: pl.x, y: pl.y + 40, face: 0, life: 0.3, nova: true });
+      slashes.push({ x: pl.x, y: pl.y + 40, face: 0, life: 0.3, nova: true, st: NOVA_STYLE, col: rGlow });
       for (const m of mons) {
         if (m.dead) continue;
         if (Math.abs(m.x - pl.x) < (cls === "herald" ? 250 : 190) && Math.abs(m.y - pl.y) < 110) { const base = (9 + info.lv * 1.5) * mods.dmg * 3.2 * (1 + 0.08 * (sr.rank - 1)) * mods.spell; hurtMon(m, Math.round(base), true, Math.sign(m.x - pl.x) * 260); }
@@ -509,13 +524,16 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       else if (cls === "ghost") pl.inv = Math.max(pl.inv, 1.2);
     };
     // shoot: a bolt flies ahead and hits the first enemy; kick: a short wide sweep that knocks back hard
+    let firedN = 0;
     const fireBolt = () => {
       if (pl.dead || pl.fireCd > 0) return;
-      pl.fireCd = 0.55 * mods.cdMul; pl.swing = 0.12; setPose("attack"); setTimeout(() => setPose("ready"), 140);
+      sfx.play("fire", rv); firedN++;
+      pl.fireCd = 0.22 * mods.cdMul; pl.swing = 0.12;   // held = rapid fire (owner, 2026-10-11) setPose("attack"); setTimeout(() => setPose("ready"), 140);
       const d = dmgOf(0.8); bolts.push({ x: pl.x + pl.face * 30, y: pl.y + 46, vx: pl.face * 520, life: 0.9, v: d.v, crit: d.crit });
     };
     const kickMove = () => {
       if (pl.dead || pl.kickCd > 0) return;
+      sfx.play("kick", rv);
       pl.kickCd = 0.8 * mods.cdMul; pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
       slashes.push({ x: pl.x + pl.face * 40, y: pl.y + 30, face: pl.face, life: 0.2, max: 0.2 });
       for (const m of mons) { if (m.dead) continue; const dx = (m.x - pl.x) * pl.face; if (dx > -10 && dx < 118 + MON[m.type].w / 2 && Math.abs(m.y - pl.y) < 70) { const d = dmgOf(1.2); hurtMon(m, d.v, d.crit, pl.face * 300); } }
@@ -523,10 +541,10 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     spellFire.current = (ok: boolean) => {
       if (!ok) { spellG = 50; pop(pl.x, GROUND - pl.y - 130, "♪ " + t("ลองใหม่", "again", "再来"), "#ffd0a0"); return; }
-      const sr = skillOf(); shake = Math.max(shake, high ? 10 : 5); playUi && playUi("reward");
+      const sr = skillOf(); shake = Math.max(shake, high ? 10 : 5); playUi && playUi("reward"); sfx.play("spell", rv);
       const base = (9 + info.lv * 1.5) * mods.dmg * 4.5 * (1 + 0.05 * UPS.atk) * (1 + 0.08 * (sr.rank - 1)) * mods.spell;
       for (let a = 0; a < (high ? 40 : 14); a++) { const ang = (a / (high ? 40 : 14)) * Math.PI * 2; addPart(pl.x, GROUND - pl.y - 40, Math.cos(ang) * 420, Math.sin(ang) * 300, 0.7, a % 2 ? "255,230,140" : P.acc, 3.5); }
-      slashes.push({ x: pl.x, y: pl.y + 40, face: 0, life: 0.45, max: 0.45, nova: true });
+      slashes.push({ x: pl.x, y: pl.y + 40, face: 0, life: 0.45, max: 0.45, nova: true, st: NOVA_STYLE, col: rGlow, big: true });
       for (const m of mons) if (!m.dead && Math.abs(m.x - pl.x) < 360) hurtMon(m, Math.round(base), true, Math.sign(m.x - pl.x) * 320);
       if (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < 400) hurtBoss(Math.round(base), true, Math.sign(boss.x - pl.x) * 200);
       pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.25); pl.inv = Math.max(pl.inv, 0.8);
@@ -535,6 +553,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const hurtPlayer = (v, from) => {
       if (pl.inv > 0 || pl.dead) return;
+      sfx.play("hurt");
       pl.hp -= v; pl.inv = 0.7; pl.vy = 0; pl.x += Math.sign(pl.x - from) * 26; shake = Math.max(shake, 4);
       pop(pl.x, GROUND - pl.y - 100, "-" + v, "#ff6b81");
       for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 50, (Math.random() - 0.5) * 200, -Math.random() * 150, 0.4, "255,90,110", 2.5);
@@ -547,13 +566,16 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       const kk = keys.current;
       if (pl.dead > 0) { pl.dead -= dt; if (pl.dead <= 0) { if (P.survival && !surv.done) { surv.t = 0; surv.wave = 0; surv.next = 2; mons.length = 0; shots.length = 0; } pl.dead = 0; pl.hp = hpMaxOf(info.lv); pl.x = 160; pl.y = 0; pl.inv = 1.5; camX = 0; setDown(false); } }
       else {
-        const sp = 150 * mods.walk; let dx = 0; if (kk.l) dx -= 1; if (kk.r) dx += 1;
+        let dx = 0; if (kk.l) dx -= 1; if (kk.r) dx += 1;
+        pl.holdT = dx ? (pl.holdT || 0) + dt : 0;   // held for 0.35 s = a sprint (owner, 2026-10-11)
+        const sprint = pl.holdT > 0.35; const sp = 150 * mods.walk * (sprint ? 1.7 : 1);
+        if (sprint && pl.ground && Math.random() < 0.5) addPart(pl.x - dx * 14, GROUND - 4, -dx * 40, -20 - Math.random() * 30, 0.3, "200,230,255", 2);
         pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + dx * sp * dt)); if (dx) pl.face = dx;
         if (!boss.active && !boss.dead && pl.x > ARENA + 60) { boss.active = true; if (mus) mus.setBoss(true); logUsage("adv", "boss-wake:" + P.id); setBanner({ k: Date.now(), a: T3(lang, P.boss[0], P.boss[1], P.boss[2]), b: t("บอสท้ายด่าน — ประตูด้านหลังปิดแล้ว", "End-of-map boss — the way back is shut", "本图首领——退路已封闭") }); }
-        if (kk.jump && pl.ground) { pl.vy = 360; pl.ground = false; }
+        if (kk.jump && pl.ground) { pl.vy = 360; pl.ground = false; sfx.play("jump"); }
         if (kk.atk) attack(); if (kk.skl) skill(); if (kk.fire) fireBolt(); if (kk.kick) kickMove();
         if (kk.spell && spellG >= 100 && !quizOn.current) { kk.l = kk.r = kk.atk = kk.skl = kk.jump = kk.fire = kk.kick = kk.spell = false; quizOn.current = true; if (castRef.current) castRef.current(); }
-        if (kk.dash && pl.dashCd <= 0) { pl.dashCd = 1.2; pl.dashT = 0.18; pl.inv = Math.max(pl.inv, 0.3); for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 30, -pl.face * (80 + Math.random() * 120), (Math.random() - 0.5) * 60, 0.3, "160,255,230", 2.5); }
+        if (kk.dash && pl.dashCd <= 0) { sfx.play("dash"); pl.dashCd = 1.2; pl.dashT = 0.18; pl.inv = Math.max(pl.inv, 0.3); for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 30, -pl.face * (80 + Math.random() * 120), (Math.random() - 0.5) * 60, 0.3, "160,255,230", 2.5); }
         if (pl.dashT > 0) { pl.dashT -= dt; pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + pl.face * 560 * dt)); }
         pl.dashCd -= dt; pl.fireCd -= dt; pl.kickCd -= dt; pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0;
         pl.vy -= 900 * dt; pl.y += pl.vy * dt; if (pl.y <= 0) { pl.y = 0; pl.vy = 0; pl.ground = true; }
@@ -607,7 +629,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
         } else if (boss.tele > 0) {
           boss.tele -= dt;
           if (boss.tele <= 0) {
-            if (boss.state === "slam") { shake = 8; waves.push({ x: boss.x, dir: -1, life: 2.2 }, { x: boss.x, dir: 1, life: 2.2 }); boss.state = "idle"; boss.cd = 2; }
+            if (boss.state === "slam") { shake = 8; sfx.play("slam"); waves.push({ x: boss.x, dir: -1, life: 2.2 }, { x: boss.x, dir: 1, life: 2.2 }); boss.state = "idle"; boss.cd = 2; }
             else if (boss.state === "volley") { for (let i = -1; i <= 1; i++) shots.push({ x: boss.x + boss.face * 40, y: 70 + i * 26, vx: boss.face * (200 + i * 30), life: 2.6, d: Math.round(12 * HM) }); boss.state = "idle"; boss.cd = 1.8; }
             else { boss.dur = 0.8; boss.vx = boss.face * 340; }
           }
@@ -629,7 +651,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       for (const w of waves) { w.x += w.dir * 260 * dt; w.life -= dt; if (Math.abs(w.x - pl.x) < 22 && pl.y < 34) { hurtPlayer(Math.round(16 * HM), w.x); w.life = 0; } }
       for (let i = waves.length - 1; i >= 0; i--) if (waves[i].life <= 0) waves.splice(i, 1);
       for (const d of drops) { d.vy -= 700 * dt; d.y += d.vy * dt; if (d.y < 0) { d.y = 0; d.vy = 0; } if (pl.dead <= 0 && Math.abs(d.x - pl.x) < 34 && Math.abs(d.y - pl.y) < 60) { d.got = true;
-        if (d.t === "hp") { pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.18); pop(pl.x, GROUND - pl.y - 100, "+HP", "#8dffb0"); } else { gainCry(CV); pop(pl.x, GROUND - pl.y - 100, "◆" + (CV > 1 ? "×" + CV : ""), "#7fe8ff"); } } }
+        if (d.t === "hp") { sfx.play("pickup"); pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.18); pop(pl.x, GROUND - pl.y - 100, "+HP", "#8dffb0"); } else { sfx.play("pickup"); gainCry(CV); pop(pl.x, GROUND - pl.y - 100, "◆" + (CV > 1 ? "×" + CV : ""), "#7fe8ff"); } } }
       for (let i = drops.length - 1; i >= 0; i--) if (drops[i].got) drops.splice(i, 1);
       for (const s of shots) { s.x += s.vx * dt; s.life -= dt; if (Math.abs(s.x - pl.x) < 18 && Math.abs(s.y - pl.y - 40) < 40 && s.life > 0) { hurtPlayer(s.d, s.x); s.life = 0; } }
       for (let i = shots.length - 1; i >= 0; i--) if (shots[i].life <= 0) shots.splice(i, 1);
@@ -665,16 +687,42 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
         if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - ((m.type === "sporecaster" || m.type === "frostcaster") ? 128 : 74)); }
         if (m.hp < m.max) { const w = 40, y0 = GROUND - m.y - ((m.type === "sporecaster" || m.type === "frostcaster") ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / m.max), 5); } }
       if (boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
-      for (const b of bolts) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,240,170,.95)"; ctx.beginPath(); ctx.arc(b.x, GROUND - b.y, 5, 0, 7); ctx.fill(); ctx.fillStyle = "rgba(255,200,90,.35)"; ctx.fillRect(b.x - Math.sign(b.vx) * 26, GROUND - b.y - 2, 26, 4); ctx.globalCompositeOperation = "source-over"; }
-      for (const b of pet) { const q = 1 - b.life / 0.25; ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.9)`; ctx.beginPath(); ctx.arc(b.x + (b.tx - b.x) * q, GROUND - (b.y + (b.ty - b.y) * q), 5, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
+      for (const b of bolts) {
+        ctx.globalCompositeOperation = "lighter"; const by = GROUND - b.y, dir = Math.sign(b.vx); ctx.fillStyle = rGlow; ctx.strokeStyle = rGlow;
+        if (BOLT_STYLE === 0) { ctx.beginPath(); ctx.arc(b.x, by, 6, 0, 7); ctx.fill(); ctx.globalAlpha = 0.35; ctx.fillRect(b.x - dir * 30, by - 2, 30, 4); }
+        else if (BOLT_STYLE === 1) { ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(b.x - dir * 38, by); ctx.lineTo(b.x, by); ctx.stroke(); ctx.globalAlpha = 0.5; ctx.fillStyle = "#fff"; ctx.fillRect(b.x - dir * 10, by - 1.5, 10, 3); }
+        else if (BOLT_STYLE === 2) { ctx.beginPath(); ctx.moveTo(b.x + dir * 9, by); ctx.lineTo(b.x, by - 6); ctx.lineTo(b.x - dir * 9, by); ctx.lineTo(b.x, by + 6); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 0.3; ctx.fillRect(b.x - dir * 28, by - 1.5, 20, 3); }
+        else { for (let i = 0; i < 3; i++) { ctx.globalAlpha = 1 - i * 0.28; ctx.beginPath(); ctx.arc(b.x - dir * i * 11, by, 5 - i, 0, 7); ctx.fill(); } }
+        ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(b.x, by, 2, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over";
+      }
+      for (const b of pet) {
+        const q = 1 - b.life / 0.25, px = b.x + (b.tx - b.x) * q, py = GROUND - (b.y + (b.ty - b.y) * q), ang = Math.atan2(GROUND - b.ty - py, b.tx - px); const T = b.ty2 || "steel", col = (PET_TYPES as any)[T] ? (PET_TYPES as any)[T].c : "#8fa6c8";
+        ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = col; ctx.strokeStyle = col;
+        if (T === "volt") { ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b.x, GROUND - b.y); for (let i = 1; i <= 6; i++) { const f = i / 6 * q; ctx.lineTo(b.x + (b.tx - b.x) * f, GROUND - (b.y + (b.ty - b.y) * f) + (i % 2 ? -7 : 7)); } ctx.stroke(); }
+        else if (T === "ember") { ctx.beginPath(); ctx.arc(px, py, 7, 0, 7); ctx.fill(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(px - 10 * Math.cos(ang), py + 10 * Math.sin(ang), 5, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(px - 18 * Math.cos(ang), py + 18 * Math.sin(ang), 3, 0, 7); ctx.fill(); }
+        else if (T === "frost") { ctx.beginPath(); ctx.moveTo(px + 9, py); ctx.lineTo(px, py - 5); ctx.lineTo(px - 9, py); ctx.lineTo(px, py + 5); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#fff"; ctx.fillRect(px - 2, py - 1, 4, 2); }
+        else if (T === "flora") { ctx.beginPath(); ctx.ellipse(px, py, 9, 4, ang, 0, 7); ctx.fill(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.ellipse(px - 8, py, 6, 3, ang, 0, 7); ctx.fill(); }
+        else if (T === "aether") { ctx.beginPath(); ctx.arc(px, py, 5, 0, 7); ctx.fill(); ctx.lineWidth = 2; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(px, py, 9 + q * 4, 0, 7); ctx.stroke(); }
+        else { ctx.fillStyle = "#c9d6ea"; ctx.fillRect(px - 7, py - 3, 14, 6); ctx.fillStyle = col; ctx.fillRect(px - 7, py - 1, 14, 2); }
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+      }
       for (const w of waves) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.8)`; ctx.beginPath(); ctx.moveTo(w.x - 14, GROUND); ctx.lineTo(w.x, GROUND - 30); ctx.lineTo(w.x + 14, GROUND); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       for (const d of drops) { const yy = GROUND - d.y - 8 + Math.sin(tm * 5 + d.x) * 2; ctx.fillStyle = d.t === "hp" ? "#7dffa8" : "#7fe8ff"; ctx.beginPath(); if (d.t === "hp") ctx.arc(d.x, yy, 6, 0, 7); else { ctx.moveTo(d.x, yy - 8); ctx.lineTo(d.x + 6, yy); ctx.lineTo(d.x, yy + 8); ctx.lineTo(d.x - 6, yy); ctx.closePath(); } ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .5; ctx.beginPath(); ctx.arc(d.x, yy, 12, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
       // spores + slashes
       for (const s of shots) { ctx.fillStyle = "#e9ff9a"; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 5, 0, 7); ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.drawImage(bake.glows.green, s.x - 20, GROUND - s.y - 20, 40, 40); ctx.globalCompositeOperation = "source-over"; } }
       for (const s of slashes) {
         const q = Math.max(0, Math.min(1, 1 - s.life / (s.max || (s.nova ? 0.3 : 0.18)))); ctx.save(); ctx.globalCompositeOperation = "lighter";
-        if (s.nova) { ctx.strokeStyle = `rgba(160,130,255,${1 - q})`; ctx.lineWidth = 5 * (1 - q) + 1; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 30 + q * 170, 0, 7); ctx.stroke(); }
-        else { ctx.strokeStyle = `rgba(255,230,160,${1 - q})`; ctx.lineWidth = 6 * (1 - q) + 1; ctx.beginPath(); ctx.arc(s.x - s.face * 30, GROUND - s.y, 56 + q * 18, s.face > 0 ? -0.9 : Math.PI - 0.9 + 1.8 - 1.8, s.face > 0 ? 0.9 : Math.PI + 0.9); ctx.stroke(); }
+        const col = s.col || "#ffe6a0"; ctx.strokeStyle = col; ctx.fillStyle = col; ctx.globalAlpha = Math.max(0, 1 - q);
+        if (s.nova) {
+          const R = 30 + q * (s.big ? 260 : 170); ctx.lineWidth = 5 * (1 - q) + 1;
+          if (s.st === 1) { for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + q; ctx.beginPath(); ctx.moveTo(s.x + Math.cos(a) * R * 0.4, GROUND - s.y + Math.sin(a) * R * 0.4); ctx.lineTo(s.x + Math.cos(a) * R, GROUND - s.y + Math.sin(a) * R); ctx.stroke(); } }
+          else if (s.st === 2) { ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, R, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, R * 0.6, 0, 7); ctx.stroke(); }
+          else if (s.st === 3) { for (let arm = 0; arm < 3; arm++) for (let i = 0; i < 9; i++) { const a = arm * 2.094 + i * 0.35 + q * 5, r = R * (i / 9); ctx.beginPath(); ctx.arc(s.x + Math.cos(a) * r, GROUND - s.y + Math.sin(a) * r, 3, 0, 7); ctx.fill(); } }
+          else if (s.st === 4) { ctx.lineWidth = 8 * (1 - q) + 1; ctx.beginPath(); ctx.moveTo(s.x - R, GROUND - s.y); ctx.lineTo(s.x + R, GROUND - s.y); ctx.moveTo(s.x, GROUND - s.y - R); ctx.lineTo(s.x, GROUND - s.y + R * 0.4); ctx.stroke(); }
+          else { ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, R, 0, 7); ctx.stroke(); }
+        }
+        else { ctx.lineWidth = 6 * (1 - q) + 1; ctx.beginPath(); ctx.arc(s.x - s.face * 30, GROUND - s.y, 56 + q * 18, s.face > 0 ? -0.9 : Math.PI - 0.9 + 1.8 - 1.8, s.face > 0 ? 0.9 : Math.PI + 0.9); ctx.stroke(); }
+        ctx.globalAlpha = 1;
         ctx.restore();
       }
       // particles (glow in high mode)
@@ -739,8 +787,8 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; },  music: () => (mus ? mus.info() : null), renderMusic: (id, boss) => renderPreview(id, 4, !!boss), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
-    return () => { if (mus) mus.stop(); musicRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss) => renderPreview(id, 4, !!boss), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    return () => { if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
   const hold = (name) => ({

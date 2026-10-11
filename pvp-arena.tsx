@@ -25,7 +25,8 @@ import { addRpgExp, rpgOf, rpgMods, spendPoint, resetPoints, RPG_STATS, RPG_MAX_
 import { useState, useEffect, useRef, useCallback, useMemo, memo, lazy, Suspense } from "react";
 const AdventurePage = lazy(() => import("./adventure").then(m => ({ default: m.AdventurePage })));   // Adventure Mode: its own chunk, fetched only when entered
 import { createPortal } from "react-dom";
-import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_COMBAT, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
+import { voiceOf, robotFx, petFx } from "./fx-voice";
+import { CyberAvatar, HeadThumb, CHAR_MODELS, MODEL_COMBAT, MODEL_SKIN, combatOf, normalizeModel, RARITY_PTS, effRarityPts, itemLv, bestRarity, ITEM_MAX_LV } from "./cyber-avatar";
 import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-skills";
 import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { petBonusOf, petById, petLevel, petStage, readPet, allPets, carryPet, PetArt, PetThumb, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
@@ -2781,6 +2782,17 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   const posRef = useRef({ me: 0.24, op: 0.76 });
   const airRef = useRef({ me: 0, op: 0 });     // 0..1, height off the floor
   const dirRef = useRef(0);                     // -1 back, 0 still, +1 forward
+  const dirSince = useRef(0);                   // when the held direction began: held for 0.35 s = a sprint (owner, 2026-10-11)
+  const setDir = (d) => { dirRef.current = d; dirSince.current = d ? Date.now() : 0; };
+  const attackRef = useRef<any>(null);          // always the latest attack(), for the hold-to-rapid-fire timer
+  const fireTimer = useRef<any>(0);
+  const stopFire = () => { if (fireTimer.current) { clearInterval(fireTimer.current); fireTimer.current = 0; } };
+  useEffect(() => stopFire, []);
+  const holdFire = {
+    onPointerDown: () => { stopFire(); attackRef.current && attackRef.current("fire"); fireTimer.current = setInterval(() => { attackRef.current && attackRef.current("fire"); }, 70); },
+    onPointerUp: stopFire, onPointerLeave: stopFire, onPointerCancel: stopFire, onLostPointerCapture: stopFire,
+  };
+  attackRef.current = attack;   // function declarations are hoisted, so this is the attack() of THIS render
   const comboRef = useRef(0), scoreRef = useRef(0), buffRef = useRef(buffs), graceRef = useRef(graceLeft);
   // the result screen is written from a timeout, which reads whatever render
   // it was created in — counters it reports have to live in refs or the last
@@ -2856,6 +2868,15 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     if (mv.lunge) setLunge(side);
     setShake(big ? 3 : crit ? 2 : 1);
     const a = audioRef.current;
+    /* who is attacking decides the voice and the flourish (fx-voice.ts): a pet by its element and the move it threw, a robot by its
+       class and its own id, so every chassis sounds and looks its own */
+    const isPet = side === "me" && petOnly && !!petSpec;
+    const mid = side === "me" ? me : oppModel;
+    const vo = isPet ? voiceOf("", "", { type: petSpec.type, species: petPic && petPic.species, mv: moveKey }) : voiceOf(mid, classOf(mid) ? (classKeyOf(mid) as string) : "striker");
+    const glow = (!isPet && (MODEL_SKIN as any)[mid] && (MODEL_SKIN as any)[mid].glow) || colour;
+    const flourish = (delay) => later(() => {
+      try { (isPet ? petFx : robotFx)(G, later, { foe, colour, glow, power, big, recipe: idHash(isPet ? (petPic && petPic.species) : mid) >>> 3, pet: isPet ? petSpec.type : undefined, mv: moveKey }); } catch (e) {}
+    }, delay);
     /* ── hitstop ──
        Held on the frame the blow CONNECTS, not the frame the button was
        pressed, which is why each branch below schedules it at its own impact
@@ -2874,19 +2895,22 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       later(() => setHitStop(false), stopMs);
     }, delay);
     if (mv.fx === "bolt") {
-      G.bolt(side, colour, crit ? 7 : 5, mv.part); a.sfx("shot");
-      later(() => { G.burst(foe, power, colour); a.sfx("hit"); }, 190);
+      G.bolt(side, colour, crit ? 7 : 5, mv.part); a.sfx("shot", vo);
+      later(() => { G.burst(foe, power, colour); a.sfx("hit", vo); }, 190);
+      flourish(200);
       freeze(190);
     } else if (mv.fx === "laser") {
-      G.laser(side, colour, big ? 7 : crit ? 5 : 4, mv.part); a.sfx("laser");
+      G.laser(side, colour, big ? 7 : crit ? 5 : 4, mv.part); a.sfx("laser", vo);
       later(() => G.burst(foe, power * 1.1, colour), 130);
-      if (big) later(() => { G.boom(foe, 1.5, colour); a.sfx("boom"); }, 260);
+      flourish(140);
+      if (big) later(() => { G.boom(foe, 1.5, colour); a.sfx("boom", vo); }, 260);
       freeze(130);
     } else if (mv.fx === "grenade") {
-      a.sfx("lob");
+      a.sfx("lob", vo);
       G.lob(side, colour, () => {
         G.boom(foe, big ? 2.4 : 1.5, "#ff9a3c"); G.flash("#fff4d0", big ? .6 : .34, .32);
-        a.sfx("boom"); setShake(big ? 3 : 2); later(() => setShake(0), 480);
+        a.sfx("boom", vo); setShake(big ? 3 : 2); later(() => setShake(0), 480);
+        flourish(0);
         // the lob's own callback IS its impact frame, so freeze from here
         freeze(0);
       });
@@ -2902,7 +2926,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
          instead of the fist's hook or the boot's sweep */
       const bladed = mv.part === "weapon";
       G.swipe(side, isKick && !bladed ? "#ffd23f" : colour, bladed ? (isKick ? "cleave" : "slash") : isKick ? "kick" : "punch");
-      a.sfx(isKick ? "kick" : crit ? "crit" : "hit");
+      a.sfx(isKick ? "kick" : crit ? "crit" : "hit", vo);
       later(() => {
         G.impact(side, power * (isKick ? 1.25 : 1), colour, isKick ? "kick" : "punch");
         // each chassis lands in its own class colour on top of the move's, so two robots never hit the same way
@@ -2919,10 +2943,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
         } catch (e) {}
         G.flash("#ffffff", big ? .5 : crit ? .3 : .18, .16);
         setShake(big ? 3 : crit ? 3 : 2);
-        a.sfx("hit");
+        a.sfx("hit", vo);
       }, isKick ? 175 : 140);
+      flourish((isKick ? 175 : 140) + 30);
       freeze(isKick ? 175 : 140);
-      if (big) later(() => { G.boom(foe, 2, colour); a.sfx("boom"); }, 300);
+      if (big) later(() => { G.boom(foe, 2, colour); a.sfx("boom", vo); }, 300);
     }
     if (big && mv.fx !== "grenade") G.flash("#ffffff", .55, .34);
     later(() => { setLunge(null); setShake(0); }, mv.fx === "grenade" ? 900 : 520);
@@ -3232,6 +3257,13 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     petReact("cast", 800);
     if (playUi) playUi("click");
     const k = petCmd.k;
+    // the pet's own sound and special effect, by its element (fx-voice.ts): offensive commands land on the foe, supportive ones wrap you
+    try {
+      const pcol = (PET_TYPES[petSpec.type] || PET_TYPES.steel).c, supportive = k === "heal" || k === "guard" || k === "gauge";
+      const pvo = voiceOf("", "", { type: petSpec.type, species: petPic && petPic.species, mv: supportive ? "spit" : "roar" });
+      audioRef.current.sfx(supportive ? "heal" : "shot", pvo);
+      if (supportive) { G.shield("me", pcol); G.burst("me", 0.9, pcol); } else petFx(G, later, { foe: "op", colour: pcol, glow: pcol, power: 1.3, big: false, recipe: 0, pet: petSpec.type, mv: "roar" });
+    } catch (e) {}
     if (k === "stagger") { staggerRef.current = Math.max(staggerRef.current, now + 1200); setFlash({ side: "op", kind: "crit", text: "⚡" }); }
     else if (k === "burn") { burnRef.current = now + 7000; setFlash({ side: "op", kind: "crit", text: "🔥" }); }
     else if (k === "slow") { chillRef.current = now + 7000; setFlash({ side: "op", kind: "crit", text: "❄" }); }
@@ -3584,6 +3616,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
      you are open. That tail is what makes whiffing cost something, and it is
      the difference between a fight and a tapping contest. */
   function attack(act) {
+    attackRef.current = attack;
     if (phase !== "action" || doneRef.current || !liveRef.current) return;
     const A2 = actFor(act); if (!A2) return;
     const now = Date.now();
@@ -3758,7 +3791,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       }
       if (staggerRef.current && staggerRef.current <= now) { staggerRef.current = 0; setStagger(false); }
       const stunnedMe = hitstunRef.current.me > now || dizzyUntilRef.current.me > now;
-      if (dirRef.current && !stunnedMe) P.me = Math.min(X_MAX, Math.max(X_MIN, P.me + dirRef.current * WALK * RPG.walk * dt));
+      if (dirRef.current && !stunnedMe) P.me = Math.min(X_MAX, Math.max(X_MIN, P.me + dirRef.current * WALK * RPG.walk * ((dirSince.current && Date.now() - dirSince.current > 350) ? 1.8 : 1) * dt));
       // no key held and nobody within reach: ease off the wall instead of parking in the corner
       else if (!stunnedMe && !dirRef.current && P.me < 0.24 && Math.abs(P.op - P.me) > ACT.kick.range * 1.3) P.me = Math.min(0.24, P.me + 0.10 * dt);
 
@@ -4677,8 +4710,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
             {!land && skillsEl}
             <div className="pvppad-l">
               <button className="pvpdir" aria-label={T("ถอย", "Back", "后退")}
-                onPointerDown={() => { dirRef.current = -1; pushMotion(-1); }} onPointerUp={() => { dirRef.current = 0; }}
-                onPointerLeave={() => { dirRef.current = 0; }} onPointerCancel={() => { dirRef.current = 0; }}>◀</button>
+                onPointerDown={() => { setDir(-1); pushMotion(-1); }} onPointerUp={() => { setDir(0); }}
+                onPointerLeave={() => { setDir(0); }} onPointerCancel={() => { setDir(0); }}>◀</button>
               {/* the guard button wears its own meter: a resource you can see
                   running out is a decision, an invisible one is a surprise */}
               <button className={`pvpdir grd${guarding ? " on" : ""}${guardMtr < GUARD_HIT_COST ? " spent" : ""}`}
@@ -4687,12 +4720,12 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
                 <span className="pvpgmtr"><i style={{ width: `${Math.max(0, (guardMtr / GUARD_MAX) * 100)}%` }} /></span>
               </button>
               <button className="pvpdir" aria-label={T("เดินหน้า", "Forward", "前进")}
-                onPointerDown={() => { dirRef.current = 1; pushMotion(1); }} onPointerUp={() => { dirRef.current = 0; }}
-                onPointerLeave={() => { dirRef.current = 0; }} onPointerCancel={() => { dirRef.current = 0; }}>▶</button>
+                onPointerDown={() => { setDir(1); pushMotion(1); }} onPointerUp={() => { setDir(0); }}
+                onPointerLeave={() => { setDir(0); }} onPointerCancel={() => { setDir(0); }}>▶</button>
             </div>
             </div>
             <div className="pvppad-r">
-              <button className="pvpact fire" aria-label={kitLabel(0)} onPointerDown={() => attack("fire")}>
+              <button className="pvpact fire" aria-label={kitLabel(0)} {...holdFire}>
                 <b>{kitIcon(0)}</b><i>{kitLabel(0)}</i>
               </button>
               <button className="pvpact jump" aria-label={petOnly ? T("กระโจน", "Pounce", "扑跃") : T("กระโดด", "Jump", "跳跃")} onPointerDown={jump}>

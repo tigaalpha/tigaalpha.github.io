@@ -28,6 +28,7 @@ const LITE = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMedi
 
 import { useRef, useEffect, useCallback } from "react";
 import { audioBus, getSfxMuted } from "./music-engine";
+import { playSig } from "./fx-voice";
 
 import { createSpaceBus } from "./space-stage";
 const mf = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -427,7 +428,7 @@ export function createArenaAudio(stage) {
       } catch (e) {}
     },
     /** One-shots. They go to the bus directly so they cut through the loop. */
-    sfx(kind) {
+    sfx(kind, voice) {
       try {
         if (getSfxMuted()) return;
         const { ac: a, bus } = audioBus(), t = a.currentTime;
@@ -520,6 +521,8 @@ export function createArenaAudio(stage) {
         else if (kind === "win")  { [69, 73, 76, 81].forEach((m, i) => setTimeout(() => { tone("triangle", mf(m), mf(m), 0.2, 0.42); tone("sine", mf(m - 12), mf(m - 12), 0.12, 0.5); }, i * 110)); }
         else if (kind === "lose") { [69, 66, 62, 57].forEach((m, i) => setTimeout(() => tone("triangle", mf(m), mf(m), 0.17, 0.4), i * 150)); }
         else if (kind === "bell") { tone("sine", mf(84), mf(84), 0.14, 0.5); }
+        // the attacker's own voice rides on top of the weapon's sound (fx-voice.ts): per robot class and id, per pet element and move
+        if (voice && (kind === "hit" || kind === "crit" || kind === "kick" || kind === "shot" || kind === "laser" || kind === "lob" || kind === "boom" || kind === "ult" || kind === "heal")) playSig(a, bus, noise(a), t, voice, kind);
       } catch (e) {}
     },
   };
