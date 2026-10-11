@@ -55,9 +55,10 @@ const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return 
 
 /* the five planets (only the first is playable in this phase) */
 export const PLANETS = [
-  { id: "luma",   th: "ลูมา · ดาวป่าเรืองแสง",   en: "Luma · the glowing jungle", zh: "卢玛 · 荧光丛林",   c: ["#04131c", "#0a3a3a", "#1c8a6a"], glow: "90,255,200", acc: "255,120,220", ok: true, hard: 1, tint: null, boss: ["ผู้พิทักษ์ลูมา", "Luma Warden", "卢玛守卫"] },
-  { id: "ferro",  th: "เฟอร์โร · ทะเลทรายเหล็ก",  en: "Ferro · the iron desert",   zh: "费罗 · 钢铁沙漠",   c: ["#1a0d05", "#4a2410", "#b8672c"], glow: "255,170,90", acc: "255,90,60",  ok: true, req: "luma", hard: 1.7, tint: { glow: "255,150,70", body: "#4a2410" }, boss: ["ผู้พิทักษ์เหล็ก", "Iron Warden", "钢铁守卫"] },
-  { id: "kryo",   th: "ไครโอ · ดาวน้ำแข็งคริสตัล", en: "Kryo · the crystal ice",    zh: "克里奥 · 水晶冰原", c: ["#061427", "#123a63", "#6fc4ff"], glow: "150,225,255", acc: "120,160,255", ok: false },
+  { id: "luma",   th: "ลูมา · ดาวป่าเรืองแสง",   en: "Luma · the glowing jungle", zh: "卢玛 · 荧光丛林",   c: ["#04131c", "#0a3a3a", "#1c8a6a"], glow: "90,255,200", acc: "255,120,220", ok: true, hard: 1, mons: ["glowbug", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster"], tint: null, boss: ["ผู้พิทักษ์ลูมา", "Luma Warden", "卢玛守卫"] },
+  { id: "ferro",  th: "เฟอร์โร · ทะเลทรายเหล็ก",  en: "Ferro · the iron desert",   zh: "费罗 · 钢铁沙漠",   c: ["#1a0d05", "#4a2410", "#b8672c"], glow: "255,170,90", acc: "255,90,60",  ok: true, req: "luma", hard: 1.7, mons: ["rustcrawler", "rustcrawler", "magnet", "thornback", "rustcrawler", "magnet", "glowbug", "magnet"], tint: { glow: "255,150,70", body: "#4a2410" }, boss: ["ผู้พิทักษ์เหล็ก", "Iron Warden", "钢铁守卫"] },
+  { id: "jovia",  th: "โจเวีย · ดาวแก๊สยักษ์ (เก็บพลังงาน)", en: "Jovia · the gas giant (energy harvest)", zh: "朱维亚 · 气态巨行星（采集能量）", c: ["#0d0a2a", "#3a2a7a", "#c98a4a"], glow: "255,190,110", acc: "255,120,90", ok: true, req: "ferro", hard: 1.9, survival: true, mons: ["rustcrawler", "shardling", "glowbug", "magnet", "shardling"], tint: { glow: "255,190,110", body: "#3a2a1a" }, boss: ["-", "-", "-"] },
+  { id: "kryo",   th: "ไครโอ · ดาวน้ำแข็งคริสตัล", en: "Kryo · the crystal ice",    zh: "克里奥 · 水晶冰原", c: ["#061427", "#123a63", "#6fc4ff"], glow: "150,225,255", acc: "120,160,255", ok: true, req: "ferro", hard: 2.4, mons: ["shardling", "shardling", "frostcaster", "thornback", "frostcaster", "shardling", "thornback"], tint: { glow: "150,225,255", body: "#12304a" }, boss: ["ผู้พิทักษ์น้ำแข็ง", "Frost Warden", "冰霜守卫"] },
   { id: "pyra",   th: "ไพรา · เตาปฏิกรณ์ลาวา",    en: "Pyra · the lava reactor",   zh: "派拉 · 熔岩反应堆", c: ["#1c0606", "#5a1408", "#ff6a2a"], glow: "255,120,50", acc: "255,200,60",  ok: false },
   { id: "nexa",   th: "เน็กซา · เมืองซากอวกาศ",   en: "Nexa · the wreck city",     zh: "内克萨 · 残骸之城", c: ["#0a0518", "#2a1250", "#9a5cff"], glow: "190,150,255", acc: "63,240,208",  ok: false },
 ];
@@ -66,6 +67,10 @@ export const PLANETS = [
 const MON = {
   glowbug:     { hp: 34, dmg: 9,  speed: 70,  exp: 12, w: 46, h: 34, cd: 1100, name: ["กลอว์บัก", "Glowbug", "荧虫"] },
   thornback:   { hp: 96, dmg: 15, speed: 38,  exp: 30, w: 78, h: 44, cd: 1500, name: ["ธอร์นแบ็ก", "Thornback", "刺背兽"] },
+  rustcrawler: { hp: 40, dmg: 11, speed: 96, exp: 16, w: 50, h: 28, cd: 900,  name: ["สนิมคลาน", "Rustcrawler", "锈爬虫"] },
+  magnet:      { hp: 80, dmg: 14, speed: 0,  exp: 28, w: 40, h: 80, cd: 1900, name: ["เสาแม่เหล็ก", "Magnet Pylon", "磁力塔"], ranged: true },
+  shardling:   { hp: 46, dmg: 10, speed: 62, exp: 18, w: 44, h: 40, cd: 1000, name: ["เศษคริสตัล", "Shardling", "晶碎兽"] },
+  frostcaster: { hp: 56, dmg: 12, speed: 26, exp: 28, w: 46, h: 62, cd: 2000, name: ["ผู้เรียกน้ำแข็ง", "Frostcaster", "霜术士"], ranged: true },
   sporecaster: { hp: 52, dmg: 11, speed: 30,  exp: 26, w: 52, h: 60, cd: 2200, name: ["สปอร์คาสเตอร์", "Sporecaster", "孢子术士"], ranged: true },
 };
 
@@ -134,7 +139,27 @@ function drawMonster(x, m, t, k, G) {
   const hit = m.hurt > 0;
   const body = hit ? "#ffffff" : TINT ? TINT.body : m.type === "glowbug" ? "#0e5a4a" : m.type === "thornback" ? "#3a1030" : "#2a1a66";
   const glow = TINT ? TINT.glow : m.type === "glowbug" ? "90,255,200" : m.type === "thornback" ? "255,70,90" : "190,130,255";
-  if (m.type === "glowbug") {
+  if (m.type === "rustcrawler") {
+    const y = GROUND - m.y; x.strokeStyle = "#2a1408"; x.lineWidth = 3; for (let i = 0; i < 4; i++) { const lx = -18 + i * 12, ph = Math.sin(t * 16 + i * 1.6 + m.ph) * 5; x.beginPath(); x.moveTo(lx, y - 8); x.lineTo(lx - 5, y + ph * 0.3); x.stroke(); }
+    x.fillStyle = hit ? "#fff" : "#6a3a1a"; x.beginPath(); x.moveTo(-26, y - 6); x.quadraticCurveTo(-18, y - 30, 4, y - 26); x.quadraticCurveTo(28, y - 22, 28, y - 6); x.closePath(); x.fill();
+    x.fillStyle = hit ? "#fff" : "#a8591f"; x.fillRect(-16, y - 24, 14, 5); x.fillRect(2, y - 22, 12, 4);
+    x.fillStyle = "#ffb04a"; x.beginPath(); x.arc(20, y - 16, 3.4, 0, 7); x.fill(); x.fillStyle = "rgba(255,150,60,.35)"; x.beginPath(); x.arc(20, y - 16, 8, 0, 7); x.fill();
+  } else if (m.type === "magnet") {
+    const y = GROUND - m.y; x.fillStyle = hit ? "#fff" : "#2b3038"; x.fillRect(-12, y - 52, 24, 52); x.fillStyle = hit ? "#fff" : "#4a525e"; x.fillRect(-20, y - 8, 40, 8);
+    x.strokeStyle = "#ff9a3c"; x.lineWidth = 3; x.beginPath(); x.arc(0, y - 62, 16, Math.PI * 0.15, Math.PI * 0.85, true); x.stroke(); x.beginPath(); x.arc(0, y - 62, 16, Math.PI * 1.15, Math.PI * 1.85, true); x.stroke();
+    const pulse = 0.5 + 0.5 * Math.sin(t * 5 + m.ph); x.fillStyle = `rgba(255,${120 + pulse * 100 | 0},60,.9)`; x.beginPath(); x.arc(0, y - 62, 6 + pulse * 2, 0, 7); x.fill();
+  } else if (m.type === "shardling") {
+    const y = GROUND - m.y - 2 + Math.abs(Math.sin(t * 6 + m.ph)) * -3;
+    x.fillStyle = hit ? "#fff" : "#7fd0ff"; for (let i = 0; i < 4; i++) { const bx = -18 + i * 12, h = 22 + (i % 2) * 14; x.beginPath(); x.moveTo(bx - 7, y); x.lineTo(bx, y - h); x.lineTo(bx + 7, y); x.closePath(); x.fill(); }
+    x.fillStyle = hit ? "#fff" : "#1d5a86"; x.beginPath(); x.moveTo(-22, y); x.lineTo(-8, y - 18); x.lineTo(10, y - 16); x.lineTo(24, y); x.closePath(); x.fill();
+    x.fillStyle = "#eaffff"; x.beginPath(); x.arc(12, y - 9, 3, 0, 7); x.fill();
+  } else if (m.type === "frostcaster") {
+    const y = GROUND - 56 - m.y + Math.sin(t * 2.2 + m.ph) * 6;
+    x.fillStyle = hit ? "#fff" : "#a8e4ff"; x.beginPath(); x.moveTo(0, y - 26); x.lineTo(16, y); x.lineTo(0, y + 26); x.lineTo(-16, y); x.closePath(); x.fill();
+    x.fillStyle = hit ? "#fff" : "#3b8fc4"; x.beginPath(); x.moveTo(0, y - 14); x.lineTo(8, y); x.lineTo(0, y + 14); x.lineTo(-8, y); x.closePath(); x.fill();
+    x.strokeStyle = "rgba(190,240,255,.8)"; x.lineWidth = 2; for (let i = 0; i < 3; i++) { const a = t * 1.4 + i * 2.1 + m.ph; x.beginPath(); x.arc(0, y, 26, a, a + 0.7); x.stroke(); }
+    x.fillStyle = "#e9ff9a"; x.beginPath(); x.arc(14 , y + 2, 3.5, 0, 7); x.fill();
+  } else if (m.type === "glowbug") {
     const y = GROUND - m.y - 6 + bob * 0.5;
     x.strokeStyle = "#063d33"; x.lineWidth = 3; for (let i = 0; i < 3; i++) { const lx = -14 + i * 12, ph = Math.sin(t * 12 + i + m.ph) * 4; x.beginPath(); x.moveTo(lx, y); x.lineTo(lx - 6, y + 12 + ph); x.lineTo(lx - 2, y + 14 + ph); x.stroke(); }
     x.fillStyle = body; x.beginPath(); x.ellipse(0, y - 4, 22, 16, 0, 0, 7); x.fill();
@@ -254,7 +279,7 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!open(P)}
                 onClick={() => { if (open(P)) { playUi && playUi("click"); setPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
-                <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t("แผนที่ " + (pi + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), "Map " + (pi + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), "地图 " + (pi + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? t("ต้องผ่านบอสลูมาก่อน", "Beat the Luma boss first", "先击败卢玛首领") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
+                <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : "แผนที่ ") + (pi + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (pi + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (pi + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? t("ต้องผ่านบอสลูมาก่อน", "Beat the Luma boss first", "先击败卢玛首领") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
                 <em>{open(P) ? "▶" : "🔒"}</em>
               </button>
             ))}
@@ -373,13 +398,14 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const teleGaps: number[] = [];
     const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: Math.round(MON[type].hp * HM), max: Math.round(MON[type].hp * HM), face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, tele: 0, act: "", teleAt: 0, i });
     const mons: any[] = [];
-    const pattern = ["glowbug", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster"];
-    for (let i = 0; i < 17; i++) mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i));
+    const pattern = P.mons || ["glowbug"], pool = pattern;
+    const surv = { t: 0, wave: 0, next: 2, done: false }, SURV_T = 90;   // gas-giant stage: hold out 90 s while the energy fills
+    for (let i = 0; i < (P.survival ? 0 : 17); i++) mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i));
     const parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [], drops: any[] = [], waves: any[] = [], pet: any[] = [];
     let crystals = readCrystals();
-    const boss: any = { x: WORLD - 420, hp: Math.round(700 * HM), max: Math.round(700 * HM), face: -1, cd: 1.6, n: 0, state: "idle", tele: 0, dur: 0, hurt: 0, vx: 0, dead: 0, active: false };
+    const boss: any = { x: WORLD - 420, hp: Math.round(700 * HM), max: Math.round(700 * HM), face: -1, cd: 1.6, n: 0, state: "idle", tele: 0, dur: 0, hurt: 0, vx: 0, dead: P.survival ? 1 : 0, active: false };
     const ARENA = WORLD - 900;
-    const beacons: any[] = [1300, 2650, 3950].map(x => ({ x, used: false }));   // knowledge beacons: review questions from what the learner has studied
+    const beacons: any[] = (P.survival ? [] : [1300, 2650, 3950]).map(x => ({ x, used: false }));   // knowledge beacons: review questions from what the learner has studied
     const maxParts = high ? 140 : 26;
     const addPart = (x, y, vx, vy, life, col, sz) => { if (parts.length < maxParts) parts.push({ x, y, vx, vy, life, max: life, col, sz }); };
     const fireflies = Array.from({ length: high ? 46 : 12 }, (_, i) => ({ x: rnd(i + 200) * WORLD, y: 120 + rnd(i + 230) * 170, ph: rnd(i + 260) * 6 }));
@@ -473,7 +499,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       if (quizOn.current) return;
       time += dt;
       const kk = keys.current;
-      if (pl.dead > 0) { pl.dead -= dt; if (pl.dead <= 0) { pl.dead = 0; pl.hp = hpMaxOf(info.lv); pl.x = 160; pl.y = 0; pl.inv = 1.5; camX = 0; setDown(false); } }
+      if (pl.dead > 0) { pl.dead -= dt; if (pl.dead <= 0) { if (P.survival && !surv.done) { surv.t = 0; surv.wave = 0; surv.next = 2; mons.length = 0; shots.length = 0; } pl.dead = 0; pl.hp = hpMaxOf(info.lv); pl.x = 160; pl.y = 0; pl.inv = 1.5; camX = 0; setDown(false); } }
       else {
         const sp = 150 * mods.walk; let dx = 0; if (kk.l) dx -= 1; if (kk.r) dx += 1;
         pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + dx * sp * dt)); if (dx) pl.face = dx;
@@ -486,6 +512,18 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
         pl.vy -= 900 * dt; pl.y += pl.vy * dt; if (pl.y <= 0) { pl.y = 0; pl.vy = 0; pl.ground = true; }
         pl.atkCd -= dt; pl.sklCd -= dt; pl.inv -= dt; pl.swing -= dt;
       }
+      if (P.survival && !surv.done && pl.dead <= 0) {
+        surv.t += dt; surv.next -= dt;
+        if (surv.next <= 0) { surv.next = 6; surv.wave++; const n = Math.min(7, 2 + surv.wave); for (let i = 0; i < n; i++) { const side = i % 2 ? 1 : -1; const x = Math.max(60, Math.min(WORLD - 60, pl.x + side * (420 + rnd(surv.wave * 9 + i) * 160))); mons.push(mk(pool[(surv.wave + i) % pool.length], x, 1000 + surv.wave * 10 + i)); } }
+        if (surv.t >= SURV_T) {
+          surv.done = true; finished = true; mons.length = 0; shots.length = 0; markDone(P.id); shake = 6;
+          const gain = Math.round(150 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(15 * CV);
+          info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
+          logUsage("adv", "harvest-win:" + P.id); playUi && playUi("reward");
+          setBanner({ k: Date.now(), a: t("เก็บพลังงานครบ! +" + gain + " EXP", "ENERGY HARVESTED! +" + gain + " EXP", "能量采集完成！+" + gain + " 经验"), b: t("◆ คริสตัล +" + 15 * CV, "◆ crystals +" + 15 * CV, "◆ 晶体 +" + 15 * CV) });
+        }
+      }
+      if (P.survival) for (let i = mons.length - 1; i >= 0; i--) if (mons[i].dead) mons.splice(i, 1);
       for (const m of mons) {
         if (m.dead) { m.resp -= dt; if (m.resp <= 0 && Math.abs(pl.x - m.hx) > 640) { m.dead = 0; m.hp = m.max; m.x = m.hx; m.y = 0; m.vx = 0; } continue; }
         const d = MON[m.type]; m.hurt -= dt; m.cd -= dt * 1000;
@@ -552,7 +590,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       const target = Math.max(0, Math.min(WORLD - vw, pl.x - vw * 0.42 + pl.face * 30));
       camX += (target - camX) * (high ? 0.12 : 0.2);
       shake *= 0.86;
-      if (!finished && boss.dead && pl.x > WORLD - 140) { finished = true; const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1]; setBanner({ k: Date.now(), a: t("ผ่านแผนที่!", "MAP CLEAR!", "通关！"), b: nx && nx.ok ? t("เลือกดาวถัดไปจากแผนที่", "Pick the next planet from the map", "请从地图选择下一颗星球") : t("ดาวถัดไปมาในระยะต่อไป", "More planets are coming", "更多星球即将开放") }); }
+      if (!finished && !P.survival && boss.dead && pl.x > WORLD - 140) { finished = true; const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1]; setBanner({ k: Date.now(), a: t("ผ่านแผนที่!", "MAP CLEAR!", "通关！"), b: nx && nx.ok ? t("เลือกดาวถัดไปจากแผนที่", "Pick the next planet from the map", "请从地图选择下一颗星球") : t("ดาวถัดไปมาในระยะต่อไป", "More planets are coming", "更多星球即将开放") }); }
     };
 
     const draw = (tm) => {
@@ -571,8 +609,8 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
       // monsters
       for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; drawMonster(ctx, m, tm, k, GROUND);
-        if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - (m.type === "sporecaster" ? 128 : 74)); }
-        if (m.hp < m.max) { const w = 40, y0 = GROUND - m.y - (m.type === "sporecaster" ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / m.max), 5); } }
+        if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - ((m.type === "sporecaster" || m.type === "frostcaster") ? 128 : 74)); }
+        if (m.hp < m.max) { const w = 40, y0 = GROUND - m.y - ((m.type === "sporecaster" || m.type === "frostcaster") ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / m.max), 5); } }
       if (boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
       for (const b of pet) { const q = 1 - b.life / 0.25; ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.9)`; ctx.beginPath(); ctx.arc(b.x + (b.tx - b.x) * q, GROUND - (b.y + (b.ty - b.y) * q), 5, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       for (const w of waves) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.8)`; ctx.beginPath(); ctx.moveTo(w.x - 14, GROUND); ctx.lineTo(w.x, GROUND - 30); ctx.lineTo(w.x + 14, GROUND); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
@@ -604,6 +642,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       { const gx = WORLD - 90; if (gx > camX - 60 && gx < camX + vw + 60) { ctx.strokeStyle = `rgba(${P.acc},.9)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 26, 62, 0, 0, 7); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},${0.18 + 0.1 * Math.sin(tm * 3)})`; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 24, 60, 0, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; } }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       tile(bake.near, 1.25);
+      if (P.survival && !surv.done) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ffbe6e"; ctx.fillRect(bx, by, bw * Math.min(1, surv.t / SURV_T), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, "พลังงาน ", "ENERGY ", "能量 ") + Math.round(Math.min(1, surv.t / SURV_T) * 100) + "% · " + T3(lang, "คลื่น ", "wave ", "波 ") + surv.wave, cw / 2, by - 4 * k); }
       if (boss.active && !boss.dead) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.max), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, P.boss[0], P.boss[1], P.boss[2]), cw / 2, by - 4 * k); }
       // light + vignette (high): one baked-free pass, a couple of fills
       if (high) { const g = ctx.createRadialGradient(cw / 2, ch * 0.55, ch * 0.3, cw / 2, ch * 0.55, ch * 1.1); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,6,10,.55)"); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
@@ -646,7 +685,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
     return () => { if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
