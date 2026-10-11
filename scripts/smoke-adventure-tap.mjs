@@ -17,7 +17,7 @@ await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "lo
 for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
 const info = await p.evaluate(() => { const b = document.querySelector(".pvpadv"); if (!b) return "no button"; const r = b.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { rect: [r.left, r.top, r.width, r.height].map(Math.round), top: e ? e.tagName + "." + (e.className || "").toString().slice(0, 40) : null, isBtn: e && (e === b || b.contains(e)) }; });
 console.log(JSON.stringify(info));
-await p.locator(".pvpadv").tap({ timeout: 4000 }).then(() => console.log("tap ok")).catch(e => console.log("tap failed:", e.message.split("\n")[0].slice(0, 120)));
+await p.locator(".pvpadv").first().tap({ timeout: 4000 }).then(() => console.log("tap ok")).catch(e => console.log("tap failed:", e.message.split("\n")[0].slice(0, 120)));
 await p.waitForTimeout(900);
 const open = (await p.locator(".adv").count()) > 0; console.log("adventure open:", open, "errors:", errs.join("|") || "none"); if (!open || errs.length) process.exitCode = 1;
 await browser.close(); server.close();
