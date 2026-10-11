@@ -4020,7 +4020,22 @@ ${UX2_CSS}
 .chhundo{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 14px;border-radius:14px;background:var(--text);color:var(--bg);font-size:13px}.chhundo button{margin-left:auto;border:0;background:transparent;color:#f0a07c;font-weight:800;font-size:13.5px;cursor:pointer;min-height:36px}
 .chhknow{display:flex;gap:10px;flex-wrap:wrap;padding:6px 4px 8px;font-size:12px;color:var(--muted)}.chhknow b{color:var(--text)}
 .chhbtn.on{border-color:#d97757;color:#d97757}
-@media (prefers-reduced-motion:reduce){.chhsheet{animation:none}}
+.chhbadges{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none}.chhbadges::-webkit-scrollbar{display:none}
+.chhbadge{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:68px;padding:6px 8px;border-radius:14px;border:1.5px dashed var(--bd2);opacity:.55}
+.chhbadge i{font-style:normal;font-size:22px}.chhbadge em{font-style:normal;font-size:10.5px;color:var(--muted);white-space:nowrap}
+.chhbadge.got{opacity:1;border-style:solid;border-color:#d97757;background:#d977571a}.chhbadge.got em{color:var(--text);font-weight:700}
+.chquest{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 12px 0;padding:8px 12px;border-radius:14px;background:var(--card);border:1.5px solid var(--bd1);font-size:12.5px;color:var(--text)}
+.chquest-tx{flex:1 1 150px;min-width:0}.chquest-bar{flex:0 0 64px;height:6px;border-radius:3px;background:var(--bd1);overflow:hidden}.chquest-bar span{display:block;height:100%;background:linear-gradient(90deg,#d97757,#f0a07c);transition:width .35s}
+.chquest-n{font-size:12.5px}.chquest em{font-style:normal;font-weight:800;color:#d97757;flex:1 0 100%}
+.chquest.done{border-color:#d97757;background:#d977571a}
+.chbadgetoast{position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:3000;display:flex;align-items:center;gap:12px;max-width:min(92vw,420px);padding:12px 16px;border-radius:18px;background:var(--card);border:2px solid #d97757;box-shadow:0 18px 40px -16px rgba(0,0,0,.55);animation:chbpop .5s cubic-bezier(.2,1.4,.4,1)}
+.chbadgetoast-ic{font-size:34px;animation:chbspin .9s ease-out}.chbadgetoast span:last-child{display:flex;flex-direction:column;min-width:0}
+.chbadgetoast small{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:#d97757;font-weight:800}.chbadgetoast b{font-size:15px;color:var(--text)}.chbadgetoast i{font-style:normal;font-size:12px;color:var(--muted)}
+@keyframes chbpop{from{transform:translateX(-50%) translateY(-20px) scale(.85);opacity:0}to{transform:translateX(-50%) none;opacity:1}}
+@keyframes chbspin{from{transform:rotate(-30deg) scale(.4)}60%{transform:rotate(12deg) scale(1.25)}to{transform:none}}
+.askverdict.pop{animation:askpop .45s cubic-bezier(.2,1.5,.4,1)}
+@keyframes askpop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.chhsheet,.chbadgetoast,.chbadgetoast-ic,.askverdict.pop{animation:none}.chquest-bar span{transition:none}}
 `;
 
 export function useInjectCSS() {
