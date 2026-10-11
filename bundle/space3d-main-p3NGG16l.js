@@ -1,4 +1,4 @@
-import{r as Z,a9 as cS,j as oe,aa as ep}from"./index.template-Ddr-ZNov.js";/**
+import{r as Z,a9 as cS,j as oe,aa as ep}from"./index.template-BCxl7vkz.js";/**
  * @license
  * Copyright 2010-2025 Three.js Authors
  * SPDX-License-Identifier: MIT
