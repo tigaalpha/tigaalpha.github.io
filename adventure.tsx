@@ -388,6 +388,10 @@ const CSS = `
 /* round pad buttons (owner, 2026-10-11) */
 .adv .pvpdir,.adv .pvpact,.adv-pad .pvppad-r .pvpact.rocket{border-radius:50%!important;aspect-ratio:1/1}.adv .pvpdir{width:54px;height:54px}.adv .pvpact,.adv-pad .pvppad-r .pvpact.rocket{width:58px;height:58px}@media (max-width:600px){.adv .pvpdir{width:48px;height:48px}.adv .pvpact,.adv-pad .pvppad-r .pvpact.rocket{width:52px;height:52px}}
 .adv .pvpact.ult i{max-width:48px}
+.pvpgo,.pvpbig,.pvpghost,.pvpfriend,.pvptab,.pvpres-practice,.pvprpg-reset,.pvpsec-t,.adv-qopt,.adv-qgo,.adv-btn.go{border-radius:999px!important}
+.pvptier,.pvpadv,.adv-planet,.adv-up{border-radius:34px!important}
+.stgback,.adv-btn:not(.go){border-radius:50%!important}
+
 `;
 
 type Gfx = "standard" | "high";
