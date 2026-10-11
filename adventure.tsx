@@ -80,7 +80,28 @@ export const PLANETS = [
   { id: "kryo",   th: "ไครโอ · ดาวน้ำแข็งคริสตัล", en: "Kryo · the crystal ice",    zh: "克里奥 · 水晶冰原", c: ["#061427", "#123a63", "#6fc4ff"], glow: "150,225,255", acc: "120,160,255", ok: true, req: "ferro", hard: 2.4, mons: ["shardling", "shardling", "frostcaster", "thornback", "frostcaster", "shardling", "thornback"], tint: { glow: "150,225,255", body: "#12304a" }, boss: ["ผู้พิทักษ์น้ำแข็ง", "Frost Warden", "冰霜守卫"] },
   { id: "pyra",   th: "ไพรา · เตาปฏิกรณ์ลาวา",    en: "Pyra · the lava reactor",   zh: "派拉 · 熔岩反应堆", c: ["#1c0606", "#5a1408", "#ff6a2a"], glow: "255,120,50", acc: "255,200,60",  ok: true, req: "kryo", hard: 3.0, hazard: "lava", mons: ["magmaling", "magmaling", "flarecaster", "thornback", "flarecaster", "magmaling", "thornback"], tint: { glow: "255,120,50", body: "#3a0c06" }, boss: ["ผู้พิทักษ์แกนลาวา", "Core Warden", "熔核守卫"] },
   { id: "nexa",   th: "เน็กซา · เมืองซากอวกาศ",   en: "Nexa · the wreck city",     zh: "内克萨 · 残骸之城", c: ["#0a0518", "#2a1250", "#9a5cff"], glow: "190,150,255", acc: "63,240,208",  ok: true, req: "pyra", hard: 3.8, hazard: "shock", enrage: true, mons: ["drone", "scrapgolem", "drone", "rustcrawler", "drone", "scrapgolem"], tint: { glow: "190,150,255", body: "#1e1236" }, boss: ["จอมคุมแห่งเน็กซา", "Nexa Overseer", "内克萨监管者"] },
+  { id: "cobalt", th: "โคบอลต์ · แถบเหมืองดาวเคราะห์น้อย (ขุดแร่ส่งกลับโลก)", en: "Cobalt Belt · mine ore, ship it to Earth", zh: "钴带 · 采矿并运回地球", c: ["#0a1220", "#1c3a5a", "#4a90c8"], glow: "110,190,255", acc: "255,200,90", ok: true, req: "ferro", hard: 2.0, mission: "mine", mons: ["rustcrawler", "shardling", "magnet", "rustcrawler"], tint: { glow: "110,190,255", body: "#16283c" }, boss: ["-", "-", "-"] },
+  { id: "helios", th: "เฮลิออส · ยึดดาวฤกษ์ต่างระบบ", en: "Helios · capture a foreign sun", zh: "赫利俄斯 · 占领异星恒星", c: ["#2a0a00", "#8a3a00", "#ffb030"], glow: "255,200,90", acc: "255,120,60", ok: true, req: "kryo", hard: 2.8, mission: "capture", mons: ["magmaling", "flarecaster", "drone", "magmaling"], tint: { glow: "255,190,80", body: "#4a1a06" }, boss: ["-", "-", "-"] },
+  { id: "ashfall", th: "แอชฟอลล์ · ทิ้งนิวเคลียร์ก่อนแล้วค่อยบุก", en: "Ashfall · orbital strike, then assault", zh: "灰烬星 · 先轨道核打击再突袭", c: ["#12120e", "#3a3a2a", "#8a8a5a"], glow: "220,210,140", acc: "255,90,60", ok: true, req: "pyra", hard: 3.4, mission: "strike", mons: ["scrapgolem", "drone", "scrapgolem", "rustcrawler", "drone", "magmaling"], tint: { glow: "220,200,120", body: "#26261c" }, boss: ["ผู้บัญชาการแอชฟอลล์", "Ashfall Commander", "灰烬指挥官"] },
 ];
+
+/* the story (owner, 2026-10-11): year 2100, these robots are built BY humans to do the colony work in their place, before any person
+   moves in: clear the aliens, mine the ore, take the stars, and send it all home. One short briefing per map, shown when it opens. */
+export const BRIEF: Record<string, string[]> = {
+  luma: ["ภารกิจหุ่นยนต์บุกเบิก: เคลียร์ป่าเรืองแสงก่อนที่มนุษย์จะย้ายเข้ามา", "Pioneer unit: clear the glowing jungle before any human settles.", "先遣机器人：在人类入住前清理荧光丛林。"],
+  ferro: ["ทะเลทรายเหล็กเต็มไปด้วยสนิมและหอแม่เหล็ก — เปิดทางให้รถขุดแร่", "The iron desert: rust and magnet pylons stand between the miners and the ore.", "钢铁沙漠：锈虫与磁力塔挡住了采矿队。"],
+  jovia: ["ดาวแก๊สยักษ์: ตั้งเครื่องเก็บพลังงานและยืนหยัดจนพลังงานเต็ม", "The gas giant: set up the harvester and hold out until the energy is full.", "气态巨星：架好采集器，坚守到能量充满。"],
+  kryo: ["ดาวน้ำแข็ง: ผู้พิทักษ์ผลึกขวางทางสู่แหล่งน้ำสำหรับอาณานิคม", "The ice world: a crystal warden guards the colony's water.", "冰封星球：水晶守卫看守着殖民地的水源。"],
+  pyra: ["เตาปฏิกรณ์ลาวา: ข้ามบ่อลาวาไปปิดแกนที่กำลังเดือด", "The lava reactor: cross the lava pools and shut down the boiling core.", "熔岩反应堆：越过熔岩池，关闭沸腾的核心。"],
+  nexa: ["เมืองซากอวกาศ: เจ้าหน้าที่ควบคุมสุดท้ายยังรออยู่ — ระวังแผ่นไฟฟ้า", "The wreck city: the last overseer waits. Mind the shock plates.", "残骸之城：最后的监管者在等候，小心电击板。"],
+  cobalt: ["แถบเหมือง: ขุดแร่ 10 ก้อนขึ้นไปแล้วส่งแคปซูลกลับโลก", "The belt: mine at least 10 ore and launch the capsule home to Earth.", "矿带：至少采集 10 块矿石，发射货舱运回地球。"],
+  helios: ["ดาวฤกษ์ต่างระบบ: ยึดสถานีเก็บพลังงานทั้งสามจุดทีละจุด", "A foreign sun: take its three collector stations, one at a time.", "异星恒星：逐一占领三座能量采集站。"],
+  ashfall: ["แอชฟอลล์: ทิ้งระเบิดนิวเคลียร์จากวงโคจรก่อน แล้วค่อยลงไปกวาดล้างที่เหลือ", "Ashfall: nuke the bases from orbit first, then drop in and clear what is left.", "灰烬星：先从轨道投下核弹，再降落扫荡残敌。"],
+};
+const ORE_STAGES = [{ n: 0, th: "ฐานชั่วคราว", en: "Outpost", zh: "前哨" }, { n: 40, th: "ค่ายอาณานิคม", en: "Camp", zh: "营地" }, { n: 120, th: "เมืองเล็ก", en: "Town", zh: "小镇" }, { n: 300, th: "มหานครอาณานิคม", en: "Colony city", zh: "殖民都市" }];
+export const readOre = (): number => { try { return Math.max(0, parseInt(localStorage.getItem("tg_earth_ore") || "0", 10) || 0); } catch (e) { return 0; } };
+export const addOre = (n: number) => { try { localStorage.setItem("tg_earth_ore", String(readOre() + n)); } catch (e) {} };
+const oreStage = (n: number) => { let st = ORE_STAGES[0]; for (const x of ORE_STAGES) if (n >= x.n) st = x; return st; };
 
 /* ── monsters ── */
 const MON = {
@@ -261,6 +282,14 @@ const CSS = `
 .adv-key.on,.adv-key:active{background:rgba(61,220,151,.45)}
 .adv-key.atk{width:84px;height:84px;border-radius:42px;background:linear-gradient(160deg,#ff8a5d,#d9482b);border-color:transparent}
 .adv-key.skl{background:linear-gradient(160deg,#7b61ff,#4a35c9);border-color:transparent}.adv-key.cd{opacity:.45}
+.adv-strike{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;background:radial-gradient(120% 90% at 50% 0%,#241a10,#050403);padding:calc(10px + env(safe-area-inset-top,0px)) 14px calc(12px + env(safe-area-inset-bottom,0px));gap:10px;touch-action:manipulation}
+.as-top{display:flex;align-items:center;gap:10px}.as-top div{flex:1;display:flex;flex-direction:column}.as-top small{font-size:11px;opacity:.8}.as-n{font-weight:900;font-size:18px}
+.as-map{position:relative;flex:1;min-height:120px;border-radius:14px;border:1px solid rgba(255,170,80,.35);background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 2px,transparent 2px 60px),linear-gradient(180deg,#0e0b07,#2a2012);overflow:hidden}
+.as-base{position:absolute;bottom:14%;transform:translateX(-50%);font-size:34px;filter:drop-shadow(0 0 6px rgba(255,120,60,.6))}.as-base.dead{filter:grayscale(1) brightness(.6)}
+.as-ret{position:absolute;top:0;bottom:0;width:3px;margin-left:-1px;background:linear-gradient(180deg,#ff4d6d,rgba(255,77,109,.2));box-shadow:0 0 12px #ff4d6d}.as-ret::after{content:"";position:absolute;left:-14px;top:46%;width:30px;height:30px;border:2px solid #ff4d6d;border-radius:50%}
+.as-fall{position:absolute;top:-10%;transform:translateX(-50%);font-size:30px;animation:asf .8s ease-in forwards}@keyframes asf{to{top:62%}}
+.as-boom{position:absolute;bottom:6%;width:220px;height:220px;margin-left:-110px;border-radius:50%;background:radial-gradient(circle,#fff,#ffd23f 25%,#ff6a1a 55%,transparent 72%);animation:asb .9s ease-out forwards}@keyframes asb{from{transform:scale(.2);opacity:1}to{transform:scale(1.5);opacity:0}}
+.as-bot{display:flex;gap:10px;align-items:center;justify-content:center}.as-bot .go{background:linear-gradient(135deg,#ff8a5d,#d9482b);padding:0 22px;border-color:transparent;font-size:15px}.as-bot .go:disabled{opacity:.5}
 .adv-shop{display:flex;flex-direction:column;gap:6px;margin:10px 0;padding:10px;border-radius:14px;background:rgba(10,40,48,.55);border:1px solid rgba(140,255,220,.25)}
 .adv-shop b{font-size:13px}.adv-up,.adv-q{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;border:1px solid rgba(140,255,220,.3);background:rgba(4,30,36,.6);color:#fff;font-size:13px;min-height:44px}
 .adv-load{display:flex;flex-direction:column;gap:4px}.adv-load small{opacity:.8}.adv-load>div{display:flex;flex-wrap:wrap;gap:6px}.adv-load button{padding:8px 10px;border-radius:10px;border:1px solid rgba(140,255,220,.3);background:rgba(4,30,36,.6);color:#fff;font-size:12px;min-height:40px}.adv-load button.on{background:rgba(61,220,151,.4);border-color:#3ddc97}.adv-load button:disabled{opacity:.45}
@@ -305,7 +334,8 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
   const [tick, setTick] = useState(0); void tick;
-  const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests(); const load = readLoad();
+  const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests(); const load = readLoad(); const ore = readOre(); const ostage = oreStage(ore);
+  const [strike, setStrike] = useState<any>(null);   // the orbital-strike result (which bases are gone) before an Ashfall run
   const open = (P) => P.ok && (!P.req || done.includes(P.req));
   const t = (th, en, zh) => T3(lang, th, en, zh);
   return (
@@ -317,14 +347,15 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
             <button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
             <h2 style={{ flex: 1 }}>🪐 Adventure Mode</h2>
           </div>
+          <p style={{ fontSize: 12, opacity: .85 }}>{t("ส่งกลับโลกแล้ว " + ore + " ก้อนแร่ · อาณานิคม: " + ostage.th, "Shipped to Earth: " + ore + " ore · colony: " + ostage.en, "已运回地球 " + ore + " 矿 · 殖民地：" + ostage.zh)}</p>
           <p style={{ fontSize: 12, opacity: .85 }}>{t("ปี 2100 มนุษย์ออกหาทรัพยากรและพลังงานจากดาวต่างๆ และต้องสู้กับต่างดาว  ◆ คริสตัลพลังงานที่เก็บได้: " + crystals, "Year 2100: humanity heads out for resources and star energy, and fights the aliens. ◆ Energy crystals collected: " + crystals, "2100年，人类外出寻找资源与恒星能源，并与外星生物作战。  ◆ 已收集能量晶体：" + crystals)}</p>
           <p>{t("หุ่นยนต์และสัตว์เลี้ยงออกผจญภัยในดาวต่างดาว สู้มอนสเตอร์ เก็บ EXP เพิ่มเลเวลและสกิล (EXP เดียวกับ PvP)", "Take your robot and pet across alien planets, fight monsters and earn EXP for levels and skills (the same EXP as PvP).", "带着机器人和宠物探索外星球，打怪获得经验，升级并提升技能（与 PvP 共用经验）。")}</p>
           <div className="adv-planets">
             {PLANETS.map((P, pi) => (
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!open(P)}
-                onClick={() => { if (open(P)) { playUi && playUi("click"); enterFs(); setPlanet(P); } }}>
+                onClick={() => { if (open(P)) { playUi && playUi("click"); enterFs(); setStrike(null); setPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
-                <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : "แผนที่ ") + (pi + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (pi + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (pi + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? t("ต้องผ่านบอสลูมาก่อน", "Beat the Luma boss first", "先击败卢玛首领") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
+                <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (pi + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (pi + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (pi + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? t("ต้องผ่านบอสลูมาก่อน", "Beat the Luma boss first", "先击败卢玛首领") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
                 <em>{open(P) ? "▶" : "🔒"}</em>
               </button>
             ))}
@@ -375,15 +406,52 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
           <p style={{ fontSize: 11.5 }}>{t("ระบบเลือกให้ตามเครื่องของคุณ เปลี่ยนเองได้", "Chosen for your device; change it any time.", "已按设备自动选择，可随时更改。")}</p>
         </div>
       ) : (
-        <Run key={planet.id + gfx} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
+        planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
+        <Run key={planet.id + gfx} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
           onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
       )}
     </div>
   );
 });
 
+/** Ashfall's opening: an orbital strike. Six enemy bases lie under the orbit line; a reticle sweeps across and a tap drops one of three
+    nuclear warheads where it is. A base inside the blast is gone, and the ground assault that follows has no defenders from it. */
+function StrikePhase({ P, lang, playUi, onDone, onBack }: any) {
+  const t = (th, en, zh) => T3(lang, th, en, zh);
+  const [left, setLeft] = useState(3); const [bases, setBases] = useState<boolean[]>([true, true, true, true, true, true]); const [phase, setPhase] = useState("aim");
+  const [boom, setBoom] = useState<any>(null); const [fall, setFall] = useState<number | null>(null);
+  const retRef = useRef<HTMLDivElement>(null), xRef = useRef(0.1), lock = useRef<number | null>(null), basesRef = useRef(bases), leftRef = useRef(3);
+  basesRef.current = bases; leftRef.current = left;
+  const BX = (i: number) => 0.1 + i * 0.16;   // the six bases, as a fraction of the width
+  useEffect(() => { let raf = 0; const t0 = performance.now(); const f = (now: number) => { raf = requestAnimationFrame(f); const x = lock.current !== null ? lock.current : 0.5 + 0.46 * Math.sin((now - t0) / 1000 * 1.5); xRef.current = x; if (retRef.current) retRef.current.style.left = x * 100 + "%"; }; raf = requestAnimationFrame(f); return () => cancelAnimationFrame(raf); }, []);
+  const drop = () => {
+    if (phase !== "aim" || leftRef.current <= 0) return; const x = xRef.current; setPhase("drop"); setFall(x); setLeft(leftRef.current - 1); playUi && playUi("click");
+    setTimeout(() => { const nb = basesRef.current.map((alive, i) => alive && Math.abs(BX(i) - x) > 0.085); setBases(nb); setBoom(x); setFall(null); playUi && playUi("reward");
+      setTimeout(() => { setBoom(null); setPhase(leftRef.current <= 0 ? "done" : "aim"); }, 900); }, 800);
+  };
+  useEffect(() => { (window as any).__advStrike = { setX: (x: number) => { lock.current = x; xRef.current = x; }, drop, state: () => ({ left: leftRef.current, alive: basesRef.current.filter(Boolean).length, phase }), free: () => { lock.current = null; } }; return () => { try { delete (window as any).__advStrike; } catch (e) {} }; });
+  const destroyed = bases.filter(b => !b).length;
+  return (
+    <div className="adv-strike" onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; drop(); }}>
+      <div className="as-top"><button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
+        <div><b>☢ {t("ทิ้งนิวเคลียร์จากวงโคจร", "ORBITAL STRIKE", "轨道核打击")}</b><small>{t("แตะเพื่อปล่อยหัวรบ — ฐานที่อยู่ในรัศมีระเบิดจะหายไป และไม่ต้องสู้ในฐานนั้น", "Tap to release a warhead. A base inside the blast is gone and its defenders with it.", "点击投放弹头，爆炸范围内的基地及其守军将被消灭。")}</small></div>
+        <span className="as-n">☢ × {left}</span></div>
+      <div className="as-map">
+        {bases.map((alive, i) => (<div key={i} className={"as-base" + (alive ? "" : " dead")} style={{ left: BX(i) * 100 + "%" }}><span>{alive ? "🏭" : "💥"}</span></div>))}
+        <div ref={retRef} className="as-ret" />
+        {fall !== null && <div className="as-fall" style={{ left: fall * 100 + "%" }}>☢️</div>}
+        {boom !== null && <div className="as-boom" style={{ left: boom * 100 + "%" }} />}
+      </div>
+      <div className="as-bot">
+        {phase === "done" || left === 0 ? (<><b>{t("ทำลายฐานได้ " + destroyed + "/6", "Bases destroyed: " + destroyed + "/6", "摧毁基地 " + destroyed + "/6")}</b><button className="adv-btn go" onClick={() => onDone(bases.map(b => !b))}>{t("ลงพื้นที่บุก ▶", "Drop in ▶", "降落突袭 ▶")}</button></>)
+          : (<><button className="adv-btn go" disabled={phase !== "aim"} onClick={drop}>☢ {t("ปล่อยหัวรบ", "DROP WARHEAD", "投放弹头")}</button><button className="adv-btn" onClick={() => onDone(bases.map(b => !b))}>{t("ข้าม", "Skip", "跳过")}</button></>)}
+      </div>
+    </div>
+  );
+}
+
 /** One run on one planet. The game state lives in refs and a canvas: React only draws the HUD (a few times a second). */
-const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx }: any) {
+const Run = memo(function Run({ strikeMask = null, P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx }: any) {
   const high = gfx === "high";
   useEffect(() => exitFsAndUnlock, []);   // back to the map or out of Adventure: normal screen, portrait again
   const cvRef = useRef<HTMLCanvasElement>(null);
@@ -457,6 +525,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const petType: string = petNow ? ((petById(petNow.species) as any).type || "steel") : "steel", petCol: string = (PET_TYPES as any)[petType] ? (PET_TYPES as any)[petType].c : "#8fa6c8";
     const pv = petNow ? voiceOf("", "", { type: petType, species: petNow.species, mv: "spit" }) : null;
     const mus = createAdvMusic(P.id); musicRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); }
+    { const bf = BRIEF[P.id]; if (bf) setTimeout(() => setBanner({ k: Date.now(), a: T3(lang, P.th, P.en, P.zh).split(" · ")[0], b: T3(lang, bf[0], bf[1], bf[2]) }), 500); }
     const t0 = performance.now(); let frames = 0, ended = false; logUsage("adv", "start:" + P.id + ":" + (high ? "hd" : "sd"));
     resize();
     const onResize = () => resize(); window.addEventListener("resize", onResize);
@@ -480,10 +549,18 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     let hzAcc = 0, hzHits = 0;
     const hzOn = () => (P.hazard === "shock" ? (time % 3) > 1.8 : true);
     const surv = { t: 0, wave: 0, next: 2, done: false }, SURV_T = 90;   // gas-giant stage: hold out 90 s while the energy fills
-    for (let i = 0; i < (P.survival ? 0 : 17); i++) mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i));
+    const MINE = P.mission === "mine", CAPM = P.mission === "capture", NOBOSS = !!P.survival || MINE || CAPM;
+    // Ashfall: after the orbital strike, a base that was nuked has no defenders left (three monsters per base)
+    for (let i = 0; i < (P.survival ? 0 : CAPM ? 6 : 17); i++) { if (strikeMask && strikeMask[Math.floor(i / 3) % 6]) continue; mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i)); }
+    // mining: ore nodes to break open, a pad that launches the cargo to Earth. capture: three collector stations to hold.
+    const nodes: any[] = MINE ? [650, 1400, 2100, 2800, 3500, 4200].map(x => ({ x, hp: 5, max: 5, done: false })) : [];
+    let cargo = 0; const CARGO_CAP = 18, ORE_NEED = 10, PAD_X = WORLD - 220; let launched = 0, padHint = 0;
+    const stations: any[] = CAPM ? [900, 2000, 3300].map(x => ({ x, p: 0, done: false })) : []; const CAP_T = 10; let capWave = 3;
+    const digNodes = (power: number) => { for (const n of nodes) { if (n.done) continue; const dx = (n.x - pl.x) * pl.face; if (dx > -20 && dx < 120 && pl.y < 60) { n.hp -= power; n.hit = 0.15; for (let a = 0; a < 6; a++) addPart(n.x, GROUND - 20, (Math.random() - 0.5) * 200, -Math.random() * 180, 0.5, "180,220,255", 2.5); sfx.play("hit");
+        if (n.hp <= 0) { n.done = true; const g = Math.min(CARGO_CAP - cargo, 4); cargo += g; pop(n.x, GROUND - 70, g ? "+" + g + " ORE" : "CARGO FULL", g ? "#9fe8ff" : "#ffb070"); sfx.play("pickup"); } } } };
     const bolts: any[] = [], rockets: any[] = [], fires: any[] = [], arcs: any[] = [], parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [], drops: any[] = [], waves: any[] = [], pet: any[] = [];
     let crystals = readCrystals();
-    const boss: any = { x: WORLD - 420, hp: Math.round(700 * HM), max: Math.round(700 * HM), face: -1, cd: 1.6, n: 0, state: "idle", tele: 0, dur: 0, hurt: 0, vx: 0, dead: P.survival ? 1 : 0, active: false };
+    const boss: any = { x: WORLD - 420, hp: Math.round(700 * HM), max: Math.round(700 * HM), face: -1, cd: 1.6, n: 0, state: "idle", tele: 0, dur: 0, hurt: 0, vx: 0, dead: NOBOSS ? 1 : 0, active: false };
     const ARENA = WORLD - 900;
     const beacons: any[] = (P.survival ? [] : [1300, 2650, 3950]).map(x => ({ x, used: false }));   // knowledge beacons: review questions from what the learner has studied
     const maxParts = high ? 140 : 26;
@@ -546,7 +623,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const attack = () => {
       if (pl.dead || pl.atkCd > 0) return;
       pl.combo = pl.comboT > 0 ? pl.combo + 1 : 1; const finisher = pl.combo >= 3; pl.maxCombo = Math.max(pl.maxCombo, pl.combo); pl.comboT = 0.75; if (finisher) pl.combo = 0;
-      sfx.play("punch", rv);
+      sfx.play("punch", rv); if (MINE) digNodes(1);
       pl.atkCd = (finisher ? 0.6 : 0.34) * mods.cdMul; pl.swing = 0.18; setPose("attack"); setTimeout(() => setPose("ready"), 170);
       slashes.push({ col: rGlow, x: pl.x + pl.face * 34, y: pl.y + 44, face: pl.face, life: finisher ? 0.26 : 0.18, max: finisher ? 0.26 : 0.18 });
       if (finisher) { shake = Math.max(shake, 5); pop(pl.x, GROUND - pl.y - 120, "×3!", "#ffd23f"); }
@@ -615,7 +692,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const kickMove = () => {
       if (pl.dead || pl.kickCd > 0) return;
-      sfx.play("kick", rv);
+      sfx.play("kick", rv); if (MINE) digNodes(2);
       pl.kickCd = 0.8 * mods.cdMul; pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
       slashes.push({ x: pl.x + pl.face * 40, y: pl.y + 30, face: pl.face, life: 0.2, max: 0.2 });
       for (const m of mons) { if (m.dead) continue; const dx = (m.x - pl.x) * pl.face; if (dx > -10 && dx < 118 + MON[m.type].w / 2 && Math.abs(m.y - pl.y) < 70) { const d = dmgOf(1.2); hurtMon(m, d.v, d.crit, pl.face * 300); } }
@@ -674,7 +751,32 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
           setBanner({ k: Date.now(), a: t("เก็บพลังงานครบ! +" + gain + " EXP", "ENERGY HARVESTED! +" + gain + " EXP", "能量采集完成！+" + gain + " 经验"), b: t("◆ คริสตัล +" + 15 * CV, "◆ crystals +" + 15 * CV, "◆ 晶体 +" + 15 * CV) });
         }
       }
-      if (P.survival) for (let i = mons.length - 1; i >= 0; i--) if (mons[i].dead) mons.splice(i, 1);
+      if (P.survival || CAPM) for (let i = mons.length - 1; i >= 0; i--) if (mons[i].dead) mons.splice(i, 1);
+      if (MINE && !finished) {
+        for (const n of nodes) if (n.hit) n.hit = Math.max(0, n.hit - dt);
+        if (pl.dead <= 0 && Math.abs(pl.x - PAD_X) < 110 && pl.y < 30) {
+          if (cargo >= ORE_NEED) {
+            finished = true; launched = 0.001; addOre(cargo); markDone(P.id); const gain = Math.round(120 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(10 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
+            logUsage("adv", "ship-ore:" + P.id + ":" + cargo); playUi && playUi("reward"); sfx.play("rocket");
+            setBanner({ k: Date.now(), a: t("ส่งแร่กลับโลกแล้ว! " + cargo + " ก้อน", "ORE SHIPPED TO EARTH! " + cargo, "矿石已运回地球！" + cargo), b: t("+" + gain + " EXP · อาณานิคมโตขึ้น", "+" + gain + " EXP · the colony grows", "+" + gain + " 经验 · 殖民地壮大") });
+          } else { padHint -= dt; if (padHint <= 0) { padHint = 2; pop(PAD_X, GROUND - 100, t("ต้องมีแร่ " + ORE_NEED + " ก้อน (มี " + cargo + ")", "Need " + ORE_NEED + " ore (have " + cargo + ")", "需要 " + ORE_NEED + " 矿（现有 " + cargo + "）"), "#ffd0a0"); } }
+        }
+      }
+      if (launched > 0) launched += dt;
+      if (CAPM && !finished && pl.dead <= 0) {
+        const cur = stations.find(q => !q.done);
+        if (cur) {
+          if (Math.abs(pl.x - cur.x) < 170 && pl.y < 90) {
+            cur.p += dt; capWave -= dt;
+            if (capWave <= 0) { capWave = 4.5; const idx = stations.indexOf(cur), n = Math.min(6, 2 + idx + (cur.p > 6 ? 1 : 0)); for (let i = 0; i < n; i++) { const side = i % 2 ? 1 : -1; const x = Math.max(60, Math.min(WORLD - 60, cur.x + side * (330 + rnd(cur.p * 7 + i) * 170))); mons.push(mk(pool[(idx + i) % pool.length], x, 2000 + idx * 20 + i)); } }
+            if (cur.p >= CAP_T) { cur.done = true; cur.p = CAP_T; sfx.play("win"); const left = stations.filter(q => !q.done).length; setBanner({ k: Date.now(), a: t("ยึดสถานีได้แล้ว!", "STATION CAPTURED!", "采集站已占领！"), b: left ? t("เหลืออีก " + left + " จุด", left + " to go", "还剩 " + left + " 座") : t("ดวงอาทิตย์เป็นของเรา", "The sun is ours", "恒星已被占领") }); }
+          } else cur.p = Math.max(0, cur.p - dt * 0.4);
+        } else {
+          finished = true; markDone(P.id); mons.length = 0; shots.length = 0; const gain = Math.round(160 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(18 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
+          logUsage("adv", "capture-win:" + P.id); playUi && playUi("reward");
+          setBanner({ k: Date.now(), a: t("ยึดดาวฤกษ์สำเร็จ! +" + gain + " EXP", "SUN CAPTURED! +" + gain + " EXP", "占领恒星！+" + gain + " 经验"), b: t("◆ คริสตัล +" + 18 * CV, "◆ crystals +" + 18 * CV, "◆ 晶体 +" + 18 * CV) });
+        }
+      }
       if (HZ.length && pl.dead <= 0 && pl.y < 14 && hzOn() && HZ.some(h => pl.x > h[0] && pl.x < h[1])) { hzAcc += dt; if (hzAcc >= 0.6) { hzAcc = 0; hzHits++; hurtPlayer(Math.round(4.5 * HM), pl.x + (pl.face > 0 ? -1 : 1)); } } else hzAcc = Math.min(hzAcc, 0.3);
       for (const m of mons) {
         if (m.dead) { m.resp -= dt; if (m.resp <= 0 && Math.abs(pl.x - m.hx) > 640) { m.dead = 0; m.hp = m.max; m.x = m.hx; m.y = 0; m.vx = 0; } continue; }
@@ -768,7 +870,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       const target = Math.max(0, Math.min(WORLD - vw, pl.x - vw * 0.42 + pl.face * 30));
       camX += (target - camX) * (high ? 0.12 : 0.2);
       shake *= 0.86;
-      if (!finished && !P.survival && boss.dead && pl.x > WORLD - 140) { finished = true; const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1]; setBanner({ k: Date.now(), a: t("ผ่านแผนที่!", "MAP CLEAR!", "通关！"), b: nx && nx.ok ? t("เลือกดาวถัดไปจากแผนที่", "Pick the next planet from the map", "请从地图选择下一颗星球") : t("ดาวถัดไปมาในระยะต่อไป", "More planets are coming", "更多星球即将开放") }); }
+      if (!finished && !NOBOSS && boss.dead && pl.x > WORLD - 140) { finished = true; const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1]; setBanner({ k: Date.now(), a: t("ผ่านแผนที่!", "MAP CLEAR!", "通关！"), b: nx && nx.ok ? t("เลือกดาวถัดไปจากแผนที่", "Pick the next planet from the map", "请从地图选择下一颗星球") : t("ดาวถัดไปมาในระยะต่อไป", "More planets are coming", "更多星球即将开放") }); }
     };
 
     const draw = (tm) => {
@@ -788,6 +890,10 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       for (const h of HZ) { if (h[1] < camX - 40 || h[0] > camX + vw + 40) continue; const on = hzOn(), warn = P.hazard === "shock" && !on && (time % 3) > 1.4;
         if (P.hazard === "lava") { const g = ctx.createLinearGradient(0, GROUND - 4, 0, GROUND + 22); g.addColorStop(0, "#ffd23f"); g.addColorStop(0.4, "#ff6a1a"); g.addColorStop(1, "#7a1a0a"); ctx.fillStyle = g; ctx.fillRect(h[0], GROUND - 2, h[1] - h[0], 24); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,140,40,.35)"; for (let q = h[0]; q < h[1]; q += 26) ctx.fillRect(q + Math.sin(tm * 3 + q) * 4, GROUND - 6 - Math.abs(Math.sin(tm * 2 + q * 0.1)) * 6, 14, 4); ctx.globalCompositeOperation = "source-over"; }
         else { ctx.fillStyle = on ? "#7fe8ff" : warn ? (Math.floor(tm * 12) % 2 ? "#ffd23f" : "#38304e") : "#38304e"; ctx.fillRect(h[0], GROUND - 2, h[1] - h[0], 6); if (on) { ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = "rgba(160,240,255,.9)"; ctx.lineWidth = 2; for (let q = h[0] + 8; q < h[1]; q += 30) { ctx.beginPath(); ctx.moveTo(q, GROUND); ctx.lineTo(q + 8, GROUND - 14 - Math.random() * 10); ctx.lineTo(q + 16, GROUND); ctx.stroke(); } ctx.globalCompositeOperation = "source-over"; } } }
+      for (const n of nodes) { if (n.done || n.x < camX - 60 || n.x > camX + vw + 60) continue; const sh = n.hit ? Math.sin(tm * 80) * 2 : 0, f = n.hp / n.max; ctx.fillStyle = n.hit ? "#fff" : "#2a4a6a"; ctx.beginPath(); ctx.moveTo(n.x - 26 + sh, GROUND); ctx.lineTo(n.x - 14 + sh, GROUND - 40 * (0.6 + 0.4 * f)); ctx.lineTo(n.x + 2 + sh, GROUND - 56 * (0.6 + 0.4 * f)); ctx.lineTo(n.x + 18 + sh, GROUND - 36); ctx.lineTo(n.x + 28 + sh, GROUND); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(120,210,255,.8)"; ctx.fillRect(n.x - 6 + sh, GROUND - 30, 5, 18); ctx.fillRect(n.x + 8 + sh, GROUND - 22, 4, 12); ctx.globalCompositeOperation = "source-over"; }
+      if (MINE) { const gx = PAD_X; if (gx > camX - 80 && gx < camX + vw + 80) { ctx.fillStyle = "#3a4a5a"; ctx.fillRect(gx - 50, GROUND - 6, 100, 8); ctx.fillStyle = cargo >= ORE_NEED ? "#7dffa8" : "#ffb070"; ctx.fillRect(gx - 50, GROUND - 8, 100, 3);
+        const ry = launched > 0 ? launched * launched * 220 : 0; ctx.save(); ctx.translate(gx, GROUND - 30 - ry); ctx.fillStyle = "#e8edf3"; ctx.fillRect(-9, -26, 18, 44); ctx.fillStyle = "#ff4d6d"; ctx.beginPath(); ctx.moveTo(-9, -26); ctx.lineTo(0, -44); ctx.lineTo(9, -26); ctx.closePath(); ctx.fill(); if (launched > 0) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,170,60,.8)"; ctx.fillRect(-6, 18, 12, 30 + Math.random() * 20); ctx.globalCompositeOperation = "source-over"; } ctx.restore(); } }
+      for (const q of stations) { if (q.x < camX - 100 || q.x > camX + vw + 100) continue; const f = q.p / CAP_T; ctx.fillStyle = q.done ? "#ffd23f" : "#3a3a4a"; ctx.fillRect(q.x - 8, GROUND - 90, 16, 90); ctx.fillStyle = q.done ? "#fff6c0" : "#5a5a6a"; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 16, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,210,80,.95)"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,210,80," + (q.done ? 0.25 : 0.08 + f * 0.2) + ")"; ctx.beginPath(); ctx.arc(q.x, GROUND - 40, 170, Math.PI, 0); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       // monsters
       for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; drawMonster(ctx, m, tm, k, GROUND);
         if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - (TALL.has(m.type) ? 128 : 74)); }
@@ -855,6 +961,8 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       tile(bake.near, 1.25);
       if (P.survival && !surv.done) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ffbe6e"; ctx.fillRect(bx, by, bw * Math.min(1, surv.t / SURV_T), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, "พลังงาน ", "ENERGY ", "能量 ") + Math.round(Math.min(1, surv.t / SURV_T) * 100) + "% · " + T3(lang, "คลื่น ", "wave ", "波 ") + surv.wave, cw / 2, by - 4 * k); }
+      if ((MINE || CAPM) && !finished) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; const cur = stations.find(q => !q.done), fr = MINE ? cargo / CARGO_CAP : (cur ? cur.p / CAP_T : 1); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = MINE ? "#7fd8ff" : "#ffd23f"; ctx.fillRect(bx, by, bw * Math.min(1, fr), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center";
+        ctx.fillText(MINE ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "ส่งที่แท่นขวาสุด ≥ ", "deliver at the far-right pad ≥ ", "送到最右平台 ≥ ") + ORE_NEED : T3(lang, "สถานี ", "STATION ", "采集站 ") + (stations.filter(q => q.done).length + (cur ? 1 : 0)) + "/3 · " + Math.round(Math.min(1, fr) * 100) + "%", cw / 2, by - 4 * k); }
       if (boss.active && !boss.dead) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.max), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, P.boss[0], P.boss[1], P.boss[2]), cw / 2, by - 4 * k); }
       // light + vignette (high): one baked-free pass, a couple of fills
       if (high) { const g = ctx.createRadialGradient(cw / 2, ch * 0.55, ch * 0.3, cw / 2, ch * 0.55, ch * 1.1); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,6,10,.55)"); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
@@ -897,7 +1005,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss) => renderPreview(id, 4, !!boss), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss) => renderPreview(id, 4, !!boss), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
     return () => { if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
