@@ -19,8 +19,9 @@ import { classKeyOf } from "./model-skills";
 import { isLowEnd, spaceTier } from "./space-stage";
 import { Piano } from "./music-engine";
 import { logUsage, dayKey } from "./shared-infra";
+import { createAdvMusic, renderPreview } from "./adventure-music";
 import { recordMemory } from "./ai-chat-context";
-import { nextQuestion, judgeKeys, recordAnswer, readLadder, learnedTopics } from "./quiz-quest";
+import { nextQuestion, nextSpell, judgeKeys, recordAnswer, readLadder, learnedTopics } from "./quiz-quest";
 
 const VH = 360, GROUND = 300, WORLD = 5200, TILE = 960;
 const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
@@ -215,7 +216,8 @@ const CSS = `
 .adv-pad .pvppad-l{display:flex;gap:8px}.adv-pad .pvppad-r{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .adv .pvpdir{width:58px;height:58px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px);color:#12202a}
 .adv .pvpact{width:68px;height:56px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px);color:#12202a}
-.adv .pvpact.punch{background:linear-gradient(135deg,#e2865fee,#d05f43ee);color:#fff}.adv .pvpact.kick{background:linear-gradient(135deg,#c9a227ee,#a8791bee);color:#fff}.adv .pvpact.ult{background:linear-gradient(135deg,#fff0c2,#ffd23f);color:#7a4a06}
+.adv .pvpact.punch{background:linear-gradient(135deg,#e2865fee,#d05f43ee);color:#fff}.adv .pvpact.kick{background:linear-gradient(135deg,#c9a227ee,#a8791bee);color:#fff}.adv .pvpact.spell{background:linear-gradient(0deg,#9b7bff var(--sp,0%),rgba(255,255,255,.82) var(--sp,0%));color:#2a1a66}.adv .pvpact.spell.ready{background:linear-gradient(135deg,#b49bff,#7b61ff);color:#fff;animation:pvpOdPulse 1s ease-in-out infinite}
+.adv .pvpact.ult{background:linear-gradient(135deg,#fff0c2,#ffd23f);color:#7a4a06}
 @media (max-width:600px){.adv .pvpdir{width:50px;height:50px}.adv .pvpact{width:58px;height:50px}.adv-pad .pvppad-r,.adv-pad .pvppad-l{gap:6px}}
 .adv-key{width:68px;height:68px;border-radius:22px;border:2px solid rgba(140,255,220,.55);background:rgba(4,30,36,.6);color:#fff;font-size:26px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;backdrop-filter:blur(4px)}
 .adv-key small{font-size:9.5px;font-weight:800;letter-spacing:.5px;margin-top:-2px}
@@ -338,7 +340,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
   const cvRef = useRef<HTMLCanvasElement>(null);
   const pxRef = useRef<HTMLDivElement>(null);
   const petRef = useRef<HTMLDivElement>(null);
-  const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false, dash: false, fire: false, kick: false });
+  const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false, dash: false, fire: false, kick: false, spell: false });
   const [pose, setPose] = useState("ready");
   const [hud, setHud] = useState<any>({ hp: 1, hpMax: 1, lv: 1, xp: 0, xpNeed: 1, sk: 0, skNeed: 1, kills: 0, skCd: 0 });
   const [banner, setBanner] = useState<any>(null);
@@ -347,19 +349,28 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
   const quizOn = useRef(false);
   (window as any).__advQuiz = quiz;   // the smoke test reads the open question from here
   const beaconRef = useRef<any>(null);
+  const castRef = useRef<any>(null), spellFire = useRef<any>(null);
+  const musicRef = useRef<any>(null);
+  const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
+  useEffect(() => { if (musicRef.current) musicRef.current.setOn(musicOn); try { localStorage.setItem("tg_adv_music", musicOn ? "1" : "0"); } catch (e) {} }, [musicOn]);
+  useEffect(() => { if (musicRef.current) musicRef.current.duck(!!quiz); }, [quiz]);
   const cls = useMemo(() => classKeyOf(me), [me]);
   const t = (th, en, zh) => T3(lang, th, en, zh);
   // a beacon asks three questions, gently harder: from what THIS learner has finished in the Pathway
-  beaconRef.current = () => {
+  // owner, 2026-10-11: ONE question at a time, never more — a string of questions kills the fun. The three beacons climb a step each.
+  beaconRef.current = (idx = 0) => {
     const qs: any[] = []; const base = readLadder().lvl;
-    for (let i = 0; i < 3; i++) qs.push(nextQuestion(lang, { level: Math.min(5, base + (i === 2 ? 1 : 0)) }));
+    qs.push(nextQuestion(lang, { level: Math.min(5, base + (idx === 2 ? 1 : 0)) }));
     setQuiz({ qs, i: 0, sel: [], res: null, right: 0, learned: qs[0].learned });
   };
+  // phase 3.4: the chord spell. The gauge fills as you hit things; when it is full, the spell button opens ONE question to answer on the piano.
+  castRef.current = () => { const nq: any = nextSpell(lang, {}); setQuiz({ qs: [nq], i: 0, sel: [], res: null, right: 0, learned: nq.learned, spell: true }); };
   const finishQuiz = (q: any) => {
     setQuiz(null); quizOn.current = false;
+    if (q && q.spell) { if (spellFire.current) spellFire.current(q.right > 0); if (q.right > 0) { const l = bumpQuest("right", 1); for (const d of l) addRpgExp(me, d.exp); } logUsage("adv", "spell:" + P.id + ":" + (q.right > 0 ? "ok" : "miss")); return; }
     if (q && q.right > 0) { const l = bumpQuest("right", q.right); for (const d of l) { addRpgExp(me, d.exp); } if (l.length) setBanner({ k: Date.now(), a: "QUEST ✓", b: "+" + l[0].exp + " EXP" }); }
     if (q) logUsage("adv", "quiz:" + P.id + ":" + q.right + "of" + (q.qs ? q.qs.length : 3));
-    if (q && q.right > 0) setBanner({ k: Date.now(), a: t("ทบทวนสำเร็จ!", "REVIEW DONE!", "复习完成！"), b: t(`ตอบถูก ${q.right}/3 — ได้ EXP และแต้มสกิล`, `${q.right}/3 right — EXP and skill points earned`, `答对 ${q.right}/3，获得经验和技能点`) });
+    if (q && q.right > 0) setBanner({ k: Date.now(), a: t("ตอบถูก!", "CORRECT!", "答对了！"), b: t("ได้ EXP และแต้มสกิล", "EXP and skill points earned", "获得经验与技能点") });
   };
   const answerQuiz = (ok: boolean) => {
     const cur = quiz; if (!cur || cur.res) return; const q = cur.qs[cur.i].q;
@@ -386,6 +397,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       bake = bakePlanet(P, cw, ch, k, high);
     };
     // phase 3.0: where do players leave, how does it run on a real phone? one cheap row per event, no migration (usage_events kind "adv")
+    const mus = createAdvMusic(P.id); musicRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); }
     const t0 = performance.now(); let frames = 0, ended = false; logUsage("adv", "start:" + P.id + ":" + (high ? "hd" : "sd"));
     resize();
     const onResize = () => resize(); window.addEventListener("resize", onResize);
@@ -420,7 +432,9 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
     const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult * (1 + 0.05 * UPS.atk); const crit = Math.random() < 0.08 + mods.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
+    let spellG = 0;
     const hurtMon = (m, v, crit, kx) => {
+      spellG = Math.min(100, spellG + 5);
       m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
       pop(m.x, GROUND - m.y - 60, String(v), crit ? "#ffd23f" : "#ffffff");
       for (let i = 0; i < (high ? 7 : 3); i++) addPart(m.x, GROUND - m.y - 20, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, crit ? "255,210,60" : "255,255,255", 2.5);
@@ -449,11 +463,12 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const hurtBoss = (v, crit, kx) => {
       if (!boss.active || boss.dead) return;
+      spellG = Math.min(100, spellG + 5);
       boss.hp -= v; boss.hurt = 0.1; boss.vx = kx * 0.3; if (high) hitStop = 0.03; shake = Math.max(shake, crit ? 5 : 2);
       pop(boss.x, GROUND - 140, String(v), crit ? "#ffd23f" : "#ffffff");
       for (let i = 0; i < (high ? 6 : 2); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, "255,255,255", 2.5);
       if (boss.hp <= 0) {
-        boss.dead = 1; boss.hp = 0; shots.length = 0; waves.length = 0; kills++;
+        boss.dead = 1; boss.hp = 0; if (mus) mus.setBoss(false); shots.length = 0; waves.length = 0; kills++;
         const gain = Math.round(220 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3));
         for (let i = 0; i < 12; i++) drops.push({ x: boss.x + (i - 6) * 16, y: 40 + i * 6, vy: 220, t: "cry" });
         drops.push({ x: boss.x, y: 60, vy: 220, t: "hp" });
@@ -469,7 +484,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       if (pl.dead || pl.atkCd > 0) return;
       pl.combo = pl.comboT > 0 ? pl.combo + 1 : 1; const finisher = pl.combo >= 3; pl.maxCombo = Math.max(pl.maxCombo, pl.combo); pl.comboT = 0.75; if (finisher) pl.combo = 0;
       pl.atkCd = (finisher ? 0.6 : 0.34) * mods.cdMul; pl.swing = 0.18; setPose("attack"); setTimeout(() => setPose("ready"), 170);
-      slashes.push({ x: pl.x + pl.face * 34, y: pl.y + 44, face: pl.face, life: finisher ? 0.26 : 0.18 });
+      slashes.push({ x: pl.x + pl.face * 34, y: pl.y + 44, face: pl.face, life: finisher ? 0.26 : 0.18, max: finisher ? 0.26 : 0.18 });
       if (finisher) { shake = Math.max(shake, 5); pop(pl.x, GROUND - pl.y - 120, "×3!", "#ffd23f"); }
       for (const m of mons) {
         if (m.dead) continue; const dx = (m.x - pl.x) * pl.face;
@@ -502,9 +517,21 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const kickMove = () => {
       if (pl.dead || pl.kickCd > 0) return;
       pl.kickCd = 0.8 * mods.cdMul; pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
-      slashes.push({ x: pl.x + pl.face * 40, y: pl.y + 30, face: pl.face, life: 0.2 });
+      slashes.push({ x: pl.x + pl.face * 40, y: pl.y + 30, face: pl.face, life: 0.2, max: 0.2 });
       for (const m of mons) { if (m.dead) continue; const dx = (m.x - pl.x) * pl.face; if (dx > -10 && dx < 118 + MON[m.type].w / 2 && Math.abs(m.y - pl.y) < 70) { const d = dmgOf(1.2); hurtMon(m, d.v, d.crit, pl.face * 300); } }
       { const dx = (boss.x - pl.x) * pl.face; if (boss.active && !boss.dead && dx > -10 && dx < 170 && pl.y < 90) { const d = dmgOf(1.2); hurtBoss(d.v, d.crit, pl.face * 240); } }
+    };
+    spellFire.current = (ok: boolean) => {
+      if (!ok) { spellG = 50; pop(pl.x, GROUND - pl.y - 130, "♪ " + t("ลองใหม่", "again", "再来"), "#ffd0a0"); return; }
+      const sr = skillOf(); shake = Math.max(shake, high ? 10 : 5); playUi && playUi("reward");
+      const base = (9 + info.lv * 1.5) * mods.dmg * 4.5 * (1 + 0.05 * UPS.atk) * (1 + 0.08 * (sr.rank - 1)) * mods.spell;
+      for (let a = 0; a < (high ? 40 : 14); a++) { const ang = (a / (high ? 40 : 14)) * Math.PI * 2; addPart(pl.x, GROUND - pl.y - 40, Math.cos(ang) * 420, Math.sin(ang) * 300, 0.7, a % 2 ? "255,230,140" : P.acc, 3.5); }
+      slashes.push({ x: pl.x, y: pl.y + 40, face: 0, life: 0.45, max: 0.45, nova: true });
+      for (const m of mons) if (!m.dead && Math.abs(m.x - pl.x) < 360) hurtMon(m, Math.round(base), true, Math.sign(m.x - pl.x) * 320);
+      if (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < 400) hurtBoss(Math.round(base), true, Math.sign(boss.x - pl.x) * 200);
+      pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.25); pl.inv = Math.max(pl.inv, 0.8);
+      pop(pl.x, GROUND - pl.y - 130, t("เวทย์คอร์ด!", "CHORD SPELL!", "和弦术！"), "#ffe08a");
+      spellG = 0;
     };
     const hurtPlayer = (v, from) => {
       if (pl.inv > 0 || pl.dead) return;
@@ -522,9 +549,10 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       else {
         const sp = 150 * mods.walk; let dx = 0; if (kk.l) dx -= 1; if (kk.r) dx += 1;
         pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + dx * sp * dt)); if (dx) pl.face = dx;
-        if (!boss.active && !boss.dead && pl.x > ARENA + 60) { boss.active = true; logUsage("adv", "boss-wake:" + P.id); setBanner({ k: Date.now(), a: T3(lang, P.boss[0], P.boss[1], P.boss[2]), b: t("บอสท้ายด่าน — ประตูด้านหลังปิดแล้ว", "End-of-map boss — the way back is shut", "本图首领——退路已封闭") }); }
+        if (!boss.active && !boss.dead && pl.x > ARENA + 60) { boss.active = true; if (mus) mus.setBoss(true); logUsage("adv", "boss-wake:" + P.id); setBanner({ k: Date.now(), a: T3(lang, P.boss[0], P.boss[1], P.boss[2]), b: t("บอสท้ายด่าน — ประตูด้านหลังปิดแล้ว", "End-of-map boss — the way back is shut", "本图首领——退路已封闭") }); }
         if (kk.jump && pl.ground) { pl.vy = 360; pl.ground = false; }
         if (kk.atk) attack(); if (kk.skl) skill(); if (kk.fire) fireBolt(); if (kk.kick) kickMove();
+        if (kk.spell && spellG >= 100 && !quizOn.current) { kk.l = kk.r = kk.atk = kk.skl = kk.jump = kk.fire = kk.kick = kk.spell = false; quizOn.current = true; if (castRef.current) castRef.current(); }
         if (kk.dash && pl.dashCd <= 0) { pl.dashCd = 1.2; pl.dashT = 0.18; pl.inv = Math.max(pl.inv, 0.3); for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 30, -pl.face * (80 + Math.random() * 120), (Math.random() - 0.5) * 60, 0.3, "160,255,230", 2.5); }
         if (pl.dashT > 0) { pl.dashT -= dt; pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + pl.face * 560 * dt)); }
         pl.dashCd -= dt; pl.fireCd -= dt; pl.kickCd -= dt; pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0;
@@ -610,7 +638,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       for (const p of pops) { p.life -= dt; p.y -= 38 * dt; }
       for (let i = pops.length - 1; i >= 0; i--) if (pops[i].life <= 0) pops.splice(i, 1);
       for (const s of slashes) s.life -= dt; for (let i = slashes.length - 1; i >= 0; i--) if (slashes[i].life <= 0) slashes.splice(i, 1);
-      for (const b of beacons) if (!b.used && pl.dead <= 0 && Math.abs(pl.x - b.x) < 64) { b.used = true; keys.current.l = keys.current.r = keys.current.atk = keys.current.skl = keys.current.jump = false; quizOn.current = true; if (beaconRef.current) beaconRef.current(); }
+      for (const b of beacons) if (!b.used && pl.dead <= 0 && Math.abs(pl.x - b.x) < 64) { b.used = true; keys.current.l = keys.current.r = keys.current.atk = keys.current.skl = keys.current.jump = false; quizOn.current = true; if (beaconRef.current) beaconRef.current(beacons.indexOf(b)); }
       // camera: the robot a little ahead of centre, eased
       const target = Math.max(0, Math.min(WORLD - vw, pl.x - vw * 0.42 + pl.face * 30));
       camX += (target - camX) * (high ? 0.12 : 0.2);
@@ -644,7 +672,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       // spores + slashes
       for (const s of shots) { ctx.fillStyle = "#e9ff9a"; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 5, 0, 7); ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.drawImage(bake.glows.green, s.x - 20, GROUND - s.y - 20, 40, 40); ctx.globalCompositeOperation = "source-over"; } }
       for (const s of slashes) {
-        const q = 1 - s.life / (s.nova ? 0.3 : 0.18); ctx.save(); ctx.globalCompositeOperation = "lighter";
+        const q = Math.max(0, Math.min(1, 1 - s.life / (s.max || (s.nova ? 0.3 : 0.18)))); ctx.save(); ctx.globalCompositeOperation = "lighter";
         if (s.nova) { ctx.strokeStyle = `rgba(160,130,255,${1 - q})`; ctx.lineWidth = 5 * (1 - q) + 1; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 30 + q * 170, 0, 7); ctx.stroke(); }
         else { ctx.strokeStyle = `rgba(255,230,160,${1 - q})`; ctx.lineWidth = 6 * (1 - q) + 1; ctx.beginPath(); ctx.arc(s.x - s.face * 30, GROUND - s.y, 56 + q * 18, s.face > 0 ? -0.9 : Math.PI - 0.9 + 1.8 - 1.8, s.face > 0 ? 0.9 : Math.PI + 0.9); ctx.stroke(); }
         ctx.restore();
@@ -697,7 +725,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       hudT += dt;
       if (hudT > 0.15) {
         hudT = 0; const sr = skillOf();
-        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd), dashCd: Math.max(0, pl.dashCd) });
+        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd), dashCd: Math.max(0, pl.dashCd), spell: Math.round(spellG) });
       }
     };
     raf = requestAnimationFrame(loop);
@@ -706,13 +734,13 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const kd = (e, v) => {
       const kk = keys.current; const c = e.code;
       if (c === "ArrowLeft" || c === "KeyA") kk.l = v; else if (c === "ArrowRight" || c === "KeyD") kk.r = v;
-      else if (c === "ArrowUp" || c === "KeyW" || c === "Space") kk.jump = v; else if (c === "KeyJ" || c === "KeyZ") kk.atk = v; else if (c === "KeyK" || c === "KeyX") kk.skl = v; else if (c === "KeyI") kk.fire = v; else if (c === "KeyU") kk.kick = v; else if (c === "KeyL" || c === "ShiftLeft" || c === "ShiftRight") kk.dash = v; else return;
+      else if (c === "ArrowUp" || c === "KeyW" || c === "Space") kk.jump = v; else if (c === "KeyJ" || c === "KeyZ") kk.atk = v; else if (c === "KeyK" || c === "KeyX") kk.skl = v; else if (c === "KeyO") kk.spell = v; else if (c === "KeyI") kk.fire = v; else if (c === "KeyU") kk.kick = v; else if (c === "KeyL" || c === "ShiftLeft" || c === "ShiftRight") kk.dash = v; else return;
       e.preventDefault();
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
-    return () => { if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; },  music: () => (mus ? mus.info() : null), renderMusic: (id, boss) => renderPreview(id, 4, !!boss), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    return () => { if (mus) mus.stop(); musicRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
   const hold = (name) => ({
@@ -735,6 +763,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
           <div className="adv-bar adv-xp"><i style={{ width: pct(hud.xp, hud.xpNeed) }} /><b>EXP</b></div>
           <div className="adv-bar adv-sk"><i style={{ width: pct(hud.sk, hud.skNeed) }} /><b>{t("สกิล", "SKILL", "技能")} R{hud.rank || 1}</b></div>
         </div>
+        <button className="adv-btn" onClick={() => setMusicOn(m => !m)} aria-label="music" aria-pressed={musicOn}>{musicOn ? "♪" : "♪̸"}</button>
         <button className="adv-btn" onClick={onGfx} aria-label="graphics">{high ? "HD" : "SD"}</button>
       </div>
       {banner && <div key={banner.k} className="adv-banner"><b>{banner.a}</b><span>{banner.b}</span></div>}
@@ -758,6 +787,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
           <button className="pvpact punch" aria-label="attack" {...hold("atk")}><b>👊</b><i>{t("ต่อย", "PUNCH", "拳击")}</i></button>
           <button className="pvpact kick" aria-label="kick" {...hold("kick")}><b>🦵</b><i>{t("เตะ", "KICK", "踢击")}</i></button>
           <button className={"pvpact ult" + (hud.skCd > 0 ? " cool" : "")} aria-label="skill" {...hold("skl")}><b>✦</b><i>{t("สกิล", "SKILL", "技能")}</i></button>
+          <button className={"pvpact spell" + ((hud.spell || 0) >= 100 ? " ready" : " cool")} aria-label="spell" style={{ "--sp": (hud.spell || 0) + "%" } as any} {...hold("spell")}><b>🎹</b><i>{(hud.spell || 0) >= 100 ? t("เวทย์คอร์ด", "SPELL", "和弦术") : (hud.spell || 0) + "%"}</i></button>
         </div>
       </div>
     </>

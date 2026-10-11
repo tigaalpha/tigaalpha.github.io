@@ -182,3 +182,14 @@ export function judgeKeys(q: Question, tapped: number[]): boolean {
   if (q.kind === "key") return t.length === 1 && ans.includes(t[0]);
   return t.length === ans.length && ans.every(a => t.includes(a));
 }
+
+
+/** Adventure phase 3.4, the chord spell: a question that must be answered by playing keys, drawn from what the learner has studied.
+    A chord they know (triad) if they have, else two notes (interval), else a scale degree, else a basic note. Never a choice question. */
+export function nextSpell(lang: Lang, opts: { done?: string[]; level?: number; rand?: () => number } = {}): { q: Question; learned: string[]; level: number } {
+  const r = opts.rand || Math.random, learned = learnedTopics(opts.done || readDone()), lvl = opts.level || readLadder().lvl;
+  if (learned.includes("triad")) return { q: qTriad(lang, r, Math.min(lvl, 5)), learned, level: lvl };
+  if (learned.includes("interval")) return { q: qIntervalPlay(lang, r, Math.min(lvl, 5)), learned, level: lvl };
+  if (learned.includes("scale")) return { q: qDegree(lang, r, Math.min(lvl, 5)), learned, level: lvl };
+  return { q: qBasic(lang, r), learned, level: 1 };
+}
