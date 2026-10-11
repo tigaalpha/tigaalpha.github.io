@@ -158,3 +158,52 @@ export async function renderPreview(id: string, bars = 4, boss = false, intensit
   const buf = await ctx.startRendering(), d = buf.getChannelData(0); let pk = 0, ss = 0, bad = 0; for (let i = 0; i < d.length; i++) { const v = d[i]; if (!isFinite(v)) bad++; pk = Math.max(pk, Math.abs(v)); ss += v * v; }
   return { peak: pk, rms: Math.sqrt(ss / d.length), bad, secs, events };
 }
+
+/* ── the cinematic score (owner, 2026-10-11: a film before each map, with its own music and sound effects) ──
+   Scheduled up front on its own audio context: a rising drone and pad chords, a noise riser across the build, a timpani hit and a reverse
+   swell at every cut, an arpeggio that quickens, per-shot effects, and a brass-like swell when the objective card lands. */
+export type CineShot = { kind: string; dur: number };
+export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId: string, plan: CineShot[], tailSec = 10) {
+  const M = MOODS[moodId] || MOODS.luma; const nz = noise(ctx);
+  const total = plan.reduce((a, s) => a + s.dur, 0); const starts: number[] = []; let acc = 0; for (const s of plan) { starts.push(acc); acc += s.dur; }
+  const T0 = 0.05, g = M.gain;
+  const hs = (hzv: number, peak: number, dur: number, at: number, type: BiquadFilterType = "highpass", hz1?: number) => { const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), gg = ctx.createGain(), t0 = T0 + at; s.buffer = nz; f.type = type; f.frequency.setValueAtTime(hzv, t0); if (hz1) f.frequency.exponentialRampToValueAtTime(Math.max(20, hz1), t0 + dur); gg.gain.setValueAtTime(0.0001, t0); gg.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + Math.min(0.05, dur / 3)); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(gg); gg.connect(out); s.start(t0); s.stop(t0 + dur + 0.05); };
+  const tn = (type: OscillatorType, f0: number, f1: number, peak: number, dur: number, at: number, atk = 0.01) => { VOICES++; const o = ctx.createOscillator(), gg = ctx.createGain(), t0 = T0 + at; o.type = type; o.frequency.setValueAtTime(f0, t0); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); gg.gain.setValueAtTime(0.0001, t0); gg.gain.linearRampToValueAtTime(peak, t0 + atk); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(gg); gg.connect(out); o.start(t0); o.stop(t0 + dur + 0.05); };
+  const tim = (at: number, vol: number) => { tn("sine", 95, 38, 0.5 * vol, 0.7, at); hs(500, 0.3 * vol, 0.5, at, "lowpass", 120); };
+  // the drone and the chord pads
+  tn("sine", hz(M.root - 36), hz(M.root - 36), 0.22, total + tailSec, 0, 3); tn("sine", hz(M.root - 29), hz(M.root - 29), 0.1, total + tailSec, 0, 4);
+  for (let t = 0, i = 0; t < total + tailSec - 2; t += 4, i++) { const rd = M.prog[i % 4]; for (const st of [0, 2, 4]) { const f = hz(degMidi(M, rd + st) - 12); tn("triangle", f, f, 0.07 * g, 5, t, 1.4); tn("sine", f * 2, f * 2, 0.04 * g, 5, t, 1.6); } }
+  // the build: a noise riser, thumping heart, accelerating arpeggio
+  hs(300, 0.12, Math.max(4, total - 3), 0.5, "bandpass", 7000);
+  for (let t = 4; t < total - 2; t += 0.9) tn("sine", 75, 42, 0.16, 0.25, t);
+  let at = 6, step = 0.5; while (at < total - 1) { const rd = M.prog[Math.floor(at / 4) % 4]; tn("triangle", hz(degMidi(M, rd + [0, 2, 4, 7][Math.floor(at * 4) % 4]) + 12), hz(degMidi(M, rd + [0, 2, 4, 7][Math.floor(at * 4) % 4]) + 12), 0.05 * g, 0.4, at, 0.005); at += step; step = Math.max(0.12, step * 0.93); }
+  // every cut gets a reverse swell into a timpani hit; every shot kind its own effect
+  plan.forEach((s, i) => {
+    const t = starts[i]; if (i) { hs(1500, 0.14, 0.5, Math.max(0, t - 0.5), "highpass", 6500); tim(t, 0.8); }
+    switch (s.kind) {
+      case "earth": for (let k = 0; k < 4; k++) tn("sine", 1800 + k * 300, 1800 + k * 300, 0.05, 0.08, t + 0.8 + k * 0.7); break;                                       // radio blips
+      case "factory": for (let k = 0; k < 6; k++) { tn("sawtooth", 180, 520, 0.05, 0.3, t + 0.4 + k * 0.55); hs(4000, 0.1, 0.07, t + 0.7 + k * 0.55, "bandpass"); } tn("sine", 1400, 1400, 0.07, 0.4, t + 3.2); break;   // servos, sparks, the eyes light
+      case "launch": hs(200, 0.3, s.dur - 0.5, t + 0.2, "lowpass", 1400); hs(900, 0.15, 1.2, t + s.dur * 0.5, "bandpass", 5000); break;                            // engines, a fly-by
+      case "approach": tn("sine", 1100, 1100, 0.08, 1.2, t + 1.2); tn("sine", 1100, 1100, 0.06, 1.2, t + 2.4); break;                                                  // sonar
+      case "boss": for (let k = 0; k < 5; k++) tn("square", 700, 700, 0.07, 0.25, t + k * 0.55); tn("sawtooth", 50, 38, 0.2, s.dur - 0.5, t + 0.2, 0.8); break;          // alarm + growl
+      case "strike": tn("sine", 600, 120, 0.1, 1.6, t + 0.5); hs(240, 0.55, 1.4, t + s.dur * 0.6, "lowpass", 90); tim(t + s.dur * 0.6, 1.4); break;                    // the whistle, then the blast
+      case "objective": [0, 4, 7, 12].forEach((st, k) => { const f = hz(M.root + st); tn("sawtooth", f, f, 0.05 * g, 3.5, t + 0.05, 0.9); tn("sine", f * 2, f * 2, 0.04 * g, 3.5, t + 0.05, 0.9); void k; }); hs(2500, 0.25, 1.4, t, "highpass", 900); tim(t, 1.5); break;   // the swell
+      default: hs(600, 0.1, 1.0, t + 0.4, "bandpass", 2400);                                                                                                               // the surface: wind
+    }
+  });
+  return { total, starts };
+}
+export type CineAudio = { stop: () => void };
+export function createCineAudio(moodId: string, plan: CineShot[]): CineAudio | null {
+  try {
+    const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return null; const ctx: AudioContext = new AC(); const m = ctx.createGain(); m.gain.value = 0.3; const comp = ctx.createDynamicsCompressor(); m.connect(comp); comp.connect(ctx.destination);
+    ctx.resume().catch(() => {}); const r = scheduleCineScore(ctx, m, moodId, plan, 14); m.gain.setValueAtTime(0.3, ctx.currentTime + r.total + 12); m.gain.linearRampToValueAtTime(0, ctx.currentTime + r.total + 14);
+    return { stop() { try { m.gain.setTargetAtTime(0, ctx.currentTime, 0.12); setTimeout(() => { try { ctx.close(); } catch (e) {} }, 500); } catch (e) {} } };
+  } catch (e) { return null; }
+}
+export async function renderCinePreview(id: string, plan: CineShot[]) {
+  const total = plan.reduce((a, s) => a + s.dur, 0) + 4; const OAC = (window as any).OfflineAudioContext || (window as any).webkitOfflineAudioContext; const ctx: OfflineAudioContext = new OAC(1, Math.ceil(44100 * total), 44100);
+  const comp = ctx.createDynamicsCompressor(), m = ctx.createGain(); m.gain.value = 0.3; m.connect(comp); comp.connect(ctx.destination); resetVoices(); scheduleCineScore(ctx, m, id, plan, 3);
+  const buf = await ctx.startRendering(), d = buf.getChannelData(0); let pk = 0, ss = 0, bad = 0; for (let i = 0; i < d.length; i++) { const v = d[i]; if (!isFinite(v)) bad++; pk = Math.max(pk, Math.abs(v)); ss += v * v; }
+  return { peak: pk, rms: Math.sqrt(ss / d.length), bad, secs: total, events: VOICES };
+}

@@ -10,7 +10,7 @@
    (pvp-rpg.ts and the skill SP in pvp-arena.tsx): EXP won here is EXP won there. What drops here is EXP
    and skill points only: nothing in this mode sells, pays coins or touches the shop. Phase 1: one playable
    planet (the other four are on the map, locked), three monsters, no boss yet. ── */
-import { useEffect, useRef, useState, useMemo, memo } from "react";
+import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "react";
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { createAdvSfx } from "./adventure-sfx";
 import { voiceOf } from "./fx-voice";
@@ -69,6 +69,7 @@ export function bumpQuest(id: string, n = 1): any[] {
   return out;
 }
 let TINT: any = null;
+const AdventureCine = lazy(() => import("./adventure-cine"));   // the film before each map: its own chunk, loaded when a map is picked
 let KEEP_FS = false;   // going straight to the next map keeps the full screen: the old run's cleanup must not leave it   // the planet's monster palette (null = Luma's own)
 const TALL = new Set(["sporecaster", "frostcaster", "flarecaster", "drone"]);   // hovering shooters: their bar and warning sit higher
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -286,6 +287,16 @@ const CSS = `
 .adv-clear{position:absolute;left:50%;top:24%;transform:translateX(-50%);z-index:7;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 18px;border-radius:18px;background:rgba(4,20,26,.88);border:1.5px solid rgba(255,214,90,.6);box-shadow:0 0 30px rgba(255,214,90,.25);min-width:240px;animation:advc .4s ease-out}
 .adv-clear b{font-size:20px;color:#ffe08a;letter-spacing:1px}.adv-clear small{opacity:.85}.adv-clear .go{background:linear-gradient(135deg,#7b61ff,#4a35c9);border-color:transparent;padding:0 18px;font-size:14px}.adv-clear .adv-btn{min-height:44px;border-radius:14px}
 @keyframes advc{from{transform:translateX(-50%) scale(.85);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+.adv-cine{position:absolute;inset:0;z-index:8;background:#000;overflow:hidden;touch-action:manipulation}.adv-cine canvas{position:absolute;inset:0;width:100%;height:100%}
+.ac-skip{position:absolute;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:3;min-height:40px;padding:0 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.4);background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:13px}
+.ac-cap{position:absolute;left:6%;right:6%;bottom:calc(11% + 6px);text-align:center;font-size:clamp(14px,2.6vw,22px);font-weight:700;line-height:1.35;color:#f4f8ff;text-shadow:0 2px 10px #000,0 0 20px rgba(120,190,255,.5);animation:acc 4s ease both;pointer-events:none}
+@keyframes acc{0%{opacity:0;transform:translateY(8px)}12%{opacity:1;transform:none}88%{opacity:1}100%{opacity:0}}
+.ac-title{position:absolute;left:8%;top:22%;display:flex;flex-direction:column;gap:2px;animation:acc 4.4s ease both;pointer-events:none}.ac-title small{letter-spacing:4px;font-size:11px;color:#9fd8ff}.ac-title b{font-size:clamp(28px,6vw,54px);letter-spacing:2px;text-shadow:0 0 24px rgba(140,200,255,.8)}
+.ac-obj{position:absolute;inset:11% 0 11% 0;display:flex;align-items:center;justify-content:center;gap:4%;padding:0 6%;animation:acc2 .8s ease both}@keyframes acc2{from{opacity:0}to{opacity:1}}
+.ac-hero{height:94%;aspect-ratio:1/2.2;filter:drop-shadow(0 0 22px rgba(120,220,255,.5))}.ac-hero svg{width:100%;height:100%;display:block;overflow:visible}
+.ac-goal{display:flex;flex-direction:column;gap:6px;max-width:460px}.ac-goal small{letter-spacing:4px;color:#ffd23f;font-size:11px}.ac-goal b{font-size:clamp(22px,4.5vw,36px)}
+.ac-goal ul{margin:6px 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}.ac-goal li{padding:8px 12px;border-left:3px solid #7fe8ff;background:rgba(10,30,46,.6);font-size:clamp(12px,2.2vw,16px);animation:acc2 .6s ease both}
+.ac-goal .go{background:linear-gradient(135deg,#ff8a5d,#d9482b);border-color:transparent;padding:0 22px;font-size:15px;align-self:flex-start;min-height:46px}
 .adv-strike{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;background:radial-gradient(120% 90% at 50% 0%,#241a10,#050403);padding:calc(10px + env(safe-area-inset-top,0px)) 14px calc(12px + env(safe-area-inset-bottom,0px));gap:10px;touch-action:manipulation}
 .as-top{display:flex;align-items:center;gap:10px}.as-top div{flex:1;display:flex;flex-direction:column}.as-top small{font-size:11px;opacity:.8}.as-n{font-weight:900;font-size:18px}
 .as-map{position:relative;flex:1;min-height:120px;border-radius:14px;border:1px solid rgba(255,170,80,.35);background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 2px,transparent 2px 60px),linear-gradient(180deg,#0e0b07,#2a2012);overflow:hidden}
@@ -296,6 +307,7 @@ const CSS = `
 .as-bot{display:flex;gap:10px;align-items:center;justify-content:center}.as-bot .go{background:linear-gradient(135deg,#ff8a5d,#d9482b);padding:0 22px;border-color:transparent;font-size:15px}.as-bot .go:disabled{opacity:.5}
 .adv-shop{display:flex;flex-direction:column;gap:6px;margin:10px 0;padding:10px;border-radius:14px;background:rgba(10,40,48,.55);border:1px solid rgba(140,255,220,.25)}
 .adv-shop b{font-size:13px}.adv-up,.adv-q{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;border:1px solid rgba(140,255,220,.3);background:rgba(4,30,36,.6);color:#fff;font-size:13px;min-height:44px}
+.adv-nocine{display:flex;gap:8px;align-items:center;font-size:13px;margin:8px 0}.adv-nocine input{width:20px;height:20px}
 .adv-load{display:flex;flex-direction:column;gap:4px}.adv-load small{opacity:.8}.adv-load>div{display:flex;flex-wrap:wrap;gap:6px}.adv-load button{padding:8px 10px;border-radius:10px;border:1px solid rgba(140,255,220,.3);background:rgba(4,30,36,.6);color:#fff;font-size:12px;min-height:40px}.adv-load button.on{background:rgba(61,220,151,.4);border-color:#3ddc97}.adv-load button:disabled{opacity:.45}
 .adv-up:disabled{opacity:.5}.adv-up em,.adv-q em{font-style:normal;font-weight:800;color:#7fe8ff}.adv-q.ok{opacity:.7}.adv-q.ok em{color:#7dffa8}
 .adv-key.dash{width:58px;height:58px;border-radius:20px;background:rgba(10,60,80,.65)}
@@ -338,8 +350,10 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
   const [tick, setTick] = useState(0); void tick;
+  const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
   const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests(); const load = readLoad(); const ore = readOre(); const ostage = oreStage(ore);
   const [strike, setStrike] = useState<any>(null);
+  const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
   const nextOf = (cur: any) => { const dn = readDone(); const idx = PLANETS.findIndex(q => q.id === cur.id); return PLANETS.slice(idx + 1).find(Q => Q.ok && (!Q.req || dn.includes(Q.req))) || null; };   // the orbital-strike result (which bases are gone) before an Ashfall run
   const open = (P) => P.ok && (!P.req || done.includes(P.req));
   const t = (th, en, zh) => T3(lang, th, en, zh);
@@ -358,7 +372,7 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
           <div className="adv-planets">
             {PLANETS.map((P, pi) => (
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!open(P)}
-                onClick={() => { if (open(P)) { playUi && playUi("click"); enterFs(); setStrike(null); setPlanet(P); } }}>
+                onClick={() => { if (open(P)) { playUi && playUi("click"); enterFs(); setStrike(null); setCined(null); setPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
                 <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (pi + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (pi + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (pi + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? t("ต้องผ่านบอสลูมาก่อน", "Beat the Luma boss first", "先击败卢玛首领") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
                 <em>{open(P) ? "▶" : "🔒"}</em>
@@ -408,12 +422,14 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
               </button>
             ))}
           </div>
+          <label className="adv-nocine"><input type="checkbox" checked={nocine} onChange={(e) => { try { localStorage.setItem("tg_adv_nocine", e.target.checked ? "1" : "0"); } catch (er) {} setTick(x => x + 1); }} /> {t("ข้ามหนังก่อนเริ่มด่าน", "Skip the film before each map", "跳过每张地图前的过场动画")}</label>
           <p style={{ fontSize: 11.5 }}>{t("ระบบเลือกให้ตามเครื่องของคุณ เปลี่ยนเองได้", "Chosen for your device; change it any time.", "已按设备自动选择，可随时更改。")}</p>
         </div>
       ) : (
+        cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id + gfx} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
-          getNext={() => nextOf(planet)} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
+          getNext={() => nextOf(planet)} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
       )}
     </div>
   );
@@ -1017,7 +1033,7 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; },  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
     return () => { if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
