@@ -45,4 +45,25 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
   if (process.env.SHOT) for (let q = 0; q < 3; q++) { await p.evaluate((n) => window.__advCine.jump(n), q); await p.waitForTimeout(1200); await p.screenshot({ path: process.env.SHOT + q + ".png" }); }
   ok("no errors (film)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
+{
+  const { ctx, p, errs } = await open({ tg_adv_prologue: "skip" }); await enter(p, "Asteroid Field"); await p.waitForFunction(() => !!window.__advShip, null, { timeout: 10000 });
+  await p.evaluate(() => { window.__advShip.god(); window.__advShip.relayNow(); }); await p.waitForSelector(".adv-quiz", { timeout: 5000 });
+  const t0 = await p.evaluate(() => window.__advShip.state().t); await p.waitForTimeout(700); const t1 = await p.evaluate(() => window.__advShip.state().t);
+  ok("flying into a music relay opens ONE question and the ship waits", (await p.locator(".adv-qcard").count()) === 1 && Math.abs(t1 - t0) < 0.05, t0 + " " + t1);
+  await p.locator(".adv-qcard button", { hasText: /Skip|ข้าม|跳过/ }).first().click(); await p.waitForTimeout(500);
+  const t2 = await p.evaluate(() => window.__advShip.state().t); await p.waitForTimeout(500); const t3 = await p.evaluate(() => window.__advShip.state().t);
+  ok("after the question the ship flies on", (await p.locator(".adv-quiz").count()) === 0 && t3 > t2 + 0.3);
+  await p.evaluate(() => { window.__advShip.setHpS(40); window.__advShip.answer(true); }); ok("a right answer repairs the ship", (await p.evaluate(() => window.__advShip.hpNow())) >= 60);
+  ok("no errors (relay)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
+}
+{
+  const { ctx, p, errs } = await open({}); const i = await enter(p, "Gas Giant"); ok("Gas Giant Skim is on the menu", i >= 0);
+  await p.waitForFunction(() => !!window.__advShip, null, { timeout: 10000 }); ok("skim mode", (await p.evaluate(() => window.__advShip.mode)) === "skim");
+  await p.evaluate(() => window.__advShip.god()); const f0 = await p.evaluate(() => window.__advShip.fuel());
+  for (let k = 0; k < 8; k++) { await p.evaluate(() => window.__advShip.inBand()); await p.waitForTimeout(250); }
+  ok("staying in the energy layer fills the tank", (await p.evaluate(() => window.__advShip.fuel())) > f0 + 5);
+  await p.evaluate(() => window.__advShip.fillFuel()); await p.evaluate(() => window.__advShip.inBand()); await p.waitForSelector(".adv-clear[aria-label='ship clear']", { timeout: 15000 });
+  ok("a full tank wins the map", await p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done")).includes("gasskim")));
+  ok("no errors (skim)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
+}
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

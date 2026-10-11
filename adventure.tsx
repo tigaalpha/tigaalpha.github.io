@@ -120,6 +120,7 @@ export const PLANETS = [
   { id: "voidgate", th: "วอยด์เกต · ขับยานรบสู้ฝูงเอเลี่ยน", en: "Void Gate · starship dogfight", zh: "虚空之门 · 驾驶战机空战", c: ["#02030c", "#1a1240", "#6a4cff"], glow: "130,170,255", acc: "255,120,90", ok: true, req: "kryo", hard: 2.6, mission: "dogfight", mons: ["drone"], tint: null, boss: ["เรือแม่ของเอเลี่ยน", "the alien Mothership", "外星母舰"] },
   { id: "departure", th: "ออกเดินทาง · ทะยานจากโลกสู่วงโคจร", en: "Departure · launch from Earth to orbit", zh: "启程 · 从地球冲向轨道", c: ["#0a1a3a", "#2a5a9a", "#ffb070"], glow: "255,200,140", acc: "120,200,255", ok: true, hard: 1, mission: "launch", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "asteroids", th: "ทุ่งดาวเคราะห์น้อย · ขับยานขุดแร่", en: "Asteroid Field · fly and mine the rocks", zh: "小行星带 · 驾驶飞船采矿", c: ["#0a1220", "#2a3a52", "#8a7a6a"], glow: "255,210,150", acc: "120,220,255", ok: true, hard: 1.8, mission: "belt", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
+  { id: "gasskim", th: "ดาวแก๊สยักษ์ · ขับยานดูดพลังงาน", en: "Gas Giant Skim · skim the clouds for energy", zh: "气态巨星 · 掠云汲取能量", c: ["#1a0a2a", "#5a2a6a", "#ffa060"], glow: "255,190,110", acc: "190,140,255", ok: true, hard: 2.2, mission: "skim", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
 ];
 
 /* the story (owner, 2026-10-11): year 2100, these robots are built BY humans to do the colony work in their place, before any person
@@ -135,6 +136,7 @@ export const BRIEF: Record<string, string[]> = {
   dyson: ["ไดสันฟอร์จ: ขุดแร่ มาประกอบแผงไดสันสเฟียร์ 4 แผง (กด ⛏ ใกล้โครง) แล้วส่งพลังงานกลับโลกที่เสาส่งขวาสุด", "Dyson Forge: mine ore, bolt 4 Dyson panels onto the frames (press ⛏ beside a frame), then beam the energy home from the far-right relay", "戴森锻炉：采矿，在框架旁按 ⛏ 装上 4 块戴森板，再从最右中继塔把能量传回地球"],
   departure: ["ออกเดินทาง: หลบเศษขยะอวกาศและก้อนหินจนถึงวงโคจร (ยิงให้แตกได้)", "Departure: dodge debris and rocks to reach orbit (you can shoot them)", "启程：躲避太空碎片与岩石直至入轨（可以击碎它们）"],
   asteroids: ["ทุ่งดาวเคราะห์น้อย: ยิงหินให้แตกแล้วดูดแร่ให้ครบ 16 ก้อน ระวังโจรอวกาศ", "Asteroid Field: shoot the rocks, collect 16 ore, watch for pirates", "小行星带：击碎岩石收集 16 块矿石，小心太空海盗"],
+  gasskim: ["ดาวแก๊สยักษ์: บินในชั้นพลังงานเรืองแสงให้ถังเต็ม หลบสายฟ้าฟาด", "Gas Giant: stay inside the glowing energy layer to fill the tank; dodge the lightning", "气态巨星：留在发光的能量层内装满能量罐，躲开闪电"],
   helios: ["ดาวฤกษ์ต่างระบบ: ยึดสถานีเก็บพลังงานทั้งสามจุดทีละจุด", "A foreign sun: take its three collector stations, one at a time.", "异星恒星：逐一占领三座能量采集站。"],
   ashfall: ["แอชฟอลล์: ทิ้งระเบิดนิวเคลียร์จากวงโคจรก่อน แล้วค่อยลงไปกวาดล้างที่เหลือ", "Ashfall: nuke the bases from orbit first, then drop in and clear what is left.", "灰烬星：先从轨道投下核弹，再降落扫荡残敌。"],
 };
@@ -404,6 +406,11 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests(); const load = readLoad(); const ore = readOre(); const ostage = oreStage(ore);
   const [strike, setStrike] = useState<any>(null);
   const [shipDone, setShipDone] = useState<any>(null);
+  // a music relay in the ship maps asks ONE question (the same cards as the ground beacons); the ship waits, a right answer repairs and shields it
+  const shipCtl = useRef<any>({ paused: false, ask: null, answer: null }); const [shipQuiz, setShipQuiz] = useState<any>(null);
+  shipCtl.current.ask = () => { const nq: any = nextSpell(lang, {}); setShipQuiz({ qs: [nq], i: 0, sel: [], res: null, right: 0, learned: nq.learned, spell: true }); };
+  const shipAnswer = (ok: boolean) => { const cur = shipQuiz; if (!cur || cur.res) return; const q = cur.qs[cur.i].q; const l = recordAnswer(ok, q.topic); try { recordMemory(q.label, ok ? 100 : 55); } catch (e) {} if (ok) { try { addRpgExpX(me, 10 + 6 * q.tier + (l.streak >= 2 ? 6 : 0)); addSkillSp(classKeyOf(me), 2 + q.tier); bumpQuest("right", 1); } catch (e) {} } setShipQuiz({ ...cur, res: ok ? "good" : "bad", right: cur.right + (ok ? 1 : 0) }); };
+  const shipFinish = () => { const cur = shipQuiz; setShipQuiz(null); if (shipCtl.current.answer) shipCtl.current.answer(!!cur && cur.right > 0); logUsage("adv", "shipq:" + (cur && cur.right > 0 ? "ok" : "miss")); };
   const [pro, setPro] = useState(() => { try { return localStorage.getItem("tg_adv_prologue") === null && localStorage.getItem("tg_adv_nocine") !== "1"; } catch (e) { return false; } });   // the opening film, once, before the first map menu
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
   const filming = (pro && !planet) || (!!planet && cined !== planet.id && !nocine);
@@ -510,20 +517,26 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
         </div>
       ) : (
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
-        ["dogfight", "launch", "belt"].includes(planet.mission) && shipDone ? (
+        ["dogfight", "launch", "belt", "skim"].includes(planet.mission) && shipDone ? (
           <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
-            <span>☠ {shipDone.kills} · ◆ {shipDone.cry}{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}</span>
+            <span>☠ {shipDone.kills} · ◆ {shipDone.cry}{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}{shipDone.mode === "skim" ? " · ⛽ 100%" : ""}</span>
             {shipDone.coins > 0 && <small className="ac-coins">🪙 +{shipDone.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
             <div className="adv-clear-btns">
               {shipDone.next && <button className="adv-btn go" onClick={() => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setShipDone(null); setPlanet(shipDone.next); }}>▶ {T3(lang, shipDone.next.th, shipDone.next.en, shipDone.next.zh).split(" · ")[0]}</button>}
               <button className="adv-btn" onClick={() => { setShipDone(null); setPlanet(null); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div>
           </div>
-        ) : ["dogfight", "launch", "belt"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
+        ) : ["dogfight", "launch", "belt", "skim"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id + gfx} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
           getNext={() => (net ? null : nextOf(planet))} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
       )}
+      {shipQuiz && <QuizCard quiz={shipQuiz} lang={lang} onKey={(pc, name) => {
+        const cur = shipQuiz; if (cur.res) return; const q = cur.qs[cur.i].q;
+        if (q.kind === "key") shipAnswer(judgeKeys(q, [pc]));
+        else { const has = cur.sel.some((x) => x.pc === pc); setShipQuiz({ ...cur, sel: has ? cur.sel.filter((x) => x.pc !== pc) : [...cur.sel, { pc, name }] }); }
+      }} onConfirm={() => { const cur = shipQuiz; const q = cur.qs[cur.i].q; shipAnswer(judgeKeys(q, cur.sel.map((x) => x.pc))); }}
+        onChoice={(ok) => shipAnswer(ok)} onNext={shipFinish} onSkip={shipFinish} />}
     </div>
   );
 });
