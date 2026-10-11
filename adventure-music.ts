@@ -30,6 +30,16 @@ export const MOODS: Record<string, Mood> = {
     lead: [4, _, _, _, 6, _, 4, _,  2, _, _, _, 1, _, _, _,   4, _, _, _, 6, _, 7, _,  9, _, _, _, 7, _, _, _],
     arp: [0, _, 2, _, 4, _, 2, _, 0, _, 2, _, 5, _, 4, _], bass: [1, _, _, _, _, _, _, _, 1, _, _, _, _, _, 1, _],
     kick: "x.......x.......", snare: "........x.......", hat: "..x...x...x...x." },
+  /* Pyra · the lava reactor: heavy and hot, a pounding groove under a snarling saw lead */
+  pyra: { bpm: 136, root: 52, scale: [0, 1, 4, 5, 7, 8, 10], prog: [0, 0, 1, 5], wLead: "sawtooth", wBass: "square", wArp: "sawtooth", gain: 0.62,
+    lead: [0, _, 1, 0, _, 2, _, 3,  2, _, 1, _, 0, _, _, _,   0, _, 1, 0, _, 4, _, 3,  5, _, 4, _, 2, _, 1, _],
+    arp: [0, _, 2, _, 0, _, 2, _, 0, _, 2, _, 3, _, 2, _], bass: [1, 1, _, 1, 1, _, 1, 1, 1, 1, _, 1, 1, 1, _, 1],
+    kick: "x..xx..xx..xx..x", snare: "....x.......x...", hat: "x.x.x.x.x.x.x.xx" },
+  /* Nexa · the wreck city: dark and sparse, cold arpeggios drifting over a slow pulse */
+  nexa: { bpm: 100, root: 55, scale: MIN, prog: [0, 5, 3, 4], wLead: "sine", wBass: "triangle", wArp: "square", gain: 0.85,
+    lead: [_, _, 4, _, _, _, 2, _,  _, _, 1, _, 0, _, _, _,   _, _, 4, _, _, _, 6, _,  _, _, 5, _, 4, _, _, _],
+    arp: [0, 1, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 2, 1, 0, 1], bass: [1, _, _, _, 1, _, _, 1, _, _, 1, _, _, _, 1, _],
+    kick: "x.......x..x....", snare: "........x.......", hat: "..x...x...x...x." },
 };
 /** the boss arrangement: the same key, harder and denser. */
 const BOSS = { kick: "x.x.x.x.x.x.x.xx", snare: "....x.......x.x.", hat: "xxxxxxxxxxxxxxxx", bass: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], bpmMul: 1.12 };

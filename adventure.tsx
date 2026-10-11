@@ -54,6 +54,7 @@ export function bumpQuest(id: string, n = 1): any[] {
   return out;
 }
 let TINT: any = null;   // the planet's monster palette (null = Luma's own)
+const TALL = new Set(["sporecaster", "frostcaster", "flarecaster", "drone"]);   // hovering shooters: their bar and warning sit higher
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 /* the five planets (only the first is playable in this phase) */
@@ -62,8 +63,8 @@ export const PLANETS = [
   { id: "ferro",  th: "เฟอร์โร · ทะเลทรายเหล็ก",  en: "Ferro · the iron desert",   zh: "费罗 · 钢铁沙漠",   c: ["#1a0d05", "#4a2410", "#b8672c"], glow: "255,170,90", acc: "255,90,60",  ok: true, req: "luma", hard: 1.7, mons: ["rustcrawler", "rustcrawler", "magnet", "thornback", "rustcrawler", "magnet", "glowbug", "magnet"], tint: { glow: "255,150,70", body: "#4a2410" }, boss: ["ผู้พิทักษ์เหล็ก", "Iron Warden", "钢铁守卫"] },
   { id: "jovia",  th: "โจเวีย · ดาวแก๊สยักษ์ (เก็บพลังงาน)", en: "Jovia · the gas giant (energy harvest)", zh: "朱维亚 · 气态巨行星（采集能量）", c: ["#0d0a2a", "#3a2a7a", "#c98a4a"], glow: "255,190,110", acc: "255,120,90", ok: true, req: "ferro", hard: 1.9, survival: true, mons: ["rustcrawler", "shardling", "glowbug", "magnet", "shardling"], tint: { glow: "255,190,110", body: "#3a2a1a" }, boss: ["-", "-", "-"] },
   { id: "kryo",   th: "ไครโอ · ดาวน้ำแข็งคริสตัล", en: "Kryo · the crystal ice",    zh: "克里奥 · 水晶冰原", c: ["#061427", "#123a63", "#6fc4ff"], glow: "150,225,255", acc: "120,160,255", ok: true, req: "ferro", hard: 2.4, mons: ["shardling", "shardling", "frostcaster", "thornback", "frostcaster", "shardling", "thornback"], tint: { glow: "150,225,255", body: "#12304a" }, boss: ["ผู้พิทักษ์น้ำแข็ง", "Frost Warden", "冰霜守卫"] },
-  { id: "pyra",   th: "ไพรา · เตาปฏิกรณ์ลาวา",    en: "Pyra · the lava reactor",   zh: "派拉 · 熔岩反应堆", c: ["#1c0606", "#5a1408", "#ff6a2a"], glow: "255,120,50", acc: "255,200,60",  ok: false },
-  { id: "nexa",   th: "เน็กซา · เมืองซากอวกาศ",   en: "Nexa · the wreck city",     zh: "内克萨 · 残骸之城", c: ["#0a0518", "#2a1250", "#9a5cff"], glow: "190,150,255", acc: "63,240,208",  ok: false },
+  { id: "pyra",   th: "ไพรา · เตาปฏิกรณ์ลาวา",    en: "Pyra · the lava reactor",   zh: "派拉 · 熔岩反应堆", c: ["#1c0606", "#5a1408", "#ff6a2a"], glow: "255,120,50", acc: "255,200,60",  ok: true, req: "kryo", hard: 3.0, hazard: "lava", mons: ["magmaling", "magmaling", "flarecaster", "thornback", "flarecaster", "magmaling", "thornback"], tint: { glow: "255,120,50", body: "#3a0c06" }, boss: ["ผู้พิทักษ์แกนลาวา", "Core Warden", "熔核守卫"] },
+  { id: "nexa",   th: "เน็กซา · เมืองซากอวกาศ",   en: "Nexa · the wreck city",     zh: "内克萨 · 残骸之城", c: ["#0a0518", "#2a1250", "#9a5cff"], glow: "190,150,255", acc: "63,240,208",  ok: true, req: "pyra", hard: 3.8, hazard: "shock", enrage: true, mons: ["drone", "scrapgolem", "drone", "rustcrawler", "drone", "scrapgolem"], tint: { glow: "190,150,255", body: "#1e1236" }, boss: ["จอมคุมแห่งเน็กซา", "Nexa Overseer", "内克萨监管者"] },
 ];
 
 /* ── monsters ── */
@@ -74,6 +75,10 @@ const MON = {
   magnet:      { hp: 80, dmg: 14, speed: 0,  exp: 28, w: 40, h: 80, cd: 1900, name: ["เสาแม่เหล็ก", "Magnet Pylon", "磁力塔"], ranged: true },
   shardling:   { hp: 46, dmg: 10, speed: 62, exp: 18, w: 44, h: 40, cd: 1000, name: ["เศษคริสตัล", "Shardling", "晶碎兽"] },
   frostcaster: { hp: 56, dmg: 12, speed: 26, exp: 28, w: 46, h: 62, cd: 2000, name: ["ผู้เรียกน้ำแข็ง", "Frostcaster", "霜术士"], ranged: true },
+  magmaling:   { hp: 52, dmg: 13, speed: 85, exp: 22, w: 48, h: 34, cd: 900,  name: ["แมกมาลิง", "Magmaling", "熔岩虫"] },
+  flarecaster: { hp: 62, dmg: 14, speed: 24, exp: 32, w: 46, h: 62, cd: 1900, name: ["ผู้เรียกเปลวเพลิง", "Flarecaster", "烈焰术士"], ranged: true },
+  scrapgolem:  { hp: 150, dmg: 20, speed: 30, exp: 46, w: 80, h: 70, cd: 1600, name: ["โกเลมเศษเหล็ก", "Scrap Golem", "废铁魔像"] },
+  drone:       { hp: 48, dmg: 12, speed: 40, exp: 28, w: 44, h: 40, cd: 1700, name: ["โดรนซาก", "Wreck Drone", "残骸无人机"], ranged: true },
   sporecaster: { hp: 52, dmg: 11, speed: 30,  exp: 26, w: 52, h: 60, cd: 2200, name: ["สปอร์คาสเตอร์", "Sporecaster", "孢子术士"], ranged: true },
 };
 
@@ -142,7 +147,22 @@ function drawMonster(x, m, t, k, G) {
   const hit = m.hurt > 0;
   const body = hit ? "#ffffff" : TINT ? TINT.body : m.type === "glowbug" ? "#0e5a4a" : m.type === "thornback" ? "#3a1030" : "#2a1a66";
   const glow = TINT ? TINT.glow : m.type === "glowbug" ? "90,255,200" : m.type === "thornback" ? "255,70,90" : "190,130,255";
-  if (m.type === "rustcrawler") {
+  if (m.type === "magmaling") {
+    const y = GROUND - m.y, wob = Math.sin(t * 9 + m.ph) * 2; x.fillStyle = hit ? "#fff" : "#7a1a0a"; x.beginPath(); x.ellipse(0, y - 14, 24 + wob, 15, 0, Math.PI, 0); x.lineTo(24, y); x.lineTo(-24, y); x.closePath(); x.fill();
+    x.fillStyle = hit ? "#fff" : "#ff7a2a"; x.beginPath(); x.ellipse(-4, y - 18, 12, 6, 0, 0, 7); x.fill(); x.fillStyle = "#ffd23f"; for (let i = 0; i < 3; i++) { x.beginPath(); x.arc(-12 + i * 10, y - 8 + Math.sin(t * 7 + i) * 2, 2.6, 0, 7); x.fill(); }
+    x.fillStyle = "#fff6c0"; x.beginPath(); x.arc(14, y - 18, 3.2, 0, 7); x.fill();
+  } else if (m.type === "flarecaster") {
+    const y = GROUND - 56 - m.y + Math.sin(t * 2.4 + m.ph) * 6; x.fillStyle = hit ? "#fff" : "#4a1208"; x.beginPath(); x.ellipse(0, y, 16, 24, 0, 0, 7); x.fill();
+    x.globalCompositeOperation = "lighter"; for (let i = 0; i < 5; i++) { const a = t * 3 + i * 1.26 + m.ph; x.fillStyle = `rgba(255,${120 + i * 25},40,.8)`; x.beginPath(); x.arc(Math.cos(a) * 20, y + Math.sin(a) * 14, 4, 0, 7); x.fill(); } x.globalCompositeOperation = "source-over";
+    x.fillStyle = "#ffe08a"; x.beginPath(); x.arc(8, y - 4, 4, 0, 7); x.fill();
+  } else if (m.type === "scrapgolem") {
+    const y = GROUND - m.y; x.fillStyle = hit ? "#fff" : "#2c2638"; x.fillRect(-34, y - 70, 68, 52); x.fillStyle = hit ? "#fff" : "#4a4160"; x.fillRect(-44, y - 64, 16, 40); x.fillRect(28, y - 60, 16, 44); x.fillStyle = "#1a1626"; x.fillRect(-26, y - 20, 18, 20); x.fillRect(8, y - 20, 18, 20);
+    x.fillStyle = hit ? "#fff" : "#6b5f8c"; x.fillRect(-20, y - 86, 40, 20); x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(190,150,255,.95)"; x.fillRect(2, y - 80, 12, 5); x.fillStyle = "rgba(190,150,255,.5)"; x.fillRect(-22, y - 50, 44, 4); x.globalCompositeOperation = "source-over";
+  } else if (m.type === "drone") {
+    const y = GROUND - 60 - m.y + Math.sin(t * 3 + m.ph) * 5; x.fillStyle = hit ? "#fff" : "#38304e"; x.beginPath(); x.ellipse(0, y, 22, 11, 0, 0, 7); x.fill();
+    x.strokeStyle = "#6b5f8c"; x.lineWidth = 3; x.beginPath(); x.moveTo(-26, y - 10); x.lineTo(26, y - 10); x.stroke(); x.save(); x.translate(0, y - 14); x.scale(Math.cos(t * 30), 1); x.fillStyle = "rgba(190,150,255,.4)"; x.fillRect(-18, -2, 36, 3); x.restore();
+    x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(255,90,120,.9)"; x.beginPath(); x.arc(12, y + 2, 3.5, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
+  } else if (m.type === "rustcrawler") {
     const y = GROUND - m.y; x.strokeStyle = "#2a1408"; x.lineWidth = 3; for (let i = 0; i < 4; i++) { const lx = -18 + i * 12, ph = Math.sin(t * 16 + i * 1.6 + m.ph) * 5; x.beginPath(); x.moveTo(lx, y - 8); x.lineTo(lx - 5, y + ph * 0.3); x.stroke(); }
     x.fillStyle = hit ? "#fff" : "#6a3a1a"; x.beginPath(); x.moveTo(-26, y - 6); x.quadraticCurveTo(-18, y - 30, 4, y - 26); x.quadraticCurveTo(28, y - 22, 28, y - 6); x.closePath(); x.fill();
     x.fillStyle = hit ? "#fff" : "#a8591f"; x.fillRect(-16, y - 24, 14, 5); x.fillRect(2, y - 22, 12, 4);
@@ -429,6 +449,9 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: Math.round(MON[type].hp * HM), max: Math.round(MON[type].hp * HM), face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, tele: 0, act: "", teleAt: 0, i });
     const mons: any[] = [];
     const pattern = P.mons || ["glowbug"], pool = pattern;
+    const HZ: number[][] = P.hazard ? [[1000, 1230], [2000, 2260], [3150, 3450]] : [];   // lava pools / shock plates (Pyra, Nexa): jump them or take the burn
+    let hzAcc = 0, hzHits = 0;
+    const hzOn = () => (P.hazard === "shock" ? (time % 3) > 1.8 : true);
     const surv = { t: 0, wave: 0, next: 2, done: false }, SURV_T = 90;   // gas-giant stage: hold out 90 s while the energy fills
     for (let i = 0; i < (P.survival ? 0 : 17); i++) mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i));
     const bolts: any[] = [], parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [], drops: any[] = [], waves: any[] = [], pet: any[] = [];
@@ -593,6 +616,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
         }
       }
       if (P.survival) for (let i = mons.length - 1; i >= 0; i--) if (mons[i].dead) mons.splice(i, 1);
+      if (HZ.length && pl.dead <= 0 && pl.y < 14 && hzOn() && HZ.some(h => pl.x > h[0] && pl.x < h[1])) { hzAcc += dt; if (hzAcc >= 0.6) { hzAcc = 0; hzHits++; hurtPlayer(Math.round(4.5 * HM), pl.x + (pl.face > 0 ? -1 : 1)); } } else hzAcc = Math.min(hzAcc, 0.3);
       for (const m of mons) {
         if (m.dead) { m.resp -= dt; if (m.resp <= 0 && Math.abs(pl.x - m.hx) > 640) { m.dead = 0; m.hp = m.max; m.x = m.hx; m.y = 0; m.vx = 0; } continue; }
         const d = MON[m.type]; m.hurt -= dt; m.cd -= dt * 1000;
@@ -621,16 +645,19 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       }
       if (boss.active && !boss.dead) {
         boss.hurt -= dt; boss.face = pl.x > boss.x ? 1 : -1;
+        const rage = !!P.enrage && boss.hp < boss.max * 0.5;   // Nexa's overseer enrages at half health: faster cycle, wider volleys
+        if (rage && !boss.raged) { boss.raged = true; shake = 9; setBanner({ k: Date.now(), a: t("โกรธจัด!", "ENRAGED!", "狂暴！"), b: t("โจมตีถี่ขึ้น กระสุนมากขึ้น", "Faster attacks, wider volleys", "攻击更快，弹幕更宽") }); }
         if (boss.state === "idle") {
           boss.cd -= dt; boss.x += (Math.sign(pl.x - boss.x) * 36 + boss.vx) * dt; boss.vx *= 0.86;
           boss.x = Math.max(ARENA + 60, Math.min(WORLD - 120, boss.x));
+          if (rage) boss.cd -= dt * 0.8;
           if (boss.cd <= 0) { const o = boss.n++ % 3; boss.state = o === 0 ? "slam" : o === 1 ? "volley" : "charge"; boss.tele = o === 2 ? 0.7 : 0.6; boss.dur = 0; }
           if (Math.abs(pl.x - boss.x) < 70 && Math.abs(pl.y) < 40 && pl.inv <= 0) hurtPlayer(Math.round(14 * HM), boss.x);
         } else if (boss.tele > 0) {
           boss.tele -= dt;
           if (boss.tele <= 0) {
             if (boss.state === "slam") { shake = 8; sfx.play("slam"); waves.push({ x: boss.x, dir: -1, life: 2.2 }, { x: boss.x, dir: 1, life: 2.2 }); boss.state = "idle"; boss.cd = 2; }
-            else if (boss.state === "volley") { for (let i = -1; i <= 1; i++) shots.push({ x: boss.x + boss.face * 40, y: 70 + i * 26, vx: boss.face * (200 + i * 30), life: 2.6, d: Math.round(12 * HM) }); boss.state = "idle"; boss.cd = 1.8; }
+            else if (boss.state === "volley") { for (let i = rage ? -2 : -1; i <= (rage ? 2 : 1); i++) shots.push({ x: boss.x + boss.face * 40, y: 70 + i * 26, vx: boss.face * (200 + i * 30), life: 2.6, d: Math.round(12 * HM) }); boss.state = "idle"; boss.cd = 1.8; }
             else { boss.dur = 0.8; boss.vx = boss.face * 340; }
           }
         } else if (boss.state === "charge") {
@@ -682,10 +709,13 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       ctx.globalCompositeOperation = "lighter";
       for (const f of fireflies) { const fx = f.x + Math.sin(tm * 0.6 + f.ph) * 14, fy = f.y + Math.sin(tm * 0.9 + f.ph * 2) * 10; if (fx < camX - 20 || fx > camX + vw + 20) continue; ctx.globalAlpha = 0.5 + 0.5 * Math.sin(tm * 2 + f.ph); ctx.fillStyle = `rgb(${P.glow})`; ctx.fillRect(fx, fy, 2, 2); }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+      for (const h of HZ) { if (h[1] < camX - 40 || h[0] > camX + vw + 40) continue; const on = hzOn(), warn = P.hazard === "shock" && !on && (time % 3) > 1.4;
+        if (P.hazard === "lava") { const g = ctx.createLinearGradient(0, GROUND - 4, 0, GROUND + 22); g.addColorStop(0, "#ffd23f"); g.addColorStop(0.4, "#ff6a1a"); g.addColorStop(1, "#7a1a0a"); ctx.fillStyle = g; ctx.fillRect(h[0], GROUND - 2, h[1] - h[0], 24); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,140,40,.35)"; for (let q = h[0]; q < h[1]; q += 26) ctx.fillRect(q + Math.sin(tm * 3 + q) * 4, GROUND - 6 - Math.abs(Math.sin(tm * 2 + q * 0.1)) * 6, 14, 4); ctx.globalCompositeOperation = "source-over"; }
+        else { ctx.fillStyle = on ? "#7fe8ff" : warn ? (Math.floor(tm * 12) % 2 ? "#ffd23f" : "#38304e") : "#38304e"; ctx.fillRect(h[0], GROUND - 2, h[1] - h[0], 6); if (on) { ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = "rgba(160,240,255,.9)"; ctx.lineWidth = 2; for (let q = h[0] + 8; q < h[1]; q += 30) { ctx.beginPath(); ctx.moveTo(q, GROUND); ctx.lineTo(q + 8, GROUND - 14 - Math.random() * 10); ctx.lineTo(q + 16, GROUND); ctx.stroke(); } ctx.globalCompositeOperation = "source-over"; } } }
       // monsters
       for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; drawMonster(ctx, m, tm, k, GROUND);
-        if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - ((m.type === "sporecaster" || m.type === "frostcaster") ? 128 : 74)); }
-        if (m.hp < m.max) { const w = 40, y0 = GROUND - m.y - ((m.type === "sporecaster" || m.type === "frostcaster") ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / m.max), 5); } }
+        if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - (TALL.has(m.type) ? 128 : 74)); }
+        if (m.hp < m.max) { const w = 40, y0 = GROUND - m.y - (TALL.has(m.type) ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / m.max), 5); } }
       if (boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
       for (const b of bolts) {
         ctx.globalCompositeOperation = "lighter"; const by = GROUND - b.y, dir = Math.sign(b.vx); ctx.fillStyle = rGlow; ctx.strokeStyle = rGlow;
@@ -787,7 +817,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss) => renderPreview(id, 4, !!boss), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss) => renderPreview(id, 4, !!boss), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
     return () => { if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
