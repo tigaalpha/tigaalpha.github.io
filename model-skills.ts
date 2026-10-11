@@ -579,6 +579,32 @@ export const MODEL_SKILLS = {
        "วงแหวนสว่างจนทั้งสนามหยุด แล้วทุกอย่างที่ค้างไว้ลงพร้อมกัน",
        "The ring goes bright enough to stop the arena, and everything held back lands at once.",
        "圣环大放光明使全场静止，所有蓄势一次落下。") ] },
+  nimbus: { cls: "engineer", skills: [
+    sk("passive", "coil", "ฝีมือสม่ำเสมอ", "Steady Hands", "稳定双手",
+       "คำตอบถูกติดกันให้แต้มเพิ่มเล็กน้อย และพลาดครั้งเดียวไม่ทำให้สตรีคหาย",
+       "Back-to-back right answers add a little extra, and one slip does not break the streak.",
+       "连续答对额外加分，一次失误不会断连。"),
+    sk("active", "wrench", "จังหวะสมบูรณ์", "Perfect Tempo", "完美节拍",
+       "ล็อกจังหวะให้นิ่ง โจมตีครั้งถัดไปแม่นและแรงขึ้น",
+       "Locks its rhythm in; the next strike lands true and a little harder.",
+       "锁定节奏，下一击更准更重。"),
+    sk("ultimate", "fusion", "ทำงานเต็มกำลัง", "Full Workload", "满负荷运转",
+       "ทุกระบบทำงานพร้อมกันครู่หนึ่ง ทั้งเร็วขึ้น แรงขึ้น และทนขึ้น",
+       "Every system runs at once for a moment: faster, harder and tougher together.",
+       "所有系统同时运转片刻：更快、更强、更耐打。") ] },
+  kestrel: { cls: "ghost", skills: [
+    sk("passive", "trail", "ขาไว", "Quick Legs", "疾行步伐",
+       "ถอยและเข้าประชิดได้เร็วกว่าเดิม หลบการโจมตีได้ง่ายขึ้น",
+       "Backs off and closes in faster, and slips more of what comes at it.",
+       "进退更快，更容易闪开攻击。"),
+    sk("active", "eye", "พลิกตัวโจมตี", "Flip Strike", "翻身突袭",
+       "ตีลังกาข้ามหัวคู่ต่อสู้แล้วโจมตีจากด้านหลัง",
+       "Flips clean over the opponent and strikes from behind.",
+       "翻越对手头顶，从背后出击。"),
+    sk("ultimate", "orb", "สแกนทั้งสนาม", "Full Scan", "全场扫描",
+       "เซ็นเซอร์บนหัวสแกนจุดอ่อน ท่าถัดไปทุกท่าเป็นคริติคอล",
+       "The sensor on top maps every weak point; the next strikes all land critical.",
+       "头顶传感器扫描弱点，接下来的攻击全部暴击。") ] },
 };
 
 /* the class a chassis belongs to, for anything that just needs the label */

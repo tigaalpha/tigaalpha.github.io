@@ -151,6 +151,10 @@ export const CHAR_MODELS = [
     cls: { th: "โครงเตาหลอม",         en: "Foundry frame",       zh: "熔铸机架" } },
   { id: "zenith",   code: "ZN-40", th: "เซนิธ",      en: "ZENITH",   zh: "天顶",
     cls: { th: "โครงพิธีการ",         en: "Ceremonial frame",    zh: "礼典机架" } },
+  { id: "nimbus",   code: "NB-41", th: "นิมบัส",     en: "NIMBUS",   zh: "云冕",
+    cls: { th: "โครงมนุษย์ไฮเทค",     en: "Humanoid frame",      zh: "类人机架" } },
+  { id: "kestrel",  code: "KS-42", th: "เคสเตรล",    en: "KESTREL",  zh: "红隼",
+    cls: { th: "โครงวิ่งคล่อง",       en: "Runner frame",        zh: "疾行机架" } },
 ];
 
 
@@ -217,6 +221,8 @@ export const MODEL_COMBAT = {
   nyx:      { pwr: 12, arm: 8,  spd: 14, syn: 6,  sp: { th: "จันทร์เสี้ยว",     en: "Crescent Cut",     zh: "弦月斩" } },
   forge:    { pwr: 13, arm: 13, spd: 6,  syn: 8,  sp: { th: "เปิดเตา",         en: "Open The Furnace", zh: "开炉" } },
   zenith:   { pwr: 9,  arm: 11, spd: 7,  syn: 13, sp: { th: "วงแหวนศักดิ์สิทธิ์", en: "Halo Chord",      zh: "圣环和弦" } },
+  nimbus:   { pwr: 10, arm: 10, spd: 10, syn: 10, sp: { th: "จังหวะสมบูรณ์",   en: "Perfect Tempo",    zh: "完美节拍" } },
+  kestrel:  { pwr: 9,  arm: 8,  spd: 15, syn: 8,  sp: { th: "พุ่งสี่ขา",       en: "Flip Strike",      zh: "翻身突袭" } },
 };
 export const COMBAT_TOTAL = 40;
 /* Gear adds on top of the chassis, which is what makes the weapon rack matter:
@@ -478,6 +484,8 @@ export const MODEL_RIG = {
   nyx:     { hs: 1.15, bw: 0.90, bh: 1.02 },
   forge:   { hs: 1.12, bw: 1.16, bh: 0.98 },
   zenith:  { hs: 1.16, bw: 0.98, bh: 1.00 },
+  nimbus:  { hs: 1.10, bw: 1.00, bh: 1.04 },
+  kestrel: { hs: 1.08, bw: 0.94, bh: 1.00 },
 };
 
 /* ── the frame ──
@@ -525,8 +533,8 @@ export const FRAME = {
 };
 export const MODEL_FRAME = {
   vanguard: "balanced", ronin: "balanced", envoy: "balanced", meridian: "balanced",
-  keeper: "balanced", oracle: "balanced", zenith: "balanced",
-  phantom: "slim", specter: "slim", scout: "slim", aurora: "slim", halcyon: "slim",
+  keeper: "balanced", oracle: "balanced", zenith: "balanced", nimbus: "balanced",
+  kestrel: "slim", phantom: "slim", specter: "slim", scout: "slim", aurora: "slim", halcyon: "slim",
   wraith: "slim", nyx: "slim", tempest: "slim", saber: "slim",
   sentinel: "heavy", atlas: "heavy", magnus: "heavy", bastion: "heavy", forge: "heavy", sentry: "heavy",
   reaper: "beast", talon: "beast", korax: "beast",
@@ -773,6 +781,8 @@ export const MODEL_BUILD = {
   nyx:      { pa: "bare",  core: "slit",    back: "wing" },
   forge:    { pa: "vent",  core: "tri",     back: "thruster" },
   zenith:   { pa: "dome",  core: "star",    back: "array" },
+  nimbus:   { pa: "slab",  core: "cross",   back: "fin" },
+  kestrel:  { pa: "swept", core: "slit",    back: "thruster" },
 };
 
 /* ── the alloy each chassis is actually made of ──
@@ -824,6 +834,8 @@ export const MODEL_SKIN = {
   nyx:       { s: ["#c3b9cc", "#503164", "#b6a9c2", "#352145", "#1f152c", "#0c0713"], glow: "#ff4dd0", accent: "#a86bff" },
   forge:     { s: ["#ebcfb4", "#ad6424", "#e8c5a2", "#794519", "#4f2c11", "#231307"], glow: "#ff7a3c", accent: "#ffd23f" },
   zenith:    { s: ["#faf3de", "#dfb13c", "#faf1d6", "#9b7723", "#64480e", "#302307"], glow: "#ffd23f", accent: "#fff3c4" },
+  nimbus:    { s: ["#f4f6f8", "#c9d0d8", "#eef1f4", "#98a2ae", "#5d6672", "#1b2027"], glow: "#7fe8ff", accent: "#eaf6ff" },
+  kestrel:   { s: ["#fbfbfa", "#e8eaec", "#f3f4f5", "#a2a8ae", "#4a4f55", "#16181b"], glow: "#ff8a2b", accent: "#ffb066" },
 };
 
 const LEGACY = { boy: "vanguard", girl: "specter", cute: "nova" };
@@ -2933,6 +2945,74 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
         <ellipse cx="60" cy="-12" rx="24" ry="7" fill="none" stroke="#ffe9a8" strokeWidth="3.2" opacity=".9" />
         <path d="M46 40 Q60 34 74 40" fill="none" stroke="#c19a3a" strokeWidth="1.3" opacity=".65" />
         <path d="M60 46 L66 54 L60 64 L54 54 Z" fill={`url(#${id}-chrome)`} stroke="#c19a3a" strokeWidth=".8" strokeLinejoin="round" />
+      </>,
+      neck: null,
+    },
+
+    /* ── NIMBUS · humanoid frame ── smooth pearl shell, a black glass faceplate, two thin lit slits */
+    nimbus: {
+      skull: "M60 8 C78 8 88 22 88 42 C88 60 77 70 60 71 C43 70 32 60 32 42 C32 22 42 8 60 8 Z",
+      fill: "pearl", line: "#b8c4d0", body: "pearl", bodyLine: "#98a2ae", hv: "22 -4 76 78",
+      prof: { brow: 25, nose: 40, lip: 55, chin: 68 },
+      shellArt: <>
+        <path d="M44 14 Q60 6 76 14" fill="none" stroke="#ffffff" strokeWidth="2" opacity=".8" strokeLinecap="round" />
+      </>,
+      art: <>
+        {face(60, <path d="M38 24 Q60 18 82 24 Q86 44 76 56 Q60 62 44 56 Q34 44 38 24 Z" fill="#0b0e13" stroke="#2b323c" strokeWidth="1" />, "plate")}
+        {face(60, <path d="M42 28 Q60 24 78 28" fill="none" stroke="#ffffff" strokeWidth="1" opacity=".22" />, "sheen")}
+        {face(49, <g className="ca-eye"><path d="M42 40 L56 40" stroke={glow} strokeWidth="3.4" strokeLinecap="round" className="ca-optic" /></g>, "e1")}
+        {face(71, <g className="ca-eye"><path d="M64 40 L78 40" stroke={glow} strokeWidth="3.4" strokeLinecap="round" className="ca-optic" /></g>, "e2")}
+        {face(60, <path d="M52 60 L68 60" stroke="#98a2ae" strokeWidth="1.4" strokeLinecap="round" />, "l")}
+      </>,
+      side: "M60 8 C78 8 87 22 87 42 C87 58 78 68 70 70 Q60 73 51 69 C41 65 33 56 33 42 C33 22 42 8 60 8 Z",
+      sideArt: <>
+        <path d="M50 24 Q74 20 82 28 Q86 44 76 56 Q64 60 50 54 Z" fill="#0b0e13" stroke="#2b323c" strokeWidth="1" />
+        <path d="M66 40 L80 40" stroke={glow} strokeWidth="3.4" strokeLinecap="round" className="ca-optic" />
+        <circle cx="44" cy="44" r="5" fill="#c9d0d8" stroke="#98a2ae" strokeWidth=".8" />
+      </>,
+      rear: <>
+        <path d="M33 20 Q60 6 87 20 Q92 46 84 64 Q60 74 36 64 Q28 46 33 20 Z" fill={`url(#${id}-pearl)`} stroke="#a8bccf" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M60 14 L60 62" stroke="#98a2ae" strokeWidth="1.2" opacity=".6" />
+        <path d="M48 66 L72 66" stroke="#5d6672" strokeWidth="2" strokeLinecap="round" />
+      </>,
+      neck: null,
+    },
+
+    /* ── KESTREL · runner frame ── white shell, a dark visor band, one big lens, a lidar dome on top */
+    kestrel: {
+      skull: "M60 12 C78 12 90 24 90 42 C90 58 78 68 60 69 C42 68 30 58 30 42 C30 24 42 12 60 12 Z",
+      fill: "white", line: "#c4c9ce", body: "white", bodyLine: "#a2a8ae", hv: "22 -10 76 84",
+      prof: { brow: 28, nose: 42, lip: 56, chin: 67 },
+      shellArt: <>
+        <path d="M46 12 Q46 -2 60 -2 Q74 -2 74 12 Z" fill={`url(#${id}-graphite)`} stroke="#3a3f45" strokeWidth="1" strokeLinejoin="round" />
+        <ellipse cx="60" cy="3" rx="9" ry="2.6" fill="none" stroke="#ff8a2b" strokeWidth="1.6" className="ca-optic" />
+        <path d="M60 -2 L60 -9" stroke="#3a3f45" strokeWidth="1.6" strokeLinecap="round" />
+      </>,
+      art: <>
+        {face(60, <path d="M32 28 L88 28 L90 50 L30 50 Z" fill="#14171a" stroke="#2c3036" strokeWidth="1" strokeLinejoin="round" />, "band")}
+        {face(60, <g className="ca-eye">
+          <circle cx="60" cy="39" r="9" fill="#0a0b0d" stroke="#3a3f45" strokeWidth="1.2" />
+          <circle cx="60" cy="39" r="5.4" fill="#16202c" />
+          <circle cx="60" cy="39" r="3" fill={glow} className="ca-optic" />
+          <circle cx="58.4" cy="37.4" r="1" fill="#ffffff" opacity=".85" />
+        </g>, "lens")}
+        {face(41, <circle cx="41" cy="39" r="2" fill={accent} className="ca-optic" />, "d1")}
+        {face(79, <circle cx="79" cy="39" r="2" fill={accent} className="ca-optic" />, "d2")}
+        {face(60, <path d="M50 60 L70 60" stroke="#a2a8ae" strokeWidth="1.4" strokeLinecap="round" />, "l")}
+      </>,
+      side: "M60 12 C78 12 89 24 89 42 C89 56 79 66 70 68 Q60 70 51 67 C40 63 31 54 31 42 C31 24 42 12 60 12 Z",
+      sideArt: <>
+        <path d="M46 12 Q46 -2 60 -2 Q74 -2 74 12 Z" fill={`url(#${id}-graphite)`} stroke="#3a3f45" strokeWidth="1" strokeLinejoin="round" />
+        <ellipse cx="60" cy="3" rx="9" ry="2.6" fill="none" stroke="#ff8a2b" strokeWidth="1.6" className="ca-optic" />
+        <path d="M52 28 L88 28 L89 50 L52 50 Z" fill="#14171a" stroke="#2c3036" strokeWidth="1" />
+        <circle cx="76" cy="39" r="8" fill="#0a0b0d" stroke="#3a3f45" strokeWidth="1.2" />
+        <circle cx="76" cy="39" r="3" fill={glow} className="ca-optic" />
+      </>,
+      rear: <>
+        <path d="M32 22 Q60 10 88 22 Q93 46 85 62 Q60 72 35 62 Q27 46 32 22 Z" fill={`url(#${id}-white)`} stroke="#c4c9ce" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M46 12 Q46 -2 60 -2 Q74 -2 74 12 Z" fill={`url(#${id}-graphite)`} stroke="#3a3f45" strokeWidth="1" strokeLinejoin="round" />
+        <path d="M44 40 L76 40" stroke="#a2a8ae" strokeWidth="1.2" opacity=".6" />
+        <circle cx="60" cy="54" r="3" fill="#ff8a2b" opacity=".8" />
       </>,
       neck: null,
     },
