@@ -84,6 +84,11 @@ export const PA_CSS = `
 /* fever: a still glow, not a gradient scrolling across the whole screen
    (that one repainted every frame) */
 .songov.playal .feverbg{animation:none;opacity:1;background:radial-gradient(ellipse at 50% 100%,rgba(255,60,210,.22),rgba(140,70,255,.08) 55%,transparent 75%)}
+.pl-hands{position:absolute;right:6px;bottom:13%;z-index:4;display:flex;gap:6px;padding:4px 6px;border-radius:14px;background:rgba(10,6,28,.5);border:1px solid rgba(140,90,255,.35);pointer-events:none}
+.pl-hand{display:flex;flex-direction:column;align-items:center}.pl-hand .fhand{width:78px;height:68px}
+.pl-hands.two .pl-hand .fhand{width:64px;height:56px}
+.pl-hand-n{font-size:10.5px;font-weight:800;color:#ffd166;letter-spacing:.2px;white-space:nowrap}
+@media (orientation:landscape) and (max-height:500px){.pl-hands{bottom:6px}.pl-hand .fhand{width:56px;height:48px}}
 .songov.playal .songstage.fever{box-shadow:inset 0 0 70px -12px rgba(255,60,210,.7)}
 .songov.playal .feverbadge{text-shadow:0 0 14px var(--pl-mag);animation:none}
 /* boss bar: the hit lands on the boss, not in the middle of the notes */

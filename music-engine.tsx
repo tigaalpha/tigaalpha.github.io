@@ -3231,6 +3231,11 @@ export const PlayAlongStaff = memo(function PlayAlongStaff({ notes, startBeat = 
           fill={val.head === "open" ? "none" : color} stroke={val.head === "open" ? color : "none"} strokeWidth="2"
           transform={`rotate(-18 ${x} ${y})`} />
         {val.dots > 0 && <circle cx={x + rx + 4} cy={dotY} r={half * 0.28} fill={color} />}
+        {/* the finger to use, on the side of the head away from the stem so it never meets it */}
+        {g.finger != null && !g.tieFrom && (
+          <text x={x} y={up ? y + ry + half * 2.7 : y - ry - half * 1.1} fontSize={2.4 * half} textAnchor="middle" fontWeight="800"
+            fill={g.state === "past" ? "rgba(255,209,102,.35)" : "#ffd166"} style={{ fontFamily: "var(--f-num, monospace)" }}>{g.finger}</text>
+        )}
         {tie}
       </g>
     );
