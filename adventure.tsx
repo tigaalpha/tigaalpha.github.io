@@ -177,6 +177,7 @@ function layer(w, h, fn) { const c = document.createElement("canvas"); c.width =
 function glowSprite(rgb, r) { return layer(r * 2, r * 2, (x, w, h) => { const g = x.createRadialGradient(r, r, 0, r, r, r); g.addColorStop(0, `rgba(${rgb},0.9)`); g.addColorStop(0.35, `rgba(${rgb},0.3)`); g.addColorStop(1, `rgba(${rgb},0)`); x.fillStyle = g; x.fillRect(0, 0, w, h); }); }
 
 /** All of the planet's backdrop, baked once for this canvas size. Layers are tiles that repeat sideways. */
+const NEAR_STYLE: any = { ferro: "pipes", cobalt: "pipes", jovia: "wisp", kryo: "frost", pyra: "ember", helios: "ember", nexa: "wire", dyson: "wire", ashfall: "wire" };
 const MID_STYLE: any = { ferro: "mesa", cobalt: "mesa", jovia: "pillar", kryo: "ice", pyra: "volcano", helios: "volcano", nexa: "ruins", dyson: "ruins", ashfall: "ruins" };
 function bakePlanet(P, cw, ch, k, high) {
   const rgb = P.glow, acc = P.acc;
@@ -225,6 +226,18 @@ function bakePlanet(P, cw, ch, k, high) {
   });
   const near = layer(tileW, ch, (x, w, h) => {
     const base = GROUND * k;
+    const ns = NEAR_STYLE[P.id] || "fern";
+    if (ns !== "fern") {                              // per-planet foreground (owner 2026-10-11): the same dark, lit-edge idea in other shapes
+      for (let i = 0; i < 12; i++) {
+        const cx = (i + 0.3 + rnd(i + 21) * 0.5) / 12 * w, fh = (22 + rnd(i + 30) * 40) * k;
+        x.fillStyle = "rgba(2,16,20,.96)"; x.strokeStyle = `rgba(${rgb},.6)`; x.lineWidth = 2 * k;
+        if (ns === "pipes") { x.fillRect(cx - 5 * k, base - fh, 10 * k, fh + 20 * k); x.fillRect(cx - 5 * k, base - fh, 30 * k, 8 * k); x.strokeRect(cx - 5 * k, base - fh, 10 * k, fh); x.beginPath(); x.arc(cx + 25 * k, base - fh + 4 * k, 5 * k, 0, 7); x.stroke(); }
+        else if (ns === "wisp") { x.beginPath(); x.moveTo(cx, base + 20 * k); x.bezierCurveTo(cx - 20 * k, base - fh * 0.4, cx + 24 * k, base - fh * 0.7, cx, base - fh * 1.3); x.stroke(); x.beginPath(); x.arc(cx, base - fh * 1.3, 3 * k, 0, 7); x.fillStyle = `rgba(${rgb},.8)`; x.fill(); }
+        else if (ns === "frost") { x.beginPath(); x.moveTo(cx - 9 * k, base + 20 * k); x.lineTo(cx - 2 * k, base - fh); x.lineTo(cx + 3 * k, base - fh * 0.5); x.lineTo(cx + 12 * k, base + 20 * k); x.closePath(); x.fill(); x.stroke(); x.fillStyle = "rgba(255,255,255,.55)"; x.fillRect(cx - 3 * k, base - fh, 2 * k, 2 * k); }
+        else if (ns === "ember") { x.beginPath(); x.moveTo(cx - 14 * k, base + 20 * k); x.lineTo(cx - 6 * k, base - fh * 0.7); x.lineTo(cx + 4 * k, base - fh * 0.4); x.lineTo(cx + 16 * k, base + 20 * k); x.closePath(); x.fill(); x.stroke(); x.fillStyle = `rgba(${acc},.9)`; x.fillRect(cx - 2 * k, base - fh * 0.5, 3 * k, 3 * k); }
+        else { x.fillRect(cx - 12 * k, base - fh * 0.6, 24 * k, fh * 0.6 + 20 * k); x.beginPath(); x.moveTo(cx + 12 * k, base - fh * 0.5); x.quadraticCurveTo(cx + 30 * k, base - fh * 1.1, cx + 40 * k, base - fh * 0.3); x.stroke(); x.fillStyle = `rgba(${acc},.8)`; x.fillRect(cx - 4 * k, base - fh * 0.5, 3 * k, 3 * k); }
+      }
+    } else
     for (let i = 0; i < 10; i++) {                   // foreground ferns, dark, with a lit edge
       const cx = (i + 0.3 + rnd(i + 21) * 0.5) / 10 * w, fh = (36 + rnd(i + 30) * 44) * k;
       x.strokeStyle = `rgba(${rgb},.55)`; x.lineWidth = 2 * k; x.fillStyle = "rgba(2,16,20,.96)";
