@@ -36,10 +36,10 @@ const readCrystals = (): number => { try { return Math.max(0, parseInt(localStor
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(readCrystals() + n)); } catch (e) {} };
 /* ── phase 3.2: crystal upgrades, daily quests, difficulty ──
    Crystals come from playing only and are never for sale. Each of the three lines has 5 levels at +5 % each, so the ceiling is a fixed +25 %. */
-export const UP_LINES = ["atk", "hp", "skl", "rkt"] as const;   // rkt: rocket salvo (1 > 2 at Lv2 > 3 at Lv4) and 6 % faster reload per level
+export const UP_LINES = ["atk", "hp", "skl", "rkt", "shp"] as const;   // shp: starship engine, +6 % speed and +20 px pickup pull per level (ship maps only)   // rkt: rocket salvo (1 > 2 at Lv2 > 3 at Lv4) and 6 % faster reload per level
 export const UP_MAX = 5;
 export const upCost = (lv: number) => 12 * Math.pow(2, lv);   // 12, 24, 48, 96, 192
-export const readUps = (): any => { try { const v = JSON.parse(localStorage.getItem("tg_adv_up") || "{}") || {}; const o: any = {}; for (const k of UP_LINES) o[k] = Math.max(0, Math.min(UP_MAX, v[k] | 0)); return o; } catch (e) { return { atk: 0, hp: 0, skl: 0, rkt: 0 }; } };
+export const readUps = (): any => { try { const v = JSON.parse(localStorage.getItem("tg_adv_up") || "{}") || {}; const o: any = {}; for (const k of UP_LINES) o[k] = Math.max(0, Math.min(UP_MAX, v[k] | 0)); return o; } catch (e) { return { atk: 0, hp: 0, skl: 0, rkt: 0, shp: 0 }; } };
 export function buyUp(line: string): boolean {
   const u = readUps(); if (!(UP_LINES as readonly string[]).includes(line) || u[line] >= UP_MAX) return false;
   const c = upCost(u[line]); if (readCrystals() < c) return false;
@@ -489,7 +489,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
             <b>{t("โรงงาน — อัปเกรดด้วยคริสตัล ◆ " + crystals, "Workshop — upgrade with crystals ◆ " + crystals, "工坊 — 用晶体 ◆ " + crystals + " 升级")}</b>
             {UP_LINES.map(l => (
               <button key={l} className="adv-up" data-up={l} disabled={ups[l] >= UP_MAX || crystals < upCost(ups[l])} onClick={() => { if (buyUp(l)) { playUi && playUi("click"); setTick(x => x + 1); } }}>
-                <span>{l === "atk" ? t("พลังโจมตี", "Attack", "攻击") : l === "hp" ? t("เลือด", "Health", "生命") : l === "rkt" ? t("จรวดยิงชุด/รีโหลดไว", "Rocket salvo & reload", "火箭齐射/装填") : t("สกิลเร็วขึ้น", "Skill speed", "技能速度")} · Lv {ups[l]}/{UP_MAX} (+{ups[l] * 5}%)</span>
+                <span>{l === "atk" ? t("พลังโจมตี", "Attack", "攻击") : l === "hp" ? t("เลือด", "Health", "生命") : l === "rkt" ? t("จรวดยิงชุด/รีโหลดไว", "Rocket salvo & reload", "火箭齐射/装填") : l === "shp" ? t("เครื่องยนต์ยาน", "Starship engine", "飞船引擎") : t("สกิลเร็วขึ้น", "Skill speed", "技能速度")} · Lv {ups[l]}/{UP_MAX} (+{ups[l] * (l === "shp" ? 6 : 5)}%)</span>
                 <em>{ups[l] >= UP_MAX ? "MAX" : "◆ " + upCost(ups[l])}</em>
               </button>
             ))}
