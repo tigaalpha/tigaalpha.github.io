@@ -43,6 +43,8 @@ export const MOODS: Record<string, Mood> = {
 };
 MOODS.cobalt = { ...MOODS.ferro, bpm: 118, root: 47, wLead: "square", gain: 0.7 };
 MOODS.helios = { ...MOODS.jovia, bpm: 132, root: 62, scale: LYD, wLead: "sawtooth", gain: 0.62 };
+MOODS.departure = { ...MOODS.luma, bpm: 118, gain: 0.64 };
+MOODS.asteroids = { ...MOODS.nexa, bpm: 124, gain: 0.6 };
 MOODS.dyson = { ...MOODS.helios, bpm: 126, gain: 0.62 };
 MOODS.voidgate = { ...MOODS.nexa, bpm: 138, gain: 0.6 };
 MOODS.ashfall = { ...MOODS.pyra, bpm: 112, root: 50, scale: MIN, gain: 0.6 };
@@ -186,6 +188,9 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
       case "earth": for (let k = 0; k < 4; k++) tn("sine", 1800 + k * 300, 1800 + k * 300, 0.05, 0.08, t + 0.8 + k * 0.7); break;                                       // radio blips
       case "factory": for (let k = 0; k < 6; k++) { tn("sawtooth", 180, 520, 0.05, 0.3, t + 0.4 + k * 0.55); hs(4000, 0.1, 0.07, t + 0.7 + k * 0.55, "bandpass"); } tn("sine", 1400, 1400, 0.07, 0.4, t + 3.2); break;   // servos, sparks, the eyes light
       case "launch": hs(200, 0.3, s.dur - 0.5, t + 0.2, "lowpass", 1400); hs(900, 0.15, 1.2, t + s.dur * 0.5, "bandpass", 5000); break;                            // engines, a fly-by
+      case "pad": for (let k = 0; k < 10; k++) { tn("sine", 880, 880, 0.08, 0.1, t + 0.4 + k * 0.62); hs(200, 0.04, 0.1, t + 0.4 + k * 0.62, "bandpass"); } tn("sawtooth", 50, 60, 0.12, s.dur, t, 2); break;   // the countdown ticks over a low drone
+      case "liftoff": hs(160, 0.5, s.dur, t, "lowpass", 900); tn("sawtooth", 40, 120, 0.2, s.dur, t, 1.5); tn("sine", 55, 36, 0.4, 2.2, t); for (let k = 0; k < 12; k++) hs(900, 0.1, 0.4, t + k * 0.5, "bandpass", 3000); break;   // the roar of the engines
+      case "earthfade": for (let k = 0; k < 8; k++) tn("triangle", hz(M.root + [0, 7, 12, 16][k % 4]), hz(M.root + [0, 7, 12, 16][k % 4]), 0.07, 3.5, t + k * 0.6, 1); hs(3000, 0.12, 2.4, t + 0.5, "bandpass", 8000); break;   // a swelling, hopeful chord
       case "approach": tn("sine", 1100, 1100, 0.08, 1.2, t + 1.2); tn("sine", 1100, 1100, 0.06, 1.2, t + 2.4); break;                                                  // sonar
       case "boss": for (let k = 0; k < 5; k++) tn("square", 700, 700, 0.07, 0.25, t + k * 0.55); tn("sawtooth", 50, 38, 0.2, s.dur - 0.5, t + 0.2, 0.8); break;          // alarm + growl
       case "strike": tn("sine", 600, 120, 0.1, 1.6, t + 0.5); hs(240, 0.55, 1.4, t + s.dur * 0.6, "lowpass", 90); tim(t + s.dur * 0.6, 1.4); break;                    // the whistle, then the blast

@@ -5,8 +5,9 @@ let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ")
 const grab = (name) => { const i = cine.indexOf("const " + name); const j = cine.indexOf("\n};", i); const body = cine.slice(cine.indexOf("{", cine.indexOf("=", i)), j + 3); return new Function("return " + body.replace(/;$/, ""))(); };
 const TH = /[฀-๿]/, ZH = /[一-鿿]/, LAT = /[A-Za-z]{3}/;
 const triple = (a) => Array.isArray(a) && a.length === 3 && TH.test(a[0]) && LAT.test(a[1]) && !TH.test(a[1]) && ZH.test(a[2]);
-const COMMON = grab("COMMON"), INTRO = grab("INTRO"), STORY = grab("STORY"), GOAL = grab("GOAL");
+const DEPART = grab("DEPART"), COMMON = grab("COMMON"), INTRO = grab("INTRO"), STORY = grab("STORY"), GOAL = grab("GOAL");
 ok("the shared opening captions (earth, factory, launch) are in 3 languages", ["earth", "factory", "launch"].every(k => triple(COMMON[k])));
+ok("the send-off film (pad, liftoff, earth fade) is in 3 languages", ["pad", "liftoff", "earthfade"].every(k => triple(DEPART[k])));
 const ids = [...adv.matchAll(/\{ id: "([a-z]+)",\s+th:/g)].map(m => m[1]).filter(x => x !== "prologue"); ok("found the maps", ids.length >= 10, ids.join());
 for (const id of ids) { ok(id + ": approach caption in th/en/zh", triple(INTRO[id])); ok(id + ": surface caption in th/en/zh", triple(STORY[id])); ok(id + ": three goals, each in th/en/zh", Array.isArray(GOAL[id]) && GOAL[id].length === 3 && GOAL[id].every(triple)); }
 const titles = [...adv.matchAll(/\{ id: "([a-z]+)",\s+th: "([^"]+)",\s+en: "([^"]+)",\s+zh: "([^"]+)"/g)];
