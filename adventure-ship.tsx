@@ -6,7 +6,7 @@ import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
-const W = 960, H = 480, BOSS_AT = 55;
+const W = 960, H = 480, BOSS_AT = 55, LAUNCH_T = 38, ORE_GOAL = 16;
 const mg = (x: CanvasRenderingContext2D, y0: number, y1: number, base: string) => { const g = x.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "rgba(255,255,255,.5)"); g.addColorStop(0.2, base); g.addColorStop(1, "#06080e"); return g; };
 const pl = (x: CanvasRenderingContext2D, pts: number[][]) => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0], pts[i][1]); x.closePath(); };
 /** the pilot's starfighter: swept wings, a glowing canopy in the robot's colour, twin engines, wing-tip lights, panel lines */
@@ -55,6 +55,7 @@ const toRgb = (g: string) => { const m = /^#?([0-9a-f]{6})$/i.exec(g || ""); if 
 export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit }: any) {
   const glow = toRgb(glow0);
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
+  const MODE: string = P.mission === "launch" ? "launch" : P.mission === "belt" ? "belt" : "dogfight";   // dogfight = Void Gate, launch = leave Earth through the debris, belt = mine the asteroid field
   const cv = useRef<HTMLCanvasElement>(null); const keys = useRef<any>({});
   const [ui, setUi] = useState<any>({ hp: 100, boss: 0, bossOn: false, t: 0, kills: 0, over: false, win: false, ms: 0 });
   const retry = useRef<() => void>(() => {});
@@ -66,10 +67,12 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
     const HP = Math.round(100 * (1 + 0.05 * (ups.hp || 0))), DMG = 1 + 0.05 * (ups.atk || 0), SALVO = 1 + ((ups.rkt || 0) >= 2 ? 1 : 0) + ((ups.rkt || 0) >= 4 ? 1 : 0);
     const hard = P.hard || 1;
     let S: any;
-    const reset = () => { S = { t: 0, ship: { x: 140, y: H / 2, hp: HP, inv: 0, fireCd: 0, mCd: 0 }, bl: [], eb: [], en: [], ms: [], pk: [], pt: [], stars: S ? S.stars : Array.from({ length: 90 }, () => ({ x: Math.random() * W, y: Math.random() * H, z: 0.2 + Math.random() * 0.8 })), spawn: 1, kills: 0, cry: 0, loot: { scrap: 0, ore: 0, gold: 0, core: 0 }, boss: null as any, bossSpawned: false, over: false, win: false, endT: 0, shake: 0 }; setUi({ hp: HP, boss: 0, bossOn: false, t: 0, kills: 0, over: false, win: false, ms: 0 }); };
+    const reset = () => { S = { t: 0, ship: { x: 140, y: H / 2, hp: HP, inv: 0, fireCd: 0, mCd: 0 }, bl: [], eb: [], en: [], ms: [], pk: [], pt: [], stars: S ? S.stars : Array.from({ length: 90 }, () => ({ x: Math.random() * W, y: Math.random() * H, z: 0.2 + Math.random() * 0.8 })), spawn: 1, kills: 0, cry: 0, loot: { scrap: 0, ore: 0, gold: 0, core: 0 }, boss: null as any, rk: [] as any[], mined: 0, bossSpawned: false, over: false, win: false, endT: 0, shake: 0 }; setUi({ hp: HP, boss: 0, bossOn: false, t: 0, kills: 0, over: false, win: false, ms: 0 }); };
     reset(); retry.current = () => { reset(); };
     const burst = (px: number, py: number, n: number, col: string, sp = 220) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, v = Math.random() * sp; S.pt.push({ x: px, y: py, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.5 + Math.random() * 0.4, max: 0.9, col }); } };
     const dropLoot = (px: number, py: number, rich: number) => { if (Math.random() < 0.7) S.pk.push({ x: px, y: py, k: "cry" }); if (Math.random() < 0.45 * rich) S.pk.push({ x: px + 8, y: py + 8, k: LOOTK[Math.min(3, Math.floor(Math.random() * Math.random() * 4 * rich))] }); };
+    const addRock = (xx: number, yy: number, size: number) => { const r = [14, 24, 38][size]; S.rk.push({ x: xx, y: yy, size, r, hp: [2, 5, 10][size], vx: 60 + Math.random() * 120 + (MODE === "launch" ? S.t * 3 : 0), vy: (Math.random() - 0.5) * 40, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 2, seed: Math.random() * 100 }); };
+    const hurtRock = (k: any, d: number) => { k.hp -= d; k.hit = 0.08; if (k.hp <= 0 && !k.dead) { k.dead = true; sfx.play("boom"); burst(k.x, k.y, 8 + k.size * 6, "200,180,150", 200); S.shake = Math.max(S.shake, k.size); if (k.size > 0) { addRock(k.x - 8, k.y - 10, k.size - 1); addRock(k.x + 8, k.y + 10, k.size - 1); S.rk[S.rk.length - 1].vx = k.vx * 1.1; } else if (MODE === "belt") { for (let q = 0; q < 1 + Math.floor(Math.random() * 3); q++) S.pk.push({ x: k.x + q * 6, y: k.y + q * 5, k: "mined" }); if (Math.random() < 0.3) S.pk.push({ x: k.x, y: k.y, k: "cry" }); if (Math.random() < 0.25) S.pk.push({ x: k.x, y: k.y + 8, k: LOOTK[Math.floor(Math.random() * 2)] }); } else if (Math.random() < 0.25) S.pk.push({ x: k.x, y: k.y, k: "cry" }); } };
     const addEnemy = (type: string, y: number) => { const tp: any = { drone: { hp: 3, r: 16 }, fighter: { hp: 6, r: 20 }, bomber: { hp: 16, r: 30 }, wasp: { hp: 2, r: 14 }, kamikaze: { hp: 4, r: 16 } }[type]; S.en.push({ type, x: W + 40, y, hp: tp.hp, max: tp.hp, r: tp.r, ph: Math.random() * 6, cd: 1 + Math.random() }); };
     const hurtEn = (e: any, d: number) => { e.hp -= d; e.hit = 0.08; if (e.hp <= 0 && !e.dead) { e.dead = true; S.kills++; sfx.play("boom"); burst(e.x, e.y, 14, "255,170,70"); dropLoot(e.x, e.y, e.type === "bomber" ? 2 : 1); S.shake = Math.max(S.shake, 3); } };
     const step = (dt: number) => {
@@ -80,15 +83,16 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
         if (k.fire && s.fireCd <= 0) { s.fireCd = 0.13; S.bl.push({ x: s.x + 34, y: s.y - 7, vx: 820, vy: 0 }, { x: s.x + 34, y: s.y + 7, vx: 820, vy: 0 }); sfx.play("bolt"); }
         if (k.miss && s.mCd <= 0) { s.mCd = 3 * (1 - 0.06 * (ups.rkt || 0)); for (let q = 0; q < SALVO; q++) S.ms.push({ x: s.x + 20, y: s.y + (q - (SALVO - 1) / 2) * 16, vx: 380, vy: (q - (SALVO - 1) / 2) * 120, life: 2.4 }); sfx.play("rocket"); }
         // waves, then the mothership
-        if (!S.bossSpawned) { S.spawn -= dt; if (S.spawn <= 0) { S.spawn = Math.max(0.55, 1.5 - S.t * 0.014); const r = Math.random(), y = 50 + Math.random() * (H - 100); addEnemy(r < 0.3 ? "drone" : r < 0.5 ? "wasp" : r < 0.7 ? "fighter" : r < 0.85 ? "kamikaze" : "bomber", y); if (r < 0.3) addEnemy("wasp", H - y); } }
-        if (!S.bossSpawned && S.t >= BOSS_AT) { S.bossSpawned = true; S.en.forEach((e: any) => { e.dead = true; burst(e.x, e.y, 6, "255,120,80"); }); S.boss = { x: W + 160, y: H / 2, hp: 240, max: 240, cd: 1.4, sp: 3, ph: 0 }; sfx.play("boss"); if (mus && mus.setBoss) mus.setBoss(true); }
+        if (MODE !== "dogfight") { S.spawn -= dt; if (S.spawn <= 0) { S.spawn = MODE === "launch" ? Math.max(0.35, 0.9 - S.t * 0.012) : 0.85; const y = 50 + Math.random() * (H - 100); addRock(W + 40, y, Math.random() < 0.35 ? 2 : Math.random() < 0.6 ? 1 : 0); if (MODE === "belt" && S.t > 14 && Math.random() < 0.18) addEnemy(Math.random() < 0.6 ? "fighter" : "wasp", H - y); } }
+        else if (!S.bossSpawned) { S.spawn -= dt; if (S.spawn <= 0) { S.spawn = Math.max(0.55, 1.5 - S.t * 0.014); const r = Math.random(), y = 50 + Math.random() * (H - 100); addEnemy(r < 0.3 ? "drone" : r < 0.5 ? "wasp" : r < 0.7 ? "fighter" : r < 0.85 ? "kamikaze" : "bomber", y); if (r < 0.3) addEnemy("wasp", H - y); } }
+        if (MODE === "dogfight" && !S.bossSpawned && S.t >= BOSS_AT) { S.bossSpawned = true; S.en.forEach((e: any) => { e.dead = true; burst(e.x, e.y, 6, "255,120,80"); }); S.boss = { x: W + 160, y: H / 2, hp: 240, max: 240, cd: 1.4, sp: 3, ph: 0 }; sfx.play("boss"); if (mus && mus.setBoss) mus.setBoss(true); }
       }
       for (const b of S.bl) { b.x += b.vx * dt; b.y += b.vy * dt; } S.bl = S.bl.filter((b: any) => b.x < W + 20);
       for (const m of S.ms) { let tg: any = null, bd = 1e9; for (const e of S.en) if (!e.dead) { const d = Math.hypot(e.x - m.x, e.y - m.y); if (d < bd) { bd = d; tg = e; } } if (S.boss && !S.boss.dead && (!tg || Math.abs(S.boss.x - m.x) < bd)) tg = S.boss;
         if (tg) { const a = Math.atan2(tg.y - m.y, tg.x - m.x), v = Math.hypot(m.vx, m.vy), na = Math.atan2(m.vy, m.vx), d2 = Math.atan2(Math.sin(a - na), Math.cos(a - na)); const a2 = na + Math.max(-4 * dt, Math.min(4 * dt, d2)); const v2 = Math.min(560, v + 400 * dt); m.vx = Math.cos(a2) * v2; m.vy = Math.sin(a2) * v2; }
         m.x += m.vx * dt; m.y += m.vy * dt; m.life -= dt; S.pt.push({ x: m.x - 8, y: m.y, vx: -80, vy: (Math.random() - 0.5) * 30, life: 0.4, max: 0.4, col: "255,200,120" });
         let boom = m.life <= 0; for (const e of S.en) if (!e.dead && Math.hypot(e.x - m.x, e.y - m.y) < e.r + 8) boom = true; if (S.boss && !S.boss.dead && Math.abs(S.boss.x - m.x) < 90 && Math.abs(S.boss.y - m.y) < 80) boom = true;
-        if (boom) { m.dead = true; sfx.play("boom"); S.shake = Math.max(S.shake, 6); burst(m.x, m.y, 26, "255,190,90", 320); for (const e of S.en) if (!e.dead && Math.hypot(e.x - m.x, e.y - m.y) < 110) hurtEn(e, 12 * DMG); if (S.boss && !S.boss.dead && Math.hypot(S.boss.x - m.x, S.boss.y - m.y) < 150) { S.boss.hp -= 14 * DMG; } } }
+        if (boom) { m.dead = true; sfx.play("boom"); S.shake = Math.max(S.shake, 6); burst(m.x, m.y, 26, "255,190,90", 320); for (const e of S.en) if (!e.dead && Math.hypot(e.x - m.x, e.y - m.y) < 110) hurtEn(e, 12 * DMG); for (const k of S.rk) if (!k.dead && Math.hypot(k.x - m.x, k.y - m.y) < 120) hurtRock(k, 8 * DMG); if (S.boss && !S.boss.dead && Math.hypot(S.boss.x - m.x, S.boss.y - m.y) < 150) { S.boss.hp -= 14 * DMG; } } }
       S.ms = S.ms.filter((m: any) => !m.dead);
       for (const e of S.en) { if (e.dead) continue; e.ph += dt; e.hit = Math.max(0, (e.hit || 0) - dt);
         if (e.type === "drone") { e.x -= 170 * dt; e.y += Math.sin(e.ph * 3) * 120 * dt; }
@@ -106,20 +110,28 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
       const hurtShip = (d: number) => { if (S.over || S.win || S.ship.inv > 0) return; S.ship.hp -= d; S.ship.inv = 0.9; S.shake = 6; sfx.play("hurt"); burst(S.ship.x, S.ship.y, 10, "255,90,110"); if (S.ship.hp <= 0) { S.ship.hp = 0; S.over = true; burst(S.ship.x, S.ship.y, 50, "255,150,90", 400); } };
       for (const b of S.eb) { b.x += b.vx * dt; b.y += b.vy * dt; if (!S.over && Math.hypot(b.x - S.ship.x, b.y - S.ship.y) < (b.big ? 16 : 12)) { b.dead = true; hurtShip((b.big ? 9 : 7) * Math.sqrt(hard)); } }
       S.eb = S.eb.filter((b: any) => !b.dead && b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20);
-      for (const p of S.pk) { const dx = S.ship.x - p.x, dy = S.ship.y - p.y, d = Math.hypot(dx, dy); if (d < 160 && !S.over) { p.x += dx / d * 420 * dt; p.y += dy / d * 420 * dt; } else p.x -= 60 * dt; if (d < 26) { p.dead = true; sfx.play("pickup"); if (p.k === "cry") S.cry++; else S.loot[p.k]++; } }
+      for (const k of S.rk) { k.x -= k.vx * dt; k.y += k.vy * dt; k.rot += k.vr * dt; k.hit = Math.max(0, (k.hit || 0) - dt);
+        for (const b of S.bl) if (!b.dead && Math.hypot(b.x - k.x, b.y - k.y) < k.r + 4) { b.dead = true; hurtRock(k, DMG); }
+        for (const m of S.ms) if (!m.dead && Math.hypot(m.x - k.x, m.y - k.y) < k.r + 8) { m.life = 0; }
+        if (!k.dead && !S.over && S.ship.inv <= 0 && Math.hypot(k.x - S.ship.x, k.y - S.ship.y) < k.r + 12) { hurtShip((6 + k.size * 4) * Math.sqrt(hard)); hurtRock(k, 99); } }
+      S.bl = S.bl.filter((b: any) => !b.dead); S.rk = S.rk.filter((k: any) => !k.dead && k.x > -80);
+      if (!S.win && !S.over) { if (MODE === "launch" && S.t >= LAUNCH_T) { S.win = true; S.endT = 0; sfx.play("win"); } if (MODE === "belt" && S.mined >= ORE_GOAL) { S.win = true; S.endT = 0; sfx.play("win"); S.shake = 8; } }
+      for (const p of S.pk) { const dx = S.ship.x - p.x, dy = S.ship.y - p.y, d = Math.hypot(dx, dy); if (d < 160 && !S.over) { p.x += dx / d * 420 * dt; p.y += dy / d * 420 * dt; } else p.x -= 60 * dt; if (d < 26) { p.dead = true; sfx.play("pickup"); if (p.k === "cry") S.cry++; else if (p.k === "mined") S.mined++; else S.loot[p.k]++; } }
       S.pk = S.pk.filter((p: any) => !p.dead && p.x > -20);
       for (const p of S.pt) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; } S.pt = S.pt.filter((p: any) => p.life > 0).slice(-400);
       for (const st of S.stars) { st.x -= (40 + st.z * 260) * dt; if (st.x < 0) { st.x = W; st.y = Math.random() * H; } }
       S.shake = Math.max(0, S.shake - 30 * dt);
-      if (S.win) { S.endT += dt; if (S.endT > 2.6 && !dead) { dead = true; onWin({ kills: S.kills, cry: S.cry, loot: S.loot }); } }
+      if (S.win) { S.endT += dt; if (S.endT > 2.6 && !dead) { dead = true; onWin({ kills: S.kills, cry: S.cry, loot: S.loot, mined: S.mined, mode: MODE }); } }
     };
     const draw = () => {
       const k2 = c.width / W; x.setTransform(k2, 0, 0, k2, 0, 0); const sh = S.shake; x.translate((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
       const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#02030c"); g.addColorStop(1, "#0b0a24"); x.fillStyle = g; x.fillRect(-10, -10, W + 20, H + 20);
+      if (MODE === "launch") { const al = Math.max(0, 1 - S.t / LAUNCH_T), sk = x.createLinearGradient(0, 0, 0, H); sk.addColorStop(0, "rgba(40,90,170," + al * 0.9 + ")"); sk.addColorStop(1, "rgba(255,170,110," + al + ")"); x.fillStyle = sk; x.fillRect(-10, -10, W + 20, H + 20); }
       // a distant planet and nebula
       const ng = x.createRadialGradient(W * 0.75, H * 0.3, 10, W * 0.75, H * 0.3, 260); ng.addColorStop(0, "rgba(150,90,255,.28)"); ng.addColorStop(1, "rgba(150,90,255,0)"); x.fillStyle = ng; x.fillRect(0, 0, W, H);
       for (const st of S.stars) { x.fillStyle = "rgba(210,225,255," + (0.3 + st.z * 0.7) + ")"; x.fillRect(st.x, st.y, 1 + st.z * 1.6, 1 + st.z * 1.2); }
-      for (const p of S.pk) { x.fillStyle = p.k === "cry" ? "#7fe8ff" : p.k === "scrap" ? "#b8b8c8" : p.k === "ore" ? "#ffb060" : p.k === "gold" ? "#ffd23f" : "#c78bff"; x.beginPath(); x.arc(p.x, p.y, p.k === "cry" ? 6 : 5, 0, 7); x.fill(); }
+      for (const p of S.pk) { x.fillStyle = p.k === "cry" ? "#7fe8ff" : p.k === "mined" ? "#ffd8a0" : p.k === "scrap" ? "#b8b8c8" : p.k === "ore" ? "#ffb060" : p.k === "gold" ? "#ffd23f" : "#c78bff"; x.beginPath(); x.arc(p.x, p.y, p.k === "cry" ? 6 : 5, 0, 7); x.fill(); }
+      for (const k of S.rk) { x.save(); x.translate(k.x, k.y); x.rotate(k.rot); const n = 9; x.fillStyle = k.hit > 0 ? "#fff" : mg(x, -k.r, k.r, "#8a7a6a"); x.beginPath(); for (let i = 0; i < n; i++) { const a = i / n * 6.283, rr = k.r * (0.78 + 0.28 * Math.sin(k.seed + i * 2.3)); x.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } x.closePath(); x.fill(); x.strokeStyle = "rgba(255,210,150,.5)"; x.lineWidth = 1.5; x.stroke(); x.fillStyle = "rgba(0,0,0,.28)"; x.beginPath(); x.arc(k.r * 0.2, -k.r * 0.2, k.r * 0.22, 0, 7); x.arc(-k.r * 0.35, k.r * 0.25, k.r * 0.15, 0, 7); x.fill(); if (MODE === "belt") { x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(120,220,255,.7)"; x.fillRect(-k.r * 0.1, -k.r * 0.5, 3, 3); x.fillRect(k.r * 0.3, k.r * 0.1, 3, 3); } x.restore(); }
       for (const e of S.en) drawEnemy(x, e);
       const B = S.boss; if (B && !B.dead) drawBoss(x, B);
       x.globalCompositeOperation = "lighter";
@@ -132,10 +144,10 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
     };
     const frame = (now: number) => { raf = requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; if (document.hidden) return; step(dt); draw(); };
     raf = requestAnimationFrame(frame);
-    const hudT = setInterval(() => { setUi({ hp: Math.max(0, Math.round(S.ship.hp)), boss: S.boss ? Math.max(0, S.boss.hp / S.boss.max) : 0, bossOn: !!S.boss && !S.boss.dead, t: Math.floor(S.t), kills: S.kills, over: S.over, win: S.win, ms: Math.max(0, S.ship.mCd) }); }, 150);
+    const hudT = setInterval(() => { setUi({ mined: S.mined, hp: Math.max(0, Math.round(S.ship.hp)), boss: S.boss ? Math.max(0, S.boss.hp / S.boss.max) : 0, bossOn: !!S.boss && !S.boss.dead, t: Math.floor(S.t), kills: S.kills, over: S.over, win: S.win, ms: Math.max(0, S.ship.mCd) }); }, 150);
     const kd = (e: KeyboardEvent, v: boolean) => { const cd = e.code, k = keys.current; if (cd === "ArrowLeft" || cd === "KeyA") k.l = v; else if (cd === "ArrowRight" || cd === "KeyD") k.r = v; else if (cd === "ArrowUp" || cd === "KeyW") k.u = v; else if (cd === "ArrowDown" || cd === "KeyS") k.d = v; else if (cd === "Space" || cd === "KeyJ") k.fire = v; else if (cd === "KeyK" || cd === "KeyY") k.miss = v; };
     const dn = (e: KeyboardEvent) => kd(e, true), up = (e: KeyboardEvent) => kd(e, false); window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advShip = { state: () => ({ t: S.t, hp: S.ship.hp, kills: S.kills, en: S.en.length, boss: S.boss ? { hp: S.boss.hp, dead: !!S.boss.dead } : null, over: S.over, win: S.win, cry: S.cry, bl: S.bl.length, ms: S.ms.length }), skip: () => { S.t = BOSS_AT - 0.1; }, god: () => { S.ship.hp = 1e6; }, killBoss: () => { if (S.boss) S.boss.hp = 0.5; }, dieNow: () => { S.ship.inv = 0; S.ship.hp = 0.1; S.eb.push({ x: S.ship.x, y: S.ship.y, vx: 0, vy: 0 }); }, spawn: (ty: string) => addEnemy(ty, S.ship.y) };
+    (window as any).__advShip = { mode: MODE, rocks: () => S.rk.length, giveOre: (n: number) => { S.mined += n; }, skipLaunch: () => { S.t = LAUNCH_T - 0.1; }, spawnRock: (sz: number) => addRock(S.ship.x + 200, S.ship.y, sz), state: () => ({ mined: S.mined, rk: S.rk.length, t: S.t, hp: S.ship.hp, kills: S.kills, en: S.en.length, boss: S.boss ? { hp: S.boss.hp, dead: !!S.boss.dead } : null, over: S.over, win: S.win, cry: S.cry, bl: S.bl.length, ms: S.ms.length }), skip: () => { S.t = BOSS_AT - 0.1; }, god: () => { S.ship.hp = 1e6; }, killBoss: () => { if (S.boss) S.boss.hp = 0.5; }, dieNow: () => { S.ship.inv = 0; S.ship.hp = 0.1; S.eb.push({ x: S.ship.x, y: S.ship.y, vx: 0, vy: 0 }); }, spawn: (ty: string) => addEnemy(ty, S.ship.y) };
     return () => { cancelAnimationFrame(raf); clearInterval(hudT); window.removeEventListener("resize", fit); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advShip; } catch (e) {} };
   }, []);
   const hold = (name: string) => ({
@@ -148,9 +160,9 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
       <div className="adv-top">
         <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
         <div className="adv-hud">
-          <div className="adv-lv">☠ {ui.kills} · {ui.bossOn ? t("มาเธอร์ชิป", "MOTHERSHIP", "母舰") : t("ถึงมาเธอร์ชิปใน ", "Mothership in ", "母舰到来 ") + Math.max(0, 55 - ui.t) + "s"}</div>
+          <div className="adv-lv">{MODE === "launch" ? "🚀 " + t("ถึงวงโคจรใน ", "Orbit in ", "入轨倒计时 ") + Math.max(0, LAUNCH_T - ui.t) + "s" : MODE === "belt" ? "⛏ " + t("แร่ ", "ORE ", "矿 ") + (ui.mined || 0) + "/" + ORE_GOAL + " · ☠ " + ui.kills : <>☠ {ui.kills} · {ui.bossOn ? t("มาเธอร์ชิป", "MOTHERSHIP", "母舰") : t("ถึงมาเธอร์ชิปใน ", "Mothership in ", "母舰到来 ") + Math.max(0, 55 - ui.t) + "s"}</>}</div>
           <div className="adv-bar adv-hp"><i style={{ width: Math.max(0, Math.min(100, ui.hp)) + "%" }} /><b>HP {ui.hp}</b></div>
-          {ui.bossOn && <div className="adv-bar adv-sk"><i style={{ width: ui.boss * 100 + "%" }} /><b>{t("มาเธอร์ชิป", "MOTHERSHIP", "母舰")}</b></div>}
+          {MODE === "dogfight" && ui.bossOn && <div className="adv-bar adv-sk"><i style={{ width: ui.boss * 100 + "%" }} /><b>{t("มาเธอร์ชิป", "MOTHERSHIP", "母舰")}</b></div>}
         </div>
       </div>
       {(ui.over || ui.win) && <div className="adv-clear" role="dialog" aria-label="ship result">{ui.win ? t("ชนะ! กำลังสรุปผล…", "Victory! Tallying…", "胜利！结算中…") : <><b>{t("ยานถูกทำลาย", "Ship destroyed", "战机被毁")}</b><button className="adv-btn go" onClick={() => retry.current()}>↻ {t("ลองใหม่", "Retry", "重试")}</button><button className="adv-btn" onClick={() => onExit()}>{t("กลับแผนที่", "Back to map", "返回地图")}</button></>}</div>}

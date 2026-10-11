@@ -118,6 +118,8 @@ export const PLANETS = [
   { id: "dyson", th: "ไดสันฟอร์จ · สร้างไดสันสเฟียร์รอบดาวฤกษ์ต่างจักรวาล", en: "Dyson Forge · build a Dyson sphere round a foreign star", zh: "戴森锻炉 · 为异宇宙恒星建造戴森球", c: ["#1a0600", "#6a2a00", "#ffd060"], glow: "255,210,110", acc: "120,220,255", ok: true, req: "helios", hard: 3.2, mission: "dyson", mons: ["magmaling", "flarecaster", "drone", "magmaling", "scrapgolem", "brute", "wraith"], tint: { glow: "255,200,90", body: "#4a1a06" }, boss: ["-", "-", "-"] },
   { id: "ashfall", th: "แอชฟอลล์ · ทิ้งนิวเคลียร์ก่อนแล้วค่อยบุก", en: "Ashfall · orbital strike, then assault", zh: "灰烬星 · 先轨道核打击再突袭", c: ["#12120e", "#3a3a2a", "#8a8a5a"], glow: "220,210,140", acc: "255,90,60", ok: true, req: "pyra", hard: 3.4, mission: "strike", mons: ["scrapgolem", "drone", "scrapgolem", "rustcrawler", "drone", "magmaling", "mantis", "brute"], tint: { glow: "220,200,120", body: "#26261c" }, boss: ["ผู้บัญชาการแอชฟอลล์", "Ashfall Commander", "灰烬指挥官"] },
   { id: "voidgate", th: "วอยด์เกต · ขับยานรบสู้ฝูงเอเลี่ยน", en: "Void Gate · starship dogfight", zh: "虚空之门 · 驾驶战机空战", c: ["#02030c", "#1a1240", "#6a4cff"], glow: "130,170,255", acc: "255,120,90", ok: true, req: "kryo", hard: 2.6, mission: "dogfight", mons: ["drone"], tint: null, boss: ["เรือแม่ของเอเลี่ยน", "the alien Mothership", "外星母舰"] },
+  { id: "departure", th: "ออกเดินทาง · ทะยานจากโลกสู่วงโคจร", en: "Departure · launch from Earth to orbit", zh: "启程 · 从地球冲向轨道", c: ["#0a1a3a", "#2a5a9a", "#ffb070"], glow: "255,200,140", acc: "120,200,255", ok: true, hard: 1, mission: "launch", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
+  { id: "asteroids", th: "ทุ่งดาวเคราะห์น้อย · ขับยานขุดแร่", en: "Asteroid Field · fly and mine the rocks", zh: "小行星带 · 驾驶飞船采矿", c: ["#0a1220", "#2a3a52", "#8a7a6a"], glow: "255,210,150", acc: "120,220,255", ok: true, hard: 1.8, mission: "belt", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
 ];
 
 /* the story (owner, 2026-10-11): year 2100, these robots are built BY humans to do the colony work in their place, before any person
@@ -131,6 +133,8 @@ export const BRIEF: Record<string, string[]> = {
   nexa: ["เมืองซากอวกาศ: เจ้าหน้าที่ควบคุมสุดท้ายยังรออยู่ — ระวังแผ่นไฟฟ้า", "The wreck city: the last overseer waits. Mind the shock plates.", "残骸之城：最后的监管者在等候，小心电击板。"],
   cobalt: ["แถบเหมือง: ขุดแร่ 10 ก้อนขึ้นไปแล้วส่งแคปซูลกลับโลก", "The belt: mine at least 10 ore and launch the capsule home to Earth.", "矿带：至少采集 10 块矿石，发射货舱运回地球。"],
   dyson: ["ไดสันฟอร์จ: ขุดแร่ มาประกอบแผงไดสันสเฟียร์ 4 แผง (กด ⛏ ใกล้โครง) แล้วส่งพลังงานกลับโลกที่เสาส่งขวาสุด", "Dyson Forge: mine ore, bolt 4 Dyson panels onto the frames (press ⛏ beside a frame), then beam the energy home from the far-right relay", "戴森锻炉：采矿，在框架旁按 ⛏ 装上 4 块戴森板，再从最右中继塔把能量传回地球"],
+  departure: ["ออกเดินทาง: หลบเศษขยะอวกาศและก้อนหินจนถึงวงโคจร (ยิงให้แตกได้)", "Departure: dodge debris and rocks to reach orbit (you can shoot them)", "启程：躲避太空碎片与岩石直至入轨（可以击碎它们）"],
+  asteroids: ["ทุ่งดาวเคราะห์น้อย: ยิงหินให้แตกแล้วดูดแร่ให้ครบ 16 ก้อน ระวังโจรอวกาศ", "Asteroid Field: shoot the rocks, collect 16 ore, watch for pirates", "小行星带：击碎岩石收集 16 块矿石，小心太空海盗"],
   helios: ["ดาวฤกษ์ต่างระบบ: ยึดสถานีเก็บพลังงานทั้งสามจุดทีละจุด", "A foreign sun: take its three collector stations, one at a time.", "异星恒星：逐一占领三座能量采集站。"],
   ashfall: ["แอชฟอลล์: ทิ้งระเบิดนิวเคลียร์จากวงโคจรก่อน แล้วค่อยลงไปกวาดล้างที่เหลือ", "Ashfall: nuke the bases from orbit first, then drop in and clear what is left.", "灰烬星：先从轨道投下核弹，再降落扫荡残敌。"],
 };
@@ -506,15 +510,15 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
         </div>
       ) : (
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
-        planet.mission === "dogfight" && shipDone ? (
+        ["dogfight", "launch", "belt"].includes(planet.mission) && shipDone ? (
           <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
-            <span>☠ {shipDone.kills} · ◆ {shipDone.cry}</span>
+            <span>☠ {shipDone.kills} · ◆ {shipDone.cry}{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}</span>
             {shipDone.coins > 0 && <small className="ac-coins">🪙 +{shipDone.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
             <div className="adv-clear-btns">
               {shipDone.next && <button className="adv-btn go" onClick={() => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setShipDone(null); setPlanet(shipDone.next); }}>▶ {T3(lang, shipDone.next.th, shipDone.next.en, shipDone.next.zh).split(" · ")[0]}</button>}
               <button className="adv-btn" onClick={() => { setShipDone(null); setPlanet(null); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div>
           </div>
-        ) : planet.mission === "dogfight" ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
+        ) : ["dogfight", "launch", "belt"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id + gfx} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
@@ -567,6 +571,7 @@ function settleShip(res: any, P: any, onReward: any) {
   if (!win) return { coins: 0, capped: false };
   const RW = readDiff().rw; let value = 0; for (const k of Object.keys(res.loot || {})) value += (res.loot[k] || 0) * ((LOOT as any)[k] ? (LOOT as any)[k].v : 0);
   const want = Math.round(value * RW * rate), room = Math.max(0, ADV_COIN_DAY_CAP - readDayCoins()), coins = Math.min(want, room);
+  if (res.mined) addOre(res.mined);
   if (res.cry) addCrystals(res.cry * (readDiff().id === "normal" ? 1 : readDiff().id === "hard" ? 2 : 3));
   markDone(P.id);
   if (coins > 0) { addDayCoins(coins); if (onReward) { try { onReward(0, coins, { adventure: true }); } catch (e) {} } }

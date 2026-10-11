@@ -15,6 +15,11 @@ const COMMON = {
   factory: ["เราจึงสร้างหุ่นยนต์ผู้บุกเบิก ให้ทำงานแทนมนุษย์ ก่อนที่ใครจะเหยียบดาวดวงนั้น", "So we built pioneer robots to do the work in our place, before any human sets foot there.", "于是我们制造先遣机器人，在人类踏足之前替我们完成一切。"],
   launch: ["ฝูงยานพุ่งออกจากระบบสุริยะ ขนทรัพยากรกลับโลก และปักธงอาณานิคมแห่งใหม่", "The fleet leaves the Solar System to bring resources home and plant the flags of new colonies.", "舰队驶离太阳系，把资源运回地球，为新殖民地插上旗帜。"],
 };
+const DEPART = {   // the send-off film (owner, 2026-10-11): the countdown, the lift-off, and the Earth falling away behind the fleet
+  pad: ["ศูนย์ควบคุมเงียบกริบ มนุษยชาติทั้งโลกกำลังเงยหน้ามองฟ้า… นับถอยหลัง", "Mission control falls silent. A whole planet looks up. The countdown begins.", "控制中心鸦雀无声，整个地球仰望天空……倒计时开始。"],
+  liftoff: ["ไฟลุกท่วม ฟ้าสะเทือน — หุ่นยนต์ผู้บุกเบิกทะยานขึ้นแทนพวกเรา", "Fire floods the pad, the sky shakes, and the pioneers rise in our place.", "烈焰吞没发射台，天空震颤——先遣机器人代替我们升空。"],
+  earthfade: ["นี่ไม่ใช่การจากลา แต่คือการเริ่มต้นของมนุษยชาติ — โลกเล็กลงทุกวินาที ดวงดาวรอเราอยู่", "This is not goodbye. It is humanity's beginning. Earth shrinks behind us; the stars are waiting.", "这不是告别，而是人类的开端。地球在身后渐渐变小，群星正在等待。"],
+};
 type L3 = string[];
 const INTRO: Record<string, L3> = {
   luma: ["ลูมา — ดาวป่าเรืองแสง เต็มไปด้วยสิ่งมีชีวิตที่ไม่เคยมีใครพบ", "Luma: a glowing jungle world, full of life no one has met.", "卢玛——荧光丛林星球，遍布无人见过的生命。"],
@@ -25,6 +30,8 @@ const INTRO: Record<string, L3> = {
   nexa: ["เน็กซา — ซากเมืองอวกาศของอารยธรรมที่เงียบหายไป", "Nexa: the wrecked city of a civilization that went silent.", "内克萨——一个沉寂文明的残骸之城。"],
   cobalt: ["แถบโคบอลต์ — ดาวเคราะห์น้อยนับพัน เต็มไปด้วยแร่หายาก", "The Cobalt Belt: thousands of asteroids heavy with rare ore.", "钴带——数千颗小行星，蕴藏稀有矿石。"],
   helios: ["เฮลิออส — ดาวฤกษ์ต่างระบบ พลังงานเหลือเฟือ ถ้ายึดมันได้", "Helios: a foreign sun, with limitless energy for whoever takes it.", "赫利俄斯——异星恒星，谁占领它谁就拥有无尽能量。"],
+  departure: ["วันออกเดินทางมาถึงแล้ว — กองเรือบุกเบิกพร้อมที่แท่นปล่อย", "Launch day. The pioneer fleet waits on the pad.", "启程之日到来，先遣舰队已在发射台待命。"],
+  asteroids: ["ทุ่งดาวเคราะห์น้อย — แร่ล้ำค่าลอยอยู่เต็มท้องฟ้า แต่โจรอวกาศก็เช่นกัน", "The asteroid field: precious ore drifts everywhere, and so do pirates.", "小行星带——珍贵矿石漂浮四处，太空海盗也是。"],
   dyson: ["ไดสันฟอร์จ — ดาวฤกษ์จากจักรวาลอื่นที่เรากำลังจะหุ้มด้วยแผงเก็บพลังงานทั้งดวง", "Dyson Forge: a star from another universe, which we will wrap in a shell of energy panels.", "戴森锻炉——来自另一个宇宙的恒星，我们要用能量板把它整个包起来。"],
   ashfall: ["แอชฟอลล์ — ดาวที่เอเลี่ยนสร้างฐานทัพไว้เต็มพื้นผิว", "Ashfall: a world the aliens have covered in military bases.", "灰烬星——遍布外星军事基地的星球。"],
   voidgate: ["วอยด์เกต — ประตูมิติที่ฝูงรบของเอเลี่ยนพุ่งทะลุออกมา", "The Void Gate: a rift in space where the alien war fleet pours through.", "虚空之门——外星舰队从空间裂隙中涌出。"],
@@ -38,6 +45,8 @@ const STORY: Record<string, L3> = {
   nexa: ["แผ่นพื้นไฟฟ้ายังทำงาน และผู้ควบคุมคนสุดท้ายยังตื่นอยู่", "The floor plates still carry current, and the last overseer is still awake.", "地板电击板仍在通电，最后的监管者还醒着。"],
   cobalt: ["ต้องขุดแร่ให้พอ แล้วส่งแคปซูลกลับโลก เพื่อให้อาณานิคมเติบโต", "Dig enough ore and launch the capsule home, so the colony can grow.", "采足矿石，把货舱发射回地球，殖民地才能壮大。"],
   helios: ["สถานีเก็บพลังงานสามจุดเรียงรายอยู่ใต้ดวงอาทิตย์ ศัตรูจะไม่ปล่อยให้ใครยึดไป", "Three collector stations stand under this sun, and the enemy will not give them up.", "三座能量采集站矗立在恒星之下，敌人不会拱手相让。"],
+  departure: ["ผ่านเศษขยะอวกาศและก้อนหินที่ลอยอยู่เหนือโลก ไปให้ถึงวงโคจร", "Fly through the debris and loose rock above the Earth to reach orbit.", "穿过地球上空的碎片与浮石，抵达轨道。"],
+  asteroids: ["ยิงหินให้แตก ดูดแร่ใส่ท้องยาน แล้วส่งกลับโลกให้ครบ", "Blast the rocks, scoop the ore into the hold and send it home.", "击碎岩石，把矿石吸进货舱，运回地球。"],
   dyson: ["หุ่นยนต์ต้องขุดแร่ ประกอบแผงไดสันทีละแผง และสูบพลังงานดาวฤกษ์ส่งกลับโลก — ท่ามกลางเปลวสุริยะและฝูงเอเลี่ยน", "Robots mine the ore, bolt the Dyson panels on one by one, and beam the star's power home, under solar flares and alien raiders.", "机器人开采矿石，逐块装上戴森板，把恒星的能量传回家园——头顶是耀斑与外星袭击者。"],
   ashfall: ["เราจะทิ้งระเบิดนิวเคลียร์จากวงโคจรก่อน แล้วค่อยลงไปกวาดล้างส่วนที่เหลือ", "First we drop nuclear warheads from orbit. Then we land and clear what is left.", "先从轨道投下核弹，再降落扫荡残余的敌人。"],
   voidgate: ["ถึงเวลาปล่อยหุ่นยนต์ขึ้นนั่งยานรบ — ฝูงโดรนและเรือรบกำลังพุ่งเข้าหาเรา", "The robot takes the helm of a starfighter. Drones and warships are already closing in.", "机器人登上战机驾驶舱，无人机与战舰已蜂拥而至。"],
@@ -51,17 +60,20 @@ const GOAL: Record<string, L3[]> = {
   nexa: [["กระโดดข้ามแผ่นไฟฟ้าตอนที่ติด", "Jump the shock plates while live", "电击板通电时跳过"], ["จัดการโดรนและโกเลมเศษเหล็ก", "Take down drones and golems", "解决无人机与废铁魔像"], ["ล้มผู้ควบคุม — มันจะโกรธเมื่อเลือดเหลือครึ่ง", "Defeat the overseer: it enrages at half health", "击败监管者——半血时它会狂暴"]],
   cobalt: [["ทุบก้อนแร่ด้วยหมัดหรือเตะ", "Break ore with punches or kicks", "用拳脚击碎矿石"], ["เก็บให้ได้ 10 ก้อนขึ้นไป", "Gather at least 10 ore", "至少采集 10 块矿"], ["ส่งที่แท่นขวาสุดเพื่อยิงกลับโลก", "Launch it from the far-right pad", "在最右平台发射回地球"]],
   helios: [["ยืนยึดสถานีทีละจุด จุดละ 10 วินาที", "Hold each station for 10 seconds", "逐一坚守采集站 10 秒"], ["ป้องกันคลื่นศัตรูขณะยึด", "Beat back the waves meanwhile", "占领期间击退敌军"], ["ยึดครบ 3 จุดเพื่อเป็นเจ้าของดวงอาทิตย์", "Take all three to own the sun", "占领全部三座，拥有恒星"]],
+  departure: [["ยิงหรือหลบก้อนหินและเศษขยะ", "Shoot or dodge the rocks and debris", "击碎或躲开岩石与碎片"], ["รักษาตัวยานไว้จนถึงวงโคจร", "Keep the ship intact all the way to orbit", "保持飞船完好直至入轨"], ["เก็บคริสตัลที่ลอยมา", "Pick up the crystals that drift by", "收集漂浮的水晶"]],
+  asteroids: [["ยิงหินให้แตกเป็นแร่", "Blast rocks into ore", "把岩石击碎成矿石"], ["เก็บแร่ให้ครบ 16 ก้อน", "Collect 16 ore", "收集 16 块矿石"], ["ระวังโจรอวกาศ", "Beware of space pirates", "小心太空海盗"]],
   dyson: [["ทุบหินหาแร่ด้วยปุ่ม ⛏", "Break rocks for ore with the ⛏ button", "用 ⛏ 按钮敲碎岩石获取矿石"], ["ประกอบแผงไดสัน 4 แผงที่โครงเหล็ก", "Bolt 4 Dyson panels onto the frames", "在框架上装配 4 块戴森板"], ["ส่งพลังงานกลับโลกที่เสาส่งขวาสุด", "Beam the energy to Earth from the far-right relay", "在最右中继塔把能量传回地球"]],
   ashfall: [["ปล่อยหัวรบ 3 ลูกให้โดนฐานมากที่สุด", "Drop 3 warheads on as many bases as you can", "用 3 枚弹头摧毁尽可能多的基地"], ["ฐานที่โดนจะไม่มีทหารตอนบุก", "Destroyed bases have no defenders", "被摧毁的基地没有守军"], ["ลงพื้นที่แล้วล้มผู้บัญชาการ", "Land and defeat the commander", "降落并击败指挥官"]],
   voidgate: [["บังคับยานหลบกระสุนและยิงฝูงเอเลี่ยน", "Fly, dodge and shoot down the alien swarm", "驾驶战机闪避并击落外星机群"], ["เก็บคริสตัลและของที่ดรอปไว้ขายเป็นเงิน", "Collect crystals and loot to sell for coins", "收集水晶与战利品换取金币"], ["ล้มเรือแม่ให้ได้ก่อนยานคุณพัง", "Destroy the mothership before your ship falls", "在战机被毁前击落母舰"]],
 };
-const TYPE: Record<string, string> = { luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun" };
+const TYPE: Record<string, string> = { luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt" };
 
-const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate"];
+const CH = ["departure", "asteroids", "luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate"];
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
 /* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
 export function cinePlan(P: any, short?: boolean): CineShot[] { return basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 })); }
 function basePlan(P: any, short?: boolean): CineShot[] {
+  if (P.id === "departure") return [{ kind: "pad", dur: 7 }, { kind: "liftoff", dur: 7 }, { kind: "earthfade", dur: 7 }, { kind: "objective", dur: 6 }];
   if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }];
   if (short === undefined) short = seenPrologue();
   if (short) { const q: CineShot[] = [{ kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }]; if (P.boss && P.boss[0] !== "-") q.push({ kind: "boss", dur: 3.8 }); q.push({ kind: "objective", dur: 6 }); return q; }
@@ -75,6 +87,7 @@ const captionFor = (P: any, kind: string, lang: string) => {
   if (kind === "earth" || kind === "factory" || kind === "launch") return g((COMMON as any)[kind]);
   if (kind === "approach") return g(INTRO[P.id] || INTRO.luma);
   if (kind === "surface" || kind === "strike") return g(STORY[P.id] || STORY.luma);
+  if (kind === "pad" || kind === "liftoff" || kind === "earthfade") return g((DEPART as any)[kind]);
   if (kind === "boss") return T3(lang, "ที่ปลายทาง มี " + P.boss[0] + " รออยู่", "At the end of the road, " + P.boss[1] + " is waiting.", "路的尽头，" + P.boss[2] + "正在等候。");
   return "";
 };
@@ -207,6 +220,36 @@ function alien(x: Cx, px: number, py: number, s: number, kind: number, col: stri
   }
   x.restore();
 }
+function rocketShape(x: Cx, px: number, py: number, s: number, flame: number) {
+  x.save(); x.translate(px, py); x.scale(s, s);
+  if (flame > 0) { x.globalCompositeOperation = "lighter"; const g = x.createLinearGradient(0, 0, 0, 160 * flame); g.addColorStop(0, "rgba(255,255,230,.95)"); g.addColorStop(0.3, "rgba(255,190,70,.85)"); g.addColorStop(1, "rgba(255,70,20,0)"); x.fillStyle = g; x.beginPath(); x.moveTo(-16, 0); x.lineTo(0, 170 * flame + Math.random() * 14); x.lineTo(16, 0); x.fill(); x.globalCompositeOperation = "source-over"; }
+  for (const sd of [-1, 1]) { x.fillStyle = metalG(x, sd * 18, -70, sd * 30, 0, "#c8d2e0", 0.5); poly(x, [[sd * 14, -64], [sd * 28, -64], [sd * 28, -4], [sd * 14, -4]]); x.fill(); x.fillStyle = "#e4455b"; poly(x, [[sd * 14, -64], [sd * 21, -80], [sd * 28, -64]]); x.fill(); }
+  x.fillStyle = metalG(x, -14, -150, 14, 0, "#e8edf3", 0.6); poly(x, [[-14, -4], [14, -4], [14, -118], [0, -160], [-14, -118]]); x.fill(); x.strokeStyle = "rgba(20,30,50,.5)"; x.lineWidth = 1; for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(-14, -30 - i * 24); x.lineTo(14, -30 - i * 24); x.stroke(); }
+  x.fillStyle = "#2a5aa8"; x.fillRect(-14, -96, 28, 10); x.fillStyle = "rgba(160,220,255,.9)"; x.beginPath(); x.arc(0, -128, 5, 0, 7); x.fill(); x.restore();
+}
+function scenePad(x: Cx, W: number, H: number, u: number, t: number) {
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#050a1c"); g.addColorStop(0.6, "#16284a"); g.addColorStop(1, "#4a3a3a"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  for (const s of STARS) if (s.y < 0.6) { x.fillStyle = `rgba(255,255,255,${0.5 * s.z})`; x.fillRect(s.x * W, s.y * H, 1.3, 1.3); }
+  x.fillStyle = "#0a1020"; for (let i = 0; i < 8; i++) { const bx = W * (i / 8), bh = H * (0.12 + rnd(i + 5) * 0.2); x.fillRect(bx, H * 0.78 - bh, W / 8 - 4, bh); }   // the city beyond the field
+  x.fillStyle = "#101826"; x.fillRect(0, H * 0.78, W, H * 0.22);
+  x.globalCompositeOperation = "lighter"; for (const sd of [-1, 1]) { const fg = x.createRadialGradient(W / 2 + sd * W * 0.32, H * 0.2, 0, W / 2 + sd * W * 0.32, H * 0.2, H); fg.addColorStop(0, "rgba(255,240,210,.35)"); fg.addColorStop(1, "rgba(255,240,210,0)"); x.fillStyle = fg; x.fillRect(0, 0, W, H); } x.globalCompositeOperation = "source-over";   // floodlights
+  x.fillStyle = "#1a2436"; x.fillRect(W * 0.62, H * 0.2, 14, H * 0.6); x.fillRect(W * 0.62, H * 0.3, W * 0.1, 8);   // the gantry
+  const sh = u > 0.88 ? (Math.random() - 0.5) * 3 : 0; rocketShape(x, W / 2 + sh, H * 0.78, H / 330, u > 0.9 ? (u - 0.9) * 8 : 0);
+  const left = Math.max(0, Math.ceil(10 - u * 11)); x.fillStyle = "rgba(255,230,160,.9)"; x.textAlign = "center"; x.font = `900 ${Math.round(H * 0.16)}px system-ui,sans-serif`; if (left > 0) x.fillText(String(left), W * 0.2, H * 0.34); else x.fillText("GO", W * 0.2, H * 0.34);
+  x.font = `800 ${Math.round(H * 0.04)}px monospace`; x.fillStyle = "rgba(140,210,255,.8)"; x.fillText("T-" + String(Math.max(0, left)).padStart(2, "0"), W * 0.2, H * 0.42);
+}
+function sceneLiftoff(x: Cx, W: number, H: number, u: number, t: number) {
+  const g = x.createLinearGradient(0, 0, 0, H); const sp = Math.min(1, u * 1.4); g.addColorStop(0, `rgb(${Math.round(30 - 28 * sp)},${Math.round(70 - 66 * sp)},${Math.round(150 - 130 * sp)})`); g.addColorStop(1, `rgb(${Math.round(255 - 215 * sp)},${Math.round(170 - 150 * sp)},${Math.round(110 - 90 * sp)})`); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  if (sp > 0.4) for (const s of STARS) { x.fillStyle = `rgba(255,255,255,${(sp - 0.4) * s.z})`; x.fillRect(s.x * W, s.y * H, 1.3, 1.3); }
+  x.fillStyle = "rgba(255,255,255,.18)"; for (let i = 0; i < 14; i++) { const cy = ((rnd(i + 90) * H * 1.6 + u * H * 5 * (0.6 + rnd(i) * 0.8)) % (H * 1.4)) - H * 0.2, cx = rnd(i + 40) * W; x.beginPath(); x.ellipse(cx, cy, 90 + rnd(i) * 80, 18, 0, 0, 7); x.fill(); }   // clouds streaming past
+  x.globalCompositeOperation = "lighter"; const tr = x.createLinearGradient(0, H * 0.5, 0, H); tr.addColorStop(0, "rgba(255,200,120,.5)"); tr.addColorStop(1, "rgba(255,200,120,0)"); x.fillStyle = tr; x.fillRect(W / 2 - 24, H * 0.55, 48, H * 0.45); x.globalCompositeOperation = "source-over";
+  rocketShape(x, W / 2 + Math.sin(t * 40) * 1.5, H * (0.62 - u * 0.1), H / 300, 1);
+}
+function sceneEarthFade(x: Cx, W: number, H: number, u: number, t: number, P: any) {
+  space(x, W, H, t, 6, "120,160,255"); const r = H * (0.62 - u * 0.5); sphere(x, W * (0.28 + u * 0.1), H * 0.62, Math.max(8, r), "42,106,184", "110,190,255", -35, 12, false, t);
+  capital(x, W * (0.4 + u * 0.35), H * 0.34, H / 560, -0.05, "180,210,255", t); for (let i = 0; i < 6; i++) ship(x, W * (0.3 + i * 0.1 + u * 0.4), H * (0.55 + (i % 3) * 0.08), H / 340, -0.05, "190,220,255");
+  x.globalCompositeOperation = "lighter"; const fl = x.createRadialGradient(W * 0.9, H * 0.1, 0, W * 0.9, H * 0.1, H * 0.6); fl.addColorStop(0, "rgba(255,240,200,.35)"); fl.addColorStop(1, "rgba(255,240,200,0)"); x.fillStyle = fl; x.fillRect(0, 0, W, H); x.globalCompositeOperation = "source-over"; void P;
+}
 function sceneEarth(x: Cx, W: number, H: number, u: number, t: number) {
   space(x, W, H, t, 2, "90,140,255"); const cx = W * (0.66 - u * 0.04), cy = H * 0.7, r = H * 0.62; sphere(x, cx, cy, r, "40,110,200", "110,190,255", -40, 0, true, t);
   x.save(); x.beginPath(); x.arc(cx, cy, r, 0, 7); x.clip(); x.fillStyle = "rgba(60,150,80,.7)"; for (let i = 0; i < 7; i++) { x.beginPath(); x.ellipse(cx + (rnd(i) - 0.5) * r * 1.2 + t * 6 % 30, cy + (rnd(i + 5) - 0.5) * r * 1.1, r * (0.1 + rnd(i + 2) * 0.16), r * (0.06 + rnd(i + 8) * 0.1), rnd(i) * 3, 0, 7); x.fill(); } x.restore();
@@ -288,6 +331,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; x.fillStyle = "#000"; x.fillRect(0, 0, W, H);
       x.save(); const zoom = 1 + 0.07 * u; x.translate(W / 2, H / 2); x.scale(zoom, zoom); x.translate(-W / 2, -H / 2);
       switch (s.kind) {
+        case "pad": scenePad(x, W, H, u, local); break; case "liftoff": sceneLiftoff(x, W, H, u, local); break; case "earthfade": sceneEarthFade(x, W, H, u, local, P); break;
         case "earth": sceneEarth(x, W, H, u, local); break; case "factory": sceneFactory(x, W, H, u, local, eye); break; case "launch": sceneLaunch(x, W, H, u, local, P.glow); break;
         case "approach": sceneApproach(x, W, H, u, local, P); break; case "boss": sceneBoss(x, W, H, u, local, P); break; case "objective": sceneObjective(x, W, H, local, P); break;
         default: sceneSurface(x, W, H, u, local, P, type, eye);
