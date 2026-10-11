@@ -394,13 +394,11 @@ const CSS = `
 .pvptier,.pvpadv,.adv-planet,.adv-up{border-radius:34px!important}
 .stgback,.adv-btn:not(.go){border-radius:50%!important}
 
-/* pad layout (owner, 2026-10-11, drawn on a screenshot): FIRE, JUMP and PUNCH move to the upper right, above ROCKET and KICK; the skills sit under them in the middle row */
+/* pad layout (owner, 2026-10-11, drawn on screenshots): top row JUMP, PUNCH (DIG beside them on resource maps); middle row ROCKET, FIRE, KICK; bottom row the three skills (3, 2, 1) and the spell, all packed to the right */
 .adv-pad .pvppad-r{grid-template-columns:repeat(5,auto);grid-template-rows:repeat(3,auto);justify-items:end}
-.adv-pad .pvppad-r .pvpact.fire{grid-area:1/3}.adv-pad .pvppad-r .pvpact.jump{grid-area:1/4}.adv-pad .pvppad-r .pvpact.punch{grid-area:1/5}
-.adv-pad .pvppad-r .pvpact[data-slot="0"]{grid-area:2/1}.adv-pad .pvppad-r .pvpact[data-slot="1"]{grid-area:2/2}.adv-pad .pvppad-r .pvpact[data-slot="2"]{grid-area:2/3}
-.adv-pad .pvppad-r .pvpact.rocket{grid-area:2/4}.adv-pad .pvppad-r .pvpact.kick{grid-area:2/5}
-.adv-pad .pvppad-r .pvpact.dig{grid-area:3/4}.adv-pad .pvppad-r .pvpact.spell{grid-area:3/5}
-
+.adv-pad .pvppad-r .pvpact.dig{grid-area:1/3}.adv-pad .pvppad-r .pvpact.jump{grid-area:1/4}.adv-pad .pvppad-r .pvpact.punch{grid-area:1/5}
+.adv-pad .pvppad-r .pvpact.rocket{grid-area:2/3}.adv-pad .pvppad-r .pvpact.fire{grid-area:2/4}.adv-pad .pvppad-r .pvpact.kick{grid-area:2/5}
+.adv-pad .pvppad-r .pvpact[data-slot="2"]{grid-area:3/2}.adv-pad .pvppad-r .pvpact[data-slot="1"]{grid-area:3/3}.adv-pad .pvppad-r .pvpact[data-slot="0"]{grid-area:3/4}.adv-pad .pvppad-r .pvpact.spell{grid-area:3/5}
 `;
 
 type Gfx = "standard" | "high";
