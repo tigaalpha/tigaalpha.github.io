@@ -24,7 +24,7 @@ async function open(pre) {
 {
   const { ctx, p, errs } = await open({});
   const lock = await p.evaluate(() => [...document.querySelectorAll(".adv-planet")].slice(0, 2).map(b => b.disabled));
-  ok("Luma open, Ferro locked before the boss", lock[0] === false && lock[1] === true, JSON.stringify(lock));
+  ok("Luma and Ferro both open before any boss", lock[0] === false && lock[1] === false, JSON.stringify(lock));
   await p.evaluate(() => document.querySelector(".adv-planet").click()); await p.waitForSelector(".adv canvas"); await p.waitForTimeout(600);
   ok("boss is not active at the start", (await p.evaluate(() => window.__advTest.boss())).active === false);
   await p.evaluate(() => window.__advTest.tp(5200 - 900 + 120)); await p.waitForTimeout(700);
@@ -48,7 +48,7 @@ async function open(pre) {
 {
   const { ctx, p, errs } = await open({ tg_adv_done: JSON.stringify(["luma"]) });
   const lock = await p.evaluate(() => [...document.querySelectorAll(".adv-planet")].slice(0, 3).map(b => b.disabled));
-  ok("Ferro opens after Luma, Kryo stays locked", lock[1] === false && lock[2] === true, JSON.stringify(lock));
+  ok("Ferro and Kryo open after Luma too", lock[1] === false && lock[2] === false, JSON.stringify(lock));
   await p.evaluate(() => document.querySelectorAll(".adv-planet")[1].click()); await p.waitForSelector(".adv canvas"); await p.waitForTimeout(800);
   await p.evaluate(() => window.__advTest.tp(520)); await p.waitForTimeout(1500);
   ok("Ferro runs with its tougher monsters and no errors", errs.length === 0 && (await p.evaluate(() => window.__advTest.state().mons)) > 0, errs.join("|"));

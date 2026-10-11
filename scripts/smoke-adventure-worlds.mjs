@@ -26,13 +26,13 @@ async function enter(pre, idx) { const o = await open(pre); await o.p.evaluate((
 {
   const o = await open({ tg_adv_done: JSON.stringify(["luma"]) });
   const lock = await o.p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => b.disabled));
-  ok("after Luma: Ferro open; Jovia and Kryo still locked", lock[1] === false && lock[2] === true && lock[3] === true, JSON.stringify(lock));
+  ok("every map is open from the start (any order)", lock.every(v => v === false), JSON.stringify(lock));
   await o.ctx.close();
 }
 {
   const o = await open(DONE);
   const lock = await o.p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => b.disabled));
-  ok("after Ferro: Jovia and Kryo open, Pyra and Nexa locked", lock[2] === false && lock[3] === false && lock[4] === true && lock[5] === true, JSON.stringify(lock));
+  ok("every map stays open after Ferro", lock.every(v => v === false), JSON.stringify(lock));
   await o.ctx.close();
 }
 {

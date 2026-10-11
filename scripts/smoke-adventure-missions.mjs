@@ -27,7 +27,7 @@ const D = (...ids) => ({ tg_adv_done: JSON.stringify(ids) });
 async function enter(pre, idx) { const o = await open(pre); await o.p.evaluate((i) => document.querySelectorAll(".adv-planet")[i].click(), idx); return o; }
 const IDX = { cobalt: 6, helios: 7, dyson: 8, ashfall: 9 };
 { const o = await open(D("luma", "ferro")); const l = await o.p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => b.disabled));
-  ok("Cobalt opens after Ferro; Helios needs Kryo; Ashfall needs Pyra", l[6] === false && l[7] === true && l[8] === true, JSON.stringify(l)); await o.ctx.close(); }
+  ok("Cobalt, Helios and Ashfall are open in any order", l[6] === false && l[7] === false && l[8] === false, JSON.stringify(l)); await o.ctx.close(); }
 { const o = await open({ tg_earth_ore: "55" }); ok("the menu shows what was shipped to Earth and the colony stage", /55/.test(await o.p.locator(".adv-menu").innerText()) && /Camp/.test(await o.p.locator(".adv-menu").innerText())); await o.ctx.close(); }
 { // ── mining ──
   const o = await enter(D("luma", "ferro"), IDX.cobalt); await o.p.waitForSelector(".adv canvas"); await o.p.waitForTimeout(1200);

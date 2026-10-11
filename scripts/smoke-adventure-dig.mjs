@@ -47,6 +47,9 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
   ok("four panels are built from the ore", (await p.evaluate(() => window.__advTest.framesBuilt())).every(b => b));
   await p.evaluate((x) => window.__advTest.tp(x), await p.evaluate(() => window.__advTest.padX())); await p.waitForSelector(".adv-clear", { timeout: 15000 });
   ok("at the relay the energy is beamed to Earth and the map is done", await p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done")).includes("dyson") && Number(localStorage.getItem("tg_earth_dyson")) === 4));
+  const gx = (await p.evaluate(() => window.__advTest.padX())) + 130; await p.evaluate((x) => window.__advTest.tp(x), gx);
+  await p.waitForSelector(".adv-strike", { timeout: 8000 }).catch(() => {});
+  ok("walking into the warp gate after the goal goes straight on to the next map (no card to press)", (await p.locator(".adv-strike").count()) === 1);
   ok("no errors (dyson)", errs.length === 0, errs.slice(0, 3).join("|")); await ctx.close();
 }
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
