@@ -25,20 +25,25 @@ async function boot(done, planetIdx = 0) {
 const ALL = { tg_adv_done: JSON.stringify(["luma", "ferro"]), tg_path_done: JSON.stringify(["triad", "scale"]) };
 {
   const { ctx, p, errs } = await boot(ALL, 0);
-  const bpms = {};
-  for (const id of ["luma", "ferro", "jovia", "kryo"]) for (const boss of [false, true]) {
-    const r = await p.evaluate(([i, b]) => window.__advTest.renderMusic(i, b), [id, boss]);
-    ok("music " + id + (boss ? " (boss)" : "") + ": no clipping, audible, finite", r.peak <= 0.98 && r.peak > 0.02 && r.rms > 0.004 && r.bad === 0, "peak " + r.peak.toFixed(2) + " rms " + r.rms.toFixed(3));
+  for (const id of ["luma", "ferro", "jovia", "kryo", "pyra", "nexa"]) {
+    const R = (boss, inten, bars, sb) => p.evaluate(([a, bb, ii, bs, st]) => window.__advTest.renderMusic(a, bb, ii, bs, st), [id, boss, inten, bars, sb]);
+    const A1 = await R(false, 1, 4, 0), A3 = await R(false, 3, 4, 0), C1 = await R(false, 1, 4, 12), BO = await R(true, 3, 4, 12);
+    for (const [nm, r] of [["calm hook", A1], ["peak hook", A3], ["last chorus", C1], ["boss peak", BO]]) ok("music " + id + " (" + nm + "): no clipping, audible, finite", r.peak <= 0.98 && r.peak > 0.02 && r.rms > 0.004 && r.bad === 0, "peak " + r.peak.toFixed(2) + " rms " + r.rms.toFixed(3));
+    ok("music " + id + ": the peak arrangement plays more notes than the calm one and is not quieter", A3.events > A1.events * 1.15 && A3.rms >= A1.rms * 0.97, A1.events + " -> " + A3.events + " notes");
+    ok("music " + id + ": the last chorus has more going on than the opening hook", C1.events > A1.events * 1.15, A1.events + " -> " + C1.events + " notes");
   }
   const m0 = await p.evaluate(() => window.__advTest.music());
   ok("Luma's music is running on the audio clock", m0 && m0.running && m0.id === "luma" && m0.bpm === 112, JSON.stringify(m0));
   await p.waitForTimeout(1500); const m1 = await p.evaluate(() => window.__advTest.music());
   ok("it keeps scheduling steps as time passes", m1.steps > m0.steps, m0.steps + " -> " + m1.steps);
-  await p.locator('[aria-label="music"]').click(); await p.waitForTimeout(200);
+  await p.evaluate(() => document.querySelector('[aria-label="music"]').click()); await p.waitForTimeout(200);
   ok("the music button mutes it and remembers the choice", (await p.evaluate(() => window.__advTest.music().on)) === false && (await p.evaluate(() => localStorage.getItem("tg_adv_music"))) === "0");
-  await p.locator('[aria-label="music"]').click(); await p.waitForTimeout(200);
+  await p.evaluate(() => document.querySelector('[aria-label="music"]').click()); await p.waitForTimeout(200);
   await p.evaluate(() => window.__advTest.tp(5200 - 900 + 120)); await p.waitForTimeout(700);
   ok("a boss fight switches to the boss arrangement", (await p.evaluate(() => window.__advTest.music().boss)) === true);
+  { const e0 = await p.evaluate(() => window.__advTest.music()); ok("the music reports its section and energy", typeof e0.section === "number" && typeof e0.energy === "number" && e0.intensity >= 1, JSON.stringify(e0)); }
+  await p.evaluate(() => window.__advTest.tp(5200 - 900 - 600)); await p.evaluate(() => window.__advTest.tp(480)); await p.waitForTimeout(900);
+  ok("fighting raises the music's intensity", (await p.evaluate(() => window.__advTest.music().intensity)) >= 2, JSON.stringify(await p.evaluate(() => window.__advTest.music())));
   ok("no errors (Luma)", errs.length === 0, errs.join("|")); await ctx.close();
 }
 for (const [idx, id, bpm] of [[1, "ferro", 126], [2, "jovia", 142], [3, "kryo", 84]]) {

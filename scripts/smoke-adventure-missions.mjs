@@ -42,6 +42,15 @@ const IDX = { cobalt: 6, helios: 7, ashfall: 8 };
   ok("with enough ore the capsule launches to Earth", (await o.p.evaluate(() => window.__advTest.launched())) === true);
   ok("the ore is added to Earth's supplies and the map is cleared", (await o.p.evaluate(() => localStorage.getItem("tg_earth_ore"))) === "12" && (await o.p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done") || "[]"))).includes("cobalt"));
   ok("mining no errors", o.errs.length === 0, o.errs.join("|")); await o.ctx.close(); }
+{ // ── after a map: straight on to the next one ──
+  const o = await enter(D("luma", "ferro", "kryo"), IDX.cobalt); await o.p.waitForSelector(".adv canvas"); await o.p.waitForTimeout(800);
+  await o.p.evaluate(() => { window.__advTest.setCargo(12); window.__advTest.tp(5200 - 220); }); await o.p.waitForTimeout(3600);
+  ok("a map-clear card appears after the map is cleared", await o.p.evaluate(() => window.__advTest.clearShown()));
+  const btn = await o.p.locator(".adv-clear .go").innerText().catch(() => ""); ok("it offers the next open map by name", /Helios/i.test(btn), btn);
+  await o.p.locator(".adv-clear .go").click(); await o.p.waitForTimeout(1200);
+  ok("tapping it starts the next map straight away (its own music)", (await o.p.evaluate(() => window.__advTest.music())).id === "helios");
+  ok("the clear card is gone in the new map", !(await o.p.evaluate(() => window.__advTest.clearShown())));
+  ok("next-map no errors", o.errs.length === 0, o.errs.join("|")); await o.ctx.close(); }
 { // ── capture ──
   const o = await enter(D("luma", "ferro", "kryo"), IDX.helios); await o.p.waitForSelector(".adv canvas"); await o.p.waitForTimeout(900);
   ok("Helios has three stations to capture", (await o.p.evaluate(() => window.__advTest.stations())).length === 3);
