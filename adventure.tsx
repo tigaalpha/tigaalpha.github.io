@@ -12,6 +12,7 @@
    planet (the other four are on the map, locked), three monsters, no boss yet. ── */
 import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "react";
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
+import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
 import { createAdvSfx } from "./adventure-sfx";
 import { paintMonster, paintBoss } from "./adventure-monsters";
 import { warTeamOf, openAdvRoom, MAX_PILOTS, type Net } from "./adv-online";
@@ -691,6 +692,15 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const petRef = useRef<HTMLDivElement>(null);
   const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false, dash: false, fire: false, kick: false, spell: false, rocket: false, zap: false });
   const [pose, setPose] = useState("ready");
+  const botKey = (po: string) => `${typeof __ART__ !== "undefined" ? __ART__ : "dev"}|advme|${me}|${po}|${colorway && colorway.glow}|${colorway && colorway.accent}`;
+  const petKeyOf = () => `${typeof __ART__ !== "undefined" ? __ART__ : "dev"}|advpet|${petNow ? petNow.species : ""}|${petNow ? petLevel(petNow.bond).lv : 0}|${petNow ? (petNow.mood < 35 ? 1 : 0) : 0}`;
+  useEffect(() => {   // queue the three poses and the pet now, ahead of the first fight; the live drawing shows until each is ready
+    if (!FIGURES_OK) return; pauseFigures(false);
+    const mk = (po: string) => ({ key: botKey(po), kind: "bot", el: () => <CyberAvatar model={me} yaw={26} pose={po} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} /> });
+    const jobs: any[] = ["ready", "attack", "kick"].map(mk);
+    if (petNow) jobs.push({ key: petKeyOf(), kind: "pet", el: () => <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} /> });
+    prepareFigures(jobs, true);
+  }, []);
   const [hud, setHud] = useState<any>({ hp: 1, hpMax: 1, lv: 1, xp: 0, xpNeed: 1, sk: 0, skNeed: 1, kills: 0, skCd: 0 });
   const [banner, setBanner] = useState<any>(null);
   const [down, setDown] = useState(false);
@@ -1428,9 +1438,12 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   return (
     <>
       <canvas ref={cvRef} />
-      <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} /> : null}</div>
+      <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? (() => { const live = <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} />; return FIGURES_OK ? <FigurePic fkey={petKeyOf()} kind="pet" el={live} cls="fig-pet" vb="-12 -18 144 156" /> : live; })() : null}</div>
       <div ref={pxRef} className="adv-px" aria-hidden="true">
-        <CyberAvatar model={me} yaw={26} pose={pose} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} />
+        {(() => {   // profiled 2026-10-11: the live SVG robot cost half the frame on a slow CPU; a stored picture per pose costs almost nothing (same cache PvP uses on phones)
+          const live = <CyberAvatar model={me} yaw={26} pose={pose} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} />;
+          return FIGURES_OK ? <FigurePic fkey={botKey(pose)} kind="bot" el={live} cls="ca" vb="-20 -16 160 416" /> : live;
+        })()}
       </div>
       <div className="adv-top">
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
