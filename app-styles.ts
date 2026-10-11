@@ -4045,6 +4045,11 @@ ${UX2_CSS}
 .pvppage.land .pvpdir{width:58px;height:58px}.pvppage.land .pvpact{width:62px;height:62px}
 .pvpact i{max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+/* every PvP button is round (owner, 2026-10-11): pills for wide buttons, circles for icon buttons, big soft cards for the multi-line ones */
+.pvpgo,.pvpbig,.pvpghost,.pvpfriend,.pvptab,.pvpres-practice,.pvprpg-reset,.pvpsec-t,.adv-qopt,.adv-qgo,.adv-btn.go{border-radius:999px!important}
+.pvptier,.pvpadv,.adv-planet,.adv-up{border-radius:34px!important}
+.stgback,.adv-btn:not(.go){border-radius:50%!important}
+
 `;
 
 export function useInjectCSS() {
