@@ -2396,7 +2396,7 @@ async function toggleFs() {
 }
 /** Leaving PvP puts the phone back the way it was: orientation unlocked (so it follows the
     hand again, portrait in the app) and out of full screen (owner, 2026-10-10). */
-function exitFsAndUnlock() {
+export function exitFsAndUnlock() {
   // snap back to portrait, then let go so the phone follows the hand again
   try {
     if (screen.orientation && screen.orientation.lock) {
@@ -2413,7 +2413,7 @@ function exitFsAndUnlock() {
 /** Starting a fight puts the screen in full screen and landscape by itself (owner,
     2026-10-10). Only ever enters, never exits, and only from inside a tap — the
     browser refuses it anywhere else, and a refusal is silent. */
-function enterFs() {
+export function enterFs() {
   try {
     if (fsOn()) return;
     const el = document.documentElement;
