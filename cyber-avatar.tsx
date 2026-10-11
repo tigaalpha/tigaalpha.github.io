@@ -155,6 +155,8 @@ export const CHAR_MODELS = [
     cls: { th: "โครงมนุษย์ไฮเทค",     en: "Humanoid frame",      zh: "类人机架" } },
   { id: "kestrel",  code: "KS-42", th: "เคสเตรล",    en: "KESTREL",  zh: "红隼",
     cls: { th: "โครงวิ่งคล่อง",       en: "Runner frame",        zh: "疾行机架" } },
+  { id: "volta",    code: "VT-43", th: "โวลตา",      en: "VOLTA",    zh: "伏塔",
+    cls: { th: "โครงมนุษย์โรงงาน",    en: "Factory humanoid",    zh: "工厂类人机架" } },
 ];
 
 
@@ -223,6 +225,7 @@ export const MODEL_COMBAT = {
   zenith:   { pwr: 9,  arm: 11, spd: 7,  syn: 13, sp: { th: "วงแหวนศักดิ์สิทธิ์", en: "Halo Chord",      zh: "圣环和弦" } },
   nimbus:   { pwr: 10, arm: 10, spd: 10, syn: 10, sp: { th: "จังหวะสมบูรณ์",   en: "Perfect Tempo",    zh: "完美节拍" } },
   kestrel:  { pwr: 9,  arm: 8,  spd: 15, syn: 8,  sp: { th: "พุ่งสี่ขา",       en: "Flip Strike",      zh: "翻身突袭" } },
+  volta:    { pwr: 11, arm: 9,  spd: 9,  syn: 11, sp: { th: "สายพานสมบูรณ์",   en: "Assembly Line",    zh: "流水线" } },
 };
 export const COMBAT_TOTAL = 40;
 /* Gear adds on top of the chassis, which is what makes the weapon rack matter:
@@ -486,6 +489,7 @@ export const MODEL_RIG = {
   zenith:  { hs: 1.16, bw: 0.98, bh: 1.00 },
   nimbus:  { hs: 1.10, bw: 1.00, bh: 1.04 },
   kestrel: { hs: 1.08, bw: 0.94, bh: 1.00 },
+  volta:   { hs: 1.02, bw: 0.92, bh: 1.06 },
 };
 
 /* ── the frame ──
@@ -534,7 +538,7 @@ export const FRAME = {
 export const MODEL_FRAME = {
   vanguard: "balanced", ronin: "balanced", envoy: "balanced", meridian: "balanced",
   keeper: "balanced", oracle: "balanced", zenith: "balanced", nimbus: "balanced",
-  kestrel: "slim", phantom: "slim", specter: "slim", scout: "slim", aurora: "slim", halcyon: "slim",
+  volta: "slim", kestrel: "slim", phantom: "slim", specter: "slim", scout: "slim", aurora: "slim", halcyon: "slim",
   wraith: "slim", nyx: "slim", tempest: "slim", saber: "slim",
   sentinel: "heavy", atlas: "heavy", magnus: "heavy", bastion: "heavy", forge: "heavy", sentry: "heavy",
   reaper: "beast", talon: "beast", korax: "beast",
@@ -783,6 +787,7 @@ export const MODEL_BUILD = {
   zenith:   { pa: "dome",  core: "star",    back: "array" },
   nimbus:   { pa: "slab",  core: "cross",   back: "fin" },
   kestrel:  { pa: "swept", core: "slit",    back: "thruster" },
+  volta:    { pa: "bare",  core: "slit",    back: "none" },
 };
 
 /* ── the alloy each chassis is actually made of ──
@@ -836,6 +841,7 @@ export const MODEL_SKIN = {
   zenith:    { s: ["#faf3de", "#dfb13c", "#faf1d6", "#9b7723", "#64480e", "#302307"], glow: "#ffd23f", accent: "#fff3c4" },
   nimbus:    { s: ["#f4f6f8", "#c9d0d8", "#eef1f4", "#98a2ae", "#5d6672", "#1b2027"], glow: "#7fe8ff", accent: "#eaf6ff" },
   kestrel:   { s: ["#fbfbfa", "#e8eaec", "#f3f4f5", "#a2a8ae", "#4a4f55", "#16181b"], glow: "#ff8a2b", accent: "#ffb066" },
+  volta:     { s: ["#e4e7ea", "#9aa1a8", "#d6dadd", "#6b7178", "#2c3036", "#0b0c0e"], glow: "#cfd8e0", accent: "#e8eef3" },
 };
 
 const LEGACY = { boy: "vanguard", girl: "specter", cute: "nova" };
@@ -3013,6 +3019,34 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
         <path d="M46 12 Q46 -2 60 -2 Q74 -2 74 12 Z" fill={`url(#${id}-graphite)`} stroke="#3a3f45" strokeWidth="1" strokeLinejoin="round" />
         <path d="M44 40 L76 40" stroke="#a2a8ae" strokeWidth="1.2" opacity=".6" />
         <circle cx="60" cy="54" r="3" fill="#ff8a2b" opacity=".8" />
+      </>,
+      neck: null,
+    },
+
+    /* ── VOLTA · factory humanoid ── brushed-metal head, one smooth black glass face with no features, a bare neck */
+    volta: {
+      skull: "M60 10 C76 10 86 22 86 40 C86 58 76 68 60 69 C44 68 34 58 34 40 C34 22 44 10 60 10 Z",
+      fill: "chrome", line: "#aeb5bc", body: "chrome", bodyLine: "#7d848b", hv: "22 -4 76 78",
+      prof: { brow: 24, nose: 40, lip: 55, chin: 67 },
+      shellArt: <>
+        <path d="M44 16 Q60 8 76 16" fill="none" stroke="#ffffff" strokeWidth="1.6" opacity=".7" strokeLinecap="round" />
+        <path d="M50 66 L70 66" stroke="#4b5158" strokeWidth="2.4" strokeLinecap="round" />
+      </>,
+      art: <>
+        {face(60, <path d="M40 22 Q60 14 80 22 Q84 42 76 58 Q60 66 44 58 Q36 42 40 22 Z" fill="#050607" stroke="#262a2f" strokeWidth="1" />, "plate")}
+        {face(60, <path d="M44 28 Q60 21 76 28" fill="none" stroke="#ffffff" strokeWidth="1.2" opacity=".28" />, "sheen")}
+        {face(60, <path d="M50 44 Q60 48 70 44" fill="none" stroke={glow} strokeWidth="1.2" opacity=".35" className="ca-optic" />, "hint")}
+      </>,
+      side: "M60 10 C76 10 85 22 85 40 C85 56 77 66 69 68 Q60 70 52 67 C42 63 35 54 35 40 C35 22 44 10 60 10 Z",
+      sideArt: <>
+        <path d="M52 22 Q72 18 80 26 Q84 42 76 58 Q64 62 52 56 Z" fill="#050607" stroke="#262a2f" strokeWidth="1" />
+        <path d="M58 28 Q70 24 78 30" fill="none" stroke="#ffffff" strokeWidth="1.1" opacity=".28" />
+        <circle cx="44" cy="44" r="4.5" fill="#6b7178" stroke="#4b5158" strokeWidth=".8" />
+      </>,
+      rear: <>
+        <path d="M35 20 Q60 6 85 20 Q90 44 82 62 Q60 72 38 62 Q30 44 35 20 Z" fill={`url(#${id}-chrome)`} stroke="#aeb5bc" strokeWidth=".9" strokeLinejoin="round" />
+        <path d="M60 12 L60 64" stroke="#7d848b" strokeWidth="1.1" opacity=".6" />
+        <path d="M46 58 L74 58" stroke="#4b5158" strokeWidth="2" strokeLinecap="round" />
       </>,
       neck: null,
     },

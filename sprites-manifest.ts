@@ -46,6 +46,7 @@ export const SPRITES = {
 "head/talon": {"a":0.9524,"w":[128,256],"f":["head-talon-128.0d355a4093.webp","head-talon-256.8c75061d2a.webp"],"k":"1c1e0995ee4a"},
 "head/tempest": {"a":0.9354,"w":[128,256],"f":["head-tempest-128.1dcaa03413.webp","head-tempest-256.208b78f7df.webp"],"k":"1c46ddbb560e"},
 "head/vanguard": {"a":0.9524,"w":[128,256],"f":["head-vanguard-128.ff65fe3fc3.webp","head-vanguard-256.b1851d361b.webp"],"k":"ea04cf1bc036"},
+"head/volta": {"a":0.8929,"w":[128,256],"f":["head-volta-128.072d365544.webp","head-volta-256.344fc073ff.webp"],"k":"62d8a9f77a73"},
 "head/wraith": {"a":0.9524,"w":[128,256],"f":["head-wraith-128.41ea9477cc.webp","head-wraith-256.c9d8306129.webp"],"k":"5aa2a4ab3bc0"},
 "head/zenith": {"a":0.9524,"w":[128,256],"f":["head-zenith-128.eab08e222e.webp","head-zenith-256.98aab33eec.webp"],"k":"937ad81a224b"},
 "pet/astrel/1": {"a":0.9291,"w":[256],"f":["pet-astrel-1-256.f7cfee43d6.webp"],"k":"1a6f41ac58d3"},
