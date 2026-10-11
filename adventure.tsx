@@ -18,8 +18,9 @@ import { addSkillSp, readSkillSp, skillRank } from "./pvp-arena";
 import { classKeyOf } from "./model-skills";
 import { isLowEnd, spaceTier } from "./space-stage";
 import { Piano } from "./music-engine";
+import { logUsage } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
-import { nextQuestion, judgeKeys, recordAnswer, readLadder, readDone, learnedTopics } from "./quiz-quest";
+import { nextQuestion, judgeKeys, recordAnswer, readLadder, learnedTopics } from "./quiz-quest";
 
 const VH = 360, GROUND = 300, WORLD = 5200, TILE = 960;
 const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
@@ -168,6 +169,8 @@ const CSS = `
 .adv-key.on,.adv-key:active{background:rgba(61,220,151,.45)}
 .adv-key.atk{width:84px;height:84px;border-radius:42px;background:linear-gradient(160deg,#ff8a5d,#d9482b);border-color:transparent}
 .adv-key.skl{background:linear-gradient(160deg,#7b61ff,#4a35c9);border-color:transparent}.adv-key.cd{opacity:.45}
+.adv-key.dash{width:58px;height:58px;border-radius:20px;background:rgba(10,60,80,.65)}
+@media (max-width:600px){.adv-key{width:58px;height:58px;font-size:22px}.adv-key.atk{width:72px;height:72px}.adv-key.dash{width:50px;height:50px}.adv-pad>div{gap:7px}}
 .adv-banner{position:absolute;left:50%;top:26%;transform:translateX(-50%);z-index:5;pointer-events:none;text-align:center;animation:advb 1.8s ease-out forwards}
 .adv-banner b{display:block;font-size:30px;font-weight:900;letter-spacing:2px;color:#ffe08a;text-shadow:0 0 18px #ffb43a,0 2px 0 #000}.adv-banner span{font-size:13px;color:#e8fffa;text-shadow:0 1px 2px #000}
 @keyframes advb{0%{opacity:0;transform:translate(-50%,10px) scale(.7)}12%{opacity:1;transform:translate(-50%,0) scale(1.1)}20%{transform:translate(-50%,0) scale(1)}80%{opacity:1}100%{opacity:0}}
@@ -252,7 +255,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
   const cvRef = useRef<HTMLCanvasElement>(null);
   const pxRef = useRef<HTMLDivElement>(null);
   const petRef = useRef<HTMLDivElement>(null);
-  const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false });
+  const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false, dash: false });
   const [pose, setPose] = useState("ready");
   const [hud, setHud] = useState<any>({ hp: 1, hpMax: 1, lv: 1, xp: 0, xpNeed: 1, sk: 0, skNeed: 1, kills: 0, skCd: 0 });
   const [banner, setBanner] = useState<any>(null);
@@ -271,6 +274,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
   };
   const finishQuiz = (q: any) => {
     setQuiz(null); quizOn.current = false;
+    if (q) logUsage("adv", "quiz:" + P.id + ":" + q.right + "of" + (q.qs ? q.qs.length : 3));
     if (q && q.right > 0) setBanner({ k: Date.now(), a: t("ทบทวนสำเร็จ!", "REVIEW DONE!", "复习完成！"), b: t(`ตอบถูก ${q.right}/3 — ได้ EXP และแต้มสกิล`, `${q.right}/3 right — EXP and skill points earned`, `答对 ${q.right}/3，获得经验和技能点`) });
   };
   const answerQuiz = (ok: boolean) => {
@@ -297,6 +301,8 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       cw = cv.width; ch = cv.height; k = ch / VH; vw = cw / k;
       bake = bakePlanet(P, cw, ch, k, high);
     };
+    // phase 3.0: where do players leave, how does it run on a real phone? one cheap row per event, no migration (usage_events kind "adv")
+    const t0 = performance.now(); let frames = 0, ended = false; logUsage("adv", "start:" + P.id + ":" + (high ? "hd" : "sd"));
     resize();
     const onResize = () => resize(); window.addEventListener("resize", onResize);
 
@@ -307,8 +313,9 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const hpMaxOf = (lv) => 120 + lv * 11;
     TINT = P.tint || null;
     const HM = P.hard || 1;
-    const pl: any = { x: 160, y: 0, vy: 0, face: 1, hp: hpMaxOf(info.lv), atkCd: 0, sklCd: 0, hurtT: 0, inv: 0, dead: 0, ground: true, swing: 0 };
-    const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: Math.round(MON[type].hp * HM), max: Math.round(MON[type].hp * HM), face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, i });
+    const pl: any = { x: 160, y: 0, vy: 0, face: 1, hp: hpMaxOf(info.lv), atkCd: 0, sklCd: 0, hurtT: 0, inv: 0, dead: 0, ground: true, swing: 0, dashCd: 0, dashT: 0, combo: 0, comboT: 0, maxCombo: 0 };
+    const teleGaps: number[] = [];
+    const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: Math.round(MON[type].hp * HM), max: Math.round(MON[type].hp * HM), face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, tele: 0, act: "", teleAt: 0, i });
     const mons: any[] = [];
     const pattern = ["glowbug", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster"];
     for (let i = 0; i < 17; i++) mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i));
@@ -324,7 +331,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const step = high ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
-    const dmgOf = () => { const base = (9 + info.lv * 1.5) * mods.dmg; const crit = Math.random() < 0.08 + mods.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
+    const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult; const crit = Math.random() < 0.08 + mods.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
     const hurtMon = (m, v, crit, kx) => {
       m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
       pop(m.x, GROUND - m.y - 60, String(v), crit ? "#ffd23f" : "#ffffff");
@@ -363,7 +370,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
         for (let i = 0; i < 12; i++) drops.push({ x: boss.x + (i - 6) * 16, y: 40 + i * 6, vy: 220, t: "cry" });
         drops.push({ x: boss.x, y: 60, vy: 220, t: "hp" });
         for (let i = 0; i < (high ? 50 : 16); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 520, -Math.random() * 380, 1, i % 2 ? P.glow : P.acc, 4);
-        markDone(P.id); shake = 10;
+        markDone(P.id); shake = 10; logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
         info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
         const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1];
         setBanner({ k: Date.now(), a: t("เอาชนะบอสแล้ว! +" + gain + " EXP", "BOSS DOWN! +" + gain + " EXP", "击败首领！+" + gain + " 经验"), b: nx && nx.ok ? t("ปลดล็อก " + nx.en.split(" · ")[0] + " แล้ว", nx.en.split(" · ")[0] + " unlocked", "已解锁 " + nx.en.split(" · ")[0]) : t("ประตูวาร์ปเปิดแล้ว", "The warp gate is open", "传送门已开启") });
@@ -372,13 +379,15 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const attack = () => {
       if (pl.dead || pl.atkCd > 0) return;
-      pl.atkCd = 0.42 * mods.cdMul; pl.swing = 0.18; setPose("attack"); setTimeout(() => setPose("ready"), 170);
-      slashes.push({ x: pl.x + pl.face * 34, y: pl.y + 44, face: pl.face, life: 0.18 });
+      pl.combo = pl.comboT > 0 ? pl.combo + 1 : 1; const finisher = pl.combo >= 3; pl.maxCombo = Math.max(pl.maxCombo, pl.combo); pl.comboT = 0.75; if (finisher) pl.combo = 0;
+      pl.atkCd = (finisher ? 0.6 : 0.34) * mods.cdMul; pl.swing = 0.18; setPose("attack"); setTimeout(() => setPose("ready"), 170);
+      slashes.push({ x: pl.x + pl.face * 34, y: pl.y + 44, face: pl.face, life: finisher ? 0.26 : 0.18 });
+      if (finisher) { shake = Math.max(shake, 5); pop(pl.x, GROUND - pl.y - 120, "×3!", "#ffd23f"); }
       for (const m of mons) {
         if (m.dead) continue; const dx = (m.x - pl.x) * pl.face;
-        if (dx > -10 && dx < 92 + MON[m.type].w / 2 && Math.abs(m.y - pl.y) < 70) { const d = dmgOf(); hurtMon(m, d.v, d.crit, pl.face * 160); }
+        if (dx > -10 && dx < 92 + MON[m.type].w / 2 && Math.abs(m.y - pl.y) < 70) { const d = dmgOf(finisher ? 1.7 : 1); hurtMon(m, d.v, d.crit || finisher, pl.face * (finisher ? 330 : 160)); }
       }
-      { const dx = (boss.x - pl.x) * pl.face; if (boss.active && !boss.dead && dx > -10 && dx < 150 && pl.y < 90) { const d = dmgOf(); hurtBoss(d.v, d.crit, pl.face * 160); } }
+      { const dx = (boss.x - pl.x) * pl.face; if (boss.active && !boss.dead && dx > -10 && dx < 150 && pl.y < 90) { const d = dmgOf(finisher ? 1.7 : 1); hurtBoss(d.v, d.crit || finisher, pl.face * (finisher ? 330 : 160)); } }
     };
     const skill = () => {
       const sr = skillOf();
@@ -401,7 +410,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       pl.hp -= v; pl.inv = 0.7; pl.vy = 0; pl.x += Math.sign(pl.x - from) * 26; shake = Math.max(shake, 4);
       pop(pl.x, GROUND - pl.y - 100, "-" + v, "#ff6b81");
       for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 50, (Math.random() - 0.5) * 200, -Math.random() * 150, 0.4, "255,90,110", 2.5);
-      if (pl.hp <= 0) { pl.hp = 0; pl.dead = 2.2; setDown(true); }
+      if (pl.hp <= 0) { pl.hp = 0; pl.dead = 2.2; setDown(true); logUsage("adv", "die:" + P.id + ":x" + Math.round(pl.x / 100) * 100 + (boss.active && !boss.dead ? ":boss" : "")); }
     };
 
     const sim = (dt) => {
@@ -412,9 +421,12 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       else {
         const sp = 150 * mods.walk; let dx = 0; if (kk.l) dx -= 1; if (kk.r) dx += 1;
         pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + dx * sp * dt)); if (dx) pl.face = dx;
-        if (!boss.active && !boss.dead && pl.x > ARENA + 60) { boss.active = true; setBanner({ k: Date.now(), a: T3(lang, P.boss[0], P.boss[1], P.boss[2]), b: t("บอสท้ายด่าน — ประตูด้านหลังปิดแล้ว", "End-of-map boss — the way back is shut", "本图首领——退路已封闭") }); }
+        if (!boss.active && !boss.dead && pl.x > ARENA + 60) { boss.active = true; logUsage("adv", "boss-wake:" + P.id); setBanner({ k: Date.now(), a: T3(lang, P.boss[0], P.boss[1], P.boss[2]), b: t("บอสท้ายด่าน — ประตูด้านหลังปิดแล้ว", "End-of-map boss — the way back is shut", "本图首领——退路已封闭") }); }
         if (kk.jump && pl.ground) { pl.vy = 360; pl.ground = false; }
         if (kk.atk) attack(); if (kk.skl) skill();
+        if (kk.dash && pl.dashCd <= 0) { pl.dashCd = 1.2; pl.dashT = 0.18; pl.inv = Math.max(pl.inv, 0.3); for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 30, -pl.face * (80 + Math.random() * 120), (Math.random() - 0.5) * 60, 0.3, "160,255,230", 2.5); }
+        if (pl.dashT > 0) { pl.dashT -= dt; pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + pl.face * 560 * dt)); }
+        pl.dashCd -= dt; pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0;
         pl.vy -= 900 * dt; pl.y += pl.vy * dt; if (pl.y <= 0) { pl.y = 0; pl.vy = 0; pl.ground = true; }
         pl.atkCd -= dt; pl.sklCd -= dt; pl.inv -= dt; pl.swing -= dt;
       }
@@ -425,16 +437,24 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
         m.face = dxp > 0 ? 1 : -1;
         const aggro = dist < 520 && pl.dead <= 0;
         let mv = 0;
-        if (aggro) {
+        if (aggro && m.tele <= 0) {
           if (d.ranged) { if (dist > 300) mv = Math.sign(dxp); else if (dist < 190) mv = -Math.sign(dxp); }
           else if (dist > 40) mv = Math.sign(dxp);
         }
         m.x += (mv * d.speed + m.vx) * dt; m.vx *= 0.86;
         if (m.type === "glowbug" && aggro && m.y <= 0 && dist < 260 && Math.random() < 0.02) m.vy = 240;
         m.vy -= 700 * dt; m.y += m.vy * dt; if (m.y < 0) { m.y = 0; m.vy = 0; }
-        if (d.ranged) {
-          if (aggro && dist < 420 && m.cd <= 0) { m.cd = d.cd; shots.push({ x: m.x + m.face * 18, y: 56, vx: m.face * 190, life: 2.4, d: Math.round(d.dmg * HM) }); }
-        } else if (aggro && dist < d.w / 2 + 26 && Math.abs(pl.y - m.y) < 50 && m.cd <= 0) { m.cd = d.cd; hurtPlayer(Math.round(d.dmg * HM) + Math.round(info.lv * 0.4), m.x); }
+        // every attack is announced first: a red "!" for 0.3 s, then the blow (an attack that lands with no warning is not fair)
+        if (m.tele > 0) {
+          m.tele -= dt;
+          if (m.tele <= 0) {
+            m.cd = d.cd; teleGaps.push(time - m.teleAt);
+            if (m.act === "shot") shots.push({ x: m.x + m.face * 18, y: 56, vx: m.face * 190, life: 2.4, d: Math.round(d.dmg * HM) });
+            else if (pl.dead <= 0 && Math.abs(pl.x - m.x) < d.w / 2 + 34 && Math.abs(pl.y - m.y) < 56) hurtPlayer(Math.round(d.dmg * HM) + Math.round(info.lv * 0.4), m.x);
+          }
+        } else if (d.ranged) {
+          if (aggro && dist < 420 && m.cd <= 0) { m.tele = 0.3; m.act = "shot"; m.teleAt = time; }
+        } else if (aggro && dist < d.w / 2 + 26 && Math.abs(pl.y - m.y) < 50 && m.cd <= 0) { m.tele = 0.3; m.act = "melee"; m.teleAt = time; }
       }
       if (boss.active && !boss.dead) {
         boss.hurt -= dt; boss.face = pl.x > boss.x ? 1 : -1;
@@ -495,6 +515,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
       // monsters
       for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; drawMonster(ctx, m, tm, k, GROUND);
+        if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - (m.type === "sporecaster" ? 128 : 74)); }
         if (m.hp < m.max) { const w = 40, y0 = GROUND - m.y - (m.type === "sporecaster" ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / m.max), 5); } }
       if (boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
       for (const b of pet) { const q = 1 - b.life / 0.25; ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.9)`; ctx.beginPath(); ctx.arc(b.x + (b.tx - b.x) * q, GROUND - (b.y + (b.ty - b.y) * q), 5, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
@@ -546,7 +567,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
 
     const loop = (now) => {
-      raf = requestAnimationFrame(loop);
+      raf = requestAnimationFrame(loop); frames++;
       let dt = Math.min(0.1, (now - last) / 1000); last = now;
       if (hitStop > 0) { hitStop -= dt; dt = 0; }
       acc += dt; let n = 0;
@@ -555,7 +576,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       hudT += dt;
       if (hudT > 0.15) {
         hudT = 0; const sr = skillOf();
-        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd) });
+        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd), dashCd: Math.max(0, pl.dashCd) });
       }
     };
     raf = requestAnimationFrame(loop);
@@ -564,13 +585,13 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const kd = (e, v) => {
       const kk = keys.current; const c = e.code;
       if (c === "ArrowLeft" || c === "KeyA") kk.l = v; else if (c === "ArrowRight" || c === "KeyD") kk.r = v;
-      else if (c === "ArrowUp" || c === "KeyW" || c === "Space") kk.jump = v; else if (c === "KeyJ" || c === "KeyZ") kk.atk = v; else if (c === "KeyK" || c === "KeyX") kk.skl = v; else return;
+      else if (c === "ArrowUp" || c === "KeyW" || c === "Space") kk.jump = v; else if (c === "KeyJ" || c === "KeyZ") kk.atk = v; else if (c === "KeyK" || c === "KeyX") kk.skl = v; else if (c === "KeyL" || c === "ShiftLeft" || c === "ShiftRight") kk.dash = v; else return;
       e.preventDefault();
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; }, boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, drops: () => drops.length, fps: () => 0 };
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, drops: () => drops.length, fps: () => 0 };
+    return () => { if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
   const hold = (name) => ({
@@ -610,6 +631,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
         </div>
         <div>
           <button className={"adv-key skl" + (hud.skCd > 0 ? " cd" : "")} aria-label="skill" {...hold("skl")}>✦<small>{t("สกิล", "SKILL", "技能")}</small></button>
+          <button className={"adv-key dash" + (hud.dashCd > 0 ? " cd" : "")} aria-label="dash" {...hold("dash")}>»<small>{t("หลบ", "DASH", "闪避")}</small></button>
           <button className="adv-key" aria-label="jump" {...hold("jump")}>⤴<small>{t("กระโดด", "JUMP", "跳")}</small></button>
           <button className="adv-key atk" aria-label="attack" {...hold("atk")}>⚔<small>{t("โจมตี", "ATTACK", "攻击")}</small></button>
         </div>
