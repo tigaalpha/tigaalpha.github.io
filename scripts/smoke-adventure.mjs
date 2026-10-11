@@ -27,7 +27,7 @@ for (const gfx of ["standard", "high"]) {
   await p.evaluate(() => window.__advTest.tp(480)); await p.waitForTimeout(600);
   await p.screenshot({ path: `/tmp/claude-0/scratch/adv-run-${gfx}.png` });
   // fight: stand by a monster and hammer attack
-  for (let i = 0; i < 24; i++) { await p.locator(".adv-key.atk").dispatchEvent("pointerdown").catch(() => {}); await p.waitForTimeout(160); await p.locator(".adv-key.atk").dispatchEvent("pointerup").catch(() => {}); await p.locator(".adv-key.skl").dispatchEvent("pointerdown").catch(() => {}); await p.waitForTimeout(40); await p.locator(".adv-key.skl").dispatchEvent("pointerup").catch(() => {}); if (i % 6 === 0) await p.evaluate((n) => window.__advTest.tp(560 + n * 120), i); }
+  for (let i = 0; i < 24; i++) { await p.locator(".adv-pad .pvpact.punch").dispatchEvent("pointerdown").catch(() => {}); await p.waitForTimeout(160); await p.locator(".adv-pad .pvpact.punch").dispatchEvent("pointerup").catch(() => {}); await p.locator(".adv-pad .pvpact.ult").dispatchEvent("pointerdown").catch(() => {}); await p.waitForTimeout(40); await p.locator(".adv-pad .pvpact.ult").dispatchEvent("pointerup").catch(() => {}); if (i % 6 === 0) await p.evaluate((n) => window.__advTest.tp(560 + n * 120), i); }
   await p.waitForTimeout(500);
   const st = await p.evaluate(() => window.__advTest.state()); if (!(st.kills >= 1)) { console.log("FAIL no monster was killed", JSON.stringify(st)); process.exitCode = 1; }
   console.log(gfx, "state", JSON.stringify(await p.evaluate(() => window.__advTest.state())));
