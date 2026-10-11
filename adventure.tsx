@@ -416,8 +416,8 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
     setBusy(false);
   };
   const leaveRoom = () => { if (netRef.current) netRef.current.leave(); netRef.current = null; setNet(null); setPeersL([]); };
-  const nextOf = (cur: any) => { const dn = readDone(); const idx = PLANETS.findIndex(q => q.id === cur.id); return PLANETS.slice(idx + 1).find(Q => Q.ok && (!Q.req || dn.includes(Q.req))) || null; };   // the orbital-strike result (which bases are gone) before an Ashfall run
-  const open = (P) => P.ok && (!P.req || done.includes(P.req));
+  const nextOf = (cur: any) => { const dn = readDone(); const idx = PLANETS.findIndex(q => q.id === cur.id); const rest = [...PLANETS.slice(idx + 1), ...PLANETS.slice(0, idx)].filter(Q => Q.ok); return rest.find(Q => !dn.includes(Q.id)) || rest[0] || null; };   // the next map you have not cleared yet, wrapping round   // the orbital-strike result (which bases are gone) before an Ashfall run
+  const open = (P) => !!P.ok;   // every map is open from the start: play them in any order (owner, 2026-10-11)
   const t = (th, en, zh) => T3(lang, th, en, zh);
   return (
     <div className="adv" role="region" aria-label="Adventure Mode">
@@ -624,7 +624,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const [banner, setBanner] = useState<any>(null);
   const [down, setDown] = useState(false);
   const [clear, setClear] = useState<any>(null);   // the "map clear" card: go straight to the next map
-  const [auto, setAuto] = useState(9);
+  const [auto, setAuto] = useState(6);
   useEffect(() => { if (!clear || !clear.next) return undefined; if (auto <= 0) { if (onNext) onNext(clear.next); return undefined; } const id = setTimeout(() => setAuto(a => a - 1), 1000); return () => clearTimeout(id); }, [clear, auto]);
   const [quiz, setQuiz] = useState<any>(null);
   const quizOn = useRef(false);
@@ -731,7 +731,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       try { ((window as any).__advRewardLog = (window as any).__advRewardLog || []).push({ coins, want, planet: P.id }); } catch (e) {}
       return { coins, capped: want > coins };
     };
-    const showClear = (delay = 2000) => setTimeout(() => { if (ended) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (high ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped }); }, delay);
+    let warped = false;
+    const showClear = (delay = 2000) => setTimeout(() => { if (ended || warped) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (high ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped }); }, delay);
     const surv = { t: 0, wave: 0, next: 2, done: false }, SURV_T = 90;   // gas-giant stage: hold out 90 s while the energy fills
     const MINE = P.mission === "mine", CAPM = P.mission === "capture", DYS = P.mission === "dyson", DIG = MINE || DYS, NOBOSS = !!P.survival || MINE || CAPM || DYS;
     // Ashfall: after the orbital strike, a base that was nuked has no defenders left (three monsters per base)
@@ -1146,8 +1147,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       const target = Math.max(0, Math.min(WORLD - vw, pl.x - vw * 0.42 + pl.face * 30));
       camX += (target - camX) * (high ? 0.12 : 0.2);
       shake *= 0.86;
-      if (!finished && !NOBOSS && boss.dead && pl.x > WORLD - 140) {   // walk into the warp gate: straight on to the next map
-        finished = true; shake = 8; sfx.play("rocket"); const sale = settle(1);
+      if (!warped && (NOBOSS ? finished : boss.dead) && pl.dead <= 0 && pl.x > WORLD - 140) {   // walk into the warp gate (any map, once its goal is done): straight on to the next map, its film first
+        warped = true; finished = true; shake = 8; sfx.play("rocket"); const sale = settle(1);
         for (let a = 0; a < (high ? 50 : 20); a++) addPart(pl.x, GROUND - 60, (Math.random() - 0.5) * 120, -Math.random() * 380, 1, a % 2 ? P.acc : "255,255,255", 3);
         setBanner({ k: Date.now(), a: t("วาร์ป!", "WARP!", "传送！"), b: sale.coins > 0 ? t("ขายของ +" + sale.coins + " 🪙", "Loot sold +" + sale.coins + " 🪙", "出售战利品 +" + sale.coins + " 🪙") : t("เดินทางต่อ…", "On to the next map…", "前往下一张地图…") });
         setTimeout(() => { if (ended) return; const nx = getNext ? getNext() : null; if (nx && onNext) onNext(nx); else showClear(0); }, 1100);
@@ -1273,8 +1274,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         ctx.fillStyle = b.used ? "#3a4a52" : "#ffe08a"; ctx.beginPath(); ctx.moveTo(b.x - 9, GROUND); ctx.lineTo(b.x - 4, GROUND - 46); ctx.lineTo(b.x + 4, GROUND - 46); ctx.lineTo(b.x + 9, GROUND); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.arc(b.x, GROUND - 58 + Math.sin(tm * 2.4) * 3, 10, 0, 7); ctx.fillStyle = b.used ? "#52646c" : "#fff6c8"; ctx.fill();
         if (!b.used) { ctx.fillStyle = "#04201a"; ctx.font = "900 13px system-ui"; ctx.textAlign = "center"; ctx.fillText("?", b.x, GROUND - 53 + Math.sin(tm * 2.4) * 3); } }
-      // the warp gate at the end of the map
-      { const gx = WORLD - 90; if (gx > camX - 60 && gx < camX + vw + 60) { ctx.strokeStyle = `rgba(${P.acc},.9)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 26, 62, 0, 0, 7); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},${0.18 + 0.1 * Math.sin(tm * 3)})`; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 24, 60, 0, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; } }
+      // the warp gate at the end of the map (it glows and says WARP once the goal is done)
+      { const gx = WORLD - 90; if ((NOBOSS ? finished : boss.dead) && gx > camX - 120 && gx < camX + vw + 120) { ctx.save(); ctx.fillStyle = "#fff"; ctx.font = "900 15px system-ui"; ctx.textAlign = "center"; ctx.fillText("WARP ▶", gx, GROUND - 140 + Math.sin(tm * 5) * 4); ctx.restore(); } if (gx > camX - 60 && gx < camX + vw + 60) { ctx.strokeStyle = `rgba(${P.acc},.9)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 26, 62, 0, 0, 7); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},${0.18 + 0.1 * Math.sin(tm * 3)})`; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 24, 60, 0, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; } }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       tile(bake.near, 1.25);
       if (P.survival && !surv.done) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ffbe6e"; ctx.fillRect(bx, by, bw * Math.min(1, surv.t / SURV_T), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, "พลังงาน ", "ENERGY ", "能量 ") + Math.round(Math.min(1, surv.t / SURV_T) * 100) + "% · " + T3(lang, "คลื่น ", "wave ", "波 ") + surv.wave, cw / 2, by - 4 * k); }

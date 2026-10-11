@@ -125,14 +125,87 @@ function sphere(x: Cx, cx: number, cy: number, r: number, base: string, glow: st
   x.restore();
   x.globalCompositeOperation = "lighter"; const a = x.createRadialGradient(cx, cy, r * 0.96, cx, cy, r * 1.16); a.addColorStop(0, rgba(glow, 0.5)); a.addColorStop(1, rgba(glow, 0)); x.fillStyle = a; x.beginPath(); x.arc(cx, cy, r * 1.16, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
 }
+/* ── the cast (owner, 2026-10-11: more realistic, more beautiful robots; many kinds of aliens, grand and fierce; cooler ships) ── */
+const metalG = (x: Cx, x0: number, y0: number, x1: number, y1: number, base: string, hi = 0.35) => { const g = x.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, "rgba(255,255,255," + hi + ")"); g.addColorStop(0.18, base); g.addColorStop(0.75, "#0a1018"); g.addColorStop(1, "#05080e"); return g; };
+const poly = (x: Cx, pts: number[][]) => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0], pts[i][1]); x.closePath(); };
+/** a pioneer robot, about 100 units tall, feet at (px, py): armoured plates with a rim light, a glowing core, a visor and a shoulder cannon */
 function robot(x: Cx, px: number, py: number, s: number, body: string, eye: string, lit = 1, arm = 0) {
   x.save(); x.translate(px, py); x.scale(s, s);
-  x.fillStyle = body; x.fillRect(-9, -52, 18, 22); x.fillRect(-14, -30, 28, 30); x.fillRect(-12, 0, 9, 30); x.fillRect(3, 0, 9, 30); x.save(); x.translate(-14, -28); x.rotate(-0.2 - arm * 0.6); x.fillRect(-7, 0, 7, 24); x.restore(); x.save(); x.translate(14, -28); x.rotate(0.2 + arm * 0.5); x.fillRect(0, 0, 7, 24); x.restore();
-  x.fillStyle = "rgba(255,255,255,.12)"; x.fillRect(-9, -52, 5, 22); x.globalCompositeOperation = "lighter"; x.fillStyle = rgba(eye, 0.15 + 0.85 * lit); x.fillRect(-6, -45, 12, 4); x.fillStyle = rgba(eye, 0.35 * lit); x.beginPath(); x.arc(0, -43, 14, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; x.restore();
+  const sh = x.createRadialGradient(0, 2, 2, 0, 2, 38); sh.addColorStop(0, "rgba(0,0,0,.55)"); sh.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = sh; x.beginPath(); x.ellipse(0, 2, 38, 7, 0, 0, 7); x.fill();   // ground shadow
+  const rim = (w: number, h: number) => { x.fillStyle = "rgba(150,210,255,.35)"; x.fillRect(-w / 2, -h, 2.2, h); };   // cold rim light down one edge
+  // legs: thigh, knee joint, shin plate, foot
+  for (const sd of [-1, 1]) { x.save(); x.translate(sd * 9, -44); x.fillStyle = metalG(x, -7, 0, 7, 24, body); poly(x, [[-7, 0], [7, 0], [6, 24], [-6, 24]]); x.fill(); x.fillStyle = "#0b1118"; x.beginPath(); x.arc(0, 25, 5.5, 0, 7); x.fill(); x.fillStyle = rgba(eye, 0.5 * lit + 0.1); x.beginPath(); x.arc(0, 25, 2, 0, 7); x.fill();
+    x.fillStyle = metalG(x, -8, 26, 8, 44, body, 0.28); poly(x, [[-7, 28], [7, 28], [9, 44], [-8, 44]]); x.fill(); rim(14, -28); x.fillStyle = "#101822"; poly(x, [[-9, 43], [11, 43], [14, 48], [-10, 48]]); x.fill(); x.restore(); }
+  // pelvis and belt
+  x.fillStyle = metalG(x, -14, -50, 14, -42, body); poly(x, [[-14, -50], [14, -50], [11, -41], [-11, -41]]); x.fill(); x.fillStyle = rgba(eye, 0.4 * lit); x.fillRect(-3, -48, 6, 3);
+  // torso: layered chest plates, glowing core
+  x.fillStyle = metalG(x, -20, -92, 20, -50, body, 0.42); poly(x, [[-21, -90], [21, -90], [15, -50], [-15, -50]]); x.fill();
+  x.fillStyle = "#0a1018"; poly(x, [[-12, -88], [12, -88], [9, -64], [-9, -64]]); x.fill(); x.strokeStyle = "rgba(160,200,255,.28)"; x.lineWidth = 1; for (let k = 0; k < 3; k++) { x.beginPath(); x.moveTo(-11 + k, -62 + k * 4); x.lineTo(11 - k, -62 + k * 4); x.stroke(); }
+  x.globalCompositeOperation = "lighter"; const core = x.createRadialGradient(0, -76, 0, 0, -76, 16); core.addColorStop(0, "rgba(255,255,255," + (0.9 * lit) + ")"); core.addColorStop(0.3, rgba(eye, 0.85 * lit)); core.addColorStop(1, rgba(eye, 0)); x.fillStyle = core; x.beginPath(); x.arc(0, -76, 16, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; rim(40, 90);
+  // shoulders (pauldrons), arms and a forearm cannon
+  for (const sd of [-1, 1]) { x.save(); x.translate(sd * 23, -88); x.fillStyle = metalG(x, -12, -8, 12, 12, body, 0.5); x.beginPath(); x.ellipse(0, 0, 13, 10, 0, 0, 7); x.fill(); x.strokeStyle = "rgba(180,220,255,.45)"; x.lineWidth = 1.2; x.stroke();
+    x.rotate(sd * (0.12 + arm * 0.5)); x.fillStyle = metalG(x, -5, 8, 5, 34, body, 0.25); poly(x, [[-5, 8], [5, 8], [4, 32], [-4, 32]]); x.fill(); x.fillStyle = "#0b1118"; x.beginPath(); x.arc(0, 33, 4.5, 0, 7); x.fill();
+    if (sd > 0) { x.fillStyle = "#18222e"; poly(x, [[-5, 34], [6, 34], [8, 60], [-3, 60]]); x.fill(); x.globalCompositeOperation = "lighter"; x.fillStyle = rgba(eye, 0.8 * lit); x.fillRect(-1, 56, 4, 6); x.globalCompositeOperation = "source-over"; } else { x.fillStyle = metalG(x, -5, 34, 5, 58, body, 0.22); poly(x, [[-5, 34], [5, 34], [6, 58], [-5, 58]]); x.fill(); }
+    x.restore(); }
+  // neck and helmet: a visor slit that burns, a crest and an antenna
+  x.fillStyle = "#0b1118"; x.fillRect(-4, -100, 8, 9);
+  x.fillStyle = metalG(x, -12, -118, 12, -98, body, 0.55); x.beginPath(); x.moveTo(-12, -100); x.quadraticCurveTo(-13, -121, 0, -122); x.quadraticCurveTo(13, -121, 12, -100); x.quadraticCurveTo(0, -95, -12, -100); x.fill();
+  x.fillStyle = "#04070c"; poly(x, [[-9, -112], [9, -112], [8, -105], [-8, -105]]); x.fill(); x.globalCompositeOperation = "lighter"; x.fillStyle = rgba(eye, 0.2 + 0.8 * lit); x.fillRect(-7, -110, 14, 3); const vg = x.createRadialGradient(0, -108, 0, 0, -108, 20); vg.addColorStop(0, rgba(eye, 0.45 * lit)); vg.addColorStop(1, rgba(eye, 0)); x.fillStyle = vg; x.beginPath(); x.arc(0, -108, 20, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
+  x.strokeStyle = "#9fb4cc"; x.lineWidth = 1.4; x.beginPath(); x.moveTo(6, -121); x.lineTo(9, -134); x.stroke(); x.fillStyle = "#ff4d6d"; x.beginPath(); x.arc(9, -134.5, 1.6, 0, 7); x.fill();
+  x.restore();
 }
+/** a fighter: swept wings, a canopy, twin engines, wing-tip lights and panel lines (Star Wars / Star Trek flavour) */
 function ship(x: Cx, px: number, py: number, s: number, ang: number, glow: string) {
-  x.save(); x.translate(px, py); x.rotate(ang); x.scale(s, s); x.fillStyle = "#cfd8e4"; x.beginPath(); x.moveTo(30, 0); x.lineTo(-14, -9); x.lineTo(-8, 0); x.lineTo(-14, 9); x.closePath(); x.fill(); x.fillStyle = "#6b7a90"; x.fillRect(-6, -3, 14, 6);
-  x.globalCompositeOperation = "lighter"; const g = x.createLinearGradient(-14, 0, -90, 0); g.addColorStop(0, rgba(glow, 0.9)); g.addColorStop(1, rgba(glow, 0)); x.fillStyle = g; x.fillRect(-90, -4, 76, 8); x.globalCompositeOperation = "source-over"; x.restore();
+  x.save(); x.translate(px, py); x.rotate(ang); x.scale(s, s);
+  x.globalCompositeOperation = "lighter"; for (const sd of [-1, 1]) { const g = x.createLinearGradient(-18, sd * 7, -96, sd * 7); g.addColorStop(0, rgba(glow, 0.95)); g.addColorStop(1, rgba(glow, 0)); x.fillStyle = g; x.beginPath(); x.moveTo(-16, sd * 7 - 3); x.lineTo(-96 - Math.random() * 14, sd * 7); x.lineTo(-16, sd * 7 + 3); x.fill(); } x.globalCompositeOperation = "source-over";
+  x.fillStyle = metalG(x, 0, -22, 0, 22, "#8794a8", 0.55); poly(x, [[34, 0], [6, -5], [-4, -24], [-16, -22], [-12, -6], [-18, -6], [-18, 6], [-12, 6], [-16, 22], [-4, 24], [6, 5]]); x.fill();   // swept wings and body
+  x.fillStyle = "#1a2433"; poly(x, [[34, 0], [10, -3], [10, 3]]); x.fill(); x.fillStyle = "rgba(160,220,255,.85)"; x.beginPath(); x.ellipse(8, 0, 9, 3.4, 0, 0, 7); x.fill();   // canopy
+  x.strokeStyle = "rgba(20,28,40,.7)"; x.lineWidth = 0.8; x.beginPath(); x.moveTo(0, -5); x.lineTo(-12, -20); x.moveTo(0, 5); x.lineTo(-12, 20); x.stroke();
+  x.fillStyle = "#e4455b"; x.fillRect(-12, -23, 5, 1.6); x.fillRect(-12, 21.4, 5, 1.6); x.fillStyle = "#2a3446"; x.fillRect(-20, -9, 6, 4); x.fillRect(-20, 5, 6, 4);
+  x.restore();
+}
+/** a capital ship: a long layered wedge with a lit bridge tower and a bank of engines (Imperial-destroyer silhouette, our own plating) */
+function capital(x: Cx, px: number, py: number, s: number, ang: number, glow: string, t = 0) {
+  x.save(); x.translate(px, py); x.rotate(ang); x.scale(s, s);
+  x.globalCompositeOperation = "lighter"; for (let k = -2; k <= 2; k++) { const g = x.createLinearGradient(-150, k * 7, -230 - 20 * Math.sin(t * 9 + k), k * 7); g.addColorStop(0, rgba(glow, 0.95)); g.addColorStop(1, rgba(glow, 0)); x.fillStyle = g; x.fillRect(-230, k * 7 - 3, 80, 6); } x.globalCompositeOperation = "source-over";
+  x.fillStyle = metalG(x, 0, -34, 0, 34, "#5d6d85", 0.5); poly(x, [[170, 0], [-150, -42], [-160, -30], [-160, 30], [-150, 42]]); x.fill();
+  x.fillStyle = metalG(x, 0, -22, 0, 22, "#7b8aa1", 0.55); poly(x, [[150, 0], [-120, -26], [-130, 26]]); x.fill();   // the upper deck
+  x.strokeStyle = "rgba(10,16,26,.8)"; x.lineWidth = 1; for (let k = -3; k <= 3; k++) { x.beginPath(); x.moveTo(140, k * 1.5); x.lineTo(-125, k * 8); x.stroke(); }
+  x.fillStyle = "#222c3c"; x.fillRect(-100, -34, 36, 14); x.fillRect(-90, -48, 14, 14); x.fillStyle = "#38465c"; x.fillRect(-96, -46, 6, 2);   // bridge tower
+  x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(255,226,150,.9)"; for (let k = 0; k < 6; k++) x.fillRect(-98 + k * 5, -44, 2, 2); for (let k = 0; k < 14; k++) { x.fillStyle = k % 3 ? "rgba(255,226,150,.55)" : "rgba(120,200,255,.7)"; x.fillRect(100 - k * 17, -2 + (k % 2) * 3, 2, 1.6); } x.globalCompositeOperation = "source-over";
+  x.restore();
+}
+/** an alien of one of six body plans, about 80 units tall, standing at (px, py); `col` is its glow, `t` the animation clock */
+function alien(x: Cx, px: number, py: number, s: number, kind: number, col: string, t: number) {
+  x.save(); x.translate(px, py); x.scale(s, s); const glowA = (a: number) => rgba(col, a), dark = "#0a0610", sheen = "rgba(255,255,255,.12)";
+  const eye = (ex: number, ey: number, r: number) => { x.globalCompositeOperation = "lighter"; const g = x.createRadialGradient(ex, ey, 0, ex, ey, r * 3); g.addColorStop(0, "rgba(255,255,255,.95)"); g.addColorStop(0.3, glowA(0.9)); g.addColorStop(1, glowA(0)); x.fillStyle = g; x.beginPath(); x.arc(ex, ey, r * 3, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; };
+  const body = (cx: number, cy: number, rx: number, ry: number) => { const g = x.createRadialGradient(cx - rx * 0.3, cy - ry * 0.4, 1, cx, cy, Math.max(rx, ry)); g.addColorStop(0, "#7a5a98"); g.addColorStop(0.55, "#2c1a3c"); g.addColorStop(1, dark); x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 7); x.fill(); x.strokeStyle = glowA(0.75); x.lineWidth = 2; x.stroke(); };
+  const k = ((kind % 6) + 6) % 6;
+  if (k === 0) {   // crab: armoured shell, two huge claws, stalk eyes, six legs
+    for (let i = 0; i < 6; i++) { const sd = i < 3 ? -1 : 1, j = i % 3; x.strokeStyle = "#1b1024"; x.lineWidth = 4; x.beginPath(); x.moveTo(sd * 14, -14 + j * 5); x.lineTo(sd * (30 + j * 6), -6 + Math.sin(t * 5 + i) * 3); x.lineTo(sd * (36 + j * 8), 0); x.stroke(); }
+    body(0, -22, 30, 17); x.fillStyle = dark; for (let i = -3; i <= 3; i++) poly(x, [[i * 8 - 3, -36], [i * 8, -48 - (3 - Math.abs(i)) * 3], [i * 8 + 3, -36]]), x.fill();
+    for (const sd of [-1, 1]) { x.save(); x.translate(sd * 30, -28); x.rotate(sd * (-0.5 + Math.sin(t * 3 + sd) * 0.18)); x.fillStyle = "#1b1024"; poly(x, [[0, -6], [sd * 26, -12], [sd * 34, 0], [sd * 26, 10], [0, 6]]); x.fill(); x.fillStyle = "#2a1838"; poly(x, [[sd * 26, -12], [sd * 40, -4], [sd * 26, -2]]); x.fill(); x.strokeStyle = glowA(0.5); x.lineWidth = 1.2; x.stroke(); x.restore(); }
+    eye(-8, -40, 3); eye(8, -40, 3);
+  } else if (k === 1) {   // wasp: winged flier with a stinger
+    const bob = Math.sin(t * 8) * 4; x.translate(0, -50 + bob);
+    x.globalAlpha = 0.5; x.fillStyle = "rgba(190,220,255,.5)"; for (const sd of [-1, 1]) for (const w of [0, 1]) { x.save(); x.rotate(sd * (0.4 + w * 0.4 + Math.sin(t * 40 + w) * 0.2)); x.beginPath(); x.ellipse(sd * 22, -10 - w * 6, 24, 7, 0, 0, 7); x.fill(); x.restore(); } x.globalAlpha = 1;
+    body(0, 0, 12, 10); body(-17, 8, 11, 8); x.fillStyle = "#1b1024"; poly(x, [[-26, 8], [-46, 20], [-26, 12]]); x.fill(); eye(6, -3, 2.4); eye(10, 1, 2);
+    x.strokeStyle = "#1b1024"; x.lineWidth = 1.6; x.beginPath(); x.moveTo(10, -8); x.quadraticCurveTo(20, -26, 30, -20); x.moveTo(8, -9); x.quadraticCurveTo(14, -28, 22, -26); x.stroke();
+  } else if (k === 2) {   // worm: a segmented body bursting from the ground, a mouth ringed with teeth
+    for (let i = 0; i < 9; i++) { const a = i * 0.34 + Math.sin(t * 2.5) * 0.12, bx = Math.sin(a * 1.4) * 20 * (i / 9), by = -i * 9; body(bx, by, 17 - i * 0.7, 10); }
+    const hx = Math.sin((8 * 0.34) * 1.4) * 20 * (8 / 9), hy = -8 * 9 - 6; x.fillStyle = "#04020a"; x.beginPath(); x.ellipse(hx, hy, 12, 8, 0, 0, 7); x.fill(); x.fillStyle = "#e8e2d6"; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283; poly(x, [[hx + Math.cos(a) * 12, hy + Math.sin(a) * 8], [hx + Math.cos(a) * 6, hy + Math.sin(a) * 4], [hx + Math.cos(a + 0.2) * 12, hy + Math.sin(a + 0.2) * 8]]); x.fill(); } eye(hx, hy, 2);
+  } else if (k === 3) {   // brute: a hulking biped with horns, huge fists and glowing cracks
+    for (const sd of [-1, 1]) { x.fillStyle = "#170c20"; poly(x, [[sd * 6, -22], [sd * 16, -22], [sd * 15, 0], [sd * 4, 0]]); x.fill(); x.save(); x.translate(sd * 26, -52); x.rotate(sd * (0.2 + Math.sin(t * 2 + sd) * 0.1)); x.fillStyle = "#1e1028"; poly(x, [[-7, 0], [7, 0], [9, 30], [-9, 30]]); x.fill(); x.beginPath(); x.arc(0, 34, 12, 0, 7); x.fill(); x.restore(); }
+    body(0, -44, 26, 24); x.fillStyle = "#170c20"; x.beginPath(); x.ellipse(0, -76, 11, 10, 0, 0, 7); x.fill(); x.fillStyle = "#e8e2d6"; poly(x, [[-9, -82], [-22, -100], [-4, -86]]); x.fill(); poly(x, [[9, -82], [22, -100], [4, -86]]); x.fill();
+    x.globalCompositeOperation = "lighter"; x.strokeStyle = glowA(0.8); x.lineWidth = 1.6; x.beginPath(); x.moveTo(-12, -54); x.lineTo(-4, -44); x.lineTo(-10, -32); x.moveTo(10, -58); x.lineTo(4, -46); x.lineTo(12, -36); x.stroke(); x.globalCompositeOperation = "source-over"; eye(-4, -77, 2); eye(4, -77, 2);
+  } else if (k === 4) {   // floating eye with trailing tentacles
+    const bob = Math.sin(t * 2.5) * 5; x.translate(0, -48 + bob);
+    for (let i = 0; i < 7; i++) { x.strokeStyle = "#1b1024"; x.lineWidth = 3.2; x.beginPath(); x.moveTo((i - 3) * 6, 14); for (let j = 1; j <= 4; j++) x.lineTo((i - 3) * 6 + Math.sin(t * 3 + i + j) * 5 * j * 0.6, 14 + j * 11); x.stroke(); }
+    body(0, 0, 24, 22); x.fillStyle = "#efe9dc"; x.beginPath(); x.ellipse(0, 0, 15, 13, 0, 0, 7); x.fill(); x.fillStyle = glowA(0.95); x.beginPath(); x.arc(Math.sin(t) * 3, 0, 8, 0, 7); x.fill(); x.fillStyle = "#04020a"; x.beginPath(); x.ellipse(Math.sin(t) * 3, 0, 2.2, 7, 0, 0, 7); x.fill(); eye(Math.sin(t) * 3, 0, 2);
+  } else {   // hydra: three serpent necks on one body
+    body(0, -16, 28, 14); for (let h = -1; h <= 1; h++) { x.strokeStyle = "#1b1024"; x.lineWidth = 9; x.lineCap = "round"; x.beginPath(); x.moveTo(h * 12, -22); x.quadraticCurveTo(h * 26 + Math.sin(t * 2 + h) * 8, -50, h * 20 + Math.sin(t * 2.4 + h * 2) * 10, -74 - Math.abs(h) * -6); x.stroke(); const hx = h * 20 + Math.sin(t * 2.4 + h * 2) * 10, hy = -74 - Math.abs(h) * -6; x.fillStyle = "#1e1028"; x.beginPath(); x.ellipse(hx, hy, 10, 7, 0, 0, 7); x.fill(); x.fillStyle = "#e8e2d6"; poly(x, [[hx - 6, hy + 4], [hx - 3, hy + 10], [hx, hy + 4]]); x.fill(); poly(x, [[hx + 6, hy + 4], [hx + 3, hy + 10], [hx, hy + 4]]); x.fill(); eye(hx + 3, hy - 2, 1.8); }
+  }
+  x.restore();
 }
 function sceneEarth(x: Cx, W: number, H: number, u: number, t: number) {
   space(x, W, H, t, 2, "90,140,255"); const cx = W * (0.66 - u * 0.04), cy = H * 0.7, r = H * 0.62; sphere(x, cx, cy, r, "40,110,200", "110,190,255", -40, 0, true, t);
@@ -149,7 +222,8 @@ function sceneFactory(x: Cx, W: number, H: number, u: number, t: number, eye: st
 function sceneLaunch(x: Cx, W: number, H: number, u: number, t: number, glow: string) {
   space(x, W, H, t, 14, "120,120,255");
   x.globalCompositeOperation = "lighter"; x.lineWidth = 1.4; for (let i = 0; i < 60; i++) { const y = rnd(i) * H, sp = 400 + rnd(i + 3) * 900, xx = ((rnd(i + 8) * W * 2 - t * sp) % (W * 1.4) + W * 1.4) % (W * 1.4) - W * 0.2; x.strokeStyle = `rgba(160,200,255,${0.1 + rnd(i + 7) * 0.4})`; x.beginPath(); x.moveTo(xx, y); x.lineTo(xx + 40 + rnd(i) * 80, y); x.stroke(); } x.globalCompositeOperation = "source-over";
-  for (let i = 0; i < 5; i++) { const px = W * (0.15 + i * 0.17 + u * 0.55), py = H * (0.3 + 0.12 * i + Math.sin(t + i) * 0.02); ship(x, px, py, H / 260 * (0.7 + i * 0.12), -0.12, glow); }
+  capital(x, W * (0.2 + u * 0.42), H * 0.34, H / 520, -0.06, glow, t);   // the flagship, with its escort
+  for (let i = 0; i < 5; i++) { const px = W * (0.12 + i * 0.15 + u * 0.55), py = H * (0.55 + 0.07 * i + Math.sin(t + i) * 0.02); ship(x, px, py, H / 300 * (0.7 + i * 0.1), -0.1, glow); }
   const fl = x.createRadialGradient(W * 0.9, H * 0.12, 0, W * 0.9, H * 0.12, H * 0.5); fl.addColorStop(0, "rgba(255,240,200,.45)"); fl.addColorStop(1, "rgba(255,240,200,0)"); x.globalCompositeOperation = "lighter"; x.fillStyle = fl; x.fillRect(0, 0, W, H); x.globalCompositeOperation = "source-over";
 }
 function sceneApproach(x: Cx, W: number, H: number, u: number, t: number, P: any) {
@@ -179,12 +253,14 @@ function sceneSurface(x: Cx, W: number, H: number, u: number, t: number, P: any,
       if (k >= 1) { const bt = (u - 0.1 * i - 0.77) * 2; if (bt > 0 && bt < 1) { x.globalCompositeOperation = "lighter"; const b = x.createRadialGradient(px, hz, 0, px, hz, H * 0.5 * bt); b.addColorStop(0, "rgba(255,255,255,.95)"); b.addColorStop(0.3, "rgba(255,190,70,.7)"); b.addColorStop(1, "rgba(255,70,20,0)"); x.fillStyle = b; x.fillRect(0, 0, W, hz + 40); x.globalCompositeOperation = "source-over"; } } } }
   x.fillStyle = "#04060a"; x.fillRect(0, hz, W, H - hz); const gg = x.createLinearGradient(0, hz, 0, hz + 18); gg.addColorStop(0, rgba(P.glow, 0.35)); gg.addColorStop(1, rgba(P.glow, 0)); x.fillStyle = gg; x.fillRect(0, hz, W, 18);
   for (let i = 0; i < 5; i++) { const ex = W * (0.45 + i * 0.1) + Math.sin(t * 0.7 + i) * 8, on = Math.sin(t * 1.3 + i * 2) > -0.4; if (on) { x.globalCompositeOperation = "lighter"; x.fillStyle = rgba(P.acc, 0.9); x.fillRect(ex, hz - 6 - rnd(i) * 20, 3, 3); x.fillRect(ex + 7, hz - 6 - rnd(i) * 20, 3, 3); x.globalCompositeOperation = "source-over"; } }
+  { const hk = Math.floor(rnd(String(P.id).length * 7 + P.id.charCodeAt(0)) * 6); for (let i = 0; i < 7; i++) { const ax = W * (0.36 + i * 0.09) + Math.sin(t * 0.6 + i) * 6 + pan * 0.5, k = (hk + i) % 6; alien(x, ax, k === 1 ? hz - H * 0.02 : hz + H * 0.04 + (i % 2) * H * 0.03, H / 260 * (0.55 + rnd(i + 31) * 0.5), k, P.acc, t + i); } }   // the horde: six body plans in a mix that depends on the world
   robot(x, W * 0.14 - pan, hz + H * 0.07, H / 300, "#0a1320", eye, 1, 0.2); x.globalCompositeOperation = "lighter"; for (let i = 0; i < 24; i++) { const a = ((rnd(i) * W - t * (20 + rnd(i + 3) * 40)) % W + W) % W; x.fillStyle = rgba(P.glow, 0.25); x.fillRect(a, hz * (0.3 + rnd(i + 5) * 0.9), 2, 2); } x.globalCompositeOperation = "source-over";
 }
 function sceneBoss(x: Cx, W: number, H: number, u: number, t: number, P: any) {
   const g = x.createRadialGradient(W / 2, H * 0.5, H * 0.1, W / 2, H * 0.5, H); g.addColorStop(0, "#3a0a10"); g.addColorStop(1, "#050205"); x.fillStyle = g; x.fillRect(0, 0, W, H);
   const cx = W / 2, cy = H * 0.52, s = H * (0.34 + u * 0.06); x.fillStyle = "#08040a"; x.beginPath(); x.moveTo(cx - s * 1.3, cy + s * 0.9); x.quadraticCurveTo(cx - s * 1.2, cy - s * 0.9, cx, cy - s * 0.95); x.quadraticCurveTo(cx + s * 1.2, cy - s * 0.9, cx + s * 1.3, cy + s * 0.9); x.closePath(); x.fill();
   x.fillStyle = "#12060c"; for (let i = 0; i < 7; i++) { x.beginPath(); x.moveTo(cx - s * 1.0 + i * s * 0.33, cy - s * 0.7); x.lineTo(cx - s * 0.9 + i * s * 0.33, cy - s * (1.25 + 0.2 * Math.abs(3 - i) * -1 + 0.25)); x.lineTo(cx - s * 0.75 + i * s * 0.33, cy - s * 0.7); x.fill(); }
+  alien(x, cx, cy + s * 0.62, s / 85, (String(P.id).charCodeAt(0) + String(P.id).length) % 6, "255,70,90", t);   // the guardian itself, a different body plan per world
   const p = 0.6 + 0.4 * Math.sin(t * 6); x.globalCompositeOperation = "lighter"; const e = x.createRadialGradient(cx, cy - s * 0.1, 0, cx, cy - s * 0.1, s * 0.5); e.addColorStop(0, "rgba(255,255,255,.95)"); e.addColorStop(0.2, rgba("255,60,80", 0.9 * p)); e.addColorStop(1, "rgba(255,40,60,0)"); x.fillStyle = e; x.beginPath(); x.arc(cx, cy - s * 0.1, s * 0.5, 0, 7); x.fill();
   x.fillStyle = rgba(P.glow, 0.5); x.fillRect(cx - s * 0.7, cy + s * 0.25, s * 1.4, s * 0.05); x.globalCompositeOperation = "source-over";
   if (Math.sin(t * 7) > 0) { x.fillStyle = "rgba(255,40,60,.12)"; x.fillRect(0, 0, W, H); } x.fillStyle = "rgba(255,70,90,.95)"; x.font = `900 ${Math.round(H * 0.07)}px system-ui,sans-serif`; x.textAlign = "center"; if (Math.sin(t * 7) > -0.3) x.fillText("⚠ WARNING ⚠", W / 2, H * 0.14);

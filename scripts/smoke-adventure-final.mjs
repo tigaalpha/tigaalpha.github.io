@@ -27,8 +27,8 @@ async function enter(pre, idx) { const o = await open(pre); await o.p.evaluate((
 const locks = async (pre) => { const o = await open(pre); const l = await o.p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => b.disabled)); await o.ctx.close(); return l; };
 {
   const a = await locks(D("luma", "ferro")), b2 = await locks(D("luma", "ferro", "kryo")), c = await locks(D("luma", "ferro", "kryo", "pyra"));
-  ok("Pyra needs Kryo cleared first", a[4] === true && b2[4] === false, JSON.stringify([a[4], b2[4]]));
-  ok("Nexa needs Pyra cleared first", b2[5] === true && c[5] === false, JSON.stringify([b2[5], c[5]]));
+  ok("Pyra is open without Kryo (any order)", a[4] === false, JSON.stringify([a[4], b2[4]]));
+  ok("Nexa is open without Pyra (any order)", b2[5] === false, JSON.stringify([b2[5], c[5]]));
 }
 {
   const o = await enter(D("luma", "ferro", "kryo"), 4);
