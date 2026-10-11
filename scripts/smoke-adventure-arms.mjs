@@ -52,6 +52,9 @@ for (const gun of ["pulse", "scatter", "lance", "arc"]) {
 for (const rocket of ["homing", "cluster", "napalm"]) {
   const o = await arm("pulse", rocket); const h0 = await hpNow(o);
   await o.p.evaluate(() => window.__advTest.rocketNow()); ok(rocket + " rocket launches", (await o.p.evaluate(() => window.__advTest.rocketsLive())) === 1);
+  ok(rocket + ": a muzzle flash and a backblast of smoke at launch", (await o.p.evaluate(() => window.__advTest.blastsN())) >= 1 && (await o.p.evaluate(() => window.__advTest.smokeN())) >= 3);
+  await o.p.waitForTimeout(260); ok(rocket + ": the missile leaves a smoke trail", (await o.p.evaluate(() => window.__advTest.smokeN())) >= 6);
+  if (process.env.SHOT) await o.p.screenshot({ path: process.env.SHOT + "-" + rocket + ".png" });
   await o.p.evaluate(() => window.__advTest.rocketNow()); ok(rocket + " has a cooldown (a second launch right away is refused)", (await o.p.evaluate(() => window.__advTest.rocketsN())) === 1);
   let sawBomblets = false, sawFire = false; for (let i = 0; i < 30; i++) { await o.p.waitForTimeout(100); const r = await o.p.evaluate(() => ({ r: window.__advTest.rocketsLive(), f: window.__advTest.firesLive() })); if (r.r >= 3) sawBomblets = true; if (r.f > 0) sawFire = true; }
   ok(rocket + " rocket hurts what it hits", (await hpNow(o)) < h0, h0 + " -> " + (await hpNow(o)));
@@ -60,6 +63,7 @@ for (const rocket of ["homing", "cluster", "napalm"]) {
   ok(rocket + " no errors", o.errs.length === 0, o.errs.join("|")); await o.ctx.close();
 }
 { const o = await open({}); await o.p.evaluate(() => document.querySelector(".adv-planet").click()); await o.p.waitForSelector(".adv canvas"); await o.p.waitForTimeout(600);
+  ok("the rocket button is at the right end of the top row, after punch", (await o.p.evaluate(() => [...document.querySelectorAll(".adv-pad .pvppad-r button")].slice(0, 4).map(b => b.getAttribute("aria-label")).join())) === "shoot,jump,attack,rocket");
   ok("the pad has a rocket button", (await o.p.evaluate(() => !!document.querySelector('.adv-pad [aria-label="rocket"]'))));
   ok("every pad button is on screen", await o.p.evaluate(() => [...document.querySelectorAll(".adv-pad button")].every(b => { const r = b.getBoundingClientRect(); return r.right <= innerWidth && r.bottom <= innerHeight && r.left >= 0; })));
   await o.ctx.close(); }
