@@ -53,7 +53,9 @@ const TYPE: Record<string, string> = { luma: "jungle", ferro: "desert", jovia: "
 
 const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "ashfall"];
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
-export function cinePlan(P: any, short?: boolean): CineShot[] {
+/* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
+export function cinePlan(P: any, short?: boolean): CineShot[] { return basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 })); }
+function basePlan(P: any, short?: boolean): CineShot[] {
   if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }];
   if (short === undefined) short = seenPrologue();
   if (short) { const q: CineShot[] = [{ kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }]; if (P.boss && P.boss[0] !== "-") q.push({ kind: "boss", dur: 3.8 }); q.push({ kind: "objective", dur: 6 }); return q; }
@@ -70,6 +72,31 @@ const captionFor = (P: any, kind: string, lang: string) => {
   if (kind === "boss") return T3(lang, "ที่ปลายทาง มี " + P.boss[0] + " รออยู่", "At the end of the road, " + P.boss[1] + " is waiting.", "路的尽头，" + P.boss[2] + "正在等候。");
   return "";
 };
+
+/* ── the look (owner, 2026-10-11): ruined cyber space age, Dune x Star Wars x Star Trek ── */
+const DUST = Array.from({ length: 70 }, (_, i) => ({ x: rnd(i + 2000), y: rnd(i + 2100), s: 0.4 + rnd(i + 2200) * 1.6, v: 0.02 + rnd(i + 2300) * 0.06 }));
+function epicLook(x: CanvasRenderingContext2D, W: number, H: number, t: number, kind: string, P: any) {
+  const acc = P.acc || "255,190,90";
+  x.save();
+  // a grade: warm dusty highlights over cold shadows
+  x.globalCompositeOperation = "soft-light"; const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "rgba(40,90,150,.45)"); g.addColorStop(1, "rgba(" + acc + ",.35)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  // drifting dust and ash
+  x.globalCompositeOperation = "lighter"; for (const d of DUST) { const px = ((d.x - t * d.v * 3) % 1 + 1) % 1 * W, py = ((d.y + t * d.v) % 1) * H; x.fillStyle = "rgba(" + acc + ",.22)"; x.beginPath(); x.arc(px, py, d.s * (W / 900), 0, 7); x.fill(); }
+  // an anamorphic streak from a light that slowly crosses the frame
+  const lx = W * (0.2 + 0.6 * ((t * 0.03) % 1)), ly = H * 0.34; const sg = x.createLinearGradient(lx - W * 0.45, 0, lx + W * 0.45, 0); sg.addColorStop(0, "rgba(120,190,255,0)"); sg.addColorStop(0.5, "rgba(190,225,255,.5)"); sg.addColorStop(1, "rgba(120,190,255,0)"); x.fillStyle = sg; x.fillRect(lx - W * 0.45, ly - 1.5, W * 0.9, 3);
+  // a capital ship (wedge hull, engine glow) gliding far away; bigger and lower in the space and launch shots
+  if (kind === "launch" || kind === "approach" || kind === "boss" || kind === "earth") {
+    const sc = kind === "boss" ? 1.4 : 1, sx = W * (1.15 - ((t * 0.035) % 1.5)), sy = H * 0.3, L = W * 0.5 * sc, Hh = H * 0.09 * sc;
+    x.globalCompositeOperation = "source-over"; x.fillStyle = "rgba(8,12,22,.92)"; x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + L, sy - Hh * 0.2); x.lineTo(sx + L * 0.96, sy + Hh * 0.2); x.lineTo(sx, sy + Hh); x.closePath(); x.fill();
+    x.fillStyle = "rgba(40,60,90,.7)"; x.fillRect(sx + L * 0.2, sy + Hh * 0.05, L * 0.5, 2);
+    x.globalCompositeOperation = "lighter"; const eg = x.createRadialGradient(sx + L, sy, 0, sx + L, sy, Hh * 1.8); eg.addColorStop(0, "rgba(150,210,255,.8)"); eg.addColorStop(1, "rgba(80,140,255,0)"); x.fillStyle = eg; x.beginPath(); x.arc(sx + L, sy, Hh * 1.8, 0, 7); x.fill();
+  }
+  // holo-readout corners, like a bridge display
+  x.globalCompositeOperation = "source-over"; x.strokeStyle = "rgba(140,210,255,.55)"; x.lineWidth = Math.max(1.5, W / 700); const m = W * 0.045, bh = H * 0.13 + 6, q = W * 0.03;
+  for (const [cx, cy, sx2, sy2] of [[m, bh + m * 0.6, 1, 1], [W - m, bh + m * 0.6, -1, 1], [m, H - bh - m * 0.6, 1, -1], [W - m, H - bh - m * 0.6, -1, -1]] as number[][]) { x.beginPath(); x.moveTo(cx, cy + sy2 * q); x.lineTo(cx, cy); x.lineTo(cx + sx2 * q, cy); x.stroke(); }
+  x.fillStyle = "rgba(140,210,255,.7)"; x.font = Math.round(W / 70) + "px monospace"; x.fillText("STARDATE 2100." + String(Math.floor(t * 7 + 114)).padStart(3, "0"), m + 4, bh + m * 0.6 + q + 18);
+  x.restore();
+}
 
 /* ── drawing ── */
 type Cx = CanvasRenderingContext2D;
@@ -183,9 +210,10 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
         default: sceneSurface(x, W, H, u, local, P, type, eye);
       }
       x.restore();
+      epicLook(x, W, H, el, s.kind, P);
       const v = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.6)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
       x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 90; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.4, 1.4);   // film grain
-      const bar = H * 0.11; x.fillStyle = "#000"; x.fillRect(0, 0, W, bar); x.fillRect(0, H - bar, W, bar);
+      const bar = H * 0.13; x.fillStyle = "#000"; x.fillRect(0, 0, W, bar); x.fillRect(0, H - bar, W, bar);
       const fade = Math.max(0, 1 - local / 0.4, Math.min(1, (local - (s.dur - 0.3)) / 0.3) * (s.kind === "objective" ? 0 : 1)); if (fade > 0) { x.fillStyle = `rgba(0,0,0,${fade})`; x.fillRect(0, 0, W, H); }
     };
     raf = requestAnimationFrame(frame);
