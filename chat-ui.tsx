@@ -3,6 +3,7 @@ import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
 import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsEstSeconds, ttsBudgetSpend, ttsBudgetRefund, CHAT_TTS_RATE } from "./speech";
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
+import { CATS, CAT_ICON, catLevel } from "./chat-store";
 
 /* ── chat-ui.tsx ──
    Chat UI atoms shared by every chat surface (Sensei page, expanded chat
@@ -356,5 +357,110 @@ export function Input({ val, onChange, onSend, loading, ph, note = null, noteOut
       {/* free messages left today — only for a free account, only when given one */}
       {note && <div className={"qnote" + (noteOut ? " out" : "")} role="status">{note}</div>}
     </>
+  );
+}
+
+
+/* ── conversation history ──
+   Two small buttons for the chat header (history · new chat) and the sheet they open: every saved
+   conversation as a card, filed under six categories that each level up as questions are asked in
+   them, with search, pin and delete. The categories and levels are computed on the device from what
+   the learner asked: nothing here costs a model call, an EXP point or a coin. */
+const HT = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+const CAT_NAME = { theory: ["ทฤษฎี", "Theory", "乐理"], technique: ["เทคนิค", "Technique", "技巧"], ear: ["ฝึกหู", "Ear", "听力"], reading: ["อ่านโน้ต", "Reading", "读谱"], songs: ["เพลง", "Songs", "歌曲"], other: ["อื่น ๆ", "Other", "其他"] };
+const catName = (c, lang) => { const n = CAT_NAME[c] || CAT_NAME.other; return HT(lang, n[0], n[1], n[2]); };
+function whenOf(ts, lang) {
+  const d = Date.now() - ts, m = 60000;
+  if (d < m * 2) return HT(lang, "เมื่อครู่", "just now", "刚刚");
+  if (d < m * 60) return Math.round(d / m) + HT(lang, " นาทีที่แล้ว", " min ago", " 分钟前");
+  if (d < m * 60 * 24) return Math.round(d / (m * 60)) + HT(lang, " ชม.ที่แล้ว", " h ago", " 小时前");
+  if (d < m * 60 * 24 * 7) return Math.round(d / (m * 60 * 24)) + HT(lang, " วันที่แล้ว", " d ago", " 天前");
+  try { return new Date(ts).toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { day: "numeric", month: "short" }); } catch (e) { return ""; }
+}
+export function ChatHistoryButtons({ lang, onHistory, onNew, count = 0 }) {
+  return (
+    <span className="chhbtns">
+      <button type="button" className="chhbtn" onClick={onHistory} aria-label={HT(lang, "ประวัติแชต", "Chat history", "聊天记录")} title={HT(lang, "ประวัติแชต", "Chat history", "聊天记录")}>
+        <span aria-hidden="true">🗂</span>{count > 0 && <i className="chhbtn-n">{count > 99 ? "99+" : count}</i>}
+      </button>
+      <button type="button" className="chhbtn" onClick={onNew} aria-label={HT(lang, "แชตใหม่", "New chat", "新对话")} title={HT(lang, "แชตใหม่", "New chat", "新对话")}><span aria-hidden="true">＋</span></button>
+    </span>
+  );
+}
+export function ChatHistorySheet({ open, lang, threads, activeId, onClose, onOpen, onNew, onDelete, onPin, onMove }) {
+  const [cat, setCat] = useState("all");
+  const [q, setQ] = useState("");
+  const [undo, setUndo] = useState(null);
+  const [menu, setMenu] = useState(null);
+  const undoTimer = useRef(null);
+  const [hidden, setHidden] = useState([]);   // deleted a moment ago: hidden now, really removed after 5 s unless undone
+  useEffect(() => { if (!open) { setQ(""); setMenu(null); } }, [open]);
+  // each category's level: how many threads are filed in it (a thread is a question asked and kept)
+  const counts = useMemo(() => { const c = { all: threads.length }; for (const k of CATS) c[k] = 0; for (const t of threads) c[t.cat] = (c[t.cat] || 0) + 1; return c; }, [threads]);
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return threads.filter(t => !hidden.includes(t.id) && (cat === "all" || t.cat === cat) && (!s || (t.title + " " + t.last).toLowerCase().includes(s)));
+  }, [threads, cat, q, hidden]);
+  if (!open) return null;
+  const del = (t) => {
+    // a delete that is really removed only after the undo window; a second delete settles the first one
+    if (undo) { clearTimeout(undoTimer.current); onDelete(undo.id); setHidden(h => h.filter(x => x !== undo.id)); }
+    setHidden(h => h.concat(t.id)); setUndo(t);
+    undoTimer.current = setTimeout(() => { onDelete(t.id); setHidden(h => h.filter(x => x !== t.id)); setUndo(null); }, 5000);
+  };
+  const undoDel = () => { clearTimeout(undoTimer.current); if (undo) setHidden(h => h.filter(x => x !== undo.id)); setUndo(null); };
+  return (
+    <div className="chhov" role="dialog" aria-modal="true" aria-label={HT(lang, "ประวัติแชต", "Chat history", "聊天记录")} onClick={onClose}>
+      <div className="chhsheet" onClick={e => e.stopPropagation()}>
+        <div className="chhhead">
+          <b>{HT(lang, "ประวัติแชต", "Chat history", "聊天记录")}</b>
+          <button type="button" className="chhnew" onClick={onNew}>＋ {HT(lang, "แชตใหม่", "New chat", "新对话")}</button>
+          <button type="button" className="chhx" onClick={onClose} aria-label={HT(lang, "ปิด", "Close", "关闭")}>×</button>
+        </div>
+        <input className="chhsearch" value={q} onChange={e => setQ(e.target.value)} placeholder={HT(lang, "ค้นหาแชต…", "Search chats…", "搜索对话…")} aria-label={HT(lang, "ค้นหา", "Search", "搜索")} />
+        <div className="chhcats" role="tablist">
+          <button type="button" role="tab" aria-selected={cat === "all"} className={"chhcat" + (cat === "all" ? " on" : "")} onClick={() => setCat("all")}>
+            {HT(lang, "ทั้งหมด", "All", "全部")} <i>{counts.all}</i>
+          </button>
+          {CATS.map(k => { const lv = catLevel(counts[k] || 0); return (
+            <button type="button" role="tab" aria-selected={cat === k} key={k} className={"chhcat" + (cat === k ? " on" : "")} onClick={() => setCat(k)}>
+              <span aria-hidden="true">{CAT_ICON[k]}</span> {catName(k, lang)} <i>Lv {lv.lv}</i>
+              <span className="chhcat-bar"><span style={{ width: Math.round(lv.pct * 100) + "%" }} /></span>
+            </button>); })}
+        </div>
+        <div className="chhlist">
+          {list.length === 0 && (
+            <div className="chhempty">{threads.length === 0
+              ? HT(lang, "ยังไม่มีแชต — ถามอะไรสักอย่างแล้วมันจะมาอยู่ที่นี่", "No chats yet — ask something and it will be kept here", "还没有对话，提问后会保存在这里")
+              : HT(lang, "ไม่พบแชตที่ตรงกัน", "No matching chats", "没有匹配的对话")}</div>
+          )}
+          {list.map(t => (
+            <div key={t.id} className={"chhcard" + (t.id === activeId ? " cur" : "")}>
+              <button type="button" className="chhcard-main" onClick={() => onOpen(t.id)}>
+                <span className="chhcard-ic" aria-hidden="true">{CAT_ICON[t.cat] || "💬"}</span>
+                <span className="chhcard-tx">
+                  <b>{t.pinned ? "⭐ " : ""}{t.title}</b>
+                  <i>{t.last}</i>
+                  <em>{catName(t.cat, lang)} · {whenOf(t.updated, lang)}</em>
+                </span>
+              </button>
+              <button type="button" className="chhcard-b" onClick={() => onPin(t.id, !t.pinned)} aria-label={t.pinned ? HT(lang, "เลิกปักหมุด", "Unpin", "取消置顶") : HT(lang, "ปักหมุด", "Pin", "置顶")}>{t.pinned ? "★" : "☆"}</button>
+              <button type="button" className="chhcard-b" onClick={() => setMenu(menu === t.id ? null : t.id)} aria-label={HT(lang, "ย้ายหมวด", "Move to category", "移动分类")}>⋯</button>
+              <button type="button" className="chhcard-b" onClick={() => del(t)} aria-label={HT(lang, "ลบ", "Delete", "删除")}>🗑</button>
+              {menu === t.id && (
+                <div className="chhmove">
+                  {CATS.map(k => <button type="button" key={k} className={k === t.cat ? "on" : ""} onClick={() => { onMove(t.id, k); setMenu(null); }}>{CAT_ICON[k]} {catName(k, lang)}</button>)}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {undo && (
+          <div className="chhundo" role="status">{HT(lang, "ลบแล้ว", "Deleted", "已删除")}: {undo.title}
+            <button type="button" onClick={undoDel}>{HT(lang, "เลิกทำ", "Undo", "撤销")}</button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

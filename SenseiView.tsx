@@ -1,6 +1,6 @@
 import { L, tr } from "./i18n";
 import { Piano, playUi, playPianoNote } from "./music-engine";
-import { Msg, Typing, Input, ChatProgress } from "./chat-ui";
+import { Msg, Typing, Input, ChatProgress, ChatHistoryButtons } from "./chat-ui";
 import { FingerHand } from "./PracticeOverlay";
 /* ── SenseiView ──
    The default page (page==="sensei"), extracted verbatim from PianoApp's
@@ -12,7 +12,7 @@ import { FingerHand } from "./PracticeOverlay";
    this page==="sensei" block and stays in PianoApp. lc is derived from lang
    internally. recommendNext/toggleChordStyle are PianoApp closures (not
    top-level, not exported), so they're threaded as props. ── */
-export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap, chatNote = null, chatNoteOut = false, onMore = null, speakMode = "off", onSpeakLocked = null, onMark = null, onGoStep = null, chatProg = null, todayPlan = null, todayTags = null, onTodayOpen = null, resumeCard = null, onResumeDrill = null, missCard = null, sessionDone = null}) {
+export function SenseiView({ chatHistory = null, lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap, chatNote = null, chatNoteOut = false, onMore = null, speakMode = "off", onSpeakLocked = null, onMark = null, onGoStep = null, chatProg = null, todayPlan = null, todayTags = null, onTodayOpen = null, resumeCard = null, onResumeDrill = null, missCard = null, sessionDone = null}) {
   const lc = L[lang];
   const tt = todayTags || {};
   const TT = {
@@ -26,6 +26,7 @@ export function SenseiView({ lang, activeStageId, setPage, onBack, recommendNext
           {/* Plan 26 · P2 — the goal bar sits at the TOP now, not buried under the
               chat input, and it renders even when streak/quest are still zero:
               a brand-new learner is exactly who most needs to see a target. */}
+          {chatHistory && <div className="chhbar"><ChatHistoryButtons lang={lang} count={chatHistory.count} onHistory={chatHistory.onHistory} onNew={chatHistory.onNew} /></div>}
           {chatProg && <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} always />}
           {/* Plan 26 · P1 + P3 — today's plan on the page the learner stands on.
               The numbers come from buildTodaySteps(), the SAME function TodayPage
