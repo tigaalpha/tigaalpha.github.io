@@ -96,8 +96,8 @@ import {
   tr, L, FLAGS, FLAG_NAMES, PATH_GROUPS, BENEFIT_CASES, STAGES_BY_GROUP,
   localPathwayLesson, matchFaqTopic, COACH_FEATURE_LABELS, EXAM_GRADES, FAQ_TOPICS,
 } from "./i18n";
-import { Msg, Typing, Input, ChatProgress, CHAT_TTS_ENABLED, ChatHistoryButtons, ChatHistorySheet } from "./chat-ui";
-import { addUnderstood } from "./chat-store";
+import { Msg, Typing, Input, ChatProgress, CHAT_TTS_ENABLED, ChatHistoryButtons, ChatHistorySheet, ChatQuest, BadgeToast } from "./chat-ui";
+import { addUnderstood, evalBadges, bumpQuest, QUEST_EXP } from "./chat-store";
 /* Hidden case studies (owner request 2026-09): the whole "Marketing for
    Artists" stage/group (music-marketing) plus the Carabao case are removed
    from every surface. This block runs at App module load, after i18n has
@@ -11854,16 +11854,24 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      session. The tutor never guesses this about itself: being wrong about it
      is worse than having no record. The label is the question that was asked,
      trimmed, because there is no topic id on a chat answer. */
+  const [badgeToast, setBadgeToast] = useState(null);
+  const [chatQuestTick, setChatQuestTick] = useState(0);
+  useEffect(() => { try { const fresh = evalBadges(); if (fresh.length) setBadgeToast(fresh[0]); } catch (e) {} }, [threads]);   // first chat, 5 chats, 4 categories, streak, a pin
   const [chatPiano, setChatPiano] = useState(() => { try { return localStorage.getItem("tg_chat_piano") === "1"; } catch (e) { return false; } });   // the chat's piano starts folded: more room for the talk
   const markUnderstood = useCallback((acc, ask) => {
     try {
       const label = String((ask && (ask.q || (ask.opts && ask.opts[ask.answer]))) || "").trim().slice(0, 40);
       if (!label) return;
       recordMemory(label, acc);
-      if (acc >= 70) addUnderstood(chatThreadId.current);   // the chat's knowledge log (device-only tally)
+      if (acc >= 70) {
+        addUnderstood(chatThreadId.current);   // the chat's knowledge log (device-only tally)
+        const qs = bumpQuest(); setChatQuestTick(x => x + 1);
+        if (qs.justDone) { try { gainExp(QUEST_EXP); } catch (e) {} }   // EXP only, once a day; never coins
+        const fresh = evalBadges(); if (fresh.length) setBadgeToast(fresh[0]);
+      }
       playUi("click");
     } catch (e) {}
-  }, [playUi]);
+  }, [playUi, gainExp]);
   // Which Pathway topic is currently being studied on the Sensei page, so a
   // "back" button can jump straight to that topic's key picker re-opened —
   // instead of the ☰ menu → Pathway → find-the-card-again round trip.
@@ -13527,6 +13535,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <ChatHistoryButtons lang={lang} count={threads.length} onHistory={() => { playUi("click"); setHistoryOpen(true); }} onNew={() => { playUi("click"); newChat(); }} />
           <button className="cbtn" aria-label={lc.close} title={lc.close} onClick={() => setModal(false)}>✕</button>
         </div>
+        <ChatQuest lang={lang} tick={chatQuestTick} />
         {chatPiano && <div className="mpw"><Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} small /></div>}
         <div className="mmsgs">
           {msgs.map((m, i) => (
@@ -14512,6 +14521,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       })()}
 
       {/* Auto Teaching → Challenging Mode nudge — see maybeNudgeChallenge() */}
+      <BadgeToast badge={badgeToast} lang={lang} onDone={() => setBadgeToast(null)} />
       <ChatHistorySheet open={historyOpen} lang={lang} threads={threads} activeId={chatThreadId.current} onClose={() => setHistoryOpen(false)}
         onOpen={(id) => { playUi("click"); openThread(id); }} onNew={() => { playUi("click"); newChat(); }}
         onDelete={removeThread} onPin={pinThread} onMove={moveThread} />

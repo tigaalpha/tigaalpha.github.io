@@ -45,6 +45,19 @@ ok("understood is counted under the conversation's category", m.addUnderstood(ki
 ok("no thread, no count", m.addUnderstood(null) === null && m.readKnow().theory === 1);
 const pts = m.catPoints(m.listMeta(), m.readKnow());
 ok("points = questions asked + 2 per understood", pts.theory >= 2 * 1 + 2 && typeof pts.ear === "number", JSON.stringify(pts));
+// badges, streak, quest
+const store2 = m.readBadges(); ok("no badges before evaluating", Object.keys(store2).length === 0);
+const fresh = m.evalBadges(); ok("first-chat badge unlocks once threads exist", fresh.some(b => b.id === "first") && fresh.some(b => b.id === "curious"));
+ok("badges unlock only once", m.evalBadges().length === 0);
+m.pinThread(m.listMeta()[0].id, true); ok("pin unlocks the keeper badge", m.evalBadges().some(b => b.id === "keeper"));
+const d = (n) => m.dayKey(Date.now() - n * 86400000);
+store["tg_chat_days"] = JSON.stringify([d(2), d(1), d(0)]); ok("three days in a row is a streak of 3", m.chatStreak() === 3);
+store["tg_chat_days"] = JSON.stringify([d(5), d(4)]); ok("a gap breaks the streak", m.chatStreak() === 0);
+store["tg_chat_days"] = JSON.stringify([d(2), d(1)]); ok("yesterday still counts until today passes", m.chatStreak() === 2);
+delete store["tg_chat_quest"]; let q1 = m.bumpQuest(); ok("quest 1/2 is not done", q1.n === 1 && !q1.justDone);
+q1 = m.bumpQuest(); ok("quest completes once, with the reward flag", q1.n === 2 && q1.justDone && q1.done);
+q1 = m.bumpQuest(); ok("and never pays twice in a day", q1.n === 2 && !q1.justDone);
+store["tg_chat_quest"] = JSON.stringify({ d: "2000-01-01", n: 2, paid: true }); ok("a new day resets the quest", m.readQuest().n === 0 && !m.readQuest().paid);
 // sync
 await m.pushThread(idb); ok("push sends a row owned by the user", upserts.length === 1 && upserts[0].user_id === "u1" && upserts[0].id === idb && upserts[0].category);
 uidv = null; upserts = []; await m.pushThread(idb); ok("signed out: nothing is sent", upserts.length === 0);

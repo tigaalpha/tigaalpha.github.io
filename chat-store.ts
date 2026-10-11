@@ -64,6 +64,7 @@ const titleOf = (t: string) => { const s = String(t).replace(/\s+/g, " ").trim()
 export function saveThread(id: string, lang: string, msgs: any[]): Meta | null {
   if (!id || !Array.isArray(msgs) || msgs.length <= 1) return null;
   const m = clean(msgs); wr(MSG + id, m);
+  if (m[m.length - 1] && m[m.length - 1].role === "user") noteDay();
   const idx = listMeta(true); const now = Date.now();
   const i = idx.findIndex(x => x.id === id);
   const users = m.filter(x => x.role === "user").map(x => x.text).slice(0, 3).join(" ");
@@ -109,6 +110,50 @@ export function catPoints(threads: Meta[], know: Record<string, number>) {
   const out: Record<string, number> = {}; for (const c of CATS) out[c] = 2 * (know[c] || 0);
   for (const t of threads) out[t.cat] = (out[t.cat] || 0) + Math.max(0, Math.floor((t.n - 1) / 2));
   return out;
+}
+
+/* ── days talked, badges, the daily quest (device-only; EXP at most, never coins) ── */
+const DAYS = "tg_chat_days", BADGE = "tg_chat_badges", QUEST = "tg_chat_quest";
+export const dayKey = (t = Date.now()) => new Date(t).toISOString().slice(0, 10);
+export function noteDay() { const d = rd(DAYS); const a: string[] = Array.isArray(d) ? d : []; const k = dayKey(); if (a[a.length - 1] !== k) { a.push(k); wr(DAYS, a.slice(-60)); } }
+/** Consecutive days (ending today or yesterday) on which the learner asked something. */
+export function chatStreak(): number {
+  const d = rd(DAYS); const a: string[] = Array.isArray(d) ? d : []; if (!a.length) return 0;
+  const set = new Set(a); let n = 0; let t = Date.now();
+  if (!set.has(dayKey(t))) t -= 86400000;
+  while (set.has(dayKey(t))) { n++; t -= 86400000; }
+  return n;
+}
+export type Badge = { id: string; icon: string; th: string; en: string; zh: string; dth: string; den: string; dzh: string };
+export const BADGES: Badge[] = [
+  { id: "first", icon: "🌱", th: "ก้าวแรก", en: "First steps", zh: "第一步", dth: "คุยกับครู AI ครั้งแรก", den: "Had your first chat with the tutor", dzh: "第一次和AI老师聊天" },
+  { id: "curious", icon: "🔎", th: "ช่างสงสัย", en: "Curious", zh: "好奇宝宝", dth: "คุยครบ 5 บทสนทนา", den: "Kept 5 conversations", dzh: "保存了5段对话" },
+  { id: "explorer", icon: "🧭", th: "นักสำรวจ", en: "Explorer", zh: "探索者", dth: "ถามครบ 4 หมวด", den: "Asked in 4 categories", dzh: "在4个分类中提问" },
+  { id: "scholar", icon: "🎓", th: "ใฝ่รู้", en: "Scholar", zh: "好学生", dth: "เข้าใจแล้ว 10 เรื่อง", den: "Understood 10 things", dzh: "理解了10件事" },
+  { id: "streak3", icon: "🔥", th: "ต่อเนื่อง 3 วัน", en: "3-day streak", zh: "连续3天", dth: "ถามครูติดกัน 3 วัน", den: "Asked the tutor 3 days in a row", dzh: "连续3天向老师提问" },
+  { id: "keeper", icon: "⭐", th: "นักสะสม", en: "Keeper", zh: "收藏家", dth: "ปักหมุดแชตสำคัญ", den: "Pinned a conversation", dzh: "置顶了一段对话" },
+];
+export const readBadges = (): Record<string, number> => { const b = rd(BADGE); return b && typeof b === "object" ? b : {}; };
+/** Check every badge against what is on the device; returns the ones that unlocked just now. */
+export function evalBadges(): Badge[] {
+  const threads = listMeta(); const know = readKnow(); const have = readBadges(); const cats = new Set(threads.map(t => t.cat));
+  const understood = CATS.reduce((a, c) => a + (know[c] || 0), 0);
+  const ok: Record<string, boolean> = {
+    first: threads.length >= 1, curious: threads.length >= 5, explorer: cats.size >= 4, scholar: understood >= 10,
+    streak3: chatStreak() >= 3, keeper: threads.some(t => t.pinned),
+  };
+  const fresh: Badge[] = [];
+  for (const b of BADGES) if (ok[b.id] && !have[b.id]) { have[b.id] = Date.now(); fresh.push(b); }
+  if (fresh.length) wr(BADGE, have);
+  return fresh;
+}
+export const QUEST_GOAL = 2, QUEST_EXP = 10;
+/** Today's chat quest: understand two things. Returns the new state and whether this call completed it. */
+export function readQuest() { const q = rd(QUEST); return q && q.d === dayKey() ? q : { d: dayKey(), n: 0, paid: false }; }
+export function bumpQuest(): { n: number; done: boolean; justDone: boolean } {
+  const q = readQuest(); q.n = Math.min(QUEST_GOAL, q.n + 1);
+  const justDone = q.n >= QUEST_GOAL && !q.paid; if (justDone) q.paid = true;
+  wr(QUEST, q); return { n: q.n, done: q.n >= QUEST_GOAL, justDone };
 }
 
 /* ── account sync ── */

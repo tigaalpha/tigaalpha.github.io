@@ -3,7 +3,7 @@ import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
 import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsEstSeconds, ttsBudgetSpend, ttsBudgetRefund, CHAT_TTS_RATE } from "./speech";
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
-import { CATS, CAT_ICON, catLevel, readKnow, catPoints } from "./chat-store";
+import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUEST_GOAL, QUEST_EXP, readQuest } from "./chat-store";
 
 /* ── chat-ui.tsx ──
    Chat UI atoms shared by every chat surface (Sensei page, expanded chat
@@ -174,7 +174,7 @@ export const AskRow = memo(function AskRow({ ask, lang, onAnswer, onMark }) {
       </div>
       {done && (
         <>
-          <div className={"askverdict" + (right ? " ok" : " no")} role="status">{right ? lc.chkGot : lc.chkNo}</div>
+          <div className={"askverdict" + (right ? " ok pop" : " no")} role="status">{right ? "✨ " : ""}{right ? lc.chkGot : lc.chkNo}</div>
           {!right && (
             <button type="button" className="askagain" onClick={() => setPicked(null)}>{lc.chkTry}</button>
           )}
@@ -398,6 +398,7 @@ export function ChatHistorySheet({ open, lang, threads, activeId, onClose, onOpe
   // each category's level: how many threads are filed in it (a thread is a question asked and kept)
   const know = useMemo(() => (open ? readKnow() : {}), [open, threads]);
   const pts = useMemo(() => catPoints(threads, know), [threads, know]);
+  const badges = useMemo(() => (open ? readBadges() : {}), [open, threads]);
   const understood = useMemo(() => CATS.reduce((a, c) => a + (know[c] || 0), 0), [know]);
   const counts = useMemo(() => { const c = { all: threads.length }; for (const k of CATS) c[k] = 0; for (const t of threads) c[t.cat] = (c[t.cat] || 0) + 1; return c; }, [threads]);
   const list = useMemo(() => {
@@ -430,6 +431,12 @@ export function ChatHistorySheet({ open, lang, threads, activeId, onClose, onOpe
               <span aria-hidden="true">{CAT_ICON[k]}</span> {catName(k, lang)} <i>Lv {lv.lv}</i>
               <span className="chhcat-bar"><span style={{ width: Math.round(lv.pct * 100) + "%" }} /></span>
             </button>); })}
+        </div>
+        <div className="chhbadges" aria-label={HT(lang, "ตราสะสม", "Badges", "徽章")}>
+          {BADGES.map(b => { const got = !!badges[b.id]; return (
+            <span key={b.id} className={"chhbadge" + (got ? " got" : "")} title={HT(lang, b.dth, b.den, b.dzh)}>
+              <i aria-hidden="true">{got ? b.icon : "🔒"}</i><em>{HT(lang, b.th, b.en, b.zh)}</em>
+            </span>); })}
         </div>
         <div className="chhknow" aria-label={HT(lang, "สมุดความรู้", "Knowledge log", "知识记录")}>
           <span>💡 {HT(lang, "เข้าใจแล้ว", "Understood", "已理解")} <b>{understood}</b></span>
@@ -469,6 +476,30 @@ export function ChatHistorySheet({ open, lang, threads, activeId, onClose, onOpe
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ── today's chat quest + the badge toast (the game layer of the chat) ── */
+export function ChatQuest({ lang, tick = 0 }) {
+  const q = readQuest(); const n = Math.min(q.n, QUEST_GOAL); void tick;
+  return (
+    <div className={"chquest" + (n >= QUEST_GOAL ? " done" : "")} role="status">
+      <span className="chquest-ic" aria-hidden="true">{n >= QUEST_GOAL ? "🏅" : "🎯"}</span>
+      <span className="chquest-tx">{HT(lang, "เควสต์วันนี้: เข้าใจให้ได้ " + QUEST_GOAL + " เรื่อง", "Today's quest: understand " + QUEST_GOAL + " things", "今日任务：理解 " + QUEST_GOAL + " 件事")}</span>
+      <span className="chquest-bar" aria-hidden="true"><span style={{ width: Math.round((n / QUEST_GOAL) * 100) + "%" }} /></span>
+      <b className="chquest-n">{n}/{QUEST_GOAL}</b>
+      {n >= QUEST_GOAL && <em>{HT(lang, "สำเร็จ! +" + QUEST_EXP + " EXP", "Done! +" + QUEST_EXP + " EXP", "完成！+" + QUEST_EXP + " EXP")}</em>}
+    </div>
+  );
+}
+export function BadgeToast({ badge, lang, onDone }) {
+  useEffect(() => { if (!badge) return undefined; const t = setTimeout(onDone, 3800); return () => clearTimeout(t); }, [badge]);
+  if (!badge) return null;
+  return (
+    <div className="chbadgetoast" role="status" onClick={onDone}>
+      <span className="chbadgetoast-ic" aria-hidden="true">{badge.icon}</span>
+      <span><small>{HT(lang, "ปลดล็อกตราใหม่!", "New badge!", "解锁新徽章！")}</small><b>{HT(lang, badge.th, badge.en, badge.zh)}</b><i>{HT(lang, badge.dth, badge.den, badge.dzh)}</i></span>
     </div>
   );
 }
