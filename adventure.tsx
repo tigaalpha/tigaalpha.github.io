@@ -92,6 +92,7 @@ export const readDayCoins = (): number => { try { const v = JSON.parse(localStor
 export const addDayCoins = (n: number) => { try { localStorage.setItem("tg_adv_coin_day", JSON.stringify({ d: dayKey(), n: readDayCoins() + n })); } catch (e) {} };
 const PROLOGUE: any = { id: "prologue", prologue: true, th: "โครงการหุ่นยนต์ผู้บุกเบิก", en: "Pioneer Robot Program", zh: "先遣机器人计划", c: ["#04060e", "#0a1830", "#2a5aa8"], glow: "110,190,255", acc: "255,200,90", boss: ["-", "-", "-"] };
 let TINT: any = null;
+const AdventureShip = lazy(() => import("./adventure-ship"));   // the starship dogfight: its own chunk
 const AdventureCine = lazy(() => import("./adventure-cine"));   // the film before each map: its own chunk, loaded when a map is picked
 let KEEP_FS = false;   // going straight to the next map keeps the full screen: the old run's cleanup must not leave it   // the planet's monster palette (null = Luma's own)
 const TALL = new Set(["sporecaster", "frostcaster", "flarecaster", "drone"]);   // hovering shooters: their bar and warning sit higher
@@ -108,6 +109,7 @@ export const PLANETS = [
   { id: "cobalt", th: "โคบอลต์ · แถบเหมืองดาวเคราะห์น้อย (ขุดแร่ส่งกลับโลก)", en: "Cobalt Belt · mine ore, ship it to Earth", zh: "钴带 · 采矿并运回地球", c: ["#0a1220", "#1c3a5a", "#4a90c8"], glow: "110,190,255", acc: "255,200,90", ok: true, req: "ferro", hard: 2.0, mission: "mine", mons: ["rustcrawler", "shardling", "magnet", "rustcrawler"], tint: { glow: "110,190,255", body: "#16283c" }, boss: ["-", "-", "-"] },
   { id: "helios", th: "เฮลิออส · ยึดดาวฤกษ์ต่างระบบ", en: "Helios · capture a foreign sun", zh: "赫利俄斯 · 占领异星恒星", c: ["#2a0a00", "#8a3a00", "#ffb030"], glow: "255,200,90", acc: "255,120,60", ok: true, req: "kryo", hard: 2.8, mission: "capture", mons: ["magmaling", "flarecaster", "drone", "magmaling"], tint: { glow: "255,190,80", body: "#4a1a06" }, boss: ["-", "-", "-"] },
   { id: "ashfall", th: "แอชฟอลล์ · ทิ้งนิวเคลียร์ก่อนแล้วค่อยบุก", en: "Ashfall · orbital strike, then assault", zh: "灰烬星 · 先轨道核打击再突袭", c: ["#12120e", "#3a3a2a", "#8a8a5a"], glow: "220,210,140", acc: "255,90,60", ok: true, req: "pyra", hard: 3.4, mission: "strike", mons: ["scrapgolem", "drone", "scrapgolem", "rustcrawler", "drone", "magmaling"], tint: { glow: "220,200,120", body: "#26261c" }, boss: ["ผู้บัญชาการแอชฟอลล์", "Ashfall Commander", "灰烬指挥官"] },
+  { id: "voidgate", th: "วอยด์เกต · ขับยานรบสู้ฝูงเอเลี่ยน", en: "Void Gate · starship dogfight", zh: "虚空之门 · 驾驶战机空战", c: ["#02030c", "#1a1240", "#6a4cff"], glow: "130,170,255", acc: "255,120,90", ok: true, req: "kryo", hard: 2.6, mission: "dogfight", mons: ["drone"], tint: null, boss: ["เรือแม่ของเอเลี่ยน", "the alien Mothership", "外星母舰"] },
 ];
 
 /* the story (owner, 2026-10-11): year 2100, these robots are built BY humans to do the colony work in their place, before any person
@@ -284,6 +286,7 @@ function drawBoss(x, b, t, P) {
 
 const CSS = `
 .adv{position:fixed;inset:0;z-index:2400;background:#02070c;color:#e8fffa;font-family:var(--f-app,system-ui);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.adv-ship{position:absolute;inset:0;z-index:5;background:#02030c}.adv-ship canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv-px{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
 .adv-px svg{width:100%;height:100%;display:block;overflow:visible}
@@ -376,6 +379,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
   const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests(); const load = readLoad(); const ore = readOre(); const ostage = oreStage(ore);
   const [strike, setStrike] = useState<any>(null);
+  const [shipDone, setShipDone] = useState<any>(null);
   const [pro, setPro] = useState(() => { try { return localStorage.getItem("tg_adv_prologue") === null && localStorage.getItem("tg_adv_nocine") !== "1"; } catch (e) { return false; } });   // the opening film, once, before the first map menu
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
   const filming = (pro && !planet) || (!!planet && cined !== planet.id && !nocine);
@@ -398,7 +402,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           <div className="adv-planets">
             {PLANETS.map((P, pi) => (
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!open(P)}
-                onClick={() => { if (open(P)) { playUi && playUi("click"); enterFs(); setStrike(null); setCined(null); setPlanet(P); } }}>
+                onClick={() => { if (open(P)) { playUi && playUi("click"); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
                 <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (pi + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (pi + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (pi + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? t("ต้องผ่านบอสลูมาก่อน", "Beat the Luma boss first", "先击败卢玛首领") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
                 <em>{open(P) ? "▶" : "🔒"}</em>
@@ -453,6 +457,16 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
         </div>
       ) : (
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
+        planet.mission === "dogfight" && shipDone ? (
+          <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
+            <span>☠ {shipDone.kills} · ◆ {shipDone.cry}</span>
+            {shipDone.coins > 0 && <small className="ac-coins">🪙 +{shipDone.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
+            <div className="adv-clear-btns">
+              {shipDone.next && <button className="adv-btn go" onClick={() => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setShipDone(null); setPlanet(shipDone.next); }}>▶ {T3(lang, shipDone.next.th, shipDone.next.en, shipDone.next.zh).split(" · ")[0]}</button>}
+              <button className="adv-btn" onClick={() => { setShipDone(null); setPlanet(null); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div>
+          </div>
+        ) : planet.mission === "dogfight" ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
+          onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExp(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id + gfx} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
           getNext={() => nextOf(planet)} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
@@ -460,6 +474,19 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
     </div>
   );
 });
+
+/** Sell what the starship collected (clear = full price, leaving early = 40 %), with the same daily cap as a ground run. Returns what was paid. */
+function settleShip(res: any, P: any, onReward: any) {
+  const win = !!res, rate = win ? 1 : 0; void P;
+  if (!win) return { coins: 0, capped: false };
+  const RW = readDiff().rw; let value = 0; for (const k of Object.keys(res.loot || {})) value += (res.loot[k] || 0) * ((LOOT as any)[k] ? (LOOT as any)[k].v : 0);
+  const want = Math.round(value * RW * rate), room = Math.max(0, ADV_COIN_DAY_CAP - readDayCoins()), coins = Math.min(want, room);
+  if (res.cry) addCrystals(res.cry * (readDiff().id === "normal" ? 1 : readDiff().id === "hard" ? 2 : 3));
+  markDone(P.id);
+  if (coins > 0) { addDayCoins(coins); if (onReward) { try { onReward(0, coins, { adventure: true }); } catch (e) {} } }
+  try { ((window as any).__advRewardLog = (window as any).__advRewardLog || []).push({ coins, want, planet: P.id }); } catch (e) {}
+  return { coins, capped: want > coins };
+}
 
 /** Ashfall's opening: an orbital strike. Six enemy bases lie under the orbit line; a reticle sweeps across and a tap drops one of three
     nuclear warheads where it is. A base inside the blast is gone, and the ground assault that follows has no defenders from it. */
