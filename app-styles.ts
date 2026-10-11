@@ -3988,6 +3988,37 @@ ${CREAM_CSS}
 ${OBSIDIAN_CSS}
 ${PA_CSS}
 ${UX2_CSS}
+
+/* ── chat history (chat-ui.tsx · ChatHistorySheet) ── */
+.chhbtns{display:inline-flex;gap:6px;margin-left:auto;margin-right:6px}
+.chhbar{display:flex;justify-content:flex-end;padding:6px 14px 0}
+.chhbtn{position:relative;width:44px;height:44px;border-radius:22px;border:1.5px solid var(--bd2);background:var(--card);color:var(--text);font-size:18px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.chhbtn-n{position:absolute;top:-4px;right:-4px;font-style:normal;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:9px;background:var(--clay,#d97757);color:#fff;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.chhov{position:fixed;inset:0;z-index:2500;background:rgba(10,10,12,.45);display:flex;align-items:flex-end;justify-content:center}
+.chhsheet{width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;background:var(--bg);border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));box-shadow:0 -18px 40px -20px rgba(0,0,0,.5);animation:chhup .22s ease-out}
+@keyframes chhup{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.chhhead{display:flex;align-items:center;gap:8px}.chhhead b{font-size:17px;color:var(--text);flex:1}
+.chhnew{min-height:40px;padding:0 14px;border-radius:20px;border:0;background:linear-gradient(180deg,#d97757,#b4532f);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer}
+.chhx{width:40px;height:40px;border-radius:20px;border:1.5px solid var(--bd2);background:transparent;color:var(--text);font-size:20px;cursor:pointer}
+.chhsearch{margin:10px 0 8px;min-height:44px;border-radius:14px;border:1.5px solid var(--bd2);background:var(--card);color:var(--text);padding:0 14px;font-size:15px;font-family:var(--f-app)}
+.chhcats{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}.chhcats::-webkit-scrollbar{display:none}
+.chhcat{flex:0 0 auto;position:relative;min-height:44px;padding:0 12px;border-radius:14px;border:1.5px solid var(--bd2);background:transparent;color:var(--muted);font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;overflow:hidden}
+.chhcat i{font-style:normal;font-size:10.5px;opacity:.85;margin-left:4px}
+.chhcat.on{border-color:#d97757;color:#d97757;background:#d977571a}
+.chhcat-bar{position:absolute;left:8px;right:8px;bottom:3px;height:3px;border-radius:2px;background:var(--bd1);overflow:hidden}.chhcat-bar span{display:block;height:100%;background:linear-gradient(90deg,#d97757,#f0a07c)}
+.chhlist{overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:6px}
+.chhempty{padding:28px 10px;text-align:center;color:var(--muted);font-size:14px}
+.chhcard{position:relative;display:flex;align-items:stretch;gap:4px;border-radius:16px;border:1.5px solid var(--bd1);background:var(--card);padding:4px}
+.chhcard.cur{border-color:#d97757}
+.chhcard-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;border:0;background:transparent;text-align:left;padding:8px;cursor:pointer;color:var(--text);font-family:var(--f-app)}
+.chhcard-ic{font-size:22px;flex:0 0 auto}
+.chhcard-tx{display:flex;flex-direction:column;min-width:0;gap:1px}.chhcard-tx b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chhcard-tx i{font-style:normal;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.chhcard-tx em{font-style:normal;font-size:11px;color:var(--muted);opacity:.8}
+.chhcard-b{width:40px;border:0;background:transparent;color:var(--muted);font-size:17px;cursor:pointer;border-radius:12px}
+.chhmove{position:absolute;right:8px;top:100%;z-index:3;margin-top:2px;display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:14px;background:var(--bg);border:1.5px solid var(--bd2);box-shadow:0 12px 28px -14px rgba(0,0,0,.5)}
+.chhmove button{min-height:40px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--text);text-align:left;font-size:13.5px;cursor:pointer}.chhmove button.on{background:#d977571a;color:#d97757}
+.chhundo{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 14px;border-radius:14px;background:var(--text);color:var(--bg);font-size:13px}.chhundo button{margin-left:auto;border:0;background:transparent;color:#f0a07c;font-weight:800;font-size:13.5px;cursor:pointer;min-height:36px}
+@media (prefers-reduced-motion:reduce){.chhsheet{animation:none}}
 `;
 
 export function useInjectCSS() {

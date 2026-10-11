@@ -96,7 +96,7 @@ import {
   tr, L, FLAGS, FLAG_NAMES, PATH_GROUPS, BENEFIT_CASES, STAGES_BY_GROUP,
   localPathwayLesson, matchFaqTopic, COACH_FEATURE_LABELS, EXAM_GRADES, FAQ_TOPICS,
 } from "./i18n";
-import { Msg, Typing, Input, ChatProgress, CHAT_TTS_ENABLED } from "./chat-ui";
+import { Msg, Typing, Input, ChatProgress, CHAT_TTS_ENABLED, ChatHistoryButtons, ChatHistorySheet } from "./chat-ui";
 /* Hidden case studies (owner request 2026-09): the whole "Marketing for
    Artists" stage/group (music-marketing) plus the Carabao case are removed
    from every surface. This block runs at App module load, after i18n has
@@ -11829,7 +11829,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setPage("sensei");
   }
 
-  const { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy: chatBusy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats, chatQuota } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, plan, isGuest, onUpsell: () => setPricingOpen(true) });
+  const { threads, historyOpen, setHistoryOpen, newChat, openThread, removeThread, pinThread, moveThread, threadId: chatThreadId, msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, busy: chatBusy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats, chatQuota } = useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, plan, isGuest, onUpsell: () => setPricingOpen(true) });
   // the line under the chat box: how many free AI messages are left today (a free account only)
   /* The cap is per plan (free 2 / Premium 5 / Max 10), so the line under the input reads
      the SAME number the gate in use-chat.ts enforces — `chatQuota` — instead of a
@@ -13446,7 +13446,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: SENSEI (default) ─── */}
-      {page === "sensei" && <div className="sensei-scroll"><SenseiView lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} onMark={markUnderstood} onGoStep={handleCoachNavigate} chatProg={chatProg} todayPlan={todayPlan} todayTags={TODAY_TAGS[lang]} onTodayOpen={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }} resumeCard={resumeCard} onResumeDrill={(d) => { playUi("click"); logUsage("practice", "resume-drill"); replayDrill(d); }} missCard={missCard} sessionDone={sessionDone} /></div>}
+      {page === "sensei" && <div className="sensei-scroll"><SenseiView chatHistory={{ count: threads.length, onHistory: () => { playUi("click"); setHistoryOpen(true); }, onNew: () => { playUi("click"); newChat(); } }} lang={lang} activeStageId={activeStageId} setPage={setPage} onBack={() => { playUi("click"); if (activeStageId) setPage("pathway"); else setPage(pageTrackRef.current && pageTrackRef.current !== "sensei" ? pageTrackRef.current : "pathway"); }} recommendNext={recommendNext} pianoOct={pianoOct} setPianoOct={setPianoOct} replayLast={replayLast} seqIsChord={seqIsChord} chordStyle={chordStyle} toggleChordStyle={toggleChordStyle} litNote={litNote} litSet={litSet} fingerMap={fingerMap} handleMainKey={handleMainKey} recording={recording} toggleRecord={toggleRecord} hasSeq={hasSeq} togglePlayPause={togglePlayPause} seqPlaying={seqPlaying} hasClip={hasClip} playingClip={playingClip} playClip={playClip} critiqueRecording={critiqueRecording} fingerChart={fingerChart} hand={hand} setHand={setHand} startPractice={startPractice} msgs={msgs} activeSpk={activeSpk} setActiveSpk={setActiveSpk} playSequence={playSequence} loading={loading} slow={slow} endRef={endRef} input={input} setInput={setInput} send={send} retryLast={retryLast} setModal={setModal} chatStarters={chatStarters} onStarterTap={readChapter} chatNote={chatNote} chatNoteOut={chatLeft === 0} onMore={chatBusy ? null : askMore} speakMode={speakMode} onSpeakLocked={onSpeakLocked} onMark={markUnderstood} onGoStep={handleCoachNavigate} chatProg={chatProg} todayPlan={todayPlan} todayTags={TODAY_TAGS[lang]} onTodayOpen={() => { playUi("click"); logUsage("nav", "studio-today"); setPage("today"); }} resumeCard={resumeCard} onResumeDrill={(d) => { playUi("click"); logUsage("practice", "resume-drill"); replayDrill(d); }} missCard={missCard} sessionDone={sessionDone} /></div>}
 
       {/* ─── TAB BAR ─── (premium interface, ux2.ts) the five common destinations, a thumb away; the drawer below still holds
           everything. It is the last child of the column, so every page simply ends above it. */}
@@ -13520,6 +13520,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <button className="vmback" onClick={() => setModal(false)} aria-label={lc.back} title={lc.back}>←</button>
             <div className="mlbl"><div className="dot" />⤢ {lc.aiLabel}</div>
           </div>
+          <ChatHistoryButtons lang={lang} count={threads.length} onHistory={() => { playUi("click"); setHistoryOpen(true); }} onNew={() => { playUi("click"); newChat(); }} />
           <button className="cbtn" onClick={() => setModal(false)}>{lc.close}</button>
         </div>
         <div className="mpw"><Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} small /></div>
@@ -14507,6 +14508,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       })()}
 
       {/* Auto Teaching → Challenging Mode nudge — see maybeNudgeChallenge() */}
+      <ChatHistorySheet open={historyOpen} lang={lang} threads={threads} activeId={chatThreadId.current} onClose={() => setHistoryOpen(false)}
+        onOpen={(id) => { playUi("click"); openThread(id); }} onNew={() => { playUi("click"); newChat(); }}
+        onDelete={removeThread} onPin={pinThread} onMove={moveThread} />
       {challengeNudge && !practiceOpen && !expToast && (
         <div className="installbanner" style={{ background: "linear-gradient(90deg,#8b5cf6,#a78bfa)" }}>
           <span className="installbanner-ic" aria-hidden="true">{challengeNudge.icon}</span>

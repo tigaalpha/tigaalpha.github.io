@@ -7,6 +7,7 @@ import { canonicalPlan } from "./payment";
 import { logUsage, readActLog, kidPromptBlock } from "./shared-infra";
 import { learnerSignal } from "./learner-signal";
 import { stopCloudTTS } from "./speech";
+import { listMeta, readMsgs, saveThread, getActive, setActive, newId, migrateLegacy, deleteThread as storeDelete, pinThread as storePin, renameThread as storeRename, setThreadCat as storeCat, pushThread, pullThreads } from "./chat-store";
 import { memoryContext, homeworkContext, learnerSignalContext, readMemory } from "./ai-chat-context";
 import { tigaNow } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5)
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
@@ -99,10 +100,14 @@ const isAiPaused = (e) => /ai_paused/.test(String((e && e.message) || e || ""));
 const SONG_TALK = /เพลง|song|tune|repertoire|曲|歌/i;
 // How long a message waits for Jev's pre-check before the answer is asked for anyway
 const PRECHECK_BUDGET_MS = 700;
-function loadSavedChat(lang) {
+/* The conversation the learner was last in, if there is one (the old single-thread history is
+   carried over once, as the first conversation). Any language: a saved conversation is the
+   learner's own words, and opening it back should not depend on the app language today. */
+function loadActiveChat() {
   try {
-    const raw = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || "null");
-    if (raw && raw.lang === lang && Array.isArray(raw.msgs) && raw.msgs.length) return raw.msgs;
+    migrateLegacy();
+    const id = getActive();
+    if (id) { const m = readMsgs(id); if (m.length > 1) return { id, msgs: m }; }
   } catch (e) {}
   return null;
 }
@@ -110,7 +115,12 @@ function loadSavedChat(lang) {
 export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoins, requireLogin, premium, plan, onUpsell, isGuest = false }) {
   const lc = L[lang];
 
-  const [msgs, setMsgs] = useState(() => loadSavedChat(lang) || [{ role: "ai", text: lc.welcome }]);
+  const startRef = useRef(null);
+  if (startRef.current === null) startRef.current = loadActiveChat() || false;
+  const threadId = useRef(startRef.current ? startRef.current.id : null);
+  const [msgs, setMsgs] = useState(() => (startRef.current ? startRef.current.msgs : [{ role: "ai", text: lc.welcome }]));
+  const [threads, setThreads] = useState(() => listMeta());
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(false);
@@ -204,19 +214,57 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     stopCloudTTS();
     setActiveSpk(null);
+    threadId.current = null; lastLen.current = 0; setActive(null);
     setMsgs([{ role: "ai", text: lc.welcome }]);
     setInput("");
   }, [lang]);
 
-  // Persist the thread as it grows, so a refresh doesn't lose it — skipped
-  // while it's still just the bare welcome bubble, so a learner who never
-  // actually chats doesn't leave a stray localStorage entry behind.
+  // Persist the conversation as it grows (one key for its messages, a small index for the list).
+  // Skipped while it is still just the welcome bubble, so a learner who never chats leaves nothing behind.
+  const pushTimer = useRef(null);
+  const lastLen = useRef(0);
   useEffect(() => {
-    try {
-      if (msgs.length <= 1) { localStorage.removeItem(CHAT_HISTORY_KEY); return; }
-      localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify({ lang, msgs: msgs.slice(-CHAT_HISTORY_CAP) }));
-    } catch (e) {}
+    if (msgs.length <= 1) return;
+    if (!threadId.current) threadId.current = newId();
+    const id = threadId.current;
+    const meta = saveThread(id, lang, msgs);
+    setActive(id);
+    if (meta && msgs.length !== lastLen.current) { lastLen.current = msgs.length; setThreads(listMeta()); }
+    // account sync: once the reply has settled (2.5 s of quiet), never per token
+    if (!isGuest) { clearTimeout(pushTimer.current); pushTimer.current = setTimeout(() => { pushThread(id).then(() => {}).catch(() => {}); }, 2500); }
   }, [msgs, lang]);
+  useEffect(() => () => clearTimeout(pushTimer.current), []);
+
+  // signed in: bring this account's conversations from the other devices
+  useEffect(() => {
+    if (isGuest) return;
+    let live = true;
+    pullThreads().then(ch => { if (live && ch) setThreads(listMeta()); }).catch(() => {});
+    return () => { live = false; };
+  }, [isGuest]);
+
+  function refreshThreads() { setThreads(listMeta()); }
+  function newChat() {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    stopCloudTTS(); setActiveSpk(null);
+    threadId.current = null; lastLen.current = 0; setActive(null);
+    setMsgs([{ role: "ai", text: lc.welcome }]); setInput(""); setHistoryOpen(false);
+  }
+  function openThread(id) {
+    const m = readMsgs(id); if (m.length < 1) return;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    stopCloudTTS(); setActiveSpk(null);
+    threadId.current = id; lastLen.current = m.length; setActive(id);
+    setMsgs(m); setInput(""); setHistoryOpen(false);
+  }
+  function removeThread(id) {
+    storeDelete(id); refreshThreads();
+    if (threadId.current === id) { threadId.current = null; lastLen.current = 0; setMsgs([{ role: "ai", text: lc.welcome }]); }
+    if (!isGuest) pushThread(id).catch(() => {});
+  }
+  function pinThread(id, v) { storePin(id, v); refreshThreads(); if (!isGuest) pushThread(id).catch(() => {}); }
+  function renameThread(id, t) { storeRename(id, t); refreshThreads(); if (!isGuest) pushThread(id).catch(() => {}); }
+  function moveThread(id, c) { storeCat(id, c); refreshThreads(); if (!isGuest) pushThread(id).catch(() => {}); }
 
   useEffect(() => {
     // throttle scrolling to one rAF tick — avoids layout thrash while streaming
@@ -720,7 +768,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
       cappedReply();
     }
   }
-  return { msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, chatQuota, busy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats };
+  return { threads, historyOpen, setHistoryOpen, newChat, openThread, removeThread, pinThread, renameThread, moveThread, threadId, msgs, setMsgs, input, setInput, loading, setLoading, slow, modal, setModal, activeSpk, setActiveSpk, endRef, mendRef, topicHint, lessonKey, send, sendText, askMore, chatLeft, chatQuota, busy, askDirect, retryLast, callClaude, pushMessage, setLessonContext, chatStats };
 }
 
 /* ── plan 21 §V2 · choose the reference blocks the question actually needs ────
