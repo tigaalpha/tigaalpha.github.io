@@ -14,7 +14,7 @@ import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "reac
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { createAdvSfx } from "./adventure-sfx";
 import { paintMonster, paintBoss } from "./adventure-monsters";
-import { openAdvRoom, MAX_PILOTS, type Net } from "./adv-online";
+import { warTeamOf, openAdvRoom, MAX_PILOTS, type Net } from "./adv-online";
 import { treeOf, lvOf, buySkillLv, toggleEquip, readEquip, equippedOf, passiveSum, powerAt, cdAt, skillLook, skillSound, skillDesc, skillCost, isPassive, SKILL_MAX_LV, type Skill } from "./skill-tree";
 import { voiceOf } from "./fx-voice";
 import { PetArt, petLevel, petById, PET_TYPES } from "./pet-lab";
@@ -413,7 +413,7 @@ const T3 = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
 export const AdventurePage = memo(function AdventurePage({ onReward = null, lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null, online = false }: any) {
   const [planet, setPlanet] = useState(null);
   // Adventure Online: a room of up to 4 pilots over a Realtime channel (adv-online.ts); the host picks the map for everybody
-  const [net, setNet] = useState<Net | null>(null), netRef = useRef<Net | null>(null), [peersL, setPeersL] = useState<any[]>([]), [nerr, setNerr] = useState(""), [joinCode, setJoinCode] = useState(""), [busy, setBusy] = useState(false);
+  const [net, setNet] = useState<Net | null>(null), netRef = useRef<Net | null>(null), [peersL, setPeersL] = useState<any[]>([]), [warOpt, setWarOpt] = useState(false), [nerr, setNerr] = useState(""), [joinCode, setJoinCode] = useState(""), [busy, setBusy] = useState(false);
   const [pname, setPname] = useState(() => { try { const g = JSON.parse(localStorage.getItem("tg_guest_profile") || "{}"); return (g && g.name) || "Pilot"; } catch (e) { return "Pilot"; } });
   useEffect(() => () => { if (netRef.current) netRef.current.leave(); }, []);
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
@@ -471,7 +471,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           <div className="adv-planets">
             {PLANETS.map((P, pi) => isSpace(P) !== (sector === "space") ? null : (
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
-                onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id); startPlanet(P); } }}>
+                onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
                 <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (pi + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (pi + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (pi + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? t("ต้องผ่านบอสลูมาก่อน", "Beat the Luma boss first", "先击败卢玛首领") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
                 <em>{open(P) ? "▶" : "🔒"}</em>
@@ -491,6 +491,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               </>) : (<>
                 <div className="al-room"><span>{t("รหัสห้อง", "ROOM", "房间")}</span><b data-room="1">{net.code}</b><button className="adv-btn" onClick={leaveRoom}>{t("ออกจากห้อง", "Leave", "离开")}</button></div>
                 <div className="al-peers">{[{ id: "me", name: pname + " (" + t("คุณ", "you", "你") + ")", glow: colorway && colorway.glow }, ...peersL].map((q: any) => <span key={q.id} className="al-peer" style={{ borderColor: q.glow || "#7fe8ff" }}>{q.name}</span>)}</div>
+                {net.host && <label className="al-war"><input type="checkbox" data-war="1" checked={warOpt} onChange={e => setWarOpt(e.target.checked)} /> {t("โหมดทีมสู้ทีม (แดง/ฟ้า ยิงต่อสู้กันเอง ไม่มีรางวัล)", "Team war (red vs blue pilots can hit each other, no rewards)", "团队对战（红蓝互相攻击，无奖励）")}</label>}
                 <small>{net.host ? t("คุณเป็นเจ้าของห้อง — เลือกแผนที่ด้านล่างเพื่อเริ่มพร้อมกันทุกคน (ทุกคนดูหนังก่อนเริ่มด่านของตัวเอง)", "You host — pick a map below to start it for everyone (each pilot sees the film first).", "你是房主——在下方选择地图即可让所有人同时开始（每人先看自己的过场动画）。") : t("รอเจ้าของห้องเลือกแผนที่…", "Waiting for the host to pick a map…", "等待房主选择地图…")}</small>
               </>)}
             </div>)}
@@ -797,9 +798,13 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const fireflies = Array.from({ length: high ? 46 : 12 }, (_, i) => ({ x: rnd(i + 200) * WORLD, y: 120 + rnd(i + 230) * 170, ph: rnd(i + 260) * 6 }));
     // team goal (online, owner 2026-10-11): every numbered kill counts for the whole room; reaching 10 per pilot pays each pilot crystals once
     // revive (online): a downed pilot waits 8 s; a teammate who stays within 90 px for 1.5 s stands them back up on the spot with half health
+    const WAR = !!(net && net.war); const myTeam = net ? warTeamOf(net, net.id) : 0; const warScore = [0, 0]; let lastHitBy = "", warOver = false;
+    // team war (plan 33 O3): each blow aimed at an enemy-team ghost is reported as ev `war:<victim id>`; the victim takes the damage itself
+    const warHit = (range: number, mult: number) => { if (!WAR || !net) return; for (const q of net.peers.values()) { if (q.x === undefined || (q.hp !== undefined && q.hp <= 0) || warTeamOf(net, q.id) === myTeam) continue; const dx = (q.x - pl.x) * pl.face; if (dx > -20 && dx < range && Math.abs((q.y || 0) - pl.y) < 90) { const d = dmgOf(mult); net.sendEv("war:" + q.id, Math.min(60, d.v)); pop(q.x, GROUND - (q.y || 0) - 100, "-" + Math.min(60, d.v), "#ffd23f"); } } };
+    const warBump = (team: number) => { warScore[team]++; if (warScore[team] >= 10 && !warOver) { warOver = true; setBanner({ k: Date.now(), a: team === myTeam ? T3(lang, "ทีมคุณชนะ!", "Your team wins!", "你的队伍获胜！") : T3(lang, "ทีมตรงข้ามชนะ", "The other team wins", "对方队伍获胜"), b: warScore[myTeam] + " – " + warScore[1 - myTeam] }); } };
     let revived = false; const reviveAcc: any = {};
     let teamDone = false; const teamGoal = () => 10 * ((net ? net.peers.size : 0) + 1);
-    const teamCheck = () => { if (!net || teamDone || kills < teamGoal()) return; teamDone = true; const n = Math.min(12, 4 * (net.peers.size + 1)); gainCry(n); sfx.play("win"); setBanner({ k: Date.now(), a: T3(lang, "เป้าหมายทีมสำเร็จ!", "Team goal reached!", "团队目标达成！"), b: "◆ +" + n }); logUsage("adv", "team-goal:" + P.id + ":" + (net.peers.size + 1)); };
+    const teamCheck = () => { if (!net || WAR || teamDone || kills < teamGoal()) return; teamDone = true; const n = Math.min(12, 4 * (net.peers.size + 1)); gainCry(n); sfx.play("win"); setBanner({ k: Date.now(), a: T3(lang, "เป้าหมายทีมสำเร็จ!", "Team goal reached!", "团队目标达成！"), b: "◆ +" + n }); logUsage("adv", "team-goal:" + P.id + ":" + (net.peers.size + 1)); };
     let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
     const step = high ? 1 / 60 : 1 / 30;
 
@@ -859,7 +864,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
     const attack = () => {
       if (pl.dead || pl.atkCd > 0) return;
-      pl.combo = pl.comboT > 0 ? pl.combo + 1 : 1; const finisher = pl.combo >= 3; pl.maxCombo = Math.max(pl.maxCombo, pl.combo); pl.comboT = 0.75; if (finisher) pl.combo = 0;
+      warHit(120, 1); pl.combo = pl.comboT > 0 ? pl.combo + 1 : 1; const finisher = pl.combo >= 3; pl.maxCombo = Math.max(pl.maxCombo, pl.combo); pl.comboT = 0.75; if (finisher) pl.combo = 0;
       sfx.play("punch", rv); if (MINE) digNodes(1);
       pl.atkCd = (finisher ? 0.6 : 0.34) * mods.cdMul; pl.swing = 0.18; setPose("attack"); setTimeout(() => setPose("ready"), 170);
       slashes.push({ col: rGlow, x: pl.x + pl.face * 34, y: pl.y + 44, face: pl.face, life: finisher ? 0.26 : 0.18, max: finisher ? 0.26 : 0.18 });
@@ -872,7 +877,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
     if (net) {   // teammates: their hits land on the same numbered monsters here; their ore and panels show as a feed
       net.on({ onHit: (i: number, v: number) => { if (i < 0) hurtBoss(v, false, 0, true); else { const mm = mons.find(z => z.i === i); if (mm && !mm.dead) hurtMon(mm, v, false, 0, true); } },
-        onEv: (q: any, k: string, n: number) => { if (k === "revive:" + net.id) { if (pl.dead > 0) { pl.dead = 0.01; revived = true; pop(pl.x, GROUND - 130, q ? q.name + " ✚" : "✚", "#8dffb0"); } return; } if (String(k).startsWith("revive:")) return; if (q) pop(q.x !== undefined ? q.x : pl.x, GROUND - 130, q.name + (k === "ore" ? " ⛏+" + n : k === "panel" ? " ⚙ panel" : " " + k), "#9fe8ff"); } });
+        onEv: (q: any, k: string, n: number) => { if (k === "war:" + net.id) { if (q) lastHitBy = q.id; hurtPlayer(n, q && q.x !== undefined ? q.x : pl.x); return; } if (String(k).startsWith("wdown:")) { warBump(n); return; } if (k === "revive:" + net.id) { if (pl.dead > 0) { pl.dead = 0.01; revived = true; pop(pl.x, GROUND - 130, q ? q.name + " ✚" : "✚", "#8dffb0"); } return; } if (String(k).startsWith("revive:")) return; if (q) pop(q.x !== undefined ? q.x : pl.x, GROUND - 130, q.name + (k === "ore" ? " ⛏+" + n : k === "panel" ? " ⚙ panel" : " " + k), "#9fe8ff"); } });
       chatRef.current = (tx: string) => { net.sendChat(tx); pop(pl.x, GROUND - pl.y - 140, tx, "#ffffff"); };
     }
     const skill = () => {
@@ -932,7 +937,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const nearestFoe = (x: number, face: number, range: number) => { let best: any = null, bd = range; for (const m of mons) { if (m.dead) continue; const dx = (m.x - x) * face; if (dx > -20 && Math.abs(m.x - x) < bd) { bd = Math.abs(m.x - x); best = m; } } return best; };
     const fireBolt = () => {
       if (pl.dead || pl.fireCd > 0) return;
-      sfx.play("fire", rv); firedN++;
+      sfx.play("fire", rv); firedN++; warHit(520, 0.8);
       pl.swing = 0.12; setPose("attack"); setTimeout(() => setPose("ready"), 140);
       const ox = pl.x + pl.face * 30, oy = pl.y + 46, g = LOAD.gun;
       if (g === "scatter") {
@@ -982,7 +987,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let zapN = 0;
     const zapBolt = () => {
       if (pl.dead || (pl.zapCd || 0) > 0) return;
-      pl.zapCd = 0.24 * mods.cdMul; zapN++; sfx.play("fire", rv); pl.swing = 0.12; setPose("attack"); setTimeout(() => setPose("ready"), 140);
+      pl.zapCd = 0.24 * mods.cdMul; zapN++; warHit(460, 0.75); sfx.play("fire", rv); pl.swing = 0.12; setPose("attack"); setTimeout(() => setPose("ready"), 140);
       const ox = pl.x + pl.face * 30, oy = pl.y + 46; let from: any = { x: ox }, n = 0; const used = new Set<any>(); const pts: number[][] = [[ox, GROUND - oy]];
       while (n < 4) { let best: any = null, bd = 460; for (const m of mons) { if (m.dead || used.has(m)) continue; const dd = Math.abs(m.x - from.x); if (dd < bd && (n > 0 || (m.x - ox) * pl.face > -20)) { bd = dd; best = m; } } if (!best) break; used.add(best); const d = dmgOf(0.75); hurtMon(best, d.v, d.crit, pl.face * 50); pts.push([best.x, GROUND - best.y - 30]); from = best; n++; }
       if (!n && boss.active && !boss.dead && Math.abs(boss.x - ox) < 460) { const d = dmgOf(0.75); hurtBoss(d.v, d.crit, 0); pts.push([boss.x, GROUND - 70]); }
@@ -992,7 +997,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
     const kickMove = () => {
       if (pl.dead || pl.kickCd > 0) return;
-      sfx.play("kick", rv); if (MINE) digNodes(2);
+      sfx.play("kick", rv); if (MINE) digNodes(2); warHit(130, 1.2);
       pl.kickCd = 0.8 * mods.cdMul; pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
       slashes.push({ x: pl.x + pl.face * 40, y: pl.y + 30, face: pl.face, life: 0.2, max: 0.2 });
       for (const m of mons) { if (m.dead) continue; const dx = (m.x - pl.x) * pl.face; if (dx > -10 && dx < 118 + MON[m.type].w / 2 && Math.abs(m.y - pl.y) < 70) { const d = dmgOf(1.2); hurtMon(m, d.v, d.crit, pl.face * 300); } }
@@ -1025,13 +1030,13 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       pl.hp -= v; pl.inv = 0.7; pl.vy = 0; pl.x += Math.sign(pl.x - from) * 26; shake = Math.max(shake, 4);
       pop(pl.x, GROUND - pl.y - 100, "-" + v, "#ff6b81");
       for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 50, (Math.random() - 0.5) * 200, -Math.random() * 150, 0.4, "255,90,110", 2.5);
-      if (pl.hp <= 0) { pl.hp = 0; pl.dead = net ? 8 : 2.2; setDown(true); logUsage("adv", "die:" + P.id + ":x" + Math.round(pl.x / 100) * 100 + (boss.active && !boss.dead ? ":boss" : "")); }
+      if (pl.hp <= 0) { pl.hp = 0; pl.dead = net ? 8 : 2.2; setDown(true); if (WAR && net) { const at = lastHitBy ? warTeamOf(net, lastHitBy) : 1 - myTeam; net.sendEv("wdown:" + lastHitBy, at); warBump(at); } logUsage("adv", "die:" + P.id + ":x" + Math.round(pl.x / 100) * 100 + (boss.active && !boss.dead ? ":boss" : "")); }
     };
 
     const sim = (dt) => {
       if (quizOn.current) return;
       time += dt;
-      if (net && pl.dead <= 0) for (const q of net.peers.values()) { if (q.hp === undefined || q.hp > 0 || q.x === undefined) { reviveAcc[q.id] = 0; continue; } if (Math.abs(q.x - pl.x) < 90) { reviveAcc[q.id] = (reviveAcc[q.id] || 0) + dt; if (reviveAcc[q.id] >= 1.5) { reviveAcc[q.id] = 0; net.sendEv("revive:" + q.id, 1); q.hp = 1; pop(q.x, GROUND - 130, "✚ " + q.name, "#8dffb0"); sfx.play("win"); } } else reviveAcc[q.id] = 0; }
+      if (net && pl.dead <= 0) for (const q of net.peers.values()) { if (q.hp === undefined || q.hp > 0 || q.x === undefined || (WAR && net && warTeamOf(net, q.id) !== myTeam)) { reviveAcc[q.id] = 0; continue; } if (Math.abs(q.x - pl.x) < 90) { reviveAcc[q.id] = (reviveAcc[q.id] || 0) + dt; if (reviveAcc[q.id] >= 1.5) { reviveAcc[q.id] = 0; net.sendEv("revive:" + q.id, 1); q.hp = 1; pop(q.x, GROUND - 130, "✚ " + q.name, "#8dffb0"); sfx.play("win"); } } else reviveAcc[q.id] = 0; }
       if (net) { netT += dt; if (netT > 0.12) { netT = 0; net.sendPos(Math.round(pl.x), Math.round(pl.y), pl.face, Math.round(pl.hp)); } }
       const kk = keys.current;
       if (pl.dead > 0) { pl.dead -= dt; if (pl.dead <= 0) { if (P.survival && !surv.done) { surv.t = 0; surv.wave = 0; surv.next = 2; mons.length = 0; shots.length = 0; } pl.dead = 0; if (revived) { revived = false; pl.hp = hpMaxOf(info.lv) / 2; pl.inv = 2; } else { pl.hp = hpMaxOf(info.lv); pl.x = 160; pl.y = 0; pl.inv = 1.5; camX = 0; } setDown(false); } }
@@ -1301,7 +1306,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         if (q.tx === undefined || Date.now() - (q.t || 0) > 4000) continue; q.x = (q.x === undefined ? q.tx : q.x) + (q.tx - (q.x === undefined ? q.tx : q.x)) * 0.25; q.y = (q.y === undefined ? (q.ty || 0) : q.y) + ((q.ty || 0) - (q.y === undefined ? (q.ty || 0) : q.y)) * 0.25;
         if (q.x < camX - 80 || q.x > camX + vw + 80) continue; const gy = GROUND - (q.y || 0), fc = q.face || 1; ctx.save(); ctx.globalAlpha = 0.85; ctx.fillStyle = q.glow || "#7fe8ff"; ctx.shadowColor = q.glow || "#7fe8ff"; ctx.shadowBlur = 12;
         ctx.fillRect(q.x - 14, gy - 62, 28, 40); ctx.beginPath(); ctx.arc(q.x, gy - 72, 12, 0, 7); ctx.fill(); ctx.fillRect(q.x - 12, gy - 22, 9, 22); ctx.fillRect(q.x + 3, gy - 22, 9, 22); ctx.fillStyle = "#0a1620"; ctx.shadowBlur = 0; ctx.fillRect(q.x + fc * 3 - 4, gy - 76, 8, 4);
-        ctx.fillStyle = "#fff"; ctx.font = "800 12px system-ui"; ctx.textAlign = "center"; ctx.fillText(q.name, q.x, gy - 96); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(q.x - 22, gy - 92, 44, 4); ctx.fillStyle = "#ff6b81"; ctx.fillRect(q.x - 22, gy - 92, 44 * Math.max(0, Math.min(1, (q.hp || 0) / Math.max(1, hpMaxOf(info.lv)))), 4);
+        ctx.fillStyle = "#fff"; ctx.font = "800 12px system-ui"; ctx.textAlign = "center"; ctx.fillText((WAR && net ? (warTeamOf(net, q.id) === 0 ? "🔴 " : "🔵 ") : "") + q.name, q.x, gy - 96); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(q.x - 22, gy - 92, 44, 4); ctx.fillStyle = "#ff6b81"; ctx.fillRect(q.x - 22, gy - 92, 44 * Math.max(0, Math.min(1, (q.hp || 0) / Math.max(1, hpMaxOf(info.lv)))), 4);
         if (q.say && Date.now() - (q.sayT || 0) < 3000) { ctx.font = "800 22px system-ui"; ctx.fillText(q.say, q.x, gy - 112); } ctx.restore(); }
       for (const tr of turrets) { ctx.save(); ctx.fillStyle = "#4a5668"; ctx.fillRect(tr.x - 11, GROUND - 16, 22, 16); ctx.fillStyle = "#cdd6e6"; ctx.fillRect(tr.x, GROUND - 14, 20 * tr.face, 5); ctx.fillStyle = "#7fe8ff"; ctx.beginPath(); ctx.arc(tr.x, GROUND - 18, 4, 0, 7); ctx.fill(); ctx.restore(); }
       if (shieldT > 0) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = "rgba(140,220,255," + (0.5 + 0.3 * Math.sin(time * 14)) + ")"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pl.x, GROUND - pl.y - 50, 62, 0, 7); ctx.stroke(); ctx.restore(); }
@@ -1370,7 +1375,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       hudT += dt;
       if (hudT > 0.15) {
         hudT = 0; const sr = skillOf();
-        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, team: net ? (teamDone ? "✓" : kills + "/" + teamGoal()) : null, cry: crystals, skCd: Math.max(0, pl.sklCd), sl: slots.map((q, i) => ({ n: T3(lang, q.s.n.th, q.s.n.en, q.s.n.zh), cd: Math.max(0, slotCd[i]) })), lootCoins: Math.round(lootValue() * RW), team: net ? [...net.peers.values()].map(q => ({ n: q.name, hp: q.hp || 0, c: q.glow })) : null, dashCd: Math.max(0, pl.dashCd), rockCd: Math.max(0, pl.rockCd), spell: Math.round(spellG) });
+        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, team: net ? (WAR ? (myTeam === 0 ? "🔴 " : "🔵 ") + warScore[myTeam] + "–" + warScore[1 - myTeam] : (teamDone ? "✓" : kills + "/" + teamGoal())) : null, cry: crystals, skCd: Math.max(0, pl.sklCd), sl: slots.map((q, i) => ({ n: T3(lang, q.s.n.th, q.s.n.en, q.s.n.zh), cd: Math.max(0, slotCd[i]) })), lootCoins: Math.round(lootValue() * RW), team: net ? [...net.peers.values()].map(q => ({ n: q.name, hp: q.hp || 0, c: q.glow })) : null, dashCd: Math.max(0, pl.dashCd), rockCd: Math.max(0, pl.rockCd), spell: Math.round(spellG) });
       }
     };
     raf = requestAnimationFrame(loop);

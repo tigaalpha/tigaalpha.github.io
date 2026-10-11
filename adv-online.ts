@@ -14,11 +14,11 @@ import { makeRoomCode } from "./pvp-online";
 
 export type Peer = { id: string; name: string; model: string; glow: string; x?: number; y?: number; tx?: number; ty?: number; face?: number; hp?: number; t?: number; say?: string; sayT?: number };
 export type Net = {
-  code: string; id: string; host: boolean; peers: Map<string, Peer>;
-  sendStart: (planet: string) => void; sendPos: (x: number, y: number, face: number, hp: number) => void; sendHit: (i: number, v: number) => void; sendEv: (k: string, n: number) => void; sendChat: (t: string) => void;
+  code: string; id: string; host: boolean; peers: Map<string, Peer>; war: boolean;
+  sendStart: (planet: string, war?: boolean) => void; sendPos: (x: number, y: number, face: number, hp: number) => void; sendHit: (i: number, v: number) => void; sendEv: (k: string, n: number) => void; sendChat: (t: string) => void;
   on: (h: Partial<Handlers>) => void; leave: () => void;
 };
-type Handlers = { onPeers: (list: Peer[]) => void; onStart: (planet: string) => void; onHit: (i: number, v: number, from: string) => void; onEv: (p: Peer | undefined, k: string, n: number) => void; onChat: (p: Peer | undefined, t: string) => void; onLeave: () => void };
+type Handlers = { onPeers: (list: Peer[]) => void; onStart: (planet: string, war?: boolean) => void; onHit: (i: number, v: number, from: string) => void; onEv: (p: Peer | undefined, k: string, n: number) => void; onChat: (p: Peer | undefined, t: string) => void; onLeave: () => void };
 
 export const newPeerId = () => Math.random().toString(36).slice(2, 10);
 export const MAX_PILOTS = 4;
@@ -29,7 +29,7 @@ export async function openAdvRoom(code: string | null, me: { name: string; model
   const id = newPeerId(); const peers = new Map<string, Peer>(); let H: Partial<Handlers> = {};
   const ch = sb.channel(`advo:${room}`, { config: { broadcast: { self: false }, presence: { key: id } } });
   const on = (event: string, fn: (p: any) => void) => ch.on("broadcast", { event }, ({ payload }: any) => fn(payload));
-  on("start", (p) => H.onStart && H.onStart(p.planet));
+  on("start", (p) => { net.war = !!p.war; H.onStart && H.onStart(p.planet, !!p.war); });
   on("pos", (p) => { const q = peers.get(p.id); if (q) { q.tx = p.x; q.ty = p.y; q.face = p.face; q.hp = p.hp; q.t = Date.now(); if (q.x === undefined) { q.x = p.x; q.y = p.y; } } });
   on("hit", (p) => H.onHit && H.onHit(p.i, p.v, p.id));
   on("ev", (p) => H.onEv && H.onEv(peers.get(p.id), p.k, p.n));
@@ -45,9 +45,12 @@ export async function openAdvRoom(code: string | null, me: { name: string; model
   const send = (event: string, payload: any) => { try { ch.send({ type: "broadcast", event, payload: { ...payload, id } }); } catch (e) {} };
   await new Promise<void>((res, rej) => { const to = setTimeout(() => rej(new Error("timeout")), 9000); ch.subscribe(async (status: string) => { if (status === "SUBSCRIBED") { try { await ch.track({ name: me.name, model: me.model, glow: me.glow }); } catch (e) {} clearTimeout(to); res(); } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") { clearTimeout(to); rej(new Error(status)); } }); });
   const net: Net = {
-    code: room, id, host, peers,
-    sendStart: (planet) => send("start", { planet }), sendPos: (x, y, face, hp) => send("pos", { x, y, face, hp }), sendHit: (i, v) => send("hit", { i, v }), sendEv: (k, n) => send("ev", { k, n }), sendChat: (t) => send("chat", { t }),
+    code: room, id, host, peers, war: false,
+    sendStart: (planet, war) => { net.war = !!war; send("start", { planet, war: !!war }); }, sendPos: (x, y, face, hp) => send("pos", { x, y, face, hp }), sendHit: (i, v) => send("hit", { i, v }), sendEv: (k, n) => send("ev", { k, n }), sendChat: (t) => send("chat", { t }),
     on: (h) => { H = { ...H, ...h }; }, leave: () => { try { ch.send({ type: "broadcast", event: "leave", payload: { id } }); } catch (e) {} try { ch.unsubscribe(); } catch (e) {} },
   };
   return net;
 }
+
+/** Team war (plan 33 O3): teams are the pilots sorted by id, alternating, so every client works out the same split with no extra message. */
+export const warTeamOf = (net: Net, id: string): number => { const ids = [net.id, ...net.peers.keys()].sort(); return Math.max(0, ids.indexOf(id)) % 2; };
