@@ -312,7 +312,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const mons: any[] = [];
     const pattern = ["glowbug", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster"];
     for (let i = 0; i < 17; i++) mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i));
-    const parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [], drops: any[] = [], waves: any[] = [];
+    const parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [], drops: any[] = [], waves: any[] = [], pet: any[] = [];
     let crystals = readCrystals();
     const boss: any = { x: WORLD - 420, hp: Math.round(700 * HM), max: Math.round(700 * HM), face: -1, cd: 1.6, n: 0, state: "idle", tele: 0, dur: 0, hurt: 0, vx: 0, dead: 0, active: false };
     const ARENA = WORLD - 900;
@@ -340,6 +340,17 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
         if (rpg && rpg.leveled) { const r2 = rpgOf(me); info = r2; mods = rpgMods(r2.pts); pl.hp = hpMaxOf(r2.lv); setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r2.lv + (r2.free > 0 ? " · " + t("มีแต้มสถานะ " + r2.free, r2.free + " stat points", r2.free + " 点属性") : "") }); playUi && playUi("reward"); }
         else info = rpgOf(me);
       }
+    };
+    // the pet fights too: every few seconds a bolt at the nearest enemy in range (a quarter of the robot's blow)
+    let petCd = 2.5;
+    const petBolt = () => {
+      if (!petNow || pl.dead > 0) return;
+      let best: any = null, bd = 340;
+      for (const m of mons) { if (m.dead) continue; const d0 = Math.abs(m.x - pl.x); if (d0 < bd) { bd = d0; best = m; } }
+      if (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < bd) { best = null; bd = 0; }
+      const px0 = pl.x - pl.face * 56; const v = Math.max(1, Math.round(dmgOf().v * 0.28));
+      if (best) { pet.push({ x: px0, y: 30, tx: best.x, ty: best.y + 20, life: 0.25, v, m: best }); }
+      else if (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < 340) pet.push({ x: px0, y: 30, tx: boss.x, ty: 60, life: 0.25, v, b: true });
     };
     const hurtBoss = (v, crit, kx) => {
       if (!boss.active || boss.dead) return;
@@ -445,6 +456,9 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
           if (boss.dur <= 0) { boss.vx = 0; boss.state = "idle"; boss.cd = 2; }
         }
       }
+      petCd -= dt; if (petCd <= 0) { petCd = 2.2; petBolt(); }
+      for (const b of pet) { b.life -= dt; if (b.life <= 0 && !b.done) { b.done = true; if (b.b) hurtBoss(b.v, false, 0); else if (!b.m.dead) hurtMon(b.m, b.v, false, 0); } }
+      for (let i = pet.length - 1; i >= 0; i--) if (pet[i].done) pet.splice(i, 1);
       for (const w of waves) { w.x += w.dir * 260 * dt; w.life -= dt; if (Math.abs(w.x - pl.x) < 22 && pl.y < 34) { hurtPlayer(Math.round(16 * HM), w.x); w.life = 0; } }
       for (let i = waves.length - 1; i >= 0; i--) if (waves[i].life <= 0) waves.splice(i, 1);
       for (const d of drops) { d.vy -= 700 * dt; d.y += d.vy * dt; if (d.y < 0) { d.y = 0; d.vy = 0; } if (pl.dead <= 0 && Math.abs(d.x - pl.x) < 34 && Math.abs(d.y - pl.y) < 60) { d.got = true;
@@ -483,6 +497,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; drawMonster(ctx, m, tm, k, GROUND);
         if (m.hp < m.max) { const w = 40, y0 = GROUND - m.y - (m.type === "sporecaster" ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / m.max), 5); } }
       if (boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
+      for (const b of pet) { const q = 1 - b.life / 0.25; ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.9)`; ctx.beginPath(); ctx.arc(b.x + (b.tx - b.x) * q, GROUND - (b.y + (b.ty - b.y) * q), 5, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       for (const w of waves) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.8)`; ctx.beginPath(); ctx.moveTo(w.x - 14, GROUND); ctx.lineTo(w.x, GROUND - 30); ctx.lineTo(w.x + 14, GROUND); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       for (const d of drops) { const yy = GROUND - d.y - 8 + Math.sin(tm * 5 + d.x) * 2; ctx.fillStyle = d.t === "hp" ? "#7dffa8" : "#7fe8ff"; ctx.beginPath(); if (d.t === "hp") ctx.arc(d.x, yy, 6, 0, 7); else { ctx.moveTo(d.x, yy - 8); ctx.lineTo(d.x + 6, yy); ctx.lineTo(d.x, yy + 8); ctx.lineTo(d.x - 6, yy); ctx.closePath(); } ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .5; ctx.beginPath(); ctx.arc(d.x, yy, 12, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
       // spores + slashes
