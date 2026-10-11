@@ -13,11 +13,12 @@
 import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "react";
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { createAdvSfx } from "./adventure-sfx";
+import { treeOf, lvOf, buySkillLv, toggleEquip, readEquip, equippedOf, passiveSum, powerAt, cdAt, skillLook, skillSound, skillDesc, skillCost, isPassive, SKILL_MAX_LV, type Skill } from "./skill-tree";
 import { voiceOf } from "./fx-voice";
 import { PetArt, petLevel, petById, PET_TYPES } from "./pet-lab";
 import { addRpgExp, rpgOf, rpgMods, RPG_MAX_LV } from "./pvp-rpg";
 import { addSkillSp, readSkillSp, skillRank, enterFs, exitFsAndUnlock } from "./pvp-arena";
-import { classKeyOf } from "./model-skills";
+import { classKeyOf, MODEL_CLASS } from "./model-skills";
 import { isLowEnd, spaceTier } from "./space-stage";
 import { Piano } from "./music-engine";
 import { logUsage, dayKey } from "./shared-infra";
@@ -28,6 +29,7 @@ import { nextQuestion, nextSpell, judgeKeys, recordAnswer, readLadder, learnedTo
 const VH = 360, GROUND = 300, WORLD = 5200, TILE = 960;
 const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const markDone = (id: string) => { try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
+const spendCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(Math.max(0, readCrystals() - n))); } catch (e) {} };
 const readCrystals = (): number => { try { return Math.max(0, parseInt(localStorage.getItem("tg_adv_crystals") || "0", 10) || 0); } catch (e) { return 0; } };
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(readCrystals() + n)); } catch (e) {} };
 /* ── phase 3.2: crystal upgrades, daily quests, difficulty ──
@@ -82,6 +84,9 @@ export const LOOT: Record<string, { v: number; c: string; th: string; en: string
   core:  { v: 25, c: "#c78bff", th: "แกนพลาสมา", en: "Plasma core", zh: "等离子核心" },
 };
 export const ADV_COIN_DAY_CAP = 800;
+const hslRgb = (h: number) => { const a = 0.9 * Math.min(0.66, 1 - 0.66), f = (n: number) => { const k = (n + h / 30) % 12; return Math.round(255 * (0.66 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return f(0) + "," + f(8) + "," + f(4); };
+let XPM = 1;   // the EXP multiplier from the equipped passives, set by the run that is playing
+const addRpgExpX = (me: any, n: number) => addRpgExp(me, Math.round(n * XPM));
 export function rollLoot(exp: number, rnd2: () => number = Math.random): string | null {
   const r = rnd2(); if (r > 0.85) return null; const q = rnd2();
   if (exp < 20) return q < 0.6 ? "scrap" : q < 0.9 ? "ore" : "gold";
@@ -286,6 +291,10 @@ function drawBoss(x, b, t, P) {
 
 const CSS = `
 .adv{position:fixed;inset:0;z-index:2400;background:#02070c;color:#e8fffa;font-family:var(--f-app,system-ui);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.adv-book{margin:8px 0;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 10px;background:rgba(255,255,255,.05)}.adv-book summary{cursor:pointer;font-weight:800;font-size:13px}
+.ab-tabs{display:flex;gap:6px;margin:8px 0}.ab-tabs button{flex:1;padding:7px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.25);color:inherit;font-weight:700;font-size:12px}.ab-tabs button.on{background:linear-gradient(120deg,#5a7bff,#9a5cff)}
+.ab-list{display:grid;gap:6px;max-height:260px;overflow:auto}.ab-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 9px;border-radius:9px;background:rgba(0,0,0,.28);font-size:12px}.ab-row.lock{opacity:.5}.ab-row.eq{outline:1.5px solid #ffd23f}
+.ab-row small{grid-column:1/2;opacity:.85;font-size:11px}.ab-row em{font-style:normal;font-size:10px;opacity:.8;grid-column:1/2}.ab-btns{grid-column:2/3;grid-row:1/4;display:flex;flex-direction:column;gap:4px;justify-content:center}.ab-btns button{padding:5px 8px;border-radius:8px;border:0;font-weight:800;font-size:11px;background:#2b3a5a;color:#fff}.ab-btns button.on{background:#d9a21b}.ab-btns button:disabled{opacity:.45}
 .adv-ship{position:absolute;inset:0;z-index:5;background:#02030c}.adv-ship canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv-px{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
@@ -299,7 +308,7 @@ const CSS = `
 .adv-lv{font-size:12px;font-weight:900;letter-spacing:.6px;color:#9dffd6}
 .adv-pad{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:10px 14px calc(14px + env(safe-area-inset-bottom,0px));z-index:4;pointer-events:none}
 .adv-pad>div{pointer-events:auto}
-.adv-pad .pvppad-l{display:flex;gap:8px}.adv-pad .pvppad-r{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.adv-pad .pvppad-l{display:flex;gap:8px}.adv-pad .pvppad-r{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.adv .pvpact.ult i{max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px}
 .adv .pvpdir{width:58px;height:58px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px);color:#12202a}
 .adv .pvpact{width:68px;height:56px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px);color:#12202a}
 .adv-pad .pvppad-r .pvpact.rocket{grid-column:auto;width:68px;color:#7a2a10;background:linear-gradient(135deg,#ffe3d0,#ffb98f)}@media (max-width:600px){.adv-pad .pvppad-r .pvpact.rocket{width:58px}}.adv .pvpact.punch{background:linear-gradient(135deg,#e2865fee,#d05f43ee);color:#fff}.adv .pvpact.kick{background:linear-gradient(135deg,#c9a227ee,#a8791bee);color:#fff}.adv .pvpact.spell{background:linear-gradient(0deg,#9b7bff var(--sp,0%),rgba(255,255,255,.82) var(--sp,0%));color:#2a1a66}.adv .pvpact.spell.ready{background:linear-gradient(135deg,#b49bff,#7b61ff);color:#fff;animation:pvpOdPulse 1s ease-in-out infinite}
@@ -409,6 +418,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               </button>
             ))}
           </div>
+          <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} onChange={() => setTick(x => x + 1)} />
           <div className="adv-shop" aria-label="Workshop">
             <b>{t("โรงงาน — อัปเกรดด้วยคริสตัล ◆ " + crystals, "Workshop — upgrade with crystals ◆ " + crystals, "工坊 — 用晶体 ◆ " + crystals + " 升级")}</b>
             {UP_LINES.map(l => (
@@ -466,7 +476,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               <button className="adv-btn" onClick={() => { setShipDone(null); setPlanet(null); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div>
           </div>
         ) : planet.mission === "dogfight" ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
-          onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExp(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
+          onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id + gfx} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
           getNext={() => nextOf(planet)} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
@@ -474,6 +484,43 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
     </div>
   );
 });
+
+/** The skill book (owner, 2026-10-11): ten skills for the robot's class and ten for the pet's element. Robot skill n opens at class rank n, pet skill n at pet level n;
+    levels 1..5 cost crystals; up to three robot actives and two pet actives are equipped. */
+function SkillBook({ me, petNow, lang, crystals, onChange, playUi }: any) {
+  const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
+  const cls = classKeyOf(me), rank = skillRank(readSkillSp()[cls] || 0).rank;
+  const ptype: string = petNow ? ((petById(petNow.species) as any).type || "steel") : "", plv = petNow ? petLevel(petNow.bond).lv : 0;
+  const [tab, setTab] = useState<"robot" | "pet">("robot");
+  const kind = tab === "pet" && petNow ? "pet" : "robot", owner = kind === "pet" ? ptype : cls, have = kind === "pet" ? plv : rank, eq = readEquip()[kind];
+  const eqNow = equippedOf(kind, owner, have).map(q => q.id);
+  return (
+    <details className="adv-book">
+      <summary>{t("ตำราสกิล — สายอาชีพของหุ่นและสัตว์เลี้ยง", "Skill book — your robot's and pet's careers", "技能书 — 机器人与宠物的职业技能")}</summary>
+      <div className="ab-tabs" role="tablist">
+        <button className={kind === "robot" ? "on" : ""} onClick={() => setTab("robot")}>🤖 {T3(lang, (MODEL_CLASS as any)[cls].th, (MODEL_CLASS as any)[cls].en, (MODEL_CLASS as any)[cls].zh)} · R{rank}</button>
+        <button className={kind === "pet" ? "on" : ""} disabled={!petNow} onClick={() => setTab("pet")}>🐾 {petNow ? ptype + " · Lv " + plv : t("ยังไม่มีสัตว์เลี้ยง", "no pet", "没有宠物")}</button>
+      </div>
+      <div className="ab-list">
+        {treeOf(kind, owner).map((sk: Skill) => {
+          const open = sk.idx <= have, lv = lvOf(sk.id), act = !isPassive(sk.a), on = eqNow.includes(sk.id), cost = skillCost(lv);
+          return (
+            <div key={sk.id} className={"ab-row" + (open ? "" : " lock") + (on ? " eq" : "")} data-skill={sk.id}>
+              <b>{open ? "" : "🔒 "}{sk.idx}. {T3(lang, sk.n.th, sk.n.en, sk.n.zh)}</b>
+              <em>{act ? t("ใช้งาน", "ACTIVE", "主动") : t("ติดตัว", "PASSIVE", "被动")} · Lv {lv}/{SKILL_MAX_LV}</em>
+              <small>{open ? skillDesc(sk, lv, lang) : t((kind === "pet" ? "ปลดล็อกที่เลเวลสัตว์เลี้ยง " : "ปลดล็อกที่แรงก์ ") + sk.idx, (kind === "pet" ? "Unlocks at pet level " : "Unlocks at rank ") + sk.idx, (kind === "pet" ? "宠物等级 " : "阶级 ") + sk.idx + " 解锁")}</small>
+              {open && <span className="ab-btns">
+                <button data-up={sk.id} disabled={lv >= SKILL_MAX_LV || crystals < cost} onClick={() => { const r = buySkillLv(sk.id, crystals); if (r.ok) { spendCrystals(r.cost); playUi && playUi("click"); onChange(); } }}>{lv >= SKILL_MAX_LV ? "MAX" : "◆ " + cost}</button>
+                {act && <button data-eq={sk.id} className={on ? "on" : ""} onClick={() => { toggleEquip(kind, sk.id); playUi && playUi("click"); onChange(); }}>{on ? t("ใส่อยู่", "EQUIPPED", "已装备") : t("ใส่", "EQUIP", "装备")}</button>}
+              </span>}
+            </div>);
+        })}
+      </div>
+      <p style={{ fontSize: 11, opacity: .8 }}>{kind === "robot" ? t("ใส่ได้ 3 สกิลใช้งาน (ปุ่ม ✦1 ✦2 ✦3 / คีย์ K H G) สกิลติดตัวทำงานเสมอ", "Equip up to 3 actives (buttons ✦1 ✦2 ✦3 / keys K H G); passives are always on.", "最多装备 3 个主动技能（按钮 ✦1 ✦2 ✦3 / 键 K H G）；被动技能始终生效。") : t("สัตว์เลี้ยงใส่ได้ 2 สกิล ใช้เองอัตโนมัติเมื่อมีศัตรู", "A pet equips 2 actives and casts them by itself when foes are near.", "宠物最多装备 2 个主动技能，遇敌时自动施放。")}</p>
+      <span style={{ display: "none" }}>{eq.length}</span>
+    </details>
+  );
+}
 
 /** Sell what the starship collected (clear = full price, leaving early = 40 %), with the same daily cap as a ground run. Returns what was paid. */
 function settleShip(res: any, P: any, onReward: any) {
@@ -563,8 +610,8 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
   castRef.current = () => { const nq: any = nextSpell(lang, {}); setQuiz({ qs: [nq], i: 0, sel: [], res: null, right: 0, learned: nq.learned, spell: true }); };
   const finishQuiz = (q: any) => {
     setQuiz(null); quizOn.current = false;
-    if (q && q.spell) { if (spellFire.current) spellFire.current(q.right > 0); if (q.right > 0) { const l = bumpQuest("right", 1); for (const d of l) addRpgExp(me, d.exp); } logUsage("adv", "spell:" + P.id + ":" + (q.right > 0 ? "ok" : "miss")); return; }
-    if (q && q.right > 0) { const l = bumpQuest("right", q.right); for (const d of l) { addRpgExp(me, d.exp); } if (l.length) setBanner({ k: Date.now(), a: "QUEST ✓", b: "+" + l[0].exp + " EXP" }); }
+    if (q && q.spell) { if (spellFire.current) spellFire.current(q.right > 0); if (q.right > 0) { const l = bumpQuest("right", 1); for (const d of l) addRpgExpX(me, d.exp); } logUsage("adv", "spell:" + P.id + ":" + (q.right > 0 ? "ok" : "miss")); return; }
+    if (q && q.right > 0) { const l = bumpQuest("right", q.right); for (const d of l) { addRpgExpX(me, d.exp); } if (l.length) setBanner({ k: Date.now(), a: "QUEST ✓", b: "+" + l[0].exp + " EXP" }); }
     if (q) logUsage("adv", "quiz:" + P.id + ":" + q.right + "of" + (q.qs ? q.qs.length : 3));
     if (q && q.right > 0) setBanner({ k: Date.now(), a: t("ตอบถูก!", "CORRECT!", "答对了！"), b: t("ได้ EXP และแต้มสกิล", "EXP and skill points earned", "获得经验与技能点") });
   };
@@ -574,7 +621,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     try { recordMemory(q.label, ok ? 100 : 55); } catch (e) {}
     if (ok) {
       const exp = 10 + 6 * q.tier + (l.streak >= 2 ? 6 : 0);
-      try { const r = addRpgExp(me, exp); addSkillSp(cls, 2 + q.tier); if (r && r.leveled) setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r.lv }); } catch (e) {}
+      try { const r = addRpgExpX(me, exp); addSkillSp(cls, 2 + q.tier); if (r && r.leveled) setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r.lv }); } catch (e) {}
     }
     setQuiz({ ...cur, res: ok ? "good" : "bad", right: cur.right + (ok ? 1 : 0) });
   };
@@ -612,11 +659,18 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     let { info, mods } = stat();
     const skillOf = () => skillRank(readSkillSp()[cls] || 0);
     const UPS = readUps(), DF = readDiff(), LOAD = readLoad();
-    const hpMaxOf = (lv) => Math.round((120 + lv * 11) * (1 + 0.05 * UPS.hp));
+    // skill careers: the passives of every unlocked robot skill (class rank) and pet skill (pet level), added up once per run
+    const SR0 = skillRank(readSkillSp()[cls] || 0).rank, petType0: string = petNow ? ((petById(petNow.species) as any).type || "steel") : "steel", petLv0 = petNow ? petLevel(petNow.bond).lv : 0;
+    const robotSk = treeOf("robot", cls).filter(q => q.idx <= SR0).map(q => ({ s: q, lv: lvOf(q.id) })), petSk = petNow ? treeOf("pet", petType0).filter(q => q.idx <= petLv0).map(q => ({ s: q, lv: lvOf(q.id) })) : [];
+    const PASS = passiveSum([...robotSk, ...petSk]); XPM = 1 + PASS.xp;
+    const buff = { haste: 0 }; let shieldT = 0; const turrets: any[] = [], later: any[] = [];
+    const slots = equippedOf("robot", cls, SR0).map(q => ({ s: q, lv: lvOf(q.id) })), slotCd = [0, 0, 0];
+    const petSlots = petNow ? equippedOf("pet", petType0, petLv0).map(q => ({ s: q, lv: lvOf(q.id) })) : [], petCdA = [3, 5];
+    const hpMaxOf = (lv) => Math.round((120 + lv * 11) * (1 + 0.05 * UPS.hp) * (1 + PASS.hp));
     TINT = P.tint || null;
     const HM = (P.hard || 1) * DF.hp, RW = DF.rw, CV = DF.id === "normal" ? 1 : DF.id === "hard" ? 2 : 3;   // reward multiplier, crystals per pickup
-    const questDone = (list: any[]) => { for (const d of list) { addRpgExp(me, d.exp); pop(pl.x, GROUND - pl.y - 130, "QUEST +" + d.exp + " EXP", "#ffd23f"); } };
-    const gainCry = (n: number) => { crystals += n; addCrystals(n); questDone(bumpQuest("cry", n)); };
+    const questDone = (list: any[]) => { for (const d of list) { addRpgExpX(me, d.exp); pop(pl.x, GROUND - pl.y - 130, "QUEST +" + d.exp + " EXP", "#ffd23f"); } };
+    const gainCry = (n0: number) => { const n = Math.max(1, Math.round(n0 * (1 + PASS.loot))); crystals += n; addCrystals(n); questDone(bumpQuest("cry", n)); };
     const pl: any = { x: 160, y: 0, vy: 0, face: 1, hp: hpMaxOf(info.lv), atkCd: 0, sklCd: 0, hurtT: 0, inv: 0, dead: 0, ground: true, swing: 0, fireCd: 0, rockCd: 0, kickCd: 0, dashCd: 0, dashT: 0, combo: 0, comboT: 0, maxCombo: 0 };
     const teleGaps: number[] = [];
     const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: Math.round(MON[type].hp * HM), max: Math.round(MON[type].hp * HM), face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, tele: 0, act: "", teleAt: 0, i });
@@ -658,17 +712,17 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     const step = high ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
-    const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult * (1 + 0.05 * UPS.atk); const crit = Math.random() < 0.08 + mods.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
+    const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult * (1 + 0.05 * UPS.atk) * (1 + PASS.atk); const crit = Math.random() < 0.08 + mods.crit + PASS.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
     let spellG = 0;
     const hurtMon = (m, v, crit, kx) => {
       spellG = Math.min(100, spellG + 5);
-      sfx.play("hit"); m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
+      sfx.play("hit"); if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
       pop(m.x, GROUND - m.y - 60, String(v), crit ? "#ffd23f" : "#ffffff");
       for (let i = 0; i < (high ? 7 : 3); i++) addPart(m.x, GROUND - m.y - 20, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, crit ? "255,210,60" : "255,255,255", 2.5);
       if (m.hp <= 0) {
         m.dead = 1; m.resp = 14; kills++; sfx.play("pop");
         const d = MON[m.type];
-        const gain = Math.round(d.exp * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.max(1, Math.round(gain / 3)));
+        const gain = Math.round(d.exp * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.max(1, Math.round(gain / 3)));
         pop(m.x, GROUND - 90, "+" + gain + " EXP", "#9dffd6");
         if (Math.random() < 0.22) drops.push({ x: m.x, y: 20, vy: 160, t: "hp" });
         { const lt = rollLoot(d.exp); if (lt) drops.push({ x: m.x + (Math.random() - 0.5) * 44, y: 24, vy: 170 + Math.random() * 70, t: lt }); if (Math.random() < 0.25) { const l2 = rollLoot(d.exp); if (l2) drops.push({ x: m.x + (Math.random() - 0.5) * 60, y: 28, vy: 190, t: l2 }); } }
@@ -693,12 +747,12 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     const hurtBoss = (v, crit, kx) => {
       if (!boss.active || boss.dead) return;
       spellG = Math.min(100, spellG + 5);
-      boss.hp -= v; boss.hurt = 0.1; boss.vx = kx * 0.3; if (high) hitStop = 0.03; shake = Math.max(shake, crit ? 5 : 2);
+      if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); boss.hp -= v; boss.hurt = 0.1; boss.vx = kx * 0.3; if (high) hitStop = 0.03; shake = Math.max(shake, crit ? 5 : 2);
       pop(boss.x, GROUND - 140, String(v), crit ? "#ffd23f" : "#ffffff");
       for (let i = 0; i < (high ? 6 : 2); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, "255,255,255", 2.5);
       if (boss.hp <= 0) {
         boss.dead = 1; boss.hp = 0; if (mus) mus.setBoss(false); shots.length = 0; waves.length = 0; kills++;
-        const gain = Math.round(220 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3));
+        const gain = Math.round(220 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3));
         for (let i = 0; i < 12; i++) drops.push({ x: boss.x + (i - 6) * 16, y: 40 + i * 6, vy: 220, t: "cry" });
         drops.push({ x: boss.x, y: 60, vy: 220, t: "hp" });
         for (const [lt, n] of [["gold", 4], ["core", 2], ["ore", 6]] as any[]) for (let i = 0; i < n; i++) drops.push({ x: boss.x + (Math.random() - 0.5) * 140, y: 50 + Math.random() * 40, vy: 220 + Math.random() * 80, t: lt });
@@ -739,6 +793,41 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       // what the skill does besides damage depends on the robot's class
       if (cls === "engineer") { pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.12); pop(pl.x, GROUND - pl.y - 110, "+HP", "#8dffb0"); }
       else if (cls === "ghost") pl.inv = Math.max(pl.inv, 1.2);
+    };
+    // ── skill careers (owner, 2026-10-11): any skill of any class or pet goes through castSkill; the archetype decides what it does,
+    //    the id decides how it looks and sounds ──
+    const castSlot = (i: number) => { const q = slots[i]; if (!q || pl.dead || slotCd[i] > 0) return; slotCd[i] = cdAt(q.s, q.lv) * (1 - 0.05 * UPS.skl); castSkill(q.s, q.lv, false); };
+    const castSkill = (s: Skill, lv: number, fromPet = false) => {
+      const look = skillLook(s), snd = skillSound(s), p = powerAt(s, lv), n = Math.round(s.r), face = pl.face, rgb = hslRgb(look.hue), hue = `hsl(${look.hue},90%,66%)`;
+      const ox = fromPet ? pl.x - face * 56 : pl.x, oy = fromPet ? 30 : pl.y + 40, base = (9 + info.lv * 1.5) * mods.dmg * (1 + 0.05 * UPS.atk) * (1 + PASS.atk) * mods.spell * (fromPet ? 0.8 : 1);
+      sfx.play("cast", fromPet ? pv : rv, { a: s.a, pitch: snd.pitch, wave: snd.wave, bright: snd.bright });
+      if (!fromPet) { pl.swing = 0.25; setPose("kick"); setTimeout(() => setPose("ready"), 220); }
+      shake = Math.max(shake, high ? 5 : 2); pop(ox, GROUND - oy - 110, T3(lang, s.n.th, s.n.en, s.n.zh), hue);
+      const cnt = look.n * (high ? 2 : 1);   // the look: one of five particle patterns, in the skill's own colour
+      for (let a = 0; a < cnt; a++) { const ang = a / cnt * 6.283 * (look.spin || 1);
+        if (look.style === 0) addPart(ox, GROUND - oy, Math.cos(ang) * 300, Math.sin(ang) * 220, 0.55, rgb, 3.5);
+        else if (look.style === 1) addPart(ox + (Math.random() - 0.5) * 40, GROUND - oy, (Math.random() - 0.5) * 60, -180 - Math.random() * 220, 0.7, rgb, 3);
+        else if (look.style === 2) addPart(ox, GROUND - oy, Math.cos(ang * 2) * 200 * (a / cnt + 0.3), Math.sin(ang * 2) * 160 * (a / cnt + 0.3), 0.8, rgb, 3);
+        else if (look.style === 3) addPart(ox + (a - cnt / 2) * 16, GROUND - oy - 120 - Math.random() * 40, (Math.random() - 0.5) * 40, 160 + Math.random() * 120, 0.7, rgb, 3);
+        else addPart(ox, GROUND - oy + (Math.random() - 0.5) * 50, face * (200 + Math.random() * 300), (Math.random() - 0.5) * 40, 0.5, rgb, 3); }
+      slashes.push({ x: ox, y: oy, face, life: 0.35, max: 0.35, nova: true, st: look.style, col: hue });
+      const foes = (rng: number) => mons.filter(m => !m.dead && Math.abs(m.x - ox) < rng && Math.abs(m.y - pl.y) < 140);
+      const hitBoss = (mult: number, rng: number) => { if (boss.active && !boss.dead && Math.abs(boss.x - ox) < rng + 40) hurtBoss(Math.round(base * mult), true, Math.sign(boss.x - ox) * 200); };
+      switch (s.a) {
+        case "volley": for (let k = 0; k < n; k++) bolts.push({ x: ox + face * 30, y: oy + 6, vx: face * (520 + k * 20), vy: (k - (n - 1) / 2) * 70, life: 0.7, v: Math.round(base * p), crit: false }); break;
+        case "nova": for (const m of foes(s.r)) hurtMon(m, Math.round(base * p), true, Math.sign(m.x - ox) * 260); hitBoss(p, s.r); break;
+        case "dash": { const x0 = pl.x; pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + face * s.r)); pl.inv = Math.max(pl.inv, 0.45); const lo = Math.min(x0, pl.x) - 30, hi = Math.max(x0, pl.x) + 30; for (const m of mons) if (!m.dead && m.x > lo && m.x < hi && Math.abs(m.y - pl.y) < 90) hurtMon(m, Math.round(base * p), true, face * 240); if (boss.active && !boss.dead && boss.x > lo && boss.x < hi) hurtBoss(Math.round(base * p), true, face * 160); for (let a = 0; a < 14; a++) addPart(x0 + (pl.x - x0) * a / 14, GROUND - pl.y - 40, 0, -20, 0.4, rgb, 3); break; }
+        case "shield": shieldT = Math.max(shieldT, p); pl.inv = Math.max(pl.inv, p); break;
+        case "heal": pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * p); pop(pl.x, GROUND - pl.y - 130, "+HP", "#8dffb0"); break;
+        case "haste": buff.haste = Math.max(buff.haste, p); break;
+        case "slow": case "stun": for (const m of foes(s.r)) { m.slowT = p; m.slowF = s.a === "stun" ? 0 : 0.4; } break;
+        case "chain": { let from = ox, used = new Set<any>(), k = 0; const pts: number[][] = [[ox, GROUND - oy]]; while (k < n) { let best: any = null, bd = 420; for (const m of mons) { if (m.dead || used.has(m)) continue; const dd = Math.abs(m.x - from); if (dd < bd) { bd = dd; best = m; } } if (!best) break; used.add(best); hurtMon(best, Math.round(base * p), true, 0); pts.push([best.x, GROUND - best.y - 30]); from = best.x; k++; } if (!k && boss.active && !boss.dead && Math.abs(boss.x - ox) < 460) { hurtBoss(Math.round(base * p), true, 0); pts.push([boss.x, GROUND - 70]); } arcs.push({ pts, life: 0.22 }); break; }
+        case "drain": { let c = 0; for (const m of foes(s.r)) { hurtMon(m, Math.round(base * p), false, 0); c++; } hitBoss(p, s.r); pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * Math.min(0.2, 0.05 * (c + 1))); break; }
+        case "meteor": { const tg = mons.filter(m => !m.dead && Math.abs(m.x - ox) < 520).sort((a, b) => Math.abs(a.x - ox) - Math.abs(b.x - ox)).slice(0, n).map(m => m.x); if (boss.active && !boss.dead && Math.abs(boss.x - ox) < 520) tg.push(boss.x); while (tg.length < n) tg.push(ox + face * (160 + tg.length * 90)); tg.slice(0, n).forEach((x, i) => { for (let a = 0; a < 8; a++) addPart(x, GROUND - 300 + a * 36, 0, 260, 0.45, rgb, 3); later.push({ t: 0.45 + i * 0.12, fn: () => explode(x, 10, 95, p * (fromPet ? 0.8 : 1), rgb) }); }); break; }
+        case "turret": turrets.push({ x: pl.x + face * 46, face, t: p, cd: 0.2, mult: s.r * (1 + 0.15 * (lv - 1)) * (fromPet ? 0.8 : 1) }); break;
+        case "execute": { let best: any = null; for (const m of foes(s.r)) if (!best || m.hp / m.max < best.hp / best.max) best = m; if (best) { const low = best.hp / best.max < 0.4; hurtMon(best, Math.round(base * p * (low ? 2 : 1)), true, face * 120); slashes.push({ x: best.x, y: best.y + 40, face, life: 0.25, max: 0.25, col: hue }); } else if (boss.active && !boss.dead && Math.abs(boss.x - ox) < s.r) hurtBoss(Math.round(base * p * (boss.hp / boss.max < 0.4 ? 2 : 1)), true, 0); break; }
+        default: break;
+      }
     };
     // shoot: a bolt flies ahead and hits the first enemy; kick: a short wide sweep that knocks back hard
     let firedN = 0, rocketN = 0;
@@ -813,6 +902,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     };
     const hurtPlayer = (v, from) => {
       if (pl.inv > 0 || pl.dead) return;
+      v = Math.max(1, Math.round(v * (1 - PASS.guard)));
       sfx.play("hurt");
       pl.hp -= v; pl.inv = 0.7; pl.vy = 0; pl.x += Math.sign(pl.x - from) * 26; shake = Math.max(shake, 4);
       pop(pl.x, GROUND - pl.y - 100, "-" + v, "#ff6b81");
@@ -828,25 +918,28 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       else {
         let dx = 0; if (kk.l) dx -= 1; if (kk.r) dx += 1;
         pl.holdT = dx ? (pl.holdT || 0) + dt : 0;   // held for 0.35 s = a sprint (owner, 2026-10-11)
-        const sprint = pl.holdT > 0.35; const sp = 150 * mods.walk * (sprint ? 1.7 : 1);
+        const sprint = pl.holdT > 0.35; const sp = 150 * mods.walk * (1 + PASS.speed) * (buff.haste > 0 ? 1.45 : 1) * (sprint ? 1.7 : 1);
         if (sprint && pl.ground && Math.random() < 0.5) addPart(pl.x - dx * 14, GROUND - 4, -dx * 40, -20 - Math.random() * 30, 0.3, "200,230,255", 2);
         pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + dx * sp * dt)); if (dx) pl.face = dx;
         if (!boss.active && !boss.dead && pl.x > ARENA + 60) { boss.active = true; if (mus) mus.setBoss(true); logUsage("adv", "boss-wake:" + P.id); setBanner({ k: Date.now(), a: T3(lang, P.boss[0], P.boss[1], P.boss[2]), b: t("บอสท้ายด่าน — ประตูด้านหลังปิดแล้ว", "End-of-map boss — the way back is shut", "本图首领——退路已封闭") }); }
         if (kk.jump && pl.ground) { pl.vy = 360; pl.ground = false; sfx.play("jump"); }
-        if (kk.atk) attack(); if (kk.skl) skill(); if (kk.fire) fireBolt(); if (kk.kick) kickMove(); if (kk.rocket) fireRocket();
+        if (kk.atk) attack(); if (kk.skl) castSlot(0); if (kk.fire) fireBolt(); if (kk.kick) kickMove(); if (kk.rocket) fireRocket();
         if (kk.spell && spellG >= 100 && !quizOn.current) { kk.l = kk.r = kk.atk = kk.skl = kk.jump = kk.fire = kk.kick = kk.spell = false; quizOn.current = true; if (castRef.current) castRef.current(); }
         if (kk.dash && pl.dashCd <= 0) { sfx.play("dash"); pl.dashCd = 1.2; pl.dashT = 0.18; pl.inv = Math.max(pl.inv, 0.3); for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 30, -pl.face * (80 + Math.random() * 120), (Math.random() - 0.5) * 60, 0.3, "160,255,230", 2.5); }
         if (pl.dashT > 0) { pl.dashT -= dt; pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + pl.face * 560 * dt)); }
-        pl.dashCd -= dt; pl.fireCd -= dt; pl.rockCd -= dt; pl.kickCd -= dt; pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0;
+        { const hm = buff.haste > 0 ? 1.4 : 1; pl.dashCd -= dt * hm; pl.fireCd -= dt * hm; pl.rockCd -= dt * hm; pl.kickCd -= dt * hm; } pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0;
         pl.vy -= 900 * dt; pl.y += pl.vy * dt; if (pl.y <= 0) { pl.y = 0; pl.vy = 0; pl.ground = true; }
         pl.atkCd -= dt; pl.sklCd -= dt; pl.inv -= dt; pl.swing -= dt;
+        for (let i = 0; i < 3; i++) slotCd[i] -= dt * (1 + PASS.cdr) * (buff.haste > 0 ? 1.4 : 1);
+        buff.haste -= dt; shieldT -= dt; if (shieldT > 0) pl.inv = Math.max(pl.inv, 0.1); if (PASS.regen > 0 && pl.hp > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * PASS.regen * dt);
+        if (kk.s2) castSlot(1); if (kk.s3) castSlot(2);
       }
       if (P.survival && !surv.done && pl.dead <= 0) {
         surv.t += dt; surv.next -= dt;
         if (surv.next <= 0) { surv.next = 6; surv.wave++; const n = Math.min(7, 2 + surv.wave); for (let i = 0; i < n; i++) { const side = i % 2 ? 1 : -1; const x = Math.max(60, Math.min(WORLD - 60, pl.x + side * (420 + rnd(surv.wave * 9 + i) * 160))); mons.push(mk(pool[(surv.wave + i) % pool.length], x, 1000 + surv.wave * 10 + i)); } }
         if (surv.t >= SURV_T) {
           surv.done = true; finished = true; mons.length = 0; shots.length = 0; markDone(P.id); shake = 6; showClear(2200);
-          const gain = Math.round(150 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(15 * CV);
+          const gain = Math.round(150 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(15 * CV);
           info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
           logUsage("adv", "harvest-win:" + P.id); playUi && playUi("reward");
           setBanner({ k: Date.now(), a: t("เก็บพลังงานครบ! +" + gain + " EXP", "ENERGY HARVESTED! +" + gain + " EXP", "能量采集完成！+" + gain + " 经验"), b: t("◆ คริสตัล +" + 15 * CV, "◆ crystals +" + 15 * CV, "◆ 晶体 +" + 15 * CV) });
@@ -857,7 +950,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
         for (const n of nodes) if (n.hit) n.hit = Math.max(0, n.hit - dt);
         if (pl.dead <= 0 && Math.abs(pl.x - PAD_X) < 110 && pl.y < 30) {
           if (cargo >= ORE_NEED) {
-            finished = true; launched = 0.001; addOre(cargo); markDone(P.id); showClear(2800); const gain = Math.round(120 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(10 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
+            finished = true; launched = 0.001; addOre(cargo); markDone(P.id); showClear(2800); const gain = Math.round(120 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(10 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
             logUsage("adv", "ship-ore:" + P.id + ":" + cargo); playUi && playUi("reward"); sfx.play("rocket");
             setBanner({ k: Date.now(), a: t("ส่งแร่กลับโลกแล้ว! " + cargo + " ก้อน", "ORE SHIPPED TO EARTH! " + cargo, "矿石已运回地球！" + cargo), b: t("+" + gain + " EXP · อาณานิคมโตขึ้น", "+" + gain + " EXP · the colony grows", "+" + gain + " 经验 · 殖民地壮大") });
           } else { padHint -= dt; if (padHint <= 0) { padHint = 2; pop(PAD_X, GROUND - 100, t("ต้องมีแร่ " + ORE_NEED + " ก้อน (มี " + cargo + ")", "Need " + ORE_NEED + " ore (have " + cargo + ")", "需要 " + ORE_NEED + " 矿（现有 " + cargo + "）"), "#ffd0a0"); } }
@@ -873,7 +966,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
             if (cur.p >= CAP_T) { cur.done = true; cur.p = CAP_T; sfx.play("win"); const left = stations.filter(q => !q.done).length; setBanner({ k: Date.now(), a: t("ยึดสถานีได้แล้ว!", "STATION CAPTURED!", "采集站已占领！"), b: left ? t("เหลืออีก " + left + " จุด", left + " to go", "还剩 " + left + " 座") : t("ดวงอาทิตย์เป็นของเรา", "The sun is ours", "恒星已被占领") }); }
           } else cur.p = Math.max(0, cur.p - dt * 0.4);
         } else {
-          finished = true; markDone(P.id); showClear(2000); mons.length = 0; shots.length = 0; const gain = Math.round(160 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(18 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
+          finished = true; markDone(P.id); showClear(2000); mons.length = 0; shots.length = 0; const gain = Math.round(160 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(18 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
           logUsage("adv", "capture-win:" + P.id); playUi && playUi("reward");
           setBanner({ k: Date.now(), a: t("ยึดดาวฤกษ์สำเร็จ! +" + gain + " EXP", "SUN CAPTURED! +" + gain + " EXP", "占领恒星！+" + gain + " 经验"), b: t("◆ คริสตัล +" + 18 * CV, "◆ crystals +" + 18 * CV, "◆ 晶体 +" + 18 * CV) });
         }
@@ -881,7 +974,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       if (HZ.length && pl.dead <= 0 && pl.y < 14 && hzOn() && HZ.some(h => pl.x > h[0] && pl.x < h[1])) { hzAcc += dt; if (hzAcc >= 0.6) { hzAcc = 0; hzHits++; hurtPlayer(Math.round(4.5 * HM), pl.x + (pl.face > 0 ? -1 : 1)); } } else hzAcc = Math.min(hzAcc, 0.3);
       for (const m of mons) {
         if (m.dead) { m.resp -= dt; if (m.resp <= 0 && Math.abs(pl.x - m.hx) > 640) { m.dead = 0; m.hp = m.max; m.x = m.hx; m.y = 0; m.vx = 0; } continue; }
-        const d = MON[m.type]; m.hurt -= dt; m.cd -= dt * 1000;
+        const d = MON[m.type]; m.hurt -= dt; const sl = m.slowT > 0 ? (m.slowT -= dt, m.slowF) : 1; m.cd -= dt * 1000 * sl;
         const dxp = pl.x - m.x, dist = Math.abs(dxp);
         m.face = dxp > 0 ? 1 : -1;
         const aggro = dist < 520 && pl.dead <= 0;
@@ -890,12 +983,12 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
           if (d.ranged) { if (dist > 300) mv = Math.sign(dxp); else if (dist < 190) mv = -Math.sign(dxp); }
           else if (dist > 40) mv = Math.sign(dxp);
         }
-        m.x += (mv * d.speed + m.vx) * dt; m.vx *= 0.86;
+        m.x += (mv * d.speed * sl + m.vx) * dt; m.vx *= 0.86;
         if (m.type === "glowbug" && aggro && m.y <= 0 && dist < 260 && Math.random() < 0.02) m.vy = 240;
         m.vy -= 700 * dt; m.y += m.vy * dt; if (m.y < 0) { m.y = 0; m.vy = 0; }
         // every attack is announced first: a red "!" for 0.3 s, then the blow (an attack that lands with no warning is not fair)
         if (m.tele > 0) {
-          m.tele -= dt;
+          m.tele -= dt * sl;
           if (m.tele <= 0) {
             m.cd = d.cd; teleGaps.push(time - m.teleAt);
             if (m.act === "shot") shots.push({ x: m.x + m.face * 18, y: 56, vx: m.face * 190, life: 2.4, d: Math.round(d.dmg * HM) });
@@ -929,6 +1022,10 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
         }
       }
       petCd -= dt; if (petCd <= 0) { petCd = 2.2; petBolt(); }
+      for (let i = 0; i < petSlots.length; i++) { petCdA[i] -= dt; if (petCdA[i] > 0 || pl.dead > 0) continue; const q = petSlots[i]; const near = mons.some(m => !m.dead && Math.abs(m.x - pl.x) < 360) || (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < 360); const need = q.s.a === "heal" || q.s.a === "shield" ? pl.hp < hpMaxOf(info.lv) * 0.7 && near : near; if (need) { petCdA[i] = cdAt(q.s, q.lv) * (1 - PASS.cdr) + 1; castSkill(q.s, q.lv, true); } }
+      for (const tr of turrets) { tr.t -= dt; tr.cd -= dt; if (tr.cd <= 0) { const f = nearestFoe(tr.x, tr.face, 460); if (f) { tr.cd = 0.5; const d = dmgOf(tr.mult); bolts.push({ x: tr.x, y: 40, vx: Math.sign(f.x - tr.x) * 620, vy: (f.y + 20 - 40) * 1.4, life: 0.8, v: d.v, crit: d.crit }); sfx.play("fire", rv); } } }
+      for (let i = turrets.length - 1; i >= 0; i--) if (turrets[i].t <= 0) turrets.splice(i, 1);
+      for (const L of later) { L.t -= dt; if (L.t <= 0 && !L.done) { L.done = true; L.fn(); } } for (let i = later.length - 1; i >= 0; i--) if (later[i].done) later.splice(i, 1);
       for (const b of pet) { b.life -= dt; if (b.life <= 0 && !b.done) { b.done = true; if (b.b) hurtBoss(b.v, false, 0); else if (!b.m.dead) hurtMon(b.m, b.v, false, 0); } }
       for (let i = pet.length - 1; i >= 0; i--) if (pet[i].done) pet.splice(i, 1);
       for (const b of bolts) {
@@ -1065,6 +1162,8 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
           continue; } ctx.fillStyle = d.t === "hp" ? "#7dffa8" : "#7fe8ff"; ctx.beginPath(); if (d.t === "hp") ctx.arc(d.x, yy, 6, 0, 7); else { ctx.moveTo(d.x, yy - 8); ctx.lineTo(d.x + 6, yy); ctx.lineTo(d.x, yy + 8); ctx.lineTo(d.x - 6, yy); ctx.closePath(); } ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .5; ctx.beginPath(); ctx.arc(d.x, yy, 12, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
       // spores + slashes
       for (const s of shots) { ctx.fillStyle = "#e9ff9a"; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 5, 0, 7); ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.drawImage(bake.glows.green, s.x - 20, GROUND - s.y - 20, 40, 40); ctx.globalCompositeOperation = "source-over"; } }
+      for (const tr of turrets) { ctx.save(); ctx.fillStyle = "#4a5668"; ctx.fillRect(tr.x - 11, GROUND - 16, 22, 16); ctx.fillStyle = "#cdd6e6"; ctx.fillRect(tr.x, GROUND - 14, 20 * tr.face, 5); ctx.fillStyle = "#7fe8ff"; ctx.beginPath(); ctx.arc(tr.x, GROUND - 18, 4, 0, 7); ctx.fill(); ctx.restore(); }
+      if (shieldT > 0) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = "rgba(140,220,255," + (0.5 + 0.3 * Math.sin(time * 14)) + ")"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pl.x, GROUND - pl.y - 50, 62, 0, 7); ctx.stroke(); ctx.restore(); }
       for (const s of slashes) {
         const q = Math.max(0, Math.min(1, 1 - s.life / (s.max || (s.nova ? 0.3 : 0.18)))); ctx.save(); ctx.globalCompositeOperation = "lighter";
         const col = s.col || "#ffe6a0"; ctx.strokeStyle = col; ctx.fillStyle = col; ctx.globalAlpha = Math.max(0, 1 - q);
@@ -1130,7 +1229,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       hudT += dt;
       if (hudT > 0.15) {
         hudT = 0; const sr = skillOf();
-        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd), lootCoins: Math.round(lootValue() * RW), dashCd: Math.max(0, pl.dashCd), rockCd: Math.max(0, pl.rockCd), spell: Math.round(spellG) });
+        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd), sl: slots.map((q, i) => ({ n: T3(lang, q.s.n.th, q.s.n.en, q.s.n.zh), cd: Math.max(0, slotCd[i]) })), lootCoins: Math.round(lootValue() * RW), dashCd: Math.max(0, pl.dashCd), rockCd: Math.max(0, pl.rockCd), spell: Math.round(spellG) });
       }
     };
     raf = requestAnimationFrame(loop);
@@ -1139,12 +1238,12 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     const kd = (e, v) => {
       const kk = keys.current; const c = e.code;
       if (c === "ArrowLeft" || c === "KeyA") kk.l = v; else if (c === "ArrowRight" || c === "KeyD") kk.r = v;
-      else if (c === "ArrowUp" || c === "KeyW" || c === "Space") kk.jump = v; else if (c === "KeyJ" || c === "KeyZ") kk.atk = v; else if (c === "KeyK" || c === "KeyX") kk.skl = v; else if (c === "KeyY") kk.rocket = v; else if (c === "KeyO") kk.spell = v; else if (c === "KeyI") kk.fire = v; else if (c === "KeyU") kk.kick = v; else if (c === "KeyL" || c === "ShiftLeft" || c === "ShiftRight") kk.dash = v; else return;
+      else if (c === "ArrowUp" || c === "KeyW" || c === "Space") kk.jump = v; else if (c === "KeyJ" || c === "KeyZ") kk.atk = v; else if (c === "KeyK" || c === "KeyX") kk.skl = v; else if (c === "KeyH") kk.s2 = v; else if (c === "KeyG") kk.s3 = v; else if (c === "KeyY") kk.rocket = v; else if (c === "KeyO") kk.spell = v; else if (c === "KeyI") kk.fire = v; else if (c === "KeyU") kk.kick = v; else if (c === "KeyL" || c === "ShiftLeft" || c === "ShiftRight") kk.dash = v; else return;
       e.preventDefault();
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    (window as any).__advTest = { slotsN: () => slots.length, slotNames: () => slots.map(q => q.s.id), pass: () => PASS, castId: (id: string) => { const q = [...["striker", "bulwark", "ghost", "tactician", "engineer", "herald", "virtuoso"].flatMap(c => treeOf("robot", c)), ...["volt", "ember", "frost", "flora", "steel", "aether"].flatMap(c => treeOf("pet", c))].find(z => z.id === id); if (q) castSkill(q, lvOf(q.id), q.kind === "pet"); return !!q; }, castSlotNow: (i: number) => castSlot(i), slotCds: () => slotCd.slice(), hasteT: () => buff.haste, shieldLeft: () => shieldT, turretsN: () => turrets.length, setHp: (v: number) => { pl.hp = v; }, hpNow: () => pl.hp, monsSlowed: () => mons.filter(m => m.slowT > 0).length, beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
     return () => { settle(0.4); if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
@@ -1201,7 +1300,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
           <button className="pvpact punch" aria-label="attack" {...hold("atk")}><b>👊</b><i>{t("ต่อย", "PUNCH", "拳击")}</i></button>
           <button className={"pvpact rocket" + (hud.rockCd > 0 ? " cool" : "")} aria-label="rocket" {...hold("rocket")}><b>🚀</b><i>{t("จรวด", "ROCKET", "火箭")}</i></button>
           <button className="pvpact kick" aria-label="kick" {...hold("kick")}><b>🦵</b><i>{t("เตะ", "KICK", "踢击")}</i></button>
-          <button className={"pvpact ult" + (hud.skCd > 0 ? " cool" : "")} aria-label="skill" {...hold("skl")}><b>✦</b><i>{t("สกิล", "SKILL", "技能")}</i></button>
+          {[0, 1, 2].map(i => (hud.sl && hud.sl[i]) ? <button key={i} className={"pvpact ult" + (hud.sl[i].cd > 0 ? " cool" : "")} aria-label={"skill" + (i + 1)} data-slot={i} {...hold(i === 0 ? "skl" : i === 1 ? "s2" : "s3")}><b>✦{i + 1}</b><i>{hud.sl[i].n}</i></button> : null)}
           <button className={"pvpact spell" + ((hud.spell || 0) >= 100 ? " ready" : " cool")} aria-label="spell" style={{ "--sp": (hud.spell || 0) + "%" } as any} {...hold("spell")}><b>🎹</b><i>{(hud.spell || 0) >= 100 ? t("เวทย์คอร์ด", "SPELL", "和弦术") : (hud.spell || 0) + "%"}</i></button>
         </div>
       </div>

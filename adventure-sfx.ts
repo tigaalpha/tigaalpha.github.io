@@ -5,8 +5,8 @@
 import { playSig, type Voice } from "./fx-voice";
 import { getSfxMuted } from "./music-engine";
 
-export type AdvSfx = { play: (kind: string, v?: Voice | null) => void; setOn: (on: boolean) => void; close: () => void };
-const GAP: Record<string, number> = { punch: 90, kick: 120, fire: 70, hit: 55, pop: 80, pickup: 60, hurt: 120, jump: 100, dash: 150, skill: 200, spell: 300, slam: 200, pet: 90, win: 500, rocket: 400, boom: 120 };
+export type AdvSfx = { play: (kind: string, v?: Voice | null, spec?: any) => void; setOn: (on: boolean) => void; close: () => void };
+const GAP: Record<string, number> = { punch: 90, kick: 120, fire: 70, hit: 55, pop: 80, pickup: 60, hurt: 120, jump: 100, dash: 150, skill: 200, spell: 300, slam: 200, pet: 90, win: 500, rocket: 400, boom: 120, cast: 80 };
 export function createAdvSfx(): AdvSfx {
   let ac: AudioContext | null = null, bus: GainNode | null = null, nz: AudioBuffer | null = null, on = true; const last: Record<string, number> = {};
   const ensure = () => {
@@ -21,7 +21,7 @@ export function createAdvSfx(): AdvSfx {
   return {
     setOn(o) { on = o; },
     close() { try { ac && ac.close(); } catch (e) {} ac = null; },
-    play(kind, v) {
+    play(kind, v, spec) {
       if (!on) return; try { if (getSfxMuted()) return; } catch (e) {}
       const now = performance.now(); if (now - (last[kind] || 0) < (GAP[kind] || 60)) return; last[kind] = now;
       if (!ensure() || !ac || !bus || !nz) return; if (ac.state === "suspended") ac.resume().catch(() => {});
@@ -51,6 +51,26 @@ export function createAdvSfx(): AdvSfx {
         case "pet": tone("triangle", 900, 500, 0.1, 0.1); sigKind = "shot"; break;
         case "rocket": hiss(2600, 0.25, 0.5, "bandpass", 500); tone("sawtooth", 240, 90, 0.1, 0.45); tone("sine", 190, 48, 0.3, 0.16); sigKind = "lob"; break;
         case "boom": hiss(240, 0.5, 0.6, "lowpass"); tone("sine", 150, 28, 0.5, 0.6); break;
+        case "cast": {   // one skill: the archetype sets the shape of the sound, the id-derived pitch / wave / brightness make it its own
+          const pc = (spec && spec.pitch) || 1, wv: OscillatorType = (spec && spec.wave) || "triangle", br = (spec && spec.bright) || 0, b = 1 + br * 0.25;
+          switch (spec && spec.a) {
+            case "volley": for (let k = 0; k < 3; k++) tone(wv, 1300 * pc, 500 * pc, 0.12, 0.08, k * 0.07); break;
+            case "nova": tone("sine", 200 * pc, 40, 0.42, 0.5); hiss(1800 * b, 0.22, 0.45, "bandpass", 300); break;
+            case "dash": hiss(900 * pc, 0.22, 0.25, "bandpass", 4800 * b); tone(wv, 240 * pc, 900 * pc, 0.1, 0.2); break;
+            case "shield": tone("sine", 660 * pc, 660 * pc, 0.14, 0.5); tone("sine", 990 * pc, 990 * pc, 0.1, 0.55, 0.04); break;
+            case "heal": [0, 4, 7].forEach((st, i) => tone("sine", 523 * pc * Math.pow(2, st / 12), 523 * pc * Math.pow(2, st / 12), 0.14, 0.35, i * 0.08)); break;
+            case "haste": tone("sawtooth", 200 * pc, 1100 * pc, 0.12, 0.35); tone("sine", 400 * pc, 1600 * pc, 0.08, 0.3, 0.05); break;
+            case "slow": tone("sine", 700 * pc, 120, 0.18, 0.55); hiss(3000, 0.08, 0.5, "lowpass", 400); break;
+            case "stun": tone("square", 900 * pc, 200, 0.16, 0.18); hiss(4000 * b, 0.2, 0.12, "bandpass"); tone("sine", 110, 40, 0.3, 0.25, 0.05); break;
+            case "chain": for (let k = 0; k < 4; k++) hiss((2200 + k * 500) * b, 0.2, 0.06, "bandpass", undefined, k * 0.06); tone("sawtooth", 160 * pc, 80, 0.1, 0.3); break;
+            case "drain": tone(wv, 300 * pc, 120, 0.16, 0.5); tone(wv, 305 * pc, 125, 0.12, 0.5); break;
+            case "meteor": tone("sine", 1400 * pc, 260, 0.14, 0.45); tone("sine", 90, 28, 0.5, 0.5, 0.45); hiss(260, 0.4, 0.5, "lowpass", 100); break;
+            case "turret": tone("square", 1100 * pc, 1100 * pc, 0.1, 0.05); tone("square", 1400 * pc, 1400 * pc, 0.1, 0.05, 0.1); break;
+            case "execute": tone("square", 1200 * pc, 90, 0.2, 0.16); hiss(2600 * b, 0.3, 0.1, "highpass"); tone("sine", 100, 38, 0.4, 0.3, 0.04); break;
+            default: tone(wv, 520 * pc, 780 * pc, 0.1, 0.25); break;
+          }
+          break;
+        }
         case "win": [0, 4, 7, 12].forEach((st, i) => tone("triangle", 440 * Math.pow(2, st / 12), 440 * Math.pow(2, st / 12), 0.2, 0.5, i * 0.11)); break;
       }
       if (v && sigKind) playSig(A, out, N, t, v, sigKind, 0.9);
