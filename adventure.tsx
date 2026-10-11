@@ -302,6 +302,7 @@ function drawMonster(x, m, t, k, G) {
 function drawBoss(x, b, t, P) { paintBoss(x, b, t, P, GROUND); }
 
 const CSS = `
+.adv-sectors{display:flex;gap:8px;margin:4px 0 10px}.adv-sec{flex:1;border:1.5px solid rgba(140,255,220,.35);background:rgba(255,255,255,.06);color:#fff;padding:9px 12px;border-radius:999px!important;font-weight:800;font-size:13px;cursor:pointer}.adv-sec.on{background:linear-gradient(135deg,#2fd6b0,#4a7bff);border-color:transparent}.adv-sec em{font-style:normal;opacity:.85;margin-left:6px;font-size:11px}
 .adv{position:fixed;inset:0;z-index:2400;background:#02070c;color:#e8fffa;font-family:var(--f-app,system-ui);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
 .adv-lobby{margin:8px 0;border:1px solid #3ddc97;border-radius:12px;padding:10px;background:rgba(20,98,79,.25);display:grid;gap:8px}.adv-lobby label{font-size:12px;display:flex;gap:8px;align-items:center}.adv-lobby input{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.25);border-radius:8px;color:#fff;padding:6px 8px}
 .al-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.al-code{width:92px;text-transform:uppercase;letter-spacing:2px;text-align:center}.al-err{color:#ff9a9a}.al-room{display:flex;gap:10px;align-items:center}.al-room b{font-size:24px;letter-spacing:5px;color:#ffd23f}.al-peers{display:flex;gap:6px;flex-wrap:wrap}.al-peer{border:1.5px solid;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700}
@@ -418,6 +419,9 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
   const [tick, setTick] = useState(0); void tick;
+  const isSpace = (P: any) => ["dogfight", "launch", "belt", "skim", "harvest"].includes(P.mission);
+  const [sector, setSector] = useState<"ground" | "space">(() => { try { return localStorage.getItem("tg_adv_sector") === "space" ? "space" : "ground"; } catch (e) { return "ground"; } });
+  const pickSector = (v: "ground" | "space") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
   const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
   const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests(); const load = readLoad(); const ore = readOre(); const ostage = oreStage(ore);
   const [strike, setStrike] = useState<any>(null);
@@ -458,8 +462,14 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           {readDyson() > 0 && <p style={{ fontSize: 12, opacity: .85 }}>{t("ไดสันสเฟียร์: ส่งพลังงานกลับโลกแล้ว " + readDyson() + " แผง ☀", "Dyson sphere: " + readDyson() + " panels beaming energy to Earth ☀", "戴森球：" + readDyson() + " 块板正向地球输送能量 ☀")}</p>}
           <p style={{ fontSize: 12, opacity: .85 }}>{t("ปี 2100 มนุษย์ออกหาทรัพยากรและพลังงานจากดาวต่างๆ และต้องสู้กับต่างดาว  ◆ คริสตัลพลังงานที่เก็บได้: " + crystals, "Year 2100: humanity heads out for resources and star energy, and fights the aliens. ◆ Energy crystals collected: " + crystals, "2100年，人类外出寻找资源与恒星能源，并与外星生物作战。  ◆ 已收集能量晶体：" + crystals)}</p>
           <p>{t("หุ่นยนต์และสัตว์เลี้ยงออกผจญภัยในดาวต่างดาว สู้มอนสเตอร์ เก็บ EXP เพิ่มเลเวลและสกิล (EXP เดียวกับ PvP)", "Take your robot and pet across alien planets, fight monsters and earn EXP for levels and skills (the same EXP as PvP).", "带着机器人和宠物探索外星球，打怪获得经验，升级并提升技能（与 PvP 共用经验）。")}</p>
+          <div className="adv-sectors" role="tablist">
+            {(["ground", "space"] as const).map(v => { const L = PLANETS.filter(P => isSpace(P) === (v === "space")); return (
+              <button key={v} role="tab" aria-selected={sector === v} data-sector={v} className={"adv-sec" + (sector === v ? " on" : "")} onClick={() => pickSector(v)}>
+                {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
+              </button>); })}
+          </div>
           <div className="adv-planets">
-            {PLANETS.map((P, pi) => (
+            {PLANETS.map((P, pi) => isSpace(P) !== (sector === "space") ? null : (
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
