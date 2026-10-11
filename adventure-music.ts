@@ -191,6 +191,18 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
       default: hs(600, 0.1, 1.0, t + 0.4, "bandpass", 2400);                                                                                                               // the surface: wind
     }
   });
+  // ── cinematic layer (owner, 2026-10-11: grander, more thrilling): a brass-and-strings theme, a choir pad, timpani rolls, a low "BRAAAM" on every cut, a final crescendo ──
+  const brass = (mid: number, at: number, dur: number, vol: number) => { for (const dt of [-7, 0, 7]) { const f = hz(mid) * Math.pow(2, dt / 1200); tn("sawtooth", f, f, vol * 0.05 * g, dur, at, Math.min(0.5, dur * 0.35)); } tn("square", hz(mid - 12), hz(mid - 12), vol * 0.03 * g, dur, at, 0.3); };
+  const theme = [0, 4, 2, 7, 4, 9, 7, 12];   // scale degrees of a rising heroic call
+  for (let sec = 6, n = 0; sec < total - 1; sec += 8, n++) {
+    const rd = M.prog[n % 4];
+    theme.forEach((d, k) => brass(degMidi(M, rd + d) , sec + k * 0.75, k === 7 ? 3 : 0.72, 0.9 + k * 0.05));
+  }
+  for (let t = 3; t < total + 2; t += 6) { for (const st of [0, 2, 4, 7]) { const f = hz(degMidi(M, M.prog[Math.floor(t / 6) % 4] + st) + 12); tn("sine", f, f, 0.05 * g, 6, t, 2); tn("triangle", f * 1.005, f * 1.005, 0.03 * g, 6, t, 2.5); } }   // the choir-like pad
+  for (let t = 2; t < total - 1; t += 2) for (let k = 0; k < 8; k++) tn("sine", 90 - k, 46, 0.05 + 0.012 * k, 0.22, t + k * 0.1 + Math.min(1, t / total) * 0.0);   // timpani roll
+  plan.forEach((sh, i) => { if (!i) return; const t = starts[i]; tn("sawtooth", 58, 36, 0.3, 1.8, t, 0.02); tn("sawtooth", 87, 52, 0.18, 1.6, t, 0.02); hs(300, 0.28, 1.4, t, "lowpass", 140); });   // the low brass hit on every cut
+  for (let k = 0; k < 6; k++) brass(M.root + [0, 7, 12, 16, 19, 24][k], Math.max(0, total - 4.2) + k * 0.3, 4, 1.2);   // the closing crescendo chord, stacked up
+  hs(400, 0.3, 4, Math.max(0, total - 4.5), "bandpass", 9000); tim(Math.max(0, total - 0.3), 1.6);
   return { total, starts };
 }
 export type CineAudio = { stop: () => void };
