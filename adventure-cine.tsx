@@ -30,6 +30,7 @@ const INTRO: Record<string, L3> = {
   nexa: ["เน็กซา — ซากเมืองอวกาศของอารยธรรมที่เงียบหายไป", "Nexa: the wrecked city of a civilization that went silent.", "内克萨——一个沉寂文明的残骸之城。"],
   cobalt: ["แถบโคบอลต์ — ดาวเคราะห์น้อยนับพัน เต็มไปด้วยแร่หายาก", "The Cobalt Belt: thousands of asteroids heavy with rare ore.", "钴带——数千颗小行星，蕴藏稀有矿石。"],
   helios: ["เฮลิออส — ดาวฤกษ์ต่างระบบ พลังงานเหลือเฟือ ถ้ายึดมันได้", "Helios: a foreign sun, with limitless energy for whoever takes it.", "赫利俄斯——异星恒星，谁占领它谁就拥有无尽能量。"],
+  starharvest: ["ดาวฤกษ์ดวงใหม่จากอีกจักรวาล — แหล่งพลังงานที่ใหญ่ที่สุดที่มนุษย์เคยเห็น", "A star from another universe: the largest well of energy humanity has ever seen.", "另一个宇宙的恒星——人类所见过的最庞大的能量之源。"],
   gasskim: ["ดาวแก๊สยักษ์ — มหาสมุทรเมฆที่เก็บพลังงานมหาศาลไว้ในชั้นลึก", "A gas giant: an ocean of cloud hiding vast energy in its depths.", "气态巨星——云海之下藏着庞大的能量。"],
   departure: ["วันออกเดินทางมาถึงแล้ว — กองเรือบุกเบิกพร้อมที่แท่นปล่อย", "Launch day. The pioneer fleet waits on the pad.", "启程之日到来，先遣舰队已在发射台待命。"],
   asteroids: ["ทุ่งดาวเคราะห์น้อย — แร่ล้ำค่าลอยอยู่เต็มท้องฟ้า แต่โจรอวกาศก็เช่นกัน", "The asteroid field: precious ore drifts everywhere, and so do pirates.", "小行星带——珍贵矿石漂浮四处，太空海盗也是。"],
@@ -46,6 +47,7 @@ const STORY: Record<string, L3> = {
   nexa: ["แผ่นพื้นไฟฟ้ายังทำงาน และผู้ควบคุมคนสุดท้ายยังตื่นอยู่", "The floor plates still carry current, and the last overseer is still awake.", "地板电击板仍在通电，最后的监管者还醒着。"],
   cobalt: ["ต้องขุดแร่ให้พอ แล้วส่งแคปซูลกลับโลก เพื่อให้อาณานิคมเติบโต", "Dig enough ore and launch the capsule home, so the colony can grow.", "采足矿石，把货舱发射回地球，殖民地才能壮大。"],
   helios: ["สถานีเก็บพลังงานสามจุดเรียงรายอยู่ใต้ดวงอาทิตย์ ศัตรูจะไม่ปล่อยให้ใครยึดไป", "Three collector stations stand under this sun, and the enemy will not give them up.", "三座能量采集站矗立在恒星之下，敌人不会拱手相让。"],
+  starharvest: ["เรือบุกเบิกต้องเข้าจอดที่สถานีเก็บพลังงานทีละแห่ง ท่ามกลางเปลวสุริยะและฝูงเอเลี่ยนที่หวงดาว", "The pioneer ships must dock at each collector station in turn, under solar flares and alien raiders guarding their star.", "先遣飞船必须依次停靠每座采集站，头顶是耀斑，周围是守卫恒星的外星袭击者。"],
   gasskim: ["บินเฉียดชั้นเมฆ ให้ถังพลังงานเต็ม ท่ามกลางพายุฟ้าผ่าที่ไม่เคยหยุด", "Skim the cloud tops until the tank is full, under storms that never rest.", "掠过云顶，在永不停歇的风暴下装满能量罐。"],
   departure: ["ผ่านเศษขยะอวกาศและก้อนหินที่ลอยอยู่เหนือโลก ไปให้ถึงวงโคจร", "Fly through the debris and loose rock above the Earth to reach orbit.", "穿过地球上空的碎片与浮石，抵达轨道。"],
   asteroids: ["ยิงหินให้แตก ดูดแร่ใส่ท้องยาน แล้วส่งกลับโลกให้ครบ", "Blast the rocks, scoop the ore into the hold and send it home.", "击碎岩石，把矿石吸进货舱，运回地球。"],
@@ -62,6 +64,7 @@ const GOAL: Record<string, L3[]> = {
   nexa: [["กระโดดข้ามแผ่นไฟฟ้าตอนที่ติด", "Jump the shock plates while live", "电击板通电时跳过"], ["จัดการโดรนและโกเลมเศษเหล็ก", "Take down drones and golems", "解决无人机与废铁魔像"], ["ล้มผู้ควบคุม — มันจะโกรธเมื่อเลือดเหลือครึ่ง", "Defeat the overseer: it enrages at half health", "击败监管者——半血时它会狂暴"]],
   cobalt: [["ทุบก้อนแร่ด้วยหมัดหรือเตะ", "Break ore with punches or kicks", "用拳脚击碎矿石"], ["เก็บให้ได้ 10 ก้อนขึ้นไป", "Gather at least 10 ore", "至少采集 10 块矿"], ["ส่งที่แท่นขวาสุดเพื่อยิงกลับโลก", "Launch it from the far-right pad", "在最右平台发射回地球"]],
   helios: [["ยืนยึดสถานีทีละจุด จุดละ 10 วินาที", "Hold each station for 10 seconds", "逐一坚守采集站 10 秒"], ["ป้องกันคลื่นศัตรูขณะยึด", "Beat back the waves meanwhile", "占领期间击退敌军"], ["ยึดครบ 3 จุดเพื่อเป็นเจ้าของดวงอาทิตย์", "Take all three to own the sun", "占领全部三座，拥有恒星"]],
+  starharvest: [["บินเข้าวงแหวนสถานีและอยู่ให้ครบ 7 วินาที", "Fly into the station ring and hold for 7 s", "飞入采集站圆环并停留 7 秒"], ["หลบเปลวสุริยะที่กวาดมา", "Dodge the sweeping solar flares", "躲开横扫的耀斑"], ["ยึดให้ครบ 3 สถานี", "Seize all 3 stations", "占领全部 3 座采集站"]],
   gasskim: [["อยู่ในชั้นพลังงานเรืองแสง", "Stay inside the glowing energy layer", "留在发光的能量层内"], ["หลบสายฟ้าที่ฟาดลงมา", "Dodge the lightning strikes", "躲开落下的闪电"], ["ถังเต็ม 100% เพื่อส่งกลับโลก", "Fill the tank to 100% to send it home", "装满 100% 后送回地球"]],
   departure: [["ยิงหรือหลบก้อนหินและเศษขยะ", "Shoot or dodge the rocks and debris", "击碎或躲开岩石与碎片"], ["รักษาตัวยานไว้จนถึงวงโคจร", "Keep the ship intact all the way to orbit", "保持飞船完好直至入轨"], ["เก็บคริสตัลที่ลอยมา", "Pick up the crystals that drift by", "收集漂浮的水晶"]],
   asteroids: [["ยิงหินให้แตกเป็นแร่", "Blast rocks into ore", "把岩石击碎成矿石"], ["เก็บแร่ให้ครบ 16 ก้อน", "Collect 16 ore", "收集 16 块矿石"], ["ระวังโจรอวกาศ", "Beware of space pirates", "小心太空海盗"]],
@@ -69,9 +72,9 @@ const GOAL: Record<string, L3[]> = {
   ashfall: [["ปล่อยหัวรบ 3 ลูกให้โดนฐานมากที่สุด", "Drop 3 warheads on as many bases as you can", "用 3 枚弹头摧毁尽可能多的基地"], ["ฐานที่โดนจะไม่มีทหารตอนบุก", "Destroyed bases have no defenders", "被摧毁的基地没有守军"], ["ลงพื้นที่แล้วล้มผู้บัญชาการ", "Land and defeat the commander", "降落并击败指挥官"]],
   voidgate: [["บังคับยานหลบกระสุนและยิงฝูงเอเลี่ยน", "Fly, dodge and shoot down the alien swarm", "驾驶战机闪避并击落外星机群"], ["เก็บคริสตัลและของที่ดรอปไว้ขายเป็นเงิน", "Collect crystals and loot to sell for coins", "收集水晶与战利品换取金币"], ["ล้มเรือแม่ให้ได้ก่อนยานคุณพัง", "Destroy the mothership before your ship falls", "在战机被毁前击落母舰"]],
 };
-const TYPE: Record<string, string> = { luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas" };
+const TYPE: Record<string, string> = { luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun" };
 
-const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim"];
+const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest"];
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
 /* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
 export function cinePlan(P: any, short?: boolean): CineShot[] { return basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 })); }

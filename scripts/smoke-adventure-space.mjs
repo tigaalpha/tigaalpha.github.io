@@ -66,4 +66,13 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
   ok("a full tank wins the map", await p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done")).includes("gasskim")));
   ok("no errors (skim)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
+{
+  const { ctx, p, errs } = await open({}); const i = await enter(p, "Foreign Star"); ok("Foreign Star is on the menu", i >= 0);
+  await p.waitForFunction(() => !!window.__advShip, null, { timeout: 10000 }); ok("harvest mode", (await p.evaluate(() => window.__advShip.mode)) === "harvest");
+  await p.evaluate(() => window.__advShip.god());
+  for (let k = 0; k < 3; k++) { await p.evaluate(() => { window.__advShip.holdStation(); window.__advShip.fastStation(); }); await p.waitForTimeout(500); await p.evaluate(() => window.__advShip.holdStation()); await p.waitForTimeout(400); }
+  await p.waitForSelector(".adv-clear[aria-label='ship clear']", { timeout: 15000 }).catch(() => {});
+  ok("holding the ship in each ring seizes the stations", (await p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done") || "[]").includes("starharvest"))));
+  ok("no errors (harvest)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
+}
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

@@ -121,6 +121,7 @@ export const PLANETS = [
   { id: "departure", th: "ออกเดินทาง · ทะยานจากโลกสู่วงโคจร", en: "Departure · launch from Earth to orbit", zh: "启程 · 从地球冲向轨道", c: ["#0a1a3a", "#2a5a9a", "#ffb070"], glow: "255,200,140", acc: "120,200,255", ok: true, hard: 1, mission: "launch", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "asteroids", th: "ทุ่งดาวเคราะห์น้อย · ขับยานขุดแร่", en: "Asteroid Field · fly and mine the rocks", zh: "小行星带 · 驾驶飞船采矿", c: ["#0a1220", "#2a3a52", "#8a7a6a"], glow: "255,210,150", acc: "120,220,255", ok: true, hard: 1.8, mission: "belt", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "gasskim", th: "ดาวแก๊สยักษ์ · ขับยานดูดพลังงาน", en: "Gas Giant Skim · skim the clouds for energy", zh: "气态巨星 · 掠云汲取能量", c: ["#1a0a2a", "#5a2a6a", "#ffa060"], glow: "255,190,110", acc: "190,140,255", ok: true, hard: 2.2, mission: "skim", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
+  { id: "starharvest", th: "ดาวฤกษ์ต่างจักรวาล · ยึดสถานีเก็บพลังงานด้วยยาน", en: "Foreign Star · seize the collector stations by ship", zh: "异宇宙恒星 · 驾驶飞船占领采集站", c: ["#2a0a00", "#8a3a00", "#ffd060"], glow: "255,220,130", acc: "120,220,255", ok: true, hard: 3.0, mission: "harvest", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
 ];
 
 /* the story (owner, 2026-10-11): year 2100, these robots are built BY humans to do the colony work in their place, before any person
@@ -137,6 +138,7 @@ export const BRIEF: Record<string, string[]> = {
   departure: ["ออกเดินทาง: หลบเศษขยะอวกาศและก้อนหินจนถึงวงโคจร (ยิงให้แตกได้)", "Departure: dodge debris and rocks to reach orbit (you can shoot them)", "启程：躲避太空碎片与岩石直至入轨（可以击碎它们）"],
   asteroids: ["ทุ่งดาวเคราะห์น้อย: ยิงหินให้แตกแล้วดูดแร่ให้ครบ 16 ก้อน ระวังโจรอวกาศ", "Asteroid Field: shoot the rocks, collect 16 ore, watch for pirates", "小行星带：击碎岩石收集 16 块矿石，小心太空海盗"],
   gasskim: ["ดาวแก๊สยักษ์: บินในชั้นพลังงานเรืองแสงให้ถังเต็ม หลบสายฟ้าฟาด", "Gas Giant: stay inside the glowing energy layer to fill the tank; dodge the lightning", "气态巨星：留在发光的能量层内装满能量罐，躲开闪电"],
+  starharvest: ["ดาวฤกษ์ต่างจักรวาล: บินเข้าวงแหวนสถานีและอยู่ให้ครบ 7 วินาที ×3 สถานี หลบเปลวสุริยะและฝูงเอเลี่ยน", "Foreign star: hold the ship inside each station ring for 7 s, three stations, through flares and raiders", "异宇宙恒星：在每个采集站圆环内停留 7 秒，共 3 站，穿越耀斑与袭击者"],
   helios: ["ดาวฤกษ์ต่างระบบ: ยึดสถานีเก็บพลังงานทั้งสามจุดทีละจุด", "A foreign sun: take its three collector stations, one at a time.", "异星恒星：逐一占领三座能量采集站。"],
   ashfall: ["แอชฟอลล์: ทิ้งระเบิดนิวเคลียร์จากวงโคจรก่อน แล้วค่อยลงไปกวาดล้างที่เหลือ", "Ashfall: nuke the bases from orbit first, then drop in and clear what is left.", "灰烬星：先从轨道投下核弹，再降落扫荡残敌。"],
 };
@@ -392,6 +394,13 @@ const CSS = `
 .pvptier,.pvpadv,.adv-planet,.adv-up{border-radius:34px!important}
 .stgback,.adv-btn:not(.go){border-radius:50%!important}
 
+/* pad layout (owner, 2026-10-11, drawn on a screenshot): FIRE, JUMP and PUNCH move to the upper right, above ROCKET and KICK; the skills sit under them in the middle row */
+.adv-pad .pvppad-r{grid-template-columns:repeat(5,auto);grid-template-rows:repeat(3,auto);justify-items:end}
+.adv-pad .pvppad-r .pvpact.fire{grid-area:1/3}.adv-pad .pvppad-r .pvpact.jump{grid-area:1/4}.adv-pad .pvppad-r .pvpact.punch{grid-area:1/5}
+.adv-pad .pvppad-r .pvpact[data-slot="0"]{grid-area:2/1}.adv-pad .pvppad-r .pvpact[data-slot="1"]{grid-area:2/2}.adv-pad .pvppad-r .pvpact[data-slot="2"]{grid-area:2/3}
+.adv-pad .pvppad-r .pvpact.rocket{grid-area:2/4}.adv-pad .pvppad-r .pvpact.kick{grid-area:2/5}
+.adv-pad .pvppad-r .pvpact.dig{grid-area:3/4}.adv-pad .pvppad-r .pvpact.spell{grid-area:3/5}
+
 `;
 
 type Gfx = "standard" | "high";
@@ -524,15 +533,15 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
         </div>
       ) : (
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
-        ["dogfight", "launch", "belt", "skim"].includes(planet.mission) && shipDone ? (
+        ["dogfight", "launch", "belt", "skim", "harvest"].includes(planet.mission) && shipDone ? (
           <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
-            <span>☠ {shipDone.kills} · ◆ {shipDone.cry}{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}{shipDone.mode === "skim" ? " · ⛽ 100%" : ""}</span>
+            <span>☠ {shipDone.kills} · ◆ {shipDone.cry}{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}{shipDone.mode === "skim" ? " · ⛽ 100%" : ""}{shipDone.mode === "harvest" ? " · ☀ 3/3" : ""}</span>
             {shipDone.coins > 0 && <small className="ac-coins">🪙 +{shipDone.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
             <div className="adv-clear-btns">
               {shipDone.next && <button className="adv-btn go" onClick={() => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setShipDone(null); setPlanet(shipDone.next); }}>▶ {T3(lang, shipDone.next.th, shipDone.next.en, shipDone.next.zh).split(" · ")[0]}</button>}
               <button className="adv-btn" onClick={() => { setShipDone(null); setPlanet(null); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div>
           </div>
-        ) : ["dogfight", "launch", "belt", "skim"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
+        ) : ["dogfight", "launch", "belt", "skim", "harvest"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id + gfx} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
