@@ -68,6 +68,26 @@ export function bumpQuest(id: string, n = 1): any[] {
   try { localStorage.setItem("tg_adv_q", JSON.stringify(q)); } catch (e) {}
   return out;
 }
+/* ── loot (owner, 2026-10-11: varied drops, ore that turns into money at the end, money you can spend in the shop) ──
+   Monsters drop scrap, ore, gold nuggets and rare plasma cores. What is collected is sold when the map ends (clear = full price, leaving
+   early = 40 %) and paid as the app's ordinary Coins through the SAME onReward the arena uses, so the server's own limits still apply.
+   A daily ceiling keeps farming from running away. Coins from playing are allowed by the owner's rule; nothing here can be bought with money. */
+export const LOOT: Record<string, { v: number; c: string; th: string; en: string; zh: string }> = {
+  scrap: { v: 1, c: "#9aa6b4", th: "เศษเหล็ก", en: "Scrap", zh: "废铁" },
+  ore:   { v: 3, c: "#6fc4ff", th: "แร่", en: "Ore", zh: "矿石" },
+  gold:  { v: 8, c: "#ffd23f", th: "ทองก้อน", en: "Gold nugget", zh: "金块" },
+  core:  { v: 25, c: "#c78bff", th: "แกนพลาสมา", en: "Plasma core", zh: "等离子核心" },
+};
+export const ADV_COIN_DAY_CAP = 800;
+export function rollLoot(exp: number, rnd2: () => number = Math.random): string | null {
+  const r = rnd2(); if (r > 0.85) return null; const q = rnd2();
+  if (exp < 20) return q < 0.6 ? "scrap" : q < 0.9 ? "ore" : "gold";
+  if (exp < 30) return q < 0.3 ? "scrap" : q < 0.75 ? "ore" : q < 0.95 ? "gold" : "core";
+  return q < 0.35 ? "ore" : q < 0.8 ? "gold" : "core";
+}
+export const readDayCoins = (): number => { try { const v = JSON.parse(localStorage.getItem("tg_adv_coin_day") || "{}") || {}; return v.d === dayKey() ? Math.max(0, v.n | 0) : 0; } catch (e) { return 0; } };
+export const addDayCoins = (n: number) => { try { localStorage.setItem("tg_adv_coin_day", JSON.stringify({ d: dayKey(), n: readDayCoins() + n })); } catch (e) {} };
+const PROLOGUE: any = { id: "prologue", prologue: true, th: "โครงการหุ่นยนต์ผู้บุกเบิก", en: "Pioneer Robot Program", zh: "先遣机器人计划", c: ["#04060e", "#0a1830", "#2a5aa8"], glow: "110,190,255", acc: "255,200,90", boss: ["-", "-", "-"] };
 let TINT: any = null;
 const AdventureCine = lazy(() => import("./adventure-cine"));   // the film before each map: its own chunk, loaded when a map is picked
 let KEEP_FS = false;   // going straight to the next map keeps the full screen: the old run's cleanup must not leave it   // the planet's monster palette (null = Luma's own)
@@ -285,7 +305,7 @@ const CSS = `
 .adv-key.atk{width:84px;height:84px;border-radius:42px;background:linear-gradient(160deg,#ff8a5d,#d9482b);border-color:transparent}
 .adv-key.skl{background:linear-gradient(160deg,#7b61ff,#4a35c9);border-color:transparent}.adv-key.cd{opacity:.45}
 .adv-clear{position:absolute;left:50%;top:24%;transform:translateX(-50%);z-index:7;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 18px;border-radius:18px;background:rgba(4,20,26,.88);border:1.5px solid rgba(255,214,90,.6);box-shadow:0 0 30px rgba(255,214,90,.25);min-width:240px;animation:advc .4s ease-out}
-.adv-clear b{font-size:20px;color:#ffe08a;letter-spacing:1px}.adv-clear small{opacity:.85}.adv-clear .go{background:linear-gradient(135deg,#7b61ff,#4a35c9);border-color:transparent;padding:0 18px;font-size:14px}.adv-clear .adv-btn{min-height:44px;border-radius:14px}
+.adv-clear .ac-coins{color:#ffe08a;font-weight:800}.adv-clear b{font-size:20px;color:#ffe08a;letter-spacing:1px}.adv-clear small{opacity:.85}.adv-clear .go{background:linear-gradient(135deg,#7b61ff,#4a35c9);border-color:transparent;padding:0 18px;font-size:14px}.adv-clear .adv-btn{min-height:44px;border-radius:14px}
 @keyframes advc{from{transform:translateX(-50%) scale(.85);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
 .adv-cine{position:absolute;inset:0;z-index:8;background:#000;overflow:hidden;touch-action:manipulation}.adv-cine canvas{position:absolute;inset:0;width:100%;height:100%}
 .ac-skip{position:absolute;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:3;min-height:40px;padding:0 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.4);background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:13px}
@@ -345,7 +365,7 @@ function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx");
 const T3 = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
 
 /** The page: a planet menu, then the run itself. */
-export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null }: any) {
+export const AdventurePage = memo(function AdventurePage({ onReward = null, lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null }: any) {
   const [planet, setPlanet] = useState(null);
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
@@ -353,6 +373,7 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
   const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
   const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests(); const load = readLoad(); const ore = readOre(); const ostage = oreStage(ore);
   const [strike, setStrike] = useState<any>(null);
+  const [pro, setPro] = useState(() => { try { return localStorage.getItem("tg_adv_prologue") === null && localStorage.getItem("tg_adv_nocine") !== "1"; } catch (e) { return false; } });   // the opening film, once, before the first map menu
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
   const nextOf = (cur: any) => { const dn = readDone(); const idx = PLANETS.findIndex(q => q.id === cur.id); return PLANETS.slice(idx + 1).find(Q => Q.ok && (!Q.req || dn.includes(Q.req))) || null; };   // the orbital-strike result (which bases are gone) before an Ashfall run
   const open = (P) => P.ok && (!P.req || done.includes(P.req));
@@ -360,7 +381,7 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
   return (
     <div className="adv" role="region" aria-label="Adventure Mode">
       <style>{CSS}</style>
-      {!planet ? (
+      {pro && !planet ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={PROLOGUE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_prologue", "1"); } catch (e) {} setPro(false); }} /></Suspense> : !planet ? (
         <div className="adv-menu">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
@@ -428,7 +449,7 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
       ) : (
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
-        <Run key={planet.id + gfx} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
+        <Run key={planet.id + gfx} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
           getNext={() => nextOf(planet)} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
       )}
     </div>
@@ -472,7 +493,7 @@ function StrikePhase({ P, lang, playUi, onDone, onBack }: any) {
 }
 
 /** One run on one planet. The game state lives in refs and a canvas: React only draws the HUD (a few times a second). */
-const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null, P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx }: any) {
+const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, strikeMask = null, P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx }: any) {
   const high = gfx === "high";
   useEffect(() => () => { if (KEEP_FS) KEEP_FS = false; else exitFsAndUnlock(); }, []);   // back to the map or out of Adventure: normal screen, portrait again
   const cvRef = useRef<HTMLCanvasElement>(null);
@@ -573,7 +594,16 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
     let hzAcc = 0, hzHits = 0;
     const hzOn = () => (P.hazard === "shock" ? (time % 3) > 1.8 : true);
     let mi = 0;   // music intensity timer
-    const showClear = (delay = 2000) => setTimeout(() => { if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (high ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals }); }, delay);
+    const loot: Record<string, number> = { scrap: 0, ore: 0, gold: 0, core: 0 }; let settled = false;
+    const lootValue = () => Object.keys(loot).reduce((a, k) => a + loot[k] * LOOT[k].v, 0);
+    const settle = (rate: number) => {   // sell what was collected: clear = full price, leaving early = 40 %
+      if (settled) return { coins: 0, capped: false }; settled = true;
+      const want = Math.round(lootValue() * RW * rate), room = Math.max(0, ADV_COIN_DAY_CAP - readDayCoins()), coins = Math.min(want, room);
+      if (coins > 0) { addDayCoins(coins); if (onReward) { try { onReward(0, coins, { adventure: true }); } catch (e) {} } }
+      try { ((window as any).__advRewardLog = (window as any).__advRewardLog || []).push({ coins, want, planet: P.id }); } catch (e) {}
+      return { coins, capped: want > coins };
+    };
+    const showClear = (delay = 2000) => setTimeout(() => { if (ended) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (high ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped }); }, delay);
     const surv = { t: 0, wave: 0, next: 2, done: false }, SURV_T = 90;   // gas-giant stage: hold out 90 s while the energy fills
     const MINE = P.mission === "mine", CAPM = P.mission === "capture", NOBOSS = !!P.survival || MINE || CAPM;
     // Ashfall: after the orbital strike, a base that was nuked has no defenders left (three monsters per base)
@@ -609,6 +639,7 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
         const gain = Math.round(d.exp * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.max(1, Math.round(gain / 3)));
         pop(m.x, GROUND - 90, "+" + gain + " EXP", "#9dffd6");
         if (Math.random() < 0.22) drops.push({ x: m.x, y: 20, vy: 160, t: "hp" });
+        { const lt = rollLoot(d.exp); if (lt) drops.push({ x: m.x + (Math.random() - 0.5) * 44, y: 24, vy: 170 + Math.random() * 70, t: lt }); if (Math.random() < 0.25) { const l2 = rollLoot(d.exp); if (l2) drops.push({ x: m.x + (Math.random() - 0.5) * 60, y: 28, vy: 190, t: l2 }); } }
         if (Math.random() < 0.5) drops.push({ x: m.x + (Math.random() - 0.5) * 30, y: 20, vy: 200, t: "cry" });
         for (let i = 0; i < (high ? 22 : 8); i++) addPart(m.x, GROUND - m.y - 24, (Math.random() - 0.5) * 340, -Math.random() * 280, 0.8, i % 2 ? P.glow : P.acc, 3);
         if (rpg && rpg.leveled) { const r2 = rpgOf(me); info = r2; mods = rpgMods(r2.pts); pl.hp = hpMaxOf(r2.lv); setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r2.lv + (r2.free > 0 ? " · " + t("มีแต้มสถานะ " + r2.free, r2.free + " stat points", r2.free + " 点属性") : "") }); playUi && playUi("reward"); }
@@ -638,6 +669,7 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
         const gain = Math.round(220 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3));
         for (let i = 0; i < 12; i++) drops.push({ x: boss.x + (i - 6) * 16, y: 40 + i * 6, vy: 220, t: "cry" });
         drops.push({ x: boss.x, y: 60, vy: 220, t: "hp" });
+        for (const [lt, n] of [["gold", 4], ["core", 2], ["ore", 6]] as any[]) for (let i = 0; i < n; i++) drops.push({ x: boss.x + (Math.random() - 0.5) * 140, y: 50 + Math.random() * 40, vy: 220 + Math.random() * 80, t: lt });
         for (let i = 0; i < (high ? 50 : 16); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 520, -Math.random() * 380, 1, i % 2 ? P.glow : P.acc, 4);
         markDone(P.id); shake = 10; sfx.play("win"); showClear(2600); questDone(bumpQuest("boss", 1)); logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
         info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
@@ -889,7 +921,7 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
       for (const w of waves) { w.x += w.dir * 260 * dt; w.life -= dt; if (Math.abs(w.x - pl.x) < 22 && pl.y < 34) { hurtPlayer(Math.round(16 * HM), w.x); w.life = 0; } }
       for (let i = waves.length - 1; i >= 0; i--) if (waves[i].life <= 0) waves.splice(i, 1);
       for (const d of drops) { d.vy -= 700 * dt; d.y += d.vy * dt; if (d.y < 0) { d.y = 0; d.vy = 0; } if (pl.dead <= 0 && Math.abs(d.x - pl.x) < 34 && Math.abs(d.y - pl.y) < 60) { d.got = true;
-        if (d.t === "hp") { sfx.play("pickup"); pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.18); pop(pl.x, GROUND - pl.y - 100, "+HP", "#8dffb0"); } else { sfx.play("pickup"); gainCry(CV); pop(pl.x, GROUND - pl.y - 100, "◆" + (CV > 1 ? "×" + CV : ""), "#7fe8ff"); } } }
+        if (d.t === "hp") { sfx.play("pickup"); pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.18); pop(pl.x, GROUND - pl.y - 100, "+HP", "#8dffb0"); } else if (LOOT[d.t]) { sfx.play("pickup"); loot[d.t]++; pop(pl.x, GROUND - pl.y - 100, "+" + LOOT[d.t].v + " 🪙", LOOT[d.t].c); } else { sfx.play("pickup"); gainCry(CV); pop(pl.x, GROUND - pl.y - 100, "◆" + (CV > 1 ? "×" + CV : ""), "#7fe8ff"); } } }
       for (let i = drops.length - 1; i >= 0; i--) if (drops[i].got) drops.splice(i, 1);
       for (const s of shots) { s.x += s.vx * dt; s.life -= dt; if (Math.abs(s.x - pl.x) < 18 && Math.abs(s.y - pl.y - 40) < 40 && s.life > 0) { hurtPlayer(s.d, s.x); s.life = 0; } }
       for (let i = shots.length - 1; i >= 0; i--) if (shots[i].life <= 0) shots.splice(i, 1);
@@ -905,7 +937,12 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
       const target = Math.max(0, Math.min(WORLD - vw, pl.x - vw * 0.42 + pl.face * 30));
       camX += (target - camX) * (high ? 0.12 : 0.2);
       shake *= 0.86;
-      if (!finished && !NOBOSS && boss.dead && pl.x > WORLD - 140) { finished = true; const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1]; setBanner({ k: Date.now(), a: t("ผ่านแผนที่!", "MAP CLEAR!", "通关！"), b: nx && nx.ok ? t("เลือกดาวถัดไปจากแผนที่", "Pick the next planet from the map", "请从地图选择下一颗星球") : t("ดาวถัดไปมาในระยะต่อไป", "More planets are coming", "更多星球即将开放") }); }
+      if (!finished && !NOBOSS && boss.dead && pl.x > WORLD - 140) {   // walk into the warp gate: straight on to the next map
+        finished = true; shake = 8; sfx.play("rocket"); const sale = settle(1);
+        for (let a = 0; a < (high ? 50 : 20); a++) addPart(pl.x, GROUND - 60, (Math.random() - 0.5) * 120, -Math.random() * 380, 1, a % 2 ? P.acc : "255,255,255", 3);
+        setBanner({ k: Date.now(), a: t("วาร์ป!", "WARP!", "传送！"), b: sale.coins > 0 ? t("ขายของ +" + sale.coins + " 🪙", "Loot sold +" + sale.coins + " 🪙", "出售战利品 +" + sale.coins + " 🪙") : t("เดินทางต่อ…", "On to the next map…", "前往下一张地图…") });
+        setTimeout(() => { if (ended) return; const nx = getNext ? getNext() : null; if (nx && onNext) onNext(nx); else showClear(0); }, 1100);
+      }
     };
 
     const draw = (tm) => {
@@ -977,7 +1014,13 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
       }
       for (const w of waves) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.8)`; ctx.beginPath(); ctx.moveTo(w.x - 14, GROUND); ctx.lineTo(w.x, GROUND - 30); ctx.lineTo(w.x + 14, GROUND); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
-      for (const d of drops) { const yy = GROUND - d.y - 8 + Math.sin(tm * 5 + d.x) * 2; ctx.fillStyle = d.t === "hp" ? "#7dffa8" : "#7fe8ff"; ctx.beginPath(); if (d.t === "hp") ctx.arc(d.x, yy, 6, 0, 7); else { ctx.moveTo(d.x, yy - 8); ctx.lineTo(d.x + 6, yy); ctx.lineTo(d.x, yy + 8); ctx.lineTo(d.x - 6, yy); ctx.closePath(); } ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .5; ctx.beginPath(); ctx.arc(d.x, yy, 12, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
+      for (const d of drops) { const yy = GROUND - d.y - 8 + Math.sin(tm * 5 + d.x) * 2;
+        if (LOOT[d.t]) { const c = LOOT[d.t].c; ctx.fillStyle = c; ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 1;
+          if (d.t === "scrap") { ctx.save(); ctx.translate(d.x, yy); ctx.rotate(tm * 2 + d.x); ctx.fillRect(-5, -4, 10, 8); ctx.strokeRect(-5, -4, 10, 8); ctx.restore(); }
+          else if (d.t === "ore") { ctx.beginPath(); ctx.moveTo(d.x - 6, yy + 6); ctx.lineTo(d.x - 2, yy - 7); ctx.lineTo(d.x + 2, yy + 2); ctx.lineTo(d.x + 7, yy - 4); ctx.lineTo(d.x + 7, yy + 6); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+          else if (d.t === "gold") { ctx.beginPath(); ctx.ellipse(d.x, yy, 8, 6, 0.4, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fillRect(d.x - 3, yy - 3, 3, 2); }
+          else { ctx.globalCompositeOperation = "lighter"; ctx.beginPath(); ctx.arc(d.x, yy, 7 + Math.sin(tm * 6) * 1.5, 0, 7); ctx.fill(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(d.x, yy, 14, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; }
+          continue; } ctx.fillStyle = d.t === "hp" ? "#7dffa8" : "#7fe8ff"; ctx.beginPath(); if (d.t === "hp") ctx.arc(d.x, yy, 6, 0, 7); else { ctx.moveTo(d.x, yy - 8); ctx.lineTo(d.x + 6, yy); ctx.lineTo(d.x, yy + 8); ctx.lineTo(d.x - 6, yy); ctx.closePath(); } ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .5; ctx.beginPath(); ctx.arc(d.x, yy, 12, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
       // spores + slashes
       for (const s of shots) { ctx.fillStyle = "#e9ff9a"; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 5, 0, 7); ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.drawImage(bake.glows.green, s.x - 20, GROUND - s.y - 20, 40, 40); ctx.globalCompositeOperation = "source-over"; } }
       for (const s of slashes) {
@@ -1045,7 +1088,7 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
       hudT += dt;
       if (hudT > 0.15) {
         hudT = 0; const sr = skillOf();
-        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd), dashCd: Math.max(0, pl.dashCd), rockCd: Math.max(0, pl.rockCd), spell: Math.round(spellG) });
+        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd), lootCoins: Math.round(lootValue() * RW), dashCd: Math.max(0, pl.dashCd), rockCd: Math.max(0, pl.rockCd), spell: Math.round(spellG) });
       }
     };
     raf = requestAnimationFrame(loop);
@@ -1059,8 +1102,8 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
-    return () => { if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    return () => { settle(0.4); if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
   const hold = (name) => ({
@@ -1078,7 +1121,7 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
       <div className="adv-top">
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
         <div className="adv-hud">
-          <div className="adv-lv">Lv {hud.lv} · {P.en.split(" · ")[0]} · ☠ {hud.kills} · ◆ {hud.cry || 0}</div>
+          <div className="adv-lv">Lv {hud.lv} · {P.en.split(" · ")[0]} · ☠ {hud.kills} · ◆ {hud.cry || 0} · 🪙 {hud.lootCoins || 0}</div>
           <div className="adv-bar adv-hp"><i style={{ width: pct(hud.hp, hud.hpMax) }} /><b>HP {Math.round(hud.hp)} / {hud.hpMax}</b></div>
           <div className="adv-bar adv-xp"><i style={{ width: pct(hud.xp, hud.xpNeed) }} /><b>EXP</b></div>
           <div className="adv-bar adv-sk"><i style={{ width: pct(hud.sk, hud.skNeed) }} /><b>{t("สกิล", "SKILL", "技能")} R{hud.rank || 1}</b></div>
@@ -1090,6 +1133,8 @@ const Run = memo(function Run({ getNext = null, onNext = null, strikeMask = null
       {clear && <div className="adv-clear" role="dialog" aria-label="map clear">
         <b>✓ {t("ผ่านแมปแล้ว!", "MAP CLEAR!", "地图通关！")}</b>
         <small>☠ {clear.kills} · ◆ {clear.cry}</small>
+        {clear.coins > 0 && <small className="ac-coins">🪙 +{clear.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
+        {clear.capped && <small>{t("ถึงเพดานเหรียญประจำวันแล้ว", "Daily coin ceiling reached", "已达今日金币上限")}</small>}
         {clear.next ? <button className="adv-btn go" autoFocus onClick={() => { if (onNext) onNext(clear.next); }}>▶ {t("แมปต่อไป: ", "Next map: ", "下一张：")}{T3(lang, clear.next.th, clear.next.en, clear.next.zh).split(" · ")[0]} ({Math.max(0, auto)})</button> : <small>{t("ครบทุกแมปที่เปิดอยู่แล้ว", "That was the last open map", "已是当前最后一张开放地图")}</small>}
         <button className="adv-btn" onClick={() => { setClear((c: any) => (c ? { ...c, next: null } : c)); setAuto(99); }}>{clear.next ? t("อยู่ต่อ", "Stay here", "留在此处") : t("ปิด", "Close", "关闭")}</button>
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button>

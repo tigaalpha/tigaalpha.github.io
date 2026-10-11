@@ -10,7 +10,9 @@ await new Promise(r => server.listen(0, "127.0.0.1", r));
 const browser = await pw.chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ") + n + (d ? " — " + d : "")); if (!c) fail++; };
 // Adventure cinematics: a film before every map (CG, subtitles, score, sound effects), skippable; the objective card; the audio renders.
-async function open(pre) {
+async function open(pre0) {
+  const pre = Object.assign({ tg_adv_prologue: "skip" }, pre0);   // "skip": no opening film, and the map films stay long
+  const wantPro = pre0 && pre0.tg_adv_prologue === "__none__"; if (wantPro) delete pre.tg_adv_prologue;
   const ctx = await browser.newContext({ viewport: { width: 800, height: 420 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
   await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort());
   await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
@@ -18,7 +20,7 @@ async function open(pre) {
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200)));
   await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
   for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
-  await p.evaluate(() => document.querySelector(".pvpadv").click()); await p.waitForSelector(".adv-planet");
+  await p.evaluate(() => document.querySelector(".pvpadv").click()); await p.waitForSelector(wantPro ? ".adv-cine" : ".adv-planet");
   return { ctx, p, errs };
 }
 
@@ -51,4 +53,13 @@ for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch
   const maps = [["luma", "jungle", true], ["ferro", "x", true], ["jovia", "survival", false], ["kryo", "x", true], ["pyra", "x", true], ["nexa", "x", true], ["cobalt", "mine", false], ["helios", "capture", false], ["ashfall", "strike", true]];
   for (const [id, mission, boss] of maps) { const r = await o.p.evaluate(([a, m, b]) => window.__advCine.render(a, m, b), [id, mission, boss]); ok("score " + id + ": rich, audible, finite, not clipping", r.peak <= 0.98 && r.peak > 0.02 && r.rms > 0.004 && r.bad === 0 && r.events > 60, "peak " + r.peak.toFixed(2) + " rms " + r.rms.toFixed(3) + " notes " + r.events + " " + r.secs.toFixed(0) + "s"); }
   await o.ctx.close(); }
+// Opening film: shown once before the first menu, then the map films are the short cut with a chapter number.
+{ const o = await open({ tg_adv_prologue: "__none__" });
+  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("prologue: earth > factory > launch, then the menu", JSON.stringify(k) === JSON.stringify(["earth", "factory", "launch"]), k.join());
+  await o.p.locator(".ac-skip").click(); await o.p.waitForSelector(".adv-planet");
+  ok("prologue: remembered after it ends", await o.p.evaluate(() => localStorage.getItem("tg_adv_prologue") === "1"));
+  await o.p.evaluate(() => document.querySelector(".adv-planet").click()); await o.p.waitForSelector(".adv-cine");
+  const k2 = await o.p.evaluate(() => window.__advCine.kinds()); ok("short film after the prologue: starts at the approach", k2[0] === "approach" && k2[k2.length - 1] === "objective" && !k2.includes("earth"), k2.join());
+  const ttl = await o.p.locator(".ac-title small").first().innerText(); ok("chapter number is shown", /CHAPTER 1/i.test(ttl), ttl);
+  ok("prologue: no errors", o.errs.length === 0, o.errs.join("|")); await o.ctx.close(); }
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

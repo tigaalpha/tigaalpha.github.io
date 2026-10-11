@@ -51,7 +51,12 @@ const GOAL: Record<string, L3[]> = {
 };
 const TYPE: Record<string, string> = { luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike" };
 
-export function cinePlan(P: any): CineShot[] {
+const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "ashfall"];
+const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
+export function cinePlan(P: any, short?: boolean): CineShot[] {
+  if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }];
+  if (short === undefined) short = seenPrologue();
+  if (short) { const q: CineShot[] = [{ kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }]; if (P.boss && P.boss[0] !== "-") q.push({ kind: "boss", dur: 3.8 }); q.push({ kind: "objective", dur: 6 }); return q; }
   const plan: CineShot[] = [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }];
   if (P.boss && P.boss[0] !== "-") plan.push({ kind: "boss", dur: 3.8 });
   plan.push({ kind: "objective", dur: 6 });
@@ -156,7 +161,7 @@ function sceneObjective(x: Cx, W: number, H: number, t: number, P: any) {
 }
 
 export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway, onDone }: any) {
-  const plan = useRef(cinePlan(P)).current; const starts = useRef((() => { let a = 0; return plan.map(s => { const v = a; a += s.dur; return v; }); })()).current;
+  const plan = useRef(cinePlan(P)).current; const total = plan.reduce((a, q) => a + q.dur, 0); const starts = useRef((() => { let a = 0; return plan.map(s => { const v = a; a += s.dur; return v; }); })()).current;
   const cvRef = useRef<HTMLCanvasElement>(null); const [idx, setIdx] = useState(0); const idxRef = useRef(0); const t0 = useRef(performance.now()); const skipTo = useRef(0);
   const type = TYPE[P.id] || "jungle"; const eye = hexRgb(colorway && colorway.glow ? colorway.glow : "#7fe8ff"); const objIdx = plan.length - 1;
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
@@ -166,6 +171,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     const audio = createCineAudio(P.id, plan);
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame); const el = (now - t0.current) / 1000 + skipTo.current; let i = 0; for (let k = 0; k < plan.length; k++) if (el >= starts[k]) i = k;
+      if (P.prologue && el >= total) { raf = 0; cancelAnimationFrame(raf); onDone(); return; }
       if (i !== idxRef.current) { idxRef.current = i; setIdx(i); }
       const W = cv.width, H = cv.height, s = plan[i], local = el - starts[i], u = Math.min(1, local / Math.max(0.1, s.dur));
       x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; x.fillStyle = "#000"; x.fillRect(0, 0, W, H);
@@ -182,16 +188,16 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       const fade = Math.max(0, 1 - local / 0.4, Math.min(1, (local - (s.dur - 0.3)) / 0.3) * (s.kind === "objective" ? 0 : 1)); if (fade > 0) { x.fillStyle = `rgba(0,0,0,${fade})`; x.fillRect(0, 0, W, H); }
     };
     raf = requestAnimationFrame(frame);
-    (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] })), jump: (i: number) => { skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
+    (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false)), jump: (i: number) => { skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); try { delete (window as any).__advCine; } catch (e) {} };
   }, []);
-  const kind = plan[idx].kind, cap = captionFor(P, kind, lang), goals = GOAL[P.id] || GOAL.luma;
+  const kind = plan[Math.min(idx, plan.length - 1)].kind, cap = captionFor(P, kind, lang), goals = GOAL[P.id] || GOAL.luma;
   const next = () => { if (idxRef.current < objIdx) skipTo.current = starts[idxRef.current + 1] - (performance.now() - t0.current) / 1000 + 0.05; };
   return (
     <div className="adv-cine" onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; next(); }}>
       <canvas ref={cvRef} />
       <button className="ac-skip" onClick={() => onDone()} aria-label="skip">{t("ข้าม ⏭", "Skip ⏭", "跳过 ⏭")}</button>
-      {kind === "approach" && <div key="ttl" className="ac-title"><small>{t("ปลายทาง", "DESTINATION", "目的地")}</small><b>{T3(lang, P.th, P.en, P.zh).split(" · ")[0]}</b></div>}
+      {kind === "approach" && <div key="ttl" className="ac-title"><small>{t("บทที่ ", "CHAPTER ", "第") + (CH.indexOf(P.id) + 1) + t("", "", "章") + " · " + t("ปลายทาง", "DESTINATION", "目的地")}</small><b>{T3(lang, P.th, P.en, P.zh).split(" · ")[0]}</b></div>}
       {cap && kind !== "objective" && <div key={"c" + idx} className="ac-cap">{cap}</div>}
       {kind === "objective" && (
         <div className="ac-obj">
