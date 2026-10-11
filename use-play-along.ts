@@ -45,7 +45,7 @@ const EMPTY_STAFF_WIN = { list: [], startBeat: 0, spanBeats: 20 };
    re-renders PianoApp — see the store's header. */
 const GAME_INIT = {
   songHud: { score: 0, combo: 0, acc: 100, progress: 0 },
-  songNextLit: null, songNextLit2: null, songFingerMap: {},
+  songNextLit: null, songNextLit2: null, songFingerMap: {}, songHandFingers: { right: null, left: null },
   songStaffNotes: EMPTY_STAFF_WIN, songShake: false, songGo: false,
   songGhost: null, songBonus: null, songLoopRecap: null, songSetlistPos: null,
   songFever: false, songAnnounce: null, songSrc: null, songCountdown: null,
@@ -397,6 +397,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const setSongNextLit = gameStore.setter("songNextLit");
   const setSongNextLit2 = gameStore.setter("songNextLit2");
   const setSongFingerMap = gameStore.setter("songFingerMap");
+  const setSongHandFingers = gameStore.setter("songHandFingers");
   const setSongStaffNotes = gameStore.setter("songStaffNotes");
   const setSongShake = gameStore.setter("songShake");
   const setSongGo = gameStore.setter("songGo");
@@ -1032,15 +1033,21 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const primaryNext = nextByHand.right || nextByHand.left || null;
     const secondaryNext = (nextByHand.right && nextByHand.left) ? nextByHand.left : null;
     // the next key is lit in both views — the sheet view draws it neon blue and runs a light to it (PaPiano; owner, 2026-10-01).
-    // Only the finger numbers stay out of the sheet view: reading the note is still the point of it.
+    // Finger numbers show in both views now, under the keys and on the staff (owner, 2026-10-12).
     setSongNextLit(primaryNext ? primaryNext.note : null);
     setSongNextLit2(secondaryNext ? secondaryNext.note : null);
     const prevFm = gameStore.get().songFingerMap;
     const fm = {};
-    if (!sheet && primaryNext) fm[primaryNext.note] = primaryNext.finger;
-    if (!sheet && secondaryNext) fm[secondaryNext.note] = secondaryNext.finger;
+    if (primaryNext) fm[primaryNext.note] = primaryNext.finger;
+    if (secondaryNext) fm[secondaryNext.note] = secondaryNext.finger;
     const fmSame = Object.keys(fm).length === Object.keys(prevFm).length && Object.keys(fm).every(k => prevFm[k] === fm[k]);
     if (!fmSame) setSongFingerMap(fm);
+    // which finger each hand is on now, for the hand drawing in the corner of the stage (right, left, or both together)
+    {
+      const hf = { right: nextByHand.right && nextByHand.right.finger != null ? nextByHand.right.finger : null, left: nextByHand.left && nextByHand.left.finger != null ? nextByHand.left.finger : null };
+      const ph = gameStore.get().songHandFingers || {};
+      if (ph.right !== hf.right || ph.left !== hf.left) setSongHandFingers(hf);
+    }
     // Sight-reading window, measured in BEATS rather than in note count:
     // one bar already played + four bars ahead. A fixed beat span is what
     // lets the staff space notes by their real rhythmic position (and keeps
@@ -1087,8 +1094,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const inWin = g2 => g2.beat >= winStartBeat - 0.001 && g2.beat <= winEndBeat + 0.001;
     const staffList = [];
     if (notation) {
-      for (const g2 of notation.right) if (inWin(g2)) staffList.push({ ...g2, hand: "right", state: stateOf(g2, allNotes) });
-      for (const g2 of notation.left) if (inWin(g2)) staffList.push({ ...g2, hand: "left", state: stateOf(g2, allNotes) });
+      // the finger number rides on each head (owner, 2026-10-12: finger numbers on the staff AND under the keys, in both views)
+      const fingerOf = (g2) => { const src = g2.srcIdx != null ? allNotes[g2.srcIdx] : null; return src && src.finger != null ? src.finger : null; };
+      for (const g2 of notation.right) if (inWin(g2)) staffList.push({ ...g2, hand: "right", state: stateOf(g2, allNotes), finger: fingerOf(g2) });
+      for (const g2 of notation.left) if (inWin(g2)) staffList.push({ ...g2, hand: "left", state: stateOf(g2, allNotes), finger: fingerOf(g2) });
     }
     // republish only when what is drawn changes: a glyph in or out, a state
     // (played / current) or a new base

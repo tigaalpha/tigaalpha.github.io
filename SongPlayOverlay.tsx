@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, memo } from "react";
 import { L, tr } from "./i18n";
 import { PlayAlongStaff, GamePiano, laneHue, gpKeyBox } from "./music-engine";
+import { FingerHand } from "./PracticeOverlay";
 import { CountUp } from "./app-shell";
 import { useGameField } from "./play-along-store";
 import { songStars, songBestAcc, songLengthSec, readDailyState, DAILY_SONG_REWARD, logSongMood } from "./play-along-progress";
@@ -220,6 +221,24 @@ const PaStageFrame = memo(function PaStageFrame({ store, children }) {
   const shake = useGameField(store, "songShake");
   const fever = useGameField(store, "songFever");
   return <div className={`songstage${shake ? " shake" : ""}${fever ? " fever" : ""}`}>{fever && <div className="feverbg" />}{children}</div>;
+});
+/* the hand, in the corner of the stage: which finger plays the next note. One hand for the right-hand or
+   left-hand song, both side by side (left on the left) for two hands, with the finger's name under it. */
+const FINGER_NAME = { th: ["", "นิ้วโป้ง", "นิ้วชี้", "นิ้วกลาง", "นิ้วนาง", "นิ้วก้อย"], en: ["", "Thumb", "Index", "Middle", "Ring", "Little"], zh: ["", "拇指", "食指", "中指", "无名指", "小指"] };
+const PaHands = memo(function PaHands({ store, handMode, lang }) {
+  const hf = useGameField(store, "songHandFingers") || { right: null, left: null };
+  const hands = handMode === "both" ? ["left", "right"] : [handMode === "left" ? "left" : "right"];
+  const names = FINGER_NAME[lang] || FINGER_NAME.en;
+  return (
+    <div className={"pl-hands" + (hands.length > 1 ? " two" : "")} aria-hidden="true">
+      {hands.map(h => (
+        <div key={h} className="pl-hand">
+          <FingerHand finger={hf[h]} hand={h} />
+          <span className="pl-hand-n">{hf[h] != null ? hf[h] + " · " + names[hf[h]] : "–"}</span>
+        </div>
+      ))}
+    </div>
+  );
 });
 const PaPiano = memo(function PaPiano({ store, handMode, sheet, onNote }) {
   const lit1 = useGameField(store, "songNextLit");
@@ -469,6 +488,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
       {songPhase !== "done" && (
         <PaStageFrame store={store}>
           <canvas ref={songCanvasRef} className="songcanvas" />
+          {songPhase === "playing" && <PaHands store={store} handMode={playAlongHand} lang={lang} />}
           <PaBanners store={store} lang={lang} />
           {bossOn && songPhase === "playing" && <PaBoss store={store} bossMax={bossMax} lang={lang} />}
           {songPhase === "playing" && intro && (
