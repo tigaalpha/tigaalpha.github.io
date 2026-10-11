@@ -22,11 +22,12 @@ async function run(done, label) {
   const asked = [];
   const WH = { 0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6 }, BL = { 1: 0, 3: 1, 6: 2, 8: 3, 10: 4 };
   const tapPc = async (pc) => { const idx = pc in WH ? WH[pc] : 14 + BL[pc]; await p.evaluate((i) => { const el = document.querySelectorAll(".adv-quiz .pk")[i]; el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1 })); el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 1 })); }, idx); await p.waitForTimeout(80); };
-  await p.evaluate(() => window.__advTest.tp(1300)); await p.waitForSelector(".adv-quiz", { timeout: 4000 });
-  ok(label + ": reaching the beacon opens the question card", true);
-  for (let n = 0; n < 3; n++) {
+  for (let n = 0; n < 2; n++) {
+    await p.evaluate((x) => window.__advTest.tp(x), n === 0 ? 1300 : 2650); await p.waitForSelector(".adv-quiz", { timeout: 4000 });
+    ok(label + ": beacon " + (n + 1) + " opens the question card", true);
+    const count = await p.evaluate(() => window.__advQuiz.qs.length); ok(label + ": exactly ONE question per beacon (owner rule)", count === 1, "qs " + count);
     const q = await p.evaluate(() => { const z = window.__advQuiz; const c = z.qs[z.i].q; return { topic: c.topic, tier: c.tier, kind: c.kind, ans: c.ans, opts: c.opts, text: c.q }; });
-    asked.push(q); const wrong = n === 1;      // answer the middle one wrong on purpose
+    asked.push(q); const wrong = n === 0;      // the first one is answered wrong on purpose
     if (q.kind === "choice") { const idx = q.opts.findIndex(o => o.ok === !wrong); await p.locator(".adv-qopt").nth(idx).click({ force: true }); }
     else if (q.kind === "key") { const pc = wrong ? [0,1,2,3,4,5,6,7,8,9,10,11].find(x => !q.ans.includes(x)) : q.ans[0]; await tapPc(pc); }
     else { const set = wrong ? [q.ans[0]] : q.ans; for (const pc of set) await tapPc(pc); await p.locator(".adv-qgo").click({ force: true }); }
@@ -35,7 +36,8 @@ async function run(done, label) {
     if (wrong && process.env.SHOT) await p.screenshot({ path: process.env.SHOT });
     if (wrong) ok(label + ": a wrong answer teaches (keys lit on the piano + a reason)", /bad/.test(res.cls) && res.lit >= 1 && res.why > 20, JSON.stringify(res));
     else ok(label + ": a right answer is marked right", /good/.test(res.cls));
-    await p.locator(".adv-qgo").last().click({ force: true }); await p.waitForTimeout(250);
+    await p.locator(".adv-qgo").last().click({ force: true }); await p.waitForTimeout(350);
+    ok(label + ": the card closes after that one question", (await p.locator(".adv-quiz").count()) === 0);
   }
   await p.waitForTimeout(300);
   ok(label + ": the card closes and the game goes on", (await p.locator(".adv-quiz").count()) === 0);
