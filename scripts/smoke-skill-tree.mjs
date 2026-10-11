@@ -1,0 +1,27 @@
+// Skill careers: every robot class and pet element has 10+ skills, each with its own id, name in 3 languages, look and sound.
+import { build } from "esbuild"; import fs from "node:fs"; import { pathToFileURL } from "node:url";
+const out = "/tmp/_skill_tree.mjs"; await build({ entryPoints: ["skill-tree.ts"], bundle: true, format: "esm", outfile: out, logLevel: "silent" });
+globalThis.localStorage = (() => { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; })();
+const T = await import(pathToFileURL(out).href + "?" + Date.now());
+let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ") + n + (d ? " — " + d : "")); if (!c) fail++; };
+const CLASSES = ["striker", "bulwark", "ghost", "tactician", "engineer", "herald", "virtuoso"], ELEM = ["volt", "ember", "frost", "flora", "steel", "aether"];
+const ms = fs.readFileSync("model-skills.ts", "utf8"); ok("the 7 classes match model-skills.ts", CLASSES.every(c => new RegExp("\\b" + c + ":\\s*\\{ th").test(ms)));
+const pt = fs.readFileSync("pet-lab.tsx", "utf8"); ok("the 6 pet elements exist in pet-lab.tsx", ELEM.every(e => new RegExp("\\b" + e + "\\s*:").test(pt)));
+for (const c of CLASSES) ok(c + ": 10 skills", T.treeOf("robot", c).length === 10);
+for (const e of ELEM) ok(e + ": 10 pet skills", T.treeOf("pet", e).length === 10);
+const all = [...CLASSES.flatMap(c => T.treeOf("robot", c)), ...ELEM.flatMap(e => T.treeOf("pet", e))];
+ok("130 skills in all, every id unique", all.length === 130 && new Set(all.map(s => s.id)).size === 130);
+ok("every skill is named in th, en and zh", all.every(s => s.n.th && s.n.en && s.n.zh));
+ok("every class has at least 2 passives and 4 actives (a real career)", [...CLASSES.map(c => T.treeOf("robot", c)), ...ELEM.map(e => T.treeOf("pet", e))].every(t => t.filter(s => T.isPassive(s.a)).length >= 2 && t.filter(s => !T.isPassive(s.a)).length >= 4));
+ok("support lines exist: heal / shield / haste on herald, engineer, bulwark", ["herald", "engineer", "bulwark"].every(c => T.treeOf("robot", c).some(s => ["heal", "shield", "haste"].includes(s.a))));
+const sig = s => { const l = T.skillLook(s), d = T.skillSound(s); return [s.a, l.style, l.hue, l.n, d.pitch.toFixed(2), d.wave, d.bright].join("|"); };
+ok("each skill has its own look + sound combination (no two the same)", new Set(all.map(sig)).size === 130, new Set(all.map(sig)).size + " distinct");
+ok("descriptions are written for every archetype and language", all.every(s => ["th", "en", "zh"].every(l => T.skillDesc(s, 3, l).length > 4)));
+const s0 = T.treeOf("robot", "striker")[0]; ok("level 5 is stronger and faster than level 1", T.powerAt(s0, 5) > T.powerAt(s0, 1) && T.cdAt(s0, 5) < T.cdAt(s0, 1));
+const pas = all.find(s => s.a === "p_atk"); ok("a passive scales with level", T.powerAt(pas, 4) === pas.p * 4);
+ok("passives are capped (crit, guard, steal, cdr)", (() => { const big = all.filter(s => T.isPassive(s.a)).map(s => ({ s, lv: 5 })); const r = T.passiveSum(big); return r.crit <= 0.3 && r.guard <= 0.5 && r.steal <= 0.2 && r.cdr <= 0.4; })());
+localStorage.setItem("tg_skl_lv", "{}"); ok("a skill starts at level 1 and costs crystals to raise", T.lvOf(s0.id) === 1 && !T.buySkillLv(s0.id, 5).ok && T.buySkillLv(s0.id, 99).ok && T.lvOf(s0.id) === 2);
+for (let i = 0; i < 6; i++) T.buySkillLv(s0.id, 999); ok("level stops at 5", T.lvOf(s0.id) === 5 && !T.buySkillLv(s0.id, 999).ok);
+ok("equipping: 3 robot slots, 2 pet slots, oldest drops out", (() => { const r = T.treeOf("robot", "striker").filter(s => !T.isPassive(s.a)); r.slice(0, 4).forEach(s => T.toggleEquip("robot", s.id)); const e = T.readEquip().robot; T.treeOf("pet", "volt").filter(s => !T.isPassive(s.a)).slice(0, 3).forEach(s => T.toggleEquip("pet", s.id)); return e.length === 3 && !e.includes(r[0].id) && T.readEquip().pet.length === 2; })());
+ok("nothing equipped -> the first unlocked actives fill the slots", (() => { localStorage.setItem("tg_skl_eq", "{}"); return T.equippedOf("robot", "ghost", 1).length === 1 && T.equippedOf("robot", "ghost", 10).length === 3; })());
+console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

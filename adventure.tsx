@@ -13,11 +13,12 @@
 import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "react";
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { createAdvSfx } from "./adventure-sfx";
+import { treeOf, lvOf, buySkillLv, toggleEquip, readEquip, equippedOf, passiveSum, powerAt, cdAt, skillLook, skillSound, skillDesc, skillCost, isPassive, SKILL_MAX_LV, type Skill } from "./skill-tree";
 import { voiceOf } from "./fx-voice";
 import { PetArt, petLevel, petById, PET_TYPES } from "./pet-lab";
 import { addRpgExp, rpgOf, rpgMods, RPG_MAX_LV } from "./pvp-rpg";
 import { addSkillSp, readSkillSp, skillRank, enterFs, exitFsAndUnlock } from "./pvp-arena";
-import { classKeyOf } from "./model-skills";
+import { classKeyOf, MODEL_CLASS } from "./model-skills";
 import { isLowEnd, spaceTier } from "./space-stage";
 import { Piano } from "./music-engine";
 import { logUsage, dayKey } from "./shared-infra";
@@ -28,6 +29,7 @@ import { nextQuestion, nextSpell, judgeKeys, recordAnswer, readLadder, learnedTo
 const VH = 360, GROUND = 300, WORLD = 5200, TILE = 960;
 const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const markDone = (id: string) => { try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
+const spendCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(Math.max(0, readCrystals() - n))); } catch (e) {} };
 const readCrystals = (): number => { try { return Math.max(0, parseInt(localStorage.getItem("tg_adv_crystals") || "0", 10) || 0); } catch (e) { return 0; } };
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(readCrystals() + n)); } catch (e) {} };
 /* ── phase 3.2: crystal upgrades, daily quests, difficulty ──
@@ -82,6 +84,9 @@ export const LOOT: Record<string, { v: number; c: string; th: string; en: string
   core:  { v: 25, c: "#c78bff", th: "แกนพลาสมา", en: "Plasma core", zh: "等离子核心" },
 };
 export const ADV_COIN_DAY_CAP = 800;
+const hslRgb = (h: number) => { const a = 0.9 * Math.min(0.66, 1 - 0.66), f = (n: number) => { const k = (n + h / 30) % 12; return Math.round(255 * (0.66 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return f(0) + "," + f(8) + "," + f(4); };
+let XPM = 1;   // the EXP multiplier from the equipped passives, set by the run that is playing
+const addRpgExpX = (me: any, n: number) => addRpgExp(me, Math.round(n * XPM));
 export function rollLoot(exp: number, rnd2: () => number = Math.random): string | null {
   const r = rnd2(); if (r > 0.85) return null; const q = rnd2();
   if (exp < 20) return q < 0.6 ? "scrap" : q < 0.9 ? "ore" : "gold";
@@ -108,6 +113,7 @@ export const PLANETS = [
   { id: "nexa",   th: "เน็กซา · เมืองซากอวกาศ",   en: "Nexa · the wreck city",     zh: "内克萨 · 残骸之城", c: ["#0a0518", "#2a1250", "#9a5cff"], glow: "190,150,255", acc: "63,240,208",  ok: true, req: "pyra", hard: 3.8, hazard: "shock", enrage: true, mons: ["drone", "scrapgolem", "drone", "rustcrawler", "drone", "scrapgolem"], tint: { glow: "190,150,255", body: "#1e1236" }, boss: ["จอมคุมแห่งเน็กซา", "Nexa Overseer", "内克萨监管者"] },
   { id: "cobalt", th: "โคบอลต์ · แถบเหมืองดาวเคราะห์น้อย (ขุดแร่ส่งกลับโลก)", en: "Cobalt Belt · mine ore, ship it to Earth", zh: "钴带 · 采矿并运回地球", c: ["#0a1220", "#1c3a5a", "#4a90c8"], glow: "110,190,255", acc: "255,200,90", ok: true, req: "ferro", hard: 2.0, mission: "mine", mons: ["rustcrawler", "shardling", "magnet", "rustcrawler"], tint: { glow: "110,190,255", body: "#16283c" }, boss: ["-", "-", "-"] },
   { id: "helios", th: "เฮลิออส · ยึดดาวฤกษ์ต่างระบบ", en: "Helios · capture a foreign sun", zh: "赫利俄斯 · 占领异星恒星", c: ["#2a0a00", "#8a3a00", "#ffb030"], glow: "255,200,90", acc: "255,120,60", ok: true, req: "kryo", hard: 2.8, mission: "capture", mons: ["magmaling", "flarecaster", "drone", "magmaling"], tint: { glow: "255,190,80", body: "#4a1a06" }, boss: ["-", "-", "-"] },
+  { id: "dyson", th: "ไดสันฟอร์จ · สร้างไดสันสเฟียร์รอบดาวฤกษ์ต่างจักรวาล", en: "Dyson Forge · build a Dyson sphere round a foreign star", zh: "戴森锻炉 · 为异宇宙恒星建造戴森球", c: ["#1a0600", "#6a2a00", "#ffd060"], glow: "255,210,110", acc: "120,220,255", ok: true, req: "helios", hard: 3.2, mission: "dyson", mons: ["magmaling", "flarecaster", "drone", "magmaling", "scrapgolem"], tint: { glow: "255,200,90", body: "#4a1a06" }, boss: ["-", "-", "-"] },
   { id: "ashfall", th: "แอชฟอลล์ · ทิ้งนิวเคลียร์ก่อนแล้วค่อยบุก", en: "Ashfall · orbital strike, then assault", zh: "灰烬星 · 先轨道核打击再突袭", c: ["#12120e", "#3a3a2a", "#8a8a5a"], glow: "220,210,140", acc: "255,90,60", ok: true, req: "pyra", hard: 3.4, mission: "strike", mons: ["scrapgolem", "drone", "scrapgolem", "rustcrawler", "drone", "magmaling"], tint: { glow: "220,200,120", body: "#26261c" }, boss: ["ผู้บัญชาการแอชฟอลล์", "Ashfall Commander", "灰烬指挥官"] },
   { id: "voidgate", th: "วอยด์เกต · ขับยานรบสู้ฝูงเอเลี่ยน", en: "Void Gate · starship dogfight", zh: "虚空之门 · 驾驶战机空战", c: ["#02030c", "#1a1240", "#6a4cff"], glow: "130,170,255", acc: "255,120,90", ok: true, req: "kryo", hard: 2.6, mission: "dogfight", mons: ["drone"], tint: null, boss: ["เรือแม่ของเอเลี่ยน", "the alien Mothership", "外星母舰"] },
 ];
@@ -122,10 +128,13 @@ export const BRIEF: Record<string, string[]> = {
   pyra: ["เตาปฏิกรณ์ลาวา: ข้ามบ่อลาวาไปปิดแกนที่กำลังเดือด", "The lava reactor: cross the lava pools and shut down the boiling core.", "熔岩反应堆：越过熔岩池，关闭沸腾的核心。"],
   nexa: ["เมืองซากอวกาศ: เจ้าหน้าที่ควบคุมสุดท้ายยังรออยู่ — ระวังแผ่นไฟฟ้า", "The wreck city: the last overseer waits. Mind the shock plates.", "残骸之城：最后的监管者在等候，小心电击板。"],
   cobalt: ["แถบเหมือง: ขุดแร่ 10 ก้อนขึ้นไปแล้วส่งแคปซูลกลับโลก", "The belt: mine at least 10 ore and launch the capsule home to Earth.", "矿带：至少采集 10 块矿石，发射货舱运回地球。"],
+  dyson: ["ไดสันฟอร์จ: ขุดแร่ มาประกอบแผงไดสันสเฟียร์ 4 แผง (กด ⛏ ใกล้โครง) แล้วส่งพลังงานกลับโลกที่เสาส่งขวาสุด", "Dyson Forge: mine ore, bolt 4 Dyson panels onto the frames (press ⛏ beside a frame), then beam the energy home from the far-right relay", "戴森锻炉：采矿，在框架旁按 ⛏ 装上 4 块戴森板，再从最右中继塔把能量传回地球"],
   helios: ["ดาวฤกษ์ต่างระบบ: ยึดสถานีเก็บพลังงานทั้งสามจุดทีละจุด", "A foreign sun: take its three collector stations, one at a time.", "异星恒星：逐一占领三座能量采集站。"],
   ashfall: ["แอชฟอลล์: ทิ้งระเบิดนิวเคลียร์จากวงโคจรก่อน แล้วค่อยลงไปกวาดล้างที่เหลือ", "Ashfall: nuke the bases from orbit first, then drop in and clear what is left.", "灰烬星：先从轨道投下核弹，再降落扫荡残敌。"],
 };
 const ORE_STAGES = [{ n: 0, th: "ฐานชั่วคราว", en: "Outpost", zh: "前哨" }, { n: 40, th: "ค่ายอาณานิคม", en: "Camp", zh: "营地" }, { n: 120, th: "เมืองเล็ก", en: "Town", zh: "小镇" }, { n: 300, th: "มหานครอาณานิคม", en: "Colony city", zh: "殖民都市" }];
+export const readDyson = (): number => { try { return Math.max(0, parseInt(localStorage.getItem("tg_earth_dyson") || "0", 10) || 0); } catch (e) { return 0; } };
+export const addDyson = (n: number) => { try { localStorage.setItem("tg_earth_dyson", String(readDyson() + n)); } catch (e) {} };
 export const readOre = (): number => { try { return Math.max(0, parseInt(localStorage.getItem("tg_earth_ore") || "0", 10) || 0); } catch (e) { return 0; } };
 export const addOre = (n: number) => { try { localStorage.setItem("tg_earth_ore", String(readOre() + n)); } catch (e) {} };
 const oreStage = (n: number) => { let st = ORE_STAGES[0]; for (const x of ORE_STAGES) if (n >= x.n) st = x; return st; };
@@ -286,6 +295,10 @@ function drawBoss(x, b, t, P) {
 
 const CSS = `
 .adv{position:fixed;inset:0;z-index:2400;background:#02070c;color:#e8fffa;font-family:var(--f-app,system-ui);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.adv-book{margin:8px 0;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 10px;background:rgba(255,255,255,.05)}.adv-book summary{cursor:pointer;font-weight:800;font-size:13px}
+.ab-tabs{display:flex;gap:6px;margin:8px 0}.ab-tabs button{flex:1;padding:7px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.25);color:inherit;font-weight:700;font-size:12px}.ab-tabs button.on{background:linear-gradient(120deg,#5a7bff,#9a5cff)}
+.ab-list{display:grid;gap:6px;max-height:260px;overflow:auto}.ab-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 9px;border-radius:9px;background:rgba(0,0,0,.28);font-size:12px}.ab-row.lock{opacity:.5}.ab-row.eq{outline:1.5px solid #ffd23f}
+.ab-row small{grid-column:1/2;opacity:.85;font-size:11px}.ab-row em{font-style:normal;font-size:10px;opacity:.8;grid-column:1/2}.ab-btns{grid-column:2/3;grid-row:1/4;display:flex;flex-direction:column;gap:4px;justify-content:center}.ab-btns button{padding:5px 8px;border-radius:8px;border:0;font-weight:800;font-size:11px;background:#2b3a5a;color:#fff}.ab-btns button.on{background:#d9a21b}.ab-btns button:disabled{opacity:.45}
 .adv-ship{position:absolute;inset:0;z-index:5;background:#02030c}.adv-ship canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv-px{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
@@ -299,10 +312,10 @@ const CSS = `
 .adv-lv{font-size:12px;font-weight:900;letter-spacing:.6px;color:#9dffd6}
 .adv-pad{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:10px 14px calc(14px + env(safe-area-inset-bottom,0px));z-index:4;pointer-events:none}
 .adv-pad>div{pointer-events:auto}
-.adv-pad .pvppad-l{display:flex;gap:8px}.adv-pad .pvppad-r{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.adv-pad .pvppad-l{display:flex;gap:8px}.adv-pad .pvppad-r{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.adv .pvpact.ult i{max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px}
 .adv .pvpdir{width:58px;height:58px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px);color:#12202a}
 .adv .pvpact{width:68px;height:56px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px);color:#12202a}
-.adv-pad .pvppad-r .pvpact.rocket{grid-column:auto;width:68px;color:#7a2a10;background:linear-gradient(135deg,#ffe3d0,#ffb98f)}@media (max-width:600px){.adv-pad .pvppad-r .pvpact.rocket{width:58px}}.adv .pvpact.punch{background:linear-gradient(135deg,#e2865fee,#d05f43ee);color:#fff}.adv .pvpact.kick{background:linear-gradient(135deg,#c9a227ee,#a8791bee);color:#fff}.adv .pvpact.spell{background:linear-gradient(0deg,#9b7bff var(--sp,0%),rgba(255,255,255,.82) var(--sp,0%));color:#2a1a66}.adv .pvpact.spell.ready{background:linear-gradient(135deg,#b49bff,#7b61ff);color:#fff;animation:pvpOdPulse 1s ease-in-out infinite}
+.adv-pad .pvppad-r .pvpact.rocket{grid-column:auto;width:68px;color:#7a2a10;background:linear-gradient(135deg,#ffe3d0,#ffb98f)}@media (max-width:600px){.adv-pad .pvppad-r .pvpact.rocket{width:58px}}.adv .pvpact.dig{background:linear-gradient(135deg,#8a6a3a,#c9a227);color:#fff}.adv .pvpact.punch{background:linear-gradient(135deg,#e2865fee,#d05f43ee);color:#fff}.adv .pvpact.kick{background:linear-gradient(135deg,#c9a227ee,#a8791bee);color:#fff}.adv .pvpact.spell{background:linear-gradient(0deg,#9b7bff var(--sp,0%),rgba(255,255,255,.82) var(--sp,0%));color:#2a1a66}.adv .pvpact.spell.ready{background:linear-gradient(135deg,#b49bff,#7b61ff);color:#fff;animation:pvpOdPulse 1s ease-in-out infinite}
 .adv .pvpact.ult{background:linear-gradient(135deg,#fff0c2,#ffd23f);color:#7a4a06}
 @media (max-width:600px){.adv .pvpdir{width:50px;height:50px}.adv .pvpact{width:58px;height:50px}.adv-pad .pvppad-r,.adv-pad .pvppad-l{gap:6px}}
 .adv-key{width:68px;height:68px;border-radius:22px;border:2px solid rgba(140,255,220,.55);background:rgba(4,30,36,.6);color:#fff;font-size:26px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;backdrop-filter:blur(4px)}
@@ -397,6 +410,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
             <h2 style={{ flex: 1 }}>🪐 Adventure Mode</h2>
           </div>
           <p style={{ fontSize: 12, opacity: .85 }}>{t("ส่งกลับโลกแล้ว " + ore + " ก้อนแร่ · อาณานิคม: " + ostage.th, "Shipped to Earth: " + ore + " ore · colony: " + ostage.en, "已运回地球 " + ore + " 矿 · 殖民地：" + ostage.zh)}</p>
+          {readDyson() > 0 && <p style={{ fontSize: 12, opacity: .85 }}>{t("ไดสันสเฟียร์: ส่งพลังงานกลับโลกแล้ว " + readDyson() + " แผง ☀", "Dyson sphere: " + readDyson() + " panels beaming energy to Earth ☀", "戴森球：" + readDyson() + " 块板正向地球输送能量 ☀")}</p>}
           <p style={{ fontSize: 12, opacity: .85 }}>{t("ปี 2100 มนุษย์ออกหาทรัพยากรและพลังงานจากดาวต่างๆ และต้องสู้กับต่างดาว  ◆ คริสตัลพลังงานที่เก็บได้: " + crystals, "Year 2100: humanity heads out for resources and star energy, and fights the aliens. ◆ Energy crystals collected: " + crystals, "2100年，人类外出寻找资源与恒星能源，并与外星生物作战。  ◆ 已收集能量晶体：" + crystals)}</p>
           <p>{t("หุ่นยนต์และสัตว์เลี้ยงออกผจญภัยในดาวต่างดาว สู้มอนสเตอร์ เก็บ EXP เพิ่มเลเวลและสกิล (EXP เดียวกับ PvP)", "Take your robot and pet across alien planets, fight monsters and earn EXP for levels and skills (the same EXP as PvP).", "带着机器人和宠物探索外星球，打怪获得经验，升级并提升技能（与 PvP 共用经验）。")}</p>
           <div className="adv-planets">
@@ -409,6 +423,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               </button>
             ))}
           </div>
+          <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} onChange={() => setTick(x => x + 1)} />
           <div className="adv-shop" aria-label="Workshop">
             <b>{t("โรงงาน — อัปเกรดด้วยคริสตัล ◆ " + crystals, "Workshop — upgrade with crystals ◆ " + crystals, "工坊 — 用晶体 ◆ " + crystals + " 升级")}</b>
             {UP_LINES.map(l => (
@@ -466,7 +481,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               <button className="adv-btn" onClick={() => { setShipDone(null); setPlanet(null); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div>
           </div>
         ) : planet.mission === "dogfight" ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
-          onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExp(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
+          onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id + gfx} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
           getNext={() => nextOf(planet)} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
@@ -474,6 +489,43 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
     </div>
   );
 });
+
+/** The skill book (owner, 2026-10-11): ten skills for the robot's class and ten for the pet's element. Robot skill n opens at class rank n, pet skill n at pet level n;
+    levels 1..5 cost crystals; up to three robot actives and two pet actives are equipped. */
+function SkillBook({ me, petNow, lang, crystals, onChange, playUi }: any) {
+  const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
+  const cls = classKeyOf(me), rank = skillRank(readSkillSp()[cls] || 0).rank;
+  const ptype: string = petNow ? ((petById(petNow.species) as any).type || "steel") : "", plv = petNow ? petLevel(petNow.bond).lv : 0;
+  const [tab, setTab] = useState<"robot" | "pet">("robot");
+  const kind = tab === "pet" && petNow ? "pet" : "robot", owner = kind === "pet" ? ptype : cls, have = kind === "pet" ? plv : rank, eq = readEquip()[kind];
+  const eqNow = equippedOf(kind, owner, have).map(q => q.id);
+  return (
+    <details className="adv-book">
+      <summary>{t("ตำราสกิล — สายอาชีพของหุ่นและสัตว์เลี้ยง", "Skill book — your robot's and pet's careers", "技能书 — 机器人与宠物的职业技能")}</summary>
+      <div className="ab-tabs" role="tablist">
+        <button className={kind === "robot" ? "on" : ""} onClick={() => setTab("robot")}>🤖 {T3(lang, (MODEL_CLASS as any)[cls].th, (MODEL_CLASS as any)[cls].en, (MODEL_CLASS as any)[cls].zh)} · R{rank}</button>
+        <button className={kind === "pet" ? "on" : ""} disabled={!petNow} onClick={() => setTab("pet")}>🐾 {petNow ? ptype + " · Lv " + plv : t("ยังไม่มีสัตว์เลี้ยง", "no pet", "没有宠物")}</button>
+      </div>
+      <div className="ab-list">
+        {treeOf(kind, owner).map((sk: Skill) => {
+          const open = sk.idx <= have, lv = lvOf(sk.id), act = !isPassive(sk.a), on = eqNow.includes(sk.id), cost = skillCost(lv);
+          return (
+            <div key={sk.id} className={"ab-row" + (open ? "" : " lock") + (on ? " eq" : "")} data-skill={sk.id}>
+              <b>{open ? "" : "🔒 "}{sk.idx}. {T3(lang, sk.n.th, sk.n.en, sk.n.zh)}</b>
+              <em>{act ? t("ใช้งาน", "ACTIVE", "主动") : t("ติดตัว", "PASSIVE", "被动")} · Lv {lv}/{SKILL_MAX_LV}</em>
+              <small>{open ? skillDesc(sk, lv, lang) : t((kind === "pet" ? "ปลดล็อกที่เลเวลสัตว์เลี้ยง " : "ปลดล็อกที่แรงก์ ") + sk.idx, (kind === "pet" ? "Unlocks at pet level " : "Unlocks at rank ") + sk.idx, (kind === "pet" ? "宠物等级 " : "阶级 ") + sk.idx + " 解锁")}</small>
+              {open && <span className="ab-btns">
+                <button data-up={sk.id} disabled={lv >= SKILL_MAX_LV || crystals < cost} onClick={() => { const r = buySkillLv(sk.id, crystals); if (r.ok) { spendCrystals(r.cost); playUi && playUi("click"); onChange(); } }}>{lv >= SKILL_MAX_LV ? "MAX" : "◆ " + cost}</button>
+                {act && <button data-eq={sk.id} className={on ? "on" : ""} onClick={() => { toggleEquip(kind, sk.id); playUi && playUi("click"); onChange(); }}>{on ? t("ใส่อยู่", "EQUIPPED", "已装备") : t("ใส่", "EQUIP", "装备")}</button>}
+              </span>}
+            </div>);
+        })}
+      </div>
+      <p style={{ fontSize: 11, opacity: .8 }}>{kind === "robot" ? t("ใส่ได้ 3 สกิลใช้งาน (ปุ่ม ✦1 ✦2 ✦3 / คีย์ K H G) สกิลติดตัวทำงานเสมอ", "Equip up to 3 actives (buttons ✦1 ✦2 ✦3 / keys K H G); passives are always on.", "最多装备 3 个主动技能（按钮 ✦1 ✦2 ✦3 / 键 K H G）；被动技能始终生效。") : t("สัตว์เลี้ยงใส่ได้ 2 สกิล ใช้เองอัตโนมัติเมื่อมีศัตรู", "A pet equips 2 actives and casts them by itself when foes are near.", "宠物最多装备 2 个主动技能，遇敌时自动施放。")}</p>
+      <span style={{ display: "none" }}>{eq.length}</span>
+    </details>
+  );
+}
 
 /** Sell what the starship collected (clear = full price, leaving early = 40 %), with the same daily cap as a ground run. Returns what was paid. */
 function settleShip(res: any, P: any, onReward: any) {
@@ -551,6 +603,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
   useEffect(() => { if (sfxRef.current) sfxRef.current.setOn(musicOn); if (musicRef.current) musicRef.current.setOn(musicOn); try { localStorage.setItem("tg_adv_music", musicOn ? "1" : "0"); } catch (e) {} }, [musicOn]);
   useEffect(() => { if (musicRef.current) musicRef.current.duck(!!quiz); }, [quiz]);
   const cls = useMemo(() => classKeyOf(me), [me]);
+  const DIGBTN = P.mission === "mine" || P.mission === "dyson";   // the dig button shows on the resource maps
   const t = (th, en, zh) => T3(lang, th, en, zh);
   // a beacon asks three questions, gently harder: from what THIS learner has finished in the Pathway
   // owner, 2026-10-11: ONE question at a time, never more — a string of questions kills the fun. The three beacons climb a step each.
@@ -563,8 +616,8 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
   castRef.current = () => { const nq: any = nextSpell(lang, {}); setQuiz({ qs: [nq], i: 0, sel: [], res: null, right: 0, learned: nq.learned, spell: true }); };
   const finishQuiz = (q: any) => {
     setQuiz(null); quizOn.current = false;
-    if (q && q.spell) { if (spellFire.current) spellFire.current(q.right > 0); if (q.right > 0) { const l = bumpQuest("right", 1); for (const d of l) addRpgExp(me, d.exp); } logUsage("adv", "spell:" + P.id + ":" + (q.right > 0 ? "ok" : "miss")); return; }
-    if (q && q.right > 0) { const l = bumpQuest("right", q.right); for (const d of l) { addRpgExp(me, d.exp); } if (l.length) setBanner({ k: Date.now(), a: "QUEST ✓", b: "+" + l[0].exp + " EXP" }); }
+    if (q && q.spell) { if (spellFire.current) spellFire.current(q.right > 0); if (q.right > 0) { const l = bumpQuest("right", 1); for (const d of l) addRpgExpX(me, d.exp); } logUsage("adv", "spell:" + P.id + ":" + (q.right > 0 ? "ok" : "miss")); return; }
+    if (q && q.right > 0) { const l = bumpQuest("right", q.right); for (const d of l) { addRpgExpX(me, d.exp); } if (l.length) setBanner({ k: Date.now(), a: "QUEST ✓", b: "+" + l[0].exp + " EXP" }); }
     if (q) logUsage("adv", "quiz:" + P.id + ":" + q.right + "of" + (q.qs ? q.qs.length : 3));
     if (q && q.right > 0) setBanner({ k: Date.now(), a: t("ตอบถูก!", "CORRECT!", "答对了！"), b: t("ได้ EXP และแต้มสกิล", "EXP and skill points earned", "获得经验与技能点") });
   };
@@ -574,7 +627,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     try { recordMemory(q.label, ok ? 100 : 55); } catch (e) {}
     if (ok) {
       const exp = 10 + 6 * q.tier + (l.streak >= 2 ? 6 : 0);
-      try { const r = addRpgExp(me, exp); addSkillSp(cls, 2 + q.tier); if (r && r.leveled) setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r.lv }); } catch (e) {}
+      try { const r = addRpgExpX(me, exp); addSkillSp(cls, 2 + q.tier); if (r && r.leveled) setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r.lv }); } catch (e) {}
     }
     setQuiz({ ...cur, res: ok ? "good" : "bad", right: cur.right + (ok ? 1 : 0) });
   };
@@ -612,11 +665,18 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     let { info, mods } = stat();
     const skillOf = () => skillRank(readSkillSp()[cls] || 0);
     const UPS = readUps(), DF = readDiff(), LOAD = readLoad();
-    const hpMaxOf = (lv) => Math.round((120 + lv * 11) * (1 + 0.05 * UPS.hp));
+    // skill careers: the passives of every unlocked robot skill (class rank) and pet skill (pet level), added up once per run
+    const SR0 = skillRank(readSkillSp()[cls] || 0).rank, petType0: string = petNow ? ((petById(petNow.species) as any).type || "steel") : "steel", petLv0 = petNow ? petLevel(petNow.bond).lv : 0;
+    const robotSk = treeOf("robot", cls).filter(q => q.idx <= SR0).map(q => ({ s: q, lv: lvOf(q.id) })), petSk = petNow ? treeOf("pet", petType0).filter(q => q.idx <= petLv0).map(q => ({ s: q, lv: lvOf(q.id) })) : [];
+    const PASS = passiveSum([...robotSk, ...petSk]); XPM = 1 + PASS.xp;
+    const buff = { haste: 0 }; let shieldT = 0; const turrets: any[] = [], later: any[] = [];
+    const slots = equippedOf("robot", cls, SR0).map(q => ({ s: q, lv: lvOf(q.id) })), slotCd = [0, 0, 0];
+    const petSlots = petNow ? equippedOf("pet", petType0, petLv0).map(q => ({ s: q, lv: lvOf(q.id) })) : [], petCdA = [3, 5];
+    const hpMaxOf = (lv) => Math.round((120 + lv * 11) * (1 + 0.05 * UPS.hp) * (1 + PASS.hp));
     TINT = P.tint || null;
     const HM = (P.hard || 1) * DF.hp, RW = DF.rw, CV = DF.id === "normal" ? 1 : DF.id === "hard" ? 2 : 3;   // reward multiplier, crystals per pickup
-    const questDone = (list: any[]) => { for (const d of list) { addRpgExp(me, d.exp); pop(pl.x, GROUND - pl.y - 130, "QUEST +" + d.exp + " EXP", "#ffd23f"); } };
-    const gainCry = (n: number) => { crystals += n; addCrystals(n); questDone(bumpQuest("cry", n)); };
+    const questDone = (list: any[]) => { for (const d of list) { addRpgExpX(me, d.exp); pop(pl.x, GROUND - pl.y - 130, "QUEST +" + d.exp + " EXP", "#ffd23f"); } };
+    const gainCry = (n0: number) => { const n = Math.max(1, Math.round(n0 * (1 + PASS.loot))); crystals += n; addCrystals(n); questDone(bumpQuest("cry", n)); };
     const pl: any = { x: 160, y: 0, vy: 0, face: 1, hp: hpMaxOf(info.lv), atkCd: 0, sklCd: 0, hurtT: 0, inv: 0, dead: 0, ground: true, swing: 0, fireCd: 0, rockCd: 0, kickCd: 0, dashCd: 0, dashT: 0, combo: 0, comboT: 0, maxCombo: 0 };
     const teleGaps: number[] = [];
     const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: Math.round(MON[type].hp * HM), max: Math.round(MON[type].hp * HM), face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, tele: 0, act: "", teleAt: 0, i });
@@ -637,14 +697,15 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     };
     const showClear = (delay = 2000) => setTimeout(() => { if (ended) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (high ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped }); }, delay);
     const surv = { t: 0, wave: 0, next: 2, done: false }, SURV_T = 90;   // gas-giant stage: hold out 90 s while the energy fills
-    const MINE = P.mission === "mine", CAPM = P.mission === "capture", NOBOSS = !!P.survival || MINE || CAPM;
+    const MINE = P.mission === "mine", CAPM = P.mission === "capture", DYS = P.mission === "dyson", DIG = MINE || DYS, NOBOSS = !!P.survival || MINE || CAPM || DYS;
     // Ashfall: after the orbital strike, a base that was nuked has no defenders left (three monsters per base)
     for (let i = 0; i < (P.survival ? 0 : CAPM ? 6 : 17); i++) { if (strikeMask && strikeMask[Math.floor(i / 3) % 6]) continue; mons.push(mk(pattern[i % pattern.length], 520 + i * 270 + rnd(i) * 80, i)); }
     // mining: ore nodes to break open, a pad that launches the cargo to Earth. capture: three collector stations to hold.
-    const nodes: any[] = MINE ? [650, 1400, 2100, 2800, 3500, 4200].map(x => ({ x, hp: 5, max: 5, done: false })) : [];
-    let cargo = 0; const CARGO_CAP = 18, ORE_NEED = 10, PAD_X = WORLD - 220; let launched = 0, padHint = 0;
+    const nodes: any[] = MINE ? [650, 1400, 2100, 2800, 3500, 4200].map(x => ({ x, hp: 5, max: 5, done: false })) : DYS ? [500, 1250, 1850, 2500, 3100, 3700, 4300, 4800].map(x => ({ x, hp: 6, max: 6, done: false })) : [];
+    const dframes: any[] = DYS ? [1000, 2200, 3400, 4500].map(x => ({ x, built: false })) : []; const PANEL_ORE = 5; let flareT = 0, flareWarn = false;
+    let cargo = 0; const CARGO_CAP = DYS ? 20 : 18, ORE_NEED = 10, PAD_X = WORLD - 220; let launched = 0, padHint = 0;
     const stations: any[] = CAPM ? [900, 2000, 3300].map(x => ({ x, p: 0, done: false })) : []; const CAP_T = 10; let capWave = 3;
-    const digNodes = (power: number) => { for (const n of nodes) { if (n.done) continue; const dx = (n.x - pl.x) * pl.face; if (dx > -20 && dx < 120 && pl.y < 60) { n.hp -= power; n.hit = 0.15; for (let a = 0; a < 6; a++) addPart(n.x, GROUND - 20, (Math.random() - 0.5) * 200, -Math.random() * 180, 0.5, "180,220,255", 2.5); sfx.play("hit");
+    const digNodes = (power: number, reach = 120) => { for (const n of nodes) { if (n.done) continue; const dx = (n.x - pl.x) * pl.face; if (dx > -20 && dx < reach && pl.y < 60) { n.hp -= power; n.hit = 0.15; for (let a = 0; a < 6; a++) addPart(n.x, GROUND - 20, (Math.random() - 0.5) * 200, -Math.random() * 180, 0.5, "180,220,255", 2.5); sfx.play("hit");
         if (n.hp <= 0) { n.done = true; const g = Math.min(CARGO_CAP - cargo, 4); cargo += g; pop(n.x, GROUND - 70, g ? "+" + g + " ORE" : "CARGO FULL", g ? "#9fe8ff" : "#ffb070"); sfx.play("pickup"); } } } };
     const bolts: any[] = [], rockets: any[] = [], smoke: any[] = [], blasts: any[] = [], fires: any[] = [], arcs: any[] = [], parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [], drops: any[] = [], waves: any[] = [], pet: any[] = [];
     let crystals = readCrystals();
@@ -658,17 +719,17 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     const step = high ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
-    const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult * (1 + 0.05 * UPS.atk); const crit = Math.random() < 0.08 + mods.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
+    const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult * (1 + 0.05 * UPS.atk) * (1 + PASS.atk); const crit = Math.random() < 0.08 + mods.crit + PASS.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
     let spellG = 0;
     const hurtMon = (m, v, crit, kx) => {
       spellG = Math.min(100, spellG + 5);
-      sfx.play("hit"); m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
+      sfx.play("hit"); if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
       pop(m.x, GROUND - m.y - 60, String(v), crit ? "#ffd23f" : "#ffffff");
       for (let i = 0; i < (high ? 7 : 3); i++) addPart(m.x, GROUND - m.y - 20, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, crit ? "255,210,60" : "255,255,255", 2.5);
       if (m.hp <= 0) {
         m.dead = 1; m.resp = 14; kills++; sfx.play("pop");
         const d = MON[m.type];
-        const gain = Math.round(d.exp * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.max(1, Math.round(gain / 3)));
+        const gain = Math.round(d.exp * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.max(1, Math.round(gain / 3)));
         pop(m.x, GROUND - 90, "+" + gain + " EXP", "#9dffd6");
         if (Math.random() < 0.22) drops.push({ x: m.x, y: 20, vy: 160, t: "hp" });
         { const lt = rollLoot(d.exp); if (lt) drops.push({ x: m.x + (Math.random() - 0.5) * 44, y: 24, vy: 170 + Math.random() * 70, t: lt }); if (Math.random() < 0.25) { const l2 = rollLoot(d.exp); if (l2) drops.push({ x: m.x + (Math.random() - 0.5) * 60, y: 28, vy: 190, t: l2 }); } }
@@ -693,12 +754,12 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     const hurtBoss = (v, crit, kx) => {
       if (!boss.active || boss.dead) return;
       spellG = Math.min(100, spellG + 5);
-      boss.hp -= v; boss.hurt = 0.1; boss.vx = kx * 0.3; if (high) hitStop = 0.03; shake = Math.max(shake, crit ? 5 : 2);
+      if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); boss.hp -= v; boss.hurt = 0.1; boss.vx = kx * 0.3; if (high) hitStop = 0.03; shake = Math.max(shake, crit ? 5 : 2);
       pop(boss.x, GROUND - 140, String(v), crit ? "#ffd23f" : "#ffffff");
       for (let i = 0; i < (high ? 6 : 2); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, "255,255,255", 2.5);
       if (boss.hp <= 0) {
         boss.dead = 1; boss.hp = 0; if (mus) mus.setBoss(false); shots.length = 0; waves.length = 0; kills++;
-        const gain = Math.round(220 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3));
+        const gain = Math.round(220 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3));
         for (let i = 0; i < 12; i++) drops.push({ x: boss.x + (i - 6) * 16, y: 40 + i * 6, vy: 220, t: "cry" });
         drops.push({ x: boss.x, y: 60, vy: 220, t: "hp" });
         for (const [lt, n] of [["gold", 4], ["core", 2], ["ore", 6]] as any[]) for (let i = 0; i < n; i++) drops.push({ x: boss.x + (Math.random() - 0.5) * 140, y: 50 + Math.random() * 40, vy: 220 + Math.random() * 80, t: lt });
@@ -739,6 +800,41 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       // what the skill does besides damage depends on the robot's class
       if (cls === "engineer") { pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.12); pop(pl.x, GROUND - pl.y - 110, "+HP", "#8dffb0"); }
       else if (cls === "ghost") pl.inv = Math.max(pl.inv, 1.2);
+    };
+    // ── skill careers (owner, 2026-10-11): any skill of any class or pet goes through castSkill; the archetype decides what it does,
+    //    the id decides how it looks and sounds ──
+    const castSlot = (i: number) => { const q = slots[i]; if (!q || pl.dead || slotCd[i] > 0) return; slotCd[i] = cdAt(q.s, q.lv) * (1 - 0.05 * UPS.skl); castSkill(q.s, q.lv, false); };
+    const castSkill = (s: Skill, lv: number, fromPet = false) => {
+      const look = skillLook(s), snd = skillSound(s), p = powerAt(s, lv), n = Math.round(s.r), face = pl.face, rgb = hslRgb(look.hue), hue = `hsl(${look.hue},90%,66%)`;
+      const ox = fromPet ? pl.x - face * 56 : pl.x, oy = fromPet ? 30 : pl.y + 40, base = (9 + info.lv * 1.5) * mods.dmg * (1 + 0.05 * UPS.atk) * (1 + PASS.atk) * mods.spell * (fromPet ? 0.8 : 1);
+      sfx.play("cast", fromPet ? pv : rv, { a: s.a, pitch: snd.pitch, wave: snd.wave, bright: snd.bright });
+      if (!fromPet) { pl.swing = 0.25; setPose("kick"); setTimeout(() => setPose("ready"), 220); }
+      shake = Math.max(shake, high ? 5 : 2); pop(ox, GROUND - oy - 110, T3(lang, s.n.th, s.n.en, s.n.zh), hue);
+      const cnt = look.n * (high ? 2 : 1);   // the look: one of five particle patterns, in the skill's own colour
+      for (let a = 0; a < cnt; a++) { const ang = a / cnt * 6.283 * (look.spin || 1);
+        if (look.style === 0) addPart(ox, GROUND - oy, Math.cos(ang) * 300, Math.sin(ang) * 220, 0.55, rgb, 3.5);
+        else if (look.style === 1) addPart(ox + (Math.random() - 0.5) * 40, GROUND - oy, (Math.random() - 0.5) * 60, -180 - Math.random() * 220, 0.7, rgb, 3);
+        else if (look.style === 2) addPart(ox, GROUND - oy, Math.cos(ang * 2) * 200 * (a / cnt + 0.3), Math.sin(ang * 2) * 160 * (a / cnt + 0.3), 0.8, rgb, 3);
+        else if (look.style === 3) addPart(ox + (a - cnt / 2) * 16, GROUND - oy - 120 - Math.random() * 40, (Math.random() - 0.5) * 40, 160 + Math.random() * 120, 0.7, rgb, 3);
+        else addPart(ox, GROUND - oy + (Math.random() - 0.5) * 50, face * (200 + Math.random() * 300), (Math.random() - 0.5) * 40, 0.5, rgb, 3); }
+      slashes.push({ x: ox, y: oy, face, life: 0.35, max: 0.35, nova: true, st: look.style, col: hue });
+      const foes = (rng: number) => mons.filter(m => !m.dead && Math.abs(m.x - ox) < rng && Math.abs(m.y - pl.y) < 140);
+      const hitBoss = (mult: number, rng: number) => { if (boss.active && !boss.dead && Math.abs(boss.x - ox) < rng + 40) hurtBoss(Math.round(base * mult), true, Math.sign(boss.x - ox) * 200); };
+      switch (s.a) {
+        case "volley": for (let k = 0; k < n; k++) bolts.push({ x: ox + face * 30, y: oy + 6, vx: face * (520 + k * 20), vy: (k - (n - 1) / 2) * 70, life: 0.7, v: Math.round(base * p), crit: false }); break;
+        case "nova": for (const m of foes(s.r)) hurtMon(m, Math.round(base * p), true, Math.sign(m.x - ox) * 260); hitBoss(p, s.r); break;
+        case "dash": { const x0 = pl.x; pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + face * s.r)); pl.inv = Math.max(pl.inv, 0.45); const lo = Math.min(x0, pl.x) - 30, hi = Math.max(x0, pl.x) + 30; for (const m of mons) if (!m.dead && m.x > lo && m.x < hi && Math.abs(m.y - pl.y) < 90) hurtMon(m, Math.round(base * p), true, face * 240); if (boss.active && !boss.dead && boss.x > lo && boss.x < hi) hurtBoss(Math.round(base * p), true, face * 160); for (let a = 0; a < 14; a++) addPart(x0 + (pl.x - x0) * a / 14, GROUND - pl.y - 40, 0, -20, 0.4, rgb, 3); break; }
+        case "shield": shieldT = Math.max(shieldT, p); pl.inv = Math.max(pl.inv, p); break;
+        case "heal": pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * p); pop(pl.x, GROUND - pl.y - 130, "+HP", "#8dffb0"); break;
+        case "haste": buff.haste = Math.max(buff.haste, p); break;
+        case "slow": case "stun": for (const m of foes(s.r)) { m.slowT = p; m.slowF = s.a === "stun" ? 0 : 0.4; } break;
+        case "chain": { let from = ox, used = new Set<any>(), k = 0; const pts: number[][] = [[ox, GROUND - oy]]; while (k < n) { let best: any = null, bd = 420; for (const m of mons) { if (m.dead || used.has(m)) continue; const dd = Math.abs(m.x - from); if (dd < bd) { bd = dd; best = m; } } if (!best) break; used.add(best); hurtMon(best, Math.round(base * p), true, 0); pts.push([best.x, GROUND - best.y - 30]); from = best.x; k++; } if (!k && boss.active && !boss.dead && Math.abs(boss.x - ox) < 460) { hurtBoss(Math.round(base * p), true, 0); pts.push([boss.x, GROUND - 70]); } arcs.push({ pts, life: 0.22 }); break; }
+        case "drain": { let c = 0; for (const m of foes(s.r)) { hurtMon(m, Math.round(base * p), false, 0); c++; } hitBoss(p, s.r); pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * Math.min(0.2, 0.05 * (c + 1))); break; }
+        case "meteor": { const tg = mons.filter(m => !m.dead && Math.abs(m.x - ox) < 520).sort((a, b) => Math.abs(a.x - ox) - Math.abs(b.x - ox)).slice(0, n).map(m => m.x); if (boss.active && !boss.dead && Math.abs(boss.x - ox) < 520) tg.push(boss.x); while (tg.length < n) tg.push(ox + face * (160 + tg.length * 90)); tg.slice(0, n).forEach((x, i) => { for (let a = 0; a < 8; a++) addPart(x, GROUND - 300 + a * 36, 0, 260, 0.45, rgb, 3); later.push({ t: 0.45 + i * 0.12, fn: () => explode(x, 10, 95, p * (fromPet ? 0.8 : 1), rgb) }); }); break; }
+        case "turret": turrets.push({ x: pl.x + face * 46, face, t: p, cd: 0.2, mult: s.r * (1 + 0.15 * (lv - 1)) * (fromPet ? 0.8 : 1) }); break;
+        case "execute": { let best: any = null; for (const m of foes(s.r)) if (!best || m.hp / m.max < best.hp / best.max) best = m; if (best) { const low = best.hp / best.max < 0.4; hurtMon(best, Math.round(base * p * (low ? 2 : 1)), true, face * 120); slashes.push({ x: best.x, y: best.y + 40, face, life: 0.25, max: 0.25, col: hue }); } else if (boss.active && !boss.dead && Math.abs(boss.x - ox) < s.r) hurtBoss(Math.round(base * p * (boss.hp / boss.max < 0.4 ? 2 : 1)), true, 0); break; }
+        default: break;
+      }
     };
     // shoot: a bolt flies ahead and hits the first enemy; kick: a short wide sweep that knocks back hard
     let firedN = 0, rocketN = 0;
@@ -799,6 +895,14 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       for (const m of mons) { if (m.dead) continue; const dx = (m.x - pl.x) * pl.face; if (dx > -10 && dx < 118 + MON[m.type].w / 2 && Math.abs(m.y - pl.y) < 70) { const d = dmgOf(1.2); hurtMon(m, d.v, d.crit, pl.face * 300); } }
       { const dx = (boss.x - pl.x) * pl.face; if (boss.active && !boss.dead && dx > -10 && dx < 170 && pl.y < 90) { const d = dmgOf(1.2); hurtBoss(d.v, d.crit, pl.face * 240); } }
     };
+    // the dig button (owner, 2026-10-11): swing the pickaxe at ore rocks; beside a Dyson frame it bolts a panel on instead
+    const digMove = () => {
+      if (pl.dead || (pl.digCd || 0) > 0 || !DIG) return; pl.digCd = 0.38;
+      if (DYS) { const f = dframes.find(q => !q.built && Math.abs(q.x - pl.x) < 120);
+        if (f) { if (cargo >= PANEL_ORE) { cargo -= PANEL_ORE; f.built = true; const bn = dframes.filter(q => q.built).length; sfx.play("win"); shake = Math.max(shake, 5); for (let a = 0; a < (high ? 40 : 14); a++) addPart(f.x, GROUND - 120, (Math.random() - 0.5) * 360, -Math.random() * 260, 0.8, a % 2 ? "255,210,110" : "120,220,255", 3.5); pop(f.x, GROUND - 140, t("แผงไดสัน " + bn + "/4", "DYSON PANEL " + bn + "/4", "戴森板 " + bn + "/4"), "#ffd23f"); logUsage("adv", "dyson-panel:" + P.id + ":" + bn); if (bn >= 4) setBanner({ k: Date.now(), a: t("ไดสันสเฟียร์เสร็จแล้ว!", "DYSON SPHERE COMPLETE!", "戴森球完成！"), b: t("ไปที่เสาส่งขวาสุดเพื่อส่งพลังงานกลับโลก", "Go to the far-right relay to beam the energy home", "前往最右中继塔把能量传回地球") }); return; }
+          pop(f.x, GROUND - 130, t("ต้องมีแร่ " + PANEL_ORE + " ก้อน (มี " + cargo + ")", "Need " + PANEL_ORE + " ore (have " + cargo + ")", "需要 " + PANEL_ORE + " 矿（现有 " + cargo + "）"), "#ffd0a0"); } }
+      sfx.play("kick", rv); pl.swing = 0.22; setPose("attack"); setTimeout(() => setPose("ready"), 200); for (let a = 0; a < 5; a++) addPart(pl.x + pl.face * 70, GROUND - 24, pl.face * (60 + Math.random() * 140), -80 - Math.random() * 120, 0.4, "255,230,170", 2.5); digNodes(3, 160);
+    };
     spellFire.current = (ok: boolean) => {
       if (!ok) { spellG = 50; pop(pl.x, GROUND - pl.y - 130, "♪ " + t("ลองใหม่", "again", "再来"), "#ffd0a0"); return; }
       const sr = skillOf(); shake = Math.max(shake, high ? 10 : 5); playUi && playUi("reward"); sfx.play("spell", rv);
@@ -813,6 +917,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     };
     const hurtPlayer = (v, from) => {
       if (pl.inv > 0 || pl.dead) return;
+      v = Math.max(1, Math.round(v * (1 - PASS.guard)));
       sfx.play("hurt");
       pl.hp -= v; pl.inv = 0.7; pl.vy = 0; pl.x += Math.sign(pl.x - from) * 26; shake = Math.max(shake, 4);
       pop(pl.x, GROUND - pl.y - 100, "-" + v, "#ff6b81");
@@ -828,36 +933,51 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       else {
         let dx = 0; if (kk.l) dx -= 1; if (kk.r) dx += 1;
         pl.holdT = dx ? (pl.holdT || 0) + dt : 0;   // held for 0.35 s = a sprint (owner, 2026-10-11)
-        const sprint = pl.holdT > 0.35; const sp = 150 * mods.walk * (sprint ? 1.7 : 1);
+        const sprint = pl.holdT > 0.35; const sp = 150 * mods.walk * (1 + PASS.speed) * (buff.haste > 0 ? 1.45 : 1) * (sprint ? 1.7 : 1);
         if (sprint && pl.ground && Math.random() < 0.5) addPart(pl.x - dx * 14, GROUND - 4, -dx * 40, -20 - Math.random() * 30, 0.3, "200,230,255", 2);
         pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + dx * sp * dt)); if (dx) pl.face = dx;
         if (!boss.active && !boss.dead && pl.x > ARENA + 60) { boss.active = true; if (mus) mus.setBoss(true); logUsage("adv", "boss-wake:" + P.id); setBanner({ k: Date.now(), a: T3(lang, P.boss[0], P.boss[1], P.boss[2]), b: t("บอสท้ายด่าน — ประตูด้านหลังปิดแล้ว", "End-of-map boss — the way back is shut", "本图首领——退路已封闭") }); }
         if (kk.jump && pl.ground) { pl.vy = 360; pl.ground = false; sfx.play("jump"); }
-        if (kk.atk) attack(); if (kk.skl) skill(); if (kk.fire) fireBolt(); if (kk.kick) kickMove(); if (kk.rocket) fireRocket();
+        if (kk.atk) attack(); if (kk.dig) digMove(); if (kk.skl) castSlot(0); if (kk.fire) fireBolt(); if (kk.kick) kickMove(); if (kk.rocket) fireRocket();
         if (kk.spell && spellG >= 100 && !quizOn.current) { kk.l = kk.r = kk.atk = kk.skl = kk.jump = kk.fire = kk.kick = kk.spell = false; quizOn.current = true; if (castRef.current) castRef.current(); }
         if (kk.dash && pl.dashCd <= 0) { sfx.play("dash"); pl.dashCd = 1.2; pl.dashT = 0.18; pl.inv = Math.max(pl.inv, 0.3); for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 30, -pl.face * (80 + Math.random() * 120), (Math.random() - 0.5) * 60, 0.3, "160,255,230", 2.5); }
         if (pl.dashT > 0) { pl.dashT -= dt; pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + pl.face * 560 * dt)); }
-        pl.dashCd -= dt; pl.fireCd -= dt; pl.rockCd -= dt; pl.kickCd -= dt; pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0;
+        { const hm = buff.haste > 0 ? 1.4 : 1; pl.dashCd -= dt * hm; pl.fireCd -= dt * hm; pl.rockCd -= dt * hm; pl.kickCd -= dt * hm; } pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0;
         pl.vy -= 900 * dt; pl.y += pl.vy * dt; if (pl.y <= 0) { pl.y = 0; pl.vy = 0; pl.ground = true; }
-        pl.atkCd -= dt; pl.sklCd -= dt; pl.inv -= dt; pl.swing -= dt;
+        pl.atkCd -= dt; pl.sklCd -= dt; pl.inv -= dt; pl.swing -= dt; pl.digCd = (pl.digCd || 0) - dt;
+        for (let i = 0; i < 3; i++) slotCd[i] -= dt * (1 + PASS.cdr) * (buff.haste > 0 ? 1.4 : 1);
+        buff.haste -= dt; shieldT -= dt; if (shieldT > 0) pl.inv = Math.max(pl.inv, 0.1); if (PASS.regen > 0 && pl.hp > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * PASS.regen * dt);
+        if (kk.s2) castSlot(1); if (kk.s3) castSlot(2);
       }
       if (P.survival && !surv.done && pl.dead <= 0) {
         surv.t += dt; surv.next -= dt;
         if (surv.next <= 0) { surv.next = 6; surv.wave++; const n = Math.min(7, 2 + surv.wave); for (let i = 0; i < n; i++) { const side = i % 2 ? 1 : -1; const x = Math.max(60, Math.min(WORLD - 60, pl.x + side * (420 + rnd(surv.wave * 9 + i) * 160))); mons.push(mk(pool[(surv.wave + i) % pool.length], x, 1000 + surv.wave * 10 + i)); } }
         if (surv.t >= SURV_T) {
           surv.done = true; finished = true; mons.length = 0; shots.length = 0; markDone(P.id); shake = 6; showClear(2200);
-          const gain = Math.round(150 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(15 * CV);
+          const gain = Math.round(150 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(15 * CV);
           info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
           logUsage("adv", "harvest-win:" + P.id); playUi && playUi("reward");
           setBanner({ k: Date.now(), a: t("เก็บพลังงานครบ! +" + gain + " EXP", "ENERGY HARVESTED! +" + gain + " EXP", "能量采集完成！+" + gain + " 经验"), b: t("◆ คริสตัล +" + 15 * CV, "◆ crystals +" + 15 * CV, "◆ 晶体 +" + 15 * CV) });
         }
       }
       if (P.survival || CAPM) for (let i = mons.length - 1; i >= 0; i--) if (mons[i].dead) mons.splice(i, 1);
+      if (DYS && !finished) {
+        for (const n of nodes) if (n.hit) n.hit = Math.max(0, n.hit - dt);
+        flareT += dt; if (flareT > 12 && !flareWarn) { flareWarn = true; setBanner({ k: Date.now(), a: t("เปลวสุริยะ!", "SOLAR FLARE!", "太阳耀斑！"), b: t("กระโดดหลบ!", "Jump to dodge!", "跳起来躲开！") }); sfx.play("boom"); }
+        if (flareT > 14) { flareT = 0; flareWarn = false; shake = Math.max(shake, 8); for (let a = 0; a < (high ? 30 : 10); a++) addPart(camX + Math.random() * vw, GROUND - Math.random() * 300, -200, 40, 0.6, "255,200,90", 3); if (pl.y < 40 && pl.dead <= 0 && pl.inv <= 0) hurtPlayer(Math.round(8 * HM), pl.x + 1); }
+        if (pl.dead <= 0 && Math.abs(pl.x - PAD_X) < 110 && pl.y < 30) {
+          if (dframes.every(q => q.built)) {
+            finished = true; launched = 0.001; addDyson(4); markDone(P.id); showClear(3000); const gain = Math.round(240 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(20 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
+            logUsage("adv", "dyson-done:" + P.id); playUi && playUi("reward"); sfx.play("rocket");
+            setBanner({ k: Date.now(), a: t("ส่งพลังงานดาวฤกษ์กลับโลกแล้ว!", "STAR ENERGY BEAMED TO EARTH!", "恒星能量已传回地球！"), b: t("+" + gain + " EXP · ไดสันสเฟียร์ทำงาน", "+" + gain + " EXP · the Dyson sphere is online", "+" + gain + " 经验 · 戴森球已上线") });
+          } else { padHint -= dt; if (padHint <= 0) { padHint = 2.5; pop(PAD_X, GROUND - 110, t("ต้องประกอบแผงให้ครบ " + dframes.filter(q => q.built).length + "/4 ก่อน", "Build all 4 panels first (" + dframes.filter(q => q.built).length + "/4)", "需先装完 4 块板（" + dframes.filter(q => q.built).length + "/4）"), "#ffd0a0"); } }
+        }
+      }
       if (MINE && !finished) {
         for (const n of nodes) if (n.hit) n.hit = Math.max(0, n.hit - dt);
         if (pl.dead <= 0 && Math.abs(pl.x - PAD_X) < 110 && pl.y < 30) {
           if (cargo >= ORE_NEED) {
-            finished = true; launched = 0.001; addOre(cargo); markDone(P.id); showClear(2800); const gain = Math.round(120 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(10 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
+            finished = true; launched = 0.001; addOre(cargo); markDone(P.id); showClear(2800); const gain = Math.round(120 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(10 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
             logUsage("adv", "ship-ore:" + P.id + ":" + cargo); playUi && playUi("reward"); sfx.play("rocket");
             setBanner({ k: Date.now(), a: t("ส่งแร่กลับโลกแล้ว! " + cargo + " ก้อน", "ORE SHIPPED TO EARTH! " + cargo, "矿石已运回地球！" + cargo), b: t("+" + gain + " EXP · อาณานิคมโตขึ้น", "+" + gain + " EXP · the colony grows", "+" + gain + " 经验 · 殖民地壮大") });
           } else { padHint -= dt; if (padHint <= 0) { padHint = 2; pop(PAD_X, GROUND - 100, t("ต้องมีแร่ " + ORE_NEED + " ก้อน (มี " + cargo + ")", "Need " + ORE_NEED + " ore (have " + cargo + ")", "需要 " + ORE_NEED + " 矿（现有 " + cargo + "）"), "#ffd0a0"); } }
@@ -873,7 +993,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
             if (cur.p >= CAP_T) { cur.done = true; cur.p = CAP_T; sfx.play("win"); const left = stations.filter(q => !q.done).length; setBanner({ k: Date.now(), a: t("ยึดสถานีได้แล้ว!", "STATION CAPTURED!", "采集站已占领！"), b: left ? t("เหลืออีก " + left + " จุด", left + " to go", "还剩 " + left + " 座") : t("ดวงอาทิตย์เป็นของเรา", "The sun is ours", "恒星已被占领") }); }
           } else cur.p = Math.max(0, cur.p - dt * 0.4);
         } else {
-          finished = true; markDone(P.id); showClear(2000); mons.length = 0; shots.length = 0; const gain = Math.round(160 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(18 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
+          finished = true; markDone(P.id); showClear(2000); mons.length = 0; shots.length = 0; const gain = Math.round(160 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(18 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
           logUsage("adv", "capture-win:" + P.id); playUi && playUi("reward");
           setBanner({ k: Date.now(), a: t("ยึดดาวฤกษ์สำเร็จ! +" + gain + " EXP", "SUN CAPTURED! +" + gain + " EXP", "占领恒星！+" + gain + " 经验"), b: t("◆ คริสตัล +" + 18 * CV, "◆ crystals +" + 18 * CV, "◆ 晶体 +" + 18 * CV) });
         }
@@ -881,7 +1001,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       if (HZ.length && pl.dead <= 0 && pl.y < 14 && hzOn() && HZ.some(h => pl.x > h[0] && pl.x < h[1])) { hzAcc += dt; if (hzAcc >= 0.6) { hzAcc = 0; hzHits++; hurtPlayer(Math.round(4.5 * HM), pl.x + (pl.face > 0 ? -1 : 1)); } } else hzAcc = Math.min(hzAcc, 0.3);
       for (const m of mons) {
         if (m.dead) { m.resp -= dt; if (m.resp <= 0 && Math.abs(pl.x - m.hx) > 640) { m.dead = 0; m.hp = m.max; m.x = m.hx; m.y = 0; m.vx = 0; } continue; }
-        const d = MON[m.type]; m.hurt -= dt; m.cd -= dt * 1000;
+        const d = MON[m.type]; m.hurt -= dt; const sl = m.slowT > 0 ? (m.slowT -= dt, m.slowF) : 1; m.cd -= dt * 1000 * sl;
         const dxp = pl.x - m.x, dist = Math.abs(dxp);
         m.face = dxp > 0 ? 1 : -1;
         const aggro = dist < 520 && pl.dead <= 0;
@@ -890,12 +1010,12 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
           if (d.ranged) { if (dist > 300) mv = Math.sign(dxp); else if (dist < 190) mv = -Math.sign(dxp); }
           else if (dist > 40) mv = Math.sign(dxp);
         }
-        m.x += (mv * d.speed + m.vx) * dt; m.vx *= 0.86;
+        m.x += (mv * d.speed * sl + m.vx) * dt; m.vx *= 0.86;
         if (m.type === "glowbug" && aggro && m.y <= 0 && dist < 260 && Math.random() < 0.02) m.vy = 240;
         m.vy -= 700 * dt; m.y += m.vy * dt; if (m.y < 0) { m.y = 0; m.vy = 0; }
         // every attack is announced first: a red "!" for 0.3 s, then the blow (an attack that lands with no warning is not fair)
         if (m.tele > 0) {
-          m.tele -= dt;
+          m.tele -= dt * sl;
           if (m.tele <= 0) {
             m.cd = d.cd; teleGaps.push(time - m.teleAt);
             if (m.act === "shot") shots.push({ x: m.x + m.face * 18, y: 56, vx: m.face * 190, life: 2.4, d: Math.round(d.dmg * HM) });
@@ -929,6 +1049,10 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
         }
       }
       petCd -= dt; if (petCd <= 0) { petCd = 2.2; petBolt(); }
+      for (let i = 0; i < petSlots.length; i++) { petCdA[i] -= dt; if (petCdA[i] > 0 || pl.dead > 0) continue; const q = petSlots[i]; const near = mons.some(m => !m.dead && Math.abs(m.x - pl.x) < 360) || (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < 360); const need = q.s.a === "heal" || q.s.a === "shield" ? pl.hp < hpMaxOf(info.lv) * 0.7 && near : near; if (need) { petCdA[i] = cdAt(q.s, q.lv) * (1 - PASS.cdr) + 1; castSkill(q.s, q.lv, true); } }
+      for (const tr of turrets) { tr.t -= dt; tr.cd -= dt; if (tr.cd <= 0) { const f = nearestFoe(tr.x, tr.face, 460); if (f) { tr.cd = 0.5; const d = dmgOf(tr.mult); bolts.push({ x: tr.x, y: 40, vx: Math.sign(f.x - tr.x) * 620, vy: (f.y + 20 - 40) * 1.4, life: 0.8, v: d.v, crit: d.crit }); sfx.play("fire", rv); } } }
+      for (let i = turrets.length - 1; i >= 0; i--) if (turrets[i].t <= 0) turrets.splice(i, 1);
+      for (const L of later) { L.t -= dt; if (L.t <= 0 && !L.done) { L.done = true; L.fn(); } } for (let i = later.length - 1; i >= 0; i--) if (later[i].done) later.splice(i, 1);
       for (const b of pet) { b.life -= dt; if (b.life <= 0 && !b.done) { b.done = true; if (b.b) hurtBoss(b.v, false, 0); else if (!b.m.dead) hurtMon(b.m, b.v, false, 0); } }
       for (let i = pet.length - 1; i >= 0; i--) if (pet[i].done) pet.splice(i, 1);
       for (const b of bolts) {
@@ -1005,7 +1129,10 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
         if (P.hazard === "lava") { const g = ctx.createLinearGradient(0, GROUND - 4, 0, GROUND + 22); g.addColorStop(0, "#ffd23f"); g.addColorStop(0.4, "#ff6a1a"); g.addColorStop(1, "#7a1a0a"); ctx.fillStyle = g; ctx.fillRect(h[0], GROUND - 2, h[1] - h[0], 24); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,140,40,.35)"; for (let q = h[0]; q < h[1]; q += 26) ctx.fillRect(q + Math.sin(tm * 3 + q) * 4, GROUND - 6 - Math.abs(Math.sin(tm * 2 + q * 0.1)) * 6, 14, 4); ctx.globalCompositeOperation = "source-over"; }
         else { ctx.fillStyle = on ? "#7fe8ff" : warn ? (Math.floor(tm * 12) % 2 ? "#ffd23f" : "#38304e") : "#38304e"; ctx.fillRect(h[0], GROUND - 2, h[1] - h[0], 6); if (on) { ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = "rgba(160,240,255,.9)"; ctx.lineWidth = 2; for (let q = h[0] + 8; q < h[1]; q += 30) { ctx.beginPath(); ctx.moveTo(q, GROUND); ctx.lineTo(q + 8, GROUND - 14 - Math.random() * 10); ctx.lineTo(q + 16, GROUND); ctx.stroke(); } ctx.globalCompositeOperation = "source-over"; } } }
       for (const n of nodes) { if (n.done || n.x < camX - 60 || n.x > camX + vw + 60) continue; const sh = n.hit ? Math.sin(tm * 80) * 2 : 0, f = n.hp / n.max; ctx.fillStyle = n.hit ? "#fff" : "#2a4a6a"; ctx.beginPath(); ctx.moveTo(n.x - 26 + sh, GROUND); ctx.lineTo(n.x - 14 + sh, GROUND - 40 * (0.6 + 0.4 * f)); ctx.lineTo(n.x + 2 + sh, GROUND - 56 * (0.6 + 0.4 * f)); ctx.lineTo(n.x + 18 + sh, GROUND - 36); ctx.lineTo(n.x + 28 + sh, GROUND); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(120,210,255,.8)"; ctx.fillRect(n.x - 6 + sh, GROUND - 30, 5, 18); ctx.fillRect(n.x + 8 + sh, GROUND - 22, 4, 12); ctx.globalCompositeOperation = "source-over"; }
-      if (MINE) { const gx = PAD_X; if (gx > camX - 80 && gx < camX + vw + 80) { ctx.fillStyle = "#3a4a5a"; ctx.fillRect(gx - 50, GROUND - 6, 100, 8); ctx.fillStyle = cargo >= ORE_NEED ? "#7dffa8" : "#ffb070"; ctx.fillRect(gx - 50, GROUND - 8, 100, 3);
+      for (const f of dframes) { if (f.x < camX - 140 || f.x > camX + vw + 140) continue; ctx.save(); ctx.strokeStyle = f.built ? "#ffd060" : "#7a8aa8"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(f.x - 46, GROUND); ctx.lineTo(f.x - 30, GROUND - 150); ctx.lineTo(f.x + 30, GROUND - 150); ctx.lineTo(f.x + 46, GROUND); ctx.stroke();
+        if (f.built) { ctx.globalCompositeOperation = "lighter"; const gg = ctx.createRadialGradient(f.x, GROUND - 100, 4, f.x, GROUND - 100, 90); gg.addColorStop(0, "rgba(255,225,130,.8)"); gg.addColorStop(1, "rgba(255,160,40,0)"); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(f.x, GROUND - 100, 90, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgba(255,200,80,.85)"; ctx.fillRect(f.x - 34, GROUND - 146, 68, 12); ctx.fillStyle = "rgba(90,200,255,.7)"; ctx.fillRect(f.x - 34, GROUND - 126, 68, 12); }
+        else { ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.font = "700 11px system-ui"; ctx.textAlign = "center"; ctx.fillText("⛏ " + PANEL_ORE + " ORE", f.x, GROUND - 160); } ctx.restore(); }
+      if (MINE || DYS) { const gx = PAD_X; if (gx > camX - 80 && gx < camX + vw + 80) { ctx.fillStyle = "#3a4a5a"; ctx.fillRect(gx - 50, GROUND - 6, 100, 8); ctx.fillStyle = (DYS ? dframes.every(q => q.built) : cargo >= ORE_NEED) ? "#7dffa8" : "#ffb070"; ctx.fillRect(gx - 50, GROUND - 8, 100, 3);
         const ry = launched > 0 ? launched * launched * 220 : 0; ctx.save(); ctx.translate(gx, GROUND - 30 - ry); ctx.fillStyle = "#e8edf3"; ctx.fillRect(-9, -26, 18, 44); ctx.fillStyle = "#ff4d6d"; ctx.beginPath(); ctx.moveTo(-9, -26); ctx.lineTo(0, -44); ctx.lineTo(9, -26); ctx.closePath(); ctx.fill(); if (launched > 0) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,170,60,.8)"; ctx.fillRect(-6, 18, 12, 30 + Math.random() * 20); ctx.globalCompositeOperation = "source-over"; } ctx.restore(); } }
       for (const q of stations) { if (q.x < camX - 100 || q.x > camX + vw + 100) continue; const f = q.p / CAP_T; ctx.fillStyle = q.done ? "#ffd23f" : "#3a3a4a"; ctx.fillRect(q.x - 8, GROUND - 90, 16, 90); ctx.fillStyle = q.done ? "#fff6c0" : "#5a5a6a"; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 16, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,210,80,.95)"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,210,80," + (q.done ? 0.25 : 0.08 + f * 0.2) + ")"; ctx.beginPath(); ctx.arc(q.x, GROUND - 40, 170, Math.PI, 0); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       // monsters
@@ -1065,6 +1192,8 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
           continue; } ctx.fillStyle = d.t === "hp" ? "#7dffa8" : "#7fe8ff"; ctx.beginPath(); if (d.t === "hp") ctx.arc(d.x, yy, 6, 0, 7); else { ctx.moveTo(d.x, yy - 8); ctx.lineTo(d.x + 6, yy); ctx.lineTo(d.x, yy + 8); ctx.lineTo(d.x - 6, yy); ctx.closePath(); } ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .5; ctx.beginPath(); ctx.arc(d.x, yy, 12, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
       // spores + slashes
       for (const s of shots) { ctx.fillStyle = "#e9ff9a"; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 5, 0, 7); ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.drawImage(bake.glows.green, s.x - 20, GROUND - s.y - 20, 40, 40); ctx.globalCompositeOperation = "source-over"; } }
+      for (const tr of turrets) { ctx.save(); ctx.fillStyle = "#4a5668"; ctx.fillRect(tr.x - 11, GROUND - 16, 22, 16); ctx.fillStyle = "#cdd6e6"; ctx.fillRect(tr.x, GROUND - 14, 20 * tr.face, 5); ctx.fillStyle = "#7fe8ff"; ctx.beginPath(); ctx.arc(tr.x, GROUND - 18, 4, 0, 7); ctx.fill(); ctx.restore(); }
+      if (shieldT > 0) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = "rgba(140,220,255," + (0.5 + 0.3 * Math.sin(time * 14)) + ")"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pl.x, GROUND - pl.y - 50, 62, 0, 7); ctx.stroke(); ctx.restore(); }
       for (const s of slashes) {
         const q = Math.max(0, Math.min(1, 1 - s.life / (s.max || (s.nova ? 0.3 : 0.18)))); ctx.save(); ctx.globalCompositeOperation = "lighter";
         const col = s.col || "#ffe6a0"; ctx.strokeStyle = col; ctx.fillStyle = col; ctx.globalAlpha = Math.max(0, 1 - q);
@@ -1100,8 +1229,8 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       tile(bake.near, 1.25);
       if (P.survival && !surv.done) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ffbe6e"; ctx.fillRect(bx, by, bw * Math.min(1, surv.t / SURV_T), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, "พลังงาน ", "ENERGY ", "能量 ") + Math.round(Math.min(1, surv.t / SURV_T) * 100) + "% · " + T3(lang, "คลื่น ", "wave ", "波 ") + surv.wave, cw / 2, by - 4 * k); }
-      if ((MINE || CAPM) && !finished) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; const cur = stations.find(q => !q.done), fr = MINE ? cargo / CARGO_CAP : (cur ? cur.p / CAP_T : 1); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = MINE ? "#7fd8ff" : "#ffd23f"; ctx.fillRect(bx, by, bw * Math.min(1, fr), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center";
-        ctx.fillText(MINE ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "ส่งที่แท่นขวาสุด ≥ ", "deliver at the far-right pad ≥ ", "送到最右平台 ≥ ") + ORE_NEED : T3(lang, "สถานี ", "STATION ", "采集站 ") + (stations.filter(q => q.done).length + (cur ? 1 : 0)) + "/3 · " + Math.round(Math.min(1, fr) * 100) + "%", cw / 2, by - 4 * k); }
+      if ((MINE || CAPM || DYS) && !finished) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; const cur = stations.find(q => !q.done), fr = MINE || DYS ? cargo / CARGO_CAP : (cur ? cur.p / CAP_T : 1); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = MINE || DYS ? "#7fd8ff" : "#ffd23f"; ctx.fillRect(bx, by, bw * Math.min(1, fr), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center";
+        ctx.fillText(DYS ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "แผงไดสัน ", "PANELS ", "戴森板 ") + dframes.filter(q => q.built).length + "/4" : MINE ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "ส่งที่แท่นขวาสุด ≥ ", "deliver at the far-right pad ≥ ", "送到最右平台 ≥ ") + ORE_NEED : T3(lang, "สถานี ", "STATION ", "采集站 ") + (stations.filter(q => q.done).length + (cur ? 1 : 0)) + "/3 · " + Math.round(Math.min(1, fr) * 100) + "%", cw / 2, by - 4 * k); }
       if (boss.active && !boss.dead) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.max), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, P.boss[0], P.boss[1], P.boss[2]), cw / 2, by - 4 * k); }
       // light + vignette (high): one baked-free pass, a couple of fills
       if (high) { const g = ctx.createRadialGradient(cw / 2, ch * 0.55, ch * 0.3, cw / 2, ch * 0.55, ch * 1.1); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,6,10,.55)"); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
@@ -1130,7 +1259,7 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
       hudT += dt;
       if (hudT > 0.15) {
         hudT = 0; const sr = skillOf();
-        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd), lootCoins: Math.round(lootValue() * RW), dashCd: Math.max(0, pl.dashCd), rockCd: Math.max(0, pl.rockCd), spell: Math.round(spellG) });
+        setHud({ hp: Math.max(0, pl.hp), hpMax: hpMaxOf(info.lv), lv: info.lv, xp: info.max ? 1 : info.into, xpNeed: info.max ? 1 : info.need, sk: sr.max ? 1 : sr.into, skNeed: sr.max ? 1 : sr.need, rank: sr.rank, kills, cry: crystals, skCd: Math.max(0, pl.sklCd), sl: slots.map((q, i) => ({ n: T3(lang, q.s.n.th, q.s.n.en, q.s.n.zh), cd: Math.max(0, slotCd[i]) })), lootCoins: Math.round(lootValue() * RW), dashCd: Math.max(0, pl.dashCd), rockCd: Math.max(0, pl.rockCd), spell: Math.round(spellG) });
       }
     };
     raf = requestAnimationFrame(loop);
@@ -1139,12 +1268,12 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
     const kd = (e, v) => {
       const kk = keys.current; const c = e.code;
       if (c === "ArrowLeft" || c === "KeyA") kk.l = v; else if (c === "ArrowRight" || c === "KeyD") kk.r = v;
-      else if (c === "ArrowUp" || c === "KeyW" || c === "Space") kk.jump = v; else if (c === "KeyJ" || c === "KeyZ") kk.atk = v; else if (c === "KeyK" || c === "KeyX") kk.skl = v; else if (c === "KeyY") kk.rocket = v; else if (c === "KeyO") kk.spell = v; else if (c === "KeyI") kk.fire = v; else if (c === "KeyU") kk.kick = v; else if (c === "KeyL" || c === "ShiftLeft" || c === "ShiftRight") kk.dash = v; else return;
+      else if (c === "ArrowUp" || c === "KeyW" || c === "Space") kk.jump = v; else if (c === "KeyJ" || c === "KeyZ") kk.atk = v; else if (c === "KeyK" || c === "KeyX") kk.skl = v; else if (c === "KeyV") kk.dig = v; else if (c === "KeyH") kk.s2 = v; else if (c === "KeyG") kk.s3 = v; else if (c === "KeyY") kk.rocket = v; else if (c === "KeyO") kk.spell = v; else if (c === "KeyI") kk.fire = v; else if (c === "KeyU") kk.kick = v; else if (c === "KeyL" || c === "ShiftLeft" || c === "ShiftRight") kk.dash = v; else return;
       e.preventDefault();
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    (window as any).__advTest = { padX: () => PAD_X, digNow: () => digMove(), framesBuilt: () => dframes.map(f => f.built), frameXs: () => dframes.map(f => f.x), nodeXs: () => nodes.filter(n => !n.done).map(n => n.x), cargoN: () => cargo, slotsN: () => slots.length, slotNames: () => slots.map(q => q.s.id), pass: () => PASS, castId: (id: string) => { const q = [...["striker", "bulwark", "ghost", "tactician", "engineer", "herald", "virtuoso"].flatMap(c => treeOf("robot", c)), ...["volt", "ember", "frost", "flora", "steel", "aether"].flatMap(c => treeOf("pet", c))].find(z => z.id === id); if (q) castSkill(q, lvOf(q.id), q.kind === "pet"); return !!q; }, castSlotNow: (i: number) => castSlot(i), slotCds: () => slotCd.slice(), hasteT: () => buff.haste, shieldLeft: () => shieldT, turretsN: () => turrets.length, setHp: (v: number) => { pl.hp = v; }, hpNow: () => pl.hp, monsSlowed: () => mons.filter(m => m.slowT > 0).length, beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
     return () => { settle(0.4); if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
@@ -1199,9 +1328,10 @@ const Run = memo(function Run({ onReward = null, getNext = null, onNext = null, 
           <button className="pvpact fire" aria-label="shoot" {...hold("fire")}><b>🔫</b><i>{t("ยิง", "FIRE", "射击")}</i></button>
           <button className="pvpact jump" aria-label="jump" {...hold("jump")}><b>⤴</b><i>{t("กระโดด", "JUMP", "跳跃")}</i></button>
           <button className="pvpact punch" aria-label="attack" {...hold("atk")}><b>👊</b><i>{t("ต่อย", "PUNCH", "拳击")}</i></button>
+          {DIGBTN && <button className={"pvpact dig"} aria-label="dig" data-dig="1" {...hold("dig")}><b>⛏</b><i>{t("ขุด", "DIG", "挖掘")}</i></button>}
           <button className={"pvpact rocket" + (hud.rockCd > 0 ? " cool" : "")} aria-label="rocket" {...hold("rocket")}><b>🚀</b><i>{t("จรวด", "ROCKET", "火箭")}</i></button>
           <button className="pvpact kick" aria-label="kick" {...hold("kick")}><b>🦵</b><i>{t("เตะ", "KICK", "踢击")}</i></button>
-          <button className={"pvpact ult" + (hud.skCd > 0 ? " cool" : "")} aria-label="skill" {...hold("skl")}><b>✦</b><i>{t("สกิล", "SKILL", "技能")}</i></button>
+          {[0, 1, 2].map(i => (hud.sl && hud.sl[i]) ? <button key={i} className={"pvpact ult" + (hud.sl[i].cd > 0 ? " cool" : "")} aria-label={"skill" + (i + 1)} data-slot={i} {...hold(i === 0 ? "skl" : i === 1 ? "s2" : "s3")}><b>✦{i + 1}</b><i>{hud.sl[i].n}</i></button> : null)}
           <button className={"pvpact spell" + ((hud.spell || 0) >= 100 ? " ready" : " cool")} aria-label="spell" style={{ "--sp": (hud.spell || 0) + "%" } as any} {...hold("spell")}><b>🎹</b><i>{(hud.spell || 0) >= 100 ? t("เวทย์คอร์ด", "SPELL", "和弦术") : (hud.spell || 0) + "%"}</i></button>
         </div>
       </div>
