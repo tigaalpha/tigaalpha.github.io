@@ -32,6 +32,10 @@ ok("a hit on monster 3 reaches the teammate, tagged with who sent it", got && go
 let feed = null; host.on({ onEv: (p, k, n) => { feed = [p && p.name, k, n]; } }); guest.sendEv("ore", 4); await wait(30);
 ok("an ore event shows who dug it", feed && feed[0] === "Bo" && feed[1] === "ore" && feed[2] === 4);
 guest.sendChat("👍"); await wait(30); ok("a quick emote sets the ghost's line", [...host.peers.values()][0].say === "👍");
+let warSeen = null; guest.on({ onStart: (pl, w) => { warSeen = w; } }); host.sendStart("ferro", true); await wait(30);
+ok("the host's war flag reaches the guest (and both nets know it)", warSeen === true && guest.war === true && host.war === true);
+ok("war teams split the two pilots into different teams on both sides", M.warTeamOf(host, host.id) !== M.warTeamOf(host, guest.id) && M.warTeamOf(host, host.id) === M.warTeamOf(guest, host.id));
+host.sendStart("ferro", false); await wait(30); ok("a normal start clears the war flag", guest.war === false && host.war === false);
 guest.leave(); await wait(30); ok("leaving removes the pilot from the room", host.peers.size === 0);
 let bad = false; try { await M.openAdvRoom("abc", { name: "x", model: "", glow: "" }); } catch (e) { bad = true; } ok("a malformed code is refused", bad);
 console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
