@@ -1409,6 +1409,7 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 .pvprpg-row button:disabled{opacity:.35;cursor:default}
 .pvprpg-v{min-width:52px;text-align:center;font-weight:800;font-size:16px;color:var(--text)}.pvprpg-v small{font-weight:600;font-size:11px;color:var(--muted)}
 .pvpadv{pointer-events:auto;position:absolute;left:12px;bottom:9%;z-index:3;display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center;min-height:56px;padding:6px 14px 6px 10px;border-radius:18px;border:1.5px solid #3ddc97;background:linear-gradient(135deg,#0b3a3a,#14624f);color:#e8fffa;cursor:pointer;box-shadow:0 10px 24px -12px #14624f,0 0 18px -6px #3ddc97;text-align:left}
+.pvpadv.online{bottom:calc(9% + 66px);border-color:#7aa8ff;background:linear-gradient(135deg,#10224a,#243f8f);box-shadow:0 10px 24px -12px #243f8f,0 0 18px -6px #7aa8ff}
 .pvpadv span{grid-row:1/3;font-size:26px}.pvpadv b{font-size:14px;font-weight:900;letter-spacing:.6px}.pvpadv i{font-style:normal;font-size:10.5px;opacity:.85}
 .pvpgo{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-height:64px;justify-content:center;border:0;border-radius:18px;background:linear-gradient(180deg,#d97757,#b4532f);color:#fff;font-family:var(--f-app);cursor:pointer;box-shadow:0 10px 24px -12px #b4532f}
 .pvpgo b{font-size:20px;font-weight:800}.pvpgo span{font-size:12.5px;font-weight:600;opacity:.9}

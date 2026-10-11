@@ -1201,7 +1201,7 @@ export const PvpPage = memo(function PvpPage({
   // a finished fight (or the lobby) is always portrait and out of full screen; a new fight re-enters it from its own tap
   useEffect(() => { if (phase !== "fight") exitFsAndUnlock(); }, [phase]);
   const [lobbyTab, setLobbyTab] = useState("fight");
-  const [advOpen, setAdvOpen] = useState(false);
+  const [advOpen, setAdvOpen] = useState(false); const [advOnline, setAdvOnline] = useState(false);
   const [rpgTick, setRpgTick] = useState(0);   // re-reads the robot's level after a fight or a point spent
   const [tierIdx, setTierIdx] = useState(() => { try { const v = parseInt(localStorage.getItem("tg_pvp_tier") || "3", 10); return v >= 0 && v < BOT_TIERS.length ? v : 3; } catch (e) { return 3; } });
   const pickTier = (i) => { setTierIdx(i); try { localStorage.setItem("tg_pvp_tier", String(i)); } catch (e) {} };
@@ -1488,7 +1488,7 @@ export const PvpPage = memo(function PvpPage({
   if (phase === "lobby" && advOpen) {
     return (
       <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2400, background: "#02070c", color: "#9dffd6", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>🪐 Adventure…</div>}>
-        <AdventurePage lang={lang} me={me} colorway={colorway} held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} petNow={petNow} onBack={() => setAdvOpen(false)} playUi={playUi} onReward={onReward} />
+        <AdventurePage lang={lang} me={me} colorway={colorway} held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} petNow={petNow} onBack={() => setAdvOpen(false)} online={advOnline} playUi={playUi} onReward={onReward} />
       </Suspense>
     );
   }
@@ -1530,8 +1530,11 @@ export const PvpPage = memo(function PvpPage({
               </span>
             )}
           </div>
-          <button type="button" className="pvpadv" onClick={() => { if (playUi) playUi("click"); setAdvOpen(true); }} aria-label="Adventure Mode">
+          <button type="button" className="pvpadv" onClick={() => { if (playUi) playUi("click"); setAdvOnline(false); setAdvOpen(true); }} aria-label="Adventure Mode">
             <span aria-hidden="true">🪐</span><b>Adventure</b><i>{T("ผจญภัยดาวต่างดาว", "Alien planets", "外星冒险")}</i>
+          </button>
+          <button type="button" className="pvpadv online" onClick={() => { if (playUi) playUi("click"); setAdvOnline(true); setAdvOpen(true); }} aria-label="Adventure Online">
+            <span aria-hidden="true">🌐</span><b>Adventure Online</b><i>{T("เล่นด้วยกันหลายคน", "Co-op with friends", "多人联机")}</i>
           </button>
           <div className="pvphero-hud">
             {squadUsed === "pet" ? (<>
