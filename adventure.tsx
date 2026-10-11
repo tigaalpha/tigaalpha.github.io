@@ -18,7 +18,7 @@ import { addSkillSp, readSkillSp, skillRank } from "./pvp-arena";
 import { classKeyOf } from "./model-skills";
 import { isLowEnd, spaceTier } from "./space-stage";
 import { Piano } from "./music-engine";
-import { logUsage } from "./shared-infra";
+import { logUsage, dayKey } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { nextQuestion, judgeKeys, recordAnswer, readLadder, learnedTopics } from "./quiz-quest";
 
@@ -27,6 +27,29 @@ const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getIt
 const markDone = (id: string) => { try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
 const readCrystals = (): number => { try { return Math.max(0, parseInt(localStorage.getItem("tg_adv_crystals") || "0", 10) || 0); } catch (e) { return 0; } };
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(readCrystals() + n)); } catch (e) {} };
+/* ── phase 3.2: crystal upgrades, daily quests, difficulty ──
+   Crystals come from playing only and are never for sale. Each of the three lines has 5 levels at +5 % each, so the ceiling is a fixed +25 %. */
+export const UP_LINES = ["atk", "hp", "skl"] as const;
+export const UP_MAX = 5;
+export const upCost = (lv: number) => 12 * Math.pow(2, lv);   // 12, 24, 48, 96, 192
+export const readUps = (): any => { try { const v = JSON.parse(localStorage.getItem("tg_adv_up") || "{}") || {}; const o: any = {}; for (const k of UP_LINES) o[k] = Math.max(0, Math.min(UP_MAX, v[k] | 0)); return o; } catch (e) { return { atk: 0, hp: 0, skl: 0 }; } };
+export function buyUp(line: string): boolean {
+  const u = readUps(); if (!(UP_LINES as readonly string[]).includes(line) || u[line] >= UP_MAX) return false;
+  const c = upCost(u[line]); if (readCrystals() < c) return false;
+  try { localStorage.setItem("tg_adv_crystals", String(readCrystals() - c)); u[line]++; localStorage.setItem("tg_adv_up", JSON.stringify(u)); return true; } catch (e) { return false; }
+}
+export const DIFFS = [{ id: "normal", hp: 1, rw: 1 }, { id: "hard", hp: 1.5, rw: 1.4 }, { id: "nightmare", hp: 2.2, rw: 2 }];
+export const readDiff = () => { try { const v = localStorage.getItem("tg_adv_diff"); return DIFFS.find(d => d.id === v) || DIFFS[0]; } catch (e) { return DIFFS[0]; } };
+export const QUESTS = [{ id: "cry", need: 15, exp: 60 }, { id: "right", need: 5, exp: 60 }, { id: "boss", need: 1, exp: 120 }];
+export function readQuests(): any { try { const v = JSON.parse(localStorage.getItem("tg_adv_q") || "{}") || {}; if (v.d === dayKey()) return v; } catch (e) {} return { d: dayKey(), p: { cry: 0, right: 0, boss: 0 }, done: {} }; }
+/** add progress; returns the quests this just completed (each pays its EXP once a day) */
+export function bumpQuest(id: string, n = 1): any[] {
+  const q = readQuests(); const def = QUESTS.find(x => x.id === id); if (!def) return [];
+  q.p[id] = (q.p[id] || 0) + n; const out: any[] = [];
+  if (!q.done[id] && q.p[id] >= def.need) { q.done[id] = 1; out.push(def); }
+  try { localStorage.setItem("tg_adv_q", JSON.stringify(q)); } catch (e) {}
+  return out;
+}
 let TINT: any = null;   // the planet's monster palette (null = Luma's own)
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
@@ -169,6 +192,9 @@ const CSS = `
 .adv-key.on,.adv-key:active{background:rgba(61,220,151,.45)}
 .adv-key.atk{width:84px;height:84px;border-radius:42px;background:linear-gradient(160deg,#ff8a5d,#d9482b);border-color:transparent}
 .adv-key.skl{background:linear-gradient(160deg,#7b61ff,#4a35c9);border-color:transparent}.adv-key.cd{opacity:.45}
+.adv-shop{display:flex;flex-direction:column;gap:6px;margin:10px 0;padding:10px;border-radius:14px;background:rgba(10,40,48,.55);border:1px solid rgba(140,255,220,.25)}
+.adv-shop b{font-size:13px}.adv-up,.adv-q{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;border:1px solid rgba(140,255,220,.3);background:rgba(4,30,36,.6);color:#fff;font-size:13px;min-height:44px}
+.adv-up:disabled{opacity:.5}.adv-up em,.adv-q em{font-style:normal;font-weight:800;color:#7fe8ff}.adv-q.ok{opacity:.7}.adv-q.ok em{color:#7dffa8}
 .adv-key.dash{width:58px;height:58px;border-radius:20px;background:rgba(10,60,80,.65)}
 @media (max-width:600px){.adv-key{width:58px;height:58px;font-size:22px}.adv-key.atk{width:72px;height:72px}.adv-key.dash{width:50px;height:50px}.adv-pad>div{gap:7px}}
 .adv-banner{position:absolute;left:50%;top:26%;transform:translateX(-50%);z-index:5;pointer-events:none;text-align:center;animation:advb 1.8s ease-out forwards}
@@ -208,7 +234,8 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
   const [planet, setPlanet] = useState(null);
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
-  const done = readDone(); const crystals = readCrystals();
+  const [tick, setTick] = useState(0); void tick;
+  const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests();
   const open = (P) => P.ok && (!P.req || done.includes(P.req));
   const t = (th, en, zh) => T3(lang, th, en, zh);
   return (
@@ -229,6 +256,31 @@ export const AdventurePage = memo(function AdventurePage({ lang, me, colorway, h
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
                 <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t("แผนที่ " + (pi + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), "Map " + (pi + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), "地图 " + (pi + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? t("ต้องผ่านบอสลูมาก่อน", "Beat the Luma boss first", "先击败卢玛首领") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
                 <em>{open(P) ? "▶" : "🔒"}</em>
+              </button>
+            ))}
+          </div>
+          <div className="adv-shop" aria-label="Workshop">
+            <b>{t("โรงงาน — อัปเกรดด้วยคริสตัล ◆ " + crystals, "Workshop — upgrade with crystals ◆ " + crystals, "工坊 — 用晶体 ◆ " + crystals + " 升级")}</b>
+            {UP_LINES.map(l => (
+              <button key={l} className="adv-up" data-up={l} disabled={ups[l] >= UP_MAX || crystals < upCost(ups[l])} onClick={() => { if (buyUp(l)) { playUi && playUi("click"); setTick(x => x + 1); } }}>
+                <span>{l === "atk" ? t("พลังโจมตี", "Attack", "攻击") : l === "hp" ? t("เลือด", "Health", "生命") : t("สกิลเร็วขึ้น", "Skill speed", "技能速度")} · Lv {ups[l]}/{UP_MAX} (+{ups[l] * 5}%)</span>
+                <em>{ups[l] >= UP_MAX ? "MAX" : "◆ " + upCost(ups[l])}</em>
+              </button>
+            ))}
+          </div>
+          <div className="adv-shop" aria-label="Daily quests">
+            <b>{t("เควสต์วันนี้ (ได้ EXP)", "Today's quests (EXP)", "今日任务（经验）")}</b>
+            {QUESTS.map(d => (
+              <div key={d.id} className={"adv-q" + (qs.done[d.id] ? " ok" : "")} data-q={d.id}>
+                <span>{d.id === "cry" ? t("เก็บคริสตัล ◆", "Collect crystals ◆", "收集晶体 ◆") : d.id === "right" ? t("ตอบคำถามถูก", "Answer questions right", "答对问题") : t("เอาชนะบอส", "Defeat a boss", "击败首领")} {Math.min(qs.p[d.id] || 0, d.need)}/{d.need}</span>
+                <em>{qs.done[d.id] ? "✓" : "+" + d.exp + " EXP"}</em>
+              </div>
+            ))}
+          </div>
+          <div className="adv-gfx" role="radiogroup" aria-label="Difficulty">
+            {DIFFS.map(d => (
+              <button key={d.id} role="radio" aria-checked={diff.id === d.id} className={diff.id === d.id ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_diff", d.id); } catch (e) {} setTick(x => x + 1); }}>
+                {d.id === "normal" ? t("ปกติ", "Normal", "普通") : d.id === "hard" ? t("ยาก ×1.4 รางวัล", "Hard ×1.4 rewards", "困难 ×1.4 奖励") : t("ฝันร้าย ×2 รางวัล", "Nightmare ×2 rewards", "噩梦 ×2 奖励")}
               </button>
             ))}
           </div>
@@ -274,6 +326,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
   };
   const finishQuiz = (q: any) => {
     setQuiz(null); quizOn.current = false;
+    if (q && q.right > 0) { const l = bumpQuest("right", q.right); for (const d of l) { addRpgExp(me, d.exp); } if (l.length) setBanner({ k: Date.now(), a: "QUEST ✓", b: "+" + l[0].exp + " EXP" }); }
     if (q) logUsage("adv", "quiz:" + P.id + ":" + q.right + "of" + (q.qs ? q.qs.length : 3));
     if (q && q.right > 0) setBanner({ k: Date.now(), a: t("ทบทวนสำเร็จ!", "REVIEW DONE!", "复习完成！"), b: t(`ตอบถูก ${q.right}/3 — ได้ EXP และแต้มสกิล`, `${q.right}/3 right — EXP and skill points earned`, `答对 ${q.right}/3，获得经验和技能点`) });
   };
@@ -310,9 +363,12 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const stat = () => { const info = rpgOf(me); return { info, mods: rpgMods(info.pts) }; };
     let { info, mods } = stat();
     const skillOf = () => skillRank(readSkillSp()[cls] || 0);
-    const hpMaxOf = (lv) => 120 + lv * 11;
+    const UPS = readUps(), DF = readDiff();
+    const hpMaxOf = (lv) => Math.round((120 + lv * 11) * (1 + 0.05 * UPS.hp));
     TINT = P.tint || null;
-    const HM = P.hard || 1;
+    const HM = (P.hard || 1) * DF.hp, RW = DF.rw, CV = DF.id === "normal" ? 1 : DF.id === "hard" ? 2 : 3;   // reward multiplier, crystals per pickup
+    const questDone = (list: any[]) => { for (const d of list) { addRpgExp(me, d.exp); pop(pl.x, GROUND - pl.y - 130, "QUEST +" + d.exp + " EXP", "#ffd23f"); } };
+    const gainCry = (n: number) => { crystals += n; addCrystals(n); questDone(bumpQuest("cry", n)); };
     const pl: any = { x: 160, y: 0, vy: 0, face: 1, hp: hpMaxOf(info.lv), atkCd: 0, sklCd: 0, hurtT: 0, inv: 0, dead: 0, ground: true, swing: 0, dashCd: 0, dashT: 0, combo: 0, comboT: 0, maxCombo: 0 };
     const teleGaps: number[] = [];
     const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: Math.round(MON[type].hp * HM), max: Math.round(MON[type].hp * HM), face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, tele: 0, act: "", teleAt: 0, i });
@@ -331,7 +387,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const step = high ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
-    const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult; const crit = Math.random() < 0.08 + mods.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
+    const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult * (1 + 0.05 * UPS.atk); const crit = Math.random() < 0.08 + mods.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
     const hurtMon = (m, v, crit, kx) => {
       m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
       pop(m.x, GROUND - m.y - 60, String(v), crit ? "#ffd23f" : "#ffffff");
@@ -339,7 +395,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       if (m.hp <= 0) {
         m.dead = 1; m.resp = 14; kills++;
         const d = MON[m.type];
-        const gain = Math.round(d.exp * HM); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.max(1, Math.round(gain / 3)));
+        const gain = Math.round(d.exp * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.max(1, Math.round(gain / 3)));
         pop(m.x, GROUND - 90, "+" + gain + " EXP", "#9dffd6");
         if (Math.random() < 0.22) drops.push({ x: m.x, y: 20, vy: 160, t: "hp" });
         if (Math.random() < 0.5) drops.push({ x: m.x + (Math.random() - 0.5) * 30, y: 20, vy: 200, t: "cry" });
@@ -366,11 +422,11 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       for (let i = 0; i < (high ? 6 : 2); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, "255,255,255", 2.5);
       if (boss.hp <= 0) {
         boss.dead = 1; boss.hp = 0; shots.length = 0; waves.length = 0; kills++;
-        const gain = Math.round(220 * HM); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3));
+        const gain = Math.round(220 * (P.hard || 1) * RW); const rpg = addRpgExp(me, gain); addSkillSp(cls, Math.round(gain / 3));
         for (let i = 0; i < 12; i++) drops.push({ x: boss.x + (i - 6) * 16, y: 40 + i * 6, vy: 220, t: "cry" });
         drops.push({ x: boss.x, y: 60, vy: 220, t: "hp" });
         for (let i = 0; i < (high ? 50 : 16); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 520, -Math.random() * 380, 1, i % 2 ? P.glow : P.acc, 4);
-        markDone(P.id); shake = 10; logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
+        markDone(P.id); shake = 10; questDone(bumpQuest("boss", 1)); logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
         info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
         const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1];
         setBanner({ k: Date.now(), a: t("เอาชนะบอสแล้ว! +" + gain + " EXP", "BOSS DOWN! +" + gain + " EXP", "击败首领！+" + gain + " 经验"), b: nx && nx.ok ? t("ปลดล็อก " + nx.en.split(" · ")[0] + " แล้ว", nx.en.split(" · ")[0] + " unlocked", "已解锁 " + nx.en.split(" · ")[0]) : t("ประตูวาร์ปเปิดแล้ว", "The warp gate is open", "传送门已开启") });
@@ -392,7 +448,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     const skill = () => {
       const sr = skillOf();
       if (pl.dead || pl.sklCd > 0) return;
-      pl.sklCd = 4.5 / (1 + 0.04 * (sr.rank - 1)); pl.swing = 0.3; setPose("kick"); setTimeout(() => setPose("ready"), 260);
+      pl.sklCd = 4.5 * (1 - 0.05 * UPS.skl) / (1 + 0.04 * (sr.rank - 1)); pl.swing = 0.3; setPose("kick"); setTimeout(() => setPose("ready"), 260);
       shake = Math.max(shake, high ? 7 : 3);
       for (let a = 0; a < (high ? 28 : 10); a++) { const ang = (a / (high ? 28 : 10)) * Math.PI * 2; addPart(pl.x, GROUND - pl.y - 40, Math.cos(ang) * 320, Math.sin(ang) * 220, 0.5, "123,97,255", 3.5); }
       slashes.push({ x: pl.x, y: pl.y + 40, face: 0, life: 0.3, nova: true });
@@ -482,7 +538,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
       for (const w of waves) { w.x += w.dir * 260 * dt; w.life -= dt; if (Math.abs(w.x - pl.x) < 22 && pl.y < 34) { hurtPlayer(Math.round(16 * HM), w.x); w.life = 0; } }
       for (let i = waves.length - 1; i >= 0; i--) if (waves[i].life <= 0) waves.splice(i, 1);
       for (const d of drops) { d.vy -= 700 * dt; d.y += d.vy * dt; if (d.y < 0) { d.y = 0; d.vy = 0; } if (pl.dead <= 0 && Math.abs(d.x - pl.x) < 34 && Math.abs(d.y - pl.y) < 60) { d.got = true;
-        if (d.t === "hp") { pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.18); pop(pl.x, GROUND - pl.y - 100, "+HP", "#8dffb0"); } else { crystals++; addCrystals(1); pop(pl.x, GROUND - pl.y - 100, "◆", "#7fe8ff"); } } }
+        if (d.t === "hp") { pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.18); pop(pl.x, GROUND - pl.y - 100, "+HP", "#8dffb0"); } else { gainCry(CV); pop(pl.x, GROUND - pl.y - 100, "◆" + (CV > 1 ? "×" + CV : ""), "#7fe8ff"); } } }
       for (let i = drops.length - 1; i >= 0; i--) if (drops[i].got) drops.splice(i, 1);
       for (const s of shots) { s.x += s.vx * dt; s.life -= dt; if (Math.abs(s.x - pl.x) < 18 && Math.abs(s.y - pl.y - 40) < 40 && s.life > 0) { hurtPlayer(s.d, s.x); s.life = 0; } }
       for (let i = shots.length - 1; i >= 0; i--) if (shots[i].life <= 0) shots.splice(i, 1);
@@ -590,7 +646,7 @@ const Run = memo(function Run({ P, gfx, lang, me, colorway, held, hat, acc, petN
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, drops: () => drops.length, fps: () => 0 };
+    (window as any).__advTest = { beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
     return () => { if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
