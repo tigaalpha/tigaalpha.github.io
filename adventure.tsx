@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "react";
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { createAdvSfx } from "./adventure-sfx";
+import { paintMonster, paintBoss } from "./adventure-monsters";
 import { openAdvRoom, MAX_PILOTS, type Net } from "./adv-online";
 import { treeOf, lvOf, buySkillLv, toggleEquip, readEquip, equippedOf, passiveSum, powerAt, cdAt, skillLook, skillSound, skillDesc, skillCost, isPassive, SKILL_MAX_LV, type Skill } from "./skill-tree";
 import { voiceOf } from "./fx-voice";
@@ -101,21 +102,21 @@ let TINT: any = null;
 const AdventureShip = lazy(() => import("./adventure-ship"));   // the starship dogfight: its own chunk
 const AdventureCine = lazy(() => import("./adventure-cine"));   // the film before each map: its own chunk, loaded when a map is picked
 let KEEP_FS = false;   // going straight to the next map keeps the full screen: the old run's cleanup must not leave it   // the planet's monster palette (null = Luma's own)
-const TALL = new Set(["sporecaster", "frostcaster", "flarecaster", "drone"]);   // hovering shooters: their bar and warning sit higher
+const TALL = new Set(["sporecaster", "frostcaster", "flarecaster", "drone", "wraith", "eyeball"]);   // hovering shooters: their bar and warning sit higher
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 /* the five planets (only the first is playable in this phase) */
 export const PLANETS = [
-  { id: "luma",   th: "ลูมา · ดาวป่าเรืองแสง",   en: "Luma · the glowing jungle", zh: "卢玛 · 荧光丛林",   c: ["#04131c", "#0a3a3a", "#1c8a6a"], glow: "90,255,200", acc: "255,120,220", ok: true, hard: 1, mons: ["glowbug", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster"], tint: null, boss: ["ผู้พิทักษ์ลูมา", "Luma Warden", "卢玛守卫"] },
-  { id: "ferro",  th: "เฟอร์โร · ทะเลทรายเหล็ก",  en: "Ferro · the iron desert",   zh: "费罗 · 钢铁沙漠",   c: ["#1a0d05", "#4a2410", "#b8672c"], glow: "255,170,90", acc: "255,90,60",  ok: true, req: "luma", hard: 1.7, mons: ["rustcrawler", "rustcrawler", "magnet", "thornback", "rustcrawler", "magnet", "glowbug", "magnet"], tint: { glow: "255,150,70", body: "#4a2410" }, boss: ["ผู้พิทักษ์เหล็ก", "Iron Warden", "钢铁守卫"] },
-  { id: "jovia",  th: "โจเวีย · ดาวแก๊สยักษ์ (เก็บพลังงาน)", en: "Jovia · the gas giant (energy harvest)", zh: "朱维亚 · 气态巨行星（采集能量）", c: ["#0d0a2a", "#3a2a7a", "#c98a4a"], glow: "255,190,110", acc: "255,120,90", ok: true, req: "ferro", hard: 1.9, survival: true, mons: ["rustcrawler", "shardling", "glowbug", "magnet", "shardling"], tint: { glow: "255,190,110", body: "#3a2a1a" }, boss: ["-", "-", "-"] },
-  { id: "kryo",   th: "ไครโอ · ดาวน้ำแข็งคริสตัล", en: "Kryo · the crystal ice",    zh: "克里奥 · 水晶冰原", c: ["#061427", "#123a63", "#6fc4ff"], glow: "150,225,255", acc: "120,160,255", ok: true, req: "ferro", hard: 2.4, mons: ["shardling", "shardling", "frostcaster", "thornback", "frostcaster", "shardling", "thornback"], tint: { glow: "150,225,255", body: "#12304a" }, boss: ["ผู้พิทักษ์น้ำแข็ง", "Frost Warden", "冰霜守卫"] },
-  { id: "pyra",   th: "ไพรา · เตาปฏิกรณ์ลาวา",    en: "Pyra · the lava reactor",   zh: "派拉 · 熔岩反应堆", c: ["#1c0606", "#5a1408", "#ff6a2a"], glow: "255,120,50", acc: "255,200,60",  ok: true, req: "kryo", hard: 3.0, hazard: "lava", mons: ["magmaling", "magmaling", "flarecaster", "thornback", "flarecaster", "magmaling", "thornback"], tint: { glow: "255,120,50", body: "#3a0c06" }, boss: ["ผู้พิทักษ์แกนลาวา", "Core Warden", "熔核守卫"] },
-  { id: "nexa",   th: "เน็กซา · เมืองซากอวกาศ",   en: "Nexa · the wreck city",     zh: "内克萨 · 残骸之城", c: ["#0a0518", "#2a1250", "#9a5cff"], glow: "190,150,255", acc: "63,240,208",  ok: true, req: "pyra", hard: 3.8, hazard: "shock", enrage: true, mons: ["drone", "scrapgolem", "drone", "rustcrawler", "drone", "scrapgolem"], tint: { glow: "190,150,255", body: "#1e1236" }, boss: ["จอมคุมแห่งเน็กซา", "Nexa Overseer", "内克萨监管者"] },
-  { id: "cobalt", th: "โคบอลต์ · แถบเหมืองดาวเคราะห์น้อย (ขุดแร่ส่งกลับโลก)", en: "Cobalt Belt · mine ore, ship it to Earth", zh: "钴带 · 采矿并运回地球", c: ["#0a1220", "#1c3a5a", "#4a90c8"], glow: "110,190,255", acc: "255,200,90", ok: true, req: "ferro", hard: 2.0, mission: "mine", mons: ["rustcrawler", "shardling", "magnet", "rustcrawler"], tint: { glow: "110,190,255", body: "#16283c" }, boss: ["-", "-", "-"] },
-  { id: "helios", th: "เฮลิออส · ยึดดาวฤกษ์ต่างระบบ", en: "Helios · capture a foreign sun", zh: "赫利俄斯 · 占领异星恒星", c: ["#2a0a00", "#8a3a00", "#ffb030"], glow: "255,200,90", acc: "255,120,60", ok: true, req: "kryo", hard: 2.8, mission: "capture", mons: ["magmaling", "flarecaster", "drone", "magmaling"], tint: { glow: "255,190,80", body: "#4a1a06" }, boss: ["-", "-", "-"] },
-  { id: "dyson", th: "ไดสันฟอร์จ · สร้างไดสันสเฟียร์รอบดาวฤกษ์ต่างจักรวาล", en: "Dyson Forge · build a Dyson sphere round a foreign star", zh: "戴森锻炉 · 为异宇宙恒星建造戴森球", c: ["#1a0600", "#6a2a00", "#ffd060"], glow: "255,210,110", acc: "120,220,255", ok: true, req: "helios", hard: 3.2, mission: "dyson", mons: ["magmaling", "flarecaster", "drone", "magmaling", "scrapgolem"], tint: { glow: "255,200,90", body: "#4a1a06" }, boss: ["-", "-", "-"] },
-  { id: "ashfall", th: "แอชฟอลล์ · ทิ้งนิวเคลียร์ก่อนแล้วค่อยบุก", en: "Ashfall · orbital strike, then assault", zh: "灰烬星 · 先轨道核打击再突袭", c: ["#12120e", "#3a3a2a", "#8a8a5a"], glow: "220,210,140", acc: "255,90,60", ok: true, req: "pyra", hard: 3.4, mission: "strike", mons: ["scrapgolem", "drone", "scrapgolem", "rustcrawler", "drone", "magmaling"], tint: { glow: "220,200,120", body: "#26261c" }, boss: ["ผู้บัญชาการแอชฟอลล์", "Ashfall Commander", "灰烬指挥官"] },
+  { id: "luma",   th: "ลูมา · ดาวป่าเรืองแสง",   en: "Luma · the glowing jungle", zh: "卢玛 · 荧光丛林",   c: ["#04131c", "#0a3a3a", "#1c8a6a"], glow: "90,255,200", acc: "255,120,220", ok: true, hard: 1, mons: ["glowbug", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster", "glowbug", "thornback", "sporecaster", "hound", "swarmer", "spitter"], tint: null, boss: ["ผู้พิทักษ์ลูมา", "Luma Warden", "卢玛守卫"] },
+  { id: "ferro",  th: "เฟอร์โร · ทะเลทรายเหล็ก",  en: "Ferro · the iron desert",   zh: "费罗 · 钢铁沙漠",   c: ["#1a0d05", "#4a2410", "#b8672c"], glow: "255,170,90", acc: "255,90,60",  ok: true, req: "luma", hard: 1.7, mons: ["rustcrawler", "rustcrawler", "magnet", "thornback", "rustcrawler", "magnet", "glowbug", "magnet", "mantis", "hound"], tint: { glow: "255,150,70", body: "#4a2410" }, boss: ["ผู้พิทักษ์เหล็ก", "Iron Warden", "钢铁守卫"] },
+  { id: "jovia",  th: "โจเวีย · ดาวแก๊สยักษ์ (เก็บพลังงาน)", en: "Jovia · the gas giant (energy harvest)", zh: "朱维亚 · 气态巨行星（采集能量）", c: ["#0d0a2a", "#3a2a7a", "#c98a4a"], glow: "255,190,110", acc: "255,120,90", ok: true, req: "ferro", hard: 1.9, survival: true, mons: ["rustcrawler", "shardling", "glowbug", "magnet", "shardling", "wraith", "eyeball"], tint: { glow: "255,190,110", body: "#3a2a1a" }, boss: ["-", "-", "-"] },
+  { id: "kryo",   th: "ไครโอ · ดาวน้ำแข็งคริสตัล", en: "Kryo · the crystal ice",    zh: "克里奥 · 水晶冰原", c: ["#061427", "#123a63", "#6fc4ff"], glow: "150,225,255", acc: "120,160,255", ok: true, req: "ferro", hard: 2.4, mons: ["shardling", "shardling", "frostcaster", "thornback", "frostcaster", "shardling", "thornback", "burrower", "wraith"], tint: { glow: "150,225,255", body: "#12304a" }, boss: ["ผู้พิทักษ์น้ำแข็ง", "Frost Warden", "冰霜守卫"] },
+  { id: "pyra",   th: "ไพรา · เตาปฏิกรณ์ลาวา",    en: "Pyra · the lava reactor",   zh: "派拉 · 熔岩反应堆", c: ["#1c0606", "#5a1408", "#ff6a2a"], glow: "255,120,50", acc: "255,200,60",  ok: true, req: "kryo", hard: 3.0, hazard: "lava", mons: ["magmaling", "magmaling", "flarecaster", "thornback", "flarecaster", "magmaling", "thornback", "brute", "hound"], tint: { glow: "255,120,50", body: "#3a0c06" }, boss: ["ผู้พิทักษ์แกนลาวา", "Core Warden", "熔核守卫"] },
+  { id: "nexa",   th: "เน็กซา · เมืองซากอวกาศ",   en: "Nexa · the wreck city",     zh: "内克萨 · 残骸之城", c: ["#0a0518", "#2a1250", "#9a5cff"], glow: "190,150,255", acc: "63,240,208",  ok: true, req: "pyra", hard: 3.8, hazard: "shock", enrage: true, mons: ["drone", "scrapgolem", "drone", "rustcrawler", "drone", "scrapgolem", "mantis", "eyeball"], tint: { glow: "190,150,255", body: "#1e1236" }, boss: ["จอมคุมแห่งเน็กซา", "Nexa Overseer", "内克萨监管者"] },
+  { id: "cobalt", th: "โคบอลต์ · แถบเหมืองดาวเคราะห์น้อย (ขุดแร่ส่งกลับโลก)", en: "Cobalt Belt · mine ore, ship it to Earth", zh: "钴带 · 采矿并运回地球", c: ["#0a1220", "#1c3a5a", "#4a90c8"], glow: "110,190,255", acc: "255,200,90", ok: true, req: "ferro", hard: 2.0, mission: "mine", mons: ["rustcrawler", "shardling", "magnet", "rustcrawler", "swarmer", "burrower"], tint: { glow: "110,190,255", body: "#16283c" }, boss: ["-", "-", "-"] },
+  { id: "helios", th: "เฮลิออส · ยึดดาวฤกษ์ต่างระบบ", en: "Helios · capture a foreign sun", zh: "赫利俄斯 · 占领异星恒星", c: ["#2a0a00", "#8a3a00", "#ffb030"], glow: "255,200,90", acc: "255,120,60", ok: true, req: "kryo", hard: 2.8, mission: "capture", mons: ["magmaling", "flarecaster", "drone", "magmaling", "wraith", "eyeball"], tint: { glow: "255,190,80", body: "#4a1a06" }, boss: ["-", "-", "-"] },
+  { id: "dyson", th: "ไดสันฟอร์จ · สร้างไดสันสเฟียร์รอบดาวฤกษ์ต่างจักรวาล", en: "Dyson Forge · build a Dyson sphere round a foreign star", zh: "戴森锻炉 · 为异宇宙恒星建造戴森球", c: ["#1a0600", "#6a2a00", "#ffd060"], glow: "255,210,110", acc: "120,220,255", ok: true, req: "helios", hard: 3.2, mission: "dyson", mons: ["magmaling", "flarecaster", "drone", "magmaling", "scrapgolem", "brute", "wraith"], tint: { glow: "255,200,90", body: "#4a1a06" }, boss: ["-", "-", "-"] },
+  { id: "ashfall", th: "แอชฟอลล์ · ทิ้งนิวเคลียร์ก่อนแล้วค่อยบุก", en: "Ashfall · orbital strike, then assault", zh: "灰烬星 · 先轨道核打击再突袭", c: ["#12120e", "#3a3a2a", "#8a8a5a"], glow: "220,210,140", acc: "255,90,60", ok: true, req: "pyra", hard: 3.4, mission: "strike", mons: ["scrapgolem", "drone", "scrapgolem", "rustcrawler", "drone", "magmaling", "mantis", "brute"], tint: { glow: "220,200,120", body: "#26261c" }, boss: ["ผู้บัญชาการแอชฟอลล์", "Ashfall Commander", "灰烬指挥官"] },
   { id: "voidgate", th: "วอยด์เกต · ขับยานรบสู้ฝูงเอเลี่ยน", en: "Void Gate · starship dogfight", zh: "虚空之门 · 驾驶战机空战", c: ["#02030c", "#1a1240", "#6a4cff"], glow: "130,170,255", acc: "255,120,90", ok: true, req: "kryo", hard: 2.6, mission: "dogfight", mons: ["drone"], tint: null, boss: ["เรือแม่ของเอเลี่ยน", "the alien Mothership", "外星母舰"] },
 ];
 
@@ -152,6 +153,14 @@ const MON = {
   flarecaster: { hp: 62, dmg: 14, speed: 24, exp: 32, w: 46, h: 62, cd: 1900, name: ["ผู้เรียกเปลวเพลิง", "Flarecaster", "烈焰术士"], ranged: true },
   scrapgolem:  { hp: 150, dmg: 20, speed: 30, exp: 46, w: 80, h: 70, cd: 1600, name: ["โกเลมเศษเหล็ก", "Scrap Golem", "废铁魔像"] },
   drone:       { hp: 48, dmg: 12, speed: 40, exp: 28, w: 44, h: 40, cd: 1700, name: ["โดรนซาก", "Wreck Drone", "残骸无人机"], ranged: true },
+  hound:       { hp: 44, dmg: 12, speed: 125, exp: 20, w: 56, h: 36, cd: 800,  name: ["หมาป่าเงา", "Shadow Hound", "暗影猎犬"] },
+  mantis:      { hp: 90, dmg: 17, speed: 70,  exp: 34, w: 40, h: 82, cd: 1200, name: ["แมนทิสใบมีด", "Blade Mantis", "刀锋螳螂"] },
+  brute:       { hp: 190, dmg: 22, speed: 34, exp: 52, w: 92, h: 100, cd: 1700, name: ["บรูทยักษ์", "Warbrute", "战斗蛮兽"] },
+  burrower:    { hp: 70, dmg: 14, speed: 0,  exp: 26, w: 44, h: 80, cd: 1300, name: ["หนอนขุดดิน", "Burrower", "掘地虫"] },
+  swarmer:     { hp: 22, dmg: 6,  speed: 110, exp: 8,  w: 56, h: 26, cd: 650,  name: ["ฝูงแมลงร้อน", "Swarmer", "虫群"] },
+  wraith:      { hp: 50, dmg: 12, speed: 28, exp: 30, w: 44, h: 70, cd: 2100, name: ["วิญญาณล่องลอย", "Wraith", "幽灵"], ranged: true },
+  spitter:     { hp: 60, dmg: 13, speed: 24, exp: 26, w: 60, h: 40, cd: 1900, name: ["คางคกพ่นกรด", "Acid Spitter", "酸液蟾"], ranged: true },
+  eyeball:     { hp: 58, dmg: 13, speed: 22, exp: 32, w: 52, h: 70, cd: 2000, name: ["ดวงตาเฝ้ามอง", "Watcher", "窥视之眼"], ranged: true },
   sporecaster: { hp: 52, dmg: 11, speed: 30,  exp: 26, w: 52, h: 60, cd: 2200, name: ["สปอร์คาสเตอร์", "Sporecaster", "孢子术士"], ranged: true },
 };
 
@@ -218,6 +227,7 @@ function drawMonster(x, m, t, k, G) {
   x.save(); x.translate(m.x, 0);
   const flip = m.face < 0 ? -1 : 1; x.scale(flip, 1);
   const hit = m.hurt > 0;
+  if (paintMonster(x, m, t, GROUND, hit, TINT ? TINT.glow : "190,130,255", TINT ? TINT.body : null)) { x.restore(); return; }
   const body = hit ? "#ffffff" : TINT ? TINT.body : m.type === "glowbug" ? "#0e5a4a" : m.type === "thornback" ? "#3a1030" : "#2a1a66";
   const glow = TINT ? TINT.glow : m.type === "glowbug" ? "90,255,200" : m.type === "thornback" ? "255,70,90" : "190,130,255";
   if (m.type === "magmaling") {
@@ -281,18 +291,7 @@ function drawMonster(x, m, t, k, G) {
 }
 
 /* the end-of-map guardian: a big armoured shape in the planet's colours; it flashes before each attack */
-function drawBoss(x, b, t, P) {
-  const bob = Math.sin(t * 2) * 3, y = GROUND - 8 + bob, hit = b.hurt > 0, warn = b.tele > 0;
-  x.save(); x.translate(b.x, 0); x.scale(b.face < 0 ? -1 : 1, 1);
-  const lift = b.state === "slam" && b.tele > 0 ? -22 * Math.min(1, (0.6 - b.tele) * 3) : 0;
-  x.fillStyle = "#06090d"; for (let i = 0; i < 4; i++) { const lx = -52 + i * 34; x.fillRect(lx, y - 20, 16, 22); }
-  x.fillStyle = hit ? "#fff" : warn ? "#7a2030" : "#1c2230";
-  x.beginPath(); x.moveTo(-76, y - 14 + lift); x.quadraticCurveTo(-70, y - 118 + lift, 0, y - 112 + lift); x.quadraticCurveTo(76, y - 108 + lift, 84, y - 22 + lift); x.lineTo(60, y - 8 + lift); x.lineTo(-60, y - 8 + lift); x.closePath(); x.fill();
-  x.fillStyle = hit ? "#fff" : `rgba(${P.glow},.55)`; for (let i = 0; i < 6; i++) { x.beginPath(); x.moveTo(-54 + i * 20, y - 96 + lift + Math.abs(i - 2.5) * 5); x.lineTo(-46 + i * 20, y - 138 + lift + Math.abs(i - 2.5) * 9); x.lineTo(-38 + i * 20, y - 98 + lift + Math.abs(i - 2.5) * 5); x.closePath(); x.fill(); }
-  x.globalCompositeOperation = "lighter"; x.fillStyle = warn ? "rgba(255,70,90,.9)" : `rgba(${P.acc},.9)`;
-  x.beginPath(); x.arc(46, y - 70 + lift, 9, 0, 7); x.fill(); x.fillStyle = `rgba(${P.glow},.5)`; x.fillRect(-30, y - 62 + lift, 54, 5);
-  x.globalCompositeOperation = "source-over"; x.restore();
-}
+function drawBoss(x, b, t, P) { paintBoss(x, b, t, P, GROUND); }
 
 const CSS = `
 .adv{position:fixed;inset:0;z-index:2400;background:#02070c;color:#e8fffa;font-family:var(--f-app,system-ui);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
