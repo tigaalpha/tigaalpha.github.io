@@ -56,6 +56,8 @@ MOODS.dyson = { ...MOODS.helios, bpm: 126, gain: 0.62 };
 MOODS.voidgate = { ...MOODS.nexa, bpm: 138, gain: 0.6 };
 MOODS.kindred = { ...MOODS.kryo, bpm: 104, gain: 0.66 };
 MOODS.darkforge = { ...MOODS.nexa, bpm: 92, root: 50, gain: 0.62 };
+MOODS.prologue = { ...MOODS.kryo, bpm: 78, root: 45, gain: 0.7 };   // the opening film: slow, wide, a little sad
+MOODS.finale = { ...MOODS.nexa, bpm: 70, root: 43, gain: 0.66 };
 MOODS.shadow = { ...MOODS.nexa, bpm: 84, root: 47, gain: 0.58 };
 MOODS.ashfall = { ...MOODS.pyra, bpm: 112, root: 50, scale: MIN, gain: 0.6 };
 MOODS.moonhe3 = { ...MOODS.kryo, bpm: 88, gain: 0.58 };
@@ -257,12 +259,12 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
   hs(400, 0.3, 4, Math.max(0, total - 4.5), "bandpass", 9000); tim(Math.max(0, total - 0.3), 1.6);
   return { total, starts };
 }
-export type CineAudio = { stop: () => void };
+export type CineAudio = { stop: () => void; resume: () => void; running: () => boolean };
 export function createCineAudio(moodId: string, plan: CineShot[]): CineAudio | null {
   try {
     const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return null; const ctx: AudioContext = new AC(); const m = ctx.createGain(); m.gain.value = 0.3; const comp = ctx.createDynamicsCompressor(); m.connect(comp); comp.connect(ctx.destination);
     ctx.resume().catch(() => {}); const r = scheduleCineScore(ctx, m, moodId, plan, 14); m.gain.setValueAtTime(0.3, ctx.currentTime + r.total + 12); m.gain.linearRampToValueAtTime(0, ctx.currentTime + r.total + 14);
-    return { stop() { try { m.gain.setTargetAtTime(0, ctx.currentTime, 0.12); setTimeout(() => { try { ctx.close(); } catch (e) {} }, 500); } catch (e) {} } };
+    return { stop() { try { m.gain.setTargetAtTime(0, ctx.currentTime, 0.12); setTimeout(() => { try { ctx.close(); } catch (e) {} }, 500); } catch (e) {} }, resume() { try { ctx.resume().catch(() => {}); } catch (e) {} }, running: () => ctx.state === "running" };
   } catch (e) { return null; }
 }
 export async function renderCinePreview(id: string, plan: CineShot[]) {
