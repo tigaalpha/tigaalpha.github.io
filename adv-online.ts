@@ -55,3 +55,20 @@ export async function openAdvRoom(code: string | null, me: { name: string; model
 
 /** Team war (plan 33 O3): teams are the pilots sorted by id, alternating, so every client works out the same split with no extra message. */
 export const warTeamOf = (net: Net, id: string): number => { const ids = [net.id, ...net.peers.keys()].sort(); return Math.max(0, ids.indexOf(id)) % 2; };
+
+/* Public room list (plan 33 O4; the SQL is supabase-adv-public-rooms-migration.sql, applied by the owner 2026-10-12).
+   Only an advertisement: gameplay still runs on the advo:<CODE> channel. Every call fails soft, so a missing table or a signed-out player
+   just means "no public list" and never breaks the lobby. */
+export type PublicRoom = { code: string; host_name: string; map_id: string; war: boolean; pilots: number };
+export async function listPublicRooms(): Promise<PublicRoom[]> {
+  try { const { data, error } = await sb.rpc("adv_rooms_list"); if (error || !Array.isArray(data)) return []; return data.filter((r: any) => r && /^[A-Z0-9]{6}$/.test(r.code)).slice(0, 20); } catch (e) { return []; }
+}
+export async function publicRoomOpen(code: string, name: string, map: string, war: boolean): Promise<boolean> {
+  try { const { error } = await sb.rpc("adv_room_open", { p_code: code, p_name: name, p_map: map, p_war: war }); return !error; } catch (e) { return false; }
+}
+export async function publicRoomPing(code: string, pilots: number, map: string, war: boolean): Promise<void> {
+  try { await sb.rpc("adv_room_ping", { p_code: code, p_pilots: pilots, p_map: map, p_war: war }); } catch (e) {}
+}
+export async function publicRoomClose(code: string): Promise<void> {
+  try { await sb.rpc("adv_room_close", { p_code: code }); } catch (e) {}
+}
