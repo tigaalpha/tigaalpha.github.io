@@ -477,7 +477,7 @@ const CSS = `
 .ab-list{display:grid;gap:6px;max-height:260px;overflow:auto}.ab-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 9px;border-radius:9px;background:rgba(0,0,0,.28);font-size:12px}.ab-row.lock{opacity:.5}.ab-row.eq{outline:1.5px solid #ffd23f}
 .ab-row small{grid-column:1/2;opacity:.85;font-size:11px}.ab-row em{font-style:normal;font-size:10px;opacity:.8;grid-column:1/2}.ab-btns{grid-column:2/3;grid-row:1/4;display:flex;flex-direction:column;gap:4px;justify-content:center}.ab-btns button{padding:5px 8px;border-radius:8px;border:0;font-weight:800;font-size:11px;background:#2b3a5a;color:#fff}.ab-btns button.on{background:#d9a21b}.ab-btns button:disabled{opacity:.45}
 .adv-ship{position:absolute;inset:0;z-index:5;background:#02030c}.adv-ship canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.adv-world{position:absolute;inset:0;will-change:transform}
+.adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.adv-world{position:absolute;inset:0;will-change:transform}.adv-3d{position:absolute;inset:0;pointer-events:none}.adv-3dmsg{position:absolute;left:50%;top:76px;transform:translateX(-50%);z-index:9;background:rgba(10,14,24,.86);color:#ffe;padding:8px 14px;border-radius:999px;font:700 13px system-ui;animation:adv3dmsg 4s forwards}@keyframes adv3dmsg{0%,85%{opacity:1}100%{opacity:0}}
 .adv-px{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
 .adv-px svg{width:100%;height:100%;display:block;overflow:visible}.adv-wpn{position:absolute;left:52%;top:36%;width:62%;height:22%;pointer-events:none;transform-origin:16% 55%}.adv-wpn svg{width:100%;height:100%}
 .adv-top{position:absolute;left:0;right:0;top:0;display:flex;gap:8px;align-items:center;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:linear-gradient(180deg,rgba(0,8,14,.7),rgba(0,8,14,0));z-index:4}
@@ -597,8 +597,9 @@ const CSS = `
 .adv-pad .pvppad-r .pvpact[data-slot="2"]{grid-area:4/2}.adv-pad .pvppad-r .pvpact[data-slot="1"]{grid-area:4/3}.adv-pad .pvppad-r .pvpact[data-slot="0"]{grid-area:4/4}.adv-pad .pvppad-r .pvpact.spell{grid-area:4/5}
 `;
 
-type Gfx = "standard" | "high";
-function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx"); if (v === "standard" || v === "high") return v; } catch (e) {} return (isLowEnd() || spaceTier() <= 1) ? "standard" : "high"; }
+type Gfx = "standard" | "high" | "3d";
+const can3dNow = () => { try { return !isLowEnd() && spaceTier() >= 2; } catch (e) { return false; } };   // the same test as `can3d` in adventure-3d.tsx (kept here so the 3D chunk is not loaded to ask)
+function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx"); if (v === "standard" || v === "high") return v; if (v === "3d" && can3dNow()) return v; } catch (e) {} return (isLowEnd() || spaceTier() <= 1) ? "standard" : "high"; }
 
 const T3 = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
 
@@ -804,7 +805,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
-          getNext={() => (net ? null : nextOf(planet))} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
+          getNext={() => (net ? null : nextOf(planet))} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "standard" ? "high" : "standard"))} onGfxLevel={(v: Gfx) => setGfx(v)} />
         }</AdvGuard>
       )}
       {shipQuiz && <QuizGate key={gateKeyOf(shipQuiz)} quiz={shipQuiz} lang={lang} onKey={(pc, name) => {
@@ -920,8 +921,20 @@ function StrikePhase({ P, lang, playUi, onDone, onBack }: any) {
 }
 
 /** One run on one planet. The game state lives in refs and a canvas: React only draws the HUD (a few times a second). */
-const Run = memo(function Run({ net = null, onReward = null, getNext = null, onNext = null, strikeMask = null, P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx }: any) {
-  const high = gfx === "high"; const highRef = useRef(high); highRef.current = high;
+const Run = memo(function Run({ net = null, onReward = null, getNext = null, onNext = null, strikeMask = null, P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx, onGfxLevel }: any) {
+  const is3d = gfx === "3d"; const high = gfx === "high" || is3d; const highRef = useRef(high); highRef.current = high;
+  const is3dRef = useRef(is3d); is3dRef.current = is3d; const a3dRef = useRef<any>(null), host3dRef = useRef<HTMLDivElement>(null), onLevelRef = useRef(onGfxLevel); onLevelRef.current = onGfxLevel;
+  const [a3dMsg, setA3dMsg] = useState<string | null>(null);
+  useEffect(() => {   // 3D quality: build the Three.js backdrop behind the 2D canvas (lazy chunk); any failure puts the run back on 2D High
+    if (!is3d) { if (a3dRef.current) { a3dRef.current.dispose(); a3dRef.current = null; } return undefined; }
+    let dead = false;
+    import("./adventure-3d").then(m => {
+      if (dead) return; const host = host3dRef.current; const sc = host ? m.createAdv3D(host, P, { mid: (MID_STYLE as any)[P.id] || "mushroom", near: (NEAR_STYLE as any)[P.id] || "ferns" }, WORLD) : null;
+      if (!sc) { setA3dMsg("3D is not available on this device: back to 2D High"); if (onLevelRef.current) onLevelRef.current("high"); return; }
+      a3dRef.current = sc;
+    }).catch(() => { if (!dead) { setA3dMsg("3D failed to load: back to 2D High"); if (onLevelRef.current) onLevelRef.current("high"); } });
+    return () => { dead = true; if (a3dRef.current) { a3dRef.current.dispose(); a3dRef.current = null; } };
+  }, [is3d, P.id]);
   useEffect(() => { try { window.dispatchEvent(new Event("resize")); } catch (e) {} }, [gfx]);
   useEffect(() => () => { if (KEEP_FS) KEEP_FS = false; else exitFsAndUnlock(); }, []);   // back to the map or out of Adventure: normal screen, portrait again
   const cvRef = useRef<HTMLCanvasElement>(null);
@@ -990,7 +1003,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   useEffect(() => {
     const HI = () => highRef.current;   // graphics can change from the gear pop-up while the run goes on, so nothing here captures `high` once
     const cv = cvRef.current; if (!cv) return undefined;
-    const ctx = cv.getContext("2d", { alpha: false }); if (!ctx) return undefined;
+    const ctx = cv.getContext("2d", { alpha: true }); if (!ctx) return undefined;
     const dprCap = () => (HI() ? 2 : 1);
     let cw = 0, ch = 0, k = 1, dpr = 1, bake: any = null, camX = 0, vw = 0;
     const resize = () => {
@@ -1084,7 +1097,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let teamDone = false; const teamGoal = () => 10 * ((net ? net.peers.size : 0) + 1);
     const teamCheck = () => { if (!net || WAR || teamDone || kills < teamGoal()) return; teamDone = true; const n = Math.min(12, 4 * (net.peers.size + 1)); gainCry(n); sfx.play("win"); setBanner({ k: Date.now(), a: T3(lang, "เป้าหมายทีมสำเร็จ!", "Team goal reached!", "团队目标达成！"), b: "◆ +" + n }); logUsage("adv", "team-goal:" + P.id + ":" + (net.peers.size + 1)); };
     let drawMs = 0, drawN = 0; let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
-    let heroLastX = 0, heroDist = 0, fpvLastHp = 1e9;
+    let heroLastX = 0, heroDist = 0, fpvLastHp = 1e9, a3Last = 0, a3Sum = 0, a3N = 0, a3Bad = 0;   // the 3D frame-rate watchdog
     const step = HI() ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
@@ -1570,11 +1583,15 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const draw = (tm) => {
       const sx = (HI() && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0, sy = (HI() && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(bake.sky, sx, sy);
+      const a3 = is3dRef.current ? a3dRef.current : null;   // 3D quality: the Three.js world is drawn behind this canvas, so the 2D backdrop layers are skipped
+      if (a3) ctx.clearRect(0, 0, cw, ch); else ctx.drawImage(bake.sky, sx, sy);
       const tile = (img, f, a = 1) => { const w = img.width, off = -((camX * f * k) % w + w) % w; if (a !== 1) ctx.globalAlpha = a; for (let x0 = off + sx; x0 < cw; x0 += w) ctx.drawImage(img, x0, sy); if (a !== 1) ctx.globalAlpha = 1; };
-      tile(bake.far, 0.15); tile(bake.mid, 0.4);
-      if (bake.fog) tile(bake.fog, 0.55);
-      tile(bake.ground, 1);
+      if (!a3) { tile(bake.far, 0.15); tile(bake.mid, 0.4); if (bake.fog) tile(bake.fog, 0.55); tile(bake.ground, 1); }
+      else {
+        try { a3.render(camX, tm, k / dpr, cw / dpr, ch / dpr, GROUND, sx / dpr, sy / dpr, pl.x); } catch (e) { a3Bad = 999; }
+        const nowT = performance.now(); if (a3Last) { a3Sum += nowT - a3Last; a3N++; } a3Last = nowT;
+        if (a3N >= 150 || a3Bad >= 999) { const avg = a3Sum / Math.max(1, a3N); if (a3Bad >= 999 || avg > 40) { try { a3.dispose(); } catch (e) {} a3dRef.current = null; a3Last = 0; a3Sum = a3N = a3Bad = 0; try { localStorage.setItem("tg_adv_gfx", "high"); } catch (e) {} pop(pl.x, GROUND - pl.y - 130, T3(lang, "3D ช้าเกินไป กลับเป็น 2D สูง", "3D is too slow: back to 2D High", "3D 太卡，已退回 2D 高清"), "#ffd0a0"); if (onLevelRef.current) onLevelRef.current("high"); } else { a3Sum = a3N = 0; } }
+      }
       // world layer
       ctx.setTransform(k, 0, 0, k, -camX * k + sx, sy);
       // fireflies
@@ -1693,7 +1710,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       // the warp gate at the end of the map (it glows and says WARP once the goal is done)
       { const gx = WORLD - 90; if ((NOBOSS ? finished : boss.dead) && gx > camX - 120 && gx < camX + vw + 120) { ctx.save(); ctx.fillStyle = "#fff"; ctx.font = "900 15px system-ui"; ctx.textAlign = "center"; ctx.fillText("WARP ▶", gx, GROUND - 140 + Math.sin(tm * 5) * 4); ctx.restore(); } if (gx > camX - 60 && gx < camX + vw + 60) { ctx.strokeStyle = `rgba(${P.acc},.9)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 26, 62, 0, 0, 7); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},${0.18 + 0.1 * Math.sin(tm * 3)})`; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 24, 60, 0, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; } }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      tile(bake.near, 1.25);
+      if (!a3) tile(bake.near, 1.25);
       if (P.survival && !surv.done) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ffbe6e"; ctx.fillRect(bx, by, bw * Math.min(1, surv.t / SURV_T), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, "พลังงาน ", "ENERGY ", "能量 ") + Math.round(Math.min(1, surv.t / SURV_T) * 100) + "% · " + T3(lang, "คลื่น ", "wave ", "波 ") + surv.wave, cw / 2, by - 4 * k); }
       if ((MINE || CAPM || DYS) && !finished) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; const cur = stations.find(q => !q.done), fr = MINE || DYS ? cargo / CARGO_CAP : (cur ? cur.p / CAP_T : 1); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = MINE || DYS ? "#7fd8ff" : "#ffd23f"; ctx.fillRect(bx, by, bw * Math.min(1, fr), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center";
         ctx.fillText(DYS ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, PARTS[0] + " ", PARTS[1].toUpperCase() + " ", PARTS[2]) + dframes.filter(q => q.built).length + "/4" : MINE ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "ส่งที่แท่นขวาสุด ≥ ", "deliver at the far-right pad ≥ ", "送到最右平台 ≥ ") + ORE_NEED : T3(lang, "สถานี ", "STATION ", "采集站 ") + (stations.filter(q => q.done).length + (cur ? 1 : 0)) + "/3 · " + Math.round(Math.min(1, fr) * 100) + "%", cw / 2, by - 4 * k); }
@@ -1794,6 +1811,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   return (
     <>
       <div ref={worldRef} className="adv-world">
+      <div ref={host3dRef} className="adv-3d" aria-hidden="true" />
       <canvas ref={cvRef} />
       <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? (() => { const live = <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} />; return FIGURES_OK ? <FigurePic fkey={petKeyOf()} kind="pet" el={live} cls="fig-pet" vb="-12 -18 144 156" /> : live; })() : null}</div>
       <div ref={pxRef} className="adv-px" aria-hidden="true">
@@ -1805,6 +1823,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         <div ref={wpnRef} className="adv-wpn" aria-hidden="true" />
       </div>
       </div>
+      {a3dMsg && <div className="adv-3dmsg" role="status" onAnimationEnd={() => setA3dMsg(null)}>{a3dMsg}</div>}
       {fpv && <><FpvVisor /><FpvHurt hurtRef={fpvHurtRef} /><FpvCrosshair xhRef={fpvXhRef} /><FpvHands handsRef={fpvHandsRef} rigRef={fpvRigRef} wpnRef={fpvWpnRef} flashRef={fpvFlashRef} /></>}
       <div className="adv-top">
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
@@ -1816,7 +1835,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         </div>
         <div className="fpv-tr"><FpvButton lang={lang} on={fpv} onClick={flipFpv} /><GearButton onClick={openGear} /></div>
       </div>
-      {gear && <SettingsPopup lang={lang} high={high} onGfx={onGfx} musicOn={musicOn} onMusic={() => setMusicOn(m => !m)} online={!!net} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
+      {gear && <SettingsPopup lang={lang} high={high} onGfx={onGfx} level={gfx} onLevel={(v: string) => { if (onLevelRef.current) onLevelRef.current(v); }} can3d={can3dNow()} musicOn={musicOn} onMusic={() => setMusicOn(m => !m)} online={!!net} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {net && <div className="adv-emotes">{["👍", "⚔️", "🆘", "❤️"].map(em => <button key={em} aria-label={"emote " + em} onClick={() => chatRef.current && chatRef.current(em)}>{em}</button>)}</div>}
       {net && hud.team && hud.team.length > 0 && <div className="adv-team">{hud.team.map((q: any, i: number) => <span key={i} style={{ borderColor: q.c || "#7fe8ff" }}>{q.n} · {q.hp}♥</span>)}</div>}
       {banner && <div key={banner.k} className="adv-banner"><b>{banner.a}</b><span>{banner.b}</span></div>}
