@@ -50,6 +50,6 @@ async function open(re, pre) {
   await p.click("[data-cell='0']"); ok("animals to choose from", (await p.locator("[data-type]").count()) === 5 && /pigs/i.test(await p.innerText("[data-pick]")));
   ok("no page errors", errs.length === 0, errs.join("|")); await ctx.close(); }
 { const { ctx, p } = await open("Hydroponic", { tg_ark: JSON.stringify({ g: 0, f: 5, l: 0, h: 5, s: 0 }) });
-  const tg = await p.evaluate(() => window.__advFarm.state().target); ok("a bigger habitat raises the target (300 + 40 x 5)", tg === 500, String(tg));
+  const tg = await p.evaluate(() => window.__advFarm.state().target); ok("a bigger habitat raises the target (600 + 60 x 5)", tg === 900, String(tg));
   await p.click("[data-cell='0']"); ok("farm decks raise the yield (+40 %)", /\+8/.test(await p.innerText("[data-type=algae]")), await p.innerText("[data-type=algae]")); await ctx.close(); }
 await browser.close(); server.close(); console.log(fail ? "FAILED " + fail : "ALL PASS"); process.exit(fail ? 1 : 0);

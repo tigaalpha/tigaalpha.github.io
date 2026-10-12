@@ -53,7 +53,7 @@ const DUR = 150, CELLS = 6;
 
 export default function AdventureFarm({ P, lang, onWin, onExit, onRetry }: any) {
   const kind: Kind = KINDS[P.kind === "herd" ? "herd" : "plants"], t = (a: string, b: string, c: string) => T3(lang, a, b, c);
-  const ark = readArk(), lvl = P.kind === "herd" ? ark.l : ark.f, ymul = 1 + 0.08 * lvl, target = 300 + 40 * ark.h;
+  const ark = readArk(), lvl = P.kind === "herd" ? ark.l : ark.f, ymul = 1 + 0.08 * lvl, target = 600 + 60 * ark.h;   // calibrated with a simulation of these rules: a careful player makes ~850 in 150 s, a lazy one ~450
   const G = useRef<any>(null); if (!G.current) G.current = { t: 0, res: [80, 80, 80], cd: [0, 0, 0], cells: Array.from({ length: CELLS }, () => ({ ty: null as any, p: 0, sick: 0 })), made: 0, spent: 0, tech: [false, false, false], sickT: 8, ended: false, won: false, fact: 0 };
   const [, setTick] = useState(0), [pick, setPick] = useState<number | null>(null), [gear, setGear] = useState(false), pausedRef = useRef(false);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
