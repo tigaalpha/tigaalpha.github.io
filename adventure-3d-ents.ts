@@ -192,8 +192,14 @@ export function buildBoss(P: any): Actor {
   for (const e of [-1, 1]) { const h = new THREE.Mesh(new THREE.ConeGeometry(8, 54, 6), dm); h.position.set(40, 120, e * 26); h.rotation.z = -0.5; g.add(h); horns.push(h); }
   const core = new THREE.Mesh(new THREE.SphereGeometry(13, 14, 10), gm); core.position.set(52, 70, 0); g.add(core);
   for (let i = 0; i < 6; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(6, 34, 5), dm); sp.position.set(-30 + i * 10, 125 + Math.abs(i - 2.5) * -5, -26); g.add(sp); horns.push(sp); }
-  g.scale.set(1.5, 1.5, 1.5);
-  return { group: g, update(b, tm) { a.update({ x: b.x, y: b.y || 0, face: b.face, hurt: b.hurt, tele: b.tele, ph: 0 }, tm); core.scale.setScalar(1 + Math.sin(tm * 3) * 0.12 + (b.tele > 0 ? 0.25 : 0)); }, dispose() { a.dispose(); gm.dispose(); dm.dispose(); for (const h of horns) h.geometry.dispose(); core.geometry.dispose(); } };
+  let hv = 0; for (const ch of String(P.id || "")) hv = (hv * 31 + ch.charCodeAt(0)) >>> 0;   // each planet's guardian gets its own silhouette from its id
+  const style = hv % 4, spinners: THREE.Mesh[] = [], gm2 = std(glow, glow, 1.2, 0.3, 0.1);
+  if (style === 0) { for (let i = 0; i < 7; i++) { const sh = new THREE.Mesh(new THREE.OctahedronGeometry(9, 0), gm2); sh.userData.i = i; g.add(sh); spinners.push(sh); } }   // a crown of orbiting shards
+  else if (style === 1) { const ring = new THREE.Mesh(new THREE.TorusGeometry(70, 4, 8, 32), gm2); ring.position.set(0, 80, 0); ring.rotation.x = Math.PI / 2.4; g.add(ring); spinners.push(ring); }   // a halo ring
+  else if (style === 2) { for (const e of [-1, 1]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(14, 90, 14), dm); arm.position.set(10, 95, e * 62); arm.rotation.x = e * 0.35; g.add(arm); const claw = new THREE.Mesh(new THREE.ConeGeometry(12, 34, 5), gm); claw.position.set(10, 150, e * 74); claw.rotation.x = Math.PI; g.add(claw); } }   // raised side arms with glowing claws
+  else { for (let i = 0; i < 4; i++) { const pl = new THREE.Mesh(new THREE.BoxGeometry(6, 70, 28), dm); pl.position.set(-48, 60 + i * 6, -40 + i * 26); pl.rotation.z = 0.25; g.add(pl); } g.scale.y = 1.08; }   // a back wall of armour plates
+  g.scale.set(1.5, g.scale.y * 1.5, 1.5);
+  return { group: g, update(b, tm) { a.update({ x: b.x, y: b.y || 0, face: b.face, hurt: b.hurt, tele: b.tele, ph: 0 }, tm); spinners.forEach(m => { if (style === 0) { const t = tm * 1.4 + m.userData.i * 0.9; m.position.set(Math.cos(t) * 62, 150 + Math.sin(t * 1.3) * 12, Math.sin(t) * 40); m.rotation.y = tm * 2; } else m.rotation.z = tm * 0.8; }); core.scale.setScalar(1 + Math.sin(tm * 3) * 0.12 + (b.tele > 0 ? 0.25 : 0)); }, dispose() { a.dispose(); gm.dispose(); dm.dispose(); for (const h of horns) h.geometry.dispose(); core.geometry.dispose(); } };
 }
 
 /** The pet: a round body, two ears and a glowing eye, bobbing behind the hero. */
