@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState, memo } from "react";
 import { CyberAvatar } from "./cyber-avatar";
 import { createCineAudio, renderCinePreview, type CineShot } from "./adventure-music";
+import { speakDeviceOrNative, stopSpeaking } from "./speech";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -504,6 +505,11 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
   const cvRef = useRef<HTMLCanvasElement>(null); const [idx, setIdx] = useState(0); const idxRef = useRef(0); const t0 = useRef(performance.now()); const skipTo = useRef(0);
   const type = TYPE[P.id] || "jungle"; const eye = hexRgb(colorway && colorway.glow ? colorway.glow : "#7fe8ff"); const objIdx = plan.length - 1;
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
+  // Voice-over and subtitles (owner, 2026-10-12): both follow the player's language by default, and two buttons in the top-left corner change them on the fly.
+  const readPref = (k: string) => { try { const v = localStorage.getItem(k); if (v === "th" || v === "en" || v === "zh" || v === "off") return v; } catch (e) {} return lang; };
+  const [voice, setVoice] = useState<string>(() => readPref("tg_adv_vo")), [sub, setSub] = useState<string>(() => readPref("tg_adv_sub"));
+  const ORDER = ["th", "en", "zh", "off"]; const flip = (cur: string) => ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length];
+  const sl = sub === "off" ? lang : sub;   // the other on-screen words (titles, goals) follow the subtitle language unless the subtitles are off
   useEffect(() => {
     const cv = cvRef.current; if (!cv) return undefined; const x = cv.getContext("2d"); if (!x) return undefined; let raf = 0;
     const fit = () => { const r = cv.getBoundingClientRect(), d = Math.min(1.5, window.devicePixelRatio || 1); cv.width = Math.max(320, Math.round(r.width * d)); cv.height = Math.max(180, Math.round(r.height * d)); }; fit(); window.addEventListener("resize", fit);
@@ -534,20 +540,34 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false)), jump: (i: number) => { skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); try { delete (window as any).__advCine; } catch (e) {} };
   }, []);
-  const kind = plan[Math.min(idx, plan.length - 1)].kind, cap = captionFor(P.finale ? { ...P, __theme: (plan[Math.min(idx, plan.length - 1)] as any).theme } : P, kind, lang), goals = GOAL[P.id] || GOAL.luma;
+  const kind = plan[Math.min(idx, plan.length - 1)].kind, capFor = (lg: string) => captionFor(P.finale ? { ...P, __theme: (plan[Math.min(idx, plan.length - 1)] as any).theme } : P, kind, lg), cap = sub === "off" ? "" : capFor(sub), goals = GOAL[P.id] || GOAL.luma;
+  const CPS: Record<string, number> = { th: 11, en: 15, zh: 4.6 };   // spoken characters per second, to fit the line into its shot
+  const voText = (lg: string) => kind === "objective" ? T3(lg, "ภารกิจ: ", "Mission: ", "任务：") + T3(lg, P.th, P.en, P.zh).split(" · ")[0] + ". " + goals.map((g: any) => T3(lg, g[0], g[1], g[2])).join(". ") : capFor(lg);
+  useEffect(() => {
+    if (voice === "off") { stopSpeaking(); return undefined; }
+    const txt = voText(voice); if (!txt) { stopSpeaking(); return undefined; }
+    const dur = plan[Math.min(idx, plan.length - 1)].dur, rate = Math.max(0.95, Math.min(1.45, (txt.length / (CPS[voice] || 12)) / Math.max(1, dur * 0.88)));
+    const id = setTimeout(() => { try { speakDeviceOrNative(txt, voice, undefined, undefined, rate); } catch (e) {} }, 350);
+    (window as any).__advVo = { lang: voice, text: txt, rate }; return () => clearTimeout(id);
+  }, [idx, voice]);
+  useEffect(() => () => { stopSpeaking(); }, []);
   const next = () => { if (idxRef.current < objIdx) skipTo.current = starts[idxRef.current + 1] - (performance.now() - t0.current) / 1000 + 0.05; };
   return (
     <div className={"adv-cine" + (rot ? " rot" : "")} onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; next(); }}>
       <canvas ref={cvRef} />
-      <button className="ac-skip" onClick={() => onDone()} aria-label="skip">{t("ข้าม ⏭", "Skip ⏭", "跳过 ⏭")}</button>
-      {kind === "approach" && <div key="ttl" className="ac-title"><small>{t("บทที่ ", "CHAPTER ", "第") + (CH.indexOf(P.id) + 1) + t("", "", "章") + " · " + t("ปลายทาง", "DESTINATION", "目的地")}</small><b>{T3(lang, P.th, P.en, P.zh).split(" · ")[0]}</b></div>}
+      <div className="ac-lang">
+        <button aria-label="voice language" data-vo={voice} onClick={() => setVoice(v => { const n = flip(v); try { localStorage.setItem("tg_adv_vo", n); } catch (e) {} return n; })}>🎙<b>{voice === "off" ? t("ปิด", "OFF", "关") : voice.toUpperCase()}</b></button>
+        <button aria-label="subtitle language" data-sub={sub} onClick={() => setSub(v => { const n = flip(v); try { localStorage.setItem("tg_adv_sub", n); } catch (e) {} return n; })}>CC<b>{sub === "off" ? t("ปิด", "OFF", "关") : sub.toUpperCase()}</b></button>
+      </div>
+      <button className="ac-skip" onClick={() => { stopSpeaking(); onDone(); }} aria-label="skip">{t("ข้าม ⏭", "Skip ⏭", "跳过 ⏭")}</button>
+      {kind === "approach" && <div key="ttl" className="ac-title"><small>{t("บทที่ ", "CHAPTER ", "第") + (CH.indexOf(P.id) + 1) + t("", "", "章") + " · " + t("ปลายทาง", "DESTINATION", "目的地")}</small><b>{T3(sl, P.th, P.en, P.zh).split(" · ")[0]}</b></div>}
       {(kind === "lore" || kind === "contact" || kind === "mind") && <div key={"t" + idx} className="ac-tag" data-theme={(plan[idx] as any).theme}>{T3(lang, THEME_TAG[(plan[idx] as any).theme][0], THEME_TAG[(plan[idx] as any).theme][1], THEME_TAG[(plan[idx] as any).theme][2])}</div>}
       {cap && kind !== "objective" && <div key={"c" + idx} className={"ac-cap" + (kind === "lore" || kind === "contact" || kind === "mind" ? " low" : "")}>{cap}</div>}
       {kind === "objective" && (
         <div className="ac-obj">
           <div className="ac-hero"><CyberAvatar model={me} yaw={22} pose="ready" glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} /></div>
           <div className="ac-goal"><small>{t("ภารกิจ", "MISSION", "任务")}</small><b>{T3(lang, P.th, P.en, P.zh).split(" · ")[0]}</b>
-            <ul>{goals.map((g, i) => <li key={i} style={{ animationDelay: 0.25 * i + "s" }}>{T3(lang, g[0], g[1], g[2])}</li>)}</ul>
+            <ul>{goals.map((g, i) => <li key={i} style={{ animationDelay: 0.25 * i + "s" }}>{T3(sl, g[0], g[1], g[2])}</li>)}</ul>
             <button className="adv-btn go" autoFocus onClick={() => onDone()}>▶ {t("เริ่มภารกิจ", "START MISSION", "开始任务")}</button></div>
         </div>)}
     </div>
