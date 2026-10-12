@@ -28,11 +28,14 @@ await T("dropHere", "w:rpg"); await p.waitForTimeout(400);
 ok("a rocket-type weapon (RPG) equips the rocket slot", (await T("load")).rocket === "rpg", JSON.stringify(await T("load")));
 // 2. each gun shoots in its own way
 const mx = await T("monX"); await T("tp", mx - 220); await p.waitForTimeout(100);
-for (const [id, kind] of [["minigun", "bolts"], ["shotgun", "bolts"], ["laserrifle", "beams"], ["railgun", "beams"], ["bigbeam", "beams"]]) {
+for (const [id, kind] of [["minigun", "bolts"], ["shotgun", "bolts"], ["laserrifle", "beams"], ["railgun", "beams"], ["bigbeam", "beams"], ["flame", "bolts"], ["plasma", "bolts"], ["frost", "bolts"]]) {
   await T("equipNow", id); await T("fireCdClear"); const hp0 = await T("monHp"); await T("fireNow"); await p.waitForTimeout(60);
   const n = await T(kind === "beams" ? "beamsN" : "bolts");
   ok(id + " fires (" + kind + " > 0)", n >= 1, String(n));
 }
+await T("equipNow", "flame"); await T("tp", (await T("monX")) - 150); await p.waitForTimeout(100); const hf0 = await T("monHp"); for (let i = 0; i < 12; i++) { await T("fireCdClear"); await T("fireNow"); await p.waitForTimeout(40); }
+if (process.env.OUT) await p.screenshot({ path: process.env.OUT + "/flame.png" });
+ok("the flamethrower burns a monster in front", (await T("monHp")) < hf0, hf0 + " -> " + (await T("monHp")));
 await T("equipNow", "sword"); await T("tp", (await T("monX")) - 120); await p.waitForTimeout(80); const hs0 = await T("monHp"); await T("fireCdClear"); await T("fireNow"); await p.waitForTimeout(80);
 ok("the laser sword cuts a monster in front", (await T("monHp")) < hs0, hs0 + " -> " + (await T("monHp")));
 await T("equipNow", "laserrifle"); await T("tp", (await T("monX")) - 300); await p.waitForTimeout(80); const hl0 = await T("monHp"); await T("fireCdClear"); await T("fireNow"); await p.waitForTimeout(50);
