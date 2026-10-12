@@ -27,7 +27,7 @@ async function open(pre) {
   await p.locator(".adv-planet").first().tap(); await p.waitForSelector(".adv canvas"); await p.waitForTimeout(700);
   ok("tapping a planet asks for full screen", (await p.evaluate(() => window.__fs)) >= 1, "calls " + (await p.evaluate(() => window.__fs)));
   const labels = await p.evaluate(() => [...document.querySelectorAll(".adv-pad button")].map(b => b.getAttribute("aria-label")));
-  ok("the pad has left/right/dash and shoot/jump/attack/kick/skill", ["left", "right", "dash", "shoot", "jump", "attack", "kick", "skill1"].every(l => labels.includes(l)), labels.join());
+  ok("the pad has left/right (no dash button) and shoot/jump/attack/kick/skill", ["left", "right", "shoot", "jump", "attack", "kick", "skill1"].every(l => labels.includes(l)), labels.join()); ok("the dash button is gone", !labels.includes("dash"));
   ok("it uses PvP's own button classes", await p.evaluate(() => !!document.querySelector(".adv-pad .pvpact.fire") && !!document.querySelector(".adv-pad .pvpact.punch") && !!document.querySelector(".adv-pad .pvpact.kick") && !!document.querySelector(".adv-pad .pvpdir")));
   const vis = await p.evaluate(() => [...document.querySelectorAll(".adv-pad button")].every(b => { const r = b.getBoundingClientRect(); return r.width > 30 && r.right <= innerWidth && r.bottom <= innerHeight && r.left >= 0; }));
   ok("every button is on screen (800x420)", vis);

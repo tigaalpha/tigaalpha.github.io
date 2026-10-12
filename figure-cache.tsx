@@ -224,6 +224,9 @@ function pump() {
   idle(next);
 }
 
+/** The finished picture for a key, if it exists yet (the draw loop swaps frames of a walk cycle without a React render). */
+export const figureOf = (key) => done.get(key);
+
 /** Stop starting new pictures (true) or carry on (false). */
 export function pauseFigures(on) {
   paused = !!on;

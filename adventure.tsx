@@ -12,7 +12,7 @@
    planet (the other four are on the map, locked), three monsters, no boss yet. ── */
 import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "react";
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
-import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
+import { FigurePic, prepareFigures, pauseFigures, figureOf, FIGURES_OK } from "./figure-cache";
 import { createAdvSfx } from "./adventure-sfx";
 import { GearButton, SettingsPopup, AdvGuard } from "./adventure-settings";
 import { ARK_LINES, ARK_MAX, ARK_TRIP_DAYS, arkCost, readArk, buyArk, arkStats } from "./adventure-ark";
@@ -258,9 +258,21 @@ const ART = typeof __ART__ !== "undefined" ? __ART__ : "dev";
 const advBotKey = (me: any, cw: any, po: string) => `${ART}|advme|${me}|${po}|${cw && cw.glow}|${cw && cw.accent}`;
 const advPetKey = (pet: any) => `${ART}|advpet|${pet ? pet.species : ""}|${pet ? petLevel(pet.bond).lv : 0}|${pet ? (pet.mood < 35 ? 1 : 0) : 0}`;
 /** Queue the robot's three poses and the pet as stored pictures (the same cache PvP uses on phones). Called when the Adventure menu opens, so they are ready before a map starts. */
+/** The hero's frames (owner, 2026-10-12: "walking looks funny, punches and kicks are not realistic"): a walk and a run cycle of eight stills each, driven by the
+    distance walked so the feet never slide, a jump tuck, and a real move per strike (jab / hook / uppercut, front / roundhouse kick, sweep, shoot, beam, throw). */
+const WALK_N = 8, STRIDE_PX = 13;
+export const heroPoseOf = (name: string): any => {
+  const m = /^(walk|run)(\d)$/.exec(name);
+  if (m) { const run = m[1] === "run", ph = (Number(m[2]) / WALK_N) * Math.PI * 2, s = Math.sin(ph), L = run ? 46 : 27;
+    return { lean: run ? -13 : -3, armL: -(run ? 52 : 20) * s, armR: (run ? 52 : 20) * s, legL: L * s, legR: -L * s, head: run ? -4 : 0, lift: -(run ? 3.5 : 2) * (1 + Math.cos(2 * ph)) / 1.1 };
+  }
+  if (name === "jump") return { lean: -7, armL: 34, armR: 30, legL: -24, legR: 15, head: -3, lift: -5 };
+  return name;
+};
+const HERO_FRAMES = ["ready", "attack", "kick", "jump", "jab", "hook", "upper", "front", "round", "sweep", "shoot", "beam", "throw", "down", ...Array.from({ length: WALK_N }, (_, i) => "walk" + i), ...Array.from({ length: WALK_N }, (_, i) => "run" + i)];
 function warmAdvFigures(me: any, cw: any, pet: any) {
   if (!FIGURES_OK) return; pauseFigures(false);
-  const jobs: any[] = ["ready", "attack", "kick"].map(po => ({ key: advBotKey(me, cw, po), kind: "bot", el: () => <CyberAvatar model={me} yaw={26} pose={po} glow={cw && cw.glow} accent={cw && cw.accent} held={null} hat={null} acc={null} /> }));
+  const jobs: any[] = HERO_FRAMES.map(po => ({ key: advBotKey(me, cw, po), kind: "bot", el: () => <CyberAvatar model={me} yaw={26} pose={heroPoseOf(po)} glow={cw && cw.glow} accent={cw && cw.accent} held={null} hat={null} acc={null} /> }));
   if (pet) jobs.push({ key: advPetKey(pet), kind: "pet", el: () => <PetArt species={pet.species} level={petLevel(pet.bond).lv} mood={pet.mood} /> });
   prepareFigures(jobs, true);
 }
@@ -876,8 +888,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const cvRef = useRef<HTMLCanvasElement>(null);
   const pxRef = useRef<HTMLDivElement>(null);
   const petRef = useRef<HTMLDivElement>(null);
+  const heroSvgRef = useRef<SVGSVGElement>(null), heroImgRef = useRef<SVGImageElement>(null);
   const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false, dash: false, fire: false, kick: false, spell: false, rocket: false, zap: false });
-  const [pose, setPose] = useState("ready");
+  const [pose, setPoseState] = useState("ready");
+  const poseAct = useRef({ name: "ready", n: 0 });   // what the hero is doing NOW (read by the draw loop, no React render)
+  const setPose = (p: string) => { if (p !== "ready") poseAct.current.n++; poseAct.current.name = p; setPoseState(p); };
   const botKey = (po: string) => advBotKey(me, colorway, po);
   const petKeyOf = () => advPetKey(petNow);
   useEffect(() => { warmAdvFigures(me, colorway, petNow); }, []);
@@ -1028,6 +1043,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let teamDone = false; const teamGoal = () => 10 * ((net ? net.peers.size : 0) + 1);
     const teamCheck = () => { if (!net || WAR || teamDone || kills < teamGoal()) return; teamDone = true; const n = Math.min(12, 4 * (net.peers.size + 1)); gainCry(n); sfx.play("win"); setBanner({ k: Date.now(), a: T3(lang, "เป้าหมายทีมสำเร็จ!", "Team goal reached!", "团队目标达成！"), b: "◆ +" + n }); logUsage("adv", "team-goal:" + P.id + ":" + (net.peers.size + 1)); };
     let drawMs = 0, drawN = 0; let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
+    let heroLastX = 0, heroDist = 0;
     const step = HI() ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
@@ -1586,7 +1602,23 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         px.style.width = bw + "px"; px.style.height = bh + "px";
         const flick = pl.inv > 0 && Math.floor(tm * 20) % 2 === 0 ? 0.35 : 1;
         px.style.opacity = pl.dead > 0 ? "0.25" : String(flick);
-        px.style.transform = `translate(${(pl.x - camX) * cssK - bw / 2}px,${(GROUND - pl.y) * cssK - bh + 6 * cssK}px)`;
+        // which frame: a strike in progress, else air, else the walk or run cycle (stepped by distance covered), else standing
+        const moving = pl.ground && (keys.current.l || keys.current.r) && Math.abs(pl.x - heroLastX) > 0.05;
+        if (pl.ground) heroDist += Math.abs(pl.x - heroLastX); heroLastX = pl.x;
+        const act = poseAct.current; let want = "ready";
+        if (pl.dead > 0) want = "down";
+        else if (act.name === "attack") want = ["jab", "hook", "upper"][act.n % 3];
+        else if (act.name === "kick") want = ["front", "round", "sweep"][act.n % 3];
+        else if (act.name !== "ready") want = act.name;
+        else if (!pl.ground) want = "jump";
+        else if (moving) want = (pl.holdT > 0.35 ? "run" : "walk") + (Math.floor(heroDist / STRIDE_PX) % WALK_N);
+        const fig = FIGURES_OK ? figureOf(advBotKey(me, colorway, want)) : null, hs = heroSvgRef.current, hi = heroImgRef.current, base = px.firstElementChild as HTMLElement | null;
+        if (fig && hs && hi && base) {
+          if (hi.getAttribute("href") !== fig.url) { const [rx, ry, rw, rh] = fig.reg; hi.setAttribute("href", fig.url); hi.setAttribute("x", String(rx)); hi.setAttribute("y", String(ry)); hi.setAttribute("width", String(rw)); hi.setAttribute("height", String(rh)); }
+          if (hs.style.display !== "block") { hs.style.display = "block"; base.style.display = "none"; }
+        } else if (hs && base && hs.style.display !== "none") { hs.style.display = "none"; base.style.display = ""; }
+        const stepBob = moving ? Math.abs(Math.sin((heroDist / STRIDE_PX) * Math.PI / 4 * 2)) * 2.2 * cssK : 0;
+        px.style.transform = `translate(${(pl.x - camX) * cssK - bw / 2}px,${(GROUND - pl.y) * cssK - bh + 6 * cssK - stepBob}px) scaleX(${pl.face >= 0 ? 1 : -1})`;
       }
       const pe = petRef.current; if (pe) {
         const cssK = k / dpr, pw = 52 * cssK, bobY = Math.abs(Math.sin(tm * 6)) * 4 * cssK * (keys.current.l || keys.current.r ? 1 : 0.2);
@@ -1641,6 +1673,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           const live = <CyberAvatar model={me} yaw={26} pose={pose} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} />;
           return FIGURES_OK ? <FigurePic fkey={botKey(pose)} kind="bot" el={live} cls="ca" vb="-20 -16 160 416" /> : live;
         })()}
+        <svg ref={heroSvgRef} className="ca" viewBox="-20 -16 160 416" overflow="visible" aria-hidden="true" style={{ display: "none" }}><image ref={heroImgRef} preserveAspectRatio="none" /></svg>
       </div>
       <div className="adv-top">
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
@@ -1677,7 +1710,6 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         <div className="pvppad-l">
           <button className="pvpdir" aria-label="left" {...hold("l")}>◀</button>
           <button className="pvpdir" aria-label="right" {...hold("r")}>▶</button>
-          <button className={"pvpdir" + (hud.dashCd > 0 ? " cool" : "")} aria-label="dash" {...hold("dash")}>»</button>
         </div>
         <div className="pvppad-r">
           <button className="pvpact fire" aria-label="shoot" {...hold("fire")}><b>🔫</b><i>{t("ยิง", "FIRE", "射击")}</i></button>
