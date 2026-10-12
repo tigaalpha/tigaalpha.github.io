@@ -29,7 +29,7 @@ const D = (...ids) => ({ tg_adv_done: JSON.stringify(ids) });
 const ALLD = D("luma", "ferro", "kryo", "pyra");
 async function pick(pre, idx, lang) { const o = await open(Object.assign({}, pre, lang ? { tg_lang: lang, tg_guest_profile: JSON.stringify({ name: "T", lang, age: "adult", level: "beginner", exp: 5000 }) } : {})); await o.p.evaluate((i) => document.querySelectorAll(".adv-planet")[i].click(), idx); await o.p.waitForSelector(".adv-cine canvas", { timeout: 8000 }); await o.p.waitForTimeout(500); return o; }
 const painted = (p) => p.evaluate(() => { const c = document.querySelector(".adv-cine canvas"); const t = document.createElement("canvas"); t.width = 48; t.height = 27; const x = t.getContext("2d"); x.drawImage(c, 0, 0, 48, 27); const d = x.getImageData(0, 0, 48, 27).data; let mn = 255, mx = 0, s = 0; for (let i = 0; i < d.length; i += 4) { const v = (d[i] + d[i + 1] + d[i + 2]) / 3; mn = Math.min(mn, v); mx = Math.max(mx, v); s += v; } return { range: mx - mn, mean: s / (d.length / 4) }; });
-for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch", "approach", "surface", "boss", "objective"]], ["cobalt", 6, ["earth", "factory", "launch", "approach", "surface", "objective"]], ["ashfall", 9, ["earth", "factory", "launch", "approach", "strike", "boss", "objective"]]]) {
+for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch", "approach", "surface", "lore", "boss", "objective"]], ["cobalt", 6, ["earth", "factory", "launch", "approach", "surface", "lore", "objective"]], ["ashfall", 9, ["earth", "factory", "launch", "approach", "strike", "lore", "boss", "objective"]]]) {
   const o = await pick(ALLD.tg_adv_done ? Object.assign({}, ALLD) : {}, idx);
   ok(name + ": a film plays before the map", await o.p.locator(".adv-cine").count() > 0);
   const kinds = await o.p.evaluate(() => window.__advCine.kinds()); ok(name + ": the shots run earth > factory > launch > approach > the map > (boss) > objective", JSON.stringify(kinds) === JSON.stringify(expectKinds), kinds.join());
@@ -55,7 +55,7 @@ for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch
   await o.ctx.close(); }
 // Opening film: shown once before the first menu, then the map films are the short cut with a chapter number.
 { const o = await open({ tg_adv_prologue: "__none__" });
-  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("prologue: earth > factory > launch, then the menu", JSON.stringify(k) === JSON.stringify(["earth", "factory", "launch"]), k.join());
+  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("prologue: earth > factory > launch > the Harvesters > TIGA, then the menu", JSON.stringify(k) === JSON.stringify(["earth", "factory", "launch", "contact", "mind"]), k.join());
   await o.p.locator(".ac-skip").click(); await o.p.waitForSelector(".adv-planet");
   ok("prologue: remembered after it ends", await o.p.evaluate(() => localStorage.getItem("tg_adv_prologue") === "1"));
   await o.p.evaluate(() => document.querySelector(".adv-planet").click()); await o.p.waitForSelector(".adv-cine");
