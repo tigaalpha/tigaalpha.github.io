@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
+import { readArk, arkStats } from "./adventure-ark";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 const W = 960, H = 480, BOSS_AT = 55, LAUNCH_T = 38, ORE_GOAL = 16;
@@ -46,17 +47,18 @@ const BACKDROPS: Record<string, { k: string; r: number; x: number; y: number; sp
 /** the player's ship (owner, 2026-10-12: "like the SpaceX Starship, grander"): a stainless-steel cylinder with an ogive nose, a dark heat-shield side, two forward and
  *  two aft flaps, a cluster of Raptor bells and a long exhaust with shock diamonds. Side view, nose to the right. */
 /** The Ark (owner, 2026-10-12): a generation ship the size of a town, with a spinning gravity ring, farm domes and animal decks, like a floating Noah's boat. Side view, nose right. */
-function drawArk(x: CanvasRenderingContext2D, glow: string, t: number) {
+function drawArk(x: CanvasRenderingContext2D, glow: string, t: number, ar: any) {
+  const nd = 2 + Math.min(4, ar.f), rs = 0.8 + 0.1 * ar.g, nw = 8 + ar.h * 3;
   x.globalCompositeOperation = "lighter"; for (const oy of [-12, 0, 12]) { const fl = 70 + Math.random() * 26, g = x.createLinearGradient(-78, oy, -78 - fl, oy); g.addColorStop(0, "rgba(255,255,255,.9)"); g.addColorStop(0.3, "rgba(" + glow + ",.85)"); g.addColorStop(1, "rgba(40,80,255,0)"); x.fillStyle = g; x.beginPath(); x.moveTo(-78, oy - 6); x.lineTo(-78 - fl, oy); x.lineTo(-78, oy + 6); x.closePath(); x.fill(); } x.globalCompositeOperation = "source-over";
   const hg = x.createLinearGradient(0, -18, 0, 18); hg.addColorStop(0, "#e8edf5"); hg.addColorStop(0.5, "#9aa5b6"); hg.addColorStop(1, "#4a5364");
   x.fillStyle = hg; x.beginPath(); x.moveTo(-78, -16); x.lineTo(40, -16); x.quadraticCurveTo(78, -14, 92, 0); x.quadraticCurveTo(78, 14, 40, 16); x.lineTo(-78, 16); x.closePath(); x.fill(); x.strokeStyle = "rgba(10,16,26,.85)"; x.lineWidth = 1; x.stroke();
   x.strokeStyle = "rgba(20,26,38,.5)"; for (let rx = -64; rx < 40; rx += 16) { x.beginPath(); x.moveTo(rx, -16); x.lineTo(rx, 16); x.stroke(); }
   // farm domes on top: green glass with a glow, and a row of lit windows underneath
-  for (let i = 0; i < 4; i++) { const dx = -50 + i * 26; x.fillStyle = "rgba(70,200,120,.55)"; x.beginPath(); x.ellipse(dx, -16, 12, 11, 0, Math.PI, 0); x.fill(); x.strokeStyle = "rgba(190,255,210,.8)"; x.lineWidth = 1; x.stroke(); x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(120,255,160,.25)"; x.beginPath(); x.ellipse(dx, -18, 14, 12, 0, Math.PI, 0); x.fill(); x.globalCompositeOperation = "source-over"; }
-  x.fillStyle = "rgba(255,230,150,.9)"; for (let i = 0; i < 12; i++) x.fillRect(-70 + i * 11, 6, 4, 2);
+  for (let i = 0; i < nd; i++) { const dx = -62 + i * (112 / Math.max(1, nd - 1)); x.fillStyle = "rgba(70,200,120,.55)"; x.beginPath(); x.ellipse(dx, -16, 12, 11, 0, Math.PI, 0); x.fill(); x.strokeStyle = "rgba(190,255,210,.8)"; x.lineWidth = 1; x.stroke(); x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(120,255,160,.25)"; x.beginPath(); x.ellipse(dx, -18, 14, 12, 0, Math.PI, 0); x.fill(); x.globalCompositeOperation = "source-over"; }
+  x.fillStyle = "rgba(255,230,150,.9)"; for (let i = 0; i < nw; i++) x.fillRect(-72 + i * (140 / nw), 6, 4, 2); if (ar.l > 0) { x.fillStyle = "rgba(255,170,90,.85)"; for (let i = 0; i < ar.l + 1; i++) x.fillRect(-72 + i * 9, 10, 5, 3); }
   // the gravity ring: a big turning wheel around the middle of the hull, seen edge-on with moving spokes
-  x.save(); x.translate(8, 0); x.strokeStyle = "#c7d0de"; x.lineWidth = 5; x.beginPath(); x.ellipse(0, 0, 14, 44, 0, 0, 7); x.stroke(); x.strokeStyle = "#5a6478"; x.lineWidth = 2; x.beginPath(); x.ellipse(0, 0, 14, 44, 0, 0, 7); x.stroke();
-  x.fillStyle = "rgba(255,240,180,.9)"; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283 + t * 1.4; x.fillRect(Math.cos(a) * 14 - 1.5, Math.sin(a) * 44 - 1.5, 3, 3); } x.restore();
+  x.save(); x.translate(8, 0); x.strokeStyle = "#c7d0de"; x.lineWidth = 5; x.beginPath(); x.ellipse(0, 0, 14 * rs, 44 * rs, 0, 0, 7); x.stroke(); x.strokeStyle = "#5a6478"; x.lineWidth = 2; x.beginPath(); x.ellipse(0, 0, 14 * rs, 44 * rs, 0, 0, 7); x.stroke();
+  x.fillStyle = "rgba(255,240,180,.9)"; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283 + t * 1.4; x.fillRect(Math.cos(a) * 14 * rs - 1.5, Math.sin(a) * 44 * rs - 1.5, 3, 3); } x.restore();
   x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(" + glow + ",.85)"; x.beginPath(); x.ellipse(70, -1, 6, 2.2, 0, 0, 7); x.fill(); const on = Math.floor(t * 3) % 2; x.fillStyle = on ? "rgba(255,70,90,.95)" : "rgba(255,70,90,.25)"; x.beginPath(); x.arc(-30, -29, 2, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
   x.fillStyle = "#2a303c"; for (const oy of [-12, 0, 12]) { x.beginPath(); x.moveTo(-76, oy - 5); x.lineTo(-84, oy - 6); x.lineTo(-84, oy + 6); x.lineTo(-76, oy + 5); x.closePath(); x.fill(); }
 }
@@ -139,7 +141,8 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
     const c = cv.current; if (!c) return undefined; const x = c.getContext("2d"); if (!x) return undefined; let raf = 0, last = performance.now(), dead = false;
     const sfx = createAdvSfx(); const mus = createAdvMusic("nexa"); musRef.current = mus; if (mus && mus.setOn) mus.setOn(musicOn); if (mus) { mus.start(); mus.setIntensity && mus.setIntensity(2); }
     const fit = () => { const dpr = highRef.current ? Math.min(2, window.devicePixelRatio || 1) : 1, r = c.getBoundingClientRect(); c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr); }; fitRef.current = fit; fit(); window.addEventListener("resize", fit);
-    const HP = Math.round(100 * (1 + 0.05 * (ups.hp || 0))), DMG = 1 + 0.05 * (ups.atk || 0), SALVO = 1 + ((ups.rkt || 0) >= 2 ? 1 : 0) + ((ups.rkt || 0) >= 4 ? 1 : 0);
+    const ARKLV = SKY === "ark" ? readArk() : { g: 0, f: 0, l: 0, h: 0, s: 0 }, ARKST = arkStats(ARKLV);   // the Ark you outfitted in the Ark Bay
+    const HP = Math.round(100 * (1 + 0.05 * (ups.hp || 0)) * (SKY === "ark" ? ARKST.hull : 1)), DMG = 1 + 0.05 * (ups.atk || 0), SALVO = 1 + ((ups.rkt || 0) >= 2 ? 1 : 0) + ((ups.rkt || 0) >= 4 ? 1 : 0);
     const hard = P.hard || 1;
     let S: any;
     const bd = (SKY || MODE === "warp" || MODE === "blackhole" ? [] : (BACKDROPS[MODE] || [])).map((d, i) => ({ ...d, spr: planetSprite(d.k, d.r, i + 3 + MODE.length) }));
@@ -253,7 +256,7 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
       for (const p of S.pt) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; } S.pt = S.pt.filter((p: any) => p.life > 0).slice(-400);
       for (const st of S.stars) { st.x -= (40 + st.z * 260) * dt * (MODE === "warp" ? 5 : 1) * (1 + (S.ls || 0) * 6); if (st.x < 0) { st.x = W; st.y = Math.random() * H; } }
       S.shake = Math.max(0, S.shake - 30 * dt);
-      if (S.win) { S.endT += dt; if (S.endT > 2.6 && !dead) { dead = true; onWin({ kills: S.kills, cry: S.cry, loot: S.loot, mined: S.mined, mode: MODE, fuel: S.fuel }); } }
+      if (S.win) { S.endT += dt; if (S.endT > 2.6 && !dead) { dead = true; onWin({ ark: SKY === "ark" ? { ...ARKST, hpFrac: Math.max(0.2, S.ship.hp / HP) } : null, kills: S.kills, cry: S.cry, loot: S.loot, mined: S.mined, mode: MODE, fuel: S.fuel }); } }
     };
     const draw = () => {
       const k2 = c.width / W; x.setTransform(k2, 0, 0, k2, 0, 0); const sh = S.shake; x.translate((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
@@ -311,7 +314,7 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
       for (const m of S.ms) { x.fillStyle = "#fff6c8"; x.beginPath(); x.arc(m.x, m.y, 5, 0, 7); x.fill(); }
       for (const p of S.pt) { x.fillStyle = "rgba(" + p.col + "," + Math.max(0, p.life / p.max) + ")"; x.fillRect(p.x, p.y, 3, 3); }
       x.globalCompositeOperation = "source-over";
-      const s = S.ship; if (!S.over) { x.save(); x.translate(s.x, s.y); if (s.inv > 0 && Math.floor(S.t * 20) % 2) x.globalAlpha = 0.4; if (SKY === "ark") { x.scale(0.82, 0.82); drawArk(x, glow, S.t); } else drawPlayer(x, glow, S.t); x.restore(); }
+      const s = S.ship; if (!S.over) { x.save(); x.translate(s.x, s.y); if (s.inv > 0 && Math.floor(S.t * 20) % 2) x.globalAlpha = 0.4; if (SKY === "ark") { x.scale(0.82, 0.82); drawArk(x, glow, S.t, ARKLV); } else drawPlayer(x, glow, S.t); x.restore(); }
     };
     const frame = (now: number) => { raf = requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; if (document.hidden || pausedRef.current || (ctl && ctl.current && ctl.current.paused)) { last = now; if (pausedRef.current || (ctl && ctl.current && ctl.current.paused)) draw(); return; } step(dt); draw(); };
     raf = requestAnimationFrame(frame);

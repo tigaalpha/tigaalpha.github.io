@@ -15,6 +15,7 @@ import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
 import { createAdvSfx } from "./adventure-sfx";
 import { GearButton, SettingsPopup } from "./adventure-settings";
+import { ARK_LINES, ARK_MAX, ARK_TRIP_DAYS, arkCost, readArk, buyArk, arkStats } from "./adventure-ark";
 import { paintMonster, paintBoss, paintKindred } from "./adventure-monsters";
 import { warTeamOf, openAdvRoom, MAX_PILOTS, listPublicRooms, publicRoomOpen, publicRoomPing, publicRoomClose, type Net, type PublicRoom } from "./adv-online";
 import { treeOf, lvOf, buySkillLv, toggleEquip, readEquip, equippedOf, passiveSum, powerAt, cdAt, skillLook, skillSound, skillDesc, skillCost, isPassive, SKILL_MAX_LV, type Skill } from "./skill-tree";
@@ -637,6 +638,13 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               </>)}
             </div>)}
           <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} onChange={() => setTick(x => x + 1)} />
+          {sector === "solar" && (() => { const ar = readArk(), st = arkStats(ar); const nm: any = { g: ["วงแหวนแรงโน้มถ่วง", "Gravity ring", "重力环"], f: ["ชั้นปลูกพืช", "Farm decks", "农业层"], l: ["ชั้นเลี้ยงสัตว์", "Livestock decks", "牲畜层"], h: ["ที่อยู่อาศัย", "Habitat", "居住区"], s: ["เกราะและโล่", "Hull & shields", "船体与护盾"] };
+            return (<div className="adv-shop" aria-label="Ark Bay" data-ark="1">
+              <b>{t("อู่ Ark — ติดตั้งเรือโนอาแห่งอวกาศด้วยคริสตัล ◆ " + crystals, "Ark Bay — outfit the Ark with crystals ◆ " + crystals, "方舟坞 — 用晶体 ◆ " + crystals + " 装备方舟")}</b>
+              {ARK_LINES.map(l => (<button key={l} className="adv-up" data-ark-line={l} disabled={ar[l] >= ARK_MAX || crystals < arkCost(ar[l])} onClick={() => { const r = buyArk(l, readCrystals()); if (r.ok) { spendCrystals(r.cost); playUi && playUi("click"); setTick(x => x + 1); } }}>
+                <span>{T3(lang, nm[l][0], nm[l][1], nm[l][2])} · Lv {ar[l]}/{ARK_MAX}</span><em>{ar[l] >= ARK_MAX ? "MAX" : "◆ " + arkCost(ar[l])}</em></button>))}
+              <small data-ark-stats="1">{t("แรงโน้มถ่วง ", "Gravity ", "重力 ")}{st.gravity} g · {t("ผู้โดยสารที่ถึงอย่างแข็งแรง ", "healthy passengers ", "健康乘客 ")}{st.people.toLocaleString()} · {t("อาหาร ", "food ", "食物 ")}{st.foodDays}/{ARK_TRIP_DAYS} {t("วัน", "days", "天")} {st.foodOk ? "✓" : "⚠"}</small>
+            </div>); })()}
           <div className="adv-shop" aria-label="Workshop">
             <b>{t("โรงงาน — อัปเกรดด้วยคริสตัล ◆ " + crystals, "Workshop — upgrade with crystals ◆ " + crystals, "工坊 — 用晶体 ◆ " + crystals + " 升级")}</b>
             {UP_LINES.map(l => (
@@ -687,7 +695,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
         ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole"].includes(planet.mission) && shipDone ? (
           <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
-            <span>☠ {shipDone.kills} · ◆ {shipDone.cry}{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}{shipDone.mode === "skim" ? " · ⛽ 100%" : ""}{shipDone.mode === "harvest" ? " · ☀ 3/3" : ""}{shipDone.mode === "solar" ? " · 🔋 8/8" : ""}{shipDone.mode === "warp" ? " · 🌌 " + t("ข้ามกาแล็กซีแล้ว", "crossed over", "已跨越") : ""}{shipDone.mode === "blackhole" ? " · ⚫ " + t("ข้ามจักรวาลแล้ว", "another universe", "已进入新宇宙") : ""}</span>
+            <span>☠ {shipDone.kills} · ◆ {shipDone.cry}{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}{shipDone.mode === "skim" ? " · ⛽ 100%" : ""}{shipDone.mode === "harvest" ? " · ☀ 3/3" : ""}{shipDone.mode === "solar" ? " · 🔋 8/8" : ""}{shipDone.mode === "warp" ? " · 🌌 " + t("ข้ามกาแล็กซีแล้ว", "crossed over", "已跨越") : ""}{shipDone.ark ? " · 👥 " + Math.round(shipDone.ark.people * (0.6 + 0.4 * shipDone.ark.hpFrac)).toLocaleString() + " " + t("คนถึงดาวดวงใหม่", "people reached the new star", "人抵达新恒星") + (shipDone.ark.foodOk ? " · 🌱 " + t("อาหารพอ", "food lasts", "食物充足") : " · ⚠ " + t("อาหารไม่พอ", "food runs short", "食物不足")) : ""}{shipDone.mode === "blackhole" ? " · ⚫ " + t("ข้ามจักรวาลแล้ว", "another universe", "已进入新宇宙") : ""}</span>
             {shipDone.coins > 0 && <small className="ac-coins">🪙 +{shipDone.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
             <div className="adv-clear-btns">
               {shipDone.next && <button className="adv-btn go" onClick={() => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setShipDone(null); setPlanet(shipDone.next); }}>▶ {T3(lang, shipDone.next.th, shipDone.next.en, shipDone.next.zh).split(" · ")[0]}</button>}
