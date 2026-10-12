@@ -121,3 +121,25 @@ export function paintBoss(x: Cx, b: any, t: number, P: any, G: number): void {
   x.fillStyle = warn ? "rgba(255,70,90,.95)" : `rgba(${acc},.95)`; x.beginPath(); x.arc(46, y - 76 + lift, 9, 0, 7); x.arc(30, y - 82 + lift, 6, 0, 7); x.fill(); x.fillStyle = `rgba(${glow},.55)`; x.fillRect(-34, y - 30 + lift, 62, 5); x.globalCompositeOperation = "source-over";
   x.restore();
 }
+
+/** A Kindred elder (Act 2): a friendly alien who stands where a knowledge beacon would. Tall and slender, teal and gold, with a halo ring and a trailing cloak; dimmed once its question has been asked. */
+export function paintKindred(x: CanvasRenderingContext2D, px: number, ground: number, t: number, used: boolean) {
+  x.save(); x.translate(px, ground);
+  const a = used ? 0.45 : 1, bob = Math.sin(t * 1.6) * 3;
+  x.globalAlpha = a;
+  // ground glow
+  x.globalCompositeOperation = "lighter"; const gl = x.createRadialGradient(0, -6, 2, 0, -6, 70); gl.addColorStop(0, "rgba(141,255,220,.5)"); gl.addColorStop(1, "rgba(141,255,220,0)"); x.fillStyle = gl; x.beginPath(); x.ellipse(0, -4, 70, 16, 0, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
+  // cloak: two long tapering panels that sway
+  const sw = Math.sin(t * 1.3) * 6;
+  const cg = x.createLinearGradient(0, -110, 0, 0); cg.addColorStop(0, "#d8fff1"); cg.addColorStop(0.45, "#46c7b0"); cg.addColorStop(1, "#164f56"); x.fillStyle = cg;
+  x.beginPath(); x.moveTo(-14, -96 + bob); x.quadraticCurveTo(-30 + sw, -50, -26 + sw * 1.4, 0); x.lineTo(26 + sw * 1.4, 0); x.quadraticCurveTo(30 + sw, -50, 14, -96 + bob); x.closePath(); x.fill();
+  x.strokeStyle = "rgba(255,226,150,.9)"; x.lineWidth = 2; x.beginPath(); x.moveTo(-10, -92 + bob); x.quadraticCurveTo(-18 + sw * 0.6, -50, -14 + sw, -4); x.moveTo(10, -92 + bob); x.quadraticCurveTo(18 + sw * 0.6, -50, 14 + sw, -4); x.stroke();
+  // head: tall oval with two soft eyes
+  const hg = x.createRadialGradient(-4, -118 + bob, 2, 0, -112 + bob, 24); hg.addColorStop(0, "#f2fffb"); hg.addColorStop(1, "#6fd8c4"); x.fillStyle = hg; x.beginPath(); x.ellipse(0, -112 + bob, 14, 21, 0, 0, 7); x.fill();
+  x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(255,230,160,.95)"; x.beginPath(); x.ellipse(-5, -112 + bob, 2.6, 4, 0, 0, 7); x.ellipse(5, -112 + bob, 2.6, 4, 0, 0, 7); x.fill();
+  // halo ring
+  x.strokeStyle = "rgba(255,226,150," + (0.6 + 0.3 * Math.sin(t * 3)) + ")"; x.lineWidth = 2.4; x.beginPath(); x.ellipse(0, -140 + bob, 17, 5, 0, 0, 7); x.stroke();
+  // little drifting glyphs, the way the Kindred "speak"
+  if (!used) for (let i = 0; i < 4; i++) { const p = ((t * 0.35 + i / 4) % 1); x.fillStyle = "rgba(190,255,235," + (0.8 * (1 - p)) + ")"; x.fillRect(-26 + i * 17, -150 - p * 26 + bob, 4, 4); }
+  x.restore();
+}

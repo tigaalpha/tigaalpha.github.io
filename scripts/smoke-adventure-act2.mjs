@@ -34,6 +34,7 @@ for (const [re, label] of [["Kindred", "Kindred Haven"], ["Dark Forge", "Dark Fo
   await p.waitForFunction(() => !!window.__advTest, null, { timeout: 10000 }); await p.waitForTimeout(1200);
   ok(label + ": the dig button is on the pad (a resource map)", (await p.locator(".pvpact.dig").count()) === 1);
   ok(label + ": monsters live on the map", (await p.evaluate(() => window.__advTest.state().mons)) > 0);
+  if (re === "Kindred") { ok("Kindred Haven: elders stand where the beacons would (3)", (await p.evaluate(() => window.__advTest.beaconsN())) === 3); await p.evaluate(() => window.__advTest.tp(1100)); await p.waitForTimeout(600); ok("Kindred Haven: an elder greets the pilot who comes near", (await p.evaluate(() => window.__advTest.greeted())) >= 1); }
   ok(label + ": no errors", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close(); }
 { const { ctx, p, errs } = await open({}); const i = await enter(p, "Harvesters"); ok("Under the Harvesters' Eye opens", i >= 0);
   await p.waitForFunction(() => !!window.__advShip, null, { timeout: 10000 }); ok("it is the evade mode", (await p.evaluate(() => window.__advShip.mode)) === "evade");
