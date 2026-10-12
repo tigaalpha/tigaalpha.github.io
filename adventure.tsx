@@ -36,10 +36,15 @@ const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getIt
 const readBest = (): any => { try { return JSON.parse(localStorage.getItem("tg_adv_best") || "{}") || {}; } catch (e) { return {}; } };
 const writeBest = (id: string, secs: number) => { try { const b = readBest(); if (!(b[id] <= secs)) { b[id] = secs; localStorage.setItem("tg_adv_best", JSON.stringify(b)); } } catch (e) {} };
 let RUN_T0 = 0, RUN_NAME = "Pilot";   // when this map actually began (after its film), for the best-times board
-const markDone = (id: string) => { try { if (RUN_T0 > 0) { const secs = Math.round((Date.now() - RUN_T0) / 1000); readBest(); writeBest(id, secs); submitAdvTime(id, secs, RUN_NAME); } } catch (e) {} try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
+const markDone = (id: string) => { try { if (RUN_T0 > 0) { const secs = Math.round((Date.now() - RUN_T0) / 1000); readBest(); writeBest(id, secs); submitAdvTime(id, secs, RUN_NAME); } } catch (e) {} try { const d = readDone(); if (!d.includes(id)) { const Q: any = PLANETS.find((z: any) => z.id === id); if (Q && ENERGY_MISSIONS.includes(Q.mission)) writeEnergy(readEnergy() + 20); d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
 const spendCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(Math.max(0, readCrystals() - n))); } catch (e) {} };
 const readCrystals = (): number => { try { return Math.max(0, parseInt(localStorage.getItem("tg_adv_crystals") || "0", 10) || 0); } catch (e) { return 0; } };
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(readCrystals() + n)); } catch (e) {} };
+/** Energy carried between maps (0-100, local, never sold): energy maps fill it, 50 is spent at the start of the next map for +25 % crystals there. */
+const ENERGY_MISSIONS = ["harvest", "skim", "solar", "capture", "survival", "dyson"];
+const readEnergy = (): number => { try { return Math.min(100, Math.max(0, parseInt(localStorage.getItem("tg_adv_energy") || "0", 10) || 0)); } catch (e) { return 0; } };
+const writeEnergy = (n: number) => { try { localStorage.setItem("tg_adv_energy", String(Math.min(100, Math.max(0, Math.round(n))))); } catch (e) {} };
+let ENERGY_BOOST = 1;   // set when a map starts with 50+ energy
 /* ── phase 3.2: crystal upgrades, daily quests, difficulty ──
    Crystals come from playing only and are never for sale. Each of the three lines has 5 levels at +5 % each, so the ceiling is a fixed +25 %. */
 export const UP_LINES = ["atk", "hp", "skl", "rkt", "shp"] as const;   // shp: starship engine, +6 % speed and +20 px pickup pull per level (ship maps only)   // rkt: rocket salvo (1 > 2 at Lv2 > 3 at Lv4) and 6 % faster reload per level
@@ -585,7 +590,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const [pro, setPro] = useState(() => { try { return localStorage.getItem("tg_adv_prologue") === null && localStorage.getItem("tg_adv_nocine") !== "1"; } catch (e) { return false; } });   // the opening film, once, before the first map menu
   const [rankOpen, setRankOpen] = useState(false);
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
-  useEffect(() => { RUN_NAME = pname; RUN_T0 = planet && (nocine || cined === planet.id) ? Date.now() : 0; }, [planet && planet.id, cined]);   // the clock for the best-times board starts when the map does, not when its film does
+  useEffect(() => { RUN_NAME = pname; RUN_T0 = planet && (nocine || cined === planet.id) ? Date.now() : 0; if (RUN_T0 > 0) { if (readEnergy() >= 50) { writeEnergy(readEnergy() - 50); ENERGY_BOOST = 1.25; } else ENERGY_BOOST = 1; } else ENERGY_BOOST = 1; }, [planet && planet.id, cined]);   // the clock for the best-times board starts when the map does, not when its film does
   const filming = (pro && !planet) || (fin && !planet) || (!!planet && cined !== planet.id && !nocine);
   useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
   const startPlanet = (P: any) => { playUi && playUi("click"); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
@@ -627,7 +632,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
                 {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : v === "space" ? t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空") : v === "act2" ? t("ภาค 3 · ฮาร์เวสเตอร์", "Act 2 · The Harvesters", "第三区 · 收割者") : t("ภาค 4 · ระบบสุริยะ", "Sector 4 · Solar System", "第四区 · 太阳系")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
               </button>); })}
           </div>
-          <div className="adv-rankbar"><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
+          <div className="adv-rankbar"><span data-energy style={{ marginRight: 8, fontSize: 12 }}>⚡ {t("พลังงาน", "Energy", "能量")} {readEnergy()}/100{readEnergy() >= 50 ? " · +25%" : ""}</span><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
           {rankOpen && <RankPanel lang={lang} maps={PLANETS.filter(P => sectorOf(P) === sector)} />}
           <div className="adv-planets">
             {PLANETS.map((P, pi) => sectorOf(P) !== sector ? null : (
@@ -806,7 +811,7 @@ function settleShip(res: any, P: any, onReward: any) {
   const RW = readDiff().rw; let value = 0; for (const k of Object.keys(res.loot || {})) value += (res.loot[k] || 0) * ((LOOT as any)[k] ? (LOOT as any)[k].v : 0);
   const want = Math.round(value * RW * rate), room = Math.max(0, ADV_COIN_DAY_CAP - readDayCoins()), coins = Math.min(want, room);
   if (res.mined) addOre(res.mined);
-  if (res.cry) addCrystals(res.cry * (readDiff().id === "normal" ? 1 : readDiff().id === "hard" ? 2 : 3));
+  if (res.cry) addCrystals(Math.round(res.cry * ENERGY_BOOST * (readDiff().id === "normal" ? 1 : readDiff().id === "hard" ? 2 : 3)));
   markDone(P.id);
   if (coins > 0) { addDayCoins(coins); if (onReward) { try { onReward(0, coins, { adventure: true }); } catch (e) {} } }
   try { ((window as any).__advRewardLog = (window as any).__advRewardLog || []).push({ coins, want, planet: P.id }); } catch (e) {}
@@ -956,7 +961,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     TINT = P.tint || null;
     const HM = (P.hard || 1) * DF.hp, RW = DF.rw, CV = DF.id === "normal" ? 1 : DF.id === "hard" ? 2 : 3;   // reward multiplier, crystals per pickup
     const questDone = (list: any[]) => { for (const d of list) { addRpgExpX(me, d.exp); pop(pl.x, GROUND - pl.y - 130, "QUEST +" + d.exp + " EXP", "#ffd23f"); } };
-    const gainCry = (n0: number) => { const n = Math.max(1, Math.round(n0 * (1 + PASS.loot))); crystals += n; addCrystals(n); questDone(bumpQuest("cry", n)); };
+    const gainCry = (n0: number) => { const n = Math.max(1, Math.round(n0 * (1 + PASS.loot) * ENERGY_BOOST)); crystals += n; addCrystals(n); questDone(bumpQuest("cry", n)); };
     const pl: any = { x: 160, y: 0, vy: 0, face: 1, hp: hpMaxOf(info.lv), atkCd: 0, sklCd: 0, hurtT: 0, inv: 0, dead: 0, ground: true, swing: 0, fireCd: 0, rockCd: 0, kickCd: 0, dashCd: 0, dashT: 0, combo: 0, comboT: 0, maxCombo: 0 };
     const teleGaps: number[] = [];
     const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: Math.round(MON[type].hp * HM), max: Math.round(MON[type].hp * HM), face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, tele: 0, act: "", teleAt: 0, i });
