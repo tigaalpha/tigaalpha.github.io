@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
+import { useFpv, FpvButton, FpvVisor } from "./fpv";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
@@ -39,6 +40,7 @@ export default function AdventureYard({ P, lang, onWin, onExit }: any) {
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const G = useRef<any>(null); if (!G.current) G.current = { slots: Array(8).fill(null) as (string | null)[], moves: 0, won: false };
   const [, setTick] = useState(0), [hold, setHold] = useState<string | null>(null), [gear, setGear] = useState(false), pausedRef = useRef(false), [why, setWhy] = useState<string | null>(null);
+  const [fpv, flipFpv] = useFpv();   // first-person view: a helmet visor over the board
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null), S = G.current;
@@ -63,8 +65,9 @@ export default function AdventureYard({ P, lang, onWin, onExit }: any) {
       <div className="adv-top">
         <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
         <div className="adv-hud"><div className="adv-lv">🛠 {T3(lang, P.th, P.en, P.zh).split(" · ")[0]} · {t("วางแล้ว ", "Placed ", "已放置 ")}{placed}/8 · {t("ครั้งที่ย้าย ", "Moves ", "移动 ")}{S.moves}</div></div>
-        <GearButton onClick={openGear} />
+        <div className="fpv-tr"><FpvButton lang={lang} on={fpv} onClick={flipFpv} /><GearButton onClick={openGear} /></div>
       </div>
+      {fpv && <FpvVisor />}
       <div className="ay-dir"><span>{t("◀ หัวเรือ", "◀ BOW", "◀ 船头")}</span><span>{t("ท้ายเรือ ▶", "STERN ▶", "船尾 ▶")}</span></div>
       <div className="ay-spine">
         {S.slots.map((id: string | null, i: number) => { const m = modOf(id); return (

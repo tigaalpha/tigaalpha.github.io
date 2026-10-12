@@ -15,6 +15,7 @@ import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { FigurePic, prepareFigures, pauseFigures, figureOf, FIGURES_OK } from "./figure-cache";
 import { createAdvSfx } from "./adventure-sfx";
 import { GearButton, SettingsPopup, AdvGuard } from "./adventure-settings";
+import { useFpv, FpvButton, FpvVisor, FpvHurt, FpvCrosshair, FpvHands } from "./fpv";
 import { ARK_LINES, ARK_MAX, ARK_TRIP_DAYS, arkCost, readArk, buyArk, arkStats } from "./adventure-ark";
 import { paintMonster, paintBoss, paintKindred } from "./adventure-monsters";
 import { warTeamOf, openAdvRoom, MAX_PILOTS, submitAdvTime, listAdvTop, listPublicRooms, publicRoomOpen, publicRoomPing, publicRoomClose, type Net, type PublicRoom } from "./adv-online";
@@ -468,7 +469,7 @@ const CSS = `
 .ab-list{display:grid;gap:6px;max-height:260px;overflow:auto}.ab-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 9px;border-radius:9px;background:rgba(0,0,0,.28);font-size:12px}.ab-row.lock{opacity:.5}.ab-row.eq{outline:1.5px solid #ffd23f}
 .ab-row small{grid-column:1/2;opacity:.85;font-size:11px}.ab-row em{font-style:normal;font-size:10px;opacity:.8;grid-column:1/2}.ab-btns{grid-column:2/3;grid-row:1/4;display:flex;flex-direction:column;gap:4px;justify-content:center}.ab-btns button{padding:5px 8px;border-radius:8px;border:0;font-weight:800;font-size:11px;background:#2b3a5a;color:#fff}.ab-btns button.on{background:#d9a21b}.ab-btns button:disabled{opacity:.45}
 .adv-ship{position:absolute;inset:0;z-index:5;background:#02030c}.adv-ship canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.adv-world{position:absolute;inset:0;will-change:transform}
 .adv-px{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
 .adv-px svg{width:100%;height:100%;display:block;overflow:visible}.adv-wpn{position:absolute;left:52%;top:36%;width:62%;height:22%;pointer-events:none;transform-origin:16% 55%}.adv-wpn svg{width:100%;height:100%}
 .adv-top{position:absolute;left:0;right:0;top:0;display:flex;gap:8px;align-items:center;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:linear-gradient(180deg,rgba(0,8,14,.7),rgba(0,8,14,0));z-index:4}
@@ -926,6 +927,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const botKey = (po: string) => advBotKey(me, colorway, po);
   const petKeyOf = () => advPetKey(petNow);
   useEffect(() => { warmAdvFigures(me, colorway, petNow); }, []);
+  const [fpv, flipFpv] = useFpv(); const fpvRef = useRef(fpv); fpvRef.current = fpv;   // first-person view (owner, 2026-10-12)
+  const worldRef = useRef<HTMLDivElement>(null), fpvHandsRef = useRef<HTMLDivElement>(null), fpvRigRef = useRef<HTMLDivElement>(null), fpvWpnRef = useRef<HTMLDivElement>(null), fpvFlashRef = useRef<HTMLDivElement>(null), fpvXhRef = useRef<HTMLDivElement>(null), fpvHurtRef = useRef<HTMLDivElement>(null);
   const [hud, setHud] = useState<any>({ hp: 1, hpMax: 1, lv: 1, xp: 0, xpNeed: 1, sk: 0, skNeed: 1, kills: 0, skCd: 0 });
   const [banner, setBanner] = useState<any>(null);
   const [down, setDown] = useState(false);
@@ -1073,7 +1076,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let teamDone = false; const teamGoal = () => 10 * ((net ? net.peers.size : 0) + 1);
     const teamCheck = () => { if (!net || WAR || teamDone || kills < teamGoal()) return; teamDone = true; const n = Math.min(12, 4 * (net.peers.size + 1)); gainCry(n); sfx.play("win"); setBanner({ k: Date.now(), a: T3(lang, "เป้าหมายทีมสำเร็จ!", "Team goal reached!", "团队目标达成！"), b: "◆ +" + n }); logUsage("adv", "team-goal:" + P.id + ":" + (net.peers.size + 1)); };
     let drawMs = 0, drawN = 0; let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
-    let heroLastX = 0, heroDist = 0;
+    let heroLastX = 0, heroDist = 0, fpvLastHp = 1e9;
     const step = HI() ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
@@ -1700,6 +1703,24 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           const sw = pl.swing > 0 ? 1 - Math.min(1, pl.swing / 0.3) : 0;
           we.style.transform = wid === "sword" ? `rotate(${pl.swing > 0 ? -70 + sw * 150 : -52}deg)` : `rotate(${pl.swing > 0 ? -6 : 12}deg) translateX(${pl.swing > 0 ? -3 : 0}px)`;
         }
+        { // first-person view: hide the hero, zoom the world in on the hero's eyes, show the hands, the reticle and a red flash when hit
+          const fp = fpvRef.current, wd = worldRef.current; px.style.visibility = fp ? "hidden" : "";
+          if (wd) {
+            if (fp) { const Z = 1.38, ox = (pl.x - camX) * cssK, oy = (GROUND - pl.y * 0.6 - 46) * cssK, bobY = moving ? Math.abs(Math.sin((heroDist / STRIDE_PX) * Math.PI / 4 * 2)) * 4 * cssK : Math.sin(tm * 1.6) * 0.8 * cssK;
+              wd.style.transformOrigin = ox + "px " + oy + "px"; wd.style.transform = `translateY(${bobY}px) scale(${Z})`;
+              const xh = fpvXhRef.current; if (xh) xh.style.transform = `translate(${ox + pl.face * 120 * cssK * Z}px,${oy}px)`;
+              const hd = fpvHandsRef.current; if (hd) {
+                const wid = LOAD.gun, wp = fpvWpnRef.current, rig = fpvRigRef.current, fl = fpvFlashRef.current; if (wp && wp.dataset.w !== wid) { wp.dataset.w = wid; wp.innerHTML = WPN_SVG[wid] || WPN_SVG.pulse; }
+                hd.classList.toggle("lf", pl.face < 0);
+                const rc = pl.swing > 0 ? Math.min(1, pl.swing / 0.2) : 0, wb = moving ? Math.sin((heroDist / STRIDE_PX) * Math.PI / 4 * 2) : Math.sin(tm * 1.6) * 0.5;
+                if (rig) rig.style.transform = wid === "sword" ? `translate(${wb * 5}px,${Math.abs(wb) * 7}px) rotate(${pl.swing > 0 ? -55 + (1 - Math.min(1, pl.swing / 0.3)) * 120 : -6}deg)` : `translate(${wb * 5 - rc * 12}px,${Math.abs(wb) * 7 + rc * 16}px) rotate(${-rc * 6}deg)`;
+                if (fl) fl.classList.toggle("on", rc > 0.55 && wid !== "sword");
+              }
+              const he = fpvHurtRef.current; if (he && pl.hp < fpvLastHp - 0.5) { he.classList.add("on"); setTimeout(() => { try { he.classList.remove("on"); } catch (e) {} }, 170); }
+              fpvLastHp = pl.hp;
+            } else if (wd.style.transform) { wd.style.transform = ""; fpvLastHp = pl.hp; }
+          }
+        }
         px.style.transform = `translate(${(pl.x - camX) * cssK - bw / 2}px,${(GROUND - pl.y) * cssK - bh + 6 * cssK - stepBob}px) scaleX(${pl.face >= 0 ? 1 : -1})`;
       }
       const pe = petRef.current; if (pe) {
@@ -1748,6 +1769,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const pct = (a, b) => Math.max(0, Math.min(100, (a / Math.max(1, b)) * 100)) + "%";
   return (
     <>
+      <div ref={worldRef} className="adv-world">
       <canvas ref={cvRef} />
       <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? (() => { const live = <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} />; return FIGURES_OK ? <FigurePic fkey={petKeyOf()} kind="pet" el={live} cls="fig-pet" vb="-12 -18 144 156" /> : live; })() : null}</div>
       <div ref={pxRef} className="adv-px" aria-hidden="true">
@@ -1758,6 +1780,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         <svg ref={heroSvgRef} className="ca" viewBox="-20 -16 160 416" overflow="visible" aria-hidden="true" style={{ display: "none" }}><image ref={heroImgRef} preserveAspectRatio="none" /></svg>
         <div ref={wpnRef} className="adv-wpn" aria-hidden="true" />
       </div>
+      </div>
+      {fpv && <><FpvVisor /><FpvHurt hurtRef={fpvHurtRef} /><FpvCrosshair xhRef={fpvXhRef} /><FpvHands handsRef={fpvHandsRef} rigRef={fpvRigRef} wpnRef={fpvWpnRef} flashRef={fpvFlashRef} /></>}
       <div className="adv-top">
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
         <div className="adv-hud">
@@ -1766,7 +1790,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           <div className="adv-bar adv-xp"><i style={{ width: pct(hud.xp, hud.xpNeed) }} /><b>EXP</b></div>
           <div className="adv-bar adv-sk"><i style={{ width: pct(hud.sk, hud.skNeed) }} /><b>{t("สกิล", "SKILL", "技能")} R{hud.rank || 1}</b></div>
         </div>
-        <GearButton onClick={openGear} />
+        <div className="fpv-tr"><FpvButton lang={lang} on={fpv} onClick={flipFpv} /><GearButton onClick={openGear} /></div>
       </div>
       {gear && <SettingsPopup lang={lang} high={high} onGfx={onGfx} musicOn={musicOn} onMusic={() => setMusicOn(m => !m)} online={!!net} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {net && <div className="adv-emotes">{["👍", "⚔️", "🆘", "❤️"].map(em => <button key={em} aria-label={"emote " + em} onClick={() => chatRef.current && chatRef.current(em)}>{em}</button>)}</div>}

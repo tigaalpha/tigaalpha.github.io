@@ -62,6 +62,7 @@ const meKey = (me, pose, yaw, glow, accent, gsig) => `${ART_KEY}|me|${me}|${pose
 const opKey = (model, pose, yaw) => `${ART_KEY}|op|${model}|${pose}|${yaw}`;
 const petKey = (species, lv, sad) => `${ART_KEY}|pet|${species}|${lv}|${sad ? 1 : 0}`;
 import { AnswerReveal } from "./note-reveal";
+import { useFpv, FpvButton, FpvVisor, FpvFightHands } from "./fpv";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
 
@@ -2640,6 +2641,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   const [asked, setAsked] = useState(0);
   const [score, setScore] = useState(0);
   const [myPose, setMyPose] = useState("ready");
+  const [fpv, flipFpv] = useFpv();   // first-person view (owner, 2026-10-12): your own fighter is hidden, you see your weapon and the rival up close
   const [opPose, setOpPose] = useState("ready");
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
@@ -4408,7 +4410,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       </div>
   );
   return (
-    <div className={`pvppage x3 fight${land ? " land" : ""}${LITE_FIGHT ? " lite" : ""}`}>
+    <div className={`pvppage x3 fight${land ? " land" : ""}${LITE_FIGHT ? " lite" : ""}${fpv ? " fpv" : ""}`}>
       <div className="pvphdr">
         <button className="stgback" onClick={onBack} aria-label="back">←</button>
         <span className="pvphdr-t">{T("ยก", "Wave", "波次")} {Math.min(wave, WAVES.length)}/{WAVES.length}</span>
@@ -4423,6 +4425,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
             {fullscreen ? "⤡" : "⛶"}
           </button>
         )}
+        <FpvButton lang={lang} on={fpv} onClick={flipFpv} />
       </div>
 
       {/* The stage carries the round on its own class: the light drops and the
@@ -4484,6 +4487,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
             was meant to replace. `transform` does not inherit, so the recalc
             stops at this element and the move stays on the compositor.
             The percentage is of THIS element (44% of the stage), hence 100/44. */}
+        {fpv && <><FpvVisor /><FpvFightHands node={heldGear && heldGear.node} act={lunge === "me" || /^(attack|jab|hook|upper|kick|front|round|sweep|shoot|beam|throw)$/.test(myPose)} hit={myPose === "hit"} guard={!!guarding} /></>}
         <div className={`pvpfighter me${lunge === "me" ? " lunge" : ""}${myPose === "hit" ? " knock" : ""}${guarding ? " guard" : ""}`}
           ref={meEl} style={{ transform: tfOf(shown.current.me, shown.current.meAir) }}>
           <div className="pvpfighter-in">
