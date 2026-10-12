@@ -10,12 +10,34 @@ const W = 960, H = 480, BOSS_AT = 55, LAUNCH_T = 38, ORE_GOAL = 16;
 const mg = (x: CanvasRenderingContext2D, y0: number, y1: number, base: string) => { const g = x.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "rgba(255,255,255,.5)"); g.addColorStop(0.2, base); g.addColorStop(1, "#06080e"); return g; };
 const pl = (x: CanvasRenderingContext2D, pts: number[][]) => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0], pts[i][1]); x.closePath(); };
 /** the pilot's starfighter: swept wings, a glowing canopy in the robot's colour, twin engines, wing-tip lights, panel lines */
+/** the player's ship (owner, 2026-10-12: "like the SpaceX Starship, grander"): a stainless-steel cylinder with an ogive nose, a dark heat-shield side, two forward and
+ *  two aft flaps, a cluster of Raptor bells and a long exhaust with shock diamonds. Side view, nose to the right. */
 function drawPlayer(x: CanvasRenderingContext2D, glow: string, t: number) {
-  x.globalCompositeOperation = "lighter"; for (const sd of [-1, 1]) { const fl = 24 + Math.random() * 12 + Math.sin(t * 30) * 3, g = x.createLinearGradient(-26, sd * 9, -26 - fl, sd * 9); g.addColorStop(0, "rgba(255,255,255,.95)"); g.addColorStop(0.3, "rgba(" + glow + ",.9)"); g.addColorStop(1, "rgba(" + glow + ",0)"); x.fillStyle = g; x.beginPath(); x.moveTo(-24, sd * 9 - 4); x.lineTo(-26 - fl, sd * 9); x.lineTo(-24, sd * 9 + 4); x.fill(); } x.globalCompositeOperation = "source-over";
-  x.fillStyle = mg(x, -30, 30, "#8a98ae"); pl(x, [[40, 0], [10, -6], [-2, -30], [-20, -28], [-16, -8], [-26, -8], [-26, 8], [-16, 8], [-20, 28], [-2, 30], [10, 6]]); x.fill();
-  x.strokeStyle = "rgba(10,16,26,.85)"; x.lineWidth = 1; x.stroke(); x.beginPath(); x.moveTo(8, -5); x.lineTo(-14, -26); x.moveTo(8, 5); x.lineTo(-14, 26); x.moveTo(-6, -2); x.lineTo(-24, -2); x.moveTo(-6, 2); x.lineTo(-24, 2); x.stroke();
-  x.fillStyle = "#1c2636"; pl(x, [[40, 0], [14, -4], [14, 4]]); x.fill(); x.fillStyle = "rgba(" + glow + ",.9)"; x.beginPath(); x.ellipse(8, 0, 11, 4, 0, 0, 7); x.fill(); x.fillStyle = "rgba(255,255,255,.7)"; x.beginPath(); x.ellipse(11, -1, 5, 1.4, 0, 0, 7); x.fill();
-  x.fillStyle = "#3a4a62"; x.fillRect(-26, -12, 8, 5); x.fillRect(-26, 7, 8, 5); x.globalCompositeOperation = "lighter"; x.fillStyle = Math.floor(t * 4) % 2 ? "rgba(255,70,90,.95)" : "rgba(255,70,90,.3)"; x.beginPath(); x.arc(-18, -28, 2, 0, 7); x.fill(); x.fillStyle = Math.floor(t * 4) % 2 ? "rgba(90,255,150,.3)" : "rgba(90,255,150,.95)"; x.beginPath(); x.arc(-18, 28, 2, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
+  const L = -46, N = 30, R = 12;   // tail x, where the nose starts, body half-height
+  // exhaust: long, flickering, with bright mach diamonds
+  x.globalCompositeOperation = "lighter";
+  for (const oy of [-6, 0, 6]) { const fl = 46 + Math.random() * 22 + Math.sin(t * 40 + oy) * 4, g = x.createLinearGradient(L, oy, L - fl, oy); g.addColorStop(0, "rgba(255,255,255,.95)"); g.addColorStop(0.25, "rgba(" + glow + ",.9)"); g.addColorStop(0.7, "rgba(80,120,255,.35)"); g.addColorStop(1, "rgba(40,60,255,0)"); x.fillStyle = g; x.beginPath(); x.moveTo(L, oy - 4); x.lineTo(L - fl, oy); x.lineTo(L, oy + 4); x.closePath(); x.fill(); x.fillStyle = "rgba(255,255,255,.7)"; for (let d = 1; d <= 3; d++) { x.beginPath(); x.ellipse(L - d * 12, oy, 3, 1.6, 0, 0, 7); x.fill(); } }
+  x.globalCompositeOperation = "source-over";
+  // aft flaps (large) and forward flaps (small), behind the hull
+  const flap = (pts: number[][], c0: string, c1: string) => { const g = x.createLinearGradient(0, pts[0][1], 0, pts[2][1]); g.addColorStop(0, c0); g.addColorStop(1, c1); x.fillStyle = g; pl(x, pts); x.fill(); x.strokeStyle = "rgba(20,26,38,.8)"; x.lineWidth = 1; x.stroke(); };
+  flap([[-24, -R + 2], [-44, -R + 2], [-50, -33], [-30, -29]], "#c9d2de", "#6a7486"); flap([[-24, R - 2], [-44, R - 2], [-50, 33], [-30, 29]], "#4a5262", "#242a36");
+  flap([[18, -R + 2], [28, -R + 2], [24, -23], [14, -21]], "#d7dee8", "#7a8496"); flap([[18, R - 2], [28, R - 2], [24, 23], [14, 21]], "#4a5262", "#242a36");
+  // hull: brushed stainless, bright on top, shadowed beneath
+  const hg = x.createLinearGradient(0, -R, 0, R); hg.addColorStop(0, "#f4f7fb"); hg.addColorStop(0.25, "#cfd6e0"); hg.addColorStop(0.6, "#8f99a9"); hg.addColorStop(1, "#505968");
+  x.fillStyle = hg; x.beginPath(); x.moveTo(L, -R); x.lineTo(N, -R); x.quadraticCurveTo(N + 24, -R + 1, N + 40, 0); x.quadraticCurveTo(N + 24, R - 1, N, R); x.lineTo(L, R); x.closePath(); x.fill();
+  x.strokeStyle = "rgba(14,20,30,.85)"; x.lineWidth = 1; x.stroke();
+  // heat shield: the dark tiled belly
+  x.save(); x.beginPath(); x.moveTo(L, R); x.lineTo(N, R); x.quadraticCurveTo(N + 24, R - 1, N + 40, 0); x.quadraticCurveTo(N + 22, 4, N, 4.5); x.lineTo(L, 4.5); x.closePath(); x.clip();
+  x.fillStyle = "#1a1f2a"; x.fillRect(L, 3, N + 44 - L, 12); x.strokeStyle = "rgba(255,255,255,.14)"; x.lineWidth = 0.7; for (let tx = L; tx < N + 40; tx += 5) { x.beginPath(); x.moveTo(tx, 3); x.lineTo(tx, 14); x.stroke(); } x.restore();
+  // panel rings and a long specular streak
+  x.strokeStyle = "rgba(20,26,38,.5)"; x.lineWidth = 0.8; for (const rx of [-30, -14, 2, 18]) { x.beginPath(); x.moveTo(rx, -R); x.lineTo(rx, R); x.stroke(); }
+  x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(255,255,255,.55)"; x.fillRect(L + 4, -R + 2, N + 18 - L, 1.6);
+  // a small cyan glow on the nose and the flap hinge lights
+  x.fillStyle = "rgba(" + glow + ",.85)"; x.beginPath(); x.ellipse(N + 30, -1, 5, 2, 0, 0, 7); x.fill();
+  const on = Math.floor(t * 3) % 2; x.fillStyle = on ? "rgba(255,70,90,.95)" : "rgba(255,70,90,.25)"; x.beginPath(); x.arc(-48, -31, 1.8, 0, 7); x.fill(); x.fillStyle = on ? "rgba(70,255,140,.25)" : "rgba(70,255,140,.95)"; x.beginPath(); x.arc(-48, 31, 1.8, 0, 7); x.fill();
+  x.globalCompositeOperation = "source-over";
+  // Raptor bells at the tail
+  x.fillStyle = "#2a303c"; for (const oy of [-6, 0, 6]) { pl(x, [[L + 3, oy - 3.5], [L - 4, oy - 4.5], [L - 4, oy + 4.5], [L + 3, oy + 3.5]]); x.fill(); }
 }
 /** the alien fleet: scarab drones, raiders, dreadnought carriers, wasps and bio-bombs */
 function drawEnemy(x: CanvasRenderingContext2D, e: any) {
@@ -80,7 +102,7 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
     const step = (dt: number) => {
       const k = keys.current, s = S.ship; S.t += dt;
       if (!S.over && !S.win) {
-        const sp = 330 * (1 + 0.06 * (ups.shp || 0)); s.x = Math.max(40, Math.min(MODE === "harvest" ? W - 90 : W * 0.62, s.x + ((k.r ? 1 : 0) - (k.l ? 1 : 0)) * sp * dt)); s.y = Math.max(90, Math.min(H - 40, s.y + ((k.d ? 1 : 0) - (k.u ? 1 : 0)) * sp * dt));
+        const sp = 330 * (1 + 0.06 * (ups.shp || 0)); s.x = Math.max(40, Math.min(MODE === "harvest" ? W - 90 : W * 0.62, s.x + Math.max(-1, Math.min(1, (k.r ? 1 : 0) - (k.l ? 1 : 0) + (k.ax || 0))) * sp * dt)); s.y = Math.max(90, Math.min(H - 40, s.y + Math.max(-1, Math.min(1, (k.d ? 1 : 0) - (k.u ? 1 : 0) + (k.ay || 0))) * sp * dt));
         s.fireCd -= dt; s.mCd -= dt; s.inv -= dt;
         if (k.fire && s.fireCd <= 0 && MODE !== "evade") { s.fireCd = 0.13; S.bl.push({ x: s.x + 34, y: s.y - 7, vx: 820, vy: 0 }, { x: s.x + 34, y: s.y + 7, vx: 820, vy: 0 }); sfx.play("bolt"); }
         if (k.miss && s.mCd <= 0) { s.mCd = 3 * (1 - 0.06 * (ups.rkt || 0)); for (let q = 0; q < SALVO; q++) S.ms.push({ x: s.x + 20, y: s.y + (q - (SALVO - 1) / 2) * 16, vx: 380, vy: (q - (SALVO - 1) / 2) * 120, life: 2.4 }); sfx.play("rocket"); }
@@ -185,13 +207,35 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
     const hudT = setInterval(() => { setUi({ st: S.st, sp: S.stn ? S.stn.p : 0, fuel: S.fuel, mined: S.mined, hp: Math.max(0, Math.round(S.ship.hp)), boss: S.boss ? Math.max(0, S.boss.hp / S.boss.max) : 0, bossOn: !!S.boss && !S.boss.dead, t: Math.floor(S.t), kills: S.kills, over: S.over, win: S.win, ms: Math.max(0, S.ship.mCd) }); }, 150);
     const kd = (e: KeyboardEvent, v: boolean) => { const cd = e.code, k = keys.current; if (cd === "ArrowLeft" || cd === "KeyA") k.l = v; else if (cd === "ArrowRight" || cd === "KeyD") k.r = v; else if (cd === "ArrowUp" || cd === "KeyW") k.u = v; else if (cd === "ArrowDown" || cd === "KeyS") k.d = v; else if (cd === "Space" || cd === "KeyJ") k.fire = v; else if (cd === "KeyK" || cd === "KeyY") k.miss = v; };
     const dn = (e: KeyboardEvent) => kd(e, true), up = (e: KeyboardEvent) => kd(e, false); window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advShip = { mode: MODE, skipEvade: () => { S.t = EVADE_T; }, bulletsN: () => S.bl.length, scansN: () => (S.scans || []).length, setFire: (v: boolean) => { keys.current.fire = v; }, speedNow: () => 330 * (1 + 0.06 * (ups.shp || 0)), stationsDone: () => S.st, holdStation: () => { if (S.stn) { S.ship.x = S.stn.x; S.ship.y = S.stn.y; } }, fastStation: () => { if (S.stn) S.stn.p = 6.9; }, inBand: () => { S.ship.y = S.band || H / 2; }, answer: (ok: boolean) => { if (ctl && ctl.current && ctl.current.answer) ctl.current.answer(ok); }, relayNow: () => { S.relay = { x: S.ship.x + 10, y: S.ship.y, ph: 0 }; }, answers: () => S.ans, fuel: () => S.fuel, fillFuel: () => { S.fuel = 99.5; }, hpNow: () => S.ship.hp, setHpS: (v: number) => { S.ship.hp = v; }, rocks: () => S.rk.length, giveOre: (n: number) => { S.mined += n; }, skipLaunch: () => { S.t = LAUNCH_T - 0.1; }, spawnRock: (sz: number) => addRock(S.ship.x + 200, S.ship.y, sz), state: () => ({ mined: S.mined, rk: S.rk.length, t: S.t, hp: S.ship.hp, kills: S.kills, en: S.en.length, boss: S.boss ? { hp: S.boss.hp, dead: !!S.boss.dead } : null, over: S.over, win: S.win, cry: S.cry, bl: S.bl.length, ms: S.ms.length }), skip: () => { S.t = BOSS_AT - 0.1; }, god: () => { S.ship.hp = 1e6; }, killBoss: () => { if (S.boss) S.boss.hp = 0.5; }, dieNow: () => { S.ship.inv = 0; S.ship.hp = 0.1; S.eb.push({ x: S.ship.x, y: S.ship.y, vx: 0, vy: 0 }); }, spawn: (ty: string) => addEnemy(ty, S.ship.y) };
+    (window as any).__advShip = { mode: MODE, shipPos: () => ({ x: S.ship.x, y: S.ship.y }), skipEvade: () => { S.t = EVADE_T; }, bulletsN: () => S.bl.length, scansN: () => (S.scans || []).length, setFire: (v: boolean) => { keys.current.fire = v; }, speedNow: () => 330 * (1 + 0.06 * (ups.shp || 0)), stationsDone: () => S.st, holdStation: () => { if (S.stn) { S.ship.x = S.stn.x; S.ship.y = S.stn.y; } }, fastStation: () => { if (S.stn) S.stn.p = 6.9; }, inBand: () => { S.ship.y = S.band || H / 2; }, answer: (ok: boolean) => { if (ctl && ctl.current && ctl.current.answer) ctl.current.answer(ok); }, relayNow: () => { S.relay = { x: S.ship.x + 10, y: S.ship.y, ph: 0 }; }, answers: () => S.ans, fuel: () => S.fuel, fillFuel: () => { S.fuel = 99.5; }, hpNow: () => S.ship.hp, setHpS: (v: number) => { S.ship.hp = v; }, rocks: () => S.rk.length, giveOre: (n: number) => { S.mined += n; }, skipLaunch: () => { S.t = LAUNCH_T - 0.1; }, spawnRock: (sz: number) => addRock(S.ship.x + 200, S.ship.y, sz), state: () => ({ mined: S.mined, rk: S.rk.length, t: S.t, hp: S.ship.hp, kills: S.kills, en: S.en.length, boss: S.boss ? { hp: S.boss.hp, dead: !!S.boss.dead } : null, over: S.over, win: S.win, cry: S.cry, bl: S.bl.length, ms: S.ms.length }), skip: () => { S.t = BOSS_AT - 0.1; }, god: () => { S.ship.hp = 1e6; }, killBoss: () => { if (S.boss) S.boss.hp = 0.5; }, dieNow: () => { S.ship.inv = 0; S.ship.hp = 0.1; S.eb.push({ x: S.ship.x, y: S.ship.y, vx: 0, vy: 0 }); }, spawn: (ty: string) => addEnemy(ty, S.ship.y) };
     return () => { cancelAnimationFrame(raf); clearInterval(hudT); window.removeEventListener("resize", fit); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advShip; } catch (e) {} };
   }, []);
   const hold = (name: string) => ({
     onPointerDown: (e: any) => { e.preventDefault(); keys.current[name] = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (er) {} },
     onPointerUp: () => { keys.current[name] = false; }, onPointerCancel: () => { keys.current[name] = false; }, onLostPointerCapture: () => { keys.current[name] = false; },
   });
+  // The left half of the screen is a touch stick (owner, 2026-10-12): drag anywhere on it and the ship follows the thumb's direction; the big round joystick at the
+  // bottom-left is the same control with a fixed centre. keys.ax / keys.ay are the analog values (-1..1) the step reads beside the arrow keys.
+  const stickRef = useRef<any>({ id: -1, ox: 0, oy: 0 }), knobRef = useRef<HTMLDivElement>(null), ringRef = useRef<HTMLDivElement>(null);
+  const STICK_R = 56;
+  const setStick = (dx: number, dy: number) => {
+    const d = Math.hypot(dx, dy), m = d > STICK_R ? STICK_R / d : 1, vx = dx * m, vy = dy * m;
+    const dz = (v: number) => { const a = Math.abs(v) / STICK_R; return a < 0.18 ? 0 : Math.sign(v) * Math.min(1, (a - 0.18) / 0.82 + 0.1); };
+    keys.current.ax = dz(vx); keys.current.ay = dz(vy);
+    if (knobRef.current) knobRef.current.style.transform = "translate(" + vx + "px," + vy + "px)";
+  };
+  const stickEnd = () => { stickRef.current.id = -1; keys.current.ax = 0; keys.current.ay = 0; if (knobRef.current) knobRef.current.style.transform = "translate(0,0)"; if (ringRef.current) ringRef.current.style.opacity = "0"; };
+  const stick = {
+    onPointerDown: (e: any) => {
+      if (stickRef.current.id !== -1 || e.target.closest(".adv-top,.adv-clear,.pvppad-r")) return; e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (er) {}
+      const joy = e.target.closest(".adv-joy"); let ox = e.clientX, oy = e.clientY;
+      if (joy) { const r = joy.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; }
+      else if (ringRef.current) { const zr = e.currentTarget.getBoundingClientRect(); ringRef.current.style.left = ox - zr.left + "px"; ringRef.current.style.top = oy - zr.top + "px"; ringRef.current.style.opacity = "1"; }
+      stickRef.current = { id: e.pointerId, ox, oy }; setStick(e.clientX - ox, e.clientY - oy);
+    },
+    onPointerMove: (e: any) => { if (e.pointerId === stickRef.current.id) setStick(e.clientX - stickRef.current.ox, e.clientY - stickRef.current.oy); },
+    onPointerUp: (e: any) => { if (e.pointerId === stickRef.current.id) stickEnd(); }, onPointerCancel: (e: any) => { if (e.pointerId === stickRef.current.id) stickEnd(); }, onLostPointerCapture: (e: any) => { if (e.pointerId === stickRef.current.id) stickEnd(); },
+  };
   return (
     <div className="adv-ship">
       <canvas ref={cv} />
@@ -204,13 +248,9 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
         </div>
       </div>
       {(ui.over || ui.win) && <div className="adv-clear" role="dialog" aria-label="ship result">{ui.win ? t("ชนะ! กำลังสรุปผล…", "Victory! Tallying…", "胜利！结算中…") : <><b>{t("ยานถูกทำลาย", "Ship destroyed", "战机被毁")}</b><button className="adv-btn go" onClick={() => retry.current()}>↻ {t("ลองใหม่", "Retry", "重试")}</button><button className="adv-btn" onClick={() => onExit()}>{t("กลับแผนที่", "Back to map", "返回地图")}</button></>}</div>}
+      <div className="adv-stickzone" data-stickzone="1" {...stick}><div className="adv-stickring" ref={ringRef} /></div>
       <div className="adv-pad">
-        <div className="pvppad-l">
-          <button className="pvpdir" aria-label="up" {...hold("u")}>▲</button>
-          <button className="pvpdir" aria-label="left" {...hold("l")}>◀</button>
-          <button className="pvpdir" aria-label="right" {...hold("r")}>▶</button>
-          <button className="pvpdir" aria-label="down" {...hold("d")}>▼</button>
-        </div>
+        <div className="pvppad-l"><div className="adv-joy" role="application" aria-label="joystick" {...stick}><b className="u">▲</b><b className="d">▼</b><b className="l">◀</b><b className="r">▶</b><div className="adv-knob" ref={knobRef} /></div></div>
         <div className="pvppad-r">
           <button className="pvpact fire" aria-label="shoot" {...hold("fire")}><b>🔫</b><i>{t("ยิง", "FIRE", "射击")}</i></button>
           <button className={"pvpact rocket" + (ui.ms > 0.05 ? " cool" : "")} aria-label="missile" {...hold("miss")}><b>🚀</b><i>{t("มิสไซล์", "MISSILE", "导弹")}</i></button>
