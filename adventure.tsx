@@ -929,7 +929,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     if (!is3d) { if (a3dRef.current) { a3dRef.current.dispose(); a3dRef.current = null; } return undefined; }
     let dead = false;
     import("./adventure-3d").then(m => {
-      if (dead) return; const host = host3dRef.current; const sc = host ? m.createAdv3D(host, P, { mid: (MID_STYLE as any)[P.id] || "mushroom", near: (NEAR_STYLE as any)[P.id] || "ferns" }, WORLD) : null;
+      if (dead) return; const host = host3dRef.current; const sc = host ? m.createAdv3D(host, P, { mid: (MID_STYLE as any)[P.id] || "mushroom", near: (NEAR_STYLE as any)[P.id] || "ferns" }, WORLD, { armorA: "#8296b6", armorB: "#3a547e", glow: (colorway && colorway.glow) || "#7fe8ff", accent: (colorway && colorway.accent) || "#ffd23f", petCol: petNow ? (((PET_TYPES as any)[(petById(petNow.species) as any).type || "steel"] || {}).c || "#8fa6c8") : "#8fa6c8", tint: TINT ? { glow: TINT.glow, body: TINT.body } : null, dims: Object.fromEntries(Object.keys(MON).map(kk2 => [kk2, [(MON as any)[kk2].w, (MON as any)[kk2].h]])) }) : null;
       if (!sc) { setA3dMsg("3D is not available on this device: back to 2D High"); if (onLevelRef.current) onLevelRef.current("high"); return; }
       a3dRef.current = sc;
     }).catch(() => { if (!dead) { setA3dMsg("3D failed to load: back to 2D High"); if (onLevelRef.current) onLevelRef.current("high"); } });
@@ -1588,7 +1588,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       const tile = (img, f, a = 1) => { const w = img.width, off = -((camX * f * k) % w + w) % w; if (a !== 1) ctx.globalAlpha = a; for (let x0 = off + sx; x0 < cw; x0 += w) ctx.drawImage(img, x0, sy); if (a !== 1) ctx.globalAlpha = 1; };
       if (!a3) { tile(bake.far, 0.15); tile(bake.mid, 0.4); if (bake.fog) tile(bake.fog, 0.55); tile(bake.ground, 1); }
       else {
-        try { a3.render(camX, tm, k / dpr, cw / dpr, ch / dpr, GROUND, sx / dpr, sy / dpr, pl.x); } catch (e) { a3Bad = 999; }
+        try {
+          const mv = mons.filter(m => !m.dead && m.x > camX - 140 && m.x < camX + vw + 140);
+          const want3 = pl.dead > 0 ? "down" : poseAct.current.name === "attack" ? ["jab", "hook", "upper"][poseAct.current.n % 3] : poseAct.current.name === "kick" ? ["front", "round", "sweep"][poseAct.current.n % 3] : poseAct.current.name !== "ready" ? poseAct.current.name : !pl.ground ? "jump" : (keys.current.l || keys.current.r) ? (pl.holdT > 0.35 ? "run" : "walk") + "0" : "ready";
+          a3.render(camX, tm, k / dpr, cw / dpr, ch / dpr, GROUND, sx / dpr, sy / dpr, pl.x, { hero: { x: pl.x, y: pl.y, face: pl.face, name: want3, dist: heroDist, swing: pl.swing, dead: pl.dead > 0, inv: pl.inv, gun: LOAD.gun, moving: !!(keys.current.l || keys.current.r), tm }, mons: mv, boss: boss.active && !boss.dead ? boss : null, pet: petNow ? { x: pl.x - pl.face * 56, y: 0, face: pl.face } : null });
+        } catch (e) { a3Bad = 999; }
         const nowT = performance.now(); if (a3Last) { a3Sum += nowT - a3Last; a3N++; } a3Last = nowT;
         if (a3N >= 150 || a3Bad >= 999) { const avg = a3Sum / Math.max(1, a3N); if (a3Bad >= 999 || avg > 40) { try { a3.dispose(); } catch (e) {} a3dRef.current = null; a3Last = 0; a3Sum = a3N = a3Bad = 0; try { localStorage.setItem("tg_adv_gfx", "high"); } catch (e) {} pop(pl.x, GROUND - pl.y - 130, T3(lang, "3D ช้าเกินไป กลับเป็น 2D สูง", "3D is too slow: back to 2D High", "3D 太卡，已退回 2D 高清"), "#ffd0a0"); if (onLevelRef.current) onLevelRef.current("high"); } else { a3Sum = a3N = 0; } }
       }
@@ -1610,10 +1614,10 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         const ry = launched > 0 ? launched * launched * 220 : 0; ctx.save(); ctx.translate(gx, GROUND - 30 - ry); ctx.fillStyle = "#e8edf3"; ctx.fillRect(-9, -26, 18, 44); ctx.fillStyle = "#ff4d6d"; ctx.beginPath(); ctx.moveTo(-9, -26); ctx.lineTo(0, -44); ctx.lineTo(9, -26); ctx.closePath(); ctx.fill(); if (launched > 0) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,170,60,.8)"; ctx.fillRect(-6, 18, 12, 30 + Math.random() * 20); ctx.globalCompositeOperation = "source-over"; } ctx.restore(); } }
       for (const q of stations) { if (q.x < camX - 100 || q.x > camX + vw + 100) continue; const f = q.p / CAP_T; ctx.fillStyle = q.done ? "#ffd23f" : "#3a3a4a"; ctx.fillRect(q.x - 8, GROUND - 90, 16, 90); ctx.fillStyle = q.done ? "#fff6c0" : "#5a5a6a"; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 16, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,210,80,.95)"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,210,80," + (q.done ? 0.25 : 0.08 + f * 0.2) + ")"; ctx.beginPath(); ctx.arc(q.x, GROUND - 40, 170, Math.PI, 0); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       // monsters
-      for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; drawMonster(ctx, m, tm, k, GROUND);
+      for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; if (!a3) drawMonster(ctx, m, tm, k, GROUND);
         if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - (TALL.has(m.type) ? 128 : 74)); }
         if (m.hp < m.max) { const w = 40, y0 = GROUND - m.y - (TALL.has(m.type) ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / m.max), 5); } }
-      if (boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
+      if (!a3 && boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
       for (const f of fires) { ctx.globalCompositeOperation = "lighter"; for (let q = -100; q <= 100; q += 14) { const hh = 10 + Math.abs(Math.sin(tm * 9 + q)) * 18 * Math.min(1, f.life); ctx.fillStyle = "rgba(255,120,30,.55)"; ctx.fillRect(f.x + q - 5, GROUND - hh, 10, hh); ctx.fillStyle = "rgba(255,220,100,.5)"; ctx.fillRect(f.x + q - 2, GROUND - hh * 0.5, 4, hh * 0.5); } ctx.globalCompositeOperation = "source-over"; }
       // smoke first (behind the missiles), then the missiles, then the fireballs
       for (const q of smoke) { const a = Math.max(0, q.life / q.max); ctx.fillStyle = `rgba(${150 + 60 * (1 - a) | 0},${140 + 50 * (1 - a) | 0},${130 + 40 * (1 - a) | 0},${0.5 * a})`; ctx.beginPath(); ctx.arc(q.x, GROUND - q.y, q.r, 0, 7); ctx.fill(); }
@@ -1745,7 +1749,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           we.style.transform = wid === "sword" ? `rotate(${pl.swing > 0 ? -70 + sw * 150 : -52}deg)` : `rotate(${pl.swing > 0 ? -6 : 12}deg) translateX(${pl.swing > 0 ? -3 : 0}px)`;
         }
         { // first-person view: hide the hero, zoom the world in on the hero's eyes, show the hands, the reticle and a red flash when hit
-          const fp = fpvRef.current, wd = worldRef.current; px.style.visibility = fp ? "hidden" : "";
+          const fp = fpvRef.current, wd = worldRef.current; px.style.visibility = (fp || (is3dRef.current && a3dRef.current)) ? "hidden" : ""; { const pe3 = petRef.current; if (pe3) pe3.style.visibility = (is3dRef.current && a3dRef.current) ? "hidden" : ""; }
           if (wd) {
             if (fp) { const Z = 1.38, ox = (pl.x - camX) * cssK, oy = (GROUND - pl.y * 0.6 - 46) * cssK, bobY = moving ? Math.abs(Math.sin((heroDist / STRIDE_PX) * Math.PI / 4 * 2)) * 4 * cssK : Math.sin(tm * 1.6) * 0.8 * cssK;
               wd.style.transformOrigin = ox + "px " + oy + "px"; wd.style.transform = `translateY(${bobY}px) scale(${Z})`;

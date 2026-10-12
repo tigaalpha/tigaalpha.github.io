@@ -6,6 +6,7 @@
    The caller watches the frame rate and drops back to 2D High when it is too slow (see `Adv3DWatch`). */
 import * as THREE from "three";
 import { spaceTier, isLowEnd } from "./space-stage";
+import { buildHero, buildMonster, buildBoss, buildPet, type Actor, type Hero, type HeroState } from "./adventure-3d-ents";
 
 /** Strong enough for 3D: not a low-end phone and a GPU that earned at least tier 2 */
 export function can3d(): boolean { try { return !isLowEnd() && spaceTier() >= 2; } catch (e) { return false; } }
@@ -14,7 +15,8 @@ const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
 const col = (s: string) => { const [r, g, b] = s.split(",").map(Number); return new THREE.Color((r || 0) / 255, (g || 0) / 255, (b || 0) / 255); };
 const hexCol = (s: string) => new THREE.Color(s);
 
-export interface Adv3D { render(camX: number, tm: number, kk: number, w: number, h: number, groundY: number, shx: number, shy: number, heroX: number): void; resize(w: number, h: number, dpr: number): void; dispose(): void; }
+export interface Ents { hero: HeroState | null; mons: any[]; boss: any | null; pet: { x: number; y: number; face: number } | null; }
+export interface Adv3D { render(camX: number, tm: number, kk: number, w: number, h: number, groundY: number, shx: number, shy: number, heroX: number, ents?: Ents): void; resize(w: number, h: number, dpr: number): void; dispose(): void; }
 
 // per style: [body geometry, accent geometry, accent height as a fraction of the body, body colour mix, accent emissive]
 type Kit = { body: THREE.BufferGeometry; acc: THREE.BufferGeometry; accY: number; accScale: (w: number, h: number) => [number, number, number]; };
@@ -40,7 +42,7 @@ function glowTex(rgb: string): THREE.CanvasTexture {
   return new THREE.CanvasTexture(cv);
 }
 
-export function createAdv3D(host: HTMLElement, P: any, style: { mid: string; near: string }, worldLen: number): Adv3D | null {
+export function createAdv3D(host: HTMLElement, P: any, style: { mid: string; near: string }, worldLen: number, opts: { armorA: string; armorB: string; glow: string; accent: string; petCol: string; tint: any; dims: Record<string, [number, number]> }): Adv3D | null {
   let renderer: THREE.WebGLRenderer;
   try { renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: "high-performance" }); } catch (e) { return null; }
   const el = renderer.domElement; el.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block"; el.setAttribute("aria-hidden", "true"); host.appendChild(el);
@@ -64,6 +66,8 @@ export function createAdv3D(host: HTMLElement, P: any, style: { mid: string; nea
   // ── light
   scene.add(new THREE.HemisphereLight(cSky2.getHex(), cSky0.getHex(), 1.15));
   const sun = new THREE.DirectionalLight(glow.clone().lerp(new THREE.Color(1, 1, 1), 0.5).getHex(), 0.7); sun.position.set(-300, 500, 600); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.85); fill.position.set(80, 260, 900); scene.add(fill);   // a front fill so the actors are lit from the camera side
+  const rim = new THREE.DirectionalLight(acc.getHex(), 0.9); rim.position.set(500, 260, -500); scene.add(rim);   // a coloured rim light from behind so the actors read against the backdrop
   const heroLight = new THREE.PointLight(glow.getHex(), 2.4, 520, 1.6); heroLight.position.set(0, 90, 70); scene.add(heroLight);
 
   // ── the ground: a dark slab running away from the camera with a glowing grid, so the floor has depth
@@ -100,10 +104,23 @@ export function createAdv3D(host: HTMLElement, P: any, style: { mid: string; nea
   const flies = new THREE.Points(fGeo, keep(new THREE.PointsMaterial({ map: gt2, size: 26, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: acc.getHex(), sizeAttenuation: true })));
   flies.frustumCulled = false; scene.add(flies);
 
+  // ── the actors: the hero, the monsters (pooled by object), the guardian and the pet
+  let hero: Hero | null = null, bossA: Actor | null = null, petA: Actor | null = null; const monA = new Map<any, Actor>();
+  const heroState = () => hero;
+  void heroState;
+  const syncEnts = (ents: Ents | undefined, tm: number) => {
+    if (!ents) return;
+    if (ents.hero) { if (!hero) { hero = buildHero(opts.armorA, opts.armorB, opts.glow, opts.accent); scene.add(hero.group); } hero.update(ents.hero); }
+    if (ents.pet) { if (!petA) { petA = buildPet(opts.petCol); scene.add(petA.group); } petA.group.visible = true; petA.update(ents.pet, tm); } else if (petA) petA.group.visible = false;
+    if (ents.boss) { if (!bossA) { bossA = buildBoss(P); scene.add(bossA.group); } bossA.group.visible = true; bossA.update(ents.boss, tm); } else if (bossA) bossA.group.visible = false;
+    const seen = new Set<any>();
+    for (const m of ents.mons) { let a = monA.get(m); if (!a) { const d = opts.dims[m.type] || [46, 40]; a = buildMonster(m.type, d[0], d[1], opts.tint); monA.set(m, a); scene.add(a.group); } a.update(m, tm); seen.add(m); }
+    for (const [k, a] of monA) if (!seen.has(k)) { scene.remove(a.group); a.dispose(); monA.delete(k); }
+  };
   let W = 0, H = 0;
   const api: Adv3D = {
     resize(w, h, dpr) { W = w; H = h; renderer.setPixelRatio(Math.min(dpr, 1.6)); renderer.setSize(w, h, false); camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix(); },
-    render(camX, tm, kk, w, h, groundY, shx, shy, heroX) {
+    render(camX, tm, kk, w, h, groundY, shx, shy, heroX, ents) {
       if (w !== W || h !== H) api.resize(w, h, window.devicePixelRatio || 1);
       // one game unit = kk css pixels at the game plane: pick the camera so the plane fits exactly
       const D = 1000, visH = h / kk; camera.fov = (2 * Math.atan(visH / 2 / D) * 180) / Math.PI; camera.updateProjectionMatrix();
@@ -114,9 +131,10 @@ export function createAdv3D(host: HTMLElement, P: any, style: { mid: string; nea
       const a = fGeo.getAttribute("position") as THREE.BufferAttribute;
       for (let i = 0; i < FN; i++) { fpos[i * 3] = fbase[i * 3] + Math.sin(tm * 0.4 + i) * 26; fpos[i * 3 + 1] = fbase[i * 3 + 1] + Math.sin(tm * 0.6 + i * 1.7) * 22; fpos[i * 3 + 2] = fbase[i * 3 + 2]; }
       a.needsUpdate = true;
+      syncEnts(ents, tm);
       renderer.render(scene, camera);
     },
-    dispose() { try { for (const d of disposables) d && d.dispose && d.dispose(); body.dispose(); accent.dispose(); near.dispose(); renderer.dispose(); if (el.parentNode) el.parentNode.removeChild(el); const lc = renderer.getContext().getExtension("WEBGL_lose_context"); if (lc) lc.loseContext(); } catch (e) {} },
+    dispose() { try { if (hero) hero.dispose(); if (bossA) bossA.dispose(); if (petA) petA.dispose(); for (const a of monA.values()) a.dispose(); monA.clear(); for (const d of disposables) d && d.dispose && d.dispose(); body.dispose(); accent.dispose(); near.dispose(); renderer.dispose(); if (el.parentNode) el.parentNode.removeChild(el); const lc = renderer.getContext().getExtension("WEBGL_lose_context"); if (lc) lc.loseContext(); } catch (e) {} },
   };
   return api;
 }
