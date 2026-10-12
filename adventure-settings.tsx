@@ -19,7 +19,9 @@ export function SettingsPopup({ lang, high, onGfx, musicOn, onMusic, online, onR
           <span>{t("คุณภาพกราฟิก", "Graphics", "画质")}</span>
           <button role="radio" aria-checked={!high} className={!high ? "on" : ""} data-gfx="standard" onClick={() => high && onGfx()}>{t("มาตรฐาน (SD)", "Standard (SD)", "标准 (SD)")}</button>
           <button role="radio" aria-checked={high} className={high ? "on" : ""} data-gfx="high" onClick={() => !high && onGfx()}>{t("สูง (HD)", "High (HD)", "高清 (HD)")}</button>
+          <button role="radio" aria-checked={false} aria-disabled="true" disabled className="soon" data-gfx="3d" title={t("โหมด 3D จะมาในเวอร์ชันถัดไป สำหรับเครื่องแรงเท่านั้น", "3D mode is coming in a later version, for strong devices only", "3D 模式将在后续版本推出，仅限高性能设备")}>{t("3D · เร็ว ๆ นี้", "3D · soon", "3D · 敬请期待")}</button>
         </div>
+        <small className="adv-gfx-note" style={{ opacity: 0.7, fontSize: 11, lineHeight: 1.4 }}>{t("เครื่องสเปกต่ำใช้ 2D มาตรฐาน · เครื่องแรงใช้ 2D สูง · 3D จะเปิดให้เฉพาะเครื่องแรง และถ้าภาพช้าเกมจะสลับกลับ 2D ให้เอง", "Low-end phones: 2D Standard · strong phones: 2D High · 3D will be for strong devices only and fall back to 2D by itself if it runs slow", "低端机用 2D 标准 · 高端机用 2D 高清 · 3D 仅限高性能设备，卡顿时会自动退回 2D")}</small>
         {onMusic && <div className="adv-pause-row"><span>{t("เสียง", "Sound", "声音")}</span>
           <button className={musicOn ? "on" : ""} aria-label="music" aria-pressed={musicOn} onClick={onMusic}>{musicOn ? "♪ " + t("เปิด", "On", "开") : "♪̸ " + t("ปิด", "Off", "关")}</button></div>}
         <button className="adv-btn" data-exit="1" onClick={onExit}>← {t("กลับแผนที่", "Back to the map", "返回地图")}</button>

@@ -26,7 +26,7 @@ async function open(planetRe) {
 { const { ctx, p, errs } = await open("Luma");
   ok("one gear button, no separate music / graphics buttons in the top bar", (await p.locator(".adv-top [aria-label=settings]").count()) === 1 && (await p.locator(".adv-top [aria-label=music], .adv-top [aria-label=graphics]").count()) === 0);
   await p.evaluate(() => document.querySelector("[aria-label=settings]").click()); await p.waitForSelector("[data-pause]", { timeout: 3000 });
-  ok("it opens a pop-up with resume, graphics and exit", (await p.locator("[data-resume]").count()) === 1 && (await p.locator("[data-gfx]").count()) === 2 && (await p.locator("[data-exit]").count()) === 1);
+  ok("it opens a pop-up with resume, three graphics levels (3D still disabled) and exit", (await p.locator("[data-resume]").count()) === 1 && (await p.locator("[data-gfx]").count()) === 3 && (await p.evaluate(() => document.querySelector("[data-gfx=\"3d\"]").disabled)) && (await p.locator("[data-exit]").count()) === 1);
   const x0 = await p.evaluate(() => window.__advTest.state().x);
   await p.keyboard.down("ArrowRight"); await p.waitForTimeout(700); await p.keyboard.up("ArrowRight");
   ok("the run is paused while the pop-up is open", Math.abs((await p.evaluate(() => window.__advTest.state().x)) - x0) < 1);
