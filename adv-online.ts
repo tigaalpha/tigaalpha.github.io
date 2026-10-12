@@ -27,7 +27,8 @@ export async function openAdvRoom(code: string | null, me: { name: string; model
   const host = !code, room = host ? makeRoomCode() : String(code).trim().toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(room)) throw new Error("bad code");
   const id = newPeerId(); const peers = new Map<string, Peer>(); let H: Partial<Handlers> = {};
-  const ch = sb.channel(`advo:${room}`, { config: { broadcast: { self: false }, presence: { key: id } } });
+  const mkCh = (typeof window !== "undefined" && (window as any).__advChannelFactory) || ((n: string, c: any) => sb.channel(n, c));   // tests swap in an in-browser channel; production always uses Supabase Realtime
+  const ch = mkCh(`advo:${room}`, { config: { broadcast: { self: false }, presence: { key: id } } });
   const on = (event: string, fn: (p: any) => void) => ch.on("broadcast", { event }, ({ payload }: any) => fn(payload));
   on("start", (p) => { net.war = !!p.war; H.onStart && H.onStart(p.planet, !!p.war); });
   on("pos", (p) => { const q = peers.get(p.id); if (q) { q.tx = p.x; q.ty = p.y; q.face = p.face; q.hp = p.hp; q.t = Date.now(); if (q.x === undefined) { q.x = p.x; q.y = p.y; } } });
