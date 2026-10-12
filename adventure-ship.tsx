@@ -10,6 +10,37 @@ const W = 960, H = 480, BOSS_AT = 55, LAUNCH_T = 38, ORE_GOAL = 16;
 const mg = (x: CanvasRenderingContext2D, y0: number, y1: number, base: string) => { const g = x.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "rgba(255,255,255,.5)"); g.addColorStop(0.2, base); g.addColorStop(1, "#06080e"); return g; };
 const pl = (x: CanvasRenderingContext2D, pts: number[][]) => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0], pts[i][1]); x.closePath(); };
 /** the pilot's starfighter: swept wings, a glowing canopy in the robot's colour, twin engines, wing-tip lights, panel lines */
+
+/* Space backdrop (owner, 2026-10-12: "meteors, planets as a beautiful background, alien ships and asteroids to dodge"). Planets are painted ONCE into small canvases and
+   then only drawn with drawImage, so the backdrop costs almost nothing per frame. The far layers are harmless scenery; the rocks and ships you must dodge are in the step. */
+function planetSprite(kind: string, r: number, seed: number): HTMLCanvasElement {
+  const pad = Math.ceil(r * 0.9), n = Math.ceil(r * 2 + pad * 2), cv = document.createElement("canvas"); cv.width = cv.height = n; const g = cv.getContext("2d")!; const c = n / 2;
+  let sd = seed * 9301 + 49297; const rnd = () => { sd = (sd * 9301 + 49297) % 233280; return sd / 233280; };
+  const ring = (front: boolean) => { g.save(); g.translate(c, c); g.rotate(-0.38); g.strokeStyle = "rgba(235,215,180,.55)"; for (let i = 0; i < 4; i++) { g.lineWidth = 3 + i * 2; g.globalAlpha = 0.55 - i * 0.1; g.beginPath(); g.ellipse(0, 0, r * (1.45 + i * 0.12), r * (0.4 + i * 0.03), 0, front ? 0 : Math.PI, front ? Math.PI : 6.283); g.stroke(); } g.restore(); };
+  if (kind === "gas") ring(false);
+  g.save(); g.beginPath(); g.arc(c, c, r, 0, 7); g.clip();
+  const pal: Record<string, string[]> = { gas: ["#e8b878", "#b8743c", "#f3d9a8", "#8a4e2a", "#d99a5a"], ice: ["#dff4ff", "#9fd2f2", "#c8e8fb", "#7fb6e0", "#eef9ff"], lava: ["#2a0e0a", "#4a1608", "#1c0806", "#5a1c0a", "#240a08"], earth: ["#1b4f9c", "#2a6bc4", "#17407e", "#2f78d0", "#1f5aae"], moon: ["#9a9aa6", "#7c7c88", "#b0b0bc", "#6a6a76", "#a4a4b0"], violet: ["#b89aff", "#8a5ad8", "#d6c0ff", "#6a3ab8", "#a07cf0"] };
+  const cols = pal[kind] || pal.moon;
+  if (kind === "gas" || kind === "violet") { for (let i = 0; i < 14; i++) { const y0 = c - r + (i / 14) * r * 2; g.fillStyle = cols[i % cols.length]; g.globalAlpha = 0.85; g.fillRect(c - r, y0 + Math.sin(i * 1.7 + seed) * 3, r * 2, r * 0.17); } g.globalAlpha = 0.5; g.fillStyle = "#ffdcb0"; g.beginPath(); g.ellipse(c + r * 0.25, c + r * 0.2, r * 0.22, r * 0.1, 0, 0, 7); g.fill(); }
+  else { g.fillStyle = cols[0]; g.fillRect(0, 0, n, n); for (let i = 0; i < 26; i++) { g.fillStyle = cols[1 + (i % 4)]; g.globalAlpha = 0.5; g.beginPath(); g.ellipse(c + (rnd() - 0.5) * r * 1.8, c + (rnd() - 0.5) * r * 1.8, r * (0.1 + rnd() * 0.3), r * (0.06 + rnd() * 0.16), rnd() * 3, 0, 7); g.fill(); } }
+  g.globalAlpha = 1;
+  if (kind === "earth") { g.fillStyle = "#3f8f4a"; for (let i = 0; i < 9; i++) { g.globalAlpha = 0.9; g.beginPath(); g.ellipse(c + (rnd() - 0.5) * r * 1.5, c + (rnd() - 0.5) * r * 1.4, r * (0.12 + rnd() * 0.25), r * (0.08 + rnd() * 0.16), rnd() * 3, 0, 7); g.fill(); } g.fillStyle = "#fff"; for (let i = 0; i < 18; i++) { g.globalAlpha = 0.35 + rnd() * 0.25; g.beginPath(); g.ellipse(c + (rnd() - 0.5) * r * 1.9, c + (rnd() - 0.5) * r * 1.7, r * (0.15 + rnd() * 0.3), r * 0.05, rnd() * 0.6, 0, 7); g.fill(); } }
+  if (kind === "lava") { g.strokeStyle = "#ff7a2a"; g.shadowColor = "#ff5a10"; g.shadowBlur = 10; for (let i = 0; i < 10; i++) { g.globalAlpha = 0.9; g.lineWidth = 1.5 + rnd() * 2; g.beginPath(); let px = c + (rnd() - 0.5) * r * 1.6, py = c + (rnd() - 0.5) * r * 1.6; g.moveTo(px, py); for (let k = 0; k < 4; k++) { px += (rnd() - 0.5) * r * 0.5; py += (rnd() - 0.5) * r * 0.5; g.lineTo(px, py); } g.stroke(); } g.shadowBlur = 0; }
+  if (kind === "moon") { for (let i = 0; i < 10; i++) { const cx = c + (rnd() - 0.5) * r * 1.5, cy = c + (rnd() - 0.5) * r * 1.5, cr = r * (0.06 + rnd() * 0.12); g.globalAlpha = 0.55; g.fillStyle = "#4a4a56"; g.beginPath(); g.arc(cx, cy, cr, 0, 7); g.fill(); g.globalAlpha = 0.35; g.fillStyle = "#d4d4e0"; g.beginPath(); g.arc(cx - cr * 0.2, cy - cr * 0.2, cr * 0.8, 0, 7); g.fill(); } }
+  g.globalAlpha = 1; const sh = g.createRadialGradient(c - r * 0.45, c - r * 0.4, r * 0.1, c + r * 0.1, c + r * 0.1, r * 1.25); sh.addColorStop(0, "rgba(255,255,255,.18)"); sh.addColorStop(0.5, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,12,.82)"); g.fillStyle = sh; g.fillRect(0, 0, n, n); g.restore();
+  const rim = kind === "lava" ? "255,110,40" : kind === "ice" ? "190,235,255" : kind === "earth" ? "120,190,255" : kind === "violet" ? "190,150,255" : "255,200,140";
+  const at = g.createRadialGradient(c, c, r * 0.92, c, c, r * 1.16); at.addColorStop(0, "rgba(" + rim + ",.35)"); at.addColorStop(1, "rgba(" + rim + ",0)"); g.fillStyle = at; g.beginPath(); g.arc(c, c, r * 1.16, 0, 7); g.fill();
+  if (kind === "gas") ring(true);
+  return cv;
+}
+const BACKDROPS: Record<string, { k: string; r: number; x: number; y: number; sp: number }[]> = {
+  dogfight: [{ k: "gas", r: 92, x: 0.78, y: 0.3, sp: 5 }, { k: "moon", r: 26, x: 0.38, y: 0.74, sp: 9 }],
+  harvest: [{ k: "lava", r: 40, x: 0.3, y: 0.28, sp: 6 }, { k: "moon", r: 22, x: 0.62, y: 0.8, sp: 10 }],
+  belt: [{ k: "ice", r: 54, x: 0.8, y: 0.72, sp: 5 }, { k: "moon", r: 30, x: 0.22, y: 0.26, sp: 8 }],
+  skim: [{ k: "violet", r: 36, x: 0.2, y: 0.22, sp: 4 }, { k: "moon", r: 18, x: 0.55, y: 0.18, sp: 7 }],
+  evade: [{ k: "ice", r: 46, x: 0.2, y: 0.7, sp: 3 }, { k: "moon", r: 20, x: 0.5, y: 0.25, sp: 6 }],
+  launch: [],
+};
 /** the player's ship (owner, 2026-10-12: "like the SpaceX Starship, grander"): a stainless-steel cylinder with an ogive nose, a dark heat-shield side, two forward and
  *  two aft flaps, a cluster of Raptor bells and a long exhaust with shock diamonds. Side view, nose to the right. */
 function drawPlayer(x: CanvasRenderingContext2D, glow: string, t: number) {
@@ -90,6 +121,8 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
     const HP = Math.round(100 * (1 + 0.05 * (ups.hp || 0))), DMG = 1 + 0.05 * (ups.atk || 0), SALVO = 1 + ((ups.rkt || 0) >= 2 ? 1 : 0) + ((ups.rkt || 0) >= 4 ? 1 : 0);
     const hard = P.hard || 1;
     let S: any;
+    const bd = (BACKDROPS[MODE] || []).map((d, i) => ({ ...d, spr: planetSprite(d.k, d.r, i + 3 + MODE.length) }));
+    const far = Array.from({ length: 16 }, (_, i) => ({ x: Math.random() * W, y: Math.random() * H, r: 3 + Math.random() * 9, sp: 22 + Math.random() * 40, rot: Math.random() * 6, seed: i * 1.7 })), streaks: any[] = []; let streakT = 2;
     const reset = () => { S = { t: 0, ship: { x: 140, y: H / 2, hp: HP, inv: 0, fireCd: 0, mCd: 0 }, bl: [], eb: [], en: [], ms: [], pk: [], pt: [], stars: S ? S.stars : Array.from({ length: 90 }, () => ({ x: Math.random() * W, y: Math.random() * H, z: 0.2 + Math.random() * 0.8 })), spawn: 1, kills: 0, cry: 0, loot: { scrap: 0, ore: 0, gold: 0, core: 0 }, boss: null as any, rk: [] as any[], mined: 0, fuel: 0, st: 0, sp: 0, stn: null as any, flares: [] as any[], flareT: 4, relay: null as any, relayT: 10, bolts: [] as any[], boltT: 3, ans: 0, bossSpawned: false, over: false, win: false, endT: 0, shake: 0 }; setUi({ hp: HP, boss: 0, bossOn: false, t: 0, kills: 0, over: false, win: false, ms: 0 }); };
     reset(); retry.current = () => { reset(); };
     if (ctl && ctl.current) ctl.current.answer = (ok: boolean) => { ctl.current.paused = false; last = performance.now(); S.ans++; if (ok) { S.ship.hp = Math.min(HP, S.ship.hp + 30); S.ship.inv = Math.max(S.ship.inv, 3); S.cry += 3; sfx.play("win"); burst(S.ship.x, S.ship.y, 24, "120,220,255", 260); } };
@@ -107,6 +140,7 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
         if (k.fire && s.fireCd <= 0 && MODE !== "evade") { s.fireCd = 0.13; S.bl.push({ x: s.x + 34, y: s.y - 7, vx: 820, vy: 0 }, { x: s.x + 34, y: s.y + 7, vx: 820, vy: 0 }); sfx.play("bolt"); }
         if (k.miss && s.mCd <= 0) { s.mCd = 3 * (1 - 0.06 * (ups.rkt || 0)); for (let q = 0; q < SALVO; q++) S.ms.push({ x: s.x + 20, y: s.y + (q - (SALVO - 1) / 2) * 16, vx: 380, vy: (q - (SALVO - 1) / 2) * 120, life: 2.4 }); sfx.play("rocket"); }
         // waves, then the mothership
+        if (MODE === "dogfight" || MODE === "harvest" || MODE === "skim") { S.rockT = (S.rockT == null ? 2.5 : S.rockT) - dt; if (S.rockT <= 0) { S.rockT = 2.6 + Math.random() * 3; addRock(W + 40, 60 + Math.random() * (H - 120), Math.random() < 0.35 ? 1 : 0); } }   // drifting asteroids to dodge or shoot (owner, 2026-10-12)
         if (MODE === "launch" || MODE === "belt") { S.spawn -= dt; if (S.spawn <= 0) { S.spawn = MODE === "launch" ? Math.max(0.35, 0.9 - S.t * 0.012) : 0.85; const y = 50 + Math.random() * (H - 100); addRock(W + 40, y, Math.random() < 0.35 ? 2 : Math.random() < 0.6 ? 1 : 0); if (MODE === "belt" && S.t > 14 && Math.random() < 0.18) addEnemy(Math.random() < 0.6 ? "fighter" : "wasp", H - y); } }
         else if ((MODE === "dogfight" || MODE === "harvest") && !S.bossSpawned) { S.spawn -= dt; if (S.spawn <= 0) { S.spawn = MODE === "harvest" ? Math.max(0.7, 1.7 - S.t * 0.012) : Math.max(0.55, 1.5 - S.t * 0.014); const r = Math.random(), y = 50 + Math.random() * (H - 100); addEnemy(r < 0.3 ? "drone" : r < 0.5 ? "wasp" : r < 0.7 ? "fighter" : r < 0.85 ? "kamikaze" : "bomber", y); if (r < 0.3) addEnemy("wasp", H - y); } }
         if (MODE === "dogfight" && !S.bossSpawned && S.t >= BOSS_AT) { S.bossSpawned = true; S.en.forEach((e: any) => { e.dead = true; burst(e.x, e.y, 6, "255,120,80"); }); S.boss = { x: W + 160, y: H / 2, hp: 240, max: 240, cd: 1.4, sp: 3, ph: 0 }; sfx.play("boss"); if (mus && mus.setBoss) mus.setBoss(true); }
@@ -177,6 +211,12 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
       if (MODE === "launch") { const al = Math.max(0, 1 - S.t / LAUNCH_T), sk = x.createLinearGradient(0, 0, 0, H); sk.addColorStop(0, "rgba(40,90,170," + al * 0.9 + ")"); sk.addColorStop(1, "rgba(255,170,110," + al + ")"); x.fillStyle = sk; x.fillRect(-10, -10, W + 20, H + 20); }
       // a distant planet and nebula
       const ng = x.createRadialGradient(W * 0.75, H * 0.3, 10, W * 0.75, H * 0.3, 260); ng.addColorStop(0, "rgba(150,90,255,.28)"); ng.addColorStop(1, "rgba(150,90,255,0)"); x.fillStyle = ng; x.fillRect(0, 0, W, H);
+      // more nebula, far planets, a drifting far asteroid layer and the odd meteor streak (all harmless scenery)
+      if (MODE !== "launch") { const nb: [number, number, string, number][] = [[0.22, 0.62, "60,120,255", 220], [0.55, 0.12, "255,90,170", 180]]; for (const [nx, ny, nc, nr] of nb) { const q = x.createRadialGradient(W * nx, H * ny, 8, W * nx, H * ny, nr); q.addColorStop(0, "rgba(" + nc + ",.14)"); q.addColorStop(1, "rgba(" + nc + ",0)"); x.fillStyle = q; x.fillRect(0, 0, W, H); } }
+      for (const d of bd) { const sw = d.spr.width, px = (((d.x * W - S.t * d.sp) % (W + sw)) + (W + sw)) % (W + sw) - sw / 2; x.drawImage(d.spr, px - sw / 2, d.y * H - sw / 2); }
+      if (MODE !== "launch") for (const f of far) { f.x -= f.sp / 60; if (f.x < -20) { f.x = W + 20; f.y = Math.random() * H; } f.rot += 0.004; x.save(); x.translate(f.x, f.y); x.rotate(f.rot); x.fillStyle = "rgba(70,62,86,.7)"; x.beginPath(); for (let i = 0; i < 7; i++) { const a2 = i / 7 * 6.283, rr = f.r * (0.8 + 0.25 * Math.sin(f.seed + i * 2.1)); x.lineTo(Math.cos(a2) * rr, Math.sin(a2) * rr); } x.closePath(); x.fill(); x.restore(); }
+      streakT -= 1 / 60; if (streakT <= 0 && MODE !== "launch") { streakT = 2 + Math.random() * 4; streaks.push({ x: W * (0.4 + Math.random() * 0.6), y: Math.random() * H * 0.5, life: 0.7 }); }
+      for (const m of streaks) { m.life -= 1 / 60; m.x -= 14; m.y += 6; const al = Math.max(0, m.life / 0.7); const sg2 = x.createLinearGradient(m.x, m.y, m.x + 120, m.y - 52); sg2.addColorStop(0, "rgba(255,255,255," + al + ")"); sg2.addColorStop(1, "rgba(255,255,255,0)"); x.strokeStyle = sg2; x.lineWidth = 2; x.beginPath(); x.moveTo(m.x, m.y); x.lineTo(m.x + 120, m.y - 52); x.stroke(); } for (let i = streaks.length - 1; i >= 0; i--) if (streaks[i].life <= 0) streaks.splice(i, 1);
       for (const st of S.stars) { x.fillStyle = "rgba(210,225,255," + (0.3 + st.z * 0.7) + ")"; x.fillRect(st.x, st.y, 1 + st.z * 1.6, 1 + st.z * 1.2); }
       for (const p of S.pk) { x.fillStyle = p.k === "cry" ? "#7fe8ff" : p.k === "mined" ? "#ffd8a0" : p.k === "scrap" ? "#b8b8c8" : p.k === "ore" ? "#ffb060" : p.k === "gold" ? "#ffd23f" : "#c78bff"; x.beginPath(); x.arc(p.x, p.y, p.k === "cry" ? 6 : 5, 0, 7); x.fill(); }
       if (MODE === "harvest") { const sg = x.createRadialGradient(W * 0.92, H * 0.5, 20, W * 0.92, H * 0.5, H * 0.9); sg.addColorStop(0, "rgba(255,230,150,.55)"); sg.addColorStop(0.4, "rgba(255,140,50,.22)"); sg.addColorStop(1, "rgba(255,80,20,0)"); x.fillStyle = sg; x.fillRect(0, 0, W, H);
