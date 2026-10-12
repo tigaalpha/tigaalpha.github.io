@@ -197,12 +197,16 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
   const hs = (hzv: number, peak: number, dur: number, at: number, type: BiquadFilterType = "highpass", hz1?: number) => { const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), gg = ctx.createGain(), t0 = T0 + at; s.buffer = nz; f.type = type; f.frequency.setValueAtTime(hzv, t0); if (hz1) f.frequency.exponentialRampToValueAtTime(Math.max(20, hz1), t0 + dur); gg.gain.setValueAtTime(0.0001, t0); gg.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + Math.min(0.05, dur / 3)); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(gg); gg.connect(out); s.start(t0); s.stop(t0 + dur + 0.05); };
   const tn = (type: OscillatorType, f0: number, f1: number, peak: number, dur: number, at: number, atk = 0.01) => { VOICES++; const o = ctx.createOscillator(), gg = ctx.createGain(), t0 = T0 + at; o.type = type; o.frequency.setValueAtTime(f0, t0); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); gg.gain.setValueAtTime(0.0001, t0); gg.gain.linearRampToValueAtTime(peak, t0 + atk); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(gg); gg.connect(out); o.start(t0); o.stop(t0 + dur + 0.05); };
   const tim = (at: number, vol: number) => { tn("sine", 95, 38, 0.5 * vol, 0.7, at); hs(500, 0.3 * vol, 0.5, at, "lowpass", 120); };
+  // the emotional layer (owner, 2026-10-12): a soft piano (a bell-like attack and a long decay) carries the calm shots, and each new shot kind has its own mood
+  const pn = (midi: number, at: number, dur: number, vol: number) => { const f = hz(midi); tn("triangle", f, f, vol * 0.09 * g, dur, at, 0.008); tn("sine", f * 2, f * 2, vol * 0.03 * g, dur * 0.6, at, 0.008); tn("sine", f / 2, f / 2, vol * 0.04 * g, dur, at, 0.01); };
+  const kindAt = (tt: number) => { let k = plan.length ? plan[0].kind : ""; for (let i = 0; i < plan.length; i++) if (tt >= starts[i]) k = plan[i].kind; return k; };
+  const CALM = ["crew", "signal", "survey", "landing"], calmAt = (tt: number) => CALM.includes(kindAt(tt));
   // the drone and the chord pads
   tn("sine", hz(M.root - 36), hz(M.root - 36), 0.22, total + tailSec, 0, 3); tn("sine", hz(M.root - 29), hz(M.root - 29), 0.1, total + tailSec, 0, 4);
   for (let t = 0, i = 0; t < total + tailSec - 2; t += 4, i++) { const rd = M.prog[i % 4]; for (const st of [0, 2, 4]) { const f = hz(degMidi(M, rd + st) - 12); tn("triangle", f, f, 0.07 * g, 5, t, 1.4); tn("sine", f * 2, f * 2, 0.04 * g, 5, t, 1.6); } }
   // the build: a noise riser, thumping heart, accelerating arpeggio
   hs(300, 0.12, Math.max(4, total - 3), 0.5, "bandpass", 7000);
-  for (let t = 4; t < total - 2; t += 0.9) tn("sine", 75, 42, 0.16, 0.25, t);
+  for (let t = 4; t < total - 2; t += 0.9) if (!calmAt(t)) tn("sine", 75, 42, 0.16, 0.25, t);
   let at = 6, step = 0.5; while (at < total - 1) { const rd = M.prog[Math.floor(at / 4) % 4]; tn("triangle", hz(degMidi(M, rd + [0, 2, 4, 7][Math.floor(at * 4) % 4]) + 12), hz(degMidi(M, rd + [0, 2, 4, 7][Math.floor(at * 4) % 4]) + 12), 0.05 * g, 0.4, at, 0.005); at += step; step = Math.max(0.12, step * 0.93); }
   // every cut gets a reverse swell into a timpani hit; every shot kind its own effect
   plan.forEach((s, i) => {
@@ -225,6 +229,15 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
         else if (th === "dark") { tn("sine", 32, 28, 0.3, s.dur, t, 1.5); tn("sine", hz(M.root + 6), hz(M.root + 6), 0.06, s.dur, t + 0.3, 1.2); tn("sine", hz(M.root + 6) + 6, hz(M.root + 6) + 6, 0.06, s.dur, t + 0.3, 1.2); }
         else { for (let k = 0; k < 14; k++) tn("square", 600 + (k % 5) * 220, 600 + (k % 5) * 220, 0.03, 0.06, t + 0.3 + k * 0.28); tn("sawtooth", 100, 900, 0.05, s.dur - 0.5, t + 0.2, 0.6); }
         break; }
+      case "survey": for (let k = 0; k < Math.floor(s.dur / 1.1); k++) { tn("sine", 1500, 1500, 0.06, 0.5, t + 0.4 + k * 1.1); tn("square", 800 + k * 90, 800 + k * 90, 0.02, 0.05, t + 0.7 + k * 1.1); } [0, 4, 7].forEach(st => { const f = hz(M.root + st + 12); tn("triangle", f, f, 0.05 * g, s.dur, t + 0.2, 1.2); }); break;   // sonar and data chirps over a soft pad
+      case "descent": hs(120, 0.5, s.dur, t, "lowpass", 900); hs(300, 0.25, s.dur - 0.4, t + 0.3, "bandpass", 3200); tn("sawtooth", 70, 150, 0.12, s.dur, t, 1.2); for (const o of [0.8, 1.7, 2.5, 3.1]) tim(t + o, 0.5); break;   // the roar of re-entry, the shaking
+      case "landing": hs(200, 0.25, s.dur * 0.6, t, "lowpass", 600); tim(t + s.dur * 0.6, 1.2); hs(2000, 0.1, 1.5, t + s.dur * 0.6, "bandpass", 800); [0, 7, 12, 16].forEach((st, k) => { const f = hz(M.root + st + 12); tn("triangle", f, f, 0.06 * g, 2.6, t + s.dur * 0.72 + k * 0.12, 0.5); }); break;   // the thud, the settling dust, a warm chord as the pioneers step out
+      case "crew": { const mo = [0, 2, 4, 2, 5, 4, 2, 0]; mo.forEach((d, k) => pn(degMidi(M, M.prog[0] + d) + 12, t + 0.5 + k * 0.62, 2, 0.9)); tn("sine", hz(M.root - 12), hz(M.root - 12), 0.06 * g, s.dur, t, 1.5); break; }   // a lyrical piano line over a low string
+      case "work": for (let k = 0; k < Math.floor(s.dur / 0.6); k++) { tn("sine", 90, 45, 0.18, 0.2, t + k * 0.6); hs(2200, 0.1, 0.12, t + 0.3 + k * 0.6, "bandpass"); const dd = [0, 2, 4, 7][k % 4]; tn("triangle", hz(degMidi(M, M.prog[0] + dd) + 12), hz(degMidi(M, M.prog[0] + dd) + 12), 0.05 * g, 0.35, t + k * 0.3); } break;   // machines in time: kick, clang, a rising pattern
+      case "storm": hs(250, 0.3, s.dur, t, "lowpass", 1200); tn("sawtooth", hz(M.root - 5), hz(M.root - 5) * 1.01, 0.04, s.dur, t, 1.2); tn("sawtooth", hz(M.root - 4), hz(M.root - 4) * 1.01, 0.035, s.dur, t, 1.2); tim(t + s.dur * 0.35, 1.2); hs(100, 0.4, 1.6, t + s.dur * 0.35, "lowpass", 60); break;   // wind, tense strings, thunder
+      case "signal": [1, 0, 1, 1, 0, 1].forEach((on, k) => tn("sine", 1700, 1700, 0.06, on ? 0.22 : 0.09, t + 0.4 + k * 0.45)); [0, 7, 12].forEach((st, k) => pn(M.root + 12 + st, t + s.dur * 0.62 + k * 0.15, 2.4, 0.8)); tn("sine", hz(M.root - 12), hz(M.root - 12), 0.06 * g, s.dur, t, 1.5); break;   // a message goes out and the answer comes back
+      case "warning": for (let k = 0; k < Math.floor(s.dur / 0.9); k++) { tn("sawtooth", 500, 900, 0.05, 0.45, t + k * 0.9); tn("sawtooth", 900, 500, 0.05, 0.45, t + k * 0.9 + 0.45); } tn("sine", 45, 41, 0.3, s.dur, t, 1); break;   // the alarm and a low pulse
+      case "dawn": [0, 4, 7, 12, 16].forEach((st, k) => { const f = hz(M.root + st + 12); tn("sawtooth", f, f, 0.05 * g, s.dur + 1.5, t + k * 0.2, 1.2); }); [0, 2, 4, 7, 9, 12, 16].forEach((d, k) => pn(degMidi(M, M.prog[0] + d) + 12, t + 0.3 + k * 0.35, 2, 0.8)); hs(2500, 0.2, 1.6, t, "highpass", 900); tim(t + 0.2, 1.2); break;   // the sun comes up: a swell and a rising piano arpeggio
       case "mind": for (let k = 0; k < 16; k++) tn("square", 600 + (k % 5) * 220, 600 + (k % 5) * 220, 0.03, 0.06, t + 0.3 + k * 0.28); tn("sawtooth", 100, 900, 0.05, s.dur - 0.5, t + 0.2, 0.6); tn("sine", 48, 44, 0.16, s.dur, t + 0.2, 1); break;
       case "objective": [0, 4, 7, 12].forEach((st, k) => { const f = hz(M.root + st); tn("sawtooth", f, f, 0.05 * g, 3.5, t + 0.05, 0.9); tn("sine", f * 2, f * 2, 0.04 * g, 3.5, t + 0.05, 0.9); void k; }); hs(2500, 0.25, 1.4, t, "highpass", 900); tim(t, 1.5); break;   // the swell
       default: hs(600, 0.1, 1.0, t + 0.4, "bandpass", 2400);                                                                                                               // the surface: wind
@@ -235,11 +248,11 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
   const theme = [0, 4, 2, 7, 4, 9, 7, 12];   // scale degrees of a rising heroic call
   for (let sec = 6, n = 0; sec < total - 1; sec += 8, n++) {
     const rd = M.prog[n % 4];
-    theme.forEach((d, k) => brass(degMidi(M, rd + d) , sec + k * 0.75, k === 7 ? 3 : 0.72, 0.9 + k * 0.05));
+    if (!calmAt(sec)) theme.forEach((d, k) => brass(degMidi(M, rd + d) , sec + k * 0.75, k === 7 ? 3 : 0.72, 0.9 + k * 0.05));
   }
   for (let t = 3; t < total + 2; t += 6) { for (const st of [0, 2, 4, 7]) { const f = hz(degMidi(M, M.prog[Math.floor(t / 6) % 4] + st) + 12); tn("sine", f, f, 0.05 * g, 6, t, 2); tn("triangle", f * 1.005, f * 1.005, 0.03 * g, 6, t, 2.5); } }   // the choir-like pad
-  for (let t = 2; t < total - 1; t += 2) for (let k = 0; k < 8; k++) tn("sine", 90 - k, 46, 0.05 + 0.012 * k, 0.22, t + k * 0.1 + Math.min(1, t / total) * 0.0);   // timpani roll
-  plan.forEach((sh, i) => { if (!i) return; const t = starts[i]; tn("sawtooth", 58, 36, 0.3, 1.8, t, 0.02); tn("sawtooth", 87, 52, 0.18, 1.6, t, 0.02); hs(300, 0.28, 1.4, t, "lowpass", 140); });   // the low brass hit on every cut
+  for (let t = 2; t < total - 1; t += 2) if (!calmAt(t)) for (let k = 0; k < 8; k++) tn("sine", 90 - k, 46, 0.05 + 0.012 * k, 0.22, t + k * 0.1 + Math.min(1, t / total) * 0.0);   // timpani roll
+  plan.forEach((sh, i) => { if (!i || CALM.includes(sh.kind)) return; const t = starts[i]; tn("sawtooth", 58, 36, 0.3, 1.8, t, 0.02); tn("sawtooth", 87, 52, 0.18, 1.6, t, 0.02); hs(300, 0.28, 1.4, t, "lowpass", 140); });   // the low brass hit on every cut
   for (let k = 0; k < 6; k++) brass(M.root + [0, 7, 12, 16, 19, 24][k], Math.max(0, total - 4.2) + k * 0.3, 4, 1.2);   // the closing crescendo chord, stacked up
   hs(400, 0.3, 4, Math.max(0, total - 4.5), "bandpass", 9000); tim(Math.max(0, total - 0.3), 1.6);
   return { total, starts };
