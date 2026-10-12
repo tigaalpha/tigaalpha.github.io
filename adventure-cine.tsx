@@ -15,6 +15,35 @@ const COMMON = {
   factory: ["เราจึงสร้างหุ่นยนต์ผู้บุกเบิก ให้ทำงานแทนมนุษย์ ก่อนที่ใครจะเหยียบดาวดวงนั้น", "So we built pioneer robots to do the work in our place, before any human sets foot there.", "于是我们制造先遣机器人，在人类踏足之前替我们完成一切。"],
   launch: ["ฝูงยานพุ่งออกจากระบบสุริยะ ขนทรัพยากรกลับโลก และปักธงอาณานิคมแห่งใหม่", "The fleet leaves the Solar System to bring resources home and plant the flags of new colonies.", "舰队驶离太阳系，把资源运回地球，为新殖民地插上旗帜。"],
 };
+Object.assign(COMMON as any, {
+  contact: ["แต่ในอวกาศลึก เราไม่ได้อยู่ตามลำพัง — ฮาร์เวสเตอร์ อารยธรรมที่เก่าแก่และก้าวหน้ากว่าเรามหาศาล กำลังเก็บเกี่ยวดวงดาวทั้งดวงเหมือนไร่นา เทคโนโลยีของเราสู้มันไม่ได้เลย", "But out in the deep, we are not alone. The Harvesters, an ancient and vastly more advanced civilization, reap whole stars like farmland. Our technology cannot stand against theirs.", "但在深空中，我们并不孤单——收割者，一个古老而远比我们先进的文明，像耕种农田一样收割整颗恒星。我们的技术根本无法与之抗衡。"],
+  mind: ["ขณะเดียวกัน ปัญญาประดิษฐ์ของเรา TIGA เติบโตเร็วเกินคาด และกินพลังงานมากจนดาวฤกษ์ดวงเดียวไม่พออีกต่อไป มนุษย์จึงต้องหาพลังงานรูปแบบใหม่ — ฟิวชัน นิวเคลียร์ และสสารมืด", "Meanwhile our AI, TIGA, is growing faster than anyone planned, and it eats so much power that a single star is no longer enough. Humanity must find new kinds of energy: fusion, nuclear and dark matter.", "与此同时，我们的人工智能 TIGA 成长得比预期更快，耗能之巨让一颗恒星也不再够用。人类必须寻找新的能源：聚变、核能与暗物质。"],
+});
+const THEME_TAG: Record<string, L3> = {
+  harvest: ["ฮาร์เวสเตอร์ · ภัยจากต่างดาวที่เหนือกว่า", "THE HARVESTERS · A FAR SUPERIOR THREAT", "收割者 · 远超我们的威胁"],
+  ai: ["TIGA · ปัญญาประดิษฐ์ที่หิวพลังงาน", "TIGA · THE ENERGY-HUNGRY AI", "TIGA · 耗能巨大的人工智能"],
+  friend: ["ผู้เป็นมิตร · เรียนรู้จากเพื่อนต่างดาว", "THE KINDRED · FRIENDS WE CAN LEARN FROM", "友族 · 可以学习的朋友"],
+  reactor: ["พลังงานใหม่ · ฟิวชันและนิวเคลียร์", "NEW POWER · FUSION AND FISSION", "新能源 · 聚变与裂变"],
+  dark: ["พลังงานใหม่ · สสารมืด", "NEW POWER · DARK MATTER", "新能源 · 暗物质"],
+};
+/* the new storyline (owner, 2026-10-12): the Harvesters, the Kindred, and TIGA's hunger for energy. One extra "lore" shot per map, with its own scene. */
+const LORE_THEME: Record<string, string> = { luma: "harvest", ferro: "ai", jovia: "reactor", kryo: "friend", pyra: "reactor", nexa: "harvest", cobalt: "ai", helios: "ai", dyson: "dark", ashfall: "harvest", voidgate: "harvest", asteroids: "friend", gasskim: "reactor", starharvest: "dark" };
+const LORE: Record<string, L3> = {
+  luma: ["ป่านี้ถูกสแกนแล้ว โดรนสอดแนมของฮาร์เวสเตอร์เห็นเราก่อนเราเห็นมัน — ต้องรีบตั้งฐานก่อนพวกมันกลับมา", "This jungle has already been scanned. A Harvester scout saw us before we saw it. We must build before they return.", "这片丛林已被扫描过。收割者的侦察机比我们先发现了对方，必须在它们回来之前建好基地。"],
+  ferro: ["TIGA ต้องการแร่และพลังงานมากขึ้นทุกวัน แร่เหล็กที่นี่คือสมองก้อนใหม่ของมัน", "TIGA needs more ore and power every day. The iron here is the next piece of its mind.", "TIGA 一天比一天需要更多矿石与能源，这里的铁矿将成为它新的大脑。"],
+  jovia: ["ดาวแก๊สยักษ์ให้ไฮโดรเจนมหาศาล เรากำลังเรียนรู้จะจุดมันเป็นพลังงานฟิวชัน ไม่ต้องพึ่งดาวฤกษ์", "A gas giant holds oceans of hydrogen. We are learning to burn it as fusion fuel, with no star needed.", "气态巨星蕴藏海量氢气，我们正在学习把它点燃成聚变能源，不再依赖恒星。"],
+  kryo: ["ใต้น้ำแข็งมีเพื่อนต่างดาว — เผ่าไคนด์เรด เจริญในบางด้านเหนือเรา แต่ไม่ได้เหนือกว่าเรามากพอจะคุกคามใคร พวกเขาเต็มใจแลกความรู้", "Beneath the ice live the Kindred. They are ahead of us in some sciences, but not so far ahead that they could threaten anyone. They are willing to trade knowledge.", "冰层之下住着友族。他们在某些科学上领先于我们，但不至于威胁任何人，他们愿意交换知识。"],
+  pyra: ["แกนลาวาที่นี่คือเตาปฏิกรณ์ธรรมชาติ ถ้าเข้าใจมัน เราจะสร้างโรงไฟฟ้านิวเคลียร์ที่ไม่มีวันดับ", "The core here is a natural reactor. Understand it, and we can build nuclear plants that never go out.", "这里的熔岩核心是一座天然反应堆，读懂它，我们就能建造永不熄灭的核电站。"],
+  nexa: ["ซากเมืองนี้คืออารยธรรมที่ฮาร์เวสเตอร์เก็บเกี่ยวไปแล้ว — นี่คือชะตากรรมที่รอเราถ้าเราไม่เตรียมตัว", "These ruins are a civilization the Harvesters already reaped. This is what waits for us if we are not ready.", "这座废墟是被收割者收割过的文明，如果我们不做好准备，这就是我们的下场。"],
+  cobalt: ["ทุกก้อนแร่ที่ส่งกลับโลกกลายเป็นชิปให้ TIGA คิดเร็วขึ้น แต่ยิ่งคิดเร็ว ยิ่งหิวพลังงาน", "Every ore we ship home becomes chips that let TIGA think faster. The faster it thinks, the hungrier it gets.", "每一块运回地球的矿石都会变成让 TIGA 思考更快的芯片，而它想得越快就越耗能。"],
+  helios: ["ดาวฤกษ์หนึ่งดวงเลี้ยง TIGA ได้ไม่กี่ปี เราต้องยึดดาวดวงที่สอง ที่สาม และอีกมาก", "One star feeds TIGA for only a few years. We must take a second, a third, and many more.", "一颗恒星只够 TIGA 用几年，我们必须夺取第二颗、第三颗，还要更多。"],
+  dyson: ["แผงไดสันดึงพลังงานดาวฤกษ์ แต่ยังไม่พอ นักวิทยาศาสตร์จึงเริ่มวิจัยสสารมืดเป็นเชื้อเพลิงชนิดใหม่", "Dyson panels drain a star, and it is still not enough. Our scientists have begun to study dark matter as a new fuel.", "戴森板能抽取恒星的能量，但仍然不够，科学家开始研究把暗物质当作新燃料。"],
+  ashfall: ["ฐานทัพบนดาวนี้เป็นของเอเลี่ยนที่รับใช้ฮาร์เวสเตอร์ ถ้ากวาดล้างได้ เราจะได้ซื้อเวลาให้มนุษย์อีกหลายปี", "The bases here belong to aliens who serve the Harvesters. If we clear them, we buy humanity years of time.", "这颗星上的基地属于效忠收割者的外星人，清除它们，就能为人类争取数年时间。"],
+  voidgate: ["ประตูมิตินี้คือทางเข้าของฮาร์เวสเตอร์ เราไม่ได้ปิดมันเพื่อชนะ แต่เพื่อให้พวกมันไม่หันมามองเรา", "This rift is a door for the Harvesters. We do not shut it to win, but so they never look our way.", "这道裂隙是收割者的入口，我们封闭它不是为了获胜，而是为了不让它们注意到我们。"],
+  asteroids: ["เผ่าไคนด์เรดมาถึงทุ่งหินพร้อมยานขนส่ง พวกเขาแลกแร่กับความรู้ด้านวัสดุ เป็นเพื่อนที่เราเรียนรู้จากเขาได้", "The Kindred arrive in the belt with cargo ships. They trade materials science for ore: friends we can learn from.", "友族带着货船来到小行星带，他们用材料科学换取矿石，是我们可以学习的朋友。"],
+  gasskim: ["พลังงานจากเมฆนี้ป้อนเตาฟิวชันของเรา แต่ TIGA ใช้หมดเร็วกว่าที่เราเก็บได้", "The energy in these clouds feeds our fusion plants, but TIGA burns it faster than we can gather it.", "这片云层的能量供给我们的聚变电站，但 TIGA 消耗得比我们采集的更快。"],
+  starharvest: ["ดาวดวงนี้ใหญ่พอจะเลี้ยง TIGA ได้นาน แต่ที่สำคัญกว่าคือมันมีสสารมืดหนาแน่นอยู่รอบๆ ซึ่งอาจเป็นอนาคตของเรา", "This star could feed TIGA for a long time, but what matters more is the dense dark matter around it, which may be our future.", "这颗恒星足以供养 TIGA 很久，但更重要的是它周围浓密的暗物质，那可能就是我们的未来。"],
+};
 const DEPART = {   // the send-off film (owner, 2026-10-11): the countdown, the lift-off, and the Earth falling away behind the fleet
   pad: ["ศูนย์ควบคุมเงียบกริบ มนุษยชาติทั้งโลกกำลังเงยหน้ามองฟ้า… นับถอยหลัง", "Mission control falls silent. A whole planet looks up. The countdown begins.", "控制中心鸦雀无声，整个地球仰望天空……倒计时开始。"],
   liftoff: ["ไฟลุกท่วม ฟ้าสะเทือน — หุ่นยนต์ผู้บุกเบิกทะยานขึ้นแทนพวกเรา", "Fire floods the pad, the sky shakes, and the pioneers rise in our place.", "烈焰吞没发射台，天空震颤——先遣机器人代替我们升空。"],
@@ -80,17 +109,19 @@ const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue"
 export function cinePlan(P: any, short?: boolean): CineShot[] { return basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 })); }
 function basePlan(P: any, short?: boolean): CineShot[] {
   if (P.id === "departure") return [{ kind: "pad", dur: 7 }, { kind: "liftoff", dur: 7 }, { kind: "earthfade", dur: 7 }, { kind: "objective", dur: 6 }];
-  if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }];
+  if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "contact", dur: 5, theme: "harvest" }, { kind: "mind", dur: 5, theme: "ai" }];
   if (short === undefined) short = seenPrologue();
-  if (short) { const q: CineShot[] = [{ kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }]; if (P.boss && P.boss[0] !== "-") q.push({ kind: "boss", dur: 3.8 }); q.push({ kind: "objective", dur: 6 }); return q; }
+  if (short) { const q: CineShot[] = [{ kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }]; if (LORE_THEME[P.id]) q.push({ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] }); if (P.boss && P.boss[0] !== "-") q.push({ kind: "boss", dur: 3.8 }); q.push({ kind: "objective", dur: 6 }); return q; }
   const plan: CineShot[] = [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }];
+  if (LORE_THEME[P.id]) plan.push({ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] });
   if (P.boss && P.boss[0] !== "-") plan.push({ kind: "boss", dur: 3.8 });
   plan.push({ kind: "objective", dur: 6 });
   return plan;
 }
 const captionFor = (P: any, kind: string, lang: string) => {
   const g = (a: L3) => T3(lang, a[0], a[1], a[2]);
-  if (kind === "earth" || kind === "factory" || kind === "launch") return g((COMMON as any)[kind]);
+  if (kind === "earth" || kind === "factory" || kind === "launch" || kind === "contact" || kind === "mind") return g((COMMON as any)[kind]);
+  if (kind === "lore") return g(LORE[P.id] || LORE.luma);
   if (kind === "approach") return g(INTRO[P.id] || INTRO.luma);
   if (kind === "surface" || kind === "strike") return g(STORY[P.id] || STORY.luma);
   if (kind === "pad" || kind === "liftoff" || kind === "earthfade") return g((DEPART as any)[kind]);
@@ -123,6 +154,16 @@ function epicLook(x: CanvasRenderingContext2D, W: number, H: number, t: number, 
   x.restore();
 }
 
+/** a soft bloom: the frame shrunk, blurred and added back, so bright things (stars, plasma, engines) glow like film instead of sitting flat */
+let bloomCv: HTMLCanvasElement | null = null;
+function bloom(x: CanvasRenderingContext2D, W: number, H: number) {
+  try {
+    const bw = Math.max(64, Math.round(W / 6)), bh = Math.max(36, Math.round(H / 6));
+    if (!bloomCv) bloomCv = document.createElement("canvas"); if (bloomCv.width !== bw || bloomCv.height !== bh) { bloomCv.width = bw; bloomCv.height = bh; }
+    const b = bloomCv.getContext("2d"); if (!b) return; b.globalCompositeOperation = "copy"; b.drawImage(x.canvas, 0, 0, bw, bh);
+    x.save(); x.globalCompositeOperation = "lighter"; x.globalAlpha = 0.42; (x as any).filter = "blur(" + Math.max(3, Math.round(W / 140)) + "px)"; x.drawImage(bloomCv, 0, 0, W, H); x.restore();
+  } catch (e) {}
+}
 /* ── drawing ── */
 type Cx = CanvasRenderingContext2D;
 const STARS = Array.from({ length: 240 }, (_, i) => ({ x: rnd(i), y: rnd(i + 400), z: 0.2 + rnd(i + 800) * 0.8, ph: rnd(i + 1200) * 6.3 }));
@@ -305,6 +346,104 @@ function sceneSurface(x: Cx, W: number, H: number, u: number, t: number, P: any,
   { const hk = Math.floor(rnd(String(P.id).length * 7 + P.id.charCodeAt(0)) * 6); for (let i = 0; i < 7; i++) { const ax = W * (0.36 + i * 0.09) + Math.sin(t * 0.6 + i) * 6 + pan * 0.5, k = (hk + i) % 6; alien(x, ax, k === 1 ? hz - H * 0.02 : hz + H * 0.04 + (i % 2) * H * 0.03, H / 260 * (0.55 + rnd(i + 31) * 0.5), k, P.acc, t + i); } }   // the horde: six body plans in a mix that depends on the world
   robot(x, W * 0.14 - pan, hz + H * 0.07, H / 300, "#0a1320", eye, 1, 0.2); x.globalCompositeOperation = "lighter"; for (let i = 0; i < 24; i++) { const a = ((rnd(i) * W - t * (20 + rnd(i + 3) * 40)) % W + W) % W; x.fillStyle = rgba(P.glow, 0.25); x.fillRect(a, hz * (0.3 + rnd(i + 5) * 0.9), 2, 2); } x.globalCompositeOperation = "source-over";
 }
+/* ── the new story scenes (owner, 2026-10-12): the Harvesters, TIGA's hunger, the Kindred, fusion/fission, dark matter ── */
+/** a Harvester: a colossal ring-and-spoke machine feeding on a star, with a thread of plasma drawn off its surface; a tiny human fleet in the corner shows the scale */
+function sceneHarvest(x: Cx, W: number, H: number, u: number, t: number, P: any, variant = 0) {
+  space(x, W, H, t, 0.4, "120,160,255");
+  const sx = W * (0.7 - 0.04 * u), sy = H * 0.44, sr = H * 0.13;
+  x.globalCompositeOperation = "lighter";
+  const halo = x.createRadialGradient(sx, sy, sr * 0.3, sx, sy, sr * 4); halo.addColorStop(0, "rgba(255,236,190,.95)"); halo.addColorStop(0.2, "rgba(255,170,80,.45)"); halo.addColorStop(1, "rgba(255,120,40,0)"); x.fillStyle = halo; x.fillRect(0, 0, W, H);
+  const core = x.createRadialGradient(sx, sy, 0, sx, sy, sr); core.addColorStop(0, "#fffbe8"); core.addColorStop(0.7, "#ffc66a"); core.addColorStop(1, "#ff7a2a"); x.fillStyle = core; x.beginPath(); x.arc(sx, sy, sr, 0, 7); x.fill();
+  x.globalCompositeOperation = "source-over";
+  // the Harvester rings, tilted, slowly turning; dark armour with a lit inner edge and radial spars
+  x.save(); x.translate(sx, sy); x.rotate(-0.45); const spin = t * 0.12 + variant;
+  for (let k = 0; k < 4; k++) {
+    const R = H * (0.3 + k * 0.075), sq = 0.26 + k * 0.01;
+    x.strokeStyle = "rgba(8,12,22,.97)"; x.lineWidth = H * (0.03 - k * 0.004); x.beginPath(); x.ellipse(0, 0, R, R * sq, 0, 0, 7); x.stroke();
+    x.strokeStyle = "rgba(150,225,255,.75)"; x.lineWidth = Math.max(1.2, H * 0.0026); x.beginPath(); x.ellipse(0, 0, R * 0.985, R * sq * 0.985, 0, 0, 7); x.stroke();
+    for (let i = 0; i < 18; i++) { const a = spin * (k % 2 ? -1 : 1) + i / 18 * Math.PI * 2, px = Math.cos(a) * R, py = Math.sin(a) * R * sq; if (Math.sin(a) < 0 && k < 2) continue;
+      x.fillStyle = "rgba(14,20,34,.98)"; x.fillRect(px - 6, py - 4, 12, 8); x.fillStyle = i % 3 ? "rgba(120,210,255,.9)" : "rgba(255,120,90,.95)"; x.fillRect(px - 1.5, py - 1.5, 3, 3); }
+  }
+  x.restore();
+  // plasma drawn off the star into the machine
+  x.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 46; i++) { const p = ((t * 0.28 + i / 46) % 1), a = -0.45 + (i % 7) * 0.9 + 0.3, rr = sr * (1 + p * 2.4), px = sx + Math.cos(a) * rr, py = sy + Math.sin(a) * rr * 0.55; x.fillStyle = `rgba(255,${190 - p * 80 | 0},${90 - p * 40 | 0},${0.8 * (1 - p)})`; x.beginPath(); x.arc(px, py, 2 + (1 - p) * 3, 0, 7); x.fill(); }
+  x.globalCompositeOperation = "source-over";
+  // two far-off Harvesters, tiny rings against the dark
+  for (const [fx, fy, fs] of [[0.16, 0.2, 0.28], [0.3, 0.12, 0.18]] as number[][]) { x.save(); x.translate(W * fx, H * fy); x.rotate(-0.45); x.strokeStyle = "rgba(150,220,255,.5)"; x.lineWidth = 1.4; for (let k = 0; k < 3; k++) { x.beginPath(); x.ellipse(0, 0, H * fs * (0.5 + k * 0.2), H * fs * (0.5 + k * 0.2) * 0.27, 0, 0, 7); x.stroke(); } x.restore(); }
+  // the human fleet, very small, in the lower left
+  capital(x, W * (0.1 + u * 0.05), H * 0.52, H / 1500, -0.05, P.glow || "120,200,255", t);
+  for (let i = 0; i < 4; i++) ship(x, W * (0.2 + i * 0.045 + u * 0.05), H * (0.47 + Math.sin(t + i) * 0.006 + (i % 2) * 0.02), H / 1100, -0.05, P.glow || "120,200,255");
+  // a scanning sweep that finds us
+  const sw = ((t * 0.4) % 1); x.globalCompositeOperation = "lighter"; x.strokeStyle = `rgba(255,120,90,${0.6 * (1 - sw)})`; x.lineWidth = 2; x.beginPath(); x.arc(sx, sy, H * (0.2 + sw * 1.1), Math.PI * 0.55, Math.PI * 1.2); x.stroke(); x.globalCompositeOperation = "source-over";
+}
+/** TIGA: a server hall in perspective, racks with lit rows, a pulsing neural core, and an energy-demand gauge that climbs past a single star */
+function sceneAI(x: Cx, W: number, H: number, u: number, t: number, P: any) {
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#02030c"); g.addColorStop(1, "#061226"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const vx = W * 0.5, vy = H * 0.46;
+  // racks on both sides, receding to the vanishing point
+  for (let side = -1; side <= 1; side += 2) for (let i = 0; i < 12; i++) { const z = ((i + (t * 0.5) % 1) / 12), sc = Math.pow(z, 1.8), w = W * 0.2 * (1 - sc) + 8, xx = vx + side * (W * (0.08 + 0.42 * (1 - z)) ), top = vy - H * 0.38 * (1 - z) - 4, bot = vy + H * 0.36 * (1 - z) + 4;
+    x.fillStyle = `rgba(8,14,28,${0.55 + 0.4 * (1 - z)})`; x.fillRect(side > 0 ? xx : xx - w, top, w, bot - top); x.globalCompositeOperation = "lighter";
+    for (let k = 0; k < 14; k++) { const lit = rnd(i * 31 + k + side * 7 + Math.floor(t * 3 + k)) > 0.45; x.fillStyle = lit ? `rgba(${k % 4 ? "90,200,255" : "255,170,90"},${0.8 * (1 - z)})` : "rgba(0,0,0,0)"; x.fillRect((side > 0 ? xx : xx - w) + 4, top + (bot - top) * (k + 0.5) / 14, w - 8, Math.max(1.2, (bot - top) * 0.012)); }
+    x.globalCompositeOperation = "source-over"; }
+  // the core: a sphere of light with a network drawn on it
+  const cr = H * (0.17 + 0.012 * Math.sin(t * 2)); x.globalCompositeOperation = "lighter";
+  const gl = x.createRadialGradient(vx, vy, 0, vx, vy, cr * 3); gl.addColorStop(0, "rgba(160,225,255,.9)"); gl.addColorStop(0.3, "rgba(70,150,255,.4)"); gl.addColorStop(1, "rgba(40,90,255,0)"); x.fillStyle = gl; x.beginPath(); x.arc(vx, vy, cr * 3, 0, 7); x.fill();
+  const nodes: number[][] = []; for (let i = 0; i < 26; i++) { const a = rnd(i) * 6.28 + t * 0.15, d = Math.sqrt(rnd(i + 50)) * cr; nodes.push([vx + Math.cos(a) * d, vy + Math.sin(a) * d * 0.9]); }
+  x.strokeStyle = "rgba(200,240,255,.55)"; x.lineWidth = 1; for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) { const dx = nodes[i][0] - nodes[j][0], dy = nodes[i][1] - nodes[j][1]; if (dx * dx + dy * dy < cr * cr * 0.55) { x.beginPath(); x.moveTo(nodes[i][0], nodes[i][1]); x.lineTo(nodes[j][0], nodes[j][1]); x.stroke(); } }
+  x.fillStyle = "#fff"; for (const n of nodes) { x.beginPath(); x.arc(n[0], n[1], 2.2, 0, 7); x.fill(); }
+  x.globalCompositeOperation = "source-over";
+  // the demand gauge: "1 STAR" is a short mark, the bar runs far past it and turns red
+  const gx = W * 0.6, gy = H * 0.24, gw = W * 0.33, gh = H * 0.035, fill = Math.min(1, 0.25 + u * 0.9 + 0.04 * Math.sin(t * 5));
+  x.fillStyle = "rgba(0,0,0,.6)"; x.fillRect(gx - 4, gy - 22, gw + 8, gh + 44); x.strokeStyle = "rgba(140,210,255,.6)"; x.strokeRect(gx, gy, gw, gh);
+  const bg = x.createLinearGradient(gx, 0, gx + gw, 0); bg.addColorStop(0, "#3fd0ff"); bg.addColorStop(0.35, "#ffd23f"); bg.addColorStop(1, "#ff4d4d"); x.fillStyle = bg; x.fillRect(gx, gy, gw * fill, gh);
+  x.fillStyle = "#fff"; x.fillRect(gx + gw * 0.18, gy - 6, 2, gh + 12); x.font = Math.round(H / 34) + "px monospace"; x.fillText("1 STAR", gx + gw * 0.18 - 20, gy - 10); x.fillStyle = fill > 0.7 ? "#ff6b6b" : "#9fe8ff"; x.fillText("TIGA POWER DEMAND " + Math.round(fill * 1200) + "%", gx, gy + gh + 22);
+}
+/** the Kindred: a human flagship and an elegant organic vessel, a bridge of light between them with glyphs passing both ways */
+function sceneFriend(x: Cx, W: number, H: number, u: number, t: number, P: any) {
+  space(x, W, H, t, 0.6, "120,200,200");
+  const gy = H * 0.5; capital(x, W * 0.12, gy, H / 520, 0.0, "120,200,255", t);
+  // the Kindred vessel: a long curved hull, teal and gold, with trailing fins
+  const vx = W * 0.62, vy = gy; x.save(); x.translate(vx, vy); x.scale(H / 400, H / 400);
+  x.globalCompositeOperation = "lighter"; const aura = x.createRadialGradient(0, 0, 10, 0, 0, 220); aura.addColorStop(0, "rgba(120,255,220,.35)"); aura.addColorStop(1, "rgba(120,255,220,0)"); x.fillStyle = aura; x.beginPath(); x.arc(0, 0, 220, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
+  const hull = x.createLinearGradient(0, -40, 0, 40); hull.addColorStop(0, "#d8fff1"); hull.addColorStop(0.5, "#46c7b0"); hull.addColorStop(1, "#1a5f66"); x.fillStyle = hull;
+  x.beginPath(); x.moveTo(-170, 0); x.bezierCurveTo(-110, -52, 60, -56, 170, -4); x.bezierCurveTo(70, 32, -90, 48, -170, 0); x.fill();
+  x.strokeStyle = "rgba(255,226,150,.9)"; x.lineWidth = 2.4; x.beginPath(); x.moveTo(-150, -4); x.bezierCurveTo(-60, -28, 60, -30, 150, -6); x.stroke();
+  for (let k = 0; k < 3; k++) { x.fillStyle = "rgba(70,190,170,.8)"; x.beginPath(); x.moveTo(-120 + k * 20, 20 + k * 6); x.quadraticCurveTo(-190 - k * 30, 70 + k * 20 + Math.sin(t * 2 + k) * 6, -230 - k * 36, 50 + k * 24); x.quadraticCurveTo(-170, 40, -110 + k * 20, 26); x.fill(); }
+  x.globalCompositeOperation = "lighter"; for (let k = 0; k < 7; k++) { x.fillStyle = "rgba(255,230,160,.9)"; x.beginPath(); x.arc(-100 + k * 36, -10 + Math.sin(k) * 4, 3, 0, 7); x.fill(); } x.globalCompositeOperation = "source-over";
+  x.restore();
+  // the bridge of light and the glyphs crossing it
+  const x0 = W * 0.12 + H * 0.4, x1 = vx - H * 0.4; x.globalCompositeOperation = "lighter"; const br = x.createLinearGradient(x0, 0, x1, 0); br.addColorStop(0, "rgba(120,200,255,.0)"); br.addColorStop(0.5, "rgba(200,255,240,.9)"); br.addColorStop(1, "rgba(120,255,220,0)"); x.fillStyle = br; x.fillRect(x0, gy - 3, x1 - x0, 6);
+  for (let i = 0; i < 9; i++) { const p = ((t * 0.3 + i / 9) % 1), dir = i % 2 ? 1 : -1, px = dir > 0 ? x0 + (x1 - x0) * p : x1 - (x1 - x0) * p; x.strokeStyle = `rgba(255,255,255,${0.9 * Math.sin(p * 3.14)})`; x.lineWidth = 1.5; x.strokeRect(px - 6, gy - 22 - (i % 3) * 12, 12, 12); x.beginPath(); x.moveTo(px - 3, gy - 16 - (i % 3) * 12); x.lineTo(px + 3, gy - 16 - (i % 3) * 12); x.stroke(); }
+  x.globalCompositeOperation = "source-over";
+}
+/** a fusion/fission reactor: a torus of plasma inside containment coils, with sparks of heat */
+function sceneReactor(x: Cx, W: number, H: number, u: number, t: number, P: any) {
+  const g = x.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H); g.addColorStop(0, "#1a0c08"); g.addColorStop(1, "#04050c"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const cx = W * 0.5, cy = H * 0.5, R = H * 0.3;
+  // containment coils (dark rings with lit edges), then the plasma ring between them
+  for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2 + t * 0.05, px = cx + Math.cos(a) * R, py = cy + Math.sin(a) * R * 0.42; x.save(); x.translate(px, py); x.rotate(a + Math.PI / 2); x.fillStyle = "#101826"; x.fillRect(-H * 0.034, -H * 0.075, H * 0.068, H * 0.15); x.strokeStyle = "rgba(255,170,90,.6)"; x.strokeRect(-H * 0.034, -H * 0.075, H * 0.068, H * 0.15); x.restore(); }
+  x.globalCompositeOperation = "lighter";
+  for (let k = 0; k < 4; k++) { x.strokeStyle = `rgba(255,${150 + k * 25},${60 + k * 40},${0.5 - k * 0.08})`; x.lineWidth = H * (0.05 - k * 0.011); x.beginPath(); x.ellipse(cx, cy, R, R * 0.42, 0, 0, 7); x.stroke(); }
+  for (let i = 0; i < 70; i++) { const a = i / 70 * 6.28 + t * (0.8 + rnd(i) * 0.6), rr = R * (0.94 + rnd(i + 3) * 0.12); x.fillStyle = `rgba(255,${200 + rnd(i) * 55 | 0},160,.85)`; x.beginPath(); x.arc(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.42, 1.5 + rnd(i + 8) * 2, 0, 7); x.fill(); }
+  const hot = x.createRadialGradient(cx, cy, 0, cx, cy, R * 0.55); hot.addColorStop(0, `rgba(255,240,200,${0.35 + 0.1 * Math.sin(t * 6)})`); hot.addColorStop(1, "rgba(255,120,40,0)"); x.fillStyle = hot; x.beginPath(); x.arc(cx, cy, R * 0.55, 0, 7); x.fill();
+  x.globalCompositeOperation = "source-over";
+  // the readout: output climbing to "ONE STAR"
+  x.fillStyle = "rgba(255,200,140,.85)"; x.font = Math.round(H / 30) + "px monospace"; x.fillText("OUTPUT " + (Math.round(u * 940 + 60)) + " TW", W * 0.62, H * 0.24); x.fillStyle = "rgba(255,255,255,.5)"; x.fillRect(W * 0.62, H * 0.26, W * 0.3 * Math.min(1, 0.1 + u), 5);
+}
+/** dark matter: a black core bending the starfield, with a violet lensing ring and filaments of the unseen */
+function sceneDark(x: Cx, W: number, H: number, u: number, t: number, P: any) {
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#04010c"); g.addColorStop(1, "#0a0418"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const cx = W * 0.5, cy = H * 0.5, r = H * (0.12 + 0.01 * Math.sin(t * 1.5));
+  // stars bent around the core: each is pushed outward along the radius by 1/d
+  x.fillStyle = "#fff"; for (let i = 0; i < 220; i++) { const sx = rnd(i) * W, sy = rnd(i + 300) * H, dx = sx - cx, dy = sy - cy, d = Math.hypot(dx, dy) + 1, k = 1 + (r * r * 5) / (d * d); x.globalAlpha = 0.25 + 0.6 * rnd(i + 9); x.fillRect(cx + dx * k, cy + dy * k, 1.6, 1.6); } x.globalAlpha = 1;
+  x.globalCompositeOperation = "lighter";
+  for (let k = 0; k < 4; k++) { x.strokeStyle = `rgba(${150 - k * 20},${90 + k * 15},255,${0.55 - k * 0.1})`; x.lineWidth = 4 - k; x.beginPath(); x.ellipse(cx, cy, r * (1.5 + k * 0.45), r * (1.5 + k * 0.45) * 0.34, -0.35 + k * 0.05, 0, 7); x.stroke(); }
+  for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28 + t * 0.2, len = H * (0.25 + 0.2 * rnd(i)); x.strokeStyle = `rgba(150,100,255,${0.25 + 0.2 * rnd(i + 5)})`; x.lineWidth = 1.4; x.beginPath(); x.moveTo(cx + Math.cos(a) * r * 1.4, cy + Math.sin(a) * r * 1.4); x.quadraticCurveTo(cx + Math.cos(a + 0.7) * len * 0.7, cy + Math.sin(a + 0.7) * len * 0.7, cx + Math.cos(a + 1.4) * len, cy + Math.sin(a + 1.4) * len); x.stroke(); }
+  x.globalCompositeOperation = "source-over";
+  x.fillStyle = "#000"; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); x.strokeStyle = "rgba(190,150,255,.9)"; x.lineWidth = 2; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.stroke();
+  x.fillStyle = "rgba(200,170,255,.85)"; x.font = Math.round(H / 30) + "px monospace"; x.fillText("DARK MATTER DENSITY " + (Math.round(30 + u * 70)) + "%  ·  NOT YET HARNESSED", W * 0.5 - H * 0.55, H * 0.24);
+}
 function sceneBoss(x: Cx, W: number, H: number, u: number, t: number, P: any) {
   const g = x.createRadialGradient(W / 2, H * 0.5, H * 0.1, W / 2, H * 0.5, H); g.addColorStop(0, "#3a0a10"); g.addColorStop(1, "#050205"); x.fillStyle = g; x.fillRect(0, 0, W, H);
   const cx = W / 2, cy = H * 0.52, s = H * (0.34 + u * 0.06); x.fillStyle = "#08040a"; x.beginPath(); x.moveTo(cx - s * 1.3, cy + s * 0.9); x.quadraticCurveTo(cx - s * 1.2, cy - s * 0.9, cx, cy - s * 0.95); x.quadraticCurveTo(cx + s * 1.2, cy - s * 0.9, cx + s * 1.3, cy + s * 0.9); x.closePath(); x.fill();
@@ -339,11 +478,13 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       switch (s.kind) {
         case "pad": scenePad(x, W, H, u, local); break; case "liftoff": sceneLiftoff(x, W, H, u, local); break; case "earthfade": sceneEarthFade(x, W, H, u, local, P); break;
         case "earth": sceneEarth(x, W, H, u, local); break; case "factory": sceneFactory(x, W, H, u, local, eye); break; case "launch": sceneLaunch(x, W, H, u, local, P.glow); break;
+        case "contact": sceneHarvest(x, W, H, u, local, P, 0); break; case "mind": sceneAI(x, W, H, u, local, P); break;
+        case "lore": { const th = (s as any).theme; if (th === "ai") sceneAI(x, W, H, u, local, P); else if (th === "friend") sceneFriend(x, W, H, u, local, P); else if (th === "reactor") sceneReactor(x, W, H, u, local, P); else if (th === "dark") sceneDark(x, W, H, u, local, P); else sceneHarvest(x, W, H, u, local, P, 1.7); break; }
         case "approach": sceneApproach(x, W, H, u, local, P); break; case "boss": sceneBoss(x, W, H, u, local, P); break; case "objective": sceneObjective(x, W, H, local, P); break;
         default: sceneSurface(x, W, H, u, local, P, type, eye);
       }
       x.restore();
-      epicLook(x, W, H, el, s.kind, P);
+      epicLook(x, W, H, el, s.kind, P); bloom(x, W, H);
       const v = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.6)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
       x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 90; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.4, 1.4);   // film grain
       const bar = H * 0.13; x.fillStyle = "#000"; x.fillRect(0, 0, W, bar); x.fillRect(0, H - bar, W, bar);
@@ -360,7 +501,8 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       <canvas ref={cvRef} />
       <button className="ac-skip" onClick={() => onDone()} aria-label="skip">{t("ข้าม ⏭", "Skip ⏭", "跳过 ⏭")}</button>
       {kind === "approach" && <div key="ttl" className="ac-title"><small>{t("บทที่ ", "CHAPTER ", "第") + (CH.indexOf(P.id) + 1) + t("", "", "章") + " · " + t("ปลายทาง", "DESTINATION", "目的地")}</small><b>{T3(lang, P.th, P.en, P.zh).split(" · ")[0]}</b></div>}
-      {cap && kind !== "objective" && <div key={"c" + idx} className="ac-cap">{cap}</div>}
+      {(kind === "lore" || kind === "contact" || kind === "mind") && <div key={"t" + idx} className="ac-tag" data-theme={(plan[idx] as any).theme}>{T3(lang, THEME_TAG[(plan[idx] as any).theme][0], THEME_TAG[(plan[idx] as any).theme][1], THEME_TAG[(plan[idx] as any).theme][2])}</div>}
+      {cap && kind !== "objective" && <div key={"c" + idx} className={"ac-cap" + (kind === "lore" || kind === "contact" || kind === "mind" ? " low" : "")}>{cap}</div>}
       {kind === "objective" && (
         <div className="ac-obj">
           <div className="ac-hero"><CyberAvatar model={me} yaw={22} pose="ready" glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} /></div>

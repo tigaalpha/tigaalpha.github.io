@@ -168,7 +168,7 @@ export async function renderPreview(id: string, bars = 4, boss = false, intensit
 /* ── the cinematic score (owner, 2026-10-11: a film before each map, with its own music and sound effects) ──
    Scheduled up front on its own audio context: a rising drone and pad chords, a noise riser across the build, a timpani hit and a reverse
    swell at every cut, an arpeggio that quickens, per-shot effects, and a brass-like swell when the objective card lands. */
-export type CineShot = { kind: string; dur: number };
+export type CineShot = { kind: string; dur: number; theme?: string };
 export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId: string, plan: CineShot[], tailSec = 10) {
   const M = MOODS[moodId] || MOODS.luma; const nz = noise(ctx);
   const total = plan.reduce((a, s) => a + s.dur, 0); const starts: number[] = []; let acc = 0; for (const s of plan) { starts.push(acc); acc += s.dur; }
@@ -196,6 +196,15 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
       case "approach": tn("sine", 1100, 1100, 0.08, 1.2, t + 1.2); tn("sine", 1100, 1100, 0.06, 1.2, t + 2.4); break;                                                  // sonar
       case "boss": for (let k = 0; k < 5; k++) tn("square", 700, 700, 0.07, 0.25, t + k * 0.55); tn("sawtooth", 50, 38, 0.2, s.dur - 0.5, t + 0.2, 0.8); break;          // alarm + growl
       case "strike": tn("sine", 600, 120, 0.1, 1.6, t + 0.5); hs(240, 0.55, 1.4, t + s.dur * 0.6, "lowpass", 90); tim(t + s.dur * 0.6, 1.4); break;                    // the whistle, then the blast
+      case "contact": case "lore": {   // the new story shots, one cue per theme (owner, 2026-10-12)
+        const th = s.kind === "contact" ? "harvest" : s.theme;
+        if (th === "harvest") { tn("sawtooth", 41, 36, 0.2, s.dur, t + 0.2, 1.2); for (let k = 0; k < 2; k++) { tn("sawtooth", 55, 53, 0.15, 1.8, t + 0.6 + k * 1.9, 0.5); tn("sine", 110, 106, 0.1, 1.8, t + 0.6 + k * 1.9, 0.5); } hs(180, 0.2, s.dur - 0.6, t + 0.3, "lowpass", 500); }
+        else if (th === "friend") { [0, 4, 7, 11].forEach((st, k) => { const f = hz(M.root + st + 12); tn("triangle", f, f, 0.06 * g, 3.4, t + 0.3 + k * 0.25, 0.8); }); tn("sine", hz(M.root + 31), hz(M.root + 31), 0.05, 1.4, t + 1.6); tn("sine", hz(M.root + 36), hz(M.root + 36), 0.04, 1.4, t + 2.2); }
+        else if (th === "reactor") { tn("sine", 55, 190, 0.12, s.dur - 0.5, t + 0.2, 1); hs(120, 0.25, s.dur, t, "lowpass", 400); for (let k = 0; k < 9; k++) hs(3500, 0.08, 0.06, t + 0.4 + k * 0.45, "highpass"); }
+        else if (th === "dark") { tn("sine", 32, 28, 0.3, s.dur, t, 1.5); tn("sine", hz(M.root + 6), hz(M.root + 6), 0.06, s.dur, t + 0.3, 1.2); tn("sine", hz(M.root + 6) + 6, hz(M.root + 6) + 6, 0.06, s.dur, t + 0.3, 1.2); }
+        else { for (let k = 0; k < 14; k++) tn("square", 600 + (k % 5) * 220, 600 + (k % 5) * 220, 0.03, 0.06, t + 0.3 + k * 0.28); tn("sawtooth", 100, 900, 0.05, s.dur - 0.5, t + 0.2, 0.6); }
+        break; }
+      case "mind": for (let k = 0; k < 16; k++) tn("square", 600 + (k % 5) * 220, 600 + (k % 5) * 220, 0.03, 0.06, t + 0.3 + k * 0.28); tn("sawtooth", 100, 900, 0.05, s.dur - 0.5, t + 0.2, 0.6); tn("sine", 48, 44, 0.16, s.dur, t + 0.2, 1); break;
       case "objective": [0, 4, 7, 12].forEach((st, k) => { const f = hz(M.root + st); tn("sawtooth", f, f, 0.05 * g, 3.5, t + 0.05, 0.9); tn("sine", f * 2, f * 2, 0.04 * g, 3.5, t + 0.05, 0.9); void k; }); hs(2500, 0.25, 1.4, t, "highpass", 900); tim(t, 1.5); break;   // the swell
       default: hs(600, 0.1, 1.0, t + 0.4, "bandpass", 2400);                                                                                                               // the surface: wind
     }
