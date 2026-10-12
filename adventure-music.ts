@@ -58,6 +58,17 @@ MOODS.kindred = { ...MOODS.kryo, bpm: 104, gain: 0.66 };
 MOODS.darkforge = { ...MOODS.nexa, bpm: 92, root: 50, gain: 0.62 };
 MOODS.shadow = { ...MOODS.nexa, bpm: 84, root: 47, gain: 0.58 };
 MOODS.ashfall = { ...MOODS.pyra, bpm: 112, root: 50, scale: MIN, gain: 0.6 };
+MOODS.moonhe3 = { ...MOODS.kryo, bpm: 88, gain: 0.58 };
+MOODS.moonbase = { ...MOODS.kindred, bpm: 96, gain: 0.6 };
+MOODS.marscolony = { ...MOODS.ferro, bpm: 110, gain: 0.62 };
+MOODS.mercury = { ...MOODS.pyra, bpm: 124, gain: 0.62 };
+MOODS.venussky = { ...MOODS.helios, bpm: 108, gain: 0.6 };
+MOODS.jupitergas = { ...MOODS.jovia, bpm: 120, gain: 0.6 };
+MOODS.saturnrings = { ...MOODS.kryo, bpm: 100, gain: 0.6 };
+MOODS.titanassault = { ...MOODS.kryo, bpm: 116, gain: 0.64 };
+MOODS.titancolony = { ...MOODS.kindred, bpm: 92, gain: 0.6 };
+MOODS.arkbuild = { ...MOODS.cobalt, bpm: 104, gain: 0.62 };
+MOODS.arkexodus = { ...MOODS.nexa, bpm: 128, gain: 0.64 };
 /** the boss arrangement: the same key, harder and denser. */
 const BOSS = { kick: "x.x.x.x.x.x.x.xx", snare: "....x.......x.x.", hat: "xxxxxxxxxxxxxxxx", bass: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], bpmMul: 1.12 };
 
