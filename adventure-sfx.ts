@@ -6,7 +6,7 @@ import { playSig, type Voice } from "./fx-voice";
 import { getSfxMuted } from "./music-engine";
 
 export type AdvSfx = { play: (kind: string, v?: Voice | null, spec?: any) => void; setOn: (on: boolean) => void; close: () => void };
-const GAP: Record<string, number> = { punch: 90, kick: 120, fire: 70, hit: 55, pop: 80, pickup: 60, hurt: 120, jump: 100, dash: 150, skill: 200, spell: 300, slam: 200, pet: 90, win: 500, rocket: 400, boom: 120, cast: 80 };
+const GAP: Record<string, number> = { punch: 90, kick: 120, fire: 70, hit: 55, pop: 80, pickup: 60, hurt: 120, jump: 100, dash: 150, skill: 200, spell: 300, slam: 200, pet: 90, win: 500, rocket: 400, boom: 120, cast: 80, zap: 80 };
 export function createAdvSfx(): AdvSfx {
   let ac: AudioContext | null = null, bus: GainNode | null = null, nz: AudioBuffer | null = null, on = true; const last: Record<string, number> = {};
   const ensure = () => {
@@ -50,6 +50,7 @@ export function createAdvSfx(): AdvSfx {
         case "slam": tone("sine", 90, 28, 0.5, 0.5); hiss(300, 0.4, 0.5, "lowpass", 120); break;
         case "pet": tone("triangle", 900, 500, 0.1, 0.1); sigKind = "shot"; break;
         case "rocket": hiss(2600, 0.25, 0.5, "bandpass", 500); tone("sawtooth", 240, 90, 0.1, 0.45); tone("sine", 190, 48, 0.3, 0.16); sigKind = "lob"; break;
+        case "zap": hiss(3600, 0.5, 0.08, "highpass"); tone("sawtooth", 2800, 90, 0.2, 0.24); tone("square", 130, 55, 0.13, 0.22); hiss(520, 0.38, 0.6, "lowpass", 90, 0.05); tone("sine", 72, 28, 0.42, 0.55, 0.06); break;
         case "boom": hiss(240, 0.5, 0.6, "lowpass"); tone("sine", 150, 28, 0.5, 0.6); break;
         case "cast": {   // one skill: the archetype sets the shape of the sound, the id-derived pitch / wave / brightness make it its own
           const pc = (spec && spec.pitch) || 1, wv: OscillatorType = (spec && spec.wave) || "triangle", br = (spec && spec.bright) || 0, b = 1 + br * 0.25;

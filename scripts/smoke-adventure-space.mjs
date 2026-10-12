@@ -14,7 +14,7 @@ async function open(pre) {
   const ctx = await browser.newContext({ viewport: { width: 800, height: 420 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
   await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort());
   await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
-  await ctx.addInitScript((d) => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_adv_sector", "space"); localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: "en", age: "adult", level: "beginner", exp: 5000 })); localStorage.setItem("tg_lang", "en"); localStorage.setItem("tg_adv_nocine","1"); localStorage.setItem("tg_adv_unlockall","1"); localStorage.setItem("tg_3d_tier", "0"); localStorage.setItem("tg_edu_seen", JSON.stringify({firstCoins:1,chest:1,pet:1,shop:1,rich:1,shopIntro:1})); for (const k in d) localStorage.setItem(k, d[k]); }, pre);
+  await ctx.addInitScript((d) => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_adv_sector", "space"); localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: "en", age: "adult", level: "beginner", exp: 5000 })); localStorage.setItem("tg_lang", "en"); localStorage.setItem("tg_adv_nocine","1"); localStorage.setItem("tg_adv_unlockall","1"); localStorage.setItem("tg_adv_nogate","1"); localStorage.setItem("tg_3d_tier", "0"); localStorage.setItem("tg_edu_seen", JSON.stringify({firstCoins:1,chest:1,pet:1,shop:1,rich:1,shopIntro:1})); for (const k in d) localStorage.setItem(k, d[k]); }, pre);
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200)));
   await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
   for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
@@ -40,7 +40,7 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
   ok("no errors (belt)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
 {
-  const { ctx, p, errs } = await open({ tg_adv_nocine: "0" }); await enter(p, "Departure"); await p.waitForSelector(".adv-cine", { timeout: 8000 });
+  const { ctx, p, errs } = await open({ tg_adv_nocine: "0", tg_adv_prologue: "skip" }); await enter(p, "Departure"); await p.waitForSelector(".adv-cine", { timeout: 8000 });
   const k = await p.evaluate(() => window.__advCine.kinds()); ok("the send-off film: pad > liftoff > earth fade > objective", JSON.stringify(k) === JSON.stringify(["pad", "liftoff", "earthfade", "objective"]), k.join());
   if (process.env.SHOT) for (let q = 0; q < 3; q++) { await p.evaluate((n) => window.__advCine.jump(n), q); await p.waitForTimeout(1200); await p.screenshot({ path: process.env.SHOT + q + ".png" }); }
   ok("no errors (film)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
