@@ -20,6 +20,7 @@ import { MODEL_CLASS, TIER_LABEL, classOf, skillsOf } from "./model-skills";
 
    readSkillSp and skillRank used to be imported here and were never once used
    in this file — dropped rather than carried into a chunk for nothing. */
+const AdminPayAlert = lazy(() => import("./admin-pay-alert"));   // a tier-3 admin is told when a customer pays (slip uploaded, waiting to be confirmed)
 const PvpPage = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpPage })));
 const PvpBanner = lazy(() => import("./pvp-arena").then(m => ({ default: m.PvpBanner })));
 const SkillTrack = lazy(() => import("./pvp-arena").then(m => ({ default: m.SkillTrack })));
@@ -10456,6 +10457,10 @@ function AdminPage({ lang, onExit, adminTier }) {
     // the owner opens the console to check who is visiting far more than anything else
     return tier >= 3 ? "anonvisit" : "students";
   });
+  useEffect(() => {   // the payment alert sets this hash while the console is already open: jump to the payments tab
+    const f = () => { if (tier >= 3 && window.location.hash === "#admin-payments") setAdminTab("payments"); };
+    window.addEventListener("hashchange", f); return () => window.removeEventListener("hashchange", f);
+  }, [tier]);
   const endRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -13278,6 +13283,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
 
       {/* ─── PAGE: ADMIN — reachable ONLY via the 5-tap logo + code, never a nav link ─── */}
+      {adminTier >= 3 && <Suspense fallback={null}><AdminPayAlert adminTier={adminTier} lang={lang} onOpen={() => { try { window.location.hash = "#admin-payments"; } catch (e) {} setPage("admin"); }} /></Suspense>}
       {page === "admin" && (
         adminUnlocked
           ? <AdminPage lang={lang} onExit={exitAdmin} adminTier={(profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0)} />
