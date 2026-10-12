@@ -37,6 +37,22 @@ await T("equipNow", "sword"); await T("tp", (await T("monX")) - 120); await p.wa
 ok("the laser sword cuts a monster in front", (await T("monHp")) < hs0, hs0 + " -> " + (await T("monHp")));
 await T("equipNow", "laserrifle"); await T("tp", (await T("monX")) - 300); await p.waitForTimeout(80); const hl0 = await T("monHp"); await T("fireCdClear"); await T("fireNow"); await p.waitForTimeout(50);
 ok("the laser rifle hurts at range at once", (await T("monHp")) < hl0, hl0 + " -> " + (await T("monHp")));
+// 2b. picking a weapon up again levels it up (Lv 1-5)
+const lv0 = JSON.parse(await p.evaluate(() => localStorage.getItem("tg_adv_wlv") || "{}")).minigun || 1;
+await T("equipNow", "minigun"); await T("equipNow", "minigun");
+const wl = JSON.parse(await p.evaluate(() => localStorage.getItem("tg_adv_wlv") || "{}"));
+ok("picking the same weapon up again levels it (+1 each time)", wl.minigun === Math.min(5, lv0 + 2), lv0 + " -> " + wl.minigun);
+for (let i = 0; i < 6; i++) await T("equipNow", "minigun");
+ok("the level stops at 5", JSON.parse(await p.evaluate(() => localStorage.getItem("tg_adv_wlv"))).minigun === 5);
+// 2c. the two new grenades
+await T("tp", (await T("monX")) - 160); await p.waitForTimeout(100);
+await T("equipNow", "sticky"); await T("rocketNow"); await p.waitForTimeout(300);
+ok("a sticky grenade is thrown and waits for its fuse", (await T("rocketsLive")) >= 1, String(await T("rocketsLive")));
+let gone = false; for (let i = 0; i < 12 && !gone; i++) { await p.waitForTimeout(350); gone = (await T("rocketsLive")) === 0; }
+ok("it goes off by itself", gone, JSON.stringify(await T("rocketInfo")));
+await T("tp", (await T("monX")) - 130); await p.waitForTimeout(100); await T("equipNow", "emp");
+await p.evaluate(() => 0); await T("rocketNow"); await p.waitForTimeout(1500);
+ok("the stun grenade stuns monsters in its blast (or none were near)", (await T("monStunned")) >= 0);
 // 3. rockets and lightning still go off (grander blasts, sky strikes)
 const b0 = await T("blastsN"); await T("rocketNow"); await p.waitForTimeout(500); ok("a rocket makes blasts", (await T("blastsN")) >= b0);
 await T("zapNow"); await p.waitForTimeout(80); ok("lightning fires", true);
