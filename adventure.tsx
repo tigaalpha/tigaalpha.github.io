@@ -15,7 +15,6 @@ import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { FigurePic, prepareFigures, pauseFigures, figureOf, FIGURES_OK } from "./figure-cache";
 import { createAdvSfx } from "./adventure-sfx";
 import { GearButton, SettingsPopup, AdvGuard } from "./adventure-settings";
-import { useFpv, FpvButton, FpvVisor, FpvHurt, FpvCrosshair, FpvHands } from "./fpv";
 import { ARK_LINES, ARK_MAX, ARK_TRIP_DAYS, arkCost, readArk, buyArk, arkStats } from "./adventure-ark";
 import { paintMonster, paintBoss, paintKindred } from "./adventure-monsters";
 import { warTeamOf, openAdvRoom, MAX_PILOTS, submitAdvTime, listAdvTop, listPublicRooms, publicRoomOpen, publicRoomPing, publicRoomClose, type Net, type PublicRoom } from "./adv-online";
@@ -477,7 +476,7 @@ const CSS = `
 .ab-list{display:grid;gap:6px;max-height:260px;overflow:auto}.ab-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 9px;border-radius:9px;background:rgba(0,0,0,.28);font-size:12px}.ab-row.lock{opacity:.5}.ab-row.eq{outline:1.5px solid #ffd23f}
 .ab-row small{grid-column:1/2;opacity:.85;font-size:11px}.ab-row em{font-style:normal;font-size:10px;opacity:.8;grid-column:1/2}.ab-btns{grid-column:2/3;grid-row:1/4;display:flex;flex-direction:column;gap:4px;justify-content:center}.ab-btns button{padding:5px 8px;border-radius:8px;border:0;font-weight:800;font-size:11px;background:#2b3a5a;color:#fff}.ab-btns button.on{background:#d9a21b}.ab-btns button:disabled{opacity:.45}
 .adv-ship{position:absolute;inset:0;z-index:5;background:#02030c}.adv-ship canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.adv-world{position:absolute;inset:0;will-change:transform}.adv-3d{position:absolute;inset:0;pointer-events:none}.adv-3dmsg{position:absolute;left:50%;top:76px;transform:translateX(-50%);z-index:9;background:rgba(10,14,24,.86);color:#ffe;padding:8px 14px;border-radius:999px;font:700 13px system-ui;animation:adv3dmsg 4s forwards}@keyframes adv3dmsg{0%,85%{opacity:1}100%{opacity:0}}
+.adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv-px{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
 .adv-px svg{width:100%;height:100%;display:block;overflow:visible}.adv-wpn{position:absolute;left:52%;top:36%;width:62%;height:22%;pointer-events:none;transform-origin:16% 55%}.adv-wpn svg{width:100%;height:100%}
 .adv-top{position:absolute;left:0;right:0;top:0;display:flex;gap:8px;align-items:center;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:linear-gradient(180deg,rgba(0,8,14,.7),rgba(0,8,14,0));z-index:4}
@@ -506,12 +505,12 @@ const CSS = `
 .adv-pause-card{width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:34px;text-align:center;background:linear-gradient(180deg,#0b2a35,#061821);border:1.5px solid rgba(140,255,220,.5);box-shadow:0 18px 50px rgba(0,0,0,.6);color:#e6fff6}
 .adv-pause-card b{font-size:22px;letter-spacing:1px}.adv-pause-card p{margin:0;font-size:13px;line-height:1.45;color:#b6d8d0}.adv-pause-ic{font-size:30px}
 .adv-pause-row{display:flex;gap:6px;align-items:center;justify-content:space-between}.adv-pause-row span{font-size:13px;font-weight:800;margin-right:4px}
-.adv-pause-row button{flex:1;min-height:44px;border-radius:999px;border:1.5px solid rgba(140,255,220,.4);background:transparent;color:#cfeee6;font-weight:800;font-size:13px;cursor:pointer}.adv-pause-row button.on{background:rgba(61,220,151,.3);border-color:#3ddc97;color:#fff}.adv-pause-row{flex-wrap:wrap}.adv-pause-row button{min-width:0;padding:0 8px}.adv-pause-row button.soon{opacity:.5;cursor:not-allowed;border-style:dashed}.adv-gfx-note{display:block;margin:-2px 2px 2px}
+.adv-pause-row button{flex:1;min-height:44px;border-radius:999px;border:1.5px solid rgba(140,255,220,.4);background:transparent;color:#cfeee6;font-weight:800;font-size:13px;cursor:pointer}.adv-pause-row button.on{background:rgba(61,220,151,.3);border-color:#3ddc97;color:#fff}
 .adv-ship .pvpact.light{background:linear-gradient(135deg,#d9e8ff,#9fb8ff);color:#1a2a6a;position:relative;overflow:hidden}.adv-ship .pvpact.light.cool{opacity:.7}.adv-ship .pvpact.light.on{background:linear-gradient(135deg,#fff,#ffb8ff);box-shadow:0 0 22px rgba(190,170,255,.9)}.adv-ship .pvpact.light::after{content:"";position:absolute;left:0;bottom:0;height:5px;width:var(--lc,100%);background:#3a6bff;opacity:.85}
 .ac-lang{position:absolute;left:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:3;display:flex;gap:8px}.ac-lang button{min-height:40px;padding:0 12px;border-radius:20px;border:1.5px solid rgba(255,255,255,.4);background:rgba(0,0,0,.55);color:#fff;font-weight:800;font-size:13px;cursor:pointer}.ac-lang button b{color:#ffe08a;margin-left:4px}
 .adv-rankbar{margin:2px 0 8px}.adv-rank{margin:0 0 10px;padding:10px 12px;border-radius:24px;background:rgba(255,255,255,.06);border:1px solid rgba(140,255,220,.25);font-size:12.5px}.adv-rank select{width:100%;padding:7px 10px;border-radius:999px;background:#0b2230;color:#fff;border:1px solid rgba(140,255,220,.35)}.adv-rank ol{margin:6px 0 0;padding:0;list-style:none}.adv-rank li{display:flex;gap:8px;padding:3px 0}.adv-rank li span{margin-left:auto;font-variant-numeric:tabular-nums}
 .ay-dir{display:flex;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:2px;opacity:.7}.ay-spine{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}.ay-slot,.ay-mod{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:76px;padding:6px 2px;border-radius:18px;border:1.5px dashed rgba(160,255,220,.35);background:rgba(6,30,34,.7);color:#e6fff6;font-size:11px;cursor:pointer}.ay-slot.full{border-style:solid;border-color:rgba(140,255,200,.7);background:rgba(16,70,64,.75)}.ay-slot.drop{border-color:#ffd23f;box-shadow:0 0 12px rgba(255,210,63,.35)}.ay-slot em,.ay-mod em{font-style:normal;font-size:10px;opacity:.8}.ay-tray{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:80px;align-items:center}.ay-mod{min-width:86px;border-style:solid;border-color:rgba(255,210,63,.5)}.ay-mod.on{background:rgba(255,210,63,.25);box-shadow:0 0 14px rgba(255,210,63,.4)}.ay-bal{display:flex;align-items:center;gap:8px;font-size:12px}.ay-bal .af-bar{flex:1}.ay-rules{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:4px 12px;font-size:12px}.ay-rules li{opacity:.65}.ay-rules li.ok{opacity:1;color:#9fffd0}
-.adv-farm.a3{background:transparent}.adv-farm .adv-3d{z-index:-1}.adv-farm{isolation:isolate;position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;gap:8px;padding:76px 12px 12px;background:radial-gradient(ellipse at 50% 0%,#0c3a30 0%,#04141a 70%);color:#e6fff6;overflow:auto}
+.adv-farm{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;gap:8px;padding:76px 12px 12px;background:radial-gradient(ellipse at 50% 0%,#0c3a30 0%,#04141a 70%);color:#e6fff6;overflow:auto}
 .af-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:1;min-height:150px}.af-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px;border-radius:26px;border:2px solid rgba(140,255,220,.3);background:rgba(10,50,44,.6);color:#e6fff6;cursor:pointer;font-weight:700}
 .af-cell .af-ic{font-size:30px;line-height:1}.af-cell small{font-size:11px;opacity:.85;text-align:center}.af-cell em{font-style:normal;font-size:11px;font-weight:800;color:#9fffd0}.af-cell.ready{border-color:#ffe07a;box-shadow:0 0 18px rgba(255,224,122,.5)}.af-cell.ready em{color:#ffe07a}.af-cell.sick{border-color:#ff6b81;animation:afp .5s infinite alternate}.af-cell.sick em{color:#ff9aa8}@keyframes afp{to{box-shadow:0 0 22px rgba(255,107,129,.8)}}
 .af-bar{width:100%;height:7px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden}.af-bar i{display:block;height:100%;background:linear-gradient(90deg,#3ddc97,#9fffd0)}
@@ -597,9 +596,8 @@ const CSS = `
 .adv-pad .pvppad-r .pvpact[data-slot="2"]{grid-area:4/2}.adv-pad .pvppad-r .pvpact[data-slot="1"]{grid-area:4/3}.adv-pad .pvppad-r .pvpact[data-slot="0"]{grid-area:4/4}.adv-pad .pvppad-r .pvpact.spell{grid-area:4/5}
 `;
 
-type Gfx = "standard" | "high" | "3d";
-const can3dNow = () => { try { return !isLowEnd() && spaceTier() >= 2; } catch (e) { return false; } };   // the same test as `can3d` in adventure-3d.tsx (kept here so the 3D chunk is not loaded to ask)
-function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx"); if (v === "standard" || v === "high") return v; if (v === "3d" && can3dNow()) return v; } catch (e) {} return (isLowEnd() || spaceTier() <= 1) ? "standard" : "high"; }
+type Gfx = "standard" | "high";
+function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx"); if (v === "standard" || v === "high") return v; } catch (e) {} return (isLowEnd() || spaceTier() <= 1) ? "standard" : "high"; }
 
 const T3 = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
 
@@ -805,7 +803,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
-          getNext={() => (net ? null : nextOf(planet))} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "standard" ? "high" : "standard"))} onGfxLevel={(v: Gfx) => setGfx(v)} />
+          getNext={() => (net ? null : nextOf(planet))} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
         }</AdvGuard>
       )}
       {shipQuiz && <QuizGate key={gateKeyOf(shipQuiz)} quiz={shipQuiz} lang={lang} onKey={(pc, name) => {
@@ -921,20 +919,8 @@ function StrikePhase({ P, lang, playUi, onDone, onBack }: any) {
 }
 
 /** One run on one planet. The game state lives in refs and a canvas: React only draws the HUD (a few times a second). */
-const Run = memo(function Run({ net = null, onReward = null, getNext = null, onNext = null, strikeMask = null, P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx, onGfxLevel }: any) {
-  const is3d = gfx === "3d"; const high = gfx === "high" || is3d; const highRef = useRef(high); highRef.current = high;
-  const is3dRef = useRef(is3d); is3dRef.current = is3d; const a3dRef = useRef<any>(null), host3dRef = useRef<HTMLDivElement>(null), onLevelRef = useRef(onGfxLevel); onLevelRef.current = onGfxLevel;
-  const [a3dMsg, setA3dMsg] = useState<string | null>(null);
-  useEffect(() => {   // 3D quality: build the Three.js backdrop behind the 2D canvas (lazy chunk); any failure puts the run back on 2D High
-    if (!is3d) { if (a3dRef.current) { a3dRef.current.dispose(); a3dRef.current = null; } return undefined; }
-    let dead = false;
-    import("./adventure-3d").then(m => {
-      if (dead) return; const host = host3dRef.current; const sc = host ? m.createAdv3D(host, P, { mid: (MID_STYLE as any)[P.id] || "mushroom", near: (NEAR_STYLE as any)[P.id] || "ferns" }, WORLD, { armorA: "#8296b6", armorB: "#3a547e", glow: (colorway && colorway.glow) || "#7fe8ff", accent: (colorway && colorway.accent) || "#ffd23f", petCol: petNow ? (((PET_TYPES as any)[(petById(petNow.species) as any).type || "steel"] || {}).c || "#8fa6c8") : "#8fa6c8", tint: TINT ? { glow: TINT.glow, body: TINT.body } : null, dims: Object.fromEntries(Object.keys(MON).map(kk2 => [kk2, [(MON as any)[kk2].w, (MON as any)[kk2].h]])) }) : null;
-      if (!sc) { setA3dMsg("3D is not available on this device: back to 2D High"); if (onLevelRef.current) onLevelRef.current("high"); return; }
-      a3dRef.current = sc;
-    }).catch(() => { if (!dead) { setA3dMsg("3D failed to load: back to 2D High"); if (onLevelRef.current) onLevelRef.current("high"); } });
-    return () => { dead = true; if (a3dRef.current) { a3dRef.current.dispose(); a3dRef.current = null; } };
-  }, [is3d, P.id]);
+const Run = memo(function Run({ net = null, onReward = null, getNext = null, onNext = null, strikeMask = null, P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx }: any) {
+  const high = gfx === "high"; const highRef = useRef(high); highRef.current = high;
   useEffect(() => { try { window.dispatchEvent(new Event("resize")); } catch (e) {} }, [gfx]);
   useEffect(() => () => { if (KEEP_FS) KEEP_FS = false; else exitFsAndUnlock(); }, []);   // back to the map or out of Adventure: normal screen, portrait again
   const cvRef = useRef<HTMLCanvasElement>(null);
@@ -948,8 +934,6 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const botKey = (po: string) => advBotKey(me, colorway, po);
   const petKeyOf = () => advPetKey(petNow);
   useEffect(() => { warmAdvFigures(me, colorway, petNow); }, []);
-  const [fpv, flipFpv] = useFpv(); const fpvRef = useRef(fpv); fpvRef.current = fpv;   // first-person view (owner, 2026-10-12)
-  const worldRef = useRef<HTMLDivElement>(null), fpvHandsRef = useRef<HTMLDivElement>(null), fpvRigRef = useRef<HTMLDivElement>(null), fpvWpnRef = useRef<HTMLDivElement>(null), fpvFlashRef = useRef<HTMLDivElement>(null), fpvXhRef = useRef<HTMLDivElement>(null), fpvHurtRef = useRef<HTMLDivElement>(null);
   const [hud, setHud] = useState<any>({ hp: 1, hpMax: 1, lv: 1, xp: 0, xpNeed: 1, sk: 0, skNeed: 1, kills: 0, skCd: 0 });
   const [banner, setBanner] = useState<any>(null);
   const [down, setDown] = useState(false);
@@ -1003,7 +987,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   useEffect(() => {
     const HI = () => highRef.current;   // graphics can change from the gear pop-up while the run goes on, so nothing here captures `high` once
     const cv = cvRef.current; if (!cv) return undefined;
-    const ctx = cv.getContext("2d", { alpha: true }); if (!ctx) return undefined;
+    const ctx = cv.getContext("2d", { alpha: false }); if (!ctx) return undefined;
     const dprCap = () => (HI() ? 2 : 1);
     let cw = 0, ch = 0, k = 1, dpr = 1, bake: any = null, camX = 0, vw = 0;
     const resize = () => {
@@ -1097,7 +1081,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let teamDone = false; const teamGoal = () => 10 * ((net ? net.peers.size : 0) + 1);
     const teamCheck = () => { if (!net || WAR || teamDone || kills < teamGoal()) return; teamDone = true; const n = Math.min(12, 4 * (net.peers.size + 1)); gainCry(n); sfx.play("win"); setBanner({ k: Date.now(), a: T3(lang, "เป้าหมายทีมสำเร็จ!", "Team goal reached!", "团队目标达成！"), b: "◆ +" + n }); logUsage("adv", "team-goal:" + P.id + ":" + (net.peers.size + 1)); };
     let drawMs = 0, drawN = 0; let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
-    let heroLastX = 0, heroDist = 0, fpvLastHp = 1e9, a3Last = 0, a3Sum = 0, a3N = 0, a3Bad = 0;   // the 3D frame-rate watchdog
+    let heroLastX = 0, heroDist = 0;
     const step = HI() ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
@@ -1583,19 +1567,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const draw = (tm) => {
       const sx = (HI() && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0, sy = (HI() && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const a3 = is3dRef.current ? a3dRef.current : null;   // 3D quality: the Three.js world is drawn behind this canvas, so the 2D backdrop layers are skipped
-      if (a3) ctx.clearRect(0, 0, cw, ch); else ctx.drawImage(bake.sky, sx, sy);
+      ctx.drawImage(bake.sky, sx, sy);
       const tile = (img, f, a = 1) => { const w = img.width, off = -((camX * f * k) % w + w) % w; if (a !== 1) ctx.globalAlpha = a; for (let x0 = off + sx; x0 < cw; x0 += w) ctx.drawImage(img, x0, sy); if (a !== 1) ctx.globalAlpha = 1; };
-      if (!a3) { tile(bake.far, 0.15); tile(bake.mid, 0.4); if (bake.fog) tile(bake.fog, 0.55); tile(bake.ground, 1); }
-      else {
-        try {
-          const mv = mons.filter(m => !m.dead && m.x > camX - 140 && m.x < camX + vw + 140);
-          const want3 = pl.dead > 0 ? "down" : poseAct.current.name === "attack" ? ["jab", "hook", "upper"][poseAct.current.n % 3] : poseAct.current.name === "kick" ? ["front", "round", "sweep"][poseAct.current.n % 3] : poseAct.current.name !== "ready" ? poseAct.current.name : !pl.ground ? "jump" : (keys.current.l || keys.current.r) ? (pl.holdT > 0.35 ? "run" : "walk") + "0" : "ready";
-          a3.render(camX, tm, k / dpr, cw / dpr, ch / dpr, GROUND, sx / dpr, sy / dpr, pl.x, { hero: { x: pl.x, y: pl.y, face: pl.face, name: want3, dist: heroDist, swing: pl.swing, dead: pl.dead > 0, inv: pl.inv, gun: LOAD.gun, moving: !!(keys.current.l || keys.current.r), tm }, mons: mv, boss: boss.active && !boss.dead ? boss : null, pet: petNow ? { x: pl.x - pl.face * 56, y: 0, face: pl.face } : null });
-        } catch (e) { a3Bad = 999; }
-        const nowT = performance.now(); if (a3Last) { a3Sum += nowT - a3Last; a3N++; } a3Last = nowT;
-        if (a3N >= 150 || a3Bad >= 999) { const avg = a3Sum / Math.max(1, a3N); if (a3Bad >= 999 || avg > 40) { try { a3.dispose(); } catch (e) {} a3dRef.current = null; a3Last = 0; a3Sum = a3N = a3Bad = 0; try { localStorage.setItem("tg_adv_gfx", "high"); } catch (e) {} pop(pl.x, GROUND - pl.y - 130, T3(lang, "3D ช้าเกินไป กลับเป็น 2D สูง", "3D is too slow: back to 2D High", "3D 太卡，已退回 2D 高清"), "#ffd0a0"); if (onLevelRef.current) onLevelRef.current("high"); } else { a3Sum = a3N = 0; } }
-      }
+      tile(bake.far, 0.15); tile(bake.mid, 0.4);
+      if (bake.fog) tile(bake.fog, 0.55);
+      tile(bake.ground, 1);
       // world layer
       ctx.setTransform(k, 0, 0, k, -camX * k + sx, sy);
       // fireflies
@@ -1614,10 +1590,10 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         const ry = launched > 0 ? launched * launched * 220 : 0; ctx.save(); ctx.translate(gx, GROUND - 30 - ry); ctx.fillStyle = "#e8edf3"; ctx.fillRect(-9, -26, 18, 44); ctx.fillStyle = "#ff4d6d"; ctx.beginPath(); ctx.moveTo(-9, -26); ctx.lineTo(0, -44); ctx.lineTo(9, -26); ctx.closePath(); ctx.fill(); if (launched > 0) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,170,60,.8)"; ctx.fillRect(-6, 18, 12, 30 + Math.random() * 20); ctx.globalCompositeOperation = "source-over"; } ctx.restore(); } }
       for (const q of stations) { if (q.x < camX - 100 || q.x > camX + vw + 100) continue; const f = q.p / CAP_T; ctx.fillStyle = q.done ? "#ffd23f" : "#3a3a4a"; ctx.fillRect(q.x - 8, GROUND - 90, 16, 90); ctx.fillStyle = q.done ? "#fff6c0" : "#5a5a6a"; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 16, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,210,80,.95)"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,210,80," + (q.done ? 0.25 : 0.08 + f * 0.2) + ")"; ctx.beginPath(); ctx.arc(q.x, GROUND - 40, 170, Math.PI, 0); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       // monsters
-      for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; if (!a3) drawMonster(ctx, m, tm, k, GROUND);
+      for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; drawMonster(ctx, m, tm, k, GROUND);
         if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - (TALL.has(m.type) ? 128 : 74)); }
         if (m.hp < m.max) { const w = 40, y0 = GROUND - m.y - (TALL.has(m.type) ? 118 : 62); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(m.x - w / 2, y0, w, 5); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(m.x - w / 2, y0, w * Math.max(0, m.hp / m.max), 5); } }
-      if (!a3 && boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
+      if (boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
       for (const f of fires) { ctx.globalCompositeOperation = "lighter"; for (let q = -100; q <= 100; q += 14) { const hh = 10 + Math.abs(Math.sin(tm * 9 + q)) * 18 * Math.min(1, f.life); ctx.fillStyle = "rgba(255,120,30,.55)"; ctx.fillRect(f.x + q - 5, GROUND - hh, 10, hh); ctx.fillStyle = "rgba(255,220,100,.5)"; ctx.fillRect(f.x + q - 2, GROUND - hh * 0.5, 4, hh * 0.5); } ctx.globalCompositeOperation = "source-over"; }
       // smoke first (behind the missiles), then the missiles, then the fireballs
       for (const q of smoke) { const a = Math.max(0, q.life / q.max); ctx.fillStyle = `rgba(${150 + 60 * (1 - a) | 0},${140 + 50 * (1 - a) | 0},${130 + 40 * (1 - a) | 0},${0.5 * a})`; ctx.beginPath(); ctx.arc(q.x, GROUND - q.y, q.r, 0, 7); ctx.fill(); }
@@ -1714,7 +1690,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       // the warp gate at the end of the map (it glows and says WARP once the goal is done)
       { const gx = WORLD - 90; if ((NOBOSS ? finished : boss.dead) && gx > camX - 120 && gx < camX + vw + 120) { ctx.save(); ctx.fillStyle = "#fff"; ctx.font = "900 15px system-ui"; ctx.textAlign = "center"; ctx.fillText("WARP ▶", gx, GROUND - 140 + Math.sin(tm * 5) * 4); ctx.restore(); } if (gx > camX - 60 && gx < camX + vw + 60) { ctx.strokeStyle = `rgba(${P.acc},.9)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 26, 62, 0, 0, 7); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},${0.18 + 0.1 * Math.sin(tm * 3)})`; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 24, 60, 0, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; } }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      if (!a3) tile(bake.near, 1.25);
+      tile(bake.near, 1.25);
       if (P.survival && !surv.done) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ffbe6e"; ctx.fillRect(bx, by, bw * Math.min(1, surv.t / SURV_T), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, "พลังงาน ", "ENERGY ", "能量 ") + Math.round(Math.min(1, surv.t / SURV_T) * 100) + "% · " + T3(lang, "คลื่น ", "wave ", "波 ") + surv.wave, cw / 2, by - 4 * k); }
       if ((MINE || CAPM || DYS) && !finished) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; const cur = stations.find(q => !q.done), fr = MINE || DYS ? cargo / CARGO_CAP : (cur ? cur.p / CAP_T : 1); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = MINE || DYS ? "#7fd8ff" : "#ffd23f"; ctx.fillRect(bx, by, bw * Math.min(1, fr), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center";
         ctx.fillText(DYS ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, PARTS[0] + " ", PARTS[1].toUpperCase() + " ", PARTS[2]) + dframes.filter(q => q.built).length + "/4" : MINE ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "ส่งที่แท่นขวาสุด ≥ ", "deliver at the far-right pad ≥ ", "送到最右平台 ≥ ") + ORE_NEED : T3(lang, "สถานี ", "STATION ", "采集站 ") + (stations.filter(q => q.done).length + (cur ? 1 : 0)) + "/3 · " + Math.round(Math.min(1, fr) * 100) + "%", cw / 2, by - 4 * k); }
@@ -1747,24 +1723,6 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           const wid = LOAD.gun; if (we.dataset.w !== wid) { we.dataset.w = wid; we.innerHTML = WPN_SVG[wid] || WPN_SVG.pulse; }
           const sw = pl.swing > 0 ? 1 - Math.min(1, pl.swing / 0.3) : 0;
           we.style.transform = wid === "sword" ? `rotate(${pl.swing > 0 ? -70 + sw * 150 : -52}deg)` : `rotate(${pl.swing > 0 ? -6 : 12}deg) translateX(${pl.swing > 0 ? -3 : 0}px)`;
-        }
-        { // first-person view: hide the hero, zoom the world in on the hero's eyes, show the hands, the reticle and a red flash when hit
-          const fp = fpvRef.current, wd = worldRef.current; px.style.visibility = (fp || (is3dRef.current && a3dRef.current)) ? "hidden" : ""; { const pe3 = petRef.current; if (pe3) pe3.style.visibility = (is3dRef.current && a3dRef.current) ? "hidden" : ""; }
-          if (wd) {
-            if (fp) { const Z = 1.38, ox = (pl.x - camX) * cssK, oy = (GROUND - pl.y * 0.6 - 46) * cssK, bobY = moving ? Math.abs(Math.sin((heroDist / STRIDE_PX) * Math.PI / 4 * 2)) * 4 * cssK : Math.sin(tm * 1.6) * 0.8 * cssK;
-              wd.style.transformOrigin = ox + "px " + oy + "px"; wd.style.transform = `translateY(${bobY}px) scale(${Z})`;
-              const xh = fpvXhRef.current; if (xh) xh.style.transform = `translate(${ox + pl.face * 120 * cssK * Z}px,${oy}px)`;
-              const hd = fpvHandsRef.current; if (hd) {
-                const wid = LOAD.gun, wp = fpvWpnRef.current, rig = fpvRigRef.current, fl = fpvFlashRef.current; if (wp && wp.dataset.w !== wid) { wp.dataset.w = wid; wp.innerHTML = WPN_SVG[wid] || WPN_SVG.pulse; }
-                hd.classList.toggle("lf", pl.face < 0);
-                const rc = pl.swing > 0 ? Math.min(1, pl.swing / 0.2) : 0, wb = moving ? Math.sin((heroDist / STRIDE_PX) * Math.PI / 4 * 2) : Math.sin(tm * 1.6) * 0.5;
-                if (rig) rig.style.transform = wid === "sword" ? `translate(${wb * 5}px,${Math.abs(wb) * 7}px) rotate(${pl.swing > 0 ? -55 + (1 - Math.min(1, pl.swing / 0.3)) * 120 : -6}deg)` : `translate(${wb * 5 - rc * 12}px,${Math.abs(wb) * 7 + rc * 16}px) rotate(${-rc * 6}deg)`;
-                if (fl) fl.classList.toggle("on", rc > 0.55 && wid !== "sword");
-              }
-              const he = fpvHurtRef.current; if (he && pl.hp < fpvLastHp - 0.5) { he.classList.add("on"); setTimeout(() => { try { he.classList.remove("on"); } catch (e) {} }, 170); }
-              fpvLastHp = pl.hp;
-            } else if (wd.style.transform) { wd.style.transform = ""; fpvLastHp = pl.hp; }
-          }
         }
         px.style.transform = `translate(${(pl.x - camX) * cssK - bw / 2}px,${(GROUND - pl.y) * cssK - bh + 6 * cssK - stepBob}px) scaleX(${pl.face >= 0 ? 1 : -1})`;
       }
@@ -1814,8 +1772,6 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const pct = (a, b) => Math.max(0, Math.min(100, (a / Math.max(1, b)) * 100)) + "%";
   return (
     <>
-      <div ref={worldRef} className="adv-world">
-      <div ref={host3dRef} className="adv-3d" aria-hidden="true" />
       <canvas ref={cvRef} />
       <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? (() => { const live = <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} />; return FIGURES_OK ? <FigurePic fkey={petKeyOf()} kind="pet" el={live} cls="fig-pet" vb="-12 -18 144 156" /> : live; })() : null}</div>
       <div ref={pxRef} className="adv-px" aria-hidden="true">
@@ -1826,9 +1782,6 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         <svg ref={heroSvgRef} className="ca" viewBox="-20 -16 160 416" overflow="visible" aria-hidden="true" style={{ display: "none" }}><image ref={heroImgRef} preserveAspectRatio="none" /></svg>
         <div ref={wpnRef} className="adv-wpn" aria-hidden="true" />
       </div>
-      </div>
-      {a3dMsg && <div className="adv-3dmsg" role="status" onAnimationEnd={() => setA3dMsg(null)}>{a3dMsg}</div>}
-      {fpv && <><FpvVisor /><FpvHurt hurtRef={fpvHurtRef} /><FpvCrosshair xhRef={fpvXhRef} /><FpvHands handsRef={fpvHandsRef} rigRef={fpvRigRef} wpnRef={fpvWpnRef} flashRef={fpvFlashRef} /></>}
       <div className="adv-top">
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
         <div className="adv-hud">
@@ -1837,9 +1790,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           <div className="adv-bar adv-xp"><i style={{ width: pct(hud.xp, hud.xpNeed) }} /><b>EXP</b></div>
           <div className="adv-bar adv-sk"><i style={{ width: pct(hud.sk, hud.skNeed) }} /><b>{t("สกิล", "SKILL", "技能")} R{hud.rank || 1}</b></div>
         </div>
-        <div className="fpv-tr"><FpvButton lang={lang} on={fpv} onClick={flipFpv} /><GearButton onClick={openGear} /></div>
+        <GearButton onClick={openGear} />
       </div>
-      {gear && <SettingsPopup lang={lang} high={high} onGfx={onGfx} level={gfx} onLevel={(v: string) => { if (onLevelRef.current) onLevelRef.current(v); }} can3d={can3dNow()} musicOn={musicOn} onMusic={() => setMusicOn(m => !m)} online={!!net} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
+      {gear && <SettingsPopup lang={lang} high={high} onGfx={onGfx} musicOn={musicOn} onMusic={() => setMusicOn(m => !m)} online={!!net} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {net && <div className="adv-emotes">{["👍", "⚔️", "🆘", "❤️"].map(em => <button key={em} aria-label={"emote " + em} onClick={() => chatRef.current && chatRef.current(em)}>{em}</button>)}</div>}
       {net && hud.team && hud.team.length > 0 && <div className="adv-team">{hud.team.map((q: any, i: number) => <span key={i} style={{ borderColor: q.c || "#7fe8ff" }}>{q.n} · {q.hp}♥</span>)}</div>}
       {banner && <div key={banner.k} className="adv-banner"><b>{banner.a}</b><span>{banner.b}</span></div>}
