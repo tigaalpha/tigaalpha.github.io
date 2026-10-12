@@ -5,10 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
-import { useFpv, FpvButton, FpvCockpit, FpvHurt } from "./fpv";
 import { readArk, arkStats } from "./adventure-ark";
-import { isLowEnd, spaceTier } from "./space-stage";
-const can3dNow = () => { try { return !isLowEnd() && spaceTier() >= 2; } catch (e) { return false; } };   // the same test as `can3d` in adventure-3d.tsx
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 const W = 960, H = 480, BOSS_AT = 55, LAUNCH_T = 38, ORE_GOAL = 16;
@@ -178,14 +175,10 @@ const toRgb = (g: string) => { const m = /^#?([0-9a-f]{6})$/i.exec(g || ""); if 
 export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit, ctl }: any) {
   try { if (localStorage.getItem("tg_adv_crash") === "1") throw new Error("test crash"); } catch (e) { if (e && (e as any).message === "test crash") throw e; }   // a test-only switch for the map guard
 
-  const [fpv, flipFpv] = useFpv(), fpvRef = useRef(fpv), hurtRef = useRef<HTMLDivElement>(null); fpvRef.current = fpv;   // first-person view: cockpit, no ship body, a reticle
   const [gear, setGear] = useState(false), pausedRef = useRef(false), fitRef = useRef<any>(null), musRef = useRef<any>(null);
-  const [gfx, setGfx] = useState<string>(() => { try { const v = localStorage.getItem("tg_adv_gfx"); if (v === "3d" && can3dNow()) return "3d"; return v === "high" || v === "3d" ? "high" : "standard"; } catch (e) { return "standard"; } });
-  const is3d = gfx === "3d", high = gfx !== "standard", highRef = useRef(high); highRef.current = high; const is3dRef = useRef(is3d); is3dRef.current = is3d;
-  const a3Ref = useRef<any>(null), host3Ref = useRef<HTMLDivElement>(null);
+  const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } }), highRef = useRef(high); highRef.current = high;
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
-  const flipGfx = () => { setGfxLevel(highRef.current ? "standard" : "high"); };
-  const setGfxLevel = (v: string) => { highRef.current = v !== "standard"; is3dRef.current = v === "3d"; setGfx(v); try { localStorage.setItem("tg_adv_gfx", v); } catch (e) {} if (fitRef.current) fitRef.current(); };
+  const flipGfx = () => { const nh = !highRef.current; highRef.current = nh; setHigh(nh); try { localStorage.setItem("tg_adv_gfx", nh ? "high" : "standard"); } catch (e) {} if (fitRef.current) fitRef.current(); };
   const flipMusic = () => setMusicOn(m => { const n = !m; try { localStorage.setItem("tg_adv_music", n ? "1" : "0"); } catch (e) {} if (musRef.current && musRef.current.setOn) musRef.current.setOn(n); return n; });
   const glow = toRgb(glow0);
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
@@ -194,16 +187,6 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
   const cv = useRef<HTMLCanvasElement>(null); const keys = useRef<any>({});
   const [ui, setUi] = useState<any>({ hp: 100, boss: 0, bossOn: false, t: 0, kills: 0, over: false, win: false, ms: 0 });
   const retry = useRef<() => void>(() => {});
-  const [a3Msg, setA3Msg] = useState<string | null>(null);
-  useEffect(() => {   // 3D quality: a Three.js space behind the 2D canvas (lazy chunk); any failure puts the map back on 2D High
-    if (!is3d) { if (a3Ref.current) { a3Ref.current.dispose(); a3Ref.current = null; } return undefined; }
-    let dead = false;
-    import("./adventure-3d-ship").then(m => {
-      if (dead) return; const host = host3Ref.current; const sc = host ? m.createShip3D(host, { mode: String(P.mission || ""), sky: SKY, glow: toRgb(glow0), ark: SKY === "ark" ? readArk() : null }) : null;
-      if (!sc) { setA3Msg("3D is not available on this device: back to 2D High"); setGfxLevel("high"); return; } a3Ref.current = sc;
-    }).catch(() => { if (!dead) { setA3Msg("3D failed to load: back to 2D High"); setGfxLevel("high"); } });
-    return () => { dead = true; if (a3Ref.current) { a3Ref.current.dispose(); a3Ref.current = null; } };
-  }, [is3d]);
   useEffect(() => {
     const c = cv.current; if (!c) return undefined; const x = c.getContext("2d"); if (!x) return undefined; let raf = 0, last = performance.now(), dead = false;
     const sfx = createAdvSfx(); const mus = createAdvMusic("nexa"); musRef.current = mus; if (mus && mus.setOn) mus.setOn(musicOn); if (mus) { mus.start(); mus.setIntensity && mus.setIntensity(2); }
@@ -212,7 +195,6 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
     const HP = Math.round(100 * (1 + 0.05 * (ups.hp || 0)) * (SKY === "ark" ? ARKST.hull : 1)), DMG = 1 + 0.05 * (ups.atk || 0), SALVO = 1 + ((ups.rkt || 0) >= 2 ? 1 : 0) + ((ups.rkt || 0) >= 4 ? 1 : 0);
     const hard = P.hard || 1;
     let S: any;
-    let a3Last = 0, a3Sum = 0, a3N = 0, a3Bad = 0;
     let hiOk = true, ema = 0.016, slowN = 0, nebs: HTMLCanvasElement[] | null = null, dot: HTMLCanvasElement | null = null, bloomA: HTMLCanvasElement | null = null, bloomB: HTMLCanvasElement | null = null; const trail: any[] = [];
     const HI = () => highRef.current && hiOk;
     const bd = (SKY || MODE === "warp" || MODE === "blackhole" ? [] : (BACKDROPS[MODE] || [])).map((d, i) => ({ ...d, spr: planetSprite(d.k, d.r, i + 3 + MODE.length) }));
@@ -324,30 +306,22 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
       for (const p of S.pk) { const dx = S.ship.x - p.x, dy = S.ship.y - p.y, d = Math.hypot(dx, dy); if (d < 160 + 20 * (ups.shp || 0) && !S.over) { p.x += dx / d * 420 * dt; p.y += dy / d * 420 * dt; } else p.x -= 60 * dt; if (d < 26) { p.dead = true; sfx.play("pickup"); if (p.k === "cry") S.cry++; else if (p.k === "solar") { S.energy = Math.min(100, (S.energy || 0) + 16); S.panels = (S.panels || 0) + 1; burst(p.x, p.y, 10, "120,200,255", 200); } else if (p.k === "mined") S.mined++; else S.loot[p.k]++; } }
       S.pk = S.pk.filter((p: any) => !p.dead && p.x > -20);
       for (const p of S.pt) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; } S.pt = S.pt.filter((p: any) => p.life > 0).slice(-400);
-      const a3 = is3dRef.current ? a3Ref.current : null;   // 3D quality: the solid things (space, planets, rocks, ships) come from the Three.js scene behind this canvas
-      if (!a3) for (const st of S.stars) { st.x -= (40 + st.z * 260) * dt * (MODE === "warp" ? 5 : 1) * (1 + (S.ls || 0) * 6); if (st.x < 0) { st.x = W; st.y = Math.random() * H; } }
+      for (const st of S.stars) { st.x -= (40 + st.z * 260) * dt * (MODE === "warp" ? 5 : 1) * (1 + (S.ls || 0) * 6); if (st.x < 0) { st.x = W; st.y = Math.random() * H; } }
       S.shake = Math.max(0, S.shake - 30 * dt);
       if (S.win) { S.endT += dt; if (S.endT > 2.6 && !dead) { dead = true; onWin({ ark: SKY === "ark" ? { ...ARKST, hpFrac: Math.max(0.2, S.ship.hp / HP) } : null, kills: S.kills, cry: S.cry, loot: S.loot, mined: S.mined, mode: MODE, fuel: S.fuel }); } }
     };
     const draw = () => {
-      const a3 = is3dRef.current ? a3Ref.current : null;
       const k2 = c.width / W; x.setTransform(k2, 0, 0, k2, 0, 0); const sh = S.shake; x.translate((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
-      if (a3) {
-        S.hidePlayer = !!fpvRef.current;
-        try { const sh3 = S.shake || 0; a3.render(S, S.t, W, c.height / k2, (Math.random() - 0.5) * sh3, (Math.random() - 0.5) * sh3); } catch (e) { a3Bad = 999; }
-        const nowT = performance.now(); if (a3Last) { a3Sum += nowT - a3Last; a3N++; } a3Last = nowT;
-        if (a3N >= 150 || a3Bad >= 999) { const avg = a3Sum / Math.max(1, a3N); if (a3Bad >= 999 || avg > 40) { try { a3.dispose(); } catch (e) {} a3Ref.current = null; a3Last = 0; a3Sum = a3N = a3Bad = 0; setA3Msg("3D is too slow: back to 2D High"); setGfxLevel("high"); } else { a3Sum = a3N = 0; } }
-        x.clearRect(-10, -10, W + 20, H + 20);
-      } else { const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#02030c"); g.addColorStop(1, "#0b0a24"); x.fillStyle = g; x.fillRect(-10, -10, W + 20, H + 20); }
+      const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#02030c"); g.addColorStop(1, "#0b0a24"); x.fillStyle = g; x.fillRect(-10, -10, W + 20, H + 20);
       if (MODE === "launch") { const al = Math.max(0, 1 - S.t / LAUNCH_T), sk = x.createLinearGradient(0, 0, 0, H); sk.addColorStop(0, "rgba(40,90,170," + al * 0.9 + ")"); sk.addColorStop(1, "rgba(255,170,110," + al + ")"); x.fillStyle = sk; x.fillRect(-10, -10, W + 20, H + 20); }
       // a distant planet and nebula
-      if (!a3) { const ng = x.createRadialGradient(W * 0.75, H * 0.3, 10, W * 0.75, H * 0.3, 260); ng.addColorStop(0, "rgba(150,90,255,.28)"); ng.addColorStop(1, "rgba(150,90,255,0)"); x.fillStyle = ng; x.fillRect(0, 0, W, H); }
+      const ng = x.createRadialGradient(W * 0.75, H * 0.3, 10, W * 0.75, H * 0.3, 260); ng.addColorStop(0, "rgba(150,90,255,.28)"); ng.addColorStop(1, "rgba(150,90,255,0)"); x.fillStyle = ng; x.fillRect(0, 0, W, H);
       // more nebula, far planets, a drifting far asteroid layer and the odd meteor streak (all harmless scenery)
-      if (!a3 && MODE !== "launch") { const nb: [number, number, string, number][] = [[0.22, 0.62, "60,120,255", 220], [0.55, 0.12, "255,90,170", 180]]; for (const [nx, ny, nc, nr] of nb) { const q = x.createRadialGradient(W * nx, H * ny, 8, W * nx, H * ny, nr); q.addColorStop(0, "rgba(" + nc + ",.14)"); q.addColorStop(1, "rgba(" + nc + ",0)"); x.fillStyle = q; x.fillRect(0, 0, W, H); } }
-      if (!a3 && HI() && MODE !== "launch") { if (!nebs) { nebs = [nebSprite(1, "90,120,255"), nebSprite(2, "255,110,190"), nebSprite(3, "80,220,200")]; dot = glowSprite("190,215,255"); } x.globalCompositeOperation = "lighter"; nebs.forEach((nb, i) => { const w = nb.width * (1.5 + i * 0.3), px = (((W * (0.2 + 0.3 * i) - (S.vt || 0) * (4 + i * 3)) % (W + w)) + (W + w)) % (W + w) - w * 0.5; x.globalAlpha = 0.5; x.drawImage(nb, px - w / 2, H * (0.1 + 0.28 * i) - w / 2, w, w); }); x.globalAlpha = 1; if (dot) for (const st of S.stars) if (st.z > 0.78) { const tw = 0.6 + 0.4 * Math.sin(S.t * 3 + st.y); x.globalAlpha = tw * 0.8; x.drawImage(dot, st.x - 7, st.y - 7, 14, 14); } x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; }
+      if (MODE !== "launch") { const nb: [number, number, string, number][] = [[0.22, 0.62, "60,120,255", 220], [0.55, 0.12, "255,90,170", 180]]; for (const [nx, ny, nc, nr] of nb) { const q = x.createRadialGradient(W * nx, H * ny, 8, W * nx, H * ny, nr); q.addColorStop(0, "rgba(" + nc + ",.14)"); q.addColorStop(1, "rgba(" + nc + ",0)"); x.fillStyle = q; x.fillRect(0, 0, W, H); } }
+      if (HI() && MODE !== "launch") { if (!nebs) { nebs = [nebSprite(1, "90,120,255"), nebSprite(2, "255,110,190"), nebSprite(3, "80,220,200")]; dot = glowSprite("190,215,255"); } x.globalCompositeOperation = "lighter"; nebs.forEach((nb, i) => { const w = nb.width * (1.5 + i * 0.3), px = (((W * (0.2 + 0.3 * i) - (S.vt || 0) * (4 + i * 3)) % (W + w)) + (W + w)) % (W + w) - w * 0.5; x.globalAlpha = 0.5; x.drawImage(nb, px - w / 2, H * (0.1 + 0.28 * i) - w / 2, w, w); }); x.globalAlpha = 1; if (dot) for (const st of S.stars) if (st.z > 0.78) { const tw = 0.6 + 0.4 * Math.sin(S.t * 3 + st.y); x.globalAlpha = tw * 0.8; x.drawImage(dot, st.x - 7, st.y - 7, 14, 14); } x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; }
       if (MODE === "warp" || MODE === "blackhole" || MODE === "solar" || (MODE === "harvest" && SKY === "dyson")) drawHarvesterFar(x, W, H, S.t || 0, S.vt || 0);
-      if (!a3) for (const d of bd) { const sw = d.spr.width, px = (((d.x * W - (S.vt || 0) * d.sp) % (W + sw)) + (W + sw)) % (W + sw) - sw / 2; x.drawImage(d.spr, px - sw / 2, d.y * H - sw / 2); }
-      if (!a3 && MODE !== "launch" && MODE !== "warp") for (const f of far) { f.x -= f.sp / 60 * (1 + (S.ls || 0) * 7); if (f.x < -20) { f.x = W + 20; f.y = Math.random() * H; } f.rot += 0.004; x.save(); x.translate(f.x, f.y); x.rotate(f.rot); x.fillStyle = "rgba(70,62,86,.7)"; x.beginPath(); for (let i = 0; i < 7; i++) { const a2 = i / 7 * 6.283, rr = f.r * (0.8 + 0.25 * Math.sin(f.seed + i * 2.1)); x.lineTo(Math.cos(a2) * rr, Math.sin(a2) * rr); } x.closePath(); x.fill(); x.restore(); }
+      for (const d of bd) { const sw = d.spr.width, px = (((d.x * W - (S.vt || 0) * d.sp) % (W + sw)) + (W + sw)) % (W + sw) - sw / 2; x.drawImage(d.spr, px - sw / 2, d.y * H - sw / 2); }
+      if (MODE !== "launch" && MODE !== "warp") for (const f of far) { f.x -= f.sp / 60 * (1 + (S.ls || 0) * 7); if (f.x < -20) { f.x = W + 20; f.y = Math.random() * H; } f.rot += 0.004; x.save(); x.translate(f.x, f.y); x.rotate(f.rot); x.fillStyle = "rgba(70,62,86,.7)"; x.beginPath(); for (let i = 0; i < 7; i++) { const a2 = i / 7 * 6.283, rr = f.r * (0.8 + 0.25 * Math.sin(f.seed + i * 2.1)); x.lineTo(Math.cos(a2) * rr, Math.sin(a2) * rr); } x.closePath(); x.fill(); x.restore(); }
       streakT -= 1 / 60; if (streakT <= 0 && MODE !== "launch" && MODE !== "warp") { streakT = 2 + Math.random() * 4; streaks.push({ x: W * (0.4 + Math.random() * 0.6), y: Math.random() * H * 0.5, life: 0.7 }); }
       for (const m of streaks) { m.life -= 1 / 60; m.x -= 14; m.y += 6; const al = Math.max(0, m.life / 0.7); const sg2 = x.createLinearGradient(m.x, m.y, m.x + 120, m.y - 52); sg2.addColorStop(0, "rgba(255,255,255," + al + ")"); sg2.addColorStop(1, "rgba(255,255,255,0)"); x.strokeStyle = sg2; x.lineWidth = 2; x.beginPath(); x.moveTo(m.x, m.y); x.lineTo(m.x + 120, m.y - 52); x.stroke(); } for (let i = streaks.length - 1; i >= 0; i--) if (streaks[i].life <= 0) streaks.splice(i, 1);
       for (const st of S.stars) { x.fillStyle = "rgba(210,225,255," + (0.3 + st.z * 0.7) + ")"; x.fillRect(st.x, st.y, MODE === "warp" ? 14 + st.z * 46 : 1 + st.z * 1.6, 1 + st.z * 1.2); }
@@ -385,10 +359,10 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
         const by = S.band || H / 2; x.globalCompositeOperation = "lighter"; const bg = x.createLinearGradient(0, by - 80, 0, by + 80); bg.addColorStop(0, "rgba(255,200,100,0)"); bg.addColorStop(0.5, "rgba(255,210,120,.35)"); bg.addColorStop(1, "rgba(255,200,100,0)"); x.fillStyle = bg; x.fillRect(0, by - 80, W, 160); x.strokeStyle = "rgba(255,230,150,.6)"; x.setLineDash([14, 10]); x.lineWidth = 2; x.beginPath(); x.moveTo(0, by - 70); x.lineTo(W, by - 70); x.moveTo(0, by + 70); x.lineTo(W, by + 70); x.stroke(); x.setLineDash([]); x.globalCompositeOperation = "source-over";
         for (const b of S.bolts) { if (b.t > 0) { x.fillStyle = "rgba(255,70,90," + (0.15 + 0.2 * Math.sin(S.t * 24)) + ")"; x.fillRect(b.x - 36, 0, 72, H); } else { x.globalCompositeOperation = "lighter"; x.strokeStyle = "rgba(190,220,255,.95)"; x.lineWidth = 5; x.beginPath(); x.moveTo(b.x, 0); for (let yy = 30; yy < H; yy += 40) x.lineTo(b.x + (Math.random() - 0.5) * 36, yy); x.stroke(); x.globalCompositeOperation = "source-over"; } } }
       if (S.relay) { const R = S.relay; x.save(); x.translate(R.x, R.y); x.globalCompositeOperation = "lighter"; const rg = x.createRadialGradient(0, 0, 4, 0, 0, 40); rg.addColorStop(0, "rgba(160,230,255,.9)"); rg.addColorStop(1, "rgba(120,160,255,0)"); x.fillStyle = rg; x.beginPath(); x.arc(0, 0, 40 + Math.sin(R.ph * 6) * 4, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; x.strokeStyle = "#cfe8ff"; x.lineWidth = 2.5; x.beginPath(); x.arc(0, 0, 22, 0, 7); x.stroke(); x.fillStyle = "#fff"; x.font = "900 24px system-ui"; x.textAlign = "center"; x.fillText("♪", 0, 8); x.restore(); }
-      if (!a3) for (const k of S.rk) { x.save(); x.translate(k.x, k.y); x.rotate(k.rot); const n = 9; x.fillStyle = k.hit > 0 ? "#fff" : mg(x, -k.r, k.r, SKY === "saturn" ? "#b8cfe4" : "#8a7a6a"); x.beginPath(); for (let i = 0; i < n; i++) { const a = i / n * 6.283, rr = k.r * (0.78 + 0.28 * Math.sin(k.seed + i * 2.3)); x.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } x.closePath(); x.fill(); x.strokeStyle = "rgba(255,210,150,.5)"; x.lineWidth = 1.5; x.stroke(); x.fillStyle = "rgba(0,0,0,.28)"; x.beginPath(); x.arc(k.r * 0.2, -k.r * 0.2, k.r * 0.22, 0, 7); x.arc(-k.r * 0.35, k.r * 0.25, k.r * 0.15, 0, 7); x.fill(); if (MODE === "belt") { x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(120,220,255,.7)"; x.fillRect(-k.r * 0.1, -k.r * 0.5, 3, 3); x.fillRect(k.r * 0.3, k.r * 0.1, 3, 3); } x.restore(); }
-      if (!a3 && HI()) for (const k of S.rk) { x.save(); x.translate(k.x, k.y); x.rotate(k.rot); for (let c2 = 0; c2 < 3; c2++) { const a2 = k.seed * 3 + c2 * 2.1, rr = k.r * 0.45, cx = Math.cos(a2) * rr, cy = Math.sin(a2) * rr, cr = k.r * (0.12 + 0.06 * c2); x.fillStyle = "rgba(20,14,10,.4)"; x.beginPath(); x.arc(cx, cy, cr, 0, 7); x.fill(); x.strokeStyle = "rgba(255,225,190,.35)"; x.lineWidth = 1; x.beginPath(); x.arc(cx, cy, cr, 3.6, 5.6); x.stroke(); } x.strokeStyle = "rgba(255,235,200,.5)"; x.lineWidth = 2; x.beginPath(); x.arc(0, 0, k.r * 0.9, 3.9, 5.5); x.stroke(); x.restore(); }
-      if (!a3) for (const e of S.en) drawEnemy(x, e);
-      const B = S.boss; if (B && !B.dead && !a3) { drawBoss(x, B); bossFX(x, B); }
+      for (const k of S.rk) { x.save(); x.translate(k.x, k.y); x.rotate(k.rot); const n = 9; x.fillStyle = k.hit > 0 ? "#fff" : mg(x, -k.r, k.r, SKY === "saturn" ? "#b8cfe4" : "#8a7a6a"); x.beginPath(); for (let i = 0; i < n; i++) { const a = i / n * 6.283, rr = k.r * (0.78 + 0.28 * Math.sin(k.seed + i * 2.3)); x.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } x.closePath(); x.fill(); x.strokeStyle = "rgba(255,210,150,.5)"; x.lineWidth = 1.5; x.stroke(); x.fillStyle = "rgba(0,0,0,.28)"; x.beginPath(); x.arc(k.r * 0.2, -k.r * 0.2, k.r * 0.22, 0, 7); x.arc(-k.r * 0.35, k.r * 0.25, k.r * 0.15, 0, 7); x.fill(); if (MODE === "belt") { x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(120,220,255,.7)"; x.fillRect(-k.r * 0.1, -k.r * 0.5, 3, 3); x.fillRect(k.r * 0.3, k.r * 0.1, 3, 3); } x.restore(); }
+      if (HI()) for (const k of S.rk) { x.save(); x.translate(k.x, k.y); x.rotate(k.rot); for (let c2 = 0; c2 < 3; c2++) { const a2 = k.seed * 3 + c2 * 2.1, rr = k.r * 0.45, cx = Math.cos(a2) * rr, cy = Math.sin(a2) * rr, cr = k.r * (0.12 + 0.06 * c2); x.fillStyle = "rgba(20,14,10,.4)"; x.beginPath(); x.arc(cx, cy, cr, 0, 7); x.fill(); x.strokeStyle = "rgba(255,225,190,.35)"; x.lineWidth = 1; x.beginPath(); x.arc(cx, cy, cr, 3.6, 5.6); x.stroke(); } x.strokeStyle = "rgba(255,235,200,.5)"; x.lineWidth = 2; x.beginPath(); x.arc(0, 0, k.r * 0.9, 3.9, 5.5); x.stroke(); x.restore(); }
+      for (const e of S.en) drawEnemy(x, e);
+      const B = S.boss; if (B && !B.dead) { drawBoss(x, B); bossFX(x, B); }
       x.globalCompositeOperation = "lighter";
       for (const b of S.bl) { x.fillStyle = "rgba(" + glow + ",.95)"; x.fillRect(b.x - 12, b.y - 2, 24, 4); if (HI() && dot) x.drawImage(dot, b.x - 16, b.y - 16, 32, 32); }
       for (const b of S.eb) { x.fillStyle = b.big ? "rgba(255,80,120,.95)" : "rgba(255,170,60,.95)"; x.beginPath(); x.arc(b.x, b.y, b.big ? 7 : 5, 0, 7); x.fill(); }
@@ -407,11 +381,7 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
         bar(ty + 8, prog, "#7ab8ff", "day " + eaten + "/600"); bar(ty + 26, left / 600, left > 0 ? "#6ee59a" : "#ff6a5a", left > 0 ? "food " + left : "no food"); bar(ty + 44, ARKST.gravity / 1.0, ARKST.health >= 1 ? "#8cffdc" : "#ffc060", ARKST.gravity + " g");
         x.restore();
       }
-      const s = S.ship;
-      if (!S.over && fpvRef.current) {   // first person: the ship is the viewer, so draw a reticle (and the thruster glow) where it is instead of its hull
-        x.save(); x.translate(s.x + 60, s.y); x.globalCompositeOperation = "lighter"; x.strokeStyle = "rgba(150,255,230,.9)"; x.lineWidth = 2; x.beginPath(); x.arc(0, 0, 15, 0, 7); x.moveTo(0, -26); x.lineTo(0, -12); x.moveTo(0, 12); x.lineTo(0, 26); x.moveTo(-26, 0); x.lineTo(-12, 0); x.moveTo(12, 0); x.lineTo(26, 0); x.stroke(); x.fillStyle = "#fff"; x.beginPath(); x.arc(0, 0, 2, 0, 7); x.fill(); x.restore();
-        const he = hurtRef.current; if (he && s.inv > 0.55 && !he.classList.contains("on")) { he.classList.add("on"); setTimeout(() => { try { he.classList.remove("on"); } catch (e) {} }, 170); }
-      } else if (!S.over && !a3) { x.save(); x.translate(s.x, s.y); if (s.inv > 0 && Math.floor(S.t * 20) % 2) x.globalAlpha = 0.4; if (SKY === "ark") { x.scale(0.82, 0.82); drawArk(x, glow, S.t, ARKLV); } else drawPlayer(x, glow, S.t); x.restore(); }
+      const s = S.ship; if (!S.over) { x.save(); x.translate(s.x, s.y); if (s.inv > 0 && Math.floor(S.t * 20) % 2) x.globalAlpha = 0.4; if (SKY === "ark") { x.scale(0.82, 0.82); drawArk(x, glow, S.t, ARKLV); } else drawPlayer(x, glow, S.t); x.restore(); }
       if (HI()) {   // bloom: the frame, shrunk and stretched back over itself, plus a soft colour vignette
         const bw = Math.max(48, c.width >> 3), bh = Math.max(27, c.height >> 3); if (!bloomA) { bloomA = document.createElement("canvas"); bloomB = document.createElement("canvas"); }
         if (bloomA && bloomB) { bloomA.width = bw; bloomA.height = bh; bloomB.width = bw >> 1; bloomB.height = bh >> 1; const a1 = bloomA.getContext("2d")!, b1 = bloomB.getContext("2d")!; a1.drawImage(c, 0, 0, bw, bh); b1.drawImage(bloomA, 0, 0, bw >> 1, bh >> 1);
@@ -455,7 +425,6 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
   };
   return (
     <div className="adv-ship">
-      <div ref={host3Ref} className="adv-3d" />
       <canvas ref={cv} />
       <div className="adv-top">
         <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
@@ -464,10 +433,9 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
           <div className="adv-bar adv-hp"><i style={{ width: Math.max(0, Math.min(100, ui.hp)) + "%" }} /><b>HP {ui.hp}</b></div>
           {MODE === "dogfight" && ui.bossOn && <div className="adv-bar adv-sk"><i style={{ width: ui.boss * 100 + "%" }} /><b>{t("มาเธอร์ชิป", "MOTHERSHIP", "母舰")}</b></div>}
         </div>
-        <div className="fpv-tr"><FpvButton lang={lang} on={fpv} onClick={flipFpv} /><GearButton onClick={() => { const k = keys.current; k.l = k.r = k.u = k.d = k.fire = k.miss = false; k.ax = 0; k.ay = 0; pausedRef.current = true; setGear(true); }} /></div>
+        <GearButton onClick={() => { const k = keys.current; k.l = k.r = k.u = k.d = k.fire = k.miss = false; k.ax = 0; k.ay = 0; pausedRef.current = true; setGear(true); }} />
       </div>
-      {fpv && <><FpvCockpit /><FpvHurt hurtRef={hurtRef} /></>}
-      {gear && <SettingsPopup lang={lang} level={gfx} onLevel={setGfxLevel} can3d={can3dNow()} high={high} onGfx={flipGfx} musicOn={musicOn} onMusic={flipMusic} online={false} onResume={() => { pausedRef.current = false; setGear(false); }} onExit={() => { pausedRef.current = false; onExit(); }} />}
+      {gear && <SettingsPopup lang={lang} high={high} onGfx={flipGfx} musicOn={musicOn} onMusic={flipMusic} online={false} onResume={() => { pausedRef.current = false; setGear(false); }} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {(ui.over || ui.win) && <div className="adv-clear" role="dialog" aria-label="ship result">{ui.win ? t("ชนะ! กำลังสรุปผล…", "Victory! Tallying…", "胜利！结算中…") : <><b>{t("ยานถูกทำลาย", "Ship destroyed", "战机被毁")}</b><button className="adv-btn go" onClick={() => retry.current()}>↻ {t("ลองใหม่", "Retry", "重试")}</button><button className="adv-btn" onClick={() => onExit()}>{t("กลับแผนที่", "Back to map", "返回地图")}</button></>}</div>}
       <div className="adv-stickzone" data-stickzone="1" {...stick}><div className="adv-stickring" ref={ringRef} /></div>
       <div className="adv-pad">

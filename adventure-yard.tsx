@@ -6,8 +6,6 @@ import { useEffect, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
-import { useFpv, FpvButton, FpvVisor } from "./fpv";
-import { useDeck3D, can3dDeck } from "./adventure-deck-hook";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
@@ -41,8 +39,7 @@ export default function AdventureYard({ P, lang, onWin, onExit }: any) {
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const G = useRef<any>(null); if (!G.current) G.current = { slots: Array(8).fill(null) as (string | null)[], moves: 0, won: false };
   const [, setTick] = useState(0), [hold, setHold] = useState<string | null>(null), [gear, setGear] = useState(false), pausedRef = useRef(false), [why, setWhy] = useState<string | null>(null);
-  const [fpv, flipFpv] = useFpv();   // first-person view: a helmet visor over the board
-  const d3 = useDeck3D("yard"), high = d3.high, setHigh = (_: boolean) => {};
+  const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null), S = G.current;
   useEffect(() => {
@@ -62,15 +59,12 @@ export default function AdventureYard({ P, lang, onWin, onExit }: any) {
   const openGear = () => { pausedRef.current = true; setGear(true); }, closeGear = () => { pausedRef.current = false; setGear(false); };
   const modOf = (id: string | null) => YARD_MODS.find(m => m.id === id) || null;
   return (
-    <div className={"adv-farm adv-yard" + (d3.is3d ? " a3" : "")} data-yard="1">
-      <div ref={d3.host} className="adv-3d" aria-hidden="true" />
-      {d3.msg && <div className="adv-3dmsg" role="status">{d3.msg}</div>}
+    <div className="adv-farm adv-yard" data-yard="1">
       <div className="adv-top">
         <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
         <div className="adv-hud"><div className="adv-lv">🛠 {T3(lang, P.th, P.en, P.zh).split(" · ")[0]} · {t("วางแล้ว ", "Placed ", "已放置 ")}{placed}/8 · {t("ครั้งที่ย้าย ", "Moves ", "移动 ")}{S.moves}</div></div>
-        <div className="fpv-tr"><FpvButton lang={lang} on={fpv} onClick={flipFpv} /><GearButton onClick={openGear} /></div>
+        <GearButton onClick={openGear} />
       </div>
-      {fpv && <FpvVisor />}
       <div className="ay-dir"><span>{t("◀ หัวเรือ", "◀ BOW", "◀ 船头")}</span><span>{t("ท้ายเรือ ▶", "STERN ▶", "船尾 ▶")}</span></div>
       <div className="ay-spine">
         {S.slots.map((id: string | null, i: number) => { const m = modOf(id); return (
@@ -86,7 +80,7 @@ export default function AdventureYard({ P, lang, onWin, onExit }: any) {
       <div className="af-fact" data-why="1">💡 {why ? (() => { const m = modOf(why)!; return T3(lang, m.name[0], m.name[1], m.name[2]) + " — " + T3(lang, m.why[0], m.why[1], m.why[2]); })() : t("เลือกโมดูล แล้วแตะช่องบนแกนเรือเพื่อวาง แต่ละกฎด้านล่างมีเหตุผลจริงทางวิศวกรรม", "Pick a module, then tap a slot on the spine. Each rule below is a real engineering reason.", "先选模块，再点按船脊上的槽位。下面每条规则都有真实的工程理由。")}</div>
       <ul className="ay-rules">{YARD_RULES.map(r => { const ok = r.ok(S.slots); return <li key={r.k} data-rule={r.k} data-ok={ok ? "1" : "0"} className={ok ? "ok" : ""}>{ok ? "✓" : "○"} {T3(lang, r.text[0], r.text[1], r.text[2])}</li>; })}<li data-rule="balance" data-ok={balOk && placed === 8 ? "1" : "0"} className={balOk && placed === 8 ? "ok" : ""}>{balOk && placed === 8 ? "✓" : "○"} {t("จุดศูนย์กลางมวลอยู่กลางลำ", "The centre of mass is near the middle", "质心靠近中部")}</li></ul>
       {S.won && <div className="adv-clear" role="status"><b>🚀 {t("อาร์คผ่านการตรวจ — ปล่อยยาน!", "The Ark passes inspection — launch!", "方舟通过检验——发射！")}</b></div>}
-      {gear && <SettingsPopup lang={lang} level={d3.gfx} onLevel={d3.setLevel} can3d={can3dDeck()} high={high} onGfx={() => d3.setLevel(high ? "standard" : "high")} musicOn={musicOn} onMusic={() => setMusicOn(m => { const n = !m; try { localStorage.setItem("tg_adv_music", n ? "1" : "0"); } catch (e) {} if (musRef.current && musRef.current.setOn) musRef.current.setOn(n); if (sfxRef.current) sfxRef.current.setOn(n); return n; })} online={false} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
+      {gear && <SettingsPopup lang={lang} high={high} onGfx={() => { const n = !high; setHigh(n); try { localStorage.setItem("tg_adv_gfx", n ? "high" : "standard"); } catch (e) {} }} musicOn={musicOn} onMusic={() => setMusicOn(m => { const n = !m; try { localStorage.setItem("tg_adv_music", n ? "1" : "0"); } catch (e) {} if (musRef.current && musRef.current.setOn) musRef.current.setOn(n); if (sfxRef.current) sfxRef.current.setOn(n); return n; })} online={false} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
     </div>
   );
 }
