@@ -503,16 +503,123 @@ function scaleFromNoteRun(text, hand) {
     if (d > 4) return null;                                                // a scale never leaps more than an augmented 2nd
     abs += d; notes.push(CHROMA[abs % 12] + (4 + Math.floor(abs / 12)));
   }
-  const rootName = CHROMA[pcs[0]];
+  const rootName = dispRoot(toks[0].charAt(0).toUpperCase() + toks[0].slice(1).replace(/♯/g, "#").replace(/♭/g, "b"));
   const set = pcs.slice(0, -1).map(p => (p - pcs[0] + 12) % 12).join(",");
   let q = null; for (const name of ["major", "natural minor", "harmonic minor", "melodic minor"]) if (SCALE_DEF[name].join(",") === set) { q = name; break; }
-  const rootKey = rootName.toLowerCase();
+  const rootKey = toks[0].toLowerCase().replace(/♯/g, "#").replace(/♭/g, "b");
   const tbl = q === "major" ? `${rootKey} major scale` : q ? `${rootKey} minor scale` : null;
   const f = tbl ? getFingers(tbl, "scale", hand) : null;
   return { notes, label: (q ? `${rootName} ${q} scale` : `${rootName} scale`).toUpperCase(), mode: "scale", fingers: f ? f.slice(0, notes.length) : null, key: f ? tbl : null };
 }
 
+
+/* ── Any key, any spelling (owner report 2026-10-12: "Ab Major Scale won't play"; the chat answered with "A♭ major scale" and the play chip was not there).
+   KNOWN is a table of 12 keys written in sharps, and the readers below match its keys as plain lower-case words, so an answer that spells the
+   key A♭ / A-flat / เอแฟลต / 降A, or names a key the table does not hold (C♯ major, E♭ minor, G♭ major…), had no chip, and "C# major scale" and
+   "Db minor scale" were answered with the OTHER quality of the same root. The scale or chord is now BUILT from the theory tables (SCALE_DEF,
+   CHORD_DEF) for whichever root and quality the text names, so every key and spelling plays; the table stays as the fingering source. ── */
+const TH_LETTER = { "เอ": "A", "บี": "B", "ซี": "C", "ดี": "D", "อี": "E", "เอฟ": "F", "จี": "G" };
+export function normMusic(text) {
+  let t = String(text == null ? "" : text);
+  t = t.replace(/([A-Ga-g])\s*♭/g, "$1b").replace(/([A-Ga-g])\s*♯/g, "$1#");
+  t = t.replace(/(?<![A-Za-z])([A-Ga-g])[ \-]?flat(?![a-z])/gi, (m, l) => l.toUpperCase() + "b").replace(/(?<![A-Za-z])([A-Ga-g])[ \-]?sharp(?![a-z])/gi, (m, l) => l.toUpperCase() + "#");
+  t = t.replace(/(เอฟ|เอ|บี|ซี|ดี|อี|จี)\s*(แฟลต|แฟล็ต)/g, (m, l) => TH_LETTER[l] + "b").replace(/(เอฟ|เอ|บี|ซี|ดี|อี|จี)\s*(ชาร์ป|ชาร์พ|ชาร์ป)/g, (m, l) => TH_LETTER[l] + "#");
+  t = t.replace(/降\s*([A-Ga-g])/g, (m, l) => l.toUpperCase() + "b").replace(/升\s*([A-Ga-g])/g, (m, l) => l.toUpperCase() + "#").replace(/(?<![A-Za-z])([A-G])\s*降(?!低)/g, "$1b").replace(/(?<![A-Za-z])([A-G])\s*升/g, "$1#");
+  return t;
+}
+const RX_HARM = /harmonic|ฮาร์โมนิก|和声|和聲/i, RX_MEL = /melodic|เมโลดิก|旋律/i;
+const RX_SCALEW = /\bscales?\b|สเกล|บันไดเสียง|音阶|音階/i, RX_CHORDW = /\bchords?\b|triad|คอร์ด|ไทรแอด|和弦/i;
+const dispRoot = (r) => r.replace(/b$/, "♭").replace(/#$/, "♯");
+/** the sequence for ONE root and quality, built from the theory tables, or null */
+export function keyedBuild(root, quality, mode, text, hand) {
+  const r = pcIdx(root); if (r < 0) return null;
+  const rootKey = CHROMA[r] === root.toUpperCase() ? root : root;   // keep the spelling the text used for the label
+  const lo = String(text || "").toLowerCase();
+  if (mode === "scale") {
+    let q = quality === "minor" ? "natural minor" : quality;
+    if (q === "natural minor") { if (RX_HARM.test(lo)) q = "harmonic minor"; else if (RX_MEL.test(lo)) q = "melodic minor"; }
+    const R = root.charAt(0).toUpperCase() + root.slice(1), sc = scaleFromLesson({ root: R, quality: q }, hand);
+    if (sc) sc.label = `${dispRoot(R)} ${q} scale`.toUpperCase();
+    return sc;
+  }
+  let t = quality === "minor" ? "minor" : quality === "major" ? "major" : quality;
+  const sev = /seventh|7th|เซเว่น|七/i.test(lo);
+  if (t === "major" || t === "minor") {
+    if (/dim|diminished|ดิมินิช|减/i.test(lo) && !/\bmajor\b|\bminor\b/.test(lo.replace(/diminished/g, ""))) t = sev ? "dim7" : "dim";
+    else if (/aug|augmented|ออกเมนต์|增/i.test(lo)) t = "aug";
+    else if (/sus2/.test(lo)) t = "sus2"; else if (/sus4|suspended/.test(lo)) t = "sus4";
+    else if (t === "major" && /maj7|major seventh|major 7|เมเจอร์เซเว่น|大七/i.test(lo)) t = "maj7";
+    else if (t === "minor" && /m7|min7|minor seventh|minor 7|ไมเนอร์เซเว่น|小七/i.test(lo)) t = "min7";
+    else if (t === "major" && /dominant|\bseventh\b|\b7th\b|(?<![a-z])7(?![0-9])\s*chord|ดอมินันท์|属七/i.test(lo)) t = "7";
+  }
+  const def = CHORD_DEF[t]; if (!def) return null;
+  const notes = def.map(st => { const abs = r + st; return CHROMA[abs % 12] + (4 + Math.floor(abs / 12)); });
+  const rootDisp = dispRoot(root.charAt(0).toUpperCase() + root.slice(1));
+  const names = { major: "major", minor: "minor", dim: "diminished", aug: "augmented", sus2: "sus2", sus4: "sus4", maj7: "major 7th", min7: "minor 7th", "7": "dominant 7th", "6": "6th", min6: "minor 6th", dim7: "diminished 7th" };
+  const fingers = notes.length === 3 ? (hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH) : null;
+  return { notes, label: `${rootDisp} ${names[t] || t} chord`.toUpperCase(), mode: "chord", fingers: fingers ? fingers.slice(0, 3) : null, key: null };
+}
+/** find the first "root + quality" the text names, in any of the spellings, and play it; null when it names none */
+function keyedFromText(text, hand, scaleFirst, chordFirst) {
+  const t = normMusic(text);
+  const QW = "major|minor|diminished|augmented|dim|aug|maj|min|เมเจอร์|เมเจอร|ไมเนอร์|ไมเนอร|大调|大調|小调|小調|大三和弦|小三和弦";
+  const cands = [];
+  const rxB = new RegExp("(?<![A-Za-z0-9#])([A-G][#b]?)\\s*[-–]?\\s*(" + QW + ")(?![a-z])", "g");
+  for (const m of t.matchAll(rxB)) cands.push({ i: m.index, root: m[1], qw: m[2], attached: false });
+  const rxC = new RegExp("(" + QW + ")\\s*(?:scale|chord|สเกล|คอร์ด|音阶|音階|和弦)?\\s*(?:of|in|ของ|ใน)?\\s*([A-G][#b]?)(?![A-Za-z#])", "g");
+  for (const m of t.matchAll(rxC)) cands.push({ i: m.index, root: m[2], qw: m[1], attached: false });
+  const symOk = RX_CHORDW.test(t) || chordFirst;
+  if (symOk) { const rxA = /(?<![A-Za-z0-9#])([A-G][#b]?)(maj7|M7|min7|m7|dim7|dim|aug|sus2|sus4|6|7|m)(?![A-Za-z0-9])/g; for (const m of t.matchAll(rxA)) cands.push({ i: m.index, root: m[1], qw: m[2], attached: true }); }
+  if (!cands.length) return null;
+  cands.sort((a, b) => a.i - b.i); const c = cands[0];
+  let mode = scaleFirst ? "scale" : chordFirst ? "chord" : RX_SCALEW.test(t) && !(RX_CHORDW.test(t) && t.search(RX_CHORDW) < t.search(RX_SCALEW)) ? "scale" : "chord";
+  if (c.attached) mode = "chord";
+  let q;
+  if (c.attached) { const sy = c.qw; q = sy === "m" ? "minor" : sy === "maj7" || sy === "M7" ? "maj7" : sy === "min7" || sy === "m7" ? "min7" : sy === "7" ? "7" : sy; }
+  else q = /^dim|ดิมิ/i.test(c.qw) ? "dim" : /^aug|ออก/i.test(c.qw) ? "aug" : RX_MINOR.test(c.qw) ? "minor" : "major";
+  if ((q === "dim" || q === "aug") && mode === "scale") return null;
+  if (mode === "scale" && c.attached) return null;
+  return keyedBuild(c.root, q, mode, t, hand);
+}
+
+/* ── three more things an answer can say that the chip could not play (owner, 2026-10-12: "some answers have no play button — I want to hear all of it on the piano") ──
+   an INTERVAL ("a perfect fifth above C", "C to G is a major sixth"), a bare run of note names with no octave ("C E G B"), and a Roman-numeral
+   PROGRESSION ("I – V – vi – IV in C"). Each is read only when the text clearly says it, and built from the theory tables. */
+const IV_SEMIS = { "minor second": 1, "major second": 2, "minor third": 3, "major third": 4, "perfect fourth": 5, "tritone": 6, "augmented fourth": 6, "diminished fifth": 6, "perfect fifth": 7, "minor sixth": 8, "major sixth": 9, "minor seventh": 10, "major seventh": 11, "perfect octave": 12, "octave": 12 };
+const ORD = { "2nd": "second", "3rd": "third", "4th": "fourth", "5th": "fifth", "6th": "sixth", "7th": "seventh" };
+function intervalFromText(text) {
+  const lo = String(text).toLowerCase().replace(/\b([2-7])(nd|rd|th)\b/g, (m) => ORD[m]);
+  const m = /\b(minor|major|perfect|augmented|diminished)?\s*(second|third|fourth|fifth|sixth|seventh|octave|tritone)\b/.exec(lo); if (!m) return null;
+  const name = m[1] ? `${m[1]} ${m[2]}` : m[2]; const semis = IV_SEMIS[name]; if (!semis) return null;
+  if (!m[1] && m[2] !== "octave" && m[2] !== "tritone") return null;                          // "the second note" is not an interval
+  const at = /(?:above|from|on|starting\s+(?:on|from)|up\s+from|จาก|从)\s*([A-G][#b]?)(?![A-Za-z#])/.exec(String(text));
+  const pair = /(?<![A-Za-z0-9#])([A-G][#b]?)\s*(?:to|and|–|-|→|ถึง|到)\s*([A-G][#b]?)(?![A-Za-z0-9#])/.exec(String(text));
+  const root = at ? at[1] : pair ? pair[1] : (/\binterval|ขั้นคู่|音程/i.test(lo) ? "C" : null); if (!root) return null;
+  const r = pcIdx(root); if (r < 0) return null;
+  const nm = (abs) => CHROMA[abs % 12] + (4 + Math.floor(abs / 12));
+  const notes = [nm(r), nm(r + semis)];
+  return { notes, label: `${dispRoot(root)} · ${name}`.toUpperCase(), mode: "seq", fingers: null, key: null };
+}
+function noteRunFromText(text) {
+  if (!/note|chord|scale|key|interval|arpeggio|โน้ต|คอร์ด|สเกล|音|和弦|ตัวโน้ต/i.test(text)) return null;
+  const m = /(?<![A-Za-z0-9#])((?:[A-G][#b]?[ \t,–\-→·]+){2,8}[A-G][#b]?)(?![A-Za-z0-9#])/.exec(text); if (!m) return null;
+  const toks = m[1].split(/[ \t,–\-→·]+/).filter(Boolean); if (toks.length < 3) return null;
+  const pcs = toks.map(t => pcIdx(t)); if (pcs.some(x => x < 0)) return null;
+  if (toks.every(t => t.length === 1) && toks.length < 4 && new Set(toks).size < toks.length) return null;
+  let abs = pcs[0]; const notes = [CHROMA[abs % 12] + "4"];
+  for (let i = 1; i < pcs.length; i++) { let d = (pcs[i] - (abs % 12) + 12) % 12; if (d === 0) d = 12; abs += d; if (abs > 23) return null; notes.push(CHROMA[abs % 12] + (4 + Math.floor(abs / 12))); }
+  return { notes, label: toks.map(t => dispRoot(t)).join(" · "), mode: "seq", fingers: null, key: null };
+}
+function progressionFromText(text, hand) {
+  const m = /(?<![A-Za-z])((?:vii|iii|VII|III|IV|ii|vi|II|VI|V|I)°?)(?:\s*[–\-→>]+\s*(?:vii|iii|VII|III|IV|ii|vi|II|VI|V|I)°?){2,7}(?![A-Za-z])/.exec(String(text)); if (!m) return null;
+  const romans = m[0].split(/\s*[–\-→>]+\s*/).map(x => x.replace("°", "")).filter(Boolean); if (romans.length < 3 || romans.some(r => ROMAN_DEGREE[r] == null)) return null;
+  const k = /(?:in|key of|ใน|คีย์|调)\s*(?:the key of\s*)?([A-G][#b]?)(?![A-Za-z#])/.exec(String(text)); const keyId = k ? k[1] : "C";
+  const notes = progressionNotes(romans, keyId); if (!notes.length) return null;
+  return { notes, mode: "prog", fingers: romans.map(() => (hand === "left" ? PROG_FINGER_LH : PROG_FINGER_RH).slice()).flat(), chordSizes: romans.map(() => 3), chordLabels: progressionChordLabels(romans, keyId), label: `${romans.join(" – ")} · ${dispRoot(keyId)}`, key: null };
+}
+
 export function extractNotes(text, hand = "right", hint = null, forceKey = null) {
+  text = normMusic(text);
   const lo = text.toLowerCase();
 
   // The explicit hint (from the lesson the user picked) ALWAYS wins.
@@ -534,6 +641,9 @@ export function extractNotes(text, hand = "right", hint = null, forceKey = null)
     if (run) return run;
   }
 
+  // a root and a quality named in the text, in any spelling: build it from the theory tables (see keyedFromText)
+  if (!forceKey) { const kt = keyedFromText(text, hand, scaleFirst, chordFirst); if (kt) return kt; if (!scaleFirst && !chordFirst) { const iv = intervalFromText(text); if (iv) return iv; } }
+
   // ── HIGHEST PRIORITY: an explicit key was chosen in the lesson picker ──
   // Build the exact entry for {forceKey + mode} and use it directly, ignoring
   // whatever other keys the AI may mention (e.g. comparing to C major).
@@ -550,6 +660,7 @@ export function extractNotes(text, hand = "right", hint = null, forceKey = null)
          C-D-E-F-G-A-B-C. Order the candidates by what the text actually says
          and fall back to the other quality only if that one does not exist. */
       const wantMinor = lo.includes("minor") || lo.includes("min ") || /\bm\b/.test(lo) || hasMinorWord(lo);
+      { const g = keyedBuild(forceKey.replace(/♯/g, "#").replace(/♭/g, "b"), wantMinor ? "minor" : "major", wantMode, text, hand); if (g) return g; }
       const qualities = wantMinor ? ["minor", "major"] : ["major", "minor"];
       const candidates = wantMode === "scale"
         ? [...qualities.map(q => `${root} ${q} scale`), `${root} scale`]
@@ -642,7 +753,9 @@ export function extractNotes(text, hand = "right", hint = null, forceKey = null)
     const fingers = mode === "seq" && raw.length === 3 ? (hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH) : null;
     return { notes: raw, label: raw.join(" · "), mode, fingers, key: null };
   }
-  return null;
+  // nothing keyed and no octave-numbered notes: an interval, a progression, or a bare run of note names the answer prints
+  if (/\bmiddle c\b|โดกลาง|โด กลาง|中央\s*c/i.test(text)) return { notes: ["C4"], label: "MIDDLE C · C4", mode: "seq", fingers: null, key: null };
+  return progressionFromText(text, hand) || intervalFromText(text) || noteRunFromText(text) || null;
 }
 
 export const INTERVAL_FEEL = {
