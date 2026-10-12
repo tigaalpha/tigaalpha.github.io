@@ -28,4 +28,9 @@ async function open(pre, admin) {
 { const { ctx, p } = await open({ tg_adv_unlockall: "1", tg_adv_energy: "10" });
   const t = await p.evaluate(() => document.querySelector("[data-energy]")?.textContent || "");
   ok("below 50 there is no boost hint", /10\/100/.test(t) && !/25%/.test(t), t); await ctx.close(); }
+{ const { ctx, p } = await open({ tg_adv_unlockall: "1", tg_adv_done: JSON.stringify(["luma"]) });
+  await p.click("[data-galaxy-btn]"); const n = await p.evaluate(() => document.querySelectorAll("[data-gnode]").length);
+  ok("galaxy map shows four sectors", n === 4, String(n));
+  await p.evaluate(() => document.querySelector("[data-gnode=solar]").dispatchEvent(new MouseEvent("click", { bubbles: true }))); await p.waitForTimeout(200);
+  ok("tapping a node opens that sector", await p.evaluate(() => document.querySelector("[data-sector=solar]").getAttribute("aria-selected") === "true")); await ctx.close(); }
 await browser.close(); server.close(); console.log(fail ? "FAILED " + fail : "ALL PASS"); process.exit(fail ? 1 : 0);
