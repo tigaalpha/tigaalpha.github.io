@@ -298,11 +298,13 @@ const advPetKey = (pet: any) => `${ART}|advpet|${pet ? pet.species : ""}|${pet ?
 /** Queue the robot's three poses and the pet as stored pictures (the same cache PvP uses on phones). Called when the Adventure menu opens, so they are ready before a map starts. */
 /** The hero's frames (owner, 2026-10-12: "walking looks funny, punches and kicks are not realistic"): a walk and a run cycle of eight stills each, driven by the
     distance walked so the feet never slide, a jump tuck, and a real move per strike (jab / hook / uppercut, front / roundhouse kick, sweep, shoot, beam, throw). */
-const WALK_N = 8, STRIDE_PX = 13;
+const WALK_N = 8, STRIDE_PX = 13, KS = 1;
 export const heroPoseOf = (name: string): any => {
   const m = /^(walk|run)(\d)$/.exec(name);
-  if (m) { const run = m[1] === "run", ph = (Number(m[2]) / WALK_N) * Math.PI * 2, s = Math.sin(ph), L = run ? 46 : 27;
-    return { lean: run ? -13 : -3, armL: -(run ? 52 : 20) * s, armR: (run ? 52 : 20) * s, legL: L * s, legR: -L * s, head: run ? -4 : 0, lift: -(run ? 3.5 : 2) * (1 + Math.cos(2 * ph)) / 1.1 };
+  if (m) { const run = m[1] === "run", ph = (Number(m[2]) / WALK_N) * Math.PI * 2, s = Math.sin(ph), c = Math.cos(ph), L = run ? 32 : 22, A = run ? 40 : 17;
+    // the leg that swings forward folds at the knee (the foot passes under the body), the one on the ground stays long; the elbows bend more on a run, a little on a walk
+    const fold = (v: number) => Math.max(0, v), K = run ? 50 : 32;
+    return { lean: run ? -9 : -2, armL: -A * s, armR: A * s, legL: L * s, legR: -L * s, kneeL: K * fold(c * KS), kneeR: K * fold(-c * KS), elbowL: (run ? 62 : 18) + 12 * fold(s), elbowR: (run ? 62 : 18) + 12 * fold(-s), head: run ? -3 : 0, lift: -(run ? 3 : 1.6) * (1 + Math.cos(2 * ph)) / 1.1 };
   }
   if (name === "jump") return { lean: -7, armL: 34, armR: 30, legL: -24, legR: 15, head: -3, lift: -5 };
   return name;
@@ -310,7 +312,7 @@ export const heroPoseOf = (name: string): any => {
 const HERO_FRAMES = ["ready", "attack", "kick", "jump", "jab", "hook", "upper", "front", "round", "sweep", "shoot", "beam", "throw", "down", ...Array.from({ length: WALK_N }, (_, i) => "walk" + i), ...Array.from({ length: WALK_N }, (_, i) => "run" + i)];
 function warmAdvFigures(me: any, cw: any, pet: any) {
   if (!FIGURES_OK) return; pauseFigures(false);
-  const jobs: any[] = HERO_FRAMES.map(po => ({ key: advBotKey(me, cw, po), kind: "bot", el: () => <CyberAvatar model={me} yaw={26} pose={heroPoseOf(po)} glow={cw && cw.glow} accent={cw && cw.accent} held={null} hat={null} acc={null} /> }));
+  const jobs: any[] = HERO_FRAMES.map(po => ({ key: advBotKey(me, cw, po), kind: "bot", el: () => <CyberAvatar model={me} yaw={52} pose={heroPoseOf(po)} glow={cw && cw.glow} accent={cw && cw.accent} held={null} hat={null} acc={null} /> }));
   if (pet) jobs.push({ key: advPetKey(pet), kind: "pet", el: () => <PetArt species={pet.species} level={petLevel(pet.bond).lv} mood={pet.mood} /> });
   prepareFigures(jobs, true);
 }
@@ -1776,7 +1778,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? (() => { const live = <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} />; return FIGURES_OK ? <FigurePic fkey={petKeyOf()} kind="pet" el={live} cls="fig-pet" vb="-12 -18 144 156" /> : live; })() : null}</div>
       <div ref={pxRef} className="adv-px" aria-hidden="true">
         {(() => {   // profiled 2026-10-11: the live SVG robot cost half the frame on a slow CPU; a stored picture per pose costs almost nothing (same cache PvP uses on phones)
-          const live = <CyberAvatar model={me} yaw={26} pose={pose} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} />;
+          const live = <CyberAvatar model={me} yaw={52} pose={pose} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} />;
           return FIGURES_OK ? <FigurePic fkey={botKey(pose)} kind="bot" el={live} cls="ca" vb="-20 -16 160 416" /> : live;
         })()}
         <svg ref={heroSvgRef} className="ca" viewBox="-20 -16 160 416" overflow="visible" aria-hidden="true" style={{ display: "none" }}><image ref={heroImgRef} preserveAspectRatio="none" /></svg>

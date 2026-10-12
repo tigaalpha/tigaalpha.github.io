@@ -3107,7 +3107,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
   // arms carried out at the shoulder (viewer-left arm turns +, the right one -)
   const AOL = F.armOut, AOR = -F.armOut;
   // forearms bent in across the body
-  const ELB = -F.elbow[0], ERB = F.elbow[1];
+  const ELB = -(F.elbow[0] + (PZ.elbowL || 0)), ERB = F.elbow[1] + (PZ.elbowR || 0);   // a pose may bend the elbows further (the walk and run cycles)
   // a limb scaled about its own joint: thickness across, length along
   const limbSc = (px, py, len) => (FRm ? `translate(${px} ${py}) scale(${F.limbT} ${len}) translate(${-px} ${-py})` : undefined);
   // where a scaled limb's joint lands, for the next segment to turn about
@@ -3358,7 +3358,7 @@ export function CyberAvatar({ model = "vanguard", yaw = 0, pose = "idle", headOn
       <g transform={legAt(side)}>
         <g className="ca-limb" transform={rot(hip + R.hip, hx, 238)}>
           <g transform={sc}>{thigh}</g>
-          <g transform={rot(R.knee, hx, jy(238, 306, F.legLen))}>
+          <g transform={rot(R.knee + (side < 0 ? (PZ.kneeL || 0) : -(PZ.kneeR || 0)), hx, jy(238, 306, F.legLen))}>
             <g transform={sc}>{shin}</g>
             <g transform={rot(R.ankle, hx, jy(238, 357, F.legLen))}><g transform={sc}>{foot}</g></g>
           </g>
