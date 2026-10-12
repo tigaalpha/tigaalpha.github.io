@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "reac
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
 import { createAdvSfx } from "./adventure-sfx";
+import { GearButton, SettingsPopup } from "./adventure-settings";
 import { paintMonster, paintBoss, paintKindred } from "./adventure-monsters";
 import { warTeamOf, openAdvRoom, MAX_PILOTS, listPublicRooms, publicRoomOpen, publicRoomPing, publicRoomClose, type Net, type PublicRoom } from "./adv-online";
 import { treeOf, lvOf, buySkillLv, toggleEquip, readEquip, equippedOf, passiveSum, powerAt, cdAt, skillLook, skillSound, skillDesc, skillCost, isPassive, SKILL_MAX_LV, type Skill } from "./skill-tree";
@@ -402,6 +403,12 @@ const CSS = `
 .adv-joy{position:relative;width:128px;height:128px;border-radius:50%;pointer-events:auto;touch-action:none;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.22),rgba(255,255,255,.08) 60%,rgba(255,255,255,.04));border:2px solid rgba(255,255,255,.35);box-shadow:0 6px 22px rgba(0,0,0,.45),inset 0 0 18px rgba(255,255,255,.08)}
 .adv-joy>b{position:absolute;color:rgba(255,255,255,.7);font-size:15px;line-height:1;pointer-events:none}.adv-joy .u{top:7px;left:50%;transform:translateX(-50%)}.adv-joy .d{bottom:7px;left:50%;transform:translateX(-50%)}.adv-joy .l{left:9px;top:50%;transform:translateY(-50%)}.adv-joy .r{right:9px;top:50%;transform:translateY(-50%)}
 .adv-knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff,#ffd9c2 55%,#e89a74);box-shadow:0 4px 14px rgba(0,0,0,.5);pointer-events:none;transition:transform .05s linear}
+/* the gear pop-up (owner, 2026-10-12) */
+.adv-gear{margin-left:auto}.adv-pause{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(0,6,12,.78);backdrop-filter:blur(4px);padding:14px}
+.adv-pause-card{width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:34px;text-align:center;background:linear-gradient(180deg,#0b2a35,#061821);border:1.5px solid rgba(140,255,220,.5);box-shadow:0 18px 50px rgba(0,0,0,.6);color:#e6fff6}
+.adv-pause-card b{font-size:22px;letter-spacing:1px}.adv-pause-card p{margin:0;font-size:13px;line-height:1.45;color:#b6d8d0}.adv-pause-ic{font-size:30px}
+.adv-pause-row{display:flex;gap:6px;align-items:center;justify-content:space-between}.adv-pause-row span{font-size:13px;font-weight:800;margin-right:4px}
+.adv-pause-row button{flex:1;min-height:44px;border-radius:999px;border:1.5px solid rgba(140,255,220,.4);background:transparent;color:#cfeee6;font-weight:800;font-size:13px;cursor:pointer}.adv-pause-row button.on{background:rgba(61,220,151,.3);border-color:#3ddc97;color:#fff}
 @media (max-width:600px){.adv .pvpdir{width:50px;height:50px}.adv .pvpact{width:58px;height:50px}.adv-pad .pvppad-r,.adv-pad .pvppad-l{gap:6px}}
 .adv-key{width:68px;height:68px;border-radius:22px;border:2px solid rgba(140,255,220,.55);background:rgba(4,30,36,.6);color:#fff;font-size:26px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;backdrop-filter:blur(4px)}
 .adv-key small{font-size:9.5px;font-weight:800;letter-spacing:.5px;margin-top:-2px}
@@ -655,7 +662,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
         ) : ["dogfight", "launch", "belt", "skim", "harvest", "evade"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
-        <Run key={planet.id + gfx} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
+        <Run key={planet.id} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
           getNext={() => (net ? null : nextOf(planet))} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
       )}
       {shipQuiz && <QuizGate key={gateKeyOf(shipQuiz)} quiz={shipQuiz} lang={lang} onKey={(pc, name) => {
@@ -757,7 +764,8 @@ function StrikePhase({ P, lang, playUi, onDone, onBack }: any) {
 
 /** One run on one planet. The game state lives in refs and a canvas: React only draws the HUD (a few times a second). */
 const Run = memo(function Run({ net = null, onReward = null, getNext = null, onNext = null, strikeMask = null, P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx }: any) {
-  const high = gfx === "high";
+  const high = gfx === "high"; const highRef = useRef(high); highRef.current = high;
+  useEffect(() => { try { window.dispatchEvent(new Event("resize")); } catch (e) {} }, [gfx]);
   useEffect(() => () => { if (KEEP_FS) KEEP_FS = false; else exitFsAndUnlock(); }, []);   // back to the map or out of Adventure: normal screen, portrait again
   const cvRef = useRef<HTMLCanvasElement>(null);
   const pxRef = useRef<HTMLDivElement>(null);
@@ -818,16 +826,17 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const nextQuiz = () => { const cur = quiz; if (!cur) return; if (cur.i >= cur.qs.length - 1) finishQuiz(cur); else setQuiz({ ...cur, i: cur.i + 1, sel: [], res: null }); };
 
   useEffect(() => {
+    const HI = () => highRef.current;   // graphics can change from the gear pop-up while the run goes on, so nothing here captures `high` once
     const cv = cvRef.current; if (!cv) return undefined;
     const ctx = cv.getContext("2d", { alpha: false }); if (!ctx) return undefined;
-    const dprCap = high ? 2 : 1;
+    const dprCap = () => (HI() ? 2 : 1);
     let cw = 0, ch = 0, k = 1, dpr = 1, bake: any = null, camX = 0, vw = 0;
     const resize = () => {
-      dpr = Math.min(dprCap, window.devicePixelRatio || 1);
+      dpr = Math.min(dprCap(), window.devicePixelRatio || 1);
       const r = cv.getBoundingClientRect(); const w = Math.max(320, Math.round(r.width)), h = Math.max(200, Math.round(r.height));
       cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
       cw = cv.width; ch = cv.height; k = ch / VH; vw = cw / k;
-      bake = bakePlanet(P, cw, ch, k, high);
+      bake = bakePlanet(P, cw, ch, k, HI());
     };
     // phase 3.0: where do players leave, how does it run on a real phone? one cheap row per event, no migration (usage_events kind "adv")
     // who is fighting decides how it sounds and how its attacks look (fx-voice.ts): per robot id + class, per pet element
@@ -840,7 +849,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const pv = petNow ? voiceOf("", "", { type: petType, species: petNow.species, mv: "spit" }) : null;
     const mus = createAdvMusic(P.id); musicRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); }
     { const bf = BRIEF[P.id]; if (bf) setTimeout(() => setBanner({ k: Date.now(), a: T3(lang, P.th, P.en, P.zh).split(" · ")[0], b: T3(lang, bf[0], bf[1], bf[2]) }), 500); }
-    const t0 = performance.now(); let frames = 0, ended = false; logUsage("adv", "start:" + P.id + ":" + (high ? "hd" : "sd"));
+    const t0 = performance.now(); let frames = 0, ended = false; logUsage("adv", "start:" + P.id + ":" + (HI() ? "hd" : "sd"));
     resize();
     const onResize = () => resize(); window.addEventListener("resize", onResize);
 
@@ -880,7 +889,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       return { coins, capped: want > coins };
     };
     let warped = false;
-    const showClear = (delay = 2000) => setTimeout(() => { if (ended || warped) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (high ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped }); }, delay);
+    const showClear = (delay = 2000) => setTimeout(() => { if (ended || warped) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (HI() ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped }); }, delay);
     const surv = { t: 0, wave: 0, next: 2, done: false }, SURV_T = 90;   // gas-giant stage: hold out 90 s while the energy fills
     const MINE = P.mission === "mine", CAPM = P.mission === "capture", DYS = P.mission === "dyson", DIG = MINE || DYS, NOBOSS = !!P.survival || MINE || CAPM || DYS;
     // Ashfall: after the orbital strike, a base that was nuked has no defenders left (three monsters per base)
@@ -898,9 +907,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const ARENA = WORLD - 900;
     const TAPMAP = !!P.survival || CAPM;   // energy-harvest maps: the beacons are energy taps, a right answer feeds the harvest (owner, 2026-10-12)
     const beacons: any[] = (P.survival ? [1000, 2300, 3600] : [1300, 2650, 3950]).map(x => ({ x, used: false, tap: TAPMAP }));   // knowledge beacons: review questions from what the learner has studied
-    const maxParts = high ? 140 : 26;
+    const maxParts = HI() ? 140 : 26;
     const addPart = (x, y, vx, vy, life, col, sz) => { if (parts.length < maxParts) parts.push({ x, y, vx, vy, life, max: life, col, sz }); };
-    const fireflies = Array.from({ length: high ? 46 : 12 }, (_, i) => ({ x: rnd(i + 200) * WORLD, y: 120 + rnd(i + 230) * 170, ph: rnd(i + 260) * 6 }));
+    const fireflies = Array.from({ length: HI() ? 46 : 12 }, (_, i) => ({ x: rnd(i + 200) * WORLD, y: 120 + rnd(i + 230) * 170, ph: rnd(i + 260) * 6 }));
     // team goal (online, owner 2026-10-11): every numbered kill counts for the whole room; reaching 10 per pilot pays each pilot crystals once
     // revive (online): a downed pilot waits 8 s; a teammate who stays within 90 px for 1.5 s stands them back up on the spot with half health
     const WAR = !!(net && net.war); const myTeam = net ? warTeamOf(net, net.id) : 0; const warScore = [0, 0]; let lastHitBy = "", warOver = false;
@@ -911,26 +920,26 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let teamDone = false; const teamGoal = () => 10 * ((net ? net.peers.size : 0) + 1);
     const teamCheck = () => { if (!net || WAR || teamDone || kills < teamGoal()) return; teamDone = true; const n = Math.min(12, 4 * (net.peers.size + 1)); gainCry(n); sfx.play("win"); setBanner({ k: Date.now(), a: T3(lang, "เป้าหมายทีมสำเร็จ!", "Team goal reached!", "团队目标达成！"), b: "◆ +" + n }); logUsage("adv", "team-goal:" + P.id + ":" + (net.peers.size + 1)); };
     let drawMs = 0, drawN = 0; let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
-    const step = high ? 1 / 60 : 1 / 30;
+    const step = HI() ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
     const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult * (1 + 0.05 * UPS.atk) * (1 + PASS.atk); const crit = Math.random() < 0.08 + mods.crit + PASS.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
     let spellG = 0;
     const hurtMon = (m, v, crit, kx, remote = false) => {
       spellG = Math.min(100, spellG + 5); if (net && !remote && m.i !== undefined) net.sendHit(m.i, v);
-      sfx.play("hit"); if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); m.hp -= v; m.hurt = 0.12; m.vx = kx; if (high) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
+      sfx.play("hit"); if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); m.hp -= v; m.hurt = 0.12; m.vx = kx; if (HI()) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
       pop(m.x, GROUND - m.y - 60, String(v), crit ? "#ffd23f" : "#ffffff");
-      for (let i = 0; i < (high ? 7 : 3); i++) addPart(m.x, GROUND - m.y - 20, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, crit ? "255,210,60" : "255,255,255", 2.5);
+      for (let i = 0; i < (HI() ? 7 : 3); i++) addPart(m.x, GROUND - m.y - 20, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, crit ? "255,210,60" : "255,255,255", 2.5);
       if (m.hp <= 0) {
         m.dead = 1; m.resp = 14; kills++; sfx.play("pop"); teamCheck();
         const d = MON[m.type];
         const gain = Math.round(d.exp * (P.hard || 1) * RW * (remote ? 0.5 : 1)); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.max(1, Math.round(gain / 3)));
         pop(m.x, GROUND - 90, "+" + gain + " EXP", "#9dffd6");
-        if (remote) { for (let i = 0; i < (high ? 14 : 5); i++) addPart(m.x, GROUND - m.y - 24, (Math.random() - 0.5) * 340, -Math.random() * 280, 0.8, i % 2 ? P.glow : P.acc, 3); info = rpgOf(me); return; }   // a teammate's kill: half the EXP, the loot is theirs
+        if (remote) { for (let i = 0; i < (HI() ? 14 : 5); i++) addPart(m.x, GROUND - m.y - 24, (Math.random() - 0.5) * 340, -Math.random() * 280, 0.8, i % 2 ? P.glow : P.acc, 3); info = rpgOf(me); return; }   // a teammate's kill: half the EXP, the loot is theirs
         if (Math.random() < 0.22) drops.push({ x: m.x, y: 20, vy: 160, t: "hp" });
         { const lt = rollLoot(d.exp); if (lt) drops.push({ x: m.x + (Math.random() - 0.5) * 44, y: 24, vy: 170 + Math.random() * 70, t: lt }); if (Math.random() < 0.25) { const l2 = rollLoot(d.exp); if (l2) drops.push({ x: m.x + (Math.random() - 0.5) * 60, y: 28, vy: 190, t: l2 }); } }
         if (Math.random() < 0.5) drops.push({ x: m.x + (Math.random() - 0.5) * 30, y: 20, vy: 200, t: "cry" });
-        for (let i = 0; i < (high ? 22 : 8); i++) addPart(m.x, GROUND - m.y - 24, (Math.random() - 0.5) * 340, -Math.random() * 280, 0.8, i % 2 ? P.glow : P.acc, 3);
+        for (let i = 0; i < (HI() ? 22 : 8); i++) addPart(m.x, GROUND - m.y - 24, (Math.random() - 0.5) * 340, -Math.random() * 280, 0.8, i % 2 ? P.glow : P.acc, 3);
         if (rpg && rpg.leveled) { const r2 = rpgOf(me); info = r2; mods = rpgMods(r2.pts); pl.hp = hpMaxOf(r2.lv); setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r2.lv + (r2.free > 0 ? " · " + t("มีแต้มสถานะ " + r2.free, r2.free + " stat points", r2.free + " 点属性") : "") }); playUi && playUi("reward"); }
         else info = rpgOf(me);
       }
@@ -950,16 +959,16 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const hurtBoss = (v, crit, kx, remote = false) => {
       if (!boss.active || boss.dead) return; if (net && !remote) net.sendHit(-1, v);
       spellG = Math.min(100, spellG + 5);
-      if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); boss.hp -= v; boss.hurt = 0.1; boss.vx = kx * 0.3; if (high) hitStop = 0.03; shake = Math.max(shake, crit ? 5 : 2);
+      if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); boss.hp -= v; boss.hurt = 0.1; boss.vx = kx * 0.3; if (HI()) hitStop = 0.03; shake = Math.max(shake, crit ? 5 : 2);
       pop(boss.x, GROUND - 140, String(v), crit ? "#ffd23f" : "#ffffff");
-      for (let i = 0; i < (high ? 6 : 2); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, "255,255,255", 2.5);
+      for (let i = 0; i < (HI() ? 6 : 2); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 220, -Math.random() * 160, 0.45, "255,255,255", 2.5);
       if (boss.hp <= 0) {
         boss.dead = 1; boss.hp = 0; if (mus) mus.setBoss(false); shots.length = 0; waves.length = 0; kills++;
         const gain = Math.round(220 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3));
         for (let i = 0; i < 12; i++) drops.push({ x: boss.x + (i - 6) * 16, y: 40 + i * 6, vy: 220, t: "cry" });
         drops.push({ x: boss.x, y: 60, vy: 220, t: "hp" });
         for (const [lt, n] of [["gold", 4], ["core", 2], ["ore", 6]] as any[]) for (let i = 0; i < n; i++) drops.push({ x: boss.x + (Math.random() - 0.5) * 140, y: 50 + Math.random() * 40, vy: 220 + Math.random() * 80, t: lt });
-        for (let i = 0; i < (high ? 50 : 16); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 520, -Math.random() * 380, 1, i % 2 ? P.glow : P.acc, 4);
+        for (let i = 0; i < (HI() ? 50 : 16); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 520, -Math.random() * 380, 1, i % 2 ? P.glow : P.acc, 4);
         markDone(P.id); shake = 10; sfx.play("win"); showClear(2600); questDone(bumpQuest("boss", 1)); logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
         info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
         const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1];
@@ -990,8 +999,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       if (pl.dead || pl.sklCd > 0) return;
       sfx.play("skill", rv);
       pl.sklCd = 4.5 * (1 - 0.05 * UPS.skl) / (1 + 0.04 * (sr.rank - 1)); pl.swing = 0.3; setPose("kick"); setTimeout(() => setPose("ready"), 260);
-      shake = Math.max(shake, high ? 7 : 3);
-      for (let a = 0; a < (high ? 28 : 10); a++) { const ang = (a / (high ? 28 : 10)) * Math.PI * 2; addPart(pl.x, GROUND - pl.y - 40, Math.cos(ang) * 320, Math.sin(ang) * 220, 0.5, "123,97,255", 3.5); }
+      shake = Math.max(shake, HI() ? 7 : 3);
+      for (let a = 0; a < (HI() ? 28 : 10); a++) { const ang = (a / (HI() ? 28 : 10)) * Math.PI * 2; addPart(pl.x, GROUND - pl.y - 40, Math.cos(ang) * 320, Math.sin(ang) * 220, 0.5, "123,97,255", 3.5); }
       slashes.push({ x: pl.x, y: pl.y + 40, face: 0, life: 0.3, nova: true, st: NOVA_STYLE, col: rGlow });
       for (const m of mons) {
         if (m.dead) continue;
@@ -1010,8 +1019,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       const ox = fromPet ? pl.x - face * 56 : pl.x, oy = fromPet ? 30 : pl.y + 40, base = (9 + info.lv * 1.5) * mods.dmg * (1 + 0.05 * UPS.atk) * (1 + PASS.atk) * mods.spell * (fromPet ? 0.8 : 1);
       sfx.play("cast", fromPet ? pv : rv, { a: s.a, pitch: snd.pitch, wave: snd.wave, bright: snd.bright });
       if (!fromPet) { pl.swing = 0.25; setPose("kick"); setTimeout(() => setPose("ready"), 220); }
-      shake = Math.max(shake, high ? 5 : 2); pop(ox, GROUND - oy - 110, T3(lang, s.n.th, s.n.en, s.n.zh), hue);
-      const cnt = look.n * (high ? 2 : 1);   // the look: one of five particle patterns, in the skill's own colour
+      shake = Math.max(shake, HI() ? 5 : 2); pop(ox, GROUND - oy - 110, T3(lang, s.n.th, s.n.en, s.n.zh), hue);
+      const cnt = look.n * (HI() ? 2 : 1);   // the look: one of five particle patterns, in the skill's own colour
       for (let a = 0; a < cnt; a++) { const ang = a / cnt * 6.283 * (look.spin || 1);
         if (look.style === 0) addPart(ox, GROUND - oy, Math.cos(ang) * 300, Math.sin(ang) * 220, 0.55, rgb, 3.5);
         else if (look.style === 1) addPart(ox + (Math.random() - 0.5) * 40, GROUND - oy, (Math.random() - 0.5) * 60, -180 - Math.random() * 220, 0.7, rgb, 3);
@@ -1064,21 +1073,21 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
     /* rockets (owner, 2026-10-11): homing steers to the nearest enemy; cluster bursts into bomblets; napalm leaves a burning patch */
     const explode = (x: number, y: number, r: number, mult: number, col: string) => {
-      sfx.play("boom"); shake = Math.max(shake, high ? 6 : 3);
+      sfx.play("boom"); shake = Math.max(shake, HI() ? 6 : 3);
       for (const m of mons) { if (m.dead) continue; if (Math.abs(m.x - x) < r + MON[m.type].w / 2 && Math.abs(m.y - y) < r + 20) { const d = dmgOf(mult); hurtMon(m, d.v, true, Math.sign(m.x - x) * 220); } }
       if (boss.active && !boss.dead && Math.abs(boss.x - x) < r + 60) { const d = dmgOf(mult); hurtBoss(d.v, true, 0); }
-      for (let a = 0; a < (high ? 22 : 8); a++) addPart(x, GROUND - y, (Math.random() - 0.5) * 360, -Math.random() * 300, 0.6, a % 2 ? col : "255,230,160", 3.5);
+      for (let a = 0; a < (HI() ? 22 : 8); a++) addPart(x, GROUND - y, (Math.random() - 0.5) * 360, -Math.random() * 300, 0.6, a % 2 ? col : "255,230,160", 3.5);
       slashes.push({ x, y, face: 0, life: 0.3, max: 0.3, nova: true, st: 0, col: "#ffb060" });
       blasts.push({ x, y, r: r * 1.5, life: 0.45, max: 0.45 });
-      for (let q = 0; q < (high ? 9 : 4); q++) smoke.push({ x: x + (Math.random() - 0.5) * r, y: y + Math.random() * r * 0.6, vx: (Math.random() - 0.5) * 60, vy: 30 + Math.random() * 50, life: 0.9 + Math.random() * 0.5, max: 1.3, r: 10 + Math.random() * 14 });
+      for (let q = 0; q < (HI() ? 9 : 4); q++) smoke.push({ x: x + (Math.random() - 0.5) * r, y: y + Math.random() * r * 0.6, vx: (Math.random() - 0.5) * 60, vy: 30 + Math.random() * 50, life: 0.9 + Math.random() * 0.5, max: 1.3, r: 10 + Math.random() * 14 });
     };
     const fireRocket = () => {
       if (pl.dead || pl.rockCd > 0) return;
       const k3 = LOAD.rocket, salvo = k3 === "nuke" || k3 === "big" ? 1 : 2 + (UPS.rkt >= 2 ? 1 : 0) + (UPS.rkt >= 4 ? 1 : 0);   // owner 2026-10-11: several missiles every press, rapid, short reload
       pl.rockCd = ({ mini: 0.16, big: 1.1, nuke: 3, homing: 0.26, cluster: 0.4, napalm: 0.45 } as any)[k3] || 0.3; pl.rockCd *= mods.cdMul * (1 - 0.06 * UPS.rkt); rocketN += salvo; sfx.play("rocket", rv); pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
       const ox = pl.x + pl.face * 28, oy = pl.y + 52;
-      shake = Math.max(shake, high ? 4 : 2); blasts.push({ x: ox, y: oy, r: 34, life: 0.18, max: 0.18, flash: true });   // muzzle flash
-      for (let a = 0; a < (high ? 14 : 6); a++) { smoke.push({ x: ox - pl.face * 10, y: oy + (Math.random() - 0.5) * 12, vx: -pl.face * (60 + Math.random() * 120), vy: (Math.random() - 0.3) * 40, life: 0.6 + Math.random() * 0.3, max: 0.9, r: 4 + Math.random() * 5 }); }   // backblast
+      shake = Math.max(shake, HI() ? 4 : 2); blasts.push({ x: ox, y: oy, r: 34, life: 0.18, max: 0.18, flash: true });   // muzzle flash
+      for (let a = 0; a < (HI() ? 14 : 6); a++) { smoke.push({ x: ox - pl.face * 10, y: oy + (Math.random() - 0.5) * 12, vx: -pl.face * (60 + Math.random() * 120), vy: (Math.random() - 0.3) * 40, life: 0.6 + Math.random() * 0.3, max: 0.9, r: 4 + Math.random() * 5 }); }   // backblast
       const SC: any = { mini: 0.62, big: 1.5, nuke: 2.3 };
       for (let q = 0; q < salvo; q++) {   // a salvo fans out a little so the missiles do not sit on each other
         const fan = (q - (salvo - 1) / 2), sc = SC[k3] || 1;
@@ -1086,7 +1095,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         else if (k3 === "big" || k3 === "nuke") rockets.push({ k: k3, sc, x: ox, y: oy, vx: pl.face * (k3 === "nuke" ? 230 : 300), vy: k3 === "nuke" ? 60 : 90, life: 3.2, g: k3 === "nuke" ? 60 : 120 });
         else rockets.push({ k: k3, sc, x: ox, y: oy + fan * 10, vx: pl.face * 380, vy: 210 + fan * 80, life: 2.4, g: 520 });
       }
-      if (k3 === "nuke") { shake = Math.max(shake, high ? 9 : 5); }
+      if (k3 === "nuke") { shake = Math.max(shake, HI() ? 9 : 5); }
     };
     // lightning button (owner, 2026-10-11): a bolt of lightning that jumps between up to 4 foes, rapid when held
     let zapN = 0;
@@ -1094,11 +1103,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       if (pl.dead || (pl.zapCd || 0) > 0) return;
       pl.zapCd = 0.24 * mods.cdMul; zapN++; warHit(460, 0.75); sfx.play("zap", rv); shake = Math.max(shake, 3); pl.swing = 0.12; setPose("attack"); setTimeout(() => setPose("ready"), 140);
       const ox = pl.x + pl.face * 30, oy = pl.y + 46; let from: any = { x: ox }, n = 0; const used = new Set<any>(); const pts: number[][] = [[ox, GROUND - oy]];
-      while (n < 4) { let best: any = null, bd = 460; for (const m of mons) { if (m.dead || used.has(m)) continue; const dd = Math.abs(m.x - from.x); if (dd < bd && (n > 0 || (m.x - ox) * pl.face > -20)) { bd = dd; best = m; } } if (!best) break; used.add(best); const d = dmgOf(0.75); hurtMon(best, d.v, d.crit, pl.face * 50); pts.push([best.x, GROUND - best.y - 30]); blasts.push({ x: best.x, y: best.y + 30, r: 40, life: 0.16, max: 0.16, flash: true }); for (let a = 0; a < (high ? 10 : 4); a++) addPart(best.x, GROUND - best.y - 30, (Math.random() - 0.5) * 300, -Math.random() * 220, 0.35, "190,225,255", 2.5); from = best; n++; }
+      while (n < 4) { let best: any = null, bd = 460; for (const m of mons) { if (m.dead || used.has(m)) continue; const dd = Math.abs(m.x - from.x); if (dd < bd && (n > 0 || (m.x - ox) * pl.face > -20)) { bd = dd; best = m; } } if (!best) break; used.add(best); const d = dmgOf(0.75); hurtMon(best, d.v, d.crit, pl.face * 50); pts.push([best.x, GROUND - best.y - 30]); blasts.push({ x: best.x, y: best.y + 30, r: 40, life: 0.16, max: 0.16, flash: true }); for (let a = 0; a < (HI() ? 10 : 4); a++) addPart(best.x, GROUND - best.y - 30, (Math.random() - 0.5) * 300, -Math.random() * 220, 0.35, "190,225,255", 2.5); from = best; n++; }
       if (!n && boss.active && !boss.dead && Math.abs(boss.x - ox) < 460) { const d = dmgOf(0.75); hurtBoss(d.v, d.crit, 0); pts.push([boss.x, GROUND - 70]); }
       if (pts.length < 2) pts.push([ox + pl.face * 300, GROUND - oy - (Math.random() - 0.5) * 40]);
       arcs.push({ pts, life: 0.24 }); blasts.push({ x: ox, y: oy, r: 30, life: 0.14, max: 0.14, flash: true });
-      for (let a = 0; a < (high ? 8 : 3); a++) addPart(ox, GROUND - oy, pl.face * (80 + Math.random() * 160), (Math.random() - 0.5) * 120, 0.25, "170,220,255", 2.5);
+      for (let a = 0; a < (HI() ? 8 : 3); a++) addPart(ox, GROUND - oy, pl.face * (80 + Math.random() * 160), (Math.random() - 0.5) * 120, 0.25, "170,220,255", 2.5);
     };
     const kickMove = () => {
       if (pl.dead || pl.kickCd > 0) return;
@@ -1112,7 +1121,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const digMove = () => {
       if (pl.dead || (pl.digCd || 0) > 0 || !DIG) return; pl.digCd = 0.38;
       if (DYS) { const f = dframes.find(q => !q.built && Math.abs(q.x - pl.x) < 120);
-        if (f) { if (cargo >= PANEL_ORE) { cargo -= PANEL_ORE; f.built = true; if (net) net.sendEv("panel", 1); const bn = dframes.filter(q => q.built).length; sfx.play("win"); shake = Math.max(shake, 5); for (let a = 0; a < (high ? 40 : 14); a++) addPart(f.x, GROUND - 120, (Math.random() - 0.5) * 360, -Math.random() * 260, 0.8, a % 2 ? "255,210,110" : "120,220,255", 3.5); pop(f.x, GROUND - 140, t("แผงไดสัน " + bn + "/4", "DYSON PANEL " + bn + "/4", "戴森板 " + bn + "/4"), "#ffd23f"); logUsage("adv", "dyson-panel:" + P.id + ":" + bn); if (bn >= 4) setBanner({ k: Date.now(), a: t("ไดสันสเฟียร์เสร็จแล้ว!", "DYSON SPHERE COMPLETE!", "戴森球完成！"), b: t("ไปที่เสาส่งขวาสุดเพื่อส่งพลังงานกลับโลก", "Go to the far-right relay to beam the energy home", "前往最右中继塔把能量传回地球") }); return; }
+        if (f) { if (cargo >= PANEL_ORE) { cargo -= PANEL_ORE; f.built = true; if (net) net.sendEv("panel", 1); const bn = dframes.filter(q => q.built).length; sfx.play("win"); shake = Math.max(shake, 5); for (let a = 0; a < (HI() ? 40 : 14); a++) addPart(f.x, GROUND - 120, (Math.random() - 0.5) * 360, -Math.random() * 260, 0.8, a % 2 ? "255,210,110" : "120,220,255", 3.5); pop(f.x, GROUND - 140, t("แผงไดสัน " + bn + "/4", "DYSON PANEL " + bn + "/4", "戴森板 " + bn + "/4"), "#ffd23f"); logUsage("adv", "dyson-panel:" + P.id + ":" + bn); if (bn >= 4) setBanner({ k: Date.now(), a: t("ไดสันสเฟียร์เสร็จแล้ว!", "DYSON SPHERE COMPLETE!", "戴森球完成！"), b: t("ไปที่เสาส่งขวาสุดเพื่อส่งพลังงานกลับโลก", "Go to the far-right relay to beam the energy home", "前往最右中继塔把能量传回地球") }); return; }
           pop(f.x, GROUND - 130, t("ต้องมีแร่ " + PANEL_ORE + " ก้อน (มี " + cargo + ")", "Need " + PANEL_ORE + " ore (have " + cargo + ")", "需要 " + PANEL_ORE + " 矿（现有 " + cargo + "）"), "#ffd0a0"); } }
       sfx.play("kick", rv); pl.swing = 0.22; setPose("attack"); setTimeout(() => setPose("ready"), 200); for (let a = 0; a < 5; a++) addPart(pl.x + pl.face * 70, GROUND - 24, pl.face * (60 + Math.random() * 140), -80 - Math.random() * 120, 0.4, "255,230,170", 2.5); digNodes(3, 160);
     };
@@ -1124,9 +1133,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
     spellFire.current = (ok: boolean) => {
       if (!ok) { spellG = 50; pop(pl.x, GROUND - pl.y - 130, "♪ " + t("ลองใหม่", "again", "再来"), "#ffd0a0"); return; }
-      const sr = skillOf(); shake = Math.max(shake, high ? 10 : 5); playUi && playUi("reward"); sfx.play("spell", rv);
+      const sr = skillOf(); shake = Math.max(shake, HI() ? 10 : 5); playUi && playUi("reward"); sfx.play("spell", rv);
       const base = (9 + info.lv * 1.5) * mods.dmg * 4.5 * (1 + 0.05 * UPS.atk) * (1 + 0.08 * (sr.rank - 1)) * mods.spell;
-      for (let a = 0; a < (high ? 40 : 14); a++) { const ang = (a / (high ? 40 : 14)) * Math.PI * 2; addPart(pl.x, GROUND - pl.y - 40, Math.cos(ang) * 420, Math.sin(ang) * 300, 0.7, a % 2 ? "255,230,140" : P.acc, 3.5); }
+      for (let a = 0; a < (HI() ? 40 : 14); a++) { const ang = (a / (HI() ? 40 : 14)) * Math.PI * 2; addPart(pl.x, GROUND - pl.y - 40, Math.cos(ang) * 420, Math.sin(ang) * 300, 0.7, a % 2 ? "255,230,140" : P.acc, 3.5); }
       slashes.push({ x: pl.x, y: pl.y + 40, face: 0, life: 0.45, max: 0.45, nova: true, st: NOVA_STYLE, col: rGlow, big: true });
       for (const m of mons) if (!m.dead && Math.abs(m.x - pl.x) < 360) hurtMon(m, Math.round(base), true, Math.sign(m.x - pl.x) * 320);
       if (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < 400) hurtBoss(Math.round(base), true, Math.sign(boss.x - pl.x) * 200);
@@ -1140,12 +1149,12 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       sfx.play("hurt");
       pl.hp -= v; pl.inv = 0.7; pl.vy = 0; pl.x += Math.sign(pl.x - from) * 26; shake = Math.max(shake, 4);
       pop(pl.x, GROUND - pl.y - 100, "-" + v, "#ff6b81");
-      for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 50, (Math.random() - 0.5) * 200, -Math.random() * 150, 0.4, "255,90,110", 2.5);
+      for (let i = 0; i < (HI() ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 50, (Math.random() - 0.5) * 200, -Math.random() * 150, 0.4, "255,90,110", 2.5);
       if (pl.hp <= 0) { pl.hp = 0; pl.dead = net ? 8 : 2.2; setDown(true); if (WAR && net) { const at = lastHitBy ? warTeamOf(net, lastHitBy) : 1 - myTeam; net.sendEv("wdown:" + lastHitBy, at); warBump(at); } logUsage("adv", "die:" + P.id + ":x" + Math.round(pl.x / 100) * 100 + (boss.active && !boss.dead ? ":boss" : "")); }
     };
 
     const sim = (dt) => {
-      if (quizOn.current) return;
+      if (quizOn.current || pausedRef.current) return;
       time += dt;
       if (net && pl.dead <= 0) for (const q of net.peers.values()) { if (q.hp === undefined || q.hp > 0 || q.x === undefined || (WAR && net && warTeamOf(net, q.id) !== myTeam)) { reviveAcc[q.id] = 0; continue; } if (Math.abs(q.x - pl.x) < 90) { reviveAcc[q.id] = (reviveAcc[q.id] || 0) + dt; if (reviveAcc[q.id] >= 1.5) { reviveAcc[q.id] = 0; net.sendEv("revive:" + q.id, 1); q.hp = 1; pop(q.x, GROUND - 130, "✚ " + q.name, "#8dffb0"); sfx.play("win"); } } else reviveAcc[q.id] = 0; }
       if (net) { netT += dt; if (netT > 0.12) { netT = 0; net.sendPos(Math.round(pl.x), Math.round(pl.y), pl.face, Math.round(pl.hp)); } }
@@ -1161,7 +1170,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         if (kk.jump && pl.ground) { pl.vy = 360; pl.ground = false; sfx.play("jump"); }
         if (kk.atk) attack(); if (kk.dig) digMove(); if (kk.skl) castSlot(0); if (kk.fire) fireBolt(); if (kk.kick) kickMove(); if (kk.rocket) fireRocket(); if (kk.zap) zapBolt();
         if (kk.spell && spellG >= 100 && !quizOn.current) { kk.l = kk.r = kk.atk = kk.skl = kk.jump = kk.fire = kk.kick = kk.spell = false; quizOn.current = true; if (castRef.current) castRef.current(); }
-        if (kk.dash && pl.dashCd <= 0) { sfx.play("dash"); pl.dashCd = 1.2; pl.dashT = 0.18; pl.inv = Math.max(pl.inv, 0.3); for (let i = 0; i < (high ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 30, -pl.face * (80 + Math.random() * 120), (Math.random() - 0.5) * 60, 0.3, "160,255,230", 2.5); }
+        if (kk.dash && pl.dashCd <= 0) { sfx.play("dash"); pl.dashCd = 1.2; pl.dashT = 0.18; pl.inv = Math.max(pl.inv, 0.3); for (let i = 0; i < (HI() ? 8 : 3); i++) addPart(pl.x, GROUND - pl.y - 30, -pl.face * (80 + Math.random() * 120), (Math.random() - 0.5) * 60, 0.3, "160,255,230", 2.5); }
         if (pl.dashT > 0) { pl.dashT -= dt; pl.x = Math.max(boss.active && !boss.dead ? ARENA : 40, Math.min(WORLD - 60, pl.x + pl.face * 560 * dt)); }
         { const hm = buff.haste > 0 ? 1.4 : 1; pl.dashCd -= dt * hm; pl.fireCd -= dt * hm; pl.rockCd -= dt * hm; pl.zapCd = (pl.zapCd || 0) - dt * hm; pl.kickCd -= dt * hm; } pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0;
         pl.vy -= 900 * dt; pl.y += pl.vy * dt; if (pl.y <= 0) { pl.y = 0; pl.vy = 0; pl.ground = true; }
@@ -1185,7 +1194,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       if (DYS && !finished) {
         for (const n of nodes) if (n.hit) n.hit = Math.max(0, n.hit - dt);
         flareT += dt; if (flareT > 12 && !flareWarn) { flareWarn = true; setBanner({ k: Date.now(), a: t("เปลวสุริยะ!", "SOLAR FLARE!", "太阳耀斑！"), b: t("กระโดดหลบ!", "Jump to dodge!", "跳起来躲开！") }); sfx.play("boom"); }
-        if (flareT > 14) { flareT = 0; flareWarn = false; shake = Math.max(shake, 8); for (let a = 0; a < (high ? 30 : 10); a++) addPart(camX + Math.random() * vw, GROUND - Math.random() * 300, -200, 40, 0.6, "255,200,90", 3); if (pl.y < 40 && pl.dead <= 0 && pl.inv <= 0) hurtPlayer(Math.round(8 * HM), pl.x + 1); }
+        if (flareT > 14) { flareT = 0; flareWarn = false; shake = Math.max(shake, 8); for (let a = 0; a < (HI() ? 30 : 10); a++) addPart(camX + Math.random() * vw, GROUND - Math.random() * 300, -200, 40, 0.6, "255,200,90", 3); if (pl.y < 40 && pl.dead <= 0 && pl.inv <= 0) hurtPlayer(Math.round(8 * HM), pl.x + 1); }
         if (pl.dead <= 0 && Math.abs(pl.x - PAD_X) < 110 && pl.y < 30) {
           if (dframes.every(q => q.built)) {
             finished = true; launched = 0.001; addDyson(4); markDone(P.id); showClear(3000); const gain = Math.round(240 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(20 * CV); info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
@@ -1287,20 +1296,20 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           if (tx !== null) { const ax = tx - r.x, ay = ty - r.y, L = Math.hypot(ax, ay) || 1; r.vx += (ax / L * 520 - r.vx) * Math.min(1, 3.2 * dt); r.vy += (ay / L * 520 - r.vy) * Math.min(1, 3.2 * dt); } }
         else r.vy -= r.g * dt;
         r.x += r.vx * dt; r.y += r.vy * dt; r.life -= dt; r.sm = (r.sm || 0) - dt;
-        if (r.sm <= 0 && r.k !== "bomblet") { r.sm = high ? 0.018 : 0.04; const bk = Math.atan2(-r.vy, r.vx) + Math.PI; smoke.push({ x: r.x + Math.cos(bk) * 14, y: r.y - Math.sin(bk) * 14, vx: Math.cos(bk) * 20, vy: 10 + Math.random() * 15, life: 0.75, max: 0.75, r: 3 + Math.random() * 2 }); } let boom = r.life <= 0 || r.y <= 0;
+        if (r.sm <= 0 && r.k !== "bomblet") { r.sm = HI() ? 0.018 : 0.04; const bk = Math.atan2(-r.vy, r.vx) + Math.PI; smoke.push({ x: r.x + Math.cos(bk) * 14, y: r.y - Math.sin(bk) * 14, vx: Math.cos(bk) * 20, vy: 10 + Math.random() * 15, life: 0.75, max: 0.75, r: 3 + Math.random() * 2 }); } let boom = r.life <= 0 || r.y <= 0;
         if (!boom) for (const m of mons) if (!m.dead && Math.abs(m.x - r.x) < MON[m.type].w / 2 + 10 && Math.abs(m.y + 24 - r.y) < 50) { boom = true; break; }
         if (!boom && boss.active && !boss.dead && Math.abs(boss.x - r.x) < 70 && r.y < 150) boom = true;
         if (boom) { r.dead = true; const yy = Math.max(0, r.y);
           if (r.k === "homing") explode(r.x, yy, 95, 3.2, "255,170,60");
           else if (r.k === "mini") explode(r.x, yy, 48, 1.3, "255,200,100");
-          else if (r.k === "big") { explode(r.x, yy, 170, 7, "255,140,50"); shake = Math.max(shake, high ? 12 : 6); }
-          else if (r.k === "nuke") { explode(r.x, yy, 460, 16, "255,255,230"); shake = high ? 22 : 12; blasts.push({ x: r.x, y: yy, r: 900, life: 0.7, max: 0.7, flash: true }); for (let q = 0; q < 3; q++) blasts.push({ x: r.x + (q - 1) * 90, y: yy + q * 30, r: 380, life: 0.9 + q * 0.2, max: 1.3 }); for (let q = 0; q < (high ? 26 : 10); q++) smoke.push({ x: r.x + (Math.random() - 0.5) * 220, y: yy + Math.random() * 260, vx: (Math.random() - 0.5) * 90, vy: 40 + Math.random() * 110, life: 1.8 + Math.random() * 1.2, max: 3, r: 24 + Math.random() * 30 }); pop(r.x, GROUND - yy - 160, t("นิวเคลียร์!", "NUKE!", "核爆！"), "#fff2c0"); }
+          else if (r.k === "big") { explode(r.x, yy, 170, 7, "255,140,50"); shake = Math.max(shake, HI() ? 12 : 6); }
+          else if (r.k === "nuke") { explode(r.x, yy, 460, 16, "255,255,230"); shake = HI() ? 22 : 12; blasts.push({ x: r.x, y: yy, r: 900, life: 0.7, max: 0.7, flash: true }); for (let q = 0; q < 3; q++) blasts.push({ x: r.x + (q - 1) * 90, y: yy + q * 30, r: 380, life: 0.9 + q * 0.2, max: 1.3 }); for (let q = 0; q < (HI() ? 26 : 10); q++) smoke.push({ x: r.x + (Math.random() - 0.5) * 220, y: yy + Math.random() * 260, vx: (Math.random() - 0.5) * 90, vy: 40 + Math.random() * 110, life: 1.8 + Math.random() * 1.2, max: 3, r: 24 + Math.random() * 30 }); pop(r.x, GROUND - yy - 160, t("นิวเคลียร์!", "NUKE!", "核爆！"), "#fff2c0"); }
           else if (r.k === "cluster") { explode(r.x, yy, 60, 1.4, "255,200,90"); for (let q = 0; q < 5; q++) rockets.push({ k: "bomblet", x: r.x + (q - 2) * 8, y: yy + 10, vx: (q - 2) * 90, vy: 150 + (q % 2) * 70, life: 0.7 + q * 0.06, g: 600 }); }
           else if (r.k === "napalm") { explode(r.x, yy, 60, 1.2, "255,120,40"); fires.push({ x: r.x, life: 3.5, tick: 0 }); }
           else if (r.k === "bomblet") explode(r.x, yy, 55, 1.0, "255,210,120"); }
       }
       for (let i = rockets.length - 1; i >= 0; i--) if (rockets[i].dead) rockets.splice(i, 1);
-      for (const q of smoke) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.r += 14 * dt; } for (let i = smoke.length - 1; i >= 0; i--) if (smoke[i].life <= 0) smoke.splice(i, 1); if (smoke.length > (high ? 220 : 70)) smoke.splice(0, smoke.length - (high ? 220 : 70));
+      for (const q of smoke) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.r += 14 * dt; } for (let i = smoke.length - 1; i >= 0; i--) if (smoke[i].life <= 0) smoke.splice(i, 1); if (smoke.length > (HI() ? 220 : 70)) smoke.splice(0, smoke.length - (HI() ? 220 : 70));
       for (const q of blasts) q.life -= dt; for (let i = blasts.length - 1; i >= 0; i--) if (blasts[i].life <= 0) blasts.splice(i, 1);
       for (const f of fires) { f.life -= dt; f.tick -= dt; if (f.tick <= 0) { f.tick = 0.4; for (const m of mons) if (!m.dead && Math.abs(m.x - f.x) < 110 && m.y < 40) hurtMon(m, Math.max(1, dmgOf(0.5).v), false, 0); if (boss.active && !boss.dead && Math.abs(boss.x - f.x) < 130) hurtBoss(Math.max(1, dmgOf(0.5).v), false, 0); } }
       for (let i = fires.length - 1; i >= 0; i--) if (fires[i].life <= 0) fires.splice(i, 1);
@@ -1323,18 +1332,18 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       mi -= dt; if (mi <= 0 && mus) { mi = 0.25; let near = false; for (const m of mons) if (!m.dead && Math.abs(m.x - pl.x) < 480) { near = true; break; } const peak = (boss.active && !boss.dead) || pl.combo >= 2 || spellG >= 100 || (near && pl.hp / hpMaxOf(info.lv) < 0.3); mus.setIntensity(peak ? 3 : near ? 2 : 1); }
       // camera: the robot a little ahead of centre, eased
       const target = Math.max(0, Math.min(WORLD - vw, pl.x - vw * 0.42 + pl.face * 30));
-      camX += (target - camX) * (high ? 0.12 : 0.2);
+      camX += (target - camX) * (HI() ? 0.12 : 0.2);
       shake *= 0.86;
       if (!warped && (NOBOSS ? finished : boss.dead) && pl.dead <= 0 && pl.x > WORLD - 140) {   // walk into the warp gate (any map, once its goal is done): straight on to the next map, its film first
         warped = true; finished = true; shake = 8; sfx.play("rocket"); const sale = settle(1);
-        for (let a = 0; a < (high ? 50 : 20); a++) addPart(pl.x, GROUND - 60, (Math.random() - 0.5) * 120, -Math.random() * 380, 1, a % 2 ? P.acc : "255,255,255", 3);
+        for (let a = 0; a < (HI() ? 50 : 20); a++) addPart(pl.x, GROUND - 60, (Math.random() - 0.5) * 120, -Math.random() * 380, 1, a % 2 ? P.acc : "255,255,255", 3);
         setBanner({ k: Date.now(), a: t("วาร์ป!", "WARP!", "传送！"), b: sale.coins > 0 ? t("ขายของ +" + sale.coins + " 🪙", "Loot sold +" + sale.coins + " 🪙", "出售战利品 +" + sale.coins + " 🪙") : t("เดินทางต่อ…", "On to the next map…", "前往下一张地图…") });
         setTimeout(() => { if (ended) return; const nx = getNext ? getNext() : null; if (nx && onNext) onNext(nx); else showClear(0); }, 1100);
       }
     };
 
     const draw = (tm) => {
-      const sx = (high && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0, sy = (high && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0;
+      const sx = (HI() && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0, sy = (HI() && shake > 0.3) ? (Math.random() - 0.5) * shake * k : 0;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(bake.sky, sx, sy);
       const tile = (img, f, a = 1) => { const w = img.width, off = -((camX * f * k) % w + w) % w; if (a !== 1) ctx.globalAlpha = a; for (let x0 = off + sx; x0 < cw; x0 += w) ctx.drawImage(img, x0, sy); if (a !== 1) ctx.globalAlpha = 1; };
@@ -1384,7 +1393,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       for (const b of blasts) { const k4 = Math.max(0, b.life / b.max), q = 1 - k4; ctx.globalCompositeOperation = "lighter"; const R = b.r * (b.flash ? 1 : 0.35 + q * 0.75);
         const g2 = ctx.createRadialGradient(b.x, GROUND - b.y, 0, b.x, GROUND - b.y, R); g2.addColorStop(0, `rgba(255,255,235,${0.95 * k4})`); g2.addColorStop(0.3, `rgba(255,200,80,${0.8 * k4})`); g2.addColorStop(0.7, `rgba(255,90,30,${0.4 * k4})`); g2.addColorStop(1, "rgba(255,60,20,0)"); ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(b.x, GROUND - b.y, R, 0, 7); ctx.fill();
         if (!b.flash) { ctx.strokeStyle = `rgba(255,220,160,${0.7 * k4})`; ctx.lineWidth = 3 * k4 + 1; ctx.beginPath(); ctx.arc(b.x, GROUND - b.y, R * 1.15, 0, 7); ctx.stroke(); } ctx.globalCompositeOperation = "source-over"; }
-      for (const a of arcs) drawLightning(ctx, a, high);
+      for (const a of arcs) drawLightning(ctx, a, HI());
       for (const b of bolts) {
         if (b.pierce) { ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = rGlow; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(b.x - Math.sign(b.vx) * 90, GROUND - b.y); ctx.lineTo(b.x, GROUND - b.y); ctx.stroke(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(b.x - Math.sign(b.vx) * 50, GROUND - b.y); ctx.lineTo(b.x, GROUND - b.y); ctx.stroke(); ctx.globalCompositeOperation = "source-over"; continue; }
         ctx.globalCompositeOperation = "lighter"; const by = GROUND - b.y, dir = Math.sign(b.vx); ctx.fillStyle = rGlow; ctx.strokeStyle = rGlow;
@@ -1412,9 +1421,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           else if (d.t === "ore") { ctx.beginPath(); ctx.moveTo(d.x - 6, yy + 6); ctx.lineTo(d.x - 2, yy - 7); ctx.lineTo(d.x + 2, yy + 2); ctx.lineTo(d.x + 7, yy - 4); ctx.lineTo(d.x + 7, yy + 6); ctx.closePath(); ctx.fill(); ctx.stroke(); }
           else if (d.t === "gold") { ctx.beginPath(); ctx.ellipse(d.x, yy, 8, 6, 0.4, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fillRect(d.x - 3, yy - 3, 3, 2); }
           else { ctx.globalCompositeOperation = "lighter"; ctx.beginPath(); ctx.arc(d.x, yy, 7 + Math.sin(tm * 6) * 1.5, 0, 7); ctx.fill(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(d.x, yy, 14, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; }
-          continue; } ctx.fillStyle = d.t === "hp" ? "#7dffa8" : "#7fe8ff"; ctx.beginPath(); if (d.t === "hp") ctx.arc(d.x, yy, 6, 0, 7); else { ctx.moveTo(d.x, yy - 8); ctx.lineTo(d.x + 6, yy); ctx.lineTo(d.x, yy + 8); ctx.lineTo(d.x - 6, yy); ctx.closePath(); } ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .5; ctx.beginPath(); ctx.arc(d.x, yy, 12, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
+          continue; } ctx.fillStyle = d.t === "hp" ? "#7dffa8" : "#7fe8ff"; ctx.beginPath(); if (d.t === "hp") ctx.arc(d.x, yy, 6, 0, 7); else { ctx.moveTo(d.x, yy - 8); ctx.lineTo(d.x + 6, yy); ctx.lineTo(d.x, yy + 8); ctx.lineTo(d.x - 6, yy); ctx.closePath(); } ctx.fill(); if (HI()) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .5; ctx.beginPath(); ctx.arc(d.x, yy, 12, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
       // spores + slashes
-      for (const s of shots) { ctx.fillStyle = "#e9ff9a"; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 5, 0, 7); ctx.fill(); if (high) { ctx.globalCompositeOperation = "lighter"; ctx.drawImage(bake.glows.green, s.x - 20, GROUND - s.y - 20, 40, 40); ctx.globalCompositeOperation = "source-over"; } }
+      for (const s of shots) { ctx.fillStyle = "#e9ff9a"; ctx.beginPath(); ctx.arc(s.x, GROUND - s.y, 5, 0, 7); ctx.fill(); if (HI()) { ctx.globalCompositeOperation = "lighter"; ctx.drawImage(bake.glows.green, s.x - 20, GROUND - s.y - 20, 40, 40); ctx.globalCompositeOperation = "source-over"; } }
       if (net) for (const q of net.peers.values()) {
         if (q.tx === undefined || Date.now() - (q.t || 0) > 4000) continue; q.x = (q.x === undefined ? q.tx : q.x) + (q.tx - (q.x === undefined ? q.tx : q.x)) * 0.25; q.y = (q.y === undefined ? (q.ty || 0) : q.y) + ((q.ty || 0) - (q.y === undefined ? (q.ty || 0) : q.y)) * 0.25;
         if (q.x < camX - 80 || q.x > camX + vw + 80) continue; const gy = GROUND - (q.y || 0), fc = q.face || 1; ctx.save(); ctx.globalAlpha = 0.85; ctx.fillStyle = q.glow || "#7fe8ff"; ctx.shadowColor = q.glow || "#7fe8ff"; ctx.shadowBlur = 12;
@@ -1438,7 +1447,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         ctx.globalAlpha = 1;
         ctx.restore();
       }
-      // particles (glow in high mode)
+      // particles (glow in HI() mode)
       ctx.globalCompositeOperation = "lighter";
       for (const p of parts) { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = `rgb(${p.col})`; ctx.fillRect(p.x - p.sz / 2, p.y - p.sz / 2 + 0, p.sz, p.sz); }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
@@ -1461,8 +1470,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       if ((MINE || CAPM || DYS) && !finished) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; const cur = stations.find(q => !q.done), fr = MINE || DYS ? cargo / CARGO_CAP : (cur ? cur.p / CAP_T : 1); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = MINE || DYS ? "#7fd8ff" : "#ffd23f"; ctx.fillRect(bx, by, bw * Math.min(1, fr), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center";
         ctx.fillText(DYS ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "แผงไดสัน ", "PANELS ", "戴森板 ") + dframes.filter(q => q.built).length + "/4" : MINE ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "ส่งที่แท่นขวาสุด ≥ ", "deliver at the far-right pad ≥ ", "送到最右平台 ≥ ") + ORE_NEED : T3(lang, "สถานี ", "STATION ", "采集站 ") + (stations.filter(q => q.done).length + (cur ? 1 : 0)) + "/3 · " + Math.round(Math.min(1, fr) * 100) + "%", cw / 2, by - 4 * k); }
       if (boss.active && !boss.dead) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.max), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, P.boss[0], P.boss[1], P.boss[2]), cw / 2, by - 4 * k); }
-      // light + vignette (high): one baked-free pass, a couple of fills
-      if (high) { const g = ctx.createRadialGradient(cw / 2, ch * 0.55, ch * 0.3, cw / 2, ch * 0.55, ch * 1.1); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,6,10,.55)"); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
+      // light + vignette (HI()): one baked-free pass, a couple of fills
+      if (HI()) { const g = ctx.createRadialGradient(cw / 2, ch * 0.55, ch * 0.3, cw / 2, ch * 0.55, ch * 1.1); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,6,10,.55)"); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
       // the robot and its pet are DOM figures placed over the canvas
       const px = pxRef.current; if (px) {
         const cssK = k / dpr, bw = 80 * cssK, bh = 128 * cssK;
@@ -1503,9 +1512,13 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
     (window as any).__advTest = { netPeers: () => (net ? [...net.peers.values()].map(q => ({ id: q.id, x: q.x })) : null), padX: () => PAD_X, digNow: () => digMove(), framesBuilt: () => dframes.map(f => f.built), frameXs: () => dframes.map(f => f.x), nodeXs: () => nodes.filter(n => !n.done).map(n => n.x), cargoN: () => cargo, slotsN: () => slots.length, slotNames: () => slots.map(q => q.s.id), pass: () => PASS, castId: (id: string) => { const q = [...["striker", "bulwark", "ghost", "tactician", "engineer", "herald", "virtuoso"].flatMap(c => treeOf("robot", c)), ...["volt", "ember", "frost", "flora", "steel", "aether"].flatMap(c => treeOf("pet", c))].find(z => z.id === id); if (q) castSkill(q, lvOf(q.id), q.kind === "pet"); return !!q; }, castSlotNow: (i: number) => castSlot(i), slotCds: () => slotCd.slice(), hasteT: () => buff.haste, shieldLeft: () => shieldT, turretsN: () => turrets.length, setHp: (v: number) => { pl.hp = v; }, hpNow: () => pl.hp, monsSlowed: () => mons.filter(m => m.slowT > 0).length, beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), zapNow: () => zapBolt(), greeted: () => beacons.filter((b: any) => b.greet).length, beaconsN: () => beacons.length, killMe: () => { pl.inv = 0; hurtPlayer(99999, pl.x - 1); }, warInfo: () => ({ war: WAR, team: myTeam }), face: (f: number) => { pl.face = f; }, drawAvg: () => (drawN ? drawMs / drawN : 0), teamInfo: () => ({ goal: teamGoal(), done: teamDone }), reviveState: () => ({ dead: pl.dead, revived, hp: pl.hp }), peerDown: (id: string) => { const q = net && net.peers.get(id); if (q) { q.hp = 0; q.x = pl.x + 20; } }, forceKills: (n: number) => { kills = n; teamCheck(); }, zapsN: () => zapN, rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
-    return () => { settle(0.4); if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
-  }, [P, high, me, cls]);
+    return () => { settle(0.4); if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (HI() ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
+  }, [P, me, cls]);
 
+  const [gear, setGear] = useState(false), pausedRef = useRef(false);   // the gear pop-up pauses this run
+  const openGear = () => { const k: any = keys.current; k.l = k.r = k.atk = k.skl = k.jump = k.fire = k.kick = k.rocket = k.zap = k.dig = false; pausedRef.current = true; setGear(true); playUi && playUi("click"); };
+  const closeGear = () => { pausedRef.current = false; setGear(false); };
+  useEffect(() => { const kd = (e: KeyboardEvent) => { if (e.code === "Escape" || e.code === "KeyP") { if (pausedRef.current) { pausedRef.current = false; setGear(false); } else if (!quizOn.current) openGear(); } }; window.addEventListener("keydown", kd); return () => window.removeEventListener("keydown", kd); }, []);
   const hold = (name) => ({
     onPointerDown: (e) => { e.preventDefault(); (keys.current as any)[name] = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (er) {} },
     onPointerUp: () => { (keys.current as any)[name] = false; }, onPointerCancel: () => { (keys.current as any)[name] = false; }, onLostPointerCapture: () => { (keys.current as any)[name] = false; },
@@ -1529,9 +1542,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           <div className="adv-bar adv-xp"><i style={{ width: pct(hud.xp, hud.xpNeed) }} /><b>EXP</b></div>
           <div className="adv-bar adv-sk"><i style={{ width: pct(hud.sk, hud.skNeed) }} /><b>{t("สกิล", "SKILL", "技能")} R{hud.rank || 1}</b></div>
         </div>
-        <button className="adv-btn" onClick={() => setMusicOn(m => !m)} aria-label="music" aria-pressed={musicOn}>{musicOn ? "♪" : "♪̸"}</button>
-        <button className="adv-btn" onClick={onGfx} aria-label="graphics">{high ? "HD" : "SD"}</button>
+        <GearButton onClick={openGear} />
       </div>
+      {gear && <SettingsPopup lang={lang} high={high} onGfx={onGfx} musicOn={musicOn} onMusic={() => setMusicOn(m => !m)} online={!!net} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {net && <div className="adv-emotes">{["👍", "⚔️", "🆘", "❤️"].map(em => <button key={em} aria-label={"emote " + em} onClick={() => chatRef.current && chatRef.current(em)}>{em}</button>)}</div>}
       {net && hud.team && hud.team.length > 0 && <div className="adv-team">{hud.team.map((q: any, i: number) => <span key={i} style={{ borderColor: q.c || "#7fe8ff" }}>{q.n} · {q.hp}♥</span>)}</div>}
       {banner && <div key={banner.k} className="adv-banner"><b>{banner.a}</b><span>{banner.b}</span></div>}

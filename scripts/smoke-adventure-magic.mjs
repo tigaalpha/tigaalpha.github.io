@@ -36,9 +36,9 @@ const ALL = { tg_adv_done: JSON.stringify(["luma", "ferro"]), tg_path_done: JSON
   ok("Luma's music is running on the audio clock", m0 && m0.running && m0.id === "luma" && m0.bpm === 112, JSON.stringify(m0));
   await p.waitForTimeout(1500); const m1 = await p.evaluate(() => window.__advTest.music());
   ok("it keeps scheduling steps as time passes", m1.steps > m0.steps, m0.steps + " -> " + m1.steps);
-  await p.evaluate(() => document.querySelector('[aria-label="music"]').click()); await p.waitForTimeout(200);
+  await p.evaluate(() => { if (!document.querySelector('[data-pause]')) document.querySelector('[aria-label="settings"]').click(); }); await p.evaluate(() => document.querySelector('[aria-label="music"]').click()); await p.waitForTimeout(200); await p.evaluate(() => { const r = document.querySelector('[data-resume]'); if (r) r.click(); });
   ok("the music button mutes it and remembers the choice", (await p.evaluate(() => window.__advTest.music().on)) === false && (await p.evaluate(() => localStorage.getItem("tg_adv_music"))) === "0");
-  await p.evaluate(() => document.querySelector('[aria-label="music"]').click()); await p.waitForTimeout(200);
+  await p.evaluate(() => { if (!document.querySelector('[data-pause]')) document.querySelector('[aria-label="settings"]').click(); }); await p.evaluate(() => document.querySelector('[aria-label="music"]').click()); await p.waitForTimeout(200); await p.evaluate(() => { const r = document.querySelector('[data-resume]'); if (r) r.click(); });
   await p.evaluate(() => window.__advTest.tp(5200 - 900 + 120)); await p.waitForTimeout(700);
   ok("a boss fight switches to the boss arrangement", (await p.evaluate(() => window.__advTest.music().boss)) === true);
   { const e0 = await p.evaluate(() => window.__advTest.music()); ok("the music reports its section and energy", typeof e0.section === "number" && typeof e0.energy === "number" && e0.intensity >= 1, JSON.stringify(e0)); }
