@@ -22,20 +22,20 @@ async function open(pre) {
 }
 { const { ctx, p } = await open({});
   ok("four tabs, the fourth is the Solar System", (await p.locator("[data-sector]").count()) === 4 && (await p.locator("[data-sector=solar]").count()) === 1);
-  const n = await p.locator(".adv-planet").count(); ok("eleven maps in Sector 4", n === 11, String(n));
+  const n = await p.locator(".adv-planet").count(); ok("thirteen maps in Sector 4", n === 13, String(n));
   const lk = await p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => b.classList.contains("lock")));
   ok("locked one step at a time: only the Moon is open", lk[0] === false && lk.slice(1).every(Boolean), JSON.stringify(lk));
   const names = await p.evaluate(() => [...document.querySelectorAll(".adv-planet b")].map(b => b.textContent));
-  ok("Moon, lunar base, Mars, Mercury, Venus, Jupiter, Saturn, Titan x2, Ark x2 in order", /Moon/.test(names[0]) && /Lunar/.test(names[1]) && /Mars/.test(names[2]) && /Mercury/.test(names[3]) && /Venus/.test(names[4]) && /Jupiter/.test(names[5]) && /Saturn/.test(names[6]) && /Titan/.test(names[7]) && /Titan/.test(names[8]) && /Ark|Shipyard/.test(names[9]) && /Exodus/.test(names[10]), names.join(" | "));
+  ok("Moon, lunar base, Mars, Mercury, Venus, Jupiter, Saturn, Titan x2, Ark x4 in order", /Moon/.test(names[0]) && /Lunar/.test(names[1]) && /Mars/.test(names[2]) && /Mercury/.test(names[3]) && /Venus/.test(names[4]) && /Jupiter/.test(names[5]) && /Saturn/.test(names[6]) && /Titan/.test(names[7]) && /Titan/.test(names[8]) && /Ark|Shipyard/.test(names[9]) && /Hydroponic/.test(names[10]) && /Livestock/.test(names[11]) && /Exodus/.test(names[12]), names.join(" | "));
   await ctx.close(); }
-const MAPS = [["Moon ·", false], ["Lunar Base", false], ["Mars ·", false], ["Mercury", false], ["Venus", true], ["Jupiter", true], ["Saturn", true], ["Titan · storm", false], ["Titan · the second", false], ["Shipyard", false], ["Exodus", true]];
+const MAPS = [["Moon ·", false], ["Lunar Base", false], ["Mars ·", false], ["Mercury", false], ["Venus", true], ["Jupiter", true], ["Saturn", true], ["Titan · storm", false], ["Titan · the second", false], ["Shipyard", false], ["Hydroponic", false], ["Livestock", false], ["Exodus", true]];
 for (const [re, ship] of MAPS) {
   const { ctx, p, errs } = await open({ tg_adv_unlockall: "1" });
   const idx = await p.evaluate((src) => [...document.querySelectorAll(".adv-planet")].findIndex(b => b.textContent.includes(src)), re);
   if (idx < 0) { ok(re + ": on the menu", false); await ctx.close(); continue; }
   await p.evaluate((i) => document.querySelectorAll(".adv-planet")[i].click(), idx);
-  await p.waitForSelector(ship ? ".adv-ship canvas" : ".adv canvas", { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(1800);
-  ok(re + ": opens and runs without errors", (await p.locator(ship ? ".adv-ship canvas" : ".adv canvas").count()) >= 1 && errs.length === 0, errs.join("|"));
+  await p.waitForSelector(ship ? ".adv-ship canvas" : (re === "Hydroponic" || re === "Livestock") ? ".adv-farm" : ".adv canvas", { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(1800);
+  ok(re + ": opens and runs without errors", (await p.locator(ship ? ".adv-ship canvas" : (re === "Hydroponic" || re === "Livestock") ? ".adv-farm" : ".adv canvas").count()) >= 1 && errs.length === 0, errs.join("|"));
   if (re === "Exodus") ok("Exodus is a warp run flown by the Ark", (await p.evaluate(() => window.__advShip.mode)) === "warp");
   await ctx.close();
 }

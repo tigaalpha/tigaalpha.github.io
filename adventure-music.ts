@@ -68,6 +68,8 @@ MOODS.saturnrings = { ...MOODS.kryo, bpm: 100, gain: 0.6 };
 MOODS.titanassault = { ...MOODS.kryo, bpm: 116, gain: 0.64 };
 MOODS.titancolony = { ...MOODS.kindred, bpm: 92, gain: 0.6 };
 MOODS.arkbuild = { ...MOODS.cobalt, bpm: 104, gain: 0.62 };
+MOODS.arkfarm = { ...MOODS.kindred, bpm: 98, gain: 0.58 };
+MOODS.arkherd = { ...MOODS.kindred, bpm: 108, gain: 0.6 };
 MOODS.arkexodus = { ...MOODS.nexa, bpm: 128, gain: 0.64 };
 /** the boss arrangement: the same key, harder and denser. */
 const BOSS = { kick: "x.x.x.x.x.x.x.xx", snare: "....x.......x.x.", hat: "xxxxxxxxxxxxxxxx", bass: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], bpmMul: 1.12 };
