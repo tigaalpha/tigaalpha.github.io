@@ -27,3 +27,29 @@ export function SettingsPopup({ lang, high, onGfx, musicOn, onMusic, online, onR
     </div>
   );
 }
+
+/* A crash inside a map must not look like the whole app dying (owner, 2026-10-12: "map 3 of the Harvester act errors and cannot be entered"; it could not
+   be reproduced in the lab). This guard catches an error thrown while a film, a ship map, the farm or a ground run draws, says so on screen WITH the
+   error text (so a screenshot tells us what it was), writes it to usage_events as adv "err:<map>:<message>", and offers Retry and Back to the map. */
+import { Component } from "react";
+import { logUsage } from "./shared-infra";
+export class AdvGuard extends Component<any, any> {
+  state: any = { err: null, n: 0 };
+  static getDerivedStateFromError(err: any) { return { err }; }
+  componentDidCatch(err: any, info: any) { try { logUsage("adv", ("err:" + this.props.mapId + ":" + String((err && err.message) || err).replace(/\s+/g, " ")).slice(0, 180)); } catch (e) {} }
+  render() {
+    const { lang, onBack } = this.props; const t = (a: string, b: string, c: string) => T(lang, a, b, c);
+    if (!this.state.err) return <div key={this.state.n} style={{ display: "contents" }}>{this.props.children}</div>;
+    const msg = String((this.state.err && this.state.err.message) || this.state.err).slice(0, 220);
+    return (
+      <div className="adv-pause" role="alert" data-adv-err="1">
+        <div className="adv-pause-card">
+          <b>{t("แผนที่นี้ขัดข้อง", "This map ran into a problem", "此地图出了问题")}</b>
+          <small style={{ wordBreak: "break-word", opacity: 0.8 }}>{msg}</small>
+          <button className="adv-btn go" onClick={() => this.setState({ err: null, n: this.state.n + 1 })}>↻ {t("ลองใหม่", "Try again", "重试")}</button>
+          <button className="adv-btn" onClick={() => { if (onBack) onBack(); }}>{t("กลับไปเมนูแผนที่", "Back to the map menu", "返回地图菜单")}</button>
+        </div>
+      </div>
+    );
+  }
+}

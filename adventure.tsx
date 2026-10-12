@@ -14,10 +14,10 @@ import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "reac
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
 import { createAdvSfx } from "./adventure-sfx";
-import { GearButton, SettingsPopup } from "./adventure-settings";
+import { GearButton, SettingsPopup, AdvGuard } from "./adventure-settings";
 import { ARK_LINES, ARK_MAX, ARK_TRIP_DAYS, arkCost, readArk, buyArk, arkStats } from "./adventure-ark";
 import { paintMonster, paintBoss, paintKindred } from "./adventure-monsters";
-import { warTeamOf, openAdvRoom, MAX_PILOTS, listPublicRooms, publicRoomOpen, publicRoomPing, publicRoomClose, type Net, type PublicRoom } from "./adv-online";
+import { warTeamOf, openAdvRoom, MAX_PILOTS, submitAdvTime, listAdvTop, listPublicRooms, publicRoomOpen, publicRoomPing, publicRoomClose, type Net, type PublicRoom } from "./adv-online";
 import { treeOf, lvOf, buySkillLv, toggleEquip, readEquip, equippedOf, passiveSum, powerAt, cdAt, skillLook, skillSound, skillDesc, skillCost, isPassive, SKILL_MAX_LV, type Skill } from "./skill-tree";
 import { voiceOf } from "./fx-voice";
 import { PetArt, petLevel, petById, PET_TYPES } from "./pet-lab";
@@ -33,7 +33,10 @@ import { nextQuestion, nextSpell, judgeKeys, recordAnswer, readLadder, learnedTo
 
 const VH = 360, GROUND = 300, WORLD = 5200, TILE = 960;
 const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
-const markDone = (id: string) => { try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
+const readBest = (): any => { try { return JSON.parse(localStorage.getItem("tg_adv_best") || "{}") || {}; } catch (e) { return {}; } };
+const writeBest = (id: string, secs: number) => { try { const b = readBest(); if (!(b[id] <= secs)) { b[id] = secs; localStorage.setItem("tg_adv_best", JSON.stringify(b)); } } catch (e) {} };
+let RUN_T0 = 0, RUN_NAME = "Pilot";   // when this map actually began (after its film), for the best-times board
+const markDone = (id: string) => { try { if (RUN_T0 > 0) { const secs = Math.round((Date.now() - RUN_T0) / 1000); readBest(); writeBest(id, secs); submitAdvTime(id, secs, RUN_NAME); } } catch (e) {} try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
 const spendCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(Math.max(0, readCrystals() - n))); } catch (e) {} };
 const readCrystals = (): number => { try { return Math.max(0, parseInt(localStorage.getItem("tg_adv_crystals") || "0", 10) || 0); } catch (e) { return 0; } };
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(readCrystals() + n)); } catch (e) {} };
@@ -104,6 +107,7 @@ const FINALE: any = { id: "finale", finale: true, th: "บทส่งท้า�
 const PROLOGUE: any = { id: "prologue", prologue: true, th: "โครงการหุ่นยนต์ผู้บุกเบิก", en: "Pioneer Robot Program", zh: "先遣机器人计划", c: ["#04060e", "#0a1830", "#2a5aa8"], glow: "110,190,255", acc: "255,200,90", boss: ["-", "-", "-"] };
 let TINT: any = null;
 const AdventureShip = lazy(() => import("./adventure-ship"));
+const AdventureYard = lazy(() => import("./adventure-yard"));   // the Ark shipyard: place the eight modules
 const AdventureFarm = lazy(() => import("./adventure-farm"));   // the Ark farm decks: plants and gene-edited livestock   // the starship dogfight: its own chunk
 const AdventureCine = lazy(() => import("./adventure-cine"));   // the film before each map: its own chunk, loaded when a map is picked
 
@@ -162,7 +166,7 @@ export const PLANETS = [
   { id: "saturnrings", th: "ดาวเสาร์ · ทำเหมืองน้ำแข็งในวงแหวน", en: "Saturn · mine the ring ice", zh: "土星 · 开采光环冰块", c: ["#0a1020", "#2a3a5a", "#c8d8e8"], glow: "190,225,255", acc: "255,230,170", ok: true, hard: 3.0, mission: "belt", sky: "saturn", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "titanassault", th: "ไททัน · บุกดวงจันทร์ของดาวเสาร์", en: "Titan · storm Saturn's moon", zh: "土卫六 · 攻占土星的卫星", c: ["#1a1004", "#5a3a08", "#e8a030"], glow: "255,170,60", acc: "180,220,255", ok: true, hard: 3.4, mons: ["shardling", "frostcaster", "burrower", "wraith", "swarmer", "shardling", "frostcaster"], tint: { glow: "255,170,60", body: "#3a2406" }, boss: ["ผู้พิทักษ์ไททัน", "Titan Guardian", "土卫六守卫"] },
   { id: "titancolony", th: "ไททัน · สร้างอาณานิคมแห่งที่สอง", en: "Titan · the second colony", zh: "土卫六 · 第二座殖民地", c: ["#1a1004", "#5a3a08", "#e8a030"], glow: "255,180,80", acc: "180,220,255", ok: true, hard: 3.0, mission: "dyson", mons: ["shardling", "frostcaster", "burrower", "wraith"], tint: { glow: "255,180,80", body: "#3a2406" }, boss: ["-", "-", "-"] },
-  { id: "arkbuild", th: "อู่ต่อยาน · สร้างเรือโนอาแห่งอวกาศ", en: "Shipyard · build the Ark", zh: "船坞 · 建造太空方舟", c: ["#04101a", "#10345a", "#60b8ff"], glow: "120,200,255", acc: "140,255,170", ok: true, hard: 3.4, mission: "dyson", mons: ["drone", "scrapgolem", "wraith", "mantis", "eyeball"], tint: { glow: "120,200,255", body: "#0c2438" }, boss: ["-", "-", "-"] },
+  { id: "arkbuild", th: "อู่ต่อยาน · สร้างเรือโนอาแห่งอวกาศ", en: "Shipyard · build the Ark", zh: "船坞 · 建造太空方舟", c: ["#04101a", "#10345a", "#60b8ff"], glow: "120,200,255", acc: "140,255,170", ok: true, hard: 3.4, mission: "yard", mons: ["drone", "scrapgolem", "wraith", "mantis", "eyeball"], tint: { glow: "120,200,255", body: "#0c2438" }, boss: ["-", "-", "-"] },
   { id: "arkfarm", th: "ฟาร์มไฮโดรโปนิกส์บนยาน · ปลูกอาหารให้ผู้อพยพ", en: "Ark Hydroponic Farm · grow food for the settlers", zh: "方舟水培农场 · 为移民种植粮食", c: ["#04141a", "#0a3a2a", "#60ffb0"], glow: "120,255,170", acc: "255,230,120", ok: true, hard: 3.4, mission: "farm", kind: "plants", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "arkherd", th: "ฟาร์มสัตว์บนยาน · เลี้ยงสัตว์ตัดแต่งพันธุกรรม", en: "Ark Livestock Farm · gene-edited animals", zh: "方舟畜牧场 · 基因编辑的动物", c: ["#04141a", "#0a3a2a", "#60ffb0"], glow: "120,255,170", acc: "255,230,120", ok: true, hard: 3.4, mission: "farm", kind: "herd", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "arkexodus", th: "การอพยพ · พา Ark ข้ามดวงดาว", en: "Exodus · carry the Ark across the stars", zh: "大迁徙 · 驾驶方舟跨越星际", c: ["#04061a", "#14245a", "#7ab4ff"], glow: "140,200,255", acc: "140,255,170", ok: true, hard: 3.6, mission: "warp", sky: "ark", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
@@ -449,6 +453,8 @@ const CSS = `
 .adv-pause-row button{flex:1;min-height:44px;border-radius:999px;border:1.5px solid rgba(140,255,220,.4);background:transparent;color:#cfeee6;font-weight:800;font-size:13px;cursor:pointer}.adv-pause-row button.on{background:rgba(61,220,151,.3);border-color:#3ddc97;color:#fff}
 .adv-ship .pvpact.light{background:linear-gradient(135deg,#d9e8ff,#9fb8ff);color:#1a2a6a;position:relative;overflow:hidden}.adv-ship .pvpact.light.cool{opacity:.7}.adv-ship .pvpact.light.on{background:linear-gradient(135deg,#fff,#ffb8ff);box-shadow:0 0 22px rgba(190,170,255,.9)}.adv-ship .pvpact.light::after{content:"";position:absolute;left:0;bottom:0;height:5px;width:var(--lc,100%);background:#3a6bff;opacity:.85}
 .ac-lang{position:absolute;left:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:3;display:flex;gap:8px}.ac-lang button{min-height:40px;padding:0 12px;border-radius:20px;border:1.5px solid rgba(255,255,255,.4);background:rgba(0,0,0,.55);color:#fff;font-weight:800;font-size:13px;cursor:pointer}.ac-lang button b{color:#ffe08a;margin-left:4px}
+.adv-rankbar{margin:2px 0 8px}.adv-rank{margin:0 0 10px;padding:10px 12px;border-radius:24px;background:rgba(255,255,255,.06);border:1px solid rgba(140,255,220,.25);font-size:12.5px}.adv-rank select{width:100%;padding:7px 10px;border-radius:999px;background:#0b2230;color:#fff;border:1px solid rgba(140,255,220,.35)}.adv-rank ol{margin:6px 0 0;padding:0;list-style:none}.adv-rank li{display:flex;gap:8px;padding:3px 0}.adv-rank li span{margin-left:auto;font-variant-numeric:tabular-nums}
+.ay-dir{display:flex;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:2px;opacity:.7}.ay-spine{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}.ay-slot,.ay-mod{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:76px;padding:6px 2px;border-radius:18px;border:1.5px dashed rgba(160,255,220,.35);background:rgba(6,30,34,.7);color:#e6fff6;font-size:11px;cursor:pointer}.ay-slot.full{border-style:solid;border-color:rgba(140,255,200,.7);background:rgba(16,70,64,.75)}.ay-slot.drop{border-color:#ffd23f;box-shadow:0 0 12px rgba(255,210,63,.35)}.ay-slot em,.ay-mod em{font-style:normal;font-size:10px;opacity:.8}.ay-tray{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:80px;align-items:center}.ay-mod{min-width:86px;border-style:solid;border-color:rgba(255,210,63,.5)}.ay-mod.on{background:rgba(255,210,63,.25);box-shadow:0 0 14px rgba(255,210,63,.4)}.ay-bal{display:flex;align-items:center;gap:8px;font-size:12px}.ay-bal .af-bar{flex:1}.ay-rules{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:4px 12px;font-size:12px}.ay-rules li{opacity:.65}.ay-rules li.ok{opacity:1;color:#9fffd0}
 .adv-farm{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;gap:8px;padding:76px 12px 12px;background:radial-gradient(ellipse at 50% 0%,#0c3a30 0%,#04141a 70%);color:#e6fff6;overflow:auto}
 .af-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:1;min-height:150px}.af-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px;border-radius:26px;border:2px solid rgba(140,255,220,.3);background:rgba(10,50,44,.6);color:#e6fff6;cursor:pointer;font-weight:700}
 .af-cell .af-ic{font-size:30px;line-height:1}.af-cell small{font-size:11px;opacity:.85;text-align:center}.af-cell em{font-style:normal;font-size:11px;font-weight:800;color:#9fffd0}.af-cell.ready{border-color:#ffe07a;box-shadow:0 0 18px rgba(255,224,122,.5)}.af-cell.ready em{color:#ffe07a}.af-cell.sick{border-color:#ff6b81;animation:afp .5s infinite alternate}.af-cell.sick em{color:#ff9aa8}@keyframes afp{to{box-shadow:0 0 22px rgba(255,107,129,.8)}}
@@ -577,7 +583,9 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const [fin, setFin] = useState(false);   // the Act 2 epilogue: once, the first time the menu opens after Kindred Haven, the Dark Forge and the Harvesters' Eye are all cleared
   useEffect(() => { try { if (!planet && localStorage.getItem("tg_adv_finale") !== "1" && localStorage.getItem("tg_adv_nocine") !== "1" && ["kindred", "darkforge", "shadow"].every(id => readDone().includes(id))) setFin(true); } catch (e) {} }, [planet]);
   const [pro, setPro] = useState(() => { try { return localStorage.getItem("tg_adv_prologue") === null && localStorage.getItem("tg_adv_nocine") !== "1"; } catch (e) { return false; } });   // the opening film, once, before the first map menu
+  const [rankOpen, setRankOpen] = useState(false);
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
+  useEffect(() => { RUN_NAME = pname; RUN_T0 = planet && (nocine || cined === planet.id) ? Date.now() : 0; }, [planet && planet.id, cined]);   // the clock for the best-times board starts when the map does, not when its film does
   const filming = (pro && !planet) || (fin && !planet) || (!!planet && cined !== planet.id && !nocine);
   useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
   const startPlanet = (P: any) => { playUi && playUi("click"); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
@@ -619,6 +627,8 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
                 {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : v === "space" ? t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空") : v === "act2" ? t("ภาค 3 · ฮาร์เวสเตอร์", "Act 2 · The Harvesters", "第三区 · 收割者") : t("ภาค 4 · ระบบสุริยะ", "Sector 4 · Solar System", "第四区 · 太阳系")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
               </button>); })}
           </div>
+          <div className="adv-rankbar"><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
+          {rankOpen && <RankPanel lang={lang} maps={PLANETS.filter(P => sectorOf(P) === sector)} />}
           <div className="adv-planets">
             {PLANETS.map((P, pi) => sectorOf(P) !== sector ? null : (
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
@@ -706,8 +716,9 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           <p style={{ fontSize: 11.5 }}>{t("ระบบเลือกให้ตามเครื่องของคุณ เปลี่ยนเองได้", "Chosen for your device; change it any time.", "已按设备自动选择，可随时更改。")}</p>
         </div>
       ) : (
+        <AdvGuard mapId={planet.id} lang={lang} onBack={() => { setPlanet(null); setCined(null); setShipDone(null); }}>{
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
-        ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole", "farm"].includes(planet.mission) && shipDone ? (
+        ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole", "farm", "yard"].includes(planet.mission) && shipDone ? (
           <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
             <span>☠ {shipDone.kills} · ◆ {shipDone.cry}{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}{shipDone.mode === "skim" ? " · ⛽ 100%" : ""}{shipDone.mode === "harvest" ? " · ☀ 3/3" : ""}{shipDone.mode === "solar" ? " · 🔋 8/8" : ""}{shipDone.mode === "warp" ? " · 🌌 " + t("ข้ามกาแล็กซีแล้ว", "crossed over", "已跨越") : ""}{shipDone.farm ? " · 🌾 " + shipDone.farm.made + "/" + shipDone.farm.target + " · " + "★".repeat(shipDone.farm.stars) : ""}{shipDone.ark ? " · 👥 " + Math.round(shipDone.ark.people * (0.6 + 0.4 * shipDone.ark.hpFrac)).toLocaleString() + " " + t("คนถึงดาวดวงใหม่", "people reached the new star", "人抵达新恒星") + (shipDone.ark.foodOk ? " · 🌱 " + t("อาหารพอ", "food lasts", "食物充足") : " · ⚠ " + t("อาหารไม่พอ", "food runs short", "食物不足")) : ""}{shipDone.mode === "blackhole" ? " · ⚫ " + t("ข้ามจักรวาลแล้ว", "another universe", "已进入新宇宙") : ""}</span>
             {shipDone.coins > 0 && <small className="ac-coins">🪙 +{shipDone.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
@@ -715,13 +726,16 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               {shipDone.next && <button className="adv-btn go" onClick={() => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setShipDone(null); setPlanet(shipDone.next); }}>▶ {T3(lang, shipDone.next.th, shipDone.next.en, shipDone.next.zh).split(" · ")[0]}</button>}
               <button className="adv-btn" onClick={() => { setShipDone(null); setPlanet(null); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div>
           </div>
-        ) : planet.mission === "farm" ? <Suspense fallback={<div className="adv-cine" />}><AdventureFarm key={planet.id + farmKey} P={planet} lang={lang} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
+        ) : planet.mission === "yard" ? <Suspense fallback={<div className="adv-cine" />}><AdventureYard key={planet.id + farmKey} P={planet} lang={lang} onExit={() => { setPlanet(null); }}
+          onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>
+        : planet.mission === "farm" ? <Suspense fallback={<div className="adv-cine" />}><AdventureFarm key={planet.id + farmKey} P={planet} lang={lang} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
           getNext={() => (net ? null : nextOf(planet))} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
+        }</AdvGuard>
       )}
       {shipQuiz && <QuizGate key={gateKeyOf(shipQuiz)} quiz={shipQuiz} lang={lang} onKey={(pc, name) => {
         const cur = shipQuiz; if (cur.res) return; const q = cur.qs[cur.i].q;
@@ -732,6 +746,21 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
     </div>
   );
 });
+
+/** Best times (plan 33 O5): your own best per map from this device, and the top ten from the board when the SQL is applied (fail-soft: an empty list otherwise) */
+function RankPanel({ lang, maps }: any) {
+  const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
+  const [id, setId] = useState(maps[0] ? maps[0].id : ""), [rows, setRows] = useState<{ pilot: string; secs: number }[] | null>(null);
+  useEffect(() => { let live = true; setRows(null); listAdvTop(id, 10).then(r => { if (live) setRows(r); }); return () => { live = false; }; }, [id]);
+  const mine = readBest()[id], fmt = (s: number) => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  return (
+    <div className="adv-rank" data-rank="1">
+      <select value={id} onChange={(e) => setId(e.target.value)} aria-label="map">{maps.map((P: any) => <option key={P.id} value={id === P.id ? id : P.id}>{T3(lang, P.th, P.en, P.zh).split(" · ")[0]}</option>)}</select>
+      <p>{mine ? t("เวลาดีที่สุดของคุณ ", "Your best ", "你的最佳 ") + fmt(mine) : t("ยังไม่เคยผ่านด่านนี้", "Not cleared yet", "尚未通关")}</p>
+      {rows === null ? <small>…</small> : rows.length ? <ol>{rows.map((r, i) => <li key={i}><b>{i + 1}</b> {r.pilot} <span>{fmt(r.secs)}</span></li>)}</ol> : <small>{t("ยังไม่มีอันดับออนไลน์", "No online board yet", "暂无在线排行")}</small>}
+    </div>
+  );
+}
 
 /** The skill book (owner, 2026-10-11): ten skills for the robot's class and ten for the pet's element. Robot skill n opens at class rank n, pet skill n at pet level n;
     levels 1..5 cost crystals; up to three robot actives and two pet actives are equipped. */
@@ -931,6 +960,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const pl: any = { x: 160, y: 0, vy: 0, face: 1, hp: hpMaxOf(info.lv), atkCd: 0, sklCd: 0, hurtT: 0, inv: 0, dead: 0, ground: true, swing: 0, fireCd: 0, rockCd: 0, kickCd: 0, dashCd: 0, dashT: 0, combo: 0, comboT: 0, maxCombo: 0 };
     const teleGaps: number[] = [];
     const mk = (type, hx, i) => ({ type, hx, x: hx, y: 0, vy: 0, vx: 0, hp: Math.round(MON[type].hp * HM), max: Math.round(MON[type].hp * HM), face: -1, cd: 800, hurt: 0, ph: rnd(i) * 6, dead: 0, resp: 0, tele: 0, act: "", teleAt: 0, i });
+    /* in a room the random waves (Jovia) gather round the TEAM, not round each pilot, so the ids they already share (1000 + wave * 10 + n) name monsters that stand in about the same place on every screen */
+    const teamX = () => { if (!net || !net.peers) return pl.x; let sx = pl.x, n = 1; net.peers.forEach((q: any) => { if (typeof q.x === "number" && q.hp !== 0) { sx += q.x; n++; } }); return sx / n; };
     const mons: any[] = [];
     const pattern = P.mons || ["glowbug"], pool = pattern;
     const HZ: number[][] = P.hazard ? [[1000, 1230], [2000, 2260], [3150, 3450]] : [];   // lava pools / shock plates (Pyra, Nexa): jump them or take the burn
@@ -1239,7 +1270,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       }
       if (P.survival && !surv.done && pl.dead <= 0) {
         surv.t += dt; surv.next -= dt;
-        if (surv.next <= 0) { surv.next = 6; surv.wave++; const n = Math.min(7, 2 + surv.wave); for (let i = 0; i < n; i++) { const side = i % 2 ? 1 : -1; const x = Math.max(60, Math.min(WORLD - 60, pl.x + side * (420 + rnd(surv.wave * 9 + i) * 160))); mons.push(mk(pool[(surv.wave + i) % pool.length], x, 1000 + surv.wave * 10 + i)); } }
+        if (surv.next <= 0) { surv.next = 6; surv.wave++; const n = Math.min(7, 2 + surv.wave); for (let i = 0; i < n; i++) { const side = i % 2 ? 1 : -1; const x = Math.max(60, Math.min(WORLD - 60, teamX() + side * (420 + rnd(surv.wave * 9 + i) * 160))); mons.push(mk(pool[(surv.wave + i) % pool.length], x, 1000 + surv.wave * 10 + i)); } }
         if (surv.t >= SURV_T) {
           surv.done = true; finished = true; mons.length = 0; shots.length = 0; markDone(P.id); shake = 6; showClear(2200);
           const gain = Math.round(150 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3)); gainCry(15 * CV);

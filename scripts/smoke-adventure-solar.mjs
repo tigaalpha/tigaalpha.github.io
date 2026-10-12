@@ -34,8 +34,8 @@ for (const [re, ship] of MAPS) {
   const idx = await p.evaluate((src) => [...document.querySelectorAll(".adv-planet")].findIndex(b => b.textContent.includes(src)), re);
   if (idx < 0) { ok(re + ": on the menu", false); await ctx.close(); continue; }
   await p.evaluate((i) => document.querySelectorAll(".adv-planet")[i].click(), idx);
-  await p.waitForSelector(ship ? ".adv-ship canvas" : (re === "Hydroponic" || re === "Livestock") ? ".adv-farm" : ".adv canvas", { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(1800);
-  ok(re + ": opens and runs without errors", (await p.locator(ship ? ".adv-ship canvas" : (re === "Hydroponic" || re === "Livestock") ? ".adv-farm" : ".adv canvas").count()) >= 1 && errs.length === 0, errs.join("|"));
+  await p.waitForSelector(ship ? ".adv-ship canvas" : (re === "Hydroponic" || re === "Livestock" || re === "Shipyard") ? ".adv-farm" : ".adv canvas", { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(1800);
+  ok(re + ": opens and runs without errors", (await p.locator(ship ? ".adv-ship canvas" : (re === "Hydroponic" || re === "Livestock" || re === "Shipyard") ? ".adv-farm" : ".adv canvas").count()) >= 1 && errs.length === 0, errs.join("|"));
   if (re === "Exodus") ok("Exodus is a warp run flown by the Ark", (await p.evaluate(() => window.__advShip.mode)) === "warp");
   await ctx.close();
 }

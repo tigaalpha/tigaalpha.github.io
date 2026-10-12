@@ -101,6 +101,41 @@ function drawPlayer(x: CanvasRenderingContext2D, glow: string, t: number) {
   // Raptor bells at the tail
   x.fillStyle = "#2a303c"; for (const oy of [-6, 0, 6]) { pl(x, [[L + 3, oy - 3.5], [L - 4, oy - 4.5], [L - 4, oy + 4.5], [L + 3, oy + 3.5]]); x.fill(); }
 }
+/** a finishing pass for every alien ship (owner, 2026-10-12: "draw the enemy ships and the mothership as well as the player's"): an exhaust plume behind it, a travelling
+    specular glint along the hull, a lit rim on the upper edge and blinking running lights, all additive and cheap (a few strokes and two gradients, no per-frame allocation of sprites) */
+function enemyFX(x: CanvasRenderingContext2D, e: any) {
+  if (e.hit > 0) return; const r = e.r || 16, ph = e.ph || 0, col = e.type === "drone" ? "255,120,200" : e.type === "fighter" ? "255,150,60" : e.type === "wasp" ? "140,240,90" : e.type === "kamikaze" ? "255,110,60" : "130,160,255";
+  x.globalCompositeOperation = "lighter";
+  const fl = r * (1.3 + 0.3 * Math.sin(ph * 30)), g = x.createLinearGradient(r * 0.8, 0, r * 0.8 + fl, 0); g.addColorStop(0, "rgba(" + col + ",.75)"); g.addColorStop(1, "rgba(" + col + ",0)"); x.fillStyle = g; x.beginPath(); x.moveTo(r * 0.7, -r * 0.28); x.lineTo(r * 0.8 + fl, 0); x.lineTo(r * 0.7, r * 0.28); x.closePath(); x.fill();
+  x.strokeStyle = "rgba(255,255,255,.34)"; x.lineWidth = 1.2; x.beginPath(); x.ellipse(0, 0, r * 0.95, r * 0.7, 0, Math.PI * 1.1, Math.PI * 1.9); x.stroke();
+  const gx = -r + ((ph * 0.5) % 1) * r * 2; const gl = x.createLinearGradient(gx - 6, 0, gx + 6, 0); gl.addColorStop(0, "rgba(255,255,255,0)"); gl.addColorStop(0.5, "rgba(255,255,255,.4)"); gl.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = gl; x.fillRect(gx - 6, -r * 0.6, 12, r * 1.2);
+  const on = Math.floor(ph * 4) % 2; x.fillStyle = on ? "rgba(255,70,90,.95)" : "rgba(255,70,90,.2)"; x.beginPath(); x.arc(-r * 0.2, -r * 0.62, 1.8, 0, 7); x.fill(); x.fillStyle = on ? "rgba(90,255,150,.2)" : "rgba(90,255,150,.95)"; x.beginPath(); x.arc(-r * 0.2, r * 0.62, 1.8, 0, 7); x.fill();
+  x.globalCompositeOperation = "source-over";
+}
+/** the same for the Hive Mothership: a big engine plume, lit window rows, running lights circling the armour, a slow scan glint, glowing cracks in the rage phase and a faint shield shimmer */
+function bossFX(x: CanvasRenderingContext2D, B: any) {
+  if (B.hit > 0) return; const ph = B.ph || 0, rage = B.hp < B.max / 2;
+  x.save(); x.translate(B.x, B.y); x.globalCompositeOperation = "lighter";
+  for (const k of [-1, 0, 1]) { const fl = 70 + Math.sin(ph * 14 + k) * 14, g = x.createLinearGradient(96, k * 22, 96 + fl, k * 22); g.addColorStop(0, rage ? "rgba(255,90,110,.8)" : "rgba(180,130,255,.8)"); g.addColorStop(1, "rgba(120,80,255,0)"); x.fillStyle = g; x.beginPath(); x.moveTo(92, k * 22 - 9); x.lineTo(96 + fl, k * 22); x.lineTo(92, k * 22 + 9); x.closePath(); x.fill(); }
+  for (let i = 0; i < 18; i++) { const a = i / 18 * 6.283 + ph * 0.6, px = Math.cos(a) * 92, py = Math.sin(a) * 70; x.fillStyle = (i + Math.floor(ph * 3)) % 3 === 0 ? "rgba(255,220,120,.95)" : "rgba(160,120,255,.55)"; x.fillRect(px - 1.5, py - 1.5, 3, 3); }
+  x.fillStyle = "rgba(255,200,120,.55)"; for (let r2 = 0; r2 < 3; r2++) for (let c = 0; c < 9; c++) if ((c * 7 + r2 * 3 + Math.floor(ph * 2)) % 5 !== 0) x.fillRect(-60 + c * 10, -16 + r2 * 16, 4, 2.2);
+  const sx = -90 + ((ph * 0.35) % 1) * 190, sg = x.createLinearGradient(sx - 14, 0, sx + 14, 0); sg.addColorStop(0, "rgba(255,255,255,0)"); sg.addColorStop(0.5, "rgba(255,255,255,.28)"); sg.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = sg; x.fillRect(sx - 14, -70, 28, 140);
+  if (rage) { x.strokeStyle = "rgba(255,70,100,.8)"; x.lineWidth = 1.6; for (let i = 0; i < 5; i++) { const y0 = -50 + i * 25; x.beginPath(); x.moveTo(-60 + i * 12, y0); x.lineTo(-30 + i * 12 + Math.sin(ph * 5 + i) * 6, y0 + 14); x.lineTo(-48 + i * 12, y0 + 30); x.stroke(); } }
+  x.strokeStyle = "rgba(190,160,255," + (0.12 + 0.08 * Math.sin(ph * 4)) + ")"; x.lineWidth = 2; x.beginPath(); x.ellipse(0, 0, 118, 98, 0, 0, 7); x.stroke();
+  x.globalCompositeOperation = "source-over"; x.restore();
+}
+/** a Harvester seen from very far away (owner's story: they are avoided, never fought): a ring of dark spokes around a dim star, a slow red scan sweep and a few lights.
+    Harmless scenery for the deep-space maps; Act 2's "Under the Harvesters' Eye" has its own, close one. */
+function drawHarvesterFar(x: CanvasRenderingContext2D, W: number, H: number, t: number, vt: number) {
+  const cx = W * 0.78 - ((vt * 1.5) % (W * 0.2)), cy = H * 0.3, R = Math.min(W, H) * 0.2;
+  x.save(); x.globalAlpha = 0.5; x.translate(cx, cy);
+  x.globalCompositeOperation = "lighter"; const g = x.createRadialGradient(0, 0, 0, 0, 0, R * 0.7); g.addColorStop(0, "rgba(255,200,140,.55)"); g.addColorStop(1, "rgba(255,120,60,0)"); x.fillStyle = g; x.beginPath(); x.arc(0, 0, R * 0.7, 0, 7); x.fill();
+  x.globalCompositeOperation = "source-over"; x.strokeStyle = "#05030a"; x.lineWidth = R * 0.07; x.beginPath(); x.ellipse(0, 0, R, R * 0.34, -0.35, 0, 7); x.stroke(); x.beginPath(); x.ellipse(0, 0, R * 0.62, R * 0.2, -0.35, 0, 7); x.stroke();
+  x.lineWidth = R * 0.03; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + t * 0.03; x.beginPath(); x.moveTo(Math.cos(a) * R * 0.2, Math.sin(a) * R * 0.07); x.lineTo(Math.cos(a) * R, Math.sin(a) * R * 0.34); x.stroke(); }
+  x.globalCompositeOperation = "lighter"; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283 - 0.35 * 0; x.fillStyle = "rgba(255,70,90," + (0.3 + 0.5 * Math.abs(Math.sin(t * 0.8 + i))) + ")"; x.fillRect(Math.cos(a) * R - 1.5, Math.sin(a) * R * 0.34 - 1.5, 3, 3); }
+  const sw = (t * 0.25) % 1, sg = x.createLinearGradient(0, 0, W, 0); sg.addColorStop(0, "rgba(255,60,90,.16)"); sg.addColorStop(1, "rgba(255,60,90,0)"); x.fillStyle = sg; x.rotate(-0.35 + sw * 0.7); x.fillRect(0, -2, W, 4);
+  x.restore();
+}
 /** the alien fleet: scarab drones, raiders, dreadnought carriers, wasps and bio-bombs */
 function drawEnemy(x: CanvasRenderingContext2D, e: any) {
   const hit = e.hit > 0, base = hit ? "#fff" : null, eyeG = (ex: number, ey: number, r: number, c: string) => { x.globalCompositeOperation = "lighter"; const g = x.createRadialGradient(ex, ey, 0, ex, ey, r * 3); g.addColorStop(0, "rgba(255,255,255,.95)"); g.addColorStop(0.3, c); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.beginPath(); x.arc(ex, ey, r * 3, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; };
@@ -117,6 +152,7 @@ function drawEnemy(x: CanvasRenderingContext2D, e: any) {
   } else {   // dreadnought carrier: a heavy plated hull with turret blisters and a glowing hangar
     x.fillStyle = base || mg(x, -26, 26, "#4a5a8a"); pl(x, [[-36, -8], [-24, -26], [30, -24], [38, 0], [30, 24], [-24, 26], [-36, 8]]); x.fill(); x.strokeStyle = "#8aa0ff"; x.lineWidth = 1.6; x.stroke(); x.strokeStyle = "rgba(0,0,0,.45)"; x.beginPath(); x.moveTo(-20, -24); x.lineTo(-20, 24); x.moveTo(6, -24); x.lineTo(6, 24); x.stroke(); x.fillStyle = base || "#1a2240"; x.beginPath(); x.arc(-8, -18, 6, 0, 7); x.arc(18, 17, 6, 0, 7); x.fill(); x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(255,200,90,.85)"; x.fillRect(-34, -3, 8, 6); eyeG(30, 0, 3, "rgba(255,90,90,.95)"); x.globalCompositeOperation = "source-over";
   }
+  enemyFX(x, e);
   if (e.max > 6 && e.hp < e.max) { x.fillStyle = "rgba(0,0,0,.6)"; x.fillRect(-20, -e.r - 10, 40, 4); x.fillStyle = "#ff6b81"; x.fillRect(-20, -e.r - 10, 40 * Math.max(0, e.hp / e.max), 4); }
   x.restore();
 }
@@ -137,6 +173,8 @@ const LOOTK = ["scrap", "ore", "gold", "core"] as const;
 
 const toRgb = (g: string) => { const m = /^#?([0-9a-f]{6})$/i.exec(g || ""); if (m) { const n = parseInt(m[1], 16); return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`; } return /^\d+,\s*\d+,\s*\d+$/.test(g || "") ? g : "127,232,255"; };
 export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit, ctl }: any) {
+  try { if (localStorage.getItem("tg_adv_crash") === "1") throw new Error("test crash"); } catch (e) { if (e && (e as any).message === "test crash") throw e; }   // a test-only switch for the map guard
+
   const [gear, setGear] = useState(false), pausedRef = useRef(false), fitRef = useRef<any>(null), musRef = useRef<any>(null);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } }), highRef = useRef(high); highRef.current = high;
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
@@ -281,6 +319,7 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
       // more nebula, far planets, a drifting far asteroid layer and the odd meteor streak (all harmless scenery)
       if (MODE !== "launch") { const nb: [number, number, string, number][] = [[0.22, 0.62, "60,120,255", 220], [0.55, 0.12, "255,90,170", 180]]; for (const [nx, ny, nc, nr] of nb) { const q = x.createRadialGradient(W * nx, H * ny, 8, W * nx, H * ny, nr); q.addColorStop(0, "rgba(" + nc + ",.14)"); q.addColorStop(1, "rgba(" + nc + ",0)"); x.fillStyle = q; x.fillRect(0, 0, W, H); } }
       if (HI() && MODE !== "launch") { if (!nebs) { nebs = [nebSprite(1, "90,120,255"), nebSprite(2, "255,110,190"), nebSprite(3, "80,220,200")]; dot = glowSprite("190,215,255"); } x.globalCompositeOperation = "lighter"; nebs.forEach((nb, i) => { const w = nb.width * (1.5 + i * 0.3), px = (((W * (0.2 + 0.3 * i) - (S.vt || 0) * (4 + i * 3)) % (W + w)) + (W + w)) % (W + w) - w * 0.5; x.globalAlpha = 0.5; x.drawImage(nb, px - w / 2, H * (0.1 + 0.28 * i) - w / 2, w, w); }); x.globalAlpha = 1; if (dot) for (const st of S.stars) if (st.z > 0.78) { const tw = 0.6 + 0.4 * Math.sin(S.t * 3 + st.y); x.globalAlpha = tw * 0.8; x.drawImage(dot, st.x - 7, st.y - 7, 14, 14); } x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; }
+      if (MODE === "warp" || MODE === "blackhole" || MODE === "solar" || (MODE === "harvest" && SKY === "dyson")) drawHarvesterFar(x, W, H, S.t || 0, S.vt || 0);
       for (const d of bd) { const sw = d.spr.width, px = (((d.x * W - (S.vt || 0) * d.sp) % (W + sw)) + (W + sw)) % (W + sw) - sw / 2; x.drawImage(d.spr, px - sw / 2, d.y * H - sw / 2); }
       if (MODE !== "launch" && MODE !== "warp") for (const f of far) { f.x -= f.sp / 60 * (1 + (S.ls || 0) * 7); if (f.x < -20) { f.x = W + 20; f.y = Math.random() * H; } f.rot += 0.004; x.save(); x.translate(f.x, f.y); x.rotate(f.rot); x.fillStyle = "rgba(70,62,86,.7)"; x.beginPath(); for (let i = 0; i < 7; i++) { const a2 = i / 7 * 6.283, rr = f.r * (0.8 + 0.25 * Math.sin(f.seed + i * 2.1)); x.lineTo(Math.cos(a2) * rr, Math.sin(a2) * rr); } x.closePath(); x.fill(); x.restore(); }
       streakT -= 1 / 60; if (streakT <= 0 && MODE !== "launch" && MODE !== "warp") { streakT = 2 + Math.random() * 4; streaks.push({ x: W * (0.4 + Math.random() * 0.6), y: Math.random() * H * 0.5, life: 0.7 }); }
@@ -323,7 +362,7 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
       for (const k of S.rk) { x.save(); x.translate(k.x, k.y); x.rotate(k.rot); const n = 9; x.fillStyle = k.hit > 0 ? "#fff" : mg(x, -k.r, k.r, SKY === "saturn" ? "#b8cfe4" : "#8a7a6a"); x.beginPath(); for (let i = 0; i < n; i++) { const a = i / n * 6.283, rr = k.r * (0.78 + 0.28 * Math.sin(k.seed + i * 2.3)); x.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } x.closePath(); x.fill(); x.strokeStyle = "rgba(255,210,150,.5)"; x.lineWidth = 1.5; x.stroke(); x.fillStyle = "rgba(0,0,0,.28)"; x.beginPath(); x.arc(k.r * 0.2, -k.r * 0.2, k.r * 0.22, 0, 7); x.arc(-k.r * 0.35, k.r * 0.25, k.r * 0.15, 0, 7); x.fill(); if (MODE === "belt") { x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(120,220,255,.7)"; x.fillRect(-k.r * 0.1, -k.r * 0.5, 3, 3); x.fillRect(k.r * 0.3, k.r * 0.1, 3, 3); } x.restore(); }
       if (HI()) for (const k of S.rk) { x.save(); x.translate(k.x, k.y); x.rotate(k.rot); for (let c2 = 0; c2 < 3; c2++) { const a2 = k.seed * 3 + c2 * 2.1, rr = k.r * 0.45, cx = Math.cos(a2) * rr, cy = Math.sin(a2) * rr, cr = k.r * (0.12 + 0.06 * c2); x.fillStyle = "rgba(20,14,10,.4)"; x.beginPath(); x.arc(cx, cy, cr, 0, 7); x.fill(); x.strokeStyle = "rgba(255,225,190,.35)"; x.lineWidth = 1; x.beginPath(); x.arc(cx, cy, cr, 3.6, 5.6); x.stroke(); } x.strokeStyle = "rgba(255,235,200,.5)"; x.lineWidth = 2; x.beginPath(); x.arc(0, 0, k.r * 0.9, 3.9, 5.5); x.stroke(); x.restore(); }
       for (const e of S.en) drawEnemy(x, e);
-      const B = S.boss; if (B && !B.dead) drawBoss(x, B);
+      const B = S.boss; if (B && !B.dead) { drawBoss(x, B); bossFX(x, B); }
       x.globalCompositeOperation = "lighter";
       for (const b of S.bl) { x.fillStyle = "rgba(" + glow + ",.95)"; x.fillRect(b.x - 12, b.y - 2, 24, 4); if (HI() && dot) x.drawImage(dot, b.x - 16, b.y - 16, 32, 32); }
       for (const b of S.eb) { x.fillStyle = b.big ? "rgba(255,80,120,.95)" : "rgba(255,170,60,.95)"; x.beginPath(); x.arc(b.x, b.y, b.big ? 7 : 5, 0, 7); x.fill(); }
