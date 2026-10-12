@@ -15,7 +15,7 @@ import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
 import { createAdvSfx } from "./adventure-sfx";
 import { paintMonster, paintBoss, paintKindred } from "./adventure-monsters";
-import { warTeamOf, openAdvRoom, MAX_PILOTS, type Net } from "./adv-online";
+import { warTeamOf, openAdvRoom, MAX_PILOTS, listPublicRooms, publicRoomOpen, publicRoomPing, publicRoomClose, type Net, type PublicRoom } from "./adv-online";
 import { treeOf, lvOf, buySkillLv, toggleEquip, readEquip, equippedOf, passiveSum, powerAt, cdAt, skillLook, skillSound, skillDesc, skillCost, isPassive, SKILL_MAX_LV, type Skill } from "./skill-tree";
 import { voiceOf } from "./fx-voice";
 import { PetArt, petLevel, petById, PET_TYPES } from "./pet-lab";
@@ -464,6 +464,14 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const [net, setNet] = useState<Net | null>(null), netRef = useRef<Net | null>(null), [peersL, setPeersL] = useState<any[]>([]), [warOpt, setWarOpt] = useState(false), [nerr, setNerr] = useState(""), [joinCode, setJoinCode] = useState(""), [busy, setBusy] = useState(false);
   const [pname, setPname] = useState(() => { try { const g = JSON.parse(localStorage.getItem("tg_guest_profile") || "{}"); return (g && g.name) || "Pilot"; } catch (e) { return "Pilot"; } });
   useEffect(() => () => { if (netRef.current) netRef.current.leave(); }, []);
+  // Public rooms (plan 33 O4): an optional advert for a room, and a list of other people's rooms to join. All calls fail soft.
+  const [pubOpt, setPubOpt] = useState(false), [pubOn, setPubOn] = useState(false), [pubRooms, setPubRooms] = useState<PublicRoom[]>([]), pubCodeRef = useRef<string | null>(null);
+  const refreshPub = () => { listPublicRooms().then(setPubRooms); };
+  useEffect(() => { if (online && !net) refreshPub(); }, [online, !!net]);
+  useEffect(() => { if (!pubOn || !net || !net.host) return; const id = setInterval(() => { publicRoomPing(net.code, 1 + peersL.length, "", warOpt); }, 30000); return () => clearInterval(id); }, [pubOn, net, peersL.length, warOpt]);
+  useEffect(() => { publicRoomPing && pubOn && net && net.host && publicRoomPing(net.code, 1 + peersL.length, "", warOpt); }, [peersL.length, warOpt]);
+  const closePub = () => { if (pubCodeRef.current) { publicRoomClose(pubCodeRef.current); pubCodeRef.current = null; } setPubOn(false); };
+  useEffect(() => () => { if (pubCodeRef.current) publicRoomClose(pubCodeRef.current); }, []);
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
   const [tick, setTick] = useState(0); void tick;
@@ -495,10 +503,11 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
     try {
       const n = await openAdvRoom(code, { name: (pname || "Pilot").slice(0, 14), model: me, glow: colorway && colorway.glow ? colorway.glow : "#7fe8ff" });
       n.on({ onPeers: (l) => setPeersL(l), onStart: (id) => { const Q = PLANETS.find(z => z.id === id); if (Q) startPlanet(Q); } }); netRef.current = n; setNet(n);
+      if (!code && pubOpt) { const okp = await publicRoomOpen(n.code, (pname || "Pilot").slice(0, 14), "", false); if (okp) { pubCodeRef.current = n.code; setPubOn(true); } }
     } catch (e) { setNerr(T3(lang, "เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง", "Could not connect — try again", "连接失败，请重试")); }
     setBusy(false);
   };
-  const leaveRoom = () => { if (netRef.current) netRef.current.leave(); netRef.current = null; setNet(null); setPeersL([]); };
+  const leaveRoom = () => { closePub(); if (netRef.current) netRef.current.leave(); netRef.current = null; setNet(null); setPeersL([]); };
   const nextOf = (cur: any) => { const dn = readDone(); const idx = PLANETS.findIndex(q => q.id === cur.id); const rest = [...PLANETS.slice(idx + 1), ...PLANETS.slice(0, idx)].filter(Q => Q.ok && open(Q)); return rest.find(Q => !dn.includes(Q.id)) || rest[0] || null; };   // the next map you have not cleared yet, wrapping round   // the orbital-strike result (which bases are gone) before an Ashfall run
   // Maps are played one step at a time inside each sector: step n opens when step n-1 is cleared (owner, 2026-10-12).
   // A top-tier admin (tier 3) is never locked, so the game can be inspected; `tg_adv_unlockall` is the same switch for the test bots.
@@ -544,7 +553,12 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
                 <div className="al-row"><button className="adv-btn go" disabled={busy} onClick={() => connect(null)} data-create="1">＋ {t("สร้างห้อง", "Create a room", "创建房间")}</button>
                   <input className="al-code" placeholder="ABC123" value={joinCode} maxLength={6} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
                   <button className="adv-btn" disabled={busy || joinCode.length !== 6} onClick={() => connect(joinCode)} data-join="1">{t("เข้าห้อง", "Join", "加入")}</button></div>
+                <label className="al-war"><input type="checkbox" data-pub="1" checked={pubOpt} onChange={e => setPubOpt(e.target.checked)} /> {t("เปิดเป็นห้องสาธารณะ (คนอื่นเห็นในรายการและเข้าได้เลย)", "List my room publicly (others can find and join it)", "公开房间（其他人可在列表中看到并加入）")}</label>
                 {nerr && <small className="al-err">{nerr}</small>}
+                <div className="al-pub" data-publist="1"><b>{t("ห้องสาธารณะ", "Public rooms", "公开房间")}</b> <button className="adv-btn" onClick={refreshPub} data-pubrefresh="1">↻</button>
+                  {pubRooms.length === 0 ? <small>{t("ยังไม่มีห้องเปิดอยู่ — สร้างห้องของคุณเองได้เลย", "No open rooms right now — create your own.", "暂无开放房间——自己创建一个吧。")}</small> : pubRooms.map(r => (
+                    <div className="al-row" key={r.code} data-pubrow={r.code}><span>{r.host_name} · {r.pilots}/{MAX_PILOTS}{r.war ? " · ⚔" : ""}</span><button className="adv-btn go" disabled={busy} onClick={() => connect(r.code)}>{t("เข้าห้อง", "Join", "加入")}</button></div>))}
+                </div>
                 <small>{t("ไม่ต้องตั้งค่าอะไร — แชร์รหัส 6 ตัวให้เพื่อนก็เข้าห้องได้", "Nothing to set up — share the 6-letter code with friends.", "无需设置——把 6 位代码分享给好友即可。")}</small>
               </>) : (<>
                 <div className="al-room"><span>{t("รหัสห้อง", "ROOM", "房间")}</span><b data-room="1">{net.code}</b><button className="adv-btn" onClick={leaveRoom}>{t("ออกจากห้อง", "Leave", "离开")}</button></div>
