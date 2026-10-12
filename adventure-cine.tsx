@@ -28,7 +28,7 @@ const THEME_TAG: Record<string, L3> = {
   dark: ["พลังงานใหม่ · สสารมืด", "NEW POWER · DARK MATTER", "新能源 · 暗物质"],
 };
 /* the new storyline (owner, 2026-10-12): the Harvesters, the Kindred, and TIGA's hunger for energy. One extra "lore" shot per map, with its own scene. */
-const LORE_THEME: Record<string, string> = { kindred: "friend", darkforge: "dark", shadow: "harvest", luma: "harvest", ferro: "ai", jovia: "reactor", kryo: "friend", pyra: "reactor", nexa: "harvest", cobalt: "ai", helios: "ai", dyson: "dark", ashfall: "harvest", voidgate: "harvest", asteroids: "friend", gasskim: "reactor", starharvest: "dark", solarcharge: "reactor", dysondock: "ai", gaspump: "reactor", warpjump: "harvest", blackhole: "dark" };
+const LORE_THEME: Record<string, string> = { kindred: "friend", darkforge: "dark", shadow: "harvest", luma: "harvest", ferro: "ai", jovia: "reactor", kryo: "friend", pyra: "reactor", nexa: "harvest", cobalt: "ai", helios: "ai", dyson: "dark", ashfall: "harvest", voidgate: "harvest", asteroids: "friend", gasskim: "reactor", starharvest: "dark", solarcharge: "reactor", dysondock: "ai", gaspump: "reactor", warpjump: "harvest", blackhole: "dark", moonhe3: "ai", moonbase: "friend", marscolony: "harvest", mercury: "reactor", venussky: "friend", jupitergas: "reactor", saturnrings: "ai", titanassault: "harvest", titancolony: "friend", arkbuild: "dark", arkexodus: "harvest" };
 const LORE: Record<string, L3> = {
   luma: ["ป่านี้ถูกสแกนแล้ว โดรนสอดแนมของฮาร์เวสเตอร์เห็นเราก่อนเราเห็นมัน — ต้องรีบตั้งฐานก่อนพวกมันกลับมา", "This jungle has already been scanned. A Harvester scout saw us before we saw it. We must build before they return.", "这片丛林已被扫描过。收割者的侦察机比我们先发现了对方，必须在它们回来之前建好基地。"],
   ferro: ["TIGA ต้องการแร่และพลังงานมากขึ้นทุกวัน แร่เหล็กที่นี่คือสมองก้อนใหม่ของมัน", "TIGA needs more ore and power every day. The iron here is the next piece of its mind.", "TIGA 一天比一天需要更多矿石与能源，这里的铁矿将成为它新的大脑。"],
@@ -43,6 +43,17 @@ const LORE: Record<string, L3> = {
   voidgate: ["ประตูมิตินี้คือทางเข้าของฮาร์เวสเตอร์ เราไม่ได้ปิดมันเพื่อชนะ แต่เพื่อให้พวกมันไม่หันมามองเรา", "This rift is a door for the Harvesters. We do not shut it to win, but so they never look our way.", "这道裂隙是收割者的入口，我们封闭它不是为了获胜，而是为了不让它们注意到我们。"],
   asteroids: ["เผ่าไคนด์เรดมาถึงทุ่งหินพร้อมยานขนส่ง พวกเขาแลกแร่กับความรู้ด้านวัสดุ เป็นเพื่อนที่เราเรียนรู้จากเขาได้", "The Kindred arrive in the belt with cargo ships. They trade materials science for ore: friends we can learn from.", "友族带着货船来到小行星带，他们用材料科学换取矿石，是我们可以学习的朋友。"],
   gasskim: ["พลังงานจากเมฆนี้ป้อนเตาฟิวชันของเรา แต่ TIGA ใช้หมดเร็วกว่าที่เราเก็บได้", "The energy in these clouds feeds our fusion plants, but TIGA burns it faster than we can gather it.", "这片云层的能量供给我们的聚变电站，但 TIGA 消耗得比我们采集的更快。"],
+  moonhe3: ["ฮีเลียม-3 คือเชื้อเพลิงฟิวชันที่โลกขาดแคลน และดวงจันทร์เก็บมันไว้มานับพันล้านปี", "Helium-3 is the fusion fuel Earth lacks, and the Moon has been storing it for billions of years.", "氦-3 是地球缺少的聚变燃料，月球已经把它储存了数十亿年。"],
+  moonbase: ["ถ้ามีคนอยู่ที่ดวงจันทร์ได้ ก็จะมีฐานส่งยานไปไกลกว่านั้น", "If people can live on the Moon, there is a base to launch ships further.", "如果人类能在月球生活，就有了发射飞船去更远处的基地。"],
+  marscolony: ["ดาวอังคารเคยมีน้ำ และเราจะทำให้มันมีชีวิตอีกครั้ง", "Mars once held water, and we will make it live again.", "火星曾经有水，我们要让它重新焕发生机。"],
+  mercury: ["ดาวพุธอยู่ใกล้ดวงอาทิตย์ที่สุด แสงที่นี่แรงกว่าโลกเก้าเท่า", "Mercury sits closest to the sun, where sunlight is nine times stronger than on Earth.", "水星离太阳最近，这里的阳光比地球强九倍。"],
+  venussky: ["พื้นผิวดาวศุกร์ร้อนเกินอยู่ แต่สูงขึ้นไปในเมฆ อากาศอบอุ่นพอดี", "Venus's surface is too hot, but high in its clouds the air is just warm.", "金星地表过于炙热，但高空云层里的温度刚刚好。"],
+  jupitergas: ["ดาวพฤหัสคือคลังไฮโดรเจนของระบบสุริยะ เชื้อเพลิงของยานทุกลำ", "Jupiter is the solar system's hydrogen vault, the fuel for every ship.", "木星是太阳系的氢气库，是所有飞船的燃料来源。"],
+  saturnrings: ["วงแหวนของดาวเสาร์คือน้ำแข็งบริสุทธิ์นับล้านล้านก้อน คือน้ำและเชื้อเพลิงของอาณานิคม", "Saturn's rings are trillions of pieces of pure ice, which means water and fuel for the colonies.", "土星光环由数万亿块纯净冰块组成，是殖民地的水和燃料。"],
+  titanassault: ["ไททัน ดวงจันทร์ดวงเดียวที่มีบรรยากาศหนา และมีสิ่งมีชีวิตแปลกๆ ยึดครองไว้ก่อนแล้ว", "Titan is the one moon with a thick atmosphere, and strange life holds it already.", "土卫六是唯一拥有浓厚大气的卫星，奇怪的生命已先一步占据了它。"],
+  titancolony: ["บนไททันมีทั้งน้ำและคาร์บอน ทุกอย่างที่เมืองหนึ่งต้องการ", "Titan has water and carbon, everything a city needs.", "土卫六有水也有碳，具备一座城市所需的一切。"],
+  arkbuild: ["ยานลำนี้ต้องสร้างแรงโน้มถ่วงของตัวเอง ปลูกอาหาร เลี้ยงสัตว์ และพาผู้คนนับแสนข้ามดวงดาว", "This ship must make its own gravity, grow food, keep animals and carry hundreds of thousands across the stars.", "这艘船要自己制造重力、种植食物、饲养动物，并载着数十万人跨越星际。"],
+  arkexodus: ["เมื่อโลกไม่พอ มนุษยชาติก็ต้องไปหาบ้านใหม่ ไปให้พ้นสายตาของฮาร์เวสเตอร์", "When Earth is not enough, humanity must find a new home, beyond the Harvesters' sight.", "当地球不再够用，人类必须寻找新家园，躲开收割者的视线。"],
   solarcharge: ["แบตเตอรีของยานรั่วไหลตลอดเวลา ถ้าหมดกลางทางก็ไม่มีใครมารับเรา", "The ship's battery bleeds all the time. If it runs dry out here, nobody is coming for us.", "飞船电池一直在流失，如果在这里耗尽，没人会来接我们。"],
   dysondock: ["ไดสันสเฟียร์ต้องการพลังงานเติมไม่รู้จบ เราคือคนส่งของให้มัน", "The Dyson sphere never stops asking for power. We are the couriers who feed it.", "戴森球需要源源不断的能量，我们就是给它送能的信使。"],
   gaspump: ["ก๊าซจากดาวยักษ์คือเชื้อเพลิงของฟิวชัน ทุกถังที่สูบคือหนึ่งวันของ TIGA", "Gas from the giants fuels our fusion. Every tank we pump is one more day for TIGA.", "巨行星的气体是聚变燃料，每抽满一罐都是 TIGA 多一天的能量。"],
@@ -70,6 +81,17 @@ const INTRO: Record<string, L3> = {
   helios: ["เฮลิออส — ดาวฤกษ์ต่างระบบ พลังงานเหลือเฟือ ถ้ายึดมันได้", "Helios: a foreign sun, with limitless energy for whoever takes it.", "赫利俄斯——异星恒星，谁占领它谁就拥有无尽能量。"],
   starharvest: ["ดาวฤกษ์ดวงใหม่จากอีกจักรวาล — แหล่งพลังงานที่ใหญ่ที่สุดที่มนุษย์เคยเห็น", "A star from another universe: the largest well of energy humanity has ever seen.", "另一个宇宙的恒星——人类所见过的最庞大的能量之源。"],
   gasskim: ["ดาวแก๊สยักษ์ — มหาสมุทรเมฆที่เก็บพลังงานมหาศาลไว้ในชั้นลึก", "A gas giant: an ocean of cloud hiding vast energy in its depths.", "气态巨星——云海之下藏着庞大的能量。"],
+  moonhe3: ["ดวงจันทร์ใกล้โลกที่สุด จึงเป็นก้าวแรกของการหาทรัพยากรนอกโลก", "The Moon is the closest world, so it is the first step in finding resources beyond Earth.", "月球离地球最近，是在地球之外寻找资源的第一步。"],
+  moonbase: ["โครงสร้างฐานตั้งรออยู่ในหลุมอุกกาบาต รอโมดูลที่อยู่อาศัยและพลังงาน", "The base frames wait in a crater for habitat and power modules.", "基地骨架在环形山中等待居住舱和能源舱。"],
+  marscolony: ["พายุฝุ่นแดงปกคลุมที่ตั้งโดม สิ่งมีชีวิตแปลกๆ โผล่มาจากหิน", "A red dust storm covers the dome site, and strange creatures crawl out of the rock.", "红色沙尘暴笼罩着穹顶工地，奇怪的生物从岩石中爬出。"],
+  mercury: ["ด้านกลางวันของดาวพุธร้อนจนหินเรืองแสง แต่สถานีพลังงานยังรอให้ยึด", "On Mercury's day side the rocks glow, yet the power stations still wait to be taken.", "水星的白昼面热得岩石发光，但能源站仍等待被夺取。"],
+  venussky: ["เมืองลอยฟ้าแขวนอยู่เหนือทะเลเมฆกรด รอยานส่งเสบียง", "Floating cities hang above the acid cloud sea, waiting for supply ships.", "浮空城市悬在酸云之海上方，等待补给飞船。"],
+  jupitergas: ["พายุยักษ์ที่ใหญ่กว่าโลกหมุนวนอยู่ข้างล่าง เรืองแสงสีแดงส้ม", "A storm bigger than Earth turns below, glowing orange-red.", "一场比地球还大的风暴在下方旋转，泛着橙红色的光。"],
+  saturnrings: ["วงแหวนทอดตัวกว้างเหมือนกำแพงเรืองแสงอยู่ข้างยาน", "The rings stretch like a glowing wall beside the ship.", "光环像一堵发光的墙铺展在飞船旁。"],
+  titanassault: ["หมอกสีส้มปกคลุมทะเลมีเทน สิ่งมีชีวิตแปลกๆ เฝ้าชายฝั่งอยู่", "An orange haze covers the methane sea, and strange creatures guard the shore.", "橙色的雾笼罩着甲烷海，奇异的生物守着海岸。"],
+  titancolony: ["พื้นที่ราบริมทะเลมีเทนพร้อมให้ตั้งโครงสร้างอาณานิคม", "Flat ground by the methane sea is ready for colony frames.", "甲烷海旁的平地已经可以搭建殖民地骨架。"],
+  arkbuild: ["โครงเหล็กขนาดมหึมาตั้งตระหง่านเหนืออู่ต่อยาน รอวัสดุจากทั้งระบบสุริยะ", "A colossal frame towers over the yard, waiting for materials from the whole solar system.", "庞大的骨架耸立在船坞上，等待来自整个太阳系的材料。"],
+  arkexodus: ["Ark ลอยตัวออกจากอู่ วงแหวนแรงโน้มถ่วงหมุน ชั้นเกษตรสว่างเขียว", "The Ark drifts out of the yard: the gravity ring turns and the farm decks glow green.", "方舟驶出船坞：重力环转动，农业层亮起绿光。"],
   solarcharge: ["ยานอยู่ไกลจากโลก พลังงานเหลือน้อย ต้องหาแผงโซลาร์ที่ลอยอยู่แถวนี้", "Far from Earth with the battery low: solar panels drift through this sector.", "远离地球，电量不足：这片区域漂浮着太阳能板。"],
   dysondock: ["ไดสันสเฟียร์ที่ล้อมดาวฤกษ์ดวงนี้มีท่าจอดสำหรับส่งพลังงานเข้าโครงข่าย", "The Dyson sphere around this star has docking ports that feed power into the grid.", "这颗恒星外的戴森球有对接口，可把能量送入电网。"],
   gaspump: ["เมฆก๊าซของดาวยักษ์ดวงนี้หนาแน่น มีหัวสูบที่เรามาติดตั้งไว้สามจุด", "This giant's clouds are dense, and we have set three pump nozzles in them.", "这颗巨行星的云层浓密，我们在其中布置了三个抽取口。"],
@@ -95,6 +117,17 @@ const STORY: Record<string, L3> = {
   helios: ["สถานีเก็บพลังงานสามจุดเรียงรายอยู่ใต้ดวงอาทิตย์ ศัตรูจะไม่ปล่อยให้ใครยึดไป", "Three collector stations stand under this sun, and the enemy will not give them up.", "三座能量采集站矗立在恒星之下，敌人不会拱手相让。"],
   starharvest: ["เรือบุกเบิกต้องเข้าจอดที่สถานีเก็บพลังงานทีละแห่ง ท่ามกลางเปลวสุริยะและฝูงเอเลี่ยนที่หวงดาว", "The pioneer ships must dock at each collector station in turn, under solar flares and alien raiders guarding their star.", "先遣飞船必须依次停靠每座采集站，头顶是耀斑，周围是守卫恒星的外星袭击者。"],
   gasskim: ["บินเฉียดชั้นเมฆ ให้ถังพลังงานเต็ม ท่ามกลางพายุฟ้าผ่าที่ไม่เคยหยุด", "Skim the cloud tops until the tank is full, under storms that never rest.", "掠过云顶，在永不停歇的风暴下装满能量罐。"],
+  moonhe3: ["ขุดเหมืองบนผิวดวงจันทร์ แรงโน้มถ่วงต่ำ ฝุ่นละเอียด และมีเงาดำยาว", "Mine the lunar surface: low gravity, fine dust and long black shadows.", "开采月球表面：低重力、细密的尘埃和漫长的黑色阴影。"],
+  moonbase: ["ขุดวัสดุ ประกอบโมดูลที่อยู่อาศัย และต่อไฟเลี้ยงฐาน", "Dig materials, assemble the habitat modules and wire up the base's power.", "挖掘材料，组装居住舱并接通基地电力。"],
+  marscolony: ["ยืนหยัดปกป้องโดมจนระบบบรรยากาศเดินเครื่องครบ", "Hold the line until the atmosphere plant is fully running.", "坚守阵地，直到大气工厂全面运转。"],
+  mercury: ["ยึดสถานีเก็บพลังงานทีละจุดบนพื้นผิวที่ร้อนจัด", "Take each collector station, one by one, on the scorching ground.", "在灼热的地面上逐个夺取采集站。"],
+  venussky: ["บินเข้าวงแหวนของแท่นลอยฟ้าทีละแห่ง ขณะพายุเมฆพัดผ่าน", "Glide into each platform ring while cloud gusts sweep by.", "依次飞入各个浮空平台环，同时云中的狂风扫过。"],
+  jupitergas: ["บินเฉียดชั้นบรรยากาศบน ดูดแก๊สเข้าถังท่ามกลางสายฟ้า", "Skim the upper atmosphere and pull gas into the tank amid the lightning.", "掠过高层大气，在闪电中把气体抽进罐里。"],
+  saturnrings: ["ยิงก้อนน้ำแข็งให้แตก แล้วเก็บเศษที่ลอยออกมา", "Shoot the ice apart and gather the pieces that drift out.", "打碎冰块，收集漂出的碎片。"],
+  titanassault: ["ฝ่าฝูงสิ่งมีชีวิตและเอาชนะผู้พิทักษ์ไททัน", "Fight through the swarm and defeat the guardian of Titan.", "杀出生物群，击败土卫六的守卫。"],
+  titancolony: ["ขุดวัสดุ ประกอบโมดูล และเปิดระบบความอบอุ่นของเมือง", "Dig materials, assemble the modules and switch on the city's heating.", "挖掘材料，组装舱体，启动城市供暖。"],
+  arkbuild: ["ขุดวัสดุ แล้วประกอบ Ark ทีละส่วนจนครบ", "Dig materials and build the Ark section by section.", "挖掘材料，逐段建造方舟。"],
+  arkexodus: ["พาผู้คนนับแสนผ่านประตูวาร์ป ไปตั้งถิ่นฐานที่ดาวดวงใหม่", "Carry hundreds of thousands through the warp gates to settle a new star.", "载着数十万人穿过曲速门，前往新恒星定居。"],
   solarcharge: ["เก็บแผงโซลาร์ให้ครบ ก่อนแบตเตอรีจะหมดและเครื่องยนต์ดับ", "Gather the solar panels before the battery drains and the engines die.", "在电量耗尽、引擎熄火之前收集足够的太阳能板。"],
   dysondock: ["ลอยเข้าวงแหวนท่าจอดทีละจุด ส่งพลังงานเข้าไดสันสเฟียร์ ระวังแสงแฟลร์ที่ผ่านมา", "Glide into each docking ring and feed the Dyson sphere, and watch for flares sweeping past.", "依次飞入对接环向戴森球送能，当心扫过的耀斑。"],
   gaspump: ["เข้าไปในวงแหวนหัวสูบทีละจุดจนถังเต็ม ใต้พายุที่ไม่เคยหยุด", "Hold in each pump ring until the tank fills, under storms that never rest.", "在每个抽取环内停留直到罐满，头顶是永不停歇的风暴。"],
@@ -120,6 +153,17 @@ const GOAL: Record<string, L3[]> = {
   helios: [["ยืนยึดสถานีทีละจุด จุดละ 10 วินาที", "Hold each station for 10 seconds", "逐一坚守采集站 10 秒"], ["ป้องกันคลื่นศัตรูขณะยึด", "Beat back the waves meanwhile", "占领期间击退敌军"], ["ยึดครบ 3 จุดเพื่อเป็นเจ้าของดวงอาทิตย์", "Take all three to own the sun", "占领全部三座，拥有恒星"]],
   starharvest: [["บินเข้าวงแหวนสถานีและอยู่ให้ครบ 7 วินาที", "Fly into the station ring and hold for 7 s", "飞入采集站圆环并停留 7 秒"], ["หลบเปลวสุริยะที่กวาดมา", "Dodge the sweeping solar flares", "躲开横扫的耀斑"], ["ยึดให้ครบ 3 สถานี", "Seize all 3 stations", "占领全部 3 座采集站"]],
   gasskim: [["อยู่ในชั้นพลังงานเรืองแสง", "Stay inside the glowing energy layer", "留在发光的能量层内"], ["หลบสายฟ้าที่ฟาดลงมา", "Dodge the lightning strikes", "躲开落下的闪电"], ["ถังเต็ม 100% เพื่อส่งกลับโลก", "Fill the tank to 100% to send it home", "装满 100% 后送回地球"]],
+  moonhe3: [["ขุดหินฝุ่นจันทร์ให้ได้ฮีเลียม-3", "Break the regolith for Helium-3", "敲开月壤获取氦-3"], ["เก็บใส่แคปซูลให้เกินครึ่ง", "Fill the capsule past half", "把货舱装过半"], ["ส่งขึ้นยิงกลับโลก", "Launch it back to Earth", "发射回地球"]],
+  moonbase: [["ขุดวัสดุให้เพียงพอ", "Dig enough materials", "挖足材料"], ["ประกอบโมดูลให้ครบทุกโครง", "Assemble every module frame", "装好每一个舱体框架"], ["ส่งสัญญาณถึงโลกที่ปลายทาง", "Signal Earth from the far relay", "在远端中继向地球发信号"]],
+  marscolony: [["ปกป้องโดมอาณานิคม", "Defend the colony dome", "保卫殖民穹顶"], ["เก็บพลังงานให้เต็มหลอด", "Fill the energy bar", "把能量条充满"], ["อยู่รอดครบ 90 วินาที", "Survive the full 90 seconds", "坚持满 90 秒"]],
+  mercury: [["ยึดสถานีเก็บพลังงาน 3 จุด", "Take 3 collector stations", "夺取 3 个采集站"], ["ต้านคลื่นสัตว์ประหลาด", "Hold off the waves", "抵御怪物浪潮"], ["ส่งพลังงานกลับโลก", "Beam the power home", "把能量传回地球"]],
+  venussky: [["แวะแท่นลอยฟ้าให้ครบ 3 แห่ง", "Dock at all 3 platforms", "停靠全部 3 座平台"], ["หลบแนวลมพายุ", "Avoid the storm bands", "避开风暴带"], ["เมืองลอยฟ้ามีเสบียงพอ", "Supply the cloud city", "为云中城市补给"]],
+  jupitergas: [["อยู่ในชั้นแก๊สเรืองแสง", "Stay in the glowing gas layer", "留在发光的气体层"], ["หลบสายฟ้าฟาด", "Dodge the lightning", "躲开闪电"], ["ถังเต็ม 100%", "Fill the tank to 100%", "装满 100% 的罐"]],
+  saturnrings: [["ยิงก้อนน้ำแข็งให้แตก", "Shoot the ice chunks apart", "打碎冰块"], ["เก็บชิ้นน้ำแข็ง 16 ชิ้น", "Collect 16 pieces", "收集 16 块"], ["หลบก้อนใหญ่ที่พุ่งเข้ามา", "Dodge the big ones", "躲开冲来的大冰块"]],
+  titanassault: [["ฝ่าฝูงสิ่งมีชีวิตบนชายฝั่ง", "Fight through the shore swarm", "杀出海岸的生物群"], ["เอาชนะผู้พิทักษ์ไททัน", "Defeat Titan's guardian", "击败土卫六守卫"], ["เปิดทางให้อาณานิคม", "Open the way for the colony", "为殖民地开路"]],
+  titancolony: [["ขุดน้ำแข็งและคาร์บอน", "Dig ice and carbon", "挖冰和碳"], ["ประกอบโมดูลอาณานิคมให้ครบ", "Assemble every colony module", "组装全部殖民舱"], ["เปิดระบบความอบอุ่น", "Switch on the heating", "启动供暖"]],
+  arkbuild: [["ขุดวัสดุให้เพียงพอ", "Dig enough materials", "挖足材料"], ["ประกอบ 4 ส่วนของ Ark", "Assemble the Ark's 4 sections", "组装方舟的 4 个部分"], ["ปล่อยสัญญาณเครื่องกำเนิดแรงโน้มถ่วง", "Fire up the gravity generator", "启动重力发生器"]],
+  arkexodus: [["บังคับ Ark ผ่านประตูวาร์ป 3 บาน", "Steer the Ark through 3 gates", "驾驶方舟穿过 3 道曲速门"], ["หลบเศษซากอวกาศ", "Dodge the debris", "躲开太空碎片"], ["เข้าพอร์ทัลสู่ดาวดวงใหม่", "Enter the portal to the new star", "进入通往新恒星的传送门"]],
   solarcharge: [["เก็บแผงโซลาร์ให้ครบ 8 แผง", "Collect 8 solar panels", "收集 8 块太阳能板"], ["อย่าให้แบตเตอรีหมด", "Never let the battery run dry", "别让电池耗尽"], ["หลบอุกกาบาตและยานเอเลี่ยน", "Dodge rocks and alien ships", "躲开陨石和外星飞船"]],
   dysondock: [["ลอยเข้าวงแหวนท่าจอดให้ครบ 3 จุด", "Dock at all 3 rings", "在 3 个对接环完成对接"], ["หลบแสงแฟลร์ที่กวาดผ่าน", "Avoid the sweeping flares", "避开扫过的耀斑"], ["ส่งพลังงานเข้าไดสันสเฟียร์", "Feed the Dyson sphere", "向戴森球输送能量"]],
   gaspump: [["เข้าวงแหวนหัวสูบให้ครบ 3 จุด", "Fill at all 3 pump rings", "在 3 个抽取环完成抽取"], ["หลบพายุและฟ้าผ่า", "Avoid the storm bands", "避开风暴带"], ["เก็บถังก๊าซส่งกลับโลก", "Send the gas home", "把气体送回地球"]],
@@ -134,9 +178,9 @@ const GOAL: Record<string, L3[]> = {
   darkforge: [["ทุบหินหาแร่ด้วยปุ่ม ⛏", "Break rocks for ore with the ⛏ button", "用 ⛏ 按钮敲碎岩石获取矿石"], ["ประกอบภาชนะสสารมืด 4 ชิ้น", "Assemble 4 dark-matter vessels", "组装 4 个暗物质容器"], ["หลบเปลวพลังงานที่ปะทุ", "Dodge the energy flares", "躲开爆发的能量耀斑"]],
   shadow: [["ห้ามยิง — ยานต้องเงียบ", "No shooting: the ship stays dark", "禁止开火——飞船保持静默"], ["หลบลำแสงสแกนทั้งแนวนอนและแนวตั้ง", "Dodge scan beams, across and down", "躲开横向与纵向的扫描光束"], ["รอดให้ครบ 50 วินาที", "Survive 50 seconds", "存活满 50 秒"]],
 };
-const TYPE: Record<string, string> = { kindred: "ice", darkforge: "belt", shadow: "orbit", luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun", solarcharge: "sun", dysondock: "sun", gaspump: "gas", warpjump: "orbit", blackhole: "orbit" };
+const TYPE: Record<string, string> = { kindred: "ice", darkforge: "belt", shadow: "orbit", luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun", solarcharge: "sun", dysondock: "sun", gaspump: "gas", warpjump: "orbit", blackhole: "orbit", moonhe3: "desert", moonbase: "desert", marscolony: "desert", mercury: "lava", venussky: "gas", jupitergas: "gas", saturnrings: "belt", titanassault: "ice", titancolony: "ice", arkbuild: "belt", arkexodus: "orbit" };
 
-const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest", "solarcharge", "dysondock", "gaspump", "warpjump", "blackhole", "kindred", "darkforge", "shadow"];
+const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest", "solarcharge", "dysondock", "gaspump", "warpjump", "blackhole", "moonhe3", "moonbase", "marscolony", "mercury", "venussky", "jupitergas", "saturnrings", "titanassault", "titancolony", "arkbuild", "arkexodus", "kindred", "darkforge", "shadow"];
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
 /* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
 export function cinePlan(P: any, short?: boolean): CineShot[] { return basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 })); }
