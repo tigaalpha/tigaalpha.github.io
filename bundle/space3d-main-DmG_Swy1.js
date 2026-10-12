@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:bundle/space3d-main-5GMhDIAg.js
-import{r as Z,aa as cS,j as oe,ab as ep}from"./index.template-B9W4bIwz.js";/**
-========
-import{r as Z,aa as cS,j as oe,ab as ep}from"./index.template-Cft_G31L.js";/**
->>>>>>>> claude/upbeat-fermi-dey70w:bundle/space3d-main-Cd-mW0Nd.js
+import{r as Z,aa as cS,j as oe,ab as ep}from"./index.template-64qdmgrt.js";/**
  * @license
  * Copyright 2010-2025 Three.js Authors
  * SPDX-License-Identifier: MIT
