@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
+import { useFpv, FpvButton, FpvVisor } from "./fpv";
 import { readArk } from "./adventure-ark";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -56,6 +57,7 @@ export default function AdventureFarm({ P, lang, onWin, onExit, onRetry }: any) 
   const ark = readArk(), lvl = P.kind === "herd" ? ark.l : ark.f, ymul = 1 + 0.08 * lvl, target = 600 + 60 * ark.h;   // calibrated with a simulation of these rules: a careful player makes ~850 in 150 s, a lazy one ~450
   const G = useRef<any>(null); if (!G.current) G.current = { t: 0, res: [80, 80, 80], cd: [0, 0, 0], cells: Array.from({ length: CELLS }, () => ({ ty: null as any, p: 0, sick: 0 })), made: 0, spent: 0, tech: [false, false, false], sickT: 8, ended: false, won: false, fact: 0 };
   const [, setTick] = useState(0), [pick, setPick] = useState<number | null>(null), [gear, setGear] = useState(false), pausedRef = useRef(false);
+  const [fpv, flipFpv] = useFpv();   // first-person view: a helmet visor over the board
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null);
@@ -100,8 +102,9 @@ export default function AdventureFarm({ P, lang, onWin, onExit, onRetry }: any) 
           <div className="adv-lv">{kind.icon} {T3(lang, P.th, P.en, P.zh).split(" · ")[0]} · ⏱ {left}s · {t("ผลผลิตสะสม ", "Food made ", "已产出 ")}{Math.round(S.made)}/{target} · {t("คงเหลือ ", "stock ", "库存 ")}{stock}</div>
           <div className="adv-bar adv-hp"><i style={{ width: pct + "%" }} /><b>{t("ประชากรอิ่มท้อง ", "Population fed ", "人口温饱 ")}{Math.round(pct)}%</b></div>
         </div>
-        <GearButton onClick={openGear} />
+        <div className="fpv-tr"><FpvButton lang={lang} on={fpv} onClick={flipFpv} /><GearButton onClick={openGear} /></div>
       </div>
+      {fpv && <FpvVisor />}
       <div className="af-grid">
         {S.cells.map((c: any, i: number) => (
           <button key={i} className={"af-cell" + (c.ty ? (c.sick > 0 ? " sick" : c.p >= 100 ? " ready" : " grow") : "")} data-cell={i} onClick={() => tapCell(i)}>

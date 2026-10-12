@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
+import { useFpv, FpvButton, FpvCockpit, FpvHurt } from "./fpv";
 import { readArk, arkStats } from "./adventure-ark";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -175,6 +176,7 @@ const toRgb = (g: string) => { const m = /^#?([0-9a-f]{6})$/i.exec(g || ""); if 
 export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit, ctl }: any) {
   try { if (localStorage.getItem("tg_adv_crash") === "1") throw new Error("test crash"); } catch (e) { if (e && (e as any).message === "test crash") throw e; }   // a test-only switch for the map guard
 
+  const [fpv, flipFpv] = useFpv(), fpvRef = useRef(fpv), hurtRef = useRef<HTMLDivElement>(null); fpvRef.current = fpv;   // first-person view: cockpit, no ship body, a reticle
   const [gear, setGear] = useState(false), pausedRef = useRef(false), fitRef = useRef<any>(null), musRef = useRef<any>(null);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } }), highRef = useRef(high); highRef.current = high;
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
@@ -381,7 +383,11 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
         bar(ty + 8, prog, "#7ab8ff", "day " + eaten + "/600"); bar(ty + 26, left / 600, left > 0 ? "#6ee59a" : "#ff6a5a", left > 0 ? "food " + left : "no food"); bar(ty + 44, ARKST.gravity / 1.0, ARKST.health >= 1 ? "#8cffdc" : "#ffc060", ARKST.gravity + " g");
         x.restore();
       }
-      const s = S.ship; if (!S.over) { x.save(); x.translate(s.x, s.y); if (s.inv > 0 && Math.floor(S.t * 20) % 2) x.globalAlpha = 0.4; if (SKY === "ark") { x.scale(0.82, 0.82); drawArk(x, glow, S.t, ARKLV); } else drawPlayer(x, glow, S.t); x.restore(); }
+      const s = S.ship;
+      if (!S.over && fpvRef.current) {   // first person: the ship is the viewer, so draw a reticle (and the thruster glow) where it is instead of its hull
+        x.save(); x.translate(s.x + 60, s.y); x.globalCompositeOperation = "lighter"; x.strokeStyle = "rgba(150,255,230,.9)"; x.lineWidth = 2; x.beginPath(); x.arc(0, 0, 15, 0, 7); x.moveTo(0, -26); x.lineTo(0, -12); x.moveTo(0, 12); x.lineTo(0, 26); x.moveTo(-26, 0); x.lineTo(-12, 0); x.moveTo(12, 0); x.lineTo(26, 0); x.stroke(); x.fillStyle = "#fff"; x.beginPath(); x.arc(0, 0, 2, 0, 7); x.fill(); x.restore();
+        const he = hurtRef.current; if (he && s.inv > 0.55 && !he.classList.contains("on")) { he.classList.add("on"); setTimeout(() => { try { he.classList.remove("on"); } catch (e) {} }, 170); }
+      } else if (!S.over) { x.save(); x.translate(s.x, s.y); if (s.inv > 0 && Math.floor(S.t * 20) % 2) x.globalAlpha = 0.4; if (SKY === "ark") { x.scale(0.82, 0.82); drawArk(x, glow, S.t, ARKLV); } else drawPlayer(x, glow, S.t); x.restore(); }
       if (HI()) {   // bloom: the frame, shrunk and stretched back over itself, plus a soft colour vignette
         const bw = Math.max(48, c.width >> 3), bh = Math.max(27, c.height >> 3); if (!bloomA) { bloomA = document.createElement("canvas"); bloomB = document.createElement("canvas"); }
         if (bloomA && bloomB) { bloomA.width = bw; bloomA.height = bh; bloomB.width = bw >> 1; bloomB.height = bh >> 1; const a1 = bloomA.getContext("2d")!, b1 = bloomB.getContext("2d")!; a1.drawImage(c, 0, 0, bw, bh); b1.drawImage(bloomA, 0, 0, bw >> 1, bh >> 1);
@@ -433,8 +439,9 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
           <div className="adv-bar adv-hp"><i style={{ width: Math.max(0, Math.min(100, ui.hp)) + "%" }} /><b>HP {ui.hp}</b></div>
           {MODE === "dogfight" && ui.bossOn && <div className="adv-bar adv-sk"><i style={{ width: ui.boss * 100 + "%" }} /><b>{t("มาเธอร์ชิป", "MOTHERSHIP", "母舰")}</b></div>}
         </div>
-        <GearButton onClick={() => { const k = keys.current; k.l = k.r = k.u = k.d = k.fire = k.miss = false; k.ax = 0; k.ay = 0; pausedRef.current = true; setGear(true); }} />
+        <div className="fpv-tr"><FpvButton lang={lang} on={fpv} onClick={flipFpv} /><GearButton onClick={() => { const k = keys.current; k.l = k.r = k.u = k.d = k.fire = k.miss = false; k.ax = 0; k.ay = 0; pausedRef.current = true; setGear(true); }} /></div>
       </div>
+      {fpv && <><FpvCockpit /><FpvHurt hurtRef={hurtRef} /></>}
       {gear && <SettingsPopup lang={lang} high={high} onGfx={flipGfx} musicOn={musicOn} onMusic={flipMusic} online={false} onResume={() => { pausedRef.current = false; setGear(false); }} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {(ui.over || ui.win) && <div className="adv-clear" role="dialog" aria-label="ship result">{ui.win ? t("ชนะ! กำลังสรุปผล…", "Victory! Tallying…", "胜利！结算中…") : <><b>{t("ยานถูกทำลาย", "Ship destroyed", "战机被毁")}</b><button className="adv-btn go" onClick={() => retry.current()}>↻ {t("ลองใหม่", "Retry", "重试")}</button><button className="adv-btn" onClick={() => onExit()}>{t("กลับแผนที่", "Back to map", "返回地图")}</button></>}</div>}
       <div className="adv-stickzone" data-stickzone="1" {...stick}><div className="adv-stickring" ref={ringRef} /></div>
