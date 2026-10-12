@@ -103,6 +103,27 @@ const PROLOGUE: any = { id: "prologue", prologue: true, th: "โครงกา�
 let TINT: any = null;
 const AdventureShip = lazy(() => import("./adventure-ship"));   // the starship dogfight: its own chunk
 const AdventureCine = lazy(() => import("./adventure-cine"));   // the film before each map: its own chunk, loaded when a map is picked
+
+/* Lightning (owner, 2026-10-12: "make the BOLT look like real lightning, grander"). A bolt is a jagged path (midpoint displacement, redrawn every frame so it
+   flickers), with side branches, a wide blue glow, a cyan body and a white core, and a bright flare where it lands. Screen space is the caller's. */
+function jag(x0: number, y0: number, x1: number, y1: number, depth: number, off: number, out: number[][]) {
+  if (depth === 0) { out.push([x1, y1]); return; }
+  const mx = (x0 + x1) / 2 + (Math.random() - 0.5) * off, my = (y0 + y1) / 2 + (Math.random() - 0.5) * off;
+  jag(x0, y0, mx, my, depth - 1, off / 2, out); jag(mx, my, x1, y1, depth - 1, off / 2, out);
+}
+function drawLightning(ctx: CanvasRenderingContext2D, a: any, high: boolean) {
+  const al = Math.min(1, a.life * 8), paths: number[][][] = [];
+  for (let i = 1; i < a.pts.length; i++) {
+    const p = a.pts[i - 1], q = a.pts[i], len = Math.hypot(q[0] - p[0], q[1] - p[1]), out: number[][] = [[p[0], p[1]]];
+    jag(p[0], p[1], q[0], q[1], 5, Math.max(12, len * 0.24), out); paths.push(out);
+    for (let b = 0; b < (high ? 3 : 1); b++) { const st = out[Math.floor(out.length * (0.2 + Math.random() * 0.6))], ang = Math.atan2(q[1] - p[1], q[0] - p[0]) + (Math.random() - 0.5) * 1.8, bl = len * (0.15 + Math.random() * 0.22), br: number[][] = [[st[0], st[1]]]; jag(st[0], st[1], st[0] + Math.cos(ang) * bl, st[1] + Math.sin(ang) * bl, 3, bl * 0.4, br); paths.push(br); }
+  }
+  ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const pass = (w: number, col: string, k: number) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.globalAlpha = al * k; for (const pa of paths) { ctx.beginPath(); pa.forEach((pt, i) => (i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]))); ctx.stroke(); } };
+  pass(high ? 18 : 11, "rgb(50,110,255)", 0.22); pass(6, "rgb(130,205,255)", 0.65); pass(2.2, "#ffffff", 1);
+  ctx.globalAlpha = al; for (const pt of a.pts) { ctx.fillStyle = "rgba(150,200,255,.45)"; ctx.beginPath(); ctx.arc(pt[0], pt[1], 16 + Math.random() * 6, 0, 6.3); ctx.fill(); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(pt[0], pt[1], 5, 0, 6.3); ctx.fill(); }
+  ctx.restore();
+}
 let KEEP_FS = false;   // going straight to the next map keeps the full screen: the old run's cleanup must not leave it   // the planet's monster palette (null = Luma's own)
 const TALL = new Set(["sporecaster", "frostcaster", "flarecaster", "drone", "wraith", "eyeball"]);   // hovering shooters: their bar and warning sit higher
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -374,6 +395,13 @@ const CSS = `
 .adv .pvpact{width:68px;height:56px;background:rgba(255,255,255,.82);backdrop-filter:blur(3px);color:#12202a}
 .adv-pad .pvppad-r .pvpact.rocket{grid-column:auto;width:68px;color:#7a2a10;background:linear-gradient(135deg,#ffe3d0,#ffb98f)}@media (max-width:600px){.adv-pad .pvppad-r .pvpact.rocket{width:58px}}.adv .pvpact.dig{background:linear-gradient(135deg,#8a6a3a,#c9a227);color:#fff}.adv .pvpact.punch{background:linear-gradient(135deg,#e2865fee,#d05f43ee);color:#fff}.adv .pvpact.kick{background:linear-gradient(135deg,#c9a227ee,#a8791bee);color:#fff}.adv .pvpact.spell{background:linear-gradient(0deg,#9b7bff var(--sp,0%),rgba(255,255,255,.82) var(--sp,0%));color:#2a1a66}.adv .pvpact.spell.ready{background:linear-gradient(135deg,#b49bff,#7b61ff);color:#fff;animation:pvpOdPulse 1s ease-in-out infinite}
 .adv .pvpact.ult{background:linear-gradient(135deg,#fff0c2,#ffd23f);color:#7a4a06}
+/* ship maps: a touch stick on the left half of the screen and one big round joystick (owner, 2026-10-12) */
+.adv-stickzone{position:absolute;left:0;top:64px;bottom:0;width:52%;z-index:3;touch-action:none}
+.adv-stickring{position:absolute;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:50%;border:2px dashed rgba(255,255,255,.35);background:rgba(255,255,255,.06);opacity:0;pointer-events:none;transition:opacity .15s}
+.adv-ship .adv-pad{pointer-events:none}.adv-ship .adv-pad .pvppad-l{pointer-events:none}
+.adv-joy{position:relative;width:128px;height:128px;border-radius:50%;pointer-events:auto;touch-action:none;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.22),rgba(255,255,255,.08) 60%,rgba(255,255,255,.04));border:2px solid rgba(255,255,255,.35);box-shadow:0 6px 22px rgba(0,0,0,.45),inset 0 0 18px rgba(255,255,255,.08)}
+.adv-joy>b{position:absolute;color:rgba(255,255,255,.7);font-size:15px;line-height:1;pointer-events:none}.adv-joy .u{top:7px;left:50%;transform:translateX(-50%)}.adv-joy .d{bottom:7px;left:50%;transform:translateX(-50%)}.adv-joy .l{left:9px;top:50%;transform:translateY(-50%)}.adv-joy .r{right:9px;top:50%;transform:translateY(-50%)}
+.adv-knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff,#ffd9c2 55%,#e89a74);box-shadow:0 4px 14px rgba(0,0,0,.5);pointer-events:none;transition:transform .05s linear}
 @media (max-width:600px){.adv .pvpdir{width:50px;height:50px}.adv .pvpact{width:58px;height:50px}.adv-pad .pvppad-r,.adv-pad .pvppad-l{gap:6px}}
 .adv-key{width:68px;height:68px;border-radius:22px;border:2px solid rgba(140,255,220,.55);background:rgba(4,30,36,.6);color:#fff;font-size:26px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;backdrop-filter:blur(4px)}
 .adv-key small{font-size:9.5px;font-weight:800;letter-spacing:.5px;margin-top:-2px}
@@ -630,7 +658,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
         <Run key={planet.id + gfx} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
           getNext={() => (net ? null : nextOf(planet))} onNext={(Q) => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setPlanet(Q); }} onExit={() => setPlanet(null)} playUi={playUi} onGfx={() => setGfx(g => (g === "high" ? "standard" : "high"))} />
       )}
-      {shipQuiz && <QuizCard quiz={shipQuiz} lang={lang} onKey={(pc, name) => {
+      {shipQuiz && <QuizGate key={gateKeyOf(shipQuiz)} quiz={shipQuiz} lang={lang} onKey={(pc, name) => {
         const cur = shipQuiz; if (cur.res) return; const q = cur.qs[cur.i].q;
         if (q.kind === "key") shipAnswer(judgeKeys(q, [pc]));
         else { const has = cur.sel.some((x) => x.pc === pc); setShipQuiz({ ...cur, sel: has ? cur.sel.filter((x) => x.pc !== pc) : [...cur.sel, { pc, name }] }); }
@@ -749,7 +777,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const quizOn = useRef(false);
   (window as any).__advQuiz = quiz;   // the smoke test reads the open question from here
   const beaconRef = useRef<any>(null);
-  const castRef = useRef<any>(null), spellFire = useRef<any>(null);
+  const castRef = useRef<any>(null), spellFire = useRef<any>(null), tapFire = useRef<any>(null);
   const musicRef = useRef<any>(null), sfxRef = useRef<any>(null);
   const musicOnRef = useRef(true);
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
@@ -762,16 +790,17 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const t = (th, en, zh) => T3(lang, th, en, zh);
   // a beacon asks three questions, gently harder: from what THIS learner has finished in the Pathway
   // owner, 2026-10-11: ONE question at a time, never more — a string of questions kills the fun. The three beacons climb a step each.
-  beaconRef.current = (idx = 0) => {
+  beaconRef.current = (idx = 0, tap = false) => {
     const qs: any[] = []; const base = readLadder().lvl;
     qs.push(nextQuestion(lang, { level: Math.min(5, base + (idx === 2 ? 1 : 0)) }));
-    setQuiz({ qs, i: 0, sel: [], res: null, right: 0, learned: qs[0].learned });
+    setQuiz({ qs, i: 0, sel: [], res: null, right: 0, learned: qs[0].learned, tap });
   };
   // phase 3.4: the chord spell. The gauge fills as you hit things; when it is full, the spell button opens ONE question to answer on the piano.
   castRef.current = () => { const nq: any = nextSpell(lang, {}); setQuiz({ qs: [nq], i: 0, sel: [], res: null, right: 0, learned: nq.learned, spell: true }); };
   const finishQuiz = (q: any) => {
     setQuiz(null); quizOn.current = false;
     if (q && q.spell) { if (spellFire.current) spellFire.current(q.right > 0); if (q.right > 0) { const l = bumpQuest("right", 1); for (const d of l) addRpgExpX(me, d.exp); } logUsage("adv", "spell:" + P.id + ":" + (q.right > 0 ? "ok" : "miss")); return; }
+    if (q && q.tap && tapFire.current) tapFire.current(q.right > 0);
     if (q && q.right > 0) { const l = bumpQuest("right", q.right); for (const d of l) { addRpgExpX(me, d.exp); } if (l.length) setBanner({ k: Date.now(), a: "QUEST ✓", b: "+" + l[0].exp + " EXP" }); }
     if (q) logUsage("adv", "quiz:" + P.id + ":" + q.right + "of" + (q.qs ? q.qs.length : 3));
     if (q && q.right > 0) setBanner({ k: Date.now(), a: t("ตอบถูก!", "CORRECT!", "答对了！"), b: t("ได้ EXP และแต้มสกิล", "EXP and skill points earned", "获得经验与技能点") });
@@ -867,7 +896,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let crystals = readCrystals();
     const boss: any = { x: WORLD - 420, hp: Math.round(700 * HM), max: Math.round(700 * HM), face: -1, cd: 1.6, n: 0, state: "idle", tele: 0, dur: 0, hurt: 0, vx: 0, dead: NOBOSS ? 1 : 0, active: false };
     const ARENA = WORLD - 900;
-    const beacons: any[] = (P.survival ? [] : [1300, 2650, 3950]).map(x => ({ x, used: false }));   // knowledge beacons: review questions from what the learner has studied
+    const TAPMAP = !!P.survival || CAPM;   // energy-harvest maps: the beacons are energy taps, a right answer feeds the harvest (owner, 2026-10-12)
+    const beacons: any[] = (P.survival ? [1000, 2300, 3600] : [1300, 2650, 3950]).map(x => ({ x, used: false, tap: TAPMAP }));   // knowledge beacons: review questions from what the learner has studied
     const maxParts = high ? 140 : 26;
     const addPart = (x, y, vx, vy, life, col, sz) => { if (parts.length < maxParts) parts.push({ x, y, vx, vy, life, max: life, col, sz }); };
     const fireflies = Array.from({ length: high ? 46 : 12 }, (_, i) => ({ x: rnd(i + 200) * WORLD, y: 120 + rnd(i + 230) * 170, ph: rnd(i + 260) * 6 }));
@@ -1062,12 +1092,12 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let zapN = 0;
     const zapBolt = () => {
       if (pl.dead || (pl.zapCd || 0) > 0) return;
-      pl.zapCd = 0.24 * mods.cdMul; zapN++; warHit(460, 0.75); sfx.play("fire", rv); pl.swing = 0.12; setPose("attack"); setTimeout(() => setPose("ready"), 140);
+      pl.zapCd = 0.24 * mods.cdMul; zapN++; warHit(460, 0.75); sfx.play("zap", rv); shake = Math.max(shake, 3); pl.swing = 0.12; setPose("attack"); setTimeout(() => setPose("ready"), 140);
       const ox = pl.x + pl.face * 30, oy = pl.y + 46; let from: any = { x: ox }, n = 0; const used = new Set<any>(); const pts: number[][] = [[ox, GROUND - oy]];
-      while (n < 4) { let best: any = null, bd = 460; for (const m of mons) { if (m.dead || used.has(m)) continue; const dd = Math.abs(m.x - from.x); if (dd < bd && (n > 0 || (m.x - ox) * pl.face > -20)) { bd = dd; best = m; } } if (!best) break; used.add(best); const d = dmgOf(0.75); hurtMon(best, d.v, d.crit, pl.face * 50); pts.push([best.x, GROUND - best.y - 30]); from = best; n++; }
+      while (n < 4) { let best: any = null, bd = 460; for (const m of mons) { if (m.dead || used.has(m)) continue; const dd = Math.abs(m.x - from.x); if (dd < bd && (n > 0 || (m.x - ox) * pl.face > -20)) { bd = dd; best = m; } } if (!best) break; used.add(best); const d = dmgOf(0.75); hurtMon(best, d.v, d.crit, pl.face * 50); pts.push([best.x, GROUND - best.y - 30]); blasts.push({ x: best.x, y: best.y + 30, r: 40, life: 0.16, max: 0.16, flash: true }); for (let a = 0; a < (high ? 10 : 4); a++) addPart(best.x, GROUND - best.y - 30, (Math.random() - 0.5) * 300, -Math.random() * 220, 0.35, "190,225,255", 2.5); from = best; n++; }
       if (!n && boss.active && !boss.dead && Math.abs(boss.x - ox) < 460) { const d = dmgOf(0.75); hurtBoss(d.v, d.crit, 0); pts.push([boss.x, GROUND - 70]); }
       if (pts.length < 2) pts.push([ox + pl.face * 300, GROUND - oy - (Math.random() - 0.5) * 40]);
-      arcs.push({ pts, life: 0.18 }); blasts.push({ x: ox, y: oy, r: 22, life: 0.12, max: 0.12, flash: true });
+      arcs.push({ pts, life: 0.24 }); blasts.push({ x: ox, y: oy, r: 30, life: 0.14, max: 0.14, flash: true });
       for (let a = 0; a < (high ? 8 : 3); a++) addPart(ox, GROUND - oy, pl.face * (80 + Math.random() * 160), (Math.random() - 0.5) * 120, 0.25, "170,220,255", 2.5);
     };
     const kickMove = () => {
@@ -1085,6 +1115,12 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         if (f) { if (cargo >= PANEL_ORE) { cargo -= PANEL_ORE; f.built = true; if (net) net.sendEv("panel", 1); const bn = dframes.filter(q => q.built).length; sfx.play("win"); shake = Math.max(shake, 5); for (let a = 0; a < (high ? 40 : 14); a++) addPart(f.x, GROUND - 120, (Math.random() - 0.5) * 360, -Math.random() * 260, 0.8, a % 2 ? "255,210,110" : "120,220,255", 3.5); pop(f.x, GROUND - 140, t("แผงไดสัน " + bn + "/4", "DYSON PANEL " + bn + "/4", "戴森板 " + bn + "/4"), "#ffd23f"); logUsage("adv", "dyson-panel:" + P.id + ":" + bn); if (bn >= 4) setBanner({ k: Date.now(), a: t("ไดสันสเฟียร์เสร็จแล้ว!", "DYSON SPHERE COMPLETE!", "戴森球完成！"), b: t("ไปที่เสาส่งขวาสุดเพื่อส่งพลังงานกลับโลก", "Go to the far-right relay to beam the energy home", "前往最右中继塔把能量传回地球") }); return; }
           pop(f.x, GROUND - 130, t("ต้องมีแร่ " + PANEL_ORE + " ก้อน (มี " + cargo + ")", "Need " + PANEL_ORE + " ore (have " + cargo + ")", "需要 " + PANEL_ORE + " 矿（现有 " + cargo + "）"), "#ffd0a0"); } }
       sfx.play("kick", rv); pl.swing = 0.22; setPose("attack"); setTimeout(() => setPose("ready"), 200); for (let a = 0; a < 5; a++) addPart(pl.x + pl.face * 70, GROUND - 24, pl.face * (60 + Math.random() * 140), -80 - Math.random() * 120, 0.4, "255,230,170", 2.5); digNodes(3, 160);
+    };
+    tapFire.current = (ok: boolean) => {
+      if (!ok) { pop(pl.x, GROUND - 120, t("ยังไม่ได้พลังงาน — ลองจุดถัดไป", "No energy this time — try the next tap", "这次没有能量——试试下一个"), "#ffb070"); return; }
+      sfx.play("win"); shake = Math.max(shake, 4);
+      if (P.survival) { surv.t = Math.min(SURV_T - 1, surv.t + SURV_T * 0.2); pop(pl.x, GROUND - 120, t("⚡ พลังงาน +20%", "⚡ ENERGY +20%", "⚡ 能量 +20%"), "#ffe08a"); }
+      else if (CAPM) { const cur = stations.find(q => !q.done); if (cur) { cur.p = Math.min(CAP_T - 0.5, cur.p + 4); } pop(pl.x, GROUND - 120, t("⚡ ชาร์จสถานี +4 วินาที", "⚡ STATION +4 s", "⚡ 站点 +4 秒"), "#ffe08a"); }
     };
     spellFire.current = (ok: boolean) => {
       if (!ok) { spellG = 50; pop(pl.x, GROUND - pl.y - 130, "♪ " + t("ลองใหม่", "again", "再来"), "#ffd0a0"); return; }
@@ -1282,7 +1318,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       for (let i = pops.length - 1; i >= 0; i--) if (pops[i].life <= 0) pops.splice(i, 1);
       for (const s of slashes) s.life -= dt; for (let i = slashes.length - 1; i >= 0; i--) if (slashes[i].life <= 0) slashes.splice(i, 1);
       if (P.id === "kindred") for (const b of beacons) if (!b.used && !b.greet && Math.abs(pl.x - b.x) < 300) { b.greet = true; pop(b.x, GROUND - 170, T3(lang, "สวัสดี เพื่อนมนุษย์ — มาแลกความรู้กัน", "Greetings, friend. Let us trade knowledge.", "你好，朋友——来交换知识吧。"), "#8dffdc"); }
-      for (const b of beacons) if (!b.used && pl.dead <= 0 && Math.abs(pl.x - b.x) < 64) { b.used = true; keys.current.l = keys.current.r = keys.current.atk = keys.current.skl = keys.current.jump = false; quizOn.current = true; if (beaconRef.current) beaconRef.current(beacons.indexOf(b)); }
+      for (const b of beacons) if (!b.used && pl.dead <= 0 && Math.abs(pl.x - b.x) < 64) { b.used = true; keys.current.l = keys.current.r = keys.current.atk = keys.current.skl = keys.current.jump = false; quizOn.current = true; if (beaconRef.current) beaconRef.current(beacons.indexOf(b), !!b.tap); }
       // the music follows the fight: calm 1, fighting 2, peak 3 (boss, a big combo, the spell ready, or low health with enemies near)
       mi -= dt; if (mi <= 0 && mus) { mi = 0.25; let near = false; for (const m of mons) if (!m.dead && Math.abs(m.x - pl.x) < 480) { near = true; break; } const peak = (boss.active && !boss.dead) || pl.combo >= 2 || spellG >= 100 || (near && pl.hp / hpMaxOf(info.lv) < 0.3); mus.setIntensity(peak ? 3 : near ? 2 : 1); }
       // camera: the robot a little ahead of centre, eased
@@ -1315,6 +1351,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         if (P.hazard === "lava") { const g = ctx.createLinearGradient(0, GROUND - 4, 0, GROUND + 22); g.addColorStop(0, "#ffd23f"); g.addColorStop(0.4, "#ff6a1a"); g.addColorStop(1, "#7a1a0a"); ctx.fillStyle = g; ctx.fillRect(h[0], GROUND - 2, h[1] - h[0], 24); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,140,40,.35)"; for (let q = h[0]; q < h[1]; q += 26) ctx.fillRect(q + Math.sin(tm * 3 + q) * 4, GROUND - 6 - Math.abs(Math.sin(tm * 2 + q * 0.1)) * 6, 14, 4); ctx.globalCompositeOperation = "source-over"; }
         else { ctx.fillStyle = on ? "#7fe8ff" : warn ? (Math.floor(tm * 12) % 2 ? "#ffd23f" : "#38304e") : "#38304e"; ctx.fillRect(h[0], GROUND - 2, h[1] - h[0], 6); if (on) { ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = "rgba(160,240,255,.9)"; ctx.lineWidth = 2; for (let q = h[0] + 8; q < h[1]; q += 30) { ctx.beginPath(); ctx.moveTo(q, GROUND); ctx.lineTo(q + 8, GROUND - 14 - Math.random() * 10); ctx.lineTo(q + 16, GROUND); ctx.stroke(); } ctx.globalCompositeOperation = "source-over"; } } }
       for (const n of nodes) { if (n.done || n.x < camX - 60 || n.x > camX + vw + 60) continue; const sh = n.hit ? Math.sin(tm * 80) * 2 : 0, f = n.hp / n.max; ctx.fillStyle = n.hit ? "#fff" : "#2a4a6a"; ctx.beginPath(); ctx.moveTo(n.x - 26 + sh, GROUND); ctx.lineTo(n.x - 14 + sh, GROUND - 40 * (0.6 + 0.4 * f)); ctx.lineTo(n.x + 2 + sh, GROUND - 56 * (0.6 + 0.4 * f)); ctx.lineTo(n.x + 18 + sh, GROUND - 36); ctx.lineTo(n.x + 28 + sh, GROUND); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(120,210,255,.8)"; ctx.fillRect(n.x - 6 + sh, GROUND - 30, 5, 18); ctx.fillRect(n.x + 8 + sh, GROUND - 22, 4, 12); ctx.globalCompositeOperation = "source-over"; }
+      for (const n of nodes) { if (n.done || n.x < camX - 60 || n.x > camX + vw + 60) continue; const bob = Math.sin(tm * 3 + n.x) * 4; ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = "rgba(140,230,255,.7)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(n.x, GROUND - 92 + bob, 15, 0, 6.3); ctx.stroke(); ctx.globalCompositeOperation = "source-over"; ctx.font = "16px system-ui"; ctx.textAlign = "center"; ctx.fillStyle = "#e6faff"; ctx.fillText("⛏", n.x, GROUND - 86 + bob); ctx.textAlign = "left"; }   // mining points: a ringed pick marks every rock still to break
       for (const f of dframes) { if (f.x < camX - 140 || f.x > camX + vw + 140) continue; ctx.save(); ctx.strokeStyle = f.built ? "#ffd060" : "#7a8aa8"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(f.x - 46, GROUND); ctx.lineTo(f.x - 30, GROUND - 150); ctx.lineTo(f.x + 30, GROUND - 150); ctx.lineTo(f.x + 46, GROUND); ctx.stroke();
         if (f.built) { ctx.globalCompositeOperation = "lighter"; const gg = ctx.createRadialGradient(f.x, GROUND - 100, 4, f.x, GROUND - 100, 90); gg.addColorStop(0, "rgba(255,225,130,.8)"); gg.addColorStop(1, "rgba(255,160,40,0)"); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(f.x, GROUND - 100, 90, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgba(255,200,80,.85)"; ctx.fillRect(f.x - 34, GROUND - 146, 68, 12); ctx.fillStyle = "rgba(90,200,255,.7)"; ctx.fillRect(f.x - 34, GROUND - 126, 68, 12); }
         else { ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.font = "700 11px system-ui"; ctx.textAlign = "center"; ctx.fillText("⛏ " + PANEL_ORE + " ORE", f.x, GROUND - 160); } ctx.restore(); }
@@ -1347,7 +1384,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       for (const b of blasts) { const k4 = Math.max(0, b.life / b.max), q = 1 - k4; ctx.globalCompositeOperation = "lighter"; const R = b.r * (b.flash ? 1 : 0.35 + q * 0.75);
         const g2 = ctx.createRadialGradient(b.x, GROUND - b.y, 0, b.x, GROUND - b.y, R); g2.addColorStop(0, `rgba(255,255,235,${0.95 * k4})`); g2.addColorStop(0.3, `rgba(255,200,80,${0.8 * k4})`); g2.addColorStop(0.7, `rgba(255,90,30,${0.4 * k4})`); g2.addColorStop(1, "rgba(255,60,20,0)"); ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(b.x, GROUND - b.y, R, 0, 7); ctx.fill();
         if (!b.flash) { ctx.strokeStyle = `rgba(255,220,160,${0.7 * k4})`; ctx.lineWidth = 3 * k4 + 1; ctx.beginPath(); ctx.arc(b.x, GROUND - b.y, R * 1.15, 0, 7); ctx.stroke(); } ctx.globalCompositeOperation = "source-over"; }
-      for (const a of arcs) { ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = rGlow; ctx.lineWidth = 3; ctx.globalAlpha = Math.min(1, a.life * 8); ctx.beginPath(); a.pts.forEach((pt: number[], i: number) => { const jx = i ? (Math.random() - 0.5) * 8 : 0, jy = i ? (Math.random() - 0.5) * 8 : 0; if (i) { const pr = a.pts[i - 1]; const mx = (pr[0] + pt[0]) / 2 + (Math.random() - 0.5) * 14, my = (pr[1] + pt[1]) / 2 + (Math.random() - 0.5) * 14; ctx.lineTo(mx, my); ctx.lineTo(pt[0] + jx, pt[1] + jy); } else ctx.moveTo(pt[0], pt[1]); }); ctx.stroke(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; }
+      for (const a of arcs) drawLightning(ctx, a, high);
       for (const b of bolts) {
         if (b.pierce) { ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = rGlow; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(b.x - Math.sign(b.vx) * 90, GROUND - b.y); ctx.lineTo(b.x, GROUND - b.y); ctx.stroke(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(b.x - Math.sign(b.vx) * 50, GROUND - b.y); ctx.lineTo(b.x, GROUND - b.y); ctx.stroke(); ctx.globalCompositeOperation = "source-over"; continue; }
         ctx.globalCompositeOperation = "lighter"; const by = GROUND - b.y, dir = Math.sign(b.vx); ctx.fillStyle = rGlow; ctx.strokeStyle = rGlow;
@@ -1413,7 +1450,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(pl.x, GROUND + 3, 26 - Math.min(10, pl.y * 0.05), 5, 0, 0, 7); ctx.fill();
       for (const b of beacons) { if (b.x < camX - 40 || b.x > camX + vw + 40) continue; if (P.id === "kindred") { paintKindred(ctx, b.x, GROUND, tm, b.used); continue; } const a = b.used ? 0.25 : 0.55 + 0.25 * Math.sin(tm * 3);
         ctx.globalCompositeOperation = "lighter"; const bg = ctx.createLinearGradient(0, GROUND - 150, 0, GROUND); bg.addColorStop(0, `rgba(255,224,138,0)`); bg.addColorStop(1, `rgba(255,224,138,${a * 0.5})`); ctx.fillStyle = bg; ctx.fillRect(b.x - 14, GROUND - 150, 28, 150); ctx.globalCompositeOperation = "source-over";
-        ctx.fillStyle = b.used ? "#3a4a52" : "#ffe08a"; ctx.beginPath(); ctx.moveTo(b.x - 9, GROUND); ctx.lineTo(b.x - 4, GROUND - 46); ctx.lineTo(b.x + 4, GROUND - 46); ctx.lineTo(b.x + 9, GROUND); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = b.used ? "#3a4a52" : b.tap ? "#8de8ff" : "#ffe08a"; ctx.beginPath(); ctx.moveTo(b.x - 9, GROUND); ctx.lineTo(b.x - 4, GROUND - 46); ctx.lineTo(b.x + 4, GROUND - 46); ctx.lineTo(b.x + 9, GROUND); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.arc(b.x, GROUND - 58 + Math.sin(tm * 2.4) * 3, 10, 0, 7); ctx.fillStyle = b.used ? "#52646c" : "#fff6c8"; ctx.fill();
         if (!b.used) { ctx.fillStyle = "#04201a"; ctx.font = "900 13px system-ui"; ctx.textAlign = "center"; ctx.fillText("?", b.x, GROUND - 53 + Math.sin(tm * 2.4) * 3); } }
       // the warp gate at the end of the map (it glows and says WARP once the goal is done)
@@ -1508,7 +1545,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button>
       </div>}
       {down && <div className="adv-banner" style={{ animation: "none" }}><b style={{ color: "#ff8fa3" }}>{t("ล้ม!", "DOWN!", "倒下了！")}</b><span>{t("กำลังกลับจุดเริ่ม…", "Back to the start…", "回到起点…")}</span></div>}
-      {quiz && <QuizCard quiz={quiz} lang={lang} onKey={(pc, name) => {
+      {quiz && <QuizGate key={gateKeyOf(quiz)} quiz={quiz} lang={lang} onKey={(pc, name) => {
         const cur = quiz; if (cur.res) return; const q = cur.qs[cur.i].q;
         if (q.kind === "key") answerQuiz(judgeKeys(q, [pc]));
         else { const has = cur.sel.some((x) => x.pc === pc); setQuiz({ ...cur, sel: has ? cur.sel.filter((x) => x.pc !== pc) : [...cur.sel, { pc, name }] }); }
@@ -1538,6 +1575,31 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
 });
 
 /** The question card: choice buttons or a piano to tap; a wrong answer shows the right notes lit on the keys and why. */
+
+/* HANDS OFF (owner, 2026-10-12, as in the PvP knowledge break): before any question a card covers the screen, so a thumb still on the pad hits the card and not an
+   answer; its button stays dead for a moment, then the learner says they are ready. */
+const GATE_ARM = 900; const gateIds = new WeakMap<object, number>(); let gateN = 0;
+const gateKeyOf = (q: any) => { const o = (q && q.qs && q.qs[0]) || q; if (!o) return 0; if (!gateIds.has(o)) gateIds.set(o, ++gateN); return gateIds.get(o); };
+function QuizGate(props: any) {
+  const [ready, setReady] = useState(false), [armed, setArmed] = useState(false); const lang = props.lang;
+  useEffect(() => { const id = setTimeout(() => setArmed(true), GATE_ARM); return () => clearTimeout(id); }, []);
+  const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
+  let skip = false; try { skip = localStorage.getItem("tg_adv_nogate") === "1"; } catch (e) {}   // the older bots answer straight away; only the gate test leaves this off
+  if (skip || ready || props.quiz.res || (props.quiz.i || 0) > 0) return <QuizCard {...props} />;
+  return (
+    <div className="adv-quiz" data-handsoff="1" style={{ alignItems: "center" }} onPointerDown={(e) => e.stopPropagation()}>
+      <div className="pvpstandby-card">
+        <span className="pvpstandby-ic" aria-hidden="true">✋</span>
+        <em>{t("ช่วงคำถาม", "KNOWLEDGE BREAK", "知识时刻")}</em>
+        <b>{t("ยกมือออกจากปุ่มก่อน", "HANDS OFF", "先放开手")}</b>
+        <p>{t("ปล่อยปุ่มควบคุมทุกปุ่ม หายใจสักครั้ง แล้วค่อยกดพร้อม จะได้ไม่กดคำตอบมั่ว", "Let go of every control, take a breath, then start when you are ready, so no answer is pressed by accident.", "松开所有按键，喘口气，准备好再开始，以免误触答案。")}</p>
+        <button type="button" className={"pvpstandby-go" + (armed ? " on" : "")} data-ready="1" disabled={!armed} onClick={() => setReady(true)} style={{ ["--arm" as any]: GATE_ARM + "ms" }}>
+          <span>{armed ? t("พร้อมแล้ว", "I'M READY", "我准备好了") : t("เตรียมตัว…", "GET READY…", "准备中…")}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
 function QuizCard({ quiz, lang, onKey, onConfirm, onChoice, onNext, onSkip }: any) {
   const item = quiz.qs[quiz.i], q = item.q;
   const t = (th, en, zh) => T3(lang, th, en, zh);
