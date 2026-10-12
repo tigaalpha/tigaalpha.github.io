@@ -178,6 +178,16 @@ function layer(w, h, fn) { const c = document.createElement("canvas"); c.width =
 function glowSprite(rgb, r) { return layer(r * 2, r * 2, (x, w, h) => { const g = x.createRadialGradient(r, r, 0, r, r, r); g.addColorStop(0, `rgba(${rgb},0.9)`); g.addColorStop(0.35, `rgba(${rgb},0.3)`); g.addColorStop(1, `rgba(${rgb},0)`); x.fillStyle = g; x.fillRect(0, 0, w, h); }); }
 
 /** All of the planet's backdrop, baked once for this canvas size. Layers are tiles that repeat sideways. */
+const ART = typeof __ART__ !== "undefined" ? __ART__ : "dev";
+const advBotKey = (me: any, cw: any, po: string) => `${ART}|advme|${me}|${po}|${cw && cw.glow}|${cw && cw.accent}`;
+const advPetKey = (pet: any) => `${ART}|advpet|${pet ? pet.species : ""}|${pet ? petLevel(pet.bond).lv : 0}|${pet ? (pet.mood < 35 ? 1 : 0) : 0}`;
+/** Queue the robot's three poses and the pet as stored pictures (the same cache PvP uses on phones). Called when the Adventure menu opens, so they are ready before a map starts. */
+function warmAdvFigures(me: any, cw: any, pet: any) {
+  if (!FIGURES_OK) return; pauseFigures(false);
+  const jobs: any[] = ["ready", "attack", "kick"].map(po => ({ key: advBotKey(me, cw, po), kind: "bot", el: () => <CyberAvatar model={me} yaw={26} pose={po} glow={cw && cw.glow} accent={cw && cw.accent} held={null} hat={null} acc={null} /> }));
+  if (pet) jobs.push({ key: advPetKey(pet), kind: "pet", el: () => <PetArt species={pet.species} level={petLevel(pet.bond).lv} mood={pet.mood} /> });
+  prepareFigures(jobs, true);
+}
 const NEAR_STYLE: any = { ferro: "pipes", cobalt: "pipes", jovia: "wisp", kryo: "frost", pyra: "ember", helios: "ember", nexa: "wire", dyson: "wire", ashfall: "wire" };
 const MID_STYLE: any = { ferro: "mesa", cobalt: "mesa", jovia: "pillar", kryo: "ice", pyra: "volcano", helios: "volcano", nexa: "ruins", dyson: "ruins", ashfall: "ruins" };
 function bakePlanet(P, cw, ch, k, high) {
@@ -447,6 +457,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
   const [tick, setTick] = useState(0); void tick;
+  useEffect(() => { warmAdvFigures(me, colorway, petNow); }, []);
   const isSpace = (P: any) => ["dogfight", "launch", "belt", "skim", "harvest"].includes(P.mission);
   const [sector, setSector] = useState<"ground" | "space">(() => { try { return localStorage.getItem("tg_adv_sector") === "space" ? "space" : "ground"; } catch (e) { return "ground"; } });
   const pickSector = (v: "ground" | "space") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
@@ -692,15 +703,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const petRef = useRef<HTMLDivElement>(null);
   const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false, dash: false, fire: false, kick: false, spell: false, rocket: false, zap: false });
   const [pose, setPose] = useState("ready");
-  const botKey = (po: string) => `${typeof __ART__ !== "undefined" ? __ART__ : "dev"}|advme|${me}|${po}|${colorway && colorway.glow}|${colorway && colorway.accent}`;
-  const petKeyOf = () => `${typeof __ART__ !== "undefined" ? __ART__ : "dev"}|advpet|${petNow ? petNow.species : ""}|${petNow ? petLevel(petNow.bond).lv : 0}|${petNow ? (petNow.mood < 35 ? 1 : 0) : 0}`;
-  useEffect(() => {   // queue the three poses and the pet now, ahead of the first fight; the live drawing shows until each is ready
-    if (!FIGURES_OK) return; pauseFigures(false);
-    const mk = (po: string) => ({ key: botKey(po), kind: "bot", el: () => <CyberAvatar model={me} yaw={26} pose={po} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} /> });
-    const jobs: any[] = ["ready", "attack", "kick"].map(mk);
-    if (petNow) jobs.push({ key: petKeyOf(), kind: "pet", el: () => <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} /> });
-    prepareFigures(jobs, true);
-  }, []);
+  const botKey = (po: string) => advBotKey(me, colorway, po);
+  const petKeyOf = () => advPetKey(petNow);
+  useEffect(() => { warmAdvFigures(me, colorway, petNow); }, []);
   const [hud, setHud] = useState<any>({ hp: 1, hpMax: 1, lv: 1, xp: 0, xpNeed: 1, sk: 0, skNeed: 1, kills: 0, skCd: 0 });
   const [banner, setBanner] = useState<any>(null);
   const [down, setDown] = useState(false);
