@@ -1434,7 +1434,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       for (const p of pops) { p.life -= dt; p.y -= 38 * dt; }
       for (let i = pops.length - 1; i >= 0; i--) if (pops[i].life <= 0) pops.splice(i, 1);
       for (const s of slashes) s.life -= dt; for (let i = slashes.length - 1; i >= 0; i--) if (slashes[i].life <= 0) slashes.splice(i, 1);
-      if (P.id === "kindred") for (const b of beacons) if (!b.used && !b.greet && Math.abs(pl.x - b.x) < 300) { b.greet = true; pop(b.x, GROUND - 170, T3(lang, "สวัสดี เพื่อนมนุษย์ — มาแลกความรู้กัน", "Greetings, friend. Let us trade knowledge.", "你好，朋友——来交换知识吧。"), "#8dffdc"); }
+      if (P.id === "kindred" || P.id === "darkforge") for (const b of beacons) if (!b.used && !b.greet && Math.abs(pl.x - b.x) < 300) { b.greet = true; pop(b.x, GROUND - 170, P.id === "darkforge" ? T3(lang, "เราช่วยดูแลสสารมืดให้ — ตอบก่อนนะ", "We will help you steady the dark matter. Answer first.", "我们帮你稳住暗物质——先回答吧。") : T3(lang, "สวัสดี เพื่อนมนุษย์ — มาแลกความรู้กัน", "Greetings, friend. Let us trade knowledge.", "你好，朋友——来交换知识吧。"), "#8dffdc"); }
       for (const b of beacons) if (!b.used && pl.dead <= 0 && Math.abs(pl.x - b.x) < 64) { b.used = true; keys.current.l = keys.current.r = keys.current.atk = keys.current.skl = keys.current.jump = false; quizOn.current = true; if (beaconRef.current) beaconRef.current(beacons.indexOf(b), !!b.tap); }
       // the music follows the fight: calm 1, fighting 2, peak 3 (boss, a big combo, the spell ready, or low health with enemies near)
       mi -= dt; if (mi <= 0 && mus) { mi = 0.25; let near = false; for (const m of mons) if (!m.dead && Math.abs(m.x - pl.x) < 480) { near = true; break; } const peak = (boss.active && !boss.dead) || pl.combo >= 2 || spellG >= 100 || (near && pl.hp / hpMaxOf(info.lv) < 0.3); mus.setIntensity(peak ? 3 : near ? 2 : 1); }
@@ -1565,7 +1565,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       ctx.globalAlpha = 1;
       // the shadow under the robot
       ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(pl.x, GROUND + 3, 26 - Math.min(10, pl.y * 0.05), 5, 0, 0, 7); ctx.fill();
-      for (const b of beacons) { if (b.x < camX - 40 || b.x > camX + vw + 40) continue; if (P.id === "kindred") { paintKindred(ctx, b.x, GROUND, tm, b.used); continue; } const a = b.used ? 0.25 : 0.55 + 0.25 * Math.sin(tm * 3);
+      for (const b of beacons) { if (b.x < camX - 40 || b.x > camX + vw + 40) continue; if (P.id === "kindred" || P.id === "darkforge") { paintKindred(ctx, b.x, GROUND, tm, b.used); continue; } const a = b.used ? 0.25 : 0.55 + 0.25 * Math.sin(tm * 3);
         ctx.globalCompositeOperation = "lighter"; const bg = ctx.createLinearGradient(0, GROUND - 150, 0, GROUND); bg.addColorStop(0, `rgba(255,224,138,0)`); bg.addColorStop(1, `rgba(255,224,138,${a * 0.5})`); ctx.fillStyle = bg; ctx.fillRect(b.x - 14, GROUND - 150, 28, 150); ctx.globalCompositeOperation = "source-over";
         ctx.fillStyle = b.used ? "#3a4a52" : b.tap ? "#8de8ff" : "#ffe08a"; ctx.beginPath(); ctx.moveTo(b.x - 9, GROUND); ctx.lineTo(b.x - 4, GROUND - 46); ctx.lineTo(b.x + 4, GROUND - 46); ctx.lineTo(b.x + 9, GROUND); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.arc(b.x, GROUND - 58 + Math.sin(tm * 2.4) * 3, 10, 0, 7); ctx.fillStyle = b.used ? "#52646c" : "#fff6c8"; ctx.fill();
