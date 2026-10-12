@@ -27,7 +27,7 @@ const FAKE = `window.__advChannelFactory = (name, cfg) => {
 const ctx = await browser.newContext({ viewport: { width: 900, height: 420 }, hasTouch: true, serviceWorkers: "block" });
 await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort());
 await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
-await ctx.addInitScript((fake) => { eval(fake); sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_lang", "en"); localStorage.setItem("tg_adv_nocine", "1"); localStorage.setItem("tg_adv_prologue", "skip"); localStorage.setItem("tg_3d_tier", "0"); localStorage.setItem("tg_adv_done", JSON.stringify(["luma","ferro","jovia","kryo","pyra","nexa"])); }, FAKE);
+await ctx.addInitScript((fake) => { eval(fake); sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_lang", "en"); localStorage.setItem("tg_adv_nocine","1"); localStorage.setItem("tg_adv_unlockall","1"); localStorage.setItem("tg_adv_prologue", "skip"); localStorage.setItem("tg_3d_tier", "0"); localStorage.setItem("tg_adv_done", JSON.stringify(["luma","ferro","jovia","kryo","pyra","nexa"])); }, FAKE);
 async function mkPage(name) {
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200)));
   await p.addInitScript((n) => { localStorage.setItem("tg_guest_profile", JSON.stringify({ name: n, lang: "en", age: "adult", level: "beginner", exp: 5000 })); }, name);

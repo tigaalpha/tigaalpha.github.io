@@ -1165,7 +1165,7 @@ function LiveLazyHead({ model, rootRef }) {
 
 export const PvpPage = memo(function PvpPage({
   lang, charModel = "vanguard", gear = [], onBack, onReward, playUi, friends = null, onChallenge, duels = null, onRespondDuel, onShare, onApplyLoadout, onPracticeWeakness = null,
-  ownedModels = null, onPickModel = null, onOpenShop = null, modelCost = null,
+  ownedModels = null, onPickModel = null, onOpenShop = null, modelCost = null, adminTier = 0,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
   const [phase, setPhase] = useState("lobby");    // lobby | fight | result
@@ -1488,7 +1488,7 @@ export const PvpPage = memo(function PvpPage({
   if (phase === "lobby" && advOpen) {
     return (
       <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2400, background: "#02070c", color: "#9dffd6", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>🪐 Adventure…</div>}>
-        <AdventurePage lang={lang} me={me} colorway={colorway} held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} petNow={petNow} onBack={() => setAdvOpen(false)} online={advOnline} playUi={playUi} onReward={onReward} />
+        <AdventurePage lang={lang} me={me} colorway={colorway} held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} petNow={petNow} onBack={() => setAdvOpen(false)} online={advOnline} playUi={playUi} onReward={onReward} adminTier={adminTier} />
       </Suspense>
     );
   }

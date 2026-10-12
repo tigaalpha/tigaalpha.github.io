@@ -7135,7 +7135,7 @@ function ChestIcon({ size = 16, className = "" }) {
    so an arena duel is stored, listed and resolved exactly like a song duel,
    with no backend change at all. `song_id` is unconstrained text server-side,
    which is what makes "arena" a legal subject. */
-const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout, onPracticeWeakness, ownedModels, onPickModel, onOpenShop }) {
+const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout, onPracticeWeakness, ownedModels, onPickModel, onOpenShop, adminTier = 0 }) {
   const [friends, setFriends] = useState(null);
   const [duels, setDuels] = useState(null);
   const load = useCallback(() => {
@@ -7147,7 +7147,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
     <Suspense fallback={<LazyBits tall />}>
     <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi} onPracticeWeakness={onPracticeWeakness}
       friends={friends} duels={duels} onApplyLoadout={onApplyLoadout}
-      ownedModels={ownedModels} onPickModel={onPickModel} onOpenShop={onOpenShop} modelCost={MODEL_COST}
+      ownedModels={ownedModels} onPickModel={onPickModel} onOpenShop={onOpenShop} modelCost={MODEL_COST} adminTier={adminTier}
       onChallenge={async (friend, score) => {
         const { error } = await sb.rpc("duel_challenge", { p_friend_id: friend.user_id, p_song_id: "arena", p_score: Math.round(score), p_mode: "duel" });
         if (!error) { playUi("reward"); load(); }
@@ -13417,7 +13417,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           the arena so the page never owns a network call of its own: it is
           handed data and two callbacks, exactly like every other page. */}
       {page === "pvp" && (
-        <PvpArenaMount lang={lang} charModel={charModel}
+        <PvpArenaMount lang={lang} charModel={charModel} adminTier={(profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0)}
           gear={equippedGear}
           ownedModels={SHOP_MODELS.filter(m => owned.includes(m.id)).map(m => m.model)}
           onPickModel={(m) => {

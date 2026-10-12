@@ -11,7 +11,7 @@ const browser = await pw.chromium.launch({ executablePath: "/opt/pw-browsers/chr
 let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ") + n + (d ? " — " + d : "")); if (!c) fail++; };
 // Adventure cinematics: a film before every map (CG, subtitles, score, sound effects), skippable; the objective card; the audio renders.
 async function open(pre0) {
-  const pre = Object.assign({ tg_adv_prologue: "skip" }, pre0);   // "skip": no opening film, and the map films stay long
+  const pre = Object.assign({ tg_adv_prologue: "skip", tg_adv_unlockall: "1" }, pre0);   // "skip": no opening film, and the map films stay long
   const wantPro = pre0 && pre0.tg_adv_prologue === "__none__"; if (wantPro) delete pre.tg_adv_prologue;
   const wantFin = pre0 && pre0.__fin; delete pre.__fin;
   const ctx = await browser.newContext({ viewport: { width: 800, height: 420 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
