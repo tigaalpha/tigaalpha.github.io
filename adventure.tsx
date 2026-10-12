@@ -491,7 +491,7 @@ const CSS = `
 .adv-ship{position:absolute;inset:0;z-index:5;background:#02030c}.adv-ship canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv-px{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
-.adv-px svg{width:100%;height:100%;display:block;overflow:visible}.adv-wpn{position:absolute;left:52%;top:36%;width:62%;height:22%;pointer-events:none;transform-origin:16% 55%}.adv-wpn svg{width:100%;height:100%}
+.adv-px svg{width:100%;height:100%;display:block;overflow:visible}.adv-wpn{position:absolute;left:46%;top:43%;width:62%;height:22%;pointer-events:none;transform-origin:16% 55%}.adv-wpn svg{width:100%;height:100%}
 .adv-top{position:absolute;left:0;right:0;top:0;display:flex;gap:8px;align-items:center;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:linear-gradient(180deg,rgba(0,8,14,.7),rgba(0,8,14,0));z-index:4}
 .adv-btn{min-width:44px;min-height:44px;border-radius:22px;border:1.5px solid rgba(140,255,220,.5);background:rgba(4,24,30,.62);color:#e8fffa;font-size:13px;font-weight:800;padding:0 14px;cursor:pointer;backdrop-filter:blur(4px)}
 .adv-hud{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
