@@ -63,6 +63,13 @@ export const GUNS = [
   { id: "scatter", req: "luma",  th: "ปืนกระจาย",    en: "Scatter gun", zh: "散射枪" },
   { id: "lance",   req: "ferro", th: "เลเซอร์ทะลวง", en: "Lance laser", zh: "穿透激光" },
   { id: "arc",     req: "kryo",  th: "ปืนอาร์คสายฟ้า", en: "Arc gun",     zh: "电弧枪" },
+  // found as drops from monsters and bosses (owner, 2026-10-12): they appear here once picked up
+  { id: "minigun",   req: null, drop: true, th: "ปืนกล",              en: "Minigun",         zh: "机枪" },
+  { id: "shotgun",   req: null, drop: true, th: "ปืนลูกซอง",          en: "Shotgun",         zh: "霰弹枪" },
+  { id: "laserrifle", req: null, drop: true, th: "ปืนเลเซอร์",        en: "Laser rifle",     zh: "激光步枪" },
+  { id: "railgun",   req: null, drop: true, th: "ปืนเรลกัน",          en: "Railgun",         zh: "电磁轨道炮" },
+  { id: "bigbeam",   req: null, drop: true, th: "เลเซอร์ลำแสงใหญ่",   en: "Big beam laser",  zh: "巨型光束激光" },
+  { id: "sword",     req: null, drop: true, th: "ดาบเลเซอร์",         en: "Laser sword",     zh: "激光剑" },
 ];
 export const ROCKETS = [
   { id: "homing",  req: null,    th: "จรวดนำวิถี",   en: "Homing rocket",  zh: "追踪火箭" },
@@ -71,8 +78,31 @@ export const ROCKETS = [
   { id: "nuke",    req: "nexa",  th: "จรวดนิวเคลียร์", en: "Nuclear rocket", zh: "核火箭" },
   { id: "cluster", req: "jovia", th: "จรวดคลัสเตอร์", en: "Cluster rocket", zh: "集束火箭" },
   { id: "napalm",  req: "pyra",  th: "จรวดนาปาล์ม",  en: "Napalm rocket",  zh: "凝固汽油火箭" },
+  { id: "rpg",     req: null, drop: true, th: "RPG",            en: "RPG",            zh: "火箭筒" },
+  { id: "frag",    req: null, drop: true, th: "ระเบิดมือ",      en: "Frag grenade",   zh: "破片手雷" },
 ];
-export const readLoad = (): any => { try { const v = JSON.parse(localStorage.getItem("tg_adv_load") || "{}") || {}; const dn = readDone(); const ok = (list: any[], id: string) => { const f = list.find(x => x.id === id); return f && (!f.req || dn.includes(f.req)) ? id : list[0].id; }; return { gun: ok(GUNS, v.gun), rocket: ok(ROCKETS, v.rocket) }; } catch (e) { return { gun: "pulse", rocket: "homing" }; } };
+export const readFound = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_found") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+export const addFound = (id: string) => { try { const v = readFound(); if (!v.includes(id)) { v.push(id); localStorage.setItem("tg_adv_found", JSON.stringify(v)); } } catch (e) {} };
+/** Weapon drops: the better the map (its `hard`), the better the pool; a boss always drops one. A weapon you already own only drops again from a boss. */
+const WPN_POOL = [["minigun", "shotgun", "sword"], ["laserrifle", "rpg", "frag", "minigun", "shotgun"], ["railgun", "bigbeam", "laserrifle", "rpg", "sword"]];
+export function rollWeapon(hard: number, found: string[], boss: boolean, r: () => number = Math.random): string | null {
+  if (r() > (boss ? 1 : 0.045)) return null;
+  const pool = WPN_POOL[hard < 1.8 ? 0 : hard < 2.6 ? 1 : 2], fresh = pool.filter(id => !found.includes(id)), src = fresh.length ? fresh : boss ? pool : [];
+  return src.length ? src[Math.floor(r() * src.length)] : null;
+}
+const WPN_SVG: Record<string, string> = {
+  pulse: '<svg viewBox="0 0 100 40"><rect x="10" y="14" width="56" height="12" rx="4" fill="#9db0c8"/><rect x="62" y="17" width="30" height="6" rx="3" fill="#5ad1ff"/><rect x="20" y="24" width="12" height="14" rx="3" fill="#4a5870"/></svg>',
+  scatter: '<svg viewBox="0 0 100 40"><rect x="8" y="13" width="62" height="14" rx="4" fill="#b0a08a"/><rect x="66" y="14" width="28" height="4" rx="2" fill="#ffd23f"/><rect x="66" y="22" width="28" height="4" rx="2" fill="#ffd23f"/><rect x="18" y="26" width="12" height="12" rx="3" fill="#5a4a3a"/></svg>',
+  lance: '<svg viewBox="0 0 100 40"><rect x="6" y="16" width="70" height="8" rx="3" fill="#a9bdd8"/><path d="M76 14 L98 20 L76 26 Z" fill="#7fe8ff"/><rect x="18" y="24" width="10" height="12" rx="3" fill="#44546c"/></svg>',
+  arc: '<svg viewBox="0 0 100 40"><rect x="10" y="14" width="50" height="12" rx="4" fill="#8aa0c8"/><path d="M60 20 l8 -8 l4 10 l8 -10 l10 8" stroke="#9fd6ff" stroke-width="3" fill="none"/><rect x="20" y="24" width="12" height="14" rx="3" fill="#3f4e6a"/></svg>',
+  minigun: '<svg viewBox="0 0 100 40"><rect x="6" y="12" width="40" height="18" rx="5" fill="#7d8aa0"/><rect x="44" y="10" width="46" height="5" rx="2" fill="#c9d3e3"/><rect x="44" y="17" width="46" height="5" rx="2" fill="#c9d3e3"/><rect x="44" y="24" width="46" height="5" rx="2" fill="#c9d3e3"/><rect x="14" y="28" width="12" height="10" rx="3" fill="#3d4658"/></svg>',
+  shotgun: '<svg viewBox="0 0 100 40"><rect x="4" y="15" width="30" height="12" rx="5" fill="#6b4a32"/><rect x="30" y="14" width="64" height="5" rx="2" fill="#cfd6e2"/><rect x="30" y="21" width="64" height="5" rx="2" fill="#cfd6e2"/><rect x="48" y="26" width="18" height="6" rx="2" fill="#8a6a4a"/></svg>',
+  laserrifle: '<svg viewBox="0 0 100 40"><rect x="6" y="14" width="64" height="11" rx="4" fill="#cfd6e2"/><rect x="66" y="16" width="30" height="7" rx="3" fill="#ff4566"/><rect x="28" y="8" width="22" height="6" rx="2" fill="#5a6a86"/><rect x="16" y="24" width="11" height="13" rx="3" fill="#44506a"/></svg>',
+  railgun: '<svg viewBox="0 0 100 40"><rect x="4" y="12" width="88" height="5" rx="2" fill="#e4ecf8"/><rect x="4" y="22" width="88" height="5" rx="2" fill="#e4ecf8"/><rect x="26" y="9" width="6" height="21" fill="#7fb8ff"/><rect x="52" y="9" width="6" height="21" fill="#7fb8ff"/><rect x="72" y="9" width="6" height="21" fill="#7fb8ff"/></svg>',
+  bigbeam: '<svg viewBox="0 0 100 40"><rect x="6" y="8" width="60" height="24" rx="8" fill="#8a64d8"/><rect x="62" y="12" width="32" height="16" rx="6" fill="#ff7be0"/><circle cx="92" cy="20" r="6" fill="#fff"/></svg>',
+  sword: '<svg viewBox="0 0 100 40"><rect x="4" y="16" width="20" height="8" rx="3" fill="#59647a"/><rect x="22" y="10" width="6" height="20" rx="2" fill="#aab6cc"/><rect x="28" y="17" width="68" height="6" rx="3" fill="#8affc8"/><rect x="28" y="19" width="68" height="2" rx="1" fill="#fff"/></svg>',
+};
+export const readLoad = (): any => { try { const v = JSON.parse(localStorage.getItem("tg_adv_load") || "{}") || {}; const dn = readDone(); const fnd = readFound(); const ok = (list: any[], id: string) => { const f = list.find(x => x.id === id); return f && (!f.req || dn.includes(f.req)) && (!f.drop || fnd.includes(f.id)) ? id : list[0].id; }; return { gun: ok(GUNS, v.gun), rocket: ok(ROCKETS, v.rocket) }; } catch (e) { return { gun: "pulse", rocket: "homing" }; } };
 export const saveLoad = (kind: "gun" | "rocket", id: string) => { try { const v = readLoad(); v[kind] = id; localStorage.setItem("tg_adv_load", JSON.stringify(v)); } catch (e) {} };
 export const DIFFS = [{ id: "normal", hp: 1, rw: 1 }, { id: "hard", hp: 1.5, rw: 1.4 }, { id: "nightmare", hp: 2.2, rw: 2 }];
 export const readDiff = () => { try { const v = localStorage.getItem("tg_adv_diff"); return DIFFS.find(d => d.id === v) || DIFFS[0]; } catch (e) { return DIFFS[0]; } };
@@ -132,7 +162,7 @@ function drawLightning(ctx: CanvasRenderingContext2D, a: any, high: boolean) {
   }
   ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round"; ctx.lineJoin = "round";
   const pass = (w: number, col: string, k: number) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.globalAlpha = al * k; for (const pa of paths) { ctx.beginPath(); pa.forEach((pt, i) => (i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]))); ctx.stroke(); } };
-  pass(high ? 18 : 11, "rgb(50,110,255)", 0.22); pass(6, "rgb(130,205,255)", 0.65); pass(2.2, "#ffffff", 1);
+  pass(high ? 34 : 20, "rgb(90,60,255)", 0.16); pass(high ? 20 : 12, "rgb(60,130,255)", 0.3); pass(7.5, "rgb(150,215,255)", 0.7); pass(3, "#ffffff", 1);
   ctx.globalAlpha = al; for (const pt of a.pts) { ctx.fillStyle = "rgba(150,200,255,.45)"; ctx.beginPath(); ctx.arc(pt[0], pt[1], 16 + Math.random() * 6, 0, 6.3); ctx.fill(); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(pt[0], pt[1], 5, 0, 6.3); ctx.fill(); }
   ctx.restore();
 }
@@ -440,7 +470,7 @@ const CSS = `
 .adv-ship{position:absolute;inset:0;z-index:5;background:#02030c}.adv-ship canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .adv-px{position:absolute;left:0;top:0;will-change:transform;pointer-events:none}
-.adv-px svg{width:100%;height:100%;display:block;overflow:visible}
+.adv-px svg{width:100%;height:100%;display:block;overflow:visible}.adv-wpn{position:absolute;left:52%;top:36%;width:62%;height:22%;pointer-events:none;transform-origin:16% 55%}.adv-wpn svg{width:100%;height:100%}
 .adv-top{position:absolute;left:0;right:0;top:0;display:flex;gap:8px;align-items:center;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:linear-gradient(180deg,rgba(0,8,14,.7),rgba(0,8,14,0));z-index:4}
 .adv-btn{min-width:44px;min-height:44px;border-radius:22px;border:1.5px solid rgba(140,255,220,.5);background:rgba(4,24,30,.62);color:#e8fffa;font-size:13px;font-weight:800;padding:0 14px;cursor:pointer;backdrop-filter:blur(4px)}
 .adv-hud{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
@@ -714,7 +744,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
             {(["gun", "rocket"] as const).map(kind => (
               <div key={kind} className="adv-load">
                 <small>{kind === "gun" ? t("ปืน / เลเซอร์", "Gun / laser", "枪 / 激光") : t("จรวด", "Rocket", "火箭")}</small>
-                <div>{(kind === "gun" ? GUNS : ROCKETS).map(w => { const lock = w.req && !done.includes(w.req); const sel = load[kind] === w.id; return (
+                <div>{(kind === "gun" ? GUNS : ROCKETS).filter((w: any) => !w.drop || readFound().includes(w.id)).map(w => { const lock = w.req && !done.includes(w.req); const sel = load[kind] === w.id; return (
                   <button key={w.id} data-w={w.id} className={sel ? "on" : ""} disabled={!!lock} aria-pressed={sel} onClick={() => { saveLoad(kind, w.id); setTick(x => x + 1); }}>
                     {T3(lang, w.th, w.en, w.zh)}{lock ? " 🔒" : ""}</button>); })}</div>
               </div>
@@ -888,7 +918,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const cvRef = useRef<HTMLCanvasElement>(null);
   const pxRef = useRef<HTMLDivElement>(null);
   const petRef = useRef<HTMLDivElement>(null);
-  const heroSvgRef = useRef<SVGSVGElement>(null), heroImgRef = useRef<SVGImageElement>(null);
+  const heroSvgRef = useRef<SVGSVGElement>(null), heroImgRef = useRef<SVGImageElement>(null), wpnRef = useRef<HTMLDivElement>(null);
   const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false, dash: false, fire: false, kick: false, spell: false, rocket: false, zap: false });
   const [pose, setPoseState] = useState("ready");
   const poseAct = useRef({ name: "ready", n: 0 });   // what the hero is doing NOW (read by the draw loop, no React render)
@@ -1024,7 +1054,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const stations: any[] = CAPM ? [900, 2000, 3300].map(x => ({ x, p: 0, done: false })) : []; const CAP_T = 10; let capWave = 3;
     const digNodes = (power: number, reach = 120) => { for (const n of nodes) { if (n.done) continue; const dx = (n.x - pl.x) * pl.face; if (dx > -20 && dx < reach && pl.y < 60) { n.hp -= power; n.hit = 0.15; for (let a = 0; a < 6; a++) addPart(n.x, GROUND - 20, (Math.random() - 0.5) * 200, -Math.random() * 180, 0.5, "180,220,255", 2.5); sfx.play("hit");
         if (n.hp <= 0) { n.done = true; const g = Math.min(CARGO_CAP - cargo, 4); cargo += g; if (net && g) net.sendEv("ore", g); pop(n.x, GROUND - 70, g ? "+" + g + " ORE" : "CARGO FULL", g ? "#9fe8ff" : "#ffb070"); sfx.play("pickup"); } } } };
-    const bolts: any[] = [], rockets: any[] = [], smoke: any[] = [], blasts: any[] = [], fires: any[] = [], arcs: any[] = [], parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [], drops: any[] = [], waves: any[] = [], pet: any[] = [];
+    const bolts: any[] = [], rockets: any[] = [], smoke: any[] = [], blasts: any[] = [], fires: any[] = [], arcs: any[] = [], parts: any[] = [], pops: any[] = [], shots: any[] = [], slashes: any[] = [], beams: any[] = [], drops: any[] = [], waves: any[] = [], pet: any[] = [];
     let crystals = readCrystals();
     const boss: any = { x: WORLD - 420, hp: Math.round(700 * HM), max: Math.round(700 * HM), face: -1, cd: 1.6, n: 0, state: "idle", tele: 0, dur: 0, hurt: 0, vx: 0, dead: NOBOSS ? 1 : 0, active: false };
     const ARENA = WORLD - 900;
@@ -1063,6 +1093,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         if (Math.random() < 0.22) drops.push({ x: m.x, y: 20, vy: 160, t: "hp" });
         { const lt = rollLoot(d.exp); if (lt) drops.push({ x: m.x + (Math.random() - 0.5) * 44, y: 24, vy: 170 + Math.random() * 70, t: lt }); if (Math.random() < 0.25) { const l2 = rollLoot(d.exp); if (l2) drops.push({ x: m.x + (Math.random() - 0.5) * 60, y: 28, vy: 190, t: l2 }); } }
         if (Math.random() < 0.5) drops.push({ x: m.x + (Math.random() - 0.5) * 30, y: 20, vy: 200, t: "cry" });
+        { const wid = rollWeapon(P.hard || 1, readFound(), false); if (wid) drops.push({ x: m.x, y: 34, vy: 240, t: "w:" + wid }); }   // a weapon, rarely
         for (let i = 0; i < (HI() ? 22 : 8); i++) addPart(m.x, GROUND - m.y - 24, (Math.random() - 0.5) * 340, -Math.random() * 280, 0.8, i % 2 ? P.glow : P.acc, 3);
         if (rpg && rpg.leveled) { const r2 = rpgOf(me); info = r2; mods = rpgMods(r2.pts); pl.hp = hpMaxOf(r2.lv); setBanner({ k: Date.now(), a: "LEVEL UP!", b: "Lv " + r2.lv + (r2.free > 0 ? " · " + t("มีแต้มสถานะ " + r2.free, r2.free + " stat points", r2.free + " 点属性") : "") }); playUi && playUi("reward"); }
         else info = rpgOf(me);
@@ -1091,6 +1122,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         const gain = Math.round(220 * (P.hard || 1) * RW); const rpg = addRpgExpX(me, gain); addSkillSp(cls, Math.round(gain / 3));
         for (let i = 0; i < 12; i++) drops.push({ x: boss.x + (i - 6) * 16, y: 40 + i * 6, vy: 220, t: "cry" });
         drops.push({ x: boss.x, y: 60, vy: 220, t: "hp" });
+        { const wid = rollWeapon(P.hard || 1, readFound(), true); if (wid) drops.push({ x: boss.x - 50, y: 80, vy: 260, t: "w:" + wid }); }   // a boss always leaves a weapon
         for (const [lt, n] of [["gold", 4], ["core", 2], ["ore", 6]] as any[]) for (let i = 0; i < n; i++) drops.push({ x: boss.x + (Math.random() - 0.5) * 140, y: 50 + Math.random() * 40, vy: 220 + Math.random() * 80, t: lt });
         for (let i = 0; i < (HI() ? 50 : 16); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 520, -Math.random() * 380, 1, i % 2 ? P.glow : P.acc, 4);
         markDone(P.id); shake = 10; sfx.play("win"); showClear(2600); questDone(bumpQuest("boss", 1)); logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
@@ -1173,12 +1205,46 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     // shoot: a bolt flies ahead and hits the first enemy; kick: a short wide sweep that knocks back hard
     let firedN = 0, rocketN = 0;
     const nearestFoe = (x: number, face: number, range: number) => { let best: any = null, bd = range; for (const m of mons) { if (m.dead) continue; const dx = (m.x - x) * face; if (dx > -20 && Math.abs(m.x - x) < bd) { bd = Math.abs(m.x - x); best = m; } } return best; };
+    /* a weapon picked up from the ground: equipped now and kept (it shows in the Loadout from then on) */
+    const equipWeapon = (id: string) => {
+      const isR = ROCKETS.some((x: any) => x.id === id), def: any = (isR ? ROCKETS : GUNS).find((x: any) => x.id === id); if (!def) return;
+      if (isR) LOAD.rocket = id; else LOAD.gun = id; addFound(id); saveLoad(isR ? "rocket" : "gun", id); sfx.play("win"); shake = Math.max(shake, 4);
+      pop(pl.x, GROUND - pl.y - 120, t("อาวุธใหม่: ", "NEW WEAPON: ", "新武器：") + T3(lang, def.th, def.en, def.zh), "#ffe27a"); for (let a = 0; a < (HI() ? 26 : 10); a++) addPart(pl.x, GROUND - pl.y - 40, (Math.random() - 0.5) * 420, -Math.random() * 360, 0.9, a % 2 ? "255,226,120" : "255,255,255", 3);
+    };
+    /* instant beams (laser rifle, railgun, big beam): damage along the line now, the beam itself is drawn for a moment */
+    const hitscan = (ox: number, oy: number, range: number, mult: number, pierce: boolean, w: number, col: string) => {
+      let endX = ox + pl.face * range; const hits: any[] = [];
+      for (const m of mons) { if (m.dead) continue; const dx = (m.x - ox) * pl.face; if (dx > -20 && dx < range && Math.abs(m.y + 20 - oy) < 52) hits.push([dx, m]); }
+      hits.sort((a, b) => a[0] - b[0]); const list = pierce ? hits : hits.slice(0, 1);
+      for (const [, m] of list) { const d = dmgOf(mult); hurtMon(m, d.v, d.crit, pl.face * 120); blasts.push({ x: m.x, y: m.y + 26, r: 30 + w, life: 0.16, max: 0.16, flash: true }); }
+      if (!pierce && list.length) endX = list[0][1].x;
+      const bdx = (boss.x - ox) * pl.face; if (boss.active && !boss.dead && bdx > -20 && bdx < range && oy < 150 && (pierce || !list.length)) { const d = dmgOf(mult); hurtBoss(d.v, d.crit, 0); blasts.push({ x: boss.x, y: 70, r: 40 + w, life: 0.18, max: 0.18, flash: true }); if (!pierce) endX = boss.x - pl.face * 40; }
+      beams.push({ x1: ox, y1: GROUND - oy, x2: endX, y2: GROUND - oy, life: pierce ? 0.24 : 0.1, max: pierce ? 0.24 : 0.1, w, col });
+      blasts.push({ x: ox + pl.face * 16, y: oy, r: 20 + w, life: 0.1, max: 0.1, flash: true }); warHit(Math.abs(endX - ox) + 20, mult);
+    };
     const fireBolt = () => {
       if (pl.dead || pl.fireCd > 0) return;
       sfx.play("fire", rv); firedN++; warHit(520, 0.8);
       pl.swing = 0.12; setPose("attack"); setTimeout(() => setPose("ready"), 140);
       const ox = pl.x + pl.face * 30, oy = pl.y + 46, g = LOAD.gun;
-      if (g === "scatter") {
+      if (g === "minigun") {
+        pl.fireCd = 0.07 * mods.cdMul; const d = dmgOf(0.28); bolts.push({ x: ox, y: oy + (Math.random() - 0.5) * 8, vx: pl.face * 680, vy: (Math.random() - 0.5) * 70, life: 0.55, v: d.v, crit: d.crit });
+        blasts.push({ x: ox + pl.face * 14, y: oy, r: 18, life: 0.07, max: 0.07, flash: true }); addPart(ox, GROUND - oy + 6, -pl.face * (30 + Math.random() * 50), -60 - Math.random() * 60, 0.5, "255,220,120", 2); shake = Math.max(shake, 1.2);
+      } else if (g === "shotgun") {
+        pl.fireCd = 0.62 * mods.cdMul; for (let k2 = 0; k2 < 7; k2++) { const d = dmgOf(0.4); bolts.push({ x: ox, y: oy, vx: pl.face * (470 + Math.random() * 90), vy: (k2 - 3) * 36 + (Math.random() - 0.5) * 22, life: 0.3, v: d.v, crit: d.crit }); }
+        blasts.push({ x: ox + pl.face * 22, y: oy, r: 46, life: 0.12, max: 0.12, flash: true }); shake = Math.max(shake, 4); for (let a = 0; a < 6; a++) addPart(ox + pl.face * 20, GROUND - oy, pl.face * (120 + Math.random() * 200), (Math.random() - 0.5) * 160, 0.3, "255,200,90", 2.5);
+      } else if (g === "laserrifle") {
+        pl.fireCd = 0.2 * mods.cdMul; hitscan(ox, oy, 760, 0.9, false, 5, "255,70,100");
+      } else if (g === "railgun") {
+        pl.fireCd = 1.0 * mods.cdMul; hitscan(ox, oy, 1000, 2.4, true, 9, "140,200,255"); shake = Math.max(shake, 5);
+      } else if (g === "bigbeam") {
+        pl.fireCd = 1.6 * mods.cdMul; hitscan(ox, oy, 900, 3.0, true, 30, "255,120,225"); shake = Math.max(shake, 8);
+      } else if (g === "sword") {
+        pl.fireCd = 0.36 * mods.cdMul; pl.swing = 0.3; sfx.play("kick", rv);
+        slashes.push({ x: pl.x + pl.face * 70, y: pl.y + 50, face: pl.face, life: 0.22, max: 0.22, col: "#8affc8" });
+        for (const m of mons) { if (m.dead) continue; const dx = (m.x - pl.x) * pl.face; if (dx > -14 && dx < 190 + MON[m.type].w / 2 && Math.abs(m.y - pl.y) < 90) { const d = dmgOf(1.7); hurtMon(m, d.v, d.crit, pl.face * 220); } }
+        { const dx = (boss.x - pl.x) * pl.face; if (boss.active && !boss.dead && dx > -14 && dx < 230 && pl.y < 100) { const d = dmgOf(1.7); hurtBoss(d.v, d.crit, pl.face * 160); } }
+      } else if (g === "scatter") {
         pl.fireCd = 0.34 * mods.cdMul;
         for (let k2 = -1; k2 <= 1; k2++) { const d = dmgOf(0.42); bolts.push({ x: ox, y: oy, vx: pl.face * 470, vy: k2 * 70, life: 0.45, v: d.v, crit: d.crit }); }
       } else if (g === "lance") {
@@ -1203,20 +1269,24 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       for (let a = 0; a < (HI() ? 22 : 8); a++) addPart(x, GROUND - y, (Math.random() - 0.5) * 360, -Math.random() * 300, 0.6, a % 2 ? col : "255,230,160", 3.5);
       slashes.push({ x, y, face: 0, life: 0.3, max: 0.3, nova: true, st: 0, col: "#ffb060" });
       blasts.push({ x, y, r: r * 1.5, life: 0.45, max: 0.45 });
+      blasts.push({ x, y, r: r * 0.9, life: 0.2, max: 0.2, flash: true });   // white-hot core
+      if (r >= 90) { blasts.push({ x, y, r: r * 2.2, life: 0.6, max: 0.6 }); for (let q = 0; q < (HI() ? 16 : 7); q++) addPart(x, GROUND - y, (Math.random() - 0.5) * 640, -Math.random() * 540, 1, q % 3 ? "255,150,60" : "255,240,180", 3.2); shake = Math.max(shake, Math.min(14, 3 + r / 30)); }
       for (let q = 0; q < (HI() ? 9 : 4); q++) smoke.push({ x: x + (Math.random() - 0.5) * r, y: y + Math.random() * r * 0.6, vx: (Math.random() - 0.5) * 60, vy: 30 + Math.random() * 50, life: 0.9 + Math.random() * 0.5, max: 1.3, r: 10 + Math.random() * 14 });
     };
     const fireRocket = () => {
       if (pl.dead || pl.rockCd > 0) return;
-      const k3 = LOAD.rocket, salvo = k3 === "nuke" || k3 === "big" ? 1 : 2 + (UPS.rkt >= 2 ? 1 : 0) + (UPS.rkt >= 4 ? 1 : 0);   // owner 2026-10-11: several missiles every press, rapid, short reload
-      pl.rockCd = ({ mini: 0.16, big: 1.1, nuke: 3, homing: 0.26, cluster: 0.4, napalm: 0.45 } as any)[k3] || 0.3; pl.rockCd *= mods.cdMul * (1 - 0.06 * UPS.rkt); rocketN += salvo; sfx.play("rocket", rv); pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
+      const k3 = LOAD.rocket, salvo = k3 === "nuke" || k3 === "big" || k3 === "rpg" ? 1 : 2 + (UPS.rkt >= 2 ? 1 : 0) + (UPS.rkt >= 4 ? 1 : 0);   // owner 2026-10-11: several missiles every press, rapid, short reload
+      pl.rockCd = ({ mini: 0.16, big: 1.1, nuke: 3, homing: 0.26, cluster: 0.4, napalm: 0.45, rpg: 0.7, frag: 0.5 } as any)[k3] || 0.3; pl.rockCd *= mods.cdMul * (1 - 0.06 * UPS.rkt); rocketN += salvo; sfx.play("rocket", rv); pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
       const ox = pl.x + pl.face * 28, oy = pl.y + 52;
-      shake = Math.max(shake, HI() ? 4 : 2); blasts.push({ x: ox, y: oy, r: 34, life: 0.18, max: 0.18, flash: true });   // muzzle flash
+      shake = Math.max(shake, HI() ? 5 : 3); blasts.push({ x: ox, y: oy, r: 58, life: 0.2, max: 0.2, flash: true }); for (let a = 0; a < (HI() ? 12 : 5); a++) addPart(ox, GROUND - oy, pl.face * (150 + Math.random() * 320), (Math.random() - 0.5) * 140, 0.35, "255,210,120", 2.5);   // muzzle flash and a spray of sparks
       for (let a = 0; a < (HI() ? 14 : 6); a++) { smoke.push({ x: ox - pl.face * 10, y: oy + (Math.random() - 0.5) * 12, vx: -pl.face * (60 + Math.random() * 120), vy: (Math.random() - 0.3) * 40, life: 0.6 + Math.random() * 0.3, max: 0.9, r: 4 + Math.random() * 5 }); }   // backblast
       const SC: any = { mini: 0.62, big: 1.5, nuke: 2.3 };
       for (let q = 0; q < salvo; q++) {   // a salvo fans out a little so the missiles do not sit on each other
         const fan = (q - (salvo - 1) / 2), sc = SC[k3] || 1;
         if (k3 === "homing" || k3 === "mini") rockets.push({ k: k3, sc, x: ox, y: oy + fan * 10, vx: pl.face * (k3 === "mini" ? 420 : 300), vy: 40 + fan * 90, life: 2.6 });
         else if (k3 === "big" || k3 === "nuke") rockets.push({ k: k3, sc, x: ox, y: oy, vx: pl.face * (k3 === "nuke" ? 230 : 300), vy: k3 === "nuke" ? 60 : 90, life: 3.2, g: k3 === "nuke" ? 60 : 120 });
+        else if (k3 === "rpg") rockets.push({ k: "rpg", sc: 1.05, x: ox, y: oy, vx: pl.face * 640, vy: 0, life: 1.6, g: 0 });
+        else if (k3 === "frag") rockets.push({ k: "frag", sc: 0.5, x: ox, y: oy, vx: pl.face * 330, vy: 280, life: 1.4, g: 760 });
         else rockets.push({ k: k3, sc, x: ox, y: oy + fan * 10, vx: pl.face * 380, vy: 210 + fan * 80, life: 2.4, g: 520 });
       }
       if (k3 === "nuke") { shake = Math.max(shake, HI() ? 9 : 5); }
@@ -1231,6 +1301,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       if (!n && boss.active && !boss.dead && Math.abs(boss.x - ox) < 460) { const d = dmgOf(0.75); hurtBoss(d.v, d.crit, 0); pts.push([boss.x, GROUND - 70]); }
       if (pts.length < 2) pts.push([ox + pl.face * 300, GROUND - oy - (Math.random() - 0.5) * 40]);
       arcs.push({ pts, life: 0.24 }); blasts.push({ x: ox, y: oy, r: 30, life: 0.14, max: 0.14, flash: true });
+      for (let i = 1; i < pts.length; i++) { arcs.push({ pts: [[pts[i][0] + (Math.random() - 0.5) * 50, pts[i][1] - 700], [pts[i][0], pts[i][1]]], life: 0.32 }); blasts.push({ x: pts[i][0], y: GROUND - pts[i][1], r: 120, life: 0.24, max: 0.24, flash: true }); for (let a = 0; a < (HI() ? 10 : 4); a++) addPart(pts[i][0], pts[i][1], (Math.random() - 0.5) * 360, -Math.random() * 320, 0.5, "170,215,255", 2.5); shake = Math.max(shake, 6); }   // a strike from the sky on every foe it reaches
       for (let a = 0; a < (HI() ? 8 : 3); a++) addPart(ox, GROUND - oy, pl.face * (80 + Math.random() * 160), (Math.random() - 0.5) * 120, 0.25, "170,220,255", 2.5);
     };
     const kickMove = () => {
@@ -1426,6 +1497,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         if (boom) { r.dead = true; const yy = Math.max(0, r.y);
           if (r.k === "homing") explode(r.x, yy, 95, 3.2, "255,170,60");
           else if (r.k === "mini") explode(r.x, yy, 48, 1.3, "255,200,100");
+          else if (r.k === "rpg") { explode(r.x, yy, 125, 4.6, "255,150,60"); shake = Math.max(shake, HI() ? 9 : 5); }
+          else if (r.k === "frag") explode(r.x, yy, 115, 3.4, "200,255,120");
           else if (r.k === "big") { explode(r.x, yy, 170, 7, "255,140,50"); shake = Math.max(shake, HI() ? 12 : 6); }
           else if (r.k === "nuke") { explode(r.x, yy, 460, 16, "255,255,230"); shake = HI() ? 22 : 12; blasts.push({ x: r.x, y: yy, r: 900, life: 0.7, max: 0.7, flash: true }); for (let q = 0; q < 3; q++) blasts.push({ x: r.x + (q - 1) * 90, y: yy + q * 30, r: 380, life: 0.9 + q * 0.2, max: 1.3 }); for (let q = 0; q < (HI() ? 26 : 10); q++) smoke.push({ x: r.x + (Math.random() - 0.5) * 220, y: yy + Math.random() * 260, vx: (Math.random() - 0.5) * 90, vy: 40 + Math.random() * 110, life: 1.8 + Math.random() * 1.2, max: 3, r: 24 + Math.random() * 30 }); pop(r.x, GROUND - yy - 160, t("นิวเคลียร์!", "NUKE!", "核爆！"), "#fff2c0"); }
           else if (r.k === "cluster") { explode(r.x, yy, 60, 1.4, "255,200,90"); for (let q = 0; q < 5; q++) rockets.push({ k: "bomblet", x: r.x + (q - 2) * 8, y: yy + 10, vx: (q - 2) * 90, vy: 150 + (q % 2) * 70, life: 0.7 + q * 0.06, g: 600 }); }
@@ -1438,10 +1511,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       for (const f of fires) { f.life -= dt; f.tick -= dt; if (f.tick <= 0) { f.tick = 0.4; for (const m of mons) if (!m.dead && Math.abs(m.x - f.x) < 110 && m.y < 40) hurtMon(m, Math.max(1, dmgOf(0.5).v), false, 0); if (boss.active && !boss.dead && Math.abs(boss.x - f.x) < 130) hurtBoss(Math.max(1, dmgOf(0.5).v), false, 0); } }
       for (let i = fires.length - 1; i >= 0; i--) if (fires[i].life <= 0) fires.splice(i, 1);
       for (const a of arcs) a.life -= dt; for (let i = arcs.length - 1; i >= 0; i--) if (arcs[i].life <= 0) arcs.splice(i, 1);
+      for (const b of beams) b.life -= dt; for (let i = beams.length - 1; i >= 0; i--) if (beams[i].life <= 0) beams.splice(i, 1);
       for (const w of waves) { w.x += w.dir * 260 * dt; w.life -= dt; if (Math.abs(w.x - pl.x) < 22 && pl.y < 34) { hurtPlayer(Math.round(16 * HM), w.x); w.life = 0; } }
       for (let i = waves.length - 1; i >= 0; i--) if (waves[i].life <= 0) waves.splice(i, 1);
       for (const d of drops) { d.vy -= 700 * dt; d.y += d.vy * dt; if (d.y < 0) { d.y = 0; d.vy = 0; } if (pl.dead <= 0 && Math.abs(d.x - pl.x) < 34 && Math.abs(d.y - pl.y) < 60) { d.got = true;
-        if (d.t === "hp") { sfx.play("pickup"); pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.18); pop(pl.x, GROUND - pl.y - 100, "+HP", "#8dffb0"); } else if (LOOT[d.t]) { sfx.play("pickup"); loot[d.t]++; pop(pl.x, GROUND - pl.y - 100, "+" + LOOT[d.t].v + " 🪙", LOOT[d.t].c); } else { sfx.play("pickup"); gainCry(CV); pop(pl.x, GROUND - pl.y - 100, "◆" + (CV > 1 ? "×" + CV : ""), "#7fe8ff"); } } }
+        if (d.t.charCodeAt(1) === 58) equipWeapon(d.t.slice(2)); else if (d.t === "hp") { sfx.play("pickup"); pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + hpMaxOf(info.lv) * 0.18); pop(pl.x, GROUND - pl.y - 100, "+HP", "#8dffb0"); } else if (LOOT[d.t]) { sfx.play("pickup"); loot[d.t]++; pop(pl.x, GROUND - pl.y - 100, "+" + LOOT[d.t].v + " 🪙", LOOT[d.t].c); } else { sfx.play("pickup"); gainCry(CV); pop(pl.x, GROUND - pl.y - 100, "◆" + (CV > 1 ? "×" + CV : ""), "#7fe8ff"); } } }
       for (let i = drops.length - 1; i >= 0; i--) if (drops[i].got) drops.splice(i, 1);
       for (const s of shots) { s.x += s.vx * dt; s.life -= dt; if (Math.abs(s.x - pl.x) < 18 && Math.abs(s.y - pl.y - 40) < 40 && s.life > 0) { hurtPlayer(s.d, s.x); s.life = 0; } }
       for (let i = shots.length - 1; i >= 0; i--) if (shots[i].life <= 0) shots.splice(i, 1);
@@ -1509,7 +1583,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         ctx.globalCompositeOperation = "source-over";
         ctx.fillStyle = r.k === "napalm" ? "#7a2a10" : "#4a5668"; ctx.beginPath(); ctx.moveTo(-L * 0.3, -W2 * 1.1); ctx.lineTo(-L / 2 - 2, -W2 * 2.6); ctx.lineTo(-L / 2 + 6, -W2 * 0.6); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(-L * 0.3, W2 * 1.1); ctx.lineTo(-L / 2 - 2, W2 * 2.6); ctx.lineTo(-L / 2 + 6, W2 * 0.6); ctx.closePath(); ctx.fill();   // fins
         const bg = ctx.createLinearGradient(0, -W2, 0, W2); bg.addColorStop(0, "#f4f7fb"); bg.addColorStop(0.5, "#aab6c6"); bg.addColorStop(1, "#5d6b7e"); ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(-L / 2, -W2); ctx.lineTo(L * 0.22, -W2); ctx.lineTo(L * 0.22, W2); ctx.lineTo(-L / 2, W2); ctx.closePath(); ctx.fill();   // the body
-        ctx.fillStyle = r.k === "cluster" ? "#ffd23f" : r.k === "napalm" ? "#ff7a2a" : r.k === "mini" ? "#5ad1ff" : r.k === "big" ? "#8a5cff" : r.k === "nuke" ? "#b6ff3b" : "#e4455b"; ctx.fillRect(-L * 0.12, -W2, L * 0.1, W2 * 2);                  // a coloured band by type
+        ctx.fillStyle = r.k === "cluster" ? "#ffd23f" : r.k === "napalm" ? "#ff7a2a" : r.k === "mini" ? "#5ad1ff" : r.k === "rpg" ? "#ff8a2a" : r.k === "frag" ? "#9aff5a" : r.k === "big" ? "#8a5cff" : r.k === "nuke" ? "#b6ff3b" : "#e4455b"; ctx.fillRect(-L * 0.12, -W2, L * 0.1, W2 * 2);                  // a coloured band by type
         ctx.beginPath(); ctx.moveTo(L * 0.22, -W2); ctx.quadraticCurveTo(L * 0.42, -W2 * 0.5, L / 2 + 3, 0); ctx.quadraticCurveTo(L * 0.42, W2 * 0.5, L * 0.22, W2); ctx.closePath(); ctx.fillStyle = "#d9d2c4"; ctx.fill();   // the nose cone
         ctx.fillStyle = "#ff3b30"; ctx.beginPath(); ctx.moveTo(L * 0.38, -W2 * 0.35); ctx.lineTo(L / 2 + 3, 0); ctx.lineTo(L * 0.38, W2 * 0.35); ctx.closePath(); ctx.fill();
         ctx.restore();
@@ -1517,6 +1591,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       for (const b of blasts) { const k4 = Math.max(0, b.life / b.max), q = 1 - k4; ctx.globalCompositeOperation = "lighter"; const R = b.r * (b.flash ? 1 : 0.35 + q * 0.75);
         const g2 = ctx.createRadialGradient(b.x, GROUND - b.y, 0, b.x, GROUND - b.y, R); g2.addColorStop(0, `rgba(255,255,235,${0.95 * k4})`); g2.addColorStop(0.3, `rgba(255,200,80,${0.8 * k4})`); g2.addColorStop(0.7, `rgba(255,90,30,${0.4 * k4})`); g2.addColorStop(1, "rgba(255,60,20,0)"); ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(b.x, GROUND - b.y, R, 0, 7); ctx.fill();
         if (!b.flash) { ctx.strokeStyle = `rgba(255,220,160,${0.7 * k4})`; ctx.lineWidth = 3 * k4 + 1; ctx.beginPath(); ctx.arc(b.x, GROUND - b.y, R * 1.15, 0, 7); ctx.stroke(); } ctx.globalCompositeOperation = "source-over"; }
+      for (const b of beams) { const k4 = Math.max(0, b.life / b.max); ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round"; for (const [wm, al, c] of [[3.2, 0.18, `rgba(${b.col},1)`], [1.6, 0.5, `rgba(${b.col},1)`], [0.55, 1, "#fff"]] as any[]) { ctx.strokeStyle = c; ctx.globalAlpha = k4 * al; ctx.lineWidth = b.w * wm * (0.6 + 0.4 * k4); ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); } ctx.restore(); }
       for (const a of arcs) drawLightning(ctx, a, HI());
       for (const b of bolts) {
         if (b.pierce) { ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = rGlow; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(b.x - Math.sign(b.vx) * 90, GROUND - b.y); ctx.lineTo(b.x, GROUND - b.y); ctx.stroke(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(b.x - Math.sign(b.vx) * 50, GROUND - b.y); ctx.lineTo(b.x, GROUND - b.y); ctx.stroke(); ctx.globalCompositeOperation = "source-over"; continue; }
@@ -1540,6 +1615,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       }
       for (const w of waves) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.8)`; ctx.beginPath(); ctx.moveTo(w.x - 14, GROUND); ctx.lineTo(w.x, GROUND - 30); ctx.lineTo(w.x + 14, GROUND); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       for (const d of drops) { const yy = GROUND - d.y - 8 + Math.sin(tm * 5 + d.x) * 2;
+        if (d.t.charCodeAt(1) === 58) { const gw = ctx.createRadialGradient(d.x, yy, 2, d.x, yy, 34 + Math.sin(tm * 6) * 4); gw.addColorStop(0, "rgba(255,225,110,.8)"); gw.addColorStop(1, "rgba(255,200,60,0)"); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = gw; ctx.beginPath(); ctx.arc(d.x, yy, 38, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over";
+          ctx.fillStyle = "#1b2436"; ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 2; ctx.fillRect(d.x - 13, yy - 11, 26, 22); ctx.strokeRect(d.x - 13, yy - 11, 26, 22); ctx.fillStyle = "#ffd23f"; ctx.font = "bold 15px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("★", d.x, yy + 5); continue; }
         if (LOOT[d.t]) { const c = LOOT[d.t].c; ctx.fillStyle = c; ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 1;
           if (d.t === "scrap") { ctx.save(); ctx.translate(d.x, yy); ctx.rotate(tm * 2 + d.x); ctx.fillRect(-5, -4, 10, 8); ctx.strokeRect(-5, -4, 10, 8); ctx.restore(); }
           else if (d.t === "ore") { ctx.beginPath(); ctx.moveTo(d.x - 6, yy + 6); ctx.lineTo(d.x - 2, yy - 7); ctx.lineTo(d.x + 2, yy + 2); ctx.lineTo(d.x + 7, yy - 4); ctx.lineTo(d.x + 7, yy + 6); ctx.closePath(); ctx.fill(); ctx.stroke(); }
@@ -1618,6 +1695,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           if (hs.style.display !== "block") { hs.style.display = "block"; base.style.display = "none"; }
         } else if (hs && base && hs.style.display !== "none") { hs.style.display = "none"; base.style.display = ""; }
         const stepBob = moving ? Math.abs(Math.sin((heroDist / STRIDE_PX) * Math.PI / 4 * 2)) * 2.2 * cssK : 0;
+        const we = wpnRef.current; if (we) {   // the weapon in the hero's hands
+          const wid = LOAD.gun; if (we.dataset.w !== wid) { we.dataset.w = wid; we.innerHTML = WPN_SVG[wid] || WPN_SVG.pulse; }
+          const sw = pl.swing > 0 ? 1 - Math.min(1, pl.swing / 0.3) : 0;
+          we.style.transform = wid === "sword" ? `rotate(${pl.swing > 0 ? -70 + sw * 150 : -52}deg)` : `rotate(${pl.swing > 0 ? -6 : 12}deg) translateX(${pl.swing > 0 ? -3 : 0}px)`;
+        }
         px.style.transform = `translate(${(pl.x - camX) * cssK - bw / 2}px,${(GROUND - pl.y) * cssK - bh + 6 * cssK - stepBob}px) scaleX(${pl.face >= 0 ? 1 : -1})`;
       }
       const pe = petRef.current; if (pe) {
@@ -1651,7 +1733,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { netPeers: () => (net ? [...net.peers.values()].map(q => ({ id: q.id, x: q.x })) : null), padX: () => PAD_X, digNow: () => digMove(), framesBuilt: () => dframes.map(f => f.built), frameXs: () => dframes.map(f => f.x), nodeXs: () => nodes.filter(n => !n.done).map(n => n.x), cargoN: () => cargo, slotsN: () => slots.length, slotNames: () => slots.map(q => q.s.id), pass: () => PASS, castId: (id: string) => { const q = [...["striker", "bulwark", "ghost", "tactician", "engineer", "herald", "virtuoso"].flatMap(c => treeOf("robot", c)), ...["volt", "ember", "frost", "flora", "steel", "aether"].flatMap(c => treeOf("pet", c))].find(z => z.id === id); if (q) castSkill(q, lvOf(q.id), q.kind === "pet"); return !!q; }, castSlotNow: (i: number) => castSlot(i), slotCds: () => slotCd.slice(), hasteT: () => buff.haste, shieldLeft: () => shieldT, turretsN: () => turrets.length, setHp: (v: number) => { pl.hp = v; }, hpNow: () => pl.hp, monsSlowed: () => mons.filter(m => m.slowT > 0).length, beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), zapNow: () => zapBolt(), greeted: () => beacons.filter((b: any) => b.greet).length, beaconsN: () => beacons.length, killMe: () => { pl.inv = 0; hurtPlayer(99999, pl.x - 1); }, warInfo: () => ({ war: WAR, team: myTeam }), face: (f: number) => { pl.face = f; }, drawAvg: () => (drawN ? drawMs / drawN : 0), teamInfo: () => ({ goal: teamGoal(), done: teamDone }), reviveState: () => ({ dead: pl.dead, revived, hp: pl.hp }), peerDown: (id: string) => { const q = net && net.peers.get(id); if (q) { q.hp = 0; q.x = pl.x + 20; } }, forceKills: (n: number) => { kills = n; teamCheck(); }, zapsN: () => zapN, rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    (window as any).__advTest = { netPeers: () => (net ? [...net.peers.values()].map(q => ({ id: q.id, x: q.x })) : null), padX: () => PAD_X, digNow: () => digMove(), framesBuilt: () => dframes.map(f => f.built), frameXs: () => dframes.map(f => f.x), nodeXs: () => nodes.filter(n => !n.done).map(n => n.x), cargoN: () => cargo, slotsN: () => slots.length, slotNames: () => slots.map(q => q.s.id), pass: () => PASS, castId: (id: string) => { const q = [...["striker", "bulwark", "ghost", "tactician", "engineer", "herald", "virtuoso"].flatMap(c => treeOf("robot", c)), ...["volt", "ember", "frost", "flora", "steel", "aether"].flatMap(c => treeOf("pet", c))].find(z => z.id === id); if (q) castSkill(q, lvOf(q.id), q.kind === "pet"); return !!q; }, castSlotNow: (i: number) => castSlot(i), slotCds: () => slotCd.slice(), hasteT: () => buff.haste, shieldLeft: () => shieldT, turretsN: () => turrets.length, setHp: (v: number) => { pl.hp = v; }, hpNow: () => pl.hp, monsSlowed: () => mons.filter(m => m.slowT > 0).length, beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, equipNow: (id: string) => equipWeapon(id), fireNow: () => fireBolt(), fireCdClear: () => { pl.fireCd = 0; }, beamsN: () => beams.length, rocketNow: () => fireRocket(), zapNow: () => zapBolt(), greeted: () => beacons.filter((b: any) => b.greet).length, beaconsN: () => beacons.length, killMe: () => { pl.inv = 0; hurtPlayer(99999, pl.x - 1); }, warInfo: () => ({ war: WAR, team: myTeam }), face: (f: number) => { pl.face = f; }, drawAvg: () => (drawN ? drawMs / drawN : 0), teamInfo: () => ({ goal: teamGoal(), done: teamDone }), reviveState: () => ({ dead: pl.dead, revived, hp: pl.hp }), peerDown: (id: string) => { const q = net && net.peers.get(id); if (q) { q.hp = 0; q.x = pl.x + 20; } }, forceKills: (n: number) => { kills = n; teamCheck(); }, zapsN: () => zapN, rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
     return () => { settle(0.4); if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (HI() ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, me, cls]);
 
@@ -1674,6 +1756,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           return FIGURES_OK ? <FigurePic fkey={botKey(pose)} kind="bot" el={live} cls="ca" vb="-20 -16 160 416" /> : live;
         })()}
         <svg ref={heroSvgRef} className="ca" viewBox="-20 -16 160 416" overflow="visible" aria-hidden="true" style={{ display: "none" }}><image ref={heroImgRef} preserveAspectRatio="none" /></svg>
+        <div ref={wpnRef} className="adv-wpn" aria-hidden="true" />
       </div>
       <div className="adv-top">
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
