@@ -98,6 +98,7 @@ export function rollLoot(exp: number, rnd2: () => number = Math.random): string 
 }
 export const readDayCoins = (): number => { try { const v = JSON.parse(localStorage.getItem("tg_adv_coin_day") || "{}") || {}; return v.d === dayKey() ? Math.max(0, v.n | 0) : 0; } catch (e) { return 0; } };
 export const addDayCoins = (n: number) => { try { localStorage.setItem("tg_adv_coin_day", JSON.stringify({ d: dayKey(), n: readDayCoins() + n })); } catch (e) {} };
+const FINALE: any = { id: "finale", finale: true, th: "บทส่งท้ายภาค 3", en: "Act 2 epilogue", zh: "第三区尾声", c: ["#04060e", "#0a1830", "#2a5aa8"], glow: "120,255,220", acc: "255,200,90", boss: ["-", "-", "-"] };
 const PROLOGUE: any = { id: "prologue", prologue: true, th: "โครงการหุ่นยนต์ผู้บุกเบิก", en: "Pioneer Robot Program", zh: "先遣机器人计划", c: ["#04060e", "#0a1830", "#2a5aa8"], glow: "110,190,255", acc: "255,200,90", boss: ["-", "-", "-"] };
 let TINT: any = null;
 const AdventureShip = lazy(() => import("./adventure-ship"));   // the starship dogfight: its own chunk
@@ -123,6 +124,9 @@ export const PLANETS = [
   { id: "asteroids", th: "ทุ่งดาวเคราะห์น้อย · ขับยานขุดแร่", en: "Asteroid Field · fly and mine the rocks", zh: "小行星带 · 驾驶飞船采矿", c: ["#0a1220", "#2a3a52", "#8a7a6a"], glow: "255,210,150", acc: "120,220,255", ok: true, hard: 1.8, mission: "belt", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "gasskim", th: "ดาวแก๊สยักษ์ · ขับยานดูดพลังงาน", en: "Gas Giant Skim · skim the clouds for energy", zh: "气态巨星 · 掠云汲取能量", c: ["#1a0a2a", "#5a2a6a", "#ffa060"], glow: "255,190,110", acc: "190,140,255", ok: true, hard: 2.2, mission: "skim", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "starharvest", th: "ดาวฤกษ์ต่างจักรวาล · ยึดสถานีเก็บพลังงานด้วยยาน", en: "Foreign Star · seize the collector stations by ship", zh: "异宇宙恒星 · 驾驶飞船占领采集站", c: ["#2a0a00", "#8a3a00", "#ffd060"], glow: "255,220,130", acc: "120,220,255", ok: true, hard: 3.0, mission: "harvest", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
+  { id: "kindred", th: "ฐานไคนด์เรด · แลกแร่กับความรู้ของเพื่อนต่างดาว", en: "Kindred Haven · trade ore for an ally's knowledge", zh: "友族港湾 · 以矿石换取盟友的知识", c: ["#041a1a", "#0a4a44", "#46c7b0"], glow: "120,255,220", acc: "255,226,150", ok: true, hard: 2.6, mission: "mine", mons: ["glowbug", "hound", "swarmer", "eyeball", "glowbug", "burrower"], tint: { glow: "120,255,220", body: "#0c3a36" }, boss: ["-", "-", "-"] },
+  { id: "darkforge", th: "โรงหลอมสสารมืด · พลังงานที่มองไม่เห็น", en: "Dark Forge · power from the unseen", zh: "暗物质锻炉 · 来自不可见之物的能量", c: ["#06010f", "#1a0a3a", "#8a5cff"], glow: "170,120,255", acc: "255,120,200", ok: true, hard: 3.6, mission: "dyson", mons: ["wraith", "eyeball", "drone", "scrapgolem", "wraith", "mantis"], tint: { glow: "170,120,255", body: "#1a0c2e" }, boss: ["-", "-", "-"] },
+  { id: "shadow", th: "ใต้สายตาฮาร์เวสเตอร์ · ผ่านไปโดยไม่ถูกเห็น", en: "Under the Harvesters' Eye · pass unseen", zh: "收割者的注视 · 悄然通过", c: ["#0a0306", "#2a0a1a", "#ff4d6d"], glow: "255,90,120", acc: "150,220,255", ok: true, hard: 2.4, mission: "evade", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
 ];
 
 /* the story (owner, 2026-10-11): year 2100, these robots are built BY humans to do the colony work in their place, before any person
@@ -142,6 +146,9 @@ export const BRIEF: Record<string, string[]> = {
   starharvest: ["ดาวฤกษ์ต่างจักรวาล: บินเข้าวงแหวนสถานีและอยู่ให้ครบ 7 วินาที ×3 สถานี หลบเปลวสุริยะและฝูงเอเลี่ยน", "Foreign star: hold the ship inside each station ring for 7 s, three stations, through flares and raiders", "异宇宙恒星：在每个采集站圆环内停留 7 秒，共 3 站，穿越耀斑与袭击者"],
   helios: ["ดาวฤกษ์ต่างระบบ: ยึดสถานีเก็บพลังงานทั้งสามจุดทีละจุด", "A foreign sun: take its three collector stations, one at a time.", "异星恒星：逐一占领三座能量采集站。"],
   ashfall: ["แอชฟอลล์: ทิ้งระเบิดนิวเคลียร์จากวงโคจรก่อน แล้วค่อยลงไปกวาดล้างที่เหลือ", "Ashfall: nuke the bases from orbit first, then drop in and clear what is left.", "灰烬星：先从轨道投下核弹，再降落扫荡残敌。"],
+  kindred: ["ฐานไคนด์เรด: ขุดแร่ 10 ก้อนขึ้นไป แล้วส่งแคปซูลแลกความรู้จากเพื่อนต่างดาว", "Kindred Haven: mine at least 10 ore and launch the trade capsule for our allies' knowledge.", "友族港湾：采集至少 10 块矿石，发射货舱向盟友换取知识。"],
+  darkforge: ["โรงหลอมสสารมืด: ขุดแร่ ประกอบภาชนะ 4 ชิ้น (กด ⛏ ใกล้โครง) แล้วส่งพลังงานกลับโลก", "Dark Forge: dig ore, bolt 4 vessels onto the frames (⛏ beside a frame) and beam the power home.", "暗物质锻炉：挖矿，把 4 个容器装到框架上（在框架旁按 ⛏），再把能量送回地球。"],
+  shadow: ["ใต้สายตาฮาร์เวสเตอร์: ห้ามยิง หลบลำแสงสแกนให้ครบ 50 วินาที", "Under the Harvesters' eye: no shooting. Dodge the scan beams for 50 seconds.", "收割者的注视：禁止开火，躲开扫描光束 50 秒。"],
 };
 const ORE_STAGES = [{ n: 0, th: "ฐานชั่วคราว", en: "Outpost", zh: "前哨" }, { n: 40, th: "ค่ายอาณานิคม", en: "Camp", zh: "营地" }, { n: 120, th: "เมืองเล็ก", en: "Town", zh: "小镇" }, { n: 300, th: "มหานครอาณานิคม", en: "Colony city", zh: "殖民都市" }];
 export const readDyson = (): number => { try { return Math.max(0, parseInt(localStorage.getItem("tg_earth_dyson") || "0", 10) || 0); } catch (e) { return 0; } };
@@ -461,9 +468,11 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
   const [tick, setTick] = useState(0); void tick;
   useEffect(() => { warmAdvFigures(me, colorway, petNow); }, []);
+  const ACT2 = ["kindred", "darkforge", "shadow"];
   const isSpace = (P: any) => ["dogfight", "launch", "belt", "skim", "harvest"].includes(P.mission);
-  const [sector, setSector] = useState<"ground" | "space">(() => { try { return localStorage.getItem("tg_adv_sector") === "space" ? "space" : "ground"; } catch (e) { return "ground"; } });
-  const pickSector = (v: "ground" | "space") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
+  const [sector, setSector] = useState<"ground" | "space" | "act2">(() => { try { const v = localStorage.getItem("tg_adv_sector"); return v === "space" ? "space" : v === "act2" ? "act2" : "ground"; } catch (e) { return "ground"; } });
+  const sectorOf = (P: any): "ground" | "space" | "act2" => (ACT2.includes(P.id) ? "act2" : isSpace(P) ? "space" : "ground");
+  const pickSector = (v: "ground" | "space" | "act2") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
   const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
   const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests(); const load = readLoad(); const ore = readOre(); const ostage = oreStage(ore);
   const [strike, setStrike] = useState<any>(null);
@@ -473,9 +482,11 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   shipCtl.current.ask = () => { const nq: any = nextSpell(lang, {}); setShipQuiz({ qs: [nq], i: 0, sel: [], res: null, right: 0, learned: nq.learned, spell: true }); };
   const shipAnswer = (ok: boolean) => { const cur = shipQuiz; if (!cur || cur.res) return; const q = cur.qs[cur.i].q; const l = recordAnswer(ok, q.topic); try { recordMemory(q.label, ok ? 100 : 55); } catch (e) {} if (ok) { try { addRpgExpX(me, 10 + 6 * q.tier + (l.streak >= 2 ? 6 : 0)); addSkillSp(classKeyOf(me), 2 + q.tier); bumpQuest("right", 1); } catch (e) {} } setShipQuiz({ ...cur, res: ok ? "good" : "bad", right: cur.right + (ok ? 1 : 0) }); };
   const shipFinish = () => { const cur = shipQuiz; setShipQuiz(null); if (shipCtl.current.answer) shipCtl.current.answer(!!cur && cur.right > 0); logUsage("adv", "shipq:" + (cur && cur.right > 0 ? "ok" : "miss")); };
+  const [fin, setFin] = useState(false);   // the Act 2 epilogue: once, the first time the menu opens after Kindred Haven, the Dark Forge and the Harvesters' Eye are all cleared
+  useEffect(() => { try { if (!planet && localStorage.getItem("tg_adv_finale") !== "1" && localStorage.getItem("tg_adv_nocine") !== "1" && ["kindred", "darkforge", "shadow"].every(id => readDone().includes(id))) setFin(true); } catch (e) {} }, [planet]);
   const [pro, setPro] = useState(() => { try { return localStorage.getItem("tg_adv_prologue") === null && localStorage.getItem("tg_adv_nocine") !== "1"; } catch (e) { return false; } });   // the opening film, once, before the first map menu
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
-  const filming = (pro && !planet) || (!!planet && cined !== planet.id && !nocine);
+  const filming = (pro && !planet) || (fin && !planet) || (!!planet && cined !== planet.id && !nocine);
   useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
   const startPlanet = (P: any) => { playUi && playUi("click"); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
   const canStart = (P: any) => (net ? net.host : open(P));   // in a room only the host chooses the map (guests join whatever map the host opens)
@@ -494,7 +505,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   return (
     <div className="adv" role="region" aria-label="Adventure Mode">
       <style>{CSS}</style>
-      {pro && !planet ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={PROLOGUE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_prologue", "1"); } catch (e) {} setPro(false); exitFsAndUnlock(); }} /></Suspense> : !planet ? (
+      {fin && !planet && !pro ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={FINALE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_finale", "1"); } catch (e) {} setFin(false); exitFsAndUnlock(); }} /></Suspense> : pro && !planet ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={PROLOGUE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_prologue", "1"); } catch (e) {} setPro(false); exitFsAndUnlock(); }} /></Suspense> : !planet ? (
         <div className="adv-menu">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
@@ -505,13 +516,13 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           <p style={{ fontSize: 12, opacity: .85 }}>{t("ปี 2100 มนุษย์ออกหาทรัพยากรและพลังงานจากดาวต่างๆ และต้องสู้กับต่างดาว  ◆ คริสตัลพลังงานที่เก็บได้: " + crystals, "Year 2100: humanity heads out for resources and star energy, and fights the aliens. ◆ Energy crystals collected: " + crystals, "2100年，人类外出寻找资源与恒星能源，并与外星生物作战。  ◆ 已收集能量晶体：" + crystals)}</p>
           <p>{t("หุ่นยนต์และสัตว์เลี้ยงออกผจญภัยในดาวต่างดาว สู้มอนสเตอร์ เก็บ EXP เพิ่มเลเวลและสกิล (EXP เดียวกับ PvP)", "Take your robot and pet across alien planets, fight monsters and earn EXP for levels and skills (the same EXP as PvP).", "带着机器人和宠物探索外星球，打怪获得经验，升级并提升技能（与 PvP 共用经验）。")}</p>
           <div className="adv-sectors" role="tablist">
-            {(["ground", "space"] as const).map(v => { const L = PLANETS.filter(P => isSpace(P) === (v === "space")); return (
+            {(["ground", "space", "act2"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
               <button key={v} role="tab" aria-selected={sector === v} data-sector={v} className={"adv-sec" + (sector === v ? " on" : "")} onClick={() => pickSector(v)}>
-                {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
+                {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : v === "space" ? t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空") : t("ภาค 3 · ฮาร์เวสเตอร์", "Act 2 · The Harvesters", "第三区 · 收割者")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
               </button>); })}
           </div>
           <div className="adv-planets">
-            {PLANETS.map((P, pi) => isSpace(P) !== (sector === "space") ? null : (
+            {PLANETS.map((P, pi) => sectorOf(P) !== sector ? null : (
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
@@ -586,7 +597,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
         </div>
       ) : (
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
-        ["dogfight", "launch", "belt", "skim", "harvest"].includes(planet.mission) && shipDone ? (
+        ["dogfight", "launch", "belt", "skim", "harvest", "evade"].includes(planet.mission) && shipDone ? (
           <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
             <span>☠ {shipDone.kills} · ◆ {shipDone.cry}{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}{shipDone.mode === "skim" ? " · ⛽ 100%" : ""}{shipDone.mode === "harvest" ? " · ☀ 3/3" : ""}</span>
             {shipDone.coins > 0 && <small className="ac-coins">🪙 +{shipDone.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
@@ -594,7 +605,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               {shipDone.next && <button className="adv-btn go" onClick={() => { KEEP_FS = true; enterFs(); setStrike(null); setCined(null); setShipDone(null); setPlanet(shipDone.next); }}>▶ {T3(lang, shipDone.next.th, shipDone.next.en, shipDone.next.zh).split(" · ")[0]}</button>}
               <button className="adv-btn" onClick={() => { setShipDone(null); setPlanet(null); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div>
           </div>
-        ) : ["dogfight", "launch", "belt", "skim", "harvest"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
+        ) : ["dogfight", "launch", "belt", "skim", "harvest", "evade"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id + gfx} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}

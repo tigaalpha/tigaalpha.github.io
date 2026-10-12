@@ -49,6 +49,9 @@ MOODS.starharvest = { ...MOODS.helios, bpm: 134, gain: 0.62 };
 MOODS.gasskim = { ...MOODS.jovia, bpm: 130, gain: 0.6 };
 MOODS.dyson = { ...MOODS.helios, bpm: 126, gain: 0.62 };
 MOODS.voidgate = { ...MOODS.nexa, bpm: 138, gain: 0.6 };
+MOODS.kindred = { ...MOODS.kryo, bpm: 104, gain: 0.66 };
+MOODS.darkforge = { ...MOODS.nexa, bpm: 92, root: 50, gain: 0.62 };
+MOODS.shadow = { ...MOODS.nexa, bpm: 84, root: 47, gain: 0.58 };
 MOODS.ashfall = { ...MOODS.pyra, bpm: 112, root: 50, scale: MIN, gain: 0.6 };
 /** the boss arrangement: the same key, harder and denser. */
 const BOSS = { kick: "x.x.x.x.x.x.x.xx", snare: "....x.......x.x.", hat: "xxxxxxxxxxxxxxxx", bass: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], bpmMul: 1.12 };

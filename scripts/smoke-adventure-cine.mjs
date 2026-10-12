@@ -13,6 +13,7 @@ let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ")
 async function open(pre0) {
   const pre = Object.assign({ tg_adv_prologue: "skip" }, pre0);   // "skip": no opening film, and the map films stay long
   const wantPro = pre0 && pre0.tg_adv_prologue === "__none__"; if (wantPro) delete pre.tg_adv_prologue;
+  const wantFin = pre0 && pre0.__fin; delete pre.__fin;
   const ctx = await browser.newContext({ viewport: { width: 800, height: 420 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
   await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort());
   await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
@@ -20,7 +21,7 @@ async function open(pre0) {
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200)));
   await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
   for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
-  await p.evaluate(() => document.querySelector(".pvpadv").click()); await p.waitForSelector(wantPro ? ".adv-cine" : ".adv-planet");
+  await p.evaluate(() => document.querySelector(".pvpadv").click()); await p.waitForSelector(wantPro || wantFin ? ".adv-cine" : ".adv-planet");
   return { ctx, p, errs };
 }
 
@@ -62,4 +63,10 @@ for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch
   const k2 = await o.p.evaluate(() => window.__advCine.kinds()); ok("short film after the prologue: starts at the approach", k2[0] === "approach" && k2[k2.length - 1] === "objective" && !k2.includes("earth"), k2.join());
   const ttl = await o.p.locator(".ac-title small").first().innerText(); ok("chapter number is shown", /CHAPTER 1/i.test(ttl), ttl);
   ok("prologue: no errors", o.errs.length === 0, o.errs.join("|")); await o.ctx.close(); }
+// Act 2 epilogue: shown once, after Kindred Haven, the Dark Forge and the Harvesters' Eye are all cleared
+{ const o = await open({ __fin: 1, tg_adv_prologue: "1", tg_adv_done: JSON.stringify(["luma", "kindred", "darkforge", "shadow"]) });
+  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("epilogue: friend > dark matter > the Harvesters > TIGA", JSON.stringify(k) === JSON.stringify(["lore", "lore", "lore", "mind"]), k.join());
+  await o.p.locator(".ac-skip").click(); await o.p.waitForSelector(".adv-planet");
+  ok("epilogue: remembered, so it plays once", await o.p.evaluate(() => localStorage.getItem("tg_adv_finale") === "1"));
+  ok("epilogue: no errors", o.errs.length === 0, o.errs.join("|")); await o.ctx.close(); }
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
