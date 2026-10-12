@@ -223,6 +223,86 @@ export async function speakDeviceOrNative(text, lang, onDone, onBlocked, rateMul
   if (onBlocked) onBlocked();
   return false;
 }
+
+/* ── Narration for the Adventure films (owner, 2026-10-12: "the English voice-over is not natural, find a better voice, in Thai and Chinese too") ──
+   A web page cannot ship a studio voice for free, so what it can do is choose the BEST voice the device has and speak the way a narrator does.
+   `narratorVoice` ranks the installed voices for a locale: the neural / online / natural ones first (Microsoft "Online (Natural)", Google network
+   voices, iOS Enhanced / Premium / Siri), deep male narrators ahead of the rest, and compact / eSpeak ones last. `narrationText` rewrites what the
+   engine reads badly (dashes and middle dots, "%", "TIGA", "AI") and `speakNarration` reads it a sentence at a time with a short breath between
+   sentences, a lower pitch and a slower pace, which is what makes the same voice sound like a person reading instead of a machine reading a line. */
+const NARR_BEST = {
+  en: /(guy|davis|ryan|christopher|eric|andrew|brian|roger|steffan|william|sonia|libby|ryan).*(natural|online|neural)|google uk english male|\b(daniel|arthur|alex|aaron|oliver|rishi|gordon|tom)\b/i,
+  th: /niwat|premwadee|achara|google.*(ไทย|thai)|kanya|narisa|th-th-.*(male|x-)/i,
+  zh: /yunyang|yunjian|yunxi|yunxia|yunhao|kangkang|yaoyao|google.*(普通话|mandarin|chinese)|tingting|ting-ting|meijia|mei-jia/i,
+};
+export function narratorVoice(locale) {
+  const all = (_voices && _voices.length) ? _voices : (ttsSupported() ? window.speechSynthesis.getVoices() : []);
+  const base = String(locale).split("-")[0];
+  const cands = all.filter(v => v.lang && (v.lang === locale || String(v.lang).replace("_", "-").toLowerCase().startsWith(base)));
+  if (!cands.length) return null;
+  const score = (v) => {
+    const n = (v.name || "").toLowerCase(), uri = String(v.voiceURI || "").toLowerCase(), key = n + " " + uri;
+    let s = 0;
+    if (String(v.lang).replace("_", "-").toLowerCase() === String(locale).toLowerCase()) s += 25;
+    if (NARR_BEST[base] && NARR_BEST[base].test(key)) s += 80;
+    if (/neural|natural|premium|enhanced|wavenet|studio|siri|online/.test(key)) s += 70;
+    if (key.includes("google")) s += 22;
+    if (v.localService === false) s += 8;
+    if (MALE_VOICE_HINTS.test(key) || String(v.gender || "").toLowerCase() === "male") s += 24;
+    else if (FEMALE_VOICE_HINTS.test(key)) s -= 6;
+    if (/compact|espeak|eloquence|robot|novelty|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|pipe organ|trinoids|whisper|zarvox|albert|fred\b/.test(key)) s -= 90;
+    return s;
+  };
+  cands.sort((a, b) => score(b) - score(a));
+  return cands[0];
+}
+export function narrationText(text, lang) {
+  let t = cleanForTTS(String(text || ""));
+  t = t.replace(/\s*[—–]\s*/g, ", ").replace(/\s*·\s*/g, ", ").replace(/[()（）]/g, ", ").replace(/:\s+/g, ", ").replace(/\s*[「」『』"“”]/g, " ");
+  t = t.replace(/(\d+)\s*%/g, lang === "zh" ? "百分之$1" : lang === "th" ? "$1 เปอร์เซ็นต์" : "$1 percent");
+  t = t.replace(/\bTIGA\b/g, lang === "th" ? "ทีก้า" : lang === "zh" ? "提加" : "Teega").replace(/\bAI\b/g, lang === "en" ? "A I" : "AI");
+  t = t.replace(/\bHe-3\b/g, lang === "en" ? "helium three" : "He-3").replace(/\bTV\b/g, "T V");
+  return t.replace(/(,\s*){2,}/g, ", ").replace(/^,\s*/, "").replace(/\s+/g, " ").trim();
+}
+function narrationChunks(t, lang) {
+  const parts = t.match(/[^.!?。！？]+[.!?。！？]*/g) || [t]; const out = [];
+  for (const p of parts) {
+    const q = p.trim(); if (!q) continue;
+    if (q.length <= 110) { out.push(q); continue; }
+    let cur = ""; for (const w of q.split(lang === "zh" ? /(?<=[，、；,;])/ : /(?<=[,;]|\s)/)) { if ((cur + w).length > 100 && cur) { out.push(cur.trim()); cur = w; } else cur += w; }
+    if (cur.trim()) out.push(cur.trim());
+  }
+  return out;
+}
+const NARR_RATE = { th: 0.88, en: 0.9, zh: 0.9 }, NARR_PITCH = { th: 0.93, en: 0.86, zh: 0.9 };
+export async function speakNarration(text, lang, onDone, onBlocked, rateMul = 1) {
+  const clean = narrationText(text, lang); if (!clean) { if (onDone) onDone(); return true; }
+  const locale = TTS_LOCALES[lang] || "en-US", rate = Math.max(0.6, Math.min(1.5, (NARR_RATE[lang] || 0.9) * (rateMul || 1))), pitch = NARR_PITCH[lang] || 0.9;
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { TextToSpeech } = await import("@capacitor-community/text-to-speech");
+      try { await TextToSpeech.stop(); } catch (e) {}
+      await TextToSpeech.speak({ text: clean, lang: locale, rate, pitch, category: "ambient" });
+      if (onDone) onDone(); return true;
+    } catch (e) { /* plugin missing: fall through to speechSynthesis */ }
+  }
+  if (!ttsSupported()) { if (onBlocked) onBlocked(); return false; }
+  const synth = window.speechSynthesis;
+  try {
+    synth.cancel(); stopResumeKeepAlive();
+    const voice = narratorVoice(locale), chunks = narrationChunks(clean, lang); let idx = 0, started = false;
+    const next = () => {
+      if (idx >= chunks.length) { stopResumeKeepAlive(); if (onDone) onDone(); return; }
+      const u = new SpeechSynthesisUtterance(chunks[idx]); u.lang = voice ? voice.lang : locale; if (voice) u.voice = voice; u.rate = rate; u.pitch = pitch; u.volume = 1;
+      let advanced = false; const guard = setTimeout(() => adv(), Math.min(20000, 2500 + chunks[idx].length * 140));
+      const adv = () => { if (advanced) return; advanced = true; clearTimeout(guard); idx++; setTimeout(next, 170); };   // a breath between sentences
+      u.onstart = () => { started = true; }; u.onend = adv; u.onerror = adv; synth.speak(u);
+    };
+    synth.resume(); next(); startResumeKeepAlive();
+    setTimeout(() => { if (!started && !synth.speaking && !synth.pending) { stopResumeKeepAlive(); synth.cancel(); if (onBlocked) onBlocked(); } }, 1500);
+    return true;
+  } catch (e) { stopResumeKeepAlive(); return false; }
+}
 export function stopSpeaking() {
   stopResumeKeepAlive();
   try { window.speechSynthesis.cancel(); } catch (e) {}
