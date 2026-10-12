@@ -12,6 +12,7 @@
    planet (the other four are on the map, locked), three monsters, no boss yet. ── */
 import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "react";
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
+import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
 import { createAdvSfx } from "./adventure-sfx";
 import { paintMonster, paintBoss } from "./adventure-monsters";
 import { warTeamOf, openAdvRoom, MAX_PILOTS, type Net } from "./adv-online";
@@ -177,6 +178,16 @@ function layer(w, h, fn) { const c = document.createElement("canvas"); c.width =
 function glowSprite(rgb, r) { return layer(r * 2, r * 2, (x, w, h) => { const g = x.createRadialGradient(r, r, 0, r, r, r); g.addColorStop(0, `rgba(${rgb},0.9)`); g.addColorStop(0.35, `rgba(${rgb},0.3)`); g.addColorStop(1, `rgba(${rgb},0)`); x.fillStyle = g; x.fillRect(0, 0, w, h); }); }
 
 /** All of the planet's backdrop, baked once for this canvas size. Layers are tiles that repeat sideways. */
+const ART = typeof __ART__ !== "undefined" ? __ART__ : "dev";
+const advBotKey = (me: any, cw: any, po: string) => `${ART}|advme|${me}|${po}|${cw && cw.glow}|${cw && cw.accent}`;
+const advPetKey = (pet: any) => `${ART}|advpet|${pet ? pet.species : ""}|${pet ? petLevel(pet.bond).lv : 0}|${pet ? (pet.mood < 35 ? 1 : 0) : 0}`;
+/** Queue the robot's three poses and the pet as stored pictures (the same cache PvP uses on phones). Called when the Adventure menu opens, so they are ready before a map starts. */
+function warmAdvFigures(me: any, cw: any, pet: any) {
+  if (!FIGURES_OK) return; pauseFigures(false);
+  const jobs: any[] = ["ready", "attack", "kick"].map(po => ({ key: advBotKey(me, cw, po), kind: "bot", el: () => <CyberAvatar model={me} yaw={26} pose={po} glow={cw && cw.glow} accent={cw && cw.accent} held={null} hat={null} acc={null} /> }));
+  if (pet) jobs.push({ key: advPetKey(pet), kind: "pet", el: () => <PetArt species={pet.species} level={petLevel(pet.bond).lv} mood={pet.mood} /> });
+  prepareFigures(jobs, true);
+}
 const NEAR_STYLE: any = { ferro: "pipes", cobalt: "pipes", jovia: "wisp", kryo: "frost", pyra: "ember", helios: "ember", nexa: "wire", dyson: "wire", ashfall: "wire" };
 const MID_STYLE: any = { ferro: "mesa", cobalt: "mesa", jovia: "pillar", kryo: "ice", pyra: "volcano", helios: "volcano", nexa: "ruins", dyson: "ruins", ashfall: "ruins" };
 function bakePlanet(P, cw, ch, k, high) {
@@ -446,6 +457,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
   const [tick, setTick] = useState(0); void tick;
+  useEffect(() => { warmAdvFigures(me, colorway, petNow); }, []);
   const isSpace = (P: any) => ["dogfight", "launch", "belt", "skim", "harvest"].includes(P.mission);
   const [sector, setSector] = useState<"ground" | "space">(() => { try { return localStorage.getItem("tg_adv_sector") === "space" ? "space" : "ground"; } catch (e) { return "ground"; } });
   const pickSector = (v: "ground" | "space") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
@@ -691,6 +703,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   const petRef = useRef<HTMLDivElement>(null);
   const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false, dash: false, fire: false, kick: false, spell: false, rocket: false, zap: false });
   const [pose, setPose] = useState("ready");
+  const botKey = (po: string) => advBotKey(me, colorway, po);
+  const petKeyOf = () => advPetKey(petNow);
+  useEffect(() => { warmAdvFigures(me, colorway, petNow); }, []);
   const [hud, setHud] = useState<any>({ hp: 1, hpMax: 1, lv: 1, xp: 0, xpNeed: 1, sk: 0, skNeed: 1, kills: 0, skCd: 0 });
   const [banner, setBanner] = useState<any>(null);
   const [down, setDown] = useState(false);
@@ -832,7 +847,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let revived = false; const reviveAcc: any = {};
     let teamDone = false; const teamGoal = () => 10 * ((net ? net.peers.size : 0) + 1);
     const teamCheck = () => { if (!net || WAR || teamDone || kills < teamGoal()) return; teamDone = true; const n = Math.min(12, 4 * (net.peers.size + 1)); gainCry(n); sfx.play("win"); setBanner({ k: Date.now(), a: T3(lang, "เป้าหมายทีมสำเร็จ!", "Team goal reached!", "团队目标达成！"), b: "◆ +" + n }); logUsage("adv", "team-goal:" + P.id + ":" + (net.peers.size + 1)); };
-    let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
+    let drawMs = 0, drawN = 0; let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
     const step = high ? 1 / 60 : 1 / 30;
 
     const pop = (x, y, txt, col) => pops.push({ x, y, txt, col, life: 0.9 });
@@ -1398,7 +1413,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       if (hitStop > 0) { hitStop -= dt; dt = 0; }
       acc += dt; let n = 0;
       while (acc >= step && n < 4) { sim(step); acc -= step; n++; }
-      if (n > 0 || dt === 0) draw(time);
+      if (n > 0 || dt === 0) { const t0 = performance.now(); draw(time); drawMs += performance.now() - t0; drawN++; }
       hudT += dt;
       if (hudT > 0.15) {
         hudT = 0; const sr = skillOf();
@@ -1416,7 +1431,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
     const dn = (e) => kd(e, true), up = (e) => kd(e, false);
     window.addEventListener("keydown", dn); window.addEventListener("keyup", up);
-    (window as any).__advTest = { netPeers: () => (net ? [...net.peers.values()].map(q => ({ id: q.id, x: q.x })) : null), padX: () => PAD_X, digNow: () => digMove(), framesBuilt: () => dframes.map(f => f.built), frameXs: () => dframes.map(f => f.x), nodeXs: () => nodes.filter(n => !n.done).map(n => n.x), cargoN: () => cargo, slotsN: () => slots.length, slotNames: () => slots.map(q => q.s.id), pass: () => PASS, castId: (id: string) => { const q = [...["striker", "bulwark", "ghost", "tactician", "engineer", "herald", "virtuoso"].flatMap(c => treeOf("robot", c)), ...["volt", "ember", "frost", "flora", "steel", "aether"].flatMap(c => treeOf("pet", c))].find(z => z.id === id); if (q) castSkill(q, lvOf(q.id), q.kind === "pet"); return !!q; }, castSlotNow: (i: number) => castSlot(i), slotCds: () => slotCd.slice(), hasteT: () => buff.haste, shieldLeft: () => shieldT, turretsN: () => turrets.length, setHp: (v: number) => { pl.hp = v; }, hpNow: () => pl.hp, monsSlowed: () => mons.filter(m => m.slowT > 0).length, beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), zapNow: () => zapBolt(), teamInfo: () => ({ goal: teamGoal(), done: teamDone }), reviveState: () => ({ dead: pl.dead, revived, hp: pl.hp }), peerDown: (id: string) => { const q = net && net.peers.get(id); if (q) { q.hp = 0; q.x = pl.x + 20; } }, forceKills: (n: number) => { kills = n; teamCheck(); }, zapsN: () => zapN, rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
+    (window as any).__advTest = { netPeers: () => (net ? [...net.peers.values()].map(q => ({ id: q.id, x: q.x })) : null), padX: () => PAD_X, digNow: () => digMove(), framesBuilt: () => dframes.map(f => f.built), frameXs: () => dframes.map(f => f.x), nodeXs: () => nodes.filter(n => !n.done).map(n => n.x), cargoN: () => cargo, slotsN: () => slots.length, slotNames: () => slots.map(q => q.s.id), pass: () => PASS, castId: (id: string) => { const q = [...["striker", "bulwark", "ghost", "tactician", "engineer", "herald", "virtuoso"].flatMap(c => treeOf("robot", c)), ...["volt", "ember", "frost", "flora", "steel", "aether"].flatMap(c => treeOf("pet", c))].find(z => z.id === id); if (q) castSkill(q, lvOf(q.id), q.kind === "pet"); return !!q; }, castSlotNow: (i: number) => castSlot(i), slotCds: () => slotCd.slice(), hasteT: () => buff.haste, shieldLeft: () => shieldT, turretsN: () => turrets.length, setHp: (v: number) => { pl.hp = v; }, hpNow: () => pl.hp, monsSlowed: () => mons.filter(m => m.slowT > 0).length, beacons: () => beacons.map(b => b.x), state: () => ({ kills, x: pl.x, hp: pl.hp, lv: info.lv, mons: mons.filter(m => !m.dead).length }), tp: (x) => { pl.x = x; pl.face = 1; }, dropHere: (tt) => drops.push({ x: pl.x, y: 10, vy: 0, t: tt }), loot: () => ({ ...loot, value: lootValue() }), settleNow: (r) => settle(r), smokeN: () => smoke.length, blastsN: () => blasts.length,  clearShown: () => !!document.querySelector(".adv-clear"), cargo: () => cargo, setCargo: (n) => { cargo = n; }, nodesLeft: () => nodes.filter(n => !n.done).length, stations: () => stations.map(q => ({ p: q.p, done: q.done })), capSkip: (sec) => { const c = stations.find(q => !q.done); if (c) c.p += sec; }, launched: () => launched > 0, load: () => LOAD, rocketNow: () => fireRocket(), zapNow: () => zapBolt(), drawAvg: () => (drawN ? drawMs / drawN : 0), teamInfo: () => ({ goal: teamGoal(), done: teamDone }), reviveState: () => ({ dead: pl.dead, revived, hp: pl.hp }), peerDown: (id: string) => { const q = net && net.peers.get(id); if (q) { q.hp = 0; q.x = pl.x + 20; } }, forceKills: (n: number) => { kills = n; teamCheck(); }, zapsN: () => zapN, rocketsN: () => rocketN, rocketsLive: () => rockets.length, firesLive: () => fires.length, arcsLive: () => arcs.length, boltsPierce: () => bolts.filter(b => b.pierce).length, hazards: () => ({ zones: HZ, hits: hzHits, on: hzOn() }), setBossHp: (f) => { boss.hp = Math.round(boss.max * f); boss.active = true; }, boss2: () => ({ raged: !!boss.raged }), looks: () => ({ boltStyle: BOLT_STYLE, novaStyle: NOVA_STYLE, glow: rGlow, petType, voice: { p: +rv.p.toFixed(2), sig: rv.sig } }), speed: () => ({ holdT: pl.holdT || 0 }), shotsFired: () => firedN,  music: () => (mus ? mus.info() : null), renderMusic: (id, boss, inten = 1, bars = 4, startBar = 0) => renderPreview(id, bars, !!boss, inten, startBar), spellG: () => spellG, setSpell: (n) => { spellG = n; }, fireNow: () => fireBolt(), kickNow: () => kickMove(), bolts: () => bolts.length, monHp: () => mons.filter(m => !m.dead).reduce((a, m) => a + m.hp, 0), monX: () => { const m = mons.find(q => !q.dead); return m ? m.x : -1; }, types: () => [...new Set(mons.map(m => m.type))], surv: () => ({ t: surv.t, wave: surv.wave, done: surv.done, mons: mons.length }), skip: (s) => { surv.t += s; }, pl: () => ({ inv: pl.inv, x: pl.x, dashCd: pl.dashCd, maxCombo: pl.maxCombo }), gaps: () => teleGaps.slice(), strikeNow: () => attack(), boss: () => ({ active: boss.active, dead: boss.dead, hp: boss.hp, x: boss.x }), hitBoss: (v) => { boss.active = true; hurtBoss(v, false, 0); }, crystals: () => crystals, gainCry: (n) => gainCry(n), hpMax: () => hpMaxOf(info.lv), diffHp: () => HM,  drops: () => drops.length, fps: () => 0 };
     return () => { settle(0.4); if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (high ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, high, me, cls]);
 
@@ -1428,9 +1443,12 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   return (
     <>
       <canvas ref={cvRef} />
-      <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} /> : null}</div>
+      <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? (() => { const live = <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} />; return FIGURES_OK ? <FigurePic fkey={petKeyOf()} kind="pet" el={live} cls="fig-pet" vb="-12 -18 144 156" /> : live; })() : null}</div>
       <div ref={pxRef} className="adv-px" aria-hidden="true">
-        <CyberAvatar model={me} yaw={26} pose={pose} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} />
+        {(() => {   // profiled 2026-10-11: the live SVG robot cost half the frame on a slow CPU; a stored picture per pose costs almost nothing (same cache PvP uses on phones)
+          const live = <CyberAvatar model={me} yaw={26} pose={pose} glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} />;
+          return FIGURES_OK ? <FigurePic fkey={botKey(pose)} kind="bot" el={live} cls="ca" vb="-20 -16 160 416" /> : live;
+        })()}
       </div>
       <div className="adv-top">
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
