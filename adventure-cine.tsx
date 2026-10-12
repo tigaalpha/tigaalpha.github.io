@@ -27,7 +27,7 @@ const THEME_TAG: Record<string, L3> = {
   dark: ["พลังงานใหม่ · สสารมืด", "NEW POWER · DARK MATTER", "新能源 · 暗物质"],
 };
 /* the new storyline (owner, 2026-10-12): the Harvesters, the Kindred, and TIGA's hunger for energy. One extra "lore" shot per map, with its own scene. */
-const LORE_THEME: Record<string, string> = { luma: "harvest", ferro: "ai", jovia: "reactor", kryo: "friend", pyra: "reactor", nexa: "harvest", cobalt: "ai", helios: "ai", dyson: "dark", ashfall: "harvest", voidgate: "harvest", asteroids: "friend", gasskim: "reactor", starharvest: "dark" };
+const LORE_THEME: Record<string, string> = { kindred: "friend", darkforge: "dark", shadow: "harvest", luma: "harvest", ferro: "ai", jovia: "reactor", kryo: "friend", pyra: "reactor", nexa: "harvest", cobalt: "ai", helios: "ai", dyson: "dark", ashfall: "harvest", voidgate: "harvest", asteroids: "friend", gasskim: "reactor", starharvest: "dark" };
 const LORE: Record<string, L3> = {
   luma: ["ป่านี้ถูกสแกนแล้ว โดรนสอดแนมของฮาร์เวสเตอร์เห็นเราก่อนเราเห็นมัน — ต้องรีบตั้งฐานก่อนพวกมันกลับมา", "This jungle has already been scanned. A Harvester scout saw us before we saw it. We must build before they return.", "这片丛林已被扫描过。收割者的侦察机比我们先发现了对方，必须在它们回来之前建好基地。"],
   ferro: ["TIGA ต้องการแร่และพลังงานมากขึ้นทุกวัน แร่เหล็กที่นี่คือสมองก้อนใหม่ของมัน", "TIGA needs more ore and power every day. The iron here is the next piece of its mind.", "TIGA 一天比一天需要更多矿石与能源，这里的铁矿将成为它新的大脑。"],
@@ -43,6 +43,9 @@ const LORE: Record<string, L3> = {
   asteroids: ["เผ่าไคนด์เรดมาถึงทุ่งหินพร้อมยานขนส่ง พวกเขาแลกแร่กับความรู้ด้านวัสดุ เป็นเพื่อนที่เราเรียนรู้จากเขาได้", "The Kindred arrive in the belt with cargo ships. They trade materials science for ore: friends we can learn from.", "友族带着货船来到小行星带，他们用材料科学换取矿石，是我们可以学习的朋友。"],
   gasskim: ["พลังงานจากเมฆนี้ป้อนเตาฟิวชันของเรา แต่ TIGA ใช้หมดเร็วกว่าที่เราเก็บได้", "The energy in these clouds feeds our fusion plants, but TIGA burns it faster than we can gather it.", "这片云层的能量供给我们的聚变电站，但 TIGA 消耗得比我们采集的更快。"],
   starharvest: ["ดาวดวงนี้ใหญ่พอจะเลี้ยง TIGA ได้นาน แต่ที่สำคัญกว่าคือมันมีสสารมืดหนาแน่นอยู่รอบๆ ซึ่งอาจเป็นอนาคตของเรา", "This star could feed TIGA for a long time, but what matters more is the dense dark matter around it, which may be our future.", "这颗恒星足以供养 TIGA 很久，但更重要的是它周围浓密的暗物质，那可能就是我们的未来。"],
+  kindred: ["ไคนด์เรดสอนว่า ความรู้ไม่ได้ลดค่าเมื่อแบ่งกัน — เราแลกแร่กับวิธีทำวัสดุที่แข็งแกร่งกว่าเดิมสิบเท่า", "The Kindred teach that knowledge is not spent by sharing. We trade ore for ways to make materials ten times stronger.", "友族教导我们，知识不会因分享而减少——我们用矿石换来强度提高十倍的材料工艺。"],
+  darkforge: ["สสารมืดไม่เปล่งแสง แต่แบกมวลมหาศาล ถ้าควบคุมได้ TIGA จะมีพลังงานพอโดยไม่ต้องเลี้ยงด้วยดาวฤกษ์อีก", "Dark matter gives off no light but carries immense mass. Tame it, and TIGA will have power without feeding on more stars.", "暗物质不发光却蕴含巨大质量。驯服它，TIGA 就不必再靠吞噬恒星获得能量。"],
+  shadow: ["ฮาร์เวสเตอร์ไม่เคยพูดกับใคร มันแค่สแกน แล้วเก็บเกี่ยว — ถ้าเราผ่านไปโดยไม่ถูกจับตา มนุษย์จะได้เวลาอีกหนึ่งชั่วอายุคน", "The Harvesters never speak. They scan, then they reap. If we pass unseen, humanity gains another generation.", "收割者从不开口，它们只扫描，然后收割。如果我们悄悄通过，人类便能多争取一代人的时间。"],
 };
 const DEPART = {   // the send-off film (owner, 2026-10-11): the countdown, the lift-off, and the Earth falling away behind the fleet
   pad: ["ศูนย์ควบคุมเงียบกริบ มนุษยชาติทั้งโลกกำลังเงยหน้ามองฟ้า… นับถอยหลัง", "Mission control falls silent. A whole planet looks up. The countdown begins.", "控制中心鸦雀无声，整个地球仰望天空……倒计时开始。"],
@@ -66,6 +69,9 @@ const INTRO: Record<string, L3> = {
   dyson: ["ไดสันฟอร์จ — ดาวฤกษ์จากจักรวาลอื่นที่เรากำลังจะหุ้มด้วยแผงเก็บพลังงานทั้งดวง", "Dyson Forge: a star from another universe, which we will wrap in a shell of energy panels.", "戴森锻炉——来自另一个宇宙的恒星，我们要用能量板把它整个包起来。"],
   ashfall: ["แอชฟอลล์ — ดาวที่เอเลี่ยนสร้างฐานทัพไว้เต็มพื้นผิว", "Ashfall: a world the aliens have covered in military bases.", "灰烬星——遍布外星军事基地的星球。"],
   voidgate: ["วอยด์เกต — ประตูมิติที่ฝูงรบของเอเลี่ยนพุ่งทะลุออกมา", "The Void Gate: a rift in space where the alien war fleet pours through.", "虚空之门——外星舰队从空间裂隙中涌出。"],
+  kindred: ["ฐานไคนด์เรด — เพื่อนต่างดาวเปิดท่าเรือให้เราเข้าไปแลกเปลี่ยนความรู้", "Kindred Haven: our alien friends open their harbour so we can trade knowledge.", "友族港湾——外星朋友向我们敞开港口，交换知识。"],
+  darkforge: ["โรงหลอมสสารมืด — เชื้อเพลิงที่มองไม่เห็นซึ่งอาจเลี้ยง TIGA ได้ทั้งอารยธรรม", "The Dark Forge: an unseen fuel that could feed TIGA for a whole civilization.", "暗物质锻炉——一种看不见的燃料，也许能供养 TIGA 整个文明。"],
+  shadow: ["ใต้สายตาฮาร์เวสเตอร์ — เราไม่ได้มาสู้ แต่มาเพื่อไม่ให้ใครเห็น", "Under the Harvesters' eye: we did not come to fight, but to pass unseen.", "收割者的注视之下——我们不是来战斗的，而是来悄悄通过的。"],
 };
 const STORY: Record<string, L3> = {
   luma: ["ก่อนมนุษย์จะย้ายเข้า ต้องเคลียร์สัตว์ประหลาดเรืองแสงออกจากป่านี้ให้หมด", "Before people can settle, the glowing creatures of this jungle must be cleared.", "在人类入住之前，必须清除这片丛林里的发光怪物。"],
@@ -83,6 +89,9 @@ const STORY: Record<string, L3> = {
   dyson: ["หุ่นยนต์ต้องขุดแร่ ประกอบแผงไดสันทีละแผง และสูบพลังงานดาวฤกษ์ส่งกลับโลก — ท่ามกลางเปลวสุริยะและฝูงเอเลี่ยน", "Robots mine the ore, bolt the Dyson panels on one by one, and beam the star's power home, under solar flares and alien raiders.", "机器人开采矿石，逐块装上戴森板，把恒星的能量传回家园——头顶是耀斑与外星袭击者。"],
   ashfall: ["เราจะทิ้งระเบิดนิวเคลียร์จากวงโคจรก่อน แล้วค่อยลงไปกวาดล้างส่วนที่เหลือ", "First we drop nuclear warheads from orbit. Then we land and clear what is left.", "先从轨道投下核弹，再降落扫荡残余的敌人。"],
   voidgate: ["ถึงเวลาปล่อยหุ่นยนต์ขึ้นนั่งยานรบ — ฝูงโดรนและเรือรบกำลังพุ่งเข้าหาเรา", "The robot takes the helm of a starfighter. Drones and warships are already closing in.", "机器人登上战机驾驶舱，无人机与战舰已蜂拥而至。"],
+  kindred: ["ขุดแร่ที่ไคนด์เรดต้องการ แล้วส่งขึ้นยานแลกกับความรู้ด้านวัสดุและพลังงาน พร้อมระวังสัตว์ป่าของดาวนี้", "Dig the ore the Kindred need and send it up in trade for their knowledge of materials and energy, and watch for the wildlife.", "采集友族需要的矿石运上飞船，换取他们的材料与能源知识，同时小心当地野兽。"],
+  darkforge: ["นักวิทยาศาสตร์ไคนด์เรดสอนเราสร้างภาชนะกักสสารมืด — ขุด ประกอบ และส่งพลังงานนี้กลับโลก", "Kindred scientists have taught us to build dark-matter vessels. Dig, assemble and send this power home.", "友族科学家教会了我们建造暗物质容器——挖掘、组装，并把这股能量送回地球。"],
+  shadow: ["สัญญาณสแกนของฮาร์เวสเตอร์กวาดผ่านพื้นที่นี้ ห้ามยิง หลบทุกลำแสงจนกว่าจะผ่านไป", "Harvester scan beams sweep this sector. Do not fire. Dodge every beam until you are through.", "收割者的扫描光束扫过这片区域。禁止开火，躲开每一道光束直到通过。"],
 };
 const GOAL: Record<string, L3[]> = {
   luma: [["เคลียร์สัตว์ประหลาดระหว่างทาง", "Clear the creatures on the way", "清除沿途怪物"], ["ตอบคำถามที่ beacon เพื่อรับ EXP", "Answer the beacons for EXP", "回答信标问题获得经验"], ["ล้มผู้พิทักษ์ลูมาที่ท้ายแมป", "Defeat the Luma Warden at the end", "击败终点的卢玛守卫"]],
@@ -100,10 +109,13 @@ const GOAL: Record<string, L3[]> = {
   dyson: [["ทุบหินหาแร่ด้วยปุ่ม ⛏", "Break rocks for ore with the ⛏ button", "用 ⛏ 按钮敲碎岩石获取矿石"], ["ประกอบแผงไดสัน 4 แผงที่โครงเหล็ก", "Bolt 4 Dyson panels onto the frames", "在框架上装配 4 块戴森板"], ["ส่งพลังงานกลับโลกที่เสาส่งขวาสุด", "Beam the energy to Earth from the far-right relay", "在最右中继塔把能量传回地球"]],
   ashfall: [["ปล่อยหัวรบ 3 ลูกให้โดนฐานมากที่สุด", "Drop 3 warheads on as many bases as you can", "用 3 枚弹头摧毁尽可能多的基地"], ["ฐานที่โดนจะไม่มีทหารตอนบุก", "Destroyed bases have no defenders", "被摧毁的基地没有守军"], ["ลงพื้นที่แล้วล้มผู้บัญชาการ", "Land and defeat the commander", "降落并击败指挥官"]],
   voidgate: [["บังคับยานหลบกระสุนและยิงฝูงเอเลี่ยน", "Fly, dodge and shoot down the alien swarm", "驾驶战机闪避并击落外星机群"], ["เก็บคริสตัลและของที่ดรอปไว้ขายเป็นเงิน", "Collect crystals and loot to sell for coins", "收集水晶与战利品换取金币"], ["ล้มเรือแม่ให้ได้ก่อนยานคุณพัง", "Destroy the mothership before your ship falls", "在战机被毁前击落母舰"]],
+  kindred: [["ขุดแร่ให้ได้ 10 ก้อนขึ้นไป", "Gather at least 10 ore", "至少采集 10 块矿"], ["ส่งแคปซูลแลกเทคโนโลยี", "Launch the trade capsule", "发射交易货舱"], ["สู้กับสัตว์ป่าระหว่างทาง", "Fight the wildlife on the way", "击退沿途野兽"]],
+  darkforge: [["ทุบหินหาแร่ด้วยปุ่ม ⛏", "Break rocks for ore with the ⛏ button", "用 ⛏ 按钮敲碎岩石获取矿石"], ["ประกอบภาชนะสสารมืด 4 ชิ้น", "Assemble 4 dark-matter vessels", "组装 4 个暗物质容器"], ["หลบเปลวพลังงานที่ปะทุ", "Dodge the energy flares", "躲开爆发的能量耀斑"]],
+  shadow: [["ห้ามยิง — ยานต้องเงียบ", "No shooting: the ship stays dark", "禁止开火——飞船保持静默"], ["หลบลำแสงสแกนทั้งแนวนอนและแนวตั้ง", "Dodge scan beams, across and down", "躲开横向与纵向的扫描光束"], ["รอดให้ครบ 50 วินาที", "Survive 50 seconds", "存活满 50 秒"]],
 };
-const TYPE: Record<string, string> = { luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun" };
+const TYPE: Record<string, string> = { kindred: "ice", darkforge: "belt", shadow: "orbit", luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun" };
 
-const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest"];
+const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest", "kindred", "darkforge", "shadow"];
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
 /* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
 export function cinePlan(P: any, short?: boolean): CineShot[] { return basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 })); }
