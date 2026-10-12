@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
+import { GearButton, SettingsPopup } from "./adventure-settings";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 const W = 960, H = 480, BOSS_AT = 55, LAUNCH_T = 38, ORE_GOAL = 16;
@@ -106,6 +107,11 @@ const LOOTK = ["scrap", "ore", "gold", "core"] as const;
 
 const toRgb = (g: string) => { const m = /^#?([0-9a-f]{6})$/i.exec(g || ""); if (m) { const n = parseInt(m[1], 16); return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`; } return /^\d+,\s*\d+,\s*\d+$/.test(g || "") ? g : "127,232,255"; };
 export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit, ctl }: any) {
+  const [gear, setGear] = useState(false), pausedRef = useRef(false), fitRef = useRef<any>(null), musRef = useRef<any>(null);
+  const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } }), highRef = useRef(high); highRef.current = high;
+  const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
+  const flipGfx = () => { const nh = !highRef.current; highRef.current = nh; setHigh(nh); try { localStorage.setItem("tg_adv_gfx", nh ? "high" : "standard"); } catch (e) {} if (fitRef.current) fitRef.current(); };
+  const flipMusic = () => setMusicOn(m => { const n = !m; try { localStorage.setItem("tg_adv_music", n ? "1" : "0"); } catch (e) {} if (musRef.current && musRef.current.setOn) musRef.current.setOn(n); return n; });
   const glow = toRgb(glow0);
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const EVADE_T = 50;
@@ -115,9 +121,8 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
   const retry = useRef<() => void>(() => {});
   useEffect(() => {
     const c = cv.current; if (!c) return undefined; const x = c.getContext("2d"); if (!x) return undefined; let raf = 0, last = performance.now(), dead = false;
-    const sfx = createAdvSfx(); const mus = createAdvMusic("nexa"); if (mus) { mus.start(); mus.setIntensity && mus.setIntensity(2); }
-    const dpr = Math.min(1.5, window.devicePixelRatio || 1);
-    const fit = () => { const r = c.getBoundingClientRect(); c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr); }; fit(); window.addEventListener("resize", fit);
+    const sfx = createAdvSfx(); const mus = createAdvMusic("nexa"); musRef.current = mus; if (mus && mus.setOn) mus.setOn(musicOn); if (mus) { mus.start(); mus.setIntensity && mus.setIntensity(2); }
+    const fit = () => { const dpr = highRef.current ? Math.min(2, window.devicePixelRatio || 1) : 1, r = c.getBoundingClientRect(); c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr); }; fitRef.current = fit; fit(); window.addEventListener("resize", fit);
     const HP = Math.round(100 * (1 + 0.05 * (ups.hp || 0))), DMG = 1 + 0.05 * (ups.atk || 0), SALVO = 1 + ((ups.rkt || 0) >= 2 ? 1 : 0) + ((ups.rkt || 0) >= 4 ? 1 : 0);
     const hard = P.hard || 1;
     let S: any;
@@ -242,7 +247,7 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
       x.globalCompositeOperation = "source-over";
       const s = S.ship; if (!S.over) { x.save(); x.translate(s.x, s.y); if (s.inv > 0 && Math.floor(S.t * 20) % 2) x.globalAlpha = 0.4; drawPlayer(x, glow, S.t); x.restore(); }
     };
-    const frame = (now: number) => { raf = requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; if (document.hidden || (ctl && ctl.current && ctl.current.paused)) { last = now; if (ctl && ctl.current && ctl.current.paused) draw(); return; } step(dt); draw(); };
+    const frame = (now: number) => { raf = requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; if (document.hidden || pausedRef.current || (ctl && ctl.current && ctl.current.paused)) { last = now; if (pausedRef.current || (ctl && ctl.current && ctl.current.paused)) draw(); return; } step(dt); draw(); };
     raf = requestAnimationFrame(frame);
     const hudT = setInterval(() => { setUi({ st: S.st, sp: S.stn ? S.stn.p : 0, fuel: S.fuel, mined: S.mined, hp: Math.max(0, Math.round(S.ship.hp)), boss: S.boss ? Math.max(0, S.boss.hp / S.boss.max) : 0, bossOn: !!S.boss && !S.boss.dead, t: Math.floor(S.t), kills: S.kills, over: S.over, win: S.win, ms: Math.max(0, S.ship.mCd) }); }, 150);
     const kd = (e: KeyboardEvent, v: boolean) => { const cd = e.code, k = keys.current; if (cd === "ArrowLeft" || cd === "KeyA") k.l = v; else if (cd === "ArrowRight" || cd === "KeyD") k.r = v; else if (cd === "ArrowUp" || cd === "KeyW") k.u = v; else if (cd === "ArrowDown" || cd === "KeyS") k.d = v; else if (cd === "Space" || cd === "KeyJ") k.fire = v; else if (cd === "KeyK" || cd === "KeyY") k.miss = v; };
@@ -286,7 +291,9 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
           <div className="adv-bar adv-hp"><i style={{ width: Math.max(0, Math.min(100, ui.hp)) + "%" }} /><b>HP {ui.hp}</b></div>
           {MODE === "dogfight" && ui.bossOn && <div className="adv-bar adv-sk"><i style={{ width: ui.boss * 100 + "%" }} /><b>{t("มาเธอร์ชิป", "MOTHERSHIP", "母舰")}</b></div>}
         </div>
+        <GearButton onClick={() => { const k = keys.current; k.l = k.r = k.u = k.d = k.fire = k.miss = false; k.ax = 0; k.ay = 0; pausedRef.current = true; setGear(true); }} />
       </div>
+      {gear && <SettingsPopup lang={lang} high={high} onGfx={flipGfx} musicOn={musicOn} onMusic={flipMusic} online={false} onResume={() => { pausedRef.current = false; setGear(false); }} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {(ui.over || ui.win) && <div className="adv-clear" role="dialog" aria-label="ship result">{ui.win ? t("ชนะ! กำลังสรุปผล…", "Victory! Tallying…", "胜利！结算中…") : <><b>{t("ยานถูกทำลาย", "Ship destroyed", "战机被毁")}</b><button className="adv-btn go" onClick={() => retry.current()}>↻ {t("ลองใหม่", "Retry", "重试")}</button><button className="adv-btn" onClick={() => onExit()}>{t("กลับแผนที่", "Back to map", "返回地图")}</button></>}</div>}
       <div className="adv-stickzone" data-stickzone="1" {...stick}><div className="adv-stickring" ref={ringRef} /></div>
       <div className="adv-pad">
