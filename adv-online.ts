@@ -72,3 +72,12 @@ export async function publicRoomPing(code: string, pilots: number, map: string, 
 export async function publicRoomClose(code: string): Promise<void> {
   try { await sb.rpc("adv_room_close", { p_code: code }); } catch (e) {}
 }
+
+/* Best times per map (plan 33 O5, supabase-adv-ranking-migration.sql — WRITTEN, NOT APPLIED by the owner yet). Both calls fail soft: with the SQL not applied, signed out or
+   offline, a submit does nothing and the list is empty. The server refuses a time under the map's floor and flooding, so a false time can at worst sit on a board. */
+export async function submitAdvTime(map: string, secs: number, pilot: string): Promise<void> {
+  try { if (!(secs >= 8)) return; await sb.rpc("adv_submit_time", { p_map: map, p_secs: Math.round(secs), p_pilot: String(pilot || "Pilot").slice(0, 14) }); } catch (e) {}
+}
+export async function listAdvTop(map: string, limit = 10): Promise<{ pilot: string; secs: number }[]> {
+  try { const { data, error } = await sb.rpc("adv_top_times", { p_map: map, p_limit: limit }); if (error || !Array.isArray(data)) return []; return data.map((r: any) => ({ pilot: String(r.pilot || "").slice(0, 14), secs: Number(r.secs) || 0 })); } catch (e) { return []; }
+}

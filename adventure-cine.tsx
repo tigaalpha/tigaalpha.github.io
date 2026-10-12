@@ -201,7 +201,7 @@ function basePlan(P: any, short?: boolean): CineShot[] {
   const cat = catOf(P), lore: CineShot[] = LORE_THEME[P.id] ? [{ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] }] : [], boss: CineShot[] = P.boss && P.boss[0] !== "-" ? [{ kind: "boss", dur: 3.8 }] : [];
   const main: CineShot = { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 };
   q.push({ kind: "approach", dur: 4.4 });
-  if (cat === "work") { if (P.mission === "farm") q.push({ kind: "survey", dur: 4.4 }, { kind: "crew", dur: 4.4 }); else q.push({ kind: "survey", dur: 4.6 }, { kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }); q.push({ kind: "work", dur: 5.4 }); if (P.mission !== "farm") q.push({ kind: "storm", dur: 4.4 }); q.push({ kind: "signal", dur: 4.8 }, ...lore, { kind: "dawn", dur: 5 }); }
+  if (cat === "work") { if (P.mission === "farm" || P.mission === "yard") q.push({ kind: "survey", dur: 4.4 }, { kind: "crew", dur: 4.4 }); else q.push({ kind: "survey", dur: 4.6 }, { kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }); q.push({ kind: "work", dur: 5.4 }); if (P.mission !== "farm" && P.mission !== "yard") q.push({ kind: "storm", dur: 4.4 }); q.push({ kind: "signal", dur: 4.8 }, ...lore, { kind: "dawn", dur: 5 }); }
   else if (cat === "ship") q.push({ kind: "survey", dur: 4.6 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, { kind: "signal", dur: 4.8 }, ...lore);
   else q.push({ kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, ...lore, ...boss);
   q.push({ kind: "objective", dur: 6 });
@@ -561,11 +561,11 @@ function sceneObjective(x: Cx, W: number, H: number, t: number, P: any) {
 const catOf = (P: any): "fight" | "work" | "ship" => {
   const m = P && P.mission;
   if (["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole"].includes(m)) return "ship";
-  if (["mine", "dyson", "farm", "capture", "survival"].includes(m)) return "work";
+  if (["mine", "dyson", "farm", "yard", "capture", "survival"].includes(m)) return "work";
   return "fight";
 };
 const RES: Record<string, L3> = {
-  mine: ["แร่", "ore", "矿石"], dyson: ["ชิ้นส่วนโครงสร้าง", "structural parts", "结构部件"], farm: ["อาหาร", "food", "粮食"], capture: ["พลังงานจากดาวฤกษ์", "stellar energy", "恒星能量"],
+  mine: ["แร่", "ore", "矿石"], yard: ["ชิ้นส่วนของยาน", "ship sections", "舰体模块"], dyson: ["ชิ้นส่วนโครงสร้าง", "structural parts", "结构部件"], farm: ["อาหาร", "food", "粮食"], capture: ["พลังงานจากดาวฤกษ์", "stellar energy", "恒星能量"],
   survival: ["พลังงานจากบรรยากาศ", "atmospheric energy", "大气能量"], belt: ["แร่และน้ำแข็ง", "ore and ice", "矿与冰"], skim: ["แก๊สพลังงานสูง", "high-energy gas", "高能气体"],
   harvest: ["พลังงานจากดาว", "star energy", "星能"], solar: ["แสงอาทิตย์", "sunlight", "阳光"],
 };
