@@ -197,12 +197,15 @@ function basePlan(P: any, short?: boolean): CineShot[] {
   if (P.finale) return [{ kind: "lore", dur: 5.2, theme: "friend" }, { kind: "lore", dur: 5.2, theme: "dark" }, { kind: "lore", dur: 5.2, theme: "harvest" }, { kind: "mind", dur: 5.6, theme: "ai" }];
   if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "contact", dur: 5, theme: "harvest" }, { kind: "mind", dur: 5, theme: "ai" }];
   if (short === undefined) short = seenPrologue();
-  if (short) { const q: CineShot[] = [{ kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }]; if (LORE_THEME[P.id]) q.push({ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] }); if (P.boss && P.boss[0] !== "-") q.push({ kind: "boss", dur: 3.8 }); q.push({ kind: "objective", dur: 6 }); return q; }
-  const plan: CineShot[] = [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }];
-  if (LORE_THEME[P.id]) plan.push({ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] });
-  if (P.boss && P.boss[0] !== "-") plan.push({ kind: "boss", dur: 3.8 });
-  plan.push({ kind: "objective", dur: 6 });
-  return plan;
+  const q: CineShot[] = short ? [] : [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }];
+  const cat = catOf(P), lore: CineShot[] = LORE_THEME[P.id] ? [{ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] }] : [], boss: CineShot[] = P.boss && P.boss[0] !== "-" ? [{ kind: "boss", dur: 3.8 }] : [];
+  const main: CineShot = { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 };
+  q.push({ kind: "approach", dur: 4.4 });
+  if (cat === "work") { if (P.mission === "farm") q.push({ kind: "survey", dur: 4.4 }, { kind: "crew", dur: 4.4 }); else q.push({ kind: "survey", dur: 4.6 }, { kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }); q.push({ kind: "work", dur: 5.4 }); if (P.mission !== "farm") q.push({ kind: "storm", dur: 4.4 }); q.push({ kind: "signal", dur: 4.8 }, ...lore, { kind: "dawn", dur: 5 }); }
+  else if (cat === "ship") q.push({ kind: "survey", dur: 4.6 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, { kind: "signal", dur: 4.8 }, ...lore);
+  else q.push({ kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, ...lore, ...boss);
+  q.push({ kind: "objective", dur: 6 });
+  return q;
 }
 const FINALE_TXT: Record<string, L3> = {
   friend: ["มนุษย์ไม่ได้โดดเดี่ยวอีกต่อไป — ไคนด์เรดแบ่งความรู้ให้เรา และเราเรียนรู้ซึ่งกันและกันอย่างเท่าเทียม", "Humanity is no longer alone. The Kindred share their knowledge, and we learn from each other as equals.", "人类不再孤单——友族与我们分享知识，我们平等地互相学习。"],
@@ -219,6 +222,7 @@ const captionFor = (P: any, kind: string, lang: string) => {
   if (kind === "surface" || kind === "strike") return g(STORY[P.id] || STORY.luma);
   if (kind === "pad" || kind === "liftoff" || kind === "earthfade") return g((DEPART as any)[kind]);
   if (kind === "boss") return T3(lang, "ที่ปลายทาง มี " + P.boss[0] + " รออยู่", "At the end of the road, " + P.boss[1] + " is waiting.", "路的尽头，" + P.boss[2] + "正在等候。");
+  const nk = (NEWCAP as any)[kind]; if (nk) { const a: L3 = nk[catOf(P)] || nk.all || nk.work; const nm = String(T3(lang, P.th, P.en, P.zh)).split(" · ")[0], rs = resOf(P); const out = g(a).replace(/\{n\}/g, nm).replace(/\{r\}/g, T3(lang, rs[0], rs[1], rs[2])); return out.charAt(0).toUpperCase() + out.slice(1); }
   return "";
 };
 
@@ -417,7 +421,7 @@ function sceneApproach(x: Cx, W: number, H: number, u: number, t: number, P: any
   const a = t * 1.1; ship(x, cx + Math.cos(a) * r * 1.7 * Math.cos(-0.3) - Math.sin(a) * r * 0.5 * Math.sin(-0.3), cy + Math.cos(a) * r * 1.7 * Math.sin(-0.3) + Math.sin(a) * r * 0.5 * Math.cos(-0.3), H / 400, a + 1.6, P.glow);
   x.strokeStyle = rgba(P.acc, 0.8); x.lineWidth = 2; const sw = (t * 0.6 % 1) * r * 2; x.beginPath(); x.moveTo(cx - r, cy - r + sw); x.lineTo(cx + r, cy - r + sw); x.globalAlpha = 0.5; x.stroke(); x.globalAlpha = 1;
 }
-function sceneSurface(x: Cx, W: number, H: number, u: number, t: number, P: any, type: string, eye: string) {
+function sceneSurface(x: Cx, W: number, H: number, u: number, t: number, P: any, type: string, eye: string, quiet = false) {
   const hz = H * 0.62; const g = x.createLinearGradient(0, 0, 0, hz); g.addColorStop(0, P.c[0]); g.addColorStop(0.7, P.c[1]); g.addColorStop(1, P.c[2]); x.fillStyle = g; x.fillRect(0, 0, W, hz);
   for (const s of STARS) if (s.y < 0.5) { x.fillStyle = `rgba(255,255,255,${0.2 * s.z})`; x.fillRect(s.x * W, s.y * H, 1.2, 1.2); }
   const pan = (u - 0.5) * 60;
@@ -435,9 +439,9 @@ function sceneSurface(x: Cx, W: number, H: number, u: number, t: number, P: any,
     for (let i = 0; i < 3; i++) { const k = Math.max(0, Math.min(1, (u - 0.1 * i) * 1.3)), px = W * (0.22 + i * 0.28), py = -20 + k * (hz + 10); x.globalCompositeOperation = "lighter"; const tr = x.createLinearGradient(px, py - 140, px, py); tr.addColorStop(0, "rgba(255,160,60,0)"); tr.addColorStop(1, "rgba(255,200,100,.9)"); x.fillStyle = tr; x.fillRect(px - 3, py - 140, 6, 140); x.globalCompositeOperation = "source-over"; x.fillStyle = "#e8edf3"; x.fillRect(px - 5, py - 4, 10, 16);
       if (k >= 1) { const bt = (u - 0.1 * i - 0.77) * 2; if (bt > 0 && bt < 1) { x.globalCompositeOperation = "lighter"; const b = x.createRadialGradient(px, hz, 0, px, hz, H * 0.5 * bt); b.addColorStop(0, "rgba(255,255,255,.95)"); b.addColorStop(0.3, "rgba(255,190,70,.7)"); b.addColorStop(1, "rgba(255,70,20,0)"); x.fillStyle = b; x.fillRect(0, 0, W, hz + 40); x.globalCompositeOperation = "source-over"; } } } }
   x.fillStyle = "#04060a"; x.fillRect(0, hz, W, H - hz); const gg = x.createLinearGradient(0, hz, 0, hz + 18); gg.addColorStop(0, rgba(P.glow, 0.35)); gg.addColorStop(1, rgba(P.glow, 0)); x.fillStyle = gg; x.fillRect(0, hz, W, 18);
-  for (let i = 0; i < 5; i++) { const ex = W * (0.45 + i * 0.1) + Math.sin(t * 0.7 + i) * 8, on = Math.sin(t * 1.3 + i * 2) > -0.4; if (on) { x.globalCompositeOperation = "lighter"; x.fillStyle = rgba(P.acc, 0.9); x.fillRect(ex, hz - 6 - rnd(i) * 20, 3, 3); x.fillRect(ex + 7, hz - 6 - rnd(i) * 20, 3, 3); x.globalCompositeOperation = "source-over"; } }
-  { const hk = Math.floor(rnd(String(P.id).length * 7 + P.id.charCodeAt(0)) * 6); for (let i = 0; i < 7; i++) { const ax = W * (0.36 + i * 0.09) + Math.sin(t * 0.6 + i) * 6 + pan * 0.5, k = (hk + i) % 6; alien(x, ax, k === 1 ? hz - H * 0.02 : hz + H * 0.04 + (i % 2) * H * 0.03, H / 260 * (0.55 + rnd(i + 31) * 0.5), k, P.acc, t + i); } }   // the horde: six body plans in a mix that depends on the world
-  robot(x, W * 0.14 - pan, hz + H * 0.07, H / 300, "#0a1320", eye, 1, 0.2); x.globalCompositeOperation = "lighter"; for (let i = 0; i < 24; i++) { const a = ((rnd(i) * W - t * (20 + rnd(i + 3) * 40)) % W + W) % W; x.fillStyle = rgba(P.glow, 0.25); x.fillRect(a, hz * (0.3 + rnd(i + 5) * 0.9), 2, 2); } x.globalCompositeOperation = "source-over";
+  for (let i = 0; i < (quiet ? 0 : 5); i++) { const ex = W * (0.45 + i * 0.1) + Math.sin(t * 0.7 + i) * 8, on = Math.sin(t * 1.3 + i * 2) > -0.4; if (on) { x.globalCompositeOperation = "lighter"; x.fillStyle = rgba(P.acc, 0.9); x.fillRect(ex, hz - 6 - rnd(i) * 20, 3, 3); x.fillRect(ex + 7, hz - 6 - rnd(i) * 20, 3, 3); x.globalCompositeOperation = "source-over"; } }
+  if (!quiet) { const hk = Math.floor(rnd(String(P.id).length * 7 + P.id.charCodeAt(0)) * 6); for (let i = 0; i < 7; i++) { const ax = W * (0.36 + i * 0.09) + Math.sin(t * 0.6 + i) * 6 + pan * 0.5, k = (hk + i) % 6; alien(x, ax, k === 1 ? hz - H * 0.02 : hz + H * 0.04 + (i % 2) * H * 0.03, H / 260 * (0.55 + rnd(i + 31) * 0.5), k, P.acc, t + i); } }   // the horde: six body plans in a mix that depends on the world
+  if (!quiet) robot(x, W * 0.14 - pan, hz + H * 0.07, H / 300, "#0a1320", eye, 1, 0.2); x.globalCompositeOperation = "lighter"; for (let i = 0; i < 24; i++) { const a = ((rnd(i) * W - t * (20 + rnd(i + 3) * 40)) % W + W) % W; x.fillStyle = rgba(P.glow, 0.25); x.fillRect(a, hz * (0.3 + rnd(i + 5) * 0.9), 2, 2); } x.globalCompositeOperation = "source-over";
 }
 /* ── the new story scenes (owner, 2026-10-12): the Harvesters, TIGA's hunger, the Kindred, fusion/fission, dark matter ── */
 /** a Harvester: a colossal ring-and-spoke machine feeding on a star, with a thread of plasma drawn off its surface; a tiny human fleet in the corner shows the scale */
@@ -551,6 +555,151 @@ function sceneObjective(x: Cx, W: number, H: number, t: number, P: any) {
   x.globalCompositeOperation = "lighter"; for (let i = 0; i < 4; i++) { const r = H * (0.25 + ((t * 0.25 + i * 0.25) % 1) * 0.6); x.strokeStyle = rgba(P.glow, 0.35 * (1 - ((t * 0.25 + i * 0.25) % 1))); x.lineWidth = 2; x.beginPath(); x.arc(W * 0.27, H * 0.55, r, 0, 7); x.stroke(); } x.globalCompositeOperation = "source-over";
 }
 
+/* ── longer films with more variety (owner, 2026-10-12: 5-10 shots a map, mood and story, and no aliens in a shot about gathering resources) ──
+   Three kinds of map get three kinds of film: "fight" (landing, the crew, the horde, an alarm, the guardian), "work" (a survey from orbit, the landing,
+   the harvest itself, a storm, a message home, a dawn: nothing here is an alien) and "ship" (a survey, the cockpit, the sector, radar, a message home). */
+const catOf = (P: any): "fight" | "work" | "ship" => {
+  const m = P && P.mission;
+  if (["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole"].includes(m)) return "ship";
+  if (["mine", "dyson", "farm", "capture", "survival"].includes(m)) return "work";
+  return "fight";
+};
+const RES: Record<string, L3> = {
+  mine: ["แร่", "ore", "矿石"], dyson: ["ชิ้นส่วนโครงสร้าง", "structural parts", "结构部件"], farm: ["อาหาร", "food", "粮食"], capture: ["พลังงานจากดาวฤกษ์", "stellar energy", "恒星能量"],
+  survival: ["พลังงานจากบรรยากาศ", "atmospheric energy", "大气能量"], belt: ["แร่และน้ำแข็ง", "ore and ice", "矿与冰"], skim: ["แก๊สพลังงานสูง", "high-energy gas", "高能气体"],
+  harvest: ["พลังงานจากดาว", "star energy", "星能"], solar: ["แสงอาทิตย์", "sunlight", "阳光"],
+};
+const resOf = (P: any): L3 => RES[P && P.mission] || ["ทรัพยากร", "resources", "资源"];
+const NEWCAP: Record<string, Record<string, L3>> = {
+  survey: {
+    work: ["สแกนพื้นผิว {n} — พบ{r}ปริมาณมหาศาล พอหล่อเลี้ยงอาณานิคมไปอีกหลายปี", "Scanning {n}: {r} in huge quantities, enough to sustain the colony for years.", "扫描{n}：发现大量{r}，足以支撑殖民地数年。"],
+    ship: ["เซ็นเซอร์ยานกวาดรอบ {n} — เส้นทางเปิดอยู่ แต่ไม่มีอะไรรับประกันความปลอดภัย", "Ship sensors sweep around {n}: the route is open, but nothing promises it is safe.", "飞船传感器扫过{n}周边：航线畅通，但无人保证安全。"],
+  },
+  descent: { all: ["ยานดิ่งเข้าชั้นบรรยากาศ ความร้อนแผดเผาโล่กำบัง — ทุกคนเกาะให้มั่น", "The lander plunges into the atmosphere, heat searing the shield. Hold on.", "着陆器冲入大气层，热浪灼烧着护盾。抓紧了。"] },
+  landing: { all: ["ขาลงจอดแตะพื้น ฝุ่นฟุ้งตลบ — หุ่นนักบุกเบิกก้าวลงสู่ {n} เป็นครั้งแรก", "Touchdown. Dust billows as the pioneers take their first steps on {n}.", "着陆。尘埃翻涌，先驱者们踏上了{n}的第一步。"] },
+  crew: {
+    fight: ["ตรวจระบบครั้งสุดท้าย ดวงตาสว่างขึ้น — พวกเขาแบกความหวังของคนนับพันล้านที่รออยู่บนโลก", "Final systems check. The eyes light up: they carry the hopes of billions waiting at home.", "最后一次系统检查，双眼亮起——他们承载着家乡数十亿人的希望。"],
+    work: ["หุ่นนักบุกเบิกตรวจเครื่องมือทีละชิ้น — งานนี้ไม่มีเสียงปืน มีแต่ฝีมือและความอดทน", "The pioneers check their tools one by one. This job has no gunfire, only craft and patience.", "先驱者逐一检查工具——这份工作没有枪声，只有手艺与耐心。"],
+    ship: ["นักบินนั่งประจำที่ ระบบยานตื่นขึ้น — ข้างหน้ามีแต่ความมืดและสิ่งที่ยังไม่รู้", "The pilot takes the seat and the ship wakes. Ahead lies only darkness and the unknown.", "飞行员就位，飞船苏醒——前方只有黑暗与未知。"],
+  },
+  work: { all: ["{r}ไหลเข้าสายพานไม่ขาดสาย เครื่องจักรเดินเป็นจังหวะเดียวกับหัวใจของผู้คนบนโลก", "{r} streams onto the belts without a pause, the machines keeping the rhythm of the heartbeat back home.", "{r}源源不断涌上传送带，机器的节奏就像地球上人们的心跳。"] },
+  storm: { all: ["พายุกำลังมา — แต่{r}นี้คือเส้นเลือดของอาณานิคม เราจะไม่ถอย", "A storm is rolling in. But this {r} is the colony's lifeline, and we will not retreat.", "风暴正在逼近——但这些{r}是殖民地的命脉，我们不会后退。"] },
+  signal: { all: ["ส่งสัญญาณกลับโลก: ถึงแล้ว ทุกอย่างปลอดภัย — คำตอบจะมาถึงในอีกหลายนาที", "A message goes home: we have arrived and all is well. The reply will take minutes to come.", "向地球发回消息：已安全抵达。回信要等好几分钟。"] },
+  warning: {
+    fight: ["สัญญาณเตือนดังขึ้น — มีบางอย่างเคลื่อนไหวในความมืด และมันกำลังมุ่งมาทางเรา", "Alarms ring. Something is moving in the dark, and it is coming this way.", "警报响起——黑暗中有东西在移动，正朝这里逼近。"],
+    ship: ["เรดาร์กะพริบแดง — ยานไม่ทราบฝ่ายเต็มจอ พลาดไม่ได้แม้แต่จังหวะเดียว", "Radar flashes red: unknown contacts fill the screen. Not a single slip is allowed.", "雷达闪起红光——屏幕上出现多个不明目标，一步也不能错。"],
+  },
+  dawn: { all: ["ดวงอาทิตย์ดวงใหม่ขึ้นเหนือขอบฟ้า — ความหวังของมนุษยชาติเริ่มต้นที่นี่", "A new sun rises over the horizon. Humanity's hope begins here.", "新的太阳从地平线升起——人类的希望从这里开始。"] },
+};
+function sceneSurvey(x: Cx, W: number, H: number, u: number, t: number, P: any) {
+  space(x, W, H, t, 1.2, P.glow);
+  const cx = W * 0.64, cy = H * 0.52, r = H * (0.34 + 0.05 * u);
+  sphere(x, cx, cy, r, hexRgb(P.c[2]), P.glow, -40, P.mission === "skim" || P.id === "jovia" ? 12 : 0, false, t);
+  x.save(); x.beginPath(); x.arc(cx, cy, r, 0, 7); x.clip(); x.strokeStyle = rgba(P.acc, 0.35); x.lineWidth = 1;
+  for (let k = -3; k <= 3; k++) { const q = 1 - (k * 0.25) * (k * 0.25); x.beginPath(); x.ellipse(cx, cy + k * r * 0.25, r * Math.sqrt(Math.max(0, q)), r * 0.08, 0, 0, 7); x.stroke(); }
+  for (let k = 0; k < 5; k++) { x.beginPath(); x.ellipse(cx, cy, Math.max(1, r * Math.abs(Math.cos(k / 5 * Math.PI + t * 0.15))), r, 0, 0, 7); x.stroke(); }
+  const sw = ((t * 0.5) % 1) * r * 2; x.globalCompositeOperation = "lighter"; const sg = x.createLinearGradient(0, cy - r + sw - 30, 0, cy - r + sw + 4); sg.addColorStop(0, rgba(P.acc, 0)); sg.addColorStop(1, rgba(P.acc, 0.6)); x.fillStyle = sg; x.fillRect(cx - r, cy - r + sw - 30, r * 2, 34);
+  x.restore();
+  x.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 9; i++) { const a = rnd(i + 40) * 6.28, d = Math.sqrt(rnd(i + 50)) * r * 0.85, px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d, k = Math.max(0, Math.min(1, u * 1.4 - i * 0.09)); if (k <= 0) continue; const pr = 5 + 4 * Math.sin(t * 4 + i); x.strokeStyle = rgba(P.acc, 0.9 * k); x.lineWidth = 1.6; x.strokeRect(px - pr, py - pr, pr * 2, pr * 2); x.fillStyle = rgba(P.acc, 0.8 * k); x.fillRect(px - 2, py - 2, 4, 4); x.beginPath(); x.moveTo(px + pr, py - pr); x.lineTo(px + pr + 26, py - pr - 18); x.stroke(); }
+  x.globalCompositeOperation = "source-over";
+  const px0 = W * 0.07, py0 = H * 0.26, bw = W * 0.24;   // the readout: bars that fill as the scan completes
+  for (let i = 0; i < 5; i++) { const y = py0 + i * H * 0.085, f = Math.min(1, Math.max(0, u * 1.3 - i * 0.12)) * (0.45 + 0.5 * rnd(i + 70)); x.fillStyle = "rgba(10,24,40,.7)"; x.fillRect(px0, y, bw, H * 0.03); x.fillStyle = rgba(P.acc, 0.85); x.fillRect(px0, y, bw * f, H * 0.03); x.fillStyle = "rgba(220,240,255,.8)"; x.fillRect(px0, y - H * 0.012, bw * 0.3 * (0.4 + rnd(i)), 2); }
+  const a = t * 0.9 + 1; ship(x, cx + Math.cos(a) * r * 1.5, cy + Math.sin(a) * r * 0.45, H / 420, a + 1.6, P.glow);
+}
+function sceneDescent(x: Cx, W: number, H: number, u: number, t: number, P: any) {
+  x.save(); x.translate(Math.sin(t * 31) * 2.2 * (1 - u * 0.6), Math.cos(t * 27) * 2.2 * (1 - u * 0.6));
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#02030a"); g.addColorStop(Math.max(0.05, 1 - u * 0.9), P.c[1]); g.addColorStop(1, P.c[2]); x.fillStyle = g; x.fillRect(-10, -10, W + 20, H + 20);
+  for (const s of STARS) { x.fillStyle = `rgba(255,255,255,${0.5 * (1 - u) * s.z})`; x.fillRect(s.x * W, s.y * H, 1.3, 1.3); }
+  x.fillStyle = "rgba(255,255,255,.08)";
+  for (let i = 0; i < 14; i++) { const sp = 220 + rnd(i) * 400, py = ((rnd(i + 5) * H * 1.4 - t * sp * (0.4 + u)) % (H * 1.4) + H * 1.4) % (H * 1.4) - H * 0.2, w = W * (0.3 + rnd(i + 9) * 0.5); x.beginPath(); x.ellipse(rnd(i + 2) * W, py, w, 8 + rnd(i + 3) * 16, 0, 0, 7); x.fill(); }
+  const hy = H * (1.05 - u * 0.5); x.fillStyle = P.c[0]; x.beginPath(); x.ellipse(W * 0.5, hy + H * 2.2, W * 2.4, H * 2.2, 0, 0, 7); x.fill();
+  const sx = W * 0.5, sy = H * 0.4 + u * H * 0.04;
+  x.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 5; i++) { const fl = 0.7 + 0.3 * Math.sin(t * 24 + i * 2), pl = x.createRadialGradient(sx, sy + 20, 0, sx, sy + 20, H * (0.16 + i * 0.05) * fl * (1.2 - u * 0.5)); pl.addColorStop(0, `rgba(255,${230 - i * 30},${180 - i * 40},${0.5 - i * 0.07})`); pl.addColorStop(1, "rgba(255,80,20,0)"); x.fillStyle = pl; x.fillRect(sx - H, sy - H * 0.4, H * 2, H * 1.2); }
+  x.globalCompositeOperation = "source-over"; rocketShape(x, sx, sy, H / 340, 0.5 + 0.5 * (1 - u));
+  x.restore();
+}
+function sceneLanding(x: Cx, W: number, H: number, u: number, t: number, P: any, type: string, eye: string) {
+  sceneSurface(x, W, H, u * 0.3, t, P, type, eye, true);
+  const hz = H * 0.62, gy = hz + H * 0.07, lx = W * 0.5, k = Math.min(1, u / 0.62), ly = -H * 0.25 + (gy - 6 + H * 0.25) * (1 - Math.pow(1 - k, 2));
+  rocketShape(x, lx, ly, H / 340, k < 1 ? 0.9 * (1 - k * 0.6) : 0);
+  if (u > 0.58) { const d = (u - 0.58) / 0.42; x.globalCompositeOperation = "lighter"; for (let i = 0; i < 14; i++) { const sd = i % 2 ? 1 : -1, dx = sd * (20 + d * W * 0.32 * (0.4 + rnd(i) * 0.6)), dy = -d * H * 0.05 * rnd(i + 3); x.fillStyle = rgba(P.acc, 0.16 * (1 - d)); x.beginPath(); x.ellipse(lx + dx, gy + dy, 30 + d * 50, 10 + d * 14, 0, 0, 7); x.fill(); } x.globalCompositeOperation = "source-over"; }
+  for (let i = 0; i < 3; i++) { const kk = Math.max(0, Math.min(1, (u - 0.72 - i * 0.07) * 6)); if (kk > 0) robot(x, lx + (60 + i * 70) * kk + 20, gy + i * H * 0.01, H / 430, "#0a1320", eye, 1, 0.2 * Math.sin(t * 4 + i)); }
+}
+function sceneCrew(x: Cx, W: number, H: number, u: number, t: number, P: any, eye: string) {
+  const g = x.createRadialGradient(W * 0.65, H * 0.4, 0, W * 0.65, H * 0.4, H); g.addColorStop(0, rgba(P.glow, 0.35)); g.addColorStop(1, "#02040a"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.save(); x.beginPath(); x.ellipse(W * 0.76, H * 0.5, W * 0.17, H * 0.3, 0, 0, 7); x.clip(); space(x, W, H, t, 0.6, P.glow); sphere(x, W * 0.8, H * 0.66, H * 0.36, hexRgb(P.c[2]), P.glow, -50, 0, false, t); x.restore();
+  x.strokeStyle = "rgba(150,200,230,.55)"; x.lineWidth = 4; x.beginPath(); x.ellipse(W * 0.76, H * 0.5, W * 0.17, H * 0.3, 0, 0, 7); x.stroke();
+  robot(x, W * (0.34 - 0.03 * u), H * 1.04, H / 150 * (1 + 0.05 * u), "#0a1320", eye, 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2)), 0);
+  x.globalCompositeOperation = "lighter"; const key = x.createLinearGradient(W, 0, W * 0.3, 0); key.addColorStop(0, rgba(P.acc, 0.22)); key.addColorStop(1, rgba(P.acc, 0)); x.fillStyle = key; x.fillRect(0, 0, W, H);
+  for (let i = 0; i < 26; i++) { const px = ((rnd(i) * W + t * 6 * (0.3 + rnd(i + 4))) % W), py = ((rnd(i + 8) * H - t * 10 * rnd(i + 3)) % H + H) % H; x.fillStyle = rgba(P.acc, 0.2 + 0.2 * rnd(i + 2)); x.fillRect(px, py, 2, 2); }
+  x.globalCompositeOperation = "source-over";
+}
+function sceneWork(x: Cx, W: number, H: number, u: number, t: number, P: any, type: string, eye: string) {
+  sceneSurface(x, W, H, u, t, P, type, eye, true);
+  const hz = H * 0.62, gy = hz + H * 0.07, m = P.mission;
+  x.globalCompositeOperation = "source-over";
+  if (m === "mine") {
+    const tx = W * 0.58, bob = Math.abs(Math.sin(t * 4)) * H * 0.05; x.fillStyle = "#0c1219"; poly(x, [[tx - 40, gy], [tx - 14, gy - H * 0.36], [tx + 14, gy - H * 0.36], [tx + 40, gy]]); x.fill(); x.strokeStyle = rgba(P.acc, 0.6); x.lineWidth = 2; x.beginPath(); x.moveTo(tx - 26, gy - H * 0.1); x.lineTo(tx + 26, gy - H * 0.2); x.moveTo(tx + 26, gy - H * 0.1); x.lineTo(tx - 26, gy - H * 0.2); x.stroke();
+    x.fillStyle = "#3a4656"; x.fillRect(tx - 6, gy - H * 0.3 + bob, 12, H * 0.3); x.fillStyle = "#c8d2e0"; poly(x, [[tx - 9, gy - H * 0.01 + bob], [tx + 9, gy - H * 0.01 + bob], [tx, gy + H * 0.04 + bob]]); x.fill();
+    x.globalCompositeOperation = "lighter"; for (let i = 0; i < 8; i++) { const a = rnd(i + Math.floor(t * 6)) * 3.14, d = 10 + rnd(i + 9) * 40; x.fillStyle = rgba(P.acc, 0.7); x.fillRect(tx + Math.cos(a) * d * 1.6, gy + Math.sin(a) * -d * 0.7, 2.4, 2.4); } x.globalCompositeOperation = "source-over";
+    x.fillStyle = "#10161e"; x.fillRect(tx + 40, gy - 10, W * 0.3, 8); for (let i = 0; i < 5; i++) { const cxp = tx + 60 + ((t * 70 + i * W * 0.06) % (W * 0.28)); x.fillStyle = rgba(P.glow, 0.9); poly(x, [[cxp, gy - 10], [cxp + 10, gy - 10], [cxp + 7, gy - 20], [cxp + 2, gy - 18]]); x.fill(); }
+  } else if (m === "dyson") {
+    for (let i = 0; i < 3; i++) { const fx = W * (0.4 + i * 0.17), k = Math.max(0, Math.min(1, u * 3 - i * 0.7)); x.strokeStyle = "#7a8aa8"; x.lineWidth = 4; x.beginPath(); x.moveTo(fx - 46, gy); x.lineTo(fx - 30, gy - H * 0.3); x.lineTo(fx + 30, gy - H * 0.3); x.lineTo(fx + 46, gy); x.stroke(); x.fillStyle = `rgba(255,210,80,${0.15 + 0.7 * k})`; poly(x, [[fx - 30, gy - H * 0.3 + 4], [fx + 30, gy - H * 0.3 + 4], [fx + 40, gy - H * 0.3 + 4 + H * 0.25 * k], [fx - 40, gy - H * 0.3 + 4 + H * 0.25 * k]]); x.fill(); if (k > 0 && k < 1) { x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(255,240,180,.9)"; x.fillRect(fx - 40 + Math.random() * 80, gy - H * 0.3 + H * 0.25 * k, 3, 3); x.globalCompositeOperation = "source-over"; } }
+  } else if (m === "farm") {
+    for (let r = 0; r < 3; r++) { const by = gy - H * (0.05 + r * 0.11); x.fillStyle = "#0b1a14"; x.fillRect(W * 0.34, by, W * 0.5, H * 0.03); x.globalCompositeOperation = "lighter"; const lg = x.createLinearGradient(0, by - H * 0.1, 0, by); lg.addColorStop(0, "rgba(190,80,255,0)"); lg.addColorStop(1, "rgba(190,80,255,.35)"); x.fillStyle = lg; x.fillRect(W * 0.34, by - H * 0.1, W * 0.5, H * 0.1); x.globalCompositeOperation = "source-over"; for (let i = 0; i < 40; i++) { const px = W * 0.35 + i * W * 0.0122, sw = Math.sin(t * 2 + i + r) * 2; x.strokeStyle = `rgb(${60 + (i % 3) * 20},${170 + (i % 4) * 15},90)`; x.lineWidth = 2; x.beginPath(); x.moveTo(px, by); x.lineTo(px + sw, by - H * (0.02 + 0.05 * Math.min(1, u * 1.5 + rnd(i) * 0.3))); x.stroke(); } }
+  } else {
+    const tx = W * 0.62; x.fillStyle = "#0c1219"; poly(x, [[tx - 22, gy], [tx - 7, gy - H * 0.3], [tx + 7, gy - H * 0.3], [tx + 22, gy]]); x.fill();
+    x.globalCompositeOperation = "lighter"; const bm = x.createLinearGradient(tx, gy - H * 0.3, tx, 0); bm.addColorStop(0, rgba(P.glow, 0.85)); bm.addColorStop(1, rgba(P.glow, 0)); x.fillStyle = bm; x.fillRect(tx - 7, 0, 14, gy - H * 0.3);
+    for (let i = 0; i < 5; i++) { const ky = (((t * 0.5 + i / 5) % 1)); x.strokeStyle = rgba(P.acc, 0.6 * (1 - ky)); x.lineWidth = 2; x.beginPath(); x.ellipse(tx, gy - H * 0.3 - ky * H * 0.45, 24 + ky * 24, 6, 0, 0, 7); x.stroke(); }
+    x.globalCompositeOperation = "source-over";
+  }
+  for (let i = 0; i < 2; i++) robot(x, W * (0.16 + i * 0.09), gy + i * H * 0.012, H / 400, "#0a1320", eye, 1, 0.5 * Math.sin(t * 5 + i * 2));
+}
+function sceneStorm(x: Cx, W: number, H: number, u: number, t: number, P: any, type: string, eye: string) {
+  sceneSurface(x, W, H, u, t, P, type, eye, true); const hz = H * 0.62, gy = hz + H * 0.07;
+  x.fillStyle = "rgba(0,0,0,.38)"; x.fillRect(0, 0, W, H);
+  x.globalCompositeOperation = "lighter"; x.lineWidth = 1.4; for (let i = 0; i < 110; i++) { const sp = 700 + rnd(i) * 900, px = ((rnd(i + 3) * W * 1.5 - t * sp) % (W * 1.5) + W * 1.5) % (W * 1.5) - W * 0.2, py = rnd(i + 9) * H; x.strokeStyle = rgba(P.acc, 0.1 + rnd(i + 5) * 0.25); x.beginPath(); x.moveTo(px, py); x.lineTo(px - 60 - rnd(i) * 60, py + 14); x.stroke(); }
+  if (Math.sin(t * 3.1) > 0.94) { x.fillStyle = "rgba(220,235,255,.22)"; x.fillRect(0, 0, W, H); x.strokeStyle = "rgba(230,240,255,.9)"; x.lineWidth = 2.4; let bx = W * (0.3 + rnd(Math.floor(t * 3.1)) * 0.5), by = 0; x.beginPath(); x.moveTo(bx, by); while (by < hz) { by += H * 0.06; bx += (rnd(Math.floor(by) + 7) - 0.5) * 50; x.lineTo(bx, by); } x.stroke(); }
+  x.globalCompositeOperation = "source-over"; x.save(); x.translate(W * 0.24, gy); x.rotate(-0.1 + Math.sin(t * 6) * 0.015); robot(x, 0, 0, H / 340, "#0a1320", eye, 1, 0.1); x.restore();
+  const hg = x.createLinearGradient(0, hz - H * 0.1, 0, H); hg.addColorStop(0, rgba(P.acc, 0)); hg.addColorStop(1, rgba(P.acc, 0.18)); x.fillStyle = hg; x.fillRect(0, hz - H * 0.1, W, H);
+}
+function sceneSignal(x: Cx, W: number, H: number, u: number, t: number, P: any, eye: string) {
+  space(x, W, H, t, 0.5, P.glow);
+  const ex = W * 0.2, ey = H * 0.28; sphere(x, ex, ey, H * 0.13, "40,110,200", "110,190,255", -40, 0, true, t);
+  const gy = H * 0.8; x.fillStyle = "#04060a"; x.beginPath(); x.moveTo(0, H); x.lineTo(0, gy); for (let i = 0; i <= 24; i++) x.lineTo(W * i / 24, gy - Math.sin(i * 0.9) * H * 0.03 - rnd(i) * H * 0.02); x.lineTo(W, H); x.closePath(); x.fill();
+  const dx = W * 0.66, dy = gy - H * 0.02; x.strokeStyle = "#1a2433"; x.lineWidth = 5; x.beginPath(); x.moveTo(dx, dy); x.lineTo(dx, dy - H * 0.14); x.stroke();
+  const ang = Math.atan2(ey - (dy - H * 0.16), ex - dx); x.save(); x.translate(dx, dy - H * 0.16); x.rotate(ang + Math.PI); x.fillStyle = "#26344a"; x.beginPath(); x.ellipse(0, 0, H * 0.025, H * 0.09, 0, 0, 7); x.fill(); x.restore();
+  x.globalCompositeOperation = "lighter"; x.fillStyle = Math.sin(t * 4) > 0 ? "rgba(255,90,90,.95)" : "rgba(255,90,90,.2)"; x.fillRect(dx - 2, dy - H * 0.15, 4, 4);
+  const sx0 = dx, sy0 = dy - H * 0.16, cxp = (sx0 + ex) / 2, cyp = Math.min(sy0, ey) - H * 0.2;
+  const at = (p: number) => ({ px: (1 - p) * (1 - p) * sx0 + 2 * (1 - p) * p * cxp + p * p * ex, py: (1 - p) * (1 - p) * sy0 + 2 * (1 - p) * p * cyp + p * p * ey });
+  x.setLineDash([3, 9]); x.strokeStyle = rgba(P.acc, 0.35); x.lineWidth = 1.4; x.beginPath(); x.moveTo(sx0, sy0); x.quadraticCurveTo(cxp, cyp, ex, ey); x.stroke(); x.setLineDash([]);
+  for (let i = 0; i < 6; i++) { const p = (t * 0.3 + i / 6) % 1, q = at(p); x.fillStyle = rgba(P.acc, 0.9 * Math.sin(p * 3.14)); x.beginPath(); x.arc(q.px, q.py, 4, 0, 7); x.fill(); }
+  if (u > 0.6) { for (let i = 0; i < 3; i++) { const p = 1 - ((t * 0.3 + i / 3) % 1), q = at(p); x.fillStyle = "rgba(190,255,200,.9)"; x.beginPath(); x.arc(q.px, q.py, 5, 0, 7); x.fill(); } const rr = ((u - 0.6) * 3) % 1; x.strokeStyle = `rgba(190,255,200,${0.6 * (1 - rr)})`; x.lineWidth = 2; x.beginPath(); x.arc(ex, ey, H * 0.13 * (1 + rr * 0.8), 0, 7); x.stroke(); }
+  x.globalCompositeOperation = "source-over"; robot(x, W * 0.52, gy + H * 0.06, H / 460, "#0a1320", eye, 1, 0.1);
+}
+function sceneWarning(x: Cx, W: number, H: number, u: number, t: number, P: any, cat: string) {
+  x.fillStyle = "#04030a"; x.fillRect(0, 0, W, H); const pu = 0.5 + 0.5 * Math.sin(t * 5);
+  x.globalCompositeOperation = "lighter"; const rg = x.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 1.0); rg.addColorStop(0, "rgba(255,40,60,0)"); rg.addColorStop(1, `rgba(255,40,60,${0.18 + 0.2 * pu})`); x.fillStyle = rg; x.fillRect(0, 0, W, H); x.globalCompositeOperation = "source-over";
+  x.globalAlpha = 0.28; if (cat === "ship") capital(x, W * 0.5, H * 0.3, H / 280, 0, "255,80,100", t); else alien(x, W * 0.5, H * 1.0, H / 110 * (0.8 + 0.3 * u), String(P.id || "x").length % 6, "255,60,80", t); x.globalAlpha = 1;
+  const cx = W * 0.5, cy = H * 0.52, r = H * 0.32; x.strokeStyle = "rgba(255,120,130,.5)"; x.lineWidth = 1.4; for (let i = 1; i <= 4; i++) { x.beginPath(); x.arc(cx, cy, r * i / 4, 0, 7); x.stroke(); } x.beginPath(); x.moveTo(cx - r, cy); x.lineTo(cx + r, cy); x.moveTo(cx, cy - r); x.lineTo(cx, cy + r); x.stroke();
+  const sa = t * 2.2; x.globalCompositeOperation = "lighter"; for (let i = 0; i < 16; i++) { x.strokeStyle = `rgba(255,90,110,${0.5 * (1 - i / 16)})`; x.lineWidth = 3; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(sa - i * 0.05) * r, cy + Math.sin(sa - i * 0.05) * r); x.stroke(); }
+  for (let i = 0; i < 8; i++) { const a = rnd(i + 12) * 6.28, d = r * (0.95 - 0.55 * u) * (0.5 + rnd(i + 21) * 0.5); let dd = ((sa - a) % 6.28 + 6.28) % 6.28; const f = Math.max(0, 1 - dd / 2.4); x.fillStyle = `rgba(255,70,90,${0.9 * f})`; x.fillRect(cx + Math.cos(a) * d - 3, cy + Math.sin(a) * d - 3, 6, 6); }
+  x.globalCompositeOperation = "source-over"; for (const by of [H * 0.14, H * 0.82]) { x.save(); x.beginPath(); x.rect(0, by, W, 10); x.clip(); x.fillStyle = "#e8b020"; x.fillRect(0, by, W, 10); x.fillStyle = "#1a1005"; for (let i = -2; i < 40; i++) { poly(x, [[i * 36 - t * 20 % 36, by + 10], [i * 36 + 12 - t * 20 % 36, by + 10], [i * 36 + 24 - t * 20 % 36, by], [i * 36 + 12 - t * 20 % 36, by]]); x.fill(); } x.restore(); }
+}
+function sceneDawn(x: Cx, W: number, H: number, u: number, t: number, P: any, eye: string) {
+  const hz = H * 0.66, sy = hz + H * 0.1 - u * H * 0.24, sx = W * 0.5;
+  const g = x.createLinearGradient(0, 0, 0, hz); g.addColorStop(0, "#0a1030"); g.addColorStop(0.6, rgba(P.glow, 0.35)); g.addColorStop(1, "rgb(255,170,90)"); x.fillStyle = g; x.fillRect(0, 0, W, hz + 2);
+  for (const s of STARS) if (s.y < 0.45) { x.fillStyle = `rgba(255,255,255,${0.5 * (1 - u * 0.8) * s.z})`; x.fillRect(s.x * W, s.y * H, 1.3, 1.3); }
+  x.globalCompositeOperation = "lighter"; const sg = x.createRadialGradient(sx, sy, 0, sx, sy, H * 0.9); sg.addColorStop(0, "rgba(255,245,210,.95)"); sg.addColorStop(0.15, "rgba(255,190,90,.55)"); sg.addColorStop(1, "rgba(255,120,40,0)"); x.fillStyle = sg; x.fillRect(0, 0, W, hz + 2);
+  for (let i = 0; i < 12; i++) { const a = -Math.PI + (i + 0.5) / 12 * Math.PI + Math.sin(t * 0.3 + i) * 0.03; x.fillStyle = `rgba(255,220,150,${0.07 + 0.04 * Math.sin(t + i)})`; x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + Math.cos(a - 0.03) * H * 1.4, sy + Math.sin(a - 0.03) * H * 1.4); x.lineTo(sx + Math.cos(a + 0.03) * H * 1.4, sy + Math.sin(a + 0.03) * H * 1.4); x.closePath(); x.fill(); }
+  x.fillStyle = "rgba(255,250,225,.95)"; x.beginPath(); x.arc(sx, sy, H * 0.06, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
+  x.fillStyle = "#05070c"; x.beginPath(); x.moveTo(0, H); x.lineTo(0, hz); for (let i = 0; i <= 20; i++) x.lineTo(W * i / 20, hz - Math.sin(i * 0.8) * H * 0.02 - rnd(i + 30) * H * 0.02); x.lineTo(W, H); x.closePath(); x.fill();
+  x.globalCompositeOperation = "lighter"; for (let i = 0; i < 18; i++) { x.fillStyle = `rgba(255,214,120,${0.4 + 0.4 * Math.sin(t * 2 + i)})`; x.fillRect(W * (0.6 + rnd(i) * 0.3), hz + H * 0.01 + rnd(i + 4) * H * 0.04, 2, 2); } x.globalCompositeOperation = "source-over";
+  for (let i = 0; i < 4; i++) robot(x, W * (0.12 + i * 0.06), hz + H * (0.17 + (i % 2) * 0.025), H / 400, "#05070c", eye, 0.4, 0.05);
+  const fx = W * 0.8; x.strokeStyle = "#0a0d14"; x.lineWidth = 4; x.beginPath(); x.moveTo(fx, hz + H * 0.2); x.lineTo(fx, hz - H * 0.15); x.stroke(); x.fillStyle = rgba(P.acc, 0.9); x.beginPath(); x.moveTo(fx, hz - H * 0.15); for (let i = 0; i <= 8; i++) x.lineTo(fx + i * 7, hz - H * 0.15 + Math.sin(t * 3 - i * 0.5) * 4 + i * 0.6); for (let i = 8; i >= 0; i--) x.lineTo(fx + i * 7, hz - H * 0.15 + H * 0.06 + Math.sin(t * 3 - i * 0.5) * 4 + i * 0.6); x.closePath(); x.fill();
+}
 export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway, onDone }: any) {
   const plan = useRef(cinePlan(P)).current; const total = plan.reduce((a, q) => a + q.dur, 0); const starts = useRef((() => { let a = 0; return plan.map(s => { const v = a; a += s.dur; return v; }); })()).current;
   const [rot, setRot] = useState(false); useEffect(() => { const chk = () => setRot(window.innerHeight > window.innerWidth); const id = setTimeout(chk, 700); window.addEventListener("resize", chk); return () => { clearTimeout(id); window.removeEventListener("resize", chk); }; }, []);   // a phone that will not turn: the film is turned instead
@@ -579,6 +728,9 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
         case "contact": sceneHarvest(x, W, H, u, local, P, 0); break; case "mind": sceneAI(x, W, H, u, local, P); break;
         case "lore": { const th = (s as any).theme; if (th === "ai") sceneAI(x, W, H, u, local, P); else if (th === "friend") sceneFriend(x, W, H, u, local, P); else if (th === "reactor") sceneReactor(x, W, H, u, local, P); else if (th === "dark") sceneDark(x, W, H, u, local, P); else sceneHarvest(x, W, H, u, local, P, 1.7); break; }
         case "approach": sceneApproach(x, W, H, u, local, P); break; case "boss": sceneBoss(x, W, H, u, local, P); break; case "objective": sceneObjective(x, W, H, local, P); break;
+        case "survey": sceneSurvey(x, W, H, u, local, P); break; case "descent": sceneDescent(x, W, H, u, local, P); break; case "landing": sceneLanding(x, W, H, u, local, P, type, eye); break;
+        case "crew": sceneCrew(x, W, H, u, local, P, eye); break; case "work": sceneWork(x, W, H, u, local, P, type, eye); break; case "storm": sceneStorm(x, W, H, u, local, P, type, eye); break;
+        case "signal": sceneSignal(x, W, H, u, local, P, eye); break; case "warning": sceneWarning(x, W, H, u, local, P, catOf(P)); break; case "dawn": sceneDawn(x, W, H, u, local, P, eye); break;
         default: sceneSurface(x, W, H, u, local, P, type, eye);
       }
       x.restore();
@@ -589,7 +741,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       const fade = Math.max(0, 1 - local / 0.4, Math.min(1, (local - (s.dur - 0.3)) / 0.3) * (s.kind === "objective" ? 0 : 1)); if (fade > 0) { x.fillStyle = `rgba(0,0,0,${fade})`; x.fillRect(0, 0, W, H); }
     };
     raf = requestAnimationFrame(frame);
-    (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false)), jump: (i: number) => { skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
+    (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false)), jump: (i: number) => { i = Math.max(0, Math.min(plan.length - 1, i | 0)); skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); try { delete (window as any).__advCine; } catch (e) {} };
   }, []);
   const kind = plan[Math.min(idx, plan.length - 1)].kind, capFor = (lg: string) => captionFor(P.finale ? { ...P, __theme: (plan[Math.min(idx, plan.length - 1)] as any).theme } : P, kind, lg), cap = sub === "off" ? "" : capFor(sub), goals = GOAL[P.id] || GOAL.luma;
@@ -602,7 +754,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     const id = setTimeout(() => { try { speakDeviceOrNative(txt, voice, undefined, undefined, rate); } catch (e) {} }, 350);
     (window as any).__advVo = { lang: voice, text: txt, rate }; return () => clearTimeout(id);
   }, [idx, voice]);
-  useEffect(() => () => { stopSpeaking(); }, []);
+  useEffect(() => () => { try { stopSpeaking(); } catch (e) {} }, []);
   const next = () => { if (idxRef.current < objIdx) skipTo.current = starts[idxRef.current + 1] - (performance.now() - t0.current) / 1000 + 0.05; };
   return (
     <div className={"adv-cine" + (rot ? " rot" : "")} onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; next(); }}>
