@@ -374,6 +374,13 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
         for (let i = 1; i < trail.length; i++) { trail[i - 1].x -= 5 * (1 + (S.ls || 0) * 4); const al = i / trail.length; x.strokeStyle = "rgba(" + glow + "," + al * 0.35 + ")"; x.lineWidth = 2 + al * 8; x.lineCap = "round"; x.beginPath(); x.moveTo(trail[i - 1].x, trail[i - 1].y); x.lineTo(trail[i].x, trail[i].y); x.stroke(); }
         for (let i = 0; i < 14; i++) { const fx = (((i * 163 - (S.vt || 0) * (90 + i * 11)) % (W + 80)) + (W + 80)) % (W + 80) - 40, fy = (i * 97) % H, fr = 3 + (i % 4) * 3; x.fillStyle = "rgba(200,220,255," + (0.05 + (i % 3) * 0.03) + ")"; x.beginPath(); x.arc(fx, fy, fr, 0, 7); x.fill(); }
         x.globalCompositeOperation = "source-over"; } else if (trail.length) trail.length = 0;
+      if (SKY === "ark" && !S.over) {   // live Ark readout: trip progress against the food in the holds, the ring's gravity and the hull
+        const prog = Math.min(1, ((S.gp || 0) + (S.win ? 1 : 0)) / 3), eaten = Math.round(600 * prog), left = Math.max(0, ARKST.foodDays - eaten), tx = 14, ty = H - 74;
+        x.save(); x.globalAlpha = 0.9; x.fillStyle = "rgba(6,14,28,.6)"; x.fillRect(tx, ty, 190, 62);
+        const bar = (yy: number, f: number, col: string, tx2: string) => { x.fillStyle = "rgba(255,255,255,.14)"; x.fillRect(tx + 8, yy, 120, 8); x.fillStyle = col; x.fillRect(tx + 8, yy, 120 * Math.max(0, Math.min(1, f)), 8); x.fillStyle = "#dff"; x.font = "10px sans-serif"; x.fillText(tx2, tx + 134, yy + 8); };
+        bar(ty + 8, prog, "#7ab8ff", "day " + eaten + "/600"); bar(ty + 26, left / 600, left > 0 ? "#6ee59a" : "#ff6a5a", left > 0 ? "food " + left : "no food"); bar(ty + 44, ARKST.gravity / 1.0, ARKST.health >= 1 ? "#8cffdc" : "#ffc060", ARKST.gravity + " g");
+        x.restore();
+      }
       const s = S.ship; if (!S.over) { x.save(); x.translate(s.x, s.y); if (s.inv > 0 && Math.floor(S.t * 20) % 2) x.globalAlpha = 0.4; if (SKY === "ark") { x.scale(0.82, 0.82); drawArk(x, glow, S.t, ARKLV); } else drawPlayer(x, glow, S.t); x.restore(); }
       if (HI()) {   // bloom: the frame, shrunk and stretched back over itself, plus a soft colour vignette
         const bw = Math.max(48, c.width >> 3), bh = Math.max(27, c.height >> 3); if (!bloomA) { bloomA = document.createElement("canvas"); bloomB = document.createElement("canvas"); }
