@@ -458,7 +458,7 @@ function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx");
 const T3 = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
 
 /** The page: a planet menu, then the run itself. */
-export const AdventurePage = memo(function AdventurePage({ onReward = null, lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null, online = false }: any) {
+export const AdventurePage = memo(function AdventurePage({ onReward = null, lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null, online = false, adminTier = 0 }: any) {
   const [planet, setPlanet] = useState(null);
   // Adventure Online: a room of up to 4 pilots over a Realtime channel (adv-online.ts); the host picks the map for everybody
   const [net, setNet] = useState<Net | null>(null), netRef = useRef<Net | null>(null), [peersL, setPeersL] = useState<any[]>([]), [warOpt, setWarOpt] = useState(false), [nerr, setNerr] = useState(""), [joinCode, setJoinCode] = useState(""), [busy, setBusy] = useState(false);
@@ -499,8 +499,13 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
     setBusy(false);
   };
   const leaveRoom = () => { if (netRef.current) netRef.current.leave(); netRef.current = null; setNet(null); setPeersL([]); };
-  const nextOf = (cur: any) => { const dn = readDone(); const idx = PLANETS.findIndex(q => q.id === cur.id); const rest = [...PLANETS.slice(idx + 1), ...PLANETS.slice(0, idx)].filter(Q => Q.ok); return rest.find(Q => !dn.includes(Q.id)) || rest[0] || null; };   // the next map you have not cleared yet, wrapping round   // the orbital-strike result (which bases are gone) before an Ashfall run
-  const open = (P) => !!P.ok;   // every map is open from the start: play them in any order (owner, 2026-10-11)
+  const nextOf = (cur: any) => { const dn = readDone(); const idx = PLANETS.findIndex(q => q.id === cur.id); const rest = [...PLANETS.slice(idx + 1), ...PLANETS.slice(0, idx)].filter(Q => Q.ok && open(Q)); return rest.find(Q => !dn.includes(Q.id)) || rest[0] || null; };   // the next map you have not cleared yet, wrapping round   // the orbital-strike result (which bases are gone) before an Ashfall run
+  // Maps are played one step at a time inside each sector: step n opens when step n-1 is cleared (owner, 2026-10-12).
+  // A top-tier admin (tier 3) is never locked, so the game can be inspected; `tg_adv_unlockall` is the same switch for the test bots.
+  const unlockAll = adminTier >= 3 || (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1"; } catch (e) { return false; } })();
+  const stepOf = (P) => PLANETS.filter(Q => sectorOf(Q) === sectorOf(P)).indexOf(P);
+  const prevOf = (P) => { const L = PLANETS.filter(Q => sectorOf(Q) === sectorOf(P)); const i = L.indexOf(P); return i > 0 ? L[i - 1] : null; };
+  const open = (P) => !!P.ok && (unlockAll || !prevOf(P) || readDone().includes(prevOf(P).id));
   const t = (th, en, zh) => T3(lang, th, en, zh);
   return (
     <div className="adv" role="region" aria-label="Adventure Mode">
@@ -526,7 +531,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
-                <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (pi + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (pi + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (pi + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? t("ต้องผ่านบอสลูมาก่อน", "Beat the Luma boss first", "先击败卢玛首领") : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
+                <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? (() => { const pv = prevOf(P), n = stepOf(P); return t("ต้องผ่านด่านที่ " + n + " ก่อน", "Clear step " + n + " first" + (pv ? " (" + pv.en.split(" · ")[0] + ")" : ""), "先通关第 " + n + "关"); })() : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
                 <em>{open(P) ? "▶" : "🔒"}</em>
               </button>
             ))}
