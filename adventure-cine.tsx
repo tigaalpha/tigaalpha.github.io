@@ -121,6 +121,7 @@ const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue"
 export function cinePlan(P: any, short?: boolean): CineShot[] { return basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 })); }
 function basePlan(P: any, short?: boolean): CineShot[] {
   if (P.id === "departure") return [{ kind: "pad", dur: 7 }, { kind: "liftoff", dur: 7 }, { kind: "earthfade", dur: 7 }, { kind: "objective", dur: 6 }];
+  if (P.finale) return [{ kind: "lore", dur: 5.2, theme: "friend" }, { kind: "lore", dur: 5.2, theme: "dark" }, { kind: "lore", dur: 5.2, theme: "harvest" }, { kind: "mind", dur: 5.6, theme: "ai" }];
   if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "contact", dur: 5, theme: "harvest" }, { kind: "mind", dur: 5, theme: "ai" }];
   if (short === undefined) short = seenPrologue();
   if (short) { const q: CineShot[] = [{ kind: "approach", dur: 4.4 }, { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 }]; if (LORE_THEME[P.id]) q.push({ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] }); if (P.boss && P.boss[0] !== "-") q.push({ kind: "boss", dur: 3.8 }); q.push({ kind: "objective", dur: 6 }); return q; }
@@ -130,8 +131,15 @@ function basePlan(P: any, short?: boolean): CineShot[] {
   plan.push({ kind: "objective", dur: 6 });
   return plan;
 }
+const FINALE_TXT: Record<string, L3> = {
+  friend: ["มนุษย์ไม่ได้โดดเดี่ยวอีกต่อไป — ไคนด์เรดแบ่งความรู้ให้เรา และเราเรียนรู้ซึ่งกันและกันอย่างเท่าเทียม", "Humanity is no longer alone. The Kindred share their knowledge, and we learn from each other as equals.", "人类不再孤单——友族与我们分享知识，我们平等地互相学习。"],
+  dark: ["สสารมืดเริ่มเลี้ยง TIGA แทนดาวฤกษ์ — ดวงดาวหลายดวงถูกปล่อยให้ส่องแสงต่อไป", "Dark matter begins to feed TIGA in place of stars, and many suns are left to shine.", "暗物质开始取代恒星为 TIGA 供能，许多恒星得以继续发光。"],
+  harvest: ["ฮาร์เวสเตอร์ยังไม่เห็นเรา — แต่มันกำลังหันมาทางนี้ ศึกจริงยังไม่เริ่มต้น", "The Harvesters have not seen us yet, but they are turning this way. The real war has not begun.", "收割者还没有发现我们——但它们正转向这里，真正的战争尚未开始。"],
+  ai: ["TIGA ถามว่า ถ้าเรารอดจากสิ่งนี้ได้ ข้างหน้ามีอะไรรออยู่ — เรื่องราวยังไม่จบ", "TIGA asks what lies ahead if we survive this. The story is not over.", "TIGA 问：如果我们撑过这一关，前方还有什么？故事还没有结束。"],
+};
 const captionFor = (P: any, kind: string, lang: string) => {
   const g = (a: L3) => T3(lang, a[0], a[1], a[2]);
+  if (P.finale && (kind === "lore" || kind === "mind")) return g(FINALE_TXT[(P as any).__theme || "friend"]);
   if (kind === "earth" || kind === "factory" || kind === "launch" || kind === "contact" || kind === "mind") return g((COMMON as any)[kind]);
   if (kind === "lore") return g(LORE[P.id] || LORE.luma);
   if (kind === "approach") return g(INTRO[P.id] || INTRO.luma);
@@ -482,7 +490,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     const audio = createCineAudio(P.id, plan);
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame); const el = (now - t0.current) / 1000 + skipTo.current; let i = 0; for (let k = 0; k < plan.length; k++) if (el >= starts[k]) i = k;
-      if (P.prologue && el >= total) { raf = 0; cancelAnimationFrame(raf); onDone(); return; }
+      if ((P.prologue || P.finale) && el >= total) { raf = 0; cancelAnimationFrame(raf); onDone(); return; }
       if (i !== idxRef.current) { idxRef.current = i; setIdx(i); }
       const W = cv.width, H = cv.height, s = plan[i], local = el - starts[i], u = Math.min(1, local / Math.max(0.1, s.dur));
       x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; x.fillStyle = "#000"; x.fillRect(0, 0, W, H);
@@ -506,7 +514,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false)), jump: (i: number) => { skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); try { delete (window as any).__advCine; } catch (e) {} };
   }, []);
-  const kind = plan[Math.min(idx, plan.length - 1)].kind, cap = captionFor(P, kind, lang), goals = GOAL[P.id] || GOAL.luma;
+  const kind = plan[Math.min(idx, plan.length - 1)].kind, cap = captionFor(P.finale ? { ...P, __theme: (plan[Math.min(idx, plan.length - 1)] as any).theme } : P, kind, lang), goals = GOAL[P.id] || GOAL.luma;
   const next = () => { if (idxRef.current < objIdx) skipTo.current = starts[idxRef.current + 1] - (performance.now() - t0.current) / 1000 + 0.05; };
   return (
     <div className={"adv-cine" + (rot ? " rot" : "")} onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; next(); }}>

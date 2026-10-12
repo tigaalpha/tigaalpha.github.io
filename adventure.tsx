@@ -98,6 +98,7 @@ export function rollLoot(exp: number, rnd2: () => number = Math.random): string 
 }
 export const readDayCoins = (): number => { try { const v = JSON.parse(localStorage.getItem("tg_adv_coin_day") || "{}") || {}; return v.d === dayKey() ? Math.max(0, v.n | 0) : 0; } catch (e) { return 0; } };
 export const addDayCoins = (n: number) => { try { localStorage.setItem("tg_adv_coin_day", JSON.stringify({ d: dayKey(), n: readDayCoins() + n })); } catch (e) {} };
+const FINALE: any = { id: "finale", finale: true, th: "บทส่งท้ายภาค 3", en: "Act 2 epilogue", zh: "第三区尾声", c: ["#04060e", "#0a1830", "#2a5aa8"], glow: "120,255,220", acc: "255,200,90", boss: ["-", "-", "-"] };
 const PROLOGUE: any = { id: "prologue", prologue: true, th: "โครงการหุ่นยนต์ผู้บุกเบิก", en: "Pioneer Robot Program", zh: "先遣机器人计划", c: ["#04060e", "#0a1830", "#2a5aa8"], glow: "110,190,255", acc: "255,200,90", boss: ["-", "-", "-"] };
 let TINT: any = null;
 const AdventureShip = lazy(() => import("./adventure-ship"));   // the starship dogfight: its own chunk
@@ -481,9 +482,11 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   shipCtl.current.ask = () => { const nq: any = nextSpell(lang, {}); setShipQuiz({ qs: [nq], i: 0, sel: [], res: null, right: 0, learned: nq.learned, spell: true }); };
   const shipAnswer = (ok: boolean) => { const cur = shipQuiz; if (!cur || cur.res) return; const q = cur.qs[cur.i].q; const l = recordAnswer(ok, q.topic); try { recordMemory(q.label, ok ? 100 : 55); } catch (e) {} if (ok) { try { addRpgExpX(me, 10 + 6 * q.tier + (l.streak >= 2 ? 6 : 0)); addSkillSp(classKeyOf(me), 2 + q.tier); bumpQuest("right", 1); } catch (e) {} } setShipQuiz({ ...cur, res: ok ? "good" : "bad", right: cur.right + (ok ? 1 : 0) }); };
   const shipFinish = () => { const cur = shipQuiz; setShipQuiz(null); if (shipCtl.current.answer) shipCtl.current.answer(!!cur && cur.right > 0); logUsage("adv", "shipq:" + (cur && cur.right > 0 ? "ok" : "miss")); };
+  const [fin, setFin] = useState(false);   // the Act 2 epilogue: once, the first time the menu opens after Kindred Haven, the Dark Forge and the Harvesters' Eye are all cleared
+  useEffect(() => { try { if (!planet && localStorage.getItem("tg_adv_finale") !== "1" && localStorage.getItem("tg_adv_nocine") !== "1" && ["kindred", "darkforge", "shadow"].every(id => readDone().includes(id))) setFin(true); } catch (e) {} }, [planet]);
   const [pro, setPro] = useState(() => { try { return localStorage.getItem("tg_adv_prologue") === null && localStorage.getItem("tg_adv_nocine") !== "1"; } catch (e) { return false; } });   // the opening film, once, before the first map menu
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
-  const filming = (pro && !planet) || (!!planet && cined !== planet.id && !nocine);
+  const filming = (pro && !planet) || (fin && !planet) || (!!planet && cined !== planet.id && !nocine);
   useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
   const startPlanet = (P: any) => { playUi && playUi("click"); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
   const canStart = (P: any) => (net ? net.host : open(P));   // in a room only the host chooses the map (guests join whatever map the host opens)
@@ -502,7 +505,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   return (
     <div className="adv" role="region" aria-label="Adventure Mode">
       <style>{CSS}</style>
-      {pro && !planet ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={PROLOGUE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_prologue", "1"); } catch (e) {} setPro(false); exitFsAndUnlock(); }} /></Suspense> : !planet ? (
+      {fin && !planet && !pro ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={FINALE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_finale", "1"); } catch (e) {} setFin(false); exitFsAndUnlock(); }} /></Suspense> : pro && !planet ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={PROLOGUE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_prologue", "1"); } catch (e) {} setPro(false); exitFsAndUnlock(); }} /></Suspense> : !planet ? (
         <div className="adv-menu">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
