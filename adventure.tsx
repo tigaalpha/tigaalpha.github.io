@@ -589,6 +589,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   useEffect(() => { try { if (!planet && localStorage.getItem("tg_adv_finale") !== "1" && localStorage.getItem("tg_adv_nocine") !== "1" && ["kindred", "darkforge", "shadow"].every(id => readDone().includes(id))) setFin(true); } catch (e) {} }, [planet]);
   const [pro, setPro] = useState(() => { try { return localStorage.getItem("tg_adv_prologue") === null && localStorage.getItem("tg_adv_nocine") !== "1"; } catch (e) { return false; } });   // the opening film, once, before the first map menu
   const [rankOpen, setRankOpen] = useState(false);
+  const [galaxyOpen, setGalaxyOpen] = useState(false);
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
   useEffect(() => { RUN_NAME = pname; RUN_T0 = planet && (nocine || cined === planet.id) ? Date.now() : 0; if (RUN_T0 > 0) { if (readEnergy() >= 50) { writeEnergy(readEnergy() - 50); ENERGY_BOOST = 1.25; } else ENERGY_BOOST = 1; } else ENERGY_BOOST = 1; }, [planet && planet.id, cined]);   // the clock for the best-times board starts when the map does, not when its film does
   const filming = (pro && !planet) || (fin && !planet) || (!!planet && cined !== planet.id && !nocine);
@@ -632,7 +633,20 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
                 {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : v === "space" ? t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空") : v === "act2" ? t("ภาค 3 · ฮาร์เวสเตอร์", "Act 2 · The Harvesters", "第三区 · 收割者") : t("ภาค 4 · ระบบสุริยะ", "Sector 4 · Solar System", "第四区 · 太阳系")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
               </button>); })}
           </div>
-          <div className="adv-rankbar"><span data-energy style={{ marginRight: 8, fontSize: 12 }}>⚡ {t("พลังงาน", "Energy", "能量")} {readEnergy()}/100{readEnergy() >= 50 ? " · +25%" : ""}</span><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
+          <div className="adv-rankbar"><span data-energy style={{ marginRight: 8, fontSize: 12 }}>⚡ {t("พลังงาน", "Energy", "能量")} {readEnergy()}/100{readEnergy() >= 50 ? " · +25%" : ""}</span><button className="adv-btn" data-galaxy-btn aria-expanded={galaxyOpen} style={{ marginRight: 8 }} onClick={() => setGalaxyOpen(o => !o)}>🌌 {t("แผนที่กาแล็กซี", "Galaxy map", "星系图")}</button><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
+          {galaxyOpen && (<div className="adv-rank" data-galaxy>
+            <svg viewBox="0 0 400 110" width="100%" role="img" aria-label="Galaxy map">
+              {(["ground", "space", "act2", "solar"] as const).map((v, i) => { const L = PLANETS.filter(P => sectorOf(P) === v), n = L.filter(P => done.includes(P.id)).length, x = 50 + i * 100, R = 22, C = 2 * Math.PI * R, nx = L.find(P => !done.includes(P.id));
+                return (<g key={v} data-gnode={v} style={{ cursor: "pointer" }} onClick={() => { pickSector(v); setGalaxyOpen(false); }}>
+                  {i > 0 && <line x1={x - 100 + R + 4} y1="45" x2={x - R - 4} y2="45" stroke="rgba(140,255,220,.35)" strokeDasharray="3 4" />}
+                  <circle cx={x} cy="45" r={R} fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.18)" strokeWidth="4" />
+                  <circle cx={x} cy="45" r={R} fill="none" stroke={v === sector ? "#8cffdc" : "#7aa8ff"} strokeWidth="4" strokeDasharray={`${C * n / L.length} ${C}`} transform={`rotate(-90 ${x} 45)`} />
+                  <text x={x} y="49" textAnchor="middle" fontSize="12" fill="currentColor">{n}/{L.length}</text>
+                  <text x={x} y="85" textAnchor="middle" fontSize="10" fill="currentColor">{v === "ground" ? t("พื้นผิว", "Surface", "表面") : v === "space" ? t("อวกาศ", "Deep space", "深空") : v === "act2" ? t("ฮาร์เวสเตอร์", "Harvesters", "收割者") : t("สุริยะ", "Solar", "太阳系")}</text>
+                  <text x={x} y="100" textAnchor="middle" fontSize="8.5" opacity=".7" fill="currentColor">{nx ? "→ " + String((t(nx.th, nx.en, nx.zh) || "")).split(/ · /)[0].slice(0, 16) : "✓"}</text>
+                </g>); })}
+            </svg>
+          </div>)}
           {rankOpen && <RankPanel lang={lang} maps={PLANETS.filter(P => sectorOf(P) === sector)} />}
           <div className="adv-planets">
             {PLANETS.map((P, pi) => sectorOf(P) !== sector ? null : (
