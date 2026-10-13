@@ -129,6 +129,8 @@ export function scheduleStep(ctx: BaseAudioContext, bus: Bus, M: Mood, step: num
   if (hat) hit(ctx, bus.drum, "hat", t, (s16 % 4 === 2 ? 0.14 : 0.08) * g * (E >= 3 && s16 % 4 === 2 ? 1.3 : 1));
   if (s16 === 0 && barInSec === 0 && (sec >= 2 || E >= 3)) crash(ctx, bus.drum, t, 0.16 * g);
   if (s16 === 0 && bar4 === false && barInSec === 2 && (sec === 1 || sec === 2)) riser(ctx, bus.drum, t, sps * 16 * 2, 0.16 * g);   // the climb into B and C
+  // a warm pad (owner, 2026-10-13): one soft held chord per bar under everything, so even the calm moments feel full and hopeful; the boss arrangement leaves it out
+  if (s16 === 0 && !boss) for (const st of [0, 2, 4]) tone(ctx, bus.mel, "triangle", hz(degMidiO(M, rootDeg + st, keyOff)), t, sps * 15, 0.03 * g, 0.4);
   // bass: the pattern, and in E>=2 an octave jump on the off-beats
   const b = pat(M.bass[s16] as any, BOSS.bass[s16] as any);
   if (b === 1) { const up = E >= 2 && s16 % 8 === 6; tone(ctx, bus.mel, M.wBass, hz(degMidiO(M, rootDeg, keyOff) - 24 + (up ? 12 : 0)), t, sps * 1.8, 0.26 * g, 0.008); }
