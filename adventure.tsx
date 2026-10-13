@@ -575,7 +575,7 @@ const CSS = `
 .ac2-team{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;padding:2px 10px;color:var(--text2)}
 .ac2-res{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.ac2-r{display:inline-flex;gap:5px;align-items:baseline;padding:5px 10px;border-radius:999px;border:1.5px solid rgba(140,255,220,.35);background:rgba(10,50,44,.55);font-weight:800;font-size:13px}.ac2-r small{font-size:10.5px;color:#9fffd0}.ac2-r small.neg{color:#ff9aa8}.ac2-r.low{border-color:#ff6b81;animation:afp .5s infinite alternate}.ac2-hz{padding:5px 10px;border-radius:999px;background:rgba(255,90,70,.25);border:1.5px solid #ff6b81;font-size:12px;font-weight:800}
 .ac2-city{position:relative;flex:none;height:min(50vh,400px);min-height:230px;border-radius:18px;overflow:hidden;border:1.5px solid rgba(0,255,230,.35);box-shadow:0 0 22px rgba(0,255,230,.15) inset}.ac2-cv{position:absolute;inset:0;display:block}.ac2-cell{position:absolute;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:#e6fff6;padding:0;cursor:pointer;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}.ac2-cell:hover{background:rgba(0,255,230,.22)}.ac2-cell em{font-style:normal;font-size:11px;opacity:.7}.ac2-era{position:absolute;left:10px;top:8px;display:flex;flex-direction:column;gap:0;text-shadow:0 0 10px rgba(0,255,230,.8);pointer-events:none}.ac2-era b{font-size:20px;letter-spacing:3px;color:#7fffe9}.ac2-era small{font-size:10.5px;letter-spacing:1px;color:#ff9aea}
-.ac2-build{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.ac2-b{display:flex;flex-direction:column;gap:1px;padding:5px 6px;border-radius:16px;border:1.5px solid rgba(140,255,220,.3);background:rgba(10,50,44,.55);color:#e6fff6;font-size:11px;text-align:left;cursor:pointer}.ac2-b b{font-size:11.5px}.ac2-b small{font-size:10px;opacity:.85}.ac2-b.on{border-color:#ffe07a;box-shadow:0 0 12px rgba(255,224,122,.45)}.ac2-b.poor{opacity:.6}.ac2-b.lock{opacity:.4}.ac2-sel{font-size:12px;color:#cfeee6;display:flex;flex-direction:column;gap:1px}.ac2-sel em{font-style:normal;font-size:10.5px;opacity:.7}
+.ac2-build{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);grid-auto-columns:minmax(118px,1fr);overflow-x:auto;gap:5px;padding-bottom:4px}.ac2-speed{display:flex;gap:6px;justify-content:center;padding:2px 8px}.ac2-sp{border:1.5px solid rgba(140,255,220,.35);background:rgba(10,50,44,.55);color:#e6fff6;border-radius:999px;padding:3px 12px;font-size:12px;font-weight:700;cursor:pointer}.ac2-sp.on{background:#2fd49a;color:#042018;border-color:#2fd49a}.ac2-b{display:flex;flex-direction:column;gap:1px;padding:5px 6px;border-radius:16px;border:1.5px solid rgba(140,255,220,.3);background:rgba(10,50,44,.55);color:#e6fff6;font-size:11px;text-align:left;cursor:pointer}.ac2-b b{font-size:11.5px}.ac2-b small{font-size:10px;opacity:.85}.ac2-b.on{border-color:#ffe07a;box-shadow:0 0 12px rgba(255,224,122,.45)}.ac2-b.poor{opacity:.6}.ac2-b.lock{opacity:.4}.ac2-sel{font-size:12px;color:#cfeee6;display:flex;flex-direction:column;gap:1px}.ac2-sel em{font-style:normal;font-size:10.5px;opacity:.7}
 .af-fact{font-size:12px;line-height:1.4;color:#b6d8d0;padding:6px 10px;border-radius:16px;background:rgba(0,0,0,.25)}.af-pick{display:flex;flex-direction:column;gap:6px}.af-pick .adv-btn{display:flex;justify-content:space-between;gap:8px;text-align:left}.af-pick small{opacity:.8}
 @media (max-width:600px){.adv .pvpdir{width:50px;height:50px}.adv .pvpact{width:58px;height:50px}.adv-pad .pvppad-r,.adv-pad .pvppad-l{gap:6px}}
 .adv-key{width:68px;height:68px;border-radius:22px;border:2px solid rgba(140,255,220,.55);background:rgba(4,30,36,.6);color:#fff;font-size:26px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;backdrop-filter:blur(4px)}
@@ -604,7 +604,7 @@ const CSS = `
 .as-top{display:flex;align-items:center;gap:10px}.as-top div{flex:1;display:flex;flex-direction:column}.as-top small{font-size:11px;opacity:.8}.as-n{font-weight:900;font-size:18px}
 .as-map{position:relative;flex:1;min-height:120px;border-radius:14px;border:1px solid rgba(255,170,80,.35);background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 2px,transparent 2px 60px),linear-gradient(180deg,#0e0b07,#2a2012);overflow:hidden}
 .as-base{position:absolute;bottom:14%;transform:translateX(-50%);font-size:34px;filter:drop-shadow(0 0 6px rgba(255,120,60,.6))}.as-base.dead{filter:grayscale(1) brightness(.6)}
-.as-ret{position:absolute;top:0;bottom:0;width:3px;margin-left:-1px;background:linear-gradient(180deg,#ff4d6d,rgba(255,77,109,.2));box-shadow:0 0 12px #ff4d6d}.as-ret::after{content:"";position:absolute;left:-14px;top:46%;width:30px;height:30px;border:2px solid #ff4d6d;border-radius:50%}
+.as-cv{position:absolute;inset:0;width:100%;height:100%}.as-base{pointer-events:none;width:0;height:0}.as-ret{position:absolute;top:0;bottom:0;width:3px;margin-left:-1px;background:linear-gradient(180deg,#ff4d6d,rgba(255,77,109,.2));box-shadow:0 0 12px #ff4d6d}.as-ret::after{content:"";position:absolute;left:-14px;top:46%;width:30px;height:30px;border:2px solid #ff4d6d;border-radius:50%}
 .as-fall{position:absolute;top:-10%;transform:translateX(-50%);font-size:30px;animation:asf .8s ease-in forwards}@keyframes asf{to{top:62%}}
 .as-boom{position:absolute;bottom:6%;width:220px;height:220px;margin-left:-110px;border-radius:50%;background:radial-gradient(circle,#fff,#ffd23f 25%,#ff6a1a 55%,transparent 72%);animation:asb .9s ease-out forwards}@keyframes asb{from{transform:scale(.2);opacity:1}to{transform:scale(1.5);opacity:0}}
 .as-bot{display:flex;gap:10px;align-items:center;justify-content:center}.as-bot .go{background:linear-gradient(135deg,#ff8a5d,#d9482b);padding:0 22px;border-color:transparent;font-size:15px}.as-bot .go:disabled{opacity:.5}
@@ -1015,10 +1015,73 @@ function StrikePhase({ P, lang, playUi, onDone, onBack }: any) {
   const retRef = useRef<HTMLDivElement>(null), xRef = useRef(0.1), lock = useRef<number | null>(null), basesRef = useRef(bases), leftRef = useRef(3);
   basesRef.current = bases; leftRef.current = left;
   const BX = (i: number) => 0.1 + i * 0.16;   // the six bases, as a fraction of the width
+  const mapRef = useRef<HTMLDivElement>(null), cvRef = useRef<HTMLCanvasElement>(null), fallRef = useRef<{ x: number; t0: number } | null>(null), blastsRef = useRef<{ x: number; t0: number }[]>([]), scorchRef = useRef<{ x: number; t0: number }[]>([]);
+  useEffect(() => {   // the whole target view is one canvas: night terrain seen from orbit, lit base compounds, the warhead's descent, the blast, the crater
+    const box = mapRef.current, cv = cvRef.current; if (!box || !cv) return; let raf = 0, alive = true, terrain: HTMLCanvasElement | null = null, TW = 0, TH = 0;
+    const rnd = (() => { let sd = 11; return () => { sd = (sd * 1664525 + 1013904223) % 4294967296; return sd / 4294967296; }; })();
+    const bake = (W: number, H: number) => { const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d")!; const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0a0e12"); g.addColorStop(0.55, "#16140f"); g.addColorStop(1, "#241a10"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+      for (let k = 0; k < 7; k++) { x.strokeStyle = "rgba(255,170,90," + (0.035 + k * 0.006) + ")"; x.lineWidth = 1; x.beginPath(); const yy = H * (0.12 + k * 0.13); x.moveTo(0, yy); for (let q = 0; q <= W; q += 16) x.lineTo(q, yy + Math.sin(q * 0.011 + k * 1.7) * 14 + Math.sin(q * 0.031 + k) * 5); x.stroke(); }   // contour lines
+      for (let k = 0; k < 260; k++) { x.fillStyle = "rgba(255,200,140," + (0.02 + rnd() * 0.04) + ")"; x.fillRect(rnd() * W, rnd() * H, 1 + rnd() * 2, 1); }   // grain
+      x.strokeStyle = "rgba(90,200,255,.07)"; x.lineWidth = 1; for (let q = 0; q < W; q += 60) { x.beginPath(); x.moveTo(q, 0); x.lineTo(q, H); x.stroke(); } for (let q = 0; q < H; q += 60) { x.beginPath(); x.moveTo(0, q); x.lineTo(W, q); x.stroke(); }   // tactical grid
+      x.strokeStyle = "rgba(70,60,50,.9)"; x.lineWidth = 5; x.beginPath(); x.moveTo(0, H * 0.7); for (let q = 0; q <= W; q += 20) x.lineTo(q, H * 0.7 + Math.sin(q * 0.008) * 10); x.stroke();   // the road the bases sit on
+      return c; };
+    const fit = () => { const W = Math.max(200, box.clientWidth), H = Math.max(120, box.clientHeight), dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; TW = W; TH = H; terrain = bake(Math.round(W * dpr), Math.round(H * dpr)); };
+    fit(); const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null; if (ro) ro.observe(box);
+    const base = (x: any, bx: number, by: number, sc: number, tm: number, i: number) => {
+      x.save(); x.translate(bx, by); x.scale(sc, sc);
+      x.fillStyle = "rgba(0,0,0,.45)"; x.beginPath(); x.ellipse(4, 12, 44, 12, 0, 0, 7); x.fill();   // ground shadow
+      x.fillStyle = "#2a2f36"; x.fillRect(-42, -10, 84, 22); x.strokeStyle = "#556070"; x.lineWidth = 1.5; x.strokeRect(-42, -10, 84, 22);   // perimeter
+      const blocks = [[-34, -26, 22, 28, "#3a4350"], [-8, -34, 18, 36, "#46505e"], [14, -22, 24, 24, "#394250"], [-20, -6, 16, 14, "#4a4338"]];
+      for (const [qx, qy, qw, qh, col] of blocks as any) { x.fillStyle = col; x.fillRect(qx, qy, qw, qh); x.fillStyle = "rgba(255,255,255,.12)"; x.fillRect(qx, qy, qw, 3); x.fillStyle = "rgba(0,0,0,.28)"; x.fillRect(qx + qw - 4, qy + 3, 4, qh - 3);
+        for (let w = 0; w < 6; w++) { x.fillStyle = (w + i) % 3 === 0 ? "rgba(255,210,120,.9)" : "rgba(255,170,80,.35)"; x.fillRect(qx + 3 + (w % 3) * 6, qy + 8 + Math.floor(w / 3) * 8, 3, 3); } }
+      x.strokeStyle = "#8d98a8"; x.lineWidth = 2; x.beginPath(); x.moveTo(2, -34); x.lineTo(2, -52); x.stroke(); if (Math.sin(tm * 3 + i) > 0) { x.fillStyle = "#ff3b3b"; x.beginPath(); x.arc(2, -53, 2.4, 0, 7); x.fill(); }   // antenna beacon
+      x.save(); x.translate(30, -30); x.rotate(tm * 1.4 + i); x.strokeStyle = "#9fb4cc"; x.lineWidth = 2; x.beginPath(); x.moveTo(-7, 0); x.lineTo(7, 0); x.stroke(); x.restore();   // radar
+      x.globalCompositeOperation = "lighter"; const gl = x.createRadialGradient(0, -6, 4, 0, -6, 70); gl.addColorStop(0, "rgba(255,150,70,.28)"); gl.addColorStop(1, "rgba(255,150,70,0)"); x.fillStyle = gl; x.beginPath(); x.arc(0, -6, 70, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
+      x.restore(); };
+    const ruin = (x: any, bx: number, by: number, sc: number, tm: number, age: number, i: number) => {
+      x.save(); x.translate(bx, by); x.scale(sc, sc);
+      const cr = x.createRadialGradient(0, 4, 4, 0, 4, 58); cr.addColorStop(0, "#050403"); cr.addColorStop(0.65, "#1a120b"); cr.addColorStop(1, "rgba(30,20,12,0)"); x.fillStyle = cr; x.beginPath(); x.ellipse(0, 4, 60, 22, 0, 0, 7); x.fill();   // crater
+      x.fillStyle = "#2b2420"; for (let k = 0; k < 7; k++) { x.fillRect(-36 + k * 11 + Math.sin(k * 3 + i) * 4, -4 + Math.cos(k * 2) * 5, 6, 5); }   // rubble
+      x.globalCompositeOperation = "lighter"; for (let k = 0; k < 5; k++) { const fl = 0.5 + 0.5 * Math.sin(tm * 6 + k * 2 + i); x.fillStyle = "rgba(255," + (90 + k * 20) + ",30," + (0.35 + 0.35 * fl) + ")"; x.beginPath(); x.arc(-30 + k * 15, 2 + Math.sin(k) * 5, 3 + fl * 2, 0, 7); x.fill(); }   // embers
+      x.globalCompositeOperation = "source-over";
+      for (let k = 0; k < 3; k++) { const ph = ((tm * 0.18 + k * 0.33 + i * 0.1) % 1); x.fillStyle = "rgba(40,36,34," + (0.35 * (1 - ph)) + ")"; x.beginPath(); x.arc(-14 + k * 14 + Math.sin(ph * 6 + k) * 6, -ph * 70, 7 + ph * 16, 0, 7); x.fill(); }   // smoke columns
+      x.restore(); };
+    const loop = (now: number) => { if (!alive) return; raf = requestAnimationFrame(loop); const x = cv.getContext("2d"); if (!x || !terrain) return; const dpr = cv.width / TW, tm = now / 1000; x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      let shake = 0; for (const b of blastsRef.current) { const a = (now - b.t0) / 1000; if (a < 0.6) shake = Math.max(shake, 7 * (1 - a / 0.6)); }
+      x.save(); if (shake) x.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+      x.drawImage(terrain, 0, 0, TW, TH); const gy = TH * 0.66, sc = Math.min(1.3, Math.max(0.55, TW / 760));
+      basesRef.current.forEach((alv, i) => { const bx = BX(i) * TW; if (alv) base(x, bx, gy, sc, tm, i); else { const sr = scorchRef.current.find(q => Math.abs(q.x - bx / TW) < 0.09); ruin(x, bx, gy, sc, tm, sr ? (now - sr.t0) / 1000 : 9, i); } });
+      // the aim: a scanning line, the blast radius ring and a crosshair
+      const ax = xRef.current * TW; if (phase === "aim" || phase === "done") { const r = 0.085 * TW;
+        const lg = x.createLinearGradient(ax - 40, 0, ax + 40, 0); lg.addColorStop(0, "rgba(255,70,100,0)"); lg.addColorStop(0.5, "rgba(255,70,100,.22)"); lg.addColorStop(1, "rgba(255,70,100,0)"); x.fillStyle = lg; x.fillRect(ax - 40, 0, 80, TH);
+        x.strokeStyle = "rgba(255,90,110,.95)"; x.lineWidth = 2; x.setLineDash([10, 8]); x.lineDashOffset = -tm * 30; x.beginPath(); x.ellipse(ax, gy, r, r * 0.42, 0, 0, 7); x.stroke(); x.setLineDash([]);
+        x.beginPath(); x.moveTo(ax - r - 14, gy); x.lineTo(ax - r + 14, gy); x.moveTo(ax + r - 14, gy); x.lineTo(ax + r + 14, gy); x.moveTo(ax, gy - r * 0.42 - 12); x.lineTo(ax, gy - r * 0.42 + 12); x.moveTo(ax, gy + r * 0.42 - 12); x.lineTo(ax, gy + r * 0.42 + 12); x.stroke();
+        x.fillStyle = "rgba(255,120,130,.95)"; x.font = "700 11px ui-monospace,monospace"; x.textAlign = "center"; x.fillText("☢ BLAST RADIUS", ax, gy - r * 0.42 - 18); x.textAlign = "left"; }
+      // the warhead falling: a bright streak, a re-entry glow and a shadow growing on the target
+      const fl = fallRef.current; if (fl) { const pr = Math.min(1, (now - fl.t0) / 800), fx = fl.x * TW, fy = -30 + pr * pr * (gy + 30);
+        x.fillStyle = "rgba(255,80,80," + (0.15 + pr * 0.3) + ")"; x.beginPath(); x.ellipse(fx, gy, 18 + pr * 40, 6 + pr * 14, 0, 0, 7); x.fill();
+        x.globalCompositeOperation = "lighter"; const tr = x.createLinearGradient(fx, fy - 130, fx, fy); tr.addColorStop(0, "rgba(255,160,60,0)"); tr.addColorStop(1, "rgba(255,230,160,.9)"); x.fillStyle = tr; x.fillRect(fx - 3, fy - 130, 6, 130);
+        const hg = x.createRadialGradient(fx, fy, 1, fx, fy, 38); hg.addColorStop(0, "rgba(255,240,200,.95)"); hg.addColorStop(1, "rgba(255,120,40,0)"); x.fillStyle = hg; x.beginPath(); x.arc(fx, fy, 38, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
+        x.fillStyle = "#d9dee6"; x.beginPath(); x.moveTo(fx, fy + 16); x.lineTo(fx - 5, fy - 4); x.lineTo(fx - 9, fy - 14); x.lineTo(fx + 9, fy - 14); x.lineTo(fx + 5, fy - 4); x.closePath(); x.fill(); x.fillStyle = "#ffcc33"; x.fillRect(fx - 5, fy - 4, 10, 4); }
+      // the blast: a white flash, a fireball, a shockwave ring on the ground and a rising mushroom cloud
+      for (const b of blastsRef.current) { const a = (now - b.t0) / 1000; if (a > 4) continue; const bx = b.x * TW, R = 0.085 * TW;
+        x.globalCompositeOperation = "lighter";
+        if (a < 0.9) { const k = Math.min(1, a / 0.35), fr = R * (0.4 + 1.2 * k), fg = x.createRadialGradient(bx, gy - 10, 2, bx, gy - 10, fr); fg.addColorStop(0, "rgba(255,255,240," + (1 - a / 0.9) + ")"); fg.addColorStop(0.35, "rgba(255,210,90," + 0.9 * (1 - a / 0.9) + ")"); fg.addColorStop(0.7, "rgba(255,90,20," + 0.6 * (1 - a / 0.9) + ")"); fg.addColorStop(1, "rgba(255,60,10,0)"); x.fillStyle = fg; x.beginPath(); x.arc(bx, gy - 10, fr, 0, 7); x.fill(); }
+        x.strokeStyle = "rgba(255,230,190," + Math.max(0, 0.8 - a * 0.5) + ")"; x.lineWidth = 3 + (1 - Math.min(1, a / 2)) * 4; x.beginPath(); x.ellipse(bx, gy, R * 0.4 + a * R * 2.2, (R * 0.4 + a * R * 2.2) * 0.4, 0, 0, 7); x.stroke();
+        x.globalCompositeOperation = "source-over";
+        const rise = Math.min(1, a / 2.2), cy = gy - 20 - rise * TH * 0.45, cr = R * (0.5 + 0.7 * rise);
+        x.fillStyle = "rgba(60,44,34," + Math.max(0, 0.75 - a * 0.16) + ")"; x.fillRect(bx - R * 0.16, cy, R * 0.32, gy - 20 - cy);   // the stem
+        for (let k = 0; k < 7; k++) { const an = k / 7 * Math.PI * 2, px = bx + Math.cos(an) * cr * 0.8, py = cy + Math.sin(an) * cr * 0.45; x.fillStyle = "rgba(" + (110 - k * 6) + "," + (70 - k * 4) + ",50," + Math.max(0, 0.7 - a * 0.15) + ")"; x.beginPath(); x.arc(px, py, cr * 0.42, 0, 7); x.fill(); }   // the cap
+        x.globalCompositeOperation = "lighter"; x.fillStyle = "rgba(255,150,60," + Math.max(0, 0.45 - a * 0.12) + ")"; x.beginPath(); x.ellipse(bx, cy + cr * 0.15, cr * 0.7, cr * 0.32, 0, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
+        if (a < 0.3) { x.fillStyle = "rgba(255,255,255," + (0.8 * (1 - a / 0.3)) + ")"; x.fillRect(0, 0, TW, TH); } }
+      x.restore();
+      const vg = x.createRadialGradient(TW / 2, TH / 2, TH * 0.3, TW / 2, TH / 2, TH * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.55)"); x.fillStyle = vg; x.fillRect(0, 0, TW, TH); };
+    raf = requestAnimationFrame(loop); return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); };
+  }, [phase === "aim" || phase === "done"]);
   useEffect(() => { let raf = 0; const t0 = performance.now(); const f = (now: number) => { raf = requestAnimationFrame(f); const x = lock.current !== null ? lock.current : 0.5 + 0.46 * Math.sin((now - t0) / 1000 * 1.5); xRef.current = x; if (retRef.current) retRef.current.style.left = x * 100 + "%"; }; raf = requestAnimationFrame(f); return () => cancelAnimationFrame(raf); }, []);
   const drop = () => {
-    if (phase !== "aim" || leftRef.current <= 0) return; const x = xRef.current; setPhase("drop"); setFall(x); setLeft(leftRef.current - 1); playUi && playUi("click");
-    setTimeout(() => { const nb = basesRef.current.map((alive, i) => alive && Math.abs(BX(i) - x) > 0.085); setBases(nb); setBoom(x); setFall(null); playUi && playUi("reward");
+    if (phase !== "aim" || leftRef.current <= 0) return; const x = xRef.current; setPhase("drop"); setFall(x); setLeft(leftRef.current - 1); playUi && playUi("click"); fallRef.current = { x, t0: performance.now() };
+    setTimeout(() => { const nb = basesRef.current.map((alive, i) => alive && Math.abs(BX(i) - x) > 0.085); setBases(nb); setBoom(x); setFall(null); playUi && playUi("reward"); fallRef.current = null; blastsRef.current.push({ x, t0: performance.now() }); scorchRef.current.push({ x, t0: performance.now() });
       setTimeout(() => { setBoom(null); setPhase(leftRef.current <= 0 ? "done" : "aim"); }, 900); }, 800);
   };
   useEffect(() => { (window as any).__advStrike = { setX: (x: number) => { lock.current = x; xRef.current = x; }, drop, state: () => ({ left: leftRef.current, alive: basesRef.current.filter(Boolean).length, phase }), free: () => { lock.current = null; } }; return () => { try { delete (window as any).__advStrike; } catch (e) {} }; });
@@ -1028,11 +1091,9 @@ function StrikePhase({ P, lang, playUi, onDone, onBack }: any) {
       <div className="as-top"><button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
         <div><b>☢ {t("ทิ้งนิวเคลียร์จากวงโคจร", "ORBITAL STRIKE", "轨道核打击")}</b><small>{t("แตะเพื่อปล่อยหัวรบ — ฐานที่อยู่ในรัศมีระเบิดจะหายไป และไม่ต้องสู้ในฐานนั้น", "Tap to release a warhead. A base inside the blast is gone and its defenders with it.", "点击投放弹头，爆炸范围内的基地及其守军将被消灭。")}</small></div>
         <span className="as-n">☢ × {left}</span></div>
-      <div className="as-map">
-        {bases.map((alive, i) => (<div key={i} className={"as-base" + (alive ? "" : " dead")} style={{ left: BX(i) * 100 + "%" }}><span>{alive ? "🏭" : "💥"}</span></div>))}
-        <div ref={retRef} className="as-ret" />
-        {fall !== null && <div className="as-fall" style={{ left: fall * 100 + "%" }}>☢️</div>}
-        {boom !== null && <div className="as-boom" style={{ left: boom * 100 + "%" }} />}
+      <div className="as-map" ref={mapRef}>
+        <canvas ref={cvRef} className="as-cv" aria-hidden="true" />
+        {bases.map((alive, i) => (<div key={i} className={"as-base" + (alive ? "" : " dead")} style={{ left: BX(i) * 100 + "%" }} />))}
       </div>
       <div className="as-bot">
         {phase === "done" || left === 0 ? (<><b>{t("ทำลายฐานได้ " + destroyed + "/6", "Bases destroyed: " + destroyed + "/6", "摧毁基地 " + destroyed + "/6")}</b><button className="adv-btn go" onClick={() => onDone(bases.map(b => !b))}>{t("ลงพื้นที่บุก ▶", "Drop in ▶", "降落突袭 ▶")}</button></>)

@@ -11,7 +11,8 @@ import { GearButton, SettingsPopup } from "./adventure-settings";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
-const COLS = 8, ROWS = 6, CELLS = COLS * ROWS, DAY = 2;   // a "day" is 2 seconds of play
+const SPEEDS = [0.5, 1, 2];   // slow, normal, fast (index into this)
+const COLS = 10, ROWS = 8, CELLS = COLS * ROWS, DAY = 2;   // a "day" is 2 seconds of play
 
 type Site = { icon: string; target: number; sun: number; water: number; ore: number; cold: number; hazard: string; name: L3; note: L3; hz: L3 };
 export const SITES: Record<string, Site> = {
@@ -32,6 +33,13 @@ const BUILD: B[] = [
   { id: "lab", icon: "🔬", name: ["ห้องวิจัย", "Research lab", "研究所"], cost: 60, text: ["ได้แต้มวิจัย ไว้ปลดล็อกเทคโนโลยี", "Research points for new tech", "产出研究点数以解锁科技"] },
   { id: "med", icon: "🏥", name: ["โรงพยาบาล", "Clinic", "医院"], cost: 70, needSci: 10, text: ["คนเพิ่มเร็วขึ้น และไม่มีใครล้มป่วยตอนขาดแคลน", "Faster growth, fewer losses in a shortage", "人口增长更快，短缺时损失更少"] },
   { id: "reactor", icon: "⚛", name: ["เครื่องปฏิกรณ์ฟิวชัน", "Fusion reactor", "聚变反应堆"], cost: 90, needSci: 25, text: ["ไฟฟ้าแรงและคงที่ ไม่ขึ้นกับแสงแดด", "Strong, steady power, no sun needed", "强大稳定的电力，不依赖阳光"] },
+  { id: "park", icon: "🌳", name: ["สวนสาธารณะ", "Park", "公园"], cost: 50, text: ["คนอยู่สบาย ครอบครัวเพิ่มเร็วขึ้น", "Happier colonists, faster growth", "居民更舒心，人口增长更快"] },
+  { id: "school", icon: "🎓", name: ["โรงเรียน", "School", "学校"], cost: 60, needSci: 5, text: ["ได้แต้มวิจัยเพิ่ม ใช้ไฟน้อย", "Extra research for little power", "少量耗电，增加研究点数"] },
+  { id: "recycler", icon: "♻", name: ["โรงรีไซเคิล", "Recycler", "回收厂"], cost: 55, needSci: 5, text: ["เอาน้ำและออกซิเจนกลับมาใช้ใหม่", "Gives water and oxygen back", "回收水和氧气"] },
+  { id: "market", icon: "🏪", name: ["ตลาดแลกเปลี่ยน", "Trade market", "贸易市场"], cost: 75, needSci: 10, text: ["แลกวัสดุก่อสร้างกับยานเสบียง", "Trades for building materials", "与补给船交易建材"] },
+  { id: "geo", icon: "🌋", name: ["โรงไฟฟ้าความร้อนใต้ดิน", "Geothermal plant", "地热电站"], cost: 65, needSci: 8, text: ["ไฟคงที่จากความร้อนใต้ผิวดาว", "Steady power from the crust", "来自地壳的稳定电力"] },
+  { id: "tower", icon: "🏙", name: ["ฟาร์มแนวตั้ง", "Vertical farm", "垂直农场"], cost: 80, needSci: 12, text: ["อาหารมาก ใช้น้ำและไฟสูง", "Lots of food, thirsty and power-hungry", "产粮多，耗水耗电"] },
+  { id: "shield", icon: "🛡", name: ["โดมป้องกัน", "Shield dome", "防护穹顶"], cost: 85, needSci: 20, text: ["ลดผลกระทบของภัยพิบัติทั้งเมือง", "Softens every hazard for the whole city", "减轻全城灾害影响"] },
   { id: "port", icon: "🚀", name: ["ท่าอวกาศ", "Spaceport", "太空港"], cost: 100, needSci: 15, text: ["ทุก 20 วินาทีมียานนำผู้อพยพและวัสดุมาส่ง", "Every 20 s a ship brings settlers and materials", "每 20 秒运来移民和建材"] },
 ];
 export const CAREERS: { id: string; icon: string; name: L3; text: L3 }[] = [
@@ -69,8 +77,8 @@ const HZ_DUR = 14;
    The era follows the colony: its people, its research and what it has built. Everything is drawn from code on one canvas, so a plot is a diamond and a building is a stack of faces. */
 const ERAS = [{ y: 2100, n: ["นีโอฮาบิแทต", "Neo-Habitat", "新栖息地"] }, { y: 2500, n: ["เมกะโพลิสลอยฟ้า", "Sky Megapolis", "空中巨都"] }, { y: 3000, n: ["นครคริสตัลแห่งดวงดาว", "Star Crystal Metropolis", "星际水晶都市"] }] as { y: number; n: L3 }[];
 const eraOf = (S: any) => { const labs = S.grid.filter((c: any) => c.b === "lab").length, techs = S.tech.filter(Boolean).length, m = S.pop + 12 * techs + 4 * labs; return m >= 55 ? 2 : m >= 22 ? 1 : 0; };
-const BCOL: Record<string, string> = { hab: "0,230,255", solar: "90,140,255", water: "70,190,255", oxy: "120,255,190", farm: "130,255,110", mine: "255,170,60", lab: "190,110,255", med: "255,255,255", reactor: "0,255,230", port: "255,90,200" };
-const BH: Record<string, number> = { hab: 1.5, solar: 0.25, water: 0.7, oxy: 0.9, farm: 0.6, mine: 1.0, lab: 1.6, med: 1.1, reactor: 1.4, port: 0.4 };
+const BCOL: Record<string, string> = { hab: "0,230,255", solar: "90,140,255", water: "70,190,255", oxy: "120,255,190", farm: "130,255,110", mine: "255,170,60", lab: "190,110,255", med: "255,255,255", reactor: "0,255,230", port: "255,90,200", park: "90,255,120", school: "255,225,110", recycler: "110,255,240", market: "255,150,110", geo: "255,120,60", tower: "170,255,140", shield: "120,170,255" };
+const BH: Record<string, number> = { hab: 1.5, solar: 0.25, water: 0.7, oxy: 0.9, farm: 0.6, mine: 1.0, lab: 1.6, med: 1.1, reactor: 1.4, port: 0.4, park: 0.35, school: 1.1, recycler: 0.8, market: 0.9, geo: 0.7, tower: 1.9, shield: 1.2 };
 const SKY: Record<string, string[]> = { moon: ["#02030a", "#101626", "#2a3250"], mars: ["#1a0a06", "#4a1c10", "#a0522d"], titan: ["#1a1004", "#4a3210", "#a0762a"], proxima: ["#14020a", "#4a0c20", "#a01a3a"] };
 function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kind: string, lay: { tw: number; cx: number; oy: number }, T: number, era: number) {
   const tw = lay.tw, th = tw / 2, sk = SKY[kind] || SKY.moon;
@@ -129,14 +137,14 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
     grid[COLS * 2 + 2].b = "hab"; grid[COLS * 2 + 3].b = "solar"; grid[COLS * 2 + 2].f = ""; grid[COLS * 2 + 3].f = "";
     G.current = { t: 0, grid, stock: { en: 40, wa: 70, ox: 70, fo: 70, ma: 150, sc: 0 }, rate: { en: 0, wa: 0, ox: 0, fo: 0, ma: 0, sc: 0 }, pop: 8, grow: 0, tech: [false, false, false], hz: 0, hzT: 40, portT: 12, sel: "hab" as string, ended: false, won: false, short: 0, msg: "", peak: 8, days: 0 };
   }
-  const [career, setCareer] = useState<string>(() => careerNow()), [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false);
+  const speedRef = useRef(1), [speed, setSpeedS] = useState(1), [career, setCareer] = useState<string>(() => careerNow()), [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null), careerRef = useRef(career); careerRef.current = career;
   const cvRef = useRef<HTMLCanvasElement>(null), cityRef = useRef<HTMLDivElement>(null), layRef = useRef({ tw: 60, cx: 300, oy: 60, W: 600, H: 280 }), [lay, setLay] = useState({ tw: 60, cx: 300, oy: 60, W: 600, H: 280 });
   useEffect(() => {
     const el = cityRef.current, cv = cvRef.current; if (!el || !cv) return; let raf = 0, alive = true, lastDraw = 0;
-    const fit = () => { const W = Math.max(280, el.clientWidth), H = Math.max(200, el.clientHeight), tw = Math.min(W / (COLS + ROWS) * 2 * 0.95, H * 0.205), dpr = Math.min(2, window.devicePixelRatio || 1);
+    const fit = () => { const W = Math.max(280, el.clientWidth), H = Math.max(200, el.clientHeight), tw = Math.min(W / (COLS + ROWS) * 2 * 0.95, H * 3.1 / (COLS + ROWS)), dpr = Math.min(2, window.devicePixelRatio || 1);
       cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px";
       const L = { tw, cx: W / 2, oy: H * 0.16 + (H * 0.8 - (COLS + ROWS) * tw / 4) / 2 + tw * 0.9, W, H }; layRef.current = L; setLay(L); };
     fit(); const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null; if (ro) ro.observe(el);
@@ -159,7 +167,8 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
     const step = (dt: number) => {
       const cr = careerRef.current;
       let sunMul = site.sun * (cr === "eng" ? 1.15 : 1) * (S.tech[2] ? 1.4 : 1), coldMul = 1, oxLeak = 0;
-      if (S.hz > 0) { if (site.hazard === "night") sunMul *= 0.15; else if (site.hazard === "dust") sunMul *= 0.35; else if (site.hazard === "cold") coldMul = 1.5; else if (site.hazard === "flare") { sunMul *= 0.4; oxLeak = 0.5; } }
+      const shields = S.grid.filter((c: any) => c.b === "shield").length, hzK = 1 / (1 + 0.6 * shields), parks = Math.min(4, S.grid.filter((c: any) => c.b === "park").length);   // shield domes soften every hazard; parks speed up growth
+      if (S.hz > 0) { if (site.hazard === "night") sunMul *= 1 - 0.85 * hzK; else if (site.hazard === "dust") sunMul *= 1 - 0.65 * hzK; else if (site.hazard === "cold") coldMul = 1 + 0.5 * hzK; else if (site.hazard === "flare") { sunMul *= 1 - 0.6 * hzK; oxLeak = 0.5 * hzK; } }
       const R = { en: 0, wa: 0, ox: 0, fo: 0, ma: 0, sc: 0 }; let homes = 0;
       const powered = S.stock.en > 0.5;                                  // a building with no power is idle
       for (const c of S.grid) { if (!c.b) continue;
@@ -173,6 +182,11 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
           else if (c.b === "mine") { R.ma += 1.0 * site.ore * (c.f === "ore" ? 2 : 1) * (cr === "miner" ? 1.35 : 1); R.en -= 0.4; }
           else if (c.b === "lab") { R.sc += 0.5 * (cr === "inno" ? 2 : 1); R.en -= 0.5; }
           else if (c.b === "med") R.en -= 0.4;
+          else if (c.b === "school") { R.sc += 0.35; R.en -= 0.3; }
+          else if (c.b === "recycler") { R.wa += 0.6; R.ox += 0.4; R.en -= 0.4; }
+          else if (c.b === "market") { R.ma += 0.8; R.en -= 0.4; }
+          else if (c.b === "geo") R.en += 3.0;
+          else if (c.b === "tower") { R.fo += 2.6 * (cr === "farm" ? 1.35 : 1) * (S.tech[1] ? 1.3 : 1); R.wa -= 0.4; R.en -= 0.7; }
           else if (c.b === "port") R.en -= 0.8;
         }
       }
@@ -184,14 +198,14 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
       if (need.length) { S.short += dt; if (S.short > (med ? 6 : 3) && S.pop > 2) { S.pop = Math.max(0, S.pop - (med ? 0.15 : 0.3) * dt); } S.msg = need.map(k => RES.find(r => r.k === k)!.icon).join(" "); }
       else { S.short = Math.max(0, S.short - dt * 2); S.msg = "";
         const free = homes - S.pop, ok = ["en", "wa", "ox", "fo"].every(k => S.stock[k] > 12);
-        if (free > 0.5 && ok) { S.grow += dt * (0.14 + (med ? 0.06 : 0)) * (cr === "farm" ? 1.2 : 1); if (S.grow >= 1) { const n = Math.min(Math.floor(S.grow), Math.floor(free)); S.pop += n; S.grow -= n; } }
+        if (free > 0.5 && ok) { S.grow += dt * (0.14 + (med ? 0.06 : 0) + 0.025 * parks) * (cr === "farm" ? 1.2 : 1); if (S.grow >= 1) { const n = Math.min(Math.floor(S.grow), Math.floor(free)); S.pop += n; S.grow -= n; } }
       }
       S.peak = Math.max(S.peak, S.pop);
       S.hzT -= dt; if (S.hz > 0) S.hz = Math.max(0, S.hz - dt); else if (S.hzT <= 0 && !(net && !net.host)) { S.hz = HZ_DUR; S.hzT = 42 + Math.random() * 14; sfx.play("hurt"); if (net) net.sendEv("colh", 0); }
       if (S.grid.some((c: any) => c.b === "port")) { S.portT -= dt; if (S.portT <= 0) { S.portT = careerRef.current === "ship" ? 14 : 20; const room = Math.max(0, Math.floor(homes - S.pop)); const add = Math.min(careerRef.current === "ship" ? 4 : 3, room); S.pop += add; S.stock.ma += 20; sfx.play("pickup"); } }
     };
     const id = setInterval(() => {
-      const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); last = now; if (pausedRef.current || S.ended) return;
+      const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000) * SPEEDS[speedRef.current]; last = now; if (pausedRef.current || S.ended) return;
       S.t += dt; S.days = Math.floor(S.t / DAY); step(dt);
       if (net && net.host) { S.syncT = (S.syncT || 0) - dt; if (S.syncT <= 0) { S.syncT = 3; net.sendEv("colp", Math.round(S.pop * 100) / 100); } }
       if (S.pop >= site.target && !S.won && ["en", "wa", "ox", "fo"].every(k => S.stock[k] > 5)) { S.won = true; S.ended = true; sfx.play("win"); const stars = S.days <= 150 ? 3 : S.days <= 220 ? 2 : 1; setTimeout(() => onWin({ colony: { pop: Math.round(S.pop), target: site.target, days: S.days, stars, kind: P.kind, career: careerRef.current }, kills: 0, cry: 10 + 4 * stars, loot: {}, mode: "colony" }), 2200); }
@@ -228,6 +242,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
         <GearButton onClick={openGear} />
       </div>
       {net && <div className="ac2-team" data-team="1">🤝 {t("ทีม: ", "Team: ", "团队：")}{[...net.peers.values()].map((q: any) => <span key={q.id}>{q.name} {(CAREERS.find(c => c.id === q.say) || { icon: "…" }).icon}</span>)}</div>}
+      <div className="ac2-speed" data-speedbar="1">{[t("ช้า", "Slow", "慢"), t("กลาง", "Normal", "中"), t("เร็ว", "Fast", "快")].map((lb, i) => (<button key={i} data-speed={i} className={"ac2-sp" + (speed === i ? " on" : "")} onClick={() => { speedRef.current = i; setSpeedS(i); }}>{["🐢", "▶", "⏩"][i]} {lb}</button>))}</div>
       <div className="ac2-res">
         {RES.map(r => (<span key={r.k} className={"ac2-r" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k}>{r.icon} {Math.floor(S.stock[r.k])}<small className={S.rate[r.k] < -0.01 ? "neg" : ""}>{S.rate[r.k] >= 0 ? "+" : ""}{S.rate[r.k].toFixed(1)}</small></span>))}
         {S.hz > 0 && <span className="ac2-hz" data-hazard="1">⚠ {T3(lang, site.hz[0], site.hz[1], site.hz[2])}</span>}
