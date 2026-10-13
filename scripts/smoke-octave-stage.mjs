@@ -37,6 +37,11 @@ await p.click(".ost-prac"); await p.waitForSelector(".practiceov", { timeout: 60
 ok("the orange Practice button opens the practice page for 2 octaves", (await p.$(".practiceov")) !== null && (await p.$(".ost")) === null);
 ok("its keyboard spans the whole range (C4..C6 = 15 white keys)", (await p.locator(".practiceov .pk.w").count()) >= 15, String(await p.locator(".practiceov .pk.w").count()));
 ok("the lesson is the 2-octave scale there (up and back down = 29 notes)", (await p.evaluate(() => document.querySelector(".practiceov").innerText)).length > 0);
+// Finish the whole practice (up and back down): the result view must render, not throw.
+{ const order = [...Array(15).keys(), ...[...Array(14).keys()].reverse()];
+  for (const k of order) { await p.evaluate((i) => { const el = document.querySelectorAll(".practiceov .pk.w")[i]; if (!el) return; for (const t of ["pointerdown","pointerup"]) el.dispatchEvent(new PointerEvent(t, { bubbles: true, pointerId: 1 })); }, k); await p.waitForTimeout(60); }
+  await p.waitForTimeout(2500);
+  ok("the practice result view shows after the last note", (await p.evaluate(() => document.body.innerText)).length > 0 && !errs.some(e => /adviceRepeatBlocked|before initialization/.test(e)), errs.join("|")); }
 await p.waitForTimeout(1200); await p.screenshot({ path: "/tmp/prac2.png" });
 ok("no errors", errs.length === 0, errs.join("|"));
 await browser.close(); server.close(); process.exit(fail ? 1 : 0);

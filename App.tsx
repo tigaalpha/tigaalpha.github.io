@@ -35,7 +35,7 @@ import { convCopyFor, convCheckoutTier, convPopupFor, convWinBack, convSeen, mar
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodelOnInteraction, tigaLongTermValue } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
 import { buildParentReport, buildParentReportData } from "./use-practice-coach";
-import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes, readAdviceMarks, markAdviceDelivered, adviceDeliveredToday } from "./use-autoteach";
+import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes, readAdviceMarks, markAdviceDelivered, adviceDeliveredToday, adviceRepeatBlocked } from "./use-autoteach";
 /* แผน 18 §P1: หน่วยตัดสินใจเดียวของครู — pure, ไม่มี localStorage/network.
    ทั้งหน้า Daily Mentor และป๊อปอัป Auto Teaching อ่านจากที่นี่ที่เดียว
    (skillScoresOf = กติกาเดิมของ computeSkillScores · weightedStrugglesOf = กติกา
