@@ -636,6 +636,7 @@ const CSS = `
 .adv-menu .adv-grp{margin:0 0 10px;border:1px solid var(--bd2,rgba(0,0,0,.12));border-radius:22px;background:var(--card,#fff);padding:0 12px}.adv-menu .adv-grp>summary{cursor:pointer;min-height:48px;display:flex;align-items:center;font-weight:800;font-size:14px;color:var(--text)}.adv-menu .adv-grp[open]>summary{border-bottom:1px solid var(--bd2,rgba(0,0,0,.1));margin-bottom:8px}
 .adv-menu .adv-grp .adv-shop{background:transparent;border:0;padding:4px 0;margin:4px 0}
 .adv-menu .adv-how{background:var(--card2,#f3f3f3);padding:8px 12px;border-radius:16px}
+.adv-pad.simple .pvpact.rocket,.adv-pad.simple .pvpact.zap,.adv-pad.simple .pvpact.kick,.adv-pad.simple .pvpact.ult,.adv-pad.simple .pvpact.spell{display:none!important}
 `;
 
 type Gfx = "standard" | "high";
@@ -1848,6 +1849,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     onPointerUp: () => { (keys.current as any)[name] = false; }, onPointerCancel: () => { (keys.current as any)[name] = false; }, onLostPointerCapture: () => { (keys.current as any)[name] = false; },
   });
   const pct = (a, b) => Math.max(0, Math.min(100, (a / Math.max(1, b)) * 100)) + "%";
+  // A brand-new player (no map cleared yet) sees only the six buttons that matter; the rest appear after the first clear. Keys still work.
+  const simplePad = (() => { try { return readDone().length === 0 && localStorage.getItem("tg_adv_unlockall") !== "1"; } catch (e) { return false; } })();
   return (
     <>
       <canvas ref={cvRef} />
@@ -1891,7 +1894,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       }} onConfirm={() => { const cur = quiz; const q = cur.qs[cur.i].q; answerQuiz(judgeKeys(q, cur.sel.map((x) => x.pc))); }}
         onChoice={(ok) => answerQuiz(ok)} onNext={nextQuiz} onSkip={() => finishQuiz(quiz)} />}
       {/* the same buttons as PvP: ◀ ▶ on the left (+ dash); shoot, jump, punch, kick and the class skill on the right */}
-      <div className="adv-pad">
+      <div className={"adv-pad" + (simplePad ? " simple" : "")}>
         <div className="pvppad-l">
           <button className="pvpdir" aria-label="left" {...hold("l")}>◀</button>
           <button className="pvpdir" aria-label="right" {...hold("r")}>▶</button>
