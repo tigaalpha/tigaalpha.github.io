@@ -163,6 +163,7 @@ let TINT: any = null;
 const AdventureShip = lazy(() => import("./adventure-ship"));
 const AdventureYard = lazy(() => import("./adventure-yard"));   // the Ark shipyard: place the eight modules
 const AdventureFarm = lazy(() => import("./adventure-farm"));
+const AdventureBuild = lazy(() => import("./adventure-build"));   // the construction episodes: the colony starship, a Dyson sphere, a gas base at Jupiter, an asteroid mining base
 const AdventureColony = lazy(() => import("./adventure-colony"));   // the Colony Builder: a SimCity-style management level for the Moon, Mars, Titan and Proxima b
    // the Ark farm decks: plants and gene-edited livestock   // the starship dogfight: its own chunk
 const AdventureCine = lazy(() => import("./adventure-cine"));   // the film before each map: its own chunk, loaded when a map is picked
@@ -226,6 +227,10 @@ export const PLANETS = [
   { id: "arkbuild", th: "อู่ต่อยาน · สร้างเรือโนอาแห่งอวกาศ", en: "Shipyard · build the Ark", zh: "船坞 · 建造太空方舟", c: ["#04101a", "#10345a", "#60b8ff"], glow: "120,200,255", acc: "140,255,170", ok: true, hard: 3.4, mission: "yard", mons: ["drone", "scrapgolem", "wraith", "mantis", "eyeball"], tint: { glow: "120,200,255", body: "#0c2438" }, boss: ["-", "-", "-"] },
   { id: "arkfarm", th: "ฟาร์มไฮโดรโปนิกส์บนยาน · ปลูกอาหารให้ผู้อพยพ", en: "Ark Hydroponic Farm · grow food for the settlers", zh: "方舟水培农场 · 为移民种植粮食", c: ["#04141a", "#0a3a2a", "#60ffb0"], glow: "120,255,170", acc: "255,230,120", ok: true, hard: 3.4, mission: "farm", kind: "plants", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "arkherd", th: "ฟาร์มสัตว์บนยาน · เลี้ยงสัตว์ตัดแต่งพันธุกรรม", en: "Ark Livestock Farm · gene-edited animals", zh: "方舟畜牧场 · 基因编辑的动物", c: ["#04141a", "#0a3a2a", "#60ffb0"], glow: "120,255,170", acc: "255,230,120", ok: true, hard: 3.4, mission: "farm", kind: "herd", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
+  { id: "shipbuild", th: "สร้างยานอาณานิคม · หุ่นยนต์ช่วยกันประกอบ ตอบคำถามดนตรี", en: "Build the Colony Starship · robots assemble it as you answer music questions", zh: "建造殖民星舰 · 机器人组装，你来回答音乐问题", c: ["#050816", "#1a1c40", "#6a8aff"], glow: "130,170,255", acc: "120,200,255", ok: true, hard: 1.2, mission: "build", kind: "ship", mons: [], tint: null, boss: ["-", "-", "-"] },
+  { id: "dysonbuild", th: "สร้างไดสันสเฟียร์ · เก็บพลังงานของดาวฤกษ์", en: "Build a Dyson Sphere · collect a star's energy", zh: "建造戴森球 · 收集恒星能量", c: ["#1a0a02", "#5a2a08", "#ffc040"], glow: "255,200,90", acc: "255,190,80", ok: true, hard: 2.0, mission: "build", kind: "dyson", mons: [], tint: null, boss: ["-", "-", "-"] },
+  { id: "gasbuild", th: "สร้างฐานเก็บก๊าซที่ดาวพฤหัส · ปั๊มก๊าซส่งกลับโลก", en: "Build the Jupiter Gas Base · pump gas home", zh: "建造木星气体基地 · 抽取气体运回地球", c: ["#1a0f06", "#6a3a14", "#ffa060"], glow: "255,170,100", acc: "255,160,90", ok: true, hard: 1.8, mission: "build", kind: "gas", mons: [], tint: null, boss: ["-", "-", "-"] },
+  { id: "minebuild", th: "สร้างฐานขุดแร่ในแถบดาวเคราะห์น้อย · ส่งแร่กลับโลก", en: "Build the Asteroid Mining Base · send ore home", zh: "建造小行星带采矿基地 · 把矿石运回地球", c: ["#07090f", "#2a2a34", "#9aa0b8"], glow: "170,180,210", acc: "180,190,220", ok: true, hard: 1.6, mission: "build", kind: "mine", mons: [], tint: null, boss: ["-", "-", "-"] },
   { id: "colmoon", th: "อาณานิคมบนดวงจันทร์ · สร้างเมืองแห่งแรกนอกโลก", en: "Moon Colony · the first city beyond Earth", zh: "月球殖民地 · 地球之外的第一座城", c: ["#0a0c14", "#2a2f3c", "#9fb4d8"], glow: "170,190,230", acc: "170,200,255", ok: true, hard: 1.4, mission: "colony", kind: "moon", mons: [], tint: null, boss: ["-", "-", "-"] },
   { id: "colmars", th: "อาณานิคมบนดาวอังคาร · เมืองใต้ท้องฟ้าสีส้ม", en: "Mars Colony · a city under an orange sky", zh: "火星殖民地 · 橙色天空下的城市", c: ["#1a0a06", "#5a2412", "#ff7a4a"], glow: "255,140,100", acc: "255,150,110", ok: true, hard: 1.8, mission: "colony", kind: "mars", mons: [], tint: null, boss: ["-", "-", "-"] },
   { id: "coltitan", th: "อาณานิคมบนไททัน · เมืองในความหนาวเหน็บ", en: "Titan Colony · a city in the deep freeze", zh: "土卫六殖民地 · 严寒中的城市", c: ["#1a1206", "#6a4a14", "#ffc060"], glow: "255,200,120", acc: "255,190,100", ok: true, hard: 2.4, mission: "colony", kind: "titan", mons: [], tint: null, boss: ["-", "-", "-"] },
@@ -235,6 +240,12 @@ export const PLANETS = [
   { id: "darkforge", th: "โรงหลอมสสารมืด · พลังงานที่มองไม่เห็น", en: "Dark Forge · power from the unseen", zh: "暗物质锻炉 · 来自不可见之物的能量", c: ["#06010f", "#1a0a3a", "#8a5cff"], glow: "170,120,255", acc: "255,120,200", ok: true, hard: 3.6, mission: "dyson", mons: ["wraith", "eyeball", "drone", "scrapgolem", "wraith", "mantis"], tint: { glow: "170,120,255", body: "#1a0c2e" }, boss: ["-", "-", "-"] },
   { id: "shadow", th: "ใต้สายตาฮาร์เวสเตอร์ · ผ่านไปโดยไม่ถูกเห็น", en: "Under the Harvesters' Eye · pass unseen", zh: "收割者的注视 · 悄然通过", c: ["#0a0306", "#2a0a1a", "#ff4d6d"], glow: "255,90,120", acc: "150,220,255", ok: true, hard: 2.4, mission: "evade", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
 ];
+/* The story order of every episode (owner, 2026-10-13: "arrange the episodes so the player feels one continuous, fun story, interleaving every category; a new episode can be slipped in anywhere").
+   To add an episode, put its id wherever it belongs in this list; an id that is not listed is appended at the end. A map opens when the one before it, or the one before that,
+   has been cleared (so one very hard map never walls the story off); the sector tabs are only a way to browse. */
+export const CAMPAIGN = ["shipbuild", "departure", "moonhe3", "colmoon", "moonbase", "asteroids", "minebuild", "marscolony", "colmars", "mercury", "solarcharge", "dysonbuild", "venussky", "jupitergas", "gasskim", "gasbuild", "saturnrings", "titanassault", "coltitan", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus", "warpjump", "starharvest", "luma", "ferro", "jovia", "kryo", "voidgate", "deathstar", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "colproxima", "dysondock", "gaspump", "blackhole", "kindred", "darkforge", "shadow"];
+export const campList = (): any[] => { const by: any = {}; for (const P of PLANETS) by[P.id] = P; const seen = new Set<string>(); const out: any[] = []; for (const id of CAMPAIGN) if (by[id] && !seen.has(id)) { seen.add(id); out.push(by[id]); } for (const P of PLANETS) if (!seen.has(P.id)) out.push(P); return out; };
+
 
 /* the story (owner, 2026-10-11): year 2100, these robots are built BY humans to do the colony work in their place, before any person
    moves in: clear the aliens, mine the ore, take the stars, and send it all home. One short briefing per map, shown when it opens. */
@@ -266,6 +277,10 @@ export const BRIEF: Record<string, string[]> = {
   titancolony: ["ไททันโคโลนี: ขุดน้ำแข็งและไฮโดรคาร์บอน ประกอบโมดูลอาณานิคมให้ครบ", "Titan Colony: dig ice and hydrocarbons and assemble every colony module", "土卫六殖民地：挖冰和碳氢化合物，组装全部殖民舱"],
   arkbuild: ["อู่ต่อยาน: ขุดวัสดุ ประกอบโมดูลของ Ark ครบสี่ส่วน — ตัวยาน วงแหวนแรงโน้มถ่วง ชั้นเกษตร และที่อยู่อาศัย", "Shipyard: dig materials and assemble the four Ark sections — hull, gravity ring, farm deck and habitat", "船坞：挖掘材料，组装方舟四大部分——船体、重力环、农业层和居住区"],
   arkfarm: ["ฟาร์มบน Ark: เพาะปลูกด้วยเทคโนโลยีขั้นสูง รดน้ำ ให้แสง LED และสารอาหาร รักษาโรคพืช จนผลผลิตพอเลี้ยงประชากร", "Ark Farm: grow crops with advanced tech: water, LED light and nutrients, treat blight, until the harvest can feed the population", "方舟农场：用先进技术种植——供水、LED 光照与营养液，治理病害，直到产量足以养活全体人口"],
+  shipbuild: ["สร้างยานอาณานิคม: ตอบคำถามดนตรีเพื่อให้หุ่นยนต์ประกอบยานทีละชิ้น ยานนี้จะพาเราออกไปตั้งอาณานิคม", "Build the Colony Starship: answer music questions so the robots assemble it part by part", "建造殖民星舰：回答音乐问题，让机器人逐件组装"],
+  dysonbuild: ["สร้างไดสันสเฟียร์: ประกอบแผงรวมแสงรอบดาวฤกษ์ทีละวง ทุกชิ้นต้องตอบคำถามดนตรีให้ถูก", "Dyson sphere: assemble the collector ring segment by segment; every part needs a right answer", "戴森球：逐段组装集光环，每一部件都要答对一题"],
+  gasbuild: ["ฐานก๊าซดาวพฤหัส: ประกอบแท่น ปากดูด เครื่องอัด และถังเก็บ ท่ามกลางพายุ", "Jupiter gas base: build the platform, scoop, compressor and tanks in the storms", "木星气体基地：在风暴中建好平台、进气口、压缩机和储罐"],
+  minebuild: ["ฐานขุดแร่: ยึดดาวเคราะห์น้อย ติดตั้งแท่นเจาะ เตาถลุง และเครื่องยิงแร่กลับโลก", "Mining base: anchor the asteroid, set the rig, smelter and mass driver", "采矿基地：锚固小行星，装好钻机、冶炼炉和质量加速器"],
   colmoon: ["อาณานิคมดวงจันทร์: สร้างที่พัก ไฟ น้ำ อากาศ และอาหารให้สมดุล ระวังกลางคืนยาว", "Moon Colony: balance homes, power, water, air and food; beware the long night", "月球殖民地：让住房、电、水、空气和食物保持平衡，小心漫长月夜"],
   colmars: ["อาณานิคมดาวอังคาร: แดดอ่อน มีน้ำแข็งใต้ดิน ระวังพายุฝุ่น", "Mars Colony: weak sun, ice underground; beware dust storms", "火星殖民地：阳光弱、地下有冰，小心沙尘暴"],
   coltitan: ["อาณานิคมไททัน: เกือบไม่มีแสงแดด หนาวจัด ใช้เครื่องปฏิกรณ์ฟิวชัน", "Titan Colony: almost no sun and a deep freeze; build fusion reactors", "土卫六殖民地：几乎没有阳光且极寒，建造聚变反应堆"],
@@ -541,8 +556,11 @@ const CSS = `
 .af-bar{width:100%;height:7px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden}.af-bar i{display:block;height:100%;background:linear-gradient(90deg,#3ddc97,#9fffd0)}
 .af-res{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.af-r{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-radius:20px;border:1.5px solid rgba(140,255,220,.35);background:rgba(10,50,44,.55);color:#e6fff6;font-weight:800;font-size:12px;cursor:pointer;text-align:left;min-height:48px}.af-r.low{border-color:#ff6b81}.af-r.low .af-bar i{background:#ff6b81}.af-r.cd{opacity:.65}
 .af-tech{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.af-t{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:20px;border:1.5px solid rgba(255,224,122,.4);background:rgba(60,48,10,.5);color:#fff3c8;font-size:12px;text-align:left;cursor:pointer;min-height:48px}.af-t small{font-size:10.5px;opacity:.85}.af-t.on{border-color:#3ddc97;background:rgba(10,70,50,.6)}.af-t:disabled:not(.on){opacity:.5}
-.adv-colony{padding-top:70px;gap:6px}.ac2-res{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.ac2-r{display:inline-flex;gap:5px;align-items:baseline;padding:5px 10px;border-radius:999px;border:1.5px solid rgba(140,255,220,.35);background:rgba(10,50,44,.55);font-weight:800;font-size:13px}.ac2-r small{font-size:10.5px;color:#9fffd0}.ac2-r small.neg{color:#ff9aa8}.ac2-r.low{border-color:#ff6b81;animation:afp .5s infinite alternate}.ac2-hz{padding:5px 10px;border-radius:999px;background:rgba(255,90,70,.25);border:1.5px solid #ff6b81;font-size:12px;font-weight:800}
-.ac2-grid{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(6,1fr);gap:4px;flex:none;height:min(52vh,420px);min-height:230px}.ac2-cell{display:flex;align-items:center;justify-content:center;border-radius:14px;border:1.5px solid rgba(140,255,220,.22);background:rgba(10,40,40,.55);color:#e6fff6;font-size:clamp(16px,3.4vw,26px);cursor:pointer;padding:0;min-height:0}.ac2-cell em{font-style:normal;font-size:13px;opacity:.55}.ac2-cell.has{background:rgba(20,90,78,.7);border-color:rgba(140,255,220,.6)}.ac2-cell.ice:not(.has){background:rgba(60,120,170,.3)}.ac2-cell.ore:not(.has){background:rgba(150,110,50,.3)}
+.adv-colony{padding-top:70px;gap:6px}.adv-build{padding-top:70px;gap:6px}.ab-view{width:100%;max-height:34vh;border-radius:14px;border:1.5px solid rgba(140,255,220,.3)}.ab-todo{opacity:.85}.ab-now circle{animation:afp .5s infinite alternate}.ab-done{filter:drop-shadow(0 0 2px #5affbe)}.ab-bot{animation:abb .6s ease-in-out infinite alternate}@keyframes abb{to{transform:translate(0,-3px)}}
+.ab-crew{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}.ab-r{padding:3px 8px;border-radius:999px;border:1.5px solid rgba(140,255,220,.3);background:rgba(10,50,44,.5)}.ab-r.on{border-color:#ffe07a;box-shadow:0 0 10px rgba(255,224,122,.5)}.ab-say{flex:1;min-width:180px;color:#cfeee6}.ab-prog{height:10px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.ab-prog i{display:block;height:100%;background:linear-gradient(90deg,#3ddc97,#ffe07a)}
+.ab-q{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:22px;border:1.5px solid rgba(255,224,122,.5);background:rgba(40,36,8,.55)}.ab-qh{font-size:11px;font-weight:800;letter-spacing:1px;color:#ffe07a}.ab-qq{font-size:15px;font-weight:700;line-height:1.35}.ab-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.ac2-res{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.ac2-r{display:inline-flex;gap:5px;align-items:baseline;padding:5px 10px;border-radius:999px;border:1.5px solid rgba(140,255,220,.35);background:rgba(10,50,44,.55);font-weight:800;font-size:13px}.ac2-r small{font-size:10.5px;color:#9fffd0}.ac2-r small.neg{color:#ff9aa8}.ac2-r.low{border-color:#ff6b81;animation:afp .5s infinite alternate}.ac2-hz{padding:5px 10px;border-radius:999px;background:rgba(255,90,70,.25);border:1.5px solid #ff6b81;font-size:12px;font-weight:800}
+.ac2-city{position:relative;flex:none;height:min(50vh,400px);min-height:230px;border-radius:18px;overflow:hidden;border:1.5px solid rgba(0,255,230,.35);box-shadow:0 0 22px rgba(0,255,230,.15) inset}.ac2-cv{position:absolute;inset:0;display:block}.ac2-cell{position:absolute;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:#e6fff6;padding:0;cursor:pointer;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}.ac2-cell:hover{background:rgba(0,255,230,.22)}.ac2-cell em{font-style:normal;font-size:11px;opacity:.7}.ac2-era{position:absolute;left:10px;top:8px;display:flex;flex-direction:column;gap:0;text-shadow:0 0 10px rgba(0,255,230,.8);pointer-events:none}.ac2-era b{font-size:20px;letter-spacing:3px;color:#7fffe9}.ac2-era small{font-size:10.5px;letter-spacing:1px;color:#ff9aea}
 .ac2-build{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.ac2-b{display:flex;flex-direction:column;gap:1px;padding:5px 6px;border-radius:16px;border:1.5px solid rgba(140,255,220,.3);background:rgba(10,50,44,.55);color:#e6fff6;font-size:11px;text-align:left;cursor:pointer}.ac2-b b{font-size:11.5px}.ac2-b small{font-size:10px;opacity:.85}.ac2-b.on{border-color:#ffe07a;box-shadow:0 0 12px rgba(255,224,122,.45)}.ac2-b.poor{opacity:.6}.ac2-b.lock{opacity:.4}.ac2-sel{font-size:12px;color:#cfeee6;display:flex;flex-direction:column;gap:1px}.ac2-sel em{font-style:normal;font-size:10.5px;opacity:.7}
 .af-fact{font-size:12px;line-height:1.4;color:#b6d8d0;padding:6px 10px;border-radius:16px;background:rgba(0,0,0,.25)}.af-pick{display:flex;flex-direction:column;gap:6px}.af-pick .adv-btn{display:flex;justify-content:space-between;gap:8px;text-align:left}.af-pick small{opacity:.8}
 @media (max-width:600px){.adv .pvpdir{width:50px;height:50px}.adv .pvpact{width:58px;height:50px}.adv-pad .pvppad-r,.adv-pad .pvppad-l{gap:6px}}
@@ -590,7 +608,7 @@ const CSS = `
 .adv-menu h2{margin:6px 0 2px;font-size:22px;letter-spacing:1px}.adv-menu p{margin:0 0 12px;color:#9fd8cc;font-size:13px}
 .adv-planets{display:flex;flex-direction:column;gap:10px}
 .adv-planet{position:relative;display:flex;align-items:center;gap:12px;min-height:76px;border-radius:18px;border:1.5px solid rgba(140,255,220,.35);padding:10px 14px;color:#fff;text-align:left;cursor:pointer;overflow:hidden}
-.adv-planet.lock{opacity:.5;cursor:default}
+.adv-ch{font-style:normal;font-size:10px;font-weight:800;padding:1px 7px;border-radius:999px;background:rgba(255,255,255,.14);margin-right:4px}.adv-planet.lock{opacity:.5;cursor:default}
 .adv-orb{flex:0 0 52px;height:52px;border-radius:50%;box-shadow:inset -8px -8px 14px rgba(0,0,0,.5),0 0 22px var(--g)}
 .adv-planet b{font-size:15px;display:block}.adv-planet small{color:#cfeee6;font-size:12px}
 .adv-planet em{margin-left:auto;font-style:normal;font-size:11px;font-weight:800;padding:4px 9px;border-radius:12px;background:rgba(255,255,255,.14)}
@@ -683,7 +701,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const isSpace = (P: any) => ["dogfight", "launch", "belt", "skim", "harvest", "solar", "warp", "blackhole"].includes(P.mission);
   const [farmKey, setFarmKey] = useState(0);
   const [sector, setSector] = useState<"ground" | "space" | "act2" | "solar" | "colony">(() => { try { const v = localStorage.getItem("tg_adv_sector"); return v === "space" ? "space" : v === "act2" ? "act2" : v === "solar" ? "solar" : v === "colony" ? "colony" : "ground"; } catch (e) { return "ground"; } });
-  const COLONY = ["colmoon", "colmars", "coltitan", "colproxima"];
+  const COLONY = ["shipbuild", "colmoon", "colmars", "coltitan", "colproxima", "dysonbuild", "gasbuild", "minebuild"];
   const sectorOf = (P: any): "ground" | "space" | "act2" | "solar" | "colony" => (COLONY.includes(P.id) ? "colony" : SOLAR.includes(P.id) ? "solar" : ACT2.includes(P.id) ? "act2" : isSpace(P) ? "space" : "ground");
   const pickSector = (v: "ground" | "space" | "act2" | "solar" | "colony") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
   const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
@@ -719,13 +737,14 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
     setBusy(false);
   };
   const leaveRoom = () => { closePub(); if (netRef.current) netRef.current.leave(); netRef.current = null; setNet(null); setPeersL([]); };
-  const nextOf = (cur: any) => { const dn = readDone(); const idx = PLANETS.findIndex(q => q.id === cur.id); const rest = [...PLANETS.slice(idx + 1), ...PLANETS.slice(0, idx)].filter(Q => Q.ok && open(Q)); return rest.find(Q => !dn.includes(Q.id)) || rest[0] || null; };   // the next map you have not cleared yet, wrapping round   // the orbital-strike result (which bases are gone) before an Ashfall run
+  const CAMP = campList();
+  const nextOf = (cur: any) => { const dn = readDone(); const idx = CAMP.findIndex(q => q.id === cur.id); const rest = [...CAMP.slice(idx + 1), ...CAMP.slice(0, idx)].filter(Q => Q.ok && open(Q)); return rest.find(Q => !dn.includes(Q.id)) || rest[0] || null; };   // the next map you have not cleared yet, wrapping round   // the orbital-strike result (which bases are gone) before an Ashfall run
   // Maps are played one step at a time inside each sector: step n opens when step n-1 is cleared (owner, 2026-10-12).
   // A top-tier admin (tier 3) is never locked, so the game can be inspected; `tg_adv_unlockall` is the same switch for the test bots.
   const unlockAll = adminTier >= 3 || (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1"; } catch (e) { return false; } })();
-  const stepOf = (P) => PLANETS.filter(Q => sectorOf(Q) === sectorOf(P)).indexOf(P);
-  const prevOf = (P) => { const L = PLANETS.filter(Q => sectorOf(Q) === sectorOf(P)); const i = L.indexOf(P); return i > 0 ? L[i - 1] : null; };
-  const open = (P) => !!P.ok && (unlockAll || !prevOf(P) || readDone().includes(prevOf(P).id));
+  const stepOf = (P) => CAMP.indexOf(P);
+  const prevOf = (P) => { const i = CAMP.indexOf(P); return i > 0 ? CAMP[i - 1] : null; };
+  const open = (P) => { if (!P.ok) return false; if (unlockAll) return true; const i = CAMP.indexOf(P); if (i <= 0) return true; const dn = readDone(); return dn.includes(CAMP[i - 1].id) || (i > 1 && dn.includes(CAMP[i - 2].id)); };
   const t = (th, en, zh) => T3(lang, th, en, zh);
   return (
     <div className="adv" role="region" aria-label="Adventure Mode">
@@ -744,7 +763,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           <div className="adv-sectors" role="tablist">
             {(["ground", "space", "act2", "solar", "colony"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
               <button key={v} role="tab" aria-selected={sector === v} data-sector={v} className={"adv-sec" + (sector === v ? " on" : "")} onClick={() => pickSector(v)}>
-                {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : v === "space" ? t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空") : v === "act2" ? t("ภาค 3 · ฮาร์เวสเตอร์", "Act 2 · The Harvesters", "第三区 · 收割者") : v === "colony" ? t("ภาค 5 · สร้างอาณานิคม", "Sector 5 · Colonies", "第五区 · 殖民地") : t("ภาค 4 · ระบบสุริยะ", "Sector 4 · Solar System", "第四区 · 太阳系")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
+                {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : v === "space" ? t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空") : v === "act2" ? t("ภาค 3 · ฮาร์เวสเตอร์", "Act 2 · The Harvesters", "第三区 · 收割者") : v === "colony" ? t("ภาค 5 · ก่อสร้างและอาณานิคม", "Sector 5 · Build & colonize", "第五区 · 建造与殖民") : t("ภาค 4 · ระบบสุริยะ", "Sector 4 · Solar System", "第四区 · 太阳系")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
               </button>); })}
           </div>
           <div className="adv-rankbar"><span data-energy style={{ marginRight: 8, fontSize: 12 }}>⚡ {t("พลังงาน", "Energy", "能量")} {readEnergy()}/100{readEnergy() >= 50 ? " · +25%" : ""}</span><button className="adv-btn" data-galaxy-btn aria-expanded={galaxyOpen} style={{ marginRight: 8 }} onClick={() => setGalaxyOpen(o => !o)}>🌌 {t("แผนที่กาแล็กซี", "Galaxy map", "星系图")}</button><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
@@ -756,13 +775,13 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
                   <circle cx={x} cy="45" r={R} fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.18)" strokeWidth="4" />
                   <circle cx={x} cy="45" r={R} fill="none" stroke={v === sector ? "#8cffdc" : "#7aa8ff"} strokeWidth="4" strokeDasharray={`${C * n / L.length} ${C}`} transform={`rotate(-90 ${x} 45)`} />
                   <text x={x} y="49" textAnchor="middle" fontSize="12" fill="currentColor">{n}/{L.length}</text>
-                  <text x={x} y="85" textAnchor="middle" fontSize="10" fill="currentColor">{v === "ground" ? t("พื้นผิว", "Surface", "表面") : v === "space" ? t("อวกาศ", "Deep space", "深空") : v === "act2" ? t("ฮาร์เวสเตอร์", "Harvesters", "收割者") : v === "colony" ? t("อาณานิคม", "Colonies", "殖民地") : t("สุริยะ", "Solar", "太阳系")}</text>
+                  <text x={x} y="85" textAnchor="middle" fontSize="10" fill="currentColor">{v === "ground" ? t("พื้นผิว", "Surface", "表面") : v === "space" ? t("อวกาศ", "Deep space", "深空") : v === "act2" ? t("ฮาร์เวสเตอร์", "Harvesters", "收割者") : v === "colony" ? t("ก่อสร้าง", "Build", "建造") : t("สุริยะ", "Solar", "太阳系")}</text>
                   <text x={x} y="100" textAnchor="middle" fontSize="8.5" opacity=".7" fill="currentColor">{nx ? "→ " + String((t(nx.th, nx.en, nx.zh) || "")).split(/ · /)[0].slice(0, 16) : "✓"}</text>
                 </g>); })}
             </svg>
           </div>)}
           {rankOpen && <RankPanel lang={lang} maps={PLANETS.filter(P => sectorOf(P) === sector)} />}
-          {(() => { const nx = PLANETS.find(P => sectorOf(P) === sector && open(P) && !done.includes(P.id)); return nx && canStart(nx) ? (
+          {(() => { const nx = CAMP.find(P => open(P) && !done.includes(P.id)); return nx && canStart(nx) ? (
             <button className="adv-cta" data-continue={nx.id} onClick={() => { if (net) net.sendStart(nx.id, warOpt); startPlanet(nx); }}>
               <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${nx.c[2]} 45%,${nx.c[0]})`, "--g": `rgba(${nx.glow},.7)` } as any} />
               <span><small>{done.length ? t("เล่นต่อ", "Continue", "继续") : t("เริ่มเลย", "Start here", "从这里开始")}</small><b>{T3(lang, nx.th, nx.en, nx.zh)}</b></span><em>▶</em>
@@ -772,7 +791,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
-                <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? (() => { const pv = prevOf(P), n = stepOf(P); return t("ต้องผ่านด่านที่ " + n + " ก่อน", "Clear step " + n + " first" + (pv ? " (" + pv.en.split(" · ")[0] + ")" : ""), "先通关第 " + n + "关"); })() : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
+                <span><b><i className="adv-ch" data-ch={stepOf(P) + 1}>{t("ตอนที่ ", "Ep. ", "第") + (stepOf(P) + 1) + (lang === "zh" ? "集" : "")}</i> {T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? (() => { const pv = prevOf(P), n = stepOf(P); return t("ต้องผ่านตอนที่ " + n + " หรือ " + (n - 1) + " ก่อน", "Clear episode " + n + (n > 1 ? " or " + (n - 1) : "") + " first" + (pv ? " (" + pv.en.split(" · ")[0] + ")" : ""), "先通关第 " + n + (n > 1 ? " 或 " + (n - 1) : "") + " 集"); })() : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
                 <em>{open(P) ? "▶" : "🔒"}</em>
               </button>
             ))}
@@ -865,7 +884,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
       ) : (
         <AdvGuard mapId={planet.id} lang={lang} onBack={() => { setPlanet(null); setCined(null); setShipDone(null); }}>{
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
-        ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole", "farm", "yard", "colony"].includes(planet.mission) && shipDone ? (
+        ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole", "farm", "yard", "colony", "build"].includes(planet.mission) && shipDone ? (
           <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
             <div className="ac-stats">
               {shipDone.kills > 0 && <span><em>☠</em><b>{shipDone.kills}</b><small>{t("ศัตรูที่ล้ม", "Enemies beaten", "击败敌人")}</small></span>}
@@ -878,6 +897,8 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               <button className="adv-btn" onClick={() => { setShipDone(null); setPlanet(null); }}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div>
           </div>
         ) : planet.mission === "yard" ? <Suspense fallback={<div className="adv-cine" />}><AdventureYard key={planet.id + farmKey} P={planet} lang={lang} onExit={() => { setPlanet(null); }}
+          onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>
+        : planet.mission === "build" ? <Suspense fallback={<div className="adv-cine" />}><AdventureBuild key={planet.id + farmKey} P={planet} lang={lang} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>
         : planet.mission === "colony" ? <Suspense fallback={<div className="adv-cine" />}><AdventureColony key={planet.id + farmKey} P={planet} lang={lang} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>

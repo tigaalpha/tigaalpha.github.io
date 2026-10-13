@@ -21,15 +21,19 @@ async function open(pre, admin) {
   await p.evaluate(() => document.querySelector(".pvpadv").click()); await p.waitForSelector(".adv-planet");
   return { ctx, p, errs };
 }
-const locks = (p) => p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => b.classList.contains("lock")));
-{ const { ctx, p, errs } = await open({});
-  const L = await locks(p);
-  ok("fresh player: only step 1 is open", L[0] === false && L.slice(1).every(Boolean), JSON.stringify(L));
-  ok("a locked card says which step to clear", /Clear step 1/.test(await p.evaluate(() => document.querySelectorAll(".adv-planet")[1].textContent)));
-  ok("a locked card cannot be started", await p.evaluate(() => document.querySelectorAll(".adv-planet")[1].disabled));
+const cards = (p) => p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => ({ t: b.textContent, lock: b.classList.contains("lock"), dis: b.disabled })));
+const lockOf = (L, re) => { const c = L.find(x => re.test(x.t)); return c ? c.lock : null; };
+{ const { ctx, p, errs } = await open({ tg_adv_sector: "colony" });
+  const L = await cards(p);
+  ok("fresh player: the story starts with the starship, everything else in the sector is shut", lockOf(L, /Colony Starship/) === false && lockOf(L, /Moon Colony/) === true && lockOf(L, /Dyson Sphere/) === true, JSON.stringify(L.map(x => x.lock)));
+  ok("cards carry their episode number", /Ep\. 1\b/.test(L.find(x => /Colony Starship/.test(x.t)).t));
+  ok("a locked card cannot be started", L.filter(x => x.lock).every(x => x.dis));
+  ok("a locked card says which episode to clear", L.filter(x => x.lock).every(x => /Clear/.test(x.t)), L.find(x => x.lock) && L.find(x => x.lock).t.slice(-60));
   await ctx.close(); ok("no page errors", errs.length === 0, errs.join("|")); }
-{ const { ctx, p } = await open({ tg_adv_done: JSON.stringify(["luma"]) });
-  const L = await locks(p); ok("after step 1 is cleared, step 2 opens and step 3 stays shut", !L[0] && !L[1] && L[2], JSON.stringify(L)); await ctx.close(); }
+{ const { ctx, p } = await open({ tg_adv_sector: "space", tg_adv_done: JSON.stringify(["shipbuild"]) });
+  const L = await cards(p); ok("after the starship is built, Departure opens", lockOf(L, /Departure/) === false, JSON.stringify(L.map(x => x.lock))); await ctx.close(); }
+{ const { ctx, p } = await open({ tg_adv_sector: "solar", tg_adv_done: JSON.stringify(["shipbuild"]) });
+  const L = await cards(p); ok("one episode can be skipped: Moon He-3 (episode 3) opens, the Lunar Base (episode 5) stays shut", lockOf(L, /Helium/) === false && lockOf(L, /Lunar Base/) === true, JSON.stringify(L.map(x => x.lock))); await ctx.close(); }
 { const { ctx, p } = await open({ tg_adv_unlockall: "1" });
-  const L = await locks(p); ok("unlock switch (admin tier 3 uses the same path): everything is open", L.every(x => !x), JSON.stringify(L)); await ctx.close(); }
+  const L = await cards(p); ok("unlock switch (admin tier 3 uses the same path): everything is open", L.every(x => !x.lock), JSON.stringify(L.map(x => x.lock))); await ctx.close(); }
 await browser.close(); server.close(); console.log(fail ? "FAILED " + fail : "ALL PASS"); process.exit(fail ? 1 : 0);
