@@ -11484,7 +11484,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
-  useEffect(() => { if (page !== "sensei") clearSeq(); }, [page]); // stop any Sensei demo audio the instant the learner navigates away
+  useEffect(() => { if (page !== "sensei") { clearSeq(); try { stopClip(); } catch (e) {} try { stopSpeaking(); } catch (e) {} try { stopCloudTTS(); } catch (e) {} try { stopAllPianoNotes(); } catch (e) {} } }, [page]); // stop every Teacher-page sound (demo, recording playback, speech, ringing notes) the instant the learner navigates away
   // remember the most recent non-Sensei page so the Sensei chat's ← button can
   // take the learner back where they came from (pathway lesson, studio, etc.)
   const pageTrackRef = useRef("pathway");
