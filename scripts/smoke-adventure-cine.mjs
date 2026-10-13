@@ -56,7 +56,7 @@ for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch
   await o.ctx.close(); }
 // Opening film: shown once before the first menu, then the map films are the short cut with a chapter number.
 { const o = await open({ tg_adv_prologue: "__none__" });
-  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("prologue: earth > factory > launch > the Harvesters > TIGA, then the menu", JSON.stringify(k) === JSON.stringify(["earth", "factory", "launch", "contact", "mind"]), k.join());
+  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("prologue: earth > factory > launch > the Harvesters > TIGA > how to play, then the menu", JSON.stringify(k) === JSON.stringify(["earth", "factory", "launch", "contact", "mind", "howto"]), k.join());
   await o.p.locator(".ac-skip").click(); await o.p.waitForSelector(".adv-planet");
   ok("prologue: remembered after it ends", await o.p.evaluate(() => localStorage.getItem("tg_adv_prologue") === "1"));
   await o.p.evaluate(() => document.querySelector(".adv-planet").click()); await o.p.waitForSelector(".adv-cine");
