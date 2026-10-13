@@ -607,6 +607,30 @@ const CSS = `
 .adv-pad .pvppad-r .pvpact.dig{grid-area:2/3}.adv-pad .pvppad-r .pvpact.jump{grid-area:2/4}.adv-pad .pvppad-r .pvpact.punch{grid-area:2/5}
 .adv-pad .pvppad-r .pvpact.fire{grid-area:3/4}.adv-pad .pvppad-r .pvpact.kick{grid-area:3/5}
 .adv-pad .pvppad-r .pvpact[data-slot="2"]{grid-area:4/2}.adv-pad .pvppad-r .pvpact[data-slot="1"]{grid-area:4/3}.adv-pad .pvppad-r .pvpact[data-slot="0"]{grid-area:4/4}.adv-pad .pvppad-r .pvpact.spell{grid-area:4/5}
+/* Menu and lobby follow the app theme (owner, 2026-10-13): tokens from the app, the run itself stays dark. */
+.adv-menu{background:var(--bg,#fff);color:var(--text,#1a1a1a)}.adv-menu>*{flex-shrink:0}
+.adv-menu h2{color:var(--text)}.adv-menu p,.adv-menu small{color:var(--text2,#555)}
+.adv-menu .adv-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.adv-menu .adv-chip{font-size:12px;font-weight:700;padding:5px 11px;border-radius:999px;background:var(--card2,#f3f3f3);border:1px solid var(--bd2,rgba(0,0,0,.12));color:var(--text)}
+.adv-menu .adv-chip-cry{color:var(--clay,#d97757)}
+.adv-menu .adv-about{margin:0 0 10px;font-size:12.5px}.adv-menu .adv-about summary{cursor:pointer;color:var(--muted,#777);font-weight:700;min-height:32px;display:flex;align-items:center}
+.adv-menu .adv-story{margin:6px 0;font-size:12.5px}
+.adv-menu .adv-sectors{overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px;scrollbar-width:none}.adv-menu .adv-sec{flex:0 0 auto;white-space:nowrap}
+.adv-menu .adv-sec,.adv-menu .adv-btn,.adv-menu .adv-gfx button,.adv-menu .adv-load button,.adv-menu .adv-up,.adv-menu .adv-q{background:var(--card,#fff);color:var(--text);border-color:var(--bd3,rgba(0,0,0,.18));backdrop-filter:none}
+.adv-menu .adv-sec.on,.adv-menu .adv-gfx button.on,.adv-menu .adv-load button.on{background:var(--clay,#d97757);color:#fff;border-color:var(--clay,#d97757)}
+.adv-menu .adv-btn.go{background:var(--clay,#d97757);color:#fff;border-color:transparent}
+.adv-menu .adv-rank,.adv-menu .adv-shop{background:var(--card,#fff);border:1px solid var(--bd2,rgba(0,0,0,.12));color:var(--text)}
+.adv-menu .adv-rank select{background:var(--card2,#f3f3f3);color:var(--text);border-color:var(--bd3,rgba(0,0,0,.18))}
+.adv-menu .adv-up em,.adv-menu .adv-q em{color:var(--clay,#d97757)}
+.adv-menu .adv-planet{background:linear-gradient(120deg,color-mix(in srgb,var(--c0) 12%,var(--card,#fff)),var(--card,#fff) 60%)!important;color:var(--text);border:1.5px solid var(--bd3,rgba(0,0,0,.15));box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.adv-menu .adv-planet:not(.lock):active{transform:scale(.985)}
+.adv-menu .adv-planet.lock{opacity:.55;filter:grayscale(.6)}
+.adv-menu .adv-planet b{color:var(--text)}.adv-menu .adv-planet small{color:var(--text2)}
+.adv-menu .adv-planet em{background:var(--card3,rgba(0,0,0,.08));color:var(--text)}
+.adv-menu .adv-lobby{border:1.5px solid var(--clay,#d97757);background:var(--card,#fff);color:var(--text);border-radius:22px;padding:14px;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.adv-menu .adv-lobby input{background:var(--card2,#f3f3f3);color:var(--text);border:1px solid var(--bd3,rgba(0,0,0,.2));border-radius:999px;padding:9px 14px;min-height:40px}
+.adv-menu .al-room b{color:var(--clay,#d97757);background:var(--card2);padding:2px 14px;border-radius:14px}
+.adv-menu .al-err{color:#d33}
 `;
 
 type Gfx = "standard" | "high";
@@ -686,10 +710,15 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
             <button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
             <h2 style={{ flex: 1 }}>🪐 Adventure Mode</h2>
           </div>
-          <p style={{ fontSize: 12, opacity: .85 }}>{t("ส่งกลับโลกแล้ว " + ore + " ก้อนแร่ · อาณานิคม: " + ostage.th, "Shipped to Earth: " + ore + " ore · colony: " + ostage.en, "已运回地球 " + ore + " 矿 · 殖民地：" + ostage.zh)}</p>
-          {readDyson() > 0 && <p style={{ fontSize: 12, opacity: .85 }}>{t("ไดสันสเฟียร์: ส่งพลังงานกลับโลกแล้ว " + readDyson() + " แผง ☀", "Dyson sphere: " + readDyson() + " panels beaming energy to Earth ☀", "戴森球：" + readDyson() + " 块板正向地球输送能量 ☀")}</p>}
-          <p style={{ fontSize: 12, opacity: .85 }}>{t("ปี 2100 มนุษย์ออกหาทรัพยากรและพลังงานจากดาวต่างๆ และต้องสู้กับต่างดาว  ◆ คริสตัลพลังงานที่เก็บได้: " + crystals, "Year 2100: humanity heads out for resources and star energy, and fights the aliens. ◆ Energy crystals collected: " + crystals, "2100年，人类外出寻找资源与恒星能源，并与外星生物作战。  ◆ 已收集能量晶体：" + crystals)}</p>
-          <p>{t("หุ่นยนต์และสัตว์เลี้ยงออกผจญภัยในดาวต่างดาว สู้มอนสเตอร์ เก็บ EXP เพิ่มเลเวลและสกิล (EXP เดียวกับ PvP)", "Take your robot and pet across alien planets, fight monsters and earn EXP for levels and skills (the same EXP as PvP).", "带着机器人和宠物探索外星球，打怪获得经验，升级并提升技能（与 PvP 共用经验）。")}</p>
+          <div className="adv-chips" data-chips>
+          <span className="adv-chip">{t("ส่งกลับโลกแล้ว " + ore + " ก้อนแร่ · อาณานิคม: " + ostage.th, "Shipped to Earth: " + ore + " ore · colony: " + ostage.en, "已运回地球 " + ore + " 矿 · 殖民地：" + ostage.zh)}</span>
+          {readDyson() > 0 && <span className="adv-chip">{t("ไดสันสเฟียร์: ส่งพลังงานกลับโลกแล้ว " + readDyson() + " แผง ☀", "Dyson sphere: " + readDyson() + " panels beaming energy to Earth ☀", "戴森球：" + readDyson() + " 块板正向地球输送能量 ☀")}</span>}
+          <span className="adv-chip adv-chip-cry">{t("◆ คริสตัล ", "◆ Crystals ", "◆ 晶体 ") + crystals}</span>
+          </div>
+          <details className="adv-about"><summary>{t("เกี่ยวกับโหมดนี้", "About this mode", "关于此模式")}</summary>
+          <p className="adv-story">{t("ปี 2100 มนุษย์ออกหาทรัพยากรและพลังงานจากดาวต่างๆ และต้องสู้กับต่างดาว  ◆ คริสตัลพลังงานที่เก็บได้: " + crystals, "Year 2100: humanity heads out for resources and star energy, and fights the aliens. ◆ Energy crystals collected: " + crystals, "2100年，人类外出寻找资源与恒星能源，并与外星生物作战。  ◆ 已收集能量晶体：" + crystals)}</p>
+          <p className="adv-story">{t("หุ่นยนต์และสัตว์เลี้ยงออกผจญภัยในดาวต่างดาว สู้มอนสเตอร์ เก็บ EXP เพิ่มเลเวลและสกิล (EXP เดียวกับ PvP)", "Take your robot and pet across alien planets, fight monsters and earn EXP for levels and skills (the same EXP as PvP).", "带着机器人和宠物探索外星球，打怪获得经验，升级并提升技能（与 PvP 共用经验）。")}</p>
+          </details>
           <div className="adv-sectors" role="tablist">
             {(["ground", "space", "act2", "solar"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
               <button key={v} role="tab" aria-selected={sector === v} data-sector={v} className={"adv-sec" + (sector === v ? " on" : "")} onClick={() => pickSector(v)}>
@@ -713,7 +742,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           {rankOpen && <RankPanel lang={lang} maps={PLANETS.filter(P => sectorOf(P) === sector)} />}
           <div className="adv-planets">
             {PLANETS.map((P, pi) => sectorOf(P) !== sector ? null : (
-              <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ background: `linear-gradient(120deg,${P.c[0]},${P.c[1]})`, "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
+              <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
                 <span><b>{T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? (() => { const pv = prevOf(P), n = stepOf(P); return t("ต้องผ่านด่านที่ " + n + " ก่อน", "Clear step " + n + " first" + (pv ? " (" + pv.en.split(" · ")[0] + ")" : ""), "先通关第 " + n + "关"); })() : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
