@@ -308,7 +308,9 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
         // a long scale (2-4 octaves, from the octave stage) gets a keyboard that spans it; short drills keep the usual one
         const octOf = (n: string) => { const m = /(-?\d+)$/.exec(String(n)); return m ? Number(m[1]) : 4; };
         const octs0 = (practiceTarget || []).map(octOf), loOct = octs0.length ? Math.min(...octs0) : 4, hiOct = octs0.length ? Math.max(...octs0) : 5;
-        const pianoRange: any = (hiOct - loOct + 1 > 2 || loOct < 4 || hiOct > 5) ? { baseOct: loOct, octs: Math.max(2, hiOct - loOct + 1) } : {};
+        const topMidi = (practiceTarget || []).length ? Math.max(...(practiceTarget || []).map(midiOf)) : 0, loMidi = (loOct + 1) * 12;
+        // long scales (2-4 octaves) all get the same keyboard size: 4 octaves of keys from the lowest C, plus one more C when the top note is the C above
+        const pianoRange: any = (ms0.length > 1 && Math.max(...ms0) - Math.min(...ms0) >= 20) ? { baseOct: loOct, octs: 4, extraC: topMidi >= loMidi + 48 } : ((hiOct - loOct + 1 > 2 || loOct < 4 || hiOct > 5) ? { baseOct: loOct, octs: Math.max(2, hiOct - loOct + 1) } : {});
         const isBlockMode = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && chordStyle === "block";
         // A chord-PROGRESSION drill lights only the CURRENT chord's remaining
         // notes (windows are uniform and full, so floor(practiceIdx / size)

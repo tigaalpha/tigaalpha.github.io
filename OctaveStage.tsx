@@ -20,8 +20,12 @@ function StaffCard({ notes, active, title, bass }: { notes: { m: number }[]; act
   const base = bass ? 18 : 30;   // diatonic step of the bottom line: G2 in the bass clef, E4 in the treble clef
   const yOf = (st: number) => bottom - (st - base) * half;
   const top = bottom - 8 * half, mid = bottom - 4 * half;
+  // High or low pages (3-4 octaves) are written the way scores do it, with an 8va / 15ma / 22ma (or 8vb) bracket, so the staff keeps the same size on every page.
+  const stp = notes.slice(0, N).map(q => stepOf(q.m)), maxS = stp.length ? Math.max(...stp) : base, minS = stp.length ? Math.min(...stp) : base;
+  const shift = maxS > base + 13 ? Math.ceil((maxS - (base + 13)) / 7) : minS < base - 5 ? -Math.ceil((base - 5 - minS) / 7) : 0;
+  const nn = notes.slice(0, N).map(q => ({ m: q.m - 12 * shift })), ottava = shift > 0 ? ["8va", "15ma", "22ma"][Math.min(2, shift - 1)] : shift < 0 ? "8vb" : "";
   // Notes far above or below the staff (long ranges) would run off the card: stretch the view box to hold them, the drawing then scales down to fit.
-  const ys = notes.slice(0, N).map(q => yOf(stepOf(q.m))), vbTop = Math.min(0, Math.min(...ys, 99) - 32), vbBot = Math.max(H, Math.max(...ys, 0) + 32);
+  const ys = nn.map(q => yOf(stepOf(q.m))), vbTop = Math.min(0, Math.min(...ys, 99) - 32), vbBot = Math.max(H, Math.max(...ys, 0) + 32);
   return (
     <svg className="ost-staff" viewBox={`0 ${vbTop} ${W} ${vbBot - vbTop}`} role="img" aria-label={title}>
       {[0, 1, 2, 3, 4].map(i => <line key={i} x1={10} x2={W - 4} y1={bottom - i * 2 * half} y2={bottom - i * 2 * half} stroke="currentColor" strokeWidth="1" opacity=".55" />)}
@@ -37,7 +41,8 @@ function StaffCard({ notes, active, title, bass }: { notes: { m: number }[]; act
       <line x1={10} x2={10} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1.5" />
       {[1, 2, 3].map(k => <line key={k} x1={left + gap * 4 * k} x2={left + gap * 4 * k} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
       <line x1={W - 8} x2={W - 8} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1.5" /><line x1={W - 4} x2={W - 4} y1={top} y2={bottom} stroke="currentColor" strokeWidth="3" />
-      {notes.slice(0, N).map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.5), on = i === active, sharp = NAMES[q.m % 12].includes("#");
+      {ottava && <g aria-hidden="true" fill="#d97757" stroke="#d97757"><text x={left + 6} y={shift > 0 ? -14 : bottom + 34} fontSize="15" fontStyle="italic" fontWeight="800" stroke="none">{ottava}</text><line x1={left + 44} x2={W - 10} y1={shift > 0 ? -18 : bottom + 30} y2={shift > 0 ? -18 : bottom + 30} strokeWidth="1.4" strokeDasharray="5 4" /></g>}
+      {nn.map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.5), on = i === active, sharp = NAMES[q.m % 12].includes("#");
         const ledgers: number[] = []; for (let l = base - 2; l >= st; l -= 2) ledgers.push(l); for (let l = base + 10; l <= st; l += 2) ledgers.push(l);
         return (<g key={i} className={on ? "on" : ""}>
           {ledgers.map(l => <line key={l} x1={x - 11} x2={x + 11} y1={yOf(l)} y2={yOf(l)} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
@@ -90,7 +95,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
     step(); timer.current = setInterval(step, 520);
   };
   if (!seq.length) return null;
-  const lo = Math.floor((Math.min(...seq.map(s => s.m)) - 12) / 12) * 12 + 12, hi = Math.ceil((Math.max(...seq.map(s => s.m)) - 11) / 12) * 12 + 12 + 11;
+  const lo = Math.floor((Math.min(...seq.map(s => s.m)) - 12) / 12) * 12 + 12, hi = Math.max(Math.max(...seq.map(s => s.m)), Math.floor((Math.min(...seq.map(s => s.m)) - 12) / 12) * 12 + 12 + 47);   // at least 4 octaves of keys (the same key size for 2, 3 and 4 octaves) and always the top note
   const whites: number[] = [], blacks: number[] = []; for (let m = lo; m <= hi; m++) (NAMES[m % 12].length === 1 ? whites : blacks).push(m);
   const wIndex = (m: number) => whites.indexOf(m), wW = 100 / whites.length;
   // While the demo plays, the light follows it; otherwise it waits on the key the learner has to press next ("your turn").
@@ -113,7 +118,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
     <div className={"ost" + (portrait ? " rot" : "")} role="dialog" aria-label="octave practice">
       <div className="ost-top">
         <b className="ost-title">{label}</b><span className="ost-oct">{octaves}×</span>
-        <div className="ost-notes" aria-label={T.notes}>{seq.map((s, i) => <span key={i} className={i === idx ? "on" : ""}>{NAMES[s.m % 12]}</span>)}</div>
+        {octaves < 3 && <div className="ost-notes" aria-label={T.notes}>{seq.map((s, i) => <span key={i} className={i === idx ? "on" : ""}>{NAMES[s.m % 12]}</span>)}</div>}
         <button className="ost-btn" onClick={() => setHand(hand === "left" ? "right" : "left")}>{hand === "left" ? T.left : T.right} ⇄</button>
         {onPractice && <button className="ost-btn ost-prac" onClick={() => { clearInterval(timer.current); setPlaying(false); (window as any).__octKeepFs = true; setTimeout(() => { (window as any).__octKeepFs = false; }, 3000); onPractice({ notes: upBase.map((q: any) => nameOf(q.m)), fingers: upBase.map((q: any) => q.f), mode: "scale", key: null, label: (label || "Scale") + " · " + octaves + " " + (lang === "th" ? "ออกเตฟ" : lang === "zh" ? "个八度" : "octaves") }); }}>{lang === "th" ? "ฝึก" : lang === "zh" ? "练习" : "Practice"}</button>}
         <button className="ost-btn" onClick={() => { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setBoth(!both); }} aria-pressed={both}>{both ? "↑↓" : "↑"}</button>
