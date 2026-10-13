@@ -67,7 +67,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
   );
 }
 export const OCTAVE_CSS = `
-.ost{position:fixed;inset:0;z-index:3000;display:flex;flex-direction:column;gap:10px;padding:12px calc(14px + env(safe-area-inset-right,0px)) 10px calc(14px + env(safe-area-inset-left,0px));background:var(--bg,#fff);color:var(--text,#222);font-family:var(--f-app,system-ui)}
+.ost{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;gap:10px;padding:12px calc(14px + env(safe-area-inset-right,0px)) 10px calc(14px + env(safe-area-inset-left,0px));background:var(--bg,#fff);color:var(--text,#222);font-family:var(--f-app,system-ui)}
 .ost.rot{inset:auto;top:0;left:100vw;width:100vh;height:100vw;transform-origin:top left;transform:rotate(90deg)}
 .ost-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ost-title{font-size:18px}.ost-oct{font-weight:800;color:var(--clay,#d97757)}
 .ost-notes{flex:1;display:flex;flex-wrap:wrap;gap:4px;min-width:140px}.ost-notes span{padding:3px 7px;border-radius:999px;background:var(--card2,#f3f3f3);font-size:12px;font-weight:700}.ost-notes span.on{background:var(--clay,#d97757);color:#fff}
