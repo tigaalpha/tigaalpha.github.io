@@ -161,6 +161,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
         else if (k.startsWith("colb:")) { const c = S.grid[n]; if (c) { c.b = k.slice(5); c.f = c.f; } }
         else if (k.startsWith("colc:") && p) { p.say = k.slice(5); }
         else if (k === "colh") { S.hz = HZ_DUR; sfx.play("hurt"); }              // the host decides when a hazard strikes, so the whole team shares it
+        else if (k.startsWith("cols:")) { const v = k.slice(5).split(",").map(Number); ["en", "wa", "ox", "fo"].forEach((r, i) => { if (isFinite(v[i])) S.stock[r] = v[i]; }); }   // the host's power, water, oxygen and food are the team's
         else if (k === "colp") { S.pop = n; S.peak = Math.max(S.peak, n); }      // and the host's population is the team's, so everyone reaches the target together
         setTick(x => x + 1); } });
     }
@@ -207,7 +208,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
     const id = setInterval(() => {
       const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000) * SPEEDS[speedRef.current]; last = now; if (pausedRef.current || S.ended) return;
       S.t += dt; S.days = Math.floor(S.t / DAY); step(dt);
-      if (net && net.host) { S.syncT = (S.syncT || 0) - dt; if (S.syncT <= 0) { S.syncT = 3; net.sendEv("colp", Math.round(S.pop * 100) / 100); } }
+      if (net && net.host) { S.syncT = (S.syncT || 0) - dt; if (S.syncT <= 0) { S.syncT = 3; net.sendEv("colp", Math.round(S.pop * 100) / 100); net.sendEv("cols:" + ["en", "wa", "ox", "fo"].map(r => Math.round(S.stock[r] * 10) / 10).join(","), 0); } }
       if (S.pop >= site.target && !S.won && ["en", "wa", "ox", "fo"].every(k => S.stock[k] > 5)) { S.won = true; S.ended = true; sfx.play("win"); const stars = S.days <= 150 ? 3 : S.days <= 220 ? 2 : 1; setTimeout(() => onWin({ colony: { pop: Math.round(S.pop), target: site.target, days: S.days, stars, kind: P.kind, career: careerRef.current }, kills: 0, cry: 10 + 4 * stars, loot: {}, mode: "colony" }), 2200); }
       else if (S.pop < 1 && !S.ended) { S.ended = true; sfx.play("hurt"); }
       setTick(x => (x + 1) % 1e6);
