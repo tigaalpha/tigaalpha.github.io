@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:bundle/space3d-main-B2a_69Av.js
 import{r as Z,aa as cS,j as oe,ab as ep}from"./index.template-BXfOSih3.js";/**
+========
+import{r as Z,aa as cS,j as oe,ab as ep}from"./index.template-y2JFtPnF.js";/**
+>>>>>>>> origin/main:bundle/space3d-main-j11XxyPQ.js
  * @license
  * Copyright 2010-2025 Three.js Authors
  * SPDX-License-Identifier: MIT
