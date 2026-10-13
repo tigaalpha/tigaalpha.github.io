@@ -56,6 +56,13 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
   await p.evaluate(() => { window.__advShip.setHpS(40); window.__advShip.answer(true); }); ok("a right answer repairs the ship", (await p.evaluate(() => window.__advShip.hpNow())) >= 60);
   for (const [k, add] of [["cell", 5], ["nuke", 9], ["h2", 6]]) { await p.evaluate(() => window.__advShip.setHpS(30)); await p.evaluate((kk) => window.__advShip.givePod(kk), k); await p.waitForTimeout(250); const h = await p.evaluate(() => window.__advShip.hpNow()); ok("refuel pod " + k + " restores ship health", h >= 30 + add - 1 && h <= 30 + add + 3, String(h)); }
   for (const k of ["cell", "nuke", "h2"]) { await p.evaluate(() => { window.__advShip.formEnd(); }); await p.waitForTimeout(150); await p.evaluate((kk) => window.__advShip.givePod(kk), k); await p.waitForTimeout(300); const c0 = await p.evaluate(() => window.__advShip.powerNow().chg); await p.locator("[data-power]").dispatchEvent("pointerdown"); await p.waitForTimeout(300); const st = await p.evaluate(() => window.__advShip.powerNow()); ok("POWER button uses a stored charge and changes the ship form (" + k + ")", st.form !== null && Object.values(c0).reduce((a, b) => a + b, 0) >= 1, JSON.stringify([c0, st])); }
+  await p.evaluate(() => { window.__advShip.god(); window.__advShip.warpFill(); }); await p.locator("[data-warp]").dispatchEvent("pointerdown"); await p.waitForTimeout(900);
+  const wn = await p.evaluate(() => window.__advShip.warpNow()); ok("WARP button opens a portal ahead of the ship and empties the warp energy", !!wn.portal && wn.wp < 20, JSON.stringify(wn));
+  await p.evaluate((q) => window.__advShip.setShip(q.x, q.y), wn.portal || { x: 400, y: 200 }); await p.waitForTimeout(300);
+  ok("flying into the portal closes it (the space fold)", (await p.evaluate(() => window.__advShip.warpNow().portal)) === null);
+  await p.evaluate(() => { window.__advShip.laserFill(); const sp = window.__advShip.shipPos(); window.__advShip.spawn("drone"); }); const k0 = await p.evaluate(() => window.__advShip.state().kills);
+  await p.locator("[data-laser]").dispatchEvent("pointerdown"); await p.waitForTimeout(600); const l1 = await p.evaluate(() => window.__advShip.laserNow()); await p.waitForTimeout(900); const l2 = await p.evaluate(() => window.__advShip.laserNow());
+  ok("LASER charges then fires one beam and empties its charge", l1.on >= 0 && l1.on < 1.1 && l2.lz < 30, JSON.stringify([l1, l2]));
   ok("no errors (relay)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
 {

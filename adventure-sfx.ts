@@ -6,7 +6,7 @@ import { playSig, type Voice } from "./fx-voice";
 import { getSfxMuted } from "./music-engine";
 
 export type AdvSfx = { play: (kind: string, v?: Voice | null, spec?: any) => void; setOn: (on: boolean) => void; close: () => void };
-const GAP: Record<string, number> = { punch: 90, kick: 120, fire: 70, hit: 55, pop: 80, pickup: 60, hurt: 120, jump: 100, dash: 150, skill: 200, spell: 300, slam: 200, pet: 90, win: 500, rocket: 400, boom: 120, cast: 80, zap: 80, lscount: 120, lsboost: 600, pwcell: 600, pwnuke: 600, pwh2: 600 };
+const GAP: Record<string, number> = { punch: 90, kick: 120, fire: 70, hit: 55, pop: 80, pickup: 60, hurt: 120, jump: 100, dash: 150, skill: 200, spell: 300, slam: 200, pet: 90, win: 500, rocket: 400, boom: 120, cast: 80, zap: 80, lscount: 120, lsboost: 600, pwcell: 600, pwnuke: 600, pwh2: 600, wopen: 700, wjump: 600, lzcharge: 1200, lzfire: 900 };
 export function createAdvSfx(): AdvSfx {
   let ac: AudioContext | null = null, bus: GainNode | null = null, nz: AudioBuffer | null = null, on = true; const last: Record<string, number> = {};
   const ensure = () => {
@@ -60,6 +60,13 @@ export function createAdvSfx(): AdvSfx {
           tone("sawtooth", 50, 220, 0.2, 0.45); tone("sine", 70, 70, 0.3, 0.45); hiss(900, 0.4, 0.45, "bandpass", 3000, 0); tone("sine", 140, 30, 0.6, 0.9, 0.45); hiss(240, 0.6, 0.8, "lowpass", 90, 0.45); tone("sine", 1180, 1180, 0.1, 1.2, 0.5); break; }
         case "pwh2": {   // hydrogen boost: a hissing ignition and a rising whoosh
           hiss(3000, 0.5, 0.6, "bandpass", 7000, 0); tone("sawtooth", 180, 1100, 0.18, 0.7); tone("square", 90, 540, 0.1, 0.7); tone("sine", 100, 45, 0.25, 0.5, 0.2); break; }
+        case "wopen": {   // the portal tearing open: a falling-then-rising wobble and a shimmer
+          tone("sine", 900, 120, 0.25, 0.7); tone("sine", 120, 700, 0.2, 0.6, 0.45); hiss(4200, 0.2, 0.9, "bandpass", 700, 0); for (let i = 0; i < 4; i++) tone("triangle", 500 + i * 180, 500 + i * 180, 0.07, 0.4, 0.5 + i * 0.1); break; }
+        case "wjump": { tone("sawtooth", 80, 2400, 0.22, 0.45); hiss(600, 0.5, 0.5, "bandpass", 7000, 0); tone("sine", 160, 25, 0.5, 0.9, 0.3); hiss(200, 0.6, 0.7, "lowpass", 80, 0.3); break; }
+        case "lzcharge": {   // the superlaser charging: a rising whine that gets higher and louder
+          tone("sawtooth", 80, 1900, 0.16, 1.15); tone("sine", 160, 3600, 0.12, 1.15); tone("square", 55, 220, 0.1, 1.15); hiss(1500, 0.15, 1.1, "bandpass", 6000, 0); break; }
+        case "lzfire": {   // the big red beam: a huge crack, a thick buzzing roar and a sub boom
+          hiss(6000, 0.7, 0.18, "highpass", 600, 0); tone("sawtooth", 1400, 70, 0.4, 0.5); tone("square", 110, 55, 0.3, 0.9); tone("sine", 70, 24, 0.7, 1.1); hiss(380, 0.5, 1.0, "lowpass", 100, 0.05); break; }
         case "zap": hiss(3600, 0.5, 0.08, "highpass"); tone("sawtooth", 2800, 90, 0.2, 0.24); tone("square", 130, 55, 0.13, 0.22); hiss(520, 0.38, 0.6, "lowpass", 90, 0.05); tone("sine", 72, 28, 0.42, 0.55, 0.06); break;
         case "boom": hiss(240, 0.5, 0.6, "lowpass"); tone("sine", 150, 28, 0.5, 0.6); break;
         case "cast": {   // one skill: the archetype sets the shape of the sound, the id-derived pitch / wave / brightness make it its own
