@@ -26,9 +26,9 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
 export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClose }: any) {
   const [both, setBoth] = useState(false);
   const seq = useMemo(() => { const up = extendPattern(notes, octaves); return both ? [...up, ...up.slice(0, -1).reverse()] : up; }, [notes, octaves, both]);
-  const [cur, setCur] = useState(-1); const [playing, setPlaying] = useState(false); const [portrait, setPortrait] = useState(false);
+  const [cur, setCur] = useState(-1); const [next, setNext] = useState(0); const [bad, setBad] = useState(-1); const [playing, setPlaying] = useState(false); const [portrait, setPortrait] = useState(false);
   const timer = useRef<any>(null);
-  const T = { th: { play: "เล่นให้ดู", stop: "หยุด", close: "ปิด", notes: "โน้ต", left: "มือซ้าย", right: "มือขวา", tap: "แตะคีย์เพื่อเล่นเอง" }, en: { play: "Play it", stop: "Stop", close: "Close", notes: "Notes", left: "Left hand", right: "Right hand", tap: "Tap the keys to play" }, zh: { play: "示范", stop: "停止", close: "关闭", notes: "音符", left: "左手", right: "右手", tap: "点击琴键自己弹" } }[lang as "th" | "en" | "zh"] || ({} as any);
+  const T = { th: { play: "เล่นให้ดู", stop: "หยุด", close: "ปิด", notes: "โน้ต", left: "มือซ้าย", right: "มือขวา", tap: "ถึงตาคุณ: กดคีย์ที่ไฟส้มรออยู่" }, en: { play: "Play it", stop: "Stop", close: "Close", notes: "Notes", left: "Left hand", right: "Right hand", tap: "Your turn: press the key the orange light is on" }, zh: { play: "示范", stop: "停止", close: "关闭", notes: "音符", left: "左手", right: "右手", tap: "轮到你：按橙色灯亮着的琴键" } }[lang as "th" | "en" | "zh"] || ({} as any);
   useEffect(() => {
     try { const el: any = document.documentElement; if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {}); (screen.orientation as any)?.lock?.("landscape").catch(() => {}); } catch (e) {}
     const chk = () => setPortrait(window.innerHeight > window.innerWidth); chk(); window.addEventListener("resize", chk);
@@ -43,17 +43,18 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
   const lo = Math.floor((Math.min(...seq.map(s => s.m)) - 12) / 12) * 12 + 12, hi = Math.ceil((Math.max(...seq.map(s => s.m)) - 11) / 12) * 12 + 12 + 11;
   const whites: number[] = [], blacks: number[] = []; for (let m = lo; m <= hi; m++) (NAMES[m % 12].length === 1 ? whites : blacks).push(m);
   const wIndex = (m: number) => whites.indexOf(m), wW = 100 / whites.length;
-  const litM = cur >= 0 ? seq[cur].m : -1, finger = cur >= 0 ? seq[cur].f : 0;
-  const tap = (m: number) => { try { playPianoNote(nameOf(m), 0.7, 1); } catch (e) {} const j = seq.findIndex(s => s.m === m); if (j >= 0) setCur(j); };
+  // While the demo plays, the light follows it; otherwise it waits on the key the learner has to press next ("your turn").
+  const idx = playing ? cur : Math.min(next, seq.length - 1), litM = idx >= 0 ? seq[idx].m : -1, finger = idx >= 0 ? seq[idx].f : 0;
+  const tap = (m: number) => { try { playPianoNote(nameOf(m), 0.7, 1); } catch (e) {} if (playing) return; if (m === seq[idx].m) setNext((idx + 1) % seq.length); else { setBad(m); setTimeout(() => setBad(-1), 350); } };
   const inSeq = new Set(seq.map(s => s.m));
   const litBlack = litM >= 0 && NAMES[litM % 12].length > 1, litW = litM >= 0 ? (litBlack ? wIndex(litM - 1) + 1 - 0.3 : wIndex(litM)) : 0, runLeft = litW * wW, runW = litBlack ? wW * 0.6 : wW;   // the orange running light sits on the key being taught and glides to the next
   return createPortal(
     <div className={"ost" + (portrait ? " rot" : "")} role="dialog" aria-label="octave practice">
       <div className="ost-top">
         <b className="ost-title">{label}</b><span className="ost-oct">{octaves}×</span>
-        <div className="ost-notes" aria-label={T.notes}>{seq.map((s, i) => <span key={i} className={i === cur ? "on" : ""}>{NAMES[s.m % 12]}</span>)}</div>
+        <div className="ost-notes" aria-label={T.notes}>{seq.map((s, i) => <span key={i} className={i === idx ? "on" : ""}>{NAMES[s.m % 12]}</span>)}</div>
         <button className="ost-btn" onClick={() => setHand(hand === "left" ? "right" : "left")}>{hand === "left" ? T.left : T.right} ⇄</button>
-        <button className="ost-btn" onClick={() => { clearInterval(timer.current); setPlaying(false); setCur(-1); setBoth(!both); }} aria-pressed={both}>{both ? "↑↓" : "↑"}</button>
+        <button className="ost-btn" onClick={() => { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setBoth(!both); }} aria-pressed={both}>{both ? "↑↓" : "↑"}</button>
         <button className="ost-btn go" onClick={run}>{playing ? "⏸ " + T.stop : "▶ " + T.play}</button>
         <button className="ost-btn" onClick={onClose} aria-label={T.close}>✕</button>
       </div>
@@ -67,8 +68,8 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
       </div>
       <div className="ost-kbwrap">
         <div className="ost-kb">
-          {whites.map(m => <button key={m} className={"ow" + (m === litM ? " lit" : inSeq.has(m) ? " in" : "")} style={{ left: wIndex(m) * wW + "%", width: wW + "%" }} onClick={() => tap(m)} aria-label={nameOf(m)}><i>{NAMES[m % 12] === "C" ? nameOf(m) : NAMES[m % 12]}</i></button>)}
-          {blacks.map(m => { const w = wIndex(m - 1); return <button key={m} className={"ob" + (m === litM ? " lit" : inSeq.has(m) ? " in" : "")} style={{ left: (w + 1) * wW - wW * 0.3 + "%", width: wW * 0.6 + "%" }} onClick={() => tap(m)} aria-label={nameOf(m)} />; })}
+          {whites.map(m => <button key={m} className={"ow" + (m === litM ? " lit" : inSeq.has(m) ? " in" : "") + (m === bad ? " bad" : "")} style={{ left: wIndex(m) * wW + "%", width: wW + "%" }} onClick={() => tap(m)} aria-label={nameOf(m)}><i>{NAMES[m % 12] === "C" ? nameOf(m) : NAMES[m % 12]}</i></button>)}
+          {blacks.map(m => { const w = wIndex(m - 1); return <button key={m} className={"ob" + (m === litM ? " lit" : inSeq.has(m) ? " in" : "") + (m === bad ? " bad" : "")} style={{ left: (w + 1) * wW - wW * 0.3 + "%", width: wW * 0.6 + "%" }} onClick={() => tap(m)} aria-label={nameOf(m)} />; })}
           {litM >= 0 && <div className="ost-run" style={{ left: runLeft + "%", width: runW + "%" }} />}
         </div>
       </div>
@@ -88,6 +89,7 @@ export const OCTAVE_CSS = `
 .ost-kb .ow{position:absolute;top:0;bottom:0;border:1px solid #888;border-top:0;background:#fff;border-radius:0 0 8px 8px;padding:0;cursor:pointer;display:flex;align-items:flex-end;justify-content:center}.ost-kb .ow i{font-style:normal;font-size:11px;font-weight:700;color:#666;margin-bottom:6px}
 .ost-kb .ow.in{background:#fde7de}.ost-kb .ow.lit{background:#ff9a5a;box-shadow:inset 0 0 18px rgba(217,119,87,.9)}.ost-kb .ow.lit i{color:#fff}
 .ost-kb .ob{position:absolute;top:0;height:60%;background:#1b1b1b;border:0;border-radius:0 0 6px 6px;z-index:2;cursor:pointer}.ost-kb .ob.in{background:#a8543a}.ost-kb .ob.lit{background:#ff7a2a;box-shadow:0 0 14px #ff7a2a}
+.ost-kb .ow.bad{background:#ffb4b4!important}.ost-kb .ob.bad{background:#c0392b!important}
 .ost-run{position:absolute;top:0;height:8px;z-index:3;background:linear-gradient(90deg,#ffb36b,#ff6a1f);border-radius:0 0 8px 8px;box-shadow:0 0 18px 4px rgba(255,122,42,.85);transition:left .16s ease-out,width .16s ease-out;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.ost-run{transition:none}}
 .ost-hint{font-size:12px;color:var(--muted,#777);text-align:center}
