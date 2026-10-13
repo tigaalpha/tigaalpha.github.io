@@ -57,6 +57,7 @@ MOODS.shipbuild = { ...MOODS.helios, bpm: 104, gain: 0.58 };
 MOODS.dysonbuild = { ...MOODS.helios, bpm: 96, gain: 0.58 };
 MOODS.gasbuild = { ...MOODS.jovia, bpm: 100, gain: 0.56 };
 MOODS.minebuild = { ...MOODS.kryo, bpm: 92, gain: 0.56 };
+MOODS.spaceranch = { ...MOODS.luma, bpm: 108, gain: 0.55 };
 MOODS.colmoon = { ...MOODS.kryo, bpm: 78, gain: 0.55 };
 MOODS.colmars = { ...MOODS.pyra, bpm: 92, gain: 0.55 };
 MOODS.coltitan = { ...MOODS.kryo, bpm: 70, gain: 0.55 };
