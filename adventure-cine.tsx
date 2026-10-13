@@ -29,7 +29,7 @@ const THEME_TAG: Record<string, L3> = {
   dark: ["พลังงานใหม่ · สสารมืด", "NEW POWER · DARK MATTER", "新能源 · 暗物质"],
 };
 /* the new storyline (owner, 2026-10-12): the Harvesters, the Kindred, and TIGA's hunger for energy. One extra "lore" shot per map, with its own scene. */
-const LORE_THEME: Record<string, string> = { kindred: "friend", darkforge: "dark", shadow: "harvest", luma: "harvest", ferro: "ai", jovia: "reactor", kryo: "friend", pyra: "reactor", nexa: "harvest", cobalt: "ai", helios: "ai", dyson: "dark", ashfall: "harvest", voidgate: "harvest", asteroids: "friend", gasskim: "reactor", starharvest: "dark", solarcharge: "reactor", dysondock: "ai", gaspump: "reactor", warpjump: "harvest", blackhole: "dark", deathstar: "harvest", arkfarm: "friend", arkherd: "ai", moonhe3: "ai", moonbase: "friend", marscolony: "harvest", mercury: "reactor", venussky: "friend", jupitergas: "reactor", saturnrings: "ai", titanassault: "harvest", titancolony: "friend", arkbuild: "dark", arkexodus: "harvest" };
+const LORE_THEME: Record<string, string> = { kindred: "friend", darkforge: "dark", shadow: "harvest", luma: "harvest", ferro: "ai", jovia: "reactor", kryo: "friend", pyra: "reactor", nexa: "harvest", cobalt: "ai", helios: "ai", dyson: "dark", ashfall: "harvest", voidgate: "harvest", asteroids: "friend", gasskim: "reactor", starharvest: "dark", solarcharge: "reactor", dysondock: "ai", gaspump: "reactor", warpjump: "harvest", blackhole: "dark", deathstar: "harvest", colmoon: "friend", colmars: "reactor", coltitan: "ai", colproxima: "harvest", arkfarm: "friend", arkherd: "ai", moonhe3: "ai", moonbase: "friend", marscolony: "harvest", mercury: "reactor", venussky: "friend", jupitergas: "reactor", saturnrings: "ai", titanassault: "harvest", titancolony: "friend", arkbuild: "dark", arkexodus: "harvest" };
 const LORE: Record<string, L3> = {
   luma: ["ป่านี้ถูกสแกนแล้ว โดรนสอดแนมของฮาร์เวสเตอร์เห็นเราก่อนเราเห็นมัน — ต้องรีบตั้งฐานก่อนพวกมันกลับมา", "This jungle has already been scanned. A Harvester scout saw us before we saw it. We must build before they return.", "这片丛林已被扫描过。收割者的侦察机比我们先发现了对方，必须在它们回来之前建好基地。"],
   ferro: ["TIGA ต้องการแร่และพลังงานมากขึ้นทุกวัน แร่เหล็กที่นี่คือสมองก้อนใหม่ของมัน", "TIGA needs more ore and power every day. The iron here is the next piece of its mind.", "TIGA 一天比一天需要更多矿石与能源，这里的铁矿将成为它新的大脑。"],
@@ -63,6 +63,10 @@ const LORE: Record<string, L3> = {
   warpjump: ["ฮาร์เวสเตอร์เห็นเราได้ทุกที่ในจักรวาลนี้ จึงต้องไปให้ไกลเกินสายตาพวกมัน", "The Harvesters see us everywhere in this universe, so we must go beyond their sight.", "收割者能在这个宇宙里看到我们，所以必须去它们看不到的地方。"],
   blackhole: ["ไม่มีใครเคยกลับมาจากหลุมดำ แต่ที่ขอบของมันมีประตูสู่จักรวาลอื่น", "No one has returned from a black hole, but at its edge lies a door to another universe.", "从来没人能从黑洞返回，但它的边缘有通往另一个宇宙的门。"],
   deathstar: ["ทุกดวงดาวที่ฮาร์เวสเตอร์เก็บเกี่ยว ถูกสถานีนี้ยิงให้ดับ ถ้ามันหันมาทางเรา โลกจะไม่เหลือ", "Every star the Harvesters reaped was shot dark by this station. If it turns on us, Earth is gone.", "收割者收割的每颗恒星，都是被这座要塞击灭的。它若转向我们，地球将不复存在。"],
+  colmoon: ["เมืองแรกนอกโลกต้องอยู่รอดให้ได้ก่อน แล้วค่อยเติบโต", "The first city beyond Earth must survive before it can grow.", "地球之外的第一座城，必须先活下来，才能成长。"],
+  colmars: ["ดาวอังคารไม่ให้อะไรฟรี แต่ใต้ผืนทรายสีแดงมีน้ำแข็งรออยู่", "Mars gives nothing for free, but ice waits under the red sand.", "火星不会白白给予，但红色沙土之下藏着冰。"],
+  coltitan: ["ไททันหนาวจนเหล็กเปราะ แต่มีเชื้อเพลิงล้นดวง ถ้ารู้วิธีใช้", "Titan is cold enough to make steel brittle, yet it brims with fuel for those who know how to use it.", "土卫六冷得能让钢铁变脆，但懂得利用的人，会发现它遍地是燃料。"],
+  colproxima: ["ที่นี่คือบ้านหลังใหม่ ห่างจากโลกสี่ปีแสง ไม่มีใครมาช่วยได้แล้ว", "This is a new home four light-years from Earth. No one can come to help anymore.", "这里是距地球四光年的新家园，再没有人能来救援。"],
   starharvest: ["ดาวดวงนี้ใหญ่พอจะเลี้ยง TIGA ได้นาน แต่ที่สำคัญกว่าคือมันมีสสารมืดหนาแน่นอยู่รอบๆ ซึ่งอาจเป็นอนาคตของเรา", "This star could feed TIGA for a long time, but what matters more is the dense dark matter around it, which may be our future.", "这颗恒星足以供养 TIGA 很久，但更重要的是它周围浓密的暗物质，那可能就是我们的未来。"],
   kindred: ["ไคนด์เรดสอนว่า ความรู้ไม่ได้ลดค่าเมื่อแบ่งกัน — เราแลกแร่กับวิธีทำวัสดุที่แข็งแกร่งกว่าเดิมสิบเท่า", "The Kindred teach that knowledge is not spent by sharing. We trade ore for ways to make materials ten times stronger.", "友族教导我们，知识不会因分享而减少——我们用矿石换来强度提高十倍的材料工艺。"],
   darkforge: ["สสารมืดไม่เปล่งแสง แต่แบกมวลมหาศาล ถ้าควบคุมได้ TIGA จะมีพลังงานพอโดยไม่ต้องเลี้ยงด้วยดาวฤกษ์อีก", "Dark matter gives off no light but carries immense mass. Tame it, and TIGA will have power without feeding on more stars.", "暗物质不发光却蕴含巨大质量。驯服它，TIGA 就不必再靠吞噬恒星获得能量。"],
@@ -104,6 +108,10 @@ const INTRO: Record<string, L3> = {
   warpjump: ["เครื่องยนต์วาร์ปพร้อมแล้ว บินผ่านประตูวาร์ปให้ครบเพื่อเปิดทางข้ามจักรวาล", "The warp drive is ready: fly the warp gates in order to open the way across.", "曲速引擎就绪：依次穿过曲速门，打开跨越之路。"],
   blackhole: ["หลุมดำดึงทุกอย่างเข้าไป ยานต้องดิ้นสู้แรงโน้มถ่วงให้ได้ก่อนประตูจะเปิด", "The black hole drags everything in. Hold out against its pull until the door opens.", "黑洞会吞噬一切，在门打开之前要抵抗它的引力。"],
   deathstar: ["สถานีรบทรงกลมลอยนิ่งเหนือดาวร้าง ปืนใหญ่ประจำสถานีกำลังชาร์จเล็งมาทางฝูงบินของเรา", "A spherical battle station hangs over a dead world, its great cannon charging toward our fleet.", "一座球形战争堡垒悬在死寂的星球上空，巨炮正对准我们的舰队充能。"],
+  colmoon: ["พื้นผิวสีเทาเงียบสงัด เรามีแค่ที่พักหลังแรก แผงโซลาร์ และวัสดุติดตัวมา", "A silent grey plain. All we have is one habitat, a solar farm and what we carried.", "寂静的灰色平原上，我们只有一座居住舱、一片太阳能场和随身物资。"],
+  colmars: ["ลมพัดฝุ่นแดงลอยเหนือที่ราบ นักบุกเบิกชุดแรกกางที่พักหลังแรก", "Wind lifts red dust over the plain as the first pioneers unfold their first habitat.", "风卷着红尘掠过平原，首批先驱者撑起了第一座居住舱。"],
+  coltitan: ["ท้องฟ้าสีส้มขุ่นและฝนมีเทน ใต้ผิวน้ำแข็งแข็งเป็นหินคือน้ำที่เราต้องการ", "Under a murky orange sky and a rain of methane, the rock-hard ice hides the water we need.", "浑浊的橙色天空下落着甲烷雨，坚硬如岩的冰层下藏着我们需要的水。"],
+  colproxima: ["ดาวแม่สีแดงใหญ่เต็มฟ้า เงาของมันทอดยาวบนพื้นดินที่ไม่เคยมีใครเหยียบ", "A huge red sun fills the sky, its light stretched over ground no one has ever walked.", "巨大的红色恒星占满天空，光芒洒在从未有人踏足的土地上。"],
   departure: ["วันออกเดินทางมาถึงแล้ว — กองเรือบุกเบิกพร้อมที่แท่นปล่อย", "Launch day. The pioneer fleet waits on the pad.", "启程之日到来，先遣舰队已在发射台待命。"],
   asteroids: ["ทุ่งดาวเคราะห์น้อย — แร่ล้ำค่าลอยอยู่เต็มท้องฟ้า แต่โจรอวกาศก็เช่นกัน", "The asteroid field: precious ore drifts everywhere, and so do pirates.", "小行星带——珍贵矿石漂浮四处，太空海盗也是。"],
   dyson: ["ไดสันฟอร์จ — ดาวฤกษ์จากจักรวาลอื่นที่เรากำลังจะหุ้มด้วยแผงเก็บพลังงานทั้งดวง", "Dyson Forge: a star from another universe, which we will wrap in a shell of energy panels.", "戴森锻炉——来自另一个宇宙的恒星，我们要用能量板把它整个包起来。"],
@@ -143,6 +151,10 @@ const STORY: Record<string, L3> = {
   warpjump: ["บินทะลุประตูวาร์ปทั้งสามบาน ถ้าพลาดประตูจะเปิดใหม่ แล้วพุ่งเข้าพอร์ทัลสุดท้าย", "Fly through all three warp gates (a missed gate comes round again), then dive into the final portal.", "穿过三道曲速门（错过会再次出现），然后冲入最后的传送门。"],
   blackhole: ["ต้านแรงดึงให้นานพอ เก็บคริสตัลที่ขอบ เมื่อประตูสว่างให้พุ่งเข้าไปตรงกลาง", "Resist the pull, gather crystals at the rim, and when the door lights up, dive into the centre.", "抵抗引力，在边缘收集水晶，门亮起时冲向中心。"],
   deathstar: ["ฝ่าฝูงยานคุ้มกัน ชาร์จเลเซอร์หลักให้เต็ม แล้วยิงทะลวงใจกลางสถานีให้ระเบิดทั้งดวง", "Break through the escorts, charge the main laser and fire into the station's heart to blow it apart.", "突破护卫舰队，为主激光充满能量，射入要塞核心将其整个炸毁。"],
+  colmoon: ["สร้างที่พัก ไฟ น้ำ ออกซิเจน และอาหารให้สมดุลจนมีประชากรครบเป้า", "Balance homes, power, water, oxygen and food until the colony reaches its target.", "平衡住房、电、水、氧气和食物，让殖民地人口达到目标。"],
+  colmars: ["ขุดน้ำแข็ง วางแผงโซลาร์ให้พอ และเตรียมรับพายุฝุ่น", "Mine the ice, lay enough solar and prepare for the dust storms.", "开采冰层，铺足太阳能，并为沙尘暴做好准备。"],
+  coltitan: ["วิจัยสร้างเครื่องปฏิกรณ์ฟิวชัน เพราะแสงอาทิตย์แทบไม่มี", "Research fusion reactors, because there is almost no sunlight.", "研发聚变反应堆，因为这里几乎没有阳光。"],
+  colproxima: ["ใช้แร่ล้ำค่าสร้างเมืองให้ใหญ่ และรับมือแฟลร์ของดาวแม่", "Use the rich ore to build big and ride out the flares of the red sun.", "用丰富的矿藏建设大城，并扛过红矮星的耀发。"],
   departure: ["ผ่านเศษขยะอวกาศและก้อนหินที่ลอยอยู่เหนือโลก ไปให้ถึงวงโคจร", "Fly through the debris and loose rock above the Earth to reach orbit.", "穿过地球上空的碎片与浮石，抵达轨道。"],
   asteroids: ["ยิงหินให้แตก ดูดแร่ใส่ท้องยาน แล้วส่งกลับโลกให้ครบ", "Blast the rocks, scoop the ore into the hold and send it home.", "击碎岩石，把矿石吸进货舱，运回地球。"],
   dyson: ["หุ่นยนต์ต้องขุดแร่ ประกอบแผงไดสันทีละแผง และสูบพลังงานดาวฤกษ์ส่งกลับโลก — ท่ามกลางเปลวสุริยะและฝูงเอเลี่ยน", "Robots mine the ore, bolt the Dyson panels on one by one, and beam the star's power home, under solar flares and alien raiders.", "机器人开采矿石，逐块装上戴森板，把恒星的能量传回家园——头顶是耀斑与外星袭击者。"],
@@ -182,6 +194,10 @@ const GOAL: Record<string, L3[]> = {
   warpjump: [["บินผ่านประตูวาร์ปทั้ง 3 บาน", "Fly through all 3 warp gates", "穿过全部 3 道曲速门"], ["หลบเศษซากในอวกาศวาร์ป", "Dodge the warp debris", "躲开曲速碎片"], ["พุ่งเข้าพอร์ทัลไปอีกกาแล็กซี", "Dive into the portal to another galaxy", "冲入传送门前往另一个星系"]],
   blackhole: [["ต้านแรงดึงของหลุมดำ", "Resist the black hole's pull", "抵抗黑洞的引力"], ["อย่าเข้าใกล้ขอบก่อนประตูเปิด", "Stay off the horizon until the door opens", "门开启前别靠近视界"], ["พุ่งเข้าตรงกลางเมื่อประตูสว่าง", "Dive into the centre when it lights up", "门亮起时冲向中心"]],
   deathstar: [["ชาร์จเลเซอร์หลักให้เต็ม", "Charge the main laser", "为主激光充能"], ["หลบลำแสงหลักของสถานี", "Dodge the station's main beam", "躲开要塞的主炮光束"], ["ทำลายสถานีทั้งดวง", "Destroy the whole station", "摧毁整座要塞"]],
+  colmoon: [["ให้ประชากรถึง 40 คน", "Reach a population of 40", "人口达到 40"], ["ไฟ น้ำ อากาศ อาหารต้องไม่ขาด", "Never run out of power, water, air or food", "电、水、空气、食物都不能断"], ["รอดผ่านกลางคืนยาว", "Survive the long night", "撑过漫长的月夜"]],
+  colmars: [["ให้ประชากรถึง 60 คน", "Reach a population of 60", "人口达到 60"], ["ขุดน้ำแข็งให้พอใช้", "Mine enough ice", "开采足够的冰"], ["รอดผ่านพายุฝุ่น", "Survive the dust storms", "撑过沙尘暴"]],
+  coltitan: [["ให้ประชากรถึง 80 คน", "Reach a population of 80", "人口达到 80"], ["วิจัยและสร้างเครื่องปฏิกรณ์ฟิวชัน", "Research and build fusion reactors", "研发并建造聚变反应堆"], ["ผ่านความหนาวจัดไปให้ได้", "Endure the deep freeze", "熬过严寒"]],
+  colproxima: [["ให้ประชากรถึง 110 คน", "Reach a population of 110", "人口达到 110"], ["ใช้แร่สร้างเมืองให้ใหญ่", "Turn the ore into a big city", "把矿藏变成一座大城"], ["รับมือแฟลร์ของดาวแม่", "Ride out the stellar flares", "扛过恒星耀发"]],
   departure: [["ยิงหรือหลบก้อนหินและเศษขยะ", "Shoot or dodge the rocks and debris", "击碎或躲开岩石与碎片"], ["รักษาตัวยานไว้จนถึงวงโคจร", "Keep the ship intact all the way to orbit", "保持飞船完好直至入轨"], ["เก็บคริสตัลที่ลอยมา", "Pick up the crystals that drift by", "收集漂浮的水晶"]],
   asteroids: [["ยิงหินให้แตกเป็นแร่", "Blast rocks into ore", "把岩石击碎成矿石"], ["เก็บแร่ให้ครบ 16 ก้อน", "Collect 16 ore", "收集 16 块矿石"], ["ระวังโจรอวกาศ", "Beware of space pirates", "小心太空海盗"]],
   dyson: [["ทุบหินหาแร่ด้วยปุ่ม ⛏", "Break rocks for ore with the ⛏ button", "用 ⛏ 按钮敲碎岩石获取矿石"], ["ประกอบแผงไดสัน 4 แผงที่โครงเหล็ก", "Bolt 4 Dyson panels onto the frames", "在框架上装配 4 块戴森板"], ["ส่งพลังงานกลับโลกที่เสาส่งขวาสุด", "Beam the energy to Earth from the far-right relay", "在最右中继塔把能量传回地球"]],
@@ -191,9 +207,9 @@ const GOAL: Record<string, L3[]> = {
   darkforge: [["ทุบหินหาแร่ด้วยปุ่ม ⛏", "Break rocks for ore with the ⛏ button", "用 ⛏ 按钮敲碎岩石获取矿石"], ["ประกอบภาชนะสสารมืด 4 ชิ้น", "Assemble 4 dark-matter vessels", "组装 4 个暗物质容器"], ["หลบเปลวพลังงานที่ปะทุ", "Dodge the energy flares", "躲开爆发的能量耀斑"]],
   shadow: [["ห้ามยิง — ยานต้องเงียบ", "No shooting: the ship stays dark", "禁止开火——飞船保持静默"], ["หลบลำแสงสแกนทั้งแนวนอนและแนวตั้ง", "Dodge scan beams, across and down", "躲开横向与纵向的扫描光束"], ["รอดให้ครบ 50 วินาที", "Survive 50 seconds", "存活满 50 秒"]],
 };
-const TYPE: Record<string, string> = { kindred: "ice", darkforge: "belt", shadow: "orbit", luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun", solarcharge: "sun", dysondock: "sun", gaspump: "gas", warpjump: "orbit", blackhole: "orbit", deathstar: "orbit", arkfarm: "orbit", arkherd: "orbit", moonhe3: "desert", moonbase: "desert", marscolony: "desert", mercury: "lava", venussky: "gas", jupitergas: "gas", saturnrings: "belt", titanassault: "ice", titancolony: "ice", arkbuild: "belt", arkexodus: "orbit" };
+const TYPE: Record<string, string> = { kindred: "ice", darkforge: "belt", shadow: "orbit", luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun", solarcharge: "sun", dysondock: "sun", gaspump: "gas", warpjump: "orbit", blackhole: "orbit", deathstar: "orbit", colmoon: "desert", colmars: "desert", coltitan: "ice", colproxima: "lava", arkfarm: "orbit", arkherd: "orbit", moonhe3: "desert", moonbase: "desert", marscolony: "desert", mercury: "lava", venussky: "gas", jupitergas: "gas", saturnrings: "belt", titanassault: "ice", titancolony: "ice", arkbuild: "belt", arkexodus: "orbit" };
 
-const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest", "solarcharge", "dysondock", "gaspump", "warpjump", "blackhole", "deathstar", "moonhe3", "moonbase", "marscolony", "mercury", "venussky", "jupitergas", "saturnrings", "titanassault", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus", "kindred", "darkforge", "shadow"];
+const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest", "solarcharge", "dysondock", "gaspump", "warpjump", "blackhole", "deathstar", "colmoon", "colmars", "coltitan", "colproxima", "moonhe3", "moonbase", "marscolony", "mercury", "venussky", "jupitergas", "saturnrings", "titanassault", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus", "kindred", "darkforge", "shadow"];
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
 /* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
 export function cinePlan(P: any, short?: boolean): CineShot[] {
@@ -589,13 +605,13 @@ function sceneObjective(x: Cx, W: number, H: number, t: number, P: any) {
 const catOf = (P: any): "fight" | "work" | "ship" => {
   const m = P && P.mission;
   if (["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole"].includes(m)) return "ship";
-  if (["mine", "dyson", "farm", "yard", "capture", "survival"].includes(m)) return "work";
+  if (["mine", "dyson", "farm", "yard", "colony", "capture", "survival"].includes(m)) return "work";
   return "fight";
 };
 const RES: Record<string, L3> = {
   mine: ["แร่", "ore", "矿石"], yard: ["ชิ้นส่วนของยาน", "ship sections", "舰体模块"], dyson: ["ชิ้นส่วนโครงสร้าง", "structural parts", "结构部件"], farm: ["อาหาร", "food", "粮食"], capture: ["พลังงานจากดาวฤกษ์", "stellar energy", "恒星能量"],
   survival: ["พลังงานจากบรรยากาศ", "atmospheric energy", "大气能量"], belt: ["แร่และน้ำแข็ง", "ore and ice", "矿与冰"], skim: ["แก๊สพลังงานสูง", "high-energy gas", "高能气体"],
-  harvest: ["พลังงานจากดาว", "star energy", "星能"], solar: ["แสงอาทิตย์", "sunlight", "阳光"],
+  harvest: ["พลังงานจากดาว", "star energy", "星能"], solar: ["แสงอาทิตย์", "sunlight", "阳光"], colony: ["วัสดุก่อสร้างและน้ำแข็ง", "building materials and ice", "建材和冰"],
 };
 const resOf = (P: any): L3 => RES[P && P.mission] || ["ทรัพยากร", "resources", "资源"];
 const NEWCAP: Record<string, Record<string, L3>> = {
