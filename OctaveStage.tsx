@@ -26,9 +26,9 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
 export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClose }: any) {
   const [both, setBoth] = useState(false);
   const seq = useMemo(() => { const up = extendPattern(notes, octaves); return both ? [...up, ...up.slice(0, -1).reverse()] : up; }, [notes, octaves, both]);
-  const [cur, setCur] = useState(-1); const [next, setNext] = useState(0); const [bad, setBad] = useState(-1); const [playing, setPlaying] = useState(false); const [portrait, setPortrait] = useState(false);
+  const [cur, setCur] = useState(-1); const [next, setNext] = useState(0); const [bad, setBad] = useState(-1); const [misses, setMisses] = useState(0); const [rounds, setRounds] = useState(0); const [praise, setPraise] = useState<string | null>(null); const [playing, setPlaying] = useState(false); const [portrait, setPortrait] = useState(false);
   const timer = useRef<any>(null);
-  const T = { th: { play: "เล่นให้ดู", stop: "หยุด", close: "ปิด", notes: "โน้ต", left: "มือซ้าย", right: "มือขวา", tap: "ถึงตาคุณ: กดคีย์ที่ไฟส้มรออยู่" }, en: { play: "Play it", stop: "Stop", close: "Close", notes: "Notes", left: "Left hand", right: "Right hand", tap: "Your turn: press the key the orange light is on" }, zh: { play: "示范", stop: "停止", close: "关闭", notes: "音符", left: "左手", right: "右手", tap: "轮到你：按橙色灯亮着的琴键" } }[lang as "th" | "en" | "zh"] || ({} as any);
+  const T = { th: { play: "เล่นให้ดู", stop: "หยุด", close: "ปิด", notes: "โน้ต", left: "มือซ้าย", perfect: "เยี่ยม! รอบนี้ไม่พลาดเลย", done: "จบรอบแล้ว พลาด {n} ครั้ง ลองอีกรอบ", round: "รอบที่ผ่าน", right: "มือขวา", tap: "ถึงตาคุณ: กดคีย์ที่ไฟส้มรออยู่" }, en: { play: "Play it", stop: "Stop", close: "Close", notes: "Notes", left: "Left hand", perfect: "Perfect! No slips this round", done: "Round done, {n} slips. Go again", round: "Rounds", right: "Right hand", tap: "Your turn: press the key the orange light is on" }, zh: { play: "示范", stop: "停止", close: "关闭", notes: "音符", left: "左手", perfect: "太棒了！这一轮没有失误", done: "本轮完成，失误 {n} 次，再来一轮", round: "完成轮数", right: "右手", tap: "轮到你：按橙色灯亮着的琴键" } }[lang as "th" | "en" | "zh"] || ({} as any);
   useEffect(() => {
     try { const el: any = document.documentElement; if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {}); (screen.orientation as any)?.lock?.("landscape").catch(() => {}); } catch (e) {}
     const chk = () => setPortrait(window.innerHeight > window.innerWidth); chk(); window.addEventListener("resize", chk);
@@ -45,7 +45,15 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
   const wIndex = (m: number) => whites.indexOf(m), wW = 100 / whites.length;
   // While the demo plays, the light follows it; otherwise it waits on the key the learner has to press next ("your turn").
   const idx = playing ? cur : Math.min(next, seq.length - 1), litM = idx >= 0 ? seq[idx].m : -1, finger = idx >= 0 ? seq[idx].f : 0;
-  const tap = (m: number) => { try { playPianoNote(nameOf(m), 0.7, 1); } catch (e) {} if (playing) return; if (m === seq[idx].m) setNext((idx + 1) % seq.length); else { setBad(m); setTimeout(() => setBad(-1), 350); } };
+  const tap = (m: number) => { try { playPianoNote(nameOf(m), 0.7, 1); } catch (e) {} if (playing) return; if (m === seq[idx].m) {
+      if (idx + 1 >= seq.length) {   // one full round done: a short word of praise with the honest count of slips, no reward attached
+        setRounds(r => r + 1);
+        setPraise(misses === 0 ? T.perfect : T.done.replace("{n}", String(misses)));
+        setTimeout(() => setPraise(null), 2600); setMisses(0);
+      }
+      setNext((idx + 1) % seq.length);
+    } else { setBad(m); setMisses(x => x + 1); setTimeout(() => setBad(-1), 350); }
+  };
   const inSeq = new Set(seq.map(s => s.m));
   const litBlack = litM >= 0 && NAMES[litM % 12].length > 1, litW = litM >= 0 ? (litBlack ? wIndex(litM - 1) + 1 - 0.3 : wIndex(litM)) : 0, runLeft = litW * wW, runW = litBlack ? wW * 0.6 : wW;   // the orange running light sits on the key being taught and glides to the next
   return createPortal(
@@ -73,7 +81,8 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
           {litM >= 0 && <div className="ost-run" style={{ left: runLeft + "%", width: runW + "%" }} />}
         </div>
       </div>
-      <div className="ost-hint">{T.tap}</div>
+      {praise && <div className="ost-praise" role="status">{praise}</div>}
+      <div className="ost-hint">{T.tap}{rounds > 0 ? " · " + T.round + " " + rounds : ""}</div>
     </div>,
     document.body
   );
@@ -92,5 +101,6 @@ export const OCTAVE_CSS = `
 .ost-kb .ow.bad{background:#ffb4b4!important}.ost-kb .ob.bad{background:#c0392b!important}
 .ost-run{position:absolute;top:0;height:8px;z-index:3;background:linear-gradient(90deg,#ffb36b,#ff6a1f);border-radius:0 0 8px 8px;box-shadow:0 0 18px 4px rgba(255,122,42,.85);transition:left .16s ease-out,width .16s ease-out;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.ost-run{transition:none}}
+.ost-praise{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);background:var(--clay,#d97757);color:#fff;font-weight:800;padding:10px 20px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:5;pointer-events:none}
 .ost-hint{font-size:12px;color:var(--muted,#777);text-align:center}
 `;
