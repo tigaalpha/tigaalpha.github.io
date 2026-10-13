@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { L, tr } from "./i18n";
+import { OctaveStage, OCTAVE_CSS } from "./OctaveStage";
 import { Piano, playUi, playPianoNote } from "./music-engine";
 import { Msg, Typing, Input, ChatProgress, ChatHistoryButtons } from "./chat-ui";
 import { FingerHand } from "./PracticeOverlay";
@@ -14,6 +16,7 @@ import { FingerHand } from "./PracticeOverlay";
    top-level, not exported), so they're threaded as props. ── */
 export function SenseiView({ chatHistory = null, lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap, chatNote = null, chatNoteOut = false, onMore = null, speakMode = "off", onSpeakLocked = null, onMark = null, onGoStep = null, chatProg = null, todayPlan = null, todayTags = null, onTodayOpen = null, resumeCard = null, onResumeDrill = null, missCard = null, sessionDone = null}) {
   const lc = L[lang];
+  const [octaves, setOctaves] = useState(1);
   const tt = todayTags || {};
   const TT = {
     th: { doneTitle: "ครบทุกข้อของวันนี้แล้ว", lastDrill: "เล่นซ้ำ", missed: "พลาดบ่อย 7 วันนี้", now: "ตอนนี้", start: "ฝึก", more: "เพิ่มเติม", notes: "โน้ต", min: "นาที", listen: "ฟังตัวอย่างก่อน" },
@@ -130,6 +133,17 @@ export function SenseiView({ chatHistory = null, lang, activeStageId, setPage, o
                 <span className="handswap" aria-hidden="true">⇄</span>
               </button>
             </div>
+            <div className="octrow">
+              <label className="octsel"><span>{lang === "th" ? "ช่วงเสียง" : lang === "zh" ? "音域" : "Range"}</span>
+                <select value={octaves} onChange={e => setOctaves(parseInt(e.target.value, 10))} aria-label="octaves" disabled={!(fingerChart && fingerChart.notes && fingerChart.notes.length > 1)}>
+                  {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n} {lang === "th" ? "ออกเทฟ" : lang === "zh" ? "个八度" : n === 1 ? "octave" : "octaves"}</option>)}
+                </select>
+              </label>
+            </div>
+            <style>{OCTAVE_CSS + ".octrow{display:flex;justify-content:center;margin:8px 0}.octsel{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}.octsel select{min-height:44px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);padding:0 14px;font-weight:800}"}</style>
+            {octaves > 1 && fingerChart && fingerChart.notes && (
+              <OctaveStage notes={fingerChart.notes} label={fingerChart.label} octaves={octaves} hand={hand} setHand={setHand} lang={lang} onClose={() => setOctaves(1)} />
+            )}
             <div className="recbar">
               <button className={`recbtn${recording ? " on" : ""}`} onClick={toggleRecord}>
                 {recording ? `■ ${lc.recStop}` : `● ${lc.recRecord}`}
