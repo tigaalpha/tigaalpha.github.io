@@ -852,7 +852,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
         ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole", "farm", "yard"].includes(planet.mission) && shipDone ? (
           <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
             <div className="ac-stats">
-              <span><em>☠</em><b>{shipDone.kills}</b><small>{t("ศัตรูที่ล้ม", "Enemies beaten", "击败敌人")}</small></span>
+              {shipDone.kills > 0 && <span><em>☠</em><b>{shipDone.kills}</b><small>{t("ศัตรูที่ล้ม", "Enemies beaten", "击败敌人")}</small></span>}
               <span><em>◆</em><b>{shipDone.cry}</b><small>{t("คริสตัลที่ได้", "Crystals earned", "获得水晶")}</small></span>
             </div>
             <span>{shipDone.mined ? " · ⛏ " + shipDone.mined : ""}{shipDone.mode === "skim" ? " · ⛽ 100%" : ""}{shipDone.mode === "harvest" ? " · ☀ 3/3" : ""}{shipDone.mode === "solar" ? " · 🔋 8/8" : ""}{shipDone.mode === "warp" ? " · 🌌 " + t("ข้ามกาแล็กซีแล้ว", "crossed over", "已跨越") : ""}{shipDone.farm ? " · 🌾 " + shipDone.farm.made + "/" + shipDone.farm.target + " · " + "★".repeat(shipDone.farm.stars) : ""}{shipDone.ark ? " · 👥 " + Math.round(shipDone.ark.people * (0.6 + 0.4 * shipDone.ark.hpFrac)).toLocaleString() + " " + t("คนถึงดาวดวงใหม่", "people reached the new star", "人抵达新恒星") + (shipDone.ark.foodOk ? " · 🌱 " + t("อาหารพอ", "food lasts", "食物充足") : " · ⚠ " + t("อาหารไม่พอ", "food runs short", "食物不足")) : ""}{shipDone.mode === "blackhole" ? " · ⚫ " + t("ข้ามจักรวาลแล้ว", "another universe", "已进入新宇宙") : ""}</span>
