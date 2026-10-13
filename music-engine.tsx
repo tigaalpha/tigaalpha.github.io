@@ -14,7 +14,7 @@ import { SONGS, SONG_TIMESIG } from "./songs-data";
 export const _PCN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 export const NF = (() => {
   const m = {};
-  for (let midi = 36; midi <= 96; midi++) {            // C2 (36) … C7 (96)
+  for (let midi = 36; midi <= 108; midi++) {           // C2 (36) … C8 (108): a note outside this table is silent
     const name = _PCN[midi % 12] + (Math.floor(midi / 12) - 1);
     m[name] = +(440 * Math.pow(2, (midi - 69) / 12)).toFixed(2);
   }
