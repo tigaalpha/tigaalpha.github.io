@@ -84,4 +84,13 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
   ok("holding the ship in each ring seizes the stations", (await p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done") || "[]").includes("starharvest"))));
   ok("no errors (harvest)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
+{
+  const { ctx, p, errs } = await open({ tg_adv_nocine: "1" }); await enter(p, "Void Gate"); await p.waitForTimeout(800); await p.evaluate(() => window.__advShip.god());
+  await p.evaluate(() => { window.__advShip.skip(); }); await p.waitForTimeout(1500); await p.evaluate(() => { window.__advShip.laserFill(); window.__advShip.killBoss(); });
+  const bh0 = await p.evaluate(() => window.__advShip.bossHp()); await p.locator("[data-laser]").dispatchEvent("pointerdown");
+  for (let i = 0; i < 16; i++) { await p.evaluate(() => window.__advShip.aimBoss()); await p.waitForTimeout(90); }
+  const mg = await p.evaluate(() => window.__advShip.megaNow()); const st9 = await p.evaluate(() => window.__advShip.state());
+  ok("laser kill on the boss triggers the chain explosion and wins", (mg !== null || st9.win) && (st9.boss === null || st9.boss.dead), JSON.stringify([bh0, mg, st9.win, st9.boss]));
+  ok("no errors (laser boss)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
+}
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
