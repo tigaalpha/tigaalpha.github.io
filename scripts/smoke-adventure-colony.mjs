@@ -47,7 +47,7 @@ async function open(re, pre) {
   ok("no errors (moon colony)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
 for (const [nm, hz] of [["Mars Colony", /Dust storm/], ["Titan Colony", /deep freeze/], ["Proxima b Colony", /flare/]]) {
-  const { ctx, p, errs } = await open(nm); await p.click("[data-career=sci]"); await p.evaluate(() => window.__advColony.hazard()); await p.waitForTimeout(250);
+  const { ctx, p, errs } = await open(nm); await p.click("[data-career=inno]"); await p.evaluate(() => window.__advColony.hazard()); await p.waitForTimeout(250);
   ok(nm + " opens with its own hazard text", hz.test(await p.innerText(".ac2-res")) || hz.test(await p.innerText(".ac2-hz")), (await p.innerText(".ac2-res")).slice(0, 80));
   ok(nm + " has no errors", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }

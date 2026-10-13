@@ -35,11 +35,11 @@ const BUILD: B[] = [
   { id: "port", icon: "🚀", name: ["ท่าอวกาศ", "Spaceport", "太空港"], cost: 100, needSci: 15, text: ["ทุก 20 วินาทีมียานนำผู้อพยพและวัสดุมาส่ง", "Every 20 s a ship brings settlers and materials", "每 20 秒运来移民和建材"] },
 ];
 export const CAREERS: { id: string; icon: string; name: L3; text: L3 }[] = [
-  { id: "eng", icon: "🛠", name: ["วิศวกร", "Engineer", "工程师"], text: ["ก่อสร้างถูกลง 20% แผงโซลาร์แรงขึ้น 15%", "Buildings cost 20% less, solar +15%", "建造便宜 20%，太阳能 +15%"] },
-  { id: "farm", icon: "🧑‍🌾", name: ["เกษตรกรอวกาศ", "Space farmer", "太空农夫"], text: ["ฟาร์มได้อาหารมากขึ้น 35%", "Farms make 35% more food", "农场产量 +35%"] },
-  { id: "miner", icon: "⛑", name: ["นักขุดแร่", "Miner", "矿工"], text: ["เหมืองได้วัสดุมากขึ้น 35%", "Mines make 35% more material", "矿场产量 +35%"] },
-  { id: "sci", icon: "🧑‍🔬", name: ["นักวิทยาศาสตร์", "Scientist", "科学家"], text: ["ห้องวิจัยได้แต้มมากขึ้นสองเท่า", "Labs make double research", "研究所产出翻倍"] },
-  { id: "medic", icon: "🧑‍⚕️", name: ["แพทย์", "Medic", "医生"], text: ["คนเพิ่มเร็วขึ้น 30% ไม่มีใครป่วยเพราะขาดแคลนเล็กน้อย", "Colony grows 30% faster and shrugs off brief shortages", "人口增长 +30%，轻微短缺不致损失"] },
+  { id: "inno", icon: "💡", name: ["นวัตกร", "Innovator", "创新者"], text: ["ห้องวิจัยได้แต้มสองเท่า เทคโนโลยีถูกลง 25%", "Labs make double research and tech costs 25% less", "研究所产出翻倍，科技便宜 25%"] },
+  { id: "eng", icon: "🛠", name: ["วิศวกรสร้างอาณานิคม", "Colony engineer", "殖民地工程师"], text: ["ก่อสร้างถูกลง 20% แผงโซลาร์แรงขึ้น 15%", "Buildings cost 20% less, solar +15%", "建造便宜 20%，太阳能 +15%"] },
+  { id: "farm", icon: "🧑‍🌾", name: ["เกษตรกรอวกาศ (ปลูกและเลี้ยงสัตว์)", "Space farmer (crops and livestock)", "太空农夫（种植与养殖）"], text: ["ฟาร์มได้อาหารมากขึ้น 35% และคนเพิ่มเร็วขึ้น", "Farms make 35% more food and the colony grows faster", "农场产量 +35%，人口增长更快"] },
+  { id: "miner", icon: "⛏", name: ["นักขุดเมืองแร่", "Miner of the ore cities", "矿城矿工"], text: ["เหมืองได้วัสดุมากขึ้น 35%", "Mines make 35% more material", "矿场产量 +35%"] },
+  { id: "ship", icon: "🚀", name: ["ผู้สร้างยานอวกาศ", "Starship builder", "星舰建造师"], text: ["ท่าอวกาศมียานมาเร็วขึ้นและนำผู้อพยพมากขึ้น งานก่อสร้างเร็วขึ้น 40%", "Spaceports ship sooner with more settlers; construction 40% faster", "太空港来船更快、移民更多；建造快 40%"] },
 ];
 const RES = [
   { k: "en", icon: "⚡", name: ["พลังงาน", "Power", "电力"] },
@@ -63,6 +63,59 @@ const FACTS: L3[] = [
 ];
 const HZ_DUR = 14;
 
+
+/* ── the city, drawn as an isometric cyberpunk skyline (owner, 2026-10-13: "more like SimCity but cyberpunk and space-age, from the year 2100 to 2500 to 3000, the technology must be advanced") ──
+   Three eras of the same colony: 2100 (boxy neon towers and antennas), 2500 (tapered towers, holo rings and sky-lanes), 3000 (floating crystal spires, light beams and hover discs).
+   The era follows the colony: its people, its research and what it has built. Everything is drawn from code on one canvas, so a plot is a diamond and a building is a stack of faces. */
+const ERAS = [{ y: 2100, n: ["นีโอฮาบิแทต", "Neo-Habitat", "新栖息地"] }, { y: 2500, n: ["เมกะโพลิสลอยฟ้า", "Sky Megapolis", "空中巨都"] }, { y: 3000, n: ["นครคริสตัลแห่งดวงดาว", "Star Crystal Metropolis", "星际水晶都市"] }] as { y: number; n: L3 }[];
+const eraOf = (S: any) => { const labs = S.grid.filter((c: any) => c.b === "lab").length, techs = S.tech.filter(Boolean).length, m = S.pop + 12 * techs + 4 * labs; return m >= 55 ? 2 : m >= 22 ? 1 : 0; };
+const BCOL: Record<string, string> = { hab: "0,230,255", solar: "90,140,255", water: "70,190,255", oxy: "120,255,190", farm: "130,255,110", mine: "255,170,60", lab: "190,110,255", med: "255,255,255", reactor: "0,255,230", port: "255,90,200" };
+const BH: Record<string, number> = { hab: 1.5, solar: 0.25, water: 0.7, oxy: 0.9, farm: 0.6, mine: 1.0, lab: 1.6, med: 1.1, reactor: 1.4, port: 0.4 };
+const SKY: Record<string, string[]> = { moon: ["#02030a", "#101626", "#2a3250"], mars: ["#1a0a06", "#4a1c10", "#a0522d"], titan: ["#1a1004", "#4a3210", "#a0762a"], proxima: ["#14020a", "#4a0c20", "#a01a3a"] };
+function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kind: string, lay: { tw: number; cx: number; oy: number }, T: number, era: number) {
+  const tw = lay.tw, th = tw / 2, sk = SKY[kind] || SKY.moon;
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk[0]); g.addColorStop(0.55, sk[1]); g.addColorStop(1, sk[2]); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  for (let i = 0; i < 60; i++) { const a = (i * 97) % 100 / 100, b = (i * 53) % 60 / 100; x.fillStyle = "rgba(255,255,255," + (0.25 + 0.35 * Math.abs(Math.sin(T * 0.7 + i))) + ")"; x.fillRect(a * W, b * H, 1.4, 1.4); }
+  const sunx = W * (kind === "proxima" ? 0.82 : 0.14), suny = H * 0.2, sr = kind === "proxima" ? H * 0.2 : kind === "titan" ? H * 0.13 : H * 0.07;   // the local star, or the planet in the sky
+  const sg = x.createRadialGradient(sunx, suny, 2, sunx, suny, sr * 2.4); sg.addColorStop(0, kind === "proxima" ? "rgba(255,90,90,.95)" : kind === "titan" ? "rgba(255,200,120,.55)" : "rgba(255,240,200,.9)"); sg.addColorStop(1, "rgba(255,120,60,0)"); x.fillStyle = sg; x.beginPath(); x.arc(sunx, suny, sr * 2.4, 0, 7); x.fill();
+  if (kind === "titan") { x.strokeStyle = "rgba(255,220,160,.5)"; x.lineWidth = 3; x.beginPath(); x.ellipse(sunx, suny, sr * 1.9, sr * 0.45, -0.3, 0, 7); x.stroke(); }
+  // the plain, with a neon grid
+  const pt = (c: number, r: number, h = 0) => [lay.cx + (c - r) * tw / 2, lay.oy + (c + r) * th / 2 - h * th * 1.6];
+  const diamond = (c: number, r: number, fill: string, stroke: string) => { const a = pt(c, r), b = pt(c + 1, r), d = pt(c + 1, r + 1), e = pt(c, r + 1); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.lineTo(d[0], d[1]); x.lineTo(e[0], e[1]); x.closePath(); x.fillStyle = fill; x.fill(); x.strokeStyle = stroke; x.lineWidth = 1; x.stroke(); };
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const cell = S.grid[r * COLS + c]; diamond(c, r, cell.f === "ice" ? "rgba(80,160,220,.28)" : cell.f === "ore" ? "rgba(200,130,50,.26)" : "rgba(12,18,32,.78)", "rgba(0," + (era === 2 ? "255,200" : era === 1 ? "220,255" : "200,255") + "," + (0.16 + 0.1 * Math.sin(T + c + r)) + ")"); }
+  // vehicles on the sky-lanes: little light streaks sliding along the plot edges
+  const lanes = era === 0 ? 3 : era === 1 ? 6 : 10;
+  for (let i = 0; i < lanes; i++) { const r = (i * 7) % (ROWS + 1), u = ((T * (0.25 + 0.05 * (i % 3)) + i * 0.37) % 1) * (COLS + 1), p = pt(u, r, era * 0.9); x.fillStyle = i % 2 ? "rgba(255,80,200,.9)" : "rgba(80,255,255,.9)"; x.fillRect(p[0] - 2, p[1] - 1, era === 2 ? 7 : 4, 2); }
+  // buildings, back to front
+  for (let sum = 0; sum < COLS + ROWS; sum++) for (let r = 0; r < ROWS; r++) { const c = sum - r; if (c < 0 || c >= COLS) continue; const cell = S.grid[r * COLS + c]; if (!cell.b) continue;
+    const col = BCOL[cell.b] || "0,255,255", hh = (BH[cell.b] || 1) * (era === 0 ? 1 : era === 1 ? 1.55 : 2.1), bw = 0.78 - (cell.b === "solar" ? 0 : 0.06 * era), off = (1 - bw) / 2;
+    const A = pt(c + off, r + off), B = pt(c + 1 - off, r + off), C = pt(c + 1 - off, r + 1 - off), D = pt(c + off, r + 1 - off), up = hh * th * 1.6;
+    const face = (p: number[][], fill: string) => { x.beginPath(); x.moveTo(p[0][0], p[0][1]); for (let k = 1; k < p.length; k++) x.lineTo(p[k][0], p[k][1]); x.closePath(); x.fillStyle = fill; x.fill(); };
+    const top = [[A[0], A[1] - up], [B[0], B[1] - up], [C[0], C[1] - up], [D[0], D[1] - up]];
+    if (era === 2 && cell.b !== "solar") { const hover = 3 + 2 * Math.sin(T * 1.5 + c); top.forEach(q => q[1] -= hover); x.fillStyle = "rgba(" + col + ",.18)"; x.beginPath(); x.ellipse((A[0] + C[0]) / 2, (A[1] + C[1]) / 2 + 2, tw * 0.3, th * 0.3, 0, 0, 7); x.fill(); }
+    const lift = era === 2 && cell.b !== "solar" ? (top[0][1] - (A[1] - up)) : 0;
+    face([[D[0], D[1]], [C[0], C[1]], [C[0], C[1] - up + lift], [D[0], D[1] - up + lift]], "rgba(" + col + ",.20)");
+    face([[C[0], C[1]], [B[0], B[1]], [B[0], B[1] - up + lift], [C[0], C[1] - up + lift]], "rgba(" + col + ",.38)");
+    if (era === 1 && cell.b !== "solar") { const k = 0.28; const m = (q: number[], o: number[]) => [q[0] + (o[0] - q[0]) * k, q[1] + (o[1] - q[1]) * k]; const cc = [(top[0][0] + top[2][0]) / 2, (top[0][1] + top[2][1]) / 2]; face([m(top[0], cc), m(top[1], cc), m(top[2], cc), m(top[3], cc)], "rgba(" + col + ",.55)"); }
+    face(top, "rgba(" + col + ",.55)"); x.strokeStyle = "rgba(" + col + ",1)"; x.lineWidth = 1.4; x.beginPath(); x.moveTo(top[0][0], top[0][1]); x.lineTo(top[1][0], top[1][1]); x.lineTo(top[2][0], top[2][1]); x.lineTo(top[3][0], top[3][1]); x.closePath(); x.stroke();
+    x.strokeStyle = "rgba(" + col + ",.9)"; x.beginPath(); x.moveTo(D[0], D[1]); x.lineTo(D[0], D[1] - up + lift); x.moveTo(C[0], C[1]); x.lineTo(C[0], C[1] - up + lift); x.moveTo(B[0], B[1]); x.lineTo(B[0], B[1] - up + lift); x.stroke();
+    for (let w = 1; w < Math.floor(hh * 3); w++) { const yy = up * w / Math.floor(hh * 3); x.fillStyle = "rgba(255," + (200 + (w * 13) % 55) + ",120," + (0.5 + 0.4 * Math.sin(T * 2 + w + c)) + ")"; x.fillRect(C[0] - 5, C[1] - yy + lift, 2.5, 2); x.fillRect(C[0] - 12, C[1] - yy * 0.9 + lift - 4, 2.5, 2); }
+    const cx = (A[0] + C[0]) / 2, cy = (top[0][1] + top[2][1]) / 2;
+    if (cell.b === "reactor") { x.globalCompositeOperation = "lighter"; const rg = x.createRadialGradient(cx, cy - 4, 1, cx, cy - 4, tw * 0.45); rg.addColorStop(0, "rgba(180,255,245,.95)"); rg.addColorStop(1, "rgba(0,255,230,0)"); x.fillStyle = rg; x.beginPath(); x.arc(cx, cy - 4, tw * 0.45, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; }
+    if (cell.b === "lab" || (era >= 1 && cell.b === "hab")) { x.strokeStyle = "rgba(" + col + "," + (0.5 + 0.4 * Math.sin(T * 3 + c)) + ")"; x.lineWidth = 1.5; x.beginPath(); x.ellipse(cx, cy - 8 - 4 * Math.sin(T * 2 + r), tw * 0.2, th * 0.2, 0, 0, 7); x.stroke(); }
+    if (cell.b === "port") { x.fillStyle = "rgba(255,255,255,.9)"; const f = (T * 0.25 + c * 0.13) % 1; x.fillRect(cx - 3, cy - 6 - f * th * 3, 6, 3); }
+    if (cell.b === "farm") { x.fillStyle = "rgba(255,60,200,.8)"; x.fillRect(cx - 6, cy - 2, 12, 2); }
+    if (era === 2) { x.globalCompositeOperation = "lighter"; const bg = x.createLinearGradient(cx, cy, cx, cy - th * 5); bg.addColorStop(0, "rgba(" + col + ",.45)"); bg.addColorStop(1, "rgba(" + col + ",0)"); x.fillStyle = bg; x.fillRect(cx - 1.5, cy - th * 5, 3, th * 5); x.globalCompositeOperation = "source-over"; }
+  }
+  // the site's hazard drifts over the city
+  if (S.hz > 0) { const k = Math.min(1, S.hz / 3), kind2 = kind;
+    if (kind2 === "moon") { x.fillStyle = "rgba(0,0,20," + 0.45 * k + ")"; x.fillRect(0, 0, W, H); }
+    else if (kind2 === "mars") { for (let i = 0; i < 70; i++) { x.fillStyle = "rgba(255,150,90," + 0.35 * k + ")"; x.fillRect(((i * 53 + T * 400) % (W + 40)) - 20, (i * 31) % H, 22, 1.6); } }
+    else if (kind2 === "titan") { for (let i = 0; i < 40; i++) { x.fillStyle = "rgba(200,230,255," + 0.5 * k + ")"; x.fillRect((i * 71) % W, ((i * 29 + T * 90) % H), 2, 2); } }
+    else { if (Math.sin(T * 14) > 0.4) { x.fillStyle = "rgba(255,70,70," + 0.22 * k + ")"; x.fillRect(0, 0, W, H); } } }
+  const vg = x.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.9); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,10,.55)"); x.fillStyle = vg; x.fillRect(0, 0, W, H);
+}
+
 const rng = (seed: number) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
 const careerNow = () => { try { return localStorage.getItem("tg_adv_career") || ""; } catch (e) { return ""; } };
 
@@ -80,6 +133,16 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null), careerRef = useRef(career); careerRef.current = career;
+  const cvRef = useRef<HTMLCanvasElement>(null), cityRef = useRef<HTMLDivElement>(null), layRef = useRef({ tw: 60, cx: 300, oy: 60, W: 600, H: 280 }), [lay, setLay] = useState({ tw: 60, cx: 300, oy: 60, W: 600, H: 280 });
+  useEffect(() => {
+    const el = cityRef.current, cv = cvRef.current; if (!el || !cv) return; let raf = 0, alive = true, lastDraw = 0;
+    const fit = () => { const W = Math.max(280, el.clientWidth), H = Math.max(200, el.clientHeight), tw = Math.min(W / (COLS + ROWS) * 2 * 0.95, H * 0.205), dpr = Math.min(2, window.devicePixelRatio || 1);
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px";
+      const L = { tw, cx: W / 2, oy: H * 0.16 + (H * 0.8 - (COLS + ROWS) * tw / 4) / 2 + tw * 0.9, W, H }; layRef.current = L; setLay(L); };
+    fit(); const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null; if (ro) ro.observe(el);
+    const loop = (now: number) => { if (!alive) return; raf = requestAnimationFrame(loop); if (now - lastDraw < 50) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const L = layRef.current, dpr = cv.width / L.W; x.setTransform(dpr, 0, 0, dpr, 0, 0); try { drawCity(x, L.W, L.H, G.current, P.kind || "moon", L, now / 1000, eraOf(G.current)); } catch (e) {} };
+    raf = requestAnimationFrame(loop); return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); };
+  }, []);
   const cost = (b: B) => Math.round(b.cost * (careerRef.current === "eng" ? 0.8 : 1));
   useEffect(() => {
     const sfx = createAdvSfx(); sfxRef.current = sfx; sfx.setOn(musicOn); const mus = createAdvMusic(P.id); musRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); mus.setIntensity && mus.setIntensity(1); }
@@ -99,7 +162,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
           else if (c.b === "oxy") { R.ox += 1.5; R.wa -= 0.3 * (S.tech[0] ? 0.7 : 1); R.en -= 0.5; }
           else if (c.b === "farm") { R.fo += 1.3 * (cr === "farm" ? 1.35 : 1) * (S.tech[1] ? 1.3 : 1); R.ox += 0.3; R.wa -= 0.3 * (S.tech[0] ? 0.7 : 1); R.en -= 0.3; }
           else if (c.b === "mine") { R.ma += 1.0 * site.ore * (c.f === "ore" ? 2 : 1) * (cr === "miner" ? 1.35 : 1); R.en -= 0.4; }
-          else if (c.b === "lab") { R.sc += 0.5 * (cr === "sci" ? 2 : 1); R.en -= 0.5; }
+          else if (c.b === "lab") { R.sc += 0.5 * (cr === "inno" ? 2 : 1); R.en -= 0.5; }
           else if (c.b === "med") R.en -= 0.4;
           else if (c.b === "port") R.en -= 0.8;
         }
@@ -109,14 +172,14 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
       for (const k of Object.keys(R)) { S.rate[k] = R[k as keyof typeof R]; S.stock[k] = Math.max(0, Math.min(k === "ma" || k === "sc" ? 9999 : 400, S.stock[k] + R[k as keyof typeof R] * dt)); }
       const med = S.grid.some((c: any) => c.b === "med");
       const need = ["en", "wa", "ox", "fo"].filter(k => S.stock[k] <= 0.01);
-      if (need.length) { S.short += dt; if (S.short > (cr === "medic" || med ? 6 : 3) && S.pop > 2) { S.pop = Math.max(0, S.pop - (med ? 0.15 : 0.3) * dt); } S.msg = need.map(k => RES.find(r => r.k === k)!.icon).join(" "); }
+      if (need.length) { S.short += dt; if (S.short > (med ? 6 : 3) && S.pop > 2) { S.pop = Math.max(0, S.pop - (med ? 0.15 : 0.3) * dt); } S.msg = need.map(k => RES.find(r => r.k === k)!.icon).join(" "); }
       else { S.short = Math.max(0, S.short - dt * 2); S.msg = "";
         const free = homes - S.pop, ok = ["en", "wa", "ox", "fo"].every(k => S.stock[k] > 12);
-        if (free > 0.5 && ok) { S.grow += dt * (0.14 + (med ? 0.06 : 0)) * (cr === "medic" ? 1.3 : 1); if (S.grow >= 1) { const n = Math.min(Math.floor(S.grow), Math.floor(free)); S.pop += n; S.grow -= n; } }
+        if (free > 0.5 && ok) { S.grow += dt * (0.14 + (med ? 0.06 : 0)) * (cr === "farm" ? 1.2 : 1); if (S.grow >= 1) { const n = Math.min(Math.floor(S.grow), Math.floor(free)); S.pop += n; S.grow -= n; } }
       }
       S.peak = Math.max(S.peak, S.pop);
       S.hzT -= dt; if (S.hz > 0) S.hz = Math.max(0, S.hz - dt); else if (S.hzT <= 0) { S.hz = HZ_DUR; S.hzT = 42 + Math.random() * 14; sfx.play("hurt"); }
-      if (S.grid.some((c: any) => c.b === "port")) { S.portT -= dt; if (S.portT <= 0) { S.portT = 20; const room = Math.max(0, Math.floor(homes - S.pop)); const add = Math.min(3, room); S.pop += add; S.stock.ma += 20; sfx.play("pickup"); } }
+      if (S.grid.some((c: any) => c.b === "port")) { S.portT -= dt; if (S.portT <= 0) { S.portT = careerRef.current === "ship" ? 14 : 20; const room = Math.max(0, Math.floor(homes - S.pop)); const add = Math.min(careerRef.current === "ship" ? 4 : 3, room); S.pop += add; S.stock.ma += 20; sfx.play("pickup"); } }
     };
     const id = setInterval(() => {
       const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); last = now; if (pausedRef.current || S.ended) return;
@@ -138,7 +201,8 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
     const cs = cost(bd); if (S.stock.ma < cs) { play("hurt"); return; }
     S.stock.ma -= cs; c.b = bd.id; play("pop"); setTick(x => x + 1);
   };
-  const buyTech = (i: number) => { const tc = TECH[i]; if (S.tech[i] || S.stock.sc < tc.cost || S.ended) return; S.stock.sc -= tc.cost; S.tech[i] = true; play("win"); setTick(x => x + 1); };
+  const tcost = (i: number) => Math.round(TECH[i].cost * (career === "inno" ? 0.75 : 1));
+  const buyTech = (i: number) => { const tc = TECH[i]; if (S.tech[i] || S.stock.sc < tcost(i) || S.ended) return; S.stock.sc -= tcost(i); S.tech[i] = true; play("win"); setTick(x => x + 1); };
   const pickCareer = (id: string) => { try { localStorage.setItem("tg_adv_career", id); } catch (e) {} setCareer(id); play("pickup"); };
   const openGear = () => { pausedRef.current = true; setGear(true); }, closeGear = () => { pausedRef.current = false; setGear(false); };
   const pct = Math.min(100, S.pop / site.target * 100), homes = S.grid.filter((c: any) => c.b === "hab").length * 6, fact = FACTS[Math.floor(S.t / 20) % FACTS.length];
@@ -157,11 +221,12 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
         {S.hz > 0 && <span className="ac2-hz" data-hazard="1">⚠ {T3(lang, site.hz[0], site.hz[1], site.hz[2])}</span>}
         {S.msg && <span className="ac2-hz">⚠ {t("ขาดแคลน ", "Shortage ", "短缺 ")}{S.msg}</span>}
       </div>
-      <div className="ac2-grid">
-        {S.grid.map((c: any, i: number) => { const bd = c.b ? BUILD.find(b => b.id === c.b) : null; return (
-          <button key={i} className={"ac2-cell" + (bd ? " has" : "") + (c.f ? " " + c.f : "")} data-cell={i} data-b={c.b || ""} onClick={() => tapCell(i)} aria-label={bd ? T3(lang, bd.name[0], bd.name[1], bd.name[2]) : "plot"}>
-            {bd ? <span>{bd.icon}</span> : <em>{c.f === "ice" ? "❄" : c.f === "ore" ? "◆" : ""}</em>}
-          </button>); })}
+      <div className="ac2-city" ref={cityRef}>
+        <canvas ref={cvRef} className="ac2-cv" aria-hidden="true" />
+        {S.grid.map((c: any, i: number) => { const r = Math.floor(i / COLS), q = i % COLS, px = lay.cx + (q - r) * lay.tw / 2, py = lay.oy + (q + r + 1) * lay.tw / 4, bd = c.b ? BUILD.find(b => b.id === c.b) : null; return (
+          <button key={i} className={"ac2-cell" + (bd ? " has" : "") + (c.f ? " " + c.f : "")} data-cell={i} data-b={c.b || ""} onClick={() => tapCell(i)} aria-label={bd ? T3(lang, bd.name[0], bd.name[1], bd.name[2]) : "plot"}
+            style={{ left: px - lay.tw / 2, top: py - lay.tw / 4, width: lay.tw, height: lay.tw / 2 }}>{!bd && c.f ? <em>{c.f === "ice" ? "❄" : "◆"}</em> : null}</button>); })}
+        {(() => { const e = ERAS[eraOf(S)]; return <div className="ac2-era" data-era={e.y}><b>{t("ปี ", "YEAR ", "公元 ")}{e.y}</b><small>{T3(lang, e.n[0], e.n[1], e.n[2])}</small></div>; })()}
       </div>
       <div className="ac2-build">
         {BUILD.map(b => { const locked = (b.needSci || 0) > S.stock.sc, cs = cost(b); return (
@@ -170,8 +235,8 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
       </div>
       <div className="ac2-sel">{(() => { const b = BUILD.find(q => q.id === S.sel); return b ? <span>{b.icon} {T3(lang, b.text[0], b.text[1], b.text[2])}</span> : null; })()} <em>{t("แตะช่องว่างเพื่อสร้าง แตะอาคารเพื่อรื้อ (ได้วัสดุคืนครึ่งหนึ่ง)", "Tap an empty plot to build, a building to demolish (half back)", "点空地建造，点建筑拆除（返还一半）")}</em></div>
       <div className="af-tech">
-        {TECH.map((tc, i) => (<button key={tc.id} className={"af-t" + (S.tech[i] ? " on" : "")} data-tech={i} disabled={S.tech[i] || S.stock.sc < tc.cost} onClick={() => buyTech(i)}>
-          <b>{T3(lang, tc.name[0], tc.name[1], tc.name[2])}</b><small>{S.tech[i] ? "✓ " : "🔬 " + tc.cost + " · "}{T3(lang, tc.text[0], tc.text[1], tc.text[2])}</small></button>))}
+        {TECH.map((tc, i) => (<button key={tc.id} className={"af-t" + (S.tech[i] ? " on" : "")} data-tech={i} disabled={S.tech[i] || S.stock.sc < tcost(i)} onClick={() => buyTech(i)}>
+          <b>{T3(lang, tc.name[0], tc.name[1], tc.name[2])}</b><small>{S.tech[i] ? "✓ " : "🔬 " + tcost(i) + " · "}{T3(lang, tc.text[0], tc.text[1], tc.text[2])}</small></button>))}
       </div>
       <div className="af-fact">💡 {T3(lang, site.note[0], site.note[1], site.note[2])} · {T3(lang, fact[0], fact[1], fact[2])}</div>
       {!career && (<div className="adv-quiz" data-careers="1" style={{ alignItems: "center" }} onPointerDown={(e) => e.stopPropagation()}><div className="pvpstandby-card" style={{ maxWidth: 460 }}>
