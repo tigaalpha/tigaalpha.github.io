@@ -340,7 +340,8 @@ function glowSprite(rgb, r) { return layer(r * 2, r * 2, (x, w, h) => { const g 
 
 /** All of the planet's backdrop, baked once for this canvas size. Layers are tiles that repeat sideways. */
 const ART = typeof __ART__ !== "undefined" ? __ART__ : "dev";
-const advBotKey = (me: any, cw: any, po: string) => `${ART}|advme|${me}|${po}|${cw && cw.glow}|${cw && cw.accent}`;
+const POSE_V = 3;   // bump when heroPoseOf changes: the stills are cached on the device under this key
+const advBotKey = (me: any, cw: any, po: string) => `${ART}|p${POSE_V}|advme|${me}|${po}|${cw && cw.glow}|${cw && cw.accent}`;
 const advPetKey = (pet: any) => `${ART}|advpet|${pet ? pet.species : ""}|${pet ? petLevel(pet.bond).lv : 0}|${pet ? (pet.mood < 35 ? 1 : 0) : 0}`;
 /** Queue the robot's three poses and the pet as stored pictures (the same cache PvP uses on phones). Called when the Adventure menu opens, so they are ready before a map starts. */
 /** The hero's frames (owner, 2026-10-12: "walking looks funny, punches and kicks are not realistic"): a walk and a run cycle of eight stills each, driven by the
@@ -348,10 +349,12 @@ const advPetKey = (pet: any) => `${ART}|advpet|${pet ? pet.species : ""}|${pet ?
 const WALK_N = 8, STRIDE_PX = 13, KS = 1;
 export const heroPoseOf = (name: string): any => {
   const m = /^(walk|run)(\d)$/.exec(name);
-  if (m) { const run = m[1] === "run", ph = (Number(m[2]) / WALK_N) * Math.PI * 2, s = Math.sin(ph), c = Math.cos(ph), L = run ? 32 : 22, A = run ? 40 : 17;
-    // the leg that swings forward folds at the knee (the foot passes under the body), the one on the ground stays long; the elbows bend more on a run, a little on a walk
-    const fold = (v: number) => Math.max(0, v), K = run ? 50 : 32;
-    return { lean: run ? -9 : -2, armL: -A * s, armR: A * s, legL: L * s, legR: -L * s, kneeL: K * fold(c * KS), kneeR: K * fold(-c * KS), elbowL: (run ? 62 : 18) + 12 * fold(s), elbowR: (run ? 62 : 18) + 12 * fold(-s), head: run ? -3 : 0, lift: -(run ? 3 : 1.6) * (1 + Math.cos(2 * ph)) / 1.1 };
+  if (m) { const run = m[1] === "run", ph = (Number(m[2]) / WALK_N) * Math.PI * 2, s = Math.sin(ph), c = Math.cos(ph);
+    // Terminator style (owner, 2026-10-13: "walk cool and smart, run realistic like the Terminator"): upright stiff torso, short controlled stride, arms held bent
+    // at the elbow and swinging little (a walk) or pumping hard like a sprinter (a run), a high knee on the swinging leg, almost no bounce, head level.
+    const fold = (v: number) => Math.max(0, v);
+    if (!run) return { lean: 1, armL: -9 * s, armR: 9 * s, legL: 19 * s, legR: -19 * s, kneeL: 20 * fold(c), kneeR: 20 * fold(-c), elbowL: 38 + 4 * fold(s), elbowR: 38 + 4 * fold(-s), head: 0, lift: -0.7 * (1 + Math.cos(2 * ph)) };
+    return { lean: -13, armL: -46 * s, armR: 46 * s, legL: 38 * s, legR: -38 * s, kneeL: 78 * fold(c), kneeR: 78 * fold(-c), elbowL: 82, elbowR: 82, head: 4, lift: -3.2 * (1 + Math.cos(2 * ph)) / 1.1 };
   }
   if (name === "jump") return { lean: -7, armL: 34, armR: 30, legL: -24, legR: 15, head: -3, lift: -5 };
   return name;
