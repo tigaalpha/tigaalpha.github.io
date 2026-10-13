@@ -595,7 +595,7 @@ in the code, and what it replaced:
 - **Two of the three migrations below are still not applied — the owner must run them, in the Supabase SQL editor, after review (the promo-cap one above is done).**
   (1) `supabase-promo-max-10000-migration.sql` — raises the trigger cap 100 → 10,000 and marks every current signup as a promotion
   member (the ~70 existing members count as part of the 10,000, per the owner). Read its STEP 0 first: it grants to every eligible
-  row, so confirm the count before running STEP 1. (2) `supabase-grant-max-one-year-migration.sql` — gives those same members Max for
+  row, so confirm the count before running STEP 1. (2) [DROPPED by the owner 2026-10-13: only the Premium-7-days grant (3) is wanted, and it is already run — do NOT run this one] `supabase-grant-max-one-year-migration.sql` — gives those same members Max for
   a YEAR, stored in `profiles.plan` / `plan_until`; skips admins (they already resolve to maxfamily, so writing `max` would
   downgrade them), skips banned, skips anyone with a live subscription, and is re-runnable (second run = `UPDATE 0`). They compose
   cleanly — `effectivePlan()` tests a live paid plan BEFORE the trial — so approving one alone is still correct, it just gives less
@@ -1062,3 +1062,5 @@ does the rest) and keep new per-card work out of the first slice.
 reliable record of what's recently changed and why (commit messages in
 this project describe intent, not just the diff). `MOBILE_BUILD.md` covers
 the Android/iOS native build and release process in detail.
+
+- **Online colony (plan 33, 2026-10-13).** `AdventureColony` takes `net`: in a room every pilot builds on ONE grid (a build or demolition is sent as `ev` `colb:<id>` / `colx` with the cell index and applied for free on the other screens; the builder pays from their own stock), each pilot holds a career of their own (`colc:<id>` is carried in the peer's `say`; a taken career is disabled), and a team strip shows who holds what. Each client still runs its own simulation (stocks, population, hazards are NOT synchronised), so the cities converge in layout, not in numbers. `scripts/smoke-adventure-colony-online.mjs` (7 checks, two pages, fake channel). Not tested on real Realtime or phones.
