@@ -54,9 +54,11 @@ async function open(re, sector) {
   ok("a light-speed button in the right pad", (await p.locator(".adv-ship .pvppad-r [data-light]").count()) === 1);
   const a = await p.evaluate(() => window.__advShip.lsNow());
   await p.evaluate(() => { const b = document.querySelector("[data-light]"); b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 5 })); b.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 5 })); });
-  await p.waitForTimeout(600); const b2 = await p.evaluate(() => window.__advShip.lsNow());
+  await p.waitForTimeout(500); const pre = await p.evaluate(() => window.__advShip.lsNow());
+  ok("pressing it first counts 3, 2, 1 (not yet at speed)", pre.pre > 0 && !pre.on || pre.pre > 0, JSON.stringify(pre));
+  await p.waitForTimeout(1900); const b2 = await p.evaluate(() => window.__advShip.lsNow());
   ok("pressing it engages light speed (the world rushes past)", b2.on && b2.ls > 0.5 && b2.vt > a.vt + 1.5, JSON.stringify([a, b2]));
-  await p.waitForTimeout(2600); const c2 = await p.evaluate(() => window.__advShip.lsNow());
+  await p.waitForTimeout(3200); const c2 = await p.evaluate(() => window.__advShip.lsNow());
   ok("it ends and recharges", !c2.on && c2.cd > 0, JSON.stringify(c2));
   ok("no page errors", errs.length === 0, errs.join("|")); await ctx.close(); }
 // 3) the OPENING film (first time in Adventure Mode) has the score and the narration too, in each language
