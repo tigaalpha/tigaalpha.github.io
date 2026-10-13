@@ -68,11 +68,11 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
   return out;
 }
 export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClose }: any) {
-  const [both, setBoth] = useState(false);
+  const [both, setBoth] = useState(true);   // up AND down by default: the demo, the orange light and the staff all follow the lesson back down
   // The left hand starts an octave lower (C3, bass clef), the way a left-hand scale is taught.
   const shift = hand === "left" ? -12 : 0, upBase = useMemo(() => extendPattern(notes, octaves).map(q => ({ ...q, m: q.m + shift })), [notes, octaves, shift]);
   const seq = useMemo(() => both ? [...upBase, ...upBase.slice(0, -1).reverse()] : upBase, [upBase, both]);
-  const staffSeq = useMemo(() => [...upBase, ...upBase.slice(0, -1).reverse()], [upBase]);   // the staff always shows the lesson going up and coming back down
+  const staffSeq = seq;   // the staff shows exactly what the light and the demo play (up only, or up and back down)
   const [cur, setCur] = useState(-1); const [next, setNext] = useState(0); const [bad, setBad] = useState(-1); const [misses, setMisses] = useState(0); const [rounds, setRounds] = useState(0); const [praise, setPraise] = useState<string | null>(null); const [playing, setPlaying] = useState(false); const [portrait, setPortrait] = useState(false);
   const timer = useRef<any>(null);
   const T = { th: { play: "เล่นให้ดู", stop: "หยุด", close: "ปิด", notes: "โน้ต", left: "มือซ้าย", perfect: "เยี่ยม! รอบนี้ไม่พลาดเลย", done: "จบรอบแล้ว พลาด {n} ครั้ง ลองอีกรอบ", round: "รอบที่ผ่าน", right: "มือขวา", tap: "ถึงตาคุณ: กดคีย์ที่ไฟส้มรออยู่" }, en: { play: "Play it", stop: "Stop", close: "Close", notes: "Notes", left: "Left hand", perfect: "Perfect! No slips this round", done: "Round done, {n} slips. Go again", round: "Rounds", right: "Right hand", tap: "Your turn: press the key the orange light is on" }, zh: { play: "示范", stop: "停止", close: "关闭", notes: "音符", left: "左手", perfect: "太棒了！这一轮没有失误", done: "本轮完成，失误 {n} 次，再来一轮", round: "完成轮数", right: "右手", tap: "轮到你：按橙色灯亮着的琴键" } }[lang as "th" | "en" | "zh"] || ({} as any);
