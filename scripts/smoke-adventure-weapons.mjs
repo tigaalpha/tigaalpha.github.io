@@ -47,8 +47,9 @@ const wl = JSON.parse(await p.evaluate(() => localStorage.getItem("tg_adv_wlv") 
 ok("picking the same weapon up again levels it (+1 each time)", wl.minigun === Math.min(5, lv0 + 2), lv0 + " -> " + wl.minigun);
 for (let i = 0; i < 6; i++) await T("equipNow", "minigun");
 ok("the level stops at 5", JSON.parse(await p.evaluate(() => localStorage.getItem("tg_adv_wlv"))).minigun === 5);
-// 2c. the two new grenades
-await T("tp", (await T("monX")) - 160); await p.waitForTimeout(100);
+// 2c. the two new grenades (stand clear of the quiz beacons: a question pauses the run and freezes the fuse)
+{ const bs = await T("beacons"), mxx = await T("monX"); let x = mxx - 160; for (const c of [mxx - 160, mxx + 160, mxx - 420, mxx + 420]) { if (!bs.some(b => Math.abs(b - c) < 380)) { x = c; break; } } await T("tp", x); }
+ await p.waitForTimeout(100);
 await T("equipNow", "sticky"); await T("rocketNow"); await p.waitForTimeout(300);
 ok("a sticky grenade is thrown and waits for its fuse", (await T("rocketsLive")) >= 1, String(await T("rocketsLive")));
 let gone = false; for (let i = 0; i < 30 && !gone; i++) { await p.waitForTimeout(350); gone = (await T("rocketsLive")) === 0; }
