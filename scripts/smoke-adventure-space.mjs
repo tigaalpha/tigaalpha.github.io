@@ -93,4 +93,16 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
   ok("laser kill on the boss triggers the chain explosion and wins", (mg !== null || st9.win) && (st9.boss === null || st9.boss.dead), JSON.stringify([bh0, mg, st9.win, st9.boss]));
   ok("no errors (laser boss)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
+{
+  const { ctx, p, errs } = await open({ tg_adv_nocine: "1" }); await enter(p, "Battle Station|สถานีรบ"); await p.waitForTimeout(800); await p.evaluate(() => window.__advShip.god());
+  await p.evaluate(() => { window.__advShip.skip(); }); await p.waitForTimeout(4200);
+  ok("the Battle Station map spawns a spherical station as its boss", await p.evaluate(() => window.__advShip.bossIsStation()));
+  await p.evaluate(() => { window.__advShip.forceBeam(); }); await p.waitForTimeout(400); const sb = await p.evaluate(() => window.__advShip.stationBeam());
+  ok("the station charges its main beam (warning line first)", sb !== null, JSON.stringify(sb));
+  await p.evaluate(() => { window.__advShip.laserFill(); window.__advShip.killBoss(); }); await p.locator("[data-laser]").dispatchEvent("pointerdown");
+  for (let i = 0; i < 18; i++) { await p.evaluate(() => window.__advShip.aimBoss()); await p.waitForTimeout(90); }
+  const mg = await p.evaluate(() => window.__advShip.megaNow()); const st = await p.evaluate(() => window.__advShip.state());
+  ok("destroying the station sets off the planet-sized chain explosion and wins", mg !== null && mg.big === true && st.win, JSON.stringify([mg, st.win]));
+  ok("no errors (battle station)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
+}
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
