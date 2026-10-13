@@ -10,7 +10,8 @@ import { GearButton, SettingsPopup } from "./adventure-settings";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
-const VW = 800, VH = 450, TARGET = 260;
+const VW = 800, VH = 450;
+const QUOTA: Record<string, number> = { moon: 260, mars: 300, titan: 340, proxima: 400 }, TIMEMUL: Record<string, number> = { moon: 1, mars: 1.1, titan: 1.25, proxima: 0.9 };   // a harsher world: a bigger quota and slower crops
 const CROPS: { id: string; icon: string; name: L3; time: number; yield: number; col: string }[] = [
   { id: "carrot", icon: "🥕", name: ["แครอท", "Carrot", "胡萝卜"], time: 9, yield: 4, col: "#ff8a1f" },
   { id: "corn", icon: "🌽", name: ["ข้าวโพด", "Corn", "玉米"], time: 16, yield: 8, col: "#ffd23f" },
@@ -33,9 +34,11 @@ const FACTS: L3[] = [
 function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string) {
   const O = "#4a2c14";
   // sky inside the dome, with the world's planet or sun
-  const g = x.createLinearGradient(0, 0, 0, 230); g.addColorStop(0, kind === "mars" ? "#f7b56a" : "#6cc3ff"); g.addColorStop(1, kind === "mars" ? "#ffe0a8" : "#d8f2ff"); x.fillStyle = g; x.fillRect(0, 0, VW, 240);
-  x.fillStyle = "#ffe36a"; x.beginPath(); x.arc(700, 62, 30, 0, 7); x.fill(); x.fillStyle = "rgba(255,240,150,.4)"; x.beginPath(); x.arc(700, 62, 46, 0, 7); x.fill();
-  x.fillStyle = "#3a6fe0"; x.beginPath(); x.arc(120, 54, 18, 0, 7); x.fill(); x.fillStyle = "#4fd08a"; x.beginPath(); x.arc(114, 50, 8, 0, 7); x.fill();   // a small Earth in the sky
+  const SKYC: any = { moon: ["#6cc3ff", "#d8f2ff"], mars: ["#f7b56a", "#ffe0a8"], titan: ["#d9a45a", "#f3d8a0"], proxima: ["#ff8a7a", "#ffd0c0"] }, sc = SKYC[kind] || SKYC.moon;
+  const g = x.createLinearGradient(0, 0, 0, 230); g.addColorStop(0, sc[0]); g.addColorStop(1, sc[1]); x.fillStyle = g; x.fillRect(0, 0, VW, 240);
+  const bigRed = kind === "proxima", sunR = bigRed ? 52 : kind === "titan" ? 16 : 30; x.fillStyle = bigRed ? "#ff4a3a" : "#ffe36a"; x.beginPath(); x.arc(700, 66, sunR, 0, 7); x.fill(); x.fillStyle = bigRed ? "rgba(255,90,60,.35)" : "rgba(255,240,150,.4)"; x.beginPath(); x.arc(700, 66, sunR + 16, 0, 7); x.fill();
+  if (kind === "titan") { x.fillStyle = "#e8c070"; x.beginPath(); x.arc(150, 70, 28, 0, 7); x.fill(); x.strokeStyle = "rgba(255,235,190,.9)"; x.lineWidth = 5; x.beginPath(); x.ellipse(150, 70, 52, 12, -0.3, 0, 7); x.stroke(); }   // Saturn over Titan
+  else { x.fillStyle = "#3a6fe0"; x.beginPath(); x.arc(120, 54, 18, 0, 7); x.fill(); x.fillStyle = "#4fd08a"; x.beginPath(); x.arc(114, 50, 8, 0, 7); x.fill(); }   // a small Earth in the sky
   for (let i = 0; i < 3; i++) { const cx = ((T * 12 + i * 280) % 1000) - 100, cy = 40 + i * 34; x.fillStyle = "rgba(255,255,255,.9)"; x.beginPath(); x.arc(cx, cy, 20, 0, 7); x.arc(cx + 22, cy + 4, 16, 0, 7); x.arc(cx - 20, cy + 6, 14, 0, 7); x.fill(); }
   // hills and the meadow
   x.fillStyle = "#8be07a"; x.beginPath(); x.moveTo(0, 210); x.quadraticCurveTo(160, 150, 330, 205); x.quadraticCurveTo(520, 160, 800, 200); x.lineTo(800, 250); x.lineTo(0, 250); x.fill();
@@ -90,7 +93,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const farmerBonus = (() => { try { return localStorage.getItem("tg_adv_career") === "farm" ? 1.25 : 1; } catch (e) { return 1; } })();
   const G = useRef<any>(null);
-  if (!G.current) G.current = { t: 0, stock: 6, delivered: 0, seed: "carrot", plots: PLOTS.map(() => ({ crop: null as any, p: 0, w: 0 })), animals: ANIMALS.map(() => ({ fed: 0, prog: 0 })), launch: 0, ended: false, won: false, fact: 0 };
+  if (!G.current) G.current = { quota: QUOTA[P.kind] || 260, tm: TIMEMUL[P.kind] || 1, t: 0, stock: 6, delivered: 0, seed: "carrot", plots: PLOTS.map(() => ({ crop: null as any, p: 0, w: 0 })), animals: ANIMALS.map(() => ({ fed: 0, prog: 0 })), launch: 0, ended: false, won: false, fact: 0 };
   const S = G.current;
   const [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
@@ -106,14 +109,14 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
     raf = requestAnimationFrame(draw);
     const step = (dt: number) => {
       S.t += dt;
-      for (const c of S.plots) if (c.crop && c.p < 100) { const cr = CROPS.find(q => q.id === c.crop)!; c.p = Math.min(100, c.p + 100 / cr.time * (c.w > 0 ? 2 : 1) * dt); } for (const c of S.plots) if (c.w > 0) c.w = Math.max(0, c.w - dt);
+      for (const c of S.plots) if (c.crop && c.p < 100) { const cr = CROPS.find(q => q.id === c.crop)!; c.p = Math.min(100, c.p + 100 / (cr.time * S.tm) * (c.w > 0 ? 2 : 1) * dt); } for (const c of S.plots) if (c.w > 0) c.w = Math.max(0, c.w - dt);
       for (let i = 0; i < ANIMALS.length; i++) { const A = S.animals[i]; if (A.fed > 0 && A.prog < 100) { A.prog = Math.min(100, A.prog + 100 / ANIMALS[i].every * dt); } }
       if (S.launch > 0) S.launch = Math.max(0, S.launch - dt);
       S.fact = Math.floor(S.t / 25) % FACTS.length;
-      if (S.delivered >= TARGET && !S.won) { S.won = true; S.ended = true; sfx.play("win"); const stars = S.t <= 200 ? 3 : S.t <= 300 ? 2 : 1; setTimeout(() => onWin({ ranch: { delivered: Math.round(S.delivered), target: TARGET, secs: Math.round(S.t), stars }, kills: 0, cry: 8 + 4 * stars, loot: {}, mode: "ranch" }), 2000); }
+      if (S.delivered >= S.quota && !S.won) { S.won = true; S.ended = true; sfx.play("win"); const stars = S.t <= 200 ? 3 : S.t <= 300 ? 2 : 1; setTimeout(() => onWin({ ranch: { delivered: Math.round(S.delivered), target: S.quota, secs: Math.round(S.t), stars }, kills: 0, cry: 8 + 4 * stars, loot: {}, mode: "ranch" }), 2000); }
     };
     const id = setInterval(() => { const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); last = now; if (pausedRef.current || S.ended) return; step(dt); setTick(v => (v + 1) % 1e6); }, 100);
-    (window as any).__advRanch = { state: () => ({ t: S.t, stock: S.stock, delivered: S.delivered, plots: S.plots.map((c: any) => ({ crop: c.crop, p: c.p })), animals: S.animals.map((a: any) => ({ fed: a.fed, prog: a.prog })), won: S.won, target: TARGET }), tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) step(0.1); }, give: (n: number) => { S.stock += n; } };
+    (window as any).__advRanch = { state: () => ({ t: S.t, stock: S.stock, delivered: S.delivered, plots: S.plots.map((c: any) => ({ crop: c.crop, p: c.p })), animals: S.animals.map((a: any) => ({ fed: a.fed, prog: a.prog })), won: S.won, target: S.quota }), tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) step(0.1); }, give: (n: number) => { S.stock += n; } };
     return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advRanch; } catch (e) {} };
   }, []);
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
@@ -128,13 +131,13 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
     setTick(v => v + 1); };
   const deliver = () => { if (S.ended || S.stock < 1 || S.launch > 0) return; S.delivered += S.stock; S.stock = 0; S.launch = 2; play("rocket"); setTick(v => v + 1); };
   const openGear = () => { pausedRef.current = true; setGear(true); }, closeGear = () => { pausedRef.current = false; setGear(false); };
-  const k = box.w / VW, pct = Math.min(100, S.delivered / TARGET * 100), fact = FACTS[S.fact];
+  const k = box.w / VW, pct = Math.min(100, S.delivered / S.quota * 100), fact = FACTS[S.fact];
   return (
     <div className="adv-farm adv-ranch" data-ranch="1">
       <div className="adv-top">
         <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
         <div className="adv-hud">
-          <div className="adv-lv">🌾 {T3(lang, P.th, P.en, P.zh).split(" · ")[0]} · ⏱ {Math.floor(S.t)}s · {t("ในโรงนา ", "In the barn ", "仓库 ")}{Math.floor(S.stock)} · {t("ส่งแล้ว ", "delivered ", "已运出 ")}{Math.round(S.delivered)}/{TARGET}</div>
+          <div className="adv-lv">🌾 {T3(lang, P.th, P.en, P.zh).split(" · ")[0]} · ⏱ {Math.floor(S.t)}s · {t("ในโรงนา ", "In the barn ", "仓库 ")}{Math.floor(S.stock)} · {t("ส่งแล้ว ", "delivered ", "已运出 ")}{Math.round(S.delivered)}/{S.quota}</div>
           <div className="adv-bar adv-hp"><i style={{ width: pct + "%" }} /><b>{t("อาณานิคมได้อาหาร ", "Colony fed ", "殖民地粮食 ")}{Math.round(pct)}%</b></div>
         </div>
         <GearButton onClick={openGear} />
@@ -146,7 +149,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
         <button className="ar-hit ar-ship" data-deliver="1" aria-label="deliver" onClick={deliver} style={{ left: 50 * k, top: 250 * k, width: 120 * k, height: 110 * k }} />
       </div>
       <div className="ar-bar">
-        <div className="ar-seeds">{CROPS.map(c => (<button key={c.id} data-seed={c.id} className={"ar-seed" + (S.seed === c.id ? " on" : "")} onClick={() => { S.seed = c.id; setTick(v => v + 1); }}>{c.icon}<small>{T3(lang, c.name[0], c.name[1], c.name[2])} · {c.time}s · +{Math.round(c.yield * farmerBonus)}</small></button>))}</div>
+        <div className="ar-seeds">{CROPS.map(c => (<button key={c.id} data-seed={c.id} className={"ar-seed" + (S.seed === c.id ? " on" : "")} onClick={() => { S.seed = c.id; setTick(v => v + 1); }}>{c.icon}<small>{T3(lang, c.name[0], c.name[1], c.name[2])} · {Math.round(c.time * S.tm)}s · +{Math.round(c.yield * farmerBonus)}</small></button>))}</div>
         <button className="adv-btn go ar-send" data-send="1" disabled={S.stock < 1 || S.launch > 0} onClick={deliver}>🚀 {t("ส่งอาหารให้อาณานิคม", "Send the food to the colony", "把粮食运给殖民地")} ({Math.floor(S.stock)})</button>
       </div>
       <div className="af-fact">💡 {t("แตะช่องว่างเพื่อปลูก แตะต้นไม้เพื่อรดน้ำ แตะผลสุกเพื่อเก็บ แตะสัตว์ที่หิวเพื่อให้อาหาร แล้วเก็บผลผลิตเมื่อมีฟองลอยขึ้น", "Tap an empty plot to plant, a growing crop to water it, a ripe one to harvest. Feed a hungry animal, then collect what it makes when the bubble pops up.", "点空地播种，点生长中的作物浇水，点成熟作物收获；喂饥饿的动物，气泡出现后收集产品。")} · {T3(lang, fact[0], fact[1], fact[2])}</div>
