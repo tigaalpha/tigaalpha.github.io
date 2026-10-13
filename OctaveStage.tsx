@@ -10,6 +10,30 @@ const SEMI: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11
 const midiOf = (n: string) => { const m = /^([A-G])([#b]?)(-?\d)$/.exec(n); if (!m) return null; return (parseInt(m[3], 10) + 1) * 12 + SEMI[m[1]] + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0); };
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const nameOf = (m: number) => NAMES[m % 12] + (Math.floor(m / 12) - 1);
+
+const LETTER: Record<string, number> = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
+// Two bars of the taught notes on a five-line staff (four quarter notes a bar); the note being taught is orange. Treble staff, bottom line E4.
+function StaffCard({ notes, active, title }: { notes: { m: number }[]; active: number; title: string }) {
+  const W = 300, H = 112, left = 14, gap = (W - left - 10) / 8, half = 7, bottom = 84;
+  const stepOf = (m: number) => { const nm = NAMES[m % 12].replace("#", ""), oct = Math.floor(m / 12) - 1; return oct * 7 + LETTER[nm]; };
+  const yOf = (st: number) => bottom - (st - 30) * half;
+  return (
+    <svg className="ost-staff" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title}>
+      {[0, 1, 2, 3, 4].map(i => <line key={i} x1={left} x2={W - 4} y1={bottom - i * 2 * half} y2={bottom - i * 2 * half} stroke="currentColor" strokeWidth="1" opacity=".55" />)}
+      <line x1={left} x2={left} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="1.5" />
+      <line x1={left + gap * 4} x2={left + gap * 4} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="1" opacity=".7" />
+      <line x1={W - 5} x2={W - 5} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="2" />
+      {notes.slice(0, 8).map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.6), on = i === active, sharp = NAMES[q.m % 12].includes("#");
+        const ledgers: number[] = []; for (let l = 28; l >= st && l < 30; l -= 2) ledgers.push(l); if (st <= 28) { for (let l = 28; l >= st; l -= 2) if (!ledgers.includes(l)) ledgers.push(l); } for (let l = 40; l <= st; l += 2) ledgers.push(l);
+        return (<g key={i} className={on ? "on" : ""}>
+          {ledgers.map(l => <line key={l} x1={x - 11} x2={x + 11} y1={yOf(l)} y2={yOf(l)} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
+          {sharp && <text x={x - 17} y={y + 5} fontSize="14" fill={on ? "#d97757" : "currentColor"}>♯</text>}
+          <ellipse cx={x} cy={y} rx="6.5" ry="5" fill={on ? "#d97757" : "currentColor"} transform={`rotate(-18 ${x} ${y})`} />
+          <line x1={st >= 34 ? x - 6 : x + 6} x2={st >= 34 ? x - 6 : x + 6} y1={y} y2={st >= 34 ? y + 26 : y - 26} stroke={on ? "#d97757" : "currentColor"} strokeWidth="1.6" />
+        </g>); })}
+    </svg>
+  );
+}
 export function extendPattern(notes: { note: string; finger: number | null }[], octaves: number) {
   const base = notes.map(p => ({ m: midiOf(p.note), f: p.finger })).filter(p => p.m != null) as { m: number; f: number | null }[];
   if (base.length < 2) return [] as { m: number; f: number | null }[];
@@ -54,7 +78,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
       setNext((idx + 1) % seq.length);
     } else { setBad(m); setMisses(x => x + 1); setTimeout(() => setBad(-1), 350); }
   };
-  const inSeq = new Set(seq.map(s => s.m));
+  const inSeq = new Set(seq.map(s => s.m)); const fmap: Record<number, number | null> = {}; for (const q of seq) if (fmap[q.m] == null) fmap[q.m] = q.f;   // the finger to use on each taught key
   const litBlack = litM >= 0 && NAMES[litM % 12].length > 1, litW = litM >= 0 ? (litBlack ? wIndex(litM - 1) + 1 - 0.3 : wIndex(litM)) : 0, runLeft = litW * wW, runW = litBlack ? wW * 0.6 : wW;   // the orange running light sits on the key being taught and glides to the next
   return createPortal(
     <div className={"ost" + (portrait ? " rot" : "")} role="dialog" aria-label="octave practice">
@@ -73,11 +97,13 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
             <span>{h === "left" ? T.left : T.right}</span>
           </div>
         ))}
+        {[0, 1].map(c => { const start = Math.floor(Math.max(0, idx) / 16) * 16 + c * 8, here = idx - start; return (
+          <div key={c} className="ost-card"><StaffCard notes={seq.slice(start, start + 8)} active={here >= 0 && here < 8 ? here : -1} title={"bars " + (start / 4 + 1) + "-" + (start / 4 + 2)} /></div>); })}
       </div>
       <div className="ost-kbwrap">
         <div className="ost-kb">
-          {whites.map(m => <button key={m} className={"ow" + (m === litM ? " lit" : inSeq.has(m) ? " in" : "") + (m === bad ? " bad" : "")} style={{ left: wIndex(m) * wW + "%", width: wW + "%" }} onClick={() => tap(m)} aria-label={nameOf(m)}><i>{NAMES[m % 12] === "C" ? nameOf(m) : NAMES[m % 12]}</i></button>)}
-          {blacks.map(m => { const w = wIndex(m - 1); return <button key={m} className={"ob" + (m === litM ? " lit" : inSeq.has(m) ? " in" : "") + (m === bad ? " bad" : "")} style={{ left: (w + 1) * wW - wW * 0.3 + "%", width: wW * 0.6 + "%" }} onClick={() => tap(m)} aria-label={nameOf(m)} />; })}
+          {whites.map(m => <button key={m} className={"ow" + (m === litM ? " lit" : inSeq.has(m) ? " in" : "") + (m === bad ? " bad" : "")} style={{ left: wIndex(m) * wW + "%", width: wW + "%" }} onClick={() => tap(m)} aria-label={nameOf(m)}>{fmap[m] != null && <b className="fn">{fmap[m]}</b>}<i>{NAMES[m % 12] === "C" ? nameOf(m) : NAMES[m % 12]}</i></button>)}
+          {blacks.map(m => { const w = wIndex(m - 1); return <button key={m} className={"ob" + (m === litM ? " lit" : inSeq.has(m) ? " in" : "") + (m === bad ? " bad" : "")} style={{ left: (w + 1) * wW - wW * 0.3 + "%", width: wW * 0.6 + "%" }} onClick={() => tap(m)} aria-label={nameOf(m)}>{fmap[m] != null && <b className="fn">{fmap[m]}</b>}</button>; })}
           {litM >= 0 && <div className="ost-run" style={{ left: runLeft + "%", width: runW + "%" }} />}
         </div>
       </div>
@@ -88,17 +114,19 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
   );
 }
 export const OCTAVE_CSS = `
-.ost{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;gap:10px;padding:12px calc(14px + env(safe-area-inset-right,0px)) 10px calc(14px + env(safe-area-inset-left,0px));background:var(--bg,#fff);color:var(--text,#222);font-family:var(--f-app,system-ui)}
+.ost{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;gap:10px;padding:12px calc(14px + env(safe-area-inset-right,0px)) 10px env(safe-area-inset-left,0px);background:var(--bg,#fff);color:var(--text,#222);font-family:var(--f-app,system-ui)}
 .ost.rot{inset:auto;top:0;left:100vw;width:100vh;height:100vw;transform-origin:top left;transform:rotate(90deg)}
-.ost-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ost-title{font-size:18px}.ost-oct{font-weight:800;color:var(--clay,#d97757)}
+.ost-top{padding-left:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ost-title{font-size:18px}.ost-oct{font-weight:800;color:var(--clay,#d97757)}
 .ost-notes{flex:1;display:flex;flex-wrap:wrap;gap:4px;min-width:140px}.ost-notes span{padding:3px 7px;border-radius:999px;background:var(--card2,#f3f3f3);font-size:12px;font-weight:700}.ost-notes span.on{background:var(--clay,#d97757);color:#fff}
 .ost-btn{min-height:44px;padding:0 16px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);font-weight:800;cursor:pointer}.ost-btn.go{background:var(--clay,#d97757);color:#fff;border-color:transparent}
-.ost-hands{flex:1;min-height:0;display:flex;gap:14px;justify-content:center;align-items:stretch}.ost-hand{flex:0 1 230px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:22px;background:var(--card,#fff);border:1.5px solid var(--bd2,rgba(0,0,0,.12));opacity:.55;cursor:pointer;overflow:hidden}.ost-hand.act{opacity:1;border-color:var(--clay,#d97757)}.ost-hand span{font-size:12px;font-weight:800}.ost-hand svg{max-height:100%;width:auto}
+.ost-hands{flex:1;min-height:0;display:flex;gap:10px;justify-content:flex-start;align-items:stretch}.ost-hand{flex:0 0 112px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px;border-radius:18px;background:var(--card,#fff);border:1.5px solid var(--bd2,rgba(0,0,0,.12));opacity:.55;cursor:pointer;overflow:hidden}.ost-hand.act{opacity:1;border-color:var(--clay,#d97757)}.ost-hand span{font-size:11px;font-weight:800}.ost-hand svg{max-height:78%;width:auto;max-width:100%}
+.ost-card{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;border-radius:18px;background:var(--card,#fff);border:1.5px solid var(--bd2,rgba(0,0,0,.12));color:var(--text,#222);padding:2px 6px;overflow:hidden}.ost-staff{width:100%;height:100%;max-height:100%}
 .ost-kbwrap{flex:1;min-height:0;display:flex}.ost-kb{position:relative;flex:1;border-radius:14px;overflow:hidden;background:#111}
 .ost-kb .ow{position:absolute;top:0;bottom:0;border:1px solid #888;border-top:0;background:#fff;border-radius:0 0 8px 8px;padding:0;cursor:pointer;display:flex;align-items:flex-end;justify-content:center}.ost-kb .ow i{font-style:normal;font-size:11px;font-weight:700;color:#666;margin-bottom:6px}
 .ost-kb .ow.in{background:#fde7de}.ost-kb .ow.lit{background:#ff9a5a;box-shadow:inset 0 0 18px rgba(217,119,87,.9)}.ost-kb .ow.lit i{color:#fff}
 .ost-kb .ob{position:absolute;top:0;height:60%;background:#1b1b1b;border:0;border-radius:0 0 6px 6px;z-index:2;cursor:pointer}.ost-kb .ob.in{background:#a8543a}.ost-kb .ob.lit{background:#ff7a2a;box-shadow:0 0 14px #ff7a2a}
 .ost-kb .ow.bad{background:#ffb4b4!important}.ost-kb .ob.bad{background:#c0392b!important}
+.ost-kb .fn{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);min-width:22px;height:22px;line-height:22px;border-radius:50%;background:#fff;color:#c4562f;font-size:13px;font-weight:900;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.3);pointer-events:none}.ost-kb .ob .fn{bottom:8px;background:#ff9a5a;color:#fff}.ost-kb .lit .fn{background:#c4562f;color:#fff;min-width:30px;height:30px;line-height:30px;font-size:17px;bottom:34px;box-shadow:0 0 12px rgba(255,255,255,.9)}
 .ost-run{position:absolute;top:0;height:8px;z-index:3;background:linear-gradient(90deg,#ffb36b,#ff6a1f);border-radius:0 0 8px 8px;box-shadow:0 0 18px 4px rgba(255,122,42,.85);transition:left .16s ease-out,width .16s ease-out;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.ost-run{transition:none}}
 .ost-praise{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);background:var(--clay,#d97757);color:#fff;font-weight:800;padding:10px 20px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:5;pointer-events:none}
