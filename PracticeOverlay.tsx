@@ -293,6 +293,10 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
         // as block-style when the toggle says so — the display must gate on the
         // same modes, or a block progression would show broken-style single-note
         // hints while the grader accepts whole-chord windows.
+        // a long scale (2-4 octaves, from the octave stage) gets a keyboard that spans it; short drills keep the usual one
+        const octOf = (n: string) => { const m = /(-?\d+)$/.exec(String(n)); return m ? Number(m[1]) : 4; };
+        const octs0 = (practiceTarget || []).map(octOf), loOct = octs0.length ? Math.min(...octs0) : 4, hiOct = octs0.length ? Math.max(...octs0) : 5;
+        const pianoRange: any = (hiOct - loOct + 1 > 2 || loOct < 4 || hiOct > 5) ? { baseOct: loOct, octs: Math.max(2, hiOct - loOct + 1) } : {};
         const isBlockMode = (practiceModeRef.current === "chord" || practiceModeRef.current === "prog") && chordStyle === "block";
         // A chord-PROGRESSION drill lights only the CURRENT chord's remaining
         // notes (windows are uniform and full, so floor(practiceIdx / size)
@@ -376,12 +380,12 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
             </div>
 
             {isBlockMode ? (
-              <Piano
+              <Piano {...pianoRange}
                 litSet={remainingNotes}
                 fingerMap={remainingFingerMap}
                 onNote={(n) => practiceHandlerRef.current({ note: n, freq: null })} />
             ) : (
-              <Piano
+              <Piano {...pianoRange}
                 litNote={practiceTarget[practiceIdx] || null}
                 fingerMap={practiceTarget[practiceIdx] != null && practiceFingers[practiceIdx] != null
                   ? { [practiceTarget[practiceIdx]]: practiceFingers[practiceIdx] } : {}}
