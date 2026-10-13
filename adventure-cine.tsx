@@ -12,6 +12,7 @@ const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" 
 const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 const COMMON = {
+  howto: ["ภารกิจของคุณ: เดินซ้าย-ขวา กระโดด ยิงมอนสเตอร์ เก็บคริสตัล ◆ ตอบคำถามดนตรีที่ลำแสงเพื่อรับโบนัส แล้วเดินเข้าประตูเวิร์ปท้ายด่าน — พร้อมหรือยัง?", "Your mission: move, jump, shoot the monsters, grab the ◆ crystals, answer the music question at a beacon for a bonus, then step into the warp gate at the end. Ready?", "你的任务：移动、跳跃、射击怪物、收集 ◆ 水晶，在信标处回答音乐问题获得奖励，最后走进终点的传送门。准备好了吗？"],
   earth: ["ปี 2100 มนุษยชาติรุ่งเรืองสุดขีด แต่โลกเริ่มเล็กเกินไปสำหรับความฝัน", "Year 2100. Humanity is thriving, but Earth has become too small for its dreams.", "公元2100年，人类空前繁荣，但地球已容不下我们的梦想。"],
   factory: ["เราจึงสร้างหุ่นยนต์ผู้บุกเบิก ให้ทำงานแทนมนุษย์ ก่อนที่ใครจะเหยียบดาวดวงนั้น", "So we built pioneer robots to do the work in our place, before any human sets foot there.", "于是我们制造先遣机器人，在人类踏足之前替我们完成一切。"],
   launch: ["ฝูงยานพุ่งออกจากระบบสุริยะ ขนทรัพยากรกลับโลก และปักธงอาณานิคมแห่งใหม่", "The fleet leaves the Solar System to bring resources home and plant the flags of new colonies.", "舰队驶离太阳系，把资源运回地球，为新殖民地插上旗帜。"],
@@ -191,11 +192,16 @@ const TYPE: Record<string, string> = { kindred: "ice", darkforge: "belt", shadow
 const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest", "solarcharge", "dysondock", "gaspump", "warpjump", "blackhole", "moonhe3", "moonbase", "marscolony", "mercury", "venussky", "jupitergas", "saturnrings", "titanassault", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus", "kindred", "darkforge", "shadow"];
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
 /* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
-export function cinePlan(P: any, short?: boolean): CineShot[] { return basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 })); }
+export function cinePlan(P: any, short?: boolean): CineShot[] {
+  const p = basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 }));
+  // Players who saw the opening film before it taught the controls still get the how-to shot once, in their next map's film.
+  try { if (!P.prologue && !P.finale && localStorage.getItem("tg_adv_howto") === null && localStorage.getItem("tg_adv_prologue") !== "skip") { localStorage.setItem("tg_adv_howto", "1"); const i = p.findIndex(q => q.kind === "objective"); const h: any = { kind: "howto", dur: 8 }; if (i >= 0) p.splice(i, 0, h); else p.push(h); } } catch (e) {}
+  return p;
+}
 function basePlan(P: any, short?: boolean): CineShot[] {
   if (P.id === "departure") return [{ kind: "pad", dur: 7 }, { kind: "liftoff", dur: 7 }, { kind: "earthfade", dur: 7 }, { kind: "objective", dur: 6 }];
   if (P.finale) return [{ kind: "lore", dur: 5.2, theme: "friend" }, { kind: "lore", dur: 5.2, theme: "dark" }, { kind: "lore", dur: 5.2, theme: "harvest" }, { kind: "mind", dur: 5.6, theme: "ai" }];
-  if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "contact", dur: 5, theme: "harvest" }, { kind: "mind", dur: 5, theme: "ai" }];
+  if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "contact", dur: 5, theme: "harvest" }, { kind: "mind", dur: 5, theme: "ai" }, { kind: "howto", dur: 8 }];
   if (short === undefined) short = seenPrologue();
   const q: CineShot[] = short ? [] : [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }];
   const cat = catOf(P), lore: CineShot[] = LORE_THEME[P.id] ? [{ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] }] : [], boss: CineShot[] = P.boss && P.boss[0] !== "-" ? [{ kind: "boss", dur: 3.8 }] : [];
@@ -213,10 +219,28 @@ const FINALE_TXT: Record<string, L3> = {
   harvest: ["ฮาร์เวสเตอร์ยังไม่เห็นเรา — แต่มันกำลังหันมาทางนี้ ศึกจริงยังไม่เริ่มต้น", "The Harvesters have not seen us yet, but they are turning this way. The real war has not begun.", "收割者还没有发现我们——但它们正转向这里，真正的战争尚未开始。"],
   ai: ["TIGA ถามว่า ถ้าเรารอดจากสิ่งนี้ได้ ข้างหน้ามีอะไรรออยู่ — เรื่องราวยังไม่จบ", "TIGA asks what lies ahead if we survive this. The story is not over.", "TIGA 问：如果我们撑过这一关，前方还有什么？故事还没有结束。"],
 };
+
+// How-to-play shot: four glowing control icons pulse in turn over the hero close-up (the explanation lives in the film, not on the menu).
+const drawHowto = (x: CanvasRenderingContext2D, W: number, H: number, t: number) => {
+  const items = ["◀ ▶", "⤴", "🔫", "◆"], cols = ["#7fe8ff", "#7dffa8", "#ffd23f", "#c58bff"], n = items.length, y = H * 0.74, gap = Math.min(W / (n + 1), 170);
+  for (let i = 0; i < n; i++) {
+    const on = (t * 0.9) % n, k = Math.max(0, 1 - Math.abs(((on - i + n * 1.5) % n) - n / 2 + 0.5) * 1.6), p = 0.55 + 0.45 * k, cx = W / 2 + (i - (n - 1) / 2) * gap, r = H * 0.075 * (1 + 0.25 * k);
+    x.save(); x.globalAlpha = Math.min(1, t * 1.5) * p; x.shadowColor = cols[i]; x.shadowBlur = 28 * k + 8; x.strokeStyle = cols[i]; x.lineWidth = 3; x.fillStyle = "rgba(6,18,30,.75)";
+    x.beginPath(); x.arc(cx, y, r, 0, 7); x.fill(); x.stroke(); x.shadowBlur = 0; x.fillStyle = "#fff"; x.font = "800 " + Math.round(r * 0.8) + "px system-ui"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(items[i], cx, y + 2); x.restore();
+  }
+};
+// A bright flash, a ring of light and speed lines on every cut: a small hit of "something is happening" without ever flickering more than about three times a second.
+const hypeCut = (x: CanvasRenderingContext2D, W: number, H: number, t: number, kind: string) => {
+  if (t > 0.45 || kind === "objective") return;
+  const a = 1 - t / 0.45; x.save(); x.globalCompositeOperation = "lighter";
+  const g = x.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H * (0.3 + t * 1.6)); g.addColorStop(0, `rgba(255,240,200,${0.38 * a})`); g.addColorStop(1, "rgba(255,200,120,0)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.strokeStyle = `rgba(160,235,255,${0.5 * a})`; x.lineWidth = 2; for (let i = 0; i < 18; i++) { const ang = i * 0.349 + kind.length, r0 = H * (0.25 + t * 1.2), r1 = r0 + H * 0.12; x.beginPath(); x.moveTo(W / 2 + Math.cos(ang) * r0, H / 2 + Math.sin(ang) * r0); x.lineTo(W / 2 + Math.cos(ang) * r1, H / 2 + Math.sin(ang) * r1); x.stroke(); }
+  x.restore();
+};
 const captionFor = (P: any, kind: string, lang: string) => {
   const g = (a: L3) => T3(lang, a[0], a[1], a[2]);
   if (P.finale && (kind === "lore" || kind === "mind")) return g(FINALE_TXT[(P as any).__theme || "friend"]);
-  if (kind === "earth" || kind === "factory" || kind === "launch" || kind === "contact" || kind === "mind") return g((COMMON as any)[kind]);
+  if (kind === "earth" || kind === "factory" || kind === "launch" || kind === "contact" || kind === "mind" || kind === "howto") return g((COMMON as any)[kind]);
   if (kind === "lore") return g(LORE[P.id] || LORE.luma);
   if (kind === "approach") return g(INTRO[P.id] || INTRO.luma);
   if (kind === "surface" || kind === "strike") return g(STORY[P.id] || STORY.luma);
@@ -730,11 +754,13 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
         case "lore": { const th = (s as any).theme; if (th === "ai") sceneAI(x, W, H, u, local, P); else if (th === "friend") sceneFriend(x, W, H, u, local, P); else if (th === "reactor") sceneReactor(x, W, H, u, local, P); else if (th === "dark") sceneDark(x, W, H, u, local, P); else sceneHarvest(x, W, H, u, local, P, 1.7); break; }
         case "approach": sceneApproach(x, W, H, u, local, P); break; case "boss": sceneBoss(x, W, H, u, local, P); break; case "objective": sceneObjective(x, W, H, local, P); break;
         case "survey": sceneSurvey(x, W, H, u, local, P); break; case "descent": sceneDescent(x, W, H, u, local, P); break; case "landing": sceneLanding(x, W, H, u, local, P, type, eye); break;
+        case "howto": sceneCrew(x, W, H, u, local, P, eye); drawHowto(x, W, H, local); break;
         case "crew": sceneCrew(x, W, H, u, local, P, eye); break; case "work": sceneWork(x, W, H, u, local, P, type, eye); break; case "storm": sceneStorm(x, W, H, u, local, P, type, eye); break;
         case "signal": sceneSignal(x, W, H, u, local, P, eye); break; case "warning": sceneWarning(x, W, H, u, local, P, catOf(P)); break; case "dawn": sceneDawn(x, W, H, u, local, P, eye); break;
         default: sceneSurface(x, W, H, u, local, P, type, eye);
       }
       x.restore();
+      hypeCut(x, W, H, local, s.kind);
       epicLook(x, W, H, el, s.kind, P); bloom(x, W, H);
       const v = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.6)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
       x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 90; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.4, 1.4);   // film grain

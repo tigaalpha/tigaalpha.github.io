@@ -723,11 +723,6 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           {readDyson() > 0 && <span className="adv-chip">{t("ไดสันสเฟียร์: ส่งพลังงานกลับโลกแล้ว " + readDyson() + " แผง ☀", "Dyson sphere: " + readDyson() + " panels beaming energy to Earth ☀", "戴森球：" + readDyson() + " 块板正向地球输送能量 ☀")}</span>}
           <span className="adv-chip adv-chip-cry">{t("◆ คริสตัล ", "◆ Crystals ", "◆ 晶体 ") + crystals}</span>
           </div>
-          <details className="adv-about" open={firstVisit}><summary>{t("เกี่ยวกับโหมดนี้", "About this mode", "关于此模式")}</summary>
-          <p className="adv-story">{t("ปี 2100 มนุษย์ออกหาทรัพยากรและพลังงานจากดาวต่างๆ และต้องสู้กับต่างดาว  ◆ คริสตัลพลังงานที่เก็บได้: " + crystals, "Year 2100: humanity heads out for resources and star energy, and fights the aliens. ◆ Energy crystals collected: " + crystals, "2100年，人类外出寻找资源与恒星能源，并与外星生物作战。  ◆ 已收集能量晶体：" + crystals)}</p>
-          <p className="adv-story">{t("หุ่นยนต์และสัตว์เลี้ยงออกผจญภัยในดาวต่างดาว สู้มอนสเตอร์ เก็บ EXP เพิ่มเลเวลและสกิล (EXP เดียวกับ PvP)", "Take your robot and pet across alien planets, fight monsters and earn EXP for levels and skills (the same EXP as PvP).", "带着机器人和宠物探索外星球，打怪获得经验，升级并提升技能（与 PvP 共用经验）。")}</p>
-          <p className="adv-story adv-how">{t("วิธีเล่น: เดินด้วยปุ่มซ้าย-ขวา กดกระโดดและยิง เก็บ ◆ ตอบคำถามดนตรีที่ลำแสงเพื่อได้โบนัส แล้วเดินไปที่ประตูเวิร์ปท้ายด่าน", "How to play: move with the arrows, jump and shoot, collect ◆, answer the music question at a beacon for a bonus, then walk into the warp gate at the end.", "玩法：用方向键移动，跳跃并射击，收集 ◆，在信标处回答音乐问题可获奖励，最后走进终点的传送门。")}</p>
-          </details>
           <div className="adv-sectors" role="tablist">
             {(["ground", "space", "act2", "solar"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
               <button key={v} role="tab" aria-selected={sector === v} data-sector={v} className={"adv-sec" + (sector === v ? " on" : "")} onClick={() => pickSector(v)}>
