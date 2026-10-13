@@ -17,7 +17,8 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
   return out;
 }
 export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClose }: any) {
-  const seq = useMemo(() => extendPattern(notes, octaves), [notes, octaves]);
+  const [both, setBoth] = useState(false);
+  const seq = useMemo(() => { const up = extendPattern(notes, octaves); return both ? [...up, ...up.slice(0, -1).reverse()] : up; }, [notes, octaves, both]);
   const [cur, setCur] = useState(-1); const [playing, setPlaying] = useState(false); const [portrait, setPortrait] = useState(false);
   const timer = useRef<any>(null);
   const T = { th: { play: "เล่นให้ดู", stop: "หยุด", close: "ปิด", notes: "โน้ต", left: "มือซ้าย", right: "มือขวา", tap: "แตะคีย์เพื่อเล่นเอง" }, en: { play: "Play it", stop: "Stop", close: "Close", notes: "Notes", left: "Left hand", right: "Right hand", tap: "Tap the keys to play" }, zh: { play: "示范", stop: "停止", close: "关闭", notes: "音符", left: "左手", right: "右手", tap: "点击琴键自己弹" } }[lang as "th" | "en" | "zh"] || ({} as any);
@@ -44,6 +45,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
         <b className="ost-title">{label}</b><span className="ost-oct">{octaves}×</span>
         <div className="ost-notes" aria-label={T.notes}>{seq.map((s, i) => <span key={i} className={i === cur ? "on" : ""}>{NAMES[s.m % 12]}</span>)}</div>
         <button className="ost-btn" onClick={() => setHand(hand === "left" ? "right" : "left")}>{hand === "left" ? T.left : T.right} ⇄</button>
+        <button className="ost-btn" onClick={() => { clearInterval(timer.current); setPlaying(false); setCur(-1); setBoth(!both); }} aria-pressed={both}>{both ? "↑↓" : "↑"}</button>
         <button className="ost-btn go" onClick={run}>{playing ? "⏸ " + T.stop : "▶ " + T.play}</button>
         <button className="ost-btn" onClick={onClose} aria-label={T.close}>✕</button>
       </div>
