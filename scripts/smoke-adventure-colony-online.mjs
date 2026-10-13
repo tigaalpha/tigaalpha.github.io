@@ -61,5 +61,7 @@ await A.p.evaluate(() => window.__advColony.hazard()); await B.p.waitForTimeout(
 ok("a hazard the host triggers strikes the guest too", (await B.p.evaluate(() => window.__advColony.state().hz)) > 0);
 await A.p.evaluate(() => window.__advColony.setPop(23)); await B.p.waitForTimeout(3600);
 ok("the guest follows the host's population", Math.abs((await B.p.evaluate(() => window.__advColony.state().pop)) - 23) < 2);
+await A.p.evaluate(() => window.__advColony.give("wa", 100)); await B.p.waitForTimeout(3600);
+ok("the guest follows the host's water stock", Math.abs((await B.p.evaluate(() => window.__advColony.state().stock.wa)) - (await A.p.evaluate(() => window.__advColony.state().stock.wa))) < 25);
 ok("no page errors", A.errs.length + B.errs.length === 0, JSON.stringify([...A.errs, ...B.errs]));
 await browser.close(); server.close(); process.exit(fail ? 1 : 0);
