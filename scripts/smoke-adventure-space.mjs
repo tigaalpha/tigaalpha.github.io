@@ -41,7 +41,7 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
 }
 {
   const { ctx, p, errs } = await open({ tg_adv_nocine: "0", tg_adv_prologue: "skip" }); await enter(p, "Departure"); await p.waitForSelector(".adv-cine", { timeout: 8000 });
-  const k = await p.evaluate(() => window.__advCine.kinds()); ok("the send-off film: pad > liftoff > earth fade > objective", JSON.stringify(k) === JSON.stringify(["pad", "liftoff", "earthfade", "objective"]), k.join());
+  await p.waitForFunction(() => window.__advCine, null, { timeout: 8000 }); const k = await p.evaluate(() => window.__advCine.kinds()); ok("the send-off film: pad > liftoff > earth fade > objective", JSON.stringify(k) === JSON.stringify(["pad", "liftoff", "earthfade", "objective"]), k.join());
   if (process.env.SHOT) for (let q = 0; q < 3; q++) { await p.evaluate((n) => window.__advCine.jump(n), q); await p.waitForTimeout(1200); await p.screenshot({ path: process.env.SHOT + q + ".png" }); }
   ok("no errors (film)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
@@ -54,7 +54,8 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
   const t2 = await p.evaluate(() => window.__advShip.state().t); await p.waitForTimeout(500); const t3 = await p.evaluate(() => window.__advShip.state().t);
   ok("after the question the ship flies on", (await p.locator(".adv-quiz").count()) === 0 && t3 > t2 + 0.3);
   await p.evaluate(() => { window.__advShip.setHpS(40); window.__advShip.answer(true); }); ok("a right answer repairs the ship", (await p.evaluate(() => window.__advShip.hpNow())) >= 60);
-  for (const [k, add] of [["cell", 12], ["nuke", 22], ["h2", 16]]) { await p.evaluate(() => window.__advShip.setHpS(30)); await p.evaluate((kk) => window.__advShip.givePod(kk), k); await p.waitForTimeout(250); const h = await p.evaluate(() => window.__advShip.hpNow()); ok("refuel pod " + k + " restores ship health", h >= 30 + add - 1 && h <= 30 + add + 3, String(h)); }
+  for (const [k, add] of [["cell", 5], ["nuke", 9], ["h2", 6]]) { await p.evaluate(() => window.__advShip.setHpS(30)); await p.evaluate((kk) => window.__advShip.givePod(kk), k); await p.waitForTimeout(250); const h = await p.evaluate(() => window.__advShip.hpNow()); ok("refuel pod " + k + " restores ship health", h >= 30 + add - 1 && h <= 30 + add + 3, String(h)); }
+  for (const k of ["cell", "nuke", "h2"]) { await p.evaluate(() => { window.__advShip.formEnd(); }); await p.waitForTimeout(150); await p.evaluate((kk) => window.__advShip.givePod(kk), k); await p.waitForTimeout(300); const c0 = await p.evaluate(() => window.__advShip.powerNow().chg); await p.locator("[data-power]").dispatchEvent("pointerdown"); await p.waitForTimeout(300); const st = await p.evaluate(() => window.__advShip.powerNow()); ok("POWER button uses a stored charge and changes the ship form (" + k + ")", st.form !== null && Object.values(c0).reduce((a, b) => a + b, 0) >= 1, JSON.stringify([c0, st])); }
   ok("no errors (relay)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
 {
