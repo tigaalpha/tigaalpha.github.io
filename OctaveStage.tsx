@@ -18,8 +18,10 @@ function StaffCard({ notes, active, title, bass }: { notes: { m: number }[]; act
   const stepOf = (m: number) => { const nm = NAMES[m % 12].replace("#", ""), oct = Math.floor(m / 12) - 1; return oct * 7 + LETTER[nm]; };
   const base = bass ? 18 : 30;   // diatonic step of the bottom line: G2 in the bass clef, E4 in the treble clef
   const yOf = (st: number) => bottom - (st - base) * half;
+  // Notes far above or below the staff (long ranges) would run off the card: stretch the view box to hold them, the drawing then scales down to fit.
+  const ys = notes.slice(0, 8).map(q => yOf(stepOf(q.m))), vbTop = Math.min(0, Math.min(...ys, 99) - 32), vbBot = Math.max(H, Math.max(...ys, 0) + 32);
   return (
-    <svg className="ost-staff" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title}>
+    <svg className="ost-staff" viewBox={`0 ${vbTop} ${W} ${vbBot - vbTop}`} role="img" aria-label={title}>
       {[0, 1, 2, 3, 4].map(i => <line key={i} x1={left} x2={W - 4} y1={bottom - i * 2 * half} y2={bottom - i * 2 * half} stroke="currentColor" strokeWidth="1" opacity=".55" />)}
       {bass ? (
       <g transform={`translate(10 ${bottom - 8 * half - 1})`} stroke="currentColor" fill="none" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
