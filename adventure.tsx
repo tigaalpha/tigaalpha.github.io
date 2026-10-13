@@ -631,6 +631,11 @@ const CSS = `
 .adv-menu .adv-lobby input{background:var(--card2,#f3f3f3);color:var(--text);border:1px solid var(--bd3,rgba(0,0,0,.2));border-radius:999px;padding:9px 14px;min-height:40px}
 .adv-menu .al-room b{color:var(--clay,#d97757);background:var(--card2);padding:2px 14px;border-radius:14px}
 .adv-menu .al-err{color:#d33}
+.adv-menu .adv-cta{display:flex;align-items:center;gap:14px;width:100%;min-height:72px;margin:2px 0 12px;padding:10px 18px;border-radius:999px;border:0;background:var(--clay,#d97757);color:#fff;text-align:left;cursor:pointer;box-shadow:0 4px 14px rgba(217,119,87,.35)}
+.adv-menu .adv-cta .adv-orb{flex:0 0 44px;height:44px}.adv-menu .adv-cta small{display:block;color:rgba(255,255,255,.85);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.adv-menu .adv-cta b{font-size:16px;color:#fff}.adv-menu .adv-cta em{margin-left:auto;font-style:normal;font-size:20px}
+.adv-menu .adv-grp{margin:0 0 10px;border:1px solid var(--bd2,rgba(0,0,0,.12));border-radius:22px;background:var(--card,#fff);padding:0 12px}.adv-menu .adv-grp>summary{cursor:pointer;min-height:48px;display:flex;align-items:center;font-weight:800;font-size:14px;color:var(--text)}.adv-menu .adv-grp[open]>summary{border-bottom:1px solid var(--bd2,rgba(0,0,0,.1));margin-bottom:8px}
+.adv-menu .adv-grp .adv-shop{background:transparent;border:0;padding:4px 0;margin:4px 0}
+.adv-menu .adv-how{background:var(--card2,#f3f3f3);padding:8px 12px;border-radius:16px}
 `;
 
 type Gfx = "standard" | "high";
@@ -664,6 +669,9 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const sectorOf = (P: any): "ground" | "space" | "act2" | "solar" => (SOLAR.includes(P.id) ? "solar" : ACT2.includes(P.id) ? "act2" : isSpace(P) ? "space" : "ground");
   const pickSector = (v: "ground" | "space" | "act2" | "solar") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
   const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
+  const gearOpen = (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1" || adminTier >= 3; } catch (e) { return false; } })();
+  const firstVisit = (() => { try { return localStorage.getItem("tg_adv_seen") === null; } catch (e) { return false; } })();
+  useEffect(() => { try { localStorage.setItem("tg_adv_seen", "1"); } catch (e) {} }, []);
   const done = readDone(); const crystals = readCrystals(); const ups = readUps(); const diff = readDiff(); const qs = readQuests(); const load = readLoad(); const ore = readOre(); const ostage = oreStage(ore);
   const [strike, setStrike] = useState<any>(null);
   const [shipDone, setShipDone] = useState<any>(null);
@@ -715,9 +723,10 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           {readDyson() > 0 && <span className="adv-chip">{t("ไดสันสเฟียร์: ส่งพลังงานกลับโลกแล้ว " + readDyson() + " แผง ☀", "Dyson sphere: " + readDyson() + " panels beaming energy to Earth ☀", "戴森球：" + readDyson() + " 块板正向地球输送能量 ☀")}</span>}
           <span className="adv-chip adv-chip-cry">{t("◆ คริสตัล ", "◆ Crystals ", "◆ 晶体 ") + crystals}</span>
           </div>
-          <details className="adv-about"><summary>{t("เกี่ยวกับโหมดนี้", "About this mode", "关于此模式")}</summary>
+          <details className="adv-about" open={firstVisit}><summary>{t("เกี่ยวกับโหมดนี้", "About this mode", "关于此模式")}</summary>
           <p className="adv-story">{t("ปี 2100 มนุษย์ออกหาทรัพยากรและพลังงานจากดาวต่างๆ และต้องสู้กับต่างดาว  ◆ คริสตัลพลังงานที่เก็บได้: " + crystals, "Year 2100: humanity heads out for resources and star energy, and fights the aliens. ◆ Energy crystals collected: " + crystals, "2100年，人类外出寻找资源与恒星能源，并与外星生物作战。  ◆ 已收集能量晶体：" + crystals)}</p>
           <p className="adv-story">{t("หุ่นยนต์และสัตว์เลี้ยงออกผจญภัยในดาวต่างดาว สู้มอนสเตอร์ เก็บ EXP เพิ่มเลเวลและสกิล (EXP เดียวกับ PvP)", "Take your robot and pet across alien planets, fight monsters and earn EXP for levels and skills (the same EXP as PvP).", "带着机器人和宠物探索外星球，打怪获得经验，升级并提升技能（与 PvP 共用经验）。")}</p>
+          <p className="adv-story adv-how">{t("วิธีเล่น: เดินด้วยปุ่มซ้าย-ขวา กดกระโดดและยิง เก็บ ◆ ตอบคำถามดนตรีที่ลำแสงเพื่อได้โบนัส แล้วเดินไปที่ประตูเวิร์ปท้ายด่าน", "How to play: move with the arrows, jump and shoot, collect ◆, answer the music question at a beacon for a bonus, then walk into the warp gate at the end.", "玩法：用方向键移动，跳跃并射击，收集 ◆，在信标处回答音乐问题可获奖励，最后走进终点的传送门。")}</p>
           </details>
           <div className="adv-sectors" role="tablist">
             {(["ground", "space", "act2", "solar"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
@@ -740,6 +749,11 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
             </svg>
           </div>)}
           {rankOpen && <RankPanel lang={lang} maps={PLANETS.filter(P => sectorOf(P) === sector)} />}
+          {(() => { const nx = PLANETS.find(P => sectorOf(P) === sector && open(P) && !done.includes(P.id)); return nx && canStart(nx) ? (
+            <button className="adv-cta" data-continue={nx.id} onClick={() => { if (net) net.sendStart(nx.id, warOpt); startPlanet(nx); }}>
+              <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${nx.c[2]} 45%,${nx.c[0]})`, "--g": `rgba(${nx.glow},.7)` } as any} />
+              <span><small>{done.length ? t("เล่นต่อ", "Continue", "继续") : t("เริ่มเลย", "Start here", "从这里开始")}</small><b>{T3(lang, nx.th, nx.en, nx.zh)}</b></span><em>▶</em>
+            </button>) : null; })()}
           <div className="adv-planets">
             {PLANETS.map((P, pi) => sectorOf(P) !== sector ? null : (
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
@@ -772,6 +786,8 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
                 <small>{net.host ? t("คุณเป็นเจ้าของห้อง — เลือกแผนที่ด้านล่างเพื่อเริ่มพร้อมกันทุกคน (ทุกคนดูหนังก่อนเริ่มด่านของตัวเอง)", "You host — pick a map below to start it for everyone (each pilot sees the film first).", "你是房主——在下方选择地图即可让所有人同时开始（每人先看自己的过场动画）。") : t("รอเจ้าของห้องเลือกแผนที่…", "Waiting for the host to pick a map…", "等待房主选择地图…")}</small>
               </>)}
             </div>)}
+          <details className="adv-grp" data-grp="gear" open={gearOpen}>
+            <summary>{t("🧰 อัปเกรดและอุปกรณ์", "🧰 Upgrades & gear", "🧰 升级与装备")}</summary>
           <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} onChange={() => setTick(x => x + 1)} />
           {sector === "solar" && (() => { const ar = readArk(), st = arkStats(ar); const nm: any = { g: ["วงแหวนแรงโน้มถ่วง", "Gravity ring", "重力环"], f: ["ชั้นปลูกพืช", "Farm decks", "农业层"], l: ["ชั้นเลี้ยงสัตว์", "Livestock decks", "牲畜层"], h: ["ที่อยู่อาศัย", "Habitat", "居住区"], s: ["เกราะและโล่", "Hull & shields", "船体与护盾"] };
             return (<div className="adv-shop" aria-label="Ark Bay" data-ark="1">
@@ -800,6 +816,9 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               </div>
             ))}
           </div>
+          </details>
+          <details className="adv-grp" data-grp="quests">
+            <summary>{t("📅 เควสต์วันนี้", "📅 Today's quests", "📅 今日任务")}</summary>
           <div className="adv-shop" aria-label="Daily quests">
             <b>{t("เควสต์วันนี้ (ได้ EXP)", "Today's quests (EXP)", "今日任务（经验）")}</b>
             {QUESTS.map(d => (
@@ -809,6 +828,9 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               </div>
             ))}
           </div>
+          </details>
+          <details className="adv-grp" data-grp="settings">
+            <summary>{t("⚙ ตั้งค่า (ความยาก · กราฟิก)", "⚙ Settings (difficulty · graphics)", "⚙ 设置（难度 · 画质）")}</summary>
           <div className="adv-gfx" role="radiogroup" aria-label="Difficulty">
             {DIFFS.map(d => (
               <button key={d.id} role="radio" aria-checked={diff.id === d.id} className={diff.id === d.id ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_diff", d.id); } catch (e) {} setTick(x => x + 1); }}>
@@ -825,6 +847,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           </div>
           <label className="adv-nocine"><input type="checkbox" checked={nocine} onChange={(e) => { try { localStorage.setItem("tg_adv_nocine", e.target.checked ? "1" : "0"); } catch (er) {} setTick(x => x + 1); }} /> {t("ข้ามหนังก่อนเริ่มด่าน", "Skip the film before each map", "跳过每张地图前的过场动画")}</label>
           <p style={{ fontSize: 11.5 }}>{t("ระบบเลือกให้ตามเครื่องของคุณ เปลี่ยนเองได้", "Chosen for your device; change it any time.", "已按设备自动选择，可随时更改。")}</p>
+          </details>
         </div>
       ) : (
         <AdvGuard mapId={planet.id} lang={lang} onBack={() => { setPlanet(null); setCined(null); setShipDone(null); }}>{
