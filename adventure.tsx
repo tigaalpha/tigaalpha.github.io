@@ -495,8 +495,8 @@ const CSS = `
 .adv-top{position:absolute;left:0;right:0;top:0;display:flex;gap:8px;align-items:center;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:linear-gradient(180deg,rgba(0,8,14,.7),rgba(0,8,14,0));z-index:4}
 .adv-btn{min-width:44px;min-height:44px;border-radius:22px;border:1.5px solid rgba(140,255,220,.5);background:rgba(4,24,30,.62);color:#e8fffa;font-size:13px;font-weight:800;padding:0 14px;cursor:pointer;backdrop-filter:blur(4px)}
 .adv-hud{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.adv-bar{position:relative;height:13px;border-radius:7px;background:rgba(255,255,255,.12);overflow:hidden}.adv-bar i{position:absolute;inset:0 auto 0 0;border-radius:7px}
-.adv-bar b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.4px;text-shadow:0 1px 2px #000}
+.adv-bar{position:relative;height:17px;border-radius:7px;background:rgba(255,255,255,.12);overflow:hidden}.adv-bar i{position:absolute;inset:0 auto 0 0;border-radius:7px}
+.adv-bar b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;letter-spacing:.3px;text-shadow:0 1px 2px #000}
 .adv-hp i{background:linear-gradient(90deg,#ff4d6d,#ff9a6d)}.adv-xp i{background:linear-gradient(90deg,#3ddc97,#9dffd6)}.adv-sk i{background:linear-gradient(90deg,#7b61ff,#c3b0ff)}
 .adv-lv{font-size:12px;font-weight:900;letter-spacing:.6px;color:#9dffd6}
 .adv-pad{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;padding:10px 14px calc(14px + env(safe-area-inset-bottom,0px));z-index:4;pointer-events:none}
@@ -1867,8 +1867,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         <button className="adv-btn" onClick={() => { playUi && playUi("click"); onExit(); }} aria-label="map">←</button>
         <div className="adv-hud">
           <div className="adv-lv">Lv {hud.lv} · {P.en.split(" · ")[0]} · ☠ {hud.kills}{hud.team ? " · 🤝 " + hud.team : ""} · ◆ {hud.cry || 0} · 🪙 {hud.lootCoins || 0}</div>
-          <div className="adv-bar adv-hp"><i style={{ width: pct(hud.hp, hud.hpMax) }} /><b>HP {Math.round(hud.hp)} / {hud.hpMax}</b></div>
-          <div className="adv-bar adv-xp"><i style={{ width: pct(hud.xp, hud.xpNeed) }} /><b>EXP</b></div>
+          <div className="adv-bar adv-hp"><i style={{ width: pct(hud.hp, hud.hpMax) }} /><b>❤ {t("พลังชีวิต", "HEALTH", "生命")} {Math.round(hud.hp)} / {hud.hpMax}</b></div>
+          <div className="adv-bar adv-xp"><i style={{ width: pct(hud.xp, hud.xpNeed) }} /><b>★ {t("ประสบการณ์", "LEVEL", "经验")}</b></div>
           <div className="adv-bar adv-sk"><i style={{ width: pct(hud.sk, hud.skNeed) }} /><b>{t("สกิล", "SKILL", "技能")} R{hud.rank || 1}</b></div>
         </div>
         <GearButton onClick={openGear} />
