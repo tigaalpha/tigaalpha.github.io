@@ -162,7 +162,9 @@ const PROLOGUE: any = { id: "prologue", prologue: true, th: "โครงกา�
 let TINT: any = null;
 const AdventureShip = lazy(() => import("./adventure-ship"));
 const AdventureYard = lazy(() => import("./adventure-yard"));   // the Ark shipyard: place the eight modules
-const AdventureFarm = lazy(() => import("./adventure-farm"));   // the Ark farm decks: plants and gene-edited livestock   // the starship dogfight: its own chunk
+const AdventureFarm = lazy(() => import("./adventure-farm"));
+const AdventureColony = lazy(() => import("./adventure-colony"));   // the Colony Builder: a SimCity-style management level for the Moon, Mars, Titan and Proxima b
+   // the Ark farm decks: plants and gene-edited livestock   // the starship dogfight: its own chunk
 const AdventureCine = lazy(() => import("./adventure-cine"));   // the film before each map: its own chunk, loaded when a map is picked
 
 /* Lightning (owner, 2026-10-12: "make the BOLT look like real lightning, grander"). A bolt is a jagged path (midpoint displacement, redrawn every frame so it
@@ -224,6 +226,10 @@ export const PLANETS = [
   { id: "arkbuild", th: "อู่ต่อยาน · สร้างเรือโนอาแห่งอวกาศ", en: "Shipyard · build the Ark", zh: "船坞 · 建造太空方舟", c: ["#04101a", "#10345a", "#60b8ff"], glow: "120,200,255", acc: "140,255,170", ok: true, hard: 3.4, mission: "yard", mons: ["drone", "scrapgolem", "wraith", "mantis", "eyeball"], tint: { glow: "120,200,255", body: "#0c2438" }, boss: ["-", "-", "-"] },
   { id: "arkfarm", th: "ฟาร์มไฮโดรโปนิกส์บนยาน · ปลูกอาหารให้ผู้อพยพ", en: "Ark Hydroponic Farm · grow food for the settlers", zh: "方舟水培农场 · 为移民种植粮食", c: ["#04141a", "#0a3a2a", "#60ffb0"], glow: "120,255,170", acc: "255,230,120", ok: true, hard: 3.4, mission: "farm", kind: "plants", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "arkherd", th: "ฟาร์มสัตว์บนยาน · เลี้ยงสัตว์ตัดแต่งพันธุกรรม", en: "Ark Livestock Farm · gene-edited animals", zh: "方舟畜牧场 · 基因编辑的动物", c: ["#04141a", "#0a3a2a", "#60ffb0"], glow: "120,255,170", acc: "255,230,120", ok: true, hard: 3.4, mission: "farm", kind: "herd", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
+  { id: "colmoon", th: "อาณานิคมบนดวงจันทร์ · สร้างเมืองแห่งแรกนอกโลก", en: "Moon Colony · the first city beyond Earth", zh: "月球殖民地 · 地球之外的第一座城", c: ["#0a0c14", "#2a2f3c", "#9fb4d8"], glow: "170,190,230", acc: "170,200,255", ok: true, hard: 1.4, mission: "colony", kind: "moon", mons: [], tint: null, boss: ["-", "-", "-"] },
+  { id: "colmars", th: "อาณานิคมบนดาวอังคาร · เมืองใต้ท้องฟ้าสีส้ม", en: "Mars Colony · a city under an orange sky", zh: "火星殖民地 · 橙色天空下的城市", c: ["#1a0a06", "#5a2412", "#ff7a4a"], glow: "255,140,100", acc: "255,150,110", ok: true, hard: 1.8, mission: "colony", kind: "mars", mons: [], tint: null, boss: ["-", "-", "-"] },
+  { id: "coltitan", th: "อาณานิคมบนไททัน · เมืองในความหนาวเหน็บ", en: "Titan Colony · a city in the deep freeze", zh: "土卫六殖民地 · 严寒中的城市", c: ["#1a1206", "#6a4a14", "#ffc060"], glow: "255,200,120", acc: "255,190,100", ok: true, hard: 2.4, mission: "colony", kind: "titan", mons: [], tint: null, boss: ["-", "-", "-"] },
+  { id: "colproxima", th: "อาณานิคมพร็อกซิมา b · บ้านหลังใหม่ของมนุษยชาติ", en: "Proxima b Colony · humanity's new home", zh: "比邻星 b 殖民地 · 人类的新家园", c: ["#14040a", "#5a1426", "#ff5a7a"], glow: "255,120,150", acc: "255,110,140", ok: true, hard: 3.0, mission: "colony", kind: "proxima", mons: [], tint: null, boss: ["-", "-", "-"] },
   { id: "arkexodus", th: "การอพยพ · พา Ark ข้ามดวงดาว", en: "Exodus · carry the Ark across the stars", zh: "大迁徙 · 驾驶方舟跨越星际", c: ["#04061a", "#14245a", "#7ab4ff"], glow: "140,200,255", acc: "140,255,170", ok: true, hard: 3.6, mission: "warp", sky: "ark", mons: ["drone"], tint: null, boss: ["-", "-", "-"] },
   { id: "kindred", th: "ฐานไคนด์เรด · แลกแร่กับความรู้ของเพื่อนต่างดาว", en: "Kindred Haven · trade ore for an ally's knowledge", zh: "友族港湾 · 以矿石换取盟友的知识", c: ["#041a1a", "#0a4a44", "#46c7b0"], glow: "120,255,220", acc: "255,226,150", ok: true, hard: 2.6, mission: "mine", mons: ["glowbug", "hound", "swarmer", "eyeball", "glowbug", "burrower"], tint: { glow: "120,255,220", body: "#0c3a36" }, boss: ["-", "-", "-"] },
   { id: "darkforge", th: "โรงหลอมสสารมืด · พลังงานที่มองไม่เห็น", en: "Dark Forge · power from the unseen", zh: "暗物质锻炉 · 来自不可见之物的能量", c: ["#06010f", "#1a0a3a", "#8a5cff"], glow: "170,120,255", acc: "255,120,200", ok: true, hard: 3.6, mission: "dyson", mons: ["wraith", "eyeball", "drone", "scrapgolem", "wraith", "mantis"], tint: { glow: "170,120,255", body: "#1a0c2e" }, boss: ["-", "-", "-"] },
@@ -260,6 +266,10 @@ export const BRIEF: Record<string, string[]> = {
   titancolony: ["ไททันโคโลนี: ขุดน้ำแข็งและไฮโดรคาร์บอน ประกอบโมดูลอาณานิคมให้ครบ", "Titan Colony: dig ice and hydrocarbons and assemble every colony module", "土卫六殖民地：挖冰和碳氢化合物，组装全部殖民舱"],
   arkbuild: ["อู่ต่อยาน: ขุดวัสดุ ประกอบโมดูลของ Ark ครบสี่ส่วน — ตัวยาน วงแหวนแรงโน้มถ่วง ชั้นเกษตร และที่อยู่อาศัย", "Shipyard: dig materials and assemble the four Ark sections — hull, gravity ring, farm deck and habitat", "船坞：挖掘材料，组装方舟四大部分——船体、重力环、农业层和居住区"],
   arkfarm: ["ฟาร์มบน Ark: เพาะปลูกด้วยเทคโนโลยีขั้นสูง รดน้ำ ให้แสง LED และสารอาหาร รักษาโรคพืช จนผลผลิตพอเลี้ยงประชากร", "Ark Farm: grow crops with advanced tech: water, LED light and nutrients, treat blight, until the harvest can feed the population", "方舟农场：用先进技术种植——供水、LED 光照与营养液，治理病害，直到产量足以养活全体人口"],
+  colmoon: ["อาณานิคมดวงจันทร์: สร้างที่พัก ไฟ น้ำ อากาศ และอาหารให้สมดุล ระวังกลางคืนยาว", "Moon Colony: balance homes, power, water, air and food; beware the long night", "月球殖民地：让住房、电、水、空气和食物保持平衡，小心漫长月夜"],
+  colmars: ["อาณานิคมดาวอังคาร: แดดอ่อน มีน้ำแข็งใต้ดิน ระวังพายุฝุ่น", "Mars Colony: weak sun, ice underground; beware dust storms", "火星殖民地：阳光弱、地下有冰，小心沙尘暴"],
+  coltitan: ["อาณานิคมไททัน: เกือบไม่มีแสงแดด หนาวจัด ใช้เครื่องปฏิกรณ์ฟิวชัน", "Titan Colony: almost no sun and a deep freeze; build fusion reactors", "土卫六殖民地：几乎没有阳光且极寒，建造聚变反应堆"],
+  colproxima: ["อาณานิคมพร็อกซิมา b: แร่ล้ำค่า แต่แฟลร์จากดาวแม่ทำไฟตกและอากาศรั่ว", "Proxima b Colony: rich ore, but stellar flares drop power and leak air", "比邻星 b 殖民地：矿藏丰富，但恒星耀发会断电漏气"],
   arkherd: ["ฟาร์มสัตว์บน Ark: เลี้ยงแมลง ปลา ไก่ หมู วัว ที่ตัดแต่งพันธุกรรม ให้อาหาร น้ำ ฉีดวัคซีน จนมีโปรตีนพอเลี้ยงประชากร", "Ark Herd: raise gene-edited insects, fish, chickens, pigs and cows; feed, water and vaccinate them until there is protein for everyone", "方舟畜牧：饲养基因编辑的昆虫、鱼、鸡、猪和牛，喂食、供水、接种疫苗，直到有足够蛋白质养活所有人"],
   arkexodus: ["การอพยพ: บังคับ Ark ผ่านประตูวาร์ป 3 บาน แล้วเข้าพอร์ทัลสู่ระบบดาวดวงใหม่", "Exodus: steer the Ark through 3 warp gates, then into the portal to a new star system", "大迁徙：驾驶方舟穿过 3 道曲速门，然后进入通往新恒星系的传送门"],
   gasskim: ["ดาวแก๊สยักษ์: บินในชั้นพลังงานเรืองแสงให้ถังเต็ม หลบสายฟ้าฟาด", "Gas Giant: stay inside the glowing energy layer to fill the tank; dodge the lightning", "气态巨星：留在发光的能量层内装满能量罐，躲开闪电"],
@@ -531,6 +541,9 @@ const CSS = `
 .af-bar{width:100%;height:7px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden}.af-bar i{display:block;height:100%;background:linear-gradient(90deg,#3ddc97,#9fffd0)}
 .af-res{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.af-r{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-radius:20px;border:1.5px solid rgba(140,255,220,.35);background:rgba(10,50,44,.55);color:#e6fff6;font-weight:800;font-size:12px;cursor:pointer;text-align:left;min-height:48px}.af-r.low{border-color:#ff6b81}.af-r.low .af-bar i{background:#ff6b81}.af-r.cd{opacity:.65}
 .af-tech{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.af-t{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:20px;border:1.5px solid rgba(255,224,122,.4);background:rgba(60,48,10,.5);color:#fff3c8;font-size:12px;text-align:left;cursor:pointer;min-height:48px}.af-t small{font-size:10.5px;opacity:.85}.af-t.on{border-color:#3ddc97;background:rgba(10,70,50,.6)}.af-t:disabled:not(.on){opacity:.5}
+.adv-colony{padding-top:70px;gap:6px}.ac2-res{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.ac2-r{display:inline-flex;gap:5px;align-items:baseline;padding:5px 10px;border-radius:999px;border:1.5px solid rgba(140,255,220,.35);background:rgba(10,50,44,.55);font-weight:800;font-size:13px}.ac2-r small{font-size:10.5px;color:#9fffd0}.ac2-r small.neg{color:#ff9aa8}.ac2-r.low{border-color:#ff6b81;animation:afp .5s infinite alternate}.ac2-hz{padding:5px 10px;border-radius:999px;background:rgba(255,90,70,.25);border:1.5px solid #ff6b81;font-size:12px;font-weight:800}
+.ac2-grid{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(6,1fr);gap:4px;flex:none;height:min(52vh,420px);min-height:230px}.ac2-cell{display:flex;align-items:center;justify-content:center;border-radius:14px;border:1.5px solid rgba(140,255,220,.22);background:rgba(10,40,40,.55);color:#e6fff6;font-size:clamp(16px,3.4vw,26px);cursor:pointer;padding:0;min-height:0}.ac2-cell em{font-style:normal;font-size:13px;opacity:.55}.ac2-cell.has{background:rgba(20,90,78,.7);border-color:rgba(140,255,220,.6)}.ac2-cell.ice:not(.has){background:rgba(60,120,170,.3)}.ac2-cell.ore:not(.has){background:rgba(150,110,50,.3)}
+.ac2-build{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.ac2-b{display:flex;flex-direction:column;gap:1px;padding:5px 6px;border-radius:16px;border:1.5px solid rgba(140,255,220,.3);background:rgba(10,50,44,.55);color:#e6fff6;font-size:11px;text-align:left;cursor:pointer}.ac2-b b{font-size:11.5px}.ac2-b small{font-size:10px;opacity:.85}.ac2-b.on{border-color:#ffe07a;box-shadow:0 0 12px rgba(255,224,122,.45)}.ac2-b.poor{opacity:.6}.ac2-b.lock{opacity:.4}.ac2-sel{font-size:12px;color:#cfeee6;display:flex;flex-direction:column;gap:1px}.ac2-sel em{font-style:normal;font-size:10.5px;opacity:.7}
 .af-fact{font-size:12px;line-height:1.4;color:#b6d8d0;padding:6px 10px;border-radius:16px;background:rgba(0,0,0,.25)}.af-pick{display:flex;flex-direction:column;gap:6px}.af-pick .adv-btn{display:flex;justify-content:space-between;gap:8px;text-align:left}.af-pick small{opacity:.8}
 @media (max-width:600px){.adv .pvpdir{width:50px;height:50px}.adv .pvpact{width:58px;height:50px}.adv-pad .pvppad-r,.adv-pad .pvppad-l{gap:6px}}
 .adv-key{width:68px;height:68px;border-radius:22px;border:2px solid rgba(140,255,220,.55);background:rgba(4,30,36,.6);color:#fff;font-size:26px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;backdrop-filter:blur(4px)}
@@ -669,9 +682,10 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const ACT2 = ["kindred", "darkforge", "shadow"], SOLAR = ["moonhe3", "moonbase", "marscolony", "mercury", "venussky", "jupitergas", "saturnrings", "titanassault", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus"];
   const isSpace = (P: any) => ["dogfight", "launch", "belt", "skim", "harvest", "solar", "warp", "blackhole"].includes(P.mission);
   const [farmKey, setFarmKey] = useState(0);
-  const [sector, setSector] = useState<"ground" | "space" | "act2" | "solar">(() => { try { const v = localStorage.getItem("tg_adv_sector"); return v === "space" ? "space" : v === "act2" ? "act2" : v === "solar" ? "solar" : "ground"; } catch (e) { return "ground"; } });
-  const sectorOf = (P: any): "ground" | "space" | "act2" | "solar" => (SOLAR.includes(P.id) ? "solar" : ACT2.includes(P.id) ? "act2" : isSpace(P) ? "space" : "ground");
-  const pickSector = (v: "ground" | "space" | "act2" | "solar") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
+  const [sector, setSector] = useState<"ground" | "space" | "act2" | "solar" | "colony">(() => { try { const v = localStorage.getItem("tg_adv_sector"); return v === "space" ? "space" : v === "act2" ? "act2" : v === "solar" ? "solar" : v === "colony" ? "colony" : "ground"; } catch (e) { return "ground"; } });
+  const COLONY = ["colmoon", "colmars", "coltitan", "colproxima"];
+  const sectorOf = (P: any): "ground" | "space" | "act2" | "solar" | "colony" => (COLONY.includes(P.id) ? "colony" : SOLAR.includes(P.id) ? "solar" : ACT2.includes(P.id) ? "act2" : isSpace(P) ? "space" : "ground");
+  const pickSector = (v: "ground" | "space" | "act2" | "solar" | "colony") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
   const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
   const gearOpen = (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1" || adminTier >= 3; } catch (e) { return false; } })();
   const firstVisit = (() => { try { return localStorage.getItem("tg_adv_seen") === null; } catch (e) { return false; } })();
@@ -728,21 +742,21 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           <span className="adv-chip adv-chip-cry">{t("◆ คริสตัล ", "◆ Crystals ", "◆ 晶体 ") + crystals}</span>
           </div>
           <div className="adv-sectors" role="tablist">
-            {(["ground", "space", "act2", "solar"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
+            {(["ground", "space", "act2", "solar", "colony"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
               <button key={v} role="tab" aria-selected={sector === v} data-sector={v} className={"adv-sec" + (sector === v ? " on" : "")} onClick={() => pickSector(v)}>
-                {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : v === "space" ? t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空") : v === "act2" ? t("ภาค 3 · ฮาร์เวสเตอร์", "Act 2 · The Harvesters", "第三区 · 收割者") : t("ภาค 4 · ระบบสุริยะ", "Sector 4 · Solar System", "第四区 · 太阳系")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
+                {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : v === "space" ? t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空") : v === "act2" ? t("ภาค 3 · ฮาร์เวสเตอร์", "Act 2 · The Harvesters", "第三区 · 收割者") : v === "colony" ? t("ภาค 5 · สร้างอาณานิคม", "Sector 5 · Colonies", "第五区 · 殖民地") : t("ภาค 4 · ระบบสุริยะ", "Sector 4 · Solar System", "第四区 · 太阳系")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
               </button>); })}
           </div>
           <div className="adv-rankbar"><span data-energy style={{ marginRight: 8, fontSize: 12 }}>⚡ {t("พลังงาน", "Energy", "能量")} {readEnergy()}/100{readEnergy() >= 50 ? " · +25%" : ""}</span><button className="adv-btn" data-galaxy-btn aria-expanded={galaxyOpen} style={{ marginRight: 8 }} onClick={() => setGalaxyOpen(o => !o)}>🌌 {t("แผนที่กาแล็กซี", "Galaxy map", "星系图")}</button><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
           {galaxyOpen && (<div className="adv-rank" data-galaxy>
-            <svg viewBox="0 0 400 110" width="100%" role="img" aria-label="Galaxy map">
-              {(["ground", "space", "act2", "solar"] as const).map((v, i) => { const L = PLANETS.filter(P => sectorOf(P) === v), n = L.filter(P => done.includes(P.id)).length, x = 50 + i * 100, R = 22, C = 2 * Math.PI * R, nx = L.find(P => !done.includes(P.id));
+            <svg viewBox="0 0 500 110" width="100%" role="img" aria-label="Galaxy map">
+              {(["ground", "space", "act2", "solar", "colony"] as const).map((v, i) => { const L = PLANETS.filter(P => sectorOf(P) === v), n = L.filter(P => done.includes(P.id)).length, x = 50 + i * 100, R = 22, C = 2 * Math.PI * R, nx = L.find(P => !done.includes(P.id));
                 return (<g key={v} data-gnode={v} style={{ cursor: "pointer" }} onClick={() => { pickSector(v); setGalaxyOpen(false); }}>
                   {i > 0 && <line x1={x - 100 + R + 4} y1="45" x2={x - R - 4} y2="45" stroke="rgba(140,255,220,.35)" strokeDasharray="3 4" />}
                   <circle cx={x} cy="45" r={R} fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.18)" strokeWidth="4" />
                   <circle cx={x} cy="45" r={R} fill="none" stroke={v === sector ? "#8cffdc" : "#7aa8ff"} strokeWidth="4" strokeDasharray={`${C * n / L.length} ${C}`} transform={`rotate(-90 ${x} 45)`} />
                   <text x={x} y="49" textAnchor="middle" fontSize="12" fill="currentColor">{n}/{L.length}</text>
-                  <text x={x} y="85" textAnchor="middle" fontSize="10" fill="currentColor">{v === "ground" ? t("พื้นผิว", "Surface", "表面") : v === "space" ? t("อวกาศ", "Deep space", "深空") : v === "act2" ? t("ฮาร์เวสเตอร์", "Harvesters", "收割者") : t("สุริยะ", "Solar", "太阳系")}</text>
+                  <text x={x} y="85" textAnchor="middle" fontSize="10" fill="currentColor">{v === "ground" ? t("พื้นผิว", "Surface", "表面") : v === "space" ? t("อวกาศ", "Deep space", "深空") : v === "act2" ? t("ฮาร์เวสเตอร์", "Harvesters", "收割者") : v === "colony" ? t("อาณานิคม", "Colonies", "殖民地") : t("สุริยะ", "Solar", "太阳系")}</text>
                   <text x={x} y="100" textAnchor="middle" fontSize="8.5" opacity=".7" fill="currentColor">{nx ? "→ " + String((t(nx.th, nx.en, nx.zh) || "")).split(/ · /)[0].slice(0, 16) : "✓"}</text>
                 </g>); })}
             </svg>
@@ -851,7 +865,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
       ) : (
         <AdvGuard mapId={planet.id} lang={lang} onBack={() => { setPlanet(null); setCined(null); setShipDone(null); }}>{
         cined !== planet.id && !nocine ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={planet} lang={lang} me={me} colorway={colorway} onDone={() => setCined(planet.id)} /></Suspense> :
-        ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole", "farm", "yard"].includes(planet.mission) && shipDone ? (
+        ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole", "farm", "yard", "colony"].includes(planet.mission) && shipDone ? (
           <div className="adv-clear" role="dialog" aria-label="ship clear"><b>{t("ชนะแล้ว!", "VICTORY!", "胜利！")}</b>
             <div className="ac-stats">
               {shipDone.kills > 0 && <span><em>☠</em><b>{shipDone.kills}</b><small>{t("ศัตรูที่ล้ม", "Enemies beaten", "击败敌人")}</small></span>}
@@ -865,6 +879,8 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           </div>
         ) : planet.mission === "yard" ? <Suspense fallback={<div className="adv-cine" />}><AdventureYard key={planet.id + farmKey} P={planet} lang={lang} onExit={() => { setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>
+        : planet.mission === "colony" ? <Suspense fallback={<div className="adv-cine" />}><AdventureColony key={planet.id + farmKey} P={planet} lang={lang} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
+          onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>
         : planet.mission === "farm" ? <Suspense fallback={<div className="adv-cine" />}><AdventureFarm key={planet.id + farmKey} P={planet} lang={lang} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
