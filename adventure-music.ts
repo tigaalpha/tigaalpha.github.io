@@ -53,6 +53,7 @@ MOODS.gaspump = { ...MOODS.jovia, bpm: 126, gain: 0.6 };
 MOODS.warpjump = { ...MOODS.nexa, bpm: 150, gain: 0.6 };
 MOODS.blackhole = { ...MOODS.kryo, bpm: 72, gain: 0.58 };
 MOODS.dyson = { ...MOODS.helios, bpm: 126, gain: 0.62 };
+MOODS.deathstar = { ...MOODS.nexa, bpm: 118, gain: 0.62 };
 MOODS.voidgate = { ...MOODS.nexa, bpm: 138, gain: 0.6 };
 MOODS.kindred = { ...MOODS.kryo, bpm: 104, gain: 0.66 };
 MOODS.darkforge = { ...MOODS.nexa, bpm: 92, root: 50, gain: 0.62 };
