@@ -21,10 +21,10 @@ async function open(pre) {
   return { ctx, p, errs };
 }
 { const { ctx, p } = await open({});
-  ok("four tabs, the fourth is the Solar System", (await p.locator("[data-sector]").count()) === 4 && (await p.locator("[data-sector=solar]").count()) === 1);
+  ok("five tabs, the fourth is the Solar System", (await p.locator("[data-sector]").count()) === 5 && (await p.locator("[data-sector=solar]").count()) === 1);
   const n = await p.locator(".adv-planet").count(); ok("thirteen maps in Sector 4", n === 13, String(n));
   const lk = await p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => b.classList.contains("lock")));
-  ok("locked one step at a time: only the Moon is open", lk[0] === false && lk.slice(1).every(Boolean), JSON.stringify(lk));
+  ok("locked by the story order: the Moon (episode 3) opens after the one-skip rule only once an earlier episode is cleared, so a fresh player has every Solar System map shut", lk.every(Boolean), JSON.stringify(lk));
   const names = await p.evaluate(() => [...document.querySelectorAll(".adv-planet b")].map(b => b.textContent));
   ok("Moon, lunar base, Mars, Mercury, Venus, Jupiter, Saturn, Titan x2, Ark x4 in order", /Moon/.test(names[0]) && /Lunar/.test(names[1]) && /Mars/.test(names[2]) && /Mercury/.test(names[3]) && /Venus/.test(names[4]) && /Jupiter/.test(names[5]) && /Saturn/.test(names[6]) && /Titan/.test(names[7]) && /Titan/.test(names[8]) && /Ark|Shipyard/.test(names[9]) && /Hydroponic/.test(names[10]) && /Livestock/.test(names[11]) && /Exodus/.test(names[12]), names.join(" | "));
   await ctx.close(); }
