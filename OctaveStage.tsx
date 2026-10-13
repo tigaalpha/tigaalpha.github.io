@@ -25,17 +25,11 @@ function StaffCard({ notes, active, title, bass }: { notes: { m: number }[]; act
   return (
     <svg className="ost-staff" viewBox={`0 ${vbTop} ${W} ${vbBot - vbTop}`} role="img" aria-label={title}>
       {[0, 1, 2, 3, 4].map(i => <line key={i} x1={10} x2={W - 4} y1={bottom - i * 2 * half} y2={bottom - i * 2 * half} stroke="currentColor" strokeWidth="1" opacity=".55" />)}
+      {/* The clefs are the real engraved glyphs of the Bravura music font (SIL Open Font License 1.1), as SVG paths: 1000 units to the em, 250 units to a staff space. */}
       {bass ? (
-      <g transform={`translate(18 ${top - 1})`} aria-hidden="true">
-        <path d="M4 8 C4 -2 22 -2 25 11 C27 24 16 34 3 42" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" /><circle cx="5" cy="8" r="4.2" fill="currentColor" /><circle cx="31" cy="6" r="2.3" fill="currentColor" /><circle cx="31" cy="17" r="2.3" fill="currentColor" />
-      </g>
+      <path aria-hidden="true" transform={`translate(12 ${bottom - 6 * half}) scale(${(2 * half) / 250} ${-(2 * half) / 250})`} fill="currentColor" d="M252 262C78 262 0 135 0 39C0 -41 42 -110 123 -110C186 -110 229 -66 229 -4C229 60 182 100 133 100C106 100 96 93 83 93C70 93 67 101 67 111C67 151 127 224 229 224C335 224 381 120 381 -37C381 -140 359 -260 297 -356C237 -449 134 -534 10 -605C1 -610 -5 -615 -5 -623C-5 -629 -1 -635 8 -635C13 -635 19 -633 25 -630C158 -565 286 -489 392 -375C479 -281 531 -159 531 -28C531 146 425 262 252 262ZM629 180C598 180 574 156 574 125C574 94 598 70 629 70C660 70 684 94 684 125C684 156 660 180 629 180ZM630 -71C599 -71 576 -94 576 -125C576 -156 599 -179 630 -179C661 -179 684 -156 684 -125C684 -94 661 -71 630 -71Z" />
       ) : (
-      <g transform={`translate(14 ${top - 22}) scale(1.2)`} aria-hidden="true">
-        {/* a calligraphic G clef: a thick spine that starts in the tail below the staff, rises to the top loop, comes back down and winds round the G line */}
-        <path d="M16.5 80 C16.5 87 8 88 7 82 C6 77 11 76 13 79" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M14.5 78 C19 76 20 66 20.5 56 C21 44 27 33 26 20 C25.5 11 21 3 17.5 3 C13.500 3 12 12 16 23 C20 34 30 44 30 56 C30 67 22 72 15 68 C8 64 8 53 17 50.500 C25 48.500 29.500 57 24 61.500 C20.500 64 16 61 18 57.500" fill="none" stroke="currentColor" strokeWidth="3.1" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="12.600" cy="79.200" r="2.500" fill="currentColor" />
-      </g>
+      <path aria-hidden="true" transform={`translate(12 ${bottom - 2 * half}) scale(${(2 * half) / 250} ${-(2 * half) / 250})`} fill="currentColor" d="M376 415C374 427 376 428 382 434C398 449 419 470 438 491C522 583 572 702 572 815C572 902 548 988 507 1048C492 1070 466 1098 455 1098C441 1098 410 1072 390 1050C316 968 292 843 292 739C292 681 299 616 306 575C308 563 309 561 297 551C233 498 164 437 112 373C43 287 0 194 0 87C0 -87 119 -252 364 -252C387 -252 413 -250 433 -246C444 -244 446 -243 448 -255C460 -322 475 -409 475 -456C475 -604 375 -622 316 -622C262 -622 236 -606 236 -593C236 -586 245 -583 268 -576C299 -567 335 -540 335 -482C335 -427 300 -380 239 -380C172 -380 132 -433 132 -495C132 -560 171 -658 322 -658C389 -658 519 -628 519 -458C519 -401 501 -306 490 -244C488 -232 489 -233 503 -227C604 -187 671 -102 671 11C671 139 577 252 430 252C404 252 404 252 401 270ZM470 943C503 943 530 916 530 861C530 792 497 728 419 650C403 634 379 611 356 591C349 585 345 586 343 599C339 625 337 659 337 691C337 847 409 943 470 943ZM361 262C364 243 364 244 346 238C258 208 201 129 201 44C201 -46 248 -110 316 -133C324 -136 336 -139 343 -139C351 -139 355 -134 355 -128C355 -121 347 -118 340 -115C298 -97 268 -54 268 -8C268 49 307 92 368 109C384 113 386 112 388 101L438 -197C440 -208 439 -208 424 -211C408 -214 388 -216 368 -216C193 -216 80 -119 80 20C80 79 90 158 173 252C233 319 279 356 326 394C336 402 338 401 340 390ZM430 103C428 115 429 118 441 117C522 110 589 42 589 -46C589 -109 551 -160 495 -188C483 -194 481 -194 479 -182Z" />
       )}
       <g aria-hidden="true" fontFamily="Georgia,'Times New Roman',serif" fontWeight="900" fontSize="30" textAnchor="middle">
         <text x={64} y={mid - 6} fill="#d97757">4</text><text x={64} y={bottom - 6} fill="#2f9e8f">4</text>
@@ -70,7 +64,13 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
 export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClose }: any) {
   const [both, setBoth] = useState(true);   // up AND down by default: the demo, the orange light and the staff all follow the lesson back down
   // The left hand starts an octave lower (C3, bass clef), the way a left-hand scale is taught.
-  const shift = hand === "left" ? -12 : 0, upBase = useMemo(() => extendPattern(notes, octaves).map(q => ({ ...q, m: q.m + shift })), [notes, octaves, shift]);
+  const shift = hand === "left" ? -12 : 0, upBase = useMemo(() => {
+    // The incoming fingers belong to whichever hand the lesson was built for (a rising 1..5 is right-hand style, 5..1 left-hand style); the stage's own hand switch must give THAT hand's fingers, so a pattern in the other style is mirrored (a left-hand scale is the right-hand fingering read backwards: C major RH 1 2 3 1 2 3 4 5, LH 5 4 3 2 1 3 2 1).
+    const f0 = notes[0] && notes[0].finger, f1 = notes[notes.length - 1] && notes[notes.length - 1].finger;
+    const style = f0 != null && f1 != null && f0 !== f1 ? (f0 < f1 ? "right" : "left") : hand;
+    const fixed = style === hand ? notes : notes.map((q: any, i: number) => ({ ...q, finger: notes[notes.length - 1 - i].finger }));
+    return extendPattern(fixed, octaves).map(q => ({ ...q, m: q.m + shift }));
+  }, [notes, octaves, shift, hand]);
   const seq = useMemo(() => both ? [...upBase, ...upBase.slice(0, -1).reverse()] : upBase, [upBase, both]);
   const staffSeq = seq;   // the staff shows exactly what the light and the demo play (up only, or up and back down)
   const [cur, setCur] = useState(-1); const [next, setNext] = useState(0); const [bad, setBad] = useState(-1); const [misses, setMisses] = useState(0); const [rounds, setRounds] = useState(0); const [praise, setPraise] = useState<string | null>(null); const [playing, setPlaying] = useState(false); const [portrait, setPortrait] = useState(false);
@@ -95,6 +95,8 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
   const wIndex = (m: number) => whites.indexOf(m), wW = 100 / whites.length;
   // While the demo plays, the light follows it; otherwise it waits on the key the learner has to press next ("your turn").
   const idx = playing ? cur : Math.min(next, seq.length - 1), litM = idx >= 0 ? seq[idx].m : -1, finger = idx >= 0 ? seq[idx].f : 0;
+  // The other hand plays the same degree in parallel octaves with the mirrored fingering (a scale's left-hand fingers are the right-hand ones read backwards: C major RH 1 2 3 1 2 3 4 5, LH 5 4 3 2 1 3 2 1), up and down alike, so both hand cards always show the finger of the note being taught.
+  const pitchK = idx >= 0 ? upBase.findIndex(q => q.m === seq[idx].m) : -1, otherF = pitchK >= 0 ? (upBase[upBase.length - 1 - pitchK].f || 0) : 0;
   const tap = (m: number) => { try { playPianoNote(nameOf(m), 0.7, 1); } catch (e) {} if (playing) return; if (m === seq[idx].m) {
       if (idx + 1 >= seq.length) {   // one full round done: a short word of praise with the honest count of slips, no reward attached
         setRounds(r => r + 1);
@@ -120,7 +122,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
       <div className="ost-hands">
         {(["left", "right"] as const).map(h => (
           <div key={h} className={"ost-hand" + (hand === h ? " act" : "")} onClick={() => setHand(h)}>
-            <FingerHand finger={hand === h ? (finger || 0) : 0} hand={h} />
+            <FingerHand finger={hand === h ? (finger || 0) : otherF} hand={h} />
             <span>{h === "left" ? T.left : T.right}</span>
           </div>
         ))}
