@@ -12,31 +12,37 @@ const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const nameOf = (m: number) => NAMES[m % 12] + (Math.floor(m / 12) - 1);
 
 const LETTER: Record<string, number> = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
-// Two bars of the taught notes on a five-line staff (four quarter notes a bar); the note being taught is orange. Treble staff, bottom line E4.
+// Four bars of the taught notes on ONE five-line staff (four quarter notes a bar, 4/4 shown in colour); the note being taught is orange. Treble staff, bottom line E4.
 function StaffCard({ notes, active, title, bass }: { notes: { m: number }[]; active: number; title: string; bass?: boolean }) {
-  const W = 300, H = 112, left = 44, gap = (W - left - 10) / 8, half = 7, bottom = 84;
+  const N = 16, W = 640, H = 112, left = 78, gap = (W - left - 12) / N, half = 7, bottom = 84;
   const stepOf = (m: number) => { const nm = NAMES[m % 12].replace("#", ""), oct = Math.floor(m / 12) - 1; return oct * 7 + LETTER[nm]; };
   const base = bass ? 18 : 30;   // diatonic step of the bottom line: G2 in the bass clef, E4 in the treble clef
   const yOf = (st: number) => bottom - (st - base) * half;
+  const top = bottom - 8 * half, mid = bottom - 4 * half;
   // Notes far above or below the staff (long ranges) would run off the card: stretch the view box to hold them, the drawing then scales down to fit.
-  const ys = notes.slice(0, 8).map(q => yOf(stepOf(q.m))), vbTop = Math.min(0, Math.min(...ys, 99) - 32), vbBot = Math.max(H, Math.max(...ys, 0) + 32);
+  const ys = notes.slice(0, N).map(q => yOf(stepOf(q.m))), vbTop = Math.min(0, Math.min(...ys, 99) - 32), vbBot = Math.max(H, Math.max(...ys, 0) + 32);
   return (
     <svg className="ost-staff" viewBox={`0 ${vbTop} ${W} ${vbBot - vbTop}`} role="img" aria-label={title}>
-      {[0, 1, 2, 3, 4].map(i => <line key={i} x1={left} x2={W - 4} y1={bottom - i * 2 * half} y2={bottom - i * 2 * half} stroke="currentColor" strokeWidth="1" opacity=".55" />)}
+      {[0, 1, 2, 3, 4].map(i => <line key={i} x1={10} x2={W - 4} y1={bottom - i * 2 * half} y2={bottom - i * 2 * half} stroke="currentColor" strokeWidth="1" opacity=".55" />)}
       {bass ? (
-      <g transform={`translate(10 ${bottom - 8 * half - 1})`} stroke="currentColor" fill="none" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-        <path d="M5 7 C5 -2 19 -2 21 9 C22 22 13 32 2 40" /><circle cx="5" cy="7" r="3" fill="currentColor" stroke="none" /><circle cx="26" cy="5" r="1.8" fill="currentColor" stroke="none" /><circle cx="26" cy="14" r="1.8" fill="currentColor" stroke="none" />
+      <g transform={`translate(18 ${top - 1})`} aria-hidden="true">
+        <path d="M4 8 C4 -2 22 -2 25 11 C27 24 16 34 3 42" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" /><circle cx="5" cy="8" r="4.2" fill="currentColor" /><circle cx="31" cy="6" r="2.3" fill="currentColor" /><circle cx="31" cy="17" r="2.3" fill="currentColor" />
       </g>
       ) : (
-      <g transform={`translate(8 ${bottom - 8 * half - 12}) scale(1.05 1.05)`} stroke="currentColor" fill="none" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-        <path d="M17 70 C17 77 9 79 7 73 C4 66 13 61 18 57 C25 51 27 41 22 31 C19 23 19 13 24 6 C28 13 28 23 24 33 C20 42 16 49 13 58 C10 66 12 74 19 72 C26 70 26 59 18 55 C10 52 4 57 5 64" />
-        <circle cx="17" cy="73" r="2.2" fill="currentColor" stroke="none" />
+      <g transform={`translate(14 ${top - 22}) scale(1.2)`} aria-hidden="true">
+        {/* a calligraphic G clef: a thick spine that starts in the tail below the staff, rises to the top loop, comes back down and winds round the G line */}
+        <path d="M16.5 80 C16.5 87 8 88 7 82 C6 77 11 76 13 79" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M14.5 78 C19 76 20 66 20.5 56 C21 44 27 33 26 20 C25.5 11 21 3 17.5 3 C13.500 3 12 12 16 23 C20 34 30 44 30 56 C30 67 22 72 15 68 C8 64 8 53 17 50.500 C25 48.500 29.500 57 24 61.500 C20.500 64 16 61 18 57.500" fill="none" stroke="currentColor" strokeWidth="3.1" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12.600" cy="79.200" r="2.500" fill="currentColor" />
       </g>
       )}
-      <line x1={left - 12} x2={left - 12} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="1.5" />
-      <line x1={left + gap * 4} x2={left + gap * 4} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="1" opacity=".7" />
-      <line x1={W - 5} x2={W - 5} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="2" />
-      {notes.slice(0, 8).map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.6), on = i === active, sharp = NAMES[q.m % 12].includes("#");
+      <g aria-hidden="true" fontFamily="Georgia,'Times New Roman',serif" fontWeight="900" fontSize="30" textAnchor="middle">
+        <text x={64} y={mid - 6} fill="#d97757">4</text><text x={64} y={bottom - 6} fill="#2f9e8f">4</text>
+      </g>
+      <line x1={10} x2={10} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1.5" />
+      {[1, 2, 3].map(k => <line key={k} x1={left + gap * 4 * k} x2={left + gap * 4 * k} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
+      <line x1={W - 8} x2={W - 8} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1.5" /><line x1={W - 4} x2={W - 4} y1={top} y2={bottom} stroke="currentColor" strokeWidth="3" />
+      {notes.slice(0, N).map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.5), on = i === active, sharp = NAMES[q.m % 12].includes("#");
         const ledgers: number[] = []; for (let l = base - 2; l >= st; l -= 2) ledgers.push(l); for (let l = base + 10; l <= st; l += 2) ledgers.push(l);
         return (<g key={i} className={on ? "on" : ""}>
           {ledgers.map(l => <line key={l} x1={x - 11} x2={x + 11} y1={yOf(l)} y2={yOf(l)} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
@@ -114,8 +120,8 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
             <span>{h === "left" ? T.left : T.right}</span>
           </div>
         ))}
-        {[0, 1].map(c => { const start = Math.floor(Math.max(0, staffIdx) / 16) * 16 + c * 8, here = staffIdx - start; return (
-          <div key={c} className="ost-card"><StaffCard notes={staffSeq.slice(start, start + 8)} active={here >= 0 && here < 8 ? here : -1} title={"bars " + (start / 4 + 1) + "-" + (start / 4 + 2)} bass={hand === "left"} /></div>); })}
+        {(() => { const start = Math.floor(Math.max(0, staffIdx) / 16) * 16, here = staffIdx - start; return (
+          <div className="ost-card"><StaffCard notes={staffSeq.slice(start, start + 16)} active={here >= 0 && here < 16 ? here : -1} title={"bars " + (start / 4 + 1) + "-" + (start / 4 + 4)} bass={hand === "left"} /></div>); })()}
       </div>
       <div className="ost-kbwrap">
         <div className="ost-kb">
