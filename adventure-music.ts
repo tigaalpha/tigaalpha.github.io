@@ -206,13 +206,18 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
   // the drone and the chord pads
   tn("sine", hz(M.root - 36), hz(M.root - 36), 0.22, total + tailSec, 0, 3); tn("sine", hz(M.root - 29), hz(M.root - 29), 0.1, total + tailSec, 0, 4);
   for (let t = 0, i = 0; t < total + tailSec - 2; t += 4, i++) { const rd = M.prog[i % 4]; for (const st of [0, 2, 4]) { const f = hz(degMidi(M, rd + st) - 12); tn("triangle", f, f, 0.07 * g, 5, t, 1.4); tn("sine", f * 2, f * 2, 0.04 * g, 5, t, 1.6); } }
+  // the warm layer (owner, 2026-10-13: "warmer, more uplifting"): a recurring hope theme on the soft piano, a slow string line under it that follows the chords,
+  // and a small bright bell at every cut. The theme rises by step and settles on a long note, so it reads as optimism even in the tense shots; it is quiet
+  // there (the `calmAt` shots get it fuller) so the alarms and the blasts are still what the ear hears first.
+  { const HOPE = [0, 2, 4, 5, 4, 2, 4, 7, 5, 4, 2, 0]; for (let t = 1.5, bar = 0; t < total - 2; t += 8, bar++) { const base = M.prog[bar % 4], v = calmAt(t) ? 1 : 0.55; HOPE.forEach((d, k) => pn(degMidi(M, base + d) + 12, t + k * 0.55, k === HOPE.length - 1 ? 2.4 : 0.9, v)); }
+    for (let t = 0, i = 0; t < total + tailSec - 2; t += 4, i++) { const rd = M.prog[i % 4]; for (const st of [0, 4]) { const f = hz(degMidi(M, rd + st)); tn("sawtooth", f, f * 1.002, 0.018 * g, 4.4, t, 1.6); } } }
   // the build: a noise riser, thumping heart, accelerating arpeggio
   hs(300, 0.12, Math.max(4, total - 3), 0.5, "bandpass", 7000);
   for (let t = 4; t < total - 2; t += 0.9) if (!calmAt(t)) tn("sine", 75, 42, 0.16, 0.25, t);
   let at = 6, step = 0.5; while (at < total - 1) { const rd = M.prog[Math.floor(at / 4) % 4]; tn("triangle", hz(degMidi(M, rd + [0, 2, 4, 7][Math.floor(at * 4) % 4]) + 12), hz(degMidi(M, rd + [0, 2, 4, 7][Math.floor(at * 4) % 4]) + 12), 0.05 * g, 0.4, at, 0.005); at += step; step = Math.max(0.12, step * 0.93); }
   // every cut gets a reverse swell into a timpani hit; every shot kind its own effect
   plan.forEach((s, i) => {
-    const t = starts[i]; if (i) { hs(1500, 0.14, 0.5, Math.max(0, t - 0.5), "highpass", 6500); tim(t, 0.8); }
+    const t = starts[i]; if (i) { hs(1500, 0.14, 0.5, Math.max(0, t - 0.5), "highpass", 6500); tim(t, 0.8); const bm = degMidi(M, M.prog[i % 4] + 4) + 24; tn("sine", hz(bm), hz(bm), 0.05 * g, 1.1, t + 0.02, 0.005); tn("sine", hz(bm + 12), hz(bm + 12), 0.025 * g, 0.7, t + 0.02, 0.005); }
     switch (s.kind) {
       case "earth": for (let k = 0; k < 4; k++) tn("sine", 1800 + k * 300, 1800 + k * 300, 0.05, 0.08, t + 0.8 + k * 0.7); break;                                       // radio blips
       case "factory": for (let k = 0; k < 6; k++) { tn("sawtooth", 180, 520, 0.05, 0.3, t + 0.4 + k * 0.55); hs(4000, 0.1, 0.07, t + 0.7 + k * 0.55, "bandpass"); } tn("sine", 1400, 1400, 0.07, 0.4, t + 3.2); break;   // servos, sparks, the eyes light
