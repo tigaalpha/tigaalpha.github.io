@@ -14,13 +14,17 @@ const nameOf = (m: number) => NAMES[m % 12] + (Math.floor(m / 12) - 1);
 const LETTER: Record<string, number> = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
 // Two bars of the taught notes on a five-line staff (four quarter notes a bar); the note being taught is orange. Treble staff, bottom line E4.
 function StaffCard({ notes, active, title }: { notes: { m: number }[]; active: number; title: string }) {
-  const W = 300, H = 112, left = 14, gap = (W - left - 10) / 8, half = 7, bottom = 84;
+  const W = 300, H = 112, left = 44, gap = (W - left - 10) / 8, half = 7, bottom = 84;
   const stepOf = (m: number) => { const nm = NAMES[m % 12].replace("#", ""), oct = Math.floor(m / 12) - 1; return oct * 7 + LETTER[nm]; };
   const yOf = (st: number) => bottom - (st - 30) * half;
   return (
     <svg className="ost-staff" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title}>
       {[0, 1, 2, 3, 4].map(i => <line key={i} x1={left} x2={W - 4} y1={bottom - i * 2 * half} y2={bottom - i * 2 * half} stroke="currentColor" strokeWidth="1" opacity=".55" />)}
-      <line x1={left} x2={left} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="1.5" />
+      <g transform={`translate(8 ${bottom - 8 * half - 12}) scale(1.05 1.05)`} stroke="currentColor" fill="none" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+        <path d="M17 70 C17 77 9 79 7 73 C4 66 13 61 18 57 C25 51 27 41 22 31 C19 23 19 13 24 6 C28 13 28 23 24 33 C20 42 16 49 13 58 C10 66 12 74 19 72 C26 70 26 59 18 55 C10 52 4 57 5 64" />
+        <circle cx="17" cy="73" r="2.2" fill="currentColor" stroke="none" />
+      </g>
+      <line x1={left - 12} x2={left - 12} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="1.5" />
       <line x1={left + gap * 4} x2={left + gap * 4} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="1" opacity=".7" />
       <line x1={W - 5} x2={W - 5} y1={bottom - 8 * half} y2={bottom} stroke="currentColor" strokeWidth="2" />
       {notes.slice(0, 8).map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.6), on = i === active, sharp = NAMES[q.m % 12].includes("#");
@@ -50,6 +54,7 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
 export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClose }: any) {
   const [both, setBoth] = useState(false);
   const seq = useMemo(() => { const up = extendPattern(notes, octaves); return both ? [...up, ...up.slice(0, -1).reverse()] : up; }, [notes, octaves, both]);
+  const upSeq = useMemo(() => extendPattern(notes, octaves), [notes, octaves]), staffSeq = useMemo(() => [...upSeq, ...upSeq.slice(0, -1).reverse()], [upSeq]);   // the staff always shows the lesson going up and coming back down
   const [cur, setCur] = useState(-1); const [next, setNext] = useState(0); const [bad, setBad] = useState(-1); const [misses, setMisses] = useState(0); const [rounds, setRounds] = useState(0); const [praise, setPraise] = useState<string | null>(null); const [playing, setPlaying] = useState(false); const [portrait, setPortrait] = useState(false);
   const timer = useRef<any>(null);
   const T = { th: { play: "เล่นให้ดู", stop: "หยุด", close: "ปิด", notes: "โน้ต", left: "มือซ้าย", perfect: "เยี่ยม! รอบนี้ไม่พลาดเลย", done: "จบรอบแล้ว พลาด {n} ครั้ง ลองอีกรอบ", round: "รอบที่ผ่าน", right: "มือขวา", tap: "ถึงตาคุณ: กดคีย์ที่ไฟส้มรออยู่" }, en: { play: "Play it", stop: "Stop", close: "Close", notes: "Notes", left: "Left hand", perfect: "Perfect! No slips this round", done: "Round done, {n} slips. Go again", round: "Rounds", right: "Right hand", tap: "Your turn: press the key the orange light is on" }, zh: { play: "示范", stop: "停止", close: "关闭", notes: "音符", left: "左手", perfect: "太棒了！这一轮没有失误", done: "本轮完成，失误 {n} 次，再来一轮", round: "完成轮数", right: "右手", tap: "轮到你：按橙色灯亮着的琴键" } }[lang as "th" | "en" | "zh"] || ({} as any);
@@ -78,6 +83,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
       setNext((idx + 1) % seq.length);
     } else { setBad(m); setMisses(x => x + 1); setTimeout(() => setBad(-1), 350); }
   };
+  const staffIdx = idx < 0 ? -1 : both ? idx : idx;
   const inSeq = new Set(seq.map(s => s.m)); const fmap: Record<number, number | null> = {}; for (const q of seq) if (fmap[q.m] == null) fmap[q.m] = q.f;   // the finger to use on each taught key
   const litBlack = litM >= 0 && NAMES[litM % 12].length > 1, litW = litM >= 0 ? (litBlack ? wIndex(litM - 1) + 1 - 0.3 : wIndex(litM)) : 0, runLeft = litW * wW, runW = litBlack ? wW * 0.6 : wW;   // the orange running light sits on the key being taught and glides to the next
   return createPortal(
@@ -97,8 +103,8 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
             <span>{h === "left" ? T.left : T.right}</span>
           </div>
         ))}
-        {[0, 1].map(c => { const start = Math.floor(Math.max(0, idx) / 16) * 16 + c * 8, here = idx - start; return (
-          <div key={c} className="ost-card"><StaffCard notes={seq.slice(start, start + 8)} active={here >= 0 && here < 8 ? here : -1} title={"bars " + (start / 4 + 1) + "-" + (start / 4 + 2)} /></div>); })}
+        {[0, 1].map(c => { const start = Math.floor(Math.max(0, staffIdx) / 16) * 16 + c * 8, here = staffIdx - start; return (
+          <div key={c} className="ost-card"><StaffCard notes={staffSeq.slice(start, start + 8)} active={here >= 0 && here < 8 ? here : -1} title={"bars " + (start / 4 + 1) + "-" + (start / 4 + 2)} /></div>); })}
       </div>
       <div className="ost-kbwrap">
         <div className="ost-kb">
