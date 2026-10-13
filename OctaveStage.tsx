@@ -13,6 +13,12 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
   const base = notes.map(p => ({ m: midiOf(p.note), f: p.finger })).filter(p => p.m != null) as { m: number; f: number | null }[];
   if (base.length < 2) return [] as { m: number; f: number | null }[];
   const out: { m: number; f: number | null }[] = [];
+  // A chord / arpeggio demo does not reach the next root: each octave repeats every note, and the run ends on the root one octave above the last group.
+  if (base[base.length - 1].m - base[0].m < 12) {
+    for (let o = 0; o < octaves; o++) base.forEach(p => out.push({ m: p.m + 12 * o, f: p.f }));
+    out.push({ m: base[0].m + 12 * octaves, f: base[base.length - 1].f });
+    return out;
+  }
   for (let o = 0; o < octaves; o++) base.forEach((p, i) => { if (o > 0 && i === 0) return; out.push({ m: p.m + 12 * o, f: i === base.length - 1 && o < octaves - 1 ? base[0].f : p.f }); });
   return out;
 }
