@@ -288,6 +288,18 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
   // plan 28 · C3: a light tap when the right key lands (nothing on a miss; the phone buzzes only if it can)
   const prevIdxRef = useRef(practiceIdx);
   useEffect(() => { if (practiceIdx > prevIdxRef.current) { try { haptic(6); } catch (e) {} } prevIdxRef.current = practiceIdx; }, [practiceIdx]);
+  // A long scale (2-4 octaves, from the octave stage) is practised full screen and landscape from the start, so the learner never has to turn the phone back and forth:
+  // full screen + orientation lock when the phone allows it, otherwise the page turns itself 90 degrees.
+  const midiOf = (n: string) => { const m = /^([A-G]#?)(-?\d+)$/.exec(String(n)); return m ? (Number(m[2]) + 1) * 12 + ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].indexOf(m[1]) : 60; };
+  const ms0 = (practiceTarget || []).map(midiOf), longScale = ms0.length > 1 && Math.max(...ms0) - Math.min(...ms0) >= 20;
+  const [portraitNow, setPortraitNow] = useState(typeof window !== "undefined" && window.innerHeight > window.innerWidth);
+  const rotStyle: any = longScale && portraitNow ? { inset: "auto", top: 0, left: "100vw", width: "100vh", height: "100vw", transformOrigin: "top left", transform: "rotate(90deg)" } : undefined;
+  useEffect(() => {
+    if (!longScale) return;
+    try { const el: any = document.documentElement; if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {}); (screen.orientation as any)?.lock?.("landscape").catch(() => {}); } catch (e) {}
+    const chk = () => setPortraitNow(window.innerHeight > window.innerWidth); chk(); window.addEventListener("resize", chk);
+    return () => { window.removeEventListener("resize", chk); try { (window as any).__octKeepFs = false; (screen.orientation as any)?.unlock?.(); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
+  }, [longScale]);
   const lc = L[lang];
         // Grading (use-practice-mode) treats BOTH chord and progression drills
         // as block-style when the toggle says so — the display must gate on the
@@ -321,7 +333,7 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
           ? Object.fromEntries(practiceWrongByIdxRef.current) : {};
   if (practiceResult) {
     return (
-      <div className="practiceov">
+      <div className="practiceov" style={rotStyle}>
         <div className="practicehdr">
           <div className="practicehtitle">{lc.practiceTitle}<small>{practiceLabel}</small></div>
           <button className="cbtn" onClick={exitPractice}>{lc.close}</button>
@@ -335,7 +347,7 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
     );
   }
   return (
-        <div className="practiceov">
+        <div className="practiceov" style={rotStyle}>
           <div className="practicehdr">
             <div className="practicehtitle">
               {lc.practiceTitle}
