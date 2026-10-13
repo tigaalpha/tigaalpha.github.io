@@ -1072,6 +1072,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const petType: string = petNow ? ((petById(petNow.species) as any).type || "steel") : "steel", petCol: string = (PET_TYPES as any)[petType] ? (PET_TYPES as any)[petType].c : "#8fa6c8";
     const pv = petNow ? voiceOf("", "", { type: petType, species: petNow.species, mv: "spit" }) : null;
     const mus = createAdvMusic(P.id); musicRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); }
+    try { if (localStorage.getItem("tg_adv_tip") === null && localStorage.getItem("tg_adv_nogate") !== "1") { localStorage.setItem("tg_adv_tip", "1"); setTimeout(() => setBanner({ k: Date.now(), a: t("เริ่มเลย!", "LET'S GO!", "出发！"), b: t("ปุ่มซ้าย-ขวาเดิน · ยิง · กระโดด · เก็บ ◆ แล้วไปที่ประตูท้ายด่าน", "Arrows to move · shoot · jump · grab ◆ · reach the gate at the end", "方向键移动 · 射击 · 跳跃 · 收集 ◆ · 前往终点的门") }), 2700); } } catch (e) {}
     { const bf = BRIEF[P.id]; if (bf) setTimeout(() => setBanner({ k: Date.now(), a: T3(lang, P.th, P.en, P.zh).split(" · ")[0], b: T3(lang, bf[0], bf[1], bf[2]) }), 500); }
     const t0 = performance.now(); let frames = 0, ended = false; logUsage("adv", "start:" + P.id + ":" + (HI() ? "hd" : "sd"));
     resize();
