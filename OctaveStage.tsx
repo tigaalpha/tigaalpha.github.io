@@ -74,7 +74,9 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
     const f0 = notes[0] && notes[0].finger, f1 = notes[notes.length - 1] && notes[notes.length - 1].finger;
     const style = f0 != null && f1 != null && f0 !== f1 ? (f0 < f1 ? "right" : "left") : hand;
     const fixed = style === hand ? notes : notes.map((q: any, i: number) => ({ ...q, finger: notes[notes.length - 1 - i].finger }));
-    return extendPattern(fixed, octaves).map(q => ({ ...q, m: q.m + shift }));
+    // The piano voice is built for C2..C7 (NF in music-engine): a note above C7 used to be silent, so a 3-4 octave scale starts lower, as many octaves as it takes for its top note to stay at or below C7.
+    const ext = extendPattern(fixed, octaves), topM = Math.max(...ext.map(q => q.m)); let sh = shift; while (topM + sh > 96) sh -= 12;
+    return ext.map(q => ({ ...q, m: q.m + sh }));
   }, [notes, octaves, shift, hand]);
   const seq = useMemo(() => both ? [...upBase, ...upBase.slice(0, -1).reverse()] : upBase, [upBase, both]);
   const staffSeq = seq;   // the staff shows exactly what the light and the demo play (up only, or up and back down)
