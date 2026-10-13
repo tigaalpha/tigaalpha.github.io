@@ -7,6 +7,19 @@ import { useGameField } from "./play-along-store";
 import { songStars, songBestAcc, songLengthSec, readDailyState, DAILY_SONG_REWARD, logSongMood } from "./play-along-progress";
 import { logActivity, logUsage, LINE_OA_URL } from "./shared-infra";
 import { nextStarGoal } from "./play-along-judge";
+import { useWeekly } from "./play-along-online";
+
+/** "Song of the week" line for the ready screen: shown only when the chosen song is this week's, with the top of the board. Honour only, pays nothing. */
+function WeeklyLine({ songId, T }: { songId: string; T: (th: string, en: string, zh: string) => string }) {
+  const w = useWeekly();
+  if (!w || w.songId !== songId) return null;
+  const me = w.rows.find(r => r.isMe);
+  return (
+    <div className="pl-daily" data-weekly="1">🏆 {T("เพลงประจำสัปดาห์ · ติดอันดับ 1–3 รับป้ายเกียรติยศ", "Song of the week · finish 1st–3rd for an honour badge", "本周歌曲 · 前三名获荣誉徽章")}
+      {w.rows.length > 0 && <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>{w.rows.slice(0, 3).map(r => `${r.rank}. ${r.name} ${r.score}`).join("  ·  ")}{me && me.rank > 3 ? `  ·  ${T("คุณ", "You", "你")} #${me.rank}` : ""}</div>}
+    </div>
+  );
+}
 /* ── SongPlayOverlay ──
    The Play Along (falling-notes song mode) full-screen overlay.
 
@@ -518,6 +531,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                     {bestAcc > 0 && <span>{T("ดีที่สุด", "Best", "最佳")} {bestAcc}%</span>}
                   </div>
                   {!songMeta.custom && <div className="pl-goal">{goalText}</div>}
+                  {!songMeta.custom && <WeeklyLine songId={String(songMeta.id)} T={T} />}
                   {isDaily && !daily.done && <div className="pl-daily">📆 {T(`เพลงประจำวัน · ได้ 1 ดาวขึ้นไปรับ ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `Today's song · 1 star or more pays ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`, `今日歌曲 · 得 1 星以上奖励 ${DAILY_SONG_REWARD.coins} 🪙 + ${DAILY_SONG_REWARD.exp} EXP`)}</div>}
                   {songKind && <div className="pl-kindnote">{T("โหมดใจดีเปิดอยู่ — ช่วงรับโน้ตกว้างขึ้น", "Kind mode is on — a wider timing window", "宽松模式已开启 — 判定更宽")}</div>}
                   {sheetView && <div className="pl-kindnote">📖 {T("โหมดโน้ตเพลง — ไม่มีโน้ตตก อ่านโน้ตแล้วกดคีย์ที่ไฟสีฟ้าวิ่งไปหา ให้ตรงจังหวะ", "Sheet mode — no falling notes: read the staff and play the key the blue light runs to, on the beat", "乐谱模式 — 没有下落音符：看谱，按蓝色光跑到的琴键，踩准节拍")}</div>}

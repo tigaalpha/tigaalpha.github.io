@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { playPianoNote, stopAllPianoNotes, stopAmbient } from "./music-engine";
+import { playPianoNote, stopAllPianoNotes, stopAmbient, KNOWN, FINGERINGS_LH, FINGERINGS_RH } from "./music-engine";
 import { stopSpeaking, stopCloudTTS } from "./speech";
 import { FingerHand } from "./PracticeOverlay";
 /* ── OctaveStage ──
@@ -53,7 +53,16 @@ function StaffCard({ notes, active, title, bass }: { notes: { m: number }[]; act
     </svg>
   );
 }
-export function extendPattern(notes: { note: string; finger: number | null }[], octaves: number) {
+/** The standard fingering of a recognised one-octave major/minor scale for the given hand (from the same tables the Teacher page teaches), or null when the notes are not one of those scales. */
+export function scaleFingers(notes: { note: string; finger: number | null }[], hand: string): number[] | null {
+  const pcs = notes.map(p => { const m = midiOf(p.note); return m == null ? -1 : m % 12; });
+  if (pcs.length !== 8 || pcs.some(v => v < 0)) return null;
+  const hit = (KNOWN as any[]).find(e => e.m === "scale" && /(major|minor) scale$/.test(e.k) && e.n.length === 8 && e.n.every((q: string, i: number) => { const m = midiOf(q); return m != null && m % 12 === pcs[i]; }));
+  if (!hit) return null;
+  const t = (hand === "left" ? (FINGERINGS_LH as any) : (FINGERINGS_RH as any))[hit.k];
+  return t && t.length === 8 ? t.slice() : null;
+}
+export function extendPattern(notes: { note: string; finger: number | null }[], octaves: number, junctionF?: number | null) {
   const base = notes.map(p => ({ m: midiOf(p.note), f: p.finger })).filter(p => p.m != null) as { m: number; f: number | null }[];
   if (base.length < 2) return [] as { m: number; f: number | null }[];
   const out: { m: number; f: number | null }[] = [];
@@ -63,7 +72,7 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
     out.push({ m: base[0].m + 12 * octaves, f: base[base.length - 1].f });
     return out;
   }
-  for (let o = 0; o < octaves; o++) base.forEach((p, i) => { if (o > 0 && i === 0) return; out.push({ m: p.m + 12 * o, f: i === base.length - 1 && o < octaves - 1 ? base[0].f : p.f }); });
+  for (let o = 0; o < octaves; o++) base.forEach((p, i) => { if (o > 0 && i === 0) return; out.push({ m: p.m + 12 * o, f: i === base.length - 1 && o < octaves - 1 ? (junctionF != null ? junctionF : base[0].f) : p.f }); });
   return out;
 }
 export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClose, onPractice }: any) {
@@ -73,11 +82,17 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
     // The incoming fingers belong to whichever hand the lesson was built for (a rising 1..5 is right-hand style, 5..1 left-hand style); the stage's own hand switch must give THAT hand's fingers, so a pattern in the other style is mirrored (a left-hand scale is the right-hand fingering read backwards: C major RH 1 2 3 1 2 3 4 5, LH 5 4 3 2 1 3 2 1).
     const f0 = notes[0] && notes[0].finger, f1 = notes[notes.length - 1] && notes[notes.length - 1].finger;
     const style = f0 != null && f1 != null && f0 !== f1 ? (f0 < f1 ? "right" : "left") : hand;
-    const fixed = style === hand ? notes : notes.map((q: any, i: number) => ({ ...q, finger: notes[notes.length - 1 - i].finger }));
+    const std = scaleFingers(notes, hand);   // a recognised scale takes the real fingering of the chosen hand; anything else is mirrored from the other hand's
+    const fixed = std ? notes.map((q: any, i: number) => ({ ...q, finger: std[i] })) : style === hand ? notes : notes.map((q: any, i: number) => ({ ...q, finger: notes[notes.length - 1 - i].finger }));
     // The piano voice is built for C2..C7 (NF in music-engine): a note above C7 used to be silent, so a 3-4 octave scale starts lower, as many octaves as it takes for its top note to stay at or below C7.
-    const ext = extendPattern(fixed, octaves), topM = Math.max(...ext.map(q => q.m)); let sh = shift; while (topM + sh > 96) sh -= 12;
+    const ext = extendPattern(fixed, octaves, std ? (hand === "left" ? std[7] : std[0]) : undefined), topM = Math.max(...ext.map(q => q.m)); let sh = shift; while (topM + sh > 96) sh -= 12;
     return ext.map(q => ({ ...q, m: q.m + sh }));
   }, [notes, octaves, shift, hand]);
+  // The other hand's real fingering at the same degree (index for index), when the lesson is a recognised scale; otherwise the old mirror below.
+  const otherUp = useMemo(() => {
+    const oh = hand === "left" ? "right" : "left", std = scaleFingers(notes, oh);
+    return std ? extendPattern(notes.map((q: any, i: number) => ({ ...q, finger: std[i] })), octaves, oh === "left" ? std[7] : std[0]) : null;
+  }, [notes, octaves, hand]);
   const seq = useMemo(() => both ? [...upBase, ...upBase.slice(0, -1).reverse()] : upBase, [upBase, both]);
   const staffSeq = seq;   // the staff shows exactly what the light and the demo play (up only, or up and back down)
   const [cur, setCur] = useState(-1); const [next, setNext] = useState(0); const [bad, setBad] = useState(-1); const [misses, setMisses] = useState(0); const [rounds, setRounds] = useState(0); const [praise, setPraise] = useState<string | null>(null); const [playing, setPlaying] = useState(false); const [portrait, setPortrait] = useState(false);
@@ -103,7 +118,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
   // While the demo plays, the light follows it; otherwise it waits on the key the learner has to press next ("your turn").
   const idx = playing ? cur : Math.min(next, seq.length - 1), litM = idx >= 0 ? seq[idx].m : -1, finger = idx >= 0 ? seq[idx].f : 0;
   // The other hand plays the same degree in parallel octaves with the mirrored fingering (a scale's left-hand fingers are the right-hand ones read backwards: C major RH 1 2 3 1 2 3 4 5, LH 5 4 3 2 1 3 2 1), up and down alike, so both hand cards always show the finger of the note being taught.
-  const pitchK = idx >= 0 ? upBase.findIndex(q => q.m === seq[idx].m) : -1, otherF = pitchK >= 0 ? (upBase[upBase.length - 1 - pitchK].f || 0) : 0;
+  const pitchK = idx >= 0 ? upBase.findIndex(q => q.m === seq[idx].m) : -1, otherF = pitchK >= 0 ? (otherUp && otherUp[pitchK] ? (otherUp[pitchK].f || 0) : (upBase[upBase.length - 1 - pitchK].f || 0)) : 0;
   const tap = (m: number) => { try { playPianoNote(nameOf(m), 0.7, 1); } catch (e) {} if (playing) return; if (m === seq[idx].m) {
       if (idx + 1 >= seq.length) {   // one full round done: a short word of praise with the honest count of slips, no reward attached
         setRounds(r => r + 1);

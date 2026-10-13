@@ -32,6 +32,8 @@ const up = oct==="4"?29:oct==="3"?22:15; const order=[...Array(up).keys(),...[..
 for (const k of order) { await p.evaluate((i)=>{const el=document.querySelectorAll(".practiceov .pk.w")[i]; if(!el)return; for(const t of ["pointerdown","pointerup"]) el.dispatchEvent(new PointerEvent(t,{bubbles:true,pointerId:1}));},k); await p.waitForTimeout(40); }
 await p.waitForTimeout(2500);
 const txt = await p.evaluate(()=>document.body.innerText);
+const counted = await p.evaluate(() => { const st = JSON.parse(localStorage.getItem("tg_streak") || "{}"); const lg = JSON.parse(localStorage.getItem("tg_practice_log") || "{}"); return { streakToday: !!st.last, logDays: Object.keys(lg).filter(k => k[0] === "2").length, coins: Number(localStorage.getItem("tg_coins") || 0) }; });
+ok("LEFT hand "+oct+" octaves: counts toward the daily streak, practice log and coins", counted.streakToday && counted.logDays > 0 && counted.coins > 0, JSON.stringify(counted));
 ok("LEFT hand "+oct+" octaves: no errors, result shown", errs.length===0 && /100%|%/.test(txt), errs.join("|"));
 await ctx.close();
 }
