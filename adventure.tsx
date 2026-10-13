@@ -637,6 +637,7 @@ const CSS = `
 .adv-menu .adv-grp .adv-shop{background:transparent;border:0;padding:4px 0;margin:4px 0}
 .adv-menu .adv-how{background:var(--card2,#f3f3f3);padding:8px 12px;border-radius:16px}
 .adv-pad.simple .pvpact.rocket,.adv-pad.simple .pvpact.zap,.adv-pad.simple .pvpact.kick,.adv-pad.simple .pvpact.ult,.adv-pad.simple .pvpact.spell{display:none!important}
+.adv-clear .ac-stats{display:flex;gap:8px;justify-content:center;margin:4px 0}.adv-clear .ac-stats span{display:flex;flex-direction:column;align-items:center;min-width:76px;padding:6px 10px;border-radius:16px;background:rgba(255,255,255,.1)}.adv-clear .ac-stats em{font-style:normal;font-size:16px}.adv-clear .ac-stats b{font-size:20px;color:#fff;letter-spacing:0}.adv-clear .ac-stats small{font-size:10.5px;opacity:.85}.adv-clear{animation:advpop .45s cubic-bezier(.2,1.4,.4,1)}@keyframes advpop{0%{opacity:0;transform:translateX(-50%) scale(.7)}100%{opacity:1;transform:translateX(-50%) scale(1)}}@media (prefers-reduced-motion:reduce){.adv-clear{animation:none}}
 `;
 
 type Gfx = "standard" | "high";
@@ -1879,7 +1880,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       {banner && <div key={banner.k} className="adv-banner"><b>{banner.a}</b><span>{banner.b}</span></div>}
       {clear && <div className="adv-clear" role="dialog" aria-label="map clear">
         <b>✓ {t("ผ่านแมปแล้ว!", "MAP CLEAR!", "地图通关！")}</b>
-        <small>☠ {clear.kills} · ◆ {clear.cry}</small>
+        <div className="ac-stats">
+          <span><em>☠</em><b>{clear.kills}</b><small>{t("มอนสเตอร์ที่ล้ม", "Monsters beaten", "击败怪物")}</small></span>
+          <span><em>◆</em><b>{clear.cry}</b><small>{t("คริสตัลที่ได้", "Crystals earned", "获得水晶")}</small></span>
+          {RUN_T0 > 0 && <span><em>⏱</em><b>{Math.max(1, Math.round((Date.now() - RUN_T0) / 1000))}s</b><small>{t("เวลาที่ใช้", "Time", "用时")}</small></span>}
+        </div>
         {clear.coins > 0 && <small className="ac-coins">🪙 +{clear.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
         {clear.capped && <small>{t("ถึงเพดานเหรียญประจำวันแล้ว", "Daily coin ceiling reached", "已达今日金币上限")}</small>}
         {clear.next ? <button className="adv-btn go" autoFocus onClick={() => { if (onNext) onNext(clear.next); }}>▶ {t("แมปต่อไป: ", "Next map: ", "下一张：")}{T3(lang, clear.next.th, clear.next.en, clear.next.zh).split(" · ")[0]} ({Math.max(0, auto)})</button> : <small>{t("ครบทุกแมปที่เปิดอยู่แล้ว", "That was the last open map", "已是当前最后一张开放地图")}</small>}

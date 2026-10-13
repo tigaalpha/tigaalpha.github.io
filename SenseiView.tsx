@@ -14,6 +14,7 @@ import { FingerHand } from "./PracticeOverlay";
    this page==="sensei" block and stays in PianoApp. lc is derived from lang
    internally. recommendNext/toggleChordStyle are PianoApp closures (not
    top-level, not exported), so they're threaded as props. ── */
+const DEFAULT_SCALE = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"].map((note, i) => ({ note, finger: [1, 2, 3, 1, 2, 3, 4, 5][i] }));
 export function SenseiView({ chatHistory = null, lang, activeStageId, setPage, onBack, recommendNext, pianoOct, setPianoOct, replayLast, seqIsChord, chordStyle, toggleChordStyle, litNote, litSet, fingerMap, handleMainKey, recording, toggleRecord, hasSeq, togglePlayPause, seqPlaying, hasClip, playingClip, playClip, critiqueRecording, fingerChart, hand, setHand, startPractice, msgs, activeSpk, setActiveSpk, playSequence, loading, slow, endRef, input, setInput, send, retryLast, setModal, chatStarters, onStarterTap, chatNote = null, chatNoteOut = false, onMore = null, speakMode = "off", onSpeakLocked = null, onMark = null, onGoStep = null, chatProg = null, todayPlan = null, todayTags = null, onTodayOpen = null, resumeCard = null, onResumeDrill = null, missCard = null, sessionDone = null}) {
   const lc = L[lang];
   const [octaves, setOctaves] = useState(1);
@@ -133,16 +134,9 @@ export function SenseiView({ chatHistory = null, lang, activeStageId, setPage, o
                 <span className="handswap" aria-hidden="true">⇄</span>
               </button>
             </div>
-            <div className="octrow">
-              <label className="octsel"><span>{lang === "th" ? "ช่วงเสียง" : lang === "zh" ? "音域" : "Range"}</span>
-                <select value={octaves} onChange={e => setOctaves(parseInt(e.target.value, 10))} aria-label="octaves" disabled={!(fingerChart && fingerChart.notes && fingerChart.notes.length > 1)}>
-                  {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n} {lang === "th" ? "ออกเทฟ" : lang === "zh" ? "个八度" : n === 1 ? "octave" : "octaves"}</option>)}
-                </select>
-              </label>
-            </div>
             <style>{OCTAVE_CSS + ".octrow{display:flex;justify-content:center;margin:8px 0}.octsel{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}.octsel select{min-height:44px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);padding:0 14px;font-weight:800}"}</style>
-            {octaves > 1 && fingerChart && fingerChart.notes && (
-              <OctaveStage notes={fingerChart.notes} label={fingerChart.label} octaves={octaves} hand={hand} setHand={setHand} lang={lang} onClose={() => setOctaves(1)} />
+            {octaves > 1 && (
+              <OctaveStage notes={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.notes : DEFAULT_SCALE} label={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.label : "C Major Scale"} octaves={octaves} hand={hand} setHand={setHand} lang={lang} onClose={() => setOctaves(1)} />
             )}
             <div className="recbar">
               <button className={`recbtn${recording ? " on" : ""}`} onClick={toggleRecord}>
@@ -155,6 +149,9 @@ export function SenseiView({ chatHistory = null, lang, activeStageId, setPage, o
                 🎓 {lc.recCritique}
               </button>}
               {recording && <span className="recdot">● REC</span>}
+              <label className="octsel"><select value={octaves} onChange={e => setOctaves(parseInt(e.target.value, 10))} aria-label={lang === "th" ? "ช่วงเสียง" : lang === "zh" ? "音域" : "Range"}>
+                {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n} {lang === "th" ? "ออกเทฟ" : lang === "zh" ? "个八度" : n === 1 ? "octave" : "octaves"}</option>)}
+              </select></label>
             </div>
 
           </div>
