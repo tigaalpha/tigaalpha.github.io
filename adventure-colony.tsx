@@ -119,7 +119,7 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
 const rng = (seed: number) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
 const careerNow = () => { try { return localStorage.getItem("tg_adv_career") || ""; } catch (e) { return ""; } };
 
-export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any) {
+export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }: any) {
   const site: Site = SITES[P.kind] || SITES.moon, t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const G = useRef<any>(null);
   if (!G.current) {
@@ -147,6 +147,13 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
   useEffect(() => {
     const sfx = createAdvSfx(); sfxRef.current = sfx; sfx.setOn(musicOn); const mus = createAdvMusic(P.id); musRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); mus.setIntensity && mus.setIntensity(1); }
     const S = G.current; let last = performance.now();
+    if (net) {   // online (plan 33): every pilot builds on the SAME grid; a build or demolition is sent to the room and applied for free on the other screens (the builder paid)
+      net.on({ onEv: (p: any, k: string, n: number) => {
+        if (k === "colx") { const c = S.grid[n]; if (c) c.b = null; }
+        else if (k.startsWith("colb:")) { const c = S.grid[n]; if (c) { c.b = k.slice(5); c.f = c.f; } }
+        else if (k.startsWith("colc:") && p) { p.say = k.slice(5); }
+        setTick(x => x + 1); } });
+    }
     const step = (dt: number) => {
       const cr = careerRef.current;
       let sunMul = site.sun * (cr === "eng" ? 1.15 : 1) * (S.tech[2] ? 1.4 : 1), coldMul = 1, oxLeak = 0;
@@ -195,15 +202,16 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
   const tapCell = (i: number) => {
     if (S.ended || !career) return; const c = S.grid[i];
-    if (c.b) { if (c.b === "hab" && S.grid.filter((q: any) => q.b === "hab").length * 6 - 6 < S.pop) { play("hurt"); return; } const bd = BUILD.find(b => b.id === c.b)!; S.stock.ma += Math.round(cost(bd) * 0.5); c.b = null; play("boom"); setTick(x => x + 1); return; }
+    if (c.b) { if (c.b === "hab" && S.grid.filter((q: any) => q.b === "hab").length * 6 - 6 < S.pop) { play("hurt"); return; } const bd = BUILD.find(b => b.id === c.b)!; S.stock.ma += Math.round(cost(bd) * 0.5); c.b = null; if (net) net.sendEv("colx", i); play("boom"); setTick(x => x + 1); return; }
     const bd = BUILD.find(b => b.id === S.sel)!; if (!bd) return;
     if ((bd.needSci || 0) > S.stock.sc) { play("hurt"); return; }
     const cs = cost(bd); if (S.stock.ma < cs) { play("hurt"); return; }
-    S.stock.ma -= cs; c.b = bd.id; play("pop"); setTick(x => x + 1);
+    S.stock.ma -= cs; c.b = bd.id; if (net) net.sendEv("colb:" + bd.id, i); play("pop"); setTick(x => x + 1);
   };
   const tcost = (i: number) => Math.round(TECH[i].cost * (career === "inno" ? 0.75 : 1));
   const buyTech = (i: number) => { const tc = TECH[i]; if (S.tech[i] || S.stock.sc < tcost(i) || S.ended) return; S.stock.sc -= tcost(i); S.tech[i] = true; play("win"); setTick(x => x + 1); };
-  const pickCareer = (id: string) => { try { localStorage.setItem("tg_adv_career", id); } catch (e) {} setCareer(id); play("pickup"); };
+  const taken = (id: string) => !!net && [...net.peers.values()].some((q: any) => q.say === id);   // online: one pilot per career, so the team covers every weak spot
+  const pickCareer = (id: string) => { if (taken(id)) { play("hurt"); return; } try { localStorage.setItem("tg_adv_career", id); } catch (e) {} setCareer(id); if (net) net.sendEv("colc:" + id, 0); play("pickup"); };
   const openGear = () => { pausedRef.current = true; setGear(true); }, closeGear = () => { pausedRef.current = false; setGear(false); };
   const pct = Math.min(100, S.pop / site.target * 100), homes = S.grid.filter((c: any) => c.b === "hab").length * 6, fact = FACTS[Math.floor(S.t / 20) % FACTS.length];
   return (
@@ -216,6 +224,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
         </div>
         <GearButton onClick={openGear} />
       </div>
+      {net && <div className="ac2-team" data-team="1">🤝 {t("ทีม: ", "Team: ", "团队：")}{[...net.peers.values()].map((q: any) => <span key={q.id}>{q.name} {(CAREERS.find(c => c.id === q.say) || { icon: "…" }).icon}</span>)}</div>}
       <div className="ac2-res">
         {RES.map(r => (<span key={r.k} className={"ac2-r" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k}>{r.icon} {Math.floor(S.stock[r.k])}<small className={S.rate[r.k] < -0.01 ? "neg" : ""}>{S.rate[r.k] >= 0 ? "+" : ""}{S.rate[r.k].toFixed(1)}</small></span>))}
         {S.hz > 0 && <span className="ac2-hz" data-hazard="1">⚠ {T3(lang, site.hz[0], site.hz[1], site.hz[2])}</span>}
@@ -242,7 +251,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry }: any
       {!career && (<div className="adv-quiz" data-careers="1" style={{ alignItems: "center" }} onPointerDown={(e) => e.stopPropagation()}><div className="pvpstandby-card" style={{ maxWidth: 460 }}>
         <b>{t("เลือกสายอาชีพของคุณ", "Choose your career", "选择你的职业")}</b>
         <small>{t("ในห้องออนไลน์ แต่ละคนจะถืออาชีพของตัวเอง ทุกอาชีพเสริมกันและกัน", "Online, every pilot holds a career of their own and they cover each other's weak spots", "联机时每位玩家各担一职，互补长短")}</small>
-        <div className="af-pick">{CAREERS.map(c => (<button key={c.id} className="adv-btn" data-career={c.id} onClick={() => pickCareer(c.id)}>{c.icon} {T3(lang, c.name[0], c.name[1], c.name[2])}<small>{T3(lang, c.text[0], c.text[1], c.text[2])}</small></button>))}</div>
+        <div className="af-pick">{CAREERS.map(c => (<button key={c.id} className="adv-btn" data-career={c.id} disabled={taken(c.id)} onClick={() => pickCareer(c.id)}>{c.icon} {T3(lang, c.name[0], c.name[1], c.name[2])}<small>{T3(lang, c.text[0], c.text[1], c.text[2])}</small></button>))}</div>
       </div></div>)}
       {S.ended && !S.won && (<div className="adv-clear" role="dialog" aria-label="colony lost"><b>{t("อาณานิคมล่มสลาย", "The colony collapsed", "殖民地崩溃了")}</b><span>{t("ประชากรสูงสุด ", "Peak population ", "人口峰值 ")}{Math.floor(S.peak)}/{site.target}</span>
         <div className="adv-clear-btns"><button className="adv-btn go" onClick={() => onRetry && onRetry()}>↻ {t("ลองใหม่", "Retry", "重试")}</button><button className="adv-btn" onClick={() => onExit()}>{t("เมนูแผนที่", "Map menu", "地图菜单")}</button></div></div>)}
