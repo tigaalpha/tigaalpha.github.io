@@ -32,6 +32,7 @@ async function run(done, label) {
     else if (q.kind === "key") { const pc = wrong ? [0,1,2,3,4,5,6,7,8,9,10,11].find(x => !q.ans.includes(x)) : q.ans[0]; await tapPc(pc); }
     else { const set = wrong ? [q.ans[0]] : q.ans; for (const pc of set) await tapPc(pc); await p.locator(".adv-qgo").click({ force: true }); }
     await p.waitForSelector(".adv-qres", { timeout: 3000 });
+    await p.waitForTimeout(700);   // the answer keys light one at a time, lowest first
     const res = await p.evaluate(() => ({ cls: document.querySelector(".adv-qres").className, lit: document.querySelectorAll(".adv-quiz .pk.lit").length, why: document.querySelector(".adv-qres").innerText.length }));
     if (wrong && process.env.SHOT) await p.screenshot({ path: process.env.SHOT });
     if (wrong) ok(label + ": a wrong answer teaches (keys lit on the piano + a reason)", /bad/.test(res.cls) && res.lit >= 1 && res.why > 20, JSON.stringify(res));

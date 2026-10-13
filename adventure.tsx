@@ -682,6 +682,9 @@ const CSS = `
 .adv-menu .adv-how{background:var(--card2,#f3f3f3);padding:8px 12px;border-radius:16px}
 .adv-pad.simple .pvpact.rocket,.adv-pad.simple .pvpact.zap,.adv-pad.simple .pvpact.kick,.adv-pad.simple .pvpact.ult,.adv-pad.simple .pvpact.spell{display:none!important}
 .adv-clear .ac-stats{display:flex;gap:8px;justify-content:center;margin:4px 0}.adv-clear .ac-stats span{display:flex;flex-direction:column;align-items:center;min-width:76px;padding:6px 10px;border-radius:16px;background:rgba(255,255,255,.1)}.adv-clear .ac-stats em{font-style:normal;font-size:16px}.adv-clear .ac-stats b{font-size:20px;color:#fff;letter-spacing:0}.adv-clear .ac-stats small{font-size:10.5px;opacity:.85}.adv-clear{animation:advpop .45s cubic-bezier(.2,1.4,.4,1)}@keyframes advpop{0%{opacity:0;transform:translateX(-50%) scale(.7)}100%{opacity:1;transform:translateX(-50%) scale(1)}}@media (prefers-reduced-motion:reduce){.adv-clear{animation:none}}
+@media (max-height:520px){.adv-qcard{max-height:100%;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));gap:5px;border-radius:16px 16px 0 0}.adv-qq{font-size:15px}.adv-qres{padding:6px 10px;font-size:13px}.adv-qgo{min-height:36px;height:36px}.adv-qpiano{transform-origin:top center;transform:scale(.8);margin:-12px 0 -14px}}
+.adv-clear{top:max(64px,6%);max-height:calc(100% - 76px);overflow-y:auto;overscroll-behavior:contain}
+@media (max-height:520px){.adv-clear{top:60px;max-height:calc(100% - 66px);padding:8px 14px;gap:5px}.adv-clear b{font-size:17px}.adv-clear .ac-stats{margin:0}.adv-clear .ac-stats span{min-width:64px;padding:3px 8px}.adv-clear .ac-stats span b{font-size:20px}.adv-clear .adv-btn{min-height:34px;height:34px;padding:0 14px;font-size:14px}}
 `;
 
 type Gfx = "standard" | "high";
@@ -2007,7 +2010,10 @@ function QuizCard({ quiz, lang, onKey, onConfirm, onChoice, onNext, onSkip }: an
   const t = (th, en, zh) => T3(lang, th, en, zh);
   const [picked, setPicked] = useState<number | null>(null);
   useEffect(() => setPicked(null), [quiz.i]);
-  const lit = quiz.res ? (quiz.res === "bad" || q.kind !== "choice" ? q.teach.lit : []) : quiz.sel.map((x) => x.name + "");
+  const teachLit: string[] = quiz.res ? (quiz.res === "bad" || q.kind !== "choice" ? q.teach.lit : []) : [];
+  const [shownN, setShownN] = useState(0);   // the answer's keys light one by one from the lowest note up, so the learner sees how the chord is built
+  useEffect(() => { setShownN(0); if (!teachLit.length) return; let n = 0; const id = setInterval(() => { n++; setShownN(n); if (n >= teachLit.length) clearInterval(id); }, 450); return () => clearInterval(id); }, [quiz.res, quiz.i]);
+  const lit = quiz.res ? teachLit.slice(0, shownN) : quiz.sel.map((x) => x.name + "");
   const learnedNames = (quiz.learned || []).map((x) => ({ scale: t("สเกล", "Scales", "音阶"), triad: t("คอร์ด", "Chords", "和弦"), interval: t("ช่วงเสียง", "Intervals", "音程"), seventh: t("คอร์ด 7", "7th chords", "七和弦") }[x] || x)).join(" · ");
   return (
     <div className="adv-quiz" role="dialog" aria-modal="true">
