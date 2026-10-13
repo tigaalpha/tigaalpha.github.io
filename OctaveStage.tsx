@@ -82,7 +82,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
   useEffect(() => {
     try { const el: any = document.documentElement; if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {}); (screen.orientation as any)?.lock?.("landscape").catch(() => {}); } catch (e) {}
     const chk = () => setPortrait(window.innerHeight > window.innerWidth); chk(); window.addEventListener("resize", chk);
-    return () => { window.removeEventListener("resize", chk); clearInterval(timer.current); try { (screen.orientation as any)?.unlock?.(); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
+    return () => { window.removeEventListener("resize", chk); clearInterval(timer.current); if ((window as any).__octKeepFs) return; /* handing over to the practice page: stay full screen and landscape */ try { (screen.orientation as any)?.unlock?.(); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
   }, []);
   const run = () => {
     if (playing) { clearInterval(timer.current); setPlaying(false); return; }
@@ -115,7 +115,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
         <b className="ost-title">{label}</b><span className="ost-oct">{octaves}×</span>
         <div className="ost-notes" aria-label={T.notes}>{seq.map((s, i) => <span key={i} className={i === idx ? "on" : ""}>{NAMES[s.m % 12]}</span>)}</div>
         <button className="ost-btn" onClick={() => setHand(hand === "left" ? "right" : "left")}>{hand === "left" ? T.left : T.right} ⇄</button>
-        {onPractice && <button className="ost-btn ost-prac" onClick={() => { clearInterval(timer.current); setPlaying(false); onPractice({ notes: upBase.map((q: any) => nameOf(q.m)), fingers: upBase.map((q: any) => q.f), mode: "scale", key: null, label: (label || "Scale") + " · " + octaves + " " + (lang === "th" ? "ออกเตฟ" : lang === "zh" ? "个八度" : "octaves") }); }}>{lang === "th" ? "ฝึก" : lang === "zh" ? "练习" : "Practice"}</button>}
+        {onPractice && <button className="ost-btn ost-prac" onClick={() => { clearInterval(timer.current); setPlaying(false); (window as any).__octKeepFs = true; setTimeout(() => { (window as any).__octKeepFs = false; }, 3000); onPractice({ notes: upBase.map((q: any) => nameOf(q.m)), fingers: upBase.map((q: any) => q.f), mode: "scale", key: null, label: (label || "Scale") + " · " + octaves + " " + (lang === "th" ? "ออกเตฟ" : lang === "zh" ? "个八度" : "octaves") }); }}>{lang === "th" ? "ฝึก" : lang === "zh" ? "练习" : "Practice"}</button>}
         <button className="ost-btn" onClick={() => { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setBoth(!both); }} aria-pressed={both}>{both ? "↑↓" : "↑"}</button>
         <button className="ost-btn go" onClick={run}>{playing ? "⏸ " + T.stop : "▶ " + T.play}</button>
         <button className="ost-btn" onClick={onClose} aria-label={T.close}>✕</button>

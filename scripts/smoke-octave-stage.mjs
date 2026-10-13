@@ -23,7 +23,8 @@ async function open(pre) {
 }
 
 const { ctx, p, errs } = await open({});
-const sel = await p.$(".octsel select"); await sel.selectOption("2"); await p.waitForTimeout(500);
+const sel = await p.$(".octsel select"); await sel.selectOption("2"); await p.waitForTimeout(300);
+await p.waitForTimeout(200);
 const idx = () => p.evaluate(() => [...document.querySelectorAll(".ost-notes span")].findIndex(e => e.classList.contains("on")));
 ok("the light waits on the first key", (await idx()) === 0, String(await idx()));
 await p.click('.ost-kb [aria-label="D4"]'); await p.waitForTimeout(150);
@@ -36,6 +37,6 @@ await p.click(".ost-prac"); await p.waitForSelector(".practiceov", { timeout: 60
 ok("the orange Practice button opens the practice page for 2 octaves", (await p.$(".practiceov")) !== null && (await p.$(".ost")) === null);
 ok("its keyboard spans the whole range (C4..C6 = 15 white keys)", (await p.locator(".practiceov .pk.w").count()) >= 15, String(await p.locator(".practiceov .pk.w").count()));
 ok("the lesson is the 2-octave scale there (up and back down = 29 notes)", (await p.evaluate(() => document.querySelector(".practiceov").innerText)).length > 0);
-await p.screenshot({ path: "/tmp/prac2.png" });
+await p.waitForTimeout(1200); await p.screenshot({ path: "/tmp/prac2.png" });
 ok("no errors", errs.length === 0, errs.join("|"));
 await browser.close(); server.close(); process.exit(fail ? 1 : 0);
