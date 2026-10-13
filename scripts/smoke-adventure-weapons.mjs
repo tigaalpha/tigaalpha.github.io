@@ -36,7 +36,7 @@ for (const [id, kind] of [["minigun", "bolts"], ["shotgun", "bolts"], ["laserrif
 await T("equipNow", "flame"); await T("tp", (await T("monX")) - 150); await p.waitForTimeout(100); const hf0 = await T("monHp"); for (let i = 0; i < 12; i++) { await T("fireCdClear"); await T("fireNow"); await p.waitForTimeout(40); }
 if (process.env.OUT) await p.screenshot({ path: process.env.OUT + "/flame.png" });
 ok("the flamethrower burns a monster in front", (await T("monHp")) < hf0, hf0 + " -> " + (await T("monHp")));
-await T("equipNow", "sword"); await T("tp", (await T("monX")) - 120); await p.waitForTimeout(80); const hs0 = await T("monHp"); await T("fireCdClear"); await T("fireNow"); await p.waitForTimeout(80);
+await T("equipNow", "sword"); let hs0 = await T("monHp"); for (let k = 0; k < 4 && (await T("monHp")) >= hs0; k++) { await T("tp", (await T("monX")) - 100); await p.waitForTimeout(60); await T("fireCdClear"); await T("fireNow"); await p.waitForTimeout(120); }   // the monster walks while the sword swings, so aim again before judging
 ok("the laser sword cuts a monster in front", (await T("monHp")) < hs0, hs0 + " -> " + (await T("monHp")));
 await T("equipNow", "laserrifle"); await T("tp", (await T("monX")) - 300); await p.waitForTimeout(80); const hl0 = await T("monHp"); await T("fireCdClear"); await T("fireNow"); await p.waitForTimeout(50);
 ok("the laser rifle hurts at range at once", (await T("monHp")) < hl0, hl0 + " -> " + (await T("monHp")));
@@ -47,11 +47,12 @@ const wl = JSON.parse(await p.evaluate(() => localStorage.getItem("tg_adv_wlv") 
 ok("picking the same weapon up again levels it (+1 each time)", wl.minigun === Math.min(5, lv0 + 2), lv0 + " -> " + wl.minigun);
 for (let i = 0; i < 6; i++) await T("equipNow", "minigun");
 ok("the level stops at 5", JSON.parse(await p.evaluate(() => localStorage.getItem("tg_adv_wlv"))).minigun === 5);
-// 2c. the two new grenades
-await T("tp", (await T("monX")) - 160); await p.waitForTimeout(100);
+// 2c. the two new grenades (stand clear of the quiz beacons: a question pauses the run and freezes the fuse)
+{ const bs = await T("beacons"), mxx = await T("monX"); let x = mxx - 160; for (const c of [mxx - 160, mxx + 160, mxx - 420, mxx + 420]) { if (!bs.some(b => Math.abs(b - c) < 380)) { x = c; break; } } await T("tp", x); }
+ await p.waitForTimeout(100);
 await T("equipNow", "sticky"); await T("rocketNow"); await p.waitForTimeout(300);
 ok("a sticky grenade is thrown and waits for its fuse", (await T("rocketsLive")) >= 1, String(await T("rocketsLive")));
-let gone = false; for (let i = 0; i < 12 && !gone; i++) { await p.waitForTimeout(350); gone = (await T("rocketsLive")) === 0; }
+let gone = false; for (let i = 0; i < 30 && !gone; i++) { await p.waitForTimeout(350); gone = (await T("rocketsLive")) === 0; }
 ok("it goes off by itself", gone, JSON.stringify(await T("rocketInfo")));
 await T("tp", (await T("monX")) - 130); await p.waitForTimeout(100); await T("equipNow", "emp");
 await p.evaluate(() => 0); await T("rocketNow"); await p.waitForTimeout(1500);

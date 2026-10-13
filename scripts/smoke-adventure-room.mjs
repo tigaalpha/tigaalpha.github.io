@@ -72,8 +72,7 @@ const wa = await A.p.evaluate(() => window.__advTest.warInfo()), wb = await B.p.
 ok("both games are in war mode on different teams", wa.war && wb.war && wa.team !== wb.team, JSON.stringify([wa, wb]));
 await A.p.evaluate(() => { window.__advTest.tp(300); window.__advTest.face(1); }); await B.p.evaluate(() => window.__advTest.tp(340)); await A.p.waitForTimeout(700);
 const hb0 = await B.p.evaluate(() => window.__advTest.hpNow());
-await A.p.evaluate(() => window.__advTest.strikeNow()); await A.p.waitForTimeout(700);
-const hb1 = await B.p.evaluate(() => window.__advTest.hpNow());
+let hb1 = hb0; for (let k = 0; k < 4 && hb1 >= hb0; k++) { await A.p.evaluate(() => { window.__advTest.face(1); window.__advTest.strikeNow(); }); await A.p.waitForTimeout(800); hb1 = await B.p.evaluate(() => window.__advTest.hpNow()); }   // the ghost position travels by message, so a first swing can land short
 ok("a punch at an enemy-team pilot hurts them on their own screen", hb1 < hb0, hb0 + " -> " + hb1);
 ok("no errors", A.errs.length + B.errs.length === 0, A.errs.concat(B.errs).join("|"));
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
