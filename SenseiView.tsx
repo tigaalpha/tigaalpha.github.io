@@ -137,7 +137,7 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
             </div>
             <style>{OCTAVE_CSS + ".octrow{display:flex;justify-content:center;margin:8px 0}.octsel{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}.octsel select{min-height:44px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);padding:0 14px;font-weight:800}"}</style>
             {octaves > 1 && (
-              <OctaveStage onPractice={(sq: any) => { setOctaves(1); startOctavePractice && startOctavePractice(sq); }} notes={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.notes : DEFAULT_SCALE} label={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.label : "C Major Scale"} octaves={octaves} hand={hand} setHand={setHand} lang={lang} onClose={() => setOctaves(1)} />
+              <OctaveStage onPractice={(sq: any) => { setOctaves(1); startOctavePractice && startOctavePractice(sq); }} notes={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.notes : DEFAULT_SCALE} label={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.label : "C Major Scale"} octaves={octaves} setOctaves={setOctaves} hand={hand} setHand={setHand} lang={lang} onClose={() => setOctaves(1)} />
             )}
             <div className="recbar">
               <button className={`recbtn${recording ? " on" : ""}`} onClick={toggleRecord}>
