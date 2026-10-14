@@ -267,7 +267,7 @@ export const FINGERINGS_RH = {
   "b minor scale":  [1,2,3,1,2,3,4,5],
   // F# and C# minor: the standard shape that puts the thumb on the white keys (F# minor and C# minor start on 3).
   "f# minor scale": [3,4,1,2,3,1,2,3],
-  "c# minor scale": [3,4,1,2,3,1,2,3],
+  "c# minor scale": [2,1,2,3,1,2,3,4],
   // E♭, G♯ and B♭ minor (owner-checked 2026-10-14; matches the Hoffman Academy and pianoandsynth.com fingerings found online).
   "d# minor scale": [3,1,2,3,4,1,2,3],
   "g# minor scale": [3,4,1,2,3,1,2,3],
@@ -301,7 +301,7 @@ export const FINGERINGS_LH = {
   "g minor scale":  [5,4,3,2,1,3,2,1],
   "b minor scale":  [4,3,2,1,4,3,2,1],
   "f# minor scale": [4,3,2,1,3,2,1,4],
-  "c# minor scale": [3,2,1,4,3,2,1,3],
+  "c# minor scale": [3,1,3,2,1,4,3,2],
   "d# minor scale": [2,1,4,3,2,1,3,2],
   "g# minor scale": [3,2,1,4,3,2,1,3],
   "a# minor scale": [3,2,1,4,3,2,1,3],

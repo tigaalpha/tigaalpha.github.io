@@ -10,5 +10,7 @@ for (const r of ["c","c#","db","d","d#","eb","e","f","f#","gb","g","g#","ab","a"
   const f = getFingers(`${r} ${q} scale`, "scale", h);
   if (!f || f.length !== 8) { bad++; console.log("FAIL", r, q, h); }
 }
+const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+for (const k of ["c# minor scale","db minor scale"]) { if (!eq(getFingers(k,"scale","right"),[2,1,2,3,1,2,3,4]) || !eq(getFingers(k,"scale","left"),[3,1,3,2,1,4,3,2])) { bad++; console.log("FAIL owner fingering for", k); } }
 console.log(bad ? "FAILED" : "PASS every minor key has fingers in both hands and both spellings");
 process.exit(bad ? 1 : 0);
