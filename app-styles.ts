@@ -3995,6 +3995,7 @@ ${UX2_CSS}
 /* ── chat history (chat-ui.tsx · ChatHistorySheet) ── */
 .chhbtns{display:inline-flex;gap:6px;margin-left:auto;margin-right:6px}
 .chhbar{display:flex;justify-content:flex-end;padding:6px 14px 0}
+.sbrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-right:12px}.sbrow .chhbtns{margin:0}
 .chhbtn{position:relative;width:44px;height:44px;border-radius:22px;border:1.5px solid var(--bd2);background:var(--card);color:var(--text);font-size:18px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .chhbtn-n{position:absolute;top:-4px;right:-4px;font-style:normal;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:9px;background:var(--clay,#d97757);color:#fff;display:flex;align-items:center;justify-content:center;padding:0 4px}
 .chhov{position:fixed;inset:0;z-index:2500;background:rgba(10,10,12,.45);display:flex;align-items:flex-end;justify-content:center}
