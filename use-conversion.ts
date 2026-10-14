@@ -135,12 +135,12 @@ export const CONV_COPY = copyTable({
   price: fmtThb(PLAN_PRICE.premium),
   year: fmtThb(yearPrice("premium")),
   perks: {
-    th: "ครูเสียงพูดคุยสด · เพลง Exclusive · สร้างเพลง AI · ทุกเกม",
-    en: "a live voice teacher, every exclusive piece, AI song creation, every game",
-    zh: "实时语音老师、全部独家曲目、AI作曲、全部游戏",
-    items: "♾️ ครู AI 10 คำถาม/วัน\n🎙️ ครูเสียงพูดคุยสด\n👑 เพลง Exclusive ทั้งหมด\n🎵 สร้างเพลง AI\n🎮 เกมดนตรีทุกเกม\n📊 Daily Mentor + รายงานรายสัปดาห์",
-    itemsEn: "♾️ AI tutor, 10 questions/day\n🎙️ Live voice teacher\n👑 Every exclusive piece\n🎵 AI song creation\n🎮 Every music game\n📊 Daily Mentor + weekly AI report",
-    itemsZh: "♾️ AI老师 10个提问/天\n🎙️ 实时语音老师\n👑 全部独家曲目\n🎵 AI作曲\n🎮 全部音乐游戏\n📊 Daily Mentor + 每周AI报告",
+    th: "เพลง Exclusive · สร้างเพลง AI · ทุกเกม",
+    en: "every exclusive piece, AI song creation, every game",
+    zh: "全部独家曲目、AI作曲、全部游戏",
+    items: "♾️ ครู AI 10 คำถาม/วัน\n👑 เพลง Exclusive ทั้งหมด\n🎵 สร้างเพลง AI\n🎮 เกมดนตรีทุกเกม\n📊 Daily Mentor + รายงานรายสัปดาห์",
+    itemsEn: "♾️ AI tutor, 10 questions/day\n👑 Every exclusive piece\n🎵 AI song creation\n🎮 Every music game\n📊 Daily Mentor + weekly AI report",
+    itemsZh: "♾️ AI老师 10个提问/天\n👑 全部独家曲目\n🎵 AI作曲\n🎮 全部音乐游戏\n📊 Daily Mentor + 每周AI报告",
   },
 });
 
