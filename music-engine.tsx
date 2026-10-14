@@ -382,7 +382,14 @@ export const THEORY_REF =
 export function getFingers(key, mode, hand) {
   if (mode === "chord") return hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
   const map = hand === "left" ? FINGERINGS_LH : FINGERINGS_RH;
-  return map[key] || null;
+  if (map[key]) return map[key];
+  // The tables spell major keys with flats (db eb ab bb) and minor keys with sharps (c# d# g# a#); a lesson may name either spelling.
+  const m = /^([a-g])([#b]?) (major|minor) scale$/.exec(String(key || ""));
+  if (!m) return null;
+  const FL = { "c#": "db", "d#": "eb", "g#": "ab", "a#": "bb" }, SH = { db: "c#", eb: "d#", ab: "g#", bb: "a#", gb: "f#" };
+  const r = m[1] + m[2];
+  const alt = m[3] === "major" ? (FL[r] || (r === "gb" ? "f#" : r)) : (SH[r] || r);
+  return map[`${alt} ${m[3]} scale`] || null;
 }
 // finger numbers aligned 1:1 to a note list for a given hand (scale by key, or
 // triad fallback). Returns null when we have no verified data to recompute from.

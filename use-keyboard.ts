@@ -60,8 +60,10 @@ export function useKeyboard() {
     setFingerChart(prev => {
       if (!prev) return prev;
       let fingers = null;
-      if (prev.key) fingers = getFingers(prev.key, prev.mode, hand);
-      else if (prev.mode === "prog") fingers = prev.notes.flatMap(() => (hand === "left" ? PROG_FINGER_LH : PROG_FINGER_RH).slice());
+      if (prev.key) {
+        fingers = getFingers(prev.key, prev.mode, hand);
+        if (fingers && prev.notes.length > fingers.length) fingers = fingers.concat(fingers.slice().reverse().slice(1)).slice(0, prev.notes.length);
+      } else if (prev.mode === "prog") fingers = prev.notes.flatMap(() => (hand === "left" ? PROG_FINGER_LH : PROG_FINGER_RH).slice());
       else if (prev.mode === "chord" || (prev.mode === "seq" && prev.notes.length === 3)) {
         fingers = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
       }
@@ -95,6 +97,8 @@ export function useKeyboard() {
     if (parsed.key) {
       // key-based scale/chord: recompute exactly for that key + hand
       fingers = getFingers(parsed.key, mode, hand);
+      // a melodic minor lesson lists the way up AND down (15 notes): the way down reuses the same fingers backwards
+      if (fingers && notes.length > fingers.length) fingers = fingers.concat(fingers.slice().reverse().slice(1)).slice(0, notes.length);
     } else if (!fingers) {
       // no explicit fingers provided — fall back to a sensible default
       if (mode === "chord" && notes.length === 3) fingers = hand === "left" ? TRIAD_FINGER_LH : TRIAD_FINGER_RH;
