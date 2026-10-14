@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { L, tr } from "./i18n";
-import { OctaveStage, OCTAVE_CSS, spellNames } from "./OctaveStage";
+import { OctaveStage, OCTAVE_CSS, spellNames, TeacherStaff } from "./OctaveStage";
 import { Piano, playUi, playPianoNote } from "./music-engine";
 import { Msg, Typing, Input, ChatProgress, ChatHistoryButtons } from "./chat-ui";
 import { FingerHand } from "./PracticeOverlay";
@@ -107,6 +107,7 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
                 <button className={`chordstylebtn${chordStyle === "block" ? " on" : ""}`} onClick={() => chordStyle !== "block" && toggleChordStyle()}>{lc.chordBlock}</button>
               </div>
             )}
+            {fingerChart && fingerChart.notes && fingerChart.notes.length > 1 && !seqIsChord && <TeacherStaff notes={fingerChart.notes} litNote={litNote} />}
             <Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} baseOct={pianoOct} onNote={handleMainKey} />
             {/* Plan 28 · B3 — the finger table is a hand: the finger for the note that is lit (demo or key) is the one that glows,
                 the same drawing the practice screen uses; the note names stay as quiet text below. */}

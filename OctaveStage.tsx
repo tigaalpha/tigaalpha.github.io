@@ -14,8 +14,8 @@ const nameOf = (m: number) => NAMES[m % 12] + (Math.floor(m / 12) - 1);
 
 const LETTER: Record<string, number> = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
 // Four bars of the taught notes on ONE five-line staff (four quarter notes a bar, 4/4 shown in colour); the note being taught is orange. Treble staff, bottom line E4.
-function StaffCard({ notes, active, title, bass, sp }: { notes: { m: number }[]; active: number; title: string; bass?: boolean; sp?: Sp | null }) {
-  const N = 16, W = 640, H = 112, left = 78, gap = (W - left - 12) / N, half = 7, bottom = 84;
+function StaffCard({ notes, active, title, bass, sp, count = 16 }: { notes: { m: number }[]; active: number; title: string; bass?: boolean; sp?: Sp | null; count?: number }) {
+  const N = count, W = count === 8 ? 400 : 640, H = 112, left = 78, gap = (W - left - 12) / N, half = 7, bottom = 84;
   // A note is written on the line or space of its spelled letter: in a flat key the black keys are flats (D♭, not C♯), in a sharp key sharps; B♯ and C♭ sit in the octave of their letter.
   const spOf = (m: number): { L: number; acc: number } => { const e = sp && sp[m % 12]; if (e) return e; const nm = NAMES[m % 12]; return { L: LETTER[nm[0]], acc: nm.length > 1 ? 1 : 0 }; };
   const stepOf = (m: number) => { const e = spOf(m); return (Math.floor((m - e.acc) / 12) - 1) * 7 + e.L; };
@@ -41,7 +41,7 @@ function StaffCard({ notes, active, title, bass, sp }: { notes: { m: number }[];
         <text x={64} y={mid - 6} fill="#d97757">4</text><text x={64} y={bottom - 6} fill="#2f9e8f">4</text>
       </g>
       <line x1={10} x2={10} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1.5" />
-      {[1, 2, 3].map(k => <line key={k} x1={left + gap * 4 * k} x2={left + gap * 4 * k} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
+      {Array.from({ length: N / 4 - 1 }, (_, i) => i + 1).map(k => <line key={k} x1={left + gap * 4 * k} x2={left + gap * 4 * k} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
       <line x1={W - 8} x2={W - 8} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1.5" /><line x1={W - 4} x2={W - 4} y1={top} y2={bottom} stroke="currentColor" strokeWidth="3" />
       {ottava && <g aria-hidden="true" fill="#d97757" stroke="#d97757"><text x={left + 6} y={shift > 0 ? -14 : bottom + 34} fontSize="15" fontStyle="italic" fontWeight="800" stroke="none">{ottava}</text><line x1={left + 44} x2={W - 10} y1={shift > 0 ? -18 : bottom + 30} y2={shift > 0 ? -18 : bottom + 30} strokeWidth="1.4" strokeDasharray="5 4" /></g>}
       {nn.map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.5), on = i === active, acc = spOf(q.m).acc;
@@ -205,7 +205,7 @@ export const OCTAVE_CSS = `
 .ost-notes{flex:1;display:flex;flex-wrap:wrap;gap:4px;min-width:140px}.ost-notes span{padding:3px 7px;border-radius:999px;background:var(--card2,#f3f3f3);font-size:12px;font-weight:700}.ost-notes span.on{background:var(--clay,#d97757);color:#fff}
 .ost-btn{min-height:44px;padding:0 16px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);font-weight:800;cursor:pointer}.ost-btn.go{background:var(--clay,#d97757);color:#fff;border-color:transparent}
 .ost-hands{flex:1;min-height:0;display:flex;gap:10px;justify-content:flex-start;align-items:stretch}.ost-hand{flex:0 0 112px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px;border-radius:18px;background:var(--card,#fff);border:1.5px solid var(--bd2,rgba(0,0,0,.12));opacity:.55;cursor:pointer;overflow:hidden}.ost-hand.act{opacity:1;border-color:var(--clay,#d97757)}.ost-hand span{font-size:11px;font-weight:800}.ost-hand svg{max-height:78%;width:auto;max-width:100%}
-.ost-prac{background:#d97757;color:#fff;border-color:#d97757;font-weight:800;padding:0 16px}.ost-card{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;border-radius:18px;background:var(--card,#fff);border:1.5px solid var(--bd2,rgba(0,0,0,.12));color:var(--text,#222);padding:2px 6px;overflow:hidden}.ost-staff{width:100%;height:100%;max-height:100%}
+.tstaff{margin:8px 0;padding:6px 8px;border-radius:18px;background:var(--card,#fff);border:1.5px solid var(--bd2,#e3ddd2)}.tstaff .ost-staff{width:100%;height:auto;display:block;color:var(--text,#222)}.ost-prac{background:#d97757;color:#fff;border-color:#d97757;font-weight:800;padding:0 16px}.ost-card{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;border-radius:18px;background:var(--card,#fff);border:1.5px solid var(--bd2,rgba(0,0,0,.12));color:var(--text,#222);padding:2px 6px;overflow:hidden}.ost-staff{width:100%;height:100%;max-height:100%}
 .ost-kbwrap{flex:1;min-height:0;display:flex}.ost-kb{position:relative;flex:1;border-radius:14px;overflow:hidden;background:#111}
 .ost-kb .ow{position:absolute;top:0;bottom:0;border:1px solid #888;border-top:0;background:#fff;border-radius:0 0 8px 8px;padding:0;cursor:pointer;display:flex;align-items:flex-end;justify-content:center}.ost-kb .ow i{font-style:normal;font-size:11px;font-weight:700;color:#666;margin-bottom:6px}
 .ost-kb .ow.in{background:#fde7de}.ost-kb .ow.lit{background:#ff9a5a;box-shadow:inset 0 0 18px rgba(217,119,87,.9)}.ost-kb .ow.lit i{color:#fff}
@@ -222,4 +222,14 @@ export const OCTAVE_CSS = `
 export function spellNames(notes: { note: string }[]): string[] {
   const k = scaleKind(notes), sp = k ? spellScale(k.pc, k.type) : null;
   return notes.map(p => { const m = midiOf(p.note); if (m == null) return p.note.replace(/[0-9]/g, ""); const e = sp && sp[m % 12]; if (!e) return NAMES[m % 12]; return "CDEFGAB"[e.L] + (e.acc === 1 ? "♯" : e.acc === -1 ? "♭" : e.acc === 2 ? "x" : e.acc === -2 ? "♭♭" : ""); });
+}
+
+/** The lesson on a five-line staff for the portrait Teacher page: two bars of four quarter notes, paging to the next two when the lit note moves on, the lit note in orange (real time, like the octave page). */
+export function TeacherStaff({ notes, litNote }: { notes: { note: string }[]; litNote: string | null }) {
+  const ms = useMemo(() => notes.map(p => midiOf(p.note)).filter((m): m is number => m != null), [notes]);
+  const k = useMemo(() => scaleKind(notes), [notes]), sp = useMemo(() => (k ? spellScale(k.pc, k.type) : null), [k]);
+  const lit = litNote ? midiOf(litNote) : null, at = lit == null ? -1 : ms.indexOf(lit);
+  const page = at >= 0 ? Math.floor(at / 8) : 0, slice = ms.slice(page * 8, page * 8 + 8).map(m => ({ m }));
+  if (ms.length < 2) return null;
+  return (<div className="tstaff" data-tstaff="1"><StaffCard notes={slice} active={at >= 0 && at >= page * 8 && at < page * 8 + 8 ? at - page * 8 : -1} title="staff" sp={sp} count={8} /></div>);
 }
