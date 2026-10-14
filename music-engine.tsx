@@ -1399,6 +1399,10 @@ export function freqToNoteName(freq) {
   return midiToNoteName(midi);
 }
 export function pcOf(note) { return note.replace(/-?\d+$/, ""); } // pitch class (drop octave)
+/* Display spelling for a scale the learner chose (flat keys with flats, sharp keys with sharps). Only the NAME SHOWN changes: pcOf above stays sharps-only because the judging compares pitch classes with it. The spelling belongs to one exact run of notes (`sig`, the first `n` target names), so a later practice of something else never inherits it. */
+let _disp = null;
+export function setDisplaySpelling(d) { _disp = d || null; }
+export function dispPc(note, target) { const pc = pcOf(String(note || "")); if (_disp && Array.isArray(target) && target.slice(0, _disp.n).join() === _disp.sig && _disp.map[pc]) return _disp.map[pc]; return pc; }
 
 
 // V2 of autoCorrelate: identical algorithm + gates as the original above,

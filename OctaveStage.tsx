@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { playPianoNote, stopAllPianoNotes, stopAmbient, FINGERINGS_LH, FINGERINGS_RH } from "./music-engine";
+import { playPianoNote, stopAllPianoNotes, stopAmbient, setDisplaySpelling, FINGERINGS_LH, FINGERINGS_RH } from "./music-engine";
 import { stopSpeaking, stopCloudTTS } from "./speech";
 import { FingerHand } from "./PracticeOverlay";
 /* ── OctaveStage ──
@@ -14,9 +14,11 @@ const nameOf = (m: number) => NAMES[m % 12] + (Math.floor(m / 12) - 1);
 
 const LETTER: Record<string, number> = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
 // Four bars of the taught notes on ONE five-line staff (four quarter notes a bar, 4/4 shown in colour); the note being taught is orange. Treble staff, bottom line E4.
-function StaffCard({ notes, active, title, bass }: { notes: { m: number }[]; active: number; title: string; bass?: boolean }) {
+function StaffCard({ notes, active, title, bass, sp }: { notes: { m: number }[]; active: number; title: string; bass?: boolean; sp?: Sp | null }) {
   const N = 16, W = 640, H = 112, left = 78, gap = (W - left - 12) / N, half = 7, bottom = 84;
-  const stepOf = (m: number) => { const nm = NAMES[m % 12].replace("#", ""), oct = Math.floor(m / 12) - 1; return oct * 7 + LETTER[nm]; };
+  // A note is written on the line or space of its spelled letter: in a flat key the black keys are flats (D♭, not C♯), in a sharp key sharps; B♯ and C♭ sit in the octave of their letter.
+  const spOf = (m: number): { L: number; acc: number } => { const e = sp && sp[m % 12]; if (e) return e; const nm = NAMES[m % 12]; return { L: LETTER[nm[0]], acc: nm.length > 1 ? 1 : 0 }; };
+  const stepOf = (m: number) => { const e = spOf(m); return (Math.floor((m - e.acc) / 12) - 1) * 7 + e.L; };
   const base = bass ? 18 : 30;   // diatonic step of the bottom line: G2 in the bass clef, E4 in the treble clef
   const yOf = (st: number) => bottom - (st - base) * half;
   const top = bottom - 8 * half, mid = bottom - 4 * half;
@@ -42,16 +44,26 @@ function StaffCard({ notes, active, title, bass }: { notes: { m: number }[]; act
       {[1, 2, 3].map(k => <line key={k} x1={left + gap * 4 * k} x2={left + gap * 4 * k} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
       <line x1={W - 8} x2={W - 8} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1.5" /><line x1={W - 4} x2={W - 4} y1={top} y2={bottom} stroke="currentColor" strokeWidth="3" />
       {ottava && <g aria-hidden="true" fill="#d97757" stroke="#d97757"><text x={left + 6} y={shift > 0 ? -14 : bottom + 34} fontSize="15" fontStyle="italic" fontWeight="800" stroke="none">{ottava}</text><line x1={left + 44} x2={W - 10} y1={shift > 0 ? -18 : bottom + 30} y2={shift > 0 ? -18 : bottom + 30} strokeWidth="1.4" strokeDasharray="5 4" /></g>}
-      {nn.map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.5), on = i === active, sharp = NAMES[q.m % 12].includes("#");
+      {nn.map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.5), on = i === active, acc = spOf(q.m).acc;
         const ledgers: number[] = []; for (let l = base - 2; l >= st; l -= 2) ledgers.push(l); for (let l = base + 10; l <= st; l += 2) ledgers.push(l);
         return (<g key={i} className={on ? "on" : ""}>
           {ledgers.map(l => <line key={l} x1={x - 11} x2={x + 11} y1={yOf(l)} y2={yOf(l)} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
-          {sharp && <text x={x - 17} y={y + 5} fontSize="14" fill={on ? "#d97757" : "currentColor"}>♯</text>}
+          {acc !== 0 && <text x={x - (Math.abs(acc) === 2 ? 22 : 17)} y={y + 5} fontSize="14" fontWeight={acc === 2 ? 800 : 400} fill={on ? "#d97757" : "currentColor"}>{acc === 1 ? "♯" : acc === -1 ? "♭" : acc === 2 ? "x" : "♭♭"}</text>}
           <ellipse cx={x} cy={y} rx="6.5" ry="5" fill={on ? "#d97757" : "currentColor"} transform={`rotate(-18 ${x} ${y})`} />
           <line x1={st >= base + 4 ? x - 6 : x + 6} x2={st >= base + 4 ? x - 6 : x + 6} y1={y} y2={st >= base + 4 ? y + 26 : y - 26} stroke={on ? "#d97757" : "currentColor"} strokeWidth="1.6" />
         </g>); })}
     </svg>
   );
+}
+type Sp = Record<number, { L: number; acc: number }>;
+// The spelling of each key as scores write it (one letter per degree): flat keys with flats, sharp keys with sharps. F♯ major is written with sharps; E♭, G♯ and B♭ minor are the usual minor keys.
+const MAJOR_SP = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"], MINOR_SP = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"];
+const rootLabel = (pc: number, type: string) => (type === "major" ? MAJOR_SP : MINOR_SP)[pc].replace("#", "♯").replace("b", "♭");
+/** pitch class -> its letter (0 = C … 6 = B) and accidental (-2..2) in the scale of this root and type. */
+export function spellScale(pc: number, type: string): Sp {
+  const nm = (type === "major" ? MAJOR_SP : MINOR_SP)[pc], L0 = LETTER[nm[0]], out: Sp = {}, nat = [0, 2, 4, 5, 7, 9, 11];
+  (SCALE_STEPS[type] || SCALE_STEPS.major).slice(0, 7).forEach((st, i) => { const L = (L0 + i) % 7, target = (pc + st) % 12; out[target] = { L, acc: ((target - nat[L] + 18) % 12) - 6 }; });
+  return out;
 }
 const SCALE_STEPS: Record<string, number[]> = { major: [0, 2, 4, 5, 7, 9, 11, 12], "natural minor": [0, 2, 3, 5, 7, 8, 10, 12], "harmonic minor": [0, 2, 3, 5, 7, 8, 11, 12], "melodic minor": [0, 2, 3, 5, 7, 9, 11, 12] };
 // the Teacher page's fingering tables are keyed by these names (flats for the black-key majors); a minor scale of any type uses its minor table (harmonic and melodic go up the same way)
@@ -85,7 +97,6 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
   for (let o = 0; o < octaves; o++) base.forEach((p, i) => { if (o > 0 && i === 0) return; out.push({ m: p.m + 12 * o, f: i === base.length - 1 && o < octaves - 1 ? (junctionF != null ? junctionF : base[0].f) : p.f }); });
   return out;
 }
-const ROOT_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const TYPE_NAME: Record<string, Record<string, string>> = { major: { th: "สเกลเมเจอร์", en: "Major Scale", zh: "大调音阶" }, "natural minor": { th: "สเกลไมเนอร์เนเชอรัล", en: "Natural Minor Scale", zh: "自然小调音阶" }, "harmonic minor": { th: "สเกลไมเนอร์ฮาร์โมนิก", en: "Harmonic Minor Scale", zh: "和声小调音阶" }, "melodic minor": { th: "สเกลไมเนอร์เมโลดิก", en: "Melodic Minor Scale", zh: "旋律小调音阶" } };
 export function OctaveStage({ notes: notesProp, label: labelProp, octaves, setOctaves, hand, setHand, lang, onClose, onPractice }: any) {
   // Tap the title to change the key without leaving the page: any of the 12 keys of the same kind of scale (major, natural / harmonic / melodic minor).
@@ -93,8 +104,9 @@ export function OctaveStage({ notes: notesProp, label: labelProp, octaves, setOc
   const [pickPc, setPickPc] = useState<number | null>(null); const [keysOpen, setKeysOpen] = useState(false);
   useEffect(() => { setPickPc(null); }, [notesProp]);   // a new lesson from the Teacher page replaces the chosen key
   const notes = useMemo(() => (kind0 && pickPc != null ? buildScale(pickPc, kind0.type) : notesProp), [kind0, pickPc, notesProp]);
+  const kindNow = useMemo(() => scaleKind(notes), [notes]), sp = useMemo(() => (kindNow ? spellScale(kindNow.pc, kindNow.type) : null), [kindNow]);
   const curPc = kind0 ? (pickPc != null ? pickPc : kind0.pc) : -1;
-  const label = kind0 && pickPc != null ? `${(TYPE_NAME[kind0.type] || TYPE_NAME.major)[lang] || TYPE_NAME[kind0.type].en} · ${ROOT_NAMES[pickPc]}` : labelProp;
+  const label = kind0 && pickPc != null ? `${(TYPE_NAME[kind0.type] || TYPE_NAME.major)[lang] || TYPE_NAME[kind0.type].en} · ${rootLabel(pickPc, kind0.type)}` : labelProp;
   const [both, setBoth] = useState(true);   // up AND down by default: the demo, the orange light and the staff all follow the lesson back down
   // The left hand starts an octave lower (C3, bass clef), the way a left-hand scale is taught.
   const shift = hand === "left" ? -12 : 0, upBase = useMemo(() => {
@@ -151,13 +163,12 @@ export function OctaveStage({ notes: notesProp, label: labelProp, octaves, setOc
   const inSeq = new Set(seq.map(s => s.m)); const fmap: Record<number, number | null> = {}; for (const q of seq) if (fmap[q.m] == null) fmap[q.m] = q.f;   // the finger to use on each taught key
   const litBlack = litM >= 0 && NAMES[litM % 12].length > 1, litW = litM >= 0 ? (litBlack ? wIndex(litM - 1) + 1 - 0.3 : wIndex(litM)) : 0, runLeft = litW * wW, runW = litBlack ? wW * 0.6 : wW;   // the orange running light sits on the key being taught and glides to the next
   return createPortal(
-    <div className={"ost" + (portrait ? " rot" : "")} role="dialog" aria-label="octave practice">
+    <div className={"ost" + (portrait ? " rot" : "")} data-idx={idx} role="dialog" aria-label="octave practice">
       <div className="ost-top">
         <span className="ost-keywrap"><button type="button" className={"ost-title ost-titlebtn" + (kind0 ? "" : " plain")} data-keybtn="1" disabled={!kind0} aria-expanded={keysOpen} onClick={() => setKeysOpen(o => !o)}>{label}{kind0 ? " ▾" : ""}</button>
-          {keysOpen && kind0 && (<><div className="ost-keyback" onClick={() => setKeysOpen(false)} /><div className="ost-keys" role="listbox" data-keys="1">{ROOT_NAMES.map((nm, pc) => <button key={pc} type="button" role="option" aria-selected={pc === curPc} data-pc={pc} className={"ost-keyb" + (pc === curPc ? " on" : "")} onClick={() => { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setPickPc(pc); setKeysOpen(false); }}>{nm}</button>)}</div></>)}</span><span className="ost-oct" role="group" aria-label="octaves">{[1, 2, 3, 4].map(n => <button key={n} type="button" className={"ost-octb" + (n === octaves ? " on" : "")} aria-pressed={n === octaves} data-oct={n} onClick={() => { if (n !== octaves) { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setOctaves && setOctaves(n); } }}>{n}×</button>)}</span>
-        {octaves < 3 && <div className="ost-notes" aria-label={T.notes}>{seq.map((s, i) => <span key={i} className={i === idx ? "on" : ""}>{NAMES[s.m % 12]}</span>)}</div>}
+          {keysOpen && kind0 && (<><div className="ost-keyback" onClick={() => setKeysOpen(false)} /><div className="ost-keys" role="listbox" data-keys="1">{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(pc => rootLabel(pc, kind0.type)).map((nm, pc) => <button key={pc} type="button" role="option" aria-selected={pc === curPc} data-pc={pc} className={"ost-keyb" + (pc === curPc ? " on" : "")} onClick={() => { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setPickPc(pc); setKeysOpen(false); }}>{nm}</button>)}</div></>)}</span><span className="ost-oct" role="group" aria-label="octaves">{[1, 2, 3, 4].map(n => <button key={n} type="button" className={"ost-octb" + (n === octaves ? " on" : "")} aria-pressed={n === octaves} data-oct={n} onClick={() => { if (n !== octaves) { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setOctaves && setOctaves(n); } }}>{n}×</button>)}</span>
         <button className="ost-btn" onClick={() => setHand(hand === "left" ? "right" : "left")}>{hand === "left" ? T.left : T.right} ⇄</button>
-        {onPractice && <button className="ost-btn ost-prac" onClick={() => { clearInterval(timer.current); setPlaying(false); (window as any).__octKeepFs = true; setTimeout(() => { (window as any).__octKeepFs = false; }, 3000); onPractice({ notes: upBase.map((q: any) => nameOf(q.m)), fingers: upBase.map((q: any) => q.f), mode: "scale", key: null, label: (label || "Scale") + " · " + octaves + " " + (lang === "th" ? "ออกเตฟ" : lang === "zh" ? "个八度" : "octaves") }); }}>{lang === "th" ? "ฝึก" : lang === "zh" ? "练习" : "Practice"}</button>}
+        {onPractice && <button className="ost-btn ost-prac" onClick={() => { clearInterval(timer.current); setPlaying(false); (window as any).__octKeepFs = true; setTimeout(() => { (window as any).__octKeepFs = false; }, 3000); (() => { const names = upBase.map((q: any) => nameOf(q.m)); if (sp) { const map: Record<string, string> = {}; Object.keys(sp).forEach(k => { const e = sp[+k]; map[NAMES[+k]] = "CDEFGAB"[e.L] + (e.acc === 1 ? "♯" : e.acc === -1 ? "♭" : e.acc === 2 ? "x" : e.acc === -2 ? "♭♭" : ""); }); setDisplaySpelling({ sig: names.slice(0, 8).join(), n: 8, map }); } else setDisplaySpelling(null); })(); onPractice({ notes: upBase.map((q: any) => nameOf(q.m)), fingers: upBase.map((q: any) => q.f), mode: "scale", key: null, label: (label || "Scale") + " · " + octaves + " " + (lang === "th" ? "ออกเตฟ" : lang === "zh" ? "个八度" : "octaves") }); }}>{lang === "th" ? "ฝึก" : lang === "zh" ? "练习" : "Practice"}</button>}
         <button className="ost-btn" onClick={() => { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setBoth(!both); }} aria-pressed={both}>{both ? "↑↓" : "↑"}</button>
         <button className="ost-btn go" onClick={run}>{playing ? "⏸ " + T.stop : "▶ " + T.play}</button>
         <button className="ost-btn" onClick={onClose} aria-label={T.close}>✕</button>
@@ -170,7 +181,7 @@ export function OctaveStage({ notes: notesProp, label: labelProp, octaves, setOc
           </div>
         ))}
         {(() => { const start = Math.floor(Math.max(0, staffIdx) / 16) * 16, here = staffIdx - start; return (
-          <div className="ost-card"><StaffCard notes={staffSeq.slice(start, start + 16)} active={here >= 0 && here < 16 ? here : -1} title={"bars " + (start / 4 + 1) + "-" + (start / 4 + 4)} bass={hand === "left"} /></div>); })()}
+          <div className="ost-card"><StaffCard notes={staffSeq.slice(start, start + 16)} active={here >= 0 && here < 16 ? here : -1} title={"bars " + (start / 4 + 1) + "-" + (start / 4 + 4)} bass={hand === "left"} sp={sp} /></div>); })()}
       </div>
       <div className="ost-kbwrap">
         <div className="ost-kb">

@@ -37,4 +37,12 @@ ok("LEFT hand "+oct+" octaves: counts toward the daily streak, practice log and 
 ok("LEFT hand "+oct+" octaves: no errors, result shown", errs.length===0 && /100%|%/.test(txt), errs.join("|"));
 await ctx.close();
 }
+{ // Spelling follows the key into Practice: D-flat major shows D♭ and never C♯ on the note path.
+  const { ctx, p } = await open({});
+  await (await p.$(".octsel select")).selectOption("2"); await p.waitForTimeout(300);
+  await p.click('[data-keybtn]'); await p.click('.ost-keyb[data-pc="1"]'); await p.waitForTimeout(300);
+  await p.click(".ost-prac"); await p.waitForSelector(".practiceov",{timeout:6000}).catch(()=>{});
+  const chips = await p.evaluate(() => [...document.querySelectorAll(".practiceov .pchip")].map(e => e.textContent.trim()));
+  ok("Practice note path spells D-flat major with flats (D♭ E♭ G♭ A♭ B♭, no sharps)", chips.some(c => c === "D♭") && chips.some(c => c === "E♭") && !chips.some(c => /#|♯/.test(c)), chips.slice(0, 10).join(" "));
+  await ctx.close(); }
 await browser.close(); server.close(); process.exit(fail?1:0);
