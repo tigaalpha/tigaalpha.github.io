@@ -27,7 +27,8 @@ function StaffCard({ notes, active, title, bass, sp, count = 16 }: { notes: { m:
   const shift = maxS > base + 13 ? Math.ceil((maxS - (base + 13)) / 7) : minS < base - 5 ? -Math.ceil((base - 5 - minS) / 7) : 0;
   const nn = notes.slice(0, N).map(q => ({ m: q.m - 12 * shift })), ottava = shift > 0 ? ["8va", "15ma", "22ma"][Math.min(2, shift - 1)] : shift < 0 ? "8vb" : "";
   // Notes far above or below the staff (long ranges) would run off the card: stretch the view box to hold them, the drawing then scales down to fit.
-  const ys = nn.map(q => yOf(stepOf(q.m))), vbTop = Math.min(0, Math.min(...ys, 99) - 32), vbBot = Math.max(H, Math.max(...ys, 0) + 32);
+  const ys = nn.map(q => yOf(stepOf(q.m))), ottY = shift > 0 ? Math.min(-14, Math.min(...ys, 99) - 30) : Math.max(bottom + 34, Math.max(...ys, 0) + 34),   // the 8va/8vb bracket sits clear of the outermost note, its ledger line and its accidental
+  vbTop = Math.min(0, Math.min(...ys, 99) - 32, shift > 0 ? ottY - 20 : 0), vbBot = Math.max(H, Math.max(...ys, 0) + 32, shift < 0 ? ottY + 10 : 0);
   return (
     <svg className="ost-staff" viewBox={`0 ${vbTop} ${W} ${vbBot - vbTop}`} role="img" aria-label={title}>
       {[0, 1, 2, 3, 4].map(i => <line key={i} x1={10} x2={W - 4} y1={bottom - i * 2 * half} y2={bottom - i * 2 * half} stroke="currentColor" strokeWidth="1" opacity=".55" />)}
@@ -43,7 +44,7 @@ function StaffCard({ notes, active, title, bass, sp, count = 16 }: { notes: { m:
       <line x1={10} x2={10} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1.5" />
       {Array.from({ length: N / 4 - 1 }, (_, i) => i + 1).map(k => <line key={k} x1={left + gap * 4 * k} x2={left + gap * 4 * k} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1" opacity=".7" />)}
       <line x1={W - 8} x2={W - 8} y1={top} y2={bottom} stroke="currentColor" strokeWidth="1.5" /><line x1={W - 4} x2={W - 4} y1={top} y2={bottom} stroke="currentColor" strokeWidth="3" />
-      {ottava && <g aria-hidden="true" fill="#d97757" stroke="#d97757"><text x={left + 6} y={shift > 0 ? -14 : bottom + 34} fontSize="15" fontStyle="italic" fontWeight="800" stroke="none">{ottava}</text><line x1={left + 44} x2={W - 10} y1={shift > 0 ? -18 : bottom + 30} y2={shift > 0 ? -18 : bottom + 30} strokeWidth="1.4" strokeDasharray="5 4" /></g>}
+      {ottava && <g aria-hidden="true" fill="#d97757" stroke="#d97757"><text x={left + 6} y={ottY} fontSize="15" fontStyle="italic" fontWeight="800" stroke="none">{ottava}</text><line x1={left + 44} x2={W - 10} y1={ottY - 4} y2={ottY - 4} strokeWidth="1.4" strokeDasharray="5 4" /></g>}
       {nn.map((q, i) => { const st = stepOf(q.m), y = yOf(st), x = left + gap * (i + 0.5), on = i === active, acc = spOf(q.m).acc;
         const ledgers: number[] = []; for (let l = base - 2; l >= st; l -= 2) ledgers.push(l); for (let l = base + 10; l <= st; l += 2) ledgers.push(l);
         return (<g key={i} className={on ? "on" : ""}>
