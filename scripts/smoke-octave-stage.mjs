@@ -38,6 +38,12 @@ await p.click('.ost-octb[data-oct="3"]'); await p.waitForTimeout(300);
 ok("tapping 3× on the stage switches to 3 octaves in place", (await p.locator(".ost").count()) === 1 && (await p.locator('.ost-octb.on').innerText()).startsWith("3"), await p.locator('.ost-octb.on').innerText());
 await p.click('.ost-octb[data-oct="2"]'); await p.waitForTimeout(300);
 ok("and back to 2× again", (await p.locator('.ost-octb.on').innerText()).startsWith("2"));
+// Tap the title: pick another key of the same kind (all 12 offered) without leaving the stage.
+await p.click('[data-keybtn]'); await p.waitForTimeout(150);
+ok("tapping the title opens the 12 keys", (await p.locator('.ost-keyb').count()) === 12);
+await p.click('.ost-keyb[data-pc="1"]'); await p.waitForTimeout(300);
+ok("choosing D♭ changes the key in place (label and notes)", /D♭/.test(await p.locator('.ost-titlebtn').innerText()) && (await p.locator(".ost").count()) === 1, await p.locator('.ost-titlebtn').innerText());
+await p.click('[data-keybtn]'); await p.click('.ost-keyb[data-pc="0"]'); await p.waitForTimeout(200);
 await p.click(".ost-prac"); await p.waitForSelector(".practiceov", { timeout: 6000 }).catch(() => {});
 ok("the orange Practice button opens the practice page for 2 octaves", (await p.$(".practiceov")) !== null && (await p.$(".ost")) === null);
 ok("its keyboard spans the whole range (C4..C6 = 15 white keys)", (await p.locator(".practiceov .pk.w").count()) >= 15, String(await p.locator(".practiceov .pk.w").count()));

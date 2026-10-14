@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { playPianoNote, stopAllPianoNotes, stopAmbient, KNOWN, FINGERINGS_LH, FINGERINGS_RH } from "./music-engine";
+import { playPianoNote, stopAllPianoNotes, stopAmbient, FINGERINGS_LH, FINGERINGS_RH } from "./music-engine";
 import { stopSpeaking, stopCloudTTS } from "./speech";
 import { FingerHand } from "./PracticeOverlay";
 /* ── OctaveStage ──
@@ -53,13 +53,23 @@ function StaffCard({ notes, active, title, bass }: { notes: { m: number }[]; act
     </svg>
   );
 }
-/** The standard fingering of a recognised one-octave major/minor scale for the given hand (from the same tables the Teacher page teaches), or null when the notes are not one of those scales. */
+const SCALE_STEPS: Record<string, number[]> = { major: [0, 2, 4, 5, 7, 9, 11, 12], "natural minor": [0, 2, 3, 5, 7, 8, 10, 12], "harmonic minor": [0, 2, 3, 5, 7, 8, 11, 12], "melodic minor": [0, 2, 3, 5, 7, 9, 11, 12] };
+// the Teacher page's fingering tables are keyed by these names (flats for the black-key majors); a minor scale of any type uses its minor table (harmonic and melodic go up the same way)
+const MAJOR_KEY = ["c", "db", "d", "eb", "e", "f", "f#", "g", "ab", "a", "bb", "b"], MINOR_KEY = ["c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"];
+/** Which one-octave scale these eight notes are (root pitch class + type), or null when they are not a major or minor scale. */
+export function scaleKind(notes: { note: string }[]): { pc: number; type: string } | null {
+  const ms = notes.map(p => midiOf(p.note)); if (ms.length !== 8 || ms.some(v => v == null)) return null;
+  const rel = ms.map(m => (m as number) - (ms[0] as number));
+  for (const type of Object.keys(SCALE_STEPS)) if (SCALE_STEPS[type].every((v, i) => v === rel[i])) return { pc: (ms[0] as number) % 12, type };
+  return null;
+}
+/** The one-octave notes of a scale of this type on this root (starting in octave 4). */
+export function buildScale(pc: number, type: string): { note: string; finger: number | null }[] { return (SCALE_STEPS[type] || SCALE_STEPS.major).map(st => { const abs = pc + st; return { note: NAMES[abs % 12] + (4 + Math.floor(abs / 12)), finger: null }; }); }
+/** The standard fingering of a recognised one-octave major/minor scale for the given hand (the same tables the Teacher page teaches), or null when the notes are not such a scale or the table has no entry for that key. */
 export function scaleFingers(notes: { note: string; finger: number | null }[], hand: string): number[] | null {
-  const pcs = notes.map(p => { const m = midiOf(p.note); return m == null ? -1 : m % 12; });
-  if (pcs.length !== 8 || pcs.some(v => v < 0)) return null;
-  const hit = (KNOWN as any[]).find(e => e.m === "scale" && /(major|minor) scale$/.test(e.k) && e.n.length === 8 && e.n.every((q: string, i: number) => { const m = midiOf(q); return m != null && m % 12 === pcs[i]; }));
-  if (!hit) return null;
-  const t = (hand === "left" ? (FINGERINGS_LH as any) : (FINGERINGS_RH as any))[hit.k];
+  const k = scaleKind(notes); if (!k) return null;
+  const name = (k.type === "major" ? MAJOR_KEY[k.pc] + " major scale" : MINOR_KEY[k.pc] + " minor scale");
+  const t = (hand === "left" ? (FINGERINGS_LH as any) : (FINGERINGS_RH as any))[name];
   return t && t.length === 8 ? t.slice() : null;
 }
 export function extendPattern(notes: { note: string; finger: number | null }[], octaves: number, junctionF?: number | null) {
@@ -75,7 +85,16 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
   for (let o = 0; o < octaves; o++) base.forEach((p, i) => { if (o > 0 && i === 0) return; out.push({ m: p.m + 12 * o, f: i === base.length - 1 && o < octaves - 1 ? (junctionF != null ? junctionF : base[0].f) : p.f }); });
   return out;
 }
-export function OctaveStage({ notes, label, octaves, setOctaves, hand, setHand, lang, onClose, onPractice }: any) {
+const ROOT_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
+const TYPE_NAME: Record<string, Record<string, string>> = { major: { th: "สเกลเมเจอร์", en: "Major Scale", zh: "大调音阶" }, "natural minor": { th: "สเกลไมเนอร์เนเชอรัล", en: "Natural Minor Scale", zh: "自然小调音阶" }, "harmonic minor": { th: "สเกลไมเนอร์ฮาร์โมนิก", en: "Harmonic Minor Scale", zh: "和声小调音阶" }, "melodic minor": { th: "สเกลไมเนอร์เมโลดิก", en: "Melodic Minor Scale", zh: "旋律小调音阶" } };
+export function OctaveStage({ notes: notesProp, label: labelProp, octaves, setOctaves, hand, setHand, lang, onClose, onPractice }: any) {
+  // Tap the title to change the key without leaving the page: any of the 12 keys of the same kind of scale (major, natural / harmonic / melodic minor).
+  const kind0 = useMemo(() => scaleKind(notesProp), [notesProp]);
+  const [pickPc, setPickPc] = useState<number | null>(null); const [keysOpen, setKeysOpen] = useState(false);
+  useEffect(() => { setPickPc(null); }, [notesProp]);   // a new lesson from the Teacher page replaces the chosen key
+  const notes = useMemo(() => (kind0 && pickPc != null ? buildScale(pickPc, kind0.type) : notesProp), [kind0, pickPc, notesProp]);
+  const curPc = kind0 ? (pickPc != null ? pickPc : kind0.pc) : -1;
+  const label = kind0 && pickPc != null ? `${(TYPE_NAME[kind0.type] || TYPE_NAME.major)[lang] || TYPE_NAME[kind0.type].en} · ${ROOT_NAMES[pickPc]}` : labelProp;
   const [both, setBoth] = useState(true);   // up AND down by default: the demo, the orange light and the staff all follow the lesson back down
   // The left hand starts an octave lower (C3, bass clef), the way a left-hand scale is taught.
   const shift = hand === "left" ? -12 : 0, upBase = useMemo(() => {
@@ -134,7 +153,8 @@ export function OctaveStage({ notes, label, octaves, setOctaves, hand, setHand, 
   return createPortal(
     <div className={"ost" + (portrait ? " rot" : "")} role="dialog" aria-label="octave practice">
       <div className="ost-top">
-        <b className="ost-title">{label}</b><span className="ost-oct" role="group" aria-label="octaves">{[1, 2, 3, 4].map(n => <button key={n} type="button" className={"ost-octb" + (n === octaves ? " on" : "")} aria-pressed={n === octaves} data-oct={n} onClick={() => { if (n !== octaves) { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setOctaves && setOctaves(n); } }}>{n}×</button>)}</span>
+        <span className="ost-keywrap"><button type="button" className={"ost-title ost-titlebtn" + (kind0 ? "" : " plain")} data-keybtn="1" disabled={!kind0} aria-expanded={keysOpen} onClick={() => setKeysOpen(o => !o)}>{label}{kind0 ? " ▾" : ""}</button>
+          {keysOpen && kind0 && (<><div className="ost-keyback" onClick={() => setKeysOpen(false)} /><div className="ost-keys" role="listbox" data-keys="1">{ROOT_NAMES.map((nm, pc) => <button key={pc} type="button" role="option" aria-selected={pc === curPc} data-pc={pc} className={"ost-keyb" + (pc === curPc ? " on" : "")} onClick={() => { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setPickPc(pc); setKeysOpen(false); }}>{nm}</button>)}</div></>)}</span><span className="ost-oct" role="group" aria-label="octaves">{[1, 2, 3, 4].map(n => <button key={n} type="button" className={"ost-octb" + (n === octaves ? " on" : "")} aria-pressed={n === octaves} data-oct={n} onClick={() => { if (n !== octaves) { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setOctaves && setOctaves(n); } }}>{n}×</button>)}</span>
         {octaves < 3 && <div className="ost-notes" aria-label={T.notes}>{seq.map((s, i) => <span key={i} className={i === idx ? "on" : ""}>{NAMES[s.m % 12]}</span>)}</div>}
         <button className="ost-btn" onClick={() => setHand(hand === "left" ? "right" : "left")}>{hand === "left" ? T.left : T.right} ⇄</button>
         {onPractice && <button className="ost-btn ost-prac" onClick={() => { clearInterval(timer.current); setPlaying(false); (window as any).__octKeepFs = true; setTimeout(() => { (window as any).__octKeepFs = false; }, 3000); onPractice({ notes: upBase.map((q: any) => nameOf(q.m)), fingers: upBase.map((q: any) => q.f), mode: "scale", key: null, label: (label || "Scale") + " · " + octaves + " " + (lang === "th" ? "ออกเตฟ" : lang === "zh" ? "个八度" : "octaves") }); }}>{lang === "th" ? "ฝึก" : lang === "zh" ? "练习" : "Practice"}</button>}
@@ -168,7 +188,7 @@ export function OctaveStage({ notes, label, octaves, setOctaves, hand, setHand, 
 export const OCTAVE_CSS = `
 .ost{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;gap:10px;padding:12px calc(14px + env(safe-area-inset-right,0px)) 10px env(safe-area-inset-left,0px);background:var(--bg,#fff);color:var(--text,#222);font-family:var(--f-app,system-ui)}
 .ost.rot{inset:auto;top:0;left:100vw;width:100vh;height:100vw;transform-origin:top left;transform:rotate(90deg)}
-.ost-top{padding-left:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ost-title{font-size:18px}.ost-oct{display:inline-flex;gap:4px}.ost-octb{min-width:40px;height:36px;border-radius:999px;border:1.5px solid var(--bd2,#e3ddd2);background:var(--card,#fff);color:var(--text2,#555);font-weight:800;font-size:15px;cursor:pointer}.ost-octb.on{background:var(--clay,#d97757);border-color:var(--clay,#d97757);color:#fff}
+.ost-top{padding-left:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ost-title{font-size:18px}.ost-keywrap{position:relative;display:inline-block}.ost-titlebtn{font:inherit;font-weight:800;border:0;background:transparent;color:var(--text,#222);padding:4px 6px;border-radius:12px;cursor:pointer}.ost-titlebtn.plain{cursor:default}.ost-keyback{position:fixed;inset:0;z-index:5}.ost-keys{position:absolute;left:0;top:100%;z-index:6;margin-top:6px;display:grid;grid-template-columns:repeat(6,48px);gap:6px;padding:10px;background:var(--card,#fff);border:1.5px solid var(--bd2,#e3ddd2);border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.18)}.ost-keyb{height:44px;border-radius:999px;border:1.5px solid var(--bd2,#e3ddd2);background:var(--card2,#f6f2ea);color:var(--text,#222);font-weight:800;font-size:15px;cursor:pointer}.ost-keyb.on{background:var(--clay,#d97757);border-color:var(--clay,#d97757);color:#fff}.ost-oct{display:inline-flex;gap:4px}.ost-octb{min-width:40px;height:36px;border-radius:999px;border:1.5px solid var(--bd2,#e3ddd2);background:var(--card,#fff);color:var(--text2,#555);font-weight:800;font-size:15px;cursor:pointer}.ost-octb.on{background:var(--clay,#d97757);border-color:var(--clay,#d97757);color:#fff}
 .ost-notes{flex:1;display:flex;flex-wrap:wrap;gap:4px;min-width:140px}.ost-notes span{padding:3px 7px;border-radius:999px;background:var(--card2,#f3f3f3);font-size:12px;font-weight:700}.ost-notes span.on{background:var(--clay,#d97757);color:#fff}
 .ost-btn{min-height:44px;padding:0 16px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);font-weight:800;cursor:pointer}.ost-btn.go{background:var(--clay,#d97757);color:#fff;border-color:transparent}
 .ost-hands{flex:1;min-height:0;display:flex;gap:10px;justify-content:flex-start;align-items:stretch}.ost-hand{flex:0 0 112px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px;border-radius:18px;background:var(--card,#fff);border:1.5px solid var(--bd2,rgba(0,0,0,.12));opacity:.55;cursor:pointer;overflow:hidden}.ost-hand.act{opacity:1;border-color:var(--clay,#d97757)}.ost-hand span{font-size:11px;font-weight:800}.ost-hand svg{max-height:78%;width:auto;max-width:100%}
