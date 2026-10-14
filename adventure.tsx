@@ -146,6 +146,8 @@ export const LOOT: Record<string, { v: number; c: string; th: string; en: string
   core:  { v: 25, c: "#c78bff", th: "แกนพลาสมา", en: "Plasma core", zh: "等离子核心" },
 };
 export const ADV_COIN_DAY_CAP = 800;
+/** Every map pays a small coin bonus when it is cleared (owner 2026-10-13: everything played earns in-game money), under the same daily cap as loot. */
+export const clearBonus = (P: any, rw: number) => Math.round(30 * Math.sqrt(Math.max(1, (P && P.hard) || 1)) * (rw || 1));
 const hslRgb = (h: number) => { const a = 0.9 * Math.min(0.66, 1 - 0.66), f = (n: number) => { const k = (n + h / 30) % 12; return Math.round(255 * (0.66 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return f(0) + "," + f(8) + "," + f(4); };
 let XPM = 1;   // the EXP multiplier from the equipped passives, set by the run that is playing
 const addRpgExpX = (me: any, n: number) => addRpgExp(me, Math.round(n * XPM));
@@ -997,7 +999,7 @@ function settleShip(res: any, P: any, onReward: any) {
   const win = !!res, rate = win ? 1 : 0; void P;
   if (!win) return { coins: 0, capped: false };
   const RW = readDiff().rw; let value = 0; for (const k of Object.keys(res.loot || {})) value += (res.loot[k] || 0) * ((LOOT as any)[k] ? (LOOT as any)[k].v : 0);
-  const want = Math.round(value * RW * rate), room = Math.max(0, ADV_COIN_DAY_CAP - readDayCoins()), coins = Math.min(want, room);
+  const want = Math.round(value * RW * rate) + clearBonus(P, RW), room = Math.max(0, ADV_COIN_DAY_CAP - readDayCoins()), coins = Math.min(want, room);
   if (res.mined) addOre(res.mined);
   if (res.cry) addCrystals(Math.round(res.cry * ENERGY_BOOST * (readDiff().id === "normal" ? 1 : readDiff().id === "hard" ? 2 : 3)));
   markDone(P.id);
@@ -1230,7 +1232,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const lootValue = () => Object.keys(loot).reduce((a, k) => a + loot[k] * LOOT[k].v, 0);
     const settle = (rate: number) => {   // sell what was collected: clear = full price, leaving early = 40 %
       if (settled) return { coins: 0, capped: false }; settled = true;
-      const want = Math.round(lootValue() * RW * rate), room = Math.max(0, ADV_COIN_DAY_CAP - readDayCoins()), coins = Math.min(want, room);
+      const want = Math.round(lootValue() * RW * rate) + (rate >= 1 ? clearBonus(P, RW) : 0), room = Math.max(0, ADV_COIN_DAY_CAP - readDayCoins()), coins = Math.min(want, room);
       if (coins > 0) { addDayCoins(coins); if (onReward) { try { onReward(0, coins, { adventure: true }); } catch (e) {} } }
       try { ((window as any).__advRewardLog = (window as any).__advRewardLog || []).push({ coins, want, planet: P.id }); } catch (e) {}
       return { coins, capped: want > coins };

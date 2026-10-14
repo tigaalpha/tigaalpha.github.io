@@ -20,6 +20,7 @@ import { buildDrillPlan, nextDrillTempo, firstDrillTempo, bossRewardCoins, knowl
 import { queuedUntilTiga, tigaNow } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5) — hub reads guard on tigaNow() and keep their existing fallbacks
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 import { createGameStore } from "./play-along-store";
+import { refreshWeekly, submitWeekly, submitGhost, prefetchGhost, ghostFor } from "./play-along-online";
 import { createBand, playChordDing } from "./play-along-band";
 import { paintWorld, getWorld, composeStage, drawStageFx, rollStageTheme } from "./play-along-stage";
 import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt, replayExp } from "./play-along-judge";
@@ -715,7 +716,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     clearSongPreview();
     songDataRef.current = expandSong(meta, playAlongHand);
     songMetaRef.current = meta;
-    setSongMeta(meta);
+    setSongMeta(meta); try { prefetchGhost(songIdOf(meta), 1); refreshWeekly(); } catch (e) {}
     setSongResult(null); setSongTigaTip(null);
     setSongAnalysis(null);
     setDrillPlan(null); drillPlanRef.current = null; setDrillCleared([]);
@@ -908,6 +909,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongBest(loadBest());
     songSamplesRef.current = [];
     try { songGhostDataRef.current = JSON.parse(localStorage.getItem("tg_ghost_" + songIdOf(meta)) || "null"); } catch (e) { songGhostDataRef.current = null; }
+    if (!songGhostDataRef.current) songGhostDataRef.current = ghostFor(songIdOf(meta));   // nobody's run of your own yet: race another player's best
     setSongGhost(null);
     clearSongPreview();
     for (const n of data.notes) { n.hit = false; n.missed = false; n.skip = false; }
@@ -2243,6 +2245,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (newBest) {
       try { localStorage.setItem(songKey(), String(score)); } catch (e) {} setSongBest(score);
       try { localStorage.setItem("tg_ghost_" + songId, JSON.stringify(songSamplesRef.current.slice(-240))); } catch (e) {}
+      if (played && !songSetlistRef.current) submitGhost(songId, 1, score, acc, stars, songSamplesRef.current.slice(-240));
+    }
+    if (played && !songSetlistRef.current && playAlongHandRef.current === "right" && (songTempoRef.current || 1) >= 1) {
+      submitWeekly(songId, score, acc, stars, maxCombo, (songDataRef.current && songDataRef.current.dur ? songDataRef.current.dur / (songTempoRef.current || 1) : 0) * 1000 + SONG_LEAD * 1000);
     }
     const rec = recordSongResult(songId, stars, acc);
     if (played) logPractice(acc);
