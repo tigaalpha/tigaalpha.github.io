@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { logUsage } from "./shared-infra";
 import { L } from "./i18n";
-import { Piano, pcOf, haptic } from "./music-engine";
+import { Piano, pcOf, dispPc, haptic } from "./music-engine";
 import { tigaStrategyLabel } from "./tiga-strategy-labels";   // light static module (plan v3 1.5)
 import { newStudentFeedback, rerunLoopWithSelfReport } from "./tiga-gateway";   // model fns via the lazy gateway (SELF_REPORT_CHOICES was an unused import — dropped)
 import { sttSupported, getSR } from "./speech";
@@ -24,7 +24,7 @@ import { SPOT_CAP_NOTES } from "./practice-spot";
 // plan 27 · P1-1: the note's sung name under the letter, so a child who cannot read C D E can still tell which key is meant
 const SOLFEGE_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา", G: "ซอล", A: "ลา", B: "ที" };
 const SOLFEGE_EN = { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Ti" };
-function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : SOLFEGE_EN; return (m[base] || "") + (String(pc || "").length > 1 ? "♯" : ""); }
+function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : SOLFEGE_EN; return (m[base] || "") + (String(pc || "").includes("♭") ? "♭" : String(pc || "").length > 1 ? "♯" : ""); }
 // plan 27 · P1-3: a hand that points at the finger to use — a child sees "this one", not a number to decode.
 // A right hand seen from above has the thumb on the left; a left hand is its mirror image.
 export function FingerHand({ finger, hand }) {
@@ -153,7 +153,7 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
           </div>
           <div className="presultai-tx">{lc.practiceSpotN.replace("{n}", String(spotN))}</div>
           <div>{missIdxs.map(i => (
-            <span key={i} className="pchip pchip--miss">{pcOf(practiceTarget[i])}</span>
+            <span key={i} className="pchip pchip--miss">{dispPc(practiceTarget[i], practiceTarget)}</span>
           ))}</div>
           <button className="atpopup-ok" style={{ marginTop: 8 }} onClick={startSpotPractice}>{lc.practiceSpotBtn}</button>
         </div>
@@ -417,28 +417,28 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
                 <div className="practicenow-lbl">{lc.practicePlay}</div>
                 <div className="practicenow-note target">
                   {isBlockMode
-                    ? (remainingNotes.length ? remainingNotes.map(n => pcOf(n)).join(" · ") : "✓")
-                    : (practiceTarget[practiceIdx] ? pcOf(practiceTarget[practiceIdx]) : "✓")}
+                    ? (remainingNotes.length ? remainingNotes.map(n => dispPc(n, practiceTarget)).join(" · ") : "✓")
+                    : (practiceTarget[practiceIdx] ? dispPc(practiceTarget[practiceIdx], practiceTarget) : "✓")}
                 </div>
                 {!isBlockMode && practiceTarget[practiceIdx] && practiceFingers[practiceIdx] != null && <FingerHand finger={practiceFingers[practiceIdx]} hand={hand} />}
-                {!isBlockMode && practiceTarget[practiceIdx] && <div className="practicenow-sol">{solfegeOf(pcOf(practiceTarget[practiceIdx]), lang)}</div>}
+                {!isBlockMode && practiceTarget[practiceIdx] && <div className="practicenow-sol">{solfegeOf(dispPc(practiceTarget[practiceIdx], practiceTarget), lang)}</div>}
               </div>
               {/* plan 27 · P1-1: the "heard" box appears only once there is something heard, so until then
                   the key to press is alone on the screen and as big as it can be */}
               {practiceHeard && <div className="practicenow-box">
                 <div className="practicenow-lbl">{lc.practiceHeard}</div>
                 <div className={`practicenow-note heard${practiceHeard ? (practiceHeard.ok ? " ok" : practiceHeard.doubt ? " doubt" : " bad") : ""}`}>
-                  {practiceHeard ? (practiceHeard.doubt ? "👂" : pcOf(practiceHeard.note)) : "–"}
+                  {practiceHeard ? (practiceHeard.doubt ? "👂" : dispPc(practiceHeard.note, practiceTarget)) : "–"}
                 </div>
               </div>}
             </div>
 
             <div className={`practicechips${isBlockMode ? "" : " pdots"}`}>
               {practiceTarget.map((n, i) => (
-                <span key={i} title={pcOf(n)} className={`pchip${isBlockMode
+                <span key={i} title={dispPc(n, practiceTarget)} className={`pchip${isBlockMode
                   ? (practiceHitIdxs.includes(i) ? " done" : liveMissMap[i] ? " pchip--retry" : "")
                   : (i < practiceIdx ? " done" : i === practiceIdx ? " cur" : liveMissMap[i] ? " pchip--retry" : "")}`}>
-                  {pcOf(n)}
+                  {dispPc(n, practiceTarget)}
                 </span>
               ))}
             </div>

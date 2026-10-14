@@ -25,13 +25,13 @@ async function open(pre) {
 const { ctx, p, errs } = await open({});
 const sel = await p.$(".octsel select"); await sel.selectOption("2"); await p.waitForTimeout(300);
 await p.waitForTimeout(200);
-const idx = () => p.evaluate(() => [...document.querySelectorAll(".ost-notes span")].findIndex(e => e.classList.contains("on")));
+const idx = () => p.evaluate(() => Number(document.querySelector(".ost").dataset.idx));
 ok("the light waits on the first key", (await idx()) === 0, String(await idx()));
 await p.click('.ost-kb [aria-label="D4"]'); await p.waitForTimeout(150);
 ok("a wrong key does not advance", (await idx()) === 0, String(await idx()));
 await p.click('.ost-kb [aria-label="C4"]'); await p.waitForTimeout(150);
 ok("the right key moves the light on", (await idx()) === 1, String(await idx()));
-for (let k = 0; k < 28; k++) { const lab = await p.evaluate(() => { const on = [...document.querySelectorAll(".ost-notes span")].findIndex(e => e.classList.contains("on")); return on; }); const order = ["D4","E4","F4","G4","A4","B4","C5","D5","E5","F5","G5","A5","B5","C6","B5","A5","G5","F5","E5","D5","C5","B4","A4","G4","F4","E4","D4","C4"]; await p.click('.ost-kb [aria-label="' + order[k] + '"]'); await p.waitForTimeout(40); }
+for (let k = 0; k < 28; k++) { const order = ["D4","E4","F4","G4","A4","B4","C5","D5","E5","F5","G5","A5","B5","C6","B5","A5","G5","F5","E5","D5","C5","B4","A4","G4","F4","E4","D4","C4"]; await p.click('.ost-kb [aria-label="' + order[k] + '"]'); await p.waitForTimeout(40); }
 ok("a finished round shows praise", (await p.$(".ost-praise")) !== null, "");
 // Change the range from inside the stage: no trip back to the Teacher page.
 await p.click('.ost-octb[data-oct="3"]'); await p.waitForTimeout(300);
