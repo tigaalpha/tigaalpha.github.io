@@ -504,7 +504,7 @@ function scaleFromLesson(sl, hand) {
   let f = getFingers(tbl, "scale", hand);
   if (f && notes.length > f.length) f = f.concat(f.slice().reverse().slice(1)).slice(0, notes.length);
   else if (f) f = f.slice(0, notes.length);
-  const label = `${sl.root.toUpperCase()} ${sl.quality} scale`.toUpperCase();
+  const label = `${keyName(sl.root, sl.quality)} ${sl.quality} scale`.toUpperCase();
   return { notes, label, mode: "scale", fingers: f, key: f ? tbl : null };
 }
 
@@ -528,7 +528,7 @@ function scaleFromNoteRun(text, hand) {
   const rootKey = toks[0].toLowerCase().replace(/♯/g, "#").replace(/♭/g, "b");
   const tbl = q === "major" ? `${rootKey} major scale` : q ? `${rootKey} minor scale` : null;
   const f = tbl ? getFingers(tbl, "scale", hand) : null;
-  return { notes, label: (q ? `${rootName} ${q} scale` : `${rootName} scale`).toUpperCase(), mode: "scale", fingers: f ? f.slice(0, notes.length) : null, key: f ? tbl : null };
+  return { notes, label: (q ? `${keyName(toks[0].charAt(0).toUpperCase() + toks[0].slice(1), q)} ${q} scale` : `${rootName} scale`).toUpperCase(), mode: "scale", fingers: f ? f.slice(0, notes.length) : null, key: f ? tbl : null };
 }
 
 
@@ -549,6 +549,9 @@ export function normMusic(text) {
 const RX_HARM = /harmonic|ฮาร์โมนิก|和声|和聲/i, RX_MEL = /melodic|เมโลดิก|旋律/i;
 const RX_SCALEW = /\bscales?\b|สเกล|บันไดเสียง|音阶|音階/i, RX_CHORDW = /\bchords?\b|triad|คอร์ด|ไทรแอด|和弦/i;
 const dispRoot = (r) => r.replace(/b$/, "♭").replace(/#$/, "♯");
+/** the key's name as a score writes it: major D♭ E♭ F♯ A♭ B♭, minor C♯ E♭ F♯ G♯ B♭ (a flat key never shows a sharp, a sharp key never a flat) */
+const KEY_MAJ = ["C","D♭","D","E♭","E","F","F♯","G","A♭","A","B♭","B"], KEY_MIN = ["C","C♯","D","E♭","E","F","F♯","G","G♯","A","B♭","B"];
+const keyName = (root, quality) => { const i = pcIdx(String(root)); return i < 0 ? dispRoot(String(root)) : (quality === "major" ? KEY_MAJ : KEY_MIN)[i]; };
 /** the sequence for ONE root and quality, built from the theory tables, or null */
 export function keyedBuild(root, quality, mode, text, hand) {
   const r = pcIdx(root); if (r < 0) return null;
@@ -558,7 +561,7 @@ export function keyedBuild(root, quality, mode, text, hand) {
     let q = quality === "minor" ? "natural minor" : quality;
     if (q === "natural minor") { if (RX_HARM.test(lo)) q = "harmonic minor"; else if (RX_MEL.test(lo)) q = "melodic minor"; }
     const R = root.charAt(0).toUpperCase() + root.slice(1), sc = scaleFromLesson({ root: R, quality: q }, hand);
-    if (sc) sc.label = `${dispRoot(R)} ${q} scale`.toUpperCase();
+    if (sc) sc.label = `${keyName(R, q)} ${q} scale`.toUpperCase();
     return sc;
   }
   let t = quality === "minor" ? "minor" : quality === "major" ? "major" : quality;
