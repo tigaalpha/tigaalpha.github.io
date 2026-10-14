@@ -4,7 +4,7 @@ const out = path.resolve("node_modules/.cache/oct-fing.mjs");
 await build({ entryPoints: ["OctaveStage.tsx"], bundle: true, format: "esm", platform: "node", outfile: out, loader: { ".tsx": "tsx", ".ts": "ts" }, external: ["react", "react-dom", "react/jsx-runtime"], logLevel: "silent", jsx: "automatic" }).catch(e => { console.log("bundle failed", String(e).slice(0, 300)); process.exit(2); });
 let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ") + n + (d ? " — " + d : "")); if (!c) fail++; };
 const mod = await import(out);
-const { scaleFingers, extendPattern, scaleKind, buildScale, spellScale } = mod;
+const { spellNames, scaleFingers, extendPattern, scaleKind, buildScale, spellScale } = mod;
 const sc = (names) => names.map(note => ({ note, finger: null }));
 const C = sc(["C4","D4","E4","F4","G4","A4","B4","C5"]), F = sc(["F4","G4","A4","A#4","C5","D5","E5","F5"]), Bb = sc(["A#4","C5","D5","D#5","F5","G5","A5","A#5"]);
 const run = (n, hand, oct, jf) => { const s = scaleFingers(n, hand); if (!s) return null; return extendPattern(n.map((q, i) => ({ ...q, finger: s[i] })), oct, hand === "left" ? s[7] : s[0]).map(q => q.f).join(" "); };
@@ -26,5 +26,8 @@ ok("E-flat harmonic minor raises the seventh to D", show(3, "harmonic minor") ==
 ok("G-sharp harmonic minor has the double sharp on F", show(8, "harmonic minor") === "G# A# B C# D# E Fx", show(8, "harmonic minor"));
 ok("A-flat melodic minor", show(8, "melodic minor") === "G# A# B C# D# E# Fx" || true);
 ok("B-flat major / G major / C-sharp minor", show(10, "major") === "Bb C D Eb F G A" && show(7, "major") === "G A B C D E F#" && show(1, "natural minor") === "C# D# E F# G# A B", [show(10, "major"), show(7, "major"), show(1, "natural minor")].join(" | "));
+ok("E-flat, G-sharp and B-flat minor now have fingerings for both hands", [3, 8, 10].every(pc => ["right", "left"].every(h => (scaleFingers(buildScale(pc, "natural minor"), h) || []).length === 8)));
+ok("E-flat minor right hand is 3 1 2 3 4 1 2 3 and left hand 2 1 4 3 2 1 3 2", scaleFingers(buildScale(3, "natural minor"), "right").join(" ") === "3 1 2 3 4 1 2 3" && scaleFingers(buildScale(3, "natural minor"), "left").join(" ") === "2 1 4 3 2 1 3 2");
+ok("one-octave names follow the key (D-flat major)", spellNames(buildScale(1, "major")).join(" ") === "D♭ E♭ F G♭ A♭ B♭ C D♭", spellNames(buildScale(1, "major")).join(" "));
 fs.rmSync(out, { force: true });
 process.exit(fail ? 1 : 0);

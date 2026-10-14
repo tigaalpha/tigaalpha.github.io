@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { L, tr } from "./i18n";
-import { OctaveStage, OCTAVE_CSS } from "./OctaveStage";
+import { OctaveStage, OCTAVE_CSS, spellNames } from "./OctaveStage";
 import { Piano, playUi, playPianoNote } from "./music-engine";
 import { Msg, Typing, Input, ChatProgress, ChatHistoryButtons } from "./chat-ui";
 import { FingerHand } from "./PracticeOverlay";
@@ -119,7 +119,7 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
                     <span className="fchart-key">{fingerChart.label}</span>
                   </div>
                   <FingerHand finger={cur && cur.finger != null ? cur.finger : 0} hand={hand} />
-                  <div className="fchart-notes">{fingerChart.notes.map(p => p.note.replace(/[0-9]/g, "")).join(" · ")}</div>
+                  <div className="fchart-notes">{spellNames(fingerChart.notes).join(" · ")}</div>
                 </div>
               );
             })()}
