@@ -179,7 +179,7 @@ export function AgentFAB() {
           search input and juts past the content edge on narrow screens. */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed bottom-[9.5rem] right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-white shadow-lg shadow-primary/30 transition-all hover:scale-110 hover:shadow-xl active:scale-95 sm:right-6 md:bottom-auto md:top-24 md:right-8 md:h-14 md:w-14"
+        className="fixed bottom-[11rem] right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-white shadow-lg shadow-primary/30 transition-all hover:scale-110 hover:shadow-xl active:scale-95 sm:right-6 md:bottom-auto md:top-24 md:right-8 md:h-14 md:w-14"
         aria-label="Agent Notifications"
       >
         {open ? (
