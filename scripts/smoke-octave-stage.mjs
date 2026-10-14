@@ -33,6 +33,11 @@ await p.click('.ost-kb [aria-label="C4"]'); await p.waitForTimeout(150);
 ok("the right key moves the light on", (await idx()) === 1, String(await idx()));
 for (let k = 0; k < 28; k++) { const lab = await p.evaluate(() => { const on = [...document.querySelectorAll(".ost-notes span")].findIndex(e => e.classList.contains("on")); return on; }); const order = ["D4","E4","F4","G4","A4","B4","C5","D5","E5","F5","G5","A5","B5","C6","B5","A5","G5","F5","E5","D5","C5","B4","A4","G4","F4","E4","D4","C4"]; await p.click('.ost-kb [aria-label="' + order[k] + '"]'); await p.waitForTimeout(40); }
 ok("a finished round shows praise", (await p.$(".ost-praise")) !== null, "");
+// Change the range from inside the stage: no trip back to the Teacher page.
+await p.click('.ost-octb[data-oct="3"]'); await p.waitForTimeout(300);
+ok("tapping 3× on the stage switches to 3 octaves in place", (await p.locator(".ost").count()) === 1 && (await p.locator('.ost-octb.on').innerText()).startsWith("3"), await p.locator('.ost-octb.on').innerText());
+await p.click('.ost-octb[data-oct="2"]'); await p.waitForTimeout(300);
+ok("and back to 2× again", (await p.locator('.ost-octb.on').innerText()).startsWith("2"));
 await p.click(".ost-prac"); await p.waitForSelector(".practiceov", { timeout: 6000 }).catch(() => {});
 ok("the orange Practice button opens the practice page for 2 octaves", (await p.$(".practiceov")) !== null && (await p.$(".ost")) === null);
 ok("its keyboard spans the whole range (C4..C6 = 15 white keys)", (await p.locator(".practiceov .pk.w").count()) >= 15, String(await p.locator(".practiceov .pk.w").count()));

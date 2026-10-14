@@ -75,7 +75,7 @@ export function extendPattern(notes: { note: string; finger: number | null }[], 
   for (let o = 0; o < octaves; o++) base.forEach((p, i) => { if (o > 0 && i === 0) return; out.push({ m: p.m + 12 * o, f: i === base.length - 1 && o < octaves - 1 ? (junctionF != null ? junctionF : base[0].f) : p.f }); });
   return out;
 }
-export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClose, onPractice }: any) {
+export function OctaveStage({ notes, label, octaves, setOctaves, hand, setHand, lang, onClose, onPractice }: any) {
   const [both, setBoth] = useState(true);   // up AND down by default: the demo, the orange light and the staff all follow the lesson back down
   // The left hand starts an octave lower (C3, bass clef), the way a left-hand scale is taught.
   const shift = hand === "left" ? -12 : 0, upBase = useMemo(() => {
@@ -134,7 +134,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
   return createPortal(
     <div className={"ost" + (portrait ? " rot" : "")} role="dialog" aria-label="octave practice">
       <div className="ost-top">
-        <b className="ost-title">{label}</b><span className="ost-oct">{octaves}×</span>
+        <b className="ost-title">{label}</b><span className="ost-oct" role="group" aria-label="octaves">{[1, 2, 3, 4].map(n => <button key={n} type="button" className={"ost-octb" + (n === octaves ? " on" : "")} aria-pressed={n === octaves} data-oct={n} onClick={() => { if (n !== octaves) { clearInterval(timer.current); setPlaying(false); setCur(-1); setNext(0); setOctaves && setOctaves(n); } }}>{n}×</button>)}</span>
         {octaves < 3 && <div className="ost-notes" aria-label={T.notes}>{seq.map((s, i) => <span key={i} className={i === idx ? "on" : ""}>{NAMES[s.m % 12]}</span>)}</div>}
         <button className="ost-btn" onClick={() => setHand(hand === "left" ? "right" : "left")}>{hand === "left" ? T.left : T.right} ⇄</button>
         {onPractice && <button className="ost-btn ost-prac" onClick={() => { clearInterval(timer.current); setPlaying(false); (window as any).__octKeepFs = true; setTimeout(() => { (window as any).__octKeepFs = false; }, 3000); onPractice({ notes: upBase.map((q: any) => nameOf(q.m)), fingers: upBase.map((q: any) => q.f), mode: "scale", key: null, label: (label || "Scale") + " · " + octaves + " " + (lang === "th" ? "ออกเตฟ" : lang === "zh" ? "个八度" : "octaves") }); }}>{lang === "th" ? "ฝึก" : lang === "zh" ? "练习" : "Practice"}</button>}
@@ -168,7 +168,7 @@ export function OctaveStage({ notes, label, octaves, hand, setHand, lang, onClos
 export const OCTAVE_CSS = `
 .ost{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;gap:10px;padding:12px calc(14px + env(safe-area-inset-right,0px)) 10px env(safe-area-inset-left,0px);background:var(--bg,#fff);color:var(--text,#222);font-family:var(--f-app,system-ui)}
 .ost.rot{inset:auto;top:0;left:100vw;width:100vh;height:100vw;transform-origin:top left;transform:rotate(90deg)}
-.ost-top{padding-left:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ost-title{font-size:18px}.ost-oct{font-weight:800;color:var(--clay,#d97757)}
+.ost-top{padding-left:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ost-title{font-size:18px}.ost-oct{display:inline-flex;gap:4px}.ost-octb{min-width:40px;height:36px;border-radius:999px;border:1.5px solid var(--bd2,#e3ddd2);background:var(--card,#fff);color:var(--text2,#555);font-weight:800;font-size:15px;cursor:pointer}.ost-octb.on{background:var(--clay,#d97757);border-color:var(--clay,#d97757);color:#fff}
 .ost-notes{flex:1;display:flex;flex-wrap:wrap;gap:4px;min-width:140px}.ost-notes span{padding:3px 7px;border-radius:999px;background:var(--card2,#f3f3f3);font-size:12px;font-weight:700}.ost-notes span.on{background:var(--clay,#d97757);color:#fff}
 .ost-btn{min-height:44px;padding:0 16px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);font-weight:800;cursor:pointer}.ost-btn.go{background:var(--clay,#d97757);color:#fff;border-color:transparent}
 .ost-hands{flex:1;min-height:0;display:flex;gap:10px;justify-content:flex-start;align-items:stretch}.ost-hand{flex:0 0 112px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px;border-radius:18px;background:var(--card,#fff);border:1.5px solid var(--bd2,rgba(0,0,0,.12));opacity:.55;cursor:pointer;overflow:hidden}.ost-hand.act{opacity:1;border-color:var(--clay,#d97757)}.ost-hand span{font-size:11px;font-weight:800}.ost-hand svg{max-height:78%;width:auto;max-width:100%}
