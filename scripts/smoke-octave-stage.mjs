@@ -44,6 +44,12 @@ ok("tapping the title opens the 12 keys", (await p.locator('.ost-keyb').count())
 await p.click('.ost-keyb[data-pc="1"]'); await p.waitForTimeout(300);
 ok("choosing D♭ changes the key in place (label and notes)", /D♭/.test(await p.locator('.ost-titlebtn').innerText()) && (await p.locator(".ost").count()) === 1, await p.locator('.ost-titlebtn').innerText());
 await p.click('[data-keybtn]'); await p.click('.ost-keyb[data-pc="0"]'); await p.waitForTimeout(200);
+// Switching hands keeps the key the learner picked (it used to fall back to C major).
+await p.click('[data-keybtn]'); await p.click('.ost-keyb[data-pc="3"]'); await p.waitForTimeout(250);
+await p.click(".ost-hands .ost-hand:not(.act)"); await p.waitForTimeout(400);
+ok("changing hand keeps the chosen key (E♭ major)", /E♭/.test(await p.locator('.ost-titlebtn').innerText()), await p.locator('.ost-titlebtn').innerText());
+await p.click(".ost-hands .ost-hand:not(.act)"); await p.waitForTimeout(300);
+await p.click('[data-keybtn]'); await p.click('.ost-keyb[data-pc="0"]'); await p.waitForTimeout(200);
 await p.click(".ost-prac"); await p.waitForSelector(".practiceov", { timeout: 6000 }).catch(() => {});
 ok("the orange Practice button opens the practice page for 2 octaves", (await p.$(".practiceov")) !== null && (await p.$(".ost")) === null);
 ok("its keyboard spans the whole range (C4..C6 = 15 white keys)", (await p.locator(".practiceov .pk.w").count()) >= 15, String(await p.locator(".practiceov .pk.w").count()));

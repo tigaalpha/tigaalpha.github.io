@@ -102,7 +102,9 @@ export function OctaveStage({ notes: notesProp, label: labelProp, octaves, setOc
   // Tap the title to change the key without leaving the page: any of the 12 keys of the same kind of scale (major, natural / harmonic / melodic minor).
   const kind0 = useMemo(() => scaleKind(notesProp), [notesProp]);
   const [pickPc, setPickPc] = useState<number | null>(null); const [keysOpen, setKeysOpen] = useState(false);
-  useEffect(() => { setPickPc(null); }, [notesProp]);   // a new lesson from the Teacher page replaces the chosen key
+  // A different lesson replaces the chosen key, but switching hands rebuilds the same lesson with new fingers: the key the learner picked stays.
+  const lessonSig = useMemo(() => notesProp.map((q: any) => q.note).join(), [notesProp]);
+  useEffect(() => { setPickPc(null); }, [lessonSig]);
   const notes = useMemo(() => (kind0 && pickPc != null ? buildScale(pickPc, kind0.type) : notesProp), [kind0, pickPc, notesProp]);
   const kindNow = useMemo(() => scaleKind(notes), [notes]), sp = useMemo(() => (kindNow ? spellScale(kindNow.pc, kindNow.type) : null), [kindNow]);
   const curPc = kind0 ? (pickPc != null ? pickPc : kind0.pc) : -1;
@@ -215,3 +217,9 @@ export const OCTAVE_CSS = `
 .ost-praise{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);background:var(--clay,#d97757);color:#fff;font-weight:800;padding:10px 20px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:5;pointer-events:none}
 .ost-hint{font-size:12px;color:var(--muted,#777);text-align:center}
 `;
+
+/** The names of a one-octave scale as a score spells them (D♭ in a flat key, F♯ in a sharp key); plain sharps for anything that is not a recognised major/minor scale. */
+export function spellNames(notes: { note: string }[]): string[] {
+  const k = scaleKind(notes), sp = k ? spellScale(k.pc, k.type) : null;
+  return notes.map(p => { const m = midiOf(p.note); if (m == null) return p.note.replace(/[0-9]/g, ""); const e = sp && sp[m % 12]; if (!e) return NAMES[m % 12]; return "CDEFGAB"[e.L] + (e.acc === 1 ? "♯" : e.acc === -1 ? "♭" : e.acc === 2 ? "x" : e.acc === -2 ? "♭♭" : ""); });
+}
