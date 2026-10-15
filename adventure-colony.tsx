@@ -5,7 +5,7 @@
    a hazard that belongs to the site (night, dust storm, cold, flare), and a career the player picks (it tilts the numbers, and in an online room each pilot
    will hold one). Win = the colony reaches its population target while every need is still met. DOM only, no downloads, no coins (crystals + EXP). */
 import { finishLook } from "./cg-finish";
-import { drawStarbase, neonGrid, cyberOverlay, starship, tower } from "./adventure-colony-cyber";
+import { drawStarbase, neonGrid, cyberOverlay, starship, tower, groundTerrain } from "./adventure-colony-cyber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
@@ -137,9 +137,10 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
   const gg = x.createLinearGradient(0, H * 0.3, 0, H); gg.addColorStop(0, pal.reg2); gg.addColorStop(1, "#14110f"); x.fillStyle = gg; x.fillRect(0, H * 0.34, W, H);
   x.save(); x.translate(cam.x, cam.y); x.scale(cam.z, cam.z);
   const vis = (px: number, py: number, pad: number) => { const sx = px * cam.z + cam.x, sy = py * cam.z + cam.y; return sx > -pad * cam.z && sx < W + pad * cam.z && sy > -pad * 2 * cam.z && sy < H + pad * cam.z; };
+  x.drawImage(groundTerrain(kind, WORLD.w, WORLD.h), 0, 0);
   const diamond = (c: number, r: number, fill: string, stroke: string) => { const a = ptW(c, r), b = ptW(c + 1, r), d = ptW(c + 1, r + 1), e = ptW(c, r + 1); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.lineTo(d[0], d[1]); x.lineTo(e[0], e[1]); x.closePath(); x.fillStyle = fill; x.fill(); x.strokeStyle = stroke; x.lineWidth = 1; x.stroke(); };
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const i = r * COLS + c, cell = S.grid[i], m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0)) continue;
-    diamond(c, r, groundFill(pal, cell.f, i), (r + c) % 3 === 0 ? "rgba(40,225,255,.32)" : "rgba(255,60,210,.16)");
+    x.globalAlpha = cell.f === "ice" || cell.f === "ore" ? 0.85 : 0.22; diamond(c, r, groundFill(pal, cell.f, i), (r + c) % 3 === 0 ? "rgba(40,225,255,.32)" : "rgba(255,60,210,.16)"); x.globalAlpha = 1;
     if (cell.f === "ice") { x.fillStyle = "rgba(255,255,255," + (0.35 + 0.3 * Math.sin(T * 2 + i)) + ")"; x.fillRect(m[0] - 8, m[1] - 2, 3, 1.6); x.fillRect(m[0] + 6, m[1] + 3, 2.4, 1.4); }
     else if (cell.f === "ore") { x.fillStyle = "rgba(255,190,90,.9)"; for (let k = 0; k < 4; k++) x.fillRect(m[0] - 10 + k * 6, m[1] - 3 + (k % 2) * 5, 3, 2.2); }
     else if (!cell.b && i % 9 === 0) { x.fillStyle = "rgba(0,0,0,.18)"; x.beginPath(); x.ellipse(m[0] + 6, m[1] + 2, 9, 4, 0, 0, 7); x.fill(); x.strokeStyle = "rgba(255,255,255,.12)"; x.stroke(); } }

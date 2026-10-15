@@ -77,3 +77,27 @@ export function cyberOverlay(x: Cx, W: number, H: number, T: number, kind: strin
   const e2 = x.createLinearGradient(W, 0, W * 0.92, 0); e2.addColorStop(0, "rgba(255,43,214,.16)"); e2.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = e2; x.fillRect(W * 0.92, 0, W * 0.08, H);
   x.restore();
 }
+
+/* A realistic ground for the whole plot, painted once per site into a world-sized canvas: broad tonal blotches, wind ripples, rocks with a lit side and a long shadow,
+   craters with a raised rim, scattered pebbles and a fine grain. Drawn under the plot lines, so the city stands on terrain instead of on flat tiles. */
+const GROUND: Record<string, HTMLCanvasElement> = {};
+export function groundTerrain(kind: string, w: number, h: number): HTMLCanvasElement {
+  if (GROUND[kind]) return GROUND[kind];
+  const c = document.createElement("canvas"); c.width = Math.round(w); c.height = Math.round(h); const x = c.getContext("2d")!;
+  const P: any = { moon: ["#8d8f96", "#6a6c74", "#c9cbd2", "#4c4e56"], mars: ["#b5603a", "#8a4428", "#e09062", "#5e2c1a"], titan: ["#a98445", "#7e5f2e", "#d2b074", "#54401c"], proxima: ["#8a3a44", "#642630", "#c06a72", "#3e1a20"] }, pl = P[kind] || P.moon;
+  let sd = 91; const R = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+  const bg = x.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, pl[1]); bg.addColorStop(0.5, pl[0]); bg.addColorStop(1, pl[1]); x.fillStyle = bg; x.fillRect(0, 0, w, h);
+  // broad tone: light and dark blotches
+  for (let i = 0; i < 90; i++) { const px = R() * w, py = R() * h, rr = 60 + R() * 220, g = x.createRadialGradient(px, py, 2, px, py, rr), lit = R() > 0.5; g.addColorStop(0, lit ? pl[2] : pl[3]); g.addColorStop(1, "rgba(0,0,0,0)"); x.globalAlpha = lit ? 0.16 : 0.22; x.fillStyle = g; x.beginPath(); x.ellipse(px, py, rr * 1.5, rr * 0.7, 0, 0, 7); x.fill(); }
+  x.globalAlpha = 1;
+  // wind ripples / dunes
+  x.lineWidth = 1.2; for (let i = 0; i < 520; i++) { const px = R() * w, py = R() * h, L = 30 + R() * 90; x.strokeStyle = R() > 0.5 ? "rgba(255,235,210,.07)" : "rgba(30,10,5,.09)"; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + L / 2, py - 6 - R() * 8, px + L, py + (R() - 0.5) * 6); x.stroke(); }
+  // craters with a raised rim
+  for (let i = 0; i < 46; i++) { const px = R() * w, py = R() * h, rr = 10 + R() * 34; const g = x.createRadialGradient(px, py, rr * 0.2, px, py, rr); g.addColorStop(0, "rgba(20,8,4,.38)"); g.addColorStop(0.75, "rgba(20,8,4,.14)"); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.beginPath(); x.ellipse(px, py, rr, rr * 0.5, 0, 0, 7); x.fill(); x.strokeStyle = "rgba(255,235,205,.22)"; x.lineWidth = 1.6; x.beginPath(); x.ellipse(px, py - 1, rr, rr * 0.5, 0, Math.PI * 1.05, Math.PI * 1.95); x.stroke(); }
+  // rocks: a long cast shadow, a dark body, a lit crown
+  for (let i = 0; i < 420; i++) { const px = R() * w, py = R() * h, rr = 2 + R() * R() * 14; x.fillStyle = "rgba(10,4,2,.34)"; x.beginPath(); x.ellipse(px + rr * 1.1, py + rr * 0.45, rr * 1.5, rr * 0.45, -0.2, 0, 7); x.fill();
+    const g = x.createRadialGradient(px - rr * 0.35, py - rr * 0.45, 0.5, px, py, rr); g.addColorStop(0, pl[2]); g.addColorStop(0.6, pl[0]); g.addColorStop(1, pl[3]); x.fillStyle = g; x.beginPath(); x.ellipse(px, py, rr, rr * 0.72, 0, 0, 7); x.fill(); }
+  // fine grain
+  for (let i = 0; i < 9000; i++) { x.fillStyle = R() > 0.5 ? "rgba(255,240,220,.07)" : "rgba(20,8,4,.1)"; x.fillRect(R() * w, R() * h, 1.2, 1.2); }
+  GROUND[kind] = c; return c;
+}
