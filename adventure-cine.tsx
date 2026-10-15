@@ -365,7 +365,7 @@ export function cinePlan(P: any, short?: boolean): CineShot[] {
   const p = basePlan(P, short).map((q: any) => {
     if (q.kind === "objective") return q;
     let need = 0; const PP = P.finale ? { ...P, __theme: q.theme } : P;
-    for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / SPEAK_CPS[lg] + 0.45); } catch (e) {} }
+    for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / SPEAK_CPS[lg] + 0.3); } catch (e) {} }
     return { ...q, dur: Math.round(Math.max(need > 0 ? 0 : q.dur * 0.6, 1.8, need) * 10) / 10 };
   });
   // Players who saw the opening film before it taught the controls still get the how-to shot once, in their next map's film.
@@ -955,7 +955,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
   useEffect(() => {
     const cv = cvRef.current; if (!cv) return undefined; const x = cv.getContext("2d"); if (!x) return undefined; let raf = 0;
     const fit = () => { const r = cv.getBoundingClientRect(), d = Math.min(1.5, window.devicePixelRatio || 1); cv.width = Math.max(320, Math.round(r.width * d)); cv.height = Math.max(180, Math.round(r.height * d)); }; fit(); window.addEventListener("resize", fit);
-    const audio = createCineAudio(P.id, plan); audioRef.current = audio; const chk = setTimeout(() => { if (audio && !audio.running()) setNeedTap(true); }, 900);
+    const audio = createCineAudio(P.id, plan); audioRef.current = audio; const chk = setTimeout(() => { if (audio && !audio.running()) setNeedTap(true); }, 400); const wake = () => { try { const a = audioRef.current; if (a && !a.running()) a.resume(); } catch (e) {} }; const wk = ["pointerdown", "touchstart", "touchend", "click", "keydown"]; wk.forEach(n => window.addEventListener(n, wake, true));
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame); const el = (now - t0.current) / 1000 + skipTo.current; let i = 0; for (let k = 0; k < plan.length; k++) if (el >= starts[k]) i = k;
       if ((P.prologue || P.finale) && el >= total) { raf = 0; cancelAnimationFrame(raf); onDone(); return; }
@@ -987,7 +987,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     };
     raf = requestAnimationFrame(frame);
     (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean, max?: number) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false).slice(0, max || 99)), jump: (i: number) => { i = Math.max(0, Math.min(plan.length - 1, i | 0)); skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
-    return () => { clearTimeout(chk); cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); try { delete (window as any).__advCine; } catch (e) {} };
+    return () => { clearTimeout(chk); wk.forEach(n => window.removeEventListener(n, wake, true)); cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); try { delete (window as any).__advCine; } catch (e) {} };
   }, []);
   const kind = plan[Math.min(idx, plan.length - 1)].kind, ek = (plan[Math.min(idx, plan.length - 1)] as any).as || kind, capFor = (lg: string) => captionFor(P.finale ? { ...P, __theme: (plan[Math.min(idx, plan.length - 1)] as any).theme } : P, kind, lg), cap = sub === "off" ? "" : capFor(sub), goals = GOAL[P.id] || GOAL.luma;
   const voText = (lg: string) => kind === "objective" ? T3(lg, "ภารกิจ: ", "Mission: ", "任务：") + T3(lg, P.th, P.en, P.zh).split(" · ")[0] + ". " + goals.map((g: any) => T3(lg, g[0], g[1], g[2])).join(". ") : capFor(lg);
@@ -995,7 +995,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     if (voice === "off") { stopSpeaking(); return undefined; }
     const txt = voText(voice); if (!txt) { stopSpeaking(); return undefined; }
     const rate = voice === "th" ? 1.4 : 1;   // owner 2026-10-15: Thai a fast 1.4x, English and Chinese at normal speed
-    const id = setTimeout(() => { const born = performance.now(), mine = idx; try { speakNarration(txt, voice, () => { if (kind !== "objective" && idxRef.current === mine && performance.now() - born > 700) setTimeout(() => { if (idxRef.current === mine) nextRef.current(); }, 60); }, () => setNeedTap(true), 1, rate); } catch (e) {} }, 350);
+    const id = setTimeout(() => { const born = performance.now(), mine = idx; try { speakNarration(txt, voice, () => { if (kind !== "objective" && idxRef.current === mine && performance.now() - born > 700) setTimeout(() => { if (idxRef.current === mine) nextRef.current(); }, 0); }, () => setNeedTap(true), 1, rate); } catch (e) {} }, 120);
     (window as any).__advVo = { lang: voice, text: txt, rate }; return () => clearTimeout(id);
   }, [idx, voice, vkick]);
   useEffect(() => () => { try { stopSpeaking(); } catch (e) {} }, []);
