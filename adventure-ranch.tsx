@@ -25,6 +25,20 @@ const ANIMALS: { id: string; icon: string; prod: string; name: L3; pname: L3; fe
   { id: "sheep", icon: "🐑", prod: "🧶", name: ["แกะ", "Sheep", "绵羊"], pname: ["ขนแกะ", "wool", "羊毛"], feed: 1, every: 10, yield: 4, x: 722, y: 372 },
 ];
 const PLOTS = Array.from({ length: 8 }, (_, i) => ({ x: 238 + (i % 4) * 82, y: 258 + Math.floor(i / 4) * 78 }));
+
+/* ── FarmVille-style progression and service (owner, 2026-10-15: grow vegetables and raise animals to feed the alien colony and the human colony, with a UI like FarmVille) ──
+   A level and an XP bar, a board of colony ORDERS with rewards, a market of seed cards, floating "+N" numbers, bubbles over what is ripe, and TWO colonies to serve:
+   the human colony likes carrots, corn, milk and bacon; the Kindred (alien) colony likes tomatoes, pumpkins, eggs and wool. Food they like counts a quarter more toward the quota. */
+const LIKES: Record<string, string[]> = { human: ["carrot", "corn", "cow", "pig"], alien: ["tomato", "pumpkin", "chicken", "sheep"] };
+const ITEM_ICON: Record<string, string> = { carrot: "🥕", corn: "🌽", tomato: "🍅", pumpkin: "🎃", cow: "🥛", chicken: "🥚", pig: "🥓", sheep: "🧶" };
+const COLONY_TXT: Record<string, { icon: string; name: L3 }> = { human: { icon: "👩‍🚀", name: ["อาณานิคมมนุษย์", "Human colony", "人类殖民地"] }, alien: { icon: "👽", name: ["อาณานิคมไคนด์เรด", "Kindred colony", "凯因德殖民地"] } };
+const xpNeed = (lvl: number) => 12 + 8 * lvl;
+type Order = { id: number; kind: "grow" | "make" | "send"; item: string; need: number; got: number; reward: number; xp: number; from: "human" | "alien" };
+let ORDER_ID = 1;
+const mkOrder = (S: any): Order => { const r = Math.random(), from: "human" | "alien" = Math.random() < 0.5 ? "human" : "alien", L = LIKES[from];
+  if (r < 0.45) { const it = L.filter(i => CROPS.some(c => c.id === i))[Math.floor(Math.random() * 2)] || "carrot"; return { id: ORDER_ID++, kind: "grow", item: it, need: 3 + Math.floor(Math.random() * 3), got: 0, reward: 6, xp: 8, from }; }
+  if (r < 0.8) { const it = L.filter(i => ANIMALS.some(a => a.id === i))[Math.floor(Math.random() * 2)] || "cow"; return { id: ORDER_ID++, kind: "make", item: it, need: 2 + Math.floor(Math.random() * 2), got: 0, reward: 8, xp: 10, from }; }
+  return { id: ORDER_ID++, kind: "send", item: "food", need: 30 + 10 * Math.floor(Math.random() * 3), got: 0, reward: 12, xp: 12, from }; };
 const FACTS: L3[] = [
   ["ฟาร์มในโดมกระจกบนดาวอื่นต้องควบคุมอากาศ น้ำ และแสงให้พืชโดยเฉพาะ", "A farm under a glass dome on another world has to control air, water and light for its plants.", "在别的星球上，玻璃穹顶农场要为植物控制空气、水和光照。"],
   ["สัตว์ที่กินอิ่มจะให้ผลผลิตสม่ำเสมอ ฟาร์มที่ดีต้องเลี้ยงทั้งพืชและสัตว์ให้สมดุลกัน", "A well-fed animal gives steadily; a good farm balances its crops and its animals.", "吃饱的动物产出稳定；好农场要让种植与养殖保持平衡。"],
@@ -85,6 +99,12 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
     else { x.fillStyle = "rgba(0,0,0,.3)"; x.fillRect(wx - 20, wy - 42, 40, 5); x.fillStyle = "#ffd23f"; x.fillRect(wx - 20, wy - 42, 40 * A.prog / 100, 5); } }
   // butterflies
   for (let i = 0; i < 3; i++) { const bx = 300 + i * 90 + Math.sin(T * 1.3 + i) * 50, by = 200 + Math.cos(T * 1.7 + i * 2) * 20; x.fillStyle = ["#ff7ab8", "#7ad0ff", "#ffe06a"][i]; x.beginPath(); x.ellipse(bx - 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.ellipse(bx + 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.fill(); }
+  // ripe bubbles and floating numbers (FarmVille style)
+  x.textAlign = "center"; x.font = "20px sans-serif";
+  const bub = (bx: number, by: number, ic: string) => { const o = Math.sin(T * 5) * 3; x.fillStyle = "#fff"; x.beginPath(); x.arc(bx, by + o, 17, 0, 7); x.fill(); x.strokeStyle = "#e8a010"; x.lineWidth = 3; x.stroke(); x.fillStyle = "#000"; x.fillText(ic, bx, by + 7 + o); };
+  S.plots.forEach((c: any, i: number) => { if (c.crop && c.p >= 100) bub(PLOTS[i].x, PLOTS[i].y - 34, ITEM_ICON[c.crop] || "✔"); });
+  S.animals.forEach((A: any, i: number) => { if (A.prog >= 100) bub(ANIMALS[i].x, ANIMALS[i].y - 66, ANIMALS[i].prod); });
+  x.font = "bold 22px sans-serif"; for (const f of S.floats) { x.globalAlpha = Math.max(0, 1 - f.age / 1.4); x.fillStyle = "#fff"; x.strokeStyle = "#3a2410"; x.lineWidth = 4; x.strokeText(f.txt, f.x, f.y - f.age * 40); x.fillText(f.txt, f.x, f.y - f.age * 40); } x.globalAlpha = 1;
   // glass dome shine
   x.strokeStyle = "rgba(255,255,255,.35)"; x.lineWidth = 5; x.beginPath(); x.moveTo(0, VH - 4); x.quadraticCurveTo(VW / 2, -120, VW, VH - 4); x.stroke(); x.strokeStyle = "rgba(255,255,255,.16)"; x.lineWidth = 3; x.beginPath(); x.moveTo(0, 150); x.lineTo(VW, 150); x.moveTo(VW / 2, 0); x.lineTo(VW / 2, 232); x.stroke();
 }
@@ -93,7 +113,8 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const farmerBonus = (() => { try { return localStorage.getItem("tg_adv_career") === "farm" ? 1.25 : 1; } catch (e) { return 1; } })();
   const G = useRef<any>(null);
-  if (!G.current) G.current = { quota: QUOTA[P.kind] || 260, tm: TIMEMUL[P.kind] || 1, t: 0, stock: 6, delivered: 0, seed: "carrot", plots: PLOTS.map(() => ({ crop: null as any, p: 0, w: 0 })), animals: ANIMALS.map(() => ({ fed: 0, prog: 0 })), launch: 0, ended: false, won: false, fact: 0 };
+  if (!G.current) G.current = { quota: QUOTA[P.kind] || 260, tm: TIMEMUL[P.kind] || 1, t: 0, stock: 6, delivered: 0, seed: "carrot", plots: PLOTS.map(() => ({ crop: null as any, p: 0, w: 0 })), animals: ANIMALS.map(() => ({ fed: 0, prog: 0 })), launch: 0, ended: false, won: false, fact: 0, xp: 0, lvl: 1, lvlUp: 0, orders: [] as Order[], inv: {} as Record<string, number>, floats: [] as any[], target: "human" as string, happy: { human: 0, alien: 0 } as any, sent: { human: 0, alien: 0 } as any };
+  if (!G.current.orders.length) for (let i = 0; i < 3; i++) G.current.orders.push(mkOrder(G.current));
   const S = G.current;
   const [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
@@ -111,7 +132,8 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
       S.t += dt;
       for (const c of S.plots) if (c.crop && c.p < 100) { const cr = CROPS.find(q => q.id === c.crop)!; c.p = Math.min(100, c.p + 100 / (cr.time * S.tm) * (c.w > 0 ? 2 : 1) * dt); } for (const c of S.plots) if (c.w > 0) c.w = Math.max(0, c.w - dt);
       for (let i = 0; i < ANIMALS.length; i++) { const A = S.animals[i]; if (A.fed > 0 && A.prog < 100) { A.prog = Math.min(100, A.prog + 100 / ANIMALS[i].every * dt); } }
-      if (S.launch > 0) S.launch = Math.max(0, S.launch - dt);
+      if (S.launch > 0) S.launch = Math.max(0, S.launch - dt); if (S.lvlUp > 0) S.lvlUp = Math.max(0, S.lvlUp - dt);
+      for (const f of S.floats) f.age += dt; S.floats = S.floats.filter((f: any) => f.age < 1.4);
       S.fact = Math.floor(S.t / 25) % FACTS.length;
       if (S.delivered >= S.quota && !S.won) { S.won = true; S.ended = true; sfx.play("win"); const stars = S.t <= 200 ? 3 : S.t <= 300 ? 2 : 1; setTimeout(() => onWin({ ranch: { delivered: Math.round(S.delivered), target: S.quota, secs: Math.round(S.t), stars }, kills: 0, cry: 8 + 4 * stars, loot: {}, mode: "ranch" }), 2000); }
     };
@@ -120,16 +142,22 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
     return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advRanch; } catch (e) {} };
   }, []);
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
+  const addXp = (n: number) => { S.xp += n; while (S.xp >= xpNeed(S.lvl)) { S.xp -= xpNeed(S.lvl); S.lvl++; S.lvlUp = 2.2; S.stock += 5; play("win"); } };
+  const float = (txt: string, x: number, y: number) => { S.floats.push({ txt, x, y, age: 0 }); };
+  const bump = (item: string, n: number) => { S.inv[item] = (S.inv[item] || 0) + n; for (const o of S.orders) if ((o.kind === "grow" || o.kind === "make") && o.item === item && o.got < o.need) o.got = Math.min(o.need, o.got + 1); };
   const tapPlot = (i: number) => { const c = S.plots[i]; if (S.ended) return;
     if (!c.crop) { c.crop = S.seed; c.p = 0; play("pop"); }
-    else if (c.p >= 100) { const cr = CROPS.find(q => q.id === c.crop)!; S.stock += Math.round(cr.yield * farmerBonus); c.crop = null; c.p = 0; c.w = 0; play("pickup"); }
+    else if (c.p >= 100) { const cr = CROPS.find(q => q.id === c.crop)!; const y = Math.round(cr.yield * farmerBonus); S.stock += y; bump(c.crop, 1); addXp(2); float("+" + y + " " + cr.icon, PLOTS[i].x, PLOTS[i].y - 30); c.crop = null; c.p = 0; c.w = 0; play("pickup"); }
     else if (c.w <= 0) { c.w = 5; play("hit"); }
     setTick(v => v + 1); };
   const tapAnimal = (i: number) => { const A = S.animals[i], a = ANIMALS[i]; if (S.ended) return;
-    if (A.prog >= 100) { S.stock += Math.round(a.yield * farmerBonus); A.prog = 0; A.fed = 0; play("pickup"); }
+    if (A.prog >= 100) { const y = Math.round(a.yield * farmerBonus); S.stock += y; bump(a.id, 1); addXp(3); float("+" + y + " " + a.prod, a.x, a.y - 60); A.prog = 0; A.fed = 0; play("pickup"); }
     else if (A.fed <= 0) { if (S.stock >= a.feed) { S.stock -= a.feed; A.fed = 1; play("pop"); } else play("hurt"); }
     setTick(v => v + 1); };
-  const deliver = () => { if (S.ended || S.stock < 1 || S.launch > 0) return; S.delivered += S.stock; S.stock = 0; S.launch = 2; play("rocket"); setTick(v => v + 1); };
+  const deliver = () => { if (S.ended || S.stock < 1 || S.launch > 0) return; const tg = S.target as string; const liked = Object.keys(S.inv).reduce((n, k) => n + (LIKES[tg].includes(k) ? S.inv[k] : 0), 0); const bonus = Math.min(S.stock, liked * 4) * 0.25; const n = S.stock; S.delivered += n + bonus; S.sent[tg] += n; S.happy[tg] += n; for (const o of S.orders) if (o.kind === "send" && o.from === tg && o.got < o.need) o.got = Math.min(o.need, o.got + n); float("🚀 " + Math.round(n + bonus), 110, 250); S.stock = 0; S.inv = {}; S.launch = 2; play("rocket"); addXp(Math.ceil(n / 4)); setTick(v => v + 1); };
+  const [ordersOpen, setOrdersOpen] = useState(false);
+  const claim = (id: number) => { const o = S.orders.find((q: Order) => q.id === id); if (!o || o.got < o.need) return; S.stock += o.reward; addXp(o.xp); S.orders = S.orders.filter((q: Order) => q.id !== id); S.orders.push(mkOrder(S)); play("pickup"); setTick(v => v + 1); };
+  const ready = S.orders.filter((o: Order) => o.got >= o.need).length;
   const openGear = () => { pausedRef.current = true; setGear(true); }, closeGear = () => { pausedRef.current = false; setGear(false); };
   const k = box.w / VW, pct = Math.min(100, S.delivered / S.quota * 100), fact = FACTS[S.fact];
   return (
@@ -148,6 +176,10 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
         {ANIMALS.map((a, i) => (<button key={a.id} className="ar-hit ar-an" data-animal={a.id} aria-label={a.id} onClick={() => tapAnimal(i)} style={{ left: (a.x - 40) * k, top: (a.y - 52) * k, width: 80 * k, height: 80 * k }} />))}
         <button className="ar-hit ar-ship" data-deliver="1" aria-label="deliver" onClick={deliver} style={{ left: 50 * k, top: 250 * k, width: 120 * k, height: 110 * k }} />
       </div>
+      <div className="ar-fv" data-fv="1"><span className="ar-star">★ {S.lvl}</span><span className="ar-xp"><i style={{ width: Math.min(100, S.xp / xpNeed(S.lvl) * 100) + "%" }} /></span><button className="ar-ord" data-orders="1" onClick={() => setOrdersOpen(o => !o)}>📋 {t("ออเดอร์", "Orders", "订单")}{ready > 0 && <b>{ready}</b>}</button></div>
+      {S.lvlUp > 0 && <div className="ar-lvup" role="status">★ {t("เลเวลอัป! ", "Level up! ", "升级！")}{S.lvl} · +5</div>}
+      {ordersOpen && <div className="ar-orders" data-orderwin="1">{S.orders.map((o: Order) => (<div key={o.id} className="ar-o"><span>{COLONY_TXT[o.from].icon} {o.kind === "send" ? t("ส่งอาหาร", "Send food", "运送粮食") : (ITEM_ICON[o.item] || "") + " " + o.item}</span><span>{o.got}/{o.need}</span><button data-claim={o.id} disabled={o.got < o.need} onClick={() => claim(o.id)}>+{o.reward} · ★{o.xp}</button></div>))}</div>}
+      <div className="ar-cols">{(["human", "alien"] as const).map(c => (<button key={c} data-colony={c} className={"ar-col" + (S.target === c ? " on" : "")} onClick={() => { S.target = c; setTick(v => v + 1); }}>{COLONY_TXT[c].icon} {T3(lang, COLONY_TXT[c].name[0], COLONY_TXT[c].name[1], COLONY_TXT[c].name[2])} <small>{Math.round(S.sent[c])}</small></button>))}</div>
       <div className="ar-bar">
         <div className="ar-seeds">{CROPS.map(c => (<button key={c.id} data-seed={c.id} className={"ar-seed" + (S.seed === c.id ? " on" : "")} onClick={() => { S.seed = c.id; setTick(v => v + 1); }}>{c.icon}<small>{T3(lang, c.name[0], c.name[1], c.name[2])} · {Math.round(c.time * S.tm)}s · +{Math.round(c.yield * farmerBonus)}</small></button>))}</div>
         <button className="adv-btn go ar-send" data-send="1" disabled={S.stock < 1 || S.launch > 0} onClick={deliver}>🚀 {t("ส่งอาหารให้อาณานิคม", "Send the food to the colony", "把粮食运给殖民地")} ({Math.floor(S.stock)})</button>
