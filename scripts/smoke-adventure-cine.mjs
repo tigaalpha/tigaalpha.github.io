@@ -33,7 +33,8 @@ const painted = (p) => p.evaluate(() => { const c = document.querySelector(".adv
 for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch", "approach", "descent", "landing", "crew", "surface", "warning", "lore", "boss", "objective"]], ["cobalt", 6, ["earth", "factory", "launch", "approach", "survey", "descent", "landing", "work", "storm", "signal", "lore", "dawn", "objective"]], ["ashfall", 9, ["earth", "factory", "launch", "approach", "descent", "landing", "crew", "strike", "warning", "lore", "boss", "objective"]]]) {
   const o = await pick(ALLD.tg_adv_done ? Object.assign({}, ALLD) : {}, idx);
   ok(name + ": a film plays before the map", await o.p.locator(".adv-cine").count() > 0);
-  const kinds = await o.p.evaluate(() => window.__advCine.kinds()); ok(name + ": the shots run earth > factory > launch > then this map's own sequence (landing / harvest / ship) > objective", JSON.stringify(kinds) === JSON.stringify(expectKinds), kinds.join());
+  const kinds = await o.p.evaluate(() => window.__advCine.kinds()); const inOrder = (a, b) => { let j = 0; for (const k of b) if (k === a[j]) j++; return j === a.length; };   // the original beats stay in their order; the film now also has the extra story shots between them
+  ok(name + ": the shots run earth > factory > launch > then this map's own sequence (landing / harvest / ship) > objective, 20 to 30 of them", inOrder(expectKinds, kinds) && kinds.length >= 20 && kinds.length <= 30 && kinds[kinds.length - 1] === "objective", kinds.length + ": " + kinds.join());
   let caps = []; const blank = [];
   for (let i = 0; i < kinds.length; i++) { await o.p.evaluate((n) => window.__advCine.jump(n), i); await o.p.waitForTimeout(700); const px = await painted(o.p); if (px.range < 25) blank.push(kinds[i] + ":" + px.range.toFixed(0)); const c = await o.p.locator(".ac-cap").first().innerText().catch(() => ""); caps.push(c);
     if (process.env.SHOT && i >= 3) await o.p.screenshot({ path: process.env.SHOT + "-" + name + "-" + kinds[i] + ".png" }); }
@@ -52,7 +53,7 @@ for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch
 { const o = await open({}); ok("the menu has a 'skip the film' tick box", (await o.p.locator(".adv-nocine input").count()) === 1); await o.ctx.close(); }
 { const o = await pick(ALLD, 0);
   const maps = [["luma", "jungle", true], ["ferro", "x", true], ["jovia", "survival", false], ["kryo", "x", true], ["pyra", "x", true], ["nexa", "x", true], ["cobalt", "mine", false], ["helios", "capture", false], ["ashfall", "strike", true]];
-  for (const [id, mission, boss] of maps) { const r = await o.p.evaluate(([a, m, b]) => window.__advCine.render(a, m, b), [id, mission, boss]); ok("score " + id + ": rich, audible, finite, not clipping", r.peak <= 0.98 && r.peak > 0.02 && r.rms > 0.004 && r.bad === 0 && r.events > 60, "peak " + r.peak.toFixed(2) + " rms " + r.rms.toFixed(3) + " notes " + r.events + " " + r.secs.toFixed(0) + "s"); }
+  for (const [id, mission, boss] of maps) { const r = await o.p.evaluate(([a, m, b]) => window.__advCine.render(a, m, b, 9), [id, mission, boss]); ok("score " + id + ": rich, audible, finite, not clipping", r.peak <= 0.98 && r.peak > 0.02 && r.rms > 0.004 && r.bad === 0 && r.events > 60, "peak " + r.peak.toFixed(2) + " rms " + r.rms.toFixed(3) + " notes " + r.events + " " + r.secs.toFixed(0) + "s"); }
   await o.ctx.close(); }
 // Opening film: shown once before the first menu, then the map films are the short cut with a chapter number.
 { const o = await open({ tg_adv_prologue: "__none__" });

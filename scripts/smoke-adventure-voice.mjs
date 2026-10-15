@@ -14,7 +14,7 @@ async function open(re, sector) {
   await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort());
   await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   await ctx.addInitScript((sec) => { sessionStorage.setItem("tiga_page", "pvp"); if (sec) localStorage.setItem("tg_adv_sector", sec); localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: "en", age: "adult", level: "beginner", exp: 5000 })); localStorage.setItem("tg_lang", "en"); localStorage.setItem("tg_adv_prologue", "skip"); localStorage.setItem("tg_adv_unlockall", "1"); localStorage.setItem("tg_adv_nogate", "1");
-    window.__spoken = []; try { window.speechSynthesis.speak = (u) => { window.__spoken.push({ lang: u.lang, text: u.text }); }; } catch (e) {} }, sector || "");
+    window.__spoken = []; try { window.speechSynthesis.speak = (u) => { window.__spoken.push({ lang: u.lang, text: u.text, rate: u.rate }); }; } catch (e) {} }, sector || "");
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200)));
   await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
   for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
@@ -68,7 +68,7 @@ for (const lg of ["en", "th", "zh"]) {
   await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   await ctx.addInitScript((L) => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_lang", L); localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: L, age: "adult", level: "beginner", exp: 5000 })); localStorage.setItem("tg_3d_tier", "0"); localStorage.setItem("tg_edu_seen", JSON.stringify({firstCoins:1,chest:1,pet:1,shop:1,rich:1,shopIntro:1}));
     window.__spoken = []; window.__ctxs = 0; const AC = window.AudioContext; if (AC) { window.AudioContext = function (...a) { window.__ctxs++; return new AC(...a); }; window.AudioContext.prototype = AC.prototype; }
-    try { window.speechSynthesis.speak = (u) => { window.__spoken.push({ lang: u.lang, text: u.text }); }; } catch (e) {} }, lg);
+    try { window.speechSynthesis.speak = (u) => { window.__spoken.push({ lang: u.lang, text: u.text, rate: u.rate }); }; } catch (e) {} }, lg);
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200)));
   await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
   for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
@@ -78,6 +78,8 @@ for (const lg of ["en", "th", "zh"]) {
   ok("opening film (" + lg + "): the score starts", (await p.evaluate(() => window.__ctxs)) >= 1);
   const sp = await p.evaluate(() => window.__spoken.slice()); const want = { en: /en/i, th: /th/i, zh: /zh/i }[lg];
   ok("opening film (" + lg + "): it is narrated in " + lg, sp.length > 0 && want.test(sp[0].lang), JSON.stringify(sp.slice(0, 1)).slice(0, 120));
+  { const r = sp[0] && sp[0].rate; ok("opening film (" + lg + "): narration speed — Thai fast (1.35-1.5), English and Chinese normal (1.0)", lg === "th" ? r >= 1.35 && r <= 1.5 : Math.abs(r - 1) < 0.01, "rate " + r); }
+  ok("opening film (" + lg + "): 20 to 30 shots", kinds.length >= 20 && kinds.length <= 30, String(kinds.length));
   ok("opening film (" + lg + "): no page errors", errs.length === 0, errs.join("|")); await ctx.close();
 }
 await browser.close(); server.close(); console.log(fail ? "FAILED " + fail : "ALL PASS"); process.exit(fail ? 1 : 0);

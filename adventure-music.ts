@@ -206,8 +206,10 @@ export async function renderPreview(id: string, bars = 4, boss = false, intensit
 /* ── the cinematic score (owner, 2026-10-11: a film before each map, with its own music and sound effects) ──
    Scheduled up front on its own audio context: a rising drone and pad chords, a noise riser across the build, a timpani hit and a reverse
    swell at every cut, an arpeggio that quickens, per-shot effects, and a brass-like swell when the objective card lands. */
-export type CineShot = { kind: string; dur: number; theme?: string };
+export type CineShot = { kind: string; dur: number; theme?: string; as?: string; v?: number; ov?: string };
 export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId: string, plan: CineShot[], tailSec = 10) {
+  plan = plan.map((q: any) => (q.as ? { ...q, kind: q.as } : q));   // a variant shot sounds like the shot it is drawn as
+
   const M = MOODS[moodId] || MOODS.luma; const nz = noise(ctx);
   const total = plan.reduce((a, s) => a + s.dur, 0); const starts: number[] = []; let acc = 0; for (const s of plan) { starts.push(acc); acc += s.dur; }
   const T0 = 0.05, g = M.gain;
