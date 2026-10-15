@@ -242,25 +242,16 @@ const GOAL: Record<string, L3[]> = {
 const TYPE: Record<string, string> = { kindred: "ice", darkforge: "belt", shadow: "orbit", luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun", solarcharge: "sun", dysondock: "sun", gaspump: "gas", warpjump: "orbit", blackhole: "orbit", deathstar: "orbit", colmoon: "desert", spaceranch: "desert", ranchmars: "desert", ranchtitan: "ice", ranchproxima: "lava", shipbuild: "orbit", dysonbuild: "sun", gasbuild: "gas", minebuild: "belt", colmars: "desert", coltitan: "ice", colproxima: "lava", arkfarm: "orbit", arkherd: "orbit", moonhe3: "desert", moonbase: "desert", marscolony: "desert", mercury: "lava", venussky: "gas", jupitergas: "gas", saturnrings: "belt", titanassault: "ice", titancolony: "ice", arkbuild: "belt", arkexodus: "orbit" };
 
 const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest", "solarcharge", "dysondock", "gaspump", "warpjump", "blackhole", "deathstar", "colmoon", "spaceranch", "ranchmars", "ranchtitan", "ranchproxima", "shipbuild", "dysonbuild", "gasbuild", "minebuild", "colmars", "coltitan", "colproxima", "moonhe3", "moonbase", "marscolony", "mercury", "venussky", "jupitergas", "saturnrings", "titanassault", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus", "kindred", "darkforge", "shadow"];
-<<<<<<< HEAD
 /* owner, 2026-10-15: "each film must feel genuinely different — sci-fi, fantasy, cyberpunk, not one story reskinned."
    A per-map genre, derived from the map's own TYPE (its established visual identity) so every one of the 49+ maps gets a
    real assignment with no risk of missing one, plus a short override list for the handful whose TYPE doesn't match their
    own story (Ferro is an industrial rust-world even though it shares TYPE "desert" with plain colony-construction sites;
    the Battle Station is a military target even though its TYPE is "orbit" like a peaceful survey run). This drives the
-   whole-frame color grade, particles and HUD in epicLook() below and the pacing in cinePlan() — it never touches which
-   shots play or in what order, so every exact shot-kind-list this file was already tested against stays exactly the same. */
+   whole-frame color grade, particles and HUD in epicLook() below — it no longer drives pacing (cinePlan below times every
+   shot off its own narrated caption length instead of a flat per-genre multiplier, from the 20-30-shot rewrite below). */
 const GENRE_BY_TYPE: Record<string, string> = { jungle: "fantasy", ice: "fantasy", wreck: "cyberpunk", strike: "cyberpunk", belt: "cyberpunk", lava: "scifi", gas: "scifi", sun: "scifi", orbit: "scifi", desert: "scifi", liftoff: "scifi" };
 const GENRE_OVERRIDE: Record<string, string> = { ferro: "cyberpunk", deathstar: "cyberpunk" };
 function genreOf(P: any): string { return GENRE_OVERRIDE[P.id] || GENRE_BY_TYPE[TYPE[P.id]] || "scifi"; }
-const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
-/* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
-// A fantasy film breathes slower, a cyberpunk one cuts faster; sci-fi stays at the measured pace this was tuned at.
-const GENRE_PACE: Record<string, number> = { fantasy: 1.08, cyberpunk: 0.9, scifi: 1 };
-export function cinePlan(P: any, short?: boolean): CineShot[] {
-  const pace = P.prologue || P.finale ? 1 : GENRE_PACE[genreOf(P)];
-  const p = basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * pace * 10) / 10 }));
-=======
 
 /* ── Longer films (owner, 2026-10-15: 20-30 shots a film, more story, more spectacle). Each extra shot is a VARIANT: it is drawn by an existing scene
    (`as`) from a different camera (`v`) with its own overlay (`ov`), and has its own caption here, per kind of map (fight / work / ship) or `all`. ── */
@@ -374,7 +365,6 @@ export function cinePlan(P: any, short?: boolean): CineShot[] {
     for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / SPEAK_CPS[lg] + 0.9); } catch (e) {} }
     return { ...q, dur: Math.round(Math.max(q.dur * 1.25, 3.4, need) * 10) / 10 };
   });
->>>>>>> claude/upbeat-fermi-dey70w
   // Players who saw the opening film before it taught the controls still get the how-to shot once, in their next map's film.
   try { if (!P.prologue && !P.finale && localStorage.getItem("tg_adv_howto") === null && localStorage.getItem("tg_adv_prologue") !== "skip") { localStorage.setItem("tg_adv_howto", "1"); const i = p.findIndex(q => q.kind === "objective"); const h: any = { kind: "howto", dur: 8 }; if (i >= 0) p.splice(i, 0, h); else p.push(h); } } catch (e) {}
   return p;
@@ -386,18 +376,25 @@ function basePlan(P: any, short?: boolean): CineShot[] {
   if (P.prologue) return [{ kind: "earth", dur: 4 }, V("p_cities", 4), V("p_crisis", 4), { kind: "factory", dur: 4 }, V("p_robots", 4), V("p_eyes", 4), V("p_vow", 4), { kind: "launch", dur: 4 }, V("p_fleet", 4), V("p_leave", 4), V("p_void", 4), { kind: "contact", dur: 4, theme: "harvest" }, V("p_watch", 4, { theme: "harvest" }), V("p_hide", 4, { theme: "harvest" }), { kind: "mind", dur: 4, theme: "ai" }, V("p_hunger", 4, { theme: "ai" }), V("p_choice", 4), V("p_friends", 4, { theme: "friend" }), V("p_promise", 4), { kind: "howto", dur: 8 }];
   if (short === undefined) short = seenPrologue();
   const q: CineShot[] = short ? [] : [{ kind: "earth", dur: 4 }, { kind: "factory", dur: 4 }, { kind: "launch", dur: 4 }];
-  const cat = catOf(P), lore: CineShot[] = LORE_THEME[P.id] ? [{ kind: "lore", dur: 4, theme: LORE_THEME[P.id] }] : [], boss: CineShot[] = P.boss && P.boss[0] !== "-" ? [{ kind: "boss", dur: 4 }, V("bossrise", 4)] : [];
+  const cat = catOf(P), genre = genreOf(P), lore: CineShot[] = LORE_THEME[P.id] ? [{ kind: "lore", dur: 4, theme: LORE_THEME[P.id] }] : [], boss: CineShot[] = P.boss && P.boss[0] !== "-" ? [{ kind: "boss", dur: 4 }, V("bossrise", 4)] : [];
   const main: CineShot = { kind: P.mission === "strike" ? "strike" : "surface", dur: 5 }, still = P.mission === "farm" || P.mission === "yard";
   q.push({ kind: "approach", dur: 4 }, V("brief", 4), V("fleet", 4), { kind: "survey", dur: 4 }, V("recon", 4), V("discovery", 4));
+  // owner, 2026-10-15: "reuse the old scenes, but don't let players catch the pattern." A fantasy or cyberpunk film still
+  // draws from exactly the same shot vocabulary a sci-fi one does (nothing new, nothing removed) — genre only swaps WHERE
+  // two interchangeable beats (the storm/aftermath calm vs. the ambush/ warning alarm) land in the sequence, so films
+  // across genres stop reading as one pattern reskinned without risking a shot this file's exclusion tests don't expect.
   if (cat === "work") {
     if (still) q.push({ kind: "crew", dur: 4 }); else q.push({ kind: "descent", dur: 4 }, { kind: "landing", dur: 4 }, V("firststep", 4), { kind: "crew", dur: 4 });
-    q.push(V("camp", 4), { kind: "work", dur: 5 }, V("assembly", 4), V("night", 4));
-    if (!still) q.push({ kind: "storm", dur: 4 }, V("aftermath", 4));
+    if (!still && genre === "cyberpunk") q.push({ kind: "storm", dur: 4 }, V("aftermath", 4), V("camp", 4), { kind: "work", dur: 5 }, V("assembly", 4), V("night", 4));
+    else { q.push(V("camp", 4), { kind: "work", dur: 5 }, V("assembly", 4), V("night", 4)); if (!still) q.push({ kind: "storm", dur: 4 }, V("aftermath", 4)); }
     q.push(V("memory", 4), { kind: "signal", dur: 4 }, ...lore, V("hero", 4), V("hope", 4), { kind: "dawn", dur: 4 }, V("oath", 4));
   } else if (cat === "ship") {
-    q.push({ kind: "crew", dur: 4 }, V("scout", 4), V("night", 4), main, V("tense", 4), { kind: "warning", dur: 4 }, V("ambush", 4), { kind: "signal", dur: 4 }, V("memory", 4), ...lore, V("hero", 4), V("hope", 4), V("oath", 4));
+    if (genre === "cyberpunk") q.push({ kind: "warning", dur: 4 }, V("ambush", 4), { kind: "crew", dur: 4 }, V("scout", 4), V("night", 4), main, V("tense", 4), { kind: "signal", dur: 4 }, V("memory", 4), ...lore, V("hero", 4), V("hope", 4), V("oath", 4));
+    else q.push({ kind: "crew", dur: 4 }, V("scout", 4), V("night", 4), main, V("tense", 4), { kind: "warning", dur: 4 }, V("ambush", 4), { kind: "signal", dur: 4 }, V("memory", 4), ...lore, V("hero", 4), V("hope", 4), V("oath", 4));
   } else {
-    q.push({ kind: "descent", dur: 4 }, { kind: "landing", dur: 4 }, V("firststep", 4), V("camp", 4), { kind: "crew", dur: 4 }, V("scout", 4), V("memory", 4), main, { kind: "warning", dur: 4 }, V("ambush", 4), ...lore, V("hero", 4), ...boss);
+    if (genre === "fantasy") q.push({ kind: "descent", dur: 4 }, { kind: "landing", dur: 4 }, V("firststep", 4), V("camp", 4), { kind: "crew", dur: 4 }, V("scout", 4), V("memory", 4), main, ...lore, { kind: "warning", dur: 4 }, V("ambush", 4), V("hero", 4), ...boss);
+    else if (genre === "cyberpunk") q.push({ kind: "warning", dur: 4 }, V("ambush", 4), { kind: "descent", dur: 4 }, { kind: "landing", dur: 4 }, V("firststep", 4), V("camp", 4), { kind: "crew", dur: 4 }, V("scout", 4), V("memory", 4), main, ...lore, V("hero", 4), ...boss);
+    else q.push({ kind: "descent", dur: 4 }, { kind: "landing", dur: 4 }, V("firststep", 4), V("camp", 4), { kind: "crew", dur: 4 }, V("scout", 4), V("memory", 4), main, { kind: "warning", dur: 4 }, V("ambush", 4), ...lore, V("hero", 4), ...boss);
     if (!boss.length) q.push(V("hope", 4)); q.push(V("oath", 4));
   }
   q.push({ kind: "objective", dur: 6 });

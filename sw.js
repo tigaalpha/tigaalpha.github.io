@@ -7,17 +7,10 @@
 // reinstalls a worker whose BYTES changed, and the build copied this file
 // verbatim, so it never changed, so `activate` below never ran, so the
 // SW_UPDATED message App.tsx reloads on was never sent. Anyone with the app
-<<<<<<< HEAD
-// open kept running the build they first loaded. f10818c108f6 is replaced at
+// open kept running the build they first loaded. be5f6e2edb2b is replaced at
 // build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
 // file now changes exactly when the app does.
-const CACHE = "tiga-v16-f10818c108f6";
-=======
-// open kept running the build they first loaded. 91f0e5cc851f is replaced at
-// build time with a hash of the page itself (scripts/stamp-sw.mjs), so this
-// file now changes exactly when the app does.
-const CACHE = "tiga-v16-91f0e5cc851f";
->>>>>>> claude/upbeat-fermi-dey70w
+const CACHE = "tiga-v16-be5f6e2edb2b";
 // v18: content-hashed build output (scripts, styles, fonts, the 3D worker)
 // lives in a cache of its own that a new release does NOT throw away. Its
 // filenames change whenever its bytes do, so a copy can never be stale — yet
