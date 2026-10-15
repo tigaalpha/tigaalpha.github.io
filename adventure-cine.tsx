@@ -469,6 +469,37 @@ function bloom(x: CanvasRenderingContext2D, W: number, H: number) {
     x.save(); x.globalCompositeOperation = "lighter"; x.globalAlpha = 0.42; (x as any).filter = "blur(" + Math.max(3, Math.round(W / 140)) + "px)"; x.drawImage(bloomCv, 0, 0, W, H); x.restore();
   } catch (e) {}
 }
+/* Photographic finish (owner, 2026-10-15: "less cartoon, much more realistic, same art style"): the scenes keep their drawing, this pass changes how it is lit and graded:
+   colour is pulled back toward grey, a teal/orange grade in soft light adds contrast, the corners fall out of focus (a blurred copy blended in by a radial mask),
+   a thin chromatic fringe sits at the edges, and the grain is finer and denser. All blends, no per-pixel work. */
+let dofCv: HTMLCanvasElement | null = null;
+function realLook(x: CanvasRenderingContext2D, W: number, H: number, t: number) {
+  try {
+    x.save();
+    x.globalCompositeOperation = "saturation"; x.globalAlpha = 0.24; x.fillStyle = "hsl(0,0%,50%)"; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = "soft-light"; x.globalAlpha = 0.55;
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#2b6f86"); g.addColorStop(0.55, "#808080"); g.addColorStop(1, "#d98a4a"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = "overlay"; x.globalAlpha = 0.22; x.fillStyle = "#808080"; x.fillRect(0, 0, W, H);
+    // corners out of focus
+    const dw = Math.max(80, Math.round(W / 5)), dh = Math.max(45, Math.round(H / 5));
+    if (!dofCv) dofCv = document.createElement("canvas"); if (dofCv.width !== dw || dofCv.height !== dh) { dofCv.width = dw; dofCv.height = dh; }
+    const d = dofCv.getContext("2d");
+    if (d) {
+      d.globalCompositeOperation = "copy"; d.drawImage(x.canvas, 0, 0, dw, dh);
+      const m = document.createElement("canvas"); m.width = W; m.height = H; const mc = m.getContext("2d");
+      if (mc) {
+        mc.drawImage(dofCv, 0, 0, W, H); mc.globalCompositeOperation = "destination-in";
+        const r = mc.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, H * 0.85); r.addColorStop(0, "rgba(0,0,0,0)"); r.addColorStop(1, "rgba(0,0,0,.9)"); mc.fillStyle = r; mc.fillRect(0, 0, W, H);
+        x.globalCompositeOperation = "source-over"; x.globalAlpha = 0.85; x.drawImage(m, 0, 0);
+      }
+    }
+    // chromatic fringe
+    x.globalCompositeOperation = "lighter"; x.globalAlpha = 0.05;
+    const f1 = x.createLinearGradient(0, 0, W * 0.12, 0); f1.addColorStop(0, "#ff2a2a"); f1.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = f1; x.fillRect(0, 0, W * 0.12, H);
+    const f2 = x.createLinearGradient(W, 0, W * 0.88, 0); f2.addColorStop(0, "#2a6aff"); f2.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = f2; x.fillRect(W * 0.88, 0, W * 0.12, H);
+    x.restore();
+  } catch (e) {}
+}
 /* ── drawing ── */
 type Cx = CanvasRenderingContext2D;
 const STARS = Array.from({ length: 240 }, (_, i) => ({ x: rnd(i), y: rnd(i + 400), z: 0.2 + rnd(i + 800) * 0.8, ph: rnd(i + 1200) * 6.3 }));
@@ -947,9 +978,9 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       x.restore();
       overlay(x, W, H, lt, (s as any).ov);
       hypeCut(x, W, H, local, s.kind);
-      epicLook(x, W, H, el, k, P); punch(x, W, H, el, local, k, cineEnergy(plan, i)); bloom(x, W, H);
+      epicLook(x, W, H, el, k, P); punch(x, W, H, el, local, k, cineEnergy(plan, i)); bloom(x, W, H); realLook(x, W, H, el);
       const v = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.6)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
-      x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 90; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.4, 1.4);   // film grain
+      x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 220; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.1, 1.1);   // film grain
       const bar = H * 0.13; x.fillStyle = "#000"; x.fillRect(0, 0, W, bar); x.fillRect(0, H - bar, W, bar);
       const fade = Math.max(0, 1 - local / 0.4, Math.min(1, (local - (s.dur - 0.3)) / 0.3) * (s.kind === "objective" ? 0 : 1)); if (fade > 0) { x.fillStyle = `rgba(0,0,0,${fade})`; x.fillRect(0, 0, W, H); }
     };
