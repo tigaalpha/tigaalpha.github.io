@@ -365,8 +365,8 @@ export function cinePlan(P: any, short?: boolean): CineShot[] {
   const p = basePlan(P, short).map((q: any) => {
     if (q.kind === "objective") return q;
     let need = 0; const PP = P.finale ? { ...P, __theme: q.theme } : P;
-    for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / SPEAK_CPS[lg] + 0.7); } catch (e) {} }
-    return { ...q, dur: Math.round(Math.max(need > 0 ? 0 : q.dur * 0.7, 2.2, need) * 10) / 10 };
+    for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / SPEAK_CPS[lg] + 0.45); } catch (e) {} }
+    return { ...q, dur: Math.round(Math.max(need > 0 ? 0 : q.dur * 0.6, 1.8, need) * 10) / 10 };
   });
   // Players who saw the opening film before it taught the controls still get the how-to shot once, in their next map's film.
   try { if (!P.prologue && !P.finale && localStorage.getItem("tg_adv_howto") === null && localStorage.getItem("tg_adv_prologue") !== "skip") { localStorage.setItem("tg_adv_howto", "1"); const i = p.findIndex(q => q.kind === "objective"); const h: any = { kind: "howto", dur: 8 }; if (i >= 0) p.splice(i, 0, h); else p.push(h); } } catch (e) {}
@@ -995,12 +995,14 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     if (voice === "off") { stopSpeaking(); return undefined; }
     const txt = voText(voice); if (!txt) { stopSpeaking(); return undefined; }
     const rate = voice === "th" ? 1.4 : 1;   // owner 2026-10-15: Thai a fast 1.4x, English and Chinese at normal speed
-    const id = setTimeout(() => { try { speakNarration(txt, voice, undefined, () => setNeedTap(true), 1, rate); } catch (e) {} }, 350);
+    const id = setTimeout(() => { const born = performance.now(), mine = idx; try { speakNarration(txt, voice, () => { if (kind !== "objective" && idxRef.current === mine && performance.now() - born > 700) setTimeout(() => { if (idxRef.current === mine) nextRef.current(); }, 60); }, () => setNeedTap(true), 1, rate); } catch (e) {} }, 350);
     (window as any).__advVo = { lang: voice, text: txt, rate }; return () => clearTimeout(id);
   }, [idx, voice, vkick]);
   useEffect(() => () => { try { stopSpeaking(); } catch (e) {} }, []);
   const unlock = () => { const a = audioRef.current; if (a && !a.running()) { a.resume(); setTimeout(() => { if (a.running()) { setNeedTap(false); setVkick(k => k + 1); } }, 250); } else if (needTap) { setNeedTap(false); setVkick(k => k + 1); } };
+  const nextRef = useRef<() => void>(() => {});
   const next = () => { if (idxRef.current < objIdx) skipTo.current = starts[idxRef.current + 1] - (performance.now() - t0.current) / 1000 + 0.05; };
+  nextRef.current = next;
   return (
     <div className={"adv-cine" + (rot ? " rot" : "")} onPointerDown={(e) => { unlock(); if ((e.target as HTMLElement).closest("button")) return; next(); }}>
       <canvas ref={cvRef} />
