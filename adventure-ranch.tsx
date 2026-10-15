@@ -21,10 +21,10 @@ const CROPS: { id: string; icon: string; name: L3; time: number; yield: number; 
   { id: "pumpkin", icon: "🎃", name: ["ฟักทอง", "Pumpkin", "南瓜"], time: 32, yield: 20, col: "#ff9a2a" },
 ];
 const ANIMALS: { id: string; icon: string; prod: string; name: L3; pname: L3; feed: number; every: number; yield: number; x: number; y: number }[] = [
-  { id: "cow", icon: "🐄", prod: "🥛", name: ["วัว", "Cow", "奶牛"], pname: ["นม", "milk", "牛奶"], feed: 2, every: 14, yield: 6, x: 618, y: 262 },
-  { id: "chicken", icon: "🐔", prod: "🥚", name: ["ไก่", "Chicken", "母鸡"], pname: ["ไข่", "eggs", "鸡蛋"], feed: 1, every: 8, yield: 3, x: 722, y: 262 },
-  { id: "pig", icon: "🐖", prod: "🥓", name: ["หมู", "Pig", "猪"], pname: ["เบคอน", "bacon", "培根"], feed: 2, every: 12, yield: 5, x: 618, y: 372 },
-  { id: "sheep", icon: "🐑", prod: "🧶", name: ["แกะ", "Sheep", "绵羊"], pname: ["ขนแกะ", "wool", "羊毛"], feed: 1, every: 10, yield: 4, x: 722, y: 372 },
+  { id: "cow", icon: "🐄", prod: "🥛", name: ["วัว", "Cow", "奶牛"], pname: ["นม", "milk", "牛奶"], feed: 2, every: 14, yield: 6, x: 614, y: 272 },
+  { id: "chicken", icon: "🐔", prod: "🥚", name: ["ไก่", "Chicken", "母鸡"], pname: ["ไข่", "eggs", "鸡蛋"], feed: 1, every: 8, yield: 3, x: 724, y: 272 },
+  { id: "pig", icon: "🐖", prod: "🥓", name: ["หมู", "Pig", "猪"], pname: ["เบคอน", "bacon", "培根"], feed: 2, every: 12, yield: 5, x: 614, y: 362 },
+  { id: "sheep", icon: "🐑", prod: "🧶", name: ["แกะ", "Sheep", "绵羊"], pname: ["ขนแกะ", "wool", "羊毛"], feed: 1, every: 10, yield: 4, x: 724, y: 362 },
 ];
 /* Houses (owner, 2026-10-15: "each animal has its own house, you build it yourself and choose what to raise"): the four pen slots start as empty foundations.
    Tap a slot to pay for the house (it goes up over a few seconds), then tap it again to buy the animal. Animals only work once the house is built and the animal bought. */
@@ -91,7 +91,8 @@ function farmBg(kind: string): HTMLCanvasElement {
   // trees: clumped leaf canopies, a lit side, a trunk and a soft shadow on the grass
   const tree = (tx: number, ty: number, sc2: number) => { x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(tx + 14 * sc2, ty + 3, 38 * sc2, 9 * sc2, 0, 0, 7); x.fill();
     const tg = x.createLinearGradient(tx - 5 * sc2, 0, tx + 5 * sc2, 0); tg.addColorStop(0, "#8a6338"); tg.addColorStop(1, "#4d341c"); x.fillStyle = tg; x.beginPath(); x.moveTo(tx - 5 * sc2, ty + 2); x.lineTo(tx - 3 * sc2, ty - 34 * sc2); x.lineTo(tx + 3 * sc2, ty - 34 * sc2); x.lineTo(tx + 6 * sc2, ty + 2); x.fill();
-    for (let k = 0; k < 14; k++) { const a = R() * 6.28, d = R() * 26 * sc2, cx2 = tx + Math.cos(a) * d, cy2 = ty - 52 * sc2 + Math.sin(a) * d * 0.8, r = (14 + R() * 10) * sc2; const lg = x.createRadialGradient(cx2 - r * 0.35, cy2 - r * 0.4, 1, cx2, cy2, r); lg.addColorStop(0, k % 3 ? "#9be05f" : "#b9ee74"); lg.addColorStop(0.55, "#3f9a3a"); lg.addColorStop(1, "#1f5f2a"); x.fillStyle = lg; x.beginPath(); x.arc(cx2, cy2, r, 0, 7); x.fill(); } };
+    for (let k = 0; k < 14; k++) { const a = R() * 6.28, d = R() * 26 * sc2, cx2 = tx + Math.cos(a) * d, cy2 = ty - 52 * sc2 + Math.sin(a) * d * 0.8, r = (14 + R() * 10) * sc2; const lg = x.createRadialGradient(cx2 - r * 0.35, cy2 - r * 0.4, 1, cx2, cy2, r); lg.addColorStop(0, k % 3 ? "#9be05f" : "#b9ee74"); lg.addColorStop(0.55, "#3f9a3a"); lg.addColorStop(1, "#1f5f2a"); x.fillStyle = lg; x.beginPath(); x.arc(cx2, cy2, r, 0, 7); x.fill(); x.strokeStyle = "rgba(25,80,30,.45)"; x.lineWidth = 1.4; x.stroke(); }
+    if (sc2 >= 0.9) for (let k = 0; k < 7; k++) { const a = k * 0.9 + 0.3, ax = tx + Math.cos(a) * 18 * sc2, ay = ty - 50 * sc2 + Math.sin(a) * 15 * sc2; x.fillStyle = "#e8352a"; x.beginPath(); x.arc(ax, ay, 3.2, 0, 7); x.fill(); x.fillStyle = "rgba(255,255,255,.7)"; x.beginPath(); x.arc(ax - 1, ay - 1, 1, 0, 7); x.fill(); } };
   tree(206, 232, 1); tree(528, 226, 0.85); tree(768, 236, 1.05); tree(24, 246, 0.9); tree(330, 222, 0.6);
   // bushes
   for (const [bx, by] of [[190, 262], [510, 250], [18, 300]]) for (let k = 0; k < 5; k++) { const cx3 = bx + k * 8 - 16, cy3 = by - (k % 2) * 5, r = 10 + (k % 3) * 2; const bg = x.createRadialGradient(cx3 - 3, cy3 - 4, 1, cx3, cy3, r); bg.addColorStop(0, "#8ad45a"); bg.addColorStop(1, "#2f7a2c"); x.fillStyle = bg; x.beginPath(); x.arc(cx3, cy3, r, 0, 7); x.fill(); }
@@ -100,6 +101,12 @@ function farmBg(kind: string): HTMLCanvasElement {
   const fg = x.createLinearGradient(0, 236, 0, 372); fg.addColorStop(0, "#9a6a3e"); fg.addColorStop(1, "#6a4426"); x.fillStyle = fg; x.beginPath(); x.roundRect(192, 236, 332, 134, 16); x.fill();
   x.strokeStyle = "rgba(50,28,12,.35)"; x.lineWidth = 2; for (let k = 0; k < 9; k++) { x.beginPath(); x.moveTo(204, 248 + k * 14); x.lineTo(512, 248 + k * 14); x.stroke(); x.strokeStyle = "rgba(255,210,150,.12)"; x.beginPath(); x.moveTo(204, 250 + k * 14); x.lineTo(512, 250 + k * 14); x.stroke(); x.strokeStyle = "rgba(50,28,12,.35)"; }
   x.strokeStyle = "#e0b070"; x.lineWidth = 5; x.beginPath(); x.roundRect(192, 236, 332, 134, 16); x.stroke(); x.strokeStyle = "#7a4c22"; x.lineWidth = 1.5; x.stroke();
+  // a scarecrow, a few pumpkins and a hay cart beside the field
+  { const sx = 540, sy = 262; x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(sx, sy + 40, 16, 5, 0, 0, 7); x.fill(); x.strokeStyle = "#6e4622"; x.lineWidth = 4; x.beginPath(); x.moveTo(sx, sy - 14); x.lineTo(sx, sy + 40); x.moveTo(sx - 24, sy + 2); x.lineTo(sx + 24, sy + 2); x.stroke();
+    x.fillStyle = "#3f7fc8"; x.strokeStyle = "#4a2c14"; x.lineWidth = 1.5; x.beginPath(); x.roundRect(sx - 10, sy + 2, 20, 22, 4); x.fill(); x.stroke(); x.fillStyle = "#f2d268"; for (const dx of [-26, 26]) { x.beginPath(); x.moveTo(sx + dx * 0.9, sy - 2); x.lineTo(sx + dx * 1.15, sy + 6); x.lineTo(sx + dx * 0.85, sy + 8); x.fill(); }
+    x.fillStyle = "#f5cf9a"; x.beginPath(); x.arc(sx, sy - 10, 10, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#222"; x.beginPath(); x.arc(sx - 3.5, sy - 12, 1.4, 0, 7); x.arc(sx + 3.5, sy - 12, 1.4, 0, 7); x.fill(); x.strokeStyle = "#a23020"; x.beginPath(); x.arc(sx, sy - 8, 3.5, 0.2, Math.PI - 0.2); x.stroke();
+    x.fillStyle = "#d9a84a"; x.strokeStyle = "#4a2c14"; x.beginPath(); x.ellipse(sx, sy - 18, 17, 4.5, 0, 0, 7); x.fill(); x.stroke(); x.beginPath(); x.roundRect(sx - 8, sy - 30, 16, 13, 4); x.fill(); x.stroke(); x.fillStyle = "#c23a2a"; x.fillRect(sx - 8, sy - 21, 16, 3); }
+  for (const [px2, py2, r] of [[500, 394, 9], [516, 400, 7], [488, 404, 6]]) { x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(px2, py2 + r, r * 1.3, 3.5, 0, 0, 7); x.fill(); const pgl = x.createRadialGradient(px2 - 3, py2 - 3, 1, px2, py2, r * 1.2); pgl.addColorStop(0, "#ffc45a"); pgl.addColorStop(1, "#e0731a"); x.fillStyle = pgl; x.strokeStyle = "#8a4210"; x.lineWidth = 1.2; x.beginPath(); x.ellipse(px2, py2, r * 1.2, r, 0, 0, 7); x.fill(); x.stroke(); x.strokeStyle = "rgba(140,60,10,.5)"; x.beginPath(); x.ellipse(px2, py2, r * 0.5, r, 0, 0, 7); x.stroke(); x.fillStyle = "#3f8a34"; x.fillRect(px2 - 1.5, py2 - r - 3, 3, 4); }
   // the barn: planks, a gambrel roof of shingles, a hay loft and a big door with a cross
   x.fillStyle = "rgba(0,40,0,.34)"; x.beginPath(); x.ellipse(120, 216, 100, 13, 0, 0, 7); x.fill();
   const bgd = x.createLinearGradient(26, 0, 158, 0); bgd.addColorStop(0, "#e04a36"); bgd.addColorStop(0.7, "#b8321f"); bgd.addColorStop(1, "#8c2417"); x.fillStyle = bgd; x.fillRect(26, 112, 132, 100);
@@ -128,7 +135,7 @@ function farmBg(kind: string): HTMLCanvasElement {
 }
 
 function drawHouse(x: CanvasRenderingContext2D, a: any, H: { b: number; own: boolean }, i: number, stock: number, T: number) {
-  const cx = a.x, cy = a.y - 6, w = 92, h = 58, L = cx - w / 2, Tp = cy - h / 2; const O = "#4a2c14";
+  const cx = a.x, cy = a.y - 26, w = 84, h = 52, L = cx - w / 2, Tp = cy - h / 2; const O = "#4a2c14";
   x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(cx, cy + h / 2 + 2, w * 0.6, 8, 0, 0, 7); x.fill();
   if (H.b <= 0) { // an empty foundation with the price
     x.setLineDash([6, 5]); x.strokeStyle = "rgba(255,255,255,.85)"; x.lineWidth = 2; x.beginPath(); x.roundRect(L, Tp + 14, w, h - 8, 8); x.stroke(); x.setLineDash([]);
@@ -170,8 +177,8 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
     if (c.w > 0) { x.fillStyle = "rgba(90,170,255,.8)"; for (let k = 0; k < 3; k++) { x.beginPath(); x.arc(p.x - 20 + k * 20, p.y - 14 + ((T * 30 + k * 9) % 14), 2, 0, 7); x.fill(); } } }
   // the pens (fence and floor are in the cached scenery)
   for (let i = 0; i < ANIMALS.length; i++) drawHouse(x, ANIMALS[i], S.houses[i], i, S.stock, T);
-  for (let i = 0; i < ANIMALS.length; i++) { if (!S.houses[i].own) continue; const a = ANIMALS[i], A = S.animals[i], wx = a.x + Math.sin(T * 0.7 + i * 2) * 14, wy = a.y + 14 + Math.cos(T * 0.5 + i) * 6 + (A.prog >= 100 ? -Math.abs(Math.sin(T * 6)) * 4 : 0);
-    x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(wx, wy + 22, 38, 9, 0, 0, 7); x.fill(); x.save(); x.translate(wx, wy); x.strokeStyle = "#4a2c14"; x.lineWidth = 2; const face = Math.cos(T * 0.7 + i * 2) >= 0 ? 1 : -1; x.scale(face * 1.2, 1.2);
+  for (let i = 0; i < ANIMALS.length; i++) { if (!S.houses[i].own) continue; const a = ANIMALS[i], A = S.animals[i], wx = a.x + Math.sin(T * 0.7 + i * 2) * 14, wy = a.y + 20 + Math.cos(T * 0.5 + i) * 4 + (A.prog >= 100 ? -Math.abs(Math.sin(T * 6)) * 4 : 0);
+    x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(wx, wy + 22, 38, 9, 0, 0, 7); x.fill(); x.save(); x.translate(wx, wy); x.strokeStyle = "#4a2c14"; x.lineWidth = 2; const face = Math.cos(T * 0.7 + i * 2) >= 0 ? 1 : -1; x.scale(face * 1.05, 1.05);
     const body = (fill: string, rx: number, ry: number) => { const bg3 = x.createRadialGradient(-rx * 0.3, -ry * 0.5, 2, 0, 0, rx * 1.1); bg3.addColorStop(0, "#fff"); bg3.addColorStop(0.35, fill); bg3.addColorStop(1, "#b9aaa0"); x.fillStyle = fill === "#fff" || fill === "#fffaf0" ? bg3 : fill; x.beginPath(); x.ellipse(0, 0, rx, ry, 0, 0, 7); x.fill(); x.stroke(); };
     const eye = (ex: number, ey: number) => { x.fillStyle = "#fff"; x.beginPath(); x.arc(ex, ey, 4, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#222"; x.beginPath(); x.arc(ex + 1, ey, 2, 0, 7); x.fill(); };
     if (a.id === "cow") { body("#fff", 30, 20); x.fillStyle = "#222"; x.beginPath(); x.ellipse(-10, -6, 9, 6, 0, 0, 7); x.ellipse(8, 7, 8, 5, 0, 0, 7); x.fill(); x.fillStyle = "#fff"; x.beginPath(); x.arc(28, -6, 14, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#ffb0c0"; x.beginPath(); x.ellipse(36, 0, 8, 6, 0, 0, 7); x.fill(); x.stroke(); eye(26, -10); x.fillStyle = "#fff"; x.fillRect(-16, 14, 6, 14); x.fillRect(10, 14, 6, 14); }
@@ -180,16 +187,16 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
     else { body("#fffaf0", 25, 20); for (const [bx, by] of [[-14, -8], [-4, -14], [8, -10], [-10, 6], [6, 8]]) { x.fillStyle = "#fffaf0"; x.beginPath(); x.arc(bx, by, 11, 0, 7); x.fill(); x.stroke(); } x.fillStyle = "#4a3a3a"; x.beginPath(); x.arc(26, -4, 10, 0, 7); x.fill(); x.stroke(); eye(24, -8); x.fillStyle = "#4a3a3a"; x.fillRect(-12, 16, 5, 12); x.fillRect(8, 16, 5, 12); }
     x.restore();
     const hungry = A.fed <= 0;
-    if (hungry) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = O; x.lineWidth = 1.1; x.beginPath(); x.roundRect(wx - 18, wy - 56, 36, 24, 8); x.fill(); x.stroke(); x.fillStyle = "#222"; x.font = "16px system-ui"; x.textAlign = "center"; x.fillText("🍎", wx, wy - 38); }
-    else if (A.prog >= 100) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = "#ffb020"; x.lineWidth = 1.5; x.beginPath(); x.roundRect(wx - 18, wy - 58 - Math.abs(Math.sin(T * 5)) * 4, 36, 26, 8); x.fill(); x.stroke(); x.font = "18px system-ui"; x.textAlign = "center"; x.fillText(a.prod, wx, wy - 38 - Math.abs(Math.sin(T * 5)) * 4); }
-    else { x.fillStyle = "rgba(0,0,0,.3)"; x.fillRect(wx - 20, wy - 42, 40, 5); x.fillStyle = "#ffd23f"; x.fillRect(wx - 20, wy - 42, 40 * A.prog / 100, 5); } }
+    if (hungry) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = O; x.lineWidth = 1.1; x.beginPath(); x.roundRect(wx + 18, wy - 46, 36, 24, 8); x.fill(); x.stroke(); x.fillStyle = "#222"; x.font = "16px system-ui"; x.textAlign = "center"; x.fillText("🍎", wx + 36, wy - 28); }
+    else if (A.prog >= 100) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = "#ffb020"; x.lineWidth = 1.5; x.beginPath(); x.roundRect(wx + 18, wy - 48 - Math.abs(Math.sin(T * 5)) * 4, 36, 26, 8); x.fill(); x.stroke(); x.font = "18px system-ui"; x.textAlign = "center"; x.fillText(a.prod, wx + 36, wy - 28 - Math.abs(Math.sin(T * 5)) * 4); }
+    else { x.fillStyle = "rgba(0,0,0,.3)"; x.fillRect(wx - 20, wy - 34, 40, 5); x.fillStyle = "#ffd23f"; x.fillRect(wx - 20, wy - 34, 40 * A.prog / 100, 5); } }
   // butterflies
   for (let i = 0; i < 3; i++) { const bx = 300 + i * 90 + Math.sin(T * 1.3 + i) * 50, by = 200 + Math.cos(T * 1.7 + i * 2) * 20; x.fillStyle = ["#ff7ab8", "#7ad0ff", "#ffe06a"][i]; x.beginPath(); x.ellipse(bx - 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.ellipse(bx + 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.fill(); }
   // ripe bubbles and floating numbers (FarmVille style)
   x.textAlign = "center"; x.font = "20px sans-serif";
   const bub = (bx: number, by: number, ic: string) => { const o = Math.sin(T * 5) * 3; x.fillStyle = "#fff"; x.beginPath(); x.arc(bx, by + o, 17, 0, 7); x.fill(); x.strokeStyle = "#e8a010"; x.lineWidth = 1.5; x.stroke(); x.fillStyle = "#000"; x.fillText(ic, bx, by + 7 + o); };
   S.plots.forEach((c: any, i: number) => { if (c.crop && c.p >= 100) bub(PLOTS[i].x, PLOTS[i].y - 34, ITEM_ICON[c.crop] || "✔"); });
-  S.animals.forEach((A: any, i: number) => { if (A.prog >= 100) bub(ANIMALS[i].x, ANIMALS[i].y - 66, ANIMALS[i].prod); });
+  
   x.font = "bold 22px sans-serif"; for (const f of S.floats) { x.globalAlpha = Math.max(0, 1 - f.age / 1.4); x.fillStyle = "#fff"; x.strokeStyle = "#3a2410"; x.lineWidth = 4; x.strokeText(f.txt, f.x, f.y - f.age * 40); x.fillText(f.txt, f.x, f.y - f.age * 40); } x.globalAlpha = 1;
   finishLook(x, VW, VH, T, "255,226,170", 0.3);
 }
@@ -240,7 +247,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
   const tapAnimal = (i: number) => { const A = S.animals[i], a = ANIMALS[i], H = S.houses[i]; if (S.ended) return;
     if (H.b <= 0) { if (S.stock >= HOUSE_COST[i]) { S.stock -= HOUSE_COST[i]; H.b = 0.01; play("pop"); float("🔨 -" + HOUSE_COST[i], a.x, a.y - 40); } else play("hurt"); setTick(v => v + 1); return; }
     if (H.b < 1) { setTick(v => v + 1); return; }
-    if (!H.own) { if (S.stock >= BUY_COST[i]) { S.stock -= BUY_COST[i]; H.own = true; play("pickup"); float(a.prod + " +1", a.x, a.y - 40); addXp(3); } else play("hurt"); setTick(v => v + 1); return; }
+    if (!H.own) { if (S.stock >= BUY_COST[i]) { S.stock -= BUY_COST[i]; H.own = true; play("pickup"); float(a.prod + " +1", a.x, a.y - 50); addXp(3); } else play("hurt"); setTick(v => v + 1); return; }
     if (A.prog >= 100) { const y = Math.round(a.yield * farmerBonus); S.stock += y; bump(a.id, 1); addXp(3); float("+" + y + " " + a.prod, a.x, a.y - 60); A.prog = 0; A.fed = 0; play("pickup"); }
     else if (A.fed <= 0) { if (S.stock >= a.feed) { S.stock -= a.feed; A.fed = 1; play("pop"); } else play("hurt"); }
     setTick(v => v + 1); };
@@ -256,7 +263,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
       <div className="ar-stage" ref={boxRef}>
         <canvas ref={cvRef} className="ar-cv" aria-hidden="true" />
         {PLOTS.map((p, i) => (<button key={i} className="ar-hit" data-plot={i} aria-label={"plot " + i} onClick={() => tapPlot(i)} style={{ left: (p.x - 34) * k, top: (p.y - 22) * k, width: 68 * k, height: 48 * k }} />))}
-        {ANIMALS.map((a, i) => (<button key={a.id} className="ar-hit ar-an" data-animal={a.id} aria-label={a.id} onClick={() => tapAnimal(i)} style={{ left: (a.x - 40) * k, top: (a.y - 52) * k, width: 80 * k, height: 80 * k }} />))}
+        {ANIMALS.map((a, i) => (<button key={a.id} className="ar-hit ar-an" data-animal={a.id} aria-label={a.id} onClick={() => tapAnimal(i)} style={{ left: (a.x - 46) * k, top: (a.y - 56) * k, width: 92 * k, height: 96 * k }} />))}
         <button className="ar-hit ar-ship" data-deliver="1" aria-label="deliver" onClick={deliver} style={{ left: 50 * k, top: 250 * k, width: 120 * k, height: 110 * k }} />
         <div className="arf-top">
           <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
