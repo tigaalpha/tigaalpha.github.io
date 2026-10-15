@@ -4,15 +4,16 @@
    every second, colonists who need oxygen, water, food and power and who only move in when there is a free home, research that unlocks better buildings,
    a hazard that belongs to the site (night, dust storm, cold, flare), and a career the player picks (it tilts the numbers, and in an online room each pilot
    will hold one). Win = the colony reaches its population target while every need is still met. DOM only, no downloads, no coins (crystals + EXP). */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
+import { drawBuilding, drawTube, drawSkyline, groundFill, PALS } from "./adventure-colony-art";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
 const SPEEDS = [0.5, 1, 2];   // slow, normal, fast (index into this)
-const COLS = 10, ROWS = 8, CELLS = COLS * ROWS, DAY = 2;   // a "day" is 2 seconds of play
+const COLS = 22, ROWS = 18, CELLS = COLS * ROWS, DAY = 2;   // a "day" is 2 seconds of play
 
 type Site = { icon: string; target: number; sun: number; water: number; ore: number; cold: number; hazard: string; name: L3; note: L3; hz: L3 };
 export const SITES: Record<string, Site> = {
@@ -118,48 +119,45 @@ const eraOf = (S: any) => { const labs = S.grid.filter((c: any) => c.b === "lab"
 const BCOL: Record<string, string> = { hab: "0,230,255", solar: "90,140,255", water: "70,190,255", oxy: "120,255,190", farm: "130,255,110", mine: "255,170,60", lab: "190,110,255", med: "255,255,255", reactor: "0,255,230", port: "255,90,200", park: "90,255,120", school: "255,225,110", recycler: "110,255,240", market: "255,150,110", geo: "255,120,60", tower: "170,255,140", shield: "120,170,255" };
 const BH: Record<string, number> = { hab: 1.5, solar: 0.25, water: 0.7, oxy: 0.9, farm: 0.6, mine: 1.0, lab: 1.6, med: 1.1, reactor: 1.4, port: 0.4, park: 0.35, school: 1.1, recycler: 0.8, market: 0.9, geo: 0.7, tower: 1.9, shield: 1.2 };
 const SKY: Record<string, string[]> = { moon: ["#02030a", "#101626", "#2a3250"], mars: ["#1a0a06", "#4a1c10", "#a0522d"], titan: ["#1a1004", "#4a3210", "#a0762a"], proxima: ["#14020a", "#4a0c20", "#a01a3a"] };
-function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kind: string, lay: { tw: number; cx: number; oy: number }, T: number, era: number) {
-  const tw = lay.tw, th = tw / 2, sk = SKY[kind] || SKY.moon;
+const TW0 = 72;   // the width of one plot in world pixels
+const WORLD = { x0: ROWS * TW0 / 2, y0: TW0 * 1.5, w: (COLS + ROWS) * TW0 / 2, h: (COLS + ROWS) * TW0 / 4 + TW0 * 2.1 };
+const ptW = (c: number, r: number) => [WORLD.x0 + (c - r) * TW0 / 2, WORLD.y0 + (c + r) * TW0 / 4];
+function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kind: string, cam: { x: number; y: number; z: number }, T: number, era: number) {
+  const sk = SKY[kind] || SKY.moon, pal = PALS[kind] || PALS.moon;
   const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk[0]); g.addColorStop(0.55, sk[1]); g.addColorStop(1, sk[2]); x.fillStyle = g; x.fillRect(0, 0, W, H);
-  for (let i = 0; i < 60; i++) { const a = (i * 97) % 100 / 100, b = (i * 53) % 60 / 100; x.fillStyle = "rgba(255,255,255," + (0.25 + 0.35 * Math.abs(Math.sin(T * 0.7 + i))) + ")"; x.fillRect(a * W, b * H, 1.4, 1.4); }
+  for (let i = 0; i < 70; i++) { const a = (i * 97) % 100 / 100, b = (i * 53) % 40 / 100; x.fillStyle = "rgba(255,255,255," + (0.25 + 0.35 * Math.abs(Math.sin(T * 0.7 + i))) + ")"; x.fillRect(a * W, b * H, 1.4, 1.4); }
   const sunx = W * (kind === "proxima" ? 0.82 : 0.14), suny = H * 0.2, sr = kind === "proxima" ? H * 0.2 : kind === "titan" ? H * 0.13 : H * 0.07;   // the local star, or the planet in the sky
   const sg = x.createRadialGradient(sunx, suny, 2, sunx, suny, sr * 2.4); sg.addColorStop(0, kind === "proxima" ? "rgba(255,90,90,.95)" : kind === "titan" ? "rgba(255,200,120,.55)" : "rgba(255,240,200,.9)"); sg.addColorStop(1, "rgba(255,120,60,0)"); x.fillStyle = sg; x.beginPath(); x.arc(sunx, suny, sr * 2.4, 0, 7); x.fill();
   if (kind === "titan") { x.strokeStyle = "rgba(255,220,160,.5)"; x.lineWidth = 3; x.beginPath(); x.ellipse(sunx, suny, sr * 1.9, sr * 0.45, -0.3, 0, 7); x.stroke(); }
-  // the plain, with a neon grid
-  const pt = (c: number, r: number, h = 0) => [lay.cx + (c - r) * tw / 2, lay.oy + (c + r) * th / 2 - h * th * 1.6];
-  const diamond = (c: number, r: number, fill: string, stroke: string) => { const a = pt(c, r), b = pt(c + 1, r), d = pt(c + 1, r + 1), e = pt(c, r + 1); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.lineTo(d[0], d[1]); x.lineTo(e[0], e[1]); x.closePath(); x.fillStyle = fill; x.fill(); x.strokeStyle = stroke; x.lineWidth = 1; x.stroke(); };
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const cell = S.grid[r * COLS + c]; diamond(c, r, cell.f === "ice" ? "rgba(80,160,220,.28)" : cell.f === "ore" ? "rgba(200,130,50,.26)" : "rgba(12,18,32,.78)", "rgba(0," + (era === 2 ? "255,200" : era === 1 ? "220,255" : "200,255") + "," + (0.16 + 0.1 * Math.sin(T + c + r)) + ")"); }
-  // vehicles on the sky-lanes: little light streaks sliding along the plot edges
-  const lanes = era === 0 ? 3 : era === 1 ? 6 : 10;
-  for (let i = 0; i < lanes; i++) { const r = (i * 7) % (ROWS + 1), u = ((T * (0.25 + 0.05 * (i % 3)) + i * 0.37) % 1) * (COLS + 1), p = pt(u, r, era * 0.9); x.fillStyle = i % 2 ? "rgba(255,80,200,.9)" : "rgba(80,255,255,.9)"; x.fillRect(p[0] - 2, p[1] - 1, era === 2 ? 7 : 4, 2); }
+  drawSkyline(x, W, H, cam.x, T, era, pal);
+  // the ground below the horizon, then the world through the camera
+  const gg = x.createLinearGradient(0, H * 0.3, 0, H); gg.addColorStop(0, pal.reg2); gg.addColorStop(1, "#14110f"); x.fillStyle = gg; x.fillRect(0, H * 0.34, W, H);
+  x.save(); x.translate(cam.x, cam.y); x.scale(cam.z, cam.z);
+  const vis = (px: number, py: number, pad: number) => { const sx = px * cam.z + cam.x, sy = py * cam.z + cam.y; return sx > -pad * cam.z && sx < W + pad * cam.z && sy > -pad * 2 * cam.z && sy < H + pad * cam.z; };
+  const diamond = (c: number, r: number, fill: string, stroke: string) => { const a = ptW(c, r), b = ptW(c + 1, r), d = ptW(c + 1, r + 1), e = ptW(c, r + 1); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.lineTo(d[0], d[1]); x.lineTo(e[0], e[1]); x.closePath(); x.fillStyle = fill; x.fill(); x.strokeStyle = stroke; x.lineWidth = 1; x.stroke(); };
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const i = r * COLS + c, cell = S.grid[i], m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0)) continue;
+    diamond(c, r, groundFill(pal, cell.f, i), "rgba(255,255,255,.07)");
+    if (cell.f === "ice") { x.fillStyle = "rgba(255,255,255," + (0.35 + 0.3 * Math.sin(T * 2 + i)) + ")"; x.fillRect(m[0] - 8, m[1] - 2, 3, 1.6); x.fillRect(m[0] + 6, m[1] + 3, 2.4, 1.4); }
+    else if (cell.f === "ore") { x.fillStyle = "rgba(255,190,90,.9)"; for (let k = 0; k < 4; k++) x.fillRect(m[0] - 10 + k * 6, m[1] - 3 + (k % 2) * 5, 3, 2.2); }
+    else if (!cell.b && i % 9 === 0) { x.fillStyle = "rgba(0,0,0,.18)"; x.beginPath(); x.ellipse(m[0] + 6, m[1] + 2, 9, 4, 0, 0, 7); x.fill(); x.strokeStyle = "rgba(255,255,255,.12)"; x.stroke(); } }
+  // pressurised tubes joining neighbouring modules
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const i = r * COLS + c; if (!S.grid[i].b) continue; const m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0)) continue;
+    if (c + 1 < COLS && S.grid[i + 1].b) { const n = ptW(c + 1.5, r + 0.5); drawTube(x, m[0], m[1], n[0], n[1], TW0 / 64, era); }
+    if (r + 1 < ROWS && S.grid[i + COLS].b) { const n = ptW(c + 0.5, r + 1.5); drawTube(x, m[0], m[1], n[0], n[1], TW0 / 64, era); } }
   // buildings, back to front
-  for (let sum = 0; sum < COLS + ROWS; sum++) for (let r = 0; r < ROWS; r++) { const c = sum - r; if (c < 0 || c >= COLS) continue; const cell = S.grid[r * COLS + c]; if (!cell.b) continue;
-    const col = BCOL[cell.b] || "0,255,255", hh = (BH[cell.b] || 1) * (era === 0 ? 1 : era === 1 ? 1.55 : 2.1), bw = 0.78 - (cell.b === "solar" ? 0 : 0.06 * era), off = (1 - bw) / 2;
-    const A = pt(c + off, r + off), B = pt(c + 1 - off, r + off), C = pt(c + 1 - off, r + 1 - off), D = pt(c + off, r + 1 - off), up = hh * th * 1.6;
-    const face = (p: number[][], fill: string) => { x.beginPath(); x.moveTo(p[0][0], p[0][1]); for (let k = 1; k < p.length; k++) x.lineTo(p[k][0], p[k][1]); x.closePath(); x.fillStyle = fill; x.fill(); };
-    const top = [[A[0], A[1] - up], [B[0], B[1] - up], [C[0], C[1] - up], [D[0], D[1] - up]];
-    if (era === 2 && cell.b !== "solar") { const hover = 3 + 2 * Math.sin(T * 1.5 + c); top.forEach(q => q[1] -= hover); x.fillStyle = "rgba(" + col + ",.18)"; x.beginPath(); x.ellipse((A[0] + C[0]) / 2, (A[1] + C[1]) / 2 + 2, tw * 0.3, th * 0.3, 0, 0, 7); x.fill(); }
-    const lift = era === 2 && cell.b !== "solar" ? (top[0][1] - (A[1] - up)) : 0;
-    face([[D[0], D[1]], [C[0], C[1]], [C[0], C[1] - up + lift], [D[0], D[1] - up + lift]], "rgba(" + col + ",.20)");
-    face([[C[0], C[1]], [B[0], B[1]], [B[0], B[1] - up + lift], [C[0], C[1] - up + lift]], "rgba(" + col + ",.38)");
-    if (era === 1 && cell.b !== "solar") { const k = 0.28; const m = (q: number[], o: number[]) => [q[0] + (o[0] - q[0]) * k, q[1] + (o[1] - q[1]) * k]; const cc = [(top[0][0] + top[2][0]) / 2, (top[0][1] + top[2][1]) / 2]; face([m(top[0], cc), m(top[1], cc), m(top[2], cc), m(top[3], cc)], "rgba(" + col + ",.55)"); }
-    face(top, "rgba(" + col + ",.55)"); x.strokeStyle = "rgba(" + col + ",1)"; x.lineWidth = 1.4; x.beginPath(); x.moveTo(top[0][0], top[0][1]); x.lineTo(top[1][0], top[1][1]); x.lineTo(top[2][0], top[2][1]); x.lineTo(top[3][0], top[3][1]); x.closePath(); x.stroke();
-    x.strokeStyle = "rgba(" + col + ",.9)"; x.beginPath(); x.moveTo(D[0], D[1]); x.lineTo(D[0], D[1] - up + lift); x.moveTo(C[0], C[1]); x.lineTo(C[0], C[1] - up + lift); x.moveTo(B[0], B[1]); x.lineTo(B[0], B[1] - up + lift); x.stroke();
-    for (let w = 1; w < Math.floor(hh * 3); w++) { const yy = up * w / Math.floor(hh * 3); x.fillStyle = "rgba(255," + (200 + (w * 13) % 55) + ",120," + (0.5 + 0.4 * Math.sin(T * 2 + w + c)) + ")"; x.fillRect(C[0] - 5, C[1] - yy + lift, 2.5, 2); x.fillRect(C[0] - 12, C[1] - yy * 0.9 + lift - 4, 2.5, 2); }
-    const cx = (A[0] + C[0]) / 2, cy = (top[0][1] + top[2][1]) / 2;
-    if (cell.b === "reactor") { x.globalCompositeOperation = "lighter"; const rg = x.createRadialGradient(cx, cy - 4, 1, cx, cy - 4, tw * 0.45); rg.addColorStop(0, "rgba(180,255,245,.95)"); rg.addColorStop(1, "rgba(0,255,230,0)"); x.fillStyle = rg; x.beginPath(); x.arc(cx, cy - 4, tw * 0.45, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; }
-    if (cell.b === "lab" || (era >= 1 && cell.b === "hab")) { x.strokeStyle = "rgba(" + col + "," + (0.5 + 0.4 * Math.sin(T * 3 + c)) + ")"; x.lineWidth = 1.5; x.beginPath(); x.ellipse(cx, cy - 8 - 4 * Math.sin(T * 2 + r), tw * 0.2, th * 0.2, 0, 0, 7); x.stroke(); }
-    if (cell.b === "port") { x.fillStyle = "rgba(255,255,255,.9)"; const f = (T * 0.25 + c * 0.13) % 1; x.fillRect(cx - 3, cy - 6 - f * th * 3, 6, 3); }
-    if (cell.b === "farm") { x.fillStyle = "rgba(255,60,200,.8)"; x.fillRect(cx - 6, cy - 2, 12, 2); }
-    if (era === 2) { x.globalCompositeOperation = "lighter"; const bg = x.createLinearGradient(cx, cy, cx, cy - th * 5); bg.addColorStop(0, "rgba(" + col + ",.45)"); bg.addColorStop(1, "rgba(" + col + ",0)"); x.fillStyle = bg; x.fillRect(cx - 1.5, cy - th * 5, 3, th * 5); x.globalCompositeOperation = "source-over"; }
-  }
+  for (let sum = 0; sum < COLS + ROWS; sum++) for (let r = 0; r < ROWS; r++) { const c = sum - r; if (c < 0 || c >= COLS) continue; const cell = S.grid[r * COLS + c]; if (!cell.b) continue; const m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0 * 2)) continue;
+    drawBuilding(x, cell.b, m[0], m[1], TW0, era, T, pal, r * COLS + c); }
+  // rovers and drones moving between the modules
+  const lanes = era === 0 ? 4 : era === 1 ? 8 : 14;
+  for (let i = 0; i < lanes; i++) { const r = (i * 5) % ROWS, u = ((T * (0.12 + 0.03 * (i % 3)) + i * 0.37) % 1) * COLS, p = ptW(u, r + 0.5); if (!vis(p[0], p[1], 20)) continue; x.fillStyle = i % 2 ? "rgba(255,200,120,.95)" : "rgba(120,230,255,.95)"; x.fillRect(p[0] - 2, p[1] - 2 - (era === 2 ? 14 : 0), era === 2 ? 6 : 4, 2.4); }
+  x.restore();
   // the site's hazard drifts over the city
   if (S.hz > 0) { const k = Math.min(1, S.hz / 3), kind2 = kind;
     if (kind2 === "moon") { x.fillStyle = "rgba(0,0,20," + 0.45 * k + ")"; x.fillRect(0, 0, W, H); }
     else if (kind2 === "mars") { for (let i = 0; i < 70; i++) { x.fillStyle = "rgba(255,150,90," + 0.35 * k + ")"; x.fillRect(((i * 53 + T * 400) % (W + 40)) - 20, (i * 31) % H, 22, 1.6); } }
     else if (kind2 === "titan") { for (let i = 0; i < 40; i++) { x.fillStyle = "rgba(200,230,255," + 0.5 * k + ")"; x.fillRect((i * 71) % W, ((i * 29 + T * 90) % H), 2, 2); } }
     else { if (Math.sin(T * 14) > 0.4) { x.fillStyle = "rgba(255,70,70," + 0.22 * k + ")"; x.fillRect(0, 0, W, H); } } }
-  const vg = x.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.9); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,10,.55)"); x.fillStyle = vg; x.fillRect(0, 0, W, H);
+  const vg = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,10,.5)"); x.fillStyle = vg; x.fillRect(0, 0, W, H);
 }
 
 const rng = (seed: number) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
@@ -170,24 +168,38 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
   const G = useRef<any>(null);
   if (!G.current) {
     const r = rng(P.kind === "mars" ? 7 : P.kind === "titan" ? 13 : P.kind === "proxima" ? 29 : 3), grid: any[] = Array.from({ length: CELLS }, () => ({ b: null as any, f: "" }));
-    for (let i = 0; i < 7; i++) { const c = Math.floor(r() * CELLS); if (!grid[c].f) grid[c].f = "ice"; }
-    for (let i = 0; i < 7; i++) { const c = Math.floor(r() * CELLS); if (!grid[c].f) grid[c].f = "ore"; }
-    grid[COLS * 2 + 2].b = "hab"; grid[COLS * 2 + 3].b = "solar"; grid[COLS * 2 + 2].f = ""; grid[COLS * 2 + 3].f = "";
+    for (let i = 0; i < 34; i++) { const c = Math.floor(r() * CELLS); if (!grid[c].f) grid[c].f = "ice"; }
+    for (let i = 0; i < 34; i++) { const c = Math.floor(r() * CELLS); if (!grid[c].f) grid[c].f = "ore"; }
+    const h0 = Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2) - 1; grid[h0].b = "hab"; grid[h0 + 1].b = "solar"; grid[h0].f = ""; grid[h0 + 1].f = "";
     G.current = { t: 0, grid, stock: { en: 40, wa: 70, ox: 70, fo: 70, ma: 150, sc: 0 }, rate: { en: 0, wa: 0, ox: 0, fo: 0, ma: 0, sc: 0 }, pop: 8, grow: 0, tech: [false, false, false], hz: 0, hzT: 40, portT: 12, sel: "hab" as string, tool: "build" as string, info: -1, hist: [] as any[], news: [] as any[], flags: {} as any, ended: false, won: false, short: 0, msg: "", peak: 8, days: 0 };
   }
-  const speedRef = useRef(1), [speed, setSpeedS] = useState(1), [career, setCareer] = useState<string>(() => careerNow()), [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false), [budget, setBudget] = useState(false);
+  const speedRef = useRef(1), [speed, setSpeedS] = useState(1), [career, setCareer] = useState<string>(() => careerNow()), [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false), [budget, setBudget] = useState(false), [advisor, setAdvisor] = useState(false);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null), careerRef = useRef(career); careerRef.current = career;
-  const cvRef = useRef<HTMLCanvasElement>(null), cityRef = useRef<HTMLDivElement>(null), layRef = useRef({ tw: 60, cx: 300, oy: 60, W: 600, H: 280 }), [lay, setLay] = useState({ tw: 60, cx: 300, oy: 60, W: 600, H: 280 });
+  const cvRef = useRef<HTMLCanvasElement>(null), cityRef = useRef<HTMLDivElement>(null), worldRef = useRef<HTMLDivElement>(null), camRef = useRef({ x: 0, y: 0, z: 1, W: 600, H: 300 }), tapBlock = useRef(0), tapRef = useRef<any>(null), focusRef = useRef<any>(null), zoomRef = useRef<any>(null);
+  /* the camera (owner, 2026-10-15: the city is about five times bigger, SimCity BuildIt style): drag to pan, pinch or wheel to zoom, the world is drawn through it and the plots' buttons ride in a div that follows the same transform */
   useEffect(() => {
-    const el = cityRef.current, cv = cvRef.current; if (!el || !cv) return; let raf = 0, alive = true, lastDraw = 0;
-    const fit = () => { const W = Math.max(280, el.clientWidth), H = Math.max(200, el.clientHeight), tw = Math.min(W / (COLS + ROWS) * 2 * 0.95, H * 3.1 / (COLS + ROWS)), dpr = Math.min(2, window.devicePixelRatio || 1);
-      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px";
-      const L = { tw, cx: W / 2, oy: H * 0.16 + (H * 0.8 - (COLS + ROWS) * tw / 4) / 2 + tw * 0.9, W, H }; layRef.current = L; setLay(L); };
+    const el = cityRef.current, cv = cvRef.current; if (!el || !cv) return; let raf = 0, alive = true, lastDraw = 0, init = false;
+    const cam = camRef.current, minZ = () => Math.max(cam.W / WORLD.w, cam.H / WORLD.h) * 0.9, clampCam = () => { cam.z = Math.max(minZ(), Math.min(2.4, cam.z)); const ww = WORLD.w * cam.z, wh = WORLD.h * cam.z; cam.x = ww <= cam.W ? (cam.W - ww) / 2 : Math.max(cam.W - ww, Math.min(0, cam.x)); cam.y = wh <= cam.H ? (cam.H - wh) / 2 : Math.max(cam.H - wh, Math.min(0, cam.y)); };
+    const apply = () => { clampCam(); if (worldRef.current) worldRef.current.style.transform = `translate(${cam.x}px,${cam.y}px) scale(${cam.z})`; };
+    const focus = (i: number, z?: number) => { if (z) cam.z = z; const m = ptW(i % COLS + 0.5, Math.floor(i / COLS) + 0.5); cam.x = cam.W / 2 - m[0] * cam.z; cam.y = cam.H * 0.55 - m[1] * cam.z; apply(); };
+    const zoomAt = (px: number, py: number, k: number) => { const nz = Math.max(minZ(), Math.min(2.4, cam.z * k)); cam.x = px - (px - cam.x) * nz / cam.z; cam.y = py - (py - cam.y) * nz / cam.z; cam.z = nz; apply(); };
+    focusRef.current = focus; zoomRef.current = (k: number) => zoomAt(cam.W / 2, cam.H / 2, k);
+    const fit = () => { const W = Math.max(280, el.clientWidth), H = Math.max(200, el.clientHeight), dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; cam.W = W; cam.H = H;
+      if (!init) { init = true; cam.z = Math.max(minZ(), W / (TW0 * 8.5)); focus(Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2)); } else apply(); };
     fit(); const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null; if (ro) ro.observe(el);
-    const loop = (now: number) => { if (!alive) return; raf = requestAnimationFrame(loop); if (now - lastDraw < 50) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const L = layRef.current, dpr = cv.width / L.W; x.setTransform(dpr, 0, 0, dpr, 0, 0); try { drawCity(x, L.W, L.H, G.current, P.kind || "moon", L, now / 1000, eraOf(G.current)); } catch (e) {} };
-    raf = requestAnimationFrame(loop); return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); };
+    const ptrs = new Map<number, { x: number; y: number }>(); let lastD = 0, moved = 0; const dist = () => { const v = [...ptrs.values()]; return Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y); };
+    const rel = (e: PointerEvent) => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    const down = (e: PointerEvent) => { ptrs.set(e.pointerId, rel(e)); moved = 0; if (ptrs.size === 2) lastD = dist(); };
+    const move = (e: PointerEvent) => { const prev = ptrs.get(e.pointerId); if (!prev) return; const cur = rel(e); ptrs.set(e.pointerId, cur);
+      if (ptrs.size === 1) { const dx = cur.x - prev.x, dy = cur.y - prev.y; moved += Math.abs(dx) + Math.abs(dy); if (moved > 10) { cam.x += dx; cam.y += dy; apply(); tapBlock.current = performance.now(); } }
+      else if (ptrs.size === 2) { const d = dist(), v = [...ptrs.values()]; if (lastD) zoomAt((v[0].x + v[1].x) / 2, (v[0].y + v[1].y) / 2, d / lastD); lastD = d; tapBlock.current = performance.now(); } };
+    const up = (e: PointerEvent) => { ptrs.delete(e.pointerId); if (moved > 10) tapBlock.current = performance.now(); lastD = 0; };
+    const wheel = (e: WheelEvent) => { e.preventDefault(); const p = { x: e.clientX - el.getBoundingClientRect().left, y: e.clientY - el.getBoundingClientRect().top }; zoomAt(p.x, p.y, e.deltaY < 0 ? 1.12 : 0.89); };
+    el.addEventListener("pointerdown", down); el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("wheel", wheel, { passive: false });
+    const loop = (now: number) => { if (!alive) return; raf = requestAnimationFrame(loop); if (now - lastDraw < 50) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const dpr = cv.width / cam.W; x.setTransform(dpr, 0, 0, dpr, 0, 0); try { drawCity(x, cam.W, cam.H, G.current, P.kind || "moon", cam, now / 1000, eraOf(G.current)); } catch (e) {} };
+    raf = requestAnimationFrame(loop); return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); el.removeEventListener("pointerdown", down); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("wheel", wheel); };
   }, []);
   const cost = (b: B) => Math.round(b.cost * (careerRef.current === "eng" ? 0.8 : 1));
   useEffect(() => {
@@ -262,13 +274,13 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
       }
       setTick(x => (x + 1) % 1e6);
     }, 100);
-    (window as any).__advColony = { state: () => ({ t: S.t, pop: S.pop, stock: { ...S.stock }, rate: { ...S.rate }, grid: S.grid.map((c: any) => c.b), tech: S.tech.slice(), hz: S.hz, won: S.won, ended: S.ended, target: site.target, career: careerRef.current }), setCareer: (c: string) => { careerRef.current = c; setCareer(c); }, give: (k: string, n: number) => { S.stock[k] += n; }, setPop: (n: number) => { S.pop = n; }, tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) { S.t += 0.1; step(0.1); } }, hazard: () => { S.hz = HZ_DUR; if (net && net.host) net.sendEv("colh", 0); }, finish: () => { S.pop = site.target; for (const k of ["en", "wa", "ox", "fo"]) S.stock[k] = 200; } };
+    (window as any).__advColony = { focus: (i: number, z?: number) => { if (focusRef.current) focusRef.current(i, z); }, cam: () => ({ ...camRef.current }), state: () => ({ t: S.t, pop: S.pop, stock: { ...S.stock }, rate: { ...S.rate }, grid: S.grid.map((c: any) => c.b), tech: S.tech.slice(), hz: S.hz, won: S.won, ended: S.ended, target: site.target, career: careerRef.current }), setCareer: (c: string) => { careerRef.current = c; setCareer(c); }, give: (k: string, n: number) => { S.stock[k] += n; }, setPop: (n: number) => { S.pop = n; }, tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) { S.t += 0.1; step(0.1); } }, hazard: () => { S.hz = HZ_DUR; if (net && net.host) net.sendEv("colh", 0); }, finish: () => { S.pop = site.target; for (const k of ["en", "wa", "ox", "fo"]) S.stock[k] = 200; } };
     return () => { clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advColony; } catch (e) {} };
   }, []);
   const S = G.current;
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
   const tapCell = (i: number) => {
-    if (S.ended || !career) return; const c = S.grid[i];
+    if (S.ended || !career || performance.now() - tapBlock.current < 250) return; const c = S.grid[i];
     if (S.tool === "query") { S.info = S.info === i ? -1 : i; play("pickup"); setTick(x => x + 1); return; }
     if (S.tool === "bulldoze" && !c.b) return;
     if (c.b) { if (c.b === "hab" && S.grid.filter((q: any) => q.b === "hab").length * 6 - 6 < S.pop) { play("hurt"); return; } const bd = BUILD.find(b => b.id === c.b)!; S.stock.ma += Math.round(cost(bd) * 0.5); c.b = null; if (net) net.sendEv("colx", i); play("boom"); setTick(x => x + 1); return; }
@@ -277,14 +289,19 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
     const cs = cost(bd); if (S.stock.ma < cs) { play("hurt"); return; }
     S.stock.ma -= cs; c.b = bd.id; if (net) net.sendEv("colb:" + bd.id, i); play("pop"); setTick(x => x + 1);
   };
+  tapRef.current = tapCell;
   const tcost = (i: number) => Math.round(TECH[i].cost * (career === "inno" ? 0.75 : 1));
   const buyTech = (i: number) => { const tc = TECH[i]; if (S.tech[i] || S.stock.sc < tcost(i) || S.ended) return; S.stock.sc -= tcost(i); S.tech[i] = true; play("win"); setTick(x => x + 1); };
   const taken = (id: string) => !!net && [...net.peers.values()].some((q: any) => q.say === id);   // online: one pilot per career, so the team covers every weak spot
   const pickCareer = (id: string) => { if (taken(id)) { play("hurt"); return; } try { localStorage.setItem("tg_adv_career", id); } catch (e) {} setCareer(id); if (net) net.sendEv("colc:" + id, 0); play("pickup"); };
   const openGear = () => { pausedRef.current = true; setGear(true); }, closeGear = () => { pausedRef.current = false; setGear(false); };
   const pct = Math.min(100, S.pop / site.target * 100), homes = S.grid.filter((c: any) => c.b === "hab").length * 6, dm = demandOf(S, homes), fact = FACTS[Math.floor(S.t / 20) % FACTS.length];
+  const gridSig = S.grid.map((c: any) => c.b || "").join(",") + "|" + S.tool;
+  const cellsEl = useMemo(() => S.grid.map((c: any, i: number) => { const m = ptW(i % COLS + 0.5, Math.floor(i / COLS) + 0.5), bd = c.b ? BUILD.find(b => b.id === c.b) : null; return (
+    <button key={i} className={"ac2-cell" + (bd ? " has" : "") + (c.f ? " " + c.f : "")} data-cell={i} data-b={c.b || ""} onClick={() => tapRef.current && tapRef.current(i)} aria-label={bd ? T3(lang, bd.name[0], bd.name[1], bd.name[2]) : "plot"}
+      style={{ left: m[0] - TW0 / 2, top: m[1] - TW0 / 4, width: TW0, height: TW0 / 2 }} />); }), [gridSig, lang]);
   return (
-    <div className="adv-farm adv-colony sc" data-colony={P.kind}>
+    <div className="adv-farm adv-colony cb" data-colony={P.kind}>
       <div className="adv-top">
         <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
         <div className="adv-hud">
@@ -294,60 +311,52 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
         <GearButton onClick={openGear} />
       </div>
       {net && <div className="ac2-team" data-team="1">🤝 {t("ทีม: ", "Team: ", "团队：")}{[...net.peers.values()].map((q: any) => <span key={q.id}>{q.name} {(CAREERS.find(c => c.id === q.say) || { icon: "…" }).icon}</span>)}</div>}
-      <div className="sc-bar" data-sc="bar">
-        <span className="sc-fund" data-fund="1">🧱 {Math.floor(S.stock.ma)}</span>
-        <span className="sc-date" data-date="1">{["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][Math.floor(S.days / 4) % 12]} {ERAS[eraOf(S)].y + Math.floor(S.days / 48)}</span>
-        <span className="sc-apr" data-approval={dm.ap} title={t("คะแนนนิยมของนายกเมือง", "Mayor's approval", "市长支持率")}>{"★".repeat(Math.round(dm.ap / 20))}{"☆".repeat(5 - Math.round(dm.ap / 20))} {dm.ap}%</span>
-      <div className="ac2-speed" data-speedbar="1">{[t("ช้า", "Slow", "慢"), t("กลาง", "Normal", "中"), t("เร็ว", "Fast", "快")].map((lb, i) => (<button key={i} data-speed={i} className={"ac2-sp" + (speed === i ? " on" : "")} onClick={() => { speedRef.current = i; setSpeedS(i); }}>{["🐢", "▶", "⏩"][i]} {lb}</button>))}</div>
-        <button className={"sc-tool" + (S.tool === "query" ? " on" : "")} data-tool="query" title={t("ตรวจสอบอาคาร", "Query", "查询")} onClick={() => { S.tool = S.tool === "query" ? "build" : "query"; S.info = -1; setTick(x => x + 1); }}>🔍</button>
-        <button className={"sc-tool" + (S.tool === "bulldoze" ? " on" : "")} data-tool="bulldoze" title={t("รื้อ (คืนวัสดุครึ่งหนึ่ง)", "Bulldoze (half back)", "拆除（返还一半）")} onClick={() => { S.tool = S.tool === "bulldoze" ? "build" : "bulldoze"; setTick(x => x + 1); }}>🚧</button>
-        <button className="sc-tool" data-budget-open="1" title={t("งบประมาณและสถิติ", "Budget & statistics", "预算与统计")} onClick={() => { pausedRef.current = true; setBudget(true); }}>📊</button>
-      </div>
-      <div className="sc-main">
-        <div className="sc-tools" data-toolbox="1">
-          {GROUPS.map(g => (<div key={g.id} className="sc-g" data-grp={g.id}><div className="sc-gh">{g.icon} {T3(lang, g.name[0], g.name[1], g.name[2])}</div>
-            {g.ids.map(id => { const b = BUILD.find(q => q.id === id)!, locked = (b.needSci || 0) > S.stock.sc, cs = cost(b); return (
-              <button key={b.id} className={"ac2-b" + (S.sel === b.id && S.tool === "build" ? " on" : "") + (locked ? " lock" : S.stock.ma < cs ? " poor" : "")} data-build={b.id} onClick={() => { S.sel = b.id; S.tool = "build"; S.info = -1; setTick(x => x + 1); }}>
-                <b>{b.icon} {T3(lang, b.name[0], b.name[1], b.name[2])}</b><small>🧱 {cs}{locked ? " · 🔒 " + b.needSci + "🔬" : ""}</small></button>); })}</div>))}
-          <div className="sc-g" data-grp="tech"><div className="sc-gh">🔬 {t("วิจัย", "Research", "研究")}</div>
-      <div className="af-tech">
-        {TECH.map((tc, i) => (<button key={tc.id} className={"af-t" + (S.tech[i] ? " on" : "")} data-tech={i} disabled={S.tech[i] || S.stock.sc < tcost(i)} onClick={() => buyTech(i)}>
-          <b>{T3(lang, tc.name[0], tc.name[1], tc.name[2])}</b><small>{S.tech[i] ? "✓ " : "🔬 " + tcost(i) + " · "}{T3(lang, tc.text[0], tc.text[1], tc.text[2])}</small></button>))}
-      </div>
-          </div>
-        </div>
-        <div className="sc-center">
-      <div className="ac2-city" ref={cityRef}>
+      <div className="cb-map" ref={cityRef} data-city="1">
         <canvas ref={cvRef} className="ac2-cv" aria-hidden="true" />
-        {S.grid.map((c: any, i: number) => { const r = Math.floor(i / COLS), q = i % COLS, px = lay.cx + (q - r) * lay.tw / 2, py = lay.oy + (q + r + 1) * lay.tw / 4, bd = c.b ? BUILD.find(b => b.id === c.b) : null; return (
-          <button key={i} className={"ac2-cell" + (bd ? " has" : "") + (c.f ? " " + c.f : "")} data-cell={i} data-b={c.b || ""} onClick={() => tapCell(i)} aria-label={bd ? T3(lang, bd.name[0], bd.name[1], bd.name[2]) : "plot"}
-            style={{ left: px - lay.tw / 2, top: py - lay.tw / 4, width: lay.tw, height: lay.tw / 2 }}>{!bd && c.f ? <em>{c.f === "ice" ? "❄" : "◆"}</em> : null}</button>); })}
+        <div className="cb-world" ref={worldRef} style={{ width: WORLD.w, height: WORLD.h }}>{cellsEl}</div>
         {(() => { const e = ERAS[eraOf(S)]; return <div className="ac2-era" data-era={e.y}><b>{t("ปี ", "YEAR ", "公元 ")}{e.y}</b><small>{T3(lang, e.n[0], e.n[1], e.n[2])}</small></div>; })()}
       </div>
-          {S.info >= 0 && S.grid[S.info] && (() => { const c = S.grid[S.info], bd = c.b ? BUILD.find(q => q.id === c.b) : null, on = S.stock.en > 0.5; return (
-            <div className="sc-info" data-info="1"><b>{bd ? bd.icon + " " + T3(lang, bd.name[0], bd.name[1], bd.name[2]) : t("ที่ดินว่าง", "Empty plot", "空地")}</b>
-              {bd ? <span>{T3(lang, bd.text[0], bd.text[1], bd.text[2])}</span> : null}
-              {bd && !["solar", "reactor", "geo", "hab"].includes(bd.id) ? <span className={on ? "ok" : "bad"}>{on ? "● " + t("ทำงานอยู่", "Running", "运行中") : "○ " + t("ไฟไม่พอ หยุดทำงาน", "No power: idle", "断电：停工")}</span> : null}
-              {c.f ? <span>{c.f === "ice" ? "❄ " + t("ช่องน้ำแข็ง: สกัดน้ำได้สองเท่า", "Ice plot: double water", "冰地：产水翻倍") : "◆ " + t("ช่องแร่: เหมืองได้สองเท่า", "Ore plot: double mining", "矿地：采矿翻倍")}</span> : null}
-              <small>{t("แตะอีกครั้งเพื่อปิด", "Tap again to close", "再点一次关闭")}</small></div>); })()}
-        </div>
-        <div className="sc-side">
-          <div className="sc-p"><div className="sc-ph">{t("แผนที่ย่อ", "Minimap", "小地图")}</div>
-            <div className="sc-mini" data-mini="1" style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)` }}>{S.grid.map((c: any, i: number) => <i key={i} style={{ background: c.b ? MINI[c.b] || "#fff" : c.f === "ice" ? "#335a7a" : c.f === "ore" ? "#6a4a2a" : "#1d2a33" }} />)}</div></div>
-          <div className="sc-p"><div className="sc-ph">{t("ความต้องการ", "Demand", "需求")}</div>
-            <div className="sc-rci" data-rci="1">{([["H", dm.H, "#3ccf5b", t("ที่พัก", "Homes", "住房")], ["W", dm.W, "#4a8cff", t("ผลิต", "Work", "生产")], ["S", dm.Sv, "#ffd23f", t("บริการ", "Services", "服务")]] as any[]).map(([k, v, col, nm]) => (<span key={k} data-rci-bar={k} title={nm}><u><i style={{ height: Math.round(v * 100) + "%", background: col }} /></u><b>{k}</b></span>))}</div></div>
-      <div className="ac2-res">
-        {RES.map(r => (<span key={r.k} className={"ac2-r" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k}>{r.icon} {Math.floor(S.stock[r.k])}<small className={S.rate[r.k] < -0.01 ? "neg" : ""}>{S.rate[r.k] >= 0 ? "+" : ""}{S.rate[r.k].toFixed(1)}</small></span>))}
-        {S.hz > 0 && <span className="ac2-hz" data-hazard="1">⚠ {T3(lang, site.hz[0], site.hz[1], site.hz[2])}</span>}
-        {S.msg && <span className="ac2-hz">⚠ {t("ขาดแคลน ", "Shortage ", "短缺 ")}{S.msg}</span>}
+      <div className="cb-speed" data-speedbar="1">{[t("ช้า", "Slow", "慢"), t("กลาง", "Normal", "中"), t("เร็ว", "Fast", "快")].map((lb, i) => (<button key={i} data-speed={i} aria-label={lb} className={"ac2-sp" + (speed === i ? " on" : "")} onClick={() => { speedRef.current = i; setSpeedS(i); }}>{["🐢", "▶", "⏩"][i]}</button>))}</div>
+      <div className="cb-res" data-resbar="1">
+        {RES.map(r => (<span key={r.k} className={"ac2-r cb-pill" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k} {...(r.k === "ma" ? { "data-fund": "1" } : {})}><i>{r.icon}</i><b>{Math.floor(S.stock[r.k])}</b><small className={S.rate[r.k] < -0.01 ? "neg" : "pos"}>{S.rate[r.k] < -0.01 ? "▼" : S.rate[r.k] > 0.01 ? "▲" : "·"}</small></span>))}
       </div>
-          <div className="sc-p sc-adv" data-advisor="1"><div className="sc-ph">🧑‍🚀 {t("ที่ปรึกษา", "Advisor", "顾问")}</div>
-      <div className="ac2-sel">{(() => { const b = BUILD.find(q => q.id === S.sel); return b ? <span>{b.icon} {T3(lang, b.text[0], b.text[1], b.text[2])}</span> : null; })()} <em>{t("แตะช่องว่างเพื่อสร้าง แตะอาคารเพื่อรื้อ (ได้วัสดุคืนครึ่งหนึ่ง)", "Tap an empty plot to build, a building to demolish (half back)", "点空地建造，点建筑拆除（返还一半）")}</em></div>
-      <div className="af-fact">💡 {T3(lang, site.note[0], site.note[1], site.note[2])} · {T3(lang, fact[0], fact[1], fact[2])}</div>
-          </div>
+      {(S.hz > 0 || S.msg) && <div className="cb-alert" data-hazard={S.hz > 0 ? "1" : undefined}>{S.hz > 0 ? "⚠ " + T3(lang, site.hz[0], site.hz[1], site.hz[2]) : ""}{S.msg ? " ⚠ " + t("ขาดแคลน ", "Shortage ", "短缺 ") + S.msg : ""}</div>}
+      {S.news[0] && <div className="cb-news" data-news="1" key={S.news.length}><b>📰</b><span className="sc-tick">{(lang === "th" ? "วันที่ " : lang === "zh" ? "第" : "Day ") + S.news[0].d + (lang === "zh" ? "天" : "") + ": " + T3(lang, NEWS[S.news[0].k][0], NEWS[S.news[0].k][1], NEWS[S.news[0].k][2])}</span></div>}
+      <div className="cb-fab" data-fab="1">
+        <button className={"cb-round" + (S.tool === "query" ? " on" : "")} data-tool="query" aria-label="query" onClick={() => { S.tool = S.tool === "query" ? "build" : "query"; S.info = -1; setTick(x => x + 1); }}>🔍</button>
+        <button className={"cb-round" + (S.tool === "bulldoze" ? " on" : "")} data-tool="bulldoze" aria-label="bulldoze" onClick={() => { S.tool = S.tool === "bulldoze" ? "build" : "bulldoze"; setTick(x => x + 1); }}>🚧</button>
+        <button className="cb-round" data-budget-open="1" aria-label="budget" onClick={() => { pausedRef.current = true; setBudget(true); }}>📊</button>
+        <button className="cb-round" data-advisor-open="1" aria-label="advisor" onClick={() => { pausedRef.current = true; setAdvisor(true); }}>🧑‍🚀<em>{dm.ap}</em></button>
+        <button className="cb-round sm" data-zoom="in" aria-label="zoom in" onClick={() => zoomRef.current && zoomRef.current(1.3)}>＋</button>
+        <button className="cb-round sm" data-zoom="out" aria-label="zoom out" onClick={() => zoomRef.current && zoomRef.current(0.77)}>－</button>
+        <button className="cb-round sm" data-zoom="home" aria-label="centre" onClick={() => focusRef.current && focusRef.current(Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2))}>🎯</button>
+      </div>
+      {S.info >= 0 && S.grid[S.info] && (() => { const c = S.grid[S.info], bd = c.b ? BUILD.find(q => q.id === c.b) : null, on = S.stock.en > 0.5; return (
+        <div className="sc-info cb-info" data-info="1"><b>{bd ? bd.icon + " " + T3(lang, bd.name[0], bd.name[1], bd.name[2]) : t("ที่ดินว่าง", "Empty plot", "空地")}</b>
+          {bd ? <span>{T3(lang, bd.text[0], bd.text[1], bd.text[2])}</span> : null}
+          {bd && !["solar", "reactor", "geo", "hab"].includes(bd.id) ? <span className={on ? "ok" : "bad"}>{on ? "● " + t("ทำงานอยู่", "Running", "运行中") : "○ " + t("ไฟไม่พอ หยุดทำงาน", "No power: idle", "断电：停工")}</span> : null}
+          {c.f ? <span>{c.f === "ice" ? "❄ " + t("ช่องน้ำแข็ง: สกัดน้ำได้สองเท่า", "Ice plot: double water", "冰地：产水翻倍") : "◆ " + t("ช่องแร่: เหมืองได้สองเท่า", "Ore plot: double mining", "矿地：采矿翻倍")}</span> : null}
+          <small>{t("แตะอีกครั้งเพื่อปิด", "Tap again to close", "再点一次关闭")}</small></div>); })()}
+      <div className="cb-tray" data-toolbox="1">
+        <div className="cb-cats">{[...GROUPS, { id: "tech", icon: "🔬", name: ["วิจัย", "Research", "研究"] }].map((g: any) => (<button key={g.id} className="cb-cat" data-cat={g.id} aria-label={T3(lang, g.name[0], g.name[1], g.name[2])} onClick={() => { const el = document.querySelector(`[data-grp='${g.id}']`) as HTMLElement | null; if (el && el.scrollIntoView) el.scrollIntoView({ inline: "start", block: "nearest", behavior: "smooth" }); }}>{g.icon}</button>))}</div>
+        <div className="cb-cards">
+          {GROUPS.map(g => (<div key={g.id} className="cb-sec sc-g" data-grp={g.id}><div className="sc-gh">{T3(lang, g.name[0], g.name[1], g.name[2])}</div><div className="cb-row">
+            {g.ids.map(id => { const b = BUILD.find(q => q.id === id)!, locked = (b.needSci || 0) > S.stock.sc, cs = cost(b); return (
+              <button key={b.id} className={"cb-card ac2-b" + (S.sel === b.id && S.tool === "build" ? " on" : "") + (locked ? " lock" : S.stock.ma < cs ? " poor" : "")} data-build={b.id} onClick={() => { S.sel = b.id; S.tool = "build"; S.info = -1; setTick(x => x + 1); }}>
+                <i>{b.icon}</i><b>{T3(lang, b.name[0], b.name[1], b.name[2])}</b><small>{locked ? "🔒 " + b.needSci + "🔬" : "🧱 " + cs}</small></button>); })}</div></div>))}
+          <div className="cb-sec sc-g" data-grp="tech"><div className="sc-gh">🔬 {t("วิจัย", "Research", "研究")}</div><div className="cb-row">
+            {TECH.map((tc, i) => (<button key={tc.id} className={"cb-card af-t" + (S.tech[i] ? " on" : "")} data-tech={i} disabled={S.tech[i] || S.stock.sc < tcost(i)} onClick={() => buyTech(i)}><i>{["♻", "🌱", "☀"][i]}</i><b>{T3(lang, tc.name[0], tc.name[1], tc.name[2])}</b><small>{S.tech[i] ? "✓" : "🔬 " + tcost(i)}</small></button>))}</div></div>
         </div>
       </div>
-      <div className="sc-news" data-news="1"><b>📰</b><span key={S.news.length} className="sc-tick">{S.news.slice(0, 5).map((n: any) => (lang === "th" ? "วันที่ " : lang === "zh" ? "第" : "Day ") + n.d + (lang === "zh" ? "天" : "") + ": " + T3(lang, NEWS[n.k][0], NEWS[n.k][1], NEWS[n.k][2])).join("   ◆   ")}</span></div>
+      {advisor && (<div className="sc-win cb-win" role="dialog" data-advisorwin="1"><div className="sc-wt"><span>🧑‍🚀 {t("ที่ปรึกษา", "Advisor", "顾问")}</span><button data-advisor-close="1" onClick={() => { pausedRef.current = false; setAdvisor(false); }}>✕</button></div>
+        <div className="sc-wb">
+          <div className="cb-adv-head"><span className="sc-date" data-date="1">{["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][Math.floor(S.days / 4) % 12]} {ERAS[eraOf(S)].y + Math.floor(S.days / 48)}</span><span className="sc-apr" data-approval={dm.ap}>{"★".repeat(Math.round(dm.ap / 20))}{"☆".repeat(5 - Math.round(dm.ap / 20))} {dm.ap}%</span></div>
+          <div className="sc-ph">{t("แผนที่ย่อ", "Minimap", "小地图")}</div>
+          <div className="sc-mini" data-mini="1" style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)` }}>{S.grid.map((c: any, i: number) => <i key={i} style={{ background: c.b ? MINI[c.b] || "#fff" : c.f === "ice" ? "#335a7a" : c.f === "ore" ? "#6a4a2a" : "#1d2a33" }} />)}</div>
+          <div className="sc-ph">{t("ความต้องการ", "Demand", "需求")}</div>
+          <div className="sc-rci" data-rci="1">{([["H", dm.H, "#3ccf5b", t("ที่พัก", "Homes", "住房")], ["W", dm.W, "#4a8cff", t("ผลิต", "Work", "生产")], ["S", dm.Sv, "#ffd23f", t("บริการ", "Services", "服务")]] as any[]).map(([k, v, col, nm]) => (<span key={k} data-rci-bar={k} title={nm}><u><i style={{ height: Math.round(v * 100) + "%", background: col }} /></u><b>{k}</b><small>{nm}</small></span>))}</div>
+          <div className="af-fact">💡 {T3(lang, site.note[0], site.note[1], site.note[2])} · {T3(lang, fact[0], fact[1], fact[2])}</div>
+        </div></div>)}
       {budget && (<div className="sc-win" role="dialog" data-budget="1"><div className="sc-wt"><span>📊 {t("งบประมาณและสถิติ", "Budget & statistics", "预算与统计")}</span><button data-budget-close="1" onClick={() => { pausedRef.current = false; setBudget(false); }}>✕</button></div>
         <div className="sc-wb"><table><thead><tr><th>{t("ทรัพยากร", "Resource", "资源")}</th><th>{t("คงเหลือ", "Stock", "库存")}</th><th>{t("ต่อวัน", "Per day", "每天")}</th></tr></thead><tbody>
           {RES.map(r => (<tr key={r.k}><td>{r.icon} {T3(lang, r.name[0], r.name[1], r.name[2])}</td><td>{Math.floor(S.stock[r.k])}</td><td className={S.rate[r.k] < -0.01 ? "neg" : "pos"}>{S.rate[r.k] >= 0 ? "+" : ""}{(S.rate[r.k] * DAY).toFixed(1)}</td></tr>))}</tbody></table>
