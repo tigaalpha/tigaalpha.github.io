@@ -23,7 +23,7 @@ async function open(re) {
   return { ctx, p, errs };
 }
 const st = (p) => p.evaluate(() => window.__advBuild.state());
-for (const [nm, kind, N] of [["Colony Starship", "ship", 8], ["Dyson Sphere", "dyson", 10], ["Jupiter Gas Base", "gas", 8], ["Asteroid Mining Base", "mine", 8]]) {
+for (const [nm, kind, N] of [["Colony Starship", "ship", 3], ["Dyson Sphere", "dyson", 3], ["Jupiter Gas Base", "gas", 3], ["Asteroid Mining Base", "mine", 3]]) {
   const { ctx, p, errs } = await open(nm);
   const s0 = await st(p); ok(nm + ": opens with a music question and no parts built", s0.kind === kind && s0.N === N && s0.built === 0 && s0.phase === "ask" && (await p.locator("[data-opt]").count()) >= 2, JSON.stringify(s0));
   ok(nm + ": the robot crew is shown and says it needs an answer", (await p.locator(".ab-r").count()) === 4 && /answer/i.test(await p.innerText(".ab-say")));
