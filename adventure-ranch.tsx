@@ -3,6 +3,7 @@
    and then give milk, eggs, bacon and wool, a barn that counts the food, and a delivery rocket that carries it to the hungry colony. Everything is drawn from code on one canvas
    (soft hills, grass tufts, a red barn, a spinning windmill, fences, round-eyed animals that wander, crops that grow through three stages and bounce when ripe).
    Win = the colony has received its food quota. No coins, crystals + EXP only. */
+import { finishLook } from "./cg-finish";
 import { useEffect, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
@@ -105,6 +106,7 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
   S.plots.forEach((c: any, i: number) => { if (c.crop && c.p >= 100) bub(PLOTS[i].x, PLOTS[i].y - 34, ITEM_ICON[c.crop] || "✔"); });
   S.animals.forEach((A: any, i: number) => { if (A.prog >= 100) bub(ANIMALS[i].x, ANIMALS[i].y - 66, ANIMALS[i].prod); });
   x.font = "bold 22px sans-serif"; for (const f of S.floats) { x.globalAlpha = Math.max(0, 1 - f.age / 1.4); x.fillStyle = "#fff"; x.strokeStyle = "#3a2410"; x.lineWidth = 4; x.strokeText(f.txt, f.x, f.y - f.age * 40); x.fillText(f.txt, f.x, f.y - f.age * 40); } x.globalAlpha = 1;
+  finishLook(x, VW, VH, T, "255,226,170", 0.8);
   // glass dome shine
   x.strokeStyle = "rgba(255,255,255,.35)"; x.lineWidth = 5; x.beginPath(); x.moveTo(0, VH - 4); x.quadraticCurveTo(VW / 2, -120, VW, VH - 4); x.stroke(); x.strokeStyle = "rgba(255,255,255,.16)"; x.lineWidth = 3; x.beginPath(); x.moveTo(0, 150); x.lineTo(VW, 150); x.moveTo(VW / 2, 0); x.lineTo(VW / 2, 232); x.stroke();
 }
