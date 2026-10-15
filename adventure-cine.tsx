@@ -3,6 +3,7 @@
    2100, the factory that builds the pioneer robots, the fleet leaving, the approach to the planet, the surface (its own look per world),
    the guardian when there is one, and an objective card with the player's own robot. Subtitles in th/en/zh (there is no voice-over),
    an original score and sound effects from adventure-music.ts. Tap = next shot, Skip = straight into the map. */
+import { finishLook } from "./cg-finish";
 import { useEffect, useRef, useState, memo } from "react";
 import { CyberAvatar } from "./cyber-avatar";
 import { createCineAudio, renderCinePreview, cineEnergy, CINE_ACTION, CINE_CALM, type CineShot } from "./adventure-music";
@@ -978,7 +979,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       x.restore();
       overlay(x, W, H, lt, (s as any).ov);
       hypeCut(x, W, H, local, s.kind);
-      epicLook(x, W, H, el, k, P); punch(x, W, H, el, local, k, cineEnergy(plan, i)); bloom(x, W, H); realLook(x, W, H, el);
+      epicLook(x, W, H, el, k, P); punch(x, W, H, el, local, k, cineEnergy(plan, i)); bloom(x, W, H); realLook(x, W, H, el); finishLook(x, W, H, el, (P.acc || "255,200,130"), 0.7);
       const v = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.6)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
       x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 220; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.1, 1.1);   // film grain
       const bar = H * 0.13; x.fillStyle = "#000"; x.fillRect(0, 0, W, bar); x.fillRect(0, H - bar, W, bar);

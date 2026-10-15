@@ -4,6 +4,7 @@
    every second, colonists who need oxygen, water, food and power and who only move in when there is a free home, research that unlocks better buildings,
    a hazard that belongs to the site (night, dust storm, cold, flare), and a career the player picks (it tilts the numbers, and in an online room each pilot
    will hold one). Win = the colony reaches its population target while every need is still met. DOM only, no downloads, no coins (crystals + EXP). */
+import { finishLook } from "./cg-finish";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
@@ -158,6 +159,7 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
     else if (kind2 === "titan") { for (let i = 0; i < 40; i++) { x.fillStyle = "rgba(200,230,255," + 0.5 * k + ")"; x.fillRect((i * 71) % W, ((i * 29 + T * 90) % H), 2, 2); } }
     else { if (Math.sin(T * 14) > 0.4) { x.fillStyle = "rgba(255,70,70," + 0.22 * k + ")"; x.fillRect(0, 0, W, H); } } }
   const vg = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,10,.5)"); x.fillStyle = vg; x.fillRect(0, 0, W, H);
+  finishLook(x, W, H, T, kind === "proxima" ? "255,140,110" : kind === "mars" ? "255,190,130" : "255,226,180", 0.9);
 }
 
 const rng = (seed: number) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
