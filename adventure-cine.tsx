@@ -269,12 +269,26 @@ function basePlan(P: any, short?: boolean): CineShot[] {
   if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "contact", dur: 5, theme: "harvest" }, { kind: "mind", dur: 5, theme: "ai" }, { kind: "howto", dur: 8 }];
   if (short === undefined) short = seenPrologue();
   const q: CineShot[] = short ? [] : [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }];
-  const cat = catOf(P), lore: CineShot[] = LORE_THEME[P.id] ? [{ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] }] : [], boss: CineShot[] = P.boss && P.boss[0] !== "-" ? [{ kind: "boss", dur: 3.8 }] : [];
+  const cat = catOf(P), genre = genreOf(P), lore: CineShot[] = LORE_THEME[P.id] ? [{ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] }] : [], boss: CineShot[] = P.boss && P.boss[0] !== "-" ? [{ kind: "boss", dur: 3.8 }] : [];
   const main: CineShot = { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 };
   q.push({ kind: "approach", dur: 4.4 });
-  if (cat === "work") { if (P.mission === "farm" || P.mission === "yard") q.push({ kind: "survey", dur: 4.4 }, { kind: "crew", dur: 4.4 }); else q.push({ kind: "survey", dur: 4.6 }, { kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }); q.push({ kind: "work", dur: 5.4 }); if (P.mission !== "farm" && P.mission !== "yard") q.push({ kind: "storm", dur: 4.4 }); q.push({ kind: "signal", dur: 4.8 }, ...lore, { kind: "dawn", dur: 5 }); }
-  else if (cat === "ship") q.push({ kind: "survey", dur: 4.6 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, { kind: "signal", dur: 4.8 }, ...lore);
-  else q.push({ kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, ...lore, ...boss);
+  // owner, 2026-10-15: "reuse the old scenes, but don't let players catch the pattern." Every genre still draws from
+  // exactly the same shot vocabulary (nothing new, nothing removed from what a category already showed) — only the
+  // ORDER changes, so the beats a fantasy or cyberpunk film leads with and lingers on genuinely differ beat-to-beat,
+  // without the risk of inventing brand-new shots this file's own tests weren't built to check.
+  if (cat === "work") {
+    if (P.mission === "farm" || P.mission === "yard") q.push({ kind: "survey", dur: 4.4 }, { kind: "crew", dur: 4.4 }, { kind: "work", dur: 5.4 }, { kind: "signal", dur: 4.8 }, ...lore, { kind: "dawn", dur: 5 });
+    else if (genre === "fantasy") q.push({ kind: "survey", dur: 4.6 }, { kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "work", dur: 5.4 }, ...lore, { kind: "storm", dur: 4.4 }, { kind: "dawn", dur: 5 }, { kind: "signal", dur: 4.8 });
+    else if (genre === "cyberpunk") q.push({ kind: "survey", dur: 4.6 }, { kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "storm", dur: 4.4 }, { kind: "work", dur: 5.4 }, { kind: "signal", dur: 4.8 }, ...lore, { kind: "dawn", dur: 5 });
+    else q.push({ kind: "survey", dur: 4.6 }, { kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "work", dur: 5.4 }, { kind: "storm", dur: 4.4 }, { kind: "signal", dur: 4.8 }, ...lore, { kind: "dawn", dur: 5 });
+  } else if (cat === "ship") {
+    if (genre === "cyberpunk") q.push({ kind: "survey", dur: 4.6 }, { kind: "warning", dur: 4.2 }, { kind: "crew", dur: 4.4 }, main, { kind: "signal", dur: 4.8 }, ...lore);
+    else q.push({ kind: "survey", dur: 4.6 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, { kind: "signal", dur: 4.8 }, ...lore);
+  } else {
+    if (genre === "fantasy") q.push({ kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "crew", dur: 4.4 }, main, ...lore, { kind: "warning", dur: 4.2 }, ...boss);
+    else if (genre === "cyberpunk") q.push({ kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "warning", dur: 4.2 }, { kind: "crew", dur: 4.4 }, main, ...lore, ...boss);
+    else q.push({ kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, ...lore, ...boss);
+  }
   q.push({ kind: "objective", dur: 6 });
   return q;
 }
