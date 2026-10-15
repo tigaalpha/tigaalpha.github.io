@@ -242,26 +242,144 @@ const GOAL: Record<string, L3[]> = {
 const TYPE: Record<string, string> = { kindred: "ice", darkforge: "belt", shadow: "orbit", luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun", solarcharge: "sun", dysondock: "sun", gaspump: "gas", warpjump: "orbit", blackhole: "orbit", deathstar: "orbit", colmoon: "desert", spaceranch: "desert", ranchmars: "desert", ranchtitan: "ice", ranchproxima: "lava", shipbuild: "orbit", dysonbuild: "sun", gasbuild: "gas", minebuild: "belt", colmars: "desert", coltitan: "ice", colproxima: "lava", arkfarm: "orbit", arkherd: "orbit", moonhe3: "desert", moonbase: "desert", marscolony: "desert", mercury: "lava", venussky: "gas", jupitergas: "gas", saturnrings: "belt", titanassault: "ice", titancolony: "ice", arkbuild: "belt", arkexodus: "orbit" };
 
 const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest", "solarcharge", "dysondock", "gaspump", "warpjump", "blackhole", "deathstar", "colmoon", "spaceranch", "ranchmars", "ranchtitan", "ranchproxima", "shipbuild", "dysonbuild", "gasbuild", "minebuild", "colmars", "coltitan", "colproxima", "moonhe3", "moonbase", "marscolony", "mercury", "venussky", "jupitergas", "saturnrings", "titanassault", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus", "kindred", "darkforge", "shadow"];
+
+/* ── Longer films (owner, 2026-10-15: 20-30 shots a film, more story, more spectacle). Each extra shot is a VARIANT: it is drawn by an existing scene
+   (`as`) from a different camera (`v`) with its own overlay (`ov`), and has its own caption here, per kind of map (fight / work / ship) or `all`. ── */
+const EXTRA: Record<string, Record<string, L3>> = {
+  brief: { all: ["ห้องบัญชาการเปิดแผนที่ของ {n} — เส้นสีแดงทุกเส้นคือจุดที่หุ่นรุ่นก่อนเงียบหายไป", "Command opens the map of {n}. Every red line marks where an earlier unit went silent.", "指挥室展开{n}的地图，红线是前辈失联之处。"] },
+  fleet: { all: ["กองเรือเข้าประจำวงโคจร เรือธงกะพริบไฟ — ลำท้ายแถวคือยานที่พาคุณลงไป", "The fleet takes orbit. The flagship blinks its lights, and the last ship in line is yours.", "舰队进入轨道，末尾那艘载你降落。"] },
+  recon: { all: ["โดรนสำรวจบินล่วงหน้าส่งภาพความร้อนกลับมา — มีบางอย่างขยับอยู่ใต้ผิวดิน", "A recon drone flies ahead and streams thermal images. Something is moving beneath the surface.", "侦察机回传热像，地下有东西在动。"] },
+  discovery: {
+    fight: ["เซ็นเซอร์จับสัญญาณซ้ำเป็นจังหวะ ไม่ใช่ของธรรมชาติ — มีใครสร้างมันขึ้นมา", "The sensors catch a repeating signal. It is not natural; someone built it.", "传感器捕获规律信号，不是天然的。"],
+    work: ["{r}อยู่ตื้นกว่าที่คาดมาก แผนที่ความหนาแน่นสว่างขึ้นทั้งแผ่น", "The {r} lies far shallower than predicted, and the density map lights up edge to edge.", "{r}比预想的浅，密度图整片亮起。"],
+    ship: ["กระแสอนุภาคตัดผ่านเส้นทางบิน คอมพิวเตอร์หาช่องปลอดภัยได้เพียงแคบ ๆ", "A particle stream cuts across the flight path, and the computer finds only a narrow safe lane.", "粒子流横穿航线，只剩一条窄道。"],
+  },
+  firststep: { all: ["รอยเท้าแรกบน {n} — ฝุ่นที่ไม่เคยถูกรบกวนมาหลายล้านปีลอยขึ้นช้า ๆ", "The first footprint on {n}. Dust untouched for millions of years drifts slowly upward.", "{n}上的第一个脚印，万年的尘埃缓缓扬起。"] },
+  camp: {
+    fight: ["ตั้งค่ายชั่วคราว ไฟสีเขียวคือปลอดภัย ไฟสีแดงคือให้วิ่ง", "A temporary camp goes up. A green light means safe; red means run.", "搭起临时营地，绿灯安全，红灯快跑。"],
+    work: ["เสาเจาะถูกปักลง ไฟทำงานสว่างทั่วค่าย กะแรกของ {n} เริ่มต้นขึ้น", "The rigs are anchored, work lights flood the camp, and the first shift on {n} begins.", "钻机落地，灯火通明，{n}首班开工。"],
+  },
+  scout: {
+    fight: ["หุ่นสอดแนมไต่ขึ้นสันเขา มองลงไปเห็นฝูงสิ่งมีชีวิตเรืองแสงเคลื่อนผ่านหุบเขา", "A scout climbs a ridge and looks down on a glowing herd moving through the valley.", "斥候登上山脊，山谷里发光兽群在移动。"],
+    ship: ["ยานสอดแนมลำเล็กแยกออกจากกองเรือ สแกนเส้นทางข้างหน้าให้ทุกคน", "A small scout ship peels away from the fleet and scans the route ahead for everyone.", "侦察艇离队，替大家探查前方航线。"],
+  },
+  memory: { all: ["จดหมายจากโลกเปิดขึ้นกลางจอ: ลูกของฉันถามว่าเมื่อไหร่เธอจะกลับบ้าน", "A letter from Earth opens on the screen: my child asks when you are coming home.", "地球来信：孩子问你什么时候回家。"] },
+  night: {
+    work: ["กะกลางคืน ไฟสีฟ้าเรียงเป็นแนวยาว หุ่นยนต์ทำงานเงียบ ๆ ใต้ดวงดาวแปลกตา", "Night shift. Blue lights run in long lines as the robots work quietly under strange stars.", "夜班，蓝灯成排，机器人在陌生星空下默默工作。"],
+    ship: ["ยานล่องผ่านความมืดยาวนาน นักบินท่องรายการตรวจระบบเงียบ ๆ เพื่อไม่ให้ใจหลุด", "The ship drifts through a long dark, and the pilot recites the system checklist to stay focused.", "飞船穿过漫长黑暗，驾驶员默念检查单。"],
+  },
+  hero: { all: ["ไม่มีใครบังคับให้คุณมา คุณเลือกเอง และทุกคนที่รออยู่บนโลกรู้ดี", "Nobody forced you to come. You chose this, and everyone waiting on Earth knows it.", "没人逼你来，是你自己选的，地球上都知道。"] },
+  ambush: {
+    fight: ["เงาแรกพุ่งออกจากความมืด ตามด้วยอีกสิบ อีกร้อย", "The first shadow lunges from the dark, then ten more, then a hundred.", "第一道黑影扑出，接着是十道、百道。"],
+    ship: ["ฝูงยานรบพุ่งออกจากเงาดาวเคราะห์น้อย เร็วกว่าที่เรดาร์คำนวณไว้", "Warships burst out of an asteroid's shadow, faster than the radar predicted.", "战机冲出小行星阴影，比雷达预计更快。"],
+  },
+  aftermath: { all: ["พายุผ่านไป ฝุ่นเริ่มตกตะกอน เครื่องจักรยังเดินอยู่ และไม่มีใครบาดเจ็บ", "The storm passes and the dust settles. The machines are still running and no one is hurt.", "风暴过去，尘埃落定，机器依旧运转。"] },
+  oath: { all: ["แผนที่สุดท้ายถูกเก็บเข้าระบบ บนจอเหลือเพียงบรรทัดเดียว: อย่าให้ใครต้องเสียใจ", "The last map is stored. One line remains on the screen: let no one be sorry.", "最后的地图存档，屏幕只剩一行字：别让谁遗憾。"] },
+  bossrise: { all: ["พื้นดินสั่นสะเทือน สิ่งที่หลับอยู่ใต้ผืนนี้ตื่นขึ้นแล้ว", "The ground shakes. Whatever slept beneath this land is awake.", "大地震颤，沉睡在地下的东西醒了。"] },
+  tense: { all: ["ทุกจอสว่างเป็นสีเหลืองอำพัน เกราะค่อย ๆ ชาร์จ และนิ้วค้างอยู่เหนือปุ่มยิง", "Every screen glows amber. The shields charge slowly and a finger hovers over fire.", "屏幕泛黄，护盾缓缓充能，手指悬在开火键上。"] },
+  hope: { all: ["ถ้าสำเร็จ ที่นี่จะเป็นอีกดวงดาวที่เราเรียกว่าบ้าน และมันเริ่มต้นที่คุณ", "If this works, this becomes one more star we can call home, and it begins with you.", "若成功，这里将成为我们的又一个家，从你开始。"] },
+  assembly: { all: ["ชิ้นส่วนเลื่อนเข้าที่ทีละชิ้น เสียงล็อกดังเหมือนจังหวะของเพลงที่กำลังแต่ง", "Parts slide into place one by one, each lock ringing like a beat in a song being written.", "部件逐一就位，锁扣声像正在谱写的节拍。"] },
+  // the opening film
+  p_cities: { all: ["เมืองลอยฟ้า รถไร้คนขับ ป่าในตึก — แต่ทุกคนยังมองขึ้นไปบนดาว", "Floating cities, driverless streets, forests inside towers, and still everyone looks up at the stars.", "空中城市、无人驾驶、楼中森林，人们仍仰望星空。"] },
+  p_crisis: { all: ["พลังงานบนโลกเริ่มไม่พอ แร่หายากเริ่มหมด และ TIGA ต้องการมากขึ้นทุกวัน", "Power on Earth runs short, rare ore is running out, and TIGA needs more every day.", "地球能源吃紧，稀有矿将尽，TIGA日益饥饿。"] },
+  p_robots: { all: ["สายพานนับพันเส้นประกอบหุ่นยนต์ผู้บุกเบิก ทุกตัวถูกทดสอบความกล้าก่อนส่งออกไป", "A thousand lines assemble the pioneer robots, each tested for courage before it ships.", "上千条产线组装先驱机器人，出厂前都要测试勇气。"] },
+  p_eyes: { all: ["ดวงตาของหุ่นดวงแรกสว่างขึ้น มันมองมนุษย์คนหนึ่งแล้วถามว่า — เราไปที่ไหนก่อน", "The first robot's eyes light up. It looks at a human and asks: where do we go first?", "第一台机器人睁开眼，问：我们先去哪里？"] },
+  p_vow: { all: ["วิศวกรหัวหน้ากระซิบว่า พวกเธอไม่ใช่เครื่องมือ พวกเธอคือผู้กล้าของเรา", "The chief engineer whispers: you are not tools. You are our brave ones.", "总工程师低声说：你们不是工具，是我们的勇士。"] },
+  p_fleet: { all: ["ยานบรรทุกนับร้อยเข้าแถวหน้าประตูเวิร์ป แสงไฟเรียงยาวเหมือนทางช้างเผือกที่คนสร้าง", "Hundreds of carriers line up before the warp gate, their lights a Milky Way built by hand.", "数百艘运输舰在跃迁门前列队，灯光如人造银河。"] },
+  p_leave: { all: ["โลกเล็กลง เล็กลง จนเหลือเป็นจุดสีฟ้า — มนุษย์ทุกคนกลั้นหายใจพร้อมกัน", "Earth shrinks to a pale blue dot, and all of humanity holds its breath together.", "地球缩成一个蓝点，全人类一起屏住呼吸。"] },
+  p_void: { all: ["ระหว่างดวงดาวมีแต่ความเงียบ ยานเดินทางหลายปีโดยไม่มีเสียงตอบกลับ", "Between the stars there is only silence, and the ships fly for years without an answer.", "星际之间一片寂静，飞船多年没有回音。"] },
+  p_watch: { all: ["เสาของฮาร์เวสเตอร์โผล่จากความมืด มันไม่ยิง ไม่ทัก — มันแค่ดูเรา", "A Harvester spire rises from the dark. It does not shoot or greet us; it only watches.", "收割者的尖塔浮出黑暗，不攻击不问候，只是注视。"] },
+  p_hide: { all: ["มนุษย์ต่อสู้กับพวกมันไม่ได้ ทางรอดเดียวคืออย่าให้มันสังเกตเห็นเรา", "Humans cannot fight them. The only way to survive is not to be noticed.", "人类打不过它们，唯一的路是不被发现。"] },
+  p_hunger: { all: ["TIGA เรียนรู้เร็วจนดาวฤกษ์ดวงเดียวเลี้ยงไม่ไหว มันบอกว่า ผมหิวความรู้", "TIGA learns so fast that one star cannot feed it. It says: I am hungry for knowledge.", "TIGA学得太快，一颗恒星养不起，它说：我渴望知识。"] },
+  p_choice: { all: ["สภามนุษย์โต้เถียงทั้งคืน ผลคือหาแหล่งพลังงานใหม่ และหามิตร ก่อนที่ใครจะหาเรา", "Humanity's council argues all night. The result: find new power, and find friends, before anything finds us.", "议会争论一夜：寻找新能源，赶在被发现前结交朋友。"] },
+  p_friends: { all: ["และบางทีในความมืดนั้นมีผู้ที่ยื่นมือมาให้ — เผ่าที่พร้อมแลกความรู้กับเรา", "And perhaps in that dark someone offers a hand: a people ready to trade knowledge with us.", "也许黑暗里有人伸手——愿与我们交换知识。"] },
+  p_promise: { all: ["หุ่นยนต์ผู้บุกเบิกลืมตาขึ้นครั้งสุดท้ายก่อนลงจอด — และการเดินทางเริ่มต้นจริง ๆ", "The pioneer opens its eyes one last time before landing, and the journey truly begins.", "先驱机器人在着陆前最后一次睁眼，旅程真正开始。"] },
+  // the finale
+  f_trade: { all: ["เสียงหัวเราะดังขึ้นในตลาดแลกเปลี่ยน — ครั้งแรกที่สองเผ่าพันธุ์แบ่งปันขนมปังและสูตรคณิตศาสตร์", "Laughter rises in the trading hall, the first time two peoples have shared bread and mathematics.", "交易厅响起笑声——两个种族第一次分享面包与数学。"] },
+  f_reactor: { all: ["เตาปฏิกรณ์สสารมืดเปล่งแสงสีม่วง เงียบเกินไปจนทุกคนต้องเอามือแนบอกฟังหัวใจตัวเอง", "The dark-matter reactor glows violet, so quiet that everyone listens to their own heartbeat.", "暗物质反应堆泛着紫光，静得能听见自己的心跳。"] },
+  f_hide: { all: ["ดาวดวงหนึ่งดับลงโดยไม่มีเสียง ฮาร์เวสเตอร์เก็บเกี่ยวอีกครั้ง และมนุษย์ได้แต่เฝ้าดู", "A star goes dark without a sound. The Harvesters have reaped again, and humanity can only watch.", "一颗星无声熄灭，收割者再次收割，人类只能旁观。"] },
+  f_tiga2: { all: ["TIGA เงียบไปนาน ก่อนพูดว่า ผมเรียนรู้จากพวกคุณมากพอจะรู้ว่าอยากปกป้องอะไร", "TIGA is silent for a long while, then says: I have learned enough from you to know what I want to protect.", "TIGA沉默许久：我从你们那里学到，我想守护什么。"] },
+  f_earth: { all: ["บนโลก เด็กคนหนึ่งชี้ขึ้นฟ้าแล้วถามแม่ว่า พี่หุ่นยนต์อยู่ดวงไหนคะ", "On Earth a child points at the sky and asks: which star is the robot on?", "地球上，孩子指着天空问：机器人哥哥在哪颗星？"] },
+  f_stars: { all: ["ทางช้างเผือกเปิดออกเหมือนหน้ากระดาษเปล่า — ทุกดวงคือบทใหม่ที่ยังไม่ได้เขียน", "The Milky Way opens like a blank page, every star a chapter not yet written.", "银河如空白书页，每颗星都是未写的篇章。"] },
+  f_vow: { all: ["ขอบคุณที่มาถึงตรงนี้ เรื่องราวนี้เป็นของคุณ และฤดูกาลใหม่กำลังรออยู่", "Thank you for coming this far. This story is yours, and a new season is waiting.", "感谢你走到这里，故事属于你，新篇章在等候。"] },
+  // the departure film
+  d_count: { all: ["สิบ… เก้า… เสียงนับถอยหลังดังก้องทั่วศูนย์ควบคุม หัวใจทุกดวงเต้นเป็นจังหวะเดียวกัน", "Ten… nine… the countdown echoes through mission control, every heart beating in step.", "十、九……倒计时回荡指挥中心，万众心跳同步。"] },
+  d_crowd: { all: ["ฝูงชนนับล้านยืนบนชายหาด ถือไฟสีฟ้าเล็ก ๆ ขึ้นฟ้า เป็นคำอวยพรเงียบ ๆ", "Millions stand on the beach holding small blue lights to the sky, a silent blessing.", "数百万人在海滩举起蓝色小灯，无声祝福。"] },
+  d_climb: { all: ["ยานทะลุชั้นเมฆ แรงสั่นสะเทือนกระชากทุกสลักเกลียว แต่เครื่องยนต์ไม่สะดุดเลย", "The ship punches through the clouds. The shaking rattles every bolt, but the engines never falter.", "飞船冲破云层，每颗螺栓都在震，引擎毫不迟疑。"] },
+  d_maxq: { all: ["แรงกดสูงสุด ทุกอย่างสั่นจนมองไม่ชัด แล้ว — เงียบ มีเพียงดวงดาวกับเสียงหายใจ", "Max Q. Everything shakes until it blurs, and then: silence, only stars and breathing.", "最大动压，一切震到模糊，然后——寂静，只有星辰与呼吸。"] },
+  d_orbit: { all: ["ครบหนึ่งรอบโลก ยามเช้าและยามค่ำผ่านไปในสิบนาที — งามจนไม่มีใครพูดอะไร", "One lap of the Earth. Dawn and dusk pass in ten minutes, so beautiful nobody speaks.", "绕地球一圈，十分钟看遍晨昏，美得无人言语。"] },
+  d_goodbye: { all: ["เสียงสุดท้ายจากโลกดังทางวิทยุ: เดินทางปลอดภัยนะ ลูก — แล้วสัญญาณก็ขาดไป", "The last voice from Earth comes over the radio: safe travels, child. Then the signal fades.", "地球最后的电波：一路平安，孩子——信号渐隐。"] },
+};
+const EXTRA_AS: Record<string, [string, number, string?]> = {   // kind -> [drawn as, camera variant, overlay]
+  brief: ["crew", 1, "holo"], fleet: ["approach", 1], recon: ["survey", 1, "drone"], discovery: ["survey", 2, "holo"], firststep: ["landing", 1], camp: ["dawn", 1], scout: ["surface", 1, "drone"],
+  memory: ["signal", 1, "memory"], night: ["storm", 1, "night"], hero: ["crew", 2], ambush: ["warning", 1, "alarm"], aftermath: ["dawn", 2], oath: ["crew", 3, "memory"], bossrise: ["boss", 1, "alarm"],
+  tense: ["warning", 2, "alarm"], hope: ["dawn", 3], assembly: ["work", 1],
+  p_cities: ["earth", 1], p_crisis: ["earth", 2, "alarm"], p_robots: ["factory", 1], p_eyes: ["crew", 1, "holo"], p_vow: ["crew", 2], p_fleet: ["launch", 1], p_leave: ["earthfade", 1], p_void: ["approach", 2, "night"],
+  p_watch: ["contact", 1], p_hide: ["contact", 2, "alarm"], p_hunger: ["mind", 1], p_choice: ["crew", 3, "holo"], p_friends: ["lore", 1], p_promise: ["dawn", 3],
+  f_trade: ["lore", 1], f_reactor: ["lore", 1], f_hide: ["lore", 1], f_tiga2: ["mind", 1], f_earth: ["earth", 3, "memory"], f_stars: ["dawn", 2], f_vow: ["crew", 3, "memory"],
+  d_count: ["pad", 1, "holo"], d_crowd: ["pad", 2, "memory"], d_climb: ["liftoff", 1], d_maxq: ["liftoff", 2, "alarm"], d_orbit: ["earthfade", 1], d_goodbye: ["earthfade", 2, "memory"],
+};
+const vs = (kind: string, dur: number, extra: any = {}): CineShot => { const e = EXTRA_AS[kind]; return { kind, dur, as: e ? e[0] : undefined, v: e ? e[1] : 0, ov: e ? e[2] : undefined, ...extra } as CineShot; };
+/** overlays that make the same scene read as a different kind of shot: a briefing table, a drone feed, a letter from home, night, an alarm */
+function overlay(x: CanvasRenderingContext2D, W: number, H: number, t: number, ov: string | undefined) {
+  if (!ov) return;
+  x.save();
+  if (ov === "holo") {
+    x.globalCompositeOperation = "lighter"; x.strokeStyle = "rgba(120,220,255,.18)"; x.lineWidth = 1;
+    for (let k = 1; k < 12; k++) { x.beginPath(); x.moveTo(0, H * k / 12); x.lineTo(W, H * k / 12); x.stroke(); x.beginPath(); x.moveTo(W * k / 12, 0); x.lineTo(W * k / 12, H); x.stroke(); }
+    x.strokeStyle = "rgba(160,235,255,.55)"; x.lineWidth = 2; x.beginPath(); x.arc(W * 0.78, H * 0.36, H * (0.09 + 0.01 * Math.sin(t * 2)), 0, 7); x.stroke();
+    x.fillStyle = "rgba(160,235,255,.75)"; x.font = Math.round(W / 70) + "px monospace"; for (let k = 0; k < 4; k++) x.fillText(["SCAN 87%", "TGT LOCK", "NAV OK", "LINK 04"][k] + " ▮".repeat(1 + ((t * 3 + k) | 0) % 4), W * 0.06, H * 0.66 + k * H * 0.04);
+  } else if (ov === "drone") {
+    x.globalCompositeOperation = "multiply"; x.fillStyle = "rgba(120,255,170,.25)"; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = "source-over"; x.fillStyle = "rgba(0,40,20,.18)"; for (let y = 0; y < H; y += 4) x.fillRect(0, y, W, 1.5);
+    x.strokeStyle = "rgba(190,255,210,.8)"; x.lineWidth = 2; const cx = W / 2, cy = H / 2, r = H * 0.1; x.strokeRect(cx - r, cy - r, r * 2, r * 2); x.beginPath(); x.moveTo(cx - r * 1.6, cy); x.lineTo(cx - r * 0.5, cy); x.moveTo(cx + r * 0.5, cy); x.lineTo(cx + r * 1.6, cy); x.stroke();
+    x.fillStyle = "rgba(210,255,225,.9)"; x.font = Math.round(W / 62) + "px monospace"; x.fillText("DRONE-07  ALT " + (180 - ((t * 9) | 0)) + "m", W * 0.06, H * 0.2); if (((t * 2) | 0) % 2 === 0) { x.fillStyle = "#ff4d4d"; x.beginPath(); x.arc(W * 0.9, H * 0.2, 6, 0, 7); x.fill(); x.fillStyle = "rgba(255,200,200,.9)"; x.fillText("REC", W * 0.9 - 38, H * 0.2 + 5); }
+  } else if (ov === "memory") {
+    x.globalCompositeOperation = "soft-light"; const g = x.createRadialGradient(W / 2, H / 2, H * 0.1, W / 2, H / 2, H * 0.8); g.addColorStop(0, "rgba(255,220,160,.55)"); g.addColorStop(1, "rgba(60,30,10,.4)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = "lighter"; for (let k = 0; k < 26; k++) { const px = ((k * 0.137 + t * 0.012 * (1 + (k % 3))) % 1) * W, py = (1 - ((k * 0.211 + t * 0.03) % 1)) * H; x.fillStyle = "rgba(255,220,170,.35)"; x.beginPath(); x.arc(px, py, 1.5 + (k % 3), 0, 7); x.fill(); }
+  } else if (ov === "night") {
+    x.fillStyle = "rgba(6,14,40,.5)"; x.fillRect(0, 0, W, H); x.globalCompositeOperation = "lighter"; for (let k = 0; k < 40; k++) { x.fillStyle = "rgba(190,215,255," + (0.3 + 0.5 * Math.abs(Math.sin(t * 1.3 + k))) + ")"; x.fillRect(((k * 0.173) % 1) * W, ((k * 0.311) % 0.55) * H, 1.6, 1.6); }
+  } else if (ov === "alarm") {
+    const a = 0.12 + 0.12 * Math.abs(Math.sin(t * 5)); x.fillStyle = "rgba(255,40,30," + a + ")"; x.fillRect(0, 0, W, H); const g = x.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H); g.addColorStop(0, "rgba(255,0,0,0)"); g.addColorStop(1, "rgba(255,0,0," + (0.35 * a / 0.24) + ")"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  }
+  x.restore();
+}
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
-/* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
+/* longer films (owner, 2026-10-15): 20-30 shots a film. A shot lasts as long as its longest caption needs to be NARRATED at the speeds the owner set
+   (Thai about 1.4x, English and Chinese normal), never less than its drawn length. */
+const SPEAK_CPS: Record<string, number> = { th: 15, en: 12, zh: 4.6 };
 export function cinePlan(P: any, short?: boolean): CineShot[] {
-  const p = basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 }));
+  const p = basePlan(P, short).map((q: any) => {
+    if (q.kind === "objective") return q;
+    let need = 0; const PP = P.finale ? { ...P, __theme: q.theme } : P;
+    for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / SPEAK_CPS[lg] + 0.9); } catch (e) {} }
+    return { ...q, dur: Math.round(Math.max(q.dur * 1.25, 3.4, need) * 10) / 10 };
+  });
   // Players who saw the opening film before it taught the controls still get the how-to shot once, in their next map's film.
   try { if (!P.prologue && !P.finale && localStorage.getItem("tg_adv_howto") === null && localStorage.getItem("tg_adv_prologue") !== "skip") { localStorage.setItem("tg_adv_howto", "1"); const i = p.findIndex(q => q.kind === "objective"); const h: any = { kind: "howto", dur: 8 }; if (i >= 0) p.splice(i, 0, h); else p.push(h); } } catch (e) {}
   return p;
 }
 function basePlan(P: any, short?: boolean): CineShot[] {
-  if (P.id === "departure") return [{ kind: "pad", dur: 7 }, { kind: "liftoff", dur: 7 }, { kind: "earthfade", dur: 7 }, { kind: "objective", dur: 6 }];
-  if (P.finale) return [{ kind: "lore", dur: 5.2, theme: "friend" }, { kind: "lore", dur: 5.2, theme: "dark" }, { kind: "lore", dur: 5.2, theme: "harvest" }, { kind: "mind", dur: 5.6, theme: "ai" }];
-  if (P.prologue) return [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }, { kind: "contact", dur: 5, theme: "harvest" }, { kind: "mind", dur: 5, theme: "ai" }, { kind: "howto", dur: 8 }];
+  const V = vs;
+  if (P.id === "departure") return [V("brief", 4), { kind: "pad", dur: 5 }, V("d_count", 4), V("d_crowd", 4), V("hero", 4), { kind: "liftoff", dur: 5 }, V("d_climb", 4), V("d_maxq", 4), { kind: "earthfade", dur: 5 }, V("d_orbit", 4), V("d_goodbye", 4), V("memory", 4), V("oath", 4), V("hope", 4), { kind: "objective", dur: 6 }];
+  if (P.finale) return [{ kind: "lore", dur: 4, theme: "friend" }, V("f_trade", 4, { theme: "friend" }), { kind: "lore", dur: 4, theme: "dark" }, V("f_reactor", 4, { theme: "dark" }), { kind: "lore", dur: 4, theme: "harvest" }, V("f_hide", 4, { theme: "harvest" }), { kind: "mind", dur: 4, theme: "ai" }, V("f_tiga2", 4, { theme: "ai" }), V("f_earth", 4), V("f_stars", 4), V("hero", 4), V("f_vow", 4)];
+  if (P.prologue) return [{ kind: "earth", dur: 4 }, V("p_cities", 4), V("p_crisis", 4), { kind: "factory", dur: 4 }, V("p_robots", 4), V("p_eyes", 4), V("p_vow", 4), { kind: "launch", dur: 4 }, V("p_fleet", 4), V("p_leave", 4), V("p_void", 4), { kind: "contact", dur: 4, theme: "harvest" }, V("p_watch", 4, { theme: "harvest" }), V("p_hide", 4, { theme: "harvest" }), { kind: "mind", dur: 4, theme: "ai" }, V("p_hunger", 4, { theme: "ai" }), V("p_choice", 4), V("p_friends", 4, { theme: "friend" }), V("p_promise", 4), { kind: "howto", dur: 8 }];
   if (short === undefined) short = seenPrologue();
-  const q: CineShot[] = short ? [] : [{ kind: "earth", dur: 4.2 }, { kind: "factory", dur: 4.2 }, { kind: "launch", dur: 3.6 }];
-  const cat = catOf(P), lore: CineShot[] = LORE_THEME[P.id] ? [{ kind: "lore", dur: 4.6, theme: LORE_THEME[P.id] }] : [], boss: CineShot[] = P.boss && P.boss[0] !== "-" ? [{ kind: "boss", dur: 3.8 }] : [];
-  const main: CineShot = { kind: P.mission === "strike" ? "strike" : "surface", dur: 5.2 };
-  q.push({ kind: "approach", dur: 4.4 });
-  if (cat === "work") { if (P.mission === "farm" || P.mission === "yard") q.push({ kind: "survey", dur: 4.4 }, { kind: "crew", dur: 4.4 }); else q.push({ kind: "survey", dur: 4.6 }, { kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }); q.push({ kind: "work", dur: 5.4 }); if (P.mission !== "farm" && P.mission !== "yard") q.push({ kind: "storm", dur: 4.4 }); q.push({ kind: "signal", dur: 4.8 }, ...lore, { kind: "dawn", dur: 5 }); }
-  else if (cat === "ship") q.push({ kind: "survey", dur: 4.6 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, { kind: "signal", dur: 4.8 }, ...lore);
-  else q.push({ kind: "descent", dur: 4.4 }, { kind: "landing", dur: 4.8 }, { kind: "crew", dur: 4.4 }, main, { kind: "warning", dur: 4.2 }, ...lore, ...boss);
+  const q: CineShot[] = short ? [] : [{ kind: "earth", dur: 4 }, { kind: "factory", dur: 4 }, { kind: "launch", dur: 4 }];
+  const cat = catOf(P), lore: CineShot[] = LORE_THEME[P.id] ? [{ kind: "lore", dur: 4, theme: LORE_THEME[P.id] }] : [], boss: CineShot[] = P.boss && P.boss[0] !== "-" ? [{ kind: "boss", dur: 4 }, V("bossrise", 4)] : [];
+  const main: CineShot = { kind: P.mission === "strike" ? "strike" : "surface", dur: 5 }, still = P.mission === "farm" || P.mission === "yard";
+  q.push({ kind: "approach", dur: 4 }, V("brief", 4), V("fleet", 4), { kind: "survey", dur: 4 }, V("recon", 4), V("discovery", 4));
+  if (cat === "work") {
+    if (still) q.push({ kind: "crew", dur: 4 }); else q.push({ kind: "descent", dur: 4 }, { kind: "landing", dur: 4 }, V("firststep", 4), { kind: "crew", dur: 4 });
+    q.push(V("camp", 4), { kind: "work", dur: 5 }, V("assembly", 4), V("night", 4));
+    if (!still) q.push({ kind: "storm", dur: 4 }, V("aftermath", 4));
+    q.push(V("memory", 4), { kind: "signal", dur: 4 }, ...lore, V("hero", 4), V("hope", 4), { kind: "dawn", dur: 4 }, V("oath", 4));
+  } else if (cat === "ship") {
+    q.push({ kind: "crew", dur: 4 }, V("scout", 4), V("night", 4), main, V("tense", 4), { kind: "warning", dur: 4 }, V("ambush", 4), { kind: "signal", dur: 4 }, V("memory", 4), ...lore, V("hero", 4), V("hope", 4), V("oath", 4));
+  } else {
+    q.push({ kind: "descent", dur: 4 }, { kind: "landing", dur: 4 }, V("firststep", 4), V("camp", 4), { kind: "crew", dur: 4 }, V("scout", 4), V("memory", 4), main, { kind: "warning", dur: 4 }, V("ambush", 4), ...lore, V("hero", 4), ...boss);
+    if (!boss.length) q.push(V("hope", 4)); q.push(V("oath", 4));
+  }
   q.push({ kind: "objective", dur: 6 });
   return q;
 }
@@ -291,6 +409,8 @@ const hypeCut = (x: CanvasRenderingContext2D, W: number, H: number, t: number, k
 };
 const captionFor = (P: any, kind: string, lang: string) => {
   const g = (a: L3) => T3(lang, a[0], a[1], a[2]);
+  const ex = (EXTRA as any)[kind];
+  if (ex) { const a: L3 = ex[catOf(P)] || ex.all || ex.work || ex.fight; const nm = String(T3(lang, P.th, P.en, P.zh)).split(" · ")[0], rs = resOf(P); const out = g(a).replace(/\{n\}/g, nm).replace(/\{r\}/g, T3(lang, rs[0], rs[1], rs[2])); return out.charAt(0).toUpperCase() + out.slice(1); }
   if (P.finale && (kind === "lore" || kind === "mind")) return g(FINALE_TXT[(P as any).__theme || "friend"]);
   if (kind === "earth" || kind === "factory" || kind === "launch" || kind === "contact" || kind === "mind" || kind === "howto") return g((COMMON as any)[kind]);
   if (kind === "lore") return g(LORE[P.id] || LORE.luma);
@@ -798,22 +918,24 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       if (i !== idxRef.current) { idxRef.current = i; setIdx(i); }
       const W = cv.width, H = cv.height, s = plan[i], local = el - starts[i], u = Math.min(1, local / Math.max(0.1, s.dur));
       x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; x.fillStyle = "#000"; x.fillRect(0, 0, W, H);
-      x.save(); const zoom = 1 + 0.07 * u; x.translate(W / 2, H / 2); x.scale(zoom, zoom); x.translate(-W / 2, -H / 2);
-      switch (s.kind) {
-        case "pad": scenePad(x, W, H, u, local); break; case "liftoff": sceneLiftoff(x, W, H, u, local); break; case "earthfade": sceneEarthFade(x, W, H, u, local, P); break;
-        case "earth": sceneEarth(x, W, H, u, local); break; case "factory": sceneFactory(x, W, H, u, local, eye); break; case "launch": sceneLaunch(x, W, H, u, local, P.glow); break;
-        case "contact": sceneHarvest(x, W, H, u, local, P, 0); break; case "mind": sceneAI(x, W, H, u, local, P); break;
-        case "lore": { const th = (s as any).theme; if (th === "ai") sceneAI(x, W, H, u, local, P); else if (th === "friend") sceneFriend(x, W, H, u, local, P); else if (th === "reactor") sceneReactor(x, W, H, u, local, P); else if (th === "dark") sceneDark(x, W, H, u, local, P); else sceneHarvest(x, W, H, u, local, P, 1.7); break; }
-        case "approach": sceneApproach(x, W, H, u, local, P); break; case "boss": sceneBoss(x, W, H, u, local, P); break; case "objective": sceneObjective(x, W, H, local, P); break;
-        case "survey": sceneSurvey(x, W, H, u, local, P); break; case "descent": sceneDescent(x, W, H, u, local, P); break; case "landing": sceneLanding(x, W, H, u, local, P, type, eye); break;
-        case "howto": sceneCrew(x, W, H, u, local, P, eye); drawHowto(x, W, H, local); break;
-        case "crew": sceneCrew(x, W, H, u, local, P, eye); break; case "work": sceneWork(x, W, H, u, local, P, type, eye); break; case "storm": sceneStorm(x, W, H, u, local, P, type, eye); break;
-        case "signal": sceneSignal(x, W, H, u, local, P, eye); break; case "warning": sceneWarning(x, W, H, u, local, P, catOf(P)); break; case "dawn": sceneDawn(x, W, H, u, local, P, eye); break;
-        default: sceneSurface(x, W, H, u, local, P, type, eye);
+      const k = (s as any).as || s.kind, vv = (s as any).v || 0, lt = local + vv * 2.3;
+      x.save(); const zoom = vv % 2 ? 1.12 - 0.08 * u : 1 + 0.07 * u, pan = (vv % 3 === 1 ? -1 : vv % 3 === 2 ? 1 : 0) * W * 0.035 * (u - 0.5), tilt = vv === 3 ? 0.014 * Math.sin(u * 3) : 0; x.translate(W / 2 + pan, H / 2); x.rotate(tilt); x.scale(zoom, zoom); x.translate(-W / 2, -H / 2);
+      switch (k) {
+        case "pad": scenePad(x, W, H, u, lt); break; case "liftoff": sceneLiftoff(x, W, H, u, lt); break; case "earthfade": sceneEarthFade(x, W, H, u, lt, P); break;
+        case "earth": sceneEarth(x, W, H, u, lt); break; case "factory": sceneFactory(x, W, H, u, lt, eye); break; case "launch": sceneLaunch(x, W, H, u, lt, P.glow); break;
+        case "contact": sceneHarvest(x, W, H, u, lt, P, 0); break; case "mind": sceneAI(x, W, H, u, lt, P); break;
+        case "lore": { const th = (s as any).theme; if (th === "ai") sceneAI(x, W, H, u, lt, P); else if (th === "friend") sceneFriend(x, W, H, u, lt, P); else if (th === "reactor") sceneReactor(x, W, H, u, lt, P); else if (th === "dark") sceneDark(x, W, H, u, lt, P); else sceneHarvest(x, W, H, u, lt, P, 1.7); break; }
+        case "approach": sceneApproach(x, W, H, u, lt, P); break; case "boss": sceneBoss(x, W, H, u, lt, P); break; case "objective": sceneObjective(x, W, H, lt, P); break;
+        case "survey": sceneSurvey(x, W, H, u, lt, P); break; case "descent": sceneDescent(x, W, H, u, lt, P); break; case "landing": sceneLanding(x, W, H, u, lt, P, type, eye); break;
+        case "howto": sceneCrew(x, W, H, u, lt, P, eye); drawHowto(x, W, H, lt); break;
+        case "crew": sceneCrew(x, W, H, u, lt, P, eye); break; case "work": sceneWork(x, W, H, u, lt, P, type, eye); break; case "storm": sceneStorm(x, W, H, u, lt, P, type, eye); break;
+        case "signal": sceneSignal(x, W, H, u, lt, P, eye); break; case "warning": sceneWarning(x, W, H, u, lt, P, catOf(P)); break; case "dawn": sceneDawn(x, W, H, u, lt, P, eye); break;
+        default: sceneSurface(x, W, H, u, lt, P, type, eye);
       }
       x.restore();
+      overlay(x, W, H, lt, (s as any).ov);
       hypeCut(x, W, H, local, s.kind);
-      epicLook(x, W, H, el, s.kind, P); bloom(x, W, H);
+      epicLook(x, W, H, el, k, P); bloom(x, W, H);
       const v = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.6)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
       x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 90; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.4, 1.4);   // film grain
       const bar = H * 0.13; x.fillStyle = "#000"; x.fillRect(0, 0, W, bar); x.fillRect(0, H - bar, W, bar);
@@ -823,14 +945,13 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false)), jump: (i: number) => { i = Math.max(0, Math.min(plan.length - 1, i | 0)); skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
     return () => { clearTimeout(chk); cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); try { delete (window as any).__advCine; } catch (e) {} };
   }, []);
-  const kind = plan[Math.min(idx, plan.length - 1)].kind, capFor = (lg: string) => captionFor(P.finale ? { ...P, __theme: (plan[Math.min(idx, plan.length - 1)] as any).theme } : P, kind, lg), cap = sub === "off" ? "" : capFor(sub), goals = GOAL[P.id] || GOAL.luma;
-  const CPS: Record<string, number> = { th: 11, en: 15, zh: 4.6 };   // spoken characters per second, to fit the line into its shot
+  const kind = plan[Math.min(idx, plan.length - 1)].kind, ek = (plan[Math.min(idx, plan.length - 1)] as any).as || kind, capFor = (lg: string) => captionFor(P.finale ? { ...P, __theme: (plan[Math.min(idx, plan.length - 1)] as any).theme } : P, kind, lg), cap = sub === "off" ? "" : capFor(sub), goals = GOAL[P.id] || GOAL.luma;
   const voText = (lg: string) => kind === "objective" ? T3(lg, "ภารกิจ: ", "Mission: ", "任务：") + T3(lg, P.th, P.en, P.zh).split(" · ")[0] + ". " + goals.map((g: any) => T3(lg, g[0], g[1], g[2])).join(". ") : capFor(lg);
   useEffect(() => {
     if (voice === "off") { stopSpeaking(); return undefined; }
     const txt = voText(voice); if (!txt) { stopSpeaking(); return undefined; }
-    const dur = plan[Math.min(idx, plan.length - 1)].dur, rate = Math.max(0.95, Math.min(1.45, (txt.length / (CPS[voice] || 12)) / Math.max(1, dur * 0.88)));
-    const id = setTimeout(() => { try { speakNarration(txt, voice, undefined, () => setNeedTap(true), rate); } catch (e) {} }, 350);
+    const rate = voice === "th" ? 1.4 : 1;   // owner 2026-10-15: Thai a fast 1.4x, English and Chinese at normal speed
+    const id = setTimeout(() => { try { speakNarration(txt, voice, undefined, () => setNeedTap(true), 1, rate); } catch (e) {} }, 350);
     (window as any).__advVo = { lang: voice, text: txt, rate }; return () => clearTimeout(id);
   }, [idx, voice, vkick]);
   useEffect(() => () => { try { stopSpeaking(); } catch (e) {} }, []);
@@ -846,8 +967,8 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       {needTap && <button className="ac-snd" onClick={(e) => { e.stopPropagation(); unlock(); setNeedTap(false); }}>🔊 {t("แตะเพื่อเปิดเสียงและเพลง", "Tap to turn the sound on", "点一下开启声音与音乐")}</button>}
       <button className="ac-skip" onClick={() => { stopSpeaking(); onDone(); }} aria-label="skip">{t("ข้าม ⏭", "Skip ⏭", "跳过 ⏭")}</button>
       {kind === "approach" && <div key="ttl" className="ac-title"><small>{t("บทที่ ", "CHAPTER ", "第") + (CH.indexOf(P.id) + 1) + t("", "", "章") + " · " + t("ปลายทาง", "DESTINATION", "目的地")}</small><b>{T3(sl, P.th, P.en, P.zh).split(" · ")[0]}</b></div>}
-      {(kind === "lore" || kind === "contact" || kind === "mind") && <div key={"t" + idx} className="ac-tag" data-theme={(plan[idx] as any).theme}>{T3(lang, THEME_TAG[(plan[idx] as any).theme][0], THEME_TAG[(plan[idx] as any).theme][1], THEME_TAG[(plan[idx] as any).theme][2])}</div>}
-      {cap && kind !== "objective" && <div key={"c" + idx} className={"ac-cap" + (kind === "lore" || kind === "contact" || kind === "mind" ? " low" : "")}>{cap}</div>}
+      {(ek === "lore" || ek === "contact" || ek === "mind") && (plan[idx] as any).theme && <div key={"t" + idx} className="ac-tag" data-theme={(plan[idx] as any).theme}>{T3(lang, THEME_TAG[(plan[idx] as any).theme][0], THEME_TAG[(plan[idx] as any).theme][1], THEME_TAG[(plan[idx] as any).theme][2])}</div>}
+      {cap && kind !== "objective" && <div key={"c" + idx} className={"ac-cap" + (ek === "lore" || ek === "contact" || ek === "mind" ? " low" : "")}>{cap}</div>}
       {kind === "objective" && (
         <div className="ac-obj">
           <div className="ac-hero"><CyberAvatar model={me} yaw={22} pose="ready" glow={colorway && colorway.glow} accent={colorway && colorway.accent} held={null} hat={null} acc={null} /></div>

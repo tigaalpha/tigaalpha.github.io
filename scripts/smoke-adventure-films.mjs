@@ -28,9 +28,9 @@ for (let i = 0; i < kinds.length - 1; i++) { await p.evaluate((n) => window.__ad
 await ctx.close(); return { kinds, caps, errs };
 }
 const wantScript = { th: /[\u0E00-\u0E7F]/, zh: /[\u4E00-\u9FFF]/, en: /^[\x00-\x7F\u2019\u2014]+$/ };
-for (const [name, sec, idx, must, never] of [["luma (a fight map)", "ground", 0, ["descent", "landing", "crew", "warning"], []], ["cobalt (mining)", "ground", 6, ["survey", "work", "storm", "signal", "dawn"], ["warning", "boss", "crew"]], ["void gate (a ship map)", "space", 0, ["survey", "crew", "warning", "signal"], ["descent", "landing"]], ["under the harvesters' eye", "act2", 2, ["survey", "crew", "warning"], ["descent"]]]) {
+for (const [name, sec, idx, must, never] of [["luma (a fight map)", "ground", 0, ["descent", "landing", "crew", "warning"], []], ["cobalt (mining)", "ground", 6, ["survey", "work", "storm", "signal", "dawn"], ["warning", "boss"]], ["void gate (a ship map)", "space", 0, ["survey", "crew", "warning", "signal"], ["descent", "landing"]], ["under the harvesters' eye", "act2", 2, ["survey", "crew", "warning"], ["descent"]]]) {
   const r = await film(sec, idx, "en");
-  ok(name + ": 7 to 12 shots", r.kinds.length >= 7 && r.kinds.length <= 12, r.kinds.join());
+  ok(name + ": 20 to 30 shots", r.kinds.length >= 20 && r.kinds.length <= 30, r.kinds.join());
   ok(name + ": the sequence has " + must.join(", "), must.every(k => r.kinds.includes(k)));
   ok(name + ": and none of " + (never.join(", ") || "-"), never.every(k => !r.kinds.includes(k)));
   ok(name + ": every shot has its own subtitle", r.caps.every(c => c.length > 15) && new Set(r.caps).size === r.caps.length, r.caps.map(c => c.slice(0, 18)).join("|"));

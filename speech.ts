@@ -275,9 +275,9 @@ function narrationChunks(t, lang) {
   return out;
 }
 const NARR_RATE = { th: 0.88, en: 0.9, zh: 0.9 }, NARR_PITCH = { th: 0.93, en: 0.86, zh: 0.9 };
-export async function speakNarration(text, lang, onDone, onBlocked, rateMul = 1) {
+export async function speakNarration(text, lang, onDone, onBlocked, rateMul = 1, absRate = 0) {
   const clean = narrationText(text, lang); if (!clean) { if (onDone) onDone(); return true; }
-  const locale = TTS_LOCALES[lang] || "en-US", rate = Math.max(0.6, Math.min(1.5, (NARR_RATE[lang] || 0.9) * (rateMul || 1))), pitch = NARR_PITCH[lang] || 0.9;
+  const locale = TTS_LOCALES[lang] || "en-US", rate = absRate ? Math.max(0.6, Math.min(1.5, absRate)) : Math.max(0.6, Math.min(1.5, (NARR_RATE[lang] || 0.9) * (rateMul || 1))), pitch = NARR_PITCH[lang] || 0.9;
   if (Capacitor.isNativePlatform()) {
     try {
       const { TextToSpeech } = await import("@capacitor-community/text-to-speech");
