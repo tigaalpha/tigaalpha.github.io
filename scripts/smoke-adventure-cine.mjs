@@ -53,7 +53,7 @@ for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch
 { const o = await open({}); ok("the menu has a 'skip the film' tick box", (await o.p.locator(".adv-nocine input").count()) === 1); await o.ctx.close(); }
 { const o = await pick(ALLD, 0);
   const maps = [["luma", "jungle", true], ["ferro", "x", true], ["jovia", "survival", false], ["kryo", "x", true], ["pyra", "x", true], ["nexa", "x", true], ["cobalt", "mine", false], ["helios", "capture", false], ["ashfall", "strike", true]];
-  for (const [id, mission, boss] of maps) { const r = await o.p.evaluate(([a, m, b]) => window.__advCine.render(a, m, b), [id, mission, boss]); ok("score " + id + ": rich, audible, finite, not clipping", r.peak <= 0.98 && r.peak > 0.02 && r.rms > 0.004 && r.bad === 0 && r.events > 60, "peak " + r.peak.toFixed(2) + " rms " + r.rms.toFixed(3) + " notes " + r.events + " " + r.secs.toFixed(0) + "s"); }
+  for (const [id, mission, boss] of maps) { const r = await o.p.evaluate(([a, m, b]) => window.__advCine.render(a, m, b, 9), [id, mission, boss]); ok("score " + id + ": rich, audible, finite, not clipping", r.peak <= 0.98 && r.peak > 0.02 && r.rms > 0.004 && r.bad === 0 && r.events > 60, "peak " + r.peak.toFixed(2) + " rms " + r.rms.toFixed(3) + " notes " + r.events + " " + r.secs.toFixed(0) + "s"); }
   await o.ctx.close(); }
 // Opening film: shown once before the first menu, then the map films are the short cut with a chapter number.
 { const o = await open({ tg_adv_prologue: "__none__" });
