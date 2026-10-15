@@ -71,6 +71,44 @@ const FACTS: L3[] = [
 ];
 const HZ_DUR = 14;
 
+/* ── a SimCity-style interface (owner, 2026-10-15: "make the colony level more complete like SimCity, with a UI more like SimCity") ──
+   A title bar with the date, funds and a mayor's approval; a toolbox on the left in groups (like SimCity's Residential / Power / Water / ... buttons) with a query
+   tool and a bulldozer; the city in the middle; on the right a minimap, the three demand bars (homes, work, services: the RCI bars), the resources and an advisor;
+   a newspaper ticker along the bottom that reports what happens in the colony; and a budget window with a population graph. None of it changes the rules. */
+const GROUPS: { id: string; icon: string; name: L3; ids: string[] }[] = [
+  { id: "res", icon: "🏠", name: ["ที่พัก", "Residential", "居住"], ids: ["hab", "tower"] },
+  { id: "pow", icon: "⚡", name: ["พลังงาน", "Power", "能源"], ids: ["solar", "geo", "reactor"] },
+  { id: "wat", icon: "💧", name: ["น้ำและอากาศ", "Water & air", "水与空气"], ids: ["water", "oxy", "recycler"] },
+  { id: "food", icon: "🌱", name: ["อาหาร", "Food", "食物"], ids: ["farm"] },
+  { id: "ind", icon: "⛏", name: ["อุตสาหกรรม", "Industry", "工业"], ids: ["mine", "market"] },
+  { id: "svc", icon: "🏥", name: ["บริการ", "Services", "服务"], ids: ["med", "school", "park", "lab", "shield"] },
+  { id: "tra", icon: "🚀", name: ["ขนส่ง", "Transport", "交通"], ids: ["port"] },
+];
+const MINI: Record<string, string> = { hab: "#4dd0ff", tower: "#4dd0ff", solar: "#ffd34d", geo: "#ffb04d", reactor: "#ffe94d", water: "#4da3ff", oxy: "#9dd8ff", recycler: "#7ee0d0", farm: "#6fe36f", mine: "#d98a4d", market: "#d9a04d", med: "#ffffff", school: "#ffe9a0", park: "#52d66b", lab: "#b66bff", shield: "#7b9bff", port: "#ff6bcb" };
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+/** the three demand bars (homes / work / services), 0..1 each, from what the colony is short of; and the mayor's approval, 5..99 */
+function demandOf(S: any, homes: number) {
+  const n = (id: string) => S.grid.filter((c: any) => c.b === id).length, low = ["en", "wa", "ox", "fo"].filter(k => S.stock[k] < 20).length;
+  const H = clamp01(S.pop > 0 ? (S.pop + 4 - homes) / 12 + 0.25 : 0.6) * (low ? 0.4 : 1), W = clamp01(low / 3 + (S.rate.en < 0 ? 0.35 : 0) + (S.stock.ma < 60 ? 0.2 : 0));
+  const svc = n("med") + n("school") + n("park") + n("shield"), Sv = clamp01((S.pop / 10 - svc) / 4 + 0.1);
+  let ap = 62 - 14 * ["en", "wa", "ox", "fo"].filter(k => S.stock[k] <= 0.5).length - (S.hz > 0 ? 8 : 0) + Math.min(18, svc * 4) + (S.hist.length > 3 && S.pop > S.hist[Math.max(0, S.hist.length - 4)].pop ? 8 : 0) - (low ? 6 : 0);
+  return { H, W, Sv, ap: Math.max(5, Math.min(99, Math.round(ap))) };
+}
+const NEWS: Record<string, L3> = {
+  start: ["ข่าวด่วน: ผู้บุกเบิกกลุ่มแรกลงจอด ผังเมืองยังว่างเปล่า", "Breaking: the first settlers land and the plan of the city is still blank", "快讯：第一批移民登陆，城市蓝图仍是一片空白"],
+  short: ["ประกาศ: ทรัพยากรขาดแคลน ประชาชนเริ่มไม่พอใจ", "Alert: a shortage hits the colony and people grow uneasy", "警报：资源短缺，居民开始不安"],
+  ok: ["ข่าวดี: วิกฤตผ่านไปแล้ว เมืองกลับมาเป็นปกติ", "Good news: the crisis is over and the city is back to normal", "好消息：危机过去，城市恢复正常"],
+  hz: ["ภัยพิบัติ! ผู้คนหลบเข้าที่กำบัง ทีมซ่อมเตรียมพร้อม", "Disaster! People take cover while repair crews stand by", "灾害来袭！居民进入避难所，维修队待命"],
+  hzend: ["เหตุการณ์ผ่านไป ความเสียหายไม่รุนแรงเพราะการเตรียมตัวที่ดี", "It passes; good preparation kept the damage low", "灾害过去，充分准备让损失降到最低"],
+  era1: ["เมืองก้าวสู่ยุค 2500: ตึกเรียวสูง วงแหวนโฮโลแกรม และเส้นทางลอยฟ้า", "The city enters 2500: tapered towers, holo rings and sky-lanes", "城市进入2500年：锥形高塔、全息环与空中航道"],
+  era2: ["ยุค 3000 มาถึง: เมืองลอยฟ้าเปล่งแสง ผลึกคริสตัลสูงเสียดฟ้า", "3000 arrives: floating spires of crystal glow above the streets", "3000年降临：漂浮的水晶尖塔照亮街道"],
+  tech: ["ห้องวิจัยประกาศผลสำเร็จ: เทคโนโลยีใหม่พร้อมใช้งานทั่วเมือง", "The labs announce a breakthrough: a new technology is online across the city", "研究所宣布突破：新技术已在全城启用"],
+  boom: ["ประชากรเพิ่มขึ้นอย่างรวดเร็ว ความต้องการที่พักพุ่งสูง", "The population is booming and demand for homes soars", "人口激增，住房需求飙升"],
+  port: ["ยานผู้อพยพจากโลกลงจอดที่ท่าอวกาศ", "A ship of settlers from Earth docks at the spaceport", "载着地球移民的飞船在太空港降落"],
+  half: ["เมืองเติบโตถึงครึ่งทางของเป้าหมาย นายกฯ ได้รับเสียงชื่นชม", "Halfway to the goal: the mayor is praised in the streets", "城市成长过半，市长广受赞誉"],
+};
+
+
 
 /* ── the city, drawn as an isometric cyberpunk skyline (owner, 2026-10-13: "more like SimCity but cyberpunk and space-age, from the year 2100 to 2500 to 3000, the technology must be advanced") ──
    Three eras of the same colony: 2100 (boxy neon towers and antennas), 2500 (tapered towers, holo rings and sky-lanes), 3000 (floating crystal spires, light beams and hover discs).
@@ -135,9 +173,9 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
     for (let i = 0; i < 7; i++) { const c = Math.floor(r() * CELLS); if (!grid[c].f) grid[c].f = "ice"; }
     for (let i = 0; i < 7; i++) { const c = Math.floor(r() * CELLS); if (!grid[c].f) grid[c].f = "ore"; }
     grid[COLS * 2 + 2].b = "hab"; grid[COLS * 2 + 3].b = "solar"; grid[COLS * 2 + 2].f = ""; grid[COLS * 2 + 3].f = "";
-    G.current = { t: 0, grid, stock: { en: 40, wa: 70, ox: 70, fo: 70, ma: 150, sc: 0 }, rate: { en: 0, wa: 0, ox: 0, fo: 0, ma: 0, sc: 0 }, pop: 8, grow: 0, tech: [false, false, false], hz: 0, hzT: 40, portT: 12, sel: "hab" as string, ended: false, won: false, short: 0, msg: "", peak: 8, days: 0 };
+    G.current = { t: 0, grid, stock: { en: 40, wa: 70, ox: 70, fo: 70, ma: 150, sc: 0 }, rate: { en: 0, wa: 0, ox: 0, fo: 0, ma: 0, sc: 0 }, pop: 8, grow: 0, tech: [false, false, false], hz: 0, hzT: 40, portT: 12, sel: "hab" as string, tool: "build" as string, info: -1, hist: [] as any[], news: [] as any[], flags: {} as any, ended: false, won: false, short: 0, msg: "", peak: 8, days: 0 };
   }
-  const speedRef = useRef(1), [speed, setSpeedS] = useState(1), [career, setCareer] = useState<string>(() => careerNow()), [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false);
+  const speedRef = useRef(1), [speed, setSpeedS] = useState(1), [career, setCareer] = useState<string>(() => careerNow()), [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false), [budget, setBudget] = useState(false);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null), careerRef = useRef(career); careerRef.current = career;
@@ -211,6 +249,17 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
       if (net && net.host) { S.syncT = (S.syncT || 0) - dt; if (S.syncT <= 0) { S.syncT = 3; net.sendEv("colp", Math.round(S.pop * 100) / 100); net.sendEv("cols:" + ["en", "wa", "ox", "fo"].map(r => Math.round(S.stock[r] * 10) / 10).join(","), 0); } }
       if (S.pop >= site.target && !S.won && ["en", "wa", "ox", "fo"].every(k => S.stock[k] > 5)) { S.won = true; S.ended = true; sfx.play("win"); const stars = S.days <= 150 ? 3 : S.days <= 220 ? 2 : 1; setTimeout(() => onWin({ colony: { pop: Math.round(S.pop), target: site.target, days: S.days, stars, kind: P.kind, career: careerRef.current }, kills: 0, cry: 10 + 4 * stars, loot: {}, mode: "colony" }), 2200); }
       else if (S.pop < 1 && !S.ended) { S.ended = true; sfx.play("hurt"); }
+      { // the newspaper: what happened in the colony, in plain words (each headline once per event)
+        const F = S.flags, pn = (k: string) => { S.news.unshift({ k, d: S.days }); if (S.news.length > 14) S.news.pop(); };
+        if (!F.start) { F.start = 1; F.lastPop = S.pop; pn("start"); }
+        const sh = ["en", "wa", "ox", "fo"].some(k => S.stock[k] <= 0.5); if (sh && !F.short) { F.short = 1; pn("short"); } else if (!sh && F.short) { F.short = 0; pn("ok"); }
+        if (S.hz > 0 && !F.hz) { F.hz = 1; pn("hz"); } else if (S.hz <= 0 && F.hz) { F.hz = 0; pn("hzend"); }
+        const er = eraOf(S); if (er > (F.era || 0)) { F.era = er; pn(er === 1 ? "era1" : "era2"); }
+        const tc = S.tech.filter(Boolean).length; if (tc > (F.tech || 0)) { F.tech = tc; pn("tech"); }
+        if (S.pop >= site.target / 2 && !F.half) { F.half = 1; pn("half"); }
+        if (S.pop - (F.lastPop || 0) >= 6) { F.lastPop = S.pop; pn("boom"); }
+        S.histT = (S.histT || 0) - 1; if (S.histT <= 0) { S.histT = 30; S.hist.push({ d: S.days, pop: Math.round(S.pop), en: Math.round(S.stock.en), wa: Math.round(S.stock.wa), ox: Math.round(S.stock.ox), fo: Math.round(S.stock.fo) }); if (S.hist.length > 80) S.hist.shift(); }
+      }
       setTick(x => (x + 1) % 1e6);
     }, 100);
     (window as any).__advColony = { state: () => ({ t: S.t, pop: S.pop, stock: { ...S.stock }, rate: { ...S.rate }, grid: S.grid.map((c: any) => c.b), tech: S.tech.slice(), hz: S.hz, won: S.won, ended: S.ended, target: site.target, career: careerRef.current }), setCareer: (c: string) => { careerRef.current = c; setCareer(c); }, give: (k: string, n: number) => { S.stock[k] += n; }, setPop: (n: number) => { S.pop = n; }, tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) { S.t += 0.1; step(0.1); } }, hazard: () => { S.hz = HZ_DUR; if (net && net.host) net.sendEv("colh", 0); }, finish: () => { S.pop = site.target; for (const k of ["en", "wa", "ox", "fo"]) S.stock[k] = 200; } };
@@ -220,6 +269,8 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
   const tapCell = (i: number) => {
     if (S.ended || !career) return; const c = S.grid[i];
+    if (S.tool === "query") { S.info = S.info === i ? -1 : i; play("pickup"); setTick(x => x + 1); return; }
+    if (S.tool === "bulldoze" && !c.b) return;
     if (c.b) { if (c.b === "hab" && S.grid.filter((q: any) => q.b === "hab").length * 6 - 6 < S.pop) { play("hurt"); return; } const bd = BUILD.find(b => b.id === c.b)!; S.stock.ma += Math.round(cost(bd) * 0.5); c.b = null; if (net) net.sendEv("colx", i); play("boom"); setTick(x => x + 1); return; }
     const bd = BUILD.find(b => b.id === S.sel)!; if (!bd) return;
     if ((bd.needSci || 0) > S.stock.sc) { play("hurt"); return; }
@@ -231,9 +282,9 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
   const taken = (id: string) => !!net && [...net.peers.values()].some((q: any) => q.say === id);   // online: one pilot per career, so the team covers every weak spot
   const pickCareer = (id: string) => { if (taken(id)) { play("hurt"); return; } try { localStorage.setItem("tg_adv_career", id); } catch (e) {} setCareer(id); if (net) net.sendEv("colc:" + id, 0); play("pickup"); };
   const openGear = () => { pausedRef.current = true; setGear(true); }, closeGear = () => { pausedRef.current = false; setGear(false); };
-  const pct = Math.min(100, S.pop / site.target * 100), homes = S.grid.filter((c: any) => c.b === "hab").length * 6, fact = FACTS[Math.floor(S.t / 20) % FACTS.length];
+  const pct = Math.min(100, S.pop / site.target * 100), homes = S.grid.filter((c: any) => c.b === "hab").length * 6, dm = demandOf(S, homes), fact = FACTS[Math.floor(S.t / 20) % FACTS.length];
   return (
-    <div className="adv-farm adv-colony" data-colony={P.kind}>
+    <div className="adv-farm adv-colony sc" data-colony={P.kind}>
       <div className="adv-top">
         <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
         <div className="adv-hud">
@@ -243,12 +294,29 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
         <GearButton onClick={openGear} />
       </div>
       {net && <div className="ac2-team" data-team="1">🤝 {t("ทีม: ", "Team: ", "团队：")}{[...net.peers.values()].map((q: any) => <span key={q.id}>{q.name} {(CAREERS.find(c => c.id === q.say) || { icon: "…" }).icon}</span>)}</div>}
+      <div className="sc-bar" data-sc="bar">
+        <span className="sc-fund" data-fund="1">🧱 {Math.floor(S.stock.ma)}</span>
+        <span className="sc-date" data-date="1">{["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][Math.floor(S.days / 4) % 12]} {ERAS[eraOf(S)].y + Math.floor(S.days / 48)}</span>
+        <span className="sc-apr" data-approval={dm.ap} title={t("คะแนนนิยมของนายกเมือง", "Mayor's approval", "市长支持率")}>{"★".repeat(Math.round(dm.ap / 20))}{"☆".repeat(5 - Math.round(dm.ap / 20))} {dm.ap}%</span>
       <div className="ac2-speed" data-speedbar="1">{[t("ช้า", "Slow", "慢"), t("กลาง", "Normal", "中"), t("เร็ว", "Fast", "快")].map((lb, i) => (<button key={i} data-speed={i} className={"ac2-sp" + (speed === i ? " on" : "")} onClick={() => { speedRef.current = i; setSpeedS(i); }}>{["🐢", "▶", "⏩"][i]} {lb}</button>))}</div>
-      <div className="ac2-res">
-        {RES.map(r => (<span key={r.k} className={"ac2-r" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k}>{r.icon} {Math.floor(S.stock[r.k])}<small className={S.rate[r.k] < -0.01 ? "neg" : ""}>{S.rate[r.k] >= 0 ? "+" : ""}{S.rate[r.k].toFixed(1)}</small></span>))}
-        {S.hz > 0 && <span className="ac2-hz" data-hazard="1">⚠ {T3(lang, site.hz[0], site.hz[1], site.hz[2])}</span>}
-        {S.msg && <span className="ac2-hz">⚠ {t("ขาดแคลน ", "Shortage ", "短缺 ")}{S.msg}</span>}
+        <button className={"sc-tool" + (S.tool === "query" ? " on" : "")} data-tool="query" title={t("ตรวจสอบอาคาร", "Query", "查询")} onClick={() => { S.tool = S.tool === "query" ? "build" : "query"; S.info = -1; setTick(x => x + 1); }}>🔍</button>
+        <button className={"sc-tool" + (S.tool === "bulldoze" ? " on" : "")} data-tool="bulldoze" title={t("รื้อ (คืนวัสดุครึ่งหนึ่ง)", "Bulldoze (half back)", "拆除（返还一半）")} onClick={() => { S.tool = S.tool === "bulldoze" ? "build" : "bulldoze"; setTick(x => x + 1); }}>🚧</button>
+        <button className="sc-tool" data-budget-open="1" title={t("งบประมาณและสถิติ", "Budget & statistics", "预算与统计")} onClick={() => { pausedRef.current = true; setBudget(true); }}>📊</button>
       </div>
+      <div className="sc-main">
+        <div className="sc-tools" data-toolbox="1">
+          {GROUPS.map(g => (<div key={g.id} className="sc-g" data-grp={g.id}><div className="sc-gh">{g.icon} {T3(lang, g.name[0], g.name[1], g.name[2])}</div>
+            {g.ids.map(id => { const b = BUILD.find(q => q.id === id)!, locked = (b.needSci || 0) > S.stock.sc, cs = cost(b); return (
+              <button key={b.id} className={"ac2-b" + (S.sel === b.id && S.tool === "build" ? " on" : "") + (locked ? " lock" : S.stock.ma < cs ? " poor" : "")} data-build={b.id} onClick={() => { S.sel = b.id; S.tool = "build"; S.info = -1; setTick(x => x + 1); }}>
+                <b>{b.icon} {T3(lang, b.name[0], b.name[1], b.name[2])}</b><small>🧱 {cs}{locked ? " · 🔒 " + b.needSci + "🔬" : ""}</small></button>); })}</div>))}
+          <div className="sc-g" data-grp="tech"><div className="sc-gh">🔬 {t("วิจัย", "Research", "研究")}</div>
+      <div className="af-tech">
+        {TECH.map((tc, i) => (<button key={tc.id} className={"af-t" + (S.tech[i] ? " on" : "")} data-tech={i} disabled={S.tech[i] || S.stock.sc < tcost(i)} onClick={() => buyTech(i)}>
+          <b>{T3(lang, tc.name[0], tc.name[1], tc.name[2])}</b><small>{S.tech[i] ? "✓ " : "🔬 " + tcost(i) + " · "}{T3(lang, tc.text[0], tc.text[1], tc.text[2])}</small></button>))}
+      </div>
+          </div>
+        </div>
+        <div className="sc-center">
       <div className="ac2-city" ref={cityRef}>
         <canvas ref={cvRef} className="ac2-cv" aria-hidden="true" />
         {S.grid.map((c: any, i: number) => { const r = Math.floor(i / COLS), q = i % COLS, px = lay.cx + (q - r) * lay.tw / 2, py = lay.oy + (q + r + 1) * lay.tw / 4, bd = c.b ? BUILD.find(b => b.id === c.b) : null; return (
@@ -256,17 +324,37 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
             style={{ left: px - lay.tw / 2, top: py - lay.tw / 4, width: lay.tw, height: lay.tw / 2 }}>{!bd && c.f ? <em>{c.f === "ice" ? "❄" : "◆"}</em> : null}</button>); })}
         {(() => { const e = ERAS[eraOf(S)]; return <div className="ac2-era" data-era={e.y}><b>{t("ปี ", "YEAR ", "公元 ")}{e.y}</b><small>{T3(lang, e.n[0], e.n[1], e.n[2])}</small></div>; })()}
       </div>
-      <div className="ac2-build">
-        {BUILD.map(b => { const locked = (b.needSci || 0) > S.stock.sc, cs = cost(b); return (
-          <button key={b.id} className={"ac2-b" + (S.sel === b.id ? " on" : "") + (locked ? " lock" : S.stock.ma < cs ? " poor" : "")} data-build={b.id} onClick={() => { S.sel = b.id; setTick(x => x + 1); }}>
-            <b>{b.icon} {T3(lang, b.name[0], b.name[1], b.name[2])}</b><small>🧱 {cs}{locked ? " · 🔒 " + b.needSci + "🔬" : ""}</small></button>); })}
+          {S.info >= 0 && S.grid[S.info] && (() => { const c = S.grid[S.info], bd = c.b ? BUILD.find(q => q.id === c.b) : null, on = S.stock.en > 0.5; return (
+            <div className="sc-info" data-info="1"><b>{bd ? bd.icon + " " + T3(lang, bd.name[0], bd.name[1], bd.name[2]) : t("ที่ดินว่าง", "Empty plot", "空地")}</b>
+              {bd ? <span>{T3(lang, bd.text[0], bd.text[1], bd.text[2])}</span> : null}
+              {bd && !["solar", "reactor", "geo", "hab"].includes(bd.id) ? <span className={on ? "ok" : "bad"}>{on ? "● " + t("ทำงานอยู่", "Running", "运行中") : "○ " + t("ไฟไม่พอ หยุดทำงาน", "No power: idle", "断电：停工")}</span> : null}
+              {c.f ? <span>{c.f === "ice" ? "❄ " + t("ช่องน้ำแข็ง: สกัดน้ำได้สองเท่า", "Ice plot: double water", "冰地：产水翻倍") : "◆ " + t("ช่องแร่: เหมืองได้สองเท่า", "Ore plot: double mining", "矿地：采矿翻倍")}</span> : null}
+              <small>{t("แตะอีกครั้งเพื่อปิด", "Tap again to close", "再点一次关闭")}</small></div>); })()}
+        </div>
+        <div className="sc-side">
+          <div className="sc-p"><div className="sc-ph">{t("แผนที่ย่อ", "Minimap", "小地图")}</div>
+            <div className="sc-mini" data-mini="1" style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)` }}>{S.grid.map((c: any, i: number) => <i key={i} style={{ background: c.b ? MINI[c.b] || "#fff" : c.f === "ice" ? "#335a7a" : c.f === "ore" ? "#6a4a2a" : "#1d2a33" }} />)}</div></div>
+          <div className="sc-p"><div className="sc-ph">{t("ความต้องการ", "Demand", "需求")}</div>
+            <div className="sc-rci" data-rci="1">{([["H", dm.H, "#3ccf5b", t("ที่พัก", "Homes", "住房")], ["W", dm.W, "#4a8cff", t("ผลิต", "Work", "生产")], ["S", dm.Sv, "#ffd23f", t("บริการ", "Services", "服务")]] as any[]).map(([k, v, col, nm]) => (<span key={k} data-rci-bar={k} title={nm}><u><i style={{ height: Math.round(v * 100) + "%", background: col }} /></u><b>{k}</b></span>))}</div></div>
+      <div className="ac2-res">
+        {RES.map(r => (<span key={r.k} className={"ac2-r" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k}>{r.icon} {Math.floor(S.stock[r.k])}<small className={S.rate[r.k] < -0.01 ? "neg" : ""}>{S.rate[r.k] >= 0 ? "+" : ""}{S.rate[r.k].toFixed(1)}</small></span>))}
+        {S.hz > 0 && <span className="ac2-hz" data-hazard="1">⚠ {T3(lang, site.hz[0], site.hz[1], site.hz[2])}</span>}
+        {S.msg && <span className="ac2-hz">⚠ {t("ขาดแคลน ", "Shortage ", "短缺 ")}{S.msg}</span>}
       </div>
+          <div className="sc-p sc-adv" data-advisor="1"><div className="sc-ph">🧑‍🚀 {t("ที่ปรึกษา", "Advisor", "顾问")}</div>
       <div className="ac2-sel">{(() => { const b = BUILD.find(q => q.id === S.sel); return b ? <span>{b.icon} {T3(lang, b.text[0], b.text[1], b.text[2])}</span> : null; })()} <em>{t("แตะช่องว่างเพื่อสร้าง แตะอาคารเพื่อรื้อ (ได้วัสดุคืนครึ่งหนึ่ง)", "Tap an empty plot to build, a building to demolish (half back)", "点空地建造，点建筑拆除（返还一半）")}</em></div>
-      <div className="af-tech">
-        {TECH.map((tc, i) => (<button key={tc.id} className={"af-t" + (S.tech[i] ? " on" : "")} data-tech={i} disabled={S.tech[i] || S.stock.sc < tcost(i)} onClick={() => buyTech(i)}>
-          <b>{T3(lang, tc.name[0], tc.name[1], tc.name[2])}</b><small>{S.tech[i] ? "✓ " : "🔬 " + tcost(i) + " · "}{T3(lang, tc.text[0], tc.text[1], tc.text[2])}</small></button>))}
-      </div>
       <div className="af-fact">💡 {T3(lang, site.note[0], site.note[1], site.note[2])} · {T3(lang, fact[0], fact[1], fact[2])}</div>
+          </div>
+        </div>
+      </div>
+      <div className="sc-news" data-news="1"><b>📰</b><span key={S.news.length} className="sc-tick">{S.news.slice(0, 5).map((n: any) => (lang === "th" ? "วันที่ " : lang === "zh" ? "第" : "Day ") + n.d + (lang === "zh" ? "天" : "") + ": " + T3(lang, NEWS[n.k][0], NEWS[n.k][1], NEWS[n.k][2])).join("   ◆   ")}</span></div>
+      {budget && (<div className="sc-win" role="dialog" data-budget="1"><div className="sc-wt"><span>📊 {t("งบประมาณและสถิติ", "Budget & statistics", "预算与统计")}</span><button data-budget-close="1" onClick={() => { pausedRef.current = false; setBudget(false); }}>✕</button></div>
+        <div className="sc-wb"><table><thead><tr><th>{t("ทรัพยากร", "Resource", "资源")}</th><th>{t("คงเหลือ", "Stock", "库存")}</th><th>{t("ต่อวัน", "Per day", "每天")}</th></tr></thead><tbody>
+          {RES.map(r => (<tr key={r.k}><td>{r.icon} {T3(lang, r.name[0], r.name[1], r.name[2])}</td><td>{Math.floor(S.stock[r.k])}</td><td className={S.rate[r.k] < -0.01 ? "neg" : "pos"}>{S.rate[r.k] >= 0 ? "+" : ""}{(S.rate[r.k] * DAY).toFixed(1)}</td></tr>))}</tbody></table>
+          <div className="sc-ph">{t("ประชากร", "Population", "人口")}</div>
+          <svg viewBox="0 0 200 60" className="sc-graph" data-graph="1" preserveAspectRatio="none"><polyline fill="none" stroke="#1a73e8" strokeWidth="2" points={S.hist.map((h: any, i: number) => (S.hist.length > 1 ? i / (S.hist.length - 1) * 200 : 0) + "," + (58 - Math.min(56, h.pop / Math.max(1, site.target) * 56))).join(" ")} /><line x1="0" x2="200" y1="2" y2="2" stroke="#d33" strokeDasharray="4 3" /></svg>
+          <div className="sc-ph">{t("อาคาร", "Buildings", "建筑")}</div>
+          <div className="sc-counts">{BUILD.map(b => { const n = S.grid.filter((c: any) => c.b === b.id).length; return n ? <span key={b.id}>{b.icon} {n}</span> : null; })}</div></div></div>)}
       {!career && (<div className="adv-quiz" data-careers="1" style={{ alignItems: "center" }} onPointerDown={(e) => e.stopPropagation()}><div className="pvpstandby-card" style={{ maxWidth: 460 }}>
         <b>{t("เลือกสายอาชีพของคุณ", "Choose your career", "选择你的职业")}</b>
         <small>{t("ในห้องออนไลน์ แต่ละคนจะถืออาชีพของตัวเอง ทุกอาชีพเสริมกันและกัน", "Online, every pilot holds a career of their own and they cover each other's weak spots", "联机时每位玩家各担一职，互补长短")}</small>

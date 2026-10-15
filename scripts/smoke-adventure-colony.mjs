@@ -53,4 +53,24 @@ for (const [nm, hz] of [["Mars Colony", /Dust storm/], ["Titan Colony", /deep fr
   ok(nm + " opens with its own hazard text", hz.test(await p.innerText(".ac2-res")) || hz.test(await p.innerText(".ac2-hz")), (await p.innerText(".ac2-res")).slice(0, 80));
   ok(nm + " has no errors", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
+// the SimCity-style interface (owner, 2026-10-15)
+{ const { ctx, p, errs } = await open("Moon Colony"); await p.click("[data-career=eng]"); await p.waitForTimeout(250);
+  ok("a title bar with funds, a date and the mayor's approval", (await p.locator("[data-fund]").count()) === 1 && /^[A-Z]{3} \d{4}/.test(await p.locator("[data-date]").innerText()) && (await p.locator("[data-approval]").count()) === 1);
+  ok("a toolbox in groups (residential, power, water, food, industry, services, transport, research)", (await p.locator("[data-toolbox] [data-grp]").count()) === 8, String(await p.locator("[data-toolbox] [data-grp]").count()));
+  ok("a minimap of 80 plots and three demand bars (homes, work, services)", (await p.locator("[data-mini] i").count()) === 80 && (await p.locator("[data-rci-bar]").count()) === 3);
+  ok("a newspaper ticker that has a headline", (await p.locator("[data-news] .sc-tick").innerText()).length > 20);
+  const hab = (await p.evaluate(() => window.__advColony.state())).grid.findIndex(b => b === "hab");
+  await p.click("[data-tool=query]"); await p.click("[data-cell='" + hab + "']"); await p.waitForTimeout(150);
+  ok("the query tool tells you what a building is and whether it runs", (await p.locator("[data-info]").count()) === 1 && /Habitat/i.test(await p.locator("[data-info]").innerText()));
+  const free = (await p.evaluate(() => window.__advColony.state())).grid.findIndex(b => !b), n0 = (await p.evaluate(() => window.__advColony.state())).grid.filter(b => b).length;
+  await p.click("[data-cell='" + free + "']"); await p.waitForTimeout(100);
+  ok("with the query tool a tap never builds", (await p.evaluate(() => window.__advColony.state())).grid.filter(b => b).length === n0);
+  await p.click("[data-tool=bulldoze]"); await p.click("[data-cell='" + free + "']"); await p.waitForTimeout(100);
+  ok("the bulldozer does nothing on an empty plot", (await p.evaluate(() => window.__advColony.state())).grid.filter(b => b).length === n0);
+  await p.click("[data-build=solar]"); await p.click("[data-cell='" + free + "']"); await p.waitForTimeout(100);
+  ok("choosing a building goes back to building", (await p.evaluate(() => window.__advColony.state())).grid[free] === "solar");
+  await p.click("[data-budget-open]"); await p.waitForTimeout(200); const t1 = await p.evaluate(() => window.__advColony.state().t); await p.waitForTimeout(700); const t2 = await p.evaluate(() => window.__advColony.state().t);
+  ok("the budget window opens with the resources and a graph, and pauses the game", (await p.locator("[data-budget] tbody tr").count()) === 6 && (await p.locator("[data-graph]").count()) === 1 && Math.abs(t2 - t1) < 0.05, t1 + " " + t2);
+  await p.click("[data-budget-close]"); await p.waitForTimeout(700); ok("closing it resumes the game", (await p.evaluate(() => window.__advColony.state().t)) > t2 + 0.3);
+  ok("no page errors", errs.length === 0, errs.join("|")); await ctx.close(); }
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
