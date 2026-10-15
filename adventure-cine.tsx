@@ -242,10 +242,23 @@ const GOAL: Record<string, L3[]> = {
 const TYPE: Record<string, string> = { kindred: "ice", darkforge: "belt", shadow: "orbit", luma: "jungle", ferro: "desert", jovia: "gas", kryo: "ice", pyra: "lava", nexa: "wreck", cobalt: "belt", helios: "sun", ashfall: "strike", voidgate: "orbit", dyson: "sun", departure: "liftoff", asteroids: "belt", gasskim: "gas", starharvest: "sun", solarcharge: "sun", dysondock: "sun", gaspump: "gas", warpjump: "orbit", blackhole: "orbit", deathstar: "orbit", colmoon: "desert", spaceranch: "desert", ranchmars: "desert", ranchtitan: "ice", ranchproxima: "lava", shipbuild: "orbit", dysonbuild: "sun", gasbuild: "gas", minebuild: "belt", colmars: "desert", coltitan: "ice", colproxima: "lava", arkfarm: "orbit", arkherd: "orbit", moonhe3: "desert", moonbase: "desert", marscolony: "desert", mercury: "lava", venussky: "gas", jupitergas: "gas", saturnrings: "belt", titanassault: "ice", titancolony: "ice", arkbuild: "belt", arkexodus: "orbit" };
 
 const CH = ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "voidgate", "departure", "asteroids", "gasskim", "starharvest", "solarcharge", "dysondock", "gaspump", "warpjump", "blackhole", "deathstar", "colmoon", "spaceranch", "ranchmars", "ranchtitan", "ranchproxima", "shipbuild", "dysonbuild", "gasbuild", "minebuild", "colmars", "coltitan", "colproxima", "moonhe3", "moonbase", "marscolony", "mercury", "venussky", "jupitergas", "saturnrings", "titanassault", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus", "kindred", "darkforge", "shadow"];
+/* owner, 2026-10-15: "each film must feel genuinely different — sci-fi, fantasy, cyberpunk, not one story reskinned."
+   A per-map genre, derived from the map's own TYPE (its established visual identity) so every one of the 49+ maps gets a
+   real assignment with no risk of missing one, plus a short override list for the handful whose TYPE doesn't match their
+   own story (Ferro is an industrial rust-world even though it shares TYPE "desert" with plain colony-construction sites;
+   the Battle Station is a military target even though its TYPE is "orbit" like a peaceful survey run). This drives the
+   whole-frame color grade, particles and HUD in epicLook() below and the pacing in cinePlan() — it never touches which
+   shots play or in what order, so every exact shot-kind-list this file was already tested against stays exactly the same. */
+const GENRE_BY_TYPE: Record<string, string> = { jungle: "fantasy", ice: "fantasy", wreck: "cyberpunk", strike: "cyberpunk", belt: "cyberpunk", lava: "scifi", gas: "scifi", sun: "scifi", orbit: "scifi", desert: "scifi", liftoff: "scifi" };
+const GENRE_OVERRIDE: Record<string, string> = { ferro: "cyberpunk", deathstar: "cyberpunk" };
+function genreOf(P: any): string { return GENRE_OVERRIDE[P.id] || GENRE_BY_TYPE[TYPE[P.id]] || "scifi"; }
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
 /* longer shots (owner, 2026-10-11): every shot but the objective card runs 1.6x as long as first drawn */
+// A fantasy film breathes slower, a cyberpunk one cuts faster; sci-fi stays at the measured pace this was tuned at.
+const GENRE_PACE: Record<string, number> = { fantasy: 1.08, cyberpunk: 0.9, scifi: 1 };
 export function cinePlan(P: any, short?: boolean): CineShot[] {
-  const p = basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * 10) / 10 }));
+  const pace = P.prologue || P.finale ? 1 : GENRE_PACE[genreOf(P)];
+  const p = basePlan(P, short).map(q => (q.kind === "objective" ? q : { ...q, dur: Math.round(q.dur * 1.6 * pace * 10) / 10 }));
   // Players who saw the opening film before it taught the controls still get the how-to shot once, in their next map's film.
   try { if (!P.prologue && !P.finale && localStorage.getItem("tg_adv_howto") === null && localStorage.getItem("tg_adv_prologue") !== "skip") { localStorage.setItem("tg_adv_howto", "1"); const i = p.findIndex(q => q.kind === "objective"); const h: any = { kind: "howto", dur: 8 }; if (i >= 0) p.splice(i, 0, h); else p.push(h); } } catch (e) {}
   return p;
@@ -304,26 +317,56 @@ const captionFor = (P: any, kind: string, lang: string) => {
 
 /* ── the look (owner, 2026-10-11): ruined cyber space age, Dune x Star Wars x Star Trek ── */
 const DUST = Array.from({ length: 70 }, (_, i) => ({ x: rnd(i + 2000), y: rnd(i + 2100), s: 0.4 + rnd(i + 2200) * 1.6, v: 0.02 + rnd(i + 2300) * 0.06 }));
+// owner, 2026-10-15: this one function used to paint the SAME cold-blue "bridge display" grade over literally every
+// film regardless of the map — a jungle world and an ice world and an asteroid field all ended up looking like the same
+// movie. It now reads the map's genre (genreOf, by TYPE) and grades, particles, flythrough and corner HUD all change
+// with it: sci-fi keeps exactly the old look (so the majority of maps are unchanged), fantasy trades the cold grade and
+// bridge-HUD for warm firefly light and a drifting aurora, cyberpunk trades them for a magenta/cyan duotone, falling
+// rain streaks, scanlines and a hovering drone.
 function epicLook(x: CanvasRenderingContext2D, W: number, H: number, t: number, kind: string, P: any) {
-  const acc = P.acc || "255,190,90";
+  const acc = P.acc || "255,190,90", genre = genreOf(P);
   x.save();
-  // a grade: warm dusty highlights over cold shadows
-  x.globalCompositeOperation = "soft-light"; const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "rgba(40,90,150,.45)"); g.addColorStop(1, "rgba(" + acc + ",.35)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
-  // drifting dust and ash
-  x.globalCompositeOperation = "lighter"; for (const d of DUST) { const px = ((d.x - t * d.v * 3) % 1 + 1) % 1 * W, py = ((d.y + t * d.v) % 1) * H; x.fillStyle = "rgba(" + acc + ",.22)"; x.beginPath(); x.arc(px, py, d.s * (W / 900), 0, 7); x.fill(); }
-  // an anamorphic streak from a light that slowly crosses the frame
-  const lx = W * (0.2 + 0.6 * ((t * 0.03) % 1)), ly = H * 0.34; const sg = x.createLinearGradient(lx - W * 0.45, 0, lx + W * 0.45, 0); sg.addColorStop(0, "rgba(120,190,255,0)"); sg.addColorStop(0.5, "rgba(190,225,255,.5)"); sg.addColorStop(1, "rgba(120,190,255,0)"); x.fillStyle = sg; x.fillRect(lx - W * 0.45, ly - 1.5, W * 0.9, 3);
-  // a capital ship (wedge hull, engine glow) gliding far away; bigger and lower in the space and launch shots
-  if (kind === "launch" || kind === "approach" || kind === "boss" || kind === "earth") {
-    const sc = kind === "boss" ? 1.4 : 1, sx = W * (1.15 - ((t * 0.035) % 1.5)), sy = H * 0.3, L = W * 0.5 * sc, Hh = H * 0.09 * sc;
-    x.globalCompositeOperation = "source-over"; x.fillStyle = "rgba(8,12,22,.92)"; x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + L, sy - Hh * 0.2); x.lineTo(sx + L * 0.96, sy + Hh * 0.2); x.lineTo(sx, sy + Hh); x.closePath(); x.fill();
-    x.fillStyle = "rgba(40,60,90,.7)"; x.fillRect(sx + L * 0.2, sy + Hh * 0.05, L * 0.5, 2);
-    x.globalCompositeOperation = "lighter"; const eg = x.createRadialGradient(sx + L, sy, 0, sx + L, sy, Hh * 1.8); eg.addColorStop(0, "rgba(150,210,255,.8)"); eg.addColorStop(1, "rgba(80,140,255,0)"); x.fillStyle = eg; x.beginPath(); x.arc(sx + L, sy, Hh * 1.8, 0, 7); x.fill();
+  if (genre === "fantasy") {
+    x.globalCompositeOperation = "soft-light"; const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "rgba(40,110,70,.4)"); g.addColorStop(1, "rgba(255,200,110,.4)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    // fireflies: small, warm, pulsing motes instead of streaking dust
+    x.globalCompositeOperation = "lighter"; for (const d of DUST) { const px = ((d.x + Math.sin(t * 0.4 + d.s) * 0.01) % 1 + 1) % 1 * W, py = ((d.y - t * d.v * 0.4) % 1 + 1) % 1 * H, pulse = 0.4 + 0.4 * Math.sin(t * 3 + d.s * 9); x.fillStyle = "rgba(190,255,170," + pulse + ")"; x.beginPath(); x.arc(px, py, d.s * (W / 1100), 0, 7); x.fill(); }
+    // a slow aurora ribbon instead of a capital ship
+    const ay = H * (0.22 + 0.04 * Math.sin(t * 0.2)); x.globalCompositeOperation = "lighter"; const ag = x.createLinearGradient(0, ay - H * 0.08, 0, ay + H * 0.08);
+    ag.addColorStop(0, "rgba(140,255,200,0)"); ag.addColorStop(0.5, "rgba(180,255,210,.22)"); ag.addColorStop(1, "rgba(140,255,200,0)"); x.fillStyle = ag; x.fillRect(0, ay - H * 0.08, W, H * 0.16);
+    // corner marks drawn as simple glowing rune glyphs, no technical readout
+    x.globalCompositeOperation = "source-over"; x.strokeStyle = "rgba(190,255,170,.55)"; x.lineWidth = Math.max(1.5, W / 800); const m = W * 0.045, bh = H * 0.13 + 6, rr = W * 0.014;
+    for (const [cx, cy] of [[m, bh + m * 0.6], [W - m, bh + m * 0.6], [m, H - bh - m * 0.6], [W - m, H - bh - m * 0.6]]) { x.beginPath(); x.arc(cx, cy, rr, 0, 7); x.stroke(); x.beginPath(); x.moveTo(cx - rr * 1.6, cy); x.lineTo(cx + rr * 1.6, cy); x.moveTo(cx, cy - rr * 1.6); x.lineTo(cx, cy + rr * 1.6); x.stroke(); }
+  } else if (genre === "cyberpunk") {
+    x.globalCompositeOperation = "soft-light"; const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "rgba(0,210,230,.4)"); g.addColorStop(1, "rgba(255,30,160,.38)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    // falling rain streaks instead of drifting dust
+    x.globalCompositeOperation = "lighter"; for (const d of DUST) { const px = ((d.x - t * 0.05) % 1 + 1) % 1 * W, py = ((d.y + t * (0.6 + d.v)) % 1) * H; x.strokeStyle = "rgba(120,235,255," + (0.18 + d.s * 0.05) + ")"; x.lineWidth = 1.2; x.beginPath(); x.moveTo(px, py); x.lineTo(px - 2, py + H * 0.04); x.stroke(); }
+    // scanlines, a flicker of surveillance static
+    x.globalCompositeOperation = "source-over"; x.fillStyle = "rgba(0,0,0,.08)"; for (let sy = 0; sy < H; sy += 3) x.fillRect(0, sy, W, 1);
+    // a hovering drone with a blinking light, gliding by, instead of a capital ship
+    if (kind === "launch" || kind === "approach" || kind === "boss" || kind === "earth") {
+      const sx = W * (1.1 - ((t * 0.05) % 1.4)), sy = H * (0.28 + 0.03 * Math.sin(t * 2));
+      x.globalCompositeOperation = "source-over"; x.fillStyle = "rgba(10,8,16,.92)"; x.beginPath(); x.ellipse(sx, sy, W * 0.05, H * 0.018, 0, 0, 7); x.fill();
+      x.globalCompositeOperation = "lighter"; x.fillStyle = Math.sin(t * 8) > 0 ? "rgba(255,40,120,.9)" : "rgba(80,230,255,.5)"; x.beginPath(); x.arc(sx + W * 0.045, sy, Math.max(1.5, W / 500), 0, 7); x.fill();
+    }
+    // HUD corners in hard right angles, a surveillance-feed readout
+    x.globalCompositeOperation = "source-over"; x.strokeStyle = "rgba(255,40,160,.55)"; x.lineWidth = Math.max(1.5, W / 700); const m = W * 0.045, bh = H * 0.13 + 6, q = W * 0.03;
+    for (const [cx, cy, sx2, sy2] of [[m, bh + m * 0.6, 1, 1], [W - m, bh + m * 0.6, -1, 1], [m, H - bh - m * 0.6, 1, -1], [W - m, H - bh - m * 0.6, -1, -1]] as number[][]) { x.beginPath(); x.moveTo(cx, cy + sy2 * q); x.lineTo(cx, cy); x.lineTo(cx + sx2 * q, cy); x.stroke(); }
+    x.fillStyle = "rgba(80,230,255,.75)"; x.font = Math.round(W / 70) + "px monospace"; x.fillText("FEED //" + String(Math.floor(t * 11 + 92)).padStart(3, "0"), m + 4, bh + m * 0.6 + q + 18);
+  } else {
+    // sci-fi: the original grade, unchanged
+    x.globalCompositeOperation = "soft-light"; const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "rgba(40,90,150,.45)"); g.addColorStop(1, "rgba(" + acc + ",.35)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = "lighter"; for (const d of DUST) { const px = ((d.x - t * d.v * 3) % 1 + 1) % 1 * W, py = ((d.y + t * d.v) % 1) * H; x.fillStyle = "rgba(" + acc + ",.22)"; x.beginPath(); x.arc(px, py, d.s * (W / 900), 0, 7); x.fill(); }
+    const lx = W * (0.2 + 0.6 * ((t * 0.03) % 1)), ly = H * 0.34; const sg = x.createLinearGradient(lx - W * 0.45, 0, lx + W * 0.45, 0); sg.addColorStop(0, "rgba(120,190,255,0)"); sg.addColorStop(0.5, "rgba(190,225,255,.5)"); sg.addColorStop(1, "rgba(120,190,255,0)"); x.fillStyle = sg; x.fillRect(lx - W * 0.45, ly - 1.5, W * 0.9, 3);
+    if (kind === "launch" || kind === "approach" || kind === "boss" || kind === "earth") {
+      const sc = kind === "boss" ? 1.4 : 1, sx = W * (1.15 - ((t * 0.035) % 1.5)), sy = H * 0.3, L = W * 0.5 * sc, Hh = H * 0.09 * sc;
+      x.globalCompositeOperation = "source-over"; x.fillStyle = "rgba(8,12,22,.92)"; x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + L, sy - Hh * 0.2); x.lineTo(sx + L * 0.96, sy + Hh * 0.2); x.lineTo(sx, sy + Hh); x.closePath(); x.fill();
+      x.fillStyle = "rgba(40,60,90,.7)"; x.fillRect(sx + L * 0.2, sy + Hh * 0.05, L * 0.5, 2);
+      x.globalCompositeOperation = "lighter"; const eg = x.createRadialGradient(sx + L, sy, 0, sx + L, sy, Hh * 1.8); eg.addColorStop(0, "rgba(150,210,255,.8)"); eg.addColorStop(1, "rgba(80,140,255,0)"); x.fillStyle = eg; x.beginPath(); x.arc(sx + L, sy, Hh * 1.8, 0, 7); x.fill();
+    }
+    x.globalCompositeOperation = "source-over"; x.strokeStyle = "rgba(140,210,255,.55)"; x.lineWidth = Math.max(1.5, W / 700); const m = W * 0.045, bh = H * 0.13 + 6, q = W * 0.03;
+    for (const [cx, cy, sx2, sy2] of [[m, bh + m * 0.6, 1, 1], [W - m, bh + m * 0.6, -1, 1], [m, H - bh - m * 0.6, 1, -1], [W - m, H - bh - m * 0.6, -1, -1]] as number[][]) { x.beginPath(); x.moveTo(cx, cy + sy2 * q); x.lineTo(cx, cy); x.lineTo(cx + sx2 * q, cy); x.stroke(); }
+    x.fillStyle = "rgba(140,210,255,.7)"; x.font = Math.round(W / 70) + "px monospace"; x.fillText("STARDATE 2100." + String(Math.floor(t * 7 + 114)).padStart(3, "0"), m + 4, bh + m * 0.6 + q + 18);
   }
-  // holo-readout corners, like a bridge display
-  x.globalCompositeOperation = "source-over"; x.strokeStyle = "rgba(140,210,255,.55)"; x.lineWidth = Math.max(1.5, W / 700); const m = W * 0.045, bh = H * 0.13 + 6, q = W * 0.03;
-  for (const [cx, cy, sx2, sy2] of [[m, bh + m * 0.6, 1, 1], [W - m, bh + m * 0.6, -1, 1], [m, H - bh - m * 0.6, 1, -1], [W - m, H - bh - m * 0.6, -1, -1]] as number[][]) { x.beginPath(); x.moveTo(cx, cy + sy2 * q); x.lineTo(cx, cy); x.lineTo(cx + sx2 * q, cy); x.stroke(); }
-  x.fillStyle = "rgba(140,210,255,.7)"; x.font = Math.round(W / 70) + "px monospace"; x.fillText("STARDATE 2100." + String(Math.floor(t * 7 + 114)).padStart(3, "0"), m + 4, bh + m * 0.6 + q + 18);
   x.restore();
 }
 

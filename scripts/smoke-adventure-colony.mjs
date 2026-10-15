@@ -28,7 +28,7 @@ async function open(re, pre) {
   ok("the career picker opens first with five careers", (await p.locator("[data-career]").count()) === 5);
   await p.click("[data-career=eng]"); await p.waitForTimeout(150);
   ok("picking a career closes the picker", (await p.locator("[data-careers]").count()) === 0);
-  ok("three speed buttons (slow / normal / fast), normal is on", (await p.locator("[data-speed]").count()) === 3 && (await p.locator("[data-speed='1'].on").count()) === 1);
+  ok("five speed buttons (slow / normal / fast / faster / max), normal is on", (await p.locator("[data-speed]").count()) === 5 && (await p.locator("[data-speed='1'].on").count()) === 1);
   { const t0 = await p.evaluate(() => window.__advColony.state().t); await p.click("[data-speed='2']"); await p.waitForTimeout(1500); const t1 = await p.evaluate(() => window.__advColony.state().t); await p.click("[data-speed='1']"); ok("fast speed runs the clock about twice as quick", t1 - t0 > 2.2, String(t1 - t0)); }
   const s0 = await p.evaluate(() => window.__advColony.state()); ok("it starts with a habitat and a solar farm and eight colonists", s0.grid.filter(b => b === "hab").length === 1 && s0.grid.filter(b => b === "solar").length === 1 && Math.round(s0.pop) === 8, JSON.stringify([s0.pop, s0.stock]));
   const free = s0.grid.findIndex(b => !b);
