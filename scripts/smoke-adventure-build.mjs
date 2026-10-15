@@ -30,13 +30,15 @@ for (const [nm, kind, N] of [["Colony Starship", "ship", 3], ["Dyson Sphere", "d
   if (kind === "ship") {
     await p.evaluate(() => window.__advBuild.answerWrong()); await p.waitForTimeout(150);
     ok("a wrong answer teaches (the explanation appears) and does not build", (await p.locator("[data-teach]").count()) === 1 && (await st(p)).built === 0 && (await st(p)).miss === 1);
-    await p.click("[data-again]"); await p.waitForTimeout(150); ok("then a new question is asked", (await st(p)).phase === "ask");
+    await p.click("[data-again]"); await p.waitForTimeout(150); ok("then the crew builds the part anyway, no second question", (await st(p)).phase === "build");
   }
-  await p.evaluate(() => window.__advBuild.answerRight()); await p.waitForTimeout(150);
-  const s1 = await st(p); ok(nm + ": a right answer starts the robots building", s1.phase === "build" && s1.right >= 1, JSON.stringify(s1));
+  if ((await st(p)).phase === "ask") { await p.evaluate(() => window.__advBuild.answerRight()); await p.waitForTimeout(150); }
+  const s1 = await st(p); ok(nm + ": a right answer starts the robots building", s1.phase === "build" && (s1.right >= 1 || kind === "ship"), JSON.stringify(s1));
   await p.evaluate(() => window.__advBuild.tick(4)); await p.waitForTimeout(250); const s2 = await st(p);
-  ok(nm + ": the part is finished and the next question comes", s2.built === 1 && s2.phase === "ask", JSON.stringify(s2));
-  for (let i = 1; i < N; i++) { await p.evaluate(() => { window.__advBuild.answerRight(); window.__advBuild.tick(4); }); await p.waitForTimeout(60); }
+  ok(nm + ": the part is finished and the next one builds without a question", s2.built === 1 && s2.phase === "build", JSON.stringify(s2));
+  let asked = 1;
+  for (let i = 1; i < N; i++) { if ((await st(p)).phase === "ask") { asked++; await p.evaluate(() => window.__advBuild.answerRight()); } await p.evaluate(() => window.__advBuild.tick(4)); await p.waitForTimeout(60); }
+  ok(nm + ": only three questions in the whole build", asked === 3, "asked " + asked);
   await p.waitForTimeout(400); const s3 = await st(p); ok(nm + ": all " + N + " parts built wins", s3.built === N && s3.won, JSON.stringify(s3));
   await p.waitForSelector(".adv-clear", { timeout: 6000 }); ok(nm + ": the clear card shows what was learned", /learned|notebook/i.test(await p.innerText(".adv-clear")));
   ok(nm + ": no errors", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();

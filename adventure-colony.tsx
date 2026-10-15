@@ -5,6 +5,7 @@
    a hazard that belongs to the site (night, dust storm, cold, flare), and a career the player picks (it tilts the numbers, and in an online room each pilot
    will hold one). Win = the colony reaches its population target while every need is still met. DOM only, no downloads, no coins (crystals + EXP). */
 import { finishLook } from "./cg-finish";
+import { drawStarbase, neonGrid, cyberOverlay, starship, tower } from "./adventure-colony-cyber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
@@ -150,13 +151,14 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
   const sg = x.createRadialGradient(sunx, suny, 2, sunx, suny, sr * 2.4); sg.addColorStop(0, kind === "proxima" ? "rgba(255,90,90,.95)" : kind === "titan" ? "rgba(255,200,120,.55)" : "rgba(255,240,200,.9)"); sg.addColorStop(1, "rgba(255,120,60,0)"); x.fillStyle = sg; x.beginPath(); x.arc(sunx, suny, sr * 2.4, 0, 7); x.fill();
   if (kind === "titan") { x.strokeStyle = "rgba(255,220,160,.5)"; x.lineWidth = 3; x.beginPath(); x.ellipse(sunx, suny, sr * 1.9, sr * 0.45, -0.3, 0, 7); x.stroke(); }
   drawSkyline(x, W, H, cam.x, T, era, pal);
+  drawStarbase(x, W, H, cam.x, T, kind);
   // the ground below the horizon, then the world through the camera
   const gg = x.createLinearGradient(0, H * 0.3, 0, H); gg.addColorStop(0, pal.reg2); gg.addColorStop(1, "#14110f"); x.fillStyle = gg; x.fillRect(0, H * 0.34, W, H);
   x.save(); x.translate(cam.x, cam.y); x.scale(cam.z, cam.z);
   const vis = (px: number, py: number, pad: number) => { const sx = px * cam.z + cam.x, sy = py * cam.z + cam.y; return sx > -pad * cam.z && sx < W + pad * cam.z && sy > -pad * 2 * cam.z && sy < H + pad * cam.z; };
   const diamond = (c: number, r: number, fill: string, stroke: string) => { const a = ptW(c, r), b = ptW(c + 1, r), d = ptW(c + 1, r + 1), e = ptW(c, r + 1); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.lineTo(d[0], d[1]); x.lineTo(e[0], e[1]); x.closePath(); x.fillStyle = fill; x.fill(); x.strokeStyle = stroke; x.lineWidth = 1; x.stroke(); };
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const i = r * COLS + c, cell = S.grid[i], m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0)) continue;
-    diamond(c, r, groundFill(pal, cell.f, i), "rgba(255,255,255,.07)");
+    diamond(c, r, groundFill(pal, cell.f, i), (r + c) % 3 === 0 ? "rgba(40,225,255,.32)" : "rgba(255,60,210,.16)");
     if (cell.f === "ice") { x.fillStyle = "rgba(255,255,255," + (0.35 + 0.3 * Math.sin(T * 2 + i)) + ")"; x.fillRect(m[0] - 8, m[1] - 2, 3, 1.6); x.fillRect(m[0] + 6, m[1] + 3, 2.4, 1.4); }
     else if (cell.f === "ore") { x.fillStyle = "rgba(255,190,90,.9)"; for (let k = 0; k < 4; k++) x.fillRect(m[0] - 10 + k * 6, m[1] - 3 + (k % 2) * 5, 3, 2.2); }
     else if (!cell.b && i % 9 === 0) { x.fillStyle = "rgba(0,0,0,.18)"; x.beginPath(); x.ellipse(m[0] + 6, m[1] + 2, 9, 4, 0, 0, 7); x.fill(); x.strokeStyle = "rgba(255,255,255,.12)"; x.stroke(); } }
@@ -164,6 +166,8 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const i = r * COLS + c; if (!S.grid[i].b) continue; const m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0)) continue;
     if (c + 1 < COLS && S.grid[i + 1].b) { const n = ptW(c + 1.5, r + 0.5); drawTube(x, m[0], m[1], n[0], n[1], TW0 / 64, era); }
     if (r + 1 < ROWS && S.grid[i + COLS].b) { const n = ptW(c + 0.5, r + 1.5); drawTube(x, m[0], m[1], n[0], n[1], TW0 / 64, era); } }
+  // the Starbase landmark at the north corner of the plot: a stainless Starship on its booster beside the launch tower, standing in the world so it pans and zooms with the city
+  { const lm = ptW(COLS * 0.5, -1.2); if (vis(lm[0], lm[1], 220)) { x.save(); x.fillStyle = "rgba(255,190,110,.16)"; x.beginPath(); x.ellipse(lm[0], lm[1] + 6, 120, 30, 0, 0, 7); x.fill(); x.fillStyle = "#222a36"; x.beginPath(); x.ellipse(lm[0], lm[1] + 4, 62, 16, 0, 0, 7); x.fill(); tower(x, lm[0] - 70, lm[1] + 4, 1.5, T); starship(x, lm[0], lm[1] + 4, 1.5, T, true); x.restore(); } }
   // buildings, back to front
   for (let sum = 0; sum < COLS + ROWS; sum++) for (let r = 0; r < ROWS; r++) { const c = sum - r; if (c < 0 || c >= COLS) continue; const cell = S.grid[r * COLS + c]; if (!cell.b) continue; const m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0 * 2)) continue;
     drawBuilding(x, cell.b, m[0], m[1], TW0, era, T, pal, r * COLS + c); }
@@ -171,6 +175,7 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
   const lanes = era === 0 ? 4 : era === 1 ? 8 : 14;
   for (let i = 0; i < lanes; i++) { const r = (i * 5) % ROWS, u = ((T * (0.12 + 0.03 * (i % 3)) + i * 0.37) % 1) * COLS, p = ptW(u, r + 0.5); if (!vis(p[0], p[1], 20)) continue; x.fillStyle = i % 2 ? "rgba(255,200,120,.95)" : "rgba(120,230,255,.95)"; x.fillRect(p[0] - 2, p[1] - 2 - (era === 2 ? 14 : 0), era === 2 ? 6 : 4, 2.4); }
   x.restore();
+  neonGrid(x, W, H, T, S.hz > 0); cyberOverlay(x, W, H, T, kind);
   // the site's hazard drifts over the city
   if (S.hz > 0) { const k = Math.min(1, S.hz / 3), kind2 = kind;
     if (kind2 === "moon") { x.fillStyle = "rgba(0,0,20," + 0.45 * k + ")"; x.fillRect(0, 0, W, H); }

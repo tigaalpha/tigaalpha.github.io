@@ -47,36 +47,81 @@ const FACTS: L3[] = [
   ["อาณานิคมที่อยู่ไกลโลกต้องผลิตอาหารเองเกือบทั้งหมด เพราะยานส่งเสบียงมาได้นาน ๆ ครั้ง", "A colony far from Earth must grow almost all of its food itself; supply ships come rarely.", "远离地球的殖民地几乎要自己生产全部食物，补给船很少来。"],
 ];
 
+/* The still scenery (sky, hills, forest, trees, meadow texture, pond, path, barn, fence) is painted ONCE at twice the size into a cached canvas, so it can carry
+   far more detail than a per-frame draw could: seeded grass blades in five greens, light and shadow patches, clumped leaf canopies with a lit side,
+   a wooden barn with planks and a shingled roof, a stone path and soft contact shadows. */
+const BG: Record<string, HTMLCanvasElement> = {};
+function farmBg(kind: string): HTMLCanvasElement {
+  if (BG[kind]) return BG[kind];
+  const c = document.createElement("canvas"); c.width = VW * 2; c.height = VH * 2; const x = c.getContext("2d")!; x.scale(2, 2);
+  let sd = 7; const R = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+  const SKYC: any = { moon: ["#4aa8f0", "#cfeaff"], mars: ["#e9a35a", "#ffe3b0"], titan: ["#c9954a", "#f2d9a6"], proxima: ["#f0786a", "#ffd2bf"] }, sc = SKYC[kind] || SKYC.moon;
+  const sg = x.createLinearGradient(0, 0, 0, 240); sg.addColorStop(0, sc[0]); sg.addColorStop(1, sc[1]); x.fillStyle = sg; x.fillRect(0, 0, VW, 250);
+  // sun glow and the world's planet
+  const bigRed = kind === "proxima", sr = bigRed ? 52 : kind === "titan" ? 16 : 28;
+  const sun = x.createRadialGradient(700, 66, 2, 700, 66, sr * 3); sun.addColorStop(0, bigRed ? "#ff6a4a" : "#fffbe0"); sun.addColorStop(0.25, bigRed ? "rgba(255,90,60,.55)" : "rgba(255,240,170,.7)"); sun.addColorStop(1, "rgba(255,240,170,0)"); x.fillStyle = sun; x.beginPath(); x.arc(700, 66, sr * 3, 0, 7); x.fill();
+  if (kind === "titan") { const pg = x.createRadialGradient(140, 62, 2, 150, 70, 30); pg.addColorStop(0, "#f6dc9a"); pg.addColorStop(1, "#a8772e"); x.fillStyle = pg; x.beginPath(); x.arc(150, 70, 28, 0, 7); x.fill(); x.strokeStyle = "rgba(255,235,190,.85)"; x.lineWidth = 4; x.beginPath(); x.ellipse(150, 70, 54, 12, -0.3, 0, 7); x.stroke(); }
+  else { const eg = x.createRadialGradient(114, 48, 1, 120, 54, 19); eg.addColorStop(0, "#9fd0ff"); eg.addColorStop(0.6, "#2f66d8"); eg.addColorStop(1, "#16286a"); x.fillStyle = eg; x.beginPath(); x.arc(120, 54, 18, 0, 7); x.fill(); x.fillStyle = "rgba(90,200,120,.8)"; x.beginPath(); x.ellipse(114, 52, 7, 5, 0.4, 0, 7); x.fill(); }
+  // far hills in layers of haze
+  const hill = (y0: number, amp: number, col: string, ph: number) => { x.fillStyle = col; x.beginPath(); x.moveTo(0, 250); for (let i = 0; i <= 40; i++) x.lineTo(i * 20, y0 - amp * (0.5 + 0.5 * Math.sin(i * 0.31 + ph)) - amp * 0.4 * Math.sin(i * 0.8 + ph * 2)); x.lineTo(VW, 250); x.fill(); };
+  hill(206, 34, "#9ec7c0", 0.4); hill(214, 26, "#7fb48a", 2.1); hill(224, 20, "#5fa05a", 4);
+  // distant tree line
+  for (let i = 0; i < 70; i++) { const tx = R() * VW, ty = 214 + R() * 14, r = 7 + R() * 9; const g = x.createRadialGradient(tx - r * 0.3, ty - r * 0.5, 1, tx, ty, r); g.addColorStop(0, "#6fbf55"); g.addColorStop(1, "#2f7a3a"); x.fillStyle = g; x.beginPath(); x.arc(tx, ty - r * 0.6, r, 0, 7); x.fill(); }
+  // meadow base and mown bands
+  const mg = x.createLinearGradient(0, 226, 0, VH); mg.addColorStop(0, "#86cf5e"); mg.addColorStop(0.45, "#63b247"); mg.addColorStop(1, "#3d8a34"); x.fillStyle = mg; x.fillRect(0, 226, VW, VH - 226);
+  for (let i = 0; i < 16; i++) { x.fillStyle = i % 2 ? "rgba(255,255,190,.06)" : "rgba(0,50,0,.07)"; x.beginPath(); x.moveTo(0, 226 + i * 14); x.lineTo(VW, 226 + i * 14 - 6); x.lineTo(VW, 226 + i * 14 + 8); x.lineTo(0, 226 + i * 14 + 14); x.fill(); }
+  // light and shade patches
+  for (let i = 0; i < 26; i++) { const px = R() * VW, py = 240 + R() * 200, rr = 30 + R() * 70, lg = x.createRadialGradient(px, py, 2, px, py, rr); const lit = R() > 0.5; lg.addColorStop(0, lit ? "rgba(235,255,150,.22)" : "rgba(10,60,20,.2)"); lg.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = lg; x.beginPath(); x.ellipse(px, py, rr * 1.6, rr * 0.55, 0, 0, 7); x.fill(); }
+  // grass blades in five greens, bigger and denser toward the viewer
+  const G5 = ["#2f7a2c", "#3f9a36", "#58b744", "#7fd05a", "#a6e46c"];
+  for (let i = 0; i < 2600; i++) { const gx = R() * VW, gy = 232 + R() * (VH - 232), s = 3 + (gy - 232) / 30 * (0.6 + R()), col = G5[Math.floor(R() * 5)]; x.strokeStyle = col; x.lineWidth = 0.8 + s * 0.12; x.beginPath(); x.moveTo(gx, gy); x.quadraticCurveTo(gx + (R() - 0.5) * s, gy - s * 0.6, gx + (R() - 0.5) * s * 1.4, gy - s); x.stroke(); }
+  // wildflower clusters
+  const FC = ["#ff7ab8", "#ffffff", "#ffd23f", "#b48cff", "#ff8a5a"];
+  for (let i = 0; i < 40; i++) { const fx = R() * VW, fy = 250 + R() * 190, col = FC[i % 5]; for (let k = 0; k < 4; k++) { const ox = fx + (R() - 0.5) * 14, oy = fy + (R() - 0.5) * 8; x.strokeStyle = "#2f7a2c"; x.lineWidth = 1; x.beginPath(); x.moveTo(ox, oy + 5); x.lineTo(ox, oy); x.stroke(); x.fillStyle = col; x.beginPath(); x.arc(ox, oy, 2.2, 0, 7); x.fill(); x.fillStyle = "#ffe36a"; x.beginPath(); x.arc(ox, oy, 0.9, 0, 7); x.fill(); } }
+  // a pond with a bank, a sky reflection and reeds
+  x.fillStyle = "rgba(30,70,30,.35)"; x.beginPath(); x.ellipse(400, 414, 78, 25, 0, 0, 7); x.fill();
+  const pg = x.createLinearGradient(330, 395, 470, 430); pg.addColorStop(0, "#bfeaff"); pg.addColorStop(0.5, "#5db0e6"); pg.addColorStop(1, "#2a77b8"); x.fillStyle = pg; x.beginPath(); x.ellipse(400, 411, 70, 20, 0, 0, 7); x.fill();
+  x.fillStyle = "rgba(255,255,255,.4)"; x.beginPath(); x.ellipse(384, 404, 28, 5, 0, 0, 7); x.fill();
+  for (let i = 0; i < 9; i++) { const rx = 338 + i * 8 + R() * 4; x.strokeStyle = "#3f8a34"; x.lineWidth = 1.5; x.beginPath(); x.moveTo(rx, 420); x.lineTo(rx + 1, 404 - R() * 6); x.stroke(); x.fillStyle = "#8a5a2a"; x.fillRect(rx - 0.5, 400 - R() * 4, 2.4, 5); }
+  // a dirt path of stepping stones from the barn to the pens
+  for (let i = 0; i < 16; i++) { const t = i / 15, px = 120 + t * 430, py = 440 - Math.sin(t * 2.2) * 100 - t * 20; x.fillStyle = "rgba(0,40,0,.25)"; x.beginPath(); x.ellipse(px + 2, py + 3, 16, 7, 0, 0, 7); x.fill(); const sgd = x.createLinearGradient(px, py - 6, px, py + 6); sgd.addColorStop(0, "#e2d3b0"); sgd.addColorStop(1, "#a89670"); x.fillStyle = sgd; x.beginPath(); x.ellipse(px, py, 15, 6, 0, 0, 7); x.fill(); }
+  // trees: clumped leaf canopies, a lit side, a trunk and a soft shadow on the grass
+  const tree = (tx: number, ty: number, sc2: number) => { x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(tx + 14 * sc2, ty + 3, 38 * sc2, 9 * sc2, 0, 0, 7); x.fill();
+    const tg = x.createLinearGradient(tx - 5 * sc2, 0, tx + 5 * sc2, 0); tg.addColorStop(0, "#8a6338"); tg.addColorStop(1, "#4d341c"); x.fillStyle = tg; x.beginPath(); x.moveTo(tx - 5 * sc2, ty + 2); x.lineTo(tx - 3 * sc2, ty - 34 * sc2); x.lineTo(tx + 3 * sc2, ty - 34 * sc2); x.lineTo(tx + 6 * sc2, ty + 2); x.fill();
+    for (let k = 0; k < 14; k++) { const a = R() * 6.28, d = R() * 26 * sc2, cx2 = tx + Math.cos(a) * d, cy2 = ty - 52 * sc2 + Math.sin(a) * d * 0.8, r = (14 + R() * 10) * sc2; const lg = x.createRadialGradient(cx2 - r * 0.35, cy2 - r * 0.4, 1, cx2, cy2, r); lg.addColorStop(0, k % 3 ? "#9be05f" : "#b9ee74"); lg.addColorStop(0.55, "#3f9a3a"); lg.addColorStop(1, "#1f5f2a"); x.fillStyle = lg; x.beginPath(); x.arc(cx2, cy2, r, 0, 7); x.fill(); } };
+  tree(206, 232, 1); tree(528, 226, 0.85); tree(768, 236, 1.05); tree(24, 246, 0.9); tree(330, 222, 0.6);
+  // bushes
+  for (const [bx, by] of [[190, 262], [510, 250], [18, 300]]) for (let k = 0; k < 5; k++) { const cx3 = bx + k * 8 - 16, cy3 = by - (k % 2) * 5, r = 10 + (k % 3) * 2; const bg = x.createRadialGradient(cx3 - 3, cy3 - 4, 1, cx3, cy3, r); bg.addColorStop(0, "#8ad45a"); bg.addColorStop(1, "#2f7a2c"); x.fillStyle = bg; x.beginPath(); x.arc(cx3, cy3, r, 0, 7); x.fill(); }
+  // the barn: planks, a gambrel roof of shingles, a hay loft and a big door with a cross
+  x.fillStyle = "rgba(0,40,0,.34)"; x.beginPath(); x.ellipse(120, 216, 100, 13, 0, 0, 7); x.fill();
+  const bgd = x.createLinearGradient(26, 0, 158, 0); bgd.addColorStop(0, "#e04a36"); bgd.addColorStop(0.7, "#b8321f"); bgd.addColorStop(1, "#8c2417"); x.fillStyle = bgd; x.fillRect(26, 112, 132, 100);
+  x.strokeStyle = "rgba(70,15,8,.4)"; x.lineWidth = 0.8; for (let k = 1; k < 14; k++) { x.beginPath(); x.moveTo(26 + k * 9.5, 112); x.lineTo(26 + k * 9.5, 212); x.stroke(); }
+  x.fillStyle = "#f4ead0"; x.fillRect(24, 110, 4, 102); x.fillRect(156, 110, 4, 102);
+  const rg = x.createLinearGradient(0, 56, 0, 116); rg.addColorStop(0, "#6a4a3a"); rg.addColorStop(1, "#3e2a22"); x.fillStyle = rg; x.beginPath(); x.moveTo(12, 118); x.lineTo(32, 82); x.lineTo(60, 60); x.lineTo(124, 60); x.lineTo(152, 82); x.lineTo(172, 118); x.closePath(); x.fill();
+  x.strokeStyle = "rgba(20,10,6,.35)"; x.lineWidth = 0.8; for (let r2 = 0; r2 < 7; r2++) { x.beginPath(); x.moveTo(14 + r2 * 3, 118 - r2 * 9); x.lineTo(170 - r2 * 3, 118 - r2 * 9); x.stroke(); }
+  x.fillStyle = "#3a261c"; x.fillRect(80, 74, 24, 24); x.fillStyle = "#e8c15a"; x.fillRect(82, 84, 20, 12);
+  x.fillStyle = "#f4ead0"; x.fillRect(62, 148, 60, 64); x.fillStyle = "#c13a28"; x.fillRect(65, 151, 54, 58); x.strokeStyle = "#f4ead0"; x.lineWidth = 3; x.strokeRect(65, 151, 54, 58); x.beginPath(); x.moveTo(65, 151); x.lineTo(119, 209); x.moveTo(119, 151); x.lineTo(65, 209); x.stroke();
+  // hay bales and a silo beside the barn
+  for (const [hx, hy] of [[168, 206], [186, 208]]) { const hg = x.createLinearGradient(hx, hy - 14, hx, hy + 6); hg.addColorStop(0, "#f2d268"); hg.addColorStop(1, "#c8a03a"); x.fillStyle = hg; x.beginPath(); x.roundRect(hx - 9, hy - 12, 20, 16, 4); x.fill(); x.strokeStyle = "rgba(120,80,10,.5)"; x.lineWidth = 0.8; x.beginPath(); x.moveTo(hx - 3, hy - 12); x.lineTo(hx - 3, hy + 4); x.moveTo(hx + 4, hy - 12); x.lineTo(hx + 4, hy + 4); x.stroke(); }
+  const sg2 = x.createLinearGradient(196, 0, 236, 0); sg2.addColorStop(0, "#e6ebf0"); sg2.addColorStop(0.5, "#fff"); sg2.addColorStop(1, "#aab4c0"); x.fillStyle = sg2; x.fillRect(198, 120, 36, 90); x.fillStyle = "#8d97a6"; x.beginPath(); x.ellipse(216, 120, 18, 8, 0, Math.PI, 0); x.fill(); x.strokeStyle = "rgba(90,100,115,.4)"; x.lineWidth = 1; for (let k = 0; k < 6; k++) { x.beginPath(); x.moveTo(198, 132 + k * 14); x.lineTo(234, 132 + k * 14); x.stroke(); }
+  // the pen: grass inside a split-rail fence with posts and a soft shadow
+  x.fillStyle = "rgba(0,40,0,.28)"; x.beginPath(); x.roundRect(560, 222, 238, 218, 14); x.fill();
+  const pgr = x.createLinearGradient(0, 214, 0, 432); pgr.addColorStop(0, "#9ee070"); pgr.addColorStop(1, "#6fbf55"); x.fillStyle = pgr; x.beginPath(); x.roundRect(556, 214, 238, 218, 14); x.fill();
+  for (let i = 0; i < 260; i++) { const gx = 560 + R() * 230, gy = 218 + R() * 210; x.strokeStyle = G5[Math.floor(R() * 5)]; x.lineWidth = 1; x.beginPath(); x.moveTo(gx, gy); x.lineTo(gx + (R() - 0.5) * 3, gy - 4 - R() * 4); x.stroke(); }
+  const rail = (x0: number, y0: number, w: number) => { for (const dy of [0, 9]) { const wg = x.createLinearGradient(0, y0 + dy, 0, y0 + dy + 5); wg.addColorStop(0, "#d9a566"); wg.addColorStop(1, "#8a5a2a"); x.fillStyle = wg; x.fillRect(x0, y0 + dy, w, 5); } };
+  rail(556, 210, 238); rail(556, 424, 238);
+  for (let fx = 558; fx < 796; fx += 24) { for (const fy of [204, 418]) { const pgd = x.createLinearGradient(fx, 0, fx + 8, 0); pgd.addColorStop(0, "#c98f50"); pgd.addColorStop(1, "#6e4622"); x.fillStyle = pgd; x.fillRect(fx, fy, 8, 26); x.fillStyle = "#e8c48c"; x.fillRect(fx, fy, 8, 3); } }
+  // a water trough in the pen
+  x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(676, 318, 40, 8, 0, 0, 7); x.fill(); const tgd = x.createLinearGradient(0, 296, 0, 318); tgd.addColorStop(0, "#a8754a"); tgd.addColorStop(1, "#6e4622"); x.fillStyle = tgd; x.beginPath(); x.roundRect(644, 298, 64, 20, 5); x.fill(); x.fillStyle = "#6ab8ee"; x.beginPath(); x.roundRect(648, 300, 56, 8, 3); x.fill();
+  // warm key light from the sun's side over everything still
+  const kl = x.createLinearGradient(0, 0, VW, VH); kl.addColorStop(0, "rgba(255,230,160,.12)"); kl.addColorStop(1, "rgba(30,60,120,.1)"); x.fillStyle = kl; x.fillRect(0, 0, VW, VH);
+  BG[kind] = c; return c;
+}
+
 function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string) {
   const O = "rgba(45,28,12,.5)";
-  // sky inside the dome, with the world's planet or sun
-  const SKYC: any = { moon: ["#6cc3ff", "#d8f2ff"], mars: ["#f7b56a", "#ffe0a8"], titan: ["#d9a45a", "#f3d8a0"], proxima: ["#ff8a7a", "#ffd0c0"] }, sc = SKYC[kind] || SKYC.moon;
-  const g = x.createLinearGradient(0, 0, 0, 230); g.addColorStop(0, sc[0]); g.addColorStop(1, sc[1]); x.fillStyle = g; x.fillRect(0, 0, VW, 240);
-  const bigRed = kind === "proxima", sunR = bigRed ? 52 : kind === "titan" ? 16 : 30; x.fillStyle = bigRed ? "#ff4a3a" : "#ffe36a"; x.beginPath(); x.arc(700, 66, sunR, 0, 7); x.fill(); x.fillStyle = bigRed ? "rgba(255,90,60,.35)" : "rgba(255,240,150,.4)"; x.beginPath(); x.arc(700, 66, sunR + 16, 0, 7); x.fill();
-  if (kind === "titan") { x.fillStyle = "#e8c070"; x.beginPath(); x.arc(150, 70, 28, 0, 7); x.fill(); x.strokeStyle = "rgba(255,235,190,.9)"; x.lineWidth = 5; x.beginPath(); x.ellipse(150, 70, 52, 12, -0.3, 0, 7); x.stroke(); }   // Saturn over Titan
-  else { x.fillStyle = "#3a6fe0"; x.beginPath(); x.arc(120, 54, 18, 0, 7); x.fill(); x.fillStyle = "#4fd08a"; x.beginPath(); x.arc(114, 50, 8, 0, 7); x.fill(); }   // a small Earth in the sky
+  x.drawImage(farmBg(kind), 0, 0, VW, VH);
   for (let i = 0; i < 3; i++) { const cx = ((T * 12 + i * 280) % 1000) - 100, cy = 40 + i * 34; x.fillStyle = "rgba(255,255,255,.9)"; x.beginPath(); x.arc(cx, cy, 20, 0, 7); x.arc(cx + 22, cy + 4, 16, 0, 7); x.arc(cx - 20, cy + 6, 14, 0, 7); x.fill(); }
-  // hills and the meadow
-  x.fillStyle = "#8be07a"; x.beginPath(); x.moveTo(0, 210); x.quadraticCurveTo(160, 150, 330, 205); x.quadraticCurveTo(520, 160, 800, 200); x.lineTo(800, 250); x.lineTo(0, 250); x.fill();
-  const mg = x.createLinearGradient(0, 232, 0, VH); mg.addColorStop(0, "#7cc95a"); mg.addColorStop(0.5, "#5fae45"); mg.addColorStop(1, "#3f8a34"); x.fillStyle = mg; x.fillRect(0, 232, VW, VH - 232);
-  for (let i = 0; i < 12; i++) { x.fillStyle = i % 2 ? "rgba(255,255,200,.05)" : "rgba(0,40,0,.06)"; x.fillRect(0, 232 + i * 19, VW, 19); }
-  // distant forest and hills in blue haze
-  for (let i = 0; i < 26; i++) { const tx = i * 32 + (i % 3) * 7, th = 26 + (i * 13) % 18; x.fillStyle = "rgba(70,120,110,.55)"; x.beginPath(); x.arc(tx, 208, th * 0.7, Math.PI, 0); x.fill(); }
-  // trees: shaded round canopies with a trunk and a shadow
-  const tree = (tx: number, ty: number, sc: number) => { x.fillStyle = "rgba(0,40,0,.25)"; x.beginPath(); x.ellipse(tx + 10 * sc, ty + 2, 30 * sc, 8 * sc, 0, 0, 7); x.fill(); x.fillStyle = "#6b4a2b"; x.fillRect(tx - 4 * sc, ty - 26 * sc, 8 * sc, 28 * sc); const cg = x.createRadialGradient(tx - 10 * sc, ty - 58 * sc, 4, tx, ty - 46 * sc, 36 * sc); cg.addColorStop(0, "#9be06a"); cg.addColorStop(0.6, "#3f9a3a"); cg.addColorStop(1, "#246a2c"); x.fillStyle = cg; x.beginPath(); x.arc(tx, ty - 46 * sc, 28 * sc, 0, 7); x.arc(tx - 18 * sc, ty - 36 * sc, 20 * sc, 0, 7); x.arc(tx + 18 * sc, ty - 38 * sc, 20 * sc, 0, 7); x.fill(); };
-  tree(210, 226, 0.9); tree(520, 222, 0.8); tree(760, 232, 1); tree(26, 238, 0.8);
-  // a pond with a sky reflection and a ripple
-  const pg = x.createRadialGradient(400, 410, 4, 400, 410, 70); pg.addColorStop(0, "#9fe0ff"); pg.addColorStop(1, "#3a8fc8"); x.fillStyle = pg; x.beginPath(); x.ellipse(400, 410, 70, 20, 0, 0, 7); x.fill(); x.strokeStyle = "rgba(255,255,255,.5)"; x.lineWidth = 1.2; x.beginPath(); x.ellipse(400 + Math.sin(T) * 10, 410, 26 + (T * 6) % 14, 6, 0, 0, 7); x.stroke();
-  // a dirt path from the barn to the pens
-  x.fillStyle = "rgba(190,150,100,.55)"; x.beginPath(); x.moveTo(110, 440); x.bezierCurveTo(200, 400, 330, 405, 556, 330); x.lineTo(556, 350); x.bezierCurveTo(340, 430, 240, 440, 150, 450); x.fill();
-  for (let i = 0; i < 90; i++) { const gx = (i * 137) % VW, gy = 240 + (i * 59) % (VH - 250); x.strokeStyle = "rgba(40,120,40,.35)"; x.lineWidth = 1.1; x.beginPath(); x.moveTo(gx, gy); x.lineTo(gx - 2, gy - 6); x.moveTo(gx + 3, gy); x.lineTo(gx + 4, gy - 7); x.stroke(); }
-  for (let i = 0; i < 14; i++) { const fx = (i * 211) % VW, fy = 250 + (i * 83) % 190; x.fillStyle = ["#ff7ab8", "#fff", "#ffd23f"][i % 3]; x.beginPath(); x.arc(fx, fy, 3, 0, 7); x.fill(); }
-  // the barn
-  x.fillStyle = "rgba(0,40,0,.28)"; x.beginPath(); x.ellipse(110, 214, 92, 12, 0, 0, 7); x.fill();
-  const bgd = x.createLinearGradient(26, 0, 156, 0); bgd.addColorStop(0, "#e5543e"); bgd.addColorStop(1, "#a8301f"); x.fillStyle = bgd; x.strokeStyle = O; x.lineWidth = 1.2; x.beginPath(); x.rect(26, 110, 130, 100); x.fill(); x.stroke();
-  x.strokeStyle = "rgba(80,20,10,.35)"; x.lineWidth = 1; for (let k = 1; k < 13; k++) { x.beginPath(); x.moveTo(26 + k * 10, 110); x.lineTo(26 + k * 10, 210); x.stroke(); }
-  const rg2 = x.createLinearGradient(0, 62, 0, 114); rg2.addColorStop(0, "#7a2a22"); rg2.addColorStop(1, "#4a1a16"); x.fillStyle = rg2; x.beginPath(); x.moveTo(14, 114); x.lineTo(91, 62); x.lineTo(168, 114); x.closePath(); x.fill(); x.stroke();
-  x.fillStyle = "#fff4dc"; x.beginPath(); x.rect(62, 146, 58, 64); x.fill(); x.stroke(); x.beginPath(); x.moveTo(62, 146); x.lineTo(120, 210); x.moveTo(120, 146); x.lineTo(62, 210); x.stroke();
   x.fillStyle = "#fff"; x.font = "900 15px system-ui"; x.textAlign = "center"; x.fillText("🌾 " + Math.floor(S.stock), 91, 100);
   // the windmill
   x.fillStyle = "#f4ead0"; x.strokeStyle = O; x.beginPath(); x.moveTo(668, 210); x.lineTo(684, 120); x.lineTo(716, 120); x.lineTo(732, 210); x.closePath(); x.fill(); x.stroke();
