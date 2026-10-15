@@ -126,6 +126,7 @@ export default function AdventureBuild({ P, lang, onWin, onExit, onRetry }: any)
           <radialGradient id="abp" cx=".35" cy=".3" r=".8"><stop offset="0" stopColor="#ffe9b8" /><stop offset=".6" stopColor="#c98a4a" /><stop offset="1" stopColor="#5a3418" /></radialGradient>
           <radialGradient id="abs" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#fffbe0" /><stop offset=".4" stopColor="#ffd25a" /><stop offset="1" stopColor="#ff9a2a" stopOpacity="0" /></radialGradient>
           <filter id="abglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          <linearGradient id="absol" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#3a63c8" /><stop offset=".5" stopColor="#1a2f78" /><stop offset="1" stopColor="#0d1a4a" /></linearGradient>
           <pattern id="abgrid" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M8 0H0V8" fill="none" stroke="#19e6ff" strokeOpacity=".07" strokeWidth=".3" /></pattern>
         </defs>
         <rect x="-40" y="-30" width="240" height="150" fill="url(#abg)" />
@@ -136,12 +137,27 @@ export default function AdventureBuild({ P, lang, onWin, onExit, onRetry }: any)
         {P.kind === "gas" && <g><circle cx="80" cy="110" r="78" fill="url(#abp)" /><path d="M6 80 Q80 66 154 80 M10 88 Q80 74 150 88 M14 74 Q80 62 146 74" stroke="#f6d8a0" strokeWidth="2.2" fill="none" opacity=".55" /><ellipse cx="80" cy="45" rx="70" ry="9" fill="none" stroke="#fff" strokeOpacity=".15" /></g>}
         {P.kind === "mine" && <g><path d="M40 52 Q46 20 80 16 Q120 18 128 50 Q124 78 82 80 Q44 80 40 52Z" fill="#454552" stroke="#9a9aae" strokeWidth=".6" /><path d="M48 40 Q64 22 92 24" stroke="#fff" strokeOpacity=".22" strokeWidth="1.6" fill="none" /><circle cx="66" cy="42" r="5.5" fill="#2c2c36" /><circle cx="98" cy="60" r="8" fill="#2c2c36" /><circle cx="88" cy="32" r="3" fill="#2c2c36" /><circle cx="110" cy="46" r="2" fill="#ffb347" opacity=".9" filter="url(#abglow)" /></g>}
         {P.kind === "ship" && <g><path d="M16 45 L42 28 L122 32 L146 45 L122 58 L42 62Z" fill="url(#abm)" fillOpacity={0.12 + 0.55 * S.built / N} stroke="#7fa6ff" strokeOpacity=".7" strokeWidth=".5" strokeDasharray={S.built >= N ? "" : "2 2"} /><path d="M42 28 L122 32" stroke="#fff" strokeOpacity={0.15 + 0.5 * S.built / N} strokeWidth=".8" /></g>}
-        {sc.parts.map((p, i) => { const done = i < S.built, now = i === S.built && S.phase === "build", pr = now ? S.bp / 100 : 0; return (
+        {sc.parts.map((p, i) => { const done = i < S.built, now = i === S.built && S.phase === "build", pr = now ? S.bp / 100 : 0, ang = P.kind === "dyson" ? Math.atan2(p.y - 45, p.x - 80) * 180 / Math.PI + 90 : 0, solar = P.kind === "dyson"; return (
           <g key={i} data-part={i} className={done ? "ab-done" : now ? "ab-now" : "ab-todo"} transform={`translate(${p.x} ${p.y})`}>
-            {done && <circle r="11" fill="#5affbe" opacity=".12" filter="url(#abglow)" />}
-            <circle r="8.2" fill={done ? "url(#abm)" : "rgba(10,20,50,.55)"} stroke={done ? "#5affbe" : now ? "#ffe07a" : "rgba(130,190,255,.5)"} strokeWidth={done || now ? 1.1 : 0.6} strokeDasharray={done ? "" : "2 2"} filter={done || now ? "url(#abglow)" : undefined} />
-            {now && <circle r="8.2" fill="none" stroke="#ffe07a" strokeWidth="1.6" strokeDasharray={`${pr * 51.5} 60`} transform="rotate(-90)" />}
-            <text textAnchor="middle" y="3.6" fontSize="9" opacity={done ? 1 : now ? 0.95 : 0.4}>{p.icon}</text>
+            {done && <ellipse rx="13" ry="13" fill="#5affbe" opacity=".14" filter="url(#abglow)" />}
+            <g transform={`rotate(${ang})`} opacity={done ? 1 : now ? 0.55 + 0.45 * pr : 0.3}>
+              <ellipse cx="1.5" cy="6.5" rx="9" ry="2" fill="#000" opacity=".35" />
+              {solar ? (<g>
+                <rect x="-8.5" y="-5" width="17" height="10" rx="1" fill="url(#abm)" stroke="#d6a93a" strokeWidth=".7" />
+                <rect x="-7.2" y="-3.8" width="14.4" height="7.6" fill="url(#absol)" />
+                {[-4.8, -2.4, 0, 2.4, 4.8].map(v => <line key={v} x1={v} y1="-3.8" x2={v} y2="3.8" stroke="#a8c8ff" strokeOpacity=".5" strokeWidth=".25" />)}
+                {[-1.3, 1.3].map(v => <line key={v} x1="-7.2" y1={v} x2="7.2" y2={v} stroke="#a8c8ff" strokeOpacity=".5" strokeWidth=".25" />)}
+                <path d="M-7 -3.6 L2 -3.6 L-1 -1 L-7 -1Z" fill="#fff" opacity=".18" />
+              </g>) : (<g>
+                <rect x="-8" y="-6.5" width="16" height="13" rx="2.2" fill="url(#abm)" stroke={done ? "#5affbe" : "#7fa6ff"} strokeOpacity=".8" strokeWidth=".6" />
+                <rect x="-6.2" y="-4.7" width="12.4" height="9.4" rx="1.4" fill="rgba(12,20,42,.72)" />
+                <path d="M-8 -6.5 L8 -6.5 L8 -5 L-8 -5Z" fill="#fff" opacity=".45" />
+                {[[-6.8, -5.4], [6.8, -5.4], [-6.8, 5.4], [6.8, 5.4]].map(([rx, ry], k) => <circle key={k} cx={rx} cy={ry} r=".55" fill="#2a3242" />)}
+                <circle cx="5.2" cy="-3.2" r=".7" fill={done ? "#5affbe" : now ? "#ffe07a" : "#ff6a4a"}><animate attributeName="opacity" values=".4;1;.4" dur="1.2s" repeatCount="indefinite" /></circle>
+              </g>)}
+            </g>
+            {now && <circle r="10.5" fill="none" stroke="#ffe07a" strokeWidth="1.2" strokeDasharray={`${pr * 66} 70`} transform="rotate(-90)" filter="url(#abglow)" />}
+            <text textAnchor="middle" y="2.4" fontSize={solar ? "5.5" : "6.5"} opacity={done ? 0.95 : now ? 0.95 : 0.55}>{p.icon}</text>
           </g>); })}
         {S.phase === "build" && <g transform={`translate(${part.x + 11} ${part.y - 9})`} className="ab-bot"><text fontSize="9">🤖</text><text fontSize="6" y="-1" x="2">✨</text></g>}
         {S.phase === "build" && <line x1={part.x + 10} y1={part.y - 7} x2={part.x} y2={part.y} stroke="#ffe07a" strokeWidth=".8" strokeOpacity=".85" filter="url(#abglow)"><animate attributeName="stroke-opacity" values=".3;1;.3" dur=".5s" repeatCount="indefinite" /></line>}
