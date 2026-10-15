@@ -26,6 +26,9 @@ const ANIMALS: { id: string; icon: string; prod: string; name: L3; pname: L3; fe
   { id: "pig", icon: "🐖", prod: "🥓", name: ["หมู", "Pig", "猪"], pname: ["เบคอน", "bacon", "培根"], feed: 2, every: 12, yield: 5, x: 618, y: 372 },
   { id: "sheep", icon: "🐑", prod: "🧶", name: ["แกะ", "Sheep", "绵羊"], pname: ["ขนแกะ", "wool", "羊毛"], feed: 1, every: 10, yield: 4, x: 722, y: 372 },
 ];
+/* Houses (owner, 2026-10-15: "each animal has its own house, you build it yourself and choose what to raise"): the four pen slots start as empty foundations.
+   Tap a slot to pay for the house (it goes up over a few seconds), then tap it again to buy the animal. Animals only work once the house is built and the animal bought. */
+const HOUSE_COST = [12, 6, 10, 8], BUY_COST = [10, 3, 6, 4], HOUSE_NAME: L3[] = [["โรงวัว", "Cow barn", "牛棚"], ["เล้าไก่", "Chicken coop", "鸡舍"], ["เล้าหมู", "Pigsty", "猪圈"], ["คอกแกะ", "Sheep shed", "羊圈"]];
 const PLOTS = Array.from({ length: 8 }, (_, i) => ({ x: 238 + (i % 4) * 82, y: 258 + Math.floor(i / 4) * 78 }));
 
 /* ── FarmVille-style progression and service (owner, 2026-10-15: grow vegetables and raise animals to feed the alien colony and the human colony, with a UI like FarmVille) ──
@@ -124,6 +127,25 @@ function farmBg(kind: string): HTMLCanvasElement {
   BG[kind] = c; return c;
 }
 
+function drawHouse(x: CanvasRenderingContext2D, a: any, H: { b: number; own: boolean }, i: number, stock: number, T: number) {
+  const cx = a.x, cy = a.y - 6, w = 92, h = 58, L = cx - w / 2, Tp = cy - h / 2; const O = "#4a2c14";
+  x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(cx, cy + h / 2 + 2, w * 0.6, 8, 0, 0, 7); x.fill();
+  if (H.b <= 0) { // an empty foundation with the price
+    x.setLineDash([6, 5]); x.strokeStyle = "rgba(255,255,255,.85)"; x.lineWidth = 2; x.beginPath(); x.roundRect(L, Tp + 14, w, h - 8, 8); x.stroke(); x.setLineDash([]);
+    x.fillStyle = "rgba(255,255,255,.18)"; x.beginPath(); x.roundRect(L, Tp + 14, w, h - 8, 8); x.fill();
+    const ok = stock >= HOUSE_COST[i], pulse = ok ? 1 + Math.sin(T * 5) * 0.06 : 1; x.save(); x.translate(cx, cy + 12); x.scale(pulse, pulse); x.fillStyle = ok ? "#ffb020" : "rgba(60,40,20,.75)"; x.strokeStyle = O; x.lineWidth = 1.5; x.beginPath(); x.roundRect(-38, -13, 76, 26, 13); x.fill(); x.stroke(); x.fillStyle = ok ? "#3a2410" : "#fff"; x.font = "800 13px system-ui"; x.textAlign = "center"; x.fillText("🔨 " + HOUSE_COST[i] + " 🌾", 0, 5); x.restore(); return; }
+  x.save(); const prog = Math.min(1, H.b); if (prog < 1) { x.beginPath(); x.rect(L - 6, Tp + h * (1 - prog) - 8, w + 12, h * prog + 16); x.clip(); }
+  const kind = a.id, wall = kind === "cow" ? ["#e04a36", "#a82c1c"] : kind === "chicken" ? ["#f0d29a", "#c89a5a"] : kind === "pig" ? ["#b98a5a", "#7e5530"] : ["#e8dcc4", "#b9a888"], roof = kind === "cow" ? ["#6a4a3a", "#3e2a22"] : kind === "chicken" ? ["#d8442e", "#962818"] : kind === "pig" ? ["#7a5a3a", "#4a3220"] : ["#d8b860", "#a8863a"];
+  const wg = x.createLinearGradient(L, 0, L + w, 0); wg.addColorStop(0, wall[0]); wg.addColorStop(1, wall[1]); x.fillStyle = wg; x.strokeStyle = O; x.lineWidth = 2; x.beginPath(); x.roundRect(L + 4, Tp + 20, w - 8, h - 14, 4); x.fill(); x.stroke();
+  x.strokeStyle = "rgba(60,30,10,.3)"; x.lineWidth = 1; for (let k = 1; k < 9; k++) { x.beginPath(); x.moveTo(L + 4 + k * (w - 8) / 9, Tp + 20); x.lineTo(L + 4 + k * (w - 8) / 9, Tp + h + 6); x.stroke(); }
+  const rg = x.createLinearGradient(0, Tp, 0, Tp + 24); rg.addColorStop(0, roof[0]); rg.addColorStop(1, roof[1]); x.fillStyle = rg; x.strokeStyle = O; x.lineWidth = 2; x.beginPath(); if (kind === "cow") { x.moveTo(L - 4, Tp + 24); x.lineTo(L + 14, Tp + 4); x.lineTo(cx, Tp - 4); x.lineTo(L + w - 14, Tp + 4); x.lineTo(L + w + 4, Tp + 24); } else { x.moveTo(L - 6, Tp + 24); x.lineTo(cx, Tp - 6); x.lineTo(L + w + 6, Tp + 24); } x.closePath(); x.fill(); x.stroke();
+  x.fillStyle = "#3a2216"; x.beginPath(); x.roundRect(cx - 12, Tp + h - 14, 24, 22, [8, 8, 0, 0]); x.fill(); x.stroke();
+  if (kind === "cow") { x.strokeStyle = "#f4ead0"; x.lineWidth = 2; x.beginPath(); x.moveTo(cx - 12, Tp + h - 14); x.lineTo(cx + 12, Tp + h + 8); x.moveTo(cx + 12, Tp + h - 14); x.lineTo(cx - 12, Tp + h + 8); x.stroke(); }
+  x.restore();
+  if (H.b < 1) { x.fillStyle = "rgba(0,0,0,.4)"; x.fillRect(cx - 30, cy - h / 2 - 16, 60, 7); x.fillStyle = "#ffd23f"; x.fillRect(cx - 30, cy - h / 2 - 16, 60 * H.b, 7); x.font = "16px system-ui"; x.textAlign = "center"; x.fillText("🔨", cx + 40, cy - h / 2 - 8 + Math.sin(T * 12) * 3); return; }
+  if (!H.own) { const ok = stock >= BUY_COST[i], pulse = 1 + Math.sin(T * 4) * 0.05; x.save(); x.translate(cx, cy - h / 2 - 16); x.scale(pulse, pulse); x.fillStyle = ok ? "#fff" : "rgba(255,255,255,.7)"; x.strokeStyle = ok ? "#e8a010" : O; x.lineWidth = 1.8; x.beginPath(); x.roundRect(-38, -13, 76, 26, 13); x.fill(); x.stroke(); x.fillStyle = "#222"; x.font = "800 13px system-ui"; x.textAlign = "center"; x.fillText(a.prod + " " + BUY_COST[i] + " 🌾", 0, 5); x.restore(); }
+}
+
 function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string) {
   const O = "rgba(45,28,12,.5)";
   x.drawImage(farmBg(kind), 0, 0, VW, VH);
@@ -147,7 +169,8 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
       x.restore(); if (st < 2) { x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(p.x - 24, p.y + 26, 48, 5); x.fillStyle = "#7dff7a"; x.fillRect(p.x - 24, p.y + 26, 48 * c.p / 100, 5); } }
     if (c.w > 0) { x.fillStyle = "rgba(90,170,255,.8)"; for (let k = 0; k < 3; k++) { x.beginPath(); x.arc(p.x - 20 + k * 20, p.y - 14 + ((T * 30 + k * 9) % 14), 2, 0, 7); x.fill(); } } }
   // the pens (fence and floor are in the cached scenery)
-  for (let i = 0; i < ANIMALS.length; i++) { const a = ANIMALS[i], A = S.animals[i], wx = a.x + Math.sin(T * 0.7 + i * 2) * 26, wy = a.y + Math.cos(T * 0.5 + i) * 10 + (A.prog >= 100 ? -Math.abs(Math.sin(T * 6)) * 4 : 0);
+  for (let i = 0; i < ANIMALS.length; i++) drawHouse(x, ANIMALS[i], S.houses[i], i, S.stock, T);
+  for (let i = 0; i < ANIMALS.length; i++) { if (!S.houses[i].own) continue; const a = ANIMALS[i], A = S.animals[i], wx = a.x + Math.sin(T * 0.7 + i * 2) * 14, wy = a.y + 14 + Math.cos(T * 0.5 + i) * 6 + (A.prog >= 100 ? -Math.abs(Math.sin(T * 6)) * 4 : 0);
     x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(wx, wy + 22, 38, 9, 0, 0, 7); x.fill(); x.save(); x.translate(wx, wy); x.strokeStyle = "#4a2c14"; x.lineWidth = 2; const face = Math.cos(T * 0.7 + i * 2) >= 0 ? 1 : -1; x.scale(face * 1.2, 1.2);
     const body = (fill: string, rx: number, ry: number) => { const bg3 = x.createRadialGradient(-rx * 0.3, -ry * 0.5, 2, 0, 0, rx * 1.1); bg3.addColorStop(0, "#fff"); bg3.addColorStop(0.35, fill); bg3.addColorStop(1, "#b9aaa0"); x.fillStyle = fill === "#fff" || fill === "#fffaf0" ? bg3 : fill; x.beginPath(); x.ellipse(0, 0, rx, ry, 0, 0, 7); x.fill(); x.stroke(); };
     const eye = (ex: number, ey: number) => { x.fillStyle = "#fff"; x.beginPath(); x.arc(ex, ey, 4, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#222"; x.beginPath(); x.arc(ex + 1, ey, 2, 0, 7); x.fill(); };
@@ -175,7 +198,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const farmerBonus = (() => { try { return localStorage.getItem("tg_adv_career") === "farm" ? 1.25 : 1; } catch (e) { return 1; } })();
   const G = useRef<any>(null);
-  if (!G.current) G.current = { quota: QUOTA[P.kind] || 260, tm: TIMEMUL[P.kind] || 1, t: 0, stock: 6, delivered: 0, seed: "carrot", plots: PLOTS.map(() => ({ crop: null as any, p: 0, w: 0 })), animals: ANIMALS.map(() => ({ fed: 0, prog: 0 })), launch: 0, ended: false, won: false, fact: 0, xp: 0, lvl: 1, lvlUp: 0, orders: [] as Order[], inv: {} as Record<string, number>, floats: [] as any[], target: "human" as string, happy: { human: 0, alien: 0 } as any, sent: { human: 0, alien: 0 } as any };
+  if (!G.current) G.current = { quota: QUOTA[P.kind] || 260, tm: TIMEMUL[P.kind] || 1, t: 0, stock: 16, delivered: 0, houses: ANIMALS.map(() => ({ b: 0, own: false })), seed: "carrot", plots: PLOTS.map(() => ({ crop: null as any, p: 0, w: 0 })), animals: ANIMALS.map(() => ({ fed: 0, prog: 0 })), launch: 0, ended: false, won: false, fact: 0, xp: 0, lvl: 1, lvlUp: 0, orders: [] as Order[], inv: {} as Record<string, number>, floats: [] as any[], target: "human" as string, happy: { human: 0, alien: 0 } as any, sent: { human: 0, alien: 0 } as any };
   if (!G.current.orders.length) for (let i = 0; i < 3; i++) G.current.orders.push(mkOrder(G.current));
   const S = G.current;
   const [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false);
@@ -195,14 +218,14 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
     const step = (dt: number) => {
       S.t += dt;
       for (const c of S.plots) if (c.crop && c.p < 100) { const cr = CROPS.find(q => q.id === c.crop)!; c.p = Math.min(100, c.p + 100 / (cr.time * S.tm) * (c.w > 0 ? 2 : 1) * dt); } for (const c of S.plots) if (c.w > 0) c.w = Math.max(0, c.w - dt);
-      for (let i = 0; i < ANIMALS.length; i++) { const A = S.animals[i]; if (A.fed > 0 && A.prog < 100) { A.prog = Math.min(100, A.prog + 100 / ANIMALS[i].every * dt); } }
+      for (let i = 0; i < ANIMALS.length; i++) { const H = S.houses[i]; if (H.b > 0 && H.b < 1) H.b = Math.min(1, H.b + dt / 5); const A = S.animals[i]; if (H.own && A.fed > 0 && A.prog < 100) { A.prog = Math.min(100, A.prog + 100 / ANIMALS[i].every * dt); } }
       if (S.launch > 0) S.launch = Math.max(0, S.launch - dt); if (S.lvlUp > 0) S.lvlUp = Math.max(0, S.lvlUp - dt);
       for (const f of S.floats) f.age += dt; S.floats = S.floats.filter((f: any) => f.age < 1.4);
       S.fact = Math.floor(S.t / 25) % FACTS.length;
       if (S.delivered >= S.quota && !S.won) { S.won = true; S.ended = true; sfx.play("win"); const stars = S.t <= 200 ? 3 : S.t <= 300 ? 2 : 1; setTimeout(() => onWin({ ranch: { delivered: Math.round(S.delivered), target: S.quota, secs: Math.round(S.t), stars }, kills: 0, cry: 8 + 4 * stars, loot: {}, mode: "ranch" }), 2000); }
     };
     const id = setInterval(() => { const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); last = now; if (pausedRef.current || S.ended) return; step(dt); setTick(v => (v + 1) % 1e6); }, 100);
-    (window as any).__advRanch = { state: () => ({ t: S.t, stock: S.stock, delivered: S.delivered, plots: S.plots.map((c: any) => ({ crop: c.crop, p: c.p })), animals: S.animals.map((a: any) => ({ fed: a.fed, prog: a.prog })), won: S.won, target: S.quota }), tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) step(0.1); }, give: (n: number) => { S.stock += n; } };
+    (window as any).__advRanch = { state: () => ({ t: S.t, stock: S.stock, delivered: S.delivered, plots: S.plots.map((c: any) => ({ crop: c.crop, p: c.p })), animals: S.animals.map((a: any) => ({ fed: a.fed, prog: a.prog })), houses: S.houses.map((h: any) => ({ b: h.b, own: h.own })), won: S.won, target: S.quota }), tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) step(0.1); }, give: (n: number) => { S.stock += n; } };
     return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advRanch; } catch (e) {} };
   }, []);
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
@@ -214,7 +237,10 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
     else if (c.p >= 100) { const cr = CROPS.find(q => q.id === c.crop)!; const y = Math.round(cr.yield * farmerBonus); S.stock += y; bump(c.crop, 1); addXp(2); float("+" + y + " " + cr.icon, PLOTS[i].x, PLOTS[i].y - 30); c.crop = null; c.p = 0; c.w = 0; play("pickup"); }
     else if (c.w <= 0) { c.w = 5; play("hit"); }
     setTick(v => v + 1); };
-  const tapAnimal = (i: number) => { const A = S.animals[i], a = ANIMALS[i]; if (S.ended) return;
+  const tapAnimal = (i: number) => { const A = S.animals[i], a = ANIMALS[i], H = S.houses[i]; if (S.ended) return;
+    if (H.b <= 0) { if (S.stock >= HOUSE_COST[i]) { S.stock -= HOUSE_COST[i]; H.b = 0.01; play("pop"); float("🔨 -" + HOUSE_COST[i], a.x, a.y - 40); } else play("hurt"); setTick(v => v + 1); return; }
+    if (H.b < 1) { setTick(v => v + 1); return; }
+    if (!H.own) { if (S.stock >= BUY_COST[i]) { S.stock -= BUY_COST[i]; H.own = true; play("pickup"); float(a.prod + " +1", a.x, a.y - 40); addXp(3); } else play("hurt"); setTick(v => v + 1); return; }
     if (A.prog >= 100) { const y = Math.round(a.yield * farmerBonus); S.stock += y; bump(a.id, 1); addXp(3); float("+" + y + " " + a.prod, a.x, a.y - 60); A.prog = 0; A.fed = 0; play("pickup"); }
     else if (A.fed <= 0) { if (S.stock >= a.feed) { S.stock -= a.feed; A.fed = 1; play("pop"); } else play("hurt"); }
     setTick(v => v + 1); };
