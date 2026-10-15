@@ -206,6 +206,13 @@ export async function renderPreview(id: string, bars = 4, boss = false, intensit
 /* ── the cinematic score (owner, 2026-10-11: a film before each map, with its own music and sound effects) ──
    Scheduled up front on its own audio context: a rising drone and pad chords, a noise riser across the build, a timpani hit and a reverse
    swell at every cut, an arpeggio that quickens, per-shot effects, and a brass-like swell when the objective card lands. */
+/** how hard a shot should hit (0-1): the film builds from a low simmer to a climax, action shots spike it, calm shots let the listener breathe, so the ear and the eye are carried up and down on purpose */
+export const CINE_ACTION = ["warning", "boss", "strike", "descent", "storm", "liftoff", "launch", "mind", "contact"], CINE_CALM = ["crew", "signal", "survey", "landing", "dawn"];
+export function cineEnergy(plan: { kind: string; as?: string }[], i: number): number {
+  const s: any = plan[i] || {}, k = s.as || s.kind, n = Math.max(1, plan.length - 1);
+  let e = 0.28 + 0.5 * (i / n); if (CINE_ACTION.includes(k)) e += 0.3; if (CINE_CALM.includes(k)) e -= 0.18; if (k === "objective") e = 1;
+  return Math.max(0.1, Math.min(1, e));
+}
 export type CineShot = { kind: string; dur: number; theme?: string; as?: string; v?: number; ov?: string };
 export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId: string, plan: CineShot[], tailSec = 10) {
   plan = plan.map((q: any) => (q.as ? { ...q, kind: q.as } : q));   // a variant shot sounds like the shot it is drawn as
@@ -279,6 +286,27 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
   plan.forEach((sh, i) => { if (!i || CALM.includes(sh.kind)) return; const t = starts[i]; tn("sawtooth", 58, 36, 0.3, 1.8, t, 0.02); tn("sawtooth", 87, 52, 0.18, 1.6, t, 0.02); hs(300, 0.28, 1.4, t, "lowpass", 140); });   // the low brass hit on every cut
   for (let k = 0; k < 6; k++) brass(M.root + [0, 7, 12, 16, 19, 24][k], Math.max(0, total - 4.2) + k * 0.3, 4, 1.2);   // the closing crescendo chord, stacked up
   hs(400, 0.3, 4, Math.max(0, total - 4.5), "bandpass", 9000); tim(Math.max(0, total - 0.3), 1.6);
+
+  // ── the stimulation layer (owner, 2026-10-15: more adrenaline, endorphin and dopamine through sound, colour and image) ──
+  // ADRENALINE: from the second quarter a four-on-the-floor kick, claps on 2 and 4 and hats drive every shot whose energy is high, the tempo quickens with the
+  // energy, a pitch riser leads into each action cut and a sub drop lands on it; DOPAMINE: a fast rising run and a cluster of bright bells reward the discovery,
+  // the first footstep, the hope and the dawn; ENDORPHIN: the warm piano theme and the long major swells already under it, with the climax lifted an octave.
+  { const bps = (e: number) => (M.bpm || 110) * (0.9 + 0.22 * e) / 60;
+    plan.forEach((sh, i) => {
+      const e = cineEnergy(plan, i), t = starts[i], k = sh.kind; if (i > 0 && (CINE_ACTION.includes(k) || k === "objective")) {
+        tn("sawtooth", 180, 1900, 0.05 + 0.05 * e, 1.3, Math.max(0, t - 1.3), 1.0); hs(500, 0.16 * e, 1.3, Math.max(0, t - 1.3), "bandpass", 9000);      // the riser leads in
+        tn("sine", 75, 26, 0.3 + 0.2 * e, 1.1, t); hs(140, 0.3 * e, 0.8, t, "lowpass", 60); }                                                              // the drop lands on the cut
+      if (e >= 0.5 && i >= Math.floor(plan.length * 0.2) && k !== "objective") {
+        const beat = 1 / bps(e); let b = 0; for (let bt = t + 0.1; bt < t + sh.dur - 0.2; bt += beat, b++) {
+          tn("sine", 125, 44, 0.2 + 0.14 * e, 0.2, bt); hs(2500, 0.05, 0.02, bt, "highpass");                                                                // the kick
+          if (e > 0.62 && b % 2 === 1) { hs(1900, 0.12 * e, 0.1, bt, "bandpass", 1900); tn("triangle", 220, 160, 0.05, 0.1, bt); }                         // the clap on 2 and 4
+          if (e > 0.55) hs(7500, 0.04 * e, 0.035, bt + beat / 2, "highpass");                                                                               // the off-beat hat
+          if (e > 0.8) { hs(7500, 0.03, 0.03, bt + beat / 4, "highpass"); hs(7500, 0.03, 0.03, bt + beat * 0.75, "highpass"); const rn = degMidi(M, M.prog[Math.floor(bt / 4) % 4]) - 24; tn("sawtooth", hz(rn), hz(rn), 0.05 * g, beat * 0.45, bt + beat / 2, 0.01); }   // sixteenths and a pumping bass
+        } }
+      if (k === "dawn" || k === "objective") [0, 2, 4, 5, 7, 9, 11, 14].forEach((d, j) => pn(degMidi(M, M.prog[0] + d) + 12, t + 0.15 + j * 0.11, 1.8, 0.85));   // the rising run: the reward
+      if (k === "survey" || k === "landing") [12, 16, 19, 24].forEach((st, j) => pn(M.root + st + 12, t + 0.25 + j * 0.13, 1.5, 0.7));                    // bright bells: something found
+      if (e > 0.85 && k !== "objective") brass(degMidi(M, M.prog[i % 4]) + 12, t + 0.05, Math.min(2.2, sh.dur * 0.5), 0.8);                                // the climax is lifted an octave
+    }); }
   return { total, starts };
 }
 export type CineAudio = { stop: () => void; resume: () => void; running: () => boolean };

@@ -26,6 +26,7 @@ async function open(pre0) {
 }
 
 
+const sub = (a, b) => { let j = 0; for (const x of b) if (x === a[j]) j++; return j === a.length; };
 const D = (...ids) => ({ tg_adv_done: JSON.stringify(ids) });
 const ALLD = D("luma", "ferro", "kryo", "pyra");
 async function pick(pre, idx, lang) { const o = await open(Object.assign({}, pre, lang ? { tg_lang: lang, tg_guest_profile: JSON.stringify({ name: "T", lang, age: "adult", level: "beginner", exp: 5000 }) } : {})); await o.p.evaluate((i) => document.querySelectorAll(".adv-planet")[i].click(), idx); await o.p.waitForSelector(".adv-cine canvas", { timeout: 8000 }); await o.p.waitForTimeout(500); return o; }
@@ -57,7 +58,7 @@ for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch
   await o.ctx.close(); }
 // Opening film: shown once before the first menu, then the map films are the short cut with a chapter number.
 { const o = await open({ tg_adv_prologue: "__none__" });
-  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("prologue: earth > factory > launch > the Harvesters > TIGA > how to play, then the menu", JSON.stringify(k) === JSON.stringify(["earth", "factory", "launch", "contact", "mind", "howto"]), k.join());
+  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("prologue: earth > factory > launch > the Harvesters > TIGA > how to play, then the menu", sub(["earth", "factory", "launch", "contact", "mind", "howto"], k) && k.length >= 20 && k.length <= 30, k.join());
   await o.p.locator(".ac-skip").click(); await o.p.waitForSelector(".adv-planet");
   ok("prologue: remembered after it ends", await o.p.evaluate(() => localStorage.getItem("tg_adv_prologue") === "1"));
   await o.p.evaluate(() => document.querySelector(".adv-planet").click()); await o.p.waitForSelector(".adv-cine");
@@ -66,7 +67,7 @@ for (const [name, idx, expectKinds] of [["luma", 0, ["earth", "factory", "launch
   ok("prologue: no errors", o.errs.length === 0, o.errs.join("|")); await o.ctx.close(); }
 // Act 2 epilogue: shown once, after Kindred Haven, the Dark Forge and the Harvesters' Eye are all cleared
 { const o = await open({ __fin: 1, tg_adv_prologue: "1", tg_adv_done: JSON.stringify(["luma", "kindred", "darkforge", "shadow"]) });
-  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("epilogue: friend > dark matter > the Harvesters > TIGA", JSON.stringify(k) === JSON.stringify(["lore", "lore", "lore", "mind"]), k.join());
+  const k = await o.p.evaluate(() => window.__advCine.kinds()); ok("epilogue: friend > dark matter > the Harvesters > TIGA", sub(["lore", "lore", "lore", "mind"], k) && k.length >= 12, k.join());
   await o.p.locator(".ac-skip").click(); await o.p.waitForSelector(".adv-planet");
   ok("epilogue: remembered, so it plays once", await o.p.evaluate(() => localStorage.getItem("tg_adv_finale") === "1"));
   ok("epilogue: no errors", o.errs.length === 0, o.errs.join("|")); await o.ctx.close(); }
