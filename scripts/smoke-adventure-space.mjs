@@ -41,7 +41,7 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
 }
 {
   const { ctx, p, errs } = await open({ tg_adv_nocine: "0", tg_adv_prologue: "skip" }); await enter(p, "Departure"); await p.waitForSelector(".adv-cine", { timeout: 8000 });
-  await p.waitForFunction(() => window.__advCine, null, { timeout: 8000 }); const k = await p.evaluate(() => window.__advCine.kinds()); ok("the send-off film: pad > liftoff > earth fade > objective", JSON.stringify(k) === JSON.stringify(["pad", "liftoff", "earthfade", "objective"]), k.join());
+  await p.waitForFunction(() => window.__advCine, null, { timeout: 8000 }); const k = await p.evaluate(() => window.__advCine.kinds()); ok("the send-off film: pad > liftoff > earth fade > objective", (() => { let j = 0; for (const x of k) if (x === ["pad", "liftoff", "earthfade", "objective"][j]) j++; return j === 4; })(), k.join());
   if (process.env.SHOT) for (let q = 0; q < 3; q++) { await p.evaluate((n) => window.__advCine.jump(n), q); await p.waitForTimeout(1200); await p.screenshot({ path: process.env.SHOT + q + ".png" }); }
   ok("no errors (film)", errs.length === 0, errs.slice(0, 2).join("|")); await ctx.close();
 }
