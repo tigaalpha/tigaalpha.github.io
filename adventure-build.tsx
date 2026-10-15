@@ -8,6 +8,7 @@ import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
 import { nextQuestion } from "./quiz-quest";
+import { enterFs } from "./pvp-arena";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
@@ -89,23 +90,26 @@ export default function AdventureBuild({ P, lang, onWin, onExit, onRetry }: any)
   const G = useRef<any>(null);
   if (!G.current) G.current = { built: 0, phase: "ask" as "ask" | "teach" | "build", ask: null as any, picked: -1, bp: 0, miss: 0, right: 0, used: new Set<string>(), notes: [] as string[], t: 0, ended: false, won: false, bot: 0 };
   const S = G.current; if (!S.ask) S.ask = makeAsk(lang, S.used);
+  const askAt = new Set([0, Math.round((N - 1) / 2), N - 1]);   // owner 2026-10-15: only THREE questions in a whole construction, the rest builds by itself
+  const [portrait, setPortrait] = useState(() => window.innerHeight > window.innerWidth * 1.05);
+  useEffect(() => { const f = () => setPortrait(window.innerHeight > window.innerWidth * 1.05); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
   const [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null);
   const career = careerNow(), speed = career === "ship" ? 0.6 : career === "eng" ? 0.8 : 1, BUILD_S = 3.4 * speed;
   useEffect(() => {
-    const sfx = createAdvSfx(); sfxRef.current = sfx; sfx.setOn(musicOn); const mus = createAdvMusic(P.id); musRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); mus.setIntensity && mus.setIntensity(1); }
+    try { enterFs(); } catch (e) {} const sfx = createAdvSfx(); sfxRef.current = sfx; sfx.setOn(musicOn); const mus = createAdvMusic(P.id); musRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); mus.setIntensity && mus.setIntensity(1); }
     let last = performance.now();
     const id = setInterval(() => {
       const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); last = now; if (pausedRef.current || S.ended) return;
       S.t += dt;
       if (S.phase === "build") { S.bp += dt / BUILD_S * 100; if (S.bp >= 100) { S.bp = 0; S.built++; S.bot = (S.bot + 1) % NAMES.length; sfx.play("win");
-          if (S.built >= N) { S.won = true; S.ended = true; const stars = S.miss <= 1 ? 3 : S.miss <= 4 ? 2 : 1; setTimeout(() => { try { const b = JSON.parse(localStorage.getItem("tg_adv_built") || "[]"); if (!b.includes(P.kind)) { b.push(P.kind); localStorage.setItem("tg_adv_built", JSON.stringify(b)); } } catch (e) {} onWin({ build: { kind: P.kind, parts: N, miss: S.miss, right: S.right, stars, notes: S.notes.length }, kills: 0, cry: 8 + 4 * stars, loot: {}, mode: "build" }); }, 2600); }
-          else { S.phase = "ask"; S.ask = makeAsk(lang, S.used); S.picked = -1; } } }
+          if (S.built >= N) { S.won = true; S.ended = true; const stars = S.miss === 0 ? 3 : S.miss === 1 ? 2 : 1; setTimeout(() => { try { const b = JSON.parse(localStorage.getItem("tg_adv_built") || "[]"); if (!b.includes(P.kind)) { b.push(P.kind); localStorage.setItem("tg_adv_built", JSON.stringify(b)); } } catch (e) {} onWin({ build: { kind: P.kind, parts: N, miss: S.miss, right: S.right, stars, notes: S.notes.length }, kills: 0, cry: 8 + 4 * stars, loot: {}, mode: "build" }); }, 2600); }
+          else if (askAt.has(S.built)) { S.phase = "ask"; S.ask = makeAsk(lang, S.used); S.picked = -1; } } }
       setTick(x => (x + 1) % 1e6);
     }, 100);
-    (window as any).__advBuild = { state: () => ({ built: S.built, N, phase: S.phase, miss: S.miss, right: S.right, notes: S.notes.length, won: S.won, ended: S.ended, kind: P.kind }), answerRight: () => { const i = S.ask.opts.findIndex((o: any) => o.ok); pick(i); }, answerWrong: () => { const i = S.ask.opts.findIndex((o: any) => !o.ok); pick(i); }, tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) { if (S.phase === "build") { S.bp += 0.1 / BUILD_S * 100; if (S.bp >= 100) { S.bp = 0; S.built++; if (S.built >= N) { S.won = true; S.ended = true; return; } S.phase = "ask"; S.ask = makeAsk(lang, S.used); S.picked = -1; } } } } };
+    (window as any).__advBuild = { state: () => ({ built: S.built, N, phase: S.phase, miss: S.miss, right: S.right, notes: S.notes.length, won: S.won, ended: S.ended, kind: P.kind }), answerRight: () => { const i = S.ask.opts.findIndex((o: any) => o.ok); pick(i); }, answerWrong: () => { const i = S.ask.opts.findIndex((o: any) => !o.ok); pick(i); }, tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) { if (S.phase === "build") { S.bp += 0.1 / BUILD_S * 100; if (S.bp >= 100) { S.bp = 0; S.built++; if (S.built >= N) { S.won = true; S.ended = true; return; } if (askAt.has(S.built)) { S.phase = "ask"; S.ask = makeAsk(lang, S.used); S.picked = -1; } } } } } };
     return () => { clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advBuild; } catch (e) {} };
   }, []);
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
@@ -114,12 +118,12 @@ export default function AdventureBuild({ P, lang, onWin, onExit, onRetry }: any)
     if (o.ok) { S.right++; S.phase = "build"; S.bp = 0; play("pickup"); } else { S.miss++; S.phase = "teach"; play("hurt"); }
     setTick(x => x + 1);
   };
-  const again = () => { S.phase = "ask"; S.ask = makeAsk(lang, S.used); S.picked = -1; setTick(x => x + 1); };
+  const again = () => { S.phase = "build"; S.bp = 0; S.picked = -1; setTick(x => x + 1); };   // after the lesson the crew builds the part anyway: no second question
   const openGear = () => { pausedRef.current = true; setGear(true); }, closeGear = () => { pausedRef.current = false; setGear(false); };
   const cur = Math.min(S.built, N - 1), part = sc.parts[cur], out = Math.round(S.built * sc.per * 10) / 10, pct = Math.round((S.built + (S.phase === "build" ? S.bp / 100 : 0)) / N * 100);
-  const stars = S.miss <= 1 ? 3 : S.miss <= 4 ? 2 : 1;
+  const stars = S.miss === 0 ? 3 : S.miss === 1 ? 2 : 1;
   return (
-    <div className="adv-farm adv-build" data-build={P.kind}>
+    <div className={"adv-farm adv-build abf" + (portrait ? " rot" : "")} data-build={P.kind}><div className="abf-in">
       <div className="adv-top">
         <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
         <div className="adv-hud">
@@ -128,20 +132,34 @@ export default function AdventureBuild({ P, lang, onWin, onExit, onRetry }: any)
         </div>
         <GearButton onClick={openGear} />
       </div>
-      <svg className="ab-view" viewBox="0 0 160 90" role="img" aria-label="build">
-        <defs><linearGradient id="abg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={sc.sky[0]} /><stop offset="1" stopColor={sc.sky[1]} /></linearGradient></defs>
-        <rect width="160" height="90" fill="url(#abg)" rx="6" />
-        {Array.from({ length: 26 }, (_, i) => <circle key={i} cx={(i * 37) % 160} cy={(i * 53) % 90} r={0.45} fill="#fff" opacity=".55" />)}
-        {P.kind === "dyson" && <><circle cx="80" cy="45" r="10" fill="#ffd25a" /><circle cx="80" cy="45" r="14" fill="#ffd25a" opacity=".25" /><ellipse cx="80" cy="45" rx="52" ry="34" fill="none" stroke="#ffd25a" strokeOpacity=".25" strokeDasharray="2 3" /></>}
-        {P.kind === "gas" && <><circle cx="80" cy="96" r="70" fill="#c98a4a" /><path d="M10 78 Q80 66 150 78 M14 86 Q80 74 146 86" stroke="#f0c890" strokeWidth="2" fill="none" opacity=".6" /></>}
-        {P.kind === "mine" && <><path d="M44 52 Q50 24 80 20 Q116 22 124 50 Q120 74 82 76 Q48 76 44 52Z" fill="#4a4a56" stroke="#8a8a9a" /><circle cx="68" cy="40" r="5" fill="#35353f" /><circle cx="96" cy="58" r="7" fill="#35353f" /></>}
-        {P.kind === "ship" && <><path d="M20 45 L44 30 L120 34 L140 45 L120 56 L44 60Z" fill="#20243a" stroke="#6a78b8" strokeDasharray="2 2" /></>}
-        {sc.parts.map((p, i) => { const done = i < S.built, now = i === S.built && S.phase === "build"; return (
+      <svg className="ab-view" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid meet" role="img" aria-label="build">
+        <defs>
+          <linearGradient id="abg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={sc.sky[0]} /><stop offset="1" stopColor={sc.sky[1]} /></linearGradient>
+          <radialGradient id="abn1" cx=".25" cy=".3" r=".6"><stop offset="0" stopColor="#7a4bff" stopOpacity=".38" /><stop offset="1" stopColor="#7a4bff" stopOpacity="0" /></radialGradient>
+          <radialGradient id="abn2" cx=".8" cy=".7" r=".55"><stop offset="0" stopColor="#19e6ff" stopOpacity=".3" /><stop offset="1" stopColor="#19e6ff" stopOpacity="0" /></radialGradient>
+          <linearGradient id="abm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f2f6fb" /><stop offset=".5" stopColor="#aab4c2" /><stop offset="1" stopColor="#5b6573" /></linearGradient>
+          <radialGradient id="abp" cx=".35" cy=".3" r=".8"><stop offset="0" stopColor="#ffe9b8" /><stop offset=".6" stopColor="#c98a4a" /><stop offset="1" stopColor="#5a3418" /></radialGradient>
+          <radialGradient id="abs" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#fffbe0" /><stop offset=".4" stopColor="#ffd25a" /><stop offset="1" stopColor="#ff9a2a" stopOpacity="0" /></radialGradient>
+          <filter id="abglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          <pattern id="abgrid" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M8 0H0V8" fill="none" stroke="#19e6ff" strokeOpacity=".07" strokeWidth=".3" /></pattern>
+        </defs>
+        <rect x="-40" y="-30" width="240" height="150" fill="url(#abg)" />
+        <rect x="-40" y="-30" width="240" height="150" fill="url(#abn1)" /><rect x="-40" y="-30" width="240" height="150" fill="url(#abn2)" />
+        {Array.from({ length: 70 }, (_, i) => <circle key={i} cx={((i * 37) % 200) - 20} cy={((i * 53) % 120) - 15} r={0.25 + (i % 4) * 0.12} fill="#fff" opacity={0.3 + (i % 5) * 0.12}><animate attributeName="opacity" values=".25;.9;.25" dur={(2 + (i % 5)) + "s"} repeatCount="indefinite" /></circle>)}
+        <rect width="160" height="90" fill="url(#abgrid)" />
+        {P.kind === "dyson" && <g><circle cx="80" cy="45" r="30" fill="url(#abs)" opacity=".8" /><circle cx="80" cy="45" r="9" fill="#fff6c8" filter="url(#abglow)" /><ellipse cx="80" cy="45" rx="52" ry="34" fill="none" stroke="#ffd25a" strokeOpacity=".35" strokeDasharray="2 3" /><ellipse cx="80" cy="45" rx="38" ry="24" fill="none" stroke="#19e6ff" strokeOpacity=".25" strokeDasharray="1 3" /></g>}
+        {P.kind === "gas" && <g><circle cx="80" cy="110" r="78" fill="url(#abp)" /><path d="M6 80 Q80 66 154 80 M10 88 Q80 74 150 88 M14 74 Q80 62 146 74" stroke="#f6d8a0" strokeWidth="2.2" fill="none" opacity=".55" /><ellipse cx="80" cy="45" rx="70" ry="9" fill="none" stroke="#fff" strokeOpacity=".15" /></g>}
+        {P.kind === "mine" && <g><path d="M40 52 Q46 20 80 16 Q120 18 128 50 Q124 78 82 80 Q44 80 40 52Z" fill="#454552" stroke="#9a9aae" strokeWidth=".6" /><path d="M48 40 Q64 22 92 24" stroke="#fff" strokeOpacity=".22" strokeWidth="1.6" fill="none" /><circle cx="66" cy="42" r="5.5" fill="#2c2c36" /><circle cx="98" cy="60" r="8" fill="#2c2c36" /><circle cx="88" cy="32" r="3" fill="#2c2c36" /><circle cx="110" cy="46" r="2" fill="#ffb347" opacity=".9" filter="url(#abglow)" /></g>}
+        {P.kind === "ship" && <g><path d="M16 45 L42 28 L122 32 L146 45 L122 58 L42 62Z" fill="url(#abm)" fillOpacity={0.12 + 0.55 * S.built / N} stroke="#7fa6ff" strokeOpacity=".7" strokeWidth=".5" strokeDasharray={S.built >= N ? "" : "2 2"} /><path d="M42 28 L122 32" stroke="#fff" strokeOpacity={0.15 + 0.5 * S.built / N} strokeWidth=".8" /></g>}
+        {sc.parts.map((p, i) => { const done = i < S.built, now = i === S.built && S.phase === "build", pr = now ? S.bp / 100 : 0; return (
           <g key={i} data-part={i} className={done ? "ab-done" : now ? "ab-now" : "ab-todo"} transform={`translate(${p.x} ${p.y})`}>
-            <circle r="8" fill={done ? "rgba(90,255,190,.28)" : "rgba(255,255,255,.05)"} stroke={done ? "#5affbe" : now ? "#ffe07a" : "rgba(255,255,255,.3)"} strokeWidth={done || now ? 1.4 : 0.8} strokeDasharray={done ? "" : "2 2"} />
-            <text textAnchor="middle" y="3.6" fontSize="9" opacity={done ? 1 : now ? 0.9 : 0.35}>{p.icon}</text>
+            {done && <circle r="11" fill="#5affbe" opacity=".12" filter="url(#abglow)" />}
+            <circle r="8.2" fill={done ? "url(#abm)" : "rgba(10,20,50,.55)"} stroke={done ? "#5affbe" : now ? "#ffe07a" : "rgba(130,190,255,.5)"} strokeWidth={done || now ? 1.1 : 0.6} strokeDasharray={done ? "" : "2 2"} filter={done || now ? "url(#abglow)" : undefined} />
+            {now && <circle r="8.2" fill="none" stroke="#ffe07a" strokeWidth="1.6" strokeDasharray={`${pr * 51.5} 60`} transform="rotate(-90)" />}
+            <text textAnchor="middle" y="3.6" fontSize="9" opacity={done ? 1 : now ? 0.95 : 0.4}>{p.icon}</text>
           </g>); })}
         {S.phase === "build" && <g transform={`translate(${part.x + 11} ${part.y - 9})`} className="ab-bot"><text fontSize="9">🤖</text><text fontSize="6" y="-1" x="2">✨</text></g>}
+        {S.phase === "build" && <line x1={part.x + 10} y1={part.y - 7} x2={part.x} y2={part.y} stroke="#ffe07a" strokeWidth=".8" strokeOpacity=".85" filter="url(#abglow)"><animate attributeName="stroke-opacity" values=".3;1;.3" dur=".5s" repeatCount="indefinite" /></line>}
       </svg>
       <div className="ab-crew">{NAMES.map((n, i) => (<span key={n} className={"ab-r" + (S.phase === "build" && i === S.bot ? " on" : "")}>🤖 {n}</span>))}<span className="ab-say">{S.phase === "build" ? t(NAMES[S.bot] + " กำลังประกอบ: ", NAMES[S.bot] + " is building: ", NAMES[S.bot] + " 正在组装：") + T3(lang, part.name[0], part.name[1], part.name[2]) : t("ลูกเรือหุ่นยนต์รอคำตอบของคุณ เพื่อเริ่มประกอบ: ", "The robot crew needs your answer before they can build: ", "机器人团队等你回答后才能开工：") + T3(lang, part.name[0], part.name[1], part.name[2])}</span></div>
       {S.phase === "build" && <div className="af-bar ab-prog"><i style={{ width: S.bp + "%" }} /></div>}
@@ -150,13 +168,13 @@ export default function AdventureBuild({ P, lang, onWin, onExit, onRetry }: any)
           <div className="ab-qh">🎵 {t("คำถามดนตรี", "MUSIC QUESTION", "音乐问题")} · {t("ชิ้นส่วนที่ ", "part ", "第 ")}{S.built + 1}{lang === "zh" ? " 个部件" : ""}</div>
           <div className="ab-qq">{S.ask.q}</div>
           <div className="ab-opts">{S.ask.opts.map((o: any, i: number) => (<button key={i} data-opt={i} className={"adv-qopt" + (S.phase === "teach" ? (o.ok ? " ok" : S.picked === i ? " no" : "") : "")} disabled={S.phase === "teach"} onClick={() => pick(i)}>{o.label}</button>))}</div>
-          {S.phase === "teach" && <div className="adv-qres bad" data-teach="1"><b>{t("ยังไม่ใช่ — มาเรียนรู้กัน", "Not quite — let us learn it", "不对——我们来学一学")}</b><br />{S.ask.why}<br /><button className="adv-qgo" data-again="1" onClick={again}>{t("ลองคำถามใหม่", "Try another question", "再来一题")}</button></div>}
+          {S.phase === "teach" && <div className="adv-qres bad" data-teach="1"><b>{t("ยังไม่ใช่ — มาเรียนรู้กัน", "Not quite — let us learn it", "不对——我们来学一学")}</b><br />{S.ask.why}<br /><button className="adv-qgo" data-again="1" onClick={again}>{t("ต่อ — เริ่มประกอบ", "Continue — start building", "继续——开始组装")}</button></div>}
         </div>)}
       {S.phase === "build" && S.notes.length > 0 && <div className="af-fact">💡 {S.notes[S.notes.length - 1]}</div>}
       {S.ended && S.won && (<div className="adv-clear" role="status"><b>{sc.icon} {t("ก่อสร้างเสร็จสมบูรณ์!", "Construction complete!", "建造完成！")}</b>
         <span>{T3(lang, sc.out[0], sc.out[1], sc.out[2])}: {out}{sc.unit} · {"★".repeat(stars)}</span>
         <small>{t("สมุดบันทึกดนตรี: เรียนรู้แล้ว ", "Music notebook: learned ", "音乐笔记：已学 ")}{S.notes.length}{t(" ข้อ", " facts", " 条")}</small></div>)}
       {gear && <SettingsPopup lang={lang} high={high} onGfx={() => { const n = !high; setHigh(n); try { localStorage.setItem("tg_adv_gfx", n ? "high" : "standard"); } catch (e) {} }} musicOn={musicOn} onMusic={() => setMusicOn(m => { const n = !m; try { localStorage.setItem("tg_adv_music", n ? "1" : "0"); } catch (e) {} if (musRef.current && musRef.current.setOn) musRef.current.setOn(n); if (sfxRef.current) sfxRef.current.setOn(n); return n; })} online={false} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
-    </div>
+    </div></div>
   );
 }
