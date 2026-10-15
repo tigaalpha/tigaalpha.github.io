@@ -375,8 +375,8 @@ export function cinePlan(P: any, short?: boolean): CineShot[] {
   const p = basePlan(P, short).map((q: any) => {
     if (q.kind === "objective") return q;
     let need = 0; const PP = P.finale ? { ...P, __theme: q.theme } : P;
-    for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / SPEAK_CPS[lg] + 0.9); } catch (e) {} }
-    return { ...q, dur: Math.round(Math.max(q.dur * 1.25, 3.4, need) * 10) / 10 };
+    for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / SPEAK_CPS[lg] + 0.7); } catch (e) {} }
+    return { ...q, dur: Math.round(Math.max(need > 0 ? 0 : q.dur * 0.7, 2.2, need) * 10) / 10 };
   });
   // Players who saw the opening film before it taught the controls still get the how-to shot once, in their next map's film.
   try { if (!P.prologue && !P.finale && localStorage.getItem("tg_adv_howto") === null && localStorage.getItem("tg_adv_prologue") !== "skip") { localStorage.setItem("tg_adv_howto", "1"); const i = p.findIndex(q => q.kind === "objective"); const h: any = { kind: "howto", dur: 8 }; if (i >= 0) p.splice(i, 0, h); else p.push(h); } } catch (e) {}
@@ -1030,7 +1030,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       const v = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.6)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
       x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 220; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.1, 1.1);   // film grain
       const bar = H * 0.13; x.fillStyle = "#000"; x.fillRect(0, 0, W, bar); x.fillRect(0, H - bar, W, bar);
-      const fade = Math.max(0, 1 - local / 0.4, Math.min(1, (local - (s.dur - 0.3)) / 0.3) * (s.kind === "objective" ? 0 : 1)); if (fade > 0) { x.fillStyle = `rgba(0,0,0,${fade})`; x.fillRect(0, 0, W, H); }
+      const fade = Math.max(0, 1 - local / 0.1, i === plan.length - 1 ? Math.min(1, (local - (s.dur - 0.3)) / 0.3) * (s.kind === "objective" ? 0 : 1) : 0); if (fade > 0) { x.fillStyle = `rgba(0,0,0,${fade})`; x.fillRect(0, 0, W, H); }
     };
     raf = requestAnimationFrame(frame);
     (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean, max?: number) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false).slice(0, max || 99)), jump: (i: number) => { i = Math.max(0, Math.min(plan.length - 1, i | 0)); skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };

@@ -242,6 +242,12 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
   // every cut gets a reverse swell into a timpani hit; every shot kind its own effect
   plan.forEach((s, i) => {
     const t = starts[i]; if (i) { hs(1500, 0.14, 0.5, Math.max(0, t - 0.5), "highpass", 6500); tim(t, 0.8); const bm = degMidi(M, M.prog[i % 4] + 4) + 24; tn("sine", hz(bm), hz(bm), 0.05 * g, 1.1, t + 0.02, 0.005); tn("sine", hz(bm + 12), hz(bm + 12), 0.025 * g, 0.7, t + 0.02, 0.005); }
+    // AMBIENCE + CUT SFX (owner, 2026-10-15: the film needs music, sound effects AND ambience, tightly cut): every shot gets its own room tone, every cut a whoosh and an impact
+    { const k0 = s.kind, wind = ["surface", "work", "landing", "storm", "dawn", "survey", "descent", "crew", "signal"].includes(k0), mech = ["factory", "work", "boss", "warning", "pad", "launch", "liftoff"].includes(k0), spc = ["approach", "earth", "earthfade", "lore", "contact", "mind", "objective", "howto"].includes(k0) || !wind;
+      if (wind) { hs(180, 0.1 + (k0 === "storm" ? 0.16 : 0), s.dur, t, "lowpass", 700 + (k0 === "storm" ? 900 : 0)); for (let k = 0; k < Math.floor(s.dur / 1.6); k++) hs(500, 0.05, 0.9, t + 0.3 + k * 1.6, "bandpass", 1400); }
+      if (mech) { tn("sawtooth", 55, 55, 0.05, s.dur, t, 0.3); for (let k = 0; k < Math.floor(s.dur / 0.5); k++) hs(3000, 0.035, 0.03, t + k * 0.5, "bandpass", 3600); }
+      if (spc) { tn("sine", 62, 62, 0.07, s.dur, t, 0.4); tn("sine", 4200 + (i % 3) * 300, 4200 + (i % 3) * 300, 0.012, s.dur, t, 0.6); for (let k = 0; k < 3; k++) tn("sine", 2400 + k * 700, 2400 + k * 700, 0.02, 0.3, t + 0.5 + k * Math.max(0.4, s.dur / 3.4), 0.05); }
+      if (i) { tn("sawtooth", 300, 2600, 0.05, 0.28, Math.max(0, t - 0.25), 0.2); hs(1200, 0.2, 0.22, Math.max(0, t - 0.22), "highpass", 7000); tn("sine", 90, 34, 0.32, 0.45, t); hs(220, 0.22, 0.3, t, "lowpass", 160); } }
     switch (s.kind) {
       case "earth": for (let k = 0; k < 4; k++) tn("sine", 1800 + k * 300, 1800 + k * 300, 0.05, 0.08, t + 0.8 + k * 0.7); break;                                       // radio blips
       case "factory": for (let k = 0; k < 6; k++) { tn("sawtooth", 180, 520, 0.05, 0.3, t + 0.4 + k * 0.55); hs(4000, 0.1, 0.07, t + 0.7 + k * 0.55, "bandpass"); } tn("sine", 1400, 1400, 0.07, 0.4, t + 3.2); break;   // servos, sparks, the eyes light
@@ -296,7 +302,7 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
       const e = cineEnergy(plan, i), t = starts[i], k = sh.kind; if (i > 0 && (CINE_ACTION.includes(k) || k === "objective")) {
         tn("sawtooth", 180, 1900, 0.05 + 0.05 * e, 1.3, Math.max(0, t - 1.3), 1.0); hs(500, 0.16 * e, 1.3, Math.max(0, t - 1.3), "bandpass", 9000);      // the riser leads in
         tn("sine", 75, 26, 0.3 + 0.2 * e, 1.1, t); hs(140, 0.3 * e, 0.8, t, "lowpass", 60); }                                                              // the drop lands on the cut
-      if (e >= 0.5 && i >= Math.floor(plan.length * 0.2) && k !== "objective") {
+      if (e >= 0.32 && i >= Math.floor(plan.length * 0.06) && k !== "objective") {
         const beat = 1 / bps(e); let b = 0; for (let bt = t + 0.1; bt < t + sh.dur - 0.2; bt += beat, b++) {
           tn("sine", 125, 44, 0.2 + 0.14 * e, 0.2, bt); hs(2500, 0.05, 0.02, bt, "highpass");                                                                // the kick
           if (e > 0.62 && b % 2 === 1) { hs(1900, 0.12 * e, 0.1, bt, "bandpass", 1900); tn("triangle", 220, 160, 0.05, 0.1, bt); }                         // the clap on 2 and 4
