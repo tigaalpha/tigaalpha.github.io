@@ -5,7 +5,7 @@
    an original score and sound effects from adventure-music.ts. Tap = next shot, Skip = straight into the map. */
 import { useEffect, useRef, useState, memo } from "react";
 import { CyberAvatar } from "./cyber-avatar";
-import { createCineAudio, renderCinePreview, type CineShot } from "./adventure-music";
+import { createCineAudio, renderCinePreview, cineEnergy, CINE_ACTION, CINE_CALM, type CineShot } from "./adventure-music";
 import { speakNarration, stopSpeaking } from "./speech";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -342,6 +342,18 @@ function overlay(x: CanvasRenderingContext2D, W: number, H: number, t: number, o
   } else if (ov === "alarm") {
     const a = 0.12 + 0.12 * Math.abs(Math.sin(t * 5)); x.fillStyle = "rgba(255,40,30," + a + ")"; x.fillRect(0, 0, W, H); const g = x.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H); g.addColorStop(0, "rgba(255,0,0,0)"); g.addColorStop(1, "rgba(255,0,0," + (0.35 * a / 0.24) + ")"); x.fillStyle = g; x.fillRect(0, 0, W, H);
   }
+  x.restore();
+}
+/** colour, light and motion tuned to excite (owner, 2026-10-15): a colour grade per mood (red-hot in action, teal in the calm, gold in hope), a soft light pulse on the beat of the score,
+    speed lines and a camera shake that grow with the shot's energy, a colour fringe on every cut and rising gold motes at the rewarding moments. The beat pulse stays under about
+    2.1 a second and below 14 % brightness, so it never becomes a flash. */
+function punch(x: CanvasRenderingContext2D, W: number, H: number, el: number, local: number, k: string, e: number) {
+  const bpm = 96 + 30 * e, b = (el * bpm / 60) % 1, pulse = Math.exp(-b * 5), act = CINE_ACTION.includes(k), calm = CINE_CALM.includes(k), hope = k === "dawn" || k === "objective";
+  x.save(); x.globalCompositeOperation = "overlay"; x.fillStyle = act ? "rgba(255,70,40,.17)" : hope ? "rgba(255,200,90,.2)" : calm ? "rgba(40,170,200,.15)" : "rgba(150,90,255,.11)"; x.fillRect(0, 0, W, H);
+  x.globalCompositeOperation = "lighter"; const g = x.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H * 0.75); g.addColorStop(0, `rgba(${act ? "255,120,80" : hope ? "255,215,120" : "130,200,255"},${0.14 * pulse * e})`); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  if (act && e > 0.55) { x.strokeStyle = `rgba(255,225,200,${0.14 + 0.12 * e})`; x.lineWidth = 1.5; for (let i = 0; i < 26; i++) { const a = i * 0.2417 + Math.floor(el * 6) * 0.37, r0 = H * (0.42 + 0.1 * ((i * 7) % 5) / 5), r1 = r0 + H * (0.25 + 0.2 * e * pulse); x.beginPath(); x.moveTo(W / 2 + Math.cos(a) * r0 * 1.5, H / 2 + Math.sin(a) * r0); x.lineTo(W / 2 + Math.cos(a) * r1 * 1.5, H / 2 + Math.sin(a) * r1); x.stroke(); } }
+  if (local < 0.3) { const a = 1 - local / 0.3, w = W * 0.02 * a; x.fillStyle = `rgba(255,40,70,${0.3 * a})`; x.fillRect(0, 0, w, H); x.fillRect(W - w * 0.6, 0, w * 0.6, H); x.fillStyle = `rgba(40,220,255,${0.3 * a})`; x.fillRect(w, 0, w * 0.6, H); x.fillRect(W - w * 1.6, 0, w * 0.6, H); }
+  if (hope || k === "survey" || k === "landing") for (let i = 0; i < 46; i++) { const px = ((i * 0.137 + Math.sin(i * 3.1) * 0.05) % 1) * W, py = (1 - (((i * 0.071) + el * (0.03 + (i % 5) * 0.01)) % 1)) * H, tw = 0.5 + 0.5 * Math.sin(el * 3 + i); x.fillStyle = `rgba(255,${200 + (i % 3) * 18},120,${0.5 * tw})`; x.beginPath(); x.arc(px, py, 1.2 + (i % 4) * 0.7, 0, 7); x.fill(); }
   x.restore();
 }
 const seenPrologue = () => { try { return localStorage.getItem("tg_adv_prologue") === "1"; } catch (e) { return false; } };
@@ -919,7 +931,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       const W = cv.width, H = cv.height, s = plan[i], local = el - starts[i], u = Math.min(1, local / Math.max(0.1, s.dur));
       x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; x.fillStyle = "#000"; x.fillRect(0, 0, W, H);
       const k = (s as any).as || s.kind, vv = (s as any).v || 0, lt = local + vv * 2.3;
-      x.save(); const zoom = vv % 2 ? 1.12 - 0.08 * u : 1 + 0.07 * u, pan = (vv % 3 === 1 ? -1 : vv % 3 === 2 ? 1 : 0) * W * 0.035 * (u - 0.5), tilt = vv === 3 ? 0.014 * Math.sin(u * 3) : 0; x.translate(W / 2 + pan, H / 2); x.rotate(tilt); x.scale(zoom, zoom); x.translate(-W / 2, -H / 2);
+      x.save(); const zoom = vv % 2 ? 1.12 - 0.08 * u : 1 + 0.07 * u, pan = (vv % 3 === 1 ? -1 : vv % 3 === 2 ? 1 : 0) * W * 0.035 * (u - 0.5), tilt = vv === 3 ? 0.014 * Math.sin(u * 3) : 0; const en = cineEnergy(plan, i), shk = (CINE_ACTION.includes(k) && local < 0.6 ? (1 - local / 0.6) * W * 0.012 * en : en > 0.75 ? W * 0.0015 : 0); x.translate(W / 2 + pan + Math.sin(el * 91) * shk, H / 2 + Math.cos(el * 77) * shk); x.rotate(tilt); x.scale(zoom, zoom); x.translate(-W / 2, -H / 2);
       switch (k) {
         case "pad": scenePad(x, W, H, u, lt); break; case "liftoff": sceneLiftoff(x, W, H, u, lt); break; case "earthfade": sceneEarthFade(x, W, H, u, lt, P); break;
         case "earth": sceneEarth(x, W, H, u, lt); break; case "factory": sceneFactory(x, W, H, u, lt, eye); break; case "launch": sceneLaunch(x, W, H, u, lt, P.glow); break;
@@ -935,7 +947,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       x.restore();
       overlay(x, W, H, lt, (s as any).ov);
       hypeCut(x, W, H, local, s.kind);
-      epicLook(x, W, H, el, k, P); bloom(x, W, H);
+      epicLook(x, W, H, el, k, P); punch(x, W, H, el, local, k, cineEnergy(plan, i)); bloom(x, W, H);
       const v = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.6)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
       x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 90; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.4, 1.4);   // film grain
       const bar = H * 0.13; x.fillStyle = "#000"; x.fillRect(0, 0, W, bar); x.fillRect(0, H - bar, W, bar);
