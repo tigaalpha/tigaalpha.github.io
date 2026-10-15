@@ -273,7 +273,8 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
           </div>
           <GearButton onClick={openGear} />
         </div>
-        <div className="ar-fv" data-fv="1"><span className="ar-star">★ {S.lvl}</span><span className="ar-xp"><i style={{ width: Math.min(100, S.xp / xpNeed(S.lvl) * 100) + "%" }} /></span><button className="ar-ord" data-orders="1" onClick={() => setOrdersOpen(o => !o)}>📋 {t("ออเดอร์", "Orders", "订单")}{ready > 0 && <b>{ready}</b>}</button></div>
+        <div className="ar-cnt"><span><i>⏱</i>{Math.floor(S.t)}s</span><span><i>🌾</i>{Math.floor(S.stock)}</span><span><i>🚀</i>{Math.round(S.delivered)}/{S.quota}</span></div>
+        <div className="ar-fv" data-fv="1"><span className="ar-star">★{S.lvl}</span><span className="ar-xp"><i style={{ width: Math.min(100, S.xp / xpNeed(S.lvl) * 100) + "%" }} /></span><button className="ar-ord" data-orders="1" onClick={() => setOrdersOpen(o => !o)}>📋 {t("ออเดอร์", "Orders", "订单")}{ready > 0 && <b>{ready}</b>}</button></div>
         {S.lvlUp > 0 && <div className="ar-lvup" role="status">★ {t("เลเวลอัป! ", "Level up! ", "升级！")}{S.lvl} · +5</div>}
         {ordersOpen && <div className="ar-orders" data-orderwin="1">{S.orders.map((o: Order) => (<div key={o.id} className="ar-o"><span>{COLONY_TXT[o.from].icon} {o.kind === "send" ? t("ส่งอาหาร", "Send food", "运送粮食") : (ITEM_ICON[o.item] || "") + " " + o.item}</span><span>{o.got}/{o.need}</span><button data-claim={o.id} disabled={o.got < o.need} onClick={() => claim(o.id)}>+{o.reward} · ★{o.xp}</button></div>))}</div>}
         <div className="ar-cols">{(["human", "alien"] as const).map(c => (<button key={c} data-colony={c} className={"ar-col" + (S.target === c ? " on" : "")} onClick={() => { S.target = c; setTick(v => v + 1); }}>{COLONY_TXT[c].icon} {T3(lang, COLONY_TXT[c].name[0], COLONY_TXT[c].name[1], COLONY_TXT[c].name[2])} <small>{Math.round(S.sent[c])}</small></button>))}</div>
