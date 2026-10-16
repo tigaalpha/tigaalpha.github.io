@@ -21,7 +21,7 @@ import { warTeamOf, openAdvRoom, MAX_PILOTS, submitAdvTime, listAdvTop, listPubl
 import { treeOf, lvOf, buySkillLv, toggleEquip, readEquip, equippedOf, passiveSum, powerAt, cdAt, skillLook, skillSound, skillDesc, skillCost, isPassive, SKILL_MAX_LV, type Skill } from "./skill-tree";
 import { voiceOf } from "./fx-voice";
 import { PetArt, petLevel, petById, PET_TYPES } from "./pet-lab";
-import { addRpgExp, rpgOf, rpgMods, RPG_MAX_LV } from "./pvp-rpg";
+import { addRpgExp, rpgOf, rpgMods, spendPoint, RPG_STATS, STAT_CAP, RPG_MAX_LV } from "./pvp-rpg";
 import { addSkillSp, readSkillSp, skillRank, enterFs, exitFsAndUnlock } from "./pvp-arena";
 import { classKeyOf, MODEL_CLASS } from "./model-skills";
 import { isLowEnd, spaceTier } from "./space-stage";
@@ -250,7 +250,7 @@ export const PLANETS = [
 /* The story order of every episode (owner, 2026-10-13: "arrange the episodes so the player feels one continuous, fun story, interleaving every category; a new episode can be slipped in anywhere").
    To add an episode, put its id wherever it belongs in this list; an id that is not listed is appended at the end. A map opens when the one before it, or the one before that,
    has been cleared (so one very hard map never walls the story off); the sector tabs are only a way to browse. */
-export const CAMPAIGN = ["shipbuild", "departure", "moonhe3", "colmoon", "spaceranch", "moonbase", "asteroids", "minebuild", "marscolony", "colmars", "ranchmars", "mercury", "venussky", "solarcharge", "jupitergas", "gasskim", "gasbuild", "saturnrings", "titanassault", "titancolony", "coltitan", "ranchtitan", "arkbuild", "arkfarm", "arkherd", "arkexodus", "warpjump", "starharvest", "voidgate", "deathstar", "blackhole", "gaspump", "colproxima", "ranchproxima", "luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "ashfall", "dysonbuild", "dysondock", "dyson", "kindred", "darkforge", "shadow"];
+export const CAMPAIGN = ["shipbuild", "departure", "moonhe3", "moonbase", "colmoon", "spaceranch", "marscolony", "colmars", "ranchmars", "venussky", "asteroids", "minebuild", "mercury", "solarcharge", "jupitergas", "gasskim", "gasbuild", "gaspump", "saturnrings", "titanassault", "titancolony", "coltitan", "ranchtitan", "arkbuild", "arkfarm", "arkherd", "arkexodus", "colproxima", "ranchproxima", "luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "ashfall", "warpjump", "starharvest", "voidgate", "deathstar", "blackhole", "dysonbuild", "dysondock", "dyson", "kindred", "darkforge", "shadow"];
 export const campList = (): any[] => { const by: any = {}; for (const P of PLANETS) by[P.id] = P; const seen = new Set<string>(); const out: any[] = []; for (const id of CAMPAIGN) if (by[id] && !seen.has(id)) { seen.add(id); out.push(by[id]); } for (const P of PLANETS) if (!seen.has(P.id)) out.push(P); return out; };
 
 
@@ -729,6 +729,34 @@ const CSS = `
 @media (max-height:520px){.adv-qcard{max-height:100%;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));gap:5px;border-radius:16px 16px 0 0}.adv-qq{font-size:15px}.adv-qres{padding:6px 10px;font-size:13px}.adv-qgo{min-height:36px;height:36px}.adv-qpiano{transform-origin:top center;transform:scale(.8);margin:-12px 0 -14px}}
 .adv-clear{top:max(64px,6%);max-height:calc(100% - 76px);overflow-y:auto;overscroll-behavior:contain}
 @media (max-height:520px){.adv-clear{top:60px;max-height:calc(100% - 66px);padding:8px 14px;gap:5px}.adv-clear b{font-size:17px}.adv-clear .ac-stats{margin:0}.adv-clear .ac-stats span{min-width:64px;padding:3px 8px}.adv-clear .ac-stats span b{font-size:20px}.adv-clear .adv-btn{min-height:34px;height:34px;padding:0 14px;font-size:14px}}
+
+.adv-menu{position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg,#faf9f5);padding:8px 14px 24px;-webkit-overflow-scrolling:touch}
+@media (orientation:portrait){.adv-menu{inset:auto;top:0;left:100vw;width:100vh;height:100vw;transform-origin:top left;transform:rotate(90deg)}}
+.adv-menu .adv-path{display:flex;flex-direction:row;align-items:center;gap:50px;overflow-x:auto;overflow-y:visible;padding:44px 44px 44px;margin:0 -14px;scroll-snap-type:x proximity}
+.adv-menu .adv-path .adv-planet{flex:0 0 172px;flex-direction:column;justify-content:flex-start;text-align:center;min-height:150px;border-radius:26px;padding:34px 10px 14px;gap:6px;overflow:visible;scroll-snap-align:center;transition:transform .15s}
+.adv-menu .adv-path .adv-planet:nth-child(odd){transform:translateY(-14px)}.adv-menu .adv-path .adv-planet:nth-child(even){transform:translateY(14px)}
+.adv-menu .adv-path .adv-planet::before{content:"";position:absolute;left:-54px;top:50%;width:54px;border-top:4px dashed var(--bd3,rgba(0,0,0,.25));transform-origin:right center;pointer-events:none}
+.adv-menu .adv-path .adv-planet:nth-child(odd)::before{transform:rotate(-30deg)}.adv-menu .adv-path .adv-planet:nth-child(even)::before{transform:rotate(30deg)}
+.adv-menu .adv-path .adv-planet:first-child::before{display:none}
+.adv-menu .adv-path .adv-planet.clr::before{border-top-color:#3ddc97;border-top-style:solid}
+.adv-menu .adv-path .adv-orb{flex:none;width:58px;height:58px;position:absolute;top:-26px;left:calc(50% - 29px)}
+.adv-menu .adv-path .adv-planet b{font-size:13px;line-height:1.25}.adv-menu .adv-path .adv-planet small{font-size:11px;display:block;margin-top:4px}
+.adv-menu .adv-path .adv-ch{position:absolute;top:8px;left:10px;margin:0}
+.adv-menu .adv-path .adv-planet em{position:absolute;top:8px;right:10px;margin:0}
+.adv-menu .adv-path .adv-planet.clr{border-color:#3ddc97}.adv-menu .adv-path .adv-planet.lock{opacity:.6;filter:grayscale(.85)}
+.adv-menu .adv-path .adv-planet.cur{border-color:var(--clay,#d97757);box-shadow:0 0 0 3px rgba(217,119,87,.25),0 6px 18px rgba(217,119,87,.35);animation:advcur 1.8s ease-in-out infinite}
+@keyframes advcur{0%,100%{box-shadow:0 0 0 3px rgba(217,119,87,.2),0 6px 18px rgba(217,119,87,.3)}50%{box-shadow:0 0 0 7px rgba(217,119,87,.12),0 8px 22px rgba(217,119,87,.45)}}
+@media (prefers-reduced-motion:reduce){.adv-menu .adv-path .adv-planet.cur{animation:none}}
+
+.adv-lvl{position:absolute;top:84px;right:12px;z-index:12;width:52px;height:52px;min-height:0;border-radius:50%;padding:0;font-size:22px;display:flex;align-items:center;justify-content:center;background:rgba(0,10,20,.55);color:#8cffdc;border:2px solid rgba(140,255,220,.5)}
+.alp-dot{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:#ff5a4a;color:#fff;font-size:11px;font-style:normal;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.adv-lvlpop .alp-card{max-width:760px;width:94%;max-height:92%;overflow:auto;text-align:left;display:block;padding:12px 16px}
+.alp-head{display:flex;align-items:center;gap:12px;margin-bottom:8px}.alp-head b{font-size:16px}.alp-head span{flex:1;font-size:13px;color:#8cffdc}
+.alp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-bottom:10px}
+.alp-stat{display:grid;grid-template-columns:44px 1fr auto auto;align-items:center;gap:6px;padding:8px 10px;border-radius:16px;background:rgba(255,255,255,.08)}
+.alp-stat b{font-size:14px}.alp-stat i{font-style:normal;font-size:12px;opacity:.85}.alp-stat small{grid-column:1/3;font-size:10px;opacity:.75}
+.alp-stat button{width:40px;height:40px;border-radius:50%;border:0;font-size:20px;font-weight:800;background:#3ddc97;color:#06281c;cursor:pointer}.alp-stat button:disabled{opacity:.35}
+.adv-lvlpop .adv-book{margin:0}.adv-lvlpop .ab-list{max-height:none}
 `;
 
 type Gfx = "standard" | "high";
@@ -760,8 +788,12 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const [farmKey, setFarmKey] = useState(0);
   const [sector, setSector] = useState<"ground" | "space" | "act2" | "solar">(() => { try { const v = localStorage.getItem("tg_adv_sector"); return v === "space" ? "space" : v === "act2" ? "act2" : v === "solar" ? "solar" : v === "ground" ? "ground" : v === "all" ? ("all" as any) : (localStorage.getItem("tg_adv_unlockall") === "1" ? "ground" : "solar"); } catch (e) { return "solar"; } });
   const COLONY = ["shipbuild", "spaceranch", "ranchmars", "ranchtitan", "ranchproxima", "colmoon", "colmars", "coltitan", "colproxima", "dysonbuild", "gasbuild", "minebuild"];
-const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar", moonhe3: "solar", colmoon: "solar", spaceranch: "solar", moonbase: "solar", asteroids: "solar", minebuild: "solar", marscolony: "solar", colmars: "solar", ranchmars: "solar", mercury: "solar", venussky: "solar", solarcharge: "solar", jupitergas: "solar", gasskim: "solar", gasbuild: "solar", saturnrings: "solar", titanassault: "space", titancolony: "space", coltitan: "space", ranchtitan: "space", arkbuild: "space", arkfarm: "space", arkherd: "space", arkexodus: "space", warpjump: "space", starharvest: "space", voidgate: "space", deathstar: "space", blackhole: "space", gaspump: "space", colproxima: "ground", ranchproxima: "ground", luma: "ground", ferro: "ground", jovia: "ground", kryo: "ground", pyra: "ground", nexa: "ground", cobalt: "ground", helios: "ground", dyson: "act2", ashfall: "ground", dysonbuild: "act2", dysondock: "act2", kindred: "act2", darkforge: "act2", shadow: "act2"};
+const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar", moonhe3: "solar", moonbase: "solar", colmoon: "solar", spaceranch: "solar", marscolony: "solar", colmars: "solar", ranchmars: "solar", venussky: "solar", asteroids: "solar", minebuild: "solar", mercury: "solar", solarcharge: "solar", jupitergas: "solar", gasskim: "solar", gasbuild: "solar", gaspump: "solar", saturnrings: "solar", titanassault: "space", titancolony: "space", coltitan: "space", ranchtitan: "space", arkbuild: "space", arkfarm: "space", arkherd: "space", arkexodus: "space", colproxima: "ground", ranchproxima: "ground", luma: "ground", ferro: "ground", jovia: "ground", kryo: "ground", pyra: "ground", nexa: "ground", cobalt: "ground", helios: "ground", ashfall: "ground", warpjump: "ground", starharvest: "ground", voidgate: "ground", deathstar: "ground", blackhole: "ground", dysonbuild: "act2", dysondock: "act2", dyson: "act2", kindred: "act2", darkforge: "act2", shadow: "act2"};
   const sectorOf = (P: any): "ground" | "space" | "act2" | "solar" => (SECT_OF[P.id] as any) || (isSpace(P) ? "space" : "ground");
+  const pathRef = useRef<HTMLDivElement>(null);
+  const LIST = (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1" && !localStorage.getItem("tg_adv_sector") ? PLANETS : CAMP; } catch (e) { return CAMP; } })();   // test door: the bots that set no tab see the original order (Luma first)
+  useEffect(() => { if (!planet) enterFs(); }, [planet]);   // the map is full screen and landscape (owner, 2026-10-16)
+  useEffect(() => () => { if (KEEP_FS) KEEP_FS = false; else exitFsAndUnlock(); }, []);
   const pickSector = (v: "ground" | "space" | "act2" | "solar") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
   const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
   const gearOpen = (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1" || adminTier >= 3; } catch (e) { return false; } })();
@@ -783,6 +815,14 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   const [cined, setCined] = useState<string | null>(null);   // the id of the map whose film has been shown (or skipped) this time
   useEffect(() => { RUN_NAME = pname; RUN_T0 = planet && (nocine || cined === planet.id) ? Date.now() : 0; if (RUN_T0 > 0) { if (readEnergy() >= 50) { writeEnergy(readEnergy() - 50); ENERGY_BOOST = 1.25; } else ENERGY_BOOST = 1; } else ENERGY_BOOST = 1; }, [planet && planet.id, cined]);   // the clock for the best-times board starts when the map does, not when its film does
   const filming = (pro && !planet) || (fin && !planet) || (!!planet && cined !== planet.id && !nocine);
+  const menuMus = useRef<any>(null);
+  const [menuSnd, setMenuSnd] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
+  useEffect(() => {   // the map has its own theme tune, stopped the moment a map or film starts
+    if (planet || filming) return;
+    const m = createAdvMusic("menu"); menuMus.current = m; if (m) { m.setOn(menuSnd); m.start(); }
+    return () => { if (m) { try { m.stop(); } catch (e) {} } menuMus.current = null; };
+  }, [planet, filming]);
+  useEffect(() => { if (menuMus.current) menuMus.current.setOn(menuSnd); try { localStorage.setItem("tg_adv_music", menuSnd ? "1" : "0"); } catch (e) {} }, [menuSnd]);
   useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
   const startPlanet = (P: any) => { playUi && playUi("click"); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
   const canStart = (P: any) => (net ? net.host : open(P));   // in a room only the host chooses the map (guests join whatever map the host opens)
@@ -804,6 +844,8 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   const stepOf = (P) => CAMP.indexOf(P);
   const prevOf = (P) => { const i = CAMP.indexOf(P); return i > 0 ? CAMP[i - 1] : null; };
   const open = (P) => { if (!P.ok) return false; if (unlockAll) return true; const i = CAMP.indexOf(P); if (i <= 0) return true; const dn = readDone(); return dn.includes(CAMP[i - 1].id) || (i > 1 && dn.includes(CAMP[i - 2].id)); };
+  const curId = (CAMP.find((Q: any) => Q.ok && open(Q) && !done.includes(Q.id) && ((sector as string) === "all" || sectorOf(Q) === sector)) || ({} as any)).id;
+  useEffect(() => { const box = pathRef.current, el = box && (box.querySelector(".cur") as HTMLElement | null); if (box && el) box.scrollLeft = Math.max(0, el.offsetLeft - box.clientWidth / 2 + el.offsetWidth / 2); }, [curId, sector, planet]);
   const t = (th, en, zh) => T3(lang, th, en, zh);
   return (
     <div className="adv" role="region" aria-label="Adventure Mode">
@@ -813,6 +855,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
             <h2 style={{ flex: 1 }}>🪐 Adventure Mode</h2>
+            <button className="adv-btn" data-menu-snd aria-pressed={menuSnd} onClick={() => setMenuSnd(v => !v)} aria-label="music">{menuSnd ? "♪" : "🔇"}</button>
           </div>
           <div className="adv-chips" data-chips>
           <span className="adv-chip">{t("ส่งกลับโลกแล้ว " + ore + " ก้อนแร่ · อาณานิคม: " + ostage.th, "Shipped to Earth: " + ore + " ore · colony: " + ostage.en, "已运回地球 " + ore + " 矿 · 殖民地：" + ostage.zh)}</span>
@@ -845,9 +888,9 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
               <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${nx.c[2]} 45%,${nx.c[0]})`, "--g": `rgba(${nx.glow},.7)` } as any} />
               <span><small>{done.length ? t("เล่นต่อ", "Continue", "继续") : t("เริ่มเลย", "Start here", "从这里开始")}</small><b>{T3(lang, nx.th, nx.en, nx.zh)}</b></span><em>▶</em>
             </button>) : null; })()}
-          <div className="adv-planets">
-            {CAMP.map((P, pi) => (sector as string) !== "all" && sectorOf(P) !== sector ? null : (
-              <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
+          <div className="adv-planets adv-path" ref={pathRef}>
+            {LIST.map((P, pi) => (sector as string) !== "all" && sectorOf(P) !== sector ? null : (
+              <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock") + (done.includes(P.id) ? " clr" : "") + (curId === P.id ? " cur" : "")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
                 <span><b><i className="adv-ch" data-ch={stepOf(P) + 1}>{t("ตอนที่ ", "Ep. ", "第") + (stepOf(P) + 1) + (lang === "zh" ? "集" : "")}</i> {T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? (() => { const pv = prevOf(P), n = stepOf(P); return t("ต้องผ่านตอนที่ " + n + " หรือ " + (n - 1) + " ก่อน", "Clear episode " + n + (n > 1 ? " or " + (n - 1) : "") + " first" + (pv ? " (" + pv.en.split(" · ")[0] + ")" : ""), "先通关第 " + n + (n > 1 ? " 或 " + (n - 1) : "") + " 集"); })() : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
@@ -999,7 +1042,32 @@ function RankPanel({ lang, maps }: any) {
 
 /** The skill book (owner, 2026-10-11): ten skills for the robot's class and ten for the pet's element. Robot skill n opens at class rank n, pet skill n at pet level n;
     levels 1..5 cost crystals; up to three robot actives and two pet actives are equipped. */
-function SkillBook({ me, petNow, lang, crystals, onChange, playUi }: any) {
+/** In-run upgrade page (owner, 2026-10-16): spend stat points (STR DEX AGI INT LUK) and crystals on the career's skills without leaving the map. */
+function UpgradePanel({ me, petNow, lang, playUi, onStats, onClose }: any) {
+  const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
+  const [, bump] = useState(0);
+  const info = rpgOf(me), crystals = readCrystals();
+  const H: any = { str: ["ดาเมจ +1.2%/แต้ม", "damage +1.2% each", "伤害 +1.2%"], dex: ["คูลดาวน์โจมตี -0.6%", "attack cooldown -0.6%", "攻击冷却 -0.6%"], agi: ["วิ่งเร็ว +0.8% หลบ +0.3%", "speed +0.8%, dodge +0.3%", "移速 +0.8% 闪避 +0.3%"], int: ["สกิลเร็วและแรง +1%", "skills faster and harder +1%", "技能更快更强 +1%"], luk: ["คริติคอล +0.5%", "crit chance +0.5%", "暴击 +0.5%"] };
+  const N: any = { str: "STR", dex: "DEX", agi: "AGI", int: "INT", luk: "LUK" };
+  const change = (k: any, d: 1 | -1) => { if (spendPoint(me, k, d)) { playUi && playUi("click"); onStats(); bump(x => x + 1); } };
+  return (
+    <div className="adv-pause adv-lvlpop" role="dialog" aria-label="upgrade" data-lvlpop="1" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="adv-pause-card alp-card">
+        <div className="alp-head"><b>{t("อัพเกรด", "Upgrade", "升级")} · Lv {info.lv}</b><span data-free>{t("แต้มที่ใช้ได้ ", "Free points ", "可用点数 ") + info.free}</span><button className="adv-btn go" data-lvl-close onClick={onClose}>▶ {t("เล่นต่อ", "Resume", "继续")}</button></div>
+        <div className="alp-stats">
+          {RPG_STATS.map((k: any) => (
+            <div key={k} className="alp-stat" data-stat={k}><b>{N[k]}</b><i>{info.pts[k]}/{STAT_CAP}</i><small>{T3(lang, H[k][0], H[k][1], H[k][2])}</small>
+              <button data-stat-dn={k} disabled={info.pts[k] < 1} onClick={() => change(k, -1)}>−</button>
+              <button data-stat-up={k} disabled={info.free < 1 || info.pts[k] >= STAT_CAP} onClick={() => change(k, 1)}>+</button></div>))}
+        </div>
+        <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} open onChange={() => bump(x => x + 1)} />
+        <p style={{ fontSize: 11, opacity: .8 }}>◆ {t("คริสตัล ", "Crystals ", "晶体 ") + crystals}</p>
+      </div>
+    </div>
+  );
+}
+
+function SkillBook({ me, petNow, lang, crystals, onChange, playUi, open: openAlways }: any) {
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const cls = classKeyOf(me), rank = skillRank(readSkillSp()[cls] || 0).rank;
   const ptype: string = petNow ? ((petById(petNow.species) as any).type || "steel") : "", plv = petNow ? petLevel(petNow.bond).lv : 0;
@@ -1007,7 +1075,7 @@ function SkillBook({ me, petNow, lang, crystals, onChange, playUi }: any) {
   const kind = tab === "pet" && petNow ? "pet" : "robot", owner = kind === "pet" ? ptype : cls, have = kind === "pet" ? plv : rank, eq = readEquip()[kind];
   const eqNow = equippedOf(kind, owner, have).map(q => q.id);
   return (
-    <details className="adv-book">
+    <details className="adv-book" open={openAlways ? true : undefined}>
       <summary>{t("ตำราสกิล — สายอาชีพของหุ่นและสัตว์เลี้ยง", "Skill book — your robot's and pet's careers", "技能书 — 机器人与宠物的职业技能")}</summary>
       <div className="ab-tabs" role="tablist">
         <button className={kind === "robot" ? "on" : ""} onClick={() => setTab("robot")}>🤖 {T3(lang, (MODEL_CLASS as any)[cls].th, (MODEL_CLASS as any)[cls].en, (MODEL_CLASS as any)[cls].zh)} · R{rank}</button>
@@ -1148,6 +1216,7 @@ function StrikePhase({ P, lang, playUi, onDone, onBack }: any) {
 /** One run on one planet. The game state lives in refs and a canvas: React only draws the HUD (a few times a second). */
 const Run = memo(function Run({ net = null, onReward = null, getNext = null, onNext = null, strikeMask = null, P, gfx, lang, me, colorway, held, hat, acc, petNow, onExit, playUi, onGfx }: any) {
   const high = gfx === "high"; const highRef = useRef(high); highRef.current = high;
+  const statRef = useRef<any>(null);
   useEffect(() => { try { window.dispatchEvent(new Event("resize")); } catch (e) {} }, [gfx]);
   useEffect(() => () => { if (KEEP_FS) KEEP_FS = false; else exitFsAndUnlock(); }, []);   // back to the map or out of Adventure: normal screen, portrait again
   const cvRef = useRef<HTMLCanvasElement>(null);
@@ -1243,6 +1312,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     /* ── the robot, from the same numbers PvP uses ── */
     const stat = () => { const info = rpgOf(me); return { info, mods: rpgMods(info.pts) }; };
     let { info, mods } = stat();
+    statRef.current = () => { const r = stat(); info = r.info; mods = r.mods; };
     const skillOf = () => skillRank(readSkillSp()[cls] || 0);
     const UPS = readUps(), DF = readDiff(), LOAD = readLoad();
     // skill careers: the passives of every unlocked robot skill (class rank) and pet skill (pet level), added up once per run
@@ -2006,9 +2076,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     return () => { settle(0.4); if (mus) mus.stop(); musicRef.current = null; sfx.close(); sfxRef.current = null; if (!ended) { ended = true; const secs = (performance.now() - t0) / 1000; if (secs > 3) { logUsage("adv", "end:" + P.id + ":" + Math.round(secs) + "s:k" + kills + ":x" + Math.round(pl.x / 100) * 100, secs * 1000); if (secs > 8) logUsage("adv", "perf:" + P.id + ":" + (HI() ? "hd" : "sd") + ":" + Math.round(frames / secs) + "fps"); } } cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); window.removeEventListener("keydown", dn); window.removeEventListener("keyup", up); try { delete (window as any).__advTest; } catch (e) {} };
   }, [P, me, cls]);
 
-  const [gear, setGear] = useState(false), pausedRef = useRef(false);   // the gear pop-up pauses this run
+  const [gear, setGear] = useState(false), [upOpen, setUpOpen] = useState(false), pausedRef = useRef(false);   // the gear pop-up pauses this run
   const openGear = () => { const k: any = keys.current; k.l = k.r = k.atk = k.skl = k.jump = k.fire = k.kick = k.rocket = k.zap = k.dig = false; pausedRef.current = true; setGear(true); playUi && playUi("click"); };
   const closeGear = () => { pausedRef.current = false; setGear(false); };
+  const openUp = () => { const k: any = keys.current; k.l = k.r = k.atk = k.skl = k.jump = k.fire = k.kick = k.rocket = k.zap = k.dig = false; pausedRef.current = true; setUpOpen(true); playUi && playUi("click"); };
+  const closeUp = () => { pausedRef.current = false; setUpOpen(false); };
   useEffect(() => { const kd = (e: KeyboardEvent) => { if (e.code === "Escape" || e.code === "KeyP") { if (pausedRef.current) { pausedRef.current = false; setGear(false); } else if (!quizOn.current) openGear(); } }; window.addEventListener("keydown", kd); return () => window.removeEventListener("keydown", kd); }, []);
   const hold = (name) => ({
     onPointerDown: (e) => { e.preventDefault(); (keys.current as any)[name] = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (er) {} },
@@ -2039,6 +2111,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         </div>
         <GearButton onClick={openGear} />
       </div>
+      <button className="adv-btn adv-lvl" data-lvl aria-label="upgrade" onClick={openUp}>⬆{rpgOf(me).free > 0 && <i className="alp-dot">{rpgOf(me).free}</i>}</button>
+      {upOpen && <UpgradePanel me={me} petNow={petNow} lang={lang} playUi={playUi} onStats={() => { if (statRef.current) statRef.current(); }} onClose={closeUp} />}
       {gear && <SettingsPopup lang={lang} high={high} onGfx={onGfx} musicOn={musicOn} onMusic={() => setMusicOn(m => !m)} online={!!net} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {net && <div className="adv-emotes">{["👍", "⚔️", "🆘", "❤️"].map(em => <button key={em} aria-label={"emote " + em} onClick={() => chatRef.current && chatRef.current(em)}>{em}</button>)}</div>}
       {net && hud.team && hud.team.length > 0 && <div className="adv-team">{hud.team.map((q: any, i: number) => <span key={i} style={{ borderColor: q.c || "#7fe8ff" }}>{q.n} · {q.hp}♥</span>)}</div>}
