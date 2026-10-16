@@ -778,6 +778,25 @@ const CSS = `
 .adv-foot .adv-grp>summary{list-style:none;cursor:pointer;font-size:11.5px;font-weight:800;padding:4px 12px;border-radius:999px;background:var(--card,#fff);border:1.5px solid var(--bd3,rgba(0,0,0,.2))}.adv-foot .adv-grp>summary::-webkit-details-marker{display:none}
 .adv-foot .adv-grp[open]{position:fixed;left:10px;right:10px;bottom:38px;max-height:62vh;overflow:auto;z-index:70;background:var(--card,#fff);border:1.5px solid var(--clay,#d97757);border-radius:20px;padding:8px 12px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
 .adv-foot{flex-wrap:wrap}.adv-foot .adv-lobby{flex:1 0 100%}
+
+/* all episodes of a part on one screen (owner, 2026-10-16: EP 1..19 without sideways scrolling, even less room for the buttons) */
+.adv-menu{display:grid!important;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto minmax(0,1fr) auto;grid-template-areas:"head chips" "tabs tools" "path path" "cta foot";gap:3px 6px!important;align-content:stretch}
+.adv-menu>div:first-child{grid-area:head;min-width:0}.adv-menu .adv-chips{grid-area:chips;justify-self:end;min-width:0}.adv-menu .adv-sectors{grid-area:tabs;min-width:0}.adv-menu .adv-rankbar{grid-area:tools;justify-self:end}
+.adv-menu .adv-cta{grid-area:cta;min-width:0;width:auto!important}.adv-menu .adv-path{grid-area:path}.adv-menu .adv-foot{grid-area:foot;justify-self:end;flex-wrap:nowrap}
+.adv-menu>div:first-child .adv-btn{width:26px;height:26px;font-size:12px}.adv-menu h2{font-size:13px;white-space:nowrap}
+.adv-menu .adv-chip{font-size:9px;padding:0 6px}.adv-menu .adv-sec{padding:2px 8px;font-size:10px}.adv-menu .adv-sec em{font-size:9px}
+.adv-menu .adv-rankbar span{font-size:10px!important}.adv-menu .adv-rankbar .adv-btn{height:22px;padding:0 8px;font-size:10px}
+.adv-menu .adv-cta{min-height:28px!important;padding:2px 10px!important}.adv-menu .adv-cta b{font-size:11px}.adv-menu .adv-cta small{font-size:8px}.adv-menu .adv-cta .adv-orb{flex:0 0 18px;height:18px}
+.adv-foot .adv-grp>summary{font-size:10px;padding:3px 9px}.adv-foot .adv-grp:not([open]){border:0;padding:0;background:none;box-shadow:none;margin:0}.adv-menu .adv-sectors{overflow:hidden}.adv-menu .adv-sec{flex:1 1 0!important;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:2px 6px!important;font-size:9.5px!important}.adv-menu .adv-sec em{margin-left:3px}
+.adv-menu .adv-path{display:grid!important;grid-template-columns:repeat(10,minmax(0,1fr));grid-auto-rows:minmax(0,104px);gap:6px;overflow:hidden!important;padding:4px 2px!important;margin:0!important;align-items:stretch;align-content:center;scroll-snap-type:none}
+.adv-menu .adv-path .adv-planet,.adv-menu .adv-path .adv-planet:nth-child(odd),.adv-menu .adv-path .adv-planet:nth-child(even){flex:none;transform:none;min-height:0;min-width:0;padding:4px 3px 3px;border-radius:12px;gap:2px;justify-content:flex-start;overflow:hidden}
+.adv-menu .adv-path .adv-planet::before{display:none}
+.adv-menu .adv-path .adv-orb{position:static;width:26px;height:26px;flex:none;margin:0}
+.adv-menu .adv-path .adv-ch{position:static;font-size:8px;padding:0 5px;margin:0}
+.adv-menu .adv-path .adv-planet>span{min-width:0;display:flex;flex-direction:column;align-items:center}
+.adv-menu .adv-path .adv-planet b{font-size:8.5px;line-height:1.15;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.adv-menu .adv-path .adv-planet b i{display:block;margin:0 auto 1px}
+.adv-menu .adv-path .adv-planet small{display:none}
+.adv-menu .adv-path .adv-planet em{position:absolute;top:2px;right:3px;font-size:8px;padding:1px 4px;margin:0}
 `;
 
 type Gfx = "standard" | "high";
@@ -888,7 +907,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
           <div className="adv-sectors" role="tablist">
             {(["solar", "space", "ground", "act2"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
               <button key={v} role="tab" aria-selected={sector === v} data-sector={v} className={"adv-sec" + (sector === v ? " on" : "")} onClick={() => pickSector(v)}>
-                {v === "solar" ? t("ภาค 1 · ออกจากโลก ระบบสุริยะ", "Part 1 · Leaving Earth", "第一部 · 离开地球") : v === "space" ? t("ภาค 2 · ไททัน ยานอาร์ค ดาวต่างระบบ", "Part 2 · Titan, the Ark, other stars", "第二部 · 土卫六、方舟、其他恒星") : v === "ground" ? t("ภาค 3 · โลกใบใหม่", "Part 3 · New worlds", "第三部 · 新世界") : t("ภาค 4 · ฮาร์เวสเตอร์", "Part 4 · The Harvesters", "第四部 · 收割者")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
+                {v === "solar" ? t("ภาค 1 · ออกจากโลก", "Part 1 · Leaving Earth", "第一部 · 离开地球") : v === "space" ? t("ภาค 2 · ไททัน/อาร์ค", "Part 2 · Titan & Ark", "第二部 · 土卫六与方舟") : v === "ground" ? t("ภาค 3 · โลกใหม่", "Part 3 · New worlds", "第三部 · 新世界") : t("ภาค 4 · ฮาร์เวสเตอร์", "Part 4 · Harvesters", "第四部 · 收割者")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
               </button>); })}
           </div>
           <div className="adv-rankbar"><span data-energy style={{ marginRight: 8, fontSize: 12 }}>⚡ {t("พลังงาน", "Energy", "能量")} {readEnergy()}/100{readEnergy() >= 50 ? " · +25%" : ""}</span><button className="adv-btn" data-galaxy-btn aria-expanded={galaxyOpen} style={{ marginRight: 8 }} onClick={() => setGalaxyOpen(o => !o)}>🌌 {t("แผนที่กาแล็กซี", "Galaxy map", "星系图")}</button><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
@@ -913,7 +932,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
             </button>) : null; })()}
           <div className="adv-planets adv-path" ref={pathRef}>
             {LIST.map((P, pi) => (sector as string) !== "all" && sectorOf(P) !== sector ? null : (
-              <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock") + (done.includes(P.id) ? " clr" : "") + (curId === P.id ? " cur" : "")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
+              <button key={P.id} title={T3(lang, P.th, P.en, P.zh)} className={"adv-planet" + (open(P) ? "" : " lock") + (done.includes(P.id) ? " clr" : "") + (curId === P.id ? " cur" : "")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
                 <span><b><i className="adv-ch" data-ch={stepOf(P) + 1}>{t("ตอนที่ ", "Ep. ", "第") + (stepOf(P) + 1) + (lang === "zh" ? "集" : "")}</i> {T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? (() => { const pv = prevOf(P), n = stepOf(P); return t("ต้องผ่านตอนที่ " + n + " หรือ " + (n - 1) + " ก่อน", "Clear episode " + n + (n > 1 ? " or " + (n - 1) : "") + " first" + (pv ? " (" + pv.en.split(" · ")[0] + ")" : ""), "先通关第 " + n + (n > 1 ? " 或 " + (n - 1) : "") + " 集"); })() : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
