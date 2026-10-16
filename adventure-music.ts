@@ -41,6 +41,13 @@ export const MOODS: Record<string, Mood> = {
     arp: [0, 1, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 2, 1, 0, 1], bass: [1, _, _, _, 1, _, _, 1, _, _, 1, _, _, _, 1, _],
     kick: "x.......x..x....", snare: "........x.......", hat: "..x...x...x...x." },
 };
+/* The map menu (owner, 2026-10-16: build the player's mood from the first screen; exciting, fun, futuristic; adrenaline, endorphin, dopamine). A bright
+   lydian anthem at 128 bpm: four-on-the-floor kick, claps on 2 and 4, off-beat bass, a rising sixteenth arpeggio, and a saw lead that climbs
+   to the top of the scale every two bars (the dopamine hit) before dropping back, so the tune keeps promising a payoff. */
+MOODS.menu = { bpm: 128, root: 60, scale: LYD, prog: [0, 4, 5, 3], wLead: "sawtooth", wBass: "sawtooth", wArp: "square", gain: 0.66,
+  lead: [4, _, 5, _, 7, _, 9, 7,  _, 5, _, 7, 9, _, 11, _,   9, _, 7, _, 11, _, 12, 11,  9, _, 11, _, 14, _, _, _],
+  arp: [0, 2, 4, 7, 4, 2, 0, 2, 4, 7, 9, 7, 4, 2, 4, 7], bass: [1, _, 1, 1, _, 1, 1, _, 1, _, 1, 1, _, 1, 1, _],
+  kick: "x...x...x...x...", snare: "....x.......x...", hat: "x.xxx.xxx.xxx.xx" };
 MOODS.cobalt = { ...MOODS.ferro, bpm: 118, root: 47, wLead: "square", gain: 0.7 };
 MOODS.helios = { ...MOODS.jovia, bpm: 132, root: 62, scale: LYD, wLead: "sawtooth", gain: 0.62 };
 MOODS.departure = { ...MOODS.luma, bpm: 118, gain: 0.64 };
