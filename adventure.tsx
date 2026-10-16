@@ -822,6 +822,12 @@ const CSS = `
 .adv-x-fixed{position:fixed;top:70px;right:18px;z-index:72}
 .adv-foot .adv-grp[open]>summary{position:relative;display:block;padding:6px 48px 6px 12px;font-size:13px}
 .adv-foot .adv-grp[open]>summary::after{content:"✕";position:absolute;right:0;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;background:var(--clay,#d97757);color:#fff;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center}
+
+/* part tabs: full labels, on a row of their own (owner, 2026-10-16) */
+.adv-menu{grid-template-rows:auto auto auto minmax(0,1fr) auto!important;grid-template-areas:"head chips" "tabs tabs" "tools tools" "path path" "cta foot"!important}
+.adv-menu .adv-sectors{overflow-x:auto!important;scrollbar-width:none}.adv-menu .adv-sec{flex:0 0 auto!important;overflow:visible!important;text-overflow:clip!important;white-space:nowrap;padding:3px 12px!important;font-size:11px!important}
+.adv-menu .adv-rankbar{justify-self:start}
+.adv-menu .adv-chips{overflow:hidden}.adv-menu .adv-chip{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 `;
 
 type Gfx = "standard" | "high";
