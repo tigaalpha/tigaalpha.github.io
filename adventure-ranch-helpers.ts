@@ -49,13 +49,18 @@ export function drawHelper(x: CanvasRenderingContext2D, h: Helper, T: number, mo
     if (h.carry > 0) { x.fillStyle = "#e8a23a"; rr(x, -24, -29, 10, 8, 2); x.fill(); x.fillStyle = "#74c76a"; rr(x, -13, -28, 9, 7, 2); x.fill(); }
     wheel(x, -16, -6, 7, T); wheel(x, 18, -6, 7, T);
   } else {
-    // flying roadster: low sleek body, glass canopy, hover jets
-    x.fillStyle = "#d62839"; x.beginPath(); x.moveTo(-30, -8); x.quadraticCurveTo(-32, -18, -16, -19); x.lineTo(6, -20); x.quadraticCurveTo(20, -20, 32, -11); x.lineTo(32, -7); x.closePath(); x.fill();
-    x.strokeStyle = "#8d1621"; x.lineWidth = 1.2; x.stroke();
-    x.fillStyle = "rgba(170,225,255,.9)"; x.beginPath(); x.moveTo(-8, -19); x.quadraticCurveTo(2, -29, 14, -19); x.closePath(); x.fill();
-    x.fillStyle = "#fff"; x.fillRect(24, -14, 6, 2);
-    const g = x.createRadialGradient(-14, -3, 1, -14, -3, 12); g.addColorStop(0, "rgba(120,220,255,.95)"); g.addColorStop(1, "rgba(120,220,255,0)"); x.fillStyle = g; x.beginPath(); x.arc(-14, -3, 12, 0, 7); x.arc(16, -3, 12, 0, 7); x.fill();
-    if (h.carry > 0) { x.fillStyle = "#ffd23f"; rr(x, -26, -24, 14, 7, 3); x.fill(); }
+    // flying roadster: low white coupe with a silver lower sill and wheel-jets, red accents, glass roof, hover thrusters
+    const bg = x.createLinearGradient(0, -24, 0, -6); bg.addColorStop(0, "#ffffff"); bg.addColorStop(0.6, "#eef1f4"); bg.addColorStop(1, "#c9d0d6");
+    x.fillStyle = bg; x.beginPath(); x.moveTo(-32, -8); x.quadraticCurveTo(-34, -15, -22, -17); x.lineTo(-6, -19); x.quadraticCurveTo(4, -27, 15, -19); x.quadraticCurveTo(28, -17, 34, -11); x.lineTo(34, -7); x.closePath(); x.fill();
+    x.strokeStyle = "#8f98a1"; x.lineWidth = 1.1; x.stroke();
+    x.fillStyle = "#aeb6bd"; x.beginPath(); x.moveTo(-32, -8); x.lineTo(34, -8); x.lineTo(34, -5); x.quadraticCurveTo(0, -3, -32, -5); x.closePath(); x.fill();       // silver sill
+    x.fillStyle = "rgba(25,38,56,.88)"; x.beginPath(); x.moveTo(-6, -19); x.quadraticCurveTo(4, -26, 13, -19); x.closePath(); x.fill();                                  // glass canopy
+    x.fillStyle = "rgba(255,255,255,.55)"; x.beginPath(); x.moveTo(-2, -20); x.quadraticCurveTo(4, -24, 8, -20); x.closePath(); x.fill();
+    x.strokeStyle = "#e0262e"; x.lineWidth = 2; x.lineCap = "round"; x.beginPath(); x.moveTo(-26, -12); x.quadraticCurveTo(0, -14, 28, -11); x.stroke();                   // red stripe
+    x.fillStyle = "#e0262e"; x.fillRect(-34, -13, 3, 4); x.fillStyle = "#fff"; x.fillRect(31, -12, 4, 2);                                                                  // tail light, headlight
+    for (const wx of [-17, 19]) { x.fillStyle = "#c0c7ce"; x.beginPath(); x.ellipse(wx, -6, 6.5, 4.5, 0, 0, 7); x.fill(); x.strokeStyle = "#e0262e"; x.lineWidth = 1.2; x.stroke();
+      const g = x.createRadialGradient(wx, -1, 1, wx, 3, 13); g.addColorStop(0, "rgba(255,255,255,.95)"); g.addColorStop(0.4, "rgba(255,120,110,.6)"); g.addColorStop(1, "rgba(255,90,80,0)"); x.fillStyle = g; x.beginPath(); x.ellipse(wx, 4, 9, 11 + Math.sin(T * 14 + wx) * 1.5, 0, 0, 7); x.fill(); }
+    if (h.carry > 0) { x.fillStyle = "#ffd23f"; rr(x, -26, -26, 14, 7, 3); x.fill(); x.strokeStyle = "#a67c00"; x.lineWidth = 1; x.stroke(); }
   }
   x.restore();
 }
