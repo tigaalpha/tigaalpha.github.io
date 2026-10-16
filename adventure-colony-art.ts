@@ -86,7 +86,7 @@ function glassTower(x: Cx, cx: number, by: number, u: number, h: number, T: numb
 }
 
 export function drawBuilding(x: Cx, id: string, cx: number, cy: number, tw: number, era: number, T: number, pal: Pal, seed: number) {
-  const u = tw / 64, gl = pal.glow;
+  const u = tw / 64 * 1.4, gl = pal.glow;
   const mine = (rest: () => void) => { x.save(); x.lineJoin = "round"; x.lineCap = "round"; shadow(x, cx, cy, tw * 0.62); rest(); x.restore(); };
   const glass = "rgba(170,225,255,.62)";
   switch (id) {
@@ -133,8 +133,10 @@ export function drawTube(x: Cx, x1: number, y1: number, x2: number, y2: number, 
 /** the sky of a colony: mountains and craters on the horizon, and from 2500 a space-elevator tether, from 3000 an O'Neill cylinder and an orbital ring */
 export function drawSkyline(x: Cx, W: number, H: number, camX: number, T: number, era: number, pal: Pal) {
   x.save(); const hy = H * 0.34;
-  x.fillStyle = "rgba(0,0,0,.35)"; x.beginPath(); x.moveTo(0, hy + 20); for (let i = 0; i <= 24; i++) { const wx = i * W / 24, k = i + Math.floor(camX * 0.02); x.lineTo(wx, hy - 10 - rnd(k * 3.7) * H * 0.07 - (i % 5 === 0 ? 8 : 0)); } x.lineTo(W, hy + 30); x.lineTo(0, hy + 30); x.closePath(); x.fill();
-  x.fillStyle = "rgba(0,0,0,.5)"; x.beginPath(); x.moveTo(0, hy + 30); for (let i = 0; i <= 16; i++) { const k = i + Math.floor(camX * 0.04); x.lineTo(i * W / 16, hy + 4 - rnd(k * 5.3 + 1) * H * 0.05); } x.lineTo(W, hy + 40); x.lineTo(0, hy + 40); x.closePath(); x.fill();
+  const peaks = (n: number, par: number, hmax: number, c1: string, c2: string, base: number) => { let px = -40; for (let i = 0; i < n + 2; i++) { const k = i + Math.floor(camX * par), w = W / n * (0.9 + rnd(k * 2.3) * 0.8), hh = hmax * (0.35 + rnd(k * 3.7 + base) * 0.65), tx = px + w * 0.5 + (rnd(k * 5.1) - 0.5) * w * 0.3;
+    x.fillStyle = c1; x.beginPath(); x.moveTo(px, hy + 40); x.lineTo(tx, hy + 40 - hh); x.lineTo(tx + w * 0.08, hy + 40); x.closePath(); x.fill();
+    x.fillStyle = c2; x.beginPath(); x.moveTo(tx, hy + 40 - hh); x.lineTo(px + w * 1.1, hy + 40); x.lineTo(tx + w * 0.08, hy + 40); x.closePath(); x.fill(); px += w * 0.78; } };
+  peaks(7, 0.02, H * 0.2, "#c9744a", "#8f4528", 1); peaks(9, 0.04, H * 0.13, "#d98a5a", "#a95a34", 7);
   if (era >= 1) { const ex = W * 0.8 - (camX * 0.03) % 40; x.strokeStyle = "rgba(220,235,255,.55)"; x.lineWidth = 1.6; x.beginPath(); x.moveTo(ex, hy); x.lineTo(ex, 0); x.stroke(); x.fillStyle = "rgba(230,240,255,.9)"; for (const yy of [H * 0.06, H * 0.14]) { x.fillRect(ex - 5, yy, 10, 4); } }
   if (era >= 2) {
     const cx = W * 0.3, cy = H * 0.12, L = W * 0.34, r = H * 0.035; const g = x.createLinearGradient(0, cy - r, 0, cy + r); g.addColorStop(0, "rgba(220,235,255,.85)"); g.addColorStop(0.5, "rgba(120,150,190,.85)"); g.addColorStop(1, "rgba(60,80,120,.85)"); x.fillStyle = g; x.beginPath(); x.moveTo(cx - L / 2, cy - r); x.lineTo(cx + L / 2, cy - r); x.quadraticCurveTo(cx + L / 2 + r, cy, cx + L / 2, cy + r); x.lineTo(cx - L / 2, cy + r); x.quadraticCurveTo(cx - L / 2 - r, cy, cx - L / 2, cy - r); x.fill();
@@ -146,3 +148,15 @@ export function drawSkyline(x: Cx, W: number, H: number, camX: number, T: number
 
 /** the ground of one plot: regolith with its own tint and a small crater now and then; ice shines, ore is flecked */
 export function groundFill(pal: Pal, f: string, i: number) { return f === "ice" ? "rgba(150,205,240,.72)" : f === "ore" ? "rgba(168,116,64,.78)" : (i % 7 === 0 ? pal.reg2 : i % 3 === 0 ? pal.reg : pal.reg) + "e6"; }
+
+/** Surviving-Mars style: one huge faceted glass dome standing over the heart of the colony */
+export function bigDome(x: Cx, cx: number, cy: number, rx: number, h: number, T: number) {
+  x.save(); const g = x.createLinearGradient(cx - rx, cy - h, cx + rx, cy); g.addColorStop(0, "rgba(255,255,255,.22)"); g.addColorStop(0.5, "rgba(170,225,255,.10)"); g.addColorStop(1, "rgba(80,140,200,.16)");
+  x.beginPath(); x.ellipse(cx, cy, rx, h, 0, Math.PI, 0); x.ellipse(cx, cy, rx, rx * 0.5, 0, 0, Math.PI); x.closePath(); x.fillStyle = g; x.fill();
+  x.strokeStyle = "rgba(255,255,255,.5)"; x.lineWidth = 1.2;
+  for (let i = -5; i <= 5; i++) { x.beginPath(); x.moveTo(cx + i * rx / 5.2, cy + rx * 0.5 * Math.sqrt(Math.max(0, 1 - (i / 5.2) ** 2))); x.quadraticCurveTo(cx + i * rx / 9, cy - h * 1.1, cx, cy - h); x.stroke(); }
+  for (let k = 1; k <= 4; k++) { const f = k / 5; x.beginPath(); x.ellipse(cx, cy - h * f * 0.8, rx * Math.sqrt(1 - f * f), rx * 0.22 * (1 - f * 0.4), 0, 0, Math.PI); x.stroke(); }
+  x.strokeStyle = "rgba(255,255,255,.85)"; x.lineWidth = 2; x.beginPath(); x.ellipse(cx, cy, rx, h, 0, Math.PI, 0); x.stroke();
+  x.fillStyle = "rgba(255,255,255," + (0.12 + 0.06 * Math.sin(T)) + ")"; x.beginPath(); x.ellipse(cx - rx * 0.4, cy - h * 0.6, rx * 0.2, h * 0.25, -0.6, 0, 7); x.fill();
+  x.restore();
+}
