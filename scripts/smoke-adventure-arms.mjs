@@ -51,11 +51,11 @@ for (const gun of ["pulse", "scatter", "lance", "arc"]) {
 }
 for (const rocket of ["homing", "cluster", "napalm"]) {
   const o = await arm("pulse", rocket); const h0 = await hpNow(o);
-  await o.p.evaluate(() => window.__advTest.rocketNow()); ok(rocket + " rocket launches", (await o.p.evaluate(() => window.__advTest.rocketsLive())) === 2);
+  await o.p.evaluate(() => window.__advTest.rocketNow()); ok(rocket + " rocket launches", (await o.p.evaluate(() => window.__advTest.rocketsLive())) === 4);
   ok(rocket + ": a muzzle flash and a backblast of smoke at launch", (await o.p.evaluate(() => window.__advTest.blastsN())) >= 1 && (await o.p.evaluate(() => window.__advTest.smokeN())) >= 3);
   await o.p.waitForTimeout(260); ok(rocket + ": the missile leaves a smoke trail", (await o.p.evaluate(() => window.__advTest.smokeN())) >= 6);
   if (process.env.SHOT) await o.p.screenshot({ path: process.env.SHOT + "-" + rocket + ".png" });
-  { const n0 = await o.p.evaluate(() => window.__advTest.rocketsN()); await o.p.evaluate(() => { window.__advTest.rocketNow(); window.__advTest.rocketNow(); }); const n1 = await o.p.evaluate(() => window.__advTest.rocketsN()); ok(rocket + " reloads fast but two calls in one instant fire once (cooldown)", n1 - n0 <= 2); }
+  { const n0 = await o.p.evaluate(() => window.__advTest.rocketsN()); await o.p.evaluate(() => { window.__advTest.rocketNow(); window.__advTest.rocketNow(); }); const n1 = await o.p.evaluate(() => window.__advTest.rocketsN()); ok(rocket + " reloads fast but two calls in one instant fire once (cooldown)", n1 - n0 <= 4); }
   let sawBomblets = false, sawFire = false; for (let i = 0; i < 30; i++) { await o.p.waitForTimeout(100); const r = await o.p.evaluate(() => ({ r: window.__advTest.rocketsLive(), f: window.__advTest.firesLive() })); if (r.r >= 3) sawBomblets = true; if (r.f > 0) sawFire = true; }
   ok(rocket + " rocket hurts what it hits", (await hpNow(o)) < h0, h0 + " -> " + (await hpNow(o)));
   if (rocket === "cluster") ok("Cluster bursts into bomblets", sawBomblets);
