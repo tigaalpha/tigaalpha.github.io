@@ -86,24 +86,24 @@ function glassTower(x: Cx, cx: number, by: number, u: number, h: number, T: numb
 }
 
 export function drawBuilding(x: Cx, id: string, cx: number, cy: number, tw: number, era: number, T: number, pal: Pal, seed: number) {
-  const u = tw / 64 * 1.75, gl = pal.glow;
+  const u = tw / 64 * 2.05, gl = pal.glow;
   const mine = (rest: () => void) => { x.save(); x.lineJoin = "round"; x.lineCap = "round"; shadow(x, cx, cy, tw * 0.62); rest(); x.restore(); };
   const glass = "rgba(170,225,255,.62)";
   switch (id) {
     case "hab": mine(() => {
-      if (era === 0) { lbox(x, cx - 6 * u, cy + 2 * u, 22 * u, 12 * u, 12 * u); lbox(x, cx + 9 * u, cy - 1 * u, 18 * u, 10 * u, 9 * u); door(x, cx - 6 * u, cy + 5 * u, u, gl); geo(x, cx + 9 * u, cy - 10 * u, 6 * u, 4 * u, glass, undefined, T); }
-      else if (era === 1) { lbox(x, cx, cy + 3 * u, 28 * u, 15 * u, 20 * u); geo(x, cx, cy - 17 * u, 12 * u, 9 * u, glass, "#9fd49a", T); door(x, cx, cy + 6 * u, u, gl); }
-      else glassTower(x, cx, cy + 2 * u, u, 52 * u, T, "#7fb4e0", seed);
+      if (era === 0) { lbox(x, cx - 6 * u, cy + 2 * u, 22 * u, 12 * u, 26 * u); lbox(x, cx + 9 * u, cy - 1 * u, 18 * u, 10 * u, 16 * u); door(x, cx - 6 * u, cy + 5 * u, u, gl); geo(x, cx + 9 * u, cy - 10 * u, 6 * u, 4 * u, glass, undefined, T); }
+      else if (era === 1) { lbox(x, cx, cy + 3 * u, 28 * u, 15 * u, 42 * u); geo(x, cx, cy - 39 * u, 14 * u, 11 * u, glass, "#9fd49a", T); door(x, cx, cy + 6 * u, u, gl); }
+      else glassTower(x, cx, cy + 2 * u, u, 84 * u, T, "#7fb4e0", seed);
     }); break;
-    case "tower": mine(() => { if (era === 2) glassTower(x, cx, cy + 2 * u, u, 66 * u, T, "#7fd0a8", seed); else { const h = (era === 0 ? 26 : 40) * u; lbox(x, cx, cy + 2 * u, 20 * u, 11 * u, h, "#eef3f2", "#4fae6a", 0.3); lbox(x, cx, cy + 2 * u - h, 14 * u, 8 * u, 6 * u, "#bfe8cf", "#4fae6a", 0.5); } }); break;
+    case "tower": mine(() => { if (era === 2) glassTower(x, cx, cy + 2 * u, u, 104 * u, T, "#7fd0a8", seed); else { const h = (era === 0 ? 44 : 64) * u; lbox(x, cx, cy + 2 * u, 20 * u, 11 * u, h, "#eef3f2", "#4fae6a", 0.3); lbox(x, cx, cy + 2 * u - h, 14 * u, 8 * u, 6 * u, "#bfe8cf", "#4fae6a", 0.5); } }); break;
     case "solar": mine(() => {
       hexField(x, cx, cy, u, era === 0 ? 4 : 5, era === 0 ? 3 : 4, era === 2);
       x.strokeStyle = "#7d8693"; x.lineWidth = 1.4; x.beginPath(); x.moveTo(cx - 20 * u, cy + 8 * u); x.lineTo(cx - 8 * u, cy + 12 * u); x.moveTo(cx + 22 * u, cy + 6 * u); x.lineTo(cx + 10 * u, cy + 10 * u); x.stroke();
       if (era >= 1) turbine(x, cx + 18 * u, cy + 2 * u, 30 * u, T, seed);
     }); break;
-    case "farm": mine(() => { geo(x, cx, cy + 2 * u, 25 * u, 20 * u, glass, "#6fc06a", T); x.fillStyle = "#3f9a58"; for (let i = 0; i < 6; i++) x.fillRect(cx - 14 * u + i * 5.4 * u, cy - 4 * u - (i % 2) * 3 * u, 3 * u, 5 * u); }); break;
+    case "farm": mine(() => { geo(x, cx, cy + 2 * u, 36 * u, 30 * u, glass, "#6fc06a", T); x.fillStyle = "#3f9a58"; for (let i = 0; i < 6; i++) x.fillRect(cx - 14 * u + i * 5.4 * u, cy - 4 * u - (i % 2) * 3 * u, 3 * u, 5 * u); }); break;
     case "park": mine(() => { x.fillStyle = "#7fcf7a"; x.beginPath(); x.ellipse(cx, cy, 22 * u, 11 * u, 0, 0, 7); x.fill(); for (let i = 0; i < 5; i++) ltree(x, cx - 14 * u + i * 7 * u, cy + ((i % 2) ? 3 : -2) * u, u * 1.3, i); }); break;
-    case "lab": mine(() => { lbox(x, cx, cy + 3 * u, 28 * u, 15 * u, 12 * u); geo(x, cx - 3 * u, cy - 9 * u, 9 * u, 8 * u, "rgba(255,255,255,.55)", undefined, T); x.fillStyle = "#eef2fb"; x.beginPath(); x.ellipse(cx + 12 * u, cy - 14 * u, 7 * u, 3 * u, -0.5, 0, 7); x.fill(); x.strokeStyle = "#cfd6e2"; x.beginPath(); x.moveTo(cx + 12 * u, cy - 8 * u); x.lineTo(cx + 12 * u, cy - 13 * u); x.stroke(); }); break;
+    case "lab": mine(() => { lbox(x, cx, cy + 3 * u, 28 * u, 15 * u, 12 * u); geo(x, cx - 3 * u, cy - 14 * u, 16 * u, 13 * u, "rgba(255,255,255,.55)", undefined, T); x.fillStyle = "#eef2fb"; x.beginPath(); x.ellipse(cx + 12 * u, cy - 14 * u, 7 * u, 3 * u, -0.5, 0, 7); x.fill(); x.strokeStyle = "#cfd6e2"; x.beginPath(); x.moveTo(cx + 12 * u, cy - 8 * u); x.lineTo(cx + 12 * u, cy - 13 * u); x.stroke(); }); break;
     case "med": mine(() => { lbox(x, cx, cy + 3 * u, 26 * u, 14 * u, 13 * u, "#ffffff", "#e0433c", 0.45); x.fillStyle = "#e0433c"; x.fillRect(cx + 3 * u, cy - 6 * u, 7 * u, 2.4 * u); x.fillRect(cx + 5.3 * u, cy - 8.5 * u, 2.4 * u, 7 * u); }); break;
     case "school": mine(() => { lbox(x, cx, cy + 3 * u, 28 * u, 15 * u, 10 * u, "#f4efe2", "#d9a23a"); lbox(x, cx, cy + 3 * u - 10 * u, 16 * u, 9 * u, 8 * u, "#f4efe2", "#d9a23a"); x.strokeStyle = "#ddd"; x.beginPath(); x.moveTo(cx, cy - 15 * u); x.lineTo(cx, cy - 27 * u); x.stroke(); x.fillStyle = RUST; x.fillRect(cx, cy - 27 * u, 8 * u, 4.5 * u); }); break;
     case "market": mine(() => { lbox(x, cx, cy + 3 * u, 30 * u, 16 * u, 10 * u, "#f4ede2", "#e0813a"); for (let i = -2; i <= 2; i++) { x.fillStyle = i % 2 ? "#ffffff" : RUST; x.fillRect(cx + i * 5.4 * u - 2.4 * u, cy - 11 * u + Math.abs(i) * 0.8 * u, 4.8 * u, 4 * u); } }); break;
@@ -111,7 +111,7 @@ export function drawBuilding(x: Cx, id: string, cx: number, cy: number, tw: numb
     case "geo": mine(() => { lbox(x, cx + 10 * u, cy + 4 * u, 16 * u, 9 * u, 8 * u); cyl(x, cx - 8 * u, cy + 2 * u, 7 * u, 22 * u, "#d5dae0", "#f4f6f8", "#ffffff"); x.fillStyle = RUST; x.fillRect(cx - 15 * u, cy - 14 * u, 14 * u, 3.4 * u); steam(x, cx - 8 * u, cy - 22 * u, T, u); }); break;
     case "oxy": mine(() => { cyl(x, cx + 12 * u, cy + 3 * u, 5 * u, 34 * u, "#d5dae0", "#f4f6f8", "#fff"); const sp = (px: number, py: number, r: number) => { const g = x.createRadialGradient(px - r * 0.3, py - r * 0.3, 1, px, py, r); g.addColorStop(0, "#fff"); g.addColorStop(1, "#8fc4e6"); x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, 7); x.fill(); }; sp(cx - 8 * u, cy - 8 * u, 10 * u); sp(cx + 2 * u, cy - 6 * u, 7 * u); steam(x, cx + 12 * u, cy - 34 * u, T, u, 2); }); break;
     case "recycler": mine(() => { lbox(x, cx, cy + 3 * u, 26 * u, 14 * u, 9 * u, "#eef2f0", "#4fae9a"); geo(x, cx - 8 * u, cy - 6 * u, 7 * u, 6 * u, "rgba(120,220,200,.6)", undefined, T); geo(x, cx + 9 * u, cy - 6 * u, 6 * u, 5 * u, "rgba(120,190,230,.6)", undefined, T); }); break;
-    case "shield": mine(() => { cyl(x, cx, cy + 3 * u, 6 * u, 10 * u, "#d5dae0", "#f4f6f8", "#fff"); geo(x, cx, cy, 32 * u, 26 * u, "rgba(" + gl + ",.18)", undefined, T); }); break;
+    case "shield": mine(() => { cyl(x, cx, cy + 3 * u, 6 * u, 10 * u, "#d5dae0", "#f4f6f8", "#fff"); geo(x, cx, cy, 44 * u, 36 * u, "rgba(" + gl + ",.18)", undefined, T); }); break;
     case "reactor": mine(() => { lbox(x, cx, cy + 3 * u, 32 * u, 17 * u, 10 * u, "#e9ecef", "#4aa6c8"); const g = x.createRadialGradient(cx, cy - 14 * u, 1, cx, cy - 14 * u, 14 * u); g.addColorStop(0, "rgba(180,250,255,1)"); g.addColorStop(1, "rgba(0,220,255,0)"); x.globalCompositeOperation = "lighter"; x.fillStyle = g; x.beginPath(); x.arc(cx, cy - 14 * u, 14 * u + Math.sin(T * 4), 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; cyl(x, cx - 14 * u, cy - 2 * u, 4 * u, 16 * u, "#d5dae0", "#f4f6f8", "#fff"); steam(x, cx - 14 * u, cy - 18 * u, T, u, 2); }); break;
     case "water": mine(() => { cyl(x, cx + 10 * u, cy + 3 * u, 9 * u, 16 * u, "#7fb4dc", "#cfeaff", "#e6f4ff"); lbox(x, cx - 10 * u, cy + 5 * u, 14 * u, 8 * u, 8 * u, "#eef2f4", "#4a90c8"); x.strokeStyle = "#cfd4dc"; x.lineWidth = 1.5 * u; x.beginPath(); x.moveTo(cx - 14 * u, cy); x.lineTo(cx - 10 * u, cy - 26 * u); x.lineTo(cx - 6 * u, cy); x.stroke(); }); break;
     case "port": mine(() => { x.fillStyle = "#cfd4da"; x.beginPath(); x.ellipse(cx, cy, 26 * u, 13 * u, 0, 0, 7); x.fill(); x.strokeStyle = RUST; x.lineWidth = 1.6; x.setLineDash([4, 3]); x.beginPath(); x.ellipse(cx, cy, 20 * u, 10 * u, 0, 0, 7); x.stroke(); x.setLineDash([]); const rb = cy - 3 * u; x.fillStyle = "#f4f6fa"; x.beginPath(); x.moveTo(cx - 5 * u, rb); x.lineTo(cx - 5 * u, rb - 26 * u); x.lineTo(cx, rb - 36 * u); x.lineTo(cx + 5 * u, rb - 26 * u); x.lineTo(cx + 5 * u, rb); x.fill(); x.fillStyle = RUST; x.fillRect(cx - 5 * u, rb - 14 * u, 10 * u, 4 * u); }); break;

@@ -21,10 +21,10 @@ const COLS = 22, ROWS = 18, CELLS = COLS * ROWS, DAY = 2;   // a "day" is 2 seco
 
 type Site = { icon: string; target: number; sun: number; water: number; ore: number; cold: number; hazard: string; name: L3; note: L3; hz: L3 };
 export const SITES: Record<string, Site> = {
-  moon:    { icon: "🌑", target: 40,  sun: 1.0, water: 0.6, ore: 1.2, cold: 1.0, hazard: "night", name: ["ดวงจันทร์ของโลก", "Earth's Moon", "地球的月球"], note: ["แสงแดดดี แต่น้ำน้อยมาก และกลางคืนยาวสองสัปดาห์", "Plenty of sun, very little water, and a night two weeks long", "阳光充足，但水极少，而且长夜持续两周"], hz: ["กลางคืนบนดวงจันทร์ — แผงโซลาร์แทบไม่ได้พลังงาน", "Lunar night — solar panels give almost nothing", "月夜——太阳能板几乎发不了电"] },
-  mars:    { icon: "🔴", target: 60,  sun: 0.6, water: 1.0, ore: 1.0, cold: 1.2, hazard: "dust", name: ["ดาวอังคาร", "Mars", "火星"], note: ["แดดอ่อนกว่าโลก มีน้ำแข็งใต้ดิน และพายุฝุ่นบังแสง", "Weak sun, ice underground, and dust storms that hide it", "阳光较弱，地下有冰，沙尘暴会遮蔽阳光"], hz: ["พายุฝุ่น — แผงโซลาร์ถูกบัง", "Dust storm — the panels are buried in dust", "沙尘暴——太阳能板被尘埃覆盖"] },
-  titan:   { icon: "🪐", target: 80,  sun: 0.15, water: 1.7, ore: 0.8, cold: 1.6, hazard: "cold", name: ["ไททัน ดวงจันทร์ของดาวเสาร์", "Titan, moon of Saturn", "土卫六（泰坦）"], note: ["แสงแดดเกือบไม่มี หนาวจัด แต่มีน้ำแข็งและมีเทนมหาศาล", "Almost no sun and bitter cold, but ice and methane everywhere", "几乎没有阳光且极寒，但冰和甲烷遍地"], hz: ["ความหนาวจัดเข้าครอบงำ — ใช้พลังงานทำความร้อนเพิ่ม", "A deep freeze — heating eats extra power", "严寒来袭——取暖额外耗电"] },
-  proxima: { icon: "⭐", target: 110, sun: 1.4, water: 1.0, ore: 1.7, cold: 1.0, hazard: "flare", name: ["พร็อกซิมา เซนทอรี b", "Proxima Centauri b", "比邻星 b"], note: ["แร่ล้ำค่า แดดแรง แต่ดาวแม่ปล่อยแฟลร์ใส่ทุกเมื่อ", "Rich ore and strong light, but the red dwarf keeps flaring", "矿藏丰富、光照强，但这颗红矮星不断耀发"], hz: ["แฟลร์จากดาวแม่ — ไฟดับและออกซิเจนรั่ว", "A stellar flare — power drops and oxygen leaks", "恒星耀发——电力下降，氧气泄漏"] },
+  moon:    { icon: "🌑", target: 30,  sun: 1.0, water: 0.6, ore: 1.2, cold: 1.0, hazard: "night", name: ["ดวงจันทร์ของโลก", "Earth's Moon", "地球的月球"], note: ["แสงแดดดี แต่น้ำน้อยมาก และกลางคืนยาวสองสัปดาห์", "Plenty of sun, very little water, and a night two weeks long", "阳光充足，但水极少，而且长夜持续两周"], hz: ["กลางคืนบนดวงจันทร์ — แผงโซลาร์แทบไม่ได้พลังงาน", "Lunar night — solar panels give almost nothing", "月夜——太阳能板几乎发不了电"] },
+  mars:    { icon: "🔴", target: 45,  sun: 0.6, water: 1.0, ore: 1.0, cold: 1.2, hazard: "dust", name: ["ดาวอังคาร", "Mars", "火星"], note: ["แดดอ่อนกว่าโลก มีน้ำแข็งใต้ดิน และพายุฝุ่นบังแสง", "Weak sun, ice underground, and dust storms that hide it", "阳光较弱，地下有冰，沙尘暴会遮蔽阳光"], hz: ["พายุฝุ่น — แผงโซลาร์ถูกบัง", "Dust storm — the panels are buried in dust", "沙尘暴——太阳能板被尘埃覆盖"] },
+  titan:   { icon: "🪐", target: 60,  sun: 0.15, water: 1.7, ore: 0.8, cold: 1.6, hazard: "cold", name: ["ไททัน ดวงจันทร์ของดาวเสาร์", "Titan, moon of Saturn", "土卫六（泰坦）"], note: ["แสงแดดเกือบไม่มี หนาวจัด แต่มีน้ำแข็งและมีเทนมหาศาล", "Almost no sun and bitter cold, but ice and methane everywhere", "几乎没有阳光且极寒，但冰和甲烷遍地"], hz: ["ความหนาวจัดเข้าครอบงำ — ใช้พลังงานทำความร้อนเพิ่ม", "A deep freeze — heating eats extra power", "严寒来袭——取暖额外耗电"] },
+  proxima: { icon: "⭐", target: 80, sun: 1.4, water: 1.0, ore: 1.7, cold: 1.0, hazard: "flare", name: ["พร็อกซิมา เซนทอรี b", "Proxima Centauri b", "比邻星 b"], note: ["แร่ล้ำค่า แดดแรง แต่ดาวแม่ปล่อยแฟลร์ใส่ทุกเมื่อ", "Rich ore and strong light, but the red dwarf keeps flaring", "矿藏丰富、光照强，但这颗红矮星不断耀发"], hz: ["แฟลร์จากดาวแม่ — ไฟดับและออกซิเจนรั่ว", "A stellar flare — power drops and oxygen leaks", "恒星耀发——电力下降，氧气泄漏"] },
 };
 
 type B = { id: string; icon: string; name: L3; cost: number; needSci?: number; text: L3 };
@@ -157,7 +157,7 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
   // buildings, back to front
   for (let sum = 0; sum < COLS + ROWS; sum++) for (let r = 0; r < ROWS; r++) { const c = sum - r; if (c < 0 || c >= COLS) continue; const cell = S.grid[r * COLS + c]; if (!cell.b) continue; const m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0 * 2)) continue;
     drawBuilding(x, cell.b, m[0], m[1], TW0, era, T, pal, r * COLS + c); }
-  { const h0 = Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2) - 1, m0 = ptW(h0 % COLS + 1, Math.floor(h0 / COLS) + 0.5); if (vis(m0[0], m0[1], 400)) bigDome(x, m0[0], m0[1] + 8, TW0 * 3.4, TW0 * 2.2, T); }
+  { const h0 = Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2) - 1, m0 = ptW(h0 % COLS + 1, Math.floor(h0 / COLS) + 0.5); if (vis(m0[0], m0[1], 400)) bigDome(x, m0[0], m0[1] + 8, TW0 * 4.2, TW0 * 2.9, T); }
   // rovers and drones moving between the modules
   const lanes = era === 0 ? 4 : era === 1 ? 8 : 14;
   for (let i = 0; i < lanes; i++) { const r = (i * 5) % ROWS, u = ((T * (0.12 + 0.03 * (i % 3)) + i * 0.37) % 1) * COLS, p = ptW(u, r + 0.5); if (!vis(p[0], p[1], 20)) continue; x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(p[0] - 3, p[1] + 1, 7, 2); x.fillStyle = i % 2 ? "#ffffff" : "#e0703a"; x.fillRect(p[0] - 3, p[1] - 3, 6, 3.6); x.fillStyle = "#33414f"; x.fillRect(p[0] - 1, p[1] - 3, 3, 1.6); }
@@ -184,7 +184,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
     for (let i = 0; i < 34; i++) { const c = Math.floor(r() * CELLS); if (!grid[c].f) grid[c].f = "ice"; }
     for (let i = 0; i < 34; i++) { const c = Math.floor(r() * CELLS); if (!grid[c].f) grid[c].f = "ore"; }
     const h0 = Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2) - 1; grid[h0].b = "hab"; grid[h0 + 1].b = "solar"; grid[h0].f = ""; grid[h0 + 1].f = "";
-    G.current = { t: 0, grid, stock: { en: 40, wa: 70, ox: 70, fo: 70, ma: 150, sc: 0 }, rate: { en: 0, wa: 0, ox: 0, fo: 0, ma: 0, sc: 0 }, pop: 8, grow: 0, tech: [false, false, false], hz: 0, hzT: 40, portT: 12, sel: "hab" as string, tool: "build" as string, info: -1, hist: [] as any[], news: [] as any[], flags: {} as any, ended: false, won: false, short: 0, msg: "", peak: 8, days: 0 };
+    G.current = { t: 0, grid, stock: { en: 120, wa: 200, ox: 200, fo: 200, ma: 400, sc: 10 }, rate: { en: 0, wa: 0, ox: 0, fo: 0, ma: 0, sc: 0 }, pop: 8, grow: 0, tech: [false, false, false], hz: 0, hzT: 40, portT: 12, sel: "hab" as string, tool: "build" as string, info: -1, hist: [] as any[], news: [] as any[], flags: {} as any, ended: false, won: false, short: 0, msg: "", peak: 8, days: 0 };
   }
   const speedRef = useRef(1), [speed, setSpeedS] = useState(1), [career, setCareer] = useState<string>(() => careerNow()), [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false), [budget, setBudget] = useState(false), [advisor, setAdvisor] = useState(false);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
@@ -232,17 +232,17 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
       const cr = careerRef.current;
       let sunMul = site.sun * (cr === "eng" ? 1.15 : 1) * (S.tech[2] ? 1.4 : 1), coldMul = 1, oxLeak = 0;
       const shields = S.grid.filter((c: any) => c.b === "shield").length, hzK = 1 / (1 + 0.6 * shields), parks = Math.min(4, S.grid.filter((c: any) => c.b === "park").length);   // shield domes soften every hazard; parks speed up growth
-      if (S.hz > 0) { if (site.hazard === "night") sunMul *= 1 - 0.85 * hzK; else if (site.hazard === "dust") sunMul *= 1 - 0.65 * hzK; else if (site.hazard === "cold") coldMul = 1 + 0.5 * hzK; else if (site.hazard === "flare") { sunMul *= 1 - 0.6 * hzK; oxLeak = 0.5 * hzK; } }
+      if (S.hz > 0) { if (site.hazard === "night") sunMul *= 1 - 0.45 * hzK; else if (site.hazard === "dust") sunMul *= 1 - 0.35 * hzK; else if (site.hazard === "cold") coldMul = 1 + 0.25 * hzK; else if (site.hazard === "flare") { sunMul *= 1 - 0.6 * hzK; oxLeak = 0.2 * hzK; } }
       const R = { en: 0, wa: 0, ox: 0, fo: 0, ma: 0, sc: 0 }; let homes = 0;
       const powered = S.stock.en > 0.5;                                  // a building with no power is idle
       for (const c of S.grid) { if (!c.b) continue;
         if (c.b === "hab") homes += 6;
-        else if (c.b === "solar") R.en += 1.6 * sunMul;
+        else if (c.b === "solar") R.en += 2.4 * sunMul;
         else if (c.b === "reactor") R.en += 5.2;
         else if (powered) {
-          if (c.b === "water") { R.wa += 1.2 * site.water * (c.f === "ice" ? 2 : 1); R.en -= 0.4; }
-          else if (c.b === "oxy") { R.ox += 1.5; R.wa -= 0.3 * (S.tech[0] ? 0.7 : 1); R.en -= 0.5; }
-          else if (c.b === "farm") { R.fo += 1.3 * (cr === "farm" ? 1.35 : 1) * (S.tech[1] ? 1.3 : 1); R.ox += 0.3; R.wa -= 0.3 * (S.tech[0] ? 0.7 : 1); R.en -= 0.3; }
+          if (c.b === "water") { R.wa += 1.8 * site.water * (c.f === "ice" ? 2 : 1); R.en -= 0.4; }
+          else if (c.b === "oxy") { R.ox += 2.2; R.wa -= 0.2 * (S.tech[0] ? 0.7 : 1); R.en -= 0.5; }
+          else if (c.b === "farm") { R.fo += 2.0 * (cr === "farm" ? 1.35 : 1) * (S.tech[1] ? 1.3 : 1); R.ox += 0.3; R.wa -= 0.3 * (S.tech[0] ? 0.7 : 1); R.en -= 0.3; }
           else if (c.b === "mine") { R.ma += 1.0 * site.ore * (c.f === "ore" ? 2 : 1) * (cr === "miner" ? 1.35 : 1); R.en -= 0.4; }
           else if (c.b === "lab") { R.sc += 0.5 * (cr === "inno" ? 2 : 1); R.en -= 0.5; }
           else if (c.b === "med") R.en -= 0.4;
@@ -255,14 +255,14 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
         }
       }
       const p = S.pop, wm = S.tech[0] ? 0.7 : 1;
-      R.ox -= p * 0.05; R.wa -= p * 0.04 * wm; R.fo -= p * 0.05; R.en -= p * 0.06 * coldMul; R.ox -= oxLeak;
+      R.ox -= p * 0.03; R.wa -= p * 0.024 * wm; R.fo -= p * 0.03; R.en -= p * 0.036 * coldMul; R.ox -= oxLeak;
       for (const k of Object.keys(R)) { S.rate[k] = R[k as keyof typeof R]; S.stock[k] = Math.max(0, Math.min(k === "ma" || k === "sc" ? 9999 : 400, S.stock[k] + R[k as keyof typeof R] * dt)); }
       const med = S.grid.some((c: any) => c.b === "med");
       const need = ["en", "wa", "ox", "fo"].filter(k => S.stock[k] <= 0.01);
-      if (need.length) { S.short += dt; if (S.short > (med ? 6 : 3) && S.pop > 2) { S.pop = Math.max(0, S.pop - (med ? 0.15 : 0.3) * dt); } S.msg = need.map(k => RES.find(r => r.k === k)!.icon).join(" "); }
+      if (need.length) { S.short += dt; if (S.short > (med ? 20 : 12) && S.pop > 2) { S.pop = Math.max(0, S.pop - (med ? 0.05 : 0.1) * dt); } S.msg = need.map(k => RES.find(r => r.k === k)!.icon).join(" "); }
       else { S.short = Math.max(0, S.short - dt * 2); S.msg = "";
         const free = homes - S.pop, ok = ["en", "wa", "ox", "fo"].every(k => S.stock[k] > 12);
-        if (free > 0.5 && ok) { S.grow += dt * (0.14 + (med ? 0.06 : 0) + 0.025 * parks) * (cr === "farm" ? 1.2 : 1); if (S.grow >= 1) { const n = Math.min(Math.floor(S.grow), Math.floor(free)); S.pop += n; S.grow -= n; } }
+        if (free > 0.5 && ok) { S.grow += dt * (0.22 + (med ? 0.06 : 0) + 0.025 * parks) * (cr === "farm" ? 1.2 : 1); if (S.grow >= 1) { const n = Math.min(Math.floor(S.grow), Math.floor(free)); S.pop += n; S.grow -= n; } }
       }
       S.peak = Math.max(S.peak, S.pop);
       S.hzT -= dt; if (S.hz > 0) S.hz = Math.max(0, S.hz - dt); else if (S.hzT <= 0 && !(net && !net.host)) { S.hz = HZ_DUR; S.hzT = 42 + Math.random() * 14; sfx.play("hurt"); if (net) net.sendEv("colh", 0); }
