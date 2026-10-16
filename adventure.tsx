@@ -843,6 +843,8 @@ background:radial-gradient(1.2px 1.2px at 8% 18%,#fff,transparent),radial-gradie
 .adv-menu .adv-mind .adv-planet em{background:rgba(14,26,44,.7);border:0;border-radius:999px;color:#eaf4ff}
 .adv-menu .adv-mind .adv-planet .adv-orb{position:relative}
 .adv-menu .adv-mind .adv-planet .adv-tick{position:absolute;right:-5px;top:-5px;width:16px;height:16px;border-radius:50%;background:#3ddc97;color:#04281a;font:900 11px/16px system-ui,sans-serif;text-align:center;text-decoration:none;box-shadow:0 0 0 2px rgba(2,5,13,.85),0 0 8px rgba(61,220,151,.7)}
+.adv-ranch .ar-zoom{position:absolute;right:10px;top:46%;display:flex;flex-direction:column;gap:8px;z-index:6}.adv-ranch .ar-zoom button{width:38px;height:38px;border-radius:50%;border:2px solid #fff;background:rgba(40,90,40,.72);color:#fff;font:700 20px/1 system-ui;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.adv-ranch .ar-world{pointer-events:none}.adv-ranch .ar-world .ar-hit{pointer-events:auto}
 `;
 
 type Gfx = "standard" | "high";

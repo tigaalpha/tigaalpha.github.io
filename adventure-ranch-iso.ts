@@ -2,13 +2,16 @@
    this is our own code-drawn scene in the same family of look: a 2:1 isometric view, soft saturated grass, a stone path, white picket fences, a tilled field whose plots are
    packed with crops, a red barn and silo, small houses for each animal and a lake with a sand beach. The still scenery is painted ONCE per world into cached canvases
    (`isoBg` behind everything, `isoFg` for the front fence), and only plots, houses, animals, the windmill and the rocket are drawn per frame. */
-export const VW = 800, VH = 450;
-const TW = 28, TH = 14, OX = 400, OY = 50;
+export const VW = 800, VH = 450;                       // the viewport; the farm itself is a bigger world you pan and zoom over
+export const WW = 1500, WH = 830, CS = 1.5;              // world size, and the resolution the cached scenery is painted at
+const TW = 28, TH = 14, OX = 750, OY = 60;
 export const P = (gx: number, gy: number): [number, number] => [OX + (gx - gy) * TW, OY + (gx + gy) * TH];
-export const PLOT_POS = (i: number) => { const c = i % 4, r = Math.floor(i / 4), [x, y] = P(4 + c * 2 + 1, 4 + r * 2 + 1); return { x, y }; };
-export const SLOT_POS = [P(1.6, 10.0), P(5.2, 10.0), P(1.6, 12.2), P(5.2, 12.2)].map(([x, y]) => ({ x, y }));   // cow, chicken, pig, sheep
-export const PAD = { x: P(9, 10)[0], y: P(9, 10)[1] };
-export const MILL = { x: P(11, 1)[0], y: P(11, 1)[1] };
+export const COLS = 6, ROWS = 4, FX = 6, FY = 3;         // the field: 6 x 4 plots of 2 x 2 tiles, the first eight are dug, the rest are grass to dig
+export const PLOT_POS = (i: number) => { const c = i % COLS, r = Math.floor(i / COLS), [x, y] = P(FX + c * 2 + 1, FY + r * 2 + 1); return { x, y }; };
+export const PLOT_FREE = (i: number) => (i % COLS) < 4 && Math.floor(i / COLS) < 2;
+export const SLOT_POS = [P(2.6, 15.2), P(8.6, 15.2), P(2.6, 19.4), P(8.6, 19.4)].map(([x, y]) => ({ x, y }));   // cow, chicken, pig, sheep: a wide pen, each house well apart
+export const PAD = { x: P(17, 17)[0], y: P(17, 17)[1] };
+export const MILL = { x: P(21, 1)[0], y: P(21, 1)[1] };
 const OUT = "rgba(70,40,14,.6)";
 
 function poly(x: CanvasRenderingContext2D, pts: number[][], fill: string | CanvasGradient, stroke = OUT, lw = 1.3) { x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.fillStyle = fill; x.fill(); if (stroke) { x.strokeStyle = stroke; x.lineWidth = lw; x.lineJoin = "round"; x.stroke(); } }
@@ -56,7 +59,7 @@ function windowOnLeft(x: CanvasRenderingContext2D, f: { A: number[]; B: number[]
   x.strokeStyle = "#fff4dc"; x.lineWidth = 1; x.beginPath(); x.moveTo(at(u, hy - sz * 14)[0], at(u, hy - sz * 14)[1]); x.lineTo(at(u, hy + sz * 14)[0], at(u, hy + sz * 14)[1]); x.stroke();
 }
 const BG: Record<string, HTMLCanvasElement> = {}, FG: Record<string, HTMLCanvasElement> = {};
-function mk() { const c = document.createElement("canvas"); c.width = VW * 2; c.height = VH * 2; const x = c.getContext("2d")!; x.scale(2, 2); return { c, x }; }
+function mk() { const c = document.createElement("canvas"); c.width = Math.round(WW * CS); c.height = Math.round(WH * CS); const x = c.getContext("2d")!; x.scale(CS, CS); return { c, x }; }
 
 function tree(x: CanvasRenderingContext2D, R: () => number, tx: number, ty: number, s: number, apples = false) {
   shadow(x, tx + 12 * s, ty + 3, 34 * s, 9 * s, 0.3);
@@ -75,39 +78,47 @@ export function isoBg(kind: string): HTMLCanvasElement {
   if (BG[kind]) return BG[kind];
   const { c, x } = mk(); let sd = 11; const R = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
   // grass: a bright meadow with soft light and shade
-  const g = x.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, "#a4e868"); g.addColorStop(0.5, "#7cd24c"); g.addColorStop(1, "#62bd3e"); x.fillStyle = g; x.fillRect(0, 0, VW, VH);
-  for (let i = 0; i < 34; i++) { const px = R() * VW, py = R() * VH, rr = 40 + R() * 90, lg = x.createRadialGradient(px, py, 2, px, py, rr), lit = R() > 0.45; lg.addColorStop(0, lit ? "rgba(235,255,150,.28)" : "rgba(20,110,40,.2)"); lg.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = lg; x.beginPath(); x.ellipse(px, py, rr * 1.6, rr * 0.8, 0, 0, 7); x.fill(); }
+  const g = x.createLinearGradient(0, 0, 0, WH); g.addColorStop(0, "#a4e868"); g.addColorStop(0.5, "#7cd24c"); g.addColorStop(1, "#62bd3e"); x.fillStyle = g; x.fillRect(0, 0, WW, WH);
+  for (let i = 0; i < 120; i++) { const px = R() * WW, py = R() * WH, rr = 40 + R() * 90, lg = x.createRadialGradient(px, py, 2, px, py, rr), lit = R() > 0.45; lg.addColorStop(0, lit ? "rgba(235,255,150,.28)" : "rgba(20,110,40,.2)"); lg.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = lg; x.beginPath(); x.ellipse(px, py, rr * 1.6, rr * 0.8, 0, 0, 7); x.fill(); }
   const G5 = ["#3f9a36", "#58b744", "#74cc52", "#92dc62", "#b4ee7a"];
-  for (let i = 0; i < 1800; i++) { const gx = R() * VW, gy = R() * VH, s = 4 + R() * 5; x.strokeStyle = G5[Math.floor(R() * 5)]; x.lineWidth = 1; x.beginPath(); x.moveTo(gx, gy); x.quadraticCurveTo(gx + (R() - 0.5) * s, gy - s * 0.6, gx + (R() - 0.5) * s * 1.3, gy - s); x.stroke(); }
+  for (let i = 0; i < 6500; i++) { const gx = R() * WW, gy = R() * WH, s = 4 + R() * 5; x.strokeStyle = G5[Math.floor(R() * 5)]; x.lineWidth = 1; x.beginPath(); x.moveTo(gx, gy); x.quadraticCurveTo(gx + (R() - 0.5) * s, gy - s * 0.6, gx + (R() - 0.5) * s * 1.3, gy - s); x.stroke(); }
   // lake and sand on the right
+  x.save(); x.translate(WW - 800, 90); x.scale(1, 1.55);
   const sand = x.createLinearGradient(680, 0, 800, 0); sand.addColorStop(0, "#f2e2a8"); sand.addColorStop(1, "#e0c880"); x.fillStyle = sand; x.beginPath(); x.moveTo(800, 96); x.quadraticCurveTo(704, 150, 716, 250); x.quadraticCurveTo(730, 350, 694, 450); x.lineTo(800, 450); x.closePath(); x.fill();
   const wt = x.createLinearGradient(720, 0, 800, 0); wt.addColorStop(0, "#9fe6f2"); wt.addColorStop(0.35, "#4fc0ea"); wt.addColorStop(1, "#2c8ed0"); x.fillStyle = wt; x.beginPath(); x.moveTo(800, 122); x.quadraticCurveTo(732, 170, 742, 256); x.quadraticCurveTo(756, 346, 724, 450); x.lineTo(800, 450); x.closePath(); x.fill();
   x.strokeStyle = "rgba(255,255,255,.55)"; x.lineWidth = 2; for (let i = 0; i < 9; i++) { const wy = 160 + i * 34, wx = 760 + (i % 3) * 8; x.beginPath(); x.moveTo(wx, wy); x.quadraticCurveTo(wx + 10, wy - 4, wx + 22, wy); x.stroke(); }
   for (const [lx, ly] of [[770, 210], [784, 330], [756, 400]]) { x.fillStyle = "#4cb04a"; x.beginPath(); x.ellipse(lx, ly, 10, 5, 0, 0, 7); x.fill(); x.fillStyle = "#ff9ac8"; x.beginPath(); x.arc(lx + 2, ly - 2, 2.6, 0, 7); x.fill(); }
   for (let i = 0; i < 7; i++) { const rx = 726 + R() * 14, ry = 262 + i * 22; x.strokeStyle = "#5a8a2a"; x.lineWidth = 1.6; x.beginPath(); x.moveTo(rx, ry); x.lineTo(rx + 1, ry - 14 - R() * 6); x.stroke(); x.fillStyle = "#8a5a2a"; x.fillRect(rx - 1, ry - 20 - R() * 4, 3, 6); }
+  x.restore();
   // stone path: in front of the barn, down the left of the field, and to the rocket pad
-  const pathT: number[][] = []; for (let gx = 1; gx <= 12; gx++) pathT.push([gx, 3]); for (let gy = 3; gy <= 12; gy++) pathT.push([3, gy]); for (let gx = 4; gx <= 9; gx++) pathT.push([gx, 9]);
+  const pathT: number[][] = []; for (let gx = 1; gx <= 22; gx++) pathT.push([gx, 2]); for (let gy = 3; gy <= 12; gy++) pathT.push([4, gy]); for (let gx = 5; gx <= 17; gx++) pathT.push([gx, 12]); for (let gy = 13; gy <= 15; gy++) pathT.push([17, gy]);
   for (const [gx, gy] of pathT) { diamond(x, gx + 0.04, gy + 0.04, 0.92, 0.92, "rgba(60,50,20,.2)"); const tg = x.createLinearGradient(0, P(gx, gy)[1], 0, P(gx + 1, gy + 1)[1]); tg.addColorStop(0, (gx + gy) % 2 ? "#ece0bc" : "#e2d4aa"); tg.addColorStop(1, "#c9b888"); diamond(x, gx + 0.02, gy + 0.02, 0.96, 0.96, tg, "rgba(120,100,60,.45)", 1); }
   // flowers
   const FC = ["#ff7ab8", "#ffffff", "#ffd23f", "#b48cff", "#ff8a5a"];
-  for (let i = 0; i < 46; i++) { const fx = R() * 660, fy = 60 + R() * 380; for (let k = 0; k < 4; k++) { const ox = fx + (R() - 0.5) * 14, oy = fy + (R() - 0.5) * 8; x.strokeStyle = "#2f7a2c"; x.lineWidth = 1; x.beginPath(); x.moveTo(ox, oy + 5); x.lineTo(ox, oy); x.stroke(); x.fillStyle = FC[i % 5]; x.beginPath(); x.arc(ox, oy, 2.4, 0, 7); x.fill(); x.fillStyle = "#ffe36a"; x.beginPath(); x.arc(ox, oy, 0.9, 0, 7); x.fill(); } }
-  // the tilled field: raised border, soil
-  const f0 = P(4, 4), f1 = P(12, 4), f2 = P(12, 8), f3 = P(4, 8);
-  poly(x, [up(f0, -3), up(f1, -3), up(f2, -3), up(f3, -3)], "rgba(30,70,10,.35)", "");
-  poly(x, [f0, f1, f2, f3], "#9a6a3c", "#e8d29a", 3);
+  for (let i = 0; i < 150; i++) { const fx = R() * (WW - 180), fy = 60 + R() * (WH - 70); for (let k = 0; k < 4; k++) { const ox = fx + (R() - 0.5) * 14, oy = fy + (R() - 0.5) * 8; x.strokeStyle = "#2f7a2c"; x.lineWidth = 1; x.beginPath(); x.moveTo(ox, oy + 5); x.lineTo(ox, oy); x.stroke(); x.fillStyle = FC[i % 5]; x.beginPath(); x.arc(ox, oy, 2.4, 0, 7); x.fill(); x.fillStyle = "#ffe36a"; x.beginPath(); x.arc(ox, oy, 0.9, 0, 7); x.fill(); } }
+  // the field is plain meadow here: each dug plot is drawn per frame, and the plots still to dig show as dashed squares
+  picket(x, P(FX - 0.6, FY - 0.6), P(FX + COLS * 2 + 0.6, FY - 0.6), 30); picket(x, P(FX - 0.6, FY - 0.6), P(FX - 0.6, FY + ROWS * 2 + 0.6), 20);
   // the pen: sandy floor, straw and a trough, back fences
-  diamond(x, 0, 9, 7, 5, "#efd98a", "#fff", 2);
-  const pg = x.createLinearGradient(0, P(0, 9)[1], 0, P(7, 14)[1]); pg.addColorStop(0, "rgba(255,240,170,.45)"); pg.addColorStop(1, "rgba(220,180,90,.35)"); diamond(x, 0, 9, 7, 5, pg);
-  for (let i = 0; i < 40; i++) { const u = R() * 7, v = 9 + R() * 5, p = P(u, v); x.strokeStyle = i % 2 ? "#e8c24a" : "#c99a2e"; x.lineWidth = 1.2; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(p[0] + (R() - 0.5) * 8, p[1] - 2 - R() * 3); x.stroke(); }
-  { const t0 = P(3.6, 11.6); x.fillStyle = "rgba(0,0,0,.2)"; x.beginPath(); x.ellipse(t0[0] + 4, t0[1] + 8, 24, 7, 0, 0, 7); x.fill(); poly(x, [[t0[0] - 22, t0[1] + 2], [t0[0] + 20, t0[1] + 2], [t0[0] + 20, t0[1] - 6], [t0[0] - 22, t0[1] - 6]], "#a8754a"); poly(x, [[t0[0] - 20, t0[1] - 4], [t0[0] + 18, t0[1] - 4], [t0[0] + 18, t0[1] - 8], [t0[0] - 20, t0[1] - 8]], "#7ccdf0", ""); }
-  picket(x, P(0, 9), P(7, 9), 21); picket(x, P(0, 9), P(0, 14), 15);
+  diamond(x, 0, 13, 13, 9, "#efd98a", "#fff", 2);
+  const pg = x.createLinearGradient(0, P(0, 13)[1], 0, P(13, 22)[1]); pg.addColorStop(0, "rgba(255,240,170,.45)"); pg.addColorStop(1, "rgba(220,180,90,.35)"); diamond(x, 0, 13, 13, 9, pg);
+  for (let i = 0; i < 120; i++) { const u = R() * 13, v = 13 + R() * 9, p = P(u, v); x.strokeStyle = i % 2 ? "#e8c24a" : "#c99a2e"; x.lineWidth = 1.2; x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(p[0] + (R() - 0.5) * 8, p[1] - 2 - R() * 3); x.stroke(); }
+  { const t0 = P(6.2, 17.4); x.fillStyle = "rgba(0,0,0,.2)"; x.beginPath(); x.ellipse(t0[0] + 4, t0[1] + 8, 24, 7, 0, 0, 7); x.fill(); poly(x, [[t0[0] - 22, t0[1] + 2], [t0[0] + 20, t0[1] + 2], [t0[0] + 20, t0[1] - 6], [t0[0] - 22, t0[1] - 6]], "#a8754a"); poly(x, [[t0[0] - 20, t0[1] - 4], [t0[0] + 18, t0[1] - 4], [t0[0] + 18, t0[1] - 8], [t0[0] - 20, t0[1] - 8]], "#7ccdf0", ""); }
+  picket(x, P(0, 13), P(13, 13), 36); picket(x, P(0, 13), P(0, 22), 24);
   // barn and silo
   { house(x, 2, 0, 3, 2, 28, 14, ["#f28c3a", "#c85a1e", "#8a4a32", "#d4682a"], "#fff4dc", (f) => { doorOnLeft(x, f, 0.32, 0.68, 19, "#8a3414", "#fff4dc"); windowOnLeft(x, f, 0.12, 14, 0.05); windowOnLeft(x, f, 0.88, 14, 0.05); const w0 = P(5, 1.0); poly(x, [[w0[0] - 5, w0[1] - 31], [w0[0] + 5, w0[1] - 36], [w0[0] + 5, w0[1] - 25], [w0[0] - 5, w0[1] - 20]], "#ffe9a8", "#fff4dc", 1.6); }); }
   { const [sx, sy] = P(0.9, 0.6); shadow(x, sx + 10, sy + 4, 26, 8, 0.3); const sg = x.createLinearGradient(sx - 17, 0, sx + 17, 0); sg.addColorStop(0, "#dfe9f2"); sg.addColorStop(0.5, "#ffffff"); sg.addColorStop(1, "#9db4c8"); x.fillStyle = sg; x.strokeStyle = "rgba(70,90,110,.7)"; x.lineWidth = 1.4; x.beginPath(); x.moveTo(sx - 17, sy); x.lineTo(sx - 17, sy - 50); x.ellipse(sx, sy - 50, 17, 7, 0, Math.PI, 0); x.lineTo(sx + 17, sy); x.ellipse(sx, sy, 17, 7, 0, 0, Math.PI); x.closePath(); x.fill(); x.stroke(); x.fillStyle = "#c8442e"; x.beginPath(); x.ellipse(sx, sy - 52, 17, 8, 0, Math.PI, 0); x.lineTo(sx, sy - 66); x.closePath(); x.fill(); x.stroke(); x.strokeStyle = "rgba(90,110,130,.4)"; for (let k = 1; k < 5; k++) { x.beginPath(); x.ellipse(sx, sy - k * 10, 17, 6, 0, 0, Math.PI); x.stroke(); } }
   // hay bales, crates, a cart by the barn
   for (const [hx, hy] of [[5.4, 1.2], [5.9, 1.9], [5.5, 2.4]] as number[][]) { const p = P(hx, hy), hg = x.createLinearGradient(0, p[1] - 16, 0, p[1]); hg.addColorStop(0, "#f8dc6a"); hg.addColorStop(1, "#d4a838"); poly(x, [[p[0] - 12, p[1]], [p[0] + 12, p[1]], [p[0] + 12, p[1] - 14], [p[0] - 12, p[1] - 14]], hg); x.strokeStyle = "rgba(130,90,20,.5)"; x.beginPath(); x.moveTo(p[0] - 4, p[1]); x.lineTo(p[0] - 4, p[1] - 14); x.moveTo(p[0] + 5, p[1]); x.lineTo(p[0] + 5, p[1] - 14); x.stroke(); }
   // trees round the edges
-  for (const [tx, ty, s, ap] of [[34, 168, 1, true], [96, 108, 0.8, false], [20, 262, 0.9, false], [610, 70, 0.9, false], [690, 96, 1, true], [600, 330, 0.8, false], [470, 420, 0.7, false], [34, 372, 0.9, false]] as number[][]) tree(x, R, tx, ty, s, !!ap);
+  { // trees scattered over the meadow, kept off the barn, the field, the pen, the paths and the pad
+    const bad = (gx: number, gy: number) => (gx > -1 && gx < 7 && gy > -1 && gy < 3.5) || (gx > 4.5 && gx < 19 && gy > 1.5 && gy < 13) || (gx > -1.5 && gx < 14 && gy > 11.5 && gy < 23) || (gx > 14 && gx < 20 && gy > 14 && gy < 20) || (gx > 18 && gx < 23 && gy > -1 && gy < 3.5);
+    const ts: number[][] = []; let tries = 0;
+    while (ts.length < 46 && tries++ < 900) { const px = 30 + R() * (WW - 60), py = 90 + R() * (WH - 100), gx = ((px - OX) / TW + (py - OY) / TH) / 2, gy = ((py - OY) / TH - (px - OX) / TW) / 2; if (bad(gx, gy) || px > WW - 170 && py > 220) continue; if (ts.some(t => Math.hypot(t[0] - px, (t[1] - py) * 1.6) < 80)) continue; ts.push([px, py, 0.7 + R() * 0.45, R() < 0.28 ? 1 : 0]); }
+    ts.sort((a, b) => a[1] - b[1]); for (const [tx, ty, sc, ap] of ts) tree(x, R, tx, ty, sc, !!ap);
+    // a stone well, a signpost and flower beds beside the path
+    const wl = P(5.4, 12.9); shadow(x, wl[0] + 6, wl[1] + 5, 22, 7, 0.3); x.fillStyle = "#b9b2a6"; x.strokeStyle = OUT; x.lineWidth = 1.2; x.beginPath(); x.ellipse(wl[0], wl[1] - 8, 14, 6, 0, 0, 7); x.fill(); x.stroke(); x.fillRect(wl[0] - 14, wl[1] - 8, 28, 10); x.strokeRect(wl[0] - 14, wl[1] - 8, 28, 10); x.fillStyle = "#4fb0e0"; x.beginPath(); x.ellipse(wl[0], wl[1] - 8, 11, 4, 0, 0, 7); x.fill(); x.fillStyle = "#8a4a32"; x.fillRect(wl[0] - 14, wl[1] - 30, 3, 22); x.fillRect(wl[0] + 11, wl[1] - 30, 3, 22); poly(x, [[wl[0] - 18, wl[1] - 30], [wl[0], wl[1] - 40], [wl[0] + 18, wl[1] - 30]], "#c8442e");
+    for (const [gx, gy] of [[3.2, 2.9], [3.2, 4.2], [20, 12.6], [14.2, 13.2], [-0.4, 12.4]] as number[][]) { const q = P(gx, gy); for (let k = 0; k < 9; k++) { const fx = q[0] + (R() - 0.5) * 34, fy = q[1] + (R() - 0.5) * 12; x.fillStyle = ["#ff7ab8", "#ffd23f", "#ffffff", "#b48cff"][k % 4]; x.beginPath(); x.arc(fx, fy, 2.4, 0, 7); x.fill(); x.fillStyle = "#2f7a2c"; x.fillRect(fx - 0.5, fy, 1.2, 4); } }
+  }
   // tint for the world
   const TINT: any = { moon: "", mars: "rgba(255,150,60,.16)", titan: "rgba(240,190,70,.18)", proxima: "rgba(255,90,80,.14)" }; if (TINT[kind]) { x.fillStyle = TINT[kind]; x.fillRect(0, 0, VW, VH); }
   BG[kind] = c; return c;
@@ -115,8 +126,9 @@ export function isoBg(kind: string): HTMLCanvasElement {
 
 export function isoFg(kind: string): HTMLCanvasElement {
   if (FG[kind]) return FG[kind];
-  const { c, x } = mk(); picket(x, P(0, 14), P(7, 14), 21); picket(x, P(7, 9), P(7, 14), 15);
-  for (const [bx, by] of [[120, 300], [300, 318], [600, 392]]) for (let k = 0; k < 4; k++) { const cx = bx + k * 9 - 14, cy = by - (k % 2) * 4, r = 10 + (k % 3) * 2, bg = x.createRadialGradient(cx - 3, cy - 4, 1, cx, cy, r); bg.addColorStop(0, "#9ae45e"); bg.addColorStop(1, "#2f8a30"); x.fillStyle = bg; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); x.strokeStyle = "rgba(25,90,35,.5)"; x.stroke(); }
+  const { c, x } = mk(); picket(x, P(0, 22), P(13, 22), 36); picket(x, P(13, 13), P(13, 22), 24);
+  picket(x, P(FX + COLS * 2 + 0.6, FY - 0.6), P(FX + COLS * 2 + 0.6, FY + ROWS * 2 + 0.6), 20); picket(x, P(FX - 0.6, FY + ROWS * 2 + 0.6), P(FX + COLS * 2 + 0.6, FY + ROWS * 2 + 0.6), 30);
+  for (const [gx, gy] of [[-0.8, 22.4], [13.6, 22.4], [13.6, 12.6], [5.2, 13.2]] as number[][]) { const [bx, by] = P(gx, gy); for (let k = 0; k < 4; k++) { const cx = bx + k * 9 - 14, cy = by - (k % 2) * 4, r = 10 + (k % 3) * 2, bg = x.createRadialGradient(cx - 3, cy - 4, 1, cx, cy, r); bg.addColorStop(0, "#9ae45e"); bg.addColorStop(1, "#2f8a30"); x.fillStyle = bg; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); x.strokeStyle = "rgba(25,90,35,.5)"; x.stroke(); } }
   FG[kind] = c; return c;
 }
 
@@ -132,8 +144,12 @@ function crop(x: CanvasRenderingContext2D, id: string, st: number, px: number, p
   else { leaf(-6, -3, 6, 3, -0.3); leaf(6, -3, 6, 3, 0.3); if (st === 2) { const rg = x.createRadialGradient(-2, -9, 1, 0, -7, 9); rg.addColorStop(0, "#ffc45a"); rg.addColorStop(1, "#e0731a"); x.fillStyle = rg; x.strokeStyle = "#8a4210"; x.lineWidth = 1.2; x.beginPath(); x.ellipse(0, -6, 8, 6.4, 0, 0, 7); x.fill(); x.stroke(); x.beginPath(); x.ellipse(0, -6, 3.2, 6.4, 0, 0, 7); x.stroke(); x.fillStyle = "#3f8a34"; x.fillRect(-1.5, -14, 3, 4); } }
   x.restore();
 }
-export function drawIsoPlot(x: CanvasRenderingContext2D, i: number, c: any, T: number, cropCol: string) {
-  const c0 = 4 + (i % 4) * 2, r0 = 4 + Math.floor(i / 4) * 2, wet = c.w > 0;
+export function drawIsoPlot(x: CanvasRenderingContext2D, i: number, c: any, T: number, cropCol: string, digCost = 0, canDig = false) {
+  const c0 = FX + (i % COLS) * 2, r0 = FY + Math.floor(i / COLS) * 2, wet = c.w > 0;
+  if (c.locked) {
+    const a = 0.55 + (canDig ? Math.sin(T * 4) * 0.2 : 0); x.save(); x.setLineDash([7, 5]); diamond(x, c0 + 0.06, r0 + 0.06, 1.88, 1.88, "rgba(120,80,40,.12)", "rgba(255,255,255," + a + ")", 2); x.setLineDash([]);
+    const q = P(c0 + 1, r0 + 1); x.fillStyle = canDig ? "#ffb020" : "rgba(60,40,20,.7)"; x.strokeStyle = OUT; x.lineWidth = 1.4; x.beginPath(); x.roundRect(q[0] - 24, q[1] - 11, 48, 22, 11); x.fill(); x.stroke(); x.fillStyle = "#fff"; x.font = "bold 12px system-ui"; x.textAlign = "center"; x.fillText("⛏ " + digCost, q[0], q[1] + 4.5); x.restore(); return;
+  }
   const sg = x.createLinearGradient(0, P(c0, r0)[1], 0, P(c0 + 2, r0 + 2)[1]); sg.addColorStop(0, wet ? "#6a4224" : "#8a5a30"); sg.addColorStop(1, wet ? "#4a2c16" : "#6a4222");
   diamond(x, c0 + 0.06, r0 + 0.06, 1.88, 1.88, sg, "rgba(255,225,170,.55)", 1.6);
   x.strokeStyle = "rgba(40,20,8,.35)"; x.lineWidth = 1.4; for (let k = 1; k < 4; k++) { const a = P(c0 + 0.15, r0 + k * 0.5), b = P(c0 + 1.85, r0 + k * 0.5); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.stroke(); }
