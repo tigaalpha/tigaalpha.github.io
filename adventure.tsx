@@ -869,7 +869,7 @@ function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx");
 const T3 = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
 
 /** The page: a planet menu, then the run itself. */
-export const AdventurePage = memo(function AdventurePage({ onReward = null, lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null, online = false, adminTier = 0 }: any) {
+export const AdventurePage = memo(function AdventurePage({ onReward = null, lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null, online = false, adminTier = 0, coinApi = null }: any) {
   const [planet, setPlanet] = useState(null);
   // Adventure Online: a room of up to 4 pilots over a Realtime channel (adv-online.ts); the host picks the map for everybody
   const [net, setNet] = useState<Net | null>(null), netRef = useRef<Net | null>(null), [peersL, setPeersL] = useState<any[]>([]), [warOpt, setWarOpt] = useState(false), [nerr, setNerr] = useState(""), [joinCode, setJoinCode] = useState(""), [busy, setBusy] = useState(false);
@@ -1133,7 +1133,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
           </div>
         ) : planet.mission === "yard" ? <Suspense fallback={<div className="adv-cine" />}><AdventureYard key={planet.id + farmKey} P={planet} lang={lang} onExit={() => { setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>
-        : planet.mission === "ranch" ? <Suspense fallback={<div className="adv-cine" />}><AdventureRanch key={planet.id + farmKey} P={planet} lang={lang} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
+        : planet.mission === "ranch" ? <Suspense fallback={<div className="adv-cine" />}><AdventureRanch key={planet.id + farmKey} P={planet} lang={lang} coinApi={coinApi} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>
         : planet.mission === "build" ? <Suspense fallback={<div className="adv-cine" />}><AdventureBuild key={planet.id + farmKey} P={planet} lang={lang} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>

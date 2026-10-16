@@ -7136,7 +7136,7 @@ function ChestIcon({ size = 16, className = "" }) {
    so an arena duel is stored, listed and resolved exactly like a song duel,
    with no backend change at all. `song_id` is unconstrained text server-side,
    which is what makes "arena" a legal subject. */
-const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, playUi, onApplyLoadout, onPracticeWeakness, ownedModels, onPickModel, onOpenShop, adminTier = 0 }) {
+const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBack, onReward, coinApi = null, playUi, onApplyLoadout, onPracticeWeakness, ownedModels, onPickModel, onOpenShop, adminTier = 0 }) {
   const [friends, setFriends] = useState(null);
   const [duels, setDuels] = useState(null);
   const load = useCallback(() => {
@@ -7146,7 +7146,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
   useEffect(() => { load(); }, [load]);
   return (
     <Suspense fallback={<LazyBits tall />}>
-    <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} playUi={playUi} onPracticeWeakness={onPracticeWeakness}
+    <PvpPage lang={lang} charModel={charModel} gear={gear} onBack={onBack} onReward={onReward} coinApi={coinApi} playUi={playUi} onPracticeWeakness={onPracticeWeakness}
       friends={friends} duels={duels} onApplyLoadout={onApplyLoadout}
       ownedModels={ownedModels} onPickModel={onPickModel} onOpenShop={onOpenShop} modelCost={MODEL_COST} adminTier={adminTier}
       onChallenge={async (friend, score) => {
@@ -13426,6 +13426,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "pvp" && (
         <PvpArenaMount lang={lang} charModel={charModel} adminTier={(profile && profile.admin_tier) || (profile && profile.is_admin ? 3 : 0)}
           gear={equippedGear}
+          coinApi={{
+            // the one wallet: same tg_coins store and profiles.coins write the shop uses, so a farm purchase shows everywhere at once
+            get: () => getCoins(),
+            spend: (n) => { const c = getCoins(); if (!(n > 0) || c < n) return false; const v = c - n; setCoinsLS(v); setCoins(v); setProfile(p => ({ ...(p || {}), coins: v })); if (uid) sb.from("profiles").update({ coins: v }).eq("id", uid).then(() => {}, () => {}); return true; },
+          }}
           ownedModels={SHOP_MODELS.filter(m => owned.includes(m.id)).map(m => m.model)}
           onPickModel={(m) => {
             // run a chassis you already own, from the arena itself (same rule as a loadout)

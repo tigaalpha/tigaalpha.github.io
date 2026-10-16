@@ -1,7 +1,11 @@
 /* Space Ranch helpers: an autonomous tractor, a farm robot, a Cybertruck-style pickup and a flying roadster. Own code-drawn art in the farm's isometric style
    (angular pickup, sleek hovering coupe); nothing is copied from any maker's artwork. State and rules are pure so the screen only draws and applies them. */
 export type HKind = "tractor" | "robot" | "truck" | "car";
-export const HELPER_COST: Record<HKind, number> = { tractor: 20, robot: 25, truck: 30, car: 40 };
+export const HELPER_COST: Record<HKind, number> = { tractor: 20, robot: 25, truck: 30, car: 40 };   // food, used only when no wallet is connected
+export const HELPER_COINS: Record<HKind, number> = { tractor: 150, robot: 200, truck: 300, car: 450 };   // game coins from the shared wallet
+const LSK = "tg_ranch_helpers";
+export const readOwnedHelpers = (): HKind[] => { try { const a = JSON.parse(localStorage.getItem(LSK) || "[]"); return Array.isArray(a) ? a.filter((k: any) => k in HELPER_COINS) : []; } catch (e) { return []; } };
+export const saveOwnedHelpers = (l: HKind[]) => { try { localStorage.setItem(LSK, JSON.stringify(l)); } catch (e) {} };
 export const HELPER_ICON: Record<HKind, string> = { tractor: "🚜", robot: "🤖", truck: "🛻", car: "🚗" };
 export const HELPER_NAME: Record<HKind, [string, string, string]> = {
   tractor: ["รถไถอัตโนมัติ", "Auto tractor", "自动拖拉机"], robot: ["หุ่นยนต์ช่วยเก็บเกี่ยว", "Harvest robot", "收割机器人"],
