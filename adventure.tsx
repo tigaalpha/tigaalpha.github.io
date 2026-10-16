@@ -828,6 +828,15 @@ const CSS = `
 .adv-menu .adv-sectors{overflow-x:auto!important;scrollbar-width:none}.adv-menu .adv-sec{flex:0 0 auto!important;overflow:visible!important;text-overflow:clip!important;white-space:nowrap;padding:3px 12px!important;font-size:11px!important}
 .adv-menu .adv-rankbar{justify-self:start}
 .adv-menu .adv-chips{overflow:hidden}.adv-menu .adv-chip{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+/* the map page sits in space (owner, 2026-10-16): a dark sky with stars, light text; the tokens are re-defined for this subtree so every pill and pop-up follows */
+.adv-menu{--bg:#02050d;--card:#0e1a2c;--card2:#16263c;--card3:rgba(255,255,255,.1);--text:#eaf4ff;--text2:#b4c8dc;--muted:#8aa0b6;--bd3:rgba(255,255,255,.28);color:#eaf4ff;
+background:radial-gradient(1.2px 1.2px at 8% 18%,#fff,transparent),radial-gradient(1px 1px at 22% 62%,#cfe6ff,transparent),radial-gradient(1.4px 1.4px at 37% 30%,#fff,transparent),radial-gradient(1px 1px at 51% 80%,#dfeaff,transparent),radial-gradient(1.3px 1.3px at 64% 14%,#fff,transparent),radial-gradient(1px 1px at 78% 52%,#cfe6ff,transparent),radial-gradient(1.4px 1.4px at 90% 26%,#fff,transparent),radial-gradient(1px 1px at 14% 88%,#fff,transparent),radial-gradient(1px 1px at 70% 90%,#dfeaff,transparent),radial-gradient(1.2px 1.2px at 44% 8%,#fff,transparent),radial-gradient(1px 1px at 96% 70%,#fff,transparent),radial-gradient(130% 100% at 50% 0%,#0a1630 0%,#040a18 55%,#01030a 100%)!important}
+.adv-menu .adv-chip,.adv-menu .adv-sec,.adv-menu .adv-rankbar .adv-btn{background:rgba(255,255,255,.08);color:#eaf4ff;border-color:rgba(255,255,255,.25)}
+.adv-menu .adv-sec.on{background:var(--clay,#d97757);color:#fff}
+.adv-menu .adv-mind .adv-planet b{color:#eaf4ff}.adv-menu .adv-mind .adv-planet small{color:#b4c8dc}.adv-menu .adv-mind .adv-planet.lock{opacity:.6;filter:grayscale(.5) brightness(.8)}
+.adv-menu .adv-rt{stroke:rgba(255,255,255,.35)}
+.adv-menu>div:first-child .adv-btn,.adv-menu .adv-foot .adv-grp>summary{background:rgba(255,255,255,.1);color:#eaf4ff;border-color:rgba(255,255,255,.28)}
 `;
 
 type Gfx = "standard" | "high";
