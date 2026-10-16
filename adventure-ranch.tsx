@@ -59,8 +59,8 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
   for (let i = 0; i < PLOTS.length; i++) { const c = S.plots[i], cr = c.crop ? CROPS.find(q => q.id === c.crop) : null; drawIsoPlot(x, i, c, T, cr ? cr.col : "#fff"); }
   // the pens (fence and floor are in the cached scenery)
   for (let i = 0; i < ANIMALS.length; i++) drawIsoHouse(x, ANIMALS[i], S.houses[i], i, S.stock, T, HOUSE_COST, BUY_COST);
-  for (let i = 0; i < ANIMALS.length; i++) { if (!S.houses[i].own) continue; const a = ANIMALS[i], A = S.animals[i], wx = a.x + 6 + Math.sin(T * 0.7 + i * 2) * 10, wy = a.y + 28 + Math.cos(T * 0.5 + i) * 3 + (A.prog >= 100 ? -Math.abs(Math.sin(T * 6)) * 4 : 0);
-    x.fillStyle = "rgba(10,50,10,.3)"; x.beginPath(); x.ellipse(wx + 2, wy + 20, 34, 8, 0, 0, 7); x.fill(); x.save(); x.translate(wx, wy); const face = Math.cos(T * 0.7 + i * 2) >= 0 ? 1 : -1; x.scale(face * 1.1, 1.1); drawIsoAnimal(x, a.id, T, i); x.restore();
+  for (let i = 0; i < ANIMALS.length; i++) { if (!S.houses[i].own) continue; const a = ANIMALS[i], A = S.animals[i], wx = a.x + 6 + Math.sin(T * 0.7 + i * 2) * 4, wy = a.y + 30 + Math.cos(T * 0.5 + i) * 3 + (A.prog >= 100 ? -Math.abs(Math.sin(T * 6)) * 4 : 0);
+    x.fillStyle = "rgba(10,50,10,.3)"; x.beginPath(); x.ellipse(wx + 2, wy + 20 * ({ cow: 1.2, pig: 0.82, sheep: 0.95, chicken: 0.6 } as any)[a.id], 34 * ({ cow: 1.2, pig: 0.82, sheep: 0.95, chicken: 0.6 } as any)[a.id], 8, 0, 0, 7); x.fill(); x.save(); x.translate(wx, wy); const face = Math.cos(T * 0.7 + i * 2) >= 0 ? 1 : -1; const sz = ({ cow: 1.2, pig: 0.82, sheep: 0.95, chicken: 0.6 } as any)[a.id] || 1; x.scale(face * sz, sz); drawIsoAnimal(x, a.id, T, i); x.restore();
     const hungry = A.fed <= 0;
     if (hungry) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = O; x.lineWidth = 1.1; x.beginPath(); x.roundRect(wx + 18, wy - 46, 36, 24, 8); x.fill(); x.stroke(); x.fillStyle = "#222"; x.font = "16px system-ui"; x.textAlign = "center"; x.fillText("🍎", wx + 36, wy - 28); }
     else if (A.prog >= 100) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = "#ffb020"; x.lineWidth = 1.5; x.beginPath(); x.roundRect(wx + 18, wy - 48 - Math.abs(Math.sin(T * 5)) * 4, 36, 26, 8); x.fill(); x.stroke(); x.font = "18px system-ui"; x.textAlign = "center"; x.fillText(a.prod, wx + 36, wy - 28 - Math.abs(Math.sin(T * 5)) * 4); }
@@ -140,7 +140,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
         <canvas ref={cvRef} className="ar-cv" aria-hidden="true" />
         {PLOTS.map((p, i) => (<button key={i} className="ar-hit" data-plot={i} aria-label={"plot " + i} onClick={() => tapPlot(i)} style={{ left: (p.x - 32) * k, top: (p.y - 30) * k, width: 64 * k, height: 52 * k }} />))}
         {ANIMALS.map((a, i) => (<button key={a.id} className="ar-hit ar-an" data-animal={a.id} aria-label={a.id} onClick={() => tapAnimal(i)} style={{ left: (a.x - 50) * k, top: (a.y - 56) * k, width: 100 * k, height: 108 * k }} />))}
-        <button className="ar-hit ar-ship" data-deliver="1" aria-label="deliver" onClick={deliver} style={{ left: (PAD.x - 50) * k, top: (PAD.y - 74) * k, width: 100 * k, height: 92 * k }} />
+        <button className="ar-hit ar-ship" data-deliver="1" aria-label="deliver" onClick={deliver} style={{ left: (PAD.x - 50) * k, top: (PAD.y - 44) * k, width: 100 * k, height: 62 * k }} />
         <div className="arf-top">
           <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
           <div className="arf-hud">
