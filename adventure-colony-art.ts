@@ -86,7 +86,7 @@ function glassTower(x: Cx, cx: number, by: number, u: number, h: number, T: numb
 }
 
 export function drawBuilding(x: Cx, id: string, cx: number, cy: number, tw: number, era: number, T: number, pal: Pal, seed: number) {
-  const u = tw / 64 * 1.4, gl = pal.glow;
+  const u = tw / 64 * 1.75, gl = pal.glow;
   const mine = (rest: () => void) => { x.save(); x.lineJoin = "round"; x.lineCap = "round"; shadow(x, cx, cy, tw * 0.62); rest(); x.restore(); };
   const glass = "rgba(170,225,255,.62)";
   switch (id) {
