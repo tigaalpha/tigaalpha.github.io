@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
-import { drawBuilding, drawTube, drawSkyline, groundFill, PALS } from "./adventure-colony-art";
+import { bigDome, drawBuilding, drawTube, drawSkyline, groundFill, PALS } from "./adventure-colony-art";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
@@ -120,7 +120,7 @@ const ERAS = [{ y: 2100, n: ["นีโอฮาบิแทต", "Neo-Habitat",
 const eraOf = (S: any) => { const labs = S.grid.filter((c: any) => c.b === "lab").length, techs = S.tech.filter(Boolean).length, m = S.pop + 12 * techs + 4 * labs; return m >= 55 ? 2 : m >= 22 ? 1 : 0; };
 const BCOL: Record<string, string> = { hab: "0,230,255", solar: "90,140,255", water: "70,190,255", oxy: "120,255,190", farm: "130,255,110", mine: "255,170,60", lab: "190,110,255", med: "255,255,255", reactor: "0,255,230", port: "255,90,200", park: "90,255,120", school: "255,225,110", recycler: "110,255,240", market: "255,150,110", geo: "255,120,60", tower: "170,255,140", shield: "120,170,255" };
 const BH: Record<string, number> = { hab: 1.5, solar: 0.25, water: 0.7, oxy: 0.9, farm: 0.6, mine: 1.0, lab: 1.6, med: 1.1, reactor: 1.4, port: 0.4, park: 0.35, school: 1.1, recycler: 0.8, market: 0.9, geo: 0.7, tower: 1.9, shield: 1.2 };
-const SKY: Record<string, string[]> = { moon: ["#02030a", "#101626", "#2a3250"], mars: ["#d9895a", "#e9a877", "#f0c093"], titan: ["#1a1004", "#4a3210", "#a0762a"], proxima: ["#14020a", "#4a0c20", "#a01a3a"] };
+const SKY: Record<string, string[]> = { moon: ["#5d6f9a", "#9aa6c4", "#cfd3de"], mars: ["#d9895a", "#e9a877", "#f0c093"], titan: ["#b9852f", "#dcae5c", "#ecc983"], proxima: ["#8a2a40", "#c45a6e", "#e49aa6"] };
 const TW0 = 72;   // the width of one plot in world pixels
 const WORLD = { x0: ROWS * TW0 / 2, y0: TW0 * 1.5, w: (COLS + ROWS) * TW0 / 2, h: (COLS + ROWS) * TW0 / 4 + TW0 * 2.1 };
 const ptW = (c: number, r: number) => [WORLD.x0 + (c - r) * TW0 / 2, WORLD.y0 + (c + r) * TW0 / 4];
@@ -153,6 +153,7 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
   // buildings, back to front
   for (let sum = 0; sum < COLS + ROWS; sum++) for (let r = 0; r < ROWS; r++) { const c = sum - r; if (c < 0 || c >= COLS) continue; const cell = S.grid[r * COLS + c]; if (!cell.b) continue; const m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0 * 2)) continue;
     drawBuilding(x, cell.b, m[0], m[1], TW0, era, T, pal, r * COLS + c); }
+  { const h0 = Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2) - 1, m0 = ptW(h0 % COLS + 1, Math.floor(h0 / COLS) + 0.5); if (vis(m0[0], m0[1], 400)) bigDome(x, m0[0], m0[1] + 8, TW0 * 3.4, TW0 * 2.2, T); }
   // rovers and drones moving between the modules
   const lanes = era === 0 ? 4 : era === 1 ? 8 : 14;
   for (let i = 0; i < lanes; i++) { const r = (i * 5) % ROWS, u = ((T * (0.12 + 0.03 * (i % 3)) + i * 0.37) % 1) * COLS, p = ptW(u, r + 0.5); if (!vis(p[0], p[1], 20)) continue; x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(p[0] - 3, p[1] + 1, 7, 2); x.fillStyle = i % 2 ? "#ffffff" : "#e0703a"; x.fillRect(p[0] - 3, p[1] - 3, 6, 3.6); x.fillStyle = "#33414f"; x.fillRect(p[0] - 1, p[1] - 3, 3, 1.6); }
