@@ -187,7 +187,7 @@ function makeBus(ctx: BaseAudioContext, out: AudioNode): Bus {
 }
 export function createAdvMusic(id: string): AdvMusic | null {
   const M = MOODS[id] || MOODS.luma;
-  let ctx: AudioContext | null = null, master: GainNode | null = null, bus: Bus | null = null, timer: any = 0, next = 0, step = 0, boss = false, on = true, ducked = false, steps = 0, intensity = 1;
+  let shared = false, ctx: AudioContext | null = null, master: GainNode | null = null, bus: Bus | null = null, timer: any = 0, next = 0, step = 0, boss = false, on = true, ducked = false, steps = 0, intensity = 1;
   const vol = () => (on ? (ducked ? 0.06 : 0.24) : 0);
   const apply = () => { if (master && ctx) master.gain.setTargetAtTime(vol(), ctx.currentTime, 0.15); };
   const pump = () => {
@@ -201,13 +201,13 @@ export function createAdvMusic(id: string): AdvMusic | null {
       if (ctx) return;
       try {
         const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return;
-        ctx = new AC(); master = ctx!.createGain(); master.gain.value = 0;
+        const sh = (window as any).__tgCineCtx; shared = !!(sh && sh.state !== "closed"); ctx = shared ? sh : new AC(); master = ctx!.createGain(); master.gain.value = 0;
         const comp = ctx!.createDynamicsCompressor(); master.connect(comp); comp.connect(ctx!.destination); bus = makeBus(ctx!, master);
         ctx!.resume().catch(() => {}); next = ctx!.currentTime + 0.1; apply(); pump(); timer = setInterval(pump, 100);
         document.addEventListener("visibilitychange", vis);
       } catch (e) { ctx = null; }
     },
-    stop() { clearInterval(timer); document.removeEventListener("visibilitychange", vis); try { if (master && ctx) master.gain.setTargetAtTime(0, ctx.currentTime, 0.05); const c = ctx; setTimeout(() => { try { c && c.close(); } catch (e) {} }, 300); } catch (e) {} ctx = null; master = null; bus = null; },
+    stop() { clearInterval(timer); document.removeEventListener("visibilitychange", vis); try { if (master && ctx) master.gain.setTargetAtTime(0, ctx.currentTime, 0.05); const c = ctx; setTimeout(() => { try { if (c && !shared) c.close(); else if (master) master.disconnect(); } catch (e) {} }, 300); } catch (e) {} ctx = null; master = null; bus = null; },
     setBoss(b) { boss = b; }, setOn(o) { on = o; apply(); }, duck(d) { ducked = d; apply(); }, setIntensity(n) { intensity = Math.max(1, Math.min(3, Math.round(n))); },
     info: () => ({ id, bpm: M.bpm, steps, boss, on, ducked, running: !!ctx, intensity, section: sectionOf(step), energy: energyOf(sectionOf(step), intensity) }),
   };

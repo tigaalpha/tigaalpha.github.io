@@ -6,7 +6,7 @@
 import { finishLook } from "./cg-finish";
 import { useEffect, useRef, useState, memo } from "react";
 import { CyberAvatar } from "./cyber-avatar";
-import { createCineAudio, renderCinePreview, cineEnergy, CINE_ACTION, CINE_CALM, type CineShot } from "./adventure-music";
+import { createAdvMusic, createCineAudio, renderCinePreview, cineEnergy, CINE_ACTION, CINE_CALM, type CineShot } from "./adventure-music";
 import { speakNarration, stopSpeaking } from "./speech";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -1061,7 +1061,7 @@ function sceneDawn(x: Cx, W: number, H: number, u: number, t: number, P: any, ey
 }
 export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway, onDone }: any) {
   const plan = useRef(cinePlan(P)).current; const total = plan.reduce((a, q) => a + q.dur, 0); const starts = useRef((() => { let a = 0; return plan.map(s => { const v = a; a += s.dur; return v; }); })()).current;
-  const [needTap, setNeedTap] = useState(false), [vkick, setVkick] = useState(0); const audioRef = useRef<any>(null);   // a phone may start the sound muted until the first touch
+  const [needTap, setNeedTap] = useState(false), [vkick, setVkick] = useState(0); const audioRef = useRef<any>(null), bedRef = useRef<any>(null);   // a phone may start the sound muted until the first touch
   const [rot, setRot] = useState(false); useEffect(() => { const chk = () => setRot(window.innerHeight > window.innerWidth); const id = setTimeout(chk, 700); window.addEventListener("resize", chk); return () => { clearTimeout(id); window.removeEventListener("resize", chk); }; }, []);   // a phone that will not turn: the film is turned instead
   const cvRef = useRef<HTMLCanvasElement>(null); const [idx, setIdx] = useState(0); const idxRef = useRef(0); const t0 = useRef(performance.now()); const skipTo = useRef(0);
   const type = TYPE[P.id] || "jungle"; const eye = hexRgb(colorway && colorway.glow ? colorway.glow : "#7fe8ff"); const objIdx = plan.length - 1;
@@ -1074,9 +1074,9 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
   useEffect(() => {
     const cv = cvRef.current; if (!cv) return undefined; const x = cv.getContext("2d"); if (!x) return undefined; let raf = 0;
     const fit = () => { const r = cv.getBoundingClientRect(), d = Math.min(1.5, window.devicePixelRatio || 1); cv.width = Math.max(320, Math.round(r.width * d)); cv.height = Math.max(180, Math.round(r.height * d)); }; fit(); window.addEventListener("resize", fit);
-    const audio = createCineAudio(P.id, plan); audioRef.current = audio; const chk = setTimeout(() => { if (audio && !audio.running()) setNeedTap(true); }, 400); const wake = () => { try { const a = audioRef.current; if (a && !a.running()) a.resume(); } catch (e) {} }; const wk = ["pointerdown", "touchstart", "touchend", "click", "keydown"]; wk.forEach(n => window.addEventListener(n, wake, true));
+    const audio = createCineAudio(P.id, plan); audioRef.current = audio; const bed = createAdvMusic("menu"); if (bed) { bed.setOn(true); bed.start(); } bedRef.current = bed; const chk = setTimeout(() => { if (audio && !audio.running()) setNeedTap(true); }, 400); const wake = () => { try { const a = audioRef.current; if (a && !a.running()) a.resume(); } catch (e) {} }; const wk = ["pointerdown", "touchstart", "touchend", "click", "keydown"]; wk.forEach(n => window.addEventListener(n, wake, true));
     const frame = (now: number) => {
-      raf = requestAnimationFrame(frame); const el = (now - t0.current) / 1000 + skipTo.current; let i = 0; for (let k = 0; k < plan.length; k++) if (el >= starts[k]) i = k;
+      raf = requestAnimationFrame(frame); const el = (now - t0.current) / 1000 + skipTo.current; let i = 0; for (let k = 0; k < plan.length; k++) if (el >= starts[k]) i = k; try { if (bedRef.current) bedRef.current.setIntensity(1 + 2 * cineEnergy(plan, i)); } catch (e) {}
       if ((P.prologue || P.finale) && el >= total) { raf = 0; cancelAnimationFrame(raf); onDone(); return; }
       if (i !== idxRef.current) { idxRef.current = i; setIdx(i); }
       const W = cv.width, H = cv.height, s = plan[i], local = el - starts[i], u = Math.min(1, local / Math.max(0.1, s.dur));
@@ -1106,7 +1106,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     };
     raf = requestAnimationFrame(frame);
     (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean, max?: number) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false).slice(0, max || 99)), jump: (i: number) => { i = Math.max(0, Math.min(plan.length - 1, i | 0)); skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
-    return () => { clearTimeout(chk); wk.forEach(n => window.removeEventListener(n, wake, true)); cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); try { delete (window as any).__advCine; } catch (e) {} };
+    return () => { clearTimeout(chk); wk.forEach(n => window.removeEventListener(n, wake, true)); cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); if (bedRef.current) bedRef.current.stop(); try { delete (window as any).__advCine; } catch (e) {} };
   }, []);
   const kind = plan[Math.min(idx, plan.length - 1)].kind, ek = (plan[Math.min(idx, plan.length - 1)] as any).as || kind, capFor = (lg: string) => captionFor(P.finale ? { ...P, __theme: (plan[Math.min(idx, plan.length - 1)] as any).theme } : P, kind, lg), cap = sub === "off" ? "" : capFor(sub), goals = GOAL[P.id] || GOAL.luma;
   const voText = (lg: string) => kind === "objective" ? T3(lg, "ภารกิจ: ", "Mission: ", "任务：") + T3(lg, P.th, P.en, P.zh).split(" · ")[0] + ". " + goals.map((g: any) => T3(lg, g[0], g[1], g[2])).join(". ") : capFor(lg);

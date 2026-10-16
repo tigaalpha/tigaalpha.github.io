@@ -39,13 +39,30 @@ const windows = (x: Cx, cx: number, by: number, w: number, h: number, T: number,
 /* Low-poly daylight look (owner, 2026-10-16, reference images: Surviving Mars, a low-poly Mars colony builder, SimCity): flat-shaded white modules with a rust stripe,
    faceted geodesic glass domes, hexagonal solar fields, wind turbines, steam puffs, and in the later eras curved glass towers standing among trees. Own drawing, nothing copied. */
 const RUST = "#b8552d", RUST2 = "#8e3f20";
-function poly(x: Cx, p: number[][], f: string) { x.beginPath(); x.moveTo(p[0][0], p[0][1]); for (let i = 1; i < p.length; i++) x.lineTo(p[i][0], p[i][1]); x.closePath(); x.fillStyle = f; x.fill(); }
+function poly(x: Cx, p: number[][], f: any) { x.beginPath(); x.moveTo(p[0][0], p[0][1]); for (let i = 1; i < p.length; i++) x.lineTo(p[i][0], p[i][1]); x.closePath(); x.fillStyle = f; x.fill(); }
 /** an isometric box, flat shaded, with an optional rust band at a fraction of its height */
 function lbox(x: Cx, cx: number, by: number, w: number, d: number, h: number, base = "#f1f3f5", band = RUST, bandAt = 0.55) {
-  const a = [cx - w / 2, by], b = [cx, by + d / 2], c = [cx + w / 2, by], t = (p: number[], k: number) => [p[0], p[1] - k];
-  poly(x, [a, b, t(b, h), t(a, h)], "#c9cfd6"); poly(x, [b, c, t(c, h), t(b, h)], "#e3e7eb"); poly(x, [t(a, h), t(b, h), t(c, h), [cx, by - d / 2 - h]], base);
-  if (band) { const y0 = h * bandAt, y1 = y0 + h * 0.16; poly(x, [t(a, y0), t(b, y0), t(b, y1), t(a, y1)], band); poly(x, [t(b, y0), t(c, y0), t(c, y1), t(b, y1)], RUST2); }
-  x.strokeStyle = "rgba(60,70,84,.35)"; x.lineWidth = 0.8; x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.lineTo(c[0], c[1]); x.moveTo(b[0], b[1]); x.lineTo(b[0], b[1] - h); x.stroke();
+  const a = [cx - w / 2, by], b = [cx, by + d / 2], c = [cx + w / 2, by], t = (p: number[], k: number) => [p[0], p[1] - k], top = [cx, by - d / 2 - h];
+  // soft contact shadow where the module meets the ground
+  x.fillStyle = "rgba(0,0,0,.18)"; x.beginPath(); x.ellipse(cx, by + d * 0.05, w * 0.58, d * 0.62, 0, 0, 7); x.fill();
+  const gl = x.createLinearGradient(a[0], 0, b[0], 0); gl.addColorStop(0, "#aeb7c4"); gl.addColorStop(1, "#d3d9e1");
+  const gr = x.createLinearGradient(b[0], 0, c[0], 0); gr.addColorStop(0, "#eef1f5"); gr.addColorStop(1, "#ffffff");
+  poly(x, [a, b, t(b, h), t(a, h)], gl as any); poly(x, [b, c, t(c, h), t(b, h)], gr as any); poly(x, [t(a, h), t(b, h), t(c, h), top], base);
+  // window strips: dark glass with a lit warm pane here and there
+  const rows = Math.max(1, Math.floor(h / 9)), seed = Math.floor(Math.abs(cx) * 7 + by * 3);
+  for (let r = 0; r < rows; r++) for (let f = 0; f < 2; f++) {
+    const y0 = h * 0.14 + r * (h * 0.78 / rows), hh = Math.min(5, h * 0.78 / rows * 0.55), n = Math.max(2, Math.round(w / 9));
+    for (let k = 0; k < n; k++) { const s0 = (k + 0.2) / n, s1 = (k + 0.8) / n, P = f ? b : a, Q = f ? c : b, lit = ((seed + r * 5 + k * 3 + f) % 4) === 0;
+      const p0 = [P[0] + (Q[0] - P[0]) * s0, P[1] + (Q[1] - P[1]) * s0], p1 = [P[0] + (Q[0] - P[0]) * s1, P[1] + (Q[1] - P[1]) * s1];
+      poly(x, [[p0[0], p0[1] - y0], [p1[0], p1[1] - y0], [p1[0], p1[1] - y0 - hh], [p0[0], p0[1] - y0 - hh]], lit ? "rgba(255,226,150,.95)" : f ? "rgba(70,110,150,.75)" : "rgba(50,80,120,.8)"); }
+  }
+  if (band) { const y0 = h * bandAt, y1 = y0 + h * 0.07; poly(x, [t(a, y0), t(b, y0), t(b, y1), t(a, y1)], band); poly(x, [t(b, y0), t(c, y0), t(c, y1), t(b, y1)], RUST2); }
+  // roof: inset panel, vents and a light strip along the edge
+  const ctr = [cx, by - h], ins = (k: number) => [[ctr[0] - w * k / 2, ctr[1]], [ctr[0], ctr[1] + d * k / 2], [ctr[0] + w * k / 2, ctr[1]], [ctr[0], ctr[1] - d * k / 2]];
+  poly(x, ins(0.62), "rgba(120,135,155,.35)"); x.fillStyle = "#cfd6df"; x.fillRect(cx - w * 0.14, ctr[1] - 3, w * 0.12, 3); x.fillStyle = "#8f9aaa"; x.fillRect(cx + w * 0.05, ctr[1] - 2, w * 0.1, 2);
+  x.strokeStyle = "rgba(255,255,255,.9)"; x.lineWidth = 1; x.beginPath(); x.moveTo(t(a, h)[0], t(a, h)[1]); x.lineTo(t(b, h)[0], t(b, h)[1]); x.lineTo(t(c, h)[0], t(c, h)[1]); x.stroke();
+  x.strokeStyle = "rgba(50,62,80,.4)"; x.lineWidth = 0.8; x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.lineTo(c[0], c[1]); x.moveTo(b[0], b[1]); x.lineTo(b[0], b[1] - h); x.stroke();
+  x.fillStyle = "rgba(120,220,255,.85)"; x.fillRect(b[0] - 1.2, b[1] - 3, 2.4, 2);
 }
 function door(x: Cx, cx: number, by: number, u: number, glow: string) { x.fillStyle = "rgba(" + glow + ",.9)"; poly(x, [[cx + 1 * u, by + 5 * u], [cx + 5 * u, by + 3 * u], [cx + 5 * u, by - 3 * u], [cx + 1 * u, by - 1 * u]], "rgba(" + glow + ",.85)"); }
 /** a geodesic dome: glass tint, facet lines and a bright rim */
