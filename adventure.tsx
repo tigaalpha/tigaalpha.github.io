@@ -816,6 +816,12 @@ const CSS = `
 .adv-menu .adv-mind .adv-planet.lock{opacity:.55;filter:grayscale(.8)}
 .adv-menu .adv-mind .adv-planet>span{align-items:center;text-align:center}.adv-menu .adv-mind .adv-planet b{font-size:8.5px;line-height:1.1;-webkit-line-clamp:2}.adv-menu .adv-mind .adv-planet em{top:0;right:auto;left:calc(50% + var(--sz) / 2 - 4px);background:var(--card,#fff);font-size:8px;padding:0 3px}
 .adv-menu .adv-mind .adv-planet .adv-ch{font-size:7.5px;padding:0 4px;margin-bottom:1px}
+
+/* a visible close button on every pop-up of the map page (owner, 2026-10-16) */
+.adv-x{position:absolute;top:8px;right:10px;z-index:3;width:34px;height:34px;border-radius:50%;border:0;background:var(--clay,#d97757);color:#fff;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.adv-x-fixed{position:fixed;top:70px;right:18px;z-index:72}
+.adv-foot .adv-grp[open]>summary{position:relative;display:block;padding:6px 48px 6px 12px;font-size:13px}
+.adv-foot .adv-grp[open]>summary::after{content:"✕";position:absolute;right:0;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;background:var(--clay,#d97757);color:#fff;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center}
 `;
 
 type Gfx = "standard" | "high";
@@ -933,6 +939,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
           </div>
           <div className="adv-rankbar"><span data-energy style={{ marginRight: 8, fontSize: 12 }}>⚡ {t("พลังงาน", "Energy", "能量")} {readEnergy()}/100{readEnergy() >= 50 ? " · +25%" : ""}</span><button className="adv-btn" data-galaxy-btn aria-expanded={galaxyOpen} style={{ marginRight: 8 }} onClick={() => setGalaxyOpen(o => !o)}>🌌 {t("แผนที่กาแล็กซี", "Galaxy map", "星系图")}</button><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
           {galaxyOpen && (<div className="adv-rank" data-galaxy>
+            <button className="adv-x" data-close-pop aria-label="close" onClick={() => setGalaxyOpen(false)}>✕</button>
             <svg viewBox="0 0 500 110" width="100%" role="img" aria-label="Galaxy map">
               {(["solar", "space", "ground", "act2"] as const).map((v, i) => { const L = PLANETS.filter(P => sectorOf(P) === v), n = L.filter(P => done.includes(P.id)).length, x = 70 + i * 120, R = 22, C = 2 * Math.PI * R, nx = L.find(P => !done.includes(P.id));
                 return (<g key={v} data-gnode={v} style={{ cursor: "pointer" }} onClick={() => { pickSector(v); setGalaxyOpen(false); }}>
@@ -945,7 +952,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
                 </g>); })}
             </svg>
           </div>)}
-          {rankOpen && <RankPanel lang={lang} maps={PLANETS.filter(P => sectorOf(P) === sector)} />}
+          {rankOpen && <><RankPanel lang={lang} maps={PLANETS.filter(P => sectorOf(P) === sector)} /><button className="adv-x adv-x-fixed" data-close-pop aria-label="close" onClick={() => setRankOpen(false)}>✕</button></>}
           {(() => { const nx = CAMP.find(P => open(P) && !done.includes(P.id)); return nx && canStart(nx) ? (
             <button className="adv-cta" data-continue={nx.id} onClick={() => { if (net) net.sendStart(nx.id, warOpt); startPlanet(nx); }}>
               <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${nx.c[2]} 45%,${nx.c[0]})`, "--g": `rgba(${nx.glow},.7)` } as any} />
