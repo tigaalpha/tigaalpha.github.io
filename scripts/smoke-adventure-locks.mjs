@@ -36,4 +36,6 @@ const lockOf = (L, re) => { const c = L.find(x => re.test(x.t)); return c ? c.lo
   const L = await cards(p); ok("one episode can be skipped: Moon He-3 (episode 3) opens, the Lunar Base (episode 5) stays shut", lockOf(L, /Helium/) === false && lockOf(L, /Lunar Base/) === true, JSON.stringify(L.map(x => x.lock))); await ctx.close(); }
 { const { ctx, p } = await open({ tg_adv_unlockall: "1" });
   const L = await cards(p); ok("unlock switch (admin tier 3 uses the same path): everything is open", L.every(x => !x.lock), JSON.stringify(L.map(x => x.lock))); await ctx.close(); }
+{ const { ctx, p, errs } = await open({}); await p.waitForTimeout(1200);
+  ok("a fresh player (no test switches) opens the map menu with no page error (a TDZ crash shipped here once: LIST read CAMP before its const)", errs.length === 0 && (await p.locator(".adv-planet").count()) > 0, errs.join("|")); await ctx.close(); }
 await browser.close(); server.close(); console.log(fail ? "FAILED " + fail : "ALL PASS"); process.exit(fail ? 1 : 0);
