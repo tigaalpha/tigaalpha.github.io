@@ -151,7 +151,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
         <div className="ar-world" style={{ position: "absolute", left: 0, top: 0, width: WW, height: WH, transformOrigin: "0 0", transform: `translate(${-camRef.current.x * k * camRef.current.z}px,${-camRef.current.y * k * camRef.current.z}px) scale(${k * camRef.current.z})` }}>
           {PLOTS.map((p, i) => (<button key={i} className="ar-hit" data-plot={i} aria-label={"plot " + i} onClick={() => tapPlot(i)} style={{ left: p.x - 32, top: p.y - 30, width: 64, height: 52 }} />))}
           {ANIMALS.map((a, i) => (<button key={a.id} className="ar-hit ar-an" data-animal={a.id} aria-label={a.id} onClick={() => tapAnimal(i)} style={{ left: a.x - 50, top: a.y - 56, width: 100, height: 108 }} />))}
-          <button className="ar-hit ar-ship" data-deliver="1" aria-label="deliver" onClick={deliver} style={{ left: PAD.x - 50, top: PAD.y - 44, width: 100, height: 62 }} />
+          <button className="ar-hit ar-ship" data-deliver="1" aria-label="deliver" onClick={deliver} style={{ left: PAD.x - 50, top: PAD.y - 120, width: 100, height: 140 }} />
         </div>
         <div className="ar-zoom"><button data-zoom="in" aria-label="zoom in" onClick={() => { camRef.current.z *= 1.25; clampCam(); setTick(v => v + 1); }}>+</button><button data-zoom="out" aria-label="zoom out" onClick={() => { camRef.current.z /= 1.25; clampCam(); setTick(v => v + 1); }}>−</button></div>
         <div className="arf-top">
