@@ -761,6 +761,23 @@ const CSS = `
 .adv-top .adv-hud{flex:none;width:min(176px,30vw);gap:2px}.adv-top .adv-lv{font-size:10px}.adv-top .adv-bar{height:12px;border-radius:6px}.adv-top .adv-bar i{border-radius:6px}.adv-top .adv-bar b{font-size:9.5px;letter-spacing:0}
 .alp-shop{margin:8px 0;color:#eafff6}.alp-shop .adv-up{background:rgba(255,255,255,.08);color:#eafff6;border-color:rgba(140,255,220,.35)}.alp-shop .adv-load small{color:#9fd8cc}.alp-shop .adv-load button{background:rgba(255,255,255,.08);color:#eafff6;border-color:rgba(140,255,220,.35)}.alp-shop .adv-load button.on{background:#3ddc97;color:#06281c}
 .adv-top .adv-lvl{position:relative;top:auto;right:auto;margin-left:auto;flex:none}.adv-top .adv-lvl+.adv-gear{margin-left:0}
+
+/* one-screen map (owner, 2026-10-16: "everything on this page must fit one screen, no scrolling, easy to use") */
+.adv-menu{padding:calc(4px + env(safe-area-inset-top,0px)) 10px 6px!important;overflow:hidden!important;gap:3px}
+.adv-menu>div:first-child{gap:6px}.adv-menu>div:first-child .adv-btn{width:32px;height:32px;min-height:0;padding:0;font-size:14px}.adv-menu h2{font-size:15px;margin:0}
+.adv-menu .adv-chips{margin:0;gap:4px;flex-wrap:nowrap;overflow:hidden}.adv-menu .adv-chip{font-size:10px;padding:1px 8px;white-space:nowrap}
+.adv-menu .adv-sectors{margin:0;gap:5px}.adv-menu .adv-sec{padding:3px 10px;font-size:11px;min-height:0}
+.adv-menu .adv-rankbar{display:flex;align-items:center;gap:6px;margin:0}.adv-menu .adv-rankbar span{margin:0!important;font-size:11px!important}.adv-menu .adv-rankbar .adv-btn{margin:0!important;padding:2px 10px;min-height:0;height:26px;font-size:11px}
+.adv-menu .adv-rank{position:fixed;left:10px;right:10px;top:64px;z-index:70;max-height:60vh;overflow:auto;background:var(--card,#fff);box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.adv-menu .adv-cta{min-height:36px!important;margin:0!important;padding:3px 14px!important;gap:10px}.adv-menu .adv-cta .adv-orb{flex:0 0 24px;height:24px}.adv-menu .adv-cta b{font-size:13px}.adv-menu .adv-cta small{font-size:9px}
+.adv-menu .adv-path{flex:1 1 auto;min-height:0;margin:0 -10px;padding:30px 30px 4px;gap:40px;align-items:center}
+.adv-menu .adv-path .adv-planet{flex:0 0 138px;min-height:0;padding:28px 8px 8px;border-radius:20px}.adv-menu .adv-path .adv-orb{width:44px;height:44px;top:-22px;left:calc(50% - 22px)}
+.adv-menu .adv-path .adv-planet b{font-size:11.5px}.adv-menu .adv-path .adv-planet small{font-size:9.5px;margin-top:2px}.adv-menu .adv-path .adv-planet::before{left:-40px;width:40px}
+.adv-menu .adv-path .adv-planet:nth-child(odd){transform:translateY(-6px)}.adv-menu .adv-path .adv-planet:nth-child(even){transform:translateY(6px)}
+.adv-foot{display:flex;gap:6px;flex:none;padding-top:2px;align-items:center}.adv-foot .adv-grp{margin:0}
+.adv-foot .adv-grp>summary{list-style:none;cursor:pointer;font-size:11.5px;font-weight:800;padding:4px 12px;border-radius:999px;background:var(--card,#fff);border:1.5px solid var(--bd3,rgba(0,0,0,.2))}.adv-foot .adv-grp>summary::-webkit-details-marker{display:none}
+.adv-foot .adv-grp[open]{position:fixed;left:10px;right:10px;bottom:38px;max-height:62vh;overflow:auto;z-index:70;background:var(--card,#fff);border:1.5px solid var(--clay,#d97757);border-radius:20px;padding:8px 12px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.adv-foot{flex-wrap:wrap}.adv-foot .adv-lobby{flex:1 0 100%}
 `;
 
 type Gfx = "standard" | "high";
@@ -904,6 +921,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
               </button>
             ))}
           </div>
+          <div className="adv-foot">
           {online && (
             <div className="adv-lobby" aria-label="Adventure Online">
               <b>🌐 {t("Adventure ออนไลน์ — เล่นกับเพื่อน (สูงสุด " + MAX_PILOTS + " คน)", "Adventure Online — team up (up to " + MAX_PILOTS + " pilots)", "在线冒险 — 组队（最多 " + MAX_PILOTS + " 人）")}</b>
@@ -990,6 +1008,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
           <label className="adv-nocine"><input type="checkbox" checked={nocine} onChange={(e) => { try { localStorage.setItem("tg_adv_nocine", e.target.checked ? "1" : "0"); } catch (er) {} setTick(x => x + 1); }} /> {t("ข้ามหนังก่อนเริ่มด่าน", "Skip the film before each map", "跳过每张地图前的过场动画")}</label>
           <p style={{ fontSize: 11.5 }}>{t("ระบบเลือกให้ตามเครื่องของคุณ เปลี่ยนเองได้", "Chosen for your device; change it any time.", "已按设备自动选择，可随时更改。")}</p>
           </details>
+          </div>
         </div>
       ) : (
         <AdvGuard mapId={planet.id} lang={lang} onBack={() => { setPlanet(null); setCined(null); setShipDone(null); }}>{
