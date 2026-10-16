@@ -9,7 +9,7 @@ import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { enterFs } from "./pvp-arena";
 import { GearButton, SettingsPopup } from "./adventure-settings";
-import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, PLOT_POS, SLOT_POS, PAD } from "./adventure-ranch-iso";
+import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, drawIsoAnimal, PLOT_POS, SLOT_POS, PAD } from "./adventure-ranch-iso";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
@@ -59,15 +59,8 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
   for (let i = 0; i < PLOTS.length; i++) { const c = S.plots[i], cr = c.crop ? CROPS.find(q => q.id === c.crop) : null; drawIsoPlot(x, i, c, T, cr ? cr.col : "#fff"); }
   // the pens (fence and floor are in the cached scenery)
   for (let i = 0; i < ANIMALS.length; i++) drawIsoHouse(x, ANIMALS[i], S.houses[i], i, S.stock, T, HOUSE_COST, BUY_COST);
-  for (let i = 0; i < ANIMALS.length; i++) { if (!S.houses[i].own) continue; const a = ANIMALS[i], A = S.animals[i], wx = a.x + 34 + Math.sin(T * 0.7 + i * 2) * 8, wy = a.y + 22 + Math.cos(T * 0.5 + i) * 3 + (A.prog >= 100 ? -Math.abs(Math.sin(T * 6)) * 4 : 0);
-    x.fillStyle = "rgba(0,40,0,.3)"; x.beginPath(); x.ellipse(wx, wy + 22, 38, 9, 0, 0, 7); x.fill(); x.save(); x.translate(wx, wy); x.strokeStyle = "#4a2c14"; x.lineWidth = 2; const face = Math.cos(T * 0.7 + i * 2) >= 0 ? 1 : -1; x.scale(face * 1.05, 1.05);
-    const body = (fill: string, rx: number, ry: number) => { const bg3 = x.createRadialGradient(-rx * 0.3, -ry * 0.5, 2, 0, 0, rx * 1.1); bg3.addColorStop(0, "#fff"); bg3.addColorStop(0.35, fill); bg3.addColorStop(1, "#b9aaa0"); x.fillStyle = fill === "#fff" || fill === "#fffaf0" ? bg3 : fill; x.beginPath(); x.ellipse(0, 0, rx, ry, 0, 0, 7); x.fill(); x.stroke(); };
-    const eye = (ex: number, ey: number) => { x.fillStyle = "#fff"; x.beginPath(); x.arc(ex, ey, 4, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#222"; x.beginPath(); x.arc(ex + 1, ey, 2, 0, 7); x.fill(); };
-    if (a.id === "cow") { body("#fff", 30, 20); x.fillStyle = "#222"; x.beginPath(); x.ellipse(-10, -6, 9, 6, 0, 0, 7); x.ellipse(8, 7, 8, 5, 0, 0, 7); x.fill(); x.fillStyle = "#fff"; x.beginPath(); x.arc(28, -6, 14, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#ffb0c0"; x.beginPath(); x.ellipse(36, 0, 8, 6, 0, 0, 7); x.fill(); x.stroke(); eye(26, -10); x.fillStyle = "#fff"; x.fillRect(-16, 14, 6, 14); x.fillRect(10, 14, 6, 14); }
-    else if (a.id === "chicken") { body("#fff", 15, 13); x.fillStyle = "#fff"; x.beginPath(); x.arc(15, -9, 8, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#e23a2a"; x.beginPath(); x.arc(15, -18, 4, 0, 7); x.fill(); x.fillStyle = "#ffb020"; x.beginPath(); x.moveTo(22, -9); x.lineTo(30, -7); x.lineTo(22, -5); x.fill(); eye(17, -11); x.fillStyle = "#ffb020"; x.fillRect(-4, 12, 3, 8); x.fillRect(4, 12, 3, 8); }
-    else if (a.id === "pig") { body("#ffa8c0", 26, 18); x.fillStyle = "#ffa8c0"; x.beginPath(); x.arc(24, -4, 12, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#ff7a9a"; x.beginPath(); x.ellipse(33, 0, 6, 5, 0, 0, 7); x.fill(); x.stroke(); eye(22, -9); x.beginPath(); x.moveTo(20, -14); x.lineTo(16, -22); x.lineTo(26, -16); x.fillStyle = "#ff8aa8"; x.fill(); x.stroke(); x.fillStyle = "#ffa8c0"; x.fillRect(-14, 14, 6, 12); x.fillRect(8, 14, 6, 12); }
-    else { body("#fffaf0", 25, 20); for (const [bx, by] of [[-14, -8], [-4, -14], [8, -10], [-10, 6], [6, 8]]) { x.fillStyle = "#fffaf0"; x.beginPath(); x.arc(bx, by, 11, 0, 7); x.fill(); x.stroke(); } x.fillStyle = "#4a3a3a"; x.beginPath(); x.arc(26, -4, 10, 0, 7); x.fill(); x.stroke(); eye(24, -8); x.fillStyle = "#4a3a3a"; x.fillRect(-12, 16, 5, 12); x.fillRect(8, 16, 5, 12); }
-    x.restore();
+  for (let i = 0; i < ANIMALS.length; i++) { if (!S.houses[i].own) continue; const a = ANIMALS[i], A = S.animals[i], wx = a.x + 6 + Math.sin(T * 0.7 + i * 2) * 10, wy = a.y + 28 + Math.cos(T * 0.5 + i) * 3 + (A.prog >= 100 ? -Math.abs(Math.sin(T * 6)) * 4 : 0);
+    x.fillStyle = "rgba(10,50,10,.3)"; x.beginPath(); x.ellipse(wx + 2, wy + 20, 34, 8, 0, 0, 7); x.fill(); x.save(); x.translate(wx, wy); const face = Math.cos(T * 0.7 + i * 2) >= 0 ? 1 : -1; x.scale(face * 1.1, 1.1); drawIsoAnimal(x, a.id, T, i); x.restore();
     const hungry = A.fed <= 0;
     if (hungry) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = O; x.lineWidth = 1.1; x.beginPath(); x.roundRect(wx + 18, wy - 46, 36, 24, 8); x.fill(); x.stroke(); x.fillStyle = "#222"; x.font = "16px system-ui"; x.textAlign = "center"; x.fillText("🍎", wx + 36, wy - 28); }
     else if (A.prog >= 100) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = "#ffb020"; x.lineWidth = 1.5; x.beginPath(); x.roundRect(wx + 18, wy - 48 - Math.abs(Math.sin(T * 5)) * 4, 36, 26, 8); x.fill(); x.stroke(); x.font = "18px system-ui"; x.textAlign = "center"; x.fillText(a.prod, wx + 36, wy - 28 - Math.abs(Math.sin(T * 5)) * 4); }
@@ -146,7 +139,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
       <div className="ar-stage" ref={boxRef}>
         <canvas ref={cvRef} className="ar-cv" aria-hidden="true" />
         {PLOTS.map((p, i) => (<button key={i} className="ar-hit" data-plot={i} aria-label={"plot " + i} onClick={() => tapPlot(i)} style={{ left: (p.x - 32) * k, top: (p.y - 30) * k, width: 64 * k, height: 52 * k }} />))}
-        {ANIMALS.map((a, i) => (<button key={a.id} className="ar-hit ar-an" data-animal={a.id} aria-label={a.id} onClick={() => tapAnimal(i)} style={{ left: (a.x - 46) * k, top: (a.y - 56) * k, width: 92 * k, height: 96 * k }} />))}
+        {ANIMALS.map((a, i) => (<button key={a.id} className="ar-hit ar-an" data-animal={a.id} aria-label={a.id} onClick={() => tapAnimal(i)} style={{ left: (a.x - 50) * k, top: (a.y - 56) * k, width: 100 * k, height: 108 * k }} />))}
         <button className="ar-hit ar-ship" data-deliver="1" aria-label="deliver" onClick={deliver} style={{ left: (PAD.x - 50) * k, top: (PAD.y - 74) * k, width: 100 * k, height: 92 * k }} />
         <div className="arf-top">
           <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
