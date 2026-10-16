@@ -68,6 +68,11 @@ function tree(x: CanvasRenderingContext2D, R: () => number, tx: number, ty: numb
   if (apples) for (let k = 0; k < 8; k++) { const a = k * 0.8 + 0.4, ax = tx + Math.cos(a) * 20 * s, ay = ty - 48 * s + Math.sin(a) * 16 * s; x.fillStyle = "#e8352a"; x.beginPath(); x.arc(ax, ay, 3.4, 0, 7); x.fill(); x.fillStyle = "rgba(255,255,255,.75)"; x.beginPath(); x.arc(ax - 1, ay - 1, 1, 0, 7); x.fill(); }
 }
 
+function pine(x: CanvasRenderingContext2D, tx: number, ty: number, s: number) {
+  shadow(x, tx + 10 * s, ty + 3, 26 * s, 7 * s, 0.3); x.fillStyle = "#6a4426"; x.fillRect(tx - 3 * s, ty - 12 * s, 6 * s, 14 * s);
+  for (let k = 0; k < 4; k++) { const w = (24 - k * 5) * s, yy = ty - (10 + k * 15) * s, g = x.createLinearGradient(tx - w, 0, tx + w, 0); g.addColorStop(0, "#2f7a3a"); g.addColorStop(0.55, "#3f9a48"); g.addColorStop(1, "#1f5a2c"); x.fillStyle = g; x.strokeStyle = "rgba(15,50,20,.55)"; x.lineWidth = 1; x.beginPath(); x.moveTo(tx, yy - 24 * s); x.lineTo(tx + w, yy); x.lineTo(tx - w, yy); x.closePath(); x.fill(); x.stroke(); }
+  x.fillStyle = "rgba(255,255,255,.18)"; x.beginPath(); x.moveTo(tx, ty - 70 * s); x.lineTo(tx - 6 * s, ty - 50 * s); x.lineTo(tx, ty - 52 * s); x.closePath(); x.fill();
+}
 function picket(x: CanvasRenderingContext2D, a: number[], b: number[], n: number) {
   const px = (t: number) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   x.strokeStyle = "rgba(90,70,60,.55)"; x.lineWidth = 3.4; x.beginPath(); for (const hh of [5, 10]) { x.moveTo(a[0], a[1] - hh); x.lineTo(b[0], b[1] - hh); } x.stroke(); x.strokeStyle = "#fff"; x.lineWidth = 2.2; x.beginPath(); for (const hh of [5, 10]) { x.moveTo(a[0], a[1] - hh); x.lineTo(b[0], b[1] - hh); } x.stroke();
@@ -114,7 +119,7 @@ export function isoBg(kind: string): HTMLCanvasElement {
     const bad = (gx: number, gy: number) => (gx > -1 && gx < 7 && gy > -1 && gy < 3.5) || (gx > 4.5 && gx < 19 && gy > 1.5 && gy < 13) || (gx > -1.5 && gx < 14 && gy > 11.5 && gy < 23) || (gx > 14 && gx < 20 && gy > 14 && gy < 20) || (gx > 18 && gx < 23 && gy > -1 && gy < 3.5);
     const ts: number[][] = []; let tries = 0;
     while (ts.length < 46 && tries++ < 900) { const px = 30 + R() * (WW - 60), py = 90 + R() * (WH - 100), gx = ((px - OX) / TW + (py - OY) / TH) / 2, gy = ((py - OY) / TH - (px - OX) / TW) / 2; if (bad(gx, gy) || px > WW - 170 && py > 220) continue; if (ts.some(t => Math.hypot(t[0] - px, (t[1] - py) * 1.6) < 80)) continue; ts.push([px, py, 0.7 + R() * 0.45, R() < 0.28 ? 1 : 0]); }
-    ts.sort((a, b) => a[1] - b[1]); for (const [tx, ty, sc, ap] of ts) tree(x, R, tx, ty, sc, !!ap);
+    ts.sort((a, b) => a[1] - b[1]); for (const [tx, ty, sc, ap] of ts) { if (!ap && R() < 0.3) pine(x, tx, ty, sc * 0.9); else tree(x, R, tx, ty, sc, !!ap); }
     // sunflower rows, barrels and crates by the barn, a scarecrow, a wheelbarrow, a mailbox and a pond with lilies: the farm gets lived-in
     const sf = (px: number, py: number, sc: number) => { x.strokeStyle = "#3a8a2a"; x.lineWidth = 2 * sc; x.beginPath(); x.moveTo(px, py); x.lineTo(px, py - 22 * sc); x.stroke(); x.fillStyle = "#4aa832"; x.beginPath(); x.ellipse(px - 5 * sc, py - 9 * sc, 5 * sc, 2.4 * sc, -0.5, 0, 7); x.ellipse(px + 5 * sc, py - 12 * sc, 5 * sc, 2.4 * sc, 0.5, 0, 7); x.fill();
       for (let k = 0; k < 12; k++) { const an = k / 12 * 6.283; x.fillStyle = k % 2 ? "#ffd23a" : "#ffb81e"; x.beginPath(); x.ellipse(px + Math.cos(an) * 6.5 * sc, py - 24 * sc + Math.sin(an) * 6.5 * sc, 3.4 * sc, 2 * sc, an, 0, 7); x.fill(); }
@@ -160,7 +165,7 @@ export function drawIsoPlot(x: CanvasRenderingContext2D, i: number, c: any, T: n
     const q = P(c0 + 1, r0 + 1); x.fillStyle = canDig ? "#ffb020" : "rgba(60,40,20,.7)"; x.strokeStyle = OUT; x.lineWidth = 1.4; x.beginPath(); x.roundRect(q[0] - 24, q[1] - 11, 48, 22, 11); x.fill(); x.stroke(); x.fillStyle = "#fff"; x.font = "bold 12px system-ui"; x.textAlign = "center"; x.fillText("⛏ " + digCost, q[0], q[1] + 4.5); x.restore(); return;
   }
   const sg = x.createLinearGradient(0, P(c0, r0)[1], 0, P(c0 + 2, r0 + 2)[1]); sg.addColorStop(0, wet ? "#6a4224" : "#8a5a30"); sg.addColorStop(1, wet ? "#4a2c16" : "#6a4222");
-  diamond(x, c0 + 0.06, r0 + 0.06, 1.88, 1.88, sg, "rgba(255,225,170,.55)", 1.6);
+  diamond(x, c0 + 0.02, r0 + 0.02, 1.96, 1.96, "#b8864a", "rgba(60,30,10,.55)", 1.4); diamond(x, c0 + 0.1, r0 + 0.1, 1.8, 1.8, sg, "rgba(255,225,170,.4)", 1.2);
   x.strokeStyle = "rgba(40,20,8,.35)"; x.lineWidth = 1.4; for (let k = 1; k < 4; k++) { const a = P(c0 + 0.15, r0 + k * 0.5), b = P(c0 + 1.85, r0 + k * 0.5); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.stroke(); }
   if (!c.crop) return;
   const st = c.p < 34 ? 0 : c.p < 100 ? 1 : 2, bob = st === 2 ? Math.abs(Math.sin(T * 5 + i)) * 1.5 : 0, ids = ["carrot", "corn", "tomato", "pumpkin"];
@@ -288,6 +293,7 @@ export function drawIsoAmbient(x: CanvasRenderingContext2D, T: number) {
   const pc = P(21, 15.6);
   x.strokeStyle = "rgba(255,255,255,.6)"; x.lineWidth = 1.3; for (let k = 0; k < 2; k++) { const r = ((T * 0.5 + k * 0.5) % 1); x.globalAlpha = 1 - r; x.beginPath(); x.ellipse(pc[0] - 8, pc[1] + 2, 10 + r * 26, 4 + r * 10, 0, 0, 7); x.stroke(); } x.globalAlpha = 1;
   for (let k = 0; k < 2; k++) { const dx = pc[0] + Math.sin(T * 0.4 + k * 2.4) * 30 - 6 + k * 14, dy = pc[1] + Math.cos(T * 0.5 + k) * 7 + k * 3, face = Math.cos(T * 0.4 + k * 2.4) > 0 ? 1 : -1; x.save(); x.translate(dx, dy); x.scale(face, 1); x.fillStyle = "rgba(10,50,60,.25)"; x.beginPath(); x.ellipse(1, 4, 11, 3, 0, 0, 7); x.fill(); x.fillStyle = "#fff"; x.strokeStyle = "rgba(60,60,70,.45)"; x.lineWidth = 0.8; x.beginPath(); x.ellipse(0, 0, 9, 5.4, 0, 0, 7); x.fill(); x.stroke(); x.beginPath(); x.arc(8, -6, 4.2, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#ffa21e"; x.beginPath(); x.moveTo(11.5, -6.5); x.lineTo(16, -5.4); x.lineTo(11.5, -4); x.fill(); x.fillStyle = "#222"; x.beginPath(); x.arc(9, -7, 0.9, 0, 7); x.fill(); x.restore(); }
+  { const ch = P(4.2, 0.9); for (let k = 0; k < 6; k++) { const ph = (T * 0.35 + k / 6) % 1, sx = ch[0] + 4 + ph * 34 + Math.sin(T + k) * 4, sy = ch[1] - 46 - ph * 52; x.globalAlpha = (1 - ph) * 0.42; x.fillStyle = "#f4f4f6"; x.beginPath(); x.arc(sx, sy, 5 + ph * 11, 0, 7); x.fill(); } x.globalAlpha = 1; }
   x.strokeStyle = "rgba(40,40,50,.8)"; x.lineWidth = 1.6; x.lineCap = "round";
   for (let i = 0; i < 3; i++) { const bx = ((T * 38 + i * 560) % (WW + 200)) - 100, by = 80 + i * 130 + Math.sin(T * 1.2 + i) * 14, fl = Math.sin(T * 9 + i * 2) * 5; x.beginPath(); x.moveTo(bx - 8, by - fl); x.quadraticCurveTo(bx - 3, by - 5 - fl, bx, by); x.quadraticCurveTo(bx + 3, by - 5 + fl, bx + 8, by + fl); x.stroke(); }
   for (let i = 0; i < 26; i++) { const px = (i * 173 + T * (6 + (i % 5) * 2)) % WW, py = 60 + ((i * 97 + Math.sin(T * 0.6 + i) * 20 + T * 3) % (WH - 80)); x.fillStyle = "rgba(255,250,200," + (0.35 + 0.3 * Math.sin(T * 2 + i)) + ")"; x.beginPath(); x.arc(px, py, 1.5 + (i % 3) * 0.5, 0, 7); x.fill(); }
