@@ -791,7 +791,6 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
 const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar", moonhe3: "solar", moonbase: "solar", colmoon: "solar", spaceranch: "solar", marscolony: "solar", colmars: "solar", ranchmars: "solar", venussky: "solar", asteroids: "solar", minebuild: "solar", mercury: "solar", solarcharge: "solar", jupitergas: "solar", gasskim: "solar", gasbuild: "solar", gaspump: "solar", saturnrings: "solar", titanassault: "space", titancolony: "space", coltitan: "space", ranchtitan: "space", arkbuild: "space", arkfarm: "space", arkherd: "space", arkexodus: "space", colproxima: "ground", ranchproxima: "ground", luma: "ground", ferro: "ground", jovia: "ground", kryo: "ground", pyra: "ground", nexa: "ground", cobalt: "ground", helios: "ground", ashfall: "ground", warpjump: "ground", starharvest: "ground", voidgate: "ground", deathstar: "ground", blackhole: "ground", dysonbuild: "act2", dysondock: "act2", dyson: "act2", kindred: "act2", darkforge: "act2", shadow: "act2"};
   const sectorOf = (P: any): "ground" | "space" | "act2" | "solar" => (SECT_OF[P.id] as any) || (isSpace(P) ? "space" : "ground");
   const pathRef = useRef<HTMLDivElement>(null);
-  const LIST = (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1" && !localStorage.getItem("tg_adv_sector") ? PLANETS : CAMP; } catch (e) { return CAMP; } })();   // test door: the bots that set no tab see the original order (Luma first)
   useEffect(() => { if (!planet) enterFs(); }, [planet]);   // the map is full screen and landscape (owner, 2026-10-16)
   useEffect(() => () => { if (KEEP_FS) KEEP_FS = false; else exitFsAndUnlock(); }, []);
   const pickSector = (v: "ground" | "space" | "act2" | "solar") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
@@ -837,6 +836,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   };
   const leaveRoom = () => { closePub(); if (netRef.current) netRef.current.leave(); netRef.current = null; setNet(null); setPeersL([]); };
   const CAMP = campList();
+  const LIST = (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1" && !localStorage.getItem("tg_adv_sector") ? PLANETS : CAMP; } catch (e) { return CAMP; } })();   // test door: the bots that set no tab see the original order (Luma first)
   const nextOf = (cur: any) => { const dn = readDone(); const idx = CAMP.findIndex(q => q.id === cur.id); const rest = [...CAMP.slice(idx + 1), ...CAMP.slice(0, idx)].filter(Q => Q.ok && open(Q)); return rest.find(Q => !dn.includes(Q.id)) || rest[0] || null; };   // the next map you have not cleared yet, wrapping round   // the orbital-strike result (which bases are gone) before an Ashfall run
   // Maps are played one step at a time inside each sector: step n opens when step n-1 is cleared (owner, 2026-10-12).
   // A top-tier admin (tier 3) is never locked, so the game can be inspected; `tg_adv_unlockall` is the same switch for the test bots.
