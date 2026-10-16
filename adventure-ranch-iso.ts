@@ -186,10 +186,26 @@ export function drawIsoWindmill(x: CanvasRenderingContext2D, T: number) {
 export function drawIsoPad(x: CanvasRenderingContext2D, launch: number, T: number) {
   const { x: px, y: py } = PAD; shadow(x, px + 4, py + 6, 52, 17, 0.3);
   const pg = x.createLinearGradient(0, py - 16, 0, py + 16); pg.addColorStop(0, "#e6edf6"); pg.addColorStop(1, "#aab6c8"); x.fillStyle = pg; x.strokeStyle = OUT; x.lineWidth = 1.4; x.beginPath(); x.ellipse(px, py, 48, 16, 0, 0, 7); x.fill(); x.stroke(); x.strokeStyle = "#ffb020"; x.lineWidth = 2; x.setLineDash([7, 5]); x.beginPath(); x.ellipse(px, py, 36, 11, 0, 0, 7); x.stroke(); x.setLineDash([]);
-  const ry = py - 4 - (launch > 0 ? (1 - launch / 2) * 380 : 0); x.save(); x.translate(px, ry); x.scale(0.92, 0.92);
-  x.fillStyle = "#fff"; x.strokeStyle = OUT; x.lineWidth = 1.4; x.beginPath(); x.moveTo(0, -58); x.quadraticCurveTo(22, -28, 16, 4); x.lineTo(-16, 4); x.quadraticCurveTo(-22, -28, 0, -58); x.fill(); x.stroke();
-  x.fillStyle = "#ff5a4a"; x.beginPath(); x.moveTo(0, -58); x.quadraticCurveTo(10, -48, 12, -38); x.lineTo(-12, -38); x.quadraticCurveTo(-10, -48, 0, -58); x.fill(); x.stroke(); x.fillStyle = "#6cc3ff"; x.beginPath(); x.arc(0, -22, 8, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#ff5a4a"; poly(x, [[-16, 4], [-26, 8], [-16, -10]], "#ff5a4a"); poly(x, [[16, 4], [26, 8], [16, -10]], "#ff5a4a");
-  if (launch > 0) { x.fillStyle = "rgba(255,170,60,.92)"; x.beginPath(); x.moveTo(-10, 4); x.lineTo(0, 4 + 30 + 10 * Math.sin(T * 30)); x.lineTo(10, 4); x.fill(); } x.restore();
+  // a launch tower beside the pad, with a lattice, a lit top and a chopstick arm reaching the ship
+  { const tx = px + 40, ty = py + 2; x.fillStyle = "rgba(10,40,20,.25)"; x.beginPath(); x.ellipse(tx + 6, ty + 3, 12, 4, 0, 0, 7); x.fill(); x.strokeStyle = "#5c6672"; x.lineWidth = 2.2; x.beginPath(); x.moveTo(tx - 6, ty); x.lineTo(tx - 6, ty - 150); x.moveTo(tx + 6, ty); x.lineTo(tx + 6, ty - 150); x.stroke(); x.lineWidth = 1.1; x.beginPath(); for (let k = 0; k < 15; k++) { const yy = ty - k * 10; x.moveTo(tx - 6, yy); x.lineTo(tx + 6, yy - 10); x.moveTo(tx + 6, yy); x.lineTo(tx - 6, yy - 10); } x.stroke(); x.fillStyle = "#e84a3a"; x.beginPath(); x.arc(tx, ty - 154, 2.4 + Math.sin(T * 4) * 0.6, 0, 7); x.fill(); x.strokeStyle = "#8a94a2"; x.lineWidth = 3; x.beginPath(); x.moveTo(tx - 6, ty - 100); x.lineTo(tx - 24, ty - 100); x.stroke(); }
+  const ry = py - 4 - (launch > 0 ? Math.pow(1 - launch / 2, 2) * 520 : 0); x.save(); x.translate(px, ry); x.scale(0.8, 0.8);
+  const steel = (x0: number, w: number) => { const g = x.createLinearGradient(x0, 0, x0 + w, 0); g.addColorStop(0, "#8d96a3"); g.addColorStop(0.28, "#f4f7fb"); g.addColorStop(0.55, "#c9d0da"); g.addColorStop(1, "#6f7886"); return g; };
+  const ln = "rgba(40,48,60,.7)";
+  // engines: a cluster of Raptor bells
+  x.fillStyle = "#3a4048"; x.strokeStyle = ln; x.lineWidth = 1; for (const ex of [-8, -2.7, 2.7, 8]) { x.beginPath(); x.moveTo(ex - 3, 0); x.lineTo(ex - 4.4, 6); x.lineTo(ex + 4.4, 6); x.lineTo(ex + 3, 0); x.closePath(); x.fill(); x.stroke(); }
+  if (launch > 0) { const fl = 1 + 0.18 * Math.sin(T * 38), g = x.createLinearGradient(0, 4, 0, 90 * fl); g.addColorStop(0, "rgba(255,255,230,.98)"); g.addColorStop(0.3, "rgba(255,190,70,.9)"); g.addColorStop(1, "rgba(255,90,20,0)"); x.fillStyle = g; x.beginPath(); x.moveTo(-14, 4); x.quadraticCurveTo(-18, 40 * fl, 0, 90 * fl); x.quadraticCurveTo(18, 40 * fl, 14, 4); x.closePath(); x.fill(); }
+  // Super Heavy booster: a stainless cylinder, grid fins near the top, a black interstage ring
+  x.fillStyle = steel(-12, 24); x.strokeStyle = ln; x.lineWidth = 1.2; x.beginPath(); x.rect(-12, -62, 24, 62); x.fill(); x.stroke();
+  x.strokeStyle = "rgba(60,70,84,.35)"; x.lineWidth = 0.8; for (let k = 1; k < 6; k++) { x.beginPath(); x.moveTo(-12, -k * 10.3); x.lineTo(12, -k * 10.3); x.stroke(); }
+  x.fillStyle = "#4a525e"; x.strokeStyle = ln; x.lineWidth = 1; for (const sx of [-1, 1]) { x.beginPath(); x.rect(sx > 0 ? 12 : -18, -60, 6, 7); x.fill(); x.stroke(); }
+  x.fillStyle = "#1c2026"; x.fillRect(-12, -66, 24, 4);
+  // Starship: stainless hull, a dark heat-shield edge, ogive nose, forward and aft flaps
+  x.fillStyle = steel(-12, 24); x.strokeStyle = ln; x.lineWidth = 1.2; x.beginPath(); x.moveTo(-12, -66); x.lineTo(-12, -112); x.quadraticCurveTo(-11, -138, 0, -152); x.quadraticCurveTo(11, -138, 12, -112); x.lineTo(12, -66); x.closePath(); x.fill(); x.stroke();
+  x.fillStyle = "rgba(18,22,28,.82)"; x.beginPath(); x.moveTo(8.5, -66); x.lineTo(8.5, -112); x.quadraticCurveTo(9, -132, 5, -144); x.quadraticCurveTo(11, -136, 12, -112); x.lineTo(12, -66); x.closePath(); x.fill();
+  x.strokeStyle = "rgba(60,70,84,.35)"; x.lineWidth = 0.8; for (let k = 1; k < 5; k++) { x.beginPath(); x.moveTo(-12, -66 - k * 9); x.lineTo(12, -66 - k * 9); x.stroke(); }
+  x.fillStyle = "#2a2f37"; x.strokeStyle = ln; x.lineWidth = 1; for (const sx of [-1, 1]) { x.beginPath(); x.moveTo(sx * 12, -124); x.lineTo(sx * 19, -118); x.lineTo(sx * 19, -108); x.lineTo(sx * 12, -110); x.closePath(); x.fill(); x.stroke(); x.beginPath(); x.moveTo(sx * 12, -80); x.lineTo(sx * 22, -72); x.lineTo(sx * 22, -66); x.lineTo(sx * 12, -68); x.closePath(); x.fill(); x.stroke(); }
+  x.fillStyle = "rgba(255,255,255,.55)"; x.beginPath(); x.ellipse(-6, -98, 1.8, 30, 0, 0, 7); x.fill();
+  x.restore();
 }
 
 /* An animal's house: a foundation with a price, then a house that rises over a few seconds, then (when bought) a price tag for the animal. `a.x, a.y` is the centre of its footprint. */
