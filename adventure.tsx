@@ -187,8 +187,8 @@ function drawLightning(ctx: CanvasRenderingContext2D, a: any, high: boolean) {
   }
   ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round"; ctx.lineJoin = "round";
   const pass = (w: number, col: string, k: number) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.globalAlpha = al * k; for (const pa of paths) { ctx.beginPath(); pa.forEach((pt, i) => (i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]))); ctx.stroke(); } };
-  pass(high ? 16 : 10, "rgb(90,60,255)", 0.16); pass(high ? 9 : 6, "rgb(60,130,255)", 0.3); pass(3.6, "rgb(150,215,255)", 0.7); pass(1.6, "#ffffff", 1);   // owner 2026-10-12: the bolt was too big
-  ctx.globalAlpha = al; for (const pt of a.pts) { ctx.fillStyle = "rgba(150,200,255,.45)"; ctx.beginPath(); ctx.arc(pt[0], pt[1], 8 + Math.random() * 3, 0, 6.3); ctx.fill(); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(pt[0], pt[1], 2.6, 0, 6.3); ctx.fill(); }
+  pass(high ? 9 : 6, "rgb(90,60,255)", 0.16); pass(high ? 5 : 3.5, "rgb(60,130,255)", 0.3); pass(2.1, "rgb(150,215,255)", 0.7); pass(1, "#ffffff", 1);   // owner 2026-10-12: the bolt was too big
+  ctx.globalAlpha = al; for (const pt of a.pts) { ctx.fillStyle = "rgba(150,200,255,.45)"; ctx.beginPath(); ctx.arc(pt[0], pt[1], 4.5 + Math.random() * 2, 0, 6.3); ctx.fill(); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(pt[0], pt[1], 1.7, 0, 6.3); ctx.fill(); }
   ctx.restore();
 }
 let KEEP_FS = false;   // going straight to the next map keeps the full screen: the old run's cleanup must not leave it   // the planet's monster palette (null = Luma's own)
@@ -1747,17 +1747,17 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
     const fireRocket = () => {
       if (pl.dead || pl.rockCd > 0) return;
-      const k3 = LOAD.rocket, salvo = k3 === "nuke" || k3 === "big" || k3 === "rpg" || k3 === "sticky" || k3 === "emp" ? 1 : 2 + (UPS.rkt >= 2 ? 1 : 0) + (UPS.rkt >= 4 ? 1 : 0);   // owner 2026-10-11: several missiles every press, rapid, short reload
+      const k3 = LOAD.rocket, salvo = k3 === "nuke" || k3 === "big" || k3 === "rpg" || k3 === "sticky" || k3 === "emp" ? 1 : 4 + (UPS.rkt >= 2 ? 1 : 0) + (UPS.rkt >= 4 ? 1 : 0);   // owner 2026-10-11: several missiles every press, rapid, short reload
       pl.rockCd = ({ mini: 0.16, big: 1.1, nuke: 3, homing: 0.26, cluster: 0.4, napalm: 0.45, rpg: 0.7, frag: 0.5, sticky: 0.6, emp: 0.8 } as any)[k3] || 0.3; pl.rockCd *= mods.cdMul * (1 - 0.06 * UPS.rkt); rocketN += salvo; sfx.play("rocket", rv); pl.swing = 0.2; setPose("kick"); setTimeout(() => setPose("ready"), 200);
       const ox = pl.x + pl.face * 28, oy = pl.y + 52;
       shake = Math.max(shake, HI() ? 5 : 3); blasts.push({ x: ox, y: oy, r: 58, life: 0.2, max: 0.2, flash: true }); for (let a = 0; a < (HI() ? 12 : 5); a++) addPart(ox, GROUND - oy, pl.face * (150 + Math.random() * 320), (Math.random() - 0.5) * 140, 0.35, "255,210,120", 2.5);   // muzzle flash and a spray of sparks
       for (let a = 0; a < (HI() ? 14 : 6); a++) { smoke.push({ x: ox - pl.face * 10, y: oy + (Math.random() - 0.5) * 12, vx: -pl.face * (60 + Math.random() * 120), vy: (Math.random() - 0.3) * 40, life: 0.6 + Math.random() * 0.3, max: 0.9, r: 4 + Math.random() * 5 }); }   // backblast
-      const SC: any = { mini: 0.62, big: 1.5, nuke: 2.3 };
+      const SC: any = { mini: 1.0, homing: 1.7, cluster: 1.7, napalm: 1.7, big: 2.3, nuke: 3.2 };   // owner 2026-10-16: rockets as big as in PvP, several at once
       for (let q = 0; q < salvo; q++) {   // a salvo fans out a little so the missiles do not sit on each other
-        const fan = (q - (salvo - 1) / 2), sc = SC[k3] || 1;
+        const fan = (q - (salvo - 1) / 2) * 1.5, sc = SC[k3] || 1.7;
         if (k3 === "homing" || k3 === "mini") rockets.push({ k: k3, sc, x: ox, y: oy + fan * 10, vx: pl.face * (k3 === "mini" ? 420 : 300), vy: 40 + fan * 90, life: 2.6 });
         else if (k3 === "big" || k3 === "nuke") rockets.push({ k: k3, sc, x: ox, y: oy, vx: pl.face * (k3 === "nuke" ? 230 : 300), vy: k3 === "nuke" ? 60 : 90, life: 3.2, g: k3 === "nuke" ? 60 : 120 });
-        else if (k3 === "rpg") rockets.push({ k: "rpg", sc: 1.05, x: ox, y: oy, vx: pl.face * 640, vy: 0, life: 1.6, g: 0 });
+        else if (k3 === "rpg") rockets.push({ k: "rpg", sc: 1.6, x: ox, y: oy, vx: pl.face * 640, vy: 0, life: 1.6, g: 0 });
         else if (k3 === "frag") rockets.push({ k: "frag", sc: 0.5, x: ox, y: oy, vx: pl.face * 330, vy: 280, life: 1.4, g: 760 });
         else if (k3 === "sticky") rockets.push({ k: "sticky", sc: 0.5, x: ox, y: oy, vx: pl.face * 300, vy: 300, life: 1.3, g: 800 });
         else if (k3 === "emp") rockets.push({ k: "emp", sc: 0.55, x: ox, y: oy, vx: pl.face * 340, vy: 260, life: 1.2, g: 760 });

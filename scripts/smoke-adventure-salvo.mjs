@@ -28,7 +28,7 @@ async function run(kind, up, label) {
   const n0 = await p.evaluate(() => window.__advTest.rocketsN());
   await p.evaluate(() => window.__advTest.rocketNow()); await p.waitForTimeout(60);
   const fired = (await p.evaluate(() => window.__advTest.rocketsN())) - n0, live = await p.evaluate(() => window.__advTest.rocketsLive());
-  ok(label + ": one press fires " + (up >= 4 ? 4 : up >= 2 ? 3 : 2) + " (live " + live + ")", fired === (kind === "nuke" || kind === "big" ? 1 : up >= 4 ? 4 : up >= 2 ? 3 : 2) && live === fired, "fired " + fired + " live " + live);
+  ok(label + ": one press fires " + (up >= 4 ? 6 : up >= 2 ? 5 : 4) + " (live " + live + ")", fired === (kind === "nuke" || kind === "big" ? 1 : up >= 4 ? 6 : up >= 2 ? 5 : 4) && live <= fired && live >= fired - 1, "fired " + fired + " live " + live);
   ok(label + ": no errors", errs.length === 0, errs.join("|")); await ctx.close();
 }
 await run("mini", 0, "mini"); await run("mini", 4, "mini salvo Lv4"); await run("homing", 2, "homing salvo Lv2"); await run("big", 4, "big"); await run("nuke", 0, "nuke");

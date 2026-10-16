@@ -18,7 +18,7 @@ await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "lo
 for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
 await p.evaluate(() => document.querySelector(".pvpadv").click()); await p.waitForSelector(".adv-planet");
 ok("an unfound weapon is not in the loadout list", (await p.locator('[data-w=minigun]').count()) === 0);
-await p.locator(".adv-planet").first().tap(); await p.waitForSelector(".adv canvas"); await p.waitForFunction(() => !!window.__advTest, null, { timeout: 10000 }); await p.waitForTimeout(800);
+await p.evaluate(() => document.querySelector(".adv-planet").click()); await p.waitForSelector(".adv canvas"); await p.waitForFunction(() => !!window.__advTest, null, { timeout: 10000 }); await p.waitForTimeout(800);
 const T = (f, ...a) => p.evaluate(([f, a]) => window.__advTest[f](...a), [f, a]);
 // 1. a dropped weapon is picked up and equipped
 await T("dropHere", "w:minigun"); await p.waitForTimeout(400);
