@@ -569,6 +569,78 @@ function sphere(x: Cx, cx: number, cy: number, r: number, base: string, glow: st
   x.restore();
   x.globalCompositeOperation = "lighter"; const a = x.createRadialGradient(cx, cy, r * 0.96, cx, cy, r * 1.16); a.addColorStop(0, rgba(glow, 0.5)); a.addColorStop(1, rgba(glow, 0)); x.fillStyle = a; x.beginPath(); x.arc(cx, cy, r * 1.16, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
 }
+
+/* ── real-looking worlds (owner, 2026-10-16: "make Mars look like Mars, Saturn like Saturn, Venus, Mercury, Proxima b"). Each known world gets a procedural surface
+   texture (periodic value noise: albedo regions, craters, canyons, cloud bands, polar caps) painted ONCE into a cached canvas, then lit and limb-darkened live, with
+   a thin atmosphere rim and, for Saturn, a ring system that passes in front and behind. Own procedural art after photographs of the real planets (Proxima b is
+   imagined: nobody has seen it). A world that is not listed keeps the old flat `sphere`. ── */
+const WORLD_KIND: Record<string, string> = { marscolony: "mars", colmars: "mars", ranchmars: "mars", mercury: "mercury", venussky: "venus", saturnrings: "saturn", jupitergas: "jupiter", gasskim: "jupiter", gaspump: "jupiter", gasbuild: "jupiter", moonhe3: "moon", moonbase: "moon", colmoon: "moon", titanassault: "titan", titancolony: "titan", coltitan: "titan", ranchtitan: "titan", colproxima: "proxima", ranchproxima: "proxima" };
+const worldKind = (P: any): string => (P && WORLD_KIND[P.id]) || "";
+const hash2 = (ix: number, iy: number, sd: number) => { const n = Math.sin(ix * 127.1 + iy * 311.7 + sd * 74.7) * 43758.5453; return n - Math.floor(n); };
+function vnoise(u: number, v: number, per: number, sd: number) {   // periodic in u so the texture wraps round the planet
+  const x = u * per, y = v * per * 0.5, ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  const h = (a: number, b: number) => hash2(((a % per) + per) % per, b, sd);
+  return (h(ix, iy) * (1 - sx) + h(ix + 1, iy) * sx) * (1 - sy) + (h(ix, iy + 1) * (1 - sx) + h(ix + 1, iy + 1) * sx) * sy;
+}
+const fbm = (u: number, v: number, per: number, sd: number, oct = 5) => { let a = 0, amp = 0.5, tot = 0, p = per; for (let o = 0; o < oct; o++) { a += vnoise(u, v, p, sd + o * 7) * amp; tot += amp; amp *= 0.5; p *= 2; } return a / tot; };
+const mix3 = (a: number[], b: number[], t: number) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const TEX: Record<string, HTMLCanvasElement> = {};
+function worldTexture(kind: string): HTMLCanvasElement {
+  if (TEX[kind]) return TEX[kind];
+  const TW = 512, TH = 256, cv = document.createElement("canvas"); cv.width = TW; cv.height = TH; const c = cv.getContext("2d")!, im = c.createImageData(TW, TH), d = im.data;
+  for (let py = 0; py < TH; py++) for (let px = 0; px < TW; px++) {
+    const u = px / TW, v = py / TH, lat = Math.abs(v - 0.5) * 2; let col: number[];
+    if (kind === "mars") {
+      const big = fbm(u, v, 3, 11, 4), fine = fbm(u, v, 14, 21, 4), dark = Math.max(0, Math.min(1, (big - 0.46) * 4.5));   // dark basalt plains (Syrtis, Acidalia) on rusty dust
+      col = mix3([196, 112, 62], [214, 150, 96], fine); col = mix3(col, [78, 44, 34], dark * 0.82); col = mix3(col, col.map(q => q * (0.85 + fine * 0.3)), 1);
+      const cany = Math.exp(-Math.pow((v - 0.54 - Math.sin(u * 14) * 0.012) * 52, 2)) * (u > 0.12 && u < 0.4 ? 1 : 0); col = mix3(col, [70, 36, 28], cany * 0.75);   // Valles Marineris
+      const cap = Math.max(0, lat - 0.86 - fbm(u, v, 9, 31, 3) * 0.1) * 12; col = mix3(col, [244, 240, 236], Math.min(1, cap));
+    } else if (kind === "mercury") {
+      const g = fbm(u, v, 10, 41, 5); col = mix3([92, 88, 84], [168, 162, 154], g); const rid = Math.abs(fbm(u, v, 22, 51, 3) - 0.5); col = mix3(col, [66, 62, 60], Math.max(0, 0.08 - rid) * 6);
+    } else if (kind === "moon") {
+      const mare = Math.max(0, Math.min(1, (fbm(u, v, 3, 61, 3) - 0.5) * 5)), g = fbm(u, v, 14, 71, 4); col = mix3([176, 172, 166], [210, 206, 198], g); col = mix3(col, [86, 88, 94], mare * 0.8);
+    } else if (kind === "venus") {
+      const sw = fbm(u + Math.sin(v * 9 + fbm(u, v, 4, 81, 2) * 4) * 0.06, v * 1.6, 5, 91, 5); col = mix3([226, 190, 120], [252, 238, 190], sw); col = mix3(col, [196, 150, 92], Math.pow(fbm(u, v * 2, 6, 101, 4), 2) * 0.7);
+    } else if (kind === "saturn") {
+      const band = Math.sin(v * 38 + fbm(u, v, 3, 111, 3) * 2.2) * 0.5 + 0.5, f = fbm(u, v * 3, 8, 121, 4); col = mix3([200, 172, 112], [236, 214, 160], band * 0.7 + f * 0.3); col = mix3(col, [172, 140, 92], Math.max(0, Math.sin(v * 13 + 1) * 0.3));
+    } else if (kind === "jupiter") {
+      const t = fbm(u + Math.sin(v * 20) * 0.04, v * 1.4, 6, 131, 5), band = Math.sin(v * 46 + t * 3) * 0.5 + 0.5; col = mix3([154, 98, 64], [238, 214, 178], band); col = mix3(col, [120, 70, 50], t > 0.55 ? (t - 0.55) * 2 : 0);
+      const rs = Math.exp(-(Math.pow((u - 0.62) * 9, 2) + Math.pow((v - 0.62) * 22, 2))); col = mix3(col, [190, 70, 44], Math.min(0.9, rs));   // the Great Red Spot
+    } else if (kind === "titan") {
+      const f = fbm(u, v, 6, 141, 4); col = mix3([204, 146, 62], [232, 184, 96], f); col = mix3(col, [176, 112, 48], Math.max(0, Math.sin(v * 9) * 0.25));
+    } else {   // proxima b: imagined. rock and shallow sea under a red dwarf, dark coastal vegetation-free browns (no one has seen it)
+      const land = fbm(u, v, 4, 151, 5), fine = fbm(u, v, 16, 161, 3); const sea = land < 0.48; col = sea ? mix3([54, 28, 36], [84, 44, 52], fine) : mix3([126, 66, 52], [168, 104, 70], fine); col = mix3(col, [34, 20, 26], Math.max(0, (fbm(u, v, 8, 171, 3) - 0.55) * 2));
+    }
+    const i = (py * TW + px) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+  }
+  c.putImageData(im, 0, 0);
+  if (kind === "mercury" || kind === "moon" || kind === "mars") {   // craters: a dark floor and a bright rim on the sun side
+    const n = kind === "mars" ? 40 : 190; for (let i = 0; i < n; i++) { const cx = hash2(i, 1, 5) * TW, cy = (0.08 + hash2(i, 2, 5) * 0.84) * TH, r = 1.5 + Math.pow(hash2(i, 3, 5), 3) * (kind === "mars" ? 9 : 16);
+      for (const ox of [0, -TW, TW]) { c.fillStyle = "rgba(20,16,14,.28)"; c.beginPath(); c.arc(cx + ox, cy, r, 0, 7); c.fill(); c.strokeStyle = "rgba(255,248,236,.32)"; c.lineWidth = 1; c.beginPath(); c.arc(cx + ox - 0.6, cy - 0.6, r, 3.6, 5.8); c.stroke(); } } }
+  TEX[kind] = cv; return cv;
+}
+const ATMO: Record<string, string> = { mars: "255,170,120", venus: "255,226,150", saturn: "255,232,180", jupiter: "255,220,180", titan: "255,190,90", proxima: "255,90,70", mercury: "", moon: "" };
+function world(x: Cx, cx: number, cy: number, r: number, kind: string, lightDeg: number, t: number) {
+  const tex = worldTexture(kind), tilt = kind === "saturn" ? -0.42 : 0;
+  const rings = (front: boolean) => {   // Saturn's rings: tilted ellipses, the far half behind the globe, the near half in front; the globe's shadow falls across them
+    x.save(); x.translate(cx, cy); x.rotate(tilt); const ry = 0.24; x.scale(1, ry);   // squash the circles so the strokes squash too (a real ring seen at a tilt)
+    const bands: [number, number, string][] = [[1.24, 1.4, "rgba(96,80,58,.30)"], [1.42, 1.62, "rgba(176,152,112,.70)"], [1.64, 1.9, "rgba(196,176,138,.82)"], [1.93, 1.99, "rgba(20,16,12,.40)"], [2.0, 2.28, "rgba(168,148,114,.55)"], [2.34, 2.4, "rgba(176,160,126,.35)"]];
+    for (const [a, b, col] of bands) { x.strokeStyle = col; x.lineWidth = (b - a) * r; x.beginPath(); x.arc(0, 0, (a + b) / 2 * r, front ? 0 : Math.PI, front ? Math.PI : Math.PI * 2); x.stroke(); }
+    x.restore();
+  };
+  if (kind === "saturn") rings(false);
+  x.save(); x.beginPath(); x.arc(cx, cy, r, 0, 7); x.clip();
+  const sc = (r * 2) / tex.height, tw = tex.width * sc, off = (t * r * 0.03) % tw;   // the surface turns slowly
+  for (let k = -1; k <= 1; k++) x.drawImage(tex, cx - r - off + k * tw + (tw - r * 2) * 0.0, cy - r, tw, r * 2);
+  { const dim = kind === "venus" || kind === "saturn" || kind === "jupiter" || kind === "moon" ? 0.42 : kind === "proxima" ? 0.45 : 0.22; x.fillStyle = `rgba(4,4,10,${dim})`; x.fillRect(cx - r, cy - r, r * 2, r * 2); }   // the film grade and bloom lift everything, so the texture is painted under-exposed
+  const lx = cx + Math.cos(lightDeg * Math.PI / 180) * r * 0.55, ly = cy + Math.sin(lightDeg * Math.PI / 180) * r * 0.55;
+  const sh = x.createRadialGradient(lx, ly, r * 0.15, cx, cy, r * 1.08); sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(0.55, "rgba(0,0,6,.18)"); sh.addColorStop(0.85, "rgba(0,0,8,.62)"); sh.addColorStop(1, "rgba(0,0,10,.94)"); x.fillStyle = sh; x.fillRect(cx - r, cy - r, r * 2, r * 2);
+  if (kind === "venus" || kind === "titan") { x.globalCompositeOperation = "screen"; const hz = x.createRadialGradient(lx, ly, r * 0.1, cx, cy, r); hz.addColorStop(0, "rgba(255,240,200,.12)"); hz.addColorStop(1, "rgba(255,200,120,0)"); x.fillStyle = hz; x.fillRect(cx - r, cy - r, r * 2, r * 2); x.globalCompositeOperation = "source-over"; }
+  if (kind === "saturn") { const ang = -tilt; x.save(); x.translate(cx, cy); x.rotate(tilt); x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(-r, -r * 0.03, r * 2, r * 0.07); x.restore(); void ang; }   // ring shadow on the globe
+  x.restore();
+  const at = ATMO[kind]; if (at) { x.globalCompositeOperation = "lighter"; const a = x.createRadialGradient(cx, cy, r * 0.97, cx, cy, r * (kind === "venus" ? 1.14 : 1.08)); a.addColorStop(0, `rgba(${at},${kind === "venus" ? 0.3 : 0.16})`); a.addColorStop(1, `rgba(${at},0)`); x.fillStyle = a; x.beginPath(); x.arc(cx, cy, r * 1.14, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; }
+  if (kind === "saturn") rings(true);
+}
 /* ── the cast (owner, 2026-10-11: more realistic, more beautiful robots; many kinds of aliens, grand and fierce; cooler ships) ── */
 const metalG = (x: Cx, x0: number, y0: number, x1: number, y1: number, base: string, hi = 0.35) => { const g = x.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, "rgba(255,255,255," + hi + ")"); g.addColorStop(0.18, base); g.addColorStop(0.75, "#0a1018"); g.addColorStop(1, "#05080e"); return g; };
 const poly = (x: Cx, pts: number[][]) => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0], pts[i][1]); x.closePath(); };
@@ -702,7 +774,7 @@ function sceneLaunch(x: Cx, W: number, H: number, u: number, t: number, glow: st
 }
 function sceneApproach(x: Cx, W: number, H: number, u: number, t: number, P: any) {
   const c = hexRgb(P.c[2]); space(x, W, H, t, 3, P.glow); const r = H * (0.06 + 0.4 * (1 - Math.pow(1 - u, 2))), cx = W * 0.62, cy = H * 0.5;
-  sphere(x, cx, cy, r, c, P.glow, -40, P.id === "jovia" ? 14 : P.id === "helios" ? 0 : 0, false, t);
+  if (worldKind(P)) world(x, cx, cy, r, worldKind(P), -40, t); else sphere(x, cx, cy, r, c, P.glow, -40, P.id === "jovia" ? 14 : P.id === "helios" ? 0 : 0, false, t);
   if (P.id === "helios") { x.globalCompositeOperation = "lighter"; const s = x.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2.2); s.addColorStop(0, "rgba(255,240,180,.9)"); s.addColorStop(0.3, "rgba(255,170,60,.4)"); s.addColorStop(1, "rgba(255,120,30,0)"); x.fillStyle = s; x.beginPath(); x.arc(cx, cy, r * 2.2, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; }
   x.setLineDash([6, 8]); x.strokeStyle = rgba(P.acc, 0.7); x.lineWidth = 1.5; x.beginPath(); x.ellipse(cx, cy, r * 1.7, r * 0.5, -0.3, 0, 7); x.stroke(); x.setLineDash([]);
   const a = t * 1.1; ship(x, cx + Math.cos(a) * r * 1.7 * Math.cos(-0.3) - Math.sin(a) * r * 0.5 * Math.sin(-0.3), cy + Math.cos(a) * r * 1.7 * Math.sin(-0.3) + Math.sin(a) * r * 0.5 * Math.cos(-0.3), H / 400, a + 1.6, P.glow);
@@ -713,7 +785,7 @@ function sceneSurface(x: Cx, W: number, H: number, u: number, t: number, P: any,
   for (const s of STARS) if (s.y < 0.5) { x.fillStyle = `rgba(255,255,255,${0.2 * s.z})`; x.fillRect(s.x * W, s.y * H, 1.2, 1.2); }
   const pan = (u - 0.5) * 60;
   if (type === "sun") { const cx = W * 0.6 - pan * 0.4, cy = hz * 0.75; x.globalCompositeOperation = "lighter"; const s = x.createRadialGradient(cx, cy, 0, cx, cy, H * 0.8); s.addColorStop(0, "rgba(255,250,210,1)"); s.addColorStop(0.18, "rgba(255,200,90,.85)"); s.addColorStop(0.5, "rgba(255,120,40,.3)"); s.addColorStop(1, "rgba(255,80,20,0)"); x.fillStyle = s; x.fillRect(0, 0, W, hz + 30); for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28 + t * 0.2, l = H * (0.45 + 0.2 * Math.sin(t * 2 + i)); x.strokeStyle = "rgba(255,220,140,.35)"; x.lineWidth = 3; x.beginPath(); x.moveTo(cx + Math.cos(a) * H * 0.2, cy + Math.sin(a) * H * 0.2); x.lineTo(cx + Math.cos(a) * l, cy + Math.sin(a) * l); x.stroke(); } x.globalCompositeOperation = "source-over"; }
-  if (type === "gas") { sphere(x, W * 0.7 - pan, hz * 0.55, H * 0.55, hexRgb(P.c[2]), P.glow, -30, 16, false, t); }
+  if (type === "gas") { if (worldKind(P)) world(x, W * 0.7 - pan, hz * 0.55, H * 0.55, worldKind(P), -30, t); else sphere(x, W * 0.7 - pan, hz * 0.55, H * 0.55, hexRgb(P.c[2]), P.glow, -30, 16, false, t); }
   x.fillStyle = "rgba(0,0,0,.55)";
   if (type === "jungle") for (let i = 0; i < 9; i++) { const px = ((i / 9 * W * 1.2 + pan * (0.5 + i * 0.05)) % (W * 1.2)), hh = H * (0.12 + rnd(i) * 0.16); x.fillStyle = "#04120f"; x.fillRect(px - 4, hz - hh, 8, hh); x.fillStyle = rgba(P.glow, 0.45 + 0.2 * Math.sin(t * 2 + i)); x.beginPath(); x.ellipse(px, hz - hh, hh * 0.55, hh * 0.22, 0, Math.PI, 0); x.fill(); }
   if (type === "desert") { x.fillStyle = "#1a0d05"; for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(-50 + i * W / 3 + pan, hz); x.quadraticCurveTo(W / 6 + i * W / 3 + pan, hz - H * 0.18, W / 3 + i * W / 3 + 50 + pan, hz); x.fill(); } for (let i = 0; i < 5; i++) { x.fillStyle = "#2b1608"; x.fillRect(W * (0.1 + i * 0.2) + pan, hz - H * (0.12 + rnd(i) * 0.1), 10, H * 0.25); } }
@@ -881,7 +953,7 @@ const NEWCAP: Record<string, Record<string, L3>> = {
 function sceneSurvey(x: Cx, W: number, H: number, u: number, t: number, P: any) {
   space(x, W, H, t, 1.2, P.glow);
   const cx = W * 0.64, cy = H * 0.52, r = H * (0.34 + 0.05 * u);
-  sphere(x, cx, cy, r, hexRgb(P.c[2]), P.glow, -40, P.mission === "skim" || P.id === "jovia" ? 12 : 0, false, t);
+  if (worldKind(P)) world(x, cx, cy, r, worldKind(P), -40, t); else sphere(x, cx, cy, r, hexRgb(P.c[2]), P.glow, -40, P.mission === "skim" || P.id === "jovia" ? 12 : 0, false, t);
   x.save(); x.beginPath(); x.arc(cx, cy, r, 0, 7); x.clip(); x.strokeStyle = rgba(P.acc, 0.35); x.lineWidth = 1;
   for (let k = -3; k <= 3; k++) { const q = 1 - (k * 0.25) * (k * 0.25); x.beginPath(); x.ellipse(cx, cy + k * r * 0.25, r * Math.sqrt(Math.max(0, q)), r * 0.08, 0, 0, 7); x.stroke(); }
   for (let k = 0; k < 5; k++) { x.beginPath(); x.ellipse(cx, cy, Math.max(1, r * Math.abs(Math.cos(k / 5 * Math.PI + t * 0.15))), r, 0, 0, 7); x.stroke(); }
@@ -916,7 +988,7 @@ function sceneLanding(x: Cx, W: number, H: number, u: number, t: number, P: any,
 }
 function sceneCrew(x: Cx, W: number, H: number, u: number, t: number, P: any, eye: string) {
   const g = x.createRadialGradient(W * 0.65, H * 0.4, 0, W * 0.65, H * 0.4, H); g.addColorStop(0, rgba(P.glow, 0.35)); g.addColorStop(1, "#02040a"); x.fillStyle = g; x.fillRect(0, 0, W, H);
-  x.save(); x.beginPath(); x.ellipse(W * 0.76, H * 0.5, W * 0.17, H * 0.3, 0, 0, 7); x.clip(); space(x, W, H, t, 0.6, P.glow); sphere(x, W * 0.8, H * 0.66, H * 0.36, hexRgb(P.c[2]), P.glow, -50, 0, false, t); x.restore();
+  x.save(); x.beginPath(); x.ellipse(W * 0.76, H * 0.5, W * 0.17, H * 0.3, 0, 0, 7); x.clip(); space(x, W, H, t, 0.6, P.glow); if (worldKind(P)) world(x, W * 0.8, H * 0.66, H * 0.36, worldKind(P), -50, t); else sphere(x, W * 0.8, H * 0.66, H * 0.36, hexRgb(P.c[2]), P.glow, -50, 0, false, t); x.restore();
   x.strokeStyle = "rgba(150,200,230,.55)"; x.lineWidth = 4; x.beginPath(); x.ellipse(W * 0.76, H * 0.5, W * 0.17, H * 0.3, 0, 0, 7); x.stroke();
   robot(x, W * (0.34 - 0.03 * u), H * 1.04, H / 150 * (1 + 0.05 * u), "#0a1320", eye, 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2)), 0);
   x.globalCompositeOperation = "lighter"; const key = x.createLinearGradient(W, 0, W * 0.3, 0); key.addColorStop(0, rgba(P.acc, 0.22)); key.addColorStop(1, rgba(P.acc, 0)); x.fillStyle = key; x.fillRect(0, 0, W, H);
