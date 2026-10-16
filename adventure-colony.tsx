@@ -124,8 +124,11 @@ const BCOL: Record<string, string> = { hab: "0,230,255", solar: "90,140,255", wa
 const BH: Record<string, number> = { hab: 1.5, solar: 0.25, water: 0.7, oxy: 0.9, farm: 0.6, mine: 1.0, lab: 1.6, med: 1.1, reactor: 1.4, port: 0.4, park: 0.35, school: 1.1, recycler: 0.8, market: 0.9, geo: 0.7, tower: 1.9, shield: 1.2 };
 const SKY: Record<string, string[]> = { moon: ["#5d6f9a", "#9aa6c4", "#cfd3de"], mars: ["#d9895a", "#e9a877", "#f0c093"], titan: ["#b9852f", "#dcae5c", "#ecc983"], proxima: ["#8a2a40", "#c45a6e", "#e49aa6"] };
 const TW0 = 72;   // the width of one plot in world pixels
-const WORLD = { x0: ROWS * TW0 / 2, y0: TW0 * 1.5, w: (COLS + ROWS) * TW0 / 2, h: (COLS + ROWS) * TW0 / 4 + TW0 * 2.1 };
-const ptW = (c: number, r: number) => [WORLD.x0 + (c - r) * TW0 / 2, WORLD.y0 + (c + r) * TW0 / 4];
+const WORLD = { x0: (COLS + ROWS) * TW0 / 4, y0: TW0 * 1.5, w: (COLS + ROWS) * TW0 / 2, h: (COLS + ROWS) * TW0 / 4 + TW0 * 2.1 };
+/* view angle (owner, 2026-10-16: two fingers turn the city): the grid is rotated about its centre before the isometric projection; at 0 it is the old view exactly */
+let ROT = 0;
+const ptW = (c: number, r: number) => { const dc = c - COLS / 2, dr = r - ROWS / 2, co = Math.cos(ROT), si = Math.sin(ROT), a = dc * co - dr * si, b = dc * si + dr * co; return [WORLD.x0 + (a - b) * TW0 / 2, WORLD.y0 + (COLS + ROWS) * TW0 / 8 + (a + b) * TW0 / 4]; };
+const unW = (wx: number, wy: number) => { const u = (wx - WORLD.x0) / (TW0 / 2), v = (wy - WORLD.y0 - (COLS + ROWS) * TW0 / 8) / (TW0 / 4), a = (u + v) / 2, b = (v - u) / 2, co = Math.cos(ROT), si = Math.sin(ROT); return [a * co + b * si + COLS / 2, -a * si + b * co + ROWS / 2]; };
 function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kind: string, cam: { x: number; y: number; z: number }, T: number, era: number) {
   const sk = SKY[kind] || SKY.moon, pal = PALS[kind] || PALS.moon;
   const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk[0]); g.addColorStop(0.55, sk[1]); g.addColorStop(1, sk[2]); x.fillStyle = g; x.fillRect(0, 0, W, H);
@@ -155,8 +158,8 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
   // the Starbase landmark at the north corner of the plot: a stainless Starship on its booster beside the launch tower, standing in the world so it pans and zooms with the city
   { const lm = ptW(COLS * 0.5, -1.2); if (vis(lm[0], lm[1], 220)) { x.save(); x.fillStyle = "rgba(255,190,110,.16)"; x.beginPath(); x.ellipse(lm[0], lm[1] + 6, 120, 30, 0, 0, 7); x.fill(); x.fillStyle = "#222a36"; x.beginPath(); x.ellipse(lm[0], lm[1] + 4, 62, 16, 0, 0, 7); x.fill(); tower(x, lm[0] - 70, lm[1] + 4, 1.5, T); starship(x, lm[0], lm[1] + 4, 1.5, T, true); x.restore(); } }
   // buildings, back to front
-  for (let sum = 0; sum < COLS + ROWS; sum++) for (let r = 0; r < ROWS; r++) { const c = sum - r; if (c < 0 || c >= COLS) continue; const cell = S.grid[r * COLS + c]; if (!cell.b) continue; const m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0 * 2)) continue;
-    drawBuilding(x, cell.b, m[0], m[1], TW0, era, T, pal, r * COLS + c); }
+  { const list: any[] = []; for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const cell = S.grid[r * COLS + c]; if (!cell.b) continue; const m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0 * 2)) continue; list.push([m, cell.b, r * COLS + c]); }
+    list.sort((p, q) => p[0][1] - q[0][1]); for (const [m, b, i] of list) drawBuilding(x, b, m[0], m[1], TW0, era, T, pal, i); }
   { const h0 = Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2) - 1, m0 = ptW(h0 % COLS + 1, Math.floor(h0 / COLS) + 0.5); if (vis(m0[0], m0[1], 400)) bigDome(x, m0[0], m0[1] + 8, TW0 * 4.2, TW0 * 2.9, T); }
   // rovers and drones moving between the modules
   const lanes = era === 0 ? 4 : era === 1 ? 8 : 14;
@@ -190,7 +193,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null), careerRef = useRef(career); careerRef.current = career;
-  const cvRef = useRef<HTMLCanvasElement>(null), cityRef = useRef<HTMLDivElement>(null), worldRef = useRef<HTMLDivElement>(null), camRef = useRef({ x: 0, y: 0, z: 1, W: 600, H: 300 }), tapBlock = useRef(0), tapRef = useRef<any>(null), focusRef = useRef<any>(null), zoomRef = useRef<any>(null);
+  const cvRef = useRef<HTMLCanvasElement>(null), cityRef = useRef<HTMLDivElement>(null), worldRef = useRef<HTMLDivElement>(null), camRef = useRef({ x: 0, y: 0, z: 1, W: 600, H: 300 }), tapBlock = useRef(0), tapRef = useRef<any>(null), focusRef = useRef<any>(null), zoomRef = useRef<any>(null), rotRef = useRef<any>(null), [rotV, setRotV] = useState(0);
   /* the camera (owner, 2026-10-15: the city is about five times bigger, SimCity BuildIt style): drag to pan, pinch or wheel to zoom, the world is drawn through it and the plots' buttons ride in a div that follows the same transform */
   useEffect(() => {
     const el = cityRef.current, cv = cvRef.current; if (!el || !cv) return; let raf = 0, alive = true, lastDraw = 0, init = false;
@@ -198,17 +201,20 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
     const apply = () => { clampCam(); if (worldRef.current) worldRef.current.style.transform = `translate(${cam.x}px,${cam.y}px) scale(${cam.z})`; };
     const focus = (i: number, z?: number) => { if (z) cam.z = z; const m = ptW(i % COLS + 0.5, Math.floor(i / COLS) + 0.5); cam.x = cam.W / 2 - m[0] * cam.z; cam.y = cam.H * 0.55 - m[1] * cam.z; apply(); };
     const zoomAt = (px: number, py: number, k: number) => { const nz = Math.max(minZ(), Math.min(2.4, cam.z * k)); cam.x = px - (px - cam.x) * nz / cam.z; cam.y = py - (py - cam.y) * nz / cam.z; cam.z = nz; apply(); };
+    const turn = (d: number) => { const g = unW((cam.W / 2 - cam.x) / cam.z, (cam.H / 2 - cam.y) / cam.z); ROT += d; const m = ptW(g[0], g[1]); cam.x = cam.W / 2 - m[0] * cam.z; cam.y = cam.H / 2 - m[1] * cam.z; apply(); const now = performance.now(); if (now - lastRotRender > 60) { lastRotRender = now; setRotV(ROT); } };
+    let lastRotRender = 0; rotRef.current = turn; ROT = 0;
     focusRef.current = focus; zoomRef.current = (k: number) => zoomAt(cam.W / 2, cam.H / 2, k);
     const fit = () => { const W = Math.max(280, el.clientWidth), H = Math.max(200, el.clientHeight), dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; cam.W = W; cam.H = H;
       if (!init) { init = true; cam.z = Math.max(minZ(), W / (TW0 * 8.5)); focus(Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2)); } else apply(); };
     fit(); const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null; if (ro) ro.observe(el);
     const ptrs = new Map<number, { x: number; y: number }>(); let lastD = 0, moved = 0; const dist = () => { const v = [...ptrs.values()]; return Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y); };
     const rel = (e: PointerEvent) => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-    const down = (e: PointerEvent) => { ptrs.set(e.pointerId, rel(e)); moved = 0; if (ptrs.size === 2) lastD = dist(); };
+    let lastA = 0; const ang = () => { const v = [...ptrs.values()]; return Math.atan2(v[1].y - v[0].y, v[1].x - v[0].x); };
+    const down = (e: PointerEvent) => { ptrs.set(e.pointerId, rel(e)); moved = 0; if (ptrs.size === 2) { lastD = dist(); lastA = ang(); } };
     const move = (e: PointerEvent) => { const prev = ptrs.get(e.pointerId); if (!prev) return; const cur = rel(e); ptrs.set(e.pointerId, cur);
       if (ptrs.size === 1) { const dx = cur.x - prev.x, dy = cur.y - prev.y; moved += Math.abs(dx) + Math.abs(dy); if (moved > 10) { cam.x += dx; cam.y += dy; apply(); tapBlock.current = performance.now(); } }
-      else if (ptrs.size === 2) { const d = dist(), v = [...ptrs.values()]; if (lastD) zoomAt((v[0].x + v[1].x) / 2, (v[0].y + v[1].y) / 2, d / lastD); lastD = d; tapBlock.current = performance.now(); } };
-    const up = (e: PointerEvent) => { ptrs.delete(e.pointerId); if (moved > 10) tapBlock.current = performance.now(); lastD = 0; };
+      else if (ptrs.size === 2) { const d = dist(), v = [...ptrs.values()]; if (lastD) zoomAt((v[0].x + v[1].x) / 2, (v[0].y + v[1].y) / 2, d / lastD); lastD = d; const a = ang(); let da = a - lastA; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI; lastA = a; if (Math.abs(da) < 1) turn(da); tapBlock.current = performance.now(); } };
+    const up = (e: PointerEvent) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) setRotV(ROT); if (moved > 10) tapBlock.current = performance.now(); lastD = 0; };
     const wheel = (e: WheelEvent) => { e.preventDefault(); const p = { x: e.clientX - el.getBoundingClientRect().left, y: e.clientY - el.getBoundingClientRect().top }; zoomAt(p.x, p.y, e.deltaY < 0 ? 1.12 : 0.89); };
     el.addEventListener("pointerdown", down); el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("wheel", wheel, { passive: false });
     const loop = (now: number) => { if (!alive) return; raf = requestAnimationFrame(loop); if (now - lastDraw < 50) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const dpr = cv.width / cam.W; x.setTransform(dpr, 0, 0, dpr, 0, 0); try { drawCity(x, cam.W, cam.H, G.current, P.kind || "moon", cam, now / 1000, eraOf(G.current)); } catch (e) {} };
@@ -287,7 +293,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
       }
       setTick(x => (x + 1) % 1e6);
     }, 100);
-    (window as any).__advColony = { focus: (i: number, z?: number) => { if (focusRef.current) focusRef.current(i, z); }, cam: () => ({ ...camRef.current }), state: () => ({ t: S.t, pop: S.pop, stock: { ...S.stock }, rate: { ...S.rate }, grid: S.grid.map((c: any) => c.b), tech: S.tech.slice(), hz: S.hz, won: S.won, ended: S.ended, target: site.target, career: careerRef.current }), setCareer: (c: string) => { careerRef.current = c; setCareer(c); }, give: (k: string, n: number) => { S.stock[k] += n; }, setPop: (n: number) => { S.pop = n; }, tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) { S.t += 0.1; step(0.1); } }, hazard: () => { S.hz = HZ_DUR; if (net && net.host) net.sendEv("colh", 0); }, finish: () => { S.pop = site.target; for (const k of ["en", "wa", "ox", "fo"]) S.stock[k] = 200; } };
+    (window as any).__advColony = { focus: (i: number, z?: number) => { if (focusRef.current) focusRef.current(i, z); }, rot: (a: number) => { if (rotRef.current) rotRef.current(a - ROT); }, rotNow: () => ROT, cam: () => ({ ...camRef.current }), state: () => ({ t: S.t, pop: S.pop, stock: { ...S.stock }, rate: { ...S.rate }, grid: S.grid.map((c: any) => c.b), tech: S.tech.slice(), hz: S.hz, won: S.won, ended: S.ended, target: site.target, career: careerRef.current }), setCareer: (c: string) => { careerRef.current = c; setCareer(c); }, give: (k: string, n: number) => { S.stock[k] += n; }, setPop: (n: number) => { S.pop = n; }, tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) { S.t += 0.1; step(0.1); } }, hazard: () => { S.hz = HZ_DUR; if (net && net.host) net.sendEv("colh", 0); }, finish: () => { S.pop = site.target; for (const k of ["en", "wa", "ox", "fo"]) S.stock[k] = 200; } };
     return () => { clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advColony; } catch (e) {} };
   }, []);
   const S = G.current;
@@ -312,7 +318,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
   const gridSig = S.grid.map((c: any) => c.b || "").join(",") + "|" + S.tool;
   const cellsEl = useMemo(() => S.grid.map((c: any, i: number) => { const m = ptW(i % COLS + 0.5, Math.floor(i / COLS) + 0.5), bd = c.b ? BUILD.find(b => b.id === c.b) : null; return (
     <button key={i} className={"ac2-cell" + (bd ? " has" : "") + (c.f ? " " + c.f : "")} data-cell={i} data-b={c.b || ""} onClick={() => tapRef.current && tapRef.current(i)} aria-label={bd ? T3(lang, bd.name[0], bd.name[1], bd.name[2]) : "plot"}
-      style={{ left: m[0] - TW0 / 2, top: m[1] - TW0 / 4, width: TW0, height: TW0 / 2 }} />); }), [gridSig, lang]);
+      style={{ left: m[0] - TW0 / 2, top: m[1] - TW0 / 4, width: TW0, height: TW0 / 2 }} />); }), [gridSig, lang, rotV]);
   return (
     <div className="adv-farm adv-colony cb" data-colony={P.kind}>
       <div className="adv-top">
@@ -341,6 +347,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
         <button className="cb-round" data-budget-open="1" aria-label="budget" onClick={() => { pausedRef.current = true; setBudget(true); }}>📊</button>
         <button className="cb-round" data-advisor-open="1" aria-label="advisor" onClick={() => { pausedRef.current = true; setAdvisor(true); }}>🧑‍🚀<em>{dm.ap}</em></button>
         <button className="cb-round sm" data-zoom="in" aria-label="zoom in" onClick={() => zoomRef.current && zoomRef.current(1.3)}>＋</button>
+        <button className="cb-round sm" data-rot="1" aria-label="rotate" onClick={() => rotRef.current && rotRef.current(Math.PI / 4)}>↻</button>
         <button className="cb-round sm" data-zoom="out" aria-label="zoom out" onClick={() => zoomRef.current && zoomRef.current(0.77)}>－</button>
         <button className="cb-round sm" data-zoom="home" aria-label="centre" onClick={() => focusRef.current && focusRef.current(Math.floor(ROWS / 2) * COLS + Math.floor(COLS / 2))}>🎯</button>
       </div>
