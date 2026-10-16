@@ -9,6 +9,7 @@ import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { enterFs } from "./pvp-arena";
 import { GearButton, SettingsPopup } from "./adventure-settings";
+import { HELPER_COST, HELPER_ICON, HELPER_NAME, mkHelper, stepMove, drawHelper, type HKind } from "./adventure-ranch-helpers";
 import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, drawIsoAnimal, drawIsoAmbient, PLOT_POS, PLOT_FREE, SLOT_POS, PAD, WW, WH } from "./adventure-ranch-iso";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -67,6 +68,7 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
     else if (A.prog >= 100) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = "#ffb020"; x.lineWidth = 1.5; x.beginPath(); x.roundRect(wx + 18, wy - 48 - Math.abs(Math.sin(T * 5)) * 4, 36, 26, 8); x.fill(); x.stroke(); x.font = "18px system-ui"; x.textAlign = "center"; x.fillText(a.prod, wx + 36, wy - 28 - Math.abs(Math.sin(T * 5)) * 4); }
     else { x.fillStyle = "rgba(0,0,0,.3)"; x.fillRect(wx - 20, wy - 34, 40, 5); x.fillStyle = "#ffd23f"; x.fillRect(wx - 20, wy - 34, 40 * A.prog / 100, 5); } }
   x.drawImage(isoFg(kind), 0, 0, WW, WH);
+  for (const h of [...S.helpers].sort((a: any, b: any) => a.y - b.y)) drawHelper(x, h, T, h.job >= 0 || h.kind === "car" && h.carry > 0);
   drawIsoAmbient(x, T);
   // butterflies
   for (let i = 0; i < 3; i++) { const bx = 640 + i * 190 + Math.sin(T * 0.9 + i) * 90, by = 330 + i * 40 + Math.cos(T * 1.1 + i * 2) * 30; x.fillStyle = ["#ff7ab8", "#7ad0ff", "#ffe06a"][i]; x.beginPath(); x.ellipse(bx - 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.ellipse(bx + 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.fill(); }
@@ -82,7 +84,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const farmerBonus = (() => { try { return localStorage.getItem("tg_adv_career") === "farm" ? 1.25 : 1; } catch (e) { return 1; } })();
   const G = useRef<any>(null);
-  if (!G.current) G.current = { quota: QUOTA[P.kind] || 260, tm: TIMEMUL[P.kind] || 1, t: 0, stock: 16, delivered: 0, houses: ANIMALS.map(() => ({ b: 0, own: false })), seed: "carrot", dug: 0, plots: PLOTS.map((_, i) => ({ crop: null as any, p: 0, w: 0, locked: !PLOT_FREE(i) })), animals: ANIMALS.map(() => ({ fed: 0, prog: 0 })), launch: 0, ended: false, won: false, fact: 0, xp: 0, lvl: 1, lvlUp: 0, orders: [] as Order[], inv: {} as Record<string, number>, floats: [] as any[], target: "human" as string, happy: { human: 0, alien: 0 } as any, sent: { human: 0, alien: 0 } as any };
+  if (!G.current) G.current = { quota: QUOTA[P.kind] || 260, tm: TIMEMUL[P.kind] || 1, t: 0, stock: 16, delivered: 0, houses: ANIMALS.map(() => ({ b: 0, own: false })), seed: "carrot", dug: 0, plots: PLOTS.map((_, i) => ({ crop: null as any, p: 0, w: 0, locked: !PLOT_FREE(i) })), animals: ANIMALS.map(() => ({ fed: 0, prog: 0 })), launch: 0, ended: false, won: false, fact: 0, xp: 0, lvl: 1, lvlUp: 0, orders: [] as Order[], inv: {} as Record<string, number>, floats: [] as any[], helpers: [] as any[], target: "human" as string, happy: { human: 0, alien: 0 } as any, sent: { human: 0, alien: 0 } as any };
   if (!G.current.orders.length) for (let i = 0; i < 3; i++) G.current.orders.push(mkOrder(G.current));
   const S = G.current;
   const [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false);
@@ -102,7 +104,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
     const draw = (now: number) => { if (!alive) return; raf = requestAnimationFrame(draw); if (now - lastDraw < 40 || !cv) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const k = cv.width / VW, cm = camRef.current; x.setTransform(k * cm.z, 0, 0, k * cm.z, -cm.x * k * cm.z, -cm.y * k * cm.z); try { drawRanch(x, S, now / 1000, P.kind || "moon"); x.setTransform(k, 0, 0, k, 0, 0); finishLook(x, VW, VH, now / 1000, "255,226,170", 0.3); } catch (e) {} };
     raf = requestAnimationFrame(draw);
     const step = (dt: number) => {
-      S.t += dt;
+      S.t += dt; helpRef.current(dt);
       for (const c of S.plots) if (c.crop && c.p < 100) { const cr = CROPS.find(q => q.id === c.crop)!; c.p = Math.min(100, c.p + 100 / (cr.time * S.tm) * (c.w > 0 ? 2 : 1) * dt); } for (const c of S.plots) if (c.w > 0) c.w = Math.max(0, c.w - dt);
       for (let i = 0; i < ANIMALS.length; i++) { const H = S.houses[i]; if (H.b > 0 && H.b < 1) H.b = Math.min(1, H.b + dt / 5); const A = S.animals[i]; if (H.own && A.fed > 0 && A.prog < 100) { A.prog = Math.min(100, A.prog + 100 / ANIMALS[i].every * dt); } }
       if (S.launch > 0) S.launch = Math.max(0, S.launch - dt); if (S.lvlUp > 0) S.lvlUp = Math.max(0, S.lvlUp - dt);
@@ -111,9 +113,10 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
       if (S.delivered >= S.quota && !S.won) { S.won = true; S.ended = true; sfx.play("win"); const stars = S.t <= 200 ? 3 : S.t <= 300 ? 2 : 1; setTimeout(() => onWin({ ranch: { delivered: Math.round(S.delivered), target: S.quota, secs: Math.round(S.t), stars }, kills: 0, cry: 8 + 4 * stars, loot: {}, mode: "ranch" }), 2000); }
     };
     const id = setInterval(() => { const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); last = now; if (pausedRef.current || S.ended) return; step(dt); setTick(v => (v + 1) % 1e6); }, 100);
-    (window as any).__advRanch = { state: () => ({ t: S.t, stock: S.stock, delivered: S.delivered, plots: S.plots.map((c: any) => ({ crop: c.crop, p: c.p, locked: !!c.locked })), dug: S.dug, cam: { ...camRef.current }, animals: S.animals.map((a: any) => ({ fed: a.fed, prog: a.prog })), houses: S.houses.map((h: any) => ({ b: h.b, own: h.own })), won: S.won, target: S.quota }), tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) step(0.1); }, give: (n: number) => { S.stock += n; }, setCam: (x: number, y: number, z: number) => { camRef.current = { x, y, z }; clampCam(); } };
+    (window as any).__advRanch = { state: () => ({ t: S.t, stock: S.stock, delivered: S.delivered, plots: S.plots.map((c: any) => ({ crop: c.crop, p: c.p, locked: !!c.locked })), dug: S.dug, cam: { ...camRef.current }, animals: S.animals.map((a: any) => ({ fed: a.fed, prog: a.prog })), houses: S.houses.map((h: any) => ({ b: h.b, own: h.own })), helpers: S.helpers.map((h: any) => ({ kind: h.kind, job: h.job })), won: S.won, target: S.quota }), tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) step(0.1); }, give: (n: number) => { S.stock += n; }, buyHelper: (k: HKind) => buyHelper(k), setCam: (x: number, y: number, z: number) => { camRef.current = { x, y, z }; clampCam(); } };
     return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advRanch; } catch (e) {} };
   }, []);
+  const helpRef = useRef<(dt: number) => void>(() => {});
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
   const addXp = (n: number) => { S.xp += n; while (S.xp >= xpNeed(S.lvl)) { S.xp -= xpNeed(S.lvl); S.lvl++; S.lvlUp = 2.2; S.stock += 5; play("win"); } };
   const float = (txt: string, x: number, y: number) => { S.floats.push({ txt, x, y, age: 0 }); };
@@ -131,6 +134,28 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
     if (A.prog >= 100) { const y = Math.round(a.yield * farmerBonus); S.stock += y; bump(a.id, 1); addXp(3); float("+" + y + " " + a.prod, a.x, a.y - 60); A.prog = 0; A.fed = 0; play("pickup"); }
     else if (A.fed <= 0) { if (S.stock >= a.feed) { S.stock -= a.feed; A.fed = 1; play("pop"); } else play("hurt"); }
     setTick(v => v + 1); };
+  const buyHelper = (k: HKind) => { if (S.ended || S.helpers.some((h: any) => h.kind === k)) return; if (S.stock < HELPER_COST[k]) { play("hurt"); return; } S.stock -= HELPER_COST[k]; const sp = k === "car" ? { x: PAD.x - 90, y: PAD.y + 20 } : { x: 330 + S.helpers.length * 60, y: 330 }; S.helpers.push(mkHelper(k, sp.x, sp.y)); play("win"); float(HELPER_ICON[k] + " " + t("เริ่มงาน!", "on duty!", "上岗!"), sp.x, sp.y - 40); addXp(4); setTick(v => v + 1); };
+  const autoHarvest = (i: number) => { const c = S.plots[i], cr = CROPS.find(q => q.id === c.crop); if (!cr || c.p < 100) return; const y = Math.round(cr.yield * farmerBonus); S.stock += y; bump(c.crop, 1); addXp(1); float("+" + y + " " + cr.icon, PLOTS[i].x, PLOTS[i].y - 30); c.crop = null; c.p = 0; c.w = 0; play("pickup"); };
+  const autoCollect = (i: number) => { const A = S.animals[i], a = ANIMALS[i]; if (A.prog < 100) return; const y = Math.round(a.yield * farmerBonus); S.stock += y; bump(a.id, 1); addXp(1); float("+" + y + " " + a.prod, a.x, a.y - 60); A.prog = 0; A.fed = 0; play("pickup"); };
+  helpRef.current = (dt: number) => { if (S.ended) return;
+    for (const h of S.helpers) {
+      if (h.kind === "car") { // the flying roadster carries a share of the barn's food out to the pad
+        if (h.job < 0) { h.cd -= dt; if (h.cd <= 0 && S.stock >= 8) { h.carry = Math.min(14, Math.floor(S.stock * 0.3)); S.stock -= h.carry; h.job = 1; h.tx = PAD.x - 40; h.ty = PAD.y + 10; } }
+        else if (stepMove(h, dt)) { if (h.job === 1) { S.delivered += h.carry; S.sent[S.target] += h.carry; S.happy[S.target] += h.carry; float("🚗 +" + h.carry, PAD.x, PAD.y - 70); h.carry = 0; h.job = 2; h.tx = PAD.x - 90; h.ty = PAD.y + 20; } else { h.job = -1; h.cd = 18; } }
+        continue; }
+      if (h.job < 0) { h.cd -= dt; if (h.cd > 0) continue; let best = -1;
+        if (h.kind === "tractor") { best = S.plots.findIndex((c: any) => !c.locked && c.crop && c.p < 100 && c.w <= 0); if (best < 0) best = S.plots.findIndex((c: any) => !c.locked && !c.crop); }
+        else if (h.kind === "robot") best = S.plots.findIndex((c: any) => !c.locked && c.crop && c.p >= 100);
+        else { best = ANIMALS.findIndex((a, i) => S.houses[i].own && S.animals[i].prog >= 100); if (best < 0) best = ANIMALS.findIndex((a, i) => S.houses[i].own && S.animals[i].fed <= 0 && S.stock >= a.feed); }
+        if (best < 0) { h.cd = 1.5; continue; }
+        h.job = best; const tp = h.kind === "truck" ? { x: ANIMALS[best].x, y: ANIMALS[best].y + 44 } : { x: PLOTS[best].x, y: PLOTS[best].y + 8 }; h.tx = tp.x; h.ty = tp.y; continue; }
+      if (!stepMove(h, dt)) continue;
+      const j = h.job; h.job = -1; h.cd = h.kind === "tractor" ? 2.5 : h.kind === "robot" ? 1.8 : 2;
+      if (h.kind === "tractor") { const c = S.plots[j]; if (!c.crop) { c.crop = S.seed; c.p = 0; play("pop"); } else if (c.w <= 0) { c.w = 5; play("hit"); } }
+      else if (h.kind === "robot") autoHarvest(j);
+      else { const A = S.animals[j], a = ANIMALS[j]; if (A.prog >= 100) autoCollect(j); else if (A.fed <= 0 && S.stock >= a.feed) { S.stock -= a.feed; A.fed = 1; play("pop"); } }
+    }
+  };
   const deliver = () => { if (tapBlock.current > performance.now() || S.ended || S.stock < 1 || S.launch > 0) return; const tg = S.target as string; const liked = Object.keys(S.inv).reduce((n, k) => n + (LIKES[tg].includes(k) ? S.inv[k] : 0), 0); const bonus = Math.min(S.stock, liked * 4) * 0.25; const n = S.stock; S.delivered += n + bonus; S.sent[tg] += n; S.happy[tg] += n; for (const o of S.orders) if (o.kind === "send" && o.from === tg && o.got < o.need) o.got = Math.min(o.need, o.got + n); float("🚀 " + Math.round(n + bonus), PAD.x, PAD.y - 80); S.stock = 0; S.inv = {}; S.launch = 2; play("rocket"); addXp(Math.ceil(n / 4)); setTick(v => v + 1); };
   const [ordersOpen, setOrdersOpen] = useState(false);
   const claim = (id: number) => { const o = S.orders.find((q: Order) => q.id === id); if (!o || o.got < o.need) return; S.stock += o.reward; addXp(o.xp); S.orders = S.orders.filter((q: Order) => q.id !== id); S.orders.push(mkOrder(S)); play("pickup"); setTick(v => v + 1); };
@@ -167,6 +192,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry }: any)
         {S.lvlUp > 0 && <div className="ar-lvup" role="status">★ {t("เลเวลอัป! ", "Level up! ", "升级！")}{S.lvl} · +5</div>}
         {ordersOpen && <div className="ar-orders" data-orderwin="1">{S.orders.map((o: Order) => (<div key={o.id} className="ar-o"><span>{COLONY_TXT[o.from].icon} {o.kind === "send" ? t("ส่งอาหาร", "Send food", "运送粮食") : (ITEM_ICON[o.item] || "") + " " + o.item}</span><span>{o.got}/{o.need}</span><button data-claim={o.id} disabled={o.got < o.need} onClick={() => claim(o.id)}>+{o.reward} · ★{o.xp}</button></div>))}</div>}
         <div className="ar-cols">{(["human", "alien"] as const).map(c => (<button key={c} data-colony={c} className={"ar-col" + (S.target === c ? " on" : "")} onClick={() => { S.target = c; setTick(v => v + 1); }}>{COLONY_TXT[c].icon} {T3(lang, COLONY_TXT[c].name[0], COLONY_TXT[c].name[1], COLONY_TXT[c].name[2])} <small>{Math.round(S.sent[c])}</small></button>))}</div>
+        <div className="ar-helpers" style={{ position: "fixed", left: 10, top: 118, display: "flex", flexDirection: "column", gap: 6, zIndex: 6 }}>{(["tractor", "robot", "truck", "car"] as HKind[]).map(k => { const own = S.helpers.some((h: any) => h.kind === k); return (<button key={k} data-helper={k} disabled={own} onClick={() => buyHelper(k)} title={T3(lang, HELPER_NAME[k][0], HELPER_NAME[k][1], HELPER_NAME[k][2])} style={{ minWidth: 64, padding: "5px 8px", borderRadius: 999, border: "2px solid #f6efe0", background: own ? "#7fbf6a" : S.stock >= HELPER_COST[k] ? "#fff8e6" : "rgba(255,255,255,.6)", color: "#3a2410", font: "bold 13px system-ui", opacity: own ? 0.9 : 1 }}>{HELPER_ICON[k]} {own ? "✓" : HELPER_COST[k]}</button>); })}</div>
         <div className="ar-bar">
           <div className="ar-seeds">{CROPS.map(c => (<button key={c.id} data-seed={c.id} className={"ar-seed" + (S.seed === c.id ? " on" : "")} onClick={() => { S.seed = c.id; setTick(v => v + 1); }}>{c.icon}<small>{T3(lang, c.name[0], c.name[1], c.name[2])} · {Math.round(c.time * S.tm)}s · +{Math.round(c.yield * farmerBonus)}</small></button>))}</div>
           <button className="adv-btn go ar-send" data-send="1" disabled={S.stock < 1 || S.launch > 0} onClick={deliver}>🚀 {t("ส่งอาหารให้อาณานิคม", "Send the food to the colony", "把粮食运给殖民地")} ({Math.floor(S.stock)})</button>
