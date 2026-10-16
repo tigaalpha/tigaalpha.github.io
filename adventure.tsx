@@ -250,7 +250,7 @@ export const PLANETS = [
 /* The story order of every episode (owner, 2026-10-13: "arrange the episodes so the player feels one continuous, fun story, interleaving every category; a new episode can be slipped in anywhere").
    To add an episode, put its id wherever it belongs in this list; an id that is not listed is appended at the end. A map opens when the one before it, or the one before that,
    has been cleared (so one very hard map never walls the story off); the sector tabs are only a way to browse. */
-export const CAMPAIGN = ["shipbuild", "departure", "moonhe3", "colmoon", "spaceranch", "moonbase", "asteroids", "minebuild", "marscolony", "colmars", "ranchmars", "mercury", "solarcharge", "dysonbuild", "venussky", "jupitergas", "gasskim", "gasbuild", "saturnrings", "titanassault", "coltitan", "ranchtitan", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus", "warpjump", "starharvest", "luma", "ferro", "jovia", "kryo", "voidgate", "deathstar", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "colproxima", "ranchproxima", "dysondock", "gaspump", "blackhole", "kindred", "darkforge", "shadow"];
+export const CAMPAIGN = ["shipbuild", "departure", "moonhe3", "colmoon", "spaceranch", "moonbase", "asteroids", "minebuild", "marscolony", "colmars", "ranchmars", "mercury", "venussky", "solarcharge", "jupitergas", "gasskim", "gasbuild", "saturnrings", "titanassault", "titancolony", "coltitan", "ranchtitan", "arkbuild", "arkfarm", "arkherd", "arkexodus", "warpjump", "starharvest", "voidgate", "deathstar", "blackhole", "gaspump", "colproxima", "ranchproxima", "luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "dyson", "ashfall", "dysonbuild", "dysondock", "kindred", "darkforge", "shadow"];
 export const campList = (): any[] => { const by: any = {}; for (const P of PLANETS) by[P.id] = P; const seen = new Set<string>(); const out: any[] = []; for (const id of CAMPAIGN) if (by[id] && !seen.has(id)) { seen.add(id); out.push(by[id]); } for (const P of PLANETS) if (!seen.has(P.id)) out.push(P); return out; };
 
 
@@ -757,10 +757,11 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const ACT2 = ["kindred", "darkforge", "shadow"], SOLAR = ["moonhe3", "moonbase", "marscolony", "mercury", "venussky", "jupitergas", "saturnrings", "titanassault", "titancolony", "arkbuild", "arkfarm", "arkherd", "arkexodus"];
   const isSpace = (P: any) => ["dogfight", "launch", "belt", "skim", "harvest", "solar", "warp", "blackhole"].includes(P.mission);
   const [farmKey, setFarmKey] = useState(0);
-  const [sector, setSector] = useState<"ground" | "space" | "act2" | "solar" | "colony">(() => { try { const v = localStorage.getItem("tg_adv_sector"); return v === "space" ? "space" : v === "act2" ? "act2" : v === "solar" ? "solar" : v === "colony" ? "colony" : "ground"; } catch (e) { return "ground"; } });
+  const [sector, setSector] = useState<"ground" | "space" | "act2" | "solar">(() => { try { const v = localStorage.getItem("tg_adv_sector"); return v === "space" ? "space" : v === "act2" ? "act2" : v === "solar" ? "solar" : v === "ground" ? "ground" : v === "all" ? ("all" as any) : (localStorage.getItem("tg_adv_unlockall") === "1" ? "ground" : "solar"); } catch (e) { return "solar"; } });
   const COLONY = ["shipbuild", "spaceranch", "ranchmars", "ranchtitan", "ranchproxima", "colmoon", "colmars", "coltitan", "colproxima", "dysonbuild", "gasbuild", "minebuild"];
-  const sectorOf = (P: any): "ground" | "space" | "act2" | "solar" | "colony" => (COLONY.includes(P.id) ? "colony" : SOLAR.includes(P.id) ? "solar" : ACT2.includes(P.id) ? "act2" : isSpace(P) ? "space" : "ground");
-  const pickSector = (v: "ground" | "space" | "act2" | "solar" | "colony") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
+const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar", moonhe3: "solar", colmoon: "solar", spaceranch: "solar", moonbase: "solar", asteroids: "solar", minebuild: "solar", marscolony: "solar", colmars: "solar", ranchmars: "solar", mercury: "solar", venussky: "solar", solarcharge: "solar", jupitergas: "solar", gasskim: "solar", gasbuild: "solar", saturnrings: "solar", titanassault: "space", titancolony: "space", coltitan: "space", ranchtitan: "space", arkbuild: "space", arkfarm: "space", arkherd: "space", arkexodus: "space", warpjump: "space", starharvest: "space", voidgate: "space", deathstar: "space", blackhole: "space", gaspump: "space", colproxima: "ground", ranchproxima: "ground", luma: "ground", ferro: "ground", jovia: "ground", kryo: "ground", pyra: "ground", nexa: "ground", cobalt: "ground", helios: "ground", dyson: "ground", ashfall: "ground", dysonbuild: "act2", dysondock: "act2", kindred: "act2", darkforge: "act2", shadow: "act2"};
+  const sectorOf = (P: any): "ground" | "space" | "act2" | "solar" => (SECT_OF[P.id] as any) || (isSpace(P) ? "space" : "ground");
+  const pickSector = (v: "ground" | "space" | "act2" | "solar") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
   const nocine = (() => { try { return localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) { return false; } })();
   const gearOpen = (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1" || adminTier >= 3; } catch (e) { return false; } })();
   const firstVisit = (() => { try { return localStorage.getItem("tg_adv_seen") === null; } catch (e) { return false; } })();
@@ -818,21 +819,21 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           <span className="adv-chip adv-chip-cry">{t("◆ คริสตัล ", "◆ Crystals ", "◆ 晶体 ") + crystals}</span>
           </div>
           <div className="adv-sectors" role="tablist">
-            {(["ground", "space", "act2", "solar", "colony"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
+            {(["solar", "space", "ground", "act2"] as const).map(v => { const L = PLANETS.filter(P => sectorOf(P) === v); return (
               <button key={v} role="tab" aria-selected={sector === v} data-sector={v} className={"adv-sec" + (sector === v ? " on" : "")} onClick={() => pickSector(v)}>
-                {v === "ground" ? t("ภาค 1 · บนพื้นผิวดาว", "Sector 1 · Surface", "第一区 · 星球表面") : v === "space" ? t("ภาค 2 · อวกาศ", "Sector 2 · Deep space", "第二区 · 深空") : v === "act2" ? t("ภาค 3 · ฮาร์เวสเตอร์", "Act 2 · The Harvesters", "第三区 · 收割者") : v === "colony" ? t("ภาค 5 · ก่อสร้างและอาณานิคม", "Sector 5 · Build & colonize", "第五区 · 建造与殖民") : t("ภาค 4 · ระบบสุริยะ", "Sector 4 · Solar System", "第四区 · 太阳系")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
+                {v === "solar" ? t("ภาค 1 · ออกจากโลก ระบบสุริยะ", "Part 1 · Leaving Earth", "第一部 · 离开地球") : v === "space" ? t("ภาค 2 · ไททัน ยานอาร์ค ดาวต่างระบบ", "Part 2 · Titan, the Ark, other stars", "第二部 · 土卫六、方舟、其他恒星") : v === "ground" ? t("ภาค 3 · โลกใบใหม่", "Part 3 · New worlds", "第三部 · 新世界") : t("ภาค 4 · ฮาร์เวสเตอร์", "Part 4 · The Harvesters", "第四部 · 收割者")} <em>{L.filter(P => done.includes(P.id)).length}/{L.length}</em>
               </button>); })}
           </div>
           <div className="adv-rankbar"><span data-energy style={{ marginRight: 8, fontSize: 12 }}>⚡ {t("พลังงาน", "Energy", "能量")} {readEnergy()}/100{readEnergy() >= 50 ? " · +25%" : ""}</span><button className="adv-btn" data-galaxy-btn aria-expanded={galaxyOpen} style={{ marginRight: 8 }} onClick={() => setGalaxyOpen(o => !o)}>🌌 {t("แผนที่กาแล็กซี", "Galaxy map", "星系图")}</button><button className="adv-btn" data-rank-btn aria-expanded={rankOpen} onClick={() => setRankOpen(o => !o)}>🏆 {t("เวลาที่ดีที่สุด", "Best times", "最佳用时")}</button></div>
           {galaxyOpen && (<div className="adv-rank" data-galaxy>
             <svg viewBox="0 0 500 110" width="100%" role="img" aria-label="Galaxy map">
-              {(["ground", "space", "act2", "solar", "colony"] as const).map((v, i) => { const L = PLANETS.filter(P => sectorOf(P) === v), n = L.filter(P => done.includes(P.id)).length, x = 50 + i * 100, R = 22, C = 2 * Math.PI * R, nx = L.find(P => !done.includes(P.id));
+              {(["solar", "space", "ground", "act2"] as const).map((v, i) => { const L = PLANETS.filter(P => sectorOf(P) === v), n = L.filter(P => done.includes(P.id)).length, x = 70 + i * 120, R = 22, C = 2 * Math.PI * R, nx = L.find(P => !done.includes(P.id));
                 return (<g key={v} data-gnode={v} style={{ cursor: "pointer" }} onClick={() => { pickSector(v); setGalaxyOpen(false); }}>
-                  {i > 0 && <line x1={x - 100 + R + 4} y1="45" x2={x - R - 4} y2="45" stroke="rgba(140,255,220,.35)" strokeDasharray="3 4" />}
+                  {i > 0 && <line x1={x - 120 + R + 4} y1="45" x2={x - R - 4} y2="45" stroke="rgba(140,255,220,.35)" strokeDasharray="3 4" />}
                   <circle cx={x} cy="45" r={R} fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.18)" strokeWidth="4" />
                   <circle cx={x} cy="45" r={R} fill="none" stroke={v === sector ? "#8cffdc" : "#7aa8ff"} strokeWidth="4" strokeDasharray={`${C * n / L.length} ${C}`} transform={`rotate(-90 ${x} 45)`} />
                   <text x={x} y="49" textAnchor="middle" fontSize="12" fill="currentColor">{n}/{L.length}</text>
-                  <text x={x} y="85" textAnchor="middle" fontSize="10" fill="currentColor">{v === "ground" ? t("พื้นผิว", "Surface", "表面") : v === "space" ? t("อวกาศ", "Deep space", "深空") : v === "act2" ? t("ฮาร์เวสเตอร์", "Harvesters", "收割者") : v === "colony" ? t("ก่อสร้าง", "Build", "建造") : t("สุริยะ", "Solar", "太阳系")}</text>
+                  <text x={x} y="85" textAnchor="middle" fontSize="10" fill="currentColor">{v === "solar" ? t("1 สุริยะ", "1 Solar", "1 太阳系") : v === "space" ? t("2 ข้ามดาว", "2 Stars", "2 星际") : v === "ground" ? t("3 โลกใหม่", "3 New", "3 新世界") : t("4 ฮาร์เวสเตอร์", "4 Harvest", "4 收割者")}</text>
                   <text x={x} y="100" textAnchor="middle" fontSize="8.5" opacity=".7" fill="currentColor">{nx ? "→ " + String((t(nx.th, nx.en, nx.zh) || "")).split(/ · /)[0].slice(0, 16) : "✓"}</text>
                 </g>); })}
             </svg>
@@ -844,7 +845,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
               <span><small>{done.length ? t("เล่นต่อ", "Continue", "继续") : t("เริ่มเลย", "Start here", "从这里开始")}</small><b>{T3(lang, nx.th, nx.en, nx.zh)}</b></span><em>▶</em>
             </button>) : null; })()}
           <div className="adv-planets">
-            {PLANETS.map((P, pi) => sectorOf(P) !== sector ? null : (
+            {CAMP.map((P, pi) => (sector as string) !== "all" && sectorOf(P) !== sector ? null : (
               <button key={P.id} className={"adv-planet" + (open(P) ? "" : " lock")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
@@ -878,7 +879,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
           <details className="adv-grp" data-grp="gear" open={gearOpen}>
             <summary>{t("🧰 อัปเกรดและอุปกรณ์", "🧰 Upgrades & gear", "🧰 升级与装备")}</summary>
           <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} onChange={() => setTick(x => x + 1)} />
-          {sector === "solar" && (() => { const ar = readArk(), st = arkStats(ar); const nm: any = { g: ["วงแหวนแรงโน้มถ่วง", "Gravity ring", "重力环"], f: ["ชั้นปลูกพืช", "Farm decks", "农业层"], l: ["ชั้นเลี้ยงสัตว์", "Livestock decks", "牲畜层"], h: ["ที่อยู่อาศัย", "Habitat", "居住区"], s: ["เกราะและโล่", "Hull & shields", "船体与护盾"] };
+          {(sector === "space" || (sector as string) === "all") && (() => { const ar = readArk(), st = arkStats(ar); const nm: any = { g: ["วงแหวนแรงโน้มถ่วง", "Gravity ring", "重力环"], f: ["ชั้นปลูกพืช", "Farm decks", "农业层"], l: ["ชั้นเลี้ยงสัตว์", "Livestock decks", "牲畜层"], h: ["ที่อยู่อาศัย", "Habitat", "居住区"], s: ["เกราะและโล่", "Hull & shields", "船体与护盾"] };
             return (<div className="adv-shop" aria-label="Ark Bay" data-ark="1">
               <b>{t("อู่ Ark — ติดตั้งเรือโนอาแห่งอวกาศด้วยคริสตัล ◆ " + crystals, "Ark Bay — outfit the Ark with crystals ◆ " + crystals, "方舟坞 — 用晶体 ◆ " + crystals + " 装备方舟")}</b>
               {ARK_LINES.map(l => (<button key={l} className="adv-up" data-ark-line={l} disabled={ar[l] >= ARK_MAX || crystals < arkCost(ar[l])} onClick={() => { const r = buyArk(l, readCrystals()); if (r.ok) { spendCrystals(r.cost); playUi && playUi("click"); setTick(x => x + 1); } }}>

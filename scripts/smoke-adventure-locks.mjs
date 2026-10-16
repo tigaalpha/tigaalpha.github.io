@@ -23,16 +23,16 @@ async function open(pre, admin) {
 }
 const cards = (p) => p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => ({ t: b.textContent, lock: b.classList.contains("lock"), dis: b.disabled })));
 const lockOf = (L, re) => { const c = L.find(x => re.test(x.t)); return c ? c.lock : null; };
-{ const { ctx, p, errs } = await open({ tg_adv_sector: "colony" });
+{ const { ctx, p, errs } = await open({ tg_adv_sector: "all" });
   const L = await cards(p);
   ok("fresh player: the story starts with the starship, everything else in the sector is shut", lockOf(L, /Colony Starship/) === false && lockOf(L, /Moon Colony/) === true && lockOf(L, /Dyson Sphere/) === true, JSON.stringify(L.map(x => x.lock)));
   ok("cards carry their episode number", /Ep\. 1\b/.test(L.find(x => /Colony Starship/.test(x.t)).t));
   ok("a locked card cannot be started", L.filter(x => x.lock).every(x => x.dis));
   ok("a locked card says which episode to clear", L.filter(x => x.lock).every(x => /Clear/.test(x.t)), L.find(x => x.lock) && L.find(x => x.lock).t.slice(-60));
   await ctx.close(); ok("no page errors", errs.length === 0, errs.join("|")); }
-{ const { ctx, p } = await open({ tg_adv_sector: "space", tg_adv_done: JSON.stringify(["shipbuild"]) });
+{ const { ctx, p } = await open({ tg_adv_sector: "all", tg_adv_done: JSON.stringify(["shipbuild"]) });
   const L = await cards(p); ok("after the starship is built, Departure opens", lockOf(L, /Departure/) === false, JSON.stringify(L.map(x => x.lock))); await ctx.close(); }
-{ const { ctx, p } = await open({ tg_adv_sector: "solar", tg_adv_done: JSON.stringify(["shipbuild"]) });
+{ const { ctx, p } = await open({ tg_adv_sector: "all", tg_adv_done: JSON.stringify(["shipbuild"]) });
   const L = await cards(p); ok("one episode can be skipped: Moon He-3 (episode 3) opens, the Lunar Base (episode 5) stays shut", lockOf(L, /Helium/) === false && lockOf(L, /Lunar Base/) === true, JSON.stringify(L.map(x => x.lock))); await ctx.close(); }
 { const { ctx, p } = await open({ tg_adv_unlockall: "1" });
   const L = await cards(p); ok("unlock switch (admin tier 3 uses the same path): everything is open", L.every(x => !x.lock), JSON.stringify(L.map(x => x.lock))); await ctx.close(); }
