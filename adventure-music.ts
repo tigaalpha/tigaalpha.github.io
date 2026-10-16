@@ -4,7 +4,7 @@
    swaps the same tune to a harder, denser arrangement. Nothing here touches the microphone; the master level is low and ducks while
    a question is open. */
 export type Mood = { bpm: number; root: number; scale: number[]; prog: number[]; lead: number[]; arp: number[]; bass: number[];
-  kick: string; snare: string; hat: string; wLead: OscillatorType; wBass: OscillatorType; wArp: OscillatorType; gain: number; swing?: number };
+  kick: string; snare: string; hat: string; wLead: OscillatorType; wBass: OscillatorType; wArp: OscillatorType; gain: number; swing?: number; strings?: boolean };
 
 const MAJ = [0, 2, 4, 7, 9], PHR = [0, 1, 3, 5, 7, 8, 10], MIN = [0, 2, 3, 5, 7, 8, 10], LYD = [0, 2, 4, 6, 7, 9, 11];
 const _ = -99;   // a rest in a lead line
@@ -47,7 +47,7 @@ export const MOODS: Record<string, Mood> = {
 MOODS.menu = { bpm: 128, root: 60, scale: LYD, prog: [0, 4, 5, 3], wLead: "sawtooth", wBass: "sawtooth", wArp: "square", gain: 0.66,
   lead: [4, _, 5, _, 7, _, 9, 7,  _, 5, _, 7, 9, _, 11, _,   9, _, 7, _, 11, _, 12, 11,  9, _, 11, _, 14, _, _, _],
   arp: [0, 2, 4, 7, 4, 2, 0, 2, 4, 7, 9, 7, 4, 2, 4, 7], bass: [1, _, 1, 1, _, 1, 1, _, 1, _, 1, 1, _, 1, 1, _],
-  kick: "x...x...x...x...", snare: "....x.......x...", hat: "x.xxx.xxx.xxx.xx" };
+  kick: "x...x...x...x...", snare: "....x.......x...", hat: "x.xxx.xxx.xxx.xx", strings: true };
 MOODS.cobalt = { ...MOODS.ferro, bpm: 118, root: 47, wLead: "square", gain: 0.7 };
 MOODS.helios = { ...MOODS.jovia, bpm: 132, root: 62, scale: LYD, wLead: "sawtooth", gain: 0.62 };
 MOODS.departure = { ...MOODS.luma, bpm: 118, gain: 0.64 };
@@ -151,6 +151,18 @@ export function scheduleStep(ctx: BaseAudioContext, bus: Bus, M: Mood, step: num
   if (s16 === 0 && bar4 === false && barInSec === 2 && (sec === 1 || sec === 2)) riser(ctx, bus.drum, t, sps * 16 * 2, 0.16 * g);   // the climb into B and C
   // a warm pad (owner, 2026-10-13): one soft held chord per bar under everything, so even the calm moments feel full and hopeful; the boss arrangement leaves it out
   if (s16 === 0 && !boss) for (const st of [0, 2, 4]) tone(ctx, bus.mel, "triangle", hz(degMidiO(M, rootDeg + st, keyOff)), t, sps * 15, 0.03 * g, 0.4);
+  // cinematic string orchestra (owner, 2026-10-16, for the map page: "string instruments, building emotion, cinematic, grand and majestic"): a detuned, slowly swelling ensemble on the chord
+  // (three notes plus the octave), a deep cello line under it, a spiccato 8th-note ostinato that wakes up at energy 2, and in the last bar of every four a long rising swell that drops on the next downbeat
+  if (M.strings && !boss) {
+    const chord = [0, 2, 4].map(d => degMidiO(M, rootDeg + d, keyOff)), barDur = sps * 16;
+    if (s16 === 0) {
+      for (const m of chord) for (const dt of [0.994, 1.006]) { tone(ctx, bus.mel, "sawtooth", hz(m) * dt, t, barDur * 1.04, 0.0105 * g, barDur * 0.45); tone(ctx, bus.mel, "triangle", hz(m + 12) * dt, t, barDur * 1.04, 0.012 * g, barDur * 0.5); }
+      tone(ctx, bus.mel, "sawtooth", hz(chord[0] - 24), t, barDur, 0.02 * g, 0.25); tone(ctx, bus.mel, "triangle", hz(chord[0] - 12), t, barDur, 0.03 * g, 0.2);
+      if (barInSec === 0) hit(ctx, bus.drum, "kick", t, 0.7 * g);   // a deep boom on the first bar of every phrase
+    }
+    if (E >= 2 && s16 % 2 === 0) tone(ctx, bus.mel, "sawtooth", hz(chord[(s16 / 2) % 3] + 12 + (s16 % 8 === 6 ? 12 : 0)), t, sps * 1.6, 0.014 * g, 0.006);
+    if (bar4 && s16 === 0) { const top = hz(chord[2] + 24); tone(ctx, bus.mel, "sawtooth", top * 0.99, t, barDur, 0.018 * g, barDur * 0.95); tone(ctx, bus.mel, "triangle", top, t, barDur, 0.022 * g, barDur * 0.95); }
+  }
   // bass: the pattern, and in E>=2 an octave jump on the off-beats
   const b = pat(M.bass[s16] as any, BOSS.bass[s16] as any);
   if (b === 1) { const up = E >= 2 && s16 % 8 === 6; tone(ctx, bus.mel, M.wBass, hz(degMidiO(M, rootDeg, keyOff) - 24 + (up ? 12 : 0)), t, sps * 1.8, 0.26 * g, 0.008); }
