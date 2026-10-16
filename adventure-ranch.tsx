@@ -9,7 +9,7 @@ import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { enterFs } from "./pvp-arena";
 import { GearButton, SettingsPopup } from "./adventure-settings";
-import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, drawIsoAnimal, PLOT_POS, PLOT_FREE, SLOT_POS, PAD, WW, WH } from "./adventure-ranch-iso";
+import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, drawIsoAnimal, drawIsoAmbient, PLOT_POS, PLOT_FREE, SLOT_POS, PAD, WW, WH } from "./adventure-ranch-iso";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
@@ -67,6 +67,7 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
     else if (A.prog >= 100) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = "#ffb020"; x.lineWidth = 1.5; x.beginPath(); x.roundRect(wx + 18, wy - 48 - Math.abs(Math.sin(T * 5)) * 4, 36, 26, 8); x.fill(); x.stroke(); x.font = "18px system-ui"; x.textAlign = "center"; x.fillText(a.prod, wx + 36, wy - 28 - Math.abs(Math.sin(T * 5)) * 4); }
     else { x.fillStyle = "rgba(0,0,0,.3)"; x.fillRect(wx - 20, wy - 34, 40, 5); x.fillStyle = "#ffd23f"; x.fillRect(wx - 20, wy - 34, 40 * A.prog / 100, 5); } }
   x.drawImage(isoFg(kind), 0, 0, WW, WH);
+  drawIsoAmbient(x, T);
   // butterflies
   for (let i = 0; i < 3; i++) { const bx = 640 + i * 190 + Math.sin(T * 0.9 + i) * 90, by = 330 + i * 40 + Math.cos(T * 1.1 + i * 2) * 30; x.fillStyle = ["#ff7ab8", "#7ad0ff", "#ffe06a"][i]; x.beginPath(); x.ellipse(bx - 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.ellipse(bx + 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.fill(); }
   // ripe bubbles and floating numbers (FarmVille style)
