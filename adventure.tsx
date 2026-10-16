@@ -795,6 +795,8 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
 const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar", moonhe3: "solar", moonbase: "solar", colmoon: "solar", spaceranch: "solar", marscolony: "solar", colmars: "solar", ranchmars: "solar", venussky: "solar", asteroids: "solar", minebuild: "solar", mercury: "solar", solarcharge: "solar", jupitergas: "solar", gasskim: "solar", gasbuild: "solar", gaspump: "solar", saturnrings: "solar", titanassault: "space", titancolony: "space", coltitan: "space", ranchtitan: "space", arkbuild: "space", arkfarm: "space", arkherd: "space", arkexodus: "space", colproxima: "ground", ranchproxima: "ground", luma: "ground", ferro: "ground", jovia: "ground", kryo: "ground", pyra: "ground", nexa: "ground", cobalt: "ground", helios: "ground", ashfall: "ground", warpjump: "ground", starharvest: "ground", voidgate: "ground", deathstar: "ground", blackhole: "ground", dysonbuild: "act2", dysondock: "act2", dyson: "act2", kindred: "act2", darkforge: "act2", shadow: "act2"};
   const sectorOf = (P: any): "ground" | "space" | "act2" | "solar" => (SECT_OF[P.id] as any) || (isSpace(P) ? "space" : "ground");
   const pathRef = useRef<HTMLDivElement>(null);
+  const menuTools = (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1"; } catch (e) { return false; } })();   // stat/skill/workshop/loadout live in the in-run upgrade page now; the bots keep them here as a test door
+  const shipUps = useRef<any>(null); if (!shipUps.current) shipUps.current = readUps();   // the ship keeps this one object, so a Workshop buy in flight reaches it
   useEffect(() => { if (!planet) enterFs(); }, [planet]);   // the map is full screen and landscape (owner, 2026-10-16)
   useEffect(() => () => { if (KEEP_FS) KEEP_FS = false; else exitFsAndUnlock(); }, []);
   const pickSector = (v: "ground" | "space" | "act2" | "solar") => { setSector(v); try { localStorage.setItem("tg_adv_sector", v); } catch (e) {} };
@@ -924,9 +926,9 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
                 <small>{net.host ? t("คุณเป็นเจ้าของห้อง — เลือกแผนที่ด้านล่างเพื่อเริ่มพร้อมกันทุกคน (ทุกคนดูหนังก่อนเริ่มด่านของตัวเอง)", "You host — pick a map below to start it for everyone (each pilot sees the film first).", "你是房主——在下方选择地图即可让所有人同时开始（每人先看自己的过场动画）。") : t("รอเจ้าของห้องเลือกแผนที่…", "Waiting for the host to pick a map…", "等待房主选择地图…")}</small>
               </>)}
             </div>)}
-          <details className="adv-grp" data-grp="gear" open={gearOpen}>
+          {(menuTools || sector === "space" || (sector as string) === "all") && <details className="adv-grp" data-grp="gear" open={gearOpen}>
             <summary>{t("🧰 อัปเกรดและอุปกรณ์", "🧰 Upgrades & gear", "🧰 升级与装备")}</summary>
-          <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} onChange={() => setTick(x => x + 1)} />
+          {menuTools && <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} onChange={() => setTick(x => x + 1)} />}
           {(sector === "space" || (sector as string) === "all") && (() => { const ar = readArk(), st = arkStats(ar); const nm: any = { g: ["วงแหวนแรงโน้มถ่วง", "Gravity ring", "重力环"], f: ["ชั้นปลูกพืช", "Farm decks", "农业层"], l: ["ชั้นเลี้ยงสัตว์", "Livestock decks", "牲畜层"], h: ["ที่อยู่อาศัย", "Habitat", "居住区"], s: ["เกราะและโล่", "Hull & shields", "船体与护盾"] };
             return (<div className="adv-shop" aria-label="Ark Bay" data-ark="1">
               <b>{t("อู่ Ark — ติดตั้งเรือโนอาแห่งอวกาศด้วยคริสตัล ◆ " + crystals, "Ark Bay — outfit the Ark with crystals ◆ " + crystals, "方舟坞 — 用晶体 ◆ " + crystals + " 装备方舟")}</b>
@@ -934,6 +936,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
                 <span>{T3(lang, nm[l][0], nm[l][1], nm[l][2])} · Lv {ar[l]}/{ARK_MAX}</span><em>{ar[l] >= ARK_MAX ? "MAX" : "◆ " + arkCost(ar[l])}</em></button>))}
               <small data-ark-stats="1">{t("แรงโน้มถ่วง ", "Gravity ", "重力 ")}{st.gravity} g · {t("ผู้โดยสารที่ถึงอย่างแข็งแรง ", "healthy passengers ", "健康乘客 ")}{st.people.toLocaleString()} · {t("อาหาร ", "food ", "食物 ")}{st.foodDays}/{ARK_TRIP_DAYS} {t("วัน", "days", "天")} {st.foodOk ? "✓" : "⚠"}</small>
             </div>); })()}
+          {menuTools && <>
           <div className="adv-shop" aria-label="Workshop">
             <b>{t("โรงงาน — อัปเกรดด้วยคริสตัล ◆ " + crystals, "Workshop — upgrade with crystals ◆ " + crystals, "工坊 — 用晶体 ◆ " + crystals + " 升级")}</b>
             {UP_LINES.map(l => (
@@ -954,7 +957,8 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
               </div>
             ))}
           </div>
-          </details>
+          </>}
+          </details>}
           <details className="adv-grp" data-grp="quests">
             <summary>{t("📅 เควสต์วันนี้", "📅 Today's quests", "📅 今日任务")}</summary>
           <div className="adv-shop" aria-label="Daily quests">
@@ -1012,7 +1016,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense>
         : planet.mission === "farm" ? <Suspense fallback={<div className="adv-cine" />}><AdventureFarm key={planet.id + farmKey} P={planet} lang={lang} onRetry={() => setFarmKey(k => k + 1)} onExit={() => { setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { addRpgExpX(me, Math.round(240 * (planet.hard || 1) * readDiff().rw)); } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
-        ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={readUps()} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
+        ["dogfight", "launch", "belt", "skim", "harvest", "evade", "solar", "warp", "blackhole"].includes(planet.mission) ? <Suspense fallback={<div className="adv-cine" />}><AdventureShip key={planet.id} ctl={shipCtl} P={planet} lang={lang} ups={shipUps.current} upgrade={(close: any) => <UpgradePanel me={me} petNow={petNow} lang={lang} playUi={playUi} shopOnly onStats={() => { Object.assign(shipUps.current, readUps()); }} onClose={close} />} glow={colorway && colorway.glow ? colorway.glow : "127,232,255"} onExit={() => { settleShip(null, planet, onReward); setPlanet(null); }}
           onWin={(res) => { const sale = settleShip(res, planet, onReward); try { const rpg = addRpgExpX(me, Math.round(260 * (planet.hard || 1) * readDiff().rw)); void rpg; } catch (e) {} const nx = nextOf(planet); setShipDone({ ...res, ...sale, next: nx }); }} /></Suspense> :
         planet.mission === "strike" && !strike ? <StrikePhase P={planet} lang={lang} playUi={playUi} onDone={(mask) => setStrike({ mask })} onBack={() => setPlanet(null)} /> :
         <Run key={planet.id} net={net} onReward={onReward} strikeMask={strike ? strike.mask : null} P={planet} gfx={gfx} lang={lang} me={me} colorway={colorway} held={held} hat={hat} acc={acc} petNow={petNow}
@@ -1047,7 +1051,7 @@ function RankPanel({ lang, maps }: any) {
 /** The skill book (owner, 2026-10-11): ten skills for the robot's class and ten for the pet's element. Robot skill n opens at class rank n, pet skill n at pet level n;
     levels 1..5 cost crystals; up to three robot actives and two pet actives are equipped. */
 /** In-run upgrade page (owner, 2026-10-16): spend stat points (STR DEX AGI INT LUK) and crystals on the career's skills without leaving the map. */
-function UpgradePanel({ me, petNow, lang, playUi, onStats, onClose }: any) {
+function UpgradePanel({ me, petNow, lang, playUi, onStats, onClose, shopOnly }: any) {
   const t = (a: string, b: string, c: string) => T3(lang, a, b, c);
   const [, bump] = useState(0);
   const info = rpgOf(me), crystals = readCrystals();
@@ -1058,12 +1062,13 @@ function UpgradePanel({ me, petNow, lang, playUi, onStats, onClose }: any) {
     <div className="adv-pause adv-lvlpop" role="dialog" aria-label="upgrade" data-lvlpop="1" onPointerDown={(e) => e.stopPropagation()}>
       <div className="adv-pause-card alp-card">
         <div className="alp-head"><b>{t("อัพเกรด", "Upgrade", "升级")} · Lv {info.lv}</b><span data-free>{t("แต้มที่ใช้ได้ ", "Free points ", "可用点数 ") + info.free}</span><button className="adv-btn go" data-lvl-close onClick={onClose}>▶ {t("เล่นต่อ", "Resume", "继续")}</button></div>
-        <div className="alp-stats">
+        {!shopOnly && <div className="alp-stats">
           {RPG_STATS.map((k: any) => (
             <div key={k} className="alp-stat" data-stat={k}><b>{N[k]}</b><i>{info.pts[k]}/{STAT_CAP}</i><small>{T3(lang, H[k][0], H[k][1], H[k][2])}</small>
               <button data-stat-dn={k} disabled={info.pts[k] < 1} onClick={() => change(k, -1)}>−</button>
               <button data-stat-up={k} disabled={info.free < 1 || info.pts[k] >= STAT_CAP} onClick={() => change(k, 1)}>+</button></div>))}
         </div>
+        }
         <div className="adv-shop alp-shop" aria-label="Workshop">
           <b>{t("โรงงาน — อัปเกรดด้วยคริสตัล ◆ ", "Workshop — upgrade with crystals ◆ ", "工坊 — 用晶体 ◆ ") + crystals}</b>
           {UP_LINES.map((l: any) => { const ups = readUps(); return (
@@ -1071,7 +1076,7 @@ function UpgradePanel({ me, petNow, lang, playUi, onStats, onClose }: any) {
               <span>{l === "atk" ? t("พลังโจมตี", "Attack", "攻击") : l === "hp" ? t("เลือด", "Health", "生命") : l === "rkt" ? t("จรวดยิงชุด/รีโหลดไว", "Rocket salvo & reload", "火箭齐射/装填") : l === "shp" ? t("เครื่องยนต์ยาน", "Starship engine", "飞船引擎") : t("สกิลเร็วขึ้น", "Skill speed", "技能加速")} · Lv {ups[l]}/{UP_MAX}</span>
               <em>{ups[l] >= UP_MAX ? "MAX" : "◆ " + upCost(ups[l])}</em></button>); })}
         </div>
-        <div className="adv-shop alp-shop" aria-label="Loadout">
+        {!shopOnly && <div className="adv-shop alp-shop" aria-label="Loadout">
           <b>{t("อาวุธที่พกไป", "Loadout", "装备")}</b>
           {(["gun", "rocket"] as const).map(kind => { const ld = readLoad(), dn = readDone(); return (
             <div key={kind} className="adv-load">
@@ -1080,8 +1085,8 @@ function UpgradePanel({ me, petNow, lang, playUi, onStats, onClose }: any) {
                 <button key={w.id} data-w={w.id} className={sel ? "on" : ""} disabled={!!lock} aria-pressed={sel} onClick={() => { saveLoad(kind, w.id); playUi && playUi("click"); onStats(); bump(x => x + 1); }}>
                   {T3(lang, w.th, w.en, w.zh)}{w.drop && wlvOf(w.id) > 1 ? " Lv" + wlvOf(w.id) : ""}{lock ? " 🔒" : ""}</button>); })}</div>
             </div>); })}
-        </div>
-        <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} open onChange={() => bump(x => x + 1)} />
+        </div>}
+        {!shopOnly && <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} open onChange={() => bump(x => x + 1)} />}
         <p style={{ fontSize: 11, opacity: .8 }}>◆ {t("คริสตัล ", "Crystals ", "晶体 ") + crystals}</p>
       </div>
     </div>

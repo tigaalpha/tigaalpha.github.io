@@ -230,10 +230,10 @@ const POW_ICO: any = { cell: "☀", nuke: "☢", h2: "H₂" };
 const LOOTK = ["scrap", "ore", "gold", "core"] as const;
 
 const toRgb = (g: string) => { const m = /^#?([0-9a-f]{6})$/i.exec(g || ""); if (m) { const n = parseInt(m[1], 16); return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`; } return /^\d+,\s*\d+,\s*\d+$/.test(g || "") ? g : "127,232,255"; };
-export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit, ctl }: any) {
+export default function AdventureShip({ P, lang, ups, upgrade, glow: glow0, onWin, onExit, ctl }: any) {
   try { if (localStorage.getItem("tg_adv_crash") === "1") throw new Error("test crash"); } catch (e) { if (e && (e as any).message === "test crash") throw e; }   // a test-only switch for the map guard
 
-  const [gear, setGear] = useState(false), pausedRef = useRef(false), fitRef = useRef<any>(null), musRef = useRef<any>(null);
+  const [gear, setGear] = useState(false), [upOpen, setUpOpen] = useState(false), pausedRef = useRef(false), fitRef = useRef<any>(null), musRef = useRef<any>(null);
   const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } }), highRef = useRef(high); highRef.current = high;
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const flipGfx = () => { const nh = !highRef.current; highRef.current = nh; setHigh(nh); try { localStorage.setItem("tg_adv_gfx", nh ? "high" : "standard"); } catch (e) {} if (fitRef.current) fitRef.current(); };
@@ -527,8 +527,10 @@ export default function AdventureShip({ P, lang, ups, glow: glow0, onWin, onExit
           <div className="adv-bar adv-hp"><i style={{ width: Math.max(0, Math.min(100, ui.hp)) + "%" }} /><b>HP {ui.hp}</b></div>
           {MODE === "dogfight" && ui.bossOn && <div className="adv-bar adv-sk"><i style={{ width: ui.boss * 100 + "%" }} /><b>{t("มาเธอร์ชิป", "MOTHERSHIP", "母舰")}</b></div>}
         </div>
+        {upgrade && <button className="adv-btn adv-lvl" data-lvl aria-label="upgrade" onClick={() => { const k = keys.current; k.l = k.r = k.u = k.d = k.fire = k.miss = false; k.ax = 0; k.ay = 0; pausedRef.current = true; setUpOpen(true); }}>⬆</button>}
         <GearButton onClick={() => { const k = keys.current; k.l = k.r = k.u = k.d = k.fire = k.miss = false; k.ax = 0; k.ay = 0; pausedRef.current = true; setGear(true); }} />
       </div>
+      {upOpen && upgrade && upgrade(() => { pausedRef.current = false; setUpOpen(false); })}
       {gear && <SettingsPopup lang={lang} high={high} onGfx={flipGfx} musicOn={musicOn} onMusic={flipMusic} online={false} onResume={() => { pausedRef.current = false; setGear(false); }} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {(ui.over || ui.win) && <div className="adv-clear" role="dialog" aria-label="ship result">{ui.win ? t("ชนะ! กำลังสรุปผล…", "Victory! Tallying…", "胜利！结算中…") : <><b>{t("ยานถูกทำลาย", "Ship destroyed", "战机被毁")}</b><button className="adv-btn go" onClick={() => retry.current()}>↻ {t("ลองใหม่", "Retry", "重试")}</button><button className="adv-btn" onClick={() => onExit()}>{t("กลับแผนที่", "Back to map", "返回地图")}</button></>}</div>}
       <div className="adv-stickzone" data-stickzone="1" {...stick}><div className="adv-stickring" ref={ringRef} /></div>
