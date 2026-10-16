@@ -250,6 +250,14 @@ export const PLANETS = [
 /* The story order of every episode (owner, 2026-10-13: "arrange the episodes so the player feels one continuous, fun story, interleaving every category; a new episode can be slipped in anywhere").
    To add an episode, put its id wherever it belongs in this list; an id that is not listed is appended at the end. A map opens when the one before it, or the one before that,
    has been cleared (so one very hard map never walls the story off); the sector tabs are only a way to browse. */
+
+/** mind-map layout (owner, 2026-10-16): the maps of a part as planets of different sizes on a winding route, in story order, in two rows (percent coordinates) */
+const mindHash = (id: string) => { let h = 7; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 9973; return h; };
+const mindSize = (id: string) => 22 + (mindHash(id) % 5) * 5;   // 22..42 px
+const mindPts = (n: number): { x: number; y: number }[] => { const rows = n > 8 ? 2 : 1, r1 = rows === 1 ? n : Math.ceil(n / 2), out: { x: number; y: number }[] = [];
+  for (let i = 0; i < n; i++) { const r = i < r1 ? 0 : 1, j = r ? i - r1 : i, cnt = r ? n - r1 : r1, f = cnt > 1 ? j / (cnt - 1) : 0.5, x = r ? 93 - 86 * f : 7 + 86 * f, wob = Math.sin(i * 1.7) * 6 + ((mindHash("p" + i) % 5) - 2);
+    out.push({ x: Math.max(6, Math.min(94, x + ((mindHash("q" + i) % 3) - 1))), y: (rows === 1 ? 45 : r ? 70 : 26) + wob }); }
+  return out; };
 export const CAMPAIGN = ["shipbuild", "departure", "moonhe3", "moonbase", "colmoon", "spaceranch", "marscolony", "colmars", "ranchmars", "venussky", "asteroids", "minebuild", "mercury", "solarcharge", "jupitergas", "gasskim", "gasbuild", "gaspump", "saturnrings", "titanassault", "titancolony", "coltitan", "ranchtitan", "arkbuild", "arkfarm", "arkherd", "arkexodus", "colproxima", "ranchproxima", "luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "ashfall", "warpjump", "starharvest", "voidgate", "deathstar", "blackhole", "dysonbuild", "dysondock", "dyson", "kindred", "darkforge", "shadow"];
 export const campList = (): any[] => { const by: any = {}; for (const P of PLANETS) by[P.id] = P; const seen = new Set<string>(); const out: any[] = []; for (const id of CAMPAIGN) if (by[id] && !seen.has(id)) { seen.add(id); out.push(by[id]); } for (const P of PLANETS) if (!seen.has(P.id)) out.push(P); return out; };
 
@@ -797,6 +805,17 @@ const CSS = `
 .adv-menu .adv-path .adv-planet b{font-size:8.5px;line-height:1.15;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.adv-menu .adv-path .adv-planet b i{display:block;margin:0 auto 1px}
 .adv-menu .adv-path .adv-planet small{display:none}
 .adv-menu .adv-path .adv-planet em{position:absolute;top:2px;right:3px;font-size:8px;padding:1px 4px;margin:0}
+
+/* mind map: planets of different sizes on a winding route */
+.adv-menu .adv-path.adv-mind{display:block!important;position:relative;padding:0!important}
+.adv-mind .adv-route{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.adv-mind .adv-rt{fill:none;stroke:var(--bd3,rgba(0,0,0,.3));stroke-width:1.6;stroke-dasharray:4 4;vector-effect:non-scaling-stroke;stroke-linecap:round}.adv-mind .adv-rt.clr{stroke:#3ddc97;stroke-dasharray:none;stroke-width:2.4}
+.adv-menu .adv-mind .adv-planet,.adv-menu .adv-mind .adv-planet:nth-child(odd),.adv-menu .adv-mind .adv-planet:nth-child(even){position:absolute;left:var(--x);top:var(--y);width:78px;height:auto;transform:translate(-50%,calc(var(--sz) / -2 - 2px));background:none!important;border:0!important;box-shadow:none!important;padding:0!important;overflow:visible;display:flex;flex-direction:column;align-items:center;gap:1px;animation:none}
+.adv-menu .adv-mind .adv-planet .adv-orb{position:relative;width:var(--sz);height:var(--sz);flex:none;margin:0;top:auto;left:auto;box-shadow:inset calc(var(--sz) * -.16) calc(var(--sz) * -.16) calc(var(--sz) * .3) rgba(0,0,0,.55),0 0 10px var(--g)}
+.adv-menu .adv-mind .adv-planet.clr .adv-orb{outline:2px solid #3ddc97;outline-offset:2px}.adv-menu .adv-mind .adv-planet.cur .adv-orb{outline:2px solid var(--clay,#d97757);outline-offset:3px;animation:advcur 1.8s ease-in-out infinite}
+.adv-menu .adv-mind .adv-planet.lock{opacity:.55;filter:grayscale(.8)}
+.adv-menu .adv-mind .adv-planet>span{align-items:center;text-align:center}.adv-menu .adv-mind .adv-planet b{font-size:8.5px;line-height:1.1;-webkit-line-clamp:2}.adv-menu .adv-mind .adv-planet em{top:0;right:auto;left:calc(50% + var(--sz) / 2 - 4px);background:var(--card,#fff);font-size:8px;padding:0 3px}
+.adv-menu .adv-mind .adv-planet .adv-ch{font-size:7.5px;padding:0 4px;margin-bottom:1px}
 `;
 
 type Gfx = "standard" | "high";
@@ -878,7 +897,9 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   };
   const leaveRoom = () => { closePub(); if (netRef.current) netRef.current.leave(); netRef.current = null; setNet(null); setPeersL([]); };
   const CAMP = campList();
+  const visOf = (L: any[], sec: string) => L.filter((P: any) => sec === "all" || sectorOf(P) === sec);
   const LIST = (() => { try { return localStorage.getItem("tg_adv_unlockall") === "1" && !localStorage.getItem("tg_adv_sector") ? PLANETS : CAMP; } catch (e) { return CAMP; } })();   // test door: the bots that set no tab see the original order (Luma first)
+  const vis = visOf(LIST, sector as string);
   const nextOf = (cur: any) => { const dn = readDone(); const idx = CAMP.findIndex(q => q.id === cur.id); const rest = [...CAMP.slice(idx + 1), ...CAMP.slice(0, idx)].filter(Q => Q.ok && open(Q)); return rest.find(Q => !dn.includes(Q.id)) || rest[0] || null; };   // the next map you have not cleared yet, wrapping round   // the orbital-strike result (which bases are gone) before an Ashfall run
   // Maps are played one step at a time inside each sector: step n opens when step n-1 is cleared (owner, 2026-10-12).
   // A top-tier admin (tier 3) is never locked, so the game can be inspected; `tg_adv_unlockall` is the same switch for the test bots.
@@ -930,9 +951,10 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
               <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${nx.c[2]} 45%,${nx.c[0]})`, "--g": `rgba(${nx.glow},.7)` } as any} />
               <span><small>{done.length ? t("เล่นต่อ", "Continue", "继续") : t("เริ่มเลย", "Start here", "从这里开始")}</small><b>{T3(lang, nx.th, nx.en, nx.zh)}</b></span><em>▶</em>
             </button>) : null; })()}
-          <div className="adv-planets adv-path" ref={pathRef}>
-            {LIST.map((P, pi) => (sector as string) !== "all" && sectorOf(P) !== sector ? null : (
-              <button key={P.id} title={T3(lang, P.th, P.en, P.zh)} className={"adv-planet" + (open(P) ? "" : " lock") + (done.includes(P.id) ? " clr" : "") + (curId === P.id ? " cur" : "")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)` } as any} disabled={!canStart(P)}
+          <div className="adv-planets adv-path adv-mind" ref={pathRef}>
+            {(() => { const n = vis.length, pts = mindPts(n); return n > 1 ? (<svg className="adv-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{pts.slice(1).map((q, i) => { const a = pts[i], mx = (a.x + q.x) / 2, my = (a.y + q.y) / 2 + (i % 2 ? 6 : -6); return <path key={i} d={`M${a.x} ${a.y} Q${mx} ${my} ${q.x} ${q.y}`} className={"adv-rt" + (done.includes(vis[i].id) ? " clr" : "")} />; })}</svg>) : null; })()}
+            {vis.map((P, vi) => (
+              <button key={P.id} title={T3(lang, P.th, P.en, P.zh)} className={"adv-planet" + (open(P) ? "" : " lock") + (done.includes(P.id) ? " clr" : "") + (curId === P.id ? " cur" : "")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)`, "--x": mindPts(vis.length)[vi].x + "%", "--y": mindPts(vis.length)[vi].y + "%", "--sz": mindSize(P.id) + "px" } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
                 <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
                 <span><b><i className="adv-ch" data-ch={stepOf(P) + 1}>{t("ตอนที่ ", "Ep. ", "第") + (stepOf(P) + 1) + (lang === "zh" ? "集" : "")}</i> {T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? (() => { const pv = prevOf(P), n = stepOf(P); return t("ต้องผ่านตอนที่ " + n + " หรือ " + (n - 1) + " ก่อน", "Clear episode " + n + (n > 1 ? " or " + (n - 1) : "") + " first" + (pv ? " (" + pv.en.split(" · ")[0] + ")" : ""), "先通关第 " + n + (n > 1 ? " 或 " + (n - 1) : "") + " 集"); })() : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
