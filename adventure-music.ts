@@ -335,16 +335,32 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
   return { total, starts };
 }
 export type CineAudio = { stop: () => void; resume: () => void; running: () => boolean };
+
+/* A bouncy, bright riff under every film (owner, 2026-10-16: "the film before the game has no music, put in a fun, exciting song"): 126 bpm, C major pentatonic over C-G-Am-F,
+   a square-wave lead, a triangle bass and a plucked arpeggio, kept quiet enough to sit under the narration. Generated from numbers, nothing recorded. */
+export function scheduleFunRiff(ctx: BaseAudioContext, out: AudioNode, t0: number, total: number) {
+  const step = 60 / 126 / 2, bars = Math.ceil(total / (step * 8)), roots = [130.81, 98.0, 110.0, 87.31], tri = [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]];
+  const lead = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5], pat = [[0, 2, 4, 2, 5, 4, 2, 0], [2, 4, 5, 4, 3, 2, 4, 2], [4, 5, 4, 2, 3, 2, 0, 2], [0, 2, 3, 4, 3, 2, 0, 0]];
+  for (let b = 0; b < bars; b++) { const c = b % 4, root = roots[c], base = t0 + b * step * 8, intense = b >= 2 ? 1 : 0.7;
+    for (let i = 0; i < 8; i++) { const t = base + i * step;
+      tone(ctx, out, "triangle", root * (i % 2 ? 2 : 1), t, step * 0.9, 0.11 * intense, 0.005);
+      tone(ctx, out, "square", lead[pat[c][i]], t, step * 0.8, 0.045 * intense, 0.004);
+      tone(ctx, out, "triangle", 261.63 * Math.pow(2, tri[c][i % 3] / 12), t + step * 0.5, step * 0.4, 0.035 * intense, 0.003);
+    } }
+}
+
+/** Call from a tap / click so the film's audio context is already running when the film opens (a phone keeps a context created later muted). */
+export function warmAudio() { try { const w: any = window; const AC = w.AudioContext || w.webkitAudioContext; if (!AC) return; if (!w.__tgCineCtx || w.__tgCineCtx.state === "closed") w.__tgCineCtx = new AC(); w.__tgCineCtx.resume && w.__tgCineCtx.resume().catch(() => {}); } catch (e) {} }
 export function createCineAudio(moodId: string, plan: CineShot[]): CineAudio | null {
   try {
-    const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return null; const ctx: AudioContext = new AC(); const m = ctx.createGain(); m.gain.value = 0.3; const comp = ctx.createDynamicsCompressor(); m.connect(comp); comp.connect(ctx.destination);
-    ctx.resume().catch(() => {}); const r = scheduleCineScore(ctx, m, moodId, plan, 14); m.gain.setValueAtTime(0.3, ctx.currentTime + r.total + 12); m.gain.linearRampToValueAtTime(0, ctx.currentTime + r.total + 14);
-    return { stop() { try { m.gain.setTargetAtTime(0, ctx.currentTime, 0.12); setTimeout(() => { try { ctx.close(); } catch (e) {} }, 500); } catch (e) {} }, resume() { try { ctx.resume().catch(() => {}); } catch (e) {} }, running: () => ctx.state === "running" };
+    const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return null; const w: any = window; const shared = !!(w.__tgCineCtx && w.__tgCineCtx.state !== "closed"); const ctx: AudioContext = shared ? w.__tgCineCtx : new AC(); const m = ctx.createGain(); m.gain.value = 0.3; const comp = ctx.createDynamicsCompressor(); m.connect(comp); comp.connect(ctx.destination);
+    ctx.resume().catch(() => {}); const r = scheduleCineScore(ctx, m, moodId, plan, 14); scheduleFunRiff(ctx, m, ctx.currentTime + 0.3, r.total); m.gain.setValueAtTime(0.3, ctx.currentTime + r.total + 12); m.gain.linearRampToValueAtTime(0, ctx.currentTime + r.total + 14);
+    return { stop() { try { m.gain.setTargetAtTime(0, ctx.currentTime, 0.12); setTimeout(() => { try { m.disconnect(); comp.disconnect(); if (!shared) ctx.close(); } catch (e) {} }, 500); } catch (e) {} }, resume() { try { ctx.resume().catch(() => {}); } catch (e) {} }, running: () => ctx.state === "running" };
   } catch (e) { return null; }
 }
 export async function renderCinePreview(id: string, plan: CineShot[]) {
   const total = plan.reduce((a, s) => a + s.dur, 0) + 4; const OAC = (window as any).OfflineAudioContext || (window as any).webkitOfflineAudioContext; const ctx: OfflineAudioContext = new OAC(1, Math.ceil(44100 * total), 44100);
-  const comp = ctx.createDynamicsCompressor(), m = ctx.createGain(); m.gain.value = 0.3; m.connect(comp); comp.connect(ctx.destination); resetVoices(); scheduleCineScore(ctx, m, id, plan, 3);
+  const comp = ctx.createDynamicsCompressor(), m = ctx.createGain(); m.gain.value = 0.3; m.connect(comp); comp.connect(ctx.destination); resetVoices(); const rr = scheduleCineScore(ctx, m, id, plan, 3); scheduleFunRiff(ctx, m, 0.3, rr.total);
   const buf = await ctx.startRendering(), d = buf.getChannelData(0); let pk = 0, ss = 0, bad = 0; for (let i = 0; i < d.length; i++) { const v = d[i]; if (!isFinite(v)) bad++; pk = Math.max(pk, Math.abs(v)); ss += v * v; }
   return { peak: pk, rms: Math.sqrt(ss / d.length), bad, secs: total, events: VOICES };
 }

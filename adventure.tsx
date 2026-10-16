@@ -28,7 +28,7 @@ import { classKeyOf, MODEL_CLASS } from "./model-skills";
 import { isLowEnd, spaceTier } from "./space-stage";
 import { Piano } from "./music-engine";
 import { logUsage, dayKey } from "./shared-infra";
-import { createAdvMusic, renderPreview } from "./adventure-music";
+import { createAdvMusic, renderPreview, warmAudio } from "./adventure-music";
 import { recordMemory } from "./ai-chat-context";
 import { nextQuestion, nextSpell, judgeKeys, recordAnswer, readLadder, learnedTopics } from "./quiz-quest";
 
@@ -940,7 +940,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   }, [planet, filming]);
   useEffect(() => { if (menuMus.current) menuMus.current.setOn(menuSnd); try { localStorage.setItem("tg_adv_music", menuSnd ? "1" : "0"); } catch (e) {} }, [menuSnd]);
   useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
-  const startPlanet = (P: any) => { playUi && playUi("click"); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
+  const startPlanet = (P: any) => { playUi && playUi("click"); warmAudio(); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
   const canStart = (P: any) => (net ? net.host : open(P));   // in a room only the host chooses the map (guests join whatever map the host opens)
   const connect = async (code: string | null) => {
     setNerr(""); setBusy(true);
