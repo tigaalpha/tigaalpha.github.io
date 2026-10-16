@@ -24,10 +24,10 @@ async function open(pre) {
 async function enter(p, re) { const idx = await p.evaluate((src) => [...document.querySelectorAll(".adv-planet")].findIndex(b => new RegExp(src).test(b.textContent)), re); await p.evaluate((i) => document.querySelectorAll(".adv-planet")[i].click(), idx); return idx; }
 
 { const { ctx, p, errs } = await open({});
-  ok("the menu has a tab for Act 2 (5 tabs now)", (await p.locator("[data-sector]").count()) === 5);
-  ok("Act 2 shows its three maps", (await p.locator(".adv-planet").count()) === 3, String(await p.locator(".adv-planet").count()));
+  ok("the menu has a tab for Act 2 (5 tabs now)", (await p.locator("[data-sector]").count()) === 4);
+  ok("Act 2 shows its five maps (the Dyson build and dock open the part)", (await p.locator(".adv-planet").count()) === 5, String(await p.locator(".adv-planet").count()));
   const names = await p.evaluate(() => [...document.querySelectorAll(".adv-planet b")].map(b => b.textContent));
-  ok("they are Kindred Haven, the Dark Forge and the Harvesters' Eye", /Kindred/.test(names[0]) && /Dark Forge/.test(names[1]) && /Harvesters/.test(names[2]), names.join(" | "));
+  ok("they are Kindred Haven, the Dark Forge and the Harvesters' Eye", /Kindred/.test(names[2]) && /Dark Forge/.test(names[3]) && /Harvesters/.test(names[4]), names.join(" | "));
   ok("no errors (menu)", errs.length === 0, errs.join("|")); await ctx.close(); }
 for (const [re, label] of [["Kindred", "Kindred Haven"], ["Dark Forge", "Dark Forge"]]) {
   const { ctx, p, errs } = await open({}); const i = await enter(p, re); ok(label + " opens from the menu", i >= 0);

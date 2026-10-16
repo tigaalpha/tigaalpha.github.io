@@ -27,7 +27,7 @@ const FAKE = `window.__advChannelFactory = (name, cfg) => {
 const ctx = await browser.newContext({ viewport: { width: 900, height: 420 }, hasTouch: true, serviceWorkers: "block" });
 await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort());
 await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
-await ctx.addInitScript((fake) => { eval(fake); sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_lang", "en"); localStorage.setItem("tg_adv_nocine","1"); localStorage.setItem("tg_adv_sector","colony"); localStorage.setItem("tg_adv_unlockall","1"); localStorage.setItem("tg_adv_prologue", "skip"); localStorage.setItem("tg_3d_tier", "0"); localStorage.setItem("tg_adv_done", JSON.stringify(["luma","ferro","jovia","kryo","pyra","nexa"])); }, FAKE);
+await ctx.addInitScript((fake) => { eval(fake); sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_lang", "en"); localStorage.setItem("tg_adv_nocine","1"); localStorage.setItem("tg_adv_sector","all"); localStorage.setItem("tg_adv_unlockall","1"); localStorage.setItem("tg_adv_prologue", "skip"); localStorage.setItem("tg_3d_tier", "0"); localStorage.setItem("tg_adv_done", JSON.stringify(["luma","ferro","jovia","kryo","pyra","nexa"])); }, FAKE);
 async function mkPage(name) {
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200)));
   await p.addInitScript((n) => { localStorage.setItem("tg_guest_profile", JSON.stringify({ name: n, lang: "en", age: "adult", level: "beginner", exp: 5000 })); }, name);
@@ -42,7 +42,7 @@ const code = await A.p.evaluate(() => document.querySelector("[data-room]").text
 ok("the host got a 6-letter room code", /^[A-Z0-9]{6}$/.test(code), code);
 await B.p.fill(".al-code", code); await B.p.evaluate(() => document.querySelector("button[data-join]").click());
 await B.p.waitForFunction(() => document.querySelectorAll(".al-peer").length >= 2, null, { timeout: 8000 }).catch(() => {});
-await A.p.evaluate(() => document.querySelector("[data-sector=colony]").click()); await A.p.waitForTimeout(300);
+await A.p.evaluate(() => document.querySelector("[data-sector=solar]").click()); await A.p.waitForTimeout(300);
 await A.p.evaluate(() => [...document.querySelectorAll(".adv-planet")].find(e => /Moon Colony/.test(e.textContent)).click());
 await A.p.waitForSelector("[data-colony]", { timeout: 12000 }); await B.p.waitForSelector("[data-colony]", { timeout: 12000 });
 ok("the guest follows the host into the colony", true);

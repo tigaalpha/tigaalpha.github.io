@@ -13,7 +13,7 @@ async function open(pre) {
   const ctx = await browser.newContext({ viewport: { width: 800, height: 420 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
   await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort());
   await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
-  await ctx.addInitScript((d) => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_adv_sector", "solar"); localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: "en", age: "adult", level: "beginner", exp: 5000 })); localStorage.setItem("tg_lang", "en"); localStorage.setItem("tg_adv_nocine", "1"); localStorage.setItem("tg_adv_prologue", "skip"); localStorage.setItem("tg_adv_nogate", "1"); for (const k in d) localStorage.setItem(k, d[k]); }, pre);
+  await ctx.addInitScript((d) => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_adv_sector", "all"); localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: "en", age: "adult", level: "beginner", exp: 5000 })); localStorage.setItem("tg_lang", "en"); localStorage.setItem("tg_adv_nocine", "1"); localStorage.setItem("tg_adv_prologue", "skip"); localStorage.setItem("tg_adv_nogate", "1"); for (const k in d) localStorage.setItem(k, d[k]); }, pre);
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200)));
   await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
   for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
@@ -21,12 +21,12 @@ async function open(pre) {
   return { ctx, p, errs };
 }
 { const { ctx, p } = await open({});
-  ok("five tabs, the fourth is the Solar System", (await p.locator("[data-sector]").count()) === 5 && (await p.locator("[data-sector=solar]").count()) === 1);
-  const n = await p.locator(".adv-planet").count(); ok("thirteen maps in Sector 4", n === 13, String(n));
+  ok("four tabs, the first is the Solar System", (await p.locator("[data-sector]").count()) === 4 && (await p.locator("[data-sector=solar]").count()) === 1);
+  const n = await p.locator(".adv-planet").count(); ok("every map is listed (49) when the test door is open", n === 49, String(n));
   const lk = await p.evaluate(() => [...document.querySelectorAll(".adv-planet")].map(b => b.classList.contains("lock")));
-  ok("locked by the story order: the Moon (episode 3) opens after the one-skip rule only once an earlier episode is cleared, so a fresh player has every Solar System map shut", lk.every(Boolean), JSON.stringify(lk));
+  ok("locked by the story order: the Moon (episode 3) opens after the one-skip rule only once an earlier episode is cleared, so a fresh player has every Solar System map shut", lk[0] === false && lk.slice(1).every(Boolean), JSON.stringify(lk));
   const names = await p.evaluate(() => [...document.querySelectorAll(".adv-planet b")].map(b => b.textContent));
-  ok("Moon, lunar base, Mars, Mercury, Venus, Jupiter, Saturn, Titan x2, Ark x4 in order", /Moon/.test(names[0]) && /Lunar/.test(names[1]) && /Mars/.test(names[2]) && /Mercury/.test(names[3]) && /Venus/.test(names[4]) && /Jupiter/.test(names[5]) && /Saturn/.test(names[6]) && /Titan/.test(names[7]) && /Titan/.test(names[8]) && /Ark|Shipyard/.test(names[9]) && /Hydroponic/.test(names[10]) && /Livestock/.test(names[11]) && /Exodus/.test(names[12]), names.join(" | "));
+  { const order = ["Colony Starship", "Departure", "Moon ·", "Moon Colony", "Space Ranch", "Lunar Base", "Asteroid Field", "Asteroid Mining", "Mars ·", "Mars Colony", "Mars Ranch", "Mercury", "Venus", "Jupiter", "Saturn", "Titan · storm", "Titan · the second", "Shipyard", "Exodus", "Proxima b Colony", "Luma", "Dyson Dock", "Kindred"]; let at = -1, good = true; for (const k of order) { const j = names.findIndex((q, i) => i > at && q.includes(k)); if (j < 0) { good = false; break; } at = j; } ok("the story runs in the real-world order: ship, Moon, Space Ranch, asteroids, Mars, Mercury, Venus, outer planets, Titan, Ark, Proxima, new worlds, Harvesters", good, names.join(" | ")); }
   await ctx.close(); }
 const MAPS = [["Moon ·", false], ["Lunar Base", false], ["Mars ·", false], ["Mercury", false], ["Venus", true], ["Jupiter", true], ["Saturn", true], ["Titan · storm", false], ["Titan · the second", false], ["Shipyard", false], ["Hydroponic", false], ["Livestock", false], ["Exodus", true]];
 for (const [re, ship] of MAPS) {
