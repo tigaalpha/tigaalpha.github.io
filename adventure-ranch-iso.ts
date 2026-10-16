@@ -201,11 +201,22 @@ function blob(x: CanvasRenderingContext2D, cx: number, cy: number, rx: number, r
   const g = x.createRadialGradient(cx - rx * 0.35, cy - ry * 0.5, 1, cx, cy, Math.max(rx, ry) * 1.15); g.addColorStop(0, light); g.addColorStop(1, dark);
   x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rx, ry, rot, 0, 7); x.fill(); if (line) { x.strokeStyle = line; x.lineWidth = 1; x.stroke(); }
 }
-function eye(x: CanvasRenderingContext2D, ex: number, ey: number, r: number) { x.fillStyle = "#fff"; x.beginPath(); x.ellipse(ex, ey, r * 1.15, r, 0, 0, 7); x.fill(); x.fillStyle = "#2a1a12"; x.beginPath(); x.arc(ex + r * 0.25, ey, r * 0.72, 0, 7); x.fill(); x.fillStyle = "#fff"; x.beginPath(); x.arc(ex + r * 0.5, ey - r * 0.3, r * 0.26, 0, 7); x.fill(); }
+let BLINK = 0;
+/* A big, glossy, friendly eye: a dark iris with a warm ring, two catch-lights, and a blink now and then. */
+function eye(x: CanvasRenderingContext2D, ex: number, ey: number, r: number) {
+  const R = r * 1.2;
+  if (BLINK) { x.strokeStyle = "#2a1a12"; x.lineWidth = Math.max(1, r * 0.5); x.lineCap = "round"; x.beginPath(); x.moveTo(ex - R, ey); x.quadraticCurveTo(ex, ey + R * 0.7, ex + R, ey); x.stroke(); return; }
+  x.fillStyle = "#fff"; x.strokeStyle = "rgba(40,24,14,.45)"; x.lineWidth = 0.8; x.beginPath(); x.ellipse(ex, ey, R * 1.1, R * 1.15, 0, 0, 7); x.fill(); x.stroke();
+  const ig = x.createRadialGradient(ex + R * 0.2, ey - R * 0.1, 0.5, ex + R * 0.25, ey, R * 0.95); ig.addColorStop(0, "#7a4a2a"); ig.addColorStop(0.55, "#2e1a10"); ig.addColorStop(1, "#140a06"); x.fillStyle = ig; x.beginPath(); x.arc(ex + R * 0.22, ey + R * 0.05, R * 0.82, 0, 7); x.fill();
+  x.fillStyle = "#fff"; x.beginPath(); x.arc(ex + R * 0.5, ey - R * 0.38, R * 0.3, 0, 7); x.fill(); x.beginPath(); x.arc(ex - R * 0.05, ey + R * 0.32, R * 0.14, 0, 7); x.fill();
+}
+/* rosy cheek and a tiny shine on a nose: the "cute" finish */
+function blush(x: CanvasRenderingContext2D, cx: number, cy: number, r: number) { const g = x.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, "rgba(255,110,130,.55)"); g.addColorStop(1, "rgba(255,110,130,0)"); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); }
 function leg(x: CanvasRenderingContext2D, lx: number, ly: number, w: number, h: number, col: string, hoof: string) { const g = x.createLinearGradient(lx - w, 0, lx + w, 0); g.addColorStop(0, shade(col, 1.06)); g.addColorStop(1, shade(col, 0.78)); x.fillStyle = g; x.beginPath(); x.roundRect(lx - w / 2, ly, w, h, w / 2.2); x.fill(); x.fillStyle = hoof; x.beginPath(); x.roundRect(lx - w / 2 - 0.5, ly + h - 3.4, w + 1, 3.6, 1.6); x.fill(); }
 
 export function drawIsoAnimal(x: CanvasRenderingContext2D, id: string, T: number, i: number) {
   const br = Math.sin(T * 2 + i) * 0.7, graze = Math.max(0, Math.sin(T * 0.9 + i * 1.7)) * 4;
+  BLINK = ((T * 0.8 + i * 1.7) % 4) > 3.82 ? 1 : 0;
   x.lineJoin = "round"; x.lineCap = "round";
   if (id === "cow") {
     leg(x, -19, 6, 6, 15, "#cdbfae", "#2a1a12"); leg(x, 13, 6, 6, 15, "#cdbfae", "#2a1a12");                    // far legs
@@ -216,15 +227,16 @@ export function drawIsoAnimal(x: CanvasRenderingContext2D, id: string, T: number
     x.strokeStyle = "rgba(60,40,30,.4)"; x.lineWidth = 1; x.beginPath(); x.ellipse(0, -3 + br, 29, 17, 0, 0, 7); x.stroke();
     blob(x, -14, 12, 5, 3.4, "#ffc4c4", "#e69a9a", 0, "");                                                                 // udder
     leg(x, -12, 8, 7, 16, "#f4ece2", "#2a1a12"); leg(x, 21, 8, 7, 16, "#f4ece2", "#2a1a12");                  // near legs
-    x.strokeStyle = "#cfc4b6"; x.lineWidth = 2.4; x.beginPath(); x.moveTo(-28, -8 + br); x.quadraticCurveTo(-36, 2, -33, 14); x.stroke(); blob(x, -33, 15, 2.6, 4.2, "#3a2f2a", "#1a1512", 0, "");  // tail
+    x.strokeStyle = "#cfc4b6"; x.lineWidth = 2.4; x.beginPath(); x.moveTo(-28, -8 + br); x.quadraticCurveTo(-36 + Math.sin(T * 3 + i) * 3, 2, -33 + Math.sin(T * 3 + i) * 4, 14); x.stroke(); blob(x, -33 + Math.sin(T * 3 + i) * 4, 15, 2.6, 4.2, "#3a2f2a", "#1a1512", 0, "");  // tail
     x.save(); x.translate(27, -9 + br + graze * 0.4); x.rotate(graze * 0.04);
     blob(x, 4, 2, 9, 12, "#f6eee4", "#c9bcae", 0.5);                                                                          // neck
+    x.fillStyle = "#e8b030"; x.strokeStyle = "#8a5a10"; x.lineWidth = 1; x.beginPath(); x.arc(5, 15 + graze * 0.2, 3.6, 0, 7); x.fill(); x.stroke(); x.fillStyle = "#fff6c8"; x.beginPath(); x.arc(4, 14, 1.1, 0, 7); x.fill();   // cow bell
     blob(x, 12, 6 + graze * 0.4, 11, 9.5, "#fbf4ea", "#d2c6b8", 0.25);                                                        // head
     blob(x, 20, 11 + graze * 0.4, 7, 5.6, "#ffcfc8", "#e9a39b", 0.2); x.fillStyle = "#b86a64"; x.beginPath(); x.ellipse(22, 10.5 + graze * 0.4, 1.1, 1.5, 0, 0, 7); x.ellipse(26, 11.5 + graze * 0.4, 1.1, 1.5, 0, 0, 7); x.fill();
     x.fillStyle = "#2a2522"; x.beginPath(); x.ellipse(8, 1.5, 4.5, 3.4, 0.3, 0, 7); x.fill();                                    // face patch
     blob(x, 2, -4, 5.5, 3, "#f0e6da", "#cbbfb0", -0.5); blob(x, 7, -7, 3.2, 2, "#f8f0e6", "#d8ccbc", 0.1);                      // ear + horn base
     x.fillStyle = "#f3e6c4"; x.beginPath(); x.moveTo(8, -7); x.quadraticCurveTo(10, -13, 14, -13); x.quadraticCurveTo(12, -10, 11, -6); x.fill();   // horn
-    eye(x, 14, 3 + graze * 0.4, 1.9); x.restore();
+    eye(x, 14, 3 + graze * 0.4, 1.9); blush(x, 15, 9 + graze * 0.4, 4.2); x.restore();
   } else if (id === "chicken") {
     const peck = Math.max(0, Math.sin(T * 3 + i * 2)) * 5;
     for (const [lx, c] of [[-2, "#e89a2a"], [4, "#f2b33a"]] as [number, string][]) { x.strokeStyle = c; x.lineWidth = 2; x.beginPath(); x.moveTo(lx, 6); x.lineTo(lx + 0.5, 15); x.moveTo(lx + 0.5, 15); x.lineTo(lx + 4.5, 16.5); x.moveTo(lx + 0.5, 15); x.lineTo(lx - 3, 16.5); x.moveTo(lx + 0.5, 15); x.lineTo(lx + 1.5, 17); x.stroke(); }
@@ -236,7 +248,7 @@ export function drawIsoAnimal(x: CanvasRenderingContext2D, id: string, T: number
     x.fillStyle = "#e23a2a"; for (const [cx, cy, r] of [[-1.5, -8, 2.4], [1, -9, 2.8], [3.4, -7.4, 2.2]] as number[][]) { x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); }   // comb
     x.fillStyle = "#f0a020"; x.beginPath(); x.moveTo(5, -1); x.lineTo(10.5, 0.6); x.lineTo(5, 2.6); x.closePath(); x.fill();
     blob(x, 4.2, 4.2, 1.8, 2.8, "#e23a2a", "#b0201a", 0, "");                                                                  // wattle
-    eye(x, 2.4, -2, 1.3); x.restore();
+    eye(x, 2.4, -2, 1.4); blush(x, 1.6, 3, 3); x.restore();
   } else if (id === "pig") {
     leg(x, -14, 6, 6, 12, "#e89aae", "#6a3a40"); leg(x, 13, 6, 6, 12, "#e89aae", "#6a3a40");
     x.strokeStyle = "#e07a94"; x.lineWidth = 2; x.beginPath(); x.arc(-27, -2 + br, 4, 0.5, 5.6); x.stroke();                     // curly tail
@@ -247,14 +259,14 @@ export function drawIsoAnimal(x: CanvasRenderingContext2D, id: string, T: number
     blob(x, 4, 2, 11, 10.5, "#ffc9d6", "#e891a8", 0.1);                                                                         // head
     blob(x, 14, 5.4, 6, 4.8, "#ffb0c4", "#e07a96", 0); x.fillStyle = "#b8506a"; x.beginPath(); x.ellipse(13.5, 5.2, 1.1, 1.7, 0, 0, 7); x.ellipse(17, 5.6, 1.1, 1.7, 0, 0, 7); x.fill();   // snout
     x.fillStyle = "#e58aa2"; x.strokeStyle = "rgba(100,40,60,.4)"; x.beginPath(); x.moveTo(0, -6); x.quadraticCurveTo(-3, -14, 4, -12); x.quadraticCurveTo(7, -9, 6, -5); x.closePath(); x.fill(); x.stroke();  // floppy ear
-    eye(x, 8, 0, 1.7); x.restore();
+    eye(x, 8, 0, 1.9); blush(x, 9, 6, 4.2); x.restore();
   } else {
     leg(x, -10, 9, 3.6, 13, "#4a3f3a", "#2a2220"); leg(x, 10, 9, 3.6, 13, "#4a3f3a", "#2a2220");
     const wool = [[-16, -6, 10], [-6, -12, 11], [6, -12, 11], [16, -6, 10], [-18, 4, 9], [-8, 5, 11], [4, 6, 11], [15, 4, 10], [-2, -3, 12], [-12, -1, 11], [9, -2, 11]] as number[][];
     for (const [wx, wy, r] of wool) { const g = x.createRadialGradient(wx - r * 0.3, wy - r * 0.4 + br, 1, wx, wy + br, r); g.addColorStop(0, "#ffffff"); g.addColorStop(0.7, "#f1ede6"); g.addColorStop(1, "#cfc9bf"); x.fillStyle = g; x.beginPath(); x.arc(wx, wy + br, r, 0, 7); x.fill(); x.strokeStyle = "rgba(120,110,95,.28)"; x.lineWidth = 1; x.stroke(); }
     x.save(); x.translate(21, -2 + br + graze * 0.4);
     blob(x, 4, 0, 7, 8, "#5a4e48", "#2e2622", 0.25);
-    blob(x, -2, -5, 4.4, 2.2, "#4a3f3a", "#2a2220", -0.6); eye(x, 6, -1.4, 1.5);
+    blob(x, -2, -5, 4.4, 2.2, "#4a3f3a", "#2a2220", -0.6); eye(x, 6, -1.4, 1.7); blush(x, 7, 4, 3.4);
     x.fillStyle = "#e9a8a8"; x.beginPath(); x.ellipse(8.6, 3.4, 1.8, 1.2, 0, 0, 7); x.fill();
     blob(x, 0, -8, 6.5, 4, "#ffffff", "#d9d3c8", 0); x.restore();
   }
