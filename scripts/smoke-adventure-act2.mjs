@@ -25,9 +25,9 @@ async function enter(p, re) { const idx = await p.evaluate((src) => [...document
 
 { const { ctx, p, errs } = await open({});
   ok("the menu has a tab for Act 2 (5 tabs now)", (await p.locator("[data-sector]").count()) === 4);
-  ok("Act 2 shows its five maps (the Dyson build and dock open the part)", (await p.locator(".adv-planet").count()) === 5, String(await p.locator(".adv-planet").count()));
+  ok("Act 2 shows its six maps (the Dyson build, dock and forge open the part)", (await p.locator(".adv-planet").count()) === 6, String(await p.locator(".adv-planet").count()));
   const names = await p.evaluate(() => [...document.querySelectorAll(".adv-planet b")].map(b => b.textContent));
-  ok("they are Kindred Haven, the Dark Forge and the Harvesters' Eye", /Kindred/.test(names[2]) && /Dark Forge/.test(names[3]) && /Harvesters/.test(names[4]), names.join(" | "));
+  ok("they are Kindred Haven, the Dark Forge and the Harvesters' Eye", /Kindred/.test(names[3]) && /Dark Forge/.test(names[4]) && /Harvesters/.test(names[5]), names.join(" | "));
   ok("no errors (menu)", errs.length === 0, errs.join("|")); await ctx.close(); }
 for (const [re, label] of [["Kindred", "Kindred Haven"], ["Dark Forge", "Dark Forge"]]) {
   const { ctx, p, errs } = await open({}); const i = await enter(p, re); ok(label + " opens from the menu", i >= 0);
