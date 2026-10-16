@@ -14,7 +14,9 @@ import { bigDome, drawBuilding, drawTube, drawSkyline, groundFill, PALS } from "
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
-const SPEEDS = [0.5, 1, 2];   // slow, normal, fast (index into this)
+// owner, 2026-10-15: "SimCity BuildIt has 5 speed levels" — slow(0) / normal(1, the default) / fast(2) as before, plus faster(3) and max(4)
+const SPEEDS = [0.5, 1, 2, 3, 5];   // index into this
+const SPEED_ICON = ["🐢", "▶", "⏩", "⏭", "⚡"];
 const COLS = 22, ROWS = 18, CELLS = COLS * ROWS, DAY = 2;   // a "day" is 2 seconds of play
 
 type Site = { icon: string; target: number; sun: number; water: number; ore: number; cold: number; hazard: string; name: L3; note: L3; hz: L3 };
@@ -327,7 +329,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
         <div className="cb-world" ref={worldRef} style={{ width: WORLD.w, height: WORLD.h }}>{cellsEl}</div>
         {(() => { const e = ERAS[eraOf(S)]; return <div className="ac2-era" data-era={e.y}><b>{t("ปี ", "YEAR ", "公元 ")}{e.y}</b><small>{T3(lang, e.n[0], e.n[1], e.n[2])}</small></div>; })()}
       </div>
-      <div className="cb-speed" data-speedbar="1">{[t("ช้า", "Slow", "慢"), t("กลาง", "Normal", "中"), t("เร็ว", "Fast", "快")].map((lb, i) => (<button key={i} data-speed={i} aria-label={lb} className={"ac2-sp" + (speed === i ? " on" : "")} onClick={() => { speedRef.current = i; setSpeedS(i); }}>{["🐢", "▶", "⏩"][i]}</button>))}</div>
+      <div className="cb-speed" data-speedbar="1">{[t("ช้า", "Slow", "慢"), t("กลาง", "Normal", "中"), t("เร็ว", "Fast", "快"), t("เร็วขึ้น", "Faster", "更快"), t("สูงสุด", "Max", "最快")].map((lb, i) => (<button key={i} data-speed={i} aria-label={lb} className={"ac2-sp" + (speed === i ? " on" : "")} onClick={() => { speedRef.current = i; setSpeedS(i); }}>{SPEED_ICON[i]}</button>))}</div>
       <div className="cb-res" data-resbar="1">
         {RES.map(r => (<span key={r.k} className={"ac2-r cb-pill" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k} {...(r.k === "ma" ? { "data-fund": "1" } : {})}><i>{r.icon}</i><b>{Math.floor(S.stock[r.k])}</b><small className={S.rate[r.k] < -0.01 ? "neg" : "pos"}>{S.rate[r.k] < -0.01 ? "▼" : S.rate[r.k] > 0.01 ? "▲" : "·"}</small></span>))}
       </div>
@@ -349,7 +351,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
           {c.f ? <span>{c.f === "ice" ? "❄ " + t("ช่องน้ำแข็ง: สกัดน้ำได้สองเท่า", "Ice plot: double water", "冰地：产水翻倍") : "◆ " + t("ช่องแร่: เหมืองได้สองเท่า", "Ore plot: double mining", "矿地：采矿翻倍")}</span> : null}
           <small>{t("แตะอีกครั้งเพื่อปิด", "Tap again to close", "再点一次关闭")}</small></div>); })()}
       <div className="cb-tray" data-toolbox="1">
-        <div className="cb-cats">{[...GROUPS, { id: "tech", icon: "🔬", name: ["วิจัย", "Research", "研究"] }].map((g: any) => (<button key={g.id} className="cb-cat" data-cat={g.id} aria-label={T3(lang, g.name[0], g.name[1], g.name[2])} onClick={() => { const el = document.querySelector(`[data-grp='${g.id}']`) as HTMLElement | null; if (el && el.scrollIntoView) el.scrollIntoView({ inline: "start", block: "nearest", behavior: "smooth" }); }}>{g.icon}</button>))}</div>
+        <div className="cb-cats">{[...GROUPS, { id: "tech", icon: "🔬", name: ["วิจัย", "Research", "研究"] }].map((g: any) => (<button key={g.id} className="cb-cat" data-cat={g.id} aria-label={T3(lang, g.name[0], g.name[1], g.name[2])} onClick={() => { const el = document.querySelector(`[data-grp='${g.id}']`) as HTMLElement | null; if (el && el.scrollIntoView) el.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" }); }}>{g.icon}</button>))}</div>
         <div className="cb-cards">
           {GROUPS.map(g => (<div key={g.id} className="cb-sec sc-g" data-grp={g.id}><div className="sc-gh">{T3(lang, g.name[0], g.name[1], g.name[2])}</div><div className="cb-row">
             {g.ids.map(id => { const b = BUILD.find(q => q.id === id)!, locked = (b.needSci || 0) > S.stock.sc, cs = cost(b); return (

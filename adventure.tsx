@@ -587,7 +587,7 @@ const CSS = `
 .adv-colony.cb .ac2-era{position:absolute;left:10px;top:auto;right:auto;bottom:150px;z-index:3;pointer-events:none;transform:scale(.8);transform-origin:left bottom}
 .adv-colony.cb .adv-top{z-index:6}.adv-colony.cb .ac2-team{position:absolute;left:8px;top:92px;z-index:6}
 .cb-speed{position:absolute;left:8px;top:58px;z-index:6;display:flex;gap:4px;padding:3px;border-radius:999px;background:rgba(10,18,30,.72);border:1.5px solid rgba(255,255,255,.2)}
-.cb-speed .ac2-sp{width:34px;height:30px;border-radius:999px;border:0;background:transparent;color:#fff;font-size:15px}.cb-speed .ac2-sp.on{background:linear-gradient(#4fd3ff,#1a8fd0)}
+.cb-speed{gap:2px}.cb-speed .ac2-sp{width:26px;height:28px;padding:0;font-size:13px;border-radius:999px;border:0;background:transparent;color:#fff;font-size:15px}.cb-speed .ac2-sp.on{background:linear-gradient(#4fd3ff,#1a8fd0)}
 .cb-res{position:absolute;left:50%;transform:translateX(-50%);top:56px;z-index:6;display:flex;gap:5px;max-width:calc(100% - 150px);overflow-x:auto;padding:2px}.cb-res::-webkit-scrollbar{display:none}
 .cb-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px 3px 4px;border-radius:999px;background:linear-gradient(#1c3550,#0e1d30);border:1.5px solid #5fb4e8;box-shadow:0 2px 0 rgba(0,0,0,.4);color:#fff;font-weight:800;font-size:13px;white-space:nowrap}
 .cb-pill i{font-style:normal;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3,#0003);display:flex;align-items:center;justify-content:center;font-size:13px}.cb-pill b{font-variant-numeric:tabular-nums}.cb-pill small{font-size:9px}.cb-pill small.neg,.cb-pill.low{color:#ff7b7b}.cb-pill small.pos{color:#7dff8a}.cb-pill.low{border-color:#ff5a5a}
@@ -602,7 +602,7 @@ const CSS = `
 .cb-tray{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:6px 6px 8px;background:linear-gradient(rgba(8,16,28,0),rgba(8,16,28,.88) 18%,rgba(6,12,22,.97));display:flex;flex-direction:column;gap:5px}
 .cb-cats{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 2px}.cb-cats::-webkit-scrollbar{display:none}
 .cb-cat{width:36px;height:36px;flex:none;border-radius:50%;border:2px solid #fff;background:radial-gradient(circle at 35% 25%,#ffd966,#d9890f 75%);font-size:17px;box-shadow:0 2px 0 rgba(0,0,0,.45);cursor:pointer}
-.cb-cards{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 4px;scroll-snap-type:x proximity;scrollbar-width:none}.cb-cards::-webkit-scrollbar{display:none}
+.cb-cards{display:flex;flex-direction:column;gap:4px;overflow-y:auto;overflow-x:hidden;max-height:min(30vh,132px);padding:2px 2px 4px;scrollbar-width:none}.cb-cards .cb-row{overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.cb-cards .cb-row::-webkit-scrollbar{display:none}.cb-cards::-webkit-scrollbar{display:none}
 .cb-sec{display:flex;flex-direction:column;gap:3px;flex:none;border:0;padding:0;scroll-snap-align:start}.cb-sec .sc-gh{background:transparent;color:#9fd8ff;font:800 10px/1 system-ui;padding:0 2px;text-transform:uppercase;letter-spacing:.5px}.cb-row{display:flex;gap:6px}
 .cb-card{display:flex;flex-direction:column;align-items:center;gap:1px;width:78px;min-height:80px;flex:none;padding:5px 3px;border-radius:14px;border:2.5px solid #7fc4ee;background:linear-gradient(#27496b,#16304a);color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.5);cursor:pointer;text-align:center}
 .cb-card i{font-style:normal;font-size:26px;line-height:1.1}.cb-card b{font-size:10.5px;line-height:1.15;min-height:24px;display:flex;align-items:center}.cb-card small{font-size:11px;font-weight:800;color:#ffe27a;background:rgba(0,0,0,.35);border-radius:999px;padding:1px 7px}
@@ -757,6 +757,10 @@ const CSS = `
 .alp-stat b{font-size:14px}.alp-stat i{font-style:normal;font-size:12px;opacity:.85}.alp-stat small{grid-column:1/3;font-size:10px;opacity:.75}
 .alp-stat button{width:40px;height:40px;border-radius:50%;border:0;font-size:20px;font-weight:800;background:#3ddc97;color:#06281c;cursor:pointer}.alp-stat button:disabled{opacity:.35}
 .adv-lvlpop .adv-book{margin:0}.adv-lvlpop .ab-list{max-height:none}
+
+.adv-top .adv-hud{flex:none;width:min(176px,30vw);gap:2px}.adv-top .adv-lv{font-size:10px}.adv-top .adv-bar{height:12px;border-radius:6px}.adv-top .adv-bar i{border-radius:6px}.adv-top .adv-bar b{font-size:9.5px;letter-spacing:0}
+.alp-shop{margin:8px 0;color:#eafff6}.alp-shop .adv-up{background:rgba(255,255,255,.08);color:#eafff6;border-color:rgba(140,255,220,.35)}.alp-shop .adv-load small{color:#9fd8cc}.alp-shop .adv-load button{background:rgba(255,255,255,.08);color:#eafff6;border-color:rgba(140,255,220,.35)}.alp-shop .adv-load button.on{background:#3ddc97;color:#06281c}
+.adv-top .adv-lvl{position:relative;top:auto;right:auto;margin-left:auto;flex:none}.adv-top .adv-lvl+.adv-gear{margin-left:0}
 `;
 
 type Gfx = "standard" | "high";
@@ -1060,6 +1064,23 @@ function UpgradePanel({ me, petNow, lang, playUi, onStats, onClose }: any) {
               <button data-stat-dn={k} disabled={info.pts[k] < 1} onClick={() => change(k, -1)}>−</button>
               <button data-stat-up={k} disabled={info.free < 1 || info.pts[k] >= STAT_CAP} onClick={() => change(k, 1)}>+</button></div>))}
         </div>
+        <div className="adv-shop alp-shop" aria-label="Workshop">
+          <b>{t("โรงงาน — อัปเกรดด้วยคริสตัล ◆ ", "Workshop — upgrade with crystals ◆ ", "工坊 — 用晶体 ◆ ") + crystals}</b>
+          {UP_LINES.map((l: any) => { const ups = readUps(); return (
+            <button key={l} className="adv-up" data-up={l} disabled={ups[l] >= UP_MAX || crystals < upCost(ups[l])} onClick={() => { if (buyUp(l)) { playUi && playUi("click"); onStats(); bump(x => x + 1); } }}>
+              <span>{l === "atk" ? t("พลังโจมตี", "Attack", "攻击") : l === "hp" ? t("เลือด", "Health", "生命") : l === "rkt" ? t("จรวดยิงชุด/รีโหลดไว", "Rocket salvo & reload", "火箭齐射/装填") : l === "shp" ? t("เครื่องยนต์ยาน", "Starship engine", "飞船引擎") : t("สกิลเร็วขึ้น", "Skill speed", "技能加速")} · Lv {ups[l]}/{UP_MAX}</span>
+              <em>{ups[l] >= UP_MAX ? "MAX" : "◆ " + upCost(ups[l])}</em></button>); })}
+        </div>
+        <div className="adv-shop alp-shop" aria-label="Loadout">
+          <b>{t("อาวุธที่พกไป", "Loadout", "装备")}</b>
+          {(["gun", "rocket"] as const).map(kind => { const ld = readLoad(), dn = readDone(); return (
+            <div key={kind} className="adv-load">
+              <small>{kind === "gun" ? t("ปืน / เลเซอร์", "Gun / laser", "枪 / 激光") : t("จรวด", "Rocket", "火箭")}</small>
+              <div>{(kind === "gun" ? GUNS : ROCKETS).filter((w: any) => !w.drop || readFound().includes(w.id)).map((w: any) => { const lock = w.req && !dn.includes(w.req), sel = ld[kind] === w.id; return (
+                <button key={w.id} data-w={w.id} className={sel ? "on" : ""} disabled={!!lock} aria-pressed={sel} onClick={() => { saveLoad(kind, w.id); playUi && playUi("click"); onStats(); bump(x => x + 1); }}>
+                  {T3(lang, w.th, w.en, w.zh)}{w.drop && wlvOf(w.id) > 1 ? " Lv" + wlvOf(w.id) : ""}{lock ? " 🔒" : ""}</button>); })}</div>
+            </div>); })}
+        </div>
         <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} open onChange={() => bump(x => x + 1)} />
         <p style={{ fontSize: 11, opacity: .8 }}>◆ {t("คริสตัล ", "Crystals ", "晶体 ") + crystals}</p>
       </div>
@@ -1312,7 +1333,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     /* ── the robot, from the same numbers PvP uses ── */
     const stat = () => { const info = rpgOf(me); return { info, mods: rpgMods(info.pts) }; };
     let { info, mods } = stat();
-    statRef.current = () => { const r = stat(); info = r.info; mods = r.mods; };
+    statRef.current = () => { const r = stat(); info = r.info; mods = r.mods; try { Object.assign(UPS, readUps()); Object.assign(LOAD, readLoad()); } catch (e) {} };
     const skillOf = () => skillRank(readSkillSp()[cls] || 0);
     const UPS = readUps(), DF = readDiff(), LOAD = readLoad();
     // skill careers: the passives of every unlocked robot skill (class rank) and pet skill (pet level), added up once per run
@@ -2109,9 +2130,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           <div className="adv-bar adv-xp"><i style={{ width: pct(hud.xp, hud.xpNeed) }} /><b>★ {t("ประสบการณ์", "LEVEL", "经验")}</b></div>
           <div className="adv-bar adv-sk"><i style={{ width: pct(hud.sk, hud.skNeed) }} /><b>{t("สกิล", "SKILL", "技能")} R{hud.rank || 1}</b></div>
         </div>
+        <button className="adv-btn adv-lvl" data-lvl aria-label="upgrade" onClick={openUp}>⬆{rpgOf(me).free > 0 && <i className="alp-dot">{rpgOf(me).free}</i>}</button>
         <GearButton onClick={openGear} />
       </div>
-      <button className="adv-btn adv-lvl" data-lvl aria-label="upgrade" onClick={openUp}>⬆{rpgOf(me).free > 0 && <i className="alp-dot">{rpgOf(me).free}</i>}</button>
       {upOpen && <UpgradePanel me={me} petNow={petNow} lang={lang} playUi={playUi} onStats={() => { if (statRef.current) statRef.current(); }} onClose={closeUp} />}
       {gear && <SettingsPopup lang={lang} high={high} onGfx={onGfx} musicOn={musicOn} onMusic={() => setMusicOn(m => !m)} online={!!net} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
       {net && <div className="adv-emotes">{["👍", "⚔️", "🆘", "❤️"].map(em => <button key={em} aria-label={"emote " + em} onClick={() => chatRef.current && chatRef.current(em)}>{em}</button>)}</div>}
