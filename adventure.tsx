@@ -845,6 +845,22 @@ background:radial-gradient(1.2px 1.2px at 8% 18%,#fff,transparent),radial-gradie
 .adv-menu .adv-mind .adv-planet .adv-tick{position:absolute;right:-5px;top:-5px;width:16px;height:16px;border-radius:50%;background:#3ddc97;color:#04281a;font:900 11px/16px system-ui,sans-serif;text-align:center;text-decoration:none;box-shadow:0 0 0 2px rgba(2,5,13,.85),0 0 8px rgba(61,220,151,.7)}
 .adv-ranch .ar-zoom{position:absolute;right:10px;top:46%;display:flex;flex-direction:column;gap:8px;z-index:6}.adv-ranch .ar-zoom button{width:38px;height:38px;border-radius:50%;border:2px solid #fff;background:rgba(40,90,40,.72);color:#fff;font:700 20px/1 system-ui;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 .adv-ranch .ar-world{pointer-events:none}.adv-ranch .ar-world .ar-hit{pointer-events:auto}
+.adv-menu.onl{grid-template-rows:auto auto auto auto minmax(0,1fr) auto!important;grid-template-areas:"head chips" "tabs tabs" "tools tools" "lobby lobby" "path path" "cta foot"!important}
+.adv-menu.onl .adv-lobby{grid-area:lobby;max-height:46vh;overflow-y:auto;border-radius:18px;padding:10px 12px;margin:0}
+.adv-menu .al-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.adv-menu .al-head b{font-size:16px}.adv-menu .al-head small{opacity:.8}
+.adv-menu .al-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.adv-menu .al-card{background:rgba(255,255,255,.06);border:1px solid var(--bd3,rgba(255,255,255,.18));border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:7px}
+.adv-menu .al-card h4{margin:0;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.adv-menu .al-card small{font-size:11px;opacity:.85;line-height:1.35}.adv-menu .al-card p{margin:0;font-size:13px;line-height:1.45}
+.adv-menu .al-big{width:100%;min-height:46px;font-size:15px;justify-content:center}
+.adv-menu .al-or{font-size:11px;opacity:.75;text-align:center;border-top:1px dashed var(--bd3,rgba(255,255,255,.25));padding-top:6px}
+.adv-menu .al-card .al-code{flex:1;min-width:0;width:auto;text-align:center;letter-spacing:.18em;font-weight:700}
+.adv-menu .al-card input:not([type=checkbox]){width:100%}.adv-menu .al-war{font-size:12px;display:flex;gap:8px;align-items:flex-start;line-height:1.3}
+.adv-menu .al-prow{justify-content:space-between}.adv-menu .al-ref{min-height:28px;padding:0 10px}
+.adv-menu .al-room{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.adv-menu .al-room b{font-size:24px;letter-spacing:.2em;padding:4px 16px}
+.adv-menu .al-next{border-color:var(--clay,#d97757)}
+.adv-menu .al-card input:not([type=checkbox]){min-height:34px!important;height:34px;padding:4px 12px!important;border-radius:999px}
+.adv-menu.onl .adv-lobby{max-height:54vh}
 `;
 
 type Gfx = "standard" | "high";
@@ -943,7 +959,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
     <div className="adv" role="region" aria-label="Adventure Mode">
       <style>{CSS}</style>
       {fin && !planet && !pro ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={FINALE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_finale", "1"); } catch (e) {} setFin(false); exitFsAndUnlock(); }} /></Suspense> : pro && !planet ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={PROLOGUE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_prologue", "1"); } catch (e) {} setPro(false); exitFsAndUnlock(); }} /></Suspense> : !planet ? (
-        <div className="adv-menu">
+        <div className={"adv-menu" + (online ? " onl" : "")}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="adv-btn" onClick={() => { playUi && playUi("click"); onBack(); }} aria-label="back">←</button>
             <h2 style={{ flex: 1 }}>🪐 Adventure Mode</h2>
@@ -992,29 +1008,48 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
               </button>
             ))}
           </div>
-          <div className="adv-foot">
           {online && (
             <div className="adv-lobby" aria-label="Adventure Online">
-              <b>🌐 {t("Adventure ออนไลน์ — เล่นกับเพื่อน (สูงสุด " + MAX_PILOTS + " คน)", "Adventure Online — team up (up to " + MAX_PILOTS + " pilots)", "在线冒险 — 组队（最多 " + MAX_PILOTS + " 人）")}</b>
-              {!net ? (<>
-                <label>{t("ชื่อของคุณ", "Your name", "你的名字")} <input value={pname} maxLength={14} onChange={(e) => setPname(e.target.value)} /></label>
-                <div className="al-row"><button className="adv-btn go" disabled={busy} onClick={() => connect(null)} data-create="1">＋ {t("สร้างห้อง", "Create a room", "创建房间")}</button>
-                  <input className="al-code" placeholder="ABC123" value={joinCode} maxLength={6} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} />
-                  <button className="adv-btn" disabled={busy || joinCode.length !== 6} onClick={() => connect(joinCode)} data-join="1">{t("เข้าห้อง", "Join", "加入")}</button></div>
-                <label className="al-war"><input type="checkbox" data-pub="1" checked={pubOpt} onChange={e => setPubOpt(e.target.checked)} /> {t("เปิดเป็นห้องสาธารณะ (คนอื่นเห็นในรายการและเข้าได้เลย)", "List my room publicly (others can find and join it)", "公开房间（其他人可在列表中看到并加入）")}</label>
-                {nerr && <small className="al-err">{nerr}</small>}
-                <div className="al-pub" data-publist="1"><b>{t("ห้องสาธารณะ", "Public rooms", "公开房间")}</b> <button className="adv-btn" onClick={refreshPub} data-pubrefresh="1">↻</button>
-                  {pubRooms.length === 0 ? <small>{t("ยังไม่มีห้องเปิดอยู่ — สร้างห้องของคุณเองได้เลย", "No open rooms right now — create your own.", "暂无开放房间——自己创建一个吧。")}</small> : pubRooms.map(r => (
-                    <div className="al-row" key={r.code} data-pubrow={r.code}><span>{r.host_name} · {r.pilots}/{MAX_PILOTS}{r.war ? " · ⚔" : ""}</span><button className="adv-btn go" disabled={busy} onClick={() => connect(r.code)}>{t("เข้าห้อง", "Join", "加入")}</button></div>))}
-                </div>
-                <small>{t("ไม่ต้องตั้งค่าอะไร — แชร์รหัส 6 ตัวให้เพื่อนก็เข้าห้องได้", "Nothing to set up — share the 6-letter code with friends.", "无需设置——把 6 位代码分享给好友即可。")}</small>
-              </>) : (<>
-                <div className="al-room"><span>{t("รหัสห้อง", "ROOM", "房间")}</span><b data-room="1">{net.code}</b><button className="adv-btn" onClick={leaveRoom}>{t("ออกจากห้อง", "Leave", "离开")}</button></div>
-                <div className="al-peers">{[{ id: "me", name: pname + " (" + t("คุณ", "you", "你") + ")", glow: colorway && colorway.glow }, ...peersL].map((q: any) => <span key={q.id} className="al-peer" style={{ borderColor: q.glow || "#7fe8ff" }}>{q.name}</span>)}</div>
-                {net.host && <label className="al-war"><input type="checkbox" data-war="1" checked={warOpt} onChange={e => setWarOpt(e.target.checked)} /> {t("โหมดทีมสู้ทีม (แดง/ฟ้า ยิงต่อสู้กันเอง ไม่มีรางวัล)", "Team war (red vs blue pilots can hit each other, no rewards)", "团队对战（红蓝互相攻击，无奖励）")}</label>}
-                <small>{net.host ? t("คุณเป็นเจ้าของห้อง — เลือกแผนที่ด้านล่างเพื่อเริ่มพร้อมกันทุกคน (ทุกคนดูหนังก่อนเริ่มด่านของตัวเอง)", "You host — pick a map below to start it for everyone (each pilot sees the film first).", "你是房主——在下方选择地图即可让所有人同时开始（每人先看自己的过场动画）。") : t("รอเจ้าของห้องเลือกแผนที่…", "Waiting for the host to pick a map…", "等待房主选择地图…")}</small>
-              </>)}
+              <div className="al-head"><b>🌐 {t("เล่นกับเพื่อน", "Play with friends", "和好友一起玩")}</b><small>{t("ได้สูงสุด " + MAX_PILOTS + " คน · ไม่ต้องตั้งค่าอะไร", "Up to " + MAX_PILOTS + " pilots · nothing to set up", "最多 " + MAX_PILOTS + " 人 · 无需设置")}</small></div>
+              {!net ? (<div className="al-cols">
+                <section className="al-card">
+                  <h4>{t("1. ใส่ชื่อของคุณ", "1. Your name", "1. 你的名字")}</h4>
+                  <input value={pname} maxLength={14} onChange={(e) => setPname(e.target.value)} aria-label={t("ชื่อของคุณ", "Your name", "你的名字")} />
+                  <small>{t("เพื่อนจะเห็นชื่อนี้ในเกม", "Friends see this name in the game.", "好友会在游戏里看到这个名字。")}</small>
+                </section>
+                <section className="al-card">
+                  <h4>{t("2. สร้างห้อง หรือ เข้าห้องเพื่อน", "2. Make a room, or join a friend's", "2. 创建房间，或加入好友的房间")}</h4>
+                  <button className="adv-btn go al-big" disabled={busy} onClick={() => connect(null)} data-create="1">＋ {t("สร้างห้องใหม่", "Make a new room", "创建新房间")}</button>
+                  <small>{t("จะได้รหัส 6 ตัว ส่งให้เพื่อนเพื่อมาเล่นด้วยกัน", "You get a 6-letter code. Send it to your friends.", "会得到 6 位代码，发给好友即可。")}</small>
+                  <label className="al-war"><input type="checkbox" data-pub="1" checked={pubOpt} onChange={e => setPubOpt(e.target.checked)} /> {t("ให้คนอื่นเห็นห้องฉันในรายการ (ใครก็เข้าได้)", "Show my room in the list (anyone can join)", "在列表中显示我的房间（任何人可加入）")}</label>
+                  <div className="al-or">{t("หรือ ถ้าเพื่อนส่งรหัสมาให้", "or, if a friend sent you a code", "或者，如果好友发来了代码")}</div>
+                  <div className="al-row"><input className="al-code" placeholder="ABC123" value={joinCode} maxLength={6} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} aria-label={t("รหัสห้อง", "Room code", "房间代码")} />
+                    <button className="adv-btn go" disabled={busy || joinCode.length !== 6} onClick={() => connect(joinCode)} data-join="1">{t("เข้าห้อง", "Join", "加入")}</button></div>
+                  {nerr && <small className="al-err">{nerr}</small>}
+                </section>
+                <section className="al-card al-pub" data-publist="1">
+                  <h4>{t("ห้องที่เปิดอยู่ตอนนี้", "Open rooms right now", "当前开放的房间")} <button className="adv-btn al-ref" onClick={refreshPub} data-pubrefresh="1" aria-label="refresh">↻</button></h4>
+                  {pubRooms.length === 0 ? <small>{t("ยังไม่มีห้องเปิดอยู่ — ลองสร้างห้องของคุณเองได้เลย", "No open rooms yet. Make your own!", "暂无开放房间，自己创建一个吧！")}</small> : pubRooms.map(r => (
+                    <div className="al-row al-prow" key={r.code} data-pubrow={r.code}><span>{r.host_name} · {r.pilots}/{MAX_PILOTS}{r.war ? " · ⚔" : ""}</span><button className="adv-btn go" disabled={busy} onClick={() => connect(r.code)}>{t("เข้าห้อง", "Join", "加入")}</button></div>))}
+                </section>
+              </div>) : (<div className="al-cols al-inroom">
+                <section className="al-card">
+                  <h4>{t("รหัสห้องของคุณ", "Your room code", "你的房间代码")}</h4>
+                  <div className="al-room"><b data-room="1">{net.code}</b><button className="adv-btn" onClick={leaveRoom}>{t("ออกจากห้อง", "Leave", "离开")}</button></div>
+                  <small>{t("บอกรหัสนี้ให้เพื่อน แล้วเพื่อนใส่รหัสเพื่อเข้าห้อง", "Tell friends this code so they can join.", "把代码告诉好友，他们输入后即可加入。")}</small>
+                </section>
+                <section className="al-card">
+                  <h4>{t("คนในห้อง", "Who is here", "房间里的人")}</h4>
+                  <div className="al-peers">{[{ id: "me", name: pname + " (" + t("คุณ", "you", "你") + ")", glow: colorway && colorway.glow }, ...peersL].map((q: any) => <span key={q.id} className="al-peer" style={{ borderColor: q.glow || "#7fe8ff" }}>{q.name}</span>)}</div>
+                  {net.host && <label className="al-war"><input type="checkbox" data-war="1" checked={warOpt} onChange={e => setWarOpt(e.target.checked)} /> {t("โหมดสู้กันเอง: ทีมแดงสู้ทีมฟ้า (ไม่มีรางวัล)", "Fight mode: red team vs blue team (no rewards)", "对战模式：红队对蓝队（无奖励）")}</label>}
+                </section>
+                <section className="al-card al-next">
+                  <h4>{t("ต่อไปทำอะไร?", "What next?", "接下来？")}</h4>
+                  <p>{net.host ? t("คุณเป็นเจ้าของห้อง: แตะดาวด้านล่างเพื่อเลือกด่าน ทุกคนจะเข้าด่านเดียวกันพร้อมกัน", "You are the host: tap a planet below. Everyone starts that map together.", "你是房主：点下面的星球选择关卡，所有人会一起进入。") : t("รอเจ้าของห้องเลือกด่าน แล้วเกมจะเริ่มให้เองครับ", "Wait for the host to pick a map. The game starts by itself.", "请等房主选择关卡，游戏会自动开始。")}</p>
+                </section>
+              </div>)}
             </div>)}
+          <div className="adv-foot">
           {(menuTools || sector === "space" || (sector as string) === "all") && <details className="adv-grp" data-grp="gear" open={gearOpen}>
             <summary>{t("🧰 อัปเกรดและอุปกรณ์", "🧰 Upgrades & gear", "🧰 升级与装备")}</summary>
           {menuTools && <SkillBook me={me} petNow={petNow} lang={lang} crystals={crystals} playUi={playUi} onChange={() => setTick(x => x + 1)} />}
