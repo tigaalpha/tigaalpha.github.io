@@ -120,7 +120,7 @@ const ERAS = [{ y: 2100, n: ["นีโอฮาบิแทต", "Neo-Habitat",
 const eraOf = (S: any) => { const labs = S.grid.filter((c: any) => c.b === "lab").length, techs = S.tech.filter(Boolean).length, m = S.pop + 12 * techs + 4 * labs; return m >= 55 ? 2 : m >= 22 ? 1 : 0; };
 const BCOL: Record<string, string> = { hab: "0,230,255", solar: "90,140,255", water: "70,190,255", oxy: "120,255,190", farm: "130,255,110", mine: "255,170,60", lab: "190,110,255", med: "255,255,255", reactor: "0,255,230", port: "255,90,200", park: "90,255,120", school: "255,225,110", recycler: "110,255,240", market: "255,150,110", geo: "255,120,60", tower: "170,255,140", shield: "120,170,255" };
 const BH: Record<string, number> = { hab: 1.5, solar: 0.25, water: 0.7, oxy: 0.9, farm: 0.6, mine: 1.0, lab: 1.6, med: 1.1, reactor: 1.4, port: 0.4, park: 0.35, school: 1.1, recycler: 0.8, market: 0.9, geo: 0.7, tower: 1.9, shield: 1.2 };
-const SKY: Record<string, string[]> = { moon: ["#02030a", "#101626", "#2a3250"], mars: ["#1a0a06", "#4a1c10", "#a0522d"], titan: ["#1a1004", "#4a3210", "#a0762a"], proxima: ["#14020a", "#4a0c20", "#a01a3a"] };
+const SKY: Record<string, string[]> = { moon: ["#02030a", "#101626", "#2a3250"], mars: ["#d9895a", "#e9a877", "#f0c093"], titan: ["#1a1004", "#4a3210", "#a0762a"], proxima: ["#14020a", "#4a0c20", "#a01a3a"] };
 const TW0 = 72;   // the width of one plot in world pixels
 const WORLD = { x0: ROWS * TW0 / 2, y0: TW0 * 1.5, w: (COLS + ROWS) * TW0 / 2, h: (COLS + ROWS) * TW0 / 4 + TW0 * 2.1 };
 const ptW = (c: number, r: number) => [WORLD.x0 + (c - r) * TW0 / 2, WORLD.y0 + (c + r) * TW0 / 4];
@@ -140,7 +140,7 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
   x.drawImage(groundTerrain(kind, WORLD.w, WORLD.h), 0, 0);
   const diamond = (c: number, r: number, fill: string, stroke: string) => { const a = ptW(c, r), b = ptW(c + 1, r), d = ptW(c + 1, r + 1), e = ptW(c, r + 1); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.lineTo(d[0], d[1]); x.lineTo(e[0], e[1]); x.closePath(); x.fillStyle = fill; x.fill(); x.strokeStyle = stroke; x.lineWidth = 1; x.stroke(); };
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const i = r * COLS + c, cell = S.grid[i], m = ptW(c + 0.5, r + 0.5); if (!vis(m[0], m[1], TW0)) continue;
-    x.globalAlpha = cell.f === "ice" || cell.f === "ore" ? 0.85 : 0.22; diamond(c, r, groundFill(pal, cell.f, i), (r + c) % 3 === 0 ? "rgba(40,225,255,.32)" : "rgba(255,60,210,.16)"); x.globalAlpha = 1;
+    x.globalAlpha = cell.f === "ice" || cell.f === "ore" ? 0.85 : 0.22; diamond(c, r, groundFill(pal, cell.f, i), "rgba(255,235,210,.10)"); x.globalAlpha = 1;
     if (cell.f === "ice") { x.fillStyle = "rgba(255,255,255," + (0.35 + 0.3 * Math.sin(T * 2 + i)) + ")"; x.fillRect(m[0] - 8, m[1] - 2, 3, 1.6); x.fillRect(m[0] + 6, m[1] + 3, 2.4, 1.4); }
     else if (cell.f === "ore") { x.fillStyle = "rgba(255,190,90,.9)"; for (let k = 0; k < 4; k++) x.fillRect(m[0] - 10 + k * 6, m[1] - 3 + (k % 2) * 5, 3, 2.2); }
     else if (!cell.b && i % 9 === 0) { x.fillStyle = "rgba(0,0,0,.18)"; x.beginPath(); x.ellipse(m[0] + 6, m[1] + 2, 9, 4, 0, 0, 7); x.fill(); x.strokeStyle = "rgba(255,255,255,.12)"; x.stroke(); } }
@@ -155,16 +155,16 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
     drawBuilding(x, cell.b, m[0], m[1], TW0, era, T, pal, r * COLS + c); }
   // rovers and drones moving between the modules
   const lanes = era === 0 ? 4 : era === 1 ? 8 : 14;
-  for (let i = 0; i < lanes; i++) { const r = (i * 5) % ROWS, u = ((T * (0.12 + 0.03 * (i % 3)) + i * 0.37) % 1) * COLS, p = ptW(u, r + 0.5); if (!vis(p[0], p[1], 20)) continue; x.fillStyle = i % 2 ? "rgba(255,200,120,.95)" : "rgba(120,230,255,.95)"; x.fillRect(p[0] - 2, p[1] - 2 - (era === 2 ? 14 : 0), era === 2 ? 6 : 4, 2.4); }
+  for (let i = 0; i < lanes; i++) { const r = (i * 5) % ROWS, u = ((T * (0.12 + 0.03 * (i % 3)) + i * 0.37) % 1) * COLS, p = ptW(u, r + 0.5); if (!vis(p[0], p[1], 20)) continue; x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(p[0] - 3, p[1] + 1, 7, 2); x.fillStyle = i % 2 ? "#ffffff" : "#e0703a"; x.fillRect(p[0] - 3, p[1] - 3, 6, 3.6); x.fillStyle = "#33414f"; x.fillRect(p[0] - 1, p[1] - 3, 3, 1.6); }
   x.restore();
-  neonGrid(x, W, H, T, S.hz > 0); cyberOverlay(x, W, H, T, kind);
+  
   // the site's hazard drifts over the city
   if (S.hz > 0) { const k = Math.min(1, S.hz / 3), kind2 = kind;
     if (kind2 === "moon") { x.fillStyle = "rgba(0,0,20," + 0.45 * k + ")"; x.fillRect(0, 0, W, H); }
     else if (kind2 === "mars") { for (let i = 0; i < 70; i++) { x.fillStyle = "rgba(255,150,90," + 0.35 * k + ")"; x.fillRect(((i * 53 + T * 400) % (W + 40)) - 20, (i * 31) % H, 22, 1.6); } }
     else if (kind2 === "titan") { for (let i = 0; i < 40; i++) { x.fillStyle = "rgba(200,230,255," + 0.5 * k + ")"; x.fillRect((i * 71) % W, ((i * 29 + T * 90) % H), 2, 2); } }
     else { if (Math.sin(T * 14) > 0.4) { x.fillStyle = "rgba(255,70,70," + 0.22 * k + ")"; x.fillRect(0, 0, W, H); } } }
-  const vg = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,10,.5)"); x.fillStyle = vg; x.fillRect(0, 0, W, H);
+  const vg = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(30,10,0,.28)"); x.fillStyle = vg; x.fillRect(0, 0, W, H);
   finishLook(x, W, H, T, kind === "proxima" ? "255,140,110" : kind === "mars" ? "255,190,130" : "255,226,180", 0.9);
 }
 

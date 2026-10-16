@@ -35,69 +35,100 @@ function slab(x: Cx, cx: number, by: number, w: number, d: number, h: number, le
 const shadow = (x: Cx, cx: number, cy: number, w: number) => { x.fillStyle = "rgba(0,0,0,.28)"; x.beginPath(); x.ellipse(cx + w * 0.08, cy + w * 0.04, w * 0.5, w * 0.22, 0, 0, 7); x.fill(); };
 const windows = (x: Cx, cx: number, by: number, w: number, h: number, T: number, n: number, glow: string) => { for (let i = 0; i < n; i++) { const wx = cx - w / 2 + (i + 0.5) * w / n, on = Math.sin(T * 1.3 + i * 2.1) > -0.7; x.fillStyle = on ? "rgba(" + glow + ",.9)" : "rgba(40,60,80,.8)"; x.fillRect(wx - 1.2, by - h, 2.4, 2.6); } };
 
-export function drawBuilding(x: Cx, id: string, cx: number, cy: number, tw: number, era: number, T: number, pal: Pal, seed: number) {
-  const u = tw / 64, gl = pal.glow; x.save(); x.lineJoin = "round"; x.lineCap = "round"; shadow(x, cx, cy, tw * 0.62);
-  const lift = era === 2 && id !== "solar" ? 3 * u + 2 * u * Math.sin(T * 1.4 + seed) : 0;   // in the year 3000 the city floats a little
-  if (lift) { x.globalCompositeOperation = "lighter"; const g = x.createRadialGradient(cx, cy, 1, cx, cy, tw * 0.36); g.addColorStop(0, "rgba(" + gl + ",.35)"); g.addColorStop(1, "rgba(" + gl + ",0)"); x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, tw * 0.36, tw * 0.18, 0, 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; }
-  const by = cy - lift;
-  switch (id) {
-    case "hab": {   // habitat: a regolith-covered shell with a glowing door in 2100, a glazed dome with a torus ring in 2500, stacked pods on a spire in 3000
-      if (era === 0) { dome(x, cx, by, 20 * u, 16 * u, "#c9cdd6", "#8b909c"); x.fillStyle = pal.reg; x.beginPath(); x.ellipse(cx, by - 2 * u, 22 * u, 11 * u, 0, 0, Math.PI); x.ellipse(cx, by - 4 * u, 21 * u, 10 * u, 0, Math.PI, 0, true); x.fill(); x.fillStyle = "rgba(" + gl + ",.95)"; x.fillRect(cx - 3 * u, by - 7 * u, 6 * u, 6 * u); x.fillStyle = pal.dust; for (let i = 0; i < 5; i++) x.fillRect(cx - 18 * u + i * 8 * u + rnd(seed + i) * 3, by - 12 * u + rnd(seed + i + 9) * 5, 2, 1.4); }
-      else if (era === 1) { cyl(x, cx, by, 15 * u, 24 * u, "#9fb2c8", "#dfe9f5", "#f3f8ff"); dome(x, cx, by - 24 * u, 15 * u, 9 * u, "rgba(180,225,255,.85)", "rgba(90,150,210,.8)"); x.strokeStyle = "rgba(" + gl + ",.9)"; x.lineWidth = 2 * u; x.beginPath(); x.ellipse(cx, by - 12 * u, 24 * u, 6 * u, 0, 0, 7); x.stroke(); windows(x, cx, by - 4 * u, 22 * u, 4 * u, T, 5, gl); }
-      else { x.fillStyle = "rgba(" + gl + ",.9)"; for (let i = 0; i < 4; i++) { const w = (16 - i * 3) * u; x.fillStyle = i % 2 ? "#cfe9ff" : "#e9f6ff"; x.beginPath(); x.ellipse(cx, by - (6 + i * 11) * u, w, w * 0.45, 0, 0, 7); x.fill(); x.fillStyle = "rgba(" + gl + ",.9)"; x.fillRect(cx - w, by - (6 + i * 11) * u, w * 2, 1.6 * u); } x.strokeStyle = "rgba(255,255,255,.8)"; x.lineWidth = 1.6 * u; x.beginPath(); x.moveTo(cx, by); x.lineTo(cx, by - 56 * u); x.stroke(); x.fillStyle = "rgba(" + gl + ",1)"; x.beginPath(); x.arc(cx, by - 58 * u, 2.4 * u, 0, 7); x.fill(); }
-      break; }
-    case "tower": {   // vertical farm: a glass tube wrapped in green bands
-      const h = (era === 0 ? 34 : era === 1 ? 50 : 66) * u; cyl(x, cx, by, 11 * u, h, "#7aa5b8", "#cfeef5", "#e9fbff");
-      for (let i = 0; i < 6 + era * 2; i++) { x.fillStyle = "rgba(60,200,90,.8)"; x.fillRect(cx - 10 * u, by - h + 5 * u + i * (h - 8 * u) / (6 + era * 2), 20 * u, 3.4 * u); }
-      x.fillStyle = "rgba(255,90,200,.8)"; x.fillRect(cx - 7 * u, by - h - 2, 14 * u, 2); break; }
-    case "solar": {   // solar farm: rows of tilted panels (2100), a heliostat mirror field (2500), mirror sails floating over the plot (3000)
-      const n = era === 0 ? 3 : 4, ph = era === 2 ? 14 * u : 0;
-      for (let i = 0; i < n; i++) { const px = cx - 18 * u + i * 12 * u, py = by - 4 * u - ph - (era === 2 ? Math.sin(T + i) * 2 : 0); const g = x.createLinearGradient(px, py - 14 * u, px + 10 * u, py); g.addColorStop(0, era === 2 ? "#ffe9a0" : "#2a4f9a"); g.addColorStop(1, era === 2 ? "#ff9a5a" : "#6fa0ff"); x.fillStyle = g; x.beginPath(); x.moveTo(px, py); x.lineTo(px + 10 * u, py - 3 * u); x.lineTo(px + 12 * u, py - 15 * u); x.lineTo(px + 2 * u, py - 12 * u); x.closePath(); x.fill(); x.strokeStyle = "rgba(255,255,255,.4)"; x.lineWidth = 0.8; x.stroke(); if (!ph) { x.strokeStyle = "#555a64"; x.lineWidth = 1.4; x.beginPath(); x.moveTo(px + 6 * u, py - 6 * u); x.lineTo(px + 6 * u, by + 2 * u); x.stroke(); } }
-      break; }
-    case "geo": {   // geothermal: a steam stack and a pipe run
-      cyl(x, cx - 8 * u, by, 7 * u, 22 * u, "#7a4a30", "#c47a4a", "#f0a070"); x.fillStyle = "rgba(255,255,255,.55)"; for (let i = 0; i < 4; i++) { const f = (T * 0.5 + i * 0.25) % 1; x.globalAlpha = 0.5 * (1 - f); x.beginPath(); x.arc(cx - 8 * u + Math.sin(f * 6 + i) * 4 * u, by - 24 * u - f * 22 * u, (3 + f * 5) * u, 0, 7); x.fill(); } x.globalAlpha = 1;
-      slab(x, cx + 12 * u, by, 18 * u, 10 * u, 8 * u, "#555b66", "#707884", "#8a93a0"); break; }
-    case "reactor": {   // fusion reactor: a torus housing with a glowing heart and twin cooling stacks
-      slab(x, cx, by, 34 * u, 18 * u, 8 * u, "#3a4250", "#566072", "#6c778a"); const g = x.createRadialGradient(cx, by - 12 * u, 1, cx, by - 12 * u, 18 * u); g.addColorStop(0, "rgba(200,255,250,1)"); g.addColorStop(1, "rgba(0,255,230,0)"); x.globalCompositeOperation = "lighter"; x.fillStyle = g; x.beginPath(); x.arc(cx, by - 12 * u, 18 * u + Math.sin(T * 4) * 1.5, 0, 7); x.fill(); x.globalCompositeOperation = "source-over";
-      x.strokeStyle = "#cfe6ee"; x.lineWidth = 3 * u; x.beginPath(); x.ellipse(cx, by - 12 * u, 13 * u, 5 * u, 0, 0, 7); x.stroke(); cyl(x, cx - 15 * u, by - 6 * u, 4 * u, 18 * u, "#8a93a0", "#d6dde6", "#eef2f7"); cyl(x, cx + 15 * u, by - 6 * u, 4 * u, 14 * u, "#8a93a0", "#d6dde6", "#eef2f7"); break; }
-    case "water": {   // ice extractor: a drill rig, a tank and a pipe
-      x.strokeStyle = "#cfd4dc"; x.lineWidth = 1.6 * u; x.beginPath(); x.moveTo(cx - 12 * u, by); x.lineTo(cx - 6 * u, by - 34 * u); x.lineTo(cx, by); x.moveTo(cx - 9 * u, by - 16 * u); x.lineTo(cx - 3 * u, by - 16 * u); x.stroke(); x.fillStyle = "#ffb43a"; x.fillRect(cx - 8 * u, by - 38 * u, 4 * u, 5 * u);
-      cyl(x, cx + 12 * u, by, 9 * u, 14 * u, "#5a86b4", "#9fd0f2", "#cfeaff"); x.strokeStyle = "#8aa0b8"; x.lineWidth = 2 * u; x.beginPath(); x.moveTo(cx - 2 * u, by - 4 * u); x.lineTo(cx + 6 * u, by - 4 * u); x.stroke(); break; }
-    case "oxy": {   // oxygen plant: spheres and a tall stack
-      const sp = (px: number, py: number, r: number) => { const g = x.createRadialGradient(px - r * 0.3, py - r * 0.3, 1, px, py, r); g.addColorStop(0, "#ffffff"); g.addColorStop(1, "#6fb8d8"); x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, 7); x.fill(); };
-      cyl(x, cx + 12 * u, by, 5 * u, 36 * u, "#7d8794", "#c4ccd6", "#e6ebf1"); sp(cx - 8 * u, by - 10 * u, 10 * u); sp(cx + 2 * u, by - 7 * u, 7 * u); x.fillStyle = "rgba(160,255,230,.8)"; x.fillRect(cx + 10 * u, by - 38 * u, 4 * u, 2 * u); break; }
-    case "recycler": {
-      const sp = (px: number, py: number, r: number, c: string) => { x.fillStyle = c; x.beginPath(); x.arc(px, py, r, 0, 7); x.fill(); x.strokeStyle = "rgba(255,255,255,.4)"; x.stroke(); };
-      x.strokeStyle = "#8fa0ae"; x.lineWidth = 2.4 * u; x.beginPath(); x.moveTo(cx - 12 * u, by - 8 * u); x.lineTo(cx + 12 * u, by - 8 * u); x.stroke(); sp(cx - 12 * u, by - 8 * u, 8 * u, "#4cc6b0"); sp(cx + 12 * u, by - 8 * u, 8 * u, "#4c9ac6"); sp(cx, by - 18 * u, 6 * u, "#d6e6ee"); break; }
-    case "farm": {   // greenhouse: a glass dome with crops glowing inside
-      dome(x, cx, by, 22 * u, 17 * u, "rgba(190,255,200,.55)", "rgba(80,190,110,.6)", "rgba(220,255,230,.8)"); x.fillStyle = "rgba(90,220,110,.8)"; for (let i = 0; i < 5; i++) x.fillRect(cx - 15 * u + i * 7 * u, by - 6 * u - (i % 2) * 3 * u, 4 * u, 6 * u); x.fillStyle = "rgba(255,60,200,.75)"; x.fillRect(cx - 9 * u, by - 14 * u, 18 * u, 1.6 * u); break; }
-    case "park": {
-      dome(x, cx, by, 21 * u, 12 * u, "rgba(200,245,215,.5)", "rgba(110,200,130,.55)", "rgba(230,255,240,.7)"); for (let i = 0; i < 4; i++) { const tx = cx - 12 * u + i * 8 * u; x.fillStyle = "#6b4a2a"; x.fillRect(tx - 0.8, by - 6 * u, 1.6, 6 * u); x.fillStyle = i % 2 ? "#3fbf66" : "#58d27a"; x.beginPath(); x.arc(tx, by - 9 * u, 4.2 * u, 0, 7); x.fill(); } break; }
-    case "mine": {   // mine: an excavator arm, a conveyor and an ore pile
-      x.fillStyle = pal.reg2; x.beginPath(); x.moveTo(cx - 20 * u, by); x.lineTo(cx - 8 * u, by - 12 * u); x.lineTo(cx + 2 * u, by); x.closePath(); x.fill(); x.fillStyle = "#ffb43a"; x.fillRect(cx + 4 * u, by - 10 * u, 12 * u, 8 * u); x.strokeStyle = "#ffb43a"; x.lineWidth = 2.4 * u; x.beginPath(); x.moveTo(cx + 10 * u, by - 10 * u); x.lineTo(cx + 2 * u, by - 26 * u); x.lineTo(cx - 8 * u, by - 18 * u); x.stroke(); x.strokeStyle = "#555b66"; x.lineWidth = 2 * u; x.beginPath(); x.moveTo(cx - 20 * u, by + 2 * u); x.lineTo(cx + 18 * u, by + 5 * u); x.stroke(); x.fillStyle = "rgba(255,200,120,.9)"; x.fillRect(cx - 10 * u, by - 2 * u, 3 * u, 2 * u); break; }
-    case "market": {   // trade hub: a pressurised hall with a striped canopy
-      slab(x, cx, by, 34 * u, 18 * u, 12 * u, "#7f6a52", "#a98c6a", "#c9ab84"); x.fillStyle = "rgba(255,120,80,.85)"; x.beginPath(); x.moveTo(cx - 18 * u, by - 12 * u); x.lineTo(cx, by - 20 * u); x.lineTo(cx + 18 * u, by - 12 * u); x.lineTo(cx, by - 4 * u); x.closePath(); x.fill(); x.strokeStyle = "rgba(255,255,255,.7)"; x.lineWidth = 1.4; for (let i = -2; i <= 2; i++) { x.beginPath(); x.moveTo(cx + i * 6 * u, by - 14 * u - Math.abs(i) * 0); x.lineTo(cx + i * 6 * u, by - 7 * u); x.stroke(); } break; }
-    case "lab": {   // research lab: an observatory dome and a dish
-      slab(x, cx, by, 30 * u, 16 * u, 10 * u, "#4c5470", "#6a7396", "#8590b4"); dome(x, cx - 4 * u, by - 10 * u, 11 * u, 9 * u, "#f0f3fa", "#aab4cc"); x.strokeStyle = "#d8def0"; x.lineWidth = 1.4 * u; x.beginPath(); x.moveTo(cx + 12 * u, by - 10 * u); x.lineTo(cx + 12 * u, by - 22 * u); x.stroke(); x.fillStyle = "#eef2fb"; x.beginPath(); x.ellipse(cx + 12 * u, by - 24 * u, 8 * u, 3.4 * u, -0.5, 0, 7); x.fill(); x.fillStyle = "rgba(" + gl + "," + (0.5 + 0.4 * Math.sin(T * 3)) + ")"; x.fillRect(cx - 4 * u, by - 14 * u, 2, 2); break; }
-    case "med": {   // clinic: a white module with a lit cross
-      slab(x, cx, by, 30 * u, 16 * u, 13 * u, "#cfd6de", "#eef2f6", "#ffffff"); x.fillStyle = "#e0433c"; x.fillRect(cx + 4 * u, by - 10 * u, 8 * u, 2.6 * u); x.fillRect(cx + 6.7 * u, by - 12.6 * u, 2.6 * u, 8 * u); windows(x, cx - 8 * u, by - 3 * u, 12 * u, 2 * u, T, 3, gl); break; }
-    case "school": {   // school: a tiered module with a flag
-      slab(x, cx, by, 32 * u, 18 * u, 10 * u, "#b9a35a", "#d9c070", "#f0dc90"); slab(x, cx, by - 10 * u, 20 * u, 11 * u, 8 * u, "#a89248", "#c8b060", "#e0cc80"); x.strokeStyle = "#ddd"; x.lineWidth = 1.2; x.beginPath(); x.moveTo(cx, by - 18 * u); x.lineTo(cx, by - 30 * u); x.stroke(); x.fillStyle = "#ff6a3a"; x.fillRect(cx, by - 30 * u, 9 * u, 5 * u); break; }
-    case "shield": {   // shield dome: a big translucent energy bubble over a projector
-      cyl(x, cx, by, 6 * u, 10 * u, "#566072", "#9aa8bd", "#c7d3e6"); const g = x.createRadialGradient(cx, by - 12 * u, 2, cx, by - 12 * u, 34 * u); g.addColorStop(0, "rgba(" + gl + ",.05)"); g.addColorStop(0.85, "rgba(" + gl + ",.18)"); g.addColorStop(1, "rgba(" + gl + ",.5)"); x.fillStyle = g; x.beginPath(); x.ellipse(cx, by, 34 * u, 28 * u, 0, Math.PI, 0); x.closePath(); x.fill(); x.strokeStyle = "rgba(" + gl + ",.7)"; x.lineWidth = 1.2; x.stroke(); break; }
-    case "port": {   // spaceport: a landing pad with a rocket
-      x.fillStyle = "#4a515e"; x.beginPath(); x.ellipse(cx, by, 26 * u, 13 * u, 0, 0, 7); x.fill(); x.strokeStyle = "#ffd23f"; x.lineWidth = 1.6; x.setLineDash([4, 3]); x.beginPath(); x.ellipse(cx, by, 20 * u, 10 * u, 0, 0, 7); x.stroke(); x.setLineDash([]);
-      const rb = by - 3 * u; x.fillStyle = "#f4f6fa"; x.beginPath(); x.moveTo(cx - 5 * u, rb); x.lineTo(cx - 5 * u, rb - 26 * u); x.lineTo(cx, rb - 36 * u); x.lineTo(cx + 5 * u, rb - 26 * u); x.lineTo(cx + 5 * u, rb); x.closePath(); x.fill(); x.fillStyle = "#d9482b"; x.fillRect(cx - 5 * u, rb - 14 * u, 10 * u, 4 * u); x.fillStyle = "#c33"; x.beginPath(); x.moveTo(cx - 5 * u, rb - 2 * u); x.lineTo(cx - 10 * u, rb + 2 * u); x.lineTo(cx - 5 * u, rb - 10 * u); x.fill(); x.beginPath(); x.moveTo(cx + 5 * u, rb - 2 * u); x.lineTo(cx + 10 * u, rb + 2 * u); x.lineTo(cx + 5 * u, rb - 10 * u); x.fill(); x.fillStyle = "rgba(255,230,160," + (0.5 + 0.4 * Math.sin(T * 8)) + ")"; x.fillRect(cx - 4 * u, by - 18 * u, 0, 0); break; }
-    default: slab(x, cx, by, 30 * u, 16 * u, 14 * u, "#556", "#778", "#99a");
+
+/* Low-poly daylight look (owner, 2026-10-16, reference images: Surviving Mars, a low-poly Mars colony builder, SimCity): flat-shaded white modules with a rust stripe,
+   faceted geodesic glass domes, hexagonal solar fields, wind turbines, steam puffs, and in the later eras curved glass towers standing among trees. Own drawing, nothing copied. */
+const RUST = "#b8552d", RUST2 = "#8e3f20";
+function poly(x: Cx, p: number[][], f: string) { x.beginPath(); x.moveTo(p[0][0], p[0][1]); for (let i = 1; i < p.length; i++) x.lineTo(p[i][0], p[i][1]); x.closePath(); x.fillStyle = f; x.fill(); }
+/** an isometric box, flat shaded, with an optional rust band at a fraction of its height */
+function lbox(x: Cx, cx: number, by: number, w: number, d: number, h: number, base = "#f1f3f5", band = RUST, bandAt = 0.55) {
+  const a = [cx - w / 2, by], b = [cx, by + d / 2], c = [cx + w / 2, by], t = (p: number[], k: number) => [p[0], p[1] - k];
+  poly(x, [a, b, t(b, h), t(a, h)], "#c9cfd6"); poly(x, [b, c, t(c, h), t(b, h)], "#e3e7eb"); poly(x, [t(a, h), t(b, h), t(c, h), [cx, by - d / 2 - h]], base);
+  if (band) { const y0 = h * bandAt, y1 = y0 + h * 0.16; poly(x, [t(a, y0), t(b, y0), t(b, y1), t(a, y1)], band); poly(x, [t(b, y0), t(c, y0), t(c, y1), t(b, y1)], RUST2); }
+  x.strokeStyle = "rgba(60,70,84,.35)"; x.lineWidth = 0.8; x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.lineTo(c[0], c[1]); x.moveTo(b[0], b[1]); x.lineTo(b[0], b[1] - h); x.stroke();
+}
+function door(x: Cx, cx: number, by: number, u: number, glow: string) { x.fillStyle = "rgba(" + glow + ",.9)"; poly(x, [[cx + 1 * u, by + 5 * u], [cx + 5 * u, by + 3 * u], [cx + 5 * u, by - 3 * u], [cx + 1 * u, by - 1 * u]], "rgba(" + glow + ",.85)"); }
+/** a geodesic dome: glass tint, facet lines and a bright rim */
+function geo(x: Cx, cx: number, by: number, rx: number, h: number, tint: string, inside?: string, T = 0) {
+  if (inside) { x.fillStyle = inside; x.beginPath(); x.ellipse(cx, by, rx * 0.92, rx * 0.45, 0, 0, Math.PI * 2); x.fill(); }
+  const g = x.createLinearGradient(cx - rx, by - h, cx + rx, by); g.addColorStop(0, "rgba(255,255,255,.75)"); g.addColorStop(0.5, tint); g.addColorStop(1, "rgba(60,90,120,.55)");
+  x.beginPath(); x.ellipse(cx, by, rx, h, 0, Math.PI, 0); x.ellipse(cx, by, rx, rx * 0.45, 0, 0, Math.PI); x.closePath(); x.fillStyle = g; x.fill();
+  x.strokeStyle = "rgba(255,255,255,.7)"; x.lineWidth = 0.9;
+  for (let i = -3; i <= 3; i++) { x.beginPath(); x.moveTo(cx + i * rx / 3.4, by + (rx * 0.45) * Math.sqrt(Math.max(0, 1 - (i / 3.4) ** 2))); x.quadraticCurveTo(cx + i * rx / 6, by - h * 1.05, cx, by - h); x.stroke(); }
+  for (let k = 1; k <= 3; k++) { const f = k / 4; x.beginPath(); x.ellipse(cx, by - h * f * 0.85, rx * Math.sqrt(1 - f * f), rx * 0.2 * (1 - f * 0.3), 0, 0, Math.PI); x.stroke(); }
+  x.strokeStyle = "rgba(255,255,255,.9)"; x.lineWidth = 1.2; x.beginPath(); x.ellipse(cx, by, rx, h, 0, Math.PI, 0); x.stroke();
+  x.fillStyle = "rgba(255,255,255," + (0.25 + 0.15 * Math.sin(T * 2)) + ")"; x.beginPath(); x.ellipse(cx - rx * 0.35, by - h * 0.6, rx * 0.16, h * 0.18, -0.6, 0, 7); x.fill();
+}
+function hexField(x: Cx, cx: number, by: number, u: number, nx: number, ny: number, gold = false) {
+  const r = 3.6 * u;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const px = cx + (i - (nx - 1) / 2) * r * 1.75 + (j % 2) * r * 0.87 - (ny - 1) * r * 0.43, py = by + (j - (ny - 1) / 2) * r * 0.8 - 2 * u;
+    x.beginPath(); for (let k = 0; k < 6; k++) { const an = Math.PI / 3 * k; const hx = px + Math.cos(an) * r, hy = py + Math.sin(an) * r * 0.5; k ? x.lineTo(hx, hy) : x.moveTo(hx, hy); } x.closePath();
+    x.fillStyle = gold ? ((i + j) % 2 ? "#ffd27a" : "#ffb55a") : ((i + j) % 2 ? "#3c63b8" : "#4f7bd8"); x.fill(); x.strokeStyle = "rgba(230,240,255,.8)"; x.lineWidth = 0.8; x.stroke();
   }
+}
+function turbine(x: Cx, cx: number, by: number, h: number, T: number, seed: number) {
+  x.strokeStyle = "#eef1f4"; x.lineWidth = 2; x.beginPath(); x.moveTo(cx, by); x.lineTo(cx, by - h); x.stroke();
+  const an = T * 2.2 + seed; x.strokeStyle = "#ffffff"; x.lineWidth = 1.8; for (let k = 0; k < 3; k++) { const a = an + k * 2.094; x.beginPath(); x.moveTo(cx, by - h); x.lineTo(cx + Math.cos(a) * h * 0.55, by - h + Math.sin(a) * h * 0.55); x.stroke(); }
+  x.fillStyle = RUST; x.beginPath(); x.arc(cx, by - h, 2, 0, 7); x.fill();
+}
+function steam(x: Cx, cx: number, by: number, T: number, u: number, n = 3) { for (let i = 0; i < n; i++) { const f = (T * 0.45 + i / n) % 1; x.fillStyle = "rgba(255,255,255," + 0.55 * (1 - f) + ")"; x.beginPath(); x.arc(cx + Math.sin(f * 5 + i) * 3 * u, by - f * 22 * u, (2.4 + f * 5) * u, 0, 7); x.fill(); } }
+function ltree(x: Cx, cx: number, by: number, s: number, i = 0) { x.fillStyle = "#6a4a2a"; x.fillRect(cx - 0.7 * s, by - 5 * s, 1.4 * s, 5 * s); x.fillStyle = i % 2 ? "#3f9a58" : "#56b86a"; x.beginPath(); x.arc(cx, by - 8 * s, 4.2 * s, 0, 7); x.fill(); x.fillStyle = "rgba(255,255,255,.25)"; x.beginPath(); x.arc(cx - 1.2 * s, by - 9.4 * s, 1.6 * s, 0, 7); x.fill(); }
+/** SimCity-like curved glass tower: tapered, glass gradient, white floor bands, a podium with trees */
+function glassTower(x: Cx, cx: number, by: number, u: number, h: number, T: number, tint: string, seed: number) {
+  x.fillStyle = "#e9edf0"; x.beginPath(); x.ellipse(cx, by, 17 * u, 8.5 * u, 0, 0, 7); x.fill(); for (let i = 0; i < 4; i++) ltree(x, cx - 12 * u + i * 8 * u, by + 3 * u, u * 0.9, i + seed);
+  const w = 9 * u, g = x.createLinearGradient(cx - w, 0, cx + w, 0); g.addColorStop(0, "#9fc6e6"); g.addColorStop(0.45, tint); g.addColorStop(1, "#4d7fb0");
+  x.fillStyle = g; x.beginPath(); x.moveTo(cx - w, by - 2 * u); x.bezierCurveTo(cx - w * 1.05, by - h * 0.5, cx - w * 0.7, by - h * 0.9, cx - w * 0.2, by - h); x.quadraticCurveTo(cx + w * 0.4, by - h - 2 * u, cx + w, by - h * 0.82); x.bezierCurveTo(cx + w * 1.02, by - h * 0.5, cx + w, by - h * 0.2, cx + w, by - 2 * u); x.quadraticCurveTo(cx, by + 3 * u, cx - w, by - 2 * u); x.fill();
+  x.strokeStyle = "rgba(255,255,255,.7)"; x.lineWidth = 1.1; for (let i = 1; i < 7; i++) { const yy = by - h * i / 7; x.beginPath(); x.moveTo(cx - w * 1.0, yy + 2 * u); x.quadraticCurveTo(cx, yy + 5 * u, cx + w * 1.0, yy + 2 * u); x.stroke(); }
+  x.fillStyle = "rgba(255,255,255,.35)"; x.beginPath(); x.moveTo(cx - w * 0.7, by - 4 * u); x.lineTo(cx - w * 0.3, by - h * 0.92); x.lineTo(cx - w * 0.1, by - h * 0.92); x.lineTo(cx - w * 0.4, by - 4 * u); x.fill();
+  x.fillStyle = "rgba(255,230,160," + (0.55 + 0.35 * Math.sin(T * 1.5 + seed)) + ")"; for (let i = 0; i < 5; i++) x.fillRect(cx - w * 0.6 + ((seed + i * 3) % 5) * w * 0.28, by - h * (0.2 + i * 0.15), 1.6 * u, 1.6 * u);
+  x.fillStyle = RUST; x.fillRect(cx - 0.8 * u, by - h - 7 * u, 1.6 * u, 7 * u);
+}
+
+export function drawBuilding(x: Cx, id: string, cx: number, cy: number, tw: number, era: number, T: number, pal: Pal, seed: number) {
+  const u = tw / 64, gl = pal.glow;
+  const mine = (rest: () => void) => { x.save(); x.lineJoin = "round"; x.lineCap = "round"; shadow(x, cx, cy, tw * 0.62); rest(); x.restore(); };
+  const glass = "rgba(170,225,255,.62)";
+  switch (id) {
+    case "hab": mine(() => {
+      if (era === 0) { lbox(x, cx - 6 * u, cy + 2 * u, 22 * u, 12 * u, 12 * u); lbox(x, cx + 9 * u, cy - 1 * u, 18 * u, 10 * u, 9 * u); door(x, cx - 6 * u, cy + 5 * u, u, gl); geo(x, cx + 9 * u, cy - 10 * u, 6 * u, 4 * u, glass, undefined, T); }
+      else if (era === 1) { lbox(x, cx, cy + 3 * u, 28 * u, 15 * u, 20 * u); geo(x, cx, cy - 17 * u, 12 * u, 9 * u, glass, "#9fd49a", T); door(x, cx, cy + 6 * u, u, gl); }
+      else glassTower(x, cx, cy + 2 * u, u, 52 * u, T, "#7fb4e0", seed);
+    }); break;
+    case "tower": mine(() => { if (era === 2) glassTower(x, cx, cy + 2 * u, u, 66 * u, T, "#7fd0a8", seed); else { const h = (era === 0 ? 26 : 40) * u; lbox(x, cx, cy + 2 * u, 20 * u, 11 * u, h, "#eef3f2", "#4fae6a", 0.3); lbox(x, cx, cy + 2 * u - h, 14 * u, 8 * u, 6 * u, "#bfe8cf", "#4fae6a", 0.5); } }); break;
+    case "solar": mine(() => {
+      hexField(x, cx, cy, u, era === 0 ? 4 : 5, era === 0 ? 3 : 4, era === 2);
+      x.strokeStyle = "#7d8693"; x.lineWidth = 1.4; x.beginPath(); x.moveTo(cx - 20 * u, cy + 8 * u); x.lineTo(cx - 8 * u, cy + 12 * u); x.moveTo(cx + 22 * u, cy + 6 * u); x.lineTo(cx + 10 * u, cy + 10 * u); x.stroke();
+      if (era >= 1) turbine(x, cx + 18 * u, cy + 2 * u, 30 * u, T, seed);
+    }); break;
+    case "farm": mine(() => { geo(x, cx, cy + 2 * u, 25 * u, 20 * u, glass, "#6fc06a", T); x.fillStyle = "#3f9a58"; for (let i = 0; i < 6; i++) x.fillRect(cx - 14 * u + i * 5.4 * u, cy - 4 * u - (i % 2) * 3 * u, 3 * u, 5 * u); }); break;
+    case "park": mine(() => { x.fillStyle = "#7fcf7a"; x.beginPath(); x.ellipse(cx, cy, 22 * u, 11 * u, 0, 0, 7); x.fill(); for (let i = 0; i < 5; i++) ltree(x, cx - 14 * u + i * 7 * u, cy + ((i % 2) ? 3 : -2) * u, u * 1.3, i); }); break;
+    case "lab": mine(() => { lbox(x, cx, cy + 3 * u, 28 * u, 15 * u, 12 * u); geo(x, cx - 3 * u, cy - 9 * u, 9 * u, 8 * u, "rgba(255,255,255,.55)", undefined, T); x.fillStyle = "#eef2fb"; x.beginPath(); x.ellipse(cx + 12 * u, cy - 14 * u, 7 * u, 3 * u, -0.5, 0, 7); x.fill(); x.strokeStyle = "#cfd6e2"; x.beginPath(); x.moveTo(cx + 12 * u, cy - 8 * u); x.lineTo(cx + 12 * u, cy - 13 * u); x.stroke(); }); break;
+    case "med": mine(() => { lbox(x, cx, cy + 3 * u, 26 * u, 14 * u, 13 * u, "#ffffff", "#e0433c", 0.45); x.fillStyle = "#e0433c"; x.fillRect(cx + 3 * u, cy - 6 * u, 7 * u, 2.4 * u); x.fillRect(cx + 5.3 * u, cy - 8.5 * u, 2.4 * u, 7 * u); }); break;
+    case "school": mine(() => { lbox(x, cx, cy + 3 * u, 28 * u, 15 * u, 10 * u, "#f4efe2", "#d9a23a"); lbox(x, cx, cy + 3 * u - 10 * u, 16 * u, 9 * u, 8 * u, "#f4efe2", "#d9a23a"); x.strokeStyle = "#ddd"; x.beginPath(); x.moveTo(cx, cy - 15 * u); x.lineTo(cx, cy - 27 * u); x.stroke(); x.fillStyle = RUST; x.fillRect(cx, cy - 27 * u, 8 * u, 4.5 * u); }); break;
+    case "market": mine(() => { lbox(x, cx, cy + 3 * u, 30 * u, 16 * u, 10 * u, "#f4ede2", "#e0813a"); for (let i = -2; i <= 2; i++) { x.fillStyle = i % 2 ? "#ffffff" : RUST; x.fillRect(cx + i * 5.4 * u - 2.4 * u, cy - 11 * u + Math.abs(i) * 0.8 * u, 4.8 * u, 4 * u); } }); break;
+    case "mine": mine(() => { lbox(x, cx - 8 * u, cy + 4 * u, 18 * u, 10 * u, 9 * u, "#e9ecef", "#e0a43a"); x.strokeStyle = "#e0a43a"; x.lineWidth = 2.2 * u; x.beginPath(); x.moveTo(cx + 6 * u, cy - 2 * u); x.lineTo(cx + 12 * u, cy - 20 * u); x.lineTo(cx + 2 * u, cy - 14 * u); x.stroke(); x.fillStyle = pal.reg2; x.beginPath(); x.moveTo(cx + 6 * u, cy + 6 * u); x.lineTo(cx + 15 * u, cy - 4 * u); x.lineTo(cx + 24 * u, cy + 6 * u); x.fill(); }); break;
+    case "geo": mine(() => { lbox(x, cx + 10 * u, cy + 4 * u, 16 * u, 9 * u, 8 * u); cyl(x, cx - 8 * u, cy + 2 * u, 7 * u, 22 * u, "#d5dae0", "#f4f6f8", "#ffffff"); x.fillStyle = RUST; x.fillRect(cx - 15 * u, cy - 14 * u, 14 * u, 3.4 * u); steam(x, cx - 8 * u, cy - 22 * u, T, u); }); break;
+    case "oxy": mine(() => { cyl(x, cx + 12 * u, cy + 3 * u, 5 * u, 34 * u, "#d5dae0", "#f4f6f8", "#fff"); const sp = (px: number, py: number, r: number) => { const g = x.createRadialGradient(px - r * 0.3, py - r * 0.3, 1, px, py, r); g.addColorStop(0, "#fff"); g.addColorStop(1, "#8fc4e6"); x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, 7); x.fill(); }; sp(cx - 8 * u, cy - 8 * u, 10 * u); sp(cx + 2 * u, cy - 6 * u, 7 * u); steam(x, cx + 12 * u, cy - 34 * u, T, u, 2); }); break;
+    case "recycler": mine(() => { lbox(x, cx, cy + 3 * u, 26 * u, 14 * u, 9 * u, "#eef2f0", "#4fae9a"); geo(x, cx - 8 * u, cy - 6 * u, 7 * u, 6 * u, "rgba(120,220,200,.6)", undefined, T); geo(x, cx + 9 * u, cy - 6 * u, 6 * u, 5 * u, "rgba(120,190,230,.6)", undefined, T); }); break;
+    case "shield": mine(() => { cyl(x, cx, cy + 3 * u, 6 * u, 10 * u, "#d5dae0", "#f4f6f8", "#fff"); geo(x, cx, cy, 32 * u, 26 * u, "rgba(" + gl + ",.18)", undefined, T); }); break;
+    case "reactor": mine(() => { lbox(x, cx, cy + 3 * u, 32 * u, 17 * u, 10 * u, "#e9ecef", "#4aa6c8"); const g = x.createRadialGradient(cx, cy - 14 * u, 1, cx, cy - 14 * u, 14 * u); g.addColorStop(0, "rgba(180,250,255,1)"); g.addColorStop(1, "rgba(0,220,255,0)"); x.globalCompositeOperation = "lighter"; x.fillStyle = g; x.beginPath(); x.arc(cx, cy - 14 * u, 14 * u + Math.sin(T * 4), 0, 7); x.fill(); x.globalCompositeOperation = "source-over"; cyl(x, cx - 14 * u, cy - 2 * u, 4 * u, 16 * u, "#d5dae0", "#f4f6f8", "#fff"); steam(x, cx - 14 * u, cy - 18 * u, T, u, 2); }); break;
+    case "water": mine(() => { cyl(x, cx + 10 * u, cy + 3 * u, 9 * u, 16 * u, "#7fb4dc", "#cfeaff", "#e6f4ff"); lbox(x, cx - 10 * u, cy + 5 * u, 14 * u, 8 * u, 8 * u, "#eef2f4", "#4a90c8"); x.strokeStyle = "#cfd4dc"; x.lineWidth = 1.5 * u; x.beginPath(); x.moveTo(cx - 14 * u, cy); x.lineTo(cx - 10 * u, cy - 26 * u); x.lineTo(cx - 6 * u, cy); x.stroke(); }); break;
+    case "port": mine(() => { x.fillStyle = "#cfd4da"; x.beginPath(); x.ellipse(cx, cy, 26 * u, 13 * u, 0, 0, 7); x.fill(); x.strokeStyle = RUST; x.lineWidth = 1.6; x.setLineDash([4, 3]); x.beginPath(); x.ellipse(cx, cy, 20 * u, 10 * u, 0, 0, 7); x.stroke(); x.setLineDash([]); const rb = cy - 3 * u; x.fillStyle = "#f4f6fa"; x.beginPath(); x.moveTo(cx - 5 * u, rb); x.lineTo(cx - 5 * u, rb - 26 * u); x.lineTo(cx, rb - 36 * u); x.lineTo(cx + 5 * u, rb - 26 * u); x.lineTo(cx + 5 * u, rb); x.fill(); x.fillStyle = RUST; x.fillRect(cx - 5 * u, rb - 14 * u, 10 * u, 4 * u); }); break;
+    default: mine(() => lbox(x, cx, cy + 3 * u, 26 * u, 14 * u, 12 * u));
+  }
+}
+
+/** a paved road between two neighbouring modules, with a pipe and cable beside it */
+export function drawTube(x: Cx, x1: number, y1: number, x2: number, y2: number, u: number, era: number) {
+  x.save(); x.lineCap = "round";
+  x.strokeStyle = "rgba(70,60,56,.85)"; x.lineWidth = 9 * u; x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke();
+  x.strokeStyle = era === 0 ? "#8a8178" : "#74767c"; x.lineWidth = 7 * u; x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke();
+  x.strokeStyle = "rgba(255,255,255,.7)"; x.lineWidth = 0.9; x.setLineDash([3, 4]); x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke(); x.setLineDash([]);
+  x.strokeStyle = "#e8ecef"; x.lineWidth = 1.6 * u; x.beginPath(); x.moveTo(x1, y1 - 5 * u); x.lineTo(x2, y2 - 5 * u); x.stroke();
   x.restore();
 }
 
-/** a pressurised tube between two neighbouring modules */
-export function drawTube(x: Cx, x1: number, y1: number, x2: number, y2: number, u: number, era: number) {
-  x.save(); x.lineCap = "round"; x.strokeStyle = "rgba(20,26,36,.9)"; x.lineWidth = 7 * u; x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke();
-  x.strokeStyle = era === 2 ? "rgba(200,240,255,.85)" : "#b5bdc9"; x.lineWidth = 5 * u; x.beginPath(); x.moveTo(x1, y1 - 0.6 * u); x.lineTo(x2, y2 - 0.6 * u); x.stroke(); x.strokeStyle = "rgba(255,255,255,.55)"; x.lineWidth = 1.4 * u; x.beginPath(); x.moveTo(x1, y1 - 2 * u); x.lineTo(x2, y2 - 2 * u); x.stroke(); x.restore();
-}
 
 /** the sky of a colony: mountains and craters on the horizon, and from 2500 a space-elevator tether, from 3000 an O'Neill cylinder and an orbital ring */
 export function drawSkyline(x: Cx, W: number, H: number, camX: number, T: number, era: number, pal: Pal) {
