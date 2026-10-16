@@ -14,16 +14,8 @@ import { bigDome, drawBuilding, drawTube, drawSkyline, groundFill, PALS } from "
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
-<<<<<<< HEAD
-// owner, 2026-10-15: "SimCity BuildIt has 5 speed levels" — same slow(0)/normal(1)/fast(2) as before (index 1 stays the
-// default), with faster(3) and max(4) added on top so a returning player can blow through a day they have already won.
-const SPEEDS = [0.5, 1, 2, 3, 5];   // slow, normal, fast, faster, max (index into this)
-const SPEED_ICON = ["🐢", "▶", "⏩", "⏭", "⚡"];
-const COLS = 10, ROWS = 8, CELLS = COLS * ROWS, DAY = 2;   // a "day" is 2 seconds of play
-=======
 const SPEEDS = [0.5, 1, 2];   // slow, normal, fast (index into this)
 const COLS = 22, ROWS = 18, CELLS = COLS * ROWS, DAY = 2;   // a "day" is 2 seconds of play
->>>>>>> origin/claude/upbeat-fermi-dey70w
 
 type Site = { icon: string; target: number; sun: number; water: number; ore: number; cold: number; hazard: string; name: L3; note: L3; hz: L3 };
 export const SITES: Record<string, Site> = {
@@ -33,36 +25,25 @@ export const SITES: Record<string, Site> = {
   proxima: { icon: "⭐", target: 110, sun: 1.4, water: 1.0, ore: 1.7, cold: 1.0, hazard: "flare", name: ["พร็อกซิมา เซนทอรี b", "Proxima Centauri b", "比邻星 b"], note: ["แร่ล้ำค่า แดดแรง แต่ดาวแม่ปล่อยแฟลร์ใส่ทุกเมื่อ", "Rich ore and strong light, but the red dwarf keeps flaring", "矿藏丰富、光照强，但这颗红矮星不断耀发"], hz: ["แฟลร์จากดาวแม่ — ไฟดับและออกซิเจนรั่ว", "A stellar flare — power drops and oxygen leaks", "恒星耀发——电力下降，氧气泄漏"] },
 };
 
-type B = { id: string; icon: string; name: L3; cost: number; needSci?: number; text: L3; cat: string };
-// owner, 2026-10-15: "make the UI more like SimCity BuildIt but easier to understand" — SimCity BuildIt's bottom build
-// tray is grouped by category (Residential / Industry / ...), not one long flat row; CATS below mirrors that, each
-// category its own short, scannable strip instead of all 17 buildings in one overwhelming line.
-const CATS: { id: string; icon: string; label: L3 }[] = [
-  { id: "home", icon: "🏠", label: ["ที่อยู่อาศัย", "Homes", "住房"] },
-  { id: "power", icon: "⚡", label: ["พลังงาน", "Power", "能源"] },
-  { id: "life", icon: "💧", label: ["น้ำและอากาศ", "Water & air", "水与空气"] },
-  { id: "food", icon: "🌽", label: ["อาหาร", "Food", "食物"] },
-  { id: "make", icon: "🧱", label: ["วัสดุและการค้า", "Materials & trade", "建材与贸易"] },
-  { id: "special", icon: "🔬", label: ["วิจัยและป้องกัน", "Research & defense", "研究与防御"] },
-];
+type B = { id: string; icon: string; name: L3; cost: number; needSci?: number; text: L3 };
 const BUILD: B[] = [
-  { id: "hab", icon: "🏠", name: ["ที่พักอาศัย", "Habitat", "居住舱"], cost: 40, text: ["รองรับ 6 คน", "Houses 6 people", "可住 6 人"], cat: "home" },
-  { id: "park", icon: "🌳", name: ["สวนสาธารณะ", "Park", "公园"], cost: 50, text: ["คนอยู่สบาย ครอบครัวเพิ่มเร็วขึ้น", "Happier colonists, faster growth", "居民更舒心，人口增长更快"], cat: "home" },
-  { id: "med", icon: "🏥", name: ["โรงพยาบาล", "Clinic", "医院"], cost: 70, needSci: 10, text: ["คนเพิ่มเร็วขึ้น และไม่มีใครล้มป่วยตอนขาดแคลน", "Faster growth, fewer losses in a shortage", "人口增长更快，短缺时损失更少"], cat: "home" },
-  { id: "solar", icon: "☀", name: ["แผงโซลาร์", "Solar farm", "太阳能场"], cost: 30, text: ["ผลิตไฟตามแสงของดาวนั้น", "Power from the local sun", "按当地光照发电"], cat: "power" },
-  { id: "geo", icon: "🌋", name: ["โรงไฟฟ้าความร้อนใต้ดิน", "Geothermal plant", "地热电站"], cost: 65, needSci: 8, text: ["ไฟคงที่จากความร้อนใต้ผิวดาว", "Steady power from the crust", "来自地壳的稳定电力"], cat: "power" },
-  { id: "reactor", icon: "⚛", name: ["เครื่องปฏิกรณ์ฟิวชัน", "Fusion reactor", "聚变反应堆"], cost: 90, needSci: 25, text: ["ไฟฟ้าแรงและคงที่ ไม่ขึ้นกับแสงแดด", "Strong, steady power, no sun needed", "强大稳定的电力，不依赖阳光"], cat: "power" },
-  { id: "water", icon: "💧", name: ["เครื่องสกัดน้ำ", "Ice extractor", "冰水提取器"], cost: 35, text: ["สกัดน้ำจากน้ำแข็ง (บนช่องน้ำแข็งได้สองเท่า)", "Water from ice (double on an ice plot)", "从冰中取水（冰地翻倍）"], cat: "life" },
-  { id: "oxy", icon: "🫧", name: ["เครื่องผลิตออกซิเจน", "Oxygen plant", "制氧厂"], cost: 35, text: ["แยกน้ำเป็นออกซิเจน", "Splits water into oxygen", "电解水制氧"], cat: "life" },
-  { id: "recycler", icon: "♻", name: ["โรงรีไซเคิล", "Recycler", "回收厂"], cost: 55, needSci: 5, text: ["เอาน้ำและออกซิเจนกลับมาใช้ใหม่", "Gives water and oxygen back", "回收水和氧气"], cat: "life" },
-  { id: "farm", icon: "🌱", name: ["ฟาร์มในโดม", "Dome farm", "穹顶农场"], cost: 45, text: ["อาหาร + ออกซิเจนเล็กน้อย", "Food and a little oxygen", "产出食物和少量氧气"], cat: "food" },
-  { id: "tower", icon: "🏙", name: ["ฟาร์มแนวตั้ง", "Vertical farm", "垂直农场"], cost: 80, needSci: 12, text: ["อาหารมาก ใช้น้ำและไฟสูง", "Lots of food, thirsty and power-hungry", "产粮多，耗水耗电"], cat: "food" },
-  { id: "mine", icon: "⛏", name: ["เหมือง", "Mine", "矿场"], cost: 40, text: ["ได้วัสดุก่อสร้าง (ช่องแร่ได้สองเท่า)", "Building materials (double on an ore plot)", "产出建材（矿地翻倍）"], cat: "make" },
-  { id: "market", icon: "🏪", name: ["ตลาดแลกเปลี่ยน", "Trade market", "贸易市场"], cost: 75, needSci: 10, text: ["แลกวัสดุก่อสร้างกับยานเสบียง", "Trades for building materials", "与补给船交易建材"], cat: "make" },
-  { id: "lab", icon: "🔬", name: ["ห้องวิจัย", "Research lab", "研究所"], cost: 60, text: ["ได้แต้มวิจัย ไว้ปลดล็อกเทคโนโลยี", "Research points for new tech", "产出研究点数以解锁科技"], cat: "special" },
-  { id: "school", icon: "🎓", name: ["โรงเรียน", "School", "学校"], cost: 60, needSci: 5, text: ["ได้แต้มวิจัยเพิ่ม ใช้ไฟน้อย", "Extra research for little power", "少量耗电，增加研究点数"], cat: "special" },
-  { id: "shield", icon: "🛡", name: ["โดมป้องกัน", "Shield dome", "防护穹顶"], cost: 85, needSci: 20, text: ["ลดผลกระทบของภัยพิบัติทั้งเมือง", "Softens every hazard for the whole city", "减轻全城灾害影响"], cat: "special" },
-  { id: "port", icon: "🚀", name: ["ท่าอวกาศ", "Spaceport", "太空港"], cost: 100, needSci: 15, text: ["ทุก 20 วินาทีมียานนำผู้อพยพและวัสดุมาส่ง", "Every 20 s a ship brings settlers and materials", "每 20 秒运来移民和建材"], cat: "special" },
+  { id: "hab", icon: "🏠", name: ["ที่พักอาศัย", "Habitat", "居住舱"], cost: 40, text: ["รองรับ 6 คน", "Houses 6 people", "可住 6 人"] },
+  { id: "solar", icon: "☀", name: ["แผงโซลาร์", "Solar farm", "太阳能场"], cost: 30, text: ["ผลิตไฟตามแสงของดาวนั้น", "Power from the local sun", "按当地光照发电"] },
+  { id: "water", icon: "💧", name: ["เครื่องสกัดน้ำ", "Ice extractor", "冰水提取器"], cost: 35, text: ["สกัดน้ำจากน้ำแข็ง (บนช่องน้ำแข็งได้สองเท่า)", "Water from ice (double on an ice plot)", "从冰中取水（冰地翻倍）"] },
+  { id: "oxy", icon: "🫧", name: ["เครื่องผลิตออกซิเจน", "Oxygen plant", "制氧厂"], cost: 35, text: ["แยกน้ำเป็นออกซิเจน", "Splits water into oxygen", "电解水制氧"] },
+  { id: "farm", icon: "🌱", name: ["ฟาร์มในโดม", "Dome farm", "穹顶农场"], cost: 45, text: ["อาหาร + ออกซิเจนเล็กน้อย", "Food and a little oxygen", "产出食物和少量氧气"] },
+  { id: "mine", icon: "⛏", name: ["เหมือง", "Mine", "矿场"], cost: 40, text: ["ได้วัสดุก่อสร้าง (ช่องแร่ได้สองเท่า)", "Building materials (double on an ore plot)", "产出建材（矿地翻倍）"] },
+  { id: "lab", icon: "🔬", name: ["ห้องวิจัย", "Research lab", "研究所"], cost: 60, text: ["ได้แต้มวิจัย ไว้ปลดล็อกเทคโนโลยี", "Research points for new tech", "产出研究点数以解锁科技"] },
+  { id: "med", icon: "🏥", name: ["โรงพยาบาล", "Clinic", "医院"], cost: 70, needSci: 10, text: ["คนเพิ่มเร็วขึ้น และไม่มีใครล้มป่วยตอนขาดแคลน", "Faster growth, fewer losses in a shortage", "人口增长更快，短缺时损失更少"] },
+  { id: "reactor", icon: "⚛", name: ["เครื่องปฏิกรณ์ฟิวชัน", "Fusion reactor", "聚变反应堆"], cost: 90, needSci: 25, text: ["ไฟฟ้าแรงและคงที่ ไม่ขึ้นกับแสงแดด", "Strong, steady power, no sun needed", "强大稳定的电力，不依赖阳光"] },
+  { id: "park", icon: "🌳", name: ["สวนสาธารณะ", "Park", "公园"], cost: 50, text: ["คนอยู่สบาย ครอบครัวเพิ่มเร็วขึ้น", "Happier colonists, faster growth", "居民更舒心，人口增长更快"] },
+  { id: "school", icon: "🎓", name: ["โรงเรียน", "School", "学校"], cost: 60, needSci: 5, text: ["ได้แต้มวิจัยเพิ่ม ใช้ไฟน้อย", "Extra research for little power", "少量耗电，增加研究点数"] },
+  { id: "recycler", icon: "♻", name: ["โรงรีไซเคิล", "Recycler", "回收厂"], cost: 55, needSci: 5, text: ["เอาน้ำและออกซิเจนกลับมาใช้ใหม่", "Gives water and oxygen back", "回收水和氧气"] },
+  { id: "market", icon: "🏪", name: ["ตลาดแลกเปลี่ยน", "Trade market", "贸易市场"], cost: 75, needSci: 10, text: ["แลกวัสดุก่อสร้างกับยานเสบียง", "Trades for building materials", "与补给船交易建材"] },
+  { id: "geo", icon: "🌋", name: ["โรงไฟฟ้าความร้อนใต้ดิน", "Geothermal plant", "地热电站"], cost: 65, needSci: 8, text: ["ไฟคงที่จากความร้อนใต้ผิวดาว", "Steady power from the crust", "来自地壳的稳定电力"] },
+  { id: "tower", icon: "🏙", name: ["ฟาร์มแนวตั้ง", "Vertical farm", "垂直农场"], cost: 80, needSci: 12, text: ["อาหารมาก ใช้น้ำและไฟสูง", "Lots of food, thirsty and power-hungry", "产粮多，耗水耗电"] },
+  { id: "shield", icon: "🛡", name: ["โดมป้องกัน", "Shield dome", "防护穹顶"], cost: 85, needSci: 20, text: ["ลดผลกระทบของภัยพิบัติทั้งเมือง", "Softens every hazard for the whole city", "减轻全城灾害影响"] },
+  { id: "port", icon: "🚀", name: ["ท่าอวกาศ", "Spaceport", "太空港"], cost: 100, needSci: 15, text: ["ทุก 20 วินาทีมียานนำผู้อพยพและวัสดุมาส่ง", "Every 20 s a ship brings settlers and materials", "每 20 秒运来移民和建材"] },
 ];
 export const CAREERS: { id: string; icon: string; name: L3; text: L3 }[] = [
   { id: "inno", icon: "💡", name: ["นวัตกร", "Innovator", "创新者"], text: ["ห้องวิจัยได้แต้มสองเท่า เทคโนโลยีถูกลง 25%", "Labs make double research and tech costs 25% less", "研究所产出翻倍，科技便宜 25%"] },
@@ -341,38 +322,14 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
         <GearButton onClick={openGear} />
       </div>
       {net && <div className="ac2-team" data-team="1">🤝 {t("ทีม: ", "Team: ", "团队：")}{[...net.peers.values()].map((q: any) => <span key={q.id}>{q.name} {(CAREERS.find(c => c.id === q.say) || { icon: "…" }).icon}</span>)}</div>}
-<<<<<<< HEAD
-      <div className="ac2-speed" data-speedbar="1">{[t("ช้า", "Slow", "慢"), t("กลาง", "Normal", "中"), t("เร็ว", "Fast", "快"), t("เร็วขึ้น", "Faster", "更快"), t("สูงสุด", "Max", "最快")].map((lb, i) => (<button key={i} data-speed={i} className={"ac2-sp" + (speed === i ? " on" : "")} onClick={() => { speedRef.current = i; setSpeedS(i); }}>{SPEED_ICON[i]} {lb}</button>))}</div>
-      <div className="ac2-res">
-        {RES.map(r => (<span key={r.k} className={"ac2-r" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k}>{r.icon} {Math.floor(S.stock[r.k])}<small className={S.rate[r.k] < -0.01 ? "neg" : ""}>{S.rate[r.k] >= 0 ? "+" : ""}{Math.round(S.rate[r.k])}</small></span>))}
-        {S.hz > 0 && <span className="ac2-hz" data-hazard="1">⚠ {T3(lang, site.hz[0], site.hz[1], site.hz[2])}</span>}
-        {S.msg && <span className="ac2-hz">⚠ {t("ขาดแคลน ", "Shortage ", "短缺 ")}{S.msg}</span>}
-      </div>
-      <div className="ac2-city" ref={cityRef}>
-=======
       <div className="cb-map" ref={cityRef} data-city="1">
->>>>>>> origin/claude/upbeat-fermi-dey70w
         <canvas ref={cvRef} className="ac2-cv" aria-hidden="true" />
         <div className="cb-world" ref={worldRef} style={{ width: WORLD.w, height: WORLD.h }}>{cellsEl}</div>
         {(() => { const e = ERAS[eraOf(S)]; return <div className="ac2-era" data-era={e.y}><b>{t("ปี ", "YEAR ", "公元 ")}{e.y}</b><small>{T3(lang, e.n[0], e.n[1], e.n[2])}</small></div>; })()}
       </div>
-<<<<<<< HEAD
-      <div className="ac2-cats">
-        {CATS.map(cat => (
-          <div key={cat.id} className="ac2-catrow">
-            <div className="ac2-cath">{cat.icon} {T3(lang, cat.label[0], cat.label[1], cat.label[2])}</div>
-            <div className="ac2-build">
-              {BUILD.filter(b => b.cat === cat.id).map(b => { const locked = (b.needSci || 0) > S.stock.sc, cs = cost(b); return (
-                <button key={b.id} className={"ac2-b" + (S.sel === b.id ? " on" : "") + (locked ? " lock" : S.stock.ma < cs ? " poor" : "")} data-build={b.id} onClick={() => { S.sel = b.id; setTick(x => x + 1); }}>
-                  <b>{b.icon} {T3(lang, b.name[0], b.name[1], b.name[2])}</b><small>🧱 {cs}{locked ? " · 🔒 " + b.needSci + "🔬" : ""}</small></button>); })}
-            </div>
-          </div>
-        ))}
-=======
       <div className="cb-speed" data-speedbar="1">{[t("ช้า", "Slow", "慢"), t("กลาง", "Normal", "中"), t("เร็ว", "Fast", "快")].map((lb, i) => (<button key={i} data-speed={i} aria-label={lb} className={"ac2-sp" + (speed === i ? " on" : "")} onClick={() => { speedRef.current = i; setSpeedS(i); }}>{["🐢", "▶", "⏩"][i]}</button>))}</div>
       <div className="cb-res" data-resbar="1">
         {RES.map(r => (<span key={r.k} className={"ac2-r cb-pill" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k} {...(r.k === "ma" ? { "data-fund": "1" } : {})}><i>{r.icon}</i><b>{Math.floor(S.stock[r.k])}</b><small className={S.rate[r.k] < -0.01 ? "neg" : "pos"}>{S.rate[r.k] < -0.01 ? "▼" : S.rate[r.k] > 0.01 ? "▲" : "·"}</small></span>))}
->>>>>>> origin/claude/upbeat-fermi-dey70w
       </div>
       {(S.hz > 0 || S.msg) && <div className="cb-alert" data-hazard={S.hz > 0 ? "1" : undefined}>{S.hz > 0 ? "⚠ " + T3(lang, site.hz[0], site.hz[1], site.hz[2]) : ""}{S.msg ? " ⚠ " + t("ขาดแคลน ", "Shortage ", "短缺 ") + S.msg : ""}</div>}
       {S.news[0] && <div className="cb-news" data-news="1" key={S.news.length}><b>📰</b><span className="sc-tick">{(lang === "th" ? "วันที่ " : lang === "zh" ? "第" : "Day ") + S.news[0].d + (lang === "zh" ? "天" : "") + ": " + T3(lang, NEWS[S.news[0].k][0], NEWS[S.news[0].k][1], NEWS[S.news[0].k][2])}</span></div>}
