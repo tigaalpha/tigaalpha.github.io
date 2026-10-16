@@ -837,6 +837,12 @@ background:radial-gradient(1.2px 1.2px at 8% 18%,#fff,transparent),radial-gradie
 .adv-menu .adv-mind .adv-planet b{color:#eaf4ff}.adv-menu .adv-mind .adv-planet small{color:#b4c8dc}.adv-menu .adv-mind .adv-planet.lock{opacity:.6;filter:grayscale(.5) brightness(.8)}
 .adv-menu .adv-rt{stroke:rgba(255,255,255,.35)}
 .adv-menu>div:first-child .adv-btn,.adv-menu .adv-foot .adv-grp>summary{background:rgba(255,255,255,.1);color:#eaf4ff;border-color:rgba(255,255,255,.28)}
+.adv-menu .adv-mind .adv-planet>span{background:rgba(10,20,38,.38);border-radius:12px;padding:2px 7px 3px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);box-shadow:0 1px 6px rgba(0,0,0,.25);margin-top:2px}
+.adv-menu .adv-mind .adv-planet b{text-shadow:0 1px 3px rgba(0,0,0,.6);font-weight:600}
+.adv-menu .adv-mind .adv-planet .adv-ch{background:rgba(255,255,255,.16);color:#eaf4ff;border:0;font-weight:600}
+.adv-menu .adv-mind .adv-planet em{background:rgba(14,26,44,.7);border:0;border-radius:999px;color:#eaf4ff}
+.adv-menu .adv-mind .adv-planet .adv-orb{position:relative}
+.adv-menu .adv-mind .adv-planet .adv-tick{position:absolute;right:-5px;top:-5px;width:16px;height:16px;border-radius:50%;background:#3ddc97;color:#04281a;font:900 11px/16px system-ui,sans-serif;text-align:center;text-decoration:none;box-shadow:0 0 0 2px rgba(2,5,13,.85),0 0 8px rgba(61,220,151,.7)}
 `;
 
 type Gfx = "standard" | "high";
@@ -978,7 +984,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
             {vis.map((P, vi) => (
               <button key={P.id} title={T3(lang, P.th, P.en, P.zh)} className={"adv-planet" + (open(P) ? "" : " lock") + (done.includes(P.id) ? " clr" : "") + (curId === P.id ? " cur" : "")} style={{ "--c0": P.c[0], "--c1": P.c[1], "--g": `rgba(${P.glow},.7)`, "--x": mindPts(vis.length)[vi].x + "%", "--y": mindPts(vis.length)[vi].y + "%", "--sz": mindSize(P.id) + "px" } as any} disabled={!canStart(P)}
                 onClick={() => { if (canStart(P)) { if (net) net.sendStart(P.id, warOpt); startPlanet(P); } }}>
-                <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }} />
+                <span className="adv-orb" style={{ background: `radial-gradient(circle at 32% 28%,#fff6,${P.c[2]} 45%,${P.c[0]})` }}>{done.includes(P.id) && <u className="adv-tick" aria-label="cleared">✓</u>}</span>
                 <span><b><i className="adv-ch" data-ch={stepOf(P) + 1}>{t("ตอนที่ ", "Ep. ", "第") + (stepOf(P) + 1) + (lang === "zh" ? "集" : "")}</i> {T3(lang, P.th, P.en, P.zh)}</b><small>{open(P) ? t((P.survival ? "เก็บพลังงาน · " : P.mission === "mine" ? "ขุดแร่ · " : P.mission === "capture" ? "ยึดดาวฤกษ์ · " : P.mission === "strike" ? "ทิ้งนิวเคลียร์ · " : "แผนที่ ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · ผ่านแล้ว ✓" : " · เล่นได้"), (P.survival ? "Harvest · " : "Map ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · cleared ✓" : " · playable"), (P.survival ? "采集 · " : "地图 ") + (stepOf(P) + 1) + (done.includes(P.id) ? " · 已通关 ✓" : " · 可玩")) : P.ok ? (() => { const pv = prevOf(P), n = stepOf(P); return t("ต้องผ่านตอนที่ " + n + " หรือ " + (n - 1) + " ก่อน", "Clear episode " + n + (n > 1 ? " or " + (n - 1) : "") + " first" + (pv ? " (" + pv.en.split(" · ")[0] + ")" : ""), "先通关第 " + n + (n > 1 ? " 或 " + (n - 1) : "") + " 集"); })() : t("เร็ว ๆ นี้", "Coming soon", "敬请期待")}</small></span>
                 <em>{open(P) ? "▶" : "🔒"}</em>
               </button>
