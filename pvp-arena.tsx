@@ -1165,7 +1165,7 @@ function LiveLazyHead({ model, rootRef }) {
 }
 
 export const PvpPage = memo(function PvpPage({
-  lang, charModel = "vanguard", gear = [], onBack, onReward, playUi, friends = null, onChallenge, duels = null, onRespondDuel, onShare, onApplyLoadout, onPracticeWeakness = null,
+  lang, charModel = "vanguard", gear = [], onBack, onReward, coinApi = null, playUi, friends = null, onChallenge, duels = null, onRespondDuel, onShare, onApplyLoadout, onPracticeWeakness = null,
   ownedModels = null, onPickModel = null, onOpenShop = null, modelCost = null, adminTier = 0,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -1489,7 +1489,7 @@ export const PvpPage = memo(function PvpPage({
   if (phase === "lobby" && advOpen) {
     return (
       <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2400, background: "#02070c", color: "#9dffd6", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>🪐 Adventure…</div>}>
-        <AdventurePage lang={lang} me={me} colorway={colorway} held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} petNow={petNow} onBack={() => setAdvOpen(false)} online={advOnline} playUi={playUi} onReward={onReward} adminTier={adminTier} />
+        <AdventurePage lang={lang} me={me} colorway={colorway} held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} petNow={petNow} onBack={() => setAdvOpen(false)} online={advOnline} playUi={playUi} onReward={onReward} coinApi={coinApi} adminTier={adminTier} />
       </Suspense>
     );
   }
