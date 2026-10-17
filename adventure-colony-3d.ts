@@ -1,0 +1,100 @@
+/* The colony's buildings as real 3D (owner, 2026-10-17: "use three.js so the graphics are prettier").
+   An orthographic three.js layer lies over the 2D backdrop (sky, skyline, terrain) and draws ONLY the buildings, with lights, soft shadows,
+   glass and lit windows. The camera is set so a plot lands exactly where the 2D projection `ptW` puts it (2:1 isometric, 30 degree
+   elevation), which keeps the transparent plot buttons, the pan, the zoom and the two-finger turn of the 2D view working unchanged.
+   Returns null when WebGL is missing, and the caller keeps drawing the 2D buildings. */
+import * as THREE from "three";
+
+export type Col3D = { render: (S: any, cam: { x: number; y: number; z: number }, W: number, H: number, dpr: number, rot: number, era: number, T: number, kind: string) => void; dispose: () => void };
+
+const COLS = 22, ROWS = 18, TW0 = 72, SPLOT = TW0 / Math.SQRT2;   // pixels per world unit (one plot = 1 unit)
+const WX0 = (COLS + ROWS) * TW0 / 4, WY0 = TW0 * 1.5 + (COLS + ROWS) * TW0 / 8;   // the screen point of the grid centre, in unscaled world pixels (matches ptW)
+
+const winTex = (w: number, h: number, lit: number, seed: number) => {
+  const c = document.createElement("canvas"); c.width = 64; c.height = 128; const x = c.getContext("2d")!;
+  x.fillStyle = "#dfe6ee"; x.fillRect(0, 0, 64, 128);
+  let s = seed * 7919 + 13; const r = () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+  const cols = Math.max(2, Math.round(w * 4)), rows = Math.max(2, Math.round(h * 5)), cw = 64 / cols, rh = 128 / rows;
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { x.fillStyle = r() < lit ? "#ffd88a" : "#27384f"; x.fillRect(i * cw + cw * 0.18, j * rh + rh * 0.2, cw * 0.64, rh * 0.6); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+};
+
+export function createColony3D(host: HTMLElement): Col3D | null {
+  let ren: THREE.WebGLRenderer;
+  try { ren = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" }); } catch (e) { return null; }
+  if (!ren.getContext()) return null;
+  ren.setClearColor(0x000000, 0); ren.shadowMap.enabled = true; ren.shadowMap.type = THREE.PCFSoftShadowMap; ren.outputColorSpace = THREE.SRGBColorSpace; ren.toneMapping = THREE.ACESFilmicToneMapping; ren.toneMappingExposure = 1.05;
+  const el = ren.domElement; el.className = "ac2-cv3d"; el.setAttribute("aria-hidden", "true"); el.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:block"; host.appendChild(el);
+
+  const scene = new THREE.Scene();
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, -400, 400);
+  const el30 = Math.PI / 6, dist = 60; cam.position.set(dist * Math.cos(el30) / Math.SQRT2, dist * Math.sin(el30), dist * Math.cos(el30) / Math.SQRT2); cam.lookAt(0, 0, 0);
+  const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x6a5a48, 0.85); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xfff0d6, 2.3); sun.position.set(-14, 20, 8); sun.castShadow = true; sun.shadow.mapSize.set(1536, 1536);
+  const sc = sun.shadow.camera as THREE.OrthographicCamera; sc.left = -16; sc.right = 16; sc.top = 16; sc.bottom = -16; sc.near = 1; sc.far = 80; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; scene.add(sun); scene.add(sun.target);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.38 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  const world = new THREE.Group(); scene.add(world);
+
+  const mats: Record<string, THREE.Material> = {}; const mk = (key: string, f: () => THREE.Material) => mats[key] || (mats[key] = f());
+  const std = (color: number, rough = 0.55, metal = 0.1, extra: any = {}) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, ...extra });
+  const white = () => mk("white", () => std(0xf2f4f7, 0.5, 0.15)), steel = () => mk("steel", () => std(0xb9c2cf, 0.35, 0.7)), dark = () => mk("dark", () => std(0x33414f, 0.6, 0.2));
+  const rust = () => mk("rust", () => std(0xc2653a, 0.65, 0.1)), glass = () => mk("glass", () => new THREE.MeshPhysicalMaterial({ color: 0xaee4ff, roughness: 0.08, metalness: 0, transmission: 0.0, transparent: true, opacity: 0.45, clearcoat: 1, side: THREE.DoubleSide }));
+  const solar = () => mk("solar", () => std(0x1b3f86, 0.25, 0.6, { emissive: 0x0a1c44, emissiveIntensity: 0.35 })), green = () => mk("green", () => std(0x4fae5a, 0.8, 0)), glow = (c: number) => mk("glow" + c, () => new THREE.MeshBasicMaterial({ color: c }));
+  const shadowed = (m: THREE.Mesh) => { m.castShadow = true; m.receiveShadow = true; return m; };
+  const box = (w: number, h: number, d: number, mat: THREE.Material, y = 0, x = 0, z = 0) => { const m = shadowed(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)); m.position.set(x, y + h / 2, z); return m; };
+  const cyl = (rt: number, rb: number, h: number, mat: THREE.Material, y = 0, x = 0, z = 0, seg = 20) => { const m = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat)); m.position.set(x, y + h / 2, z); return m; };
+  const dome = (r: number, mat: THREE.Material, y = 0, x = 0, z = 0) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), mat); m.castShadow = false; m.position.set(x, y, z); return m; };
+  const tower = (w: number, h: number, d: number, seed: number, era: number, y = 0, x = 0, z = 0) => {   // a block with lit windows on every side
+    const m = new THREE.MeshStandardMaterial({ color: 0xffffff, map: winTex(w, h, era === 0 ? 0.35 : 0.55, seed), roughness: 0.4, metalness: 0.25, emissive: 0xffc870, emissiveMap: winTex(w, h, era === 0 ? 0.35 : 0.55, seed), emissiveIntensity: 0.12 });
+    const mesh = shadowed(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m)); mesh.position.set(x, y + h / 2, z); return mesh;
+  };
+
+  function build(id: string, era: number, seed: number): THREE.Group {
+    const g = new THREE.Group(), e = era;
+    switch (id) {
+      case "hab":
+        if (e === 0) { g.add(box(0.62, 0.55, 0.5, white(), 0, -0.1, 0.05), box(0.46, 0.38, 0.4, white(), 0, 0.24, -0.12), dome(0.16, glass(), 0.55, -0.1, 0.05)); g.add(box(0.5, 0.05, 0.05, rust(), 0.3, -0.1, 0.31)); }
+        else if (e === 1) { g.add(tower(0.62, 1.3, 0.5, seed, e), dome(0.26, glass(), 1.3), box(0.7, 0.06, 0.58, rust(), 0.65)); }
+        else { const t = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.34, 2.1, 24), new THREE.MeshPhysicalMaterial({ color: 0x9fd0f0, roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.8, clearcoat: 1 }))); t.position.y = 1.05; g.add(t); for (let i = 1; i < 8; i++) { const r = cyl(0.34 - i * 0.017, 0.34 - i * 0.017, 0.02, white(), i * 0.26); g.add(r); } g.add(dome(0.2, glass(), 2.1)); }
+        break;
+      case "tower": g.add(tower(0.5, e === 0 ? 1.5 : e === 1 ? 2.1 : 2.8, 0.5, seed, e), box(0.56, 0.05, 0.56, rust(), 0.4), cyl(0.012, 0.012, 0.45, steel(), e === 0 ? 1.5 : e === 1 ? 2.1 : 2.8, 0.1, 0.1)); break;
+      case "solar": { const n = e === 0 ? 3 : 4; for (let i = 0; i < n; i++) for (let j = 0; j < 2; j++) { const p = box(0.36, 0.03, 0.32, solar(), 0.12, -0.38 + i * 0.4, -0.22 + j * 0.46); p.rotation.x = -0.45; g.add(p, cyl(0.012, 0.012, 0.14, steel(), 0, -0.38 + i * 0.4, -0.22 + j * 0.46 + 0.04)); } if (e >= 1) { g.add(cyl(0.02, 0.03, 1.1, white(), 0, 0.42, 0.3)); for (let k = 0; k < 3; k++) { const bl = box(0.03, 0.5, 0.01, white(), 1.1, 0.42, 0.3); bl.userData.blade = k; bl.rotation.z = k * 2.09; g.add(bl); } } break; }
+      case "water": g.add(cyl(0.3, 0.3, 0.55, steel(), 0), dome(0.3, steel(), 0.55), cyl(0.05, 0.05, 0.4, dark(), 0, 0.42, 0.1), box(0.2, 0.2, 0.2, white(), 0, -0.3, 0.3)); break;
+      case "oxy": g.add(dome(0.4, glass(), 0), cyl(0.12, 0.12, 0.5, white(), 0, 0, 0), cyl(0.05, 0.05, 0.7, steel(), 0, 0.3, 0.25), box(0.3, 0.2, 0.25, white(), 0, -0.3, 0.3)); break;
+      case "farm": g.add(dome(0.46, glass(), 0), cyl(0.38, 0.38, 0.05, green(), 0)); for (let i = 0; i < 6; i++) g.add(cyl(0.025, 0.04, 0.2 + (i % 3) * 0.06, green(), 0.05, Math.cos(i) * 0.22, Math.sin(i) * 0.22)); break;
+      case "mine": g.add(box(0.5, 0.3, 0.4, dark(), 0, -0.1, 0.1), box(0.06, 1.0, 0.06, rust(), 0, 0.15, -0.15), box(0.06, 1.0, 0.06, rust(), 0, 0.35, -0.15), box(0.34, 0.05, 0.05, rust(), 1.0, 0.25, -0.15), cyl(0.2, 0.2, 0.18, steel(), 0, -0.3, 0.3), box(0.08, 0.5, 0.08, white(), 0.3, 0.1, 0.35)); break;
+      case "lab": g.add(tower(0.6, 0.5, 0.5, seed, e), dome(0.22, glass(), 0.5, -0.1, 0), cyl(0.012, 0.012, 0.5, steel(), 0.5, 0.2, 0), (() => { const d = dome(0.14, steel(), 0.95, 0.2, 0); d.rotation.x = -0.9; return d; })()); break;
+      case "med": g.add(tower(0.6, 0.5, 0.5, seed, e), box(0.18, 0.04, 0.04, mk("red", () => std(0xe0433c)), 0.52, 0, 0.0), box(0.04, 0.18, 0.04, mk("red", () => std(0xe0433c)), 0.45, 0, 0)); break;
+      case "reactor": g.add(cyl(0.26, 0.34, 0.9, steel(), 0), cyl(0.16, 0.16, 1.1, white(), 0, 0.25, 0.2), cyl(0.12, 0.12, 0.04, glow(0x00ffe0), 1.1, 0.25, 0.2), (() => { const r = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.025, 8, 28), glow(0x00ffe0)); r.rotation.x = Math.PI / 2; r.position.y = 0.55; return r; })()); break;
+      case "port": g.add(cyl(0.46, 0.46, 0.05, dark(), 0), cyl(0.08, 0.1, 0.9, steel(), 0.05, 0, 0), (() => { const n = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.2, 16), steel()); n.position.y = 1.05; n.castShadow = true; return n; })(), box(0.05, 1.1, 0.05, dark(), 0, 0.38, -0.3), box(0.2, 0.04, 0.04, rust(), 0.9, 0.3, -0.3)); break;
+      case "park": g.add(cyl(0.44, 0.44, 0.04, mk("lawn", () => std(0x74c46e, 0.9)), 0)); for (let i = 0; i < 6; i++) { const a = i * 1.05, r = 0.2 + (i % 2) * 0.1; g.add(cyl(0.015, 0.02, 0.14, mk("trunk", () => std(0x6a4a2a)), 0.04, Math.cos(a) * r, Math.sin(a) * r)); const c = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.28, 10), green()); c.position.set(Math.cos(a) * r, 0.3, Math.sin(a) * r); c.castShadow = true; g.add(c); } break;
+      case "school": g.add(tower(0.6, 0.38, 0.46, seed, e), box(0.4, 0.2, 0.34, white(), 0.38, 0, 0), (() => { const r = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.16, 4), mk("roof", () => std(0xd9a23a))); r.position.y = 0.66; r.rotation.y = Math.PI / 4; r.castShadow = true; return r; })()); break;
+      case "recycler": g.add(cyl(0.2, 0.2, 0.45, steel(), 0, -0.15, 0), cyl(0.2, 0.2, 0.45, steel(), 0, 0.2, 0.1), box(0.5, 0.08, 0.12, dark(), 0.45, 0.02, 0), cyl(0.04, 0.04, 0.5, dark(), 0.45, -0.3, -0.3)); break;
+      case "market": g.add(tower(0.62, 0.42, 0.5, seed, e), box(0.7, 0.04, 0.58, mk("stripe", () => std(0xe0703a)), 0.42), box(0.24, 0.12, 0.04, mk("signm", () => std(0xffd24a, 0.4, 0, { emissive: 0xffa800, emissiveIntensity: 0.6 })), 0.5, 0, 0.27)); break;
+      case "geo": g.add(cyl(0.22, 0.3, 0.5, rust(), 0), cyl(0.06, 0.06, 0.8, steel(), 0.3, 0.15, 0), cyl(0.04, 0.04, 0.6, steel(), 0.2, -0.25, 0.2)); break;
+      case "shield": { const d = dome(0.62, new THREE.MeshPhysicalMaterial({ color: 0x9ccfff, transparent: true, opacity: 0.3, roughness: 0.05, clearcoat: 1, side: THREE.DoubleSide }), 0); g.add(d, cyl(0.1, 0.14, 0.5, steel(), 0), (() => { const r = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.02, 8, 36), glow(0x7fb8ff)); r.rotation.x = Math.PI / 2; r.position.y = 0.02; return r; })()); break; }
+      default: g.add(box(0.5, 0.4, 0.5, white()));
+    }
+    return g;
+  }
+
+  const placed = new Map<number, { key: string; g: THREE.Group }>();
+  let curW = 0, curH = 0, curDpr = 0;
+  const render: Col3D["render"] = (S, c, W, H, dpr, rot, era, T, kind) => {
+    if (W !== curW || H !== curH || dpr !== curDpr) { curW = W; curH = H; curDpr = dpr; ren.setPixelRatio(dpr); ren.setSize(W, H, false); }
+    const sc2 = SPLOT * c.z, px0 = c.x + c.z * WX0, py0 = c.y + c.z * WY0;
+    cam.left = -px0 / sc2; cam.right = (W - px0) / sc2; cam.top = py0 / sc2; cam.bottom = -(H - py0) / sc2; cam.updateProjectionMatrix();
+    world.rotation.y = -rot;
+    sun.color.set(kind === "proxima" ? 0xff9a80 : kind === "mars" ? 0xffd3a8 : 0xfff0d6);
+    for (let i = 0; i < S.grid.length; i++) {
+      const b = S.grid[i].b, cur = placed.get(i), key = b ? b + ":" + era : "";
+      if (!b) { if (cur) { world.remove(cur.g); placed.delete(i); } continue; }
+      if (cur && cur.key === key) continue;
+      if (cur) world.remove(cur.g);
+      const g = build(b, era, i); const cc = i % COLS, rr = Math.floor(i / COLS); g.position.set(cc + 0.5 - COLS / 2, 0, rr + 0.5 - ROWS / 2); world.add(g); placed.set(i, { key, g });
+    }
+    placed.forEach(p => p.g.traverse((o: any) => { if (o.userData && o.userData.blade !== undefined) o.rotation.z = T * 1.4 + o.userData.blade * 2.09; }));
+    ren.render(scene, cam);
+  };
+  return { render, dispose() { try { placed.forEach(p => world.remove(p.g)); ren.dispose(); if (el.parentNode) el.parentNode.removeChild(el); } catch (e) {} } };
+}
