@@ -1379,7 +1379,7 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
         </div>
       )}
       <div className="v12card" data-plan="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}><b style={{ fontSize: 12.5 }}>{TT.title}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{nDone}/{steps.length}</span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}><b style={{ fontSize: 12.5 }}>{T("ต้องซ้อมวันนี้", "Must practise today", "今日必练")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{nDone}/{steps.length}</span></div>
         <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 8 }}>
           {steps.map(s => (
