@@ -649,6 +649,17 @@ const CSS = `
 .sc-graph{width:100%;height:60px;background:#fff;border:2px solid;border-color:#6b6f75 #fff #fff #6b6f75}.sc-counts{display:flex;flex-wrap:wrap;gap:8px;font-size:13px}.sc-win .af-fact{background:transparent;color:#333;padding:3px 0 0;font-size:11px}
 @media (max-height:430px){.cb-card{width:64px;min-height:62px;padding:3px 2px}.cb-card i{font-size:20px}.cb-card b{font-size:9.5px;min-height:20px}.cb-cats{display:none}.cb-fab{bottom:104px}.adv-colony.cb .ac2-era,.cb-info{bottom:112px}.cb-news{top:112px}}
 @media (prefers-reduced-motion:reduce){.cb-news{animation:none}}
+
+/* colony tray: ONE slim row, so the city gets the screen (owner 2026-10-17) */
+.cb-tray{padding:4px 6px 6px;gap:0}.cb-tray .cb-cats{display:none}
+.cb-tray .cb-cards{flex-direction:row;align-items:flex-end;gap:6px;overflow-x:auto;overflow-y:hidden;max-height:none;padding:2px 2px 3px}
+.cb-tray .cb-sec{flex-direction:row;align-items:flex-end;gap:5px;border-left:2px solid rgba(159,216,255,.3);padding-left:6px}.cb-tray .cb-sec:first-child{border-left:0;padding-left:0}
+.cb-tray .cb-sec .sc-gh{display:none}.cb-tray .cb-row{overflow:visible;padding:0;gap:5px}
+.cb-tray .cb-card{width:54px;min-height:52px;padding:3px 2px 2px;border-width:2px;border-radius:12px;gap:0;box-shadow:0 2px 0 rgba(0,0,0,.5)}
+.cb-tray .cb-card i{font-size:21px;line-height:1.05}.cb-tray .cb-card b{font-size:8.5px;min-height:0;max-width:50px;line-height:1.1;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cb-tray .cb-card small{font-size:9.5px;padding:0 5px}
+.cb-tray .cb-card.on{transform:translateY(-2px)}
+.cb-fab{bottom:78px}.adv-colony.cb .ac2-era,.cb-info{bottom:80px}
+@media (max-height:430px){.cb-tray .cb-card{width:50px;min-height:48px}.cb-tray .cb-card i{font-size:19px}.cb-fab{bottom:68px}.adv-colony.cb .ac2-era,.cb-info{bottom:70px}}
 @media (max-width:600px){.adv .pvpdir{width:50px;height:50px}.adv .pvpact{width:58px;height:50px}.adv-pad .pvppad-r,.adv-pad .pvppad-l{gap:6px}}
 .adv-key{width:68px;height:68px;border-radius:22px;border:2px solid rgba(140,255,220,.55);background:rgba(4,30,36,.6);color:#fff;font-size:26px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;backdrop-filter:blur(4px)}
 .adv-key small{font-size:9.5px;font-weight:800;letter-spacing:.5px;margin-top:-2px}

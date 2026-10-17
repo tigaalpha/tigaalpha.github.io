@@ -173,7 +173,9 @@ function drawCity(x: CanvasRenderingContext2D, W: number, H: number, S: any, kin
     else if (kind2 === "titan") { for (let i = 0; i < 40; i++) { x.fillStyle = "rgba(200,230,255," + 0.5 * k + ")"; x.fillRect((i * 71) % W, ((i * 29 + T * 90) % H), 2, 2); } }
     else { if (Math.sin(T * 14) > 0.4) { x.fillStyle = "rgba(255,70,70," + 0.22 * k + ")"; x.fillRect(0, 0, W, H); } } }
   const vg = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(30,10,0,.28)"); x.fillStyle = vg; x.fillRect(0, 0, W, H);
-  finishLook(x, W, H, T, kind === "proxima" ? "255,140,110" : kind === "mars" ? "255,190,130" : "255,226,180", 0.9);
+  finishLook(x, W, H, T, kind === "proxima" ? "255,140,110" : kind === "mars" ? "255,190,130" : "255,226,180", 1.2);
+  // a colour grade so grey regolith does not read flat: deep cool sky above, warm light on the ground (two cheap gradient fills)
+  try { x.save(); x.globalCompositeOperation = "overlay"; x.globalAlpha = 0.3; const gr = x.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#3f63c8"); gr.addColorStop(0.55, "#8a7aa8"); gr.addColorStop(1, "#ffb878"); x.fillStyle = gr; x.fillRect(0, 0, W, H); x.globalCompositeOperation = "soft-light"; x.globalAlpha = 0.25; const g2 = x.createRadialGradient(W * 0.5, H * 0.55, H * 0.1, W * 0.5, H * 0.55, H * 0.9); g2.addColorStop(0, "#fff2cf"); g2.addColorStop(1, "#1b2a55"); x.fillStyle = g2; x.fillRect(0, 0, W, H); x.restore(); } catch (e) {}
 }
 
 const rng = (seed: number) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
