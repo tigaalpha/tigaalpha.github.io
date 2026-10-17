@@ -1356,58 +1356,60 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
           {!todayBonusClaimed() && <button className="tdgo" style={{ marginTop: 10, borderColor: "#d97757", color: "var(--clay-ink)", background: "rgba(217,119,87,.1)" }} onClick={() => { playUi("reward"); claimTodayBonus(); onReward(40, 20); bump(); }}>{TT.bonus}</button>}
         </div>
       ) : (
-        <div className="v12card" data-focus="1" style={{ borderColor: "#d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+        <div className="v12card" data-focus="1" style={{ padding: "11px 13px", marginBottom: 8, borderColor: "#d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
           {act ? (<>
-            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>{T("วันนี้ควรฝึก", "Today's focus", "今日重点")} <span data-by-ai="1" style={{ marginLeft: 8, display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 12px", borderRadius: 999, background: "linear-gradient(180deg,#7f52ea,#6a3dd8)", color: "#fff", fontSize: 12.5, fontWeight: 700, letterSpacing: .4, boxShadow: "0 2px 8px rgba(106,61,216,.45), inset 0 1px 0 rgba(255,255,255,.28)" }}>✨ TIGA AI</span></div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", lineHeight: 1.4 }}>{title}</div>
-            <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6, lineHeight: 1.7 }}><b style={{ color: "var(--clay-ink)" }}>{act.minutes} {T("นาที", "min", "分钟")}</b> · {actWhyText(act, T)}</div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>{T("วันนี้ควรฝึก", "Today's focus", "今日重点")} <span data-by-ai="1" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 10px", borderRadius: 999, background: "linear-gradient(180deg,#7f52ea,#6a3dd8)", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: .4, boxShadow: "0 2px 8px rgba(106,61,216,.45), inset 0 1px 0 rgba(255,255,255,.28)" }}>✨ TIGA AI</span></div>
+            <div style={{ fontSize: 16.5, fontWeight: 700, color: "var(--text)", lineHeight: 1.3 }}>{title}</div>
+            <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 3, lineHeight: 1.5 }}><b style={{ color: "var(--clay-ink)" }}>{act.minutes} {T("นาที", "min", "分钟")}</b> · {actWhyText(act, T)}</div>
           </>) : (<>
-            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>{T("เริ่มจากตรงนี้", "Start here", "从这里开始")} <span data-by-ai="1" style={{ marginLeft: 8, display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 12px", borderRadius: 999, background: "linear-gradient(180deg,#7f52ea,#6a3dd8)", color: "#fff", fontSize: 12.5, fontWeight: 700, letterSpacing: .4, boxShadow: "0 2px 8px rgba(106,61,216,.45), inset 0 1px 0 rgba(255,255,255,.28)" }}>✨ TIGA AI</span></div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", lineHeight: 1.4 }}>{coldStep ? tr(coldStep.title, lang) : nextStep ? nextStep.label : T("เล่นเพลงสักเพลง", "Play a song", "弹一首歌")}</div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>{T("เริ่มจากตรงนี้", "Start here", "从这里开始")} <span data-by-ai="1" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 10px", borderRadius: 999, background: "linear-gradient(180deg,#7f52ea,#6a3dd8)", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: .4, boxShadow: "0 2px 8px rgba(106,61,216,.45), inset 0 1px 0 rgba(255,255,255,.28)" }}>✨ TIGA AI</span></div>
+            <div style={{ fontSize: 16.5, fontWeight: 700, color: "var(--text)", lineHeight: 1.3 }}>{coldStep ? tr(coldStep.title, lang) : nextStep ? nextStep.label : T("เล่นเพลงสักเพลง", "Play a song", "弹一首歌")}</div>
             {coldStep && <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6, lineHeight: 1.7 }} data-cold="1">{tr(coldStep.why, lang)}</div>}
             <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>{coldStep ? "" : skipped ? T("วันนี้ข้ามคำแนะนำของครู AI ไว้ — ทำตามแผนด้านล่างได้เลย", "You skipped the mentor's advice today — follow the plan below.", "今天已跳过导师建议——按下面的计划来吧。") : T("ยังซ้อมไม่พอให้ครู AI วิเคราะห์ ซ้อมอีกสักหน่อยแล้วคำแนะนำจะแม่นขึ้น", "Not enough practice yet for the AI to analyse — a little more and the advice gets sharper.", "练习还不够，AI 暂时无法分析——再练一点建议会更准。")}</div>
           </>)}
           {dx && (
-            <div data-dx="1" style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #d9775755" }}>
-              <div style={{ fontSize: 11, color: "var(--clay-ink)", marginBottom: 5 }}>🩺 {T("ปัญหาที่ครูเจอ และวิธีแก้", "What I found, and how to fix it", "老师发现的问题与解决办法")}</div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{dx.what.label} · {dx.what.acc}%</div>
-              <div style={{ fontSize: 12, color: "var(--text2)" }}><b style={{ color: "var(--clay-ink)" }}>{T("ทำไม", "Why", "为什么")}:</b> {dx.why[0]}</div>
-              {dx.how[0] && <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 3 }}><b style={{ color: "var(--clay-ink)" }}>{T("วิธีฝึก", "How to fix", "怎么练")}:</b> {dx.how[0]}</div>}
+            <div data-dx="1" style={{ marginTop: 8, paddingTop: 7, borderTop: "1px dashed #d9775755" }}>
+              <div style={{ fontSize: 10.5, color: "var(--clay-ink)", marginBottom: 3 }}>🩺 {T("ปัญหาที่ครูเจอ และวิธีแก้", "What I found, and how to fix it", "老师发现的问题与解决办法")}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 2, lineHeight: 1.35 }}>{dx.what.label} · {dx.what.acc}%</div>
+              <div style={{ fontSize: 11.5, color: "var(--text2)", lineHeight: 1.45 }}><b style={{ color: "var(--clay-ink)" }}>{T("ทำไม", "Why", "为什么")}:</b> {dx.why[0]}</div>
+              {dx.how[0] && <div style={{ fontSize: 11.5, color: "var(--text2)", marginTop: 2, lineHeight: 1.45 }}><b style={{ color: "var(--clay-ink)" }}>{T("วิธีฝึก", "How to fix", "怎么练")}:</b> {dx.how[0]}</div>}
             </div>
           )}
-          <button className="songbtn go" style={{ width: "100%", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 800 }} data-start="1" onClick={start}>▶ Play</button>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 10, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 800 }} data-start="1" onClick={start}>▶ Play</button>
         </div>
       )}
       {!track.finished && (
-        <div className="v12card" data-track="1" style={{ padding: "12px 14px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 9 }}><b style={{ fontSize: 13 }}>{T("เส้นทางพื้นฐานของคุณ", "Your foundation path", "你的基础路径")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{track.doneN}/{track.steps.length}</span></div>
+        <div className="v12card" data-track="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><b style={{ fontSize: 12.5 }}>{T("เส้นทางพื้นฐานของคุณ", "Your foundation path", "你的基础路径")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{track.doneN}/{track.steps.length}</span></div>
           <div style={{ display: "flex", alignItems: "flex-start" }}>
             {track.steps.map((st, i) => (
               <button key={st.id} data-tstep={st.id} data-tcur={st.current ? "1" : "0"} onClick={() => goStep(st)} aria-label={tr(st.title, lang)}
                 style={{ flex: 1, minWidth: 0, background: "none", border: 0, padding: 0, cursor: "pointer", font: "inherit", textAlign: "center", position: "relative", color: st.current ? "var(--text)" : "var(--muted)", fontWeight: st.current ? 700 : 400 }}>
-                {i < track.steps.length - 1 && <span style={{ position: "absolute", top: 13, left: "calc(50% + 14px)", right: "calc(-50% + 14px)", height: 2, background: st.done ? "#3a9d6e" : "var(--bd, #e6ddd3)" }} />}
-                <span style={{ position: "relative", width: 26, height: 26, borderRadius: "50%", margin: "0 auto 4px", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, background: st.done ? "#3a9d6e" : st.current ? "#d97757" : "var(--card2, #efe8df)", color: st.done || st.current ? "#fff" : "var(--muted)", boxShadow: st.current ? "0 0 0 4px rgba(217,119,87,.22)" : "none" }}>{st.done ? "✓" : i + 1}</span>
+                {i < track.steps.length - 1 && <span style={{ position: "absolute", top: 12, left: "calc(50% + 13px)", right: "calc(-50% + 13px)", height: 2, background: st.done ? "#3a9d6e" : "var(--bd, #e6ddd3)" }} />}
+                <span style={{ position: "relative", width: 24, height: 24, borderRadius: "50%", margin: "0 auto 3px", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, background: st.done ? "#3a9d6e" : st.current ? "#d97757" : "var(--card2, #efe8df)", color: st.done || st.current ? "#fff" : "var(--muted)", boxShadow: st.current ? "0 0 0 4px rgba(217,119,87,.22)" : "none" }}>{st.done ? "✓" : i + 1}</span>
                 <span style={{ display: "block", fontSize: 9.5, lineHeight: 1.2, overflowWrap: "anywhere" }}>{tr(st.short, lang)}</span>
               </button>
             ))}
           </div>
           {track.current && (
-            <button data-tnow="1" onClick={() => goStep(track.current)} style={{ marginTop: 9, width: "100%", display: "flex", alignItems: "center", gap: 8, background: "rgba(217,119,87,.13)", border: 0, borderRadius: 14, padding: "8px 10px", cursor: "pointer", font: "inherit", color: "var(--text)", textAlign: "left", fontSize: 12.5, fontWeight: 600 }}>
-              <span>👉</span><span style={{ flex: 1, minWidth: 0 }}>{tr(track.current.title, lang)}</span><span className="tdgo" style={{ pointerEvents: "none" }}>{TT.start}</span>
+            <button data-tnow="1" onClick={() => goStep(track.current)} style={{ marginTop: 7, width: "100%", display: "flex", alignItems: "center", gap: 8, background: "rgba(217,119,87,.13)", border: 0, borderRadius: 14, padding: "5px 6px 5px 10px", cursor: "pointer", font: "inherit", color: "var(--text)", textAlign: "left", fontSize: 12, fontWeight: 600 }}>
+              <span>👉</span><span style={{ flex: 1, minWidth: 0 }}>{tr(track.current.title, lang)}</span><span className="tdgo" style={{ pointerEvents: "none", padding: "5px 12px" }}>{TT.start}</span>
             </button>
           )}
         </div>
       )}
-      <div className="v12card" data-plan="1" style={{ padding: "12px 14px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}><b style={{ fontSize: 13 }}>{TT.title}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{nDone}/{steps.length}</span></div>
+      <div className="v12card" data-plan="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}><b style={{ fontSize: 12.5 }}>{TT.title}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{nDone}/{steps.length}</span></div>
         <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 8 }}>
           {steps.map(s => (
-            <div key={s.id} data-pstep={s.id} style={{ border: "1px solid var(--bd, #eadfd3)", borderRadius: 14, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 2, background: "var(--card)", opacity: s.isDone ? .65 : 1, minWidth: 0 }}>
-              <small style={{ fontSize: 10, color: "var(--muted)" }}>{s.isDone ? "✅" : s.icon} {s.tag}</small>
-              <b style={{ fontSize: 12, lineHeight: 1.25, overflowWrap: "anywhere" }}>{s.label}</b>
-              {s.isDone ? <span style={{ alignSelf: "flex-start", marginTop: 4, fontSize: 10.5, color: "#3a9d6e", fontWeight: 700 }}>{TT.done}</span>
-                : <button className="tdgo" style={{ alignSelf: "flex-start", marginTop: 4, fontSize: 10.5, padding: "2px 10px" }} onClick={() => { playUi("click"); if (s.hwStep) { markHwDone(); onReward(10, 0); bump(); } else { logUsage("pathway", "myclass-" + s.id); s.go(); } }}>{s.hwStep ? TT.hwBtn : TT.start}</button>}
+            <div key={s.id} data-pstep={s.id} style={{ border: "1px solid var(--bd, #eadfd3)", borderRadius: 12, padding: "6px 8px 6px 9px", display: "flex", alignItems: "center", gap: 6, background: "var(--card)", opacity: s.isDone ? .65 : 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <small style={{ display: "block", fontSize: 9.5, color: "var(--muted)", lineHeight: 1.2 }}>{s.isDone ? "✅" : s.icon} {s.tag}</small>
+                <b style={{ display: "block", fontSize: 11.5, lineHeight: 1.25, overflowWrap: "anywhere" }}>{s.label}</b>
+              </div>
+              {s.isDone ? <span style={{ flexShrink: 0, fontSize: 10.5, color: "#3a9d6e", fontWeight: 700 }}>✓</span>
+                : <button className="tdgo" style={{ flexShrink: 0, fontSize: 10.5, padding: "5px 9px" }} onClick={() => { playUi("click"); if (s.hwStep) { markHwDone(); onReward(10, 0); bump(); } else { logUsage("pathway", "myclass-" + s.id); s.go(); } }}>{s.hwStep ? TT.hwBtn : "▶"}</button>}
             </div>
           ))}
         </div>
