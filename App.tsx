@@ -40,7 +40,7 @@ import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validat
    ทั้งหน้า Daily Mentor และป๊อปอัป Auto Teaching อ่านจากที่นี่ที่เดียว
    (skillScoresOf = กติกาเดิมของ computeSkillScores · weightedStrugglesOf = กติกา
    เดิมของ use-autoteach · learnerSignal = ตัวตัดสินใจรวม · repeatWindowOpen = กันยิงคำเดิมซ้ำ) */
-import { foundationPath, teacherNote, WEEK_GOAL_DAYS } from "./class-teacher";
+import { foundationPath } from "./class-teacher";
 import { learnerSignal, skillScoresOf, skillsOfActivity, weakestSkills, repeatWindowOpen, freeQuotaState, atipDelivery, SKILL_FEATURE } from "./learner-signal";
 /* teach-cards (รู้ไว้ใช่ว่า) loads LAZY (plan v3 1.5): pure data + localStorage
    helpers that are read at render time — the helpers below keep working while
@@ -1331,7 +1331,6 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
   const nextStep = steps.find(s => !s.isDone) || null;
   // the teacher: the foundation path (what a learner with no data follows) and the note (progress, discipline, encouragement) — class-teacher.ts
   const track = foundationPath(readActLog(), pathDoneSet());
-  const note = teacherNote({ log: readActLog(), streak, track, allDone }, lang);
   const goStep = (st) => {
     playUi("click"); haptic(6); try { logUsage("nav", "myclass-path-" + st.id); } catch (e) {}
     if (st.feature) { onNavigate(st.feature); return; }
@@ -1348,16 +1347,6 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
   const start = () => { playUi("click"); haptic(6); try { logUsage("nav", "myclass-start"); } catch (e) {} if (act) { if (act.stepText) onNavigate(act.stepText, act.feature); else onNavigate(act.feature, act.tab); } else if (coldStep) { goStep(coldStep); } else if (nextStep) { nextStep.go(); } };
   return (
     <div className="pathpage" data-myclass="1">
-      <div className="v12card" data-teacher="1" style={{ borderColor: "#d9775744" }}>
-        <div style={{ fontSize: 11, color: "var(--clay-ink)", marginBottom: 5 }}>👩‍🏫 {T("ครูประจำคลาส", "Your class teacher", "班级老师")}</div>
-        <div style={{ fontSize: 15.5, fontWeight: 700, color: "var(--text)", lineHeight: 1.45 }}>{note.hello}</div>
-        <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4, lineHeight: 1.7 }}>{note.line}</div>
-        {note.trend && <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4, lineHeight: 1.7 }} data-trend="1">📈 {note.trend}</div>}
-        <div data-week="1" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }} aria-label={T("วันที่ซ้อมใน 7 วันที่ผ่านมา", "Days practised in the last 7 days", "最近7天的练习日")}>
-          {note.week.days.map((on, i) => <span key={i} data-day={on ? "1" : "0"} style={{ width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, background: on ? "#d97757" : "transparent", color: on ? "#fff" : "var(--muted)", border: on ? "1px solid #d97757" : "1px dashed var(--bd, #8884)" }}>{on ? "✓" : ""}</span>)}
-          <span style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{note.week.daysN}/{WEEK_GOAL_DAYS} {T("วัน", "days", "天")}{note.week.minutes > 0 ? ` · ${note.week.minutes} ${T("นาที", "min", "分钟")}` : ""}</span>
-        </div>
-      </div>
       {allDone ? (
         <div className="v12card" data-done="1" style={{ textAlign: "center", borderColor: "#d9775766" }}>
           <div style={{ fontSize: 34 }}>🎉</div>

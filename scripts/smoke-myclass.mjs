@@ -51,7 +51,7 @@ const r31 = (e) => e.filter(x => /#31|objects are not valid as a React child/i.t
 { const s = await open({ withLog: true, lang: "th" }); ok("Thai My Class opens without errors", (await s.p.locator("[data-myclass]").count()) === 1 && r31(s.errs).length === 0 && s.errs.length === 0, s.errs.slice(0, 2).join(" | ")); await s.ctx.close(); }
 // 6. the teacher (owner, 2026-10-17): a brand-new learner (no log at all) gets a welcome, a seven-step foundation path and a first step with a reason
 { const s = await open({}); const t = (await s.p.locator("body").innerText()).replace(/\s+/g, " ");
-  ok("new learner: teacher card welcomes; focus card labelled by TIGA AI", (await s.p.locator("[data-teacher]").count()) === 1 && /Welcome to class/.test(t) && (await s.p.locator("[data-by-ai]").count()) === 1);
+  ok("new learner: focus card labelled TIGA AI, no teacher card (owner removed it)", (await s.p.locator("[data-teacher]").count()) === 0 && (await s.p.locator("[data-by-ai]").count()) === 1);
   ok("new learner: seven-step foundation path, first step current", (await s.p.locator("[data-tstep]").count()) === 7 && (await s.p.locator('[data-tstep="hands"]').getAttribute("data-tcur")) === "1");
   ok("new learner: focus card names the first step and says why", (await s.p.locator("[data-cold]").count()) === 1 && /Hand shape/.test(t));
   ok("no 'Berklee' anywhere on the page", !/berkl/i.test(t));
@@ -60,6 +60,6 @@ const r31 = (e) => e.filter(x => /#31|objects are not valid as a React child/i.t
   ok("no page errors", s.errs.length === 0, s.errs.slice(0, 2).join(" | ")); await s.ctx.close(); }
 // 7. a stage step opens the real lesson (scale) and Thai renders the teacher
 { const s = await open({ lang: "th" }); const t = (await s.p.locator("body").innerText()).replace(/\s+/g, " ");
-  ok("Thai: teacher welcome", /ยินดีต้อนรับสู่คลาส/.test(t)); await s.p.evaluate(() => document.querySelector('[data-tstep="scale"]').click()); await s.p.waitForTimeout(1500);
+  ok("Thai: foundation path shown", /เส้นทางพื้นฐาน/.test(t)); await s.p.evaluate(() => document.querySelector('[data-tstep="scale"]').click()); await s.p.waitForTimeout(1500);
   ok("scale step opens without errors", s.errs.length === 0, s.errs.slice(0, 2).join(" | ")); await s.ctx.close(); }
 await b.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
