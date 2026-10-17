@@ -27,7 +27,7 @@ export const TABS = [
   { k: "learn", page: "pathway", Icon: BookOpen, th: "เส้นทาง", en: "Pathway", zh: "学习路径" },
   { k: "practice", page: "studio", Icon: Piano, th: "ฝึกซ้อม", en: "Practice", zh: "练习" },
   { k: "teacher", page: "sensei", Icon: Sparkles, th: "ครู AI", en: "AI Teacher", zh: "AI老师" },
-  { k: "arena", page: "pvp", Icon: Swords, th: "ประลอง", en: "Arena", zh: "竞技" },
+  { k: "arena", page: "pvp", Icon: Swords, th: "เกม", en: "Games", zh: "游戏" },
   { k: "me", page: "profile", Icon: null, th: "ฉัน", en: "Me", zh: "我的" },
 ];
 const FAMILY = {
