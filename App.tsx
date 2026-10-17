@@ -40,6 +40,7 @@ import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validat
    ทั้งหน้า Daily Mentor และป๊อปอัป Auto Teaching อ่านจากที่นี่ที่เดียว
    (skillScoresOf = กติกาเดิมของ computeSkillScores · weightedStrugglesOf = กติกา
    เดิมของ use-autoteach · learnerSignal = ตัวตัดสินใจรวม · repeatWindowOpen = กันยิงคำเดิมซ้ำ) */
+import { foundationPath, teacherNote, WEEK_GOAL_DAYS } from "./class-teacher";
 import { learnerSignal, skillScoresOf, skillsOfActivity, weakestSkills, repeatWindowOpen, freeQuotaState, atipDelivery, SKILL_FEATURE } from "./learner-signal";
 /* teach-cards (รู้ไว้ใช่ว่า) loads LAZY (plan v3 1.5): pure data + localStorage
    helpers that are read at render time — the helpers below keep working while
@@ -1328,13 +1329,38 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
   const act = skipped ? null : signal.nextAction;
   const dx = useTiga(m => m.getCoachDiagnosis());
   const nextStep = steps.find(s => !s.isDone) || null;
+  // the teacher: the foundation path (what a learner with no data follows) and the note (progress, discipline, encouragement) — class-teacher.ts
+  const track = foundationPath(readActLog(), pathDoneSet());
+  const note = teacherNote({ log: readActLog(), streak, track, allDone }, lang);
+  const goStep = (st) => {
+    playUi("click"); haptic(6); try { logUsage("nav", "myclass-path-" + st.id); } catch (e) {}
+    if (st.feature) { onNavigate(st.feature); return; }
+    const done = pathDoneSet();
+    const stage = PATHWAY.find(p => (st.stages || []).includes(p.id) && !done.has(p.id)) || PATHWAY.find(p => (st.stages || []).includes(p.id));
+    if (!stage) { onPathway(); return; }
+    if (stage.content) { onRead(stage); return; }
+    const km = keyDoneMap();
+    const key = KEYS_12.find(k => !(km[stage.id] || []).includes(k.id.toLowerCase())) || KEYS_12[0];
+    onLearn(stage, key, stage.types ? stage.types[0] : null);
+  };
+  const coldStep = !act && !skipped && track.current ? track.current : null;
   const title = act ? (act.kind === "skill" ? tr(SKILL_LABELS[act.skill], lang) : act.label) : null;
-  const start = () => { playUi("click"); haptic(6); try { logUsage("nav", "myclass-start"); } catch (e) {} if (act) { if (act.stepText) onNavigate(act.stepText, act.feature); else onNavigate(act.feature, act.tab); } else if (nextStep) { nextStep.go(); } };
+  const start = () => { playUi("click"); haptic(6); try { logUsage("nav", "myclass-start"); } catch (e) {} if (act) { if (act.stepText) onNavigate(act.stepText, act.feature); else onNavigate(act.feature, act.tab); } else if (coldStep) { goStep(coldStep); } else if (nextStep) { nextStep.go(); } };
   return (
     <div className="pathpage" data-myclass="1">
       <div className="v12hero">
         <div className="v12title">🏫 My Class {streak > 0 && <span className="chip" style={{ marginLeft: 8, fontSize: 12 }}>🔥 {streak}</span>}</div>
         <div className="v12sub">{T("คลาสส่วนตัวของคุณ — วันนี้ควรทำอะไร ดูจากความก้าวหน้าจริงของคุณ", "Your personal class — what to do today, from your real progress", "你的专属课堂——根据真实进度告诉你今天做什么")}</div>
+      </div>
+      <div className="v12card" data-teacher="1" style={{ borderColor: "#d9775744" }}>
+        <div style={{ fontSize: 11, color: "var(--clay-ink)", marginBottom: 5 }}>👩‍🏫 {T("ครูประจำคลาส", "Your class teacher", "班级老师")}</div>
+        <div style={{ fontSize: 15.5, fontWeight: 700, color: "var(--text)", lineHeight: 1.45 }}>{note.hello}</div>
+        <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4, lineHeight: 1.7 }}>{note.line}</div>
+        {note.trend && <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4, lineHeight: 1.7 }} data-trend="1">📈 {note.trend}</div>}
+        <div data-week="1" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }} aria-label={T("วันที่ซ้อมใน 7 วันที่ผ่านมา", "Days practised in the last 7 days", "最近7天的练习日")}>
+          {note.week.days.map((on, i) => <span key={i} data-day={on ? "1" : "0"} style={{ width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, background: on ? "#d97757" : "transparent", color: on ? "#fff" : "var(--muted)", border: on ? "1px solid #d97757" : "1px dashed var(--bd, #8884)" }}>{on ? "✓" : ""}</span>)}
+          <span style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--muted)", fontFamily: "var(--f-num, monospace)" }}>{note.week.daysN}/{WEEK_GOAL_DAYS} {T("วัน", "days", "天")}{note.week.minutes > 0 ? ` · ${note.week.minutes} ${T("นาที", "min", "分钟")}` : ""}</span>
+        </div>
       </div>
       {allDone ? (
         <div className="v12card" data-done="1" style={{ textAlign: "center", borderColor: "#d9775766" }}>
@@ -1352,18 +1378,32 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
             <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6, lineHeight: 1.7 }}><b style={{ color: "var(--clay-ink)" }}>{act.minutes} {T("นาที", "min", "分钟")}</b> · {actWhyText(act, T)}</div>
           </>) : (<>
             <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>{T("เริ่มจากตรงนี้", "Start here", "从这里开始")}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", lineHeight: 1.4 }}>{nextStep ? nextStep.label : T("เล่นเพลงสักเพลง", "Play a song", "弹一首歌")}</div>
-            <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>{skipped ? T("วันนี้ข้ามคำแนะนำของครู AI ไว้ — ทำตามแผนด้านล่างได้เลย", "You skipped the mentor's advice today — follow the plan below.", "今天已跳过导师建议——按下面的计划来吧。") : T("ยังซ้อมไม่พอให้ครู AI วิเคราะห์ ซ้อมอีกสักหน่อยแล้วคำแนะนำจะแม่นขึ้น", "Not enough practice yet for the AI to analyse — a little more and the advice gets sharper.", "练习还不够，AI 暂时无法分析——再练一点建议会更准。")}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", lineHeight: 1.4 }}>{coldStep ? tr(coldStep.title, lang) : nextStep ? nextStep.label : T("เล่นเพลงสักเพลง", "Play a song", "弹一首歌")}</div>
+            {coldStep && <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6, lineHeight: 1.7 }} data-cold="1">{tr(coldStep.why, lang)}</div>}
+            <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>{coldStep ? "" : skipped ? T("วันนี้ข้ามคำแนะนำของครู AI ไว้ — ทำตามแผนด้านล่างได้เลย", "You skipped the mentor's advice today — follow the plan below.", "今天已跳过导师建议——按下面的计划来吧。") : T("ยังซ้อมไม่พอให้ครู AI วิเคราะห์ ซ้อมอีกสักหน่อยแล้วคำแนะนำจะแม่นขึ้น", "Not enough practice yet for the AI to analyse — a little more and the advice gets sharper.", "练习还不够，AI 暂时无法分析——再练一点建议会更准。")}</div>
           </>)}
           <button className="songbtn go" style={{ width: "100%", marginTop: 12 }} data-start="1" onClick={start}>🎹 {T("เริ่มเลย", "Start now", "开始")}</button>
         </div>
       )}
       {dx && !allDone && (
         <div className="v12card" data-dx="1" style={{ borderColor: "#d9775744" }}>
-          <div style={{ fontSize: 11, color: "var(--clay-ink)", marginBottom: 6 }}>🩺 {T("AI วินิจฉัย", "AI diagnosis", "AI 诊断")}</div>
+          <div style={{ fontSize: 11, color: "var(--clay-ink)", marginBottom: 6 }}>🩺 {T("ปัญหาที่ครูเจอ และวิธีแก้", "What I found, and how to fix it", "老师发现的问题与解决办法")}</div>
           <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{dx.what.label} · {dx.what.acc}%</div>
           <div style={{ fontSize: 12, color: "var(--text2)" }}><b style={{ color: "var(--clay-ink)" }}>{T("ทำไม", "Why", "为什么")}:</b> {dx.why[0]}</div>
           {dx.how[0] && <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 3 }}><b style={{ color: "var(--clay-ink)" }}>{T("วิธีฝึก", "How to fix", "怎么练")}:</b> {dx.how[0]}</div>}
+        </div>
+      )}
+      {!track.finished && (
+        <div className="v12card" data-track="1">
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><b style={{ fontSize: 13 }}>{T("เส้นทางพื้นฐานของคุณ", "Your foundation path", "你的基础路径")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{track.doneN}/{track.steps.length}</span></div>
+          {track.steps.map((st, i) => (
+            <button key={st.id} data-tstep={st.id} data-tcur={st.current ? "1" : "0"} className="tdstep" onClick={() => goStep(st)}
+              style={{ width: "100%", textAlign: "left", cursor: "pointer", font: "inherit", color: "inherit", background: st.current ? "rgba(217,119,87,.10)" : "transparent", border: st.current ? "1px solid #d9775766" : "1px solid transparent", opacity: st.done ? .7 : 1 }}>
+              <span className="tdico">{st.done ? "✅" : st.current ? "👉" : i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}><div className="tdlbl">{tr(st.title, lang)}</div></div>
+              <span className="tdgo" style={{ pointerEvents: "none" }}>{st.done ? TT.done : TT.start}</span>
+            </button>
+          ))}
         </div>
       )}
       <div className="v12card">
