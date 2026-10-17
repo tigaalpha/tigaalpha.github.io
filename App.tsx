@@ -1396,7 +1396,7 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
           ))}
         </div>
       </div>
-      {!track.finished && (
+      {(
         <div className="v12card" data-track="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><b style={{ fontSize: 12.5 }}>{T("เส้นทางพื้นฐานของคุณ", "Your foundation path", "你的基础路径")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{track.doneN}/{track.steps.length}</span></div>
           <div style={{ display: "flex", alignItems: "flex-start" }}>
@@ -1413,6 +1413,11 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
             <button data-tnow="1" onClick={() => goStep(track.current)} style={{ marginTop: 7, width: "100%", display: "flex", alignItems: "center", gap: 8, background: "rgba(217,119,87,.13)", border: 0, borderRadius: 14, padding: "5px 6px 5px 10px", cursor: "pointer", font: "inherit", color: "var(--text)", textAlign: "left", fontSize: 12, fontWeight: 600 }}>
               <span>👉</span><span style={{ flex: 1, minWidth: 0 }}>{tr(track.current.title, lang)}</span><span className="tdgo" style={{ pointerEvents: "none", padding: "5px 12px" }}>{TT.start}</span>
             </button>
+          )}
+          {track.finished && (
+            <div data-tdone="1" style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 8, background: "rgba(58,157,110,.14)", borderRadius: 14, padding: "7px 10px", fontSize: 12.5, fontWeight: 700 }}>
+              <span>🏆</span><span style={{ flex: 1 }}>{T("ครบทั้ง 7 ขั้นแล้ว — ภูมิใจในตัวเองได้เลย! ใครๆ ก็ไม่ใช่ทุกคนที่ทำได้", "All 7 steps done — be proud of yourself!", "7步全部完成——为自己骄傲吧！")}</span>
+            </div>
           )}
         </div>
       )}
