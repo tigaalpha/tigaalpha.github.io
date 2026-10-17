@@ -34,7 +34,7 @@ export function useKeyboard() {
   const [litSet, setLitSet] = useState(null);   // multiple simultaneously-lit keys, for block-chord demos
   const [fingerMap, setFingerMap] = useState({});
   const [fingerChart, setFingerChart] = useState(null); // {label, notes:[{note,finger}], mode} — persistent chart
-  useEffect(() => { try { if (localStorage.getItem("tg_test_hook") === "1") (window as any).__tgTest = { ...((window as any).__tgTest || {}), setFingerChart }; } catch (e) {} }, []);   // test-only door (smoke tests load a lesson without the chat)
+  useEffect(() => { try { if (localStorage.getItem("tg_test_hook") === "1") (window as any).__tgTest = { ...((window as any).__tgTest || {}), setFingerChart, playSequence }; } catch (e) {} }, []);   // test-only door (smoke tests load a lesson without the chat)
   // How chord demos are voiced: one note at a time (broken/arpeggiated) or all
   // together (block). Toggling replays the current chord immediately in the
   // new style — comparing both is the whole point (triad/7th/tension/slash/
