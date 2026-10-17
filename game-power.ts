@@ -43,7 +43,7 @@ export const readPower = (): number => load().v;
 /* test doors and the owner's own account: no spending, no gate */
 export function powerFree(adminTier = 0): boolean {
   if (!GAME_POWER_ENABLED) return true;
-  if (adminTier >= 3) return true;
+  void adminTier;   // owner 2026-10-17: the top admin is gated and drained like everyone (he plays as a player); tg_gp_free=1 is the test door
   try { return localStorage.getItem("tg_gp_free") === "1" || localStorage.getItem("tg_adv_unlockall") === "1"; } catch (e) { return false; }
 }
 export const canSpend = (n: number, adminTier = 0): boolean => powerFree(adminTier) || readPower() >= n;
