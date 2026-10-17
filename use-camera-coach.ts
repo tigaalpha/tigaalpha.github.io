@@ -240,7 +240,9 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
     setCamStatus("loading"); setCamMsg(""); camMsgRef.current = "";
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        let stream;
+        try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false }); }
+        catch (e0) { if (e0 && (e0.name === "OverconstrainedError" || e0.name === "NotFoundError")) stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); else throw e0; }
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
         camStreamRef.current = stream;
         const v = camVideoRef.current;
@@ -327,7 +329,18 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
           camRafRef.current = requestAnimationFrame(loop);
         };
         camRafRef.current = requestAnimationFrame(loop);
-      } catch (e) { if (!cancelled) setCamStatus("error"); }
+      } catch (e) {
+        if (!cancelled) {
+          // say WHY: the overlay used to show one generic line for a refused camera, a missing camera and a model that could not be downloaded
+          const n = e && e.name || "";
+          const why = n === "NotAllowedError" || n === "SecurityError" ? (lang === "th" ? "ยังไม่ได้อนุญาตให้ใช้กล้อง — เปิดสิทธิ์กล้องของเบราว์เซอร์สำหรับเว็บนี้แล้วกดลองใหม่" : lang === "zh" ? "尚未允许使用摄像头——请在浏览器中为本网站开启摄像头权限后重试" : "Camera permission is not allowed — enable the camera for this site in your browser, then try again")
+            : n === "NotFoundError" ? (lang === "th" ? "ไม่พบกล้องในเครื่องนี้" : lang === "zh" ? "未找到摄像头" : "No camera was found on this device")
+            : n === "NotReadableError" ? (lang === "th" ? "กล้องถูกแอปอื่นใช้อยู่ — ปิดแอปนั้นแล้วลองใหม่" : lang === "zh" ? "摄像头正被其他应用占用——请关闭后重试" : "The camera is in use by another app — close it and try again")
+            : (lang === "th" ? "โหลดโมเดลตรวจมือไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วกดลองใหม่" : lang === "zh" ? "手部模型下载失败——请检查网络后重试" : "The hand model could not be downloaded — check your connection and try again");
+          try { console.warn("hand coach:", n, e && e.message); } catch (e2) {}
+          setCamMsg(why); camMsgRef.current = why; setCamStatus("error");
+        }
+      }
     })();
     return () => {
       cancelled = true;
