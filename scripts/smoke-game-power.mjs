@@ -13,7 +13,8 @@ globalThis.window = { dispatchEvent() {} }; globalThis.CustomEvent = class { con
 const gp = await import(pathToFileURL(out).href);
 ok("fresh device starts at 60", gp.readPower() === 60);
 ok("a 10-try drill earns 10", gp.powerFromActivity({ k: "drill", id: "x", ok: 8, miss: 2, sec: 30 }) === 10 && gp.readPower() === 70);
-ok("a 2-try drill earns nothing", gp.powerFromActivity({ k: "drill", id: "x", ok: 1, miss: 1, sec: 5 }) === 0);
+ok("a 2-try all-wrong round still earns power", gp.powerFromActivity({ k: "drill", id: "x2", ok: 0, miss: 2, sec: 5 }) > 0);
+ok("accuracy multiplies coins 1/2/3", gp.accMult(40) === 1 && gp.accMult(75) === 2 && gp.accMult(95) === 3);
 ok("new lesson 20, same lesson again 12", gp.powerFromActivity({ k: "lesson", id: "L1", sec: 90 }) === 20 && gp.powerFromActivity({ k: "lesson", id: "L1", sec: 90 }) === 10 /* capped by the bar: 100 */ || gp.readPower() === 100);
 ok("bar never above 100", gp.readPower() <= 100);
 ok("skill-tagged secondary row pays nothing", gp.powerFromActivity({ k: "drill", id: "y", ok: 9, miss: 1, sec: 0, skill: "rhythm" }) === 0);

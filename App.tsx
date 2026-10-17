@@ -42,6 +42,7 @@ import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validat
    เดิมของ use-autoteach · learnerSignal = ตัวตัดสินใจรวม · repeatWindowOpen = กันยิงคำเดิมซ้ำ) */
 import { foundationPath } from "./class-teacher";
 import { PowerToast } from "./game-power-ui";
+import { accMult } from "./game-power";
 import { learnerSignal, skillScoresOf, skillsOfActivity, weakestSkills, repeatWindowOpen, freeQuotaState, atipDelivery, SKILL_FEATURE } from "./learner-signal";
 /* teach-cards (รู้ไว้ใช่ว่า) loads LAZY (plan v3 1.5): pure data + localStorage
    helpers that are read at render time — the helpers below keep working while
@@ -1656,7 +1657,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     setEarBest(tab, finalScore);
     logActivity("ear", tab, finalScore, EG_ROUND - finalScore, Math.max(30, secs));
     logPractice(acc);
-    onReward(xp, stars * 5, finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
+    onReward(xp, Math.max(5, stars * 5) * accMult(acc), finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
     jevEarRefresh(tab, finalScore, EG_ROUND); // Jev: re-score difficulty for the NEXT round (fire-and-forget)
     setResult({ score: finalScore, stars, xp, coins: stars * 5 });
     setPhase("done");
@@ -1762,7 +1763,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     ladderOnRef.current = false; setLadderOn(false);
     const streak = ladderStreakRef.current;
     const isNewBest = markLadderBest(streak);
-    const xp = 10 + streak * 2, coins = Math.floor(streak / 2);
+    const xp = 10 + streak * 2, coins = Math.max(5, Math.floor(streak / 2)) * (streak >= 20 ? 3 : streak >= 10 ? 2 : 1);
     logActivity("ear", "ladder", streak, 0, Math.max(20, streak * 3));
     logPractice(Math.min(100, streak * 5));
     onReward(xp, coins, streak); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
@@ -2063,7 +2064,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
     setReadCourseStars(L.n, stars);
     logActivity("read", "L" + L.n, finalScore, L.qn - finalScore, Math.max(30, secs));
     logPractice(acc);
-    onReward(xp, stars * 5, finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
+    onReward(xp, Math.max(5, stars * 5) * accMult(acc), finalScore); // 3rd arg: weekly "Perfect" challenge count — see App.tsx's onReward wrapper
     // Speed rank — only a genuinely cleared level (stars >= 1) sets a record;
     // racing through a level you're failing shouldn't count as a "best."
     const prevBest = readBestTimeMap()[L.n];

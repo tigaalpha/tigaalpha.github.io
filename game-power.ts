@@ -25,6 +25,8 @@ function save(s: PowerState, delta: number, why: string) {
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
   try { window.dispatchEvent(new CustomEvent("tg:power", { detail: { v: s.v, delta, why } })); } catch (e) {}
 }
+/* Coins for a round scale with how well it went (owner 2026-10-17): any round pays, a very good one pays double, a near-perfect one triple. */
+export const accMult = (acc: number): number => (acc >= 90 ? 3 : acc >= 70 ? 2 : 1);
 export const readPower = (): number => load().v;
 
 /* test doors and the owner's own account: no spending, no gate */
@@ -54,7 +56,7 @@ export function earnPower(n: number, why: string): number {
 export function powerFromEntry(e: { k?: string; id?: string; ok?: number; miss?: number; sec?: number; skill?: string }, seen: Set<string>): { n: number; why: string } {
   if (!e || !e.k) return { n: 0, why: "" };
   const tries = (e.ok || 0) + (e.miss || 0), sec = e.sec || 0;
-  const worked = tries >= 5 || sec >= 60;
+  const worked = tries >= 1 || sec >= 10;   // owner 2026-10-17: just showing up pays, right or wrong
   if (e.skill && sec === 0) return { n: 0, why: "" };
   const id = String(e.k) + ":" + String(e.id || "");
   const isNew = !seen.has(id);
@@ -64,8 +66,8 @@ export function powerFromEntry(e: { k?: string; id?: string; ok?: number; miss?:
     case "drill": return worked ? { n: 10, why: "practice" } : { n: 0, why: "" };
     case "ear": return worked ? { n: 8, why: "ear" } : { n: 0, why: "" };
     case "read": return worked ? { n: 8, why: "reading" } : { n: 0, why: "" };
-    case "game": return tries >= 8 ? { n: 8, why: "song" } : { n: 0, why: "" };
-    case "voice": return sec >= 60 ? { n: 8, why: "voice-tutor" } : { n: 0, why: "" };
+    case "game": return tries >= 1 ? { n: 8, why: "song" } : { n: 0, why: "" };
+    case "voice": return sec >= 20 ? { n: 8, why: "voice-tutor" } : { n: 0, why: "" };
     default: return { n: 0, why: "" };
   }
 }

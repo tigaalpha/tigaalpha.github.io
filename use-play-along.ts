@@ -11,6 +11,7 @@ import { teacherJudgeNote } from "./piano-guard";
 import { tr } from "./i18n";
 import { SONGS, SONG_TIMESIG, SONG_GENRES } from "./songs-data";
 import { logActivity, recordNoteMisses, logUsage } from "./shared-infra";
+import { accMult } from "./game-power";
 import { jevTask, jevScore, jevChoice, jevNoul } from "./jev";
 import { recordMemory, readMemory } from "./ai-chat-context";
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
@@ -2277,7 +2278,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     // runs of the day; after that the song still pays EXP, medals and the
     // chest, not coins (play-along-judge runCoins / RUN_COIN_RUNS).
     const runNo = countRunToday(songId);
-    const coinReward = runNo <= RUN_COIN_RUNS ? runCoins(stars) : 0;
+    const coinReward = runNo <= RUN_COIN_RUNS && played ? Math.max(5, runCoins(stars)) * accMult(acc) : 0;
     if (coinReward) earnCoins(coinReward);
     // The song's medal (bronze → crown); each medal reached for the first
     // time pays once — coins and EXP, through the same channels as the rest.
