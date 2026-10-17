@@ -5,6 +5,7 @@
    a hazard that belongs to the site (night, dust storm, cold, flare), and a career the player picks (it tilts the numbers, and in an online room each pilot
    will hold one). Win = the colony reaches its population target while every need is still met. DOM only, no downloads, no coins (crystals + EXP). */
 import { finishLook } from "./cg-finish";
+import { gfxHigh } from "./adv-gfx";
 import { drawStarbase, neonGrid, cyberOverlay, starship, tower, groundTerrain } from "./adventure-colony-cyber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createAdvSfx } from "./adventure-sfx";
@@ -193,7 +194,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
     G.current = { t: 0, grid, stock: { en: 120, wa: 200, ox: 200, fo: 200, ma: 400, sc: 10 }, rate: { en: 0, wa: 0, ox: 0, fo: 0, ma: 0, sc: 0 }, pop: 8, grow: 0, tech: [false, false, false], hz: 0, hzT: 40, portT: 12, sel: "hab" as string, tool: "build" as string, info: -1, hist: [] as any[], news: [] as any[], flags: {} as any, ended: false, won: false, short: 0, msg: "", peak: 8, days: 0 };
   }
   const speedRef = useRef(1), [speed, setSpeedS] = useState(1), [career, setCareer] = useState<string>(() => careerNow()), [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false), [budget, setBudget] = useState(false), [advisor, setAdvisor] = useState(false);
-  const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
+  const [high, setHigh] = useState(() => gfxHigh());
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const sfxRef = useRef<any>(null), musRef = useRef<any>(null), careerRef = useRef(career); careerRef.current = career;
   const cvRef = useRef<HTMLCanvasElement>(null), cityRef = useRef<HTMLDivElement>(null), worldRef = useRef<HTMLDivElement>(null), camRef = useRef({ x: 0, y: 0, z: 1, W: 600, H: 300 }), tapBlock = useRef(0), tapRef = useRef<any>(null), focusRef = useRef<any>(null), zoomRef = useRef<any>(null), rotRef = useRef<any>(null), [rotV, setRotV] = useState(0);
@@ -221,9 +222,13 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
     const wheel = (e: WheelEvent) => { e.preventDefault(); const p = { x: e.clientX - el.getBoundingClientRect().left, y: e.clientY - el.getBoundingClientRect().top }; zoomAt(p.x, p.y, e.deltaY < 0 ? 1.12 : 0.89); };
     el.addEventListener("pointerdown", down); el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("wheel", wheel, { passive: false });
     let r3: any = null;   // the three.js buildings layer, loaded on its own; any failure leaves the 2D buildings in place
-    try { if (localStorage.getItem("tg_col3d") !== "0") import("./adventure-colony-3d").then(m => { if (!alive || !cv.parentElement) return; r3 = m.createColony3D(cv.parentElement); USE3D = !!r3; }).catch(() => {}); } catch (e) {}
+    let r3Mod: any = null, r3Busy = false;   // High = the three.js buildings, Lite = the 2D buildings; the gear pop-up flips it live
+    const syncGfx = () => { try { const want = gfxHigh() && localStorage.getItem("tg_col3d") !== "0";
+      if (want && !r3 && !r3Busy && cv.parentElement) { r3Busy = true; (r3Mod ? Promise.resolve(r3Mod) : import("./adventure-colony-3d")).then(m => { r3Mod = m; r3Busy = false; if (!alive || r3 || !gfxHigh() || !cv.parentElement) return; r3 = m.createColony3D(cv.parentElement); USE3D = !!r3; }).catch(() => { r3Busy = false; }); }
+      else if (!want && r3) { try { r3.dispose(); } catch (e) {} r3 = null; USE3D = false; } } catch (e) {} };
+    syncGfx(); const gfxT = setInterval(syncGfx, 500);
     const loop = (now: number) => { if (!alive) return; raf = requestAnimationFrame(loop); if (now - lastDraw < (r3 ? 33 : 50)) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const dpr = cv.width / cam.W; x.setTransform(dpr, 0, 0, dpr, 0, 0); try { drawCity(x, cam.W, cam.H, G.current, P.kind || "moon", cam, now / 1000, eraOf(G.current)); } catch (e) {} if (r3) { try { r3.render(G.current, cam, cam.W, cam.H, Math.min(2, dpr), ROT, eraOf(G.current), now / 1000, P.kind || "moon"); } catch (e) { try { r3.dispose(); } catch (e2) {} r3 = null; USE3D = false; } } };
-    raf = requestAnimationFrame(loop); return () => { alive = false; USE3D = false; try { if (r3) r3.dispose(); } catch (e) {} cancelAnimationFrame(raf); if (ro) ro.disconnect(); el.removeEventListener("pointerdown", down); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("wheel", wheel); };
+    raf = requestAnimationFrame(loop); return () => { alive = false; clearInterval(gfxT); USE3D = false; try { if (r3) r3.dispose(); } catch (e) {} cancelAnimationFrame(raf); if (ro) ro.disconnect(); el.removeEventListener("pointerdown", down); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("wheel", wheel); };
   }, []);
   const cost = (b: B) => Math.round(b.cost * (careerRef.current === "eng" ? 0.8 : 1));
   useEffect(() => {
