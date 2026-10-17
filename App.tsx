@@ -1379,34 +1379,38 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
         </div>
       )}
       {!track.finished && (
-        <div className="v12card" data-track="1">
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><b style={{ fontSize: 13 }}>{T("เส้นทางพื้นฐานของคุณ", "Your foundation path", "你的基础路径")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{track.doneN}/{track.steps.length}</span></div>
-          {track.steps.map((st, i) => (
-            <button key={st.id} data-tstep={st.id} data-tcur={st.current ? "1" : "0"} className="tdstep" onClick={() => goStep(st)}
-              style={{ width: "100%", textAlign: "left", cursor: "pointer", font: "inherit", color: "inherit", background: st.current ? "rgba(217,119,87,.10)" : "transparent", border: st.current ? "1px solid #d9775766" : "1px solid transparent", opacity: st.done ? .7 : 1 }}>
-              <span className="tdico">{st.done ? "✅" : st.current ? "👉" : i + 1}</span>
-              <div style={{ flex: 1, minWidth: 0 }}><div className="tdlbl">{tr(st.title, lang)}</div></div>
-              <span className="tdgo" style={{ pointerEvents: "none" }}>{st.done ? TT.done : TT.start}</span>
+        <div className="v12card" data-track="1" style={{ padding: "12px 14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 9 }}><b style={{ fontSize: 13 }}>{T("เส้นทางพื้นฐานของคุณ", "Your foundation path", "你的基础路径")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{track.doneN}/{track.steps.length}</span></div>
+          <div style={{ display: "flex", alignItems: "flex-start" }}>
+            {track.steps.map((st, i) => (
+              <button key={st.id} data-tstep={st.id} data-tcur={st.current ? "1" : "0"} onClick={() => goStep(st)} aria-label={tr(st.title, lang)}
+                style={{ flex: 1, minWidth: 0, background: "none", border: 0, padding: 0, cursor: "pointer", font: "inherit", textAlign: "center", position: "relative", color: st.current ? "var(--text)" : "var(--muted)", fontWeight: st.current ? 700 : 400 }}>
+                {i < track.steps.length - 1 && <span style={{ position: "absolute", top: 13, left: "calc(50% + 14px)", right: "calc(-50% + 14px)", height: 2, background: st.done ? "#3a9d6e" : "var(--bd, #e6ddd3)" }} />}
+                <span style={{ position: "relative", width: 26, height: 26, borderRadius: "50%", margin: "0 auto 4px", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, background: st.done ? "#3a9d6e" : st.current ? "#d97757" : "var(--card2, #efe8df)", color: st.done || st.current ? "#fff" : "var(--muted)", boxShadow: st.current ? "0 0 0 4px rgba(217,119,87,.22)" : "none" }}>{st.done ? "✓" : i + 1}</span>
+                <span style={{ display: "block", fontSize: 9.5, lineHeight: 1.2, overflowWrap: "anywhere" }}>{tr(st.short, lang)}</span>
+              </button>
+            ))}
+          </div>
+          {track.current && (
+            <button data-tnow="1" onClick={() => goStep(track.current)} style={{ marginTop: 9, width: "100%", display: "flex", alignItems: "center", gap: 8, background: "rgba(217,119,87,.13)", border: 0, borderRadius: 14, padding: "8px 10px", cursor: "pointer", font: "inherit", color: "var(--text)", textAlign: "left", fontSize: 12.5, fontWeight: 600 }}>
+              <span>👉</span><span style={{ flex: 1, minWidth: 0 }}>{tr(track.current.title, lang)}</span><span className="tdgo" style={{ pointerEvents: "none" }}>{TT.start}</span>
             </button>
-          ))}
+          )}
         </div>
       )}
-      <div className="v12card">
+      <div className="v12card" data-plan="1" style={{ padding: "12px 14px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}><b style={{ fontSize: 13 }}>{TT.title}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{nDone}/{steps.length}</span></div>
         <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
-      </div>
-      {steps.map(s => (
-        <div key={s.id} className={`tdstep${s.isDone ? " done" : ""}`}>
-          <span className="tdico">{s.isDone ? "✅" : s.icon}</span>
-          <div style={{ flex: 1, minWidth: 0 }}><div className="tdtag">{s.tag}</div><div className="tdlbl">{s.label}</div></div>
-          {s.isDone ? <span className="tdgo done">{TT.done}</span>
-            : s.hwStep ? <button className="tdgo" onClick={() => { playUi("click"); markHwDone(); onReward(10, 0); bump(); }}>{TT.hwBtn}</button>
-            : <button className="tdgo" onClick={() => { playUi("click"); logUsage("pathway", "myclass-" + s.id); s.go(); }}>{TT.start}</button>}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+          {steps.map(s => (
+            <div key={s.id} data-pstep={s.id} style={{ border: "1px solid var(--bd, #eadfd3)", borderRadius: 14, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 2, background: "var(--card)", opacity: s.isDone ? .65 : 1, minWidth: 0 }}>
+              <small style={{ fontSize: 10, color: "var(--muted)" }}>{s.isDone ? "✅" : s.icon} {s.tag}</small>
+              <b style={{ fontSize: 12, lineHeight: 1.25, overflowWrap: "anywhere" }}>{s.label}</b>
+              {s.isDone ? <span style={{ alignSelf: "flex-start", marginTop: 4, fontSize: 10.5, color: "#3a9d6e", fontWeight: 700 }}>{TT.done}</span>
+                : <button className="tdgo" style={{ alignSelf: "flex-start", marginTop: 4, fontSize: 10.5, padding: "2px 10px" }} onClick={() => { playUi("click"); if (s.hwStep) { markHwDone(); onReward(10, 0); bump(); } else { logUsage("pathway", "myclass-" + s.id); s.go(); } }}>{s.hwStep ? TT.hwBtn : TT.start}</button>}
+            </div>
+          ))}
         </div>
-      ))}
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "4px 2px 12px" }}>
-        <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { playUi("click"); onPathway(); }}>{T("เส้นทางการเรียนรู้ →", "Learning Pathway →", "学习路径 →")}</button>
-        <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { playUi("click"); onMentor(); }}>🎯 Daily Mentor →</button>
       </div>
     </div>
   );
