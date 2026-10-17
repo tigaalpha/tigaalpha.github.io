@@ -1438,9 +1438,9 @@ function earLevelFor(best) {
 // timer, and the exact same 3-tier semitone pools (EG_INT_BASE/FULL/MASTER)
 // the graded "int" tab already uses for its own progression, just re-keyed
 // to the ladder's live streak so difficulty escalates within a single climb.
-const LADDER_LIVES_START = 3;
+const LADDER_LIVES_START = 5;
 const LADDER_TIME_START = 6000, LADDER_TIME_MIN = 2200, LADDER_TIME_STEP = 120;
-function ladderPool(streak) { return streak >= 12 ? EG_INT_MASTER : streak >= 6 ? EG_INT_FULL : EG_INT_BASE; }
+function ladderPool(streak) { return streak >= 24 ? EG_INT_MASTER : streak >= 12 ? EG_INT_FULL : EG_INT_BASE; }
 function ladderTimeFor(streak) { return Math.max(LADDER_TIME_MIN, LADDER_TIME_START - streak * LADDER_TIME_STEP); }
 function ladderBestScore() { try { return +(localStorage.getItem("tg_eargym_ladder") || 0); } catch (e) { return 0; } }
 // Returns true only on a genuine improvement (a real new record), not a tie.
@@ -1449,13 +1449,13 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   const T = {
     th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", cadenceTab: "คอร์ดนำ", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶",
         refSong: "คล้ายเพลง", earLevel: "เลเวลหู", tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
-        ladderTitle: "บันไดเสียงสมบูรณ์แบบ", ladderSub: "ไต่บันได — พลาด 3 ครั้งจบเกม เวลาลดลงเรื่อยๆ", ladderStart: "เริ่มไต่บันได ▶", ladderStreakLbl: "ขั้นบันได", ladderBestLbl: "สถิติสูงสุด", ladderGameOver: "จบเกม!", ladderNewBest: "🏆 สถิติใหม่!", ladderAgain: "ไต่อีกครั้ง ▶" },
+        ladderTitle: "บันไดเสียงสมบูรณ์แบบ", ladderSub: "ไต่บันได — พลาด 5 ครั้งจบเกม ไม่จำกัดเวลา ฟังกี่รอบก็ได้", ladderStart: "เริ่มไต่บันได ▶", ladderStreakLbl: "ขั้นบันได", ladderBestLbl: "สถิติสูงสุด", ladderGameOver: "จบเกม!", ladderNewBest: "🏆 สถิติใหม่!", ladderAgain: "ไต่อีกครั้ง ▶" },
     en: { title: "Ear Gym", sub: "A little listening every day — no piano needed", int: "Intervals", chord: "Chords", echo: "Melody echo", melody: "Name That Tune", cadenceTab: "Cadence", q: "Q", listenAgain: "🔊 Hear it again", start: "Start round ▶", pickInt: "Which interval did you hear?", pickChord: "Which chord quality is it?", pickEcho: "Tap the notes in the order you heard", pickMelody: "Which song is this?", clear: "Clear", right: "Correct! 🎉", wrong: "Answer: ", score: "Score", best: "Best", done: "Round complete!", again: "Play again ▶",
         refSong: "Sounds like", earLevel: "Ear Level", tapMode: "⌨️ Tap to answer", pianoMode: "🎹 Play a real piano", listening: "🎤 Listening... play this note on your piano", listenReady: "🎹 Ready — play the note you see on your piano/MIDI", listenErr: "Couldn't reach the mic — try tap mode instead",
-        ladderTitle: "Perfect Pitch Ladder", ladderSub: "Climb as high as you can — 3 lives, the clock keeps shrinking", ladderStart: "Start climbing ▶", ladderStreakLbl: "Rung", ladderBestLbl: "Best climb", ladderGameOver: "Game over!", ladderNewBest: "🏆 New record!", ladderAgain: "Climb again ▶" },
+        ladderTitle: "Perfect Pitch Ladder", ladderSub: "Climb as high as you can — 5 lives, no time limit, listen as often as you like", ladderStart: "Start climbing ▶", ladderStreakLbl: "Rung", ladderBestLbl: "Best climb", ladderGameOver: "Game over!", ladderNewBest: "🏆 New record!", ladderAgain: "Climb again ▶" },
     zh: { title: "听力房", sub: "每天练一点听力 — 没有钢琴也能练", int: "音程", chord: "和弦", echo: "旋律模仿", melody: "辨别曲目", cadenceTab: "和弦引导", q: "第", listenAgain: "🔊 再听一次", start: "开始 ▶", pickInt: "你听到的是什么音程？", pickChord: "这是什么和弦？", pickEcho: "按听到的顺序点击音符", pickMelody: "这是哪首歌？", clear: "清除", right: "正确！🎉", wrong: "答案：", score: "得分", best: "最佳", done: "本轮结束！", again: "再来一轮 ▶",
         refSong: "像这首歌", earLevel: "听力等级", tapMode: "⌨️ 点击作答", pianoMode: "🎹 用真钢琴弹奏", listening: "🎤 聆听中...在钢琴上弹这个音吧", listenReady: "🎹 准备好了 — 在钢琴/MIDI 上弹出你看到的音", listenErr: "无法使用麦克风 — 请改用点击模式",
-        ladderTitle: "完美音感阶梯", ladderSub: "尽力往上爬 — 3条命，时间越来越短", ladderStart: "开始攀爬 ▶", ladderStreakLbl: "阶数", ladderBestLbl: "最高纪录", ladderGameOver: "游戏结束！", ladderNewBest: "🏆 新纪录！", ladderAgain: "再次攀爬 ▶" },
+        ladderTitle: "完美音感阶梯", ladderSub: "尽力往上爬 — 5条命，不限时间，想听几遍都行", ladderStart: "开始攀爬 ▶", ladderStreakLbl: "阶数", ladderBestLbl: "最高纪录", ladderGameOver: "游戏结束！", ladderNewBest: "🏆 新纪录！", ladderAgain: "再次攀爬 ▶" },
   }[lang];
   const [tab, setTab] = useState(initialTab || "int");
   const [phase, setPhase] = useState("idle");   // idle | play | done
@@ -1712,20 +1712,9 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   // show at once; ladderOnRef mirrors ladderOn for the setTimeout/setInterval
   // callbacks below, which would otherwise close over a stale value. ──
   function armLadderTimer(streak) {
+    // owner 2026-10-17: no clock at all, listen as many times as you like — the bar stays full and nothing ever times out
     clearInterval(ladderTimerRef.current);
-    const dur = ladderTimeFor(streak);
-    ladderDeadlineRef.current = Date.now() + dur;
-    setLadderTimeLeft(dur);
-    ladderTimerRef.current = setInterval(() => {
-      const left = ladderDeadlineRef.current - Date.now();
-      if (left <= 0) {
-        clearInterval(ladderTimerRef.current);
-        setLadderTimeLeft(0);
-        if (ladderOnRef.current) ladderAnswered(false, null);
-      } else {
-        setLadderTimeLeft(left);
-      }
-    }, 100);
+    setLadderTimeLeft(ladderTimeFor(streak));
   }
   function ladderNextQ() {
     const q = genQ("ladder");
@@ -1830,7 +1819,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
                 <button onClick={() => { playUi("click"); finishLadder(); }} aria-label="quit" title={T.title}
                   style={{ background: "none", border: "1px solid var(--bd4)", borderRadius: "50%", width: "22px", height: "22px", color: "#a88b9b", fontSize: "12px", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
               </div>
-              <div style={{ height: "5px", borderRadius: "3px", background: "var(--card3)", overflow: "hidden", marginBottom: "14px" }}>
+              <div style={{ display: "none", height: "5px", borderRadius: "3px", background: "var(--card3)", overflow: "hidden", marginBottom: "14px" }}>
                 <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, (ladderTimeLeft / ladderTimeFor(ladderStreak)) * 100))}%`, background: ladderTimeLeft < 1500 ? "#ff5252" : "#8b5cf6", transition: "width .1s linear" }} />
               </div>
               <button onClick={() => playCur()} style={{ margin: "0 auto 14px", display: "block", padding: "13px 24px", borderRadius: "14px", border: "1px solid var(--vio-ln)", background: "var(--vio-t)", color: "var(--vio-ink)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>{T.listenAgain}</button>

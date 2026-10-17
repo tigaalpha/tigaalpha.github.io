@@ -1697,6 +1697,9 @@ export function createMonoDetector(sampleRate, onDetect, getDb, opts: any = {}) 
      detector lose it and, once it could be heard again, fire it a second time —
      and a second C arriving while the D is due reads as "you pressed C". */
   let held = null;
+  /* the level of the last three frames: a note that rings only ever FADES, so a frame that is clearly louder than the quietest of them is a new
+     attack even when the player did not lift the key long enough for the level to fall to a "low point" (a repeated note played legato) */
+  const lv = [];
   return function feed(input) {
     let buf = input;
     if (lp) { if (!work || work.length !== input.length) work = new Float32Array(input.length); lp(input, work); buf = work; }
@@ -1706,7 +1709,10 @@ export function createMonoDetector(sampleRate, onDetect, getDb, opts: any = {}) 
     let f = _pg.f;
     if (f > 0 && _accIsSuppressed(f)) f = -1; // ignore the game's own backing track, not a real key press
     const note = f > 0 ? freqToNoteName(f) : null;
+    const lvMin = lv.length >= 3 ? Math.min(lv[0], lv[1], lv[2]) : Infinity;
+    lv.push(rms); if (lv.length > 3) lv.shift();
     if (held) {
+      held.age++;
       if (rms < held.rmsLow) held.rmsLow = rms;
       if (rms > held.rmsPeak) held.rmsPeak = rms;
       held.quiet = rms < Math.max(0.006, held.rmsPeak * 0.08) ? held.quiet + 1 : 0;
@@ -1715,7 +1721,7 @@ export function createMonoDetector(sampleRate, onDetect, getDb, opts: any = {}) 
     if (held && note) {
       const c = Math.abs(1200 * Math.log2(f / held.f)) % 1200, samePC = Math.min(c, 1200 - c) < 60;
       if (samePC) {
-        const strike = _pg.clarity >= 0.8 && rms >= Math.max(0.012, held.rmsLow * 2);
+        const strike = _pg.clarity >= 0.8 && (rms >= Math.max(0.012, held.rmsLow * 2) || (held.age >= 7 && rms >= Math.max(0.012, lvMin * 1.2) && lv[2] > lv[1] * 1.03));
         if (!strike) { silence = 0; return; }      // the same note, still ringing (or an echo of it)
         held = null; last = f; stable = 1; fired = false; recent.length = 0; recent.push(f);   // struck again
         return;
@@ -1751,7 +1757,7 @@ export function createMonoDetector(sampleRate, onDetect, getDb, opts: any = {}) 
           // the steady-ring test so sung/hummed on-pitch notes are rejected too.)
           if (isPianoLike({ clarity: _pg.clarity, centsSpread: spread })) {
             fired = true;
-            held = { f: med, rmsLow: rms, rmsPeak: rms, quiet: 0 };
+            held = { f: med, rmsLow: rms, rmsPeak: rms, quiet: 0, age: 0 };
             onDetect({ note: medNote, freq: med, source: "mic", clarity: _pg.clarity, centsSpread: spread });
           }
         }
