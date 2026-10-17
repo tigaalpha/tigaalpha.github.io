@@ -101,6 +101,8 @@ export const readWL = (): Record<string, number> => { try { return JSON.parse(lo
 export const wlvOf = (id: string): number => Math.max(1, Math.min(5, readWL()[id] || 1));
 const wBoostOf = (id: string) => 1 + 0.12 * (wlvOf(id) - 1);
 export const levelUpWeapon = (id: string): number => { const m = readWL(), n = Math.min(5, (m[id] || 1) + 1); m[id] = n; try { localStorage.setItem("tg_adv_wlv", JSON.stringify(m)); } catch (e) {} return n; };
+/** a drop's rarity, from how strong the weapon is (owner-approved 2026-10-17: a light beam and a tag over rare and epic drops; the odds themselves are unchanged) */
+export const rarityOf = (id: string): 0 | 1 | 2 => /railgun|bigbeam|beam|nuke|big$/.test(id) ? 2 : /laser|rpg|plasma|flame|sticky|emp|frost|sword|cluster|napalm|homing/.test(id) ? 1 : 0;
 export function rollWeapon(hard: number, found: string[], boss: boolean, r: () => number = Math.random, planetId: string = ""): string | null {
   const pool = [...WPN_POOL[hard < 1.8 ? 0 : hard < 2.6 ? 1 : 2], ...(PLANET_WPN[planetId] || []), ...(PLANET_WPN[planetId] || [])], fresh = pool.filter(id => !found.includes(id)), base = boss ? 1 : 0.045;
   if (r() > (fresh.length ? base : base * 0.6)) return null;   // a weapon you own drops a little less often; picking it up again levels it up
@@ -786,6 +788,7 @@ const CSS = `
 .adv-menu .adv-path .adv-planet b{font-size:11.5px}.adv-menu .adv-path .adv-planet small{font-size:9.5px;margin-top:2px}.adv-menu .adv-path .adv-planet::before{left:-40px;width:40px}
 .adv-menu .adv-path .adv-planet:nth-child(odd){transform:translateY(-6px)}.adv-menu .adv-path .adv-planet:nth-child(even){transform:translateY(6px)}
 .adv-col-row{display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;font-size:12px;margin:5px 0}.adv-col-row i{height:8px;border-radius:99px;background:rgba(127,127,127,.25);overflow:hidden}.adv-col-row u{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#ffb35a,#ff7a3a)}.adv-col-next{margin-top:8px;font-size:12.5px;font-weight:800;color:var(--clay,#d97757)}
+.adv-combo{position:fixed;left:50%;top:78px;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:30;opacity:0;transition:opacity .18s}.adv-combo[data-on="1"]{opacity:1}.adv-combo b{display:block;font-size:26px;font-weight:900;letter-spacing:1px;color:#ffd24a;text-shadow:0 0 12px #ff8a1f,0 2px 0 #7a3000}.adv-combo[data-tier="2"] b{color:#ff9a4a}.adv-combo[data-tier="3"] b{color:#ff6a6a;text-shadow:0 0 16px #ff2a2a,0 2px 0 #5a0000}.adv-combo i{display:block;width:150px;height:7px;border-radius:9px;background:rgba(255,255,255,.22);margin:3px auto 0;overflow:hidden}.adv-combo u{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ffb347,#ff5a2a);border-radius:9px}.adv-combo small{font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000}
 .adv-foot{display:flex;gap:6px;flex:none;padding-top:2px;align-items:center}.adv-foot .adv-grp{margin:0}
 .adv-foot .adv-grp>summary{list-style:none;cursor:pointer;font-size:11.5px;font-weight:800;padding:4px 12px;border-radius:999px;background:var(--card,#fff);border:1.5px solid var(--bd3,rgba(0,0,0,.2))}.adv-foot .adv-grp>summary::-webkit-details-marker{display:none}
 .adv-foot .adv-grp[open]{position:fixed;left:10px;right:10px;bottom:38px;max-height:62vh;overflow:auto;z-index:70;background:var(--card,#fff);border:1.5px solid var(--clay,#d97757);border-radius:20px;padding:8px 12px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
@@ -1397,7 +1400,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   useEffect(() => () => { if (KEEP_FS) KEEP_FS = false; else exitFsAndUnlock(); }, []);   // back to the map or out of Adventure: normal screen, portrait again
   const cvRef = useRef<HTMLCanvasElement>(null);
   const pxRef = useRef<HTMLDivElement>(null);
-  const petRef = useRef<HTMLDivElement>(null);
+  const petRef = useRef<HTMLDivElement>(null), comboRef = useRef<HTMLDivElement>(null);
   const heroSvgRef = useRef<SVGSVGElement>(null), heroImgRef = useRef<SVGImageElement>(null), wpnRef = useRef<HTMLDivElement>(null);
   const keys = useRef({ l: false, r: false, jump: false, atk: false, skl: false, dash: false, fire: false, kick: false, spell: false, rocket: false, zap: false });
   const [pose, setPoseState] = useState("ready");
@@ -1564,7 +1567,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let wpnBoost = 1;   // a levelled-up weapon hits harder: set around the shot that is being made
     const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult * wpnBoost * (1 + 0.05 * UPS.atk) * (1 + PASS.atk); const crit = Math.random() < 0.08 + mods.crit + PASS.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
     let spellG = 0;
-    const hurtMon = (m, v, crit, kx, remote = false) => {
+    let streak = 0, streakT = 0, streakMax = 0; const streakBonus = () => Math.min(0.15, Math.floor(streak / 5) * 0.025);   // hit streak (owner-approved): every hit within 2.5 s keeps it alive; +2.5 % damage per 5 hits, capped at +15 %
+    const hitStreak = () => { streak++; streakT = 2.5; streakMax = Math.max(streakMax, streak); };
+    const hurtMon = (m, v, crit, kx, remote = false) => { v = Math.max(1, Math.round(v * (1 + streakBonus()))); if (!remote) hitStreak();
       spellG = Math.min(100, spellG + 5); if (net && !remote && m.i !== undefined) net.sendHit(m.i, v);
       sfx.play("hit"); if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); m.hp -= v; m.hurt = 0.12; m.vx = kx; if (HI()) hitStop = 0.035; shake = Math.max(shake, crit ? 5 : 2);
       pop(m.x, GROUND - m.y - 60, String(v), crit ? "#ffd23f" : "#ffffff");
@@ -1597,7 +1602,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       else if (boss.active && !boss.dead && Math.abs(boss.x - pl.x) < 340) pet.push({ x: px0, y: 30, tx: boss.x, ty: 60, life: 0.25, v, b: true, ty2: petType });
     };
     const hurtBoss = (v, crit, kx, remote = false) => {
-      if (!boss.active || boss.dead) return; if (net && !remote) net.sendHit(-1, v);
+      if (!boss.active || boss.dead) return; v = Math.max(1, Math.round(v * (1 + streakBonus()))); if (!remote) hitStreak(); if (net && !remote) net.sendHit(-1, v);
       spellG = Math.min(100, spellG + 5);
       if (PASS.steal > 0) pl.hp = Math.min(hpMaxOf(info.lv), pl.hp + v * PASS.steal); boss.hp -= v; boss.hurt = 0.1; boss.vx = kx * 0.3; if (HI()) hitStop = 0.03; shake = Math.max(shake, crit ? 5 : 2);
       pop(boss.x, GROUND - 140, String(v), crit ? "#ffd23f" : "#ffffff");
@@ -1851,6 +1856,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
 
     const sim = (dt) => {
+      if (streakT > 0) { streakT -= dt; if (streakT <= 0) streak = 0; }
       if (quizOn.current || pausedRef.current) return;
       time += dt;
       if (net && pl.dead <= 0) for (const q of net.peers.values()) { if (q.hp === undefined || q.hp > 0 || q.x === undefined || (WAR && net && warTeamOf(net, q.id) !== myTeam)) { reviveAcc[q.id] = 0; continue; } if (Math.abs(q.x - pl.x) < 90) { reviveAcc[q.id] = (reviveAcc[q.id] || 0) + dt; if (reviveAcc[q.id] >= 1.5) { reviveAcc[q.id] = 0; net.sendEv("revive:" + q.id, 1); q.hp = 1; pop(q.x, GROUND - 130, "✚ " + q.name, "#8dffb0"); sfx.play("win"); } } else reviveAcc[q.id] = 0; }
@@ -2132,6 +2138,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       }
       for (const w of waves) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},.8)`; ctx.beginPath(); ctx.moveTo(w.x - 14, GROUND); ctx.lineTo(w.x, GROUND - 30); ctx.lineTo(w.x + 14, GROUND); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
       for (const d of drops) { const yy = GROUND - d.y - 8 + Math.sin(tm * 5 + d.x) * 2;
+        if (d.t.charCodeAt(1) === 58) { const rar = rarityOf(d.t.slice(2)); if (rar > 0 && (d.x - camX) > -60 && (d.x - camX) < vw + 60) { const bh = rar === 2 ? 210 : 130, bw = rar === 2 ? 22 : 15, col = rar === 2 ? "190,110,255" : "110,190,255", gb = ctx.createLinearGradient(0, yy - bh, 0, yy); gb.addColorStop(0, "rgba(" + col + ",0)"); gb.addColorStop(1, "rgba(" + col + "," + (0.5 + 0.12 * Math.sin(tm * 4 + d.x)) + ")"); ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = gb; ctx.fillRect(d.x - bw / 2, yy - bh, bw, bh); if (HI()) { ctx.globalAlpha = 0.5; ctx.fillRect(d.x - bw / 4, yy - bh, bw / 2, bh); } ctx.restore();
+          const wd: any = [...GUNS, ...ROCKETS].find((g: any) => g.id === d.t.slice(2)), tag = (rar === 2 ? "EPIC " : "RARE ") + (wd ? T3(lang, wd.th, wd.en, wd.zh) : ""); ctx.save(); ctx.font = "800 " + Math.round(11 * k) + "px system-ui,sans-serif"; ctx.textAlign = "center"; const tw2 = ctx.measureText(tag).width + 14 * k; ctx.fillStyle = "rgba(30,10,60,.82)"; ctx.strokeStyle = "rgba(" + col + ",.9)"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(d.x - tw2 / 2, yy - bh * 0.55 - 14 * k, tw2, 18 * k, 9 * k) : ctx.rect(d.x - tw2 / 2, yy - bh * 0.55 - 14 * k, tw2, 18 * k); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#fff"; ctx.fillText(tag, d.x, yy - bh * 0.55); ctx.restore(); } }
         if (d.t.charCodeAt(1) === 58) { const gw = ctx.createRadialGradient(d.x, yy, 2, d.x, yy, 34 + Math.sin(tm * 6) * 4); gw.addColorStop(0, "rgba(255,225,110,.8)"); gw.addColorStop(1, "rgba(255,200,60,0)"); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = gw; ctx.beginPath(); ctx.arc(d.x, yy, 38, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over";
           ctx.fillStyle = "#1b2436"; ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 2; ctx.fillRect(d.x - 13, yy - 11, 26, 22); ctx.strokeRect(d.x - 13, yy - 11, 26, 22); ctx.fillStyle = "#ffd23f"; ctx.font = "bold 15px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("★", d.x, yy + 5); continue; }
         if (LOOT[d.t]) { const c = LOOT[d.t].c; ctx.fillStyle = c; ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 1;
@@ -2224,6 +2232,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         }
         px.style.transform = `translate(${(pl.x - camX) * cssK - bw / 2}px,${(GROUND - pl.y) * cssK - bh + 6 * cssK - stepBob}px) scaleX(${pl.face >= 0 ? 1 : -1})`;
       }
+      { const ce = comboRef.current; if (ce) { const show = streak >= 3; if (show) { const tier = streak >= 20 ? 3 : streak >= 10 ? 2 : streak >= 5 ? 1 : 0, key = streak + ":" + tier; if (ce.dataset.k !== key) { ce.dataset.k = key; ce.dataset.tier = String(tier); const bn = Math.round(streakBonus() * 1000) / 10; ce.firstElementChild!.textContent = "COMBO ×" + streak; (ce.children[2] as HTMLElement).textContent = bn > 0 ? "+" + bn + "% " + t("ดาเมจ", "damage", "伤害") + " · " + t("ถัดไปที่ ×", "next at ×", "下一档 ×") + ((Math.floor(streak / 5) + 1) * 5) : t("ถัดไปที่ ×5", "next at ×5", "下一档 ×5"); } (ce.children[1].firstElementChild as HTMLElement).style.width = Math.max(0, Math.min(100, streakT / 2.5 * 100)) + "%"; } if (ce.dataset.on !== (show ? "1" : "0")) ce.dataset.on = show ? "1" : "0"; } }
       const pe = petRef.current; if (pe) {   // the pet trots after its owner: it lags behind, hops while it travels, leans into the run and breathes when still
         const cssK = k / dpr, pw = 52 * cssK, tgt = pl.x - pl.face * 56;
         if (!isFinite(petSt.x) || Math.abs(petSt.x - tgt) > 700) petSt.x = tgt;
@@ -2284,6 +2293,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   return (
     <>
       <canvas ref={cvRef} />
+      <div ref={comboRef} className="adv-combo" data-on="0" data-tier="0" aria-hidden="true"><b></b><i><u></u></i><small></small></div>
       <div ref={petRef} className="adv-px" aria-hidden="true">{petNow ? (() => { const live = <PetArt species={petNow.species} level={petLevel(petNow.bond).lv} mood={petNow.mood} />; return FIGURES_OK ? <FigurePic fkey={petKeyOf()} kind="pet" el={live} cls="fig-pet" vb="-12 -18 144 156" /> : live; })() : null}</div>
       <div ref={pxRef} className="adv-px" aria-hidden="true">
         {(() => {   // profiled 2026-10-11: the live SVG robot cost half the frame on a slow CPU; a stored picture per pose costs almost nothing (same cache PvP uses on phones)
