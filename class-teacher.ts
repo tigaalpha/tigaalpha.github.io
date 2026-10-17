@@ -15,23 +15,23 @@ const pick = (o: L3, lang: string) => (lang === "th" ? o.th : lang === "zh" ? o.
    Each step names ONE existing destination: a feature key `handleCoachNavigate` knows, or Pathway stages (opened as a lesson).
    `done` is read from evidence only (the act log / finished Pathway stages), never from a flag the learner ticks. */
 export const FOUNDATION = [
-  { id: "hands", feature: "hand_coach", title: { th: "ท่ามือและนิ้ว", en: "Hand shape and fingers", zh: "手型与指法" },
+  { id: "hands", short: { th: "ท่ามือ", en: "Hands", zh: "手型" }, feature: "hand_coach", title: { th: "ท่ามือและนิ้ว", en: "Hand shape and fingers", zh: "手型与指法" },
     why: { th: "มือที่วางถูกตั้งแต่วันแรกกันนิสัยเสียที่แก้ยากทีหลัง", en: "A good hand shape from day one avoids habits that are hard to undo later.", zh: "第一天就摆对手型，可避免日后难改的坏习惯。" } },
-  { id: "song", feature: "play_along", title: { th: "เพลงแรกกับจังหวะ", en: "Your first song and the pulse", zh: "第一首歌与节拍" },
+  { id: "song", short: { th: "เพลงแรก", en: "1st song", zh: "首歌" }, feature: "play_along", title: { th: "เพลงแรกกับจังหวะ", en: "Your first song and the pulse", zh: "第一首歌与节拍" },
     why: { th: "เล่นเพลงจริงตามจังหวะตั้งแต่ต้น — ดนตรีคือการเล่นไปด้วยกัน ไม่ใช่การท่องโน้ต", en: "Play a real song to a steady pulse from the start — music is playing together, not memorising notes.", zh: "一开始就跟着稳定节拍弹真歌——音乐是一起演奏，不是背音符。" } },
-  { id: "ear", feature: "ear_training", title: { th: "ฝึกหู: ได้ยินแล้วรู้ว่าอะไร", en: "Ear training: hear it, name it", zh: "练耳：听到就能说出" },
+  { id: "ear", short: { th: "ฝึกหู", en: "Ear", zh: "练耳" }, feature: "ear_training", title: { th: "ฝึกหู: ได้ยินแล้วรู้ว่าอะไร", en: "Ear training: hear it, name it", zh: "练耳：听到就能说出" },
     why: { th: "หูที่ฟังออกทำให้เรียนคอร์ดและเล่นตามเพลงเร็วขึ้นมาก", en: "A trained ear makes chords and playing by ear much faster to learn.", zh: "听得出来，学和弦和听音弹奏会快很多。" } },
-  { id: "read", feature: "sight_reading", title: { th: "อ่านโน้ตบนบรรทัดห้าเส้น", en: "Reading notes on the staff", zh: "五线谱识谱" },
+  { id: "read", short: { th: "อ่านโน้ต", en: "Reading", zh: "识谱" }, feature: "sight_reading", title: { th: "อ่านโน้ตบนบรรทัดห้าเส้น", en: "Reading notes on the staff", zh: "五线谱识谱" },
     why: { th: "อ่านโน้ตได้คล่องคือเครื่องมือที่ใช้ตลอดชีวิต ฝึกวันละนิดดีกว่าฝึกทีเดียวนาน", en: "Fluent reading is a lifelong tool — a little each day beats one long session.", zh: "流畅识谱是终身工具——每天一点点胜过一次练很久。" } },
-  { id: "scale", stages: ["scale", "interval"], title: { th: "สเกลและขั้นคู่", en: "Scales and intervals", zh: "音阶与音程" },
+  { id: "scale", short: { th: "สเกล", en: "Scales", zh: "音阶" }, stages: ["scale", "interval"], title: { th: "สเกลและขั้นคู่", en: "Scales and intervals", zh: "音阶与音程" },
     why: { th: "สเกลคือแผนที่ของเพลง ขั้นคู่คือระยะที่ใช้วัดทุกอย่าง", en: "Scales are the map of a piece; intervals are the distances everything is measured in.", zh: "音阶是乐曲的地图，音程是衡量一切的距离。" } },
-  { id: "triad", stages: ["triad"], title: { th: "คอร์ดสามเสียง (Triad)", en: "Triads", zh: "三和弦" },
+  { id: "triad", short: { th: "คอร์ด 3", en: "Triads", zh: "三和弦" }, stages: ["triad"], title: { th: "คอร์ดสามเสียง (Triad)", en: "Triads", zh: "三和弦" },
     why: { th: "คอร์ดสามเสียงคืออิฐก้อนแรกของเพลงป๊อป แจ๊ส และเพลงส่วนใหญ่ที่คุณรู้จัก", en: "Triads are the first building block of pop, jazz and most songs you know.", zh: "三和弦是流行、爵士和大多数你熟悉歌曲的第一块积木。" } },
-  { id: "prog", stages: ["seventh", "progression"], title: { th: "คอร์ดเจ็ดและทางคอร์ด", en: "Seventh chords and progressions", zh: "七和弦与和弦进行" },
+  { id: "prog", short: { th: "คอร์ด 7", en: "7ths", zh: "七和弦" }, stages: ["seventh", "progression"], title: { th: "คอร์ดเจ็ดและทางคอร์ด", en: "Seventh chords and progressions", zh: "七和弦与和弦进行" },
     why: { th: "ทางคอร์ดคือหัวใจของการแต่งและเล่นแบ็คอัพ — ถึงตรงนี้คุณเล่นเพลงเองได้แล้ว", en: "Progressions are the heart of writing and accompanying — from here you can make your own music.", zh: "和弦进行是创作与伴奏的核心——到这里你就能自己做音乐了。" } },
 ] as const;
 
-export type FoundationStep = { id: string; feature?: string; stages?: readonly string[]; title: L3; why: L3; done: boolean; current: boolean };
+export type FoundationStep = { id: string; feature?: string; stages?: readonly string[]; short: L3; title: L3; why: L3; done: boolean; current: boolean };
 
 type Entry = { t?: number; d?: string; k?: string; id?: string; ok?: number; miss?: number; sec?: number };
 
@@ -46,7 +46,7 @@ function stepDone(s: any, log: Entry[], pathDone: Set<string>): boolean {
 export function foundationPath(log: Entry[], pathDone: Iterable<string> | Set<string>): { steps: FoundationStep[]; doneN: number; current: FoundationStep | null; finished: boolean } {
   const pd = pathDone instanceof Set ? pathDone : new Set(pathDone || []);
   const L = Array.isArray(log) ? log : [];
-  const steps: FoundationStep[] = FOUNDATION.map(s => ({ id: s.id, feature: (s as any).feature, stages: (s as any).stages, title: s.title, why: s.why, done: stepDone(s, L, pd), current: false }));
+  const steps: FoundationStep[] = FOUNDATION.map(s => ({ id: s.id, feature: (s as any).feature, stages: (s as any).stages, short: (s as any).short, title: s.title, why: s.why, done: stepDone(s, L, pd), current: false }));
   const cur = steps.find(s => !s.done) || null;
   if (cur) cur.current = true;
   return { steps, doneN: steps.filter(s => s.done).length, current: cur, finished: !cur };
