@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, memo } from "react";
 import { CyberAvatar } from "./cyber-avatar";
 import { createAdvMusic, createCineAudio, renderCinePreview, cineEnergy, CINE_ACTION, CINE_CALM, type CineShot } from "./adventure-music";
 import { speakNarration, stopSpeaking } from "./speech";
+import { logUsage } from "./shared-infra";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -1085,7 +1086,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
   useEffect(() => {
     const cv = cvRef.current; if (!cv) return undefined; const x = cv.getContext("2d"); if (!x) return undefined; let raf = 0;
     const fit = () => { const r = cv.getBoundingClientRect(), d = Math.min(1.5, window.devicePixelRatio || 1); cv.width = Math.max(320, Math.round(r.width * d)); cv.height = Math.max(180, Math.round(r.height * d)); }; fit(); window.addEventListener("resize", fit);
-    const audio = createCineAudio(P.id, plan); audioRef.current = audio; const bed = createAdvMusic("menu"); if (bed) { bed.setOn(true); bed.start(); } bedRef.current = bed; const chk = setTimeout(() => { if (audio && !audio.running()) setNeedTap(true); }, 400); const wake = () => { try { const a = audioRef.current; if (a && !a.running()) a.resume(); } catch (e) {} }; const wk = ["pointerdown", "touchstart", "touchend", "click", "keydown"]; wk.forEach(n => window.addEventListener(n, wake, true));
+    const audio = createCineAudio(P.id, plan); audioRef.current = audio; const bed = createAdvMusic("menu"); if (bed) { bed.setOn(true); bed.start(); } bedRef.current = bed; const chk = setTimeout(() => { if (audio && !audio.running()) setNeedTap(true); }, 400); const stt = setTimeout(() => { try { logUsage("adv", "film-audio:" + P.id + ":" + (audio ? ((window as any).__tgCineCtx ? (window as any).__tgCineCtx.state : "own") : "none")); } catch (e) {} }, 1500); const wake = () => { try { const a = audioRef.current; if (a && !a.running()) a.resume(); } catch (e) {} }; const wk = ["pointerdown", "touchstart", "touchend", "click", "keydown"]; wk.forEach(n => window.addEventListener(n, wake, true));
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame); const el = (now - t0.current) / 1000 + skipTo.current; let i = 0; for (let k = 0; k < plan.length; k++) if (el >= starts[k]) i = k; try { if (bedRef.current) bedRef.current.setIntensity(1 + 2 * cineEnergy(plan, i)); } catch (e) {}
       if ((P.prologue || P.finale) && el >= total) { raf = 0; cancelAnimationFrame(raf); onDone(); return; }
@@ -1117,7 +1118,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
     };
     raf = requestAnimationFrame(frame);
     (window as any).__advCine = { shot: () => idxRef.current, kinds: () => plan.map(s => s.kind), render: (id: string, mission: string, boss: boolean, max?: number) => renderCinePreview(id, cinePlan({ id, mission, boss: boss ? ["x", "x", "x"] : ["-", "-", "-"] }, false).slice(0, max || 99)), jump: (i: number) => { i = Math.max(0, Math.min(plan.length - 1, i | 0)); skipTo.current = starts[i] - (performance.now() - t0.current) / 1000 + 0.05; }, total: starts[objIdx] };
-    return () => { clearTimeout(chk); wk.forEach(n => window.removeEventListener(n, wake, true)); cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); if (bedRef.current) bedRef.current.stop(); try { delete (window as any).__advCine; } catch (e) {} };
+    return () => { clearTimeout(chk); clearTimeout(stt); wk.forEach(n => window.removeEventListener(n, wake, true)); cancelAnimationFrame(raf); window.removeEventListener("resize", fit); if (audio) audio.stop(); if (bedRef.current) bedRef.current.stop(); try { delete (window as any).__advCine; } catch (e) {} };
   }, []);
   const kind = plan[Math.min(idx, plan.length - 1)].kind, ek = (plan[Math.min(idx, plan.length - 1)] as any).as || kind, capFor = (lg: string) => captionFor(P.finale ? { ...P, __theme: (plan[Math.min(idx, plan.length - 1)] as any).theme } : P, kind, lg), cap = sub === "off" ? "" : capFor(sub), goals = GOAL[P.id] || GOAL.luma;
   const voText = (lg: string) => kind === "objective" ? T3(lg, "ภารกิจ: ", "Mission: ", "任务：") + T3(lg, P.th, P.en, P.zh).split(" · ")[0] + ". " + goals.map((g: any) => T3(lg, g[0], g[1], g[2])).join(". ") : capFor(lg);

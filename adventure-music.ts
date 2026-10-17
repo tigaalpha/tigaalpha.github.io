@@ -238,7 +238,7 @@ export function scheduleCineScore(ctx: BaseAudioContext, out: AudioNode, moodId:
 
   const M = MOODS[moodId] || MOODS.luma; const nz = noise(ctx);
   const total = plan.reduce((a, s) => a + s.dur, 0); const starts: number[] = []; let acc = 0; for (const s of plan) { starts.push(acc); acc += s.dur; }
-  const T0 = 0.05, g = M.gain;
+  const T0 = 0.05 + ctx.currentTime, g = M.gain;   // the score is booked from NOW: a live context is already seconds or minutes old, and events booked from time zero sit in its past and play as silence (offline renders start at 0, so they are unchanged)
   const hs = (hzv: number, peak: number, dur: number, at: number, type: BiquadFilterType = "highpass", hz1?: number) => { const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), gg = ctx.createGain(), t0 = T0 + at; s.buffer = nz; f.type = type; f.frequency.setValueAtTime(hzv, t0); if (hz1) f.frequency.exponentialRampToValueAtTime(Math.max(20, hz1), t0 + dur); gg.gain.setValueAtTime(0.0001, t0); gg.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + Math.min(0.05, dur / 3)); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(gg); gg.connect(out); s.start(t0); s.stop(t0 + dur + 0.05); };
   const tn = (type: OscillatorType, f0: number, f1: number, peak: number, dur: number, at: number, atk = 0.01) => { VOICES++; const o = ctx.createOscillator(), gg = ctx.createGain(), t0 = T0 + at; o.type = type; o.frequency.setValueAtTime(f0, t0); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); gg.gain.setValueAtTime(0.0001, t0); gg.gain.linearRampToValueAtTime(peak, t0 + atk); gg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(gg); gg.connect(out); o.start(t0); o.stop(t0 + dur + 0.05); };
   const tim = (at: number, vol: number) => { tn("sine", 95, 38, 0.5 * vol, 0.7, at); hs(500, 0.3 * vol, 0.5, at, "lowpass", 120); };
@@ -350,12 +350,23 @@ export function scheduleFunRiff(ctx: BaseAudioContext, out: AudioNode, t0: numbe
 }
 
 /** Call from a tap / click so the film's audio context is already running when the film opens (a phone keeps a context created later muted). */
-export function warmAudio() { try { const w: any = window; const AC = w.AudioContext || w.webkitAudioContext; if (!AC) return; if (!w.__tgCineCtx || w.__tgCineCtx.state === "closed") w.__tgCineCtx = new AC(); w.__tgCineCtx.resume && w.__tgCineCtx.resume().catch(() => {}); } catch (e) {} }
+export function warmAudio() {
+  try { const w: any = window; const AC = w.AudioContext || w.webkitAudioContext; if (!AC) return; if (!w.__tgCineCtx || w.__tgCineCtx.state === "closed") w.__tgCineCtx = new AC(); w.__tgCineCtx.resume && w.__tgCineCtx.resume().catch(() => {});
+    // iOS mutes Web Audio while the ringer switch is on silent unless the page holds a "playback" audio session (the setting where it exists, a looping silent clip where it does not)
+    const nav: any = navigator; if (nav.audioSession) nav.audioSession.type = "playback";
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && (navigator as any).maxTouchPoints > 1);
+    if (ios && !w.__tgSilent) { const n = 4000, b = new Uint8Array(44 + n), dv = new DataView(b.buffer), ws = (o: number, t: string) => { for (let k = 0; k < t.length; k++) b[o + k] = t.charCodeAt(k); };
+      ws(0, "RIFF"); dv.setUint32(4, 36 + n, true); ws(8, "WAVEfmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true); dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); ws(36, "data"); dv.setUint32(40, n, true); for (let k = 0; k < n; k++) b[44 + k] = 128;
+      const a = new Audio(URL.createObjectURL(new Blob([b], { type: "audio/wav" }))); a.loop = true; w.__tgSilent = a; a.play().catch(() => {}); } else if (ios && w.__tgSilent && w.__tgSilent.paused) w.__tgSilent.play().catch(() => {});
+  } catch (e) {}
+}
 export function createCineAudio(moodId: string, plan: CineShot[]): CineAudio | null {
   try {
     const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return null; const w: any = window; const shared = !!(w.__tgCineCtx && w.__tgCineCtx.state !== "closed"); const ctx: AudioContext = shared ? w.__tgCineCtx : new AC(); const m = ctx.createGain(); m.gain.value = 0.3; const comp = ctx.createDynamicsCompressor(); m.connect(comp); comp.connect(ctx.destination);
     ctx.resume().catch(() => {}); const r = scheduleCineScore(ctx, m, moodId, plan, 14); scheduleFunRiff(ctx, m, ctx.currentTime + 0.3, r.total); m.gain.setValueAtTime(0.3, ctx.currentTime + r.total + 12); m.gain.linearRampToValueAtTime(0, ctx.currentTime + r.total + 14);
-    return { stop() { try { m.gain.setTargetAtTime(0, ctx.currentTime, 0.12); setTimeout(() => { try { m.disconnect(); comp.disconnect(); if (!shared) ctx.close(); } catch (e) {} }, 500); } catch (e) {} }, resume() { try { ctx.resume().catch(() => {}); } catch (e) {} }, running: () => ctx.state === "running" };
+    // a phone can leave the context suspended or 'interrupted' (a call, the voice taking audio focus): keep asking it to run for the first half minute
+    let tries = 0; const kick = setInterval(() => { if (ctx.state === "running" || ++tries > 75) { if (ctx.state === "running") clearInterval(kick); if (tries > 75) clearInterval(kick); return; } ctx.resume().catch(() => {}); }, 400);
+    return { stop() { clearInterval(kick); try { m.gain.setTargetAtTime(0, ctx.currentTime, 0.12); setTimeout(() => { try { m.disconnect(); comp.disconnect(); if (!shared) ctx.close(); } catch (e) {} }, 500); } catch (e) {} }, resume() { try { ctx.resume().catch(() => {}); } catch (e) {} }, running: () => ctx.state === "running" };
   } catch (e) { return null; }
 }
 export async function renderCinePreview(id: string, plan: CineShot[]) {
