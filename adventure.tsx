@@ -1436,7 +1436,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
   useEffect(() => { if (sfxRef.current) sfxRef.current.setOn(musicOn); if (musicRef.current) musicRef.current.setOn(musicOn); try { localStorage.setItem("tg_adv_music", musicOn ? "1" : "0"); } catch (e) {} }, [musicOn]);
   useEffect(() => { if (musicRef.current) musicRef.current.duck(!!quiz); }, [quiz]);
   const cls = useMemo(() => classKeyOf(me), [me]);
-  const chatRef = useRef<any>(null);
+  const chatRef = useRef<any>(null), pingRef = useRef<any>(null);
   const DIGBTN = P.mission === "mine" || P.mission === "dyson";   // the dig button shows on the resource maps
   const t = (th, en, zh) => T3(lang, th, en, zh);
   // a beacon asks three questions, gently harder: from what THIS learner has finished in the Pathway
@@ -1561,7 +1561,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const fireflies = Array.from({ length: HI() ? 46 : 12 }, (_, i) => ({ x: rnd(i + 200) * WORLD, y: 120 + rnd(i + 230) * 170, ph: rnd(i + 260) * 6 }));
     // team goal (online, owner 2026-10-11): every numbered kill counts for the whole room; reaching 10 per pilot pays each pilot crystals once
     // revive (online): a downed pilot waits 8 s; a teammate who stays within 90 px for 1.5 s stands them back up on the spot with half health
-    const WAR = !!(net && net.war); const myTeam = net ? warTeamOf(net, net.id) : 0; const warScore = [0, 0]; let lastHitBy = "", warOver = false;
+    const WAR = !!(net && net.war); const myTeam = net ? warTeamOf(net, net.id) : 0; const warScore = [0, 0]; let lastHitBy = "", warOver = false; const pings: any[] = [];
     // team war (plan 33 O3): each blow aimed at an enemy-team ghost is reported as ev `war:<victim id>`; the victim takes the damage itself
     const warHit = (range: number, mult: number) => { if (!WAR || !net) return; for (const q of net.peers.values()) { if (q.x === undefined || (q.hp !== undefined && q.hp <= 0) || warTeamOf(net, q.id) === myTeam) continue; const dx = (q.x - pl.x) * pl.face; if (dx > -20 && dx < range && Math.abs((q.y || 0) - pl.y) < 90) { const d = dmgOf(mult); net.sendEv("war:" + q.id, Math.min(60, d.v)); pop(q.x, GROUND - (q.y || 0) - 100, "-" + Math.min(60, d.v), "#ffd23f"); } } };
     const warBump = (team: number) => { warScore[team]++; if (warScore[team] >= 10 && !warOver) { warOver = true; setBanner({ k: Date.now(), a: team === myTeam ? T3(lang, "ทีมคุณชนะ!", "Your team wins!", "你的队伍获胜！") : T3(lang, "ทีมตรงข้ามชนะ", "The other team wins", "对方队伍获胜"), b: warScore[myTeam] + " – " + warScore[1 - myTeam] }); } };
@@ -1646,7 +1646,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     };
     if (net) {   // teammates: their hits land on the same numbered monsters here; their ore and panels show as a feed
       net.on({ onHit: (i: number, v: number) => { if (i < 0) hurtBoss(v, false, 0, true); else { const mm = mons.find(z => z.i === i); if (mm && !mm.dead) hurtMon(mm, v, false, 0, true); } },
-        onEv: (q: any, k: string, n: number) => { if (k === "war:" + net.id) { if (q) lastHitBy = q.id; hurtPlayer(n, q && q.x !== undefined ? q.x : pl.x); return; } if (String(k).startsWith("wdown:")) { warBump(n); return; } if (k === "revive:" + net.id) { if (pl.dead > 0) { pl.dead = 0.01; revived = true; pop(pl.x, GROUND - 130, q ? q.name + " ✚" : "✚", "#8dffb0"); } return; } if (String(k).startsWith("revive:")) return; if (q) pop(q.x !== undefined ? q.x : pl.x, GROUND - 130, q.name + (k === "ore" ? " ⛏+" + n : k === "panel" ? " ⚙ panel" : " " + k), "#9fe8ff"); } });
+        onEv: (q: any, k: string, n: number) => { if (k === "war:" + net.id) { if (q) lastHitBy = q.id; hurtPlayer(n, q && q.x !== undefined ? q.x : pl.x); return; } if (String(k).startsWith("wdown:")) { warBump(n); return; } if (k === "revive:" + net.id) { if (pl.dead > 0) { pl.dead = 0.01; revived = true; pop(pl.x, GROUND - 130, q ? q.name + " ✚" : "✚", "#8dffb0"); } return; } if (String(k).startsWith("revive:")) return; if (String(k).startsWith("ping:")) { const px = Number(String(k).slice(5)); if (isFinite(px)) { pings.push({ x: px, t: 0, who: q ? q.name : "" }); } return; } if (q) pop(q.x !== undefined ? q.x : pl.x, GROUND - 130, q.name + (k === "ore" ? " ⛏+" + n : k === "panel" ? " ⚙ panel" : " " + k), "#9fe8ff"); } });
+      pingRef.current = () => { net.sendEv("ping:" + Math.round(pl.x + pl.face * 160), 0); pings.push({ x: pl.x + pl.face * 160, t: 0, who: "" }); };
       chatRef.current = (tx: string) => { net.sendChat(tx); pop(pl.x, GROUND - pl.y - 140, tx, "#ffffff"); };
     }
     const skill = () => {
@@ -2165,6 +2166,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         ctx.fillRect(q.x - 14, gy - 62, 28, 40); ctx.beginPath(); ctx.arc(q.x, gy - 72, 12, 0, 7); ctx.fill(); ctx.fillRect(q.x - 12, gy - 22, 9, 22); ctx.fillRect(q.x + 3, gy - 22, 9, 22); ctx.fillStyle = "#0a1620"; ctx.shadowBlur = 0; ctx.fillRect(q.x + fc * 3 - 4, gy - 76, 8, 4);
         ctx.fillStyle = "#fff"; ctx.font = "800 12px system-ui"; ctx.textAlign = "center"; ctx.fillText((WAR && net ? (warTeamOf(net, q.id) === 0 ? "🔴 " : "🔵 ") : "") + q.name, q.x, gy - 96); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(q.x - 22, gy - 92, 44, 4); ctx.fillStyle = "#ff6b81"; ctx.fillRect(q.x - 22, gy - 92, 44 * Math.max(0, Math.min(1, (q.hp || 0) / Math.max(1, hpMaxOf(info.lv)))), 4);
         if (q.say && Date.now() - (q.sayT || 0) < 3000) { ctx.font = "800 22px system-ui"; ctx.fillText(q.say, q.x, gy - 112); } ctx.restore(); }
+      for (let pi = pings.length - 1; pi >= 0; pi--) { const g = pings[pi]; g.t += 1 / 60; if (g.t > 4) { pings.splice(pi, 1); continue; } const r = 14 + (g.t % 1) * 40; ctx.save(); ctx.strokeStyle = "rgba(255,220,90," + (1 - (g.t % 1)) + ")"; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(g.x, GROUND - 4, r * 1.6, r * 0.5, 0, 0, 7); ctx.stroke(); ctx.fillStyle = "#ffd75a"; ctx.font = "800 14px system-ui"; ctx.textAlign = "center"; ctx.fillText("▼" + (g.who ? " " + g.who : ""), g.x, GROUND - 90 + Math.sin(g.t * 6) * 4); ctx.restore(); }
       for (const tr of turrets) { ctx.save(); ctx.fillStyle = "#4a5668"; ctx.fillRect(tr.x - 11, GROUND - 16, 22, 16); ctx.fillStyle = "#cdd6e6"; ctx.fillRect(tr.x, GROUND - 14, 20 * tr.face, 5); ctx.fillStyle = "#7fe8ff"; ctx.beginPath(); ctx.arc(tr.x, GROUND - 18, 4, 0, 7); ctx.fill(); ctx.restore(); }
       if (shieldT > 0) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = "rgba(140,220,255," + (0.5 + 0.3 * Math.sin(time * 14)) + ")"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pl.x, GROUND - pl.y - 50, 62, 0, 7); ctx.stroke(); ctx.restore(); }
       for (const s of slashes) {
@@ -2325,7 +2327,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       </div>
       {upOpen && <UpgradePanel me={me} petNow={petNow} lang={lang} playUi={playUi} onStats={() => { if (statRef.current) statRef.current(); }} onClose={closeUp} />}
       {gear && <SettingsPopup lang={lang} high={high} onGfx={onGfx} musicOn={musicOn} onMusic={() => setMusicOn(m => !m)} online={!!net} onResume={closeGear} onExit={() => { pausedRef.current = false; onExit(); }} />}
-      {net && <div className="adv-emotes">{["👍", "⚔️", "🆘", "❤️"].map(em => <button key={em} aria-label={"emote " + em} onClick={() => chatRef.current && chatRef.current(em)}>{em}</button>)}</div>}
+      {net && <div className="adv-emotes"><button aria-label="ping" data-ping="1" onClick={() => pingRef.current && pingRef.current()}>📍</button>{["👍", "⚔️", "🆘", "❤️", "➡️", "⏳"].map(em => <button key={em} aria-label={"emote " + em} onClick={() => chatRef.current && chatRef.current(em)}>{em}</button>)}</div>}
       {net && hud.team && hud.team.length > 0 && <div className="adv-team">{hud.team.map((q: any, i: number) => <span key={i} style={{ borderColor: q.c || "#7fe8ff" }}>{q.n} · {q.hp}♥</span>)}</div>}
       {banner && <div key={banner.k} className="adv-banner"><b>{banner.a}</b><span>{banner.b}</span></div>}
       {clear && <div className="adv-clear" role="dialog" aria-label="map clear">
