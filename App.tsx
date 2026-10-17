@@ -1378,6 +1378,22 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
           <button className="songbtn go" style={{ width: "100%", marginTop: 10, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 800 }} data-start="1" onClick={start}>▶ Play</button>
         </div>
       )}
+      <div className="v12card" data-plan="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}><b style={{ fontSize: 12.5 }}>{TT.title}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{nDone}/{steps.length}</span></div>
+        <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 8 }}>
+          {steps.map(s => (
+            <div key={s.id} data-pstep={s.id} style={{ border: "1px solid var(--bd, #eadfd3)", borderRadius: 12, padding: "6px 8px 6px 9px", display: "flex", alignItems: "center", gap: 6, background: "var(--card)", opacity: s.isDone ? .65 : 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <small style={{ display: "block", fontSize: 9.5, color: "var(--muted)", lineHeight: 1.2 }}>{s.isDone ? "✅" : s.icon} {s.tag}</small>
+                <b style={{ display: "block", fontSize: 11.5, lineHeight: 1.25, overflowWrap: "anywhere" }}>{s.label}</b>
+              </div>
+              {s.isDone ? <span style={{ flexShrink: 0, fontSize: 10.5, color: "#3a9d6e", fontWeight: 700 }}>✓</span>
+                : <button className="tdgo" style={{ flexShrink: 0, fontSize: 10.5, padding: "5px 9px" }} onClick={() => { playUi("click"); if (s.hwStep) { markHwDone(); onReward(10, 0); bump(); } else { logUsage("pathway", "myclass-" + s.id); s.go(); } }}>{s.hwStep ? TT.hwBtn : "▶"}</button>}
+            </div>
+          ))}
+        </div>
+      </div>
       {!track.finished && (
         <div className="v12card" data-track="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><b style={{ fontSize: 12.5 }}>{T("เส้นทางพื้นฐานของคุณ", "Your foundation path", "你的基础路径")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{track.doneN}/{track.steps.length}</span></div>
@@ -1398,22 +1414,6 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
           )}
         </div>
       )}
-      <div className="v12card" data-plan="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}><b style={{ fontSize: 12.5 }}>{TT.title}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{nDone}/{steps.length}</span></div>
-        <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 8 }}>
-          {steps.map(s => (
-            <div key={s.id} data-pstep={s.id} style={{ border: "1px solid var(--bd, #eadfd3)", borderRadius: 12, padding: "6px 8px 6px 9px", display: "flex", alignItems: "center", gap: 6, background: "var(--card)", opacity: s.isDone ? .65 : 1, minWidth: 0 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <small style={{ display: "block", fontSize: 9.5, color: "var(--muted)", lineHeight: 1.2 }}>{s.isDone ? "✅" : s.icon} {s.tag}</small>
-                <b style={{ display: "block", fontSize: 11.5, lineHeight: 1.25, overflowWrap: "anywhere" }}>{s.label}</b>
-              </div>
-              {s.isDone ? <span style={{ flexShrink: 0, fontSize: 10.5, color: "#3a9d6e", fontWeight: 700 }}>✓</span>
-                : <button className="tdgo" style={{ flexShrink: 0, fontSize: 10.5, padding: "5px 9px" }} onClick={() => { playUi("click"); if (s.hwStep) { markHwDone(); onReward(10, 0); bump(); } else { logUsage("pathway", "myclass-" + s.id); s.go(); } }}>{s.hwStep ? TT.hwBtn : "▶"}</button>}
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 });
@@ -7918,6 +7918,8 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
    and everything else the page has always had — folded under "ดูเพิ่มเติม"
    rather than deleted. The card's decision comes from learner-signal.ts, the
    SAME object the Auto Teaching popup fires, so the two can never disagree. ── */
+// Owner switch (2026-10-17: "hide the download-the-mobile-app button for now"): false hides the floating 📲 pill and the install banner for everyone; true brings both back unchanged.
+const APK_PROMO_ENABLED = false;
 const COACH_SKIP_KEY = "tg_coach_skip_day";
 /* The one sentence that says WHY the mentor suggests this, with the real numbers. Shared by Daily Mentor and My Class so the two can never word
    the same decision differently. */
@@ -12439,7 +12441,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // Shown to Android visitors (real APK) and iOS visitors (Add to Home Screen is
   // always "available" — no build required) — never to a visitor already running
   // as an installed iOS PWA, who has nothing left to install.
-  const showInstallPromo = !isNative && !isIOSStandalone && (apkAvailable || isIOSDevice);
+  const showInstallPromo = APK_PROMO_ENABLED && !isNative && !isIOSStandalone && (apkAvailable || isIOSDevice);
   const [apkBannerSeen, setApkBannerSeen] = useState(() => { try { return localStorage.getItem("tg_apk_banner_seen") === "1"; } catch (e) { return false; } });
   const showApkBanner = showInstallPromo && !apkBannerSeen;
   function dismissApkBanner() {
