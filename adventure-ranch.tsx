@@ -10,6 +10,7 @@ import { createAdvMusic } from "./adventure-music";
 import { enterFs } from "./pvp-arena";
 import { GearButton, SettingsPopup } from "./adventure-settings";
 import { HELPER_COINS, readOwnedHelpers, saveOwnedHelpers, HELPER_COST, HELPER_ICON, HELPER_NAME, mkHelper, stepMove, drawHelper, type HKind } from "./adventure-ranch-helpers";
+import { gfxHigh } from "./adv-gfx";
 import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, drawIsoAnimal, drawIsoAmbient, PLOT_POS, PLOT_FREE, SLOT_POS, PAD, WW, WH, MILL, TW, TH, OX, OY, VW as ISO_VW, COLS as ISO_COLS, FX, FY, USE3D_R, setUse3DR } from "./adventure-ranch-iso";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
@@ -93,7 +94,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry, coinAp
   if (!G.current.orders.length) for (let i = 0; i < 3; i++) G.current.orders.push(mkOrder(G.current));
   const S = G.current;
   const [, setTick] = useState(0), [gear, setGear] = useState(false), pausedRef = useRef(false);
-  const [high, setHigh] = useState(() => { try { return localStorage.getItem("tg_adv_gfx") === "high"; } catch (e) { return false; } });
+  const [high, setHigh] = useState(() => gfxHigh());
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   const camRef = useRef({ x: 120, y: 110, z: 0.75 }), tapBlock = useRef(0), ptrs = useRef(new Map<number, { x: number; y: number }>()), pinch = useRef(0), dragged = useRef(false);
   const clampCam = () => { const c = camRef.current, zmin = Math.max(VW / WW, VH / WH); c.z = Math.max(zmin, Math.min(1.9, c.z)); c.x = Math.max(0, Math.min(WW - VW / c.z, c.x)); c.y = Math.max(0, Math.min(WH - VH / c.z, c.y)); };
@@ -107,7 +108,12 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry, coinAp
     const fit = () => { if (!el || !cv) return; const wr = el.parentElement, aw = wr ? wr.clientWidth : window.innerWidth, ah = wr ? wr.clientHeight : window.innerHeight, W = Math.max(280, Math.min(aw, Math.round(ah * VW / VH))), H = Math.round(W * VH / VW), dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; el.style.width = W + "px"; setBox({ w: W, h: H }); };
     fit(); const ro = typeof ResizeObserver !== "undefined" && el ? new ResizeObserver(fit) : null; if (ro && el) ro.observe(el);
     let r3: any = null; GEO3.ANIMALS = ANIMALS;   // the three.js layer for crops, houses, animals, windmill and rocket; any failure leaves the 2D drawing in place
-    try { if (localStorage.getItem("tg_ranch3d") !== "0") import("./adventure-ranch-3d").then(m => { if (!alive || !cv || !cv.parentElement) return; r3 = m.createRanch3D(cv.parentElement); if (r3 && cv.nextSibling) cv.parentElement.insertBefore(r3.el, cv.nextSibling); setUse3DR(!!r3); }).catch(() => {}); } catch (e) {}
+    // Graphics: High = the three.js layer, Lite = the cached 2D drawing; the gear pop-up flips it live (checked twice a second)
+    let r3Mod: any = null, r3Busy = false;
+    const syncGfx = () => { try { const want = gfxHigh() && localStorage.getItem("tg_ranch3d") !== "0";
+      if (want && !r3 && !r3Busy && cv && cv.parentElement) { r3Busy = true; (r3Mod ? Promise.resolve(r3Mod) : import("./adventure-ranch-3d")).then(m => { r3Mod = m; r3Busy = false; if (!alive || r3 || !gfxHigh() || !cv.parentElement) return; r3 = m.createRanch3D(cv.parentElement); if (r3 && cv.nextSibling) cv.parentElement.insertBefore(r3.el, cv.nextSibling); setUse3DR(!!r3); }).catch(() => { r3Busy = false; }); }
+      else if (!want && r3) { try { r3.dispose(); } catch (e) {} r3 = null; setUse3DR(false); } } catch (e) {} };
+    syncGfx(); const gfxT = setInterval(syncGfx, 500);
     const draw = (now: number) => { if (!alive) return; raf = requestAnimationFrame(draw); if (now - lastDraw < 40 || !cv) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const k = cv.width / VW, cm = camRef.current; x.setTransform(k * cm.z, 0, 0, k * cm.z, -cm.x * k * cm.z, -cm.y * k * cm.z); try { drawRanch(x, S, now / 1000, P.kind || "moon"); x.setTransform(k, 0, 0, k, 0, 0); finishLook(x, VW, VH, now / 1000, "255,226,170", 0.3); } catch (e) {}
       if (r3) { try { r3.render(S, cm, cv.clientWidth, cv.clientHeight, Math.min(2, window.devicePixelRatio || 1), now / 1000, P.kind || "moon", GEO3); } catch (e) { try { r3.dispose(); } catch (e2) {} r3 = null; setUse3DR(false); } } };
     raf = requestAnimationFrame(draw);
@@ -122,7 +128,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry, coinAp
     };
     const id = setInterval(() => { const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); last = now; if (pausedRef.current || S.ended) return; step(dt); setTick(v => (v + 1) % 1e6); }, 100);
     (window as any).__advRanch = { state: () => ({ t: S.t, stock: S.stock, delivered: S.delivered, plots: S.plots.map((c: any) => ({ crop: c.crop, p: c.p, locked: !!c.locked })), dug: S.dug, cam: { ...camRef.current }, animals: S.animals.map((a: any) => ({ fed: a.fed, prog: a.prog })), houses: S.houses.map((h: any) => ({ b: h.b, own: h.own })), helpers: S.helpers.map((h: any) => ({ kind: h.kind, job: h.job })), won: S.won, target: S.quota }), tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) step(0.1); }, give: (n: number) => { S.stock += n; }, buyHelper: (k: HKind) => buyHelper(k), setCam: (x: number, y: number, z: number) => { camRef.current = { x, y, z }; clampCam(); } };
-    return () => { alive = false; setUse3DR(false); try { if (r3) r3.dispose(); } catch (e) {} cancelAnimationFrame(raf); if (ro) ro.disconnect(); clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advRanch; } catch (e) {} };
+    return () => { alive = false; clearInterval(gfxT); setUse3DR(false); try { if (r3) r3.dispose(); } catch (e) {} cancelAnimationFrame(raf); if (ro) ro.disconnect(); clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advRanch; } catch (e) {} };
   }, []);
   const helpRef = useRef<(dt: number) => void>(() => {});
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
