@@ -13624,7 +13624,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
         {[
-          { p: "myclass", ic: "★", c: "#d97757", t: "My Class" },
+          { p: "myclass", ic: "🎓", c: "#d97757", t: "My Class" },
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
           // TIGA CHAT opens the full-screen chat (.mov modal) directly — owner request
           // 2026-09-22: landing on SenseiView first made the nav item feel broken
