@@ -185,10 +185,10 @@ function makeBus(ctx: BaseAudioContext, out: AudioNode): Bus {
   mk(-0.45, arpL); mk(0.45, arpR);
   return { drum: out, mel, arpL, arpR };
 }
-export function createAdvMusic(id: string): AdvMusic | null {
+export function createAdvMusic(id: string, gainMul = 1): AdvMusic | null {
   const M = MOODS[id] || MOODS.luma;
   let shared = false, ctx: AudioContext | null = null, master: GainNode | null = null, bus: Bus | null = null, timer: any = 0, next = 0, step = 0, boss = false, on = true, ducked = false, steps = 0, intensity = 1;
-  const vol = () => (on ? (ducked ? 0.06 : 0.24) : 0);
+  const vol = () => (on ? (ducked ? 0.06 : 0.24) * gainMul : 0);
   const apply = () => { if (master && ctx) master.gain.setTargetAtTime(vol(), ctx.currentTime, 0.15); };
   const pump = () => {
     if (!ctx || !master || !bus) return;
@@ -360,10 +360,12 @@ export function warmAudio() {
       const a = new Audio(URL.createObjectURL(new Blob([b], { type: "audio/wav" }))); a.loop = true; w.__tgSilent = a; a.play().catch(() => {}); } else if (ios && w.__tgSilent && w.__tgSilent.paused) w.__tgSilent.play().catch(() => {});
   } catch (e) {}
 }
+/** the film score measured RMS 0.037 (about -29 dBFS) at the old 0.3 master: on a phone speaker, under a narrator, that is inaudible. 0.9 through a limiter lands near -17 dBFS. */
+export const CINE_LIVE_GAIN = 0.9;
 export function createCineAudio(moodId: string, plan: CineShot[]): CineAudio | null {
   try {
-    const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return null; const w: any = window; const shared = !!(w.__tgCineCtx && w.__tgCineCtx.state !== "closed"); const ctx: AudioContext = shared ? w.__tgCineCtx : new AC(); const m = ctx.createGain(); m.gain.value = 0.3; const comp = ctx.createDynamicsCompressor(); m.connect(comp); comp.connect(ctx.destination);
-    ctx.resume().catch(() => {}); const r = scheduleCineScore(ctx, m, moodId, plan, 14); scheduleFunRiff(ctx, m, ctx.currentTime + 0.3, r.total); m.gain.setValueAtTime(0.3, ctx.currentTime + r.total + 12); m.gain.linearRampToValueAtTime(0, ctx.currentTime + r.total + 14);
+    const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return null; const w: any = window; const shared = !!(w.__tgCineCtx && w.__tgCineCtx.state !== "closed"); const ctx: AudioContext = shared ? w.__tgCineCtx : new AC(); const m = ctx.createGain(); m.gain.value = CINE_LIVE_GAIN; const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -9; comp.knee.value = 6; comp.ratio.value = 14; comp.attack.value = 0.003; comp.release.value = 0.2; m.connect(comp); comp.connect(ctx.destination);   // a limiter, so the louder master cannot clip
+    ctx.resume().catch(() => {}); const r = scheduleCineScore(ctx, m, moodId, plan, 14); scheduleFunRiff(ctx, m, ctx.currentTime + 0.3, r.total); m.gain.setValueAtTime(CINE_LIVE_GAIN, ctx.currentTime + r.total + 12); m.gain.linearRampToValueAtTime(0, ctx.currentTime + r.total + 14);
     // a phone can leave the context suspended or 'interrupted' (a call, the voice taking audio focus): keep asking it to run for the first half minute
     let tries = 0; const kick = setInterval(() => { if (ctx.state === "running" || ++tries > 75) { if (ctx.state === "running") clearInterval(kick); if (tries > 75) clearInterval(kick); return; } ctx.resume().catch(() => {}); }, 400);
     return { stop() { clearInterval(kick); try { m.gain.setTargetAtTime(0, ctx.currentTime, 0.12); setTimeout(() => { try { m.disconnect(); comp.disconnect(); if (!shared) ctx.close(); } catch (e) {} }, 500); } catch (e) {} }, resume() { try { ctx.resume().catch(() => {}); } catch (e) {} }, running: () => ctx.state === "running" };
