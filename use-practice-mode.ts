@@ -8,6 +8,7 @@ import {
 import { teacherJudgeNote, getPianoTuneOffset } from "./piano-guard";
 import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
 import { logActivity, dayKey, logUsage } from "./shared-infra";
+import { accMult } from "./game-power";
 import { buildSpotTarget, SPOT_CAP_NOTES } from "./practice-spot";
 import { recordMemory } from "./ai-chat-context";
 import { fetchChatCompletion } from "./ai-backend";
@@ -805,7 +806,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
        for beating your own record: a sloppy run still pays, a good one pays
        several times a Pathway chapter. */
     const streakBonus = Math.min(20, bestStreak * 2);
-    earnCoins(EARN.practice + Math.round(accuracy / 4) + streakBonus + (isNewBest ? 25 : 0));
+    earnCoins((EARN.practice + Math.round(accuracy / 4) + streakBonus + (isNewBest ? 25 : 0)) * accMult(accuracy));
     gainExp(20 + Math.round(accuracy / 5) + (isNewBest ? 10 : 0), { quest: true }); // 20–40 EXP scaled by accuracy, +10 on a genuine new best
     practicePaidRef.current = true;
     /* Gems, and ONLY here. They are deliberately much rarer than coins: a drill

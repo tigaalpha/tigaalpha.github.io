@@ -1,3 +1,4 @@
+import { accMult } from "./game-power";
 import { useState, useRef } from "react";
 import {
   SIGHT_NOTES, SIGHT_NOTES_BASS, pcOf, getAC, playPianoNote, playUi,
@@ -295,7 +296,7 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWee
         }
       }).catch(() => {});
     }
-    earnCoins(5 + Math.round(acc / 20));
+    earnCoins((5 + Math.round(acc / 20)) * accMult(acc));
     gainExp(reward, { quest: true });
     if (beltUp) { earnCoins(15 + SIGHT_BELTS.findIndex(b => b.id === beltUp.id) * 5); gainExp(40, { quest: true }); }
     // Weekly challenges — "games"/"perfect" used to only ever bump from Play
