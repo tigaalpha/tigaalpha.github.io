@@ -188,10 +188,12 @@ function makeBus(ctx: BaseAudioContext, out: AudioNode): Bus {
 /* Film/menu music leaves the Web Audio graph through a media element on Android, so it is a
    media-stream session of its own (the phone's speech engine takes audio focus from plain Web Audio
    while it narrates). Falls back to ctx.destination anywhere it cannot be built; tg_nomsd=1 turns it off. */
+/* A phone cannot take thousands of oscillators booked in one go: it under-runs and the film is a stream of ticks. On a phone the film is carried by the look-ahead music bed alone; tg_fullscore=1 restores the booked score. */
+export function isPhoneAudio(): boolean { try { return /Android|iPhone|iPad/i.test(navigator.userAgent) && localStorage.getItem("tg_fullscore") !== "1"; } catch (e) { return false; } }
 function liveOut(ctx: AudioContext): AudioNode {
   try {
     const w: any = window;
-    if (!/Android/i.test(navigator.userAgent) || localStorage.getItem("tg_nomsd") === "1" || !(ctx as any).createMediaStreamDestination) return ctx.destination;
+    if (localStorage.getItem("tg_msd") !== "1" || !(ctx as any).createMediaStreamDestination) return ctx.destination;
     let d = (ctx as any).__tgMsd;
     if (!d) {
       d = (ctx as any).createMediaStreamDestination(); const a = new Audio(); a.srcObject = d.stream; a.autoplay = true; (a as any).playsInline = true; a.style.display = "none";
@@ -382,7 +384,7 @@ export const CINE_LIVE_GAIN = 0.9;
 export function createCineAudio(moodId: string, plan: CineShot[]): CineAudio | null {
   try {
     const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return null; const w: any = window; const shared = !!(w.__tgCineCtx && w.__tgCineCtx.state !== "closed"); const ctx: AudioContext = shared ? w.__tgCineCtx : new AC(); const m = ctx.createGain(); m.gain.value = CINE_LIVE_GAIN; const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -9; comp.knee.value = 6; comp.ratio.value = 14; comp.attack.value = 0.003; comp.release.value = 0.2; m.connect(comp); comp.connect(liveOut(ctx));   // a limiter, so the louder master cannot clip
-    ctx.resume().catch(() => {}); const r = scheduleCineScore(ctx, m, moodId, plan, 14); scheduleFunRiff(ctx, m, ctx.currentTime + 0.3, r.total); m.gain.setValueAtTime(CINE_LIVE_GAIN, ctx.currentTime + r.total + 12); m.gain.linearRampToValueAtTime(0, ctx.currentTime + r.total + 14);
+    ctx.resume().catch(() => {}); const light = isPhoneAudio(); const r = light ? { total: plan.reduce((a, s) => a + s.dur, 0) } : scheduleCineScore(ctx, m, moodId, plan, 14); if (!light) scheduleFunRiff(ctx, m, ctx.currentTime + 0.3, r.total); m.gain.setValueAtTime(CINE_LIVE_GAIN, ctx.currentTime + r.total + 12); m.gain.linearRampToValueAtTime(0, ctx.currentTime + r.total + 14);
     // a phone can leave the context suspended or 'interrupted' (a call, the voice taking audio focus): keep asking it to run for the first half minute
     let tries = 0; const kick = setInterval(() => { if (ctx.state === "running" || ++tries > 75) { if (ctx.state === "running") clearInterval(kick); if (tries > 75) clearInterval(kick); return; } ctx.resume().catch(() => {}); }, 400);
     return { stop() { clearInterval(kick); try { m.gain.setTargetAtTime(0, ctx.currentTime, 0.12); setTimeout(() => { try { m.disconnect(); comp.disconnect(); if (!shared) ctx.close(); } catch (e) {} }, 500); } catch (e) {} }, resume() { try { ctx.resume().catch(() => {}); } catch (e) {} }, running: () => ctx.state === "running" };
