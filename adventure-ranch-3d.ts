@@ -91,9 +91,17 @@ export function createRanch3D(host: HTMLElement): Ranch3D | null {
   const PN = 90, pg = new THREE.BufferGeometry(), ppos = new Float32Array(PN * 3), pseed = new Float32Array(PN); for (let i = 0; i < PN; i++) { ppos[i * 3] = 2 + Math.random() * 20; ppos[i * 3 + 1] = 0.3 + Math.random() * 1.6; ppos[i * 3 + 2] = 2 + Math.random() * 20; pseed[i] = Math.random() * 6.28; }
   pg.setAttribute("position", new THREE.BufferAttribute(ppos, 3)); const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xfff0a0, size: 0.09, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true })); world.add(pts);
   const sparkles: THREE.Mesh[] = []; for (let i = 0; i < 24; i++) { const sp = new THREE.Mesh(new THREE.OctahedronGeometry(0.06), new THREE.MeshBasicMaterial({ color: 0xfff6a8 })); sp.visible = false; world.add(sp); sparkles.push(sp); }
+  // dust puffs behind walking animals and a burst when something is planted (sprites from a small pool)
+  const puffTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d")!; const g = x.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, "rgba(255,255,255,.9)"); g.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+  const fx: { sp: THREE.Sprite; life: number; max: number; vx: number; vy: number; vz: number; s0: number; o: number }[] = []; for (let i = 0; i < 40; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 0 })); sp.visible = false; world.add(sp); fx.push({ sp, life: 0, max: 1, vx: 0, vy: 0, vz: 0, s0: 0.2, o: 0.4 }); }
+  const puff = (x: number, y: number, z: number, col: number, o = 0.4, s0 = 0.18, up = 0.25, spread = 0.2) => { const f = fx.find(q => q.life <= 0); if (!f) return; f.life = f.max = 0.7 + Math.random() * 0.6; f.vx = (Math.random() - 0.5) * spread; f.vz = (Math.random() - 0.5) * spread; f.vy = up * (0.6 + Math.random() * 0.8); f.s0 = s0; f.o = o; f.sp.position.set(x, y, z); (f.sp.material as THREE.SpriteMaterial).color.set(col); f.sp.visible = true; };
+  let lastT = 0, dustAcc = 0;
   const plants = new Map<number, { key: string; g: THREE.Group[]; root: THREE.Group }>(), houses: (THREE.Group | null)[] = [], animals: (THREE.Group | null)[] = [];
   let cw = 0, ch = 0, cd = 0;
   const render: Ranch3D["render"] = (S, c, W, H, dpr, T, kind, geo) => {
+    const dt = Math.min(0.1, Math.max(0, T - lastT)); lastT = T; dustAcc += dt;
+    { const az = 0.9 + T * 0.02, el = 0.9 + 0.25 * Math.sin(T * 0.03); sun.position.set(11 + Math.cos(az) * Math.cos(el) * 24, Math.sin(el) * 24, 11 + Math.sin(az) * Math.cos(el) * 24); sun.target.position.set(11, 0, 11); sun.intensity = 2.4 * (0.75 + 0.25 * Math.sin(el)); }
+    fx.forEach(f => { if (f.life <= 0) return; f.life -= dt; const k = 1 - f.life / f.max; f.sp.position.x += f.vx * dt; f.sp.position.y += f.vy * dt; f.sp.position.z += f.vz * dt; const sz = f.s0 * (1 + k * 2.2); f.sp.scale.set(sz, sz, 1); (f.sp.material as THREE.SpriteMaterial).opacity = f.o * (1 - k); if (f.life <= 0) f.sp.visible = false; });
     const HQ = true;   // this layer only runs in High; Lite is the 2D drawing
     if (W !== cw || H !== ch || dpr !== cd) { cw = W; ch = H; cd = dpr; ren.setPixelRatio(dpr); ren.setSize(W, H, false); }
     const kk = W / geo.VW, sc2 = SPL * kk * c.z, px0 = (geo.OX - c.x) * kk * c.z, py0 = (geo.OY - c.y) * kk * c.z;
@@ -108,7 +116,7 @@ export function createRanch3D(host: HTMLElement): Ranch3D | null {
         if (cur) world.remove(cur.root);
         const root = new THREE.Group(), list: THREE.Group[] = [], c0 = geo.FX + (i % geo.COLS) * 2, r0 = geo.FY + Math.floor(i / geo.COLS) * 2;
         for (let v = 0; v < 4; v++) for (let u = 0; u < 4; u++) { const p = plant(id); p.position.set(c0 + 0.3 + u * 0.47 + 0.1, 0, r0 + 0.3 + v * 0.47 + 0.1); p.rotation.y = (u * 7 + v * 3 + i) * 0.9; root.add(p); list.push(p); }
-        world.add(root); plants.set(i, { key, g: list, root });
+        world.add(root); plants.set(i, { key, g: list, root }); for (let k = 0; k < 8; k++) puff(c0 + 0.2 + Math.random() * 1.6, 0.1, r0 + 0.2 + Math.random() * 1.6, 0x8a5a30, 0.55, 0.16, 0.6, 0.5);
       }
       const pl = plants.get(i)!, grow = 0.28 + 0.72 * Math.min(1, cell.p / 100), ripe = cell.p >= 100;
       pl.g.forEach((p, k) => { p.rotation.z = Math.sin(T * 1.6 + k * 0.5 + i) * 0.05 * grow; const bob = ripe ? Math.abs(Math.sin(T * 5 + i + k * 0.4)) * 0.03 : 0; p.scale.setScalar(grow * (id === "corn" ? 1.1 : 1)); p.position.y = bob; });
@@ -121,6 +129,7 @@ export function createRanch3D(host: HTMLElement): Ranch3D | null {
         if (!animals[i]) { const an = animal(id); world.add(an); animals[i] = an; }
         const w = geo.wander(i, T), an = animals[i]!, A = S.animals[i];
         const legs: THREE.Mesh[] = an.userData.legs || [], u = an.userData.u || 1; legs.forEach((l, k) => { l.position.x = l.userData.bx + Math.sin(T * 5 + i + (k % 2 ? Math.PI : 0)) * 0.05 * u; });
+        if (dustAcc > 0.35 && id !== "chicken") puff(w.gx - 0.15 * w.face, 0.05, w.gy + 0.15 * w.face, 0xcdb78a, 0.3, 0.12, 0.2, 0.15);
         an.position.set(w.gx, w.hop * 0.4, w.gy); an.rotation.y = Math.PI / 4 + (w.face > 0 ? 0 : Math.PI); an.rotation.z = Math.sin(T * 2 + i) * 0.02;
         const br = 1 + Math.sin(T * 2 + i) * 0.015, gz = id === "chicken" ? Math.max(0, Math.sin(T * 3 + i)) * 0.35 : 0; an.scale.set(br, br, br); an.children.forEach((o: any) => { if (id === "chicken" && o.position && o.position.y > 0.2 && o.userData.head === undefined) { /* the pecking head is the whole group tilt */ } }); an.rotation.x = gz * 0.15; void A;
       }
@@ -130,6 +139,7 @@ export function createRanch3D(host: HTMLElement): Ranch3D | null {
     const p = gp(geo.PAD.x, geo.PAD.y), lift = S.launch > 0 ? Math.pow(1 - S.launch / 2, 2) * 520 / (0.866 * SPL) : 0; rocket.position.set(p[0], 0.05 + lift, p[1]); rocket.children.forEach((o: any) => { if (o.userData.flame) { o.visible = S.launch > 0; o.scale.y = 1 + 0.2 * Math.sin(T * 38); } });
     if (HQ) { const a = pg.getAttribute("position") as THREE.BufferAttribute; for (let i = 0; i < PN; i++) { a.setY(i, 0.5 + 0.7 * (Math.sin(T * 0.6 + pseed[i]) + 1) * 0.5 + 0.3); a.setX(i, a.getX(i) + Math.sin(T * 0.3 + pseed[i]) * 0.002); } a.needsUpdate = true; (pts.material as THREE.PointsMaterial).opacity = 0.55 + 0.35 * Math.sin(T * 2); }
     let sk = 0; S.plots.forEach((cell: any, i: number) => { if (cell.crop && cell.p >= 100 && sk < sparkles.length) { const c0 = geo.FX + (i % geo.COLS) * 2 + 1, r0 = geo.FY + Math.floor(i / geo.COLS) * 2 + 1, sp = sparkles[sk++]; sp.visible = true; sp.position.set(c0 + Math.sin(T * 2 + i) * 0.4, 0.5 + Math.abs(Math.sin(T * 3 + i)) * 0.3, r0 + Math.cos(T * 2 + i) * 0.4); sp.rotation.y = T * 3; } }); for (; sk < sparkles.length; sk++) sparkles[sk].visible = false;
+    if (dustAcc > 0.35) dustAcc = 0;
     ren.render(scene, cam);
   };
   return { el, render, dispose() { try { ren.dispose(); if (el.parentNode) el.parentNode.removeChild(el); } catch (e) {} } };

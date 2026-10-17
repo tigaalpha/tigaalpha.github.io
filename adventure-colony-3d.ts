@@ -11,6 +11,7 @@ export type Col3D = { render: (S: any, cam: { x: number; y: number; z: number },
 const COLS = 22, ROWS = 18, TW0 = 72, SPLOT = TW0 / Math.SQRT2;   // pixels per world unit (one plot = 1 unit)
 const WX0 = (COLS + ROWS) * TW0 / 4, WY0 = TW0 * 1.5 + (COLS + ROWS) * TW0 / 8;   // the screen point of the grid centre, in unscaled world pixels (matches ptW)
 
+const WINMATS: THREE.MeshStandardMaterial[] = [];
 const winTex = (w: number, h: number, lit: number, seed: number) => {
   const c = document.createElement("canvas"); c.width = 64; c.height = 128; const x = c.getContext("2d")!;
   x.fillStyle = "#dfe6ee"; x.fillRect(0, 0, 64, 128);
@@ -49,6 +50,7 @@ export function createColony3D(host: HTMLElement): Col3D | null {
   const dome = (r: number, mat: THREE.Material, y = 0, x = 0, z = 0) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), mat); m.castShadow = false; m.position.set(x, y, z); return m; };
   const tower = (w: number, h: number, d: number, seed: number, era: number, y = 0, x = 0, z = 0) => {   // a block with lit windows on every side
     const m = new THREE.MeshStandardMaterial({ color: 0xffffff, map: winTex(w, h, era === 0 ? 0.35 : 0.55, seed), roughness: 0.4, metalness: 0.25, emissive: 0xffc870, emissiveMap: winTex(w, h, era === 0 ? 0.35 : 0.55, seed), emissiveIntensity: 0.12 });
+    WINMATS.push(m); if (WINMATS.length > 400) WINMATS.splice(0, 100);
     const mesh = shadowed(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m)); mesh.position.set(x, y + h / 2, z); return mesh;
   };
 
@@ -82,16 +84,25 @@ export function createColony3D(host: HTMLElement): Col3D | null {
   }
 
   const RING: Record<string, number> = { hab: 0x00e6ff, solar: 0x5a8cff, water: 0x46beff, oxy: 0x78ffbe, farm: 0x82ff6e, mine: 0xffaa3c, lab: 0xbe6eff, med: 0xffffff, reactor: 0x00ffe6, port: 0xff5ac8, park: 0x5aff78, school: 0xffe16e, recycler: 0x6efff0, market: 0xff966e, geo: 0xff783c, tower: 0xaaff8c, shield: 0x78aaff };
+  const blobTex = () => { const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d")!; const g = x.createRadialGradient(32, 32, 4, 32, 32, 32); g.addColorStop(0, "rgba(0,0,0,.85)"); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); };
+  const puffTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d")!; const g = x.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, "rgba(255,255,255,.9)"); g.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
   const withBase = (id: string, era: number, seed: number) => {
     const g = build(id, era, seed), w = new THREE.Group();
     const pad = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.54, 0.05, 28), mk("pad", () => std(0xd8d2c8, 0.8, 0.05)))); pad.position.y = 0.0; w.add(pad);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.018, 8, 40), glow(RING[id] || 0xffffff)); ring.rotation.x = Math.PI / 2; ring.position.y = 0.04; w.add(ring);
+    const ao = new THREE.Mesh(new THREE.CircleGeometry(0.78, 24), mk("aoMat", () => new THREE.MeshBasicMaterial({ map: blobTex(), transparent: true, depthWrite: false, opacity: 0.55 }))); ao.rotation.x = -Math.PI / 2; ao.position.y = 0.012; w.add(ao);
     g.position.y = 0.05; w.add(g);
     if (id === "tower" || (id === "hab" && era >= 1) || id === "lab") { const top = id === "tower" ? (era === 0 ? 1.55 : era === 1 ? 2.15 : 2.85) : id === "hab" ? (era === 1 ? 1.6 : 2.3) : 0.95; const b = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff3a3a })); b.position.set(0.1, top + 0.4, 0.1); b.userData.beacon = seed; w.add(b); }
     if (era >= 2 && (id === "hab" || id === "tower" || id === "lab")) { const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), new THREE.MeshStandardMaterial({ color: 0xbfe9ff, emissive: 0x5ab4ff, emissiveIntensity: 1.2, roughness: 0.1, metalness: 0.5 })); c.position.y = 3.3; c.userData.float = seed; w.add(c); }
     if (id === "reactor") w.traverse((o: any) => { if (o.material && o.material.isMeshBasicMaterial) o.userData.pulse = 1; });
     return w;
   };
+  // loose rocks, ice crystals and glowing ore on the empty plots (instanced; rebuilt when the grid changes)
+  const RN = 420, rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.09, 0), std(0x8c8478, 0.95, 0), RN), ices = new THREE.InstancedMesh(new THREE.ConeGeometry(0.05, 0.28, 5), new THREE.MeshPhysicalMaterial({ color: 0xcfeeff, roughness: 0.08, transmission: 0, transparent: true, opacity: 0.85, clearcoat: 1 }), 300), ores = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.06, 0), new THREE.MeshStandardMaterial({ color: 0xff9a3a, emissive: 0xff6a10, emissiveIntensity: 1.1, roughness: 0.5 }), 300);
+  rocks.castShadow = rocks.receiveShadow = true; ices.castShadow = true; world.add(rocks, ices, ores); let landSig = "";
+  const hash = (n: number) => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+  const steam: THREE.Sprite[] = []; for (let i = 0; i < 48; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 0 })); sp.visible = false; world.add(sp); steam.push(sp); }
+  let emitters: { x: number; z: number; y: number; hot: boolean }[] = [];
   const drones: THREE.Mesh[] = []; for (let i = 0; i < 5; i++) { const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.07), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x66d0ff, emissiveIntensity: 0.9 })); d.castShadow = true; d.visible = false; world.add(d); drones.push(d); }
   const placed = new Map<number, { key: string; g: THREE.Group }>();
   let curW = 0, curH = 0, curDpr = 0;
@@ -100,6 +111,8 @@ export function createColony3D(host: HTMLElement): Col3D | null {
     const sc2 = SPLOT * c.z, px0 = c.x + c.z * WX0, py0 = c.y + c.z * WY0;
     cam.left = -px0 / sc2; cam.right = (W - px0) / sc2; cam.top = py0 / sc2; cam.bottom = -(H - py0) / sc2; cam.updateProjectionMatrix();
     world.rotation.y = -rot;
+    // time of day: the sun slowly circles and dips; towers light up as it sets
+    { const az = 0.6 + T * 0.025, el = 0.82 + 0.3 * Math.sin(T * 0.035), n = Math.max(0, Math.min(0.6, (0.66 - el) / 0.2)); sun.position.set(Math.cos(az) * Math.cos(el) * 26, Math.sin(el) * 26, Math.sin(az) * Math.cos(el) * 26); sun.intensity = 2.4 * (1 - 0.65 * n); hemi.intensity = 0.85 * (1 - 0.3 * n); rim.intensity = 0.7 + 0.5 * n; const ei = 0.12 + 1.0 * n; for (const m of WINMATS) m.emissiveIntensity = ei; (scene as any).environmentIntensity = 0.55 * (1 - 0.4 * n); }
     sun.color.set(kind === "proxima" ? 0xff9a80 : kind === "mars" ? 0xffd3a8 : 0xfff0d6);
     for (let i = 0; i < S.grid.length; i++) {
       const b = S.grid[i].b, cur = placed.get(i), key = b ? b + ":" + era : "";
@@ -108,6 +121,14 @@ export function createColony3D(host: HTMLElement): Col3D | null {
       if (cur) world.remove(cur.g);
       const g = withBase(b, era, i); const cc = i % COLS, rr = Math.floor(i / COLS); g.position.set(cc + 0.5 - COLS / 2, 0, rr + 0.5 - ROWS / 2); world.add(g); placed.set(i, { key, g });
     }
+    { let sig = ""; for (let i = 0; i < S.grid.length; i++) sig += S.grid[i].b ? "b" : S.grid[i].f ? S.grid[i].f[0] : "."; if (sig !== landSig) { landSig = sig; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc3 = new THREE.Vector3(); let nr = 0, ni = 0, no = 0;
+      for (let i = 0; i < S.grid.length; i++) { const cell = S.grid[i]; if (cell.b) continue; const cc = i % COLS, rr = Math.floor(i / COLS), bx = cc + 0.5 - COLS / 2, bz = rr + 0.5 - ROWS / 2;
+        if (cell.f === "ice") { for (let k = 0; k < 3 && ni < 300; k++) { q.setFromEuler(new THREE.Euler((hash(i + k) - 0.5) * 0.5, hash(i * 3 + k) * 6, (hash(i * 5 + k) - 0.5) * 0.5)); sc3.setScalar(0.7 + hash(i * 7 + k) * 0.9); m4.compose(new THREE.Vector3(bx + (hash(i * 11 + k) - 0.5) * 0.6, 0.12, bz + (hash(i * 13 + k) - 0.5) * 0.6), q, sc3); ices.setMatrixAt(ni++, m4); } }
+        else if (cell.f === "ore") { for (let k = 0; k < 4 && no < 300; k++) { q.setFromEuler(new THREE.Euler(hash(i + k) * 3, hash(i * 3 + k) * 6, 0)); sc3.setScalar(0.6 + hash(i * 7 + k) * 0.8); m4.compose(new THREE.Vector3(bx + (hash(i * 11 + k) - 0.5) * 0.6, 0.05, bz + (hash(i * 13 + k) - 0.5) * 0.6), q, sc3); ores.setMatrixAt(no++, m4); } }
+        else if (hash(i) < 0.5 && nr < RN) { const n = 1 + Math.floor(hash(i * 9) * 2); for (let k = 0; k < n && nr < RN; k++) { q.setFromEuler(new THREE.Euler(hash(i + k) * 3, hash(i * 3 + k) * 6, hash(i * 2 + k) * 3)); sc3.set(0.6 + hash(i * 7 + k) * 1.1, 0.5 + hash(i * 5 + k) * 0.7, 0.6 + hash(i * 17 + k)); m4.compose(new THREE.Vector3(bx + (hash(i * 11 + k) - 0.5) * 0.8, 0.04, bz + (hash(i * 13 + k) - 0.5) * 0.8), q, sc3); rocks.setMatrixAt(nr++, m4); } } }
+      rocks.count = nr; ices.count = ni; ores.count = no; rocks.instanceMatrix.needsUpdate = ices.instanceMatrix.needsUpdate = ores.instanceMatrix.needsUpdate = true;
+      emitters = []; placed.forEach((p, i) => { const id = String(S.grid[i].b); if (id === "reactor" || id === "geo" || id === "recycler" || id === "mine" || id === "water") emitters.push({ x: p.g.position.x, z: p.g.position.z, y: id === "reactor" ? 1.4 : id === "geo" ? 0.9 : 0.8, hot: id === "reactor" || id === "geo" }); } ); }
+      steam.forEach((sp, k) => { const e = emitters.length ? emitters[k % emitters.length] : null; if (!e || era < 0) { sp.visible = false; return; } const ph = ((T * 0.35 + k * 0.173) % 1); sp.visible = true; sp.position.set(e.x + 0.12 + Math.sin(T + k) * 0.08 * ph, e.y + ph * 1.1, e.z + 0.08 + ph * 0.25); const sz = 0.16 + ph * 0.5; sp.scale.set(sz, sz, 1); (sp.material as THREE.SpriteMaterial).opacity = (1 - ph) * (e.hot ? 0.5 : 0.28); (sp.material as THREE.SpriteMaterial).color.set(e.hot ? 0xfff2e0 : 0xe8f4ff); }); }
     placed.forEach(p => p.g.traverse((o: any) => { const u = o.userData; if (!u) return; if (u.blade !== undefined) o.rotation.z = T * 1.4 + u.blade * 2.09; if (u.beacon !== undefined) o.visible = Math.sin(T * 3 + u.beacon) > 0.2; if (u.float !== undefined) { o.position.y = 3.3 + Math.sin(T * 1.2 + u.float) * 0.12; o.rotation.y = T; } }));
     const built: number[] = []; placed.forEach((_, i) => built.push(i));
     drones.forEach((d, k) => { if (built.length < 3 || era < 1) { d.visible = false; return; } const a = built[(k * 7) % built.length], b = built[(k * 7 + 3) % built.length], f = (Math.sin(T * 0.25 + k * 1.7) + 1) / 2, pa = placed.get(a)!.g.position, pb = placed.get(b)!.g.position; d.visible = true; d.position.set(pa.x + (pb.x - pa.x) * f, 1.6 + 0.2 * Math.sin(T * 2 + k), pa.z + (pb.z - pa.z) * f); d.rotation.y = T * 2; });
