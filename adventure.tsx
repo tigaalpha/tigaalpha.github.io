@@ -102,6 +102,22 @@ export const wlvOf = (id: string): number => Math.max(1, Math.min(5, readWL()[id
 const wBoostOf = (id: string) => 1 + 0.12 * (wlvOf(id) - 1);
 export const levelUpWeapon = (id: string): number => { const m = readWL(), n = Math.min(5, (m[id] || 1) + 1); m[id] = n; try { localStorage.setItem("tg_adv_wlv", JSON.stringify(m)); } catch (e) {} return n; };
 /** a drop's rarity, from how strong the weapon is (owner-approved 2026-10-17: a light beam and a tag over rare and epic drops; the odds themselves are unchanged) */
+// Roles for Adventure Online (plan 35): the robot class decides it; a team with more than one role fights a little better together (synergy)
+// Share card (plan 35): a small PNG drawn on a canvas; shared through the phone's share sheet when it can, else downloaded
+export function shareCard(c: any, P: any, lang: string) {
+  try {
+    const cv = document.createElement("canvas"); cv.width = 720; cv.height = 400; const x = cv.getContext("2d")!;
+    const g = x.createLinearGradient(0, 0, 720, 400); g.addColorStop(0, "#07101f"); g.addColorStop(1, "#1b2d55"); x.fillStyle = g; x.fillRect(0, 0, 720, 400);
+    x.fillStyle = "#ffd75a"; x.font = "800 40px system-ui,sans-serif"; x.fillText("TIGA Adventure", 36, 70);
+    x.fillStyle = "#fff"; x.font = "700 30px system-ui,sans-serif"; x.fillText(String(T3(lang, P.th, P.en, P.zh)).slice(0, 38), 36, 130);
+    x.font = "600 26px system-ui,sans-serif"; x.fillStyle = "#9fe8ff";
+    x.fillText("☠ " + (c.kills || 0) + "    ◆ " + (c.cry || 0) + (c.team ? "    🤝 " + c.team.n : ""), 36, 200);
+    x.fillStyle = "rgba(255,255,255,.6)"; x.font = "500 20px system-ui,sans-serif"; x.fillText("tigaalpha.github.io", 36, 360);
+    cv.toBlob((b) => { if (!b) return; const f = new File([b], "tiga-adventure.png", { type: "image/png" }); const nav: any = navigator; if (nav.canShare && nav.canShare({ files: [f] })) { nav.share({ files: [f], title: "TIGA Adventure" }).catch(() => {}); } else { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "tiga-adventure.png"; a.click(); } }, "image/png");
+  } catch (e) {}
+}
+export const roleOf = (cls: string) => cls === "bulwark" ? "tank" : (cls === "engineer" || cls === "herald" || cls === "tactician") ? "support" : "damage";
+export const synergyOf = (own: string, peers: string[]) => Math.min(0.1, 0.05 * new Set(peers.filter(r => r && r !== own)).size);
 export const rarityOf = (id: string): 0 | 1 | 2 => /railgun|bigbeam|beam|nuke|big$/.test(id) ? 2 : /laser|rpg|plasma|flame|sticky|emp|frost|sword|cluster|napalm|homing/.test(id) ? 1 : 0;
 export function rollWeapon(hard: number, found: string[], boss: boolean, r: () => number = Math.random, planetId: string = ""): string | null {
   const pool = [...WPN_POOL[hard < 1.8 ? 0 : hard < 2.6 ? 1 : 2], ...(PLANET_WPN[planetId] || []), ...(PLANET_WPN[planetId] || [])], fresh = pool.filter(id => !found.includes(id)), base = boss ? 1 : 0.045;
@@ -952,7 +968,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   const connect = async (code: string | null, forcePub?: boolean) => {
     setNerr(""); setBusy(true);
     try {
-      const n = await openAdvRoom(code, { name: (pname || "Pilot").slice(0, 14), model: me, glow: colorway && colorway.glow ? colorway.glow : "#7fe8ff" });
+      const n = await openAdvRoom(code, { role: roleOf(classKeyOf(me)), name: (pname || "Pilot").slice(0, 14), model: me, glow: colorway && colorway.glow ? colorway.glow : "#7fe8ff" });
       n.on({ onPeers: (l) => setPeersL(l), onStart: (id) => { const Q = PLANETS.find(z => z.id === id); if (Q) startPlanet(Q); } }); netRef.current = n; setNet(n);
       if (!code && (pubOpt || forcePub)) { const okp = await publicRoomOpen(n.code, (pname || "Pilot").slice(0, 14), "", false); if (okp) { pubCodeRef.current = n.code; setPubOn(true); } }
     } catch (e) { setNerr(T3(lang, "เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง", "Could not connect — try again", "连接失败，请重试")); }
@@ -1067,7 +1083,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
                 </section>
                 <section className="al-card">
                   <h4>{t("คนในห้อง", "Who is here", "房间里的人")}</h4>
-                  <div className="al-peers">{[{ id: "me", name: pname + " (" + t("คุณ", "you", "你") + ")", glow: colorway && colorway.glow }, ...peersL].map((q: any) => <span key={q.id} className="al-peer" style={{ borderColor: q.glow || "#7fe8ff" }}>{q.name}</span>)}</div>
+                  <div className="al-peers">{[{ id: "me", name: pname + " (" + t("คุณ", "you", "你") + ")", glow: colorway && colorway.glow }, ...peersL].map((q: any) => <span key={q.id} className="al-peer" style={{ borderColor: q.glow || "#7fe8ff" }}>{q.name}{q.role ? (q.role === "tank" ? " 🛡" : q.role === "support" ? " ✚" : " ⚔") : ""}{q.isHost ? " 👑" : ""}</span>)}</div>
                   {net.host && <label className="al-war"><input type="checkbox" data-war="1" checked={warOpt} onChange={e => setWarOpt(e.target.checked)} /> {t("โหมดสู้กันเอง: ทีมแดงสู้ทีมฟ้า (ไม่มีรางวัล)", "Fight mode: red team vs blue team (no rewards)", "对战模式：红队对蓝队（无奖励）")}</label>}
                 </section>
                 <section className="al-card al-next">
@@ -1536,7 +1552,8 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       return { coins, capped: want > coins };
     };
     let warped = false;
-    const showClear = (delay = 2000) => setTimeout(() => { if (ended || warped) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (HI() ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped, team: net ? { n: net.peers.size + 1, goal: teamDone } : null }); }, delay);
+    const showClear = (delay = 2000) => setTimeout(() => { if (ended || warped) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (HI() ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); let raid = 0; if (net) { try { const wk = Math.floor(Date.now() / 604800000), r = JSON.parse(localStorage.getItem("tg_adv_raid") || "{}"); const k = (r.w === wk ? r.k : 0) + kills; localStorage.setItem("tg_adv_raid", JSON.stringify({ w: wk, k })); raid = k; } catch (e) {} }   // weekly raid: room kills add up for the week, resets every 7 days (local only)
+      setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped, team: net ? { n: net.peers.size + 1, goal: teamDone, raid } : null }); }, delay);
     const surv = { t: 0, wave: 0, next: 2, done: false }, SURV_T = 90;   // gas-giant stage: hold out 90 s while the energy fills
     const MINE = P.mission === "mine", CAPM = P.mission === "capture", DYS = P.mission === "dyson", DIG = MINE || DYS, NOBOSS = !!P.survival || MINE || CAPM || DYS;
     // Ashfall: after the orbital strike, a base that was nuked has no defenders left (three monsters per base)
@@ -1576,7 +1593,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let wpnBoost = 1;   // a levelled-up weapon hits harder: set around the shot that is being made
     const dmgOf = (mult = 1) => { const base = (9 + info.lv * 1.5) * mods.dmg * mult * wpnBoost * (1 + 0.05 * UPS.atk) * (1 + PASS.atk); const crit = Math.random() < 0.08 + mods.crit + PASS.crit; return { v: Math.round(base * (0.9 + Math.random() * 0.2) * (crit ? 1.6 : 1)), crit }; };
     let spellG = 0;
-    let streak = 0, streakT = 0, streakMax = 0; const streakBonus = () => Math.min(0.15, Math.floor(streak / 5) * 0.025);   // hit streak (owner-approved): every hit within 2.5 s keeps it alive; +2.5 % damage per 5 hits, capped at +15 %
+    let streak = 0, streakT = 0, streakMax = 0; const synergy = () => (net ? synergyOf(roleOf(classKeyOf(me)), [...net.peers.values()].map((q: any) => q.role)) : 0); const streakBonus = () => Math.min(0.15, Math.floor(streak / 5) * 0.025) + synergy();   // hit streak (owner-approved): every hit within 2.5 s keeps it alive; +2.5 % damage per 5 hits, capped at +15 %
     const hitStreak = () => { streak++; streakT = 2.5; streakMax = Math.max(streakMax, streak); };
     const hurtMon = (m, v, crit, kx, remote = false) => { v = Math.max(1, Math.round(v * (1 + streakBonus()))); if (!remote) hitStreak();
       spellG = Math.min(100, spellG + 5); if (net && !remote && m.i !== undefined) net.sendHit(m.i, v);
@@ -1894,6 +1911,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       }
       if (P.survival && !surv.done && pl.dead <= 0) {
         surv.t += dt; surv.next -= dt;
+        if (net && net.t0 > 0 && !WAR) { const wv = Math.floor((net.now() - net.t0) / 6000) - 0; if (wv > surv.wave) surv.next = 0; else surv.next = Math.max(surv.next, 0.01); }   // in a room waves follow the shared clock, so every screen spawns wave n together
         if (surv.next <= 0) { surv.next = 6; surv.wave++; const n = Math.min(7, 2 + surv.wave); for (let i = 0; i < n; i++) { const side = i % 2 ? 1 : -1; const x = Math.max(60, Math.min(WORLD - 60, teamX() + side * (420 + rnd(surv.wave * 9 + i) * 160))); mons.push(mk(pool[(surv.wave + i) % pool.length], x, 1000 + surv.wave * 10 + i)); } }
         if (surv.t >= SURV_T) {
           surv.done = true; finished = true; mons.length = 0; shots.length = 0; markDone(P.id); shake = 6; showClear(2200);
@@ -2337,7 +2355,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           <span><em>◆</em><b>{clear.cry}</b><small>{t("คริสตัลที่ได้", "Crystals earned", "获得水晶")}</small></span>
           {RUN_T0 > 0 && <span><em>⏱</em><b>{Math.max(1, Math.round((Date.now() - RUN_T0) / 1000))}s</b><small>{t("เวลาที่ใช้", "Time", "用时")}</small></span>}
         </div>
-        {clear.team && <small data-teamresult="1">🤝 {t("ทีม " + clear.team.n + " คน · ฆ่ารวมของห้อง " + clear.kills + (clear.team.goal ? " · เป้าหมายทีมสำเร็จ ✓" : ""), "Team of " + clear.team.n + " · room kills " + clear.kills + (clear.team.goal ? " · team goal ✓" : ""), "团队 " + clear.team.n + " 人 · 房间击杀 " + clear.kills + (clear.team.goal ? " · 团队目标 ✓" : ""))} <button className="adv-btn" data-thanks="1" onClick={() => chatRef.current && chatRef.current("👏")}>👏 {t("ขอบคุณเพื่อนร่วมทีม", "Thank the team", "感谢队友")}</button></small>}
+        {clear.team && <small data-teamresult="1">🤝 {t("ทีม " + clear.team.n + " คน · ฆ่ารวมของห้อง " + clear.kills + (clear.team.goal ? " · เป้าหมายทีมสำเร็จ ✓" : "") + " · เรดสัปดาห์ " + clear.team.raid + "/500", "Team of " + clear.team.n + " · room kills " + clear.kills + (clear.team.goal ? " · team goal ✓" : "") + " · weekly raid " + clear.team.raid + "/500", "团队 " + clear.team.n + " 人 · 房间击杀 " + clear.kills + (clear.team.goal ? " · 团队目标 ✓" : "") + " · 每周突袭 " + clear.team.raid + "/500")} <button className="adv-btn" data-share="1" onClick={() => shareCard(clear, P, lang)}>🖼 {t("แชร์การ์ด", "Share card", "分享卡片")}</button> <button className="adv-btn" data-thanks="1" onClick={() => chatRef.current && chatRef.current("👏")}>👏 {t("ขอบคุณเพื่อนร่วมทีม", "Thank the team", "感谢队友")}</button></small>}
         {clear.coins > 0 && <small className="ac-coins">🪙 +{clear.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
         {clear.capped && <small>{t("ถึงเพดานเหรียญประจำวันแล้ว", "Daily coin ceiling reached", "已达今日金币上限")}</small>}
         {clear.next ? <button className="adv-btn go" autoFocus onClick={() => { if (onNext) onNext(clear.next); }}>▶ {t("แมปต่อไป: ", "Next map: ", "下一张：")}{T3(lang, clear.next.th, clear.next.en, clear.next.zh).split(" · ")[0]} ({Math.max(0, auto)})</button> : <small>{t("ครบทุกแมปที่เปิดอยู่แล้ว", "That was the last open map", "已是当前最后一张开放地图")}</small>}
