@@ -193,7 +193,7 @@ export function isPhoneAudio(): boolean { try { return /Android|iPhone|iPad/i.te
 function liveOut(ctx: AudioContext): AudioNode {
   try {
     const w: any = window;
-    if (localStorage.getItem("tg_msd") !== "1" || !(ctx as any).createMediaStreamDestination) return ctx.destination;
+    if (!/Android/i.test(navigator.userAgent) || localStorage.getItem("tg_nomsd") === "1" || !(ctx as any).createMediaStreamDestination) return ctx.destination;
     let d = (ctx as any).__tgMsd;
     if (!d) {
       d = (ctx as any).createMediaStreamDestination(); const a = new Audio(); a.srcObject = d.stream; a.autoplay = true; (a as any).playsInline = true; a.style.display = "none";
@@ -212,7 +212,7 @@ export function createAdvMusic(id: string, gainMul = 1): AdvMusic | null {
   const pump = () => {
     if (!ctx || !master || !bus) return;
     const sps = 60 / (M.bpm * (boss ? BOSS.bpmMul : 1)) / 4;
-    while (next < ctx.currentTime + 0.35) { const sw = (step % 2 && M.swing) ? M.swing * sps : 0; if (on) scheduleStep(ctx, bus, M, step, next + sw, boss, sps, intensity); step++; steps++; next += sps; }
+    while (next < ctx.currentTime + (isPhoneAudio() ? 1.4 : 0.35)) { const sw = (step % 2 && M.swing) ? M.swing * sps : 0; if (on) scheduleStep(ctx, bus, M, step, next + sw, boss, sps, intensity); step++; steps++; next += sps; }
   };
   const vis = () => { if (!ctx) return; if (document.hidden) ctx.suspend().catch(() => {}); else ctx.resume().catch(() => {}); };
   return {
