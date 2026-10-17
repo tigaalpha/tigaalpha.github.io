@@ -15,9 +15,15 @@ export async function loadHandLandmarker() {
   if (_handLm) return _handLm;
   if (_mpLoading) return _mpLoading;
   _mpLoading = (async () => {
-    const url = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
-    const vision = await import(/* @vite-ignore */ url);
-    const fileset = await vision.FilesetResolver.forVisionTasks(url + "/wasm");
+    // The bundle is imported by its explicit ES-module file (a bare package URL resolves to whatever the CDN picks as "main", which for this package
+    // has a CommonJS twin), and a second path is tried if the first cannot be fetched.
+    const base = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
+    let vision: any = null, lastErr: any = null;
+    for (const file of ["/vision_bundle.mjs", ""]) {
+      try { vision = await import(/* @vite-ignore */ base + file); if (vision && vision.FilesetResolver && vision.HandLandmarker) break; vision = null; } catch (e) { lastErr = e; }
+    }
+    if (!vision) throw lastErr || new Error("hand model library not available");
+    const fileset = await vision.FilesetResolver.forVisionTasks(base + "/wasm");
     _handLm = await vision.HandLandmarker.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task" },
       numHands: 2,
@@ -25,6 +31,8 @@ export async function loadHandLandmarker() {
     });
     return _handLm;
   })();
+  // a FAILED load must not be remembered: the retry button used to get the same rejected promise back, so "try again" could never work
+  _mpLoading.catch(() => { _mpLoading = null; });
   return _mpLoading;
 }
 // bone connections for the 21-point MediaPipe hand

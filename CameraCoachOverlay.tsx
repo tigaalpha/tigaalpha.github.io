@@ -65,7 +65,7 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
             {camPraise && !camRecap && <div className="campraise" key={camPraise}>{camPraise}</div>}
             {camStatus === "error" && (
               <div className="camoverlay err">
-                <div>{lc.camError}</div>
+                <div>{camMsg || lc.camError}</div>
                 <button className="songbtn go" style={{ marginTop: 14 }} onClick={retryCamera}>↻ {lc.camRetry}</button>
               </div>
             )}
