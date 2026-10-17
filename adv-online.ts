@@ -84,3 +84,12 @@ export async function submitAdvTime(map: string, secs: number, pilot: string): P
 export async function listAdvTop(map: string, limit = 10): Promise<{ pilot: string; secs: number }[]> {
   try { const { data, error } = await sb.rpc("adv_top_times", { p_map: map, p_limit: limit }); if (error || !Array.isArray(data)) return []; return data.map((r: any) => ({ pilot: String(r.pilot || "").slice(0, 14), secs: Number(r.secs) || 0 })); } catch (e) { return []; }
 }
+
+/* Community weekly raid (plan 35, supabase-adv-raid-migration.sql). Every call fails soft: not applied / signed out / offline = null. */
+export async function raidAdd(n: number): Promise<number | null> {
+  try { const { data, error } = await sb.rpc("adv_raid_add", { p_n: Math.max(1, Math.round(n)) }); if (error || typeof data !== "number" || data < 0) return null; return data; } catch (e) { return null; }
+}
+export async function raidGet(): Promise<number | null> {
+  try { const { data, error } = await sb.rpc("adv_raid_get"); if (error || typeof data !== "number") return null; return data; } catch (e) { return null; }
+}
+export const RAID_GOAL = 100000;
