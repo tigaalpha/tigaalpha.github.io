@@ -11,6 +11,8 @@
    and skill points only: nothing in this mode sells, pays coins or touches the shop. Phase 1: one playable
    planet (the other four are on the map, locked), three monsters, no boss yet. ── */
 import { orbPic } from "./planet-orb";
+import { PowerSheet, usePower } from "./game-power-ui";
+import { spendPower, COST as POWER_COST, POWER_MAX } from "./game-power";
 import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "react";
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { FigurePic, prepareFigures, pauseFigures, figureOf, FIGURES_OK } from "./figure-cache";
@@ -963,7 +965,10 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   }, [planet, filming]);
   useEffect(() => { if (menuMus.current) menuMus.current.setOn(menuSnd); try { localStorage.setItem("tg_adv_music", menuSnd ? "1" : "0"); } catch (e) {} }, [menuSnd]);
   useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
-  const startPlanet = (P: any) => { (window as any).__advTap = performance.now(); playUi && playUi("click"); warmAudio(); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
+  // GAME POWER: a map costs power, which only learning earns (game-power.ts); admins and the bots' test door are free
+  const [powerNeed, setPowerNeed] = useState(0);
+  const powerNow = usePower();
+  const startPlanet = (P: any) => { if (!spendPower(POWER_COST.adventure, "adventure-map", adminTier)) { setPowerNeed(POWER_COST.adventure); return; } (window as any).__advTap = performance.now(); playUi && playUi("click"); warmAudio(); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
   const canStart = (P: any) => (net ? net.host : open(P));   // in a room only the host chooses the map (guests join whatever map the host opens)
   const connect = async (code: string | null, forcePub?: boolean) => {
     setNerr(""); setBusy(true);
@@ -997,6 +1002,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   return (
     <div className="adv" role="region" aria-label="Adventure Mode">
       <style>{CSS}</style>
+      {powerNeed !== 0 && <PowerSheet lang={lang} need={powerNeed > 0 ? powerNeed : 0} onClose={() => setPowerNeed(0)} />}
       {fin && !planet && !pro ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={FINALE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_finale", "1"); } catch (e) {} setFin(false); exitFsAndUnlock(); }} /></Suspense> : pro && !planet ? <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={PROLOGUE} lang={lang} me={me} colorway={colorway} onDone={() => { try { localStorage.setItem("tg_adv_prologue", "1"); } catch (e) {} setPro(false); exitFsAndUnlock(); }} /></Suspense> : !planet ? (
         <div className={"adv-menu" + (online ? " onl" : "")}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1005,6 +1011,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
             <button className="adv-btn" data-menu-snd aria-pressed={menuSnd} onClick={() => setMenuSnd(v => !v)} aria-label="music">{menuSnd ? "♪" : "🔇"}</button>
           </div>
           <div className="adv-chips" data-chips>
+          <span className="adv-chip" data-power-chip onClick={() => setPowerNeed(-1)} style={{ cursor: "pointer" }}>⚡ {powerNow}/{POWER_MAX}</span>
           <span className="adv-chip">{t("ส่งกลับโลกแล้ว " + ore + " ก้อนแร่ · อาณานิคม: " + ostage.th, "Shipped to Earth: " + ore + " ore · colony: " + ostage.en, "已运回地球 " + ore + " 矿 · 殖民地：" + ostage.zh)}</span>
           {readDyson() > 0 && <span className="adv-chip">{t("ไดสันสเฟียร์: ส่งพลังงานกลับโลกแล้ว " + readDyson() + " แผง ☀", "Dyson sphere: " + readDyson() + " panels beaming energy to Earth ☀", "戴森球：" + readDyson() + " 块板正向地球输送能量 ☀")}</span>}
           <span className="adv-chip adv-chip-cry">{t("◆ คริสตัล ", "◆ Crystals ", "◆ 晶体 ") + crystals}</span>
