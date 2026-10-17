@@ -17,7 +17,7 @@ export function SettingsPopup({ lang, high, onGfx, musicOn, onMusic, online, onR
         <button className="adv-btn go" data-resume="1" onClick={onResume}>▶ {t("เล่นต่อ", "RESUME", "继续游戏")}</button>
         <div className="adv-pause-row" role="radiogroup" aria-label="Graphics">
           <span>{t("คุณภาพกราฟิก", "Graphics", "画质")}</span>
-          <button role="radio" aria-checked={!high} className={!high ? "on" : ""} data-gfx="standard" onClick={() => high && onGfx()}>{t("มาตรฐาน (SD)", "Standard (SD)", "标准 (SD)")}</button>
+          <button role="radio" aria-checked={!high} className={!high ? "on" : ""} data-gfx="standard" onClick={() => high && onGfx()}>{t("ประหยัด (Lite)", "Lite", "轻量 (Lite)")}</button>
           <button role="radio" aria-checked={high} className={high ? "on" : ""} data-gfx="high" onClick={() => !high && onGfx()}>{t("สูง (HD)", "High (HD)", "高清 (HD)")}</button>
         </div>
         {onMusic && <div className="adv-pause-row"><span>{t("เสียง", "Sound", "声音")}</span>
