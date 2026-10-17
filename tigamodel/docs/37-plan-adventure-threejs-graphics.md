@@ -30,7 +30,7 @@ Non-goals (say so honestly): not ROV/console quality (no artist assets, no baked
    - `kit.ts`: shared materials (metal, glass, emissive, rock), shared geometry caches, sprite/particle pools (steam, dust, sparks), instancing helpers, canvas-texture noise (reuse the periodic noise from `planet-orb.ts`).
    - `post.ts`: optional EffectComposer (bloom, vignette, film grade) for High only, one fullscreen pass budget.
    - `light.ts`: sun/day-cycle rig, shadow-camera fitting, per-planet palettes.
-2. Perf budget per frame on a mid Android phone: 16 ms total, of which three.js <= 8 ms; draw calls <= 150; triangles <= 150k; shadow map 1024 (Standard has none). Every screen reports `adv` usage rows `gfx:<screen>:<tier>:<fps>` so real phones tell us.
+2. Perf budget per frame on a mid Android phone: 16 ms total, of which three.js <= 8 ms; draw calls <= 150; triangles <= 150k; shadow map 1024 (High only; Lite has no 3D). Every screen reports `adv` usage rows `gfx:<screen>:<tier>:<fps>` so real phones tell us.
 3. Test harness: headless software-GL screenshot script per screen (the colony/ranch scripts are the template) plus a `__adv3d.stats()` hook (draw calls, triangles, ms).
 
 Exit gate: colony and ranch moved onto the toolkit with no visual regression, their smoke tests green in BOTH High and Lite, and the same-seed High-vs-Lite state comparison passing.
