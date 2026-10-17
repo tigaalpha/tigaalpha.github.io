@@ -15,21 +15,24 @@ export async function loadHandLandmarker() {
   if (_handLm) return _handLm;
   if (_mpLoading) return _mpLoading;
   _mpLoading = (async () => {
-    // The bundle is imported by its explicit ES-module file (a bare package URL resolves to whatever the CDN picks as "main", which for this package
-    // has a CommonJS twin), and a second path is tried if the first cannot be fetched.
-    const base = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
-    let vision: any = null, lastErr: any = null;
-    for (const file of ["/vision_bundle.mjs", ""]) {
-      try { vision = await import(/* @vite-ignore */ base + file); if (vision && vision.FilesetResolver && vision.HandLandmarker) break; vision = null; } catch (e) { lastErr = e; }
+    // Our own copy first (public/mediapipe: the library, its two wasm builds and the hand model, same origin so nothing depends on a CDN or on
+    // the phone's network reaching Google), then the CDN as a fallback. The bundle is imported by its explicit ES-module file: a bare package
+    // URL resolves to whatever the CDN picks as "main", which for this package has a CommonJS twin.
+    const sources = [
+      { base: `${location.origin}/mediapipe`, model: `${location.origin}/mediapipe/hand_landmarker.task` },
+      { base: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`, model: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task" },
+    ];
+    let lastErr: any = null;
+    for (const src of sources) {
+      try {
+        const vision: any = await import(/* @vite-ignore */ src.base + "/vision_bundle.mjs");
+        if (!vision || !vision.FilesetResolver || !vision.HandLandmarker) throw new Error("hand model library not available");
+        const fileset = await vision.FilesetResolver.forVisionTasks(src.base + "/wasm");
+        _handLm = await vision.HandLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: src.model }, numHands: 2, runningMode: "VIDEO" });
+        return _handLm;
+      } catch (e) { lastErr = e; }
     }
-    if (!vision) throw lastErr || new Error("hand model library not available");
-    const fileset = await vision.FilesetResolver.forVisionTasks(base + "/wasm");
-    _handLm = await vision.HandLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task" },
-      numHands: 2,
-      runningMode: "VIDEO",
-    });
-    return _handLm;
+    throw lastErr || new Error("hand model could not be loaded");
   })();
   // a FAILED load must not be remembered: the retry button used to get the same rejected promise back, so "try again" could never work
   _mpLoading.catch(() => { _mpLoading = null; });
