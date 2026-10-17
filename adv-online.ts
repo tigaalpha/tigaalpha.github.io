@@ -12,9 +12,9 @@
 import { sb } from "./supabase-client";
 import { makeRoomCode } from "./pvp-online";
 
-export type Peer = { id: string; name: string; model: string; glow: string; x?: number; y?: number; tx?: number; ty?: number; face?: number; hp?: number; t?: number; say?: string; sayT?: number };
+export type Peer = { id: string; name: string; model: string; glow: string; x?: number; y?: number; tx?: number; ty?: number; face?: number; hp?: number; t?: number; say?: string; sayT?: number; role?: string; isHost?: boolean };
 export type Net = {
-  code: string; id: string; host: boolean; peers: Map<string, Peer>; war: boolean;
+  code: string; id: string; host: boolean; role: string; t0: number; now: () => number; peers: Map<string, Peer>; war: boolean;
   sendStart: (planet: string, war?: boolean) => void; sendPos: (x: number, y: number, face: number, hp: number) => void; sendHit: (i: number, v: number) => void; sendEv: (k: string, n: number) => void; sendChat: (t: string) => void;
   on: (h: Partial<Handlers>) => void; leave: () => void;
 };
@@ -23,14 +23,14 @@ type Handlers = { onPeers: (list: Peer[]) => void; onStart: (planet: string, war
 export const newPeerId = () => Math.random().toString(36).slice(2, 10);
 export const MAX_PILOTS = 4;
 
-export async function openAdvRoom(code: string | null, me: { name: string; model: string; glow: string }): Promise<Net> {
-  const host = !code, room = host ? makeRoomCode() : String(code).trim().toUpperCase();
+export async function openAdvRoom(code: string | null, me: { name: string; model: string; glow: string; role?: string }): Promise<Net> {
+  const isHost0 = !code, room = isHost0 ? makeRoomCode() : String(code).trim().toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(room)) throw new Error("bad code");
-  const id = newPeerId(); const peers = new Map<string, Peer>(); let H: Partial<Handlers> = {};
+  const id = newPeerId(); const peers = new Map<string, Peer>(); let H: Partial<Handlers> = {}; let clockOff = 0, hostNow = isHost0; const meta = () => ({ name: me.name, model: me.model, glow: me.glow, role: me.role || "", host: hostNow });
   const mkCh = (typeof window !== "undefined" && (window as any).__advChannelFactory) || ((n: string, c: any) => sb.channel(n, c));   // tests swap in an in-browser channel; production always uses Supabase Realtime
   const ch = mkCh(`advo:${room}`, { config: { broadcast: { self: false }, presence: { key: id } } });
   const on = (event: string, fn: (p: any) => void) => ch.on("broadcast", { event }, ({ payload }: any) => fn(payload));
-  on("start", (p) => { net.war = !!p.war; H.onStart && H.onStart(p.planet, !!p.war); });
+  on("start", (p) => { net.war = !!p.war; if (typeof p.t === "number") { clockOff = p.t - Date.now(); net.t0 = p.t; } H.onStart && H.onStart(p.planet, !!p.war); });
   on("pos", (p) => { const q = peers.get(p.id); if (q) { q.tx = p.x; q.ty = p.y; q.face = p.face; q.hp = p.hp; q.t = Date.now(); if (q.x === undefined) { q.x = p.x; q.y = p.y; } } });
   on("hit", (p) => H.onHit && H.onHit(p.i, p.v, p.id));
   on("ev", (p) => H.onEv && H.onEv(peers.get(p.id), p.k, p.n));
@@ -38,17 +38,19 @@ export async function openAdvRoom(code: string | null, me: { name: string; model
   ch.on("presence", { event: "sync" }, () => {
     try {
       const st = ch.presenceState(); const seen = new Set<string>();
-      for (const k of Object.keys(st || {})) { const m: any = st[k] && st[k][0]; if (!m || k === id) continue; seen.add(k); const old = peers.get(k); peers.set(k, { ...(old || {}), id: k, name: m.name || "Pilot", model: m.model || "", glow: m.glow || "#7fe8ff" }); }
+      for (const k of Object.keys(st || {})) { const m: any = st[k] && st[k][0]; if (!m || k === id) continue; seen.add(k); const old = peers.get(k); peers.set(k, { ...(old || {}), id: k, name: m.name || "Pilot", model: m.model || "", glow: m.glow || "#7fe8ff", role: m.role || "", isHost: !!m.host }); }
       for (const k of [...peers.keys()]) if (!seen.has(k)) peers.delete(k);
+      // host migration: when no pilot in the room (me included) is the host, the lowest id takes over and says so
+      if (!net.host && ![...peers.values()].some(q => q.isHost)) { const ids = [id, ...peers.keys()].sort(); if (ids[0] === id) { net.host = true; hostNow = true; try { ch.track(meta()); } catch (e) {} } }
       H.onPeers && H.onPeers([...peers.values()]);
     } catch (e) {}
   });
   const send = (event: string, payload: any) => { try { ch.send({ type: "broadcast", event, payload: { ...payload, id } }); } catch (e) {} };
   let joined = false, dropped = false;   // after the first SUBSCRIBED a dropped link re-subscribes the same channel and presence is tracked again (plan 35 reconnect)
-  await new Promise<void>((res, rej) => { const to = setTimeout(() => rej(new Error("timeout")), 9000); ch.subscribe(async (status: string) => { if (status === "SUBSCRIBED") { try { await ch.track({ name: me.name, model: me.model, glow: me.glow }); } catch (e) {} joined = true; clearTimeout(to); res(); } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") { if (joined) { if (!dropped) { dropped = true; setTimeout(() => { dropped = false; try { ch.subscribe(); } catch (e) {} }, 1500); } } else { clearTimeout(to); rej(new Error(status)); } } }); });
+  await new Promise<void>((res, rej) => { const to = setTimeout(() => rej(new Error("timeout")), 9000); ch.subscribe(async (status: string) => { if (status === "SUBSCRIBED") { try { await ch.track(meta()); } catch (e) {} joined = true; clearTimeout(to); res(); } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") { if (joined) { if (!dropped) { dropped = true; setTimeout(() => { dropped = false; try { ch.subscribe(); } catch (e) {} }, 1500); } } else { clearTimeout(to); rej(new Error(status)); } } }); });
   const net: Net = {
-    code: room, id, host, peers, war: false,
-    sendStart: (planet, war) => { net.war = !!war; send("start", { planet, war: !!war }); }, sendPos: (x, y, face, hp) => send("pos", { x, y, face, hp }), sendHit: (i, v) => send("hit", { i, v }), sendEv: (k, n) => send("ev", { k, n }), sendChat: (t) => send("chat", { t }),
+    code: room, id, host: isHost0, role: me.role || "", t0: 0, now: () => Date.now() + clockOff, peers, war: false,
+    sendStart: (planet, war) => { net.war = !!war; net.t0 = net.now(); send("start", { planet, war: !!war, t: net.t0 }); }, sendPos: (x, y, face, hp) => send("pos", { x, y, face, hp }), sendHit: (i, v) => send("hit", { i, v }), sendEv: (k, n) => send("ev", { k, n }), sendChat: (t) => send("chat", { t }),
     on: (h) => { H = { ...H, ...h }; }, leave: () => { try { ch.send({ type: "broadcast", event: "leave", payload: { id } }); } catch (e) {} try { ch.unsubscribe(); } catch (e) {} },
   };
   return net;
