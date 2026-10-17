@@ -193,7 +193,7 @@ export function isPhoneAudio(): boolean { try { return /Android|iPhone|iPad/i.te
 function liveOut(ctx: AudioContext): AudioNode {
   try {
     const w: any = window;
-    if (!/Android/i.test(navigator.userAgent) || localStorage.getItem("tg_nomsd") === "1" || !(ctx as any).createMediaStreamDestination) return ctx.destination;
+    if (localStorage.getItem("tg_msd") !== "1" || !(ctx as any).createMediaStreamDestination) return ctx.destination;
     let d = (ctx as any).__tgMsd;
     if (!d) {
       d = (ctx as any).createMediaStreamDestination(); const a = new Audio(); a.srcObject = d.stream; a.autoplay = true; (a as any).playsInline = true; a.style.display = "none";
