@@ -57,7 +57,7 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
                   <span className="cammission-timer" style={{ fontFamily: "var(--f-num, monospace)" }}>{camMission.secLeft}s</span>
                 </div>
                 <div className="cammission-txt">{lang === "th" ? camMission.ch.th : lang === "zh" ? camMission.ch.zh : camMission.ch.en}</div>
-                <div className="cammission-how">{lang === "th" ? camMission.how.th : lang === "zh" ? camMission.how.zh : camMission.how.en}</div>
+                <div className="cammission-how">{lang === "th" ? camMission.ch.how.th : lang === "zh" ? camMission.ch.how.zh : camMission.ch.how.en}</div>
                 <div className="cammission-bar"><div className="cammission-fill" style={{ width: `${Math.round(camMission.prog * 100)}%` }} /></div>
               </div>
             )}
