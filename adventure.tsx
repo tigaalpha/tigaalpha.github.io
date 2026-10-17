@@ -1528,6 +1528,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const ARENA = WORLD - 900;
     const TAPMAP = !!P.survival || CAPM;   // energy-harvest maps: the beacons are energy taps, a right answer feeds the harvest (owner, 2026-10-12)
     const beacons: any[] = (P.survival ? [1000, 2300, 3600] : [1300, 2650, 3950]).map(x => ({ x, used: false, tap: TAPMAP }));   // knowledge beacons: review questions from what the learner has studied
+    const gradeRef: any = { c: null, k: "" };   // one cached grade layer (key light, haze, vignette): a single drawImage per frame
     const maxParts = HI() ? 140 : 26;
     const addPart = (x, y, vx, vy, life, col, sz) => { if (parts.length < maxParts) parts.push({ x, y, vx, vy, life, max: life, col, sz }); };
     const fireflies = Array.from({ length: HI() ? 46 : 12 }, (_, i) => ({ x: rnd(i + 200) * WORLD, y: 120 + rnd(i + 230) * 170, ph: rnd(i + 260) * 6 }));
@@ -2173,7 +2174,12 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         ctx.fillText(DYS ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, PARTS[0] + " ", PARTS[1].toUpperCase() + " ", PARTS[2]) + dframes.filter(q => q.built).length + "/4" : MINE ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "ส่งที่แท่นขวาสุด ≥ ", "deliver at the far-right pad ≥ ", "送到最右平台 ≥ ") + ORE_NEED : T3(lang, "สถานี ", "STATION ", "采集站 ") + (stations.filter(q => q.done).length + (cur ? 1 : 0)) + "/3 · " + Math.round(Math.min(1, fr) * 100) + "%", cw / 2, by - 4 * k); }
       if (boss.active && !boss.dead) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ff5b7a"; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.max), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, P.boss[0], P.boss[1], P.boss[2]), cw / 2, by - 4 * k); }
       // light + vignette (HI()): one baked-free pass, a couple of fills
-      if (HI()) { const g = ctx.createRadialGradient(cw / 2, ch * 0.55, ch * 0.3, cw / 2, ch * 0.55, ch * 1.1); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,6,10,.55)"); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
+      { const gk = cw + "x" + ch + P.id; if (!gradeRef.c || gradeRef.k !== gk) { gradeRef.k = gk; const oc = document.createElement("canvas"); oc.width = cw; oc.height = ch; const o = oc.getContext("2d"); if (o) {
+          let g = o.createRadialGradient(cw * 0.12, ch * 0.02, 0, cw * 0.12, ch * 0.02, Math.max(cw, ch) * 0.95); g.addColorStop(0, "rgba(255,214,150,.16)"); g.addColorStop(1, "rgba(255,214,150,0)"); o.fillStyle = g; o.fillRect(0, 0, cw, ch);
+          g = o.createRadialGradient(cw * 0.95, ch * 1.0, 0, cw * 0.95, ch * 1.0, Math.max(cw, ch) * 0.8); g.addColorStop(0, "rgba(40,80,140,.16)"); g.addColorStop(1, "rgba(40,80,140,0)"); o.fillStyle = g; o.fillRect(0, 0, cw, ch);
+          g = o.createLinearGradient(0, ch * 0.6, 0, ch); g.addColorStop(0, "rgba(" + P.glow + ",0)"); g.addColorStop(1, "rgba(" + P.glow + ",.10)"); o.fillStyle = g; o.fillRect(0, ch * 0.6, cw, ch * 0.4);
+          g = o.createRadialGradient(cw / 2, ch * 0.55, ch * 0.3, cw / 2, ch * 0.55, ch * 1.1); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,6,10,.5)"); o.fillStyle = g; o.fillRect(0, 0, cw, ch); gradeRef.c = oc; } }
+        if (gradeRef.c) ctx.drawImage(gradeRef.c, 0, 0); }
       // the robot and its pet are DOM figures placed over the canvas
       const px = pxRef.current; if (px) {
         const cssK = k / dpr, bw = 80 * cssK, bh = 128 * cssK;
