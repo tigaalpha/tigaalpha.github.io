@@ -700,14 +700,14 @@ const CSS = `
 .adv-gfx button.on{background:rgba(61,220,151,.3);border-color:#3ddc97;color:#fff}
 
 .adv-quiz{position:absolute;inset:0;z-index:7;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,6,12,.72);backdrop-filter:blur(3px);padding:0}
-.adv-qcard{width:100%;max-width:640px;max-height:96%;overflow-y:auto;background:linear-gradient(180deg,#0b2a35,#061821);border:1.5px solid rgba(140,255,220,.5);border-radius:22px 22px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
-.adv-qhead{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;letter-spacing:.6px;color:#9dffd6}.adv-qhead i{font-style:normal;margin-left:auto;color:#ffe08a}
-.adv-qq{font-size:16.5px;line-height:1.35;font-weight:700;color:#fff}
-.adv-qopts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.adv-qopt{min-height:48px;border-radius:14px;border:1.5px solid rgba(140,255,220,.45);background:rgba(4,30,36,.7);color:#fff;font-weight:800;font-size:14.5px;cursor:pointer;padding:6px 10px}
+.adv-qcard{width:100%;max-width:880px;max-height:96%;overflow-y:auto;background:linear-gradient(180deg,#0b2a35,#061821);border:1.5px solid rgba(140,255,220,.5);border-radius:22px 22px 0 0;padding:22px 26px calc(22px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:16px}.adv-qcard>*{flex-shrink:0}
+.adv-qhead{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;letter-spacing:.6px;color:#9dffd6}.adv-qhead i{font-style:normal;margin-left:auto;color:#ffe08a}
+.adv-qq{font-size:21px;line-height:1.4;font-weight:700;color:#fff;margin-bottom:6px}
+.adv-qopts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.adv-qopt{min-height:56px;border-radius:14px;border:1.5px solid rgba(140,255,220,.45);background:rgba(4,30,36,.7);color:#fff;font-weight:800;font-size:17px;cursor:pointer;padding:6px 10px}
 .adv-qopt.ok{background:rgba(61,220,151,.4);border-color:#3ddc97}.adv-qopt.no{background:rgba(255,77,109,.35);border-color:#ff6b81}
-.adv-qpiano{border-radius:12px;overflow:hidden}
-.adv-qgo{min-height:48px;border-radius:24px;border:0;background:linear-gradient(180deg,#3ddc97,#1f9a66);color:#04201a;font-weight:900;font-size:15px;cursor:pointer}.adv-qgo:disabled{opacity:.4}
-.adv-qres{border-radius:14px;padding:10px 12px;font-size:13.5px;line-height:1.4}.adv-qres.good{background:rgba(61,220,151,.22);color:#c9ffe9}.adv-qres.bad{background:rgba(255,160,90,.18);color:#ffe3c9}
+.adv-qpiano{border-radius:12px;overflow:hidden;margin-top:8px;padding:6px 0 4px}
+.adv-qgo{min-height:58px;border-radius:29px;border:0;background:linear-gradient(180deg,#3ddc97,#1f9a66);color:#04201a;font-weight:900;font-size:18px;cursor:pointer}.adv-qgo:disabled{opacity:.4}
+.adv-qres{border-radius:14px;padding:14px 16px;font-size:16.5px;line-height:1.5}.adv-qres.good{background:rgba(61,220,151,.22);color:#c9ffe9}.adv-qres.bad{background:rgba(255,160,90,.18);color:#ffe3c9}
 .adv-qres b{display:block;margin-bottom:3px}
 @media (prefers-reduced-motion:reduce){.adv-banner{animation:none;opacity:1}}
 /* round pad buttons (owner, 2026-10-11) */
@@ -755,7 +755,7 @@ const CSS = `
 .adv-menu .adv-how{background:var(--card2,#f3f3f3);padding:8px 12px;border-radius:16px}
 .adv-pad.simple .pvpact.rocket,.adv-pad.simple .pvpact.zap,.adv-pad.simple .pvpact.kick,.adv-pad.simple .pvpact.ult,.adv-pad.simple .pvpact.spell{display:none!important}
 .adv-clear .ac-stats{display:flex;gap:8px;justify-content:center;margin:4px 0}.adv-clear .ac-stats span{display:flex;flex-direction:column;align-items:center;min-width:76px;padding:6px 10px;border-radius:16px;background:rgba(255,255,255,.1)}.adv-clear .ac-stats em{font-style:normal;font-size:16px}.adv-clear .ac-stats b{font-size:20px;color:#fff;letter-spacing:0}.adv-clear .ac-stats small{font-size:10.5px;opacity:.85}.adv-clear{animation:advpop .45s cubic-bezier(.2,1.4,.4,1)}@keyframes advpop{0%{opacity:0;transform:translateX(-50%) scale(.7)}100%{opacity:1;transform:translateX(-50%) scale(1)}}@media (prefers-reduced-motion:reduce){.adv-clear{animation:none}}
-@media (max-height:520px){.adv-qcard{max-height:100%;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));gap:5px;border-radius:16px 16px 0 0}.adv-qq{font-size:15px}.adv-qres{padding:6px 10px;font-size:13px}.adv-qgo{min-height:36px;height:36px}.adv-qpiano{transform-origin:top center;transform:scale(.8);margin:-12px 0 -14px}}
+@media (max-height:520px){.adv-qcard{max-height:100%;padding:14px 22px calc(14px + env(safe-area-inset-bottom,0px));gap:12px;border-radius:18px 18px 0 0}.adv-qq{font-size:18px;margin-bottom:4px}.adv-qres{padding:10px 14px;font-size:15px}.adv-qgo{min-height:46px;height:46px;font-size:16px}.adv-qopt{min-height:46px;font-size:15.5px}.adv-qpiano{margin-top:10px;padding:4px 0}}
 .adv-clear{top:max(64px,6%);max-height:calc(100% - 76px);overflow-y:auto;overscroll-behavior:contain}
 @media (max-height:520px){.adv-clear{top:60px;max-height:calc(100% - 66px);padding:8px 14px;gap:5px}.adv-clear b{font-size:17px}.adv-clear .ac-stats{margin:0}.adv-clear .ac-stats span{min-width:64px;padding:3px 8px}.adv-clear .ac-stats span b{font-size:20px}.adv-clear .adv-btn{min-height:34px;height:34px;padding:0 14px;font-size:14px}}
 
@@ -2437,7 +2437,12 @@ function QuizCard({ quiz, lang, onKey, onConfirm, onChoice, onNext, onSkip }: an
   const t = (th, en, zh) => T3(lang, th, en, zh);
   const [picked, setPicked] = useState<number | null>(null);
   useEffect(() => setPicked(null), [quiz.i]);
-  const teachLit: string[] = quiz.res ? (quiz.res === "bad" || q.kind !== "choice" ? q.teach.lit : []) : [];
+  const teachLit: string[] = (() => {   // the taught keys, lowest to highest, in BOTH octaves of the keyboard (the notes' own octave first, then the same notes one octave up)
+    if (!quiz.res || !(quiz.res === "bad" || q.kind !== "choice")) return [];
+    const NN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], midi = (n: string) => { const m = /^([A-G]#?)(\d)$/.exec(n); return m ? (Number(m[2]) + 1) * 12 + NN.indexOf(m[1]) : -1; }, nm = (v: number) => NN[v % 12] + (Math.floor(v / 12) - 1);
+    const base = [...new Set((q.teach.lit as string[]).map(midi).filter(v => v >= 0))].map(v => (v >= 72 ? v - 12 : v)).sort((a, b) => a - b);   // fold into octave 4 first
+    return [...base.map(nm), ...base.map(v => nm(v + 12))];
+  })();
   const [shownN, setShownN] = useState(0);   // the answer's keys light one by one from the lowest note up, so the learner sees how the chord is built
   useEffect(() => { setShownN(0); if (!teachLit.length) return; let n = 0; const id = setInterval(() => { n++; setShownN(n); if (n >= teachLit.length) clearInterval(id); }, 450); return () => clearInterval(id); }, [quiz.res, quiz.i]);
   const lit = quiz.res ? teachLit.slice(0, shownN) : quiz.sel.map((x) => x.name + "");
