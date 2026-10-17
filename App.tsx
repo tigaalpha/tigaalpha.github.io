@@ -1441,7 +1441,11 @@ function earLevelFor(best) {
 // to the ladder's live streak so difficulty escalates within a single climb.
 const LADDER_LIVES_START = 5;
 const LADDER_TIME_START = 6000, LADDER_TIME_MIN = 2200, LADDER_TIME_STEP = 120;
-function ladderPool(streak) { return streak >= 24 ? EG_INT_MASTER : streak >= 12 ? EG_INT_FULL : EG_INT_BASE; }
+// owner 2026-10-17: intervals arrive ONE per stage, easiest first — unison, 2nd, 3rd (major), then the 4th, 5th, 6th, 7th, octave, and the minor ones last
+const EAR_INT_ORDER = [0, 2, 4, 5, 7, 9, 11, 12, 1, 3, 8, 10, 6];
+const EAR_UNISON = { th: "คู่ 1 · P1", en: "Unison · P1", zh: "同度 · P1" };
+function earIntPool(stage) { return EAR_INT_ORDER.slice(0, Math.max(3, Math.min(EAR_INT_ORDER.length, 3 + stage))); }
+function ladderPool(streak) { return earIntPool(Math.floor(streak / 3)); }
 function ladderTimeFor(streak) { return Math.max(LADDER_TIME_MIN, LADDER_TIME_START - streak * LADDER_TIME_STEP); }
 function ladderBestScore() { try { return +(localStorage.getItem("tg_eargym_ladder") || 0); } catch (e) { return 0; } }
 // Returns true only on a genuine improvement (a real new record), not a tie.
@@ -1549,13 +1553,12 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       // climb streak (ladderPool(), module scope) so difficulty escalates within a run.
       const bestN = kind === "cadence" ? (earBest().cadence || 0) : (earBest().int || 0);
       const pool = kind === "ladder" ? ladderPool(ladderStreakRef.current)
-        : jevUp ? EG_INT_FULL : jevDown ? EG_INT_BASE
-        : bestN >= EG_ROUND ? EG_INT_MASTER : bestN >= 7 ? EG_INT_FULL : EG_INT_BASE;
+        : earIntPool(jevUp ? bestN + 2 : jevDown ? 0 : bestN);
       const semi = pool[Math.floor(Math.random() * pool.length)];
       const opts = [...new Set([semi, ...[...pool].sort(() => Math.random() - 0.5)])].slice(0, 4).sort(() => Math.random() - 0.5);
       return {
         notes: [root, transposeNotes([root], semi)[0]], chord: false, answer: String(semi),
-        options: opts.map(s => ({ key: String(s), label: (INTERVAL_DEFS.find(d => d.semi === s) || {})[lang] || String(s) })),
+        options: opts.map(s => ({ key: String(s), label: s === 0 ? EAR_UNISON[lang] : (INTERVAL_DEFS.find(d => d.semi === s) || {})[lang] || String(s) })),
       };
     }
     if (kind === "chord") {
@@ -1686,7 +1689,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       const t = [...TRIAD_TYPES, ...SEVENTH_TYPES].find(x => x.key === cur.answer);
       ansLabel = (t || { lab: {} }).lab[lang];
     } else {
-      ansLabel = (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+      ansLabel = cur.answer === "0" ? EAR_UNISON[lang] : (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
       // Miss on an interval question: name its standard reference song, so the wrong
       // answer becomes a memorable hook instead of just a red flash and a label.
       if (!okAns) {
@@ -1733,7 +1736,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   }
   function ladderAnswered(ok, pickedKey) {
     clearInterval(ladderTimerRef.current);
-    const ansLabel = (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
+    const ansLabel = cur.answer === "0" ? EAR_UNISON[lang] : (INTERVAL_DEFS.find(d => String(d.semi) === cur.answer) || {})[lang];
     setFb({ ok, answerLabel: ansLabel, pickedKey });
     playUi(ok ? "click" : "wrong");
     if (ok) {
