@@ -957,6 +957,12 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   useEffect(() => { RUN_NAME = pname; RUN_T0 = planet && (nocine || cined === planet.id) ? Date.now() : 0; if (RUN_T0 > 0) { if (readEnergy() >= 50) { writeEnergy(readEnergy() - 50); ENERGY_BOOST = 1.25; } else ENERGY_BOOST = 1; } else ENERGY_BOOST = 1; }, [planet && planet.id, cined]);   // the clock for the best-times board starts when the map does, not when its film does
   const filming = (pro && !planet) || (fin && !planet) || (!!planet && cined !== planet.id && !nocine);
   const menuMus = useRef<any>(null);
+  /* A deploy deletes the old hashed chunks, so a tab that has not yet opened a map would 404 on it and reload the whole page (the owner's "it refreshes between levels"). Fetch every map's chunk once, in idle time, while the menu is up; the service worker keeps them across releases. */
+  useEffect(() => {
+    let dead = false; const run = () => { try { const L: any = import.meta.glob(["./adventure-*.tsx", "!./adventure-settings.tsx"]); const fs = Object.values(L) as (() => Promise<any>)[]; let i = 0; const next = () => { if (dead || i >= fs.length) return; const f = fs[i++]; f().catch(() => {}).then(() => setTimeout(next, 400)); }; next(); } catch (e) {} };
+    const w: any = window; const h = w.requestIdleCallback ? w.requestIdleCallback(run, { timeout: 4000 }) : setTimeout(run, 2500);
+    return () => { dead = true; try { w.cancelIdleCallback ? w.cancelIdleCallback(h) : clearTimeout(h); } catch (e) {} };
+  }, []);
   const [menuSnd, setMenuSnd] = useState(() => { try { return localStorage.getItem("tg_adv_music") !== "0"; } catch (e) { return true; } });
   useEffect(() => {   // the map has its own theme tune, stopped the moment a map or film starts
     if (planet || filming) return;
