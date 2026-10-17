@@ -351,7 +351,7 @@ function glowSprite(rgb, r) { return layer(r * 2, r * 2, (x, w, h) => { const g 
 
 /** All of the planet's backdrop, baked once for this canvas size. Layers are tiles that repeat sideways. */
 const ART = typeof __ART__ !== "undefined" ? __ART__ : "dev";
-const POSE_V = 3;   // bump when heroPoseOf changes: the stills are cached on the device under this key
+const POSE_V = 4;   // bump when heroPoseOf changes: the stills are cached on the device under this key
 const advBotKey = (me: any, cw: any, po: string) => `${ART}|p${POSE_V}|advme|${me}|${po}|${cw && cw.glow}|${cw && cw.accent}`;
 const advPetKey = (pet: any) => `${ART}|advpet|${pet ? pet.species : ""}|${pet ? petLevel(pet.bond).lv : 0}|${pet ? (pet.mood < 35 ? 1 : 0) : 0}`;
 /** Queue the robot's three poses and the pet as stored pictures (the same cache PvP uses on phones). Called when the Adventure menu opens, so they are ready before a map starts. */
@@ -364,8 +364,10 @@ export const heroPoseOf = (name: string): any => {
     // Terminator style (owner, 2026-10-13: "walk cool and smart, run realistic like the Terminator"): upright stiff torso, short controlled stride, arms held bent
     // at the elbow and swinging little (a walk) or pumping hard like a sprinter (a run), a high knee on the swinging leg, almost no bounce, head level.
     const fold = (v: number) => Math.max(0, v);
-    if (!run) return { lean: 1, armL: -9 * s, armR: 9 * s, legL: 19 * s, legR: -19 * s, kneeL: 20 * fold(c), kneeR: 20 * fold(-c), elbowL: 38 + 4 * fold(s), elbowR: 38 + 4 * fold(-s), head: 0, lift: -0.7 * (1 + Math.cos(2 * ph)) };
-    return { lean: -13, armL: -46 * s, armR: 46 * s, legL: 38 * s, legR: -38 * s, kneeL: 78 * fold(c), kneeR: 78 * fold(-c), elbowL: 82, elbowR: 82, head: 4, lift: -3.2 * (1 + Math.cos(2 * ph)) / 1.1 };
+    // human motion (owner, 2026-10-17: "too stiff, make it move like a person"): arms swing opposite the legs with a soft elbow that bends more as the arm goes forward,
+    // the knee folds as the leg passes under the body, the torso counter-turns a little, the head stays calm and the whole body rises and dips with each step.
+    if (!run) return { lean: 2 + 1.5 * Math.cos(2 * ph), armL: -24 * s, armR: 24 * s, legL: 26 * s, legR: -26 * s, kneeL: 34 * fold(c), kneeR: 34 * fold(-c), elbowL: 14 + 26 * fold(-s), elbowR: 14 + 26 * fold(s), head: -2 * Math.cos(2 * ph) + 1.2 * s, lift: -1.7 * (1 + Math.cos(2 * ph)) };
+    return { lean: -12 + 1.2 * Math.cos(2 * ph), armL: -58 * s, armR: 58 * s, legL: 44 * s, legR: -44 * s, kneeL: 88 * fold(c), kneeR: 88 * fold(-c), elbowL: 80 + 18 * fold(-s), elbowR: 80 + 18 * fold(s), head: 3 - 1.5 * Math.cos(2 * ph), lift: -4 * (1 + Math.cos(2 * ph)) / 1.1 };
   }
   if (name === "jump") return { lean: -7, armL: 34, armR: 30, legL: -24, legR: 15, head: -3, lift: -5 };
   return name;
@@ -1528,6 +1530,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const ARENA = WORLD - 900;
     const TAPMAP = !!P.survival || CAPM;   // energy-harvest maps: the beacons are energy taps, a right answer feeds the harvest (owner, 2026-10-12)
     const beacons: any[] = (P.survival ? [1000, 2300, 3600] : [1300, 2650, 3950]).map(x => ({ x, used: false, tap: TAPMAP }));   // knowledge beacons: review questions from what the learner has studied
+    const petSt = { x: NaN, px: 0, vs: 0, ph: 0, face: 1 };
     const gradeRef: any = { c: null, k: "" };   // one cached grade layer (key light, haze, vignette): a single drawImage per frame
     const maxParts = HI() ? 140 : 26;
     const addPart = (x, y, vx, vy, life, col, sz) => { if (parts.length < maxParts) parts.push({ x, y, vx, vy, life, max: life, col, sz }); };
@@ -2209,11 +2212,15 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         }
         px.style.transform = `translate(${(pl.x - camX) * cssK - bw / 2}px,${(GROUND - pl.y) * cssK - bh + 6 * cssK - stepBob}px) scaleX(${pl.face >= 0 ? 1 : -1})`;
       }
-      const pe = petRef.current; if (pe) {
-        const cssK = k / dpr, pw = 52 * cssK, bobY = Math.abs(Math.sin(tm * 6)) * 4 * cssK * (keys.current.l || keys.current.r ? 1 : 0.2);
-        const ptx = pl.x - pl.face * 56; pe.style.width = pw + "px"; pe.style.height = pw + "px";
-        pe.style.transform = `translate(${(ptx - camX) * cssK - pw / 2}px,${(GROUND) * cssK - pw + 4 * cssK - bobY}px) scaleX(${pl.face > 0 ? 1 : -1})
-`;
+      const pe = petRef.current; if (pe) {   // the pet trots after its owner: it lags behind, hops while it travels, leans into the run and breathes when still
+        const cssK = k / dpr, pw = 52 * cssK, tgt = pl.x - pl.face * 56;
+        if (!isFinite(petSt.x) || Math.abs(petSt.x - tgt) > 700) petSt.x = tgt;
+        const dx = tgt - petSt.x; petSt.x += dx * 0.1; const vx = petSt.x - petSt.px; petSt.px = petSt.x; petSt.vs += (vx - petSt.vs) * 0.25;
+        const sp = Math.min(1, Math.abs(petSt.vs) / 3.2); petSt.ph += Math.abs(petSt.vs) * 0.075;
+        if (Math.abs(petSt.vs) > 0.6) petSt.face = petSt.vs > 0 ? 1 : -1; else if (Math.abs(dx) < 4) petSt.face = pl.face > 0 ? 1 : -1;
+        const hop = sp > 0.08 ? Math.abs(Math.sin(petSt.ph)) : 0, breathe = Math.sin(tm * 2.2) * (1 - sp), bobY = (hop * 7 + 0) * cssK, sy = 1 + 0.07 * breathe * 0.5 + (hop > 0.85 ? -0.06 : 0.05 * hop), sxs = 1 - (sy - 1) * 0.6, tilt = Math.max(-9, Math.min(9, petSt.vs * 2.4)) * petSt.face;
+        pe.style.width = pw + "px"; pe.style.height = pw + "px"; pe.style.transformOrigin = "50% 100%";
+        pe.style.transform = `translate(${(petSt.x - camX) * cssK - pw / 2}px,${(GROUND) * cssK - pw + 4 * cssK - bobY}px) rotate(${tilt}deg) scale(${sxs * petSt.face},${sy})`;
       }
     };
 

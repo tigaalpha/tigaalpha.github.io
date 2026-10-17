@@ -521,6 +521,17 @@ function bloom(x: CanvasRenderingContext2D, W: number, H: number) {
    colour is pulled back toward grey, a teal/orange grade in soft light adds contrast, the corners fall out of focus (a blurred copy blended in by a radial mask),
    a thin chromatic fringe sits at the edges, and the grain is finer and denser. All blends, no per-pixel work. */
 let dofCv: HTMLCanvasElement | null = null;
+/** a soft lens flare: a bright source drifting in the upper third, ghost discs along the line through the centre, one thin anamorphic streak (additive, a handful of fills) */
+function lensFlare(x: CanvasRenderingContext2D, W: number, H: number, t: number, warm: string) {
+  try {
+    x.save(); x.globalCompositeOperation = "lighter"; const sx = W * (0.2 + 0.1 * Math.sin(t * 0.17)), sy = H * (0.16 + 0.04 * Math.sin(t * 0.23)), cx = W / 2, cy = H / 2, vx = cx - sx, vy = cy - sy;
+    const g = x.createRadialGradient(sx, sy, 0, sx, sy, H * 0.22); g.addColorStop(0, "rgba(255,255,255,.34)"); g.addColorStop(0.25, "rgba(" + warm + ",.16)"); g.addColorStop(1, "rgba(" + warm + ",0)"); x.fillStyle = g; x.fillRect(sx - H * 0.25, sy - H * 0.25, H * 0.5, H * 0.5);
+    x.fillStyle = "rgba(" + warm + ",.10)"; x.fillRect(0, sy - 1, W, 2);
+    const ghosts = [[0.45, 0.05, "120,200,255"], [0.9, 0.08, "255,170,110"], [1.3, 0.035, "160,255,200"], [1.7, 0.06, "255,120,160"]];
+    for (const [f, r, c] of ghosts as any) { const gx = sx + vx * f, gy = sy + vy * f, gr = x.createRadialGradient(gx, gy, 0, gx, gy, H * r); gr.addColorStop(0, "rgba(" + c + ",.0)"); gr.addColorStop(0.7, "rgba(" + c + ",.07)"); gr.addColorStop(1, "rgba(" + c + ",0)"); x.fillStyle = gr; x.beginPath(); x.arc(gx, gy, H * r, 0, 7); x.fill(); }
+    x.restore();
+  } catch (e) { x.restore(); }
+}
 function realLook(x: CanvasRenderingContext2D, W: number, H: number, t: number) {
   try {
     x.save();
@@ -1098,7 +1109,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
       x.restore();
       overlay(x, W, H, lt, (s as any).ov);
       hypeCut(x, W, H, local, s.kind);
-      epicLook(x, W, H, el, k, P); punch(x, W, H, el, local, k, cineEnergy(plan, i)); bloom(x, W, H); realLook(x, W, H, el); finishLook(x, W, H, el, (P.acc || "255,200,130"), 0.7);
+      epicLook(x, W, H, el, k, P); punch(x, W, H, el, local, k, cineEnergy(plan, i)); bloom(x, W, H); realLook(x, W, H, el); finishLook(x, W, H, el, (P.acc || "255,200,130"), 0.7); lensFlare(x, W, H, el, (P.acc || "255,200,130"));
       const v = x.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.6)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
       x.fillStyle = "rgba(255,255,255,.035)"; for (let k = 0; k < 220; k++) x.fillRect(Math.random() * W, Math.random() * H, 1.1, 1.1);   // film grain
       const bar = H * 0.13; x.fillStyle = "#000"; x.fillRect(0, 0, W, bar); x.fillRect(0, H - bar, W, bar);
