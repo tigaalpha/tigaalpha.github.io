@@ -1,4 +1,4 @@
-# Plan 34 - Adventure Mode: more fun, better graphics, more excitement (plan only, nothing built)
+# Plan 34 (revision 2, with the Hook Model) - Adventure Mode: more fun, better graphics, more excitement (plan only, nothing built)
 
 Owner request (2026-10-17): five main strategies; focus on graphics quality and on stimulating excitement (adrenaline, dopamine, endorphin);
 the game must load fast; a HIGH quality mode and a LITE mode that is just good enough to play on weak phones.
@@ -49,7 +49,66 @@ known levers of excitement and satisfaction. Every target below is a number we c
 - Films: a few shots redrawn with real shading (robot, ship, planets already textured); more shots reuse the same scenes from new angles, so the film stays light.
 - Done when: side-by-side screenshots in High show clearly richer lighting on hero, monsters and ground, and Lite screenshots are still readable, with the draw cost in High under 6 ms per frame on the reference machine.
 
-## Order of work and size
+## Revision 2 - the plan rebuilt on the Hook Model (Nir Eyal, "Hooked", 2014)
+The five strategies above stay, but they are now arranged as one loop, because a loop is what makes people come back. The model has four stages that repeat:
+**Trigger -> Action -> Variable reward -> Investment**, and each turn of the loop makes the next trigger stronger.
+
+### The loop for Adventure Mode
+1. **Trigger (what brings the player in)**
+   - External: the push reminder that already exists (day 1/3/7, off unless the player allowed it), the daily-quest line on the map page, the "your pet is waiting" and "next episode" cards, the Continue button as the one big obvious door.
+   - Internal (the real goal, built slowly): the player learns to open Adventure when they feel bored, curious or want a quick win. This comes from the reward and investment stages below, not from nagging. No fake urgency, no countdown tricks.
+2. **Action (as easy as possible, the Fogg model: motivation x ability x prompt)**
+   - Time to first play under 10 s from the Adventure button (Strategy 1, Lite tier, preloaded chunks), one tap to Continue, controls hidden until needed (already done for new players), no film forced twice (Skip stays).
+   - Target: a returning player is moving a robot within 3 taps and 10 s.
+3. **Variable reward (the three kinds in the model)**
+   - **Rewards of the hunt** (social and information): the daily/weekly best-times board, the Online room, "what is on the next planet".
+   - **Rewards of the tribe** are not built here; the board and rooms are the closest, and they pay honour only.
+   - **Rewards of the self** (mastery and completion): combo meter, stars, better time, clutch second wind, boss phase cleared.
+   - **Rewards of the hunt for resources**: rarity drops (common, rare, epic) with a light beam and sound; a boss always drops a weapon; a variable crystal amount. The variability is the point; the odds are fixed, shown in the codex, and never bought. Coins stay playing-and-learning only.
+4. **Investment (the player puts something in, which raises the chance they return)**
+   - A **collection codex** (weapons found, monsters seen, planets cleared, pets' moods) that fills up and shows what is missing.
+   - **Upgrades and skill tree** (already there: crystals, workshop, 130 skills) shown as a visible "next unlock in N crystals".
+   - **A named robot and pet with a history** (stats, favourite weapon, longest combo) and a **streak** of days with a Streak Freeze item that already exists.
+   - The **colony and the Ark** that the player has built over many episodes (they already persist); show them on the map page as a small living picture that grows, so leaving feels like leaving something unfinished.
+   - Investment also loads the next trigger: finishing a map unlocks the next, lights a new codex page and schedules a small goal for tomorrow ("beat 2:10").
+
+### How each strategy plugs into the loop
+- Strategy 1 (fast start, tiers) = **Action**: ability goes up when the wait goes down.
+- Strategy 2 (hit feel) = **Reward of the self** inside every single action; this is what makes the action itself feel good.
+- Strategy 3 (pacing curve) = shapes **when** rewards land (peak, then relief) so each session ends on a high: "peak-end rule" (people judge an experience mostly by its peak and its end).
+- Strategy 4 (rewards) = **Variable reward + Investment** (rarity, codex, goals, streak).
+- Strategy 5 (visuals) = makes the reward moments worth looking at and supports the **Trigger** (a beautiful map page and a living colony picture).
+
+### Other well-known engagement principles used on purpose
+- **Peak-end rule:** design the strongest moment (boss finish, rare drop) and the last 10 seconds (calm celebration card).
+- **Flow (Csikszentmihalyi):** the adaptive difficulty keeps challenge just above skill; short clear goals; instant feedback.
+- **Goal-gradient effect:** progress bars that are shown already 20 percent filled; "2 of 3 beacons" style counters.
+- **Zeigarnik effect:** an unfinished item (a codex page two items short) pulls people back; used lightly, never as a threat.
+- **Endowed progress and sunk-cost of investment:** the robot, pet and colony the player built.
+- **Self-determination theory (autonomy, competence, relatedness):** let the player choose maps, weapons and difficulty; make competence visible; give the room/board for relatedness.
+
+### Ethical limits (written in because the audience includes children, and the owner already ruled out scarcity tricks)
+- Eyal's own "manipulation matrix" test: we build only what we would use ourselves and what helps the player (a piano learner gets music questions inside the fun, which is the product's honest benefit).
+- **No** fake scarcity, loss-aversion threats ("you will lose your streak!" is replaced by a gentle "your streak is safe with a freeze"), pay-to-win, loot boxes bought with money, or dark patterns. Odds are shown. No currency is sold.
+- A **healthy-play layer:** after about 45 minutes in one session a calm, skippable "good time for a stretch" card; a daily cap on the big streak rewards so more hours do not pay more; kid mode stays simpler and quieter.
+- Measure return and satisfaction, not minutes: if sessions get longer but "would recommend" or day-7 return does not rise, the change is a failure.
+- Honest limit: the Hook Model is a way of designing habits, not a promise of addiction; real effect must be shown by our own usage rows (next-day and day-7 return, maps per session).
+
+### New measurable targets (added)
+- Time from tapping Adventure to moving the robot: under 10 s on a mid phone (from a new `load:` row).
+- Day-1 and day-7 return of players who finished one map: up against today's baseline from `usage_events`.
+- Share of sessions that end with a clear (the peak-end moment) versus a quit.
+- Codex pages opened and the share of players with a streak of 3 days or more.
+- A "healthy play" check: median session length stays under 30 minutes while return goes up.
+
+### Changed order of work
+1. Strategy 1 (Action) - 2 days.
+2. Investment layer first small version: codex page + visible next-unlock counter + map-page pet and colony picture - 3 days (it is the cheapest part of the loop and the weakest today).
+3. Strategy 2 + 3 (reward of the self, pacing) - 3 days each.
+4. Strategy 4 (variable rewards with rarity, daily goal, streak, healthy-play card) - 3 days.
+5. Strategy 5 (visuals) rolling.
+
+## Order of work and size (first version; see the changed order above)
 1. Strategy 1 (tiers, probe, watchdog, load budget): about 2 days. Do first, everything else is judged against it.
 2. Strategy 2 (juice) and Strategy 3 (pacing): about 3 days each, can overlap.
 3. Strategy 4 (rewards): about 2 days.
