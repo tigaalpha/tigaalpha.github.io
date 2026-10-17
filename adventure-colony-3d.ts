@@ -4,6 +4,7 @@
    elevation), which keeps the transparent plot buttons, the pan, the zoom and the two-finger turn of the 2D view working unchanged.
    Returns null when WebGL is missing, and the caller keeps drawing the 2D buildings. */
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 export type Col3D = { render: (S: any, cam: { x: number; y: number; z: number }, W: number, H: number, dpr: number, rot: number, era: number, T: number, kind: string) => void; dispose: () => void };
 
@@ -29,6 +30,8 @@ export function createColony3D(host: HTMLElement): Col3D | null {
   const scene = new THREE.Scene();
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, -400, 400);
   const el30 = Math.PI / 6, dist = 60; cam.position.set(dist * Math.cos(el30) / Math.SQRT2, dist * Math.sin(el30), dist * Math.cos(el30) / Math.SQRT2); cam.lookAt(0, 0, 0);
+  try { const pm = new THREE.PMREMGenerator(ren); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; (scene as any).environmentIntensity = 0.55; pm.dispose(); } catch (e) {}   // soft reflections on glass and steel
+  const rim = new THREE.DirectionalLight(0x9cc8ff, 0.7); rim.position.set(16, 9, -12); scene.add(rim);   // a cool rim light from the far side
   const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x6a5a48, 0.85); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff0d6, 2.3); sun.position.set(-14, 20, 8); sun.castShadow = true; sun.shadow.mapSize.set(1536, 1536);
   const sc = sun.shadow.camera as THREE.OrthographicCamera; sc.left = -16; sc.right = 16; sc.top = 16; sc.bottom = -16; sc.near = 1; sc.far = 80; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; scene.add(sun); scene.add(sun.target);
@@ -78,6 +81,18 @@ export function createColony3D(host: HTMLElement): Col3D | null {
     return g;
   }
 
+  const RING: Record<string, number> = { hab: 0x00e6ff, solar: 0x5a8cff, water: 0x46beff, oxy: 0x78ffbe, farm: 0x82ff6e, mine: 0xffaa3c, lab: 0xbe6eff, med: 0xffffff, reactor: 0x00ffe6, port: 0xff5ac8, park: 0x5aff78, school: 0xffe16e, recycler: 0x6efff0, market: 0xff966e, geo: 0xff783c, tower: 0xaaff8c, shield: 0x78aaff };
+  const withBase = (id: string, era: number, seed: number) => {
+    const g = build(id, era, seed), w = new THREE.Group();
+    const pad = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.54, 0.05, 28), mk("pad", () => std(0xd8d2c8, 0.8, 0.05)))); pad.position.y = 0.0; w.add(pad);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.018, 8, 40), glow(RING[id] || 0xffffff)); ring.rotation.x = Math.PI / 2; ring.position.y = 0.04; w.add(ring);
+    g.position.y = 0.05; w.add(g);
+    if (id === "tower" || (id === "hab" && era >= 1) || id === "lab") { const top = id === "tower" ? (era === 0 ? 1.55 : era === 1 ? 2.15 : 2.85) : id === "hab" ? (era === 1 ? 1.6 : 2.3) : 0.95; const b = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff3a3a })); b.position.set(0.1, top + 0.4, 0.1); b.userData.beacon = seed; w.add(b); }
+    if (era >= 2 && (id === "hab" || id === "tower" || id === "lab")) { const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), new THREE.MeshStandardMaterial({ color: 0xbfe9ff, emissive: 0x5ab4ff, emissiveIntensity: 1.2, roughness: 0.1, metalness: 0.5 })); c.position.y = 3.3; c.userData.float = seed; w.add(c); }
+    if (id === "reactor") w.traverse((o: any) => { if (o.material && o.material.isMeshBasicMaterial) o.userData.pulse = 1; });
+    return w;
+  };
+  const drones: THREE.Mesh[] = []; for (let i = 0; i < 5; i++) { const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.07), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x66d0ff, emissiveIntensity: 0.9 })); d.castShadow = true; d.visible = false; world.add(d); drones.push(d); }
   const placed = new Map<number, { key: string; g: THREE.Group }>();
   let curW = 0, curH = 0, curDpr = 0;
   const render: Col3D["render"] = (S, c, W, H, dpr, rot, era, T, kind) => {
@@ -91,9 +106,11 @@ export function createColony3D(host: HTMLElement): Col3D | null {
       if (!b) { if (cur) { world.remove(cur.g); placed.delete(i); } continue; }
       if (cur && cur.key === key) continue;
       if (cur) world.remove(cur.g);
-      const g = build(b, era, i); const cc = i % COLS, rr = Math.floor(i / COLS); g.position.set(cc + 0.5 - COLS / 2, 0, rr + 0.5 - ROWS / 2); world.add(g); placed.set(i, { key, g });
+      const g = withBase(b, era, i); const cc = i % COLS, rr = Math.floor(i / COLS); g.position.set(cc + 0.5 - COLS / 2, 0, rr + 0.5 - ROWS / 2); world.add(g); placed.set(i, { key, g });
     }
-    placed.forEach(p => p.g.traverse((o: any) => { if (o.userData && o.userData.blade !== undefined) o.rotation.z = T * 1.4 + o.userData.blade * 2.09; }));
+    placed.forEach(p => p.g.traverse((o: any) => { const u = o.userData; if (!u) return; if (u.blade !== undefined) o.rotation.z = T * 1.4 + u.blade * 2.09; if (u.beacon !== undefined) o.visible = Math.sin(T * 3 + u.beacon) > 0.2; if (u.float !== undefined) { o.position.y = 3.3 + Math.sin(T * 1.2 + u.float) * 0.12; o.rotation.y = T; } }));
+    const built: number[] = []; placed.forEach((_, i) => built.push(i));
+    drones.forEach((d, k) => { if (built.length < 3 || era < 1) { d.visible = false; return; } const a = built[(k * 7) % built.length], b = built[(k * 7 + 3) % built.length], f = (Math.sin(T * 0.25 + k * 1.7) + 1) / 2, pa = placed.get(a)!.g.position, pb = placed.get(b)!.g.position; d.visible = true; d.position.set(pa.x + (pb.x - pa.x) * f, 1.6 + 0.2 * Math.sin(T * 2 + k), pa.z + (pb.z - pa.z) * f); d.rotation.y = T * 2; });
     ren.render(scene, cam);
   };
   return { render, dispose() { try { placed.forEach(p => world.remove(p.g)); ren.dispose(); if (el.parentNode) el.parentNode.removeChild(el); } catch (e) {} } };

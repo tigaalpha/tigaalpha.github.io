@@ -660,6 +660,21 @@ const CSS = `
 .cb-tray .cb-card.on{transform:translateY(-2px)}
 .cb-fab{bottom:78px}.adv-colony.cb .ac2-era,.cb-info{bottom:80px}
 @media (max-height:430px){.cb-tray .cb-card{width:50px;min-height:48px}.cb-tray .cb-card i{font-size:19px}.cb-fab{bottom:68px}.adv-colony.cb .ac2-era,.cb-info{bottom:70px}}
+
+/* colony UI, modern pass (owner, 2026-10-17): a floating frosted dock, glass pills and round buttons, group-coloured cards */
+.cb-tray{left:8px;right:8px;bottom:6px;padding:6px 8px 7px;border-radius:22px;background:linear-gradient(180deg,rgba(24,38,60,.55),rgba(10,18,32,.78));-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);border:1px solid rgba(160,210,255,.28);box-shadow:0 8px 28px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.14)}
+.cb-tray .cb-card{--g:#7fc4ee;width:58px;min-height:56px;border:1px solid rgba(255,255,255,.18);border-radius:16px;background:linear-gradient(160deg,rgba(255,255,255,.16),rgba(255,255,255,.04));box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.18);position:relative;transition:transform .15s,box-shadow .15s,background .15s;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.cb-tray .cb-card::before{content:"";position:absolute;left:50%;top:0;width:18px;height:3px;border-radius:0 0 4px 4px;background:var(--g);transform:translateX(-50%);box-shadow:0 0 8px var(--g)}
+.cb-tray .cb-card i{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))}.cb-tray .cb-card b{color:#e8f2ff;font-weight:700;letter-spacing:.1px}
+.cb-tray .cb-card small{background:rgba(0,0,0,.4);border:1px solid rgba(255,226,122,.35);color:#ffe27a;font-weight:800}
+.cb-tray .cb-card.on{background:linear-gradient(160deg,color-mix(in srgb,var(--g) 55%,transparent),rgba(255,255,255,.08));border-color:var(--g);box-shadow:0 0 0 1.5px var(--g),0 6px 18px color-mix(in srgb,var(--g) 55%,transparent);transform:translateY(-4px)}
+.cb-tray .cb-card:active{transform:scale(.95)}.cb-tray .cb-card.lock{opacity:.45}
+.cb-tray [data-grp=res] .cb-card{--g:#5ec8ff}.cb-tray [data-grp=pow] .cb-card{--g:#ffd34d}.cb-tray [data-grp=wat] .cb-card{--g:#4da3ff}.cb-tray [data-grp=food] .cb-card{--g:#6fe36f}.cb-tray [data-grp=ind] .cb-card{--g:#ff9a4d}.cb-tray [data-grp=svc] .cb-card{--g:#c58bff}.cb-tray [data-grp=tra] .cb-card{--g:#ff6fc8}.cb-tray [data-grp=tech] .cb-card{--g:#7dff8a}
+.cb-tray .cb-sec{border-left:1px solid rgba(255,255,255,.14)}
+.cb-round{border:1px solid rgba(255,255,255,.35);background:linear-gradient(160deg,rgba(255,255,255,.28),rgba(120,180,255,.16));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 4px 14px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.3);color:#fff}
+.cb-round.sm{background:linear-gradient(160deg,rgba(255,255,255,.3),rgba(255,255,255,.12));color:#fff}.cb-round.on{background:linear-gradient(160deg,#ffe27a,#f0a020);color:#241800;box-shadow:0 0 14px rgba(255,200,60,.6)}
+.cb-pill{background:linear-gradient(160deg,rgba(30,50,78,.62),rgba(12,22,38,.7));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(160,210,255,.3);box-shadow:0 3px 12px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.15)}
+.cb-fab{bottom:84px}.adv-colony.cb .ac2-era,.cb-info{bottom:86px}
 @media (max-width:600px){.adv .pvpdir{width:50px;height:50px}.adv .pvpact{width:58px;height:50px}.adv-pad .pvppad-r,.adv-pad .pvppad-l{gap:6px}}
 .adv-key{width:68px;height:68px;border-radius:22px;border:2px solid rgba(140,255,220,.55);background:rgba(4,30,36,.6);color:#fff;font-size:26px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;backdrop-filter:blur(4px)}
 .adv-key small{font-size:9.5px;font-weight:800;letter-spacing:.5px;margin-top:-2px}
