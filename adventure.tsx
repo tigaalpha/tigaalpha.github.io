@@ -1556,7 +1556,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     let revived = false; const reviveAcc: any = {};
     let teamDone = false; const teamGoal = () => 10 * ((net ? net.peers.size : 0) + 1);
     const teamCheck = () => { if (!net || WAR || teamDone || kills < teamGoal()) return; teamDone = true; const n = Math.min(12, 4 * (net.peers.size + 1)); gainCry(n); sfx.play("win"); setBanner({ k: Date.now(), a: T3(lang, "เป้าหมายทีมสำเร็จ!", "Team goal reached!", "团队目标达成！"), b: "◆ +" + n }); logUsage("adv", "team-goal:" + P.id + ":" + (net.peers.size + 1)); };
-    let drawMs = 0, drawN = 0; let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, hudT = 0, finished = false;
+    let drawMs = 0, drawN = 0; let kills = 0, time = 0, last = performance.now(), acc = 0, raf = 0, shake = 0, hitStop = 0, slowT = 0, hudT = 0, finished = false;
     let heroLastX = 0, heroDist = 0;
     const step = HI() ? 1 / 60 : 1 / 30;
 
@@ -1610,7 +1610,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         { const wid = rollWeapon(P.hard || 1, readFound(), true, Math.random, P.id); if (wid) drops.push({ x: boss.x - 50, y: 80, vy: 260, t: "w:" + wid }); }   // a boss always leaves a weapon
         for (const [lt, n] of [["gold", 4], ["core", 2], ["ore", 6]] as any[]) for (let i = 0; i < n; i++) drops.push({ x: boss.x + (Math.random() - 0.5) * 140, y: 50 + Math.random() * 40, vy: 220 + Math.random() * 80, t: lt });
         for (let i = 0; i < (HI() ? 50 : 16); i++) addPart(boss.x, GROUND - 70, (Math.random() - 0.5) * 520, -Math.random() * 380, 1, i % 2 ? P.glow : P.acc, 4);
-        markDone(P.id); shake = 10; sfx.play("win"); showClear(2600); questDone(bumpQuest("boss", 1)); logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
+        markDone(P.id); shake = 10; if (HI()) slowT = 0.9; sfx.play("win"); showClear(2600); questDone(bumpQuest("boss", 1)); logUsage("adv", "boss-win:" + P.id + ":" + Math.round((performance.now() - t0) / 1000) + "s");
         info = rpgOf(me); if (rpg && rpg.leveled) { mods = rpgMods(info.pts); pl.hp = hpMaxOf(info.lv); }
         const nx = PLANETS[PLANETS.findIndex(q => q.id === P.id) + 1];
         setBanner({ k: Date.now(), a: t("เอาชนะบอสแล้ว! +" + gain + " EXP", "BOSS DOWN! +" + gain + " EXP", "击败首领！+" + gain + " 经验"), b: nx && nx.ok ? t("ปลดล็อก " + nx.en.split(" · ")[0] + " แล้ว", nx.en.split(" · ")[0] + " unlocked", "已解锁 " + nx.en.split(" · ")[0]) : t("ประตูวาร์ปเปิดแล้ว", "The warp gate is open", "传送门已开启") });
@@ -2243,6 +2243,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       if (HI() && wdLast) { const fd = now - wdLast; if (fd < 250) { wdSum += fd; wdN++; if (wdN >= 90) { if (wdSum / wdN > 31) { highRef.current = false; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} window.dispatchEvent(new Event("tg:adv-lite")); logUsage("adv", "auto-lite:" + P.id + ":" + Math.round(1000 / (wdSum / wdN)) + "fps"); } wdN = 0; wdSum = 0; } } } wdLast = now;
       let dt = Math.min(0.1, (now - last) / 1000); last = now;
       if (hitStop > 0) { hitStop -= dt; dt = 0; }
+      if (slowT > 0) { slowT -= dt; dt *= 0.35; }   // a brief slow-motion on a boss kill (High only)
       acc += dt; let n = 0;
       while (acc >= step && n < 4) { sim(step); acc -= step; n++; }
       if (n > 0 || dt === 0) { const t0 = performance.now(); draw(time); drawMs += performance.now() - t0; drawN++; }
