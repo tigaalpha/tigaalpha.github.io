@@ -1348,10 +1348,6 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
   const start = () => { playUi("click"); haptic(6); try { logUsage("nav", "myclass-start"); } catch (e) {} if (act) { if (act.stepText) onNavigate(act.stepText, act.feature); else onNavigate(act.feature, act.tab); } else if (coldStep) { goStep(coldStep); } else if (nextStep) { nextStep.go(); } };
   return (
     <div className="pathpage" data-myclass="1">
-      <div className="v12hero">
-        <div className="v12title">🏫 My Class {streak > 0 && <span className="chip" style={{ marginLeft: 8, fontSize: 12 }}>🔥 {streak}</span>}</div>
-        <div className="v12sub">{T("คลาสส่วนตัวของคุณ — วันนี้ควรทำอะไร ดูจากความก้าวหน้าจริงของคุณ", "Your personal class — what to do today, from your real progress", "你的专属课堂——根据真实进度告诉你今天做什么")}</div>
-      </div>
       <div className="v12card" data-teacher="1" style={{ borderColor: "#d9775744" }}>
         <div style={{ fontSize: 11, color: "var(--clay-ink)", marginBottom: 5 }}>👩‍🏫 {T("ครูประจำคลาส", "Your class teacher", "班级老师")}</div>
         <div style={{ fontSize: 15.5, fontWeight: 700, color: "var(--text)", lineHeight: 1.45 }}>{note.hello}</div>
