@@ -949,15 +949,20 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
   const startPlanet = (P: any) => { (window as any).__advTap = performance.now(); playUi && playUi("click"); warmAudio(); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
   const canStart = (P: any) => (net ? net.host : open(P));   // in a room only the host chooses the map (guests join whatever map the host opens)
-  const connect = async (code: string | null) => {
+  const connect = async (code: string | null, forcePub?: boolean) => {
     setNerr(""); setBusy(true);
     try {
       const n = await openAdvRoom(code, { name: (pname || "Pilot").slice(0, 14), model: me, glow: colorway && colorway.glow ? colorway.glow : "#7fe8ff" });
       n.on({ onPeers: (l) => setPeersL(l), onStart: (id) => { const Q = PLANETS.find(z => z.id === id); if (Q) startPlanet(Q); } }); netRef.current = n; setNet(n);
-      if (!code && pubOpt) { const okp = await publicRoomOpen(n.code, (pname || "Pilot").slice(0, 14), "", false); if (okp) { pubCodeRef.current = n.code; setPubOn(true); } }
+      if (!code && (pubOpt || forcePub)) { const okp = await publicRoomOpen(n.code, (pname || "Pilot").slice(0, 14), "", false); if (okp) { pubCodeRef.current = n.code; setPubOn(true); } }
     } catch (e) { setNerr(T3(lang, "เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง", "Could not connect — try again", "连接失败，请重试")); }
     setBusy(false);
   };
+  const [recent, setRecent] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("tg_adv_recent") || "[]").slice(0, 6); } catch (e) { return []; } });
+  useEffect(() => { try { const c = (new URLSearchParams(location.search).get("advroom") || "").toUpperCase(); if (/^[A-Z0-9]{6}$/.test(c)) setJoinCode(c); } catch (e) {} }, []);   // an invite link only fills the code box; the player still taps Join
+  useEffect(() => { if (!peersL.length) return; try { const names = peersL.map((q: any) => String(q.name || "").slice(0, 14)).filter(Boolean); const next = [...names, ...recent.filter(n => !names.includes(n))].slice(0, 6); localStorage.setItem("tg_adv_recent", JSON.stringify(next)); setRecent(next); } catch (e) {} }, [peersL.length]);
+  const quickPlay = async () => { setNerr(""); setBusy(true); let hit: string | null = null; try { const L = await listPublicRooms(); const r = L.find(x => !x.war && x.pilots < MAX_PILOTS); if (r) hit = r.code; } catch (e) {} setBusy(false); if (hit) await connect(hit); else await connect(null, true); };
+  const inviteLink = (code: string) => { try { return location.origin + location.pathname + "?advroom=" + code; } catch (e) { return code; } };
   const leaveRoom = () => { closePub(); if (netRef.current) netRef.current.leave(); netRef.current = null; setNet(null); setPeersL([]); };
   const CAMP = campList();
   const visOf = (L: any[], sec: string) => L.filter((P: any) => sec === "all" || sectorOf(P) === sec);
@@ -1031,9 +1036,12 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
               <div className="al-head"><b>🌐 {t("เล่นกับเพื่อน", "Play with friends", "和好友一起玩")}</b><small>{t("ได้สูงสุด " + MAX_PILOTS + " คน · ไม่ต้องตั้งค่าอะไร", "Up to " + MAX_PILOTS + " pilots · nothing to set up", "最多 " + MAX_PILOTS + " 人 · 无需设置")}</small></div>
               {!net ? (<div className="al-cols">
                 <section className="al-card">
+                  <button className="adv-btn go al-big" disabled={busy} onClick={quickPlay} data-quick="1">⚡ {t("เล่นเลย (จับคู่ให้)", "Quick Play", "快速开始")}</button>
+                  <small>{t("เข้าห้องที่มีที่ว่าง หรือเปิดห้องใหม่ให้ทันที", "Joins an open room, or starts one for you.", "加入有空位的房间，或立即新建一个。")}</small>
                   <h4>{t("1. ใส่ชื่อของคุณ", "1. Your name", "1. 你的名字")}</h4>
                   <input value={pname} maxLength={14} onChange={(e) => setPname(e.target.value)} aria-label={t("ชื่อของคุณ", "Your name", "你的名字")} />
                   <small>{t("เพื่อนจะเห็นชื่อนี้ในเกม", "Friends see this name in the game.", "好友会在游戏里看到这个名字。")}</small>
+                  {recent.length > 0 && <div className="al-peers" data-recent="1"><small>{t("เคยเล่นด้วยกัน:", "Played with:", "一起玩过：")}</small>{recent.map(n => <span key={n} className="al-peer">{n}</span>)}</div>}
                 </section>
                 <section className="al-card">
                   <h4>{t("2. สร้างห้อง หรือ เข้าห้องเพื่อน", "2. Make a room, or join a friend's", "2. 创建房间，或加入好友的房间")}</h4>
@@ -1054,6 +1062,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
                 <section className="al-card">
                   <h4>{t("รหัสห้องของคุณ", "Your room code", "你的房间代码")}</h4>
                   <div className="al-room"><b data-room="1">{net.code}</b><button className="adv-btn" onClick={leaveRoom}>{t("ออกจากห้อง", "Leave", "离开")}</button></div>
+                  <button className="adv-btn" data-invite="1" onClick={() => { try { navigator.clipboard.writeText(inviteLink(net.code)); } catch (e) {} }}>🔗 {t("คัดลอกลิงก์เชิญ", "Copy invite link", "复制邀请链接")}</button>
                   <small>{t("บอกรหัสนี้ให้เพื่อน แล้วเพื่อนใส่รหัสเพื่อเข้าห้อง", "Tell friends this code so they can join.", "把代码告诉好友，他们输入后即可加入。")}</small>
                 </section>
                 <section className="al-card">
