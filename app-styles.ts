@@ -4051,6 +4051,32 @@ ${UX2_CSS}
 .pvptier,.pvpadv,.adv-planet,.adv-up{border-radius:34px!important}
 .stgback,.adv-btn:not(.go){border-radius:50%!important}
 
+/* ── GAME POWER (game-power-ui.tsx): the arena hero's top-right capsule, its sheet and the toast ── */
+.gpbar{pointer-events:auto;position:absolute;top:10px;right:10px;z-index:4;display:flex;align-items:center;gap:8px;width:186px;padding:7px 10px 7px 8px;border-radius:18px;border:1.5px solid rgba(94,226,255,.55);background:linear-gradient(135deg,rgba(8,20,44,.9),rgba(40,14,86,.9));color:#eaf6ff;cursor:pointer;text-align:left;box-shadow:0 10px 24px -12px #6a3dd8,0 0 18px -6px #38d6ff,inset 0 1px 0 rgba(255,255,255,.14);font-family:var(--f-app,inherit)}
+.gpbar-ic{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:16px;background:radial-gradient(circle at 35% 30%,#7df3ff,#2a7bff 55%,#6a3dd8);box-shadow:0 0 12px #38d6ff}
+.gpbar-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.gpbar-k{font-size:8.5px;font-weight:800;letter-spacing:1.4px;color:#9fe9ff;white-space:nowrap}.gpbar-k i{font-style:normal;letter-spacing:0;color:#cdb6ff;font-weight:700}
+.gpbar-segs{display:flex;gap:2px}.gpbar-segs b{flex:1;height:9px;border-radius:3px;background:rgba(255,255,255,.12);transform:skewX(-18deg)}
+.gpbar-segs b.on{background:linear-gradient(180deg,#7df3ff,#38a8ff);box-shadow:0 0 6px rgba(94,226,255,.7)}
+.gpbar-segs b.on:nth-child(n+7){background:linear-gradient(180deg,#c9a4ff,#8a5cff);box-shadow:0 0 6px rgba(160,110,255,.7)}
+.gpbar-v{display:flex;align-items:baseline;gap:2px;line-height:1}.gpbar-v b{font-size:17px;font-weight:800;font-family:var(--f-num,monospace)}.gpbar-v em{font-style:normal;font-size:10px;color:#9fb4d0}
+.gpbar-v u{margin-left:auto;text-decoration:none;font-size:10px;font-weight:800;color:#0b1730;background:linear-gradient(180deg,#9ff3ff,#5fc8ff);border-radius:99px;padding:3px 9px}
+.gpbar.low{border-color:rgba(255,140,90,.8);box-shadow:0 10px 24px -12px #d9582b,0 0 18px -6px #ff7a45}
+.gpbar.low .gpbar-segs b.on{background:linear-gradient(180deg,#ffd08a,#ff7a45);box-shadow:0 0 6px rgba(255,140,80,.8)}
+@media (prefers-reduced-motion:no-preference){.gpbar.low .gpbar-ic{animation:gpPulse 1.6s ease-in-out infinite}}
+@keyframes gpPulse{50%{box-shadow:0 0 20px #ff7a45;transform:scale(1.08)}}
+.gpsheet-bg{position:fixed;inset:0;z-index:99990;background:rgba(3,6,14,.66);display:flex;align-items:center;justify-content:center;padding:16px}
+.gpsheet{position:relative;width:min(380px,100%);max-height:92vh;overflow:auto;border-radius:24px;padding:16px 16px 14px;background:linear-gradient(160deg,#0a1a3a,#22104f);border:1.5px solid rgba(94,226,255,.5);color:#eaf6ff;box-shadow:0 24px 60px -10px #000,0 0 30px -6px #38d6ff}
+.gpsheet-x{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;border:0;background:rgba(255,255,255,.12);color:#fff;cursor:pointer}
+.gpsheet-hd{display:flex;align-items:center;gap:10px;margin-bottom:10px}.gpsheet-hd>span{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:radial-gradient(circle at 35% 30%,#7df3ff,#2a7bff 55%,#6a3dd8);box-shadow:0 0 16px #38d6ff}
+.gpsheet-hd b{display:block;font-size:17px}.gpsheet-hd i{display:block;font-style:normal;font-size:12px;color:#9fe9ff;margin-top:2px}
+.gpsheet-t{margin:10px 0 4px;font-size:11px;font-weight:800;letter-spacing:.5px;color:#cdb6ff}
+.gpsheet-r{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}.gpsheet-r span{width:22px;text-align:center}.gpsheet-r em{font-style:normal;font-weight:800;color:#7df3ff;min-width:34px;font-family:var(--f-num,monospace)}.gpsheet-r em.neg{color:#ffb089}.gpsheet-r b{font-weight:600}
+.gpsheet-n{margin-top:8px;font-size:10.5px;color:#9fb4d0;line-height:1.5}
+.gpsheet-go{margin-top:12px;width:100%;border:0;border-radius:99px;padding:12px;font-weight:800;font-size:14px;cursor:pointer;color:#fff;background:linear-gradient(180deg,#8a5cff,#6a3dd8);box-shadow:0 6px 16px -6px #6a3dd8}
+.gptoast{position:fixed;z-index:99995;top:calc(env(safe-area-inset-top,0px) + 64px);left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:99px;font-weight:800;font-size:13px;color:#eaf6ff;background:linear-gradient(135deg,#0a1a3a,#3a1a7a);border:1.5px solid rgba(94,226,255,.6);box-shadow:0 10px 28px -8px #6a3dd8,0 0 18px -4px #38d6ff;animation:gpIn .3s ease-out}
+@keyframes gpIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
+
 `;
 
 export function useInjectCSS() {

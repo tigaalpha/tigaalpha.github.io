@@ -1,3 +1,4 @@
+import { powerFromActivity } from "./game-power";
 import { sb } from "./supabase-client";
 import { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY, readLandingOrigin, clearLandingOrigin } from "./local-identity";
 export { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY, readLandingOrigin, clearLandingOrigin };
@@ -158,6 +159,8 @@ export function logActivity(kind, id, ok, miss, sec, skill = null) {
     // register/listen ตรง ๆ แทนการ import ทั้งสองทาง กันวงจรนอก (shared-infra
     // อยู่ล่าง learning-data แล้ว) และไม่แตะของผู้เรียนเลยเมื่อไม่มีผู้ฟัง
     try { if (actTraceSink) actTraceSink(entry); } catch (e) {}
+    // GAME POWER: real learning fills the bar that Adventure and PvP spend (game-power.ts)
+    try { powerFromActivity(entry); } catch (e) {}
   } catch (e) {}
 }
 

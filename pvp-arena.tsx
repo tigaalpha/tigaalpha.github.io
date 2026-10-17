@@ -63,6 +63,8 @@ const opKey = (model, pose, yaw) => `${ART_KEY}|op|${model}|${pose}|${yaw}`;
 const petKey = (species, lv, sad) => `${ART_KEY}|pet|${species}|${lv}|${sad ? 1 : 0}`;
 import { AnswerReveal } from "./note-reveal";
 import { useFpv, FpvButton, FpvVisor, FpvFightHands } from "./fpv";
+import { GamePowerBar, PowerSheet } from "./game-power-ui";
+import { spendPower, canSpend, COST as POWER_COST } from "./game-power";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
 
@@ -1278,7 +1280,11 @@ export const PvpPage = memo(function PvpPage({
     return () => clearTimeout(t);
   }, [phase, me, colorwayKey, squadUsed, lobbyGearSig, petNow && petNow.species, petLvNow]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // GAME POWER: a fight costs power, which only learning earns (game-power.ts). blockedFight() is the check that runs BEFORE the screen goes full size.
+  const [powerSheet, setPowerSheet] = useState<any>(null);
+  const blockedFight = () => { if (canSpend(POWER_COST.fight, adminTier)) return false; setPowerSheet({ need: POWER_COST.fight }); return true; };
   const startFight = (kind, t, name, friend) => {
+    if (!spendPower(POWER_COST.fight, "pvp-fight", adminTier)) { setPowerSheet({ need: POWER_COST.fight }); return; }
     enterFs();
     setOppKind(kind); setTier(t); setOppName(name || ""); setPendingFriend(friend || null);
     // seeded on the day and the tier, so losing and retrying hands back the
@@ -1288,6 +1294,7 @@ export const PvpPage = memo(function PvpPage({
     setPhase("fight"); if (playUi) playUi("click");
   };
   const startWeekly = () => {
+    if (blockedFight()) return;
     enterFs();
     // the rule rides on the tier object, which the fight already receives —
     // no new prop for something only one opponent in the game ever has
@@ -1296,12 +1303,14 @@ export const PvpPage = memo(function PvpPage({
     startFight("bot", boosted, weekly.name);
   };
   const startRivalFight = () => {
+    if (blockedFight()) return;
     enterFs();
     const t = BOT_TIERS.find(x => x.key === rival.tierKey) || BOT_TIERS[2];
     setIsRival(true);
     startFight("bot", t, rival.name);
   };
   const startGhostFight = () => {
+    if (blockedFight()) return;
     enterFs();
     if (!ghost) return;
     const t = BOT_TIERS.find(x => x.key === ghost.tierKey) || BOT_TIERS[3];
@@ -1327,6 +1336,7 @@ export const PvpPage = memo(function PvpPage({
     startFight("player", t, g.name || "GHOST");
   };
   const startPractice = () => {
+    if (blockedFight()) return;
     enterFs();
     setPracticeMode(true);
     startFight("bot", BOT_TIERS[3], T("โหมดซ้อม", "Practice Bot", "陪练机器人"));
@@ -1362,6 +1372,7 @@ export const PvpPage = memo(function PvpPage({
     if (playUi) playUi("reward");
   };
   const startGauntlet = () => {
+    if (blockedFight()) return;
     enterFs();
     setGauntlet({ ix: 0, hpFrac: 1, totals: { coins: 0, xp: 0, sp: 0 }, cleared: [] });
     startFight("bot", BOT_TIERS[0], tr3(CHAR_MODELS.find(m => m.id === chassisFor("gauntlet0" + Date.now())) || {}, lang));
@@ -1497,6 +1508,7 @@ export const PvpPage = memo(function PvpPage({
     const openDuels = (duels || []).filter(d => d.song_id === "arena");
     return (
       <div className="pvppage x3 pvplobby3" ref={lobbyRoot}>
+        {powerSheet && <PowerSheet lang={lang} need={powerSheet.need} onClose={() => setPowerSheet(null)} />}
         <div className="pvphdr">
           <button className="stgback" onClick={onBack} aria-label="back">←</button>
           <span className="pvphdr-t">{T("สนามประลอง", "PvP Arena", "竞技场")}</span>
@@ -1531,6 +1543,7 @@ export const PvpPage = memo(function PvpPage({
               </span>
             )}
           </div>
+          <GamePowerBar lang={lang} onOpen={() => { if (playUi) playUi("click"); setPowerSheet({ need: 0 }); }} />
           <button type="button" className="pvpadv" onClick={() => { if (playUi) playUi("click"); setAdvOnline(false); setAdvOpen(true); }} aria-label="Adventure Mode">
             <span aria-hidden="true">🪐</span><b>Adventure</b><i>{T("ผจญภัยดาวต่างดาว", "Alien planets", "外星冒险")}</i>
           </button>
@@ -1915,6 +1928,7 @@ export const PvpPage = memo(function PvpPage({
     const flawlessMul = (result.win && result.flawless) ? 1.4 : 1;
     return (
       <div className="pvppage x3">
+        {powerSheet && <PowerSheet lang={lang} need={powerSheet.need} onClose={() => setPowerSheet(null)} />}
         <div className="pvphdr">
           <button className="stgback" onClick={() => setPhase("lobby")} aria-label="back">←</button>
           <span className="pvphdr-t">{result.win ? "🏆 " + T("ชนะ!", "Victory!", "胜利！") : T("แพ้", "Defeat", "落败")}</span>
@@ -2023,7 +2037,7 @@ export const PvpPage = memo(function PvpPage({
           )}
           <div className="pvpres-btns">
             <button className="pvpghost" onClick={() => setPhase("lobby")}>{T("กลับสนาม", "Back to arena", "返回竞技场")}</button>
-            <button className="pvpghost" onClick={() => { enterFs(); setPhase("fight"); }}>{T("สู้อีกครั้ง", "Rematch", "再战")}</button>
+            <button className="pvpghost" onClick={() => { if (!spendPower(POWER_COST.fight, "pvp-rematch", adminTier)) { setPowerSheet({ need: POWER_COST.fight }); return; } enterFs(); setPhase("fight"); }}>{T("สู้อีกครั้ง", "Rematch", "再战")}</button>
           </div>
           {onShare && (
             <button className="pvpghost pvpshare" onClick={() => onShare(result)}>📤 {T("แชร์ผลการต่อสู้", "Share this fight", "分享战绩")}</button>

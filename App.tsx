@@ -41,6 +41,7 @@ import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validat
    (skillScoresOf = กติกาเดิมของ computeSkillScores · weightedStrugglesOf = กติกา
    เดิมของ use-autoteach · learnerSignal = ตัวตัดสินใจรวม · repeatWindowOpen = กันยิงคำเดิมซ้ำ) */
 import { foundationPath } from "./class-teacher";
+import { PowerToast } from "./game-power-ui";
 import { learnerSignal, skillScoresOf, skillsOfActivity, weakestSkills, repeatWindowOpen, freeQuotaState, atipDelivery, SKILL_FEATURE } from "./learner-signal";
 /* teach-cards (รู้ไว้ใช่ว่า) loads LAZY (plan v3 1.5): pure data + localStorage
    helpers that are read at render time — the helpers below keep working while
@@ -11900,6 +11901,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [premium, autoTeachMin, lang]);
 
+  // Game Power sheet's "go learn" button: leaves the arena / Adventure for My Class.
+  useEffect(() => {
+    const onGoto = (e) => { const p = e && e.detail && e.detail.page; if (p) setPage(p); };
+    window.addEventListener("tg:goto", onGoto);
+    return () => window.removeEventListener("tg:goto", onGoto);
+  }, []);
+
   // Survives the auto-reload: the owner enters the code once per tab session,
    // not once per deploy. sessionStorage (not localStorage) on purpose — an
    // entirely new tab still has to prove it is the same person.
@@ -13728,6 +13736,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {sightOpen && <SightReadingOverlay lang={lang} exitSight={exitSight} sightDone={sightDone} sightIdx={sightIdx} SIGHT_ROUND={SIGHT_ROUND} sightScore={sightScore} sightClef={sightClef} pickSightClef={pickSightClef} sightFeedback={sightFeedback} sightTarget={sightTarget} sightHint={sightHint} sightNoteClef={sightNoteClef} sightHandlerRef={sightHandlerRef} sightSrc={sightSrc} openSight={openSight} sightStreak={sightStreak} sightPhrasePos={sightPhrasePos} sightPhraseLen={sightPhraseLen} sightMode={sightMode} pickSightMode={pickSightMode} sightSprintLeft={sightSprintLeft} sightSprintSecs={sightSprintSecs} sightTip={sightTip} sightBelts={sightBelts} sightBestStreakMap={sightBestStreakMap} sightBestSprintMap={sightBestSprintMap} sightTotalRead={sightTotalRead} />}
 
       {/* HAND-POSTURE COACH overlay (camera) */}
+      <PowerToast lang={lang} />
       {camOpen && <SafeZone label="โค้ชท่ามือ" fallbackText="โค้ชท่ามือแสดงไม่สำเร็จ — แตะปิดเพื่อออก แล้วลองเปิดใหม่"><CameraCoachOverlay lang={lang} exitCamera={exitCamera} camVideoRef={camVideoRef} camCanvasRef={camCanvasRef} camStatus={camStatus} camMsg={camMsg} camCoach={camCoach} retryCamera={retryCamera} setCamCoach={setCamCoach} analyzeHands={analyzeHands} premium={premium} camRecap={camRecap} camSpeaking={camSpeaking} camStreakInfo={camStreakInfo} closeCameraAfterRecap={closeCameraAfterRecap} camGame={camGame} camPraise={camPraise} camMission={camMission} /></SafeZone>}
 
       {/* AI VOICE TUTOR overlay */}
