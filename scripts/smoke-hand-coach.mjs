@@ -16,6 +16,6 @@ let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ")
 await p.evaluate(() => document.querySelector('[data-tstep="hands"]').click()); await p.waitForTimeout(9000);
 const t = (await p.locator(".camov").first().innerText().catch(() => "")).replace(/\s+/g, " ");
 ok("overlay is open and running", (await p.locator(".camov").count()) === 1 && (await p.locator(".cammission").count()) === 1, t.slice(0, 80));
-ok("the mission and its how-to are shown", /ถือท่าดี 15 วินาที/.test(t) && /งอนิ้วโค้ง/.test(t));
+ok("the mission and its how-to are shown", /ถือท่าดี 5 วินาที/.test(t) && /งอนิ้วโค้ง/.test(t));
 ok("no crash fallback, no page errors", !/แสดงไม่สำเร็จ/.test(await p.locator("body").innerText()) && !errs.some(e => /^PE|SafeZone|Cannot read/.test(e)), errs.slice(0, 2).join(" | "));
 await b.close(); srv.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
