@@ -1315,7 +1315,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
    act log + tg_memory (the one decision unit), getCoachDiagnosis() from the TIGA model (what TodayPage shows), and buildTodaySteps() (the plan
    TodayPage and the Teacher tab count). Nothing is recomputed here, so My Class, Daily Mentor and the popup cannot disagree. When the day's plan
    is finished it sends the learner on to the Learning Pathway. */
-const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onLearn, onRead, onSong, onReviewStage, onNavigate, onPathway, onMentor, onReward }) {
+const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onLearn, onRead, onSong, onReviewStage, onNavigate, onGoStep, onPathway, onMentor, onReward }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const TT = TODAY_TAGS[lang];
   const [, setTick] = useState(0);
@@ -1344,7 +1344,7 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
   };
   const coldStep = !act && !skipped && track.current ? track.current : null;
   const title = act ? (act.kind === "skill" ? tr(SKILL_LABELS[act.skill], lang) : act.label) : null;
-  const start = () => { playUi("click"); haptic(6); try { logUsage("nav", "myclass-start"); } catch (e) {} if (act) { if (act.stepText) onNavigate(act.stepText, act.feature); else onNavigate(act.feature, act.tab); } else if (coldStep) { goStep(coldStep); } else if (nextStep) { nextStep.go(); } };
+  const start = () => { playUi("click"); haptic(6); try { logUsage("nav", "myclass-start"); } catch (e) {} if (act) { if (act.stepText && onGoStep) onGoStep(act.stepText, act.feature); else onNavigate(act.feature, act.tab); } else if (coldStep) { goStep(coldStep); } else if (nextStep) { nextStep.go(); } };
   return (
     <div className="pathpage" data-myclass="1">
       {allDone ? (
@@ -1367,15 +1367,15 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
             {coldStep && <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6, lineHeight: 1.7 }} data-cold="1">{tr(coldStep.why, lang)}</div>}
             <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>{coldStep ? "" : skipped ? T("วันนี้ข้ามคำแนะนำของครู AI ไว้ — ทำตามแผนด้านล่างได้เลย", "You skipped the mentor's advice today — follow the plan below.", "今天已跳过导师建议——按下面的计划来吧。") : T("ยังซ้อมไม่พอให้ครู AI วิเคราะห์ ซ้อมอีกสักหน่อยแล้วคำแนะนำจะแม่นขึ้น", "Not enough practice yet for the AI to analyse — a little more and the advice gets sharper.", "练习还不够，AI 暂时无法分析——再练一点建议会更准。")}</div>
           </>)}
-          <button className="songbtn go" style={{ width: "100%", marginTop: 12 }} data-start="1" onClick={start}>🎹 {T("เริ่มเลย", "Start now", "开始")}</button>
-        </div>
-      )}
-      {dx && !allDone && (
-        <div className="v12card" data-dx="1" style={{ borderColor: "#d9775744" }}>
-          <div style={{ fontSize: 11, color: "var(--clay-ink)", marginBottom: 6 }}>🩺 {T("ปัญหาที่ครูเจอ และวิธีแก้", "What I found, and how to fix it", "老师发现的问题与解决办法")}</div>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{dx.what.label} · {dx.what.acc}%</div>
-          <div style={{ fontSize: 12, color: "var(--text2)" }}><b style={{ color: "var(--clay-ink)" }}>{T("ทำไม", "Why", "为什么")}:</b> {dx.why[0]}</div>
-          {dx.how[0] && <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 3 }}><b style={{ color: "var(--clay-ink)" }}>{T("วิธีฝึก", "How to fix", "怎么练")}:</b> {dx.how[0]}</div>}
+          {dx && (
+            <div data-dx="1" style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #d9775755" }}>
+              <div style={{ fontSize: 11, color: "var(--clay-ink)", marginBottom: 5 }}>🩺 {T("ปัญหาที่ครูเจอ และวิธีแก้", "What I found, and how to fix it", "老师发现的问题与解决办法")}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{dx.what.label} · {dx.what.acc}%</div>
+              <div style={{ fontSize: 12, color: "var(--text2)" }}><b style={{ color: "var(--clay-ink)" }}>{T("ทำไม", "Why", "为什么")}:</b> {dx.why[0]}</div>
+              {dx.how[0] && <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 3 }}><b style={{ color: "var(--clay-ink)" }}>{T("วิธีฝึก", "How to fix", "怎么练")}:</b> {dx.how[0]}</div>}
+            </div>
+          )}
+          <button className="songbtn go" style={{ width: "100%", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 800 }} data-start="1" onClick={start}>▶ Play</button>
         </div>
       )}
       {!track.finished && (
@@ -13416,7 +13416,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
       {page === "myclass" && (
         <MyClassPage lang={lang} exp={(profile && profile.exp) || 0} streak={(profile && profile.streak) || 0} homework={homework}
-          onLearn={learnTopic} onRead={readChapter} onSong={chooseSong} onNavigate={handleCoachNavigate} onReviewStage={reviewStage}
+          onLearn={learnTopic} onRead={readChapter} onSong={chooseSong} onNavigate={handleCoachNavigate} onGoStep={goToCoachStep} onReviewStage={reviewStage}
           onPathway={() => { stopPracticeListeners(); setPage("pathway"); }} onMentor={() => { stopPracticeListeners(); setPage("coach"); }}
           onReward={(xp, c) => rewardStudio(xp, c)} />
       )}
@@ -13508,7 +13508,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               charModel={charModel} charHat={charHat} charOutfit={charOutfit} charWeapon={charWeapon} charAccessory={charAccessory} owned={owned} />}
 
       {/* ─── PAGE: COACH (free preview + Max plan) ─── */}
-      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onGoStep={handleCoachNavigate} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
+      {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onGoStep={goToCoachStep} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
       {page === "gamepage" && <GamesPage lang={lang} earnCoins={earnCoins} gainExp={gainExp} />}
