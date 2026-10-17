@@ -4077,6 +4077,11 @@ ${UX2_CSS}
 .gptoast{position:fixed;z-index:99995;top:calc(env(safe-area-inset-top,0px) + 64px);left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:99px;font-weight:800;font-size:13px;color:#eaf6ff;background:linear-gradient(135deg,#0a1a3a,#3a1a7a);border:1.5px solid rgba(94,226,255,.6);box-shadow:0 10px 28px -8px #6a3dd8,0 0 18px -4px #38d6ff;animation:gpIn .3s ease-out}
 @keyframes gpIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
 
+/* Teacher page: tighter gaps (owner 2026-10-17, red lines under the keys and under the record row) */
+.sensei-scroll .fchart{margin-top:0!important}
+.sensei-scroll .handsel{margin-top:4px!important}
+.recbar{margin-top:2px!important;padding:0 8px 0!important}
+.sensei-scroll .nowcard{margin-top:0!important}
 `;
 
 export function useInjectCSS() {

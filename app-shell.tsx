@@ -38,8 +38,8 @@ import { handoffUrl } from "./local-identity";
    camera overlay and the song overlay (the three data-driven surfaces).
    The app-wide boundary stays as the last line of defense. */
 export class SafeZone extends Component {
-  constructor(props) { super(props); this.state = { failed: false }; }
-  static getDerivedStateFromError() { return { failed: true }; }
+  constructor(props) { super(props); this.state = { failed: false, err: "" }; }
+  static getDerivedStateFromError(error) { return { failed: true, err: String((error && error.message) || error).slice(0, 160) }; }
   componentDidCatch(error, info) { if (isChunkLoadError(error)) reloadForNewBuild(); console.error("SafeZone caught:", error, info && info.componentStack); }
   render() {
     if (!this.state.failed) return this.props.children;
@@ -49,6 +49,7 @@ export class SafeZone extends Component {
         <div className="presultai-tx" style={{ fontSize: 12, opacity: 0.8 }}>
           {this.props.fallbackText || "ข้อมูลส่วนนี้มีปัญหา แต่แอปยังใช้งานได้ตามปกติ — กดปิดเพื่อซ่อนกล่องนี้"}
         </div>
+        {this.state.err ? <div style={{ fontSize: 10, opacity: 0.6, marginTop: 6, wordBreak: "break-all" }}>{this.state.err}</div> : null}
         <button className="cbtn" style={{ marginTop: 8 }} onClick={() => this.setState({ failed: false })}>✕ ปิด</button>
       </div>
     );
