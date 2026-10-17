@@ -44,7 +44,8 @@ export async function openAdvRoom(code: string | null, me: { name: string; model
     } catch (e) {}
   });
   const send = (event: string, payload: any) => { try { ch.send({ type: "broadcast", event, payload: { ...payload, id } }); } catch (e) {} };
-  await new Promise<void>((res, rej) => { const to = setTimeout(() => rej(new Error("timeout")), 9000); ch.subscribe(async (status: string) => { if (status === "SUBSCRIBED") { try { await ch.track({ name: me.name, model: me.model, glow: me.glow }); } catch (e) {} clearTimeout(to); res(); } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") { clearTimeout(to); rej(new Error(status)); } }); });
+  let joined = false, dropped = false;   // after the first SUBSCRIBED a dropped link re-subscribes the same channel and presence is tracked again (plan 35 reconnect)
+  await new Promise<void>((res, rej) => { const to = setTimeout(() => rej(new Error("timeout")), 9000); ch.subscribe(async (status: string) => { if (status === "SUBSCRIBED") { try { await ch.track({ name: me.name, model: me.model, glow: me.glow }); } catch (e) {} joined = true; clearTimeout(to); res(); } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") { if (joined) { if (!dropped) { dropped = true; setTimeout(() => { dropped = false; try { ch.subscribe(); } catch (e) {} }, 1500); } } else { clearTimeout(to); rej(new Error(status)); } } }); });
   const net: Net = {
     code: room, id, host, peers, war: false,
     sendStart: (planet, war) => { net.war = !!war; send("start", { planet, war: !!war }); }, sendPos: (x, y, face, hp) => send("pos", { x, y, face, hp }), sendHit: (i, v) => send("hit", { i, v }), sendEv: (k, n) => send("ev", { k, n }), sendChat: (t) => send("chat", { t }),

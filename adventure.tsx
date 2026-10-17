@@ -1536,7 +1536,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       return { coins, capped: want > coins };
     };
     let warped = false;
-    const showClear = (delay = 2000) => setTimeout(() => { if (ended || warped) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (HI() ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped }); }, delay);
+    const showClear = (delay = 2000) => setTimeout(() => { if (ended || warped) return; const sale = settle(1); if (sfxRef.current) sfxRef.current.play("win"); for (let a = 0; a < (HI() ? 60 : 24); a++) addPart(pl.x + (Math.random() - 0.5) * 300, GROUND - 160 - Math.random() * 100, (Math.random() - 0.5) * 300, -Math.random() * 200, 1.3, ["255,210,80", "120,255,200", "255,120,200", "130,190,255"][a % 4], 3.5); const nx = getNext ? getNext() : null; setAuto(9); setClear({ next: nx, kills, cry: crystals, coins: sale.coins, capped: sale.capped, team: net ? { n: net.peers.size + 1, goal: teamDone } : null }); }, delay);
     const surv = { t: 0, wave: 0, next: 2, done: false }, SURV_T = 90;   // gas-giant stage: hold out 90 s while the energy fills
     const MINE = P.mission === "mine", CAPM = P.mission === "capture", DYS = P.mission === "dyson", DIG = MINE || DYS, NOBOSS = !!P.survival || MINE || CAPM || DYS;
     // Ashfall: after the orbital strike, a base that was nuked has no defenders left (three monsters per base)
@@ -2337,6 +2337,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
           <span><em>◆</em><b>{clear.cry}</b><small>{t("คริสตัลที่ได้", "Crystals earned", "获得水晶")}</small></span>
           {RUN_T0 > 0 && <span><em>⏱</em><b>{Math.max(1, Math.round((Date.now() - RUN_T0) / 1000))}s</b><small>{t("เวลาที่ใช้", "Time", "用时")}</small></span>}
         </div>
+        {clear.team && <small data-teamresult="1">🤝 {t("ทีม " + clear.team.n + " คน · ฆ่ารวมของห้อง " + clear.kills + (clear.team.goal ? " · เป้าหมายทีมสำเร็จ ✓" : ""), "Team of " + clear.team.n + " · room kills " + clear.kills + (clear.team.goal ? " · team goal ✓" : ""), "团队 " + clear.team.n + " 人 · 房间击杀 " + clear.kills + (clear.team.goal ? " · 团队目标 ✓" : ""))} <button className="adv-btn" data-thanks="1" onClick={() => chatRef.current && chatRef.current("👏")}>👏 {t("ขอบคุณเพื่อนร่วมทีม", "Thank the team", "感谢队友")}</button></small>}
         {clear.coins > 0 && <small className="ac-coins">🪙 +{clear.coins} {t("ขายของที่เก็บได้แล้ว — ไปใช้ในร้านค้าได้", "loot sold — spend it in the shop", "战利品已出售——可在商店消费")}</small>}
         {clear.capped && <small>{t("ถึงเพดานเหรียญประจำวันแล้ว", "Daily coin ceiling reached", "已达今日金币上限")}</small>}
         {clear.next ? <button className="adv-btn go" autoFocus onClick={() => { if (onNext) onNext(clear.next); }}>▶ {t("แมปต่อไป: ", "Next map: ", "下一张：")}{T3(lang, clear.next.th, clear.next.en, clear.next.zh).split(" · ")[0]} ({Math.max(0, auto)})</button> : <small>{t("ครบทุกแมปที่เปิดอยู่แล้ว", "That was the last open map", "已是当前最后一张开放地图")}</small>}
