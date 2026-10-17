@@ -13,7 +13,7 @@
       with names, shown as a badge; resets on a bad frame (hysteresis
       via a 12-frame grace window so one noisy frame doesn't kill a
       combo — mirrors the debounced-tip philosophy).
-   3. MICRO-CHALLENGES — timed missions ("hold good shape for 15s",
+   3. MICRO-CHALLENGES — timed missions ("hold good shape for 5s",
       "keep wrist level for 12s", "combo 30", "both hands 8s"…).
       Each solved pays score bonus + stars; they cycle forever so there
       is always a next thing to chase.
@@ -70,7 +70,7 @@ export function scoreRank(score) {
 // shown under the mission text so the goal is never ambiguous; the mission
 // text says WHAT to do, `how` says exactly HOW in friendly everyday language.
 export const CHALLENGES = [
-  { id: "hold",    needSec: 15, th: "ถือท่าดี 15 วินาที",       en: "Hold good shape for 15s", zh: "保持良好手型15秒",
+  { id: "hold",    needSec: 5, th: "ถือท่าดี 5 วินาที",       en: "Hold good shape for 5s", zh: "保持良好手型5秒",
     how: { th: "งอนิ้วโค้ง ๆ เหมือนถือลูกบอล แล้วกุมมือทิ้งไว้เรื่อย ๆ — จนบาร์เต็ม", en: "Curve your fingers like holding a ball and keep it there until the bar fills", zh: "手指像握球一样弯曲，保持到进度条充满" } },
   { id: "wrist",   needSec: 12, th: "ข้อมือระดับ 12 วินาที",    en: "Level wrist for 12s",     zh: "手腕保持水平12秒",
     how: { th: "อย่าให้ข้อมือตก ให้ปลายนิ้วชี้ขึ้นเหมือนมือเดินหน้าไปเล่น — กุมไว้จนบาร์เต็ม", en: "Don't let your wrist sag — fingers pointing up, like walking hands forward. Keep it until the bar fills", zh: "手腕不要下垂，手指朝上，保持到进度条充满" } },
