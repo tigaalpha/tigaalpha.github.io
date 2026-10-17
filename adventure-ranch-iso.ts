@@ -4,7 +4,9 @@
    (`isoBg` behind everything, `isoFg` for the front fence), and only plots, houses, animals, the windmill and the rocket are drawn per frame. */
 export const VW = 800, VH = 450;                       // the viewport; the farm itself is a bigger world you pan and zoom over
 export const WW = 1500, WH = 830, CS = 1.5;              // world size, and the resolution the cached scenery is painted at
-const TW = 28, TH = 14, OX = 750, OY = 60;
+export const TW = 28, TH = 14, OX = 750, OY = 60;
+/* true while the three.js layer (adventure-ranch-3d.ts) draws crops, houses, animals, windmill and rocket; the 2D pass then leaves them out */
+export let USE3D_R = false; export const setUse3DR = (v: boolean) => { USE3D_R = v; };
 export const P = (gx: number, gy: number): [number, number] => [OX + (gx - gy) * TW, OY + (gx + gy) * TH];
 export const COLS = 6, ROWS = 4, FX = 6, FY = 3;         // the field: 6 x 4 plots of 2 x 2 tiles, the first eight are dug, the rest are grass to dig
 export const PLOT_POS = (i: number) => { const c = i % COLS, r = Math.floor(i / COLS), [x, y] = P(FX + c * 2 + 1, FY + r * 2 + 1); return { x, y }; };
@@ -170,12 +172,13 @@ export function drawIsoPlot(x: CanvasRenderingContext2D, i: number, c: any, T: n
   if (!c.crop) return;
   const st = c.p < 34 ? 0 : c.p < 100 ? 1 : 2, bob = st === 2 ? Math.abs(Math.sin(T * 5 + i)) * 1.5 : 0, ids = ["carrot", "corn", "tomato", "pumpkin"];
   void ids;
-  for (let v = 0; v < 4; v++) for (let u = 0; u < 4; u++) { const p = P(c0 + 0.3 + u * 0.47, r0 + 0.3 + v * 0.47); crop(x, c.crop, st, p[0], p[1] - bob, T, u * 1.3 + v * 0.7 + i, cropCol); }
+  if (!USE3D_R) for (let v = 0; v < 4; v++) for (let u = 0; u < 4; u++) { const p = P(c0 + 0.3 + u * 0.47, r0 + 0.3 + v * 0.47); crop(x, c.crop, st, p[0], p[1] - bob, T, u * 1.3 + v * 0.7 + i, cropCol); }
   if (c.p < 100) { const q = P(c0 + 1, r0 + 2); x.fillStyle = "rgba(0,0,0,.4)"; x.beginPath(); x.roundRect(q[0] - 22, q[1] + 2, 44, 7, 3); x.fill(); x.fillStyle = "#9bff6a"; x.beginPath(); x.roundRect(q[0] - 22, q[1] + 2, 44 * c.p / 100, 7, 3); x.fill(); }
   if (wet) { x.fillStyle = "rgba(120,190,255,.85)"; for (let k = 0; k < 4; k++) { const q = P(c0 + 0.5 + k * 0.4, r0 + 0.8); x.beginPath(); x.arc(q[0], q[1] - 10 + ((T * 30 + k * 9) % 16), 2, 0, 7); x.fill(); } }
 }
 
 export function drawIsoWindmill(x: CanvasRenderingContext2D, T: number) {
+  if (USE3D_R) return;
   const { x: mx, y: my } = MILL; shadow(x, mx + 12, my + 3, 30, 8, 0.3);
   const tg = x.createLinearGradient(mx - 16, 0, mx + 16, 0); tg.addColorStop(0, "#f4e8cc"); tg.addColorStop(1, "#c9b08a"); poly(x, [[mx - 16, my], [mx + 16, my], [mx + 9, my - 64], [mx - 9, my - 64]], tg);
   x.strokeStyle = "rgba(120,90,50,.4)"; for (let k = 1; k < 5; k++) { x.beginPath(); x.moveTo(mx - 15 + k * 0.6, my - k * 13); x.lineTo(mx + 15 - k * 0.6, my - k * 13); x.stroke(); }
@@ -188,6 +191,7 @@ export function drawIsoPad(x: CanvasRenderingContext2D, launch: number, T: numbe
   const pg = x.createLinearGradient(0, py - 16, 0, py + 16); pg.addColorStop(0, "#e6edf6"); pg.addColorStop(1, "#aab6c8"); x.fillStyle = pg; x.strokeStyle = OUT; x.lineWidth = 1.4; x.beginPath(); x.ellipse(px, py, 48, 16, 0, 0, 7); x.fill(); x.stroke(); x.strokeStyle = "#ffb020"; x.lineWidth = 2; x.setLineDash([7, 5]); x.beginPath(); x.ellipse(px, py, 36, 11, 0, 0, 7); x.stroke(); x.setLineDash([]);
   // a launch tower beside the pad, with a lattice, a lit top and a chopstick arm reaching the ship
   { const tx = px + 40, ty = py + 2; x.fillStyle = "rgba(10,40,20,.25)"; x.beginPath(); x.ellipse(tx + 6, ty + 3, 12, 4, 0, 0, 7); x.fill(); x.strokeStyle = "#5c6672"; x.lineWidth = 2.2; x.beginPath(); x.moveTo(tx - 6, ty); x.lineTo(tx - 6, ty - 150); x.moveTo(tx + 6, ty); x.lineTo(tx + 6, ty - 150); x.stroke(); x.lineWidth = 1.1; x.beginPath(); for (let k = 0; k < 15; k++) { const yy = ty - k * 10; x.moveTo(tx - 6, yy); x.lineTo(tx + 6, yy - 10); x.moveTo(tx + 6, yy); x.lineTo(tx - 6, yy - 10); } x.stroke(); x.fillStyle = "#e84a3a"; x.beginPath(); x.arc(tx, ty - 154, 2.4 + Math.sin(T * 4) * 0.6, 0, 7); x.fill(); x.strokeStyle = "#8a94a2"; x.lineWidth = 3; x.beginPath(); x.moveTo(tx - 6, ty - 100); x.lineTo(tx - 24, ty - 100); x.stroke(); }
+  if (USE3D_R) return;
   const ry = py - 4 - (launch > 0 ? Math.pow(1 - launch / 2, 2) * 520 : 0); x.save(); x.translate(px, ry); x.scale(0.8, 0.8);
   const steel = (x0: number, w: number) => { const g = x.createLinearGradient(x0, 0, x0 + w, 0); g.addColorStop(0, "#8d96a3"); g.addColorStop(0.28, "#f4f7fb"); g.addColorStop(0.55, "#c9d0da"); g.addColorStop(1, "#6f7886"); return g; };
   const ln = "rgba(40,48,60,.7)";
@@ -220,7 +224,7 @@ export function drawIsoHouse(x: CanvasRenderingContext2D, a: any, H: { b: number
   }
   const prog = Math.min(1, H.b); x.save(); if (prog < 1) { x.beginPath(); { const top = OY - 30, bot = OY + 2 * w * TH + 4; x.rect(-1000, top + (bot - top) * (1 - prog), 3000, 3000); } x.clip(); }
   const kind = a.id, cols: any = { cow: ["#f08a3a", "#c85a1e", "#8a4a32", "#d4682a"], chicken: ["#9ad4f6", "#6aaee0", "#d8442e", "#82c0ec"], pig: ["#c99a64", "#946a3c", "#7a5a3a", "#b08450"], sheep: ["#f0e4c8", "#c9b890", "#e0be5a", "#dccfae"] };
-  house(x, 0, 0, w, w, 24, 7, cols[kind] || cols.cow, "#fff4dc", (f) => { if (kind === "chicken") { doorOnLeft(x, f, 0.4, 0.62, 9, "#3a2216", "#fff4dc"); windowOnLeft(x, f, 0.78, 12, 0.06); } else if (kind === "pig") { doorOnLeft(x, f, 0.3, 0.7, 11, "#2a1a10", "#e8c48c"); } else if (kind === "sheep") { doorOnLeft(x, f, 0.3, 0.7, 11, "#3a2a1a", "#fff4dc"); windowOnLeft(x, f, 0.12, 12, 0.05); } else { doorOnLeft(x, f, 0.32, 0.68, 12, "#7a2e12", "#fff4dc"); } });
+  if (!USE3D_R) house(x, 0, 0, w, w, 24, 7, cols[kind] || cols.cow, "#fff4dc", (f) => { if (kind === "chicken") { doorOnLeft(x, f, 0.4, 0.62, 9, "#3a2216", "#fff4dc"); windowOnLeft(x, f, 0.78, 12, 0.06); } else if (kind === "pig") { doorOnLeft(x, f, 0.3, 0.7, 11, "#2a1a10", "#e8c48c"); } else if (kind === "sheep") { doorOnLeft(x, f, 0.3, 0.7, 11, "#3a2a1a", "#fff4dc"); windowOnLeft(x, f, 0.12, 12, 0.05); } else { doorOnLeft(x, f, 0.32, 0.68, 12, "#7a2e12", "#fff4dc"); } });
   x.restore(); x.restore();
   if (H.b < 1) { x.fillStyle = "rgba(0,0,0,.4)"; x.fillRect(cx - 30, cy - 58, 60, 7); x.fillStyle = "#ffd23f"; x.fillRect(cx - 30, cy - 58, 60 * H.b, 7); x.font = "16px system-ui"; x.textAlign = "center"; x.fillText("🔨", cx + 40, cy - 46 + Math.sin(T * 12) * 3); return; }
   if (!H.own) { const ok = stock >= buyCost[i], pulse = 1 + Math.sin(T * 4) * 0.05; x.save(); x.translate(cx, cy - 60); x.scale(pulse, pulse); x.fillStyle = ok ? "#fff" : "rgba(255,255,255,.75)"; x.strokeStyle = ok ? "#e8a010" : OUT; x.lineWidth = 1.8; x.beginPath(); x.roundRect(-38, -13, 76, 26, 13); x.fill(); x.stroke(); x.fillStyle = "#222"; x.font = "800 13px system-ui"; x.textAlign = "center"; x.fillText(a.prod + " " + buyCost[i] + " 🌾", 0, 5); x.restore(); }

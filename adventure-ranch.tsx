@@ -10,7 +10,7 @@ import { createAdvMusic } from "./adventure-music";
 import { enterFs } from "./pvp-arena";
 import { GearButton, SettingsPopup } from "./adventure-settings";
 import { HELPER_COINS, readOwnedHelpers, saveOwnedHelpers, HELPER_COST, HELPER_ICON, HELPER_NAME, mkHelper, stepMove, drawHelper, type HKind } from "./adventure-ranch-helpers";
-import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, drawIsoAnimal, drawIsoAmbient, PLOT_POS, PLOT_FREE, SLOT_POS, PAD, WW, WH } from "./adventure-ranch-iso";
+import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, drawIsoAnimal, drawIsoAmbient, PLOT_POS, PLOT_FREE, SLOT_POS, PAD, WW, WH, MILL, TW, TH, OX, OY, VW as ISO_VW, COLS as ISO_COLS, FX, FY, USE3D_R, setUse3DR } from "./adventure-ranch-iso";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
@@ -54,6 +54,9 @@ const FACTS: L3[] = [
   ["อาณานิคมที่อยู่ไกลโลกต้องผลิตอาหารเองเกือบทั้งหมด เพราะยานส่งเสบียงมาได้นาน ๆ ครั้ง", "A colony far from Earth must grow almost all of its food itself; supply ships come rarely.", "远离地球的殖民地几乎要自己生产全部食物，补给船很少来。"],
 ];
 
+const ANI_SZ: Record<string, number> = { cow: 1.2, pig: 0.82, sheep: 0.95, chicken: 0.6 };
+const GEO3: any = { OX, OY, TW, TH, VW: ISO_VW, FX, FY, COLS: ISO_COLS, MILL, PAD, ANIMALS: null as any,
+  wander: (i: number, T: number) => { const a = GEO3.ANIMALS[i], sz = ANI_SZ[a.id] || 1, wx = a.x + 6 + Math.sin(T * 0.35 + i * 2) * 30, wy = a.y + 30 + Math.cos(T * 0.25 + i) * 12 + 20 * sz, u = (wx - OX) / TW, v = (wy - OY) / TH; return { gx: (u + v) / 2, gy: (v - u) / 2, face: Math.cos(T * 0.35 + i * 2) >= 0 ? 1 : -1, hop: 0 }; } };
 function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string) {
   const O = "rgba(45,28,12,.5)";
   x.drawImage(isoBg(kind), 0, 0, WW, WH);
@@ -62,7 +65,9 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
   // the pens (fence and floor are in the cached scenery)
   for (let i = 0; i < ANIMALS.length; i++) drawIsoHouse(x, ANIMALS[i], S.houses[i], i, S.stock, T, HOUSE_COST, BUY_COST);
   for (let i = 0; i < ANIMALS.length; i++) { if (!S.houses[i].own) continue; const a = ANIMALS[i], A = S.animals[i], wx = a.x + 6 + Math.sin(T * 0.35 + i * 2) * 30, wy = a.y + 30 + Math.cos(T * 0.25 + i) * 12 + (A.prog >= 100 ? -Math.abs(Math.sin(T * 6)) * 4 : 0);
+    if (!USE3D_R) {
     x.fillStyle = "rgba(10,50,10,.3)"; x.beginPath(); x.ellipse(wx + 2, wy + 20 * ({ cow: 1.2, pig: 0.82, sheep: 0.95, chicken: 0.6 } as any)[a.id], 34 * ({ cow: 1.2, pig: 0.82, sheep: 0.95, chicken: 0.6 } as any)[a.id], 8, 0, 0, 7); x.fill(); x.save(); x.translate(wx, wy); const face = Math.cos(T * 0.35 + i * 2) >= 0 ? 1 : -1; const sz = ({ cow: 1.2, pig: 0.82, sheep: 0.95, chicken: 0.6 } as any)[a.id] || 1; x.scale(face * sz, sz); drawIsoAnimal(x, a.id, T, i); x.restore();
+    }
     const hungry = A.fed <= 0;
     if (hungry) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = O; x.lineWidth = 1.1; x.beginPath(); x.roundRect(wx + 18, wy - 46, 36, 24, 8); x.fill(); x.stroke(); x.fillStyle = "#222"; x.font = "16px system-ui"; x.textAlign = "center"; x.fillText("🍎", wx + 36, wy - 28); }
     else if (A.prog >= 100) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = "#ffb020"; x.lineWidth = 1.5; x.beginPath(); x.roundRect(wx + 18, wy - 48 - Math.abs(Math.sin(T * 5)) * 4, 36, 26, 8); x.fill(); x.stroke(); x.font = "18px system-ui"; x.textAlign = "center"; x.fillText(a.prod, wx + 36, wy - 28 - Math.abs(Math.sin(T * 5)) * 4); }
@@ -101,7 +106,10 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry, coinAp
     const cv = cvRef.current, el = boxRef.current; let raf = 0, alive = true, lastDraw = 0, last = performance.now();
     const fit = () => { if (!el || !cv) return; const wr = el.parentElement, aw = wr ? wr.clientWidth : window.innerWidth, ah = wr ? wr.clientHeight : window.innerHeight, W = Math.max(280, Math.min(aw, Math.round(ah * VW / VH))), H = Math.round(W * VH / VW), dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; el.style.width = W + "px"; setBox({ w: W, h: H }); };
     fit(); const ro = typeof ResizeObserver !== "undefined" && el ? new ResizeObserver(fit) : null; if (ro && el) ro.observe(el);
-    const draw = (now: number) => { if (!alive) return; raf = requestAnimationFrame(draw); if (now - lastDraw < 40 || !cv) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const k = cv.width / VW, cm = camRef.current; x.setTransform(k * cm.z, 0, 0, k * cm.z, -cm.x * k * cm.z, -cm.y * k * cm.z); try { drawRanch(x, S, now / 1000, P.kind || "moon"); x.setTransform(k, 0, 0, k, 0, 0); finishLook(x, VW, VH, now / 1000, "255,226,170", 0.3); } catch (e) {} };
+    let r3: any = null; GEO3.ANIMALS = ANIMALS;   // the three.js layer for crops, houses, animals, windmill and rocket; any failure leaves the 2D drawing in place
+    try { if (localStorage.getItem("tg_ranch3d") !== "0") import("./adventure-ranch-3d").then(m => { if (!alive || !cv || !cv.parentElement) return; r3 = m.createRanch3D(cv.parentElement); if (r3 && cv.nextSibling) cv.parentElement.insertBefore(r3.el, cv.nextSibling); setUse3DR(!!r3); }).catch(() => {}); } catch (e) {}
+    const draw = (now: number) => { if (!alive) return; raf = requestAnimationFrame(draw); if (now - lastDraw < 40 || !cv) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const k = cv.width / VW, cm = camRef.current; x.setTransform(k * cm.z, 0, 0, k * cm.z, -cm.x * k * cm.z, -cm.y * k * cm.z); try { drawRanch(x, S, now / 1000, P.kind || "moon"); x.setTransform(k, 0, 0, k, 0, 0); finishLook(x, VW, VH, now / 1000, "255,226,170", 0.3); } catch (e) {}
+      if (r3) { try { r3.render(S, cm, cv.clientWidth, cv.clientHeight, Math.min(2, window.devicePixelRatio || 1), now / 1000, P.kind || "moon", GEO3); } catch (e) { try { r3.dispose(); } catch (e2) {} r3 = null; setUse3DR(false); } } };
     raf = requestAnimationFrame(draw);
     const step = (dt: number) => {
       S.t += dt; helpRef.current(dt);
@@ -114,7 +122,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry, coinAp
     };
     const id = setInterval(() => { const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); last = now; if (pausedRef.current || S.ended) return; step(dt); setTick(v => (v + 1) % 1e6); }, 100);
     (window as any).__advRanch = { state: () => ({ t: S.t, stock: S.stock, delivered: S.delivered, plots: S.plots.map((c: any) => ({ crop: c.crop, p: c.p, locked: !!c.locked })), dug: S.dug, cam: { ...camRef.current }, animals: S.animals.map((a: any) => ({ fed: a.fed, prog: a.prog })), houses: S.houses.map((h: any) => ({ b: h.b, own: h.own })), helpers: S.helpers.map((h: any) => ({ kind: h.kind, job: h.job })), won: S.won, target: S.quota }), tick: (sec: number) => { for (let i = 0; i < Math.round(sec / 0.1); i++) step(0.1); }, give: (n: number) => { S.stock += n; }, buyHelper: (k: HKind) => buyHelper(k), setCam: (x: number, y: number, z: number) => { camRef.current = { x, y, z }; clampCam(); } };
-    return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advRanch; } catch (e) {} };
+    return () => { alive = false; setUse3DR(false); try { if (r3) r3.dispose(); } catch (e) {} cancelAnimationFrame(raf); if (ro) ro.disconnect(); clearInterval(id); if (mus) mus.stop(); sfx.close(); try { delete (window as any).__advRanch; } catch (e) {} };
   }, []);
   const helpRef = useRef<(dt: number) => void>(() => {});
   const play = (n: string) => sfxRef.current && sfxRef.current.play(n);
