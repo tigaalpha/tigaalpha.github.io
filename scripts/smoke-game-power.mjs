@@ -19,6 +19,9 @@ ok("new lesson 20, same lesson again 12", gp.powerFromActivity({ k: "lesson", id
 ok("bar never above 100", gp.readPower() <= 100);
 ok("skill-tagged secondary row pays nothing", gp.powerFromActivity({ k: "drill", id: "y", ok: 9, miss: 1, sec: 0, skill: "rhythm" }) === 0);
 ok("spend 10 works, then short power refuses", gp.spendPower(10, "t") && (mem.tg_game_power = JSON.stringify({ v: 5, d: "x", today: 0 }), !gp.spendPower(10, "t")) && gp.readPower() === 5);
+mem.tg_game_power = JSON.stringify({ v: 2, d: new Date().toDateString(), today: 0 });
+ok("play time drains 1 per tick, then stops at 0", gp.drainPower() && gp.drainPower() && !gp.drainPower() && gp.readPower() === 0);
+ok("entering needs the minimum, spends nothing", !gp.enterGame(5) && (mem.tg_game_power = JSON.stringify({ v: 50, d: new Date().toDateString(), today: 0 }), gp.enterGame(5)) && gp.readPower() === 50);
 ok("admin tier 3 is never gated", gp.canSpend(20, 3) && gp.spendPower(20, "t", 3));
 // 2) the browser
 const ROOT = path.resolve("dist");

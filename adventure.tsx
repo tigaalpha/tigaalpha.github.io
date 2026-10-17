@@ -11,8 +11,8 @@
    and skill points only: nothing in this mode sells, pays coins or touches the shop. Phase 1: one playable
    planet (the other four are on the map, locked), three monsters, no boss yet. ── */
 import { orbPic } from "./planet-orb";
-import { PowerSheet, usePower } from "./game-power-ui";
-import { spendPower, COST as POWER_COST, POWER_MAX } from "./game-power";
+import { PowerSheet, usePower, usePlayDrain } from "./game-power-ui";
+import { enterGame, COST as POWER_COST, POWER_MAX } from "./game-power";
 import { useEffect, useRef, useState, useMemo, memo, lazy, Suspense } from "react";
 import { CyberAvatar, MODEL_SKIN } from "./cyber-avatar";
 import { FigurePic, prepareFigures, pauseFigures, figureOf, FIGURES_OK } from "./figure-cache";
@@ -968,7 +968,8 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   // GAME POWER: a map costs power, which only learning earns (game-power.ts); admins and the bots' test door are free
   const [powerNeed, setPowerNeed] = useState(0);
   const powerNow = usePower();
-  const startPlanet = (P: any) => { if (!spendPower(POWER_COST.adventure, "adventure-map", adminTier)) { setPowerNeed(POWER_COST.adventure); return; } (window as any).__advTap = performance.now(); playUi && playUi("click"); warmAudio(); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
+  usePlayDrain(!!planet, adminTier, () => { setPlanet(null); setCined(null); setShipDone(null); setPowerNeed(1); });   // power is play time: at 0 the map ends and the learn pop-up opens
+  const startPlanet = (P: any) => { if (!enterGame(POWER_COST.adventure, adminTier)) { setPowerNeed(POWER_COST.adventure); return; } (window as any).__advTap = performance.now(); playUi && playUi("click"); warmAudio(); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
   const canStart = (P: any) => (net ? net.host : open(P));   // in a room only the host chooses the map (guests join whatever map the host opens)
   const connect = async (code: string | null, forcePub?: boolean) => {
     setNerr(""); setBusy(true);

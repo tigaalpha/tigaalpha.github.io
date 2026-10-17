@@ -63,8 +63,8 @@ const opKey = (model, pose, yaw) => `${ART_KEY}|op|${model}|${pose}|${yaw}`;
 const petKey = (species, lv, sad) => `${ART_KEY}|pet|${species}|${lv}|${sad ? 1 : 0}`;
 import { AnswerReveal } from "./note-reveal";
 import { useFpv, FpvButton, FpvVisor, FpvFightHands } from "./fpv";
-import { GamePowerBar, PowerSheet } from "./game-power-ui";
-import { spendPower, canSpend, COST as POWER_COST } from "./game-power";
+import { GamePowerBar, PowerSheet, usePlayDrain } from "./game-power-ui";
+import { enterGame, COST as POWER_COST } from "./game-power";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
 
@@ -1282,9 +1282,10 @@ export const PvpPage = memo(function PvpPage({
 
   // GAME POWER: a fight costs power, which only learning earns (game-power.ts). blockedFight() is the check that runs BEFORE the screen goes full size.
   const [powerSheet, setPowerSheet] = useState<any>(null);
-  const blockedFight = () => { if (canSpend(POWER_COST.fight, adminTier)) return false; setPowerSheet({ need: POWER_COST.fight }); return true; };
+  const blockedFight = () => { if (enterGame(POWER_COST.fight, adminTier)) return false; setPowerSheet({ need: POWER_COST.fight }); return true; };
+  usePlayDrain(phase === "fight", adminTier, () => { setPhase("lobby"); setPowerSheet({ need: 1 }); });   // power is play time: it runs out mid-fight, the fight ends and the learn pop-up opens
   const startFight = (kind, t, name, friend) => {
-    if (!spendPower(POWER_COST.fight, "pvp-fight", adminTier)) { setPowerSheet({ need: POWER_COST.fight }); return; }
+    if (!enterGame(POWER_COST.fight, adminTier)) { setPowerSheet({ need: POWER_COST.fight }); return; }
     enterFs();
     setOppKind(kind); setTier(t); setOppName(name || ""); setPendingFriend(friend || null);
     // seeded on the day and the tier, so losing and retrying hands back the
@@ -2037,7 +2038,7 @@ export const PvpPage = memo(function PvpPage({
           )}
           <div className="pvpres-btns">
             <button className="pvpghost" onClick={() => setPhase("lobby")}>{T("กลับสนาม", "Back to arena", "返回竞技场")}</button>
-            <button className="pvpghost" onClick={() => { if (!spendPower(POWER_COST.fight, "pvp-rematch", adminTier)) { setPowerSheet({ need: POWER_COST.fight }); return; } enterFs(); setPhase("fight"); }}>{T("สู้อีกครั้ง", "Rematch", "再战")}</button>
+            <button className="pvpghost" onClick={() => { if (!enterGame(POWER_COST.fight, adminTier)) { setPowerSheet({ need: POWER_COST.fight }); return; } enterFs(); setPhase("fight"); }}>{T("สู้อีกครั้ง", "Rematch", "再战")}</button>
           </div>
           {onShare && (
             <button className="pvpghost pvpshare" onClick={() => onShare(result)}>📤 {T("แชร์ผลการต่อสู้", "Share this fight", "分享战绩")}</button>

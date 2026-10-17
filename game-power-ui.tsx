@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { readPower, POWER_MAX, COST, POWER_DAILY_EARN_CAP } from "./game-power";
+import { useEffect, useRef, useState } from "react";
+import { readPower, POWER_MAX, COST, POWER_DAILY_EARN_CAP, DRAIN_SECS, drainPower } from "./game-power";
 
 /* The GAME POWER bar and its "how do I charge it" sheet (owner, 2026-10-17). The numbers live in game-power.ts; this file only draws them.
    Neon capsule (cyan to violet, the arena's palette) because it sits on the arena's dark hero in both app themes. */
@@ -11,6 +11,15 @@ export function usePower(): number {
     return () => { window.removeEventListener("tg:power", on); window.removeEventListener("storage", on); };
   }, []);
   return v;
+}
+/* While `active`, take 1 power every DRAIN_SECS seconds; at 0 call onEmpty() once (the game stops and the pop-up opens). */
+export function usePlayDrain(active: boolean, adminTier: number, onEmpty: () => void) {
+  const cb = useRef(onEmpty); cb.current = onEmpty;
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => { if (!drainPower(adminTier)) { clearInterval(id); cb.current(); } }, DRAIN_SECS * 1000);
+    return () => clearInterval(id);
+  }, [active, adminTier]);
 }
 const SEGS = 10;
 export function GamePowerBar({ lang, onOpen }: { lang: string; onOpen: () => void }) {
@@ -38,13 +47,12 @@ export function PowerSheet({ lang, need = 0, onClose, onLearn }: { lang: string;
     <div className="gpsheet-bg" data-gpsheet role="dialog" aria-modal="true" onClick={onClose}>
       <div className="gpsheet" onClick={e => e.stopPropagation()}>
         <button type="button" className="gpsheet-x" onClick={onClose} aria-label="close">✕</button>
-        <div className="gpsheet-hd"><span>⚡</span><div><b>{need ? T("พลังไม่พอ", "Not enough power", "能量不足") : T("พลังเกม", "Game power", "游戏能量")}</b>
-          <i>{need ? T(`ต้องใช้ ${need} · ตอนนี้มี ${v}`, `Needs ${need} · you have ${v}`, `需要 ${need} · 现有 ${v}`) : T(`ตอนนี้มี ${v} จาก ${POWER_MAX}`, `You have ${v} of ${POWER_MAX}`, `现有 ${v} / ${POWER_MAX}`)}</i></div></div>
+        <div className="gpsheet-hd"><span>⚡</span><div><b>{need ? T("พลังเกมหมด", "Out of game power", "游戏能量用完了") : T("พลังเกม", "Game power", "游戏能量")}</b>
+          <i>{need ? T(`คุณต้องไปเรียนรู้เพื่อเติมพลังเกมก่อน · ตอนนี้มี ${v}`, `Go learn to refill your game power first · you have ${v}`, `请先去学习来补充游戏能量 · 现有 ${v}`) : T(`ตอนนี้มี ${v} จาก ${POWER_MAX}`, `You have ${v} of ${POWER_MAX}`, `现有 ${v} / ${POWER_MAX}`)}</i></div></div>
         <div className="gpsheet-t">{T("ได้พลังจากการเรียนในแอป", "Charge it by learning in the app", "通过学习获得能量")}</div>
         {rows.map((r, i) => <div className="gpsheet-r" key={i}><span>{r[0]}</span><em>{r[1]}</em><b>{lang === "th" ? r[2] : r[3]}</b></div>)}
-        <div className="gpsheet-t">{T("ใช้พลังเมื่อเริ่มเล่น", "It is spent when you start", "开始游戏时消耗")}</div>
-        <div className="gpsheet-r"><span>⚔</span><em className="neg">−{COST.fight}</em><b>{T("สู้ PvP 1 ครั้ง", "One PvP fight", "一场 PvP")}</b></div>
-        <div className="gpsheet-r"><span>🪐</span><em className="neg">−{COST.adventure}</em><b>{T("ผจญภัย 1 ด่าน", "One Adventure map", "一个冒险关卡")}</b></div>
+        <div className="gpsheet-t">{T("พลังลดลงขณะเล่น PvP และผจญภัย", "It drains while you play PvP and Adventure", "玩 PvP 和冒险时会消耗")}</div>
+        <div className="gpsheet-r"><span>⏱</span><em className="neg">−1</em><b>{T(`ทุก ${DRAIN_SECS} วินาทีที่เล่น (เต็ม 100 ≈ ${Math.round(100 * DRAIN_SECS / 60)} นาที)`, `every ${DRAIN_SECS} s of play (a full bar ≈ ${Math.round(100 * DRAIN_SECS / 60)} min)`, `每玩 ${DRAIN_SECS} 秒（满格约 ${Math.round(100 * DRAIN_SECS / 60)} 分钟）`)}</b></div>
         <div className="gpsheet-n">{T(`เรียนวันละไม่เกิน ${POWER_DAILY_EARN_CAP} พลัง · พลังซื้อด้วยเงินไม่ได้`, `Up to ${POWER_DAILY_EARN_CAP} power a day from learning · it can't be bought`, `每天最多通过学习获得 ${POWER_DAILY_EARN_CAP} 能量 · 不能用钱购买`)}</div>
         <button type="button" className="gpsheet-go" data-gplearn onClick={go}>{T("ไปเรียนเพื่อชาร์จพลัง →", "Go learn to charge →", "去学习充能 →")}</button>
       </div>
