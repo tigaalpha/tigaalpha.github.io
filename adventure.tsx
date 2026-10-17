@@ -785,6 +785,7 @@ const CSS = `
 .adv-menu .adv-path .adv-planet{flex:0 0 138px;min-height:0;padding:28px 8px 8px;border-radius:20px}.adv-menu .adv-path .adv-orb{width:44px;height:44px;top:-22px;left:calc(50% - 22px)}
 .adv-menu .adv-path .adv-planet b{font-size:11.5px}.adv-menu .adv-path .adv-planet small{font-size:9.5px;margin-top:2px}.adv-menu .adv-path .adv-planet::before{left:-40px;width:40px}
 .adv-menu .adv-path .adv-planet:nth-child(odd){transform:translateY(-6px)}.adv-menu .adv-path .adv-planet:nth-child(even){transform:translateY(6px)}
+.adv-col-row{display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;font-size:12px;margin:5px 0}.adv-col-row i{height:8px;border-radius:99px;background:rgba(127,127,127,.25);overflow:hidden}.adv-col-row u{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#ffb35a,#ff7a3a)}.adv-col-next{margin-top:8px;font-size:12.5px;font-weight:800;color:var(--clay,#d97757)}
 .adv-foot{display:flex;gap:6px;flex:none;padding-top:2px;align-items:center}.adv-foot .adv-grp{margin:0}
 .adv-foot .adv-grp>summary{list-style:none;cursor:pointer;font-size:11.5px;font-weight:800;padding:4px 12px;border-radius:999px;background:var(--card,#fff);border:1.5px solid var(--bd3,rgba(0,0,0,.2))}.adv-foot .adv-grp>summary::-webkit-details-marker{display:none}
 .adv-foot .adv-grp[open]{position:fixed;left:10px;right:10px;bottom:38px;max-height:62vh;overflow:auto;z-index:70;background:var(--card,#fff);border:1.5px solid var(--clay,#d97757);border-radius:20px;padding:8px 12px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
@@ -897,6 +898,7 @@ export const AdventurePage = memo(function AdventurePage({ onReward = null, lang
   const closePub = () => { if (pubCodeRef.current) { publicRoomClose(pubCodeRef.current); pubCodeRef.current = null; } setPubOn(false); };
   useEffect(() => () => { if (pubCodeRef.current) publicRoomClose(pubCodeRef.current); }, []);
   const [gfx, setGfx] = useState<Gfx>(defaultGfx);
+  useEffect(() => { const f = () => setGfx("standard"); window.addEventListener("tg:adv-lite", f); return () => window.removeEventListener("tg:adv-lite", f); }, []);   // the frame-time watchdog of a run asks for Lite
   useEffect(() => { try { localStorage.setItem("tg_adv_gfx", gfx); } catch (e) {} }, [gfx]);
   const [tick, setTick] = useState(0); void tick;
   useEffect(() => { warmAdvFigures(me, colorway, petNow); }, []);
@@ -942,7 +944,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
   }, [planet, filming]);
   useEffect(() => { if (menuMus.current) menuMus.current.setOn(menuSnd); try { localStorage.setItem("tg_adv_music", menuSnd ? "1" : "0"); } catch (e) {} }, [menuSnd]);
   useEffect(() => { if (filming) enterFs(); }, [filming]);   // every film is shown full screen in landscape (owner, 2026-10-11)
-  const startPlanet = (P: any) => { playUi && playUi("click"); warmAudio(); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
+  const startPlanet = (P: any) => { (window as any).__advTap = performance.now(); playUi && playUi("click"); warmAudio(); enterFs(); setStrike(null); setShipDone(null); setCined(null); setPlanet(P); };
   const canStart = (P: any) => (net ? net.host : open(P));   // in a room only the host chooses the map (guests join whatever map the host opens)
   const connect = async (code: string | null) => {
     setNerr(""); setBusy(true);
@@ -1096,6 +1098,16 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
           </div>
           </>}
           </details>}
+          <details className="adv-grp" data-grp="collection">
+            <summary>{t("🏆 สะสม", "🏆 Collection", "🏆 收藏")}</summary>
+            {(() => { const dropIds = [...GUNS, ...ROCKETS].filter((g: any) => g.drop).map((g: any) => g.id), found = readFound().filter(id => dropIds.includes(id)).length, total = CAMP.length, nx = UP_LINES.filter(k => (ups[k] | 0) < UP_MAX).map(k => ({ k, c: upCost(ups[k] | 0) })).sort((a, b) => a.c - b.c)[0], lack = nx ? Math.max(0, nx.c - crystals) : 0, nm: any = { atk: t("พลังโจมตี", "Attack", "攻击"), hp: t("พลังชีวิต", "Health", "生命"), skl: t("สกิล", "Skills", "技能"), rkt: t("จรวด", "Rockets", "火箭"), shp: t("ยาน", "Ship", "飞船") };
+              const row = (lab: string, a: number, b: number, id: string) => <div key={id} className="adv-col-row" data-col={id}><span>{lab}</span><i><u style={{ width: Math.max(4, Math.round(a / Math.max(1, b) * 100)) + "%" }} /></i><em>{a}/{b}</em></div>;
+              return <div className="adv-shop" aria-label="Collection">
+                {row(t("ด่านที่ผ่าน", "Maps cleared", "已通关"), done.length, total, "maps")}
+                {row(t("อาวุธที่เจอ", "Weapons found", "已找到武器"), found, dropIds.length, "weapons")}
+                <div className="adv-col-next" data-next="1">{nx ? (lack > 0 ? t("อัปเกรดถัดไป: " + nm[nx.k] + " — อีก ◆" + lack, "Next upgrade: " + nm[nx.k] + " — ◆" + lack + " more", "下一个升级：" + nm[nx.k] + " — 还差 ◆" + lack) : t("อัปเกรด " + nm[nx.k] + " ซื้อได้เลย!", nm[nx.k] + " upgrade is ready to buy!", nm[nx.k] + " 升级可以购买了！")) : t("อัปเกรดเต็มทุกสาย", "Every upgrade line is maxed", "所有升级已满级")}</div>
+              </div>; })()}
+          </details>
           <details className="adv-grp" data-grp="quests">
             <summary>{t("📅 เควสต์วันนี้", "📅 Today's quests", "📅 今日任务")}</summary>
           <div className="adv-shop" aria-label="Daily quests">
@@ -1120,7 +1132,7 @@ const SECT_OF: Record<string, string> = {shipbuild: "solar", departure: "solar",
           <div className="adv-gfx" role="radiogroup" aria-label="Graphics">
             {(["standard", "high"] as Gfx[]).map(g => (
               <button key={g} role="radio" aria-checked={gfx === g} className={gfx === g ? "on" : ""} onClick={() => setGfx(g)}>
-                {g === "standard" ? t("กราฟิกมาตรฐาน (เครื่องทั่วไป)", "Standard graphics", "标准画质") : t("กราฟิกสูง (เครื่องแรง)", "High graphics", "高画质")}
+                {g === "standard" ? t("กราฟิกประหยัด (Lite · เครื่องสเปคต่ำ)", "Lite graphics (weaker phones)", "轻量画质（低配手机）") : t("กราฟิกสูง (High · เครื่องแรง)", "High graphics (strong phones)", "高画质（高配手机）")}
               </button>
             ))}
           </div>
@@ -2224,8 +2236,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       }
     };
 
+    let wdN = 0, wdSum = 0, wdLast = 0, loadLogged = false;
     const loop = (now) => {
       raf = requestAnimationFrame(loop); frames++;
+      if (!loadLogged) { loadLogged = true; try { const t0 = (window as any).__advTap; if (t0) logUsage("adv", "load:" + P.id + ":" + Math.round(performance.now() - t0) + "ms"); } catch (e) {} }
+      if (HI() && wdLast) { const fd = now - wdLast; if (fd < 250) { wdSum += fd; wdN++; if (wdN >= 90) { if (wdSum / wdN > 31) { highRef.current = false; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} window.dispatchEvent(new Event("tg:adv-lite")); logUsage("adv", "auto-lite:" + P.id + ":" + Math.round(1000 / (wdSum / wdN)) + "fps"); } wdN = 0; wdSum = 0; } } } wdLast = now;
       let dt = Math.min(0.1, (now - last) / 1000); last = now;
       if (hitStop > 0) { hitStop -= dt; dt = 0; }
       acc += dt; let n = 0;
