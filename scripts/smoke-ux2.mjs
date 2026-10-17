@@ -32,7 +32,7 @@ async function open({ ux, page = "pathway", w = 412, q = "" }) {
   check("off by default: no tab bar, no ux2 class", !(await p.$(".tabbar")) && !(await p.$(".tg.ux2")), "errors " + errs.length);
   await ctx.close(); }
 { const { ctx, p, errs } = await open({ ux: "1" });
-  check("on by switch: one tab bar with five tabs", (await p.$$(".tabbar .tab")).length === 5);
+  check("on by switch: one tab bar with six tabs (My Class + the five)", (await p.$$(".tabbar .tab")).length === 6);
   check("Learn is the active tab on the pathway", await p.$eval(".tab.on", e => e.dataset.tab) === "learn");
   check("the pathway has NO large title (the owner did not like it, 2026-10-09)", !(await p.$(".uxtitle")));
   await p.click('.tab[data-tab="practice"]'); await p.waitForTimeout(900);
@@ -49,7 +49,7 @@ async function open({ ux, page = "pathway", w = 412, q = "" }) {
   check("?ux=0 turns it off again, even though the device had it on", !(await p.$(".tabbar")));
   await ctx.close(); }
 { const { ctx, p } = await open({ ux: null, q: "?ux=2" });
-  check("?ux=2 turns it on for a device without the switch", (await p.$$(".tabbar .tab")).length === 5);
+  check("?ux=2 turns it on for a device without the switch", (await p.$$(".tabbar .tab")).length === 6);
   await ctx.close(); }
 { const { ctx, p } = await open({ ux: null, q: "" });
   await ctx.close(); }

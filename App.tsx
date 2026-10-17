@@ -1310,6 +1310,83 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   );
 });
 
+/* ── My Class (owner, 2026-10-17) — the home page. It asks the SAME questions the Daily Mentor asks, from the SAME data: learnerSignal() over the
+   act log + tg_memory (the one decision unit), getCoachDiagnosis() from the TIGA model (what TodayPage shows), and buildTodaySteps() (the plan
+   TodayPage and the Teacher tab count). Nothing is recomputed here, so My Class, Daily Mentor and the popup cannot disagree. When the day's plan
+   is finished it sends the learner on to the Learning Pathway. */
+const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onLearn, onRead, onSong, onReviewStage, onNavigate, onPathway, onMentor, onReward }) {
+  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const TT = TODAY_TAGS[lang];
+  const [, setTick] = useState(0);
+  const bump = () => setTick(t => t + 1);
+  const steps = buildTodaySteps(TT, lang, exp, homework, { onSong, onReviewStage, onLearn, onRead, onNavigate });
+  const nDone = steps.filter(s => s.isDone).length, allDone = (steps.length > 0 && nDone === steps.length) || (() => { try { return localStorage.getItem("tg_test_hook") === "1" && localStorage.getItem("tg_test_myclass_done") === "1"; } catch (e) { return false; } })(), pct = steps.length ? Math.round((nDone / steps.length) * 100) : 0;
+  const signal = useMemo(() => {
+    try { return learnerSignal({ log: readActLog(), struggles: (readMemory() || {}).struggles || [], labelOf: e => actTopicLabel(e, lang) }); } catch (e) { return learnerSignal({}); }
+  }, [lang, nDone]);
+  const skipped = (() => { try { return localStorage.getItem(COACH_SKIP_KEY) === new Date().toDateString(); } catch (e) { return false; } })();
+  const act = skipped ? null : signal.nextAction;
+  const dx = useTiga(m => m.getCoachDiagnosis());
+  const nextStep = steps.find(s => !s.isDone) || null;
+  const title = act ? (act.kind === "skill" ? tr(SKILL_LABELS[act.skill], lang) : act.label) : null;
+  const start = () => { playUi("click"); haptic(6); try { logUsage("nav", "myclass-start"); } catch (e) {} if (act) { if (act.stepText) onNavigate(act.stepText, act.feature); else onNavigate(act.feature, act.tab); } else if (nextStep) { nextStep.go(); } };
+  return (
+    <div className="pathpage" data-myclass="1">
+      <div className="v12hero">
+        <div className="v12title">🏫 My Class {streak > 0 && <span className="chip" style={{ marginLeft: 8, fontSize: 12 }}>🔥 {streak}</span>}</div>
+        <div className="v12sub">{T("คลาสส่วนตัวของคุณ — วันนี้ควรทำอะไร ดูจากความก้าวหน้าจริงของคุณ", "Your personal class — what to do today, from your real progress", "你的专属课堂——根据真实进度告诉你今天做什么")}</div>
+      </div>
+      {allDone ? (
+        <div className="v12card" data-done="1" style={{ textAlign: "center", borderColor: "#d9775766" }}>
+          <div style={{ fontSize: 34 }}>🎉</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: "var(--clay-ink)", margin: "6px 0 4px" }}>{TT.allDone}</div>
+          <div style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 12 }}>{T("อยากเรียนต่อไหม? ไปต่อที่เส้นทางการเรียนรู้ได้เลย", "Want to keep going? Continue on the Learning Pathway.", "想继续学吗？前往学习路径继续。")}</div>
+          <button className="songbtn go" style={{ width: "100%" }} data-to-pathway="1" onClick={() => { playUi("click"); logUsage("nav", "myclass-to-pathway"); onPathway(); }}>{T("ไปต่อที่เส้นทางการเรียนรู้ →", "Continue to Learning Pathway →", "前往学习路径 →")}</button>
+          {!todayBonusClaimed() && <button className="tdgo" style={{ marginTop: 10, borderColor: "#d97757", color: "var(--clay-ink)", background: "rgba(217,119,87,.1)" }} onClick={() => { playUi("reward"); claimTodayBonus(); onReward(40, 20); bump(); }}>{TT.bonus}</button>}
+        </div>
+      ) : (
+        <div className="v12card" data-focus="1" style={{ borderColor: "#d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+          {act ? (<>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>{T("วันนี้ควรฝึก", "Today's focus", "今日重点")}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", lineHeight: 1.4 }}>{title}</div>
+            <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6, lineHeight: 1.7 }}><b style={{ color: "var(--clay-ink)" }}>{act.minutes} {T("นาที", "min", "分钟")}</b> · {actWhyText(act, T)}</div>
+          </>) : (<>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>{T("เริ่มจากตรงนี้", "Start here", "从这里开始")}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", lineHeight: 1.4 }}>{nextStep ? nextStep.label : T("เล่นเพลงสักเพลง", "Play a song", "弹一首歌")}</div>
+            <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>{skipped ? T("วันนี้ข้ามคำแนะนำของครู AI ไว้ — ทำตามแผนด้านล่างได้เลย", "You skipped the mentor's advice today — follow the plan below.", "今天已跳过导师建议——按下面的计划来吧。") : T("ยังซ้อมไม่พอให้ครู AI วิเคราะห์ ซ้อมอีกสักหน่อยแล้วคำแนะนำจะแม่นขึ้น", "Not enough practice yet for the AI to analyse — a little more and the advice gets sharper.", "练习还不够，AI 暂时无法分析——再练一点建议会更准。")}</div>
+          </>)}
+          <button className="songbtn go" style={{ width: "100%", marginTop: 12 }} data-start="1" onClick={start}>🎹 {T("เริ่มเลย", "Start now", "开始")}</button>
+        </div>
+      )}
+      {dx && !allDone && (
+        <div className="v12card" data-dx="1" style={{ borderColor: "#d9775744" }}>
+          <div style={{ fontSize: 11, color: "var(--clay-ink)", marginBottom: 6 }}>🩺 {T("AI วินิจฉัย", "AI diagnosis", "AI 诊断")}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{dx.what.label} · {dx.what.acc}%</div>
+          <div style={{ fontSize: 12, color: "var(--text2)" }}><b style={{ color: "var(--clay-ink)" }}>{T("ทำไม", "Why", "为什么")}:</b> {dx.why[0]}</div>
+          {dx.how[0] && <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 3 }}><b style={{ color: "var(--clay-ink)" }}>{T("วิธีฝึก", "How to fix", "怎么练")}:</b> {dx.how[0]}</div>}
+        </div>
+      )}
+      <div className="v12card">
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}><b style={{ fontSize: 13 }}>{TT.title}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{nDone}/{steps.length}</span></div>
+        <div className="tdbar"><div className="tdfill" style={{ width: pct + "%" }} /></div>
+      </div>
+      {steps.map(s => (
+        <div key={s.id} className={`tdstep${s.isDone ? " done" : ""}`}>
+          <span className="tdico">{s.isDone ? "✅" : s.icon}</span>
+          <div style={{ flex: 1, minWidth: 0 }}><div className="tdtag">{s.tag}</div><div className="tdlbl">{s.label}</div></div>
+          {s.isDone ? <span className="tdgo done">{TT.done}</span>
+            : s.hwStep ? <button className="tdgo" onClick={() => { playUi("click"); markHwDone(); onReward(10, 0); bump(); }}>{TT.hwBtn}</button>
+            : <button className="tdgo" onClick={() => { playUi("click"); logUsage("pathway", "myclass-" + s.id); s.go(); }}>{TT.start}</button>}
+        </div>
+      ))}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "4px 2px 12px" }}>
+        <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { playUi("click"); onPathway(); }}>{T("เส้นทางการเรียนรู้ →", "Learning Pathway →", "学习路径 →")}</button>
+        <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => { playUi("click"); onMentor(); }}>🎯 Daily Mentor →</button>
+      </div>
+    </div>
+  );
+});
+
 /* ════════════════════════════════════════════════════════════
    EAR GYM — daily listening workouts (intervals / chord quality /
    melody echo). Practicable anywhere, even without a piano.
@@ -7811,6 +7888,22 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
    rather than deleted. The card's decision comes from learner-signal.ts, the
    SAME object the Auto Teaching popup fires, so the two can never disagree. ── */
 const COACH_SKIP_KEY = "tg_coach_skip_day";
+/* The one sentence that says WHY the mentor suggests this, with the real numbers. Shared by Daily Mentor and My Class so the two can never word
+   the same decision differently. */
+function actWhyText(act, T) {
+  return act.reasonKind === "miss_rate"
+    ? T(`จาก ${act.evidence[0].n} ครั้ง · พลาด ${act.evidence[0].miss} ครั้ง (${act.evidence[0].rate}%)`,
+        `from ${act.evidence[0].n} tries · ${act.evidence[0].miss} misses (${act.evidence[0].rate}%)`,
+        `来自${act.evidence[0].n}次 · 错过${act.evidence[0].miss}次（${act.evidence[0].rate}%）`)
+    : act.reasonKind === "recent_struggle"
+    ? T(`ซ้อมล่าสุดแม่นยำ ${act.evidence[0].acc}% · พลาดซ้ำ ${act.evidence[0].count} ครั้ง`,
+        `last time ${act.evidence[0].acc}% accurate · missed ${act.evidence[0].count}×`,
+        `最近准确率${act.evidence[0].acc}% · 错过${act.evidence[0].count}次`)
+    : T(`คะแนนทักษะนี้ ${act.evidence[0].score}/100 จาก ${act.evidence[0].n} ครั้ง`,
+        `skill score ${act.evidence[0].score}/100 over ${act.evidence[0].n} tries`,
+        `该技能得分${act.evidence[0].score}/100（共${act.evidence[0].n}次）`);
+}
+
 const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onGoStep, onUpsell, gainExp, earnCoins, onOpenAiReport }) {
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const isMax = isMaxPlan(plan) || (profile && profile.is_admin);
@@ -7869,17 +7962,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
   const actTitle = act
     ? (act.kind === "skill" ? tr(SKILL_LABELS[act.skill], lang) : act.label)
     : null;
-  const actWhy = act ? (act.reasonKind === "miss_rate"
-    ? T(`จาก ${act.evidence[0].n} ครั้ง · พลาด ${act.evidence[0].miss} ครั้ง (${act.evidence[0].rate}%)`,
-        `from ${act.evidence[0].n} tries · ${act.evidence[0].miss} misses (${act.evidence[0].rate}%)`,
-        `来自${act.evidence[0].n}次 · 错过${act.evidence[0].miss}次（${act.evidence[0].rate}%）`)
-    : act.reasonKind === "recent_struggle"
-    ? T(`ซ้อมล่าสุดแม่นยำ ${act.evidence[0].acc}% · พลาดซ้ำ ${act.evidence[0].count} ครั้ง`,
-        `last time ${act.evidence[0].acc}% accurate · missed ${act.evidence[0].count}×`,
-        `最近准确率${act.evidence[0].acc}% · 错过${act.evidence[0].count}次`)
-    : T(`คะแนนทักษะนี้ ${act.evidence[0].score}/100 จาก ${act.evidence[0].n} ครั้ง`,
-        `skill score ${act.evidence[0].score}/100 over ${act.evidence[0].n} tries`,
-        `该技能得分${act.evidence[0].score}/100（共${act.evidence[0].n}次）`)) : null;
+  const actWhy = act ? actWhyText(act, T) : null;
 
   // Monthly skill trend — best-effort: silently empty (not an error) if the
   // RPC isn't deployed yet, or if there's under 2 months of history so far.
@@ -9590,7 +9673,7 @@ function AdminAnalytics({ lang }) {
      exclusion flag); get_usage_stats stays as the automatic fallback while
      the migration is not yet applied. */
   const [noAdmins, setNoAdmins] = useState(true);
-  const NAV_LABELS = { pathway: "⬡ PATHWAY", sensei: "◈ TIGA CHAT", studio: "▶ STUDIO", videos: "🎬 " + T("วิดีโอสอน", "Video Lessons", "视频课程"), profile: "PROFILE", admin: "ADMIN" };
+  const NAV_LABELS = { myclass: "★ MY CLASS", pathway: "⬡ PATHWAY", sensei: "◈ TIGA CHAT", studio: "▶ STUDIO", videos: "🎬 " + T("วิดีโอสอน", "Video Lessons", "视频课程"), profile: "PROFILE", admin: "ADMIN" };
 
   const load = useCallback(() => {
     setStats(null);
@@ -11408,7 +11491,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
    // and the admin unlock for the tab session only (a new tab or an explicit
    // sign-out still starts clean).
   const [page, setPage] = useState(() => {
-    try { const p = sessionStorage.getItem("tiga_page"); return p || "pathway"; } catch (e) { return "pathway"; }
+    try { const p = sessionStorage.getItem("tiga_page"); return p || "myclass"; } catch (e) { return "myclass"; }
   });
   /* The premium interface (ux2.ts): the tab bar, one icon language, motion, large titles. Behind one switch — on for the admin
      account and for /?ux=2 — until the owner says it is for everyone. `kbd` on <html> while a text field has focus lets the CSS
@@ -13306,6 +13389,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
 
       {/* ─── PAGE: PRACTICE TODAY / EAR GYM / READING / INSIGHTS / REPORT ─── */}
+      {page === "myclass" && (
+        <MyClassPage lang={lang} exp={(profile && profile.exp) || 0} streak={(profile && profile.streak) || 0} homework={homework}
+          onLearn={learnTopic} onRead={readChapter} onSong={chooseSong} onNavigate={handleCoachNavigate} onReviewStage={reviewStage}
+          onPathway={() => { stopPracticeListeners(); setPage("pathway"); }} onMentor={() => { stopPracticeListeners(); setPage("coach"); }}
+          onReward={(xp, c) => rewardStudio(xp, c)} />
+      )}
       {page === "today" && (
         <TodayPage lang={lang} exp={(profile && profile.exp) || 0} homework={homework}
           onLearn={learnTopic} onRead={readChapter} onSong={chooseSong} onNavigate={handleCoachNavigate}
@@ -13496,6 +13585,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
         {[
+          { p: "myclass", ic: "★", c: "#d97757", t: "My Class" },
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
           // TIGA CHAT opens the full-screen chat (.mov modal) directly — owner request
           // 2026-09-22: landing on SenseiView first made the nav item feel broken

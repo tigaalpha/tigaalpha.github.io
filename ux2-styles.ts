@@ -17,12 +17,13 @@ export const UX2_CSS = `
 .ux2 .tab{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   padding:3px 0 1px;border:0;background:transparent;color:var(--muted);font-family:var(--f-app);cursor:pointer;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:color .2s}
-.ux2 .tab-ic{display:flex;align-items:center;justify-content:center;width:56px;height:30px;border-radius:15px;
+.ux2 .tab-ic{display:flex;align-items:center;justify-content:center;width:min(56px,100%);height:30px;border-radius:15px;
   transition:background .24s ease,transform .32s cubic-bezier(.3,1.6,.5,1)}
 .ux2 .tab.on{color:var(--clay-ink)}
 .ux2 .tab.on .tab-ic{background:var(--clay-t2)}
 .ux2 .tab:active .tab-ic{transform:scale(.9)}
 .ux2 .tab-lb{font-size:11px;line-height:1.2;font-weight:500;letter-spacing:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:380px){.ux2 .tab-lb{font-size:10px;letter-spacing:-.2px}.ux2 .tabbar{padding-left:2px;padding-right:2px}}
 .ux2 .tab:focus-visible{outline:none}
 .ux2 .tab:focus-visible .tab-ic{box-shadow:0 0 0 2px var(--clay)}
 /* the on-screen keyboard owns the bottom of the screen while a text field has focus */
