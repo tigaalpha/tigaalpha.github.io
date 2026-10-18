@@ -1,7 +1,7 @@
 /* Alien Hunt (plan 38): a first-person shooter against human-sized insect aliens, with a music question every 15 s of fighting.
    The shell: ready screen, input (touch sticks, mouse + keys), HUD, the tune-up question card, pause, results, Game Power. The rules are in ah-engine.ts, the picture in ah-render.ts. */
 import { useEffect, useRef, useState } from "react";
-import { ARENA, newState, step, noInput, tuneResult, stats, setWeapon, WEAPONS, ALIENS, CLASSIC_WAVES, WORDER, type State, type Input, type WeaponId } from "./ah-engine";
+import { ARENA, newState, step, noInput, tuneResult, stats, setWeapon, WEAPONS, ALIENS, CLASSIC_WAVES, WORDER, type State, type Input, type WeaponId, type ShopW } from "./ah-engine";
 import { LEVELS, gunsAfter } from "./ah-levels";
 import { createRender, type Render } from "./ah-render";
 import { orbPic } from "./planet-orb";
@@ -66,7 +66,11 @@ function drawMap(cv: HTMLCanvasElement | null, s: State, tint: string) {
 }
 
 const PLANET_POS: [number, number][] = [[7, 62], [16.5, 30], [26, 66], [35.5, 30], [45, 66], [54.5, 30], [64, 66], [73.5, 30], [83, 66], [92.5, 30]];
-export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void }) {
+export const AH_COIN_DAY_CAP = 600;
+const ahDayKey = () => new Date().toISOString().slice(0, 10);
+const readAhDayCoins = () => { try { const v = JSON.parse(localStorage.getItem("tg_ah_coin_day") || "null"); return v && v.d === ahDayKey() ? Number(v.n) || 0 : 0; } catch (e) { return 0; } };
+const addAhDayCoins = (n: number) => { try { localStorage.setItem("tg_ah_coin_day", JSON.stringify({ d: ahDayKey(), n: readAhDayCoins() + n })); } catch (e) {} };
+export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null }) {
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const host = useRef<HTMLDivElement>(null), rdr = useRef<Render | null>(null), S = useRef<State>(newState(Date.now() & 0xffff, readTune()));
   const inp = useRef<Input>(noInput()), look = useRef({ x: 0, y: 0 }), keys = useRef<Record<string, boolean>>({}), stick = useRef({ id: -1, x0: 0, y0: 0, mx: 0, mz: 0 }), lookId = useRef(-1);
@@ -90,13 +94,16 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
     if (!forced || st.kills > 0) { addCrystals(cry); try { addRpgExp(me, exp); } catch (e) {} }
     try { logUsage("ah", `end:${won ? "win" : "lose"}:k${st.kills}:w${s.wave}:t${st.right}of${st.tunes}:${gfxHigh() ? "hd" : "sd"}`); } catch (e) {}
     AU.musicStop(); AU.sfx(won ? "win" : "lose"); const per: Record<string, [number, number]> = {}; for (const l of tuneLog.current) { per[l.topic] = per[l.topic] || [0, 0]; per[l.topic][1]++; if (l.ok) per[l.topic][0]++; }
+    // coins (owner, 2026-10-18): every alien down pays, a cleared level pays a bonus; capped per day, paid through the app's one wallet
+    const clearCoins = won ? 30 * Math.max(1, s.lv) : 0, wantCoins = st.coins + clearCoins, coinsPaid = Math.min(wantCoins, Math.max(0, AH_COIN_DAY_CAP - readAhDayCoins()));
+    if (coinsPaid > 0 && onReward) { try { onReward(0, coinsPaid, { adventure: true, ah: true }); addAhDayCoins(coinsPaid); } catch (e) {} }
     let bonus = 0, newGuns: string[] = []; if (s.lv && won) { bonus = 10 * s.lv; addCrystals(bonus); const c = readCamp(); const first = c.cleared < s.lv; c.cleared = Math.max(c.cleared, s.lv); c.stars[s.lv - 1] = Math.max(c.stars[s.lv - 1] | 0, st.stars); writeCamp(c); setCamp(c); if (first) newGuns = LEVELS[s.lv - 1].guns.map(g => WEAPONS[g].name); }
-    setRes({ ...st, won, cry: cry + bonus, exp, wave: s.wave, per, lv: s.lv, newGuns }); setPhase("result"); setPaused(false); setQuiz(null);   // full screen stays on for the result card; only Back leaves it
+    setRes({ ...st, won, coinsPaid, coinsWant: wantCoins, cry: cry + bonus, exp, wave: s.wave, per, lv: s.lv, newGuns }); setPhase("result"); setPaused(false); setQuiz(null);   // full screen stays on for the result card; only Back leaves it
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
   };
   const begin = (level = 0) => {
     if (!enterGame(POWER_COST.adventure, adminTier)) { setPowerNeed(POWER_COST.adventure); return; }
-    if (playUi) playUi("click"); enterFs(); const lt = learnedTopics(readDone()); setLearned(lt); tuneLog.current = []; const cc = readCamp(); S.current = newState(Date.now() & 0xffff, lt.length ? readTune() : 0, level, level ? gunsAfter(unlockAll ? LEVELS.length : Math.min(cc.cleared, level - 1)) : []); setCurLv(level); if (level) { const L = LEVELS[level - 1]; setBanner(t("ด่าน ", "LEVEL ", "第") + level + (lang === "zh" ? "关" : "") + " · " + T3(lang, ...L.name) + " — " + T3(lang, ...L.race)); bannerT.current = 3.2; } AU.menuStop(); AU.warm(); AU.setDucked(false); AU.musicStart(); AU.sfx("go"); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
+    if (playUi) playUi("click"); enterFs(); const lt = learnedTopics(readDone()); setLearned(lt); tuneLog.current = []; const cc = readCamp(); S.current = newState(Date.now() & 0xffff, lt.length ? readTune() : 0, level, level ? gunsAfter(unlockAll ? LEVELS.length : Math.min(cc.cleared, level - 1)) : [], shopWeapon); setCurLv(level); if (level) { const L = LEVELS[level - 1]; setBanner(t("ด่าน ", "LEVEL ", "第") + level + (lang === "zh" ? "关" : "") + " · " + T3(lang, ...L.name) + " — " + T3(lang, ...L.race)); bannerT.current = 3.2; } AU.menuStop(); AU.warm(); AU.setDucked(false); AU.musicStart(); AU.sfx("go"); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
     try { logUsage("ah", `start:L${level}:${gfxHigh() ? "hd" : "sd"}:${S.current.tuneEvery}s`); } catch (e) {}
   };
 
@@ -138,7 +145,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
       if (bannerT.current > 0) { bannerT.current -= dt; if (bannerT.current <= 0) setBanner(""); }
       r.draw(s, dt);
       if (high && !pausedRef.current && !s.frozen) { if (dt > 0.031) slow++; else slow = Math.max(0, slow - 1); if (slow > 90) { slow = 0; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} setHigh(false); r.setHigh(false); try { logUsage("ah", "auto-lite"); } catch (e) {} } }
-      hudT += dt; if (hudT > 0.1) { hudT = 0; drawMap(mapRef.current, s, s.lv ? "#" + LEVELS[s.lv - 1].tint.toString(16).padStart(6, "0") : "#ff8a3a"); { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: WEAPONS[w].name, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, nw: s.waves.length, boss: (() => { const b = s.enemies.find(e => e.dead === 0 && ALIENS[e.kind].boss); return b ? { n: ALIENS[b.kind].name, p: Math.max(0, b.hp / b.max) } : null; })(), left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, af: s.autoFire, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
+      hudT += dt; if (hudT > 0.1) { hudT = 0; drawMap(mapRef.current, s, s.lv ? "#" + LEVELS[s.lv - 1].tint.toString(16).padStart(6, "0") : "#ff8a3a"); { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: s.shopW && s.shopW.as === w ? s.shopW.name : WEAPONS[w].name, coins: s.coins, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, nw: s.waves.length, boss: (() => { const b = s.enemies.find(e => e.dead === 0 && ALIENS[e.kind].boss); return b ? { n: ALIENS[b.kind].name, p: Math.max(0, b.hp / b.max) } : null; })(), left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, af: s.autoFire, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
     };
     raf = requestAnimationFrame(loop);
     (window as any).__ah = { s: S.current, get state() { return S.current; }, step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(S.current, dt, inp.current); }, info: () => r.info(), killAll: () => { for (const e of S.current.enemies) e.hp = 0, e.dead = 0.5; }, tune: () => { S.current.tuneT = S.current.tuneEvery; }, setHigh: (h: boolean) => { setHigh(h); r.setHigh(h); }, creature: (k: string, m: string) => AU.creature(k, m as any, 3), quizQ: () => quizRef.current && quizRef.current.q, draw: () => r.draw(S.current, 0.016) };
@@ -238,7 +245,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <div className="ah-top">
             <div className="ah-wave"><b>{t("คลื่น", "WAVE", "波")} {hud.wave || 0}/{hud.nw || CLASSIC_WAVES.length}</b><span>{hud.between ? t("เตรียมตัว…", "get ready…", "准备…") : (hud.left ?? 0) + " " + t("ตัวเหลือ", "left", "剩余")}</span></div>
             <div className={"ah-tune" + ((hud.tune || 99) <= 3 ? " soon" : "")} data-tunechip="1"><b>♪ {hud.tune ?? 15}s</b>{(hud.ts || 0) > 0 && <span>TUNE ×{hud.ts}</span>}</div>
-            <div className="ah-score"><b>{(hud.score || 0).toLocaleString()}</b>{(hud.streak || 0) >= 3 && <span>🔥 {hud.streak}</span>}</div>
+            <div className="ah-score"><b>{(hud.score || 0).toLocaleString()}</b><span data-coins="1">🪙 {hud.coins || 0}</span>{(hud.streak || 0) >= 3 && <span>🔥 {hud.streak}</span>}</div>
             <button className="ah-gear" aria-label="pause" data-pause-btn="1" onClick={() => setPaused(true)}>⚙</button>
           </div>
           <div className="ah-bars"><div className="ah-hp"><i style={{ width: (hud.hp ?? 100) + "%" }} />{(hud.sh || 0) > 0 && <u style={{ width: Math.min(50, hud.sh) * 2 + "%" }} />}</div><span>❤ {hud.hp ?? 100}{(hud.sh || 0) > 0 ? " 🛡 " + hud.sh : ""}{hud.boost ? " ⚡" : ""}</span></div>
@@ -309,7 +316,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <h1>{"★".repeat(res.stars)}{"☆".repeat(3 - res.stars)}</h1>
           <div className="ah-stats"><span><b>{res.kills}</b>{t("เอเลี่ยนที่ล้ม", "aliens down", "击杀")}</span><span><b>{res.acc}%</b>{t("แม่นยำ", "accuracy", "命中")}</span><span><b>{res.heads}</b>{t("หัว", "headshots", "爆头")}</span><span><b>{res.right}/{res.tunes}</b>{t("ตอบถูก", "tune-ups right", "答对")}</span><span><b>{res.score.toLocaleString()}</b>{t("คะแนน", "score", "得分")}</span></div>
           {res.per && Object.keys(res.per).length > 0 && <div className="ah-stats" data-report="1">{Object.keys(res.per).map(k => <span key={k}><b>{res.per[k][0]}/{res.per[k][1]}</b>{k}</span>)}</div>}
-          <p>+{res.cry} ◆ · +{res.exp} EXP</p>
+          <p>+{res.cry} ◆ · +{res.exp} EXP · +{res.coinsPaid || 0} 🪙{res.coinsWant > (res.coinsPaid || 0) ? t(" (ครบเพดานวันนี้)", " (daily limit)", "（今日上限）") : ""}</p>
           {res.lv > 0 && res.newGuns && res.newGuns.length > 0 && <p data-newguns="1">{t("ได้ปืนใหม่: ", "New guns: ", "新枪：")}{res.newGuns.join(", ")}</p>}
           {res.won && res.lv > 0 && res.lv < LEVELS.length && <button className="ah-go" data-next="1" onClick={() => begin(res.lv + 1)}>{t("ด่านต่อไป", "NEXT LEVEL", "下一关")}</button>}
           <button className={res.won && res.lv > 0 && res.lv < LEVELS.length ? "ah-ghost" : "ah-go"} onClick={() => begin(res.lv || 0)}>{t("เล่นอีกครั้ง", "PLAY AGAIN", "再玩一次")}</button><button className="ah-ghost" onClick={() => { setPhase("ready"); }}>{t("เลือกด่าน", "Levels", "选关")}</button><button className="ah-ghost" onClick={close}>{t("กลับ", "Back", "返回")}</button>

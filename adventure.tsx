@@ -101,7 +101,9 @@ const PLANET_WPN: Record<string, string[]> = {
 /** A weapon picked up again levels it up (Lv 1-5, +12 % damage each) */
 export const readWL = (): Record<string, number> => { try { return JSON.parse(localStorage.getItem("tg_adv_wlv") || "{}") || {}; } catch (e) { return {}; } };
 export const wlvOf = (id: string): number => Math.max(1, Math.min(5, readWL()[id] || 1));
-const wBoostOf = (id: string) => 1 + 0.12 * (wlvOf(id) - 1);
+/** the weapon bought in the shop multiplies every gun and rocket in a run (owner, 2026-10-18); set by AdventurePage */
+let SHOP_MUL = 1;
+const wBoostOf = (id: string) => SHOP_MUL * (1 + 0.12 * (wlvOf(id) - 1));
 export const levelUpWeapon = (id: string): number => { const m = readWL(), n = Math.min(5, (m[id] || 1) + 1); m[id] = n; try { localStorage.setItem("tg_adv_wlv", JSON.stringify(m)); } catch (e) {} return n; };
 /** a drop's rarity, from how strong the weapon is (owner-approved 2026-10-17: a light beam and a tag over rare and epic drops; the odds themselves are unchanged) */
 // Roles for Adventure Online (plan 35): the robot class decides it; a team with more than one role fights a little better together (synergy)
@@ -930,7 +932,8 @@ function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx");
 const T3 = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
 
 /** The page: a planet menu, then the run itself. */
-export const AdventurePage = memo(function AdventurePage({ onReward = null, lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null, online = false, adminTier = 0, coinApi = null }: any) {
+export const AdventurePage = memo(function AdventurePage({ onReward = null, lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null, online = false, adminTier = 0, coinApi = null, shopMul = 1 }: any) {
+  SHOP_MUL = shopMul > 0 ? shopMul : 1;
   const [planet, setPlanet] = useState(null);
   // Adventure Online: a room of up to 4 pilots over a Realtime channel (adv-online.ts); the host picks the map for everybody
   const [net, setNet] = useState<Net | null>(null), netRef = useRef<Net | null>(null), [peersL, setPeersL] = useState<any[]>([]), [warOpt, setWarOpt] = useState(false), [nerr, setNerr] = useState(""), [joinCode, setJoinCode] = useState(""), [busy, setBusy] = useState(false);

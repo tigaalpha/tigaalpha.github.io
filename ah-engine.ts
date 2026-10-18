@@ -61,6 +61,8 @@ export const CLASSIC_WAVES: AlienKind[][] = [
 export const WAVES = CLASSIC_WAVES;
 export const LEVEL_BOXES: Box[] = BOXES_1;
 
+/** a weapon bought in the shop and equipped on the robot: it unlocks the matching gun from the start and hits harder by its rarity (owner, 2026-10-18) */
+export type ShopW = { as: WeaponId; m: number; name: string; col: number };
 export type State = {
   auto: boolean; autoFire: boolean; autoSide: number; autoT: number; autoMv: number; autoPx: number; autoPz: number;
   t: number; active: number; rng: number; seed: number;
@@ -71,18 +73,20 @@ export type State = {
   kills: number; heads: number; shots: number; hitsLanded: number; score: number; streak: number; best: number;
   tuneEvery: number; tuneT: number; frozen: boolean; grace: number; tunes: number; tuneRight: number; tuneStreak: number; boost: number;
   nextId: number; ev: Ev[];
+  coins: number; shopW: ShopW | null;
   lv: number; waves: AlienKind[][]; hpk: number; gunPool: WeaponId[]; hz: Hazard[]; hzClock: number; hzT: number;
 };
 
 export function mulberry(s: number) { return () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponId[] = []): State {
+export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponId[] = [], shopW: ShopW | null = null): State {
+  if (shopW && !startGuns.includes(shopW.as)) startGuns = [...startGuns, shopW.as];
   const L = level > 0 ? LEVELS[Math.min(level, LEVELS.length) - 1] : null;
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
     t: 0, active: 0, rng: seed, seed, auto: true, autoFire: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
     p: { x: 0, z: 22, yaw: Math.PI, pitch: 0, y: 0, vy: 0, hp: 100, shield: 0, inv: 0, sprint: false, slide: 0, slideCd: 0, sdx: 0, sdz: 0 },
-    weapon: "pistol", ammo, cd: 0, reload: 0, recoil: 0,
+    coins: 0, shopW, weapon: shopW ? shopW.as : "pistol", ammo, cd: 0, reload: 0, recoil: 0,
     enemies: [], acid: [], rk: [], boxes: L ? L.boxes : LEVEL_BOXES, pk: [], owned: Object.fromEntries(WORDER.map(w => [w, w === "pistol" || startGuns.includes(w)])) as Record<WeaponId, boolean>,
     wave: 0, waveLeft: 0, between: 3, spawnQ: [], spawnT: 0, done: false, won: false,
     kills: 0, heads: 0, shots: 0, hitsLanded: 0, score: 0, streak: 0, best: 0,
@@ -91,6 +95,8 @@ export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponI
     lv: L ? L.id : 0, waves: L ? L.waves : CLASSIC_WAVES, hpk: L ? L.hpk : 1, gunPool: L ? (L.guns.length ? L.guns : WORDER.filter(w => w !== "pistol")) : WORDER.slice(), hz: L ? L.hazards : [], hzClock: 0, hzT: 0,
   };
 }
+const shopMul = (s: State, w: WeaponId = s.weapon) => (s.shopW && s.shopW.as === w ? s.shopW.m : 1);
+const coinOf = (s: State, k: AlienKind) => Math.round((ALIENS[k].boss ? 40 : ALIENS[k].hp >= 200 ? 6 : ALIENS[k].hp >= 50 ? 3 : 2) * (1 + 0.1 * s.lv));
 const rnd = (s: State) => { const r = mulberry(s.rng); const v = r(); s.rng = (s.rng * 1664525 + 1013904223) | 0; return v; };
 
 /** circle vs boxes + arena wall, pushes (x, z) out */
@@ -145,13 +151,13 @@ function spawnAlien(s: State, kind: AlienKind, at?: [number, number]) {
 }
 
 const BOOM_R = 4.6;
-function explode(s: State, x: number, y: number, z: number, R = BOOM_R, D = 130, big = 1) {
+function explode(s: State, x: number, y: number, z: number, R = BOOM_R, D = 130, big = 1, mul = 1) {
   s.ev.push({ k: "boom", x, y, z, n: big }); s.shots += 0;
   let any = false;
   for (const e of s.enemies) {
     if (e.dead !== 0) continue; const d = Math.hypot(e.x - x, e.z - z); if (d > R + ALIENS[e.kind].r) continue;
-    const dmg = D * Math.max(0.25, 1 - d / (R + 1)) * (1 + s.boost); e.hp -= dmg; e.flash = 0.15; any = true; s.ev.push({ k: "hit", x: e.x, y: 1, z: e.z, n: dmg });
-    if (e.hp <= 0) { e.dead = 0.9; s.kills++; s.streak++; s.best = Math.max(s.best, s.streak); s.score += Math.round(ALIENS[e.kind].score * (1 + Math.min(s.streak, 10) * 0.1)); s.ev.push({ k: "kill", x: e.x, z: e.z, w: e.kind }); }
+    const dmg = D * mul * Math.max(0.25, 1 - d / (R + 1)) * (1 + s.boost); e.hp -= dmg; e.flash = 0.15; any = true; s.ev.push({ k: "hit", x: e.x, y: 1, z: e.z, n: dmg });
+    if (e.hp <= 0) { e.dead = 0.9; s.kills++; s.coins += coinOf(s, e.kind); s.streak++; s.best = Math.max(s.best, s.streak); s.score += Math.round(ALIENS[e.kind].score * (1 + Math.min(s.streak, 10) * 0.1)); s.ev.push({ k: "kill", x: e.x, z: e.z, w: e.kind }); }
   }
   if (any) s.hitsLanded++;
   const dp = Math.hypot(s.p.x - x, s.p.z - z); if (dp < R * 0.7) hurtPlayer(s, (18 * (1 - dp / (R * 0.7)) + 4) * (R > BOOM_R ? 1.2 : D < 100 ? 0.5 : 1), x, z);
@@ -176,7 +182,7 @@ const unowned = (s: State) => s.gunPool.filter(w => !s.owned[w]);
 function hurtAlien(s: State, e: Enemy, dmg: number, head: boolean, hy?: number) {
   const A = ALIENS[e.kind]; e.hp -= dmg; e.flash = 0.12; s.ev.push({ k: "hit", x: e.x, y: hy !== undefined ? hy : bodyY(e.kind), z: e.z, n: dmg, w: s.weapon });
   if (e.hp <= 0 && e.dead === 0) {
-    e.dead = 0.9; s.kills++; s.streak++; s.best = Math.max(s.best, s.streak); if (head) s.heads++;
+    e.dead = 0.9; s.kills++; s.coins += coinOf(s, e.kind); s.streak++; s.best = Math.max(s.best, s.streak); if (head) s.heads++;
     s.score += Math.round(A.score * (head ? 1.5 : 1) * (1 + Math.min(s.streak, 10) * 0.1)); s.ev.push({ k: head ? "head" : "kill", x: e.x, z: e.z, w: e.kind });
     const r = rnd(s), un = unowned(s);
     if (un.length && r < 0.2) spawnPickup(s, un[0], e.x, e.z); else if (r < 0.32) spawnPickup(s, "ammo", e.x, e.z);
@@ -209,7 +215,7 @@ function fire(s: State) {
     const pts = [ox, oy - 0.15, oz];
     if (first) { hit.push(first); for (let k = 0; k < 3; k++) { const last = hit[hit.length - 1]; let nx: Enemy | null = null, nd = 7; for (const e of s.enemies) if (e.dead === 0 && !hit.includes(e)) { const d = Math.hypot(e.x - last.x, e.z - last.z); if (d < nd) { nd = d; nx = e; } } if (!nx) break; hit.push(nx); } }
     else pts.push(ox + ax * 9, oy + ay * 9 - 0.15, oz + az * 9);
-    hit.forEach((e, i) => { pts.push(e.x, bodyY(e.kind), e.z); hurtAlien(s, e, W.dmg * Math.pow(0.75, i) * (1 + s.boost), false); }); if (hit.length) s.hitsLanded++;
+    hit.forEach((e, i) => { pts.push(e.x, bodyY(e.kind), e.z); hurtAlien(s, e, W.dmg * shopMul(s) * Math.pow(0.75, i) * (1 + s.boost), false); }); if (hit.length) s.hitsLanded++;
     s.ev.push({ k: "arc", p: pts }); return;
   }
   const moving = 1 + s.recoil * 0.9;
@@ -221,7 +227,7 @@ function fire(s: State) {
     let wall = W.range; for (const b of s.boxes) { const t = rayBox(ox, oy, oz, dx, dy, dz, b); if (t < wall) wall = t; } if (dy < 0) { const tg = -oy / dy; if (tg < wall) wall = tg; }
     const list: [Enemy, boolean][] = [];
     for (const e of s.enemies) { if (e.dead !== 0) continue; const A = ALIENS[e.kind]; const tb = raySphere(ox, oy, oz, dx, dy, dz, e.x, bodyY(e.kind), e.z, A.r * 1.05), th = A.nohead ? Infinity : raySphere(ox, oy, oz, dx, dy, dz, e.x, A.hy + 0.5 * A.r * 1.1, e.z, A.r * 0.5); if (Math.min(tb, th) < wall) list.push([e, th < tb]); }
-    for (const [e, hd] of list) { hurtAlien(s, e, W.dmg * (hd ? 2.0 : 1) * (1 + s.boost) * (behOf(e.kind) === "charger" ? ((e.rush || 0) > 0 || (e.stun || 0) > 0 ? 1.8 : 0.7) : 1), hd, hd ? ALIENS[e.kind].hy + 0.5 : undefined); landed = true; }
+    for (const [e, hd] of list) { hurtAlien(s, e, W.dmg * shopMul(s) * (hd ? 2.0 : 1) * (1 + s.boost) * (behOf(e.kind) === "charger" ? ((e.rush || 0) > 0 || (e.stun || 0) > 0 ? 1.8 : 0.7) : 1), hd, hd ? ALIENS[e.kind].hy + 0.5 : undefined); landed = true; }
     if (landed) s.hitsLanded++; if (a.mag <= 0 && a.res > 0) startReload(s); return;
   }
   for (let i = 0; i < W.pellets; i++) {
@@ -237,7 +243,7 @@ function fire(s: State) {
       if (th < bt) { bt = th; best = e; head = true; } else if (tb < bt) { bt = tb; best = e; head = false; }
     }
     if (best) {
-      const fall = Math.max(0.55, 1 - bt / (W.range * 1.4)); const dmg = W.dmg * fall * (head ? 2.2 : 1) * (1 + s.boost) * (behOf(best.kind) === "charger" ? ((best.rush || 0) > 0 || (best.stun || 0) > 0 ? 1.8 : 0.55) : 1);
+      const fall = Math.max(0.55, 1 - bt / (W.range * 1.4)); const dmg = W.dmg * shopMul(s) * fall * (head ? 2.2 : 1) * (1 + s.boost) * (behOf(best.kind) === "charger" ? ((best.rush || 0) > 0 || (best.stun || 0) > 0 ? 1.8 : 0.55) : 1);
       landed = true; if (s.weapon === "cryo") best.slow = 1.6; hurtAlien(s, best, dmg, head, head ? ALIENS[best.kind].hy + 0.5 : undefined);
     }
   }
@@ -377,7 +383,7 @@ export function step(s: State, dt: number, inp: Input) {
     for (const b of s.boxes) if (r.y < b.h && Math.abs(r.x - b.x) < b.w / 2 && Math.abs(r.z - b.z) < b.d / 2) hit = true;
     if (Math.abs(r.x) > ARENA || Math.abs(r.z) > ARENA) hit = true;
     if (!hit) for (const e of s.enemies) if (e.dead === 0 && Math.hypot(e.x - r.x, e.z - r.z) < ALIENS[e.kind].r + 0.4 && Math.abs(r.y - bodyY(e.kind)) < 1.4) { hit = true; break; }
-    if (hit) { r.life = 0; if (r.rt === "rpg") explode(s, r.x, Math.max(0.2, r.y), r.z, 6.8, 260, 2); else if (r.rt === "salvo") explode(s, r.x, Math.max(0.2, r.y), r.z, 3.1, 55, 0.6); else explode(s, r.x, Math.max(0.2, r.y), r.z); }
+    if (hit) { r.life = 0; if (r.rt === "rpg") explode(s, r.x, Math.max(0.2, r.y), r.z, 6.8, 260, 2, shopMul(s, "rpg")); else if (r.rt === "salvo") explode(s, r.x, Math.max(0.2, r.y), r.z, 3.1, 55, 0.6, shopMul(s, "salvo")); else explode(s, r.x, Math.max(0.2, r.y), r.z, BOOM_R, 130, 1, shopMul(s, "launcher")); }
   }
   s.rk = s.rk.filter(r => r.life > 0);
   // the 15 s tune-up clock: counts active combat only
@@ -397,5 +403,5 @@ export function tuneResult(s: State, ok: boolean | null) {
 export function stats(s: State) {
   const acc = s.shots ? Math.round(s.hitsLanded / s.shots * 100) : 0;
   const stars = !s.won ? 0 : s.p.hp >= 70 ? 3 : s.p.hp >= 35 ? 2 : 1;
-  return { acc, stars, kills: s.kills, heads: s.heads, score: s.score, tunes: s.tunes, right: s.tuneRight, activeSecs: Math.round(s.active) };
+  return { acc, stars, kills: s.kills, heads: s.heads, score: s.score, coins: s.coins, tunes: s.tunes, right: s.tuneRight, activeSecs: Math.round(s.active) };
 }
