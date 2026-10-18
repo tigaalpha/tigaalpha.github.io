@@ -246,13 +246,11 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <div className="ah-ammo"><small>{hud.w}</small><b>{hud.reload ? "…" : hud.mag}</b><span>/ {hud.res}</span></div>
           {banner && <div className="ah-banner">{banner}</div>}
           {hud.boss && <div className="ah-boss" data-boss="1"><b>{hud.boss.n}</b><div><i style={{ width: Math.round(hud.boss.p * 100) + "%" }} /></div></div>}
-          <button className="ah-jumpl" aria-label="jump" data-jump-left="1" {...hold(v => { keys.current[" "] = v; })}>⤴</button>
           <canvas className="ah-map" data-map="1" width={240} height={240} ref={mapRef} />
           <div className="ah-stick" style={{ transform: `translate(${(hud.jx || 0) * 22}px, ${-(hud.jz || 0) * 22}px)` }} />
           <div className="ah-btns">
             <button className="fire" aria-label="fire" data-fire="1" {...hold(v => { inp.current.fire = v; if (!v) fireId.current = -1; })} onPointerDown={e => { e.stopPropagation(); fireId.current = e.pointerId; try { (e.currentTarget as any).setPointerCapture(e.pointerId); } catch (x) {} inp.current.fire = true; }} onPointerMove={e => { if (e.pointerId === fireId.current) { look.current.x += (e.movementX || 0) * 0.005; look.current.y += (e.movementY || 0) * 0.005; } }}>FIRE</button>
             <button aria-label="reload" {...hold(v => { if (v) inp.current.reload = true; })}>R</button>
-            <button aria-label="swap" {...hold(v => { if (v) inp.current.swap = 1; })}>⇄</button>
             <button aria-label="jump" data-jump="1" {...hold(v => { keys.current[" "] = v; })}>⤴</button>
             <button aria-label="slide" data-slide="1" className={hud.sl === false ? "cool" : ""} {...hold(v => { keys.current.c = v; })}>⇊</button>
           </div>
