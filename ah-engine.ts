@@ -218,7 +218,7 @@ export function step(s: State, dt: number, inp: Input) {
   // move
   const sp = (inp.sprint ? 7.4 : 5.0) * (s.reload > 0 ? 0.9 : 1); p.sprint = inp.sprint;
   let fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
-  let vx = (fx * -inp.mz + rx * inp.mx), vz = (fz * -inp.mz + rz * inp.mx); const L = Math.hypot(vx, vz); if (L > 1) { vx /= L; vz /= L; }
+  let vx = (fx * inp.mz + rx * inp.mx), vz = (fz * inp.mz + rz * inp.mx); const L = Math.hypot(vx, vz); if (L > 1) { vx /= L; vz /= L; }
   p.slideCd = Math.max(0, p.slideCd - dt);
   if (inp.slide && p.slideCd <= 0 && p.slide <= 0 && p.y <= 0.01) { p.slide = 0.55; p.slideCd = 1.3; const ml = Math.hypot(vx, vz); p.sdx = ml > 0.1 ? vx / ml : fx; p.sdz = ml > 0.1 ? vz / ml : fz; s.ev.push({ k: "slide" }); }
   if (p.slide > 0) { const k = 11 * (0.4 + 0.6 * (p.slide / 0.55)); vx = p.sdx * k / sp; vz = p.sdz * k / sp; p.slide = Math.max(0, p.slide - dt); }
