@@ -4,7 +4,7 @@
 export type Box = { x: number; z: number; w: number; d: number; h: number };
 export type WeaponId = "pistol" | "rifle" | "shotgun" | "launcher" | "laser" | "rail" | "arc" | "beam";
 export type AlienKind = "skitter" | "mantis" | "spitter" | "flarecaster" | "charger" | "skyeye";
-export type Enemy = { id: number; kind: AlienKind; x: number; z: number; hp: number; max: number; yaw: number; t: number; cd: number; dead: number; flash: number; leap: number; side?: number; sideT?: number; tele?: number; rush?: number; stun?: number; dx?: number; dz?: number };
+export type Enemy = { id: number; kind: AlienKind; x: number; z: number; hp: number; max: number; yaw: number; t: number; cd: number; dead: number; flash: number; leap: number; side?: number; sideT?: number; gt?: number; tele?: number; rush?: number; stun?: number; dx?: number; dz?: number };
 export type Acid = { id: number; x: number; y: number; z: number; vx: number; vz: number; vy: number; life: number; g?: number; dmg?: number; big?: number; col?: number };
 export type Ev = { k: "shot" | "hit" | "kill" | "head" | "hurt" | "reload" | "empty" | "spit" | "wave" | "tune" | "win" | "lose" | "swap"; x?: number; y?: number; z?: number; n?: number; w?: string; p?: number[] };
 
@@ -120,6 +120,7 @@ function spawnAlien(s: State, kind: AlienKind) {
     if (Math.hypot(x - s.p.x, z - s.p.z) > 18) break;
   }
   const [cx, cz] = collide(s.boxes, x, z, A.r);
+  s.ev.push({ k: "spawn", w: kind, x: cx, z: cz });
   s.enemies.push({ id: s.nextId++, kind, x: cx, z: cz, hp: A.hp * (1 + s.wave * 0.06), max: A.hp * (1 + s.wave * 0.06), yaw: 0, t: rnd(s) * 6, cd: 0.8 + rnd(s), dead: 0, flash: 0, leap: 0 });
 }
 
@@ -302,9 +303,9 @@ export function step(s: State, dt: number, inp: Input) {
     const [nx2, nz2] = e.kind === "skyeye" ? [Math.max(-ARENA + 1, Math.min(ARENA - 1, e.x + ix)), Math.max(-ARENA + 1, Math.min(ARENA - 1, e.z + iz))] : collide(s.boxes, e.x + ix, e.z + iz, A.r);
     if (spd > 0 && Math.hypot(nx2 - e.x, nz2 - e.z) < 0.35 * Math.hypot(ix, iz) && (e.sideT || 0) <= 0) { e.side = rnd(s) < 0.5 ? -1 : 1; e.sideT = 1.4; }
     e.x = nx2; e.z = nz2;
-    e.cd -= dt;
-    if (e.kind === "charger") { if ((e.rush || 0) > 0 && d < A.reach + 0.4) { hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.rush = 0; e.stun = 1.1; e.cd = 2.2; } }
-    else if (A.reach > 0 && d < A.reach + 0.6 && e.cd <= 0) { hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.cd = e.kind === "skitter" ? 0.7 : 1.1; }
+    e.cd -= dt; e.gt = (e.gt === undefined ? 1.5 + rnd(s) * 4 : e.gt) - dt; if (e.gt <= 0) { e.gt = 4 + rnd(s) * 5; if (d < 30) s.ev.push({ k: "growl", w: e.kind, n: d }); }
+    if (e.kind === "charger") { if ((e.rush || 0) > 0 && d < A.reach + 0.4) { s.ev.push({ k: "bite", w: e.kind }); hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.rush = 0; e.stun = 1.1; e.cd = 2.2; } }
+    else if (A.reach > 0 && d < A.reach + 0.6 && e.cd <= 0) { s.ev.push({ k: "bite", w: e.kind }); hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.cd = e.kind === "skitter" ? 0.7 : 1.1; }
     if (e.kind === "flarecaster" && d < 26 && e.cd <= 0) {
       e.cd = 3.0; const T = d / 11; s.acid.push({ id: s.nextId++, x: e.x, y: 2.0, z: e.z, vx: dx / T, vz: dz / T, vy: (EYE - 2.0 + 4.9 * T * T) / T, life: 5, dmg: 18, big: 1.8, col: 0xff7a2a }); s.ev.push({ k: "spit", x: e.x, z: e.z, w: "flarecaster" });
     }

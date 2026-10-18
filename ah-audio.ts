@@ -75,10 +75,35 @@ export function sfx(kind: string, w?: string) {
   }
 }
 
+/** creature voices (owner, 2026-10-18: scary monster sounds): every alien has a spawn roar, an idle growl (quieter the farther it is), a bite sound and a death scream */
+export function creature(kind: string, mode: "spawn" | "growl" | "bite" | "die", dist = 0) {
+  if (!ctx || !soundOn()) return; const c = ctx as AudioContext, t = c.currentTime + 0.001;
+  const vol = mode === "growl" ? Math.max(0.12, 1 - dist / 32) * 0.7 : mode === "spawn" ? 0.95 : 1;
+  const b = c.createGain(); b.gain.value = vol; b.connect(sfxBus);
+  const wob = (f: number, dur: number, type: OscillatorType, depth: number, rate: number, v: number, f1 = f) => { const o = c.createOscillator(), l = c.createOscillator(), lg = c.createGain(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur); l.frequency.value = rate; lg.gain.value = depth; l.connect(lg); lg.connect(o.frequency); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0008, t + dur); o.connect(g); g.connect(b); o.start(t); l.start(t); o.stop(t + dur + 0.05); l.stop(t + dur + 0.05); };
+  const long = mode === "spawn" ? 1.1 : mode === "die" ? 0.9 : mode === "bite" ? 0.25 : 0.7;
+  switch (kind) {
+    case "skitter": // chittering hiss and rapid clicks
+      noise(t, long, "highpass", 5000, 3000, 0.35, b); for (let i = 0; i < (mode === "growl" ? 6 : 10); i++) tone(t + i * 0.05 + Math.random() * 0.02, 0.03, "square", 2200 + Math.random() * 1400, 1500, 0.12, b);
+      if (mode === "die") wob(1800, 0.7, "sawtooth", 300, 40, 0.22, 250); if (mode === "spawn") wob(900, 0.9, "sawtooth", 200, 22, 0.2, 1700); break;
+    case "mantis": // a rising shriek over clicking mandibles
+      wob(mode === "growl" ? 380 : 700, long, "sawtooth", 160, 14, 0.3, mode === "die" ? 120 : mode === "spawn" ? 1500 : 520); noise(t, long, "bandpass", 2500, 4000, 0.18, b, 3);
+      for (let i = 0; i < 5; i++) tone(t + i * 0.07, 0.03, "square", 1800, 900, 0.1, b); break;
+    case "spitter": // a wet gurgle
+      wob(mode === "die" ? 260 : 150, long, "sine", 60, 11, 0.35, mode === "die" ? 60 : 110); noise(t, long, "bandpass", 700, 300, 0.3, b, 2); for (let i = 0; i < 6; i++) tone(t + i * 0.09, 0.07, "sine", 300 + Math.random() * 200, 100, 0.16, b); break;
+    case "flarecaster": // an eerie detuned chant
+      wob(220, long * 1.2, "sawtooth", 8, 6, 0.2, mode === "die" ? 90 : 235); wob(226, long * 1.2, "sawtooth", 8, 5, 0.16, mode === "die" ? 95 : 240); wob(330, long * 1.2, "triangle", 12, 7, 0.12, 310); break;
+    case "charger": // a deep bestial roar
+      wob(mode === "growl" ? 70 : 90, long * 1.3, "sawtooth", 30, 18, 0.5, mode === "die" ? 35 : 60); noise(t, long, "lowpass", 900, 200, 0.5, b, 0.8); tone(t, long, "sine", 55, 35, 0.6, b); break;
+    case "skyeye": // a thin otherworldly warble
+      wob(900, long * 1.1, "sine", 300, 9, 0.22, mode === "die" ? 200 : 1100); wob(1350, long, "triangle", 200, 13, 0.1, 1500); break;
+  }
+  if (mode === "bite") noise(t, 0.18, "bandpass", 1800, 600, 0.5, b, 1.5);
+}
 export function events(ev: Ev[]) {
   for (const e of ev) {
-    if (e.k === "shot") sfx("shot", e.w); else if (e.k === "boom") sfx("boom"); else if (e.k === "hit") sfx("hit"); else if (e.k === "head") { sfx("head"); sfx("kill"); }
-    else if (e.k === "kill") sfx(e.w === "mantis" || e.w === "charger" ? "bigkill" : "kill"); else if (e.k === "hurt") sfx("hurt"); else if (e.k === "reload") sfx("reload"); else if (e.k === "empty") sfx("empty");
+    if (e.k === "shot") sfx("shot", e.w); else if (e.k === "boom") sfx("boom"); else if (e.k === "hit") sfx("hit"); else if (e.k === "head") { sfx("head"); sfx("kill"); creature(e.w as string, "die"); }
+    else if (e.k === "spawn") creature(e.w as string, "spawn"); else if (e.k === "growl") creature(e.w as string, "growl", e.n || 0); else if (e.k === "bite") creature(e.w as string, "bite"); else if (e.k === "kill") { creature(e.w as string, "die"); sfx(e.w === "mantis" || e.w === "charger" ? "bigkill" : "kill"); } else if (e.k === "hurt") sfx("hurt"); else if (e.k === "reload") sfx("reload"); else if (e.k === "empty") sfx("empty");
     else if (e.k === "swap") sfx("swap"); else if (e.k === "pickup") sfx("pickup"); else if (e.k === "slide") sfx("slide"); else if (e.k === "spit") sfx(e.w === "flarecaster" ? "flare" : e.w === "skyeye" ? "bolt" : "spit"); else if (e.k === "charge") sfx("charge"); else if (e.k === "wave") sfx("wave"); else if (e.k === "tune") sfx("tune"); else if (e.k === "win") sfx("win"); else if (e.k === "lose") sfx("lose");
   }
 }
