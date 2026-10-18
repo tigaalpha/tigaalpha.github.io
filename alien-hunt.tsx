@@ -70,6 +70,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const host = useRef<HTMLDivElement>(null), rdr = useRef<Render | null>(null), S = useRef<State>(newState(Date.now() & 0xffff, readTune()));
   const inp = useRef<Input>(noInput()), look = useRef({ x: 0, y: 0 }), keys = useRef<Record<string, boolean>>({}), stick = useRef({ id: -1, x0: 0, y0: 0, mx: 0, mz: 0 }), lookId = useRef(-1);
+  const [, setSwTick] = useState(0);
   const [phase, setPhase] = useState<"ready" | "play" | "result">("ready"), [paused, setPaused] = useState(false), [quiz, setQuiz] = useState<Quiz | null>(null);
   const [hud, setHud] = useState<any>({}), [high, setHigh] = useState(() => gfxHigh()), [powerNeed, setPowerNeed] = useState<number | null>(null), [res, setRes] = useState<any>(null);
   const [learned, setLearned] = useState<string[]>(() => learnedTopics(readDone())), [snd, setSnd] = useState(() => AU.soundOn()), tuneLog = useRef<{ topic: string; ok: boolean }[]>([]);
@@ -245,8 +246,6 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <div className="ah-ammo"><small>{hud.w}</small><b>{hud.reload ? "…" : hud.mag}</b><span>/ {hud.res}</span></div>
           {banner && <div className="ah-banner">{banner}</div>}
           {hud.boss && <div className="ah-boss" data-boss="1"><b>{hud.boss.n}</b><div><i style={{ width: Math.round(hud.boss.p * 100) + "%" }} /></div></div>}
-          <button className={"ah-auto" + (hud.au ? " on" : "")} aria-label="auto walk" data-auto="1" onPointerDown={e => { e.stopPropagation(); S.current.auto = !S.current.auto; }}>AUTO</button>
-          <button className={"ah-auto ah-afire" + (hud.af ? " on" : "")} aria-label="auto shoot" data-afire="1" onPointerDown={e => { e.stopPropagation(); S.current.autoFire = !S.current.autoFire; }}>A·FIRE</button>
           <button className="ah-jumpl" aria-label="jump" data-jump-left="1" {...hold(v => { keys.current[" "] = v; })}>⤴</button>
           <canvas className="ah-map" data-map="1" width={240} height={240} ref={mapRef} />
           <div className="ah-stick" style={{ transform: `translate(${(hud.jx || 0) * 22}px, ${-(hud.jz || 0) * 22}px)` }} />
@@ -263,6 +262,8 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
         <div className="ah-pause" data-pause="1"><div className="ah-card">
           <b>{t("พักเกม", "PAUSED", "已暂停")}</b>
           <button className="ah-go" onClick={() => setPaused(false)} data-resume="1">{t("เล่นต่อ", "Resume", "继续")}</button>
+          <div className="ah-opt"><b>{t("เดินอัตโนมัติ", "Auto walk", "自动移动")}</b>{[true, false].map(v => <button key={String(v)} data-auto={v ? "on" : "off"} className={S.current.auto === v ? "on" : ""} onClick={() => { S.current.auto = v; setSwTick(n => n + 1); }}>{v ? "ON" : "OFF"}</button>)}</div>
+          <div className="ah-opt"><b>{t("ยิงอัตโนมัติ", "Auto shoot", "自动射击")}</b>{[true, false].map(v => <button key={String(v)} data-afire={v ? "on" : "off"} className={S.current.autoFire === v ? "on" : ""} onClick={() => { S.current.autoFire = v; setSwTick(n => n + 1); }}>{v ? "ON" : "OFF"}</button>)}</div>
           <div className="ah-opt">{[true, false].map(h => <button key={String(h)} className={high === h ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_gfx", h ? "high" : "standard"); } catch (e) {} setHigh(h); }}>{h ? "High" : "Lite"}</button>)}</div>
           <button className="ah-ghost" onClick={() => finish(false, true)}>{t("จบภารกิจ", "Leave mission", "结束任务")}</button>
         </div></div>
@@ -366,7 +367,7 @@ const CSS = `
 .ah-chips{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:4px;flex-wrap:nowrap;justify-content:center;max-width:50vw}.ah-chips button{min-height:30px;min-width:30px;padding:0 8px;justify-content:center;border-radius:999px;border:1px solid #ffffff44;background:#000a;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px}.ah-chips button i{display:none;font-style:normal;font-weight:600;font-size:10px;opacity:.85}.ah-chips button.on i{display:inline}.ah-chips button.on{border-color:#58e8ff;background:#0a3a4aaa;box-shadow:0 0 10px #58e8ff66}.ah-btns .cool{opacity:.4}.ah-btns .on{background:#2fae6acc;border-color:#6af0a6;box-shadow:0 0 12px #6af0a6aa}.ah-btns button[data-auto]{font-size:11px}
 .ah-ammo{position:absolute;right:190px;bottom:14px;text-align:right;pointer-events:none;text-shadow:0 2px 6px #000}.ah-ammo small{display:block;font-size:11px;opacity:.8}.ah-ammo b{font-size:34px}.ah-ammo span{font-size:15px;opacity:.8}
 .ah-banner{position:absolute;left:0;right:0;top:14%;text-align:center;font-size:clamp(16px,3.6vw,30px);font-weight:900;letter-spacing:.14em;color:#ffb06a;text-shadow:0 0 22px #ff6a3a;pointer-events:none}
-.ah-auto{position:absolute;left:max(8px,calc(11% - 62px));bottom:calc(20% + 38px);width:52px;height:52px;border-radius:50%;border:2px solid #ffffff66;background:#0009;font-weight:900;font-size:12px}.ah-afire{left:calc(max(8px,calc(11% - 62px)) + 58px);font-size:10px}.ah-jumpl{position:absolute;left:max(8px,calc(11% - 62px));bottom:calc(20% - 40px);width:56px;height:56px;border-radius:50%;border:2px solid #ffffff66;background:#0009;font-weight:900;font-size:20px;color:#fff}.ah-auto.on{background:#2ad07acc;border-color:#7affb0;color:#04210f}
+.ah-auto{position:absolute;left:max(8px,calc(11% - 62px));bottom:calc(20% + 38px);width:52px;height:52px;border-radius:50%;border:2px solid #ffffff66;background:#0009;font-weight:900;font-size:12px}.ah-afire{left:calc(max(8px,calc(11% - 62px)) + 58px);font-size:10px}.ah-jumpl{position:absolute;left:calc(11% + 46px);bottom:calc(20% - 28px);width:56px;height:56px;border-radius:50%;border:2px solid #ffffff66;background:#0009;font-weight:900;font-size:20px;color:#fff}.ah-auto.on{background:#2ad07acc;border-color:#7affb0;color:#04210f}
 .ah-map{position:absolute;right:10px;top:58px;width:116px;height:116px;border-radius:10px;pointer-events:none}
 .ah-stick{position:absolute;left:11%;bottom:20%;width:56px;height:56px;margin:-28px;border-radius:50%;background:#ffffff22;border:2px solid #ffffff55;pointer-events:none}
 .ah-btns{position:absolute;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(3,52px);grid-auto-rows:52px;gap:8px;direction:rtl}.ah-btns button{width:52px;height:52px;border-radius:50%;border:2px solid #ffffff66;background:#0009;font-weight:900;font-size:13px;direction:ltr}
