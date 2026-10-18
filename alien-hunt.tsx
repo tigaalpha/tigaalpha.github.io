@@ -77,7 +77,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
       if (bannerT.current > 0) { bannerT.current -= dt; if (bannerT.current <= 0) setBanner(""); }
       r.draw(s, dt);
       if (high && !pausedRef.current && !s.frozen) { if (dt > 0.031) slow++; else slow = Math.max(0, slow - 1); if (slow > 90) { slow = 0; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} setHigh(false); r.setHigh(false); try { logUsage("ah", "auto-lite"); } catch (e) {} } }
-      hudT += dt; if (hudT > 0.1) { hudT = 0; { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: WEAPONS[w].name, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
+      hudT += dt; if (hudT > 0.1) { hudT = 0; { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: WEAPONS[w].name, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
     };
     raf = requestAnimationFrame(loop);
     (window as any).__ah = { s: S.current, get state() { return S.current; }, step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(S.current, dt, inp.current); }, info: () => r.info(), killAll: () => { for (const e of S.current.enemies) e.hp = 0, e.dead = 0.5; }, tune: () => { S.current.tuneT = S.current.tuneEvery; }, setHigh: (h: boolean) => { setHigh(h); r.setHigh(h); }, quizQ: () => quizRef.current && quizRef.current.q, draw: () => r.draw(S.current, 0.016) };
@@ -92,7 +92,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
     if (phase !== "play") return undefined;
     const kd = (e: KeyboardEvent) => {
       if (quizRef.current) return; const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k] = true;
-      if (k === "r") inp.current.reload = true; { const n = parseInt(k, 10); if (n >= 1 && n <= WORDER.length) setWeapon(S.current, WORDER[n - 1]); }
+      if (k === "r") inp.current.reload = true; { if (k === "v") S.current.auto = !S.current.auto; const n = parseInt(k, 10); if (n >= 1 && n <= WORDER.length) setWeapon(S.current, WORDER[n - 1]); }
       if (k === "escape" || k === "p") setPaused(p => !p); if (k === " ") e.preventDefault();
     };
     const ku = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k] = false; };
@@ -186,6 +186,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
             <button aria-label="reload" {...hold(v => { if (v) inp.current.reload = true; })}>R</button>
             <button aria-label="swap" {...hold(v => { if (v) inp.current.swap = 1; })}>⇄</button>
             <button aria-label="jump" data-jump="1" {...hold(v => { keys.current[" "] = v; })}>⤴</button>
+            <button aria-label="auto walk" data-auto="1" className={hud.au ? "on" : ""} onPointerDown={e => { e.stopPropagation(); S.current.auto = !S.current.auto; }}>AUTO</button>
             <button aria-label="slide" data-slide="1" className={hud.sl === false ? "cool" : ""} {...hold(v => { keys.current.c = v; })}>⇊</button>
           </div>
         </div>
@@ -267,7 +268,7 @@ const CSS = `
 .ah-gear{width:42px;height:42px;border-radius:50%;border:1px solid #ffffff55;background:#000a;font-size:18px}
 .ah-bars{position:absolute;left:12px;bottom:12px;pointer-events:none}.ah-bars span{font-size:12px;font-weight:800}
 .ah-hp{position:relative;width:min(220px,40vw);height:12px;border-radius:99px;background:#0009;border:1px solid #ffffff44;overflow:hidden;margin-bottom:3px}.ah-hp i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#e83a3a,#ff8a5a)}.ah-hp u{position:absolute;left:0;top:0;height:4px;background:#5ac8ff}
-.ah-chips{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:4px;flex-wrap:nowrap;justify-content:center;max-width:50vw}.ah-chips button{min-height:30px;min-width:30px;padding:0 8px;justify-content:center;border-radius:999px;border:1px solid #ffffff44;background:#000a;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px}.ah-chips button i{display:none;font-style:normal;font-weight:600;font-size:10px;opacity:.85}.ah-chips button.on i{display:inline}.ah-chips button.on{border-color:#58e8ff;background:#0a3a4aaa;box-shadow:0 0 10px #58e8ff66}.ah-btns .cool{opacity:.4}
+.ah-chips{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:4px;flex-wrap:nowrap;justify-content:center;max-width:50vw}.ah-chips button{min-height:30px;min-width:30px;padding:0 8px;justify-content:center;border-radius:999px;border:1px solid #ffffff44;background:#000a;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px}.ah-chips button i{display:none;font-style:normal;font-weight:600;font-size:10px;opacity:.85}.ah-chips button.on i{display:inline}.ah-chips button.on{border-color:#58e8ff;background:#0a3a4aaa;box-shadow:0 0 10px #58e8ff66}.ah-btns .cool{opacity:.4}.ah-btns .on{background:#2fae6acc;border-color:#6af0a6;box-shadow:0 0 12px #6af0a6aa}.ah-btns button[data-auto]{font-size:11px}
 .ah-ammo{position:absolute;right:190px;bottom:14px;text-align:right;pointer-events:none;text-shadow:0 2px 6px #000}.ah-ammo small{display:block;font-size:11px;opacity:.8}.ah-ammo b{font-size:34px}.ah-ammo span{font-size:15px;opacity:.8}
 .ah-banner{position:absolute;left:0;right:0;top:26%;text-align:center;font-size:clamp(26px,6vw,44px);font-weight:900;letter-spacing:.14em;color:#ffb06a;text-shadow:0 0 22px #ff6a3a;pointer-events:none}
 .ah-stick{position:absolute;left:11%;bottom:20%;width:56px;height:56px;margin:-28px;border-radius:50%;background:#ffffff22;border:2px solid #ffffff55;pointer-events:none}

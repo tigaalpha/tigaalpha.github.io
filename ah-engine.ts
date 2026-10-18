@@ -43,6 +43,7 @@ export const LEVEL_BOXES: Box[] = [
 ];
 
 export type State = {
+  auto: boolean; autoSide: number; autoT: number; autoMv: number; autoPx: number; autoPz: number;
   t: number; active: number; rng: number; seed: number;
   p: { x: number; z: number; yaw: number; pitch: number; y: number; vy: number; hp: number; shield: number; inv: number; sprint: boolean; slide: number; slideCd: number; sdx: number; sdz: number };
   weapon: WeaponId; ammo: Record<WeaponId, { mag: number; res: number }>; cd: number; reload: number; recoil: number;
@@ -58,7 +59,7 @@ export function mulberry(s: number) { return () => { s |= 0; s = (s + 0x6D2B79F5
 export function newState(seed = 7, tuneEvery = 30): State {
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
-    t: 0, active: 0, rng: seed, seed,
+    t: 0, active: 0, rng: seed, seed, auto: false, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
     p: { x: 0, z: 22, yaw: Math.PI, pitch: 0, y: 0, vy: 0, hp: 100, shield: 0, inv: 0, sprint: false, slide: 0, slideCd: 0, sdx: 0, sdz: 0 },
     weapon: "rifle", ammo, cd: 0, reload: 0, recoil: 0,
     enemies: [], acid: [], rk: [], boxes: LEVEL_BOXES, pk: [], owned: { pistol: true, rifle: true, shotgun: false, launcher: false, laser: false, rail: false, arc: false, beam: false },
@@ -208,11 +209,37 @@ function fire(s: State) {
 }
 
 /** one fixed step (call with dt <= 0.05). A frozen game (a music question is open) does nothing at all. */
+/** Auto-walk (owner, 2026-10-18: "one tap and it controls all the movement, I only shoot"): keeps 8-12 m from the nearest alien, circles it, backs off when it comes close,
+    picks up crates when nothing is near, stays off the walls, and slides away from incoming fire or a charging beetle. Returns local stick values (mz > 0 forward, mx > 0 right). */
+function autoMove(s: State, dt: number): { mx: number; mz: number; slide: boolean } {
+  const p = s.p; s.autoT += dt;
+  // stuck detection: flip the circling direction when we are not getting anywhere
+  s.autoMv += Math.hypot(p.x - s.autoPx, p.z - s.autoPz); s.autoPx = p.x; s.autoPz = p.z;
+  let wx = 0, wz = 0, slide = false;
+  const alive = s.enemies.filter(e => e.dead === 0);
+  let near: Enemy | null = null, nd = 1e9; for (const e of alive) { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < nd) { nd = d; near = e; } }
+  let pk: { x: number; z: number } | null = null, pd = 1e9; for (const k of s.pk) { const d = Math.hypot(k.x - p.x, k.z - p.z); if (d < pd) { pd = d; pk = k; } }
+  if (s.autoT > 0.6) { if (s.autoMv < 0.25) s.autoSide = -s.autoSide; s.autoMv = 0; s.autoT = (s.autoT > 3 ? 0 : s.autoT - 0.6) ; if (rnd(s) < 0.12) s.autoSide = -s.autoSide; }
+  if (pk && pd < 28 && (!near || nd > 6)) { wx = (pk.x - p.x) / pd; wz = (pk.z - p.z) / pd; }
+  else if (near) {
+    const tx = (near.x - p.x) / (nd || 1), tz = (near.z - p.z) / (nd || 1), sx = -tz * s.autoSide, sz = tx * s.autoSide;
+    if (nd < 7) { wx = -tx * 0.9 + sx * 0.5; wz = -tz * 0.9 + sz * 0.5; }
+    else if (nd > 13) { wx = tx * 0.8 + sx * 0.5; wz = tz * 0.8 + sz * 0.5; }
+    else { wx = sx + tx * (nd - 10) * 0.05; wz = sz + tz * (nd - 10) * 0.05; }
+  } else if (Math.hypot(p.x, p.z) > 10) { const d = Math.hypot(p.x, p.z); wx = -p.x / d * 0.6; wz = -p.z / d * 0.6; }
+  const edge = ARENA - 5; if (Math.abs(p.x) > edge) wx -= Math.sign(p.x) * 1.2; if (Math.abs(p.z) > edge) wz -= Math.sign(p.z) * 1.2;
+  for (const a of s.acid) { const d = Math.hypot(a.x - p.x, a.z - p.z); if (d < 6 && p.slideCd <= 0) slide = true; }
+  for (const e of alive) if (e.kind === "charger" && (e.rush || 0) > 0 && Math.hypot(e.x - p.x, e.z - p.z) < 9 && p.slideCd <= 0) slide = true;
+  const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; }
+  const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
+  return { mx: wx * rx + wz * rz, mz: wx * fx + wz * fz, slide };
+}
 export function step(s: State, dt: number, inp: Input) {
   if (s.done || s.frozen) return;
   s.t += dt;
   if (s.grace > 0) { s.grace -= dt; s.p.inv = Math.max(s.p.inv, 0.05); }
   const p = s.p;
+  if (s.auto && Math.abs(inp.mx) + Math.abs(inp.mz) < 0.1) { const a = autoMove(s, dt); inp = { ...inp, mx: a.mx, mz: a.mz, slide: !!inp.slide || a.slide }; }
   // look
   p.yaw -= inp.lookX; p.pitch = Math.max(-1.3, Math.min(1.3, p.pitch - inp.lookY));
   // move

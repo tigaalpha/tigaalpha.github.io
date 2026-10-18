@@ -50,6 +50,13 @@ ok(s2.kills > k0, "the pistol kills an alien in the crosshair");
 { const q = E.newState(31, 0); q.wave = 1; q.between = 99; q.p.yaw = 0; q.p.x = 0; q.p.z = 0; const go = (mx, mz) => { q.p.x = 0; q.p.z = 0; for (let i = 0; i < 10; i++) E.step(q, 0.05, { ...inp, mx, mz }); return [q.p.x, q.p.z]; };
   const f = go(0, 1), b = go(0, -1), l = go(-1, 0), r = go(1, 0);
   ok(f[1] < -1 && b[1] > 1 && l[0] < -1 && r[0] > 1, "stick up walks forward, down back, left left, right right"); }
+// auto-walk keeps its distance, circles and picks up crates without any stick input
+{ const q = E.newState(41, 0); q.auto = true; q.wave = 1; q.between = 99; q.p.hp = 1e6; q.p.x = 0; q.p.z = 0; q.p.yaw = 0;
+  const e = { id: 700, kind: "mantis", x: 0, z: -4, hp: 1e6, max: 1e6, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }; q.enemies = [e]; let minD = 99, maxD = 0, moved = 0, px = q.p.x, pz = q.p.z;
+  for (let i = 0; i < 200; i++) { q.p.hp = 1e6; e.cd = 99; E.step(q, 0.05, inp); const d = Math.hypot(e.x - q.p.x, e.z - q.p.z); if (i > 40) { minD = Math.min(minD, d); maxD = Math.max(maxD, d); } moved += Math.hypot(q.p.x - px, q.p.z - pz); px = q.p.x; pz = q.p.z; }
+  ok(moved > 20 && minD > 4, "auto-walk moves by itself and keeps clear of the alien (moved " + moved.toFixed(0) + " m, min gap " + minD.toFixed(1) + ")");
+  const r = E.newState(42, 0); r.auto = true; r.wave = 1; r.between = 99; r.enemies = []; r.pk.push({ id: 5, x: 10, z: 10, w: "rail" }); for (let i = 0; i < 300 && !r.owned.rail; i++) E.step(r, 0.05, inp);
+  ok(r.owned.rail, "auto-walk walks to a crate and picks it up when no alien is near"); }
 // walls block shots and movement
 const [x, z] = E.collide(E.LEVEL_BOXES, -8, -6, 0.4); ok(Math.abs(x + 8) > 0.5 || Math.abs(z + 6) > 0.5, "a box pushes a circle out");
 // a full run with a bot ends (win or lose), never hangs
