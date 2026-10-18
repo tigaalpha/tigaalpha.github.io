@@ -46,6 +46,10 @@ ok(s2.kills > k0, "the pistol kills an alien in the crosshair");
   ok(q.ev.some(e => e.k === "arc") && q.enemies.filter(e => e.hp < 9999).length >= 3 && q.enemies[3].hp === 9999, "the arc caster chains lightning to nearby aliens only");
   const z0 = q.p.z, s0 = q.p.slideCd; E.step(q, 0.05, { ...inp, slide: true }); for (let i = 0; i < 8; i++) E.step(q, 0.05, inp); ok(Math.abs(q.p.z - z0) > 2 && q.p.slideCd > 0.5, "slide throws the player forward fast, with a cooldown");
   const w = E.newState(4, 0); let maxAlive = 0; w.p.hp = 100; for (let i = 0; i < 600; i++) { w.p.hp = 100; E.step(w, 0.05, inp); maxAlive = Math.max(maxAlive, w.enemies.filter(e => e.dead === 0).length); } ok(maxAlive <= 2, "aliens arrive one or two at a time on the early waves (max " + maxAlive + ")"); }
+// stick directions: up = forward, down = back, left = left, right = right (yaw 0 faces -z, right is +x)
+{ const q = E.newState(31, 0); q.wave = 1; q.between = 99; q.p.yaw = 0; q.p.x = 0; q.p.z = 0; const go = (mx, mz) => { q.p.x = 0; q.p.z = 0; for (let i = 0; i < 10; i++) E.step(q, 0.05, { ...inp, mx, mz }); return [q.p.x, q.p.z]; };
+  const f = go(0, 1), b = go(0, -1), l = go(-1, 0), r = go(1, 0);
+  ok(f[1] < -1 && b[1] > 1 && l[0] < -1 && r[0] > 1, "stick up walks forward, down back, left left, right right"); }
 // walls block shots and movement
 const [x, z] = E.collide(E.LEVEL_BOXES, -8, -6, 0.4); ok(Math.abs(x + 8) > 0.5 || Math.abs(z + 6) > 0.5, "a box pushes a circle out");
 // a full run with a bot ends (win or lose), never hangs
