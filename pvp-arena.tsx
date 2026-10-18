@@ -23,6 +23,7 @@
 
 import { addRpgExp, rpgOf, rpgMods, spendPoint, resetPoints, RPG_STATS, RPG_MAX_LV, STAT_CAP } from "./pvp-rpg";
 import { useState, useEffect, useRef, useCallback, useMemo, memo, lazy, Suspense } from "react";
+const AlienHuntPage = lazy(() => import("./alien-hunt").then(m => ({ default: m.AlienHuntPage })));   // Alien Hunt (first-person shooter, plan 38): its own chunk, fetched only when entered
 const AdventurePage = lazy(() => import("./adventure").then(m => ({ default: m.AdventurePage })));   // Adventure Mode: its own chunk, fetched only when entered
 import { createPortal } from "react-dom";
 import { voiceOf, robotFx, petFx } from "./fx-voice";
@@ -1204,7 +1205,7 @@ export const PvpPage = memo(function PvpPage({
   // a finished fight (or the lobby) is always portrait and out of full screen; a new fight re-enters it from its own tap
   useEffect(() => { if (phase !== "fight") exitFsAndUnlock(); }, [phase]);
   const [lobbyTab, setLobbyTab] = useState("fight");
-  const [advOpen, setAdvOpen] = useState(false); const [advOnline, setAdvOnline] = useState(false);
+  const [ahOpen, setAhOpen] = useState(false); const [advOpen, setAdvOpen] = useState(false); const [advOnline, setAdvOnline] = useState(false);
   const [rpgTick, setRpgTick] = useState(0);   // re-reads the robot's level after a fight or a point spent
   const [tierIdx, setTierIdx] = useState(() => { try { const v = parseInt(localStorage.getItem("tg_pvp_tier") || "3", 10); return v >= 0 && v < BOT_TIERS.length ? v : 3; } catch (e) { return 3; } });
   const pickTier = (i) => { setTierIdx(i); try { localStorage.setItem("tg_pvp_tier", String(i)); } catch (e) {} };
@@ -1498,6 +1499,13 @@ export const PvpPage = memo(function PvpPage({
   }, [myCls, me, squadUsed, onReward, playUi, gauntlet, isWeekly, weekly, isRival, rival, practiceMode, lang, isGhost, objectives]);
 
   /* ── lobby ── */
+  if (phase === "lobby" && ahOpen) {
+    return (
+      <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2450, background: "#07060c", color: "#ffb06a", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>👾 Alien Hunt…</div>}>
+        <AlienHuntPage lang={lang} me={me} adminTier={adminTier} onBack={() => setAhOpen(false)} playUi={playUi} />
+      </Suspense>
+    );
+  }
   if (phase === "lobby" && advOpen) {
     return (
       <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2400, background: "#02070c", color: "#9dffd6", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>🪐 Adventure…</div>}>
@@ -1550,6 +1558,9 @@ export const PvpPage = memo(function PvpPage({
           </button>
           <button type="button" className="pvpadv online" onClick={() => { if (playUi) playUi("click"); setAdvOnline(true); setAdvOpen(true); }} aria-label="Adventure Online">
             <span aria-hidden="true">🌐</span><b>Adventure Online</b><i>{T("เล่นด้วยกันหลายคน", "Co-op with friends", "多人联机")}</i>
+          </button>
+          <button type="button" className="pvpadv alien" data-alien-hunt="1" onClick={() => { if (playUi) playUi("click"); setAhOpen(true); }} aria-label="Alien Hunt">
+            <span aria-hidden="true">👾</span><b>Alien Hunt</b><i>{T("ไล่ยิงเอเลี่ยน มุมมองบุคคลที่ 1", "First-person alien shooter", "第一人称打外星人")}</i>
           </button>
           <div className="pvphero-hud">
             {squadUsed === "pet" ? (<>
