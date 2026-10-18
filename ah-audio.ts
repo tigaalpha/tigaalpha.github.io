@@ -80,7 +80,9 @@ export function sfx(kind: string, w?: string) {
 }
 
 /** creature voices (owner, 2026-10-18: scary monster sounds): every alien has a spawn roar, an idle growl (quieter the farther it is), a bite sound and a death scream */
-export function creature(kind: string, mode: "spawn" | "growl" | "bite" | "die", dist = 0) {
+const VOICE_OF: Record<string, string> = { scarab: "skitter", behemoth: "charger", wisp: "skyeye", drone: "spitter", stalker: "mantis", warden: "charger", matriarch: "flarecaster", walker: "skyeye" };
+export function creature(kind0: string, mode: "spawn" | "growl" | "bite" | "die", dist = 0) {
+  const kind = VOICE_OF[kind0] || kind0;
   if (!ctx || !soundOn()) return; const c = ctx as AudioContext, t = c.currentTime + 0.001;
   const vol = mode === "growl" ? Math.max(0.12, 1 - dist / 32) * 0.7 : mode === "spawn" ? 0.95 : 1;
   const b = c.createGain(); b.gain.value = vol; b.connect(sfxBus);
@@ -108,7 +110,7 @@ export function events(ev: Ev[]) {
   for (const e of ev) {
     if (e.k === "shot") sfx("shot", e.w); else if (e.k === "boom") sfx("boom"); else if (e.k === "hit") sfx("hit"); else if (e.k === "head") { sfx("head"); sfx("kill"); creature(e.w as string, "die"); }
     else if (e.k === "spawn") creature(e.w as string, "spawn"); else if (e.k === "growl") creature(e.w as string, "growl", e.n || 0); else if (e.k === "bite") creature(e.w as string, "bite"); else if (e.k === "kill") { creature(e.w as string, "die"); sfx(e.w === "mantis" || e.w === "charger" ? "bigkill" : "kill"); } else if (e.k === "hurt") sfx("hurt"); else if (e.k === "reload") sfx("reload"); else if (e.k === "empty") sfx("empty");
-    else if (e.k === "swap") sfx("swap"); else if (e.k === "pickup") sfx("pickup"); else if (e.k === "slide") sfx("slide"); else if (e.k === "spit") sfx(e.w === "flarecaster" ? "flare" : e.w === "skyeye" ? "bolt" : "spit"); else if (e.k === "charge") sfx("charge"); else if (e.k === "wave") sfx("wave"); else if (e.k === "tune") sfx("tune"); else if (e.k === "win") sfx("win"); else if (e.k === "lose") sfx("lose");
+    else if (e.k === "swap") sfx("swap"); else if (e.k === "pickup") sfx("pickup"); else if (e.k === "slide") sfx("slide"); else if (e.k === "spit") sfx((VOICE_OF[e.w as string] || e.w) === "flarecaster" ? "flare" : (VOICE_OF[e.w as string] || e.w) === "skyeye" ? "bolt" : "spit"); else if (e.k === "charge") sfx("charge"); else if (e.k === "wave") sfx("wave"); else if (e.k === "tune") sfx("tune"); else if (e.k === "win") sfx("win"); else if (e.k === "lose") sfx("lose");
   }
 }
 
