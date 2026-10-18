@@ -28,4 +28,12 @@ ok("trend: down is gentle, not scolding", (() => { const log = [e("drill", "a", 
 ok("trend is silent without two weeks of data", note([e("drill", "a", 1, 18, 2)]).trend === null);
 for (const l of ["th", "zh"]) { const n = M.teacherNote({ log: [], track: M.foundationPath([], []) }, l); ok(l + ": note is written in that language", n.hello && (l === "th" ? /[฀-๿]/ : /[一-鿿]/).test(n.hello + n.line)); }
 const all = JSON.stringify(M.FOUNDATION) + JSON.stringify(note([])); ok("the word Berklee appears nowhere in the copy", !/berkl/i.test(all));
+// daily foundation patch follows the learner's own data
+{ const now = Date.now(), mk = (k, ok, miss, ago) => ({ t: now - ago * 86400000, d: "x", k, id: k, ok, miss, sec: 60 });
+  const log = [mk("ear", 2, 8, 0), mk("read", 9, 1, 0), mk("game", 8, 2, 0), { t: now, d: "x", k: "x", id: "hand_coach" }];
+  const tr = M.foundationPath(log, ["scale", "interval", "triad", "seventh", "progression"]), st = M.patchStats(log, now);
+  const a = M.dailyPatch(tr, 0, st), b = M.dailyPatch(tr, 1, st);
+  ok("the weakest area (ear, 80% missed) leads the patch", a && a.id === "ear" && /80%/.test(a.why2.en), a && a.id);
+  ok("the patch changes from one day to the next", b && b.id !== a.id, b && b.id);
+  ok("no evidence: falls back to the rotation, never invents a rate", !M.dailyPatch(M.foundationPath([], []), 0, {}).why2); }
 console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

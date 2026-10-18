@@ -120,12 +120,28 @@ export function teacherNote(input: { log: Entry[]; streak?: number; now?: number
   return { tone, hello: pick(hello, lang), line: pick(line, lang), trend, tail, week: w };
 }
 
-/** The daily foundation patch (owner, 2026-10-18): ONE foundation step for today that changes every day with the learner's level. The pool is
-    every step they have reached (the ones done, for review, plus the one they are on); the current step comes up every other day, the rest take
-    turns, so the patch moves daily but never asks for something beyond their level. */
-export function dailyPatch(track: ReturnType<typeof foundationPath>, daySeed: number): FoundationStep | null {
+/** Per-step evidence from the act log (last 14 days): tries, miss rate and days since the learner last touched that area. Pure; read again on every render, so it follows the learner in real time. */
+export function patchStats(log: Entry[], now: number): Record<string, { tries: number; miss: number; idle: number }> {
+  const area = (e: Entry): string | null => e && (e.id === "hand_coach" ? "hands" : e.k === "game" ? "song" : e.k === "ear" ? "ear" : e.k === "read" ? "read" : null);
+  const out: Record<string, { tries: number; miss: number; idle: number }> = {};
+  const L = Array.isArray(log) ? log : [];
+  for (const e of L) { const a = area(e); if (!a || !e.t) continue; const o = out[a] || (out[a] = { tries: 0, miss: 0, idle: 99 }); o.idle = Math.min(o.idle, Math.max(0, Math.floor((now - e.t) / 86400000))); if (now - e.t <= 14 * 86400000) { o.tries += (e.ok || 0) + (e.miss || 0); o.miss += e.miss || 0; } }
+  return out;
+}
+/** The daily foundation patch (owner, 2026-10-18: it must change every day with the learner's level and use their own data). The pool is every step they have reached;
+    each is scored by evidence: the miss rate over the last 14 days (only from 8 graded tries up, never invented) plus a nudge for an area left idle for days. The two highest
+    take turns day by day, so the patch moves daily yet always aims at what this learner most needs; with no evidence the old rotation (current step every other day) applies. */
+export function dailyPatch(track: ReturnType<typeof foundationPath>, daySeed: number, stats: Record<string, { tries: number; miss: number; idle: number }> = {}): (FoundationStep & { why2?: { th: string; en: string; zh: string } }) | null {
   const reached = track.steps.filter(x => x.done || x.current);
   if (!reached.length) return null;
+  const sc = (st: FoundationStep) => { const a = stats[st.id]; if (!a) return st.current ? 0.05 : 0; return (a.tries >= 8 ? a.miss / a.tries : 0) + Math.min(a.idle, 7) * 0.03 + (st.current ? 0.05 : 0); };
+  const ranked = reached.map(st => ({ st, v: sc(st) })).sort((a, b) => b.v - a.v);
+  if (ranked[0].v > 0.08) {
+    const pick = ranked[Math.min(daySeed % 2, ranked.length - 1)].st, a = stats[pick.id];
+    if (a && a.tries >= 8) { const pc = Math.round(a.miss / a.tries * 100); return { ...pick, why2: { th: `14 วันล่าสุดพลาด ${pc}% จาก ${a.tries} ครั้ง — วันนี้ซ้อมจุดนี้ให้แน่นขึ้น`, en: `Missed ${pc}% of ${a.tries} tries in the last 14 days — tighten this one today.`, zh: `最近14天 ${a.tries} 次中错了 ${pc}% — 今天重点练这里。` } }; }
+    if (a && a.idle >= 3) return { ...pick, why2: { th: `ไม่ได้ซ้อมเรื่องนี้มา ${a.idle} วันแล้ว — ปลุกมือกลับมาวันนี้`, en: `Not practised for ${a.idle} days — wake it up today.`, zh: `已 ${a.idle} 天没练 — 今天捡回来。` } };
+    return pick;
+  }
   const cur = track.current, rest = reached.filter(x => !cur || x.id !== cur.id);
   if (cur && (daySeed % 2 === 0 || !rest.length)) return cur;
   return rest.length ? rest[Math.floor(daySeed / 2) % rest.length] : cur;

@@ -40,7 +40,7 @@ import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validat
    ทั้งหน้า Daily Mentor และป๊อปอัป Auto Teaching อ่านจากที่นี่ที่เดียว
    (skillScoresOf = กติกาเดิมของ computeSkillScores · weightedStrugglesOf = กติกา
    เดิมของ use-autoteach · learnerSignal = ตัวตัดสินใจรวม · repeatWindowOpen = กันยิงคำเดิมซ้ำ) */
-import { foundationPath, dailyPatch } from "./class-teacher";
+import { foundationPath, dailyPatch, patchStats } from "./class-teacher";
 import { PowerToast, GamePowerBar, PowerSheet } from "./game-power-ui";
 import { accMult } from "./game-power";
 import { learnerSignal, skillScoresOf, skillsOfActivity, weakestSkills, repeatWindowOpen, freeQuotaState, atipDelivery, SKILL_FEATURE } from "./learner-signal";
@@ -1418,9 +1418,9 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
               </button>
             ))}
           </div>
-          {(() => { const dp = dailyPatch(track, Math.floor(Date.now() / 86400000)); return dp ? (
+          {(() => { const dp: any = dailyPatch(track, Math.floor(Date.now() / 86400000), patchStats(readActLog(), Date.now())); return dp ? (
             <button data-tnow="1" data-tpatch={dp.id} onClick={() => goStep(dp)} style={{ marginTop: 7, width: "100%", display: "flex", alignItems: "center", gap: 8, background: "rgba(217,119,87,.13)", border: 0, borderRadius: 14, padding: "5px 6px 5px 10px", cursor: "pointer", font: "inherit", color: "var(--text)", textAlign: "left", fontSize: 12, fontWeight: 600 }}>
-              <span>🛠</span><span style={{ flex: 1, minWidth: 0 }}>{T("วันนี้: ", "Today: ", "今天：")}{tr(dp.title, lang)}<span style={{ display: "block", fontSize: 10.5, fontWeight: 400, color: "var(--muted)" }}>{tr(dp.why, lang)}</span></span><span className="tdgo" style={{ pointerEvents: "none", padding: "5px 12px" }}>{TT.start}</span>
+              <span>🛠</span><span style={{ flex: 1, minWidth: 0 }}>{T("วันนี้: ", "Today: ", "今天：")}{tr(dp.title, lang)}<span style={{ display: "block", fontSize: 10.5, fontWeight: 400, color: "var(--muted)" }}>{tr(dp.why2 || dp.why, lang)}</span></span><span className="tdgo" style={{ pointerEvents: "none", padding: "5px 12px" }}>{TT.start}</span>
             </button>) : null; })()}
         </div>
       )}
