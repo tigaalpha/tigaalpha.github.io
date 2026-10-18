@@ -2847,7 +2847,6 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
 
       <div className="pathhero">
         <div className="pathhero-glow" />
-        <div className="pathbadge">▶ STUDIO ▶</div>
       </div>
       <div className="songgrid">
         {cards.map(c => (
