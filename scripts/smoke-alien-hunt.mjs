@@ -99,4 +99,12 @@ ok(_ns(1).tuneEvery === 20, "the music question defaults to every 20 s");
   const a = mk(0, -10); ok("auto-shoot is on by default", a.autoFire === true); for (let i = 0; i < 20; i++) E.step(a, E.noInput(), 1 / 60); ok("auto-shoot fires at an alien in the crosshair", a.shots > 0, "shots " + a.shots);
   const b = mk(0, -10); b.autoFire = false; for (let i = 0; i < 20; i++) E.step(b, E.noInput(), 1 / 60); ok("auto-shoot off: no shots", b.shots === 0);
   const c = mk(30, 0); for (let i = 0; i < 20; i++) E.step(c, E.noInput(), 1 / 60); ok("nothing in the crosshair: no shots", c.shots === 0); }
+// RPG and the rapid rocket barrage (owner 2026-10-18)
+{ const mk = (w) => { const q = E.newState(31, 0); q.wave = 1; q.between = 99; q.auto = false; q.autoFire = false; q.owned[w] = true; q.weapon = w; q.ammo[w].mag = E.WEAPONS[w].mag; q.p.x = 0; q.p.z = 0; q.p.yaw = 0; q.p.pitch = 0.02; return q; };
+  const R = mk("rpg"); R.enemies.push({ id: 50, kind: "skitter", x: 5.6, z: -14, hp: 40, max: 40, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }); const inp = E.noInput(); inp.fire = true; for (let i = 0; i < 160; i++) { E.step(R, 1 / 60, i < 2 ? inp : E.noInput()); R.enemies.forEach(e => { e.x = 5.6; e.z = -14; }); }
+  ok("the RPG fires one big rocket", R.shots === 1 && R.ammo.rpg.mag === 0, "shots " + R.shots);
+  const Bz = mk("rpg"); Bz.enemies.push({ id: 51, kind: "skitter", x: 5.6, z: -14, hp: 40, max: 40, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 });
+  const S2 = mk("salvo"); const inp2 = E.noInput(); inp2.fire = true; let peak = 0; for (let i = 0; i < 40; i++) { E.step(S2, 1 / 60, inp2); peak = Math.max(peak, S2.rk.length); }
+  ok("the rocket barrage launches several rockets in a second", S2.shots >= 4 && peak >= 3, "shots " + S2.shots + " peak " + peak);
+  ok("both are in the weapon order and have a name", E.WORDER.includes("rpg") && E.WORDER.includes("salvo") && E.WEAPONS.rpg.name.length > 3); }
 console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

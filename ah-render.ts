@@ -186,23 +186,65 @@ function buildAlien(kind: AlienKind, tint = 0): Rig {
   return { g, legs, arms, mats, body };
 }
 
-/* ── the gun in hand ── */
+/* ── the gun in hand (all fourteen redesigned, owner 2026-10-18) ── */
+const GUN_MUZZLE: Record<string, number> = { pistol: -0.34, rifle: -0.9, laser: -0.7, shotgun: -0.82, arc: -0.8, beam: -0.95, pulsar: -0.75, storm: -0.8, cryo: -0.72, nova: -0.8, rail: -1.05, launcher: -0.72, rpg: -1.0, salvo: -0.66 };
 function buildGun(id: string): THREE.Group {
-  const g = new THREE.Group(), dark = MAT(0x15181c, { metalness: 0.6, roughness: 0.35 }), mid = MAT(0x2c3138, { metalness: 0.5, roughness: 0.4 }), tan = MAT(0x6b5a3a, { roughness: 0.7 });
-  const box = (w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
-  const cyl = (r: number, l: number, m: THREE.Material, x: number, y: number, z: number) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 10), m); c.rotation.x = Math.PI / 2; c.position.set(x, y, z); g.add(c); };
-  if (id === "pistol") { box(0.05, 0.07, 0.3, mid, 0, 0, -0.1); box(0.045, 0.13, 0.06, dark, 0, -0.09, 0.0); box(0.012, 0.02, 0.012, GLOW(0x41e0ff), 0, 0.045, -0.2); }
-  else if (id === "rifle") { box(0.06, 0.09, 0.55, mid, 0, 0, -0.2); box(0.05, 0.1, 0.18, tan, 0, -0.02, 0.18); box(0.04, 0.14, 0.07, dark, 0, -0.11, -0.05); box(0.05, 0.11, 0.09, dark, 0, -0.1, -0.22); cyl(0.014, 0.35, dark, 0, 0.0, -0.62); box(0.03, 0.04, 0.12, dark, 0, 0.07, -0.18); box(0.014, 0.014, 0.1, GLOW(0x41e0ff), 0, 0.045, -0.37); }
-  else if (id === "laser") { box(0.06, 0.08, 0.5, mid, 0, 0, -0.2); box(0.07, 0.03, 0.3, GLOW(0xff4a5a), 0, 0.055, -0.22); cyl(0.018, 0.2, dark, 0, 0, -0.55); box(0.045, 0.12, 0.07, dark, 0, -0.1, -0.02); box(0.05, 0.14, 0.06, mid, 0, -0.12, -0.28); box(0.03, 0.05, 0.14, GLOW(0xff4a5a), 0, -0.06, 0.12); }
-  else if (id === "rail") { box(0.07, 0.09, 0.72, mid, 0, 0, -0.28); box(0.015, 0.05, 0.62, GLOW(0xa8c8ff), 0.045, 0.01, -0.3); box(0.015, 0.05, 0.62, GLOW(0xa8c8ff), -0.045, 0.01, -0.3); for (let i = 0; i < 4; i++) box(0.1, 0.12, 0.04, dark, 0, 0, -0.55 + i * 0.12); box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.0); box(0.06, 0.1, 0.18, mid, 0, -0.02, 0.2); }
-  else if (id === "arc") { cyl(0.05, 0.4, mid, 0, 0, -0.22); for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.012, 6, 14), GLOW(0x9ad8ff)); r.position.set(0, 0, -0.38 - i * 0.09); g.add(r); } box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.0); box(0.05, 0.1, 0.14, mid, 0, -0.02, 0.15); const orb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), GLOW(0xffffff)); orb.position.set(0, 0, -0.68); g.add(orb); }
-  else if (id === "beam") { box(0.07, 0.1, 0.55, mid, 0, 0, -0.2); box(0.075, 0.025, 0.4, GLOW(0xffe45a), 0, 0.06, -0.22); cyl(0.04, 0.3, dark, 0, 0, -0.62); const lens = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), GLOW(0xfff2a0)); lens.position.set(0, 0, -0.78); g.add(lens); box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.0); box(0.06, 0.1, 0.16, mid, 0, -0.02, 0.2); }
-  else if (id === "pulsar") { box(0.09, 0.1, 0.5, mid, 0, 0, -0.18); for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; cyl(0.016, 0.34, dark, Math.cos(a) * 0.035, Math.sin(a) * 0.035 + 0.01, -0.56); } for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.01, 6, 16), GLOW(0xff4fd8)); r.position.set(0, 0.01, -0.46 - i * 0.1); g.add(r); } box(0.075, 0.025, 0.36, GLOW(0xff4fd8), 0, 0.065, -0.14); box(0.045, 0.12, 0.07, dark, 0, -0.1, 0.0); box(0.06, 0.1, 0.16, mid, 0, -0.02, 0.2); }
-  else if (id === "nova") { box(0.1, 0.13, 0.5, mid, 0, 0, -0.16); const orb = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 10), GLOW(0x7dffe0)); orb.position.set(0, 0.02, -0.12); g.add(orb); const cage = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 6, 20), GLOW(0xbffff0)); cage.position.set(0, 0.02, -0.12); g.add(cage); const cage2 = cage.clone(); cage2.rotation.y = Math.PI / 2; g.add(cage2); cyl(0.05, 0.4, dark, 0, 0, -0.55); for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.014, 6, 16), GLOW(0x7dffe0)); r.position.set(0, 0, -0.45 - i * 0.12); g.add(r); } box(0.05, 0.12, 0.07, dark, 0, -0.11, 0.05); box(0.06, 0.1, 0.16, mid, 0, -0.02, 0.22); }
-  else if (id === "storm") { for (const x of [-0.045, 0.045]) { box(0.05, 0.07, 0.5, mid, x, 0, -0.2); box(0.04, 0.02, 0.36, GLOW(0xff9a2e), x, 0.045, -0.22); cyl(0.014, 0.24, dark, x, 0, -0.58); const t = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), GLOW(0xffd08a)); t.position.set(x, 0, -0.71); g.add(t); } box(0.14, 0.04, 0.1, dark, 0, 0.0, -0.02); box(0.045, 0.12, 0.07, dark, 0, -0.1, 0.02); box(0.06, 0.1, 0.16, mid, 0, -0.02, 0.2); }
-  else if (id === "cryo") { cyl(0.045, 0.5, mid, 0, 0, -0.22); for (let i = 0; i < 5; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.1, 5), GLOW(0x9fe8ff)); sp.rotation.x = -Math.PI / 2; sp.position.set(Math.cos(i * 1.256) * 0.06, Math.sin(i * 1.256) * 0.06, -0.62 - (i % 2) * 0.06); g.add(sp); } const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.16, 4, 10), GLOW(0x6fd0ff)); tank.rotation.x = Math.PI / 2; tank.position.set(0, 0.09, -0.12); g.add(tank); box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.02); box(0.06, 0.1, 0.16, mid, 0, -0.02, 0.2); const nz = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), GLOW(0xffffff)); nz.position.set(0, 0, -0.58); g.add(nz); }
-  else if (id === "launcher") { cyl(0.07, 0.62, mid, 0, 0, -0.25); cyl(0.085, 0.16, dark, 0, 0, -0.58); box(0.05, 0.12, 0.08, dark, 0, -0.11, 0.0); box(0.05, 0.05, 0.2, tan, 0, -0.03, 0.2); cyl(0.05, 0.05, GLOW(0x41ff9a), 0, 0.06, -0.3); }
-  else { box(0.07, 0.09, 0.5, mid, 0, 0, -0.18); cyl(0.022, 0.62, dark, 0, 0.03, -0.5); cyl(0.028, 0.34, tan, 0, -0.04, -0.4); box(0.06, 0.1, 0.2, tan, 0, -0.03, 0.2); box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.0); }
+  const g = new THREE.Group();
+  const steel = MAT(0x2b3038, { metalness: 0.85, roughness: 0.28 }), dark = MAT(0x101318, { metalness: 0.7, roughness: 0.4 }), carbon = MAT(0x1a1c20, { metalness: 0.3, roughness: 0.55 }), white = MAT(0xd9dde6, { metalness: 0.5, roughness: 0.3 }), grip = MAT(0x1b1f25, { roughness: 0.85 });
+  const box = (w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, rx = 0) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.rotation.x = rx; g.add(b); return b; };
+  const cyl = (rt: number, rb: number, l: number, m: THREE.Material, x: number, y: number, z: number, seg = 14) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, l, seg), m); c.rotation.x = Math.PI / 2; c.position.set(x, y, z); g.add(c); return c; };
+  const tor = (r: number, t: number, m: THREE.Material, x: number, y: number, z: number, ry = 0) => { const o = new THREE.Mesh(new THREE.TorusGeometry(r, t, 8, 22), m); o.position.set(x, y, z); o.rotation.y = ry; g.add(o); return o; };
+  const sph = (r: number, m: THREE.Material, x: number, y: number, z: number) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), m); o.position.set(x, y, z); g.add(o); return o; };
+  const cone = (r: number, l: number, m: THREE.Material, x: number, y: number, z: number, fwd = true) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, l, 12), m); c.rotation.x = fwd ? -Math.PI / 2 : Math.PI / 2; c.position.set(x, y, z); g.add(c); return c; };
+  const handle = (z = 0.04, h = 0.15) => { box(0.045, h, 0.07, grip, 0, -0.1 - h * 0.1, z, 0.28); box(0.05, 0.012, 0.075, steel, 0, -0.03, z - 0.01); tor(0.04, 0.008, steel, 0, -0.07, z - 0.1, Math.PI / 2); };
+  const stock = (len = 0.22, m: THREE.Material = carbon) => { box(0.055, 0.1, len, m, 0, -0.025, 0.2 + len * 0.3); box(0.06, 0.12, 0.03, steel, 0, -0.03, 0.2 + len * 0.3 + len / 2); };
+  const vents = (n: number, z0: number, step: number, y = 0.0, x = 0.034, c = dark) => { for (let i = 0; i < n; i++) { box(0.008, 0.045, 0.022, c, x, y, z0 - i * step); box(0.008, 0.045, 0.022, c, -x, y, z0 - i * step); } };
+  if (id === "pistol") {   // Pulse sidearm: a white-and-steel slide with a glowing cyan core and a translucent energy cell in the grip
+    box(0.052, 0.062, 0.3, white, 0, 0.01, -0.12); box(0.056, 0.02, 0.3, steel, 0, 0.048, -0.12); box(0.01, 0.025, 0.2, GLOW(0x41e0ff), 0.028, 0.012, -0.14); box(0.01, 0.025, 0.2, GLOW(0x41e0ff), -0.028, 0.012, -0.14);
+    cyl(0.017, 0.017, 0.08, dark, 0, 0.012, -0.3); tor(0.022, 0.006, GLOW(0x41e0ff), 0, 0.012, -0.265, 0); box(0.012, 0.018, 0.012, GLOW(0xff4a4a), 0, 0.066, -0.25); box(0.01, 0.015, 0.012, steel, 0, 0.066, 0.02);
+    handle(0.07, 0.15); box(0.012, 0.09, 0.045, GLOW(0x41e0ff), 0.027, -0.1, 0.075, 0.28);
+  } else if (id === "rifle") {   // Plasma rifle: bullpup frame, vented handguard, red-dot sight, curved cell magazine
+    box(0.065, 0.1, 0.52, steel, 0, 0, -0.18); box(0.058, 0.07, 0.34, white, 0, -0.01, -0.5); vents(4, -0.4, 0.07, 0.0, 0.032); cyl(0.016, 0.016, 0.3, dark, 0, 0.0, -0.84); cyl(0.026, 0.02, 0.07, steel, 0, 0.0, -0.99);
+    box(0.016, 0.016, 0.34, GLOW(0x7affb0), 0, 0.058, -0.42); stock(0.2, carbon); handle(0.0, 0.14); box(0.05, 0.14, 0.07, dark, 0, -0.14, -0.22, 0.2); box(0.012, 0.1, 0.05, GLOW(0x7affb0), 0.028, -0.14, -0.22, 0.2);
+    box(0.05, 0.04, 0.12, dark, 0, 0.085, -0.12); const gl = box(0.04, 0.03, 0.01, GLOW(0x66ccff), 0, 0.1, -0.2); gl.rotation.x = 0.1; box(0.012, 0.03, 0.012, GLOW(0xff3a3a), 0, 0.1, -0.205);
+  } else if (id === "laser") {   // Laser SMG: compact, a red focusing coil wrapped round the barrel, twin lenses
+    box(0.06, 0.08, 0.4, steel, 0, 0, -0.14); box(0.07, 0.03, 0.3, GLOW(0xff4a5a), 0, 0.055, -0.2); cyl(0.024, 0.024, 0.3, dark, 0, 0, -0.5); for (let i = 0; i < 5; i++) tor(0.036, 0.007, GLOW(0xff4a5a), 0, 0, -0.4 - i * 0.055); sph(0.022, GLOW(0xffb0b0), 0, 0, -0.66);
+    box(0.02, 0.05, 0.1, GLOW(0xff4a5a), 0.04, 0.0, -0.1); box(0.02, 0.05, 0.1, GLOW(0xff4a5a), -0.04, 0.0, -0.1); handle(0.0, 0.14); box(0.04, 0.15, 0.07, dark, 0, -0.12, -0.3, 0.12); box(0.05, 0.08, 0.1, carbon, 0, 0.0, 0.15);
+  } else if (id === "shotgun") {   // Ion scatter: wide double-tube, pump grip, violet ion rings
+    cyl(0.032, 0.032, 0.62, steel, 0, 0.03, -0.35); cyl(0.028, 0.028, 0.5, dark, 0, -0.035, -0.3); for (let i = 0; i < 4; i++) tor(0.042, 0.009, GLOW(0xc77aff), 0, 0.03, -0.18 - i * 0.12);
+    box(0.075, 0.1, 0.3, steel, 0, 0, -0.0); box(0.1, 0.07, 0.17, carbon, 0, -0.058, -0.42); cyl(0.04, 0.036, 0.05, white, 0, 0.03, -0.68); cyl(0.034, 0.03, 0.04, GLOW(0xe0b0ff), 0, 0.03, -0.72); stock(0.24, carbon); handle(0.1, 0.14);
+  } else if (id === "arc") {   // Arc caster: a tesla spire, three shrinking coils and a crackling orb held between two prongs
+    cyl(0.04, 0.05, 0.42, steel, 0, 0, -0.2); for (let i = 0; i < 4; i++) tor(0.07 - i * 0.012, 0.012, GLOW(0x9ad8ff), 0, 0, -0.34 - i * 0.1); box(0.012, 0.012, 0.3, GLOW(0xffffff), 0.045, 0.045, -0.6); box(0.012, 0.012, 0.3, GLOW(0xffffff), -0.045, 0.045, -0.6);
+    box(0.012, 0.012, 0.3, GLOW(0xffffff), 0.045, -0.045, -0.6); box(0.012, 0.012, 0.3, GLOW(0xffffff), -0.045, -0.045, -0.6); sph(0.045, GLOW(0xffffff), 0, 0, -0.75); tor(0.065, 0.006, GLOW(0xbfe8ff), 0, 0, -0.75, Math.PI / 2); handle(0.0, 0.14); box(0.06, 0.1, 0.16, carbon, 0, -0.02, 0.15);
+  } else if (id === "beam") {   // Photon lance: a long barrel of stacked lenses, amber core, long scope
+    box(0.07, 0.1, 0.5, steel, 0, 0, -0.16); cyl(0.04, 0.04, 0.5, white, 0, 0, -0.6); for (let i = 0; i < 4; i++) tor(0.048, 0.01, GLOW(0xffe45a), 0, 0, -0.5 - i * 0.1); sph(0.04, GLOW(0xfff2a0), 0, 0, -0.9); box(0.075, 0.024, 0.4, GLOW(0xffe45a), 0, 0.062, -0.2);
+    cyl(0.025, 0.025, 0.26, dark, 0, 0.1, -0.18); cyl(0.03, 0.03, 0.02, GLOW(0xffe45a), 0, 0.1, -0.31); handle(0.05, 0.14); stock(0.2);
+  } else if (id === "pulsar") {   // Pulsar burst: three barrels in a ring, magenta rings, a fat energy block on top
+    box(0.1, 0.1, 0.46, steel, 0, 0, -0.14); for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + Math.PI / 2; cyl(0.018, 0.018, 0.4, dark, Math.cos(a) * 0.04, Math.sin(a) * 0.04, -0.58); }
+    for (let i = 0; i < 3; i++) tor(0.062, 0.01, GLOW(0xff4fd8), 0, 0, -0.46 - i * 0.1); box(0.085, 0.05, 0.3, GLOW(0xff4fd8), 0, 0.075, -0.14); box(0.1, 0.03, 0.12, white, 0, 0.11, -0.05); vents(3, -0.2, 0.06, 0.0, 0.052); handle(0.03, 0.14); stock(0.18);
+  } else if (id === "storm") {   // Storm twin-laser: two long rails side by side, orange heat coils
+    for (const x of [-0.05, 0.05]) { box(0.05, 0.07, 0.52, steel, x, 0, -0.2); box(0.04, 0.02, 0.4, GLOW(0xff9a2e), x, 0.048, -0.24); cyl(0.014, 0.014, 0.28, dark, x, 0, -0.62); for (let i = 0; i < 3; i++) tor(0.026, 0.006, GLOW(0xff9a2e), x, 0, -0.5 - i * 0.07); sph(0.02, GLOW(0xffd08a), x, 0, -0.77); }
+    box(0.15, 0.05, 0.12, dark, 0, 0.0, -0.02); box(0.04, 0.08, 0.3, white, 0, 0.05, -0.2); handle(0.04, 0.14); stock(0.18);
+  } else if (id === "cryo") {   // Cryo beam: a frost tank, a snow-white nozzle ringed with ice spikes
+    cyl(0.045, 0.05, 0.46, white, 0, 0, -0.2); const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.2, 4, 12), GLOW(0x6fd0ff)); tank.rotation.x = Math.PI / 2; tank.position.set(0, 0.1, -0.1); g.add(tank); tor(0.06, 0.01, steel, 0, 0.1, -0.02, 0); tor(0.06, 0.01, steel, 0, 0.1, -0.2, 0);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; cone(0.016, 0.12, GLOW(0x9fe8ff), Math.cos(a) * 0.058, Math.sin(a) * 0.058, -0.52 - (i % 2) * 0.05); } cyl(0.062, 0.04, 0.08, steel, 0, 0, -0.46); sph(0.03, GLOW(0xffffff), 0, 0, -0.6); handle(0.04, 0.14); box(0.06, 0.1, 0.16, carbon, 0, -0.02, 0.17);
+  } else if (id === "nova") {   // Nova cannon: a caged plasma core behind a flared muzzle, a heavy frame
+    box(0.11, 0.13, 0.46, steel, 0, 0, -0.14); sph(0.075, GLOW(0x7dffe0), 0, 0.02, -0.1); for (let k = 0; k < 3; k++) { const c = tor(0.105, 0.011, GLOW(0xbffff0), 0, 0.02, -0.1); c.rotation.set(k * 1.05, k * 0.6, 0); }
+    cyl(0.05, 0.05, 0.36, dark, 0, 0, -0.5); cyl(0.09, 0.05, 0.14, white, 0, 0, -0.72); for (let i = 0; i < 3; i++) tor(0.07, 0.014, GLOW(0x7dffe0), 0, 0, -0.42 - i * 0.12); sph(0.045, GLOW(0xffffff), 0, 0, -0.76); handle(0.06, 0.15); stock(0.2);
+  } else if (id === "rail") {   // Rail cannon: two long magnetic rails with glowing chevrons and a heavy coil stack
+    box(0.075, 0.09, 0.8, steel, 0, 0, -0.32); box(0.016, 0.07, 0.78, GLOW(0xa8c8ff), 0.052, 0.01, -0.36); box(0.016, 0.07, 0.78, GLOW(0xa8c8ff), -0.052, 0.01, -0.36); for (let i = 0; i < 6; i++) box(0.12, 0.13, 0.03, dark, 0, 0, -0.62 + i * 0.1);
+    for (let i = 0; i < 5; i++) box(0.05, 0.012, 0.03, GLOW(0xcfe2ff), 0, 0.052, -0.78 + i * 0.12); cyl(0.022, 0.022, 0.12, white, 0, 0, -1.0); sph(0.025, GLOW(0xffffff), 0, 0, -1.06); handle(0.02, 0.15); stock(0.2); box(0.02, 0.12, 0.04, steel, 0, 0.085, -0.15);
+  } else if (id === "launcher") {   // Plasma launcher: a fat tube with a glowing green bore and a drum chamber
+    cyl(0.075, 0.075, 0.6, steel, 0, 0, -0.28); cyl(0.095, 0.085, 0.18, white, 0, 0, -0.64); cyl(0.07, 0.07, 0.02, GLOW(0x41ff9a), 0, 0, -0.74); tor(0.092, 0.01, GLOW(0x41ff9a), 0, 0, -0.55); tor(0.092, 0.01, GLOW(0x41ff9a), 0, 0, -0.12);
+    cyl(0.1, 0.1, 0.16, dark, 0, 0, 0.0); box(0.04, 0.05, 0.16, carbon, 0, 0.1, -0.3); handle(0.05, 0.14); box(0.05, 0.05, 0.22, carbon, 0, -0.04, 0.22);
+  } else if (id === "rpg") {   // RPG-7 Hellfire: a long tube with a flared rear venturi, the warhead nosed out of the front, optic on top
+    cyl(0.062, 0.062, 0.78, MAT(0x4a5a3a, { metalness: 0.4, roughness: 0.6 }), 0, 0, -0.24); cyl(0.06, 0.1, 0.18, dark, 0, 0, 0.24); cyl(0.095, 0.1, 0.02, steel, 0, 0, 0.34); cyl(0.07, 0.07, 0.1, steel, 0, 0, -0.58);
+    cyl(0.074, 0.074, 0.14, steel, 0, 0, -0.5); cyl(0.088, 0.062, 0.2, MAT(0x6b6a3a, { metalness: 0.5, roughness: 0.5 }), 0, 0, -0.74); cone(0.088, 0.22, GLOW(0xff6a2a), 0, 0, -0.95); tor(0.09, 0.012, GLOW(0xff8a3a), 0, 0, -0.64);
+    handle(0.02, 0.15); box(0.04, 0.09, 0.07, grip, 0, -0.1, -0.34, -0.1); box(0.05, 0.08, 0.09, dark, 0, 0.085, -0.2); cyl(0.022, 0.022, 0.2, dark, 0, 0.12, -0.2); sph(0.02, GLOW(0x66ccff), 0, 0.12, -0.31);
+  } else {   // salvo — Rocket barrage: a six-tube pod with yellow tipped rockets, a top sight and a long grip
+    box(0.2, 0.17, 0.4, steel, 0, 0, -0.2); for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) { const x = (c - 1) * 0.062, y = (r - 0.5) * 0.07; cyl(0.026, 0.026, 0.48, dark, x, y, -0.36); cyl(0.02, 0.02, 0.06, GLOW(0xffd24a), x, y, -0.58); cone(0.02, 0.05, GLOW(0xff6a2a), x, y, -0.62); }
+    box(0.22, 0.02, 0.4, white, 0, 0.095, -0.2); box(0.02, 0.1, 0.34, GLOW(0xffd24a), 0.105, 0.0, -0.2); box(0.02, 0.1, 0.34, GLOW(0xffd24a), -0.105, 0.0, -0.2); handle(0.0, 0.16); box(0.04, 0.1, 0.06, grip, 0, -0.14, -0.3, -0.1); box(0.05, 0.06, 0.1, dark, 0, 0.12, -0.15); sph(0.018, GLOW(0xff3a3a), 0, 0.15, -0.15);
+  }
   g.traverse(o => { (o as any).frustumCulled = false; });
   return g;
 }
@@ -255,7 +297,7 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0): Ren
   }
 
   /* the gun in hand */
-  const guns: Record<string, THREE.Group> = { pistol: buildGun("pistol"), rifle: buildGun("rifle"), shotgun: buildGun("shotgun"), launcher: buildGun("launcher"), laser: buildGun("laser"), rail: buildGun("rail"), arc: buildGun("arc"), beam: buildGun("beam"), pulsar: buildGun("pulsar"), nova: buildGun("nova"), storm: buildGun("storm"), cryo: buildGun("cryo") };
+  const guns: Record<string, THREE.Group> = { pistol: buildGun("pistol"), rifle: buildGun("rifle"), shotgun: buildGun("shotgun"), launcher: buildGun("launcher"), laser: buildGun("laser"), rail: buildGun("rail"), arc: buildGun("arc"), beam: buildGun("beam"), pulsar: buildGun("pulsar"), nova: buildGun("nova"), storm: buildGun("storm"), cryo: buildGun("cryo"), rpg: buildGun("rpg"), salvo: buildGun("salvo") };
   const hold = new THREE.Group(); hold.position.set(0.2, -0.2, -0.38); hold.scale.setScalar(0.72); cam.add(hold);
   const handM = MAT(0xc79a76, { roughness: 0.8 }), sleeve = MAT(0x2c3a30);
   const hand = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.085, 0.14), handM); hand.position.set(0.0, -0.075, 0.02); hold.add(hand);
@@ -275,20 +317,47 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0): Ren
   const arcs: { m: THREE.Mesh[]; life: number }[] = []; const arcMat = new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
   for (let i = 0; i < 3; i++) { const segs: THREE.Mesh[] = []; for (let j = 0; j < 24; j++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 4), arcMat); m.visible = false; scene.add(m); segs.push(m); } arcs.push({ m: segs, life: 0 }); }
   const pkMeshes = new Map<number, THREE.Group>(); const pkGeo = new THREE.OctahedronGeometry(0.42);
-  const rkPool: THREE.Mesh[] = []; const rkGeo = new THREE.SphereGeometry(0.16, 8, 6), rkMat = new THREE.MeshBasicMaterial({ color: 0x66ffb0, fog: false });
+  const rkPool: THREE.Object3D[] = []; const rkGeo = new THREE.SphereGeometry(0.16, 8, 6), rkMat = new THREE.MeshBasicMaterial({ color: 0x66ffb0, fog: false });
+  let rkFrame = 0;
+  const mkRocket = (rt: string): THREE.Object3D => {   // along +z (lookAt turns it to its velocity); the flame trails behind
+    const g = new THREE.Group(); g.userData.rt = rt;
+    if (rt === "plasma") { const b = new THREE.Mesh(rkGeo, rkMat); g.add(b); return g; }
+    const L = rt === "rpg" ? 0.95 : 0.58, R = rt === "rpg" ? 0.085 : 0.05, body = MAT(rt === "rpg" ? 0x6b6a3a : 0xd9dde6, { metalness: 0.5, roughness: 0.4 });
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(R, R, L, 10), body); tube.rotation.x = Math.PI / 2; g.add(tube);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(R, L * 0.32, 10), GLOW(rt === "rpg" ? 0xff6a2a : 0xffd24a)); nose.rotation.x = Math.PI / 2; nose.position.z = L / 2 + L * 0.16; g.add(nose);
+    for (let i = 0; i < 4; i++) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.012, R * 2.2, L * 0.28), MAT(0x222228)); f.position.z = -L / 2 + L * 0.12; f.rotation.z = i * Math.PI / 2; g.add(f); }
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(R * 1.1, L * 0.9, 8), new THREE.MeshBasicMaterial({ color: 0xffa030, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); flame.rotation.x = -Math.PI / 2; flame.position.z = -L / 2 - L * 0.42; g.add(flame); g.userData.flame = flame;
+    const core = new THREE.Mesh(new THREE.ConeGeometry(R * 0.6, L * 0.55, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); core.rotation.x = -Math.PI / 2; core.position.z = -L / 2 - L * 0.25; g.add(core);
+    return g;
+  };
   const booms: { m: THREE.Mesh; life: number }[] = []; const bGeo = new THREE.SphereGeometry(1, 14, 10);
   for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(bGeo, new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); m.visible = false; scene.add(m); booms.push({ m, life: 0 }); }
   const bl = new THREE.PointLight(0xffa050, 0, 22); scene.add(bl); let blT = 0;
   const acidM = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), GLOW(0x9cff3a)); const acidPool: THREE.Mesh[] = [];
 
   const rigs = new Map<number, { rig: Rig; e: Enemy; fade: number }>();
-  let crouch = 0; let gun = "rifle", kick = 0, mfT = 0, flashT = 0, bob = 0, shake = 0, curShake = 0;
+  let crouch = 0; let gun = "pistol", flashI = 3.2, kick = 0, mfT = 0, flashT = 0, bob = 0, shake = 0, curShake = 0;
+  /* per-gun firing effects: spark count and speed, flash size and light, camera kick and shake, ejected brass, rocket backblast */
+  const FX: Record<string, { n: number; spd: number; fl: number; li: number; kick: number; shk: number; brass?: number; blast?: number }> = {
+    pistol: { n: 6, spd: 5, fl: 1.4, li: 3, kick: 0.45, shk: 0.02, brass: 1 }, rifle: { n: 5, spd: 5, fl: 1.2, li: 3, kick: 0.25, shk: 0.02, brass: 1 }, laser: { n: 4, spd: 7, fl: 1.1, li: 3.4, kick: 0.1, shk: 0 },
+    shotgun: { n: 26, spd: 9, fl: 3, li: 7, kick: 0.9, shk: 0.18, brass: 2 }, arc: { n: 14, spd: 8, fl: 1.8, li: 5, kick: 0.2, shk: 0.04 }, beam: { n: 4, spd: 6, fl: 1.3, li: 3.6, kick: 0.08, shk: 0 },
+    pulsar: { n: 10, spd: 7, fl: 1.7, li: 4, kick: 0.3, shk: 0.04 }, storm: { n: 5, spd: 6, fl: 1.2, li: 3.2, kick: 0.1, shk: 0 }, cryo: { n: 8, spd: 4, fl: 1.2, li: 3, kick: 0.08, shk: 0 },
+    nova: { n: 22, spd: 10, fl: 3.4, li: 8, kick: 0.85, shk: 0.2 }, rail: { n: 30, spd: 12, fl: 3.2, li: 9, kick: 1, shk: 0.3 }, launcher: { n: 14, spd: 6, fl: 2.4, li: 5, kick: 0.7, shk: 0.12, blast: 6 },
+    rpg: { n: 30, spd: 9, fl: 3.8, li: 10, kick: 1, shk: 0.34, blast: 22 }, salvo: { n: 12, spd: 7, fl: 2.2, li: 6, kick: 0.4, shk: 0.07, blast: 8 },
+  };
+  const gunFx = (w: string) => {
+    const f = FX[w]; if (!f) return; hold.updateWorldMatrix(true, true); const c = WCOL[w] || 0xffd080;
+    const mz = hold.localToWorld(new THREE.Vector3(0, 0, GUN_MUZZLE[w] || -0.7)); burst(mz.x, mz.y, mz.z, high ? f.n : Math.ceil(f.n / 2), c, f.spd); burst(mz.x, mz.y, mz.z, Math.ceil(f.n / 3), 0xffffff, f.spd * 0.6);
+    if (f.brass) { const ej = hold.localToWorld(new THREE.Vector3(0.05, 0.03, -0.1)); burst(ej.x, ej.y, ej.z, f.brass, 0xe8c060, 2.4); }
+    if (f.blast) { const bk = hold.localToWorld(new THREE.Vector3(0, 0, 0.36)); burst(bk.x, bk.y, bk.z, f.blast, 0xd6d2c8, 4.5); burst(bk.x, bk.y, bk.z, Math.ceil(f.blast / 2), 0xff9a4a, 6); }
+    flashI = f.li; mflash.scale.setScalar(f.fl); kick = Math.min(1, kick + f.kick); curShake = Math.min(1, curShake + f.shk);
+  };
   const api: Render = {
     canvas, shake: 0,
     events(ev) {
       for (const e of ev) {
-        if (e.k === "shot") { kick = Math.min(1, kick + (e.w === "shotgun" ? 0.9 : e.w === "pistol" ? 0.45 : 0.25)); mfT = 0.05; flashT = 0.06; { const c = WCOL[e.w as string] || 0xffd080; flash.color.setHex(c); (mflash.material as THREE.MeshBasicMaterial).color.setHex(c); mflash.scale.setScalar(e.w === "nova" || e.w === "rail" || e.w === "shotgun" ? 2.2 : 1.2); } const t = e.w === "arc" ? null : tracers.find(q => q.life <= 0); if (t) { t.life = e.w === "rail" ? 0.25 : 0.07; t.m.visible = true; { const c = WCOL[e.w as string] || 0xffe9a0; (t.m.material as THREE.MeshBasicMaterial).color.setHex(0xffffff); ((t.m.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(c); const th = e.w === "nova" ? 3.2 : e.w === "rail" ? 2.2 : e.w === "beam" || e.w === "cryo" ? 1.4 : e.w === "storm" || e.w === "laser" ? 1.1 : 1.6; t.m.userData.th = th; } const from = new THREE.Vector3(0.2, -0.17, -0.7).applyMatrix4(cam.matrixWorld), dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), to = from.clone().addScaledVector(dir, e.w === "rail" ? 90 : 36); const mid = from.clone().add(to).multiplyScalar(0.5); t.m.position.copy(mid); t.m.scale.set(t.m.userData.th || 1, from.distanceTo(to), t.m.userData.th || 1); t.m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); } }
-        else if (e.k === "boom") { const b = booms.find(q => q.life <= 0); if (b) { b.life = 0.45; b.m.visible = true; b.m.position.set(e.x as number, e.y as number, e.z as number); } burst(e.x as number, (e.y as number), e.z as number, high ? 50 : 24, 0xffb04a, 9); bl.position.set(e.x as number, 2, e.z as number); blT = 0.25; curShake = Math.min(1, curShake + 0.5); }
+        if (e.k === "shot") { mfT = 0.05; flashT = 0.06; gunFx(e.w as string); { const c = WCOL[e.w as string] || 0xffd080; flash.color.setHex(c); (mflash.material as THREE.MeshBasicMaterial).color.setHex(c); } const t = e.w === "arc" || e.w === "rpg" || e.w === "salvo" || e.w === "launcher" ? null : tracers.find(q => q.life <= 0); if (t) { t.life = e.w === "rail" ? 0.25 : 0.07; t.m.visible = true; { const c = WCOL[e.w as string] || 0xffe9a0; (t.m.material as THREE.MeshBasicMaterial).color.setHex(0xffffff); ((t.m.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(c); const th = e.w === "nova" ? 3.2 : e.w === "rail" ? 2.2 : e.w === "beam" || e.w === "cryo" ? 1.4 : e.w === "storm" || e.w === "laser" ? 1.1 : 1.6; t.m.userData.th = th; } const from = new THREE.Vector3(0.2, -0.17, -0.7).applyMatrix4(cam.matrixWorld), dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), to = from.clone().addScaledVector(dir, e.w === "rail" ? 90 : 36); const mid = from.clone().add(to).multiplyScalar(0.5); t.m.position.copy(mid); t.m.scale.set(t.m.userData.th || 1, from.distanceTo(to), t.m.userData.th || 1); t.m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); } }
+        else if (e.k === "boom") { const b = booms.find(q => q.life <= 0); if (b) { b.life = 0.45; (b as any).size = ((e.n as number) || 1) * 1.0; b.m.visible = true; b.m.position.set(e.x as number, e.y as number, e.z as number); } burst(e.x as number, (e.y as number), e.z as number, Math.round((high ? 50 : 24) * Math.min(2.4, ((e.n as number) || 1))), 0xffb04a, 9 * Math.min(1.6, ((e.n as number) || 1))); if (((e.n as number) || 1) >= 2) burst(e.x as number, (e.y as number) + 0.6, e.z as number, high ? 40 : 18, 0x444444, 6); bl.position.set(e.x as number, 2, e.z as number); blT = 0.25 * Math.min(2, ((e.n as number) || 1)); curShake = Math.min(1, curShake + 0.5 * Math.min(1.8, ((e.n as number) || 1))); }
         else if (e.k === "hit") { burst(e.x as number, e.y as number, e.z as number, 5, 0x9cff3a, 3); if (e.w) burst(e.x as number, e.y as number, e.z as number, high ? 7 : 3, WCOL[e.w as string] || 0xffffff, 6); }
         else if (e.k === "kill" || e.k === "head") burst(e.x as number, 0.9, e.z as number, high ? 26 : 12, e.k === "head" ? 0xffd34a : 0x7cd62a, 5);
         else if (e.k === "hurt") curShake = Math.min(1, curShake + 0.35);
@@ -305,8 +374,8 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0): Ren
       const rl = s.reload > 0 ? Math.sin(Math.min(1, (1 - s.reload / 1.6)) * Math.PI) : 0;
       hold.position.set(0.2 + Math.sin(bob * 0.5) * 0.008, -0.2 + Math.abs(Math.sin(bob * 0.5)) * 0.01 - rl * 0.16 - kick * 0.01, -0.38 + kick * 0.09);
       hold.rotation.set(kick * 0.14 + rl * 0.5, 0, rl * 0.3);
-      mflash.visible = mfT > 0; if (mfT > 0) { mfT -= dt; mflash.position.set(0.0, 0.0, gun === "pistol" ? -0.3 : gun === "rifle" ? -0.85 : -0.82); mflash.rotation.z = Math.random() * 6; mflash.lookAt(cam.position); }
-      flash.intensity = flashT > 0 ? 3.2 : 0; if (flashT > 0) { flashT -= dt; flash.position.copy(cam.position).add(new THREE.Vector3(0, 0, -1.2).applyQuaternion(cam.quaternion)); }
+      mflash.visible = mfT > 0; if (mfT > 0) { mfT -= dt; mflash.position.set(0.0, 0.0, (GUN_MUZZLE[gun] || -0.8) - 0.04); mflash.rotation.z = Math.random() * 6; mflash.lookAt(cam.position); }
+      flash.intensity = flashT > 0 ? flashI : 0; if (flashT > 0) { flashT -= dt; flash.position.copy(cam.position).add(new THREE.Vector3(0, 0, -1.2).applyQuaternion(cam.quaternion)); }
       for (const t of tracers) if (t.life > 0) { t.life -= dt; if (t.life <= 0) t.m.visible = false; }
       for (const q of parts) if (q.life > 0) { q.life -= dt; q.v.y -= q.g * dt; q.m.position.addScaledVector(q.v, dt); if (q.m.position.y < 0.03) { q.m.position.y = 0.03; q.v.set(0, 0, 0); } if (q.life <= 0) q.m.visible = false; }
       // aliens
@@ -324,9 +393,15 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0): Ren
         if (e.dead > 0) { const k = 1 - e.dead / 0.9; g.rotation.z = k * 1.5; g.position.y = -k * 0.25; g.scale.setScalar(ALIEN_SCALE[e.kind] * Math.max(0.01, 1 - Math.max(0, k - 0.6) * 2.5)); }
       }
       for (const [id, r] of rigs) if (!seen.has(id)) { scene.remove(r.rig.g); r.rig.g.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); } }); rigs.delete(id); }
-      while (rkPool.length < s.rk.length) { const m = new THREE.Mesh(rkGeo, rkMat); scene.add(m); rkPool.push(m); }
-      rkPool.forEach((m, i) => { const a = s.rk[i]; m.visible = !!a; if (a) m.position.set(a.x, a.y, a.z); });
-      for (const b of booms) if (b.life > 0) { b.life -= dt; const k = 1 - b.life / 0.45; b.m.scale.setScalar(0.5 + k * 4.2); (b.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.9 * (1 - k)); if (b.life <= 0) b.m.visible = false; }
+      rkFrame++;
+      for (let i = 0; i < Math.max(rkPool.length, s.rk.length); i++) {
+        const a = s.rk[i]; let m = rkPool[i];
+        if (!a) { if (m) m.visible = false; continue; }
+        const rt = a.rt || "plasma"; if (!m || m.userData.rt !== rt) { if (m) scene.remove(m); m = mkRocket(rt); scene.add(m); rkPool[i] = m; }
+        m.visible = true; m.position.set(a.x, a.y, a.z);
+        if (rt !== "plasma") { m.lookAt(a.x + a.vx, a.y + a.vy, a.z + a.vz); const fl = m.userData.flame as THREE.Mesh; if (fl) fl.scale.set(1, 0.8 + Math.random() * 0.7, 1); if (rt === "rpg" || rkFrame % 2 === 0) burst(a.x - a.vx * 0.025, a.y - a.vy * 0.025, a.z - a.vz * 0.025, 1, rt === "rpg" ? 0xc8c4bc : 0xffb060, 1.2); }
+      }
+      for (const b of booms) if (b.life > 0) { b.life -= dt; const k = 1 - b.life / 0.45; b.m.scale.setScalar((0.5 + k * 4.2) * ((b as any).size || 1)); (b.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.9 * (1 - k)); if (b.life <= 0) b.m.visible = false; }
       if (blT > 0) { blT -= dt; bl.intensity = Math.max(0, blT / 0.25) * 9; } else bl.intensity = 0;
       for (const a of arcs) if (a.life > 0) { a.life -= dt; if (a.life <= 0) a.m.forEach(m => { m.visible = false; }); }
       const live = new Set<number>(); const now = performance.now() / 1000;
