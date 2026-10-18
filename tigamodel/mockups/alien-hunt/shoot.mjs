@@ -1,0 +1,6 @@
+import http from "node:http";import fs from "node:fs";import path from "node:path";import { execSync } from "node:child_process";import { pathToFileURL } from "node:url";
+const pwm=await import(pathToFileURL(path.join(execSync("npm root -g",{encoding:"utf8"}).trim(),"playwright/index.js")).href);const pw=pwm.chromium?pwm:pwm.default;
+const dir=path.resolve(".");const srv=http.createServer((q,r)=>{const f=path.join(dir,decodeURIComponent(q.url.split("?")[0]));if(!fs.existsSync(f)){r.writeHead(404);r.end();return}r.writeHead(200,{"content-type":"text/html"});r.end(fs.readFileSync(f))});await new Promise(r=>srv.listen(0,"127.0.0.1",r));
+const b=await pw.chromium.launch({executablePath:"/opt/pw-browsers/chromium"});const names=["lobby-entry","mission-select","armory","gameplay-street","scope-ads","boss-walker","level-hive","wave-break-tuneup","pause-settings","results","alien-codex","high-vs-lite","coop-lobby"];
+for(let i=1;i<=13;i++){const p=await b.newPage({viewport:i===1?{width:412,height:915}:{width:844,height:390},deviceScaleFactor:2});await p.goto(`http://127.0.0.1:${srv.address().port}/mockup.html?s=${i}`);await p.waitForTimeout(250);await p.locator("#f").screenshot({path:`${String(i).padStart(2,"0")}-${names[i-1]}.png`});await p.close()}
+await b.close();srv.close();
