@@ -61,12 +61,12 @@ export function PowerSheet({ lang, need = 0, onClose, onLearn }: { lang: string;
 }
 /* a small "+12 game power" toast, shown wherever the app is when learning pays out */
 export function PowerToast({ lang }: { lang: string }) {
-  const [t, setT] = useState<{ n: number; k: number } | null>(null);
+  const [t, setT] = useState<{ n: number; k: number; v: number; sum: number } | null>(null);
   useEffect(() => {
-    let k = 0, timer: any = 0;
-    const on = (e: any) => { const d = e && e.detail; if (d && d.delta > 0) { k++; setT({ n: d.delta, k }); clearTimeout(timer); timer = setTimeout(() => setT(null), 2600); } };
+    let k = 0, sum = 0, timer: any = 0;
+    const on = (e: any) => { const d = e && e.detail; if (d && d.delta > 0) { k++; sum += d.delta; setT({ n: d.delta, k, v: d.v, sum }); clearTimeout(timer); timer = setTimeout(() => { setT(null); sum = 0; }, 4200); } };
     window.addEventListener("tg:power", on); return () => { window.removeEventListener("tg:power", on); clearTimeout(timer); };
   }, []);
   if (!t) return null;
-  return <div className="gptoast" key={t.k} data-gptoast role="status">⚡ +{t.n} {lang === "th" ? "พลังเกม" : lang === "zh" ? "游戏能量" : "game power"}</div>;
+  return <div className="gptoast" key={t.k} data-gptoast role="status">⚡ +{t.n} {lang === "th" ? "พลังเกม" : lang === "zh" ? "游戏能量" : "game power"} · {t.v}/{POWER_MAX}{t.sum > t.n ? (lang === "th" ? ` · รอบนี้ได้ +${t.sum}` : lang === "zh" ? ` · 本轮 +${t.sum}` : ` · +${t.sum} this round`) : ""}</div>;
 }
