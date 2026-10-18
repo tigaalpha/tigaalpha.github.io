@@ -69,4 +69,25 @@ for (const w of ["pulsar", "nova", "storm", "cryo"]) ok(!!E.WEAPONS[w] && E.WORD
   ok(minD > 1.4, "melee aliens stop short of the player instead of crowding in (closest gap " + minD.toFixed(2) + " m)"); }
 const s3 = E.newState(9, 0); for (let i = 0; i < 20000 && !s3.done; i++) { const t = s3.enemies.filter(e => e.dead === 0).sort((a, b) => Math.hypot(a.x - s3.p.x, a.z - s3.p.z) - Math.hypot(b.x - s3.p.x, b.z - s3.p.z))[0]; const i2 = E.noInput(); if (t) { s3.p.yaw = Math.atan2(-(t.x - s3.p.x), -(t.z - s3.p.z)); { const A = E.ALIENS[t.kind]; s3.p.pitch = Math.atan2(E.bodyY(t.kind) - 1.65, Math.hypot(t.x - s3.p.x, t.z - s3.p.z)); } i2.fire = true; } E.step(s3, 0.05, i2); }
 ok(s3.done && s3.kills > 3, "a bot-played run reaches an ending (" + (s3.won ? "won" : "lost") + ", " + s3.kills + " kills)");
+/* campaign: ten levels, a different alien race on each */
+{ const out2 = join(d, "l.mjs"); await build({ entryPoints: ["ah-levels.ts"], bundle: true, format: "esm", outfile: out2, logLevel: "silent" }); const LV = await import(out2);
+  ok(LV.LEVELS.length === 10, "ten campaign levels");
+  const rosters = LV.LEVELS.map(L => [...new Set(L.waves.flat())].sort().join(","));
+  ok(new Set(rosters).size === 10, "every level has its own roster of alien species");
+  ok(new Set(LV.LEVELS.map(L => L.tint)).size === 10, "every level has its own race colour");
+  const species = new Set(LV.LEVELS.flatMap(L => L.waves.flat())); ok(species.size >= 12, "at least 12 alien species appear across the campaign (" + species.size + ")");
+  ok(LV.LEVELS.every(L => L.boxes.every(b => Math.abs(b.x) < 34 && Math.abs(b.z) < 34 && !(Math.abs(b.x) < b.w / 2 + 2 && Math.abs(22 - b.z) < b.d / 2 + 2))), "every layout keeps the spawn point free and inside the arena");
+  ok([4, 8, 10].every(i => LV.LEVELS[i - 1].boss), "levels 4, 8 and 10 have a boss");
+  ok(LV.LEVELS.filter(L => L.hazards.length).length >= 2, "two levels have hazard zones");
+  ok(LV.gunsAfter(0).length === 0 && LV.gunsAfter(3).includes("shotgun") && LV.gunsAfter(10).length >= 9, "guns found accumulate with the levels cleared");
+  for (const L of LV.LEVELS) {
+    const q = _ns(100 + L.id, 0, L.id, []); let boss = false, hurtByZone = false;
+    for (let i = 0; i < 30000 && !q.done; i++) { q.p.hp = Math.max(q.p.hp, 60); const t = q.enemies.filter(e => e.dead === 0).sort((a, b) => Math.hypot(a.x - q.p.x, a.z - q.p.z) - Math.hypot(b.x - q.p.x, b.z - q.p.z))[0]; const i2 = E.noInput(); if (t) { q.p.yaw = Math.atan2(-(t.x - q.p.x), -(t.z - q.p.z)); q.p.pitch = Math.atan2(E.bodyY(t.kind) - 1.65, Math.hypot(t.x - q.p.x, t.z - q.p.z)); i2.fire = true; } E.step(q, 0.05, i2); if (q.enemies.some(e => E.ALIENS[e.kind].boss)) boss = true; q.ev.length = 0; }
+    ok(q.done && q.won, "level " + L.id + " (" + L.name[1] + ") can be won by a bot with the starter guns (" + q.kills + " kills)");
+    if (L.boss) ok(boss, "level " + L.id + " spawns its boss " + L.boss);
+  }
+  { const q = E.newState(5, 0, 4, []); q.wave = 4; q.between = 99; q.p.hp = 1e6; q.p.x = 0; q.p.z = 22; q.enemies = [{ id: 7, kind: "warden", x: 0, z: 10, hp: 1e5, max: 1e5, yaw: 0, t: 0, cd: 9, dead: 0, flash: 0, leap: 0 }]; let ring = 0, minions = 0; for (let i = 0; i < 600; i++) { E.step(q, 0.05, E.noInput()); ring = Math.max(ring, q.acid.length); minions = Math.max(minions, q.enemies.filter(e => e.kind !== "warden" && e.dead === 0).length); q.ev.length = 0; }
+    ok(ring >= 8 && minions >= 2, "a boss fires a ring of bolts and calls its own race (" + ring + " bolts, " + minions + " minions)"); }
+  { const q = E.newState(6, 0, 9, []); const h = q.hz[0]; q.wave = 1; q.between = 99; q.enemies = []; q.p.x = h.x; q.p.z = h.z; q.hzClock = 0; const hp0 = q.p.hp; for (let i = 0; i < 80; i++) E.step(q, 0.05, E.noInput()); ok(q.p.hp < hp0, "standing in a lava zone hurts"); }
+}
 console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
