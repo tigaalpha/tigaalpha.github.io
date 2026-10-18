@@ -60,7 +60,7 @@ export const WAVES = CLASSIC_WAVES;
 export const LEVEL_BOXES: Box[] = BOXES_1;
 
 export type State = {
-  auto: boolean; autoSide: number; autoT: number; autoMv: number; autoPx: number; autoPz: number;
+  auto: boolean; autoFire: boolean; autoSide: number; autoT: number; autoMv: number; autoPx: number; autoPz: number;
   t: number; active: number; rng: number; seed: number;
   p: { x: number; z: number; yaw: number; pitch: number; y: number; vy: number; hp: number; shield: number; inv: number; sprint: boolean; slide: number; slideCd: number; sdx: number; sdz: number };
   weapon: WeaponId; ammo: Record<WeaponId, { mag: number; res: number }>; cd: number; reload: number; recoil: number;
@@ -78,7 +78,7 @@ export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponI
   const L = level > 0 ? LEVELS[Math.min(level, LEVELS.length) - 1] : null;
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
-    t: 0, active: 0, rng: seed, seed, auto: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
+    t: 0, active: 0, rng: seed, seed, auto: true, autoFire: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
     p: { x: 0, z: 22, yaw: Math.PI, pitch: 0, y: 0, vy: 0, hp: 100, shield: 0, inv: 0, sprint: false, slide: 0, slideCd: 0, sdx: 0, sdz: 0 },
     weapon: "pistol", ammo, cd: 0, reload: 0, recoil: 0,
     enemies: [], acid: [], rk: [], boxes: L ? L.boxes : LEVEL_BOXES, pk: [], owned: Object.fromEntries(WORDER.map(w => [w, w === "pistol" || startGuns.includes(w)])) as Record<WeaponId, boolean>,
@@ -274,6 +274,10 @@ export function step(s: State, dt: number, inp: Input) {
   s.t += dt;
   if (s.grace > 0) { s.grace -= dt; s.p.inv = Math.max(s.p.inv, 0.05); }
   const p = s.p;
+  if (s.autoFire && !inp.fire && s.weapon !== "launcher") {   // auto-shoot (owner 2026-10-18): fire when a living alien is inside the aim cone and in range
+    const W = WEAPONS[s.weapon], ox = p.x, oy = EYE + p.y, oz = p.z, fx = -Math.sin(p.yaw) * Math.cos(p.pitch), fy = Math.sin(p.pitch), fz = -Math.cos(p.yaw) * Math.cos(p.pitch);
+    for (const e of s.enemies) { if (e.dead !== 0) continue; const vx = e.x - ox, vy = bodyY(e.kind) - oy, vz = e.z - oz, d = Math.hypot(vx, vy, vz); if (d > Math.min(W.range, 60) || d < 1) continue; if (Math.acos(Math.max(-1, Math.min(1, (vx * fx + vy * fy + vz * fz) / d))) < 0.08) { inp = { ...inp, fire: true }; break; } }
+  }
   if (s.auto && Math.abs(inp.mx) + Math.abs(inp.mz) < 0.1) { const a = autoMove(s, dt); inp = { ...inp, mx: a.mx, mz: a.mz, slide: !!inp.slide || a.slide }; }
   // look
   p.yaw -= inp.lookX; p.pitch = Math.max(-1.3, Math.min(1.3, p.pitch - inp.lookY));
@@ -316,7 +320,7 @@ export function step(s: State, dt: number, inp: Input) {
     const A = ALIENS[e.kind]; e.t += dt; e.flash = Math.max(0, e.flash - dt);
     if (e.dead !== 0) { if (e.dead > 0) { e.dead -= dt; if (e.dead <= 0) e.dead = -1; } continue; }
     const dx = p.x - e.x, dz = p.z - e.z, d = Math.hypot(dx, dz) || 1; e.yaw = Math.atan2(-dx, -dz);
-    let dirx = dx / d, dirz = dz / d, spd = A.speed * 0.46 * (1 + s.wave * 0.03);
+    let dirx = dx / d, dirz = dz / d, spd = A.speed * 0.529 * (1 + s.wave * 0.03);
     if (behOf(e.kind) === "flarecaster") { if (d < 9) { dirx = -dirx; dirz = -dirz; spd *= 0.8; } else if (d < 15) { dirx = -dirz * (e.side || 1); dirz = dx / d * (e.side || 1); spd *= 0.6; if (!e.side) e.side = rnd(s) < 0.5 ? -1 : 1; } }
     if (behOf(e.kind) === "skyeye") { if (d < 10) { dirx = -dirx; dirz = -dirz; } else if (d < 17) { if (!e.side) e.side = rnd(s) < 0.5 ? -1 : 1; dirx = -dz / d * e.side; dirz = dx / d * e.side; spd *= 0.7; } }
     if (behOf(e.kind) === "charger") {
