@@ -74,7 +74,7 @@ export type State = {
 
 export function mulberry(s: number) { return () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-export function newState(seed = 7, tuneEvery = 30, level = 0, startGuns: WeaponId[] = []): State {
+export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponId[] = []): State {
   const L = level > 0 ? LEVELS[Math.min(level, LEVELS.length) - 1] : null;
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
@@ -156,7 +156,7 @@ function explode(s: State, x: number, y: number, z: number) {
 }
 function hurtPlayer(s: State, n: number, x?: number, z?: number) {
   if (s.p.inv > 0 || s.done) return;
-  let d = n; if (s.p.shield > 0) { const a = Math.min(s.p.shield, d); s.p.shield -= a; d -= a; }
+  let d = n * 0.8; if (s.p.shield > 0) { const a = Math.min(s.p.shield, d); s.p.shield -= a; d -= a; }
   s.p.hp = Math.max(0, s.p.hp - d); s.p.inv = 0.35; s.streak = 0; s.ev.push({ k: "hurt", x, z, n });
   if (s.p.hp <= 0) { s.done = true; s.won = false; s.ev.push({ k: "lose" }); }
 }
@@ -180,6 +180,16 @@ function hurtAlien(s: State, e: Enemy, dmg: number, head: boolean, hy?: number) 
     if (un.length && r < 0.2) spawnPickup(s, un[Math.floor(rnd(s) * un.length)], e.x, e.z); else if (r < 0.32) spawnPickup(s, "ammo", e.x, e.z);
   }
 }
+/** hidden aim assist (owner, 2026-10-18: "make it a little easier, but do not tell the player"): when an alien is within about 6 degrees of the crosshair the shot bends toward its body (fully inside 2.5 degrees, fading out to 6) */
+function assistAim(s: State, range: number) {
+  const ox = s.p.x, oy = EYE + s.p.y, oz = s.p.z; const fx = -Math.sin(s.p.yaw) * Math.cos(s.p.pitch), fy = Math.sin(s.p.pitch), fz = -Math.cos(s.p.yaw) * Math.cos(s.p.pitch);
+  let best: Enemy | null = null, bang = 0.105;
+  for (const e of s.enemies) { if (e.dead !== 0) continue; const vx = e.x - ox, vy = bodyY(e.kind) - oy, vz = e.z - oz, d = Math.hypot(vx, vy, vz); if (d > range || d < 1) continue; const ang = Math.acos(Math.max(-1, Math.min(1, (vx * fx + vy * fy + vz * fz) / d))); if (ang < bang) { bang = ang; best = e; } }
+  if (!best) return; const vx = best.x - ox, vy = bodyY(best.kind) - oy, vz = best.z - oz, hd = Math.hypot(vx, vz) || 1;
+  const k = bang < 0.044 ? 1 : 1 - (bang - 0.044) / 0.061;
+  const ty = Math.atan2(-vx, -vz), tp = Math.atan2(vy, hd); let dy = ty - s.p.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+  s.p.yaw += dy * k; s.p.pitch += (tp - s.p.pitch) * k;
+}
 function fire(s: State) {
   const W = WEAPONS[s.weapon], a = s.ammo[s.weapon];
   if (a.mag <= 0) { s.ev.push({ k: "empty" }); if (a.res <= 0) { setWeapon(s, "pistol"); return; } startReload(s); s.cd = 0.25; return; }
@@ -201,6 +211,8 @@ function fire(s: State) {
   }
   const moving = 1 + s.recoil * 0.9;
   let landed = false;
+  const y0 = s.p.yaw, p0 = s.p.pitch; assistAim(s, W.range);   // a hidden nudge toward the alien nearest the crosshair; the view itself is put back after the shot
+  try {
   if (s.weapon === "rail") {   // pierces everything on the line
     const dx = -Math.sin(s.p.yaw) * cp, dy = Math.sin(s.p.pitch), dz = -Math.cos(s.p.yaw) * cp;
     let wall = W.range; for (const b of s.boxes) { const t = rayBox(ox, oy, oz, dx, dy, dz, b); if (t < wall) wall = t; } if (dy < 0) { const tg = -oy / dy; if (tg < wall) wall = tg; }
@@ -228,6 +240,7 @@ function fire(s: State) {
   }
   if (landed) s.hitsLanded++;
   if (a.mag <= 0 && a.res > 0) startReload(s);
+  } finally { s.p.yaw = y0; s.p.pitch = p0; }
 }
 
 /** one fixed step (call with dt <= 0.05). A frozen game (a music question is open) does nothing at all. */
@@ -293,7 +306,7 @@ export function step(s: State, dt: number, inp: Input) {
       if (s.wave >= s.waves.length) { s.done = true; s.won = true; s.ev.push({ k: "win" }); return; }
       s.spawnQ = s.waves[s.wave].slice(); s.waveLeft = s.spawnQ.length; s.wave++; s.between = 4; s.spawnT = 0; s.ev.push({ k: "wave", n: s.wave }); { const un = unowned(s); if (un.length) spawnPickup(s, un[Math.floor(rnd(s) * un.length)]); if (s.wave % 2 === 0) spawnPickup(s, "ammo"); }
       for (const k of Object.keys(WEAPONS) as WeaponId[]) s.ammo[k].res = Math.min(k === "pistol" ? 9999 : WEAPONS[k].reserve, s.ammo[k].res + WEAPONS[k].mag);   // a little ammo between waves
-      p.hp = Math.min(100, p.hp + 25);
+      p.hp = Math.min(100, p.hp + 35);
     }
   }
   if (s.spawnQ.length) { s.spawnT -= dt; const cap = s.lv ? 3 + (s.lv >> 1) : s.wave <= 3 ? 2 : 3; if (s.spawnT <= 0 && s.enemies.filter(e => e.dead === 0).length < cap) { spawnAlien(s, s.spawnQ.shift() as AlienKind); s.waveLeft--; s.spawnT = s.lv ? 1.0 : 1.4; } }
@@ -303,7 +316,7 @@ export function step(s: State, dt: number, inp: Input) {
     const A = ALIENS[e.kind]; e.t += dt; e.flash = Math.max(0, e.flash - dt);
     if (e.dead !== 0) { if (e.dead > 0) { e.dead -= dt; if (e.dead <= 0) e.dead = -1; } continue; }
     const dx = p.x - e.x, dz = p.z - e.z, d = Math.hypot(dx, dz) || 1; e.yaw = Math.atan2(-dx, -dz);
-    let dirx = dx / d, dirz = dz / d, spd = A.speed * (1 + s.wave * 0.03);
+    let dirx = dx / d, dirz = dz / d, spd = A.speed * 0.92 * (1 + s.wave * 0.03);
     if (behOf(e.kind) === "flarecaster") { if (d < 9) { dirx = -dirx; dirz = -dirz; spd *= 0.8; } else if (d < 15) { dirx = -dirz * (e.side || 1); dirz = dx / d * (e.side || 1); spd *= 0.6; if (!e.side) e.side = rnd(s) < 0.5 ? -1 : 1; } }
     if (behOf(e.kind) === "skyeye") { if (d < 10) { dirx = -dirx; dirz = -dirz; } else if (d < 17) { if (!e.side) e.side = rnd(s) < 0.5 ? -1 : 1; dirx = -dz / d * e.side; dirz = dx / d * e.side; spd *= 0.7; } }
     if (behOf(e.kind) === "charger") {

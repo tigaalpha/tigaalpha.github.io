@@ -22,7 +22,7 @@ const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals
 type Camp = { cleared: number; stars: number[] };
 const readCamp = (): Camp => { try { const j = JSON.parse(localStorage.getItem("tg_ah_camp") || "{}"); return { cleared: Math.max(0, Math.min(LEVELS.length, j.cleared | 0)), stars: Array.isArray(j.stars) ? j.stars.map((x: any) => x | 0) : [] }; } catch (e) { return { cleared: 0, stars: [] }; } };
 const writeCamp = (c: Camp) => { try { localStorage.setItem("tg_ah_camp", JSON.stringify(c)); } catch (e) {} };
-const readTune = (): number => 30;   // owner 2026-10-18: a music question every 30 s of fighting, fixed: no choice on the ready screen
+const readTune = (): number => 20;   // owner 2026-10-18: a music question every 20 s of fighting (was 30, 15 before), fixed: no choice on the ready screen
 
 /** a note name like "F#4" -> key index 0..23 on the two-octave keyboard (C4..B5), and its staff position */
 const parseNote = (n: string) => { const m = /^([A-G])([#b♯♭]?)(-?\d)/.exec(n); if (!m) return null; const sh = m[2] === "#" || m[2] === "♯" ? 1 : m[2] ? -1 : 0; let oct = parseInt(m[3], 10); const pc = (PC_OF[m[1]] + sh + 12) % 12; if (PC_OF[m[1]] + sh < 0) oct--; if (PC_OF[m[1]] + sh > 11) oct++; oct = Math.max(4, Math.min(5, oct)); const L = "CDEFGAB".indexOf(m[1]); return { key: (oct - 4) * 12 + pc, letter: L, oct: Math.max(4, Math.min(5, parseInt(m[3], 10))), acc: sh }; };
@@ -77,7 +77,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
   const [portrait, setPortrait] = useState(() => typeof window !== "undefined" && window.innerHeight > window.innerWidth);
   const [hitM, setHitM] = useState(0), [hurt, setHurt] = useState(0), [banner, setBanner] = useState<string>(""), [tuneSecs, setTuneSecs] = useState<number>(readTune());
   const phaseRef = useRef(phase); phaseRef.current = phase; const pausedRef = useRef(paused); pausedRef.current = paused; const quizRef = useRef(quiz); quizRef.current = quiz;
-  const mapRef = useRef<HTMLCanvasElement>(null);
+  const mapRef = useRef<HTMLCanvasElement>(null), fireId = useRef(-1);   // dragging while holding FIRE aims
   const hitT = useRef(0), hurtT = useRef(0), bannerT = useRef(0);
 
   usePlayDrain(phase === "play" && !paused && !quiz, adminTier, () => { finish(false, true); setPowerNeed(1); });
@@ -248,7 +248,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <canvas className="ah-map" data-map="1" width={240} height={240} ref={mapRef} />
           <div className="ah-stick" style={{ transform: `translate(${(hud.jx || 0) * 22}px, ${-(hud.jz || 0) * 22}px)` }} />
           <div className="ah-btns">
-            <button className="fire" aria-label="fire" data-fire="1" {...hold(v => { inp.current.fire = v; })}>FIRE</button>
+            <button className="fire" aria-label="fire" data-fire="1" {...hold(v => { inp.current.fire = v; if (!v) fireId.current = -1; })} onPointerDown={e => { e.stopPropagation(); fireId.current = e.pointerId; try { (e.currentTarget as any).setPointerCapture(e.pointerId); } catch (x) {} inp.current.fire = true; }} onPointerMove={e => { if (e.pointerId === fireId.current) { look.current.x += (e.movementX || 0) * 0.005; look.current.y += (e.movementY || 0) * 0.005; } }}>FIRE</button>
             <button aria-label="reload" {...hold(v => { if (v) inp.current.reload = true; })}>R</button>
             <button aria-label="swap" {...hold(v => { if (v) inp.current.swap = 1; })}>⇄</button>
             <button aria-label="jump" data-jump="1" {...hold(v => { keys.current[" "] = v; })}>⤴</button>

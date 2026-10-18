@@ -25,6 +25,9 @@ for (let L = 1; L <= 10; L++) {
   ok("level " + L + " starts and draws its race (" + ROST[L].join(", ") + ")", info.lv === L && rigs >= ROST[L].length, "rigs " + rigs);
 }
 
+const y0 = await p.evaluate(() => window.__ah.state.p.yaw);
+await p.evaluate(() => { const b = document.querySelector("[data-fire]"); const o = { bubbles: true, pointerId: 31, pointerType: "touch" }; b.dispatchEvent(new PointerEvent("pointerdown", o)); b.dispatchEvent(new PointerEvent("pointermove", { ...o, movementX: 120, movementY: 0 })); window.__ah.step(3); b.dispatchEvent(new PointerEvent("pointerup", o)); });
+await p.waitForTimeout(200); ok("dragging while holding FIRE turns the aim", Math.abs((await p.evaluate(() => window.__ah.state.p.yaw)) - y0) > 0.05);
 /* winning level 1 saves progress, offers the next level and keeps the guns */
 await p.evaluate(() => { document.querySelector("[data-pause-btn]").click(); }); await p.waitForSelector("[data-pause]"); await p.evaluate(() => { [...document.querySelectorAll("[data-pause] button")].find(b => /Leave|จบ/.test(b.textContent)).click(); }); await p.waitForSelector("[data-result]"); await p.evaluate(() => { [...document.querySelectorAll("[data-result] button")].find(b => /Levels|เลือกด่าน/.test(b.textContent)).click(); }); await p.waitForSelector("[data-levels]");
 await p.evaluate(() => { localStorage.removeItem("tg_ah_camp"); document.querySelector("[data-lv='1']").click(); }); await p.waitForSelector(".ah-cv"); await p.waitForTimeout(600);
