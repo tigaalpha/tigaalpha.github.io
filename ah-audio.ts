@@ -37,20 +37,25 @@ const tone = (t: number, dur: number, type: OscillatorType, f0: number, f1: numb
 export function sfx(kind: string, w?: string) {
   if (!ctx || !soundOn()) return; const t = ctx.currentTime + 0.001;
   switch (kind) {
-    case "shot":
-      if (w === "pistol") { noise(t, 0.09, "highpass", 3500, 1500, 0.9); noise(t, 0.16, "bandpass", 1200, 400, 0.5); tone(t, 0.12, "sine", 190, 55, 0.9); }
-      else if (w === "rifle") { noise(t, 0.07, "highpass", 3000, 1200, 0.8); noise(t, 0.12, "lowpass", 2400, 500, 0.5); tone(t, 0.09, "sine", 150, 50, 0.8); }
-      else if (w === "shotgun") { noise(t, 0.35, "lowpass", 3000, 300, 1.3); noise(t, 0.12, "highpass", 2500, 900, 0.8); tone(t, 0.3, "sine", 120, 32, 1.2); noise(t + 0.38, 0.06, "highpass", 2000, 2000, 0.3); }
-      else if (w === "laser") { tone(t, 0.09, "sawtooth", 1900, 380, 0.3); tone(t, 0.06, "square", 2600, 900, 0.12); noise(t, 0.04, "highpass", 6000, 6000, 0.1); }
-      else if (w === "rail") { tone(t, 0.5, "sawtooth", 2600, 120, 0.5); tone(t, 0.35, "sine", 90, 30, 1.2); noise(t, 0.3, "highpass", 4000, 900, 0.6); tone(t + 0.02, 0.6, "triangle", 1200, 200, 0.2); }
-      else if (w === "arc") { noise(t, 0.2, "bandpass", 3500, 800, 0.6, sfxBus, 4); tone(t, 0.18, "sawtooth", 120, 600, 0.2); tone(t, 0.12, "square", 1800, 3200, 0.1); }
-      else if (w === "beam") { tone(t, 0.05, "sine", 1500, 1300, 0.18); tone(t, 0.05, "triangle", 760, 700, 0.1); }
-      else if (w === "pulsar") { for (let i = 0; i < 3; i++) tone(t + i * 0.035, 0.07, "square", 1400 - i * 150, 500, 0.16); tone(t, 0.1, "sine", 180, 70, 0.4); }
-      else if (w === "nova") { tone(t, 0.45, "sawtooth", 220, 900, 0.3); tone(t + 0.12, 0.5, "sine", 1400, 120, 0.5); tone(t + 0.12, 0.4, "sine", 70, 28, 1.1); noise(t + 0.12, 0.25, "highpass", 3500, 1200, 0.5); }
-      else if (w === "storm") { tone(t, 0.05, "sawtooth", 2300, 700, 0.14); tone(t + 0.012, 0.05, "square", 2000, 900, 0.1); noise(t, 0.03, "highpass", 7000, 7000, 0.08); }
-      else if (w === "cryo") { noise(t, 0.08, "bandpass", 6000, 3500, 0.2); tone(t, 0.07, "sine", 2600, 3400, 0.1); tone(t, 0.07, "triangle", 1300, 1700, 0.08); }
-      else { noise(t, 0.25, "bandpass", 900, 200, 0.8); tone(t, 0.3, "sawtooth", 260, 60, 0.5); tone(t, 0.2, "sine", 100, 40, 0.8); }   // launcher
-      break;
+    case "shot": {   // one clearly different voice per gun (owner 2026-10-18); every one has a body (low thump), a crack or sizzle, and a tail
+      const sub = (f: number, d: number, v: number) => tone(t, d, "sine", f, f * 0.3, v), tail = (d: number, f: number, v: number) => noise(t + 0.03, d, "lowpass", f, 120, v, sfxBus, 0.5);
+      if (w === "pistol") { noise(t, 0.05, "highpass", 5000, 2500, 0.8); tone(t, 0.1, "square", 1500, 300, 0.22); tone(t, 0.12, "sine", 240, 60, 0.9); tone(t + 0.02, 0.18, "triangle", 880, 440, 0.12); tail(0.18, 1800, 0.3); }
+      else if (w === "rifle") { noise(t, 0.06, "highpass", 3500, 1500, 0.8); tone(t, 0.1, "sawtooth", 520, 90, 0.3); sub(150, 0.12, 0.8); noise(t, 0.14, "bandpass", 1600, 500, 0.4, sfxBus, 1.5); tail(0.22, 1400, 0.25); }
+      else if (w === "shotgun") { noise(t, 0.42, "lowpass", 3200, 220, 1.4); noise(t, 0.1, "highpass", 2800, 900, 0.9); sub(110, 0.35, 1.3); tone(t, 0.3, "sawtooth", 330, 50, 0.4); noise(t + 0.4, 0.05, "highpass", 2600, 2600, 0.35); noise(t + 0.47, 0.05, "highpass", 2000, 2000, 0.3); tail(0.6, 900, 0.4); }
+      else if (w === "laser") { tone(t, 0.1, "sawtooth", 2400, 300, 0.32); tone(t, 0.07, "square", 3000, 1100, 0.13); tone(t + 0.01, 0.12, "triangle", 1200, 200, 0.15); noise(t, 0.04, "highpass", 7000, 7000, 0.1); }
+      else if (w === "rail") { tone(t, 0.12, "sine", 80, 40, 1.3); tone(t + 0.1, 0.55, "sawtooth", 3200, 90, 0.5); tone(t + 0.1, 0.45, "sine", 110, 28, 1.3); noise(t + 0.1, 0.35, "highpass", 5000, 900, 0.7); tone(t + 0.12, 0.7, "triangle", 1500, 180, 0.22); noise(t + 0.2, 0.7, "bandpass", 700, 200, 0.3, sfxBus, 2); }
+      else if (w === "arc") { for (let i = 0; i < 4; i++) { noise(t + i * 0.03, 0.06, "bandpass", 3000 + i * 600, 900, 0.5, sfxBus, 5); tone(t + i * 0.03, 0.06, "sawtooth", 200 + i * 400, 1600, 0.12); } tone(t, 0.3, "square", 90, 700, 0.14); noise(t + 0.1, 0.3, "highpass", 4500, 1500, 0.3); }
+      else if (w === "beam") { tone(t, 0.06, "sine", 1700, 1450, 0.2); tone(t, 0.06, "triangle", 860, 800, 0.12); tone(t, 0.06, "sine", 3400, 3000, 0.07); noise(t, 0.03, "highpass", 8000, 8000, 0.06); }
+      else if (w === "pulsar") { for (let i = 0; i < 3; i++) { tone(t + i * 0.04, 0.08, "square", 1700 - i * 250, 450, 0.18); noise(t + i * 0.04, 0.03, "highpass", 5000, 3000, 0.15); } sub(190, 0.14, 0.5); tone(t, 0.2, "triangle", 300, 900, 0.1); }
+      else if (w === "nova") { tone(t, 0.4, "sawtooth", 140, 1100, 0.3); tone(t, 0.4, "square", 70, 560, 0.12); tone(t + 0.14, 0.55, "sine", 1600, 90, 0.5); sub(75, 0.5, 1.3); noise(t + 0.14, 0.3, "highpass", 3800, 1000, 0.55); tone(t + 0.14, 0.6, "triangle", 600, 60, 0.3); }
+      else if (w === "storm") { tone(t, 0.05, "sawtooth", 2600, 700, 0.15); tone(t + 0.016, 0.05, "square", 2200, 900, 0.11); tone(t, 0.07, "sine", 330, 120, 0.22); noise(t, 0.03, "highpass", 8000, 8000, 0.09); noise(t + 0.02, 0.05, "bandpass", 2000, 900, 0.1, sfxBus, 2); }
+      else if (w === "cryo") { noise(t, 0.12, "bandpass", 6500, 3000, 0.24); tone(t, 0.1, "sine", 3000, 3800, 0.1); tone(t, 0.1, "triangle", 1500, 2100, 0.09); noise(t, 0.2, "highpass", 8000, 5000, 0.12); tone(t + 0.02, 0.14, "sine", 4200, 2800, 0.06); }
+      else if (w === "rpg") { noise(t, 0.06, "highpass", 3000, 1500, 0.6); sub(70, 0.45, 1.5); noise(t, 0.5, "lowpass", 3000, 150, 1.2); noise(t + 0.06, 0.7, "bandpass", 1400, 300, 0.9, sfxBus, 0.6); tone(t + 0.05, 0.6, "sawtooth", 180, 40, 0.4); noise(t + 0.2, 0.9, "highpass", 2500, 600, 0.3); }
+      else if (w === "salvo") { noise(t, 0.2, "bandpass", 1500, 350, 0.7, sfxBus, 0.8); tone(t, 0.2, "sawtooth", 420, 90, 0.35); sub(95, 0.18, 0.9); noise(t + 0.03, 0.3, "highpass", 3000, 900, 0.3); tone(t + 0.02, 0.12, "square", 900, 200, 0.12); }
+      else { noise(t, 0.25, "bandpass", 900, 200, 0.8); tone(t, 0.3, "sawtooth", 260, 60, 0.5); tone(t, 0.2, "sine", 100, 40, 0.8); tone(t, 0.3, "triangle", 700, 140, 0.15); }   // plasma launcher
+      break; }
+    case "rboom": noise(t, 1.4, "lowpass", 3200, 70, 2.4, sfxBus, 0.4); noise(t, 0.3, "highpass", 3500, 700, 1.0); tone(t, 1.0, "sine", 80, 20, 2.4); tone(t + 0.05, 0.8, "sawtooth", 140, 30, 0.5); noise(t + 0.15, 1.0, "bandpass", 500, 120, 0.8, sfxBus, 0.8); break;
+    case "sboom": noise(t, 0.5, "lowpass", 3000, 120, 1.2, sfxBus, 0.5); noise(t, 0.12, "highpass", 4000, 1500, 0.6); tone(t, 0.4, "sine", 110, 30, 1.2); break;
     case "boom": noise(t, 0.9, "lowpass", 2600, 80, 1.8, sfxBus, 0.4); noise(t, 0.25, "highpass", 3000, 800, 0.8); tone(t, 0.7, "sine", 90, 24, 1.8); tone(t + 0.04, 0.5, "triangle", 60, 22, 1.0); break;
     case "hit": tone(t, 0.05, "square", 1500, 900, 0.18); noise(t, 0.04, "bandpass", 2500, 2000, 0.2); break;
     case "head": tone(t, 0.12, "sine", 1800, 2600, 0.35); tone(t + 0.04, 0.16, "sine", 2400, 3200, 0.25); break;
@@ -108,7 +113,7 @@ export function creature(kind0: string, mode: "spawn" | "growl" | "bite" | "die"
 }
 export function events(ev: Ev[]) {
   for (const e of ev) {
-    if (e.k === "shot") sfx("shot", e.w); else if (e.k === "boom") sfx("boom"); else if (e.k === "hit") sfx("hit"); else if (e.k === "head") { sfx("head"); sfx("kill"); creature(e.w as string, "die"); }
+    if (e.k === "shot") sfx("shot", e.w); else if (e.k === "boom") sfx(((e.n as number) || 1) >= 2 ? "rboom" : ((e.n as number) || 1) < 1 ? "sboom" : "boom"); else if (e.k === "hit") sfx("hit"); else if (e.k === "head") { sfx("head"); sfx("kill"); creature(e.w as string, "die"); }
     else if (e.k === "spawn") creature(e.w as string, "spawn"); else if (e.k === "growl") creature(e.w as string, "growl", e.n || 0); else if (e.k === "bite") creature(e.w as string, "bite"); else if (e.k === "kill") { creature(e.w as string, "die"); sfx(e.w === "mantis" || e.w === "charger" ? "bigkill" : "kill"); } else if (e.k === "hurt") sfx("hurt"); else if (e.k === "reload") sfx("reload"); else if (e.k === "empty") sfx("empty");
     else if (e.k === "swap") sfx("swap"); else if (e.k === "pickup") sfx("pickup"); else if (e.k === "slide") sfx("slide"); else if (e.k === "spit") sfx((VOICE_OF[e.w as string] || e.w) === "flarecaster" ? "flare" : (VOICE_OF[e.w as string] || e.w) === "skyeye" ? "bolt" : "spit"); else if (e.k === "charge") sfx("charge"); else if (e.k === "wave") sfx("wave"); else if (e.k === "tune") sfx("tune"); else if (e.k === "win") sfx("win"); else if (e.k === "lose") sfx("lose");
   }
