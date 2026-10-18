@@ -54,6 +54,9 @@ export function sfx(kind: string, w?: string) {
     case "swap": noise(t, 0.07, "bandpass", 2000, 900, 0.35); tone(t, 0.05, "square", 500, 380, 0.15); break;
     case "spit": noise(t, 0.3, "bandpass", 1800, 500, 0.45, sfxBus, 3); tone(t, 0.25, "sine", 300, 700, 0.12); break;
     case "screech": tone(t, 0.4, "sawtooth", 700, 1500, 0.12); tone(t, 0.4, "square", 710, 1100, 0.07); break;
+    case "charge": tone(t, 0.9, "sawtooth", 70, 110, 0.35); noise(t, 0.9, "lowpass", 500, 900, 0.5); tone(t + 0.2, 0.7, "square", 55, 90, 0.2); break;
+    case "flare": noise(t, 0.4, "bandpass", 700, 300, 0.5, sfxBus, 1.5); tone(t, 0.4, "sawtooth", 180, 420, 0.25); tone(t, 0.4, "sine", 90, 45, 0.4); break;
+    case "bolt": tone(t, 0.18, "sawtooth", 1400, 500, 0.14); tone(t, 0.18, "sine", 2200, 900, 0.1); break;
     case "claw": noise(t, 0.12, "highpass", 4000, 2000, 0.35); break;
     case "wave": [196, 262, 392].forEach((f, i) => { tone(t + i * 0.16, 0.5, "sawtooth", f, f * 0.99, 0.2); tone(t + i * 0.16, 0.5, "square", f / 2, f / 2, 0.14); }); noise(t, 0.6, "lowpass", 600, 100, 0.4); break;
     case "tune": [880, 1175, 1760].forEach((f, i) => tone(t + i * 0.09, 0.5, "sine", f, f, 0.3)); tone(t, 0.8, "triangle", 440, 440, 0.2); break;
@@ -69,8 +72,8 @@ export function sfx(kind: string, w?: string) {
 export function events(ev: Ev[]) {
   for (const e of ev) {
     if (e.k === "shot") sfx("shot", e.w); else if (e.k === "boom") sfx("boom"); else if (e.k === "hit") sfx("hit"); else if (e.k === "head") { sfx("head"); sfx("kill"); }
-    else if (e.k === "kill") sfx(e.w === "mantis" ? "bigkill" : "kill"); else if (e.k === "hurt") sfx("hurt"); else if (e.k === "reload") sfx("reload"); else if (e.k === "empty") sfx("empty");
-    else if (e.k === "swap") sfx("swap"); else if (e.k === "spit") sfx("spit"); else if (e.k === "wave") sfx("wave"); else if (e.k === "tune") sfx("tune"); else if (e.k === "win") sfx("win"); else if (e.k === "lose") sfx("lose");
+    else if (e.k === "kill") sfx(e.w === "mantis" || e.w === "charger" ? "bigkill" : "kill"); else if (e.k === "hurt") sfx("hurt"); else if (e.k === "reload") sfx("reload"); else if (e.k === "empty") sfx("empty");
+    else if (e.k === "swap") sfx("swap"); else if (e.k === "spit") sfx(e.w === "flarecaster" ? "flare" : e.w === "skyeye" ? "bolt" : "spit"); else if (e.k === "charge") sfx("charge"); else if (e.k === "wave") sfx("wave"); else if (e.k === "tune") sfx("tune"); else if (e.k === "win") sfx("win"); else if (e.k === "lose") sfx("lose");
   }
 }
 
