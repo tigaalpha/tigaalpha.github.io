@@ -220,7 +220,7 @@ export function makeQuestion(lang, forceKind) {
     const wrong = distract(ans, () => pick(notes.slice(1)));
     return {
       tag: "scale",
-      teach: { notes: notes.concat([ans]).sort((a, b) => LETTERS.indexOf(a[0]) - LETTERS.indexOf(b[0])), hi: [ans], bad: [ans], label: `${root} major` },
+      teach: { notes: notes.concat([ans]).sort((a, b) => ((LETTERS.indexOf(a[0]) - LETTERS.indexOf(root[0]) + 7) % 7) - ((LETTERS.indexOf(b[0]) - LETTERS.indexOf(root[0]) + 7) % 7)), hi: [ans], bad: [ans], label: `${root} major` },
       q: lang === "th" ? `โน้ตใดไม่ได้อยู่ในบันไดเสียง ${root} เมเจอร์?`
         : lang === "zh" ? `哪个音不在 ${root} 大调音阶中？`
         : `Which note is NOT in the ${root} major scale?`,

@@ -163,8 +163,20 @@ const FAMS: Fam[] = [
   { f: qSeventh, topic: "seventh", min: 3, max: 5 },
 ];
 
+/** Teaching order shared by Alien Hunt, Adventure and the PvP knowledge break (owner, 2026-10-18): the taught keys always run from the LOWEST
+    note up to the HIGHEST. The first note named (the root) is the bottom; any note that sits below it is lifted one octave, so E harmonic minor
+    reads E F# G A B C D# and a chord reads root, third, fifth. */
+export function ascendLit(lit: string[]): string[] {
+  const NN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const v = lit.map(n => { const m = /^([A-G]#?)(\d)$/.exec(n); return m ? (Number(m[2]) + 1) * 12 + NN.indexOf(m[1]) : -1; });
+  if (v.some(x => x < 0) || !v.length) return lit;
+  const root = v[0], up = Array.from(new Set(v.map(x => { let y = x; while (y < root) y += 12; return y; }))).sort((a, b) => a - b);
+  return up.map(y => NN[y % 12] + (Math.floor(y / 12) - 1));
+}
+const ordered = <T extends { q: Question }>(r: T): T => { try { if (r.q.teach && r.q.id !== "finger") r.q.teach.lit = ascendLit(r.q.teach.lit); } catch (e) {} return r; };
+
 /** The next question for this learner: only from topics they have studied, at their ladder level, leaning on what they missed. */
-export function nextQuestion(lang: Lang, opts: { done?: string[]; level?: number; rand?: () => number } = {}): { q: Question; learned: string[]; level: number } {
+function nextQuestionRaw(lang: Lang, opts: { done?: string[]; level?: number; rand?: () => number } = {}): { q: Question; learned: string[]; level: number } {
   const r = opts.rand || Math.random, learned = learnedTopics(opts.done || readDone()), lvl = opts.level || readLadder().lvl;
   if (!learned.length) return { q: qBasic(lang, r), learned, level: 1 };
   const weak = weakOf();
@@ -186,10 +198,13 @@ export function judgeKeys(q: Question, tapped: number[]): boolean {
 
 /** Adventure phase 3.4, the chord spell: a question that must be answered by playing keys, drawn from what the learner has studied.
     A chord they know (triad) if they have, else two notes (interval), else a scale degree, else a basic note. Never a choice question. */
-export function nextSpell(lang: Lang, opts: { done?: string[]; level?: number; rand?: () => number } = {}): { q: Question; learned: string[]; level: number } {
+function nextSpellRaw(lang: Lang, opts: { done?: string[]; level?: number; rand?: () => number } = {}): { q: Question; learned: string[]; level: number } {
   const r = opts.rand || Math.random, learned = learnedTopics(opts.done || readDone()), lvl = opts.level || readLadder().lvl;
   if (learned.includes("triad")) return { q: qTriad(lang, r, Math.min(lvl, 5)), learned, level: lvl };
   if (learned.includes("interval")) return { q: qIntervalPlay(lang, r, Math.min(lvl, 5)), learned, level: lvl };
   if (learned.includes("scale")) return { q: qDegree(lang, r, Math.min(lvl, 5)), learned, level: lvl };
   return { q: qBasic(lang, r), learned, level: 1 };
 }
+
+export const nextQuestion = (lang: Lang, opts: { done?: string[]; level?: number; rand?: () => number } = {}) => ordered(nextQuestionRaw(lang, opts));
+export const nextSpell = (lang: Lang, opts: { done?: string[]; level?: number; rand?: () => number } = {}) => ordered(nextSpellRaw(lang, opts));

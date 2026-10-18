@@ -2479,9 +2479,7 @@ function QuizCard({ quiz, lang, onKey, onConfirm, onChoice, onNext, onSkip }: an
   useEffect(() => setPicked(null), [quiz.i]);
   const teachLit: string[] = (() => {   // the taught keys, lowest to highest, in BOTH octaves of the keyboard (the notes' own octave first, then the same notes one octave up)
     if (!quiz.res || !(quiz.res === "bad" || q.kind !== "choice")) return [];
-    const NN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], midi = (n: string) => { const m = /^([A-G]#?)(\d)$/.exec(n); return m ? (Number(m[2]) + 1) * 12 + NN.indexOf(m[1]) : -1; }, nm = (v: number) => NN[v % 12] + (Math.floor(v / 12) - 1);
-    const base = [...new Set((q.teach.lit as string[]).map(midi).filter(v => v >= 0))].map(v => (v >= 72 ? v - 12 : v)).sort((a, b) => a - b);   // fold into octave 4 first
-    return [...base.map(nm), ...base.map(v => nm(v + 12))];
+    return [...new Set(q.teach.lit as string[])];   // already ordered lowest to highest by quiz-quest
   })();
   const [shownN, setShownN] = useState(0);   // the answer's keys light one by one from the lowest note up, so the learner sees how the chord is built
   useEffect(() => { setShownN(0); if (!teachLit.length) return; let n = 0; const id = setInterval(() => { n++; setShownN(n); if (n >= teachLit.length) clearInterval(id); }, 450); return () => clearInterval(id); }, [quiz.res, quiz.i]);

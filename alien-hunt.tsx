@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ARENA, newState, step, noInput, tuneResult, stats, setWeapon, WEAPONS, ALIENS, CLASSIC_WAVES, WORDER, type State, type Input, type WeaponId } from "./ah-engine";
 import { LEVELS, gunsAfter } from "./ah-levels";
 import { createRender, type Render } from "./ah-render";
+import { orbPic } from "./planet-orb";
 import { nextQuestion, judgeKeys, recordAnswer, readLadder, learnedTopics, readDone, type Question } from "./quiz-quest";
 import * as AU from "./ah-audio";
 import { usePlayDrain, PowerSheet } from "./game-power-ui";
@@ -216,7 +217,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
             <svg className="ah-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{LEVELS.slice(1).map((L, k) => { const a = PLANET_POS[k], b = PLANET_POS[k + 1], done = unlockAll || L.id <= camp.cleared + 1; return <path key={L.id} d={`M${a[0]} ${a[1]} Q${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2 + (k % 2 ? 9 : -9)} ${b[0]} ${b[1]}`} fill="none" vectorEffect="non-scaling-stroke" stroke={done ? "#7affb0" : "#ffffff44"} strokeWidth="2.5" strokeDasharray={done ? "0" : "5 6"} />; })}</svg>
             {LEVELS.map(L => { const open = unlockAll || L.id <= camp.cleared + 1, st = camp.stars[L.id - 1] | 0, c = "#" + L.tint.toString(16).padStart(6, "0"), pos = PLANET_POS[L.id - 1], cleared = L.id <= camp.cleared, size = 40 + (L.id * 7) % 5 * 5 + (L.boss ? 10 : 0); return (
               <button key={L.id} data-lv={L.id} disabled={!open} className={"ah-pl" + (open ? "" : " lock") + (L.id === camp.cleared + 1 ? " next" : "") + (cleared ? " clr" : "") + (L.boss ? " boss" : "")} style={{ left: pos[0] + "%", top: pos[1] + "%", ["--c" as any]: c, ["--s" as any]: size + "px" }} onClick={() => begin(L.id)}>
-                <i className="ah-ball">{open ? <b>{L.id}</b> : <b>🔒</b>}{cleared ? <em>✓</em> : null}</i>
+                <i className="ah-ball"><img className="ah-orb" alt="" src={orbPic("ah" + L.id, "#" + (L.tint as number).toString(16).padStart(6, "0"), "#ffffff")} />{open ? <b>{L.id}</b> : <b>🔒</b>}{cleared ? <em>✓</em> : null}</i>
                 <span>{T3(lang, ...L.name)}</span><u>{"★".repeat(st)}{"☆".repeat(3 - st)}</u>{L.boss ? <s>BOSS</s> : null}
               </button>); })}
           </div>
@@ -342,10 +343,10 @@ const CSS = `
 .ah-mhead{display:flex;align-items:baseline;gap:12px;padding-left:52px;min-height:38px}.ah-mhead h1{font-size:clamp(22px,5vh,34px);margin:0}.ah-mhead span{font-size:12px;opacity:.8}
 .ah-sky{position:relative;flex:1;min-height:0}.ah-route{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .ah-pl{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:0;padding:0;width:78px;min-width:0}
-.ah-ball{position:relative;display:flex;align-items:center;justify-content:center;width:var(--s);height:var(--s);border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff9 0,var(--c) 38%,color-mix(in srgb,var(--c) 40%,#000) 100%);box-shadow:0 0 14px color-mix(in srgb,var(--c) 70%,transparent),inset -6px -8px 14px #0008}
-.ah-ball b{font-size:calc(var(--s) * .42);color:#0a0612;text-shadow:0 1px 0 #fff6}.ah-ball em{position:absolute;right:-4px;top:-4px;width:18px;height:18px;border-radius:50%;background:#2ad07a;color:#04210f;font-style:normal;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.ah-ball{position:relative;display:flex;align-items:center;justify-content:center;width:var(--s);height:var(--s);border-radius:50%;background:none;box-shadow:none}
+.ah-orb{position:absolute;inset:-14%;width:128%;height:128%;max-width:none;pointer-events:none;filter:drop-shadow(0 0 8px var(--c))}.ah-ball b{position:relative;z-index:1;font-size:calc(var(--s) * .42);color:#fff;text-shadow:0 1px 4px #000,0 0 6px #000}.ah-ball em{position:absolute;right:-4px;top:-4px;width:18px;height:18px;border-radius:50%;background:#2ad07a;color:#04210f;font-style:normal;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center}
 .ah-pl span{font-size:10.5px;font-weight:800;line-height:1.15;text-align:center;text-shadow:0 1px 3px #000}.ah-pl u{text-decoration:none;font-size:10px;color:#ffd34a}.ah-pl s{position:absolute;top:-8px;left:50%;transform:translateX(-50%);text-decoration:none;font-size:8px;font-weight:900;letter-spacing:.12em;color:#ff6a8a;background:#000a;border-radius:99px;padding:0 5px}
-.ah-pl.next .ah-ball{animation:ahp .8s infinite alternate;box-shadow:0 0 0 3px #fff8,0 0 22px var(--c)}.ah-pl.lock{opacity:.45}.ah-pl.lock .ah-ball{filter:grayscale(.7)}.ah-pl.boss .ah-ball{box-shadow:0 0 0 3px #ff4a7a99,0 0 16px var(--c),inset -6px -8px 14px #0008}
+.ah-pl.next .ah-ball{animation:ahp .8s infinite alternate;box-shadow:none}.ah-pl.next .ah-orb{filter:drop-shadow(0 0 14px #fff)}.ah-pl.lock{opacity:.45}.ah-pl.lock .ah-ball{filter:grayscale(.7)}.ah-pl.boss .ah-orb{filter:drop-shadow(0 0 10px #ff4a7a)}
 .ah-mfoot{position:relative;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;min-height:42px}.ah-mfoot .ah-note{margin:0;max-width:340px;font-size:10.5px;line-height:1.25}.ah-mfoot .ah-ghost{min-height:34px;padding:0 14px;font-size:12px}.ah-mfoot .ah-opt button{min-width:44px;min-height:30px;padding:0 9px}
 .ah-play{position:absolute;inset:0}.ah-host{position:absolute;inset:0}.ah-cv{display:block;width:100%;height:100%}
 .ah-vig{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse at center,transparent 45%,#ff1a1acc 100%)}.ah-vig.on{opacity:1}
