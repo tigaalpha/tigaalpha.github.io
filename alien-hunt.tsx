@@ -18,7 +18,7 @@ const PC_OF: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 1
 const pcOfName = (n: string) => { const m = /^([A-G])([#b♯♭]?)/.exec(n); if (!m) return -1; return (PC_OF[m[1]] + (m[2] === "#" || m[2] === "♯" ? 1 : m[2] ? -1 : 0) + 12) % 12; };
 const WHITE = [0, 2, 4, 5, 7, 9, 11], BLACK: [number, number][] = [[1, 0.65], [3, 1.65], [6, 3.65], [8, 4.65], [10, 5.65]];
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(Math.max(0, (parseInt(localStorage.getItem("tg_adv_crystals") || "0", 10) || 0) + n))); } catch (e) {} };
-const readTune = (): number => { try { return localStorage.getItem("tg_ah_tune") === "15" ? 15 : 30; } catch (e) { return 30; } };   // owner 2026-10-18: every 30 s by default, 15 s is too often
+const readTune = (): number => 30;   // owner 2026-10-18: a music question every 30 s of fighting, fixed: no choice on the ready screen
 
 type Quiz = { q: Question; phase: "gate" | "ask" | "done"; ok: boolean | null; sel: number[]; armed: boolean; lit: number };
 
@@ -140,8 +140,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
     if (q.kind === "key") answer(judgeKeys(q, [pc])); else setQuiz({ ...c, sel: c.sel.includes(pc) ? c.sel.filter(x => x !== pc) : [...c.sel, pc] });
   };
 
-  const setTune = (n: number) => { try { localStorage.setItem("tg_ah_tune", String(n)); } catch (e) {} setTuneSecs(n); S.current.tuneEvery = n; };
-  const close = () => { exitFsAndUnlock(); onBack(); };
+    const close = () => { exitFsAndUnlock(); onBack(); };
 
   const pad = phase === "play";
   const q = quiz && quiz.q;
@@ -155,9 +154,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <em>{t("ไฟต์ติ้งโหมด", "FIGHT MODE", "战斗模式")}</em><h1>ALIEN HUNT</h1>
           <p>{t("เอเลี่ยนแมลงยักษ์บุกอาณานิคม กำจัดให้ครบ 5 คลื่น — ทุก 30 วินาทีที่สู้ เกมจะหยุดถามคำถามดนตรี ตอบถูกได้โล่และกระสุนเต็ม", "Giant insect aliens are overrunning the colony. Beat 5 waves. Every 30 seconds of fighting the game freezes for a music question: answer right for a shield and a full reload.", "巨型昆虫外星人入侵殖民地。击退5波。战斗每30秒暂停一次，回答音乐问题，答对获得护盾和满弹药。")}</p>
           <div className="ah-keys"><span>WASD / {t("จอยซ้าย", "left stick", "左摇杆")}</span><span>{t("เมาส์ / ลากขวา = เล็ง", "mouse / drag right = aim", "鼠标/右侧拖动=瞄准")}</span><span>{t("คลิก / ปุ่ม FIRE = ยิง", "click / FIRE = shoot", "点击/FIRE=射击")}</span><span>R {t("รีโหลด", "reload", "换弹")} · 1-8 {t("เปลี่ยนปืน", "swap gun", "换枪")}</span></div>
-          <div className="ah-opt"><b>{t("ถามทุก", "Question every", "每隔")}</b>
-            {[30, 15].map(n => <button key={n} className={tuneSecs === n ? "on" : ""} onClick={() => setTune(n)} data-tune={n}>{n}s</button>)}
-            <b style={{ marginLeft: 12 }}>{t("กราฟิก", "Graphics", "画质")}</b>
+          <div className="ah-opt"><b>{t("กราฟิก", "Graphics", "画质")}</b>
             {[true, false].map(h => <button key={String(h)} className={high === h ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_gfx", h ? "high" : "standard"); } catch (e) {} setHigh(h); }} data-gfx={h ? "high" : "lite"}>{h ? "High" : "Lite"}</button>)}
           </div>
           <p className="ah-note" data-learned={learned.length}>{learned.length ? t("คำถามจะมาจากเรื่องที่เรียนไปแล้วเท่านั้น: ", "Questions come only from what you have learned: ", "问题只来自你学过的内容：") + learned.join(" · ") : t("ยังไม่มีเรื่องที่เรียนแล้ว จึงยังไม่มีคำถามในเกม — ไปเรียนที่ My Class แล้วกลับมา คำถามจะเปิดเอง", "Nothing learned yet, so no questions in the game — learn something in My Class and they switch on by themselves.", "还没有学过的内容，所以游戏里暂时没有问题——先去 My Class 学习，问题会自动开启。")}</p>
