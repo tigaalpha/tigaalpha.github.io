@@ -1,7 +1,8 @@
 /* Alien Hunt renderer (plan 38): three.js scene, first-person camera, the gun in hand, procedural insect aliens, tracers and goo.
    High = shadows, device pixel ratio up to 2, more particles; Lite = no shadows, pixel ratio 1, fewer lights. Everything is drawn from code, nothing is downloaded. */
 import * as THREE from "three";
-import { ARENA, EYE, ALIENS, type State, type Enemy, type AlienKind, type Ev } from "./ah-engine";
+import { ARENA, EYE, ALIENS, WEAPONS, type State, type Enemy, type AlienKind, type Ev } from "./ah-engine";
+const WCOL: Record<string, number> = Object.fromEntries(Object.entries(WEAPONS).map(([k, v]) => [k, v.col]));
 
 const MAT = (c: number, o: any = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, metalness: 0.15, ...o });
 function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void, rep = 1) {
@@ -117,6 +118,10 @@ function buildGun(id: string): THREE.Group {
   const cyl = (r: number, l: number, m: THREE.Material, x: number, y: number, z: number) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 10), m); c.rotation.x = Math.PI / 2; c.position.set(x, y, z); g.add(c); };
   if (id === "pistol") { box(0.05, 0.07, 0.3, mid, 0, 0, -0.1); box(0.045, 0.13, 0.06, dark, 0, -0.09, 0.0); box(0.012, 0.02, 0.012, GLOW(0x41e0ff), 0, 0.045, -0.2); }
   else if (id === "rifle") { box(0.06, 0.09, 0.55, mid, 0, 0, -0.2); box(0.05, 0.1, 0.18, tan, 0, -0.02, 0.18); box(0.04, 0.14, 0.07, dark, 0, -0.11, -0.05); box(0.05, 0.11, 0.09, dark, 0, -0.1, -0.22); cyl(0.014, 0.35, dark, 0, 0.0, -0.62); box(0.03, 0.04, 0.12, dark, 0, 0.07, -0.18); box(0.014, 0.014, 0.1, GLOW(0x41e0ff), 0, 0.045, -0.37); }
+  else if (id === "laser") { box(0.06, 0.08, 0.5, mid, 0, 0, -0.2); box(0.07, 0.03, 0.3, GLOW(0xff4a5a), 0, 0.055, -0.22); cyl(0.018, 0.2, dark, 0, 0, -0.55); box(0.045, 0.12, 0.07, dark, 0, -0.1, -0.02); box(0.05, 0.14, 0.06, mid, 0, -0.12, -0.28); box(0.03, 0.05, 0.14, GLOW(0xff4a5a), 0, -0.06, 0.12); }
+  else if (id === "rail") { box(0.07, 0.09, 0.72, mid, 0, 0, -0.28); box(0.015, 0.05, 0.62, GLOW(0xa8c8ff), 0.045, 0.01, -0.3); box(0.015, 0.05, 0.62, GLOW(0xa8c8ff), -0.045, 0.01, -0.3); for (let i = 0; i < 4; i++) box(0.1, 0.12, 0.04, dark, 0, 0, -0.55 + i * 0.12); box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.0); box(0.06, 0.1, 0.18, mid, 0, -0.02, 0.2); }
+  else if (id === "arc") { cyl(0.05, 0.4, mid, 0, 0, -0.22); for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.012, 6, 14), GLOW(0x9ad8ff)); r.position.set(0, 0, -0.38 - i * 0.09); g.add(r); } box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.0); box(0.05, 0.1, 0.14, mid, 0, -0.02, 0.15); const orb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), GLOW(0xffffff)); orb.position.set(0, 0, -0.68); g.add(orb); }
+  else if (id === "beam") { box(0.07, 0.1, 0.55, mid, 0, 0, -0.2); box(0.075, 0.025, 0.4, GLOW(0xffe45a), 0, 0.06, -0.22); cyl(0.04, 0.3, dark, 0, 0, -0.62); const lens = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), GLOW(0xfff2a0)); lens.position.set(0, 0, -0.78); g.add(lens); box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.0); box(0.06, 0.1, 0.16, mid, 0, -0.02, 0.2); }
   else if (id === "launcher") { cyl(0.07, 0.62, mid, 0, 0, -0.25); cyl(0.085, 0.16, dark, 0, 0, -0.58); box(0.05, 0.12, 0.08, dark, 0, -0.11, 0.0); box(0.05, 0.05, 0.2, tan, 0, -0.03, 0.2); cyl(0.05, 0.05, GLOW(0x41ff9a), 0, 0.06, -0.3); }
   else { box(0.07, 0.09, 0.5, mid, 0, 0, -0.18); cyl(0.022, 0.62, dark, 0, 0.03, -0.5); cyl(0.028, 0.34, tan, 0, -0.04, -0.4); box(0.06, 0.1, 0.2, tan, 0, -0.03, 0.2); box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.0); }
   g.traverse(o => { (o as any).frustumCulled = false; });
@@ -168,7 +173,7 @@ export function createRender(host: HTMLElement, startHigh: boolean): Render {
   }
 
   /* the gun in hand */
-  const guns: Record<string, THREE.Group> = { pistol: buildGun("pistol"), rifle: buildGun("rifle"), shotgun: buildGun("shotgun"), launcher: buildGun("launcher") };
+  const guns: Record<string, THREE.Group> = { pistol: buildGun("pistol"), rifle: buildGun("rifle"), shotgun: buildGun("shotgun"), launcher: buildGun("launcher"), laser: buildGun("laser"), rail: buildGun("rail"), arc: buildGun("arc"), beam: buildGun("beam") };
   const hold = new THREE.Group(); hold.position.set(0.2, -0.2, -0.38); hold.scale.setScalar(0.72); cam.add(hold);
   const handM = MAT(0xc79a76, { roughness: 0.8 }), sleeve = MAT(0x2c3a30);
   const hand = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.085, 0.14), handM); hand.position.set(0.0, -0.075, 0.02); hold.add(hand);
@@ -180,11 +185,14 @@ export function createRender(host: HTMLElement, startHigh: boolean): Render {
   /* effects pools */
   const tracers: { m: THREE.Mesh; life: number }[] = [];
   const trM = new THREE.MeshBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-  for (let i = 0; i < 14; i++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 4), trM); m.visible = false; scene.add(m); tracers.push({ m, life: 0 }); }
+  for (let i = 0; i < 14; i++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 4), trM.clone()); m.visible = false; scene.add(m); tracers.push({ m, life: 0 }); }
   const NP = high ? 160 : 70; type P = { m: THREE.Mesh; v: THREE.Vector3; life: number; g: number };
   const parts: P[] = []; const pgeo = new THREE.SphereGeometry(0.05, 5, 4);
   for (let i = 0; i < NP; i++) { const m = new THREE.Mesh(pgeo, new THREE.MeshBasicMaterial({ color: 0x88ff44, fog: false })); m.visible = false; scene.add(m); parts.push({ m, v: new THREE.Vector3(), life: 0, g: 9 }); }
   const burst = (x: number, y: number, z: number, n: number, col: number, spd: number) => { let k = 0; for (const p of parts) { if (p.life > 0) continue; if (k++ >= n) break; (p.m.material as THREE.MeshBasicMaterial).color.setHex(col); p.m.position.set(x, y, z); p.v.set((Math.random() - 0.5) * spd, Math.random() * spd * 0.8, (Math.random() - 0.5) * spd); p.life = 0.5 + Math.random() * 0.4; p.m.visible = true; p.m.scale.setScalar(0.6 + Math.random()); } };
+  const arcs: { m: THREE.Mesh[]; life: number }[] = []; const arcMat = new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  for (let i = 0; i < 3; i++) { const segs: THREE.Mesh[] = []; for (let j = 0; j < 24; j++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 4), arcMat); m.visible = false; scene.add(m); segs.push(m); } arcs.push({ m: segs, life: 0 }); }
+  const pkMeshes = new Map<number, THREE.Group>(); const pkGeo = new THREE.OctahedronGeometry(0.42);
   const rkPool: THREE.Mesh[] = []; const rkGeo = new THREE.SphereGeometry(0.16, 8, 6), rkMat = new THREE.MeshBasicMaterial({ color: 0x66ffb0, fog: false });
   const booms: { m: THREE.Mesh; life: number }[] = []; const bGeo = new THREE.SphereGeometry(1, 14, 10);
   for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(bGeo, new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); m.visible = false; scene.add(m); booms.push({ m, life: 0 }); }
@@ -192,21 +200,22 @@ export function createRender(host: HTMLElement, startHigh: boolean): Render {
   const acidM = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), GLOW(0x9cff3a)); const acidPool: THREE.Mesh[] = [];
 
   const rigs = new Map<number, { rig: Rig; e: Enemy; fade: number }>();
-  let gun = "rifle", kick = 0, mfT = 0, flashT = 0, bob = 0, shake = 0, curShake = 0;
+  let crouch = 0; let gun = "rifle", kick = 0, mfT = 0, flashT = 0, bob = 0, shake = 0, curShake = 0;
   const api: Render = {
     canvas, shake: 0,
     events(ev) {
       for (const e of ev) {
-        if (e.k === "shot") { kick = Math.min(1, kick + (e.w === "shotgun" ? 0.9 : e.w === "pistol" ? 0.45 : 0.25)); mfT = 0.05; flashT = 0.06; const t = tracers.find(q => q.life <= 0); if (t) { t.life = 0.07; t.m.visible = true; const from = new THREE.Vector3(0.2, -0.17, -0.7).applyMatrix4(cam.matrixWorld), dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), to = from.clone().addScaledVector(dir, 36); const mid = from.clone().add(to).multiplyScalar(0.5); t.m.position.copy(mid); t.m.scale.set(1, from.distanceTo(to), 1); t.m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); } }
+        if (e.k === "shot") { kick = Math.min(1, kick + (e.w === "shotgun" ? 0.9 : e.w === "pistol" ? 0.45 : 0.25)); mfT = 0.05; flashT = 0.06; const t = e.w === "arc" ? null : tracers.find(q => q.life <= 0); if (t) { t.life = e.w === "rail" ? 0.25 : 0.07; t.m.visible = true; (t.m.material as THREE.MeshBasicMaterial).color.setHex(WCOL[e.w as string] || 0xffe9a0); const from = new THREE.Vector3(0.2, -0.17, -0.7).applyMatrix4(cam.matrixWorld), dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), to = from.clone().addScaledVector(dir, e.w === "rail" ? 90 : 36); const mid = from.clone().add(to).multiplyScalar(0.5); t.m.position.copy(mid); t.m.scale.set(1, from.distanceTo(to), 1); t.m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); } }
         else if (e.k === "boom") { const b = booms.find(q => q.life <= 0); if (b) { b.life = 0.45; b.m.visible = true; b.m.position.set(e.x as number, e.y as number, e.z as number); } burst(e.x as number, (e.y as number), e.z as number, high ? 50 : 24, 0xffb04a, 9); bl.position.set(e.x as number, 2, e.z as number); blT = 0.25; curShake = Math.min(1, curShake + 0.5); }
         else if (e.k === "hit") burst(e.x as number, e.y as number, e.z as number, 5, 0x9cff3a, 3);
         else if (e.k === "kill" || e.k === "head") burst(e.x as number, 0.9, e.z as number, high ? 26 : 12, e.k === "head" ? 0xffd34a : 0x7cd62a, 5);
         else if (e.k === "hurt") curShake = Math.min(1, curShake + 0.35);
+        else if (e.k === "arc" && e.p) { const a = arcs.find(q => q.life <= 0); if (a) { a.life = 0.14; const pts: THREE.Vector3[] = []; const from = new THREE.Vector3(0.2, -0.17, -0.7).applyMatrix4(cam.matrixWorld); pts.push(from); for (let i = 3; i < e.p.length; i += 3) pts.push(new THREE.Vector3(e.p[i], e.p[i + 1], e.p[i + 2])); let k = 0; for (let i = 0; i + 1 < pts.length; i++) { const A = pts[i], B = pts[i + 1], n = 6; let prev = A.clone(); for (let j = 1; j <= n && k < a.m.length; j++) { const q = A.clone().lerp(B, j / n); if (j < n) q.add(new THREE.Vector3((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.7)); const d = q.clone().sub(prev), L = d.length(); const m = a.m[k++]; m.visible = true; m.position.copy(prev).addScaledVector(d, 0.5); m.scale.set(1, L, 1); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); prev = q; } } for (; k < a.m.length; k++) a.m[k].visible = false; } kick = Math.min(1, kick + 0.15); mfT = 0.04; flashT = 0.05; }
       }
     },
     draw(s, dt) {
       if (builtFor !== s.boxes) buildLevel(s.boxes);
-      const p = s.p; cam.position.set(p.x, EYE + p.y + Math.sin(bob) * 0.025 * (p.sprint ? 1.6 : 1), p.z); cam.rotation.set(p.pitch + curShake * (Math.random() - 0.5) * 0.04, p.yaw + curShake * (Math.random() - 0.5) * 0.04, 0);
+      const p = s.p; crouch += ((p.slide > 0 ? 0.7 : 0) - crouch) * Math.min(1, dt * 12); cam.position.set(p.x, EYE + p.y - crouch + Math.sin(bob) * 0.025 * (p.sprint ? 1.6 : 1), p.z); cam.rotation.set(p.pitch + curShake * (Math.random() - 0.5) * 0.04, p.yaw + curShake * (Math.random() - 0.5) * 0.04, 0);
       cam.updateMatrixWorld(true);
       if (guns[s.weapon] && gun !== s.weapon) { guns[gun].visible = false; gun = s.weapon; guns[gun].visible = true; } guns[gun].visible = true;
       kick = Math.max(0, kick - dt * 7); curShake = Math.max(0, curShake - dt * 2.2);
@@ -237,6 +246,11 @@ export function createRender(host: HTMLElement, startHigh: boolean): Render {
       rkPool.forEach((m, i) => { const a = s.rk[i]; m.visible = !!a; if (a) m.position.set(a.x, a.y, a.z); });
       for (const b of booms) if (b.life > 0) { b.life -= dt; const k = 1 - b.life / 0.45; b.m.scale.setScalar(0.5 + k * 4.2); (b.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.9 * (1 - k)); if (b.life <= 0) b.m.visible = false; }
       if (blT > 0) { blT -= dt; bl.intensity = Math.max(0, blT / 0.25) * 9; } else bl.intensity = 0;
+      for (const a of arcs) if (a.life > 0) { a.life -= dt; if (a.life <= 0) a.m.forEach(m => { m.visible = false; }); }
+      const live = new Set<number>(); const now = performance.now() / 1000;
+      for (const k of s.pk) { live.add(k.id); let g = pkMeshes.get(k.id); if (!g) { g = new THREE.Group(); const col = k.w === "ammo" ? 0xffd34a : WCOL[k.w as string] || 0x58e8ff; const core = new THREE.Mesh(pkGeo, new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 2.4, roughness: 0.3 })); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.04, 6, 24), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); ring.rotation.x = Math.PI / 2; ring.position.y = -0.55; const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 6, 8), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); beam.position.y = 2.6; g.add(core, ring, beam); scene.add(g); pkMeshes.set(k.id, g); }
+        g.position.set(k.x, 1.0 + Math.sin(now * 2.5 + k.id) * 0.12, k.z); g.children[0].rotation.y = now * 1.6; g.children[0].rotation.x = now * 0.7; }
+      for (const [id, g] of pkMeshes) if (!live.has(id)) { scene.remove(g); pkMeshes.delete(id); }
       // acid blobs
       while (acidPool.length < s.acid.length) { const m = acidM.clone(); m.material = (acidM.material as THREE.MeshStandardMaterial).clone(); scene.add(m); acidPool.push(m); }
       acidPool.forEach((m, i) => { const a = s.acid[i]; m.visible = !!a; if (a) { m.position.set(a.x, a.y, a.z); const k = a.big || 1; m.scale.setScalar(k); const mm = m.material as THREE.MeshStandardMaterial; const c = a.col || 0x9cff3a; if (mm.color.getHex() !== c) { mm.color.setHex(c); mm.emissive.setHex(c); } } });

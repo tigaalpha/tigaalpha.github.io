@@ -41,7 +41,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
     if (!forced || st.kills > 0) { addCrystals(cry); try { addRpgExp(me, exp); } catch (e) {} }
     try { logUsage("ah", `end:${won ? "win" : "lose"}:k${st.kills}:w${s.wave}:t${st.right}of${st.tunes}:${gfxHigh() ? "hd" : "sd"}`); } catch (e) {}
     AU.musicStop(); AU.sfx(won ? "win" : "lose"); const per: Record<string, [number, number]> = {}; for (const l of tuneLog.current) { per[l.topic] = per[l.topic] || [0, 0]; per[l.topic][1]++; if (l.ok) per[l.topic][0]++; }
-    setRes({ ...st, won, cry, exp, wave: s.wave, per }); setPhase("result"); setPaused(false); setQuiz(null); exitFsAndUnlock();
+    setRes({ ...st, won, cry, exp, wave: s.wave, per }); setPhase("result"); setPaused(false); setQuiz(null);   // full screen stays on for the result card; only Back leaves it
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
   };
   const begin = () => {
@@ -61,8 +61,8 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
       if (!pausedRef.current && !s.frozen) {
         const k = keys.current, i = inp.current, st = stick.current;
         i.mx = Math.max(-1, Math.min(1, (k.d ? 1 : 0) - (k.a ? 1 : 0) + st.mx)); i.mz = Math.max(-1, Math.min(1, (k.w ? 1 : 0) - (k.s ? 1 : 0) + st.mz));
-        i.sprint = !!k.shift || Math.hypot(st.mx, st.mz) > 0.92; i.lookX = look.current.x; i.lookY = look.current.y; look.current.x = 0; look.current.y = 0; i.jump = !!k[" "];
-        acc += dt; while (acc >= 1 / 60) { acc -= 1 / 60; step(s, 1 / 60, i); i.swap = 0; i.reload = false; i.lookX = 0; i.lookY = 0; }
+        i.sprint = !!k.shift || Math.hypot(st.mx, st.mz) > 0.92; i.lookX = look.current.x; i.lookY = look.current.y; look.current.x = 0; look.current.y = 0; i.jump = !!k[" "]; i.slide = !!k.c || !!k.control;
+        acc += dt; while (acc >= 1 / 60) { acc -= 1 / 60; step(s, 1 / 60, i); i.swap = 0; i.reload = false; i.slide = false; i.lookX = 0; i.lookY = 0; }
       }
       if (s.ev.length) {
         const ev = s.ev; s.ev = []; r.events(ev); AU.events(ev);
@@ -77,7 +77,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
       if (bannerT.current > 0) { bannerT.current -= dt; if (bannerT.current <= 0) setBanner(""); }
       r.draw(s, dt);
       if (high && !pausedRef.current && !s.frozen) { if (dt > 0.031) slow++; else slow = Math.max(0, slow - 1); if (slow > 90) { slow = 0; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} setHigh(false); r.setHigh(false); try { logUsage("ah", "auto-lite"); } catch (e) {} } }
-      hudT += dt; if (hudT > 0.1) { hudT = 0; { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: WEAPONS[w].name, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
+      hudT += dt; if (hudT > 0.1) { hudT = 0; { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: WEAPONS[w].name, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
     };
     raf = requestAnimationFrame(loop);
     (window as any).__ah = { s: S.current, get state() { return S.current; }, step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(S.current, dt, inp.current); }, info: () => r.info(), killAll: () => { for (const e of S.current.enemies) e.hp = 0, e.dead = 0.5; }, tune: () => { S.current.tuneT = S.current.tuneEvery; }, setHigh: (h: boolean) => { setHigh(h); r.setHigh(h); }, quizQ: () => quizRef.current && quizRef.current.q, draw: () => r.draw(S.current, 0.016) };
@@ -91,15 +91,15 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
   useEffect(() => {
     if (phase !== "play") return undefined;
     const kd = (e: KeyboardEvent) => {
-      if (quizRef.current) return; const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k === "shift" ? "shift" : k] = true;
-      if (k === "r") inp.current.reload = true; if (k === "1") setWeapon(S.current, "pistol"); if (k === "2") setWeapon(S.current, "rifle"); if (k === "3") setWeapon(S.current, "shotgun"); if (k === "4") setWeapon(S.current, "launcher");
+      if (quizRef.current) return; const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k] = true;
+      if (k === "r") inp.current.reload = true; { const n = parseInt(k, 10); if (n >= 1 && n <= WORDER.length) setWeapon(S.current, WORDER[n - 1]); }
       if (k === "escape" || k === "p") setPaused(p => !p); if (k === " ") e.preventDefault();
     };
-    const ku = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k === "shift" ? "shift" : k] = false; };
+    const ku = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k] = false; };
     const mm = (e: MouseEvent) => { if (document.pointerLockElement) { look.current.x += e.movementX * 0.0022; look.current.y += e.movementY * 0.0022; } };
     const md = (e: MouseEvent) => { if (e.button === 0 && !quizRef.current && !pausedRef.current) inp.current.fire = true; };
     const mu = (e: MouseEvent) => { if (e.button === 0) inp.current.fire = false; };
-    const wh = (e: WheelEvent) => { if (!quizRef.current) setWeapon(S.current, WORDER[(WORDER.indexOf(S.current.weapon) + (e.deltaY > 0 ? 1 : WORDER.length - 1)) % WORDER.length]); };
+    const wh = (e: WheelEvent) => { if (!quizRef.current) { const own = WORDER.filter(w => S.current.owned[w]); setWeapon(S.current, own[(own.indexOf(S.current.weapon) + (e.deltaY > 0 ? 1 : own.length - 1)) % own.length]); } };
     window.addEventListener("keydown", kd); window.addEventListener("keyup", ku); window.addEventListener("mousemove", mm); window.addEventListener("mousedown", md); window.addEventListener("mouseup", mu); window.addEventListener("wheel", wh);
     return () => { window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku); window.removeEventListener("mousemove", mm); window.removeEventListener("mousedown", md); window.removeEventListener("mouseup", mu); window.removeEventListener("wheel", wh); keys.current = {}; inp.current.fire = false; };
   }, [phase]);
@@ -154,7 +154,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <button className="ah-x" onClick={close} aria-label="close">✕</button>
           <em>{t("ไฟต์ติ้งโหมด", "FIGHT MODE", "战斗模式")}</em><h1>ALIEN HUNT</h1>
           <p>{t("เอเลี่ยนแมลงยักษ์บุกอาณานิคม กำจัดให้ครบ 5 คลื่น — ทุก 15 วินาทีที่สู้ เกมจะหยุดถามคำถามดนตรี ตอบถูกได้โล่และกระสุนเต็ม", "Giant insect aliens are overrunning the colony. Beat 5 waves. Every 15 seconds of fighting the game freezes for a music question: answer right for a shield and a full reload.", "巨型昆虫外星人入侵殖民地。击退5波。战斗每15秒暂停一次，回答音乐问题，答对获得护盾和满弹药。")}</p>
-          <div className="ah-keys"><span>WASD / {t("จอยซ้าย", "left stick", "左摇杆")}</span><span>{t("เมาส์ / ลากขวา = เล็ง", "mouse / drag right = aim", "鼠标/右侧拖动=瞄准")}</span><span>{t("คลิก / ปุ่ม FIRE = ยิง", "click / FIRE = shoot", "点击/FIRE=射击")}</span><span>R {t("รีโหลด", "reload", "换弹")} · 1 2 3 4 {t("เปลี่ยนปืน", "swap gun", "换枪")}</span></div>
+          <div className="ah-keys"><span>WASD / {t("จอยซ้าย", "left stick", "左摇杆")}</span><span>{t("เมาส์ / ลากขวา = เล็ง", "mouse / drag right = aim", "鼠标/右侧拖动=瞄准")}</span><span>{t("คลิก / ปุ่ม FIRE = ยิง", "click / FIRE = shoot", "点击/FIRE=射击")}</span><span>R {t("รีโหลด", "reload", "换弹")} · 1-8 {t("เปลี่ยนปืน", "swap gun", "换枪")}</span></div>
           <div className="ah-opt"><b>{t("ถามทุก", "Question every", "每隔")}</b>
             {[15, 30].map(n => <button key={n} className={tuneSecs === n ? "on" : ""} onClick={() => setTune(n)} data-tune={n}>{n}s</button>)}
             <b style={{ marginLeft: 12 }}>{t("กราฟิก", "Graphics", "画质")}</b>
@@ -177,6 +177,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
             <button className="ah-gear" aria-label="pause" data-pause-btn="1" onClick={() => setPaused(true)}>⚙</button>
           </div>
           <div className="ah-bars"><div className="ah-hp"><i style={{ width: (hud.hp ?? 100) + "%" }} />{(hud.sh || 0) > 0 && <u style={{ width: Math.min(50, hud.sh) * 2 + "%" }} />}</div><span>❤ {hud.hp ?? 100}{(hud.sh || 0) > 0 ? " 🛡 " + hud.sh : ""}{hud.boost ? " ⚡" : ""}</span></div>
+          <div className="ah-chips" data-chips="1">{(hud.own || "pistol,rifle").split(",").map((w: string) => <button key={w} data-wpn={w} className={hud.cur === w ? "on" : ""} onPointerDown={e => { e.stopPropagation(); setWeapon(S.current, w as WeaponId); }}>{(WORDER.indexOf(w as WeaponId) + 1)}<i>{WEAPONS[w as WeaponId].name}</i></button>)}</div>
           <div className="ah-ammo"><small>{hud.w}</small><b>{hud.reload ? "…" : hud.mag}</b><span>/ {hud.res}</span></div>
           {banner && <div className="ah-banner">{banner}</div>}
           <div className="ah-stick" style={{ transform: `translate(${(hud.jx || 0) * 22}px, ${-(hud.jz || 0) * 22}px)` }} />
@@ -184,7 +185,8 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
             <button className="fire" aria-label="fire" data-fire="1" {...hold(v => { inp.current.fire = v; })}>FIRE</button>
             <button aria-label="reload" {...hold(v => { if (v) inp.current.reload = true; })}>R</button>
             <button aria-label="swap" {...hold(v => { if (v) inp.current.swap = 1; })}>⇄</button>
-            <button aria-label="jump" {...hold(v => { keys.current[" "] = v; })}>⤴</button>
+            <button aria-label="jump" data-jump="1" {...hold(v => { keys.current[" "] = v; })}>⤴</button>
+            <button aria-label="slide" data-slide="1" className={hud.sl === false ? "cool" : ""} {...hold(v => { keys.current.c = v; })}>⇊</button>
           </div>
         </div>
       )}
@@ -265,6 +267,7 @@ const CSS = `
 .ah-gear{width:42px;height:42px;border-radius:50%;border:1px solid #ffffff55;background:#000a;font-size:18px}
 .ah-bars{position:absolute;left:12px;bottom:12px;pointer-events:none}.ah-bars span{font-size:12px;font-weight:800}
 .ah-hp{position:relative;width:min(220px,40vw);height:12px;border-radius:99px;background:#0009;border:1px solid #ffffff44;overflow:hidden;margin-bottom:3px}.ah-hp i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#e83a3a,#ff8a5a)}.ah-hp u{position:absolute;left:0;top:0;height:4px;background:#5ac8ff}
+.ah-chips{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:4px;flex-wrap:nowrap;justify-content:center;max-width:50vw}.ah-chips button{min-height:30px;min-width:30px;padding:0 8px;justify-content:center;border-radius:999px;border:1px solid #ffffff44;background:#000a;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px}.ah-chips button i{display:none;font-style:normal;font-weight:600;font-size:10px;opacity:.85}.ah-chips button.on i{display:inline}.ah-chips button.on{border-color:#58e8ff;background:#0a3a4aaa;box-shadow:0 0 10px #58e8ff66}.ah-btns .cool{opacity:.4}
 .ah-ammo{position:absolute;right:190px;bottom:14px;text-align:right;pointer-events:none;text-shadow:0 2px 6px #000}.ah-ammo small{display:block;font-size:11px;opacity:.8}.ah-ammo b{font-size:34px}.ah-ammo span{font-size:15px;opacity:.8}
 .ah-banner{position:absolute;left:0;right:0;top:26%;text-align:center;font-size:clamp(26px,6vw,44px);font-weight:900;letter-spacing:.14em;color:#ffb06a;text-shadow:0 0 22px #ff6a3a;pointer-events:none}
 .ah-stick{position:absolute;left:11%;bottom:20%;width:56px;height:56px;margin:-28px;border-radius:50%;background:#ffffff22;border:2px solid #ffffff55;pointer-events:none}
