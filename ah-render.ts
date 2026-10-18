@@ -56,6 +56,7 @@ function buildGun(id: string): THREE.Group {
   const cyl = (r: number, l: number, m: THREE.Material, x: number, y: number, z: number) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 10), m); c.rotation.x = Math.PI / 2; c.position.set(x, y, z); g.add(c); };
   if (id === "pistol") { box(0.05, 0.07, 0.3, mid, 0, 0, -0.1); box(0.045, 0.13, 0.06, dark, 0, -0.09, 0.0); box(0.012, 0.02, 0.012, GLOW(0x41e0ff), 0, 0.045, -0.2); }
   else if (id === "rifle") { box(0.06, 0.09, 0.55, mid, 0, 0, -0.2); box(0.05, 0.1, 0.18, tan, 0, -0.02, 0.18); box(0.04, 0.14, 0.07, dark, 0, -0.11, -0.05); box(0.05, 0.11, 0.09, dark, 0, -0.1, -0.22); cyl(0.014, 0.35, dark, 0, 0.0, -0.62); box(0.03, 0.04, 0.12, dark, 0, 0.07, -0.18); box(0.014, 0.014, 0.1, GLOW(0x41e0ff), 0, 0.045, -0.37); }
+  else if (id === "launcher") { cyl(0.07, 0.62, mid, 0, 0, -0.25); cyl(0.085, 0.16, dark, 0, 0, -0.58); box(0.05, 0.12, 0.08, dark, 0, -0.11, 0.0); box(0.05, 0.05, 0.2, tan, 0, -0.03, 0.2); cyl(0.05, 0.05, GLOW(0x41ff9a), 0, 0.06, -0.3); }
   else { box(0.07, 0.09, 0.5, mid, 0, 0, -0.18); cyl(0.022, 0.62, dark, 0, 0.03, -0.5); cyl(0.028, 0.34, tan, 0, -0.04, -0.4); box(0.06, 0.1, 0.2, tan, 0, -0.03, 0.2); box(0.05, 0.12, 0.07, dark, 0, -0.1, 0.0); }
   g.traverse(o => { (o as any).frustumCulled = false; });
   return g;
@@ -105,7 +106,7 @@ export function createRender(host: HTMLElement, startHigh: boolean): Render {
   }
 
   /* the gun in hand */
-  const guns: Record<string, THREE.Group> = { pistol: buildGun("pistol"), rifle: buildGun("rifle"), shotgun: buildGun("shotgun") };
+  const guns: Record<string, THREE.Group> = { pistol: buildGun("pistol"), rifle: buildGun("rifle"), shotgun: buildGun("shotgun"), launcher: buildGun("launcher") };
   const hold = new THREE.Group(); hold.position.set(0.2, -0.2, -0.38); hold.scale.setScalar(0.72); cam.add(hold);
   const handM = MAT(0xc79a76, { roughness: 0.8 }), sleeve = MAT(0x2c3a30);
   const hand = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.085, 0.14), handM); hand.position.set(0.0, -0.075, 0.02); hold.add(hand);
@@ -122,6 +123,10 @@ export function createRender(host: HTMLElement, startHigh: boolean): Render {
   const parts: P[] = []; const pgeo = new THREE.SphereGeometry(0.05, 5, 4);
   for (let i = 0; i < NP; i++) { const m = new THREE.Mesh(pgeo, new THREE.MeshBasicMaterial({ color: 0x88ff44, fog: false })); m.visible = false; scene.add(m); parts.push({ m, v: new THREE.Vector3(), life: 0, g: 9 }); }
   const burst = (x: number, y: number, z: number, n: number, col: number, spd: number) => { let k = 0; for (const p of parts) { if (p.life > 0) continue; if (k++ >= n) break; (p.m.material as THREE.MeshBasicMaterial).color.setHex(col); p.m.position.set(x, y, z); p.v.set((Math.random() - 0.5) * spd, Math.random() * spd * 0.8, (Math.random() - 0.5) * spd); p.life = 0.5 + Math.random() * 0.4; p.m.visible = true; p.m.scale.setScalar(0.6 + Math.random()); } };
+  const rkPool: THREE.Mesh[] = []; const rkGeo = new THREE.SphereGeometry(0.16, 8, 6), rkMat = new THREE.MeshBasicMaterial({ color: 0x66ffb0, fog: false });
+  const booms: { m: THREE.Mesh; life: number }[] = []; const bGeo = new THREE.SphereGeometry(1, 14, 10);
+  for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(bGeo, new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); m.visible = false; scene.add(m); booms.push({ m, life: 0 }); }
+  const bl = new THREE.PointLight(0xffa050, 0, 22); scene.add(bl); let blT = 0;
   const acidM = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), GLOW(0x9cff3a)); const acidPool: THREE.Mesh[] = [];
 
   const rigs = new Map<number, { rig: Rig; e: Enemy; fade: number }>();
@@ -131,6 +136,7 @@ export function createRender(host: HTMLElement, startHigh: boolean): Render {
     events(ev) {
       for (const e of ev) {
         if (e.k === "shot") { kick = Math.min(1, kick + (e.w === "shotgun" ? 0.9 : e.w === "pistol" ? 0.45 : 0.25)); mfT = 0.05; flashT = 0.06; const t = tracers.find(q => q.life <= 0); if (t) { t.life = 0.07; t.m.visible = true; const from = new THREE.Vector3(0.2, -0.17, -0.7).applyMatrix4(cam.matrixWorld), dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), to = from.clone().addScaledVector(dir, 36); const mid = from.clone().add(to).multiplyScalar(0.5); t.m.position.copy(mid); t.m.scale.set(1, from.distanceTo(to), 1); t.m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); } }
+        else if (e.k === "boom") { const b = booms.find(q => q.life <= 0); if (b) { b.life = 0.45; b.m.visible = true; b.m.position.set(e.x as number, e.y as number, e.z as number); } burst(e.x as number, (e.y as number), e.z as number, high ? 50 : 24, 0xffb04a, 9); bl.position.set(e.x as number, 2, e.z as number); blT = 0.25; curShake = Math.min(1, curShake + 0.5); }
         else if (e.k === "hit") burst(e.x as number, e.y as number, e.z as number, 5, 0x9cff3a, 3);
         else if (e.k === "kill" || e.k === "head") burst(e.x as number, 0.9, e.z as number, high ? 26 : 12, e.k === "head" ? 0xffd34a : 0x7cd62a, 5);
         else if (e.k === "hurt") curShake = Math.min(1, curShake + 0.35);
@@ -164,6 +170,10 @@ export function createRender(host: HTMLElement, startHigh: boolean): Render {
         if (e.dead > 0) { const k = 1 - e.dead / 0.9; g.rotation.z = k * 1.5; g.position.y = -k * 0.25; g.scale.setScalar(Math.max(0.01, 1 - Math.max(0, k - 0.6) * 2.5)); }
       }
       for (const [id, r] of rigs) if (!seen.has(id)) { scene.remove(r.rig.g); r.rig.g.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); } }); rigs.delete(id); }
+      while (rkPool.length < s.rk.length) { const m = new THREE.Mesh(rkGeo, rkMat); scene.add(m); rkPool.push(m); }
+      rkPool.forEach((m, i) => { const a = s.rk[i]; m.visible = !!a; if (a) m.position.set(a.x, a.y, a.z); });
+      for (const b of booms) if (b.life > 0) { b.life -= dt; const k = 1 - b.life / 0.45; b.m.scale.setScalar(0.5 + k * 4.2); (b.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.9 * (1 - k)); if (b.life <= 0) b.m.visible = false; }
+      if (blT > 0) { blT -= dt; bl.intensity = Math.max(0, blT / 0.25) * 9; } else bl.intensity = 0;
       // acid blobs
       while (acidPool.length < s.acid.length) { const m = acidM.clone(); scene.add(m); acidPool.push(m); }
       acidPool.forEach((m, i) => { const a = s.acid[i]; m.visible = !!a; if (a) m.position.set(a.x, a.y, a.z); });

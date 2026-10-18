@@ -19,6 +19,8 @@ for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) br
 ok("the lobby has the Alien Hunt button", (await p.locator("[data-alien-hunt]").count()) === 1);
 await p.evaluate(() => document.querySelector("[data-alien-hunt]").click()); await p.waitForSelector("[data-ah=ready]", { timeout: 8000 });
 ok("ready screen shows", (await p.locator("[data-start]").count()) === 1);
+ok("ready screen says which learned topics the questions come from", (await p.evaluate(() => document.querySelector("[data-learned]").getAttribute("data-learned"))) === "4");
+await p.evaluate(() => { const AC = window.AudioContext; window.__peak = 0; const orig = AudioContext.prototype.createDynamicsCompressor; AudioContext.prototype.createDynamicsCompressor = function () { const n = orig.call(this); const an = this.createAnalyser(); an.fftSize = 1024; n.connect(an); window.__an = an; return n; }; });
 await p.evaluate(() => document.querySelector("[data-start]").click()); await p.waitForSelector(".ah-cv", { timeout: 8000 }); await p.waitForTimeout(1500);
 ok("a WebGL canvas is drawing", (await p.evaluate(() => { const c = document.querySelector(".ah-cv"); return !!c && c.width > 100; })));
 for (let i = 0; i < 25; i++) { await p.evaluate(() => window.__ah.step(20)); }
@@ -31,6 +33,15 @@ await p.evaluate(() => window.__ah.state.p.hp = 100);
 const sh0 = await p.evaluate(() => window.__ah.state.shots);
 const fb = await p.locator("[data-fire]").boundingBox(); await p.touchscreen.tap(fb.x + 20, fb.y + 20).catch(() => {}); await p.evaluate(() => { document.querySelector("[data-fire]").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 5 })); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector("[data-fire]").dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 5 })));
 ok("the FIRE button shoots", (await p.evaluate(() => window.__ah.state.shots)) > sh0);
+await p.waitForTimeout(1500);
+const lvl = async () => p.evaluate(() => { const an = window.__an; if (!an) return -1; const d = new Float32Array(an.fftSize); an.getFloatTimeDomainData(d); return Math.max(...d.map(Math.abs)); });
+let pk = 0; for (let i = 0; i < 20; i++) { pk = Math.max(pk, await lvl()); await p.waitForTimeout(100); }
+ok("the battle tune is audible and not clipping (peak " + pk.toFixed(3) + ")", pk > 0.02 && pk < 1.0);
+// launcher
+await p.evaluate(() => { const s = window.__ah.state; s.weapon = "launcher"; s.cd = 0; s.p.inv = 5; });
+const b0 = await p.evaluate(() => (window.__boom = 0, window.__ah.state.rk.length));
+await p.evaluate(() => { document.querySelector("[data-fire]").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 6 })); }); await p.waitForTimeout(300); await p.evaluate(() => document.querySelector("[data-fire]").dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 6 })));
+await p.waitForTimeout(1500); ok("the plasma launcher fired (ammo used)", (await p.evaluate(() => window.__ah.state.ammo.launcher.mag)) < 4);
 // the tune-up
 await p.evaluate(() => window.__ah.tune()); await p.evaluate(() => window.__ah.step(2));
 await p.waitForSelector("[data-tuneup]", { timeout: 4000 });
