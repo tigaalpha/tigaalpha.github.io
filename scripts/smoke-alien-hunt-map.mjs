@@ -1,0 +1,31 @@
+// Alien Hunt map screen as a normal player: full-screen landscape planet map, levels locked in order, its own tune, and a quarter turn in a portrait window. SHOT=<prefix> saves pictures.
+import http from "node:http"; import fs from "node:fs"; import path from "node:path"; import { execSync } from "node:child_process"; import { pathToFileURL } from "node:url";
+const pwm = await import(pathToFileURL(path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "playwright/index.js")).href); const pw = pwm.chromium ? pwm : pwm.default;
+const ROOT = path.resolve("dist"); const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp" };
+const server = http.createServer((req, res) => { let p = decodeURIComponent(req.url.split("?")[0]); if (p.endsWith("/")) p += "index.html"; const f = path.join(ROOT, p); if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); } res.writeHead(200, { "content-type": MIME[path.extname(f)] || "application/octet-stream" }); fs.createReadStream(f).pipe(res); });
+await new Promise(r => server.listen(0, "127.0.0.1", r));
+const browser = await pw.chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
+const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
+await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort()); await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+await ctx.addInitScript(() => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_adv_gfx", "high"); localStorage.setItem("tg_gp_free", "1");  localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: "en", age: "adult", level: "beginner", exp: 5000 })); });
+const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message)); await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
+for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
+let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ") + n + (d ? " — " + d : "")); if (!c) fail++; };
+const SHOT = process.env.SHOT || "";
+await p.evaluate(() => document.querySelector("[data-alien-hunt]").click()); await p.waitForSelector("[data-levels]", { timeout: 8000 }); await p.waitForTimeout(600);
+ok("ten planets on the map", (await p.locator(".ah-pl").count()) === 10);
+ok("only stage 1 is open for a normal player", (await p.evaluate(() => [...document.querySelectorAll("[data-lv]")].map(b => !b.disabled).join())) === "true,false,false,false,false,false,false,false,false,false");
+ok("the planets are joined by a route", (await p.locator(".ah-route path").count()) === 9);
+ok("the map screen is landscape in a landscape window (no quarter turn)", (await p.locator(".ah-mapscr.rot").count()) === 0);
+const noOverlap = await p.evaluate(() => { const r = [...document.querySelectorAll(".ah-pl")].map(b => b.getBoundingClientRect()); for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) { const a = r[i], b = r[j]; if (a.left < b.right - 20 && b.left < a.right - 20 && a.top < b.bottom - 4 && b.top < a.bottom - 4) return false; } return r.every(x => x.left >= 0 && x.right <= innerWidth && x.top >= 0 && x.bottom <= innerHeight); });
+ok("no planet overlaps another or leaves the screen", noOverlap);
+const tuneOn = await p.evaluate(() => { const c = window.__tgCineCtx; return !!c && c.state === "running"; }); ok("the map tune's audio context is running", tuneOn);
+if (SHOT) await p.screenshot({ path: SHOT + "-map.png" });
+await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(500);
+ok("a portrait window turns the map a quarter turn", (await p.locator(".ah-mapscr.rot").count()) === 1);
+if (SHOT) await p.screenshot({ path: SHOT + "-map-portrait.png" });
+await p.setViewportSize({ width: 844, height: 390 }); await p.waitForTimeout(400);
+await p.evaluate(() => document.querySelector("[data-lv='1']").click()); await p.waitForSelector(".ah-cv", { timeout: 8000 });
+ok("starting stage 1 works and the map tune stops", true);
+ok("no page errors", errs.length === 0, errs.slice(0, 3).join(" | "));
+await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

@@ -64,6 +64,7 @@ function drawMap(cv: HTMLCanvasElement | null, s: State, tint: string) {
   g.fillStyle = "#5affb0"; g.beginPath(); g.moveTo(px + fx * 11, pz + fz * 11); g.lineTo(px - fz * 6 - fx * 6, pz + fx * 6 - fz * 6); g.lineTo(px + fz * 6 - fx * 6, pz - fx * 6 - fz * 6); g.closePath(); g.fill();
 }
 
+const PLANET_POS: [number, number][] = [[7, 62], [16.5, 30], [26, 66], [35.5, 30], [45, 66], [54.5, 30], [64, 66], [73.5, 30], [83, 66], [92.5, 30]];
 export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void }) {
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const host = useRef<HTMLDivElement>(null), rdr = useRef<Render | null>(null), S = useRef<State>(newState(Date.now() & 0xffff, readTune()));
@@ -72,7 +73,8 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
   const [hud, setHud] = useState<any>({}), [high, setHigh] = useState(() => gfxHigh()), [powerNeed, setPowerNeed] = useState<number | null>(null), [res, setRes] = useState<any>(null);
   const [learned, setLearned] = useState<string[]>(() => learnedTopics(readDone())), [snd, setSnd] = useState(() => AU.soundOn()), tuneLog = useRef<{ topic: string; ok: boolean }[]>([]);
   const [camp, setCamp] = useState<Camp>(() => readCamp()), [curLv, setCurLv] = useState(0);
-  const unlockAll = adminTier >= 3 || (() => { try { return localStorage.getItem("tg_ah_unlockall") === "1"; } catch (e) { return false; } })();
+  const unlockAll = adminTier >= 3 || (() => { try { return localStorage.getItem("tg_test_hook") === "1" && localStorage.getItem("tg_ah_unlockall") === "1"; } catch (e) { return false; } })();   // the top admin inspects levels out of order; nobody else (the second door is for the bots)
+  const [portrait, setPortrait] = useState(() => typeof window !== "undefined" && window.innerHeight > window.innerWidth);
   const [hitM, setHitM] = useState(0), [hurt, setHurt] = useState(0), [banner, setBanner] = useState<string>(""), [tuneSecs, setTuneSecs] = useState<number>(readTune());
   const phaseRef = useRef(phase); phaseRef.current = phase; const pausedRef = useRef(paused); pausedRef.current = paused; const quizRef = useRef(quiz); quizRef.current = quiz;
   const mapRef = useRef<HTMLCanvasElement>(null);
@@ -92,9 +94,20 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
   };
   const begin = (level = 0) => {
     if (!enterGame(POWER_COST.adventure, adminTier)) { setPowerNeed(POWER_COST.adventure); return; }
-    if (playUi) playUi("click"); enterFs(); const lt = learnedTopics(readDone()); setLearned(lt); tuneLog.current = []; const cc = readCamp(); S.current = newState(Date.now() & 0xffff, lt.length ? readTune() : 0, level, level ? gunsAfter(unlockAll ? LEVELS.length : Math.min(cc.cleared, level - 1)) : []); setCurLv(level); if (level) { const L = LEVELS[level - 1]; setBanner(t("ด่าน ", "LEVEL ", "第") + level + (lang === "zh" ? "关" : "") + " · " + T3(lang, ...L.name) + " — " + T3(lang, ...L.race)); bannerT.current = 3.2; } AU.warm(); AU.setDucked(false); AU.musicStart(); AU.sfx("go"); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
+    if (playUi) playUi("click"); enterFs(); const lt = learnedTopics(readDone()); setLearned(lt); tuneLog.current = []; const cc = readCamp(); S.current = newState(Date.now() & 0xffff, lt.length ? readTune() : 0, level, level ? gunsAfter(unlockAll ? LEVELS.length : Math.min(cc.cleared, level - 1)) : []); setCurLv(level); if (level) { const L = LEVELS[level - 1]; setBanner(t("ด่าน ", "LEVEL ", "第") + level + (lang === "zh" ? "关" : "") + " · " + T3(lang, ...L.name) + " — " + T3(lang, ...L.race)); bannerT.current = 3.2; } AU.menuStop(); AU.warm(); AU.setDucked(false); AU.musicStart(); AU.sfx("go"); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
     try { logUsage("ah", `start:L${level}:${gfxHigh() ? "hd" : "sd"}:${S.current.tuneEvery}s`); } catch (e) {}
   };
+
+
+  /* the map screen: full screen + landscape, its own tune, and a quarter turn when the phone refuses to rotate */
+  useEffect(() => {
+    if (phase !== "ready") return undefined;
+    const onR = () => setPortrait(window.innerHeight > window.innerWidth); window.addEventListener("resize", onR); onR();
+    try { enterFs(); } catch (e) {}
+    const startMenu = () => { try { AU.warm(); AU.menuStart(); } catch (e) {} };
+    startMenu(); const first = () => { startMenu(); window.removeEventListener("pointerdown", first); }; window.addEventListener("pointerdown", first);
+    return () => { window.removeEventListener("resize", onR); window.removeEventListener("pointerdown", first); AU.menuStop(); };
+  }, [phase]);
 
   /* renderer + loop */
   useEffect(() => {
@@ -196,21 +209,23 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
       <style>{CSS}</style>
       {powerNeed != null && <PowerSheet lang={lang} need={powerNeed} onClose={() => setPowerNeed(null)} />}
       {phase === "ready" && (
-        <div className="ah-ready">
+        <div className={"ah-ready ah-mapscr" + (portrait ? " rot" : "")} data-levels-screen="1">
           <button className="ah-x" onClick={close} aria-label="close">✕</button>
-          <em>{t("ไฟต์ติ้งโหมด", "FIGHT MODE", "战斗模式")}</em><h1>ALIEN HUNT</h1>
-          <p>{t("ลุยทีละด่าน ต่อสู้กับเอเลี่ยนต่างเผ่า — ทุก 30 วินาทีที่สู้ เกมจะหยุดถามคำถามดนตรี ตอบถูกได้โล่และกระสุนเต็ม", "Fight through the levels against a different alien race on each one. Every 30 seconds of fighting the game freezes for a music question: answer right for a shield and a full reload.", "逐关战斗，每关对手是不同的外星种族。战斗每30秒暂停一次，回答音乐问题，答对获得护盾和满弹药。")}</p>
-          <div className="ah-lvgrid" data-levels="1">{LEVELS.map(L => { const open = unlockAll || L.id <= camp.cleared + 1, st = camp.stars[L.id - 1] | 0, c = "#" + L.tint.toString(16).padStart(6, "0"); return (
-            <button key={L.id} data-lv={L.id} disabled={!open} className={"ah-lv" + (open ? "" : " lock") + (L.id === camp.cleared + 1 ? " next" : "") + (L.boss ? " boss" : "")} style={{ ["--c" as any]: c }} onClick={() => begin(L.id)}>
-              <b>{open ? L.id : "🔒"}</b><span>{T3(lang, ...L.name)}</span><i>{T3(lang, ...L.race)}</i><u>{"★".repeat(st)}{"☆".repeat(3 - st)}</u>{L.boss ? <s>BOSS</s> : null}
-            </button>); })}</div>
-          <div className="ah-keys"><span>WASD / {t("จอยซ้าย", "left stick", "左摇杆")}</span><span>{t("เมาส์ / ลากขวา = เล็ง", "mouse / drag right = aim", "鼠标/右侧拖动=瞄准")}</span><span>{t("คลิก / ปุ่ม FIRE = ยิง", "click / FIRE = shoot", "点击/FIRE=射击")}</span><span>R {t("รีโหลด", "reload", "换弹")} · 1-8 {t("เปลี่ยนปืน", "swap gun", "换枪")}</span></div>
-          <div className="ah-opt"><b>{t("กราฟิก", "Graphics", "画质")}</b>
-            {[true, false].map(h => <button key={String(h)} className={high === h ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_gfx", h ? "high" : "standard"); } catch (e) {} setHigh(h); }} data-gfx={h ? "high" : "lite"}>{h ? "High" : "Lite"}</button>)}
+          <div className="ah-mhead"><h1>ALIEN HUNT</h1><span>{t("เลือกด่าน · เล่นเรียงจาก 1 ไป 10", "Choose a stage · play them in order, 1 to 10", "选择关卡 · 按 1 到 10 顺序通关")}</span></div>
+          <div className="ah-sky" data-levels="1">
+            <svg className="ah-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{LEVELS.slice(1).map((L, k) => { const a = PLANET_POS[k], b = PLANET_POS[k + 1], done = unlockAll || L.id <= camp.cleared + 1; return <path key={L.id} d={`M${a[0]} ${a[1]} Q${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2 + (k % 2 ? 9 : -9)} ${b[0]} ${b[1]}`} fill="none" vectorEffect="non-scaling-stroke" stroke={done ? "#7affb0" : "#ffffff44"} strokeWidth="2.5" strokeDasharray={done ? "0" : "5 6"} />; })}</svg>
+            {LEVELS.map(L => { const open = unlockAll || L.id <= camp.cleared + 1, st = camp.stars[L.id - 1] | 0, c = "#" + L.tint.toString(16).padStart(6, "0"), pos = PLANET_POS[L.id - 1], cleared = L.id <= camp.cleared, size = 40 + (L.id * 7) % 5 * 5 + (L.boss ? 10 : 0); return (
+              <button key={L.id} data-lv={L.id} disabled={!open} className={"ah-pl" + (open ? "" : " lock") + (L.id === camp.cleared + 1 ? " next" : "") + (cleared ? " clr" : "") + (L.boss ? " boss" : "")} style={{ left: pos[0] + "%", top: pos[1] + "%", ["--c" as any]: c, ["--s" as any]: size + "px" }} onClick={() => begin(L.id)}>
+                <i className="ah-ball">{open ? <b>{L.id}</b> : <b>🔒</b>}{cleared ? <em>✓</em> : null}</i>
+                <span>{T3(lang, ...L.name)}</span><u>{"★".repeat(st)}{"☆".repeat(3 - st)}</u>{L.boss ? <s>BOSS</s> : null}
+              </button>); })}
           </div>
-          <p className="ah-note" data-learned={learned.length}>{learned.length ? t("คำถามจะมาจากเรื่องที่เรียนไปแล้วเท่านั้น: ", "Questions come only from what you have learned: ", "问题只来自你学过的内容：") + learned.join(" · ") : t("ยังไม่มีเรื่องที่เรียนแล้ว จึงยังไม่มีคำถามในเกม — ไปเรียนที่ My Class แล้วกลับมา คำถามจะเปิดเอง", "Nothing learned yet, so no questions in the game — learn something in My Class and they switch on by themselves.", "还没有学过的内容，所以游戏里暂时没有问题——先去 My Class 学习，问题会自动开启。")}</p>
-          <div className="ah-opt"><b>{t("เสียง", "Sound", "声音")}</b>{[true, false].map(v => <button key={String(v)} className={snd === v ? "on" : ""} data-snd={v ? "on" : "off"} onClick={() => { setSnd(v); AU.setSoundOn(v); }}>{v ? "ON" : "OFF"}</button>)}</div>
-          <button className="ah-ghost" data-start="1" onClick={() => begin(0)}>{t("โหมดคลาสสิก 5 คลื่น", "Classic · 5 waves", "经典 · 5波")}</button>
+          <div className="ah-mfoot">
+            <div className="ah-opt"><b>{t("กราฟิก", "Graphics", "画质")}</b>{[true, false].map(h => <button key={String(h)} className={high === h ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_gfx", h ? "high" : "standard"); } catch (e) {} setHigh(h); }} data-gfx={h ? "high" : "lite"}>{h ? "High" : "Lite"}</button>)}</div>
+            <div className="ah-opt"><b>{t("เสียง", "Sound", "声音")}</b>{[true, false].map(v => <button key={String(v)} className={snd === v ? "on" : ""} data-snd={v ? "on" : "off"} onClick={() => { setSnd(v); AU.setSoundOn(v); }}>{v ? "ON" : "OFF"}</button>)}</div>
+            <p className="ah-note" data-learned={learned.length}>{learned.length ? t("คำถามมาจากเรื่องที่เรียนแล้ว: ", "Questions come from what you learned: ", "问题来自已学内容：") + learned.join(" · ") : t("ยังไม่มีเรื่องที่เรียนแล้ว จึงยังไม่มีคำถามในเกม — ไปเรียนที่ My Class", "Nothing learned yet, so no questions — learn in My Class first.", "还没有学过的内容，暂无问题——先去 My Class 学习。")}</p>
+            <button className="ah-ghost" data-start="1" onClick={() => begin(0)}>{t("โหมดคลาสสิก 5 คลื่น", "Classic · 5 waves", "经典 · 5波")}</button>
+          </div>
         </div>
       )}
       {pad && (
@@ -320,6 +335,18 @@ const CSS = `
 .ah-lv.next{box-shadow:0 0 0 2px var(--c),0 0 18px var(--c);animation:ahp .8s infinite alternate}.ah-lv.lock{opacity:.4}.ah-lv s{position:absolute;top:3px;right:5px;text-decoration:none;font-size:8px;font-weight:900;color:#ff6a6a;letter-spacing:.1em}
 .ah-boss{position:absolute;top:58px;left:50%;transform:translateX(-50%);width:min(360px,60vw);pointer-events:none;text-align:center}.ah-boss b{font-size:12px;letter-spacing:.14em;text-shadow:0 0 6px #000}.ah-boss div{height:10px;border-radius:99px;background:#0009;border:1px solid #ff6a8a88;overflow:hidden}.ah-boss i{display:block;height:100%;background:linear-gradient(90deg,#ff3a6a,#ff8a3a)}
 @media (max-width:640px){.ah-lvgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+.ah-mapscr{justify-content:flex-start;align-items:stretch;gap:4px;padding:8px 12px 6px;overflow:hidden;background:radial-gradient(90% 120% at 20% 10%,#2a1850 0,#0d0a1c 55%,#05030a 100%)}
+.ah-mapscr:before{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(1px 1px at 12% 20%,#fff9,transparent),radial-gradient(1px 1px at 37% 70%,#fff8,transparent),radial-gradient(1.5px 1.5px at 62% 15%,#fffc,transparent),radial-gradient(1px 1px at 81% 55%,#fff9,transparent),radial-gradient(1px 1px at 92% 85%,#fff8,transparent),radial-gradient(1px 1px at 25% 90%,#fff7,transparent),radial-gradient(1.5px 1.5px at 50% 45%,#fff8,transparent),radial-gradient(1px 1px at 70% 92%,#fff9,transparent)}
+.ah-mapscr.rot{inset:auto;top:0;left:100%;width:100vh;height:100vw;transform-origin:0 0;transform:rotate(90deg)}
+.ah-mhead{display:flex;align-items:baseline;gap:12px;padding-left:52px;min-height:38px}.ah-mhead h1{font-size:clamp(22px,5vh,34px);margin:0}.ah-mhead span{font-size:12px;opacity:.8}
+.ah-sky{position:relative;flex:1;min-height:0}.ah-route{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ah-pl{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:0;padding:0;width:78px;min-width:0}
+.ah-ball{position:relative;display:flex;align-items:center;justify-content:center;width:var(--s);height:var(--s);border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff9 0,var(--c) 38%,color-mix(in srgb,var(--c) 40%,#000) 100%);box-shadow:0 0 14px color-mix(in srgb,var(--c) 70%,transparent),inset -6px -8px 14px #0008}
+.ah-ball b{font-size:calc(var(--s) * .42);color:#0a0612;text-shadow:0 1px 0 #fff6}.ah-ball em{position:absolute;right:-4px;top:-4px;width:18px;height:18px;border-radius:50%;background:#2ad07a;color:#04210f;font-style:normal;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.ah-pl span{font-size:10.5px;font-weight:800;line-height:1.15;text-align:center;text-shadow:0 1px 3px #000}.ah-pl u{text-decoration:none;font-size:10px;color:#ffd34a}.ah-pl s{position:absolute;top:-8px;left:50%;transform:translateX(-50%);text-decoration:none;font-size:8px;font-weight:900;letter-spacing:.12em;color:#ff6a8a;background:#000a;border-radius:99px;padding:0 5px}
+.ah-pl.next .ah-ball{animation:ahp .8s infinite alternate;box-shadow:0 0 0 3px #fff8,0 0 22px var(--c)}.ah-pl.lock{opacity:.45}.ah-pl.lock .ah-ball{filter:grayscale(.7)}.ah-pl.boss .ah-ball{box-shadow:0 0 0 3px #ff4a7a99,0 0 16px var(--c),inset -6px -8px 14px #0008}
+.ah-mfoot{position:relative;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;min-height:42px}.ah-mfoot .ah-note{margin:0;max-width:340px;font-size:10.5px;line-height:1.25}.ah-mfoot .ah-ghost{min-height:34px;padding:0 14px;font-size:12px}.ah-mfoot .ah-opt button{min-width:44px;min-height:30px;padding:0 9px}
 .ah-play{position:absolute;inset:0}.ah-host{position:absolute;inset:0}.ah-cv{display:block;width:100%;height:100%}
 .ah-vig{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse at center,transparent 45%,#ff1a1acc 100%)}.ah-vig.on{opacity:1}
 .ah-cross{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}.ah-cross i{position:absolute;background:#fff;box-shadow:0 0 3px #000}

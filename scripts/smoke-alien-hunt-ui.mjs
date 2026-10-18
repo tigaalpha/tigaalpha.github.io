@@ -17,10 +17,10 @@ const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push
 await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
 for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
 ok("the lobby has the Alien Hunt button", (await p.locator("[data-alien-hunt]").count()) === 1);
+await p.evaluate(() => { const AC = window.AudioContext; window.__peak = 0; const orig = AudioContext.prototype.createDynamicsCompressor; AudioContext.prototype.createDynamicsCompressor = function () { const n = orig.call(this); const an = this.createAnalyser(); an.fftSize = 1024; n.connect(an); window.__an = an; return n; }; });
 await p.evaluate(() => document.querySelector("[data-alien-hunt]").click()); await p.waitForSelector("[data-ah=ready]", { timeout: 8000 });
 ok("ready screen shows", (await p.locator("[data-start]").count()) === 1);
 ok("ready screen says which learned topics the questions come from", (await p.evaluate(() => document.querySelector("[data-learned]").getAttribute("data-learned"))) === "4");
-await p.evaluate(() => { const AC = window.AudioContext; window.__peak = 0; const orig = AudioContext.prototype.createDynamicsCompressor; AudioContext.prototype.createDynamicsCompressor = function () { const n = orig.call(this); const an = this.createAnalyser(); an.fftSize = 1024; n.connect(an); window.__an = an; return n; }; });
 await p.evaluate(() => document.querySelector("[data-start]").click()); await p.waitForSelector(".ah-cv", { timeout: 8000 }); await p.waitForTimeout(1500);
 ok("a WebGL canvas is drawing", (await p.evaluate(() => { const c = document.querySelector(".ah-cv"); return !!c && c.width > 100; })));
 for (let i = 0; i < 25; i++) { await p.evaluate(() => window.__ah.step(20)); }
