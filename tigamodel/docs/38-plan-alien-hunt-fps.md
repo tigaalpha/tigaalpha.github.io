@@ -23,7 +23,7 @@ A short mission (3 to 6 minutes) in a first-person view: you move through an aba
 | Player count | **Solo first** (waves + missions). Co-op rooms (2 to 4) as a later phase; PvP deathmatch NOT in v1 | server authority is not built; shooters are cheat-prone; co-op over the existing Realtime room is tolerable (nothing of value paid) |
 | Content rating | Alien-bug violence only: no human enemies, no blood, bugs burst into green goo/sparks and fade; no gore, no real-gun brand names | children can be present (chat safety rule), Play Store rules |
 | Names and art | Everything original: our own weapon names, our own alien designs "in the style of" ID4 harvesters / MIB bugs / Star Wars creatures, no copied silhouettes, logos or sounds | legal strategy (07-legal-knowledge-strategy) |
-| Tie to the app | Game Power gates it; rewards are EXP, crystals and the daily-capped coins path (same as Adventure); optional "tune-up" music question between waves (ONE question, HANDS OFF gate, never mid-fight) | keeps the learning loop, owner's standing rule "one question at a time" |
+| Tie to the app | Game Power gates it; rewards are EXP, crystals and the daily-capped coins path (same as Adventure); **a music question every 15 seconds of active play (owner, 2026-10-18), easy to hard, on scales, intervals, triads, seventh chords and ninth chords** (section 4.9) | keeps the learning loop at the centre of the game; the question engine already exists |
 | Modes | exactly **High** (three.js full) and **Lite** (cheaper 3D, see 3) and both play the same game | owner's two-mode requirement from plan 37 carries over |
 | Selling | nothing sold; no currency purchase (hard rule) | owner rule |
 
@@ -78,6 +78,34 @@ Crosshair that expands with spread; hit markers (white) and kill markers (red); 
 ### 4.7 Game rules and economy
 Waves with brief intermissions (reload, pick upgrades from drops, optional music question); score from kills, headshots, streaks and speed; objective variants (survive N waves, defend a beacon, escort a supply truck, destroy the hive); difficulty Normal/Hard/Nightmare like Adventure. Rewards: EXP and crystals (never sold); coins only through the same daily-capped Adventure loot path (`ADV_COIN_DAY_CAP` style cap, new cap key); Game Power drains while playing (12 s per point as elsewhere) and ends the mission at 0 with the learn pop-up; a "pause" does not drain.
 
+### 4.9 Music questions every 15 seconds (owner, 2026-10-18: scales, intervals, triads, 7th chords, 9th chords; easy to hard; every 15 s, as before)
+
+**What exists and is reused (checked in the repo):** `quiz-quest.ts` (`nextQuestion`, `nextSpell`, `judgeKeys`, `recordAnswer`): questions come only from what the learner has studied (`tg_path_done`), climb from easy to hard (level up after 3 right in a row, down after 2 wrong), re-ask weak topics more often (`tg_adv_weak`), a wrong answer lights the right keys on a small piano with a one-line reason, no model call and no network; the Adventure `QuizCard` + `QuizGate` (the HANDS OFF card, button dead for 900 ms, bigger text/keys); the PvP knowledge break (`toQuiz` / `beginQuestion`) as the older pattern. Alien Hunt calls the same engine, so a learner's level and weak spots carry between PvP, Adventure and this mode.
+
+**Rhythm of play.**
+1. A 15 s clock counts ACTIVE play only (not intermissions, pause, results, nor the time a question is open). At 0 a soft bell and a dim of the screen edge announce the tune-up, the simulation freezes (aliens, projectiles, timers, Game Power drain all hold for the duration the question card is up; no damage can be taken while frozen), the HANDS OFF card appears, then ONE question.
+2. Right answer: a short reward chosen from a small table (full reload, +25 % shield, 10 s damage boost, streak bonus up to x3 for consecutive right answers) plus EXP; the combo/streak shows in the HUD as a small "TUNE x3" chip. Wrong answer: no punishment beyond missing the reward; the correct keys light one by one (low to high) with the reason, then play resumes after a 1.5 s countdown ring so nobody is hit the instant it unfreezes.
+3. One question at a time, never two in a row without 15 s of play between; the clock restarts only after the countdown ring ends. No time limit on the question (the sim is frozen); a "skip" costs the reward and resets the streak (a child can always move on).
+4. About 12 to 24 questions in a 3-6 minute mission: this is the owner's chosen frequency; a Settings option to slow it (30 s) is offered for young children and for a parent/teacher, default 15 s.
+5. Question time does not count toward the mission time star, accuracy or score pace (they use active-combat time).
+
+**Topic ladder, easy to hard (the engine's tiers, extended).**
+| Tier | Topic | Example forms |
+|---|---|---|
+| 1 | Notes and the major scale | name a key; tap the 3rd note of C major; which note is the 5th degree |
+| 2 | Scales and keys | tap all notes of G / F major; natural vs harmonic minor; which scale has one flat |
+| 3 | Intervals (ขั้นคู่) | name the interval C to E (major 3rd); tap a perfect 5th above D; major vs minor 3rd/6th/7th; tritone |
+| 4 | Triads | tap C major / A minor / B diminished / C augmented; name the triad from three keys; first and second inversion |
+| 5 | Seventh chords | tap Cmaj7 / G7 / Dm7 / Bm7b5 / Cdim7; which chord is the dominant 7th; spell by interval stack |
+| 6 | Ninth chords | tap Cmaj9 / C9 / Cm9 / Cadd9; "which note makes Cmaj7 into Cmaj9"; recognise a 9 chord in a progression (ii9-V9-Imaj9 later) |
+Rules kept from the engine: a question is asked only from topics the learner has finished in the Pathway; the level rises/falls with the streak; weak topics are re-asked more; a learner who has finished none gets Tier 1 only. **New work:** the engine has no ninth-chord family and no "build the interval / chord on the piano" question for tiers 5 and 6 yet; both are added (pure functions + tests like `smoke-extract-notes.mjs`: every generated answer verified against the chord/scale tables, no ambiguous spelling, sharps/flats follow the key as the app already does).
+
+**Interface in the shooter.** The question card reuses the Adventure look (dark glass, large type, a small keyboard for tap answers, three big buttons for choice answers) but sized for landscape phones (compact variant under 520 px height already exists). It opens over the frozen frame (the alien and gun stay visible, blurred), and a small "TUNE-UP" chip with the topic (e.g. "TRIADS · level 4") sits in the card corner. Mic is never used (the app's mic rules do not apply; on-screen piano only, as in Adventure).
+
+**Learning record.** Each answer goes through the existing `recordAnswer` and the act-log path so My Class, Daily Mentor and the Game Power refill rules see it (skill tags `scale`, `interval`, `triad`, `seventh`, `ninth`); EXP only, no coins for answers.
+
+**Both graphics modes:** the question card is DOM, so High and Lite are identical; the freeze is simulation-side, so a co-op room needs its own rule (see phase H: the host's clock raises the same question for everyone at once, the whole room is shielded for a fixed 8 s "ceasefire bubble", each pilot answers on their own device, late answers get half the reward).
+
 ### 4.8 Online co-op (later phase, NOT v1)
 Reuse the `advo:<CODE>` room pattern: each client simulates its own enemies from a shared seed, peers send position/aim/fire, damage on numbered enemies is reported (same trust model as Adventure Online: no server authority, nothing valuable paid). PvP deathmatch is deliberately out until server authority exists (`36-plan-adventure-server-authority.md`).
 
@@ -92,11 +120,12 @@ Frame 16 ms (High) / 33 ms (Lite). Draw calls <= 120 (High) / 70 (Lite); triangl
 | B. Weapons | pistol + rifle + shotgun with viewmodel, recoil, reload, ADS, hit markers, sounds, HUD ammo | 4 days |
 | C. Aliens v1 | Skitter, Drone Mantis, Spitter with procedural meshes, animation, AI, hit reactions, death goo, kill feed | 5 days |
 | D. Level 1 + waves | colony street, 5 waves, pickups, extraction, score, stars, rewards | 4 days |
+| E2. Tune-up system (15 s music questions) | clock, freeze/unfreeze, HANDS OFF + question card reuse, ninth-chord family and interval/chord-building questions in `quiz-quest.ts` with tests, reward table, settings option | 4 days |
 | E. Boss + more weapons | Walker Harvester, grenades, SMG, marksman, launcher, upgrades screen | 5 days |
 | F. Levels 2 to 4 | hangar, desert outpost, hive, Burrower/Moth/Queen, difficulty tiers | 7 days |
 | G. Polish | post FX, decals, audio mix, accessibility (reduced motion, colour-blind markers, aim assist level), settings, tutorial in the first mission | 4 days |
 | H. Co-op | rooms for 2 to 4, shared seed, ghosts, revive | 5 days |
-About 5 to 6 weeks to H; a playable slice (A to D) in about 2.5 weeks.
+About 6 to 7 weeks to H; a playable slice (A to D) in about 2.5 weeks, and the tune-up system (E2) can be pulled forward to right after D if the owner wants the learning loop visible early.
 
 ## 7. Risks and honest limits
 - Touch shooters are hard to make feel good: aim assist, a dead zone, and sensitivity options are in scope, but only a real phone tells; plan for owner feedback rounds after B.
@@ -112,7 +141,7 @@ Pure engine tests with no browser (movement/collision, weapon damage tables, AI 
 ## 9. Questions for the owner before building
 1. Solo and waves first (recommended), co-op later, no PvP deathmatch yet: OK?
 2. Gore level: bug goo only (recommended) or none at all for under-13 accounts?
-3. Is the optional "tune-up" music question between waves wanted, or keep the shooter pure and tie learning only through Game Power?
+3. DECIDED (2026-10-18): a music question every 15 s of active play on scales, intervals, triads, 7th and 9th chords, easy to hard. Still to confirm: (a) the simulation freezes while the question is open (recommended) versus a timed non-freezing card; (b) a slower 30 s option for young children; (c) what happens if the learner has not reached 9th chords in the Pathway: skip that tier (recommended) or teach it first with a short lesson card.
 4. Which alien flavour first: Harvester walkers (ID4), small swarm bugs (MIB), or a mix (recommended: swarm + mantis first, Walker as the first boss)?
 5. Does the player's own robot appear (first-person hands/weapon use its skin colours) and can pets help (a pet drone)?
 6. Desktop mouse/keyboard support as well as phone touch (recommended for testing and for tablets)?
