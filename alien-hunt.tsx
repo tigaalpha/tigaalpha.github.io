@@ -18,7 +18,7 @@ const PC_OF: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 1
 const pcOfName = (n: string) => { const m = /^([A-G])([#b♯♭]?)/.exec(n); if (!m) return -1; return (PC_OF[m[1]] + (m[2] === "#" || m[2] === "♯" ? 1 : m[2] ? -1 : 0) + 12) % 12; };
 const WHITE = [0, 2, 4, 5, 7, 9, 11], BLACK: [number, number][] = [[1, 0.65], [3, 1.65], [6, 3.65], [8, 4.65], [10, 5.65]];
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(Math.max(0, (parseInt(localStorage.getItem("tg_adv_crystals") || "0", 10) || 0) + n))); } catch (e) {} };
-const readTune = (): number => { try { return localStorage.getItem("tg_ah_tune") === "30" ? 30 : 15; } catch (e) { return 15; } };
+const readTune = (): number => { try { return localStorage.getItem("tg_ah_tune") === "15" ? 15 : 30; } catch (e) { return 30; } };   // owner 2026-10-18: every 30 s by default, 15 s is too often
 
 type Quiz = { q: Question; phase: "gate" | "ask" | "done"; ok: boolean | null; sel: number[]; armed: boolean; lit: number };
 
@@ -153,10 +153,10 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
         <div className="ah-ready">
           <button className="ah-x" onClick={close} aria-label="close">✕</button>
           <em>{t("ไฟต์ติ้งโหมด", "FIGHT MODE", "战斗模式")}</em><h1>ALIEN HUNT</h1>
-          <p>{t("เอเลี่ยนแมลงยักษ์บุกอาณานิคม กำจัดให้ครบ 5 คลื่น — ทุก 15 วินาทีที่สู้ เกมจะหยุดถามคำถามดนตรี ตอบถูกได้โล่และกระสุนเต็ม", "Giant insect aliens are overrunning the colony. Beat 5 waves. Every 15 seconds of fighting the game freezes for a music question: answer right for a shield and a full reload.", "巨型昆虫外星人入侵殖民地。击退5波。战斗每15秒暂停一次，回答音乐问题，答对获得护盾和满弹药。")}</p>
+          <p>{t("เอเลี่ยนแมลงยักษ์บุกอาณานิคม กำจัดให้ครบ 5 คลื่น — ทุก 30 วินาทีที่สู้ เกมจะหยุดถามคำถามดนตรี ตอบถูกได้โล่และกระสุนเต็ม", "Giant insect aliens are overrunning the colony. Beat 5 waves. Every 30 seconds of fighting the game freezes for a music question: answer right for a shield and a full reload.", "巨型昆虫外星人入侵殖民地。击退5波。战斗每30秒暂停一次，回答音乐问题，答对获得护盾和满弹药。")}</p>
           <div className="ah-keys"><span>WASD / {t("จอยซ้าย", "left stick", "左摇杆")}</span><span>{t("เมาส์ / ลากขวา = เล็ง", "mouse / drag right = aim", "鼠标/右侧拖动=瞄准")}</span><span>{t("คลิก / ปุ่ม FIRE = ยิง", "click / FIRE = shoot", "点击/FIRE=射击")}</span><span>R {t("รีโหลด", "reload", "换弹")} · 1-8 {t("เปลี่ยนปืน", "swap gun", "换枪")}</span></div>
           <div className="ah-opt"><b>{t("ถามทุก", "Question every", "每隔")}</b>
-            {[15, 30].map(n => <button key={n} className={tuneSecs === n ? "on" : ""} onClick={() => setTune(n)} data-tune={n}>{n}s</button>)}
+            {[30, 15].map(n => <button key={n} className={tuneSecs === n ? "on" : ""} onClick={() => setTune(n)} data-tune={n}>{n}s</button>)}
             <b style={{ marginLeft: 12 }}>{t("กราฟิก", "Graphics", "画质")}</b>
             {[true, false].map(h => <button key={String(h)} className={high === h ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_gfx", h ? "high" : "standard"); } catch (e) {} setHigh(h); }} data-gfx={h ? "high" : "lite"}>{h ? "High" : "Lite"}</button>)}
           </div>
