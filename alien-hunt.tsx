@@ -1,7 +1,7 @@
 /* Alien Hunt (plan 38): a first-person shooter against human-sized insect aliens, with a music question every 15 s of fighting.
    The shell: ready screen, input (touch sticks, mouse + keys), HUD, the tune-up question card, pause, results, Game Power. The rules are in ah-engine.ts, the picture in ah-render.ts. */
 import { useEffect, useRef, useState } from "react";
-import { newState, step, noInput, tuneResult, stats, setWeapon, WEAPONS, ALIENS, CLASSIC_WAVES, WORDER, type State, type Input, type WeaponId } from "./ah-engine";
+import { ARENA, newState, step, noInput, tuneResult, stats, setWeapon, WEAPONS, ALIENS, CLASSIC_WAVES, WORDER, type State, type Input, type WeaponId } from "./ah-engine";
 import { LEVELS, gunsAfter } from "./ah-levels";
 import { createRender, type Render } from "./ah-render";
 import { nextQuestion, judgeKeys, recordAnswer, readLadder, learnedTopics, readDone, type Question } from "./quiz-quest";
@@ -51,6 +51,19 @@ function QStaff({ notes, hot }: { notes: { pos: number; acc: number }[]; hot?: b
 const WHITE2 = [0, 2, 4, 5, 7, 9, 11], BLACK2: [number, number][] = [[1, 0], [3, 1], [6, 3], [8, 4], [10, 5]];
 type Quiz = { q: Question; phase: "gate" | "ask" | "done"; ok: boolean | null; sel: number[]; selK?: number[]; armed: boolean; lit: number };
 
+/** the minimap: the arena seen from above, north up, with the player marked by an arrow and a "YOU" ring */
+function drawMap(cv: HTMLCanvasElement | null, s: State, tint: string) {
+  if (!cv) return; const g = cv.getContext("2d"); if (!g) return; const W = cv.width, k = W / (ARENA * 2 + 2), X = (x: number) => W / 2 + x * k, Z = (z: number) => W / 2 + z * k;
+  g.clearRect(0, 0, W, W); g.fillStyle = "rgba(6,8,14,.72)"; g.fillRect(0, 0, W, W); g.strokeStyle = tint; g.lineWidth = 3; g.strokeRect(1.5, 1.5, W - 3, W - 3);
+  g.fillStyle = "rgba(255,255,255,.28)"; for (const b of s.boxes) g.fillRect(X(b.x - b.w / 2), Z(b.z - b.d / 2), b.w * k, b.d * k);
+  for (const h of s.hz) { const on = s.hzClock % h.per < h.on; g.fillStyle = on ? "rgba(255,90,40,.65)" : "rgba(255,160,80,.2)"; g.beginPath(); g.arc(X(h.x), Z(h.z), h.r * k, 0, 7); g.fill(); }
+  for (const q of s.pk) { g.fillStyle = "#ffd34a"; g.fillRect(X(q.x) - 3, Z(q.z) - 3, 6, 6); }
+  for (const e of s.enemies) { if (e.dead !== 0) continue; const boss = !!ALIENS[e.kind].boss; g.fillStyle = boss ? "#ff3a8a" : "#ff5a3a"; g.beginPath(); g.arc(X(e.x), Z(e.z), boss ? 7 : 3.6, 0, 7); g.fill(); }
+  const px = X(s.p.x), pz = Z(s.p.z), fx = -Math.sin(s.p.yaw), fz = -Math.cos(s.p.yaw);
+  g.strokeStyle = "#5affb0"; g.lineWidth = 3; g.beginPath(); g.arc(px, pz, 13, 0, 7); g.stroke();
+  g.fillStyle = "#5affb0"; g.beginPath(); g.moveTo(px + fx * 11, pz + fz * 11); g.lineTo(px - fz * 6 - fx * 6, pz + fx * 6 - fz * 6); g.lineTo(px + fz * 6 - fx * 6, pz - fx * 6 - fz * 6); g.closePath(); g.fill();
+}
+
 export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void }) {
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const host = useRef<HTMLDivElement>(null), rdr = useRef<Render | null>(null), S = useRef<State>(newState(Date.now() & 0xffff, readTune()));
@@ -62,6 +75,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
   const unlockAll = adminTier >= 3 || (() => { try { return localStorage.getItem("tg_ah_unlockall") === "1"; } catch (e) { return false; } })();
   const [hitM, setHitM] = useState(0), [hurt, setHurt] = useState(0), [banner, setBanner] = useState<string>(""), [tuneSecs, setTuneSecs] = useState<number>(readTune());
   const phaseRef = useRef(phase); phaseRef.current = phase; const pausedRef = useRef(paused); pausedRef.current = paused; const quizRef = useRef(quiz); quizRef.current = quiz;
+  const mapRef = useRef<HTMLCanvasElement>(null);
   const hitT = useRef(0), hurtT = useRef(0), bannerT = useRef(0);
 
   usePlayDrain(phase === "play" && !paused && !quiz, adminTier, () => { finish(false, true); setPowerNeed(1); });
@@ -109,7 +123,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
       if (bannerT.current > 0) { bannerT.current -= dt; if (bannerT.current <= 0) setBanner(""); }
       r.draw(s, dt);
       if (high && !pausedRef.current && !s.frozen) { if (dt > 0.031) slow++; else slow = Math.max(0, slow - 1); if (slow > 90) { slow = 0; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} setHigh(false); r.setHigh(false); try { logUsage("ah", "auto-lite"); } catch (e) {} } }
-      hudT += dt; if (hudT > 0.1) { hudT = 0; { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: WEAPONS[w].name, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, nw: s.waves.length, boss: (() => { const b = s.enemies.find(e => e.dead === 0 && ALIENS[e.kind].boss); return b ? { n: ALIENS[b.kind].name, p: Math.max(0, b.hp / b.max) } : null; })(), left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
+      hudT += dt; if (hudT > 0.1) { hudT = 0; drawMap(mapRef.current, s, s.lv ? "#" + LEVELS[s.lv - 1].tint.toString(16).padStart(6, "0") : "#ff8a3a"); { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: WEAPONS[w].name, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, nw: s.waves.length, boss: (() => { const b = s.enemies.find(e => e.dead === 0 && ALIENS[e.kind].boss); return b ? { n: ALIENS[b.kind].name, p: Math.max(0, b.hp / b.max) } : null; })(), left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
     };
     raf = requestAnimationFrame(loop);
     (window as any).__ah = { s: S.current, get state() { return S.current; }, step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(S.current, dt, inp.current); }, info: () => r.info(), killAll: () => { for (const e of S.current.enemies) e.hp = 0, e.dead = 0.5; }, tune: () => { S.current.tuneT = S.current.tuneEvery; }, setHigh: (h: boolean) => { setHigh(h); r.setHigh(h); }, creature: (k: string, m: string) => AU.creature(k, m as any, 3), quizQ: () => quizRef.current && quizRef.current.q, draw: () => r.draw(S.current, 0.016) };
@@ -215,13 +229,14 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <div className="ah-ammo"><small>{hud.w}</small><b>{hud.reload ? "…" : hud.mag}</b><span>/ {hud.res}</span></div>
           {banner && <div className="ah-banner">{banner}</div>}
           {hud.boss && <div className="ah-boss" data-boss="1"><b>{hud.boss.n}</b><div><i style={{ width: Math.round(hud.boss.p * 100) + "%" }} /></div></div>}
+          <button className={"ah-auto" + (hud.au ? " on" : "")} aria-label="auto walk" data-auto="1" onPointerDown={e => { e.stopPropagation(); S.current.auto = !S.current.auto; }}>AUTO</button>
+          <canvas className="ah-map" data-map="1" width={240} height={240} ref={mapRef} />
           <div className="ah-stick" style={{ transform: `translate(${(hud.jx || 0) * 22}px, ${-(hud.jz || 0) * 22}px)` }} />
           <div className="ah-btns">
             <button className="fire" aria-label="fire" data-fire="1" {...hold(v => { inp.current.fire = v; })}>FIRE</button>
             <button aria-label="reload" {...hold(v => { if (v) inp.current.reload = true; })}>R</button>
             <button aria-label="swap" {...hold(v => { if (v) inp.current.swap = 1; })}>⇄</button>
             <button aria-label="jump" data-jump="1" {...hold(v => { keys.current[" "] = v; })}>⤴</button>
-            <button aria-label="auto walk" data-auto="1" className={hud.au ? "on" : ""} onPointerDown={e => { e.stopPropagation(); S.current.auto = !S.current.auto; }}>AUTO</button>
             <button aria-label="slide" data-slide="1" className={hud.sl === false ? "cool" : ""} {...hold(v => { keys.current.c = v; })}>⇊</button>
           </div>
         </div>
@@ -321,6 +336,8 @@ const CSS = `
 .ah-chips{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:4px;flex-wrap:nowrap;justify-content:center;max-width:50vw}.ah-chips button{min-height:30px;min-width:30px;padding:0 8px;justify-content:center;border-radius:999px;border:1px solid #ffffff44;background:#000a;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px}.ah-chips button i{display:none;font-style:normal;font-weight:600;font-size:10px;opacity:.85}.ah-chips button.on i{display:inline}.ah-chips button.on{border-color:#58e8ff;background:#0a3a4aaa;box-shadow:0 0 10px #58e8ff66}.ah-btns .cool{opacity:.4}.ah-btns .on{background:#2fae6acc;border-color:#6af0a6;box-shadow:0 0 12px #6af0a6aa}.ah-btns button[data-auto]{font-size:11px}
 .ah-ammo{position:absolute;right:190px;bottom:14px;text-align:right;pointer-events:none;text-shadow:0 2px 6px #000}.ah-ammo small{display:block;font-size:11px;opacity:.8}.ah-ammo b{font-size:34px}.ah-ammo span{font-size:15px;opacity:.8}
 .ah-banner{position:absolute;left:0;right:0;top:14%;text-align:center;font-size:clamp(16px,3.6vw,30px);font-weight:900;letter-spacing:.14em;color:#ffb06a;text-shadow:0 0 22px #ff6a3a;pointer-events:none}
+.ah-auto{position:absolute;left:max(8px,calc(11% - 62px));bottom:calc(20% + 38px);width:52px;height:52px;border-radius:50%;border:2px solid #ffffff66;background:#0009;font-weight:900;font-size:12px}.ah-auto.on{background:#2ad07acc;border-color:#7affb0;color:#04210f}
+.ah-map{position:absolute;right:10px;top:58px;width:116px;height:116px;border-radius:10px;pointer-events:none}
 .ah-stick{position:absolute;left:11%;bottom:20%;width:56px;height:56px;margin:-28px;border-radius:50%;background:#ffffff22;border:2px solid #ffffff55;pointer-events:none}
 .ah-btns{position:absolute;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(3,52px);grid-auto-rows:52px;gap:8px;direction:rtl}.ah-btns button{width:52px;height:52px;border-radius:50%;border:2px solid #ffffff66;background:#0009;font-weight:900;font-size:13px;direction:ltr}
 .ah-btns .fire{grid-column:span 1;width:64px;height:64px;margin:-6px;border-color:#ff6a3a;background:#ff4a2a99}
