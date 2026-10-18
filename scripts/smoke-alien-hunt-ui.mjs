@@ -37,6 +37,11 @@ await p.waitForTimeout(1500);
 const lvl = async () => p.evaluate(() => { const an = window.__an; if (!an) return -1; const d = new Float32Array(an.fftSize); an.getFloatTimeDomainData(d); return Math.max(...d.map(Math.abs)); });
 let pk = 0; for (let i = 0; i < 20; i++) { pk = Math.max(pk, await lvl()); await p.waitForTimeout(100); }
 ok("the battle tune is audible and not clipping (peak " + pk.toFixed(3) + ")", pk > 0.02 && pk < 1.0);
+ok("a slide button and the weapon chips are on screen", (await p.locator("[data-slide]").count()) === 1 && (await p.locator("[data-wpn]").count()) >= 2);
+{ const z0 = await p.evaluate(() => window.__ah.state.p.slideCd); await p.evaluate(() => { document.querySelector("[data-slide]").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 7 })); }); await p.waitForTimeout(300); await p.evaluate(() => document.querySelector("[data-slide]").dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7 })));
+  ok("the SLIDE button slides", (await p.evaluate(() => window.__ah.state.p.slideCd)) > 0.3); }
+await p.evaluate(() => { const s = window.__ah.state; s.pk.push({ id: 777, x: s.p.x, z: s.p.z, w: "rail" }); }); await p.waitForTimeout(400);
+ok("picking up a gun adds a chip and equips it", (await p.locator("[data-wpn=rail]").count()) === 1 && (await p.evaluate(() => window.__ah.state.weapon)) === "rail");
 // launcher
 await p.evaluate(() => { const s = window.__ah.state; s.weapon = "launcher"; s.cd = 0; s.p.inv = 5; });
 const b0 = await p.evaluate(() => (window.__boom = 0, window.__ah.state.rk.length));
