@@ -4065,6 +4065,7 @@ ${UX2_CSS}
 .gpbar.low{border-color:rgba(255,140,90,.8);box-shadow:0 10px 24px -12px #d9582b,0 0 18px -6px #ff7a45}
 .gpbar.low .gpbar-segs b.on{background:linear-gradient(180deg,#ffd08a,#ff7a45);box-shadow:0 0 6px rgba(255,140,80,.8)}
 @media (prefers-reduced-motion:no-preference){.gpbar.low .gpbar-ic{animation:gpPulse 1.6s ease-in-out infinite}}
+.gpbar-flow{float:right;margin:0 0 4px 8px;width:176px}.gpbar-flow .gpbar{position:static;width:100%}
 @keyframes gpPulse{50%{box-shadow:0 0 20px #ff7a45;transform:scale(1.08)}}
 .gpsheet-bg{position:fixed;inset:0;z-index:99990;background:rgba(3,6,14,.66);display:flex;align-items:center;justify-content:center;padding:16px}
 .gpsheet{position:relative;width:min(380px,100%);max-height:92vh;overflow:auto;border-radius:24px;padding:16px 16px 14px;background:linear-gradient(160deg,#0a1a3a,#22104f);border:1.5px solid rgba(94,226,255,.5);color:#eaf6ff;box-shadow:0 24px 60px -10px #000,0 0 30px -6px #38d6ff}
@@ -4097,3 +4098,4 @@ export function useInjectCSS() {
   }, []);
   return ready;
 }
+

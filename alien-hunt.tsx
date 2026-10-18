@@ -241,7 +241,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
             <button className="ah-gear" aria-label="pause" data-pause-btn="1" onClick={() => setPaused(true)}>⚙</button>
           </div>
           <div className="ah-bars"><div className="ah-hp"><i style={{ width: (hud.hp ?? 100) + "%" }} />{(hud.sh || 0) > 0 && <u style={{ width: Math.min(50, hud.sh) * 2 + "%" }} />}</div><span>❤ {hud.hp ?? 100}{(hud.sh || 0) > 0 ? " 🛡 " + hud.sh : ""}{hud.boost ? " ⚡" : ""}</span></div>
-          <div className="ah-chips" data-chips="1">{(hud.own || "pistol,rifle").split(",").map((w: string) => <button key={w} data-wpn={w} className={hud.cur === w ? "on" : ""} onPointerDown={e => { e.stopPropagation(); setWeapon(S.current, w as WeaponId); }}>{(WORDER.indexOf(w as WeaponId) + 1)}<i>{WEAPONS[w as WeaponId].name}</i></button>)}</div>
+          <div className="ah-chips" data-chips="1">{(hud.own || "pistol").split(",").map((w: string) => <button key={w} data-wpn={w} className={hud.cur === w ? "on" : ""} onPointerDown={e => { e.stopPropagation(); setWeapon(S.current, w as WeaponId); }}>{(WORDER.indexOf(w as WeaponId) + 1)}<i>{WEAPONS[w as WeaponId].name}</i></button>)}</div>
           <div className="ah-ammo"><small>{hud.w}</small><b>{hud.reload ? "…" : hud.mag}</b><span>/ {hud.res}</span></div>
           {banner && <div className="ah-banner">{banner}</div>}
           {hud.boss && <div className="ah-boss" data-boss="1"><b>{hud.boss.n}</b><div><i style={{ width: Math.round(hud.boss.p * 100) + "%" }} /></div></div>}

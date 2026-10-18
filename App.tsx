@@ -41,7 +41,7 @@ import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validat
    (skillScoresOf = กติกาเดิมของ computeSkillScores · weightedStrugglesOf = กติกา
    เดิมของ use-autoteach · learnerSignal = ตัวตัดสินใจรวม · repeatWindowOpen = กันยิงคำเดิมซ้ำ) */
 import { foundationPath, dailyPatch } from "./class-teacher";
-import { PowerToast } from "./game-power-ui";
+import { PowerToast, GamePowerBar, PowerSheet } from "./game-power-ui";
 import { accMult } from "./game-power";
 import { learnerSignal, skillScoresOf, skillsOfActivity, weakestSkills, repeatWindowOpen, freeQuotaState, atipDelivery, SKILL_FEATURE } from "./learner-signal";
 /* teach-cards (รู้ไว้ใช่ว่า) loads LAZY (plan v3 1.5): pure data + localStorage
@@ -1203,7 +1203,12 @@ function buildTodaySteps(T, lang, exp, homework, h) {
       go: () => onSong(nextAction.song),
     }] : nextStage ? [{ id: "new", icon: "✨", tag: T.learn, label: tr(nextStage.title, lang) + (nextKey ? " · " + nextKey.name : ""), isDone: doneLog.some(e => (e.k === "lesson" || e.k === "read-chapter") && e.id.split("/")[0] === nextStage.id), go: () => nextStage.content ? onRead(nextStage) : onLearn(nextStage, nextKey, nextStage.types ? nextStage.types[0] : null) }] : []),
     { id: "song", icon: "🚀", tag: T.song, label: tr(song, lang), isDone: doneLog.some(e => e.k === "game" && e.id === song.id), go: () => onSong(song) },
-  ];
+  ].map((st: any) => {
+    // Owner rule (2026-10-18): going into a plan item is enough for today, right or wrong; the feature still shows its own result and pays as before.
+    const key = "tg_plan_in_" + dayKey(), entered = (() => { try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch (e) { return []; } })();
+    const go = st.go;
+    return { ...st, isDone: st.isDone || entered.includes(st.id), go: go ? () => { try { const a = JSON.parse(localStorage.getItem(key) || "[]"); if (!a.includes(st.id)) { a.push(st.id); localStorage.setItem(key, JSON.stringify(a)); } } catch (e) {} go(); } : go };
+  });
 }
 
 /* Step tags for the daily plan — module scope (plan 26 · P1) so the Teacher
@@ -1217,6 +1222,7 @@ const TODAY_TAGS = {
 const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate, onReviewStage }) {
   const T = TODAY_TAGS[lang];
   const [, setTick] = useState(0);
+  const [gpSheet, setGpSheet] = useState(false);
   const bump = () => setTick(t => t + 1);
   const steps = buildTodaySteps(T, lang, exp, homework, { onSong, onReviewStage, onLearn, onRead, onNavigate });
   const nDone = steps.filter(s => s.isDone).length;
@@ -1321,6 +1327,7 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
   const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
   const TT = TODAY_TAGS[lang];
   const [, setTick] = useState(0);
+  const [gpSheet, setGpSheet] = useState(false);
   const bump = () => setTick(t => t + 1);
   const steps = buildTodaySteps(TT, lang, exp, homework, { onSong, onReviewStage, onLearn, onRead, onNavigate });
   const nDone = steps.filter(s => s.isDone).length, allDone = (steps.length > 0 && nDone === steps.length) || (() => { try { return localStorage.getItem("tg_test_hook") === "1" && localStorage.getItem("tg_test_myclass_done") === "1"; } catch (e) { return false; } })(), pct = steps.length ? Math.round((nDone / steps.length) * 100) : 0;
@@ -1359,6 +1366,8 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
         </div>
       ) : (
         <div className="v12card" data-focus="1" style={{ padding: "11px 13px", marginBottom: 8, borderColor: "#d9775755", background: "linear-gradient(135deg,rgba(217,119,87,.12),rgba(217,119,87,.03))" }}>
+          <div className="gpbar-flow" data-gp-myclass="1"><GamePowerBar lang={lang} onOpen={() => setGpSheet(true)} /></div>
+          {gpSheet && <PowerSheet lang={lang} onClose={() => setGpSheet(false)} />}
           {act ? (<>
             <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>{T("วันนี้ควรฝึก", "Today's focus", "今日重点")} <span data-by-ai="1" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 10px", borderRadius: 999, background: "linear-gradient(180deg,#7f52ea,#6a3dd8)", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: .4, boxShadow: "0 2px 8px rgba(106,61,216,.45), inset 0 1px 0 rgba(255,255,255,.28)" }}>✨ TIGA AI</span></div>
             <div style={{ fontSize: 16.5, fontWeight: 700, color: "var(--text)", lineHeight: 1.3 }}>{title}</div>

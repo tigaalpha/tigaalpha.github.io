@@ -12,7 +12,7 @@ export type Ev = { k: "shot" | "hit" | "kill" | "head" | "hurt" | "reload" | "em
 export const ARENA = 34;   // half size
 export const EYE = 1.65;
 export const WEAPONS: Record<WeaponId, { name: string; dmg: number; rate: number; mag: number; reserve: number; spread: number; pellets: number; auto: boolean; reload: number; range: number; kick: number; col: number }> = {
-  pistol: { name: "Pulse sidearm", dmg: 22, rate: 0.26, mag: 12, reserve: 9999, spread: 0.004, pellets: 1, auto: false, reload: 1.1, range: 80, kick: 0.012, col: 0x58e8ff },
+  pistol: { name: "Pulse sidearm", dmg: 16, rate: 0.26, mag: 12, reserve: 9999, spread: 0.004, pellets: 1, auto: false, reload: 1.1, range: 80, kick: 0.012, col: 0x58e8ff },
   rifle: { name: "Plasma rifle", dmg: 12, rate: 0.085, mag: 30, reserve: 150, spread: 0.012, pellets: 1, auto: true, reload: 1.6, range: 90, kick: 0.006, col: 0x7affb0 },
   shotgun: { name: "Ion scatter", dmg: 10, rate: 0.85, mag: 6, reserve: 36, spread: 0.07, pellets: 8, auto: false, reload: 2.2, range: 26, kick: 0.05, col: 0xc77aff },
   launcher: { name: "Plasma launcher", dmg: 0, rate: 1.1, mag: 4, reserve: 8, spread: 0, pellets: 0, auto: false, reload: 2.6, range: 60, kick: 0.07, col: 0x66ffb0 },
@@ -80,13 +80,13 @@ export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponI
   return {
     t: 0, active: 0, rng: seed, seed, auto: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
     p: { x: 0, z: 22, yaw: Math.PI, pitch: 0, y: 0, vy: 0, hp: 100, shield: 0, inv: 0, sprint: false, slide: 0, slideCd: 0, sdx: 0, sdz: 0 },
-    weapon: "rifle", ammo, cd: 0, reload: 0, recoil: 0,
-    enemies: [], acid: [], rk: [], boxes: L ? L.boxes : LEVEL_BOXES, pk: [], owned: Object.fromEntries(WORDER.map(w => [w, w === "pistol" || w === "rifle" || startGuns.includes(w)])) as Record<WeaponId, boolean>,
+    weapon: "pistol", ammo, cd: 0, reload: 0, recoil: 0,
+    enemies: [], acid: [], rk: [], boxes: L ? L.boxes : LEVEL_BOXES, pk: [], owned: Object.fromEntries(WORDER.map(w => [w, w === "pistol" || startGuns.includes(w)])) as Record<WeaponId, boolean>,
     wave: 0, waveLeft: 0, between: 3, spawnQ: [], spawnT: 0, done: false, won: false,
     kills: 0, heads: 0, shots: 0, hitsLanded: 0, score: 0, streak: 0, best: 0,
     tuneEvery, tuneT: 0, frozen: false, grace: 0, tunes: 0, tuneRight: 0, tuneStreak: 0, boost: 0,
     nextId: 1, ev: [],
-    lv: L ? L.id : 0, waves: L ? L.waves : CLASSIC_WAVES, hpk: L ? L.hpk : 1, gunPool: L ? (L.guns.length ? L.guns : WORDER.filter(w => w !== "pistol" && w !== "rifle")) : WORDER.slice(), hz: L ? L.hazards : [], hzClock: 0, hzT: 0,
+    lv: L ? L.id : 0, waves: L ? L.waves : CLASSIC_WAVES, hpk: L ? L.hpk : 1, gunPool: L ? (L.guns.length ? L.guns : WORDER.filter(w => w !== "pistol")) : WORDER.slice(), hz: L ? L.hazards : [], hzClock: 0, hzT: 0,
   };
 }
 const rnd = (s: State) => { const r = mulberry(s.rng); const v = r(); s.rng = (s.rng * 1664525 + 1013904223) | 0; return v; };
@@ -177,7 +177,7 @@ function hurtAlien(s: State, e: Enemy, dmg: number, head: boolean, hy?: number) 
     e.dead = 0.9; s.kills++; s.streak++; s.best = Math.max(s.best, s.streak); if (head) s.heads++;
     s.score += Math.round(A.score * (head ? 1.5 : 1) * (1 + Math.min(s.streak, 10) * 0.1)); s.ev.push({ k: head ? "head" : "kill", x: e.x, z: e.z, w: e.kind });
     const r = rnd(s), un = unowned(s);
-    if (un.length && r < 0.2) spawnPickup(s, un[Math.floor(rnd(s) * un.length)], e.x, e.z); else if (r < 0.32) spawnPickup(s, "ammo", e.x, e.z);
+    if (un.length && r < 0.2) spawnPickup(s, un[0], e.x, e.z); else if (r < 0.32) spawnPickup(s, "ammo", e.x, e.z);
   }
 }
 /** hidden aim assist (owner, 2026-10-18: "make it a little easier, but do not tell the player"): when an alien is within about 6 degrees of the crosshair the shot bends toward its body (fully inside 2.5 degrees, fading out to 6) */
@@ -304,7 +304,7 @@ export function step(s: State, dt: number, inp: Input) {
     s.between -= dt;
     if (s.between <= 0) {
       if (s.wave >= s.waves.length) { s.done = true; s.won = true; s.ev.push({ k: "win" }); return; }
-      s.spawnQ = s.waves[s.wave].slice(); s.waveLeft = s.spawnQ.length; s.wave++; s.between = 4; s.spawnT = 0; s.ev.push({ k: "wave", n: s.wave }); { const un = unowned(s); if (un.length) spawnPickup(s, un[Math.floor(rnd(s) * un.length)]); if (s.wave % 2 === 0) spawnPickup(s, "ammo"); }
+      s.spawnQ = s.waves[s.wave].slice(); s.waveLeft = s.spawnQ.length; s.wave++; s.between = 4; s.spawnT = 0; s.ev.push({ k: "wave", n: s.wave }); { const un = unowned(s); if (un.length) spawnPickup(s, un[0]); if (s.wave % 2 === 0) spawnPickup(s, "ammo"); }
       for (const k of Object.keys(WEAPONS) as WeaponId[]) s.ammo[k].res = Math.min(k === "pistol" ? 9999 : WEAPONS[k].reserve, s.ammo[k].res + WEAPONS[k].mag);   // a little ammo between waves
       p.hp = Math.min(100, p.hp + 35);
     }
@@ -316,7 +316,7 @@ export function step(s: State, dt: number, inp: Input) {
     const A = ALIENS[e.kind]; e.t += dt; e.flash = Math.max(0, e.flash - dt);
     if (e.dead !== 0) { if (e.dead > 0) { e.dead -= dt; if (e.dead <= 0) e.dead = -1; } continue; }
     const dx = p.x - e.x, dz = p.z - e.z, d = Math.hypot(dx, dz) || 1; e.yaw = Math.atan2(-dx, -dz);
-    let dirx = dx / d, dirz = dz / d, spd = A.speed * 0.92 * (1 + s.wave * 0.03);
+    let dirx = dx / d, dirz = dz / d, spd = A.speed * 0.46 * (1 + s.wave * 0.03);
     if (behOf(e.kind) === "flarecaster") { if (d < 9) { dirx = -dirx; dirz = -dirz; spd *= 0.8; } else if (d < 15) { dirx = -dirz * (e.side || 1); dirz = dx / d * (e.side || 1); spd *= 0.6; if (!e.side) e.side = rnd(s) < 0.5 ? -1 : 1; } }
     if (behOf(e.kind) === "skyeye") { if (d < 10) { dirx = -dirx; dirz = -dirz; } else if (d < 17) { if (!e.side) e.side = rnd(s) < 0.5 ? -1 : 1; dirx = -dz / d * e.side; dirz = dx / d * e.side; spd *= 0.7; } }
     if (behOf(e.kind) === "charger") {

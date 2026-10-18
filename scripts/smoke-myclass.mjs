@@ -74,4 +74,11 @@ const r31 = (e) => e.filter(x => /#31|objects are not valid as a React child/i.t
   await p.evaluate(() => document.querySelector("[data-start]").click()); await p.waitForTimeout(1500);
   const pg = await p.evaluate(() => sessionStorage.getItem("tiga_page")); ok("Play opens the practice, not the Pathway menu", pg !== "pathway" && pg !== "myclass", "page " + pg);
   ok("no page errors", errs.length === 0, errs.slice(0, 2).join(" | ")); await ctx.close(); }
+// 9. the Game Power bar sits at the top right of the focus card and opens the charge sheet
+{ const { ctx, p, errs } = await open({ withLog: true, lang: "th" });
+  const bar = p.locator("[data-focus] [data-gp-myclass] [data-gpbar]"); ok("Game Power bar is inside the focus card", (await bar.count()) === 1);
+  const bb = await bar.boundingBox(), fb = await p.locator("[data-focus]").boundingBox(); ok("the bar sits at the card's top right", !!bb && !!fb && bb.x + bb.width > fb.x + fb.width - 20 && bb.y < fb.y + 20, JSON.stringify(bb));
+  if (process.env.SHOT) await p.screenshot({ path: process.env.SHOT });
+  await bar.evaluate(el => el.click()); await p.waitForTimeout(400); ok("tapping it opens the charge sheet", (await p.locator("[data-gpsheet]").count()) === 1);
+  ok("no page errors", errs.length === 0, errs.slice(0, 2).join(" | ")); await ctx.close(); }
 await b.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
