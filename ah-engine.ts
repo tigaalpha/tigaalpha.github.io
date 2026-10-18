@@ -55,7 +55,7 @@ export type State = {
 
 export function mulberry(s: number) { return () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-export function newState(seed = 7, tuneEvery = 15): State {
+export function newState(seed = 7, tuneEvery = 30): State {
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
     t: 0, active: 0, rng: seed, seed,
