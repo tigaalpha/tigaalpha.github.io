@@ -22,7 +22,7 @@ ok("spend 10 works, then short power refuses", gp.spendPower(10, "t") && (mem.tg
 mem.tg_game_power = JSON.stringify({ v: 2, d: new Date().toDateString(), today: 0 });
 ok("play time drains 1 per tick, then stops at 0", gp.drainPower() && gp.drainPower() && !gp.drainPower() && gp.readPower() === 0);
 ok("entering needs the minimum, spends nothing", !gp.enterGame(5) && (mem.tg_game_power = JSON.stringify({ v: 50, d: new Date().toDateString(), today: 0 }), gp.enterGame(5)) && gp.readPower() === 50);
-ok("admin tier 3 is gated like a player (owner 2026-10-17)", !gp.powerFree(3));
+ok("admin tier 3 is never gated or drained (owner 2026-10-18); tier 2 is", gp.powerFree(3) && !gp.powerFree(2));
 // 2) the browser
 const ROOT = path.resolve("dist");
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp" };
