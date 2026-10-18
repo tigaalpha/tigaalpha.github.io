@@ -20,7 +20,32 @@ const WHITE = [0, 2, 4, 5, 7, 9, 11], BLACK: [number, number][] = [[1, 0.65], [3
 const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals", String(Math.max(0, (parseInt(localStorage.getItem("tg_adv_crystals") || "0", 10) || 0) + n))); } catch (e) {} };
 const readTune = (): number => 30;   // owner 2026-10-18: a music question every 30 s of fighting, fixed: no choice on the ready screen
 
-type Quiz = { q: Question; phase: "gate" | "ask" | "done"; ok: boolean | null; sel: number[]; armed: boolean; lit: number };
+/** a note name like "F#4" -> key index 0..23 on the two-octave keyboard (C4..B5), and its staff position */
+const parseNote = (n: string) => { const m = /^([A-G])([#b♯♭]?)(-?\d)/.exec(n); if (!m) return null; const sh = m[2] === "#" || m[2] === "♯" ? 1 : m[2] ? -1 : 0; let oct = parseInt(m[3], 10); const pc = (PC_OF[m[1]] + sh + 12) % 12; if (PC_OF[m[1]] + sh < 0) oct--; if (PC_OF[m[1]] + sh > 11) oct++; oct = Math.max(4, Math.min(5, oct)); const L = "CDEFGAB".indexOf(m[1]); return { key: (oct - 4) * 12 + pc, letter: L, oct: Math.max(4, Math.min(5, parseInt(m[3], 10))), acc: sh }; };
+const keyToStaff = (k: number) => { const pc = k % 12, oct = 4 + Math.floor(k / 12); const nat = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6][pc]; return { pos: (oct - 4) * 7 + nat, acc: [1, 3, 6, 8, 10].includes(pc) ? 1 : 0 }; };
+/** five-line treble staff with the notes written on it (C4..B5 plus ledger lines) */
+function QStaff({ notes, hot }: { notes: { pos: number; acc: number }[]; hot?: boolean }) {
+  const B = 70, st = 5, W = 300, x0 = 62, n = notes.length, gap = n > 1 ? Math.min(34, (W - x0 - 20) / (n - 1)) : 0, y = (pos: number) => B - (pos - 2) * st / 1;
+  const lines = [2, 4, 6, 8, 10];
+  return (
+    <svg className="ah-staff" data-staff={n} viewBox="0 0 320 112" role="img" aria-label="staff">
+      {lines.map(l => <line key={l} x1="8" x2="312" y1={y(l)} y2={y(l)} stroke="currentColor" strokeWidth="1.2" opacity="0.8" />)}
+      <text x="12" y={y(2) + 8} fontSize="58" fill="currentColor" style={{ fontFamily: "serif" }}>𝄞</text>
+      {notes.map((nt, i) => {
+        const cx = x0 + 20 + i * gap, cy = y(nt.pos), led: number[] = [];
+        for (let l = 0; l >= nt.pos; l -= 2) led.push(l); for (let l = 12; l <= nt.pos; l += 2) led.push(l);
+        return <g key={i} className={hot ? "hot" : ""}>
+          {led.map(l => <line key={l} x1={cx - 11} x2={cx + 11} y1={y(l)} y2={y(l)} stroke="currentColor" strokeWidth="1.2" />)}
+          <ellipse cx={cx} cy={cy} rx="6.4" ry="4.6" transform={`rotate(-18 ${cx} ${cy})`} fill="currentColor" />
+          <line x1={cx + (nt.pos < 6 ? 6 : -6)} x2={cx + (nt.pos < 6 ? 6 : -6)} y1={cy} y2={cy + (nt.pos < 6 ? -26 : 26)} stroke="currentColor" strokeWidth="1.4" />
+          {nt.acc ? <text x={cx - 17} y={cy + 5} fontSize="15" fill="currentColor">♯</text> : null}
+        </g>;
+      })}
+    </svg>
+  );
+}
+const WHITE2 = [0, 2, 4, 5, 7, 9, 11], BLACK2: [number, number][] = [[1, 0], [3, 1], [6, 3], [8, 4], [10, 5]];
+type Quiz = { q: Question; phase: "gate" | "ask" | "done"; ok: boolean | null; sel: number[]; selK?: number[]; armed: boolean; lit: number };
 
 export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void }) {
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
@@ -125,19 +150,20 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
     const nq = nextQuestion(lang as any, { done: readDone() }); setQuiz({ q: nq.q, phase: "gate", ok: null, sel: [], armed: false, lit: 0 });
     setTimeout(() => setQuiz(c => (c && c.phase === "gate" ? { ...c, armed: true } : c)), 900);
   };
-  const answer = (ok: boolean) => {
+  const answer = (ok: boolean, patch?: Partial<Quiz>) => {
     const c = quizRef.current; if (!c || c.phase !== "ask") return; recordAnswer(ok, c.q.topic); tuneLog.current.push({ topic: c.q.topic, ok }); AU.sfx(ok ? "tuneok" : "tunebad");
     if (ok) { try { addRpgExp(me, 10 + 6 * c.q.tier + (S.current.tuneStreak >= 2 ? 6 : 0)); } catch (e) {} }
-    setQuiz({ ...c, phase: "done", ok, lit: 0 });
+    setQuiz({ ...c, ...patch, phase: "done", ok, lit: ok ? c.q.teach.lit.length : 0 });
     if (!ok) { const n = c.q.teach.lit.length; let i = 0; const id = setInterval(() => { i++; setQuiz(q => (q ? { ...q, lit: Math.min(n, i) } : q)); if (i >= n) clearInterval(id); }, 450); }
   };
   const resume = (skipped = false) => {
     const c = quizRef.current; if (!c) return; tuneResult(S.current, skipped ? false : !!c.ok); AU.setDucked(false); AU.sfx("go"); setQuiz(null); setBanner(t("เตรียมสู้!", "GET READY", "准备")); bannerT.current = 1.2;
     try { logUsage("ah", `tune:${c.q.topic}:${skipped ? "skip" : c.ok ? "ok" : "bad"}`); } catch (e) {}
   };
-  const tapKey = (pc: number) => {
+  const tapKey = (pc: number, idx: number) => {
     const c = quizRef.current; if (!c || c.phase !== "ask") return; const q = c.q;
-    if (q.kind === "key") answer(judgeKeys(q, [pc])); else setQuiz({ ...c, sel: c.sel.includes(pc) ? c.sel.filter(x => x !== pc) : [...c.sel, pc] });
+    if (q.kind === "key") answer(judgeKeys(q, [pc]), { sel: [pc], selK: [idx] });
+    else { const sk = c.selK || []; const nk = sk.includes(idx) ? sk.filter(x => x !== idx) : [...sk, idx]; setQuiz({ ...c, selK: nk, sel: Array.from(new Set(nk.map(k => k % 12))) }); }
   };
 
     const close = () => { exitFsAndUnlock(); onBack(); };
@@ -209,12 +235,19 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
               <div className="ah-qh"><em>{t("จูนอัพ", "TUNE-UP", "调音")} · {q.topic.toUpperCase()} · L{readLadder().lvl}</em></div>
               <b className="ah-q" data-q="1">{q.q}</b>
               {q.kind === "choice" && q.opts && <div className="ah-opts">{q.opts.map((o, i) => <button key={i} disabled={quiz.phase === "done"} className={quiz.phase === "done" ? (o.ok ? "good" : "") : ""} data-opt={o.ok ? "ok" : "no"} onClick={() => answer(o.ok)}>{o.label}</button>)}</div>}
-              {q.kind !== "choice" && (
-                <div className="ah-piano" data-piano="1">
-                  {WHITE.map((pc, i) => <button key={pc} data-pc={pc} className={"w" + (quiz.sel.includes(pc) ? " sel" : "") + (quiz.phase === "done" && q.teach.lit.slice(0, quiz.lit).some(n => pcOfName(n) === pc) ? " lit" : "")} style={{ left: i * (100 / 7) + "%" }} onClick={() => tapKey(pc)}><span>{PCN[pc]}</span></button>)}
-                  {BLACK.map(([pc, pos]) => <button key={pc} data-pc={pc} className={"b" + (quiz.sel.includes(pc) ? " sel" : "") + (quiz.phase === "done" && q.teach.lit.slice(0, quiz.lit).some(n => pcOfName(n) === pc) ? " lit" : "")} style={{ left: (pos * 100 / 7 + 0.5) + "%" }} onClick={() => tapKey(pc)}><span>{PCN[pc]}</span></button>)}
-                </div>
-              )}
+              {(q.kind !== "choice" || quiz.phase === "done") && (() => {
+                const done = quiz.phase === "done", tl = q.teach.lit.slice(0, done ? quiz.lit : 0).map(parseNote).filter(Boolean) as { key: number }[], litK = tl.map(x => x.key), selK = quiz.selK || [];
+                const staffK = done ? (quiz.ok ? q.teach.lit.map(parseNote).filter(Boolean).map(x => (x as any).key as number) : litK) : selK.slice().sort((a, b) => a - b);
+                const cls = (k: number, base: string) => base + (selK.includes(k) ? " sel" : "") + (done && (quiz.ok ? q.teach.lit.map(parseNote).some(x => x && x.key === k) : litK.includes(k)) ? " lit" : "");
+                return <>
+                  <QStaff notes={staffK.map(keyToStaff)} hot={done} />
+                  {q.kind === "choice" ? null : null}
+                  <div className="ah-piano" data-piano="1" data-oct="2">
+                    {[0, 1].flatMap(o => WHITE2.map((pc, i) => { const k = o * 12 + pc; return <button key={k} data-pc={pc} data-k={k} className={cls(k, "w")} style={{ left: (o * 7 + i) * (100 / 14) + "%" }} disabled={q.kind === "choice"} onClick={() => tapKey(pc, k)}><span>{o === 0 && pc === 0 ? "C4" : o === 1 && pc === 0 ? "C5" : PCN[pc]}</span></button>; }))}
+                    {[0, 1].flatMap(o => BLACK2.map(([pc, wi]) => { const k = o * 12 + pc; return <button key={k} data-pc={pc} data-k={k} className={cls(k, "b")} style={{ left: ((o * 7 + wi + 1) * (100 / 14)) + "%" }} disabled={q.kind === "choice"} onClick={() => tapKey(pc, k)}><span>{PCN[pc]}</span></button>; }))}
+                  </div>
+                </>;
+              })()}
               {quiz.phase === "ask" && q.kind === "keys" && <button className="ah-go" data-check="1" disabled={!quiz.sel.length} onClick={() => answer(judgeKeys(q, quiz.sel))}>{t("ตรวจ", "CHECK", "检查")}</button>}
               {quiz.phase === "ask" && <button className="ah-ghost" data-skip="1" onClick={() => resume(true)}>{t("ข้าม (ไม่ได้รางวัล)", "Skip (no reward)", "跳过（无奖励）")}</button>}
               {quiz.phase === "done" && <div className={"ah-verdict " + (quiz.ok ? "good" : "bad")} data-verdict={quiz.ok ? "good" : "bad"}>
@@ -271,12 +304,13 @@ const CSS = `
 .ah-stick{position:absolute;left:11%;bottom:20%;width:56px;height:56px;margin:-28px;border-radius:50%;background:#ffffff22;border:2px solid #ffffff55;pointer-events:none}
 .ah-btns{position:absolute;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(3,52px);grid-auto-rows:52px;gap:8px;direction:rtl}.ah-btns button{width:52px;height:52px;border-radius:50%;border:2px solid #ffffff66;background:#0009;font-weight:900;font-size:13px;direction:ltr}
 .ah-btns .fire{grid-column:span 1;width:64px;height:64px;margin:-6px;border-color:#ff6a3a;background:#ff4a2a99}
-.ah-pause,.ah-quiz{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#05030acc;backdrop-filter:blur(5px);z-index:5;padding:10px}
+.ah-quiz{overflow:auto}.ah-pause,.ah-quiz{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#05030acc;backdrop-filter:blur(5px);z-index:5;padding:10px}
 .ah-card{display:flex;flex-direction:column;align-items:center;gap:9px;max-width:min(560px,94vw);max-height:96vh;overflow:auto;padding:16px 20px;border-radius:26px;background:linear-gradient(160deg,#241a32,#120c1c);border:1px solid #ffffff2a;text-align:center}.ah-card.wide{width:min(720px,96vw)}
 .ah-card p{margin:0;font-size:13px;opacity:.85}.ah-ic{font-size:30px}.ah-q{font-size:clamp(16px,3.4vw,22px);line-height:1.35}
 .ah-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;width:100%}.ah-opts button{min-height:50px;border-radius:16px;border:1px solid #ffffff44;background:#ffffff12;font-weight:700;padding:6px 10px}.ah-opts button.good{background:#2fae6a;border-color:#2fae6a}
-.ah-piano{position:relative;width:min(560px,92vw);height:clamp(90px,26vh,150px)}.ah-piano button{position:absolute;border:1px solid #222;border-radius:0 0 8px 8px;padding:0;display:flex;align-items:flex-end;justify-content:center}
-.ah-piano .w{top:0;width:calc(100% / 7);height:100%;background:#f4f1ea;color:#222}.ah-piano .b{top:0;width:7%;height:62%;background:#17151c;color:#ddd;z-index:2;margin-left:-3.5%}.ah-piano span{font-size:10.5px;font-weight:800;padding-bottom:4px}
+.ah-piano{position:relative;width:min(560px,92vw);height:clamp(70px,18vh,110px)}.ah-piano button{position:absolute;border:1px solid #222;border-radius:0 0 8px 8px;padding:0;display:flex;align-items:flex-end;justify-content:center}
+.ah-staff{width:min(560px,92vw);height:clamp(70px,20vh,104px);color:#f1ecff;background:#ffffff14;border-radius:12px}.ah-staff .hot{color:#ffb347;filter:drop-shadow(0 0 4px #ff8a3a)}
+.ah-piano .w{top:0;width:calc(100% / 14);height:100%;background:#f4f1ea;color:#222}.ah-piano .b{top:0;width:4.2%;height:62%;background:#17151c;color:#ddd;z-index:2;margin-left:-2.1%}.ah-piano span{font-size:8.5px;font-weight:800;padding-bottom:4px}
 .ah-piano .sel{background:#ff8a3a!important;color:#1a0a04}.ah-piano .lit{background:#ffb347!important;box-shadow:0 0 14px #ff8a3a;color:#1a0a04}
 .ah-verdict{display:flex;flex-direction:column;gap:6px;align-items:center;width:100%}.ah-verdict.good b{color:#6af0a6}.ah-verdict.bad b{color:#ffb06a}.ah-verdict span{font-size:12.5px;opacity:.9}
 .ah-note{font-size:12px!important;color:#ffd9a8}

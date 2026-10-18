@@ -2,7 +2,8 @@
 import { build } from "esbuild"; import { writeFileSync, mkdtempSync } from "fs"; import { tmpdir } from "os"; import { join } from "path";
 const d = mkdtempSync(join(tmpdir(), "ah-")); const out = join(d, "e.mjs");
 await build({ entryPoints: ["ah-engine.ts"], bundle: true, format: "esm", outfile: out, logLevel: "silent" });
-const E = await import(out); let fail = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fail++; };
+const E0 = await import(out); const E = { ...E0 }; let fail = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fail++; };
+const _ns = E.newState; E.newState = (...a) => { const q = _ns(...a); q.auto = false; return q; };
 const s = E.newState(3, 15), inp = E.noInput();
 // waves start, aliens appear
 s.p.hp = 1e6; for (let i = 0; i < 200; i++) E.step(s, 0.05, inp);
@@ -60,6 +61,12 @@ ok(s2.kills > k0, "the pistol kills an alien in the crosshair");
 // walls block shots and movement
 const [x, z] = E.collide(E.LEVEL_BOXES, -8, -6, 0.4); ok(Math.abs(x + 8) > 0.5 || Math.abs(z + 6) > 0.5, "a box pushes a circle out");
 // a full run with a bot ends (win or lose), never hangs
+ok(_ns(1, 0).auto === true, "auto-walk is ON by default");
+for (const w of ["pulsar", "nova", "storm", "cryo"]) ok(!!E.WEAPONS[w] && E.WORDER.includes(w), "new gun exists: " + w);
+{ const q = E.newState(61, 0); q.wave = 1; q.between = 99; q.p.x = 0; q.p.z = 0; q.p.yaw = 0; q.p.pitch = 0; q.owned.cryo = true; q.weapon = "cryo"; q.enemies.push({ id: 90, kind: "mantis", x: 0, z: -12, hp: 900, max: 900, yaw: 0, t: 0, cd: 5, dead: 0, flash: 0, leap: 0 }); q.p.pitch = Math.atan2(E.bodyY("mantis") - 1.65, 12);
+  E.step(q, 0.05, { ...inp, fire: true }); ok((q.enemies[0].slow || 0) > 0, "cryo beam slows what it hits"); }
+{ const q = E.newState(62, 0); q.wave = 1; q.between = 99; q.p.hp = 1e6; q.p.x = 0; q.p.z = 0; let minD = 99; for (const kind of ["skitter", "mantis"]) { q.enemies = [{ id: 91, kind, x: 0, z: -14, hp: 1e6, max: 1e6, yaw: 0, t: 0, cd: 0, dead: 0, flash: 0, leap: 0 }]; for (let i = 0; i < 200; i++) { E.step(q, 0.05, inp); const e = q.enemies[0]; minD = Math.min(minD, Math.hypot(e.x - q.p.x, e.z - q.p.z) - E.ALIENS[kind].r); } }
+  ok(minD > 1.4, "melee aliens stop short of the player instead of crowding in (closest gap " + minD.toFixed(2) + " m)"); }
 const s3 = E.newState(9, 0); for (let i = 0; i < 20000 && !s3.done; i++) { const t = s3.enemies.filter(e => e.dead === 0).sort((a, b) => Math.hypot(a.x - s3.p.x, a.z - s3.p.z) - Math.hypot(b.x - s3.p.x, b.z - s3.p.z))[0]; const i2 = E.noInput(); if (t) { s3.p.yaw = Math.atan2(-(t.x - s3.p.x), -(t.z - s3.p.z)); { const A = E.ALIENS[t.kind]; s3.p.pitch = Math.atan2(E.bodyY(t.kind) - 1.65, Math.hypot(t.x - s3.p.x, t.z - s3.p.z)); } i2.fire = true; } E.step(s3, 0.05, i2); }
 ok(s3.done && s3.kills > 3, "a bot-played run reaches an ending (" + (s3.won ? "won" : "lost") + ", " + s3.kills + " kills)");
 console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

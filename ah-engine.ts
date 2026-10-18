@@ -2,9 +2,9 @@
    Units are metres on the x/z plane, y is up; the player's eyes are 1.65 m above the floor. */
 
 export type Box = { x: number; z: number; w: number; d: number; h: number };
-export type WeaponId = "pistol" | "rifle" | "shotgun" | "launcher" | "laser" | "rail" | "arc" | "beam";
+export type WeaponId = "pistol" | "rifle" | "shotgun" | "launcher" | "laser" | "rail" | "arc" | "beam" | "pulsar" | "nova" | "storm" | "cryo";
 export type AlienKind = "skitter" | "mantis" | "spitter" | "flarecaster" | "charger" | "skyeye";
-export type Enemy = { id: number; kind: AlienKind; x: number; z: number; hp: number; max: number; yaw: number; t: number; cd: number; dead: number; flash: number; leap: number; side?: number; sideT?: number; gt?: number; tele?: number; rush?: number; stun?: number; dx?: number; dz?: number };
+export type Enemy = { id: number; kind: AlienKind; x: number; z: number; hp: number; max: number; yaw: number; t: number; cd: number; dead: number; flash: number; leap: number; side?: number; sideT?: number; gt?: number; tele?: number; rush?: number; stun?: number; dx?: number; dz?: number; slow?: number };
 export type Acid = { id: number; x: number; y: number; z: number; vx: number; vz: number; vy: number; life: number; g?: number; dmg?: number; big?: number; col?: number };
 export type Ev = { k: "shot" | "hit" | "kill" | "head" | "hurt" | "reload" | "empty" | "spit" | "wave" | "tune" | "win" | "lose" | "swap"; x?: number; y?: number; z?: number; n?: number; w?: string; p?: number[] };
 
@@ -18,6 +18,10 @@ export const WEAPONS: Record<WeaponId, { name: string; dmg: number; rate: number
   laser: { name: "Laser SMG", dmg: 8, rate: 0.055, mag: 45, reserve: 180, spread: 0.01, pellets: 1, auto: true, reload: 1.5, range: 90, kick: 0.003, col: 0xff4a5a },
   rail: { name: "Rail cannon", dmg: 80, rate: 1.0, mag: 5, reserve: 25, spread: 0, pellets: 1, auto: false, reload: 2.0, range: 120, kick: 0.06, col: 0xa8c8ff },
   arc: { name: "Arc caster", dmg: 24, rate: 0.35, mag: 18, reserve: 72, spread: 0, pellets: 0, auto: true, reload: 1.8, range: 30, kick: 0.01, col: 0x9ad8ff },
+  pulsar: { name: "Pulsar burst", dmg: 9, rate: 0.2, mag: 36, reserve: 144, spread: 0.022, pellets: 3, auto: true, reload: 1.7, range: 70, kick: 0.012, col: 0xff4fd8 },
+  nova: { name: "Nova cannon", dmg: 58, rate: 0.55, mag: 8, reserve: 40, spread: 0.002, pellets: 1, auto: false, reload: 2.1, range: 100, kick: 0.05, col: 0x7dffe0 },
+  storm: { name: "Storm twin-laser", dmg: 6, rate: 0.045, mag: 70, reserve: 280, spread: 0.028, pellets: 2, auto: true, reload: 2.0, range: 80, kick: 0.004, col: 0xff9a2e },
+  cryo: { name: "Cryo beam", dmg: 7, rate: 0.06, mag: 60, reserve: 240, spread: 0.006, pellets: 1, auto: true, reload: 1.9, range: 60, kick: 0.002, col: 0x9fe8ff },
   beam: { name: "Photon lance", dmg: 5, rate: 0.04, mag: 90, reserve: 270, spread: 0.002, pellets: 1, auto: true, reload: 2.2, range: 70, kick: 0.002, col: 0xffe45a },
 };
 export const ALIENS: Record<AlienKind, { name: string; hp: number; speed: number; r: number; dmg: number; reach: number; score: number; hy: number; cy?: number; nohead?: boolean }> = {
@@ -62,7 +66,7 @@ export function mulberry(s: number) { return () => { s |= 0; s = (s + 0x6D2B79F5
 export function newState(seed = 7, tuneEvery = 30): State {
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
-    t: 0, active: 0, rng: seed, seed, auto: false, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
+    t: 0, active: 0, rng: seed, seed, auto: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
     p: { x: 0, z: 22, yaw: Math.PI, pitch: 0, y: 0, vy: 0, hp: 100, shield: 0, inv: 0, sprint: false, slide: 0, slideCd: 0, sdx: 0, sdz: 0 },
     weapon: "rifle", ammo, cd: 0, reload: 0, recoil: 0,
     enemies: [], acid: [], rk: [], boxes: LEVEL_BOXES, pk: [], owned: { pistol: true, rifle: true, shotgun: false, launcher: false, laser: false, rail: false, arc: false, beam: false },
@@ -108,7 +112,8 @@ function raySphere(ox: number, oy: number, oz: number, dx: number, dy: number, d
 export type Input = { mx: number; mz: number; lookX: number; lookY: number; fire: boolean; jump: boolean; reload: boolean; swap: number; sprint: boolean; slide?: boolean };
 export const noInput = (): Input => ({ mx: 0, mz: 0, lookX: 0, lookY: 0, fire: false, jump: false, reload: false, swap: 0, sprint: false });
 
-export const WORDER: WeaponId[] = ["pistol", "rifle", "laser", "shotgun", "arc", "beam", "rail", "launcher"];
+export const WORDER: WeaponId[] = ["pistol", "rifle", "laser", "shotgun", "arc", "beam", "pulsar", "storm", "cryo", "nova", "rail", "launcher"];
+const rushingNow = (e: Enemy) => e.kind === "charger" && (e.rush || 0) > 0;
 export function setWeapon(s: State, w: WeaponId) { if (s.weapon === w || !s.owned[w]) return; s.weapon = w; s.reload = 0; s.cd = 0.25; s.ev.push({ k: "swap", w }); }
 function startReload(s: State) { const a = s.ammo[s.weapon], W = WEAPONS[s.weapon]; if (s.reload > 0 || a.mag >= W.mag || a.res <= 0) return; s.reload = W.reload; s.ev.push({ k: "reload" }); }
 export function fullReload(s: State) { for (const k of Object.keys(WEAPONS) as WeaponId[]) { s.ammo[k].mag = WEAPONS[k].mag; s.ammo[k].res = Math.max(s.ammo[k].res, WEAPONS[k].mag * 2); } s.reload = 0; }
@@ -154,7 +159,7 @@ export function spawnPickup(s: State, w: WeaponId | "ammo", nearX?: number, near
 const unowned = (s: State) => WORDER.filter(w => !s.owned[w]);
 /** one hit on an alien: damage, kill bookkeeping and a chance to drop something to pick up */
 function hurtAlien(s: State, e: Enemy, dmg: number, head: boolean, hy?: number) {
-  const A = ALIENS[e.kind]; e.hp -= dmg; e.flash = 0.12; s.ev.push({ k: "hit", x: e.x, y: hy !== undefined ? hy : bodyY(e.kind), z: e.z, n: dmg });
+  const A = ALIENS[e.kind]; e.hp -= dmg; e.flash = 0.12; s.ev.push({ k: "hit", x: e.x, y: hy !== undefined ? hy : bodyY(e.kind), z: e.z, n: dmg, w: s.weapon });
   if (e.hp <= 0 && e.dead === 0) {
     e.dead = 0.9; s.kills++; s.streak++; s.best = Math.max(s.best, s.streak); if (head) s.heads++;
     s.score += Math.round(A.score * (head ? 1.5 : 1) * (1 + Math.min(s.streak, 10) * 0.1)); s.ev.push({ k: head ? "head" : "kill", x: e.x, z: e.z, w: e.kind });
@@ -205,7 +210,7 @@ function fire(s: State) {
     }
     if (best) {
       const fall = Math.max(0.55, 1 - bt / (W.range * 1.4)); const dmg = W.dmg * fall * (head ? 2.2 : 1) * (1 + s.boost) * (best.kind === "charger" ? ((best.rush || 0) > 0 || (best.stun || 0) > 0 ? 1.8 : 0.55) : 1);
-      landed = true; hurtAlien(s, best, dmg, head, head ? ALIENS[best.kind].hy + 0.5 : undefined);
+      landed = true; if (s.weapon === "cryo") best.slow = 1.6; hurtAlien(s, best, dmg, head, head ? ALIENS[best.kind].hy + 0.5 : undefined);
     }
   }
   if (landed) s.hitsLanded++;
@@ -299,13 +304,16 @@ export function step(s: State, dt: number, inp: Input) {
     else if (e.kind === "mantis" && d < 7 && d > 3 && e.cd <= 0) { e.leap = 0.45; e.cd = 3.2; }
     for (const o of alive) { if (o === e) continue; const ox = e.x - o.x, oz = e.z - o.z, od = Math.hypot(ox, oz); if (od > 0 && od < 1.1) { dirx += ox / od * 0.6; dirz += oz / od * 0.6; } }
     if ((e.sideT || 0) > 0) { e.sideT = (e.sideT || 0) - dt; dirx += -dirz * (e.side || 1) * 1.6; dirz += dirx * 0 + (dx / d) * (e.side || 1) * 1.6; }
+    if ((e.slow || 0) > 0) { e.slow = (e.slow || 0) - dt; if (!rushingNow(e)) spd *= 0.45; }
+    const melee = A.reach > 0, stopD = A.r + 2.0, rushing = e.kind === "charger" && (e.rush || 0) > 0;
+    if (melee && !rushing && d < stopD) spd = 0;
     const ix = dirx * spd * dt, iz = dirz * spd * dt;
     const [nx2, nz2] = e.kind === "skyeye" ? [Math.max(-ARENA + 1, Math.min(ARENA - 1, e.x + ix)), Math.max(-ARENA + 1, Math.min(ARENA - 1, e.z + iz))] : collide(s.boxes, e.x + ix, e.z + iz, A.r);
     if (spd > 0 && Math.hypot(nx2 - e.x, nz2 - e.z) < 0.35 * Math.hypot(ix, iz) && (e.sideT || 0) <= 0) { e.side = rnd(s) < 0.5 ? -1 : 1; e.sideT = 1.4; }
     e.x = nx2; e.z = nz2;
     e.cd -= dt; e.gt = (e.gt === undefined ? 1.5 + rnd(s) * 4 : e.gt) - dt; if (e.gt <= 0) { e.gt = 4 + rnd(s) * 5; if (d < 30) s.ev.push({ k: "growl", w: e.kind, n: d }); }
-    if (e.kind === "charger") { if ((e.rush || 0) > 0 && d < A.reach + 0.4) { s.ev.push({ k: "bite", w: e.kind }); hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.rush = 0; e.stun = 1.1; e.cd = 2.2; } }
-    else if (A.reach > 0 && d < A.reach + 0.6 && e.cd <= 0) { s.ev.push({ k: "bite", w: e.kind }); hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.cd = e.kind === "skitter" ? 0.7 : 1.1; }
+    if (e.kind === "charger") { if ((e.rush || 0) > 0 && d < A.r + 2.4) { s.ev.push({ k: "bite", w: e.kind }); hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.rush = 0; e.stun = 1.1; e.cd = 2.2; } }
+    else if (A.reach > 0 && d < Math.max(A.reach + 0.6, A.r + 2.4) && e.cd <= 0) { s.ev.push({ k: "bite", w: e.kind }); hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.cd = e.kind === "skitter" ? 0.7 : 1.1; }
     if (e.kind === "flarecaster" && d < 26 && e.cd <= 0) {
       e.cd = 3.0; const T = d / 11; s.acid.push({ id: s.nextId++, x: e.x, y: 2.0, z: e.z, vx: dx / T, vz: dz / T, vy: (EYE - 2.0 + 4.9 * T * T) / T, life: 5, dmg: 18, big: 1.8, col: 0xff7a2a }); s.ev.push({ k: "spit", x: e.x, z: e.z, w: "flarecaster" });
     }
