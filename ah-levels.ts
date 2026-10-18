@@ -18,7 +18,7 @@ export const BOXES_1: Box[] = [B(-8, -6, 4, 2.2, 1.3), B(9, -9, 2.2, 5, 1.3), B(
 
 export const LEVELS: Level[] = [
   { id: 1, name: ["ท่าจอดยาน Alpha", "Docking Bay Alpha", "阿尔法停靠港"], race: ["ฝูงแมลงสวอร์ม", "The Swarm", "虫群"], blurb: ["ฝูงแมลงบุกท่าจอดยาน", "A bug swarm has breached the docking bay.", "虫群攻破了停靠港。"],
-    tint: 0x66dd44, hpk: 1, guns: ["shotgun", "laser"], hazards: [],
+    tint: 0x66dd44, hpk: 1, guns: ["rifle", "laser", "shotgun"], hazards: [],
     waves: [W("skitter*3"), W("skitter*3,scarab*5"), W("skitter*4,scarab*8")],
     boxes: BOXES_1, theme: { sky: ["#07101f", "#12304f", "#2c6b8a", "#0d1620"], fog: 0x14304a, fogD: 0.014, ground: 0x8a9bb5, wall: 0x9fb6d6, hemi: [0xbfe2ff, 0x1a2a44], sun: 0xcfe8ff, ring: 0x35e0ff } },
   { id: 2, name: ["ห้องเตาปฏิกรณ์", "Reactor Core", "反应堆核心"], race: ["เผ่าจักรกล", "The Machine Cult", "机械教团"], blurb: ["หุ่นรบแปลกถิ่นยึดเตาปฏิกรณ์ ระวังไอน้ำร้อน", "Alien war machines hold the reactor. Mind the steam.", "外星战争机器占领了反应堆，小心蒸汽。"],

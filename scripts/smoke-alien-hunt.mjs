@@ -38,7 +38,7 @@ ok(s2.kills > k0, "the pistol kills an alien in the crosshair");
   const y = mk("skyeye", 0, -14); let bolts = 0, hurt = 0; for (let i = 0; i < 120; i++) { E.step(y, 0.05, inp); bolts += y.acid.filter(a => a.g === 0).length ? 1 : 0; y.ev = []; } ok(bolts > 0 && y.p.hp < 100, "the Sky Eye floats and fires a spread of straight bolts that can hit (hp " + Math.round(y.p.hp) + ")");
 }
 // collectible future guns, slide, arrival pace
-{ const q = E.newState(21, 0); ok(!q.owned.rail && q.owned.rifle, "only the sidearm and the plasma rifle at the start");
+{ const q = E.newState(21, 0); ok(!q.owned.rail && !q.owned.rifle && q.owned.pistol, "only the sidearm at the start; the rifle is found");
   E.setWeapon(q, "rail"); ok(q.weapon !== "rail", "a gun you have not found cannot be equipped");
   q.pk.push({ id: 900, x: q.p.x, z: q.p.z, w: "rail" }); E.step(q, 0.05, inp); ok(q.owned.rail && q.weapon === "rail" && q.ev.some(e => e.k === "pickup"), "walking over a gun picks it up and equips it");
   const mkE = (x, z) => ({ id: q.nextId++, kind: "skitter", x, z, hp: 9999, max: 9999, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }); q.wave = 1; q.between = 99; q.p.yaw = 0; q.p.pitch = Math.atan2(E.bodyY("skitter") - 1.65, 5);

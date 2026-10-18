@@ -15,7 +15,7 @@ import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, d
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 type L3 = [string, string, string];
-const VW = 800, VH = 450;
+let VW = 800; const VH = 450;   // the view is VH tall and as wide as the screen needs, so a wide phone shows more farm instead of black bars
 const QUOTA: Record<string, number> = { moon: 260, mars: 300, titan: 340, proxima: 400 }, TIMEMUL: Record<string, number> = { moon: 1, mars: 1.1, titan: 1.25, proxima: 0.9 };   // a harsher world: a bigger quota and slower crops
 const CROPS: { id: string; icon: string; name: L3; time: number; yield: number; col: string }[] = [
   { id: "carrot", icon: "🥕", name: ["แครอท", "Carrot", "胡萝卜"], time: 9, yield: 4, col: "#ff8a1f" },
@@ -105,7 +105,7 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry, coinAp
   useEffect(() => {
     try { enterFs(); } catch (e) {} const sfx = createAdvSfx(); sfxRef.current = sfx; sfx.setOn(musicOn); const mus = createAdvMusic(P.id); musRef.current = mus; if (mus) { mus.setOn(musicOn); mus.start(); mus.setIntensity && mus.setIntensity(1); }
     const cv = cvRef.current, el = boxRef.current; let raf = 0, alive = true, lastDraw = 0, last = performance.now();
-    const fit = () => { if (!el || !cv) return; const wr = el.parentElement, aw = wr ? wr.clientWidth : window.innerWidth, ah = wr ? wr.clientHeight : window.innerHeight, W = Math.max(280, Math.min(aw, Math.round(ah * VW / VH))), H = Math.round(W * VH / VW), dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; el.style.width = W + "px"; setBox({ w: W, h: H }); };
+    const fit = () => { if (!el || !cv) return; const wr = el.parentElement, aw = wr ? wr.clientWidth : window.innerWidth, ah = wr ? wr.clientHeight : window.innerHeight, W = Math.max(280, aw), H = Math.max(160, ah), dpr = Math.min(2, window.devicePixelRatio || 1); VW = Math.max(800, Math.round(VH * W / H)); GEO3.VW = VW; clampCam(); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; el.style.width = W + "px"; el.style.height = H + "px"; setBox({ w: W, h: H }); };
     fit(); const ro = typeof ResizeObserver !== "undefined" && el ? new ResizeObserver(fit) : null; if (ro && el) ro.observe(el);
     let r3: any = null; GEO3.ANIMALS = ANIMALS;   // the three.js layer for crops, houses, animals, windmill and rocket; any failure leaves the 2D drawing in place
     // Graphics: High = the three.js layer, Lite = the cached 2D drawing; the gear pop-up flips it live (checked twice a second)
