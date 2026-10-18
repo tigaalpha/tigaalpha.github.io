@@ -5,7 +5,7 @@ import type { Ev } from "./ah-engine";
 let ctx: AudioContext | null = null, master: GainNode, musicBus: GainNode, musicLp: BiquadFilterNode, sfxBus: GainNode, noiseBuf: AudioBuffer;
 const KEY = "tg_ah_snd";
 export const soundOn = (): boolean => { try { return localStorage.getItem(KEY) !== "0"; } catch (e) { return true; } };
-export const setSoundOn = (v: boolean) => { try { localStorage.setItem(KEY, v ? "1" : "0"); } catch (e) {} if (master && ctx) master.gain.value = v ? 0.7 : 0; };
+export const setSoundOn = (v: boolean) => { try { localStorage.setItem(KEY, v ? "1" : "0"); } catch (e) {} if (master && ctx) master.gain.value = v ? 0.6 : 0; };
 
 /** call inside a tap: creates or resumes the audio context */
 export function warm(): AudioContext | null {
@@ -13,7 +13,7 @@ export function warm(): AudioContext | null {
     if (!ctx) {
       const w = window as any; ctx = w.__tgCineCtx || new (w.AudioContext || w.webkitAudioContext)(); w.__tgCineCtx = ctx;
       const c = ctx as AudioContext;
-      master = c.createGain(); master.gain.value = soundOn() ? 0.7 : 0;
+      master = c.createGain(); master.gain.value = soundOn() ? 0.6 : 0;
       const lim = c.createDynamicsCompressor(); lim.threshold.value = -9; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.15;
       master.connect(lim); lim.connect(c.destination);
       sfxBus = c.createGain(); sfxBus.gain.value = 1; sfxBus.connect(master);
@@ -45,6 +45,10 @@ export function sfx(kind: string, w?: string) {
       else if (w === "rail") { tone(t, 0.5, "sawtooth", 2600, 120, 0.5); tone(t, 0.35, "sine", 90, 30, 1.2); noise(t, 0.3, "highpass", 4000, 900, 0.6); tone(t + 0.02, 0.6, "triangle", 1200, 200, 0.2); }
       else if (w === "arc") { noise(t, 0.2, "bandpass", 3500, 800, 0.6, sfxBus, 4); tone(t, 0.18, "sawtooth", 120, 600, 0.2); tone(t, 0.12, "square", 1800, 3200, 0.1); }
       else if (w === "beam") { tone(t, 0.05, "sine", 1500, 1300, 0.18); tone(t, 0.05, "triangle", 760, 700, 0.1); }
+      else if (w === "pulsar") { for (let i = 0; i < 3; i++) tone(t + i * 0.035, 0.07, "square", 1400 - i * 150, 500, 0.16); tone(t, 0.1, "sine", 180, 70, 0.4); }
+      else if (w === "nova") { tone(t, 0.45, "sawtooth", 220, 900, 0.3); tone(t + 0.12, 0.5, "sine", 1400, 120, 0.5); tone(t + 0.12, 0.4, "sine", 70, 28, 1.1); noise(t + 0.12, 0.25, "highpass", 3500, 1200, 0.5); }
+      else if (w === "storm") { tone(t, 0.05, "sawtooth", 2300, 700, 0.14); tone(t + 0.012, 0.05, "square", 2000, 900, 0.1); noise(t, 0.03, "highpass", 7000, 7000, 0.08); }
+      else if (w === "cryo") { noise(t, 0.08, "bandpass", 6000, 3500, 0.2); tone(t, 0.07, "sine", 2600, 3400, 0.1); tone(t, 0.07, "triangle", 1300, 1700, 0.08); }
       else { noise(t, 0.25, "bandpass", 900, 200, 0.8); tone(t, 0.3, "sawtooth", 260, 60, 0.5); tone(t, 0.2, "sine", 100, 40, 0.8); }   // launcher
       break;
     case "boom": noise(t, 0.9, "lowpass", 2600, 80, 1.8, sfxBus, 0.4); noise(t, 0.25, "highpass", 3000, 800, 0.8); tone(t, 0.7, "sine", 90, 24, 1.8); tone(t + 0.04, 0.5, "triangle", 60, 22, 1.0); break;
