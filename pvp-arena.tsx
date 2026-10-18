@@ -388,6 +388,15 @@ function wpnArchetype(art) {
   const m = /^pw-(\d)/.exec(art || "");
   return m ? WPN_ARCHETYPE_ORDER[Number(m[1]) % 4] : null;
 }
+/** The weapon bought in the shop and worn on the robot, as the shooting games use it (owner, 2026-10-18: "what I buy in the shop must work in every game").
+    Its archetype picks the gun it becomes and its rarity + upgrade levels (effRarityPts, the same number PvP uses) scale the damage. */
+const SHOP_GUN = { blade: "shotgun", blaster: "laser", ordnance: "launcher", support: "pulsar" };
+export function shopWeaponOf(gear, lang) {
+  const w = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-")); if (!w) return null;
+  const a = wpnArchetype(w.art); if (!a || !SHOP_GUN[a]) return null;
+  const col = parseInt(String((w.sw && w.sw[0]) || "#ffffff").replace("#", ""), 16) || 0xffffff;
+  return { as: SHOP_GUN[a], m: 1 + effRarityPts(w) * 0.07, name: (lang === "th" ? w.th : lang === "zh" ? w.zh : w.en) || w.en || w.id, col };
+}
 const OUT_ARCHETYPE = {
   "out-tshirt": "light", "out-hoodie": "light", "out-alloy": "light", "out-carbon": "light",
   "out-kimono": "elemental", "out-cryo": "elemental", "out-magma": "elemental",
@@ -1502,14 +1511,14 @@ export const PvpPage = memo(function PvpPage({
   if (phase === "lobby" && ahOpen) {
     return (
       <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2450, background: "#07060c", color: "#ffb06a", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>👾 Alien Hunt…</div>}>
-        <AlienHuntPage lang={lang} me={me} adminTier={adminTier} onBack={() => setAhOpen(false)} playUi={playUi} />
+        <AlienHuntPage lang={lang} me={me} adminTier={adminTier} onBack={() => setAhOpen(false)} playUi={playUi} onReward={onReward} shopWeapon={shopWeaponOf(gear, lang)} />
       </Suspense>
     );
   }
   if (phase === "lobby" && advOpen) {
     return (
       <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2400, background: "#02070c", color: "#9dffd6", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>🪐 Adventure…</div>}>
-        <AdventurePage lang={lang} me={me} colorway={colorway} held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} petNow={petNow} onBack={() => setAdvOpen(false)} online={advOnline} playUi={playUi} onReward={onReward} coinApi={coinApi} adminTier={adminTier} />
+        <AdventurePage lang={lang} me={me} colorway={colorway} held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} petNow={petNow} onBack={() => setAdvOpen(false)} online={advOnline} playUi={playUi} onReward={onReward} coinApi={coinApi} adminTier={adminTier} shopMul={(shopWeaponOf(gear, lang) || { m: 1 }).m} />
       </Suspense>
     );
   }

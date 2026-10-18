@@ -2,7 +2,7 @@
 import { build } from "esbuild"; import { writeFileSync, mkdtempSync } from "fs"; import { tmpdir } from "os"; import { join } from "path";
 const d = mkdtempSync(join(tmpdir(), "ah-")); const out = join(d, "e.mjs");
 await build({ entryPoints: ["ah-engine.ts"], bundle: true, format: "esm", outfile: out, logLevel: "silent" });
-const E0 = await import(out); const E = { ...E0 }; let fail = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fail++; };
+const E0 = await import(out); const E = { ...E0 }; let fail = 0; const ok = (c, m) => { if (typeof c === "string") [c, m] = [m, c]; console.log((c ? "PASS " : "FAIL ") + m); if (!c) fail++; };
 const _ns = E.newState; E.newState = (...a) => { const q = _ns(...a); q.auto = false; return q; };
 const s = E.newState(3, 15), inp = E.noInput();
 // waves start, aliens appear
@@ -96,9 +96,9 @@ ok(s3.done && s3.kills > 3, "a bot-played run reaches an ending (" + (s3.won ? "
 ok(_ns(1).tuneEvery === 20, "the music question defaults to every 20 s");
 // auto-shoot: on by default, fires with no button when an alien is in the crosshair, stays quiet when off or when nothing is there
 { const mk = (x, z) => { const q = E.newState(11, 0); q.wave = 1; q.between = 99; q.p.x = 0; q.p.z = 0; q.p.yaw = 0; q.p.pitch = Math.atan2(E.bodyY("skitter") - 1.65, 10); q.auto = false; q.enemies.push({ id: 99, kind: "skitter", x, z, hp: 500, max: 500, yaw: 0, t: 0, cd: 0, dead: 0, flash: 0, leap: 0 }); return q; };
-  const a = mk(0, -10); ok("auto-shoot is on by default", a.autoFire === true); for (let i = 0; i < 20; i++) E.step(a, E.noInput(), 1 / 60); ok("auto-shoot fires at an alien in the crosshair", a.shots > 0, "shots " + a.shots);
-  const b = mk(0, -10); b.autoFire = false; for (let i = 0; i < 20; i++) E.step(b, E.noInput(), 1 / 60); ok("auto-shoot off: no shots", b.shots === 0);
-  const c = mk(30, 0); for (let i = 0; i < 20; i++) E.step(c, E.noInput(), 1 / 60); ok("nothing in the crosshair: no shots", c.shots === 0); }
+  const a = mk(0, -10); ok("auto-shoot is on by default", a.autoFire === true); for (let i = 0; i < 20; i++) E.step(a, 1 / 60, E.noInput()); ok("auto-shoot fires at an alien in the crosshair", a.shots > 0, "shots " + a.shots);
+  const b = mk(0, -10); b.autoFire = false; for (let i = 0; i < 20; i++) E.step(b, 1 / 60, E.noInput()); ok("auto-shoot off: no shots", b.shots === 0);
+  const c = mk(30, 0); for (let i = 0; i < 20; i++) E.step(c, 1 / 60, E.noInput()); ok("nothing in the crosshair: no shots", c.shots === 0); }
 // RPG and the rapid rocket barrage (owner 2026-10-18)
 { const mk = (w) => { const q = E.newState(31, 0); q.wave = 1; q.between = 99; q.auto = false; q.autoFire = false; q.owned[w] = true; q.weapon = w; q.ammo[w].mag = E.WEAPONS[w].mag; q.p.x = 0; q.p.z = 0; q.p.yaw = 0; q.p.pitch = 0.02; return q; };
   const R = mk("rpg"); R.enemies.push({ id: 50, kind: "skitter", x: 5.6, z: -14, hp: 40, max: 40, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }); const inp = E.noInput(); inp.fire = true; for (let i = 0; i < 160; i++) { E.step(R, 1 / 60, i < 2 ? inp : E.noInput()); R.enemies.forEach(e => { e.x = 5.6; e.z = -14; }); }
@@ -107,4 +107,13 @@ ok(_ns(1).tuneEvery === 20, "the music question defaults to every 20 s");
   const S2 = mk("salvo"); const inp2 = E.noInput(); inp2.fire = true; let peak = 0; for (let i = 0; i < 40; i++) { E.step(S2, 1 / 60, inp2); peak = Math.max(peak, S2.rk.length); }
   ok("the rocket barrage launches several rockets in a second", S2.shots >= 4 && peak >= 3, "shots " + S2.shots + " peak " + peak);
   ok("both are in the weapon order and have a name", E.WORDER.includes("rpg") && E.WORDER.includes("salvo") && E.WEAPONS.rpg.name.length > 3); }
+// coins for kills, and a shop weapon (owner 2026-10-18)
+{ const mk = (shop) => { const q = E.newState(41, 0, 0, [], shop); q.wave = 1; q.between = 99; q.auto = false; q.autoFire = false; q.p.x = 0; q.p.z = 5; q.p.yaw = 0; q.p.pitch = 0; q.enemies.push({ id: 70, kind: "skitter", x: 0, z: -1, hp: 400, max: 400, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }); return q; };
+  const shot = (q) => { const inp = E.noInput(); inp.fire = true; E.step(q, 1 / 60, inp); return q.enemies[0].max - q.enemies[0].hp; };
+  const plain = mk(null), shop = mk({ as: "laser", m: 2, name: "Test Blade", col: 0xff00ff });
+  ok("a shop weapon is owned and equipped from the start", shop.weapon === "laser" && shop.owned.laser === true && plain.weapon === "pistol");
+  plain.weapon = "laser"; plain.owned.laser = true; const d1 = shot(plain), d2 = shot(shop);
+  ok("a shop weapon hits harder by its multiplier (" + d1.toFixed(1) + " vs " + d2.toFixed(1) + ")", d1 > 0 && Math.abs(d2 / d1 - 2) < 0.01);
+  const k = E.newState(43, 0); k.wave = 1; k.between = 99; k.enemies.push({ id: 71, kind: "skitter", x: 0, z: 0, hp: 1, max: 1, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }); k.p.x = 0; k.p.z = 5; k.p.yaw = 0; k.auto = false; k.autoFire = false; const i2 = E.noInput(); i2.fire = true; for (let i = 0; i < 30 && k.kills === 0; i++) { k.enemies.forEach(e => { if (e.dead === 0) { e.x = 0; e.z = 0; } }); E.step(k, 1 / 60, i2); }
+  ok("every alien down pays coins", k.kills >= 1 && k.coins >= 2 && E.stats(k).coins === k.coins, "coins " + k.coins); }
 console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
