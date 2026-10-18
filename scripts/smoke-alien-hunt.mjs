@@ -82,7 +82,7 @@ ok(s3.done && s3.kills > 3, "a bot-played run reaches an ending (" + (s3.won ? "
   ok(LV.gunsAfter(0).length === 0 && LV.gunsAfter(3).includes("shotgun") && LV.gunsAfter(10).length >= 9, "guns found accumulate with the levels cleared");
   for (const L of LV.LEVELS) {
     const q = _ns(100 + L.id, 0, L.id, []); let boss = false, hurtByZone = false;
-    for (let i = 0; i < 30000 && !q.done; i++) { q.p.hp = Math.max(q.p.hp, 60); const t = q.enemies.filter(e => e.dead === 0).sort((a, b) => Math.hypot(a.x - q.p.x, a.z - q.p.z) - Math.hypot(b.x - q.p.x, b.z - q.p.z))[0]; const i2 = E.noInput(); if (t) { q.p.yaw = Math.atan2(-(t.x - q.p.x), -(t.z - q.p.z)); q.p.pitch = Math.atan2(E.bodyY(t.kind) - 1.65, Math.hypot(t.x - q.p.x, t.z - q.p.z)); i2.fire = true; } E.step(q, 0.05, i2); if (q.enemies.some(e => E.ALIENS[e.kind].boss)) boss = true; q.ev.length = 0; }
+    for (let i = 0; i < 30000 && !q.done; i++) { q.p.hp = Math.max(q.p.hp, 90); const t = q.enemies.filter(e => e.dead === 0).sort((a, b) => Math.hypot(a.x - q.p.x, a.z - q.p.z) - Math.hypot(b.x - q.p.x, b.z - q.p.z))[0]; const i2 = E.noInput(); i2.mx = Math.sin(i / 25); i2.mz = Math.cos(i / 61) * 0.7; if (t) { q.p.yaw = Math.atan2(-(t.x - q.p.x), -(t.z - q.p.z)); q.p.pitch = Math.atan2(E.bodyY(t.kind) - 1.65, Math.hypot(t.x - q.p.x, t.z - q.p.z)); i2.fire = true; } E.step(q, 0.05, i2); if (q.enemies.some(e => E.ALIENS[e.kind].boss)) boss = true; q.ev.length = 0; }
     ok(q.done && q.won, "level " + L.id + " (" + L.name[1] + ") can be won by a bot with the starter guns (" + q.kills + " kills)");
     if (L.boss) ok(boss, "level " + L.id + " spawns its boss " + L.boss);
   }
@@ -90,4 +90,8 @@ ok(s3.done && s3.kills > 3, "a bot-played run reaches an ending (" + (s3.won ? "
     ok(ring >= 8 && minions >= 2, "a boss fires a ring of bolts and calls its own race (" + ring + " bolts, " + minions + " minions)"); }
   { const q = E.newState(6, 0, 9, []); const h = q.hz[0]; q.wave = 1; q.between = 99; q.enemies = []; q.p.x = h.x; q.p.z = h.z; q.hzClock = 0; const hp0 = q.p.hp; for (let i = 0; i < 80; i++) E.step(q, 0.05, E.noInput()); ok(q.p.hp < hp0, "standing in a lava zone hurts"); }
 }
+{ const q = _ns(70, 0, 0, []); q.wave = 1; q.between = 99; q.p.x = 0; q.p.z = 0; q.p.yaw = 0.05; q.p.pitch = 0; q.weapon = "pistol"; q.enemies = [{ id: 70, kind: "mantis", x: 0, z: -12, hp: 80, max: 80, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }]; q.p.pitch = Math.atan2(E.bodyY("mantis") - 1.65, 12);
+  const y0 = q.p.yaw, i2 = E.noInput(); i2.fire = true; E.step(q, 0.05, i2); ok(q.hitsLanded === 1 && Math.abs(q.p.yaw - y0) < 1e-9, "a shot 3 degrees off still hits (hidden aim assist) and the view itself does not move"); }
+{ const q = _ns(71, 0, 0, []); q.wave = 1; q.between = 99; q.p.x = 0; q.p.z = 0; q.p.yaw = 0.4; q.p.pitch = 0; q.weapon = "pistol"; q.enemies = [{ id: 71, kind: "mantis", x: 0, z: -12, hp: 80, max: 80, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }]; const i2 = E.noInput(); i2.fire = true; E.step(q, 0.05, i2); ok(q.hitsLanded === 0, "a shot 23 degrees off still misses (the assist is small)"); }
+ok(_ns(1).tuneEvery === 20, "the music question defaults to every 20 s");
 console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);
