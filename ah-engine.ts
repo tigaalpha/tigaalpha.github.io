@@ -3,9 +3,9 @@
 
 export type Box = { x: number; z: number; w: number; d: number; h: number };
 export type WeaponId = "pistol" | "rifle" | "shotgun" | "launcher";
-export type AlienKind = "skitter" | "mantis" | "spitter";
-export type Enemy = { id: number; kind: AlienKind; x: number; z: number; hp: number; max: number; yaw: number; t: number; cd: number; dead: number; flash: number; leap: number; side?: number; sideT?: number };
-export type Acid = { id: number; x: number; y: number; z: number; vx: number; vz: number; vy: number; life: number };
+export type AlienKind = "skitter" | "mantis" | "spitter" | "flarecaster" | "charger" | "skyeye";
+export type Enemy = { id: number; kind: AlienKind; x: number; z: number; hp: number; max: number; yaw: number; t: number; cd: number; dead: number; flash: number; leap: number; side?: number; sideT?: number; tele?: number; rush?: number; stun?: number; dx?: number; dz?: number };
+export type Acid = { id: number; x: number; y: number; z: number; vx: number; vz: number; vy: number; life: number; g?: number; dmg?: number; big?: number; col?: number };
 export type Ev = { k: "shot" | "hit" | "kill" | "head" | "hurt" | "reload" | "empty" | "spit" | "wave" | "tune" | "win" | "lose" | "swap"; x?: number; y?: number; z?: number; n?: number; w?: string };
 
 export const ARENA = 34;   // half size
@@ -16,17 +16,21 @@ export const WEAPONS: Record<WeaponId, { name: string; dmg: number; rate: number
   launcher: { name: "Plasma launcher", dmg: 0, rate: 1.1, mag: 4, reserve: 8, spread: 0, pellets: 0, auto: false, reload: 2.6, range: 60, kick: 0.07 },
   shotgun: { name: "Pump shotgun", dmg: 10, rate: 0.85, mag: 6, reserve: 36, spread: 0.07, pellets: 8, auto: false, reload: 2.2, range: 26, kick: 0.05 },
 };
-export const ALIENS: Record<AlienKind, { name: string; hp: number; speed: number; r: number; dmg: number; reach: number; score: number; hy: number }> = {
+export const ALIENS: Record<AlienKind, { name: string; hp: number; speed: number; r: number; dmg: number; reach: number; score: number; hy: number; cy?: number; nohead?: boolean }> = {
   skitter: { name: "Skitter", hp: 26, speed: 6.2, r: 0.5, dmg: 6, reach: 1.15, score: 50, hy: 0.55 },
   mantis: { name: "Drone Mantis", hp: 95, speed: 3.4, r: 0.7, dmg: 17, reach: 1.8, score: 150, hy: 1.55 },
   spitter: { name: "Spitter", hp: 62, speed: 2.6, r: 0.65, dmg: 11, reach: 0, score: 120, hy: 1.35 },
+  flarecaster: { name: "Flarecaster", hp: 85, speed: 2.9, r: 0.7, dmg: 0, reach: 0, score: 180, hy: 1.6 },
+  charger: { name: "Plated Charger", hp: 170, speed: 3.0, r: 0.9, dmg: 24, reach: 1.7, score: 230, hy: 1.1, nohead: true },
+  skyeye: { name: "Sky Eye", hp: 58, speed: 2.4, r: 0.75, dmg: 0, reach: 0, score: 170, hy: 3.2, cy: 2.6, nohead: true },
 };
+export const bodyY = (k: AlienKind) => { const A = ALIENS[k]; return A.cy !== undefined ? A.cy : A.hy * 0.62; };
 export const WAVES: AlienKind[][] = [
   ["skitter", "skitter", "skitter", "skitter", "skitter", "skitter"],
-  ["skitter", "skitter", "skitter", "mantis", "mantis"],
-  ["mantis", "mantis", "spitter", "skitter", "skitter", "skitter", "skitter"],
-  ["spitter", "spitter", "mantis", "mantis", "mantis", "skitter", "skitter", "skitter", "skitter", "skitter"],
-  ["mantis", "mantis", "mantis", "spitter", "spitter", "spitter", "skitter", "skitter", "skitter", "skitter", "skitter", "skitter", "skitter", "skitter"],
+  ["skitter", "skitter", "skitter", "mantis", "mantis", "skyeye"],
+  ["mantis", "mantis", "spitter", "flarecaster", "skitter", "skitter", "skitter"],
+  ["charger", "charger", "skyeye", "skyeye", "spitter", "skitter", "skitter", "skitter", "skitter"],
+  ["charger", "flarecaster", "flarecaster", "mantis", "mantis", "skyeye", "skyeye", "spitter", "spitter", "skitter", "skitter", "skitter", "skitter"],
 ];
 export const LEVEL_BOXES: Box[] = [
   { x: -8, z: -6, w: 4, d: 2.2, h: 1.3 }, { x: 9, z: -9, w: 2.2, d: 5, h: 1.3 }, { x: 0, z: 8, w: 6, d: 1.6, h: 1.2 },
@@ -149,13 +153,13 @@ function fire(s: State) {
     let best: Enemy | null = null, bt = wall, head = false;
     for (const e of s.enemies) {
       if (e.dead !== 0) continue; const A = ALIENS[e.kind];
-      const tb = raySphere(ox, oy, oz, dx, dy, dz, e.x, A.hy * 0.62, e.z, A.r * 1.05);
-      const th = raySphere(ox, oy, oz, dx, dy, dz, e.x, A.hy + 0.5 * A.r * 1.1, e.z, A.r * 0.5);
+      const tb = raySphere(ox, oy, oz, dx, dy, dz, e.x, bodyY(e.kind), e.z, A.r * 1.05);
+      const th = A.nohead ? Infinity : raySphere(ox, oy, oz, dx, dy, dz, e.x, A.hy + 0.5 * A.r * 1.1, e.z, A.r * 0.5);
       if (th < bt) { bt = th; best = e; head = true; } else if (tb < bt) { bt = tb; best = e; head = false; }
     }
     if (best) {
-      const fall = Math.max(0.55, 1 - bt / (W.range * 1.4)); let dmg = W.dmg * fall * (head ? 2.2 : 1) * (1 + s.boost);
-      best.hp -= dmg; best.flash = 0.12; landed = true; s.ev.push({ k: "hit", x: best.x, y: head ? ALIENS[best.kind].hy + 0.5 : ALIENS[best.kind].hy * 0.6, z: best.z, n: dmg });
+      const fall = Math.max(0.55, 1 - bt / (W.range * 1.4)); let dmg = W.dmg * fall * (head ? 2.2 : 1) * (1 + s.boost) * (best.kind === "charger" ? ((best.rush || 0) > 0 || (best.stun || 0) > 0 ? 1.8 : 0.55) : 1);
+      best.hp -= dmg; best.flash = 0.12; landed = true; s.ev.push({ k: "hit", x: best.x, y: head ? ALIENS[best.kind].hy + 0.5 : bodyY(best.kind), z: best.z, n: dmg });
       if (best.hp <= 0 && best.dead === 0) {
         best.dead = 0.9; s.kills++; s.streak++; s.best = Math.max(s.best, s.streak); if (head) s.heads++;
         s.score += Math.round(ALIENS[best.kind].score * (head ? 1.5 : 1) * (1 + Math.min(s.streak, 10) * 0.1)); s.ev.push({ k: head ? "head" : "kill", x: best.x, z: best.z, w: best.kind });
@@ -205,26 +209,41 @@ export function step(s: State, dt: number, inp: Input) {
     if (e.dead !== 0) { if (e.dead > 0) { e.dead -= dt; if (e.dead <= 0) e.dead = -1; } continue; }
     const dx = p.x - e.x, dz = p.z - e.z, d = Math.hypot(dx, dz) || 1; e.yaw = Math.atan2(-dx, -dz);
     let dirx = dx / d, dirz = dz / d, spd = A.speed * (1 + s.wave * 0.03);
+    if (e.kind === "flarecaster") { if (d < 9) { dirx = -dirx; dirz = -dirz; spd *= 0.8; } else if (d < 15) { dirx = -dirz * (e.side || 1); dirz = dx / d * (e.side || 1); spd *= 0.6; if (!e.side) e.side = rnd(s) < 0.5 ? -1 : 1; } }
+    if (e.kind === "skyeye") { if (d < 10) { dirx = -dirx; dirz = -dirz; } else if (d < 17) { if (!e.side) e.side = rnd(s) < 0.5 ? -1 : 1; dirx = -dz / d * e.side; dirz = dx / d * e.side; spd *= 0.7; } }
+    if (e.kind === "charger") {
+      if ((e.stun || 0) > 0) { e.stun = (e.stun || 0) - dt; spd = 0; }
+      else if ((e.tele || 0) > 0) { e.tele = (e.tele || 0) - dt; spd = 0; if ((e.tele || 0) <= 0) { e.rush = 0.95; e.dx = dx / d; e.dz = dz / d; } }
+      else if ((e.rush || 0) > 0) { e.rush = (e.rush || 0) - dt; dirx = e.dx || dirx; dirz = e.dz || dirz; spd = 15; e.yaw = Math.atan2(-dirx, -dirz); if ((e.rush || 0) <= 0) { e.stun = 1.1; e.cd = 2.2; } }
+      else if (d < 15 && d > 4 && e.cd <= 0) { e.tele = 1.0; e.cd = 0; s.ev.push({ k: "charge", x: e.x, z: e.z }); }
+    }
     if (e.kind === "spitter") { if (d < 11) { dirx = -dirx; dirz = -dirz; spd *= 0.7; } else if (d < 16) { spd = 0; } }
     if (e.kind === "mantis" && e.leap > 0) { e.leap -= dt; spd = A.speed * 3.2; }
     else if (e.kind === "mantis" && d < 7 && d > 3 && e.cd <= 0) { e.leap = 0.45; e.cd = 3.2; }
     for (const o of alive) { if (o === e) continue; const ox = e.x - o.x, oz = e.z - o.z, od = Math.hypot(ox, oz); if (od > 0 && od < 1.1) { dirx += ox / od * 0.6; dirz += oz / od * 0.6; } }
     if ((e.sideT || 0) > 0) { e.sideT = (e.sideT || 0) - dt; dirx += -dirz * (e.side || 1) * 1.6; dirz += dirx * 0 + (dx / d) * (e.side || 1) * 1.6; }
     const ix = dirx * spd * dt, iz = dirz * spd * dt;
-    const [nx2, nz2] = collide(s.boxes, e.x + ix, e.z + iz, A.r);
+    const [nx2, nz2] = e.kind === "skyeye" ? [Math.max(-ARENA + 1, Math.min(ARENA - 1, e.x + ix)), Math.max(-ARENA + 1, Math.min(ARENA - 1, e.z + iz))] : collide(s.boxes, e.x + ix, e.z + iz, A.r);
     if (spd > 0 && Math.hypot(nx2 - e.x, nz2 - e.z) < 0.35 * Math.hypot(ix, iz) && (e.sideT || 0) <= 0) { e.side = rnd(s) < 0.5 ? -1 : 1; e.sideT = 1.4; }
     e.x = nx2; e.z = nz2;
     e.cd -= dt;
-    if (A.reach > 0 && d < A.reach + 0.6 && e.cd <= 0) { hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.cd = e.kind === "skitter" ? 0.7 : 1.1; }
+    if (e.kind === "charger") { if ((e.rush || 0) > 0 && d < A.reach + 0.4) { hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.rush = 0; e.stun = 1.1; e.cd = 2.2; } }
+    else if (A.reach > 0 && d < A.reach + 0.6 && e.cd <= 0) { hurtPlayer(s, A.dmg * (1 + s.wave * 0.04), e.x, e.z); e.cd = e.kind === "skitter" ? 0.7 : 1.1; }
+    if (e.kind === "flarecaster" && d < 26 && e.cd <= 0) {
+      e.cd = 3.0; const T = d / 11; s.acid.push({ id: s.nextId++, x: e.x, y: 2.0, z: e.z, vx: dx / T, vz: dz / T, vy: (EYE - 2.0 + 4.9 * T * T) / T, life: 5, dmg: 18, big: 1.8, col: 0xff7a2a }); s.ev.push({ k: "spit", x: e.x, z: e.z, w: "flarecaster" });
+    }
+    if (e.kind === "skyeye" && d < 28 && e.cd <= 0) {
+      e.cd = 2.6; for (const sp of [-0.18, 0, 0.18]) { const ang = Math.atan2(dx, dz) + sp, V = 13, T = d / V; s.acid.push({ id: s.nextId++, x: e.x, y: 2.6, z: e.z, vx: Math.sin(ang) * V, vz: Math.cos(ang) * V, vy: (EYE - 2.6) / T, life: 3, g: 0, dmg: 7, big: 0.7, col: 0xb06aff }); } s.ev.push({ k: "spit", x: e.x, z: e.z, w: "skyeye" });
+    }
     if (e.kind === "spitter" && d < 24 && e.cd <= 0) {
       e.cd = 2.3; const T = d / 14; s.acid.push({ id: s.nextId++, x: e.x, y: 1.3, z: e.z, vx: dx / T, vz: dz / T, vy: (EYE - 1.3 + 4.9 * T * T) / T, life: 4 }); s.ev.push({ k: "spit", x: e.x, z: e.z });
     }
   }
   s.enemies = s.enemies.filter(e => e.dead >= 0);
   for (const a of s.acid) {
-    a.life -= dt; a.vy -= 9.8 * dt; a.x += a.vx * dt; a.z += a.vz * dt; a.y += a.vy * dt;
+    a.life -= dt; a.vy -= (a.g === undefined ? 9.8 : a.g) * dt; a.x += a.vx * dt; a.z += a.vz * dt; a.y += a.vy * dt;
     if (a.y <= 0.1) a.life = 0;
-    else if (Math.hypot(a.x - p.x, a.z - p.z) < 0.7 && a.y < EYE + p.y + 0.3 && a.y > p.y) { hurtPlayer(s, 11, a.x, a.z); a.life = 0; }
+    else if (Math.hypot(a.x - p.x, a.z - p.z) < 0.7 && a.y < EYE + p.y + 0.3 && a.y > p.y) { hurtPlayer(s, a.dmg || 11, a.x, a.z); a.life = 0; }
     for (const b of s.boxes) if (a.y < b.h && Math.abs(a.x - b.x) < b.w / 2 && Math.abs(a.z - b.z) < b.d / 2) a.life = 0;
   }
   s.acid = s.acid.filter(a => a.life > 0);
@@ -232,7 +251,7 @@ export function step(s: State, dt: number, inp: Input) {
     r.life -= dt; r.vy -= 2.5 * dt; r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt; let hit = r.life <= 0 || r.y <= 0.1;
     for (const b of s.boxes) if (r.y < b.h && Math.abs(r.x - b.x) < b.w / 2 && Math.abs(r.z - b.z) < b.d / 2) hit = true;
     if (Math.abs(r.x) > ARENA || Math.abs(r.z) > ARENA) hit = true;
-    if (!hit) for (const e of s.enemies) if (e.dead === 0 && Math.hypot(e.x - r.x, e.z - r.z) < ALIENS[e.kind].r + 0.4 && r.y < ALIENS[e.kind].hy + 1) { hit = true; break; }
+    if (!hit) for (const e of s.enemies) if (e.dead === 0 && Math.hypot(e.x - r.x, e.z - r.z) < ALIENS[e.kind].r + 0.4 && Math.abs(r.y - bodyY(e.kind)) < 1.4) { hit = true; break; }
     if (hit) { r.life = 0; explode(s, r.x, Math.max(0.2, r.y), r.z); }
   }
   s.rk = s.rk.filter(r => r.life > 0);
