@@ -40,7 +40,7 @@ import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validat
    ทั้งหน้า Daily Mentor และป๊อปอัป Auto Teaching อ่านจากที่นี่ที่เดียว
    (skillScoresOf = กติกาเดิมของ computeSkillScores · weightedStrugglesOf = กติกา
    เดิมของ use-autoteach · learnerSignal = ตัวตัดสินใจรวม · repeatWindowOpen = กันยิงคำเดิมซ้ำ) */
-import { foundationPath } from "./class-teacher";
+import { foundationPath, dailyPatch } from "./class-teacher";
 import { PowerToast } from "./game-power-ui";
 import { accMult } from "./game-power";
 import { learnerSignal, skillScoresOf, skillsOfActivity, weakestSkills, repeatWindowOpen, freeQuotaState, atipDelivery, SKILL_FEATURE } from "./learner-signal";
@@ -1398,7 +1398,7 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
       </div>
       {(
         <div className="v12card" data-track="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><b style={{ fontSize: 12.5 }}>{T("เส้นทางพื้นฐานของคุณ", "Your foundation path", "你的基础路径")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{track.doneN}/{track.steps.length}</span></div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><b style={{ fontSize: 12.5 }}>{T("แพตช์พื้นฐานประจำวัน", "Daily foundation patch", "每日基础补丁")}</b><span style={{ fontSize: 12, color: "var(--clay-ink)", fontWeight: 700 }}>{track.doneN}/{track.steps.length}</span></div>
           <div style={{ display: "flex", alignItems: "flex-start" }}>
             {track.steps.map((st, i) => (
               <button key={st.id} data-tstep={st.id} data-tcur={st.current ? "1" : "0"} onClick={() => goStep(st)} aria-label={tr(st.title, lang)}
@@ -1409,16 +1409,10 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
               </button>
             ))}
           </div>
-          {track.current && (
-            <button data-tnow="1" onClick={() => goStep(track.current)} style={{ marginTop: 7, width: "100%", display: "flex", alignItems: "center", gap: 8, background: "rgba(217,119,87,.13)", border: 0, borderRadius: 14, padding: "5px 6px 5px 10px", cursor: "pointer", font: "inherit", color: "var(--text)", textAlign: "left", fontSize: 12, fontWeight: 600 }}>
-              <span>👉</span><span style={{ flex: 1, minWidth: 0 }}>{tr(track.current.title, lang)}</span><span className="tdgo" style={{ pointerEvents: "none", padding: "5px 12px" }}>{TT.start}</span>
-            </button>
-          )}
-          {track.finished && (
-            <div data-tdone="1" style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 8, background: "rgba(58,157,110,.14)", borderRadius: 14, padding: "7px 10px", fontSize: 12.5, fontWeight: 700 }}>
-              <span>🏆</span><span style={{ flex: 1 }}>{T("ครบทั้ง 7 ขั้นแล้ว — ภูมิใจในตัวเองได้เลย! ใครๆ ก็ไม่ใช่ทุกคนที่ทำได้", "All 7 steps done — be proud of yourself!", "7步全部完成——为自己骄傲吧！")}</span>
-            </div>
-          )}
+          {(() => { const dp = dailyPatch(track, Math.floor(Date.now() / 86400000)); return dp ? (
+            <button data-tnow="1" data-tpatch={dp.id} onClick={() => goStep(dp)} style={{ marginTop: 7, width: "100%", display: "flex", alignItems: "center", gap: 8, background: "rgba(217,119,87,.13)", border: 0, borderRadius: 14, padding: "5px 6px 5px 10px", cursor: "pointer", font: "inherit", color: "var(--text)", textAlign: "left", fontSize: 12, fontWeight: 600 }}>
+              <span>🛠</span><span style={{ flex: 1, minWidth: 0 }}>{T("วันนี้: ", "Today: ", "今天：")}{tr(dp.title, lang)}<span style={{ display: "block", fontSize: 10.5, fontWeight: 400, color: "var(--muted)" }}>{tr(dp.why, lang)}</span></span><span className="tdgo" style={{ pointerEvents: "none", padding: "5px 12px" }}>{TT.start}</span>
+            </button>) : null; })()}
         </div>
       )}
     </div>

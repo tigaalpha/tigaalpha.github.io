@@ -119,3 +119,14 @@ export function teacherNote(input: { log: Entry[]; streak?: number; now?: number
   const tail = input.track.finished ? null : pick({ th: `เส้นทางพื้นฐาน ${input.track.doneN}/${input.track.steps.length} ขั้น`, en: `Foundation path: ${input.track.doneN} of ${input.track.steps.length} steps`, zh: `基础路径：${input.track.doneN}/${input.track.steps.length} 步` }, lang);
   return { tone, hello: pick(hello, lang), line: pick(line, lang), trend, tail, week: w };
 }
+
+/** The daily foundation patch (owner, 2026-10-18): ONE foundation step for today that changes every day with the learner's level. The pool is
+    every step they have reached (the ones done, for review, plus the one they are on); the current step comes up every other day, the rest take
+    turns, so the patch moves daily but never asks for something beyond their level. */
+export function dailyPatch(track: ReturnType<typeof foundationPath>, daySeed: number): FoundationStep | null {
+  const reached = track.steps.filter(x => x.done || x.current);
+  if (!reached.length) return null;
+  const cur = track.current, rest = reached.filter(x => !cur || x.id !== cur.id);
+  if (cur && (daySeed % 2 === 0 || !rest.length)) return cur;
+  return rest.length ? rest[Math.floor(daySeed / 2) % rest.length] : cur;
+}

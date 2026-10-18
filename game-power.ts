@@ -10,9 +10,9 @@ export const POWER_MAX = 100;
 export const POWER_START = 60;                 // what a device starts with, so nobody is locked out before they have had a chance to learn
 export const POWER_DAILY_EARN_CAP = 150;       // soft ceiling on what one day of learning can add (the bar itself caps at POWER_MAX)
 /* Owner 2026-10-17: power is PLAY TIME. COST is only the least you need to be allowed in; nothing is taken at the start. While a fight or an Adventure map is
-   running, 1 power is taken every DRAIN_SECS (100 power = about 20 minutes); at 0 the game stops and the learn pop-up opens. */
+   running, 1 power is taken every DRAIN_SECS (100 power = about 10 minutes); at 0 the game stops and the learn pop-up opens. */
 export const COST = { fight: 5, adventure: 5 } as const;
-export const DRAIN_SECS = 12;
+export const DRAIN_SECS = 6;
 /* may this player start? (no spending) */
 export function enterGame(min: number, adminTier = 0): boolean { return powerFree(adminTier) || readPower() >= min; }
 /* one tick of play time; false = nothing left, stop the game */

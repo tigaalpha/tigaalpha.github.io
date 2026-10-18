@@ -5,7 +5,7 @@ const KIND: Record<string, string> = {
   marscolony: "mars", colmars: "mars", ranchmars: "mars", moonhe3: "moon", moonbase: "moon", colmoon: "moon", spaceranch: "moon", mercury: "mercury", venussky: "venus",
   jupitergas: "jupiter", gasskim: "jupiter", gaspump: "jupiter", gasbuild: "jupiter", saturnrings: "saturn", titanassault: "titan", titancolony: "titan", coltitan: "titan", ranchtitan: "titan",
   colproxima: "proxima", ranchproxima: "proxima", shipbuild: "earth", departure: "earth", asteroids: "rock", minebuild: "rock", cobalt: "rock",
-  helios: "star", starharvest: "star", dyson: "star", dysonbuild: "star", dysondock: "star", solarcharge: "star", blackhole: "blackhole", kryo: "ice", pyra: "lava", jovia: "jupiter",
+  helios: "star", starharvest: "star", dyson: "star", dysonbuild: "star", dysondock: "star", solarcharge: "star", blackhole: "blackhole", ah1: "mars", ah2: "mercury", ah3: "earth", ah4: "ice", ah5: "rock", ah6: "jupiter", ah7: "generic", ah8: "saturn", ah9: "lava", ah10: "star", kryo: "ice", pyra: "lava", jovia: "jupiter",
 };
 const hash = (a: number, b: number, s: number) => { const n = Math.sin(a * 127.1 + b * 311.7 + s * 74.7) * 43758.5453; return n - Math.floor(n); };
 function vn(u: number, v: number, per: number, sd: number) {

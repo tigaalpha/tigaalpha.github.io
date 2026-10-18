@@ -60,7 +60,7 @@ const r31 = (e) => e.filter(x => /#31|objects are not valid as a React child/i.t
   ok("no page errors", s.errs.length === 0, s.errs.slice(0, 2).join(" | ")); await s.ctx.close(); }
 // 7. a stage step opens the real lesson (scale) and Thai renders the teacher
 { const s = await open({ lang: "th" }); const t = (await s.p.locator("body").innerText()).replace(/\s+/g, " ");
-  ok("Thai: foundation path shown", /เส้นทางพื้นฐาน/.test(t)); await s.p.evaluate(() => document.querySelector('[data-tstep="scale"]').click()); await s.p.waitForTimeout(1500);
+  ok("Thai: foundation path shown", /แพตช์พื้นฐานประจำวัน/.test(t)); await s.p.evaluate(() => document.querySelector('[data-tstep="scale"]').click()); await s.p.waitForTimeout(1500);
   ok("scale step opens without errors", s.errs.length === 0, s.errs.slice(0, 2).join(" | ")); await s.ctx.close(); }
 // 8. Play on the merged card goes straight into the real thing (owner, 2026-10-17): a weak SONG opens that song, not the Pathway menu; the diagnosis lives inside the same card
 { const ctx = await b.newContext({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
