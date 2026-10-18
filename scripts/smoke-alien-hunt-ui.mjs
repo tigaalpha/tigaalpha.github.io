@@ -47,6 +47,7 @@ ok("a slide button and the weapon chips are on screen", (await p.locator("[data-
   await p.evaluate(() => { const s = window.__ah.state; s.auto = false; s.enemies.length = 0; }); }
 await p.evaluate(() => { const s = window.__ah.state; s.pk.push({ id: 777, x: s.p.x, z: s.p.z, w: "rail" }); }); await p.waitForTimeout(400);
 ok("picking up a gun adds a chip and equips it", (await p.locator("[data-wpn=rail]").count()) === 1 && (await p.evaluate(() => window.__ah.state.weapon)) === "rail");
+for (const k of ["skitter", "mantis", "spitter", "flarecaster", "charger", "skyeye"]) { let pk2 = 0; await p.evaluate(([k]) => window.__ah.creature(k, "spawn"), [k]); for (let i = 0; i < 12; i++) { pk2 = Math.max(pk2, await lvl()); await p.waitForTimeout(60); } ok("the " + k + " has a voice (peak " + pk2.toFixed(2) + ")", pk2 > 0.02 && pk2 < 1.0); }
 // launcher
 await p.evaluate(() => { const s = window.__ah.state; s.weapon = "launcher"; s.cd = 0; s.p.inv = 5; });
 const b0 = await p.evaluate(() => (window.__boom = 0, window.__ah.state.rk.length));
