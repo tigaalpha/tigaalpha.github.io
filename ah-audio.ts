@@ -147,4 +147,22 @@ export function musicStop() { running = false; clearInterval(timer); }
 export function setIntensity(n: number) { intensity = Math.max(1, Math.min(3, n)); }
 /** a question is open: the tune thins to a soft drone and goes dull; false brings it back */
 export function setDucked(v: boolean) { ducked = v; if (!ctx) return; const t = ctx.currentTime; musicLp.frequency.cancelScheduledValues(t); musicLp.frequency.linearRampToValueAtTime(v ? 700 : 18000, t + 0.25); musicBus.gain.cancelScheduledValues(t); musicBus.gain.linearRampToValueAtTime(v ? 0.22 : 0.5, t + 0.25); }
-export function dispose() { musicStop(); try { master && master.disconnect(); } catch (e) {} ctx = null; }
+
+/* ── the map-screen tune: slow, wide and hopeful, nothing like the battle tune (92 bpm, D lydian, pads + bell arpeggio + a soft heartbeat) ── */
+let mTimer: any = 0, mStep = 0, mNext = 0, mRun = false, mBus: GainNode | null = null;
+const MB = 92, M8 = 60 / MB / 2, MROOT = [50, 47, 55, 52], MCH = [[0, 4, 7, 11], [0, 3, 7, 10], [0, 4, 7, 11], [0, 4, 7, 9]];   // Dmaj7, Bm7, Gmaj7, Dadd6 voicings
+function mSched(t: number, i: number) {
+  const c = ctx as AudioContext, bar = Math.floor(i / 8) % 4, p = i % 8, root = MROOT[bar], bus = mBus as GainNode;
+  if (p === 0) {   // a wide pad chord that breathes for the whole bar
+    for (const n of MCH[bar]) for (const dt of [-6, 6]) { const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain(); o.type = "sawtooth"; o.detune.value = dt; o.frequency.value = mf(root + n + 12); f.type = "lowpass"; f.frequency.value = 1100;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.028, t + 1.2); g.gain.linearRampToValueAtTime(0.0001, t + M8 * 8); o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t + M8 * 8 + 0.05); }
+    tone(t, M8 * 8, "sine", mf(root - 12), mf(root - 12), 0.22, bus);
+  }
+  if (p === 0 || p === 4) { tone(t, 0.22, "sine", 90, 38, 0.55, bus); }   // soft heartbeat
+  const arp = [0, 7, 11, 14, 16, 14, 11, 7][p] + (bar === 1 ? -2 : 0); if (p % 2 === 0 || p === 5) tone(t, 0.9, "sine", mf(root + 24 + arp), mf(root + 24 + arp), 0.07, bus);   // bell arpeggio
+  if (p === 7 && bar === 3) noise(t, M8 * 2, "bandpass", 500, 5000, 0.07, bus, 1.5);   // a gentle swell into the loop
+}
+function mPump() { if (!ctx || !mRun) return; const c = ctx; if (mNext < c.currentTime) mNext = c.currentTime + 0.05; while (mNext < c.currentTime + 0.6) { mSched(mNext, mStep); mNext += M8; mStep++; } }
+export function menuStart() { if (!ctx || mRun) return; mRun = true; mStep = 0; mNext = ctx.currentTime + 0.1; mBus = ctx.createGain(); mBus.gain.value = 0.55; mBus.connect(master); mTimer = setInterval(mPump, 150); mPump(); }
+export function menuStop() { mRun = false; clearInterval(mTimer); try { if (mBus && ctx) { mBus.gain.setTargetAtTime(0, ctx.currentTime, 0.15); const b = mBus; setTimeout(() => { try { b.disconnect(); } catch (e) {} }, 800); } } catch (e) {} mBus = null; }
+export function dispose() { musicStop(); menuStop(); try { master && master.disconnect(); } catch (e) {} ctx = null; }
