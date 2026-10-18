@@ -28,6 +28,9 @@ export const ALIENS: Record<AlienKind, { name: string; hp: number; speed: number
   charger: { name: "Plated Charger", hp: 170, speed: 3.0, r: 0.9, dmg: 24, reach: 1.7, score: 230, hy: 1.1, nohead: true },
   skyeye: { name: "Sky Eye", hp: 58, speed: 2.4, r: 0.75, dmg: 0, reach: 0, score: 170, hy: 3.2, cy: 2.6, nohead: true },
 };
+/** the aliens are human-sized or bigger (owner, 2026-10-18: "as big as a person, scarier"): the table above is the small design, this scales every body and its hit box */
+export const ALIEN_SCALE: Record<AlienKind, number> = { skitter: 1.9, mantis: 1.3, spitter: 1.3, flarecaster: 1.2, charger: 1.55, skyeye: 1.3 };
+for (const k of Object.keys(ALIENS) as AlienKind[]) { const A = ALIENS[k], f = ALIEN_SCALE[k]; A.r *= f; A.hy *= f; if (A.cy !== undefined) A.cy *= f; if (A.reach > 0) A.reach *= f; }
 export const bodyY = (k: AlienKind) => { const A = ALIENS[k]; return A.cy !== undefined ? A.cy : A.hy * 0.62; };
 export const WAVES: AlienKind[][] = [
   ["skitter", "skitter", "skitter"],
