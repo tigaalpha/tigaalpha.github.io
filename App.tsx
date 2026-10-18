@@ -2844,17 +2844,10 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
           {eventDaysLeft > 0 && <span className="event-hint">{lc.eventPractice} ~{Math.round(30 / Math.max(1, eventDaysLeft) * 60)} {lc.eventMin}</span>}
         </div>
       )}
-      {!eventData && (
-        <button className="event-set-btn" onClick={() => { playUi("click"); setEvName(""); setEvDate(""); setEventOpen(true); }}>
-          <Ico e="🎯" size={17} className="uxi-inl" /> {lc.eventSet}
-        </button>
-      )}
 
       <div className="pathhero">
         <div className="pathhero-glow" />
         <div className="pathbadge">▶ STUDIO ▶</div>
-        <h1 className="pathh1">{lc.studioTitle}</h1>
-        <p className="pathguide">{lc.studioSub}</p>
       </div>
       <div className="songgrid">
         {cards.map(c => (
