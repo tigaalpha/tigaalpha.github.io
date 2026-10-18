@@ -22,6 +22,10 @@ const s2 = E.newState(5, 0); for (let i = 0; i < 100; i++) E.step(s2, 0.05, inp)
 const e = s2.enemies[0] || (E.step(s2, 1, inp), s2.enemies[0]); e.x = s2.p.x; e.z = s2.p.z - 6; s2.p.yaw = 0; s2.p.pitch = Math.atan2(0.55 - 1.65, 6);
 s2.weapon = "pistol"; const k0 = s2.kills; for (let i = 0; i < 30 && s2.kills === k0; i++) { E.step(s2, 0.3, { ...inp, fire: true }); e.x = s2.p.x; e.z = s2.p.z - 6; }
 ok(s2.kills > k0, "the pistol kills an alien in the crosshair");
+// the plasma launcher blows up a group
+{ const s4 = E.newState(5, 0); for (let i = 0; i < 100; i++) E.step(s4, 0.05, inp); s4.weapon = "launcher"; const n = s4.enemies.length; s4.enemies.forEach((e, i) => { e.x = s4.p.x + i * 0.5; e.z = s4.p.z - 10; e.hp = 40; }); s4.p.yaw = 0; s4.p.pitch = -0.05; const k0 = s4.kills; let boom = false;
+  E.step(s4, 0.05, { ...inp, fire: true }); for (let i = 0; i < 40; i++) { E.step(s4, 0.05, inp); if (s4.ev.some(e => e.k === "boom")) boom = true; s4.ev = []; }
+  ok(boom && s4.kills > k0, "a rocket explodes and kills several aliens at once (" + (s4.kills - k0) + "/" + n + ")"); }
 // walls block shots and movement
 const [x, z] = E.collide(E.LEVEL_BOXES, -8, -6, 0.4); ok(Math.abs(x + 8) > 0.5 || Math.abs(z + 6) > 0.5, "a box pushes a circle out");
 // a full run with a bot ends (win or lose), never hangs

@@ -1,9 +1,10 @@
 /* Alien Hunt (plan 38): a first-person shooter against human-sized insect aliens, with a music question every 15 s of fighting.
    The shell: ready screen, input (touch sticks, mouse + keys), HUD, the tune-up question card, pause, results, Game Power. The rules are in ah-engine.ts, the picture in ah-render.ts. */
 import { useEffect, useRef, useState } from "react";
-import { newState, step, noInput, tuneResult, stats, setWeapon, WEAPONS, WAVES, ALIENS, type State, type Input, type WeaponId } from "./ah-engine";
+import { newState, step, noInput, tuneResult, stats, setWeapon, WEAPONS, WAVES, WORDER, type State, type Input, type WeaponId } from "./ah-engine";
 import { createRender, type Render } from "./ah-render";
-import { nextQuestion, judgeKeys, recordAnswer, readLadder, type Question } from "./quiz-quest";
+import { nextQuestion, judgeKeys, recordAnswer, readLadder, learnedTopics, readDone, type Question } from "./quiz-quest";
+import * as AU from "./ah-audio";
 import { usePlayDrain, PowerSheet } from "./game-power-ui";
 import { enterGame, COST as POWER_COST } from "./game-power";
 import { gfxHigh } from "./adv-gfx";
@@ -27,6 +28,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
   const inp = useRef<Input>(noInput()), look = useRef({ x: 0, y: 0 }), keys = useRef<Record<string, boolean>>({}), stick = useRef({ id: -1, x0: 0, y0: 0, mx: 0, mz: 0 }), lookId = useRef(-1);
   const [phase, setPhase] = useState<"ready" | "play" | "result">("ready"), [paused, setPaused] = useState(false), [quiz, setQuiz] = useState<Quiz | null>(null);
   const [hud, setHud] = useState<any>({}), [high, setHigh] = useState(() => gfxHigh()), [powerNeed, setPowerNeed] = useState<number | null>(null), [res, setRes] = useState<any>(null);
+  const [learned, setLearned] = useState<string[]>(() => learnedTopics(readDone())), [snd, setSnd] = useState(() => AU.soundOn()), tuneLog = useRef<{ topic: string; ok: boolean }[]>([]);
   const [hitM, setHitM] = useState(0), [hurt, setHurt] = useState(0), [banner, setBanner] = useState<string>(""), [tuneSecs, setTuneSecs] = useState<number>(readTune());
   const phaseRef = useRef(phase); phaseRef.current = phase; const pausedRef = useRef(paused); pausedRef.current = paused; const quizRef = useRef(quiz); quizRef.current = quiz;
   const hitT = useRef(0), hurtT = useRef(0), bannerT = useRef(0);
@@ -38,12 +40,13 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
     const cry = Math.round(st.kills / 4 + st.stars * 3 + st.right * 2), exp = 20 + st.stars * 10 + st.right * 8;
     if (!forced || st.kills > 0) { addCrystals(cry); try { addRpgExp(me, exp); } catch (e) {} }
     try { logUsage("ah", `end:${won ? "win" : "lose"}:k${st.kills}:w${s.wave}:t${st.right}of${st.tunes}:${gfxHigh() ? "hd" : "sd"}`); } catch (e) {}
-    setRes({ ...st, won, cry, exp, wave: s.wave }); setPhase("result"); setPaused(false); setQuiz(null); exitFsAndUnlock();
+    AU.musicStop(); AU.sfx(won ? "win" : "lose"); const per: Record<string, [number, number]> = {}; for (const l of tuneLog.current) { per[l.topic] = per[l.topic] || [0, 0]; per[l.topic][1]++; if (l.ok) per[l.topic][0]++; }
+    setRes({ ...st, won, cry, exp, wave: s.wave, per }); setPhase("result"); setPaused(false); setQuiz(null); exitFsAndUnlock();
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
   };
   const begin = () => {
     if (!enterGame(POWER_COST.adventure, adminTier)) { setPowerNeed(POWER_COST.adventure); return; }
-    if (playUi) playUi("click"); enterFs(); S.current = newState(Date.now() & 0xffff, readTune()); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
+    if (playUi) playUi("click"); enterFs(); const lt = learnedTopics(readDone()); setLearned(lt); tuneLog.current = []; S.current = newState(Date.now() & 0xffff, lt.length ? readTune() : 0); AU.warm(); AU.setDucked(false); AU.musicStart(); AU.sfx("go"); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
     try { logUsage("ah", `start:${gfxHigh() ? "hd" : "sd"}:${S.current.tuneEvery}s`); } catch (e) {}
   };
 
@@ -62,7 +65,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
         acc += dt; while (acc >= 1 / 60) { acc -= 1 / 60; step(s, 1 / 60, i); i.swap = 0; i.reload = false; i.lookX = 0; i.lookY = 0; }
       }
       if (s.ev.length) {
-        const ev = s.ev; s.ev = []; r.events(ev);
+        const ev = s.ev; s.ev = []; r.events(ev); AU.events(ev);
         for (const e of ev) {
           if (e.k === "hit") { hitT.current = 0.15; setHitM(1); } else if (e.k === "hurt") { hurtT.current = 0.4; setHurt(1); if (navigator.vibrate) try { navigator.vibrate(30); } catch (x) {} }
           else if (e.k === "wave") { setBanner(t("คลื่นที่ ", "WAVE ", "第") + e.n + (lang === "zh" ? "波" : "")); bannerT.current = 2.2; }
@@ -74,28 +77,29 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
       if (bannerT.current > 0) { bannerT.current -= dt; if (bannerT.current <= 0) setBanner(""); }
       r.draw(s, dt);
       if (high && !pausedRef.current && !s.frozen) { if (dt > 0.031) slow++; else slow = Math.max(0, slow - 1); if (slow > 90) { slow = 0; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} setHigh(false); r.setHigh(false); try { logUsage("ah", "auto-lite"); } catch (e) {} } }
-      hudT += dt; if (hudT > 0.1) { hudT = 0; const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: WEAPONS[w].name, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
+      hudT += dt; if (hudT > 0.1) { hudT = 0; { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: WEAPONS[w].name, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
     };
     raf = requestAnimationFrame(loop);
     (window as any).__ah = { s: S.current, get state() { return S.current; }, step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(S.current, dt, inp.current); }, info: () => r.info(), killAll: () => { for (const e of S.current.enemies) e.hp = 0, e.dead = 0.5; }, tune: () => { S.current.tuneT = S.current.tuneEvery; }, setHigh: (h: boolean) => { setHigh(h); r.setHigh(h); }, quizQ: () => quizRef.current && quizRef.current.q, draw: () => r.draw(S.current, 0.016) };
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); r.dispose(); rdr.current = null; try { delete (window as any).__ah; } catch (e) {} };
   }, [phase]);
   useEffect(() => { if (rdr.current) rdr.current.setHigh(high); }, [high]);
-  useEffect(() => () => { exitFsAndUnlock(); }, []);
+  useEffect(() => () => { exitFsAndUnlock(); AU.dispose(); }, []);
+  useEffect(() => { AU.setDucked(paused || !!quiz); }, [paused, !!quiz]);
 
   /* keyboard + mouse */
   useEffect(() => {
     if (phase !== "play") return undefined;
     const kd = (e: KeyboardEvent) => {
       if (quizRef.current) return; const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k === "shift" ? "shift" : k] = true;
-      if (k === "r") inp.current.reload = true; if (k === "1") setWeapon(S.current, "pistol"); if (k === "2") setWeapon(S.current, "rifle"); if (k === "3") setWeapon(S.current, "shotgun");
+      if (k === "r") inp.current.reload = true; if (k === "1") setWeapon(S.current, "pistol"); if (k === "2") setWeapon(S.current, "rifle"); if (k === "3") setWeapon(S.current, "shotgun"); if (k === "4") setWeapon(S.current, "launcher");
       if (k === "escape" || k === "p") setPaused(p => !p); if (k === " ") e.preventDefault();
     };
     const ku = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k === "shift" ? "shift" : k] = false; };
     const mm = (e: MouseEvent) => { if (document.pointerLockElement) { look.current.x += e.movementX * 0.0022; look.current.y += e.movementY * 0.0022; } };
     const md = (e: MouseEvent) => { if (e.button === 0 && !quizRef.current && !pausedRef.current) inp.current.fire = true; };
     const mu = (e: MouseEvent) => { if (e.button === 0) inp.current.fire = false; };
-    const wh = (e: WheelEvent) => { if (!quizRef.current) setWeapon(S.current, (["pistol", "rifle", "shotgun"] as WeaponId[])[(["pistol", "rifle", "shotgun"].indexOf(S.current.weapon) + (e.deltaY > 0 ? 1 : 2)) % 3]); };
+    const wh = (e: WheelEvent) => { if (!quizRef.current) setWeapon(S.current, WORDER[(WORDER.indexOf(S.current.weapon) + (e.deltaY > 0 ? 1 : WORDER.length - 1)) % WORDER.length]); };
     window.addEventListener("keydown", kd); window.addEventListener("keyup", ku); window.addEventListener("mousemove", mm); window.addEventListener("mousedown", md); window.addEventListener("mouseup", mu); window.addEventListener("wheel", wh);
     return () => { window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku); window.removeEventListener("mousemove", mm); window.removeEventListener("mousedown", md); window.removeEventListener("mouseup", mu); window.removeEventListener("wheel", wh); keys.current = {}; inp.current.fire = false; };
   }, [phase]);
@@ -117,17 +121,18 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
 
   /* the tune-up question */
   const openQuiz = () => {
-    const nq = nextQuestion(lang as any, {}); setQuiz({ q: nq.q, phase: "gate", ok: null, sel: [], armed: false, lit: 0 });
+    inp.current.fire = false; inp.current.reload = false; keys.current = {}; stick.current = { id: -1, x0: 0, y0: 0, mx: 0, mz: 0 }; lookId.current = -1; look.current = { x: 0, y: 0 }; AU.setDucked(true);
+    const nq = nextQuestion(lang as any, { done: readDone() }); setQuiz({ q: nq.q, phase: "gate", ok: null, sel: [], armed: false, lit: 0 });
     setTimeout(() => setQuiz(c => (c && c.phase === "gate" ? { ...c, armed: true } : c)), 900);
   };
   const answer = (ok: boolean) => {
-    const c = quizRef.current; if (!c || c.phase !== "ask") return; recordAnswer(ok, c.q.topic);
+    const c = quizRef.current; if (!c || c.phase !== "ask") return; recordAnswer(ok, c.q.topic); tuneLog.current.push({ topic: c.q.topic, ok }); AU.sfx(ok ? "tuneok" : "tunebad");
     if (ok) { try { addRpgExp(me, 10 + 6 * c.q.tier + (S.current.tuneStreak >= 2 ? 6 : 0)); } catch (e) {} }
     setQuiz({ ...c, phase: "done", ok, lit: 0 });
     if (!ok) { const n = c.q.teach.lit.length; let i = 0; const id = setInterval(() => { i++; setQuiz(q => (q ? { ...q, lit: Math.min(n, i) } : q)); if (i >= n) clearInterval(id); }, 450); }
   };
   const resume = (skipped = false) => {
-    const c = quizRef.current; if (!c) return; tuneResult(S.current, skipped ? false : !!c.ok); setQuiz(null); setBanner(t("เตรียมสู้!", "GET READY", "准备")); bannerT.current = 1.2;
+    const c = quizRef.current; if (!c) return; tuneResult(S.current, skipped ? false : !!c.ok); AU.setDucked(false); AU.sfx("go"); setQuiz(null); setBanner(t("เตรียมสู้!", "GET READY", "准备")); bannerT.current = 1.2;
     try { logUsage("ah", `tune:${c.q.topic}:${skipped ? "skip" : c.ok ? "ok" : "bad"}`); } catch (e) {}
   };
   const tapKey = (pc: number) => {
@@ -149,12 +154,14 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <button className="ah-x" onClick={close} aria-label="close">✕</button>
           <em>{t("ไฟต์ติ้งโหมด", "FIGHT MODE", "战斗模式")}</em><h1>ALIEN HUNT</h1>
           <p>{t("เอเลี่ยนแมลงยักษ์บุกอาณานิคม กำจัดให้ครบ 5 คลื่น — ทุก 15 วินาทีที่สู้ เกมจะหยุดถามคำถามดนตรี ตอบถูกได้โล่และกระสุนเต็ม", "Giant insect aliens are overrunning the colony. Beat 5 waves. Every 15 seconds of fighting the game freezes for a music question: answer right for a shield and a full reload.", "巨型昆虫外星人入侵殖民地。击退5波。战斗每15秒暂停一次，回答音乐问题，答对获得护盾和满弹药。")}</p>
-          <div className="ah-keys"><span>WASD / {t("จอยซ้าย", "left stick", "左摇杆")}</span><span>{t("เมาส์ / ลากขวา = เล็ง", "mouse / drag right = aim", "鼠标/右侧拖动=瞄准")}</span><span>{t("คลิก / ปุ่ม FIRE = ยิง", "click / FIRE = shoot", "点击/FIRE=射击")}</span><span>R {t("รีโหลด", "reload", "换弹")} · 1 2 3 {t("เปลี่ยนปืน", "swap gun", "换枪")}</span></div>
+          <div className="ah-keys"><span>WASD / {t("จอยซ้าย", "left stick", "左摇杆")}</span><span>{t("เมาส์ / ลากขวา = เล็ง", "mouse / drag right = aim", "鼠标/右侧拖动=瞄准")}</span><span>{t("คลิก / ปุ่ม FIRE = ยิง", "click / FIRE = shoot", "点击/FIRE=射击")}</span><span>R {t("รีโหลด", "reload", "换弹")} · 1 2 3 4 {t("เปลี่ยนปืน", "swap gun", "换枪")}</span></div>
           <div className="ah-opt"><b>{t("ถามทุก", "Question every", "每隔")}</b>
             {[15, 30].map(n => <button key={n} className={tuneSecs === n ? "on" : ""} onClick={() => setTune(n)} data-tune={n}>{n}s</button>)}
             <b style={{ marginLeft: 12 }}>{t("กราฟิก", "Graphics", "画质")}</b>
             {[true, false].map(h => <button key={String(h)} className={high === h ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_gfx", h ? "high" : "standard"); } catch (e) {} setHigh(h); }} data-gfx={h ? "high" : "lite"}>{h ? "High" : "Lite"}</button>)}
           </div>
+          <p className="ah-note" data-learned={learned.length}>{learned.length ? t("คำถามจะมาจากเรื่องที่เรียนไปแล้วเท่านั้น: ", "Questions come only from what you have learned: ", "问题只来自你学过的内容：") + learned.join(" · ") : t("ยังไม่มีเรื่องที่เรียนแล้ว จึงยังไม่มีคำถามในเกม — ไปเรียนที่ My Class แล้วกลับมา คำถามจะเปิดเอง", "Nothing learned yet, so no questions in the game — learn something in My Class and they switch on by themselves.", "还没有学过的内容，所以游戏里暂时没有问题——先去 My Class 学习，问题会自动开启。")}</p>
+          <div className="ah-opt"><b>{t("เสียง", "Sound", "声音")}</b>{[true, false].map(v => <button key={String(v)} className={snd === v ? "on" : ""} data-snd={v ? "on" : "off"} onClick={() => { setSnd(v); AU.setSoundOn(v); }}>{v ? "ON" : "OFF"}</button>)}</div>
           <button className="ah-go" data-start="1" onClick={begin}>{t("เริ่มภารกิจ", "START MISSION", "开始任务")}</button>
         </div>
       )}
@@ -224,6 +231,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi }: { lan
           <em>{res.won ? t("ภารกิจสำเร็จ", "MISSION COMPLETE", "任务完成") : t("ภารกิจล้มเหลว", "MISSION FAILED", "任务失败")}</em>
           <h1>{"★".repeat(res.stars)}{"☆".repeat(3 - res.stars)}</h1>
           <div className="ah-stats"><span><b>{res.kills}</b>{t("เอเลี่ยนที่ล้ม", "aliens down", "击杀")}</span><span><b>{res.acc}%</b>{t("แม่นยำ", "accuracy", "命中")}</span><span><b>{res.heads}</b>{t("หัว", "headshots", "爆头")}</span><span><b>{res.right}/{res.tunes}</b>{t("ตอบถูก", "tune-ups right", "答对")}</span><span><b>{res.score.toLocaleString()}</b>{t("คะแนน", "score", "得分")}</span></div>
+          {res.per && Object.keys(res.per).length > 0 && <div className="ah-stats" data-report="1">{Object.keys(res.per).map(k => <span key={k}><b>{res.per[k][0]}/{res.per[k][1]}</b>{k}</span>)}</div>}
           <p>+{res.cry} ◆ · +{res.exp} EXP</p>
           <button className="ah-go" onClick={begin}>{t("เล่นอีกครั้ง", "PLAY AGAIN", "再玩一次")}</button><button className="ah-ghost" onClick={close}>{t("กลับ", "Back", "返回")}</button>
         </div>
@@ -270,6 +278,7 @@ const CSS = `
 .ah-piano .w{top:0;width:calc(100% / 7);height:100%;background:#f4f1ea;color:#222}.ah-piano .b{top:0;width:7%;height:62%;background:#17151c;color:#ddd;z-index:2;margin-left:-3.5%}.ah-piano span{font-size:10.5px;font-weight:800;padding-bottom:4px}
 .ah-piano .sel{background:#ff8a3a!important;color:#1a0a04}.ah-piano .lit{background:#ffb347!important;box-shadow:0 0 14px #ff8a3a;color:#1a0a04}
 .ah-verdict{display:flex;flex-direction:column;gap:6px;align-items:center;width:100%}.ah-verdict.good b{color:#6af0a6}.ah-verdict.bad b{color:#ffb06a}.ah-verdict span{font-size:12.5px;opacity:.9}
+.ah-note{font-size:12px!important;color:#ffd9a8}
 .ah-stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.ah-stats span{display:flex;flex-direction:column;min-width:78px;padding:8px 10px;border-radius:14px;background:#ffffff12;font-size:11px}.ah-stats b{font-size:20px}
 @media (max-height:520px){.ah-ready h1{font-size:30px}.ah-ready p{font-size:12px}.ah-card{padding:10px 14px;gap:6px}.ah-piano{height:clamp(70px,22vh,110px)}.ah-go{min-height:42px}}
 `;

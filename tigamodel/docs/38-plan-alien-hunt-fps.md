@@ -69,6 +69,19 @@ Built procedurally in three.js (segmented bodies, lathe/capsule limbs, emissive 
 Optional MIB-style "bug in a suit" gag variants and a Star-Wars-style creature (big beast) as flavour later. All telegraphs readable in both quality modes.
 AI: simple state machines + steering (chase, strafe, flank, retreat) on a nav grid per level (no nav-mesh dependency), line-of-sight checks, aggro/hearing, pack coordination (limit attackers at once), difficulty scaling by wave.
 
+
+### 4.4b Doom-style enemy roles (owner idea, 2026-10-18) — original designs, not Doom's creatures
+Doom's monsters (names and looks) belong to id Software, so we copy the GAMEPLAY ROLES, never the designs or names. Each role gets an original alien body that fits our insect / Harvester universe:
+| Role (what Doom taught players) | Our alien | Behaviour |
+|---|---|---|
+| Fireball thrower at mid range | **Flarecaster** (two-armed bug-priest, glowing thorax sac) | strafes, throws a slow arcing plasma ball you can dodge |
+| Fast melee charger, hard to hit from the front | **Plated Charger** (armoured beetle-boar) | lowers head and rushes; weak spot on the rear |
+| Floating one-eyed ball | **Sky Eye** (hovering spore-eye with tendrils) | floats, spits a spread of bolts; dies in a pop of goo |
+| Flaming skull that rams | **Cinder Wisp** (burning moth-skull) | erratic flight, rams then bursts; area damage |
+| Heavy brute with twin fire | **Hive Warden** (tall armoured walker) | mini-boss, two projectile arms, slow, needs weak-point shots |
+| Final giant with rockets | **Harvester Walker** (already planned as the boss) | phases, rockets and beam |
+Rules kept: no gore (goo only), no human targets, no copied silhouettes or names. Engine work: projectile enemies reuse the acid projectile code (speed, arc, colour per type); flying enemies need a height field and ray hit on a sphere at that height; charger needs a telegraph (1 s lower-head pose). About 4 days, goes with phase C/E.
+
 ### 4.5 Levels (modular, procedural-assembled, 3 to 4)
 Reusable kit: floor/wall/crate/pillar/container/ramp/door pieces as instanced boxes with trimmed textures generated in canvas (rust, concrete, hazard stripes). 1) Colony street at dusk, 2) Landing hangar, 3) Desert outpost under a huge alien ship (skybox with the Harvester hovering), 4) Hive interior (organic walls, emissive). Per level: spawn points, cover, ammo/health pickups, extraction zone, scripted waves. Baked lighting is faked with vertex colours + a few real lights (High adds shadows).
 
