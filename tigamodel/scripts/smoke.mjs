@@ -605,6 +605,95 @@ await ok("existing-backend adapter: correct wire contract + no-throw on error", 
     const k2 = webM.tigaHub.knowledgeForNote("F4", { candidates: { F: fact }, shelf: [{ pc: "F" }] });
     assert.equal(k2, null, "already-collected fact → no claim (budget saved for fresh facts)");
   });
+
+  await ok("S1 retention: ONE streak view + honest resume hint + perishable-first daily priority", async () => {
+    execSync(`npx esbuild retention.ts --bundle --outfile=${OUT}/retention.js --format=esm --platform=node --loader:.ts=ts --packages=external`, { stdio: "pipe" });
+    const R = await import(pathToFileURL(`${OUT}/retention.js`).href);
+
+    // ── streakState: the server number is the shown truth (badges/push cite it) ──
+    const s1 = R.streakState({ profile: { streak: 9, last_active: "2026-09-22" }, device: { count: 3, last: "2026-09-22", freezes: 1 }, today: "2026-09-22" });
+    assert.equal(s1.count, 9, "server streak wins over the device streak");
+    assert.equal(s1.source, "server", "and says so (source)");
+    assert.equal(s1.atRisk, false, "already counted today → not at risk");
+    assert.equal(s1.freezes, 1, "freezes still come from the device (they are device-local)");
+    assert.ok(s1.divergence && s1.divergence.server === 9 && s1.divergence.device === 3, "mismatch is reported (9 vs 3) instead of hidden");
+    const s2 = R.streakState({ profile: { streak: 9, last_active: "2026-09-22" }, today: "2026-09-23" });
+    assert.equal(s2.atRisk, true, "last active yesterday → at risk");
+    const s3 = R.streakState({ profile: { streak: 0, last_active: "2026-09-01" }, today: "2026-09-22" });
+    assert.equal(s3.atRisk, false, "a streak of 0 was never earned → never 'at risk' (no false urgency)");
+    const s4 = R.streakState({ profile: null, device: { count: 4, last: "2026-09-21" }, today: "2026-09-22" });
+    assert.equal(s4.count, 4, "guest/offline falls back to the device value");
+    assert.equal(s4.source, "device", "fallback is labelled, not passed off as server truth");
+    assert.equal(s4.divergence, null, "nothing to diverge from without a server value");
+    const s5 = R.streakState({ today: "2026-09-22" });
+    assert.equal(s5.count, 0, "no data → 0");
+    assert.equal(s5.source, "none", "no data → source 'none'");
+
+    // ── resumeHint: only speaks when memory actually knows a label ──
+    const r1 = R.resumeHint({ recent: [{ label: "Chopin Nocturne", acc: 71 }], struggles: [{ label: "Scales", count: 5 }] });
+    assert.ok(r1 && r1.kind === "recent" && r1.label === "Chopin Nocturne", "the thing they last touched beats the thing they struggle with");
+    const r2 = R.resumeHint({ struggles: [{ label: "Scales", count: 2 }] });
+    assert.ok(r2 && r2.kind === "struggle" && r2.label === "Scales", "repeated struggle (count ≥ 2) is a real resume target");
+    assert.equal(R.resumeHint({ struggles: [{ label: "Scales", count: 1 }] }), null, "one-off slip is NOT claimed as a struggle");
+    assert.equal(R.resumeHint({}), null, "no memory → null (the row hides, nothing is invented)");
+    assert.equal(R.resumeHint(null), null, "garbage input is safe");
+
+    // ── dailyPriority: most perishable reason wins ──
+    const p1 = R.dailyPriority({ atRisk: true, chestAvail: true, questDone: false, hasResume: true });
+    assert.equal(p1.kind, "streak", "lapsing streak outranks everything (it expires tonight)");
+    const p2 = R.dailyPriority({ chestAvail: true, questDone: false, hasResume: true });
+    assert.equal(p2.kind, "chest", "unopened reward next");
+    const p3 = R.dailyPriority({ questDone: false, hasResume: true });
+    assert.equal(p3.kind, "quest", "unfinished daily mission next");
+    const p4 = R.dailyPriority({ questDone: true, hasResume: true });
+    assert.equal(p4.kind, "resume", "then 'pick up where you left off'");
+    const p5 = R.dailyPriority({ questDone: true, hasResume: false });
+    assert.equal(p5.kind, "start", "nothing pending → plain start, no pretended emergency");
+    for (const p of [p1, p2, p3, p4, p5]) {
+      assert.ok(p.ic && p.cta.th && p.cta.en && p.cta.zh, `daily priority ${p.kind} carries an icon + all three languages`);
+    }
+    assert.equal(R.pickLang({ en: "x" }, "th"), "x", "missing translation falls back to English, never to blank");
+    assert.equal(R.pickLang(null, "th"), "", "no copy → empty string");
+
+    // ── the panel actually consumes it (guards against a healthy module nobody wired) ──
+    const fs = await import("node:fs");
+    const pdp = fs.readFileSync("ProfileDashboardPanel.tsx", "utf8");
+    assert.ok(pdp.includes("dailyPriority(") && pdp.includes("resumeHint(readMemory())"), "daily hub renders the priority row from real data");
+    assert.ok(pdp.includes("streakState({ profile, device, today: dayKey() })"), "daily hub reads the unified streak, not the device-only one");
+    assert.ok(fs.readFileSync("retention.ts", "utf8").includes("divergence"), "divergence stays measurable");
+  });
+
+  await ok("A2 session-close bridge: honest tomorrow promise + engine's own short plan, actually wired", async () => {
+    execSync(`npx esbuild retention.ts --bundle --outfile=${OUT}/retention.js --format=esm --platform=node --loader:.ts=ts --packages=external`, { stdio: "pipe" });
+    const R = await import(pathToFileURL(`${OUT}/retention.js`).href);
+
+    const t1 = R.tomorrowPromise({ memory: { recent: [{ label: "Chopin Nocturne" }] }, minutes: 5 });
+    assert.equal(t1.label, "Chopin Nocturne", "the promise names the thing they were actually on");
+    assert.equal(t1.minutes, 5, "the session length comes from the engine's floor, not a made-up 3");
+    assert.ok(t1.text.th.includes("5") && t1.text.en.includes("5") && t1.text.zh.includes("5"), "every language carries the real minutes");
+    assert.ok(t1.text.th.includes("พรุ่งนี้") && t1.text.th.includes("Chopin Nocturne"), "Thai copy says tomorrow + the real label (no filler)");
+    const t2 = R.tomorrowPromise({ memory: { recent: [{ label: "X" }] }, minutes: 9 });
+    assert.ok(t2.text.en.includes("9"), "if the engine's floor changes, the copy follows it instead of lying");
+    assert.equal(R.tomorrowPromise({ memory: {} }), null, "nothing real to promise → null (block hides)");
+    assert.equal(R.tomorrowPromise({}), null, "garbage input is safe");
+
+    const b = R.warmReturnBlocks({ total: 5, parts: [{ key: "warmup", minutes: 2 }, { key: "problem", minutes: 3 }, { key: "bogus", minutes: 9 }, { key: "review" }] });
+    assert.equal(b.length, 2, "only real, complete plan blocks survive (no raw engine keys leak to the UI)");
+    assert.equal(b[0].label.th, "วอร์ม", "blocks are localized");
+    assert.equal(b[1].key, "problem", "the sticking-point block is kept — that is the whole point of the short session");
+    assert.deepEqual(R.warmReturnBlocks(null), [], "no budget → empty list, never a throw");
+
+    const fs = await import("node:fs");
+    const ov = fs.readFileSync("PracticeOverlay.tsx", "utf8");
+    assert.ok(ov.includes("function TomorrowBridge"), "the bridge component exists");
+    assert.ok(ov.includes("getPracticeTimeBudget(5)"), "it asks the real engine for the shortest plan");
+    assert.ok(ov.includes("<TomorrowBridge lang={lang} restartPractice={restartPractice} />"), "and is actually RENDERED in the result screen (a module nobody wires helps nobody)");
+    assert.ok(ov.includes('logUsage("next_intent"'), "the promise is recorded so a later nudge can name it");
+    // purity guarantee: the module must stay importless so the same rule can be
+    // mirrored server-side (edge function) without dragging app code in
+    const src = fs.readFileSync("retention.ts", "utf8");
+    assert.ok(!/^import\s/m.test(src), "retention.ts stays importless (reusable server-side, testable in Node)");
+  });
 }
 
 main().then(() => {

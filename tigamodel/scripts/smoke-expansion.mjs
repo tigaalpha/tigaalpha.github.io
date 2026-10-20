@@ -26,6 +26,10 @@ const FILES = [
   "tigamodel/knowledge/teacher-craft-seed.js",
   "tigamodel/knowledge/repertoire-forms-seed.js",
   "tigamodel/knowledge/learner-skills-seed.js",
+  // spelling.js: imported by seven expansion waves (9915c3ac) — without it in
+  // this transpile list the temp dir cannot resolve ./spelling.js and the
+  // whole smoke dies on module-not-found before a single check runs.
+  "tigamodel/knowledge/spelling.js",
   "tigamodel/knowledge/expansion-core.js",
   "tigamodel/knowledge/expansion-repertoire.js",
   "tigamodel/knowledge/expansion-pedagogy.js",

@@ -63,13 +63,19 @@ hookSrc = hookSrc
   .replace('from "./ai-backend"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)
   .replace('from "./use-autoteach"', `from "${process.cwd()}/use-autoteach.ts"`)   // real module (pure localStorage, jsdom-safe)
   .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`)   // pure, dependency-free (Practice Mode v4)
-  .replace('from "./jev"', `from "${process.cwd()}/${OUT}/jev-stub.js"`);   // jev calls ai-backend (network) — never ok in jsdom, the hook's fallback path is what runs
+  .replace('from "./jev"', `from "${process.cwd()}/${OUT}/jev-stub.js"`)   // jev calls ai-backend (network) — never ok in jsdom, the hook's fallback path is what runs
+  .replace('from "./game-power"', `from "${process.cwd()}/game-power.ts"`)   // pure acc multiplier, zero imports — real module (was missing from this list and the whole script died on module-not-found)
+  .replace('from "./learning-data"', `from "${process.cwd()}/${OUT}/learning-data-stub.js"`);   // the real module drags supabase-client + the session gate into jsdom — recorder double, same spirit as the App stubs
 writeFileSync(`${OUT}/jev-stub.js`, `/* jev stub: every task reports not-ok so the hook's pre-Jev fallback path runs —
    same behavior as a device with no Jev key configured */
 export async function jevTask() { return { ok: false }; }
 export function jevScore() { return null; }
 export function jevChoice() { return null; }
 export function jevNoul() { return null; }\n`);
+writeFileSync(`${OUT}/learning-data-stub.js`, `/* learning-data recorder double: the hook calls both inside try/catch and
+   ignores the result — the real module would pull supabase-client in for nothing */
+export function learningIntervene(opts) { return null; }
+export function learningPractice(opts) { return null; }\n`);
 writeFileSync(`${OUT}/use-practice-mode.testable.ts`, hookSrc);
 writeFileSync(`${OUT}/music-engine-stub.js`, `/* minimal stand-in for the pieces of music-engine the hook imports:
    audio output + listener lifecycle, no real audio (jsdom) */
@@ -78,6 +84,8 @@ export const TUNE_OFFSET_CAP = 45;
 export const DUP_WINDOW_MS = 140;
 export function fingersForNotes() { return null; }
 export function pcOf(n) { const m = /^([A-G]#?)/.exec(n || ""); const NN = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]; return m ? NN.indexOf(m[1]) : -1; }
+export function dispPc(note) { return pcOf(note); }
+export function haptic(ms) {}
 export function centsFromPC() { return 0; }
 export function getAC() { return new (globalThis.AudioContext)(); }
 export function playPianoNote() {}
@@ -103,6 +111,7 @@ export function logActivity() {}
 export function logUsage() {}   // usage analytics — a no-op in the harness
 export function dayKey(d) { const x = d || new Date(); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); }
 export function recordMemory(label, acc) { try { const m = JSON.parse(localStorage.getItem("tg_memory") || "null") || { recent: [] }; m.recent = [{ label, acc, t: dayKey() }, ...(m.recent || []).filter(r => r.label !== label)].slice(0, 12); localStorage.setItem("tg_memory", JSON.stringify(m)); } catch (e) {} }
+export function readMemory() { try { return JSON.parse(localStorage.getItem("tg_memory") || "null") || { struggles: [], mastered: [], recent: [] }; } catch (e) { return { struggles: [], mastered: [], recent: [] }; } }
 export async function fetchChatCompletion() { return ""; }
 `);
 /* web.js FIRST (the hook's rewritten import points at its output).
@@ -133,7 +142,9 @@ execSync(
     .replace('from "./use-practice-coach"', `from "${process.cwd()}/use-practice-coach.ts"`)
     .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`)
     .replace('from "./shared-infra"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)   // overlay only uses logUsage from it (no supabase pull in jsdom)
-    .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`);   // pure, dependency-free (Practice Mode v4)
+    .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`)
+    .replace('from "./retention"', `from "${process.cwd()}/retention.ts"`)   // importless pure module (retention S1) — the real file, same reason as practice-spot
+    .replace('from "./ai-chat-context"', `from "${process.cwd()}/${OUT}/infra-stub.js"`);   // readMemory double (the real module drags shared-infra → supabase into jsdom)
   writeFileSync(`${OUT}/PracticeOverlay.testable.tsx`, ovSrc);
   execSync(
     `npx esbuild ${OUT}/PracticeOverlay.testable.tsx --bundle --outfile=${OUT}/ovroot/PracticeOverlay.js --format=esm --platform=browser --loader:.tsx=tsx --jsx=automatic --external:react --external:react-dom`,
