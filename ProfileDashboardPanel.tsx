@@ -5,7 +5,13 @@ import { readMemory } from "./ai-chat-context";
 import { readPracticeLog } from "./shared-infra";
 import { playUi } from "./music-engine";
 import { isMaxPlan } from "./payment";
-import { logUsage } from "./shared-infra";
+import { logUsage, dayKey } from "./shared-infra";
+import { dailyPriority, pickLang, resumeHint, streakState } from "./retention";
+
+/* Analog of the app-wide divergence guard: one measurement per day per value
+   pair, so the mismatch between the two streak writers becomes DATA (see
+   retention.streakState) instead of a one-off console warning nobody reads. */
+let sdLogged = "";
 import { sb } from "./supabase-client";
 import { SONGS } from "./songs-data";
 /* ── ProfileDashboardPanel ──
@@ -24,8 +30,17 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
   return (
         <div className="profscroll">
           {(() => {
-            const sInfo = readStreak();
-            const atRisk = streakAtRisk();
+            // A0: ONE streak view. The server value (profiles.streak, advanced on app
+            // open by use-gamification) is what badges and the weekly-report push already
+            // cite, so it is the number shown here too; the device streak is the
+            // guest/offline fallback. A mismatch is logged once a day — measured, not hidden.
+            const device = (() => { try { return JSON.parse(localStorage.getItem("tg_streak") || "null"); } catch (e) { return null; } })();
+            const sInfo = streakState({ profile, device, today: dayKey() });
+            const atRisk = sInfo.atRisk;
+            if (sInfo.divergence) {
+              const k = dayKey() + ":" + sInfo.divergence.server + ":" + sInfo.divergence.device;
+              if (sdLogged !== k) { sdLogged = k; logUsage("streak_divergence", `server:${sInfo.divergence.server}-device:${sInfo.divergence.device}`); }
+            }
             const qT = questToday(profile);
             const qPct = Math.round(Math.min(qT, QUEST_GOAL) / QUEST_GOAL * 100);
             return (
@@ -53,6 +68,27 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, schoolH
                     ? <button className="dh-chest chestpulse" onClick={openChestNow}>🎁<span>{lc.dhClaim}</span></button>
                     : <button className="dh-chest done" onClick={() => { setPage("studio"); setStudioView("menu"); }}>🎮<span>{lc.dhPlay}</span></button>}
                 </div>
+                {/* retention (S1) — "วันนี้ของฉัน": the ONE next action, chosen so the most
+                    perishable thing wins (streak about to lapse → unopened reward → unfinished
+                    daily mission → the thing they were last on). Rule lives in retention.ts and
+                    is smoke-tested; nothing here is a claim — resume only appears when cross-session
+                    memory actually knows a label. */}
+                {(() => {
+                  const res = resumeHint(readMemory());
+                  const pri = dailyPriority({ atRisk, chestAvail, questDone: qT >= QUEST_GOAL, hasResume: !!res });
+                  const txt = pickLang(pri.cta, lang) + (pri.kind === "resume" && res ? " · " + res.label : "");
+                  const go = pri.kind === "chest" ? openChestNow
+                    : pri.kind === "resume" ? () => { logUsage("nav", "daily-resume"); setPage("studio"); setStudioView("songs"); }
+                    : () => { logUsage("nav", "daily-priority"); setPage("studio"); setStudioView("menu"); };
+                  return (
+                    <button className="dailyrec" onClick={go}>
+                      <span className="dailyrec-lbl">🧠 TIGA</span>
+                      <span className="dailyrec-ic">{pri.ic}</span>
+                      <span className="dailyrec-txt">{txt}</span>
+                      <span className="dailyrec-go">›</span>
+                    </button>
+                  );
+                })()}
                 {(schoolHW || (homework && homework.text)) && (
                   <div className="hwbar">
                     <span className="hwbar-ic">{schoolHW ? "🏫" : "📝"}</span>

@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { L } from "./i18n";
 import { Piano, pcOf } from "./music-engine";
-import { tigaStrategyLabel, SELF_REPORT_CHOICES, newStudentFeedback, rerunLoopWithSelfReport } from "./tigamodel/web";
+import { tigaStrategyLabel, SELF_REPORT_CHOICES, newStudentFeedback, rerunLoopWithSelfReport, getPracticeTimeBudget } from "./tigamodel/web";
+import { tomorrowPromise, warmReturnBlocks, pickLang } from "./retention";
+import { readMemory } from "./ai-chat-context";
+import { logUsage } from "./shared-infra";
 import { sttSupported, getSR } from "./speech";
 import { selfReportFromTranscript } from "./tigamodel/web";
 import { usePracticeCoach } from "./use-practice-coach";
@@ -32,6 +35,40 @@ function ResultBar({ label, pct, color }) {
     </div>
   );
 }
+/* ── A2 session-close bridge (retention sprint S1) ──
+   The end of a session is the one moment a learner is still looking at the
+   app, so this is where the return reason gets planted: an explicit promise
+   for tomorrow naming their REAL sticking point, plus the model's own shortest
+   plan (the engine floors a session at 5 minutes and drops to warmup+problem
+   there — the wording follows that number rather than asserting "3 minutes"
+   the engine would refuse to build). The intent is logged fire-and-forget so a
+   later server nudge can name the same thing instead of a generic reminder.
+   No memory / no plan → the block hides; nothing is invented. */
+function TomorrowBridge({ lang, restartPractice }) {
+  const budget = getPracticeTimeBudget(5);
+  const prom = tomorrowPromise({ memory: readMemory(), minutes: (budget && budget.total) || 5 });
+  const blocks = warmReturnBlocks(budget);
+  useEffect(() => {
+    if (prom && prom.label) logUsage("next_intent", prom.label); // fire-and-forget analytics; failure is silent by design
+  }, [prom && prom.label]);
+  if (!prom || !blocks.length) return null;
+  const unit = lang === "th" ? "นาที" : lang === "zh" ? "分钟" : "min";
+  return (
+    <div className="presultai" style={{ borderColor: "#8ad4ff" }}>
+      <div className="presultai-h">🗓 {lang === "th" ? "พรุ่งนี้ของเรา" : lang === "zh" ? "我们的明天" : "Tomorrow"} · {prom.minutes} {unit}</div>
+      <div className="presultai-tx">{pickLang(prom.text, lang)}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
+        {blocks.map(b => (
+          <span key={b.key} className="dailyrec-lbl">{pickLang(b.label, lang)} · {b.minutes}′</span>
+        ))}
+      </div>
+      <button className="practicerestart" style={{ width: "100%" }} onClick={restartPractice}>
+        ▶ {lang === "th" ? `มีเวลา ${prom.minutes} นาทีตอนนี้ — เริ่มเลย` : lang === "zh" ? `现在有 ${prom.minutes} 分钟 —— 直接开始` : `Got ${prom.minutes} minutes now — start`}
+      </button>
+    </div>
+  );
+}
+
 function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPractice, onKeepGoing, showKeepGoing, practiceTarget, metroBpm, onSetTempo, onTipUpdate }) {
   const r = practiceResult;
   const dynPct = r.dyn ? Math.round(r.dyn.ok / (r.dyn.ok + r.dyn.miss) * 100) : null;
@@ -113,6 +150,8 @@ function PracticeResultView({ practiceResult, lang, lc, restartPractice, exitPra
           data doesn't exist (no BPM → no tempo line; the coach never shows
           invented numbers). ── */}
       <PracticeCoachCard lang={lang} lc={lc} practiceResult={r} rhythmPct={rhythmPct} dynPct={dynPct} practiceTarget={practiceTarget} metroBpm={metroBpm} onSetTempo={onSetTempo} restartPractice={restartPractice} />
+
+      <TomorrowBridge lang={lang} restartPractice={restartPractice} />
 
       {(r.aiLoading || r.aiText) && (
         <div className="presultai">
