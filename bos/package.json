@@ -1,8 +1,8 @@
 {
-  "name": "tiga-ai-bos",
+  "name": "tiga-agent",
   "version": "0.1.0",
   "private": true,
-  "description": "Tiga AI Business Operating System — AI-first admin, booking, CRM and sales platform for Tiga Studio",
+  "description": "TIGA Agent — AI-first admin, booking, CRM and sales platform for Tiga Studio",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

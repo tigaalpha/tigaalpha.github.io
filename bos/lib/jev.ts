@@ -1,4 +1,4 @@
-/* ── bos/lib/jev.ts — TypeSafe Jev judgment client for TIGA AUTOMATION ──
+/* ── bos/lib/jev.ts — TypeSafe Jev judgment client for TIGA AGENT ──
    Typed judgments (Choice / Score / Noul) for the automation workspace:
    routing customer messages, scoring urgency, verifying claims. Calls go
    through the shared `jev-judge` Supabase edge function with the signed-in
