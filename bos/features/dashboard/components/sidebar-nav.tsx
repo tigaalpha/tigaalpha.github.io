@@ -58,6 +58,7 @@ import {
   FileBarChart,
   Link2,
   ListChecks,
+  Network,
   Cpu,
   GitBranch,
   Rocket,
@@ -96,6 +97,7 @@ const TOP_LEVEL_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
   { href: "/ai-automation-chat", label: "AI Automation Chat", labelKey: "nav.aiAutomationChat", icon: MessageSquare, ownerOnly: true },
   { href: "/marketing-dashboard", label: "Marketing Dashboard", labelKey: "nav.marketingDashboard", icon: LineChart },
+  { href: "/knowledge-graph", label: "Knowledge Graph", labelKey: "nav.knowledgeGraph", icon: Network, ownerOnly: true },
   { href: "/calendar", label: "Calendar", labelKey: "nav.calendar", icon: CalendarDays },
   { href: "/notifications", label: "Notifications", labelKey: "nav.notifications", icon: Bell },
 ];
