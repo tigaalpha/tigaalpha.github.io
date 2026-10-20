@@ -3,8 +3,7 @@ import { logUsage } from "./shared-infra";
 import { L } from "./i18n";
 import { Piano, pcOf, dispPc, haptic } from "./music-engine";
 import { tigaStrategyLabel } from "./tiga-strategy-labels";   // light static module (plan v3 1.5)
-import { newStudentFeedback, rerunLoopWithSelfReport } from "./tiga-gateway";   // model fns via the lazy gateway (SELF_REPORT_CHOICES was an unused import — dropped)
-import { getPracticeTimeBudget } from "./tigamodel/web";
+import { newStudentFeedback, rerunLoopWithSelfReport, tigaNow } from "./tiga-gateway";   // model fns via the lazy gateway (SELF_REPORT_CHOICES was an unused import — dropped). Never import tigamodel/web directly here: a static import drags the whole engine into the main chunk (bench bar engine-out-of-main).
 import { tomorrowPromise, warmReturnBlocks, pickLang } from "./retention";
 import { readMemory } from "./ai-chat-context";
 import { sttSupported, getSR } from "./speech";
@@ -112,7 +111,7 @@ function ResultBar({ label, pct, color }) {
    later server nudge can name the same thing instead of a generic reminder.
    No memory / no plan → the block hides; nothing is invented. */
 function TomorrowBridge({ lang, restartPractice }) {
-  const budget = getPracticeTimeBudget(5);
+  const budget = tigaNow() ? (tigaNow().getPracticeTimeBudget(5) || null) : null;   // lazy gateway, same shape as App.tsx's budget call
   const prom = tomorrowPromise({ memory: readMemory(), minutes: (budget && budget.total) || 5 });
   const blocks = warmReturnBlocks(budget);
   useEffect(() => {
