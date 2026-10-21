@@ -148,12 +148,12 @@ const CHANNELS: ChannelAttribution[] = [
   },
 ];
 
-const HEALTH_MAP: Record<string, { label: string; variant: "success" | "info" | "warning" | "danger" }> = {
+const HEALTH_MAP = {
   excellent: { label: "🏆 Excellent", variant: "success" },
   good: { label: "✅ Good", variant: "info" },
   needs_work: { label: "⚠️ Needs Work", variant: "warning" },
   stop: { label: "🛑 Stop", variant: "danger" },
-};
+} satisfies Record<string, { label: string; variant: "success" | "info" | "warning" | "danger" }>;
 
 function fmtCurrency(v: number): string { return `฿${v.toLocaleString("th-TH")}`; }
 
@@ -235,7 +235,7 @@ export default function RevenueAttributionPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {CHANNELS.sort((a, b) => b.roi - a.roi).map((ch) => {
-            const health = (HEALTH_MAP as any)[ch.health] ?? HEALTH_MAP.good;
+            const health = HEALTH_MAP[ch.health as keyof typeof HEALTH_MAP] ?? HEALTH_MAP.good;
             return (
               <div key={ch.channel} className="rounded-xl border border-line/10 p-4 space-y-3">
                 <div className="flex items-center justify-between">

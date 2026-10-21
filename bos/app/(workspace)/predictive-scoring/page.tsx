@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
+import type { Tables } from "@/types/database";
 
 interface LeadScore {
   id: string;
@@ -29,7 +30,7 @@ const SCORE_COLOR = (score: number) => score >= 80 ? "text-emerald-600" : score 
 const SCORE_BG = (score: number) => score >= 80 ? "bg-emerald-500" : score >= 60 ? "bg-amber-500" : "bg-red-500";
 const SCORE_VARIANT = (score: number): "success" | "warning" | "danger" => score >= 80 ? "success" : score >= 60 ? "warning" : "danger";
 
-function calculateLeadScore(lead: any): LeadScore {
+function calculateLeadScore(lead: Tables<"customers">): LeadScore {
   const now = new Date();
   const createdAt = new Date(lead.created_at);
   const lastContact = lead.last_contact_at ? new Date(lead.last_contact_at) : createdAt;
@@ -50,7 +51,7 @@ function calculateLeadScore(lead: any): LeadScore {
     landing_page: 5,
     quiz: 15,
   };
-  const sourceScore = sourceScores[lead.lead_source?.toLowerCase()] || 5;
+  const sourceScore = sourceScores[(lead.lead_source ?? "").toLowerCase()] || 5;
   score += sourceScore;
   if (sourceScore > 10) factors.push({ label: `แหล่งที่มาดี (${lead.lead_source})`, impact: sourceScore });
   

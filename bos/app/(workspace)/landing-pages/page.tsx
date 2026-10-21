@@ -11,6 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
+import type { Tables } from "@/types/database";
+
+/** articles Row + the `type` column this page reads — optional, tolerated at
+    runtime exactly like the old `any` annotation assumed. */
+type ArticleWithType = Tables<"articles"> & { type?: string | null };
 
 interface LandingPageData {
   id: string;
@@ -34,12 +39,12 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-const TYPE_MAP: Record<string, { label: string; icon: React.ElementType; color: string }> = {
+const TYPE_MAP = {
   seo_article: { label: "SEO", icon: FileText, color: "text-blue-500" },
   landing_page: { label: "Landing", icon: Zap, color: "text-emerald-500" },
   video_script: { label: "Video", icon: Globe, color: "text-purple-500" },
   blog: { label: "Blog", icon: Layout, color: "text-amber-500" },
-};
+} satisfies Record<string, { label: string; icon: React.ElementType; color: string }>;
 
 export default function LandingPagesPage() {
   const [loading, setLoading] = useState(true);
@@ -52,7 +57,7 @@ export default function LandingPagesPage() {
       const repos = createRepositories(createClient());
       const articles = await repos.articles.list();
       
-      const landingPages: LandingPageData[] = articles.map((a: any, i: number) => ({
+      const landingPages: LandingPageData[] = (articles as ArticleWithType[]).map((a, i) => ({
         id: a.id || String(i),
         title: a.title || `Landing Page ${i + 1}`,
         slug: a.slug || `/page/${i}`,
@@ -89,11 +94,11 @@ export default function LandingPagesPage() {
   const totalLeads = pages.reduce((s, p) => s + p.leads, 0);
   const totalConversions = pages.reduce((s, p) => s + p.conversions, 0);
 
-  const STATUS_MAP: Record<string, { label: string; variant: "success" | "warning" | "outline" }> = {
+  const STATUS_MAP = {
     live: { label: "Live", variant: "success" },
     draft: { label: "Draft", variant: "warning" },
     archived: { label: "Archived", variant: "outline" },
-  };
+  } satisfies Record<string, { label: string; variant: "success" | "warning" | "outline" }>;
 
   return (
     <div className="space-y-6">
@@ -120,8 +125,8 @@ export default function LandingPagesPage() {
       {loading ? <div className="text-center py-8 text-secondary/50">กำลังโหลด...</div> : (
         <div className="space-y-3">
           {pages.map((page) => {
-            const type = (TYPE_MAP as any)[page.type] ?? TYPE_MAP.seo_article;
-            const st = (STATUS_MAP as any)[page.status] ?? STATUS_MAP.draft;
+            const type = TYPE_MAP[page.type as keyof typeof TYPE_MAP] ?? TYPE_MAP.seo_article;
+            const st = STATUS_MAP[page.status as keyof typeof STATUS_MAP] ?? STATUS_MAP.draft;
             const isSelected = selected === page.id;
             const url = `https://tigaalpha.github.io/studio${page.slug}`;
             return (

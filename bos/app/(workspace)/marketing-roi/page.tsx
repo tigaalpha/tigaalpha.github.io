@@ -23,12 +23,12 @@ interface ChannelROI {
   status: "excellent" | "good" | "needs_work" | "stop";
 }
 
-const STATUS_MAP: Record<string, { label: string; variant: "success" | "info" | "warning" | "danger" }> = {
+const STATUS_MAP = {
   excellent: { label: "🏆 Excellent", variant: "success" },
   good: { label: "✅ Good", variant: "info" },
   needs_work: { label: "⚠️ Needs Work", variant: "warning" },
   stop: { label: "🛑 Stop", variant: "danger" },
-};
+} satisfies Record<string, { label: string; variant: "success" | "info" | "warning" | "danger" }>;
 
 function fmtCurrency(value: number): string {
   if (!isFinite(value)) return "∞";
@@ -192,7 +192,7 @@ export default function MarketingROIPage() {
             <div className="text-center py-8 text-secondary/50">ไม่มีข้อมูล</div>
           ) : (
             channels.map((ch) => {
-              const st = (STATUS_MAP as any)[ch.status ?? "good"] ?? STATUS_MAP.good;
+              const st = STATUS_MAP[(ch.status ?? "good") as keyof typeof STATUS_MAP] ?? STATUS_MAP.good;
               const revenueBar = totalRevenue > 0 ? (ch.revenue / totalRevenue) * 100 : 0;
               return (
                 <div key={ch.channel} className="rounded-xl border border-line/10 p-4 space-y-3">

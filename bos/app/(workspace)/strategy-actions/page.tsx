@@ -54,12 +54,12 @@ const PRIORITY_MAP: Record<string, { label: string; variant: "danger" | "warning
   low: { label: "🟢 Low", variant: "outline" },
 };
 
-const STATUS_MAP: Record<string, { label: string; icon: React.ComponentType<{className?: string}>; color: string }> = {
+const STATUS_MAP = {
   todo: { label: "To Do", icon: Circle, color: "text-secondary/40" },
   in_progress: { label: "In Progress", icon: Clock, color: "text-amber-500" },
   done: { label: "Done", icon: CheckCircle2, color: "text-emerald-500" },
   blocked: { label: "Blocked", icon: AlertCircle, color: "text-red-500" },
-};
+} satisfies Record<string, { label: string; icon: React.ComponentType<{className?: string}>; color: string }>;
 
 export default function StrategyActionsPage() {
   const [filter, setFilter] = useState<string>("all");
@@ -140,7 +140,7 @@ export default function StrategyActionsPage() {
       <div className="space-y-3">
         {filteredActions.map((action) => {
           const pri = PRIORITY_MAP[action.priority] ?? PRIORITY_MAP.low;
-          const st = (STATUS_MAP as any)[action?.status ?? "todo"] ?? STATUS_MAP.todo;
+          const st = STATUS_MAP[(action?.status ?? "todo") as keyof typeof STATUS_MAP] ?? STATUS_MAP.todo;
           const StatusIcon = st.icon;
           return (
             <Card key={action.id}>

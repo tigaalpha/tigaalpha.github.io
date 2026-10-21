@@ -8,6 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
+import type { Tables } from "@/types/database";
+
+/** articles Row + the columns this page reads that the hand-maintained Row
+    shape doesn't list — optional, and tolerated at runtime like before. */
+type ArticleWithExtras = Tables<"articles"> & { type?: string | null; internal_links?: string[] | null };
 
 interface Article {
   id: string;
@@ -18,12 +23,12 @@ interface Article {
   suggestedLinks: { target: string; anchor: string; reason: string; score: number }[];
 }
 
-const TYPE_MAP: Record<string, { label: string; icon: typeof FileText; color: string }> = {
+const TYPE_MAP = {
   article: { label: "Article", icon: FileText, color: "text-blue-500" },
   landing: { label: "Landing", icon: Globe, color: "text-emerald-500" },
   course: { label: "Course", icon: BookOpen, color: "text-purple-500" },
   booking: { label: "Booking", icon: CalendarPlus, color: "text-amber-500" },
-};
+} satisfies Record<string, { label: string; icon: typeof FileText; color: string }>;
 
 function generateSuggestedLinks(title: string, type: string): { target: string; anchor: string; reason: string; score: number }[] {
   const links: { target: string; anchor: string; reason: string; score: number }[] = [];
@@ -53,8 +58,8 @@ export default function InternalLinkingPage() {
       const repos = createRepositories(createClient());
       const dbArticles = await repos.articles.list();
       
-      const articlesData: Article[] = dbArticles.map((article: any) => {
-        const internalLinks = (article.internal_links as string[]) || [];
+      const articlesData: Article[] = (dbArticles as ArticleWithExtras[]).map((article) => {
+        const internalLinks = article.internal_links ?? [];
         const type = article.type === "landing" ? "landing" : article.type === "course" ? "course" : "article";
         
         return {
@@ -113,7 +118,7 @@ export default function InternalLinkingPage() {
             <div className="text-center py-4 text-secondary/50">ยังไม่มี articles</div>
           ) : (
             articles.map((article) => {
-              const type = (TYPE_MAP as any)[article.type] ?? TYPE_MAP.article;
+              const type = TYPE_MAP[article.type as keyof typeof TYPE_MAP] ?? TYPE_MAP.article;
               const health = article.internalLinks >= 2 ? "good" : article.internalLinks >= 1 ? "ok" : "poor";
               return (
                 <div key={article.id} className="flex items-center gap-3 rounded-xl border border-line/10 px-3 py-2">
@@ -139,7 +144,7 @@ export default function InternalLinkingPage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-secondary">Suggested Internal Links</h2>
         {articles.map((article) => {
-          const type = (TYPE_MAP as any)[article.type] ?? TYPE_MAP.article;
+          const type = TYPE_MAP[article.type as keyof typeof TYPE_MAP] ?? TYPE_MAP.article;
           return (
             <Card key={article.id}>
               <CardContent className="space-y-3 pt-4">
