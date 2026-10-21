@@ -2820,21 +2820,6 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
 
   return (
     <div className="pathpage songpage">
-      {/* B5: Daily Warmup Banner */}
-      {!warmupDone && (
-        <div className="warmup-banner">
-          <div className="warmup-banner-ic"><Ico e="🌅" size={26} /></div>
-          <div className="warmup-banner-body">
-            <div className="warmup-banner-title">{lc.warmupTitle}</div>
-            <div className="warmup-banner-sub">{lc.warmupSub}</div>
-          </div>
-          <button className="warmup-banner-btn" onClick={() => { playUi("click"); setWarmupDone(true); if (onPlay) onPlay(warmupSong); }}>
-            {lc.warmupStart}
-          </button>
-          <button className="warmup-banner-skip" onClick={() => { setWarmupDone(true); }}>{lc.warmupSkip}</button>
-        </div>
-      )}
-
       {/* E4: Event Countdown */}
       {eventData && eventDaysLeft !== null && (
         <div className="event-countdown" onClick={() => { playUi("click"); setEvName(eventData.name); setEvDate(eventData.date); setEventOpen(true); }}>
@@ -2845,9 +2830,6 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
         </div>
       )}
 
-      <div className="pathhero">
-        <div className="pathhero-glow" />
-      </div>
       <div className="songgrid">
         {cards.map(c => (
           <button key={c.k} className="songcard" style={{ "--sc": c.c } as React.CSSProperties} onClick={c.fn}>

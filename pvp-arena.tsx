@@ -1212,7 +1212,20 @@ export const PvpPage = memo(function PvpPage({
   // the lobby is one big "Fight" button, a level slider and three tabs (owner, 2026-10-10)
   useEffect(() => exitFsAndUnlock, []);   // leaving the PvP page restores portrait + normal screen
   // a finished fight (or the lobby) is always portrait and out of full screen; a new fight re-enters it from its own tap
-  useEffect(() => { if (phase !== "fight") exitFsAndUnlock(); }, [phase]);
+  // the lobby itself is full screen + landscape with a cinematic strings tune (owner, 2026-10-21)
+  useEffect(() => { if (phase !== "fight" && phase !== "lobby") exitFsAndUnlock(); }, [phase]);
+  useEffect(() => {
+    if (phase !== "lobby") return;
+    enterFs();
+    let m = null, dead = false;
+    import("./adventure-music").then(mod => {
+      if (dead) return;
+      try { mod.warmAudio(); } catch (e) {}
+      if (ahOpen || advOpen) return;
+      m = mod.createAdvMusic("menu"); if (m) m.start();
+    }).catch(() => {});
+    return () => { dead = true; if (m) m.stop(); };
+  }, [phase, ahOpen, advOpen]);
   const [lobbyTab, setLobbyTab] = useState("fight");
   const [ahOpen, setAhOpen] = useState(false); const [advOpen, setAdvOpen] = useState(false); const [advOnline, setAdvOnline] = useState(false);
   const [rpgTick, setRpgTick] = useState(0);   // re-reads the robot's level after a fight or a point spent
