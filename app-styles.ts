@@ -4085,7 +4085,7 @@ ${UX2_CSS}
 .recbar{margin-top:2px!important;padding:0 8px 0!important}
 .sensei-scroll .nowcard{margin-top:0!important}
 /* the lobby Fight button is as wide as the Adventure button, not full width (owner, 2026-10-21) */
-.pvpbody-top .pvpgo{width:152px;max-width:100%;margin-inline:auto;align-self:center;padding:8px 10px}
+.pvpbody-top .pvpgo{width:152px;max-width:100%;margin-inline:0 auto;align-self:flex-start;padding:8px 10px}
 `;
 
 export function useInjectCSS() {
