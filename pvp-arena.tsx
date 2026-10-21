@@ -1564,6 +1564,13 @@ export const PvpPage = memo(function PvpPage({
         <section className="pvphero">
           <SpaceStage variant="lobby" anchor={heroFig} scroller={lobbyRoot} />
           <div className={`pvphero-fig${squadUsed === "pet" ? " petonly" : ""}`} ref={heroFig} data-foot="0.018">
+          <div className="pvptabs pvptabs-hero" role="tablist">
+            {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("ตัวฉัน", "My unit", "我的机体")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
+              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => setLobbyTab(k)}>
+                {lb}{k === "friends" && openDuels.length > 0 && <i className="pvptab-dot">{openDuels.length}</i>}
+              </button>
+            ))}
+          </div>
             {squadUsed !== "pet" && (
               <CyberAvatar model={me} yaw={24} pose="ready" glow={colorway.glow} accent={colorway.accent}
                 held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} />
