@@ -1565,8 +1565,8 @@ export const PvpPage = memo(function PvpPage({
           <SpaceStage variant="lobby" anchor={heroFig} scroller={lobbyRoot} />
           <div className={`pvphero-fig${squadUsed === "pet" ? " petonly" : ""}`} ref={heroFig} data-foot="0.018">
           <div className="pvptabs pvptabs-hero" role="tablist">
-            {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("ตัวฉัน", "My unit", "我的机体")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
-              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => setLobbyTab(k)}>
+            {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("หุ่นของฉัน", "My Robot", "我的机器人")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
+              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => { setLobbyTab(k); setTimeout(() => { try { const el = document.querySelector(".pvpbody"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {} }, 60); }}>
                 {lb}{k === "friends" && openDuels.length > 0 && <i className="pvptab-dot">{openDuels.length}</i>}
               </button>
             ))}
@@ -1625,7 +1625,7 @@ export const PvpPage = memo(function PvpPage({
             <div className="pvplvl-r">{T("ความแม่นบอท", "Bot accuracy", "机器人命中率")} {Math.round(BOT_TIERS[tierIdx].acc * 100)}% · 🪙 {BOT_TIERS[tierIdx].coins} · ✦ {BOT_TIERS[tierIdx].xp} · SP {BOT_TIERS[tierIdx].sp}</div>
           </div>
           <div className="pvptabs" role="tablist">
-            {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("ตัวฉัน", "My unit", "我的机体")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
+            {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("หุ่นของฉัน", "My Robot", "我的机器人")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
               <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => setLobbyTab(k)}>
                 {lb}{k === "friends" && openDuels.length > 0 && <i className="pvptab-dot">{openDuels.length}</i>}
               </button>
