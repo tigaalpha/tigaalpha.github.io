@@ -90,10 +90,21 @@ function timeAgo(dateStr: string): string {
   return `${days} วัน ที่แล้ว`;
 }
 
+/** agent_workflow_runs as this FAB reads it: `status` widened to string —
+    the FAB already treats "synthesized" as a done-state, a value outside the
+    hand-maintained Row union — and `final_report` optional (selected ad hoc). */
+type WorkflowRunItem = {
+  id: string;
+  goal: string;
+  status: string;
+  created_at: string;
+  final_report?: string | null;
+};
+
 export function AgentFAB() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Tables<"notifications">[]>([]);
-  const [recentWorkflows, setRecentWorkflows] = useState<any[]>([]);
+  const [recentWorkflows, setRecentWorkflows] = useState<WorkflowRunItem[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [unreadChats, setUnreadChats] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -108,7 +119,7 @@ export function AgentFAB() {
         // Fetch recent agent workflow runs
         createClient()
           .from("agent_workflow_runs")
-          .select("id, goal, status, created_at, summary, recommended_actions, feedback")
+          .select("id, goal, status, created_at, final_report, recommended_actions, feedback")
           .order("created_at", { ascending: false })
           .limit(5),
         createClient()
@@ -389,9 +400,9 @@ export function AgentFAB() {
                               : wf.status}
                           </span>
                         </div>
-                        {wf.summary && (
+                        {wf.final_report && (
                           <p className="mt-1 text-[10px] text-secondary/40 line-clamp-2">
-                            {wf.summary.slice(0, 120)}...
+                            {wf.final_report.slice(0, 120)}...
                           </p>
                         )}
                         <p className="mt-1 text-[10px] text-secondary/30">

@@ -27,12 +27,12 @@ interface PublishedArticle {
   internalLinks: string[];
 }
 
-const STATUS_MAP: Record<string, { label: string; variant: "outline" | "warning" | "success" | "info" }> = {
+const STATUS_MAP = {
   draft: { label: "ร่าง", variant: "outline" as const },
   review: { label: "รอตรวจ", variant: "warning" as const },
   published: { label: "เผยแพร่แล้ว", variant: "info" as const },
   indexed: { label: "Google Index แล้ว", variant: "success" as const },
-};
+} satisfies Record<string, { label: string; variant: "outline" | "warning" | "success" | "info" }>;
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -44,7 +44,7 @@ function CopyButton({ value }: { value: string }) {
 }
 
 function ArticleCard({ article }: { article: PublishedArticle }) {
-  const st = (STATUS_MAP as any)[article.status!] ?? STATUS_MAP.draft;
+  const st = STATUS_MAP[article.status! as keyof typeof STATUS_MAP] ?? STATUS_MAP.draft;
   const ctr = article.impressions > 0 ? ((article.clicks / article.impressions) * 100).toFixed(1) : "0";
   const publicUrl = `https://tigaalpha.github.io/studio/articles/${article.slug}`;
   const sitemapEntry = `<url><loc>${publicUrl}</loc><lastmod>${article.publishedAt ?? "2025-01-01"}</lastmod></url>`;

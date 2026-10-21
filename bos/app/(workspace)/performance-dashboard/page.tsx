@@ -8,6 +8,27 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
+import type { Tables } from "@/types/database";
+
+/** articles Row + the analytics columns this dashboard reads — optional, and
+    handled with the same `|| 0` fallbacks the page always used. */
+type ArticlePerfRow = Tables<"articles"> & {
+  type?: string | null;
+  views?: number | null;
+  clicks?: number | null;
+  impressions?: number | null;
+  conversions?: number | null;
+};
+
+/** marketing_channel_manual_stats Row + the legacy column names this page
+    reads (platform/followers_count/…) — absent at runtime falls back, as before. */
+type ManualStatPerfRow = Tables<"marketing_channel_manual_stats"> & {
+  platform?: string | null;
+  followers_count?: number | null;
+  engagement_rate?: number | null;
+  reach?: number | null;
+  posts_count?: number | null;
+};
 
 interface ContentPerformance {
   id: string;
@@ -42,23 +63,26 @@ export default function PerformanceDashboardPage() {
       
       // Load articles performance
       const articles = await repos.articles.list();
-      const contentData = articles.map((article: any): ContentPerformance => ({
-        id: article.id,
-        title: article.title || "ไม่มีชื่อ",
-        type: article.type || "article",
-        views: article.views || 0,
-        clicks: article.clicks || 0,
-        impressions: article.impressions || 0,
-        ctr: article.impressions > 0 ? ((article.clicks || 0) / article.impressions) * 100 : 0,
-        conversions: article.conversions || 0,
-        trend: (article.views || 0) > 100 ? "up" : "stable",
-      })).sort((a, b) => b.views - a.views);
+      const contentData = (articles as ArticlePerfRow[]).map((article): ContentPerformance => {
+        const impressions = article.impressions ?? 0;
+        return {
+          id: article.id,
+          title: article.title || "ไม่มีชื่อ",
+          type: article.type || "article",
+          views: article.views || 0,
+          clicks: article.clicks || 0,
+          impressions,
+          ctr: impressions > 0 ? ((article.clicks || 0) / impressions) * 100 : 0,
+          conversions: article.conversions || 0,
+          trend: (article.views || 0) > 100 ? "up" : "stable",
+        };
+      }).sort((a, b) => b.views - a.views);
       
       setContent(contentData);
       
       // Load marketing channels
       const marketingChannels = await repos.marketingChannels.listManualStats();
-      const channelsData: ChannelPerformance[] = marketingChannels.map((ch: any) => ({
+      const channelsData: ChannelPerformance[] = (marketingChannels as ManualStatPerfRow[]).map((ch) => ({
         channel: ch.platform || "unknown",
         followers: ch.followers_count || 0,
         engagement: ch.engagement_rate || 0,

@@ -75,7 +75,13 @@ export function FinanceCharts() {
     : [];
 
   return (
-    <div className="space-y-6">
+    // flex + gap instead of space-y so the donut can be reordered per
+    // breakpoint without disturbing the spacing (owner request 2026-10-20:
+    // "สัดส่วนรายได้" goes FIRST on phones only — it answers the question the
+    // cashflow bars above it only imply). Below md (this app's mobile
+    // breakpoint, where the bottom tab bar shows) the donut leads; md and up
+    // keeps the cashflow-first order it always had.
+    <div className="flex flex-col gap-6">
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <div>
@@ -133,7 +139,7 @@ export function FinanceCharts() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="order-first md:order-none">
         <CardHeader>
           <CardTitle>สัดส่วนรายได้</CardTitle>
           <CardDescription>

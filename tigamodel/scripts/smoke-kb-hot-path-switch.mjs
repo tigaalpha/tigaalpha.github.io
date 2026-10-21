@@ -2,7 +2,7 @@
    runs the REAL web.js wiring (repo convention: esbuild-transpile the actual
    source, import() it; supabase-client replaced by a stub whose answers this
    script controls, minimal localStorage). Covers:
-   - never read yet → OFF, and getKBContext serves the legacy block (the baseline)
+   - never read yet → OFF, and getKBContext serves the capped default block (plan 21 §V1: the legacy branch is capped too — the old >1M giant was the bug it fixed)
    - { enabled: true } → ON: getFullKBContext serves the capped block
    - cached for 60 s: a second ask costs no query; force re-reads
    - fails closed: no row, { enabled: false }, a non-boolean, {} and a throwing
@@ -61,7 +61,7 @@ web.initTigamodelWeb();
 /* 1. before anything is read: OFF, legacy */
 const legacy = web.getKBContext(Q);
 check("never read: the switch is OFF", web.kbHotPath().isEnabled() === false);
-check("never read: the block is the legacy giant (>1,000,000 chars)", legacy.length > 1000000, `got ${legacy.length}`);
+check("never read: the block is capped (≤ KB_PROMPT_CHAR_CAP + one line, not the old >1M giant)", legacy.length > 0 && legacy.length <= web.KB_PROMPT_CHAR_CAP + 500, `got ${legacy.length}`);
 
 /* 2. { enabled: true } → ON through getFullKBContext, one query */
 row = { data: { value: { enabled: true } } };
@@ -124,7 +124,7 @@ check("setKbHotPathSwitch(false) turns it OFF", web.kbHotPath().isEnabled() === 
   const slowBlock = await fresh.getFullKBContext(Q);
   const waited = Date.now() - t0;
   check(`getFullKBContext waited ${waited} ms for a 1500 ms settings read (cap ~400 ms)`, waited >= 300 && waited < 1200, `${waited} ms`);
-  check("…and served the state it had (OFF → legacy) rather than nothing", slowBlock.length > 1000000, `got ${slowBlock.length}`);
+  check("…and served the state it had (OFF → capped default) rather than nothing", slowBlock.length > 0 && slowBlock.length <= web.KB_PROMPT_CHAR_CAP + 500, `got ${slowBlock.length}`);
   check("the slow read was started once", switchReads === readsBefore + 1, `reads ${switchReads - readsBefore}`);
   await new Promise(r => setTimeout(r, 1500));
   check("the slow read still lands afterwards and turns it ON", fresh.kbHotPath().isEnabled() === true);
