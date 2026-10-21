@@ -13288,7 +13288,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       })()}
 
       {/* HEADER — hidden on the video feed so it plays truly full-screen (a floating ☰ replaces it there) */}
-      {page !== "videos" && <div className="hdr">
+      {page !== "videos" && page !== "pvp" && <div className="hdr">
         <div className="logo">
           <button className="hamb" onClick={() => { playUi("click"); setNavOpen(true); }} aria-label="Menu">
             <span /><span /><span />
@@ -13584,7 +13584,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── TAB BAR ─── (premium interface, ux2.ts) the five common destinations, a thumb away; the drawer below still holds
           everything. It is the last child of the column, so every page simply ends above it. */}
-      {uxOn && page !== "videos" && page !== "admin" && (
+      {uxOn && page !== "videos" && page !== "admin" && page !== "pvp" && (
         <TabBar page={page} lang={lang} onGo={tabGo} />
       )}
 
