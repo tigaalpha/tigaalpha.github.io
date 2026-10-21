@@ -42,11 +42,11 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-const STATUS_MAP: Record<string, { label: string; variant: "success" | "warning" | "outline" }> = {
+const STATUS_MAP = {
   new: { label: "ใหม่", variant: "warning" },
   contacted: { label: "ติดต่อแล้ว", variant: "outline" },
   won: { label: "สมัครแล้ว", variant: "success" },
-};
+} satisfies Record<string, { label: string; variant: "success" | "warning" | "outline" }>;
 
 function classifyLevel(source: string | null): string {
   const s = (source || "").toLowerCase();
@@ -88,15 +88,15 @@ export default function LeadQuizPage() {
       });
 
       const total = quizRelated.length || 1;
-      const levelConfig: Record<string, { label: string; color: string; bgColor: string; recommendedCourse: string }> = {
+      const levelConfig = {
         beginner: { label: "🌱 Beginner", color: "text-emerald-500", bgColor: "bg-emerald-500", recommendedCourse: "Piano Mindset (฿990)" },
         elementary: { label: "🎵 Elementary", color: "text-blue-500", bgColor: "bg-blue-500", recommendedCourse: "0 to HERO (฿1,490)" },
         intermediate: { label: "🎹 Intermediate", color: "text-purple-500", bgColor: "bg-purple-500", recommendedCourse: "Private Course (฿27,000)" },
         advanced: { label: "🎼 Advanced", color: "text-amber-500", bgColor: "bg-amber-500", recommendedCourse: "Private Course + Jazz" },
-      };
+      } satisfies Record<string, { label: string; color: string; bgColor: string; recommendedCourse: string }>;
 
       const results: QuizResult[] = Object.entries(levels).map(([level, count]) => {
-        const cfg = (levelConfig as any)[level] ?? levelConfig.beginner;
+        const cfg = levelConfig[level as keyof typeof levelConfig] ?? levelConfig.beginner;
         return {
         level,
         label: cfg.label,
@@ -224,7 +224,7 @@ export default function LeadQuizPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {loading ? <div className="text-center py-4 text-secondary/50">กำลังโหลด...</div> : quizLeads.map((lead) => {
-            const st = (STATUS_MAP as any)[lead.status ?? "new"] ?? STATUS_MAP.new;
+            const st = STATUS_MAP[(lead.status ?? "new") as keyof typeof STATUS_MAP] ?? STATUS_MAP.new;
             return (
               <div key={lead.id} className="flex items-center justify-between rounded-xl border border-line/10 px-3 py-2">
                 <div className="min-w-0 flex-1">

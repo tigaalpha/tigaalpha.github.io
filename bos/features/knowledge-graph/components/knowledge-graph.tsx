@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Copy, Download, RefreshCw, ExternalLink } from "lucide-react";
+import { Copy, Download, Plus, RefreshCw, ExternalLink } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/services/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -171,6 +171,7 @@ const COPY = {
     tableCount: "ตาราง",
     knownRows: "แถวข้อมูลที่นับได้",
     connections: "การเชื่อมโยง",
+    addKnowledge: "เพิ่มข้อมูล & องค์ความรู้",
     copyJson: "คัดลอก JSON ให้ AI",
     copied: "คัดลอกแล้ว!",
     downloadJson: "ดาวน์โหลด",
@@ -196,6 +197,7 @@ const COPY = {
     tableCount: "Tables",
     knownRows: "Rows counted",
     connections: "Connections",
+    addKnowledge: "Add data & knowledge",
     copyJson: "Copy JSON for AI",
     copied: "Copied!",
     downloadJson: "Download",
@@ -625,7 +627,7 @@ export function KnowledgeGraph() {
           <h1 className="text-2xl font-bold tracking-tight text-secondary dark:text-white">{c.title}</h1>
           <p className="mt-1 max-w-2xl text-sm text-secondary/50 dark:text-white/50">{c.subtitle}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {fetchedAt ? (
             <span className="text-xs text-secondary/40 dark:text-white/40">
               {c.refreshed}: {fmtTime(fetchedAt)}
@@ -640,6 +642,16 @@ export function KnowledgeGraph() {
             <RefreshCw className={cn("h-4 w-4", counts === null && "animate-spin")} />
             {c.refresh}
           </button>
+          {/* Add-data CTA — sits at the right end of the refresh row. Opens the
+              dedicated input page (text or any file type) whose saves land in
+              this graph's คลังความรู้ domain. */}
+          <Link
+            href="/knowledge-graph/add"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary-gradient px-3 py-2 text-sm font-semibold text-white shadow-glow transition-opacity hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            {c.addKnowledge}
+          </Link>
         </div>
       </div>
 

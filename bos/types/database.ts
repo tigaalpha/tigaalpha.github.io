@@ -595,6 +595,28 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["voiceover_scripts"]["Row"]>;
         Relationships: [];
       };
+      // History of generated voice-overs (voiceover-manager.tsx). Columns are
+      // the fields that page reads/writes; the table itself was created
+      // outside the migration set, like other dashboard-era tables.
+      voiceover_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          text: string;
+          title: string;
+          voice_name: string;
+          voice_lang: string;
+          ai_model: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["voiceover_history"]["Row"]> & {
+          user_id: string;
+          text: string;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["voiceover_history"]["Row"]>;
+        Relationships: [];
+      };
       social_accounts: {
         Row: {
           id: string;
@@ -807,6 +829,30 @@ export interface Database {
           source: "auto" | "manual";
         };
         Update: Partial<Database["public"]["Tables"]["marketing_metric_snapshots"]["Row"]>;
+        Relationships: [];
+      };
+      // Owner-saved outputs from the marketing skills tools
+      // (marketing-skill-tools.tsx). Columns are the fields that page
+      // reads/writes; the table itself was created outside the migration set.
+      marketing_content: {
+        Row: {
+          id: string;
+          user_id: string;
+          tool_type: string;
+          topic: string;
+          language: string;
+          model: string;
+          title: string;
+          content: string;
+          summary: string;
+          tags: string[] | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["marketing_content"]["Row"]> & {
+          user_id: string;
+          tool_type: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_content"]["Row"]>;
         Relationships: [];
       };
       agent_schedules: {

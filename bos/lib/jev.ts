@@ -56,8 +56,9 @@ export function createJev(opts: { supabaseUrl?: string; getAccessToken?: () => P
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return { ok: false, error: String(data?.error || `jev-judge ${res.status}`), via: "jev" };
       return { ok: true, answers: (data.answers || {}) as JevAnswers, model: data.model, usage: data.usage, via: "jev" };
-    } catch (e: any) {
-      return { ok: false, error: e?.name === "AbortError" ? "jev timeout" : String(e?.message || e), via: "jev" };
+    } catch (e) {
+      const err = e as { name?: unknown; message?: unknown } | null | undefined;
+      return { ok: false, error: err?.name === "AbortError" ? "jev timeout" : String(err?.message || e), via: "jev" };
     } finally {
       clearTimeout(timer);
     }

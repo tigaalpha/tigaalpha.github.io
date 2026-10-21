@@ -11,10 +11,12 @@ export interface KnowledgeMatch {
 export class KnowledgeRepository {
   constructor(private readonly db: SupabaseClient<Database>) {}
 
-  async createDocument(title: string, sourceType: KnowledgeSourceType, rawText: string, createdBy?: string): Promise<Tables<"knowledge_documents">> {
+  /** `filePath` is set for documents whose original file lives in Supabase
+      Storage (video/audio/other binaries that can't be read as text). */
+  async createDocument(title: string, sourceType: KnowledgeSourceType, rawText: string, createdBy?: string, filePath?: string): Promise<Tables<"knowledge_documents">> {
     const { data, error } = await this.db
       .from("knowledge_documents")
-      .insert({ title, source_type: sourceType, raw_text: rawText, created_by: createdBy ?? null })
+      .insert({ title, source_type: sourceType, raw_text: rawText, created_by: createdBy ?? null, file_path: filePath ?? null })
       .select("*")
       .single();
     if (error) throw error;
