@@ -4085,7 +4085,7 @@ ${UX2_CSS}
 .recbar{margin-top:2px!important;padding:0 8px 0!important}
 .sensei-scroll .nowcard{margin-top:0!important}
 /* the lobby Fight button is as wide as the Adventure button, not full width (owner, 2026-10-21) */
-.pvpbody-top{width:190px;max-width:100%;margin:0 auto 0 12px;padding:6px 0 0}.pvpbody-top .pvpgo{width:152px;max-width:100%;margin:0;align-self:flex-start;padding:8px 10px}.pvpbody-top .pvplvl{padding:10px 0 2px}.pvpbody-top .pvplvl-r{text-align:left}
+.pvpbody-top{width:190px;max-width:100%;margin:0 12px 0 auto;padding:6px 0 0}.pvpbody-top .pvpgo{width:190px;max-width:100%;min-height:56px;margin:0;align-self:flex-end;padding:6px 10px}.pvpbody-top .pvplvl{padding:10px 0 2px}.pvpbody-top .pvplvl-r{text-align:right}.pvpadv{left:auto!important;right:12px;width:190px;box-sizing:border-box}
 `;
 
 export function useInjectCSS() {
