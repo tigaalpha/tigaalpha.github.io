@@ -4099,3 +4099,6 @@ export function useInjectCSS() {
   return ready;
 }
 
+
+/* the lobby Fight button is as wide as the Adventure button, not full width (owner, 2026-10-21) */
+.pvpbody-top .pvpgo{width:152px;max-width:100%;margin-inline:auto;align-self:center;padding:8px 10px}
