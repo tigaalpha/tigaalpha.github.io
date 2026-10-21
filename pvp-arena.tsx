@@ -1584,6 +1584,10 @@ export const PvpPage = memo(function PvpPage({
           <button type="button" className="pvpadv alien" data-alien-hunt="1" onClick={() => { if (playUi) playUi("click"); setAhOpen(true); }} aria-label="Alien Hunt">
             <span aria-hidden="true">👾</span><b>Alien Hunt</b><i>{T("ไล่ยิงเอเลี่ยน มุมมองบุคคลที่ 1", "First-person alien shooter", "第一人称打外星人")}</i>
           </button>
+          <button type="button" className="pvpgo pvpgo-hero" onClick={() => startFight("bot", BOT_TIERS[tierIdx], tr3(CHAR_MODELS.find(m => m.id === chassisFor(BOT_TIERS[tierIdx].key + Date.now())) || {}, lang))}>
+            <b>▶ {T("สู้เลย", "Fight", "开战")}</b>
+            <span>{tr3(BOT_TIERS[tierIdx], lang)}</span>
+          </button>
           <div className="pvphero-hud">
             {squadUsed === "pet" ? (<>
               <span className="hx-k">{T("สัตว์เลี้ยง", "PET", "宠物")} · {tr3(PET_TYPES[petSpecNow.type] || PET_TYPES.steel, lang)}</span>
