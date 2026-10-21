@@ -4085,7 +4085,7 @@ ${UX2_CSS}
 .recbar{margin-top:2px!important;padding:0 8px 0!important}
 .sensei-scroll .nowcard{margin-top:0!important}
 /* the lobby Fight button is as wide as the Adventure button, not full width (owner, 2026-10-21) */
-.pvpbody-top{width:190px;max-width:100%;margin:0 12px 0 auto;padding:6px 0 0}.pvpbody-top .pvpgo{width:190px;max-width:100%;min-height:56px;margin:0;align-self:flex-end;padding:6px 10px}.pvpbody-top .pvplvl{padding:10px 0 2px}.pvpbody-top .pvplvl-r{text-align:right}.pvpadv{left:auto!important;right:12px;width:190px;box-sizing:border-box}.pvpadv{min-height:46px!important}.pvpadv.online{bottom:calc(9% + 54px)!important}.pvpadv.alien{bottom:calc(9% + 108px)!important}.pvphero .pvphero-fig svg.ca{height:85%!important}
+.pvpbody-top{width:190px;max-width:100%;margin:0 12px 0 auto;padding:6px 0 0}.pvpbody-top .pvpgo{width:190px;max-width:100%;min-height:56px;margin:0;align-self:flex-end;padding:6px 10px}.pvpbody-top .pvplvl{padding:10px 0 2px}.pvpbody-top .pvplvl-r{text-align:right}.pvpadv{left:auto!important;right:12px;width:190px;box-sizing:border-box}.pvpadv{min-height:46px!important}.pvpbody-top{position:relative;z-index:4;margin-top:-30px!important;padding-top:0!important}.pvpbody-top .pvpgo{min-height:46px!important;height:46px;padding:4px 10px!important;gap:0}.pvpbody-top .pvpgo b{font-size:15px}.pvpbody-top .pvpgo span{font-size:10.5px}.pvpadv.online{bottom:calc(9% + 54px)!important}.pvpadv.alien{bottom:calc(9% + 108px)!important}.pvphero .pvphero-fig svg.ca{height:85%!important}
 `;
 
 export function useInjectCSS() {
