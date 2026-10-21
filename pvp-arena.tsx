@@ -1214,6 +1214,8 @@ export const PvpPage = memo(function PvpPage({
   // a finished fight (or the lobby) is always portrait and out of full screen; a new fight re-enters it from its own tap
   // the lobby itself is full screen + landscape with a cinematic strings tune (owner, 2026-10-21)
   useEffect(() => { if (phase !== "fight" && phase !== "lobby") exitFsAndUnlock(); }, [phase]);
+  const [lobbyTab, setLobbyTab] = useState("fight");
+  const [ahOpen, setAhOpen] = useState(false); const [advOpen, setAdvOpen] = useState(false); const [advOnline, setAdvOnline] = useState(false);
   useEffect(() => {
     if (phase !== "lobby") return;
     enterFs();
@@ -1226,8 +1228,6 @@ export const PvpPage = memo(function PvpPage({
     }).catch(() => {});
     return () => { dead = true; if (m) m.stop(); };
   }, [phase, ahOpen, advOpen]);
-  const [lobbyTab, setLobbyTab] = useState("fight");
-  const [ahOpen, setAhOpen] = useState(false); const [advOpen, setAdvOpen] = useState(false); const [advOnline, setAdvOnline] = useState(false);
   const [rpgTick, setRpgTick] = useState(0);   // re-reads the robot's level after a fight or a point spent
   const [tierIdx, setTierIdx] = useState(() => { try { const v = parseInt(localStorage.getItem("tg_pvp_tier") || "3", 10); return v >= 0 && v < BOT_TIERS.length ? v : 3; } catch (e) { return 3; } });
   const pickTier = (i) => { setTierIdx(i); try { localStorage.setItem("tg_pvp_tier", String(i)); } catch (e) {} };
