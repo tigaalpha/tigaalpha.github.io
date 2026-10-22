@@ -21,8 +21,11 @@ const AdventureCine = lazy(() => import("./adventure-cine"));
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const markDone = (id: string) => { try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
-const PARTS: [string, string, string, string][] = [["solar", "ภาค 1 · ออกจากโลก", "Part 1 · Leaving Earth", "第1部 · 离开地球"], ["space", "ภาค 2 · ไททันและอาร์ก", "Part 2 · Titan & Ark", "第2部 · 土卫六与方舟"], ["ground", "ภาค 3 · โลกใหม่", "Part 3 · New worlds", "第3部 · 新世界"], ["act2", "ภาค 4 · ผู้เก็บเกี่ยว", "Part 4 · The Harvesters", "第4部 · 收割者"]];
+const PARTS: [string, string, string, string][] = [["prep", "ภาค 0 · เตรียมออกเดินทาง", "Part 0 · Liftoff", "第0部 · 启程"], ["solar", "ภาค 1 · ออกจากโลก", "Part 1 · Leaving Earth", "第1部 · 离开地球"], ["space", "ภาค 2 · ไททันและอาร์ก", "Part 2 · Titan & Ark", "第2部 · 土卫六与方舟"], ["ground", "ภาค 3 · โลกใหม่", "Part 3 · New worlds", "第3部 · 新世界"], ["act2", "ภาค 4 · ผู้เก็บเกี่ยว", "Part 4 · The Harvesters", "第4部 · 收割者"]];
 /** where each episode of a part stands on the floor: two staggered rows, left to right (percent of the floor) */
+/* Part 0 = the first seven episodes of the old Part 1 (they crowded one screen); the rest stays Part 1 */
+const SOLAR_IDS = RA_PLANETS.filter(p => (RA_SECT[p.id] || "ground") === "solar").map(p => p.id);
+const secOf = (id: string) => { const k = RA_SECT[id] || "ground"; return k === "solar" && SOLAR_IDS.indexOf(id) < 7 ? "prep" : k; };
 const posOf = (n: number): [number, number][] => { const rows = n > 10 ? 3 : 2, per = Math.ceil(n / rows); return Array.from({ length: n }, (_, i) => { const r = Math.floor(i / per), c = i - r * per, cols = r === rows - 1 ? n - per * (rows - 1) : per, full = per; const span = 80; const x = 8 + (cols > 1 ? c * (span / (cols - 1)) : 40) + (r % 3) * 1.6; const ys = rows === 3 ? [13, 43, 73] : [34, 72]; return [x, ys[r] + (c % 2) * 5] as [number, number]; }); };
 const SIZE: Record<string, number> = { star: 52, saturn: 50, jupiter: 48, earth: 38, venus: 34, mars: 30, titan: 30, blackhole: 40, moon: 26, mercury: 24, rock: 26, generic: 30 };
 const shortName = (s: string) => s.split(" · ")[0];
@@ -31,7 +34,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const [screen, setScreen] = useState<"hub" | "film" | "play">("hub"), [done, setDone] = useState<string[]>(() => readDone());
   const firstOpen = () => { const d = readDone(); const k = RA_PLANETS.findIndex(p => !d.includes(p.id)); return k < 0 ? RA_PLANETS[0].id : RA_PLANETS[k].id; };
-  const [sel, setSel] = useState<string>(firstOpen), [part, setPart] = useState<string>(() => RA_SECT[firstOpen()] || "solar");
+  const [sel, setSel] = useState<string>(firstOpen), [part, setPart] = useState<string>(() => secOf(firstOpen()));
   const [portrait, setPortrait] = useState(() => typeof window !== "undefined" && window.innerHeight > window.innerWidth), [high, setHigh] = useState(() => gfxHigh()), [snd, setSnd] = useState(() => AU.soundOn());
   const [powerNeed, setPowerNeed] = useState<number | null>(null);
   /* co-op (plan 39 P5): a room on the Adventure Online channel; every client runs its own game and shows teammates as ghosts, the host starts an episode for everyone */
@@ -48,7 +51,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   const playable = (id: string) => !!defOf(id);
   const cur = RA_PLANETS.find(p => p.id === sel) || RA_PLANETS[0], curIdx = RA_PLANETS.indexOf(cur);
   const next3d = RA_PLANETS.findIndex((p, i) => playable(p.id) && open(i) && !done.includes(p.id));
-  const inPart = RA_PLANETS.map((p, gi) => ({ p, gi })).filter(x => (RA_SECT[x.p.id] || "ground") === part), POS = posOf(inPart.length);
+  const inPart = RA_PLANETS.map((p, gi) => ({ p, gi })).filter(x => secOf(x.p.id) === part), POS = posOf(inPart.length);
   const stage = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (screen === "film") { try { enterFs(); } catch (e) {} } }, [screen]);   // same as Adventure: every film is full screen

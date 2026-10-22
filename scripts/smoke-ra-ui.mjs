@@ -15,16 +15,16 @@ const SHOT = process.env.SHOT || "";
 ok("the lobby has a Robot Adventure 3D button", (await p.locator("[data-robot3d]").count()) === 1);
 ok("the Adventure Online button is not the one in that slot", (await p.locator(".pvpadv.online").innerText()).includes("Robot Adventure 3D"));
 await p.evaluate(() => document.querySelector("[data-robot3d]").click()); await p.waitForSelector("[data-ra='hub']", { timeout: 8000 }); await p.waitForTimeout(700);
-const N = await p.locator(".ra-pl").count(); ok("Part 1 lists its episodes (two rows, all inside the screen)", N >= 15 && N <= 22, "n=" + N);
-ok("four part tabs", (await p.locator("[data-ra-tabs] button").count()) === 4);
+const N = await p.locator(".ra-pl").count(); ok("Part 1 lists its episodes (two rows, all inside the screen)", N >= 5 && N <= 22, "n=" + N);
+ok("five part tabs (0-4)", (await p.locator("[data-ra-tabs] button").count()) === 5);
 ok("a normal player has only the first episode open", (await p.evaluate(() => [...document.querySelectorAll(".ra-pl")].filter(b => b.dataset.open === "1").length)) === 1);
 ok("the map floor is really tilted in 3D", (await p.evaluate(() => getComputedStyle(document.querySelector("[data-ra-plane]")).transform)).startsWith("matrix3d"));
 ok("the episodes are joined by a route", (await p.locator(".ra-route path").count()) === N - 1);
 const inside = await p.evaluate(() => { const W = innerWidth, H = innerHeight; return [...document.querySelectorAll(".ra-pl")].every(b => { const r = b.getBoundingClientRect(); return r.left >= -2 && r.right <= W + 2 && r.top >= 0 && r.bottom <= H + 2; }); });
 ok("every episode of the part is inside the screen", inside);
-const total = []; for (const part of ["solar", "space", "ground", "act2"]) { await p.locator(`[data-part=${part}]`).click(); await p.waitForTimeout(250); total.push(await p.locator(".ra-pl").count()); }
+const total = []; for (const part of ["prep", "solar", "space", "ground", "act2"]) { await p.locator(`[data-part=${part}]`).click(); await p.waitForTimeout(250); total.push(await p.locator(".ra-pl").count()); }
 ok("the four parts hold all 49 episodes", total.reduce((a, b) => a + b, 0) === 49, total.join("+"));
-await p.locator("[data-part=solar]").click(); await p.waitForTimeout(250);
+await p.locator("[data-part=prep]").click(); await p.waitForTimeout(250);
 ok("Continue is ready", await p.locator("[data-ra-continue]").isEnabled());
 ok("the map tune's audio context is running", await p.evaluate(() => { const c = window.__tgCineCtx; return !!c && c.state === "running"; }));
 if (SHOT) await p.screenshot({ path: SHOT + "-hub.png" });
