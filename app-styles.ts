@@ -4137,6 +4137,7 @@ ${UX2_CSS}
 .prsheet-tt{font-weight:800;font-size:16px;margin:0 36px 12px 2px}
 .prsheet-x{position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:50%;border:1px solid var(--bd,#e6dccf);background:var(--card,#fffdfa);font-size:15px;cursor:pointer}
 .pvpgo-hero,.pvpgo-hero *{pointer-events:auto}.pvpgo-hero{touch-action:manipulation;-webkit-tap-highlight-color:transparent;z-index:40!important}.pvplvl-hero{touch-action:manipulation}
+.nowcard-act .handmini{min-height:34px;padding:4px 10px;font-size:12px;gap:4px;border-radius:999px;width:auto;flex:0 0 auto}.nowcard-act .handmini .handswap{font-size:12px}
 `;
 
 export function useInjectCSS() {
@@ -4151,3 +4152,4 @@ export function useInjectCSS() {
   }, []);
   return ready;
 }
+

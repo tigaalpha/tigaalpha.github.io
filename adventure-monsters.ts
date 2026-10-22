@@ -102,6 +102,30 @@ export function paintMonster(x: Cx, m: any, t: number, G: number, hit: boolean, 
       for (let i = 0; i < 6; i++) { x.strokeStyle = hit ? W : "#3a1038"; x.lineWidth = 3; x.beginPath(); x.moveTo((i - 2.5) * 6, y + 14); for (let j = 1; j <= 4; j++) x.lineTo((i - 2.5) * 6 + Math.sin(t * 3 + i + j) * 4 * j * 0.6, y + 14 + j * 9); x.stroke(); }
       x.fillStyle = hit ? W : lg(x, 0, y - 24, 0, y + 22, "#d8a0e0", tint || "#5a1a58", "#14061a"); x.beginPath(); x.ellipse(0, y, 25, 23, 0, 0, 7); x.fill(); rim(x, "255,150,230");
       x.fillStyle = "#f4ecf0"; x.beginPath(); x.ellipse(2, y, 16, 14, 0, 0, 7); x.fill(); const lx = 2 + Math.cos(t * 0.8 + ph) * 3; x.fillStyle = hit ? "#ddd" : "#d4306a"; x.beginPath(); x.arc(lx + 5, y, 8, 0, 7); x.fill(); x.fillStyle = "#08020a"; x.beginPath(); x.ellipse(lx + 5, y, 2.4, 7, 0, 0, 7); x.fill(); eye(x, lx + 5, y, 2, "255,80,150"); break; }
+    case "capling": { const y = G - m.y; shadow(x, 30, y); const sw = Math.sin(t * 3 + ph);
+      x.strokeStyle = hit ? W : "#e08a2a"; x.lineWidth = 2.6; x.lineCap = "round";
+      for (const [hx, d] of [[-6, -1], [6, 1]] as number[][]) { x.beginPath(); x.moveTo(hx, y - 26); x.lineTo(hx + d * 10, y - 12 + sw * 2); x.lineTo(hx + d * 6, y); x.stroke(); }
+      for (const d of [-1, 1]) { x.beginPath(); x.moveTo(d * 6, y - 40); x.lineTo(d * 18, y - 28 + sw * 3 * d); x.lineTo(d * 16, y - 14 + sw * 3 * d); x.stroke(); x.beginPath(); x.moveTo(d * 16, y - 14 + sw * 3 * d); x.lineTo(d * 20, y - 6 + sw * 3 * d); x.lineTo(d * 13, y - 7 + sw * 3 * d); x.stroke(); }
+      x.fillStyle = hit ? W : lg(x, 0, y - 46, 0, y - 22, "#d8d4cc", tint || "#8a8680", "#2a2824"); poly(x, [[-5, y - 44], [5, y - 44], [7, y - 22], [-7, y - 22]]); x.fill(); rim(x, "255,230,200");
+      x.fillStyle = hit ? W : lg(x, 0, y - 60, 0, y - 44, "#e4e0d8", tint || "#9a968e", "#3a3630"); x.beginPath(); x.ellipse(0, y - 52, 30, 7, 0, 0, 7); x.fill(); rim(x, "255,230,200");
+      eye(x, -22, y - 52, 3.4, "255,255,255"); eye(x, 22, y - 52, 3.4, "255,255,255"); break; }
+    case "manthood": { const y = G - m.y; shadow(x, 30, y); const sw = Math.sin(t * 2.4 + ph);
+      x.strokeStyle = hit ? W : "#5a5148"; x.lineWidth = 3.5; x.lineCap = "round";
+      x.beginPath(); x.moveTo(-4, y - 36); x.lineTo(-8, y - 16); x.lineTo(-6, y); x.moveTo(4, y - 36); x.lineTo(8, y - 16); x.lineTo(10, y); x.stroke();
+      x.strokeStyle = hit ? W : "#8a7a64"; x.lineWidth = 2; for (const d of [-1, 1]) { x.beginPath(); x.moveTo(d * 8, y - 56); x.quadraticCurveTo(d * 24, y - 40 + sw * 6, d * 30 + sw * 8, y - 14); x.stroke(); }
+      x.fillStyle = hit ? W : lg(x, 0, y - 60, 0, y - 34, "#9a9080", tint || "#5a5248", "#1a1612"); poly(x, [[-5, y - 58], [5, y - 58], [3, y - 36], [-3, y - 36]]); x.fill(); rim(x, "220,200,170");
+      x.fillStyle = hit ? W : lg(x, 0, y - 96, 0, y - 56, "#7a6f60", tint || "#4a4238", "#14100c"); poly(x, [[0, y - 98], [26, y - 78], [20, y - 60], [0, y - 66], [-20, y - 60], [-26, y - 78]]); x.fill(); rim(x, "220,200,170");
+      x.strokeStyle = "rgba(0,0,0,.35)"; x.lineWidth = 1; for (let i = -2; i <= 2; i++) { x.beginPath(); x.moveTo(i * 4, y - 94); x.lineTo(i * 9, y - 64); x.stroke(); }
+      x.fillStyle = hit ? W : "#d8d0c0"; x.beginPath(); x.ellipse(0, y - 70, 8, 10, 0, 0, 7); x.fill(); eye(x, -3, y - 71, 2.2, "255,80,80"); eye(x, 3, y - 71, 2.2, "255,80,80"); break; }
+    case "domestalker": { const y = G - m.y; shadow(x, 38, y); const run = Math.sin(t * 9 + ph);
+      x.strokeStyle = hit ? W : "#16181c"; x.lineWidth = 4; x.lineCap = "round";
+      for (const [lx, o] of [[-18, 0], [-6, 1], [12, 0], [24, 1]] as number[][]) { x.beginPath(); x.moveTo(lx, y - 20); x.lineTo(lx + 8 + run * 5 * (o ? -1 : 1), y - 28); x.lineTo(lx + 4 + run * 6 * (o ? -1 : 1), y); x.stroke(); }
+      x.beginPath(); x.moveTo(-26, y - 24); x.quadraticCurveTo(-52, y - 38 + run * 4, -60, y - 10); x.stroke();
+      x.fillStyle = hit ? W : "#16181c"; poly(x, [[-60, y - 10], [-66, y - 4], [-56, y - 14]]); x.fill();
+      x.fillStyle = hit ? W : lg(x, 0, y - 40, 0, y - 12, "#3a4048", tint || "#1c2026", "#06080a"); x.beginPath(); x.ellipse(-4, y - 24, 30, 11, -0.08, 0, 7); x.fill(); rim(x, "120,200,220");
+      x.fillStyle = hit ? W : "#22262c"; poly(x, [[14, y - 34], [58, y - 38], [66, y - 26], [48, y - 18], [22, y - 18]]); x.fill(); rim(x, "120,200,220");
+      x.fillStyle = "#e8ecee"; for (let i = 0; i < 4; i++) { poly(x, [[46 + i * 4, y - 20], [48 + i * 4, y - 14], [50 + i * 4, y - 20]]); x.fill(); }
+      eye(x, 44, y - 29, 2.6, "120,255,230"); break; }
     default: return false;
   }
   return true;
