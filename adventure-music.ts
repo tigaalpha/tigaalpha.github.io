@@ -51,8 +51,9 @@ MOODS.menu = { bpm: 128, root: 60, scale: LYD, prog: [0, 4, 5, 3], wLead: "sawto
 /* The Games lobby (owner, 2026-10-22: "cinematic, lots of violin and strings, building emotion, like a Star Wars film; this page only"). No drums except a deep timpani-like
    boom at the start of every phrase: a slow minor tune (84 bpm) played by a bowed-string section (detuned saws with a slow attack, held until the next note), under the
    swelling string pad and cello the `strings` layer already makes. `cin` switches off the groove (kick, snare, hats, bass, arpeggio, the synth hook). Heard by no human. */
-MOODS.lobby = { bpm: 84, root: 55, scale: MIN, prog: [0, 5, 3, 4], wLead: "sawtooth", wBass: "sawtooth", wArp: "triangle", gain: 1.0,
-  lead: [4, _, _, _, _, _, 7, _, 6, _, 5, _, 4, _, _, _,   2, _, _, _, 4, _, 5, _, 6, _, _, _, _, _, 4, _],
+MOODS.lobby = { bpm: 80, root: 55, scale: MIN, prog: [0, 5, 3, 4], wLead: "sawtooth", wBass: "sawtooth", wArp: "triangle", gain: 1.0,
+  lead: [4, _, _, _, _, _, 7, _, 6, _, 5, _, 4, _, _, _,   5, _, _, _, _, _, 4, _, 3, _, 2, _, 3, _, _, _,
+         4, _, _, _, 6, _, _, _, 8, _, _, _, _, _, 7, _,   6, _, _, _, 5, _, 4, _, 2, _, _, _, _, _, _, _],
   arp: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], bass: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
   kick: "................", snare: "................", hat: "................", strings: true, cin: true };
 MOODS.cobalt = { ...MOODS.ferro, bpm: 118, root: 47, wLead: "square", gain: 0.7 };
@@ -155,8 +156,8 @@ export function scheduleStep(ctx: BaseAudioContext, bus: Bus, M: Mood, step: num
   if (snare) hit(ctx, bus.drum, "snare", t, roll * g);
   if (!M.cin && E >= 2 && !snare && s16 % 4 === 3 && s16 % 8 !== 7) hit(ctx, bus.drum, "snare", t, 0.06 * g);                  // ghost notes
   if (hat) hit(ctx, bus.drum, "hat", t, (s16 % 4 === 2 ? 0.14 : 0.08) * g * (E >= 3 && s16 % 4 === 2 ? 1.3 : 1));
-  if (!M.cin && s16 === 0 && barInSec === 0 && (sec >= 2 || E >= 3)) crash(ctx, bus.drum, t, 0.16 * g);
-  if (!M.cin && s16 === 0 && bar4 === false && barInSec === 2 && (sec === 1 || sec === 2)) riser(ctx, bus.drum, t, sps * 16 * 2, 0.16 * g);   // the climb into B and C
+  if ((!M.cin || sec >= 2) && s16 === 0 && barInSec === 0 && (sec >= 2 || E >= 3)) crash(ctx, bus.drum, t, 0.16 * g);
+  if (s16 === 0 && bar4 === false && barInSec === 2 && (sec === 1 || sec === 2)) riser(ctx, bus.drum, t, sps * 16 * 2, 0.16 * g);   // the climb into B and C
   // a warm pad (owner, 2026-10-13): one soft held chord per bar under everything, so even the calm moments feel full and hopeful; the boss arrangement leaves it out
   if (s16 === 0 && !boss) for (const st of [0, 2, 4]) tone(ctx, bus.mel, "triangle", hz(degMidiO(M, rootDeg + st, keyOff)), t, sps * 15, 0.03 * g, 0.4);
   // cinematic string orchestra (owner, 2026-10-16, for the map page: "string instruments, building emotion, cinematic, grand and majestic"): a detuned, slowly swelling ensemble on the chord
@@ -185,16 +186,25 @@ export function scheduleStep(ctx: BaseAudioContext, bus: Bus, M: Mood, step: num
     if (E >= 2) tone(ctx, bus.mel, "triangle", hz(degMidiO(M, d, keyOff) + 24), t, sps * 1.6, 0.04 * g, 0.01);               // octave sparkle
     if (E >= 3) tone(ctx, bus.mel, "sine", hz(degMidiO(M, d + 2, keyOff) + (boss ? 0 : 12)), t, sps * 2.2, 0.06 * g, 0.014);   // the third above
   }
-  // the bowed-string melody of the cinematic mood: each note is held until the next one starts, two detuned saws and a triangle an octave up, a slow bow attack; louder in the later sections
+  // the cinematic mood (owner, 2026-10-22: "more like a film"): a four-bar heroic theme for bowed strings, each note held until the next, a slow bow attack, louder section by section;
+  // section 1 adds a pizzicato harp and a trembling string bed, section 2 the horns (the theme an octave lower, a fanfare of stacked fifths on the downbeat) lifted two steps,
+  // section 3 the theme an octave higher over timpani rolls and a cymbal swell; the bar before each lift ends in a timpani crescendo and a rising swell
   if (M.cin && !boss) {
-    const v0 = M.lead[idx];
+    const L = M.lead, i64 = step % 64, chord = [0, 2, 4].map(d => degMidiO(M, rootDeg + d, keyOff)), barDur = sps * 16;
+    const v0 = L[i64];
     if (v0 !== _ && v0 !== undefined) {
-      let len = 1; while (len < 32 && M.lead[(idx + len) % 32] === _) len++;
+      let len = 1; while (len < 64 && L[(i64 + len) % 64] === _) len++;
       const d = v0 + (sec === 2 ? 2 : 0) + (sec === 3 ? n : 0), f = hz(degMidiO(M, d, keyOff) + 12), dur = sps * len * 1.04, vol = [0.05, 0.058, 0.07, 0.082][sec] * g;
       for (const dt of [0.996, 1.004]) tone(ctx, bus.mel, "sawtooth", f * dt, t, dur, vol, 0.14);
       tone(ctx, bus.mel, "triangle", f * 2, t, dur, vol * 0.6, 0.18);
-      if (E >= 2) tone(ctx, bus.mel, "sawtooth", hz(degMidiO(M, d - 2, keyOff) + 12) * 1.003, t, dur, vol * 0.7, 0.16);   // a third below, the section harmonising
+      if (E >= 2) tone(ctx, bus.mel, "sawtooth", hz(degMidiO(M, d - 2, keyOff) + 12) * 1.003, t, dur, vol * 0.7, 0.16);
+      if (sec >= 2) { const hf = hz(degMidiO(M, d, keyOff)); tone(ctx, bus.mel, "sawtooth", hf, t, dur, 0.04 * g, 0.09); tone(ctx, bus.mel, "triangle", hf, t, dur, 0.05 * g, 0.09); }   // horns
     }
+    if (sec >= 1 && s16 % 2 === 0) tone(ctx, s16 % 4 < 2 ? bus.arpL : bus.arpR, "triangle", hz(chord[(s16 / 2) % 3] + 12 + (s16 % 8 >= 4 ? 12 : 0)), t, sps * 2.5, 0.035 * g, 0.004);   // harp
+    if (sec === 1) tone(ctx, bus.mel, "sawtooth", hz(chord[2] + 12), t, sps * 0.9, 0.007 * g, 0.004);                                                                          // trembling strings
+    if (sec >= 2 && s16 === 0 && barInSec === 0) for (const k of [0, 7, 12]) { tone(ctx, bus.mel, "sawtooth", hz(chord[0] + k - 12), t, barDur * 0.9, 0.045 * g, 0.06); tone(ctx, bus.mel, "triangle", hz(chord[0] + k), t, barDur * 0.9, 0.04 * g, 0.06); }   // the fanfare
+    if (sec >= 1 && bar4 && s16 >= 12) hit(ctx, bus.drum, "kick", t, (0.14 + (s16 - 12) * 0.08) * g);                                                                              // timpani roll
+    if (sec === 3 && s16 % 4 === 0 && !bar4) hit(ctx, bus.drum, "kick", t, 0.2 * g);                                                                                              // the last section marches on timpani
   }
 }
 export type AdvMusic = { start: () => void; stop: () => void; setBoss: (b: boolean) => void; setOn: (on: boolean) => void; duck: (d: boolean) => void; setIntensity: (n: number) => void; info: () => any };
