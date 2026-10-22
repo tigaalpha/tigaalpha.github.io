@@ -2514,7 +2514,6 @@ function QuizCard({ quiz, lang, onKey, onConfirm, onChoice, onNext, onSkip }: an
         )}
         <div style={{ display: "flex", gap: 8 }}>
           {quiz.res && <button className="adv-qgo" style={{ flex: 1 }} onClick={onNext}>{quiz.i >= quiz.qs.length - 1 ? t("จบการทบทวน", "Finish", "完成") : t("ข้อต่อไป", "Next", "下一题")}</button>}
-          {!quiz.res && <button className="adv-qopt" style={{ flex: "0 0 auto" }} onClick={onSkip}>{t("ข้าม", "Skip", "跳过")}</button>}
         </div>
       </div>
     </div>

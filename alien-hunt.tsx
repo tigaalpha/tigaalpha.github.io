@@ -314,7 +314,6 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
                 </>;
               })()}
               {quiz.phase === "ask" && q.kind === "keys" && <button className="ah-go" data-check="1" disabled={!quiz.sel.length} onClick={() => answer(judgeKeys(q, quiz.sel))}>{t("ตรวจ", "CHECK", "检查")}</button>}
-              {quiz.phase === "ask" && <button className="ah-ghost" data-skip="1" onClick={() => resume(true)}>{t("ข้าม (ไม่ได้รางวัล)", "Skip (no reward)", "跳过（无奖励）")}</button>}
               {quiz.phase === "done" && <div className={"ah-verdict " + (quiz.ok ? "good" : "bad")} data-verdict={quiz.ok ? "good" : "bad"}>
                 <b>{quiz.ok ? t("ถูก! ได้โล่ + กระสุนเต็ม", "RIGHT! Shield + full reload", "答对！护盾+满弹药") : t("ยังไม่ใช่ — ดูคีย์ที่ถูกต้อง", "Not quite — watch the right keys", "不对——看正确的键")}</b>
                 {!quiz.ok && <span>{q.teach.why}</span>}
