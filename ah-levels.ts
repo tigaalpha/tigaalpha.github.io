@@ -7,7 +7,7 @@ export type Theme = { sky: [string, string, string, string]; fog: number; fogD: 
 export type Hazard = { x: number; z: number; r: number; per: number; on: number; col: number };
 export type Level = {
   id: number; name: [string, string, string]; race: [string, string, string]; blurb: [string, string, string];
-  tint: number; waves: AlienKind[][]; boxes: Box[]; theme: Theme; guns: WeaponId[]; hazards: Hazard[]; hpk: number; boss?: AlienKind; kit?: "jungle";
+  tint: number; waves: AlienKind[][]; boxes: Box[]; theme: Theme; guns: WeaponId[]; hazards: Hazard[]; hpk: number; boss?: AlienKind; kit?: "jungle" | "desert" | "ice" | "lava" | "ruins"; bossName?: [string, string, string];
 };
 
 /** "skitter*3,scarab*4" -> the species of one wave */
