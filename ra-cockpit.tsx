@@ -2,6 +2,7 @@
    (a gate, ring or ♪ relay that counts asks ONE question; the flight freezes while it is answered, like the tune-up on foot). */
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { createHiFx } from "./hi-fx";
 import { newShip, stepShip, shipAnswerAny, shipStats, type Ship, type SInput } from "./ra-ship";
 import type { ShipDef } from "./ra-factory";
 import { nextQuestion, judgeKeys, recordAnswer, readDone, type Question } from "./quiz-quest";
@@ -33,7 +34,7 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
     const tint = (def.P.c || ["#1c2a55", "#5a7aff", "#9be8ff"]).map(hexc);
     const scene = new THREE.Scene(); scene.background = new THREE.Color(0x02040a); scene.fog = new THREE.FogExp2(0x02040a, 0.0016);
     const cam = new THREE.PerspectiveCamera(72, 16 / 9, 0.5, 4000); const rd = new THREE.WebGLRenderer({ antialias: high, powerPreference: "high-performance" }); rd.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : 1)); el.appendChild(rd.domElement); rd.domElement.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
-    const fit = () => { const w = el.clientWidth || 640, h = el.clientHeight || 360; rd.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }; fit(); const ro = new ResizeObserver(fit); ro.observe(el);
+    const hifx = high ? createHiFx(rd, scene, () => cam, { bloom: 0.7, radius: 0.6, threshold: 0.75 }) : null; const fit = () => { const w = el.clientWidth || 640, h = el.clientHeight || 360; rd.setSize(w, h, false); if (hifx) hifx.setSize(w, h, Math.min(window.devicePixelRatio || 1, 2)); cam.aspect = w / h; cam.updateProjectionMatrix(); }; fit(); const ro = new ResizeObserver(fit); ro.observe(el);
     scene.add(new THREE.HemisphereLight(0xaac8ff, 0x20243a, 1.1)); const sun = new THREE.DirectionalLight(0xfff0d8, 2.2); sun.position.set(-200, 120, 80); scene.add(sun);
     // stars: a shell that rides with the camera, so there is always depth to fly through
     const sp = new Float32Array(1400 * 3); for (let i = 0; i < 1400; i++) { const a = Math.random() * 6.283, b = Math.acos(2 * Math.random() - 1), r = 1500 + Math.random() * 400; sp[i * 3] = Math.sin(b) * Math.cos(a) * r; sp[i * 3 + 1] = Math.cos(b) * r; sp[i * 3 + 2] = Math.sin(b) * Math.sin(a) * r; }
@@ -72,7 +73,7 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
       if (net) { netT += dt; if (netT > 0.2) { netT = 0; try { net.sendPos(p.x, p.z, p.yaw, Math.round(p.hp)); (net as any).__y = p.y; } catch (e) {} } }
       if (net) { const live2 = new Set<string>(); for (const q of net.peers.values()) { if (q.tx === undefined) continue; live2.add(q.id); let g = mateShips.get(q.id); if (!g) { g = new THREE.Group(); const col = parseInt(String(q.glow || "#7fe8ff").replace("#", ""), 16) || 0x7fe8ff; const m = new THREE.Mesh(mateGeo, M(col, 1.2)); m.rotation.x = -Math.PI / 2; g.add(m); g.position.set(q.tx, p.y, q.ty); scene.add(g); mateShips.set(q.id, g); } g.position.x += (q.tx - g.position.x) * Math.min(1, dt * 6); g.position.z += (q.ty - g.position.z) * Math.min(1, dt * 6); g.position.y += (p.y - g.position.y) * Math.min(1, dt * 2); g.rotation.y = q.face || 0; } for (const [id, g] of mateShips) if (!live2.has(id)) { scene.remove(g); mateShips.delete(id); } }
       for (let i = flashes.length - 1; i >= 0; i--) { const f = flashes[i]; f.t += dt; f.m.scale.setScalar(1 + f.t * 3); (f.m.material as any).opacity = Math.max(0, 0.9 - f.t * 1.6); if (f.t > 0.6) { scene.remove(f.m); flashes.splice(i, 1); } }
-      rd.render(scene, cam);
+      if (hifx && hifx.ok()) hifx.render(dt); else rd.render(scene, cam);
       if (bn > 0) { bn -= dt; if (bn <= 0) setBanner(""); }
       if ((frame as any)._h = ((frame as any)._h || 0) + dt, (frame as any)._h > 0.1) { (frame as any)._h = 0; setHud({ hp: Math.round(p.hp), max: p.max, sh: Math.round(p.shield), prog: s.prog, goal: s.goal || s.secs, t: s.t, kills: s.kills, ore: s.ore, ans: s.answers, need: s.needAnswers, boss: s.foes.find(f => f.boss && !f.dead), boost: p.boost, kind: s.kind, secs: s.secs }); }
       if (s.done && !doneRef.current) { doneRef.current = true; AU.setDucked(false); const st = shipStats(s); const cry = s.won ? 8 + Math.round((def.P.hard || 2) * 4) : 0; if (s.won) { addCrystals(cry); try { onWin(); } catch (e) {} } try { logUsage("ra", `ship:${def.id}:${s.won ? "win" : "lose"}:${Math.round(s.t)}s`); } catch (e) {} setRes({ ...st, won: s.won, cry, per: log.current.reduce((a: any, x) => { a[x.topic] = a[x.topic] || [0, 0]; a[x.topic][1]++; if (x.ok) a[x.topic][0]++; return a; }, {}) }); }
