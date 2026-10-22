@@ -1214,7 +1214,7 @@ export const PvpPage = memo(function PvpPage({
   // a finished fight (or the lobby) is always portrait and out of full screen; a new fight re-enters it from its own tap
   // the lobby itself is full screen + landscape with a cinematic strings tune (owner, 2026-10-21)
   useEffect(() => { if (phase !== "fight" && phase !== "lobby") exitFsAndUnlock(); }, [phase]);
-  const [lobbyTab, setLobbyTab] = useState(() => (typeof window !== "undefined" && window.innerWidth > window.innerHeight && window.innerHeight <= 560 ? "me" : "fight"));
+  const [lobbyTab, setLobbyTab] = useState("me");   // owner: the lobby always opens on My Robot
   const tabPicked = useRef(false);                  // the player chose a tab by hand: stop following the orientation
   const pickTab = (k) => { tabPicked.current = true; setLobbyTab(k); };
   useEffect(() => {                                 // the page is entered in portrait and turned to landscape a moment later
