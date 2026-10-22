@@ -18,6 +18,7 @@
    ได้ตรง ๆ (tigamodel/scripts/smoke-learner-signal.mjs) */
 
 import { pickDrillPlan } from "./tigamodel/teaching/skill-state-plans.js";
+import { rankTopics } from "./learn-plan";
 
 /* ── ทักษะ 7 ด้าน (ย้ายจาก App.tsx ที่เดียวเพื่อไม่ให้สองชุดกติกาเปลี่ยนแยกกันไป) ── */
 export const SKILLS = ["note_accuracy", "sight_reading", "ear_training", "chord_knowledge", "dynamics", "rhythm", "technique"];
@@ -111,25 +112,10 @@ export function asText(v) {
 }
 
 export function weakestTopicOf(log, now = Date.now(), labelOf) {
-  const entries = Array.isArray(log) ? log : [];
   const label = typeof labelOf === "function" ? (e => asText(labelOf(e))) : (e => asText((e && e.id) || ""));
-  const byTopic = {};
-  for (const e of entries) {
-    if (!e || e.k === "voice" || e.ok + e.miss < 1) continue;
-    const key = e.k + "|" + e.id;
-    const b = byTopic[key] || (byTopic[key] = { e, ok: 0, miss: 0 });
-    b.ok += e.ok || 0; b.miss += e.miss || 0;
-  }
-  return Object.values(byTopic)
-    .filter(b => b.ok + b.miss >= TOPIC_MIN_N && b.miss > 0)
-    .map(b => ({
-      kind: "topic", entry: b.e,
-      label: label(b.e),
-      n: b.ok + b.miss,
-      miss: b.miss,
-      rate: Math.round(b.miss / (b.ok + b.miss) * 100),
-    }))
-    .sort((a, b) => (b.rate - a.rate) || (b.n - a.n) || a.label.localeCompare(b.label))[0] || null;
+  // learn-plan.ts ranks by recency-weighted miss rate x confidence (+ a spaced-repetition nudge)
+  const r = rankTopics(log, now, label)[0];
+  return r ? { kind: "topic", entry: r.entry, label: r.label, n: r.n, miss: r.miss, rate: r.rate, cause: r.cause, idleDays: r.idleDays } : null;
 }
 
 /* ── นาทีที่แนะนำ: กติกาเดิมของหน้า Mentor (พลาดเยอะ = ลงเวลามากขึ้น) ── */
@@ -169,6 +155,7 @@ export function learnerSignal(input = {}) {
       stepText: topic.label,               // ให้ goToCoachStep() resolve เป็นเพลง/บทจริง
       minutes: minutesForMissRate(topic.rate),
       reasonKind: "miss_rate",
+      cause: topic.cause,
       confidence: null,                    // ยังไม่มีแบบจำลองความมั่นใจของ act log — ไม่แต่ง
       evidence: [{ kind: "topic", label: topic.label, n: topic.n, miss: topic.miss, rate: topic.rate }],
     };

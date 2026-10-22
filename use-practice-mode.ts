@@ -1,3 +1,4 @@
+import { planRecordRound } from "./plan-store";
 import { useState, useRef, useEffect } from "react";
 import {
   fingersForNotes, pcOf, centsFromPC, PITCH_TOL_CENTS, TUNE_OFFSET_CAP,
@@ -7,7 +8,7 @@ import {
 } from "./music-engine";
 import { teacherJudgeNote, getPianoTuneOffset } from "./piano-guard";
 import { EARN, takeEarn, logPractice, scoreDynamics, pathDoneSet, markPathDone, markPathAccuracy, pathTier, PATH_PASS_ACCURACY, bossDoneSet, markBossDone, BOSS_PASS_ACCURACY, getDueReviews, bumpMemoryStreak } from "./App";
-import { logActivity, dayKey, logUsage } from "./shared-infra";
+import { logActivity, readActLog, dayKey, logUsage } from "./shared-infra";
 import { accMult } from "./game-power";
 import { buildSpotTarget, SPOT_CAP_NOTES } from "./practice-spot";
 import { recordMemory } from "./ai-chat-context";
@@ -745,6 +746,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     // itself the source of a worse bug on real devices.
 
     logPractice(accuracy);
+    try { planRecordRound(label || "drill", accuracy, readActLog()); } catch (e) {}   // before the round is logged, so "previous" is the previous round
     logActivity("drill", label || "drill", hits, miss, Math.max(20, total * 2));
     const dyn = scoreDynamics(practiceVelsRef.current);
     if (dyn) logActivity("drill", label || "drill", dyn.ok, dyn.miss, 0, "dynamics");

@@ -1,3 +1,5 @@
+import { rankTopics } from "./learn-plan";
+import { tempoFactorOf } from "./plan-store";
 import { useState, useRef, useEffect, useMemo, memo, useCallback, useContext, Fragment, lazy, Suspense } from "react";
 import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-lock";
 import { Capacitor } from "@capacitor/core";
@@ -1145,7 +1147,11 @@ function buildTodaySteps(T, lang, exp, homework, h) {
   const doneP = pathDoneSet();
   const keyMap = keyDoneMap();
 
-  const warm = MAJOR_SCALE_SONGS[seed % MAJOR_SCALE_SONGS.length];
+  // learn-plan.ts: the plan slots read the SAME ranked weak topics as the focus card, so the two cannot disagree.
+  const ranked = (() => { try { return rankTopics(readActLog(), Date.now(), e => actTopicLabel(e, lang)); } catch (e) { return []; } })();
+  const normT = (x) => String(x || "").toLowerCase().replace(/scale|สเกล|音阶/g, "").replace(/\s+/g, "");
+  const weakWarm = ranked.map(r => MAJOR_SCALE_SONGS.find(s => normT(tr(s, lang)) === normT(r.label) || normT(tr(s, "en")) === normT(r.label))).find(Boolean);
+  const warm = weakWarm || MAJOR_SCALE_SONGS[seed % MAJOR_SCALE_SONGS.length];
   const hw = homework && homework.text ? homework : null;
 
   // review = the top-priority due Pathway stage per the unified SM-2-lite
@@ -1156,7 +1162,8 @@ function buildTodaySteps(T, lang, exp, homework, h) {
   // happened today (pathAccMap's real lastAt), not just that the lesson was
   // opened — matches how the stage itself gets marked done (see reviewStage).
   const due = getDueReviews();
-  const dueStage = due.stages[0] || null;
+  const weakStage = due.stages.find(d => ranked.some(r => normT(r.label).includes(normT(tr(d.stage.title, lang))) || normT(tr(d.stage.title, lang)).includes(normT(r.label))));
+  const dueStage = weakStage || due.stages[0] || null;
   const lessonLast = {};
   for (const e of readActLog()) if (e.k === "lesson") { const sid = e.id.split("/")[0]; lessonLast[sid] = Math.max(lessonLast[sid] || 0, e.t); }
   const reviewables = PATHWAY.filter(s => !s.content && doneP.has(s.id))
@@ -7900,6 +7907,17 @@ const COACH_SKIP_KEY = "tg_coach_skip_day";
 /* The one sentence that says WHY the mentor suggests this, with the real numbers. Shared by Daily Mentor and My Class so the two can never word
    the same decision differently. */
 function actWhyText(act, T) {
+  const base = actWhyBase(act, T);
+  // learn-plan.ts: say WHY it goes wrong (uneven rhythm vs wrong notes) and the tempo this learner should start at
+  let extra = "";
+  try {
+    if (act.cause === "rhythm") extra += " · " + T("จังหวะไม่นิ่ง", "uneven rhythm", "节奏不稳");
+    const f = tempoFactorOf(act.label);
+    if (f < 1) extra += " · " + T(`เริ่มที่ ${Math.round(f * 100)}% ของความเร็ว`, `start at ${Math.round(f * 100)}% speed`, `从${Math.round(f * 100)}%速度开始`);
+  } catch (e) {}
+  return base + extra;
+}
+function actWhyBase(act, T) {
   return act.reasonKind === "miss_rate"
     ? T(`จาก ${act.evidence[0].n} ครั้ง · พลาด ${act.evidence[0].miss} ครั้ง (${act.evidence[0].rate}%)`,
         `from ${act.evidence[0].n} tries · ${act.evidence[0].miss} misses (${act.evidence[0].rate}%)`,
