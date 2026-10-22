@@ -1232,7 +1232,7 @@ export const PvpPage = memo(function PvpPage({
       if (dead) return;
       try { mod.warmAudio(); } catch (e) {}
       if (ahOpen || advOpen) return;
-      m = mod.createAdvMusic("menu"); if (m) m.start();
+      m = mod.createAdvMusic("lobby"); if (m) m.start();
     }).catch(() => {});
     return () => { dead = true; if (m) m.stop(); };
   }, [phase, ahOpen, advOpen]);
@@ -1553,6 +1553,7 @@ export const PvpPage = memo(function PvpPage({
         <div className="pvphdr">
           <button className="stgback" onClick={onBack} aria-label="back">←</button>
           <span className="pvphdr-t">{T("สนามประลอง", "PvP Arena", "竞技场")}</span>
+          <span className="gpbar-hdr"><GamePowerBar lang={lang} onOpen={() => { if (playUi) playUi("click"); setPowerSheet({ need: 0 }); }} /></span>
           <span className="mdv-cls" style={{ "--cc": clsInfo.c }}>
             <span className="mdv-cls-ic"><ItemArt art={clsInfo.art} sw={[clsInfo.c, "#22283a"]} /></span>{tr3(clsInfo, lang)}
           </span>

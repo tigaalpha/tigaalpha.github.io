@@ -4,7 +4,7 @@
    swaps the same tune to a harder, denser arrangement. Nothing here touches the microphone; the master level is low and ducks while
    a question is open. */
 export type Mood = { bpm: number; root: number; scale: number[]; prog: number[]; lead: number[]; arp: number[]; bass: number[];
-  kick: string; snare: string; hat: string; wLead: OscillatorType; wBass: OscillatorType; wArp: OscillatorType; gain: number; swing?: number; strings?: boolean };
+  kick: string; snare: string; hat: string; wLead: OscillatorType; wBass: OscillatorType; wArp: OscillatorType; gain: number; swing?: number; strings?: boolean; cin?: boolean };
 
 const MAJ = [0, 2, 4, 7, 9], PHR = [0, 1, 3, 5, 7, 8, 10], MIN = [0, 2, 3, 5, 7, 8, 10], LYD = [0, 2, 4, 6, 7, 9, 11];
 const _ = -99;   // a rest in a lead line
@@ -48,6 +48,13 @@ MOODS.menu = { bpm: 128, root: 60, scale: LYD, prog: [0, 4, 5, 3], wLead: "sawto
   lead: [4, _, 5, _, 7, _, 9, 7,  _, 5, _, 7, 9, _, 11, _,   9, _, 7, _, 11, _, 12, 11,  9, _, 11, _, 14, _, _, _],
   arp: [0, 2, 4, 7, 4, 2, 0, 2, 4, 7, 9, 7, 4, 2, 4, 7], bass: [1, _, 1, 1, _, 1, 1, _, 1, _, 1, 1, _, 1, 1, _],
   kick: "x...x...x...x...", snare: "....x.......x...", hat: "x.xxx.xxx.xxx.xx", strings: true };
+/* The Games lobby (owner, 2026-10-22: "cinematic, lots of violin and strings, building emotion, like a Star Wars film; this page only"). No drums except a deep timpani-like
+   boom at the start of every phrase: a slow minor tune (84 bpm) played by a bowed-string section (detuned saws with a slow attack, held until the next note), under the
+   swelling string pad and cello the `strings` layer already makes. `cin` switches off the groove (kick, snare, hats, bass, arpeggio, the synth hook). Heard by no human. */
+MOODS.lobby = { bpm: 84, root: 55, scale: MIN, prog: [0, 5, 3, 4], wLead: "sawtooth", wBass: "sawtooth", wArp: "triangle", gain: 1.0,
+  lead: [4, _, _, _, _, _, 7, _, 6, _, 5, _, 4, _, _, _,   2, _, _, _, 4, _, 5, _, 6, _, _, _, _, _, 4, _],
+  arp: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], bass: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+  kick: "................", snare: "................", hat: "................", strings: true, cin: true };
 MOODS.cobalt = { ...MOODS.ferro, bpm: 118, root: 47, wLead: "square", gain: 0.7 };
 MOODS.helios = { ...MOODS.jovia, bpm: 132, root: 62, scale: LYD, wLead: "sawtooth", gain: 0.62 };
 MOODS.departure = { ...MOODS.luma, bpm: 118, gain: 0.64 };
@@ -143,12 +150,13 @@ export function scheduleStep(ctx: BaseAudioContext, bus: Bus, M: Mood, step: num
   const fill = bar4 && (E >= 3 || (E === 2 && barInSec === 3 && sec % 2 === 1) || sec === 1 || sec === 3);
   if (fill && s16 >= 12) { snare = true; if (E >= 2 || s16 >= 14) hat = false; }
   const roll = fill && s16 >= 12 ? 0.2 + (s16 - 12) * 0.07 : 0.3;
+  if (M.cin) { kick = false; snare = false; hat = false; }
   if (kick) { hit(ctx, bus.drum, "kick", t, 0.55 * g); const d = bus.mel.gain; d.cancelScheduledValues(t); d.setValueAtTime(0.5, t); d.linearRampToValueAtTime(1, t + 0.14); }   // the pump
   if (snare) hit(ctx, bus.drum, "snare", t, roll * g);
-  if (E >= 2 && !snare && s16 % 4 === 3 && s16 % 8 !== 7) hit(ctx, bus.drum, "snare", t, 0.06 * g);                  // ghost notes
+  if (!M.cin && E >= 2 && !snare && s16 % 4 === 3 && s16 % 8 !== 7) hit(ctx, bus.drum, "snare", t, 0.06 * g);                  // ghost notes
   if (hat) hit(ctx, bus.drum, "hat", t, (s16 % 4 === 2 ? 0.14 : 0.08) * g * (E >= 3 && s16 % 4 === 2 ? 1.3 : 1));
-  if (s16 === 0 && barInSec === 0 && (sec >= 2 || E >= 3)) crash(ctx, bus.drum, t, 0.16 * g);
-  if (s16 === 0 && bar4 === false && barInSec === 2 && (sec === 1 || sec === 2)) riser(ctx, bus.drum, t, sps * 16 * 2, 0.16 * g);   // the climb into B and C
+  if (!M.cin && s16 === 0 && barInSec === 0 && (sec >= 2 || E >= 3)) crash(ctx, bus.drum, t, 0.16 * g);
+  if (!M.cin && s16 === 0 && bar4 === false && barInSec === 2 && (sec === 1 || sec === 2)) riser(ctx, bus.drum, t, sps * 16 * 2, 0.16 * g);   // the climb into B and C
   // a warm pad (owner, 2026-10-13): one soft held chord per bar under everything, so even the calm moments feel full and hopeful; the boss arrangement leaves it out
   if (s16 === 0 && !boss) for (const st of [0, 2, 4]) tone(ctx, bus.mel, "triangle", hz(degMidiO(M, rootDeg + st, keyOff)), t, sps * 15, 0.03 * g, 0.4);
   // cinematic string orchestra (owner, 2026-10-16, for the map page: "string instruments, building emotion, cinematic, grand and majestic"): a detuned, slowly swelling ensemble on the chord
@@ -160,22 +168,33 @@ export function scheduleStep(ctx: BaseAudioContext, bus: Bus, M: Mood, step: num
       tone(ctx, bus.mel, "sawtooth", hz(chord[0] - 24), t, barDur, 0.02 * g, 0.25); tone(ctx, bus.mel, "triangle", hz(chord[0] - 12), t, barDur, 0.03 * g, 0.2);
       if (barInSec === 0) hit(ctx, bus.drum, "kick", t, 0.7 * g);   // a deep boom on the first bar of every phrase
     }
-    if (E >= 2 && s16 % 2 === 0) tone(ctx, bus.mel, "sawtooth", hz(chord[(s16 / 2) % 3] + 12 + (s16 % 8 === 6 ? 12 : 0)), t, sps * 1.6, 0.014 * g, 0.006);
+    if (!M.cin && E >= 2 && s16 % 2 === 0) tone(ctx, bus.mel, "sawtooth", hz(chord[(s16 / 2) % 3] + 12 + (s16 % 8 === 6 ? 12 : 0)), t, sps * 1.6, 0.014 * g, 0.006);
     if (bar4 && s16 === 0) { const top = hz(chord[2] + 24); tone(ctx, bus.mel, "sawtooth", top * 0.99, t, barDur, 0.018 * g, barDur * 0.95); tone(ctx, bus.mel, "triangle", top, t, barDur, 0.022 * g, barDur * 0.95); }
   }
   // bass: the pattern, and in E>=2 an octave jump on the off-beats
   const b = pat(M.bass[s16] as any, BOSS.bass[s16] as any);
-  if (b === 1) { const up = E >= 2 && s16 % 8 === 6; tone(ctx, bus.mel, M.wBass, hz(degMidiO(M, rootDeg, keyOff) - 24 + (up ? 12 : 0)), t, sps * 1.8, 0.26 * g, 0.008); }
+  if (b === 1 && !M.cin) { const up = E >= 2 && s16 % 8 === 6; tone(ctx, bus.mel, M.wBass, hz(degMidiO(M, rootDeg, keyOff) - 24 + (up ? 12 : 0)), t, sps * 1.8, 0.26 * g, 0.008); }
   // arpeggio, alternating left and right; octave up in the big sections
   const a = M.arp[s16]; if (a !== _ && a !== undefined) { const oct = E >= 3 ? 24 : 12, st = [0, 2, 4, 7][a % 4]; tone(ctx, s16 % 2 ? bus.arpL : bus.arpR, M.wArp, hz(degMidiO(M, rootDeg + st, keyOff) + oct), t, sps * 1.4, (E >= 2 ? 0.08 : 0.06) * g, 0.004); }
   // the hook: A and A' as written, B a step higher, C an octave up in key, with a third above it at E3
-  const idx = step % 32, l0 = M.lead[idx];
+  const idx = step % 32, l0 = M.cin ? _ : M.lead[idx];
   if (l0 !== _ && l0 !== undefined) {
     const lift = sec === 2 ? 2 : 0, oct = sec === 3 ? n : 0, var1 = sec === 1 && bar4 ? 2 : 0, lw = boss ? "sawtooth" : sec === 3 ? "square" : M.wLead;
     const d = l0 + lift + var1 + oct;
     tone(ctx, bus.mel, lw, hz(degMidiO(M, d, keyOff) + (boss ? 0 : 12)), t, sps * 2.4, (boss ? 0.1 : 0.12) * g, 0.012);
     if (E >= 2) tone(ctx, bus.mel, "triangle", hz(degMidiO(M, d, keyOff) + 24), t, sps * 1.6, 0.04 * g, 0.01);               // octave sparkle
     if (E >= 3) tone(ctx, bus.mel, "sine", hz(degMidiO(M, d + 2, keyOff) + (boss ? 0 : 12)), t, sps * 2.2, 0.06 * g, 0.014);   // the third above
+  }
+  // the bowed-string melody of the cinematic mood: each note is held until the next one starts, two detuned saws and a triangle an octave up, a slow bow attack; louder in the later sections
+  if (M.cin && !boss) {
+    const v0 = M.lead[idx];
+    if (v0 !== _ && v0 !== undefined) {
+      let len = 1; while (len < 32 && M.lead[(idx + len) % 32] === _) len++;
+      const d = v0 + (sec === 2 ? 2 : 0) + (sec === 3 ? n : 0), f = hz(degMidiO(M, d, keyOff) + 12), dur = sps * len * 1.04, vol = [0.05, 0.058, 0.07, 0.082][sec] * g;
+      for (const dt of [0.996, 1.004]) tone(ctx, bus.mel, "sawtooth", f * dt, t, dur, vol, 0.14);
+      tone(ctx, bus.mel, "triangle", f * 2, t, dur, vol * 0.6, 0.18);
+      if (E >= 2) tone(ctx, bus.mel, "sawtooth", hz(degMidiO(M, d - 2, keyOff) + 12) * 1.003, t, dur, vol * 0.7, 0.16);   // a third below, the section harmonising
+    }
   }
 }
 export type AdvMusic = { start: () => void; stop: () => void; setBoss: (b: boolean) => void; setOn: (on: boolean) => void; duck: (d: boolean) => void; setIntensity: (n: number) => void; info: () => any };
