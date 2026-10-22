@@ -1215,6 +1215,14 @@ export const PvpPage = memo(function PvpPage({
   // the lobby itself is full screen + landscape with a cinematic strings tune (owner, 2026-10-21)
   useEffect(() => { if (phase !== "fight" && phase !== "lobby") exitFsAndUnlock(); }, [phase]);
   const [lobbyTab, setLobbyTab] = useState(() => (typeof window !== "undefined" && window.innerWidth > window.innerHeight && window.innerHeight <= 560 ? "me" : "fight"));
+  const tabPicked = useRef(false);                  // the player chose a tab by hand: stop following the orientation
+  const pickTab = (k) => { tabPicked.current = true; setLobbyTab(k); };
+  useEffect(() => {                                 // the page is entered in portrait and turned to landscape a moment later
+    const sync = () => { if (!tabPicked.current && window.innerWidth > window.innerHeight && window.innerHeight <= 560) setLobbyTab("me"); };
+    sync();
+    window.addEventListener("resize", sync); window.addEventListener("orientationchange", sync);
+    return () => { window.removeEventListener("resize", sync); window.removeEventListener("orientationchange", sync); };
+  }, []);
   const [ahOpen, setAhOpen] = useState(false); const [advOpen, setAdvOpen] = useState(false); const [advOnline, setAdvOnline] = useState(false);
   useEffect(() => {
     if (phase !== "lobby") return;
@@ -1568,7 +1576,7 @@ export const PvpPage = memo(function PvpPage({
           <div className={`pvphero-fig${squadUsed === "pet" ? " petonly" : ""}`} ref={heroFig} data-foot="0.018">
           <div className="pvptabs pvptabs-hero" role="tablist">
             {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("หุ่นของฉัน", "My Robot", "我的机器人")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
-              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => { setLobbyTab(k); if (window.innerWidth > window.innerHeight) return; setTimeout(() => { try { const el = document.querySelector(".pvpbody"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {} }, 60); }}>
+              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => { pickTab(k); if (window.innerWidth > window.innerHeight) return; setTimeout(() => { try { const el = document.querySelector(".pvpbody"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {} }, 60); }}>
                 {lb}{k === "friends" && openDuels.length > 0 && <i className="pvptab-dot">{openDuels.length}</i>}
               </button>
             ))}
@@ -1661,7 +1669,7 @@ export const PvpPage = memo(function PvpPage({
           </div>
           <div className="pvptabs" role="tablist">
             {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("หุ่นของฉัน", "My Robot", "我的机器人")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
-              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => setLobbyTab(k)}>
+              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => pickTab(k)}>
                 {lb}{k === "friends" && openDuels.length > 0 && <i className="pvptab-dot">{openDuels.length}</i>}
               </button>
             ))}
