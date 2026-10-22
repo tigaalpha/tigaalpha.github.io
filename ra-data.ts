@@ -16,7 +16,7 @@ const LUMA: Level = {
   id: 1, name: ["ลูมา · ดาวป่าเรืองแสง", "Luma · the glowing jungle", "卢玛 · 荧光丛林"], race: ["สัตว์ป่าเรืองแสงแห่งลูมา", "The creatures of Luma", "卢玛的荧光生物"],
   blurb: ["เคลียร์ป่าเรืองแสงก่อนที่มนุษย์จะย้ายเข้ามา", "Clear the glowing jungle before any human settles.", "在人类入住前清理荧光丛林。"],
   tint: 0x5affc8, hpk: 1, kit: "jungle", guns: ["rifle", "shotgun", "laser"], hazards: [], boss: "lumawarden",
-  waves: [W("glowbug*3"), W("glowbug*4,hound*2"), W("thornback*2,sporecaster*2,glowbug*3"), W("lumawarden,glowbug*3,hound*2")],
+  waves: [W("glowbug*3"), W("glowbug*4,hound*2,leaper*2"), W("thornback*2,sporecaster*2,glowbug*3,capling*1"), W("lumawarden,glowbug*3,hound*2")],
   boxes: [B(-9, -5, 4.4, 2.4, 1.5), B(10, -8, 2.6, 5, 1.6), B(-1, 9, 6, 1.8, 1.3), B(-16, 8, 3, 3, 2.8), B(16, 7, 3, 3, 2.8), B(-4, -18, 8, 1.6, 1.3), B(21, -17, 3.4, 3.4, 2.2), B(-22, -15, 3.4, 3.4, 2.2), B(5, 19, 3, 2, 1.4), B(-14, 21, 5, 1.8, 1.4), B(0, -8, 2, 2, 2.4)],
   theme: { sky: ["#03131a", "#06382f", "#1f9a78", "#0a1a18"], fog: 0x07241f, fogD: 0.017, ground: 0x8ac8a8, wall: 0x2a6a4e, hemi: [0xa8ffe4, 0x0a2a22], sun: 0xc8fff0, ring: 0x5affc8 },
 };
