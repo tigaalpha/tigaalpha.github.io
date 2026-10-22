@@ -17,7 +17,7 @@ ok("the Adventure Online button is not the one in that slot", (await p.locator("
 await p.evaluate(() => document.querySelector("[data-robot3d]").click()); await p.waitForSelector("[data-ra='hub']", { timeout: 8000 }); await p.waitForTimeout(700);
 ok("nine planets on the map", (await p.locator(".ra-pl").count()) === 9);
 ok("a normal player has only the first map open", (await p.evaluate(() => [...document.querySelectorAll(".ra-pl")].map(b => b.dataset.open).join())) === "1,0,0,0,0,0,0,0,0");
-ok("the five fight maps are built in 3D (Luma, Ferro, Kryo, Pyra, Nexa)", (await p.evaluate(() => [...document.querySelectorAll(".ra-pl")].filter(b => b.dataset["3d"] === "1").map(b => b.dataset.planet).join())) === "luma");
+ok("the five fight maps are built in 3D (Luma, Ferro, Kryo, Pyra, Nexa)", (await p.evaluate(() => [...document.querySelectorAll(".ra-pl")].filter(b => b.dataset["3d"] === "1").map(b => b.dataset.planet).join())) === "luma,ferro,kryo,pyra,nexa");
 ok("the map floor is really tilted in 3D", (await p.evaluate(() => getComputedStyle(document.querySelector("[data-ra-plane]")).transform)).startsWith("matrix3d"));
 ok("the planets are joined by a route", (await p.locator(".ra-route path").count()) === 8);
 const inside = await p.evaluate(() => { const W = innerWidth, H = innerHeight; return [...document.querySelectorAll(".ra-pl")].every(b => { const r = b.getBoundingClientRect(); return r.left >= -2 && r.right <= W + 2 && r.top >= 0 && r.bottom <= H + 2; }); });
