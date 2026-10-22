@@ -1,3 +1,4 @@
+import { pctOf } from "./learn-plan";
 import { planRecordRound } from "./plan-store";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -729,7 +730,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     if (practicePaidRef.current) return;      // a finish pays exactly once
     const hits = practiceHitsRef.current;
     const miss = practiceMissRef.current;
-    const accuracy = hits + miss > 0 ? Math.round((hits / (hits + miss)) * 100) : 100;
+    const accuracy = hits + miss > 0 ? pctOf(hits, hits + miss) : 100;
     const label = practiceLabelRef.current;
     const bestStreak = practiceBestStreakRef.current;
     // Memory Streak — was this stage actually due for SRS review right now?
@@ -934,7 +935,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       const prev = m.recent.find(r => r.label === label && r.t !== dayKey());
       return prev && prev.acc != null ? prev.acc : null;   // "last time BEFORE this attempt" — the day-keyed guard keeps today's own just-recorded entry from reading as "a week ago"
     } catch (e) { return null; } })();
-    const rhythmPct = rhythm ? Math.round((rhythm.ok / (rhythm.ok + rhythm.miss)) * 100) : null;
+    const rhythmPct = rhythm ? pctOf(rhythm.ok, rhythm.ok + rhythm.miss) : null;
     const tigaLoop = await queuedUntilTiga(m => m.runTeachingLoopForPractice({
       accuracy,
       repeatedErrors: bestStreak === 0 && miss >= 2 ? miss : (miss >= 4 ? miss : 0),

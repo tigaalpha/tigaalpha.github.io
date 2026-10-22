@@ -15,6 +15,14 @@ const DAY = 86400000;
 export const PLAN_HALFLIFE_DAYS = 14;
 export const PLAN_MIN_N = 4;
 
+/* Percentage of a whole, rounded half up on WHOLE numbers. Math.round(a / b * 100) rounds an exact .5 down
+   whenever the float lands a hair under it (23 / 40 * 100 = 57.49999...), so a score could read one point low. */
+export function pctOf(a, b) {
+  if (!(b > 0)) return 0;
+  const x = Math.round(a), y = Math.round(b);
+  return Math.floor((x * 200 + y) / (2 * y));
+}
+
 export function recencyW(t, now) { return Math.pow(0.5, Math.max(0, now - t) / (PLAN_HALFLIFE_DAYS * DAY)); }
 
 /* every graded topic, ranked. A row = { key, k, id, n, miss, rate, wRate, last, idleDays, score, cause } */
@@ -42,7 +50,7 @@ export function rankTopics(log, now = Date.now(), labelOf = null) {
       const fresh = 0.5 + 0.5 * recencyW(b.last || now, now);             // a stale pile fades to half weight
       return {
         key: b.key, k: b.k, id: b.id, entry: b.e, n, miss: b.miss,
-        rate: Math.round(b.miss / n * 100), wRate: Math.round(wRate * 100),
+        rate: pctOf(b.miss, n), wRate: Math.round(wRate * 100),
         last: b.last, idleDays: Math.round(idleDays),
         score: wRate * conf * fresh + spaced,
         cause: causeOf(b.rOk, b.rMiss, wRate),

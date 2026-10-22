@@ -1,3 +1,4 @@
+import { pctOf } from "./learn-plan";
 import { accMult } from "./game-power";
 import { useState, useRef } from "react";
 import {
@@ -248,7 +249,7 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWee
     clearTimeout(sightTimeoutTimer.current);
     clearInterval(sightSprintTimerRef.current);
     const correct = sightScoreRef.current, miss = sightMissRef.current;
-    const acc = correct + miss > 0 ? Math.round(correct / (correct + miss) * 100) : 100;
+    const acc = correct + miss > 0 ? pctOf(correct, correct + miss) : 100;
     const reward = 25 + Math.round(acc / 4); // 25..50 EXP
     if (sightMissedNotesRef.current.length) recordNoteMisses(sightMissedNotesRef.current);
     // Belt ranking — every correct read (any clef, any mode) counts toward

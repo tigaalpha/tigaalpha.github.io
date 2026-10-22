@@ -42,9 +42,12 @@ export function judgeOffset(absDt, kind, src) {
    every mode (see pressIsMash). */
 export function accuracyOf({ perfect = 0, great = 0, good = 0, total = 0, wrong = 0, mash = 0, kind = false }) {
   if (!total) return 0;
-  const earned = perfect * WEIGHT.perfect + great * WEIGHT.great + good * WEIGHT.good;
-  const cost = ((kind ? 0 : wrong) + mash) * WRONG_COST;
-  return Math.max(0, Math.min(100, Math.round((earned - cost) / total * 100)));
+  // Integer arithmetic (weights x10, wrong cost x10): the float version rounded an exact .5 DOWN
+  // whenever the float came out a hair under it (2.3 / 4 * 100 = 57.4999..., which is exactly 57.5),
+  // so some runs showed one point less than the maths says. Round half up on whole numbers instead.
+  const num = 10 * (perfect * WEIGHT.perfect + great * WEIGHT.great + good * WEIGHT.good) - 10 * WRONG_COST * ((kind ? 0 : wrong) + mash);
+  const numI = Math.round(num), den = 10 * total;
+  return Math.max(0, Math.min(100, Math.floor((numI * 200 + den) / (2 * den))));
 }
 
 export function starsFor(acc) {
