@@ -60,7 +60,7 @@ const GEO3: any = { OX, OY, TW, TH, VW: ISO_VW, FX, FY, COLS: ISO_COLS, MILL, PA
   wander: (i: number, T: number) => { const a = GEO3.ANIMALS[i], sz = ANI_SZ[a.id] || 1, wx = a.x + 6 + Math.sin(T * 0.35 + i * 2) * 30, wy = a.y + 30 + Math.cos(T * 0.25 + i) * 12 + 20 * sz, u = (wx - OX) / TW, v = (wy - OY) / TH; return { gx: (u + v) / 2, gy: (v - u) / 2, face: Math.cos(T * 0.35 + i * 2) >= 0 ? 1 : -1, hop: 0 }; } };
 function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string) {
   const O = "rgba(45,28,12,.5)";
-  x.drawImage(isoBg(kind), 0, 0, WW, WH);
+  if (USE3D_R) x.clearRect(0, 0, WW, WH); else x.drawImage(isoBg(kind), 0, 0, WW, WH);   // in High the farm itself is the three.js layer underneath, this canvas is its overlay (tags, bubbles, helpers)
   drawIsoWindmill(x, T); drawIsoPad(x, S.launch, T);
   for (let i = 0; i < PLOTS.length; i++) { const c = S.plots[i], cr = c.crop ? CROPS.find(q => q.id === c.crop) : null; drawIsoPlot(x, i, c, T, cr ? cr.col : "#fff", digCostOf(S.dug), S.stock >= digCostOf(S.dug)); }
   // the pens (fence and floor are in the cached scenery)
@@ -73,9 +73,9 @@ function drawRanch(x: CanvasRenderingContext2D, S: any, T: number, kind: string)
     if (hungry) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = O; x.lineWidth = 1.1; x.beginPath(); x.roundRect(wx + 18, wy - 46, 36, 24, 8); x.fill(); x.stroke(); x.fillStyle = "#222"; x.font = "16px system-ui"; x.textAlign = "center"; x.fillText("🍎", wx + 36, wy - 28); }
     else if (A.prog >= 100) { x.fillStyle = "rgba(255,255,255,.95)"; x.strokeStyle = "#ffb020"; x.lineWidth = 1.5; x.beginPath(); x.roundRect(wx + 18, wy - 48 - Math.abs(Math.sin(T * 5)) * 4, 36, 26, 8); x.fill(); x.stroke(); x.font = "18px system-ui"; x.textAlign = "center"; x.fillText(a.prod, wx + 36, wy - 28 - Math.abs(Math.sin(T * 5)) * 4); }
     else { x.fillStyle = "rgba(0,0,0,.3)"; x.fillRect(wx - 20, wy - 34, 40, 5); x.fillStyle = "#ffd23f"; x.fillRect(wx - 20, wy - 34, 40 * A.prog / 100, 5); } }
-  x.drawImage(isoFg(kind), 0, 0, WW, WH);
+  if (!USE3D_R) x.drawImage(isoFg(kind), 0, 0, WW, WH);
   for (const h of [...S.helpers].sort((a: any, b: any) => a.y - b.y)) drawHelper(x, h, T, h.job >= 0 || h.kind === "car" && h.carry > 0);
-  drawIsoAmbient(x, T);
+  if (!USE3D_R) drawIsoAmbient(x, T);
   // butterflies
   for (let i = 0; i < 3; i++) { const bx = 640 + i * 190 + Math.sin(T * 0.9 + i) * 90, by = 330 + i * 40 + Math.cos(T * 1.1 + i * 2) * 30; x.fillStyle = ["#ff7ab8", "#7ad0ff", "#ffe06a"][i]; x.beginPath(); x.ellipse(bx - 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.ellipse(bx + 4, by, 5, 3 + Math.abs(Math.sin(T * 14 + i)) * 3, 0, 0, 7); x.fill(); }
   // ripe bubbles and floating numbers (FarmVille style)
@@ -111,10 +111,10 @@ export default function AdventureRanch({ P, lang, onWin, onExit, onRetry, coinAp
     // Graphics: High = the three.js layer, Lite = the cached 2D drawing; the gear pop-up flips it live (checked twice a second)
     let r3Mod: any = null, r3Busy = false;
     const syncGfx = () => { try { const want = gfxHigh() && localStorage.getItem("tg_ranch3d") !== "0";
-      if (want && !r3 && !r3Busy && cv && cv.parentElement) { r3Busy = true; (r3Mod ? Promise.resolve(r3Mod) : import("./adventure-ranch-3d")).then(m => { r3Mod = m; r3Busy = false; if (!alive || r3 || !gfxHigh() || !cv.parentElement) return; r3 = m.createRanch3D(cv.parentElement); if (r3 && cv.nextSibling) cv.parentElement.insertBefore(r3.el, cv.nextSibling); setUse3DR(!!r3); }).catch(() => { r3Busy = false; }); }
+      if (want && !r3 && !r3Busy && cv && cv.parentElement) { r3Busy = true; (r3Mod ? Promise.resolve(r3Mod) : import("./adventure-ranch-3d")).then(m => { r3Mod = m; r3Busy = false; if (!alive || r3 || !gfxHigh() || !cv.parentElement) return; r3 = m.createRanch3D(cv.parentElement); if (r3) { cv.parentElement.insertBefore(r3.el, cv); (cv.style as any).background = "transparent"; } setUse3DR(!!r3); }).catch(() => { r3Busy = false; }); }
       else if (!want && r3) { try { r3.dispose(); } catch (e) {} r3 = null; setUse3DR(false); } } catch (e) {} };
     syncGfx(); const gfxT = setInterval(syncGfx, 500);
-    const draw = (now: number) => { if (!alive) return; raf = requestAnimationFrame(draw); if (now - lastDraw < 40 || !cv) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const k = cv.width / VW, cm = camRef.current; x.setTransform(k * cm.z, 0, 0, k * cm.z, -cm.x * k * cm.z, -cm.y * k * cm.z); try { drawRanch(x, S, now / 1000, P.kind || "moon"); x.setTransform(k, 0, 0, k, 0, 0); finishLook(x, VW, VH, now / 1000, "255,226,170", 0.3); } catch (e) {}
+    const draw = (now: number) => { if (!alive) return; raf = requestAnimationFrame(draw); if (now - lastDraw < 40 || !cv) return; lastDraw = now; const x = cv.getContext("2d"); if (!x) return; const k = cv.width / VW, cm = camRef.current; x.setTransform(k * cm.z, 0, 0, k * cm.z, -cm.x * k * cm.z, -cm.y * k * cm.z); try { drawRanch(x, S, now / 1000, P.kind || "moon"); x.setTransform(k, 0, 0, k, 0, 0); if (!USE3D_R) finishLook(x, VW, VH, now / 1000, "255,226,170", 0.3); } catch (e) {}
       if (r3) { try { r3.render(S, cm, cv.clientWidth, cv.clientHeight, Math.min(2, window.devicePixelRatio || 1), now / 1000, P.kind || "moon", GEO3); } catch (e) { try { r3.dispose(); } catch (e2) {} r3 = null; setUse3DR(false); } } };
     raf = requestAnimationFrame(draw);
     const step = (dt: number) => {
