@@ -115,7 +115,7 @@ export function weakestTopicOf(log, now = Date.now(), labelOf) {
   const label = typeof labelOf === "function" ? (e => asText(labelOf(e))) : (e => asText((e && e.id) || ""));
   // learn-plan.ts ranks by recency-weighted miss rate x confidence (+ a spaced-repetition nudge)
   const r = rankTopics(log, now, label)[0];
-  return r ? { kind: "topic", entry: r.entry, label: r.label, n: r.n, miss: r.miss, rate: r.rate, cause: r.cause, idleDays: r.idleDays } : null;
+  return r ? { kind: "topic", entry: r.entry, label: r.label, n: r.n, miss: r.miss, rate: r.rate, cause: r.cause, idleDays: r.idleDays, sig: r.sig, p: r.p } : null;
 }
 
 /* ── นาทีที่แนะนำ: กติกาเดิมของหน้า Mentor (พลาดเยอะ = ลงเวลามากขึ้น) ── */
