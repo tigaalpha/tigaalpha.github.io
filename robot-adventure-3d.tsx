@@ -34,7 +34,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const [screen, setScreen] = useState<"hub" | "film" | "play">("hub"), [done, setDone] = useState<string[]>(() => readDone());
   const firstOpen = () => { const d = readDone(); const k = RA_PLANETS.findIndex(p => !d.includes(p.id)); return k < 0 ? RA_PLANETS[0].id : RA_PLANETS[k].id; };
-  const [sel, setSel] = useState<string>(firstOpen), [part, setPart] = useState<string>(() => secOf(firstOpen()));
+  const [sel, setSel] = useState<string>(firstOpen), [part, setPart] = useState<string>("prep");
   const [portrait, setPortrait] = useState(() => typeof window !== "undefined" && window.innerHeight > window.innerWidth), [high, setHigh] = useState(() => gfxHigh()), [snd, setSnd] = useState(() => AU.soundOn());
   const [powerNeed, setPowerNeed] = useState<number | null>(null);
   /* co-op (plan 39 P5): a room on the Adventure Online channel; every client runs its own game and shows teammates as ghosts, the host starts an episode for everyone */
