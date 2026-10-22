@@ -552,7 +552,7 @@ function drawMonster(x, m, t, k, G) {
 /* the end-of-map guardian: a big armoured shape in the planet's colours; it flashes before each attack */
 function drawBoss(x, b, t, P) { paintBoss(x, b, t, P, GROUND); }
 
-const CSS = `
+export const CSS = `
 .adv-sectors{display:flex;gap:8px;margin:4px 0 10px}.adv-sec{flex:1;border:1.5px solid rgba(140,255,220,.35);background:rgba(255,255,255,.06);color:#fff;padding:9px 12px;border-radius:999px!important;font-weight:800;font-size:13px;cursor:pointer}.adv-sec.on{background:linear-gradient(135deg,#2fd6b0,#4a7bff);border-color:transparent}.adv-sec em{font-style:normal;opacity:.85;margin-left:6px;font-size:11px}
 .adv{position:fixed;inset:0;z-index:2400;background:#02070c;color:#e8fffa;font-family:var(--f-app,system-ui);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
 .adv-lobby{margin:8px 0;border:1px solid #3ddc97;border-radius:12px;padding:10px;background:rgba(20,98,79,.25);display:grid;gap:8px}.adv-lobby label{font-size:12px;display:flex;gap:8px;align-items:center}.adv-lobby input{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.25);border-radius:8px;color:#fff;padding:6px 8px}
