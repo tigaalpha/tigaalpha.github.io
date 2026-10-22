@@ -137,28 +137,44 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
           <div className="punlock-sub">{lc.memoryStreakLbl}: {r.memoryStreak.count}</div>
         </div>
       )}
-      <div className="presulthead">
-        <div className="presulttitle">{lc.practiceResultTitle}</div>
-        <div className="presultsub">{r.label}</div>
-        {r.isNewBest && <div className="presultbest">{lc.practiceNewBest}</div>}
-      </div>
-
-      {/* Practice v4 A1: Spot Drill launcher — only when the just-finished
-          round actually missed something (honest hide otherwise). The cut
-          itself is buildSpotTarget's contract, proven by smoke S1-S8. */}
-      {startSpotPractice && spotN > 0 && !spotCleared && (
-        <div className="presultai pspot">
-          <div className="presultai-h">{lc.practiceSpotBtn}
-            <button className="atpopup-x" style={{ float: "right" }} aria-label="close" onClick={() => { try { logUsage("practice", "spot:clear"); } catch (e) {} setSpotCleared(true); }}>×</button>
+      {/* Result page, one screen (owner plan 2026-10-22): my result -> where I slipped -> one thing to do next.
+          Everything else (Jev, AI analysis, poll, coach, teacher text) is still rendered, folded under one <details>, so nothing stops recording. */}
+      {(() => {
+        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const acc = r.accuracy, stars = starsOf(acc);
+        const col = acc >= 85 ? "var(--ok,#2f9e6b)" : acc >= 60 ? "#d99a1a" : "#d2493f";
+        const pcOf2 = (n) => String(n).replace(/-?\d+$/, "");
+        const missPcs = new Set(missIdxs.map(i => pcOf2(practiceTarget[i])));
+        const WH = ["C", "D", "E", "F", "G", "A", "B"], BK = [["C#", 9.6], ["D#", 23.8], ["F#", 52.4], ["G#", 66.7], ["A#", 81]];
+        return <>
+          <div className="prhero" data-prhero="1">
+            <div className="prring" style={{ background: `conic-gradient(${col} ${acc}%, rgba(128,128,128,.25) 0)` }}><i>{acc}%</i></div>
+            <div className="prhero-tx">
+              <div className="prhero-tt">{acc >= 85 ? T3("เก่งมาก! 🎉", "Great job! 🎉", "太棒了！🎉") : acc >= 60 ? T3("ใกล้แล้ว! 💪", "Almost there! 💪", "快了！💪") : T3("ลองอีกนิด 🌱", "Keep trying 🌱", "再试试 🌱")}</div>
+              <div className="presultstars" aria-label={stars + " stars"}>{[1, 2, 3].map(n => <span key={n} className={n <= stars ? "on" : ""}>★</span>)}</div>
+              {r.isNewBest && <div className="presultbest">{lc.practiceNewBest}</div>}
+            </div>
           </div>
-          <div className="presultai-tx">{lc.practiceSpotN.replace("{n}", String(spotN))}</div>
-          <div>{missIdxs.map(i => (
-            <span key={i} className="pchip pchip--miss">{dispPc(practiceTarget[i], practiceTarget)}</span>
-          ))}</div>
-          <button className="atpopup-ok" style={{ marginTop: 8 }} onClick={startSpotPractice}>{lc.practiceSpotBtn}</button>
-        </div>
-      )}
-
+          <div className="prbars" data-prbars="1">
+            <div className="prbar"><span>{T3("โน้ต", "Notes", "音符")}</span><div className="prtrk"><i style={{ width: acc + "%", background: col }} /></div><b>{acc}%</b></div>
+            {rhythmPct != null && <div className="prbar"><span>{T3("จังหวะ", "Rhythm", "节奏")}</span><div className="prtrk"><i style={{ width: rhythmPct + "%", background: rhythmPct >= 85 ? "#2f9e6b" : "#d99a1a" }} /></div><b>{starsOf(rhythmPct)}/3 ⭐</b></div>}
+            <div className="prbar"><span>{T3("ถูกติดกัน", "In a row", "连对")}</span><div className="prtrk"><i style={{ width: Math.min(100, (r.bestStreak || 0) * 4) + "%", background: "#2f9e6b" }} /></div><b>{r.bestStreak || 0}</b></div>
+            {r.prevBest && <div className="prprev">{T3("ดีที่สุดเดิม", "Previous best", "之前最佳")}: {r.prevBest.accuracy}%</div>}
+          </div>
+          {spotN > 0 && (
+            <div className="prmiss" data-prmiss="1">
+              <div className="prmiss-h">{T3("โน้ตที่ยังพลาด", "Notes you slipped on", "还会错的音")}
+                {!spotCleared && startSpotPractice && <button className="atpopup-x" style={{ float: "right" }} aria-label="close" onClick={() => { try { logUsage("practice", "spot:clear"); } catch (e) {} setSpotCleared(true); }}>×</button>}
+              </div>
+              <div className="prkeys" aria-hidden="true">
+                {WH.map(n => <div key={n} className={"prk" + (missPcs.has(n) ? " hit" : "")} />)}
+                {BK.map(([n, left]) => <div key={n} className={"prbk" + (missPcs.has(n as string) ? " hit" : "")} style={{ left: left + "%" }} />)}
+              </div>
+              <div>{missIdxs.map(i => <span key={i} className="pchip pchip--miss">{dispPc(practiceTarget[i], practiceTarget)}</span>)}</div>
+            </div>
+          )}
+        </>;
+      })()}
       {(() => {
         const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
         const acc = r.accuracy, prev = r.prevBest && r.prevBest.accuracy;
@@ -194,25 +210,11 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
           )}
         </>;
       })()}
-      <div className="presultstars" aria-label={starsOf(r.accuracy) + " stars"}>{[1, 2, 3].map(n => <span key={n} className={n <= starsOf(r.accuracy) ? "on" : ""}>★</span>)}</div>
-      {rhythmPct != null && (
-        <div className="presultstars presultstars-rhythm" aria-label={"rhythm " + starsOf(rhythmPct) + " stars"}>
-          <span className="presultstars-lbl">{lc.practiceRhythmLbl}</span>{[1, 2, 3].map(n => <span key={n} className={n <= starsOf(rhythmPct) ? "on" : ""}>★</span>)}
-        </div>
-      )}
-      <div className="presultstats">
-        <div className="presultstat">
-          <div className="presultstat-v">{r.accuracy}%</div>
-          <div className="presultstat-l">{lc.practiceAcc}</div>
-          {r.prevBest && <div className="presultstat-d">{lc.practiceBestLbl}: {r.prevBest.accuracy}%</div>}
-        </div>
-        <div className="presultstat">
-          <div className="presultstat-v">🔥 {r.bestStreak}</div>
-          <div className="presultstat-l">{lc.practiceStreakLbl}</div>
-          {r.prevBest && <div className="presultstat-d">{lc.practiceBestLbl}: {r.prevBest.bestStreak}</div>}
-        </div>
-      </div>
-
+      {startSpotPractice && spotN > 0 && !spotCleared ? (
+        <button className="atpopup-ok prbig" data-prgo="spot" onClick={startSpotPractice}>
+          🎯 {lang === "th" ? `ซ้อมแค่ ${spotN} โน้ตนี้` : lang === "zh" ? `只练这 ${spotN} 个音` : `Practise just these ${spotN} notes`}
+        </button>
+      ) : null}
       {/* §2.5 practiceSpotDone: a just-finished SPOT round says so — the
           learner knows the small loop paid off and the full drill is next. */}
       {r.spotUsed && <div className="presultsub" style={{ color: "#34c759" }}>✓ {lc.practiceSpotDone}</div>}
@@ -224,6 +226,8 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
         </div>
       )}
 
+      <details className="prmore" data-prmore="1">
+        <summary>{lang === "th" ? "ดูคำแนะนำจากครู" : lang === "zh" ? "查看老师建议" : "See the teacher's tips"}</summary>
       {/* Conversion pill (strategy phase 2): only for free-plan learners and
           only after a genuinely good run (accuracy gate passed via prop) —
           the exact peak moment where an upgrade feels earned, not gated. */}
@@ -281,6 +285,7 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
             : <div className="presultai-tx">{r.aiText}</div>}
         </div>
       )}
+      </details>
     </div>
   );
 }
