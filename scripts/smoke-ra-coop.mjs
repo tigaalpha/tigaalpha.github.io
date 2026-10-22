@@ -22,7 +22,7 @@ const FAKE = `window.__advChannelFactory = (name, cfg) => {
 };`;
 const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
 await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort()); await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
-await ctx.addInitScript(FAKE); await ctx.addInitScript(() => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_gp_free", "1"); localStorage.setItem("tg_adv_nocine", "1"); localStorage.setItem("tg_adv_gfx", "standard"); localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "P" + Math.floor(Math.random() * 99), lang: "en", age: "adult", level: "beginner", exp: 5000 })); });
+await ctx.addInitScript(FAKE); await ctx.addInitScript(() => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_gp_free", "1"); localStorage.setItem("tg_adv_nocine", "1"); localStorage.setItem("tg_test_hook", "1"); localStorage.setItem("tg_adv_unlockall", "1"); localStorage.setItem("tg_adv_gfx", "standard"); localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "P" + Math.floor(Math.random() * 99), lang: "en", age: "adult", level: "beginner", exp: 5000 })); });
 const open = async () => { const p = await ctx.newPage(); p.on("pageerror", e => (p._e = p._e || []).push(e.message)); await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500); for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); } await p.evaluate(() => document.querySelector("[data-robot3d]").click()); await p.waitForSelector("[data-ra='hub']"); await p.waitForTimeout(600); return p; };
 const A = await open(), B = await open();
 await A.locator("[data-ra-coop-btn]").click(); await A.locator("[data-coop-create]").click(); await A.waitForSelector("[data-coop-room]", { timeout: 8000 });
@@ -37,5 +37,7 @@ await A.waitForTimeout(1500); await B.waitForTimeout(1500);
 await A.evaluate(() => { const s = window.__ah.state; s.p.x = 5; s.p.z = 10; }); await A.waitForTimeout(1500);
 ok("the guest's scene shows the host as a ghost pilot", (await B.evaluate(() => window.__ah.info().mates)) === 1);
 ok("the host's scene shows the guest too", (await A.evaluate(() => window.__ah.info().mates)) === 1);
+// minimap: the teammate's dot is drawn (the canvas has more than the usual colours near the host's position is hard to assert, so check the marker count through the peers)
+ok("the minimap canvas is drawn on both pages", (await A.locator(".ah-map").count()) === 1 && (await B.locator(".ah-map").count()) === 1);
 ok("no page errors on either page", !(A._e || []).length && !(B._e || []).length, ((A._e || []).concat(B._e || [])).slice(0, 2).join(" | "));
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

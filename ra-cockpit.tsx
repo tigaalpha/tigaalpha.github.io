@@ -19,7 +19,7 @@ const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals
 type Quiz = { q: Question; phase: "gate" | "ask" | "done"; ok: boolean | null; sel: number[]; armed: boolean; lit: number };
 const parseNote = (n: string) => { const m = /^([A-G])([#b♯♭]?)(-?\d)/.exec(n); if (!m) return -1; const pc = ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 } as any)[m[1]] + (m[2] === "#" || m[2] === "♯" ? 1 : m[2] ? -1 : 0); return ((pc % 12) + 12) % 12; };
 
-export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack }: { lang: string; me: string; adminTier?: number; def: ShipDef; onWin: () => void; onBack: () => void }) {
+export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = null }: { lang: string; me: string; adminTier?: number; def: ShipDef; onWin: () => void; onBack: () => void; net?: any }) {
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const host = useRef<HTMLDivElement>(null), S = useRef<Ship>(newShip(def.kind, def.P.hard || 2, (Date.now() & 0xffff) | 1)), inp = useRef<SInput>({ sx: 0, sy: 0, fire: false, boost: false });
   const [hud, setHud] = useState<any>({}), [quiz, setQuiz] = useState<Quiz | null>(null), [res, setRes] = useState<any>(null), [paused, setPaused] = useState(false), [powerNeed, setPowerNeed] = useState<number | null>(null), [banner, setBanner] = useState("");
@@ -46,7 +46,8 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack }: { la
     const ents = new Map<any, THREE.Object3D>(); const grp = new THREE.Group(); scene.add(grp);
     const sync = <T,>(list: T[], make: (o: T) => THREE.Object3D, upd: (m: THREE.Object3D, o: T) => void) => { const seen = new Set<any>(); for (const o of list) { seen.add(o); let m = ents.get(o); if (!m) { m = make(o); ents.set(o, m); grp.add(m); } upd(m, o); } };
     let bh: THREE.Group | null = null; if (S.current.bh) { bh = new THREE.Group(); const core = new THREE.Mesh(new THREE.SphereGeometry(32, 24, 16), new THREE.MeshBasicMaterial({ color: 0x000000 })); const disc = new THREE.Mesh(new THREE.RingGeometry(40, 110, 64), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.7, side: THREE.DoubleSide })); disc.rotation.x = 1.25; bh.add(core, disc); bh.position.set(S.current.bh.x, S.current.bh.y, S.current.bh.z); scene.add(bh); }
-    const flashes: { m: THREE.Mesh; t: number }[] = [];
+    const flashes: { m: THREE.Mesh; t: number }[] = []; let netT = 0; const mateShips = new Map<string, THREE.Group>();
+    const mateGeo = new THREE.ConeGeometry(1.6, 5, 6);
     const boom = (x: number, y: number, z: number, r: number) => { const m = new THREE.Mesh(new THREE.SphereGeometry(Math.max(2, r), 12, 10), new THREE.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.9, fog: false })); m.position.set(x, y, z); scene.add(m); flashes.push({ m, t: 0 }); };
     const askNow = () => { inp.current.fire = false; inp.current.sx = 0; inp.current.sy = 0; stick.current.id = -1; AU.setDucked(true); const nq = nextQuestion(lang as any, { done: readDone() }); setQuiz({ q: nq.q, phase: "gate", ok: null, sel: [], armed: false, lit: 0 }); setTimeout(() => setQuiz(c => (c && c.phase === "gate" ? { ...c, armed: true } : c)), 900); };
     try { AU.warm(); AU.musicStart(); } catch (e) {}
@@ -68,6 +69,8 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack }: { la
       sync(s.relays.filter(r => !r.got), r => new THREE.Mesh(gRelay, mRelay), (m, r) => { live.add(r); m.position.set(r.x, r.y, r.z); m.lookAt(p.x, p.y, p.z); m.scale.setScalar(1 + Math.sin(s.t * 4) * 0.08); });
       sync(s.rings.filter(r => !r.done), r => new THREE.Mesh(gRing, mRing), (m, r) => { live.add(r); m.position.set(r.x, r.y, r.z); m.scale.setScalar(r.r); m.lookAt(p.x, p.y, p.z + 1e4 * 0); (m as THREE.Mesh).rotation.x = Math.PI / 2; const k = 1 + r.p * 0.4; m.scale.setScalar(r.r * k); });
       for (const [o, m] of ents) if (!live.has(o)) { grp.remove(m); ents.delete(o); }
+      if (net) { netT += dt; if (netT > 0.2) { netT = 0; try { net.sendPos(p.x, p.z, p.yaw, Math.round(p.hp)); (net as any).__y = p.y; } catch (e) {} } }
+      if (net) { const live2 = new Set<string>(); for (const q of net.peers.values()) { if (q.tx === undefined) continue; live2.add(q.id); let g = mateShips.get(q.id); if (!g) { g = new THREE.Group(); const col = parseInt(String(q.glow || "#7fe8ff").replace("#", ""), 16) || 0x7fe8ff; const m = new THREE.Mesh(mateGeo, M(col, 1.2)); m.rotation.x = -Math.PI / 2; g.add(m); g.position.set(q.tx, p.y, q.ty); scene.add(g); mateShips.set(q.id, g); } g.position.x += (q.tx - g.position.x) * Math.min(1, dt * 6); g.position.z += (q.ty - g.position.z) * Math.min(1, dt * 6); g.position.y += (p.y - g.position.y) * Math.min(1, dt * 2); g.rotation.y = q.face || 0; } for (const [id, g] of mateShips) if (!live2.has(id)) { scene.remove(g); mateShips.delete(id); } }
       for (let i = flashes.length - 1; i >= 0; i--) { const f = flashes[i]; f.t += dt; f.m.scale.setScalar(1 + f.t * 3); (f.m.material as any).opacity = Math.max(0, 0.9 - f.t * 1.6); if (f.t > 0.6) { scene.remove(f.m); flashes.splice(i, 1); } }
       rd.render(scene, cam);
       if (bn > 0) { bn -= dt; if (bn <= 0) setBanner(""); }
