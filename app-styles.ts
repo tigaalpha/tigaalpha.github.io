@@ -4131,6 +4131,11 @@ ${UX2_CSS}
 .prbig{width:100%;margin:0 0 10px;padding:13px;font-size:15px;font-weight:800;border-radius:14px}
 .prmore{margin:4px 0 12px}.prmore>summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--clay,#c8623a);padding:8px 2px;list-style:none;text-align:center}
 .prmore>summary::-webkit-details-marker{display:none}.prmore>summary::before{content:"▾ "}.prmore[open]>summary::before{content:"▴ "}
+.prtipsbtn{display:block;margin:2px auto 12px;padding:9px 18px;border-radius:99px;border:1px solid var(--bd,#e6dccf);background:var(--card,#fffdfa);color:var(--clay,#c8623a);font:700 13px inherit;font-family:inherit;cursor:pointer}
+.prsheet{position:fixed;inset:0;z-index:99999;background:rgba(20,12,8,.55);align-items:flex-end;justify-content:center}
+.prsheet-in{position:relative;width:100%;max-width:520px;max-height:88%;overflow:auto;background:var(--bg,#f7f3ee);border-radius:22px 22px 0 0;padding:16px 14px 22px;box-shadow:0 -10px 40px #0006}
+.prsheet-tt{font-weight:800;font-size:16px;margin:0 36px 12px 2px}
+.prsheet-x{position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:50%;border:1px solid var(--bd,#e6dccf);background:var(--card,#fffdfa);font-size:15px;cursor:pointer}
 `;
 
 export function useInjectCSS() {
