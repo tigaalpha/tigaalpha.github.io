@@ -82,7 +82,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   );
   if (screen === "play" && dfn && dfn.kind === "ship") return (
     <Suspense fallback={<div className="ra-load"><style>{CSS}</style>…</div>}>
-      <RaShipPage lang={lang} me={me} adminTier={adminTier} def={dfn.data} onWin={() => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }} onBack={() => { setDone(readDone()); setScreen("hub"); }} />
+      <RaShipPage net={net} lang={lang} me={me} adminTier={adminTier} def={dfn.data} onWin={() => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }} onBack={() => { setDone(readDone()); setScreen("hub"); }} />
     </Suspense>
   );
   if (screen === "play" && dfn && dfn.kind === "foot") return (
