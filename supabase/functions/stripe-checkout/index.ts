@@ -25,9 +25,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
         not the other now fails loudly instead of silently charging the wrong
         person the wrong money. */
 const PRICES: Record<string, Record<string, number>> = {
-  thb: { premium: 1490,  family: 1490,  max: 1490,   maxfamily: 1490   },
-  usd: { premium: 44.99, family: 44.99, max: 44.99,  maxfamily: 44.99 },
-  cny: { premium: 328,   family: 328,   max: 328,    maxfamily: 328   },
+  thb: { premium: 799,   family: 799,   max: 799,    maxfamily: 799 },
+  usd: { premium: 24.99, family: 24.99, max: 24.99,  maxfamily: 24.99 },
+  cny: { premium: 176,   family: 176,   max: 176,    maxfamily: 176   },
 };
 const LABELS: Record<string, string> = { premium: "TiGA AI Premium", family: "TiGA AI Premium", max: "TiGA AI Premium", maxfamily: "TiGA AI Premium" };
 /* Only Premium can be bought (owner, 2026-10-04: two packages, free + premium).

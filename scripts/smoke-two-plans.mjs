@@ -117,7 +117,7 @@ eq(day8, "free", "the day AFTER the trial the profile is genuinely free — whic
 // ══ 5. prices: one number, in both tables ══════════════════════════════════
 for (const cur of ["thb", "usd", "cny"]) {
   const tbl = { thb: P.PLAN_PRICE, usd: P.PLAN_PRICE_USD, cny: P.PLAN_PRICE_CNY }[cur];
-  const want = { thb: 1490, usd: 44.99, cny: 328 }[cur];
+  const want = { thb: 799, usd: 24.99, cny: 176 }[cur];
   eq(tbl.premium, want, `${cur}: Premium is ${want}`);
   for (const legacy of ["family", "max", "maxfamily"]) {
     eq(tbl[legacy], want, `${cur}: legacy "${legacy}" carries the Premium price so a renewal finds one`);
