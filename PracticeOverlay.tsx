@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { logUsage } from "./shared-infra";
 import { L } from "./i18n";
 import { Piano, pcOf, dispPc, haptic } from "./music-engine";
@@ -146,6 +147,8 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
   // §2.6 spot:clear — dismissing the launcher logs it (KPI guard: a clear is
   // not a start). Local state only; a new result resets the card naturally.
   const [spotCleared, setSpotCleared] = useState(false);
+  const [tipsOpen, setTipsOpen] = useState(false);
+  useEffect(() => { setTipsOpen(false); }, [r && r.label]);
   useEffect(() => { setSpotCleared(false); }, [r && r.label]);
   const dynPct = r.dyn ? Math.round(r.dyn.ok / (r.dyn.ok + r.dyn.miss) * 100) : null;
   const rhythmPct = r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null;
@@ -255,8 +258,13 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
           learner knows the small loop paid off and the full drill is next. */}
       {r.spotUsed && <div className="presultsub" style={{ color: "#34c759" }}>✓ {lc.practiceSpotDone}</div>}
 
-      <details className="prmore" data-prmore="1">
-        <summary>{lang === "th" ? "ดูคำแนะนำจากครู" : lang === "zh" ? "查看老师建议" : "See the teacher's tips"}</summary>
+      <button className="prtipsbtn" data-prtips="1" onClick={() => setTipsOpen(true)}>💡 {lang === "th" ? "ดูคำแนะนำจากครู" : lang === "zh" ? "查看老师建议" : "See the teacher's tips"}</button>
+      {/* The teacher's tips live in a pop-up sheet (owner 2026-10-22). It stays MOUNTED while closed (display:none) so the poll, coach and AI loops keep recording. */}
+      {createPortal(
+      <div className="prsheet" data-prmore="1" style={{ display: tipsOpen ? "flex" : "none" }} onClick={() => setTipsOpen(false)}>
+        <div className="prsheet-in" onClick={e => e.stopPropagation()}>
+          <button className="prsheet-x" aria-label="close" onClick={() => setTipsOpen(false)}>✕</button>
+          <div className="prsheet-tt">💡 {lang === "th" ? "ดูคำแนะนำจากครู" : lang === "zh" ? "查看老师建议" : "See the teacher's tips"}</div>
       {/* Conversion pill (strategy phase 2): only for free-plan learners and
           only after a genuinely good run (accuracy gate passed via prop) —
           the exact peak moment where an upgrade feels earned, not gated. */}
@@ -316,7 +324,8 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
             : <div className="presultai-tx">{r.aiText}</div>}
         </div>
       )}
-      </details>
+        </div>
+      </div>, document.body)}
     </div>
   );
 }
