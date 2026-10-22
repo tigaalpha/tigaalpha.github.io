@@ -1256,7 +1256,8 @@ export const PvpPage = memo(function PvpPage({
   const setSquad = (k) => { setSquadState(k); try { localStorage.setItem("tg_pvp_squad", k); } catch (e) {} if (playUi) playUi("click"); };
   const pickPet = (speciesId) => { if (carryPet(speciesId)) { setPets(allPets()); if (playUi) playUi("click"); } };
   const pickRef = useRef(null);
-  const heroPickRef = useRef(null);                   // the robot strip, for LazyHead's observer
+  const heroPickRef = useRef(null);
+  const [lobbyPop, setLobbyPop] = useState(null);   // landscape: "robot" | "skill" popup over the lobby                   // the robot strip, for LazyHead's observer
 
   const me = normalizeModel(charModel);
   const myCls = classKeyOf(me);
@@ -1573,6 +1574,12 @@ export const PvpPage = memo(function PvpPage({
             ))}
           </div>
           {lobbyTab === "me" && (
+            <div className="pvppop-btns">
+              <button type="button" className={lobbyPop === "robot" ? "on" : ""} onClick={() => setLobbyPop(lobbyPop === "robot" ? null : "robot")}>🤖 {T("เลเวลหุ่นยนต์", "Robot level", "机器人等级")}</button>
+              <button type="button" className={lobbyPop === "skill" ? "on" : ""} onClick={() => setLobbyPop(lobbyPop === "skill" ? null : "skill")}>⚡ {T("สกิล · ชุด · วาลอร์", "Skill · Loadout · Valor", "技能·装备·荣耀")}</button>
+            </div>
+          )}
+          {lobbyTab === "me" && (
             <div className="pvppick pvppick-hero" ref={heroPickRef} aria-label={T("ลงสนาม", "Who fights", "出战")}>
               {[["bot", "\ud83e\udd16", T("หุ่นยนต์", "Robot", "机器人")], ["pet", "\ud83d\udc3e", T("สัตว์เลี้ยง", "Pet", "宠物")], ["both", "\ud83e\udd16\ud83d\udc3e", T("คู่หู", "Both", "搭档")]].map(([k, ic, lb]) => (
                 <button key={k} type="button" title={lb} className={`pvppick-b sq${squadUsed === k ? " on" : ""}`} disabled={k !== "bot" && !petNow} onClick={() => setSquad(k)}>{ic}</button>
@@ -1661,7 +1668,8 @@ export const PvpPage = memo(function PvpPage({
           </div>
         </div>
 
-        <div className="pvpbody">
+        <div className={"pvpbody" + (lobbyTab === "me" ? " pvpbody-me" : "")} data-pop={lobbyTab === "me" && lobbyPop ? lobbyPop : ""}>
+          <button type="button" className="pvppop-x" aria-label="close" onClick={() => setLobbyPop(null)}>✕</button>
           {lobbyTab === "fight" && (<>
           <div className="pvpsec-h">{T("ไฟต์พิเศษ", "Special Fights", "特别对战")}</div>
           <div className="pvptiers pvptiers-rows">
@@ -1753,6 +1761,7 @@ export const PvpPage = memo(function PvpPage({
             const bump = (k, d) => { if (spendPoint(me, k, d)) { if (playUi) playUi("click"); setRpgTick(x => x + 1); } };
             return (
               <div className="pvprpg">
+                <div className="pvprpg-r">
                 <div className="pvpsec-h">{T("เลเวลหุ่นยนต์", "Robot level", "机器人等级")}<span className="pvpsec-n">Lv {rpg.lv}{rpg.lv >= RPG_MAX_LV ? " MAX" : ""}</span></div>
                 <div className="pvprpg-bar"><i style={{ width: `${Math.round(rpg.pct * 100)}%` }} /><em>{rpg.max ? "MAX" : `${rpg.into} / ${rpg.need} EXP`}</em></div>
                 <div className="pvprpg-free">{T("แต้มที่ใช้ได้", "Points to spend", "可分配点数")}: <b>{rpg.free}</b>
@@ -1766,8 +1775,11 @@ export const PvpPage = memo(function PvpPage({
                     <button type="button" aria-label={LBL[k][0] + " +"} disabled={rpg.free < 1 || rpg.pts[k] >= STAT_CAP} onClick={() => bump(k, 1)}>+</button>
                   </div>
                 ))}
+                </div>
+                <div className="pvprpg-s">
                 <div className="pvpsec-h">{T("เลเวลสกิล", "Skill level", "技能等级")}<span className="pvpsec-n">Rank {sr.rank}{sr.max ? " MAX" : ""}</span></div>
                 <div className="pvprpg-bar sk"><i style={{ width: `${Math.round(sr.pct * 100)}%` }} /><em>{sr.max ? "MAX" : `${sr.into} / ${sr.need} SP`}</em></div>
+                </div>
               </div>
             );
           })()}
