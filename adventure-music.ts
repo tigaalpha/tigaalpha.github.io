@@ -51,7 +51,7 @@ MOODS.menu = { bpm: 128, root: 60, scale: LYD, prog: [0, 4, 5, 3], wLead: "sawto
 /* The Games lobby (owner, 2026-10-22: "cinematic, lots of violin and strings, building emotion, like a Star Wars film; this page only"). No drums except a deep timpani-like
    boom at the start of every phrase: a slow minor tune (84 bpm) played by a bowed-string section (detuned saws with a slow attack, held until the next note), under the
    swelling string pad and cello the `strings` layer already makes. `cin` switches off the groove (kick, snare, hats, bass, arpeggio, the synth hook). Heard by no human. */
-MOODS.lobby = { bpm: 80, root: 55, scale: MIN, prog: [0, 5, 3, 4], wLead: "sawtooth", wBass: "sawtooth", wArp: "triangle", gain: 1.0,
+MOODS.lobby = { bpm: 104, root: 55, scale: MIN, prog: [0, 5, 3, 4], wLead: "sawtooth", wBass: "sawtooth", wArp: "triangle", gain: 1.0,
   lead: [4, _, _, _, _, _, 7, _, 6, _, 5, _, 4, _, _, _,   5, _, _, _, _, _, 4, _, 3, _, 2, _, 3, _, _, _,
          4, _, _, _, 6, _, _, _, 8, _, _, _, _, _, 7, _,   6, _, _, _, 5, _, 4, _, 2, _, _, _, _, _, _, _],
   arp: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], bass: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
@@ -203,6 +203,17 @@ export function scheduleStep(ctx: BaseAudioContext, bus: Bus, M: Mood, step: num
     if (sec >= 1 && s16 % 2 === 0) tone(ctx, s16 % 4 < 2 ? bus.arpL : bus.arpR, "triangle", hz(chord[(s16 / 2) % 3] + 12 + (s16 % 8 >= 4 ? 12 : 0)), t, sps * 2.5, 0.035 * g, 0.004);   // harp
     if (sec === 1) tone(ctx, bus.mel, "sawtooth", hz(chord[2] + 12), t, sps * 0.9, 0.007 * g, 0.004);                                                                          // trembling strings
     if (sec >= 2 && s16 === 0 && barInSec === 0) for (const k of [0, 7, 12]) { tone(ctx, bus.mel, "sawtooth", hz(chord[0] + k - 12), t, barDur * 0.9, 0.045 * g, 0.06); tone(ctx, bus.mel, "triangle", hz(chord[0] + k), t, barDur * 0.9, 0.04 * g, 0.06); }   // the fanfare
+    // adrenaline and dopamine (owner, 2026-10-22: "more grand and exciting"): a driving spiccato string ostinato on every sixteenth from the first bar, taiko / timpani on the beat from section 1 with
+    // a snare on 2 and 4 and eighth hats in the last section, brass stabs (da-da-DAA) from section 2, a cymbal and a rising swell into every section, and a fast rising run in the last beat of every fourth bar
+    const ost = [0.02, 0.028, 0.036, 0.044][sec] * g;
+    tone(ctx, s16 % 2 ? bus.arpL : bus.arpR, "sawtooth", hz(chord[[0, 1, 2, 1][(s16 >> 1) % 4]] + 12 + (s16 % 4 === 0 ? 0 : 0)), t, sps * 0.7, ost * (s16 % 4 === 0 ? 1.5 : 1), 0.004);
+    if (sec >= 1 && s16 % 4 === 0) hit(ctx, bus.drum, "kick", t, (sec === 1 ? 0.26 : 0.36) * g);
+    if (sec >= 1 && (s16 === 4 || s16 === 12)) hit(ctx, bus.drum, "snare", t, (sec === 1 ? 0.12 : 0.22) * g);
+    if (sec === 3 && s16 % 2 === 0) hit(ctx, bus.drum, "hat", t, 0.09 * g);
+    if (sec >= 2 && (s16 === 0 || s16 === 3 || s16 === 6)) for (const k of [0, 7]) tone(ctx, bus.mel, "sawtooth", hz(chord[0] + k) * 1.002, t, sps * (s16 === 6 ? 3 : 1.5), 0.05 * g * (s16 === 6 ? 1.4 : 1), 0.01);
+    if (barInSec === 0 && s16 === 0 && sec >= 1) crash(ctx, bus.drum, t, 0.2 * g);
+    if (bar4 && s16 === 0) riser(ctx, bus.drum, t, barDur, 0.2 * g);
+    if (bar4 && s16 >= 12) tone(ctx, bus.arpR, "triangle", hz(degMidiO(M, rootDeg + (s16 - 12) * 2 + 2, keyOff) + 12), t, sps * 1.2, 0.07 * g, 0.004);
     if (sec >= 1 && bar4 && s16 >= 12) hit(ctx, bus.drum, "kick", t, (0.14 + (s16 - 12) * 0.08) * g);                                                                              // timpani roll
     if (sec === 3 && s16 % 4 === 0 && !bar4) hit(ctx, bus.drum, "kick", t, 0.2 * g);                                                                                              // the last section marches on timpani
   }
