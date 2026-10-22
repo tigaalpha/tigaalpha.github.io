@@ -144,9 +144,9 @@ export function isMaxPlan(p) { return isPremiumPlan(p); }
    charges the card — CHANGE BOTH TOGETHER. A sale is refused outright if they
    disagree (see `expect` in openStripe below), so a one-sided edit shows up as
    a failed checkout rather than as a customer billed the wrong amount. */
-export const PLAN_PRICE     = { premium: 1490,  family: 1490,  max: 1490,   maxfamily: 1490  }; // THB
-export const PLAN_PRICE_USD = { premium: 44.99, family: 44.99, max: 44.99,  maxfamily: 44.99 }; // USD
-export const PLAN_PRICE_CNY = { premium: 328,   family: 328,   max: 328,    maxfamily: 328   }; // CNY
+export const PLAN_PRICE     = { premium: 799,   family: 799,   max: 799,    maxfamily: 799 }; // THB
+export const PLAN_PRICE_USD = { premium: 24.99, family: 24.99, max: 24.99,  maxfamily: 24.99 }; // USD
+export const PLAN_PRICE_CNY = { premium: 176,   family: 176,   max: 176,    maxfamily: 176   }; // CNY
 export const CURRENCY_BY_LANG: Record<string,string> = { th: "thb", en: "usd", zh: "cny" };
 export const PLAN_LABEL = { premium: "⭐ Premium", family: "⭐ Premium", max: "⭐ Premium", maxfamily: "⭐ Premium" };
 /* Only these two are sellable. Kept as an explicit list rather than inferred

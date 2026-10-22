@@ -194,8 +194,8 @@ for (const lang of ["th", "en", "zh"]) {
    replaces the generic body wholesale for anyone with proof data, so fixing
    only copyTable's body would ship a yearly price to exactly the members who
    practised and nothing to everyone else. */
-ok(YEAR_PRICE_FROM_SOURCE("premium") === 17344,
-  `yearPrice(premium) = ${YEAR_PRICE_FROM_SOURCE("premium")} — the yearly figure is 12 months less 3%, as the owner quoted (17,344)`);
+ok(YEAR_PRICE_FROM_SOURCE("premium") === 9300,
+  `yearPrice(premium) = ${YEAR_PRICE_FROM_SOURCE("premium")} — the yearly figure is 12 months less 3%, as the owner quoted (was 17,344 at 1,490; now 9,300 at 799)`);
 const YEAR_TOL = { th: "บาทต่อปี", en: "per year", zh: "每年" };
 for (const lang of ["th", "en", "zh"]) {
   const cl = C.CONV_COPY[lang].closing;
