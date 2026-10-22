@@ -1,1 +1,0 @@
-import{i as r,ae as e}from"./index.template-BMxFOOpv.js";function i(){try{const t=localStorage.getItem("tg_adv_gfx");if(t==="high")return!0;if(t==="standard")return!1}catch{}try{return!(r()||e()<=1)}catch{return!1}}export{i as g};
