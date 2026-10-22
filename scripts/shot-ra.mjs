@@ -14,9 +14,11 @@ for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) br
 let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ") + n + (d ? " — " + d : "")); if (!c) fail++; };
 const OUT = process.env.SHOT || "ra";
 await p.evaluate(() => document.querySelector("[data-robot3d]").click()); await p.waitForSelector("[data-ra='hub']", { timeout: 8000 });
-for (const id of ["luma", "ferro", "kryo", "pyra", "nexa"]) {
+for (const id of ["luma", "ferro", "jovia", "kryo", "pyra", "nexa", "cobalt", "helios", "ashfall"]) {
   await p.evaluate(i => document.querySelector("[data-planet=" + i + "]").click(), id); await p.locator("[data-ra-play]").click(); await p.waitForSelector(".ah-cv", { timeout: 15000 }); await p.waitForTimeout(900);
   await p.evaluate(() => { window.__ah.step(900); window.__ah.state.p.hp = 100; window.__ah.draw(); }); await p.waitForTimeout(300);
+  const obj = await p.evaluate(() => { const o = document.querySelector("[data-obj]"); return o ? o.dataset.obj + "|" + o.textContent : ""; });
+  console.log(id, "objective:", obj || "(none: a boss level)", "dig button:", await p.locator("[data-dig]").count());
   await p.screenshot({ path: OUT + "-" + id + ".png" });
   await p.evaluate(() => document.querySelector("[data-pause-btn]").click()); await p.waitForTimeout(200); await p.evaluate(() => [...document.querySelectorAll(".ah-pause .ah-ghost")].pop().click()); await p.waitForTimeout(400);
   await p.locator("[data-ra-map]").click(); await p.waitForSelector("[data-ra='hub']", { timeout: 8000 });

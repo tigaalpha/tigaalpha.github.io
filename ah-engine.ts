@@ -1,13 +1,13 @@
 /* Alien Hunt simulation (plan 38, phases A-D + the tune-up clock of E2). Pure: no three.js, no DOM, no storage, so scripts/smoke-alien-hunt.mjs runs the real file.
    Units are metres on the x/z plane, y is up; the player's eyes are 1.65 m above the floor. */
 
-import { LEVELS, BOXES_1, type Hazard, type Level } from "./ah-levels";
+import { LEVELS, BOXES_1, type Hazard, type Level, type MissionSpec } from "./ah-levels";
 export type Box = { x: number; z: number; w: number; d: number; h: number };
 export type WeaponId = "pistol" | "rifle" | "shotgun" | "launcher" | "laser" | "rail" | "arc" | "beam" | "pulsar" | "nova" | "storm" | "cryo" | "rpg" | "salvo";
 export type AlienKind = "skitter" | "mantis" | "spitter" | "flarecaster" | "charger" | "skyeye" | "scarab" | "behemoth" | "wisp" | "drone" | "stalker" | "warden" | "matriarch" | "walker" | "glowbug" | "thornback" | "sporecaster" | "hound" | "lumawarden";
 export type Enemy = { id: number; kind: AlienKind; x: number; z: number; hp: number; max: number; yaw: number; t: number; cd: number; dead: number; flash: number; leap: number; side?: number; sideT?: number; gt?: number; tele?: number; rush?: number; stun?: number; dx?: number; dz?: number; slow?: number; bt?: number; vt?: number; mt?: number };
 export type Acid = { rt?: "plasma" | "rpg" | "salvo"; id: number; x: number; y: number; z: number; vx: number; vz: number; vy: number; life: number; g?: number; dmg?: number; big?: number; col?: number };
-export type Ev = { k: "shot" | "hit" | "kill" | "head" | "hurt" | "reload" | "empty" | "spit" | "wave" | "tune" | "win" | "lose" | "swap"; x?: number; y?: number; z?: number; n?: number; w?: string; p?: number[] };
+export type Ev = { k: "shot" | "hit" | "kill" | "head" | "hurt" | "reload" | "empty" | "spit" | "wave" | "tune" | "win" | "lose" | "swap" | "station" | "dig" | "strike"; x?: number; y?: number; z?: number; n?: number; w?: string; p?: number[] };
 
 export const ARENA = 34;   // half size
 export const EYE = 1.65;
@@ -68,7 +68,11 @@ export const LEVEL_BOXES: Box[] = BOXES_1;
 
 /** a weapon bought in the shop and equipped on the robot: it unlocks the matching gun from the start and hits harder by its rarity (owner, 2026-10-18) */
 export type ShopW = { as: WeaponId; m: number; name: string; col: number };
+/** a mission (Robot Adventure 3D, plan 39 P3): survive a clock, hold stations, dig ore or call an orbital strike; the waves keep coming while it runs */
+export type MItem = { x: number; z: number; r: number; p: number; hp: number; done: boolean };
+export type Mission = { type: MissionSpec["type"]; secs: number; hold: number; goal: number; prog: number; t: number; items: MItem[]; phase: number; digCd: number; boss?: AlienKind };
 export type State = {
+  ms: Mission | null;
   auto: boolean; autoFire: boolean; autoSide: number; autoT: number; autoMv: number; autoPx: number; autoPz: number;
   t: number; active: number; rng: number; seed: number;
   p: { x: number; z: number; yaw: number; pitch: number; y: number; vy: number; hp: number; shield: number; inv: number; sprint: boolean; slide: number; slideCd: number; sdx: number; sdz: number };
@@ -89,6 +93,7 @@ export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponI
   const L = lvObj || (level > 0 ? LEVELS[Math.min(level, LEVELS.length) - 1] : null);
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
+    ms: L && L.mission ? { type: L.mission.type, secs: L.mission.secs || 0, hold: L.mission.hold || 8, goal: L.mission.type === "survive" ? (L.mission.secs || 90) : (L.mission.pts || []).length, prog: 0, t: 0, phase: 0, digCd: 0, boss: L.mission.boss, items: (L.mission.pts || []).map(([x, z]) => ({ x, z, r: L.mission!.type === "mine" ? 1.6 : 3.2, p: 0, hp: 3, done: false })) } : null,
     t: 0, active: 0, rng: seed, seed, auto: true, autoFire: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
     p: { x: 0, z: 22, yaw: Math.PI, pitch: 0, y: 0, vy: 0, hp: 100, shield: 0, inv: 0, sprint: false, slide: 0, slideCd: 0, sdx: 0, sdz: 0 },
     coins: 0, shopW, weapon: shopW ? shopW.as : "pistol", ammo, cd: 0, reload: 0, recoil: 0,
@@ -135,7 +140,7 @@ function raySphere(ox: number, oy: number, oz: number, dx: number, dy: number, d
   const t = -b - Math.sqrt(disc); return t < 0 ? 0 : t;
 }
 
-export type Input = { mx: number; mz: number; lookX: number; lookY: number; fire: boolean; jump: boolean; reload: boolean; swap: number; sprint: boolean; slide?: boolean };
+export type Input = { dig?: boolean; mx: number; mz: number; lookX: number; lookY: number; fire: boolean; jump: boolean; reload: boolean; swap: number; sprint: boolean; slide?: boolean };
 export const noInput = (): Input => ({ mx: 0, mz: 0, lookX: 0, lookY: 0, fire: false, jump: false, reload: false, swap: 0, sprint: false });
 
 export const WORDER: WeaponId[] = ["pistol", "rifle", "laser", "shotgun", "arc", "beam", "pulsar", "storm", "cryo", "nova", "rail", "launcher", "salvo", "rpg"];
@@ -269,7 +274,9 @@ function autoMove(s: State, dt: number): { mx: number; mz: number; slide: boolea
   let near: Enemy | null = null, nd = 1e9; for (const e of alive) { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < nd) { nd = d; near = e; } }
   let pk: { x: number; z: number } | null = null, pd = 1e9; for (const k of s.pk) { const d = Math.hypot(k.x - p.x, k.z - p.z); if (d < pd) { pd = d; pk = k; } }
   if (s.autoT > 0.6) { if (s.autoMv < 0.25) s.autoSide = -s.autoSide; s.autoMv = 0; s.autoT = (s.autoT > 3 ? 0 : s.autoT - 0.6) ; if (rnd(s) < 0.12) s.autoSide = -s.autoSide; }
-  if (pk && pd < 28 && (!near || nd > 6)) { wx = (pk.x - p.x) / pd; wz = (pk.z - p.z) / pd; }
+  let mt: MItem | null = null, md = 1e9; if (s.ms && !(s.ms.phase === 1)) for (const it of s.ms.items) { if (it.done) continue; const d = Math.hypot(it.x - p.x, it.z - p.z); if (d < md) { md = d; mt = it; } }
+  if (mt && (!near || nd > 6) && !(pk && pd < 8)) { if (md > (s.ms!.type === "mine" ? 2.2 : mt.r * 0.5)) { wx = (mt.x - p.x) / md; wz = (mt.z - p.z) / md; } }
+  else if (pk && pd < 28 && (!near || nd > 6)) { wx = (pk.x - p.x) / pd; wz = (pk.z - p.z) / pd; }
   else if (near) {
     const tx = (near.x - p.x) / (nd || 1), tz = (near.z - p.z) / (nd || 1), sx = -tz * s.autoSide, sz = tx * s.autoSide;
     if (nd < 7) { wx = -tx * 0.9 + sx * 0.5; wz = -tz * 0.9 + sz * 0.5; }
@@ -282,6 +289,23 @@ function autoMove(s: State, dt: number): { mx: number; mz: number; slide: boolea
   const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; }
   const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
   return { mx: wx * rx + wz * rz, mz: wx * fx + wz * fz, slide };
+}
+const winNow = (s: State) => { s.done = true; s.won = true; s.ev.push({ k: "win" }); };
+function missionStep(s: State, dt: number, inp: Input) {
+  const m = s.ms as Mission, p = s.p;
+  if (m.type === "survive") { m.t += dt; m.prog = m.t; if (m.t >= m.secs) winNow(s); return; }
+  if (m.type === "mine") {
+    m.digCd -= dt; if ((inp.dig || s.auto) && m.digCd <= 0) { let b: MItem | null = null, bd = 3.4; for (const it of m.items) { if (it.done) continue; const d = Math.hypot(it.x - p.x, it.z - p.z); if (d < bd) { bd = d; b = it; } }
+      if (b) { m.digCd = 0.4; b.hp--; s.ev.push({ k: "dig", x: b.x, z: b.z }); if (b.hp <= 0) { b.done = true; m.prog++; } } }
+    if (m.prog >= m.goal) winNow(s); return;
+  }
+  if (m.phase === 1) { if (!s.enemies.some(e => e.kind === m.boss && e.dead === 0)) winNow(s); return; }
+  for (let i = 0; i < m.items.length; i++) { const it = m.items[i]; if (it.done || Math.hypot(it.x - p.x, it.z - p.z) > it.r) continue; it.p = Math.min(1, it.p + dt / m.hold); if (it.p >= 1) { it.done = true; m.prog++; s.ev.push({ k: "station", n: i }); } }
+  if (m.prog >= m.goal) {
+    if (m.type === "capture") { winNow(s); return; }
+    for (const e of s.enemies) if (e.dead === 0) { e.hp = 0; e.dead = 0.5; }   // strike: the warhead wipes the field, then the commander lands
+    s.ev.push({ k: "strike", x: p.x, z: p.z }); m.phase = 1; s.spawnQ = []; s.waveLeft = 0; if (m.boss) spawnAlien(s, m.boss);
+  }
 }
 export function step(s: State, dt: number, inp: Input) {
   if (s.done || s.frozen) return;
@@ -318,11 +342,13 @@ export function step(s: State, dt: number, inp: Input) {
   else if (inp.reload) startReload(s);
   if (inp.fire && s.cd <= 0 && s.reload <= 0) fire(s);
   // waves
-  if (s.wave === 0 || (s.waveLeft === 0 && s.spawnQ.length === 0 && s.enemies.every(e => e.dead !== 0))) {
+  if (s.ms) missionStep(s, dt, inp);
+  if (s.done) return;
+  if (!(s.ms && s.ms.phase === 1) && (s.wave === 0 || (s.waveLeft === 0 && s.spawnQ.length === 0 && s.enemies.every(e => e.dead !== 0)))) {
     s.between -= dt;
     if (s.between <= 0) {
-      if (s.wave >= s.waves.length) { s.done = true; s.won = true; s.ev.push({ k: "win" }); return; }
-      s.spawnQ = s.waves[s.wave].slice(); s.waveLeft = s.spawnQ.length; s.wave++; s.between = 4; s.spawnT = 0; s.ev.push({ k: "wave", n: s.wave }); { const un = unowned(s); if (un.length) spawnPickup(s, un[0]); if (s.wave % 2 === 0) spawnPickup(s, "ammo"); }
+      if (s.wave >= s.waves.length && !s.ms) { s.done = true; s.won = true; s.ev.push({ k: "win" }); return; }
+      s.spawnQ = s.waves[s.wave % s.waves.length].slice(); s.waveLeft = s.spawnQ.length; s.wave++; s.between = 4; s.spawnT = 0; s.ev.push({ k: "wave", n: s.wave }); { const un = unowned(s); if (un.length) spawnPickup(s, un[0]); if (s.wave % 2 === 0) spawnPickup(s, "ammo"); }
       for (const k of Object.keys(WEAPONS) as WeaponId[]) s.ammo[k].res = Math.min(k === "pistol" ? 9999 : WEAPONS[k].reserve, s.ammo[k].res + WEAPONS[k].mag);   // a little ammo between waves
       p.hp = Math.min(100, p.hp + 35);
     }
