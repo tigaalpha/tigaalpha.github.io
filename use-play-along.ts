@@ -1015,7 +1015,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongHud({
       score: songScoreRef.current,
       combo: songComboRef.current,
-      acc: done > 0 ? Math.max(0, Math.min(100, Math.round((earned - cost) / done * 100))) : 100,
+      acc: done > 0 ? accuracyOf({ ...g, total: done, kind: songKindRef.current }) : 100,   // one formula for the live HUD and the result
       progress: Math.round(done / total * 100),
     });
     // guide: light the next-due note on the in-game piano — both hands' next

@@ -1,3 +1,4 @@
+import { pctOf } from "./learn-plan";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { logUsage } from "./shared-infra";
@@ -150,8 +151,8 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
   const [tipsOpen, setTipsOpen] = useState(false);
   useEffect(() => { setTipsOpen(false); }, [r && r.label]);
   useEffect(() => { setSpotCleared(false); }, [r && r.label]);
-  const dynPct = r.dyn ? Math.round(r.dyn.ok / (r.dyn.ok + r.dyn.miss) * 100) : null;
-  const rhythmPct = r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null;
+  const dynPct = r.dyn ? pctOf(r.dyn.ok, r.dyn.ok + r.dyn.miss) : null;
+  const rhythmPct = r.rhythm ? pctOf(r.rhythm.ok, r.rhythm.ok + r.rhythm.miss) : null;
   const tierIcon = { bronze: "🥉", silver: "🥈", gold: "🥇" };
   return (
     <div className="practicebody presultwrap">
@@ -493,7 +494,7 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
               <div className="practicefill" style={{ width: `${practiceTarget.length ? Math.round(practiceIdx / practiceTarget.length * 100) : 0}%` }} />
             </div>
             <div className="practicestats">
-              {!kid && <span>{lc.practiceAcc}: <b>{(practiceIdx + practiceMiss) >= 3 ? Math.round(practiceIdx / (practiceIdx + practiceMiss) * 100) + "%" : "–"}</b></span>}
+              {!kid && <span>{lc.practiceAcc}: <b>{(practiceIdx + practiceMiss) >= 3 ? pctOf(practiceIdx, practiceIdx + practiceMiss) + "%" : "–"}</b></span>}
               {detail && <span>{lang === "th" ? "พลาด" : lang === "zh" ? "错误" : "Misses"}: <b>{practiceMiss}</b></span>}
               <span>✓ <b>{practiceIdx}</b> / {practiceTarget.length}</span>
               {comboBadge(practiceStreak) && <span key={practiceStreak} className="sightstreak practicecombo">{comboBadge(practiceStreak)}</span>}
@@ -540,7 +541,7 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
       const loop = await rerunLoopWithSelfReport({
         accuracy: r.accuracy,
         repeatedErrors: r.miss >= 2 ? r.miss : 0,
-        pauses: 0, rhythmScore: r.rhythm ? Math.round(r.rhythm.ok / (r.rhythm.ok + r.rhythm.miss) * 100) : null,
+        pauses: 0, rhythmScore: r.rhythm ? pctOf(r.rhythm.ok, r.rhythm.ok + r.rhythm.miss) : null,
         label: r.label,
       }, choice, lang);   // lang (owner plan 1.2): the rerun verdict must speak the app's current language
       if (loop && loop.response && onTipUpdate) {
