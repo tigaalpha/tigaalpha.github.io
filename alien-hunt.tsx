@@ -13,6 +13,7 @@ import { gfxHigh } from "./adv-gfx";
 import { enterFs, exitFsAndUnlock } from "./pvp-arena";
 import { addRpgExp } from "./pvp-rpg";
 import { logUsage } from "./shared-infra";
+import type { RaLevel } from "./ra-data";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 const PCN = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
@@ -70,7 +71,7 @@ export const AH_COIN_DAY_CAP = 600;
 const ahDayKey = () => new Date().toISOString().slice(0, 10);
 const readAhDayCoins = () => { try { const v = JSON.parse(localStorage.getItem("tg_ah_coin_day") || "null"); return v && v.d === ahDayKey() ? Number(v.n) || 0 : 0; } catch (e) { return 0; } };
 const addAhDayCoins = (n: number) => { try { localStorage.setItem("tg_ah_coin_day", JSON.stringify({ d: ahDayKey(), n: readAhDayCoins() + n })); } catch (e) {} };
-export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null }) {
+export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null, ra = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null; ra?: { data: RaLevel; onWin: () => void; onBack: () => void } | null }) {   // ra: Robot Adventure 3D plays this engine on one of its own levels (plan 39)
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const host = useRef<HTMLDivElement>(null), rdr = useRef<Render | null>(null), S = useRef<State>(newState(Date.now() & 0xffff, readTune()));
   const inp = useRef<Input>(noInput()), look = useRef({ x: 0, y: 0 }), keys = useRef<Record<string, boolean>>({}), stick = useRef({ id: -1, x0: 0, y0: 0, mx: 0, mz: 0 }), lookId = useRef(-1);
@@ -92,25 +93,25 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
     const s = S.current; if (phaseRef.current === "result") return; const st = stats(s);
     const cry = Math.round(st.kills / 4 + st.stars * 3 + st.right * 2), exp = 20 + st.stars * 10 + st.right * 8;
     if (!forced || st.kills > 0) { addCrystals(cry); try { addRpgExp(me, exp); } catch (e) {} }
-    try { logUsage("ah", `end:${won ? "win" : "lose"}:k${st.kills}:w${s.wave}:t${st.right}of${st.tunes}:${gfxHigh() ? "hd" : "sd"}`); } catch (e) {}
+    try { logUsage(ra ? "ra" : "ah", `end:${won ? "win" : "lose"}:k${st.kills}:w${s.wave}:t${st.right}of${st.tunes}:${gfxHigh() ? "hd" : "sd"}`); } catch (e) {}
     AU.musicStop(); AU.sfx(won ? "win" : "lose"); const per: Record<string, [number, number]> = {}; for (const l of tuneLog.current) { per[l.topic] = per[l.topic] || [0, 0]; per[l.topic][1]++; if (l.ok) per[l.topic][0]++; }
     // coins (owner, 2026-10-18): every alien down pays, a cleared level pays a bonus; capped per day, paid through the app's one wallet
     const clearCoins = won ? 30 * Math.max(1, s.lv) : 0, wantCoins = st.coins + clearCoins, coinsPaid = Math.min(wantCoins, Math.max(0, AH_COIN_DAY_CAP - readAhDayCoins()));
     if (coinsPaid > 0 && onReward) { try { onReward(0, coinsPaid, { adventure: true, ah: true }); addAhDayCoins(coinsPaid); } catch (e) {} }
-    let bonus = 0, newGuns: string[] = []; if (s.lv && won) { bonus = 10 * s.lv; addCrystals(bonus); const c = readCamp(); const first = c.cleared < s.lv; c.cleared = Math.max(c.cleared, s.lv); c.stars[s.lv - 1] = Math.max(c.stars[s.lv - 1] | 0, st.stars); writeCamp(c); setCamp(c); if (first) newGuns = LEVELS[s.lv - 1].guns.map(g => WEAPONS[g].name); }
-    setRes({ ...st, won, coinsPaid, coinsWant: wantCoins, cry: cry + bonus, exp, wave: s.wave, per, lv: s.lv, newGuns }); setPhase("result"); setPaused(false); setQuiz(null);   // full screen stays on for the result card; only Back leaves it
+    let bonus = 0, newGuns: string[] = []; if (ra && won) { bonus = 10; addCrystals(bonus); try { ra.onWin(); } catch (e) {} } if (s.lv && won && !ra) { bonus = 10 * s.lv; addCrystals(bonus); const c = readCamp(); const first = c.cleared < s.lv; c.cleared = Math.max(c.cleared, s.lv); c.stars[s.lv - 1] = Math.max(c.stars[s.lv - 1] | 0, st.stars); writeCamp(c); setCamp(c); if (first) newGuns = LEVELS[s.lv - 1].guns.map(g => WEAPONS[g].name); }
+    setRes({ ...st, ra: !!ra, won, coinsPaid, coinsWant: wantCoins, cry: cry + bonus, exp, wave: s.wave, per, lv: s.lv, newGuns }); setPhase("result"); setPaused(false); setQuiz(null);   // full screen stays on for the result card; only Back leaves it
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
   };
   const begin = (level = 0) => {
     if (!enterGame(POWER_COST.adventure, adminTier)) { setPowerNeed(POWER_COST.adventure); return; }
-    if (playUi) playUi("click"); enterFs(); const lt = learnedTopics(readDone()); setLearned(lt); tuneLog.current = []; const cc = readCamp(); S.current = newState(Date.now() & 0xffff, lt.length ? readTune() : 0, level, level ? gunsAfter(unlockAll ? LEVELS.length : Math.min(cc.cleared, level - 1)) : [], shopWeapon); setCurLv(level); if (level) { const L = LEVELS[level - 1]; setBanner(t("ด่าน ", "LEVEL ", "第") + level + (lang === "zh" ? "关" : "") + " · " + T3(lang, ...L.name) + " — " + T3(lang, ...L.race)); bannerT.current = 3.2; } AU.menuStop(); AU.warm(); AU.setDucked(false); AU.musicStart(); AU.sfx("go"); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
-    try { logUsage("ah", `start:L${level}:${gfxHigh() ? "hd" : "sd"}:${S.current.tuneEvery}s`); } catch (e) {}
+    if (playUi) playUi("click"); enterFs(); const lt = learnedTopics(readDone()); setLearned(lt); tuneLog.current = []; const cc = readCamp(); S.current = newState(Date.now() & 0xffff, lt.length ? readTune() : 0, level, level && !ra ? gunsAfter(unlockAll ? LEVELS.length : Math.min(cc.cleared, level - 1)) : [], shopWeapon, ra ? ra.data.level : null); setCurLv(level); if (level) { const L = ra ? ra.data.level : LEVELS[level - 1]; setBanner(t("ด่าน ", "LEVEL ", "第") + level + (lang === "zh" ? "关" : "") + " · " + T3(lang, ...L.name) + " — " + T3(lang, ...L.race)); bannerT.current = 3.2; if (ra) { setBanner(T3(lang, ...ra.data.brief)); bannerT.current = 4.5; } } AU.menuStop(); AU.warm(); AU.setDucked(false); AU.musicStart(); AU.sfx("go"); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
+    try { logUsage(ra ? "ra" : "ah", `start:L${level}:${gfxHigh() ? "hd" : "sd"}:${S.current.tuneEvery}s`); } catch (e) {}
   };
 
 
   /* the map screen: full screen + landscape, its own tune, and a quarter turn when the phone refuses to rotate */
   useEffect(() => {
-    if (phase !== "ready") return undefined;
+    if (phase !== "ready" || ra) return undefined;
     const onR = () => setPortrait(window.innerHeight > window.innerWidth); window.addEventListener("resize", onR); onR();
     try { enterFs(); } catch (e) {}
     const startMenu = () => { try { AU.warm(); AU.menuStart(); } catch (e) {} };
@@ -121,7 +122,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
   /* renderer + loop */
   useEffect(() => {
     if (phase !== "play" || !host.current) return undefined;
-    let r: Render; try { r = createRender(host.current, high, S.current.lv); } catch (e) { setBanner("WebGL"); return undefined; }
+    let r: Render; try { r = createRender(host.current, high, S.current.lv, ra ? ra.data.level : null); } catch (e) { setBanner("WebGL"); return undefined; }
     rdr.current = r; let raf = 0, last = performance.now(), acc = 0, slow = 0, hudT = 0;
     const onResize = () => r.resize(); window.addEventListener("resize", onResize);
     const loop = (now: number) => {
@@ -136,7 +137,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
         const ev = s.ev; s.ev = []; r.events(ev); AU.events(ev);
         for (const e of ev) {
           if (e.k === "hit") { hitT.current = 0.15; setHitM(1); } else if (e.k === "hurt") { hurtT.current = 0.4; setHurt(1); if (navigator.vibrate) try { navigator.vibrate(30); } catch (x) {} }
-          else if (e.k === "wave") { setBanner(t("คลื่นที่ ", "WAVE ", "第") + e.n + (lang === "zh" ? "波" : "")); bannerT.current = 2.2; }
+          else if (e.k === "wave") { setBanner(t("คลื่นที่ ", "WAVE ", "第") + e.n + (lang === "zh" ? "波" : "")); bannerT.current = 2.2; { const rl = ra && ra.data.radio.find(x => x.wave === e.n); if (rl) setTimeout(() => { setBanner("📡 " + T3(lang, ...rl.line)); bannerT.current = 4.2; }, 2300); } }
           else if (e.k === "tune") { openQuiz(); if (document.pointerLockElement) try { document.exitPointerLock(); } catch (x) {} }
           else if (e.k === "win") finish(true); else if (e.k === "lose") finish(false);
         }
@@ -144,15 +145,16 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
       if (hitT.current > 0) { hitT.current -= dt; if (hitT.current <= 0) setHitM(0); } if (hurtT.current > 0) { hurtT.current -= dt; if (hurtT.current <= 0) setHurt(0); }
       if (bannerT.current > 0) { bannerT.current -= dt; if (bannerT.current <= 0) setBanner(""); }
       r.draw(s, dt);
-      if (high && !pausedRef.current && !s.frozen) { if (dt > 0.031) slow++; else slow = Math.max(0, slow - 1); if (slow > 90) { slow = 0; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} setHigh(false); r.setHigh(false); try { logUsage("ah", "auto-lite"); } catch (e) {} } }
-      hudT += dt; if (hudT > 0.1) { hudT = 0; drawMap(mapRef.current, s, s.lv ? "#" + LEVELS[s.lv - 1].tint.toString(16).padStart(6, "0") : "#ff8a3a"); { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: s.shopW && s.shopW.as === w ? s.shopW.name : WEAPONS[w].name, coins: s.coins, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, nw: s.waves.length, boss: (() => { const b = s.enemies.find(e => e.dead === 0 && ALIENS[e.kind].boss); return b ? { n: ALIENS[b.kind].name, p: Math.max(0, b.hp / b.max) } : null; })(), left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, af: s.autoFire, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
+      if (high && !pausedRef.current && !s.frozen) { if (dt > 0.031) slow++; else slow = Math.max(0, slow - 1); if (slow > 90) { slow = 0; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} setHigh(false); r.setHigh(false); try { logUsage(ra ? "ra" : "ah", "auto-lite"); } catch (e) {} } }
+      hudT += dt; if (hudT > 0.1) { hudT = 0; drawMap(mapRef.current, s, s.lv ? "#" + (ra ? ra.data.level : LEVELS[s.lv - 1]).tint.toString(16).padStart(6, "0") : "#ff8a3a"); { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: s.shopW && s.shopW.as === w ? s.shopW.name : WEAPONS[w].name, coins: s.coins, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, nw: s.waves.length, boss: (() => { const b = s.enemies.find(e => e.dead === 0 && ALIENS[e.kind].boss); return b ? { n: ALIENS[b.kind].name, p: Math.max(0, b.hp / b.max) } : null; })(), left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, af: s.autoFire, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
     };
     raf = requestAnimationFrame(loop);
     (window as any).__ah = { s: S.current, get state() { return S.current; }, step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(S.current, dt, inp.current); }, info: () => r.info(), killAll: () => { for (const e of S.current.enemies) e.hp = 0, e.dead = 0.5; }, tune: () => { S.current.tuneT = S.current.tuneEvery; }, setHigh: (h: boolean) => { setHigh(h); r.setHigh(h); }, creature: (k: string, m: string) => AU.creature(k, m as any, 3), quizQ: () => quizRef.current && quizRef.current.q, draw: () => r.draw(S.current, 0.016) };
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); r.dispose(); rdr.current = null; try { delete (window as any).__ah; } catch (e) {} };
   }, [phase]);
   useEffect(() => { if (rdr.current) rdr.current.setHigh(high); }, [high]);
-  useEffect(() => () => { exitFsAndUnlock(); AU.dispose(); }, []);
+  useEffect(() => () => { if (!ra) exitFsAndUnlock(); AU.dispose(); }, []);
+  useEffect(() => { if (ra) begin(1); }, []);   // Robot Adventure 3D starts its level straight away
   useEffect(() => { AU.setDucked(paused || !!quiz); }, [paused, !!quiz]);
 
   /* keyboard + mouse */
@@ -201,7 +203,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
   };
   const resume = (skipped = false) => {
     const c = quizRef.current; if (!c) return; tuneResult(S.current, skipped ? false : !!c.ok); AU.setDucked(false); AU.sfx("go"); setQuiz(null); setBanner(t("เตรียมสู้!", "GET READY", "准备")); bannerT.current = 1.2;
-    try { logUsage("ah", `tune:${c.q.topic}:${skipped ? "skip" : c.ok ? "ok" : "bad"}`); } catch (e) {}
+    try { logUsage(ra ? "ra" : "ah", `tune:${c.q.topic}:${skipped ? "skip" : c.ok ? "ok" : "bad"}`); } catch (e) {}
   };
   const tapKey = (pc: number, idx: number) => {
     const c = quizRef.current; if (!c || c.phase !== "ask") return; const q = c.q;
@@ -209,15 +211,16 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
     else { const sk = c.selK || []; const nk = sk.includes(idx) ? sk.filter(x => x !== idx) : [...sk, idx]; setQuiz({ ...c, selK: nk, sel: Array.from(new Set(nk.map(k => k % 12))) }); }
   };
 
-    const close = () => { exitFsAndUnlock(); onBack(); };
+    const close = () => { if (ra) { ra.onBack(); return; } exitFsAndUnlock(); onBack(); };
 
   const pad = phase === "play";
   const q = quiz && quiz.q;
   return (
     <div className="ah-root" data-ah={phase}>
       <style>{CSS}</style>
-      {powerNeed != null && <PowerSheet lang={lang} need={powerNeed} onClose={() => setPowerNeed(null)} />}
-      {phase === "ready" && (
+      {powerNeed != null && <PowerSheet lang={lang} need={powerNeed} onClose={() => { setPowerNeed(null); if (ra && phaseRef.current !== "play") ra.onBack(); }} />}
+      {phase === "ready" && ra && <div className="ah-ready" data-ra-loading="1" />}
+      {phase === "ready" && !ra && (
         <div className={"ah-ready ah-mapscr" + (portrait ? " rot" : "")} data-levels-screen="1">
           <button className="ah-x" onClick={close} aria-label="close">✕</button>
           <div className="ah-mhead"><h1>ALIEN HUNT</h1><span>{t("เลือกด่าน · เล่นเรียงจาก 1 ไป 10", "Choose a stage · play them in order, 1 to 10", "选择关卡 · 按 1 到 10 顺序通关")}</span></div>
@@ -318,8 +321,9 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
           {res.per && Object.keys(res.per).length > 0 && <div className="ah-stats" data-report="1">{Object.keys(res.per).map(k => <span key={k}><b>{res.per[k][0]}/{res.per[k][1]}</b>{k}</span>)}</div>}
           <p>+{res.cry} ◆ · +{res.exp} EXP · +{res.coinsPaid || 0} 🪙{res.coinsWant > (res.coinsPaid || 0) ? t(" (ครบเพดานวันนี้)", " (daily limit)", "（今日上限）") : ""}</p>
           {res.lv > 0 && res.newGuns && res.newGuns.length > 0 && <p data-newguns="1">{t("ได้ปืนใหม่: ", "New guns: ", "新枪：")}{res.newGuns.join(", ")}</p>}
-          {res.won && res.lv > 0 && res.lv < LEVELS.length && <button className="ah-go" data-next="1" onClick={() => begin(res.lv + 1)}>{t("ด่านต่อไป", "NEXT LEVEL", "下一关")}</button>}
-          <button className={res.won && res.lv > 0 && res.lv < LEVELS.length ? "ah-ghost" : "ah-go"} onClick={() => begin(res.lv || 0)}>{t("เล่นอีกครั้ง", "PLAY AGAIN", "再玩一次")}</button><button className="ah-ghost" onClick={() => { setPhase("ready"); }}>{t("เลือกด่าน", "Levels", "选关")}</button><button className="ah-ghost" onClick={close}>{t("กลับ", "Back", "返回")}</button>
+          {res.ra && res.won && ra && <p data-radio="1">📡 {T3(lang, ...ra.data.win)}</p>}
+          {!res.ra && res.won && res.lv > 0 && res.lv < LEVELS.length && <button className="ah-go" data-next="1" onClick={() => begin(res.lv + 1)}>{t("ด่านต่อไป", "NEXT LEVEL", "下一关")}</button>}
+          <button className={!res.ra && res.won && res.lv > 0 && res.lv < LEVELS.length ? "ah-ghost" : "ah-go"} onClick={() => begin(res.lv || 0)}>{t("เล่นอีกครั้ง", "PLAY AGAIN", "再玩一次")}</button>{res.ra ? <button className="ah-ghost" data-ra-map="1" onClick={close}>{t("กลับแผนที่", "Back to the map", "回到地图")}</button> : <button className="ah-ghost" onClick={() => { setPhase("ready"); }}>{t("เลือกด่าน", "Levels", "选关")}</button>}<button className="ah-ghost" onClick={close}>{t("กลับ", "Back", "返回")}</button>
         </div>
       )}
     </div>

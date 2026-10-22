@@ -1,0 +1,153 @@
+/* Robot Adventure 3D (plan 39, owner 2026-10-22): the Adventure story played in first person. This file is the shell: the story map (the Adventure lobby, laid on a tilted
+   3D floor), the film before a map, and the hand-over to the Alien Hunt engine, which plays the level (ra-data.ts holds the level and the story lines).
+   Progress is the Adventure's own `tg_adv_done`, so a planet cleared here is cleared there. Only the maps listed in RA_PLAYABLE exist in 3D so far. */
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { RA_PLANETS } from "./ra-planets";
+import { RA_LEVELS, RA_PLAYABLE } from "./ra-data";
+import { orbPic } from "./planet-orb";
+import * as AU from "./ah-audio";
+import { enterGame, COST as POWER_COST } from "./game-power";
+import { PowerSheet } from "./game-power-ui";
+import { gfxHigh } from "./adv-gfx";
+import { enterFs, exitFsAndUnlock } from "./pvp-arena";
+import { logUsage } from "./shared-infra";
+import type { ShopW } from "./ah-engine";
+
+const AlienHuntPage = lazy(() => import("./alien-hunt").then(m => ({ default: m.AlienHuntPage })));
+const AdventureCine = lazy(() => import("./adventure-cine"));
+const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+const markDone = (id: string) => { try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
+/** where each planet stands on the floor: two rows, left to right (percent of the floor) */
+const POS: [number, number][] = [[8, 66], [18.5, 34], [29, 68], [39.5, 34], [50, 68], [60.5, 34], [71, 68], [81.5, 34], [92, 66]];
+const shortName = (s: string) => s.split(" · ")[0];
+
+export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null }) {
+  const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
+  const [screen, setScreen] = useState<"hub" | "film" | "play">("hub"), [sel, setSel] = useState<string>("luma"), [done, setDone] = useState<string[]>(() => readDone());
+  const [portrait, setPortrait] = useState(() => typeof window !== "undefined" && window.innerHeight > window.innerWidth), [high, setHigh] = useState(() => gfxHigh()), [snd, setSnd] = useState(() => AU.soundOn());
+  const [powerNeed, setPowerNeed] = useState<number | null>(null);
+  const unlockAll = adminTier >= 3 || (() => { try { return localStorage.getItem("tg_test_hook") === "1" && localStorage.getItem("tg_adv_unlockall") === "1"; } catch (e) { return false; } })();
+  const open = (i: number) => unlockAll || i === 0 || done.includes(RA_PLANETS[i - 1].id) || (i > 1 && done.includes(RA_PLANETS[i - 2].id));
+  const playable = (id: string) => RA_PLAYABLE.includes(id);
+  const cur = RA_PLANETS.find(p => p.id === sel) || RA_PLANETS[0], curIdx = RA_PLANETS.indexOf(cur);
+  const next3d = RA_PLANETS.findIndex((p, i) => playable(p.id) && open(i) && !done.includes(p.id));
+  const stage = useRef<HTMLDivElement>(null);
+
+  /* the map: full screen, landscape (a quarter turn when the phone refuses to rotate), and its own tune */
+  useEffect(() => {
+    if (screen !== "hub") return undefined;
+    const onR = () => setPortrait(window.innerHeight > window.innerWidth); window.addEventListener("resize", onR); onR();
+    try { enterFs(); } catch (e) {}
+    const startMenu = () => { try { AU.warm(); AU.menuStart(); } catch (e) {} };
+    startMenu(); const first = () => { startMenu(); window.removeEventListener("pointerdown", first); }; window.addEventListener("pointerdown", first);
+    return () => { window.removeEventListener("resize", onR); window.removeEventListener("pointerdown", first); AU.menuStop(); };
+  }, [screen]);
+  useEffect(() => { try { logUsage("ra", "open"); } catch (e) {} return () => { exitFsAndUnlock(); }; }, []);
+  /* the floor leans a little with the pointer: a cheap parallax that makes the map read as 3D */
+  useEffect(() => {
+    if (screen !== "hub") return undefined; const el = stage.current; if (!el) return undefined;
+    const mv = (e: PointerEvent) => { const r = el.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5; el.style.setProperty("--tx", (x * 6).toFixed(2) + "deg"); el.style.setProperty("--ty", (y * -3).toFixed(2) + "deg"); };
+    window.addEventListener("pointermove", mv); return () => window.removeEventListener("pointermove", mv);
+  }, [screen]);
+
+  const go = (id: string) => {
+    if (!playable(id)) return; if (playUi) playUi("click");
+    if (!enterGame(POWER_COST.adventure, adminTier)) { setPowerNeed(POWER_COST.adventure); return; }
+    setSel(id); let nocine = false; try { nocine = localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) {}
+    try { logUsage("ra", "start:" + id + ":" + (gfxHigh() ? "hd" : "sd")); } catch (e) {}
+    setScreen(nocine ? "play" : "film");
+  };
+  const lv = RA_LEVELS[sel];
+
+  if (screen === "film") return (
+    <Suspense fallback={<div className="ra-load">…</div>}><style>{CSS}</style><AdventureCine P={cur} lang={lang} me={me} colorway={undefined} onDone={() => setScreen("play")} /></Suspense>
+  );
+  if (screen === "play" && lv) return (
+    <Suspense fallback={<div className="ra-load"><style>{CSS}</style>…</div>}>
+      <AlienHuntPage lang={lang} me={me} adminTier={adminTier} onBack={onBack} playUi={playUi} onReward={onReward} shopWeapon={shopWeapon}
+        ra={{ data: lv, onWin: () => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }, onBack: () => { setDone(readDone()); setScreen("hub"); } }} />
+    </Suspense>
+  );
+
+  const brief = lv && sel === cur.id ? lv.brief : null;
+  return (
+    <div className={"ra-hub" + (portrait ? " rot" : "")} data-ra="hub">
+      <style>{CSS}</style>
+      {powerNeed != null && <PowerSheet lang={lang} need={powerNeed} onClose={() => setPowerNeed(null)} />}
+      <div className="ra-stars s1" /><div className="ra-stars s2" /><div className="ra-neb" />
+      <header className="ra-head">
+        <button className="ra-x" data-ra-close="1" onClick={() => { if (playUi) playUi("click"); onBack(); }} aria-label="close">✕</button>
+        <div className="ra-title"><h1>ROBOT ADVENTURE <b>3D</b></h1><span>{t("ตอนที่ 3 · โลกใหม่ — เล่นแบบมุมมองบุคคลที่ 1", "Part 3 · New worlds — first-person", "第3章 · 新世界 — 第一人称")}</span></div>
+        <div className="ra-opts">
+          <span>{t("กราฟิก", "Graphics", "画质")}</span>{[true, false].map(h => <button key={String(h)} data-gfx={h ? "high" : "lite"} className={high === h ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_gfx", h ? "high" : "standard"); } catch (e) {} setHigh(h); }}>{h ? "High" : "Lite"}</button>)}
+          <button className={"ra-snd" + (snd ? " on" : "")} data-ra-snd="1" aria-label="sound" onClick={() => { const v = !snd; setSnd(v); AU.setSoundOn(v); }}>{snd ? "♪" : "✕"}</button>
+        </div>
+      </header>
+      <div className="ra-stage" ref={stage}>
+        <div className="ra-plane" data-ra-plane="1">
+          <div className="ra-grid" />
+          <svg className="ra-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            {RA_PLANETS.slice(1).map((p, k) => { const a = POS[k], b = POS[k + 1], ok = open(k + 1); return <path key={p.id} d={`M${a[0]} ${a[1]} Q${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2 + (k % 2 ? 8 : -8)} ${b[0]} ${b[1]}`} fill="none" vectorEffect="non-scaling-stroke" stroke={ok ? "#7affd0" : "#ffffff44"} strokeWidth="2.6" strokeDasharray={ok ? "0" : "5 6"} />; })}
+          </svg>
+          {RA_PLANETS.map((p, i) => {
+            const isOpen = open(i), cleared = done.includes(p.id), d3 = playable(p.id), size = 58 + (i * 7) % 4 * 7 + (p.id === sel ? 10 : 0), pos = POS[i];
+            return (
+              <button key={p.id} data-planet={p.id} data-open={isOpen ? "1" : "0"} data-3d={d3 ? "1" : "0"} className={"ra-pl" + (isOpen ? "" : " lock") + (cleared ? " clr" : "") + (p.id === sel ? " sel" : "") + (i === next3d ? " next" : "")}
+                style={{ left: pos[0] + "%", top: pos[1] + "%", ["--s" as any]: size + "px", ["--c" as any]: p.c[2], ["--d" as any]: (i % 5) * 0.4 + "s" }} onClick={() => { if (playUi) playUi("click"); setSel(p.id); }}>
+                <i className="ra-orb"><img alt="" src={orbPic(p.id, p.c[2], p.c[1])} />{!isOpen ? <b>🔒</b> : cleared ? <em>✓</em> : null}</i>
+                <span className="ra-nm">{shortName(T3(lang, p.th, p.en, p.zh))}</span>
+                <u className={d3 ? "g" : ""}>{d3 ? "3D" : t("3D เร็วๆนี้", "3D soon", "3D即将")}</u>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <aside className="ra-card" data-ra-card="1">
+        <b>{shortName(T3(lang, cur.th, cur.en, cur.zh))}</b>
+        <small>{t("ตอน ", "Ep. ", "第")}{curIdx + 1}{lang === "zh" ? "集" : ""} · {t("ความยาก ", "Hardness ", "难度 ")}{cur.hard}</small>
+        <p>{brief ? T3(lang, ...brief) : playable(cur.id) ? "" : t("ด่านนี้กำลังสร้างเป็น 3D — เล่นแบบ 2D ได้ที่โหมด Adventure", "This map is being built in 3D — play it in 2D in Adventure for now.", "这张地图的3D版正在制作中——目前可在Adventure中玩2D版。")}</p>
+        {cur.boss && cur.boss[0] !== "-" && <small>👹 {T3(lang, cur.boss[0], cur.boss[1], cur.boss[2])}</small>}
+        <button className="ra-go" data-ra-play="1" disabled={!playable(cur.id) || !open(curIdx)} onClick={() => go(cur.id)}>{!open(curIdx) ? t("🔒 เคลียร์ด่านก่อนหน้า", "🔒 Clear the map before", "🔒 先通关前一关") : playable(cur.id) ? t("▶ ลงสนาม", "▶ DEPLOY", "▶ 出发") : t("เร็วๆ นี้", "Coming soon", "即将推出")}</button>
+      </aside>
+      <button className="ra-cont" data-ra-continue="1" disabled={next3d < 0} onClick={() => { if (next3d >= 0) { setSel(RA_PLANETS[next3d].id); go(RA_PLANETS[next3d].id); } }}>
+        {next3d >= 0 ? t("▶ เริ่มต่อ · ", "▶ Continue · ", "▶ 继续 · ") + shortName(T3(lang, RA_PLANETS[next3d].th, RA_PLANETS[next3d].en, RA_PLANETS[next3d].zh)) : t("ด่าน 3D ที่มีตอนนี้เคลียร์หมดแล้ว — ด่านใหม่กำลังมา", "Every 3D map so far is cleared — more are coming", "目前的3D关卡已全部通关——新关卡即将推出")}
+      </button>
+    </div>
+  );
+}
+
+const CSS = `
+.ra-load{position:fixed;inset:0;z-index:2450;background:#02070c;color:#9dffd6;display:flex;align-items:center;justify-content:center;font-weight:800}
+.ra-hub{position:fixed;inset:0;z-index:2450;overflow:hidden;color:#e8fff6;font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(120% 100% at 50% 0,#0a2a3a 0,#04121c 55%,#010509 100%);user-select:none;-webkit-user-select:none}
+.ra-hub.rot{inset:auto;top:0;left:100%;width:100vh;height:100vw;transform-origin:0 0;transform:rotate(90deg)}
+.ra-stars{position:absolute;inset:-10% -10%;pointer-events:none;background-repeat:repeat}
+.ra-stars.s1{background-image:radial-gradient(1px 1px at 12% 20%,#fff9,transparent),radial-gradient(1px 1px at 37% 70%,#fff8,transparent),radial-gradient(1.4px 1.4px at 62% 15%,#fffc,transparent),radial-gradient(1px 1px at 83% 55%,#fff9,transparent),radial-gradient(1px 1px at 92% 12%,#fff7,transparent);background-size:340px 260px;animation:ra-drift 120s linear infinite}
+.ra-stars.s2{background-image:radial-gradient(1.8px 1.8px at 22% 40%,#9dffe8,transparent),radial-gradient(1.6px 1.6px at 70% 80%,#ffc8ff,transparent),radial-gradient(2px 2px at 48% 8%,#fff,transparent);background-size:520px 380px;animation:ra-drift 70s linear infinite}
+@keyframes ra-drift{to{background-position:-520px 0}}
+.ra-neb{position:absolute;inset:0;pointer-events:none;background:radial-gradient(40% 50% at 22% 78%,#1c8a6a33,transparent 70%),radial-gradient(35% 45% at 80% 30%,#7a3aff2a,transparent 70%)}
+.ra-head{position:absolute;left:0;right:0;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:8px 12px}
+.ra-x{width:36px;height:36px;border-radius:50%;border:1px solid #ffffff33;background:#0b1a24cc;color:#fff;font-size:16px;font-weight:900;cursor:pointer}
+.ra-title{flex:1;min-width:0}.ra-title h1{margin:0;font-size:19px;letter-spacing:2px;font-weight:900;text-shadow:0 0 18px #5affc8aa}.ra-title h1 b{color:#5affc8}.ra-title span{display:block;font-size:11px;opacity:.75}
+.ra-opts{display:flex;align-items:center;gap:6px;font-size:11px}.ra-opts button{min-width:44px;height:30px;padding:0 10px;border-radius:15px;border:1px solid #ffffff33;background:#0b1a24cc;color:#cfe;font-weight:800;cursor:pointer}.ra-opts button.on{background:#1c8a6a;border-color:#5affc8;color:#fff}
+.ra-stage{position:absolute;left:0;right:0;top:56px;bottom:74px;perspective:900px;perspective-origin:50% 8%;--tx:0deg;--ty:0deg}
+.ra-plane{position:absolute;left:3%;right:3%;top:10%;height:86%;transform-style:preserve-3d;transform:rotateX(calc(46deg + var(--ty))) rotateZ(var(--tx));transition:transform .25s ease-out}
+.ra-grid{position:absolute;inset:-6% -2%;border-radius:18px;background:linear-gradient(#5affc844 1px,transparent 1px) 0 0/52px 52px,linear-gradient(90deg,#5affc844 1px,transparent 1px) 0 0/52px 52px,radial-gradient(70% 70% at 50% 50%,#0f3a4c88,#06141c00 75%);box-shadow:inset 0 0 60px #5affc822;-webkit-mask-image:radial-gradient(75% 75% at 50% 50%,#000 55%,transparent 100%);mask-image:radial-gradient(75% 75% at 50% 50%,#000 55%,transparent 100%)}
+.ra-route{position:absolute;inset:0;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 6px #5affc8)}
+.ra-pl{position:absolute;transform:translate(-50%,-100%) rotateX(-46deg);transform-origin:50% 100%;background:none;border:0;padding:0;color:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;width:96px}
+.ra-pl:before{content:"";position:absolute;left:50%;bottom:-6px;width:calc(var(--s) * 1.3);height:calc(var(--s) * .42);margin-left:calc(var(--s) * -.65);border-radius:50%;background:radial-gradient(closest-side,#000a,transparent);transform:rotateX(46deg) translateZ(0)}
+.ra-orb{position:relative;display:block;width:var(--s);height:var(--s);animation:ra-bob 3.6s ease-in-out var(--d) infinite;transform-style:preserve-3d}
+.ra-orb:before{content:"";position:absolute;inset:-26%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--c) 60%,transparent),transparent 72%);opacity:.65}
+.ra-orb img{position:relative;width:100%;height:100%;border-radius:50%;display:block;box-shadow:inset -8px -10px 18px #000a,0 8px 18px #0008}
+.ra-orb b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;background:#0008;border-radius:50%}.ra-orb em{position:absolute;right:-4px;top:-4px;width:20px;height:20px;border-radius:50%;background:#2ecf7a;color:#fff;font-style:normal;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center}
+@keyframes ra-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.ra-nm{font-size:11px;font-weight:800;text-align:center;line-height:1.15;text-shadow:0 1px 6px #000;max-width:96px}.ra-pl u{font-size:9px;text-decoration:none;font-weight:900;letter-spacing:.5px;padding:1px 7px;border-radius:9px;background:#ffffff1a;opacity:.75}.ra-pl u.g{background:#2ecf7a;color:#03140c;opacity:1}
+.ra-pl.lock{opacity:.7;filter:grayscale(.55)}.ra-pl.next .ra-orb{animation:ra-bob 2.2s ease-in-out var(--d) infinite}.ra-pl.next .ra-orb:before{opacity:1;inset:-40%;background:radial-gradient(closest-side,#ffb04acc,transparent 72%)}
+.ra-pl.sel .ra-nm{color:#5affc8}.ra-pl.sel .ra-orb:before{opacity:1;inset:-34%}
+.ra-card{position:absolute;left:12px;bottom:10px;z-index:6;width:min(300px,42vw);max-height:40%;overflow:auto;padding:9px 12px;border-radius:18px;background:linear-gradient(160deg,#0b2634ee,#06141cee);border:1px solid #5affc855;box-shadow:0 10px 30px #000a;display:flex;flex-direction:column;gap:3px}
+.ra-card b{font-size:15px}.ra-card small{opacity:.75;font-size:11px}.ra-card p{margin:2px 0;font-size:11.5px;line-height:1.35;opacity:.92}
+.ra-go{margin-top:4px;height:36px;border-radius:18px;border:0;background:linear-gradient(135deg,#1fd69a,#0aa070);color:#03140c;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 6px 16px -6px #1fd69a}.ra-go:disabled{background:#ffffff1f;color:#ffffff88;box-shadow:none;cursor:default}
+.ra-cont{position:absolute;right:12px;bottom:10px;z-index:6;max-width:calc(100% - min(300px,42vw) - 36px);min-height:44px;padding:0 18px;border-radius:24px;border:0;background:linear-gradient(135deg,#ffb04a,#ff7a2a);color:#2a1004;font-weight:900;font-size:14px;cursor:pointer;box-shadow:0 8px 22px -8px #ff7a2a}.ra-cont:disabled{background:#ffffff1f;color:#ffffffaa;box-shadow:none;font-size:11.5px;font-weight:700;cursor:default}
+@media (max-height:420px){.ra-title h1{font-size:15px}.ra-title span{display:none}.ra-stage{top:46px;bottom:62px}.ra-card{padding:6px 10px}.ra-card p{font-size:10.5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.ra-cont{min-height:38px}}
+@media (prefers-reduced-motion:reduce){.ra-orb,.ra-stars{animation:none}}
+`;

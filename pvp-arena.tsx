@@ -23,6 +23,7 @@
 
 import { addRpgExp, rpgOf, rpgMods, spendPoint, resetPoints, RPG_STATS, RPG_MAX_LV, STAT_CAP } from "./pvp-rpg";
 import { useState, useEffect, useRef, useCallback, useMemo, memo, lazy, Suspense } from "react";
+const RobotAdventure3DPage = lazy(() => import("./robot-adventure-3d").then(m => ({ default: m.RobotAdventure3DPage })));   // Robot Adventure 3D (plan 39): the Adventure story in first person, its own chunk
 const AlienHuntPage = lazy(() => import("./alien-hunt").then(m => ({ default: m.AlienHuntPage })));   // Alien Hunt (first-person shooter, plan 38): its own chunk, fetched only when entered
 const AdventurePage = lazy(() => import("./adventure").then(m => ({ default: m.AdventurePage })));   // Adventure Mode: its own chunk, fetched only when entered
 import { createPortal } from "react-dom";
@@ -1223,7 +1224,7 @@ export const PvpPage = memo(function PvpPage({
     window.addEventListener("resize", sync); window.addEventListener("orientationchange", sync);
     return () => { window.removeEventListener("resize", sync); window.removeEventListener("orientationchange", sync); };
   }, []);
-  const [ahOpen, setAhOpen] = useState(false); const [advOpen, setAdvOpen] = useState(false); const [advOnline, setAdvOnline] = useState(false);
+  const [raOpen, setRaOpen] = useState(false); const [ahOpen, setAhOpen] = useState(false); const [advOpen, setAdvOpen] = useState(false); const [advOnline, setAdvOnline] = useState(false);
   useEffect(() => {
     if (phase !== "lobby") return;
     enterFs();
@@ -1231,11 +1232,11 @@ export const PvpPage = memo(function PvpPage({
     import("./adventure-music").then(mod => {
       if (dead) return;
       try { mod.warmAudio(); } catch (e) {}
-      if (ahOpen || advOpen) return;
+      if (ahOpen || advOpen || raOpen) return;
       m = mod.createAdvMusic("lobby"); if (m) m.start();
     }).catch(() => {});
     return () => { dead = true; if (m) m.stop(); };
-  }, [phase, ahOpen, advOpen]);
+  }, [phase, ahOpen, advOpen, raOpen]);
   const [rpgTick, setRpgTick] = useState(0);   // re-reads the robot's level after a fight or a point spent
   const [tierIdx, setTierIdx] = useState(() => { try { const v = parseInt(localStorage.getItem("tg_pvp_tier") || "3", 10); return v >= 0 && v < BOT_TIERS.length ? v : 3; } catch (e) { return 3; } });
   const pickTier = (i) => { setTierIdx(i); try { localStorage.setItem("tg_pvp_tier", String(i)); } catch (e) {} };
@@ -1531,6 +1532,13 @@ export const PvpPage = memo(function PvpPage({
   }, [myCls, me, squadUsed, onReward, playUi, gauntlet, isWeekly, weekly, isRival, rival, practiceMode, lang, isGhost, objectives]);
 
   /* ── lobby ── */
+  if (phase === "lobby" && raOpen) {
+    return (
+      <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2450, background: "#02070c", color: "#9dffd6", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>Robot Adventure 3D…</div>}>
+        <RobotAdventure3DPage lang={lang} me={me} adminTier={adminTier} onBack={() => setRaOpen(false)} playUi={playUi} onReward={onReward} shopWeapon={shopWeaponOf(gear, lang)} />
+      </Suspense>
+    );
+  }
   if (phase === "lobby" && ahOpen) {
     return (
       <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 2450, background: "#07060c", color: "#ffb06a", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>👾 Alien Hunt…</div>}>
@@ -1623,8 +1631,8 @@ export const PvpPage = memo(function PvpPage({
           <button type="button" className="pvpadv" onClick={() => { if (playUi) playUi("click"); setAdvOnline(false); setAdvOpen(true); }} aria-label="Adventure Mode">
             <span aria-hidden="true">🪐</span><b>Adventure</b><i>{T("ผจญภัยดาวต่างดาว", "Alien planets", "外星冒险")}</i>
           </button>
-          <button type="button" className="pvpadv online" onClick={() => { if (playUi) playUi("click"); setAdvOnline(true); setAdvOpen(true); }} aria-label="Adventure Online">
-            <span aria-hidden="true">🌐</span><b>Adventure Online</b><i>{T("เล่นด้วยกันหลายคน", "Co-op with friends", "多人联机")}</i>
+          <button type="button" className="pvpadv online" data-robot3d="1" onClick={() => { if (playUi) playUi("click"); setRaOpen(true); }} aria-label="Robot Adventure 3D">
+            <span aria-hidden="true">🤖</span><b>Robot Adventure 3D</b><i>{T("ผจญภัยมุมมองบุคคลที่ 1", "First-person adventure", "第一人称冒险")}</i>
           </button>
           <button type="button" className="pvpadv alien" data-alien-hunt="1" onClick={() => { if (playUi) playUi("click"); setAhOpen(true); }} aria-label="Alien Hunt">
             <span aria-hidden="true">👾</span><b>Alien Hunt</b><i>{T("ไล่ยิงเอเลี่ยน มุมมองบุคคลที่ 1", "First-person alien shooter", "第一人称打外星人")}</i>
