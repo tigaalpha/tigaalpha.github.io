@@ -1572,12 +1572,23 @@ export const PvpPage = memo(function PvpPage({
               </button>
             ))}
           </div>
-          {lobbyTab === "me" && squadUsed !== "pet" && (
-            <div className="pvppick pvppick-hero" ref={heroPickRef} aria-label={T("เลือกหุ่นยนต์", "Choose your robot", "选择机器人")}>
-              {CHAR_MODELS.filter(m => me === m.id || (ownedModels || []).indexOf(m.id) >= 0).map(m => (
-                <button key={m.id} type="button" title={tr3(m, lang)} className={`pvppick-b${m.id === me ? " on" : ""}`}
-                  onClick={() => { if (m.id !== me && onPickModel) onPickModel(m.id); }}>
-                  <LazyHead model={m.id} rootRef={heroPickRef} />
+          {lobbyTab === "me" && (
+            <div className="pvppick pvppick-hero" ref={heroPickRef} aria-label={T("ลงสนาม", "Who fights", "出战")}>
+              {[["bot", "\ud83e\udd16", T("หุ่นยนต์", "Robot", "机器人")], ["pet", "\ud83d\udc3e", T("สัตว์เลี้ยง", "Pet", "宠物")], ["both", "\ud83e\udd16\ud83d\udc3e", T("คู่หู", "Both", "搭档")]].map(([k, ic, lb]) => (
+                <button key={k} type="button" title={lb} className={`pvppick-b sq${squadUsed === k ? " on" : ""}`} disabled={k !== "bot" && !petNow} onClick={() => setSquad(k)}>{ic}</button>
+              ))}
+              {squadUsed !== "pet" && CHAR_MODELS.slice().sort((x, y) => ((me === y.id || (ownedModels || []).indexOf(y.id) >= 0) ? 1 : 0) - ((me === x.id || (ownedModels || []).indexOf(x.id) >= 0) ? 1 : 0)).map(m => {
+                const own = me === m.id || (ownedModels || []).indexOf(m.id) >= 0;
+                return (
+                  <button key={m.id} type="button" title={tr3(m, lang)} className={`pvppick-b${m.id === me ? " on" : ""}${own ? "" : " locked"}`}
+                    onClick={() => { if (own) { if (m.id !== me && onPickModel) onPickModel(m.id); } else if (onOpenShop) onOpenShop(); }}>
+                    <LazyHead model={m.id} rootRef={heroPickRef} />
+                  </button>
+                );
+              })}
+              {squadUsed !== "bot" && pets.map(p => (
+                <button key={p.species} type="button" title={tr3(petById(p.species), lang)} className={`pvppick-b${petNow && p.species === petNow.species ? " on" : ""}`} onClick={() => pickPet(p.species)}>
+                  <PetThumb species={p.species} level={petLevel(p.bond).lv} mood={p.mood} px={32} />
                 </button>
               ))}
             </div>
@@ -1760,7 +1771,7 @@ export const PvpPage = memo(function PvpPage({
               </div>
             );
           })()}
-          <div className="pvpsec-h">{T("ลงสนาม", "Who fights", "出战")}</div>
+          <div className="pvpsec-h pvpwho-h">{T("ลงสนาม", "Who fights", "出战")}</div>
           <div className="pvpsquad" role="radiogroup" aria-label={T("ลงสนาม", "Who fights", "出战")}>
             {[["bot", "\ud83e\udd16", T("หุ่นยนต์", "Robot", "机器人")],
               ["pet", "\ud83d\udc3e", T("สัตว์เลี้ยง", "Pet", "宠物")],
