@@ -4093,6 +4093,8 @@ ${UX2_CSS}
 .pvplvl-hero{display:none}
 @media (orientation:landscape) and (max-height:560px){.pvplvl-hero{display:block!important;position:absolute;right:12px;top:271px;width:190px;box-sizing:border-box;margin:0;padding:0;z-index:30;pointer-events:auto}.pvpbody-top .pvplvl:not(.pvplvl-hero){display:none!important}.pvplvl-hero input{width:100%;margin:0}.pvplvl-hero .pvplvl-t,.pvplvl-hero .pvplvl-r{margin-top:2px;line-height:1.2}}
 @media (orientation:landscape) and (max-height:360px){.pvplvl-hero{top:241px}}
+@media (orientation:landscape) and (max-height:560px){.gpbar{top:4px!important;right:12px!important;width:172px!important;padding:5px 9px 5px 7px!important;gap:6px}.gpbar-ic{width:26px;height:26px;font-size:14px}.gpbar-segs b{height:8px}.gpbar-v b{font-size:15px}.gpbar-v u{padding:2px 8px}.pvpadv,.pvpgo-hero{width:172px!important;height:36px!important;min-height:36px!important;padding-block:0!important;line-height:1.15}.pvpadv b,.pvpgo-hero b{font-size:13.5px}.pvpadv i,.pvpgo-hero span{font-size:9.5px}.pvpadv.alien{top:58px!important}.pvpadv.online{top:98px!important}.pvpadv:not(.online):not(.alien){top:138px!important}.pvpgo-hero{top:178px!important}.pvplvl-hero{top:220px!important;width:172px!important}}
+@media (orientation:landscape) and (max-height:360px){.pvpadv,.pvpgo-hero{height:32px!important;min-height:32px!important}.pvpadv.alien{top:54px!important}.pvpadv.online{top:90px!important}.pvpadv:not(.online):not(.alien){top:126px!important}.pvpgo-hero{top:162px!important}.pvplvl-hero{top:200px!important}}
 `;
 
 export function useInjectCSS() {
