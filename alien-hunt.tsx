@@ -259,12 +259,12 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
           <div className="ah-bars"><div className="ah-hp"><i style={{ width: (hud.hp ?? 100) + "%" }} />{(hud.sh || 0) > 0 && <u style={{ width: Math.min(50, hud.sh) * 2 + "%" }} />}</div><span>❤ {hud.hp ?? 100}{(hud.sh || 0) > 0 ? " 🛡 " + hud.sh : ""}{hud.boost ? " ⚡" : ""}</span></div>
           <div className="ah-chips" data-chips="1">{(hud.own || "pistol").split(",").map((w: string) => <button key={w} data-wpn={w} className={hud.cur === w ? "on" : ""} onPointerDown={e => { e.stopPropagation(); setWeapon(S.current, w as WeaponId); }}>{(WORDER.indexOf(w as WeaponId) + 1)}<i>{WEAPONS[w as WeaponId].name}</i></button>)}</div>
           <div className="ah-ammo"><small>{hud.w}</small><b>{hud.reload ? "…" : hud.mag}</b><span>/ {hud.res}</span></div>
-          {hud.obj && <div className="ah-obj" data-obj={hud.obj.type}>{hud.obj.type === "survive" ? "⏱ " + t("ยืนหยัดอีก ", "Hold out ", "坚守 ") + hud.obj.left + t(" วินาที", " s", " 秒")
+          {hud.obj && !quiz && <div className="ah-obj" data-obj={hud.obj.type}>{hud.obj.type === "survive" ? "⏱ " + t("ยืนหยัดอีก ", "Hold out ", "坚守 ") + hud.obj.left + t(" วินาที", " s", " 秒")
             : hud.obj.type === "task" ? "🔧 " + (hud.obj.label ? T3(lang, ...hud.obj.label) : t("ภารกิจ", "Task", "任务")) + " " + hud.obj.prog + "/" + hud.obj.goal + t(" — เดินเข้าวงเรืองแสงแล้วตอบคำถาม", " — walk into a glowing pad and answer", " — 走进发光圈并回答问题")
             : hud.obj.type === "mine" ? "⛏ " + t("แร่ ", "Ore ", "矿 ") + hud.obj.prog + "/" + hud.obj.goal + t(" — ยืนใกล้ก้อนแร่แล้วกด ⛏", " — stand by a node and press ⛏", " — 站在矿点旁按 ⛏")
             : hud.obj.phase === 1 ? "☄ " + t("ผู้บัญชาการลงมาแล้ว ปราบมัน!", "The commander has landed. Take it down!", "指挥官降落了，击败它！")
             : (hud.obj.type === "strike" ? "📡 " + t("เครื่องส่งสัญญาณ ", "Terminals ", "终端 ") : "⚡ " + t("สถานี ", "Stations ", "站点 ")) + hud.obj.prog + "/" + hud.obj.goal + (hud.obj.cur > 0 ? " · " + hud.obj.cur + "%" : "") + t(" — ยืนในวงให้ครบ", " — stand in the ring", " — 站在圈内")}</div>}
-          {banner && <div className="ah-banner">{banner}</div>}
+          {banner && !quiz && <div className="ah-banner">{banner}</div>}
           {hud.boss && <div className="ah-boss" data-boss="1"><b>{hud.boss.n}</b><div><i style={{ width: Math.round(hud.boss.p * 100) + "%" }} /></div></div>}
           <canvas className="ah-map" data-map="1" width={240} height={240} ref={mapRef} />
           <div className="ah-stick" style={{ transform: `translate(${(hud.jx || 0) * 22}px, ${-(hud.jz || 0) * 22}px)` }} />
