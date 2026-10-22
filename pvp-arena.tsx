@@ -1595,6 +1595,12 @@ export const PvpPage = memo(function PvpPage({
             <b>▶ {T("สู้เลย", "Fight", "开战")}</b>
             <span>{tr3(BOT_TIERS[tierIdx], lang)}</span>
           </button>
+        <div className="pvplvl pvplvl-hero">
+          <input type="range" min={0} max={BOT_TIERS.length - 1} step={1} value={tierIdx} onChange={e => { pickTier(parseInt(e.target.value, 10)); }}
+            aria-label={T("ระดับความยาก", "Difficulty", "难度")} />
+          <div className="pvplvl-t"><span>{T("ง่าย", "Easy", "简单")}</span><b>{tierIdx + 1}/{BOT_TIERS.length}</b><span>{T("นรก", "Hell", "地狱")}</span></div>
+          <div className="pvplvl-r">{T("ความแม่นบอท", "Bot accuracy", "机器人命中率")} {Math.round(BOT_TIERS[tierIdx].acc * 100)}% · 🪙 {BOT_TIERS[tierIdx].coins} · ✦ {BOT_TIERS[tierIdx].xp} · SP {BOT_TIERS[tierIdx].sp}</div>
+        </div>
           <div className="pvphero-hud">
             {squadUsed === "pet" ? (<>
               <span className="hx-k">{T("สัตว์เลี้ยง", "PET", "宠物")} · {tr3(PET_TYPES[petSpecNow.type] || PET_TYPES.steel, lang)}</span>
