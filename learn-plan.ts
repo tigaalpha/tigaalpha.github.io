@@ -23,6 +23,20 @@ export function pctOf(a, b) {
   return Math.floor((x * 200 + y) / (2 * y));
 }
 
+/* P(X >= k) for X ~ Binomial(n, p): the exact upper tail, summed in log space (no float blow-up for n up to a few thousand). */
+export function binomTail(k, n, p) {
+  if (k <= 0) return 1;
+  if (k > n) return 0;
+  if (p <= 0) return 0;
+  if (p >= 1) return 1;
+  const lf = [0]; for (let i = 1; i <= n; i++) lf[i] = lf[i - 1] + Math.log(i);
+  const lp = Math.log(p), lq = Math.log(1 - p);
+  let t = 0;
+  for (let i = k; i <= n; i++) t += Math.exp(lf[n] - lf[i] - lf[n - i] + i * lp + (n - i) * lq);
+  return Math.min(1, t);
+}
+export const SIG_ALPHA = 0.01;
+
 export function recencyW(t, now) { return Math.pow(0.5, Math.max(0, now - t) / (PLAN_HALFLIFE_DAYS * DAY)); }
 
 /* every graded topic, ranked. A row = { key, k, id, n, miss, rate, wRate, last, idleDays, score, cause } */
@@ -39,8 +53,12 @@ export function rankTopics(log, now = Date.now(), labelOf = null) {
     b.wOk += (e.ok || 0) * w; b.wMiss += (e.miss || 0) * w;
     b.last = Math.max(b.last, e.t || 0);
   }
-  return Object.values(by)
-    .filter((b: any) => b.ok + b.miss >= PLAN_MIN_N && b.miss > 0)
+  const all: any[] = Object.values(by).filter((b: any) => b.ok + b.miss >= PLAN_MIN_N && b.miss > 0);
+  // the learner's own overall miss rate over ALL their graded rows is the yardstick a topic is tested against
+  let totMiss = 0, totN = 0; for (const b of Object.values(by) as any[]) { totMiss += b.miss; totN += b.ok + b.miss; }
+  const base = Math.min(0.9, Math.max(0.05, totN ? totMiss / totN : 0.05));
+  const alpha = SIG_ALPHA / Math.max(1, all.length);       // Bonferroni: the more topics we look at, the stricter each test
+  return all
     .map((b: any) => {
       const n = b.ok + b.miss;
       const wRate = b.wMiss / Math.max(1e-9, b.wOk + b.wMiss);
@@ -53,11 +71,12 @@ export function rankTopics(log, now = Date.now(), labelOf = null) {
         rate: pctOf(b.miss, n), wRate: Math.round(wRate * 100),
         last: b.last, idleDays: Math.round(idleDays),
         score: wRate * conf * fresh + spaced,
+        p: binomTail(b.miss, n, base), sig: binomTail(b.miss, n, base) < alpha,
         cause: causeOf(b.rOk, b.rMiss, wRate),
         label: typeof labelOf === "function" ? labelOf(b.e) : String(b.id),
       };
     })
-    .sort((a, b) => (b.score - a.score) || (b.n - a.n) || String(a.label).localeCompare(String(b.label)));
+    .sort((a, b) => (Number(b.sig) - Number(a.sig)) || (b.score - a.score) || (b.n - a.n) || String(a.label).localeCompare(String(b.label)));
 }
 
 /* 4 - why it goes wrong. Needs >= 4 rhythm-graded tries, otherwise "notes" (the honest default). */
