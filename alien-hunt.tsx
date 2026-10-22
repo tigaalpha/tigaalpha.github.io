@@ -59,6 +59,7 @@ function drawMap(cv: HTMLCanvasElement | null, s: State, tint: string) {
   g.clearRect(0, 0, W, W); g.fillStyle = "rgba(6,8,14,.72)"; g.fillRect(0, 0, W, W); g.strokeStyle = tint; g.lineWidth = 3; g.strokeRect(1.5, 1.5, W - 3, W - 3);
   g.fillStyle = "rgba(255,255,255,.28)"; for (const b of s.boxes) g.fillRect(X(b.x - b.w / 2), Z(b.z - b.d / 2), b.w * k, b.d * k);
   for (const h of s.hz) { const on = s.hzClock % h.per < h.on; g.fillStyle = on ? "rgba(255,90,40,.65)" : "rgba(255,160,80,.2)"; g.beginPath(); g.arc(X(h.x), Z(h.z), h.r * k, 0, 7); g.fill(); }
+  if (s.ms) for (const it of s.ms.items) { if (it.done && s.ms.type === "mine") continue; g.strokeStyle = it.done ? "#5aff7a" : s.ms.type === "mine" ? "#6ab0ff" : "#5affc8"; g.lineWidth = 3; g.beginPath(); g.arc(X(it.x), Z(it.z), Math.max(5, it.r * k), 0, 7); g.stroke(); }
   for (const q of s.pk) { g.fillStyle = "#ffd34a"; g.fillRect(X(q.x) - 3, Z(q.z) - 3, 6, 6); }
   for (const e of s.enemies) { if (e.dead !== 0) continue; const boss = !!ALIENS[e.kind].boss; g.fillStyle = boss ? "#ff3a8a" : "#ff5a3a"; g.beginPath(); g.arc(X(e.x), Z(e.z), boss ? 7 : 3.6, 0, 7); g.fill(); }
   const px = X(s.p.x), pz = Z(s.p.z), fx = -Math.sin(s.p.yaw), fz = -Math.cos(s.p.yaw);
@@ -146,7 +147,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
       if (bannerT.current > 0) { bannerT.current -= dt; if (bannerT.current <= 0) setBanner(""); }
       r.draw(s, dt);
       if (high && !pausedRef.current && !s.frozen) { if (dt > 0.031) slow++; else slow = Math.max(0, slow - 1); if (slow > 90) { slow = 0; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} setHigh(false); r.setHigh(false); try { logUsage(ra ? "ra" : "ah", "auto-lite"); } catch (e) {} } }
-      hudT += dt; if (hudT > 0.1) { hudT = 0; drawMap(mapRef.current, s, s.lv ? "#" + (ra ? ra.data.level : LEVELS[s.lv - 1]).tint.toString(16).padStart(6, "0") : "#ff8a3a"); { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: s.shopW && s.shopW.as === w ? s.shopW.name : WEAPONS[w].name, coins: s.coins, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, nw: s.waves.length, boss: (() => { const b = s.enemies.find(e => e.dead === 0 && ALIENS[e.kind].boss); return b ? { n: ra && ra.data.level.bossName ? T3(lang, ...ra.data.level.bossName) : ALIENS[b.kind].name, p: Math.max(0, b.hp / b.max) } : null; })(), left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, af: s.autoFire, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
+      hudT += dt; if (hudT > 0.1) { hudT = 0; drawMap(mapRef.current, s, s.lv ? "#" + (ra ? ra.data.level : LEVELS[s.lv - 1]).tint.toString(16).padStart(6, "0") : "#ff8a3a"); { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: s.shopW && s.shopW.as === w ? s.shopW.name : WEAPONS[w].name, coins: s.coins, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, nw: s.waves.length, boss: (() => { const b = s.enemies.find(e => e.dead === 0 && ALIENS[e.kind].boss); return b ? { n: ra && ra.data.level.bossName ? T3(lang, ...ra.data.level.bossName) : ALIENS[b.kind].name, p: Math.max(0, b.hp / b.max) } : null; })(), left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, obj: s.ms ? { type: s.ms.type, prog: s.ms.prog, goal: s.ms.goal, left: Math.max(0, Math.ceil(s.ms.secs - s.ms.t)), phase: s.ms.phase, cur: Math.round(100 * s.ms.items.reduce((m, it) => (it.done ? m : Math.max(m, it.p)), 0)) } : null, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, af: s.autoFire, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
     };
     raf = requestAnimationFrame(loop);
     (window as any).__ah = { s: S.current, get state() { return S.current; }, step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(S.current, dt, inp.current); }, info: () => r.info(), killAll: () => { for (const e of S.current.enemies) e.hp = 0, e.dead = 0.5; }, tune: () => { S.current.tuneT = S.current.tuneEvery; }, setHigh: (h: boolean) => { setHigh(h); r.setHigh(h); }, creature: (k: string, m: string) => AU.creature(k, m as any, 3), quizQ: () => quizRef.current && quizRef.current.q, draw: () => r.draw(S.current, 0.016) };
@@ -162,10 +163,10 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
     if (phase !== "play") return undefined;
     const kd = (e: KeyboardEvent) => {
       if (quizRef.current) return; const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k] = true;
-      if (k === "r") inp.current.reload = true; { if (k === "v") S.current.auto = !S.current.auto; const n = parseInt(k, 10); if (n >= 1 && n <= WORDER.length) setWeapon(S.current, WORDER[n - 1]); }
+      if (k === "r") inp.current.reload = true; if (k === "e") inp.current.dig = true; { if (k === "v") S.current.auto = !S.current.auto; const n = parseInt(k, 10); if (n >= 1 && n <= WORDER.length) setWeapon(S.current, WORDER[n - 1]); }
       if (k === "escape" || k === "p") setPaused(p => !p); if (k === " ") e.preventDefault();
     };
-    const ku = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); keys.current[k === " " ? " " : k] = false; };
+    const ku = (e: KeyboardEvent) => { const k = e.key.toLowerCase(); if (k === "e") inp.current.dig = false; keys.current[k === " " ? " " : k] = false; };
     const mm = (e: MouseEvent) => { if (document.pointerLockElement) { look.current.x += e.movementX * 0.0022; look.current.y += e.movementY * 0.0022; } };
     const md = (e: MouseEvent) => { if (e.button === 0 && !quizRef.current && !pausedRef.current) inp.current.fire = true; };
     const mu = (e: MouseEvent) => { if (e.button === 0) inp.current.fire = false; };
@@ -254,12 +255,17 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
           <div className="ah-bars"><div className="ah-hp"><i style={{ width: (hud.hp ?? 100) + "%" }} />{(hud.sh || 0) > 0 && <u style={{ width: Math.min(50, hud.sh) * 2 + "%" }} />}</div><span>❤ {hud.hp ?? 100}{(hud.sh || 0) > 0 ? " 🛡 " + hud.sh : ""}{hud.boost ? " ⚡" : ""}</span></div>
           <div className="ah-chips" data-chips="1">{(hud.own || "pistol").split(",").map((w: string) => <button key={w} data-wpn={w} className={hud.cur === w ? "on" : ""} onPointerDown={e => { e.stopPropagation(); setWeapon(S.current, w as WeaponId); }}>{(WORDER.indexOf(w as WeaponId) + 1)}<i>{WEAPONS[w as WeaponId].name}</i></button>)}</div>
           <div className="ah-ammo"><small>{hud.w}</small><b>{hud.reload ? "…" : hud.mag}</b><span>/ {hud.res}</span></div>
+          {hud.obj && <div className="ah-obj" data-obj={hud.obj.type}>{hud.obj.type === "survive" ? "⏱ " + t("ยืนหยัดอีก ", "Hold out ", "坚守 ") + hud.obj.left + t(" วินาที", " s", " 秒")
+            : hud.obj.type === "mine" ? "⛏ " + t("แร่ ", "Ore ", "矿 ") + hud.obj.prog + "/" + hud.obj.goal + t(" — ยืนใกล้ก้อนแร่แล้วกด ⛏", " — stand by a node and press ⛏", " — 站在矿点旁按 ⛏")
+            : hud.obj.phase === 1 ? "☄ " + t("ผู้บัญชาการลงมาแล้ว ปราบมัน!", "The commander has landed. Take it down!", "指挥官降落了，击败它！")
+            : (hud.obj.type === "strike" ? "📡 " + t("เครื่องส่งสัญญาณ ", "Terminals ", "终端 ") : "⚡ " + t("สถานี ", "Stations ", "站点 ")) + hud.obj.prog + "/" + hud.obj.goal + (hud.obj.cur > 0 ? " · " + hud.obj.cur + "%" : "") + t(" — ยืนในวงให้ครบ", " — stand in the ring", " — 站在圈内")}</div>}
           {banner && <div className="ah-banner">{banner}</div>}
           {hud.boss && <div className="ah-boss" data-boss="1"><b>{hud.boss.n}</b><div><i style={{ width: Math.round(hud.boss.p * 100) + "%" }} /></div></div>}
           <canvas className="ah-map" data-map="1" width={240} height={240} ref={mapRef} />
           <div className="ah-stick" style={{ transform: `translate(${(hud.jx || 0) * 22}px, ${-(hud.jz || 0) * 22}px)` }} />
           <div className="ah-btns">
             <button className="fire" aria-label="fire" data-fire="1" {...hold(v => { inp.current.fire = v; if (!v) fireId.current = -1; })} onPointerDown={e => { e.stopPropagation(); fireId.current = e.pointerId; try { (e.currentTarget as any).setPointerCapture(e.pointerId); } catch (x) {} inp.current.fire = true; }} onPointerMove={e => { if (e.pointerId === fireId.current) { look.current.x += (e.movementX || 0) * 0.005; look.current.y += (e.movementY || 0) * 0.005; } }}>FIRE</button>
+            {hud.obj && hud.obj.type === "mine" && <button aria-label="dig" data-dig="1" className="dig" {...hold(v => { inp.current.dig = v; })}>⛏</button>}
             <button aria-label="reload" {...hold(v => { if (v) inp.current.reload = true; })}>R</button>
             <button aria-label="jump" data-jump="1" {...hold(v => { keys.current[" "] = v; })}>⤴</button>
             <button aria-label="slide" data-slide="1" className={hud.sl === false ? "cool" : ""} {...hold(v => { keys.current.c = v; })}>⇊</button>
@@ -393,4 +399,6 @@ const CSS = `
 .ah-note{font-size:12px!important;color:#ffd9a8}
 .ah-stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.ah-stats span{display:flex;flex-direction:column;min-width:78px;padding:8px 10px;border-radius:14px;background:#ffffff12;font-size:11px}.ah-stats b{font-size:20px}
 @media (max-height:520px){.ah-ready h1{font-size:30px}.ah-ready p{font-size:12px}.ah-card{padding:10px 14px;gap:6px}.ah-piano{height:clamp(70px,22vh,110px)}.ah-go{min-height:42px}}
+.ah-obj{position:absolute;left:50%;top:44px;transform:translateX(-50%);max-width:min(80vw,520px);padding:5px 14px;border-radius:16px;background:#0a1620d9;border:1px solid #5affc866;color:#e8fff6;font-size:12.5px;font-weight:800;text-align:center;pointer-events:none;z-index:6}
+.ah-btns .dig{background:linear-gradient(135deg,#2a7ab0,#1c4a78);font-size:22px}
 `;

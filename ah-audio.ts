@@ -115,6 +115,7 @@ export function events(ev: Ev[]) {
   for (const e of ev) {
     if (e.k === "shot") sfx("shot", e.w); else if (e.k === "boom") sfx(((e.n as number) || 1) >= 2 ? "rboom" : ((e.n as number) || 1) < 1 ? "sboom" : "boom"); else if (e.k === "hit") sfx("hit"); else if (e.k === "head") { sfx("head"); sfx("kill"); creature(e.w as string, "die"); }
     else if (e.k === "spawn") creature(e.w as string, "spawn"); else if (e.k === "growl") creature(e.w as string, "growl", e.n || 0); else if (e.k === "bite") creature(e.w as string, "bite"); else if (e.k === "kill") { creature(e.w as string, "die"); sfx(e.w === "mantis" || e.w === "charger" ? "bigkill" : "kill"); } else if (e.k === "hurt") sfx("hurt"); else if (e.k === "reload") sfx("reload"); else if (e.k === "empty") sfx("empty");
+    else if (e.k === "station") sfx("tuneok"); else if (e.k === "strike") { sfx("rboom"); sfx("rboom"); } else if (e.k === "dig") sfx("hit");
     else if (e.k === "swap") sfx("swap"); else if (e.k === "pickup") sfx("pickup"); else if (e.k === "slide") sfx("slide"); else if (e.k === "spit") sfx((VOICE_OF[e.w as string] || e.w) === "flarecaster" ? "flare" : (VOICE_OF[e.w as string] || e.w) === "skyeye" ? "bolt" : "spit"); else if (e.k === "charge") sfx("charge"); else if (e.k === "wave") sfx("wave"); else if (e.k === "tune") sfx("tune"); else if (e.k === "win") sfx("win"); else if (e.k === "lose") sfx("lose");
   }
 }

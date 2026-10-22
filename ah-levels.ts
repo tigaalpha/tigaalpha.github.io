@@ -5,9 +5,11 @@ import type { Box, AlienKind, WeaponId } from "./ah-engine";
 
 export type Theme = { sky: [string, string, string, string]; fog: number; fogD: number; ground: number; wall: number; hemi: [number, number]; sun: number; ring: number };
 export type Hazard = { x: number; z: number; r: number; per: number; on: number; col: number };
+export type MissionSpec = { type: "survive" | "capture" | "mine" | "strike"; secs?: number; hold?: number; pts?: [number, number][]; boss?: AlienKind };
 export type Level = {
+  mission?: MissionSpec;
   id: number; name: [string, string, string]; race: [string, string, string]; blurb: [string, string, string];
-  tint: number; waves: AlienKind[][]; boxes: Box[]; theme: Theme; guns: WeaponId[]; hazards: Hazard[]; hpk: number; boss?: AlienKind; kit?: "jungle" | "desert" | "ice" | "lava" | "ruins"; bossName?: [string, string, string];
+  tint: number; waves: AlienKind[][]; boxes: Box[]; theme: Theme; guns: WeaponId[]; hazards: Hazard[]; hpk: number; boss?: AlienKind; kit?: "jungle" | "desert" | "ice" | "lava" | "ruins" | "gas" | "belt" | "sun"; bossName?: [string, string, string];
 };
 
 /** "skitter*3,scarab*4" -> the species of one wave */
