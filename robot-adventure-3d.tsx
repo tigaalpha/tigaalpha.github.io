@@ -4,7 +4,7 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { RA_PLANETS, RA_SECT } from "./ra-planets";
 import { defOf } from "./ra-factory";
-import { orbPic } from "./planet-orb";
+import { orbPic, orbKind } from "./planet-orb";
 import * as AU from "./ah-audio";
 import { enterGame, COST as POWER_COST } from "./game-power";
 import { PowerSheet } from "./game-power-ui";
@@ -23,7 +23,8 @@ const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getIt
 const markDone = (id: string) => { try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
 const PARTS: [string, string, string, string][] = [["solar", "ภาค 1 · ออกจากโลก", "Part 1 · Leaving Earth", "第1部 · 离开地球"], ["space", "ภาค 2 · ไททันและอาร์ก", "Part 2 · Titan & Ark", "第2部 · 土卫六与方舟"], ["ground", "ภาค 3 · โลกใหม่", "Part 3 · New worlds", "第3部 · 新世界"], ["act2", "ภาค 4 · ผู้เก็บเกี่ยว", "Part 4 · The Harvesters", "第4部 · 收割者"]];
 /** where each episode of a part stands on the floor: two staggered rows, left to right (percent of the floor) */
-const posOf = (n: number): [number, number][] => { const per = Math.ceil(n / 2); return Array.from({ length: n }, (_, i) => { const r = i < per ? 0 : 1, c = r === 0 ? i : i - per, cols = r === 0 ? per : n - per; return [8 + (cols > 1 ? c * (80 / (cols - 1)) : 42) + (r ? 3 : 0), r === 0 ? 34 + (c % 2) * 6 : 70 + (c % 2) * 6] as [number, number]; }); };
+const posOf = (n: number): [number, number][] => { const rows = n > 10 ? 3 : 2, per = Math.ceil(n / rows); return Array.from({ length: n }, (_, i) => { const r = Math.floor(i / per), c = i - r * per, cols = r === rows - 1 ? n - per * (rows - 1) : per, full = per; const span = 84; const x = 8 + (cols > 1 ? c * (span / (cols - 1)) : 40) + (r % 2 ? 2 : 0); const ys = rows === 3 ? [10, 40, 70] : [34, 72]; return [x, ys[r] + (c % 2) * 5] as [number, number]; }); };
+const SIZE: Record<string, number> = { star: 52, saturn: 50, jupiter: 48, earth: 38, venus: 34, mars: 30, titan: 30, blackhole: 40, moon: 26, mercury: 24, rock: 26, generic: 30 };
 const shortName = (s: string) => s.split(" · ")[0];
 
 export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null }) {
@@ -136,7 +137,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
             {inPart.slice(1).map((x, k) => { const p = x.p, a = POS[k], b = POS[k + 1], ok = open(x.gi); return <path key={p.id} d={`M${a[0]} ${a[1]} Q${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2 + (k % 2 ? 8 : -8)} ${b[0]} ${b[1]}`} fill="none" vectorEffect="non-scaling-stroke" stroke={ok ? "#7affd0" : "#ffffff44"} strokeWidth="2.6" strokeDasharray={ok ? "0" : "5 6"} />; })}
           </svg>
           {inPart.map((x, pi) => {
-            const p = x.p, i = x.gi, isOpen = open(i), cleared = done.includes(p.id), d3 = playable(p.id), size = 58 + (i * 7) % 4 * 7 + (p.id === sel ? 10 : 0), pos = POS[pi];
+            const p = x.p, i = x.gi, isOpen = open(i), cleared = done.includes(p.id), d3 = playable(p.id), size = (SIZE[orbKind(p.id)] || 30) + (i * 5) % 3 * 2 + (p.id === sel ? 6 : 0), pos = POS[pi];
             return (
               <button key={p.id} data-planet={p.id} data-open={isOpen ? "1" : "0"} data-3d={d3 ? "1" : "0"} className={"ra-pl" + (isOpen ? "" : " lock") + (cleared ? " clr" : "") + (p.id === sel ? " sel" : "") + (i === next3d ? " next" : "")}
                 style={{ left: pos[0] + "%", top: pos[1] + "%", ["--s" as any]: size + "px", ["--c" as any]: p.c[2], ["--d" as any]: (i % 5) * 0.4 + "s" }} onClick={() => { if (playUi) playUi("click"); setSel(p.id); }}>
@@ -178,17 +179,17 @@ const CSS = `
 .ra-title{flex:1;min-width:0}.ra-title h1{margin:0;white-space:nowrap;font-size:15px;letter-spacing:2px;font-weight:900;text-shadow:0 0 18px #5affc8aa}.ra-title h1 b{color:#5affc8}.ra-title span{display:block;font-size:11px;opacity:.75}
 .ra-opts{display:flex;align-items:center;gap:6px;font-size:11px}.ra-opts button{min-width:44px;height:30px;padding:0 10px;border-radius:15px;border:1px solid #ffffff33;background:#0b1a24cc;color:#cfe;font-weight:800;cursor:pointer}.ra-opts button.on{background:#1c8a6a;border-color:#5affc8;color:#fff}
 .ra-stage{position:absolute;left:0;right:0;top:56px;bottom:74px;perspective:900px;perspective-origin:50% 8%;--tx:0deg;--ty:0deg}
-.ra-plane{position:absolute;left:3%;right:3%;top:10%;height:86%;transform-style:preserve-3d;transform:rotateX(calc(46deg + var(--ty))) rotateZ(var(--tx));transition:transform .25s ease-out}
+.ra-plane{position:absolute;left:3%;right:3%;top:0;height:100%;transform-style:preserve-3d;transform:rotateX(calc(30deg + var(--ty))) rotateZ(var(--tx));transition:transform .25s ease-out}
 .ra-grid{position:absolute;inset:-6% -2%;border-radius:18px;background:linear-gradient(#5affc844 1px,transparent 1px) 0 0/52px 52px,linear-gradient(90deg,#5affc844 1px,transparent 1px) 0 0/52px 52px,radial-gradient(70% 70% at 50% 50%,#0f3a4c88,#06141c00 75%);box-shadow:inset 0 0 60px #5affc822;-webkit-mask-image:radial-gradient(75% 75% at 50% 50%,#000 55%,transparent 100%);mask-image:radial-gradient(75% 75% at 50% 50%,#000 55%,transparent 100%)}
 .ra-route{position:absolute;inset:0;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 6px #5affc8)}
-.ra-pl{position:absolute;transform:translate(-50%,-100%) rotateX(-46deg);transform-origin:50% 100%;background:none;border:0;padding:0;color:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;width:96px}
+.ra-pl{position:absolute;transform:translate(-50%,-100%) rotateX(-30deg);transform-origin:50% 100%;background:none;border:0;padding:0;color:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;width:96px}
 .ra-pl:before{content:"";position:absolute;left:50%;bottom:-6px;width:calc(var(--s) * 1.3);height:calc(var(--s) * .42);margin-left:calc(var(--s) * -.65);border-radius:50%;background:radial-gradient(closest-side,#000a,transparent);transform:rotateX(46deg) translateZ(0)}
 .ra-orb{position:relative;display:block;width:var(--s);height:var(--s);animation:ra-bob 3.6s ease-in-out var(--d) infinite;transform-style:preserve-3d}
 .ra-orb:before{content:"";position:absolute;inset:-26%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--c) 60%,transparent),transparent 72%);opacity:.65}
 .ra-orb img{position:relative;width:100%;height:100%;border-radius:50%;display:block;box-shadow:inset -8px -10px 18px #000a,0 8px 18px #0008}
 .ra-orb b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;background:#0008;border-radius:50%}.ra-orb em{position:absolute;right:-4px;top:-4px;width:20px;height:20px;border-radius:50%;background:#2ecf7a;color:#fff;font-style:normal;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center}
 @keyframes ra-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
-.ra-nm{font-size:11px;font-weight:800;text-align:center;line-height:1.15;text-shadow:0 1px 6px #000;max-width:96px}.ra-pl u{font-size:9px;text-decoration:none;font-weight:900;letter-spacing:.5px;padding:1px 7px;border-radius:9px;background:#ffffff1a;opacity:.75}.ra-pl u.g{background:#2ecf7a;color:#03140c;opacity:1}
+.ra-nm{font-size:10px;font-weight:800;text-align:center;line-height:1.15;text-shadow:0 1px 6px #000;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ra-pl u{font-size:9px;text-decoration:none;font-weight:900;letter-spacing:.5px;padding:1px 7px;border-radius:9px;background:#ffffff1a;opacity:.75}.ra-pl u.g{background:#2ecf7a;color:#03140c;opacity:1}
 .ra-pl.lock{opacity:.7;filter:grayscale(.55)}.ra-pl.next .ra-orb{animation:ra-bob 2.2s ease-in-out var(--d) infinite}.ra-pl.next .ra-orb:before{opacity:1;inset:-40%;background:radial-gradient(closest-side,#ffb04acc,transparent 72%)}
 .ra-pl.sel .ra-nm{color:#5affc8}.ra-pl.sel .ra-orb:before{opacity:1;inset:-34%}
 .ra-card{position:absolute;left:12px;bottom:10px;z-index:6;width:min(300px,42vw);max-height:40%;overflow:auto;padding:9px 12px;border-radius:18px;background:linear-gradient(160deg,#0b2634ee,#06141cee);border:1px solid #5affc855;box-shadow:0 10px 30px #000a;display:flex;flex-direction:column;gap:3px}
