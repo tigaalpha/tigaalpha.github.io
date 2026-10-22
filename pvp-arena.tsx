@@ -1255,7 +1255,8 @@ export const PvpPage = memo(function PvpPage({
   const squadUsed = petNow ? (["bot", "pet", "both"].includes(squad) ? squad : "both") : "bot";
   const setSquad = (k) => { setSquadState(k); try { localStorage.setItem("tg_pvp_squad", k); } catch (e) {} if (playUi) playUi("click"); };
   const pickPet = (speciesId) => { if (carryPet(speciesId)) { setPets(allPets()); if (playUi) playUi("click"); } };
-  const pickRef = useRef(null);                   // the robot strip, for LazyHead's observer
+  const pickRef = useRef(null);
+  const heroPickRef = useRef(null);                   // the robot strip, for LazyHead's observer
 
   const me = normalizeModel(charModel);
   const myCls = classKeyOf(me);
@@ -1566,11 +1567,21 @@ export const PvpPage = memo(function PvpPage({
           <div className={`pvphero-fig${squadUsed === "pet" ? " petonly" : ""}`} ref={heroFig} data-foot="0.018">
           <div className="pvptabs pvptabs-hero" role="tablist">
             {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("หุ่นของฉัน", "My Robot", "我的机器人")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
-              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => { setLobbyTab(k); setTimeout(() => { try { const el = document.querySelector(".pvpbody"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {} }, 60); }}>
+              <button key={k} role="tab" aria-selected={lobbyTab === k} className={"pvptab" + (lobbyTab === k ? " on" : "")} onClick={() => { setLobbyTab(k); if (window.innerWidth > window.innerHeight) return; setTimeout(() => { try { const el = document.querySelector(".pvpbody"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {} }, 60); }}>
                 {lb}{k === "friends" && openDuels.length > 0 && <i className="pvptab-dot">{openDuels.length}</i>}
               </button>
             ))}
           </div>
+          {lobbyTab === "me" && squadUsed !== "pet" && (
+            <div className="pvppick pvppick-hero" ref={heroPickRef} aria-label={T("เลือกหุ่นยนต์", "Choose your robot", "选择机器人")}>
+              {CHAR_MODELS.filter(m => me === m.id || (ownedModels || []).indexOf(m.id) >= 0).map(m => (
+                <button key={m.id} type="button" title={tr3(m, lang)} className={`pvppick-b${m.id === me ? " on" : ""}`}
+                  onClick={() => { if (m.id !== me && onPickModel) onPickModel(m.id); }}>
+                  <LazyHead model={m.id} rootRef={heroPickRef} />
+                </button>
+              ))}
+            </div>
+          )}
             {squadUsed !== "pet" && (
               <CyberAvatar model={me} yaw={24} pose="ready" glow={colorway.glow} accent={colorway.accent}
                 held={lobbyHeld} hat={lobbyHat} acc={lobbyAcc} />
