@@ -292,7 +292,7 @@ function buildGun(id: string): THREE.Group {
   return g;
 }
 
-export type Render = { draw: (s: State, dt: number) => void; resize: () => void; dispose: () => void; setHigh: (h: boolean) => void; events: (ev: Ev[]) => void; shake: number; info: () => any; canvas: HTMLCanvasElement };
+export type Render = { draw: (s: State, dt: number) => void; resize: () => void; dispose: () => void; setHigh: (h: boolean) => void; events: (ev: Ev[]) => void; shake: number; info: () => any; mates: (list: { id: string; x: number; z: number; yaw: number; glow: string }[]) => void; canvas: HTMLCanvasElement };
 
 export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvObj: Level | null = null): Render {
   let high = startHigh; const LV = lvObj || (lv > 0 ? LEVELS[Math.min(lv, LEVELS.length) - 1] : null), KIT = LV && LV.kit ? LV.kit : "", JUNGLE = KIT === "jungle", TH = LV ? LV.theme : null, TINT = LV ? LV.tint : 0;
@@ -300,6 +300,7 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
   renderer.shadowMap.enabled = high; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
   const canvas = renderer.domElement; canvas.className = "ah-cv"; host.appendChild(canvas);
   const scene = new THREE.Scene(); scene.background = new THREE.Color(TH ? TH.fog : 0x1a1420); scene.fog = new THREE.FogExp2(TH ? TH.fog : 0x3a2a34, TH ? TH.fogD : 0.017);
+  let mateList: { id: string; x: number; z: number; yaw: number; glow: string }[] = []; const mateMeshes = new Map<string, THREE.Group>();
   const cam = new THREE.PerspectiveCamera(75, 16 / 9, 0.05, 220); cam.rotation.order = "YXZ"; scene.add(cam);
 
   /* sky: a dusk gradient dome, a huge Harvester ship hanging in it */
@@ -499,6 +500,10 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
       while (acidPool.length < s.acid.length) { const m = acidM.clone(); m.material = (acidM.material as THREE.MeshStandardMaterial).clone(); scene.add(m); acidPool.push(m); }
       acidPool.forEach((m, i) => { const a = s.acid[i]; m.visible = !!a; if (a) { m.position.set(a.x, a.y, a.z); const k = a.big || 1; m.scale.setScalar(k); const mm = m.material as THREE.MeshStandardMaterial; const c = a.col || 0x9cff3a; if (mm.color.getHex() !== c) { mm.color.setHex(c); mm.emissive.setHex(c); } } });
       ship.rotation.y += dt * 0.02; ring.rotation.z += dt * 0.3; (core.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.8 + Math.sin(performance.now() / 500) * 0.5;
+      // co-op teammates (plan 39 P5): a glowing pilot per room member, eased towards the last reported position
+      for (const m of mateList) { let g = mateMeshes.get(m.id); if (!g) { g = new THREE.Group(); const col = parseInt(String(m.glow || "#7fe8ff").replace("#", ""), 16) || 0x7fe8ff; const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 0.9, 4, 10), MAT(0x2a3340, { metalness: 0.6, roughness: 0.35 })); body.position.y = 0.95; const visor = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8), GLOW(col)); visor.position.set(0, 1.55, -0.22); visor.scale.set(1, 0.55, 0.6); const halo = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.05, 6, 24), GLOW(col)); halo.rotation.x = Math.PI / 2; halo.position.y = 0.05; const pin = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.4, 8), GLOW(col)); pin.rotation.x = Math.PI; pin.position.y = 2.7; g.add(body, visor, halo, pin); g.position.set(m.x, 0, m.z); scene.add(g); mateMeshes.set(m.id, g); }
+        g.position.x += (m.x - g.position.x) * Math.min(1, dt * 8); g.position.z += (m.z - g.position.z) * Math.min(1, dt * 8); g.rotation.y = m.yaw; g.children[3].position.y = 2.7 + Math.sin(now * 3) * 0.12; }
+      for (const [id, g] of mateMeshes) if (!mateList.some(m => m.id === id)) { scene.remove(g); mateMeshes.delete(id); }
       api.shake = curShake;
       renderer.render(scene, cam);
     },
@@ -507,7 +512,8 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
       cam.aspect = w / h; cam.updateProjectionMatrix();
     },
     setHigh(h) { high = h; renderer.shadowMap.enabled = h; sun.castShadow = h; api.resize(); scene.traverse(o => { const m = (o as THREE.Mesh).material as any; if (m && m.needsUpdate !== undefined) m.needsUpdate = true; }); },
-    info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, high, rigs: rigs.size }),
+    mates(list) { mateList = list; },
+    info: () => ({ mates: mateMeshes.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, high, rigs: rigs.size }),
     dispose() { renderer.dispose(); scene.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); const mt: any = m.material; (Array.isArray(mt) ? mt : [mt]).forEach(x => x && x.dispose && x.dispose()); } }); if (canvas.parentNode) canvas.parentNode.removeChild(canvas); },
   };
   api.resize(); guns[gun].visible = true;
