@@ -14668,7 +14668,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       <ChatHistorySheet open={historyOpen} lang={lang} threads={threads} activeId={chatThreadId.current} onClose={() => setHistoryOpen(false)}
         onOpen={(id) => { playUi("click"); openThread(id); }} onNew={() => { playUi("click"); newChat(); }}
         onDelete={removeThread} onPin={pinThread} onMove={moveThread} />
-      {challengeNudge && !practiceOpen && !expToast && (
+      {false && challengeNudge && !practiceOpen && !expToast && (
         <div className="installbanner" style={{ background: "linear-gradient(90deg,#8b5cf6,#a78bfa)" }}>
           <span className="installbanner-ic" aria-hidden="true">{challengeNudge.icon}</span>
           <div className="installbanner-tx">

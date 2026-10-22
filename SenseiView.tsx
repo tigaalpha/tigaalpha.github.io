@@ -127,17 +127,6 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
               );
             })()}
 
-            <div className="handsel" style={{ display: "flex", marginTop: "10px", padding: "0 2px" }}>
-              <button className="handbtn on handtoggle" onClick={() => setHand(hand === "left" ? "right" : "left")}
-                title={hand === "left" ? lc.leftHand : lc.rightHand} aria-label={hand === "left" ? lc.leftHand : lc.rightHand}>
-                <svg className="handsvg" width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true" style={{ flexShrink: 0, transform: hand === "right" ? "scaleX(-1)" : undefined }}>
-                  <path d="M11 14V7.5a1.8 1.8 0 0 1 3.6 0V13M14.6 13V6a1.8 1.8 0 0 1 3.6 0v7M18.2 13.5V8a1.8 1.8 0 0 1 3.6 0v8.5c0 4.5-2.6 8-7.4 8-3 0-4.6-1.2-6.4-3.6l-2.8-3.8a1.9 1.9 0 0 1 3-2.3l1.8 2V9a1.8 1.8 0 0 1 3.6 0v5"
-                    stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <span className="handlbl">{hand === "left" ? lc.leftHand : lc.rightHand}</span>
-                <span className="handswap" aria-hidden="true">⇄</span>
-              </button>
-            </div>
             <style>{OCTAVE_CSS + ".octrow{display:flex;justify-content:center;margin:8px 0}.octsel{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}.octsel select{min-height:44px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);padding:0 14px;font-weight:800}"}</style>
             {octaves > 1 && (
               <OctaveStage onPractice={(sq: any) => { setOctaves(1); startOctavePractice && startOctavePractice(sq); }} notes={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.notes : DEFAULT_SCALE} label={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.label : "C Major Scale"} octaves={octaves} setOctaves={setOctaves} hand={hand} setHand={setHand} lang={lang} onClose={() => setOctaves(1)} />
@@ -174,6 +163,14 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
                   <span className="nowcard-s">{nNotes ? `${nNotes} ${TT.notes} · ~${mins} ${TT.min}` : ""}{rec && rec.label ? ` · ${lc.recFor}: ${rec.label}` : ""}</span>
                   <div className="nowcard-act">
                     <button className={`practicebtn nowcard-go${!seqPlaying ? " ready" : ""}`} onClick={startPractice} title={lc.practiceBtn}>▶ {TT.start}</button>
+                    <button className="handbtn on handtoggle handmini" onClick={() => setHand(hand === "left" ? "right" : "left")}
+                title={hand === "left" ? lc.leftHand : lc.rightHand} aria-label={hand === "left" ? lc.leftHand : lc.rightHand}>
+                <svg className="handsvg" width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true" style={{ flexShrink: 0, transform: hand === "right" ? "scaleX(-1)" : undefined }}>
+                  <path d="M11 14V7.5a1.8 1.8 0 0 1 3.6 0V13M14.6 13V6a1.8 1.8 0 0 1 3.6 0v7M18.2 13.5V8a1.8 1.8 0 0 1 3.6 0v8.5c0 4.5-2.6 8-7.4 8-3 0-4.6-1.2-6.4-3.6l-2.8-3.8a1.9 1.9 0 0 1 3-2.3l1.8 2V9a1.8 1.8 0 0 1 3.6 0v5"
+                    stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg><span className="handlbl">{hand === "left" ? lc.leftHand : lc.rightHand}</span>
+                <span className="handswap" aria-hidden="true">⇄</span>
+              </button>
                     <button className="nowcard-sub" onClick={togglePlayPause} title={TT.listen}>{seqPlaying ? "⏸ " + lc.demoPause : "👂 " + TT.listen}</button>
                   </div>
                 </div>
