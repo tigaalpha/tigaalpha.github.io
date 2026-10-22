@@ -10,6 +10,7 @@ import { enterGame, COST as POWER_COST } from "./game-power";
 import { PowerSheet } from "./game-power-ui";
 import { gfxHigh } from "./adv-gfx";
 import { enterFs, exitFsAndUnlock } from "./pvp-arena";
+import { CSS as ADV_CSS } from "./adventure";
 import { logUsage } from "./shared-infra";
 import { openAdvRoom, MAX_PILOTS, type Net, type Peer } from "./adv-online";
 import type { ShopW } from "./ah-engine";
@@ -49,6 +50,8 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   const inPart = RA_PLANETS.map((p, gi) => ({ p, gi })).filter(x => (RA_SECT[x.p.id] || "ground") === part), POS = posOf(inPart.length);
   const stage = useRef<HTMLDivElement>(null);
 
+  useEffect(() => { if (screen === "film") { try { enterFs(); } catch (e) {} } }, [screen]);   // same as Adventure: every film is full screen
+
   /* the map: full screen, landscape (a quarter turn when the phone refuses to rotate), and its own tune */
   useEffect(() => {
     if (screen !== "hub") return undefined;
@@ -78,7 +81,9 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   const dfn = defOf(sel);
 
   if (screen === "film") return (
-    <Suspense fallback={<div className="ra-load">…</div>}><style>{CSS}</style><AdventureCine P={cur} lang={lang} me={me} colorway={undefined} onDone={() => setScreen("play")} /></Suspense>
+    <div className="adv" role="region" aria-label="Film"><style>{ADV_CSS}</style>
+      <Suspense fallback={<div className="adv-cine" />}><AdventureCine P={cur} lang={lang} me={me} colorway={undefined} onDone={() => setScreen("play")} /></Suspense>
+    </div>
   );
   if (screen === "play" && dfn && dfn.kind === "ship") return (
     <Suspense fallback={<div className="ra-load"><style>{CSS}</style>…</div>}>
