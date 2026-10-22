@@ -11,6 +11,7 @@ import { PowerSheet } from "./game-power-ui";
 import { gfxHigh } from "./adv-gfx";
 import { enterFs, exitFsAndUnlock } from "./pvp-arena";
 import { logUsage } from "./shared-infra";
+import { openAdvRoom, MAX_PILOTS, type Net, type Peer } from "./adv-online";
 import type { ShopW } from "./ah-engine";
 
 const AlienHuntPage = lazy(() => import("./alien-hunt").then(m => ({ default: m.AlienHuntPage })));
@@ -31,6 +32,15 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   const [sel, setSel] = useState<string>(firstOpen), [part, setPart] = useState<string>(() => RA_SECT[firstOpen()] || "solar");
   const [portrait, setPortrait] = useState(() => typeof window !== "undefined" && window.innerHeight > window.innerWidth), [high, setHigh] = useState(() => gfxHigh()), [snd, setSnd] = useState(() => AU.soundOn());
   const [powerNeed, setPowerNeed] = useState<number | null>(null);
+  /* co-op (plan 39 P5): a room on the Adventure Online channel; every client runs its own game and shows teammates as ghosts, the host starts an episode for everyone */
+  const [coop, setCoop] = useState(false), [net, setNet] = useState<Net | null>(null), [peers, setPeers] = useState<Peer[]>([]), [codeIn, setCodeIn] = useState(""), [coErr, setCoErr] = useState("");
+  const netRef = useRef<Net | null>(null), goRef = useRef<(id: string) => void>(() => {});
+  const joinRoom = async (code: string | null) => {
+    setCoErr(""); try { const n = await openAdvRoom(code, { name: me || "Pilot", model: "", glow: "#7fe8ff" }); n.on({ onPeers: l => setPeers(l), onStart: pid => { if (n.host) return; goRef.current(pid); }, onLeave: () => {} }); netRef.current = n; setNet(n); setPeers([...n.peers.values()]); try { logUsage("ra", "coop:" + (code ? "join" : "create")); } catch (e) {} }
+    catch (e) { setCoErr(t("เข้าห้องไม่ได้ ตรวจรหัสแล้วลองใหม่", "Could not join. Check the code and try again.", "无法加入，请检查房间码。")); }
+  };
+  const leaveRoom = () => { try { netRef.current && netRef.current.leave(); } catch (e) {} netRef.current = null; setNet(null); setPeers([]); };
+  useEffect(() => () => { try { netRef.current && netRef.current.leave(); } catch (e) {} }, []);
   const unlockAll = adminTier >= 3 || (() => { try { return localStorage.getItem("tg_test_hook") === "1" && localStorage.getItem("tg_adv_unlockall") === "1"; } catch (e) { return false; } })();
   const open = (i: number) => unlockAll || i === 0 || done.includes(RA_PLANETS[i - 1].id) || (i > 1 && done.includes(RA_PLANETS[i - 2].id));
   const playable = (id: string) => !!defOf(id);
@@ -56,13 +66,15 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
     window.addEventListener("pointermove", mv); return () => window.removeEventListener("pointermove", mv);
   }, [screen]);
 
-  const go = (id: string) => {
-    if (!playable(id)) return; if (playUi) playUi("click");
+  const go = (id: string, fromHost = false) => {
+    if (!playable(id)) return;
+    if (net && net.host && !fromHost) { try { net.sendStart(id); } catch (e) {} } if (playUi) playUi("click");
     if (!enterGame(POWER_COST.adventure, adminTier)) { setPowerNeed(POWER_COST.adventure); return; }
     setSel(id); let nocine = false; try { nocine = localStorage.getItem("tg_adv_nocine") === "1"; } catch (e) {}
     try { logUsage("ra", "start:" + id + ":" + (gfxHigh() ? "hd" : "sd")); } catch (e) {}
     setScreen(nocine ? "play" : "film");
   };
+  goRef.current = (pid: string) => go(pid, true);
   const dfn = defOf(sel);
 
   if (screen === "film") return (
@@ -76,7 +88,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   if (screen === "play" && dfn && dfn.kind === "foot") return (
     <Suspense fallback={<div className="ra-load"><style>{CSS}</style>…</div>}>
       <AlienHuntPage lang={lang} me={me} adminTier={adminTier} onBack={onBack} playUi={playUi} onReward={onReward} shopWeapon={shopWeapon}
-        ra={{ data: dfn.data, onWin: () => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }, onBack: () => { setDone(readDone()); setScreen("hub"); } }} />
+        ra={{ net, data: dfn.data, onWin: () => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }, onBack: () => { setDone(readDone()); setScreen("hub"); } }} />
     </Suspense>
   );
 
@@ -90,11 +102,28 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
         <button className="ra-x" data-ra-close="1" onClick={() => { if (playUi) playUi("click"); onBack(); }} aria-label="close">✕</button>
         <div className="ra-title"><h1>ROBOT ADVENTURE <b>3D</b></h1><span>{t("เล่นตามเนื้อเรื่อง · มุมมองบุคคลที่ 1 · ตอบคำถามดนตรีเพื่อทำภารกิจ", "Follow the story · first-person · answer music questions to carry out missions", "跟随剧情 · 第一人称 · 回答音乐问题完成任务")}</span></div>
         <div className="ra-tabs" data-ra-tabs="1">{PARTS.map(pt => <button key={pt[0]} data-part={pt[0]} className={part === pt[0] ? "on" : ""} onClick={() => setPart(pt[0])}>{T3(lang, pt[1], pt[2], pt[3])}</button>)}</div>
-        <div className="ra-opts">
+        <div className="ra-opts"><button data-ra-coop-btn="1" className={net ? "on" : ""} onClick={() => setCoop(v => !v)}>👥 {net ? net.code : t("ร่วมเล่น", "Co-op", "合作")}</button>
           <span>{t("กราฟิก", "Graphics", "画质")}</span>{[true, false].map(h => <button key={String(h)} data-gfx={h ? "high" : "lite"} className={high === h ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_gfx", h ? "high" : "standard"); } catch (e) {} setHigh(h); }}>{h ? "High" : "Lite"}</button>)}
           <button className={"ra-snd" + (snd ? " on" : "")} data-ra-snd="1" aria-label="sound" onClick={() => { const v = !snd; setSnd(v); AU.setSoundOn(v); }}>{snd ? "♪" : "✕"}</button>
         </div>
       </header>
+      {coop && (
+        <div className="ra-coop" data-ra-coop="1">
+          <button className="ra-coop-x" onClick={() => setCoop(false)} aria-label="close">✕</button>
+          <b>{t("เล่นร่วมกัน (สูงสุด 4 คน)", "Co-op (up to 4 pilots)", "合作（最多4人）")}</b>
+          {!net ? (<>
+            <button className="ra-go" data-coop-create="1" onClick={() => joinRoom(null)}>{t("สร้างห้องใหม่", "Make a room", "创建房间")}</button>
+            <div className="ra-coop-row"><input data-coop-code="1" value={codeIn} maxLength={6} placeholder={t("รหัสห้อง", "Room code", "房间码")} onChange={e => setCodeIn(e.target.value.toUpperCase())} /><button data-coop-join="1" onClick={() => joinRoom(codeIn)}>{t("เข้าร่วม", "Join", "加入")}</button></div>
+            {coErr && <small data-coop-err="1">{coErr}</small>}
+          </>) : (<>
+            <div className="ra-coop-code" data-coop-room="1">{net.code}</div>
+            <div className="ra-coop-peers" data-coop-peers="1">{[{ id: net.id, name: me || "Pilot", isHost: net.host } as Peer, ...peers].slice(0, MAX_PILOTS).map(q => <span key={q.id}>{q.isHost ? "★ " : ""}{q.name}</span>)}</div>
+            <small>{net.host ? t("แตะดาวแล้วกดเริ่ม ทุกคนจะเริ่มพร้อมกัน", "Pick an episode and deploy: everyone starts together.", "选择关卡并出发，所有人同时开始。") : t("รอหัวห้องเลือกด่าน", "Wait for the host to pick an episode.", "等待房主选关。")}</small>
+            <small>{t("แต่ละคนเล่นเกมของตัวเอง เห็นเพื่อนเป็นเงาในฉาก ไม่มีรางวัลเพิ่ม", "Each pilot plays their own game and sees the others as ghosts; no extra rewards.", "每人独立游戏，队友以幽灵显示；无额外奖励。")}</small>
+            <button className="ra-ghost" data-coop-leave="1" onClick={leaveRoom}>{t("ออกจากห้อง", "Leave room", "离开房间")}</button>
+          </>)}
+        </div>
+      )}
       <div className="ra-stage" ref={stage}>
         <div className="ra-plane" data-ra-plane="1">
           <div className="ra-grid" />
@@ -129,6 +158,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
 }
 
 const CSS = `
+.ra-coop{position:absolute;right:12px;top:52px;z-index:8;width:250px;background:#0b1620f0;border:1px solid #5affc877;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:12px}.ra-coop-x{position:absolute;right:6px;top:6px;width:26px;height:26px;border-radius:50%;border:1px solid #ffffff44;background:transparent;color:#fff;cursor:pointer}.ra-coop-row{display:flex;gap:6px}.ra-coop-row input{flex:1;min-width:0;height:34px;border-radius:17px;border:1px solid #ffffff44;background:#13212c;color:#fff;padding:0 12px;text-transform:uppercase}.ra-coop-row button,.ra-coop .ra-go{height:34px;border-radius:17px;border:0;background:#1f7a5a;color:#fff;font-weight:800;padding:0 14px;cursor:pointer}.ra-coop-code{font-size:26px;letter-spacing:6px;font-weight:900;text-align:center;color:#5affc8}.ra-coop-peers{display:flex;flex-wrap:wrap;gap:6px}.ra-coop-peers span{background:#13212c;border-radius:12px;padding:3px 9px}.ra-coop .ra-ghost{height:30px;border-radius:15px;border:1px solid #ffffff44;background:transparent;color:#cfe;cursor:pointer}.ra-coop small{opacity:.8}
 .ra-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;max-width:48%}.ra-tabs button{white-space:nowrap;height:30px;padding:0 12px;border-radius:15px;border:1px solid #ffffff33;background:#0b1a24cc;color:#cfe;font-weight:800;font-size:11px;cursor:pointer}.ra-tabs button.on{background:#1f7a5a;border-color:#5affc8;color:#fff}
 .ra-load{position:fixed;inset:0;z-index:2450;background:#02070c;color:#9dffd6;display:flex;align-items:center;justify-content:center;font-weight:800}
 .ra-hub{position:fixed;inset:0;z-index:2450;overflow:hidden;color:#e8fff6;font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(120% 100% at 50% 0,#0a2a3a 0,#04121c 55%,#010509 100%);user-select:none;-webkit-user-select:none}

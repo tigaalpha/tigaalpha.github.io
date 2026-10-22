@@ -72,7 +72,7 @@ export const AH_COIN_DAY_CAP = 600;
 const ahDayKey = () => new Date().toISOString().slice(0, 10);
 const readAhDayCoins = () => { try { const v = JSON.parse(localStorage.getItem("tg_ah_coin_day") || "null"); return v && v.d === ahDayKey() ? Number(v.n) || 0 : 0; } catch (e) { return 0; } };
 const addAhDayCoins = (n: number) => { try { localStorage.setItem("tg_ah_coin_day", JSON.stringify({ d: ahDayKey(), n: readAhDayCoins() + n })); } catch (e) {} };
-export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null, ra = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null; ra?: { data: RaLevel; onWin: () => void; onBack: () => void } | null }) {   // ra: Robot Adventure 3D plays this engine on one of its own levels (plan 39)
+export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null, ra = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null; ra?: { data: RaLevel; onWin: () => void; onBack: () => void; net?: any } | null }) {   // ra: Robot Adventure 3D plays this engine on one of its own levels (plan 39)
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const host = useRef<HTMLDivElement>(null), rdr = useRef<Render | null>(null), S = useRef<State>(newState(Date.now() & 0xffff, readTune()));
   const inp = useRef<Input>(noInput()), look = useRef({ x: 0, y: 0 }), keys = useRef<Record<string, boolean>>({}), stick = useRef({ id: -1, x0: 0, y0: 0, mx: 0, mz: 0 }), lookId = useRef(-1);
@@ -124,7 +124,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
   useEffect(() => {
     if (phase !== "play" || !host.current) return undefined;
     let r: Render; try { r = createRender(host.current, high, S.current.lv, ra ? ra.data.level : null); } catch (e) { setBanner("WebGL"); return undefined; }
-    rdr.current = r; let raf = 0, last = performance.now(), acc = 0, slow = 0, hudT = 0;
+    rdr.current = r; let raf = 0, last = performance.now(), acc = 0, slow = 0, hudT = 0, netT = 0;
     const onResize = () => r.resize(); window.addEventListener("resize", onResize);
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop); const dt = Math.min(0.1, (now - last) / 1000); last = now; const s = S.current;
@@ -147,6 +147,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
       if (bannerT.current > 0) { bannerT.current -= dt; if (bannerT.current <= 0) setBanner(""); }
       r.draw(s, dt);
       if (high && !pausedRef.current && !s.frozen) { if (dt > 0.031) slow++; else slow = Math.max(0, slow - 1); if (slow > 90) { slow = 0; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} setHigh(false); r.setHigh(false); try { logUsage(ra ? "ra" : "ah", "auto-lite"); } catch (e) {} } }
+      if (ra && ra.net) { netT += dt; if (netT > 0.2) { netT = 0; try { ra.net.sendPos(s.p.x, s.p.z, s.p.yaw, Math.round(s.p.hp)); r.mates([...ra.net.peers.values()].filter((q: any) => q.tx !== undefined).map((q: any) => ({ id: q.id, x: q.tx, z: q.ty, yaw: q.face || 0, glow: q.glow }))); } catch (e) {} } }
       hudT += dt; if (hudT > 0.1) { hudT = 0; drawMap(mapRef.current, s, s.lv ? "#" + (ra ? ra.data.level : LEVELS[s.lv - 1]).tint.toString(16).padStart(6, "0") : "#ff8a3a"); { const near = s.enemies.filter(e => e.dead === 0 && Math.hypot(e.x - s.p.x, e.z - s.p.z) < 12).length; AU.setIntensity(s.p.hp < 35 || near >= 4 || s.wave >= 4 ? 3 : s.enemies.some(e => e.dead === 0) ? 2 : 1); } const w = s.weapon, a = s.ammo[w]; setHud({ hp: Math.round(s.p.hp), sh: Math.round(s.p.shield), w: s.shopW && s.shopW.as === w ? s.shopW.name : WEAPONS[w].name, coins: s.coins, mag: a.mag, res: w === "pistol" ? "∞" : a.res, wave: s.wave, nw: s.waves.length, boss: (() => { const b = s.enemies.find(e => e.dead === 0 && ALIENS[e.kind].boss); return b ? { n: ra && ra.data.level.bossName ? T3(lang, ...ra.data.level.bossName) : ALIENS[b.kind].name, p: Math.max(0, b.hp / b.max) } : null; })(), left: s.enemies.filter(e => e.dead === 0).length + s.spawnQ.length, score: s.score, streak: s.streak, reload: s.reload > 0, tune: Math.max(0, Math.ceil(s.tuneEvery - s.tuneT)), ts: s.tuneStreak, obj: s.ms ? { label: s.ms.label, peaceful: s.peaceful, type: s.ms.type, prog: s.ms.prog, goal: s.ms.goal, left: Math.max(0, Math.ceil(s.ms.secs - s.ms.t)), phase: s.ms.phase, cur: Math.round(100 * s.ms.items.reduce((m, it) => (it.done ? m : Math.max(m, it.p)), 0)) } : null, boost: s.boost > 0, own: WORDER.filter(w => s.owned[w]).join(","), cur: s.weapon, sl: s.p.slideCd <= 0, au: s.auto, af: s.autoFire, between: s.between > 0 && s.enemies.every(e => e.dead !== 0) }); }
     };
     raf = requestAnimationFrame(loop);
