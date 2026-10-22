@@ -1,0 +1,50 @@
+// Robot Adventure 3D as a normal player (plan 39): the lobby button, the 3D story map (planets, locks, a tilted floor), the level starts in a real WebGL canvas with the Luma monsters, a win marks the planet cleared in the shared Adventure progress. SHOT=<prefix> saves pictures.
+import http from "node:http"; import fs from "node:fs"; import path from "node:path"; import { execSync } from "node:child_process"; import { pathToFileURL } from "node:url";
+const pwm = await import(pathToFileURL(path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "playwright/index.js")).href); const pw = pwm.chromium ? pwm : pwm.default;
+const ROOT = path.resolve("dist"); const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp" };
+const server = http.createServer((req, res) => { let p = decodeURIComponent(req.url.split("?")[0]); if (p.endsWith("/")) p += "index.html"; const f = path.join(ROOT, p); if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); } res.writeHead(200, { "content-type": MIME[path.extname(f)] || "application/octet-stream" }); fs.createReadStream(f).pipe(res); });
+await new Promise(r => server.listen(0, "127.0.0.1", r));
+const browser = await pw.chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
+const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, serviceWorkers: "block" });
+await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort()); await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+await ctx.addInitScript(() => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_adv_gfx", "high"); localStorage.setItem("tg_gp_free", "1");  localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: "en", age: "adult", level: "beginner", exp: 5000 })); });
+const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message)); await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
+for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
+let fail = 0; const ok = (n, c, d = "") => { console.log((c ? "PASS " : "FAIL ") + n + (d ? " — " + d : "")); if (!c) fail++; };
+const SHOT = process.env.SHOT || "";
+ok("the lobby has a Robot Adventure 3D button", (await p.locator("[data-robot3d]").count()) === 1);
+ok("the Adventure Online button is not the one in that slot", (await p.locator(".pvpadv.online").innerText()).includes("Robot Adventure 3D"));
+await p.evaluate(() => document.querySelector("[data-robot3d]").click()); await p.waitForSelector("[data-ra='hub']", { timeout: 8000 }); await p.waitForTimeout(700);
+ok("nine planets on the map", (await p.locator(".ra-pl").count()) === 9);
+ok("a normal player has only the first map open", (await p.evaluate(() => [...document.querySelectorAll(".ra-pl")].map(b => b.dataset.open).join())) === "1,0,0,0,0,0,0,0,0");
+ok("only Luma is built in 3D", (await p.evaluate(() => [...document.querySelectorAll(".ra-pl")].filter(b => b.dataset["3d"] === "1").map(b => b.dataset.planet).join())) === "luma");
+ok("the map floor is really tilted in 3D", (await p.evaluate(() => getComputedStyle(document.querySelector("[data-ra-plane]")).transform)).startsWith("matrix3d"));
+ok("the planets are joined by a route", (await p.locator(".ra-route path").count()) === 8);
+const inside = await p.evaluate(() => { const W = innerWidth, H = innerHeight; return [...document.querySelectorAll(".ra-pl")].every(b => { const r = b.getBoundingClientRect(); return r.left >= -2 && r.right <= W + 2 && r.top >= 0 && r.bottom <= H + 2; }); });
+ok("every planet is inside the screen", inside);
+ok("the card says the Luma story", /glowing jungle/i.test(await p.locator("[data-ra-card]").innerText()));
+ok("Continue is ready for Luma", await p.locator("[data-ra-continue]").isEnabled());
+ok("the map tune's audio context is running", await p.evaluate(() => { const c = window.__tgCineCtx; return !!c && c.state === "running"; }));
+if (SHOT) await p.screenshot({ path: SHOT + "-hub.png" });
+await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(500);
+ok("a portrait window turns the map a quarter turn", (await p.locator(".ra-hub.rot").count()) === 1);
+await p.setViewportSize({ width: 844, height: 390 }); await p.waitForTimeout(400);
+await p.evaluate(() => localStorage.setItem("tg_adv_nocine", "1"));
+await p.locator("[data-ra-play]").click(); await p.waitForSelector(".ah-cv", { timeout: 15000 }); await p.waitForTimeout(1500);
+const st = await p.evaluate(() => { const s = window.__ah.state; return { lv: s.lv, boxes: s.boxes.length, waves: s.waves.length }; });
+ok("the level starts: Luma's rocks and four waves", st.lv === 1 && st.boxes === 11 && st.waves === 4, JSON.stringify(st));
+ok("the briefing shows", /glowing jungle|ป่าเรืองแสง/i.test(await p.locator(".ah-banner").innerText().catch(() => "")));
+await p.evaluate(() => { window.__ah.step(300); }); await p.waitForTimeout(400);
+const kinds = await p.evaluate(() => [...new Set(window.__ah.state.enemies.map(e => e.kind))].join());
+ok("Luma's creatures spawn", /glowbug/.test(kinds), kinds);
+ok("the renderer built a jungle scene (info reports meshes)", await p.evaluate(() => { const i = window.__ah.info(); return !!i; }));
+if (SHOT) { await p.evaluate(() => window.__ah.draw()); await p.screenshot({ path: SHOT + "-play.png" }); }
+let won = false; for (let i = 0; i < 400 && !won; i++) { await p.evaluate(() => { const a = window.__ah; a.state.p.hp = 100; a.killAll(); a.step(90); }); await p.waitForTimeout(60); won = (await p.locator("[data-result]").count()) > 0; }
+ok("clearing every wave ends the level on the result card", won);
+ok("the result card carries the radio line and a way back to the map", (await p.locator("[data-radio]").count()) === 1 && (await p.locator("[data-ra-map]").count()) === 1);
+ok("Luma is marked cleared in the shared Adventure progress", (await p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done") || "[]"))).includes("luma"));
+if (SHOT) await p.screenshot({ path: SHOT + "-result.png" });
+await p.locator("[data-ra-map]").click(); await p.waitForSelector("[data-ra='hub']", { timeout: 8000 }); await p.waitForTimeout(500);
+ok("back on the map Luma shows cleared and the next map is open (still 3D-soon)", await p.evaluate(() => { const l = document.querySelector("[data-planet=luma]"), f = document.querySelector("[data-planet=ferro]"); return l.classList.contains("clr") && f.dataset.open === "1" && f.dataset["3d"] === "0"; }));
+ok("no page errors", errs.length === 0, errs.slice(0, 3).join(" | "));
+await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

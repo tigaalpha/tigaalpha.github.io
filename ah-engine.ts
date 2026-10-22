@@ -1,10 +1,10 @@
 /* Alien Hunt simulation (plan 38, phases A-D + the tune-up clock of E2). Pure: no three.js, no DOM, no storage, so scripts/smoke-alien-hunt.mjs runs the real file.
    Units are metres on the x/z plane, y is up; the player's eyes are 1.65 m above the floor. */
 
-import { LEVELS, BOXES_1, type Hazard } from "./ah-levels";
+import { LEVELS, BOXES_1, type Hazard, type Level } from "./ah-levels";
 export type Box = { x: number; z: number; w: number; d: number; h: number };
 export type WeaponId = "pistol" | "rifle" | "shotgun" | "launcher" | "laser" | "rail" | "arc" | "beam" | "pulsar" | "nova" | "storm" | "cryo" | "rpg" | "salvo";
-export type AlienKind = "skitter" | "mantis" | "spitter" | "flarecaster" | "charger" | "skyeye" | "scarab" | "behemoth" | "wisp" | "drone" | "stalker" | "warden" | "matriarch" | "walker";
+export type AlienKind = "skitter" | "mantis" | "spitter" | "flarecaster" | "charger" | "skyeye" | "scarab" | "behemoth" | "wisp" | "drone" | "stalker" | "warden" | "matriarch" | "walker" | "glowbug" | "thornback" | "sporecaster" | "hound" | "lumawarden";
 export type Enemy = { id: number; kind: AlienKind; x: number; z: number; hp: number; max: number; yaw: number; t: number; cd: number; dead: number; flash: number; leap: number; side?: number; sideT?: number; gt?: number; tele?: number; rush?: number; stun?: number; dx?: number; dz?: number; slow?: number; bt?: number; vt?: number; mt?: number };
 export type Acid = { rt?: "plasma" | "rpg" | "salvo"; id: number; x: number; y: number; z: number; vx: number; vz: number; vy: number; life: number; g?: number; dmg?: number; big?: number; col?: number };
 export type Ev = { k: "shot" | "hit" | "kill" | "head" | "hurt" | "reload" | "empty" | "spit" | "wave" | "tune" | "win" | "lose" | "swap"; x?: number; y?: number; z?: number; n?: number; w?: string; p?: number[] };
@@ -41,14 +41,19 @@ export const ALIENS: Record<AlienKind, { name: string; hp: number; speed: number
   stalker: { name: "Stalker", hp: 80, speed: 4.2, r: 0.6, dmg: 14, reach: 1.7, score: 160, hy: 1.8 },
   warden: { name: "Hive Warden", hp: 600, speed: 3.4, r: 1.0, dmg: 36, reach: 2.0, score: 1500, hy: 1.6, nohead: true, boss: true },
   matriarch: { name: "Cinder Matriarch", hp: 800, speed: 2.2, r: 0.8, dmg: 0, reach: 0, score: 2000, hy: 1.8, boss: true },
+  glowbug: { name: "Glowbug", hp: 30, speed: 6.0, r: 0.5, dmg: 6, reach: 1.15, score: 50, hy: 0.55 },
+  thornback: { name: "Thornback", hp: 140, speed: 3.0, r: 0.9, dmg: 20, reach: 1.7, score: 200, hy: 1.1, nohead: true },
+  sporecaster: { name: "Sporecaster", hp: 80, speed: 2.7, r: 0.7, dmg: 0, reach: 0, score: 170, hy: 1.8 },
+  hound: { name: "Shadow Hound", hp: 60, speed: 7.0, r: 0.55, dmg: 9, reach: 1.2, score: 90, hy: 0.8 },
+  lumawarden: { name: "Luma Warden", hp: 650, speed: 3.2, r: 1.0, dmg: 34, reach: 2.0, score: 1800, hy: 1.7, nohead: true, boss: true },
   walker: { name: "Harvester Walker", hp: 1400, speed: 2.0, r: 1.0, dmg: 0, reach: 0, score: 4000, hy: 4.5, cy: 3.4, nohead: true, boss: true },
 };
 /** the aliens are human-sized or bigger (owner, 2026-10-18: "as big as a person, scarier"): the table above is the small design, this scales every body and its hit box */
-export const ALIEN_SCALE: Record<AlienKind, number> = { skitter: 1.9, mantis: 1.3, spitter: 1.3, flarecaster: 1.2, charger: 1.55, skyeye: 1.3, scarab: 1.5, behemoth: 1.7, wisp: 1.1, drone: 1.2, stalker: 1.25, warden: 2.4, matriarch: 2.2, walker: 2.0 };
+export const ALIEN_SCALE: Record<AlienKind, number> = { skitter: 1.9, mantis: 1.3, spitter: 1.3, flarecaster: 1.2, charger: 1.55, skyeye: 1.3, scarab: 1.5, behemoth: 1.7, wisp: 1.1, drone: 1.2, stalker: 1.25, warden: 2.4, matriarch: 2.2, walker: 2.0, glowbug: 1.7, thornback: 1.6, sporecaster: 1.25, hound: 1.5, lumawarden: 2.5 };
 /** the behaviour a species borrows: new races look different but move and fight like a known role */
-export const BEH: Partial<Record<AlienKind, AlienKind>> = { scarab: "skitter", behemoth: "charger", wisp: "skyeye", drone: "spitter", stalker: "mantis", warden: "charger", matriarch: "flarecaster", walker: "skyeye" };
+export const BEH: Partial<Record<AlienKind, AlienKind>> = { scarab: "skitter", behemoth: "charger", wisp: "skyeye", drone: "spitter", stalker: "mantis", warden: "charger", matriarch: "flarecaster", walker: "skyeye", glowbug: "skitter", thornback: "charger", sporecaster: "flarecaster", hound: "skitter", lumawarden: "charger" };
 export const behOf = (k: AlienKind): AlienKind => BEH[k] || k;
-const MINIONS: Partial<Record<AlienKind, AlienKind[]>> = { warden: ["scarab", "stalker"], matriarch: ["skitter", "stalker"], walker: ["wisp", "drone"] };
+const MINIONS: Partial<Record<AlienKind, AlienKind[]>> = { warden: ["scarab", "stalker"], matriarch: ["skitter", "stalker"], walker: ["wisp", "drone"], lumawarden: ["glowbug", "hound"] };
 for (const k of Object.keys(ALIENS) as AlienKind[]) { const A = ALIENS[k], f = ALIEN_SCALE[k]; A.r *= f; A.hy *= f; if (A.cy !== undefined) A.cy *= f; if (A.reach > 0) A.reach *= f; }
 export const bodyY = (k: AlienKind) => { const A = ALIENS[k]; return A.cy !== undefined ? A.cy : A.hy * 0.62; };
 export const CLASSIC_WAVES: AlienKind[][] = [
@@ -79,9 +84,9 @@ export type State = {
 
 export function mulberry(s: number) { return () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponId[] = [], shopW: ShopW | null = null): State {
+export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponId[] = [], shopW: ShopW | null = null, lvObj: Level | null = null): State {   // lvObj: a level that is not in the Alien Hunt campaign (Robot Adventure 3D passes its own)
   if (shopW && !startGuns.includes(shopW.as)) startGuns = [...startGuns, shopW.as];
-  const L = level > 0 ? LEVELS[Math.min(level, LEVELS.length) - 1] : null;
+  const L = lvObj || (level > 0 ? LEVELS[Math.min(level, LEVELS.length) - 1] : null);
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
     t: 0, active: 0, rng: seed, seed, auto: true, autoFire: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
