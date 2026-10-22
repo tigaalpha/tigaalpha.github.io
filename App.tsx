@@ -13543,7 +13543,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             if (n !== charModel && owned.includes(MODEL_ITEM[n])) { setCharModelState(n); setEquipLS("charModel", n); playUi("click"); }
           }}
           onOpenShop={() => { playUi("click"); setShopTab("battle"); setShopSubTab("charModel"); setShopOpen(true); }}
-          onBack={() => { setPage("profile"); playUi("click"); }}
+          onBack={() => { setPage("pathway"); playUi("click"); }}
           playUi={playUi}
           onApplyLoadout={applyLoadout}
           onPracticeWeakness={() => { setPage("pathway"); playUi("click"); }}
