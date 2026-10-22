@@ -15,36 +15,48 @@ const SHOT = process.env.SHOT || "";
 ok("the lobby has a Robot Adventure 3D button", (await p.locator("[data-robot3d]").count()) === 1);
 ok("the Adventure Online button is not the one in that slot", (await p.locator(".pvpadv.online").innerText()).includes("Robot Adventure 3D"));
 await p.evaluate(() => document.querySelector("[data-robot3d]").click()); await p.waitForSelector("[data-ra='hub']", { timeout: 8000 }); await p.waitForTimeout(700);
-ok("nine planets on the map", (await p.locator(".ra-pl").count()) === 9);
-ok("a normal player has only the first map open", (await p.evaluate(() => [...document.querySelectorAll(".ra-pl")].map(b => b.dataset.open).join())) === "1,0,0,0,0,0,0,0,0");
-ok("all nine alien-surface maps are built in 3D", (await p.evaluate(() => [...document.querySelectorAll(".ra-pl")].filter(b => b.dataset["3d"] === "1").map(b => b.dataset.planet).join())) === "luma,ferro,jovia,kryo,pyra,nexa,cobalt,helios,ashfall");
+const N = await p.locator(".ra-pl").count(); ok("Part 1 lists its episodes (two rows, all inside the screen)", N >= 15 && N <= 22, "n=" + N);
+ok("four part tabs", (await p.locator("[data-ra-tabs] button").count()) === 4);
+ok("a normal player has only the first episode open", (await p.evaluate(() => [...document.querySelectorAll(".ra-pl")].filter(b => b.dataset.open === "1").length)) === 1);
 ok("the map floor is really tilted in 3D", (await p.evaluate(() => getComputedStyle(document.querySelector("[data-ra-plane]")).transform)).startsWith("matrix3d"));
-ok("the planets are joined by a route", (await p.locator(".ra-route path").count()) === 8);
+ok("the episodes are joined by a route", (await p.locator(".ra-route path").count()) === N - 1);
 const inside = await p.evaluate(() => { const W = innerWidth, H = innerHeight; return [...document.querySelectorAll(".ra-pl")].every(b => { const r = b.getBoundingClientRect(); return r.left >= -2 && r.right <= W + 2 && r.top >= 0 && r.bottom <= H + 2; }); });
-ok("every planet is inside the screen", inside);
-ok("the card says the Luma story", /glowing jungle/i.test(await p.locator("[data-ra-card]").innerText()));
-ok("Continue is ready for Luma", await p.locator("[data-ra-continue]").isEnabled());
+ok("every episode of the part is inside the screen", inside);
+const total = []; for (const part of ["solar", "space", "ground", "act2"]) { await p.locator(`[data-part=${part}]`).click(); await p.waitForTimeout(250); total.push(await p.locator(".ra-pl").count()); }
+ok("the four parts hold all 49 episodes", total.reduce((a, b) => a + b, 0) === 49, total.join("+"));
+await p.locator("[data-part=solar]").click(); await p.waitForTimeout(250);
+ok("Continue is ready", await p.locator("[data-ra-continue]").isEnabled());
 ok("the map tune's audio context is running", await p.evaluate(() => { const c = window.__tgCineCtx; return !!c && c.state === "running"; }));
 if (SHOT) await p.screenshot({ path: SHOT + "-hub.png" });
 await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(500);
 ok("a portrait window turns the map a quarter turn", (await p.locator(".ra-hub.rot").count()) === 1);
 await p.setViewportSize({ width: 844, height: 390 }); await p.waitForTimeout(400);
 await p.evaluate(() => localStorage.setItem("tg_adv_nocine", "1"));
-await p.locator("[data-ra-play]").click(); await p.waitForSelector(".ah-cv", { timeout: 15000 }); await p.waitForTimeout(1500);
-const st = await p.evaluate(() => { const s = window.__ah.state; return { lv: s.lv, boxes: s.boxes.length, waves: s.waves.length }; });
-ok("the level starts: Luma's rocks and four waves", st.lv === 1 && st.boxes === 11 && st.waves === 4, JSON.stringify(st));
-ok("the briefing shows", /glowing jungle|ป่าเรืองแสง/i.test(await p.locator(".ah-banner").innerText().catch(() => "")));
-await p.evaluate(() => { window.__ah.step(300); }); await p.waitForTimeout(400);
-const kinds = await p.evaluate(() => [...new Set(window.__ah.state.enemies.map(e => e.kind))].join());
-ok("Luma's creatures spawn", /glowbug/.test(kinds), kinds);
-ok("the renderer built a jungle scene (info reports meshes)", await p.evaluate(() => { const i = window.__ah.info(); return !!i; }));
-if (SHOT) { await p.evaluate(() => window.__ah.draw()); await p.screenshot({ path: SHOT + "-play.png" }); }
-let won = false; for (let i = 0; i < 400 && !won; i++) { await p.evaluate(() => { const a = window.__ah; a.state.p.hp = 100; a.killAll(); a.step(90); }); await p.waitForTimeout(60); won = (await p.locator("[data-result]").count()) > 0; }
-ok("clearing every wave ends the level on the result card", won);
-ok("the result card carries the radio line and a way back to the map", (await p.locator("[data-radio]").count()) === 1 && (await p.locator("[data-ra-map]").count()) === 1);
-ok("Luma is marked cleared in the shared Adventure progress", (await p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done") || "[]"))).includes("luma"));
-if (SHOT) await p.screenshot({ path: SHOT + "-result.png" });
+// 1) the first episode is a foot "task" level: walking onto the pad asks ONE music question, even with nothing learned
+await p.locator("[data-ra-play]").click(); await p.waitForSelector(".ah-cv", { timeout: 15000 }); await p.waitForTimeout(1200);
+ok("the first episode starts on foot as a task level", await p.evaluate(() => !!window.__ah.state.ms && window.__ah.state.ms.type === "task"));
+ok("the objective chip shows", (await p.locator(".ah-obj").count()) === 1);
+await p.evaluate(() => { const a = window.__ah, s = a.state, it = s.ms.items[0]; s.p.x = it.x; s.p.z = it.z; a.step(3); }); await p.waitForTimeout(700);
+ok("the music question opens when the mission step is reached", (await p.locator(".ah-card").count()) >= 1);
+await p.locator("[data-ready]").click({ timeout: 4000 }).catch(() => {}); await p.waitForTimeout(500);
+ok("the question text is there (a learner with nothing studied still gets one)", (await p.locator("[data-q]").innerText().catch(() => "")).length > 3);
+await p.locator("[data-skip]").click().catch(() => {}); await p.waitForTimeout(600);
+await p.evaluate(() => { const s = window.__ah.state; for (const it of s.ms.items) it.done = true; s.ms.prog = s.ms.goal; s.ms.ask = -1; s.frozen = false; window.__ah.step(5); }); await p.waitForTimeout(600);
+ok("finishing the task ends the level on the result card", (await p.locator("[data-result]").count()) > 0);
+ok("the episode is marked cleared in the shared Adventure progress", (await p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done") || "[]"))).includes("shipbuild"));
 await p.locator("[data-ra-map]").click(); await p.waitForSelector("[data-ra='hub']", { timeout: 8000 }); await p.waitForTimeout(500);
-ok("back on the map Luma shows cleared and the next map is open and built in 3D", await p.evaluate(() => { const l = document.querySelector("[data-planet=luma]"), f = document.querySelector("[data-planet=ferro]"); return l.classList.contains("clr") && f.dataset.open === "1" && f.dataset["3d"] === "1" && document.querySelector("[data-planet=kryo]").dataset.open === "0"; }));
+// 2) a ship episode (Departure) flies in a cockpit; the autopilot reaches a gate that asks a question
+await p.evaluate(() => { const b = document.querySelector("[data-planet=departure]"); b.click(); }); await p.waitForTimeout(300);
+ok("Departure is open after the first episode", await p.evaluate(() => document.querySelector("[data-planet=departure]").dataset.open === "1"));
+await p.locator("[data-ra-play]").click(); await p.waitForSelector("[data-rs=launch]", { timeout: 15000 }); await p.waitForTimeout(1200);
+ok("the cockpit has a real WebGL canvas", await p.evaluate(() => { const c = document.querySelector(".rs-host canvas"); return !!c && !!(c.getContext("webgl2") || c.getContext("webgl")); }));
+if (SHOT) await p.screenshot({ path: SHOT + "-ship.png" });
+let asked = false; for (let i = 0; i < 40 && !asked; i++) { await p.evaluate(() => window.__raShip.step(5)); await p.waitForTimeout(150); asked = (await p.locator("[data-rs-quiz]").count()) > 0; }
+ok("flying through a green gate opens a music question", asked);
+if (asked) { await p.locator("[data-ready]").click({ timeout: 4000 }).catch(() => {}); await p.waitForTimeout(400); ok("the question shows in the cockpit", (await p.locator("[data-q]").innerText().catch(() => "")).length > 3); await p.locator("[data-skip]").click().catch(() => {}); await p.waitForTimeout(500); }
+ok("a skipped question lets the flight go on", await p.evaluate(() => !window.__raShip.S().frozen));
+let won = false; for (let i = 0; i < 80 && !won; i++) { await p.evaluate(() => { const s = window.__raShip.S(); if (s.ask) { /* answer right through the page's own card */ } window.__raShip.step(5); }); await p.waitForTimeout(120); if ((await p.locator("[data-rs-quiz]:not([data-result])").count()) > 0) { await p.evaluate(() => { const S = window.__raShip.S(); S.ask = null; S.frozen = false; const g = S.gates.find(x => !x.done); if (g) { g.done = true; S.prog++; S.answers++; } }); await p.waitForTimeout(100); } won = (await p.locator("[data-result]").count()) > 0; }
+ok("reaching the last gate ends the flight on the result card", won);
+ok("Departure is marked cleared", (await p.evaluate(() => JSON.parse(localStorage.getItem("tg_adv_done") || "[]"))).includes("departure"));
 ok("no page errors", errs.length === 0, errs.slice(0, 3).join(" | "));
 await browser.close(); server.close(); console.log(fail ? fail + " FAILED" : "all passed"); process.exit(fail ? 1 : 0);

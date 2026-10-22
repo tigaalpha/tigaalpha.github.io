@@ -2,13 +2,14 @@
 import { build } from "esbuild"; import { mkdtempSync } from "fs"; import { tmpdir } from "os"; import { join } from "path";
 const d = mkdtempSync(join(tmpdir(), "ra-")); const out = join(d, "e.mjs"), out2 = join(d, "d.mjs");
 await build({ entryPoints: ["ah-engine.ts"], bundle: true, format: "esm", outfile: out, logLevel: "silent" });
-await build({ entryPoints: ["ra-data.ts"], bundle: true, format: "esm", outfile: out2, logLevel: "silent", external: [] });
+await build({ entryPoints: ["ra-factory.ts"], bundle: true, format: "esm", outfile: out2, logLevel: "silent", external: [] });
 const E = await import(out), D = await import(out2); let fail = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fail++; };
-ok(D.RA_PLAYABLE.join() === "luma,ferro,jovia,kryo,pyra,nexa,cobalt,helios,ashfall", "all nine alien-surface maps are playable in 3D, in story order");
-for (const id of D.RA_PLAYABLE) {
-  const L = D.RA_LEVELS[id].level, tag = id + ": ";
-  const M = D.RA_LEVELS[id].level.mission; ok(L.kit && L.waves.length >= 3 && (M || (L.boss && E.ALIENS[L.boss].boss)), tag + "a kit, waves and a boss or a mission");
-  ok(D.RA_LEVELS[id].radio.length === 3 && D.RA_LEVELS[id].brief[0] && D.RA_LEVELS[id].win[2], tag + "briefing, three radio lines and a win line in all languages");
+ok(D.RA_ALL.length === 49 && D.RA_ALL.every(id => D.defOf(id)), "all 49 episodes have a definition (foot or ship)");
+const SHIPS = D.RA_ALL.filter(id => D.defOf(id).kind === "ship"); ok(SHIPS.length >= 15, "the ship episodes are routed to the cockpit: " + SHIPS.length);
+for (const id of D.RA_ALL.filter(id => D.defOf(id).kind === "foot")) {
+  const R = D.defOf(id).data, L = R.level, tag = id + ": ";
+  const M = L.mission; ok(L.kit && L.waves.length >= 3 && (M || (L.boss && E.ALIENS[L.boss].boss)), tag + "a kit, waves and a boss or a mission");
+  ok(R.radio.length === 3 && R.brief[0] && R.win[2], tag + "briefing, three radio lines and a win line in all languages");
   const kinds = new Set(L.waves.flat()); ok([...kinds].every(k => E.ALIENS[k] && E.ALIEN_SCALE[k] && E.behOf(k)), tag + "every creature exists in the engine tables");
   const s = E.newState(5, 0, 1, [], null, L);
   ok(s.lv === L.id && s.waves === L.waves && s.boxes === L.boxes && s.hz === L.hazards, tag + "the engine plays the level it was handed");
@@ -20,6 +21,7 @@ for (const id of D.RA_PLAYABLE) {
     s.p.hp = 100;
     for (const e of s.enemies) { seen.add(e.kind); if (e.dead === 0) { if (E.ALIENS[e.kind].boss) { boss++; if (boss < 120) continue; } e.hp = 0; e.dead = 0.5; } }
     if (s.ms && s.ms.type !== "survive") { const it = s.ms.items.find(q => !q.done); if (it && s.ms.phase === 0) { s.p.x = it.x; s.p.z = it.z; inp.dig = true; } }
+    if (s.frozen && s.ms && s.ms.ask >= 0) E.answerTune(s, true);
     E.step(s, 1 / 60, inp); for (const ev of s.ev) { if (ev.k === "win") win = true; if (ev.k === "strike") pri = "strike"; } s.ev = [];
   }
   ok(win && s.won && (!L.boss || seen.has(L.boss)), tag + (M ? "a bot completes the " + M.type + " mission" : "a bot clears four waves and meets the boss"));

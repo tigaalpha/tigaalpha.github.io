@@ -5,11 +5,11 @@ import type { Box, AlienKind, WeaponId } from "./ah-engine";
 
 export type Theme = { sky: [string, string, string, string]; fog: number; fogD: number; ground: number; wall: number; hemi: [number, number]; sun: number; ring: number };
 export type Hazard = { x: number; z: number; r: number; per: number; on: number; col: number };
-export type MissionSpec = { type: "survive" | "capture" | "mine" | "strike"; secs?: number; hold?: number; pts?: [number, number][]; boss?: AlienKind };
+export type MissionSpec = { type: "survive" | "capture" | "mine" | "strike" | "task"; label?: [string, string, string]; secs?: number; hold?: number; pts?: [number, number][]; boss?: AlienKind };
 export type Level = {
-  mission?: MissionSpec;
+  mission?: MissionSpec; auto?: { glow: number; props: "spire" | "mesa" | "tower" | "pod" };
   id: number; name: [string, string, string]; race: [string, string, string]; blurb: [string, string, string];
-  tint: number; waves: AlienKind[][]; boxes: Box[]; theme: Theme; guns: WeaponId[]; hazards: Hazard[]; hpk: number; boss?: AlienKind; kit?: "jungle" | "desert" | "ice" | "lava" | "ruins" | "gas" | "belt" | "sun"; bossName?: [string, string, string];
+  tint: number; waves: AlienKind[][]; boxes: Box[]; theme: Theme; guns: WeaponId[]; hazards: Hazard[]; hpk: number; boss?: AlienKind; peaceful?: boolean; kit?: "jungle" | "desert" | "ice" | "lava" | "ruins" | "gas" | "belt" | "sun" | "auto"; bossName?: [string, string, string];
 };
 
 /** "skitter*3,scarab*4" -> the species of one wave */

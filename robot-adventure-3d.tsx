@@ -1,9 +1,9 @@
 /* Robot Adventure 3D (plan 39, owner 2026-10-22): the Adventure story played in first person. This file is the shell: the story map (the Adventure lobby, laid on a tilted
    3D floor), the film before a map, and the hand-over to the Alien Hunt engine, which plays the level (ra-data.ts holds the level and the story lines).
-   Progress is the Adventure's own `tg_adv_done`, so a planet cleared here is cleared there. Only the maps listed in RA_PLAYABLE exist in 3D so far. */
+   Progress is the Adventure's own `tg_adv_done`, so a planet cleared here is cleared there. All 49 episodes are playable: on foot (Alien Hunt engine) or in a cockpit (ra-cockpit.tsx), see ra-factory.ts. */
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { RA_PLANETS } from "./ra-planets";
-import { RA_LEVELS, RA_PLAYABLE } from "./ra-data";
+import { RA_PLANETS, RA_SECT } from "./ra-planets";
+import { defOf } from "./ra-factory";
 import { orbPic } from "./planet-orb";
 import * as AU from "./ah-audio";
 import { enterGame, COST as POWER_COST } from "./game-power";
@@ -14,24 +14,29 @@ import { logUsage } from "./shared-infra";
 import type { ShopW } from "./ah-engine";
 
 const AlienHuntPage = lazy(() => import("./alien-hunt").then(m => ({ default: m.AlienHuntPage })));
+const RaShipPage = lazy(() => import("./ra-cockpit"));
 const AdventureCine = lazy(() => import("./adventure-cine"));
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const markDone = (id: string) => { try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
-/** where each planet stands on the floor: two rows, left to right (percent of the floor) */
-const POS: [number, number][] = [[8, 66], [18.5, 34], [29, 68], [39.5, 34], [50, 68], [60.5, 34], [71, 68], [81.5, 34], [92, 66]];
+const PARTS: [string, string, string, string][] = [["solar", "ภาค 1 · ออกจากโลก", "Part 1 · Leaving Earth", "第1部 · 离开地球"], ["space", "ภาค 2 · ไททันและอาร์ก", "Part 2 · Titan & Ark", "第2部 · 土卫六与方舟"], ["ground", "ภาค 3 · โลกใหม่", "Part 3 · New worlds", "第3部 · 新世界"], ["act2", "ภาค 4 · ผู้เก็บเกี่ยว", "Part 4 · The Harvesters", "第4部 · 收割者"]];
+/** where each episode of a part stands on the floor: two staggered rows, left to right (percent of the floor) */
+const posOf = (n: number): [number, number][] => { const per = Math.ceil(n / 2); return Array.from({ length: n }, (_, i) => { const r = i < per ? 0 : 1, c = r === 0 ? i : i - per, cols = r === 0 ? per : n - per; return [8 + (cols > 1 ? c * (80 / (cols - 1)) : 42) + (r ? 3 : 0), r === 0 ? 34 + (c % 2) * 6 : 70 + (c % 2) * 6] as [number, number]; }); };
 const shortName = (s: string) => s.split(" · ")[0];
 
 export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null }) {
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
-  const [screen, setScreen] = useState<"hub" | "film" | "play">("hub"), [sel, setSel] = useState<string>("luma"), [done, setDone] = useState<string[]>(() => readDone());
+  const [screen, setScreen] = useState<"hub" | "film" | "play">("hub"), [done, setDone] = useState<string[]>(() => readDone());
+  const firstOpen = () => { const d = readDone(); const k = RA_PLANETS.findIndex(p => !d.includes(p.id)); return k < 0 ? RA_PLANETS[0].id : RA_PLANETS[k].id; };
+  const [sel, setSel] = useState<string>(firstOpen), [part, setPart] = useState<string>(() => RA_SECT[firstOpen()] || "solar");
   const [portrait, setPortrait] = useState(() => typeof window !== "undefined" && window.innerHeight > window.innerWidth), [high, setHigh] = useState(() => gfxHigh()), [snd, setSnd] = useState(() => AU.soundOn());
   const [powerNeed, setPowerNeed] = useState<number | null>(null);
   const unlockAll = adminTier >= 3 || (() => { try { return localStorage.getItem("tg_test_hook") === "1" && localStorage.getItem("tg_adv_unlockall") === "1"; } catch (e) { return false; } })();
   const open = (i: number) => unlockAll || i === 0 || done.includes(RA_PLANETS[i - 1].id) || (i > 1 && done.includes(RA_PLANETS[i - 2].id));
-  const playable = (id: string) => RA_PLAYABLE.includes(id);
+  const playable = (id: string) => !!defOf(id);
   const cur = RA_PLANETS.find(p => p.id === sel) || RA_PLANETS[0], curIdx = RA_PLANETS.indexOf(cur);
   const next3d = RA_PLANETS.findIndex((p, i) => playable(p.id) && open(i) && !done.includes(p.id));
+  const inPart = RA_PLANETS.map((p, gi) => ({ p, gi })).filter(x => (RA_SECT[x.p.id] || "ground") === part), POS = posOf(inPart.length);
   const stage = useRef<HTMLDivElement>(null);
 
   /* the map: full screen, landscape (a quarter turn when the phone refuses to rotate), and its own tune */
@@ -58,19 +63,24 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
     try { logUsage("ra", "start:" + id + ":" + (gfxHigh() ? "hd" : "sd")); } catch (e) {}
     setScreen(nocine ? "play" : "film");
   };
-  const lv = RA_LEVELS[sel];
+  const dfn = defOf(sel);
 
   if (screen === "film") return (
     <Suspense fallback={<div className="ra-load">…</div>}><style>{CSS}</style><AdventureCine P={cur} lang={lang} me={me} colorway={undefined} onDone={() => setScreen("play")} /></Suspense>
   );
-  if (screen === "play" && lv) return (
+  if (screen === "play" && dfn && dfn.kind === "ship") return (
+    <Suspense fallback={<div className="ra-load"><style>{CSS}</style>…</div>}>
+      <RaShipPage lang={lang} me={me} adminTier={adminTier} def={dfn.data} onWin={() => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }} onBack={() => { setDone(readDone()); setScreen("hub"); }} />
+    </Suspense>
+  );
+  if (screen === "play" && dfn && dfn.kind === "foot") return (
     <Suspense fallback={<div className="ra-load"><style>{CSS}</style>…</div>}>
       <AlienHuntPage lang={lang} me={me} adminTier={adminTier} onBack={onBack} playUi={playUi} onReward={onReward} shopWeapon={shopWeapon}
-        ra={{ data: lv, onWin: () => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }, onBack: () => { setDone(readDone()); setScreen("hub"); } }} />
+        ra={{ data: dfn.data, onWin: () => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }, onBack: () => { setDone(readDone()); setScreen("hub"); } }} />
     </Suspense>
   );
 
-  const brief = lv && sel === cur.id ? lv.brief : null;
+  const brief = dfn && sel === cur.id ? dfn.data.brief : null;
   return (
     <div className={"ra-hub" + (portrait ? " rot" : "")} data-ra="hub">
       <style>{CSS}</style>
@@ -78,7 +88,8 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
       <div className="ra-stars s1" /><div className="ra-stars s2" /><div className="ra-neb" />
       <header className="ra-head">
         <button className="ra-x" data-ra-close="1" onClick={() => { if (playUi) playUi("click"); onBack(); }} aria-label="close">✕</button>
-        <div className="ra-title"><h1>ROBOT ADVENTURE <b>3D</b></h1><span>{t("ตอนที่ 3 · โลกใหม่ — เล่นแบบมุมมองบุคคลที่ 1", "Part 3 · New worlds — first-person", "第3章 · 新世界 — 第一人称")}</span></div>
+        <div className="ra-title"><h1>ROBOT ADVENTURE <b>3D</b></h1><span>{t("เล่นตามเนื้อเรื่อง · มุมมองบุคคลที่ 1 · ตอบคำถามดนตรีเพื่อทำภารกิจ", "Follow the story · first-person · answer music questions to carry out missions", "跟随剧情 · 第一人称 · 回答音乐问题完成任务")}</span></div>
+        <div className="ra-tabs" data-ra-tabs="1">{PARTS.map(pt => <button key={pt[0]} data-part={pt[0]} className={part === pt[0] ? "on" : ""} onClick={() => setPart(pt[0])}>{T3(lang, pt[1], pt[2], pt[3])}</button>)}</div>
         <div className="ra-opts">
           <span>{t("กราฟิก", "Graphics", "画质")}</span>{[true, false].map(h => <button key={String(h)} data-gfx={h ? "high" : "lite"} className={high === h ? "on" : ""} onClick={() => { try { localStorage.setItem("tg_adv_gfx", h ? "high" : "standard"); } catch (e) {} setHigh(h); }}>{h ? "High" : "Lite"}</button>)}
           <button className={"ra-snd" + (snd ? " on" : "")} data-ra-snd="1" aria-label="sound" onClick={() => { const v = !snd; setSnd(v); AU.setSoundOn(v); }}>{snd ? "♪" : "✕"}</button>
@@ -88,16 +99,16 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
         <div className="ra-plane" data-ra-plane="1">
           <div className="ra-grid" />
           <svg className="ra-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            {RA_PLANETS.slice(1).map((p, k) => { const a = POS[k], b = POS[k + 1], ok = open(k + 1); return <path key={p.id} d={`M${a[0]} ${a[1]} Q${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2 + (k % 2 ? 8 : -8)} ${b[0]} ${b[1]}`} fill="none" vectorEffect="non-scaling-stroke" stroke={ok ? "#7affd0" : "#ffffff44"} strokeWidth="2.6" strokeDasharray={ok ? "0" : "5 6"} />; })}
+            {inPart.slice(1).map((x, k) => { const p = x.p, a = POS[k], b = POS[k + 1], ok = open(x.gi); return <path key={p.id} d={`M${a[0]} ${a[1]} Q${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2 + (k % 2 ? 8 : -8)} ${b[0]} ${b[1]}`} fill="none" vectorEffect="non-scaling-stroke" stroke={ok ? "#7affd0" : "#ffffff44"} strokeWidth="2.6" strokeDasharray={ok ? "0" : "5 6"} />; })}
           </svg>
-          {RA_PLANETS.map((p, i) => {
-            const isOpen = open(i), cleared = done.includes(p.id), d3 = playable(p.id), size = 58 + (i * 7) % 4 * 7 + (p.id === sel ? 10 : 0), pos = POS[i];
+          {inPart.map((x, pi) => {
+            const p = x.p, i = x.gi, isOpen = open(i), cleared = done.includes(p.id), d3 = playable(p.id), size = 58 + (i * 7) % 4 * 7 + (p.id === sel ? 10 : 0), pos = POS[pi];
             return (
               <button key={p.id} data-planet={p.id} data-open={isOpen ? "1" : "0"} data-3d={d3 ? "1" : "0"} className={"ra-pl" + (isOpen ? "" : " lock") + (cleared ? " clr" : "") + (p.id === sel ? " sel" : "") + (i === next3d ? " next" : "")}
                 style={{ left: pos[0] + "%", top: pos[1] + "%", ["--s" as any]: size + "px", ["--c" as any]: p.c[2], ["--d" as any]: (i % 5) * 0.4 + "s" }} onClick={() => { if (playUi) playUi("click"); setSel(p.id); }}>
                 <i className="ra-orb"><img alt="" src={orbPic(p.id, p.c[2], p.c[1])} />{!isOpen ? <b>🔒</b> : cleared ? <em>✓</em> : null}</i>
                 <span className="ra-nm">{shortName(T3(lang, p.th, p.en, p.zh))}</span>
-                <u className={d3 ? "g" : ""}>{d3 ? "3D" : t("3D เร็วๆนี้", "3D soon", "3D即将")}</u>
+                <u className="g">{defOf(p.id)!.kind === "ship" ? "🚀" : "👣"}</u>
               </button>
             );
           })}
@@ -118,6 +129,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
 }
 
 const CSS = `
+.ra-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;max-width:48%}.ra-tabs button{white-space:nowrap;height:30px;padding:0 12px;border-radius:15px;border:1px solid #ffffff33;background:#0b1a24cc;color:#cfe;font-weight:800;font-size:11px;cursor:pointer}.ra-tabs button.on{background:#1f7a5a;border-color:#5affc8;color:#fff}
 .ra-load{position:fixed;inset:0;z-index:2450;background:#02070c;color:#9dffd6;display:flex;align-items:center;justify-content:center;font-weight:800}
 .ra-hub{position:fixed;inset:0;z-index:2450;overflow:hidden;color:#e8fff6;font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(120% 100% at 50% 0,#0a2a3a 0,#04121c 55%,#010509 100%);user-select:none;-webkit-user-select:none}
 .ra-hub.rot{inset:auto;top:0;left:100%;width:100vh;height:100vw;transform-origin:0 0;transform:rotate(90deg)}
@@ -128,7 +140,7 @@ const CSS = `
 .ra-neb{position:absolute;inset:0;pointer-events:none;background:radial-gradient(40% 50% at 22% 78%,#1c8a6a33,transparent 70%),radial-gradient(35% 45% at 80% 30%,#7a3aff2a,transparent 70%)}
 .ra-head{position:absolute;left:0;right:0;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:8px 12px}
 .ra-x{width:36px;height:36px;border-radius:50%;border:1px solid #ffffff33;background:#0b1a24cc;color:#fff;font-size:16px;font-weight:900;cursor:pointer}
-.ra-title{flex:1;min-width:0}.ra-title h1{margin:0;font-size:19px;letter-spacing:2px;font-weight:900;text-shadow:0 0 18px #5affc8aa}.ra-title h1 b{color:#5affc8}.ra-title span{display:block;font-size:11px;opacity:.75}
+.ra-title{flex:1;min-width:0}.ra-title h1{margin:0;white-space:nowrap;font-size:15px;letter-spacing:2px;font-weight:900;text-shadow:0 0 18px #5affc8aa}.ra-title h1 b{color:#5affc8}.ra-title span{display:block;font-size:11px;opacity:.75}
 .ra-opts{display:flex;align-items:center;gap:6px;font-size:11px}.ra-opts button{min-width:44px;height:30px;padding:0 10px;border-radius:15px;border:1px solid #ffffff33;background:#0b1a24cc;color:#cfe;font-weight:800;cursor:pointer}.ra-opts button.on{background:#1c8a6a;border-color:#5affc8;color:#fff}
 .ra-stage{position:absolute;left:0;right:0;top:56px;bottom:74px;perspective:900px;perspective-origin:50% 8%;--tx:0deg;--ty:0deg}
 .ra-plane{position:absolute;left:3%;right:3%;top:10%;height:86%;transform-style:preserve-3d;transform:rotateX(calc(46deg + var(--ty))) rotateZ(var(--tx));transition:transform .25s ease-out}
