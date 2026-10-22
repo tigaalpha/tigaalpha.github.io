@@ -295,7 +295,7 @@ function buildGun(id: string): THREE.Group {
 export type Render = { draw: (s: State, dt: number) => void; resize: () => void; dispose: () => void; setHigh: (h: boolean) => void; events: (ev: Ev[]) => void; shake: number; info: () => any; canvas: HTMLCanvasElement };
 
 export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvObj: Level | null = null): Render {
-  let high = startHigh; const LV = lvObj || (lv > 0 ? LEVELS[Math.min(lv, LEVELS.length) - 1] : null), JUNGLE = !!(LV && LV.kit === "jungle"), TH = LV ? LV.theme : null, TINT = LV ? LV.tint : 0;
+  let high = startHigh; const LV = lvObj || (lv > 0 ? LEVELS[Math.min(lv, LEVELS.length) - 1] : null), KIT = LV && LV.kit ? LV.kit : "", JUNGLE = KIT === "jungle", TH = LV ? LV.theme : null, TINT = LV ? LV.tint : 0;
   const renderer = new THREE.WebGLRenderer({ antialias: high, powerPreference: "high-performance", preserveDrawingBuffer: false });
   renderer.shadowMap.enabled = high; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
   const canvas = renderer.domElement; canvas.className = "ah-cv"; host.appendChild(canvas);
@@ -310,6 +310,7 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
   const ring = new THREE.Mesh(new THREE.TorusGeometry(40, 1.2, 8, 48), GLOW(TH ? TH.ring : 0xff4a3a)); ring.rotation.x = Math.PI / 2; ring.position.y = -3.8; ship.add(ring);
   const core = new THREE.Mesh(new THREE.SphereGeometry(9, 16, 10), GLOW(0xff7a3a)); core.position.y = -6; core.scale.y = 0.5; ship.add(core);
   ship.position.set(-30, 62, -110); scene.add(ship);
+  if (KIT) ship.visible = false;   // a Robot Adventure 3D level has its own sky
   if (JUNGLE) {   // Luma: no Harvester ship; a pale ringed gas giant hangs in the sky instead
     ship.visible = false;
     const giant = new THREE.Mesh(new THREE.SphereGeometry(30, 28, 18), new THREE.MeshBasicMaterial({ fog: false, map: canvasTex(256, 128, g => { const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, "#9ad8c8"); gr.addColorStop(0.5, "#5aa89a"); gr.addColorStop(1, "#2a6a68"); g.fillStyle = gr; g.fillRect(0, 0, 256, 128); for (let i = 0; i < 9; i++) { g.fillStyle = "rgba(255,255,255," + (0.05 + (i % 3) * 0.04) + ")"; g.fillRect(0, 8 + i * 13, 256, 4 + (i % 4)); } }) })); giant.position.set(-60, 55, -140); scene.add(giant);
@@ -327,11 +328,13 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
   /* ground and the level kit */
   const asphalt = canvasTex(256, 256, g => { g.fillStyle = "#3b3640"; g.fillRect(0, 0, 256, 256); noise(g, 256, 256, 1800, 0.2); g.strokeStyle = "rgba(230,200,90,.55)"; g.lineWidth = 3; g.setLineDash([22, 18]); g.beginPath(); g.moveTo(128, 0); g.lineTo(128, 256); g.stroke(); }, 22);
   const moss = canvasTex(256, 256, g => { g.fillStyle = "#1d3a2c"; g.fillRect(0, 0, 256, 256); noise(g, 256, 256, 2600, 0.3); for (let i = 0; i < 90; i++) { g.fillStyle = "rgba(" + (60 + (i % 5) * 30) + ",255," + (150 + (i % 3) * 40) + ",.16)"; g.beginPath(); g.arc(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 5, 0, 7); g.fill(); } }, 14);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(ARENA * 2 + 4, ARENA * 2 + 4), new THREE.MeshStandardMaterial({ map: JUNGLE ? moss : asphalt, color: TH ? TH.ground : 0xffffff, roughness: 0.92, metalness: 0.05 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  const KITC: Record<string, string> = { desert: "#7a5030", ice: "#6f90b0", lava: "#2c1a16", ruins: "#3c3a4c" }, KITW: Record<string, number> = { jungle: 0x0c2a1c, desert: 0x4a2a14, ice: 0x2a4a68, lava: 0x1a0c08, ruins: 0x1c1830 };
+  const kitTex = canvasTex(256, 256, g => { g.fillStyle = KITC[KIT] || "#444"; g.fillRect(0, 0, 256, 256); noise(g, 256, 256, 2400, 0.32); for (let i = 0; i < 60; i++) { g.fillStyle = KIT === "lava" ? "rgba(255," + (80 + (i % 4) * 30) + ",20,.18)" : "rgba(255,255,255,.07)"; g.beginPath(); g.arc(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 6, 0, 7); g.fill(); } }, 14);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(ARENA * 2 + 4, ARENA * 2 + 4), new THREE.MeshStandardMaterial({ map: KIT ? (JUNGLE ? moss : kitTex) : asphalt, color: TH ? TH.ground : 0xffffff, roughness: 0.92, metalness: 0.05 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
   const crateTex = canvasTex(128, 128, g => { g.fillStyle = "#5a5648"; g.fillRect(0, 0, 128, 128); noise(g, 128, 128, 500, 0.25); g.fillStyle = "#d4a93a"; for (let i = -2; i < 8; i++) { g.save(); g.translate(i * 24, 0); g.rotate(-0.6); g.fillRect(0, -10, 10, 220); g.restore(); } g.fillStyle = "rgba(20,20,24,.5)"; g.fillRect(0, 0, 128, 16); }, 1);
   const wallTex = canvasTex(256, 128, g => { g.fillStyle = "#33303a"; g.fillRect(0, 0, 256, 128); noise(g, 256, 128, 900, 0.18); g.fillStyle = "rgba(255,170,80,.7)"; for (let i = 0; i < 18; i++) g.fillRect(8 + (i % 6) * 40, 14 + Math.floor(i / 6) * 34, 16, 20); }, 1);
   const rockTex = canvasTex(128, 128, g => { g.fillStyle = "#3a4a40"; g.fillRect(0, 0, 128, 128); noise(g, 128, 128, 900, 0.3); g.fillStyle = "rgba(90,255,190,.25)"; for (let i = 0; i < 26; i++) { g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 4, 0, 7); g.fill(); } }, 1);
-  const boxMat = new THREE.MeshStandardMaterial({ map: JUNGLE ? rockTex : crateTex, roughness: 0.8, metalness: 0.2 });
+  const boxMat = new THREE.MeshStandardMaterial({ map: KIT ? (JUNGLE ? rockTex : kitTex) : crateTex, roughness: 0.8, metalness: 0.2 });
   const levelGroup = new THREE.Group(); scene.add(levelGroup);
   let builtFor: any = null;
   const hzMesh: { m: THREE.Mesh; h: { per: number; on: number } }[] = [];
@@ -343,6 +346,16 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
     for (const [x, z, w, d] of [[0, -L, L * 2, 1], [0, L, L * 2, 1], [-L, 0, 1, L * 2], [L, 0, 1, L * 2]] as number[][]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, H, d), wm); m.position.set(x, H / 2, z); m.receiveShadow = true; levelGroup.add(m); }
     for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, lp = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 6, 6), MAT(0x222226)); lp.position.set(Math.cos(a) * 27, 3, Math.sin(a) * 27); levelGroup.add(lp); const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), GLOW(0xffd080)); bulb.position.set(Math.cos(a) * 27, 6.1, Math.sin(a) * 27); levelGroup.add(bulb); }
     for (const h of hz) { const m = new THREE.Mesh(new THREE.CircleGeometry(h.r, 28), new THREE.MeshBasicMaterial({ color: h.col, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); m.rotation.x = -Math.PI / 2; m.position.set(h.x, 0.04, h.z); levelGroup.add(m); hzMesh.push({ m, h }); }
+    if (KIT && !JUNGLE) {   // the other Robot Adventure 3D kits: walls in the planet's colour and a ring of tall landmarks beyond the arena
+      const wl = new THREE.MeshStandardMaterial({ color: KITW[KIT], roughness: 0.9 });
+      for (const m of levelGroup.children.slice(boxes.length, boxes.length + 4)) (m as THREE.Mesh).material = wl;
+      const glowC = KIT === "ice" ? 0x7ad8ff : KIT === "lava" ? 0xff6a1a : KIT === "desert" ? 0xff9a4a : 0x9a7aff, body = MAT(KIT === "ice" ? 0x6a9ac0 : KIT === "lava" ? 0x1c0e0a : KIT === "desert" ? 0x7a4a28 : 0x3a3a52, { roughness: 0.55 });
+      for (let i = 0; i < 40; i++) { const a = i / 40 * Math.PI * 2 + Math.sin(i * 7.3) * 0.05, rr = 24 + (i % 4) * 3 + Math.abs(Math.sin(i * 3.1)) * 3, h = 3 + Math.abs(Math.sin(i * 5.7)) * 6, g = new THREE.Group();
+        const m = new THREE.Mesh(KIT === "desert" ? new THREE.BoxGeometry(2.4 + (i % 3), h, 2.4 + (i % 2)) : KIT === "ruins" ? new THREE.BoxGeometry(1.8, h * 1.3, 1.8) : new THREE.ConeGeometry(0.9 + (i % 3) * 0.4, h * 1.4, KIT === "ice" ? 5 : 6), body); m.position.y = h * 0.55; m.rotation.y = i; g.add(m);
+        const tip = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), GLOW(glowC)); tip.position.y = KIT === "desert" ? h * 1.1 : h * 1.25; g.add(tip);
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: glowC, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending })); sp.scale.set(4, 4, 1); sp.position.copy(tip.position); g.add(sp);
+        g.position.set(Math.cos(a) * rr, 0, Math.sin(a) * rr); levelGroup.add(g); }
+    }
     if (JUNGLE) {   // the jungle kit: leaf walls, a ring of glowing mushrooms and ferns beyond the arena
       const leaf = new THREE.MeshStandardMaterial({ color: 0x0c2a1c, roughness: 0.9 });
       for (const m of levelGroup.children.slice(boxes.length, boxes.length + 4)) (m as THREE.Mesh).material = leaf;
