@@ -255,13 +255,6 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
           learner knows the small loop paid off and the full drill is next. */}
       {r.spotUsed && <div className="presultsub" style={{ color: "#34c759" }}>✓ {lc.practiceSpotDone}</div>}
 
-      {(dynPct != null || rhythmPct != null) && (
-        <div className="presultbars">
-          {dynPct != null && <ResultBar label={lc.practiceDynLbl} pct={dynPct} color="#8ad4ff" />}
-          {rhythmPct != null && <ResultBar label={lc.practiceRhythmLbl} pct={rhythmPct} color="#ffd23f" />}
-        </div>
-      )}
-
       <details className="prmore" data-prmore="1">
         <summary>{lang === "th" ? "ดูคำแนะนำจากครู" : lang === "zh" ? "查看老师建议" : "See the teacher's tips"}</summary>
       {/* Conversion pill (strategy phase 2): only for free-plan learners and
@@ -336,13 +329,14 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
   const midiOf = (n: string) => { const m = /^([A-G]#?)(-?\d+)$/.exec(String(n)); return m ? (Number(m[2]) + 1) * 12 + ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].indexOf(m[1]) : 60; };
   const ms0 = (practiceTarget || []).map(midiOf), longScale = ms0.length > 1 && Math.max(...ms0) - Math.min(...ms0) >= 20;
   const [portraitNow, setPortraitNow] = useState(typeof window !== "undefined" && window.innerHeight > window.innerWidth);
-  const rotStyle: any = longScale && portraitNow ? { inset: "auto", top: 0, left: "100vw", width: "100vh", height: "100vw", transformOrigin: "top left", transform: "rotate(90deg)" } : undefined;
+  // the result page is always a portrait page (owner 2026-10-22), even after a landscape long-scale round
+  const rotStyle: any = longScale && portraitNow && !practiceResult ? { inset: "auto", top: 0, left: "100vw", width: "100vh", height: "100vw", transformOrigin: "top left", transform: "rotate(90deg)" } : undefined;
   useEffect(() => {
-    if (!longScale) return;
+    if (!longScale || practiceResult) return;
     try { const el: any = document.documentElement; if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {}); (screen.orientation as any)?.lock?.("landscape").catch(() => {}); } catch (e) {}
     const chk = () => setPortraitNow(window.innerHeight > window.innerWidth); chk(); window.addEventListener("resize", chk);
     return () => { window.removeEventListener("resize", chk); try { (window as any).__octKeepFs = false; (screen.orientation as any)?.unlock?.(); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {} };
-  }, [longScale]);
+  }, [longScale, !!practiceResult]);
   const lc = L[lang];
         // Grading (use-practice-mode) treats BOTH chord and progression drills
         // as block-style when the toggle says so — the display must gate on the
