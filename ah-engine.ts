@@ -69,10 +69,10 @@ export const LEVEL_BOXES: Box[] = BOXES_1;
 /** a weapon bought in the shop and equipped on the robot: it unlocks the matching gun from the start and hits harder by its rarity (owner, 2026-10-18) */
 export type ShopW = { as: WeaponId; m: number; name: string; col: number };
 /** a mission (Robot Adventure 3D, plan 39 P3): survive a clock, hold stations, dig ore or call an orbital strike; the waves keep coming while it runs */
-export type MItem = { x: number; z: number; r: number; p: number; hp: number; done: boolean };
-export type Mission = { type: MissionSpec["type"]; secs: number; hold: number; goal: number; prog: number; t: number; items: MItem[]; phase: number; digCd: number; boss?: AlienKind };
+export type MItem = { x: number; z: number; r: number; p: number; hp: number; done: boolean; cd?: number };
+export type Mission = { type: MissionSpec["type"]; secs: number; hold: number; goal: number; prog: number; t: number; items: MItem[]; phase: number; digCd: number; boss?: AlienKind; ask: number; label?: [string, string, string] };
 export type State = {
-  ms: Mission | null;
+  ms: Mission | null; peaceful: boolean;
   auto: boolean; autoFire: boolean; autoSide: number; autoT: number; autoMv: number; autoPx: number; autoPz: number;
   t: number; active: number; rng: number; seed: number;
   p: { x: number; z: number; yaw: number; pitch: number; y: number; vy: number; hp: number; shield: number; inv: number; sprint: boolean; slide: number; slideCd: number; sdx: number; sdz: number };
@@ -93,14 +93,14 @@ export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponI
   const L = lvObj || (level > 0 ? LEVELS[Math.min(level, LEVELS.length) - 1] : null);
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
-    ms: L && L.mission ? { type: L.mission.type, secs: L.mission.secs || 0, hold: L.mission.hold || 8, goal: L.mission.type === "survive" ? (L.mission.secs || 90) : (L.mission.pts || []).length, prog: 0, t: 0, phase: 0, digCd: 0, boss: L.mission.boss, items: (L.mission.pts || []).map(([x, z]) => ({ x, z, r: L.mission!.type === "mine" ? 1.6 : 3.2, p: 0, hp: 3, done: false })) } : null,
+    peaceful: !!(L && L.peaceful), ms: L && L.mission ? { type: L.mission.type, secs: L.mission.secs || 0, hold: L.mission.hold || 8, goal: L.mission.type === "survive" ? (L.mission.secs || 90) : (L.mission.pts || []).length, prog: 0, t: 0, phase: 0, digCd: 0, boss: L.mission.boss, ask: -1, label: L.mission.label, items: (L.mission.pts || []).map(([x, z]) => ({ x, z, r: L.mission!.type === "mine" ? 1.6 : 3.2, p: 0, hp: L.mission!.type === "mine" ? 3 : 1, done: false, cd: 0 })) } : null,
     t: 0, active: 0, rng: seed, seed, auto: true, autoFire: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
     p: { x: 0, z: 22, yaw: Math.PI, pitch: 0, y: 0, vy: 0, hp: 100, shield: 0, inv: 0, sprint: false, slide: 0, slideCd: 0, sdx: 0, sdz: 0 },
     coins: 0, shopW, weapon: shopW ? shopW.as : "pistol", ammo, cd: 0, reload: 0, recoil: 0,
     enemies: [], acid: [], rk: [], boxes: L ? L.boxes : LEVEL_BOXES, pk: [], owned: Object.fromEntries(WORDER.map(w => [w, w === "pistol" || startGuns.includes(w)])) as Record<WeaponId, boolean>,
     wave: 0, waveLeft: 0, between: 3, spawnQ: [], spawnT: 0, done: false, won: false,
     kills: 0, heads: 0, shots: 0, hitsLanded: 0, score: 0, streak: 0, best: 0,
-    tuneEvery, tuneT: 0, frozen: false, grace: 0, tunes: 0, tuneRight: 0, tuneStreak: 0, boost: 0,
+    tuneEvery: L && L.mission && L.mission.type !== "survive" ? 0 : tuneEvery, tuneT: 0, frozen: false, grace: 0, tunes: 0, tuneRight: 0, tuneStreak: 0, boost: 0,
     nextId: 1, ev: [],
     lv: L ? L.id : 0, waves: L ? L.waves : CLASSIC_WAVES, hpk: L ? L.hpk : 1, gunPool: L ? (L.guns.length ? L.guns : WORDER.filter(w => w !== "pistol")) : WORDER.slice(), hz: L ? L.hazards : [], hzClock: 0, hzT: 0,
   };
@@ -290,17 +290,30 @@ function autoMove(s: State, dt: number): { mx: number; mz: number; slide: boolea
   const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
   return { mx: wx * rx + wz * rz, mz: wx * fx + wz * fz, slide };
 }
+/** a mission step that needs a music question: the fight freezes, the page asks (the same tune-up card), and tuneResult() lands in missionAnswer() */
+function askItem(s: State, i: number) { const m = s.ms as Mission; m.ask = i; s.frozen = true; s.ev.push({ k: "tune", n: 1 }); }
+function missionAnswer(s: State, ok: boolean | null) {
+  const m = s.ms as Mission, it = m.items[m.ask]; m.ask = -1; s.frozen = false; s.grace = 1.5;
+  if (!it) return;
+  if (ok) { it.done = true; m.prog++; s.tuneRight++; s.tuneStreak++; s.score += 150; s.ev.push({ k: "station", n: s.ms!.items.indexOf(it) }); }
+  else { s.tuneStreak = 0; it.p = 0; it.hp = m.type === "mine" ? 1 : 1; it.cd = 6; }
+}
 const winNow = (s: State) => { s.done = true; s.won = true; s.ev.push({ k: "win" }); };
 function missionStep(s: State, dt: number, inp: Input) {
   const m = s.ms as Mission, p = s.p;
   if (m.type === "survive") { m.t += dt; m.prog = m.t; if (m.t >= m.secs) winNow(s); return; }
+  if (m.ask >= 0) return;
+  if (m.type === "task") {
+    for (let i = 0; i < m.items.length; i++) { const it = m.items[i]; if (it.cd) it.cd = Math.max(0, it.cd - dt); if (!it.done && !it.cd && Math.hypot(it.x - p.x, it.z - p.z) < it.r) { askItem(s, i); return; } }
+    if (m.prog >= m.goal) winNow(s); return;
+  }
   if (m.type === "mine") {
-    m.digCd -= dt; if ((inp.dig || s.auto) && m.digCd <= 0) { let b: MItem | null = null, bd = 3.4; for (const it of m.items) { if (it.done) continue; const d = Math.hypot(it.x - p.x, it.z - p.z); if (d < bd) { bd = d; b = it; } }
-      if (b) { m.digCd = 0.4; b.hp--; s.ev.push({ k: "dig", x: b.x, z: b.z }); if (b.hp <= 0) { b.done = true; m.prog++; } } }
+    m.digCd -= dt; for (const it of m.items) if (it.cd) it.cd = Math.max(0, it.cd - dt); if ((inp.dig || s.auto) && m.digCd <= 0) { let b: MItem | null = null, bd = 3.4; for (const it of m.items) { if (it.done || it.cd) continue; const d = Math.hypot(it.x - p.x, it.z - p.z); if (d < bd) { bd = d; b = it; } }
+      if (b) { m.digCd = 0.4; b.hp--; s.ev.push({ k: "dig", x: b.x, z: b.z }); if (b.hp <= 0) { askItem(s, m.items.indexOf(b)); return; } } }
     if (m.prog >= m.goal) winNow(s); return;
   }
   if (m.phase === 1) { if (!s.enemies.some(e => e.kind === m.boss && e.dead === 0)) winNow(s); return; }
-  for (let i = 0; i < m.items.length; i++) { const it = m.items[i]; if (it.done || Math.hypot(it.x - p.x, it.z - p.z) > it.r) continue; it.p = Math.min(1, it.p + dt / m.hold); if (it.p >= 1) { it.done = true; m.prog++; s.ev.push({ k: "station", n: i }); } }
+  for (let i = 0; i < m.items.length; i++) { const it = m.items[i]; if (it.done || Math.hypot(it.x - p.x, it.z - p.z) > it.r) continue; it.p = Math.min(1, it.p + dt / m.hold); if (it.p >= 1) { askItem(s, i); return; } }
   if (m.prog >= m.goal) {
     if (m.type === "capture") { winNow(s); return; }
     for (const e of s.enemies) if (e.dead === 0) { e.hp = 0; e.dead = 0.5; }   // strike: the warhead wipes the field, then the commander lands
@@ -344,7 +357,7 @@ export function step(s: State, dt: number, inp: Input) {
   // waves
   if (s.ms) missionStep(s, dt, inp);
   if (s.done) return;
-  if (!(s.ms && s.ms.phase === 1) && (s.wave === 0 || (s.waveLeft === 0 && s.spawnQ.length === 0 && s.enemies.every(e => e.dead !== 0)))) {
+  if (!(s.ms && s.ms.phase === 1) && !s.peaceful && (s.wave === 0 || (s.waveLeft === 0 && s.spawnQ.length === 0 && s.enemies.every(e => e.dead !== 0)))) {
     s.between -= dt;
     if (s.between <= 0) {
       if (s.wave >= s.waves.length && !s.ms) { s.done = true; s.won = true; s.ev.push({ k: "win" }); return; }
@@ -430,6 +443,7 @@ export function tuneResult(s: State, ok: boolean | null) {
   else s.tuneStreak = 0;
   s.frozen = false; s.grace = 1.5; s.tuneT = 0;
 }
+export function answerTune(s: State, ok: boolean | null) { if (s.ms && s.ms.ask >= 0) missionAnswer(s, ok); else tuneResult(s, ok); }
 
 export function stats(s: State) {
   const acc = s.shots ? Math.round(s.hitsLanded / s.shots * 100) : 0;
