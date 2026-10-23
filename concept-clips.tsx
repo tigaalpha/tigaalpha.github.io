@@ -242,7 +242,7 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
       /* the device's own voice, chosen strictly: a male, natural / neural / enhanced voice if the phone has one (owner, 2026-10-23: device voices are fine, pick the most natural male one) */
       const text = s.b, words = wordsOf(text, lang), cps = lang === "zh" ? 5.6 : 15.5, per = (text.length / cps / Math.max(1, words.length)) * 1000;
       let w = 0; setWi(0); iv = setInterval(() => { w++; setWi(w); if (w >= words.length) { clearInterval(iv); } }, Math.max(110, per));
-      try { speakNarration(text, lang, () => { clearInterval(iv); go(); }, () => { setTimeout(go, 6500); }, 1.0, 0, true); } catch { setTimeout(go, 6500); }
+      try { speakNarration(text, lang, () => { clearInterval(iv); go(); }, () => { setTimeout(go, 6500); }, 0.95, 0, true); } catch { setTimeout(go, 6500); }
     }, 80);
     return () => { dead = true; clearTimeout(at); clearInterval(iv); stopSpeaking(); try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
