@@ -514,14 +514,14 @@ function Reel({ clip, active, lang, paused, onEnded, peek }: { clip: Clip; activ
       });
     }, 20);
     function cloud(attempt = 0) {
-      let ac: AudioContext; try { ac = getAC(); } catch { device(); return; }
+      let ac: AudioContext; try { ac = getAC(); } catch { tms.push(setTimeout(() => cloud(attempt + 1), 2000)); return; }
       clipBuf(text, lang, ac).then((b) => {
         if (dead) return;
         if (nextText) clipBuf(nextText, lang, ac).catch(() => {});   // the next line is fetched while this one plays
         const [t0, t1] = audibleSpan(b), src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination);
         _clipSrc = src; startWords(Math.max(0.5, t1 - t0)); src.onended = after;
         try { ac.state !== "running" ? ac.resume().finally(() => src.start(0, t0, t1 - t0)) : src.start(0, t0, t1 - t0); } catch { after(); }
-      }).catch((e) => { if (dead) return; if (attempt < 3) { tms.push(setTimeout(() => cloud(attempt + 1), 1500 * (attempt + 1))); return; } device(e && e.rest); });   // the good voice is retried (with backoff) before the device voice is ever used
+      }).catch((e) => { if (dead) return; tms.push(setTimeout(() => cloud(attempt + 1), Math.min(8000, 1500 * (attempt + 1)))); });   // never the device voice: keep retrying the Charon voice   // the good voice is retried (with backoff) before the device voice is ever used
     }
     return () => { dead = true; clearTimeout(at); tms.forEach(clearTimeout); stopSpeaking(); try { if (_clipAud) { _clipAud.onended = null; _clipAud.pause(); _clipAud = null; } } catch { /* */ } try { if (_clipSrc) { _clipSrc.onended = null; _clipSrc.stop(); _clipSrc = null; } } catch { /* */ } try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
