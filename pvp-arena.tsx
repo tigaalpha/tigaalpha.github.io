@@ -1211,7 +1211,15 @@ export const PvpPage = memo(function PvpPage({
   const [ghostNote, setGhostNote] = useState(null);
   const [showTrials, setShowTrials] = useState(false);
   // the lobby is one big "Fight" button, a level slider and three tabs (owner, 2026-10-10)
-  useEffect(() => { (window as any).__pvpLobbyFs = true; enterFs(); return () => { (window as any).__pvpLobbyFs = false; exitFsAndUnlock(); }; }, []);   // leaving the PvP page restores portrait + normal screen
+  useEffect(() => {
+    (window as any).__pvpLobbyFs = true; enterFs();
+    /* A page that was reloaded (or reached without a tap) has no user gesture, so the full-screen request above is refused and the
+       lobby stays portrait: ask again on the first touch, which is a gesture the browser accepts. */
+    const again = () => { enterFs(); };
+    window.addEventListener("pointerup", again, { passive: true });
+    window.addEventListener("touchend", again, { passive: true });
+    return () => { window.removeEventListener("pointerup", again); window.removeEventListener("touchend", again); (window as any).__pvpLobbyFs = false; exitFsAndUnlock(); };
+  }, []);   // leaving the PvP page restores portrait + normal screen
   // a finished fight (or the lobby) is always portrait and out of full screen; a new fight re-enters it from its own tap
   // the lobby itself is full screen + landscape with a cinematic strings tune (owner, 2026-10-21)
   useEffect(() => { if (phase !== "fight" && phase !== "lobby") exitFsAndUnlock(); }, [phase]);
