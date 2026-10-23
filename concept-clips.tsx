@@ -336,6 +336,7 @@ function cityFx(cv: HTMLCanvasElement, g: CanvasRenderingContext2D, hue: number,
 type Ins = "metronome" | "sheet" | "moon" | "brain" | "eq" | "clock" | "hands" | "stage" | "vinyl" | "city" | "posture" | "mistake" | "count" | "dynamics" | "scale" | "heart" | "headphones" | "goal";
 const INS_ALL: Ins[] = ["hands", "sheet", "eq", "vinyl", "metronome", "city", "clock", "stage", "brain", "moon"];
 /* every slide gets the picture that belongs to its story (owner, 2026-10-23: "every picture must fit the story"): first the slide's own words, then the clip's topic */
+const BG_FOR: Partial<Record<Ins, number>> = { stage: 3, heart: 3, posture: 1, hands: 2, scale: 2, sheet: 4, mistake: 4, headphones: 5, eq: 5, vinyl: 5, count: 1, metronome: 1, dynamics: 3 };
 const CLIP_INS: Record<string, Ins> = { focus: "brain", synapse: "brain", regions: "brain", session: "goal", motivation: "goal", posture: "posture", relax: "hands", slow: "metronome", metronome: "metronome", reading: "sheet", ear: "eq", scales: "scale", hands: "hands", mistakes: "mistake", sleep: "moon", breaks: "clock", listen: "headphones", nerves: "heart", counting: "count", dynamics: "dynamics" };
 const REL_INS: Partial<Record<Ins, Ins>> = { brain: "eq", goal: "clock", posture: "hands", hands: "scale", metronome: "count", sheet: "scale", eq: "headphones", scale: "hands", mistake: "sheet", moon: "brain", clock: "goal", headphones: "stage", heart: "stage", count: "metronome", dynamics: "eq", stage: "heart", vinyl: "headphones", city: "stage" };
 function insOf(text: string, clipId: string): Ins {
@@ -477,7 +478,7 @@ const _clipPre = new Map<string, Promise<AudioBuffer>>();
 /* one shared promise per line, so a prefetch and the real play never fetch (or pay for) it twice */
 function clipBuf(text: string, lang: string, ac: AudioContext): Promise<AudioBuffer> {
   const key = lang + "|" + text; let p = _clipPre.get(key);
-  if (!p) { p = ttsFetchBuffer(text, lang, ac, 3, 30000, { src: "clip", voice: "Charon", style: NARR[lang], spend: (c: string) => ttsBudgetSpend(ttsEstSeconds(c, lang) * 0.5), refund: (c: string) => ttsBudgetRefund(ttsEstSeconds(c, lang) * 0.5) }) as Promise<AudioBuffer>; p.catch(() => { _clipPre.delete(key); }); _clipPre.set(key, p); }
+  if (!p) { p = ttsFetchBuffer(text, lang, ac, 3, 30000, { src: "clip", voice: "Charon", style: NARR[lang] }) as Promise<AudioBuffer>; p.catch(() => { _clipPre.delete(key); }); _clipPre.set(key, p); }
   return p;
 }
 /* the part of a clip that is really sound: the model leaves a fraction of a second of silence at both ends, which showed up as a gap between lines */
@@ -540,7 +541,7 @@ function Reel({ clip, active, lang, paused, onEnded, peek }: { clip: Clip; activ
   const insBase = insOf(s.h + " " + s.b, clip.id), insK: Ins = shot % 2 ? (REL_INS[insBase] || insBase) : insBase;
   return (
     <section className="cc-reel" style={{ ["--h" as any]: clip.hue }} data-cam={cam} data-clip={clip.id} data-active={active ? "1" : "0"}>
-      <Backdrop hue={clip.hue + (shot % 4) * 38} live={active && !paused} sc={(shot + clip.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 6} />
+      <Backdrop hue={clip.hue + (shot % 4) * 38} live={active && !paused} sc={BG_FOR[insBase] ?? (shot % 6)} />
       <div className="cc-shade" />
       <Insert key={"n" + i + "-" + shot} kind={insK} hue={clip.hue + shot * 24} live={active && !paused} tag={String(insK).toUpperCase() + " · " + String(1 + (shot % 9)).padStart(2, "0")} />
       <Holo key={"h" + i + "-" + shot} kind={hk} hue={clip.hue + shot * 24} live={active && !paused} />
@@ -594,6 +595,7 @@ export const CLIP_CSS = `
 .cc-feed{position:absolute;inset:0;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain}.cc-feed::-webkit-scrollbar{display:none}
 .cc-reel{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden}
 .cc-bg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cc-reel::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 35%,hsla(var(--h),100%,70%,.10) 48%,transparent 60%);background-size:260% 100%;animation:ccleak 6s ease-in-out infinite;mix-blend-mode:screen}@keyframes ccleak{0%{background-position:120% 0}100%{background-position:-60% 0}}
 .cc-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35) 0%,transparent 22%,transparent 50%,rgba(0,0,0,.78) 100%);pointer-events:none}
 .cc-bar{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:14px;right:62px;display:flex;gap:5px}
 .cc-bar i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.28)}.cc-bar i.on{background:#fff}.cc-bar i.cur{background:#fff;animation:ccblink 1.2s ease-in-out infinite}
