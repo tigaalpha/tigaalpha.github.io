@@ -3709,7 +3709,7 @@ import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
   const [flagOpen, setFlagOpen] = useState(false);
-  const [vtab, setVtab] = useState("th"), [clip, setClip] = useState(null);   // th = the YouTube series; en / zh = the drawn concept clips
+  const [vtab, setVtab] = useState("th");   // th = the YouTube series; en / zh = the drawn concept clips
   const [categories, setCategories] = useState(null);  // null = loading; each row is one published lesson_videos entry
   const [activeCat, setActiveCat] = useState(null);     // lesson_videos.id of the selected category
   const [slides, setSlides] = useState(null);           // null = loading this category's videos
@@ -3863,16 +3863,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
           <button key={c} className={vtab === c ? "on" : ""} onClick={() => { playUi("click"); setVtab(c); }}>{n}</button>
         ))}
       </div>
-      {vtab !== "th" && (
-        <div className="cc-list">
-          {CLIPS[vtab].map(c => (
-            <button key={c.id} className="cc-card" style={{ ["--h" as any]: c.hue }} onClick={() => { playUi("click"); setClip(CLIPS[vtab].indexOf(c)); }}>
-              <span className="e">{c.slides[0].ic}</span><span><b>{c.title}</b><span className="s">{c.sub} · {c.slides.length} {vtab === "zh" ? "页" : "scenes"}</span></span>
-            </button>
-          ))}
-        </div>
-      )}
-      {clip != null && vtab !== "th" && <ConceptClipFeed clips={CLIPS[vtab]} start={clip} lang={vtab} onClose={() => setClip(null)} />}
+      {vtab !== "th" && <ConceptClipFeed key={vtab} inline clips={CLIPS[vtab]} start={0} lang={vtab} onClose={() => setVtab("th")} />}
       {onLang && (
         <div className="vidflag">
           <button className="vidflag-b" aria-label="Language" onClick={() => { playUi("click"); setFlagOpen(o => !o); }}>{lang === "th" ? "🇹🇭" : lang === "zh" ? "🇨🇳" : "🇬🇧"}</button>
@@ -3886,7 +3877,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
         </div>
       )}
       {categories.length > 1 && (
-        <div className="vidcatbar">
+        <div className={"vidcatbar" + (vtab !== "th" ? " cc-hide" : "")}>
           {categories.map(c => (
             <button key={c.id} className={"vidcat" + (activeCat === c.id ? " on" : "")} onClick={() => { playUi("click"); setActiveCat(c.id); }}>
               {c.title}
@@ -3894,7 +3885,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
           ))}
         </div>
       )}
-      <div className="vidfeed">
+      <div className={"vidfeed" + (vtab !== "th" ? " cc-hide" : "")}>
         {slides === null ? (
           <div className="vidplaceholder">…</div>
         ) : !slides.length ? (
