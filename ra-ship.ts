@@ -34,7 +34,7 @@ export function newShip(kind: ShipKind, hard = 2, seed = 11): Ship {
   const s: Ship = {
     kind, hard, t: 0, rng: seed, nextId: 1, p: { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, speed: SHIP_SPEED, hp: 100, max: 100, shield: 0, inv: 0, boost: 0 },
     gates: [], rocks: [], foes: [], bolts: [], ebolts: [], picks: [], rings: [], relays: [], bh: null, beams: [],
-    goal: 0, prog: 0, hold: 8, answers: 0, needAnswers: 0, secs: 0, relayT: 8, foeT: 4, beamT: 3, ask: null, frozen: false, done: false, won: false, auto: true, autoFire: true,
+    goal: 0, prog: 0, hold: 8, answers: 0, needAnswers: 0, secs: 0, relayT: 30, foeT: 4, beamT: 3, ask: null, frozen: false, done: false, won: false, auto: true, autoFire: true,
     kills: 0, ore: 0, tunes: 0, tuneRight: 0, score: 0, cdFire: 0, ev: [], bossDead: false, shots: 0, hits: 0,
   };
   const gates = (n: number, step: number, climb: number, wave: number, asks: number) => {
@@ -130,7 +130,7 @@ export function stepShip(s: Ship, dt: number, inp: SInput) {
   // hold rings
   for (const r of s.rings) { if (r.done) continue; if (r.cd > 0) { r.cd -= dt; continue; } if (len(sub(r, p)) < r.r) { r.p += dt / s.hold; if (r.p >= 1) { r.p = 1; r.done = true; s.prog++; askNow(s, "gate", -1); s.ask = null; s.frozen = false; askRing(s, r); return; } } else r.p = Math.max(0, r.p - dt * 0.4); }
   // relays: a ♪ ring every few seconds when the mission wants more answers (or as a repair on a long flight)
-  s.relayT -= dt; if (s.relayT <= 0 && (s.needAnswers > s.answers || s.kind === "dogfight" || s.gates.length === 0) && s.relays.filter(r => !r.got).length < 1) { s.relayT = 10; const dd = dirOf(p.yaw + (rnd(s) - 0.5) * 0.8, (rnd(s) - 0.5) * 0.3); s.relays.push({ x: p.x + dd.x * 90, y: p.y + dd.y * 90, z: p.z + dd.z * 90, r: 16, got: false }); }
+  s.relayT -= dt; if (s.relayT <= 0 && (s.needAnswers > s.answers || s.kind === "dogfight" || s.gates.length === 0) && s.relays.filter(r => !r.got).length < 1) { s.relayT = 30; const dd = dirOf(p.yaw + (rnd(s) - 0.5) * 0.8, (rnd(s) - 0.5) * 0.3); s.relays.push({ x: p.x + dd.x * 90, y: p.y + dd.y * 90, z: p.z + dd.z * 90, r: 16, got: false }); }
   for (const r of s.relays) if (!r.got && len(sub(r, p)) < r.r) { r.got = true; s.ev.push({ k: "relay" }); askNow(s, "relay", 0); return; }
   s.relays = s.relays.filter(r => !r.got && len(sub(r, p)) < 600);
   // foes

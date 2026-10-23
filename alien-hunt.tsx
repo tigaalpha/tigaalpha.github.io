@@ -24,7 +24,7 @@ const addCrystals = (n: number) => { try { localStorage.setItem("tg_adv_crystals
 type Camp = { cleared: number; stars: number[] };
 const readCamp = (): Camp => { try { const j = JSON.parse(localStorage.getItem("tg_ah_camp") || "{}"); return { cleared: Math.max(0, Math.min(LEVELS.length, j.cleared | 0)), stars: Array.isArray(j.stars) ? j.stars.map((x: any) => x | 0) : [] }; } catch (e) { return { cleared: 0, stars: [] }; } };
 const writeCamp = (c: Camp) => { try { localStorage.setItem("tg_ah_camp", JSON.stringify(c)); } catch (e) {} };
-const readTune = (): number => 20;   // owner 2026-10-18: a music question every 20 s of fighting (was 30, 15 before), fixed: no choice on the ready screen
+const readTune = (): number => 30;   // owner 2026-10-23: a music question every 30 s of fighting (was 20), fixed: no choice on the ready screen
 
 /** a note name like "F#4" -> key index 0..23 on the two-octave keyboard (C4..B5), and its staff position */
 const parseNote = (n: string) => { const m = /^([A-G])([#b♯♭]?)(-?\d)/.exec(n); if (!m) return null; const sh = m[2] === "#" || m[2] === "♯" ? 1 : m[2] ? -1 : 0; let oct = parseInt(m[3], 10); const pc = (PC_OF[m[1]] + sh + 12) % 12; if (PC_OF[m[1]] + sh < 0) oct--; if (PC_OF[m[1]] + sh > 11) oct++; oct = Math.max(4, Math.min(5, oct)); const L = "CDEFGAB".indexOf(m[1]); return { key: (oct - 4) * 12 + pc, letter: L, oct: Math.max(4, Math.min(5, parseInt(m[3], 10))), acc: sh }; };
