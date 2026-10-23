@@ -1211,7 +1211,7 @@ export const PvpPage = memo(function PvpPage({
   const [ghostNote, setGhostNote] = useState(null);
   const [showTrials, setShowTrials] = useState(false);
   // the lobby is one big "Fight" button, a level slider and three tabs (owner, 2026-10-10)
-  useEffect(() => exitFsAndUnlock, []);   // leaving the PvP page restores portrait + normal screen
+  useEffect(() => { (window as any).__pvpLobbyFs = true; enterFs(); return () => { (window as any).__pvpLobbyFs = false; exitFsAndUnlock(); }; }, []);   // leaving the PvP page restores portrait + normal screen
   // a finished fight (or the lobby) is always portrait and out of full screen; a new fight re-enters it from its own tap
   // the lobby itself is full screen + landscape with a cinematic strings tune (owner, 2026-10-21)
   useEffect(() => { if (phase !== "fight" && phase !== "lobby") exitFsAndUnlock(); }, [phase]);
@@ -2518,6 +2518,7 @@ async function toggleFs() {
 /** Leaving PvP puts the phone back the way it was: orientation unlocked (so it follows the
     hand again, portrait in the app) and out of full screen (owner, 2026-10-10). */
 export function exitFsAndUnlock() {
+  if ((window as any).__pvpLobbyFs) return;   // the Games lobby is still on screen: stay full screen and landscape
   // snap back to portrait, then let go so the phone follows the hand again
   try {
     if (screen.orientation && screen.orientation.lock) {
