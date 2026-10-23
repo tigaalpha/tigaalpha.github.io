@@ -328,6 +328,83 @@ function cityFx(cv: HTMLCanvasElement, g: CanvasRenderingContext2D, hue: number,
   if (sg) { sg.drawImage(cv, 0, 0, sm.width, sm.height); g.save(); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.55; g.drawImage(sm, 0, 0, W, H); g.restore(); }
 }
 
+
+/* B-roll inserts (owner, 2026-10-23: "insert pictures into the video as B-roll to make it more interesting, CG even prettier"). Cutaway shots drawn in code, chosen from what the slide
+   says (a metronome for tempo, sheet music for reading, a moon for sleep, a brain, an equaliser for listening, a clock, hands on keys, a stage), shown in a film frame that
+   replaces the hologram for some shots. No stock footage: nothing downloaded, nothing licensed. */
+type Ins = "metronome" | "sheet" | "moon" | "brain" | "eq" | "clock" | "hands" | "stage" | "vinyl" | "city";
+const INS_ALL: Ins[] = ["hands", "sheet", "eq", "vinyl", "metronome", "city", "clock", "stage", "brain", "moon"];
+function insOf(text: string, idx: number, seed: number): Ins {
+  const t = text.toLowerCase();
+  const m: [RegExp, Ins][] = [[/metronome|tempo|beat|count|节拍|拍/, "metronome"], [/read|sheet|score|谱|读/, "sheet"], [/sleep|rest|break|night|睡|休息/, "moon"], [/brain|neur|focus|memory|attention|脑|记忆|专注/, "brain"], [/listen|ear|sound|hear|听|耳/, "eq"], [/minute|daily|day|time|clock|schedule|分钟|每天|时间/, "clock"], [/nerv|stage|perform|concert|紧张|舞台|演/, "stage"], [/hand|finger|posture|relax|wrist|手|指|姿/, "hands"]];
+  for (const [r, k] of m) if (r.test(t)) return k;
+  return INS_ALL[(idx * 3 + seed) % INS_ALL.length];
+}
+function paintInsert(cv: HTMLCanvasElement, kind: Ins, hue: number, t: number) {
+  const g = cv.getContext("2d"); if (!g) return; const k = kOf(cv), W = cv.width / k, H = cv.height / k, tt = t / 1000; g.setTransform(k, 0, 0, k, 0, 0);
+  const cy = `hsl(${hue + 170} 100% 62%)`, pk = `hsl(${hue + 320} 100% 66%)`, dk = `hsl(${hue + 250} 50% 6%)`;
+  const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, `hsl(${hue + 235} 55% 9%)`); bg.addColorStop(1, `hsl(${hue + 300} 55% 17%)`); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const glow = (c: string, b: number) => { g.shadowColor = c; g.shadowBlur = b; }, off = () => { g.shadowBlur = 0; };
+  const drift = Math.sin(tt * 0.6) * 6; g.save(); g.translate(drift, Math.cos(tt * 0.5) * 3); g.scale(1.06, 1.06);
+  if (kind === "metronome") {
+    const a = Math.sin(tt * 3.2) * 0.55, cx = W / 2, by = H * 0.9;
+    g.fillStyle = dk; glow(cy, 14); g.strokeStyle = cy; g.lineWidth = 2; g.beginPath(); g.moveTo(cx - 62, by); g.lineTo(cx - 28, H * 0.12); g.lineTo(cx + 28, H * 0.12); g.lineTo(cx + 62, by); g.closePath(); g.fill(); g.stroke(); off();
+    g.save(); g.translate(cx, by - 10); g.rotate(a); g.strokeStyle = pk; glow(pk, 14); g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -H * 0.7); g.stroke(); g.fillStyle = pk; g.fillRect(-12, -H * 0.5, 24, 16); off(); g.restore();
+    for (let i = 0; i < 4; i++) { const ph = (tt * 3.2 / Math.PI + i * 0.25) % 1; g.strokeStyle = `hsla(${hue + 170},100%,70%,${0.35 * (1 - ph)})`; g.lineWidth = 2; g.beginPath(); g.arc(cx + Math.sin(tt * 3.2) * 0, by - H * 0.35, 30 + ph * 140, 0, 7); g.stroke(); }
+  } else if (kind === "sheet") {
+    for (let r = 0; r < 4; r++) { const y = H * (0.2 + r * 0.2); g.strokeStyle = "rgba(235,245,255,.55)"; g.lineWidth = 1; for (let l = 0; l < 5; l++) { g.beginPath(); g.moveTo(14, y + l * 7); g.lineTo(W - 14, y + l * 7); g.stroke(); } }
+    for (let n = 0; n < 22; n++) { const r = Math.floor(n / 6), x = 40 + (n % 6) * (W - 80) / 6 + Math.sin(n) * 4, y = H * (0.2 + r * 0.2) + ((n * 7) % 5) * 3.5, on = Math.floor(tt * 4) % 22 === n; g.fillStyle = on ? pk : "#f3f8ff"; if (on) glow(pk, 16); g.beginPath(); g.ellipse(x, y, 6, 4.4, -0.35, 0, 7); g.fill(); g.fillRect(x + 4.6, y - 24, 1.6, 24); off(); }
+    const sx = ((tt * 60) % (W - 20)) + 10; const gr = g.createLinearGradient(sx - 40, 0, sx, 0); gr.addColorStop(0, "rgba(120,220,255,0)"); gr.addColorStop(1, "rgba(120,220,255,.35)"); g.fillStyle = gr; g.fillRect(sx - 40, 0, 40, H);
+  } else if (kind === "moon") {
+    for (let i = 0; i < 60; i++) { const x = (i * 71) % W, y = (i * 37) % (H * 0.8), tw = 0.3 + 0.7 * Math.abs(Math.sin(tt + i)); g.fillStyle = `rgba(255,255,255,${tw * 0.7})`; g.fillRect(x, y, 1.6, 1.6); }
+    const mx = W * 0.62, my = H * 0.4, mr = H * 0.26; const hl = g.createRadialGradient(mx, my, mr * 0.5, mx, my, mr * 2.6); hl.addColorStop(0, "rgba(255,240,200,.4)"); hl.addColorStop(1, "rgba(255,240,200,0)"); g.fillStyle = hl; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#fff3cf"; g.beginPath(); g.arc(mx, my, mr, 0, 7); g.fill(); g.fillStyle = dk; g.beginPath(); g.arc(mx + mr * 0.45, my - mr * 0.1, mr * 0.92, 0, 7); g.fill();
+    g.fillStyle = "#04060e"; g.beginPath(); g.moveTo(0, H); g.lineTo(0, H * 0.78); for (let x = 0; x <= W; x += 20) g.lineTo(x, H * (0.74 + 0.06 * Math.sin(x * 0.05))); g.lineTo(W, H); g.fill();
+    glow(cy, 10); g.fillStyle = cy; g.font = "700 22px system-ui"; for (let z = 0; z < 3; z++) { const ph = (tt * 0.5 + z / 3) % 1; g.globalAlpha = 1 - ph; g.fillText("z", W * 0.18 + ph * 40, H * 0.7 - ph * 70 - z * 4); } g.globalAlpha = 1; off();
+  } else if (kind === "brain") {
+    const pts: [number, number][] = []; for (let i = 0; i < 26; i++) { const a = i * 2.4, r = (0.18 + ((i * 13) % 10) / 40) * H * 1.2; pts.push([W / 2 + Math.cos(a) * r * 1.35, H / 2 + Math.sin(a * 1.3) * r * 0.9]); }
+    g.lineWidth = 1; for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) { const d = Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]); if (d < 90) { const a = 0.15 + 0.5 * Math.max(0, Math.sin(tt * 3 - d * 0.08 + i)); g.strokeStyle = `hsla(${hue + 170},100%,65%,${a})`; g.beginPath(); g.moveTo(pts[i][0], pts[i][1]); g.lineTo(pts[j][0], pts[j][1]); g.stroke(); } }
+    for (let i = 0; i < pts.length; i++) { const on = Math.sin(tt * 3 + i * 1.7) > 0.5; g.fillStyle = on ? pk : cy; glow(on ? pk : cy, on ? 16 : 6); g.beginPath(); g.arc(pts[i][0], pts[i][1], on ? 4.5 : 2.6, 0, 7); g.fill(); } off();
+  } else if (kind === "eq") {
+    const n = 26, bw = W / n; for (let i = 0; i < n; i++) { const v = 0.2 + 0.75 * Math.abs(Math.sin(tt * 3 + i * 0.5) * Math.cos(tt * 1.7 + i * 0.23)), h = v * H * 0.8, gr = g.createLinearGradient(0, H, 0, H - h); gr.addColorStop(0, cy); gr.addColorStop(1, pk); g.fillStyle = gr; glow(pk, 10); g.fillRect(i * bw + 2, H - h - 10, bw - 4, h); off(); g.fillStyle = "rgba(255,255,255,.8)"; g.fillRect(i * bw + 2, H - h - 14, bw - 4, 3); }
+    g.strokeStyle = "rgba(255,255,255,.12)"; for (let y = 20; y < H; y += 24) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  } else if (kind === "clock") {
+    const cx = W / 2, cyy = H / 2, r = H * 0.4; glow(cy, 16); g.strokeStyle = cy; g.lineWidth = 3; g.beginPath(); g.arc(cx, cyy, r, 0, 7); g.stroke(); off();
+    for (let i = 0; i < 60; i++) { const a = i / 60 * 6.283, l = i % 5 ? 4 : 10; g.strokeStyle = i % 5 ? "rgba(255,255,255,.35)" : "#fff"; g.lineWidth = i % 5 ? 1 : 2; g.beginPath(); g.moveTo(cx + Math.sin(a) * (r - l), cyy - Math.cos(a) * (r - l)); g.lineTo(cx + Math.sin(a) * r, cyy - Math.cos(a) * r); g.stroke(); }
+    const hand = (a: number, l: number, w: number, c: string) => { g.strokeStyle = c; g.lineWidth = w; g.lineCap = "round"; glow(c, 10); g.beginPath(); g.moveTo(cx, cyy); g.lineTo(cx + Math.sin(a) * l, cyy - Math.cos(a) * l); g.stroke(); off(); };
+    hand(tt * 0.3, r * 0.5, 5, "#fff"); hand(tt * 1.4, r * 0.78, 3, cy); hand(tt * 6, r * 0.85, 1.5, pk);
+    g.fillStyle = `hsla(${hue + 320},100%,66%,.25)`; g.beginPath(); g.moveTo(cx, cyy); g.arc(cx, cyy, r, -Math.PI / 2, -Math.PI / 2 + (tt * 1.4 % 6.283)); g.fill();
+  } else if (kind === "hands") {
+    const kw = W / 10; for (let i = 0; i < 10; i++) { const on = Math.floor(tt * 3 + i * 0.9) % 6 === 0; g.fillStyle = on ? pk : "#f2f7ff"; if (on) glow(pk, 18); g.fillRect(i * kw + 1, H * 0.62 + (on ? 4 : 0), kw - 2, H * 0.4); off(); }
+    g.fillStyle = "#070914"; for (const i of [0, 1, 3, 4, 5, 7, 8]) g.fillRect((i + 1) * kw - kw * 0.3, H * 0.62, kw * 0.6, H * 0.22);
+    for (let h = 0; h < 2; h++) { const hx = W * (0.14 + h * 0.46) + Math.sin(tt * 1.2 + h) * 12; g.fillStyle = dk; g.strokeStyle = cy; g.lineWidth = 1.6; glow(cy, 10); g.beginPath(); g.ellipse(hx + W * 0.13, H * 0.5, W * 0.15, H * 0.1, 0, 0, 7); g.fill(); g.stroke(); for (let f = 0; f < 5; f++) { const dn = Math.max(0, Math.sin(tt * 7 + f * 1.4 + h * 2)) * 10, fx = hx + f * W * 0.058; g.lineCap = "round"; g.lineWidth = W * 0.04; g.strokeStyle = dk; g.beginPath(); g.moveTo(fx + 6, H * 0.5); g.lineTo(fx + 8, H * 0.66 + dn); g.stroke(); } off(); }
+  } else if (kind === "stage") {
+    for (let i = 0; i < 3; i++) { const x0 = W * (0.2 + i * 0.3), gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, i % 2 ? "rgba(255,120,220,.55)" : "rgba(120,220,255,.55)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.beginPath(); g.moveTo(x0 - 5, 0); g.lineTo(x0 + 5, 0); g.lineTo(W / 2 + Math.sin(tt + i) * 40 + 70, H); g.lineTo(W / 2 + Math.sin(tt + i) * 40 - 70, H); g.fill(); }
+    g.fillStyle = "#04050c"; g.fillRect(0, H * 0.78, W, H * 0.22); g.fillStyle = dk; glow(cy, 12); g.strokeStyle = cy; g.lineWidth = 2; g.beginPath(); g.moveTo(W * 0.3, H * 0.78); g.lineTo(W * 0.32, H * 0.5); g.quadraticCurveTo(W * 0.5, H * 0.46, W * 0.66, H * 0.34); g.lineTo(W * 0.74, H * 0.34); g.lineTo(W * 0.74, H * 0.78); g.fill(); g.stroke(); off();
+    for (let a = 0; a < 14; a++) { const x = (a + 0.5) * W / 14; g.fillStyle = "#03040a"; g.beginPath(); g.arc(x, H * 0.93 + (a % 2) * 8, 11, 0, 7); g.fill(); if (Math.sin(tt * 2 + a * 1.9) > 0.85) g.fillRect(x + 8, H * 0.82, 3, 22); }
+  } else if (kind === "vinyl") {
+    const cx = W / 2, cyy = H / 2, r = H * 0.44; g.save(); g.translate(cx, cyy); g.rotate(tt * 1.6); const vg = g.createRadialGradient(0, 0, 4, 0, 0, r); vg.addColorStop(0, "#222"); vg.addColorStop(1, "#050507"); g.fillStyle = vg; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
+    g.strokeStyle = "rgba(255,255,255,.07)"; for (let q = r * 0.35; q < r; q += 5) { g.beginPath(); g.arc(0, 0, q, 0, 7); g.stroke(); } const sh = g.createConicGradient(0, 0, 0); sh.addColorStop(0, "rgba(255,255,255,0)"); sh.addColorStop(0.1, "rgba(160,230,255,.35)"); sh.addColorStop(0.25, "rgba(255,255,255,0)"); sh.addColorStop(0.6, "rgba(255,120,220,.3)"); sh.addColorStop(0.75, "rgba(255,255,255,0)"); g.fillStyle = sh; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.fillStyle = pk; g.beginPath(); g.arc(0, 0, r * 0.28, 0, 7); g.fill(); g.restore();
+    g.strokeStyle = cy; glow(cy, 8); g.lineWidth = 4; g.lineCap = "round"; g.beginPath(); g.moveTo(W * 0.92, H * 0.1); g.lineTo(W * 0.64, H * 0.46); g.stroke(); off();
+  } else {
+    const hzn = H * 0.7; for (let l = 0; l < 3; l++) { g.fillStyle = `hsl(${hue + 240} 45% ${5 + l * 4}%)`; let x = -10 + l * 13; while (x < W) { const w = 22 + ((x * 7 + l * 31) % 26), h = H * (0.2 + ((x * 13 + l * 17) % 40) / 100) * (1 - l * 0.15); g.fillRect(x, hzn - h + l * 10, w, h + H); for (let wy = hzn - h + 10 + l * 10; wy < hzn; wy += 9) for (let wx = x + 4; wx < x + w - 4; wx += 7) if (((wx * 5 + wy * 3 + l) % 11) < 3) { g.fillStyle = ((wx + wy) % 2) ? `hsla(${hue + 170},90%,65%,.6)` : `hsla(${hue + 320},90%,65%,.55)`; g.fillRect(wx, wy, 2.4, 3.2); } g.fillStyle = `hsl(${hue + 240} 45% ${5 + l * 4}%)`; x += w + 2; } }
+    for (let c = 0; c < 5; c++) { const x = ((tt * 50 * (1 + c * 0.3) + c * 90) % (W + 60)) - 30; glow(c % 2 ? pk : cy, 10); g.fillStyle = c % 2 ? pk : cy; g.fillRect(x, H * (0.12 + c * 0.08), 22, 3); } off();
+  }
+  g.restore();
+  const vg = g.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.7); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.55)"); g.fillStyle = vg; g.fillRect(0, 0, W, H);
+  const gd = g.createLinearGradient(0, 0, 0, H); g.save(); g.globalCompositeOperation = "soft-light"; g.globalAlpha = 0.35; gd.addColorStop(0, "#2b6f86"); gd.addColorStop(1, "#d98a4a"); g.fillStyle = gd; g.fillRect(0, 0, W, H); g.restore();
+  g.fillStyle = "rgba(255,255,255,.05)"; let sd = Math.floor(tt * 24) + 3; for (let q = 0; q < 70; q++) { sd = (sd * 16807) % 2147483647; g.fillRect((sd % 1000) / 1000 * W, ((sd >> 5) % 1000) / 1000 * H, 1, 1); }
+}
+function Insert({ kind, hue, live, tag }: { kind: Ins; hue: number; live: boolean; tag: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const cv = ref.current; if (!cv) return undefined; const kk = gfxHigh() ? 2 : 1.3; (cv as any)._k = kk; cv.width = Math.round(400 * kk); cv.height = Math.round(240 * kk); try { paintInsert(cv, kind, hue, 1200); } catch (e) {}
+    if (!live) return undefined;
+    let raf = 0, last = 0; const loop = (now: number) => { if (now - last > 40) { last = now; try { paintInsert(cv, kind, hue, now); } catch (e) {} } raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop); return () => cancelAnimationFrame(raf);
+  }, [kind, hue, live]);
+  return <div className="cc-ins"><canvas ref={ref} /><i className="cc-ins-rec">● REC</i><i className="cc-ins-tag">{tag}</i><i className="cc-ins-c c1" /><i className="cc-ins-c c2" /></div>;
+}
 function Backdrop({ hue, live, sc = 0 }: { hue: number; live: boolean; sc?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -373,11 +450,12 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
   const s = clip.slides[Math.min(i, n - 1)];
   const kinds = SCENES[clip.id] || [], base = kinds[Math.min(i, n - 1)] || "rings", pool: Kind[] = [base, kinds[(i + 1) % Math.max(1, kinds.length)] || "wave", ALL_KINDS[(i * 3 + 2) % ALL_KINDS.length], ALL_KINDS[(i * 5 + 4) % ALL_KINDS.length]];
   const hk = pool[shot % pool.length], cam = shot % 5;
+  const insOn = shot % 3 === 1, insK = insOf(s.h + " " + s.b + " " + clip.id, i + shot, clipSeed);
   return (
     <section className="cc-reel" style={{ ["--h" as any]: clip.hue }} data-cam={cam} data-clip={clip.id} data-active={active ? "1" : "0"}>
       <Backdrop hue={clip.hue + (shot % 4) * 38} live={active && !paused} sc={(shot + clip.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 6} />
       <div className="cc-shade" />
-      <Holo key={"h" + i + "-" + shot} kind={hk} hue={clip.hue + shot * 24} live={active && !paused} />
+      {insOn ? <Insert key={"n" + i + "-" + shot} kind={insK} hue={clip.hue + shot * 24} live={active && !paused} tag={"B-ROLL " + String(1 + (shot % 9)).padStart(2, "0")} /> : <Holo key={"h" + i + "-" + shot} kind={hk} hue={clip.hue + shot * 24} live={active && !paused} />}
       <div className="cc-title"><span>{s.ic}</span><b>{s.h}</b></div>
       <div className="cc-flash" key={"f" + i + "-" + shot} />
       <div className={"cc-face" + (active && !paused ? " on" : "")} key={"p" + i + "-" + shot}>
@@ -439,6 +517,12 @@ export const CLIP_CSS = `
 .cc-title{position:absolute;top:calc(34px + env(safe-area-inset-top,0px));left:14px;right:62px;display:flex;gap:8px;align-items:center;font-size:15px;text-shadow:0 1px 8px rgba(0,0,0,.8)}.cc-title span{font-size:22px}.cc-title b{line-height:1.2}
 .cc-x,.cc-pause{position:absolute;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.4);color:#fff;font-size:16px;cursor:pointer;z-index:3}
 .cc-x{top:calc(8px + env(safe-area-inset-top,0px));right:12px}.cc-pause{top:calc(56px + env(safe-area-inset-top,0px));right:12px;font-size:13px}
+.cc-ins{position:absolute;left:50%;transform:translateX(-50%);top:calc(366px + env(safe-area-inset-top,0px));width:min(92vw,400px);aspect-ratio:400/240;border-radius:10px;overflow:hidden;border:2px solid rgba(255,255,255,.85);box-shadow:0 0 34px hsla(var(--h),90%,60%,.5),0 14px 40px rgba(0,0,0,.7);animation:ccinsin .45s cubic-bezier(.2,1.2,.3,1)}
+.cc-ins canvas{width:100%;height:100%;display:block}
+.cc-ins i{position:absolute;font-style:normal;font-size:10px;font-weight:800;letter-spacing:1px;color:#fff;text-shadow:0 1px 4px #000}
+.cc-ins-rec{top:8px;left:10px}.cc-ins-rec::first-letter{color:#ff3b5c}.cc-ins-tag{top:8px;right:10px;opacity:.8}
+.cc-ins-c{width:14px;height:14px;border:2px solid rgba(255,255,255,.8)}.cc-ins-c.c1{bottom:8px;left:8px;border-right:0;border-top:0}.cc-ins-c.c2{bottom:8px;right:8px;border-left:0;border-top:0}
+@keyframes ccinsin{0%{opacity:0;transform:translateX(-50%) translateY(26px) scale(.9) rotate(-1.5deg)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1) rotate(0)}}
 .cc-holo{position:absolute;left:50%;transform:translateX(-50%);top:calc(372px + env(safe-area-inset-top,0px));width:min(88vw,380px);height:auto;aspect-ratio:360/190;border-radius:16px;box-shadow:0 0 30px hsla(var(--h),90%,60%,.35);backdrop-filter:blur(2px)}
 .cc-face{position:absolute;left:50%;top:calc(120px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(46vw,190px);display:flex;flex-direction:column;align-items:center;gap:6px}
 .cc-face img{width:100%;aspect-ratio:540/640;object-fit:cover;border-radius:26px;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 28px hsla(var(--h),90%,60%,.55),0 10px 40px rgba(0,0,0,.6);-webkit-mask-image:linear-gradient(180deg,#000 82%,transparent 100%);mask-image:linear-gradient(180deg,#000 82%,transparent 100%)}
