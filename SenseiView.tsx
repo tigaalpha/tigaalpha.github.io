@@ -31,7 +31,7 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
           {/* Plan 26 · P2 — the goal bar sits at the TOP now, not buried under the
               chat input, and it renders even when streak/quest are still zero:
               a brand-new learner is exactly who most needs to see a target. */}
-          {chatProg && <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} always />}
+          {false && chatProg && <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} always />}
           {/* Plan 26 · P1 + P3 — today's plan on the page the learner stands on.
               The numbers come from buildTodaySteps(), the SAME function TodayPage
               renders, so the two can never disagree. One button, and it runs the
@@ -61,7 +61,7 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
           {/* Plan 26 · P5 — the learner's own last drill, one tap from playing
               it again. The drill comes from readPracticeBests(), the same store
               the profile's Drill Deck replays from. */}
-          {resumeCard && (
+          {false && resumeCard && (
             <button className="resumebar" onClick={() => onResumeDrill && onResumeDrill(resumeCard)}>
               <span className="resumebar-ic" aria-hidden="true">⏯</span>
               <span className="resumebar-tx">
