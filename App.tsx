@@ -3699,8 +3699,9 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     </>
   );
 }
-const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched }) {
+const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
+  const [flagOpen, setFlagOpen] = useState(false);
   const [categories, setCategories] = useState(null);  // null = loading; each row is one published lesson_videos entry
   const [activeCat, setActiveCat] = useState(null);     // lesson_videos.id of the selected category
   const [slides, setSlides] = useState(null);           // null = loading this category's videos
@@ -3848,6 +3849,18 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
   );
   return (
     <div className="vidwrap">
+      {onLang && (
+        <div className="vidflag">
+          <button className="vidflag-b" aria-label="Language" onClick={() => { playUi("click"); setFlagOpen(o => !o); }}>{lang === "th" ? "🇹🇭" : lang === "zh" ? "🇨🇳" : "🇬🇧"}</button>
+          {flagOpen && (
+            <div className="vidflag-m">
+              {[["th", "🇹🇭", "ไทย"], ["en", "🇬🇧", "English"], ["zh", "🇨🇳", "中文"]].map(([c, f, n]) => (
+                <button key={c} className={c === lang ? "on" : ""} onClick={() => { setFlagOpen(false); if (c !== lang) onLang(c); }}><span>{f}</span> {n}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {categories.length > 1 && (
         <div className="vidcatbar">
           {categories.map(c => (
@@ -13457,7 +13470,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </button>
       )}
       {page === "videos" && (
-        <VideoLessonsPage lang={lang}
+        <VideoLessonsPage lang={lang} onLang={setLang}
           onWatched={() => {
             if (!takeEarn("video")) return false;          // today's ceiling is spent
             earnCoins(EARN.video); gainExp(EXP.chapter, { quest: true }); playUi("reward");
