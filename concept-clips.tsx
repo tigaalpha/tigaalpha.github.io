@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { speakNarration, stopSpeaking, stopCloudTTS } from "./speech";
 import { createAdvMusic, warmAudio } from "./adventure-music";
+import { MORE_EN, MORE_ZH, MORE_SCENES } from "./concept-clips-more";
 
 type Slide = { ic: string; h: string; b: string };
 export type Clip = { id: string; title: string; sub: string; hue: number; slides: Slide[] };
@@ -133,6 +134,7 @@ function paintCity(cv: HTMLCanvasElement, hue: number, t: number) {
 type Kind = "neurons" | "keys" | "wave" | "timer" | "grid" | "bridge" | "ecg" | "orbit" | "staff" | "rings";
 /* shot lengths in seconds, mixed on purpose: quick cuts (1-3 s) between held shots (5 s and 10 s) so the eye gets rest and does not tire; a slide change always cuts too */
 const SHOT_LEN = [10, 2, 5, 1.5, 10, 3, 5, 1.2, 8, 2.5, 5, 10, 1.8, 5, 3];
+CLIPS.en.push(...MORE_EN); CLIPS.zh.push(...MORE_ZH);   // 20 clips per language
 const ALL_KINDS: Kind[] = ["neurons", "keys", "wave", "timer", "grid", "bridge", "ecg", "orbit", "staff", "rings"];
 const SCENES: Record<string, Kind[]> = {   // one kind per slide, in the slide order of CLIPS (keep the two in step when slides are added or removed)
   focus: ["keys", "staff", "rings", "timer"],
@@ -141,6 +143,7 @@ const SCENES: Record<string, Kind[]> = {   // one kind per slide, in the slide o
   session: ["grid", "rings", "timer", "keys"],
   motivation: ["orbit", "staff", "grid", "ecg"],
 };
+Object.assign(SCENES, MORE_SCENES);
 function paintHolo(cv: HTMLCanvasElement, kind: Kind, hue: number, t: number) {
   const g = cv.getContext("2d"); if (!g) return; const W = cv.width, H = cv.height, tt = t / 1000;
   const c1 = `hsl(${hue + 170} 100% 62%)`, c2 = `hsl(${hue + 320} 100% 68%)`, c3 = `hsl(${hue + 60} 100% 70%)`;
