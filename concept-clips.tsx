@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { speakNarration, stopSpeaking, stopCloudTTS } from "./speech";
 import { createAdvMusic, warmAudio } from "./adventure-music";
+import { finishLook } from "./cg-finish";
 import { MORE_EN, MORE_ZH, MORE_SCENES } from "./concept-clips-more";
 
 type Slide = { ic: string; h: string; b: string };
@@ -95,10 +96,41 @@ function cutSound(ctx: AudioContext | null) {
 
 /* The picture behind a clip: a neon cyberpunk city at night (layered skyline, lit windows, signs, flying cars, rain) with a headphoned pianist at a synth,
    painted live on a canvas in the clip's hue. Only the clip being watched animates. */
+
+/* Film look (owner, 2026-10-23: "beautiful, like the Adventure films, my face on top as before"): the same finishing steps the Adventure films use, in small form:
+   a moon and twinkling stars behind the skyline (skyArt), then, over the finished frame, slow bokeh discs, a low haze, the shared warm key light / light shafts / bloom
+   (`finishLook`), a lens flare with an anamorphic streak, a teal-and-orange grade, a vignette and fine grain. All blends and a few gradients, nothing per pixel. */
+function skyArt(g: CanvasRenderingContext2D, W: number, H: number, hue: number, t: number) {
+  const tt = t / 1000; let sd = 11; const r = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  for (let k = 0; k < 70; k++) { const x = r() * W, y = r() * H * 0.5, tw = 0.45 + 0.55 * Math.abs(Math.sin(tt * (0.6 + r()) + k)); g.fillStyle = `rgba(255,255,255,${0.12 + 0.5 * tw * r()})`; g.fillRect(x, y, 1.4, 1.4); }
+  const mx = W * 0.78, my = H * 0.17, mr = W * 0.07;
+  const halo = g.createRadialGradient(mx, my, mr * 0.6, mx, my, mr * 4); halo.addColorStop(0, `hsla(${hue + 190} 90% 80% / .35)`); halo.addColorStop(1, "transparent"); g.fillStyle = halo; g.fillRect(mx - mr * 4, my - mr * 4, mr * 8, mr * 8);
+  const mg = g.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr); mg.addColorStop(0, "#fffbe8"); mg.addColorStop(1, `hsl(${hue + 200} 40% 70%)`); g.fillStyle = mg; g.beginPath(); g.arc(mx, my, mr, 0, 7); g.fill();
+  g.fillStyle = "rgba(120,130,160,.22)"; g.beginPath(); g.arc(mx - mr * 0.25, my + mr * 0.1, mr * 0.22, 0, 7); g.fill(); g.beginPath(); g.arc(mx + mr * 0.3, my - mr * 0.25, mr * 0.15, 0, 7); g.fill();
+}
+function cineLook(g: CanvasRenderingContext2D, W: number, H: number, hue: number, t: number) {
+  try {
+    const tt = t / 1000;
+    g.save(); g.globalCompositeOperation = "lighter";
+    for (let k = 0; k < 9; k++) { const bx = ((k * 97 + tt * (6 + k * 2)) % (W + 80)) - 40, by = H * (0.2 + ((k * 53) % 60) / 100) + Math.sin(tt * 0.5 + k) * 8, br = 10 + (k % 4) * 9, bg = g.createRadialGradient(bx, by, 0, bx, by, br); const c = k % 2 ? `${hue % 360},100%,70%` : `${(hue + 160) % 360},100%,68%`; bg.addColorStop(0, `hsla(${c},.16)`); bg.addColorStop(1, `hsla(${c},0)`); g.fillStyle = bg; g.beginPath(); g.arc(bx, by, br, 0, 7); g.fill(); }
+    g.restore();
+    const hz = g.createLinearGradient(0, H * 0.55, 0, H * 0.88); hz.addColorStop(0, "rgba(120,140,200,0)"); hz.addColorStop(0.6, `hsla(${hue + 210},60%,60%,.12)`); hz.addColorStop(1, "rgba(120,140,200,0)"); g.fillStyle = hz; g.fillRect(0, H * 0.55, W, H * 0.33);
+    finishLook(g, W, H, tt, "255,200,150", 0.55);
+    g.save(); g.globalCompositeOperation = "lighter";
+    const sx = W * (0.78 + 0.02 * Math.sin(tt * 0.3)), sy = H * 0.17, fg = g.createRadialGradient(sx, sy, 0, sx, sy, H * 0.2); fg.addColorStop(0, "rgba(255,255,255,.28)"); fg.addColorStop(0.3, "rgba(255,210,160,.12)"); fg.addColorStop(1, "rgba(255,210,160,0)"); g.fillStyle = fg; g.fillRect(sx - H * 0.2, sy - H * 0.2, H * 0.4, H * 0.4);
+    g.fillStyle = "rgba(160,210,255,.10)"; g.fillRect(0, sy - 1, W, 2);
+    const vx = W / 2 - sx, vy = H / 2 - sy; for (const [f, rr, c] of [[0.5, 0.045, "120,200,255"], [1.0, 0.07, "255,170,110"], [1.5, 0.035, "160,255,200"]] as any) { const gx = sx + vx * f, gy = sy + vy * f, gr = g.createRadialGradient(gx, gy, 0, gx, gy, H * rr); gr.addColorStop(0, `rgba(${c},0)`); gr.addColorStop(0.7, `rgba(${c},.07)`); gr.addColorStop(1, `rgba(${c},0)`); g.fillStyle = gr; g.beginPath(); g.arc(gx, gy, H * rr, 0, 7); g.fill(); }
+    g.restore();
+    g.save(); g.globalCompositeOperation = "soft-light"; g.globalAlpha = 0.4; const gd = g.createLinearGradient(0, 0, 0, H); gd.addColorStop(0, "#2b6f86"); gd.addColorStop(0.55, "#808080"); gd.addColorStop(1, "#d98a4a"); g.fillStyle = gd; g.fillRect(0, 0, W, H); g.restore();
+    const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.5)"); g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    g.fillStyle = "rgba(255,255,255,.05)"; let sd = Math.floor(tt * 24) + 5; for (let k = 0; k < 110; k++) { sd = (sd * 16807) % 2147483647; g.fillRect((sd % 1000) / 1000 * W, ((sd >> 5) % 1000) / 1000 * H, 1, 1); }
+  } catch (e) {}
+}
 function paintCity(cv: HTMLCanvasElement, hue: number, t: number) {
   const g = cv.getContext("2d"); if (!g) return; const W = cv.width, H = cv.height;
   const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, `hsl(${hue + 200} 60% 8%)`); sky.addColorStop(0.55, `hsl(${hue + 250} 55% 18%)`); sky.addColorStop(1, `hsl(${hue + 300} 60% 26%)`);
   g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  skyArt(g, W, H, hue, t);
   let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   for (let layer = 0; layer < 3; layer++) {
     const base = H * (0.62 + layer * 0.06), sh = 0.35 + layer * 0.3, par = Math.sin(t * 0.0002 + layer) * 4 * (layer + 1);
@@ -127,6 +159,7 @@ function paintCity(cv: HTMLCanvasElement, hue: number, t: number) {
   g.strokeStyle = "rgba(255,255,255,.08)"; g.lineWidth = 1; g.beginPath();
   for (let k = 0; k < 60; k++) { const rx = ((k * 53 + t * 0.35) % (W + 40)) - 20, ry = ((k * 97 + t * 0.9) % H); g.moveTo(rx, ry); g.lineTo(rx - 3, ry + 14); } g.stroke();
   cityFx(cv, g, hue, t);
+  cineLook(g, W, H, hue, t);
 }
 
 
