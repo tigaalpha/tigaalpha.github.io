@@ -266,7 +266,7 @@ export function createAdvMusic(id: string, gainMul = 1): AdvMusic | null {
       try {
         const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return;
         const sh = (window as any).__tgCineCtx; shared = !!(sh && sh.state !== "closed"); ctx = shared ? sh : new AC(); master = ctx!.createGain(); master.gain.value = 0;
-        const comp = ctx!.createDynamicsCompressor(); master.connect(comp); comp.connect(liveOut(ctx!)); bus = makeBus(ctx!, master);
+        const comp = ctx!.createDynamicsCompressor(); if (id === "clip") { const lp = ctx!.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600; lp.Q.value = 0.5; master.connect(lp); lp.connect(comp); } else master.connect(comp); comp.connect(liveOut(ctx!)); bus = makeBus(ctx!, master);
         ctx!.resume().catch(() => {}); next = ctx!.currentTime + 0.1; apply(); pump(); timer = setInterval(pump, 100);
         document.addEventListener("visibilitychange", vis);
       } catch (e) { ctx = null; }
