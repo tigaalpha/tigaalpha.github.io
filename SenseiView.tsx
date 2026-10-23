@@ -26,6 +26,40 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
     zh: { doneTitle: "今日计划已完成", lastDrill: "再练一次", missed: "本周最常错", now: "现在", start: "练习", more: "更多", notes: "个音", min: "分钟", listen: "先听示范" },
   }[lang];
   const planNext = todayPlan && todayPlan.next;
+  const merged = !!(hasSeq || (fingerChart && fingerChart.notes));
+  const nowEl = (() => {
+              const rec = recommendNext();
+              const nNotes = fingerChart && fingerChart.notes ? fingerChart.notes.length : 0;
+              const mins = Math.max(1, Math.round(nNotes / 6));
+              if (hasSeq) {
+                return (
+                  <div className="nowcard">
+                    <span className="nowcard-tag">{TT.now}</span>
+                    <b className="nowcard-t">{fingerChart && fingerChart.label ? fingerChart.label : lc.practiceBtn}</b>
+                    <span className="nowcard-s">{nNotes ? `${nNotes} ${TT.notes} · ~${mins} ${TT.min}` : ""}{rec && rec.label ? ` · ${lc.recFor}: ${rec.label}` : ""}</span>
+                    <div className="nowcard-act">
+                      <button className={`practicebtn nowcard-go${!seqPlaying ? " ready" : ""}`} onClick={startPractice} title={lc.practiceBtn}>▶ {TT.start}</button>
+                      <button className="handbtn on handtoggle handmini" onClick={() => setHand(hand === "left" ? "right" : "left")}
+                  title={hand === "left" ? lc.leftHand : lc.rightHand} aria-label={hand === "left" ? lc.leftHand : lc.rightHand}>
+                  <svg className="handsvg" width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true" style={{ flexShrink: 0, transform: hand === "right" ? "scaleX(-1)" : undefined }}>
+                    <path d="M11 14V7.5a1.8 1.8 0 0 1 3.6 0V13M14.6 13V6a1.8 1.8 0 0 1 3.6 0v7M18.2 13.5V8a1.8 1.8 0 0 1 3.6 0v8.5c0 4.5-2.6 8-7.4 8-3 0-4.6-1.2-6.4-3.6l-2.8-3.8a1.9 1.9 0 0 1 3-2.3l1.8 2V9a1.8 1.8 0 0 1 3.6 0v5"
+                      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg><span className="handlbl">{hand === "left" ? lc.leftHand : lc.rightHand}</span>
+                  <span className="handswap" aria-hidden="true">⇄</span>
+                </button>
+                      <button className="nowcard-sub" onClick={togglePlayPause} title={TT.listen}>{seqPlaying ? "⏸ " + lc.demoPause : "👂 " + TT.listen}</button>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <button className="nowcard nowcard-rec" onClick={rec.fn}>
+                  <span className="nowcard-tag">{TT.now}</span>
+                  <b className="nowcard-t"><span aria-hidden="true">{rec.icon}</span> {rec.label}</b>
+                  <span className="nowcard-s">{lc.recFor} →</span>
+                </button>
+              );
+            })();
   return (
         <>
           {/* Plan 26 · P2 — the goal bar sits at the TOP now, not buried under the
@@ -113,6 +147,7 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
             <Piano litNote={litNote} litSet={litSet} fingerMap={fingerMap} baseOct={pianoOct} onNote={handleMainKey} />
             {/* Plan 28 · B3 — the finger table is a hand: the finger for the note that is lit (demo or key) is the one that glows,
                 the same drawing the practice screen uses; the note names stay as quiet text below. */}
+            <div className={merged ? "tcard" : undefined}>
             {fingerChart && fingerChart.notes.some(p => p.finger != null) && (() => {
               const cur = fingerChart.notes.find(p => p.note === litNote);
               return (
@@ -127,7 +162,7 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
               );
             })()}
 
-            <style>{OCTAVE_CSS + ".octrow{display:flex;justify-content:center;margin:8px 0}.octsel{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}.octsel select{min-height:44px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);padding:0 14px;font-weight:800}"}</style>
+            <style>{OCTAVE_CSS + ".tcard{background:var(--card,#fff);border:1.5px solid var(--bd,rgba(0,0,0,.1));border-radius:22px;padding:10px 12px 12px;margin:8px 0;box-shadow:0 6px 18px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:8px}.tcard .fchart{margin:0!important;border:0!important;background:transparent!important;box-shadow:none!important;padding:0!important;display:grid;grid-template-columns:72px 1fr;grid-template-areas:'h hd' 'h n';align-items:center;column-gap:12px}.tcard .fchart>svg,.tcard .fchart .fingerhand{grid-area:h;width:72px;height:auto}.tcard .fchart-head{grid-area:hd;display:flex;justify-content:space-between;gap:8px}.tcard .fchart-notes{grid-area:n;text-align:left!important;font-size:13px;opacity:.85}.tcard .recbar{margin:0!important;padding:8px 0 0!important;border-top:1px dashed var(--bd,rgba(0,0,0,.12));justify-content:flex-start;gap:8px}.tcard .nowcard{margin:0!important;border:0!important;box-shadow:none!important;background:transparent!important;padding:8px 0 0!important;border-top:1px dashed var(--bd,rgba(0,0,0,.12))!important}.octrow{display:flex;justify-content:center;margin:8px 0}.octsel{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}.octsel select{min-height:44px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);padding:0 14px;font-weight:800}"}</style>
             {octaves > 1 && (
               <OctaveStage onPractice={(sq: any) => { setOctaves(1); startOctavePractice && startOctavePractice(sq); }} notes={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.notes : DEFAULT_SCALE} label={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.label : "C Major Scale"} octaves={octaves} setOctaves={setOctaves} hand={hand} setHand={setHand} lang={lang} onClose={() => setOctaves(1)} />
             )}
@@ -146,44 +181,14 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
                 {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n} {lang === "th" ? "ออกเทฟ" : lang === "zh" ? "个八度" : n === 1 ? "octave" : "octaves"}</option>)}
               </select></label>
             </div>
+            {merged && nowEl}
+            </div>
 
           </div>
           {/* Plan 28 · B1 — ONE card answers "what do I do now": what, how many notes, about how long, and one big button.
               With a demo on the keys it is the practice run of that demo; without one it is the same recommendation
               the Daily Mentor shows (recommendNext), so the pages cannot disagree. */}
-          {(() => {
-            const rec = recommendNext();
-            const nNotes = fingerChart && fingerChart.notes ? fingerChart.notes.length : 0;
-            const mins = Math.max(1, Math.round(nNotes / 6));
-            if (hasSeq) {
-              return (
-                <div className="nowcard">
-                  <span className="nowcard-tag">{TT.now}</span>
-                  <b className="nowcard-t">{fingerChart && fingerChart.label ? fingerChart.label : lc.practiceBtn}</b>
-                  <span className="nowcard-s">{nNotes ? `${nNotes} ${TT.notes} · ~${mins} ${TT.min}` : ""}{rec && rec.label ? ` · ${lc.recFor}: ${rec.label}` : ""}</span>
-                  <div className="nowcard-act">
-                    <button className={`practicebtn nowcard-go${!seqPlaying ? " ready" : ""}`} onClick={startPractice} title={lc.practiceBtn}>▶ {TT.start}</button>
-                    <button className="handbtn on handtoggle handmini" onClick={() => setHand(hand === "left" ? "right" : "left")}
-                title={hand === "left" ? lc.leftHand : lc.rightHand} aria-label={hand === "left" ? lc.leftHand : lc.rightHand}>
-                <svg className="handsvg" width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true" style={{ flexShrink: 0, transform: hand === "right" ? "scaleX(-1)" : undefined }}>
-                  <path d="M11 14V7.5a1.8 1.8 0 0 1 3.6 0V13M14.6 13V6a1.8 1.8 0 0 1 3.6 0v7M18.2 13.5V8a1.8 1.8 0 0 1 3.6 0v8.5c0 4.5-2.6 8-7.4 8-3 0-4.6-1.2-6.4-3.6l-2.8-3.8a1.9 1.9 0 0 1 3-2.3l1.8 2V9a1.8 1.8 0 0 1 3.6 0v5"
-                    stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg><span className="handlbl">{hand === "left" ? lc.leftHand : lc.rightHand}</span>
-                <span className="handswap" aria-hidden="true">⇄</span>
-              </button>
-                    <button className="nowcard-sub" onClick={togglePlayPause} title={TT.listen}>{seqPlaying ? "⏸ " + lc.demoPause : "👂 " + TT.listen}</button>
-                  </div>
-                </div>
-              );
-            }
-            return (
-              <button className="nowcard nowcard-rec" onClick={rec.fn}>
-                <span className="nowcard-tag">{TT.now}</span>
-                <b className="nowcard-t"><span aria-hidden="true">{rec.icon}</span> {rec.label}</b>
-                <span className="nowcard-s">{lc.recFor} →</span>
-              </button>
-            );
-          })()}
+          {!merged && nowEl}
           <div className="cw">
             <div className="chdr">
               <div className="ailbl"><div className="dot" />{lc.aiLabel}</div>
