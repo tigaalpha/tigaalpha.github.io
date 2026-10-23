@@ -103,7 +103,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
 
   const brief = dfn && sel === cur.id ? dfn.data.brief : null;
   return (
-    <div className={"ra-hub" + (portrait ? " rot" : "")} data-ra="hub">
+    <div className={"ra-hub" + (portrait ? " rot" : "") + (high ? " hi" : "")} data-ra="hub">
       <style>{CSS}</style>
       {powerNeed != null && <PowerSheet lang={lang} need={powerNeed} onClose={() => setPowerNeed(null)} />}
       <div className="ra-stars s1" /><div className="ra-stars s2" /><div className="ra-neb" />
@@ -190,6 +190,9 @@ const CSS = `
 .ra-orb{position:relative;display:block;width:var(--s);height:var(--s);animation:ra-bob 3.6s ease-in-out var(--d) infinite;transform-style:preserve-3d}
 .ra-orb:before{content:"";position:absolute;inset:-26%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--c) 60%,transparent),transparent 72%);opacity:.65}
 .ra-orb img{position:relative;width:100%;height:100%;border-radius:50%;display:block;box-shadow:inset -8px -10px 18px #000a,0 8px 18px #0008}
+.ra-hub.hi .ra-orb img{box-shadow:inset -8px -10px 18px #000a,inset 5px 6px 14px #fff3,0 0 16px color-mix(in srgb,var(--c) 55%,transparent),0 8px 18px #0008}
+.ra-hub.hi .ra-orb:after{content:"";position:absolute;inset:6% 38% 40% 8%;border-radius:50%;background:radial-gradient(closest-side,#fff5,transparent);pointer-events:none}
+.ra-hub.hi .ra-stars.s1{animation-duration:90s}
 .ra-orb b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;background:#0008;border-radius:50%}.ra-orb em{position:absolute;right:-4px;top:-4px;width:20px;height:20px;border-radius:50%;background:#2ecf7a;color:#fff;font-style:normal;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center}
 @keyframes ra-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 .ra-nm{font-size:10px;font-weight:800;text-align:center;line-height:1.15;text-shadow:0 1px 6px #000;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ra-pl u{font-size:9px;text-decoration:none;font-weight:900;letter-spacing:.5px;padding:1px 7px;border-radius:9px;background:#ffffff1a;opacity:.75}.ra-pl u.g{background:#2ecf7a;color:#03140c;opacity:1}
