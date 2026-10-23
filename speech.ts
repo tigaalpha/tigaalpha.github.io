@@ -282,7 +282,7 @@ export async function speakNarration(text, lang, onDone, onBlocked, rateMul = 1,
     try {
       const { TextToSpeech } = await import("@capacitor-community/text-to-speech");
       try { await TextToSpeech.stop(); } catch (e) {}
-      await TextToSpeech.speak({ text: clean, lang: locale, rate, pitch: strictMale ? 0.32 : pitch, category: "ambient" });
+      await TextToSpeech.speak({ text: clean, lang: locale, rate, pitch: strictMale ? 0.35 : pitch, category: "ambient" });
       if (onDone) onDone(); return true;
     } catch (e) { /* plugin missing: fall through to speechSynthesis */ }
   }
@@ -296,7 +296,7 @@ export async function speakNarration(text, lang, onDone, onBlocked, rateMul = 1,
     const natural = !!voice && /neural|natural|premium|enhanced|wavenet|studio|siri|online/.test((voice.name + " " + voice.voiceURI).toLowerCase());
     const next = () => {
       if (idx >= chunks.length) { stopResumeKeepAlive(); if (onDone) onDone(); return; }
-      const u = new SpeechSynthesisUtterance(chunks[idx]); u.lang = voice ? voice.lang : locale; if (voice) u.voice = voice; u.rate = natural && !absRate ? Math.min(1.05, rate + 0.07) : rate; u.pitch = strictMale && !isMale ? 0.28 : natural ? 1 : pitch; u.volume = 1;
+      const u = new SpeechSynthesisUtterance(chunks[idx]); u.lang = voice ? voice.lang : locale; if (voice) u.voice = voice; u.rate = natural && !absRate ? Math.min(1.05, rate + 0.07) : rate; u.pitch = strictMale && !isMale ? 0.31 : natural ? 1 : pitch; u.volume = 1;
       let advanced = false; const guard = setTimeout(() => adv(), Math.min(20000, 2500 + chunks[idx].length * 140));
       const adv = () => { if (advanced) return; advanced = true; clearTimeout(guard); idx++; setTimeout(next, strictMale ? 30 : 170); };   // a breath between sentences (almost none for the concept clips: the voice runs on)
       u.onstart = () => { started = true; }; u.onend = adv; u.onerror = adv; synth.speak(u);
