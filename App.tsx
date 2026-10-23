@@ -3599,6 +3599,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   const [faved, setFaved] = useState(() => readVidFav(s.key));
   const [subLang, setSubLang] = useState(() => readVidSubLang());
   const [subOpen, setSubOpen] = useState(false);
+  const [spkOff, setSpkOff] = useState(true), frameRef = useRef(null);   // the embed starts muted (browsers only autoplay muted); this button unmutes / mutes it through the player API
   if (!active) return <div className="vidplaceholder">🎬</div>;
   /* The CC button used to CYCLE Off -> TH -> EN -> ZH on each tap, so getting
      to Chinese meant three taps through two languages you did not want, and
@@ -3657,12 +3658,16 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   // non-github.io origins — Android app, other hosts): embed the whole
   // playlist directly via YouTube's videoseries player. A plain YouTube embed,
   // no API call, no key, works from any origin.
+  const spkBtn = (
+    <button className="vidspk" aria-label="Sound" onClick={(e) => { e.stopPropagation(); const nxt = !spkOff; setSpkOff(nxt); playUi("click"); try { frameRef.current && frameRef.current.contentWindow && frameRef.current.contentWindow.postMessage(JSON.stringify({ event: "command", func: nxt ? "mute" : "unMute", args: [] }), "*"); } catch (err) { /* player not ready */ } }}>{spkOff ? "🔇" : "🔊"}</button>
+  );
   if (s.playlistId) {
     return (
       <>
-        <iframe className="vidplayer"
-          src={`https://www.youtube-nocookie.com/embed/videoseries?list=${s.playlistId}&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0${ccParam}`}
+        <iframe className="vidplayer" ref={frameRef}
+          src={`https://www.youtube-nocookie.com/embed/videoseries?list=${s.playlistId}&enablejsapi=1&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0${ccParam}`}
           allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
+        {spkBtn}
         {rail}
       </>
     );
@@ -3674,9 +3679,10 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   if (s.youtubeId) {
     return (
       <>
-        <iframe className="vidplayer"
-          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3${ccParam}`}
+        <iframe className="vidplayer" ref={frameRef}
+          src={`https://www.youtube-nocookie.com/embed/${s.youtubeId}?enablejsapi=1&autoplay=1&mute=1&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3${ccParam}`}
           allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen frameBorder="0" title={s.title} />
+        {spkBtn}
         {rail}
       </>
     );
