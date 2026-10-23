@@ -558,7 +558,17 @@ export function ConceptClipFeed({ clips, lang, start, onClose, inline }: { clips
   /* continuous voice: every line of the clip on screen and of the next two clips is fetched ahead (the global request throttle staggers them), so a line never waits for the network */
   useEffect(() => {
     let ac: AudioContext; try { ac = getAC(); } catch { return; }
-    for (let k = act; k < Math.min(clips.length, act + 3); k++) for (const sl of clips[k].slides) clipBuf(sl.b, lang, ac).catch(() => {});
+    /* ONE request at a time, the clip on screen first: a burst of 12+ parallel requests trips the provider's rate limit and starves the very line being played (owner: "some videos still have no voice") */
+    let stop = false;
+    (async () => {
+      for (let k = act; k < Math.min(clips.length, act + 3) && !stop; k++) for (const sl of clips[k].slides) {
+        if (stop) return;
+        for (let t = 0; t < 4 && !stop; t++) { try { await clipBuf(sl.b, lang, ac); break; } catch { await new Promise((r) => setTimeout(r, 1500 * (t + 1))); } }
+      }
+    })();
+    const wake = () => { try { const c = getAC(); if (c.state !== "running") c.resume(); } catch { /* */ } };
+    window.addEventListener("pointerdown", wake, true); window.addEventListener("touchend", wake, true);
+    return () => { stop = true; window.removeEventListener("pointerdown", wake, true); window.removeEventListener("touchend", wake, true); };
   }, [act, lang]);
   const feed = useRef<HTMLDivElement>(null), musicRef = useRef<any>(null), actRef = useRef(act);
   actRef.current = act;
