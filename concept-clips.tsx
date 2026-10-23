@@ -257,7 +257,7 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
   const hk = pool[shot % pool.length], cam = shot % 5;
   return (
     <section className="cc-reel" style={{ ["--h" as any]: clip.hue }} data-cam={cam} data-clip={clip.id} data-active={active ? "1" : "0"}>
-      <Backdrop hue={clip.hue} live={active && !paused} />
+      <Backdrop hue={clip.hue + (shot % 4) * 38} live={active && !paused} />
       <div className="cc-shade" />
       <Holo key={"h" + i + "-" + shot} kind={hk} hue={clip.hue + shot * 24} live={active && !paused} />
       <div className="cc-title"><span>{s.ic}</span><b>{s.h}</b></div>
@@ -337,7 +337,7 @@ export const CLIP_CSS = `
 @keyframes ccin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .cc-reel[data-cam] .cc-bg{animation-duration:1.7s;animation-timing-function:ease-out;animation-fill-mode:both}
 .cc-reel[data-cam="0"] .cc-bg{animation-name:cccam0}.cc-reel[data-cam="1"] .cc-bg{animation-name:cccam1}.cc-reel[data-cam="2"] .cc-bg{animation-name:cccam2}.cc-reel[data-cam="3"] .cc-bg{animation-name:cccam3}.cc-reel[data-cam="4"] .cc-bg{animation-name:cccam4}
-@keyframes cccam0{from{transform:scale(1.0)}to{transform:scale(1.22)}}@keyframes cccam1{from{transform:scale(1.25) translateX(-3%)}to{transform:scale(1.08) translateX(3%)}}@keyframes cccam2{from{transform:scale(1.1) rotate(-1.6deg)}to{transform:scale(1.2) rotate(1.4deg)}}@keyframes cccam3{from{transform:scale(1.3) translateY(3%)}to{transform:scale(1.05) translateY(-2%)}}@keyframes cccam4{from{transform:scale(1.05) rotate(1.8deg)}to{transform:scale(1.28) rotate(-1deg)}}
+@keyframes cccam0{from{transform:scale(1.0)}to{transform:scale(1.45)}}@keyframes cccam1{from{transform:scale(1.25) translateX(-3%)}to{transform:scale(1.08) translateX(3%)}}@keyframes cccam2{from{transform:scale(1.1) rotate(-1.6deg)}to{transform:scale(1.2) rotate(1.4deg)}}@keyframes cccam3{from{transform:scale(1.55) translateY(6%)}to{transform:scale(1.05) translateY(-4%)}}@keyframes cccam4{from{transform:scale(1.05) rotate(1.8deg)}to{transform:scale(1.28) rotate(-1deg)}}
 .cc-holo{animation:ccholoin .5s cubic-bezier(.2,1.4,.4,1)}@keyframes ccholoin{0%{opacity:0;transform:translateX(-50%) scale(.8)}100%{opacity:1;transform:translateX(-50%) scale(1)}}
 @media (prefers-reduced-motion:reduce){.cc-bg,.cc-holo,.cc-cap,.cc-face.on img,.cc-bar i.cur,.cc-hint{animation:none}}
 .cc-list{position:absolute;inset:0;z-index:20;overflow-y:auto;padding:calc(70px + env(safe-area-inset-top,0px)) 16px 24px;display:flex;flex-direction:column;gap:12px;background:#000}
