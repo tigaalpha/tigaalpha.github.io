@@ -129,6 +129,7 @@ export function ConceptClipPlayer({ clip, lang, onClose }: { clip: Clip; lang: "
     <div className="cc-wrap" style={{ ["--h" as any]: clip.hue }} data-clip={clip.id}>
       <div className="cc-bar">{clip.slides.map((_, k) => <i key={k} className={k < i || done ? "on" : k === i ? "cur" : ""} />)}</div>
       <button className="cc-x" onClick={onClose} aria-label="Close">✕</button>
+      {!paused && !done ? <div className="cc-face on"><img src="./img/presenter.jpg" alt="" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} /><span>TIGA Studio · @tiga.studio</span></div> : <div className="cc-face"><img src="./img/presenter.jpg" alt="" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} /><span>TIGA Studio · @tiga.studio</span></div>}
       {!done ? (
         <div className="cc-slide" key={i}>
           <div className="cc-ic">{s.ic}</div>
@@ -152,12 +153,13 @@ export const CLIP_CSS = `
 @keyframes ccfill{from{background-position:100% 0}to{background-position:0 0}}
 .cc-x,.cc-pause{position:absolute;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-size:16px;cursor:pointer}
 .cc-x{top:calc(8px + env(safe-area-inset-top,0px));right:12px}.cc-pause{bottom:calc(22px + env(safe-area-inset-bottom,0px));right:16px}
-.cc-slide{max-width:560px;text-align:center;animation:ccin .6s cubic-bezier(.2,.8,.2,1)}
-.cc-ic{font-size:96px;line-height:1;margin-bottom:18px;animation:ccpop .8s cubic-bezier(.2,1.4,.4,1)}
-.cc-slide h2{font-size:28px;line-height:1.2;margin:0 0 14px;text-wrap:balance}.cc-slide p{font-size:19px;line-height:1.55;margin:0;opacity:.92}
+.cc-slide{max-width:560px;text-align:center;margin-top:150px;animation:ccin .6s cubic-bezier(.2,.8,.2,1)}
+.cc-face{position:absolute;top:calc(48px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px}.cc-face img{width:112px;height:112px;border-radius:50%;object-fit:cover;object-position:50% 25%;border:3px solid rgba(255,255,255,.85);box-shadow:0 0 0 0 rgba(255,255,255,.5)}.cc-face.on img{animation:ccspeak 1.3s ease-out infinite}.cc-face span{font-size:12px;font-weight:700;opacity:.85;letter-spacing:.3px}@keyframes ccspeak{0%{box-shadow:0 0 0 0 rgba(255,255,255,.55)}100%{box-shadow:0 0 0 18px rgba(255,255,255,0)}}
+.cc-ic{font-size:64px;line-height:1;margin-bottom:18px;animation:ccpop .8s cubic-bezier(.2,1.4,.4,1)}
+.cc-slide h2{font-size:26px;line-height:1.2;margin:0 0 14px;text-wrap:balance}.cc-slide p{font-size:19px;line-height:1.55;margin:0;opacity:.92}
 .cc-btn{margin-top:22px;padding:12px 26px;border-radius:999px;border:0;background:#fff;color:#111;font-weight:700;font-size:16px;cursor:pointer}
 @keyframes ccin{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}@keyframes ccpop{from{transform:scale(.4) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){.cc-slide,.cc-ic,.cc-bar i.cur{animation:none}}
+@media (prefers-reduced-motion:reduce){.cc-slide,.cc-ic,.cc-bar i.cur,.cc-face.on img{animation:none}}
 .cc-list{position:absolute;inset:0;z-index:20;overflow-y:auto;padding:calc(70px + env(safe-area-inset-top,0px)) 16px 24px;display:flex;flex-direction:column;gap:12px;background:#000}
 .cc-card{display:flex;gap:14px;align-items:center;text-align:left;border:0;border-radius:18px;padding:14px 16px;color:#fff;cursor:pointer;background:linear-gradient(135deg,hsl(var(--h) 60% 30%),hsl(calc(var(--h) + 40) 55% 14%))}
 .cc-card b{display:block;font-size:17px;margin-bottom:3px}.cc-card span.s{font-size:13px;opacity:.8}.cc-card .e{font-size:40px}
