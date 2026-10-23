@@ -476,6 +476,16 @@ export default function AdventureShip({ P, lang, ups, upgrade, glow: glow0, onWi
       }
       const s = S.ship; if (!S.over) { x.save(); x.translate(s.x, s.y); if (s.inv > 0 && Math.floor(S.t * 20) % 2) x.globalAlpha = 0.4; if (SKY === "ark") { x.scale(0.82, 0.82); drawArk(x, glow, S.t, ARKLV); } else drawPlayer(x, glow, S.t); drawForm(x, S.form, CAR, S.t); x.restore(); }
       drawWarpLaser(x, S, W, H); drawMega(x, S, W, H);
+      if (HI()) { try {   // High only (plan 40 E): the engine's warm light falls on nearby rocks and enemies, a fresnel-style shield bubble, a lensing ring round the black hole
+        x.save(); x.globalCompositeOperation = "lighter";
+        const sx2 = s.x - 26, lit = (px: number, py: number, r: number, c: string, al: number) => { const g2 = x.createRadialGradient(px, py, 0, px, py, r); g2.addColorStop(0, `rgba(${c},${al})`); g2.addColorStop(1, `rgba(${c},0)`); x.fillStyle = g2; x.fillRect(px - r, py - r, r * 2, r * 2); };
+        lit(sx2, s.y, 70, "255,170,90", 0.22);
+        for (const r2 of S.rk) { if (r2.dead) continue; const d2 = Math.hypot(r2.x - s.x, r2.y - s.y); if (d2 < 190) lit(r2.x, r2.y, r2.r * 1.6, "255,180,110", 0.26 * (1 - d2 / 190)); }
+        for (const e2 of S.en) { if (e2.dead) continue; const d2 = Math.hypot(e2.x - s.x, e2.y - s.y); if (d2 < 220) lit(e2.x, e2.y, e2.r * 2.2, "255,180,110", 0.2 * (1 - d2 / 220)); }
+        if (!S.over && (s.inv > 0 || (S.form && S.form.k === "cell"))) { const pr = 0.5 + 0.5 * Math.sin(S.t * 8), rr = 34; const g3 = x.createRadialGradient(s.x, s.y, rr * 0.6, s.x, s.y, rr); g3.addColorStop(0, "rgba(120,200,255,0)"); g3.addColorStop(0.85, `rgba(120,200,255,${0.14 + 0.1 * pr})`); g3.addColorStop(1, `rgba(190,235,255,${0.35 + 0.2 * pr})`); x.fillStyle = g3; x.beginPath(); x.arc(s.x, s.y, rr, 0, 7); x.fill(); }
+        if (MODE === "blackhole" && S.hole) { for (let i = 0; i < 3; i++) { const rr = 70 + i * 26 + 6 * Math.sin(S.t * 2 + i); x.strokeStyle = `rgba(255,190,120,${0.16 - i * 0.04})`; x.lineWidth = 3 - i * 0.7; x.beginPath(); x.arc(S.hole.x, S.hole.y, rr, 0, 7); x.stroke(); } }
+        x.restore();
+      } catch (_) { /* Lite look */ } }
       if (HI()) {   // bloom: the frame, shrunk and stretched back over itself, plus a soft colour vignette
         const bw = Math.max(48, c.width >> 3), bh = Math.max(27, c.height >> 3); if (!bloomA) { bloomA = document.createElement("canvas"); bloomB = document.createElement("canvas"); }
         if (bloomA && bloomB) { bloomA.width = bw; bloomA.height = bh; bloomB.width = bw >> 1; bloomB.height = bh >> 1; const a1 = bloomA.getContext("2d")!, b1 = bloomB.getContext("2d")!; a1.drawImage(c, 0, 0, bw, bh); b1.drawImage(bloomA, 0, 0, bw >> 1, bh >> 1);
