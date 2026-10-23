@@ -3,7 +3,8 @@
    The Thai clips are YouTube videos; the first three here follow their titles (concentration, neural connections, which brain areas work); the last two are about HOW to practise
    (the owner's correction: concept clips mean practice concepts, not marketing) and use the app's own practice-planning and motivation knowledge (`teacher-craft-seed.js`). No third-party footage, music or voice. */
 import { useEffect, useRef, useState } from "react";
-import { speakNarration, speakCloud, stopSpeaking, stopCloudTTS, ttsBudgetSpend, ttsBudgetRefund, ttsEstSeconds } from "./speech";
+import { speakNarration, stopSpeaking, stopCloudTTS, ttsBudgetSpend, ttsBudgetRefund, ttsEstSeconds, ttsFetchBuffer } from "./speech";
+import { getAC } from "./music-engine";
 import { createAdvMusic, warmAudio } from "./adventure-music";
 import { finishLook } from "./cg-finish";
 import { gfxHigh } from "./adv-gfx";
@@ -432,29 +433,57 @@ function clipFile(key: string, lang: string): Promise<string | null> {
   if (!_clipMan) _clipMan = fetch("./audio/clips/manifest.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
   return _clipMan.then((m) => (m && m[lang] && m[lang][key] ? "./audio/clips/" + lang + "/" + key + "." + m[lang][key] : null));
 }
-function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boolean; lang: "en" | "zh"; paused: boolean; onEnded: () => void }) {
+let _clipSrc: AudioBufferSourceNode | null = null;
+const _clipPre = new Map<string, Promise<AudioBuffer>>();
+/* one shared promise per line, so a prefetch and the real play never fetch (or pay for) it twice */
+function clipBuf(text: string, lang: string, ac: AudioContext): Promise<AudioBuffer> {
+  const key = lang + "|" + text; let p = _clipPre.get(key);
+  if (!p) { p = ttsFetchBuffer(text, lang, ac, 3, 30000, { src: "clip", voice: "Charon", style: NARR[lang], spend: (c: string) => ttsBudgetSpend(ttsEstSeconds(c, lang) * 0.5), refund: (c: string) => ttsBudgetRefund(ttsEstSeconds(c, lang) * 0.5) }) as Promise<AudioBuffer>; p.catch(() => { _clipPre.delete(key); }); _clipPre.set(key, p); }
+  return p;
+}
+/* the part of a clip that is really sound: the model leaves a fraction of a second of silence at both ends, which showed up as a gap between lines */
+function audibleSpan(b: AudioBuffer): [number, number] {
+  try { const d = b.getChannelData(0), sr = b.sampleRate, th = 0.012; let s0 = 0, s1 = d.length - 1; while (s0 < d.length && Math.abs(d[s0]) < th) s0++; while (s1 > s0 && Math.abs(d[s1]) < th) s1--; return [Math.max(0, s0 / sr - 0.04), Math.min(b.duration, s1 / sr + 0.1)]; } catch (e) { return [0, b.duration]; }
+}
+function Reel({ clip, active, lang, paused, onEnded, peek }: { clip: Clip; active: boolean; lang: "en" | "zh"; paused: boolean; onEnded: () => void; peek?: string }) {
   const [i, setI] = useState(0), [shot, setShot] = useState(0), [wi, setWi] = useState(-1), endRef = useRef(onEnded), n = clip.slides.length;
   endRef.current = onEnded;
   useEffect(() => { if (!active) setI(0); }, [active]);
   useEffect(() => {
     if (!active || paused) { stopSpeaking(); return undefined; }
     cutSound((window as any).__tgCineCtx || null);
-    let dead = false, iv: any = 0; setWi(-1);
+    let dead = false; const tms: any[] = []; setWi(-1);
     const go = () => { if (dead) return; if (i + 1 >= n) endRef.current(); else setI(i + 1); };
-    const s = clip.slides[i], at = setTimeout(() => {
-      /* the device's own voice, chosen strictly: a male, natural / neural / enhanced voice if the phone has one (owner, 2026-10-23: device voices are fine, pick the most natural male one) */
-      const text = s.b, words = wordsOf(text, lang), cps = lang === "zh" ? 5.6 : 15.5, per = (text.length / cps / Math.max(1, words.length)) * 1000;
-      let w = 0; setWi(0); iv = setInterval(() => { w++; setWi(w); if (w >= words.length) { clearInterval(iv); } }, Math.max(110, per));
-      /* the natural cloud voice first (owner, 2026-10-23: "the voice still does not sound natural"): Gemini speech through piano-tts, cached on the device after the first listen, at half the chat price per second against the day's allowance; if it is refused, fails or the allowance is spent, the device voice reads the line (the same strict male choice as before) */
-      const after = () => { clearInterval(iv); go(); };
-      const device = (rest?: string) => { if (dead) return; try { speakNarration(rest || text, lang, after, () => { setTimeout(go, 6500); }, 0.95, 0, true); } catch { setTimeout(go, 6500); } };
+    const text = clip.slides[i].b, words = wordsOf(text, lang);
+    /* captions follow the VOICE (owner, 2026-10-23: "the voice cuts out all the time; make it continuous and in sync with the subtitle"): the word times are spread over the real
+       length of the audio (weighted by word length), not over a guess; the next line is fetched while this one plays, and the silence the speech model leaves at the head and tail of
+       every clip is trimmed, so one line runs straight into the next */
+    const startWords = (durSec: number) => { tms.forEach(clearTimeout); tms.length = 0; const w = words.map((x) => x.length + 1.5), tot = w.reduce((a, b) => a + b, 0); let acc = 0; setWi(0); w.forEach((x, k) => { acc += x; if (k + 1 < words.length) tms.push(setTimeout(() => setWi(k + 1), (acc / tot) * durSec * 1000)); }); };
+    const after = () => { tms.forEach(clearTimeout); go(); };
+    const device = (rest?: string) => { if (dead) return; startWords((text.length / (lang === "zh" ? 5.6 : 15.5)) * 1.05); try { speakNarration(rest || text, lang, after, () => { setTimeout(go, 6500); }, 0.95, 0, true); } catch { setTimeout(go, 6500); } };
+    const nextText = i + 1 < n ? clip.slides[i + 1].b : peek || "";
+    const at = setTimeout(() => {
       /* a line rendered ahead of time (scripts/render-clip-voice.mjs -> public/audio/clips) plays first: free, the same voice for everybody, offline-safe */
-      const stat = clipFile(clip.id + "-" + i, lang);
-      const useCloud = () => { try { speakCloud(text, lang, null, after, (e: any) => { if (!dead) device(e && e.rest); }, 1, { src: "clip", voice: "Charon", style: NARR[lang], spend: (c: string) => ttsBudgetSpend(ttsEstSeconds(c, lang) * 0.5), refund: (c: string) => ttsBudgetRefund(ttsEstSeconds(c, lang) * 0.5) }); } catch { device(); } };
-      stat.then((url) => { if (dead) return; if (!url) { useCloud(); return; } try { const a = new Audio(url); _clipAud = a; a.onended = after; a.onerror = () => { if (!dead) useCloud(); }; const pl = a.play(); if (pl && pl.catch) pl.catch(() => { if (!dead) useCloud(); }); } catch { useCloud(); } });
-      if (false) try { speakCloud(text, lang, null, after, (e: any) => { if (!dead) device(e && e.rest); }, 1, { src: "clip", voice: "Charon", style: NARR[lang], spend: (c: string) => ttsBudgetSpend(ttsEstSeconds(c, lang) * 0.5), refund: (c: string) => ttsBudgetRefund(ttsEstSeconds(c, lang) * 0.5) }); } catch { device(); }
-    }, 80);
-    return () => { dead = true; clearTimeout(at); clearInterval(iv); stopSpeaking(); try { if (_clipAud) { _clipAud.onended = null; _clipAud.pause(); _clipAud = null; } } catch { /* */ } try { stopCloudTTS(); } catch { /* */ } };
+      clipFile(clip.id + "-" + i, lang).then((url) => {
+        if (dead) return;
+        if (url) {
+          try { const a = new Audio(url); _clipAud = a; a.onloadedmetadata = () => { if (!dead && isFinite(a.duration)) startWords(a.duration); }; a.onended = after; a.onerror = () => { if (!dead) cloud(); }; const pl = a.play(); if (pl && pl.catch) pl.catch(() => { if (!dead) cloud(); }); } catch { cloud(); }
+          return;
+        }
+        cloud();
+      });
+    }, 20);
+    function cloud() {
+      let ac: AudioContext; try { ac = getAC(); } catch { device(); return; }
+      clipBuf(text, lang, ac).then((b) => {
+        if (dead) return;
+        if (nextText) clipBuf(nextText, lang, ac).catch(() => {});   // the next line is fetched while this one plays
+        const [t0, t1] = audibleSpan(b), src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination);
+        _clipSrc = src; startWords(Math.max(0.5, t1 - t0)); src.onended = after;
+        try { ac.state !== "running" ? ac.resume().finally(() => src.start(0, t0, t1 - t0)) : src.start(0, t0, t1 - t0); } catch { after(); }
+      }).catch((e) => { if (!dead) device(e && e.rest); });
+    }
+    return () => { dead = true; clearTimeout(at); tms.forEach(clearTimeout); stopSpeaking(); try { if (_clipAud) { _clipAud.onended = null; _clipAud.pause(); _clipAud = null; } } catch { /* */ } try { if (_clipSrc) { _clipSrc.onended = null; _clipSrc.stop(); _clipSrc = null; } } catch { /* */ } try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
   const clipSeed = clip.id.length;
   /* shots run on their own clock across the whole clip (a 10 s hold can span two voice lines); every slide is cut into shots (about 1.6 s each, never over 5 s): a new hologram scene, a new camera move, a flash and a whoosh, so the picture keeps changing while one voice line runs */
@@ -512,7 +541,7 @@ export function ConceptClipFeed({ clips, lang, start, onClose, inline }: { clips
     <div className={"cc-wrap" + (inline ? " inline" : "")}>
       <div className="cc-feed" ref={feed}>
         {clips.map((c, k) => (
-          <Reel key={c.id} clip={c} active={act === k} lang={lang} paused={paused}
+          <Reel key={c.id} clip={c} active={act === k} lang={lang} paused={paused} peek={clips[k + 1] ? clips[k + 1].slides[0].b : ""}
             onEnded={() => { if (actRef.current === k) { if (k + 1 < clips.length) goTo(k + 1); } }} />
         ))}
       </div>
