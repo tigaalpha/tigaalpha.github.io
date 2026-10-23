@@ -518,7 +518,7 @@ export function withTimeout(p, ms, tag) {
 }
 
 export async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000, opts = null) {
-  const voice = getVmVoiceName();
+  const voice = (opts && opts.voice) || getVmVoiceName();   // a caller may name its own prebuilt voice (the concept clips use a narrator)
   const key = ttsKey(s, lang, voice);
   const cached = await ttsCacheGet(key);                // free, instant, offline-safe
   if (cached) { try { return await ac.decodeAudioData(cached); } catch (e) {} }
@@ -544,7 +544,7 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
       const res = await fetch(TTS_URL, {
         method: "POST",
         headers: apiHeaders(),
-        body: JSON.stringify(opts && opts.src ? { text: styleTTS(s, lang), lang, voice, src: opts.src } : { text: styleTTS(s, lang), lang, voice }),
+        body: JSON.stringify((() => { const text = opts && opts.style ? opts.style + "\n\n\"" + String(s).replace(/"/g, "'") + "\"" : styleTTS(s, lang); return opts && opts.src ? { text, lang, voice, src: opts.src } : { text, lang, voice }; })()),
         signal: ctrl.signal,
       });
       if (!res.ok) {
