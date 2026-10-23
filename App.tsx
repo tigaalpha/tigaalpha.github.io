@@ -3709,7 +3709,8 @@ import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
   const [flagOpen, setFlagOpen] = useState(false);
-  const [vtab, setVtab] = useState("th");   // th = the YouTube series; en / zh = the drawn concept clips
+  const [vtab, setVtab] = useState(lang === "en" || lang === "zh" ? lang : "th");   // th = the YouTube series; en / zh = the drawn clip feed; the flag button top right picks it (and the app language)
+  useEffect(() => { setVtab(lang === "en" || lang === "zh" ? lang : "th"); }, [lang]);   // th = the YouTube series; en / zh = the drawn concept clips
   const [categories, setCategories] = useState(null);  // null = loading; each row is one published lesson_videos entry
   const [activeCat, setActiveCat] = useState(null);     // lesson_videos.id of the selected category
   const [slides, setSlides] = useState(null);           // null = loading this category's videos
@@ -3858,11 +3859,6 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
   return (
     <div className="vidwrap">
       <style>{CLIP_CSS}</style>
-      <div className="vidlangtabs">
-        {[["th", "🇹🇭 TH"], ["en", "🇬🇧 EN"], ["zh", "🇨🇳 中"]].map(([c, n]) => (
-          <button key={c} className={vtab === c ? "on" : ""} onClick={() => { playUi("click"); setVtab(c); }}>{n}</button>
-        ))}
-      </div>
       {vtab !== "th" && <ConceptClipFeed key={vtab} inline clips={CLIPS[vtab]} start={0} lang={vtab} onClose={() => setVtab("th")} />}
       {onLang && (
         <div className="vidflag">
@@ -3870,7 +3866,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
           {flagOpen && (
             <div className="vidflag-m">
               {[["th", "🇹🇭", "ไทย"], ["en", "🇬🇧", "English"], ["zh", "🇨🇳", "中文"]].map(([c, f, n]) => (
-                <button key={c} className={c === lang ? "on" : ""} onClick={() => { setFlagOpen(false); if (c !== lang) onLang(c); }}><span>{f}</span> {n}</button>
+                <button key={c} className={c === lang ? "on" : ""} onClick={() => { setFlagOpen(false); setVtab(c); if (c !== lang) onLang(c); }}><span>{f}</span> {n}</button>
               ))}
             </div>
           )}
