@@ -181,7 +181,7 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
   );
 }
 
-export function ConceptClipFeed({ clips, lang, start, onClose }: { clips: Clip[]; lang: "en" | "zh"; start: number; onClose: () => void }) {
+export function ConceptClipFeed({ clips, lang, start, onClose, inline }: { clips: Clip[]; lang: "en" | "zh"; start: number; onClose: () => void; inline?: boolean }) {
   const [act, setAct] = useState(start), [paused, setPaused] = useState(false);
   const feed = useRef<HTMLDivElement>(null), musicRef = useRef<any>(null), actRef = useRef(act);
   actRef.current = act;
@@ -203,14 +203,14 @@ export function ConceptClipFeed({ clips, lang, start, onClose }: { clips: Clip[]
     return () => { el.removeEventListener("scroll", onScroll); window.removeEventListener("keydown", key); };
   }, []);
   return (
-    <div className="cc-wrap">
+    <div className={"cc-wrap" + (inline ? " inline" : "")}>
       <div className="cc-feed" ref={feed}>
         {clips.map((c, k) => (
           <Reel key={c.id} clip={c} active={act === k} lang={lang} paused={paused}
             onEnded={() => { if (actRef.current === k) { if (k + 1 < clips.length) goTo(k + 1); } }} />
         ))}
       </div>
-      <button className="cc-x" onClick={onClose} aria-label="Close">✕</button>
+      {!inline && <button className="cc-x" onClick={onClose} aria-label="Close">✕</button>}
       <button className="cc-pause" onClick={() => setPaused(p => !p)}>{paused ? "▶" : "⏸"}</button>
       {act + 1 < clips.length && <div className="cc-hint">⌄</div>}
     </div>
@@ -219,6 +219,7 @@ export function ConceptClipFeed({ clips, lang, start, onClose }: { clips: Clip[]
 
 export const CLIP_CSS = `
 .cc-wrap{position:fixed;inset:0;z-index:120;background:#05030d;color:#fff}
+.cc-wrap.inline{position:absolute;z-index:15}.cc-wrap.inline .cc-bar{top:calc(66px + env(safe-area-inset-top,0px));right:62px}.cc-wrap.inline .cc-title{top:calc(86px + env(safe-area-inset-top,0px))}.cc-wrap.inline .cc-pause{top:calc(62px + env(safe-area-inset-top,0px))}.cc-hide{display:none!important}
 .cc-feed{position:absolute;inset:0;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain}.cc-feed::-webkit-scrollbar{display:none}
 .cc-reel{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden}
 .cc-bg{position:absolute;inset:0;width:100%;height:100%;display:block}
