@@ -1,0 +1,18 @@
+import http from "node:http"; import fs from "node:fs"; import path from "node:path";
+import { execSync } from "node:child_process"; import { pathToFileURL } from "node:url"; const pwm = await import(pathToFileURL(execSync("npm root -g",{encoding:"utf8"}).trim()+"/playwright/index.js").href); const { chromium } = pwm.chromium ? pwm : pwm.default;
+const root = path.resolve("dist");
+const srv = http.createServer((q, r) => { let f = path.join(root, decodeURIComponent(q.url.split("?")[0])); if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) f = path.join(root, "index.html"); r.setHeader("Content-Type", {".js":"text/javascript",".css":"text/css",".html":"text/html",".json":"application/json",".svg":"image/svg+xml",".webp":"image/webp",".png":"image/png"}[path.extname(f)]||"application/octet-stream"); r.end(fs.readFileSync(f)); }).listen(0);
+const port = srv.address().port, b = await chromium.launch(), pg = await (await b.newContext({ viewport: { width: 412, height: 860 } })).newPage(), errs = [];
+pg.on("pageerror", e => errs.push(e.message));
+await pg.route("**/rest/v1/lesson_videos*", r => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ id: "c1", title: "Lib", description: "", published: true, sort_order: 0, youtube_playlist_id: "PLx", drive_folder_id: null, drive_file_id: null, storage_path: null, duration_sec: null }, { id: "c2", title: "Lib2", description: "", published: true, sort_order: 1, youtube_playlist_id: "PLy", drive_folder_id: null, drive_file_id: null, storage_path: null, duration_sec: null }]) }));
+await pg.addInitScript(() => { localStorage.setItem("tg_test_hook", "1"); sessionStorage.setItem("tiga_page", "videos"); });
+await pg.goto(`http://localhost:${port}/index.html`); await pg.waitForTimeout(4000);
+await pg.screenshot({ path: "/tmp/clip0.png" }); console.log("tabs", await pg.locator(".vidlangtabs button").count(), "flag", await pg.locator(".vidflag-b").count());
+await pg.waitForTimeout(800); await pg.mouse.click(360, 331); await pg.waitForTimeout(500); console.log("errs", errs.slice(0,2).join(" | ")); await pg.locator(".vidlangtabs button").nth(1).click({ timeout: 4000 }); await pg.waitForTimeout(300);
+console.log("cards", await pg.locator(".cc-card").count());
+await pg.locator(".cc-card").first().click(); await pg.waitForTimeout(1500);
+console.log("player", await pg.locator(".cc-slide h2").first().innerText());
+await pg.screenshot({ path: "/tmp/clip.png" });
+await pg.locator(".cc-x").click(); await pg.locator(".vidlangtabs button").nth(2).click(); await pg.waitForTimeout(300);
+console.log("zh cards", await pg.locator(".cc-card").count(), "errors", errs.length, errs[0] || "");
+await b.close(); srv.close();
