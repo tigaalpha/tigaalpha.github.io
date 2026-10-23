@@ -9,9 +9,9 @@ await pg.addInitScript(() => { localStorage.setItem("tg_test_hook", "1"); sessio
 await pg.goto(`http://localhost:${port}/index.html`); await pg.waitForTimeout(4000);
 await pg.screenshot({ path: "/tmp/clip0.png" }); console.log("tabs", await pg.locator(".vidlangtabs button").count(), "flag", await pg.locator(".vidflag-b").count());
 await pg.waitForTimeout(800); await pg.mouse.click(360, 331); await pg.waitForTimeout(500); console.log("errs", errs.slice(0,2).join(" | ")); await pg.locator(".vidlangtabs button").nth(1).click({ timeout: 4000 }); await pg.waitForTimeout(300);
-await pg.waitForTimeout(1500);
+await pg.waitForTimeout(900); await pg.screenshot({ path: "/tmp/clip.png" });
 console.log("reels", await pg.locator(".cc-reel").count(), "active", await pg.locator(".cc-reel[data-active=\"1\"]").getAttribute("data-clip"));
 await pg.screenshot({ path: "/tmp/clip.png" });
-await pg.waitForTimeout(4000); console.log("active after 4s", await pg.locator(".cc-reel[data-active=\"1\"]").getAttribute("data-clip"), "cap", (await pg.locator(".cc-reel[data-active=\"1\"] .cc-cap h3").innerText())); await pg.screenshot({ path: "/tmp/clip.png" }); await pg.locator(".vidlangtabs button").nth(2).click(); await pg.waitForTimeout(300);
+await pg.waitForTimeout(4000); console.log("active after 4s", await pg.locator(".cc-reel[data-active=\"1\"]").getAttribute("data-clip"), "cap", (await pg.locator(".cc-reel[data-active=\"1\"] .cc-cap h3").innerText()));await pg.locator(".vidlangtabs button").nth(2).click(); await pg.waitForTimeout(300);
 console.log("zh reels", await pg.locator(".cc-reel").count(), "errors", errs.length, errs[0] || "");
 await b.close(); srv.close();
