@@ -478,7 +478,7 @@ const _clipPre = new Map<string, Promise<AudioBuffer>>();
 /* one shared promise per line, so a prefetch and the real play never fetch (or pay for) it twice */
 function clipBuf(text: string, lang: string, ac: AudioContext): Promise<AudioBuffer> {
   const key = lang + "|" + text; let p = _clipPre.get(key);
-  if (!p) { p = ttsFetchBuffer(text, lang, ac, 3, 30000, { src: "clip", voice: "Charon", style: NARR[lang] }) as Promise<AudioBuffer>; p.catch(() => { _clipPre.delete(key); }); _clipPre.set(key, p); }
+  if (!p) { p = ttsFetchBuffer(text, lang, ac, 6, 40000, { src: "clip", voice: "Charon", style: NARR[lang] }) as Promise<AudioBuffer>; p.catch(() => { _clipPre.delete(key); }); _clipPre.set(key, p); }
   return p;
 }
 /* the part of a clip that is really sound: the model leaves a fraction of a second of silence at both ends, which showed up as a gap between lines */
@@ -513,7 +513,7 @@ function Reel({ clip, active, lang, paused, onEnded, peek }: { clip: Clip; activ
         cloud();
       });
     }, 20);
-    function cloud() {
+    function cloud(attempt = 0) {
       let ac: AudioContext; try { ac = getAC(); } catch { device(); return; }
       clipBuf(text, lang, ac).then((b) => {
         if (dead) return;
@@ -521,7 +521,7 @@ function Reel({ clip, active, lang, paused, onEnded, peek }: { clip: Clip; activ
         const [t0, t1] = audibleSpan(b), src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination);
         _clipSrc = src; startWords(Math.max(0.5, t1 - t0)); src.onended = after;
         try { ac.state !== "running" ? ac.resume().finally(() => src.start(0, t0, t1 - t0)) : src.start(0, t0, t1 - t0); } catch { after(); }
-      }).catch((e) => { if (!dead) device(e && e.rest); });
+      }).catch((e) => { if (dead) return; if (attempt < 3) { tms.push(setTimeout(() => cloud(attempt + 1), 1500 * (attempt + 1))); return; } device(e && e.rest); });   // the good voice is retried (with backoff) before the device voice is ever used
     }
     return () => { dead = true; clearTimeout(at); tms.forEach(clearTimeout); stopSpeaking(); try { if (_clipAud) { _clipAud.onended = null; _clipAud.pause(); _clipAud = null; } } catch { /* */ } try { if (_clipSrc) { _clipSrc.onended = null; _clipSrc.stop(); _clipSrc = null; } } catch { /* */ } try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
