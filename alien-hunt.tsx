@@ -83,7 +83,7 @@ export const AH_COIN_DAY_CAP = 600;
 const ahDayKey = () => new Date().toISOString().slice(0, 10);
 const readAhDayCoins = () => { try { const v = JSON.parse(localStorage.getItem("tg_ah_coin_day") || "null"); return v && v.d === ahDayKey() ? Number(v.n) || 0 : 0; } catch (e) { return 0; } };
 const addAhDayCoins = (n: number) => { try { localStorage.setItem("tg_ah_coin_day", JSON.stringify({ d: ahDayKey(), n: readAhDayCoins() + n })); } catch (e) {} };
-export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null, ra = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null; ra?: { data: RaLevel; onWin: () => void; onBack: () => void; net?: any } | null }) {   // ra: Robot Adventure 3D plays this engine on one of its own levels (plan 39)
+export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onReward = null, shopWeapon = null, ra = null }: { lang: string; me: string; adminTier?: number; onBack: () => void; playUi?: (k: string) => void; onReward?: any; shopWeapon?: ShopW | null; ra?: { data: RaLevel; hasNext?: () => boolean; onNext?: () => void; onWin: () => void; onBack: () => void; net?: any } | null }) {   // ra: Robot Adventure 3D plays this engine on one of its own levels (plan 39)
   const t = (th: string, en: string, zh: string) => T3(lang, th, en, zh);
   const host = useRef<HTMLDivElement>(null), rdr = useRef<Render | null>(null), S = useRef<State>(newState(Date.now() & 0xffff, readTune()));
   const inp = useRef<Input>(noInput()), look = useRef({ x: 0, y: 0 }), keys = useRef<Record<string, boolean>>({}), stick = useRef({ id: -1, x0: 0, y0: 0, mx: 0, mz: 0 }), lookId = useRef(-1);
@@ -343,6 +343,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
           {res.lv > 0 && res.newGuns && res.newGuns.length > 0 && <p data-newguns="1">{t("ได้ปืนใหม่: ", "New guns: ", "新枪：")}{res.newGuns.join(", ")}</p>}
           {res.ra && res.won && ra && <p data-radio="1">📡 {T3(lang, ...ra.data.win)}</p>}
           {!res.ra && res.won && res.lv > 0 && res.lv < LEVELS.length && <button className="ah-go" data-next="1" onClick={() => begin(res.lv + 1)}>{t("ด่านต่อไป", "NEXT LEVEL", "下一关")}</button>}
+          {res.ra && res.won && ra && ra.onNext && ra.hasNext && ra.hasNext() && <button className="ah-next" data-next-map="1" onClick={() => ra.onNext && ra.onNext()}>{t("แผนที่ถัดไป", "NEXT MAP", "下一张地图")} ▶</button>}
           <button className={!res.ra && res.won && res.lv > 0 && res.lv < LEVELS.length ? "ah-ghost" : "ah-go"} onClick={() => begin(res.lv || 0)}>{t("เล่นอีกครั้ง", "PLAY AGAIN", "再玩一次")}</button>{res.ra ? <button className="ah-ghost" data-ra-map="1" onClick={close}>{t("กลับแผนที่", "Back to the map", "回到地图")}</button> : <button className="ah-ghost" onClick={() => { setPhase("ready"); }}>{t("เลือกด่าน", "Levels", "选关")}</button>}<button className="ah-ghost" onClick={close}>{t("กลับ", "Back", "返回")}</button>
         </div>
       )}
@@ -361,6 +362,7 @@ const CSS = `
 .ah-keys{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}.ah-keys span{padding:4px 10px;border-radius:999px;background:#ffffff14;font-size:11.5px}
 .ah-opt{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;font-size:12px}.ah-opt button{min-width:52px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid #ffffff44;background:#ffffff10;font-weight:700}.ah-opt button.on{background:#ff6a3a;border-color:#ff6a3a;color:#1a0a04}
 .ah-go{min-height:50px;padding:0 30px;border-radius:999px;border:0;background:linear-gradient(135deg,#ff8a3a,#ff4a2a);color:#1a0a04;font-weight:900;letter-spacing:.08em;font-size:15px;box-shadow:0 8px 22px -8px #ff6a3a}.ah-go.dim,.ah-go:disabled{opacity:.4}
+.ah-next{min-height:50px;padding:0 30px;border-radius:999px;border:1px solid #e9b8ff;background:linear-gradient(135deg,#b44dff,#7a2cff);color:#fff;font-weight:900;letter-spacing:.08em;font-size:15px;box-shadow:0 0 14px #b44dffcc,0 0 34px #8a3cff88,inset 0 0 10px #ffffff44;text-shadow:0 0 8px #fff8;animation:ahnx 1.8s ease-in-out infinite}@keyframes ahnx{50%{box-shadow:0 0 22px #d27bff,0 0 52px #9a4cff,inset 0 0 12px #ffffff66}}@media (prefers-reduced-motion:reduce){.ah-next{animation:none}}
 .ah-ghost{min-height:40px;padding:0 20px;border-radius:999px;border:1px solid #ffffff55;background:transparent;font-weight:700}
 .ah-lvgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;width:min(860px,96vw)}
 .ah-lv{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 6px;border-radius:14px;border:1px solid color-mix(in srgb,var(--c) 60%,#fff2);background:linear-gradient(180deg,color-mix(in srgb,var(--c) 22%,#0b0a12),#0b0a12);min-width:0}

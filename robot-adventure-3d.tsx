@@ -82,6 +82,15 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
     setScreen(nocine ? "play" : "film");
   };
   goRef.current = (pid: string) => go(pid, true);
+  const nextAfter = (id: string): string | null => {   // the next playable episode in story order, judged on what is cleared NOW
+    const dn = readDone(), i0 = RA_PLANETS.findIndex(p => p.id === id);
+    for (let i = i0 + 1; i < RA_PLANETS.length; i++) {
+      if (!playable(RA_PLANETS[i].id)) continue;
+      if (unlockAll || dn.includes(RA_PLANETS[i - 1].id) || (i > 1 && dn.includes(RA_PLANETS[i - 2].id)) || i === 0) return RA_PLANETS[i].id;
+      return null;
+    }
+    return null;
+  };
   const dfn = defOf(sel);
 
   if (screen === "film") return (
@@ -96,8 +105,8 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   );
   if (screen === "play" && dfn && dfn.kind === "foot") return (
     <Suspense fallback={<div className="ra-load"><style>{CSS}</style>…</div>}>
-      <AlienHuntPage lang={lang} me={me} adminTier={adminTier} onBack={onBack} playUi={playUi} onReward={onReward} shopWeapon={shopWeapon}
-        ra={{ net, data: dfn.data, onWin: () => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }, onBack: () => { setDone(readDone()); setScreen("hub"); } }} />
+      <AlienHuntPage key={sel} lang={lang} me={me} adminTier={adminTier} onBack={onBack} playUi={playUi} onReward={onReward} shopWeapon={shopWeapon}
+        ra={{ net, data: dfn.data, hasNext: () => !!nextAfter(sel), onNext: () => { const n = nextAfter(sel); if (n) { setDone(readDone()); go(n); } }, onWin: () => { markDone(sel); setDone(readDone()); try { logUsage("ra", "clear:" + sel); } catch (e) {} }, onBack: () => { setDone(readDone()); setScreen("hub"); } }} />
     </Suspense>
   );
 
