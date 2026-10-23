@@ -131,6 +131,7 @@ function paintCity(cv: HTMLCanvasElement, hue: number, t: number) {
 
 /* A neon hologram panel that shows what the slide is about (a drawn scene per slide: neurons firing, keys lighting up, a sound wave, a timer ring, a calendar filling, ...) */
 type Kind = "neurons" | "keys" | "wave" | "timer" | "grid" | "bridge" | "ecg" | "orbit" | "staff" | "rings";
+const ALL_KINDS: Kind[] = ["neurons", "keys", "wave", "timer", "grid", "bridge", "ecg", "orbit", "staff", "rings"];
 const SCENES: Record<string, Kind[]> = {   // one kind per slide, in the slide order of CLIPS (keep the two in step when slides are added or removed)
   focus: ["keys", "staff", "rings", "timer"],
   synapse: ["neurons", "rings", "bridge", "grid"],
@@ -229,7 +230,7 @@ function Backdrop({ hue, live }: { hue: number; live: boolean }) {
 /* one clip as a full-screen reel; while it is the one on screen it narrates its slides one after another, and when the LAST slide's voice ends it tells the feed to move on */
 function wordsOf(t: string, lang: string): string[] { if (lang !== "zh") return t.split(/\s+/).filter(Boolean); const out: string[] = []; let cur = ""; for (const ch of t) { cur += ch; if (cur.length >= 3 || /[，。、；！？]/.test(ch)) { out.push(cur); cur = ""; } } if (cur) out.push(cur); return out; }
 function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boolean; lang: "en" | "zh"; paused: boolean; onEnded: () => void }) {
-  const [i, setI] = useState(0), [wi, setWi] = useState(-1), endRef = useRef(onEnded), n = clip.slides.length;
+  const [i, setI] = useState(0), [shot, setShot] = useState(0), [wi, setWi] = useState(-1), endRef = useRef(onEnded), n = clip.slides.length;
   endRef.current = onEnded;
   useEffect(() => { if (!active) setI(0); }, [active]);
   useEffect(() => {
@@ -245,19 +246,27 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
     }, 80);
     return () => { dead = true; clearTimeout(at); clearInterval(iv); stopSpeaking(); try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
+  /* every slide is cut into quick shots (about 1.6 s each, never over 5 s): a new hologram scene, a new camera move, a flash and a whoosh, so the picture keeps changing while one voice line runs */
+  useEffect(() => {
+    setShot(0); if (!active || paused) return undefined;
+    const iv = setInterval(() => { setShot((k) => k + 1); cutSound((window as any).__tgCineCtx || null); }, 1600);
+    return () => clearInterval(iv);
+  }, [active, paused, i]);
   const s = clip.slides[Math.min(i, n - 1)];
+  const kinds = SCENES[clip.id] || [], base = kinds[Math.min(i, n - 1)] || "rings", pool: Kind[] = [base, kinds[(i + 1) % Math.max(1, kinds.length)] || "wave", ALL_KINDS[(i * 3 + 2) % ALL_KINDS.length], ALL_KINDS[(i * 5 + 4) % ALL_KINDS.length]];
+  const hk = pool[shot % pool.length], cam = shot % 5;
   return (
-    <section className="cc-reel" style={{ ["--h" as any]: clip.hue }} data-clip={clip.id} data-active={active ? "1" : "0"}>
+    <section className="cc-reel" style={{ ["--h" as any]: clip.hue }} data-cam={cam} data-clip={clip.id} data-active={active ? "1" : "0"}>
       <Backdrop hue={clip.hue} live={active && !paused} />
       <div className="cc-shade" />
-      <Holo kind={(SCENES[clip.id] || [])[Math.min(i, n - 1)] || "rings"} hue={clip.hue} live={active && !paused} />
+      <Holo key={"h" + i + "-" + shot} kind={hk} hue={clip.hue + shot * 24} live={active && !paused} />
       <div className="cc-title"><span>{s.ic}</span><b>{s.h}</b></div>
-      <div className="cc-flash" key={"f" + i} />
-      <div className={"cc-face" + (active && !paused ? " on" : "")} key={"p" + i}>
+      <div className="cc-flash" key={"f" + i + "-" + shot} />
+      <div className={"cc-face" + (active && !paused ? " on" : "")} key={"p" + i + "-" + shot}>
         <img src="./img/presenter.jpg" alt="" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
         <span>TIGA Studio · @tiga.studio</span>
       </div>
-      <div className="cc-sticker" key={"s" + i}>{s.ic}</div>
+      <div className="cc-sticker" key={"s" + i + "-" + shot}>{s.ic}</div>
       <div className="cc-cap" key={i}><p>{wordsOf(s.b, lang).map((w, k) => <span key={k} className={"cc-w" + (k < wi ? " said" : k === wi ? " hot" : "")}>{w}</span>)}</p></div>
     </section>
   );
@@ -326,7 +335,11 @@ export const CLIP_CSS = `
 .cc-hint{position:absolute;left:50%;bottom:calc(4px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:20px;opacity:.7;animation:ccbob 1.4s ease-in-out infinite;pointer-events:none}
 @keyframes ccbob{50%{transform:translate(-50%,5px)}}
 @keyframes ccin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.cc-cap,.cc-face.on img,.cc-bar i.cur,.cc-hint{animation:none}}
+.cc-reel[data-cam] .cc-bg{animation-duration:1.7s;animation-timing-function:ease-out;animation-fill-mode:both}
+.cc-reel[data-cam="0"] .cc-bg{animation-name:cccam0}.cc-reel[data-cam="1"] .cc-bg{animation-name:cccam1}.cc-reel[data-cam="2"] .cc-bg{animation-name:cccam2}.cc-reel[data-cam="3"] .cc-bg{animation-name:cccam3}.cc-reel[data-cam="4"] .cc-bg{animation-name:cccam4}
+@keyframes cccam0{from{transform:scale(1.0)}to{transform:scale(1.22)}}@keyframes cccam1{from{transform:scale(1.25) translateX(-3%)}to{transform:scale(1.08) translateX(3%)}}@keyframes cccam2{from{transform:scale(1.1) rotate(-1.6deg)}to{transform:scale(1.2) rotate(1.4deg)}}@keyframes cccam3{from{transform:scale(1.3) translateY(3%)}to{transform:scale(1.05) translateY(-2%)}}@keyframes cccam4{from{transform:scale(1.05) rotate(1.8deg)}to{transform:scale(1.28) rotate(-1deg)}}
+.cc-holo{animation:ccholoin .5s cubic-bezier(.2,1.4,.4,1)}@keyframes ccholoin{0%{opacity:0;transform:translateX(-50%) scale(.8)}100%{opacity:1;transform:translateX(-50%) scale(1)}}
+@media (prefers-reduced-motion:reduce){.cc-bg,.cc-holo,.cc-cap,.cc-face.on img,.cc-bar i.cur,.cc-hint{animation:none}}
 .cc-list{position:absolute;inset:0;z-index:20;overflow-y:auto;padding:calc(70px + env(safe-area-inset-top,0px)) 16px 24px;display:flex;flex-direction:column;gap:12px;background:#000}
 .cc-card{display:flex;gap:14px;align-items:center;text-align:left;border:0;border-radius:18px;padding:14px 16px;color:#fff;cursor:pointer;background:linear-gradient(135deg,hsl(var(--h) 60% 30%),hsl(calc(var(--h) + 40) 55% 14%))}
 .cc-card b{display:block;font-size:17px;margin-bottom:3px}.cc-card span.s{font-size:13px;opacity:.8}.cc-card .e{font-size:40px}
