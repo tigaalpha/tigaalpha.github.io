@@ -37,6 +37,7 @@ export function createRanch3D(host: HTMLElement): Ranch3D | null {
 
 
   /* ── the whole farm as 3D (owner, 2026-10-23: "rebuild the farm level with three.js, same content, in 3D"): meadow, lake, pond, paths, field beds, fences, pen, barn, silo, trees, props ── */
+  let cloudGrp: THREE.Group | null = null;
   let built = false; const beds: THREE.Group[] = []; let groundMat: THREE.MeshStandardMaterial | null = null; const lilies: THREE.Mesh[] = []; let waterMat: THREE.MeshStandardMaterial | null = null;
   const rnd = (() => { let s = 7; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; })();
   const grassTex = () => { const c = document.createElement("canvas"); c.width = c.height = 512; const g = c.getContext("2d")!; g.fillStyle = "#6fc84a"; g.fillRect(0, 0, 512, 512); for (let i = 0; i < 60; i++) { const x = rnd() * 512, y = rnd() * 512, r = 30 + rnd() * 70, gr = g.createRadialGradient(x, y, 2, x, y, r); gr.addColorStop(0, rnd() > 0.5 ? "rgba(190,240,120,.35)" : "rgba(40,120,40,.3)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); } const G = ["#3f9a36", "#58b744", "#8ad65a", "#b4ee7a"]; for (let i = 0; i < 2600; i++) { const x = rnd() * 512, y = rnd() * 512; g.strokeStyle = G[Math.floor(rnd() * 4)]; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rnd() - 0.5) * 4, y - 3 - rnd() * 5); g.stroke(); } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(16, 16); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
@@ -44,7 +45,10 @@ export function createRanch3D(host: HTMLElement): Ranch3D | null {
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]), ang = Math.atan2(b[1] - a[1], b[0] - a[0]); for (const yy of [h * 0.35, h * 0.75]) { const r = box(len, 0.06, 0.05, wood, (a[0] + b[0]) / 2, yy, (a[1] + b[1]) / 2); r.rotation.y = -ang; g.add(r); } return sh(g); };
   const tree = (x: number, z: number, s: number, kind: number) => { const g = new THREE.Group(); if (kind === 0) { g.add(cyl(0.1 * s, 0.14 * s, 0.9 * s, 0x7a5230, 0, 0, 0, 8)); for (const [dx, dy, dz, r, c] of [[0, 1.2, 0, 0.7, 0x4caf3c], [0.35, 1.0, 0.1, 0.5, 0x5ec84a], [-0.3, 1.05, -0.15, 0.5, 0x3f9a36]] as number[][]) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 1), lam(c)); m.position.set(dx * s, dy * s, dz * s); g.add(m); } if (rnd() < 0.45) for (let k = 0; k < 5; k++) g.add(sph(0.06 * s, 0xe0302e, (rnd() - 0.5) * 1.0 * s, (0.9 + rnd() * 0.6) * s, (rnd() - 0.5) * 1.0 * s)); } else { g.add(cyl(0.08 * s, 0.1 * s, 0.5 * s, 0x6a4a2a, 0, 0, 0, 8)); for (let k = 0; k < 4; k++) g.add(cone((0.62 - k * 0.13) * s, 0.7 * s, k % 2 ? 0x2f7d3a : 0x3a9244, 0, (0.4 + k * 0.38) * s, 0, 9)); } g.position.set(x, 0, z); g.rotation.y = rnd() * 6; return sh(g); };
   function buildScenery(geo: Geo) {
-    built = true; const SP = geo.TW;
+    built = true; try { const cg2 = new THREE.Group(); const sm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, fog: false, depthWrite: false }); const dm2 = new THREE.MeshBasicMaterial({ color: 0x1a2a10, transparent: true, opacity: 0.16, depthWrite: false });
+      for (let i = 0; i < 5; i++) { const g = new THREE.Group(); for (let k = 0; k < 4; k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(1.1 + k % 2 * 0.5, 10, 8), sm); b.position.set(k * 1.2, k % 2 * 0.3, 0); b.scale.y = 0.55; g.add(b); } g.position.set(0, 14 + i % 2 * 2, 4 + i * 6); g.userData.x0 = i * 14; const sh = new THREE.Mesh(new THREE.CircleGeometry(2.6, 16), dm2); sh.rotation.x = -Math.PI / 2; sh.scale.set(1.8, 1, 0.9); sh.position.set(0, 0.05, 4 + i * 6); g.userData.sh = sh; world.add(sh); cg2.add(g); }
+      world.add(cg2); cloudGrp = cg2; } catch (e) { cloudGrp = null; }
+    const SP = geo.TW;
     const toG = (px: number, py: number) => { const u = (px - geo.OX) / geo.TW, v = (py - geo.OY) / geo.TH; return [(u + v) / 2, (v - u) / 2]; };
     // meadow
     groundMat = new THREE.MeshStandardMaterial({ map: grassTex(), roughness: 0.95, metalness: 0 }); const ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), groundMat); ground.rotation.x = -Math.PI / 2; ground.position.set(13, -0.01, 13); ground.receiveShadow = true; world.add(ground);
@@ -149,6 +153,9 @@ export function createRanch3D(host: HTMLElement): Ranch3D | null {
     const HQ = true;   // this layer only runs in High; Lite is the 2D drawing
     if (!built) { buildScenery(geo); if (groundMat) { const tint: any = { moon: 0xffffff, mars: 0xffc8a0, titan: 0xf0d890, proxima: 0xffa8a0 }; groundMat.color.setHex(tint[kind] || 0xffffff); } }
     S.plots.forEach((cell: any, i: number) => { if (beds[i]) beds[i].visible = !cell.locked; });
+    // plan 40 F: drifting clouds with their shadows on the meadow, and a lake that shimmers (High only, this whole layer is High)
+    if (cloudGrp) { cloudGrp.children.forEach((cg: any, i: number) => { const sp = 0.25 + (i % 3) * 0.12; const x0 = ((cg.userData.x0 + T * sp) % 70) - 18; cg.position.x = x0; cg.userData.sh.position.x = x0 + 4; }); }
+    if (waterMat) { waterMat.roughness = 0.06 + 0.04 * Math.sin(T * 0.9); waterMat.metalness = 0.35 + 0.1 * Math.sin(T * 1.7); }
     if (waterMat) waterMat.emissiveIntensity = 0.22 + Math.sin(T * 1.4) * 0.06; lilies.forEach((l, k) => { l.position.y = 0.07 + Math.sin(T * 1.2 + k) * 0.006; });
     if (W !== cw || H !== ch || dpr !== cd) { cw = W; ch = H; cd = dpr; ren.setPixelRatio(dpr); ren.setSize(W, H, false); }
     const kk = W / geo.VW, sc2 = SPL * kk * c.z, px0 = (geo.OX - c.x) * kk * c.z, py0 = (geo.OY - c.y) * kk * c.z;
