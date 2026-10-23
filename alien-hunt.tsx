@@ -28,6 +28,16 @@ const readTune = (): number => 30;   // owner 2026-10-23: a music question every
 
 /** a note name like "F#4" -> key index 0..23 on the two-octave keyboard (C4..B5), and its staff position */
 const parseNote = (n: string) => { const m = /^([A-G])([#b♯♭]?)(-?\d)/.exec(n); if (!m) return null; const sh = m[2] === "#" || m[2] === "♯" ? 1 : m[2] ? -1 : 0; let oct = parseInt(m[3], 10); const pc = (PC_OF[m[1]] + sh + 12) % 12; if (PC_OF[m[1]] + sh < 0) oct--; if (PC_OF[m[1]] + sh > 11) oct++; oct = Math.max(4, Math.min(5, oct)); const L = "CDEFGAB".indexOf(m[1]); return { key: (oct - 4) * 12 + pc, letter: L, oct: Math.max(4, Math.min(5, parseInt(m[3], 10))), acc: sh }; };
+/** the correctly spelled name of a pitch class for this question ("Eb", "F#", "E#"…) shown with real accidental signs */
+export const prettyName = (n: string) => n.replace(/##/g, "𝄪").replace(/bb/g, "𝄫").replace(/#/g, "♯").replace(/b/g, "♭");
+/** staff position + accidental for key k written as the question spells it (E♭ sits on the E line, not as D♯); falls back to sharps when the question gives no spelling */
+export const keyToStaffNamed = (k: number, names?: Record<number, string>) => {
+  const pc = k % 12, nm = names && names[pc], base = k % 24;
+  const m = nm ? /^([A-G])(#*|b*)$/.exec(nm) : null; if (!m) return keyToStaff(k);
+  const acc = m[2] === "" ? 0 : m[2][0] === "#" ? m[2].length : -m[2].length, L = "CDEFGAB".indexOf(m[1]);
+  const abs = 48 + base, octL = Math.floor((abs - acc - (PC_OF[m[1]])) / 12);   // absolute pitch, then the octave the LETTER lives in
+  return { pos: (octL - 4) * 7 + L, acc };
+};
 const keyToStaff = (k: number) => { const pc = k % 12, oct = 4 + Math.floor(k / 12); const nat = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6][pc]; return { pos: (oct - 4) * 7 + nat, acc: [1, 3, 6, 8, 10].includes(pc) ? 1 : 0 }; };
 /** five-line treble staff with the notes written on it (C4..B5 plus ledger lines) */
 function QStaff({ notes, hot }: { notes: { pos: number; acc: number }[]; hot?: boolean }) {
@@ -44,7 +54,7 @@ function QStaff({ notes, hot }: { notes: { pos: number; acc: number }[]; hot?: b
           {led.map(l => <line key={l} x1={cx - 11} x2={cx + 11} y1={y(l)} y2={y(l)} stroke="currentColor" strokeWidth="1.2" />)}
           <ellipse cx={cx} cy={cy} rx="6.4" ry="4.6" transform={`rotate(-18 ${cx} ${cy})`} fill="currentColor" />
           <line x1={cx + (nt.pos < 6 ? 6 : -6)} x2={cx + (nt.pos < 6 ? 6 : -6)} y1={cy} y2={cy + (nt.pos < 6 ? -26 : 26)} stroke="currentColor" strokeWidth="1.4" />
-          {nt.acc ? <text x={cx - 17} y={cy + 5} fontSize="15" fill="currentColor">♯</text> : null}
+          {nt.acc ? <text x={cx - (Math.abs(nt.acc) > 1 ? 21 : 17)} y={cy + 5} fontSize="15" fill="currentColor">{nt.acc === 1 ? "♯" : nt.acc === -1 ? "♭" : nt.acc === 2 ? "𝄪" : "𝄫"}</text> : null}
         </g>;
       })}
     </svg>
@@ -305,11 +315,11 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
                 const staffK = done ? (quiz.ok ? q.teach.lit.map(parseNote).filter(Boolean).map(x => (x as any).key as number) : litK) : selK.slice().sort((a, b) => a - b);
                 const cls = (k: number, base: string) => base + (selK.includes(k) ? " sel" : "") + (done && (quiz.ok ? q.teach.lit.map(parseNote).some(x => x && x.key === k) : litK.includes(k)) ? " lit" : "");
                 return <>
-                  <QStaff notes={staffK.map(keyToStaff)} hot={done} />
+                  <QStaff notes={staffK.map(k => keyToStaffNamed(k, (q.teach as any).names))} hot={done} />
                   {q.kind === "choice" ? null : null}
                   <div className="ah-piano" data-piano="1" data-oct="2">
-                    {[0, 1].flatMap(o => WHITE2.map((pc, i) => { const k = o * 12 + pc; return <button key={k} data-pc={pc} data-k={k} className={cls(k, "w")} style={{ left: (o * 7 + i) * (100 / 14) + "%" }} disabled={q.kind === "choice"} onClick={() => tapKey(pc, k)}><span>{o === 0 && pc === 0 ? "C4" : o === 1 && pc === 0 ? "C5" : PCN[pc]}</span></button>; }))}
-                    {[0, 1].flatMap(o => BLACK2.map(([pc, wi]) => { const k = o * 12 + pc; return <button key={k} data-pc={pc} data-k={k} className={cls(k, "b")} style={{ left: ((o * 7 + wi + 1) * (100 / 14)) + "%" }} disabled={q.kind === "choice"} onClick={() => tapKey(pc, k)}><span>{PCN[pc]}</span></button>; }))}
+                    {[0, 1].flatMap(o => WHITE2.map((pc, i) => { const k = o * 12 + pc; return <button key={k} data-pc={pc} data-k={k} className={cls(k, "w")} style={{ left: (o * 7 + i) * (100 / 14) + "%" }} disabled={q.kind === "choice"} onClick={() => tapKey(pc, k)}><span>{o === 0 && pc === 0 ? "C4" : o === 1 && pc === 0 ? "C5" : (((q.teach as any).names && (q.teach as any).names[pc]) ? prettyName((q.teach as any).names[pc]) : PCN[pc])}</span></button>; }))}
+                    {[0, 1].flatMap(o => BLACK2.map(([pc, wi]) => { const k = o * 12 + pc; return <button key={k} data-pc={pc} data-k={k} className={cls(k, "b")} style={{ left: ((o * 7 + wi + 1) * (100 / 14)) + "%" }} disabled={q.kind === "choice"} onClick={() => tapKey(pc, k)}><span>{((q.teach as any).names && (q.teach as any).names[pc]) ? prettyName((q.teach as any).names[pc]) : PCN[pc]}</span></button>; }))}
                   </div>
                 </>;
               })()}
