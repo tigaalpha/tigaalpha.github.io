@@ -1,4 +1,4 @@
--- Premium price cut to 799 THB / month (owner, 2026-10-22). NOT APPLIED: needs the owner's approval.
+-- Premium price cut to 799 THB / month (owner, 2026-10-22). APPLIED by the connector 2026-10-23 with the owner's approval.
 -- The two server-side price functions still hold the old figures (checked read-only on the live DB 2026-10-23).
 --  1. _plan_price_thb: only used by fulfill_plan_purchase() to refuse an unknown plan, so no customer is
 --     charged from it today, but it must keep matching PLAN_PRICE in payment.tsx.
