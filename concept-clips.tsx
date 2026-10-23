@@ -125,6 +125,7 @@ function paintCity(cv: HTMLCanvasElement, hue: number, t: number) {
   g.fillStyle = `hsla(${hue + 170} 100% 62% / .9)`; g.fillRect(W * 0.52, H * 0.76, W * 0.18, H * 0.07);
   g.strokeStyle = "rgba(255,255,255,.08)"; g.lineWidth = 1; g.beginPath();
   for (let k = 0; k < 60; k++) { const rx = ((k * 53 + t * 0.35) % (W + 40)) - 20, ry = ((k * 97 + t * 0.9) % H); g.moveTo(rx, ry); g.lineTo(rx - 3, ry + 14); } g.stroke();
+  cityFx(cv, g, hue, t);
 }
 
 
@@ -196,6 +197,22 @@ function Holo({ kind, hue, live }: { kind: Kind; hue: number; live: boolean }) {
   return <canvas ref={ref} className="cc-holo" />;
 }
 
+
+/* the second pass of the city: a wet street with a perspective neon grid and reflections, searchlight cones, and a soft bloom of everything bright */
+function cityFx(cv: HTMLCanvasElement, g: CanvasRenderingContext2D, hue: number, t: number) {
+  const W = cv.width, H = cv.height, hz = H * 0.84, tt = t / 1000;
+  const sl = (x: number, a: number, c: string) => { const gr = g.createLinearGradient(x, H * 0.7, x + Math.sin(a) * W * 0.5, 0); gr.addColorStop(0, c); gr.addColorStop(1, "transparent"); g.fillStyle = gr; g.beginPath(); g.moveTo(x - 6, H * 0.7); g.lineTo(x + 6, H * 0.7); g.lineTo(x + Math.sin(a) * W * 0.5 + 60, 0); g.lineTo(x + Math.sin(a) * W * 0.5 - 60, 0); g.fill(); };
+  g.save(); g.globalCompositeOperation = "lighter"; sl(W * 0.25, tt * 0.5, `hsla(${hue + 170} 100% 60% / .16)`); sl(W * 0.78, -tt * 0.4 + 1, `hsla(${hue + 320} 100% 62% / .14)`); g.restore();
+  const st = g.createLinearGradient(0, hz, 0, H); st.addColorStop(0, `hsl(${hue + 260} 50% 9%)`); st.addColorStop(1, `hsl(${hue + 280} 60% 3%)`); g.fillStyle = st; g.fillRect(0, hz, W, H - hz);
+  g.strokeStyle = `hsla(${hue + 170} 100% 62% / .55)`; g.lineWidth = 1; g.shadowColor = `hsl(${hue + 170} 100% 62%)`; g.shadowBlur = 6; g.beginPath();
+  for (let k = -10; k <= 10; k++) { g.moveTo(W / 2 + k * 8, hz); g.lineTo(W / 2 + k * W * 0.34, H); }
+  for (let k = 0; k < 7; k++) { const f = ((k + tt * 0.8) % 7) / 7, y = hz + (H - hz) * f * f; g.moveTo(0, y); g.lineTo(W, y); } g.stroke(); g.shadowBlur = 0;
+  g.save(); g.globalAlpha = 0.18; g.scale(1, -1); g.drawImage(cv, 0, 0, W, hz, 0, -(hz + (H - hz)), W, hz * 0.55); g.restore();
+  /* bloom: a blurred, brightened copy of the whole frame added back */
+  const sm = document.createElement("canvas"); sm.width = Math.max(1, W >> 3); sm.height = Math.max(1, H >> 3); const sg = sm.getContext("2d");
+  if (sg) { sg.drawImage(cv, 0, 0, sm.width, sm.height); g.save(); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.55; g.drawImage(sm, 0, 0, W, H); g.restore(); }
+}
+
 function Backdrop({ hue, live }: { hue: number; live: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -210,21 +227,23 @@ function Backdrop({ hue, live }: { hue: number; live: boolean }) {
 }
 
 /* one clip as a full-screen reel; while it is the one on screen it narrates its slides one after another, and when the LAST slide's voice ends it tells the feed to move on */
+function wordsOf(t: string, lang: string): string[] { if (lang !== "zh") return t.split(/\s+/).filter(Boolean); const out: string[] = []; let cur = ""; for (const ch of t) { cur += ch; if (cur.length >= 3 || /[，。、；！？]/.test(ch)) { out.push(cur); cur = ""; } } if (cur) out.push(cur); return out; }
 function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boolean; lang: "en" | "zh"; paused: boolean; onEnded: () => void }) {
-  const [i, setI] = useState(0), endRef = useRef(onEnded), n = clip.slides.length;
+  const [i, setI] = useState(0), [wi, setWi] = useState(-1), endRef = useRef(onEnded), n = clip.slides.length;
   endRef.current = onEnded;
   useEffect(() => { if (!active) setI(0); }, [active]);
   useEffect(() => {
     if (!active || paused) { stopSpeaking(); return undefined; }
     cutSound((window as any).__tgCineCtx || null);
-    let dead = false;
+    let dead = false, iv: any = 0; setWi(-1);
     const go = () => { if (dead) return; if (i + 1 >= n) endRef.current(); else setI(i + 1); };
     const s = clip.slides[i], at = setTimeout(() => {
       /* the device's own voice, chosen strictly: a male, natural / neural / enhanced voice if the phone has one (owner, 2026-10-23: device voices are fine, pick the most natural male one) */
-      const text = s.b;
-      try { speakNarration(text, lang, () => { go(); }, () => { setTimeout(go, 6500); }, 1, 0, true); } catch { setTimeout(go, 6500); }
-    }, 0);
-    return () => { dead = true; clearTimeout(at); stopSpeaking(); try { stopCloudTTS(); } catch { /* */ } };
+      const text = s.b, words = wordsOf(text, lang), cps = lang === "zh" ? 5.6 : 15.5, per = (text.length / cps / Math.max(1, words.length)) * 1000;
+      let w = 0; setWi(0); iv = setInterval(() => { w++; setWi(w); if (w >= words.length) { clearInterval(iv); } }, Math.max(110, per));
+      try { speakNarration(text, lang, () => { clearInterval(iv); go(); }, () => { setTimeout(go, 6500); }, 1.12, 0, true); } catch { setTimeout(go, 6500); }
+    }, 80);
+    return () => { dead = true; clearTimeout(at); clearInterval(iv); stopSpeaking(); try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
   const s = clip.slides[Math.min(i, n - 1)];
   return (
@@ -234,11 +253,13 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
       <div className="cc-bar">{clip.slides.map((_, k) => <i key={k} className={k < i ? "on" : k === i && active ? "cur" : ""} />)}</div>
       <Holo kind={(SCENES[clip.id] || [])[Math.min(i, n - 1)] || "rings"} hue={clip.hue} live={active && !paused} />
       <div className="cc-title"><span>{s.ic}</span><b>{s.h}</b></div>
-      <div className={"cc-face" + (active && !paused ? " on" : "")}>
+      <div className="cc-flash" key={"f" + i} />
+      <div className={"cc-face" + (active && !paused ? " on" : "")} key={"p" + i}>
         <img src="./img/presenter.jpg" alt="" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
         <span>TIGA Studio · @tiga.studio</span>
       </div>
-      <div className="cc-cap" key={i}><p>{s.b}</p></div>
+      <div className="cc-sticker" key={"s" + i}>{s.ic}</div>
+      <div className="cc-cap" key={i}><p>{wordsOf(s.b, lang).map((w, k) => <span key={k} className={"cc-w" + (k < wi ? " said" : k === wi ? " hot" : "")}>{w}</span>)}</p></div>
     </section>
   );
 }
@@ -295,10 +316,14 @@ export const CLIP_CSS = `
 .cc-holo{position:absolute;left:50%;transform:translateX(-50%);top:calc(372px + env(safe-area-inset-top,0px));width:min(88vw,380px);height:auto;aspect-ratio:360/190;border-radius:16px;box-shadow:0 0 30px hsla(var(--h),90%,60%,.35);backdrop-filter:blur(2px)}.cc-wrap.inline .cc-holo{top:calc(382px + env(safe-area-inset-top,0px))}
 .cc-face{position:absolute;left:50%;top:calc(120px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(46vw,190px);display:flex;flex-direction:column;align-items:center;gap:6px}
 .cc-face img{width:100%;aspect-ratio:540/640;object-fit:cover;border-radius:26px;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 28px hsla(var(--h),90%,60%,.55),0 10px 40px rgba(0,0,0,.6);-webkit-mask-image:linear-gradient(180deg,#000 82%,transparent 100%);mask-image:linear-gradient(180deg,#000 82%,transparent 100%)}
-.cc-face.on img{animation:ccsway 3.2s ease-in-out infinite}.cc-face span{position:absolute;bottom:-16px;font-size:11px;font-weight:700;opacity:.85;letter-spacing:.3px;text-shadow:0 1px 6px #000}
+.cc-face.on img{animation:ccsway 2.4s ease-in-out infinite}.cc-face span{position:absolute;bottom:-16px;font-size:11px;font-weight:700;opacity:.85;letter-spacing:.3px;text-shadow:0 1px 6px #000}
 @keyframes ccsway{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.012)}}
 .cc-cap{position:absolute;left:16px;right:16px;bottom:calc(26px + env(safe-area-inset-bottom,0px));text-align:center;animation:ccin .5s ease}
-.cc-cap p{font-size:17px;line-height:1.45;margin:0;font-weight:600;text-shadow:0 2px 10px rgba(0,0,0,.95)}
+.cc-cap p{font-size:20px;font-weight:800;line-height:1.45;margin:0;font-weight:600;text-shadow:0 2px 10px rgba(0,0,0,.95)}
+.cc-flash{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.85),hsla(var(--h),100%,70%,.35) 40%,transparent 70%);opacity:0;animation:ccflash .38s ease-out}@keyframes ccflash{0%{opacity:.9}100%{opacity:0}}
+.cc-face{animation:ccpunch .45s cubic-bezier(.2,1.5,.4,1)}@keyframes ccpunch{0%{transform:translateX(-50%) scale(1.14) rotate(-1.5deg)}100%{transform:translateX(-50%) scale(1) rotate(0)}}
+.cc-sticker{position:absolute;right:10%;top:calc(150px + env(safe-area-inset-top,0px));font-size:44px;filter:drop-shadow(0 0 12px hsl(var(--h) 100% 65%));animation:ccsticker .7s cubic-bezier(.2,1.6,.4,1)}.cc-wrap.inline .cc-sticker{top:calc(172px + env(safe-area-inset-top,0px))}@keyframes ccsticker{0%{transform:scale(0) rotate(-40deg);opacity:0}100%{transform:scale(1) rotate(8deg);opacity:1}}
+.cc-w{display:inline-block;margin:0 .14em;opacity:.35;transition:opacity .12s,transform .12s,color .12s}.cc-w.said{opacity:1}.cc-w.hot{opacity:1;color:hsl(calc(var(--h) + 60) 100% 70%);transform:scale(1.18);text-shadow:0 0 14px hsl(var(--h) 100% 60%),0 2px 10px #000}
 .cc-hint{position:absolute;left:50%;bottom:calc(4px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:20px;opacity:.7;animation:ccbob 1.4s ease-in-out infinite;pointer-events:none}
 @keyframes ccbob{50%{transform:translate(-50%,5px)}}
 @keyframes ccin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
