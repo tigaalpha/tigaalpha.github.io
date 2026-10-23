@@ -227,9 +227,22 @@ export function spellNames(notes: { note: string }[]): string[] {
 
 /** The lesson on a five-line staff for the portrait Teacher page: two bars of four quarter notes, paging to the next two when the lit note moves on, the lit note in orange (real time, like the octave page). */
 export function TeacherStaff({ notes, litNote }: { notes: { note: string }[]; litNote: string | null }) {
-  const ms = useMemo(() => notes.map(p => midiOf(p.note)).filter((m): m is number => m != null), [notes]);
+  const up = useMemo(() => notes.map(p => midiOf(p.note)).filter((m): m is number => m != null), [notes]);
+  /* A lesson that only climbs is taught up and then down: the way down is written out as its own bars (page 2), read left to right
+     like the way up, instead of the lit note running back over the climbing bars. A lesson that already holds its own descent is shown as it is. */
+  const ms = useMemo(() => (up.length >= 3 && up.every((m, i) => i === 0 || m > up[i - 1]) ? up.concat(up.slice().reverse()) : up), [up]);
   const k = useMemo(() => scaleKind(notes), [notes]), sp = useMemo(() => (k ? spellScale(k.pc, k.type) : null), [k]);
-  const lit = litNote ? midiOf(litNote) : null, at = lit == null ? -1 : ms.indexOf(lit);
+  const lit = litNote ? midiOf(litNote) : null;
+  const pos = useRef(-1), sig = useRef("");
+  const key = ms.join(",");
+  if (sig.current !== key) { sig.current = key; pos.current = -1; }
+  if (lit != null) {
+    /* the same pitch occurs twice (up and down): take the next occurrence after where we were, wrapping round */
+    let f = -1;
+    for (let i = 1; i <= ms.length && f < 0; i++) { const j = (pos.current + i) % ms.length; if (ms[j] === lit) f = j; }
+    if (ms[pos.current] !== lit && f >= 0) pos.current = f;
+  }
+  const at = lit == null ? -1 : pos.current;
   const page = at >= 0 ? Math.floor(at / 8) : 0, slice = ms.slice(page * 8, page * 8 + 8).map(m => ({ m }));
   if (ms.length < 2) return null;
   return (<div className="tstaff" data-tstaff="1"><StaffCard notes={slice} active={at >= 0 && at >= page * 8 && at < page * 8 + 8 ? at - page * 8 : -1} title="staff" sp={sp} count={8} /></div>);
