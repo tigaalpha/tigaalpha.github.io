@@ -555,6 +555,11 @@ function Reel({ clip, active, lang, paused, onEnded, peek }: { clip: Clip; activ
 
 export function ConceptClipFeed({ clips, lang, start, onClose, inline }: { clips: Clip[]; lang: "en" | "zh"; start: number; onClose: () => void; inline?: boolean }) {
   const [act, setAct] = useState(start), [paused, setPaused] = useState(false);
+  /* continuous voice: every line of the clip on screen and of the next two clips is fetched ahead (the global request throttle staggers them), so a line never waits for the network */
+  useEffect(() => {
+    let ac: AudioContext; try { ac = getAC(); } catch { return; }
+    for (let k = act; k < Math.min(clips.length, act + 3); k++) for (const sl of clips[k].slides) clipBuf(sl.b, lang, ac).catch(() => {});
+  }, [act, lang]);
   const feed = useRef<HTMLDivElement>(null), musicRef = useRef<any>(null), actRef = useRef(act);
   actRef.current = act;
   const goTo = (k: number) => { const el = feed.current; if (!el || k < 0 || k >= clips.length) return; el.scrollTo({ top: k * el.clientHeight, behavior: "smooth" }); };
