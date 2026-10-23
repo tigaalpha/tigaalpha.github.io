@@ -333,15 +333,18 @@ function cityFx(cv: HTMLCanvasElement, g: CanvasRenderingContext2D, hue: number,
 /* B-roll inserts (owner, 2026-10-23: "insert pictures into the video as B-roll to make it more interesting, CG even prettier"). Cutaway shots drawn in code, chosen from what the slide
    says (a metronome for tempo, sheet music for reading, a moon for sleep, a brain, an equaliser for listening, a clock, hands on keys, a stage), shown in a film frame that
    replaces the hologram for some shots. No stock footage: nothing downloaded, nothing licensed. */
-type Ins = "metronome" | "sheet" | "moon" | "brain" | "eq" | "clock" | "hands" | "stage" | "vinyl" | "city";
+type Ins = "metronome" | "sheet" | "moon" | "brain" | "eq" | "clock" | "hands" | "stage" | "vinyl" | "city" | "posture" | "mistake" | "count" | "dynamics" | "scale" | "heart" | "headphones" | "goal";
 const INS_ALL: Ins[] = ["hands", "sheet", "eq", "vinyl", "metronome", "city", "clock", "stage", "brain", "moon"];
-function insOf(text: string, idx: number, seed: number): Ins {
+/* every slide gets the picture that belongs to its story (owner, 2026-10-23: "every picture must fit the story"): first the slide's own words, then the clip's topic */
+const CLIP_INS: Record<string, Ins> = { focus: "brain", synapse: "brain", regions: "brain", session: "goal", motivation: "goal", posture: "posture", relax: "hands", slow: "metronome", metronome: "metronome", reading: "sheet", ear: "eq", scales: "scale", hands: "hands", mistakes: "mistake", sleep: "moon", breaks: "clock", listen: "headphones", nerves: "heart", counting: "count", dynamics: "dynamics" };
+const REL_INS: Partial<Record<Ins, Ins>> = { brain: "eq", goal: "clock", posture: "hands", hands: "scale", metronome: "count", sheet: "scale", eq: "headphones", scale: "hands", mistake: "sheet", moon: "brain", clock: "goal", headphones: "stage", heart: "stage", count: "metronome", dynamics: "eq", stage: "heart", vinyl: "headphones", city: "stage" };
+function insOf(text: string, clipId: string): Ins {
   const t = text.toLowerCase();
-  const m: [RegExp, Ins][] = [[/metronome|tempo|beat|count|节拍|拍/, "metronome"], [/read|sheet|score|谱|读/, "sheet"], [/sleep|rest|break|night|睡|休息/, "moon"], [/brain|neur|focus|memory|attention|脑|记忆|专注/, "brain"], [/listen|ear|sound|hear|听|耳/, "eq"], [/minute|daily|day|time|clock|schedule|分钟|每天|时间/, "clock"], [/nerv|stage|perform|concert|紧张|舞台|演/, "stage"], [/hand|finger|posture|relax|wrist|手|指|姿/, "hands"]];
+  const m: [RegExp, Ins][] = [[/metronome|tempo|click|节拍器/, "metronome"], [/count|beat|rhythm|数拍|节奏|拍/, "count"], [/sheet|score|reading|read\b|谱|读谱/, "sheet"], [/sleep|night|dream|睡/, "moon"], [/brain|neur|synap|memory|attention|脑|神经|记忆|专注/, "brain"], [/loud|soft|quiet|dynamic|volume|强|弱|音量/, "dynamics"], [/mistake|wrong|error|错/, "mistake"], [/nerv|anxi|stage fright|heart|紧张/, "heart"], [/listen|record|hear|inner ear|听/, "headphones"], [/scale|finger|音阶|指法/, "scale"], [/posture|sit|bench|back|shoulder|坐|姿/, "posture"], [/minute|day|break|clock|schedule|分钟|每天|休息/, "clock"], [/goal|progress|win|small|plan|目标|进步/, "goal"], [/hand|wrist|relax|tension|手|腕|放松/, "hands"], [/perform|concert|friends|audience|演/, "stage"]];
   for (const [r, k] of m) if (r.test(t)) return k;
-  return INS_ALL[(idx * 3 + seed) % INS_ALL.length];
+  return CLIP_INS[clipId] || "hands";
 }
-function paintInsert(cv: HTMLCanvasElement, kind: Ins, hue: number, t: number) {
+export function paintInsert(cv: HTMLCanvasElement, kind: Ins, hue: number, t: number) {
   const g = cv.getContext("2d"); if (!g) return; const k = kOf(cv), W = cv.width / k, H = cv.height / k, tt = t / 1000; g.setTransform(k, 0, 0, k, 0, 0);
   const cy = `hsl(${hue + 170} 100% 62%)`, pk = `hsl(${hue + 320} 100% 66%)`, dk = `hsl(${hue + 250} 50% 6%)`;
   const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, `hsl(${hue + 235} 55% 9%)`); bg.addColorStop(1, `hsl(${hue + 300} 55% 17%)`); g.fillStyle = bg; g.fillRect(0, 0, W, H);
@@ -387,6 +390,42 @@ function paintInsert(cv: HTMLCanvasElement, kind: Ins, hue: number, t: number) {
     const cx = W / 2, cyy = H / 2, r = H * 0.44; g.save(); g.translate(cx, cyy); g.rotate(tt * 1.6); const vg = g.createRadialGradient(0, 0, 4, 0, 0, r); vg.addColorStop(0, "#222"); vg.addColorStop(1, "#050507"); g.fillStyle = vg; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
     g.strokeStyle = "rgba(255,255,255,.07)"; for (let q = r * 0.35; q < r; q += 5) { g.beginPath(); g.arc(0, 0, q, 0, 7); g.stroke(); } const sh = g.createConicGradient(0, 0, 0); sh.addColorStop(0, "rgba(255,255,255,0)"); sh.addColorStop(0.1, "rgba(160,230,255,.35)"); sh.addColorStop(0.25, "rgba(255,255,255,0)"); sh.addColorStop(0.6, "rgba(255,120,220,.3)"); sh.addColorStop(0.75, "rgba(255,255,255,0)"); g.fillStyle = sh; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.fillStyle = pk; g.beginPath(); g.arc(0, 0, r * 0.28, 0, 7); g.fill(); g.restore();
     g.strokeStyle = cy; glow(cy, 8); g.lineWidth = 4; g.lineCap = "round"; g.beginPath(); g.moveTo(W * 0.92, H * 0.1); g.lineTo(W * 0.64, H * 0.46); g.stroke(); off();
+  } else if (kind === "posture") {
+    g.fillStyle = "#05060e"; g.fillRect(0, H * 0.86, W, H * 0.14);
+    const bx = W * 0.3, by = H * 0.86; g.fillStyle = dk; glow(cy, 8); g.strokeStyle = cy; g.lineWidth = 2; g.fillRect(bx - 40, by - H * 0.26, 80, 12); g.strokeRect(bx - 40, by - H * 0.26, 80, 12); g.fillRect(bx - 30, by - H * 0.26, 8, H * 0.26); g.fillRect(bx + 22, by - H * 0.26, 8, H * 0.26); off();
+    g.fillStyle = "#0a0c18"; g.fillRect(W * 0.52, by - H * 0.36, W * 0.46, H * 0.36); for (let i = 0; i < 8; i++) { g.fillStyle = Math.sin(tt * 3 + i) > 0.8 ? pk : "#eaf2ff"; g.fillRect(W * 0.53 + i * W * 0.055, by - H * 0.36, W * 0.05, 12); }
+    g.fillStyle = dk; glow(cy, 10); g.strokeStyle = cy; g.lineWidth = 2.5; const br = Math.sin(tt * 1.4) * 2; g.beginPath(); g.arc(bx + 6, by - H * 0.72 + br, 22, 0, 7); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(bx - 4, by - H * 0.62 + br); g.quadraticCurveTo(bx - 14, by - H * 0.45, bx - 8, by - H * 0.28); g.lineWidth = 16; g.strokeStyle = dk; g.stroke(); off();
+    g.strokeStyle = "#7dffb2"; glow("#7dffb2", 12); g.lineWidth = 3; g.setLineDash([6, 5]); g.beginPath(); g.moveTo(bx + 8, by - H * 0.78); g.lineTo(bx - 8, by - H * 0.27); g.stroke(); g.setLineDash([]); off();
+    g.strokeStyle = dk; g.lineWidth = 11; g.lineCap = "round"; const el = by - H * 0.4 + Math.sin(tt * 4) * 3; g.beginPath(); g.moveTo(bx - 6, by - H * 0.52); g.lineTo(bx + 52, by - H * 0.43); g.lineTo(W * 0.54, el); g.stroke();
+    g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 1.2; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(bx + 52, by - H * 0.43); g.lineTo(W * 0.62, by - H * 0.43); g.stroke(); g.setLineDash([]); g.fillStyle = "#7dffb2"; g.font = "700 13px system-ui"; g.fillText("90°", bx + 60, by - H * 0.47);
+    g.fillStyle = "#7dffb2"; g.fillText("✓ " + (tt % 4 < 2 ? "tall" : "free"), W * 0.52, H * 0.16);
+  } else if (kind === "mistake") {
+    const n = 7, cyc = (tt * 0.45) % 1; for (let i = 0; i < n; i++) { const x = 40 + i * (W - 80) / (n - 1), base = H * 0.72 - i * H * 0.07, bad = i === 4, fixed = bad && cyc > 0.55, y = bad && !fixed ? base + 30 : base; g.fillStyle = bad ? (fixed ? "#7dffb2" : "#ff4d6d") : cy; glow(g.fillStyle as string, 12); g.beginPath(); g.ellipse(x, y, 10, 7.5, -0.3, 0, 7); g.fill(); off(); g.strokeStyle = "rgba(255,255,255,.3)"; g.lineWidth = 1; g.beginPath(); g.moveTo(x + 9, y); g.lineTo(x + 9, y - 28); g.stroke(); }
+    const bx = 40 + 4 * (W - 80) / 6, by = H * 0.72 - 4 * H * 0.07; g.font = "800 26px system-ui"; if (cyc <= 0.55) { g.fillStyle = "#ff4d6d"; glow("#ff4d6d", 14); g.fillText("✕", bx - 9, by - 22); } else { g.fillStyle = "#7dffb2"; glow("#7dffb2", 14); g.fillText("✓", bx - 9, by - 22); } off();
+    g.fillStyle = "rgba(255,255,255,.85)"; g.font = "700 12px system-ui"; g.fillText(cyc <= 0.55 ? "WRONG NOTE = DATA" : "ADJUST → TRY AGAIN", 16, 24); g.fillStyle = pk; g.fillRect(16, 32, (cyc) * (W - 32), 3);
+  } else if (kind === "count") {
+    const beat = Math.floor(tt * 2) % 4, ph = (tt * 2) % 1; for (let i = 0; i < 4; i++) { const on = i === beat, x = W * (0.14 + i * 0.24); g.fillStyle = on ? pk : "rgba(255,255,255,.12)"; if (on) glow(pk, 26); g.beginPath(); g.arc(x, H * 0.42, on ? 38 - ph * 6 : 30, 0, 7); g.fill(); off(); g.fillStyle = on ? "#fff" : "rgba(255,255,255,.55)"; g.font = "800 " + (on ? 40 : 30) + "px system-ui"; g.textAlign = "center"; g.fillText(String(i + 1), x, H * 0.42 + 14); }
+    g.textAlign = "left"; g.strokeStyle = cy; g.lineWidth = 2; for (let i = 0; i < 4; i++) { g.strokeRect(W * (0.06 + i * 0.24), H * 0.7, W * 0.2, 22); if (i === beat) { g.fillStyle = `hsla(${hue + 170},100%,62%,${0.8 - ph * 0.5})`; g.fillRect(W * (0.06 + i * 0.24), H * 0.7, W * 0.2, 22); } }
+    g.fillStyle = "rgba(255,255,255,.8)"; g.font = "700 12px system-ui"; g.fillText("1 - 2 - 3 - 4", 16, 24);
+  } else if (kind === "dynamics") {
+    const n = 60; g.beginPath(); for (let i = 0; i <= n; i++) { const x = i / n * W, env = 0.12 + 0.8 * Math.pow(Math.sin(Math.PI * ((i / n + tt * 0.1) % 1)), 2), y = H * 0.45 + Math.sin(i * 0.9 + tt * 8) * env * H * 0.34; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.strokeStyle = pk; glow(pk, 14); g.lineWidth = 3; g.stroke(); off();
+    g.strokeStyle = "rgba(255,255,255,.6)"; g.lineWidth = 2; g.beginPath(); g.moveTo(24, H * 0.86); g.lineTo(W * 0.46, H * 0.8); g.lineTo(24, H * 0.74); g.moveTo(W * 0.54, H * 0.74); g.lineTo(W - 24, H * 0.8); g.lineTo(W * 0.54, H * 0.86); g.stroke(); g.fillStyle = "#fff"; g.font = "italic 800 22px serif"; g.fillText("p", 20, H * 0.95); g.fillText("f", W - 28, H * 0.95);
+  } else if (kind === "scale") {
+    const n = 8, kw = (W - 40) / n, on = Math.floor(tt * 3) % (n * 2 - 2), idx = on < n ? on : 2 * n - 2 - on; for (let i = 0; i < n; i++) { const lit = i === idx; g.fillStyle = lit ? pk : "#f1f6ff"; if (lit) glow(pk, 22); g.fillRect(20 + i * kw + 1, H * 0.5 + (lit ? 6 : 0), kw - 2, H * 0.42); off(); g.fillStyle = "#0a0c18"; if ([0, 1, 3, 4, 5].includes(i)) g.fillRect(20 + (i + 1) * kw - kw * 0.28, H * 0.5, kw * 0.56, H * 0.24); }
+    g.strokeStyle = cy; glow(cy, 8); g.lineWidth = 2; g.beginPath(); for (let i = 0; i < n; i++) { const x = 20 + i * kw + kw / 2, y = H * 0.42 - i * H * 0.04; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); off();
+    const fin = [1, 2, 3, 1, 2, 3, 4, 5]; g.font = "800 20px system-ui"; g.textAlign = "center"; g.fillStyle = "#fff"; fin.forEach((f, i) => { g.globalAlpha = i === idx ? 1 : 0.45; g.fillText(String(f), 20 + i * kw + kw / 2, H * 0.34 - i * H * 0.04); }); g.globalAlpha = 1; g.textAlign = "left";
+  } else if (kind === "heart") {
+    const cx = W * 0.3, cyy = H * 0.45, bpm = 120 - Math.min(50, tt * 6 % 60) , pulse = 1 + 0.12 * Math.max(0, Math.sin(tt * bpm / 9.5)); g.save(); g.translate(cx, cyy); g.scale(pulse * 2.2, pulse * 2.2); g.fillStyle = "#ff4d6d"; glow("#ff4d6d", 18); g.beginPath(); g.moveTo(0, 14); g.bezierCurveTo(-30, -6, -14, -30, 0, -12); g.bezierCurveTo(14, -30, 30, -6, 0, 14); g.fill(); off(); g.restore();
+    g.strokeStyle = cy; glow(cy, 8); g.lineWidth = 2; g.beginPath(); for (let x = 0; x < W; x += 3) { const ph = (((x / 150) - tt * 0.9) % 1 + 1) % 1, y = H * 0.82 - (ph < 0.1 ? Math.sin(ph / 0.1 * Math.PI) * H * 0.26 : ph < 0.16 ? -Math.sin((ph - 0.1) / 0.06 * Math.PI) * 6 : 0); x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); off();
+    const br = 0.5 + 0.5 * Math.sin(tt * 1.1); g.strokeStyle = `hsla(${hue + 170},100%,70%,.8)`; g.lineWidth = 3; g.beginPath(); g.arc(W * 0.72, H * 0.42, 30 + br * 32, 0, 7); g.stroke(); g.fillStyle = "rgba(255,255,255,.85)"; g.font = "700 14px system-ui"; g.textAlign = "center"; g.fillText(br > 0.5 ? "breathe in" : "breathe out", W * 0.72, H * 0.42 + 4); g.textAlign = "left";
+  } else if (kind === "headphones") {
+    const cx = W / 2, cyy = H * 0.46; g.strokeStyle = cy; glow(cy, 16); g.lineWidth = 12; g.lineCap = "round"; g.beginPath(); g.arc(cx, cyy, H * 0.3, Math.PI * 1.05, Math.PI * 1.95); g.stroke(); g.fillStyle = dk; g.strokeStyle = pk; glow(pk, 14); g.lineWidth = 3; for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(cx + sx * H * 0.3, cyy + 6, 24, 38, 0, 0, 7); g.fill(); g.stroke(); } off();
+    for (let r = 0; r < 4; r++) { const ph = (tt * 0.7 + r / 4) % 1; g.strokeStyle = `hsla(${hue + 320},100%,70%,${0.5 * (1 - ph)})`; g.lineWidth = 2; g.beginPath(); g.arc(cx, cyy + 6, 40 + ph * H * 0.5, 0, 7); g.stroke(); }
+    g.fillStyle = "#fff"; g.font = "700 22px system-ui"; for (let i = 0; i < 5; i++) { const ph = (tt * 0.5 + i / 5) % 1; g.globalAlpha = Math.sin(ph * Math.PI); g.fillText(i % 2 ? "♪" : "♫", W * (0.15 + i * 0.17), H * 0.9 - ph * H * 0.4); } g.globalAlpha = 1;
+  } else if (kind === "goal") {
+    const steps = ["Review", "Fix", "Play"], cur = Math.floor(tt * 0.6) % 4; steps.forEach((t, i) => { const y = H * (0.2 + i * 0.2), done = i < cur; g.strokeStyle = done ? "#7dffb2" : "rgba(255,255,255,.4)"; g.lineWidth = 2.5; g.strokeRect(24, y, 30, 30); if (done) { glow("#7dffb2", 10); g.beginPath(); g.moveTo(30, y + 16); g.lineTo(38, y + 24); g.lineTo(50, y + 6); g.stroke(); off(); } g.fillStyle = done ? "#fff" : "rgba(255,255,255,.55)"; g.font = "800 20px system-ui"; g.fillText(t, 70, y + 23); g.fillStyle = "rgba(255,255,255,.1)"; g.fillRect(70, y + 30, W * 0.4, 3); g.fillStyle = pk; g.fillRect(70, y + 30, W * 0.4 * (done ? 1 : i === cur ? (tt * 0.6 % 1) : 0), 3); });
+    const r = H * 0.22, cx = W * 0.78, cyy = H * 0.42, pr = Math.min(1, cur / 3 + (tt * 0.6 % 1) / 3); g.strokeStyle = "rgba(255,255,255,.15)"; g.lineWidth = 10; g.beginPath(); g.arc(cx, cyy, r, 0, 7); g.stroke(); g.strokeStyle = cy; glow(cy, 14); g.beginPath(); g.arc(cx, cyy, r, -Math.PI / 2, -Math.PI / 2 + pr * 6.283); g.stroke(); off(); g.fillStyle = "#fff"; g.font = "800 22px system-ui"; g.textAlign = "center"; g.fillText(Math.round(pr * 100) + "%", cx, cyy + 8); g.textAlign = "left";
   } else {
     const hzn = H * 0.7; for (let l = 0; l < 3; l++) { g.fillStyle = `hsl(${hue + 240} 45% ${5 + l * 4}%)`; let x = -10 + l * 13; while (x < W) { const w = 22 + ((x * 7 + l * 31) % 26), h = H * (0.2 + ((x * 13 + l * 17) % 40) / 100) * (1 - l * 0.15); g.fillRect(x, hzn - h + l * 10, w, h + H); for (let wy = hzn - h + 10 + l * 10; wy < hzn; wy += 9) for (let wx = x + 4; wx < x + w - 4; wx += 7) if (((wx * 5 + wy * 3 + l) % 11) < 3) { g.fillStyle = ((wx + wy) % 2) ? `hsla(${hue + 170},90%,65%,.6)` : `hsla(${hue + 320},90%,65%,.55)`; g.fillRect(wx, wy, 2.4, 3.2); } g.fillStyle = `hsl(${hue + 240} 45% ${5 + l * 4}%)`; x += w + 2; } }
     for (let c = 0; c < 5; c++) { const x = ((tt * 50 * (1 + c * 0.3) + c * 90) % (W + 60)) - 30; glow(c % 2 ? pk : cy, 10); g.fillStyle = c % 2 ? pk : cy; g.fillRect(x, H * (0.12 + c * 0.08), 22, 3); } off();
@@ -399,7 +438,7 @@ function paintInsert(cv: HTMLCanvasElement, kind: Ins, hue: number, t: number) {
 function Insert({ kind, hue, live, tag }: { kind: Ins; hue: number; live: boolean; tag: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    const cv = ref.current; if (!cv) return undefined; const kk = gfxHigh() ? 2 : 1.3; (cv as any)._k = kk; cv.width = Math.round(400 * kk); cv.height = Math.round(240 * kk); try { paintInsert(cv, kind, hue, 1200); } catch (e) {}
+    const cv = ref.current; if (!cv) return undefined; const kk = gfxHigh() ? 2 : 1.3; (cv as any)._k = kk; cv.width = Math.round(400 * kk); cv.height = Math.round(300 * kk); try { paintInsert(cv, kind, hue, 1200); } catch (e) {}
     if (!live) return undefined;
     let raf = 0, last = 0; const loop = (now: number) => { if (now - last > 40) { last = now; try { paintInsert(cv, kind, hue, now); } catch (e) {} } raf = requestAnimationFrame(loop); };
     raf = requestAnimationFrame(loop); return () => cancelAnimationFrame(raf);
@@ -498,18 +537,15 @@ function Reel({ clip, active, lang, paused, onEnded, peek }: { clip: Clip; activ
   const s = clip.slides[Math.min(i, n - 1)];
   const kinds = SCENES[clip.id] || [], base = kinds[Math.min(i, n - 1)] || "rings", pool: Kind[] = [base, kinds[(i + 1) % Math.max(1, kinds.length)] || "wave", ALL_KINDS[(i * 3 + 2) % ALL_KINDS.length], ALL_KINDS[(i * 5 + 4) % ALL_KINDS.length]];
   const hk = pool[shot % pool.length], cam = shot % 5;
-  const insOn = shot % 3 === 1, insK = insOf(s.h + " " + s.b + " " + clip.id, i + shot, clipSeed);
+  const insBase = insOf(s.h + " " + s.b, clip.id), insK: Ins = shot % 2 ? (REL_INS[insBase] || insBase) : insBase;
   return (
     <section className="cc-reel" style={{ ["--h" as any]: clip.hue }} data-cam={cam} data-clip={clip.id} data-active={active ? "1" : "0"}>
       <Backdrop hue={clip.hue + (shot % 4) * 38} live={active && !paused} sc={(shot + clip.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 6} />
       <div className="cc-shade" />
-      {insOn ? <Insert key={"n" + i + "-" + shot} kind={insK} hue={clip.hue + shot * 24} live={active && !paused} tag={"B-ROLL " + String(1 + (shot % 9)).padStart(2, "0")} /> : <Holo key={"h" + i + "-" + shot} kind={hk} hue={clip.hue + shot * 24} live={active && !paused} />}
+      <Insert key={"n" + i + "-" + shot} kind={insK} hue={clip.hue + shot * 24} live={active && !paused} tag={String(insK).toUpperCase() + " · " + String(1 + (shot % 9)).padStart(2, "0")} />
+      <Holo key={"h" + i + "-" + shot} kind={hk} hue={clip.hue + shot * 24} live={active && !paused} />
       <div className="cc-title"><span>{s.ic}</span><b>{s.h}</b></div>
       <div className="cc-flash" key={"f" + i + "-" + shot} />
-      <div className={"cc-face" + (active && !paused ? " on" : "")} key={"p" + i + "-" + shot}>
-        <img src="./img/presenter.jpg" alt="" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
-        <span>TIGA Studio · @tiga.studio</span>
-      </div>
       <div className="cc-sticker" key={"s" + i + "-" + shot}>{s.ic}</div>
       <div className="cc-cap" key={i}><p>{wordsOf(s.b, lang).map((w, k) => <span key={k} className={"cc-w" + (k < wi ? " said" : k === wi ? " hot" : "")}>{w}</span>)}</p></div>
     </section>
@@ -565,13 +601,13 @@ export const CLIP_CSS = `
 .cc-title{position:absolute;top:calc(34px + env(safe-area-inset-top,0px));left:14px;right:62px;display:flex;gap:8px;align-items:center;font-size:15px;text-shadow:0 1px 8px rgba(0,0,0,.8)}.cc-title span{font-size:22px}.cc-title b{line-height:1.2}
 .cc-x,.cc-pause{position:absolute;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.4);color:#fff;font-size:16px;cursor:pointer;z-index:3}
 .cc-x{top:calc(8px + env(safe-area-inset-top,0px));right:12px}.cc-pause{top:calc(56px + env(safe-area-inset-top,0px));right:12px;font-size:13px}
-.cc-ins{position:absolute;left:50%;transform:translateX(-50%);top:calc(366px + env(safe-area-inset-top,0px));width:min(92vw,400px);aspect-ratio:400/240;border-radius:10px;overflow:hidden;border:2px solid rgba(255,255,255,.85);box-shadow:0 0 34px hsla(var(--h),90%,60%,.5),0 14px 40px rgba(0,0,0,.7);animation:ccinsin .45s cubic-bezier(.2,1.2,.3,1)}
-.cc-ins canvas{width:100%;height:100%;display:block}
+.cc-ins{position:absolute;left:50%;transform:translateX(-50%);top:calc(84px + env(safe-area-inset-top,0px));width:min(94vw,420px);aspect-ratio:400/300;border-radius:10px;overflow:hidden;border:2px solid rgba(255,255,255,.85);box-shadow:0 0 34px hsla(var(--h),90%,60%,.5),0 14px 40px rgba(0,0,0,.7);animation:ccinsin .45s cubic-bezier(.2,1.2,.3,1)}
+.cc-ins canvas{width:100%;height:100%;display:block;animation:ccken 12s ease-in-out infinite alternate}@keyframes ccken{0%{transform:scale(1)}100%{transform:scale(1.07) translateX(-1.5%)}}
 .cc-ins i{position:absolute;font-style:normal;font-size:10px;font-weight:800;letter-spacing:1px;color:#fff;text-shadow:0 1px 4px #000}
 .cc-ins-rec{top:8px;left:10px}.cc-ins-rec::first-letter{color:#ff3b5c}.cc-ins-tag{top:8px;right:10px;opacity:.8}
 .cc-ins-c{width:14px;height:14px;border:2px solid rgba(255,255,255,.8)}.cc-ins-c.c1{bottom:8px;left:8px;border-right:0;border-top:0}.cc-ins-c.c2{bottom:8px;right:8px;border-left:0;border-top:0}
 @keyframes ccinsin{0%{opacity:0;transform:translateX(-50%) translateY(26px) scale(.9) rotate(-1.5deg)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1) rotate(0)}}
-.cc-holo{position:absolute;left:50%;transform:translateX(-50%);top:calc(372px + env(safe-area-inset-top,0px));width:min(88vw,380px);height:auto;aspect-ratio:360/190;border-radius:16px;box-shadow:0 0 30px hsla(var(--h),90%,60%,.35);backdrop-filter:blur(2px)}
+.cc-holo{position:absolute;left:50%;transform:translateX(-50%);top:calc(84px + min(94vw,420px) * .75 + 14px + env(safe-area-inset-top,0px));width:min(66vw,280px);height:auto;aspect-ratio:360/190;border-radius:16px;box-shadow:0 0 30px hsla(var(--h),90%,60%,.35);backdrop-filter:blur(2px)}
 .cc-face{position:absolute;left:50%;top:calc(120px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(46vw,190px);display:flex;flex-direction:column;align-items:center;gap:6px}
 .cc-face img{width:100%;aspect-ratio:540/640;object-fit:cover;border-radius:26px;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 28px hsla(var(--h),90%,60%,.55),0 10px 40px rgba(0,0,0,.6);-webkit-mask-image:linear-gradient(180deg,#000 82%,transparent 100%);mask-image:linear-gradient(180deg,#000 82%,transparent 100%)}
 .cc-face.on img{animation:ccsway 2.4s ease-in-out infinite}.cc-face span{position:absolute;bottom:-16px;font-size:11px;font-weight:700;opacity:.85;letter-spacing:.3px;text-shadow:0 1px 6px #000}
