@@ -10,7 +10,7 @@ await pg.goto(`http://localhost:${port}/index.html`); await pg.waitForTimeout(40
 await pg.screenshot({ path: "/tmp/clip0.png" }); console.log("tabs", await pg.locator(".vidlangtabs button").count(), "flag", await pg.locator(".vidflag-b").count());
 const pick = async (n) => { await pg.locator(".vidflag-b").click(); await pg.locator(".vidflag-m button").nth(n).click(); };
 await pg.waitForTimeout(800); await pg.mouse.click(360, 331); await pg.waitForTimeout(500); console.log("errs", errs.slice(0,2).join(" | ")); await pick(1); await pg.waitForTimeout(300);
-await pg.waitForTimeout(250); await pg.screenshot({ path: "/tmp/clip.png" });
+await pg.waitForTimeout(150); await pg.locator(".cc-pause").click(); await pg.waitForTimeout(500); await pg.screenshot({ path: "/tmp/clip.png" });
 console.log("reels", await pg.locator(".cc-reel").count(), "active", await pg.locator(".cc-reel[data-active=\"1\"]").getAttribute("data-clip"));
 await pg.screenshot({ path: "/tmp/clip.png" });
 await pg.waitForTimeout(4000); console.log("active after 4s", await pg.locator(".cc-reel[data-active=\"1\"]").getAttribute("data-clip"), "cap", (await pg.locator(".cc-reel[data-active=\"1\"] .cc-cap h3").innerText()));await pick(2); await pg.waitForTimeout(300);

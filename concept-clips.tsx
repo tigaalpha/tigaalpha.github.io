@@ -131,12 +131,12 @@ function paintCity(cv: HTMLCanvasElement, hue: number, t: number) {
 
 /* A neon hologram panel that shows what the slide is about (a drawn scene per slide: neurons firing, keys lighting up, a sound wave, a timer ring, a calendar filling, ...) */
 type Kind = "neurons" | "keys" | "wave" | "timer" | "grid" | "bridge" | "ecg" | "orbit" | "staff" | "rings";
-const SCENES: Record<string, Kind[]> = {
-  focus: ["keys", "staff", "rings", "neurons", "timer"],
-  synapse: ["neurons", "rings", "neurons", "bridge", "grid"],
-  regions: ["orbit", "keys", "wave", "staff", "timer", "orbit"],
-  session: ["grid", "rings", "timer", "keys", "orbit"],
-  motivation: ["orbit", "staff", "grid", "orbit", "ecg"],
+const SCENES: Record<string, Kind[]> = {   // one kind per slide, in the slide order of CLIPS (keep the two in step when slides are added or removed)
+  focus: ["keys", "staff", "rings", "timer"],
+  synapse: ["neurons", "rings", "bridge", "grid"],
+  regions: ["orbit", "keys", "wave", "staff", "timer"],
+  session: ["grid", "rings", "timer", "keys"],
+  motivation: ["orbit", "staff", "grid", "ecg"],
 };
 function paintHolo(cv: HTMLCanvasElement, kind: Kind, hue: number, t: number) {
   const g = cv.getContext("2d"); if (!g) return; const W = cv.width, H = cv.height, tt = t / 1000;
