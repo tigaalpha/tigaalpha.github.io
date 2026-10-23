@@ -132,7 +132,7 @@ function paintCity(cv: HTMLCanvasElement, hue: number, t: number) {
 /* A neon hologram panel that shows what the slide is about (a drawn scene per slide: neurons firing, keys lighting up, a sound wave, a timer ring, a calendar filling, ...) */
 type Kind = "neurons" | "keys" | "wave" | "timer" | "grid" | "bridge" | "ecg" | "orbit" | "staff" | "rings";
 /* shot lengths in seconds, mixed on purpose: quick cuts (1-3 s) between held shots (5 s and 10 s) so the eye gets rest and does not tire; a slide change always cuts too */
-const SHOT_LEN = [4, 1.5, 2.5, 5, 1.2, 10, 3, 2, 5, 1.8, 7];
+const SHOT_LEN = [10, 2, 5, 1.5, 10, 3, 5, 1.2, 8, 2.5, 5, 10, 1.8, 5, 3];
 const ALL_KINDS: Kind[] = ["neurons", "keys", "wave", "timer", "grid", "bridge", "ecg", "orbit", "staff", "rings"];
 const SCENES: Record<string, Kind[]> = {   // one kind per slide, in the slide order of CLIPS (keep the two in step when slides are added or removed)
   focus: ["keys", "staff", "rings", "timer"],
@@ -248,14 +248,16 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
     }, 80);
     return () => { dead = true; clearTimeout(at); clearInterval(iv); stopSpeaking(); try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
-  /* every slide is cut into quick shots (about 1.6 s each, never over 5 s): a new hologram scene, a new camera move, a flash and a whoosh, so the picture keeps changing while one voice line runs */
+  const clipSeed = clip.id.length;
+  /* shots run on their own clock across the whole clip (a 10 s hold can span two voice lines); every slide is cut into shots (about 1.6 s each, never over 5 s): a new hologram scene, a new camera move, a flash and a whoosh, so the picture keeps changing while one voice line runs */
   useEffect(() => {
-    setShot(0); if (!active || paused) return undefined;
+    if (!active) setShot(0);
+    if (!active || paused) return undefined;
     let dead = false, tm: any = 0, k = 0;
-    const tick = () => { tm = setTimeout(() => { if (dead) return; k++; setShot((x) => x + 1); cutSound((window as any).__tgCineCtx || null); tick(); }, SHOT_LEN[(i * 3 + k) % SHOT_LEN.length] * 1000); };
+    const tick = () => { tm = setTimeout(() => { if (dead) return; k++; setShot((x) => x + 1); cutSound((window as any).__tgCineCtx || null); tick(); }, SHOT_LEN[(k + clipSeed) % SHOT_LEN.length] * 1000); };
     tick();
     return () => { dead = true; clearTimeout(tm); };
-  }, [active, paused, i]);
+  }, [active, paused]);
   const s = clip.slides[Math.min(i, n - 1)];
   const kinds = SCENES[clip.id] || [], base = kinds[Math.min(i, n - 1)] || "rings", pool: Kind[] = [base, kinds[(i + 1) % Math.max(1, kinds.length)] || "wave", ALL_KINDS[(i * 3 + 2) % ALL_KINDS.length], ALL_KINDS[(i * 5 + 4) % ALL_KINDS.length]];
   const hk = pool[shot % pool.length], cam = shot % 5;
