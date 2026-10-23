@@ -338,7 +338,7 @@ export default function AdventureShip({ P, lang, ups, upgrade, glow: glow0, onWi
       for (const b of S.eb) { b.x += b.vx * dt; b.y += b.vy * dt; if (!S.over && Math.hypot(b.x - S.ship.x, b.y - S.ship.y) < (b.big ? 16 : 12)) { b.dead = true; hurtShip((b.big ? 9 : 7) * Math.sqrt(hard)); } }
       S.eb = S.eb.filter((b: any) => !b.dead && b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20);
       // the music relay: fly into it to answer ONE question (the page pauses the ship); a right answer repairs and shields the ship
-      S.relayT -= dt; if (S.relayT <= 0 && !S.relay && !S.win && !S.over && !(MODE === "dogfight" && S.bossSpawned)) { S.relay = { x: W + 30, y: 90 + Math.random() * (H - 180), ph: 0 }; S.relayT = 26; }
+      S.relayT -= dt; if (S.relayT <= 0 && !S.relay && !S.win && !S.over && !(MODE === "dogfight" && S.bossSpawned)) { S.relay = { x: W + 30, y: 90 + Math.random() * (H - 180), ph: 0 }; S.relayT = 30; }
       // refuel pods: a solar cell, a nuclear core or a hydrogen tank drifts in every ~8 s; flying into one turns it into ship health
       if (!S.win && !S.over) { S.podT = (S.podT === undefined ? 5 : S.podT) - dt; if (S.podT <= 0) { S.podT = 3 + Math.random() * 2; for (let pq = 0; pq < (Math.random() < 0.35 ? 2 : 1); pq++) S.pk.push({ x: W + 20, y: 90 + Math.random() * (H - 180), k: (["cell", "nuke", "h2"] as const)[Math.floor(Math.random() * 3)] }); } }
       if (S.relay) { const R = S.relay; R.x -= 80 * dt; R.ph += dt; if (R.x < -40) S.relay = null; else if (!S.over && Math.hypot(R.x - S.ship.x, R.y - S.ship.y) < 36) { S.relay = null; if (ctl && ctl.current && ctl.current.ask) { ctl.current.paused = true; ctl.current.ask(); } } }

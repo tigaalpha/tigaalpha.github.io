@@ -2185,7 +2185,7 @@ export const PvpPage = memo(function PvpPage({
    seconds keeps the same EIGHT questions (the quiz is not the thing being
    made harder) and spreads them across the longer fight, which also means
    one fewer interruption per round. */
-const ASK_EVERY = 20000;
+const ASK_EVERY = 30000;
 const ASK_ROUNDS = 8;
 const WAVES = Array.from({ length: ASK_ROUNDS }, () => ASK_EVERY);
 const GUARD_MS = 900, GUARD_CD = 2400;

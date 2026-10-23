@@ -97,7 +97,7 @@ export type State = {
 
 export function mulberry(s: number) { return () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-export function newState(seed = 7, tuneEvery = 20, level = 0, startGuns: WeaponId[] = [], shopW: ShopW | null = null, lvObj: Level | null = null): State {   // lvObj: a level that is not in the Alien Hunt campaign (Robot Adventure 3D passes its own)
+export function newState(seed = 7, tuneEvery = 30, level = 0, startGuns: WeaponId[] = [], shopW: ShopW | null = null, lvObj: Level | null = null): State {   // lvObj: a level that is not in the Alien Hunt campaign (Robot Adventure 3D passes its own)
   if (shopW && !startGuns.includes(shopW.as)) startGuns = [...startGuns, shopW.as];
   const L = lvObj || (level > 0 ? LEVELS[Math.min(level, LEVELS.length) - 1] : null);
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
