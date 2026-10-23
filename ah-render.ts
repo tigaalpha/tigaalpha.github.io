@@ -425,6 +425,11 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
   const rockTex = canvasTex(128, 128, g => { g.fillStyle = "#3a4a40"; g.fillRect(0, 0, 128, 128); noise(g, 128, 128, 900, 0.3); g.fillStyle = "rgba(90,255,190,.25)"; for (let i = 0; i < 26; i++) { g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 4, 0, 7); g.fill(); } }, 1);
   const boxMat = new THREE.MeshStandardMaterial({ map: KIT ? (JUNGLE ? rockTex : kitTex) : crateTex, roughness: 0.8, metalness: 0.2 });
   const levelGroup = new THREE.Group(); scene.add(levelGroup);
+  /* High only (plan 40 B): the same procedural textures double as bump maps, and a thin ground-fog sheet adds depth; Lite keeps flat materials */
+  const gMat = ground.material as THREE.MeshStandardMaterial, gTex = gMat.map as THREE.Texture, bTex = boxMat.map as THREE.Texture;
+  const fogSheet = new THREE.Mesh(new THREE.PlaneGeometry(ARENA * 2 + 4, ARENA * 2 + 4), new THREE.MeshBasicMaterial({ color: TH ? TH.fog : 0x6a5a6a, transparent: true, opacity: 0.16, depthWrite: false })); fogSheet.rotation.x = -Math.PI / 2; fogSheet.position.y = 0.55; fogSheet.visible = false; scene.add(fogSheet);
+  const surfOn = (on: boolean) => { try { gMat.bumpMap = on ? gTex : null; gMat.bumpScale = 2.2; boxMat.bumpMap = on ? bTex : null; boxMat.bumpScale = 1.6; gMat.roughness = on ? 0.82 : 0.92; fogSheet.visible = on && hiTier() >= 2; gMat.needsUpdate = true; boxMat.needsUpdate = true; } catch (_) { /* keep flat */ } };
+  surfOn(high);
   let builtFor: any = null;
   const hzMesh: { m: THREE.Mesh; h: { per: number; on: number } }[] = [];
   function buildLevel(boxes: State["boxes"], hz: State["hz"] = []) {
@@ -614,7 +619,7 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
       const w = host.clientWidth || 800, h = host.clientHeight || 450; renderer.setPixelRatio(high ? Math.min(2, window.devicePixelRatio || 1) : 1); renderer.setSize(w, h, false); if (hifx) hifx.setSize(w, h, high ? Math.min(2, window.devicePixelRatio || 1) : 1); canvas.style.width = "100%"; canvas.style.height = "100%";
       cam.aspect = w / h; cam.updateProjectionMatrix();
     },
-    setHigh(h) { high = h; if (h && !hifx) hifx = createHiFx(renderer, scene, () => cam, { bloom: 0.6, radius: 0.55, threshold: 0.8, kit: KIT }); renderer.shadowMap.enabled = h; sun.castShadow = h; envOn(h); api.resize(); scene.traverse(o => { const m = (o as THREE.Mesh).material as any; if (m && m.needsUpdate !== undefined) m.needsUpdate = true; }); },
+    setHigh(h) { high = h; if (h && !hifx) hifx = createHiFx(renderer, scene, () => cam, { bloom: 0.6, radius: 0.55, threshold: 0.8, kit: KIT }); renderer.shadowMap.enabled = h; sun.castShadow = h; envOn(h); surfOn(h); api.resize(); scene.traverse(o => { const m = (o as THREE.Mesh).material as any; if (m && m.needsUpdate !== undefined) m.needsUpdate = true; }); },
     mates(list) { mateList = list; },
     info: () => ({ mates: mateMeshes.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, high, rigs: rigs.size }),
     dispose() { renderer.dispose(); scene.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); const mt: any = m.material; (Array.isArray(mt) ? mt : [mt]).forEach(x => x && x.dispose && x.dispose()); } }); if (canvas.parentNode) canvas.parentNode.removeChild(canvas); },
