@@ -536,7 +536,7 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
   let lastErr = null;
   for (let n = 0; n < tries; n++) {
     if (n > 0) await new Promise((r) => setTimeout(r, 1200 * Math.pow(2, n - 1))); // 1.2s, 2.4s
-    if (_ttsCancelled) throw new Error("cancelled");
+    if (_ttsCancelled && !(opts && opts.src === "clip")) throw new Error("cancelled");
     await ttsThrottle();
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -559,7 +559,7 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
       return await ac.decodeAudioData(bytes);
     } catch (e) {
       lastErr = e;
-      if (_ttsCancelled) throw e;
+      if (_ttsCancelled && !(opts && opts.src === "clip")) throw e;
     } finally { clearTimeout(to); }
   }
   throw lastErr || new Error("TTS failed");
