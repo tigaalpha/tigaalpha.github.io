@@ -420,6 +420,11 @@ function Backdrop({ hue, live, sc = 0 }: { hue: number; live: boolean; sc?: numb
 
 /* one clip as a full-screen reel; while it is the one on screen it narrates its slides one after another, and when the LAST slide's voice ends it tells the feed to move on */
 function wordsOf(t: string, lang: string): string[] { if (lang !== "zh") return t.split(/\s+/).filter(Boolean); const out: string[] = []; let cur = ""; for (const ch of t) { cur += ch; if (cur.length >= 3 || /[，。、；！？]/.test(ch)) { out.push(cur); cur = ""; } } if (cur) out.push(cur); return out; }
+/* the clip narrator: a deep, calm, cinematic male voice (Gemini prebuilt "Charon", the documentary-narrator one), directed to speak like a film trailer / TED-style narrator rather than an assistant */
+const NARR: Record<string, string> = {
+  en: "Read the quoted text as a deep, calm, confident male film narrator — warm baritone, natural conversational rhythm, slight pauses at commas, quiet energy, never robotic, never announcer-like.",
+  zh: "用低沉、沉稳、自信的男性纪录片旁白声音朗读引号中的文字，温暖的男中音，语速自然，逗号处略作停顿，富有感染力，不要机械感。",
+};
 function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boolean; lang: "en" | "zh"; paused: boolean; onEnded: () => void }) {
   const [i, setI] = useState(0), [shot, setShot] = useState(0), [wi, setWi] = useState(-1), endRef = useRef(onEnded), n = clip.slides.length;
   endRef.current = onEnded;
@@ -436,7 +441,7 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
       /* the natural cloud voice first (owner, 2026-10-23: "the voice still does not sound natural"): Gemini speech through piano-tts, cached on the device after the first listen, at half the chat price per second against the day's allowance; if it is refused, fails or the allowance is spent, the device voice reads the line (the same strict male choice as before) */
       const after = () => { clearInterval(iv); go(); };
       const device = (rest?: string) => { if (dead) return; try { speakNarration(rest || text, lang, after, () => { setTimeout(go, 6500); }, 0.95, 0, true); } catch { setTimeout(go, 6500); } };
-      try { speakCloud(text, lang, null, after, (e: any) => { if (!dead) device(e && e.rest); }, 1, { src: "clip", spend: (c: string) => ttsBudgetSpend(ttsEstSeconds(c, lang) * 0.5), refund: (c: string) => ttsBudgetRefund(ttsEstSeconds(c, lang) * 0.5) }); } catch { device(); }
+      try { speakCloud(text, lang, null, after, (e: any) => { if (!dead) device(e && e.rest); }, 1, { src: "clip", voice: "Charon", style: NARR[lang], spend: (c: string) => ttsBudgetSpend(ttsEstSeconds(c, lang) * 0.5), refund: (c: string) => ttsBudgetRefund(ttsEstSeconds(c, lang) * 0.5) }); } catch { device(); }
     }, 80);
     return () => { dead = true; clearTimeout(at); clearInterval(iv); stopSpeaking(); try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
