@@ -2264,6 +2264,17 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
         ctx.fillStyle = b.used ? "#3a4a52" : b.tap ? "#8de8ff" : "#ffe08a"; ctx.beginPath(); ctx.moveTo(b.x - 9, GROUND); ctx.lineTo(b.x - 4, GROUND - 46); ctx.lineTo(b.x + 4, GROUND - 46); ctx.lineTo(b.x + 9, GROUND); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.arc(b.x, GROUND - 58 + Math.sin(tm * 2.4) * 3, 10, 0, 7); ctx.fillStyle = b.used ? "#52646c" : "#fff6c8"; ctx.fill();
         if (!b.used) { ctx.fillStyle = "#04201a"; ctx.font = "900 13px system-ui"; ctx.textAlign = "center"; ctx.fillText("?", b.x, GROUND - 53 + Math.sin(tm * 2.4) * 3); } }
+      // High only (plan 40 D): additive light pass (bolts, hot particles, lava glow) and a capped weather layer per planet, drawn in world space; the watchdog drops to Lite and both vanish
+      if (HI()) { try {
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        const lit = (x: number, y: number, r: number, c: string, a2: number) => { const g2 = ctx.createRadialGradient(x, y, 0, x, y, r); g2.addColorStop(0, `rgba(${c},${a2})`); g2.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = g2; ctx.fillRect(x - r, y - r, r * 2, r * 2); };
+        let nl = 0; for (const b of bolts) { if (nl++ > 14) break; if (b.x < camX - 80 || b.x > camX + vw + 80) continue; lit(b.x, GROUND - b.y, 46, P.glow, 0.28); }
+        nl = 0; for (const p2 of parts) { if (p2.life < p2.max * 0.5 || nl++ > 18) continue; lit(p2.x, p2.y, 22, p2.col, 0.18); }
+        lit(pl.x, GROUND - pl.y - 40, 90, P.glow, 0.10);
+        const wk = P.id === "pyra" || P.id === "ashfall" || P.id === "helios" ? "ash" : P.id === "kryo" ? "snow" : P.id === "luma" || P.id === "kindred" ? "spore" : P.id === "ferro" || P.id === "cobalt" ? "dust" : "";
+        if (wk) { const wc = wk === "ash" ? "255,150,70" : wk === "snow" ? "230,245,255" : wk === "spore" ? "150,255,200" : "220,190,150"; ctx.fillStyle = `rgba(${wc},${wk === "snow" ? 0.7 : 0.45})`; for (let i = 0; i < 46; i++) { const sp = 0.4 + (i % 5) * 0.18, wx = camX + ((i * 137.5 + tm * (wk === "dust" ? 90 : 18) * sp) % (vw + 60)) - 30, wy = (((i * 61.8) + tm * (wk === "ash" || wk === "snow" ? 38 : wk === "spore" ? -14 : 6) * sp) % (ch / k + 20) + (ch / k + 20)) % (ch / k + 20) - 10; ctx.fillRect(wx + Math.sin(tm * 0.9 + i) * 8, wy, wk === "dust" ? 6 : 2.2, wk === "dust" ? 1.2 : 2.2); } }
+        ctx.restore();
+      } catch (_) { /* Lite look */ } }
       // the warp gate at the end of the map (it glows and says WARP once the goal is done)
       { const gx = WORLD - 90; if ((NOBOSS ? finished : boss.dead) && gx > camX - 120 && gx < camX + vw + 120) { ctx.save(); ctx.fillStyle = "#fff"; ctx.font = "900 15px system-ui"; ctx.textAlign = "center"; ctx.fillText("WARP ▶", gx, GROUND - 140 + Math.sin(tm * 5) * 4); ctx.restore(); } if (gx > camX - 60 && gx < camX + vw + 60) { ctx.strokeStyle = `rgba(${P.acc},.9)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 26, 62, 0, 0, 7); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},${0.18 + 0.1 * Math.sin(tm * 3)})`; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 24, 60, 0, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; } }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
