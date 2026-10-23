@@ -523,7 +523,7 @@ function Reel({ clip, active, lang, paused, onEnded, peek }: { clip: Clip; activ
         try { ac.state !== "running" ? ac.resume().finally(() => src.start(0, t0, t1 - t0)) : src.start(0, t0, t1 - t0); } catch { after(); }
       }).catch((e) => { if (dead) return; tms.push(setTimeout(() => cloud(attempt + 1), Math.min(8000, 1500 * (attempt + 1)))); });   // never the device voice: keep retrying the Charon voice   // the good voice is retried (with backoff) before the device voice is ever used
     }
-    return () => { dead = true; clearTimeout(at); tms.forEach(clearTimeout); stopSpeaking(); try { if (_clipAud) { _clipAud.onended = null; _clipAud.pause(); _clipAud = null; } } catch { /* */ } try { if (_clipSrc) { _clipSrc.onended = null; _clipSrc.stop(); _clipSrc = null; } } catch { /* */ } try { stopCloudTTS(); } catch { /* */ } };
+    return () => { dead = true; clearTimeout(at); tms.forEach(clearTimeout); stopSpeaking(); try { if (_clipAud) { _clipAud.onended = null; _clipAud.pause(); _clipAud = null; } } catch { /* */ } try { if (_clipSrc) { _clipSrc.onended = null; _clipSrc.stop(); _clipSrc = null; } } catch { /* */ } };
   }, [active, paused, i]);
   const clipSeed = clip.id.length;
   /* shots run on their own clock across the whole clip (a 10 s hold can span two voice lines); every slide is cut into shots (about 1.6 s each, never over 5 s): a new hologram scene, a new camera move, a flash and a whoosh, so the picture keeps changing while one voice line runs */
