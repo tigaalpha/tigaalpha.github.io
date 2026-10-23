@@ -55,6 +55,12 @@ MOODS.lobby = { bpm: 144, root: 57, scale: LYD, prog: [0, 4, 5, 3], wLead: "sawt
   lead: [7, _, 9, _, 11, _, 9, 7,  _, 11, _, 14, _, 12, 11, _,   9, _, 11, _, 14, _, 16, 14,  _, 12, _, 11, 9, _, 7, _],
   arp: [0, 2, 4, 7, 9, 7, 4, 2, 0, 2, 4, 7, 11, 9, 7, 4], bass: [1, _, 1, 1, _, 1, _, 1, 1, _, 1, 1, _, 1, 1, _],
   kick: "x...x...x...x...", snare: "....x.......x...", hat: "x.xxx.xxx.xxx.xx" };
+/* Under the concept clips (owner, 2026-10-23: "make music like the reference videos"). The reference audio could not be heard, so this follows the look of those videos (a neon cyberpunk
+   city, a synth keyboard): a mellow 96 bpm synthwave bed in A minor, soft kick, off-beat hats, a warm square arpeggio and a sparse lead, quiet enough to sit under a voice. */
+MOODS.clip = { bpm: 96, root: 57, scale: MIN, prog: [0, 5, 3, 4], wLead: "triangle", wBass: "sawtooth", wArp: "square", gain: 0.5,
+  lead: [4, _, _, _, 2, _, _, _, 3, _, _, _, 1, _, _, _,   4, _, _, _, 5, _, 4, _, 2, _, _, _, _, _, _, _],
+  arp: [0, 2, 4, 7, 4, 2, 0, 2, 0, 2, 4, 7, 4, 2, 4, 2], bass: [1, _, _, 1, _, _, 1, _, 1, _, _, 1, _, 1, _, _],
+  kick: "x.......x.......", snare: "........x.......", hat: "..x...x...x...x." };
 MOODS.cobalt = { ...MOODS.ferro, bpm: 118, root: 47, wLead: "square", gain: 0.7 };
 MOODS.helios = { ...MOODS.jovia, bpm: 132, root: 62, scale: LYD, wLead: "sawtooth", gain: 0.62 };
 MOODS.departure = { ...MOODS.luma, bpm: 118, gain: 0.64 };

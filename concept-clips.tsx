@@ -110,7 +110,7 @@ export function ConceptClipPlayer({ clip, lang, onClose }: { clip: Clip; lang: "
   useEffect(() => {
     warmAudio();
     let m: any = null;
-    try { m = createAdvMusic("menu", 0.45); if (m) { m.start(); m.setIntensity && m.setIntensity(1); } } catch { /* silent */ }
+    try { m = createAdvMusic("clip", 0.9); if (m) { m.start(); m.setIntensity && m.setIntensity(1); } } catch { /* silent */ }
     musicRef.current = m;
     return () => { try { m && m.stop(); } catch { /* */ } stopSpeaking(); };
   }, []);
