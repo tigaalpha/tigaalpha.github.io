@@ -56,7 +56,7 @@ if (ttsSupported()) {
 }
 // Name hints for male / female voices across iOS, macOS, Android, Windows, Chrome.
 // (Web Speech exposes no reliable gender field, so we match on voice names.)
-export const MALE_VOICE_HINTS = /\b(male|man)\b|aaron|alex|arthur|daniel|fred|gordon|oliver|rishi|reed|rocko|eddy|albert|ralph|thomas|david|mark|guy|ryan|liam|william|james|george|brian|matthew|nathan|eric|yunyang|yunxi|yunjian|kangkang|zhiwei|nattawut|niwat/i;
+export const MALE_VOICE_HINTS = /\b(male|man)\b|aaron|alex|arthur|daniel|fred|gordon|oliver|rishi|reed|rocko|eddy|albert|ralph|thomas|david|mark|guy|ryan|liam|william|james|george|brian|matthew|nathan|eric|yunyang|yunxi|yunjian|kangkang|zhiwei|nattawut|niwat|andrew|christopher|steffan|roger|davis|yunhao|tom\b|en-gb-x-rjs|en-us-x-iol|en-us-x-iom|en-us-x-tpd/i;
 export const FEMALE_VOICE_HINTS = /\b(female|woman)\b|samantha|victoria|karen|moira|tessa|fiona|nora|sandy|shelley|kanya|narisa|ting-?ting|sin-?ji|mei-?jia|xiaoxiao|huihui|yaoyao|zira|susan|hazel|catherine|linda|heather|aria|jenny/i;
 
 // Pick the most natural voice for a locale, preferring the requested gender (male by default).
@@ -235,7 +235,7 @@ const NARR_BEST = {
   th: /niwat|premwadee|achara|google.*(ไทย|thai)|kanya|narisa|th-th-.*(male|x-)/i,
   zh: /yunyang|yunjian|yunxi|yunxia|yunhao|kangkang|yaoyao|google.*(普通话|mandarin|chinese)|tingting|ting-ting|meijia|mei-jia/i,
 };
-export function narratorVoice(locale) {
+export function narratorVoice(locale, strictMale = false) {
   const all = (_voices && _voices.length) ? _voices : (ttsSupported() ? window.speechSynthesis.getVoices() : []);
   const base = String(locale).split("-")[0];
   const cands = all.filter(v => v.lang && (v.lang === locale || String(v.lang).replace("_", "-").toLowerCase().startsWith(base)));
@@ -248,8 +248,8 @@ export function narratorVoice(locale) {
     if (/neural|natural|premium|enhanced|wavenet|studio|siri|online/.test(key)) s += 70;
     if (key.includes("google")) s += 22;
     if (v.localService === false) s += 8;
-    if (MALE_VOICE_HINTS.test(key) || String(v.gender || "").toLowerCase() === "male") s += 24;
-    else if (FEMALE_VOICE_HINTS.test(key)) s -= 6;
+    if (MALE_VOICE_HINTS.test(key) || String(v.gender || "").toLowerCase() === "male") s += strictMale ? 70 : 24;
+    else if (FEMALE_VOICE_HINTS.test(key)) s -= strictMale ? 60 : 6;
     if (/compact|espeak|eloquence|robot|novelty|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|pipe organ|trinoids|whisper|zarvox|albert|fred\b/.test(key)) s -= 90;
     return s;
   };
@@ -275,7 +275,7 @@ function narrationChunks(t, lang) {
   return out;
 }
 const NARR_RATE = { th: 0.88, en: 0.9, zh: 0.9 }, NARR_PITCH = { th: 0.93, en: 0.86, zh: 0.9 };
-export async function speakNarration(text, lang, onDone, onBlocked, rateMul = 1, absRate = 0) {
+export async function speakNarration(text, lang, onDone, onBlocked, rateMul = 1, absRate = 0, strictMale = false) {
   const clean = narrationText(text, lang); if (!clean) { if (onDone) onDone(); return true; }
   const locale = TTS_LOCALES[lang] || "en-US", rate = absRate ? Math.max(0.6, Math.min(1.5, absRate)) : Math.max(0.6, Math.min(1.5, (NARR_RATE[lang] || 0.9) * (rateMul || 1))), pitch = NARR_PITCH[lang] || 0.9;
   if (Capacitor.isNativePlatform()) {
@@ -290,10 +290,12 @@ export async function speakNarration(text, lang, onDone, onBlocked, rateMul = 1,
   const synth = window.speechSynthesis;
   try {
     synth.cancel(); stopResumeKeepAlive();
-    const voice = narratorVoice(locale), chunks = narrationChunks(clean, lang); let idx = 0, started = false;
+    const voice = narratorVoice(locale, strictMale), chunks = narrationChunks(clean, lang); let idx = 0, started = false;
+    /* a neural / natural voice is already well pitched: lowering it makes it sound processed, so those are read at normal pitch (and a little closer to normal speed) */
+    const natural = !!voice && /neural|natural|premium|enhanced|wavenet|studio|siri|online/.test((voice.name + " " + voice.voiceURI).toLowerCase());
     const next = () => {
       if (idx >= chunks.length) { stopResumeKeepAlive(); if (onDone) onDone(); return; }
-      const u = new SpeechSynthesisUtterance(chunks[idx]); u.lang = voice ? voice.lang : locale; if (voice) u.voice = voice; u.rate = rate; u.pitch = pitch; u.volume = 1;
+      const u = new SpeechSynthesisUtterance(chunks[idx]); u.lang = voice ? voice.lang : locale; if (voice) u.voice = voice; u.rate = natural && !absRate ? Math.min(1.05, rate + 0.07) : rate; u.pitch = natural ? 1 : pitch; u.volume = 1;
       let advanced = false; const guard = setTimeout(() => adv(), Math.min(20000, 2500 + chunks[idx].length * 140));
       const adv = () => { if (advanced) return; advanced = true; clearTimeout(guard); idx++; setTimeout(next, 170); };   // a breath between sentences
       u.onstart = () => { started = true; }; u.onend = adv; u.onerror = adv; synth.speak(u);
