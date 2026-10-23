@@ -4139,6 +4139,9 @@ ${UX2_CSS}
 .prsheet-x{position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:50%;border:1px solid var(--bd,#e6dccf);background:var(--card,#fffdfa);font-size:15px;cursor:pointer}
 .pvpgo-hero,.pvpgo-hero *{pointer-events:auto}.pvpgo-hero{touch-action:manipulation;-webkit-tap-highlight-color:transparent;z-index:40!important}.pvplvl-hero{touch-action:manipulation}
 .nowcard-act .handmini{min-height:34px;padding:4px 10px;font-size:12px;gap:4px;border-radius:999px;width:auto;flex:0 0 auto}.nowcard-act .handmini .handswap{font-size:12px}
+
+/* owner 2026-10-23: Robot Adventure 3D is hidden until launch; remove this rule to show the button again */
+.pvpadv[data-robot3d]{display:none!important}
 `;
 
 export function useInjectCSS() {
