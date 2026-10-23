@@ -337,7 +337,7 @@ export const FINGERING_REF =
   "• Left hand — B major and B minor = 4 3 2 1 4 3 2 1\n" +
   "• Left hand — F# major = 4 3 2 1 3 2 1 4\n" +
   "• Left hand — Db, Ab, Eb major = 3 2 1 4 3 2 1 3\n" +
-  "• Left hand — Bb major = 3 2 1 4 3 2 1 2\n" +
+  "• Left hand — Bb major = 3 2 1 4 3 2 1 3\n" +
   "• DESCENDING = the very same fingers played in reverse order.\n" +
   "Triads (root position): right hand = 1 3 5 · left hand = 5 3 1.\n" +
   "Technique: ascending right hand passes the THUMB UNDER (after finger 3); ascending left hand crosses finger 3 OVER the thumb. " +

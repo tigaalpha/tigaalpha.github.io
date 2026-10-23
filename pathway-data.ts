@@ -99,7 +99,7 @@ C D E♭ F G A♭ B♭ C · เศร้า นุ่ม (ใช้ตัวโ�
 
 3️⃣ ไมเนอร์ ฮาร์โมนิก (Harmonic Minor) — ยกขั้นที่ 7 ขึ้นครึ่งเสียง
 C D E♭ F G A♭ B C · ได้ leading note จริง (B→C) คอร์ด V กลายเป็นเมเจอร์
-ช่องว่าง A♭→B เป็น augmented 2nd (สามเสียงครึ่ง) — นั่นคือกลิ่นอายแบบตะวันออกกลางที่ได้ยิน
+ช่องว่าง A♭→B เป็น augmented 2nd (สามครึ่งเสียง) — นั่นคือกลิ่นอายแบบตะวันออกกลางที่ได้ยิน
 
 4️⃣ ไมเนอร์ เมโลดิก (Melodic Minor) — ขาขึ้นยกขั้นที่ 6 และ 7
 ขึ้น: C D E♭ F G A B C
@@ -270,7 +270,7 @@ C–E♭–G–B · ลึกลับ (สไตล์เจมส์ บอน
 C–E♭–G♭–B♭ · หม่นเศร้า
 
 6️⃣ Diminished 7 (dim7) — 1-♭3-♭5-♭♭7
-C–E♭–G♭–A · ตึงสุด ใช้เชื่อมคอร์ด
+C–E♭–G♭–B𝄫 · ตึงสุด ใช้เชื่อมคอร์ด
 
 7️⃣ Augmented 7 (7♯5) — 1-3-♯5-♭7
 C–E–G♯–B♭ · โดมินันต์แปลกๆ
@@ -297,7 +297,7 @@ C–E♭–G–B · mysterious (James Bond)
 C–E♭–G♭–B♭ · melancholy
 
 6️⃣ Diminished 7 (dim7) — 1-♭3-♭5-♭♭7
-C–E♭–G♭–A · most tense, a connector
+C–E♭–G♭–B𝄫 · most tense, a connector
 
 7️⃣ Augmented 7 (7♯5) — 1-3-♯5-♭7
 C–E–G♯–B♭ · an edgy dominant
@@ -324,7 +324,7 @@ C–E♭–G–B · 神秘（007风格）
 C–E♭–G♭–B♭ · 忧郁
 
 6️⃣ 减七 (dim7) — 1-♭3-♭5-♭♭7
-C–E♭–G♭–A · 最紧张，用于连接
+C–E♭–G♭–B𝄫 · 最紧张，用于连接
 
 7️⃣ 增七 (7♯5) — 1-3-♯5-♭7
 C–E–G♯–B♭ · 另类属和弦
@@ -436,13 +436,13 @@ C–E–G–B♭–D · ฟังก์ บลูส์ อยากเคลื
 C–E♭–G–B♭–D · นุ่ม เท่ ละมุน
 
 4️⃣ Minor 7♭5 (9) (ø9) — 1-♭3-♭5-♭7-9
-C–E♭–G♭–B♭–D · ตึง เศร้า ใช้นำเข้า ii–V
+C–E♭–G♭–B♭–D · ตึง เศร้า คอร์ด ii ของ ii–V ไมเนอร์
 
 5️⃣ 9 sus4 (9sus4) — 1-4-5-♭7-9
 C–F–G–B♭–D · ค้างคา ยังไม่ตัดสินใจ
 
 6️⃣ Diminished 9 (°9) — 1-♭3-♭5-♭♭7-9
-C–E♭–G♭–A–D · มืด บีบ ใช้เป็นสะพาน
+C–E♭–G♭–B𝄫–D · มืด บีบ ใช้เป็นสะพาน
 
 7️⃣ Major 6/9 (6/9) — 1-3-5-6-9
 C–E–G–A–D · จบเพลงแบบอบอุ่น ไม่ตึง
@@ -475,7 +475,7 @@ C–E♭–G♭–B♭–D · tense and sad, the ii of a minor ii–V
 C–F–G–B♭–D · suspended, undecided
 
 6️⃣ Diminished 9 (°9) — 1-♭3-♭5-♭♭7-9
-C–E♭–G♭–A–D · dark and squeezed, a passing bridge
+C–E♭–G♭–B𝄫–D · dark and squeezed, a passing bridge
 
 7️⃣ Major 6/9 (6/9) — 1-3-5-6-9
 C–E–G–A–D · a warm ending with no tension left
@@ -508,7 +508,7 @@ C–E♭–G♭–B♭–D · 紧张忧伤，小调 ii–V 的 ii
 C–F–G–B♭–D · 悬置、未决
 
 6️⃣ 减九和弦 (°9) — 1-♭3-♭5-♭♭7-9
-C–E♭–G♭–A–D · 阴暗紧缩，用作过渡
+C–E♭–G♭–B𝄫–D · 阴暗紧缩，用作过渡
 
 7️⃣ 大六九和弦 (6/9) — 1-3-5-6-9
 C–E–G–A–D · 温暖的收尾，毫无张力
