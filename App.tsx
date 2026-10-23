@@ -3699,7 +3699,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     </>
   );
 }
-import { CLIPS, ConceptClipPlayer, CLIP_CSS } from "./concept-clips";
+import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
   const [flagOpen, setFlagOpen] = useState(false);
@@ -3860,13 +3860,13 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
       {vtab !== "th" && (
         <div className="cc-list">
           {CLIPS[vtab].map(c => (
-            <button key={c.id} className="cc-card" style={{ ["--h" as any]: c.hue }} onClick={() => { playUi("click"); setClip(c); }}>
+            <button key={c.id} className="cc-card" style={{ ["--h" as any]: c.hue }} onClick={() => { playUi("click"); setClip(CLIPS[vtab].indexOf(c)); }}>
               <span className="e">{c.slides[0].ic}</span><span><b>{c.title}</b><span className="s">{c.sub} · {c.slides.length} {vtab === "zh" ? "页" : "scenes"}</span></span>
             </button>
           ))}
         </div>
       )}
-      {clip && <ConceptClipPlayer clip={clip} lang={vtab} onClose={() => setClip(null)} />}
+      {clip != null && vtab !== "th" && <ConceptClipFeed clips={CLIPS[vtab]} start={clip} lang={vtab} onClose={() => setClip(null)} />}
       {onLang && (
         <div className="vidflag">
           <button className="vidflag-b" aria-label="Language" onClick={() => { playUi("click"); setFlagOpen(o => !o); }}>{lang === "th" ? "🇹🇭" : lang === "zh" ? "🇨🇳" : "🇬🇧"}</button>
