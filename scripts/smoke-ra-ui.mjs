@@ -36,7 +36,8 @@ await p.evaluate(() => localStorage.setItem("tg_adv_nocine", "1"));
 await p.locator("[data-ra-play]").click(); await p.waitForSelector(".ah-cv", { timeout: 15000 }); await p.waitForTimeout(1200);
 ok("the first episode starts on foot as a task level", await p.evaluate(() => !!window.__ah.state.ms && window.__ah.state.ms.type === "task"));
 ok("the objective chip shows", (await p.locator(".ah-obj").count()) === 1);
-await p.evaluate(() => { const a = window.__ah, s = a.state, it = s.ms.items[0]; s.p.x = it.x; s.p.z = it.z; a.step(3); }); await p.waitForTimeout(700);
+await p.evaluate(() => { const a = window.__ah, s = a.state, it = s.ms.items[0]; s.p.x = it.x; s.p.z = it.z; a.step(3); });
+await p.waitForSelector(".ah-card", { timeout: 8000 }).catch(() => {});   // software GL in High draws slowly, so the card can take a few seconds to mount
 ok("the music question opens when the mission step is reached", (await p.locator(".ah-card").count()) >= 1);
 await p.locator("[data-ready]").click({ timeout: 4000 }).catch(() => {}); await p.waitForTimeout(500);
 ok("the question text is there (a learner with nothing studied still gets one)", (await p.locator("[data-q]").innerText().catch(() => "")).length > 3);
