@@ -102,64 +102,143 @@ function cutSound(ctx: AudioContext | null) {
   } catch { /* no audio: the clip still plays silently */ }
 }
 
-export function ConceptClipPlayer({ clip, lang, onClose }: { clip: Clip; lang: "en" | "zh"; onClose: () => void }) {
-  const [i, setI] = useState(0), [paused, setPaused] = useState(false), [done, setDone] = useState(false);
-  const nextRef = useRef<() => void>(() => {}), musicRef = useRef<any>(null);
-  const n = clip.slides.length;
-  nextRef.current = () => { if (i + 1 >= n) setDone(true); else setI(i + 1); };
+/* The picture behind a clip: a neon cyberpunk city at night (layered skyline, lit windows, signs, flying cars, rain) with a headphoned pianist at a synth,
+   painted live on a canvas in the clip's hue. Only the clip being watched animates. */
+function paintCity(cv: HTMLCanvasElement, hue: number, t: number) {
+  const g = cv.getContext("2d"); if (!g) return; const W = cv.width, H = cv.height;
+  const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, `hsl(${hue + 200} 60% 8%)`); sky.addColorStop(0.55, `hsl(${hue + 250} 55% 18%)`); sky.addColorStop(1, `hsl(${hue + 300} 60% 26%)`);
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let layer = 0; layer < 3; layer++) {
+    const base = H * (0.62 + layer * 0.06), sh = 0.35 + layer * 0.3, par = Math.sin(t * 0.0002 + layer) * 4 * (layer + 1);
+    g.fillStyle = `hsl(${hue + 230} 45% ${6 + layer * 4}%)`;
+    let x = -20;
+    while (x < W + 40) {
+      const w = (28 + rnd() * 50) * (1 + layer * 0.35), h = (H * (0.18 + rnd() * 0.34)) * (1.1 - layer * 0.15);
+      g.fillRect(x + par, base - h, w, h + H);
+      for (let wy = base - h + 8; wy < base - 6; wy += 11 * (1 + layer * 0.3)) for (let wx = x + 5; wx < x + w - 6; wx += 9 * (1 + layer * 0.3)) {
+        if (rnd() < 0.28) { g.fillStyle = rnd() < 0.5 ? `hsla(${hue + 170} 90% 65% / ${0.35 + sh * 0.3})` : `hsla(${hue + 320} 90% 65% / ${0.3 + sh * 0.3})`; g.fillRect(wx + par, wy, 3, 4); g.fillStyle = `hsl(${hue + 230} 45% ${6 + layer * 4}%)`; }
+      }
+      if (rnd() < 0.3) { const c = rnd() < 0.5 ? `hsl(${hue + 170} 100% 62%)` : `hsl(${hue + 320} 100% 66%)`; g.shadowColor = c; g.shadowBlur = 14; g.fillStyle = c; g.fillRect(x + par + w * 0.3, base - h * 0.9, 3, h * 0.45); g.shadowBlur = 0; g.fillStyle = `hsl(${hue + 230} 45% ${6 + layer * 4}%)`; }
+      x += w + 2 + rnd() * 8;
+    }
+  }
+  for (let k = 0; k < 4; k++) { const cx = ((t * 0.04 * (1 + k * 0.4) + k * 260) % (W + 120)) - 60, cy = H * (0.18 + k * 0.09); g.shadowColor = "#7df"; g.shadowBlur = 10; g.fillStyle = k % 2 ? "#ff6ad5" : "#7df"; g.fillRect(cx, cy, 22, 3); g.shadowBlur = 0; }
+  const pg = g.createRadialGradient(W * 0.2, H * 0.78, 4, W * 0.2, H * 0.78, W * 0.5); pg.addColorStop(0, `hsla(${hue + 170} 100% 60% / .35)`); pg.addColorStop(1, "transparent"); g.fillStyle = pg; g.fillRect(0, 0, W, H);
+  /* the pianist, left: head, headphones, shoulder, an arm to a glowing synth */
+  g.fillStyle = `hsl(${hue + 260} 40% 4%)`; g.beginPath(); g.ellipse(W * 0.2, H * 0.62, W * 0.065, W * 0.075, 0, 0, 7); g.fill();
+  g.beginPath(); g.moveTo(W * 0.04, H * 0.9); g.quadraticCurveTo(W * 0.08, H * 0.68, W * 0.2, H * 0.7); g.quadraticCurveTo(W * 0.34, H * 0.68, W * 0.38, H * 0.9); g.fill();
+  g.strokeStyle = `hsl(${hue + 170} 100% 62%)`; g.lineWidth = 5; g.shadowColor = g.strokeStyle as string; g.shadowBlur = 12; g.beginPath(); g.arc(W * 0.2, H * 0.62, W * 0.078, Math.PI * 1.1, Math.PI * 1.9); g.stroke();
+  g.fillStyle = g.strokeStyle as string; g.fillRect(W * 0.2 - W * 0.082, H * 0.62 - 4, 8, 18); g.fillRect(W * 0.2 + W * 0.074, H * 0.62 - 4, 8, 18); g.shadowBlur = 0;
+  g.fillStyle = `hsl(${hue + 260} 35% 8%)`; g.fillRect(W * 0.02, H * 0.86, W * 0.7, H * 0.045);
+  for (let k = 0; k < 14; k++) { const lit = Math.sin(t * 0.004 + k) > 0.6; g.fillStyle = lit ? `hsl(${hue + 320} 100% 66%)` : "#eaf6ff"; g.fillRect(W * 0.03 + k * (W * 0.048), H * 0.86, W * 0.04, H * 0.03); }
+  g.fillStyle = `hsla(${hue + 170} 100% 62% / .9)`; g.fillRect(W * 0.52, H * 0.76, W * 0.18, H * 0.07);
+  g.strokeStyle = "rgba(255,255,255,.08)"; g.lineWidth = 1; g.beginPath();
+  for (let k = 0; k < 60; k++) { const rx = ((k * 53 + t * 0.35) % (W + 40)) - 20, ry = ((k * 97 + t * 0.9) % H); g.moveTo(rx, ry); g.lineTo(rx - 3, ry + 14); } g.stroke();
+}
+
+function Backdrop({ hue, live }: { hue: number; live: boolean }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const cv = ref.current; if (!cv) return undefined;
+    const fit = () => { cv.width = Math.min(540, Math.max(1, cv.clientWidth)); cv.height = Math.floor(cv.width * (cv.clientHeight / Math.max(1, cv.clientWidth))); };
+    fit(); paintCity(cv, hue, 0);
+    if (!live) return undefined;
+    let raf = 0, last = 0; const loop = (now: number) => { if (now - last > 50) { last = now; paintCity(cv, hue, now); } raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop); return () => cancelAnimationFrame(raf);
+  }, [hue, live]);
+  return <canvas ref={ref} className="cc-bg" />;
+}
+
+/* one clip as a full-screen reel; while it is the one on screen it narrates its slides one after another, and when the LAST slide's voice ends it tells the feed to move on */
+function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boolean; lang: "en" | "zh"; paused: boolean; onEnded: () => void }) {
+  const [i, setI] = useState(0), endRef = useRef(onEnded), n = clip.slides.length;
+  endRef.current = onEnded;
+  useEffect(() => { if (!active) setI(0); }, [active]);
+  useEffect(() => {
+    if (!active || paused) { stopSpeaking(); return undefined; }
+    cutSound((window as any).__tgCineCtx || null);
+    let dead = false;
+    const go = () => { if (dead) return; if (i + 1 >= n) endRef.current(); else setI(i + 1); };
+    const s = clip.slides[i], at = setTimeout(() => {
+      try { speakNarration(s.h + ". " + s.b, lang, () => { setTimeout(go, 300); }, () => { setTimeout(go, 6500); }); } catch { setTimeout(go, 6500); }
+    }, 300);
+    return () => { dead = true; clearTimeout(at); stopSpeaking(); };
+  }, [active, paused, i]);
+  const s = clip.slides[Math.min(i, n - 1)];
+  return (
+    <section className="cc-reel" style={{ ["--h" as any]: clip.hue }} data-clip={clip.id} data-active={active ? "1" : "0"}>
+      <Backdrop hue={clip.hue} live={active && !paused} />
+      <div className="cc-shade" />
+      <div className="cc-bar">{clip.slides.map((_, k) => <i key={k} className={k < i ? "on" : k === i && active ? "cur" : ""} />)}</div>
+      <div className="cc-title"><span>{s.ic}</span><b>{clip.title}</b></div>
+      <div className={"cc-face" + (active && !paused ? " on" : "")}>
+        <img src="./img/presenter.jpg" alt="" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
+        <span>TIGA Studio · @tiga.studio</span>
+      </div>
+      <div className="cc-cap" key={i}><h3>{s.h}</h3><p>{s.b}</p></div>
+    </section>
+  );
+}
+
+export function ConceptClipFeed({ clips, lang, start, onClose }: { clips: Clip[]; lang: "en" | "zh"; start: number; onClose: () => void }) {
+  const [act, setAct] = useState(start), [paused, setPaused] = useState(false);
+  const feed = useRef<HTMLDivElement>(null), musicRef = useRef<any>(null), actRef = useRef(act);
+  actRef.current = act;
+  const goTo = (k: number) => { const el = feed.current; if (!el || k < 0 || k >= clips.length) return; el.scrollTo({ top: k * el.clientHeight, behavior: "smooth" }); };
   useEffect(() => {
     warmAudio();
     let m: any = null;
     try { m = createAdvMusic("clip", 0.9); if (m) { m.start(); m.setIntensity && m.setIntensity(1); } } catch { /* silent */ }
     musicRef.current = m;
+    const el = feed.current; if (el) el.scrollTop = start * el.clientHeight;
     return () => { try { m && m.stop(); } catch { /* */ } stopSpeaking(); };
   }, []);
   useEffect(() => {
-    if (done) { stopSpeaking(); try { musicRef.current && musicRef.current.stop(); } catch { /* */ } return undefined; }
-    if (paused) { stopSpeaking(); return undefined; }
-    cutSound((window as any).__tgCineCtx || null);
-    const s = clip.slides[i], at = setTimeout(() => {
-      try { speakNarration(s.h + ". " + s.b, lang, () => { setTimeout(() => nextRef.current(), 450); }, () => { setTimeout(() => nextRef.current(), 5200); }); }
-      catch { setTimeout(() => nextRef.current(), 5200); }
-    }, 350);
-    return () => { clearTimeout(at); stopSpeaking(); };
-  }, [i, paused, done]);
-  const s = clip.slides[Math.min(i, n - 1)];
+    const el = feed.current; if (!el) return undefined;
+    const onScroll = () => { const k = Math.round(el.scrollTop / Math.max(1, el.clientHeight)); if (k !== actRef.current) setAct(k); };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const key = (e: KeyboardEvent) => { if (e.key === "ArrowDown") goTo(actRef.current + 1); if (e.key === "ArrowUp") goTo(actRef.current - 1); if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", key);
+    return () => { el.removeEventListener("scroll", onScroll); window.removeEventListener("keydown", key); };
+  }, []);
   return (
-    <div className="cc-wrap" style={{ ["--h" as any]: clip.hue }} data-clip={clip.id}>
-      <div className="cc-bar">{clip.slides.map((_, k) => <i key={k} className={k < i || done ? "on" : k === i ? "cur" : ""} />)}</div>
+    <div className="cc-wrap">
+      <div className="cc-feed" ref={feed}>
+        {clips.map((c, k) => (
+          <Reel key={c.id} clip={c} active={act === k} lang={lang} paused={paused}
+            onEnded={() => { if (actRef.current === k) { if (k + 1 < clips.length) goTo(k + 1); } }} />
+        ))}
+      </div>
       <button className="cc-x" onClick={onClose} aria-label="Close">✕</button>
-      {!paused && !done ? <div className="cc-face on"><img src="./img/presenter.jpg" alt="" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} /><span>TIGA Studio · @tiga.studio</span></div> : <div className="cc-face"><img src="./img/presenter.jpg" alt="" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} /><span>TIGA Studio · @tiga.studio</span></div>}
-      {!done ? (
-        <div className="cc-slide" key={i}>
-          <div className="cc-ic">{s.ic}</div>
-          <h2>{s.h}</h2>
-          <p>{s.b}</p>
-        </div>
-      ) : (
-        <div className="cc-slide"><div className="cc-ic">🎹</div><h2>{lang === "zh" ? "看完了！" : "That's it!"}</h2>
-          <p>{lang === "zh" ? "现在去琴上试试吧。" : "Now go and try it at the piano."}</p>
-          <button className="cc-btn" onClick={() => { setDone(false); setI(0); }}>{lang === "zh" ? "再看一遍" : "Watch again"}</button></div>
-      )}
-      {!done && <button className="cc-pause" onClick={() => setPaused(p => !p)}>{paused ? "▶" : "⏸"}</button>}
+      <button className="cc-pause" onClick={() => setPaused(p => !p)}>{paused ? "▶" : "⏸"}</button>
+      {act + 1 < clips.length && <div className="cc-hint">⌄</div>}
     </div>
   );
 }
 
 export const CLIP_CSS = `
-.cc-wrap{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;color:#fff;padding:24px;background:radial-gradient(circle at 30% 20%,hsl(var(--h) 70% 32%),hsl(calc(var(--h) + 40) 60% 10%) 70%)}
-.cc-bar{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:16px;right:64px;display:flex;gap:5px}
-.cc-bar i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.25)}.cc-bar i.on{background:#fff}.cc-bar i.cur{background:linear-gradient(90deg,#fff 50%,rgba(255,255,255,.25) 50%);background-size:200% 100%;animation:ccfill 6s linear forwards}
-@keyframes ccfill{from{background-position:100% 0}to{background-position:0 0}}
-.cc-x,.cc-pause{position:absolute;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-size:16px;cursor:pointer}
-.cc-x{top:calc(8px + env(safe-area-inset-top,0px));right:12px}.cc-pause{bottom:calc(22px + env(safe-area-inset-bottom,0px));right:16px}
-.cc-slide{max-width:560px;text-align:center;margin-top:150px;animation:ccin .6s cubic-bezier(.2,.8,.2,1)}
-.cc-face{position:absolute;top:calc(48px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px}.cc-face img{width:112px;height:112px;border-radius:50%;object-fit:cover;object-position:50% 25%;border:3px solid rgba(255,255,255,.85);box-shadow:0 0 0 0 rgba(255,255,255,.5)}.cc-face.on img{animation:ccspeak 1.3s ease-out infinite}.cc-face span{font-size:12px;font-weight:700;opacity:.85;letter-spacing:.3px}@keyframes ccspeak{0%{box-shadow:0 0 0 0 rgba(255,255,255,.55)}100%{box-shadow:0 0 0 18px rgba(255,255,255,0)}}
-.cc-ic{font-size:64px;line-height:1;margin-bottom:18px;animation:ccpop .8s cubic-bezier(.2,1.4,.4,1)}
-.cc-slide h2{font-size:26px;line-height:1.2;margin:0 0 14px;text-wrap:balance}.cc-slide p{font-size:19px;line-height:1.55;margin:0;opacity:.92}
-.cc-btn{margin-top:22px;padding:12px 26px;border-radius:999px;border:0;background:#fff;color:#111;font-weight:700;font-size:16px;cursor:pointer}
-@keyframes ccin{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}@keyframes ccpop{from{transform:scale(.4) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){.cc-slide,.cc-ic,.cc-bar i.cur,.cc-face.on img{animation:none}}
+.cc-wrap{position:fixed;inset:0;z-index:120;background:#05030d;color:#fff}
+.cc-feed{position:absolute;inset:0;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain}.cc-feed::-webkit-scrollbar{display:none}
+.cc-reel{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden}
+.cc-bg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cc-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35) 0%,transparent 22%,transparent 50%,rgba(0,0,0,.78) 100%);pointer-events:none}
+.cc-bar{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:14px;right:62px;display:flex;gap:5px}
+.cc-bar i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.28)}.cc-bar i.on{background:#fff}.cc-bar i.cur{background:#fff;animation:ccblink 1.2s ease-in-out infinite}
+@keyframes ccblink{50%{opacity:.45}}
+.cc-title{position:absolute;top:calc(34px + env(safe-area-inset-top,0px));left:14px;right:62px;display:flex;gap:8px;align-items:center;font-size:15px;text-shadow:0 1px 8px rgba(0,0,0,.8)}.cc-title span{font-size:22px}.cc-title b{line-height:1.2}
+.cc-x,.cc-pause{position:absolute;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.4);color:#fff;font-size:16px;cursor:pointer;z-index:3}
+.cc-x{top:calc(8px + env(safe-area-inset-top,0px));right:12px}.cc-pause{top:calc(56px + env(safe-area-inset-top,0px));right:12px;font-size:13px}
+.cc-face{position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(66vw,300px);display:flex;flex-direction:column;align-items:center;gap:6px}
+.cc-face img{width:100%;aspect-ratio:540/640;object-fit:cover;border-radius:26px;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 28px hsla(var(--h),90%,60%,.55),0 10px 40px rgba(0,0,0,.6);-webkit-mask-image:linear-gradient(180deg,#000 82%,transparent 100%);mask-image:linear-gradient(180deg,#000 82%,transparent 100%)}
+.cc-face.on img{animation:ccsway 3.2s ease-in-out infinite}.cc-face span{position:absolute;bottom:-18px;font-size:11px;font-weight:700;opacity:.85;letter-spacing:.3px;text-shadow:0 1px 6px #000}
+@keyframes ccsway{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.012)}}
+.cc-cap{position:absolute;left:16px;right:16px;bottom:calc(26px + env(safe-area-inset-bottom,0px));text-align:center;animation:ccin .5s ease}
+.cc-cap h3{font-size:19px;margin:0 0 6px;text-shadow:0 2px 10px rgba(0,0,0,.9);color:hsl(var(--h) 100% 78%)}.cc-cap p{font-size:16px;line-height:1.45;margin:0;font-weight:600;text-shadow:0 2px 10px rgba(0,0,0,.95)}
+.cc-hint{position:absolute;left:50%;bottom:calc(4px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:20px;opacity:.7;animation:ccbob 1.4s ease-in-out infinite;pointer-events:none}
+@keyframes ccbob{50%{transform:translate(-50%,5px)}}
+@keyframes ccin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.cc-cap,.cc-face.on img,.cc-bar i.cur,.cc-hint{animation:none}}
 .cc-list{position:absolute;inset:0;z-index:20;overflow-y:auto;padding:calc(70px + env(safe-area-inset-top,0px)) 16px 24px;display:flex;flex-direction:column;gap:12px;background:#000}
 .cc-card{display:flex;gap:14px;align-items:center;text-align:left;border:0;border-radius:18px;padding:14px 16px;color:#fff;cursor:pointer;background:linear-gradient(135deg,hsl(var(--h) 60% 30%),hsl(calc(var(--h) + 40) 55% 14%))}
 .cc-card b{display:block;font-size:17px;margin-bottom:3px}.cc-card span.s{font-size:13px;opacity:.8}.cc-card .e{font-size:40px}
