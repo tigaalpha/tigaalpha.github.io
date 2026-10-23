@@ -3,7 +3,7 @@
    The Thai clips are YouTube videos; the first three here follow their titles (concentration, neural connections, which brain areas work); the last two are about HOW to practise
    (the owner's correction: concept clips mean practice concepts, not marketing) and use the app's own practice-planning and motivation knowledge (`teacher-craft-seed.js`). No third-party footage, music or voice. */
 import { useEffect, useRef, useState } from "react";
-import { speakNarration, stopSpeaking } from "./speech";
+import { speakNarration, speakCloud, stopSpeaking, stopCloudTTS, ttsBudgetSpend, ttsBudgetRefund, ttsEstSeconds } from "./speech";
 import { createAdvMusic, warmAudio } from "./adventure-music";
 
 type Slide = { ic: string; h: string; b: string };
@@ -161,9 +161,16 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
     let dead = false;
     const go = () => { if (dead) return; if (i + 1 >= n) endRef.current(); else setI(i + 1); };
     const s = clip.slides[i], at = setTimeout(() => {
-      try { speakNarration(s.h + ". " + s.b, lang, () => { setTimeout(go, 300); }, () => { setTimeout(go, 6500); }); } catch { setTimeout(go, 6500); }
+      /* the natural cloud voice first (a male Gemini voice, cached on the device after the first listen, within the day's allowance at half the chat's price per second),
+         then the best voice the device has if the cloud is out of reach or the allowance is spent */
+      const text = s.h + ". " + s.b, after = () => setTimeout(go, 300);
+      const device = (rest?: string) => { try { speakNarration(rest || text, lang, after, () => { setTimeout(go, 6500); }); } catch { setTimeout(go, 6500); } };
+      try {
+        speakCloud(text, lang, null, after, (e: any) => { if (!dead) device(e && e.rest); }, 1,
+          { src: "clip", spend: (c: string) => ttsBudgetSpend(ttsEstSeconds(c, lang) * 0.5), refund: (c: string) => ttsBudgetRefund(ttsEstSeconds(c, lang) * 0.5) });
+      } catch { device(); }
     }, 300);
-    return () => { dead = true; clearTimeout(at); stopSpeaking(); };
+    return () => { dead = true; clearTimeout(at); stopSpeaking(); try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
   const s = clip.slides[Math.min(i, n - 1)];
   return (
