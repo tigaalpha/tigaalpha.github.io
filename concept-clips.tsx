@@ -3,7 +3,7 @@
    The Thai clips are YouTube videos; the first three here follow their titles (concentration, neural connections, which brain areas work); the last two are about HOW to practise
    (the owner's correction: concept clips mean practice concepts, not marketing) and use the app's own practice-planning and motivation knowledge (`teacher-craft-seed.js`). No third-party footage, music or voice. */
 import { useEffect, useRef, useState } from "react";
-import { speakNarration, stopSpeaking, stopCloudTTS } from "./speech";
+import { speakNarration, speakCloud, stopSpeaking, stopCloudTTS, ttsBudgetSpend, ttsBudgetRefund, ttsEstSeconds } from "./speech";
 import { createAdvMusic, warmAudio } from "./adventure-music";
 import { finishLook } from "./cg-finish";
 import { gfxHigh } from "./adv-gfx";
@@ -433,7 +433,10 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
       /* the device's own voice, chosen strictly: a male, natural / neural / enhanced voice if the phone has one (owner, 2026-10-23: device voices are fine, pick the most natural male one) */
       const text = s.b, words = wordsOf(text, lang), cps = lang === "zh" ? 5.6 : 15.5, per = (text.length / cps / Math.max(1, words.length)) * 1000;
       let w = 0; setWi(0); iv = setInterval(() => { w++; setWi(w); if (w >= words.length) { clearInterval(iv); } }, Math.max(110, per));
-      try { speakNarration(text, lang, () => { clearInterval(iv); go(); }, () => { setTimeout(go, 6500); }, 0.95, 0, true); } catch { setTimeout(go, 6500); }
+      /* the natural cloud voice first (owner, 2026-10-23: "the voice still does not sound natural"): Gemini speech through piano-tts, cached on the device after the first listen, at half the chat price per second against the day's allowance; if it is refused, fails or the allowance is spent, the device voice reads the line (the same strict male choice as before) */
+      const after = () => { clearInterval(iv); go(); };
+      const device = (rest?: string) => { if (dead) return; try { speakNarration(rest || text, lang, after, () => { setTimeout(go, 6500); }, 0.95, 0, true); } catch { setTimeout(go, 6500); } };
+      try { speakCloud(text, lang, null, after, (e: any) => { if (!dead) device(e && e.rest); }, 1, { src: "clip", spend: (c: string) => ttsBudgetSpend(ttsEstSeconds(c, lang) * 0.5), refund: (c: string) => ttsBudgetRefund(ttsEstSeconds(c, lang) * 0.5) }); } catch { device(); }
     }, 80);
     return () => { dead = true; clearTimeout(at); clearInterval(iv); stopSpeaking(); try { stopCloudTTS(); } catch { /* */ } };
   }, [active, paused, i]);
