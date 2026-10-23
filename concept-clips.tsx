@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { speakNarration, stopSpeaking, stopCloudTTS } from "./speech";
 import { createAdvMusic, warmAudio } from "./adventure-music";
 import { finishLook } from "./cg-finish";
+import { gfxHigh } from "./adv-gfx";
 import { MORE_EN, MORE_ZH, MORE_SCENES } from "./concept-clips-more";
 
 type Slide = { ic: string; h: string; b: string };
@@ -197,8 +198,10 @@ function fgPiano(g: CanvasRenderingContext2D, W: number, H: number, hue: number,
     for (let k = 0; k < 9; k++) { g.fillStyle = Math.sin(tt * 3 + k * 1.3) > 0.7 ? pk : "#eaf6ff"; g.fillRect(k * W / 9 + 1, H * 0.93, W / 9 - 2, H * 0.07); }
   }
 }
+/* Sharpness (owner, 2026-10-23: "same grade as the Adventure films"): the films render at device pixel ratio up to 2 in High; the clip canvases were drawn small and stretched. They now draw in logical units under a scale `k` (High 2, Lite 1.3). */
+const kOf = (cv: HTMLCanvasElement) => Number((cv as any)._k) || 1;
 function paintCity(cv: HTMLCanvasElement, hue: number, t: number, sc = 0) {
-  const g = cv.getContext("2d"); if (!g) return; const W = cv.width, H = cv.height;
+  const g = cv.getContext("2d"); if (!g) return; const k = kOf(cv), W = cv.width / k, H = cv.height / k; g.setTransform(k, 0, 0, k, 0, 0);
   const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, `hsl(${hue + 200} 60% 8%)`); sky.addColorStop(0.55, `hsl(${hue + 250} 55% 18%)`); sky.addColorStop(1, `hsl(${hue + 300} 60% 26%)`);
   g.fillStyle = sky; g.fillRect(0, 0, W, H);
   skyArt(g, W, H, hue, t);
@@ -251,7 +254,7 @@ const SCENES: Record<string, Kind[]> = {   // one kind per slide, in the slide o
 };
 Object.assign(SCENES, MORE_SCENES);
 function paintHolo(cv: HTMLCanvasElement, kind: Kind, hue: number, t: number) {
-  const g = cv.getContext("2d"); if (!g) return; const W = cv.width, H = cv.height, tt = t / 1000;
+  const g = cv.getContext("2d"); if (!g) return; const k = kOf(cv), W = cv.width / k, H = cv.height / k, tt = t / 1000; g.setTransform(k, 0, 0, k, 0, 0);
   const c1 = `hsl(${hue + 170} 100% 62%)`, c2 = `hsl(${hue + 320} 100% 68%)`, c3 = `hsl(${hue + 60} 100% 70%)`;
   g.clearRect(0, 0, W, H);
   g.fillStyle = "rgba(4,6,20,.55)"; g.fillRect(0, 0, W, H);
@@ -301,7 +304,7 @@ function paintHolo(cv: HTMLCanvasElement, kind: Kind, hue: number, t: number) {
 function Holo({ kind, hue, live }: { kind: Kind; hue: number; live: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    const cv = ref.current; if (!cv) return undefined; cv.width = 360; cv.height = 190; paintHolo(cv, kind, hue, 1500);
+    const cv = ref.current; if (!cv) return undefined; const hk = gfxHigh() ? 2 : 1.3; (cv as any)._k = hk; cv.width = Math.round(360 * hk); cv.height = Math.round(190 * hk); paintHolo(cv, kind, hue, 1500);
     if (!live) return undefined;
     let raf = 0, last = 0; const loop = (now: number) => { if (now - last > 40) { last = now; paintHolo(cv, kind, hue, now); } raf = requestAnimationFrame(loop); };
     raf = requestAnimationFrame(loop); return () => cancelAnimationFrame(raf);
@@ -312,7 +315,7 @@ function Holo({ kind, hue, live }: { kind: Kind; hue: number; live: boolean }) {
 
 /* the second pass of the city: a wet street with a perspective neon grid and reflections, searchlight cones, and a soft bloom of everything bright */
 function cityFx(cv: HTMLCanvasElement, g: CanvasRenderingContext2D, hue: number, t: number) {
-  const W = cv.width, H = cv.height, hz = H * 0.84, tt = t / 1000;
+  const k = kOf(cv), W = cv.width / k, H = cv.height / k, hz = H * 0.84, tt = t / 1000;
   const sl = (x: number, a: number, c: string) => { const gr = g.createLinearGradient(x, H * 0.7, x + Math.sin(a) * W * 0.5, 0); gr.addColorStop(0, c); gr.addColorStop(1, "transparent"); g.fillStyle = gr; g.beginPath(); g.moveTo(x - 6, H * 0.7); g.lineTo(x + 6, H * 0.7); g.lineTo(x + Math.sin(a) * W * 0.5 + 60, 0); g.lineTo(x + Math.sin(a) * W * 0.5 - 60, 0); g.fill(); };
   g.save(); g.globalCompositeOperation = "lighter"; sl(W * 0.25, tt * 0.5, `hsla(${hue + 170} 100% 60% / .16)`); sl(W * 0.78, -tt * 0.4 + 1, `hsla(${hue + 320} 100% 62% / .14)`); g.restore();
   const st = g.createLinearGradient(0, hz, 0, H); st.addColorStop(0, `hsl(${hue + 260} 50% 9%)`); st.addColorStop(1, `hsl(${hue + 280} 60% 3%)`); g.fillStyle = st; g.fillRect(0, hz, W, H - hz);
@@ -321,7 +324,7 @@ function cityFx(cv: HTMLCanvasElement, g: CanvasRenderingContext2D, hue: number,
   for (let k = 0; k < 7; k++) { const f = ((k + tt * 0.8) % 7) / 7, y = hz + (H - hz) * f * f; g.moveTo(0, y); g.lineTo(W, y); } g.stroke(); g.shadowBlur = 0;
   g.save(); g.globalAlpha = 0.18; g.scale(1, -1); g.drawImage(cv, 0, 0, W, hz, 0, -(hz + (H - hz)), W, hz * 0.55); g.restore();
   /* bloom: a blurred, brightened copy of the whole frame added back */
-  const sm = document.createElement("canvas"); sm.width = Math.max(1, W >> 3); sm.height = Math.max(1, H >> 3); const sg = sm.getContext("2d");
+  const sm = document.createElement("canvas"); sm.width = Math.max(1, (W * k) >> 3); sm.height = Math.max(1, (H * k) >> 3); const sg = sm.getContext("2d");
   if (sg) { sg.drawImage(cv, 0, 0, sm.width, sm.height); g.save(); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.55; g.drawImage(sm, 0, 0, W, H); g.restore(); }
 }
 
@@ -329,7 +332,7 @@ function Backdrop({ hue, live, sc = 0 }: { hue: number; live: boolean; sc?: numb
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const cv = ref.current; if (!cv) return undefined;
-    const fit = () => { cv.width = Math.min(540, Math.max(1, cv.clientWidth)); cv.height = Math.floor(cv.width * (cv.clientHeight / Math.max(1, cv.clientWidth))); };
+    const fit = () => { const k = gfxHigh() ? 2 : 1.3, w = Math.min(540, Math.max(1, cv.clientWidth)); (cv as any)._k = k; cv.width = Math.round(w * k); cv.height = Math.round(w * (cv.clientHeight / Math.max(1, cv.clientWidth)) * k); };
     fit(); paintCity(cv, hue, 0, sc);
     if (!live) return undefined;
     let raf = 0, last = 0; const loop = (now: number) => { if (now - last > 50) { last = now; paintCity(cv, hue, now, sc); } raf = requestAnimationFrame(loop); };
