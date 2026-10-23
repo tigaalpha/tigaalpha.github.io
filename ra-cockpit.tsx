@@ -79,6 +79,7 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
       sync(s.foes.filter(f => !f.dead), f => { const m = new THREE.Mesh(gFoe, f.boss ? mBoss : mFoe); m.scale.setScalar(f.boss ? 5 : 1); return m; }, (m, f) => { live.add(f); m.position.set(f.x, f.y, f.z); m.lookAt(p.x, p.y, p.z); m.rotateX(Math.PI / 2); });
       sync(s.bolts, b => new THREE.Mesh(gBolt, mBolt), (m, b) => { live.add(b); m.position.set(b.x, b.y, b.z); });
       sync(s.ebolts, b => new THREE.Mesh(gBolt, mEBolt), (m, b) => { live.add(b); m.position.set(b.x, b.y, b.z); m.scale.setScalar(1.6); });
+      sync(s.items.filter(q => !q.got), q => new THREE.Mesh(gPick, M(q.kind === "cell" ? 0xffd24a : q.kind === "h2" ? 0x4ad0ff : 0x7dff4a, 1)), (m, q) => { live.add(q); m.position.set(q.x, q.y, q.z); m.scale.setScalar(2); m.rotation.y += dt * 3; });
       sync(s.picks.filter(q => !q.got), q => new THREE.Mesh(gPick, q.kind === "ore" ? mOre : mSol), (m, q) => { live.add(q); m.position.set(q.x, q.y, q.z); m.rotation.y += dt * 2; });
       sync(s.relays.filter(r => !r.got), r => new THREE.Mesh(gRelay, mRelay), (m, r) => { live.add(r); m.position.set(r.x, r.y, r.z); m.lookAt(p.x, p.y, p.z); m.scale.setScalar(1 + Math.sin(s.t * 4) * 0.08); });
       sync(s.rings.filter(r => !r.done), r => new THREE.Mesh(gRing, mRing), (m, r) => { live.add(r); m.position.set(r.x, r.y, r.z); m.scale.setScalar(r.r); m.lookAt(p.x, p.y, p.z + 1e4 * 0); (m as THREE.Mesh).rotation.x = Math.PI / 2; const k = 1 + r.p * 0.4; m.scale.setScalar(r.r * k); });
@@ -88,7 +89,7 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
       for (let i = flashes.length - 1; i >= 0; i--) { const f = flashes[i]; f.t += dt; f.m.scale.setScalar(1 + f.t * 3); (f.m.material as any).opacity = Math.max(0, 0.9 - f.t * 1.6); if (f.t > 0.6) { scene.remove(f.m); flashes.splice(i, 1); } }
       if (hifx && hifx.ok()) hifx.render(dt); else rd.render(scene, cam);
       if (bn > 0) { bn -= dt; if (bn <= 0) setBanner(""); }
-      if ((frame as any)._h = ((frame as any)._h || 0) + dt, (frame as any)._h > 0.1) { (frame as any)._h = 0; setHud({ hp: Math.round(p.hp), max: p.max, sh: Math.round(p.shield), prog: s.prog, goal: s.goal || s.secs, t: s.t, kills: s.kills, ore: s.ore, ans: s.answers, need: s.needAnswers, boss: s.foes.find(f => f.boss && !f.dead), boost: p.boost, kind: s.kind, secs: s.secs }); }
+      if ((frame as any)._h = ((frame as any)._h || 0) + dt, (frame as any)._h > 0.1) { (frame as any)._h = 0; setHud({ hp: Math.round(p.hp), max: p.max, sh: Math.round(p.shield), prog: s.prog, goal: s.goal || s.secs, t: s.t, kills: s.kills, ore: s.ore, ans: s.answers, need: s.needAnswers, boss: s.foes.find(f => f.boss && !f.dead), boost: p.boost, pw: { ...s.pw }, form: s.form ? s.form.kind : "", kind: s.kind, secs: s.secs }); }
       if (s.done && !doneRef.current) { doneRef.current = true; AU.setDucked(false); const st = shipStats(s); const cry = s.won ? 8 + Math.round((def.P.hard || 2) * 4) : 0; if (s.won) { addCrystals(cry); try { onWin(); } catch (e) {} } try { logUsage("ra", `ship:${def.id}:${s.won ? "win" : "lose"}:${Math.round(s.t)}s`); } catch (e) {} setRes({ ...st, won: s.won, cry, per: log.current.reduce((a: any, x) => { a[x.topic] = a[x.topic] || [0, 0]; a[x.topic][1]++; if (x.ok) a[x.topic][0]++; return a; }, {}) }); }
     };
     raf = requestAnimationFrame(frame);
@@ -105,6 +106,9 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
   const pd = (e: React.PointerEvent) => { if (stick.current.id < 0 && e.pointerType !== "mouse") { stick.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY }; try { (e.currentTarget as any).setPointerCapture(e.pointerId); } catch (x) {} } };
   const pm = (e: React.PointerEvent) => { if (e.pointerId === stick.current.id) { inp.current.sx = Math.max(-1, Math.min(1, (e.clientX - stick.current.x0) / 60)) * (portrait ? 1 : 1); inp.current.sy = Math.max(-1, Math.min(1, -(e.clientY - stick.current.y0) / 60)); } };
   const pu = (e: React.PointerEvent) => { if (e.pointerId === stick.current.id) { stick.current.id = -1; inp.current.sx = 0; inp.current.sy = 0; } };
+  const joy = useRef(-1), knob = useRef<HTMLElement>(null);
+  const moveJoy = (e: React.PointerEvent) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(), R = r.width / 2; let dx = (e.clientX - (r.left + R)) / R, dy = (e.clientY - (r.top + R)) / R; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } inp.current.sx = dx; inp.current.sy = -dy; if (knob.current) knob.current.style.transform = `translate(${dx * R * 0.6}px,${dy * R * 0.6}px)`; };
+  const endJoy = (e: React.PointerEvent) => { joy.current = -1; inp.current.sx = 0; inp.current.sy = 0; if (knob.current) knob.current.style.transform = ""; };
   const hold = (f: (v: boolean) => void) => ({ onPointerDown: (e: React.PointerEvent) => { e.stopPropagation(); try { (e.currentTarget as any).setPointerCapture(e.pointerId); } catch (x) {} f(true); }, onPointerUp: () => f(false), onPointerCancel: () => f(false) });
 
   /* the question card (same flow as the tune-up on foot: HANDS OFF, ask, verdict) */
@@ -129,8 +133,12 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
       <button className="rs-x" data-rs-gear="1" onClick={() => setPaused(true)} aria-label="pause">⚙</button>
       <div className="rs-pad">
         <button className="fire" data-rs-fire="1" {...hold(v => (inp.current.fire = v))}>{t("ยิง", "FIRE", "开火")}</button>
-        <button className="boost" data-rs-boost="1" {...hold(v => (inp.current.boost = v))}>⚡</button>
+        <button className="boost" data-rs-boost="1" data-light="1" {...hold(v => { inp.current.boost = v; inp.current.light = v; })}>⚡</button>
       </div>
+      <div className="rs-pw">
+        {([["cell", "☀", "solar"], ["h2", "H₂", "hydrogen"], ["nuke", "☢", "nuclear"]] as const).map(([k, ic]) => <button key={k} data-rs-power={k} className={"pw-" + k + (hud.form === k ? " on" : "")} onPointerDown={e => { e.stopPropagation(); inp.current.power = k; }}>{ic}<i>{hud.pw ? (hud.pw as any)[k] : 0}</i></button>)}
+      </div>
+      <div className="rs-joy" data-rs-joy="1" onPointerDown={e => { e.stopPropagation(); joy.current = e.pointerId; try { (e.currentTarget as any).setPointerCapture(e.pointerId); } catch (x) {} moveJoy(e); }} onPointerMove={e => { if (e.pointerId === joy.current) moveJoy(e); }} onPointerUp={e => { if (e.pointerId === joy.current) endJoy(e); }} onPointerCancel={e => { if (e.pointerId === joy.current) endJoy(e); }}><i ref={knob} /></div>
       {paused && !quiz && !res && <div className="rs-card" data-rs-pause="1"><h2>{t("พักเกม", "PAUSED", "暂停")}</h2><button className="rs-go" onClick={() => setPaused(false)}>{t("เล่นต่อ", "RESUME", "继续")}</button><button className="rs-ghost" onClick={() => { S.current.auto = !S.current.auto; setHud((h: any) => ({ ...h })); }}>{t("นักบินอัตโนมัติ: ", "Auto-pilot: ", "自动驾驶：")}{S.current.auto ? "ON" : "OFF"}</button><button className="rs-ghost" data-rs-back="1" onClick={onBack}>{t("กลับแผนที่", "Back to the map", "回到地图")}</button></div>}
       {quiz && q && (
         <div className="rs-quiz" data-rs-quiz="1">
@@ -174,6 +182,8 @@ const CSS = `
 .rs-x{position:absolute;right:10px;top:8px;width:38px;height:38px;border-radius:50%;border:1px solid #ffffff44;background:#0b1a24cc;color:#fff;font-size:18px;cursor:pointer;z-index:3}
 .rs-pad{position:absolute;right:16px;bottom:16px;display:flex;gap:12px;align-items:flex-end;z-index:3}
 .rs-pad button{border-radius:50%;border:2px solid #ffffff55;background:#0b1a24bb;color:#fff;font-weight:900;cursor:pointer}.rs-pad .fire{width:84px;height:84px;background:#d0224488;font-size:14px}.rs-pad .boost{width:56px;height:56px;font-size:20px;background:#2266dd88}
+.rs-joy{position:absolute;left:22px;bottom:22px;width:120px;height:120px;border-radius:50%;border:2px solid #ffffff66;background:radial-gradient(#ffffff18,#0b1a24aa);z-index:4;touch-action:none;display:flex;align-items:center;justify-content:center}.rs-joy i{width:50px;height:50px;border-radius:50%;background:radial-gradient(#9fe8ff,#2a8fd0);box-shadow:0 0 14px #5cf;pointer-events:none}
+.rs-pw{position:absolute;right:16px;bottom:116px;display:flex;gap:10px;z-index:4}.rs-pw button{position:relative;width:52px;height:52px;border-radius:50%;border:2px solid #ffffff66;background:#0b1a24cc;color:#fff;font-weight:900;font-size:16px}.rs-pw i{position:absolute;right:-4px;top:-4px;min-width:18px;height:18px;border-radius:9px;background:#fff;color:#000;font-size:11px;font-style:normal;line-height:18px}.rs-pw .pw-cell{border-color:#ffd24a}.rs-pw .pw-h2{border-color:#4ad0ff}.rs-pw .pw-nuke{border-color:#7dff4a}.rs-pw .on{box-shadow:0 0 16px currentColor;background:#ffffff33}
 .rs-quiz{position:absolute;inset:0;z-index:5;background:#000b;display:flex;align-items:center;justify-content:center;padding:10px;overflow:auto}
 .rs-card{background:#0b1620;border:1px solid #5affc866;border-radius:18px;padding:14px 18px;max-width:92%;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}.rs-card.wide{width:min(760px,96%)}
 .rs-card h2{margin:0;font-size:22px}.rs-card em{font-style:normal;font-size:11px;letter-spacing:1.5px;color:#5affc8;font-weight:800}.rs-q{font-size:16px}

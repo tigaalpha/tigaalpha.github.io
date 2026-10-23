@@ -11,7 +11,7 @@ export type Pick = V3 & { kind: "ore" | "solar"; got: boolean };
 export type Ring = V3 & { r: number; p: number; done: boolean; cd: number };
 export type Relay = V3 & { r: number; got: boolean };
 export type Ev = { k: "shot" | "hit" | "boom" | "hurt" | "pick" | "gate" | "ask" | "win" | "lose" | "beam" | "relay" | "warn"; x?: number; y?: number; z?: number; n?: number };
-export type SInput = { sx: number; sy: number; fire: boolean; boost: boolean };
+export type SInput = { sx: number; sy: number; fire: boolean; boost: boolean; light?: boolean; power?: "cell" | "h2" | "nuke" | null };
 export type Ship = {
   kind: ShipKind; hard: number; t: number; rng: number; nextId: number;
   p: V3 & { yaw: number; pitch: number; roll: number; speed: number; hp: number; max: number; shield: number; inv: number; boost: number };
@@ -19,7 +19,7 @@ export type Ship = {
   bh: V3 | null; beams: { axis: number; off: number; t: number; w: number }[];
   goal: number; prog: number; hold: number; answers: number; needAnswers: number; secs: number; relayT: number; foeT: number; beamT: number;
   ask: { kind: "gate" | "relay"; i: number } | null; frozen: boolean; done: boolean; won: boolean; auto: boolean; autoFire: boolean;
-  kills: number; ore: number; tunes: number; tuneRight: number; score: number; cdFire: number; ev: Ev[]; bossDead: boolean; shots: number; hits: number;
+  kills: number; ore: number; tunes: number; tuneRight: number; score: number; cdFire: number; ev: Ev[]; items: { x: number; y: number; z: number; kind: "cell" | "h2" | "nuke"; got: boolean }[]; pw: { cell: number; h2: number; nuke: number }; form: { kind: string; t: number } | null; itemT: number; bossDead: boolean; shots: number; hits: number;
 };
 export const SHIP_SPEED = 30;
 const rnd = (s: Ship) => { s.rng = (Math.imul(s.rng, 1664525) + 1013904223) | 0; return ((s.rng >>> 0) % 100000) / 100000; };
@@ -33,7 +33,7 @@ const dot = (a: V3, b: V3) => a.x * b.x + a.y * b.y + a.z * b.z;
 export function newShip(kind: ShipKind, hard = 2, seed = 11): Ship {
   const s: Ship = {
     kind, hard, t: 0, rng: seed, nextId: 1, p: { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, speed: SHIP_SPEED, hp: 100, max: 100, shield: 0, inv: 0, boost: 0 },
-    gates: [], rocks: [], foes: [], bolts: [], ebolts: [], picks: [], rings: [], relays: [], bh: null, beams: [],
+    gates: [], rocks: [], foes: [], bolts: [], ebolts: [], picks: [], rings: [], relays: [], bh: null, beams: [], items: [], pw: { cell: 0, h2: 0, nuke: 0 }, form: null, itemT: 3,
     goal: 0, prog: 0, hold: 8, answers: 0, needAnswers: 0, secs: 0, relayT: 30, foeT: 4, beamT: 3, ask: null, frozen: false, done: false, won: false, auto: true, autoFire: true,
     kills: 0, ore: 0, tunes: 0, tuneRight: 0, score: 0, cdFire: 0, ev: [], bossDead: false, shots: 0, hits: 0,
   };
@@ -102,10 +102,16 @@ export function stepShip(s: Ship, dt: number, inp: SInput) {
   p.yaw += sx * 2.3 * dt; p.pitch = Math.max(-1.2, Math.min(1.2, p.pitch + sy * 1.7 * dt)); p.roll += ((-sx * 0.5) - p.roll) * Math.min(1, dt * 4);
   let slow = 1; for (const r of s.rings) if (!r.done && r.cd <= 0 && len(sub(r, p)) < r.r * 1.6) slow = 0.2;
   if (s.kind === "dogfight") for (const f of s.foes) if (!f.dead && len(sub(f, p)) < 55) slow = 0.35;
-  p.boost = inp.boost ? Math.min(1, p.boost + dt * 3) : Math.max(0, p.boost - dt * 3); p.speed = SHIP_SPEED * (1 + p.boost * 0.7) * slow;
+  p.boost = inp.boost ? Math.min(1, p.boost + dt * 3) : Math.max(0, p.boost - dt * 3); p.speed = SHIP_SPEED * (1 + p.boost * 0.7) * slow * (inp.light ? 3.2 : 1) * (s.form && s.form.kind === "h2" ? 1.5 : 1);
   const d = dirOf(p.yaw, p.pitch); let vx = d.x * p.speed, vy = d.y * p.speed, vz = d.z * p.speed;
   if (s.bh) { const to = sub(s.bh, p), dist = len(to), pull = Math.min(14, 3 + s.t * 0.25) * Math.min(2, 120 / Math.max(40, dist)); vx += to.x / dist * pull; vy += to.y / dist * pull; vz += to.z / dist * pull; if (dist < 40) { hurt(s, 20); p.x -= to.x / dist * 60; p.y -= to.y / dist * 60; p.z -= to.z / dist * 60; } }
   p.x += vx * dt; p.y += vy * dt; p.z += vz * dt;
+  // energy items drift in ahead of the ship; each one stores a charge the power buttons spend
+  s.itemT -= dt; if (s.itemT <= 0) { s.itemT = 3 + rnd(s) * 3; const dd = dirOf(p.yaw, p.pitch), K = ["cell", "h2", "nuke"] as const; s.items.push({ x: p.x + dd.x * 150 + (rnd(s) - 0.5) * 50, y: p.y + dd.y * 150 + (rnd(s) - 0.5) * 30, z: p.z + dd.z * 150, kind: K[Math.floor(rnd(s) * 3) % 3], got: false }); if (s.items.length > 14) s.items.shift(); }
+  for (const q of s.items) if (!q.got && len(sub(q, p)) < 11) { q.got = true; s.pw[q.kind] = Math.min(3, s.pw[q.kind] + 1); p.hp = Math.min(p.max, p.hp + 6); s.ev.push({ k: "pick" }); }
+  if (inp.power && s.pw[inp.power] > 0 && !s.form) { const k = inp.power; s.pw[k]--; s.form = { kind: k, t: k === "nuke" ? 0.6 : 8 }; if (k === "nuke") { for (const f of s.foes) if (!f.dead && len(sub(f, p)) < 160) { f.hp -= 6; if (f.hp <= 0) { f.dead = 1; s.kills++; } } for (const r of s.rocks) if (!r.dead && len(sub(r, p)) < 160) { r.dead = true; s.ev.push({ k: "boom", x: r.x, y: r.y, z: r.z, n: r.r }); } s.ebolts.length = 0; s.ev.push({ k: "boom", x: p.x, y: p.y, z: p.z, n: 30 }); } }
+  inp.power = null;
+  if (s.form) { s.form.t -= dt; if (s.form.kind === "cell") { p.hp = Math.min(p.max, p.hp + 4 * dt); p.shield = Math.max(p.shield, 1); } if (s.form.t <= 0) s.form = null; }
   // guns
   s.cdFire -= dt; const armed = s.kind !== "evade";
   let want = inp.fire;
