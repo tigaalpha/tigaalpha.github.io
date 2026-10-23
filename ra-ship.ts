@@ -19,7 +19,7 @@ export type Ship = {
   bh: V3 | null; beams: { axis: number; off: number; t: number; w: number }[];
   goal: number; prog: number; hold: number; answers: number; needAnswers: number; secs: number; relayT: number; foeT: number; beamT: number;
   ask: { kind: "gate" | "relay"; i: number } | null; frozen: boolean; done: boolean; won: boolean; auto: boolean; autoFire: boolean;
-  kills: number; ore: number; tunes: number; tuneRight: number; score: number; cdFire: number; ev: Ev[]; items: { x: number; y: number; z: number; kind: "cell" | "h2" | "nuke"; got: boolean }[]; pw: { cell: number; h2: number; nuke: number }; form: { kind: string; t: number } | null; itemT: number; bossDead: boolean; shots: number; hits: number;
+  wy?: number; wp?: number; kills: number; ore: number; tunes: number; tuneRight: number; score: number; cdFire: number; ev: Ev[]; items: { x: number; y: number; z: number; kind: "cell" | "h2" | "nuke"; got: boolean }[]; pw: { cell: number; h2: number; nuke: number }; form: { kind: string; t: number } | null; itemT: number; bossDead: boolean; shots: number; hits: number;
 };
 export const SHIP_SPEED = 30;
 const rnd = (s: Ship) => { s.rng = (Math.imul(s.rng, 1664525) + 1013904223) | 0; return ((s.rng >>> 0) % 100000) / 100000; };
@@ -97,9 +97,11 @@ function target(s: Ship): V3 | null {
 export function stepShip(s: Ship, dt: number, inp: SInput) {
   if (s.done || s.frozen) return; s.t += dt; const p = s.p; if (p.inv > 0) p.inv -= dt;
   // steering: the stick, or the auto-pilot when the stick is idle
-  let sx = inp.sx, sy = inp.sy;
-  if (s.auto && Math.abs(sx) + Math.abs(sy) < 0.1) { const t = target(s); if (t) { const v = norm(sub(t, p)), yawT = Math.atan2(-v.x, -v.z), pitchT = Math.asin(Math.max(-1, Math.min(1, v.y))); let dy = yawT - p.yaw; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; sx = Math.max(-1, Math.min(1, dy * 1.6)); sy = Math.max(-1, Math.min(1, (pitchT - p.pitch) * 1.6)); } }
-  p.yaw += sx * 2.3 * dt; p.pitch = Math.max(-1.2, Math.min(1.2, p.pitch + sy * 1.7 * dt)); p.roll += ((-sx * 0.5) - p.roll) * Math.min(1, dt * 4);
+  let sx = inp.sx, sy = inp.sy, autoDrive = false;
+  if (s.auto && Math.abs(sx) + Math.abs(sy) < 0.1) { const t = target(s); if (t) { autoDrive = true; const v = norm(sub(t, p)), yawT = Math.atan2(-v.x, -v.z), pitchT = Math.asin(Math.max(-1, Math.min(1, v.y))); let dy = yawT - p.yaw; while (dy > Math.PI) dy -= 6.283; while (dy < -Math.PI) dy += 6.283; sx = Math.max(-1, Math.min(1, dy * 1.2)); sy = Math.max(-1, Math.min(1, (pitchT - p.pitch) * 1.2)); } }
+  const ez = (v: number) => { const a = Math.abs(v); return a < 0.12 ? 0 : Math.sign(v) * Math.pow((a - 0.12) / 0.88, 1.6); };   // dead zone + soft curve: small pushes turn slowly
+  const wy = (autoDrive ? sx : ez(sx)) * (autoDrive ? 2.0 : 0.95), wp = (autoDrive ? sy : ez(sy)) * (autoDrive ? 1.5 : 0.7); s.wy = (s.wy || 0) + (wy - (s.wy || 0)) * Math.min(1, dt * 6); s.wp = (s.wp || 0) + (wp - (s.wp || 0)) * Math.min(1, dt * 6);
+  p.yaw += s.wy * dt; p.pitch = Math.max(-0.9, Math.min(0.9, p.pitch + s.wp * dt)); sx = s.wy; sy = s.wp; p.roll += ((-sx * 0.5) - p.roll) * Math.min(1, dt * 4);
   let slow = 1; for (const r of s.rings) if (!r.done && r.cd <= 0 && len(sub(r, p)) < r.r * 1.6) slow = 0.2;
   if (s.kind === "dogfight") for (const f of s.foes) if (!f.dead && len(sub(f, p)) < 55) slow = 0.35;
   p.boost = inp.boost ? Math.min(1, p.boost + dt * 3) : Math.max(0, p.boost - dt * 3); p.speed = SHIP_SPEED * (1 + p.boost * 0.7) * slow * (inp.light ? 3.2 : 1) * (s.form && s.form.kind === "h2" ? 1.5 : 1);
