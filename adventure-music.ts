@@ -48,14 +48,13 @@ MOODS.menu = { bpm: 128, root: 60, scale: LYD, prog: [0, 4, 5, 3], wLead: "sawto
   lead: [4, _, 5, _, 7, _, 9, 7,  _, 5, _, 7, 9, _, 11, _,   9, _, 7, _, 11, _, 12, 11,  9, _, 11, _, 14, _, _, _],
   arp: [0, 2, 4, 7, 4, 2, 0, 2, 4, 7, 9, 7, 4, 2, 4, 7], bass: [1, _, 1, 1, _, 1, 1, _, 1, _, 1, 1, _, 1, 1, _],
   kick: "x...x...x...x...", snare: "....x.......x...", hat: "x.xxx.xxx.xxx.xx", strings: true };
-/* The Games lobby (owner, 2026-10-22: "cinematic, lots of violin and strings, building emotion, like a Star Wars film; this page only"). No drums except a deep timpani-like
-   boom at the start of every phrase: a slow minor tune (84 bpm) played by a bowed-string section (detuned saws with a slow attack, held until the next note), under the
-   swelling string pad and cello the `strings` layer already makes. `cin` switches off the groove (kick, snare, hats, bass, arpeggio, the synth hook). Heard by no human. */
-MOODS.lobby = { bpm: 104, root: 55, scale: MIN, prog: [0, 5, 3, 4], wLead: "sawtooth", wBass: "sawtooth", wArp: "triangle", gain: 1.0,
-  lead: [4, _, _, _, _, _, 7, _, 6, _, 5, _, 4, _, _, _,   5, _, _, _, _, _, 4, _, 3, _, 2, _, 3, _, _, _,
-         4, _, _, _, 6, _, _, _, 8, _, _, _, _, _, 7, _,   6, _, _, _, 5, _, 4, _, 2, _, _, _, _, _, _, _],
-  arp: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], bass: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
-  kick: "................", snare: "................", hat: "................", strings: true, cin: true };
+/* The Games lobby, rewritten (owner, 2026-10-23: "a new tune, fast, 140 bpm or more, futuristic, innovative, creative"). 144 bpm, lydian (the raised fourth is the
+   "future" colour), four-on-the-floor kick, claps on 2 and 4, driving off-beat saw bass, a bright sixteenth square arpeggio and a saw lead that leaps and climbs; the
+   old cinematic strings version is gone. Generated, heard by no human. */
+MOODS.lobby = { bpm: 144, root: 57, scale: LYD, prog: [0, 4, 5, 3], wLead: "sawtooth", wBass: "sawtooth", wArp: "square", gain: 0.66,
+  lead: [7, _, 9, _, 11, _, 9, 7,  _, 11, _, 14, _, 12, 11, _,   9, _, 11, _, 14, _, 16, 14,  _, 12, _, 11, 9, _, 7, _],
+  arp: [0, 2, 4, 7, 9, 7, 4, 2, 0, 2, 4, 7, 11, 9, 7, 4], bass: [1, _, 1, 1, _, 1, _, 1, 1, _, 1, 1, _, 1, 1, _],
+  kick: "x...x...x...x...", snare: "....x.......x...", hat: "x.xxx.xxx.xxx.xx" };
 MOODS.cobalt = { ...MOODS.ferro, bpm: 118, root: 47, wLead: "square", gain: 0.7 };
 MOODS.helios = { ...MOODS.jovia, bpm: 132, root: 62, scale: LYD, wLead: "sawtooth", gain: 0.62 };
 MOODS.departure = { ...MOODS.luma, bpm: 118, gain: 0.64 };
