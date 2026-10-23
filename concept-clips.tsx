@@ -137,6 +137,75 @@ function paintCity(cv: HTMLCanvasElement, hue: number, t: number) {
   for (let k = 0; k < 60; k++) { const rx = ((k * 53 + t * 0.35) % (W + 40)) - 20, ry = ((k * 97 + t * 0.9) % H); g.moveTo(rx, ry); g.lineTo(rx - 3, ry + 14); } g.stroke();
 }
 
+
+/* A neon hologram panel that shows what the slide is about (a drawn scene per slide: neurons firing, keys lighting up, a sound wave, a timer ring, a calendar filling, ...) */
+type Kind = "neurons" | "keys" | "wave" | "timer" | "grid" | "bridge" | "ecg" | "orbit" | "staff" | "rings";
+const SCENES: Record<string, Kind[]> = {
+  focus: ["keys", "staff", "rings", "neurons", "timer"],
+  synapse: ["neurons", "rings", "neurons", "bridge", "grid"],
+  regions: ["orbit", "keys", "wave", "staff", "timer", "orbit"],
+  session: ["grid", "rings", "timer", "keys", "orbit"],
+  motivation: ["orbit", "staff", "grid", "orbit", "ecg"],
+};
+function paintHolo(cv: HTMLCanvasElement, kind: Kind, hue: number, t: number) {
+  const g = cv.getContext("2d"); if (!g) return; const W = cv.width, H = cv.height, tt = t / 1000;
+  const c1 = `hsl(${hue + 170} 100% 62%)`, c2 = `hsl(${hue + 320} 100% 68%)`, c3 = `hsl(${hue + 60} 100% 70%)`;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = "rgba(4,6,20,.55)"; g.fillRect(0, 0, W, H);
+  g.strokeStyle = "rgba(255,255,255,.05)"; g.lineWidth = 1; for (let y = (tt * 20) % 6; y < H; y += 6) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  const glow = (c: string, b = 12) => { g.shadowColor = c; g.shadowBlur = b; };
+  const node = (x: number, y: number, r: number, c: string) => { glow(c, 14); g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.shadowBlur = 0; };
+  const pts: [number, number][] = []; let sd = 11; const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  if (kind === "neurons" || kind === "bridge") {
+    for (let i = 0; i < 16; i++) pts.push([W * (0.08 + 0.84 * rnd()), H * (0.12 + 0.76 * rnd())]);
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+      const d = Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]); if (d > W * 0.3) continue;
+      const strong = 0.5 + 0.5 * Math.sin(tt * 0.8 + i), a = (kind === "bridge" ? 0.35 : 0.2 + 0.45 * strong); g.strokeStyle = `hsla(${hue + 170} 100% 65% / ${a})`; g.lineWidth = 0.8 + 2 * strong * (i % 3 === 0 ? 1 : 0.3); g.beginPath(); g.moveTo(pts[i][0], pts[i][1]); g.lineTo(pts[j][0], pts[j][1]); g.stroke();
+      const f = (tt * 0.6 + i * 0.37 + j * 0.11) % 1; if (f < 0.5) node(pts[i][0] + (pts[j][0] - pts[i][0]) * f * 2, pts[i][1] + (pts[j][1] - pts[i][1]) * f * 2, 2.2, c2);
+    }
+    pts.forEach(([x, y], i) => node(x, y, 3 + 2 * Math.abs(Math.sin(tt * 1.4 + i)), i % 2 ? c1 : c3));
+  } else if (kind === "keys") {
+    const n = 14, kw = W / n, lit = Math.floor(tt * 4) % n;
+    for (let k = 0; k < n; k++) { const on = k === lit || k === (lit + 4) % n; g.fillStyle = on ? c1 : "rgba(235,245,255,.9)"; if (on) glow(c1, 16); g.fillRect(k * kw + 1, H * 0.42, kw - 2, H * 0.52); g.shadowBlur = 0; if (on) { g.fillStyle = c2; for (let m = 0; m < 4; m++) { const f = (tt * 0.9 + m * 0.25) % 1; g.globalAlpha = 1 - f; g.fillRect(k * kw + kw * 0.3, H * 0.4 - f * H * 0.38, 6, 6); g.globalAlpha = 1; } } }
+    g.fillStyle = "#07091a"; for (let k = 0; k < n; k++) if ([0, 1, 3, 4, 5].includes(k % 7)) g.fillRect(k * kw + kw * 0.68, H * 0.42, kw * 0.6, H * 0.32);
+  } else if (kind === "wave") {
+    for (let i = 0; i < 46; i++) { const h = (0.15 + 0.7 * Math.abs(Math.sin(tt * 3 + i * 0.5) * Math.sin(tt * 1.3 + i * 0.17))) * H * 0.8; const c = i % 2 ? c1 : c2; glow(c, 8); g.fillStyle = c; g.fillRect(8 + i * ((W - 16) / 46), (H - h) / 2, 3, h); } g.shadowBlur = 0;
+  } else if (kind === "timer") {
+    const r = Math.min(W, H) * 0.36, cx = W / 2, cy = H / 2, p = (tt * 0.25) % 1;
+    g.lineWidth = 8; g.strokeStyle = "rgba(255,255,255,.12)"; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke();
+    glow(c1, 14); g.strokeStyle = c1; g.beginPath(); g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + p * 7); g.stroke(); g.shadowBlur = 0;
+    g.strokeStyle = c2; g.lineWidth = 3; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(-Math.PI / 2 + p * 7) * r * 0.8, cy + Math.sin(-Math.PI / 2 + p * 7) * r * 0.8); g.stroke(); node(cx, cy, 5, c3);
+  } else if (kind === "grid") {
+    const cols = 7, rows = 4, cw = W / (cols + 1), ch = H / (rows + 1), lit = Math.floor(tt * 3) % (cols * rows + 4);
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const i = r * cols + c, on = i < lit; const x = cw * (c + 0.6), y = ch * (r + 0.6); if (on) glow(c1, 10); g.fillStyle = on ? (i % 5 === 0 ? c2 : c1) : "rgba(255,255,255,.12)"; g.fillRect(x, y, cw * 0.78, ch * 0.72); g.shadowBlur = 0; }
+  } else if (kind === "ecg") {
+    glow(c1, 12); g.strokeStyle = c1; g.lineWidth = 3; g.beginPath();
+    for (let x = 0; x < W; x += 3) { const u = ((x / W) * 3 - tt * 0.6) % 1, y = H / 2 + (u > 0.42 && u < 0.46 ? -H * 0.38 : u > 0.46 && u < 0.5 ? H * 0.28 : Math.sin(x * 0.12) * 2); if (x === 0) g.moveTo(x, y); else g.lineTo(x, y); } g.stroke(); g.shadowBlur = 0;
+    node(W * 0.5, H * 0.5, 4 + 3 * Math.abs(Math.sin(tt * 5)), c2);
+  } else if (kind === "orbit") {
+    const cx = W / 2, cy = H / 2; node(cx, cy, 11, c3);
+    for (let i = 0; i < 3; i++) { const rr = H * (0.2 + i * 0.13); g.strokeStyle = "rgba(255,255,255,.14)"; g.lineWidth = 1; g.beginPath(); g.ellipse(cx, cy, rr * 1.6, rr, 0, 0, 7); g.stroke(); const a = tt * (0.9 - i * 0.2) + i * 2.1; node(cx + Math.cos(a) * rr * 1.6, cy + Math.sin(a) * rr, 6, [c1, c2, c3][i]); }
+  } else if (kind === "staff") {
+    g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = 1.5; for (let l = 0; l < 5; l++) { g.beginPath(); g.moveTo(8, H * (0.28 + l * 0.11)); g.lineTo(W - 8, H * (0.28 + l * 0.11)); g.stroke(); }
+    const cur = (tt * 90) % (W - 40) + 20; for (let k = 0; k < 8; k++) { const x = 30 + k * ((W - 60) / 8), y = H * (0.28 + ((k * 3) % 5) * 0.055 + 0.02), hit = Math.abs(x - cur) < 18; if (hit) glow(c2, 14); g.fillStyle = hit ? c2 : "#e8f2ff"; g.beginPath(); g.ellipse(x, y, 6, 4.5, -0.3, 0, 7); g.fill(); g.shadowBlur = 0; }
+    glow(c1, 14); g.fillStyle = c1; g.fillRect(cur - 1.5, H * 0.18, 3, H * 0.66); g.shadowBlur = 0;
+  } else {
+    for (let i = 0; i < 5; i++) { const f = (tt * 0.5 + i * 0.2) % 1; g.strokeStyle = `hsla(${hue + 170 + i * 30} 100% 65% / ${1 - f})`; g.lineWidth = 3; g.beginPath(); g.arc(W / 2, H / 2, f * H * 0.55, 0, 7); g.stroke(); }
+    node(W / 2, H / 2, 9, c3);
+  }
+  g.strokeStyle = c1; g.lineWidth = 1.5; glow(c1, 8); g.strokeRect(1, 1, W - 2, H - 2); g.shadowBlur = 0;
+}
+function Holo({ kind, hue, live }: { kind: Kind; hue: number; live: boolean }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const cv = ref.current; if (!cv) return undefined; cv.width = 360; cv.height = 190; paintHolo(cv, kind, hue, 1500);
+    if (!live) return undefined;
+    let raf = 0, last = 0; const loop = (now: number) => { if (now - last > 40) { last = now; paintHolo(cv, kind, hue, now); } raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop); return () => cancelAnimationFrame(raf);
+  }, [kind, hue, live]);
+  return <canvas ref={ref} className="cc-holo" />;
+}
+
 function Backdrop({ hue, live }: { hue: number; live: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -178,6 +247,7 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
       <Backdrop hue={clip.hue} live={active && !paused} />
       <div className="cc-shade" />
       <div className="cc-bar">{clip.slides.map((_, k) => <i key={k} className={k < i ? "on" : k === i && active ? "cur" : ""} />)}</div>
+      <Holo kind={(SCENES[clip.id] || [])[Math.min(i, n - 1)] || "rings"} hue={clip.hue} live={active && !paused} />
       <div className="cc-title"><span>{s.ic}</span><b>{clip.title}</b></div>
       <div className={"cc-face" + (active && !paused ? " on" : "")}>
         <img src="./img/presenter.jpg" alt="" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
@@ -237,7 +307,8 @@ export const CLIP_CSS = `
 .cc-title{position:absolute;top:calc(34px + env(safe-area-inset-top,0px));left:14px;right:62px;display:flex;gap:8px;align-items:center;font-size:15px;text-shadow:0 1px 8px rgba(0,0,0,.8)}.cc-title span{font-size:22px}.cc-title b{line-height:1.2}
 .cc-x,.cc-pause{position:absolute;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.4);color:#fff;font-size:16px;cursor:pointer;z-index:3}
 .cc-x{top:calc(8px + env(safe-area-inset-top,0px));right:12px}.cc-pause{top:calc(56px + env(safe-area-inset-top,0px));right:12px;font-size:13px}
-.cc-face{position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(66vw,300px);display:flex;flex-direction:column;align-items:center;gap:6px}
+.cc-holo{position:absolute;left:50%;transform:translateX(-50%);top:calc(116px + env(safe-area-inset-top,0px));width:min(88vw,380px);height:auto;aspect-ratio:360/190;border-radius:16px;box-shadow:0 0 30px hsla(var(--h),90%,60%,.35);backdrop-filter:blur(2px)}.cc-wrap.inline .cc-holo{top:calc(126px + env(safe-area-inset-top,0px))}
+.cc-face{position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(52vw,230px);display:flex;flex-direction:column;align-items:center;gap:6px}
 .cc-face img{width:100%;aspect-ratio:540/640;object-fit:cover;border-radius:26px;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 28px hsla(var(--h),90%,60%,.55),0 10px 40px rgba(0,0,0,.6);-webkit-mask-image:linear-gradient(180deg,#000 82%,transparent 100%);mask-image:linear-gradient(180deg,#000 82%,transparent 100%)}
 .cc-face.on img{animation:ccsway 3.2s ease-in-out infinite}.cc-face span{position:absolute;bottom:-18px;font-size:11px;font-weight:700;opacity:.85;letter-spacing:.3px;text-shadow:0 1px 6px #000}
 @keyframes ccsway{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.012)}}
