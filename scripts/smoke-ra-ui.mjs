@@ -52,7 +52,7 @@ ok("Departure is open after the first episode", await p.evaluate(() => document.
 await p.locator("[data-ra-play]").click(); await p.waitForSelector("[data-rs=launch]", { timeout: 15000 }); await p.waitForTimeout(1200);
 ok("the cockpit has a real WebGL canvas", await p.evaluate(() => { const c = document.querySelector(".rs-host canvas"); return !!c && !!(c.getContext("webgl2") || c.getContext("webgl")); }));
 if (SHOT) await p.screenshot({ path: SHOT + "-ship.png" });
-let asked = false; for (let i = 0; i < 40 && !asked; i++) { await p.evaluate(() => window.__raShip.step(5)); await p.waitForTimeout(150); asked = (await p.locator("[data-rs-quiz]").count()) > 0; }
+await p.evaluate(() => window.__raShip.setBot(true)); let asked = false; for (let i = 0; i < 40 && !asked; i++) { await p.evaluate(() => window.__raShip.step(5)); await p.waitForTimeout(150); asked = (await p.locator("[data-rs-quiz]").count()) > 0; }
 ok("flying through a green gate opens a music question", asked);
 if (asked) { await p.locator("[data-ready]").click({ timeout: 4000 }).catch(() => {}); await p.waitForTimeout(400); ok("the question shows in the cockpit", (await p.locator("[data-q]").innerText().catch(() => "")).length > 3); await p.locator("[data-skip]").click().catch(() => {}); await p.waitForTimeout(500); }
 ok("a skipped question lets the flight go on", await p.evaluate(() => !window.__raShip.S().frozen));

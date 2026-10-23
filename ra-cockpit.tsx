@@ -26,6 +26,7 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
   const host = useRef<HTMLDivElement>(null), S = useRef<Ship>(newShip(def.kind, def.P.hard || 2, (Date.now() & 0xffff) | 1)), inp = useRef<SInput>({ sx: 0, sy: 0, fire: false, boost: false });
   const [hud, setHud] = useState<any>({}), [quiz, setQuiz] = useState<Quiz | null>(null), [res, setRes] = useState<any>(null), [paused, setPaused] = useState(false), [powerNeed, setPowerNeed] = useState<number | null>(null), [banner, setBanner] = useState("");
   const quizRef = useRef<Quiz | null>(null); quizRef.current = quiz; const pausedRef = useRef(false); pausedRef.current = paused; const log = useRef<{ topic: string; ok: boolean }[]>([]);
+  if (!(S.current as any)._m) { (S.current as any)._m = 1; S.current.auto = false; }   // autopilot starts OFF; the AUTOPILOT button turns it on
   const stick = useRef({ id: -1, x0: 0, y0: 0 }); const [portrait, setPortrait] = useState(() => window.innerHeight > window.innerWidth); const doneRef = useRef(false);
   usePlayDrain(!res && !paused, adminTier, () => { if (!doneRef.current) { S.current.done = true; setPowerNeed(1); } });
 
@@ -89,7 +90,7 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
       for (let i = flashes.length - 1; i >= 0; i--) { const f = flashes[i]; f.t += dt; f.m.scale.setScalar(1 + f.t * 3); (f.m.material as any).opacity = Math.max(0, 0.9 - f.t * 1.6); if (f.t > 0.6) { scene.remove(f.m); flashes.splice(i, 1); } }
       if (hifx && hifx.ok()) hifx.render(dt); else rd.render(scene, cam);
       if (bn > 0) { bn -= dt; if (bn <= 0) setBanner(""); }
-      if ((frame as any)._h = ((frame as any)._h || 0) + dt, (frame as any)._h > 0.1) { (frame as any)._h = 0; setHud({ hp: Math.round(p.hp), max: p.max, sh: Math.round(p.shield), prog: s.prog, goal: s.goal || s.secs, t: s.t, kills: s.kills, ore: s.ore, ans: s.answers, need: s.needAnswers, boss: s.foes.find(f => f.boss && !f.dead), boost: p.boost, pw: { ...s.pw }, form: s.form ? s.form.kind : "", kind: s.kind, secs: s.secs }); }
+      if ((frame as any)._h = ((frame as any)._h || 0) + dt, (frame as any)._h > 0.1) { (frame as any)._h = 0; setHud({ hp: Math.round(p.hp), max: p.max, sh: Math.round(p.shield), prog: s.prog, goal: s.goal || s.secs, t: s.t, kills: s.kills, ore: s.ore, ans: s.answers, need: s.needAnswers, boss: s.foes.find(f => f.boss && !f.dead), boost: p.boost, pw: { ...s.pw }, form: s.form ? s.form.kind : "", auto: s.auto, kind: s.kind, secs: s.secs }); }
       if (s.done && !doneRef.current) { doneRef.current = true; AU.setDucked(false); const st = shipStats(s); const cry = s.won ? 8 + Math.round((def.P.hard || 2) * 4) : 0; if (s.won) { addCrystals(cry); try { onWin(); } catch (e) {} } try { logUsage("ra", `ship:${def.id}:${s.won ? "win" : "lose"}:${Math.round(s.t)}s`); } catch (e) {} setRes({ ...st, won: s.won, cry, per: log.current.reduce((a: any, x) => { a[x.topic] = a[x.topic] || [0, 0]; a[x.topic][1]++; if (x.ok) a[x.topic][0]++; return a; }, {}) }); }
     };
     raf = requestAnimationFrame(frame);
@@ -106,9 +107,7 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
   const pd = (e: React.PointerEvent) => { if (stick.current.id < 0 && e.pointerType !== "mouse") { stick.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY }; try { (e.currentTarget as any).setPointerCapture(e.pointerId); } catch (x) {} } };
   const pm = (e: React.PointerEvent) => { if (e.pointerId === stick.current.id) { inp.current.sx = Math.max(-1, Math.min(1, (e.clientX - stick.current.x0) / 60)) * (portrait ? 1 : 1); inp.current.sy = Math.max(-1, Math.min(1, -(e.clientY - stick.current.y0) / 60)); } };
   const pu = (e: React.PointerEvent) => { if (e.pointerId === stick.current.id) { stick.current.id = -1; inp.current.sx = 0; inp.current.sy = 0; } };
-  const joy = useRef(-1), knob = useRef<HTMLElement>(null);
-  const moveJoy = (e: React.PointerEvent) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(), R = r.width / 2; let dx = (e.clientX - (r.left + R)) / R, dy = (e.clientY - (r.top + R)) / R; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; } inp.current.sx = dx; inp.current.sy = -dy; if (knob.current) knob.current.style.transform = `translate(${dx * R * 0.6}px,${dy * R * 0.6}px)`; };
-  const endJoy = (e: React.PointerEvent) => { joy.current = -1; inp.current.sx = 0; inp.current.sy = 0; if (knob.current) knob.current.style.transform = ""; };
+  
   const hold = (f: (v: boolean) => void) => ({ onPointerDown: (e: React.PointerEvent) => { e.stopPropagation(); try { (e.currentTarget as any).setPointerCapture(e.pointerId); } catch (x) {} f(true); }, onPointerUp: () => f(false), onPointerCancel: () => f(false) });
 
   /* the question card (same flow as the tune-up on foot: HANDS OFF, ask, verdict) */
@@ -138,7 +137,10 @@ export function RaShipPage({ lang, me, adminTier = 0, def, onWin, onBack, net = 
       <div className="rs-pw">
         {([["cell", "☀", "solar"], ["h2", "H₂", "hydrogen"], ["nuke", "☢", "nuclear"]] as const).map(([k, ic]) => <button key={k} data-rs-power={k} className={"pw-" + k + (hud.form === k ? " on" : "")} onPointerDown={e => { e.stopPropagation(); inp.current.power = k; }}>{ic}<i>{hud.pw ? (hud.pw as any)[k] : 0}</i></button>)}
       </div>
-      <div className="rs-joy" data-rs-joy="1" onPointerDown={e => { e.stopPropagation(); joy.current = e.pointerId; try { (e.currentTarget as any).setPointerCapture(e.pointerId); } catch (x) {} moveJoy(e); }} onPointerMove={e => { if (e.pointerId === joy.current) moveJoy(e); }} onPointerUp={e => { if (e.pointerId === joy.current) endJoy(e); }} onPointerCancel={e => { if (e.pointerId === joy.current) endJoy(e); }}><i ref={knob} /></div>
+      <div className="rs-dpad" data-rs-dpad="1">
+        {([["u", "▲", 0, 1], ["l", "◀", -1, 0], ["r", "▶", 1, 0], ["d", "▼", 0, -1]] as const).map(([k, ic, dx, dy]) => <button key={k} data-rs-dir={k} className={"d-" + k} {...hold(v => { if (dx) inp.current.sx = v ? dx : 0; if (dy) inp.current.sy = v ? dy : 0; })}>{ic}</button>)}
+      </div>
+      <button className={"rs-auto" + (hud.auto ? " on" : "")} data-rs-auto="1" onPointerDown={e => { e.stopPropagation(); S.current.auto = !S.current.auto; }}>{t("ออโต้ไพลอต", "AUTOPILOT", "自动驾驶")}{hud.auto ? " ✓" : ""}</button>
       {paused && !quiz && !res && <div className="rs-card" data-rs-pause="1"><h2>{t("พักเกม", "PAUSED", "暂停")}</h2><button className="rs-go" onClick={() => setPaused(false)}>{t("เล่นต่อ", "RESUME", "继续")}</button><button className="rs-ghost" onClick={() => { S.current.auto = !S.current.auto; setHud((h: any) => ({ ...h })); }}>{t("นักบินอัตโนมัติ: ", "Auto-pilot: ", "自动驾驶：")}{S.current.auto ? "ON" : "OFF"}</button><button className="rs-ghost" data-rs-back="1" onClick={onBack}>{t("กลับแผนที่", "Back to the map", "回到地图")}</button></div>}
       {quiz && q && (
         <div className="rs-quiz" data-rs-quiz="1">
@@ -182,6 +184,8 @@ const CSS = `
 .rs-x{position:absolute;right:10px;top:8px;width:38px;height:38px;border-radius:50%;border:1px solid #ffffff44;background:#0b1a24cc;color:#fff;font-size:18px;cursor:pointer;z-index:3}
 .rs-pad{position:absolute;right:16px;bottom:16px;display:flex;gap:12px;align-items:flex-end;z-index:3}
 .rs-pad button{border-radius:50%;border:2px solid #ffffff55;background:#0b1a24bb;color:#fff;font-weight:900;cursor:pointer}.rs-pad .fire{width:84px;height:84px;background:#d0224488;font-size:14px}.rs-pad .boost{width:56px;height:56px;font-size:20px;background:#2266dd88}
+.rs-dpad{position:absolute;left:22px;bottom:22px;width:150px;height:150px;z-index:4;touch-action:none}.rs-dpad button{position:absolute;width:50px;height:50px;border-radius:50%;border:2px solid #ffffff66;background:#0b1a24cc;color:#fff;font-size:20px}.rs-dpad .d-u{left:50px;top:0}.rs-dpad .d-d{left:50px;bottom:0}.rs-dpad .d-l{left:0;top:50px}.rs-dpad .d-r{right:0;top:50px}.rs-dpad button:active{background:#2a8fd0aa}
+.rs-auto{position:absolute;right:16px;bottom:184px;z-index:4;height:40px;padding:0 18px;border-radius:999px;border:2px solid #ffffff66;background:#0b1a24cc;color:#fff;font-weight:900;font-size:13px;letter-spacing:.06em}.rs-auto.on{background:#1b8f5a;border-color:#7dffb0;box-shadow:0 0 14px #3f9}
 .rs-joy{position:absolute;left:22px;bottom:22px;width:120px;height:120px;border-radius:50%;border:2px solid #ffffff66;background:radial-gradient(#ffffff18,#0b1a24aa);z-index:4;touch-action:none;display:flex;align-items:center;justify-content:center}.rs-joy i{width:50px;height:50px;border-radius:50%;background:radial-gradient(#9fe8ff,#2a8fd0);box-shadow:0 0 14px #5cf;pointer-events:none}
 .rs-pw{position:absolute;right:16px;bottom:116px;display:flex;gap:10px;z-index:4}.rs-pw button{position:relative;width:52px;height:52px;border-radius:50%;border:2px solid #ffffff66;background:#0b1a24cc;color:#fff;font-weight:900;font-size:16px}.rs-pw i{position:absolute;right:-4px;top:-4px;min-width:18px;height:18px;border-radius:9px;background:#fff;color:#000;font-size:11px;font-style:normal;line-height:18px}.rs-pw .pw-cell{border-color:#ffd24a}.rs-pw .pw-h2{border-color:#4ad0ff}.rs-pw .pw-nuke{border-color:#7dff4a}.rs-pw .on{box-shadow:0 0 16px currentColor;background:#ffffff33}
 .rs-quiz{position:absolute;inset:0;z-index:5;background:#000b;display:flex;align-items:center;justify-content:center;padding:10px;overflow:auto}
