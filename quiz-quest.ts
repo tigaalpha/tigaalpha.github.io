@@ -26,6 +26,8 @@ const KEYS = [   // [letter index, accidental, display]
 ] as const;
 const EASY_KEYS = KEYS.slice(0, 3), MID_KEYS = KEYS.slice(0, 6), ALL_KEYS = KEYS;
 function scaleOf(key: readonly [number, number, string], pattern: number[]) { return pattern.map((s, d) => spell(key[0], key[1], d, s)); }
+/** pitch class -> spelled name for a list of spelled notes (spell() results), so every screen can write E♭ in a flat key and F♯ in a sharp one */
+const nm = (list: { name: string; pc: number }[]): Record<number, string> => { const o: Record<number, string> = {}; for (const n of list) o[n.pc] = n.name; return o; };
 const pcName = (pc: number) => NAMES_SHARP[((pc % 12) + 12) % 12];
 /** the on-piano name (C4..B5 range the app's small piano draws) of a pitch class, always in the lower octave */
 const onPiano = (pc: number) => NAMES_SHARP[((pc % 12) + 12) % 12] + "4";
@@ -34,7 +36,7 @@ export type Question = {
   id: string; topic: string; tier: number; kind: "key" | "keys" | "choice";
   q: string; ans?: number[];                          // pitch classes for key / keys
   opts?: { label: string; ok: boolean }[];            // for choice
-  teach: { lit: string[]; why: string };              // piano keys to light, and the reason
+  teach: { lit: string[]; why: string; names?: Record<number, string> };   // names: the correctly spelled name of each pitch class this question teaches (E♭ not D♯ in a flat key)              // piano keys to light, and the reason
   label: string;                                      // a short name for the learner's memory
 };
 
@@ -75,14 +77,14 @@ function qDegree(lang: Lang, r: () => number, lvl: number): Question {
   const d = 2 + Math.floor(r() * 6), note = sc[d - 1];
   return { id: "deg", topic: "scale", tier: lvl, kind: "key", ans: [note.pc], label: `${key[2]} major · ${ord("en", d)} note`,
     q: T3(lang, `โน้ตตัวที่ ${d} ของสเกล ${key[2]} เมเจอร์ คือตัวไหน? กดคีย์บนเปียโน`, `What is the ${ord("en", d)} note of the ${key[2]} major scale? Tap it on the piano.`, `${key[2]} 大调音阶的第 ${d} 个音是哪个？点琴键回答。`),
-    teach: { lit: sc.map(n => onPiano(n.pc)), why: T3(lang, `${key[2]} เมเจอร์ = ${sc.map(n => n.name).join(" ")} — ตัวที่ ${d} คือ ${note.name}`, `${key[2]} major = ${sc.map(n => n.name).join(" ")} — the ${ord("en", d)} note is ${note.name}.`, `${key[2]} 大调 = ${sc.map(n => n.name).join(" ")}，第 ${d} 个音是 ${note.name}。`) } };
+    teach: { lit: sc.map(n => onPiano(n.pc)), names: nm(sc), why: T3(lang, `${key[2]} เมเจอร์ = ${sc.map(n => n.name).join(" ")} — ตัวที่ ${d} คือ ${note.name}`, `${key[2]} major = ${sc.map(n => n.name).join(" ")} — the ${ord("en", d)} note is ${note.name}.`, `${key[2]} 大调 = ${sc.map(n => n.name).join(" ")}，第 ${d} 个音是 ${note.name}。`) } };
 }
 function qNotIn(lang: Lang, r: () => number, lvl: number): Question {
   const key = pick(lvl <= 3 ? MID_KEYS : ALL_KEYS, r), sc = scaleOf(key, MAJOR), inPcs = new Set(sc.map(n => n.pc));
   const outside = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].filter(p => !inPcs.has(p));
   return { id: "notin", topic: "scale", tier: lvl, kind: "key", ans: outside, label: `${key[2]} major · notes outside`,
     q: T3(lang, `โน้ตไหน "ไม่อยู่" ในสเกล ${key[2]} เมเจอร์? (กดคีย์ไหนก็ได้ที่อยู่นอกสเกล)`, `Which note is NOT in the ${key[2]} major scale? (any key outside the scale counts)`, `哪个音不在 ${key[2]} 大调音阶中？（任何不在音阶内的键都算对）`),
-    teach: { lit: sc.map(n => onPiano(n.pc)), why: T3(lang, `สเกล ${key[2]} เมเจอร์มี ${sc.map(n => n.name).join(" ")} คีย์อื่นนอกจากนี้ไม่อยู่ในสเกล`, `The ${key[2]} major scale has ${sc.map(n => n.name).join(" ")}; every other key is outside it.`, `${key[2]} 大调包含 ${sc.map(n => n.name).join(" ")}，其余的键都不在音阶内。`) } };
+    teach: { lit: sc.map(n => onPiano(n.pc)), names: nm(sc), why: T3(lang, `สเกล ${key[2]} เมเจอร์มี ${sc.map(n => n.name).join(" ")} คีย์อื่นนอกจากนี้ไม่อยู่ในสเกล`, `The ${key[2]} major scale has ${sc.map(n => n.name).join(" ")}; every other key is outside it.`, `${key[2]} 大调包含 ${sc.map(n => n.name).join(" ")}，其余的键都不在音阶内。`) } };
 }
 function qAccidentals(lang: Lang, r: () => number, lvl: number): Question {
   const pool = ALL_KEYS.filter(k => k[2] !== "C").slice(0, lvl <= 3 ? 8 : 11), key = pick(pool, r), sc = scaleOf(key, MAJOR);
@@ -91,13 +93,13 @@ function qAccidentals(lang: Lang, r: () => number, lvl: number): Question {
   return { id: "acc", topic: "scale", tier: lvl, kind: "choice", label: `${key[2]} major · accidentals`,
     q: T3(lang, `สเกล ${key[2]} เมเจอร์ มีเครื่องหมาย ${isSharp ? "♯" : "♭"} กี่ตัว?`, `How many ${isSharp ? "sharps" : "flats"} does ${key[2]} major have?`, `${key[2]} 大调有几个${isSharp ? "升号" : "降号"}？`),
     opts: opts.map(v => ({ label: String(v), ok: v === n })),
-    teach: { lit: sc.map(x => onPiano(x.pc)), why: T3(lang, `${key[2]} เมเจอร์ = ${sc.map(x => x.name).join(" ")} มี ${n} ตัว: ${acc.map(x => x.name).join(", ")}`, `${key[2]} major = ${sc.map(x => x.name).join(" ")}: ${n} accidental(s) — ${acc.map(x => x.name).join(", ")}.`, `${key[2]} 大调 = ${sc.map(x => x.name).join(" ")}，共 ${n} 个：${acc.map(x => x.name).join("、")}。`) } };
+    teach: { lit: sc.map(x => onPiano(x.pc)), names: nm(sc), why: T3(lang, `${key[2]} เมเจอร์ = ${sc.map(x => x.name).join(" ")} มี ${n} ตัว: ${acc.map(x => x.name).join(", ")}`, `${key[2]} major = ${sc.map(x => x.name).join(" ")}: ${n} accidental(s) — ${acc.map(x => x.name).join(", ")}.`, `${key[2]} 大调 = ${sc.map(x => x.name).join(" ")}，共 ${n} 个：${acc.map(x => x.name).join("、")}。`) } };
 }
 function qMinorDiff(lang: Lang, r: () => number, lvl: number): Question {
   const key = pick(MID_KEYS, r), nat = scaleOf(key, NAT_MINOR), har = scaleOf(key, HARM_MINOR);
   return { id: "harm", topic: "scale", tier: lvl, kind: "key", ans: [har[6].pc], label: `${key[2]} harmonic minor · raised 7th`,
     q: T3(lang, `ใน ${key[2]} ไมเนอร์ฮาร์โมนิก โน้ตตัวที่ 7 ต่างจากไมเนอร์ธรรมชาติอย่างไร? กดโน้ตตัวที่ 7 ของฮาร์โมนิก`, `In ${key[2]} harmonic minor the 7th note is raised. Tap the 7th note of ${key[2]} harmonic minor.`, `${key[2]} 和声小调的第 7 音比自然小调升高了半音。点出和声小调的第 7 音。`),
-    teach: { lit: har.map(n => onPiano(n.pc)), why: T3(lang, `ธรรมชาติ ${nat[6].name} → ฮาร์โมนิก ${har[6].name} (ยกขึ้นครึ่งเสียง)`, `Natural ${nat[6].name} → harmonic ${har[6].name} (raised a half step).`, `自然小调 ${nat[6].name} → 和声小调 ${har[6].name}（升高半音）。`) } };
+    teach: { lit: har.map(n => onPiano(n.pc)), names: nm(har), why: T3(lang, `ธรรมชาติ ${nat[6].name} → ฮาร์โมนิก ${har[6].name} (ยกขึ้นครึ่งเสียง)`, `Natural ${nat[6].name} → harmonic ${har[6].name} (raised a half step).`, `自然小调 ${nat[6].name} → 和声小调 ${har[6].name}（升高半音）。`) } };
 }
 function qFinger(lang: Lang, r: () => number, lvl: number): Question {
   const notes = ["C", "D", "E", "F", "G", "A", "B", "C"], fing = [1, 2, 3, 1, 2, 3, 4, 5];
@@ -113,7 +115,7 @@ function qTriad(lang: Lang, r: () => number, lvl: number): Question {
   const root = spell(key[0], key[1], 0, 0), third = spell(key[0], key[1], 2, minor ? 3 : 4), fifth = spell(key[0], key[1], 4, 7);
   return { id: "triad", topic: "triad", tier: lvl, kind: "keys", ans: [root.pc, third.pc, fifth.pc], label: `${key[2]} ${minor ? "minor" : "major"} triad`,
     q: T3(lang, `คอร์ด ${key[2]}${minor ? " ไมเนอร์" : " เมเจอร์"} ประกอบด้วยโน้ตอะไรบ้าง? กดครบ 3 ตัวแล้วกดยืนยัน`, `Which three notes make a ${key[2]} ${minor ? "minor" : "major"} chord? Tap all three, then confirm.`, `${key[2]}${minor ? "小" : "大"}三和弦由哪三个音组成？点出三个音后确认。`),
-    teach: { lit: [onPiano(root.pc), onPiano(third.pc), onPiano(fifth.pc)], why: T3(lang, `${root.name} + ${third.name} (${minor ? "เล็ก" : "ใหญ่"} 3) + ${fifth.name} (เพอร์เฟกต์ 5)`, `${root.name} + ${third.name} (${minor ? "minor" : "major"} 3rd) + ${fifth.name} (perfect 5th).`, `${root.name} + ${third.name}（${minor ? "小" : "大"}三度）+ ${fifth.name}（纯五度）。`) } };
+    teach: { lit: [onPiano(root.pc), onPiano(third.pc), onPiano(fifth.pc)], names: nm([root, third, fifth]), why: T3(lang, `${root.name} + ${third.name} (${minor ? "เล็ก" : "ใหญ่"} 3) + ${fifth.name} (เพอร์เฟกต์ 5)`, `${root.name} + ${third.name} (${minor ? "minor" : "major"} 3rd) + ${fifth.name} (perfect 5th).`, `${root.name} + ${third.name}（${minor ? "小" : "大"}三度）+ ${fifth.name}（纯五度）。`) } };
 }
 function qTriadQuality(lang: Lang, r: () => number, lvl: number): Question {
   const key = pick(MID_KEYS, r), minor = r() < 0.5;
@@ -121,7 +123,7 @@ function qTriadQuality(lang: Lang, r: () => number, lvl: number): Question {
   return { id: "tq", topic: "triad", tier: lvl, kind: "choice", label: `${root.name}-${third.name}-${fifth.name} quality`,
     q: T3(lang, `${root.name} – ${third.name} – ${fifth.name} เป็นคอร์ดชนิดใด?`, `${root.name} – ${third.name} – ${fifth.name} is which kind of chord?`, `${root.name} – ${third.name} – ${fifth.name} 是什么和弦？`),
     opts: shuffle([{ label: T3(lang, "เมเจอร์", "Major", "大三和弦"), ok: !minor }, { label: T3(lang, "ไมเนอร์", "Minor", "小三和弦"), ok: minor }, { label: T3(lang, "ดิมินิช", "Diminished", "减三和弦"), ok: false }], r),
-    teach: { lit: [onPiano(root.pc), onPiano(third.pc), onPiano(fifth.pc)], why: T3(lang, `ช่วงระหว่างตัวที่ 1 กับ 2 คือ ${minor ? "3 ครึ่งเสียง = ไมเนอร์" : "4 ครึ่งเสียง = เมเจอร์"}`, `The first gap is ${minor ? "3 semitones = minor" : "4 semitones = major"}.`, `第一个音程是 ${minor ? "3 个半音 = 小三和弦" : "4 个半音 = 大三和弦"}。`) } };
+    teach: { lit: [onPiano(root.pc), onPiano(third.pc), onPiano(fifth.pc)], names: nm([root, third, fifth]), why: T3(lang, `ช่วงระหว่างตัวที่ 1 กับ 2 คือ ${minor ? "3 ครึ่งเสียง = ไมเนอร์" : "4 ครึ่งเสียง = เมเจอร์"}`, `The first gap is ${minor ? "3 semitones = minor" : "4 semitones = major"}.`, `第一个音程是 ${minor ? "3 个半音 = 小三和弦" : "4 个半音 = 大三和弦"}。`) } };
 }
 const IV = [[1, "minor 2nd", "ไมเนอร์ 2", "小二度"], [2, "major 2nd", "เมเจอร์ 2", "大二度"], [3, "minor 3rd", "ไมเนอร์ 3", "小三度"], [4, "major 3rd", "เมเจอร์ 3", "大三度"], [5, "perfect 4th", "เพอร์เฟกต์ 4", "纯四度"], [7, "perfect 5th", "เพอร์เฟกต์ 5", "纯五度"], [9, "major 6th", "เมเจอร์ 6", "大六度"], [11, "major 7th", "เมเจอร์ 7", "大七度"], [12, "octave", "ออกเทฟ", "八度"]] as const;
 const IV_DEG: Record<number, number> = { 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3, 7: 4, 8: 5, 9: 5, 10: 6, 11: 6, 12: 7 };   // letters up from the root: a minor 3rd is E♭ over C (not D♯)
@@ -133,20 +135,20 @@ function qInterval(lang: Lang, r: () => number, lvl: number): Question {
   return { id: "iv", topic: "interval", tier: lvl, kind: "choice", label: `interval ${a.name} → ${tn.name}`,
     q: T3(lang, `จาก ${a.name} ขึ้นไปถึง ${tn.name} เป็นช่วงเสียงอะไร?`, `From ${a.name} up to ${tn.name}: which interval is it?`, `从 ${a.name} 向上到 ${tn.name} 是什么音程？`),
     opts: shuffle([{ label: name(iv), ok: true }, ...wrong.map(v => ({ label: name(v), ok: false }))], r),
-    teach: { lit: [onPiano(a.pc), onPiano(top)], why: T3(lang, `${a.name} → ${tn.name} ห่างกัน ${iv[0]} ครึ่งเสียง = ${iv[2]}`, `${a.name} → ${tn.name} is ${iv[0]} semitones = a ${iv[1]}.`, `${a.name} → ${tn.name} 相隔 ${iv[0]} 个半音 = ${iv[3]}。`) } };
+    teach: { lit: [onPiano(a.pc), onPiano(top)], names: nm([a]), why: T3(lang, `${a.name} → ${tn.name} ห่างกัน ${iv[0]} ครึ่งเสียง = ${iv[2]}`, `${a.name} → ${tn.name} is ${iv[0]} semitones = a ${iv[1]}.`, `${a.name} → ${tn.name} 相隔 ${iv[0]} 个半音 = ${iv[3]}。`) } };
 }
 function qIntervalPlay(lang: Lang, r: () => number, lvl: number): Question {
   const iv = pick(IV.filter(v => [3, 4, 5, 7].includes(v[0])), r), root = pick(MID_KEYS, r), a = spell(root[0], root[1], 0, 0), tn = spell(root[0], root[1], IV_DEG[iv[0]], iv[0]), top = tn.pc;
   return { id: "ivp", topic: "interval", tier: lvl, kind: "key", ans: [top], label: `play ${iv[1]} above ${a.name}`,
     q: T3(lang, `กดโน้ตที่สูงกว่า ${a.name} เป็น ${iv[2]}`, `Tap the note a ${iv[1]} above ${a.name}.`, `点出比 ${a.name} 高 ${iv[3]} 的音。`),
-    teach: { lit: [onPiano(a.pc), onPiano(top)], why: T3(lang, `${a.name} + ${iv[0]} ครึ่งเสียง = ${tn.name}`, `${a.name} + ${iv[0]} semitones = ${tn.name}.`, `${a.name} + ${iv[0]} 个半音 = ${tn.name}。`) } };
+    teach: { lit: [onPiano(a.pc), onPiano(top)], names: nm([a]), why: T3(lang, `${a.name} + ${iv[0]} ครึ่งเสียง = ${tn.name}`, `${a.name} + ${iv[0]} semitones = ${tn.name}.`, `${a.name} + ${iv[0]} 个半音 = ${tn.name}。`) } };
 }
 function qSeventh(lang: Lang, r: () => number, lvl: number): Question {
   const key = pick(EASY_KEYS.concat(KEYS.slice(3, 6)), r), maj7 = r() < 0.5;
   const root = spell(key[0], key[1], 0, 0), third = spell(key[0], key[1], 2, 4), fifth = spell(key[0], key[1], 4, 7), sev = spell(key[0], key[1], 6, maj7 ? 11 : 10);
   return { id: "sev", topic: "seventh", tier: lvl, kind: "keys", ans: [root.pc, third.pc, fifth.pc, sev.pc], label: `${key[2]}${maj7 ? "maj7" : "7"} notes`,
     q: T3(lang, `คอร์ด ${key[2]}${maj7 ? "maj7" : "7"} ประกอบด้วยโน้ตอะไรบ้าง? กดครบ 4 ตัวแล้วกดยืนยัน`, `Which four notes make ${key[2]}${maj7 ? "maj7" : "7"}? Tap all four, then confirm.`, `${key[2]}${maj7 ? "maj7" : "7"} 由哪四个音组成？点出四个音后确认。`),
-    teach: { lit: [onPiano(root.pc), onPiano(third.pc), onPiano(fifth.pc), onPiano(sev.pc)], why: T3(lang, `${root.name} ${third.name} ${fifth.name} + ตัวที่ 7 ${sev.name} (${maj7 ? "เมเจอร์ 7" : "ไมเนอร์ 7 = ครึ่งเสียงต่ำกว่า"})`, `${root.name} ${third.name} ${fifth.name} + the 7th ${sev.name} (${maj7 ? "major 7th" : "minor 7th, a whole step below the octave"}).`, `${root.name} ${third.name} ${fifth.name} + 七音 ${sev.name}（${maj7 ? "大七度" : "小七度"}）。`) } };
+    teach: { lit: [onPiano(root.pc), onPiano(third.pc), onPiano(fifth.pc), onPiano(sev.pc)], names: nm([root, third, fifth, sev]), why: T3(lang, `${root.name} ${third.name} ${fifth.name} + ตัวที่ 7 ${sev.name} (${maj7 ? "เมเจอร์ 7" : "ไมเนอร์ 7 = ครึ่งเสียงต่ำกว่า"})`, `${root.name} ${third.name} ${fifth.name} + the 7th ${sev.name} (${maj7 ? "major 7th" : "minor 7th, a whole step below the octave"}).`, `${root.name} ${third.name} ${fifth.name} + 七音 ${sev.name}（${maj7 ? "大七度" : "小七度"}）。`) } };
 }
 function qBasic(lang: Lang, r: () => number): Question {
   const n = pick(["C", "D", "E", "F", "G", "A", "B"] as const, r), pc = NPC[n];
