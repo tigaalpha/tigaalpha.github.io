@@ -1,7 +1,7 @@
 /* Concept clips for the Video Lessons page (owner, 2026-10-23): the Thai video series on how to think about practising the piano, redone in English and
    Mandarin. Each clip is drawn live (animated slides), narrated by the device's own voice, with a generated music bed and a short sound at each cut.
-   The Thai clips are YouTube videos; the first three here follow their titles (concentration, neural connections, which brain areas work), the last two
-   follow the marketing case-study series using facts already in the app's knowledge base (Mixue, Spotify Wrapped). No third-party footage, music or voice. */
+   The Thai clips are YouTube videos; the first three here follow their titles (concentration, neural connections, which brain areas work); the last two are about HOW to practise
+   (the owner's correction: concept clips mean practice concepts, not marketing) and use the app's own practice-planning and motivation knowledge (`teacher-craft-seed.js`). No third-party footage, music or voice. */
 import { useEffect, useRef, useState } from "react";
 import { speakNarration, stopSpeaking } from "./speech";
 import { createAdvMusic, warmAudio } from "./adventure-music";
@@ -33,18 +33,19 @@ export const CLIPS: Record<"en" | "zh", Clip[]> = {
       { ic: "⏳", h: "Cerebellum and the planning brain", b: "The cerebellum helps with timing and smooth movement. The front of the brain plans ahead and keeps your attention on the music." },
       { ic: "🎹", h: "Together", b: "All these areas work as a team. The more you play, the better they cooperate." },
     ] },
-    { id: "mixue", title: "Case study: one song, thirty thousand shops", sub: "Music as marketing", hue: 20, slides: [
-      { ic: "🍦", h: "One song grows a brand", b: "Mixue is a budget tea and ice cream chain that grew to more than thirty thousand stores." },
-      { ic: "🎵", h: "A theme anyone can sing", b: "In 2021 the brand released a theme song built on the old tune Oh Susanna. It is simple, easy to sing and easy to remember." },
-      { ic: "📱", h: "It went viral", b: "On Douyin and TikTok the song passed one and a half billion views, as people shared it and made their own versions across Asia." },
-      { ic: "💡", h: "The lesson", b: "A melody that is catchy and easy to share becomes free advertising. Simple tunes travel the farthest." },
+    { id: "session", title: "A practice session that works", sub: "Review, fix, then play", hue: 20, slides: [
+      { ic: "🗓️", h: "Short and daily beats long and rare", b: "Fifteen to twenty minutes every day beats two hours once a week, because your brain keeps what it meets again and again." },
+      { ic: "🔁", h: "Start with a quick review", b: "Spend about three minutes on a piece or skill you already know. Meeting it again is what makes it stay." },
+      { ic: "🐢", h: "Then fix the sticking points", b: "Spend about four minutes on the new part or the spot where you get stuck. Play it slowly, in small pieces, and only speed up when it is clean." },
+      { ic: "🎶", h: "End with a song you love", b: "Finish by playing something you really enjoy. Ending on a success is what makes you want to come back tomorrow." },
+      { ic: "⏱️", h: "Match the length to your age", b: "Young children focus for about ten to fifteen minutes. Older children manage twenty to thirty, and teenagers and adults thirty to forty-five. Several short rounds can beat one long one." },
     ] },
-    { id: "wrapped", title: "Case study: Spotify Wrapped", sub: "Turn data into a story", hue: 330, slides: [
-      { ic: "🎧", h: "Discover Weekly", b: "In 2015 Spotify launched a personal playlist of thirty songs, refreshed every Monday from your own listening." },
-      { ic: "🔍", h: "A machine that finds new music", b: "It helped new and independent artists get discovered. One playlist slot could change a small artist's life." },
-      { ic: "🎁", h: "Wrapped", b: "At the end of each year, Wrapped turns your listening data into personal cards that people want to post." },
-      { ic: "📣", h: "Customers do the marketing", b: "Tens of millions of users share their stats every year. Artists join in to thank their fans." },
-      { ic: "💡", h: "The lesson", b: "Make people want to show off how they use your product. Personal data, turned into something shareable, is marketing that never runs out." },
+    { id: "motivation", title: "Keeping the motivation to practise", sub: "Choice, progress, company", hue: 330, slides: [
+      { ic: "💪", h: "Motivation grows from three needs", b: "Research on motivation says we keep going when we feel free to choose, feel that we are getting better, and feel that we are not alone." },
+      { ic: "🧭", h: "Choose your own path", b: "Pick which song to learn, and how fast to go. When the choice is yours, practising feels like your own project." },
+      { ic: "📈", h: "See yourself improve", b: "Notice real progress: a passage that was hard last week and is smooth today. Real evidence beats empty praise." },
+      { ic: "🤝", h: "Do not walk alone", b: "Share what you play with family, friends or your teacher. Playing for someone is also the best practice for nerves." },
+      { ic: "🫶", h: "Nerves are normal", b: "A racing heart before you play is your body getting ready, not a sign that you are bad. Start on a small stage and build up." },
     ] },
   ],
   zh: [
@@ -70,18 +71,19 @@ export const CLIPS: Record<"en" | "zh", Clip[]> = {
       { ic: "⏳", h: "小脑和负责规划的大脑", b: "小脑帮助掌握节奏和让动作流畅。大脑前部负责提前规划，并让注意力留在音乐上。" },
       { ic: "🎹", h: "团队合作", b: "这些区域像一个团队一样配合。你弹得越多，它们配合得就越好。" },
     ] },
-    { id: "mixue", title: "案例：一首歌，三万家门店", sub: "音乐就是营销", hue: 20, slides: [
-      { ic: "🍦", h: "一首歌带动一个品牌", b: "蜜雪冰城是一家主打平价茶饮和冰淇淋的连锁品牌，门店数量已超过三万家。" },
-      { ic: "🎵", h: "人人都能唱的主题曲", b: "2021年，品牌推出了以老歌《哦！苏珊娜》为基础的主题曲，旋律简单，好唱又好记。" },
-      { ic: "📱", h: "在网络上走红", b: "这首歌在抖音和TikTok上的播放量突破十五亿，亚洲各地的人纷纷分享，还做出各种翻唱版本。" },
-      { ic: "💡", h: "启示", b: "好记又容易分享的旋律，就是免费的广告。越简单的曲调，传得越远。" },
+    { id: "session", title: "真正有效的一次练琴", sub: "先复习，再攻克，最后弹喜欢的曲子", hue: 20, slides: [
+      { ic: "🗓️", h: "短而天天练，胜过长而偶尔练", b: "每天练十五到二十分钟，胜过一周只练一次两小时，因为大脑会记住反复遇到的东西。" },
+      { ic: "🔁", h: "先快速复习", b: "花大约三分钟，弹一首已经会的曲子或练习一项已学的技巧。再次接触，才能让它留下来。" },
+      { ic: "🐢", h: "再攻克卡住的地方", b: "花大约四分钟练新的部分，或者总是卡住的地方。放慢速度，分成小段，弹干净了再提速。" },
+      { ic: "🎶", h: "最后弹一首喜欢的曲子", b: "以真正喜欢的曲子收尾。以成功结束，会让你明天还想再来。" },
+      { ic: "⏱️", h: "练琴时长要配合年龄", b: "幼儿大约能专注十到十五分钟，大一点的孩子二十到三十分钟，青少年和成人三十到四十五分钟。分成几次短练，往往比一次长练更好。" },
     ] },
-    { id: "wrapped", title: "案例：Spotify年度回顾", sub: "把数据变成故事", hue: 330, slides: [
-      { ic: "🎧", h: "每周发现", b: "2015年，Spotify推出了每周发现：根据你的收听行为，每周一更新三十首私人歌单。" },
-      { ic: "🔍", h: "发现新音乐的机器", b: "它帮助新人和独立艺人被听众发现。一个歌单位置，就可能改变小众艺人的命运。" },
-      { ic: "🎁", h: "年度回顾", b: "每年年底，年度回顾会把你的收听数据变成专属卡片，让人忍不住想发出来。" },
-      { ic: "📣", h: "客户替你做营销", b: "每年有数千万用户分享自己的统计数据，艺人也会借此向粉丝致谢。" },
-      { ic: "💡", h: "启示", b: "让用户想炫耀自己使用产品的方式。把个人数据变成可分享的内容，就是永不枯竭的营销。" },
+    { id: "motivation", title: "保持练琴的动力", sub: "选择、进步、陪伴", hue: 330, slides: [
+      { ic: "💪", h: "动力来自三种需要", b: "动机研究表明：当我们感到可以自己选择、感到自己在进步、并且感到有人同行时，就更愿意坚持。" },
+      { ic: "🧭", h: "自己选择路线", b: "自己挑选想学的曲子，决定进度的快慢。当选择权在你手里，练琴就像是你自己的小项目。" },
+      { ic: "📈", h: "看见自己的进步", b: "留意真实的进步：上周很难的乐句，今天已经流畅。真实的证据，胜过空洞的夸奖。" },
+      { ic: "🤝", h: "不要一个人走", b: "把你弹的曲子分享给家人、朋友或老师。弹给别人听，也是克服紧张的最好练习。" },
+      { ic: "🫶", h: "紧张很正常", b: "上台前心跳加速，是身体在做准备，并不说明你弹得不好。先从小舞台开始，慢慢增加。" },
     ] },
   ],
 };
