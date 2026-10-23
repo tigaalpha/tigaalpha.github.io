@@ -125,18 +125,6 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
             {chatHistory && <ChatHistoryButtons lang={lang} count={chatHistory.count} onHistory={chatHistory.onHistory} onNew={chatHistory.onNew} />}
           </div>
           <div className="pw">
-            <div className="plblrow">
-              <span className="plbl">{lc.pianoLabel}</span>
-              <div className="octctl" title={lc.octaveHint}>
-                <button className="octbtn" onClick={() => setPianoOct(o => Math.max(2, o - 1))} disabled={pianoOct <= 2} aria-label="Octave down">◀</button>
-                <span className="octlbl">C{pianoOct}–B{pianoOct + 1}</span>
-                <button className="octbtn" onClick={() => setPianoOct(o => Math.min(5, o + 1))} disabled={pianoOct >= 5} aria-label="Octave up">▶</button>
-              </div>
-              <button className="replaybtn" onClick={replayLast} title={lc.replay} aria-label={lc.replay}>
-                <span className="replayicon">↻</span>
-                <span>{lc.replay}</span>
-              </button>
-            </div>
             {seqIsChord && (
               <div className="chordstylerow">
                 <button className={`chordstylebtn${chordStyle === "broken" ? " on" : ""}`} onClick={() => chordStyle !== "broken" && toggleChordStyle()}>{lc.chordBroken}</button>
@@ -162,7 +150,7 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
               );
             })()}
 
-            <style>{OCTAVE_CSS + ".tcard{background:var(--card,#fff);border:1.5px solid var(--bd,rgba(0,0,0,.1));border-radius:22px;padding:10px 12px 12px;margin:8px 0;box-shadow:0 6px 18px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:8px}.tcard .fchart{margin:0!important;border:0!important;background:transparent!important;box-shadow:none!important;padding:0!important;display:grid;grid-template-columns:72px 1fr;grid-template-areas:'h hd' 'h n';align-items:center;column-gap:12px}.tcard .fchart>svg,.tcard .fchart .fingerhand{grid-area:h;width:72px;height:auto}.tcard .fchart-head{grid-area:hd;display:flex;justify-content:space-between;gap:8px}.tcard .fchart-notes{grid-area:n;text-align:left!important;font-size:13px;opacity:.85}.tcard .recbar{margin:0!important;padding:8px 0 0!important;border-top:1px dashed var(--bd,rgba(0,0,0,.12));justify-content:flex-start;gap:8px}.tcard .nowcard{margin:0!important;border:0!important;box-shadow:none!important;background:transparent!important;padding:8px 0 0!important;border-top:1px dashed var(--bd,rgba(0,0,0,.12))!important}.octrow{display:flex;justify-content:center;margin:8px 0}.octsel{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}.octsel select{min-height:44px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);padding:0 14px;font-weight:800}"}</style>
+            <style>{OCTAVE_CSS + ".tcard .recbar{flex-wrap:wrap}.tcard .recrow2{flex:1 0 100%;display:flex;align-items:center;justify-content:space-between;gap:8px}.tcard .recrow2 .octctl{display:flex;align-items:center;gap:6px}.tcard .recrow2 .octbtn{width:36px;height:36px;min-height:0}.tcard .recrow2 .replaybtn{min-height:38px;padding:0 14px;margin:0}.tcard{background:var(--card,#fff);border:1.5px solid var(--bd,rgba(0,0,0,.1));border-radius:22px;padding:10px 12px 12px;margin:8px 0;box-shadow:0 6px 18px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:8px}.tcard .fchart{margin:0!important;border:0!important;background:transparent!important;box-shadow:none!important;padding:0!important;display:grid;grid-template-columns:72px 1fr;grid-template-areas:'h hd' 'h n';align-items:center;column-gap:12px}.tcard .fchart>svg,.tcard .fchart .fingerhand{grid-area:h;width:72px;height:auto}.tcard .fchart-head{grid-area:hd;display:flex;justify-content:space-between;gap:8px}.tcard .fchart-notes{grid-area:n;text-align:left!important;font-size:13px;opacity:.85}.tcard .recbar{margin:0!important;padding:8px 0 0!important;border-top:1px dashed var(--bd,rgba(0,0,0,.12));justify-content:flex-start;gap:8px}.tcard .nowcard{margin:0!important;border:0!important;box-shadow:none!important;background:transparent!important;padding:8px 0 0!important;border-top:1px dashed var(--bd,rgba(0,0,0,.12))!important}.octrow{display:flex;justify-content:center;margin:8px 0}.octsel{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}.octsel select{min-height:44px;border-radius:999px;border:1.5px solid var(--bd3,rgba(0,0,0,.2));background:var(--card,#fff);color:var(--text);padding:0 14px;font-weight:800}"}</style>
             {octaves > 1 && (
               <OctaveStage onPractice={(sq: any) => { setOctaves(1); startOctavePractice && startOctavePractice(sq); }} notes={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.notes : DEFAULT_SCALE} label={fingerChart && fingerChart.notes && fingerChart.notes.length > 1 ? fingerChart.label : "C Major Scale"} octaves={octaves} setOctaves={setOctaves} hand={hand} setHand={setHand} lang={lang} onClose={() => setOctaves(1)} />
             )}
@@ -180,6 +168,17 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
               <label className="octsel"><select value={octaves} onChange={e => setOctaves(parseInt(e.target.value, 10))} aria-label={lang === "th" ? "ช่วงเสียง" : lang === "zh" ? "音域" : "Range"}>
                 {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n} {lang === "th" ? "ออกเทฟ" : lang === "zh" ? "个八度" : n === 1 ? "octave" : "octaves"}</option>)}
               </select></label>
+              <div className="recrow2">
+                <div className="octctl" title={lc.octaveHint}>
+                <button className="octbtn" onClick={() => setPianoOct(o => Math.max(2, o - 1))} disabled={pianoOct <= 2} aria-label="Octave down">◀</button>
+                <span className="octlbl">C{pianoOct}–B{pianoOct + 1}</span>
+                <button className="octbtn" onClick={() => setPianoOct(o => Math.min(5, o + 1))} disabled={pianoOct >= 5} aria-label="Octave up">▶</button>
+              </div>
+                <button className="replaybtn" onClick={replayLast} title={lc.replay} aria-label={lc.replay}>
+                <span className="replayicon">↻</span>
+                <span>{lc.replay}</span>
+              </button>
+              </div>
             </div>
             {merged && nowEl}
             </div>
