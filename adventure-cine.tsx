@@ -9,6 +9,7 @@ import { CyberAvatar } from "./cyber-avatar";
 import { createAdvMusic, createCineAudio, renderCinePreview, cineEnergy, CINE_ACTION, CINE_CALM, type CineShot } from "./adventure-music";
 import { speakNarration, stopSpeaking } from "./speech";
 import { logUsage } from "./shared-infra";
+import { gfxHigh } from "./adv-gfx";
 
 const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
 const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -599,7 +600,7 @@ const mix3 = (a: number[], b: number[], t: number) => [a[0] + (b[0] - a[0]) * t,
 const TEX: Record<string, HTMLCanvasElement> = {};
 function worldTexture(kind: string): HTMLCanvasElement {
   if (TEX[kind]) return TEX[kind];
-  const TW = 512, TH = 256, cv = document.createElement("canvas"); cv.width = TW; cv.height = TH; const c = cv.getContext("2d")!, im = c.createImageData(TW, TH), d = im.data;
+  const HQT = (() => { try { return gfxHigh(); } catch (_) { return false; } })(), TW = HQT ? 1024 : 512, TH = HQT ? 512 : 256, cv = document.createElement("canvas"); cv.width = TW; cv.height = TH; const c = cv.getContext("2d")!, im = c.createImageData(TW, TH), d = im.data;
   for (let py = 0; py < TH; py++) for (let px = 0; px < TW; px++) {
     const u = px / TW, v = py / TH, lat = Math.abs(v - 0.5) * 2; let col: number[];
     if (kind === "mars") {
@@ -1085,7 +1086,7 @@ export const AdventureCine = memo(function AdventureCine({ P, lang, me, colorway
   const sl = sub === "off" ? lang : sub;   // the other on-screen words (titles, goals) follow the subtitle language unless the subtitles are off
   useEffect(() => {
     const cv = cvRef.current; if (!cv) return undefined; const x = cv.getContext("2d"); if (!x) return undefined; let raf = 0;
-    const fit = () => { const r = cv.getBoundingClientRect(), d = Math.min(1.5, window.devicePixelRatio || 1); cv.width = Math.max(320, Math.round(r.width * d)); cv.height = Math.max(180, Math.round(r.height * d)); }; fit(); window.addEventListener("resize", fit);
+    const fit = () => { const r = cv.getBoundingClientRect(), d = Math.min((() => { try { return gfxHigh() ? 2 : 1.5; } catch (_) { return 1.5; } })(), window.devicePixelRatio || 1); cv.width = Math.max(320, Math.round(r.width * d)); cv.height = Math.max(180, Math.round(r.height * d)); }; fit(); window.addEventListener("resize", fit);
     const audio = createCineAudio(P.id, plan); audioRef.current = audio; const bed = createAdvMusic("menu", 2.4); if (bed) { bed.setOn(true); bed.start(); } bedRef.current = bed; const chk = setTimeout(() => { if (audio && !audio.running()) setNeedTap(true); }, 400); const stt = setTimeout(() => { try { logUsage("adv", "film-audio:" + P.id + ":" + (audio ? ((window as any).__tgCineCtx ? (window as any).__tgCineCtx.state : "own") : "none")); } catch (e) {} }, 1500); const wake = () => { try { const a = audioRef.current; if (a && !a.running()) a.resume(); } catch (e) {} }; const wk = ["pointerdown", "touchstart", "touchend", "click", "keydown"]; wk.forEach(n => window.addEventListener(n, wake, true));
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame); const el = (now - t0.current) / 1000 + skipTo.current; let i = 0; for (let k = 0; k < plan.length; k++) if (el >= starts[k]) i = k; try { if (bedRef.current) bedRef.current.setIntensity(1 + 2 * cineEnergy(plan, i)); } catch (e) {}
