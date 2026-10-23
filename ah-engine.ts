@@ -166,7 +166,7 @@ function spawnAlien(s: State, kind: AlienKind, at?: [number, number]) {
   }
   const [cx, cz] = collide(s.boxes, x, z, A.r);
   s.ev.push({ k: "spawn", w: kind, x: cx, z: cz });
-  s.enemies.push({ id: s.nextId++, kind, x: cx, z: cz, hp: A.hp * (1 + s.wave * 0.06) * s.hpk, max: A.hp * (1 + s.wave * 0.06) * s.hpk, yaw: 0, t: rnd(s) * 6, cd: 0.8 + rnd(s), dead: 0, flash: 0, leap: 0 });
+  s.enemies.push({ id: s.nextId++, kind, x: cx, z: cz, hp: A.hp * (1 + s.wave * 0.06) * s.hpk * (A.boss ? 1.8 : 1), max: A.hp * (1 + s.wave * 0.06) * s.hpk * (A.boss ? 1.8 : 1), yaw: 0, t: rnd(s) * 6, cd: 0.8 + rnd(s), dead: 0, flash: 0, leap: 0 });
 }
 
 const BOOM_R = 4.6;
