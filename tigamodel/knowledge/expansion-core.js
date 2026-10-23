@@ -226,10 +226,12 @@ export function genProgressions() {
 export function genCircle() {
   const out = [];
   for (let i = 0; i < 12; i++) {
-    const key = SHARP_ORDER[i];
-    const relMinor = SHARP_ORDER[(i + 9) % 12];
-    const dom = SHARP_ORDER[(i + 1) % 12];
-    const sub = SHARP_ORDER[(i + 7) % 12];
+    // the circle of fifths in order, spelled the way key signatures are (Db, Ab, Eb, Bb — never C#, G#, D#, A# major)
+    const MAJ = ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"], MIN = ["A", "E", "B", "F#", "C#", "G#", "D#", "Bb", "F", "C", "G", "D"];
+    const key = MAJ[i];
+    const relMinor = MIN[i];
+    const dom = MAJ[(i + 1) % 12];   // clockwise: one more sharp, a fifth up
+    const sub = MAJ[(i + 11) % 12];  // anticlockwise: one more flat, a fifth down
     out.push({
       id: `exp:circle:${key}`,
       type: "fact", domain: "theory",

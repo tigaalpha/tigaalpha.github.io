@@ -121,24 +121,25 @@ function qTriadQuality(lang: Lang, r: () => number, lvl: number): Question {
   return { id: "tq", topic: "triad", tier: lvl, kind: "choice", label: `${root.name}-${third.name}-${fifth.name} quality`,
     q: T3(lang, `${root.name} – ${third.name} – ${fifth.name} เป็นคอร์ดชนิดใด?`, `${root.name} – ${third.name} – ${fifth.name} is which kind of chord?`, `${root.name} – ${third.name} – ${fifth.name} 是什么和弦？`),
     opts: shuffle([{ label: T3(lang, "เมเจอร์", "Major", "大三和弦"), ok: !minor }, { label: T3(lang, "ไมเนอร์", "Minor", "小三和弦"), ok: minor }, { label: T3(lang, "ดิมินิช", "Diminished", "减三和弦"), ok: false }], r),
-    teach: { lit: [onPiano(root.pc), onPiano(third.pc), onPiano(fifth.pc)], why: T3(lang, `ช่วงระหว่างตัวที่ 1 กับ 2 คือ ${minor ? "3 เสียงครึ่ง = ไมเนอร์" : "4 ครึ่งเสียง = เมเจอร์"}`, `The first gap is ${minor ? "3 semitones = minor" : "4 semitones = major"}.`, `第一个音程是 ${minor ? "3 个半音 = 小三和弦" : "4 个半音 = 大三和弦"}。`) } };
+    teach: { lit: [onPiano(root.pc), onPiano(third.pc), onPiano(fifth.pc)], why: T3(lang, `ช่วงระหว่างตัวที่ 1 กับ 2 คือ ${minor ? "3 ครึ่งเสียง = ไมเนอร์" : "4 ครึ่งเสียง = เมเจอร์"}`, `The first gap is ${minor ? "3 semitones = minor" : "4 semitones = major"}.`, `第一个音程是 ${minor ? "3 个半音 = 小三和弦" : "4 个半音 = 大三和弦"}。`) } };
 }
 const IV = [[1, "minor 2nd", "ไมเนอร์ 2", "小二度"], [2, "major 2nd", "เมเจอร์ 2", "大二度"], [3, "minor 3rd", "ไมเนอร์ 3", "小三度"], [4, "major 3rd", "เมเจอร์ 3", "大三度"], [5, "perfect 4th", "เพอร์เฟกต์ 4", "纯四度"], [7, "perfect 5th", "เพอร์เฟกต์ 5", "纯五度"], [9, "major 6th", "เมเจอร์ 6", "大六度"], [11, "major 7th", "เมเจอร์ 7", "大七度"], [12, "octave", "ออกเทฟ", "八度"]] as const;
+const IV_DEG: Record<number, number> = { 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3, 7: 4, 8: 5, 9: 5, 10: 6, 11: 6, 12: 7 };   // letters up from the root: a minor 3rd is E♭ over C (not D♯)
 function qInterval(lang: Lang, r: () => number, lvl: number): Question {
   const pool = lvl <= 2 ? IV.filter(v => [2, 4, 5, 7, 12].includes(v[0])) : IV, iv = pick(pool, r), root = pick(lvl <= 2 ? EASY_KEYS : MID_KEYS, r);
-  const a = spell(root[0], root[1], 0, 0), top = (a.pc + iv[0]) % 12;
+  const a = spell(root[0], root[1], 0, 0), tn = spell(root[0], root[1], IV_DEG[iv[0]], iv[0]), top = tn.pc;
   const name = (v: readonly [number, string, string, string]) => T3(lang, v[2], v[1], v[3]);
   const wrong = shuffle(pool.filter(v => v[0] !== iv[0]) as any[], r).slice(0, 3);
-  return { id: "iv", topic: "interval", tier: lvl, kind: "choice", label: `interval ${a.name} → ${pcName(top)}`,
-    q: T3(lang, `จาก ${a.name} ขึ้นไปถึง ${pcName(top)} เป็นช่วงเสียงอะไร?`, `From ${a.name} up to ${pcName(top)}: which interval is it?`, `从 ${a.name} 向上到 ${pcName(top)} 是什么音程？`),
+  return { id: "iv", topic: "interval", tier: lvl, kind: "choice", label: `interval ${a.name} → ${tn.name}`,
+    q: T3(lang, `จาก ${a.name} ขึ้นไปถึง ${tn.name} เป็นช่วงเสียงอะไร?`, `From ${a.name} up to ${tn.name}: which interval is it?`, `从 ${a.name} 向上到 ${tn.name} 是什么音程？`),
     opts: shuffle([{ label: name(iv), ok: true }, ...wrong.map(v => ({ label: name(v), ok: false }))], r),
-    teach: { lit: [onPiano(a.pc), onPiano(top)], why: T3(lang, `${a.name} → ${pcName(top)} ห่างกัน ${iv[0]} ครึ่งเสียง = ${iv[2]}`, `${a.name} → ${pcName(top)} is ${iv[0]} semitones = a ${iv[1]}.`, `${a.name} → ${pcName(top)} 相隔 ${iv[0]} 个半音 = ${iv[3]}。`) } };
+    teach: { lit: [onPiano(a.pc), onPiano(top)], why: T3(lang, `${a.name} → ${tn.name} ห่างกัน ${iv[0]} ครึ่งเสียง = ${iv[2]}`, `${a.name} → ${tn.name} is ${iv[0]} semitones = a ${iv[1]}.`, `${a.name} → ${tn.name} 相隔 ${iv[0]} 个半音 = ${iv[3]}。`) } };
 }
 function qIntervalPlay(lang: Lang, r: () => number, lvl: number): Question {
-  const iv = pick(IV.filter(v => [3, 4, 5, 7].includes(v[0])), r), root = pick(MID_KEYS, r), a = spell(root[0], root[1], 0, 0), top = (a.pc + iv[0]) % 12;
+  const iv = pick(IV.filter(v => [3, 4, 5, 7].includes(v[0])), r), root = pick(MID_KEYS, r), a = spell(root[0], root[1], 0, 0), tn = spell(root[0], root[1], IV_DEG[iv[0]], iv[0]), top = tn.pc;
   return { id: "ivp", topic: "interval", tier: lvl, kind: "key", ans: [top], label: `play ${iv[1]} above ${a.name}`,
     q: T3(lang, `กดโน้ตที่สูงกว่า ${a.name} เป็น ${iv[2]}`, `Tap the note a ${iv[1]} above ${a.name}.`, `点出比 ${a.name} 高 ${iv[3]} 的音。`),
-    teach: { lit: [onPiano(a.pc), onPiano(top)], why: T3(lang, `${a.name} + ${iv[0]} ครึ่งเสียง = ${pcName(top)}`, `${a.name} + ${iv[0]} semitones = ${pcName(top)}.`, `${a.name} + ${iv[0]} 个半音 = ${pcName(top)}。`) } };
+    teach: { lit: [onPiano(a.pc), onPiano(top)], why: T3(lang, `${a.name} + ${iv[0]} ครึ่งเสียง = ${tn.name}`, `${a.name} + ${iv[0]} semitones = ${tn.name}.`, `${a.name} + ${iv[0]} 个半音 = ${tn.name}。`) } };
 }
 function qSeventh(lang: Lang, r: () => number, lvl: number): Question {
   const key = pick(EASY_KEYS.concat(KEYS.slice(3, 6)), r), maj7 = r() < 0.5;
