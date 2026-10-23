@@ -250,7 +250,6 @@ function Reel({ clip, active, lang, paused, onEnded }: { clip: Clip; active: boo
     <section className="cc-reel" style={{ ["--h" as any]: clip.hue }} data-clip={clip.id} data-active={active ? "1" : "0"}>
       <Backdrop hue={clip.hue} live={active && !paused} />
       <div className="cc-shade" />
-      <div className="cc-bar">{clip.slides.map((_, k) => <i key={k} className={k < i ? "on" : k === i && active ? "cur" : ""} />)}</div>
       <Holo kind={(SCENES[clip.id] || [])[Math.min(i, n - 1)] || "rings"} hue={clip.hue} live={active && !paused} />
       <div className="cc-title"><span>{s.ic}</span><b>{s.h}</b></div>
       <div className="cc-flash" key={"f" + i} />
@@ -302,7 +301,7 @@ export function ConceptClipFeed({ clips, lang, start, onClose, inline }: { clips
 
 export const CLIP_CSS = `
 .cc-wrap{position:fixed;inset:0;z-index:120;background:#05030d;color:#fff}
-.cc-wrap.inline{position:absolute;z-index:15}.cc-wrap.inline .cc-bar{top:calc(66px + env(safe-area-inset-top,0px));right:62px}.cc-wrap.inline .cc-title{top:calc(84px + env(safe-area-inset-top,0px))}.cc-wrap.inline .cc-face{top:calc(128px + env(safe-area-inset-top,0px))}.cc-wrap.inline .cc-pause{top:calc(62px + env(safe-area-inset-top,0px))}.cc-hide{display:none!important}
+.cc-wrap.inline{position:absolute;z-index:15}.cc-wrap.inline .cc-bar{top:calc(14px + env(safe-area-inset-top,0px));right:62px}.cc-wrap.inline .cc-title{top:calc(34px + env(safe-area-inset-top,0px))}.cc-wrap.inline .cc-face{top:calc(78px + env(safe-area-inset-top,0px))}.cc-wrap.inline .cc-holo{top:calc(322px + env(safe-area-inset-top,0px))}.cc-wrap.inline .cc-sticker{top:calc(110px + env(safe-area-inset-top,0px))}.cc-wrap.inline .cc-pause{top:calc(58px + env(safe-area-inset-top,0px))}.cc-wrap.inline .cc-pause{top:calc(62px + env(safe-area-inset-top,0px))}.cc-hide{display:none!important}
 .cc-feed{position:absolute;inset:0;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain}.cc-feed::-webkit-scrollbar{display:none}
 .cc-reel{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden}
 .cc-bg{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -313,7 +312,7 @@ export const CLIP_CSS = `
 .cc-title{position:absolute;top:calc(34px + env(safe-area-inset-top,0px));left:14px;right:62px;display:flex;gap:8px;align-items:center;font-size:15px;text-shadow:0 1px 8px rgba(0,0,0,.8)}.cc-title span{font-size:22px}.cc-title b{line-height:1.2}
 .cc-x,.cc-pause{position:absolute;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.4);color:#fff;font-size:16px;cursor:pointer;z-index:3}
 .cc-x{top:calc(8px + env(safe-area-inset-top,0px));right:12px}.cc-pause{top:calc(56px + env(safe-area-inset-top,0px));right:12px;font-size:13px}
-.cc-holo{position:absolute;left:50%;transform:translateX(-50%);top:calc(372px + env(safe-area-inset-top,0px));width:min(88vw,380px);height:auto;aspect-ratio:360/190;border-radius:16px;box-shadow:0 0 30px hsla(var(--h),90%,60%,.35);backdrop-filter:blur(2px)}.cc-wrap.inline .cc-holo{top:calc(382px + env(safe-area-inset-top,0px))}
+.cc-holo{position:absolute;left:50%;transform:translateX(-50%);top:calc(372px + env(safe-area-inset-top,0px));width:min(88vw,380px);height:auto;aspect-ratio:360/190;border-radius:16px;box-shadow:0 0 30px hsla(var(--h),90%,60%,.35);backdrop-filter:blur(2px)}
 .cc-face{position:absolute;left:50%;top:calc(120px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(46vw,190px);display:flex;flex-direction:column;align-items:center;gap:6px}
 .cc-face img{width:100%;aspect-ratio:540/640;object-fit:cover;border-radius:26px;border:2px solid rgba(255,255,255,.7);box-shadow:0 0 28px hsla(var(--h),90%,60%,.55),0 10px 40px rgba(0,0,0,.6);-webkit-mask-image:linear-gradient(180deg,#000 82%,transparent 100%);mask-image:linear-gradient(180deg,#000 82%,transparent 100%)}
 .cc-face.on img{animation:ccsway 2.4s ease-in-out infinite}.cc-face span{position:absolute;bottom:-16px;font-size:11px;font-weight:700;opacity:.85;letter-spacing:.3px;text-shadow:0 1px 6px #000}
@@ -322,7 +321,7 @@ export const CLIP_CSS = `
 .cc-cap p{font-size:20px;font-weight:800;line-height:1.45;margin:0;font-weight:600;text-shadow:0 2px 10px rgba(0,0,0,.95)}
 .cc-flash{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.85),hsla(var(--h),100%,70%,.35) 40%,transparent 70%);opacity:0;animation:ccflash .38s ease-out}@keyframes ccflash{0%{opacity:.9}100%{opacity:0}}
 .cc-face{animation:ccpunch .45s cubic-bezier(.2,1.5,.4,1)}@keyframes ccpunch{0%{transform:translateX(-50%) scale(1.14) rotate(-1.5deg)}100%{transform:translateX(-50%) scale(1) rotate(0)}}
-.cc-sticker{position:absolute;right:10%;top:calc(150px + env(safe-area-inset-top,0px));font-size:44px;filter:drop-shadow(0 0 12px hsl(var(--h) 100% 65%));animation:ccsticker .7s cubic-bezier(.2,1.6,.4,1)}.cc-wrap.inline .cc-sticker{top:calc(172px + env(safe-area-inset-top,0px))}@keyframes ccsticker{0%{transform:scale(0) rotate(-40deg);opacity:0}100%{transform:scale(1) rotate(8deg);opacity:1}}
+.cc-sticker{position:absolute;right:10%;top:calc(150px + env(safe-area-inset-top,0px));font-size:44px;filter:drop-shadow(0 0 12px hsl(var(--h) 100% 65%));animation:ccsticker .7s cubic-bezier(.2,1.6,.4,1)}@keyframes ccsticker{0%{transform:scale(0) rotate(-40deg);opacity:0}100%{transform:scale(1) rotate(8deg);opacity:1}}
 .cc-w{display:inline-block;margin:0 .14em;opacity:.35;transition:opacity .12s,transform .12s,color .12s}.cc-w.said{opacity:1}.cc-w.hot{opacity:1;color:hsl(calc(var(--h) + 60) 100% 70%);transform:scale(1.18);text-shadow:0 0 14px hsl(var(--h) 100% 60%),0 2px 10px #000}
 .cc-hint{position:absolute;left:50%;bottom:calc(4px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:20px;opacity:.7;animation:ccbob 1.4s ease-in-out infinite;pointer-events:none}
 @keyframes ccbob{50%{transform:translate(-50%,5px)}}
