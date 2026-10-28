@@ -913,7 +913,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
               </div>
               {gi === 0 && onMentor && (
                 <button type="button" className="pgmentor" onClick={onMentor}>
-                  <span aria-hidden="true">🎯</span> <span>{lang === "th" ? "AI Daily Mentor" : lang === "zh" ? "AI 每日导师" : "AI Daily Mentor"}</span>
+                  <span aria-hidden="true">✨</span> <span>{lang === "th" ? "AI Daily Mentor" : lang === "zh" ? "AI 每日导师" : "AI Daily Mentor"}</span>
                 </button>
               )}
               {gi === 0 && onUpgrade && (
