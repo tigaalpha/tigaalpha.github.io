@@ -61,7 +61,7 @@ ok(s2.kills > k0, "the pistol kills an alien in the crosshair");
 // walls block shots and movement
 const [x, z] = E.collide(E.LEVEL_BOXES, -8, -6, 0.4); ok(Math.abs(x + 8) > 0.5 || Math.abs(z + 6) > 0.5, "a box pushes a circle out");
 // a full run with a bot ends (win or lose), never hangs
-ok(_ns(1, 0).auto === true, "auto-walk is ON by default");
+ok(_ns(1, 0).auto === false, "auto-walk is OFF by default (owner 2026-10-28)");
 for (const w of ["pulsar", "nova", "storm", "cryo"]) ok(!!E.WEAPONS[w] && E.WORDER.includes(w), "new gun exists: " + w);
 { const q = E.newState(61, 0); q.wave = 1; q.between = 99; q.p.x = 0; q.p.z = 0; q.p.yaw = 0; q.p.pitch = 0; q.owned.cryo = true; q.weapon = "cryo"; q.enemies.push({ id: 90, kind: "mantis", x: 0, z: -12, hp: 900, max: 900, yaw: 0, t: 0, cd: 5, dead: 0, flash: 0, leap: 0 }); q.p.pitch = Math.atan2(E.bodyY("mantis") - 1.65, 12);
   E.step(q, 0.05, { ...inp, fire: true }); ok((q.enemies[0].slow || 0) > 0, "cryo beam slows what it hits"); }
