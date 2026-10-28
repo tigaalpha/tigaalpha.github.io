@@ -174,8 +174,10 @@ export function useKeyboard() {
 
     let order, fingerOrder;
     if (mode === "chord") {
-      order = notes;
-      fingerOrder = fingers ? fingers.slice() : notes.map(() => null);
+      /* a broken chord is taught low to high and back down to the starting note (owner, 2026-10-28) */
+      order = notes.concat(notes.slice(0, -1).reverse());
+      const fc = fingers ? fingers.slice() : notes.map(() => null);
+      fingerOrder = fc.concat(fc.slice(0, -1).reverse());
     } else if (mode === "prog") {
       // chord progression: play each chord's notes broken bottom-up, then a
       // longer breath before the next chord (like the demo's bar boundaries).
@@ -184,10 +186,13 @@ export function useKeyboard() {
     } else {
       // scales/sequences: ascending then descending (skip duplicate top note)
       const up = notes.slice();
-      const down = notes.slice(0, -1).reverse();
+      /* a lesson that already comes back down by itself (starts and ends on the same note: every scale now, melodic minor always) is played as written;
+         appending a second descent used to play the way back, then climb again */
+      const holdsDescent = notes.length > 2 && notes[0] === notes[notes.length - 1];
+      const down = holdsDescent ? [] : notes.slice(0, -1).reverse();
       order = up.concat(down);
       const fUp = fingers ? fingers.slice() : notes.map(() => null);
-      const fDown = fingers ? fingers.slice(0, -1).reverse() : notes.slice(0, -1).map(() => null);
+      const fDown = holdsDescent ? [] : fingers ? fingers.slice(0, -1).reverse() : notes.slice(0, -1).map(() => null);
       fingerOrder = fUp.concat(fDown);
     }
 
