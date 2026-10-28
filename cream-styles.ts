@@ -446,7 +446,7 @@ html[data-theme="dark"] .tg .profrankbadge{color:color-mix(in srgb,var(--lv-c,#d
 @media (min-width:900px){
   /* two columns stay two (a tapped card opens its panel under its own row of
      two), so the column narrows to keep the cards in proportion */
-  .tg .pathpage,.tg .profscroll{padding-left:max(0px,calc((100% - 780px)/2));padding-right:max(0px,calc((100% - 780px)/2))}
+  .tg .profscroll{padding-left:max(0px,calc((100% - 780px)/2));padding-right:max(0px,calc((100% - 780px)/2))}
   /* the conversation keeps the same measure; the piano above it stays wide */
   .tg .msgs,.tg .chatstarters,.tg .iw,.tg .chdr{padding-left:max(14px,calc((100% - 780px)/2));padding-right:max(14px,calc((100% - 780px)/2))}
   .tg .dailyrec{max-width:756px;margin-left:auto;margin-right:auto}

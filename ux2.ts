@@ -30,5 +30,7 @@ export function uxEnabled(isAdmin: boolean): boolean {
     if (v === "1") return true;
     if (v === "0") return false;
   } catch (e) { /* private mode: fall through to the default */ }
+  /* tablets (owner, 2026-10-28): a wide screen gets the same bottom tab bar as the phone unless the device chose otherwise */
+  try { if (window.innerWidth >= 700) return true; } catch (e) {}
   return !!isAdmin;
 }
