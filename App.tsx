@@ -921,7 +921,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                   <span className="pgupgrade-crown" aria-hidden="true">👑</span> <span>Upgrade Premium</span>
                 </button>
               )}
-              <span className="pgstep">{lc.stepLabel.replace("{n}", String(gi + 1))}</span>
+              {!(gi === 0 && onMentor) && <span className="pgstep">{lc.stepLabel.replace("{n}", String(gi + 1))}</span>}
             </header>
 
             <div className="pgrid" style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "10px" }}>
