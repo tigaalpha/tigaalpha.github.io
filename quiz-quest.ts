@@ -157,13 +157,38 @@ function qBasic(lang: Lang, r: () => number): Question {
     teach: { lit: [n + "4"], why: T3(lang, `โน้ต ${n} คือคีย์ขาวที่ถูกต้องตามตำแหน่งนี้ — C อยู่ซ้ายของกลุ่มดำสองลูก`, `${n} is this white key; C sits just left of the group of two black keys.`, `${n} 就是这个白键；C 在两个黑键组的左边。`) } };
 }
 
+/* Owner, 2026-10-28: the main question is "tap every note of this scale / chord" (kind "keys"), only from what the learner has studied.
+   A scale is asked in the types they have learned (major, natural / harmonic / melodic minor); a chord in the kinds they know. */
+let curDone: string[] | null = null;
+const MEL_MINOR = [0, 2, 3, 5, 7, 9, 11];
+function qBuildScale(lang: Lang, r: () => number, lvl: number): Question {
+  const d = new Set(curDone || readDone());
+  const types: { id: string; p: number[]; th: string; en: string; zh: string }[] = [{ id: "major", p: MAJOR, th: "เมเจอร์", en: "major", zh: "大调" }];
+  if (d.has("natural_minor") || d.has("minor")) types.push({ id: "nat", p: NAT_MINOR, th: "ไมเนอร์ธรรมชาติ", en: "natural minor", zh: "自然小调" });
+  if (d.has("harmonic_minor")) types.push({ id: "har", p: HARM_MINOR, th: "ไมเนอร์ฮาร์โมนิก", en: "harmonic minor", zh: "和声小调" });
+  if (d.has("melodic_minor")) types.push({ id: "mel", p: MEL_MINOR, th: "ไมเนอร์เมโลดิก (ขาขึ้น)", en: "melodic minor (going up)", zh: "旋律小调（上行）" });
+  const ty = pick(types, r), key = pick(lvl <= 1 ? EASY_KEYS : lvl <= 2 ? MID_KEYS : ALL_KEYS, r), sc = scaleOf(key, ty.p);
+  const names = sc.map(n => n.name).join(" ");
+  return { id: "build", topic: "scale", tier: lvl, kind: "keys", ans: Array.from(new Set(sc.map(n => n.pc))), label: `${key[2]} ${ty.en} · all notes`,
+    q: T3(lang, `สเกล ${key[2]} ${ty.th} มีโน้ตอะไรบ้าง? กดให้ครบทั้ง 8 ตัว (ตัวที่ 8 คือโน้ตเริ่มซ้ำ) แล้วกดยืนยัน`, `Which notes are in the ${key[2]} ${ty.en} scale? Tap all 8 (the 8th is the root again), then confirm.`, `${key[2]} ${ty.zh}音阶有哪些音？点齐全部 8 个（第 8 个是主音重复）后确认。`),
+    teach: { lit: sc.map(n => onPiano(n.pc)), names: nm(sc), why: T3(lang, `${key[2]} ${ty.th} = ${names} (+ ${sc[0].name} ตัวบน)`, `${key[2]} ${ty.en} = ${names} (+ the root ${sc[0].name} on top).`, `${key[2]} ${ty.zh} = ${names}（顶上再加主音 ${sc[0].name}）。`) } };
+}
+function qBuildSeventh(lang: Lang, r: () => number, lvl: number): Question {
+  const key = pick(lvl <= 3 ? MID_KEYS : ALL_KEYS, r), t = pick([[11, "maj7", 4, "เมเจอร์ 7", "major 7th", "大七"], [10, "7", 4, "โดมิแนนต์ 7", "dominant 7th", "属七"], [10, "m7", 3, "ไมเนอร์ 7", "minor 7th", "小七"]] as const, r);
+  const root = spell(key[0], key[1], 0, 0), third = spell(key[0], key[1], 2, t[2]), fifth = spell(key[0], key[1], 4, 7), sev = spell(key[0], key[1], 6, t[0]);
+  return { id: "sev", topic: "seventh", tier: lvl, kind: "keys", ans: [root.pc, third.pc, fifth.pc, sev.pc], label: `${key[2]}${t[1]} notes`,
+    q: T3(lang, `คอร์ด ${key[2]}${t[1]} (${t[3]}) ประกอบด้วยโน้ตอะไรบ้าง? กดให้ครบ 4 ตัวแล้วกดยืนยัน`, `Which four notes make ${key[2]}${t[1]} (${t[4]})? Tap all four, then confirm.`, `${key[2]}${t[1]}（${t[5]}和弦）由哪四个音组成？点出四个音后确认。`),
+    teach: { lit: [onPiano(root.pc), onPiano(third.pc), onPiano(fifth.pc), onPiano(sev.pc)], names: nm([root, third, fifth, sev]), why: T3(lang, `${root.name} ${third.name} ${fifth.name} ${sev.name} (โน้ตตัวที่ 1 3 5 7)`, `${root.name} ${third.name} ${fifth.name} ${sev.name} — root, 3rd, 5th, 7th.`, `${root.name} ${third.name} ${fifth.name} ${sev.name}（根音、三音、五音、七音）。`) } };
+}
+
 type Fam = { f: (lang: Lang, r: () => number, lvl: number) => Question; topic: string; min: number; max: number };
-const FAMS: Fam[] = [
-  { f: qDegree, topic: "scale", min: 1, max: 5 }, { f: qNotIn, topic: "scale", min: 3, max: 5 }, { f: qAccidentals, topic: "scale", min: 3, max: 5 },
+const FAMS: Fam[] = [   // "tap every note" families lead; the odd-one-out question (qNotIn) is retired (owner, 2026-10-28)
+  { f: qBuildScale, topic: "scale", min: 1, max: 5 }, { f: qBuildScale, topic: "scale", min: 1, max: 5 }, { f: qBuildScale, topic: "scale", min: 1, max: 5 },
+  { f: qDegree, topic: "scale", min: 1, max: 2 }, { f: qAccidentals, topic: "scale", min: 3, max: 5 },
   { f: qFinger, topic: "scale", min: 2, max: 4 }, { f: qMinorDiff, topic: "scale", min: 4, max: 5 },
-  { f: qTriad, topic: "triad", min: 1, max: 5 }, { f: qTriadQuality, topic: "triad", min: 2, max: 5 },
+  { f: qTriad, topic: "triad", min: 1, max: 5 }, { f: qTriad, topic: "triad", min: 1, max: 5 }, { f: qTriadQuality, topic: "triad", min: 2, max: 5 },
   { f: qInterval, topic: "interval", min: 1, max: 5 }, { f: qIntervalPlay, topic: "interval", min: 3, max: 5 },
-  { f: qSeventh, topic: "seventh", min: 3, max: 5 },
+  { f: qBuildSeventh, topic: "seventh", min: 1, max: 5 }, { f: qBuildSeventh, topic: "seventh", min: 1, max: 5 },
 ];
 
 /** Teaching order shared by Alien Hunt, Adventure and the PvP knowledge break (owner, 2026-10-18): the taught keys always run from the LOWEST
@@ -181,6 +206,7 @@ const ordered = <T extends { q: Question }>(r: T): T => { try { if (r.q.teach &&
 /** The next question for this learner: only from topics they have studied, at their ladder level, leaning on what they missed. */
 function nextQuestionRaw(lang: Lang, opts: { done?: string[]; level?: number; rand?: () => number } = {}): { q: Question; learned: string[]; level: number } {
   const r = opts.rand || Math.random, learned = learnedTopics(opts.done || readDone()), lvl = opts.level || readLadder().lvl;
+  curDone = opts.done || null;
   if (!learned.length) return { q: qBasic(lang, r), learned, level: 1 };
   const weak = weakOf();
   let pool = FAMS.filter(f => learned.includes(f.topic) && lvl >= f.min && lvl <= f.max);
@@ -203,9 +229,11 @@ export function judgeKeys(q: Question, tapped: number[]): boolean {
     A chord they know (triad) if they have, else two notes (interval), else a scale degree, else a basic note. Never a choice question. */
 function nextSpellRaw(lang: Lang, opts: { done?: string[]; level?: number; rand?: () => number } = {}): { q: Question; learned: string[]; level: number } {
   const r = opts.rand || Math.random, learned = learnedTopics(opts.done || readDone()), lvl = opts.level || readLadder().lvl;
+  curDone = opts.done || null;
+  if (learned.includes("scale") && r() < 0.5) return { q: qBuildScale(lang, r, Math.min(lvl, 5)), learned, level: lvl };
   if (learned.includes("triad")) return { q: qTriad(lang, r, Math.min(lvl, 5)), learned, level: lvl };
   if (learned.includes("interval")) return { q: qIntervalPlay(lang, r, Math.min(lvl, 5)), learned, level: lvl };
-  if (learned.includes("scale")) return { q: qDegree(lang, r, Math.min(lvl, 5)), learned, level: lvl };
+  if (learned.includes("scale")) return { q: qBuildScale(lang, r, Math.min(lvl, 5)), learned, level: lvl };
   return { q: qBasic(lang, r), learned, level: 1 };
 }
 

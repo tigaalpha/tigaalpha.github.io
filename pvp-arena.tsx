@@ -67,6 +67,7 @@ import { AnswerReveal } from "./note-reveal";
 import { useFpv, FpvButton, FpvVisor, FpvFightHands } from "./fpv";
 import { GamePowerBar, PowerSheet, usePlayDrain } from "./game-power-ui";
 import { enterGame, COST as POWER_COST } from "./game-power";
+import { learnedTopics, readDone } from "./quiz-quest";
 
 /* ══════════════════════ Skill EXP ══════════════════════ */
 
@@ -181,8 +182,53 @@ function distract(ans, poolFn) {
   return out;
 }
 
+
+/* "Build it" question (owner, 2026-10-28): the learner taps EVERY note of a scale or chord they have already studied, instead of picking the odd one out.
+   Only topics in `tg_path_done` are used. A wrong key ends the question at once; the last right key passes it. */
+function makeBuild(lang) {
+  const done = readDone(), learned = learnedTopics(done), d = new Set(done);
+  const root = pick(ROOTS);
+  const specs = [];
+  if (learned.includes("scale")) {
+    specs.push({ steps: MAJOR_STEPS, n: { th: "สเกล", en: "scale", zh: "音阶" }, q: { th: "เมเจอร์", en: "major", zh: "大调" } });
+    if (d.has("natural_minor") || d.has("minor")) specs.push({ steps: [0, 2, 3, 5, 7, 8, 10], n: { th: "สเกล", en: "scale", zh: "音阶" }, q: { th: "ไมเนอร์ธรรมชาติ", en: "natural minor", zh: "自然小调" } });
+    if (d.has("harmonic_minor")) specs.push({ steps: [0, 2, 3, 5, 7, 8, 11], n: { th: "สเกล", en: "scale", zh: "音阶" }, q: { th: "ไมเนอร์ฮาร์โมนิก", en: "harmonic minor", zh: "和声小调" } });
+    if (d.has("melodic_minor")) specs.push({ steps: [0, 2, 3, 5, 7, 9, 11], n: { th: "สเกล", en: "scale", zh: "音阶" }, q: { th: "ไมเนอร์เมโลดิก (ขาขึ้น)", en: "melodic minor (up)", zh: "旋律小调（上行）" } });
+  }
+  if (learned.includes("triad")) {
+    specs.push({ steps: [0, 4, 7], chord: 1, n: { th: "คอร์ด", en: "chord", zh: "和弦" }, q: { th: "เมเจอร์", en: "major", zh: "大三和弦" } });
+    specs.push({ steps: [0, 3, 7], chord: 1, n: { th: "คอร์ด", en: "chord", zh: "和弦" }, q: { th: "ไมเนอร์", en: "minor", zh: "小三和弦" } });
+    if (d.has("dim")) specs.push({ steps: [0, 3, 6], chord: 1, n: { th: "คอร์ด", en: "chord", zh: "和弦" }, q: { th: "ดิมินิช", en: "diminished", zh: "减三和弦" } });
+    if (d.has("aug")) specs.push({ steps: [0, 4, 8], chord: 1, n: { th: "คอร์ด", en: "chord", zh: "和弦" }, q: { th: "ออกเมนต์", en: "augmented", zh: "增三和弦" } });
+  }
+  if (learned.includes("seventh")) {
+    specs.push({ steps: [0, 4, 7, 11], chord: 1, n: { th: "คอร์ด", en: "chord", zh: "和弦" }, q: { th: "เมเจอร์เซเวนท์", en: "major 7th", zh: "大七和弦" } });
+    specs.push({ steps: [0, 4, 7, 10], chord: 1, n: { th: "คอร์ด", en: "chord", zh: "和弦" }, q: { th: "โดมิแนนต์เซเวนท์", en: "dominant 7th", zh: "属七和弦" } });
+    specs.push({ steps: [0, 3, 7, 10], chord: 1, n: { th: "คอร์ด", en: "chord", zh: "和弦" }, q: { th: "ไมเนอร์เซเวนท์", en: "minor 7th", zh: "小七和弦" } });
+  }
+  const sp = pick(specs);
+  const degs = sp.chord ? sp.steps.map((_, i) => i * 2) : sp.steps.map((_, i) => i);
+  const notes = sp.steps.map((st, i) => spellFrom(root, degs[i], st));
+  const need = Array.from(new Set(notes.map(n => parseName(n).pc)));
+  const count = notes.length + (sp.chord ? 0 : 1);
+  const quality = tr3(sp.q, lang), kindWord = tr3(sp.n, lang);
+  return {
+    tag: "build", need, notes,
+    teach: { notes: sp.chord ? notes : notes.concat([notes[0]]), hi: notes, label: `${root} ${tr3(sp.q, "en")}` },
+    q: lang === "th" ? `${kindWord} ${root} ${quality} มีโน้ตอะไรบ้าง? กดบนคีย์ให้ครบ ${count} ตัว${sp.chord ? "" : " (ตัวที่ 8 คือโน้ตเริ่มซ้ำ)"}`
+      : lang === "zh" ? `${root} ${quality}${kindWord}有哪些音？在琴键上点齐 ${count} 个${sp.chord ? "" : "（第 8 个是主音的重复）"}`
+      : `Which notes make the ${root} ${quality} ${kindWord}? Tap all ${count} on the keys${sp.chord ? "" : " (the 8th is the root again)"}.`,
+    opts: [], ans: notes.join(" – "),
+  };
+}
+
+function canBuild() { try { return learnedTopics(readDone()).some(t => t === "scale" || t === "triad" || t === "seventh"); } catch (e) { return false; } }
+
 export function makeQuestion(lang, forceKind) {
-  const kind = forceKind || pick(["iv", "degree", "triad", "scale"]);
+  let kind = forceKind || pick(["build", "iv", "degree"]);
+  if (kind === "build" && !canBuild()) kind = pick(["iv", "degree"]);
+  if (kind === "scale" || kind === "triad") kind = canBuild() ? "build" : "degree";
+  if (kind === "build") return makeBuild(lang);
   const root = pick(ROOTS);
 
   if (kind === "iv") {
@@ -348,7 +394,7 @@ function bumpWeak(tag, right) {
     localStorage.setItem(WEAK_KEY, JSON.stringify(v));
   } catch (e) {}
 }
-const Q_TAGS = ["iv", "degree", "scale", "triad"];
+const Q_TAGS = ["build", "build", "build", "iv", "degree"];
 function weightedTag() {
   const v = readWeak();
   const weights = Q_TAGS.map(t => {
@@ -2293,7 +2339,7 @@ const KEYS = [
 ];
 const FLAT_OF = { "C#": "D♭", "D#": "E♭", "F#": "G♭", "G#": "A♭", "A#": "B♭" };
 // the three question kinds whose answer is a note you can physically play
-const PLAYABLE = { iv: 1, degree: 1, scale: 1 };
+const PLAYABLE = { iv: 1, degree: 1, scale: 1, build: 1 };
 const CORNER_ZONE = 0.055, CORNER_DMG = 1.15;
 const SK_CD_ACTIVE = 5000, SK_CD_ULT = 12000;
 const GUARD_MAX = 100, GUARD_HIT_COST = 24, GUARD_REGEN = 8;   // regen per second
@@ -4268,7 +4314,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   function beginQuestion() {
     if (doneRef.current || !armed) return;
     const nq = makeQuestion(lang, weightedTag());
-    setQ(nq);
+    setQ(nq); setPicked([]);
     // whatever was banked while the arena was still swinging is spent now
     const n = cullNextRef.current; cullNextRef.current = 0;
     setCulled(n > 0 ? shuffle(nq.opts.filter(o => o !== nq.ans)).slice(0, n) : []);
@@ -4284,11 +4330,22 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       questions have no key to press and stay an exact match. */
   function isRight(choice, qq) {
     if (choice == null || !qq) return false;
+    if (qq.tag === "build") return choice === qq.ans;
     if (!PLAYABLE[qq.tag]) return choice === qq.ans;
     if (qq.tag === "scale" && qq.inScale) {
       try { const pc = parseName(choice).pc; return !qq.inScale.some(n => parseName(n).pc === pc); } catch (e) { /* fall through to the single answer */ }
     }
     try { return parseName(choice).pc === parseName(qq.ans).pc; } catch (e) { return choice === qq.ans; }
+  }
+
+  const [picked, setPicked] = useState([]);
+  function tapBuild(name) {
+    if (locked || doneRef.current || !q || q.tag !== "build") return;
+    const pc = parseName(name).pc;
+    if (picked.includes(pc)) return;
+    if (!q.need.includes(pc)) { answer(name); return; }
+    const np = [...picked, pc]; setPicked(np);
+    if (np.length >= q.need.length) answer(q.ans);
   }
 
   function answer(choice) {
@@ -4423,7 +4480,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       else cullNextRef.current = Math.max(cullNextRef.current, 2);
       say("me", tr3(FX_TEXT.cull, lang), "buff");
     }
-    else if (k === "reroll") { if (q) { setQ(makeQuestion(lang, weightedTag())); setCulled([]); } say("me", tr3(FX_TEXT.reroll, lang), "buff"); }
+    else if (k === "reroll") { if (q) { setQ(makeQuestion(lang, weightedTag())); setCulled([]); setPicked([]); } say("me", tr3(FX_TEXT.reroll, lang), "buff"); }
     else if (k === "patch") {
       const h = Math.min(MY_MAX, hpRef.current.me + Math.round(MY_MAX * 0.14));
       hpRef.current.me = h; setMyHp(h);
@@ -4445,7 +4502,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   function useUlt() {
     if (doneRef.current || Date.now() < skCd.current.u) return;
     skCd.current.u = Date.now() + SK_CD_ULT; setSkTick(t => t + 1); later(() => setSkTick(t => t + 1), SK_CD_ULT);
-    setUltQ({ q: makeQuestion(lang, weightedTag()), start: Date.now() });
+    setUltQ({ q: makeQuestion(lang, (t => t === "build" ? "degree" : t)(weightedTag())), start: Date.now() });
     setUltArmed(false); later(() => setUltArmed(true), ULTQ_ARM);
     audioRef.current.sfx("charge");
     G.flash("#ffd23f", .5, .45);
@@ -4934,6 +4991,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
                "1.5 秒内 = 能量全满 + 免费必杀")}
           </div>
           <div className="pvpq">{q.q}</div>
+          {q.tag === "build" && <div className="pvpshot-l">{picked.length} / {q.need.length}</div>}
           {PLAYABLE[q.tag] ? (
             /* ── answer on the keys ──
                Three of the four question kinds ask for a NOTE, and a note has
@@ -4945,11 +5003,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
             <div className="pvpkeys" role="group" aria-label={T("เลือกโน้ต", "Pick the note", "选择音符")}>
               {KEYS.map(k => {
                 const dim = culled.some(c => { try { return parseName(c).pc === parseName(k.n).pc; } catch (e) { return false; } });
-                const isAns = locked && (() => { try { return q.tag === "scale" && q.inScale ? isRight(k.n, q) : parseName(q.ans).pc === parseName(k.n).pc; } catch (e) { return false; } })();
+                const isAns = (q.tag === "build" && (picked.includes(parseName(k.n).pc) || (locked && q.need.includes(parseName(k.n).pc)))) || locked && (() => { try { return q.tag === "scale" && q.inScale ? isRight(k.n, q) : parseName(q.ans).pc === parseName(k.n).pc; } catch (e) { return false; } })();
                 return (
                   <button key={k.n} type="button"
                     className={`pvpkey${k.b ? " blk" : ""}${dim ? " culled" : ""}${isAns ? " right" : ""}`}
-                    disabled={locked || dim} onClick={() => answer(k.n)}
+                    disabled={locked || dim} onClick={() => q.tag === "build" ? tapBuild(k.n) : answer(k.n)}
                     aria-label={k.b ? `${k.n} / ${FLAT_OF[k.n]}` : k.n}>
                     <span>{k.b ? <><em>{k.n}</em><em>{FLAT_OF[k.n]}</em></> : k.n}</span>
                   </button>

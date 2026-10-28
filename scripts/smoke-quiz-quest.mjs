@@ -28,8 +28,12 @@ const q1 = { kind: "key", ans: [0, 1, 3] }, q2 = { kind: "keys", ans: [0, 4, 7] 
 ok("a 'key' question accepts any of its answers", m.judgeKeys(q1, [3]) && m.judgeKeys(q1, [1]) && !m.judgeKeys(q1, [2]));
 ok("a 'keys' question needs exactly the set", m.judgeKeys(q2, [7, 0, 4]) && !m.judgeKeys(q2, [0, 4]) && !m.judgeKeys(q2, [0, 4, 7, 9]));
 // notes outside a scale: every such pc is right
-const notin = (() => { for (let i = 0; i < 400; i++) { const { q } = m.nextQuestion("en", { done: ["scale"], level: 3, rand }); if (q.id === "notin") return q; } })();
-ok("'which note is NOT in the scale' accepts every note outside it", notin && notin.ans.length >= 5 && notin.ans.every(p => m.judgeKeys(notin, [p])));
+let sawNotIn = false, build8 = 0, minorSeen = false;
+for (let i = 0; i < 600; i++) { const { q } = m.nextQuestion("en", { done: ["scale", "natural_minor", "harmonic_minor", "melodic_minor"], level: 3, rand }); if (q.id === "notin") sawNotIn = true; if (q.id === "build" && q.ans.length === 7 && m.judgeKeys(q, q.ans)) build8++; if (q.id === "build" && /minor/.test(q.label)) minorSeen = true; }
+ok("the odd-one-out 'NOT in the scale' question is retired", !sawNotIn);
+ok("a scale learner is asked to tap every note (7 pitch classes), incl. minors they learned", build8 > 50 && minorSeen);
+let majOnly = true; for (let i = 0; i < 300; i++) { const { q } = m.nextQuestion("en", { done: ["scale"], level: 3, rand }); if (q.id === "build" && /minor/.test(q.label)) majOnly = false; }
+ok("a learner who only studied scales gets no minor scale question", majOnly);
 // ladder
 store["tg_adv_quiz"] = undefined; delete store["tg_adv_quiz"];
 let l = m.readLadder(); ok("starts at level 1", l.lvl === 1);
