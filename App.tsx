@@ -625,7 +625,7 @@ function groupCells(gid) {
   const rank = (id) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
   return cells.map((cell, i) => ({ cell, i })).sort((a, b) => rank(a.cell.id) - rank(b.cell.id) || a.i - b.i).map(x => x.cell);
 }
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null, onMentor = null }) {
   const lc = L[lang];
   const groups = PATH_GROUPS[lang];
   /* Card numbers run straight through the whole pathway — foundation 01-02,
@@ -911,6 +911,11 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
                 <div className="pglabel">{g.label}</div>
                 <div className="pgdesc">{g.desc}</div>
               </div>
+              {gi === 0 && onMentor && (
+                <button type="button" className="pgmentor" onClick={onMentor}>
+                  <span aria-hidden="true">🎯</span> <span>{lang === "th" ? "เมนเทอร์" : lang === "zh" ? "导师" : "Mentor"}</span>
+                </button>
+              )}
               {gi === 0 && onUpgrade && (
                 <button type="button" className="pgupgrade" onClick={onUpgrade}>
                   <span className="pgupgrade-crown" aria-hidden="true">👑</span> <span>Upgrade Premium</span>
@@ -13438,7 +13443,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
           onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
-          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""}onUpgrade={(premium && !isTrialPlan(plan)) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
+          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} onMentor={() => { playUi("click"); logUsage("nav", "pathway-mentor"); stopPracticeListeners(); setPage("coach"); }} onUpgrade={(premium && !isTrialPlan(plan)) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
       )}
 
       {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}

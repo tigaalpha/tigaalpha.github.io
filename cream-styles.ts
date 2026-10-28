@@ -566,6 +566,9 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 .tg .pgupgrade::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;pointer-events:none;
   background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);
   animation:pgUpSheen 3.4s ease-in-out infinite}
+.tg .pgmentor{flex-shrink:0;margin-left:auto;margin-right:8px;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;border:1px solid #d9775766;background:rgba(217,119,87,.1);color:#d97757;font-family:var(--f-app);font-size:12.5px;font-weight:700;cursor:pointer;touch-action:manipulation}
+.tg .pgmentor:active{transform:scale(.95)}
+.tg .pgmentor+.pgupgrade{margin-left:0}
 .tg .pgupgrade-crown{filter:drop-shadow(0 1px 1px rgba(60,20,0,.4))}
 .tg .pgupgrade:active{transform:scale(.95)}
 @keyframes pgUpGlow{0%,100%{box-shadow:0 10px 22px -10px #5b2fd0,inset 0 1px 0 rgba(255,255,255,.4),inset 0 -2px 0 rgba(30,10,80,.35),0 0 0 0 rgba(124,77,255,.45)}
