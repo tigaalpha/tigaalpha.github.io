@@ -8,7 +8,8 @@
 export const GAME_POWER_ENABLED = true;
 export const POWER_MAX = 100;
 export const POWER_START = 60;                 // what a device starts with, so nobody is locked out before they have had a chance to learn
-export const POWER_DAILY_EARN_CAP = 150;       // soft ceiling on what one day of learning can add (the bar itself caps at POWER_MAX)
+export const EARN_MULT = 1.5;                    // owner 2026-10-28: learning fills the bar 50% faster
+export const POWER_DAILY_EARN_CAP = 225;       // soft ceiling on what one day of learning can add (the bar itself caps at POWER_MAX)
 /* Owner 2026-10-17: power is PLAY TIME. COST is only the least you need to be allowed in; nothing is taken at the start. While a fight or an Adventure map is
    running, 1 power is taken every DRAIN_SECS (100 power = about 15 minutes); at 0 the game stops and the learn pop-up opens. */
 export const COST = { fight: 5, adventure: 5 } as const;
@@ -89,5 +90,5 @@ export function powerFromActivity(e: any): number {
   const r = powerFromEntry(e, seen);
   const id = String(e.k) + ":" + String(e.id || "");
   if ((e.k === "lesson" || e.k === "read-chapter") && !seen.has(id)) { seen.add(id); try { localStorage.setItem(SEEN, JSON.stringify([...seen].slice(-800))); } catch (err) {} }
-  return r.n ? earnPower(r.n, r.why) : 0;
+  return r.n ? earnPower(r.n * EARN_MULT, r.why) : 0;
 }
