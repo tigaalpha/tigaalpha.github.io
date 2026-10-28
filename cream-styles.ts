@@ -566,7 +566,7 @@ html:not([data-theme="dark"]) .pvppad-lcol .pvpskbtn.ult{background:linear-gradi
 .tg .pgupgrade::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;pointer-events:none;
   background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);
   animation:pgUpSheen 3.4s ease-in-out infinite}
-.tg .pgmentor{flex-shrink:0;margin-left:auto;margin-right:8px;display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:999px;border:0;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;font-family:var(--f-app);font-size:14px;font-weight:800;letter-spacing:.2px;box-shadow:0 4px 14px -3px rgba(124,58,237,.65);cursor:pointer;touch-action:manipulation;white-space:nowrap}
+.tg .pgmentor{flex-shrink:0;margin-left:auto;margin-right:0;display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:999px;border:0;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;font-family:var(--f-app);font-size:12.5px;font-weight:800;letter-spacing:.2px;box-shadow:0 4px 14px -3px rgba(124,58,237,.65);cursor:pointer;touch-action:manipulation;white-space:nowrap}
 .tg .pgmentor:active{transform:scale(.95)}
 .tg .pgmentor+.pgupgrade{margin-left:0}
 .tg .pgupgrade-crown{filter:drop-shadow(0 1px 1px rgba(60,20,0,.4))}
