@@ -24,9 +24,9 @@ import { RobotGlyph } from "./cyber-avatar";
 
 export const TABS = [
   { k: "learn", page: "pathway", Icon: BookOpen, th: "เส้นทาง", en: "Pathway", zh: "学习路径" },
+  { k: "mentor", page: "coach", Icon: Target, th: "เมนเทอร์", en: "Mentor", zh: "导师" },
   { k: "practice", page: "studio", Icon: Piano, th: "ฝึกซ้อม", en: "Practice", zh: "练习" },
   { k: "teacher", page: "sensei", Icon: Sparkles, th: "ครู AI", en: "AI Teacher", zh: "AI老师" },
-  { k: "mentor", page: "coach", Icon: Target, th: "เมนเทอร์", en: "Mentor", zh: "导师" },
   { k: "arena", page: "pvp", Icon: Swords, th: "เกม", en: "Games", zh: "游戏" },
   { k: "me", page: "profile", Icon: null, th: "ฉัน", en: "Me", zh: "我的" },
 ];
