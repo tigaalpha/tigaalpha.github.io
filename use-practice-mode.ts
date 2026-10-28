@@ -323,7 +323,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         practiceStreakRef.current += 1;
         if (practiceStreakRef.current > practiceBestStreakRef.current) practiceBestStreakRef.current = practiceStreakRef.current;
         setPracticeStreak(practiceStreakRef.current);
-        playPianoNote(targets[matchedIdx], 0.5); micMuteUntilRef.current = Date.now() + 450;
+        if (d.source !== "mic") { playPianoNote(targets[matchedIdx], 0.5); micMuteUntilRef.current = Date.now() + 450; }   // a note the mic heard was already sounded by the learner: no echo, and no mute that would eat the next fast note
         setPracticeHeard({ note: heardNote, ok: true });
         countHitPause();
         // "how many done" across the WHOLE drill: for a plain chord lo is 0, so
@@ -393,7 +393,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         practiceStreakRef.current += 1;
         if (practiceStreakRef.current > practiceBestStreakRef.current) practiceBestStreakRef.current = practiceStreakRef.current;
         setPracticeStreak(practiceStreakRef.current);
-        playPianoNote(targets[idx], 0.5); micMuteUntilRef.current = Date.now() + 450;
+        if (d.source !== "mic") { playPianoNote(targets[idx], 0.5); micMuteUntilRef.current = Date.now() + 450; }   // same: no echo or mute for a mic-heard note
         setPracticeHeard({ note: heardNote, ok: true });
         countHitPause();
         const next = idx + 1;
