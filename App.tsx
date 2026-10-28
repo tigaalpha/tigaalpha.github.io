@@ -11542,7 +11542,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
    // and the admin unlock for the tab session only (a new tab or an explicit
    // sign-out still starts clean).
   const [page, setPage] = useState(() => {
-    try { const p = sessionStorage.getItem("tiga_page"); return p || "myclass"; } catch (e) { return "myclass"; }
+    try { const p = sessionStorage.getItem("tiga_page"); return p && p !== "myclass" ? p : "pathway"; } catch (e) { return "pathway"; }
   });
   /* The premium interface (ux2.ts): the tab bar, one icon language, motion, large titles. Behind one switch — on for the admin
      account and for /?ux=2 — until the owner says it is for everyone. `kbd` on <html> while a text field has focus lets the CSS
@@ -13643,7 +13643,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           </div>
         </div>
         {[
-          { p: "myclass", ic: "🎓", c: "#d97757", t: "My Class" },
           { p: "pathway", ic: "⬡", c: "#d97757", t: lc.navPath },
           // TIGA CHAT opens the full-screen chat (.mov modal) directly — owner request
           // 2026-09-22: landing on SenseiView first made the nav item feel broken

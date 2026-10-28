@@ -19,11 +19,10 @@
    the screen then — see the `kbd` class in PianoApp). Every overlay (a song,
    a practice run, the shop, the chat) is position:fixed above it. */
 import { memo } from "react";
-import { BookOpen, GraduationCap, Piano, Sparkles, Swords } from "lucide-react";
+import { BookOpen, Piano, Sparkles, Swords } from "lucide-react";
 import { RobotGlyph } from "./cyber-avatar";
 
 export const TABS = [
-  { k: "myclass", page: "myclass", Icon: GraduationCap, th: "My Class", en: "My Class", zh: "My Class" },
   { k: "learn", page: "pathway", Icon: BookOpen, th: "เส้นทาง", en: "Pathway", zh: "学习路径" },
   { k: "practice", page: "studio", Icon: Piano, th: "ฝึกซ้อม", en: "Practice", zh: "练习" },
   { k: "teacher", page: "sensei", Icon: Sparkles, th: "ครู AI", en: "AI Teacher", zh: "AI老师" },
