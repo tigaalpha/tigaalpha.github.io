@@ -103,7 +103,7 @@ export function newState(seed = 7, tuneEvery = 30, level = 0, startGuns: WeaponI
   const ammo: any = {}; for (const k of Object.keys(WEAPONS) as WeaponId[]) ammo[k] = { mag: WEAPONS[k].mag, res: WEAPONS[k].reserve };
   return {
     peaceful: !!(L && L.peaceful), ms: L && L.mission ? { type: L.mission.type, secs: L.mission.secs || 0, hold: L.mission.hold || 8, goal: L.mission.type === "survive" ? (L.mission.secs || 90) : (L.mission.pts || []).length, prog: 0, t: 0, phase: 0, digCd: 0, boss: L.mission.boss, ask: -1, label: L.mission.label, items: (L.mission.pts || []).map(([x, z]) => ({ x, z, r: L.mission!.type === "mine" ? 1.6 : 3.2, p: 0, hp: L.mission!.type === "mine" ? 3 : 1, done: false, cd: 0 })) } : null,
-    t: 0, active: 0, rng: seed, seed, auto: true, autoFire: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
+    t: 0, active: 0, rng: seed, seed, auto: false, autoFire: true, autoSide: 1, autoT: 0, autoMv: 0, autoPx: 0, autoPz: 22,
     p: { x: 0, z: 22, yaw: Math.PI, pitch: 0, y: 0, vy: 0, hp: 100, shield: 0, inv: 0, sprint: false, slide: 0, slideCd: 0, sdx: 0, sdz: 0 },
     coins: 0, shopW, weapon: shopW ? shopW.as : "pistol", ammo, cd: 0, reload: 0, recoil: 0,
     enemies: [], acid: [], rk: [], boxes: L ? L.boxes : LEVEL_BOXES, pk: [], owned: Object.fromEntries(WORDER.map(w => [w, w === "pistol" || startGuns.includes(w)])) as Record<WeaponId, boolean>,
