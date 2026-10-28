@@ -43,7 +43,7 @@ export const PATHWAY_PRACTICE = {
       subtitle: { th: "ทางคอร์ดเมเจอร์ยอดนิยม เลือก 2/4/8 คอร์ด", en: "Popular major chord paths — pick 2/4/8 chords", zh: "流行大调和弦进行，选 2/4/8 和弦" },
     },
     {
-      id: "play-chords-minor", icon: "🌙", color: "#c2410c", cat: "chords-minor",
+      id: "play-chords-minor", icon: "🌙", color: "#b45309", cat: "chords-minor",
       title: { th: "คอร์ดยอดฮิต (Minor)", en: "Hit Chords · Minor", zh: "热门和弦 · 小调" },
       subtitle: { th: "ทางคอร์ดไมเนอร์ยอดนิยม เลือก 2/4/8 คอร์ด", en: "Popular minor chord paths — pick 2/4/8 chords", zh: "流行小调和弦进行，选 2/4/8 和弦" },
     },
