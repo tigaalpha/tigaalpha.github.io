@@ -11105,6 +11105,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // coins · daily chest · mascot companion
   const { coins, setCoins, gems, setGems, chestAvail, setChestAvail, chestOpen, setChestOpen, chestOpening, setChestOpening, chestReward, setChestReward, chestSpinDeg, setChestSpinDeg, mascotMood, setMascotMood, mascotT, expToast, setExpToast, levelUp, setLevelUp, badgeUp, setBadgeUp, mysteryChest, setMysteryChest, luckyToast, setLuckyToast, luckyToastTimer, expRef, lessonsRef, streakRef, questDateRef, questCountRef, expToastTimer, lvUpTimer, badgeTimer, planRef, activeEventRef, celebrateNewBadges, showExpToast, gainExp, earnCoins, exchangeGems, grantPracticeGem, buyFreeze, bumpWeekly, mascot, openChestNow } = useGamification({ session, profile, setProfile });
   const [shopOpen, setShopOpen] = useState(false);
+  const [hdrGp, setHdrGp] = useState(false);   // Game Power sheet opened from the header bar on the Pathway page
   // bumped on every upgrade so anything reading itemLv() re-renders with it
   const [itemLvTick, setItemLvTick] = useState(0);
   // the stable lives in its own storage, so the shelf needs telling when it moves
@@ -13383,7 +13384,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <RobotGlyph size={23} />
             </button>
           )}
-          {!isGuest && <button className="shopbtn" onClick={() => setShopOpen(true)} title={lc.shopTitle} aria-label="Shop"><span className="shopbtn-ic">🛍️</span><span className="shopbtn-coins">🪙 {coins}</span></button>}
+          {page === "pathway" ? <span className="gpbar-hdrp"><GamePowerBar lang={lang} onOpen={() => setHdrGp(true)} /></span> : !isGuest && <button className="shopbtn" onClick={() => setShopOpen(true)} title={lc.shopTitle} aria-label="Shop"><span className="shopbtn-ic">🛍️</span><span className="shopbtn-coins">🪙 {coins}</span></button>}
           {/* Daily-reward chest button removed from the header per feedback (decluttering) —
               still fully reachable from ProfilePage's own dailyhub chest button, same openChestNow(). */}
           {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title="Metronome" aria-label="Metronome on">🥁 {metroBpm}</button>}
@@ -13744,6 +13745,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} />
           <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} note={chatNote} noteOut={chatLeft === 0} />
         </div>
+      {hdrGp && <PowerSheet lang={lang} onClose={() => setHdrGp(false)} />}
         {uxOn && modal && <TabBar page="sensei" lang={lang} onGo={(t, already) => { setModal(false); tabGo(t, already); }} />}
       </div>
 
