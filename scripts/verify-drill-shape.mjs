@@ -19,7 +19,7 @@ const check = (s, name, expectDown) => {
   if (!up.every((v, i) => i === 0 || v > up[i - 1])) bad(name + " does not strictly climb: " + n);
   if (!dn.every((v, i) => i === 0 || v < dn[i - 1])) bad(name + " does not strictly fall: " + n);
   if (n[0] !== n[n.length - 1]) bad(name + " does not end on the low tonic: " + n);
-  if (top - n[0] !== 12 && expectDown !== "7") bad(name + " top is not an octave up: " + n);
+  if (top - n[0] !== 12) bad(name + " top is not an octave up: " + n);
 };
 for (const g of ["major", "natural minor", "harmonic minor", "melodic minor"]) {
   const list = g === "major" ? M.MAJOR_SCALE_SONGS : M.MINOR_SCALE_SONGS[g];

@@ -496,8 +496,9 @@ function scaleFromLesson(sl, hand) {
   const r = pcIdx(sl.root); if (r < 0) return null;
   const up = SCALE_DEF[sl.quality]; if (!up) return null;
   const names = [...up, 12].map(st => r + st);                       // root … root an octave up
-  const downSteps = sl.quality === "melodic minor" ? SCALE_DEF["natural minor"] : null;   // classical melodic minor comes back down natural
-  const all = downSteps ? names.concat([...downSteps].reverse().map(st => r + st)) : names;
+  /* every scale is taught low to high AND back down to the low tonic (owner, 2026-10-28); classical melodic minor comes back down natural */
+  const downSteps = sl.quality === "melodic minor" ? SCALE_DEF["natural minor"] : up;
+  const all = names.concat([...downSteps].reverse().map(st => r + st));
   const notes = all.map(abs => CHROMA[abs % 12] + (4 + Math.floor(abs / 12)));
   const rootKey = String(sl.root).toLowerCase().replace(/♯/g, "#");
   const tbl = sl.quality === "major" ? `${rootKey} major scale` : `${rootKey} minor scale`;
@@ -2242,9 +2243,10 @@ export function makeScaleSong(rootPC, rootNm, scaleType, label, bpm = 84) {
 export function makeChordSong(rootPC, rootNm, chordType, label, bpm = 80) {
   const pcs = chordNotesOf(rootPC, chordType);
   const asc = _ascNotes(pcs, 4);
-  const all = pcs.length >= 4
-    ? [...asc, ...asc.slice(0, -1).reverse()]
-    : [...asc, pcs[0] + "5", ...asc.slice().reverse()];
+  /* every chord climbs from the low root through its notes to the root an octave up, then comes back down the same notes to the low root
+     (owner, 2026-10-28; sevenths used to turn at the 7th and never reached the octave) */
+  const topRoot = _ascNotes([...pcs, pcs[0]], 4).pop();
+  const all = [...asc, topRoot, ...asc.slice().reverse()];
   return {
     id: "ch_" + chordType + "_" + rootPC, drill: true, cat: "chord", diff: 1, bpm,
     th: rootNm + " " + label.th, en: rootNm + " " + label.en, zh: rootNm + label.zh, seq: _drillSeq(all),
