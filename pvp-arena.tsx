@@ -1615,6 +1615,7 @@ export const PvpPage = memo(function PvpPage({
         <div className="pvphdr">
           <button className="stgback" onClick={onBack} aria-label="back">←</button>
           <span className="pvphdr-t">{T("สนามประลอง", "PvP Arena", "竞技场")}</span>
+          {onOpenShop && <button type="button" className="pvpshop-hdr" onClick={() => { if (playUi) playUi("click"); onOpenShop(); }}><span aria-hidden="true">🛍️</span> <span>{T("ร้านค้า", "Shop", "商店")}</span></button>}
           <span className="gpbar-hdr"><GamePowerBar lang={lang} onOpen={() => { if (playUi) playUi("click"); setPowerSheet({ need: 0 }); }} /></span>
           <span className="mdv-cls" style={{ "--cc": clsInfo.c }}>
             <span className="mdv-cls-ic"><ItemArt art={clsInfo.art} sw={[clsInfo.c, "#22283a"]} /></span>{tr3(clsInfo, lang)}

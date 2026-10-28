@@ -4160,3 +4160,8 @@ export function useInjectCSS() {
   return ready;
 }
 
+
+/* PvP lobby header: a Shop button left of the Game Power bar (owner, 2026-10-28) */
+.pvpshop-hdr{margin-left:auto;margin-right:8px;flex:none;display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:999px;border:0;background:#d97757;color:#fff;font-family:var(--f-app);font-size:14px;font-weight:800;cursor:pointer;touch-action:manipulation;box-shadow:0 3px 10px -3px rgba(217,119,87,.7)}
+.pvpshop-hdr:active{transform:scale(.95)}
+.pvpshop-hdr+.gpbar-hdr{margin-left:0}
