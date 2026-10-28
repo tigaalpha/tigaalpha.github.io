@@ -4142,6 +4142,9 @@ ${UX2_CSS}
 
 /* owner 2026-10-23: Robot Adventure 3D is hidden until launch; remove this rule to show the button again */
 .pvpadv[data-robot3d]{display:none!important}
+/* the hidden Robot Adventure 3D slot left a hole: Alien Hunt, Adventure and Fight are spaced evenly (owner, 2026-10-28) */
+@media (orientation:landscape) and (max-height:560px){.pvpadv.alien{top:4px!important}.pvpadv:not(.online):not(.alien){top:50px!important}.pvpgo-hero{top:96px!important}.pvplvl-hero{top:144px!important}}
+@media (orientation:landscape) and (max-height:360px){.pvpadv.alien{top:4px!important}.pvpadv:not(.online):not(.alien){top:42px!important}.pvpgo-hero{top:80px!important}.pvplvl-hero{top:122px!important}}
 `;
 
 export function useInjectCSS() {
