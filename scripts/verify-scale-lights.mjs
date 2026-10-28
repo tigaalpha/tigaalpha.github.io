@@ -187,11 +187,11 @@ console.log("\n=== F. the chat path's scale table ===");
   /* the reported symptom, one layer up: ask the extractor for C minor and see
      that it hands playSequence three lit black keys */
   const got = extractNotes("C minor scale", "right", "scale", "C");
-  ok("asking the chat for C minor yields the same eight notes the lesson plays",
-     got && list(got.notes) === "C4 D4 D#4 F4 G4 G#4 A#4 C5", got && list(got.notes));
+  ok("asking the chat for C minor yields the notes the lesson plays (up to C5 and back down to C4)",
+     got && list(got.notes) === "C4 D4 D#4 F4 G4 G#4 A#4 C5 A#4 G#4 G4 F4 D#4 D4 C4", got && list(got.notes));
   const maj = extractNotes("C major scale", "right", "scale", "C");
   ok("...and C major still yields the major scale (the fix must not flip it)",
-     maj && list(maj.notes) === "C4 D4 E4 F4 G4 A4 B4 C5", maj && list(maj.notes));
+     maj && list(maj.notes) === "C4 D4 E4 F4 G4 A4 B4 C5 B4 A4 G4 F4 E4 D4 C4", maj && list(maj.notes));
 }
 
 console.log(fail ? `\n${fail} CHECK(S) FAILED` : "\nALL CHECKS PASSED");

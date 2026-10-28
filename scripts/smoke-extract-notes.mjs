@@ -16,7 +16,9 @@ await build({ entryPoints: [path.join(root, "music-engine.tsx")], bundle: true, 
 const { extractNotes } = await import(out);
 let pass = 0, fail = 0;
 const check = (n, ok, d = "") => { ok ? pass++ : fail++; console.log((ok ? "PASS " : "FAIL ") + n + (d ? " — " + d : "")); };
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+/* a scale is taught low to high AND back down (owner, 2026-10-28): an 8-note expectation matches a 15-note lesson that climbs those 8 and returns by the same notes */
+const same = (a, b) => (a && b && b.length === 8 && a.length === 15 ? eq(a.slice(0, 8), b) && eq(a.slice(7), [...b].reverse()) : eq(a, b));
 const NAT_C = ["C4", "D4", "D#4", "F4", "G4", "G#4", "A#4", "C5"];
 const screenshot = "🎼 ไมเนอร์ (Natural) สเกล (Scale) · C\n\nโน้ตทั้งหมด: C D E♭ F G A♭ B♭ C\nสูตรระยะห่าง: W-H-W-W-H-W-W\n\nไมเนอร์ธรรมชาติ — เทียบกับเมเจอร์คือลดขั้น 3, 6 และ 7";
 let r = extractNotes(screenshot);
