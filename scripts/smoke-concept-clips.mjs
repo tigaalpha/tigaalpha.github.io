@@ -13,6 +13,6 @@ await pg.waitForTimeout(800); await pg.mouse.click(360, 331); await pg.waitForTi
 await pg.waitForTimeout(150); await pg.locator(".cc-pause").click(); await pg.waitForTimeout(500); await pg.screenshot({ path: "/tmp/clip.png" });
 console.log("reels", await pg.locator(".cc-reel").count(), "active", await pg.locator(".cc-reel[data-active=\"1\"]").getAttribute("data-clip"));
 await pg.screenshot({ path: "/tmp/clip.png" });
-await pg.waitForTimeout(4000); console.log("active after 4s", await pg.locator(".cc-reel[data-active=\"1\"]").getAttribute("data-clip"), "cap", (await pg.locator(".cc-reel[data-active=\"1\"] .cc-cap h3").innerText()));await pick(2); await pg.waitForTimeout(300);
+await pg.waitForTimeout(4000); console.log("active after 4s", await pg.locator(".cc-reel[data-active=\"1\"]").getAttribute("data-clip"), "cap", (await pg.locator(".cc-reel[data-active=\"1\"] .cc-cap p").innerText()));await pick(2); await pg.waitForTimeout(300);
 console.log("zh reels", await pg.locator(".cc-reel").count(), "errors", errs.length, errs[0] || "");
 await b.close(); srv.close();
