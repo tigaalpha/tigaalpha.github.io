@@ -2228,15 +2228,11 @@ export function _drillSeq(noteNames) {
 export function makeScaleSong(rootPC, rootNm, scaleType, label, bpm = 84) {
   const pcs = scaleNotesOf(rootPC, scaleType);
   const asc = _ascNotes(pcs, 4);
-  const descPcs = scaleType === "melodic minor" ? scaleNotesOf(rootPC, "natural minor") : pcs;
-  /* The descent is degrees 7..1 in octave 4 — all seven of them sit below the
-     top note (which was just played as the octave), so the octave is fixed
-     rather than walked. (An earlier attempt walked the octave and produced
-     nonsense like B-1; a second dropped the closing tonic. The drill test pins
-     the pitch AND octave of every note of every scale type, which is what
-     caught both.) */
-  const desc = descPcs.slice().reverse().map(pc => pc + "4");
-  const all = [...asc, pcs[0] + "5", ...desc];
+  /* The way down is the way up read backwards, in the SAME octaves: low tonic up to the high tonic, then back to the low tonic (owner, 2026-10-28).
+     The old code put every descending note in octave 4, so in any key whose scale crosses B-C (G, D, A, E, B, F#...) the notes coming down
+     were an octave too low and the run jumped instead of walking back. Melodic minor comes down as natural minor (same octaves, 6th and 7th lowered). */
+  const down = scaleType === "melodic minor" ? _ascNotes(scaleNotesOf(rootPC, "natural minor"), 4) : asc;
+  const all = [...asc, pcs[0] + "5", ...down.slice().reverse()];
   return {
     id: "sc_" + scaleType.replace(/\s+/g, "") + "_" + rootPC, drill: true, cat: "scale", diff: 1, bpm,
     th: rootNm + " " + label.th, en: rootNm + " " + label.en, zh: rootNm + label.zh, seq: _drillSeq(all),
