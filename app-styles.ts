@@ -4149,7 +4149,7 @@ ${UX2_CSS}
 .pvpshop-hdr{margin-left:auto;margin-right:8px;flex:none;display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:999px;border:0;background:#d97757;color:#fff;font-family:var(--f-app);font-size:14px;font-weight:800;cursor:pointer;touch-action:manipulation;box-shadow:0 3px 10px -3px rgba(217,119,87,.7)}
 .pvpshop-hdr:active{transform:scale(.95)}
 .pvpshop-hdr+.gpbar-hdr{margin-left:0}
-.gpbar-hdrp{flex:none;width:150px;margin-left:auto}.gpbar-hdrp .gpbar{position:static!important;width:100%!important}
+.gpbar-hdrp{flex:none;width:124px;max-height:34px;overflow:hidden;margin-left:auto}.gpbar-hdrp .gpbar{position:static!important;width:100%!important}.gpbar-hdrp .gpbar{padding:3px 8px 3px 5px!important;gap:5px;border-radius:14px;max-height:34px;box-sizing:border-box}.gpbar-hdrp .gpbar-k,.gpbar-hdrp .gpbar-v u{display:none!important}.gpbar-hdrp .gpbar-ic{width:20px;height:20px;font-size:11px;flex:none}.gpbar-hdrp .gpbar-segs b{height:5px}.gpbar-hdrp .gpbar-v b{font-size:13px}
 `;
 
 export function useInjectCSS() {
