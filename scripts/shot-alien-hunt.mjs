@@ -13,6 +13,8 @@ for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) br
 await p.evaluate(() => document.querySelector("[data-alien-hunt]").click()); await p.waitForSelector("[data-start]"); await p.evaluate(() => document.querySelector("[data-start]").click()); await p.waitForSelector(".ah-cv"); await p.waitForTimeout(1200);
 const set = async (list, name) => { await p.evaluate((list) => { const s = window.__ah.state; s.enemies.length = 0; s.spawnQ = []; s.between = 99; s.p.x = 0; s.p.z = 0; s.p.yaw = 0; s.p.pitch = 0.0; s.p.hp = 100; let id = 500; for (const [k, x, z] of list) s.enemies.push({ id: id++, kind: k, x, z, hp: 999, max: 999, yaw: 0, t: 0.4, cd: 5, dead: 0, flash: 0, leap: 0 }); }, list); await p.waitForTimeout(700); await p.screenshot({ path: process.argv[2] + name }); };
 await set([["capling", -3, -6], ["manthood", 0, -6.5], ["domestalker", 3.2, -6]], "-ref.png");
+await set([["warden", -3.5, -8], ["matriarch", 0, -8], ["hound", 3.5, -6]], "-fam1.png");
+await set([["razor", -3, -6], ["sporecaster", 0, -7], ["bloater", 3, -6]], "-fam2.png");
 await set([["skitter", -2.2, -4.2], ["mantis", 0.8, -5.5], ["spitter", 3.6, -5.5]], "-a.png");
 await set([["charger", -1.5, -5], ["flarecaster", 2.5, -6]], "-b.png");
 await p.evaluate(() => { const s = window.__ah.state; for (const w of Object.keys(s.owned)) s.owned[w] = true; s.enemies.length = 0; s.p.x = 0; s.p.z = 0; s.weapon = "rail"; s.pk.length = 0; s.pk.push({ id: 801, x: -2, z: -5, w: "arc" }, { id: 802, x: 2.5, z: -6, w: "ammo" }); });

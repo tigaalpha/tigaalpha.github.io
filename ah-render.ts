@@ -54,7 +54,14 @@ const REFPAL: Record<string, number[]> = { xeno: XENO };
 for (const k of ["skitter", "mantis", "charger", "scarab", "stalker", "glowbug", "thornback", "hound", "domestalker", "razor", "leaper", "spiker", "warden", "titan", "lumawarden", "behemoth", "walker"]) REFPAL[k] = XENO;
 for (const k of ["manthood", "flarecaster", "matriarch", "skyeye", "veilmaw", "sporecaster", "bloater", "spitter"]) REFPAL[k] = TANC;
 for (const k of ["capling", "drone", "wisp"]) REFPAL[k] = HAMC;
-function buildAlien(kind: AlienKind, tint = 0): Rig {
+/* the three reference creatures are templates for the rest of the roster (owner 2026-10-29: "make the other aliens closer to the pictures too"): a species listed here is built
+   with that template, stretched by VARIANT, and keeps its own name, palette, behaviour and menace pass */
+const FAMILY: Record<string, string> = { stalker: "domestalker", razor: "domestalker", hound: "domestalker", thornback: "domestalker", behemoth: "domestalker", warden: "domestalker", titan: "domestalker", lumawarden: "domestalker",
+  flarecaster: "manthood", matriarch: "manthood", skyeye: "manthood", sporecaster: "manthood", veilmaw: "manthood", spiker: "capling", bloater: "capling" };
+const VARIANT: Record<string, [number, number, number]> = { stalker: [0.95, 1, 1.1], razor: [0.78, 1.05, 1.0], hound: [1.0, 0.82, 1.25], thornback: [1.2, 1.0, 1.0], behemoth: [1.55, 1.2, 1.3], warden: [1.4, 1.35, 1.35], titan: [1.6, 1.55, 1.55], lumawarden: [1.35, 1.45, 1.35],
+  flarecaster: [1, 1, 1], matriarch: [1.45, 1.3, 1.4], skyeye: [0.95, 0.9, 0.95], sporecaster: [0.9, 0.85, 0.9], veilmaw: [1.05, 1, 1.05], spiker: [0.9, 0.95, 0.9], bloater: [1.5, 1.05, 1.35] };
+function buildAlien(kind0: AlienKind, tint = 0): Rig {
+  const kind = ((FAMILY[kind0] as AlienKind) || kind0) as AlienKind;
   const g = new THREE.Group(), legs: THREE.Object3D[] = [], arms: THREE.Object3D[] = [], mats: THREE.MeshStandardMaterial[] = [];
   const mk = (base: THREE.MeshStandardMaterial) => { const m = base.clone(); mats.push(m); return m; };
   const body = new THREE.Group(); g.add(body);
@@ -325,14 +332,15 @@ function buildAlien(kind: AlienKind, tint = 0): Rig {
     for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.38 * sd, 1.25, 0.0); arm.add(tube([V(0, 0, 0), V(0.14 * sd, -0.45, -0.3), V(0.1 * sd, -0.75, -0.7)], 0.1, 0.07, bl2, (k) => 1 + 0.25 * Math.sin(k * 3))); arm.add(tube([V(0.1 * sd, -0.75, -0.7), V(0.05 * sd, -0.95, -0.95), V(0.0, -1.05, -1.1)], 0.06, 0.04, bl)); for (const k of [-1.5, -0.5, 0.5, 1.5]) arm.add(tube([V(0, -1.05, -1.1), V(k * 0.04, -1.2, -1.2), V(k * 0.07, -1.38, -1.2)], 0.02, 0.005, bl3)); body.add(arm); arms.push(arm); }   // long arms with four long fingers
     for (const sd of [-1, 1]) { const lg = new THREE.Group(); lg.position.set(0.36 * sd, 0.95, 0.95); lg.add(tube([V(0, 0, 0), V(0.14 * sd, 0.12, -0.5), V(0.1 * sd, -0.3, -0.62)], 0.19, 0.11, bl2, (k) => 1 + 0.25 * Math.sin(k * 3))); lg.add(tube([V(0.1 * sd, -0.3, -0.62), V(0.06 * sd, -0.7, -0.5), V(0.04 * sd, -0.95, -0.76)], 0.1, 0.06, bl)); g.add(lg); legs.push(lg); }
   }
+  if (FAMILY[kind0] && VARIANT[kind0]) { const [vx, vy, vz] = VARIANT[kind0]; g.children.forEach(c => c.scale.set(c.scale.x * vx, c.scale.y * vy, c.scale.z * vz)); }
   if (kind === "skitter" || kind === "charger") { const sm = mk(CHIT(0x2a1a0e)); const n = kind === "charger" ? 7 : 5; for (let i = 0; i < n; i++) body.add(cone(kind === "charger" ? 0.1 : 0.05, kind === "charger" ? 0.5 : 0.28, sm, V((i % 2 ? 0.25 : -0.25) * (kind === "charger" ? 1.6 : 0.8), kind === "charger" ? 1.15 : 0.7, (kind === "charger" ? -0.9 : -0.35) + i * (kind === "charger" ? 0.34 : 0.22)), [-0.25, 0, (i % 2 ? -0.5 : 0.5)])); }
   { const gc = tint ? tint : kind === "spitter" ? 0x6aff2a : kind === "skyeye" ? 0xa04aff : kind === "flarecaster" ? 0xff7a2a : 0xff2a1a; const gl = new THREE.Mesh(new THREE.CircleGeometry(kind === "charger" ? 1.6 : 1.1, 24), new THREE.MeshBasicMaterial({ map: haloTex, color: gc, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); gl.rotation.x = -Math.PI / 2; gl.position.y = 0.04; g.add(gl); }   // a faint ominous glow on the floor under every alien
   {   // neon edge lines on the armour plates: a cyber-biomech look, drawn once per alien
     const nc = tint ? tint : kind === "spitter" ? 0x7dff3a : kind === "skyeye" ? 0xc06aff : kind === "flarecaster" ? 0xff8a2a : kind === "charger" ? 0xff3a3a : kind === "mantis" ? 0x2affd0 : 0x35c8ff;
-    const P = REFPAL[kind] || REFPAL.xeno;   // colours taken from the owner's three reference pictures (2026-10-29)
+    const P = REFPAL[kind0] || REFPAL.xeno;   // colours taken from the owner's three reference pictures (2026-10-29)
     mats.forEach((mm, i) => { const c0 = mm.color, lum = Math.min(1, (c0.r + c0.g + c0.b) / 2); (mm as any).emissiveIntensity = 0.45; mm.color.setHex(i % 3 === 2 ? P[2] : i % 2 ? P[1] : P[0]); mm.color.multiplyScalar(0.8 + 0.5 * lum); if (tint) mm.color.lerp(new THREE.Color(tint), 0.1); });
   }
-  try { embellish(kind, g, tint); } catch (err) { /* the base model still stands */ }
+  try { embellish(kind0, g, tint); } catch (err) { /* the base model still stands */ }
   g.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; } });
   return { g, legs, arms, mats, body };
 }
