@@ -29,7 +29,7 @@ export function GamePowerBar({ lang, onOpen }: { lang: string; onOpen: () => voi
     <button type="button" className={`gpbar${low ? " low" : ""}`} data-gpbar={v} onClick={onOpen} aria-label={T("พลังเกม", "Game power", "游戏能量") + " " + v + "/" + POWER_MAX}>
       <span className="gpbar-ic" aria-hidden="true">⚡</span>
       <span className="gpbar-main">
-        <span className="gpbar-k">GAME ENERGY<i> · {T("พลังเกม", "POWER", "能量")}</i></span>
+        <span className="gpbar-k">Game Energy<i> · {T("พลังเกม", "POWER", "能量")}</i></span>
         <span className="gpbar-segs" aria-hidden="true">{Array.from({ length: SEGS }, (_, i) => <b key={i} className={i < lit ? "on" : ""} />)}</span>
         <span className="gpbar-v"><b>{v}</b><em>/{POWER_MAX}</em><u>{T("ชาร์จ ›", "Charge ›", "充能 ›")}</u></span>
       </span>
