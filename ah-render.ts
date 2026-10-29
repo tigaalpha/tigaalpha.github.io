@@ -309,8 +309,60 @@ function buildAlien(kind: AlienKind, tint = 0): Rig {
     for (const [m, l] of add) m.add(l);
     for (const mm of mats) { (mm as any).emissiveIntensity = 1.5; if (tint) mm.color.lerp(new THREE.Color(tint), 0.32); }
   }
+  try { embellish(kind, g, tint); } catch (err) { /* the base model still stands */ }
   g.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; } });
   return { g, legs, arms, mats, body };
+}
+
+/* ── menace pass (owner 2026-10-29: "make the aliens prettier: the bugs scarier, the grand ones grand, the fierce tribes fierce") ──
+   Run after every alien is built. It reads the finished model (a bounding box and rays onto its own surface), so the same code dresses all 30+ species:
+   BUGS get a ridge of glowing-tipped spines, a maw of fangs with drool, a cluster of extra eyes and side blades; GRAND species get a halo, a crown,
+   orbiting shards and a ring on the floor; FIERCE tribes get a glowing throat with rows of teeth, menacing eye halos and swaying whip tendrils. */
+const BONE = new THREE.MeshStandardMaterial({ color: 0xe8e2cc, roughness: 0.45, metalness: 0.05, emissive: 0x000000, emissiveIntensity: 0 }); BONE.color.setHex(0xcfc6a4);
+const DRIP = new THREE.MeshStandardMaterial({ color: 0x9aff5a, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7, emissive: 0x2a7a10, emissiveIntensity: 0.8 });
+const GRANDC = new Set<string>(["warden", "matriarch", "walker", "titan", "lumawarden", "flarecaster", "skyeye", "wisp", "veilmaw", "behemoth", "drone"]);
+const TRIBEC = new Set<string>(["capling", "manthood", "domestalker", "spiker", "bloater", "hound", "sporecaster"]);
+const ACCENT: Record<string, number> = { warden: 0xff7a2a, matriarch: 0xff3a8a, walker: 0xff2a2a, titan: 0xff5a1a, lumawarden: 0x7affd0, flarecaster: 0xff8a2a, skyeye: 0xc06aff, wisp: 0x6affff, veilmaw: 0x6a9aff, behemoth: 0xffaa3a, drone: 0x3ad6ff, capling: 0xff8a3a, manthood: 0xb06aff, domestalker: 0xff3a3a, spiker: 0xff5a2a, bloater: 0x9aff3a, hound: 0x3affe0, sporecaster: 0xff6aff };
+function embellish(kind: AlienKind, g: THREE.Group, tint: number) {
+  const cat = GRANDC.has(kind) ? "grand" : TRIBEC.has(kind) ? "tribe" : "bug", acc = tint || ACCENT[kind] || 0xff2a1a;
+  g.updateMatrixWorld(true);
+  const meshes: THREE.Object3D[] = []; g.traverse(o => { if ((o as THREE.Mesh).isMesh) meshes.push(o); });
+  const bb = new THREE.Box3().setFromObject(g), h = Math.max(0.6, bb.max.y), wd = Math.max(0.5, bb.max.x - bb.min.x), dp = Math.max(0.5, bb.max.z - bb.min.z);
+  const u = Math.min(wd * 0.5, h * 0.42), rc = new THREE.Raycaster(), hit = (o: THREE.Vector3, d: THREE.Vector3) => { rc.set(o, d.clone().normalize()); const r = rc.intersectObjects(meshes, false)[0]; return r ? r.point.clone() : null; };
+  const gm = GLOW(acc), add = (o: THREE.Object3D) => { g.add(o); return o; };
+  const spike = (p: THREE.Vector3, len: number, r: number, dir: THREE.Vector3, m: THREE.Material, tip = true) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, len, 6), m); c.position.copy(p).addScaledVector(dir, len * 0.4); c.quaternion.setFromUnitVectors(V(0, 1, 0), dir.clone().normalize()); add(c); if (tip) { const t = new THREE.Mesh(new THREE.SphereGeometry(r * 0.55, 6, 5), gm); t.position.copy(p).addScaledVector(dir, len * 0.95); add(t); } };
+  let face: THREE.Vector3 | null = null;   // the front-most point of the model near head height: where the maw goes
+  for (let k = 0; k <= 8; k++) { const y = h * (0.85 - k * 0.07), p = hit(V(0, y, bb.min.z - 1), V(0, 0, 1)); if (p && (!face || p.z < face.z - 0.01)) face = p; }
+  const teeth = (n: number, spread: number, len: number, y: number, up: boolean) => { if (!face) return; for (let i = 0; i < n; i++) { const k = n === 1 ? 0 : i / (n - 1) - 0.5; const c = new THREE.Mesh(new THREE.ConeGeometry(len * 0.2, len, 5), BONE); c.position.set(face.x + k * spread, face.y + (up ? -len * 0.5 : len * 0.5 - spread * 0.2) + y, face.z + 0.03 + Math.abs(k) * 0.02); c.rotation.x = up ? Math.PI : 0; add(c); } };
+  const ridge = (n: number, len: number, m: THREE.Material) => { for (let i = 0; i < n; i++) { const z = bb.min.z + dp * (0.18 + 0.7 * i / Math.max(1, n - 1)), p = hit(V(0, h + 2, z), V(0, -1, 0)); if (p) spike(p, len * (1 - 0.25 * Math.abs(i / Math.max(1, n - 1) - 0.4)), wd * 0.028, V(0, 1, -0.25), m); } };
+  const tickers: ((t: number) => void)[] = [];
+  if (cat === "bug") {
+    ridge(9, wd * 0.2, CHIT(0x1a0e08));
+    if (face) {
+      teeth(5, u * 0.34, u * 0.1, -u * 0.02, true); teeth(4, u * 0.28, u * 0.07, -u * 0.07, false);
+      for (const sd of [-1, 1]) { const b = new THREE.Mesh(new THREE.ConeGeometry(u * 0.05, u * 0.34, 6), CHIT(0x1a0e08)); b.position.set(face.x + sd * u * 0.2, face.y - u * 0.1, face.z - u * 0.05); b.rotation.set(-Math.PI / 2 - 0.2, 0, sd * 0.5); add(b); }   // side blades
+      for (const [dx, dy] of [[-0.05, 0.1], [0.05, 0.1], [-0.1, 0.16], [0.1, 0.16]] as number[][]) { const e = new THREE.Mesh(new THREE.SphereGeometry(u * 0.035, 8, 6), gm); e.position.set(face.x + dx * u * 2, face.y + dy * u * 2, face.z + 0.02); add(e); }   // extra eyes
+      for (const dx of [-0.05, 0.03]) { const d = new THREE.Mesh(new THREE.SphereGeometry(u * 0.03, 8, 6), DRIP); d.scale.y = 1.8; d.position.set(face.x + dx * u * 2, face.y - u * 0.3, face.z + 0.04); add(d); tickers.push(t => { d.position.y = face!.y - u * (0.28 + 0.12 * ((t * 0.7 + dx * 9) % 1)); }); }
+    }
+    const bl = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: acc, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); bl.scale.setScalar(wd * 1.8); bl.position.set(0, h * 0.18, 0); add(bl);   // a sick glow under the belly
+  } else if (cat === "grand") {
+    const hs = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: acc, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); hs.scale.setScalar(h * 2.4); hs.position.set(0, h * 0.62, dp * 0.18); add(hs);
+    const top = hit(V(0, h + 2, bb.min.z + dp * 0.35), V(0, -1, 0)) || V(0, h, 0), cr = wd * 0.13;
+    for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2, tall = i % 2 ? 0.7 : 1; spike(V(top.x + Math.cos(a) * cr, top.y - 0.02, top.z + Math.sin(a) * cr), wd * 0.2 * tall, wd * 0.022, V(Math.cos(a) * 0.35, 1, Math.sin(a) * 0.35), CHIT(0x2a1a14)); }   // a crown
+    const orb = new THREE.Group(); orb.position.y = h * 0.58; for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2, c = new THREE.Mesh(new THREE.OctahedronGeometry(wd * 0.055, 0), gm); c.scale.y = 1.9; c.position.set(Math.cos(a) * wd * 0.72, Math.sin(i * 2.1) * h * 0.1, Math.sin(a) * wd * 0.72); orb.add(c); } add(orb); tickers.push(t => { orb.rotation.y = t * 0.9; orb.position.y = h * 0.58 + Math.sin(t * 1.4) * h * 0.03; });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(wd * 0.62, wd * 0.012, 6, 40), gm); ring.rotation.x = Math.PI / 2; ring.position.y = 0.06; add(ring); tickers.push(t => { ring.scale.setScalar(1 + 0.04 * Math.sin(t * 3)); });
+    ridge(7, wd * 0.16, CHIT(0x201410));
+  } else {
+    if (face) {
+      const throat = new THREE.Mesh(new THREE.SphereGeometry(u * 0.1, 10, 8), GLOW(0xff2a10)); throat.scale.set(1.2, 0.8, 0.6); throat.position.set(face.x, face.y - u * 0.06, face.z + u * 0.03); add(throat);
+      teeth(7, u * 0.4, u * 0.11, -u * 0.01, true); teeth(6, u * 0.34, u * 0.08, -u * 0.07, false);
+      for (const sd of [-1, 1]) { const hs = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: acc, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); hs.scale.setScalar(u * 0.45); hs.position.set(face.x + sd * u * 0.14, face.y + u * 0.16, face.z - 0.02); add(hs); }
+    }
+    ridge(8, wd * 0.2, CHIT(0x14100c));
+    const whips: THREE.Group[] = []; for (const sd of [-1, 1]) for (let k = 0; k < 2; k++) { const w = new THREE.Group(); w.position.set(sd * wd * 0.3, h * (0.62 - k * 0.14), dp * 0.05); let p = V(0, 0, 0); for (let j = 0; j < 6; j++) { const q = p.clone().add(V(sd * 0.1, -0.12 - j * 0.015, 0.1)); w.add(limb(p, q, wd * 0.016 * (1 - j / 7), wd * 0.014 * (1 - j / 7), CHIT(0x1a1410))); p = q; } w.add(spike(p, wd * 0.08, wd * 0.012, V(0, -1, 0.3), gm) as any); g.add(w); whips.push(w); } tickers.push(t => whips.forEach((w, i) => { w.rotation.z = Math.sin(t * 2.2 + i) * 0.35; w.rotation.x = Math.cos(t * 1.7 + i * 2) * 0.25; }));
+  }
+  for (const m of meshes) { const mm = m as THREE.Mesh; const mt = mm.material as any; if (mt && mt.isMeshPhysicalMaterial) { mt.clearcoat = 1; mt.envMapIntensity = 1.4; } }
+  (g as any).userData.tick = (t: number) => { for (const f of tickers) f(t); };
 }
 
 /* ── the gun in hand (all fourteen redesigned, owner 2026-10-18) ── */
@@ -601,7 +653,7 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
         if (!r) { const rig = buildAlien(e.kind, TINT); rig.g.scale.setScalar(ALIEN_SCALE[e.kind]); (rig.g as any).userData.born = performance.now(); scene.add(rig.g); r = { rig, e, fade: 0 }; rigs.set(e.id, r); }
         r.e = e; const g = r.rig.g; g.position.set(e.x, 0, e.z); g.rotation.y = e.yaw; { const age = (performance.now() - ((g as any).userData.born || 0)) / 700; if (age < 1 && e.dead === 0) { g.position.y = -(1 - age) * 1.6 * ALIEN_SCALE[e.kind]; } }
         const tt = e.t * (behOf(e.kind) === "skitter" ? 16 : behOf(e.kind) === "mantis" ? 8 : behOf(e.kind) === "charger" ? ((e.rush || 0) > 0 ? 26 : 6) : 6);
-        r.rig.legs.forEach((l, i) => { l.rotation.x = Math.sin(tt + i * 1.9) * 0.55; });
+        r.rig.legs.forEach((l, i) => { l.rotation.x = Math.sin(tt + i * 1.9) * 0.55; }); { const tk = (g as any).userData.tick; if (tk) tk(e.t); }
         r.rig.arms.forEach((a, i) => { if (behOf(e.kind) === "skyeye") { a.rotation.x = Math.sin(e.t * 2.5 + i) * 0.35; a.rotation.z = Math.cos(e.t * 2 + i * 2) * 0.3; } else a.rotation.x = -0.5 + Math.sin(e.t * 3 + i * 3) * 0.2 - (e.cd < 0.4 ? 0.9 : 0); });
         r.rig.body.position.y = behOf(e.kind) === "skyeye" ? Math.sin(e.t * 1.6) * 0.35 : Math.abs(Math.sin(tt * 0.5)) * 0.05 + (e.leap > 0 ? 0.7 : 0) - ((e.tele || 0) > 0 ? 0.25 : 0);
         if (behOf(e.kind) === "charger") r.rig.body.rotation.x = (e.tele || 0) > 0 ? 0.18 : 0;
