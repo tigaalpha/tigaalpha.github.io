@@ -13745,10 +13745,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <ChatProgress lang={lang} streak={chatProg.streak} askedToday={chatProg.askedToday} questCount={chatProg.questCount} questGoal={chatProg.questGoal} expToday={chatProg.expToday} />
           <Input val={input} onChange={setInput} onSend={send} loading={loading} ph={lc.ph} note={chatNote} noteOut={chatLeft === 0} />
         </div>
-      {hdrGp && <PowerSheet lang={lang} onClose={() => setHdrGp(false)} />}
         {uxOn && modal && <TabBar page="sensei" lang={lang} onGo={(t, already) => { setModal(false); tabGo(t, already); }} />}
       </div>
 
+      {hdrGp && <PowerSheet lang={lang} onClose={() => setHdrGp(false)} />}
       {/* PRACTICE MODE overlay — listens to the learner and checks each note */}
       {practiceOpen && <SafeZone label="หน้าผลการฝึก" fallbackText="ผลการฝึกส่วนนี้แสดงไม่สำเร็จ แตะปิดเพื่อออกจากการฝึกได้เลย"><PracticeOverlay practiceHelp={practiceHelp} kid={kidOn} detail={detailOn} practiceModeRef={practiceModeRef} chordGroupSize={(lastSeq.current && lastSeq.current.chordGroupSize) || 0} chordStyle={chordStyle} practiceTarget={practiceTarget} practiceHitIdxs={practiceHitIdxs} practiceFingers={practiceFingers} lang={lang} practiceLabel={practiceLabel} exitPractice={exitPractice} practiceSrc={practiceSrc} practiceTune={practiceTune} hand={hand} setHand={setHand} practiceIdx={practiceIdx} practiceHeard={practiceHeard} practiceMiss={practiceMiss} practiceStreak={practiceStreak} practiceResult={practiceResult} restartPractice={restartPractice} practiceHandlerRef={practiceHandlerRef} switchPracticeChordStyle={switchPracticeChordStyle} startSpotPractice={startSpotPractice} practiceWrongByIdxRef={practiceWrongByIdxRef} /></SafeZone>}
 
