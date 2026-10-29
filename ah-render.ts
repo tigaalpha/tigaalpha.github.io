@@ -42,6 +42,12 @@ const antenna = (m: THREE.Material, base: THREE.Vector3, sd: number, len: number
 const haloTex = (() => canvasTex(64, 64, g => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,255,255,1)"); r.addColorStop(0.25, "rgba(255,255,255,.55)"); r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }, 1))();
 const eyes = (m: THREE.Material, y: number, z: number, dx: number, r: number) => { const g = new THREE.Group(); for (const x of [-dx, dx]) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: (m as THREE.MeshStandardMaterial).color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); sp.scale.setScalar(r * 7); sp.position.set(x, y, z - r * 0.5); g.add(sp); } for (const x of [-dx, dx]) { const e = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), m); e.position.set(x, y, z); e.scale.set(0.8, 1.1, 0.8); g.add(e); } return g; };
 const mandibles = (m: THREE.Material, y: number, z: number, len: number, gap: number) => { const g = new THREE.Group(); for (const sd of [-1, 1]) { g.add(limb(V(gap * sd, y, z), V(gap * 0.3 * sd, y - len * 0.2, z - len), len * 0.12, len * 0.03, m)); g.add(cone(len * 0.07, len * 0.4, m, V(gap * 0.3 * sd, y - len * 0.22, z - len * 1.15), [-Math.PI / 2, 0, 0])); } return g; };
+/* colours from the three reference pictures: a wet blue-black xenomorph-style hide (main + steel-teal sheen), the bone / tan manta-hood alien, and the purple-blue / orange hammerhead */
+const XENO = [0x0e151b, 0x1a2530, 0x2a3a48], TANC = [0x8a7560, 0xb08e66, 0xcfc4ae], HAMC = [0x4e4a72, 0x6a2a3e, 0xe0761c];
+const REFPAL: Record<string, number[]> = { xeno: XENO };
+for (const k of ["skitter", "mantis", "charger", "scarab", "stalker", "glowbug", "thornback", "hound", "domestalker", "razor", "leaper", "spiker", "warden", "titan", "lumawarden", "behemoth", "walker"]) REFPAL[k] = XENO;
+for (const k of ["manthood", "flarecaster", "matriarch", "skyeye", "veilmaw", "sporecaster", "bloater", "spitter"]) REFPAL[k] = TANC;
+for (const k of ["capling", "drone", "wisp"]) REFPAL[k] = HAMC;
 function buildAlien(kind: AlienKind, tint = 0): Rig {
   const g = new THREE.Group(), legs: THREE.Object3D[] = [], arms: THREE.Object3D[] = [], mats: THREE.MeshStandardMaterial[] = [];
   const mk = (base: THREE.MeshStandardMaterial) => { const m = base.clone(); mats.push(m); return m; };
@@ -303,7 +309,8 @@ function buildAlien(kind: AlienKind, tint = 0): Rig {
   { const gc = tint ? tint : kind === "spitter" ? 0x6aff2a : kind === "skyeye" ? 0xa04aff : kind === "flarecaster" ? 0xff7a2a : 0xff2a1a; const gl = new THREE.Mesh(new THREE.CircleGeometry(kind === "charger" ? 1.6 : 1.1, 24), new THREE.MeshBasicMaterial({ map: haloTex, color: gc, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); gl.rotation.x = -Math.PI / 2; gl.position.y = 0.04; g.add(gl); }   // a faint ominous glow on the floor under every alien
   {   // neon edge lines on the armour plates: a cyber-biomech look, drawn once per alien
     const nc = tint ? tint : kind === "spitter" ? 0x7dff3a : kind === "skyeye" ? 0xc06aff : kind === "flarecaster" ? 0xff8a2a : kind === "charger" ? 0xff3a3a : kind === "mantis" ? 0x2affd0 : 0x35c8ff;
-    for (const mm of mats) { (mm as any).emissiveIntensity = 0.5; mm.color.multiplyScalar(0.62); if (tint) mm.color.lerp(new THREE.Color(tint), 0.32); }
+    const P = REFPAL[kind] || REFPAL.xeno;   // colours taken from the owner's three reference pictures (2026-10-29)
+    mats.forEach((mm, i) => { const c0 = mm.color, lum = Math.min(1, (c0.r + c0.g + c0.b) / 2); (mm as any).emissiveIntensity = 0.45; mm.color.setHex(i % 3 === 2 ? P[2] : i % 2 ? P[1] : P[0]); mm.color.multiplyScalar(0.8 + 0.5 * lum); if (tint) mm.color.lerp(new THREE.Color(tint), 0.1); });
   }
   try { embellish(kind, g, tint); } catch (err) { /* the base model still stands */ }
   g.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; } });
