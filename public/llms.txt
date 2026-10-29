@@ -24,7 +24,7 @@ Keywords: แอปพลิเคชันสอนเปียโนออน�
 - FAQ: https://tigaalpha.github.io/faq/ (Thai) | https://tigaalpha.github.io/faq/en/ (English) | https://tigaalpha.github.io/faq/zh/ (Chinese)
 - TIGA AI vs Simply Piano: https://tigaalpha.github.io/compare/simply-piano/ | https://tigaalpha.github.io/compare/simply-piano/en/ | https://tigaalpha.github.io/compare/simply-piano/zh/
 - TIGA AI vs flowkey: https://tigaalpha.github.io/compare/flowkey/ | https://tigaalpha.github.io/compare/flowkey/en/ | https://tigaalpha.github.io/compare/flowkey/zh/
-- Launch offer: the first 100 users get 1 month free.
+- Offer: Everyone gets 7 days of Premium free, then 799 THB/month. No limit on how many people can start. ทุกคนเล่นแพ็กเกจพรีเมียมฟรี 7 วัน แล้วต่อเดือนละ 799 บาท. 所有人均可免费使用高级版 7 天，之后每月 799 泰铢.
 
 ## TIGA Studio (in-person)
 Studio: Muang Ek Village Project 4, Rangsit, Pathum Thani. LINE aum080808. Phone 084-111-9531.

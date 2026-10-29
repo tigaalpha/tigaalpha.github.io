@@ -3,7 +3,8 @@
    landing/index.template.html carries the Thai block verbatim (vite leaves
    application/ld+json untouched); landing-locales.mjs swaps it for the
    en/zh block, so url + inLanguage always match the page they ship on.
-   Facts only: no ratings, reviews or offer prices. */
+   Facts only: no ratings or reviews. The public offer is one price:
+   7 days of Premium free, then 799 THB per month, for everyone. */
 const BASE = "https://tigaalpha.github.io";
 const PAGES = { th: `${BASE}/landing/`, en: `${BASE}/landing-en/`, zh: `${BASE}/landing-zh/` };
 const NAME = {
@@ -16,6 +17,29 @@ const APP_DESC = {
   en: "TIGA AI is an AI piano-teaching application that teaches online in three languages: Thai, English and Mandarin Chinese. Made by Thais. Founded by Teacher Aum (ครูอั้ม), CEO and piano teacher with 20 years of experience.",
   zh: "TIGA AI 是在线 AI 钢琴教学应用，支持泰语、英语和普通话三种语言，由泰国人打造。创始人兼 CEO 为阿姆老师（ครูอั้ม），拥有 20 年钢琴教学经验。",
 };
+const OFFER_NAME = { th: "แพ็กเกจพรีเมียม", en: "Premium", zh: "高级版" };
+const OFFER_DESC = {
+  th: "ทุกคนเล่นแพ็กเกจพรีเมียมฟรี 7 วัน แล้วต่อเดือนละ 799 บาท",
+  en: "Everyone gets 7 days of Premium free, then 799 THB/month",
+  zh: "所有人均可免费使用高级版 7 天，之后每月 799 泰铢",
+};
+
+function premiumOffer(lang) {
+  return {
+    "@type": "Offer",
+    "name": OFFER_NAME[lang],
+    "description": OFFER_DESC[lang],
+    "price": "799",
+    "priceCurrency": "THB",
+    "priceSpecification": {
+      "@type": "UnitPriceSpecification",
+      "price": "799",
+      "priceCurrency": "THB",
+      "billingDuration": "P1M",
+      "unitText": "MONTH",
+    },
+  };
+}
 
 export function landingJsonLd(lang) {
   const url = PAGES[lang];
@@ -46,6 +70,7 @@ export function landingJsonLd(lang) {
         "keywords": "แอปพลิเคชันสอนเปียโนออนไลน์, สอนเปียโนด้วยเอไอ, เล่นเปียโน, เล่นดนตรี, สอนดนตรี, online piano learning app, AI piano lessons",
         "creator": { "@id": "https://www.tigastudio.net/#teacher-aum" },
         "publisher": { "@id": "https://www.tigastudio.net/#organization" },
+        "offers": premiumOffer(lang),
       },
       {
         "@type": "Person",
