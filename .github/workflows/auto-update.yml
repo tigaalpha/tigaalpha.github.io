@@ -155,10 +155,14 @@ jobs:
           cp landing-zh/index.html _site/landing-zh/index.html
           cp -r landing/bundle     _site/landing/bundle
           cp landing.html landing-en.html landing-zh.html _site/
+          # robots.txt and sitemap.xml are written at the repo root by
+          # build-song-pages (npm run build). They are not inside dist/, so
+          # without this copy both 404 on the published site.
+          cp robots.txt sitemap.xml _site/
           # Fail the deploy loudly rather than shipping a site with a dead
           # marketing URL on it — silence is exactly how this went unnoticed
           # the first time, when the whole page 404'd for hours.
-          for f in privacy-policy.html knowledge-sources.html landing.html landing-en.html landing-zh.html \
+          for f in privacy-policy.html knowledge-sources.html robots.txt sitemap.xml landing.html landing-en.html landing-zh.html \
                    landing/index.html landing-en/index.html landing-zh/index.html; do
             test -s "_site/$f" || { echo "MISSING: _site/$f"; exit 1; }
           done
