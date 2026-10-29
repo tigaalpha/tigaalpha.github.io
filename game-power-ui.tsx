@@ -38,7 +38,7 @@ export function GamePowerBar({ lang, onOpen }: { lang: string; onOpen: () => voi
 }
 export function PowerSheet({ lang, need = 0, onClose, onLearn }: { lang: string; need?: number; onClose: () => void; onLearn?: () => void }) {
   const v = usePower(), T = (th: string, en: string, zh: string) => lang === "th" ? th : lang === "zh" ? zh : en;
-  const go = () => { onClose(); if (onLearn) onLearn(); else { try { window.dispatchEvent(new CustomEvent("tg:goto", { detail: { page: "myclass" } })); } catch (e) {} } };
+  const go = () => { onClose(); if (onLearn) onLearn(); else { try { window.dispatchEvent(new CustomEvent("tg:goto", { detail: { page: "pathway" } })); } catch (e) {} } };
   const rows: [string, string, string, string][] = [
     ["🧠", "+20", "เรียนเรื่องใหม่ (บทเรียนใหม่)", "Learn something new"], ["🔁", "+12", "ทบทวนบทเรียนเก่า", "Review an old lesson"],
     ["🎹", "+10", "ซ้อมเปียโน (Practice)", "A practice round"], ["👂", "+8", "ฝึกหู · อ่านโน้ต · เล่นเพลง", "Ear · reading · a song"],
