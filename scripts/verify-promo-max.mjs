@@ -119,8 +119,8 @@ ok(P.isTrialPlan(null) === undefined || P.isTrialPlan(undefined) === false || P.
 // Two badges exist now: the trial and Premium. The fold happens BEFORE the
 // badge ever sees the string, so no legacy id can resurrect a MAX badge.
 ok(P.planBadge("trial").t === "🎁 TRIAL", "plain trial badge unchanged");
-ok(P.planBadge("premium").t === "⭐ PRO", "premium badge names Pro");
-ok(P.planBadge("max").t === "⭐ PRO" && P.planBadge("trialmax").t === "⭐ PRO" && P.planBadge("maxfamily").t === "⭐ PRO" && P.planBadge("family").t === "⭐ PRO",
+ok(P.planBadge("premium").t === "⭐ PREMIUM", "premium badge names Premium");
+ok(P.planBadge("max").t === "⭐ PREMIUM" && P.planBadge("trialmax").t === "⭐ PREMIUM" && P.planBadge("maxfamily").t === "⭐ PREMIUM" && P.planBadge("family").t === "⭐ PREMIUM",
   "every legacy paid string badges as Premium — folded first, no MAX badge left");
 ok(P.planBadge("free") === null, "free carries no badge (nothing is pretended)");
 

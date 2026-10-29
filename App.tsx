@@ -2792,7 +2792,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     { k: "eargym",  ic: "👂", c: "#ff76d8", t: lc.navEar,          s: lc.studioEarSub,       fn: onEarGym },
     { k: "today",   ic: "📅", c: "#d97757", t: lc.navToday,        s: T("แผนซ้อมวันนี้ — สร้างใหม่ทุกวันจากความคืบหน้าจริง", "Today's plan — rebuilt daily from your real progress", "今日计划 — 每天根据真实进度生成"), fn: onToday },
     { k: "quick",   ic: "⚡", c: "#d97757", t: lc.quickTitle,       s: lc.quickSub,          fn: () => { playUi("click"); setQuickOpen(true); } },
-    { k: "exam",    ic: "🎓", c: "#d97757", t: lc.studioExam,      s: lc.studioExamSub,      fn: onExam, badge: "PRO" },
+    { k: "exam",    ic: "🎓", c: "#d97757", t: lc.studioExam,      s: lc.studioExamSub,      fn: onExam, badge: "PREMIUM" },
     { k: "camera",  ic: "✋", c: "#d97757", t: lc.studioCamera,    s: lc.studioCameraSub,    fn: onCamera },
     // HIDDEN (not deleted) — overlaps with "moodpick" below; underlying modal/state untouched.
     // { k: "chordmood",ic:"🎭", c: "#d97757", t: lc.moodBoard,       s: lc.moodBoardSub,       fn: () => { playUi("click"); setMoodBoardOpen(true); } },
@@ -8809,7 +8809,7 @@ function AdminStudents({ lang, viewerTier }) {
             <button key={r.id} className="admstu-row" onClick={() => openUser(r)}>
               <div className="admstu-av sm">{(r.full_name || r.email || "?").trim().charAt(0).toUpperCase()}</div>
               <div className="admstu-row-body">
-                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(r.admin_tier)}</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{isMaxPlan(livePlan(r)) && <span className="adminpay-badge approved">PRO</span>}{!isMaxPlan(livePlan(r)) && livePlan(r) !== "free" && <span className="adminpay-badge approved">{livePlan(r).toUpperCase()}</span>}</div>
+                <div className="admstu-row-nm">{r.full_name || r.email || "—"} {r.admin_tier > 0 && <span className="admstu-badge">{adminTierStars(r.admin_tier)}</span>}{r.banned && <span className="adminpay-badge rejected">BAN</span>}{isMaxPlan(livePlan(r)) && <span className="adminpay-badge approved">PREMIUM</span>}{!isMaxPlan(livePlan(r)) && livePlan(r) !== "free" && <span className="adminpay-badge approved">{livePlan(r).toUpperCase()}</span>}</div>
                 <div className="admstu-row-meta">Lv {li.level} · {(r.exp || 0).toLocaleString()} EXP · {r.lessons_done || 0} {T("บท", "lessons", "课")} · {(r.streak || 0)}🔥{sum.games ? " · " + sum.games + " " + T("เกม", "games", "游戏") : ""}</div>
                 <div className="admstu-row-sub">{r.email}{r.last_active ? " · " + r.last_active : ""}</div>
               </div>

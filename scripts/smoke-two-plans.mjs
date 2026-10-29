@@ -81,7 +81,7 @@ eq(P.canonicalPlan(undefined), "free", "no plan at all reads as free");
 for (const legacy of ["family", "max", "maxfamily"]) {
   const eff = P.effectivePlan({ plan: legacy, plan_until: future });
   ok(P.isPremiumPlan(eff), `${legacy} (paid, unexpired) still gets Premium features`);
-  eq(P.planBadge(eff).t, "⭐ PRO", `${legacy} shows the Premium badge, not a dead tier`);
+  eq(P.planBadge(eff).t, "⭐ PREMIUM", `${legacy} shows the Premium badge, not a dead tier`);
   ok(P.isMaxPlan(eff), `${legacy} passes the old isMaxPlan gate (voice tutor, freezes, maxOnly songs)`);
 }
 // ══ 3. an EXPIRED legacy row does not ═══════════════════════════════════════
