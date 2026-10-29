@@ -471,7 +471,7 @@ const NARR: Record<string, string> = {
 let _clipMan: Promise<any> | null = null, _clipAud: HTMLAudioElement | null = null;
 function clipFile(key: string, lang: string): Promise<string | null> {
   if (!_clipMan) _clipMan = fetch("./audio/clips/manifest.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  return _clipMan.then((m) => (m && m[lang] && m[lang][key] ? "./audio/clips/" + lang + "/" + key + "." + m[lang][key] : null));
+  return _clipMan.then((m) => (m && m[lang] && m[lang][key] ? (m.base || "./audio/clips") + "/" + lang + "/" + key + "." + m[lang][key] : null));
 }
 let _clipSrc: AudioBufferSourceNode | null = null;
 const _clipPre = new Map<string, Promise<AudioBuffer>>();
