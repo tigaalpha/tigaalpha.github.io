@@ -89,7 +89,10 @@ function buildAlien(kind0: AlienKind, tint = 0): Rig {
   if (kind === "skitter") {   // a roach-bug: flat glossy shell, long whip antennae, six fast spiky legs
     const m = mk(CHIT(0xa5622a, { roughness: 0.25, clearcoat: 1 })), m2 = mk(CHIT(0x5a3418));
     const shell = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), m); shell.scale.set(1.05, 0.5, 1.5); shell.position.set(0, 0.42, 0.1); body.add(shell);
-    for (const sd of [-1, 1]) { const w = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI), m2); w.scale.set(0.5, 0.4, 1.4); w.rotation.z = sd * 1.2; w.position.set(0.0, 0.62, 0.1); }   // (wing cases are implied by the seam below)
+    for (const sd of [-1, 1]) { const w = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI), m2); w.scale.set(0.5, 0.4, 1.4); w.rotation.z = sd * 1.2; w.position.set(0.0, 0.62, 0.1); }
+    for (const sd of [-1, 1]) { const wc = tube([V(0.05 * sd, 0.7, -0.35), V(0.3 * sd, 0.66, 0.2), V(0.26 * sd, 0.48, 0.95)], 0.2, 0.05, m, k => Math.sin(Math.PI * Math.min(1, k * 1.15) * 0.9 + 0.3), 20, 10); wc.scale.y = 0.55; body.add(wc); }   // two glossy wing cases that meet in the seam
+    for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(new THREE.TorusGeometry(0.4 - i * 0.045, 0.02, 6, 20, Math.PI), m2); b.rotation.set(Math.PI / 2, 0, Math.PI); b.scale.set(1.05, 1, 0.5); b.position.set(0, 0.55, 0.1 + i * 0.2); body.add(b); }   // segment bands over the abdomen
+    const pron = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 12), m2); pron.scale.set(1.05, 0.42, 0.55); pron.position.set(0, 0.55, -0.5); body.add(pron);   // the shield behind the head
     body.add(limb(V(0, 0.66, -0.55), V(0, 0.62, 0.85), 0.015, 0.015, m2));   // the seam down the back
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 16), m2); head.scale.set(1, 0.8, 1.1); head.position.set(0, 0.4, -0.68); body.add(head);
     body.add(eyes(GLOW(0xff3a1a), 0.48, -0.78, 0.1, 0.055)); body.add(mandibles(m2, 0.32, -0.8, 0.22, 0.07));
