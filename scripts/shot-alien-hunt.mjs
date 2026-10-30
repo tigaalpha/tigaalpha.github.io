@@ -11,8 +11,13 @@ await ctx.addInitScript(() => { sessionStorage.setItem("tiga_page", "pvp"); loca
 const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message)); await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
 for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
 await p.evaluate(() => document.querySelector("[data-alien-hunt]").click()); await p.waitForSelector("[data-start]"); await p.evaluate(() => document.querySelector("[data-start]").click()); await p.waitForSelector(".ah-cv"); await p.waitForTimeout(1200);
-const set = async (list, name) => { await p.evaluate((list) => { const s = window.__ah.state; s.enemies.length = 0; s.spawnQ = []; s.between = 99; s.p.x = 0; s.p.z = 0; s.p.yaw = 0; s.p.pitch = 0.0; s.p.hp = 100; let id = 500; for (const [k, x, z] of list) s.enemies.push({ id: id++, kind: k, x, z, hp: 999, max: 999, yaw: 0, t: 0.4, cd: 5, dead: 0, flash: 0, leap: 0 }); }, list); await p.waitForTimeout(700); await p.screenshot({ path: process.argv[2] + name }); };
+const set = async (list, name) => { await p.evaluate((list) => { const s = window.__ah.state; s.enemies.length = 0; s.spawnQ = []; s.between = 99; s.p.x = 0; s.p.z = 0; s.p.yaw = 0; s.p.pitch = 0.0; s.p.hp = 100; s.autoFire = false; window.__sid = (window.__sid || 500) + 10; let id = window.__sid; for (const [k, x, z] of list) s.enemies.push({ id: id++, kind: k, x, z, hp: 999, max: 999, yaw: (window.__yaw || 0), t: 0.4, cd: 5, dead: 0, flash: 0, leap: 0 }); }, list); await p.waitForTimeout(700); await p.screenshot({ path: process.argv[2] + name }); };
 await set([["capling", -3, -6], ["manthood", 0, -6.5], ["domestalker", 3.2, -6]], "-ref.png");
+await p.evaluate(() => { window.__yaw = 1.1; });
+await set([["domestalker", 0, -4.8]], "-xeno.png");
+await p.evaluate(() => { window.__yaw = 0; });
+await set([["manthood", 0, -5.2]], "-manta.png");
+await set([["capling", 0, -4.8]], "-ham.png");
 await set([["warden", -3.5, -8], ["matriarch", 0, -8], ["hound", 3.5, -6]], "-fam1.png");
 await set([["razor", -3, -6], ["sporecaster", 0, -7], ["bloater", 3, -6]], "-fam2.png");
 await set([["skitter", -2.2, -4.2], ["mantis", 0.8, -5.5], ["spitter", 3.6, -5.5]], "-a.png");
