@@ -5,7 +5,7 @@
    en/zh block, so url + inLanguage always match the page they ship on.
    Facts only: no ratings or reviews. The public offer is one price:
    7 days of Premium free, then 799 THB per month, for everyone. */
-const BASE = "https://tigaalpha.github.io";
+const BASE = "https://www.tigaalpha.com";
 const PAGES = { th: `${BASE}/landing/`, en: `${BASE}/landing-en/`, zh: `${BASE}/landing-zh/` };
 const NAME = {
   th: "ลองเรียนเปียโนกับครู AI — TIGA",

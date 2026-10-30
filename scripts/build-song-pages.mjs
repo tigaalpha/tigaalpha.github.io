@@ -12,7 +12,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SITE = (process.env.SITE_URL || "https://tigaalpha.github.io").replace(/\/+$/, "");
+const SITE = (process.env.SITE_URL || "https://www.tigaalpha.com").replace(/\/+$/, "");
 const { build } = await import(pathToFileURL(path.join(ROOT, "node_modules/esbuild/lib/main.js")).href);
 const r = await build({ entryPoints: [path.join(ROOT, "songs-data.ts")], bundle: true, format: "esm", write: false, platform: "node", logLevel: "silent" });
 const tmp = path.join(ROOT, "node_modules/.cache", "songs-pages.mjs");
