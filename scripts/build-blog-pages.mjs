@@ -33,7 +33,7 @@ const head = (lang, title, desc, canon, extra, ld) => `<!doctype html>
 <title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${canon}">
 ${extra}<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:type" content="article"><meta property="og:url" content="${canon}"><meta property="og:image" content="${SITE}/og-card.png"><meta property="og:locale" content="${LG[lang].loc}">
 <meta name="twitter:card" content="summary_large_image"><link rel="icon" href="/icon.svg" type="image/svg+xml">
-<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script><style>${CSS}</style></head>
+<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script><style>${CSS}</style><script src="/ga.js" defer></script></head>
 `;
 const topbar = (lang) => `<header class="top"><div><a href="${SITE}/">TIGA ALPHA</a><a href="${SITE}/blog/${lang}/" style="font-weight:600">${LG[lang].name}</a></div></header>`;
 const CATN = { tips: { th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧" }, theory: { th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理" }, songs: { th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目" }, news: { th: "ข่าวและประกาศ", en: "News", zh: "新闻公告" }, story: { th: "เรื่องราว", en: "Stories", zh: "故事" } };

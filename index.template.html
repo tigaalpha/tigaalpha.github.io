@@ -36,7 +36,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="TIGA ALPHA" />
     <title>TIGA ALPHA</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net https://storage.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://cdn.jsdelivr.net https://storage.googleapis.com; worker-src 'self' blob:; frame-src https://js.stripe.com https://hooks.stripe.com https://drive.google.com https://www.youtube-nocookie.com;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.googletagmanager.com 'unsafe-inline' 'unsafe-eval' data: blob: https://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net https://storage.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://cdn.jsdelivr.net https://storage.googleapis.com; worker-src 'self' blob:; frame-src https://js.stripe.com https://hooks.stripe.com https://drive.google.com https://www.youtube-nocookie.com;" />
     <style>
       html, body, #root { height: 100%; margin: 0; background: #faf9f5; }
 
@@ -88,7 +88,8 @@
         #boot .bar i { background: #f5f0ed; }
       }
     </style>
-  </head>
+      <script src="/ga.js" defer></script>
+</head>
   <body>
     <div id="boot">
       <div class="mark">TIGA</div>
