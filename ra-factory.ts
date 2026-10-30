@@ -28,7 +28,7 @@ const RADIO: Record<string, Tri[]> = {
 const nm = (P: any): Tri => [P.th, P.en, P.zh];
 const brief = (P: any): Tri => { const b = RA_BRIEF[P.id]; return b && b.length >= 3 ? [b[0], b[1], b[2]] : [P.th, P.en, P.zh]; };
 const winLine = (P: any): Tri => [`${P.th.split(" · ")[0]} สำเร็จ — เรื่องราวเดินต่อ`, `${P.en.split(" · ")[0]} complete — the story goes on.`, `${P.zh.split(" · ")[0]} 完成 —— 故事继续。`];
-const EXTRA_KINDS: AlienKind[] = ["capling", "manthood", "domestalker", "xenodrone", "huntsman", "leaper", "razor", "veilmaw", "bloater", "spiker"];
+const EXTRA_KINDS: AlienKind[] = ["capling", "manthood", "domestalker", "xenodrone", "huntsman", "greyling", "hydraling", "warbug", "saberlord", "skyfolk", "leviathan", "tripod", "carapace", "leaper", "razor", "veilmaw", "bloater", "spiker"];
 const poolOf = (P: any): AlienKind[] => { const out: AlienKind[] = []; for (const m of P.mons || []) { const k = MON[m]; if (k && !out.includes(k)) out.push(k); } if (!out.length) out.push("skitter", "scarab", "stalker"); let h = 0; for (const c of String(P.id || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0; for (const k of ["capling", "manthood", "domestalker", EXTRA_KINDS[(h % 5) + 3]] as AlienKind[]) if (!out.includes(k)) out.push(k); return out; };
 const waveOf = (pool: AlienKind[], n: number, w: number): AlienKind[] => Array.from({ length: n }, (_, i) => pool[(i + w * 2) % pool.length]);
 const sitesOf = (n: number, seed: number): [number, number][] => Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2 + 0.6 + seed * 0.7; return [Math.round(Math.cos(a) * 15), Math.round(Math.sin(a) * 12 - 2)] as [number, number]; });

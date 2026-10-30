@@ -55,6 +55,7 @@ for (const k of ["skitter", "mantis", "charger", "scarab", "stalker", "glowbug",
 for (const k of ["manthood", "flarecaster", "matriarch", "skyeye", "veilmaw", "sporecaster", "bloater", "spitter"]) REFPAL[k] = TANC;
 for (const k of ["capling", "drone", "wisp"]) REFPAL[k] = HAMC;
 REFPAL.huntsman = [0x6a6a48, 0x3a4046, 0xb09a62];
+REFPAL.greyling = [0x9aa4a0, 0x6e7874, 0x05060a]; REFPAL.hydraling = [0x5a2a6a, 0xb0a060, 0x2a1a3a]; REFPAL.warbug = [0x4a5a2a, 0x20280e, 0xc0b070]; REFPAL.saberlord = [0x3a4a8a, 0x6a5a50, 0x66ccff]; REFPAL.skyfolk = [0x2a64b0, 0x0c1c4a, 0x66ffee]; REFPAL.leviathan = [0x1a1620, 0x3a3040, 0xff3a2a]; REFPAL.tripod = [0x4a4e58, 0x24262c, 0xff5a2a]; REFPAL.carapace = [0x6a2a4a, 0xd8ccb0, 0x2a1224];
 /* skins painted for the three reference families (owner 2026-10-29: "make it more like the reference"): wet black scales with teal speculars, fine radial bone ribs and veins, mottled purple-orange flesh. Mid-grey so the palette colour still tints them. */
 const skinTex = (kind: "xeno" | "tan" | "ham") => canvasTex(512, 512, g => {
   const R = (n: number) => Math.random() * n;
@@ -382,6 +383,65 @@ function buildAlien(kind0: AlienKind, tint = 0): Rig {
     for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.44 * sd, 1.95, 0); arm.add(tube([V(0, 0, 0), V(0.1 * sd, -0.45, 0.05), V(0.12 * sd, -0.9, 0.25)], 0.1, 0.075, sk)); arm.add(tube([V(0.12 * sd, -0.9, 0.25), V(0.1 * sd, -1.0, 0.7)], 0.09, 0.07, ar)); if (sd > 0) for (const o of [-0.03, 0.03]) arm.add(tube([V((0.1 + o) * sd, -1.0, 0.7), V((0.1 + o) * sd, -1.02, 1.35)], 0.014, 0.004, br)); body.add(arm); arms.push(arm); }   // right wrist carries two blades
     body.add(tube([V(0, 1.1, 0), V(0, 0.95, 0.0)], 0.28, 0.24, ar));
     for (const sd of [-1, 1]) { const lg = new THREE.Group(); lg.position.set(0.2 * sd, 1.0, 0); lg.add(tube([V(0, 0, 0), V(0.04 * sd, -0.5, 0.06), V(0.07 * sd, -0.95, 0.0)], 0.15, 0.1, sk, k => 1 + 0.2 * Math.sin(k * 3))); lg.add(tube([V(0.07 * sd, -0.95, 0.0), V(0.04 * sd, -1.45, -0.06), V(0.03 * sd, -1.95, 0.02)], 0.1, 0.07, ar)); const ft = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.34), ar); ft.position.set(0.03 * sd, -1.97, 0.1); lg.add(ft); g.add(lg); legs.push(lg); }
+  } else if (kind === "greyling") {   // the classic big-headed grey visitor: thin limbs, huge smooth head, black almond eyes
+    const sk = mk(CHIT(0x9aa4a0, { roughness: 0.5, metalness: 0.05, clearcoat: 0.4 })), sk2 = mk(CHIT(0x6e7874, { roughness: 0.5 }));
+    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.34, 22, 16), sk); hd.scale.set(0.95, 1.2, 0.95); hd.position.set(0, 2.1, 0); body.add(hd);
+    for (const sd of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), GLOW(0x05060a)); e.scale.set(1.3, 0.55, 0.5); e.position.set(0.15 * sd, 2.08, 0.28); e.rotation.z = -0.5 * sd; body.add(e); }
+    body.add(tube([V(0, 1.78, 0), V(0, 1.55, 0.02), V(0, 1.1, 0)], 0.07, 0.14, sk2)); body.add(tube([V(0, 1.55, 0), V(0, 1.2, 0.02), V(0, 0.9, 0)], 0.16, 0.12, sk, k => 1 + 0.2 * Math.sin(k * 3)));
+    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.14 * sd, 1.5, 0); arm.add(tube([V(0, 0, 0), V(0.12 * sd, -0.5, 0.05), V(0.14 * sd, -1.0, 0.25)], 0.04, 0.025, sk2)); body.add(arm); arms.push(arm); const lg = new THREE.Group(); lg.position.set(0.1 * sd, 0.9, 0); lg.add(tube([V(0, 0, 0), V(0.03 * sd, -0.45, 0.04), V(0.05 * sd, -0.9, 0)], 0.06, 0.035, sk2)); g.add(lg); legs.push(lg); }
+    body.add(new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.012, 6, 28), GLOW(0x8affc0)).translateY(2.6).rotateX(Math.PI / 2));   // a psychic halo
+  } else if (kind === "hydraling") {   // a swarm serpent-beast: segmented body, raised scythe arms, a hooded spitting head
+    const m = mk(CHIT(0x5a2a6a, { roughness: 0.3 })), m2 = mk(CHIT(0xb0a060, { roughness: 0.3 })), m3 = mk(CHIT(0x2a1a3a));
+    body.add(tube([V(0, 0.2, 1.3), V(0, 0.35, 0.5), V(0, 0.9, -0.1), V(0, 1.6, -0.2)], 0.3, 0.18, m, k => 1 + 0.2 * Math.sin(k * 14)));
+    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.28, 18, 12), m2); hd.scale.set(1.1, 0.9, 1.3); hd.position.set(0, 1.75, -0.35); body.add(hd);
+    for (const sd of [-1, 1]) { body.add(eyes(GLOW(0xff4a2a), 1.8, -0.62, 0.1 * 1, 0.05)); body.add(tube([V(0.12 * sd, 1.5, -0.1), V(0.5 * sd, 1.9, -0.3), V(0.45 * sd, 1.6, -0.9)], 0.07, 0.015, m3)); }
+    for (let i = 0; i < 7; i++) body.add(cone(0.05, 0.3, m2, V(0, 0.55 + i * 0.16, 0.45 - i * 0.14), [-0.5, 0, 0]));
+    for (let i = 0; i < 4; i++) { const lg = new THREE.Group(); lg.position.set((i % 2 ? 1 : -1) * 0.25, 0.3, 0.7 - Math.floor(i / 2) * 0.5); lg.add(tube([V(0, 0, 0), V((i % 2 ? 1 : -1) * 0.3, 0.1, 0), V((i % 2 ? 1 : -1) * 0.5, -0.3, 0)], 0.06, 0.02, m3)); g.add(lg); legs.push(lg); }
+  } else if (kind === "warbug") {   // a hulking armoured warrior bug: wide shell, four stalking legs, two huge hook-claws
+    const m = mk(CHIT(0x4a5a2a, { roughness: 0.35 })), m2 = mk(CHIT(0x20280e)), m3 = mk(CHIT(0xc0b070));
+    body.add(tube([V(0, 1.1, 0.9), V(0, 1.2, 0.2), V(0, 1.35, -0.4)], 0.5, 0.4, m, k => 1 + 0.2 * Math.sin(k * 3)));
+    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.28, 18, 12), m2); hd.scale.set(1.2, 0.8, 1.1); hd.position.set(0, 1.35, -0.8); body.add(hd);
+    body.add(eyes(GLOW(0xff5a1a), 1.45, -1.0, 0.13, 0.06)); body.add(mandibles(m3, 1.25, -1.0, 0.35, 0.1));
+    for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(new THREE.TorusGeometry(0.5 - i * 0.03, 0.03, 6, 20, Math.PI), m2); b.rotation.set(Math.PI / 2, 0, Math.PI); b.position.set(0, 1.3, 0.5 + i * 0.2); body.add(b); }
+    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.45 * sd, 1.25, -0.5); arm.add(tube([V(0, 0, 0), V(0.4 * sd, 0.5, -0.4), V(0.3 * sd, 0.9, -1.0), V(0.1 * sd, 0.4, -1.4)], 0.12, 0.03, m)); for (let k = 0; k < 4; k++) arm.add(cone(0.03, 0.2, m3, V(0.3 * sd - k * 0.05 * sd, 0.9 - k * 0.15, -1.0 - k * 0.1), [0, 0, 1.2 * sd])); body.add(arm); arms.push(arm); }
+    for (let i = 0; i < 4; i++) { const l = leg(0.5, 0.06, m2, 1.1); const sd = i % 2 ? 1 : -1; l.scale.x = sd; l.position.set(0.4 * sd, 1.2, 0.7 - Math.floor(i / 2) * 0.9); g.add(l); legs.push(l); }
+  } else if (kind === "saberlord") {   // a towering four-mandibled warrior-lord in plate armour with a glowing energy blade
+    const ar = mk(CHIT(0x3a4a8a, { roughness: 0.25, metalness: 0.75, clearcoat: 1 })), sk = mk(CHIT(0x6a5a50, { roughness: 0.5 })), bl = mk(GLOW(0x66ccff) as any);
+    body.add(tube([V(0, 1.2, 0), V(0, 1.7, 0.02), V(0, 2.05, 0)], 0.34, 0.3, ar, k => 1 + 0.2 * Math.sin(k * 3)));
+    body.add(tube([V(0, 2.05, 0), V(0, 2.35, -0.05), V(0, 2.6, 0.12)], 0.1, 0.16, sk));
+    for (const sd of [-1, 1]) { body.add(tube([V(0.08 * sd, 2.48, 0.2), V(0.18 * sd, 2.36, 0.3), V(0.16 * sd, 2.22, 0.28)], 0.04, 0.015, sk)); body.add(tube([V(0.03 * sd, 2.45, 0.2), V(0.06 * sd, 2.3, 0.32), V(0.05 * sd, 2.16, 0.3)], 0.03, 0.012, sk)); const sh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), ar); sh.position.set(0.46 * sd, 2.0, 0); body.add(sh); }
+    body.add(eyes(GLOW(0xffcc44), 2.55, 0.26, 0.07, 0.04));
+    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.48 * sd, 1.95, 0); arm.add(tube([V(0, 0, 0), V(0.1 * sd, -0.5, 0.1), V(0.1 * sd, -0.95, 0.35)], 0.1, 0.07, ar)); if (sd > 0) arm.add(tube([V(0.1, -0.95, 0.35), V(0.1, -1.0, 1.4)], 0.035, 0.012, bl)); body.add(arm); arms.push(arm); }
+    for (const sd of [-1, 1]) { const lg = new THREE.Group(); lg.position.set(0.22 * sd, 1.2, 0); lg.add(tube([V(0, 0, 0), V(0.05 * sd, -0.5, 0.35), V(0.06 * sd, -1.0, 0)], 0.15, 0.09, ar)); lg.add(tube([V(0.06 * sd, -1.0, 0), V(0.04 * sd, -1.2, -0.12), V(0.03 * sd, -1.5, 0.25)], 0.09, 0.05, sk)); g.add(lg); legs.push(lg); }
+  } else if (kind === "skyfolk") {   // a tall blue forest warrior: striped skin, long braid with a glowing tip, tail, big golden eyes
+    const sk = mk(CHIT(0x2a64b0, { roughness: 0.5, clearcoat: 0.3 })), st = mk(CHIT(0x0c1c4a, { roughness: 0.6 })), gl = GLOW(0x66ffee);
+    body.add(tube([V(0, 1.2, 0), V(0, 1.7, 0), V(0, 2.1, 0)], 0.26, 0.22, sk, k => 1 + 0.15 * Math.sin(k * 3)));
+    for (let i = 0; i < 6; i++) { const b = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.01, 6, 20, Math.PI), st); b.position.set(0, 1.35 + i * 0.1, 0.02); b.rotation.set(Math.PI / 2, 0, 0); body.add(b); }
+    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 14), sk); hd.scale.set(0.95, 1.1, 1.05); hd.position.set(0, 2.4, 0.02); body.add(hd);
+    for (const sd of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), GLOW(0xffd84a)); e.position.set(0.09 * sd, 2.42, 0.2); body.add(e); body.add(tube([V(0.2 * sd, 2.45, 0), V(0.35 * sd, 2.7, -0.05), V(0.3 * sd, 2.85, -0.05)], 0.05, 0.02, sk)); }
+    body.add(tube([V(0, 2.5, -0.2), V(0, 2.2, -0.5), V(0, 1.6, -0.55), V(0, 1.0, -0.4)], 0.05, 0.02, st)); body.add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), gl).translateY(1.0).translateZ(-0.4));
+    body.add(tube([V(0, 1.0, -0.1), V(0, 0.8, -0.6), V(0, 1.0, -1.2)], 0.06, 0.02, sk));
+    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.32 * sd, 2.0, 0); arm.add(tube([V(0, 0, 0), V(0.08 * sd, -0.5, 0.1), V(0.1 * sd, -1.0, 0.3)], 0.08, 0.05, sk)); body.add(arm); arms.push(arm); const lg = new THREE.Group(); lg.position.set(0.18 * sd, 1.1, 0); lg.add(tube([V(0, 0, 0), V(0.05 * sd, -0.55, 0.06), V(0.08 * sd, -1.1, 0)], 0.12, 0.07, sk)); lg.add(tube([V(0.08 * sd, -1.1, 0), V(0.05 * sd, -1.6, 0), V(0.03 * sd, -2.0, 0.05)], 0.07, 0.04, sk)); g.add(lg); legs.push(lg); }
+  } else if (kind === "leviathan") {   // a machine-squid colossus: a dark armoured mantle, a glowing core, long hooked tentacles
+    const m = mk(CHIT(0x1a1620, { roughness: 0.25, metalness: 0.7, clearcoat: 1 })), m2 = mk(CHIT(0x3a3040, { metalness: 0.6 })), co = GLOW(0xff3a2a);
+    body.add(tube([V(0, 1.3, 0.6), V(0, 2.0, 0.1), V(0, 2.9, -0.5)], 0.7, 0.35, m, k => 1 + 0.3 * Math.sin(k * 3.1)));
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), co); core.position.set(0, 2.1, 0.55); body.add(core);
+    for (let i = 0; i < 4; i++) body.add(new THREE.Mesh(new THREE.TorusGeometry(0.55 - i * 0.03, 0.025, 6, 22), m2).translateY(1.7 + i * 0.35).translateZ(0.25 - i * 0.15).rotateX(Math.PI / 2 - 0.4));
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, tx = Math.cos(a) * 0.5, tz = Math.sin(a) * 0.5; const tt = new THREE.Group(); tt.position.set(tx, 1.2, tz); tt.add(tube([V(0, 0, 0), V(tx * 0.8, -0.5, tz * 0.8 + 0.2), V(tx * 1.6, -0.9, tz * 1.6 + 0.2), V(tx * 1.8, -1.1, tz * 2 + 0.6)], 0.1, 0.02, m)); tt.add(cone(0.03, 0.2, m2, V(tx * 1.8, -1.1, tz * 2 + 0.6), [Math.PI / 2, 0, 0])); g.add(tt); legs.push(tt); }
+  } else if (kind === "tripod") {   // an invader war-machine: a domed cockpit head on three towering legs with a heat-ray snout
+    const m = mk(CHIT(0x4a4e58, { roughness: 0.3, metalness: 0.75, clearcoat: 0.8 })), m2 = mk(CHIT(0x24262c, { metalness: 0.7 })), ray = GLOW(0xff5a2a);
+    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.6, 24, 16), m); hd.scale.set(1.2, 0.8, 1); hd.position.set(0, 3.4, 0); body.add(hd);
+    body.add(eyes(GLOW(0x5affc0), 3.45, -0.55, 0.28, 0.1)); body.add(tube([V(0, 3.2, -0.4), V(0, 3.0, -0.9), V(0, 2.95, -1.3)], 0.1, 0.07, m2)); body.add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), ray).translateY(2.95).translateZ(-1.3));
+    for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + 0.5, lx = Math.cos(a) * 0.5, lz = Math.sin(a) * 0.5; const lg = new THREE.Group(); lg.position.set(lx, 3.1, lz); lg.add(tube([V(0, 0, 0), V(lx * 1.5, -1.1, lz * 1.5), V(lx * 2.4, -2.1, lz * 2.4), V(lx * 3.0, -3.0, lz * 3.0)], 0.1, 0.05, m, k => 1 + 0.2 * Math.sin(k * 8))); lg.add(cone(0.1, 0.2, m2, V(lx * 3.0, -3.0, lz * 3.0), [Math.PI, 0, 0])); g.add(lg); legs.push(lg); }
+    for (let k = 0; k < 3; k++) body.add(tube([V(0, 2.8, 0), V((k - 1) * 0.5, 2.3, 0.4), V((k - 1) * 0.8, 1.8, 0.6)], 0.04, 0.012, m2));
+  } else if (kind === "carapace") {   // a hive-war beast: two huge scythe arms, bone-plated carapace, a crest and a lashing tongue
+    const m = mk(CHIT(0x6a2a4a, { roughness: 0.35 })), bo = mk(CHIT(0xd8ccb0, { roughness: 0.3 })), m2 = mk(CHIT(0x2a1224));
+    body.add(tube([V(0, 1.0, 0.7), V(0, 1.35, 0), V(0, 1.7, -0.5)], 0.45, 0.35, m, k => 1 + 0.2 * Math.sin(k * 3)));
+    for (let i = 0; i < 6; i++) { const p = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.04, 6, 18, Math.PI), bo); p.rotation.set(Math.PI / 2, 0, Math.PI); p.position.set(0, 1.5, 0.55 - i * 0.2); body.add(p); }
+    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 12), bo); hd.scale.set(0.95, 0.8, 1.25); hd.position.set(0, 1.85, -0.8); body.add(hd);
+    body.add(cone(0.12, 0.6, bo, V(0, 2.2, -0.65), [-0.9, 0, 0])); body.add(eyes(GLOW(0xff2a6a), 1.9, -1.05, 0.12, 0.05)); body.add(tube([V(0, 1.7, -1.05), V(0, 1.5, -1.4), V(0.1, 1.3, -1.7)], 0.05, 0.015, GLOW(0xff6a9a)));
+    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.4 * sd, 1.7, -0.4); arm.add(tube([V(0, 0, 0), V(0.4 * sd, 0.4, -0.4), V(0.5 * sd, 0.2, -1.1)], 0.13, 0.08, m)); arm.add(tube([V(0.5 * sd, 0.2, -1.1), V(0.45 * sd, 0.6, -1.5), V(0.2 * sd, 0.9, -1.8)], 0.08, 0.008, bo, k => 1 + 0.5 * k)); body.add(arm); arms.push(arm); }
+    for (let i = 0; i < 4; i++) { const l = leg(0.45, 0.06, m2, 1.0); const sd = i % 2 ? 1 : -1; l.scale.x = sd; l.position.set(0.35 * sd, 1.0, 0.6 - Math.floor(i / 2) * 0.7); g.add(l); legs.push(l); }
   }
   if (FAMILY[kind0] && VARIANT[kind0]) { const [vx, vy, vz] = VARIANT[kind0]; g.children.forEach(c => c.scale.set(c.scale.x * vx, c.scale.y * vy, c.scale.z * vz)); }
   if (kind === "skitter" || kind === "charger") { const sm = mk(CHIT(0x2a1a0e)); const n = kind === "charger" ? 7 : 5; for (let i = 0; i < n; i++) body.add(cone(kind === "charger" ? 0.1 : 0.05, kind === "charger" ? 0.5 : 0.28, sm, V((i % 2 ? 0.25 : -0.25) * (kind === "charger" ? 1.6 : 0.8), kind === "charger" ? 1.15 : 0.7, (kind === "charger" ? -0.9 : -0.35) + i * (kind === "charger" ? 0.34 : 0.22)), [-0.25, 0, (i % 2 ? -0.5 : 0.5)])); }
@@ -404,7 +464,7 @@ const BONE = new THREE.MeshStandardMaterial({ color: 0xe8e2cc, roughness: 0.45, 
 const DRIP = new THREE.MeshStandardMaterial({ color: 0x9aff5a, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7, emissive: 0x2a7a10, emissiveIntensity: 0.8 });
 const GRANDC = new Set<string>(["warden", "matriarch", "walker", "titan", "lumawarden", "flarecaster", "skyeye", "wisp", "veilmaw", "behemoth", "drone"]);
 const TRIBEC = new Set<string>(["capling", "manthood", "domestalker", "xenodrone", "huntsman", "spiker", "bloater", "hound", "sporecaster"]);
-const ACCENT: Record<string, number> = { warden: 0xff7a2a, matriarch: 0xff3a8a, walker: 0xff2a2a, titan: 0xff5a1a, lumawarden: 0x7affd0, flarecaster: 0xff8a2a, skyeye: 0xc06aff, wisp: 0x6affff, veilmaw: 0x6a9aff, behemoth: 0xffaa3a, drone: 0x3ad6ff, capling: 0xff8a3a, manthood: 0xb06aff, domestalker: 0xff3a3a, xenodrone: 0xff3a3a, huntsman: 0x3affc0, spiker: 0xff5a2a, bloater: 0x9aff3a, hound: 0x3affe0, sporecaster: 0xff6aff };
+const ACCENT: Record<string, number> = { warden: 0xff7a2a, matriarch: 0xff3a8a, walker: 0xff2a2a, titan: 0xff5a1a, lumawarden: 0x7affd0, flarecaster: 0xff8a2a, skyeye: 0xc06aff, wisp: 0x6affff, veilmaw: 0x6a9aff, behemoth: 0xffaa3a, drone: 0x3ad6ff, capling: 0xff8a3a, manthood: 0xb06aff, domestalker: 0xff3a3a, xenodrone: 0xff3a3a, huntsman: 0x3affc0, greyling: 0x8affc0, hydraling: 0xff4a2a, warbug: 0xff5a1a, saberlord: 0x66ccff, skyfolk: 0x66ffee, leviathan: 0xff3a2a, tripod: 0xff5a2a, carapace: 0xff2a6a, spiker: 0xff5a2a, bloater: 0x9aff3a, hound: 0x3affe0, sporecaster: 0xff6aff };
 function embellish(kind: AlienKind, g: THREE.Group, tint: number) {
   const cat = GRANDC.has(kind) ? "grand" : TRIBEC.has(kind) ? "tribe" : "bug", acc = tint || ACCENT[kind] || 0xff2a1a;
   g.updateMatrixWorld(true);
