@@ -54,6 +54,27 @@ const REFPAL: Record<string, number[]> = { xeno: XENO };
 for (const k of ["skitter", "mantis", "charger", "scarab", "stalker", "glowbug", "thornback", "hound", "domestalker", "razor", "leaper", "spiker", "warden", "titan", "lumawarden", "behemoth", "walker"]) REFPAL[k] = XENO;
 for (const k of ["manthood", "flarecaster", "matriarch", "skyeye", "veilmaw", "sporecaster", "bloater", "spitter"]) REFPAL[k] = TANC;
 for (const k of ["capling", "drone", "wisp"]) REFPAL[k] = HAMC;
+/* skins painted for the three reference families (owner 2026-10-29: "make it more like the reference"): wet black scales with teal speculars, fine radial bone ribs and veins, mottled purple-orange flesh. Mid-grey so the palette colour still tints them. */
+const skinTex = (kind: "xeno" | "tan" | "ham") => canvasTex(512, 512, g => {
+  const R = (n: number) => Math.random() * n;
+  if (kind === "xeno") {
+    g.fillStyle = "#b9bec4"; g.fillRect(0, 0, 512, 512);
+    for (let y = 0; y < 512; y += 16) for (let x = (y / 16) % 2 ? 0 : 8; x < 512; x += 16) { g.fillStyle = `rgba(${60 + R(60)},${70 + R(70)},${80 + R(80)},.55)`; g.beginPath(); g.ellipse(x + 8, y + 8, 7.5, 7.5, 0, 0, 7); g.fill(); g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 1; g.stroke(); }
+    g.strokeStyle = "rgba(190,235,255,.35)"; g.lineWidth = 1.2; for (let i = 0; i < 70; i++) { const x = R(512), y = R(512); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + R(50) - 25, y + R(50) - 25, x + R(80) - 40, y + R(80) - 40); g.stroke(); }
+  } else if (kind === "tan") {
+    g.fillStyle = "#d8d0c0"; g.fillRect(0, 0, 512, 512);
+    g.strokeStyle = "rgba(70,50,30,.35)"; g.lineWidth = 1.5; for (let x = 0; x < 512; x += 7) { g.beginPath(); g.moveTo(x + R(2), 0); g.bezierCurveTo(x + R(14) - 7, 170, x + R(14) - 7, 340, x + R(4), 512); g.stroke(); }
+    g.strokeStyle = "rgba(120,60,50,.28)"; g.lineWidth = 2; for (let i = 0; i < 40; i++) { const x = R(512), y = R(512); g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x + 40, y + 30, x - 30, y + 70, x + 20, y + 120); g.stroke(); }
+    for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${R(1) < 0.5 ? "255,255,255" : "40,30,20"},${R(0.14)})`; g.fillRect(R(512), R(512), 1 + R(3), 1 + R(3)); }
+  } else {
+    g.fillStyle = "#c9c0cc"; g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 160; i++) { const x = R(512), y = R(512), r = 14 + R(46), gr = g.createRadialGradient(x, y, 0, x, y, r); const c = [[255, 140, 60], [120, 70, 150], [170, 50, 80], [60, 60, 120]][Math.floor(R(4))]; gr.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},.55)`); gr.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+    g.strokeStyle = "rgba(40,10,30,.3)"; g.lineWidth = 1.2; for (let i = 0; i < 60; i++) { const x = R(512), y = R(512); g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x + 30, y - 20, x + 10, y + 40, x + 60, y + 50); g.stroke(); }
+  }
+  noise(g, 512, 512, 1600, 0.22);
+}, 2);
+const SKINS: Record<string, THREE.Texture> = {};
+const skinFor = (p: number[]) => { const k = p === XENO ? "xeno" : p === TANC ? "tan" : "ham"; return SKINS[k] || (SKINS[k] = skinTex(k)); };
 /* the three reference creatures are templates for the rest of the roster (owner 2026-10-29: "make the other aliens closer to the pictures too"): a species listed here is built
    with that template, stretched by VARIANT, and keeps its own name, palette, behaviour and menace pass */
 const FAMILY: Record<string, string> = { stalker: "domestalker", razor: "domestalker", hound: "domestalker", thornback: "domestalker", behemoth: "domestalker", warden: "domestalker", titan: "domestalker", lumawarden: "domestalker",
@@ -338,7 +359,7 @@ function buildAlien(kind0: AlienKind, tint = 0): Rig {
   {   // neon edge lines on the armour plates: a cyber-biomech look, drawn once per alien
     const nc = tint ? tint : kind === "spitter" ? 0x7dff3a : kind === "skyeye" ? 0xc06aff : kind === "flarecaster" ? 0xff8a2a : kind === "charger" ? 0xff3a3a : kind === "mantis" ? 0x2affd0 : 0x35c8ff;
     const P = REFPAL[kind0] || REFPAL.xeno;   // colours taken from the owner's three reference pictures (2026-10-29)
-    mats.forEach((mm, i) => { const c0 = mm.color, lum = Math.min(1, (c0.r + c0.g + c0.b) / 2); (mm as any).emissiveIntensity = 0.45; mm.color.setHex(i % 3 === 2 ? P[2] : i % 2 ? P[1] : P[0]); mm.color.multiplyScalar(0.8 + 0.5 * lum); if (tint) mm.color.lerp(new THREE.Color(tint), 0.1); });
+    mats.forEach((mm, i) => { const c0 = mm.color, lum = Math.min(1, (c0.r + c0.g + c0.b) / 2); (mm as any).emissiveIntensity = 0.45; mm.color.setHex(i % 3 === 2 ? P[2] : i % 2 ? P[1] : P[0]); mm.color.multiplyScalar(0.8 + 0.5 * lum); { const sm = mm as any, sk = skinFor(P); if (sm.isMeshPhysicalMaterial || sm.isMeshStandardMaterial) { sm.map = sk; sm.bumpMap = sk; sm.bumpScale = P === XENO ? 1.6 : 1.0; sm.needsUpdate = true; if (P === XENO) { sm.roughness = 0.22; sm.clearcoat = 1; sm.clearcoatRoughness = 0.08; } } } if (tint) mm.color.lerp(new THREE.Color(tint), 0.1); });
   }
   try { embellish(kind0, g, tint); } catch (err) { /* the base model still stands */ }
   g.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; } });
@@ -493,7 +514,7 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
   scene.add(new THREE.HemisphereLight(TH ? TH.hemi[0] : 0xcfd2ff, TH ? TH.hemi[1] : 0x2a2440, 0.9));
   const sun = new THREE.DirectionalLight(TH ? TH.sun : 0xffd9b0, 1.3); sun.position.set(-30, 40, 25); sun.castShadow = high; sun.shadow.mapSize.set(hiTier() >= 3 ? 2048 : 1024, hiTier() >= 3 ? 2048 : 1024); sun.shadow.radius = 2.5; sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
   Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 140 }); scene.add(sun);
-  const rimL = new THREE.DirectionalLight(0x7aa8ff, 0.9); rimL.position.set(20, 18, -30); scene.add(rimL);
+  const rimL = new THREE.DirectionalLight(0x7aa8ff, 0.9); rimL.position.set(20, 18, -30); scene.add(rimL); { const back = new THREE.DirectionalLight(0x5fd0ff, high ? 1.5 : 0.8); back.position.set(0, 14, -40); scene.add(back); const back2 = new THREE.DirectionalLight(0xff9a5a, high ? 0.6 : 0.3); back2.position.set(-25, 8, 30); scene.add(back2); }   // blue-white back light and a warm kicker: the poster look, a silhouette with a shining edge
   const flash = new THREE.PointLight(0xffd080, 0, 14); scene.add(flash);
 
   /* ground and the level kit */
