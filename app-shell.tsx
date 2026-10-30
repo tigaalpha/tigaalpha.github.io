@@ -511,6 +511,96 @@ function MagicLinkForm({ profile }) {
   );
 }
 
+
+/* The standard sign-in screen for the members-only domain: one card, Google first, then e-mail + password with a Log in / Sign up switch,
+   forgot password and the privacy tick on sign-up only. Same Supabase calls and PDPA fields as LoginOptions, with the app's own colours. */
+const WALL_T: Record<string, Record<string, string>> = {
+  th: { welcome: "ยินดีต้อนรับสู่ TIGA", sub: "เรียนเปียโนด้วย AI — เข้าสู่ระบบเพื่อเริ่มเรียน", login: "เข้าสู่ระบบ", signup: "สมัครสมาชิก", google: "ดำเนินการต่อด้วย Google", or: "หรือ", name: "ชื่อ", email: "อีเมล", pass: "รหัสผ่าน", forgot: "ลืมรหัสผ่าน?", noacc: "ยังไม่มีบัญชี?", haveacc: "มีบัญชีอยู่แล้ว?", agree: "ฉันยอมรับ", policy: "นโยบายความเป็นส่วนตัว", free: "สมัครฟรี ใช้งานได้ทันที", inapp: "Google ใช้ไม่ได้ในเบราว์เซอร์ของแอปนี้ — เปิดในเบราว์เซอร์จริงหรือใช้อีเมลด้านล่าง", openb: "เปิดในเบราว์เซอร์", reset: "ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่อีเมลแล้ว", created: "สมัครสำเร็จ! ตรวจอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ", needName: "กรุณากรอกชื่อ", needMail: "กรุณากรอกอีเมลและรหัสผ่าน", short: "รหัสผ่านอย่างน้อย 6 ตัวอักษร", needAgree: "กรุณายอมรับนโยบายความเป็นส่วนตัว", needEmailReset: "กรอกอีเมลก่อน แล้วกด ลืมรหัสผ่าน" },
+  en: { welcome: "Welcome to TIGA", sub: "Learn piano with AI — log in to start", login: "Log in", signup: "Sign up", google: "Continue with Google", or: "or", name: "Name", email: "Email", pass: "Password", forgot: "Forgot password?", noacc: "No account yet?", haveacc: "Already have an account?", agree: "I accept the", policy: "Privacy Notice", free: "Free to join, start right away", inapp: "Google doesn't work inside this app's browser — open your real browser, or use email below", openb: "Open in browser", reset: "We sent a password reset link to your email", created: "Account created! Check your email to confirm, then log in", needName: "Please enter your name", needMail: "Please enter your email and password", short: "Password must be at least 6 characters", needAgree: "Please accept the Privacy Notice", needEmailReset: "Enter your email first, then tap Forgot password" },
+  zh: { welcome: "欢迎来到 TIGA", sub: "用 AI 学钢琴 — 登录后开始学习", login: "登录", signup: "注册", google: "使用 Google 继续", or: "或", name: "姓名", email: "邮箱", pass: "密码", forgot: "忘记密码？", noacc: "还没有账号？", haveacc: "已有账号？", agree: "我接受", policy: "隐私政策", free: "免费注册，立即开始", inapp: "此应用内的浏览器无法使用 Google — 请在浏览器中打开，或使用下方邮箱", openb: "在浏览器中打开", reset: "重置密码链接已发送到你的邮箱", created: "注册成功！请查收邮件确认后再登录", needName: "请输入姓名", needMail: "请输入邮箱和密码", short: "密码至少 6 位", needAgree: "请接受隐私政策", needEmailReset: "请先输入邮箱，再点忘记密码" },
+};
+function LoginWall({ profile, onGoogleLogin }) {
+  const [inApp] = useState(() => inAppBrowser());
+  const lg = (() => { const p = profile && profile.lang; if (p === "th" || p === "en" || p === "zh") return p; try { const n = (navigator.language || "").toLowerCase(); return n.startsWith("th") ? "th" : n.startsWith("zh") ? "zh" : "en"; } catch (e) { return "en"; } })();
+  const t = WALL_T[lg];
+  const [mode, setMode] = useState("login");
+  const [name, setName] = useState(""), [email, setEmail] = useState(""), [pass, setPass] = useState("");
+  const [agree, setAgree] = useState(false), [show, setShow] = useState(false), [busy, setBusy] = useState(false), [err, setErr] = useState(""), [ok, setOk] = useState("");
+  const signup = mode === "signup";
+  async function submit() {
+    if (busy) return; setErr(""); setOk("");
+    if (signup && !name.trim()) { setErr(t.needName); return; }
+    if (!email.trim() || !pass) { setErr(t.needMail); return; }
+    if (pass.length < 6) { setErr(t.short); return; }
+    if (signup && !agree) { setErr(t.needAgree); return; }
+    setBusy(true);
+    try {
+      saveGuestProfile(profile);
+      const { data, error } = signup
+        ? await sb.auth.signUp({ email: email.trim(), password: pass, options: { data: { full_name: name.trim(), pdpa_version: PDPA_VERSION, marketing_consent: false } } })
+        : await sb.auth.signInWithPassword({ email: email.trim(), password: pass });
+      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      if (signup && data && data.user && !data.session) setOk(t.created);
+    } catch (e) { setErr(friendlyAuthError(e && e.message)); } finally { setBusy(false); }
+  }
+  async function forgot() {
+    if (!email.trim()) { setErr(t.needEmailReset); return; }
+    setErr(""); try { const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin }); if (error) setErr(friendlyAuthError(error.message)); else setOk(t.reset); } catch (e) { setErr(friendlyAuthError(e && e.message)); }
+  }
+  const clay = "#d97757", inp: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "13px 14px", borderRadius: 10, border: "1.5px solid #e2d8cf", background: "#fff", color: "#2a211b", fontSize: 16, outline: "none", fontFamily: "inherit" };
+  return (
+    <div data-login-wall style={{ position: "fixed", inset: 0, zIndex: 100000, overflowY: "auto", background: "#faf6f1", color: "#2a211b", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "28px 16px", boxSizing: "border-box" }}>
+      <div style={{ width: "100%", maxWidth: 400, background: "#fff", borderRadius: 18, padding: "26px 22px 22px", boxShadow: "0 10px 40px rgba(120,70,40,.14)", border: "1px solid #eee3d8" }}>
+        <div style={{ textAlign: "center", marginBottom: 18 }}>
+          <div style={{ display: "inline-block", border: "2px solid " + clay, color: clay, borderRadius: 12, padding: "6px 16px", fontWeight: 800, fontSize: 22, letterSpacing: 1 }}>TIGA</div>
+          <h1 style={{ fontSize: 22, margin: "14px 0 4px", fontWeight: 800 }}>{t.welcome}</h1>
+          <div style={{ fontSize: 14, color: "#7a6a5e" }}>{t.sub}</div>
+        </div>
+        <div style={{ display: "flex", background: "#f4ece4", borderRadius: 12, padding: 4, marginBottom: 16 }}>
+          {["login", "signup"].map(m => (
+            <button key={m} type="button" data-wall-tab={m} onClick={() => { setMode(m); setErr(""); setOk(""); }}
+              style={{ flex: 1, padding: "10px 0", border: "none", borderRadius: 9, cursor: "pointer", fontSize: 15, fontWeight: 700, fontFamily: "inherit", background: mode === m ? "#fff" : "transparent", color: mode === m ? clay : "#7a6a5e", boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,.12)" : "none" }}>{m === "login" ? t.login : t.signup}</button>
+          ))}
+        </div>
+        {inApp ? (
+          <div style={{ background: "#fff4e5", border: "1px solid #f3d2a3", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 12 }}>
+            {t.inapp} <button type="button" onClick={() => openInRealBrowser()} style={{ marginLeft: 6, color: clay, fontWeight: 700, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>{t.openb}</button>
+          </div>
+        ) : (
+          <button type="button" data-wall-google onClick={() => { saveGuestProfile(profile); onGoogleLogin(); }}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "13px 14px", borderRadius: 10, border: "1.5px solid #dadce0", background: "#fff", color: "#1f1f1f", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            <GoogleMark /> {t.google}
+          </button>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0", color: "#a39486", fontSize: 13 }}><span style={{ flex: 1, height: 1, background: "#eadfd4" }} />{t.or}<span style={{ flex: 1, height: 1, background: "#eadfd4" }} /></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {signup && <input style={inp} placeholder={t.name} value={name} autoComplete="name" onChange={e => setName(e.target.value)} />}
+          <input style={inp} type="email" inputMode="email" placeholder={t.email} value={email} autoComplete="email" onChange={e => setEmail(e.target.value)} />
+          <div style={{ position: "relative" }}>
+            <input style={{ ...inp, paddingRight: 64 }} type={show ? "text" : "password"} placeholder={t.pass} value={pass} autoComplete={signup ? "new-password" : "current-password"} onChange={e => setPass(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submit(); }} />
+            <button type="button" onClick={() => setShow(v => !v)} style={{ position: "absolute", right: 10, top: 0, bottom: 0, background: "none", border: "none", color: "#7a6a5e", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>{show ? "🙈" : "👁"}</button>
+          </div>
+          {!signup && <div style={{ textAlign: "right" }}><button type="button" onClick={forgot} style={{ background: "none", border: "none", color: clay, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>{t.forgot}</button></div>}
+          {signup && (
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "#5a4c42" }}>
+              <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 2, width: 18, height: 18, accentColor: clay }} />
+              <span>{t.agree} <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ color: clay }}>{t.policy}</a></span>
+            </label>
+          )}
+          {err && <div role="alert" style={{ color: "#b3261e", fontSize: 13, background: "#fdecea", borderRadius: 8, padding: "8px 10px" }}>{err}</div>}
+          {ok && <div style={{ color: "#1e6b3a", fontSize: 13, background: "#e7f5ec", borderRadius: 8, padding: "8px 10px" }}>{ok}</div>}
+          <button type="button" data-wall-submit disabled={busy} onClick={submit} style={{ padding: "14px 0", borderRadius: 10, border: "none", background: clay, color: "#fff", fontSize: 16, fontWeight: 800, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, fontFamily: "inherit" }}>{busy ? "…" : signup ? t.signup : t.login}</button>
+        </div>
+        <div style={{ textAlign: "center", marginTop: 16, fontSize: 14, color: "#7a6a5e" }}>
+          {signup ? t.haveacc : t.noacc}{" "}
+          <button type="button" onClick={() => { setMode(signup ? "login" : "signup"); setErr(""); setOk(""); }} style={{ background: "none", border: "none", color: clay, fontWeight: 800, cursor: "pointer", fontSize: 14, fontFamily: "inherit" }}>{signup ? t.login : t.signup}</button>
+        </div>
+        {signup && <div style={{ textAlign: "center", marginTop: 8, fontSize: 12, color: "#a39486" }}>{t.free}</div>}
+      </div>
+    </div>
+  );
+}
+
 export function GuestGateScreen({ reason, profile, onLogin }) {
   const [gateInApp] = useState(() => inAppBrowser());
   const [showSignup, setShowSignup] = useState(false);
@@ -616,6 +706,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
     },
   };
   const c = copy[reason] || copy.time;
+  if (reason === "wall") return <LoginWall profile={profile} onGoogleLogin={onLogin} />;
 
   if (showSignup) {
     const inputStyle: React.CSSProperties = {
