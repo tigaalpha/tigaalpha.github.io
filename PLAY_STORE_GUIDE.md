@@ -1,4 +1,4 @@
-# คู่มือขึ้น Google Play Store — TIGA.AI (Play Store Guide)
+# คู่มือขึ้น Google Play Store — TIGA Alpha (Play Store Guide)
 
 > ไทยก่อน / English below. คู่มือนี้สำหรับเจ้าของแอป — เตรียมทุกอย่างให้ครบ
 > แล้วค่อยกดอัปโหลดครั้งแรก (ย้อนกลับยากหลังเปิดตัว)

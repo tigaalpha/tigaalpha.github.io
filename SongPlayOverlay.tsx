@@ -770,7 +770,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
               )}
               <div className="songready-btns" style={{ marginTop: 10 }}>
                 <button className="songbtn ghost" onClick={() => { logSongShare(String(songMeta && songMeta.id || "song")); shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: starRow(songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] }); }}>📤 {lc.shareBtn}</button>
-                <button className="songbtn ghost pl-line" onClick={() => shareLine(`🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TiGA Piano AI tigaalpha.github.io`)}>LINE</button>
+                <button className="songbtn ghost pl-line" onClick={() => shareLine(`🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TIGA Alpha tigaalpha.github.io`)}>LINE</button>
               </div>
               {/* C1: Friend Challenge — share a challenge link */}
               <button className="songbtn ghost" style={{ width: "100%", marginTop: 6, fontSize: 12 }}
@@ -778,10 +778,10 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                   const name = encodeURIComponent((profile && (profile.full_name || profile.email)) || "Friend");
                   const link = `${window.location.origin}${window.location.pathname}?challenge=${songMeta.id}:${songResult.acc}:${name}`;
                   const txt = lang === "th"
-                    ? `🏆 ฉันทำได้ ${songResult.acc}% ใน "${tr(songMeta, lang)}" บน TiGA Piano AI — แกสู้ได้ไหม? ${link}`
+                    ? `🏆 ฉันทำได้ ${songResult.acc}% ใน "${tr(songMeta, lang)}" บน TIGA Alpha — แกสู้ได้ไหม? ${link}`
                     : lang === "zh"
-                    ? `🏆 我在TiGA Piano AI弹 "${tr(songMeta, lang)}" 得了 ${songResult.acc}%，你能超过我吗？${link}`
-                    : `🏆 I scored ${songResult.acc}% on "${tr(songMeta, lang)}" in TiGA Piano AI — can you beat me? ${link}`;
+                    ? `🏆 我在TIGA Alpha弹 "${tr(songMeta, lang)}" 得了 ${songResult.acc}%，你能超过我吗？${link}`
+                    : `🏆 I scored ${songResult.acc}% on "${tr(songMeta, lang)}" in TIGA Alpha — can you beat me? ${link}`;
                   try { navigator.clipboard.writeText(txt); } catch (_) {}
                   shareLine(txt);
                 }}>

@@ -1,4 +1,4 @@
-# TIGA.AI — Google Play listing pack (copy-paste ready)
+# TIGA Alpha — Google Play listing pack (copy-paste ready)
 
 Package: `com.tigaalpha.tigaai` · Privacy policy: https://tigaalpha.github.io/privacy-policy.html
 Graphics: `store-assets/icon-512.png` (512x512, full-bleed, Play rounds it itself), `store-assets/feature-graphic-1024x500.png`.
@@ -11,10 +11,10 @@ That flag also turns on the Play build rules: self-update off, **no pricing, che
 ## Store listing text
 
 ### English (default)
-- **App name (≤30):** TIGA.AI — Learn Piano
+- **App name (≤30):** TIGA Alpha — Learn Piano
 - **Short description (≤80):** Learn piano with real songs, an AI teacher, ear training and games.
 - **Full description (≤4000):**
-TIGA.AI teaches you piano step by step, in Thai, English or Chinese.
+TIGA Alpha teaches you piano step by step, in Thai, English or Chinese.
 • Learning Pathway: scales, intervals, chords and sight-reading, one clear step at a time.
 • Play Along: falling-note songs with a live backing band, from folk and classical to jazz — thousands of pieces.
 • AI Teacher and Daily Mentor: ask a question, get a short answer you can play on the keyboard, and a daily plan built from your own practice.
@@ -24,10 +24,10 @@ TIGA.AI teaches you piano step by step, in Thai, English or Chinese.
 Free to start, with a 7-day trial of every feature. Needs an internet connection.
 
 ### ไทย
-- **ชื่อ:** TIGA.AI — เรียนเปียโน
+- **ชื่อ:** TIGA Alpha — เรียนเปียโน
 - **คำอธิบายสั้น:** เรียนเปียโนด้วยเพลงจริง ครู AI ฝึกหู และเกมสนุก
 - **คำอธิบายเต็ม:**
-TIGA.AI สอนเปียโนทีละขั้น ใช้ได้ทั้งภาษาไทย อังกฤษ และจีน
+TIGA Alpha สอนเปียโนทีละขั้น ใช้ได้ทั้งภาษาไทย อังกฤษ และจีน
 • เส้นทางการเรียนรู้: สเกล ช่วงเสียง คอร์ด และการอ่านโน้ต ทีละก้าวที่ชัดเจน
 • Play Along: เล่นตามโน้ตที่ไหลลงมา พร้อมวงดนตรีประกอบ ตั้งแต่เพลงพื้นบ้าน คลาสสิก ไปจนถึงแจ๊ส หลายพันเพลง
 • ครู AI และ Daily Mentor: ถามคำถามแล้วได้คำตอบสั้นๆ ที่กดฟังบนคีย์บอร์ดได้ พร้อมแผนฝึกประจำวันจากการฝึกจริงของคุณ
@@ -37,9 +37,9 @@ TIGA.AI สอนเปียโนทีละขั้น ใช้ได้�
 เริ่มใช้ฟรี พร้อมทดลองทุกฟีเจอร์ 7 วัน ต้องใช้อินเทอร์เน็ต
 
 ### 中文（简体）
-- **名称：** TIGA.AI — 学钢琴
+- **名称：** TIGA Alpha — 学钢琴
 - **简短说明：** 用真实歌曲、AI 老师、练耳和游戏学钢琴。
-- **完整说明：** TIGA.AI 一步一步教你弹钢琴，支持泰语、英语和中文。学习路径（音阶、音程、和弦、视奏）、跟弹歌曲（多种风格、数千首）、AI 老师与每日导师、练习模式（用真钢琴或屏幕键盘，应用会听并指出需要改正的音）、练耳与视频课程，以及通过学习来充能的游戏。免费开始，含 7 天全功能试用，需要联网。
+- **完整说明：** TIGA Alpha 一步一步教你弹钢琴，支持泰语、英语和中文。学习路径（音阶、音程、和弦、视奏）、跟弹歌曲（多种风格、数千首）、AI 老师与每日导师、练习模式（用真钢琴或屏幕键盘，应用会听并指出需要改正的音）、练耳与视频课程，以及通过学习来充能的游戏。免费开始，含 7 天全功能试用，需要联网。
 
 ### What's new (release notes, ≤500)
 First release on Google Play: Learning Pathway, Play Along, AI Teacher, practice mode, ear training and games.

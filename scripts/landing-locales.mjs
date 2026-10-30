@@ -27,9 +27,9 @@ const SRC = "dist-landing/index.template.html";
 const LOCALES = {
   en: {
     dir: "landing-en",
-    title: "Try a piano lesson with an AI teacher — TIGA",
+    title: "Try a piano lesson with an AI teacher — TIGA Alpha",
     desc: "Ask an AI piano teacher and watch it play the answer on a real keyboard — scales, chords, triads, explained and played for you. No sign-up to try.",
-    ogTitle: "Try a piano lesson with an AI teacher — TIGA",
+    ogTitle: "Try a piano lesson with an AI teacher — TIGA Alpha",
     ogDesc: "Play the keys right now, ask the AI teacher, and watch it play the answer finger by finger. No sign-up, nothing to install.",
     boot: "Getting your piano ready",
     bootHeadA: "Ask an AI piano teacher — ",
@@ -37,9 +37,9 @@ const LOCALES = {
   },
   zh: {
     dir: "landing-zh",
-    title: "和 AI 钢琴老师试上一课 — TIGA",
+    title: "和 AI 钢琴老师试上一课 — TIGA Alpha",
     desc: "问 AI 钢琴老师，看它在真实键盘上弹给你看——音阶、和弦、三和弦，边讲边弹。无需注册即可试用。",
-    ogTitle: "和 AI 钢琴老师试上一课 — TIGA",
+    ogTitle: "和 AI 钢琴老师试上一课 — TIGA Alpha",
     ogDesc: "琴键现在就能弹，问 AI 老师，看它一个音一个音弹给你看。不用注册，不用下载。",
     boot: "正在为你准备钢琴",
     bootHeadA: "问 AI 钢琴老师 — ",
@@ -60,11 +60,11 @@ function swapOnce(html, find, replace, what) {
 for (const [lang, L] of Object.entries(LOCALES)) {
   let out = src;
   out = swapOnce(out, '<html lang="th">', `<html lang="${lang}">`, "html lang");
-  out = swapOnce(out, "<title>ลองเรียนเปียโนกับครู AI — TIGA</title>", `<title>${L.title}</title>`, "title");
+  out = swapOnce(out, "<title>ลองเรียนเปียโนกับครู AI — TIGA Alpha</title>", `<title>${L.title}</title>`, "title");
   out = swapOnce(out,
     'content="ถามครูเปียโน AI แล้วดูมันเล่นให้ดูบนคีย์บอร์ดจริง — สเกล คอร์ด ทรัยแอด อธิบายพร้อมเล่นให้ฟัง ลองได้ทันทีไม่ต้องสมัคร"',
     `content="${L.desc}"`, "description");
-  out = swapOnce(out, 'property="og:title" content="ลองเรียนเปียโนกับครู AI — TIGA"',
+  out = swapOnce(out, 'property="og:title" content="ลองเรียนเปียโนกับครู AI — TIGA Alpha"',
     `property="og:title" content="${L.ogTitle}"`, "og:title");
   out = swapOnce(out,
     'property="og:description" content="กดคีย์เล่นได้เลย ถามครู AI แล้วดูมันเล่นให้ดูทีละนิ้ว ไม่ต้องสมัคร ไม่ต้องโหลดแอป"',
