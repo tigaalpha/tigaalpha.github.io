@@ -1070,7 +1070,7 @@ const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, e
                   <button className="cert-dl-btn" disabled={certBusy} onClick={() => downloadGroupCert(g, lang, userName, certBusy, setCertBusy, gainExp, earnCoins)}>
                     📜 {lc.certDownload}
                   </button>
-                  <button className="cert-share-btn" onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } shareCard({ title: lc.groupCertCompleted, big: g.icon, sub: g.label, lines: ["TiGA Piano AI"] }); }}>
+                  <button className="cert-share-btn" onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } shareCard({ title: lc.groupCertCompleted, big: g.icon, sub: g.label, lines: ["TIGA Alpha"] }); }}>
                     📤 {lc.shareBtn}
                   </button>
                 </div>
@@ -1110,7 +1110,7 @@ const ChallengingPage = memo(function ChallengingPage({ lang, onBoss, gainExp, e
           <button className="cert-dl-btn" onClick={() => downloadCertificate(lang, userName, gainExp, earnCoins)}>
             📜 {lc.certDownload}
           </button>
-          <button className="cert-share-btn" onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } shareCard({ title: lc.certCompleted, big: "🏆", sub: lc.certTitle, lines: ["TiGA Piano AI"] }); }}>
+          <button className="cert-share-btn" onClick={() => { if (!premium) { if (onUpsell) onUpsell(); return; } shareCard({ title: lc.certCompleted, big: "🏆", sub: lc.certTitle, lines: ["TIGA Alpha"] }); }}>
             📤 {lc.shareBtn}
           </button>
         </div>
@@ -3301,7 +3301,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
                 <button className="lvup-share" onClick={() => { setBattleData(null); setBattlePickOpen(true); }}>↻ {T("เล่นใหม่", "Play Again", "再玩")}</button>
                 {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
                 {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }}
-                  onClick={() => { const s = battleData.scores; shareLine(T(`⚔️ Family Battle บน TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 ชนะ!" : s[1].acc > s[0].acc ? "P2 ชนะ!" : "เสมอ!"} tigaalpha.github.io`, `⚔️ Family Battle on TiGA Piano AI! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 wins!" : s[1].acc > s[0].acc ? "P2 wins!" : "Draw!"} tigaalpha.github.io`, `⚔️ TiGA Piano AI家庭对战! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1胜!" : s[1].acc > s[0].acc ? "P2胜!" : "平局!"} tigaalpha.github.io`)); }}>🟢 LINE</button>}
+                  onClick={() => { const s = battleData.scores; shareLine(T(`⚔️ Family Battle บน TIGA Alpha! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 ชนะ!" : s[1].acc > s[0].acc ? "P2 ชนะ!" : "เสมอ!"} tigaalpha.github.io`, `⚔️ Family Battle on TIGA Alpha! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 wins!" : s[1].acc > s[0].acc ? "P2 wins!" : "Draw!"} tigaalpha.github.io`, `⚔️ TIGA Alpha家庭对战! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1胜!" : s[1].acc > s[0].acc ? "P2胜!" : "平局!"} tigaalpha.github.io`)); }}>🟢 LINE</button>}
                 <button className="lvup-share" onClick={() => { setBattleData(null); }}>✕</button>
               </div>
             </>
@@ -3589,7 +3589,7 @@ function shareVideo(s, lang) {
   else if (s.playlistId) url = `https://www.youtube.com/playlist?list=${s.playlistId}`;
   else if (s.folderId) url = `https://drive.google.com/embeddedfolderview?id=${s.folderId}#grid`;
   else if (s.fileId) url = `https://drive.google.com/file/d/${s.fileId}/view`;
-  const tag = lang === "th" ? "เรียนเปียโนกับ TiGA Piano AI" : lang === "zh" ? "跟 TiGA Piano AI 学钢琴" : "Learn piano with TiGA Piano AI";
+  const tag = lang === "th" ? "เรียนเปียโนกับ TIGA Alpha" : lang === "zh" ? "跟 TIGA Alpha 学钢琴" : "Learn piano with TIGA Alpha";
   const text = `${s.title} — ${tag} tigaalpha.github.io`;
   if (url && navigator.share) {
     navigator.share({ title: s.title, text, url }).catch(() => {});
@@ -5065,7 +5065,7 @@ async function renderCertificatePNG({ name, course, dateStr, lang }) {
   x.textAlign = "center";
   x.fillStyle = "#d97757";
   x.font = "500 30px Prompt, sans-serif";
-  x.fillText("TG · TIGA.AI PIANO ACADEMY", W / 2, 118);
+  x.fillText("TG · TIGA Alpha PIANO ACADEMY", W / 2, 118);
   x.fillStyle = "#faf9f5";
   x.font = "500 64px Prompt, sans-serif";
   x.fillText(lang === "th" ? "ประกาศนียบัตร" : lang === "zh" ? "结业证书" : "CERTIFICATE", W / 2, 226);
@@ -5085,15 +5085,15 @@ async function renderCertificatePNG({ name, course, dateStr, lang }) {
   x.fillText(course, W / 2, 528);
   x.fillStyle = "#8f8b82";
   x.font = "500 22px Prompt, sans-serif";
-  x.fillText((lang === "th" ? "เส้นทางเรียนรู้เปียโน TiGA · " : lang === "zh" ? "TiGA 钢琴学习之路 · " : "TiGA Piano Pathway of Learning · ") + dateStr, W / 2, 596);
+  x.fillText((lang === "th" ? "เส้นทางเรียนรู้เปียโน TiGA · " : lang === "zh" ? "TiGA 钢琴学习之路 · " : "TIGA Alpha Pathway of Learning · ") + dateStr, W / 2, 596);
   // signature block
   x.strokeStyle = "#a8a49b66"; x.beginPath(); x.moveTo(W / 2 - 170, 700); x.lineTo(W / 2 + 170, 700); x.stroke();
   x.fillStyle = "#d97757";
   x.font = "500 26px Prompt, sans-serif";
-  x.fillText("TiGA AI", W / 2, 738);
+  x.fillText("TIGA Alpha", W / 2, 738);
   x.fillStyle = "#8f8b82";
   x.font = "500 19px Prompt, sans-serif";
-  x.fillText(lang === "th" ? "ครูผู้สอน — TiGA AI Piano Studio" : lang === "zh" ? "指导老师 — TiGA AI 钢琴工作室" : "Instructor — TiGA AI Piano Studio", W / 2, 768);
+  x.fillText(lang === "th" ? "ครูผู้สอน — TIGA Alpha Piano Studio" : lang === "zh" ? "指导老师 — TIGA Alpha 钢琴工作室" : "Instructor — TIGA Alpha Piano Studio", W / 2, 768);
   return c.toDataURL("image/png");
 }
 async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) {
@@ -5107,7 +5107,7 @@ async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) 
   x.strokeStyle = "#d97757"; x.lineWidth = 3; x.strokeRect(26, 26, W - 52, H - 52);
   x.textAlign = "center";
   x.fillStyle = "#d97757"; x.font = "500 30px Prompt, sans-serif";
-  x.fillText("TG · TIGA.AI", W / 2, 112);
+  x.fillText("TG · TIGA Alpha", W / 2, 112);
   x.fillStyle = "#faf9f5"; x.font = "500 56px Prompt, sans-serif";
   x.fillText(lang === "th" ? "สมุดพกประจำสัปดาห์" : lang === "zh" ? "本周成绩单" : "WEEKLY REPORT", W / 2, 200);
   x.fillStyle = "#d97757"; x.font = "500 44px Prompt, sans-serif";
@@ -5132,7 +5132,7 @@ async function renderWeeklyPNG({ name, mins, days, acc, topics, streak, lang }) 
   }
   x.textAlign = "center";
   x.fillStyle = "#8f8b82"; x.font = "500 24px Prompt, sans-serif";
-  x.fillText(lang === "th" ? "เรียนเปียโนกับครู AI ที่ TiGA AI" : lang === "zh" ? "在 TiGA AI 与 AI 老师学钢琴" : "Learning piano with an AI teacher at TiGA AI", W / 2, H - 96);
+  x.fillText(lang === "th" ? "เรียนเปียโนกับครู AI ที่ TIGA Alpha" : lang === "zh" ? "在 TIGA Alpha 与 AI 老师学钢琴" : "Learning piano with an AI teacher at TIGA Alpha", W / 2, H - 96);
   return c.toDataURL("image/png");
 }
 
@@ -5518,7 +5518,7 @@ async function generateCoachTip(lang, profile, decision) {
   const sysByLang = {
     th: `คุณคือครูเปียโน TiGA ผู้เชี่ยวชาญสอนคนเริ่มต้นจากศูนย์โดยเฉพาะ ชมสิ่งที่ทำได้ดีก่อนเสมอแล้วค่อยแนะนำจุดที่ควรฝึกต่อ ให้กำลังใจมากกว่าตำหนิ ไม่แนะนำทฤษฎีขั้นสูง เจาะจงเสมอไม่พูดกว้างๆ ตอบเป็น JSON ดิบเท่านั้น ไม่มีข้อความอื่น: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
     zh: `你是TiGA钢琴AI老师，专门教零基础初学者。总是先表扬做得好的地方，再给出下一步建议，鼓励多于批评，不要建议高阶乐理，反馈必须具体。只回原始JSON，无其他文字：{"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
-    en: `You are TiGA AI piano teacher, specialized in teaching absolute beginners from zero. Always acknowledge what's going well before suggesting what's next, encouraging not critical, never suggest advanced theory, always specific never generic. Reply ONLY with raw JSON, no other text: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
+    en: `You are TIGA Alpha piano teacher, specialized in teaching absolute beginners from zero. Always acknowledge what's going well before suggesting what's next, encouraging not critical, never suggest advanced theory, always specific never generic. Reply ONLY with raw JSON, no other text: {"weakness":"...","steps":["...","...","..."],"feature":"..."}`,
   };
   const msgByLang = {
     th: `ข้อมูลผู้เรียน: ${profileTxt}\nซ้อมล่าสุด: ${recentTxt}\nจุดอ่อน: ${struggleTxt}\nโน้ตที่พลาดบ่อยล่าสุด: ${noteMissTxt}\n${strat ? `กลยุทธ์ที่โมเดลสอนเลือก (ต้องทำตาม ห้ามขัด): ${strat.name || "-"}${strat.modelText ? ` — ${strat.modelText}` : ""}\n` : ""}กฎโทนเสียง: ${tone.rule}\nfeature ที่เลือกได้: ${featureKeys}\n\nวิเคราะห์แล้วตอบ JSON: weakness ไม่เกิน 12 คำ, steps สูงสุด ${tone.tier === "beginner" ? 2 : 3} ข้อ (เจาะจงชื่อเพลง/หัวข้อ ห้ามคำแนะนำกว้าง ๆ อย่าง "ฝึกสม่ำเสมอ"), feature เลือกจากรายการเท่านั้น`,
@@ -6456,7 +6456,7 @@ export async function shareCard({ title, big, sub, lines = [] }) {
     x.fillStyle = g; x.fillRect(0, 0, W, H);
     x.strokeStyle = "#d97757"; x.lineWidth = 5; x.strokeRect(26, 26, W - 52, H - 52);
     x.textAlign = "center";
-    x.fillStyle = "#d97757"; x.font = "bold 30px Arial"; x.fillText("TiGA AI", W / 2, 112);
+    x.fillStyle = "#d97757"; x.font = "bold 30px Arial"; x.fillText("TIGA Alpha", W / 2, 112);
     x.fillStyle = "#faf9f5"; x.font = "bold 38px Arial"; x.fillText(String(title).slice(0, 22), W / 2, 210);
     x.fillStyle = "#d97757"; x.font = "900 150px Arial"; x.fillText(String(big), W / 2, 410);
     if (sub) { x.fillStyle = "#d97757"; x.font = "bold 56px Arial"; x.fillText(sub, W / 2, 490); }
@@ -6466,7 +6466,7 @@ export async function shareCard({ title, big, sub, lines = [] }) {
     const blob = await new Promise(res => c.toBlob(res, "image/png"));
     const file = new File([blob], "tiga-score.png", { type: "image/png" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: "TiGA AI" });
+      await navigator.share({ files: [file], title: "TIGA Alpha" });
     } else {
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tiga-score.png"; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 3000);
@@ -6518,7 +6518,7 @@ function downloadCertificate(lang, name, gainExp, earnCoins) {
     });
     x.textAlign = "center";
     // Logo & title
-    x.fillStyle = "#d97757"; x.font = "bold 22px Arial"; x.fillText("TiGA Piano AI", W / 2, 90);
+    x.fillStyle = "#d97757"; x.font = "bold 22px Arial"; x.fillText("TIGA Alpha", W / 2, 90);
     x.fillStyle = "rgba(217,119,87,.35)"; x.fillRect(100, 106, W - 200, 2);
     // Certificate word
     const certWord = lang === "th" ? "ใบประกาศนียบัตร" : lang === "zh" ? "结业证书" : "CERTIFICATE OF COMPLETION";
@@ -6530,9 +6530,9 @@ function downloadCertificate(lang, name, gainExp, earnCoins) {
     x.fillStyle = "#d97757"; x.font = "bold 52px Arial"; x.fillText(name || "___________________", W / 2, 310);
     x.fillStyle = "rgba(217,119,87,.3)"; x.fillRect(200, 330, W - 400, 2);
     // Course
-    const courseWord = lang === "th" ? "สำหรับการผ่านหลักสูตร TiGA Piano Learning Pathway ครบทุกบทเรียน"
-      : lang === "zh" ? "完成 TiGA Piano 学习路径的全部课程"
-      : "for completing the full TiGA Piano Learning Pathway";
+    const courseWord = lang === "th" ? "สำหรับการผ่านหลักสูตร TIGA Alpha Learning Pathway ครบทุกบทเรียน"
+      : lang === "zh" ? "完成 TIGA Alpha 学习路径的全部课程"
+      : "for completing the full TIGA Alpha Learning Pathway";
     x.fillStyle = "#c9c6bd"; x.font = "22px Arial";
     const words = courseWord.split(" ");
     let line = "", lines = [], maxW = W - 200;
@@ -6547,7 +6547,7 @@ function downloadCertificate(lang, name, gainExp, earnCoins) {
     x.fillStyle = "#8f8b82"; x.font = "20px Arial"; x.fillText(dateStr, W / 2, 520);
     // Signature line
     x.fillStyle = "#8f8b82"; x.fillRect(W / 2 - 100, 590, 200, 1);
-    x.fillStyle = "#d97757"; x.font = "bold 18px Arial"; x.fillText("TiGA Piano AI", W / 2, 610);
+    x.fillStyle = "#d97757"; x.font = "bold 18px Arial"; x.fillText("TIGA Alpha", W / 2, 610);
     x.fillStyle = "#8f8b82"; x.font = "16px Arial"; x.fillText("tigaalpha.github.io", W / 2, 640);
     // Download
     c.toBlob(blob => {
@@ -8355,7 +8355,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
                 {T(`การ์ดถัดไปพร้อมใน ${daysUntilNextReportCard()} วัน`, `Next card ready in ${daysUntilNextReportCard()} day${daysUntilNextReportCard() === 1 ? "" : "s"}`, `${daysUntilNextReportCard()} 天后可领取下一张`)}
               </div>
             )}
-            <button className="songbtn ghost" onClick={() => shareCard({ title: T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单"), big: rcGrade, sub: `${stats.days7}/7 · ${stats.acc7 == null ? "—" : stats.acc7 + "%"}`, lines: ["TiGA Piano AI"] })}>
+            <button className="songbtn ghost" onClick={() => shareCard({ title: T("การ์ดรายงานประจำสัปดาห์", "Weekly Report Card", "本周成绩单"), big: rcGrade, sub: `${stats.days7}/7 · ${stats.acc7 == null ? "—" : stats.acc7 + "%"}`, lines: ["TIGA Alpha"] })}>
               📤 {T("แชร์", "Share", "分享")}
             </button>
           </div>
@@ -13308,9 +13308,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {permPrimerOpen && (() => {
         const PERM_PRIMER_COPY = {
-          th: { title: "TiGA AI ขอสิทธิ์เข้าถึงบางอย่าง", body: "แอพจะขอใช้ไมโครโฟนสำหรับ AI Voice Tutor และฟังโน้ตที่คุณเล่น และขอใช้กล้องสำหรับ Hand-Posture Coach — ระบบปฏิบัติการจะถามอนุญาตแยกอีกครั้งตอนคุณเปิดใช้ฟีเจอร์นั้นจริง", btn: "เข้าใจแล้ว" },
-          en: { title: "TiGA AI needs a couple of permissions", body: "The app will ask for your microphone for the AI Voice Tutor and to hear the notes you play, and your camera for the Hand-Posture Coach — your OS will prompt you separately the moment you actually open one of those features.", btn: "Got it" },
-          zh: { title: "TiGA AI 需要一些权限", body: "应用会请求麦克风权限用于 AI 语音导师和听取你弹的音符，并请求摄像头权限用于手型指导 — 系统会在你实际打开该功能时另行询问。", btn: "知道了" },
+          th: { title: "TIGA Alpha ขอสิทธิ์เข้าถึงบางอย่าง", body: "แอพจะขอใช้ไมโครโฟนสำหรับ AI Voice Tutor และฟังโน้ตที่คุณเล่น และขอใช้กล้องสำหรับ Hand-Posture Coach — ระบบปฏิบัติการจะถามอนุญาตแยกอีกครั้งตอนคุณเปิดใช้ฟีเจอร์นั้นจริง", btn: "เข้าใจแล้ว" },
+          en: { title: "TIGA Alpha needs a couple of permissions", body: "The app will ask for your microphone for the AI Voice Tutor and to hear the notes you play, and your camera for the Hand-Posture Coach — your OS will prompt you separately the moment you actually open one of those features.", btn: "Got it" },
+          zh: { title: "TIGA Alpha 需要一些权限", body: "应用会请求麦克风权限用于 AI 语音导师和听取你弹的音符，并请求摄像头权限用于手型指导 — 系统会在你实际打开该功能时另行询问。", btn: "知道了" },
         };
         const c = PERM_PRIMER_COPY[lang] || PERM_PRIMER_COPY.en;
         return (
@@ -13354,9 +13354,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <span /><span /><span />
           </button>
           <div className="lbox lmark" onClick={handleLogoTap}
-            style={{ cursor: "pointer" }} title="TIGA" role="img" aria-label="TIGA">
+            style={{ cursor: "pointer" }} title="TIGA Alpha" role="img" aria-label="TIGA Alpha">
             <PianoGlyph size={22} strokeWidth={1.7} aria-hidden="true" />
-            <span className="lmark-tx">TIGA</span>
+            <span className="lmark-tx">TIGA α</span>
           </div>
           {/* one-tap shortcut straight into the PvP arena */}
           <button className="hdrgo hdr-pvp" onClick={() => { playUi("click"); logUsage("nav", "pvp-hdr"); setPage("pvp"); }}
@@ -13656,7 +13656,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           title={lang === "th" ? "กลับไปหน้า Pathway" : lang === "zh" ? "返回学习路径" : "Back to Pathway"}>
           <div className="lbox">TG</div>
           <div>
-            <div className="lname">TIGA.AI</div>
+            <div className="lname">TIGA Alpha</div>
             <div className="lsub">v{APP_VER}</div>
           </div>
         </div>
@@ -13995,7 +13995,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                   <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => shareCard({ title: nm, big: (st.count || 0) + "🔥", sub: lc.profLevelWord + " " + li.level, lines: [`${sess} ${lc.pdSessions} · ${wkAcc}% ${lc.pdAcc}`] })}>📤 {lc.shareBtn}</button>
                   {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
-                  {false && <button className="songbtn ghost" style={{ flex: 1, borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${nm} ${lc.profLevelWord} ${li.level} · ${(st.count || 0)}🔥 streak — TiGA Piano AI tigaalpha.github.io`)}>🟢 LINE</button>}
+                  {false && <button className="songbtn ghost" style={{ flex: 1, borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${nm} ${lc.profLevelWord} ${li.level} · ${(st.count || 0)}🔥 streak — TIGA Alpha tigaalpha.github.io`)}>🟢 LINE</button>}
                 </div>
               </div>
             </div>
@@ -14085,7 +14085,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                   <button className="setbtn wide" style={{ width: "100%" }} onClick={doInstall}>📲 {lc.setInstall}</button>
                 </>
               )}
-              <div className="setver">TiGA AI v{APP_VER}</div>
+              <div className="setver">TIGA Alpha v{APP_VER}</div>
             </div>
           </div>
         </div>
@@ -14462,9 +14462,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lvup-title">{levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord}</div>
           <div className="lvup-rank">{levelUp.prestige ? `${lc.prestigeWord} ${levelUp.prestige}` : `${lc.profLevelWord} ${levelUp.level} · ${tr(levelUp.tier, lang)}`}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord, big: levelUp.prestige ? `⭐ ${levelUp.prestige}` : lc.profLevelWord + " " + levelUp.level, sub: levelUp.prestige ? lc.prestigeWord : tr(levelUp.tier, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
+            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord, big: levelUp.prestige ? `⭐ ${levelUp.prestige}` : lc.profLevelWord + " " + levelUp.level, sub: levelUp.prestige ? lc.prestigeWord : tr(levelUp.tier, lang), lines: ["TIGA Alpha"] }); }}>📤 {lc.shareBtn}</button>
             {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
-            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TiGA Piano AI tigaalpha.github.io` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>}
+            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TIGA Alpha tigaalpha.github.io` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TIGA Alpha tigaalpha.github.io`); }}>🟢 LINE</button>}
           </div>
         </div>
       )}
@@ -14476,9 +14476,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div className="lvup-title">{lc.badgeUnlocked}</div>
           <div className="lvup-rank">{tr(badgeUp, lang)}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareCard({ title: lc.badgeUnlocked, big: badgeUp.icon, sub: tr(badgeUp, lang), lines: ["TiGA Piano AI"] }); }}>📤 {lc.shareBtn}</button>
+            <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareCard({ title: lc.badgeUnlocked, big: badgeUp.icon, sub: tr(badgeUp, lang), lines: ["TIGA Alpha"] }); }}>📤 {lc.shareBtn}</button>
             {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
-            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareLine(`🎹 ${lc.badgeUnlocked} ${badgeUp.icon} "${tr(badgeUp, lang)}" — TiGA Piano AI tigaalpha.github.io`); }}>🟢 LINE</button>}
+            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareLine(`🎹 ${lc.badgeUnlocked} ${badgeUp.icon} "${tr(badgeUp, lang)}" — TIGA Alpha tigaalpha.github.io`); }}>🟢 LINE</button>}
           </div>
         </div>
       )}
@@ -14503,9 +14503,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       )}
       {showApkBanner && (() => {
         const APK_BANNER_COPY = {
-          th: { title: "ติดตั้งแอพ TIGA.AI", sub: "ใช้งานง่ายขึ้น เต็มจอ แจ้งเตือนซ้อมได้", btn: "ดูวิธีติดตั้ง" },
-          en: { title: "Get the TIGA.AI app", sub: "Full-screen, faster, with practice reminders", btn: "See how" },
-          zh: { title: "获取 TIGA.AI 应用", sub: "全屏体验，更流畅，支持练习提醒", btn: "查看方法" },
+          th: { title: "ติดตั้งแอพ TIGA Alpha", sub: "ใช้งานง่ายขึ้น เต็มจอ แจ้งเตือนซ้อมได้", btn: "ดูวิธีติดตั้ง" },
+          en: { title: "Get the TIGA Alpha app", sub: "Full-screen, faster, with practice reminders", btn: "See how" },
+          zh: { title: "获取 TIGA Alpha 应用", sub: "全屏体验，更流畅，支持练习提醒", btn: "查看方法" },
         };
         const c = APK_BANNER_COPY[lang] || APK_BANNER_COPY.en;
         return (
@@ -14528,21 +14528,21 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {showApkPill && apkPillOpen && (() => {
         const T2 = {
           th: {
-            title: "ติดตั้ง TIGA.AI บนมือถือ", sub: "เลือกแพลตฟอร์มของคุณ",
+            title: "ติดตั้ง TIGA Alpha บนมือถือ", sub: "เลือกแพลตฟอร์มของคุณ",
             andT: "Android", andS: apkAvailable ? (apkIsBeta ? "รุ่นทดสอบ (เบต้า)" : "แอพเต็มรูปแบบ") : "เร็วๆ นี้",
             andF1: "🤖 ครู AI ตอบสด", andF2: "🔔 แจ้งเตือนซ้อม", andBtn: "ดาวน์โหลด APK", andNote: "แตะ \"อนุญาตติดตั้งจากแหล่งนี้\" เมื่อ Android ถาม",
             iosT: "iPhone / iPad", iosS: "เพิ่มไปหน้าจอโฮมจาก Safari",
             iosF1: "🏠 เปิดแบบเต็มจอ", iosF2: "🔔 แจ้งเตือนได้ (iOS 16.4+)", iosBtn: "ดูวิธีติดตั้ง →",
           },
           en: {
-            title: "Install TIGA.AI on your phone", sub: "Pick your platform",
+            title: "Install TIGA Alpha on your phone", sub: "Pick your platform",
             andT: "Android", andS: apkAvailable ? (apkIsBeta ? "Beta build" : "Full app") : "Coming soon",
             andF1: "🤖 Live AI teacher", andF2: "🔔 Practice reminders", andBtn: "Download APK", andNote: "Tap \"allow install from this source\" when Android asks",
             iosT: "iPhone / iPad", iosS: "Add to Home Screen from Safari",
             iosF1: "🏠 Full-screen app", iosF2: "🔔 Notifications too (iOS 16.4+)", iosBtn: "See install steps →",
           },
           zh: {
-            title: "在手机上安装 TIGA.AI", sub: "选择你的平台",
+            title: "在手机上安装 TIGA Alpha", sub: "选择你的平台",
             andT: "Android", andS: apkAvailable ? (apkIsBeta ? "测试版" : "完整版应用") : "即将推出",
             andF1: "🤖 AI 实时老师", andF2: "🔔 练习提醒", andBtn: "下载 APK", andNote: "系统询问时点击\"允许安装未知来源应用\"",
             iosT: "iPhone / iPad", iosS: "从 Safari 添加到主屏幕",
@@ -14594,7 +14594,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             warnChrome: "คุณกำลังใช้ Chrome อยู่ — บน iPhone/iPad มีแค่ Safari เท่านั้นที่ติดตั้งไอคอนแอปแบบเต็มจอได้ (เป็นข้อจำกัดจาก Apple ไม่ใช่จาก Chrome) แตะ ⋯ เพิ่มเติม ที่ด้านล่างจอ แล้วเลือก \"เปิดใน Safari\" จากนั้นทำตามขั้นตอนด้านล่างนี้",
             s1t: "1. แตะปุ่มแชร์", s1b: "ไอคอนสี่เหลี่ยมมีลูกศรชี้ขึ้น อยู่แถบด้านล่าง (หรือด้านบนใน iPad)",
             s2t: "2. เลื่อนหาแล้วแตะ \"เพิ่มไปที่หน้าจอโฮม\"", s2b: "Add to Home Screen",
-            s3t: "3. แตะ \"เพิ่ม\" มุมขวาบน", s3b: "เสร็จแล้ว! ไอคอน TIGA.AI จะอยู่บนหน้าจอโฮมของคุณ",
+            s3t: "3. แตะ \"เพิ่ม\" มุมขวาบน", s3b: "เสร็จแล้ว! ไอคอน TIGA Alpha จะอยู่บนหน้าจอโฮมของคุณ",
             benefits: "หลังติดตั้งแล้วคุณจะได้:", b1: "🏠 เปิดแบบเต็มจอเหมือนแอพจริง ไม่มีแถบ URL", b2: "🔔 รับการแจ้งเตือนซ้อมได้ (iOS 16.4 ขึ้นไป)", b3: "📴 เข้าถึงได้แม้ออฟไลน์บางส่วน",
             close: "ปิด",
           },
@@ -14604,7 +14604,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             warnChrome: "You're in Chrome — on iPhone/iPad, only Safari can add a real full-screen app icon (that's an Apple rule, not a Chrome limitation). Tap ⋯ More at the bottom of the screen, choose \"Open in Safari,\" then follow the steps below.",
             s1t: "1. Tap the Share button", s1b: "The square with an arrow pointing up, in the bottom bar (top bar on iPad)",
             s2t: "2. Scroll down and tap \"Add to Home Screen\"", s2b: "",
-            s3t: "3. Tap \"Add\" in the top-right corner", s3b: "Done! The TIGA.AI icon is now on your Home Screen.",
+            s3t: "3. Tap \"Add\" in the top-right corner", s3b: "Done! The TIGA Alpha icon is now on your Home Screen.",
             benefits: "Once installed you get:", b1: "🏠 Opens full-screen, like a real app — no URL bar", b2: "🔔 Practice reminder notifications (iOS 16.4+)", b3: "📴 Partial offline access",
             close: "Close",
           },
@@ -14614,7 +14614,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             warnChrome: "你正在使用 Chrome — 在 iPhone/iPad 上，只有 Safari 才能把应用图标完整安装到主屏幕（这是苹果的限制，与 Chrome 无关）。点击屏幕底部的 ⋯ 更多，选择「在 Safari 中打开」，然后按照以下步骤操作。",
             s1t: "1. 点击分享按钮", s1b: "带向上箭头的方框图标，位于底部工具栏（iPad 在顶部）",
             s2t: "2. 向下滚动并点击\"添加到主屏幕\"", s2b: "",
-            s3t: "3. 点击右上角的\"添加\"", s3b: "完成！TIGA.AI 图标现在在你的主屏幕上了。",
+            s3t: "3. 点击右上角的\"添加\"", s3b: "完成！TIGA Alpha 图标现在在你的主屏幕上了。",
             benefits: "安装后你将获得：", b1: "🏠 全屏打开，就像真正的应用 — 没有网址栏", b2: "🔔 练习提醒通知（iOS 16.4+）", b3: "📴 部分离线可用",
             close: "关闭",
           },
