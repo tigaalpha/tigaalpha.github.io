@@ -36,13 +36,14 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
   const [posts, setPosts] = useState<BlogPost[] | null>(null);
   const [open, setOpen] = useState<BlogPost | null>(null);
   const [err, setErr] = useState(false);
+  const [tab, setTab] = useState<string>(lang === "th" || lang === "zh" ? lang : "en");
   useEffect(() => {
     let off = false; setPosts(null); setErr(false);
     sb.from("blog_posts").select("*").eq("published", true).order("created_at", { ascending: false }).limit(100)
       .then(({ data, error }: any) => { if (off) return; if (error) { setErr(true); setPosts([]); } else setPosts(data || []); }, () => { if (!off) { setErr(true); setPosts([]); } });
     return () => { off = true; };
   }, []);
-  const mine = (posts || []).filter(p => p.lang === lang), shown = mine.length ? mine : (posts || []);
+  const shown = (posts || []).filter(p => p.lang === tab), mine = shown;
   return (
     <div className="profpage" data-blog>
       <div className="profhdr">
@@ -51,6 +52,13 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
         <div className="profxp-lbl" style={{ color: "var(--muted)", fontSize: 13 }}>{T("บทความเรื่องการเรียนเปียโนและดนตรี", "Articles on learning piano and music", "钢琴与音乐学习文章")}</div>
       </div>
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px 90px" }}>
+        {!open && (
+          <div data-blog-langs style={{ display: "flex", gap: 6, background: "var(--card2, #f4ece4)", borderRadius: 999, padding: 4, margin: "4px 0 16px" }}>
+            {([["th", "ไทย"], ["en", "English"], ["zh", "中文"]] as const).map(([l, n]) => (
+              <button key={l} type="button" data-blog-lang={l} onClick={() => setTab(l)} style={{ flex: 1, padding: "9px 0", border: "none", borderRadius: 999, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "inherit", background: tab === l ? "var(--card, #fff)" : "transparent", color: tab === l ? "var(--clay, #d97757)" : "var(--muted)", boxShadow: tab === l ? "0 1px 4px rgba(0,0,0,.12)" : "none" }}>{n}</button>
+            ))}
+          </div>
+        )}
         {open ? (
           <article data-blog-post>
             <button className="songbtn ghost" onClick={() => setOpen(null)} style={{ marginBottom: 12 }}>← {T("กลับ", "Back", "返回")}</button>
@@ -62,13 +70,13 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
         ) : posts === null ? (
           <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>…</div>
         ) : shown.length === 0 ? (
-          <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{err ? T("โหลดบทความไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't load articles — please try again", "文章加载失败，请重试") : T("ยังไม่มีบทความ โปรดรอติดตาม", "No articles yet — check back soon", "暂无文章，敬请期待")}</div>
+          <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{err ? T("โหลดบทความไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't load articles — please try again", "文章加载失败，请重试") : tab === "th" ? "ยังไม่มีบทความภาษาไทย โปรดรอติดตาม" : tab === "zh" ? "暂无中文文章，敬请期待" : "No English articles yet — check back soon"}</div>
         ) : shown.map(p => (
           <button key={p.id} data-blog-card onClick={() => setOpen(p)} style={{ display: "block", width: "100%", textAlign: "left", background: "var(--card)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 16, padding: 14, margin: "0 0 12px", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
             {p.cover_url && safeUrl(p.cover_url) && <img src={safeUrl(p.cover_url)} alt="" loading="lazy" style={{ width: "100%", borderRadius: 10, marginBottom: 10 }} />}
             <div style={{ fontWeight: 800, fontSize: 17, lineHeight: 1.35 }}>{p.title}</div>
             {p.excerpt && <div style={{ fontSize: 14, color: "var(--text2, #6b5d52)", margin: "6px 0 8px", lineHeight: 1.55 }}>{p.excerpt}</div>}
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>{fmtDate(p.created_at, lang)}{!mine.length ? " · " + p.lang.toUpperCase() : ""}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>{fmtDate(p.created_at, tab)}</div>
           </button>
         ))}
       </div>
