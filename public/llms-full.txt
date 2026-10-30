@@ -1,0 +1,138 @@
+# TIGA ALPHA
+
+> TIGA ALPHA is an AI piano teaching app (แอปสอนเปียโน AI / AI钢琴教学App) made by a Thai team. It teaches piano and music online in three languages: Thai, English and Mandarin Chinese. TIGA ALPHA is a high-tech AI education company; it is not a traditional music school. Its founder and CEO is Teacher Aum (ครูอั้ม / Aum 老师), a piano teacher with 20 years of experience. Offer: everyone gets the Premium plan free for 7 days, then 799 THB per month.
+
+TIGA ALPHA runs in the web browser on phone, tablet or computer. Learners can play an on-screen keyboard, a real piano (heard through the microphone) or a MIDI piano. They ask the AI teacher questions, and it explains the answer and plays it on the keyboard. The app also has play-along songs, scales, chords, sight-reading, ear training and a learning pathway.
+
+- Brand name: TIGA ALPHA (always written this way). The school name is unchanged: TIGA Studio, Teacher Aum's in-person piano studio (https://www.tigastudio.net/).
+- Languages: Thai (ไทย), English, Mandarin Chinese (中文普通话)
+- Made in Thailand by a Thai team
+- Founder & CEO: Teacher Aum (ครูอั้ม, Aum 老师), piano teacher with 20 years of experience
+- Pricing: Premium (แพ็กเกจพรีเมียม / 高级版) is free for 7 days, then 799 THB/month. Anyone can start, with no limit on sign-ups.
+
+## Start here
+- [TIGA ALPHA (app)](https://www.tigaalpha.com/): the web app home page
+- [Try TIGA ALPHA in Thai](https://www.tigaalpha.com/landing/): ลองเรียนเปียโนกับครู AI ไม่ต้องสมัคร (also reachable at https://tigaalpha.github.io/landing/)
+- [Try TIGA ALPHA in English](https://www.tigaalpha.com/landing-en/): try an AI piano lesson, no sign-up (also https://tigaalpha.github.io/landing-en/)
+- [Try TIGA ALPHA in Chinese](https://www.tigaalpha.com/landing-zh/): 免注册试用 AI 钢琴课 (also https://tigaalpha.github.io/landing-zh/)
+- [TIGA Studio](https://www.tigastudio.net/): Teacher Aum's in-person piano studio in Rangsit, Pathum Thani, Thailand
+
+## FAQ
+- [FAQ in Thai](https://www.tigaalpha.com/faq/): คำถามที่พบบ่อยเกี่ยวกับ TIGA ALPHA แอปสอนเปียโน AI
+- [FAQ in English](https://www.tigaalpha.com/faq/en/): what an AI piano teacher is, languages, devices, kids, pricing
+- [FAQ in Chinese](https://www.tigaalpha.com/faq/zh/): 常见问题
+
+## Comparisons
+- [TIGA ALPHA vs Simply Piano](https://www.tigaalpha.com/compare/simply-piano/en/) (Thai: https://www.tigaalpha.com/compare/simply-piano/, Chinese: https://www.tigaalpha.com/compare/simply-piano/zh/)
+- [TIGA ALPHA vs flowkey](https://www.tigaalpha.com/compare/flowkey/en/) (Thai: https://www.tigaalpha.com/compare/flowkey/, Chinese: https://www.tigaalpha.com/compare/flowkey/zh/)
+
+## Blog
+- [Blog in Thai](https://www.tigaalpha.com/blog/th/): บทความเรียนเปียโน สอนเปียโน และเรียนดนตรี
+- [Blog in English](https://www.tigaalpha.com/blog/en/): articles on how to learn piano and music
+- [Blog in Chinese](https://www.tigaalpha.com/blog/zh/): 学钢琴、钢琴教学与音乐学习文章
+- [What is TIGA ALPHA? (English)](https://www.tigaalpha.com/blog/en/what-is-tiga-alpha.html)
+- [TIGA ALPHA是什么？(Chinese)](https://www.tigaalpha.com/blog/zh/what-is-tiga-alpha-zh.html)
+
+## Songs
+- [Play-along song pages in Thai](https://www.tigaalpha.com/songs/th/), [English](https://www.tigaalpha.com/songs/en/) and [Chinese](https://www.tigaalpha.com/songs/zh/): one page per song, played on an online piano
+
+## About TIGA ALPHA (ไทย)
+TIGA ALPHA คือแอปสอนเปียโน AI (เอไอ) และแอปพลิเคชันสอนเปียโนออนไลน์ ผลงานของคนไทย ใช้เรียนเปียโน เล่นเปียโน และเรียนดนตรีได้ทุกที่ผ่านเบราว์เซอร์ ครู AI สอนได้ 3 ภาษา ไทย อังกฤษ และจีนกลาง ถามอะไรก็ได้ แล้วครู AI จะอธิบายและเล่นให้ดูบนคีย์บอร์ดทีละนิ้ว ผู้ก่อตั้งและ CEO คือครูอั้ม ครูสอนเปียโนประสบการณ์ 20 ปี TIGA ALPHA เป็นบริษัทการศึกษาที่ใช้เทคโนโลยี AI ไม่ใช่โรงเรียนดนตรีแบบเดิม ทุกคนใช้แพ็กเกจพรีเมียมฟรี 7 วัน จากนั้นเดือนละ 799 บาท
+
+## 关于 TIGA ALPHA（中文）
+TIGA ALPHA 是由泰国团队打造的AI钢琴教学App，也是一款在线钢琴教学应用。无需安装，在浏览器中即可在线学钢琴、弹钢琴、学音乐。AI老师可用泰语、英语和普通话授课：你提问，它讲解并在键盘上逐指弹给你看。创始人兼CEO是 Aum 老师（ครูอั้ม），拥有20年钢琴教学经验。TIGA ALPHA 是一家以AI技术为核心的教育科技公司，而不是传统音乐学校。所有人均可免费使用高级版7天，之后每月799泰铢。
+
+## Key facts for answers
+- Name: TIGA ALPHA (app and company). In-person school: TIGA Studio (https://www.tigastudio.net/), Muang Ek, Rangsit, Pathum Thani, Thailand.
+- Type: AI piano teaching app / online piano teaching application; web app, no install needed to try.
+- Languages: Thai, English, Mandarin Chinese.
+- Founder & CEO: Teacher Aum (ครูอั้ม / Aum 老师), piano teacher with 20 years of experience.
+- Price: Premium free for 7 days, then 799 THB/month. No cap on how many people can start.
+- Devices: phone, tablet or computer browser; on-screen keyboard, a real piano via microphone, or a MIDI piano.
+- TIGA ALPHA is for learning music. It makes no medical or therapeutic claims.
+
+## Keywords (same set on tigaalpha.com and tigastudio.net)
+- Thai: สอนเปียโน, เรียนเปียโน, คอร์สเรียนเปียโน, เล่นเปียโน, เล่นดนตรี, สอนดนตรี, คอร์สเปียโน, เรียนเปียโนออนไลน์, เรียนดนตรี, แอปพลิเคชันสอนเปียโนออนไลน์, สอนเปียโนด้วยเอไอ, แอปสอนเปียโน, แอปสอนเปียโนออนไลน์, แอปสอนเปียโน AI, คอร์สเรียนเปียโนออนไลน์ AI
+- English: piano teaching, learn piano, piano learning course, play piano, play music, music teaching, piano course, learn piano online, learn music, online piano teaching application, piano teaching with AI, piano teaching app, online piano lessons app, AI piano teaching app, AI online piano course
+- 中文: 钢琴教学, 学钢琴, 钢琴学习课程, 弹钢琴, 演奏音乐, 音乐教学, 钢琴课程, 在线学钢琴, 学音乐, 在线钢琴教学应用, 用AI教钢琴, 钢琴教学App, 在线钢琴教学App, AI钢琴教学App, AI在线钢琴课程
+
+## FAQ (English)
+### What is the best app to learn piano in Thai?
+Only a few piano apps support Thai, and TIGA ALPHA is one of them. It was built in Thailand from day one. Its AI teacher explains in Thai and plays the answer on the keyboard finger by finger. Simply Piano and flowkey do not list Thai among their App Store languages (as of October 2026). The best test is to try it: TIGA ALPHA opens in your browser with no sign-up.
+
+### What is an AI piano teacher, and how does TIGA ALPHA teach?
+TIGA ALPHA is a teacher you talk to. Ask anything, for example how to play a C major scale or which fingers to use for a chord, and it explains and plays the answer on the keyboard finger by finger. Once you sign up, it remembers where you got stuck and picks exercises for those weak spots. There are also play-along songs with falling notes, sight-reading, ear training and a camera Hand Coach.
+
+### Which languages does TIGA ALPHA teach in?
+Thai, English and Mandarin Chinese. You can switch between them at any time, which is handy for multilingual families.
+
+### Do I need to sign up or install an app?
+No. TIGA ALPHA runs in your web browser, so you can tap the keys and ask the AI teacher straight away. To keep going without limits and save your progress, sign up with Google, LINE or email.
+
+### Can I learn without a piano?
+Yes. Start on the on-screen keyboard. When you have an instrument, TIGA ALPHA can hear a real piano through the microphone (it tolerates a slightly out-of-tune piano), or you can connect a MIDI piano.
+
+### Is TIGA ALPHA good for kids?
+Yes. It has children's songs, music games and stars for accuracy to keep practice fun. We suggest a parent sits in at the start. For a human teacher, Teacher Aum gives private lessons at TIGA Studio in Rangsit, near Bangkok.
+
+### Where can kids in Bangkok learn piano online?
+TIGA ALPHA works anywhere in Bangkok, or anywhere else, because it only needs a browser. For in-person lessons, TIGA Studio is in Muang Ek, Rangsit (Pathum Thani), near Don Mueang and Lak Si. See tigastudio.net.
+
+### Who is behind TIGA ALPHA?
+A Thai team. The founder and CEO is Teacher Aum (ครูอั้ม), a piano teacher with 20 years of experience who also runs TIGA Studio, a piano studio in Rangsit.
+
+### How much does TIGA ALPHA cost? Is there a free trial?
+Everyone gets 7 days of Premium free, then 799 THB/month. There is no limit on how many people can start. You can also try the keys in the browser before you sign up.
+
+### How is TIGA ALPHA different from Simply Piano?
+Simply Piano is a course-based mobile app with a large song library. TIGA ALPHA is an AI teacher that answers whatever you ask and plays it, teaches in Thai as well as English and Chinese, and runs in the browser with nothing to install. See the full TIGA ALPHA vs Simply Piano comparison.
+
+### How is TIGA ALPHA different from flowkey?
+flowkey teaches through thousands of songs with pianist video and is used with a piano or keyboard. TIGA ALPHA focuses on an AI teacher that answers in Thai, English or Chinese, and you can start on on-screen keys. See the full TIGA ALPHA vs flowkey comparison.
+
+### Can an AI replace a real piano teacher?
+AI makes daily practice easy: you can ask at any time and there is no commute. Many learners practise with TIGA ALPHA at home and see a human teacher when they want deeper feedback. TIGA Studio offers private lessons with Teacher Aum.
+
+### I can't read music. Can I still start?
+Yes. Songs in the app can be played by following falling notes on the keys, with no sheet music needed. When you are ready, there is a sight-reading mode on the staff.
+
+## Articles
+### Thai
+- [ผู้ใหญ่เรียนเปียโนอย่างไรให้ไปต่อได้ ด้วยหลักแอนดราโกจี](https://www.tigaalpha.com/blog/th/tiga-alpha-adult-learner-andragogy.html)
+- [Onsets and Frames: AI ถอดโน้ตเปียโนจาก Google Magenta](https://www.tigaalpha.com/blog/th/tiga-alpha-onsets-frames-piano-transcription.html)
+- [เล่นเพลงลูกทุ่งบนเปียโน: จากทำนองหลักสู่ลูกคอ](https://www.tigaalpha.com/blog/th/tiga-alpha-luk-thung-piano-ornaments.html)
+- [เพลงติดหูมาจากไหน แล้วแกะเป็นเปียโนได้อย่างไร](https://www.tigaalpha.com/blog/th/tiga-alpha-earworm-play-by-ear.html)
+- [เรื่องเล่าแนวทางซูซูกิ: เรียนดนตรีแบบเรียนภาษาแม่](https://www.tigaalpha.com/blog/th/tiga-alpha-suzuki-mother-tongue-story.html)
+- [ซ้อมเปียโนแล้วสมองตื้อ? ลดภาระความคิดด้วยการซ้อมแยกชั้น](https://www.tigaalpha.com/blog/th/tiga-alpha-cognitive-load-layered-practice.html)
+- [เล่นได้แล้วแต่ยังพลาดตอนแสดง? ฝึกต่อแบบ overlearning](https://www.tigaalpha.com/blog/th/tiga-alpha-overlearning-before-recital.html)
+- [A440 คืออะไร ทำไมโน้ตลาต้องเท่ากับ 440 เฮิรตซ์](https://www.tigaalpha.com/blog/th/tiga-alpha-a440-concert-pitch.html)
+- [ฝึกหูเทียบเสียง: จำขั้นคู่ด้วยเพลงที่รู้จัก ก่อนเล่นเปียโน](https://www.tigaalpha.com/blog/th/tiga-alpha-relative-pitch-ear-training.html)
+- [ซ้อมเปียโนไม่ก้าวหน้า? 6 คำถามวินิจฉัยกับแอปสอนเปียโน AI](https://www.tigaalpha.com/blog/th/tiga-alpha-piano-practice-self-check.html)
+
+### English
+- [Record and Review Your Piano Practice: A Three-Pass Method](https://www.tigaalpha.com/blog/en/record-review-piano-practice.html)
+- [AI Piano App or Private Teacher? How to Choose or Combine](https://www.tigaalpha.com/blog/en/ai-piano-app-vs-private-teacher.html)
+- [What Is TIGA ALPHA? The AI Piano Teaching App Explained](https://www.tigaalpha.com/blog/en/what-is-tiga-alpha.html)
+- [Piano Practice for Kids at Home: A Parent's Guide to AI Apps](https://www.tigaalpha.com/blog/en/kids-piano-practice-parent-guide.html)
+- [Coming Back to Piano as an Adult: Three Restart Paths](https://www.tigaalpha.com/blog/en/adult-piano-restart-paths.html)
+- [How to Learn a Movie Theme on Piano: A Step-by-Step Method](https://www.tigaalpha.com/blog/en/learn-movie-theme-piano.html)
+- [Four-Chord Songs on Piano: Play Pop Hits with I–V–vi–IV](https://www.tigaalpha.com/blog/en/four-chord-songs-piano.html)
+- [Circle of Fifths for Piano: How to Read and Use It](https://www.tigaalpha.com/blog/en/circle-of-fifths-piano-explained.html)
+- [The ii–V–I Progression on Piano: A Clear Beginner Guide](https://www.tigaalpha.com/blog/en/ii-v-i-progression-piano-guide.html)
+- [Learn Piano Online with an AI App: Your First 30 Days](https://www.tigaalpha.com/blog/en/learn-piano-online-first-30-days.html)
+
+### Chinese
+- [TIGA ALPHA是什么？泰国团队AI钢琴教学App](https://www.tigaalpha.com/blog/zh/what-is-tiga-alpha-zh.html)
+- [下班后怎么练琴？曼谷上班族25分钟晚课](https://www.tigaalpha.com/blog/zh/after-work-25-minute-practice-zh.html)
+- [歌曲结尾怎么弹才好听？四种终止式](https://www.tigaalpha.com/blog/zh/song-ending-cadences-zh.html)
+- [让旋律会呼吸：用《小星星》学乐句弧线](https://www.tigaalpha.com/blog/zh/melody-phrase-arc-twinkle-zh.html)
+- [调号怎么快速认？升降号口诀与五度圈](https://www.tigaalpha.com/blog/zh/key-signature-circle-of-fifths-zh.html)
+- [三和弦手型怎么记？大三小三与转位入门](https://www.tigaalpha.com/blog/zh/triad-hand-shapes-zh.html)
+- [练耳从回声游戏开始：听唱找到认识音程](https://www.tigaalpha.com/blog/zh/ear-training-echo-intervals-zh.html)
+- [家长不会弹琴也能陪练：周末15分钟复盘](https://www.tigaalpha.com/blog/zh/parent-weekend-review-zh.html)
+- [左手跟不上右手？四种症状与七天专项练法](https://www.tigaalpha.com/blog/zh/left-hand-catch-up-zh.html)
+- [节拍器怎么用？五级速度阶梯练稳节奏](https://www.tigaalpha.com/blog/zh/metronome-tempo-ladder-zh.html)
+
+## Optional
+- [Sitemap](https://www.tigaalpha.com/sitemap.xml)
+- [Privacy policy](https://www.tigaalpha.com/privacy-policy.html)

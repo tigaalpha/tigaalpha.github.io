@@ -19,9 +19,21 @@
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=3600, stale-while-revalidate=86400" }
       ]
+    },
+    {
+      "source": "/llms.txt",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    },
+    {
+      "source": "/llms-full.txt",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
     }
   ],
+  "redirects": [
+    { "source": "/blog", "destination": "/blog/th/", "permanent": true },
+    { "source": "/blog/", "destination": "/blog/th/", "permanent": true }
+  ],
   "rewrites": [
-    { "source": "/((?!sw\\.js|manifest\\.webmanifest|icon\\.svg|updates/).*)", "destination": "/index.html" }
+    { "source": "/((?!sw\\.js|manifest\\.webmanifest|icon\\.svg|updates/|llms\\.txt$|llms-full\\.txt$).*)", "destination": "/index.html" }
   ]
 }
