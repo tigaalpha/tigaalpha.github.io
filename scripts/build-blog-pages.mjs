@@ -36,6 +36,7 @@ ${extra}<meta property="og:title" content="${esc(title)}"><meta property="og:des
 <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script><style>${CSS}</style></head>
 `;
 const topbar = (lang) => `<header class="top"><div><a href="${SITE}/">TIGA ALPHA</a><a href="${SITE}/blog/${lang}/" style="font-weight:600">${LG[lang].name}</a></div></header>`;
+const CATN = { tips: { th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧" }, theory: { th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理" }, songs: { th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目" }, news: { th: "ข่าวและประกาศ", en: "News", zh: "新闻公告" }, story: { th: "เรื่องราว", en: "Stories", zh: "故事" } };
 const urls = [], bySlug = {};
 for (const p of posts) { (bySlug[p.slug] = bySlug[p.slug] || {})[p.lang] = p; }
 for (const p of posts) {
@@ -44,18 +45,18 @@ for (const p of posts) {
   const alts = Object.keys(set).map(l => `<link rel="alternate" hreflang="${LG[l].html}" href="${SITE}/blog/${l}/${encodeURIComponent(p.slug)}.html">`).join("") + `<link rel="alternate" hreflang="x-default" href="${SITE}/blog/${set.en ? "en" : p.lang}/${encodeURIComponent(p.slug)}.html">\n`;
   const desc = p.excerpt || String(p.body || "").replace(/[#*\[\]()!>-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 155);
   const ld = { "@context": "https://schema.org", "@graph": [
-    { "@type": "BlogPosting", headline: p.title, description: desc, inLanguage: L.html, datePublished: p.created_at, dateModified: p.updated_at || p.created_at, mainEntityOfPage: canon, url: canon, image: safeUrl(p.cover_url || "") || `${SITE}/og-card.png`, author: { "@type": "Organization", name: "TIGA ALPHA", url: SITE + "/" }, publisher: { "@type": "Organization", name: "TIGA ALPHA", url: SITE + "/", logo: { "@type": "ImageObject", url: SITE + "/og-card.png" } } },
+    { "@type": "BlogPosting", headline: p.title, articleSection: (CATN[p.category || "tips"] || {})[p.lang] || undefined, description: desc, inLanguage: L.html, datePublished: p.created_at, dateModified: p.updated_at || p.created_at, mainEntityOfPage: canon, url: canon, image: safeUrl(p.cover_url || "") || `${SITE}/og-card.png`, author: { "@type": "Organization", name: "TIGA ALPHA", url: SITE + "/" }, publisher: { "@type": "Organization", name: "TIGA ALPHA", url: SITE + "/", logo: { "@type": "ImageObject", url: SITE + "/og-card.png" } } },
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "TIGA ALPHA", item: SITE + "/" }, { "@type": "ListItem", position: 2, name: L.name, item: `${SITE}/blog/${p.lang}/` }, { "@type": "ListItem", position: 3, name: p.title, item: canon }] }] };
   const d = new Date(p.created_at).toISOString().slice(0, 10);
   fs.mkdirSync(path.join(ROOT, "blog", p.lang), { recursive: true });
-  fs.writeFileSync(path.join(ROOT, "blog", p.lang, p.slug + ".html"), head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">← ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta"><time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(p.title)}">` : ""}${body(p.body)}<p><a class="cta" href="${SITE}/">${L.cta}</a></p></article></main></body></html>\n`);
+  fs.writeFileSync(path.join(ROOT, "blog", p.lang, p.slug + ".html"), head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">← ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta">${esc(CATN[p.category || "tips"] ? CATN[p.category || "tips"][p.lang] : "")} · <time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(p.title)}">` : ""}${body(p.body)}<p><a class="cta" href="${SITE}/">${L.cta}</a></p></article></main></body></html>\n`);
   urls.push([canon, Object.keys(set).map(l => [LG[l].html, `${SITE}/blog/${l}/${encodeURIComponent(p.slug)}.html`]), d]);
 }
 for (const lang of Object.keys(LG)) {
   const L = LG[lang], list = posts.filter(p => p.lang === lang && p.slug), canon = `${SITE}/blog/${lang}/`;
   if (!list.length) continue;
   const ld = { "@context": "https://schema.org", "@type": "Blog", name: "TIGA ALPHA " + L.name, inLanguage: L.html, url: canon, blogPost: list.map(p => ({ "@type": "BlogPosting", headline: p.title, url: `${SITE}/blog/${lang}/${encodeURIComponent(p.slug)}.html`, datePublished: p.created_at })) };
-  fs.writeFileSync(path.join(ROOT, "blog", lang, "index.html"), head(lang, `${L.name} | TIGA ALPHA`, L.sub, canon, "", ld) + `<body>${topbar(lang)}<main><h1>${L.name}</h1><p class="meta">${L.sub}</p>${list.map(p => `<a class="card" href="${SITE}/blog/${lang}/${encodeURIComponent(p.slug)}.html"><b>${esc(p.title)}</b>${p.excerpt ? `<span>${esc(p.excerpt)}</span>` : ""}</a>`).join("")}</main></body></html>\n`);
+  fs.writeFileSync(path.join(ROOT, "blog", lang, "index.html"), head(lang, `${L.name} | TIGA ALPHA`, L.sub, canon, "", ld) + `<body>${topbar(lang)}<main><h1>${L.name}</h1><p class="meta">${L.sub}</p>${list.map(p => `<a class="card" href="${SITE}/blog/${lang}/${encodeURIComponent(p.slug)}.html"><b>${esc(p.title)}</b>${p.excerpt ? `<span>${esc(p.excerpt)}</span>` : ""}<span style="font-size:13px;color:#a39486">${esc((CATN[p.category || "tips"] || {})[lang] || "")}</span></a>`).join("")}</main></body></html>\n`);
   urls.push([canon, [], null]);
 }
 const sm = path.join(ROOT, "sitemap.xml");

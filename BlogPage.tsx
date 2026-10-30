@@ -3,7 +3,16 @@ import { sb } from "./supabase-client";
 
 /* Blog (owner 2026-10-31): articles in Thai, English and Mandarin, written only by the top admin (AdminBlog.tsx) and stored in public.blog_posts.
    The body is plain text with a tiny markup: "# " / "## " headings, "- " bullets, **bold**, [text](https://link) and ![alt](https://image) — rendered as React elements, never as HTML. */
-export type BlogPost = { id: string; lang: string; slug: string; title: string; excerpt: string; body: string; cover_url: string | null; published: boolean; created_at: string; updated_at: string };
+export const BLOG_CATS: { id: string; icon: string; th: string; en: string; zh: string }[] = [
+  { id: "tips", icon: "💡", th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧" },
+  { id: "theory", icon: "🎼", th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理" },
+  { id: "songs", icon: "🎵", th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目" },
+  { id: "news", icon: "📣", th: "ข่าวและประกาศ", en: "News", zh: "新闻公告" },
+  { id: "story", icon: "✨", th: "เรื่องราว", en: "Stories", zh: "故事" },
+];
+export const catName = (id: string, lang: string) => { const c = BLOG_CATS.find(x => x.id === id) || BLOG_CATS[0]; return c.icon + " " + (lang === "th" ? c.th : lang === "zh" ? c.zh : c.en); };
+export const readMins = (t: string) => Math.max(1, Math.round(((t || "").length) / (/[\u0E00-\u0E7F\u4E00-\u9FFF]/.test(t || "") ? 450 : 1100)));
+export type BlogPost = { id: string; lang: string; slug: string; category?: string; title: string; excerpt: string; body: string; cover_url: string | null; published: boolean; created_at: string; updated_at: string };
 const safeUrl = (u: string) => /^https:\/\/[^\s"'<>]+$/i.test(u) ? u : "";
 function inline(s: string, k: string) {
   const out: any[] = []; const re = /(\*\*[^*]+\*\*|!\[[^\]]*\]\([^)\s]+\)|\[[^\]]+\]\([^)\s]+\))/g; let last = 0, m: RegExpExecArray | null, i = 0;
@@ -36,6 +45,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
   const [posts, setPosts] = useState<BlogPost[] | null>(null);
   const [open, setOpen] = useState<BlogPost | null>(null);
   const [err, setErr] = useState(false);
+  const [cat, setCat] = useState<string>("all");
   const [tab, setTab] = useState<string>(lang === "th" || lang === "zh" ? lang : "en");
   useEffect(() => {
     let off = false; setPosts(null); setErr(false);
@@ -43,7 +53,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
       .then(({ data, error }: any) => { if (off) return; if (error) { setErr(true); setPosts([]); } else setPosts(data || []); }, () => { if (!off) { setErr(true); setPosts([]); } });
     return () => { off = true; };
   }, []);
-  const shown = (posts || []).filter(p => p.lang === tab), mine = shown;
+  const inLang = (posts || []).filter(p => p.lang === tab), shown = cat === "all" ? inLang : inLang.filter(p => (p.category || "tips") === cat), mine = shown;
   return (
     <div className="profpage" data-blog>
       <div className="profhdr">
@@ -55,7 +65,14 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
         {!open && (
           <div data-blog-langs style={{ display: "flex", gap: 6, background: "var(--card2, #f4ece4)", borderRadius: 999, padding: 4, margin: "4px 0 16px" }}>
             {([["th", "ไทย"], ["en", "English"], ["zh", "中文"]] as const).map(([l, n]) => (
-              <button key={l} type="button" data-blog-lang={l} onClick={() => setTab(l)} style={{ flex: 1, padding: "9px 0", border: "none", borderRadius: 999, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "inherit", background: tab === l ? "var(--card, #fff)" : "transparent", color: tab === l ? "var(--clay, #d97757)" : "var(--muted)", boxShadow: tab === l ? "0 1px 4px rgba(0,0,0,.12)" : "none" }}>{n}</button>
+              <button key={l} type="button" data-blog-lang={l} onClick={() => { setTab(l); setCat("all"); }} style={{ flex: 1, padding: "9px 0", border: "none", borderRadius: 999, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "inherit", background: tab === l ? "var(--card, #fff)" : "transparent", color: tab === l ? "var(--clay, #d97757)" : "var(--muted)", boxShadow: tab === l ? "0 1px 4px rgba(0,0,0,.12)" : "none" }}>{n}</button>
+            ))}
+          </div>
+        )}
+        {!open && inLang.length > 0 && (
+          <div data-blog-cats style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, margin: "0 0 14px", scrollbarWidth: "none" }}>
+            {[{ id: "all", icon: "📚", th: "ทั้งหมด", en: "All", zh: "全部" }, ...BLOG_CATS.filter(c => inLang.some(p => (p.category || "tips") === c.id))].map(c => (
+              <button key={c.id} type="button" data-blog-cat={c.id} onClick={() => setCat(c.id)} style={{ flex: "0 0 auto", padding: "8px 14px", borderRadius: 999, border: "1.5px solid " + (cat === c.id ? "var(--clay, #d97757)" : "var(--bd, #e2d8cf)"), background: cat === c.id ? "var(--clay, #d97757)" : "var(--card, #fff)", color: cat === c.id ? "#fff" : "var(--text)", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>{c.icon} {tab === "th" ? c.th : tab === "zh" ? c.zh : c.en}</button>
             ))}
           </div>
         )}
@@ -64,7 +81,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
             <button className="songbtn ghost" onClick={() => setOpen(null)} style={{ marginBottom: 12 }}>← {T("กลับ", "Back", "返回")}</button>
             {open.cover_url && safeUrl(open.cover_url) && <img src={safeUrl(open.cover_url)} alt="" style={{ width: "100%", borderRadius: 14, marginBottom: 12 }} />}
             <h1 style={{ fontSize: 26, lineHeight: 1.3, margin: "4px 0 6px" }}>{open.title}</h1>
-            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>{fmtDate(open.created_at, lang)} · {open.lang.toUpperCase()}</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>{catName(open.category || "tips", open.lang)} · {fmtDate(open.created_at, open.lang)} · {readMins(open.body)} {open.lang === "th" ? "นาที" : open.lang === "zh" ? "分钟" : "min read"}</div>
             <BlogBody text={open.body} />
           </article>
         ) : posts === null ? (
@@ -76,7 +93,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
             {p.cover_url && safeUrl(p.cover_url) && <img src={safeUrl(p.cover_url)} alt="" loading="lazy" style={{ width: "100%", borderRadius: 10, marginBottom: 10 }} />}
             <div style={{ fontWeight: 800, fontSize: 17, lineHeight: 1.35 }}>{p.title}</div>
             {p.excerpt && <div style={{ fontSize: 14, color: "var(--text2, #6b5d52)", margin: "6px 0 8px", lineHeight: 1.55 }}>{p.excerpt}</div>}
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>{fmtDate(p.created_at, tab)}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>{catName(p.category || "tips", tab)} · {fmtDate(p.created_at, tab)} · {readMins(p.body)} {tab === "th" ? "นาที" : tab === "zh" ? "分钟" : "min"}</div>
           </button>
         ))}
       </div>
