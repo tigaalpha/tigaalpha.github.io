@@ -11684,6 +11684,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (!gateLoggedRef.current) { gateLoggedRef.current = true; logUsage("gate", reason || "account"); }
     setGuestGateReason(prev => prev || reason);
   }
+  /* On the owner's own domain everyone arrives from the landing page, so the app itself is members-only: a signed-out visitor sees the
+     login screen (Google first) at once and cannot dismiss it. Other hosts (github.io, previews, localhost) keep the guest trial. */
+  useEffect(() => {
+    if (!isGuest) return;
+    let host = ""; try { host = location.hostname.toLowerCase(); } catch (e) {}
+    const onDomain = host === "tigaalpha.com" || host.endsWith(".tigaalpha.com"); let forced = false; try { forced = localStorage.getItem("tg_test_forcelogin") === "1"; } catch (e) {}
+    if (onDomain || forced) raiseGate("wall");
+  }, [isGuest]);
   // Ticks tg_guest_ms forward by real elapsed time, mirroring syncProgress's own
   // interval/visibility wiring (~10226 below) rather than inventing a new style.
   useEffect(() => {
