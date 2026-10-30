@@ -11135,9 +11135,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      them to non-trial/non-free, so neither probe matches. Recomputed when
      plan/profile changes, which also auto-clears the popup the moment a
      payment lands. */
+  /* Google Play build (VITE_OTA_ENABLED=false): subscriptions are digital goods, and Play only allows those to be sold through Google Play Billing. This build therefore opens no
+     pricing, checkout or "keep Premium" screen at all; a member who already pays keeps every feature (the plan is read from the account), and buying happens on the website. */
+  const PLAY_BUILD = !OTA_ENABLED;
+  useEffect(() => { if (PLAY_BUILD && (pricingOpen || checkout || schoolCheckout)) { setPricingOpen(false); setCheckout(null); setSchoolCheckout(null); } }, [pricingOpen, checkout, schoolCheckout]);
   const [convPopup, setConvPopup] = useState(null);
   useEffect(() => {
-    const next = convPopupFor(profile, plan) || convWinBack(profile, plan);
+    const next = PLAY_BUILD ? null : (convPopupFor(profile, plan) || convWinBack(profile, plan));
     setConvPopup(next);
     if (next) logConvEvent(next.id, "shown");           // v3 funnel instrumentation
   }, [profile, plan]);
@@ -13444,7 +13448,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
           onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
-          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} onMentor={() => { playUi("click"); logUsage("nav", "pathway-mentor"); stopPracticeListeners(); setPage("coach"); }} onUpgrade={(premium && !isTrialPlan(plan)) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
+          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} onMentor={() => { playUi("click"); logUsage("nav", "pathway-mentor"); stopPracticeListeners(); setPage("coach"); }} onUpgrade={(PLAY_BUILD || (premium && !isTrialPlan(plan))) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
       )}
 
       {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
@@ -13689,7 +13693,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           );
         })}
         <div className="drawer-foot">
-          <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon"><Ico e="✦" size={20} /></span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>
+          {!PLAY_BUILD && <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon"><Ico e="✦" size={20} /></span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>}
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setSettingsOpen(true); }}><span className="drawericon"><Ico e="⚙️" size={20} /></span><span className="drawerlabel">{lc.setTitle}</span></button>
           {onSignOut && <button className="draweritem sub" onClick={() => { playUi("click"); onSignOut(); }}><span className="drawericon"><Ico e="⏻" size={20} /></span><span className="drawerlabel">{lc.signOut}</span></button>}
           {onSignOut && !(profile && profile.is_admin) && <button className="draweritem sub" onClick={async () => {

@@ -115,3 +115,8 @@ cd android && ./gradlew bundleRelease
   Supabase RPC, ask the developer).
 - **Launch path**: Internal testing track → promote to Production. After launch,
   update = new AAB with a bumped versionCode (automatic from package.json).
+
+
+---
+
+> **Full submission pack (listing text in th/en/zh, Data safety answers, content rating, reviewer account, graphics): see `PLAY_STORE_LISTING.md`.** The Play build (`VITE_OTA_ENABLED=false`) also removes every pricing / checkout screen (Google Play Billing policy), and the app has an in-app "Delete account" button (menu).
