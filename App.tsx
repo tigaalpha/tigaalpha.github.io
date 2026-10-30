@@ -468,6 +468,8 @@ function questToday(p) {
 // after a manual upload. Keep in sync with package.json on every release.
 const APP_VER = "13.7.1056";
 
+/* the members-only domain: every sign-in gate there is the one standard login card ("wall"), whatever raised it (guest clock, AI feature, account feature) */
+const MAIN_DOMAIN = (() => { try { const h = location.hostname.toLowerCase(); return h === "tigaalpha.com" || h.endsWith(".tigaalpha.com"); } catch (e) { return false; } })();
 const AUTO_ONBOARDED = new Set<string>();   // accounts already auto-onboarded in this page load (see App())
 async function signInWith(provider) {
   try {
@@ -13330,7 +13332,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       <div className="scan" />
 
       {guestGateReason && (
-        <GuestGateScreen reason={guestGateReason} profile={profile} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
+        <GuestGateScreen reason={MAIN_DOMAIN ? "wall" : guestGateReason} profile={profile} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
       )}
 
       {permPrimerOpen && (() => {
