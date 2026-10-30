@@ -709,6 +709,16 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
         r.rig.arms.forEach((a, i) => { if (behOf(e.kind) === "skyeye") { a.rotation.x = Math.sin(e.t * 2.5 + i) * 0.35; a.rotation.z = Math.cos(e.t * 2 + i * 2) * 0.3; } else a.rotation.x = -0.5 + Math.sin(e.t * 3 + i * 3) * 0.2 - (e.cd < 0.4 ? 0.9 : 0); });
         r.rig.body.position.y = behOf(e.kind) === "skyeye" ? Math.sin(e.t * 1.6) * 0.35 : Math.abs(Math.sin(tt * 0.5)) * 0.05 + (e.leap > 0 ? 0.7 : 0) - ((e.tele || 0) > 0 ? 0.25 : 0);
         if (behOf(e.kind) === "charger") r.rig.body.rotation.x = (e.tele || 0) > 0 ? 0.18 : 0;
+        {   // life in the body (owner 2026-10-29: "make the aliens move"): breathing, a sway with each step, a lunge as the attack winds up, a flinch when hit, a shudder when dying
+          const b = r.rig.body, st = Math.sin(tt * 0.5), big = GRANDC.has(e.kind), wind = Math.max(0, 1 - Math.max(0, e.cd) / 0.45) * (e.cd < 0.45 ? 1 : 0);
+          b.scale.y = 1 + 0.028 * Math.sin(e.t * (big ? 1.3 : 2.2)); b.scale.x = 1 - 0.012 * Math.sin(e.t * (big ? 1.3 : 2.2));
+          b.rotation.z = Math.sin(tt * 0.5 + 1) * (big ? 0.025 : 0.07);
+          if (behOf(e.kind) !== "charger") b.rotation.x = st * 0.06 + wind * 0.32 + (e.flash > 0 ? -0.22 : 0);
+          b.position.z = -wind * 0.35 + (e.flash > 0 ? 0.12 : 0);
+          b.rotation.y = Math.sin(e.t * 0.9 + e.id) * (big ? 0.06 : 0.12);
+          if (e.dead > 0) { const k = 1 - e.dead / 0.9; b.rotation.x = k * 0.9; b.rotation.z = Math.sin(k * 40) * 0.12 * (1 - k); }
+          for (const m of r.rig.mats) (m as any).emissiveIntensity = 0.45 + (e.tele || 0 > 0 ? 0.9 : 0) + wind * 0.8;
+        }
         for (const m of r.rig.mats) m.emissive.setHex(e.flash > 0 ? 0xff5030 : (e.tele || 0) > 0 ? 0x992010 : 0x181c0c);
         if (e.dead > 0) { const k = 1 - e.dead / 0.9; g.rotation.z = k * 1.5; g.position.y = -k * 0.25; g.scale.setScalar(ALIEN_SCALE[e.kind] * Math.max(0.01, 1 - Math.max(0, k - 0.6) * 2.5)); }
       }
