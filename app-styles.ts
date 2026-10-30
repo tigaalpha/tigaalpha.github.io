@@ -958,6 +958,8 @@ body[data-frame="fr-diamond"] .profava-frame{border:3px solid #8ad4ff;box-shadow
 @media (max-width:390px){.tg .hdr .lbox.lmark{padding:0 10px 0 8px;gap:4px}.tg .hdr .lbox.lmark svg{width:19px;height:19px}.lmark-tx{font-size:11.5px;letter-spacing:.1em}}
 .lmark-tx{font-family:var(--f-app);font-weight:800;font-size:13px;letter-spacing:.16em;line-height:1;color:var(--clay,#d97757);margin-right:-.16em}
 .lbox.lmark svg{display:block}
+.lmark-tx{letter-spacing:.07em;margin-right:-.07em;white-space:nowrap}
+@media (max-width:480px){.tg .hdr .lbox.lmark svg{display:none}.tg .hdr .lbox.lmark{padding:0 10px}.lmark-tx{font-size:11px;letter-spacing:.05em}}
 @media (max-width:390px){.hdr .hdr-r,.hdr .logo{gap:5px}.guestloginpill{padding-left:8px!important;padding-right:10px!important;font-size:12px!important}.tg .hdr .lbox.lmark{padding:0 9px 0 7px}}
 @media (max-width:370px){.guestloginpill-timer,.guestloginpill .oauthico{display:none}.hdr .hdrgo{width:35px!important;height:38px!important}.tg .hdr .lbox.lmark svg{width:17px;height:17px}.tg .hdr .lbox.lmark{height:38px}.tg .hdr .hamb{width:34px}.lmark-tx{font-size:10.5px}.hdr .flagbtn{padding-left:8px!important;padding-right:6px!important;min-width:0!important}.hdr .hdr-r{gap:4px}.hdr{padding-left:8px!important;padding-right:8px!important}}
 @media (max-height:660px){.tg.kid .practicebody{gap:7px;padding-top:8px;padding-bottom:8px}.tg.kid .practicechips{gap:4px}}
