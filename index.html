@@ -88,8 +88,19 @@
         #boot .bar i { background: #f5f0ed; }
       }
     </style>
-      <script src="./ga.js" defer></script>
-  <script type="module" crossorigin src="./bundle/index.template-0Lkn09Ik.js"></script>
+      <!-- Google tag (gtag.js) — Consent Mode: storage denied until the visitor accepts the banner (public/ga.js); measured only on the real domain -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-5JW3ZGS88V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      var __h = location.hostname.toLowerCase(), __ok = (__h === "www.tigaalpha.com" || __h === "tigaalpha.com"), __c = "";
+      try { __c = localStorage.getItem("tg_ga") || ""; } catch (e) {}
+      gtag('consent', 'default', { analytics_storage: __c === "1" ? "granted" : "denied", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied", wait_for_update: 500 });
+      gtag('js', new Date());
+      if (__ok) gtag('config', 'G-5JW3ZGS88V', { anonymize_ip: true, allow_google_signals: false });
+    </script>
+    <script src="./ga.js" defer></script>
+  <script type="module" crossorigin src="./bundle/index.template-B9YNICt8.js"></script>
 </head>
   <body>
     <div id="boot">
