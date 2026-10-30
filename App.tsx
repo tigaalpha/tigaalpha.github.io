@@ -11692,7 +11692,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const gateLoggedRef = useRef(false);   // one "gate" event per visit, not per render
   const gatePendingRef = useRef(false);  // clock ran out; raise as soon as it is polite to
   const busyRef = useRef(false);         // a full-screen exercise is running right now
-  const [guestMsLeft, setGuestMsLeft] = useState(GUEST_TRIAL_MS); // soft, non-blocking countdown — see corner pill
   // Returns true (and raises the gate) if this guest needs to log in before
   // continuing — call at the top of anything that needs a real account, and
   // bail out if it returns true. reason picks GuestGateScreen's copy:
@@ -11721,43 +11720,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     const onDomain = host === "tigaalpha.com" || host.endsWith(".tigaalpha.com"); let forced = false; try { forced = localStorage.getItem("tg_test_forcelogin") === "1"; } catch (e) {}
     if (onDomain || forced) raiseGate("wall");
   }, [isGuest]);
-  // Ticks tg_guest_ms forward by real elapsed time, mirroring syncProgress's own
-  // interval/visibility wiring (~10226 below) rather than inventing a new style.
-  useEffect(() => {
-    if (!isGuest) return;
-    let last = Date.now();
-    const flush = () => {
-      const now = Date.now(); addGuestMs(now - last); last = now;
-      const left = Math.max(0, GUEST_TRIAL_MS - getGuestMs());
-      setGuestMsLeft(left);
-      /* THE GATE IS RAISED HERE, off the clock itself. It used to be raised
-         only by the effect below, whose deps are [isGuest, page] — so it could
-         fire on a page change and nothing else. Measured against live traffic:
-         211 of 221 signed-out visitors never changed page even once (guests
-         only ever reach two pages at all), so 95.5% of people were never once
-         asked to sign up, however long they stayed. That is the whole reason
-         the sign-up count was zero.
-         Mid-exercise is still protected — see the watcher below — but now by
-         waiting for a good moment rather than by never arriving. */
-      if (left <= 0) {
-        gatePendingRef.current = true;
-        if (!busyRef.current) raiseGate("time");
-      }
-    };
-    flush();
-    const iv = setInterval(flush, GUEST_TICK_MS);
-    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
-    const onPageHide = () => flush();
-    document.addEventListener("visibilitychange", onHide);
-    window.addEventListener("pagehide", onPageHide);
-    return () => { flush(); clearInterval(iv); document.removeEventListener("visibilitychange", onHide); window.removeEventListener("pagehide", onPageHide); };
-  }, [isGuest]);
+  /* The 10-second guest trial is gone (owner 2026-10-31): new people arrive through the landing page and sign in; the login card is for returning members. */
   // Only actually raise the gate on a fresh top-level navigation, never mid-exercise
   // (exercises/overlays are their own state, layered on top of `page` — `page`
   // itself only changes once the guest has returned to a list/menu).
-  useEffect(() => {
-    if (isGuest && getGuestMs() >= GUEST_TRIAL_MS) raiseGate("time");
-  }, [isGuest, page]);
 
   // School Plan Pro: the teacher dashboard has no nav entry anywhere — it's reached
   // only via a hidden link TIGA hands directly to onboarded teachers. The link is
@@ -12236,7 +12202,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      opened themselves and can be interrupted. */
   useEffect(() => {
     busyRef.current = !!(practiceOpen || songOpen || sightOpen || camOpen || vmOpen);
-    if (!busyRef.current && gatePendingRef.current && isGuest) raiseGate("time");
   }, [practiceOpen, songOpen, sightOpen, camOpen, vmOpen, isGuest]);
 
   // close flag menu on outside click
@@ -13406,10 +13371,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           {isGuest && (
             <button className="guestloginpill" onClick={() => setLoginModalOpen(true)} title="Login or sign up">
               <span className="oauthico">G</span> {T("ล็อกอิน", "Login", "登录")}
-              {guestMsLeft > 0 && guestMsLeft < GUEST_TRIAL_MS && (() => {
-                const totalSec = Math.ceil(guestMsLeft / 1000); // whole seconds left, rounded up so it never shows 0:00 while time remains
-                return <span className="guestloginpill-timer">{Math.floor(totalSec / 60)}:{String(totalSec % 60).padStart(2, "0")}</span>;
-              })()}
             </button>
           )}
           {/* The plan badge used to sit here. It told the learner something they
