@@ -1,4 +1,4 @@
-import{M as st,Q as at,f as ot,g as Xe,a6 as N,aC as O,$ as P,a9 as F,aa as W,a7 as B,a0 as rt,C as ce,V as U,n as nt,c as lt,aD as ct,aE as ht,aF as ut,aG as ft,aH as dt,aI as vt,A as mt,aJ as pt,aK as xt,aL as gt,ad as be,aM as Ze,s as Ae,al as Tt,aN as me,aO as pe,aP as Ye,aQ as ke,aR as Mt,af as St,ai as bt,aj as At,am as we,a2 as wt,a3 as Dt,au as qe,ab as Pt}from"./three.module-WgszW2li.js";import{i as Ct,ag as Et}from"./index.template-DJF7Zl6-.js";const le={name:"CopyShader",uniforms:{tDiffuse:{value:null},opacity:{value:1}},vertexShader:`
+import{M as st,Q as at,f as ot,g as Xe,a6 as N,aC as O,$ as P,a9 as F,aa as W,a7 as B,a0 as rt,C as ce,V as U,n as nt,c as lt,aD as ct,aE as ht,aF as ut,aG as ft,aH as dt,aI as vt,A as mt,aJ as pt,aK as xt,aL as gt,ad as be,aM as Ze,s as Ae,al as Tt,aN as me,aO as pe,aP as Ye,aQ as ke,aR as Mt,af as St,ai as bt,aj as At,am as we,a2 as wt,a3 as Dt,au as qe,ab as Pt}from"./three.module-WgszW2li.js";import{i as Ct,ag as Et}from"./index.template-DK_xOQIu.js";const le={name:"CopyShader",uniforms:{tDiffuse:{value:null},opacity:{value:1}},vertexShader:`
 
 		varying vec2 vUv;
 
