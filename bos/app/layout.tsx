@@ -7,8 +7,8 @@ import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { BASE_PATH } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Tiga Automation",
-  description: "Tiga Automation — AI-first business operating system for Tiga Studio",
+  title: "TIGA Agent",
+  description: "TIGA Agent — AI-first business operating system for Tiga Studio",
   manifest: `${BASE_PATH}/manifest.webmanifest`,
 };
 

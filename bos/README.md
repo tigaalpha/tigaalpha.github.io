@@ -1,4 +1,4 @@
-# Tiga AI Business Operating System (Tiga AI BOS)
+# TIGA Agent (formerly Tiga AI BOS)
 
 An AI-first business operating system for Tiga Studio (piano school): an AI
 Employee that handles reception, customer service, booking, calendar

@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:bundle/hi-fx-BJZ22PXc.js
+import{M as st,J as at,f as ot,g as Xe,a2 as N,ay as O,X as P,a5 as F,a6 as W,a3 as B,Y as rt,C as ce,V as U,n as nt,c as lt,az as ct,aA as ht,aB as ut,aC as ft,aD as dt,aE as vt,A as mt,aF as pt,aG as xt,aH as gt,a9 as be,aI as Ze,s as Ae,ah as Tt,aJ as me,aK as pe,aL as Ye,aM as ke,aN as Mt,ab as St,ae as bt,af as At,ai as we,_ as wt,$ as Dt,aq as qe,a7 as Pt}from"./three.module-bwT9LXSR.js";import{i as Ct,ag as Et}from"./index.template-YWh3poGl.js";const le={name:"CopyShader",uniforms:{tDiffuse:{value:null},opacity:{value:1}},vertexShader:`
+========
 import{M as st,Q as at,f as ot,g as Xe,a6 as N,aC as O,$ as P,a9 as F,aa as W,a7 as B,a0 as rt,C as ce,V as U,n as nt,c as lt,aD as ct,aE as ht,aF as ut,aG as ft,aH as dt,aI as vt,A as mt,aJ as pt,aK as xt,aL as gt,ad as be,aM as Ze,s as Ae,al as Tt,aN as me,aO as pe,aP as Ye,aQ as ke,aR as Mt,af as St,ai as bt,aj as At,am as we,a2 as wt,a3 as Dt,au as qe,ab as Pt}from"./three.module-WgszW2li.js";import{i as Ct,ag as Et}from"./index.template-D_V83sTZ.js";const le={name:"CopyShader",uniforms:{tDiffuse:{value:null},opacity:{value:1}},vertexShader:`
+>>>>>>>> claude/upbeat-fermi-dey70w:bundle/hi-fx-CsvATjLv.js
 
 		varying vec2 vUv;
 

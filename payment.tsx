@@ -258,7 +258,7 @@ export function trialDaysLeft(p) {
 export function planBadge(p) {
   const v = canonicalPlan(p);
   if (v === "trial") return { t: "🎁 TRIAL", c: "trial" };
-  if (v === "premium") return { t: "⭐ PRO", c: "" };
+  if (v === "premium") return { t: "⭐ PREMIUM", c: "" };
   return null;
 }
 

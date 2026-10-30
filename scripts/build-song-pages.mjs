@@ -183,12 +183,30 @@ ${body}
   URLS.push([canon, alts]);
 }
 
-// sitemap.xml — the three landing pages, the three indexes and every song page, each with its hreflang alternates
-const landing = ["landing/", "landing-en/", "landing-zh/"].map(p => `${SITE}/${p}`);
+// sitemap.xml — home, the three landing pages (hreflang + lastmod), privacy, then every song page
+const LANDING = [["th", `${SITE}/landing/`], ["en", `${SITE}/landing-en/`], ["zh", `${SITE}/landing-zh/`]];
+const landingAlts = LANDING.map(([l, h]) => `<xhtml:link rel="alternate" hreflang="${l}" href="${h}"/>`).join("")
+  + `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}/landing/"/>`;
+const lastmod = new Date().toISOString().slice(0, 10);
 const xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'];
-for (const u of [`${SITE}/`, ...landing, `${SITE}/privacy-policy.html`]) xml.push(`<url><loc>${u}</loc></url>`);
+xml.push(`<url><loc>${SITE}/</loc></url>`);
+for (const [, href] of LANDING) xml.push(`<url><loc>${href}</loc><lastmod>${lastmod}</lastmod>${landingAlts}</url>`);
+xml.push(`<url><loc>${SITE}/privacy-policy.html</loc></url>`);
+// Comparison + FAQ pages: static HTML in public/compare/** and public/faq/** (vite copies public/ to the site root).
+// Thai at /<page>/, English at /<page>/en/, Simplified Chinese at /<page>/zh/; x-default = English. lastmod = the content date.
+const GUIDES = ["compare/simply-piano", "compare/flowkey", "faq"];
+const GUIDES_LASTMOD = "2026-10-29";
+for (const g of GUIDES) {
+  const set = [["th", `${SITE}/${g}/`], ["en", `${SITE}/${g}/en/`], ["zh-Hans", `${SITE}/${g}/zh/`]];
+  const alts = set.map(([l, h]) => `<xhtml:link rel="alternate" hreflang="${l}" href="${h}"/>`).join("")
+    + `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}/${g}/en/"/>`;
+  for (const [, href] of set) xml.push(`<url><loc>${href}</loc><lastmod>${GUIDES_LASTMOD}</lastmod>${alts}</url>`);
+}
 for (const [u, alts] of URLS) xml.push(`<url><loc>${u}</loc>${alts.map(([l, h]) => `<xhtml:link rel="alternate" hreflang="${l}" href="${h}"/>`).join("")}</url>`);
 xml.push("</urlset>");
 fs.writeFileSync(path.join(ROOT, "sitemap.xml"), xml.join("\n") + "\n");
-fs.writeFileSync(path.join(ROOT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /updates/\n\nSitemap: ${SITE}/sitemap.xml\n`);
-console.log(`build-song-pages: ${songs.length} songs x 3 languages = ${pages} pages + 3 indexes, sitemap.xml (${URLS.length + 5} urls), robots.txt  (${SITE})`);
+// One group: * plus the named crawlers share Allow: / and the existing /updates/ block.
+// A bot-only group would replace these rules, so the names stay in this record.
+const BOTS = ["*", "GPTBot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot", "Claude-SearchBot", "Google-Extended", "Bingbot", "Applebot", "meta-externalagent"];
+fs.writeFileSync(path.join(ROOT, "robots.txt"), `${BOTS.map(b => `User-agent: ${b}`).join("\n")}\nAllow: /\nDisallow: /updates/\n\nSitemap: ${SITE}/sitemap.xml\n`);
+console.log(`build-song-pages: ${songs.length} songs x 3 languages = ${pages} pages + 3 indexes, sitemap.xml (${URLS.length + 5 + GUIDES.length * 3} urls), robots.txt  (${SITE})`);

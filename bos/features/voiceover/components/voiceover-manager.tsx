@@ -129,7 +129,7 @@ export function VoiceOverManager() {
   const loadHistory = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from("voiceover_history" as any)
+        .from("voiceover_history")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(50);
@@ -222,7 +222,7 @@ export function VoiceOverManager() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase
-        .from("voiceover_history" as any)
+        .from("voiceover_history")
         .insert({
           user_id: user?.id ?? "",
           text: text.trim(),
@@ -244,7 +244,7 @@ export function VoiceOverManager() {
   // Delete from history
   const handleDelete = useCallback(async (id: string) => {
     try {
-      await supabase.from("voiceover_history" as any).delete().eq("id", id);
+      await supabase.from("voiceover_history").delete().eq("id", id);
       setHistory((prev) => prev.filter((h) => h.id !== id));
     } catch {
       setHistory((prev) => prev.filter((h) => h.id !== id));

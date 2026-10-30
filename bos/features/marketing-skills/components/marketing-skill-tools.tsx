@@ -64,13 +64,13 @@ async function loadSavedContentFromDB(): Promise<SkillResult[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
     const { data, error } = await supabase
-      .from("marketing_content" as any)
+      .from("marketing_content")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(500);
     if (error || !data) return [];
-    return (data as any[]).map((row: any) => ({
+    return data.map((row) => ({
       toolType: row.tool_type,
       topic: row.topic,
       language: row.language,
@@ -91,7 +91,7 @@ async function saveContentToDB(item: SkillResult): Promise<void> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await (supabase.from("marketing_content" as any) as any).insert({
+    await supabase.from("marketing_content").insert({
       user_id: user.id,
       tool_type: item.toolType,
       topic: item.topic,
@@ -110,7 +110,7 @@ async function removeContentFromDB(createdAt: string): Promise<void> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await (supabase.from("marketing_content" as any) as any)
+    await supabase.from("marketing_content")
       .delete()
       .eq("user_id", user.id)
       .eq("created_at", createdAt);

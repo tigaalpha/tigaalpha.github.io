@@ -62,7 +62,7 @@ export function convCopyFor(lang, _plan) { return CONV_COPY[lang] || CONV_COPY.e
    `closing.loss` is the one sentence that says what happens if the member does
    NOT pay: they are left on the Free plan and the trial features stop working
    (owner, 2026-10-05: "วันที่ 7 ให้แจ้งเขาว่า ถ้าไม่จ่ายเงิน … คุณจะเหลือแพ็กเกจ
-   ฟรี และไม่สามารถใช้สิ่งที่เคยใช้ได้ในแพ็กเกจ Pro").
+   ฟรี และไม่สามารถใช้สิ่งที่เคยใช้ได้ในแพ็กเกจพรีเมียม").
 
    It is a SEPARATE field, not part of `body`, and that is the whole point.
    personalizedBody() REPLACES `body` wholesale whenever the learner has proof

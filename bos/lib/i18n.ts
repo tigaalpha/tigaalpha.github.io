@@ -52,6 +52,7 @@ export const DICT = {
   "nav.aiAutomationChat": { th: "แชท AI อัตโนมัติ", en: "AI Automation Chat" },
   "nav.dashboard": { th: "แดชบอร์ด", en: "Dashboard" },
   "nav.marketingDashboard": { th: "แดชบอร์ดการตลาด", en: "Marketing Dashboard" },
+  "nav.knowledgeGraph": { th: "กราฟองค์ความรู้", en: "Knowledge Graph" },
   "nav.calendar": { th: "ปฏิทิน", en: "Calendar" },
   "nav.notifications": { th: "การแจ้งเตือน", en: "Notifications" },
 

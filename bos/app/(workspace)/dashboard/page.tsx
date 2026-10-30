@@ -140,6 +140,22 @@ export default function DashboardPage() {
     reload();
   }, [reload]);
 
+  // Phone-only reorder: the owner reads the money cards first thing on a
+  // phone, so below `md` they render together at the top of the page instead
+  // of at their desktop positions (priority block in the return below).
+  // `md` (768px) is the same breakpoint the shell uses for the mobile bottom
+  // nav, so iPad keeps the current desktop order untouched. The server render
+  // starts as desktop (false) and the effect flips phones before data
+  // resolves, so no wrong-order flash is ever shown.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setIsMobile(!mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
   if (loadError) {
     return (
       <div className="space-y-6">
@@ -210,10 +226,21 @@ export default function DashboardPage() {
         <CommandSearch />
       </div>
 
+      {/* Phone-only priority strip — the owner's four most-checked cards in
+          importance order: revenue first, then the revenue views. Desktop and
+          iPad never render this block; they keep the original layout below. */}
+      {isMobile && (
+        <div className="flex flex-col gap-6">
+          <MetricCard label={t("dash.revenue")} value={formatCurrency(revenue)} icon={Wallet} tone="green" subtext={t("dash.fromAccounting")} href="/accounting" />
+          <RevenueOverviewCard />
+          <FinanceCharts />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label={t("dash.totalStudents")} value={totalStudents} icon={Users} tone="purple" subtext={t("dash.allTimeCrm")} href="/students" />
         <MetricCard label={t("dash.lessonsThisWeek")} value={lessonsThisWeek} icon={CalendarDays} tone="blue" subtext={tfmt(lang, "dash.todayCount", { n: today.length })} href="/calendar" />
-        <MetricCard label={t("dash.revenue")} value={formatCurrency(revenue)} icon={Wallet} tone="green" subtext={t("dash.fromAccounting")} href="/accounting" />
+        {!isMobile && <MetricCard label={t("dash.revenue")} value={formatCurrency(revenue)} icon={Wallet} tone="green" subtext={t("dash.fromAccounting")} href="/accounting" />}
         <MetricCard
           label={t("dash.pendingPayments")}
           value={pendingPayments}
@@ -226,9 +253,11 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <RevenueOverviewCard />
-        </div>
+        {!isMobile && (
+          <div className="lg:col-span-2">
+            <RevenueOverviewCard />
+          </div>
+        )}
         <RecentActivitiesCard notifications={notifications} />
       </div>
 
@@ -254,7 +283,7 @@ export default function DashboardPage() {
         problems={actionProblems}
       />
 
-      <FinanceCharts />
+      {!isMobile && <FinanceCharts />}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <LessonListCard titleKey="dash.tomorrowsLessons" lessons={tomorrow.map(toLessonItem)} />

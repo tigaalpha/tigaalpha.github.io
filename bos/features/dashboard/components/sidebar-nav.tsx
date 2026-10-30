@@ -58,6 +58,7 @@ import {
   FileBarChart,
   Link2,
   ListChecks,
+  Network,
   Cpu,
   GitBranch,
   Rocket,
@@ -90,12 +91,13 @@ interface NavGroup {
 }
 
 /** Solo Mode's flat core list, in display order — hrefs looked up from TOP_LEVEL_ITEMS/NAV_GROUPS below so labels/icons stay single-sourced. */
-const CORE_HREFS = ["/ai-automation-chat", "/dashboard", "/chat", "/students", "/sales", "/calendar", "/booking", "/knowledge", "/accounting", "/settings"];
+const CORE_HREFS = ["/dashboard", "/ai-automation-chat", "/chat", "/students", "/sales", "/calendar", "/booking", "/knowledge", "/accounting", "/settings"]; 
 
 const TOP_LEVEL_ITEMS: NavItem[] = [
-  { href: "/ai-automation-chat", label: "AI Automation Chat", labelKey: "nav.aiAutomationChat", icon: MessageSquare, ownerOnly: true },
   { href: "/dashboard", label: "Dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/ai-automation-chat", label: "AI Automation Chat", labelKey: "nav.aiAutomationChat", icon: MessageSquare, ownerOnly: true },
   { href: "/marketing-dashboard", label: "Marketing Dashboard", labelKey: "nav.marketingDashboard", icon: LineChart },
+  { href: "/knowledge-graph", label: "Knowledge Graph", labelKey: "nav.knowledgeGraph", icon: Network, ownerOnly: true },
   { href: "/calendar", label: "Calendar", labelKey: "nav.calendar", icon: CalendarDays },
   { href: "/notifications", label: "Notifications", labelKey: "nav.notifications", icon: Bell },
 ];

@@ -20,6 +20,7 @@
    Generating rather than hand-maintaining two more HTML files is the whole
    point: an edit to the real template reaches all three on the next build. */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { landingJsonLd } from "./landing-jsonld.mjs";
 
 const SRC = "dist-landing/index.template.html";
 
@@ -73,6 +74,8 @@ for (const [lang, L] of Object.entries(LOCALES)) {
   out = swapOnce(out,
     '<h1>ถามครูเปียโน AI — <em>เล่นให้ดูทีละนิ้ว</em></h1>',
     `<h1>${L.bootHeadA}<em>${L.bootHeadB}</em></h1>`, "boot headline");
+
+  out = swapOnce(out, landingJsonLd("th"), landingJsonLd(lang), "JSON-LD");
 
   // One bundle for all three. These sit one directory across from /landing/,
   // so the same relative depth with a different folder name.
