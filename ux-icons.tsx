@@ -17,14 +17,14 @@ import {
   BookOpen, Briefcase, CalendarDays, ChevronLeft, CalendarHeart, CalendarRange, ChartColumn, ChevronRight, ClipboardList, Clapperboard,
   Crown, Divide, Ear, FileMusic, Flag, Gamepad2, Globe, GraduationCap, Hand, HeartPulse, Layers, ListMusic, Lock, LogOut,
   Megaphone, MessageCircle, Moon, Music, Music2, Piano, Rocket, Route, Ruler, Settings, Shield, Signal, Sparkles,
-  Sprout, Sunrise, Swords, Target, Triangle, Trophy, Users, Waves, Zap, Brain, Blocks,
+  PenLine, Sprout, Sunrise, Swords, Target, Triangle, Trophy, Users, Waves, Zap, Brain, Blocks,
 } from "lucide-react";
 
 export const UxCtx = createContext(false);
 
 const MAP: Record<string, any> = {
   // chrome: the drawer, the studio, the song list
-  "⬡": Route, "◈": MessageCircle, "🎯": Target, "🎵": Music, "🎶": Music2, "▶": Piano, "🎬": Clapperboard, "🎮": Gamepad2,
+  "⬡": Route, "◈": MessageCircle, "🎯": Target, "🎵": Music, "🎶": Music2, "▶": Piano, "🎬": Clapperboard, "📝": PenLine, "🎮": Gamepad2,
   "✦": Sparkles, "⚙": Settings, "⏻": LogOut, "🔒": Lock, "👑": Crown,
   // the studio's modes
   "📄": FileMusic, "🎼": ListMusic, "👂": Ear, "📅": CalendarDays, "⚡": Zap, "🎓": GraduationCap, "✋": Hand, "🧠": Brain,
