@@ -604,6 +604,11 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
       title: "AI ครูสอนต้องล็อกอินก่อน · The AI teacher needs a login",
       sub: "ฟีเจอร์นี้ต้องใช้บัญชีจริง ล็อกอินหรือสมัครสมาชิกฟรีได้เลย — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nThis feature needs a real account. Log in or sign up free — everything you did stays saved.",
     },
+    wall: {
+      icon: "🎹",
+      title: "ยินดีต้อนรับสู่ TIGA · Welcome to TIGA",
+      sub: "ล็อกอินด้วย Google เพื่อเริ่มเรียน — ความคืบหน้าของคุณจะถูกเก็บไว้ทุกอุปกรณ์ · Log in with Google to start learning — your progress follows you everywhere.",
+    },
     account: {
       icon: "🔐",
       title: "ฟีเจอร์นี้ต้องมีบัญชี · This needs a real account",
@@ -796,6 +801,13 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
         <div className="locktitle welcome">{c.title}</div>
         <div className="locksub">{c.sub}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", maxWidth: 300, marginTop: 8 }}>
+          {reason === "wall" && !gateInApp && (
+            <button type="button" data-wall-google onClick={() => { saveGuestProfile(profile); onLogin(); }}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 16px", borderRadius: 14, border: "1.5px solid #dadce0", background: "#fff", color: "#1f1f1f", fontSize: 16, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 10px rgba(0,0,0,.12)" }}>
+              <GoogleMark /> เข้าสู่ระบบด้วย Google · Continue with Google
+            </button>
+          )}
+          {reason === "wall" && !gateInApp && <div style={{ fontSize: 12, opacity: 0.55 }}>หรือใช้อีเมล · or use email</div>}
           <MagicLinkForm profile={profile} />
           <div style={{ fontSize: 12, opacity: 0.55 }}>หรือ · or</div>
           <LoginOptions profile={profile} onGoogleLogin={onLogin} />
