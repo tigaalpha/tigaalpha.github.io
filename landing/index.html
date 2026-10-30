@@ -2,7 +2,7 @@
 <html lang="th">
   <head>
     <meta charset="UTF-8" />
-    <script>/* the old GitHub Pages address sends visitors to the main domain (not while an OAuth return is in flight: its code only works on the domain that started it) */try{var h=location;if(h.hostname==="tigaalpha.github.io"&&!/[?&](code|error|error_description)=|access_token=/.test(h.search+h.hash)){h.replace("https://www.tigaalpha.com"+h.pathname+h.search+h.hash)}}catch(e){}</script>
+    <script>/* the old addresses send visitors to the main domain, INCLUDING an OAuth return: sign-in always starts on www.tigaalpha.com (the code verifier lives in that origin's storage), so a "?code=" that Supabase sends back to the old Site URL only completes when forwarded here */try{var h=location;if(h.hostname==="tigaalpha.github.io"||h.hostname==="tigaalpha-github-io.vercel.app"){h.replace("https://www.tigaalpha.com"+h.pathname+h.search+h.hash)}}catch(e){}</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#faf9f5" />
     <!-- Declares the scheme for the boot markup below, which paints before any
