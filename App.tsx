@@ -468,6 +468,7 @@ function questToday(p) {
 // after a manual upload. Keep in sync with package.json on every release.
 const APP_VER = "13.7.1051";
 
+const AUTO_ONBOARDED = new Set<string>();   // accounts already auto-onboarded in this page load (see App())
 async function signInWith(provider) {
   try {
     if (isNative) { await nativeSignInWith(sb, provider); return; } // opens the OS browser; session completes via the appUrlOpen listener
@@ -10990,11 +10991,16 @@ export default function App() {
     // never ride it; the profile row still gets onboarded=true, set directly
     // so the gate stops firing on every future login too. Guests and app-born
     // sign-ups never see this — they keep the full ProfileForm.
-    if (session && session.user && consumeSkipOnboard()) {
+    if (session && session.user && (consumeSkipOnboard() || !AUTO_ONBOARDED.has(session.user.id))) {
+      /* 2026-10-31 (owner: "after I log in it shows another, old login page"): the extra ProfileForm (e-mail, LINE, phone, Instagram) is gone. Everyone who
+         signs in is marked onboarded straight away and lands in the app (the Learning Pathway); the optional contact details live in Settings / Profile.
+         AUTO_ONBOARDED makes this run once per account per page load, so a failed write can never loop. */
+      AUTO_ONBOARDED.add(session.user.id);
       sb.from("profiles").update({ onboarded: true, updated_at: new Date().toISOString() }).eq("id", session.user.id)
         .then(() => loadProfile(session.user.id), () => loadProfile(session.user.id));
       return <Splash />;
     }
+    if (session && session.user && profile) return <PianoApp session={session} profile={profile} setProfile={setProfile} onSignOut={signOut} />;
     return <ProfileForm session={session} onSignOut={signOut} onSaved={() => loadProfile(session.user.id)} />;
   }
   return <PianoApp session={session} profile={profile} setProfile={setProfile} onSignOut={signOut} />;
@@ -11690,7 +11696,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   /* On the owner's own domain everyone arrives from the landing page, so the app itself is members-only: a signed-out visitor sees the
      login screen (Google first) at once and cannot dismiss it. Other hosts (github.io, previews, localhost) keep the guest trial. */
   useEffect(() => {
-    if (!isGuest) return;
+    if (!isGuest) { setGuestGateReason(null); return; }   // a login in this same page (e-mail / password) must drop the wall at once
     let host = ""; try { host = location.hostname.toLowerCase(); } catch (e) {}
     const onDomain = host === "tigaalpha.com" || host.endsWith(".tigaalpha.com"); let forced = false; try { forced = localStorage.getItem("tg_test_forcelogin") === "1"; } catch (e) {}
     if (onDomain || forced) raiseGate("wall");
