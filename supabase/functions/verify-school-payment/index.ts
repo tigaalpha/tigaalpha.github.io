@@ -15,7 +15,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 */
 
 const SITE = "https://tigaalpha.github.io";
-const ALLOW = [SITE, "http://localhost:5173", "http://localhost:8080", "http://localhost:4173"];
+const ALLOW = [SITE, "https://www.tigaalpha.com", "https://tigaalpha.com", "http://localhost:5173", "http://localhost:8080", "http://localhost:4173"];
 function cors(origin: string | null) {
   const allow = origin && ALLOW.includes(origin) ? origin : SITE;
   return { "Access-Control-Allow-Origin": allow, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Vary": "Origin" };

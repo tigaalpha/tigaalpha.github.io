@@ -14,7 +14,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 */
 
 const SITE = "https://tigaalpha.github.io";
-const ALLOW = [SITE, "http://localhost:5173", "http://localhost:8080", "http://localhost:4173"];
+const ALLOW = [SITE, "https://www.tigaalpha.com", "https://tigaalpha.com", "http://localhost:5173", "http://localhost:8080", "http://localhost:4173"];
+// the buyer comes back to the domain they paid from (www.tigaalpha.com or the old github.io), never bounced to the other one
+function siteOf(req: Request) { const o = req.headers.get("origin"); return o && ALLOW.includes(o) && o.startsWith("https://") ? o : SITE; }
 function cors(origin: string | null) {
   const allow = origin && ALLOW.includes(origin) ? origin : SITE;
   return { "Access-Control-Allow-Origin": allow, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Vary": "Origin" };
@@ -69,8 +71,8 @@ serve(async (req) => {
     const form = new URLSearchParams();
     form.set("mode", "payment");
     form.set("client_reference_id", requestId);
-    form.set("success_url", `${SITE}/?coins_paid=1&req=${encodeURIComponent(requestId)}&session_id={CHECKOUT_SESSION_ID}`);
-    form.set("cancel_url", `${SITE}/?coins_paid=0`);
+    form.set("success_url", `${siteOf(req)}/?coins_paid=1&req=${encodeURIComponent(requestId)}&session_id={CHECKOUT_SESSION_ID}`);
+    form.set("cancel_url", `${siteOf(req)}/?coins_paid=0`);
     form.set("line_items[0][quantity]", "1");
     form.set("line_items[0][price_data][currency]", "thb");   // packages are priced in baht only
     form.set("line_items[0][price_data][unit_amount]", String(Math.round(amount * 100))); // satang

@@ -48,7 +48,9 @@ const yearOf = (cur: string, monthly: number) => {
   return cur === "usd" ? Math.round(n * 100) / 100 : Math.round(n);
 };
 
-const ALLOW = [SITE, "http://localhost:5173", "http://localhost:8080", "http://localhost:4173"];
+const ALLOW = [SITE, "https://www.tigaalpha.com", "https://tigaalpha.com", "http://localhost:5173", "http://localhost:8080", "http://localhost:4173"];
+// the buyer comes back to the domain they paid from (www.tigaalpha.com or the old github.io), never bounced to the other one
+function siteOf(req: Request) { const o = req.headers.get("origin"); return o && ALLOW.includes(o) && o.startsWith("https://") ? o : SITE; }
 function cors(origin: string | null) {
   const allow = origin && ALLOW.includes(origin) ? origin : SITE;
   return { "Access-Control-Allow-Origin": allow, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Vary": "Origin" };
@@ -115,8 +117,8 @@ serve(async (req) => {
     form.set("client_reference_id", payload.sub);
     // session_id lets the app confirm the sale itself on return, so a missing
     // or misconfigured webhook cannot leave a charged customer un-upgraded.
-    form.set("success_url", SITE + "/?paid=1&session_id={CHECKOUT_SESSION_ID}");
-    form.set("cancel_url", SITE + "/?paid=0");
+    form.set("success_url", siteOf(req) + "/?paid=1&session_id={CHECKOUT_SESSION_ID}");
+    form.set("cancel_url", siteOf(req) + "/?paid=0");
     form.set("line_items[0][quantity]", "1");
     form.set("line_items[0][price_data][currency]", currency);
     form.set("line_items[0][price_data][unit_amount]", String(Math.round(amount * 100))); // satang / cents / fen
