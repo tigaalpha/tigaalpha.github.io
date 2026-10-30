@@ -37,7 +37,7 @@ export function pickLang(preset) {
 
 export const C = {
   th: {
-    htmlTitle: "ลองเรียนเปียโนกับครู AI — TIGA Alpha",
+    htmlTitle: "ลองเรียนเปียโนกับครู AI — TIGA ALPHA",
     kicker: "ครูเปียโน AI",
     welcomeBack: "ยินดีที่ได้เจออีกครั้ง — บัญชีของคุณพร้อมใช้",
     welcomeGo: "เข้าไปเล่นต่อ →",
@@ -126,7 +126,7 @@ export const C = {
   },
 
   en: {
-    htmlTitle: "Try a piano lesson with an AI teacher — TIGA Alpha",
+    htmlTitle: "Try a piano lesson with an AI teacher — TIGA ALPHA",
     kicker: "AI PIANO TEACHER",
     welcomeBack: "Welcome back — your account is ready",
     welcomeGo: "Continue to the app →",
@@ -203,7 +203,7 @@ export const C = {
   },
 
   zh: {
-    htmlTitle: "和 AI 钢琴老师试上一课 — TIGA Alpha",
+    htmlTitle: "和 AI 钢琴老师试上一课 — TIGA ALPHA",
     kicker: "AI 钢琴老师",
     welcomeBack: "欢迎回来 — 你的账号已就绪",
     welcomeGo: "进入应用 →",
