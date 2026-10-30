@@ -108,6 +108,7 @@ ${alt}
 <meta property="og:image" content="${SITE}/og-card.png">
 <script type="application/ld+json">${JSON.stringify(ld)}</script>
 <link rel="stylesheet" href="/songs/page.css">
+<script src="/ga.js" defer></script>
 </head>
 `;
 }
