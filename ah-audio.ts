@@ -85,7 +85,7 @@ export function sfx(kind: string, w?: string) {
 }
 
 /** creature voices (owner, 2026-10-18: scary monster sounds): every alien has a spawn roar, an idle growl (quieter the farther it is), a bite sound and a death scream */
-const VOICE_OF: Record<string, string> = { scarab: "skitter", behemoth: "charger", wisp: "skyeye", drone: "spitter", stalker: "mantis", warden: "charger", matriarch: "flarecaster", walker: "skyeye", leaper: "skitter", spiker: "flarecaster", veilmaw: "skyeye", bloater: "spitter", razor: "mantis", titan: "charger", capling: "flarecaster", manthood: "mantis", domestalker: "stalker" };
+const VOICE_OF: Record<string, string> = { scarab: "skitter", behemoth: "charger", wisp: "skyeye", drone: "spitter", stalker: "mantis", warden: "charger", matriarch: "flarecaster", walker: "skyeye", leaper: "skitter", spiker: "flarecaster", veilmaw: "skyeye", bloater: "spitter", razor: "mantis", titan: "charger", capling: "flarecaster", manthood: "mantis", domestalker: "stalker", xenodrone: "mantis", huntsman: "flarecaster" };
 export function creature(kind0: string, mode: "spawn" | "growl" | "bite" | "die", dist = 0) {
   const kind = VOICE_OF[kind0] || kind0;
   if (!ctx || !soundOn()) return; const c = ctx as AudioContext, t = c.currentTime + 0.001;

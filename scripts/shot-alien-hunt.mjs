@@ -18,6 +18,7 @@ await set([["domestalker", 0, -4.8]], "-xeno.png");
 await p.evaluate(() => { window.__yaw = 0; });
 await set([["manthood", 0, -5.2]], "-manta.png");
 await set([["capling", 0, -4.8]], "-ham.png");
+await set([["xenodrone", -2.5, -5], ["huntsman", 1.5, -6.5]], "-new.png");
 await set([["warden", -3.5, -8], ["matriarch", 0, -8], ["hound", 3.5, -6]], "-fam1.png");
 await set([["razor", -3, -6], ["sporecaster", 0, -7], ["bloater", 3, -6]], "-fam2.png");
 await set([["skitter", -2.2, -4.2], ["mantis", 0.8, -5.5], ["spitter", 3.6, -5.5]], "-a.png");
