@@ -56,6 +56,15 @@ const STRATEGY: Record<string, string> = {
   // best-score / counter objects
   tg_readcourse: "objmax",         // {level: stars}
   tg_eargym: "objmax",             // {game: best}
+  // ── games (2026-10-31, owner: "wherever they play, everything follows them") ──
+  tg_adv_done: "union", tg_adv_found: "union", tg_adv_built: "union", tg_boss_done: "union", tg_cert_claimed: "union",   // Adventure maps cleared / weapons found / builds / bosses / certificates
+  tg_adv_up: "objmax", tg_adv_wlv: "objmax", tg_ark: "objmax",           // workshop levels, weapon levels, Ark Bay levels only go up
+  tg_adv_best: "objmin",                                                  // best map times: the smaller wins
+  tg_earth_ore: "max", tg_earth_dyson: "max", tg_arena_best: "max",       // lifetime counters / best score
+  tg_ah_camp: "ahcamp",                                                   // Alien Hunt campaign: cleared + stars per level
+  tg_practice_best: "objmerge",                                           // best practice round per exercise
+  tg_adv_crystals: "lww", tg_adv_energy: "lww", tg_adv_load: "lww", tg_adv_q: "lww",
+  tg_adv_finale: "lww", tg_adv_seen: "lww", tg_adv_howto: "lww", tg_adv_tip: "lww", tg_kid: "lww",
   tg_exam: "objunion",             // {examId: [done task indexes]}
   tg_note_miss: "objmax",          // {pitchClass: cumulative misses}
   tg_usage: "usage",               // {d: day, key: count}
@@ -201,6 +210,18 @@ function mergeObjMax(a: any, b: any): any {
   for (const k of Object.keys(b || {})) out[k] = Math.max(num(out[k]), num(b[k]));
   return out;
 }
+// {id: seconds}: the SMALLER time is the better one (Adventure best times)
+function mergeObjMin(a: any, b: any): any {
+  const out: any = {};
+  for (const k of Object.keys(a || {})) out[k] = a[k];
+  for (const k of Object.keys(b || {})) out[k] = (out[k] > 0 && out[k] <= b[k]) ? out[k] : (b[k] > 0 ? b[k] : out[k]);
+  return out;
+}
+// Alien Hunt campaign {cleared: n, stars: [n...]}: progress only goes forward
+function mergeAhCamp(a: any, b: any): any {
+  const A = a || {}, B = b || {}, sa = Array.isArray(A.stars) ? A.stars : [], sb2 = Array.isArray(B.stars) ? B.stars : [], n = Math.max(sa.length, sb2.length);
+  return { cleared: Math.max(num(A.cleared), num(B.cleared)), stars: Array.from({ length: n }, (_, i) => Math.max(num(sa[i]), num(sb2[i]))) };
+}
 function mergeObjMerge(a: any, b: any, rowTsA: number, rowTsB: number): any {
   const subTs = (v: any): number => {
     if (v && typeof v === "object") {
@@ -297,6 +318,8 @@ function mergeByMode(mode: string, local: any, cloud: any, localTs: number, clou
     case "union": return mergeUnion(local, cloud);
     case "objunion": return mergeObjUnion(local, cloud);
     case "objmax": return mergeObjMax(local, cloud);
+    case "objmin": return mergeObjMin(local, cloud);
+    case "ahcamp": return mergeAhCamp(local, cloud);
     case "objmerge": return mergeObjMerge(local, cloud, localTs, cloudTs);
     case "usage": return mergeUsage(local, cloud);
     case "daycount": return mergeDayCount(local, cloud);
