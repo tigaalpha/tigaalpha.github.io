@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.tigaalpha.tigaai",
-  appName: "TIGA Alpha",
+  appName: "TIGA ALPHA",
   webDir: "dist",
   server: {
     androidScheme: "https",

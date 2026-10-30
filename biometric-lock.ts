@@ -22,7 +22,7 @@
    any other phone you sign in from. */
 
 const KEY = "tg_bio_cred_";          // + tier
-const RP_NAME = "TIGA Alpha Admin";
+const RP_NAME = "TIGA ALPHA Admin";
 
 function b64url(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);

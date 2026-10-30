@@ -662,7 +662,7 @@ export default function LandingPage1() {
   return (
     <div className="lp">
       <header className="lp-top">
-        <span className="lp-mark">TIGA Alpha</span>
+        <span className="lp-mark">TIGA ALPHA</span>
         <span className="lp-kicker">{t.kicker}</span>
         {/* The same three flags as the app's settings panel, so somebody who
             already knows the product recognises the control instantly. */}
