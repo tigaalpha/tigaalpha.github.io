@@ -13692,6 +13692,15 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon"><Ico e="✦" size={20} /></span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setSettingsOpen(true); }}><span className="drawericon"><Ico e="⚙️" size={20} /></span><span className="drawerlabel">{lc.setTitle}</span></button>
           {onSignOut && <button className="draweritem sub" onClick={() => { playUi("click"); onSignOut(); }}><span className="drawericon"><Ico e="⏻" size={20} /></span><span className="drawerlabel">{lc.signOut}</span></button>}
+          {onSignOut && !(profile && profile.is_admin) && <button className="draweritem sub" onClick={async () => {
+            playUi("click");
+            /* account deletion inside the app (Google Play policy): asks twice, then removes the account and its data on the server (RPC self_delete_account) and signs out */
+            const word = lang === "th" ? "ลบบัญชี" : lang === "zh" ? "删除" : "DELETE";
+            const a = window.prompt(lang === "th" ? `ลบบัญชีและข้อมูลทั้งหมดของคุณถาวร ย้อนกลับไม่ได้\nพิมพ์ "${word}" เพื่อยืนยัน` : lang === "zh" ? `将永久删除您的账号和所有数据，无法恢复。\n请输入"${word}"确认` : `This permanently deletes your account and all your data. It cannot be undone.\nType "${word}" to confirm.`);
+            if (!a || a.trim().toUpperCase() !== word.toUpperCase()) return;
+            try { const { error } = await sb.rpc("self_delete_account"); if (error) throw error; try { localStorage.clear(); } catch (e) {} onSignOut(); }
+            catch (e) { window.alert(lang === "th" ? "ลบบัญชีไม่สำเร็จ ลองใหม่หรือติดต่อเจ้าของแอป" : lang === "zh" ? "删除账号失败，请重试或联系我们。" : "Could not delete the account. Try again or contact us."); }
+          }}><span className="drawericon"><Ico e="🗑" size={20} /></span><span className="drawerlabel">{lang === "th" ? "ลบบัญชี" : lang === "zh" ? "删除账号" : "Delete account"}</span></button>}
         </div>
       </nav>
 
