@@ -158,6 +158,8 @@ import { LanguageSettings } from "./LanguageSettings";
    first visit — they were ~200 kB of the main bundle nobody else ever runs. */
 const AdminAIModels = lazy(() => import("./AdminAIModels").then(m => ({ default: m.AdminAIModels })));
 const AdminJevTasks = lazy(() => import("./AdminAIModels").then(m => ({ default: m.AdminJevTasks })));
+const AdminBlog = lazy(() => import("./AdminBlog").then(m => ({ default: m.AdminBlog })));
+const BlogPage = lazy(() => import("./BlogPage").then(m => ({ default: m.BlogPage })));
 const AdminNav = lazy(() => import("./AdminAIModels").then(m => ({ default: m.AdminNav })));
 const TigamodelLab = lazy(() => import("./TigamodelLab").then(m => ({ default: m.TigamodelLab })));
 const TigamodelBackoffice = lazy(() => import("./TigamodelBackoffice").then(m => ({ default: m.TigamodelBackoffice })));
@@ -10740,6 +10742,7 @@ function AdminPage({ lang, onExit, adminTier }) {
         : adminTab === "weeklyreport" && tier >= 3 ? <AdminWeeklyReport lang={lang} />
         : adminTab === "event" && tier >= 3 ? <AdminEvent lang={lang} />
         : adminTab === "games" && tier >= 3 ? <AdminGames lang={lang} />
+        : adminTab === "blog" && tier >= 3 ? <Suspense fallback={<LazyBits tall />}><AdminBlog lang={lang} /></Suspense>
         : adminTab === "aimodel" && tier >= 3 ? <AdminAIModels lang={lang} />
         : adminTab === "jev" && tier >= 3 ? <AdminJevTasks lang={lang} />
         : adminTab === "tigamodel" && tier >= 3 ? <div className="adminscroll"><Suspense fallback={<LazyBits tall />}><TigamodelLab lang={lang} /></Suspense></div>
@@ -13562,6 +13565,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {page === "coach" && <CoachPage lang={lang} profile={profile} plan={plan} onNavigate={handleCoachNavigate} onGoStep={goToCoachStep} onUpsell={() => setPricingOpen(true)} gainExp={gainExp} earnCoins={earnCoins} onOpenAiReport={(type) => { logUsage("nav", type === "report" ? "coach-ai-report" : "coach-ai-plan"); setAiModalType(type); setAiModalText(""); setAiModalLoading(false); setAiModalOpen(true); }} />}
 
       {/* ─── PAGE: MUSIC GAMES ─── */}
+      {page === "blog" && <Suspense fallback={<LazyBits tall />}><BlogPage lang={lang} /></Suspense>}
       {page === "gamepage" && <GamesPage lang={lang} earnCoins={earnCoins} gainExp={gainExp} />}
       {page === "storage" && (
         <StoragePage lang={lang} coins={coins} owned={owned} charModel={charModel}
@@ -13678,6 +13682,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           { p: "studio", sv: "menu", ic: "▶", c: "#d97757", t: lc.navStudio },
           { p: "videos", ic: "🎬", c: "#d97757", t: lc.navVideos },
           { p: "gamepage", ic: "🎮", c: "#d97757", t: lang === "th" ? "เกมดนตรี" : lang === "zh" ? "音乐游戏" : "Music Games", locked: !premium && !(profile && profile.is_admin) },
+          { p: "blog", ic: "📝", c: "#d97757", t: lang === "th" ? "บล็อก" : lang === "zh" ? "博客" : "Blog" },
           // no pet entry here on purpose — the pet lab is reached from the pod
           // beside the avatar on the profile, where the character lives
           // Challenging moved into the Studio card grid (right after Parent
