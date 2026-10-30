@@ -502,6 +502,7 @@ const ADMIN_NAV_GROUPS = [
     { id: "weeklyreport", icon: "📊", tier: 3, th: "รายงานรายสัปดาห์", en: "Weekly Report", zh: "周报告" },
     { id: "event", icon: "🎉", tier: 3, th: "อีเว้นท์", en: "Event", zh: "活动" },
     { id: "games", icon: "🎮", tier: 3, th: "เกม", en: "Games", zh: "游戏" },
+    { id: "blog", icon: "📝", tier: 3, th: "บล็อก", en: "Blog", zh: "博客" },
   ]},
 ];
 
