@@ -22,6 +22,7 @@ await set([["xenodrone", -2.5, -5], ["huntsman", 1.5, -6.5]], "-new.png");
 await set([["greyling", -4, -6], ["hydraling", -1.5, -6], ["warbug", 1.8, -6.5], ["carapace", 4.5, -7]], "-n2.png");
 await set([["tripod", 0, -9]], "-trip.png");
 await set([["saberlord", -3, -7], ["skyfolk", 0, -6], ["leviathan", 3.5, -9], ["tripod", -1, -11]], "-n3.png");
+for (const k of ["xenodrone", "huntsman", "greyling", "hydraling", "warbug", "saberlord", "skyfolk", "leviathan", "tripod", "carapace"]) { await p.evaluate(() => { window.__yaw = 0.5; }); await set([[k, 0, k === "tripod" ? -9 : k === "leviathan" ? -7 : k === "xenodrone" || k === "carapace" ? -5.5 : -4.2]], "-s-" + k + ".png"); }
 await set([["warden", -3.5, -8], ["matriarch", 0, -8], ["hound", 3.5, -6]], "-fam1.png");
 await set([["razor", -3, -6], ["sporecaster", 0, -7], ["bloater", 3, -6]], "-fam2.png");
 await set([["skitter", -2.2, -4.2], ["mantis", 0.8, -5.5], ["spitter", 3.6, -5.5]], "-a.png");
