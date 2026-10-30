@@ -5,10 +5,11 @@
   var ch = ""; try { ch = localStorage.getItem("tg_ga") || ""; } catch (e) {}
   window.dataLayer = window.dataLayer || [];
   function gtag() { window.dataLayer.push(arguments); }
-  window.gtag = gtag;
-  gtag("consent", "default", { analytics_storage: ch === "1" ? "granted" : "denied", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied", wait_for_update: 500 });
-  var s = document.createElement("script"); s.async = true; s.src = "https://www.googletagmanager.com/gtag/js?id=" + ID; document.head.appendChild(s);
-  gtag("js", new Date()); gtag("config", ID, { anonymize_ip: true, allow_google_signals: false });
+  var inline = typeof window.gtag === "function";   // the page already carries the standard gtag snippet (app and landing); static pages do not
+  if (!inline) window.gtag = gtag;
+  if (!inline) gtag("consent", "default", { analytics_storage: ch === "1" ? "granted" : "denied", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied", wait_for_update: 500 });
+  if (!inline) { var s = document.createElement("script"); s.async = true; s.src = "https://www.googletagmanager.com/gtag/js?id=" + ID; document.head.appendChild(s);
+    gtag("js", new Date()); gtag("config", ID, { anonymize_ip: true, allow_google_signals: false }); }
   if (ch) return;
   var lang = (document.documentElement.lang || "en").toLowerCase(), L = lang.indexOf("th") === 0 ? 0 : lang.indexOf("zh") === 0 ? 2 : 1;
   var T = [["เราใช้ Google Analytics นับจำนวนผู้เข้าชมเพื่อปรับปรุงเว็บไซต์ (ไม่เก็บชื่อหรืออีเมล)", "ยอมรับ", "ไม่ยอมรับ"], ["We use Google Analytics to count visits and improve the site (no names or e-mails).", "Accept", "Decline"], ["我们使用 Google Analytics 统计访问量以改进网站（不收集姓名或邮箱）。", "接受", "拒绝"]][L];
