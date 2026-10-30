@@ -11,5 +11,5 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // for the web sign-in path too: detectSessionInUrl (on by default) auto-completes
 // either flow the same way on page load, no separate code needed there.
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { flowType: "pkce" },
+  auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });

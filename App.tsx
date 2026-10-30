@@ -10831,13 +10831,30 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
-    sb.auth.getSession().then(({ data }) => {
+    /* STAY SIGNED IN (owner 2026-10-31: "people keep getting kicked out; once logged in they should stay logged in for good"). supabase-js keeps the session in
+       localStorage and refreshes it by itself, so a drop-out comes from the browser losing that storage (in-app browsers, "clear site data", storage pressure) or
+       from one failed refresh turning into a SIGNED_OUT. Two guards: (1) a second copy of the newest refresh token is kept under tg_auth_bk and used to restore the
+       session if the first one vanished — unless the person pressed Sign out themselves (tg_user_signed_out); (2) a SIGNED_OUT nobody asked for is checked against
+       that copy before the app believes it. */
+    const BK = "tg_auth_bk", OUT = "tg_user_signed_out";
+    const save = (s: any) => { try { if (s && s.refresh_token) localStorage.setItem(BK, JSON.stringify({ at: s.access_token, rt: s.refresh_token, t: Date.now() })); } catch (e) {} };
+    const restore = async () => {
+      try { if (localStorage.getItem(OUT) === "1") return null; const b = JSON.parse(localStorage.getItem(BK) || "null"); if (!b || !b.rt) return null;
+        const { data, error } = await sb.auth.setSession({ access_token: b.at || "", refresh_token: b.rt }); if (error || !data || !data.session) return null; save(data.session); return data.session; } catch (e) { return null; }
+    };
+    sb.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
-      setSession(data.session || null);
-      setAccessToken((data.session && data.session.access_token) || null);
-      setAuthReady(true);
+      let s = data.session || null; if (!s) s = await restore(); if (!mounted) return;
+      if (s) { save(s); try { localStorage.removeItem(OUT); } catch (e) {} }
+      setSession(s); setAccessToken((s && s.access_token) || null); setAuthReady(true);
     });
-    const { data: sub } = sb.auth.onAuthStateChange((_e, s) => {
+    const { data: sub } = sb.auth.onAuthStateChange((e, s) => {
+      if (s) { save(s); try { localStorage.removeItem(OUT); } catch (er) {} }
+      if (!s && e === "SIGNED_OUT") {   // asked for, or lost? only an explicit Sign out (flag set in signOut) is believed at once
+        let mine = false; try { mine = localStorage.getItem(OUT) === "1"; } catch (er) {}
+        if (!mine) { restore().then(r => { if (!mounted) return; if (r) { setSession(r); setAccessToken(r.access_token || null); } else { setSession(null); setAccessToken(null); } setAuthReady(true); }); return; }
+      }
+      if (!s && e !== "SIGNED_OUT" && e !== "INITIAL_SESSION") return;   // never treat an odd empty event as a logout
       setSession(s || null);
       setAccessToken((s && s.access_token) || null); // kept fresh across silent token refreshes too
       setAuthReady(true);
@@ -10965,6 +10982,7 @@ export default function App() {
 
   async function signOut() {
     stopCloudSync(); // flush pending cloud-sync writes first, then stop watching
+    try { localStorage.setItem("tg_user_signed_out", "1"); localStorage.removeItem("tg_auth_bk"); } catch (e) {}   // an explicit Sign out: the stay-signed-in restore must not undo it
     try { await sb.auth.signOut(); } catch (e) {}
     setSession(null); setProfile(null);
     // The admin unlock and the current page are tab-session state — a sign-out
