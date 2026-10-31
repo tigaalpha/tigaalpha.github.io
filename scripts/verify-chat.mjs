@@ -428,12 +428,12 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
   check("speak-free-lock-on-every-bubble", fi.length >= 3 && fi.every(x => x.has && x.locked), JSON.stringify(fi));
   check("speak-at-the-bubbles-bottom-right", fi.every(x => x.right != null && x.right >= 0 && x.right <= 14 && x.bottom >= 0 && x.bottom <= 12 && x.size >= 28), JSON.stringify(fi.map(x => [x.who, x.right, x.bottom, x.size])));
   check("speak-both-roles", fi.some(x => x.who === "u") && fi.some(x => x.who === "a"), fi.map(x => x.who).join(""));
-  check("speak-locked-label-th", fi.every(x => /Max/.test(x.label) && /ฟัง/.test(x.label)), fi[0] && fi[0].label);
+  check("speak-locked-label-th", fi.every(x => /Premium/.test(x.label) && /ฟัง/.test(x.label)), fi[0] && fi[0].label);
   await F.page.screenshot({ path: "/tmp/claude-0/shots/chat-speak-locked.png" });
   await F.page.click(".mov .mmsgs .msg.u .bspk"); await F.page.waitForTimeout(700);
   check("speak-locked-tap-opens-plans", !!(await F.page.$(".setov .setcard.pricing")), "pricing card over the chat");
   const maxBullet = await F.page.evaluate(() => [...document.querySelectorAll(".setov .prfeat li")].filter(l => /ลำโพง/.test(l.textContent)).length);
-  check("speak-pricing-lists-it-for-max-and-max-family", maxBullet === 2, "bullets " + maxBullet);
+  check("speak-pricing-lists-it-on-the-premium-card", maxBullet === 1, "bullets " + maxBullet);
   check("speak-locked-no-voice-request", F.state.tts.length === 0, "requests " + F.state.tts.length);
   await F.ctx.close();
 

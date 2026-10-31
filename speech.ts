@@ -97,7 +97,11 @@ export function cleanForTTS(t) {
     // Must run AFTER the ** strip above, else "**bold**" mis-pairs across the
     // inner two asterisks and eats the words instead of just the markers.
     .replace(/\*[^*\n]{1,60}\*/g, "")
+    .replace(/^[ \t]*(?:#{1,6}|[-•]|\d+[.)])[ \t]+/gm, "")   // a heading mark, a bullet or a "1." step is not read out
     .replace(/[*_`~]/g, "")
+    // a line that ends with no punctuation (a bullet, a heading) gets a full stop, so the voice pauses there instead of
+    // running one item into the next as a single breathless sentence
+    .replace(/([^\s.!?。！？…:;,，、：；])[ \t]*\n+/g, "$1. ")
     .replace(/\n{2,}/g, ". ").replace(/\n/g, " ")
     .replace(/\s+/g, " ").trim();
 }
@@ -350,8 +354,10 @@ export function ttsChunks(text, max = 130, firstMax = 0) {
     // a sentence longer than the budget is cut at a word boundary
     while (s.length > limitFor(out.length)) {
       const lim = limitFor(out.length);
-      let cut = s.lastIndexOf(" ", lim);
-      if (cut < lim * 0.6) cut = lim; // no good space nearby — hard cut
+      // prefer to end the clip at a clause mark (so the voice stops where a person would pause), then at a space, and only then cut hard
+      let pc = -1; for (const m of ["，", "、", "；", "：", ",", ";"]) pc = Math.max(pc, s.lastIndexOf(m, lim - 1));
+      let cut = pc >= lim * 0.4 ? pc + 1 : s.lastIndexOf(" ", lim);
+      if (cut < lim * 0.6 && !(pc >= lim * 0.4)) cut = lim; // no good space nearby — hard cut
       const head = s.slice(0, cut).trim();
       if (head) out.push(head);
       s = s.slice(cut).trim();
@@ -611,6 +617,35 @@ export function ttsBudgetRefund(seconds) {
   try { localStorage.setItem(TTS_DAY_KEY, JSON.stringify(r)); } catch (e) {}
 }
 
+/* How much speech goes into ONE request. A clip of a minute or more is where the synthesiser starts to drop the end of its
+   text (the owner's "อ่านไม่เต็มประโยค") and where a request runs past its timeout and the rest of the message falls to the
+   device voice — and the characters in a minute differ enormously by language (Chinese ~270, Thai ~660, English ~900), so a
+   fixed character budget was a minute of Thai but several minutes of Chinese. The budget is therefore counted in SECONDS of
+   speech: a later clip is about TTS_CHUNK_SECS long, the first (the one the learner waits for) about TTS_FIRST_SECS. TTS_CHUNK_CHARS and
+   TTS_FIRST_CHUNK_CHARS stay as the ceilings. */
+export const TTS_CHUNK_SECS = 24;
+export const TTS_FIRST_SECS = 11;
+export function ttsChunkLimits(lang) {
+  const cps = TTS_CHARS_PER_SEC[lang] || 12;
+  return {
+    max: Math.max(90, Math.min(TTS_CHUNK_CHARS, Math.round(cps * TTS_CHUNK_SECS))),
+    first: Math.max(50, Math.min(TTS_FIRST_CHUNK_CHARS, Math.round(cps * TTS_FIRST_SECS))),
+  };
+}
+/* The part of a decoded clip that is not silence. Synthesised clips carry a few tenths of a second of silence at both ends; played
+   back to back they make an audible hole between two chunks of one sentence. Playing only the audible part (with a short lead
+   and tail so no breath is clipped) makes the joins smooth. Returns [start, end] in seconds; the whole clip if it cannot be read. */
+export function ttsAudibleSpan(buf) {
+  try {
+    const d = buf.getChannelData(0), sr = buf.sampleRate, th = 0.01, n = d.length;
+    let a = 0, b = n - 1;
+    while (a < n && Math.abs(d[a]) < th) a++;
+    while (b > a && Math.abs(d[b]) < th) b--;
+    if (b - a < sr * 0.15) return [0, buf.duration];            // nearly all silence: leave it be
+    return [Math.max(0, a / sr - 0.04), Math.min(buf.duration, b / sr + 0.12)];
+  } catch (_e) { return [0, buf && buf.duration ? buf.duration : 0]; }
+}
+
 export async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1, opts = null) {
   stopCloudTTS();
   _ttsCancelled = false;
@@ -628,7 +663,8 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
   // in practice. One request = one continuous clip: no seams between clips (the
   // "choppy" complaint) and no second call to trip Gemini's rate limit (the
   // "stops after one line" complaint).
-  const chunks = ttsChunks(clean, TTS_CHUNK_CHARS, TTS_FIRST_CHUNK_CHARS);
+  const lim = ttsChunkLimits(lang);
+  const chunks = ttsChunks(clean, lim.max, lim.first);
 
   /* โควตาคิดทีเดียวทั้งข้อความ ไม่ใช่ทีละก้อน — เดิมคิดทีละก้อน พอโควตาหมดกลาง
      ข้อความฟังจะ "หยุดกลางคัน" (ครูอ่านไม่ครบ ซึ่งแย่กว่าไม่อ่านเลย) ตอนนี้ถ้าเงิน
@@ -678,6 +714,7 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
         src.buffer = buf;
         if (rateMul && rateMul !== 1) src.playbackRate.value = Math.max(0.5, Math.min(1.8, rateMul));
         src.connect(ac.destination);
+        const [t0, t1] = ttsAudibleSpan(buf);
         let done = false;
         let watchdog = null;
         const finish = () => { if (done) return; done = true; if (watchdog) clearTimeout(watchdog); resolve(); };
@@ -685,10 +722,10 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
         // The decoded buffer says how long it really is. An AudioContext suspended
         // when a phone takes audio focus never fires `onended`, and that alone used
         // to freeze the loop mid-message; the watchdog is what guarantees it advances.
-        const dur = (buf && buf.duration ? buf.duration : 8) / (src.playbackRate.value || 1);
+        const dur = (t1 > t0 ? t1 - t0 : (buf && buf.duration ? buf.duration : 8)) / (src.playbackRate.value || 1);
         watchdog = setTimeout(finish, (dur + 4) * 1000);
         _ttsSource = src;
-        try { src.start(); } catch (e) { finish(); }
+        try { if (t1 > t0) src.start(0, t0, t1 - t0); else src.start(); } catch (e) { finish(); }
       });
       if (stale()) return true;
     }

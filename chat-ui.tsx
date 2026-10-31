@@ -23,7 +23,7 @@ import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUES
      TTS_RATE). Turning this back on is one `true`.
    Kept as a const literal so esbuild drops the dead branch from the bundle
    (same pattern as AI_CREATE_SONG_ENABLED / LANG_PICKER_ENABLED). */
-export const CHAT_TTS_ENABLED = false;
+export const CHAT_TTS_ENABLED = true;
 
 
 /* ── The read-aloud button on a chat bubble (owner, 2026-10-01) ──
@@ -271,7 +271,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
             : <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{bodyText}</p>}
         {canSpeak && (
           <div className="bblf">
-            <BubbleSpeak text={String(m.text)} lang={lang} id={idx} activeId={activeSpk} setActiveId={setActiveSpk}
+            <BubbleSpeak text={String(m.role === "ai" ? bodyText : m.text)} lang={lang} id={idx} activeId={activeSpk} setActiveId={setActiveSpk}
               mode={speakMode} onLocked={onSpeakLocked} />
           </div>
         )}
