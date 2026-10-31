@@ -45,13 +45,24 @@ function freshWorld() {
   globalThis.localStorage = { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
   globalThis.window = globalThis;
   globalThis.__played = []; globalThis.__fetches = []; globalThis.__playedRate = 1; globalThis.__noOnend = false;
+  const T0 = Date.now();
+  globalThis.__starts = [];
   globalThis.__ac = {
     state: "running", destination: {}, resume: async () => {},
+    // a clock that runs like the real one, so a clip queued for a later time is heard at that time (the player queues clips back to back)
+    get currentTime() { return (Date.now() - T0) / 1000; },
     // duration matters: the playback watchdog reads the real length off the buffer
-    decodeAudioData: async (buf) => ({ id: buf.byteLength, duration: 0.05 }),
+    decodeAudioData: async (buf) => ({ id: buf.byteLength, duration: (globalThis.__clipMs || 60) / 1000 }),
     createBufferSource() {
+      const ac = globalThis.__ac;
       const n = { buffer: null, playbackRate: { value: 1 }, connect() {}, onended: null,
-        start() { globalThis.__played.push(this.buffer.id); globalThis.__playedRate = this.playbackRate.value; if (globalThis.__noOnend) return; this._t = setTimeout(() => this.onended && this.onended(), globalThis.__clipMs || 60); },
+        start(when = 0, off = 0, dur) {
+          globalThis.__played.push(this.buffer.id); globalThis.__playedRate = this.playbackRate.value;
+          globalThis.__starts.push({ id: this.buffer.id, when, at: ac.currentTime, len: (dur != null ? dur : this.buffer.duration) / (this.playbackRate.value || 1) });
+          if (globalThis.__noOnend) return;
+          const lead = Math.max(0, when - ac.currentTime) * 1000, len = (dur != null ? dur : this.buffer.duration) / (this.playbackRate.value || 1) * 1000;
+          this._t = setTimeout(() => this.onended && this.onended(), lead + len);
+        },
         stop() { clearTimeout(this._t); setTimeout(() => this.onended && this.onended(), 0); } };
       return n;
     },
@@ -320,8 +331,9 @@ async function load() {
   const opts = { src: "chat", spend: () => S2.ttsRoundSpend(), refund: () => S2.ttsRoundRefund() };
   let done1 = false, err2 = null;
   await S2.speakCloud("The first message of the day, read in the cloud voice.", "en", () => {}, () => { done1 = true; }, () => {}, 1, opts);
+  const n1 = globalThis.__fetches.length;
   await S2.speakCloud("A different second message that must not reach the cloud.", "en", () => {}, () => {}, (e) => { err2 = e; }, 1, opts);
-  check("first-message-plays-second-is-refused-without-a-request", done1 && !!err2 && err2.budget === true && globalThis.__fetches.length === 1, `fetches ${globalThis.__fetches.length}`);
+  check("first-message-plays-second-is-refused-without-a-request", done1 && !!err2 && err2.budget === true && n1 >= 1 && globalThis.__fetches.length === n1, `fetches ${n1} -> ${globalThis.__fetches.length}`);
 }
 
 // 12. the owner's "อ่านไป 2-3 บรรทัดแล้วหยุด" (2026-10-31): the first clip carries real speech, a refusal is waited out, the device voice reads in short pieces
@@ -335,6 +347,39 @@ async function load() {
   const dev = S.chunkText("สวัสดีครับ ".repeat(60), 180);
   check("device-voice-pieces-are-short-even-without-full-stops", dev.length >= 3 && dev.every(c => c.length <= 190), JSON.stringify(dev.map(c => c.length)));
   check("device-voice-pieces-keep-every-word", dev.join("").replace(/\s+/g, "") === ("สวัสดีครับ ".repeat(60)).replace(/\s+/g, ""));
+}
+
+// 13. speed and smoothness (owner 2026-10-31: "กดแล้วเสียงมาเลย ภายใน 2-3 วินาที", "ยังกระตุก")
+{
+  freshWorld();
+  const S = await load();
+  // the first clip is a few seconds of speech, the next ones grow, and no word is lost
+  const text = "สวัสดีครับวันนี้เรามาเรียนสเกลซีเมเจอร์กัน ก่อนอื่นให้วางนิ้วหัวแม่มือบนโน้ตโดแล้วไล่นิ้วขึ้นไปทีละตัว ระวังอย่าให้ข้อมือเกร็ง แล้วลองเล่นช้า ๆ ก่อนครับ ".repeat(8).trim();
+  for (const lang of ["th", "en", "zh"]) {
+    const L = S.ttsChunkLimits(lang), cps = { th: 11, en: 15, zh: 4.5 }[lang];
+    check("first-clip-is-about-3-seconds-" + lang, L.first / cps <= 3.3 && L.first / cps >= 2.5 || L.first === 14, lang + " " + L.first + " chars = " + (L.first / cps).toFixed(1) + " s");
+    check("clips-grow-" + lang, L.first < L.ramp[0] && L.ramp[0] < L.ramp[1] && L.ramp[1] < L.max, JSON.stringify([L.first, ...L.ramp, L.max]));
+  }
+  const Lt = S.ttsChunkLimits("th"), ch = S.ttsChunks(text, Lt.max, Lt.first, Lt.ramp);
+  check("thai-message-first-clip-short-then-growing", ch[0].length <= Math.ceil(Lt.first * 1.5) && ch[1].length > ch[0].length && ch.slice(0, 3).every((c, i) => c.length <= [Lt.first * 1.5, Lt.ramp[0] * 1.5, Lt.ramp[1] * 1.5][i]), JSON.stringify(ch.slice(0, 4).map(c => c.length)));
+  check("no-word-is-lost-with-the-ramp", ch.join(" ").replace(/\s+/g, "") === text.replace(/\s+/g, ""));
+  // clips are queued back to back on the audio clock: each starts where the one before ends, with no gap to stutter in
+  freshWorld(); fakeTts({ delay: 0 });
+  globalThis.__clipMs = 1500;   // longer than the 1.2 s gap the throttle puts between two requests, like a real clip
+  const S2 = await load();
+  let fin = false;
+  await S2.speakCloud(text.slice(0, 260), "th", () => {}, () => { fin = true; }, () => {}, 1, null);
+  const st = globalThis.__starts;
+  const gaps = st.slice(1).map((x, k) => +(x.when - (st[k].when + st[k].len)).toFixed(3));
+  check("clips-are-queued-back-to-back", fin && st.length >= 3 && gaps.every(g => Math.abs(g) < 0.02), JSON.stringify({ clips: st.length, gaps }));
+  check("audio-never-starts-before-its-turn", st.slice(1).every((x, k) => x.when >= st[k].when + st[k].len - 0.001));
+  // a stop silences the clip that is playing AND the ones already queued
+  freshWorld(); fakeTts({ delay: 0 });
+  globalThis.__clipMs = 600;
+  const S3 = await load();
+  const run = S3.speakCloud(text.slice(0, 260), "th", () => {}, () => {}, () => {}, 1, null);
+  await sleep(250); S3.stopCloudTTS(); await run;
+  check("stop-clears-the-queue", S3._ttsSources.size === 0, "sources " + S3._ttsSources.size);
 }
 
 console.log(`\n${pass}/${pass + fail} passed`);

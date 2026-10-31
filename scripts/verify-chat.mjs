@@ -77,6 +77,7 @@ async function newLearner({ lang = "th", plan = "premium", guest = false, usage 
       return r.fulfill({ status: 200, contentType: "text/event-stream", body: sse });
     }
     if (/\/functions\/v1\/piano-tts/.test(url)) {
+      if (req.method() === "OPTIONS") return r.fulfill({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "POST, OPTIONS" } });   // the pre-warm: not a synthesis request
       let body = {}; try { body = req.postDataJSON() || {}; } catch (e) {}
       state.tts.push({ t: Date.now(), body });
       if (tts === "fail") return r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "stubbed tts failure" }) });
@@ -438,7 +439,7 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
   await F.ctx.close();
 
   // 2. Max: an unlocked button speaks the message in its own language, the state follows, a second tap stops it
-  const M = await newLearner({ lang: "th", plan: "max", admin: true, jev: "off", tts: "ok", reply: "ครับ 中文 is fine: ใช่ครับ โน้ต C คือโด" });
+  const M = await newLearner({ lang: "th", plan: "max", admin: true, jev: "off", tts: "ok", ls: { tg_tts_free: "1" }, reply: "ครับ 中文 is fine: ใช่ครับ โน้ต C คือโด" });
   await openChat(M.page);
   await ask(M.page, "Please say hello in English"); await settle(M.page); await M.page.waitForTimeout(400);
   const mi = await btnInfo(M.page);
@@ -475,7 +476,7 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
   check("speak-ends-by-itself", end === 0);
   check("speak-repeat-listen-is-cached", M.state.tts.length === before, `requests ${before} -> ${M.state.tts.length}`);
   const mday = await M.page.evaluate(() => localStorage.getItem("tg_tts_round"));
-  check("speak-admin-is-not-held-to-the-daily-round", !mday, JSON.stringify(mday));
+  check("speak-free-flag-skips-the-daily-round", !mday, JSON.stringify(mday));
   if (M.errors.length) console.log("  page errors:", M.errors.join(" | "));
   await M.ctx.close();
 
@@ -485,8 +486,11 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
   await openChat(B.page);
   await ask(B.page, "a question long enough to need a few seconds of speech"); await settle(B.page); await B.page.waitForTimeout(300);
   await B.page.click(".mov .mmsgs .msg.u .bspk"); await B.page.waitForTimeout(900);
-  const note = await B.page.$eval(".mov .bspk-note", e => e.textContent).catch(() => null);
-  check("speak-daily-round-spent-says-so", /once a day/.test(note || ""), JSON.stringify(note));
+  const note = await B.page.$eval("[data-spk-limit]", e => e.textContent).catch(() => null);
+  check("speak-daily-round-spent-opens-a-popup", /one read-aloud message a day/.test(note || ""), JSON.stringify(note));
+  await B.page.screenshot({ path: "/tmp/claude-0/shots/chat-speak-limit.png" });
+  await B.page.click("[data-spk-limit] button");
+  check("speak-limit-popup-closes", !(await B.page.$("[data-spk-limit]")));
   check("speak-budget-spent-no-request", B.state.tts.length === 0, "requests " + B.state.tts.length);
   await B.page.waitForFunction(() => document.querySelectorAll(".mov .bspk.on").length === 0, null, { timeout: 8000 }).catch(() => {});
   check("speak-budget-spent-button-comes-back", (await B.page.$$(".mov .bspk.on")).length === 0);
@@ -512,14 +516,15 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
   await R.page.waitForFunction(() => document.querySelectorAll(".mov .bspk.on").length === 0, null, { timeout: 12000 }).catch(() => {});
   const r1 = R.state.tts.length;
   await R.page.locator(".mov .mmsgs .msg.a").last().locator(".bspk").click(); await R.page.waitForTimeout(900);
-  const rnote = await R.page.$eval(".mov .bspk-note", e => e.textContent).catch(() => null);
-  check("speak-second-message-today-is-refused", r1 >= 1 && /once a day/.test(rnote || "") && R.state.tts.length === r1, `requests ${r1} -> ${R.state.tts.length} · ${JSON.stringify(rnote)}`);
+  const rnote = await R.page.$eval("[data-spk-limit]", e => e.textContent).catch(() => null);
+  check("speak-second-tap-of-the-day-opens-a-popup", r1 >= 1 && /one read-aloud message a day/.test(rnote || "") && R.state.tts.length === r1, `requests ${r1} -> ${R.state.tts.length} · ${JSON.stringify(rnote)}`);
+  await R.page.click("[data-spk-limit] button");
   const rr = await R.page.evaluate(() => JSON.parse(localStorage.getItem("tg_tts_round") || "null"));
   check("speak-round-counted-once", !!rr && rr.n === 1, JSON.stringify(rr));
-  await R.page.waitForTimeout(5200);
-  await R.page.click(".mov .mmsgs .msg.u .bspk");
-  const replayed = await R.page.waitForSelector(".mov .bspk .bspk-spin, .mov .bspk .bspk-bars", { timeout: 4000 }).then(() => true).catch(() => false);
-  check("speak-the-heard-message-replays-free", replayed && R.state.tts.length === r1, `requests ${r1} -> ${R.state.tts.length}`);
+  // the message that WAS heard is a second tap too (its clips are cached, but the limit is one listen a day, not one request a day)
+  await R.page.click(".mov .mmsgs .msg.u .bspk"); await R.page.waitForTimeout(600);
+  const again = await R.page.$("[data-spk-limit]");
+  check("speak-replaying-the-heard-message-is-also-a-second-tap", !!again && R.state.tts.length === r1 && (await R.page.$$(".mov .bspk.on")).length === 0, `requests ${r1} -> ${R.state.tts.length}`);
   await R.ctx.close();
 
   // 5. the owner's admin account hears it too; the Voice-Tutor rule

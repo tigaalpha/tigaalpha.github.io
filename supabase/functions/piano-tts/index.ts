@@ -68,6 +68,8 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  // the browser may remember the answer to its pre-flight for a day, so only the first request of a session pays for the extra round trip
+  "Access-Control-Max-Age": "86400",
 };
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
@@ -100,7 +102,18 @@ function json(body: unknown, status = 200) {
 }
 
 // ── which TTS engine/voice is active (admin "AI Models" → voice-tts) ──
+// The engine config and a caller's plan change rarely, and each is a database round trip on the way to the first sound, so a warm instance
+// remembers them for a minute (the plan check keeps its own verdict per user, and a failure is never cached).
+const CFG_TTL_MS = 60_000;
+let _cfgCache: { at: number; v: { provider: string; model: string; voice: string } } | null = null;
+const _planCache = new Map<string, { at: number; ok: boolean }>();
 async function resolveTtsConfig(authHeader: string | null): Promise<{ provider: string; model: string; voice: string }> {
+  if (_cfgCache && Date.now() - _cfgCache.at < CFG_TTL_MS) return _cfgCache.v;
+  const v = await resolveTtsConfigUncached(authHeader);
+  if (v.__ok) { delete (v as any).__ok; _cfgCache = { at: Date.now(), v }; }
+  return v;
+}
+async function resolveTtsConfigUncached(authHeader: string | null): Promise<any> {
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/app_settings?key=eq.ai_models&select=value`,
@@ -115,6 +128,7 @@ async function resolveTtsConfig(authHeader: string | null): Promise<{ provider: 
           provider: tts.provider === "elevenlabs" ? "elevenlabs" : "gemini",
           model: tts.model,
           voice: typeof tts.voice === "string" && tts.voice ? tts.voice : "",
+          __ok: true,
         };
       }
     }
@@ -293,6 +307,8 @@ async function chatVoiceAllowed(authHeader: string | null): Promise<boolean> {
     const payload = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
     const uid = payload && payload.sub;
     if (!uid) return false;
+    const hit = _planCache.get(uid);
+    if (hit && Date.now() - hit.at < CFG_TTL_MS) return hit.ok;
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=plan,plan_until,is_admin`,
       { headers: { apikey: SUPABASE_ANON_KEY, Authorization: authHeader as string } }
@@ -300,7 +316,7 @@ async function chatVoiceAllowed(authHeader: string | null): Promise<boolean> {
     if (!res.ok) return false;
     const p = (await res.json())?.[0];
     if (!p) return false;
-    if (p.is_admin) return true;
+    if (p.is_admin) { _planCache.set(uid, { at: Date.now(), ok: true }); return true; }
     /* The voice tutor is in Premium now — but this reads the RAW profiles.plan,
        which for an existing subscriber still says "max"/"maxfamily" because the
        database was deliberately left alone (owner, 2026-10-04). Dropping those
@@ -308,7 +324,9 @@ async function chatVoiceAllowed(authHeader: string | null): Promise<boolean> {
        have paid for, on the server, where no client-side canonicalPlan() can
        rescue them. So every paid string is accepted, legacy ones included. */
     if (p.plan !== "premium" && p.plan !== "max" && p.plan !== "maxfamily" && p.plan !== "family") return false;
-    return !p.plan_until || new Date(p.plan_until).getTime() > Date.now();
+    const ok = !p.plan_until || new Date(p.plan_until).getTime() > Date.now();
+    if (ok) _planCache.set(uid, { at: Date.now(), ok: true });   // only a yes is remembered: someone who has just paid must not wait out a cached no
+    return ok;
   } catch (_e) { return false; }
 }
 

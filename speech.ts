@@ -365,9 +365,12 @@ export function stopSpeaking() {
 export let _ttsSource = null;
 export let _ttsCancelled = false;
 let _ttsRun = 0;                                        // numbers each speakCloud() call; a stop or a newer call makes an older one stale
+export const _ttsSources = new Set();   // every clip speakCloud has scheduled and not yet heard to the end (clips are queued back to back, so there can be several)
 export function stopCloudTTS() {
   _ttsCancelled = true;
   _ttsRun++;
+  for (const src of Array.from(_ttsSources)) { try { src.stop(); } catch (e) {} }
+  _ttsSources.clear();
   if (_ttsSource) { try { _ttsSource.stop(); } catch (e) {} _ttsSource = null; }
 }
 export function b64ToArrayBuffer(b64) {
@@ -379,14 +382,16 @@ export function b64ToArrayBuffer(b64) {
 }
 // Split into ~130-char chunks at sentence enders, then at spaces (works for Thai,
 // which often has no sentence punctuation), so the first clip is short = fast.
-export function ttsChunks(text, max = 130, firstMax = 0) {
+export function ttsChunks(text, max = 130, firstMax = 0, ramp = []) {
   const out = [];
   // The FIRST chunk is what the learner waits for, so it gets a tighter budget:
   // a short first clip synthesises (and downloads) in a fraction of the time,
   // which is the whole difference between "it loads" and "it hangs" on a long
   // answer. Everything after it can be bigger — it is fetched while the first
   // clip is already playing (see speakCloud's look-ahead).
-  const limitFor = (i) => (firstMax > 0 && i === 0 ? Math.min(firstMax, max) : max);
+  // clip 0 gets firstMax, the next ones the `ramp` sizes (each a little longer than the one before), then max: a short first clip is heard sooner and
+  // the clips that follow grow while it plays, so each is ready before the one before it ends
+  const limitFor = (i) => (firstMax > 0 && i === 0 ? Math.min(firstMax, max) : (ramp[i - 1] > 0 ? Math.min(ramp[i - 1], max) : max));
   const sentences = text.match(/[^.!?。！？\n]+[.!?。！？\n]*/g) || [text];
   for (let s of sentences) {
     s = s.trim();
@@ -397,7 +402,11 @@ export function ttsChunks(text, max = 130, firstMax = 0) {
       // prefer to end the clip at a clause mark (so the voice stops where a person would pause), then at a space, and only then cut hard
       let pc = -1; for (const m of ["，", "、", "；", "：", ",", ";"]) pc = Math.max(pc, s.lastIndexOf(m, lim - 1));
       let cut = pc >= lim * 0.4 ? pc + 1 : s.lastIndexOf(" ", lim);
-      if (cut < lim * 0.6 && !(pc >= lim * 0.4)) cut = lim; // no good space nearby — hard cut
+      if (cut < lim * 0.6 && !(pc >= lim * 0.4)) {
+        // no good boundary before the limit: look a little PAST it for a space or clause mark before cutting a word in two
+        let fw = -1; for (const m of [" ", "，", "、", "；", "：", ",", ";"]) { const k = s.indexOf(m, lim); if (k > 0 && (fw < 0 || k < fw)) fw = k; }
+        cut = fw > 0 && fw <= lim * 1.5 ? fw + 1 : lim;
+      }
       const head = s.slice(0, cut).trim();
       if (head) out.push(head);
       s = s.slice(cut).trim();
@@ -603,6 +612,9 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
     if (_ttsCancelled && !(opts && opts.src === "clip")) throw new Error("cancelled");
     if (opts && opts.dead && opts.dead()) throw new Error("cancelled");
     await ttsThrottle();
+    // the throttle may have waited a second or more: a stop in the meantime must not still send (and pay for) the request
+    if (_ttsCancelled && !(opts && opts.src === "clip")) throw new Error("cancelled");
+    if (opts && opts.dead && opts.dead()) throw new Error("cancelled");
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -707,14 +719,30 @@ export function ttsBudgetRefund(seconds) {
    speech: a later clip is about TTS_CHUNK_SECS long, the first (the one the learner waits for) about TTS_FIRST_SECS. TTS_CHUNK_CHARS and
    TTS_FIRST_CHUNK_CHARS stay as the ceilings. */
 export const TTS_CHUNK_SECS = 24;
-export const TTS_FIRST_SECS = 11;
+/* The first clip is what the learner waits for, and a request takes about 1.5 s plus 0.7 s for every second of speech it carries (measured from the
+   piano-tts logs: 3.6 s for a short line, 9.7 s for about 12 s of speech, 16.5 s for about 24 s). So the first clip is only about 3 s of speech
+   (a first sound in roughly 3.5 s), and the clips after it grow (5 s, then 11 s, then TTS_CHUNK_SECS) so that each is ready before the one before ends. */
+export const TTS_FIRST_SECS = 3;
+export const TTS_RAMP_SECS = [5, 11];
 export function ttsChunkLimits(lang) {
   const cps = TTS_CHARS_PER_SEC[lang] || 12;
   return {
     max: Math.max(90, Math.min(TTS_CHUNK_CHARS, Math.round(cps * TTS_CHUNK_SECS))),
-    first: Math.max(50, Math.min(TTS_FIRST_CHUNK_CHARS, Math.round(cps * TTS_FIRST_SECS))),
+    first: Math.max(14, Math.min(TTS_FIRST_CHUNK_CHARS, Math.round(cps * TTS_FIRST_SECS))),
+    ramp: TTS_RAMP_SECS.map((sec) => Math.max(20, Math.min(TTS_CHUNK_CHARS, Math.round(cps * sec)))),
   };
 }
+let _ttsWarmAt = 0;
+/* Wakes the piano-tts function and the connection to it before the learner taps (a cold start and a first TLS handshake cost a second or more). Costs
+   nothing: an OPTIONS request reaches no synthesiser. At most once every 3 minutes. */
+export function prewarmTts() {
+  const now = Date.now();
+  if (now - _ttsWarmAt < 180000 || typeof fetch !== "function") return;
+  _ttsWarmAt = now;
+  try { fetch(TTS_URL, { method: "OPTIONS", headers: { "Access-Control-Request-Method": "POST" } }).catch(() => {}); } catch (e) {}
+}
+/* A test door for the owner's own account: the daily limit is skipped when this device has tg_tts_free = 1. */
+export function ttsFree() { try { return localStorage.getItem("tg_tts_free") === "1"; } catch (e) { return false; } }
 /* The part of a decoded clip that is not silence. Synthesised clips carry a few tenths of a second of silence at both ends; played
    back to back they make an audible hole between two chunks of one sentence. Playing only the audible part (with a short lead
    and tail so no breath is clipped) makes the joins smooth. Returns [start, end] in seconds; the whole clip if it cannot be read. */
@@ -747,7 +775,7 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
   // "choppy" complaint) and no second call to trip Gemini's rate limit (the
   // "stops after one line" complaint).
   const lim = ttsChunkLimits(lang);
-  const chunks = ttsChunks(clean, lim.max, lim.first);
+  const chunks = ttsChunks(clean, lim.max, lim.first, lim.ramp);
 
   /* โควตาคิดทีเดียวทั้งข้อความ ไม่ใช่ทีละก้อน — เดิมคิดทีละก้อน พอโควตาหมดกลาง
      ข้อความฟังจะ "หยุดกลางคัน" (ครูอ่านไม่ครบ ซึ่งแย่กว่าไม่อ่านเลย) ตอนนี้ถ้าเงิน
@@ -757,34 +785,64 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
   const ctl = { dead: false };        // set when this call is over, so a fetch that is still retrying in the background stops asking the provider
   const msgOpts = opts ? {
     ...opts,
-    spend: (s) => { if (chargeOk !== null) return chargeOk; chargeOk = !!opts.spend(clean); charged = chargeOk; return chargeOk; },   // the verdict is remembered: two clips asking at once must not both pass a refusal
+    spend: (s) => { if (chargeOk !== null) return chargeOk; chargeOk = opts.spend ? !!opts.spend(clean) : true; charged = chargeOk; return chargeOk; },   // the verdict is remembered: two clips asking at once must not both pass a refusal
     // the day's allowance is given back only when NO sound came of the message: a message that was heard in part was paid for
     refund: (s) => { if (!charged || anyPlayed) return; charged = false; chargeOk = null; if (opts.refund) opts.refund(clean); },
     dead: () => ctl.dead || stale(),
   } : null;
 
   try {
-    // Two clips are always requested ahead of the one being heard (the second goes out with the first, 1.2 s behind it), and a later clip gets patient retries
-    // that honour the provider's "retry in Ns": a minute of speech takes several requests on one shared key, and a single refusal used to end the reading.
+    // Up to TTS_AHEAD clips are requested ahead of the one being heard (spaced 1.2 s apart by ttsThrottle), and a later clip gets patient retries that honour
+    // the provider's "retry in Ns": a minute of speech takes several requests on one shared key, and a single refusal used to end the reading.
+    const TTS_AHEAD = 3;
     const pend = [];
     const want = (k) => { if (k < chunks.length && !pend[k]) { pend[k] = ttsFetchBuffer(chunks[k], lang, ac, k === 0 ? 3 : 5, 30000, msgOpts); pend[k].catch(() => {}); } return pend[k]; };
-    want(0); want(1);
+    for (let k = 0; k < Math.min(TTS_AHEAD, chunks.length); k++) want(k);
+    const nowT = () => (Number.isFinite(ac.currentTime) ? ac.currentTime : 0);
+    const live = [];          // the sources this call has scheduled
+    let playEnd = 0;          // the context time at which everything scheduled so far ends
+    const stopLive = () => { for (const x of live) { try { x.stop(); } catch (_) {} _ttsSources.delete(x); } live.length = 0; };
+    /* Clips are QUEUED on the audio clock, each starting exactly where the one before ends, instead of waiting for `onended` and starting the next from
+       the main thread: that wait is where the little stutter between two clips came from. */
+    const schedule = (buf) => {
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      if (rateMul && rateMul !== 1) src.playbackRate.value = Math.max(0.5, Math.min(1.8, rateMul));
+      src.connect(ac.destination);
+      const [t0, t1] = ttsAudibleSpan(buf);
+      const span = t1 > t0 ? t1 - t0 : (buf && buf.duration ? buf.duration : 8);
+      const when = Math.max(nowT() + 0.03, playEnd);
+      src.onended = () => { _ttsSources.delete(src); };
+      live.push(src); _ttsSources.add(src); _ttsSource = src;
+      try { if (t1 > t0) src.start(when, t0, span); else src.start(when); } catch (e) { _ttsSources.delete(src); return; }
+      playEnd = when + span / (src.playbackRate.value || 1);
+    };
+    /* Resolves when the last scheduled clip has been heard to its end. An AudioContext suspended when a phone takes audio focus never fires `onended`,
+       and that alone used to freeze the loop mid-message, so a timer sized off the real length ends the wait too (and stops what is still queued). */
+    const waitPlayback = () => new Promise((resolve) => {
+      const last = live[live.length - 1];
+      if (!last) { resolve(); return; }
+      let done = false;
+      const fin = () => { if (done) return; done = true; clearTimeout(w); resolve(); };
+      const w = setTimeout(() => { stopLive(); fin(); }, (Math.max(0, playEnd - nowT()) + 4) * 1000);
+      const prev = last.onended;
+      last.onended = (ev) => { if (prev) prev(ev); fin(); };
+    });
     let firstStarted = false;
     for (let i = 0; i < chunks.length; i++) {
       const curP = want(i);
       let buf;
-      // Nothing here may wait forever. A chunk promise that never settles — a hung
-      // fetch, an IndexedDB read that never answers — used to leave playback dead
-      // after the first clip with no error and nothing on screen.
-      try { buf = await withTimeout(curP, i === 0 ? TTS_CHUNK_WAIT_MS : TTS_NEXT_WAIT_MS, "tts-chunk-wait"); }
+      // Nothing here may wait forever. A chunk promise that never settles — a hung fetch, an IndexedDB read that never answers — used to leave playback dead
+      // after the first clip with no error and nothing on screen. A later clip is waited for while the clips before it are still playing, plus a long grace.
+      try { buf = await withTimeout(curP, i === 0 ? TTS_CHUNK_WAIT_MS : TTS_NEXT_WAIT_MS + Math.max(0, playEnd - nowT()) * 1000, "tts-chunk-wait"); }
       catch (e) {
         if (i === 0) throw e; // nothing played yet → let the caller fall back to the device voice
-        // The cloud cannot finish this message. Do NOT stop here: a `break` used to
-        // drop this chunk AND every one after it, so a long answer could end two
-        // lines in. Hand the unread remainder to the caller instead, which reads it
-        // with the device voice — the message still reaches the learner in full, and
-        // nothing already read is read twice.
+        // The cloud cannot finish this message. Do NOT stop here: a `break` used to drop this chunk AND every one after it, so a long answer could end two
+        // lines in. Let what is already queued finish, then hand the unread remainder to the caller, which reads it with the device voice — the message
+        // still reaches the learner in full, and nothing already read is read twice.
         console.warn("[TIGA TTS] chunk " + (i + 1) + "/" + chunks.length + " unavailable, device voice reads the rest:", e);
+        await waitPlayback();
+        if (stale()) return true;
         throw Object.assign(e instanceof Error ? e : new Error(String(e)), { rest: chunks.slice(i).join(" ").trim() });
       }
       if (stale()) return true;
@@ -792,32 +850,13 @@ export async function speakCloud(text, lang, onStart, onDone, onError, rateMul =
       // Resume AudioContext if iOS/Android suspended it between chunks — for at most 1.5 s: a context that will not come back must not freeze the message
       if (ac.state !== "running") { try { await withTimeout(ac.resume(), 1500, "ac-resume"); } catch (_) {} }
       if (stale()) return true;
-      if (ac.state !== "running" && i > 0) throw Object.assign(new Error("audio-context-" + ac.state), { rest: chunks.slice(i).join(" ").trim() });
-      // Start prefetching the next chunk NOW — its timeout ticks during the current
-      // clip's playback, not from the start of the loop. This fixes the old race where
-      // chunks[1]'s timer expired before chunks[0] even finished playing.
-      want(i + 1); want(i + 2);
-      await new Promise((resolve) => {
-        const src = ac.createBufferSource();
-        src.buffer = buf;
-        if (rateMul && rateMul !== 1) src.playbackRate.value = Math.max(0.5, Math.min(1.8, rateMul));
-        src.connect(ac.destination);
-        const [t0, t1] = ttsAudibleSpan(buf);
-        let done = false;
-        let watchdog = null;
-        const finish = () => { if (done) return; done = true; if (watchdog) clearTimeout(watchdog); resolve(); };
-        const giveUp = () => { try { src.stop(); } catch (_) {} finish(); };   // the watchdog's end: a clip held by a suspended context must not wake up later and play over the next one
-        src.onended = finish;
-        // The decoded buffer says how long it really is. An AudioContext suspended
-        // when a phone takes audio focus never fires `onended`, and that alone used
-        // to freeze the loop mid-message; the watchdog is what guarantees it advances.
-        const dur = (t1 > t0 ? t1 - t0 : (buf && buf.duration ? buf.duration : 8)) / (src.playbackRate.value || 1);
-        watchdog = setTimeout(giveUp, (dur + 4) * 1000);
-        _ttsSource = src;
-        try { if (t1 > t0) src.start(0, t0, t1 - t0); else src.start(); } catch (e) { finish(); }
-      });
-      if (stale()) return true;
+      if (ac.state !== "running" && i > 0) { stopLive(); throw Object.assign(new Error("audio-context-" + ac.state), { rest: chunks.slice(i).join(" ").trim() }); }
+      schedule(buf);
+      // keep TTS_AHEAD requests in front of the clip being heard: their timeouts tick during playback, not from the start of the loop
+      for (let k = 1; k <= TTS_AHEAD; k++) want(i + k);
     }
+    await waitPlayback();
+    if (stale()) return true;
     _ttsSource = null;
     ctl.dead = true;
     if (onDone) onDone();
