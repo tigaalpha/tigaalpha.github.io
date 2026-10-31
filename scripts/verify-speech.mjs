@@ -315,25 +315,28 @@ async function load() {
   check("a-silent-clip-is-left-whole", S.ttsAudibleSpan({ getChannelData: () => new Float32Array(sr), sampleRate: sr, duration: 1 })[1] === 1);
 }
 
-// 11. one read-aloud a day (owner 2026-10-31)
+// 11. two read-alouds a day (owner 2026-10-31, first one, then two)
 {
   freshWorld();
   const S = await load();
-  check("round-is-available-at-first", S.ttsRoundsLeft() === 1 && S.TTS_DAILY_ROUNDS === 1);
-  check("first-round-is-taken", S.ttsRoundSpend() === true && S.ttsRoundsLeft() === 0);
-  check("second-round-is-refused", S.ttsRoundSpend() === false);
+  check("rounds-available-at-first", S.ttsRoundsLeft() === 2 && S.TTS_DAILY_ROUNDS === 2);
+  check("first-round-is-taken", S.ttsRoundSpend() === true && S.ttsRoundsLeft() === 1);
+  check("second-round-is-taken", S.ttsRoundSpend() === true && S.ttsRoundsLeft() === 0);
+  check("third-round-is-refused", S.ttsRoundSpend() === false && S.ttsRoundsLeft() === 0);
   S.ttsRoundRefund();
   check("a-refunded-round-is-available-again", S.ttsRoundsLeft() === 1 && S.ttsRoundSpend() === true);
-  S.ttsRoundRefund(); S.ttsRoundRefund();
-  check("refund-never-goes-below-zero", S.ttsRoundsLeft() === 1);
+  S.ttsRoundRefund(); S.ttsRoundRefund(); S.ttsRoundRefund(); S.ttsRoundRefund();
+  check("refund-never-goes-below-zero", S.ttsRoundsLeft() === 2);
   freshWorld(); fakeTts({ delay: 0 });
   const S2 = await load();
   const opts = { src: "chat", spend: () => S2.ttsRoundSpend(), refund: () => S2.ttsRoundRefund() };
   let done1 = false, err2 = null;
   await S2.speakCloud("The first message of the day, read in the cloud voice.", "en", () => {}, () => { done1 = true; }, () => {}, 1, opts);
   const n1 = globalThis.__fetches.length;
-  await S2.speakCloud("A different second message that must not reach the cloud.", "en", () => {}, () => {}, (e) => { err2 = e; }, 1, opts);
-  check("first-message-plays-second-is-refused-without-a-request", done1 && !!err2 && err2.budget === true && n1 >= 1 && globalThis.__fetches.length === n1, `fetches ${n1} -> ${globalThis.__fetches.length}`);
+  await S2.speakCloud("A different second message that is still allowed.", "en", () => {}, () => {}, () => {}, 1, opts);
+  const n2 = globalThis.__fetches.length;
+  await S2.speakCloud("A different third message that must not reach the cloud.", "en", () => {}, () => {}, (e) => { err2 = e; }, 1, opts);
+  check("two-messages-play-the-third-is-refused-without-a-request", done1 && n1 >= 1 && n2 > n1 && !!err2 && err2.budget === true && globalThis.__fetches.length === n2, `fetches ${n1} -> ${n2} -> ${globalThis.__fetches.length}`);
 }
 
 // 12. the owner's "อ่านไป 2-3 บรรทัดแล้วหยุด" (2026-10-31): the first clip carries real speech, a refusal is waited out, the device voice reads in short pieces

@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
-import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDeviceSpeech, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, ttsRoundsLeft, ttsFree, prewarmTts, CHAT_TTS_RATE } from "./speech";
+import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDeviceSpeech, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, ttsRoundsLeft, ttsFree, prewarmTts, TTS_DAILY_ROUNDS, CHAT_TTS_RATE } from "./speech";
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
 import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUEST_GOAL, QUEST_EXP, readQuest } from "./chat-store";
 
@@ -60,7 +60,7 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
     return () => window.removeEventListener("keydown", k);
   }, [limitOpen]);
 
-  /* Today's ONE read-aloud (owner, 2026-10-31) is taken at the TAP, whatever the message — a clip that is already in the cache would otherwise let a
+  /* Today's read-alouds (TTS_DAILY_ROUNDS, owner 2026-10-31) is taken at the TAP, whatever the message — a clip that is already in the cache would otherwise let a
      player listen to as many messages as they like — and given back only if no cloud sound came of it (a failure, or a stop before it began). */
   function giveBack() { if (paid.current) { paid.current = false; ttsRoundRefund(); } }
   function stop() {
@@ -134,7 +134,7 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
             style={{ width: "100%", maxWidth: 340, background: "var(--card, #fff)", color: "var(--text, #2a211b)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 20, padding: "22px 20px 18px", boxShadow: "0 18px 50px rgba(0,0,0,.35)", textAlign: "center" }}>
             <div aria-hidden="true" style={{ fontSize: 34, lineHeight: 1, marginBottom: 10 }}>🔊</div>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>{lc.spkDailyTitle}</div>
-            <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--text2, #6b5a4c)", marginBottom: 16 }}>{lc.spkDailyBody}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--text2, #6b5a4c)", marginBottom: 16 }}>{String(lc.spkDailyBody).replace("{n}", String(TTS_DAILY_ROUNDS))}</div>
             <button type="button" autoFocus onClick={() => setLimitOpen(false)}
               style={{ minHeight: 44, minWidth: 140, border: "none", borderRadius: 999, background: "var(--clay, #d97757)", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", padding: "0 22px" }}>{lc.spkDailyOk}</button>
           </div>
