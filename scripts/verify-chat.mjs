@@ -439,7 +439,7 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
   await F.ctx.close();
 
   // 2. Max: an unlocked button speaks the message in its own language, the state follows, a second tap stops it
-  const M = await newLearner({ lang: "th", plan: "max", admin: true, jev: "off", tts: "ok", ls: { tg_tts_free: "1" }, reply: "ครับ 中文 is fine: ใช่ครับ โน้ต C คือโด" });
+  const M = await newLearner({ lang: "th", plan: "max", admin: true, jev: "off", tts: "ok", ls: { tg_tts_free: "1", tg_tts_pf: "0" }, reply: "ครับ 中文 is fine: ใช่ครับ โน้ต C คือโด" });
   await openChat(M.page);
   await ask(M.page, "Please say hello in English"); await settle(M.page); await M.page.waitForTimeout(400);
   const mi = await btnInfo(M.page);
@@ -482,7 +482,7 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
 
   // 3. the day's allowance is spent: the device voice reads it, with a short word on why, and no request is made
   const today = new Date(); const dk = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
-  const B = await newLearner({ lang: "en", plan: "maxfamily", jev: "off", tts: "ok", ls: { tg_tts_round: { d: dk, n: 2 } } });
+  const B = await newLearner({ lang: "en", plan: "maxfamily", jev: "off", tts: "ok", ls: { tg_tts_round: { d: dk, n: 2 }, tg_tts_pf: "0" } });
   await openChat(B.page);
   await ask(B.page, "a question long enough to need a few seconds of speech"); await settle(B.page); await B.page.waitForTimeout(300);
   await B.page.click(".mov .mmsgs .msg.u .bspk"); await B.page.waitForTimeout(900);
@@ -497,7 +497,7 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
   await B.ctx.close();
 
   // 4. the voice service fails: the device voice takes over and the allowance is given back
-  const X = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "fail" });
+  const X = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "fail", ls: { tg_tts_pf: "0" } });
   await openChat(X.page);
   await ask(X.page, "this will not be spoken by the cloud"); await settle(X.page); await X.page.waitForTimeout(300);
   await X.page.click(".mov .mmsgs .msg.u .bspk");
@@ -509,7 +509,7 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
 
   // 4b. TWO read-alouds a day on a paid plan (owner 2026-10-31): the first two messages play; from the third tap on, a pop-up says the limit is reached
   //     and nothing is requested, whichever message is tapped (a cached one too: the limit is listens, not requests)
-  const R = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "ok" });
+  const R = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "ok", ls: { tg_tts_pf: "0" } });
   await openChat(R.page);
   await ask(R.page, "Please say hello in English"); await settle(R.page); await R.page.waitForTimeout(400);
   const idle = () => R.page.waitForFunction(() => document.querySelectorAll(".mov .bspk.on").length === 0, null, { timeout: 14000 }).catch(() => {});
@@ -529,7 +529,23 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
   await R.ctx.close();
 
   // 5. the owner's admin account hears it too; the Voice-Tutor rule
-  const A = await newLearner({ lang: "en", plan: "free", admin: true, jev: "off", tts: "ok" });
+  // 6b. the head of the newest answer is fetched before anyone taps, so the tap needs no wait (and asks for nothing twice)
+  {
+    const P = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "ok", reply: "The C major scale has eight notes and follows a whole whole half pattern, so keep your wrist loose and play slowly." });
+    await openChat(P.page);
+    await ask(P.page, "Teach me the C major scale"); await settle(P.page); await P.page.waitForTimeout(3500);
+    const pre = P.state.tts.length;
+    check("speak-prefetch-head-before-the-tap", pre >= 1, "requests before any tap: " + pre);
+    const preTexts = P.state.tts.map((t) => (t.body && t.body.text) || "");
+    check("speak-prefetch-costs-no-round", await P.page.evaluate(() => localStorage.getItem("tg_tts_round")) == null, "round " + await P.page.evaluate(() => localStorage.getItem("tg_tts_round")));
+    await P.page.click(".mov .mmsgs .msg.a .bspk");
+    await P.page.waitForTimeout(2500);
+    const after = P.state.tts.map((t) => (t.body && t.body.text) || "");
+    const dup = after.filter((t, i) => after.indexOf(t) !== i).length;
+    check("speak-prefetch-tap-asks-nothing-twice", dup === 0, after.length + " requests, " + dup + " repeated");
+    await P.ctx.close();
+  }
+  const A = await newLearner({ lang: "en", plan: "free", admin: true, jev: "off", tts: "ok", ls: { tg_tts_pf: "0" } });
   await openChat(A.page);
   const ai = await btnInfo(A.page);
   check("speak-admin-unlocked", ai.length >= 1 && ai.every(x => x.has && !x.locked), JSON.stringify(ai.map(x => x.locked)));

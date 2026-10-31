@@ -616,9 +616,11 @@ export function withTimeout(p, ms, tag) {
   });
 }
 
+const _pfInflight = new Map();   // clip key -> the head-of-message prefetch still running for it, so a tap on the same clip waits for it instead of asking twice
 export async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000, opts = null) {
   const voice = (opts && opts.voice) || getVmVoiceName();   // a caller may name its own prebuilt voice (the concept clips use a narrator)
   const key = ttsKey(s, lang, voice);
+  if (!(opts && opts.prefetch)) { const pf = _pfInflight.get(key); if (pf) { try { await pf; } catch (_e) {} } }
   const cached = await ttsCacheGet(key);                // free, instant, offline-safe
   if (cached) { try { return await ac.decodeAudioData(cached); } catch (e) {} }
   // a clip that has to be paid for first asks the caller's allowance (the chat's read-aloud has one, see ttsBudgetSpend);
@@ -641,11 +643,11 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
       if (hint != null && tries < 5 && hint > 8000) throw lastErr;
       await new Promise((r) => setTimeout(r, hint != null ? hint : 1200 * Math.pow(2, Math.min(n, 3) - 1)));
     }
-    if (_ttsCancelled && !(opts && opts.src === "clip")) throw new Error("cancelled");
+    if (_ttsCancelled && !(opts && (opts.src === "clip" || opts.prefetch))) throw new Error("cancelled");
     if (opts && opts.dead && opts.dead()) throw new Error("cancelled");
     await ttsThrottle(n === 0 && opts && opts.gapMs ? opts.gapMs : TTS_MIN_GAP_MS);
     // the throttle may have waited a second or more: a stop in the meantime must not still send (and pay for) the request
-    if (_ttsCancelled && !(opts && opts.src === "clip")) throw new Error("cancelled");
+    if (_ttsCancelled && !(opts && (opts.src === "clip" || opts.prefetch))) throw new Error("cancelled");
     if (opts && opts.dead && opts.dead()) throw new Error("cancelled");
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -668,7 +670,7 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
       return await ac.decodeAudioData(bytes);
     } catch (e) {
       lastErr = e;
-      if (_ttsCancelled && !(opts && opts.src === "clip")) throw e;
+      if (_ttsCancelled && !(opts && (opts.src === "clip" || opts.prefetch))) throw e;
     } finally { clearTimeout(to); }
   }
   throw lastErr || new Error("TTS failed");
@@ -772,6 +774,47 @@ export function prewarmTts() {
   if (now - _ttsWarmAt < 180000 || typeof fetch !== "function") return;
   _ttsWarmAt = now;
   try { fetch(TTS_URL, { method: "OPTIONS", headers: { "Access-Control-Request-Method": "POST" } }).catch(() => {}); } catch (e) {}
+}
+/* Fetches the first clips of a message BEFORE anyone taps the speaker, so that a tap finds them in the clip cache (IndexedDB) and the sound starts at once
+   instead of waiting 2.5 s for the first request (owner, 2026-10-31: "make the first sound even faster"). It is the HEAD of the message only — the first
+   TTS_PREFETCH_CLIPS clips, about 8 s of speech — which costs about ฿0.04 a message, not the whole message; a clip fetched here is the very clip speakCloud
+   would have asked for (same chunking, same voice), so nothing is paid twice, and a tap that comes while a prefetch is still running waits for it. It spends
+   none of the daily read-aloud rounds (those are taken at the tap) and is capped per day (TTS_PREFETCH_DAY) so a long chat cannot run up a bill.
+   tg_tts_pf = 0 switches it off. */
+export const TTS_PREFETCH_CLIPS = 3;
+export const TTS_PREFETCH_DAY = 25;
+const _pfSeen = new Set();
+export function prefetchTtsHead(text, lang) {
+  try {
+    if (typeof window === "undefined" || typeof fetch !== "function") return false;
+    if (localStorage.getItem("tg_tts_pf") === "0") return false;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
+    const nav = typeof navigator !== "undefined" ? navigator : null;
+    if (nav && nav.connection && (nav.connection.saveData || /(^|-)2g$/.test(String(nav.connection.effectiveType || "")))) return false;
+    const clean = cleanForTTS(text);
+    if (!clean || clean.length < 12) return false;
+    const sig = lang + "|" + clean;
+    if (_pfSeen.has(sig)) return false;
+    const day = new Date().toISOString().slice(0, 10);
+    let st = null; try { st = JSON.parse(localStorage.getItem("tg_tts_pf_day") || "null"); } catch (_e) {}
+    if (!st || st.d !== day) st = { d: day, n: 0 };
+    if (st.n >= TTS_PREFETCH_DAY) return false;
+    st.n += 1; try { localStorage.setItem("tg_tts_pf_day", JSON.stringify(st)); } catch (_e) {}
+    _pfSeen.add(sig); if (_pfSeen.size > 60) _pfSeen.delete(_pfSeen.values().next().value);
+    const lim = ttsChunkLimits(lang);
+    const chunks = ttsChunks(clean, lim.max, lim.first, lim.ramp).slice(0, TTS_PREFETCH_CLIPS);
+    const voice = getVmVoiceName();
+    const bytesOnly = { decodeAudioData: async () => null };      // the clip is only stored here; decoding happens at the tap
+    chunks.forEach((c, k) => {
+      const key = ttsKey(c, lang, voice);
+      if (_pfInflight.has(key)) return;
+      const p = ttsFetchBuffer(c, lang, bytesOnly, k === 0 ? 2 : 1, 30000, { src: "chat", prefetch: true, gapMs: TTS_OPEN_GAP_MS });
+      _pfInflight.set(key, p);
+      const clear = () => { if (_pfInflight.get(key) === p) _pfInflight.delete(key); };
+      p.then(clear, clear);
+    });
+    return true;
+  } catch (_e) { return false; }
 }
 /* A test door for the owner's own account: the daily limit is skipped when this device has tg_tts_free = 1. */
 export function ttsFree() { try { return localStorage.getItem("tg_tts_free") === "1"; } catch (e) { return false; } }
