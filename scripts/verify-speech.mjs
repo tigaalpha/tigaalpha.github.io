@@ -360,8 +360,8 @@ async function load() {
   const text = "สวัสดีครับวันนี้เรามาเรียนสเกลซีเมเจอร์กัน ก่อนอื่นให้วางนิ้วหัวแม่มือบนโน้ตโดแล้วไล่นิ้วขึ้นไปทีละตัว ระวังอย่าให้ข้อมือเกร็ง แล้วลองเล่นช้า ๆ ก่อนครับ ".repeat(8).trim();
   for (const lang of ["th", "en", "zh"]) {
     const L = S.ttsChunkLimits(lang), cps = { th: 11, en: 15, zh: 4.5 }[lang];
-    check("first-clip-is-about-3-seconds-" + lang, L.first / cps <= 3.3 && L.first / cps >= 2.5 || L.first === 14, lang + " " + L.first + " chars = " + (L.first / cps).toFixed(1) + " s");
-    check("clips-grow-" + lang, L.first < L.ramp[0] && L.ramp[0] < L.ramp[1] && L.ramp[1] < L.max, JSON.stringify([L.first, ...L.ramp, L.max]));
+    check("first-clip-is-about-1.5-seconds-" + lang, L.first / cps <= 1.8 && L.first / cps >= 1.1, lang + " " + L.first + " chars = " + (L.first / cps).toFixed(1) + " s");
+    check("clips-grow-" + lang, L.first < L.ramp[0] && L.ramp[0] < L.ramp[1] && L.ramp[1] < L.ramp[2] && L.ramp[2] < L.ramp[3] && L.ramp[3] < L.max, JSON.stringify([L.first, ...L.ramp, L.max]));
   }
   const Lt = S.ttsChunkLimits("th"), ch = S.ttsChunks(text, Lt.max, Lt.first, Lt.ramp);
   check("thai-message-first-clip-short-then-growing", ch[0].length <= Math.ceil(Lt.first * 1.5) && ch[1].length > ch[0].length && ch.slice(0, 3).every((c, i) => c.length <= [Lt.first * 1.5, Lt.ramp[0] * 1.5, Lt.ramp[1] * 1.5][i]), JSON.stringify(ch.slice(0, 4).map(c => c.length)));
@@ -383,6 +383,32 @@ async function load() {
   const run = S3.speakCloud(text.slice(0, 260), "th", () => {}, () => {}, () => {}, 1, null);
   await sleep(250); S3.stopCloudTTS(); await run;
   check("stop-clears-the-queue", S3._ttsSources.size === 0, "sources " + S3._ttsSources.size);
+}
+
+// 14. the pieces of the 2026-10-31 player review
+{
+  freshWorld(); fakeTts({ delay: 0 });
+  const S = await load();
+  // a throwing onDone must not become onError (that would read a message the learner has already heard with the device voice)
+  const ev = [];
+  await S.speakCloud("A short line to hear.", "en", () => ev.push("start"), () => { ev.push("done"); throw new Error("boom"); }, () => ev.push("error"), 1, null);
+  check("throwing-onDone-is-not-an-error", ev.join(",") === "start,done", ev.join(","));
+  // decimals, abbreviations and emoji survive chunking
+  const L = S.ttsChunkLimits("en");
+  const joined = (t) => S.ttsChunks(t, L.max, L.first, L.ramp).join(" ");
+  check("decimal-not-split", /3\.5 beats/.test(joined("The tempo is 3.5 beats a second and the pitch is A4. Keep going.")), joined("The tempo is 3.5 beats a second and the pitch is A4. Keep going."));
+  check("abbreviation-not-spaced", /e\.g\./.test(joined("Use e.g. a slow tempo, i.e. 60 bpm, and play C. Then D.")), joined("Use e.g. a slow tempo, i.e. 60 bpm, and play C. Then D."));
+  const emo = S.ttsChunks("Great job 🎹 ".repeat(30).trim(), 40, 10, [15]);
+  check("emoji-never-cut-in-half", emo.every((c) => !/[\uD800-\uDBFF]$/.test(c) && !/^[\uDC00-\uDFFF]/.test(c)), JSON.stringify(emo.slice(0, 3)));
+  // Thai with no spaces is cut at a word boundary, not inside a word (needs Intl.Segmenter)
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    const seg = new Intl.Segmenter("th", { granularity: "word" });
+    const words = new Set(); const th = "สวัสดีครับวันนี้เรามาเรียนสเกลซีเมเจอร์กันก่อนอื่นให้วางนิ้วหัวแม่มือบนโน้ตโดแล้วไล่นิ้วขึ้นไปทีละตัว";
+    let at = 0; for (const g of seg.segment(th)) { at += g.segment.length; words.add(at); }
+    const Lt = S.ttsChunkLimits("th"); const chs = S.ttsChunks(th, Lt.max, Lt.first, Lt.ramp);
+    let pos = 0, bad = 0; for (const c of chs.slice(0, -1)) { pos += c.length; if (!words.has(pos)) bad++; }
+    check("thai-cut-at-word-boundaries", bad === 0, bad + " of " + (chs.length - 1) + " cuts inside a word");
+  }
 }
 
 console.log(`\n${pass}/${pass + fail} passed`);
