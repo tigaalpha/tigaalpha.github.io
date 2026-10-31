@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
-import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, CHAT_TTS_RATE } from "./speech";
+import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDeviceSpeech, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, CHAT_TTS_RATE } from "./speech";
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
 import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUEST_GOAL, QUEST_EXP, readQuest } from "./chat-store";
 
@@ -59,6 +59,7 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
     if (mode === "locked") { if (onLocked) onLocked(); return; }
     if (isOn) { stop(); return; }
     getAC();                                        // unlock audio inside the tap (iOS Safari)
+    unlockDeviceSpeech();                           // and the device voice, which may have to take over later from a callback outside the tap
     const said = detectSpeechLang(text, lang);
     const t = ++ticket.current;
     const live = () => t === ticket.current;
