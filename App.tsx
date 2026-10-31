@@ -466,7 +466,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.1066";
+const APP_VER = "13.7.1067";
 
 /* the members-only domain: every sign-in gate there is the one standard login card ("wall"), whatever raised it (guest clock, AI feature, account feature) */
 const MAIN_DOMAIN = (() => { try { const h = location.hostname.toLowerCase(); return h === "tigaalpha.com" || h.endsWith(".tigaalpha.com"); } catch (e) { return false; } })();
