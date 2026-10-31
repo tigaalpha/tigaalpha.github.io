@@ -324,5 +324,18 @@ async function load() {
   check("first-message-plays-second-is-refused-without-a-request", done1 && !!err2 && err2.budget === true && globalThis.__fetches.length === 1, `fetches ${globalThis.__fetches.length}`);
 }
 
+// 12. the owner's "อ่านไป 2-3 บรรทัดแล้วหยุด" (2026-10-31): the first clip carries real speech, a refusal is waited out, the device voice reads in short pieces
+{
+  freshWorld();
+  const S = await load();
+  const one = S.ttsChunks("ประโยคแรก. ประโยคสอง. ประโยคสาม. ประโยคสี่.", 264, 121);
+  check("first-clip-packs-short-sentences", one.length === 1, JSON.stringify(one));
+  check("rate-hint-reads-the-providers-wait", S.ttsRateHintMs(new Error("Gemini TTS 429: Please retry in 34.2s")) === 34700 && S.ttsRateHintMs(new Error("Gemini TTS 429: quota")) === 6000 && S.ttsRateHintMs(new Error("no audio")) === null);
+  check("rate-hint-is-capped", S.ttsRateHintMs(new Error("retry in 300s")) === 40000);
+  const dev = S.chunkText("สวัสดีครับ ".repeat(60), 180);
+  check("device-voice-pieces-are-short-even-without-full-stops", dev.length >= 3 && dev.every(c => c.length <= 190), JSON.stringify(dev.map(c => c.length)));
+  check("device-voice-pieces-keep-every-word", dev.join("").replace(/\s+/g, "") === ("สวัสดีครับ ".repeat(60)).replace(/\s+/g, ""));
+}
+
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
