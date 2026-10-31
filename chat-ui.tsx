@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
-import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDeviceSpeech, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, ttsRoundsLeft, ttsFree, prewarmTts, TTS_DAILY_ROUNDS, CHAT_TTS_RATE } from "./speech";
+import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDeviceSpeech, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, ttsRoundsLeft, ttsFree, prewarmTts, prefetchTtsHead, TTS_DAILY_ROUNDS, CHAT_TTS_RATE } from "./speech";
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
 import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUEST_GOAL, QUEST_EXP, readQuest } from "./chat-store";
 
@@ -36,7 +36,7 @@ export const CHAT_TTS_ENABLED = true;
    cache for nothing (speech.ts), and each device has a day's allowance of cloud speech (ttsBudgetSpend). When the cloud is out
    of reach or the allowance is spent the message is read by the device's own voice instead: a tap is never silent.
    Only one message speaks at a time (activeId is shared by the whole chat); a tap on the one that is speaking stops it. */
-export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId, setActiveId, mode, onLocked }) {
+export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId, setActiveId, mode, onLocked, prefetch = false }) {
   const lc = L[lang];
   const isOn = activeId === id;
   const [busy, setBusy] = useState(false);          // asked for, no sound yet
@@ -48,6 +48,13 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
   useEffect(() => { if (!isOn) { ticket.current++; setBusy(false); } }, [isOn]);
   useEffect(() => () => { ticket.current++; }, []);
   useEffect(() => { if (mode !== "locked") prewarmTts(); }, [mode]);   // wake the voice service before the tap: a cold start is a second of waiting
+  /* The newest live answer: its first clips are fetched while the learner reads it (once the text has stopped changing), so the tap that follows is heard at once.
+     Not for a message that has already been listened to up to the day's limit: that tap only opens the pop-up. */
+  useEffect(() => {
+    if (!prefetch || mode === "locked" || mode === "off") return;
+    const t = setTimeout(() => { if (ttsFree() || ttsRoundsLeft() > 0) prefetchTtsHead(text, detectSpeechLang(text, lang)); }, 900);
+    return () => clearTimeout(t);
+  }, [prefetch, mode, text, lang]);
   useEffect(() => {
     if (!note) return;
     const t = setTimeout(() => setNote(""), 5000);
@@ -304,7 +311,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
         {canSpeak && (
           <div className="bblf">
             <BubbleSpeak text={String(m.role === "ai" ? bodyText : m.text)} lang={lang} id={idx} activeId={activeSpk} setActiveId={setActiveSpk}
-              mode={speakMode} onLocked={onSpeakLocked} />
+              mode={speakMode} onLocked={onSpeakLocked} prefetch={m.role === "ai" && !!m.live && !!onMore && !waiting && !m.error} />
           </div>
         )}
       </div>

@@ -411,5 +411,44 @@ async function load() {
   }
 }
 
+// 15. prefetch of the head of a message (owner, 2026-10-31: first sound even faster)
+{
+  freshWorld(); fakeTts({ delay: 30 });
+  const S = await load();
+  const text = "The C major scale has eight notes and follows a whole whole half pattern, so keep your wrist loose and play slowly. Start with the right hand and place your thumb on middle C.";
+  const lang = "en";
+  const lim = S.ttsChunkLimits(lang); const chunks = S.ttsChunks(S.cleanForTTS(text), lim.max, lim.first, lim.ramp);
+  check("prefetch-starts", S.prefetchTtsHead(text, lang) === true);
+  check("prefetch-same-text-once", S.prefetchTtsHead(text, lang) === false);
+  await sleep(1300);   // the three requests leave 0.4 s apart
+  const nPre = globalThis.__fetches.length;
+  check("prefetch-asks-for-the-head-only", nPre === Math.min(S.TTS_PREFETCH_CLIPS, chunks.length), nPre + " requests for " + chunks.length + " clips");
+  // the tap: the head is already in the cache, so only the rest of the message is requested, and the first sound is immediate
+  let t0 = Date.now(), tStart = 0;
+  await S.speakCloud(text, lang, () => { tStart = Date.now() - t0; }, () => {}, () => {}, 1, { src: "chat" });
+  const nAfter = globalThis.__fetches.length - nPre;
+  check("prefetch-tap-asks-only-for-the-rest", nAfter === chunks.length - nPre, nAfter + " new requests, expected " + (chunks.length - nPre));
+  check("prefetch-first-sound-is-immediate", tStart > 0 && tStart < 25, tStart + " ms");
+
+  // a tap while the prefetch is still running waits for it: nothing is requested twice
+  freshWorld(); fakeTts({ delay: 150 });
+  const S2 = await load();
+  S2.prefetchTtsHead(text, lang);
+  await sleep(20);
+  await S2.speakCloud(text, lang, () => {}, () => {}, () => {}, 1, { src: "chat" });
+  const seen = globalThis.__fetches.map((f) => f.text || "");
+  check("prefetch-tap-during-prefetch-no-duplicate", new Set(seen).size === seen.length, seen.length + " requests, " + new Set(seen).size + " distinct");
+
+  // off switch, short text, daily cap
+  freshWorld(); fakeTts({ delay: 10 });
+  const S3 = await load();
+  localStorage.setItem("tg_tts_pf", "0");
+  check("prefetch-off-switch", S3.prefetchTtsHead(text, lang) === false);
+  localStorage.removeItem("tg_tts_pf");
+  check("prefetch-short-text-skipped", S3.prefetchTtsHead("Hi there", lang) === false);
+  localStorage.setItem("tg_tts_pf_day", JSON.stringify({ d: new Date().toISOString().slice(0, 10), n: S3.TTS_PREFETCH_DAY }));
+  check("prefetch-daily-cap", S3.prefetchTtsHead(text, lang) === false);
+}
+
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
