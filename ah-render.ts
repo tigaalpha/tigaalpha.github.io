@@ -55,6 +55,20 @@ for (const k of ["skitter", "mantis", "charger", "scarab", "stalker", "glowbug",
 for (const k of ["manthood", "flarecaster", "matriarch", "skyeye", "veilmaw", "sporecaster", "bloater", "spitter"]) REFPAL[k] = TANC;
 for (const k of ["capling", "drone", "wisp"]) REFPAL[k] = HAMC;
 REFPAL.huntsman = [0x6a6a48, 0x3a4046, 0xb09a62];
+const HUNT_NET = canvasTex(128, 128, g => {   // the hunter's mesh bodysuit: a diamond net over mottled hide, with a dark knot at every crossing
+  g.fillStyle = "#c6c1a8"; g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? "50,46,24" : "255,250,215"},${0.05 + Math.random() * 0.12})`; g.beginPath(); g.ellipse(Math.random() * 128, Math.random() * 128, 4 + Math.random() * 12, 3 + Math.random() * 8, Math.random() * 3, 0, 7); g.fill(); }
+  g.strokeStyle = "rgba(24,22,10,.62)"; g.lineWidth = 2; for (let i = -128; i < 256; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 128, 128); g.stroke(); g.beginPath(); g.moveTo(i, 128); g.lineTo(i + 128, 0); g.stroke(); }
+  g.fillStyle = "rgba(14,12,4,.5)"; for (let x = 0; x < 128; x += 16) for (let y = 0; y < 128; y += 16) { g.fillRect(x + 6, y + 6, 4, 4); }
+  noise(g, 128, 128, 500, 0.2);
+}, 3);
+const HUNT_PLATE = canvasTex(128, 128, g => {   // brushed, scuffed armour plate
+  g.fillStyle = "#b4b4b0"; g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? "0,0,0" : "255,255,255"},${Math.random() * 0.12})`; g.fillRect(Math.random() * 128, Math.random() * 128, 10 + Math.random() * 50, 1); }
+  g.strokeStyle = "rgba(20,20,20,.35)"; g.lineWidth = 1.5; g.strokeRect(6, 6, 116, 116); g.beginPath(); g.moveTo(6, 64); g.lineTo(122, 64); g.stroke();
+  g.fillStyle = "rgba(20,20,20,.4)"; for (const [x, y] of [[14, 14], [114, 14], [14, 114], [114, 114]]) { g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill(); }
+  noise(g, 128, 128, 300, 0.18);
+}, 2);
 REFPAL.greyling = [0x9aa4a0, 0x6e7874, 0x05060a]; REFPAL.hydraling = [0x5a2a6a, 0xb0a060, 0x2a1a3a]; REFPAL.warbug = [0x4a5a2a, 0x20280e, 0xc0b070]; REFPAL.saberlord = [0x3a4a8a, 0x6a5a50, 0x66ccff]; REFPAL.skyfolk = [0x2a64b0, 0x0c1c4a, 0x66ffee]; REFPAL.leviathan = [0x1a1620, 0x3a3040, 0xff3a2a]; REFPAL.tripod = [0x4a4e58, 0x24262c, 0xff5a2a]; REFPAL.carapace = [0x6a2a4a, 0xd8ccb0, 0x2a1224];
 /* skins painted for the three reference families (owner 2026-10-29: "make it more like the reference"): wet black scales with teal speculars, fine radial bone ribs and veins, mottled purple-orange flesh. Mid-grey so the palette colour still tints them. */
 const skinTex = (kind: "xeno" | "tan" | "ham") => canvasTex(512, 512, g => {
@@ -83,6 +97,17 @@ const FAMILY: Record<string, string> = { stalker: "domestalker", razor: "domesta
   flarecaster: "manthood", matriarch: "manthood", skyeye: "manthood", sporecaster: "manthood", veilmaw: "manthood", spiker: "capling", bloater: "capling" };
 const VARIANT: Record<string, [number, number, number]> = { stalker: [0.95, 1, 1.1], razor: [0.78, 1.05, 1.0], hound: [1.0, 0.82, 1.25], thornback: [1.2, 1.0, 1.0], behemoth: [1.55, 1.2, 1.3], warden: [1.4, 1.35, 1.35], titan: [1.6, 1.55, 1.55], lumawarden: [1.35, 1.45, 1.35],
   flarecaster: [1, 1, 1], matriarch: [1.45, 1.3, 1.4], skyeye: [0.95, 0.9, 0.95], sporecaster: [0.9, 0.85, 0.9], veilmaw: [1.05, 1, 1.05], spiker: [0.9, 0.95, 0.9], bloater: [1.5, 1.05, 1.35] };
+/** the Hood Walker's membrane: dark at the root, warm tan to a pale rim, ribs and cross-veins painted radially (u = across the fan, v = root to rim) */
+let _hoodTex: THREE.Texture | null = null;
+const hoodTex = () => _hoodTex || (_hoodTex = canvasTex(512, 512, g => {
+  const W = 512, H = 512, N = 13, yv = (v: number) => (1 - v) * H, R = Math.random;
+  const gr = g.createLinearGradient(0, H, 0, 0); gr.addColorStop(0, "#2a1a12"); gr.addColorStop(0.3, "#7a4c30"); gr.addColorStop(0.7, "#c48a52"); gr.addColorStop(1, "#f0d8a0"); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 70; i++) { const x = R() * W, y = R() * H, r = 12 + R() * 40, rg = g.createRadialGradient(x, y, 0, x, y, r), c = R() < 0.5 ? "90,50,30" : "230,200,150"; rg.addColorStop(0, `rgba(${c},.28)`); rg.addColorStop(1, `rgba(${c},0)`); g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2); }
+  for (let k = 0; k <= N; k++) { const u0 = k / (N + 1) * W, u1 = (k + 1) / (N + 1) * W; for (let c = 0; c < 4; c++) { const v = 0.25 + c * 0.2 + (k % 2) * 0.07; g.strokeStyle = "rgba(110,24,24,.65)"; g.lineWidth = 1.8; g.beginPath(); g.moveTo(u0, yv(v)); g.quadraticCurveTo((u0 + u1) / 2, yv(v + 0.045), u1, yv(v - 0.02)); g.stroke(); } }
+  for (let k = 1; k <= N; k++) { const x = k / (N + 1) * W; g.strokeStyle = "rgba(40,26,16,.85)"; g.lineWidth = 7; g.beginPath(); g.moveTo(x, H); g.lineTo(x, 0); g.stroke(); g.strokeStyle = "rgba(255,238,200,.55)"; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 3, H); g.lineTo(x - 3, 0); g.stroke(); }
+  const rim = g.createLinearGradient(0, 0, 0, 40); rim.addColorStop(0, "rgba(60,30,40,.6)"); rim.addColorStop(1, "rgba(60,30,40,0)"); g.fillStyle = rim; g.fillRect(0, 0, W, 40);
+  noise(g, W, H, 1600, 0.2);
+}, 1));
 function buildAlien(kind0: AlienKind, tint = 0): Rig {
   const kind = ((FAMILY[kind0] as AlienKind) || kind0) as AlienKind;
   const g = new THREE.Group(), legs: THREE.Object3D[] = [], arms: THREE.Object3D[] = [], mats: THREE.MeshStandardMaterial[] = [];
@@ -305,91 +330,452 @@ function buildAlien(kind0: AlienKind, tint = 0): Rig {
     for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(1.05 * sd, 2.9, 0); arm.add(limb(V(0, 0, 0), V(0.3 * sd, -1.3, -0.5), 0.3, 0.24, m)); const fist = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), m2); fist.position.set(0.3 * sd, -1.45, -0.6); arm.add(fist); body.add(arm); arms.push(arm); }
     for (const sd of [-1, 1]) { const lg = new THREE.Group(); lg.position.set(0.55 * sd, 1.3, 0); lg.add(limb(V(0, 0, 0), V(0, -1.3, 0), 0.34, 0.28, m2)); g.add(lg); legs.push(lg); }
   } else if (kind === "capling") {   // reference 3: a hammerhead alien: a broad flat cap over a narrow face with big white slit eyes, a muscular mottled torso, thick orange forearms and long thin shins ending in hanging claws
-    const sk = mk(CHIT(0x4a4a6a, { roughness: 0.5 })), mt = mk(CHIT(0x6a2a3e, { roughness: 0.55 })), or = mk(CHIT(0xe0761c, { roughness: 0.45 })), cap = mk(CHIT(0x3e4468, { roughness: 0.42, clearcoat: 0.8 })), dk = mk(CHIT(0x1a1020));
-    const hc = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 20), cap); hc.scale.set(2.1, 0.34, 0.95); hc.position.set(0, 2.5, -0.02); hc.rotation.z = 0.1; body.add(hc);   // the hammerhead cap
-    for (const sd of [-1, 1]) { const w = new THREE.Mesh(new THREE.SphereGeometry(0.36, 24, 14), cap); w.scale.set(1.6, 0.2, 0.8); w.position.set(0.82 * sd, 2.46 - 0.04 * sd, 0); w.rotation.z = -sd * 0.22; body.add(w); }
-    body.add(tube([V(0, 2.42, 0.1), V(0, 2.2, -0.16), V(0, 2.0, -0.4)], 0.25, 0.1, sk, (k) => 1 - 0.55 * k));   // long face and snout
-    for (const sd of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 12), GLOW(0xf6fbff)); e.scale.set(1.5, 0.7, 0.5); e.position.set(0.17 * sd, 2.27, -0.3); e.rotation.z = sd * 0.35; body.add(e); const pu = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), dk); pu.position.set(0.17 * sd, 2.27, -0.34); body.add(pu); }
-    body.add(tube([V(0, 2.0, -0.05), V(0, 1.85, 0), V(0, 1.7, 0.02)], 0.1, 0.16, sk));   // neck
-    body.add(tube([V(0, 1.78, 0), V(0, 1.45, 0.05), V(0, 1.12, 0.02)], 0.34, 0.26, mt, (k) => 1 - 0.3 * Math.abs(k - 0.35)));   // torso
-    for (let i = 0; i < 5; i++) { const rb = new THREE.Mesh(new THREE.TorusGeometry(0.2 - i * 0.012, 0.022, 8, 18, Math.PI), dk); rb.position.set(0, 1.62 - i * 0.1, -0.18); rb.rotation.set(0, 0, Math.PI); rb.scale.z = 0.7; body.add(rb); }
-    body.add(tube([V(0, 1.12, 0), V(0, 0.98, 0.04), V(0, 0.9, 0)], 0.24, 0.2, mt));   // hips
-    for (const sd of [-1, 1]) {
-      const arm = new THREE.Group(); arm.position.set(0.42 * sd, 1.72, 0);
-      arm.add(new THREE.Mesh(new THREE.SphereGeometry(0.17, 18, 12), sk));
-      arm.add(tube([V(0, 0, 0), V(0.18 * sd, -0.28, -0.04), V(0.1 * sd, -0.55, -0.22)], 0.15, 0.13, or, (k) => 1 + 0.25 * Math.sin(k * 3)));   // upper arm bent over the belly
-      arm.add(tube([V(0.1 * sd, -0.55, -0.22), V(-0.1 * sd, -0.72, -0.34), V(-0.3 * sd, -0.58, -0.34)], 0.14, 0.08, or, (k) => 1 + 0.35 * Math.sin(k * 3.1)));   // thick forearm
-      for (const k of [-1, 0, 1]) arm.add(tube([V(-0.3 * sd, -0.58, -0.34), V((-0.38 + k * 0.03) * sd, -0.72, -0.34 + k * 0.05), V((-0.4 + k * 0.05) * sd, -0.9, -0.34 + k * 0.08)], 0.028, 0.008, dk));
+    // mats are recoloured by creation order (0 blue-violet, 1 maroon, 2 orange, 3 maroon, 4 blue-violet): cap, torso, orange limbs, muscle bands, face
+    const cap = mk(CHIT(0x3e4468, { roughness: 0.4, clearcoat: 0.8 })), mt = mk(CHIT(0x6a2a3e, { roughness: 0.55 })), or = mk(CHIT(0xe0761c, { roughness: 0.45 })), mb = mk(CHIT(0x7a3048, { roughness: 0.5 })), sk = mk(CHIT(0x4a4a6a, { roughness: 0.5 }));
+    const dk = CHIT(0x120c18, { roughness: 0.3, metalness: 0.4 });   // lacquered black claws and spurs (not recoloured)
+    const HIP = 1.2, sd2 = [-1, 1];
+    // the hammerhead: a swept, drooping, bevelled slab that sits right on the skull and overhangs the face
+    const csh = new THREE.Shape(); csh.moveTo(0, 0.26); csh.bezierCurveTo(0.35, 0.3, 0.8, 0.2, 0.93, 0.06); csh.bezierCurveTo(0.99, -0.02, 0.97, -0.12, 0.88, -0.15); csh.bezierCurveTo(0.6, -0.1, 0.4, -0.3, 0, -0.3);
+    csh.bezierCurveTo(-0.4, -0.3, -0.6, -0.1, -0.88, -0.15); csh.bezierCurveTo(-0.97, -0.12, -0.99, -0.02, -0.93, 0.06); csh.bezierCurveTo(-0.8, 0.2, -0.35, 0.3, 0, 0.26);
+    const cg = new THREE.ExtrudeGeometry(csh, { depth: 0.1, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.04, bevelSegments: 3, curveSegments: 14 }); cg.rotateX(-Math.PI / 2); cg.scale(0.86, 1, 0.92);
+    { const p = cg.attributes.position as THREE.BufferAttribute; for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); p.setY(i, 0.05 + (p.getY(i) - 0.05) * (1 - 0.42 * Math.min(1, Math.abs(x) / 0.8)) - 0.15 * x * x - 0.04 * Math.max(0, -z)); } cg.computeVertexNormals(); }
+    const cp = new THREE.Mesh(cg, cap); cp.position.set(0, 2.33, -0.1); cp.rotation.x = -0.08; body.add(cp);
+    const capY = (x: number, z: number) => 2.33 + 0.17 - 0.15 * x * x + z * 0.08;   // top surface height at a point of the cap
+    body.add(tube([V(0, capY(0, 0.16) + 0.0, 0.18), V(0, capY(0, -0.05) + 0.02, -0.04), V(0, capY(0, -0.28), -0.28)], 0.045, 0.02, cap, undefined, 12, 7));   // a central crest
+    for (const s of sd2) for (const a of [0.15, 0.3, 0.45]) body.add(tube([V(s * a, capY(a, 0.1) + 0.01, 0.12 - a * 0.1), V(s * (a + 0.12), capY(a + 0.12, 0.0) + 0.012, -0.06 - a * 0.05), V(s * (a + 0.24), capY(a + 0.24, -0.1) + 0.01, -0.2 - a * 0.08)], 0.016, 0.008, cap, undefined, 8, 5));   // ridges fanning out along the wings
+    for (const s of sd2) for (let i = 0; i < 6; i++) { const x = s * (0.2 + i * 0.1), pit = new THREE.Mesh(new THREE.SphereGeometry(0.02 - i * 0.001, 8, 6), GLOW(0xff9a3a)); pit.position.set(x, capY(x, -0.22 + Math.abs(x) * 0.12) + 0.004, -0.22 + Math.abs(x) * 0.12 - 0.14); body.add(pit); }   // sensor pits along the leading edge
+    // narrow face under the cap: a skull, a long wedge snout, a small jaw
+    const sl = new THREE.Mesh(new THREE.SphereGeometry(0.2, 22, 16), sk); sl.scale.set(1.1, 0.95, 1.35); sl.position.set(0, 2.2, -0.08); body.add(sl);
+    body.add(tube([V(0, 2.22, -0.18), V(0, 2.14, -0.36), V(0, 2.02, -0.55)], 0.15, 0.05, sk, undefined, 14, 10));   // snout
+    body.add(tube([V(0, 2.0, -0.2), V(0, 1.86, -0.36), V(0, 1.78, -0.56)], 0.085, 0.03, mb, undefined, 10, 8));   // a dropped lower jaw: the glowing throat shows between it and the snout
+    for (const y of [1.56, 1.7, 1.84]) { const bl = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), GLOW(0xff9a3a)); bl.position.set(0, y, -0.2); body.add(bl); }   // a line of bio-lights down the breastbone
+    body.add(tube([V(0, 2.1, -0.52), V(0, 2.02, -0.55), V(0, 1.94, -0.54)], 0.03, 0.02, dk, undefined, 6, 6));   // nostril bridge
+    for (const s of sd2) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 14), GLOW(0xf6fbff)); e.scale.set(1.7, 0.55, 0.55); e.position.set(0.2 * s, 2.2, -0.29); e.rotation.z = s * 0.42; e.rotation.y = s * 0.25; body.add(e);   // the big white slit eye, slanted
+      const br = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), sk); br.scale.set(1.9, 0.38, 0.8); br.position.set(0.17 * s, 2.285, -0.27); br.rotation.z = s * 0.34; body.add(br);   // brow ridge
+      const ck = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), mb); ck.scale.set(1, 0.7, 1.2); ck.position.set(0.15 * s, 2.06, -0.22); body.add(ck);
+    }
+    // neck, trapezius, shoulders
+    body.add(tube([V(0, 1.92, 0.02), V(0, 2.04, -0.01), V(0, 2.14, -0.06)], 0.1, 0.085, sk, undefined, 8, 8));
+    for (const s of sd2) { body.add(tube([V(0.05 * s, 2.02, 0.0), V(0.2 * s, 1.97, 0.0), V(0.36 * s, 1.9, 0.0)], 0.07, 0.11, mt, undefined, 8, 8)); const dl = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), mt); dl.scale.set(1, 0.85, 0.95); dl.position.set(0.42 * s, 1.88, 0); body.add(dl); }
+    // a V-shaped torso: broad chest, narrow waist, ribs and abdominal plates
+    const to = tube([V(0, 1.2, 0.03), V(0, 1.55, 0.0), V(0, 1.93, -0.02)], 0.2, 0.36, mt, (k) => 1 + 0.05 * Math.sin(k * 6) - 0.1 * (1 - k) * (1 - k), 18, 14); to.scale.z = 0.76; body.add(to);
+    for (const s of sd2) { const pc = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), mb); pc.scale.set(1.1, 0.85, 0.7); pc.position.set(0.17 * s, 1.78, -0.15); body.add(pc); for (let i = 0; i < 3; i++) { const ab = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), mb); ab.scale.set(1.1, 0.7, 0.55); ab.position.set(0.07 * s, 1.34 + i * 0.13, -0.15 - 0.005 * i); body.add(ab); } }
+    for (let i = 0; i < 4; i++) { const rb = new THREE.Mesh(new THREE.TorusGeometry(0.27 - i * 0.012, 0.014, 6, 20, Math.PI * 0.9), dk); rb.position.set(0, 1.6 + i * 0.08, 0.0); rb.rotation.set(-Math.PI / 2, 0, Math.PI * 1.05); rb.scale.set(1, 0.76, 1); body.add(rb); }
+    for (let i = 0; i < 6; i++) body.add(cone(0.026, 0.16 - i * 0.012, dk, V(0, 1.86 - i * 0.12, 0.24), [0.9, 0, 0]));   // back spines
+    const pel = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), mt); pel.scale.set(1.15, 0.65, 0.8); pel.position.set(0, HIP, 0.01); body.add(pel);
+    body.add(tube([V(0, 1.14, 0.14), V(0, 0.95, 0.5), V(0.05, 0.9, 0.9)], 0.07, 0.01, mt, undefined, 12, 6));   // a short tail
+    // arms: thick orange forearms ending in hanging claws
+    for (const s of sd2) {
+      const arm = new THREE.Group(); arm.position.set(0.42 * s, 1.88, 0);
+      arm.add(tube([V(0, 0, 0), V(0.07 * s, -0.22, -0.02), V(0.12 * s, -0.46, -0.07)], 0.12, 0.095, or, (k) => 1 + 0.25 * Math.sin(k * 3.1), 12, 12));
+      const el = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), mb); el.position.set(0.12 * s, -0.46, -0.07); arm.add(el);
+      arm.add(cone(0.035, 0.16, dk, V(0.15 * s, -0.46, 0.06), [Math.PI / 2, 0, 0]));   // elbow spur
+      arm.add(tube([V(0.12 * s, -0.46, -0.07), V(0.1 * s, -0.7, -0.12), V(0.08 * s, -0.9, -0.16)], 0.11, 0.055, or, (k) => 1 + 0.35 * Math.sin(k * 3.1), 12, 12));   // thick forearm
+      const hd = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 10), mb); hd.scale.set(1, 1.1, 0.8); hd.position.set(0.08 * s, -0.92, -0.16); arm.add(hd);
+      for (const k of [-1.5, -0.5, 0.5, 1.5]) arm.add(tube([V((0.08 + k * 0.035) * s, -0.95, -0.16), V((0.08 + k * 0.05) * s, -1.12, -0.17), V((0.08 + k * 0.05) * s, -1.3, -0.25)], 0.024, 0.004, dk, undefined, 8, 5));   // four long hanging claws
       body.add(arm); arms.push(arm);
     }
-    for (const sd of [-1, 1]) {
-      const lg = new THREE.Group(); lg.position.set(0.2 * sd, 0.98, 0);
-      lg.add(tube([V(0, 0, 0), V(0.08 * sd, -0.32, -0.08), V(0.16 * sd, -0.58, 0.04)], 0.17, 0.13, or, (k) => 1 + 0.3 * Math.sin(k * 3)));   // thigh with a big knee
-      lg.add(tube([V(0.16 * sd, -0.58, 0.04), V(0.08 * sd, -0.9, 0.1), V(0.02 * sd, -1.2, 0.0)], 0.1, 0.05, mt));   // long thin shin
-      for (const k of [-1, 0, 1]) lg.add(tube([V(0.02 * sd, -1.2, 0.0), V((0.02 + k * 0.05) * sd, -1.34, 0.02 + k * 0.02), V((0.02 + k * 0.08) * sd, -1.5, 0.0)], 0.04, 0.008, dk));   // three hanging claws
+    // legs: a heavy orange thigh, a big knee, a long thin shin, a clawed foot that stands on the floor
+    for (const s of sd2) {
+      const lg = new THREE.Group(); lg.position.set(0.2 * s, HIP, 0);
+      lg.add(tube([V(0, 0, 0), V(0.05 * s, -0.28, -0.1), V(0.1 * s, -0.52, -0.22)], 0.135, 0.095, or, (k) => 1 + 0.3 * Math.sin(k * 3.1), 12, 12));
+      const kn = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), mb); kn.position.set(0.1 * s, -0.53, -0.22); lg.add(kn);
+      lg.add(cone(0.04, 0.18, dk, V(0.1 * s, -0.53, -0.36), [-Math.PI / 2, 0, 0]));   // knee spike
+      lg.add(tube([V(0.1 * s, -0.53, -0.22), V(0.09 * s, -0.8, -0.04), V(0.07 * s, -1.0, 0.12)], 0.085, 0.032, mt, undefined, 12, 8));   // long thin shin
+      for (const k of [-1, 0, 1]) lg.add(tube([V((0.07 + k * 0.035) * s, -1.0, 0.12), V((0.07 + k * 0.05) * s, -1.12, 0.0), V((0.07 + k * 0.07) * s, -1.2, -0.2)], 0.034, 0.006, dk, undefined, 8, 5));   // three long toe claws
+      lg.add(cone(0.03, 0.14, dk, V(0.07 * s, -1.1, 0.2), [-2.3, 0, 0]));   // heel spur
       g.add(lg); legs.push(lg);
     }
-    body.add(tube([V(-0.2, 1.0, 0.1), V(-0.55, 0.85, 0.3), V(-0.8, 0.95, 0.5)], 0.05, 0.015, dk));   // a short tail
-  } else if (kind === "manthood") {   // reference 2: a tall gaunt alien: a ribbed manta-ray hood, a pale skull face, bulbous shoulder knobs, a wasp waist, long legs ending in broad feet and a cloud of whip tendrils
-    const tan = mk(CHIT(0x8a7560, { roughness: 0.55 })), hoodm = mk(CHIT(0xb08e66, { roughness: 0.5 })), pale = mk(CHIT(0xcfc4ae, { roughness: 0.4 })), dk = mk(CHIT(0x2e2418));
-    const sh = new THREE.Shape(); sh.moveTo(0, 1.0); sh.bezierCurveTo(0.2, 0.7, 0.75, 0.35, 0.78, 0.02); sh.bezierCurveTo(0.6, -0.08, 0.25, -0.2, 0, -0.3); sh.bezierCurveTo(-0.25, -0.2, -0.6, -0.08, -0.78, 0.02); sh.bezierCurveTo(-0.75, 0.35, -0.2, 0.7, 0, 1.0);
-    const hood = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 3, curveSegments: 24 }), hoodm); hood.scale.setScalar(1.35); hood.position.set(0, 2.5, 0.2); hood.rotation.x = -0.18; body.add(hood);   // the stingray hood
-    for (let i = -5; i <= 5; i++) { const rib = tube([V(i * 0.012, 2.6, 0.2), V(i * 0.09, 3.0, 0.3), V(i * 0.16, 3.38, 0.34)], 0.011, 0.007, dk); rib.position.z -= 0; body.add(rib); }
-    body.add(tube([V(0, 2.55, 0.1), V(0, 2.55, -0.05), V(0, 2.3, -0.2)], 0.22, 0.14, pale, (k) => 1 - 0.3 * k));   // the skull
-    for (const sd of [-1, 1]) { const so = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), dk); so.position.set(0.09 * sd, 2.52, -0.2); body.add(so); body.add(tube([V(0.05 * sd, 2.2, -0.22), V(0.09 * sd, 2.0, -0.24), V(0.05 * sd, 1.86, -0.2)], 0.025, 0.008, dk)); }   // eye sockets and mouth tendrils
-    body.add(tube([V(0, 2.25, -0.05), V(0, 2.1, 0), V(0, 1.95, 0)], 0.07, 0.1, tan));   // thin neck
-    body.add(tube([V(0, 2.0, 0), V(0, 1.75, 0.03), V(0, 1.45, 0)], 0.3, 0.12, tan, (k) => 1 - 0.55 * k * k));   // flared ribcage down to the waist
-    for (let i = 0; i < 4; i++) { const rb = new THREE.Mesh(new THREE.TorusGeometry(0.22 - i * 0.03, 0.018, 8, 16, Math.PI), dk); rb.position.set(0, 1.9 - i * 0.12, -0.14); rb.rotation.set(0, 0, Math.PI); body.add(rb); }
-    body.add(tube([V(0, 1.45, 0), V(0, 1.2, 0.02), V(0, 1.0, 0)], 0.1, 0.3, tan, (k) => 1 + 0.1 * Math.sin(k * 6)));   // wasp waist into hips
-    for (const sd of [-1, 1]) { const kn = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 14), pale); kn.position.set(0.46 * sd, 2.0, 0); body.add(kn); }   // the knobs on the shoulders
-    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.46 * sd, 1.98, 0); arm.add(tube([V(0, 0, 0), V(0.14 * sd, -0.5, -0.04), V(0.2 * sd, -0.95, -0.12)], 0.085, 0.06, tan, (k) => 1 + 0.2 * Math.sin(k * 3))); arm.add(tube([V(0.2 * sd, -0.95, -0.12), V(0.26 * sd, -1.4, -0.2), V(0.3 * sd, -1.75, -0.28)], 0.06, 0.04, tan)); for (const k of [-1, 0, 1, 2]) arm.add(tube([V(0.3 * sd, -1.75, -0.28), V((0.3 + k * 0.05) * sd, -1.95, -0.34), V((0.3 + k * 0.08) * sd, -2.12, -0.3)], 0.018, 0.005, dk)); body.add(arm); arms.push(arm); }
-    for (let i = 0; i < 7; i++) { const sd = i % 2 ? 1 : -1, w = new THREE.Group(); w.position.set(0.26 * sd, 2.02 - (i % 3) * 0.1, 0.12); const pts = [V(0, 0, 0)]; let pp = V(0, 0, 0), dir = V(0.7 * sd, 0.35 + (i % 3) * 0.15, 0.5); for (let j = 0; j < 8; j++) { dir.y -= 0.16; dir.x += 0.04 * sd; pp = pp.clone().add(dir.clone().multiplyScalar(0.36)); pts.push(pp); } w.add(tube(pts, 0.04, 0.008, tan)); body.add(w); arms.push(w); }
-    for (const sd of [-1, 1]) { const lg = new THREE.Group(); lg.position.set(0.2 * sd, 1.0, 0); lg.add(tube([V(0, 0, 0), V(0.06 * sd, -0.5, 0.06), V(0.1 * sd, -0.95, 0.0)], 0.2, 0.1, tan, (k) => 1 + 0.25 * Math.sin(k * 3.1))); lg.add(tube([V(0.1 * sd, -0.95, 0.0), V(0.05 * sd, -1.3, -0.04), V(0.02 * sd, -1.8, 0.04)], 0.1, 0.055, tan, (k) => 1 + 0.3 * Math.sin(k * 3))); const ft = new THREE.Mesh(new THREE.SphereGeometry(0.14, 18, 12), pale); ft.scale.set(0.9, 0.5, 1.9); ft.position.set(0.02 * sd, -1.86, -0.12); lg.add(ft); g.add(lg); legs.push(lg); }
-  } else if (kind === "domestalker") {   // reference 1: a crouched black predator: a long smooth swept-back dome head, a wet jaw, pipes rising from the back, a hunched ribbed body and a long spined tail (own design in that mood)
-    const bl = mk(CHIT(0x0e151b, { roughness: 0.2, metalness: 0.4, clearcoat: 1 })), bl2 = mk(CHIT(0x1a2530, { roughness: 0.35, metalness: 0.3 })), bl3 = mk(CHIT(0x2a3a48, { roughness: 0.3, metalness: 0.4 }));
-    body.add(tube([V(0, 1.25, -0.65), V(0, 1.6, -0.35), V(0, 2.0, 0.15), V(0, 2.15, 0.75), V(0, 1.95, 1.3)], 0.12, 0.05, bl, (k) => Math.sin(Math.min(1, k * 1.15) * 3.14) * 0.9 + 0.35 + 1.3 * Math.sin(k * 3) ** 2 * (1 - k)));   // the long swept-back dome, smooth and glossy
-    for (let i = 0; i < 6; i++) { const t = 0.2 + i * 0.12; const p = [V(0, 1.25, -0.65), V(0, 1.6, -0.35), V(0, 2.0, 0.15), V(0, 2.15, 0.75)]; const c = new THREE.CatmullRomCurve3(p).getPoint(t); const r = new THREE.Mesh(new THREE.TorusGeometry(0.17 + 0.03 * Math.sin(t * 3), 0.007, 6, 20), bl3); r.position.copy(c).add(V(0, 0.04, 0)); r.rotation.y = Math.PI / 2; r.rotation.z = 0.5 - t * 0.7; body.add(r); }
-    body.add(tube([V(0, 1.2, -0.6), V(0, 1.0, -0.66), V(0, 0.82, -0.58)], 0.1, 0.07, bl2));   // the lower jaw
-    for (let k = 0; k < 6; k++) { const d = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.4 + k * 0.05, 4), DRIP); d.position.set((k - 2.5) * 0.03, 0.65, -0.62); body.add(d); }
-    body.add(tube([V(0, 1.4, -0.1), V(0, 1.45, 0.45), V(0, 1.0, 1.0)], 0.36, 0.4, bl2, (k) => 1 + 0.15 * Math.sin(k * 3.1)));   // hunched torso
-    for (let i = 0; i < 9; i++) { const rb = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.016, 6, 22, Math.PI), bl3); rb.position.set(0, 1.45 - Math.abs(i - 4) * 0.015, 0.0 + i * 0.12); rb.rotation.set(0, Math.PI / 2, Math.PI / 2); rb.rotation.x = Math.PI / 2; body.add(rb); }
-    for (const sd of [-1, 1]) { body.add(tube([V(0.22 * sd, 1.7, 0.3), V(0.3 * sd, 2.05, 0.4), V(0.2 * sd, 2.3, 0.62)], 0.1, 0.075, bl2)); const mo = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.018, 8, 16), bl3); mo.position.set(0.2 * sd, 2.3, 0.62); mo.rotation.x = Math.PI / 2 - 0.4; body.add(mo); }   // the two pipes on the back
-    { const pts = [V(0, 1.0, 1.0), V(0, 0.85, 1.7), V(0, 0.95, 2.4), V(0, 1.4, 3.0), V(0, 1.9, 3.3)]; body.add(tube(pts, 0.16, 0.012, bl, (k) => 1 - 0.02 * k)); for (let j = 0; j < 8; j++) { const c = new THREE.CatmullRomCurve3(pts).getPoint(j / 8 + 0.05); body.add(cone(0.035, 0.22, bl3, c.add(V(0, 0.16, 0)), [0, 0, 0])); } body.add(cone(0.03, 0.5, GLOW(0x9af0ff), V(0, 2.05, 3.35), [-0.4, 0, 0])); }   // the tail
-    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.38 * sd, 1.25, 0.0); arm.add(tube([V(0, 0, 0), V(0.14 * sd, -0.45, -0.3), V(0.1 * sd, -0.75, -0.7)], 0.1, 0.07, bl2, (k) => 1 + 0.25 * Math.sin(k * 3))); arm.add(tube([V(0.1 * sd, -0.75, -0.7), V(0.05 * sd, -0.95, -0.95), V(0.0, -1.05, -1.1)], 0.06, 0.04, bl)); for (const k of [-1.5, -0.5, 0.5, 1.5]) arm.add(tube([V(0, -1.05, -1.1), V(k * 0.04, -1.2, -1.2), V(k * 0.07, -1.38, -1.2)], 0.02, 0.005, bl3)); body.add(arm); arms.push(arm); }   // long arms with four long fingers
-    for (const sd of [-1, 1]) { const lg = new THREE.Group(); lg.position.set(0.36 * sd, 0.95, 0.95); lg.add(tube([V(0, 0, 0), V(0.14 * sd, 0.12, -0.5), V(0.1 * sd, -0.3, -0.62)], 0.19, 0.11, bl2, (k) => 1 + 0.25 * Math.sin(k * 3))); lg.add(tube([V(0.1 * sd, -0.3, -0.62), V(0.06 * sd, -0.7, -0.5), V(0.04 * sd, -0.95, -0.76)], 0.1, 0.06, bl)); g.add(lg); legs.push(lg); }
-  } else if (kind === "xenodrone") {   // an upright black biomech hunter (own design in the mood of the classic film creature): long ridged skull, inner jaw, back pipes, digitigrade legs, bladed tail
-    const bl = mk(CHIT(0x0b1014, { roughness: 0.18, metalness: 0.45, clearcoat: 1 })), bl2 = mk(CHIT(0x18222b, { roughness: 0.32, metalness: 0.35 })), bl3 = mk(CHIT(0x2a3a48, { roughness: 0.3, metalness: 0.4 }));
-    body.add(tube([V(0, 1.55, 0.05), V(0, 1.85, -0.2), V(0, 2.25, -0.75), V(0, 2.45, -1.45)], 0.2, 0.07, bl, k => 0.75 + 0.5 * Math.sin(Math.min(1, k * 1.2) * 3.0)));   // the long ridged skull, swept back over the neck
-    for (let i = 0; i < 7; i++) { const c = new THREE.CatmullRomCurve3([V(0, 1.55, 0.05), V(0, 1.85, -0.2), V(0, 2.25, -0.75), V(0, 2.45, -1.45)]).getPoint(0.12 + i * 0.11); const r = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.008, 6, 18), bl3); r.position.copy(c); r.rotation.set(Math.PI / 2 - 0.45, 0, 0); body.add(r); }
-    body.add(tube([V(0, 1.5, 0.12), V(0, 1.38, 0.2), V(0, 1.3, 0.1)], 0.09, 0.06, bl2));   // the lower jaw
-    const inner = tube([V(0, 1.42, 0.14), V(0, 1.4, 0.4), V(0, 1.36, 0.62)], 0.05, 0.03, bl3); body.add(inner);   // the inner jaw reaching out
-    for (const sd of [-1, 1]) for (let i = 0; i < 5; i++) body.add(cone(0.012, 0.09, GLOW(0xdde8f0), V(0.045 * sd, 1.46 - 0.005 * i, 0.12 + i * 0.04), [Math.PI, 0, 0]));   // teeth
-    body.add(tube([V(0, 1.4, -0.05), V(0, 1.15, -0.25), V(0, 0.9, -0.1)], 0.26, 0.2, bl2, k => 1 + 0.2 * Math.sin(k * 3.1)));   // narrow chest
-    for (let i = 0; i < 7; i++) { const rb = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.012, 6, 20, Math.PI), bl3); rb.position.set(0, 1.35 - i * 0.07, -0.18 + i * 0.015); rb.rotation.set(Math.PI / 2, 0, Math.PI); rb.scale.set(1, 1.2, 1); body.add(rb); }
-    for (const sd of [-1, 1]) body.add(tube([V(0.13 * sd, 1.35, -0.3), V(0.2 * sd, 1.5, -0.7), V(0.16 * sd, 1.6, -1.1)], 0.06, 0.04, bl));   // the two pipes along the back
-    body.add(tube([V(0, 0.95, -0.12), V(0, 0.8, -0.5), V(0, 0.85, -1.1), V(0, 1.2, -1.7), V(0, 1.7, -2.1)], 0.13, 0.012, bl, k => 1 - 0.1 * k));   // the whip tail ...
-    body.add(cone(0.05, 0.4, bl3, V(0, 1.78, -2.3), [-2.2, 0, 0]));   // ... ending in a blade
-    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.3 * sd, 1.35, 0.0); arm.add(tube([V(0, 0, 0), V(0.12 * sd, -0.4, 0.2), V(0.08 * sd, -0.7, 0.5)], 0.07, 0.05, bl2)); arm.add(tube([V(0.08 * sd, -0.7, 0.5), V(0.05 * sd, -0.85, 0.72)], 0.05, 0.03, bl)); for (const k of [-1, 0, 1]) arm.add(tube([V(0.05 * sd, -0.85, 0.72), V((0.05 + k * 0.04) * sd, -0.95, 0.92)], 0.016, 0.004, bl3)); body.add(arm); arms.push(arm); }
-    for (const sd of [-1, 1]) { const lg = new THREE.Group(); lg.position.set(0.17 * sd, 0.95, 0); lg.add(tube([V(0, 0, 0), V(0.05 * sd, -0.3, 0.3), V(0.06 * sd, -0.6, 0.0)], 0.13, 0.07, bl2, k => 1 + 0.25 * Math.sin(k * 3))); lg.add(tube([V(0.06 * sd, -0.6, 0.0), V(0.05 * sd, -0.8, -0.1), V(0.04 * sd, -0.95, 0.2)], 0.06, 0.035, bl)); lg.add(tube([V(0.04 * sd, -0.95, 0.2), V(0.04 * sd, -0.97, 0.45)], 0.035, 0.012, bl3)); g.add(lg); legs.push(lg); }
-  } else if (kind === "huntsman") {   // a masked trophy hunter (own design in the mood of the classic film hunter): tall armoured humanoid, mandibled mask, dread-tendrils, shoulder cannon, wrist blades
-    const sk = mk(CHIT(0x6a6a48, { roughness: 0.55, metalness: 0.05, clearcoat: 0.3 })), ar = mk(CHIT(0x3a4046, { roughness: 0.3, metalness: 0.7, clearcoat: 0.8 })), br = mk(CHIT(0xb09a62, { roughness: 0.35, metalness: 0.6 }));
-    body.add(tube([V(0, 1.1, 0), V(0, 1.55, 0.02), V(0, 1.95, 0.0)], 0.3, 0.3, ar, k => 0.62 + 0.5 * Math.sin(k * 1.4)));   // armoured torso, narrow waist to broad chest
-    for (const sd of [-1, 1]) { const sh = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), ar); sh.scale.set(1.1, 0.8, 1); sh.position.set(0.42 * sd, 1.98, 0); body.add(sh); }
-    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), br); hd.scale.set(0.9, 1.15, 1.05); hd.position.set(0, 2.3, 0.02); body.add(hd);   // the mask
-    body.add(eyes(GLOW(0xff3a1a), 2.32, 0.18, 0.08, 0.04));
-    for (const sd of [-1, 1]) body.add(tube([V(0.05 * sd, 2.16, 0.18), V(0.13 * sd, 2.08, 0.22), V(0.16 * sd, 2.0, 0.2)], 0.03, 0.012, sk));   // mandibles
-    for (let i = 0; i < 8; i++) { const sd = i % 2 ? 1 : -1, pts = [V(0.1 * sd, 2.38, -0.12)]; let p = V(0.1 * sd, 2.38, -0.12), d = V(0.35 * sd, -0.2 - (i % 3) * 0.1, -0.25); for (let j = 0; j < 6; j++) { d.y -= 0.12; p = p.clone().add(d.clone().multiplyScalar(0.28)); pts.push(p); } body.add(tube(pts, 0.035, 0.012, sk)); }   // the hanging tendrils
-    { const can = new THREE.Group(); can.position.set(-0.42, 2.25, 0); can.add(tube([V(0, 0, 0), V(0, 0.02, -0.25)], 0.08, 0.1, ar)); const lens = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), GLOW(0x3affc0)); lens.position.set(0, 0.02, 0.1); can.add(lens); body.add(can); }   // shoulder cannon
-    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.44 * sd, 1.95, 0); arm.add(tube([V(0, 0, 0), V(0.1 * sd, -0.45, 0.05), V(0.12 * sd, -0.9, 0.25)], 0.1, 0.075, sk)); arm.add(tube([V(0.12 * sd, -0.9, 0.25), V(0.1 * sd, -1.0, 0.7)], 0.09, 0.07, ar)); if (sd > 0) for (const o of [-0.05, 0.05]) arm.add(tube([V((0.1 + o) * sd, -1.0, 0.7), V((0.45 + o * 3) * sd, -0.9, 1.75)], 0.035, 0.006, br)); body.add(arm); arms.push(arm); }   // right wrist carries two blades
-    body.add(tube([V(0, 1.1, 0), V(0, 0.95, 0.0)], 0.2, 0.18, ar));
-    for (const sd of [-1, 1]) { const lg = new THREE.Group(); lg.position.set(0.2 * sd, 1.0, 0); lg.add(tube([V(0, 0, 0), V(0.04 * sd, -0.5, 0.06), V(0.07 * sd, -0.95, 0.0)], 0.15, 0.1, sk, k => 1 + 0.2 * Math.sin(k * 3))); lg.add(tube([V(0.07 * sd, -0.95, 0.0), V(0.04 * sd, -1.45, -0.06), V(0.03 * sd, -1.95, 0.02)], 0.1, 0.07, ar)); const ft = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.34), ar); ft.position.set(0.03 * sd, -1.97, 0.1); lg.add(ft); g.add(lg); legs.push(lg); }
+  } else if (kind === "manthood") {   // reference 2: a tall gaunt alien: a ribbed manta-ray hood fanned behind a pale skull face, bulbous shoulder knobs, a wasp waist, long thin limbs, broad feet and a cloud of whip tendrils (own design in that mood). FRONT IS -z; feet on y = 0
+    const skinT = skinFor(TANC), hT = hoodTex();
+    const skin = mk(CHIT(0x7d6c58, { map: skinT, bumpMap: skinT, bumpScale: 1.1, roughness: 0.5, metalness: 0.08, clearcoat: 0.35, clearcoatRoughness: 0.35 }));
+    const hoodM = mk(new THREE.MeshPhysicalMaterial({ map: hT, bumpMap: hT, bumpScale: 1.6, color: 0xffffff, roughness: 0.5, side: THREE.DoubleSide, clearcoat: 0.25 })); hoodM.userData.keep = true;   // keeps its painted ribs when a family species recolours the rest
+    const bone = mk(CHIT(0xe9e0cb, { map: skinT, bumpMap: skinT, bumpScale: 0.6, roughness: 0.34, clearcoat: 0.5 }));
+    const dk = mk(CHIT(0x241a12, { roughness: 0.3, metalness: 0.3 }));
+    const amber = GLOW(0xffa040), violet = GLOW(0xc070ff);
+    // the hood: a fan of membrane around a point behind the neck, three lobes (a crest and two swept wing tips), cupped forward, a rim and bone ribs ending in glowing beads
+    const TH = 1.9, HP: number[][] = [[-1.9, 0.5], [-1.35, 1.05], [-0.7, 0.72], [0, 1.25], [0.7, 0.72], [1.35, 1.05], [1.9, 0.5]];
+    const hprof = (th: number) => { for (let i = 0; i < HP.length - 1; i++) if (th <= HP[i + 1][0]) { const t = (th - HP[i][0]) / (HP[i + 1][0] - HP[i][0]), s = 0.5 - 0.5 * Math.cos(t * Math.PI); return HP[i][1] + (HP[i + 1][1] - HP[i][1]) * s; } return HP[HP.length - 1][1]; };
+    const HPt = (u: number, v: number) => { const th = (u - 0.5) * 2 * TH, R = hprof(th) * v, x = R * Math.sin(th); return V(x, R * Math.cos(th), -0.16 * x * x - 0.05 * R + 0.02 * Math.sin(u * 46) * v * v); };
+    const NU = 52, NV = 14, hp: number[] = [], hu: number[] = [], hi: number[] = [];
+    for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) { const p = HPt(i / NU, j / NV); hp.push(p.x, p.y, p.z); hu.push(i / NU, j / NV); }
+    for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1; hi.push(a, c, b, b, c, d); }
+    const hg = new THREE.BufferGeometry(); hg.setAttribute("position", new THREE.Float32BufferAttribute(hp, 3)); hg.setAttribute("uv", new THREE.Float32BufferAttribute(hu, 2)); hg.setIndex(hi); hg.computeVertexNormals();
+    const hoodG = new THREE.Group(); hoodG.position.set(0, 2.3, 0.17); hoodG.rotation.x = 0.3; hoodG.scale.setScalar(1.15); body.add(hoodG);
+    hoodG.add(new THREE.Mesh(hg, hoodM));
+    for (let k = 1; k <= 13; k++) {
+      const u = k / 14; hoodG.add(tube([0.12, 0.4, 0.7, 1.0].map(v => HPt(u, v)), 0.018, 0.007, bone, undefined, 12, 5));
+      const tip = HPt(u, 1), dr = tip.clone().sub(HPt(u, 0.92)).normalize(), c = cone(0.016, 0.12, bone, tip.clone().addScaledVector(dr, 0.05)); c.quaternion.setFromUnitVectors(V(0, 1, 0), dr); hoodG.add(c);
+      if (k % 2) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 5), violet); b.position.copy(tip).addScaledVector(dr, 0.12); hoodG.add(b); }
+    }
+    { const rp: THREE.Vector3[] = []; for (let i = 0; i <= 40; i++) rp.push(HPt(i / 40, 1.0)); hoodG.add(tube(rp, 0.014, 0.014, bone, undefined, 80, 5)); }
+    // neck with rings
+    body.add(tube([V(0, 2.08, 0.02), V(0, 2.26, -0.04), V(0, 2.4, -0.08)], 0.085, 0.07, skin, undefined, 14, 10));
+    for (let i = 0; i < 4; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.088, 0.011, 6, 14), dk); r.rotation.x = Math.PI / 2; r.position.set(0, 2.14 + i * 0.07, -0.01 - i * 0.015); body.add(r); }
+    const hd = new THREE.Group(); hd.scale.setScalar(1.3); hd.position.set(0, 2.4 * -0.3, -0.1 * -0.3); body.add(hd);   // the head is drawn at 1.3x about the top of the neck so it reads against the big hood
+    // the skull face: a long cranium, brow ridge, sunken sockets with a pinpoint of light, nose slits, cheekbones, a narrow jaw with two rows of teeth
+    const cr = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 18), bone); cr.scale.set(0.86, 1.22, 1.08); cr.position.set(0, 2.62, -0.07); hd.add(cr);
+    const brow = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), bone); brow.scale.set(1.9, 0.38, 0.8); brow.position.set(0, 2.665, -0.235); hd.add(brow);
+    for (const sd of [-1, 1]) {
+      const so = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), dk); so.scale.set(1, 1.3, 0.6); so.position.set(0.085 * sd, 2.6, -0.245); hd.add(so);
+      const ck = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), bone); ck.scale.set(1, 0.7, 0.8); ck.position.set(0.115 * sd, 2.5, -0.2); hd.add(ck);
+      const ns = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 5), dk); ns.scale.set(0.6, 2, 0.6); ns.position.set(0.016 * sd, 2.5, -0.263); hd.add(ns);
+      hd.add(tube([V(0.045 * sd, 2.31, -0.25), V(0.06 * sd, 2.12, -0.3), V(0.05 * sd, 1.96, -0.27)], 0.02, 0.006, dk));   // mouth tendrils
+    }
+    hd.add(eyes(amber, 2.6, -0.262, 0.085, 0.024));
+    const jaw = tube([V(0, 2.52, -0.2), V(0, 2.4, -0.215), V(0, 2.3, -0.21)], 0.115, 0.055, bone, undefined, 14, 12); jaw.scale.x = 0.85; hd.add(jaw);
+    const mo = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), dk); mo.scale.set(1.3, 0.25, 0.5); mo.position.set(0, 2.425, -0.255); hd.add(mo);
+    for (let i = 0; i < 7; i++) { const x = (i - 3) * 0.02; hd.add(cone(0.008, 0.045, bone, V(x, 2.447, -0.262 + Math.abs(x) * 0.5), [Math.PI, 0, 0])); }
+    for (let i = 0; i < 6; i++) { const x = (i - 2.5) * 0.021; hd.add(cone(0.007, 0.04, bone, V(x, 2.405, -0.258 + Math.abs(x) * 0.5))); }
+    // ribcage, wasp waist, pelvis
+    const rc = tube([V(0, 2.12, 0.0), V(0, 1.85, 0.02), V(0, 1.56, 0.0)], 0.27, 0.11, skin, k => 1 + 0.12 * Math.sin(k * Math.PI), 18, 14); rc.scale.z = 0.62; body.add(rc);
+    for (let i = 0; i < 5; i++) { const y = 2.02 - i * 0.1, k = (2.12 - y) / 0.56, r = (0.27 - 0.16 * k) * (1 + 0.12 * Math.sin(k * Math.PI)) * 1.04; const rb = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 6, 18, Math.PI), bone); rb.rotation.x = -Math.PI / 2; rb.scale.y = 0.62; rb.position.set(0, y, 0.02); body.add(rb); }
+    for (let i = 0; i < 7; i++) body.add(cone(0.016, 0.07, bone, V(0, 2.06 - i * 0.075, 0.17 - i * 0.004), [1.2, 0, 0]));   // spine bumps
+    body.add(tube([V(0, 1.58, 0), V(0, 1.45, 0.02), V(0, 1.32, 0)], 0.088, 0.088, skin, undefined, 10, 10));
+    for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.092, 0.01, 6, 14), dk); r.rotation.x = Math.PI / 2; r.position.set(0, 1.5 - i * 0.07, 0.01); body.add(r); }
+    const pel = new THREE.Mesh(new THREE.SphereGeometry(0.2, 18, 12), skin); pel.scale.set(0.95, 0.6, 0.8); pel.position.set(0, 1.2, 0.02); body.add(pel);
+    for (const sd of [-1, 1]) {
+      const kn = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 14), bone); kn.position.set(0.44 * sd, 2.04, 0); body.add(kn);   // the knobs on the shoulders
+      body.add(tube([V(0.06 * sd, 2.1, -0.05), V(0.26 * sd, 2.11, -0.04), V(0.42 * sd, 2.05, -0.02)], 0.028, 0.03, bone, undefined, 10, 6));   // collar bone
+      body.add(cone(0.04, 0.2, dk, V(0.5 * sd, 2.2, 0), [0, 0, -0.7 * sd]));
+      body.add(cone(0.03, 0.16, bone, V(0.17 * sd, 1.29, -0.1), [-1.2, 0, -0.6 * sd]));   // hip bones
+      const arm = new THREE.Group(); arm.position.set(0.44 * sd, 2.02, 0);
+      arm.add(tube([V(0, 0, 0), V(0.1 * sd, -0.35, 0.0), V(0.14 * sd, -0.68, -0.04)], 0.075, 0.052, skin, k => 1 + 0.15 * Math.sin(k * 3), 14, 10));
+      const el = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), bone); el.position.set(0.14 * sd, -0.68, -0.04); arm.add(el); arm.add(cone(0.02, 0.1, dk, V(0.2 * sd, -0.68, 0.05), [0, 0, -1.2 * sd]));
+      arm.add(tube([V(0.14 * sd, -0.68, -0.04), V(0.18 * sd, -1.0, -0.14), V(0.2 * sd, -1.3, -0.16)], 0.05, 0.035, skin, undefined, 14, 8));
+      const palm = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), skin); palm.scale.set(1, 1.2, 0.6); palm.position.set(0.2 * sd, -1.36, -0.17); arm.add(palm);
+      for (let k = 0; k < 4; k++) { const dx = (k - 1.5) * 0.035 * sd, tx = 0.2 * sd + dx * 1.3; arm.add(tube([V(0.2 * sd + dx, -1.38, -0.17), V(0.21 * sd + dx, -1.62, -0.22), V(tx, -1.84, -0.2)], 0.017, 0.006, skin, undefined, 10, 5)); arm.add(cone(0.01, 0.08, dk, V(tx, -1.88, -0.2), [Math.PI, 0, 0])); }
+      body.add(arm); arms.push(arm);
+    }
+    // the cloud of whip tendrils from behind the skull: they arc out, then fall
+    for (let i = 0; i < 8; i++) {
+      const sd = i % 2 ? 1 : -1, j = i >> 1, w = new THREE.Group(); w.position.set((0.1 + 0.04 * j) * sd, 2.34 - j * 0.07, 0.14 + j * 0.02);
+      const pts = [V(0, 0, 0)]; let dir = V((0.5 + 0.2 * j) * sd, 0.42 - j * 0.06, -0.05 + j * 0.05), p = V(0, 0, 0);
+      for (let s = 0; s < 10; s++) { dir.y -= 0.22; dir.x *= 0.9; p = p.clone().addScaledVector(dir, 0.22); pts.push(p); }
+      w.add(tube(pts, 0.045, 0.007, skin, undefined, 24, 6)); const tb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), violet); tb.position.copy(p); w.add(tb);
+      body.add(w); arms.push(w);
+    }
+    // long thin legs with knee spikes and broad three-toed feet; the hip is at 1.17 so the sole rests on the floor
+    for (const sd of [-1, 1]) {
+      const lg = new THREE.Group(); lg.position.set(0.19 * sd, 1.17, 0);
+      lg.add(tube([V(0, 0, 0), V(0.05 * sd, -0.3, -0.09), V(0.09 * sd, -0.58, -0.12)], 0.115, 0.07, skin, k => 1 + 0.12 * Math.sin(k * 3.1), 16, 12));
+      const kn = new THREE.Mesh(new THREE.SphereGeometry(0.08, 14, 10), bone); kn.position.set(0.09 * sd, -0.6, -0.12); lg.add(kn);
+      lg.add(cone(0.025, 0.12, dk, V(0.09 * sd, -0.6, -0.22), [-Math.PI / 2, 0, 0]));
+      lg.add(tube([V(0.09 * sd, -0.6, -0.12), V(0.07 * sd, -0.85, -0.02), V(0.05 * sd, -1.06, 0.07)], 0.065, 0.04, skin, undefined, 14, 10));
+      const ft = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 8), skin); ft.scale.set(1.0, 0.4, 2.2); ft.position.set(0.04 * sd, -1.12, -0.08); lg.add(ft);
+      for (const k of [-1, 0, 1]) { const x = 0.04 * sd + k * 0.05; lg.add(tube([V(x, -1.12, -0.22), V(x * 1.1, -1.125, -0.33), V(x * 1.2, -1.13, -0.43)], 0.022, 0.012, bone, undefined, 8, 5)); lg.add(cone(0.012, 0.07, dk, V(x * 1.2, -1.13, -0.47), [-Math.PI / 2, 0, 0])); }
+      lg.add(cone(0.02, 0.1, dk, V(0.04 * sd, -1.1, 0.18), [Math.PI / 2 + 0.3, 0, 0]));   // heel spur
+      g.add(lg); legs.push(lg);
+    }
+    (g as any).userData.tick = (t: number) => { amber.emissiveIntensity = 2.2 + 0.8 * Math.sin(t * 3); violet.emissiveIntensity = 2.2 + 0.9 * Math.sin(t * 2 + 1); hoodG.rotation.x = 0.3 + 0.025 * Math.sin(t * 1.3); };
+  } else if (kind === "domestalker") {   // reference 1: a crouched black predator: a long smooth swept-back dome head with no eyes, a wet jaw with an inner jaw, ribbed hunched body, pipes rising from the back, digitigrade legs, long-fingered arms and a long bladed tail (own design in that mood). FRONT IS -z; feet on y = 0
+    const skin = skinFor(XENO);
+    const M = (c: number, o: any = {}) => mk(CHIT(c, { map: skin, bumpMap: skin, bumpScale: 1.1, roughness: 0.26, metalness: 0.45, clearcoat: 0.8, clearcoatRoughness: 0.2, emissive: 0x0a1620, emissiveIntensity: 0.5, ...o }));
+    const dome = M(0x0b1218, { roughness: 0.12, metalness: 0.6, bumpScale: 0.45, clearcoat: 1, clearcoatRoughness: 0.06, emissive: 0x14405a, emissiveIntensity: 0.9 }), hide = M(0x111a22, { emissive: 0x0e2230, emissiveIntensity: 0.8 }), plate = M(0x1d2a36), trim = M(0x3a5064, { roughness: 0.3 }), pipe = M(0x141c24, { metalness: 0.75, roughness: 0.28 });
+    const bone = new THREE.MeshStandardMaterial({ color: 0xd2dade, roughness: 0.3, metalness: 0.7, emissive: 0x3a4650, emissiveIntensity: 0.6 }), steel = new THREE.MeshStandardMaterial({ color: 0x9fb0bc, roughness: 0.18, metalness: 0.9, emissive: 0x16222c, emissiveIntensity: 0.5 });
+    const glowM = GLOW(0xff3a2a), glowC = GLOW(0x7ae8ff);
+    const ring = (c: THREE.Vector3, d: THREE.Vector3, R: number, t: number, m: THREE.Material, sx = 1, arc = Math.PI * 2) => { const o = new THREE.Mesh(new THREE.TorusGeometry(R, t, 5, arc < 6 ? 12 : 22, arc), m); o.position.copy(c); o.quaternion.setFromUnitVectors(V(0, 0, 1), d.clone().normalize()); o.scale.set(sx, 1, 1); return o; };
+    const sp = (r: number, h: number, m: THREE.Material, p: THREE.Vector3, d: THREE.Vector3) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), m); c.position.copy(p).addScaledVector(d.clone().normalize(), h * 0.5); c.quaternion.setFromUnitVectors(V(0, 1, 0), d.clone().normalize()); return c; };
+    const ball = (r: number, m: THREE.Material, p: THREE.Vector3, sx = 1, sy = 1, sz = 1) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), m); s.position.copy(p); s.scale.set(sx, sy, sz); return s; };
+    // the dome: a long smooth skull, narrow snout, widest over the middle, swept back and up over the shoulders and ending in a point
+    const skP = [V(0, 1.2, -1.22), V(0, 1.35, -0.9), V(0, 1.58, -0.4), V(0, 1.78, 0.15), V(0, 1.82, 0.72), V(0, 1.7, 1.28)], skC = new THREE.CatmullRomCurve3(skP);
+    const skProf = (k: number) => k < 0.42 ? 0.5 + 0.5 * Math.sin(k / 0.42 * Math.PI / 2) : 0.06 + 0.94 * Math.pow(Math.max(0, 1 - (k - 0.42) / 0.58), 0.85);
+    const skull = tube(skP, 0.31, 0.31, dome, skProf, 44, 16); skull.scale.x = 0.7; body.add(skull);
+    body.add(ball(0.155, dome, skP[0].clone().add(V(0, -0.01, 0.02)), 0.7, 0.95, 1.1));
+    for (let k = 0.5; k < 0.93; k += 0.07) body.add(ring(skC.getPoint(k), skC.getTangent(k), 0.31 * skProf(k) * 1.03, 0.0065, trim, 0.7, Math.PI));   // fine ridges over the back of the dome
+    { const cp: THREE.Vector3[] = []; for (let k = 0.08; k <= 0.8; k += 0.09) cp.push(skC.getPoint(k).add(V(0, 0.31 * skProf(k) * 0.97 + 0.004, 0))); body.add(tube(cp, 0.011, 0.011, glowC, undefined, 24, 5)); }   // a thin cold-blue line of light along the crown
+    // neck and the jaws: upper teeth under the snout, a lower jaw with its own row, an inner jaw that slides out, drool
+    body.add(tube([V(0, 1.1, 0.1), V(0, 1.22, -0.25), V(0, 1.34, -0.55)], 0.27, 0.2, hide, undefined, 12, 12));
+    const jawC = new THREE.CatmullRomCurve3([V(0, 1.3, -0.3), V(0, 1.1, -0.78), V(0, 1.05, -1.1)]), jaw = tube(jawC.getPoints(3), 0.1, 0.045, plate, undefined, 14, 10); jaw.scale.x = 0.9; body.add(jaw);
+    for (const sd of [-1, 1]) for (let i = 0; i < 6; i++) { body.add(sp(0.014, 0.08 + 0.03 * (i % 2), bone, V(0.075 * sd, 1.1 - i * 0.003, -1.12 + i * 0.1), V(0.1 * sd, -1, 0))); const p = jawC.getPoint(0.35 + i * 0.1); body.add(sp(0.012, 0.06 + 0.02 * (i % 2), bone, V(0.05 * sd, p.y + 0.04, p.z), V(-0.1 * sd, 1, 0))); }
+    const inner = new THREE.Group(); inner.position.set(0, 1.08, -0.76); body.add(inner);
+    inner.add(tube([V(0, 0, 0.12), V(0, -0.005, -0.18), V(0, -0.02, -0.4)], 0.05, 0.034, plate, undefined, 10, 8));
+    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2; inner.add(sp(0.008, 0.06, bone, V(Math.cos(a) * 0.025, -0.02 + Math.sin(a) * 0.025, -0.4), V(0, 0, -1))); }
+    inner.add(ball(0.017, glowM, V(0, -0.02, -0.43)));
+    for (const x of [-0.04, 0, 0.04]) { const dm = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.12 + Math.abs(x) * 2, 4), DRIP); dm.position.set(x, 0.96, -1.08 + Math.abs(x) * 2); body.add(dm); }
+    // the hunched, ribbed torso
+    const tP = [V(0, 1.12, -0.25), V(0, 1.16, 0.35), V(0, 1.0, 0.95)], tC = new THREE.CatmullRomCurve3(tP), tProf = (k: number) => 1.02 - 0.2 * Math.sin(k * Math.PI) + 0.12 * k;
+    const torso = tube(tP, 0.3, 0.3, hide, tProf, 26, 14); torso.scale.x = 0.88; body.add(torso);
+    for (let k = 0.08; k < 0.96; k += 0.085) { body.add(ring(tC.getPoint(k), tC.getTangent(k), 0.3 * tProf(k) * 1.03, 0.011, trim, 0.88)); }
+    for (let k = 0.1; k < 0.97; k += 0.12) { const c = tC.getPoint(k), r = 0.3 * tProf(k); body.add(sp(0.02, 0.1, plate, c.clone().add(V(0, r * 0.98, 0)), V(0, 1, 0.45))); }   // a ridge of back spines
+    body.add(ball(0.26, plate, V(0, 1.0, 0.92), 0.95, 0.9, 1.1));   // pelvis
+    for (const sd of [-1, 1]) { body.add(ball(0.13, plate, V(0.3 * sd, 1.28, -0.15), 1, 0.85, 1.1)); body.add(sp(0.028, 0.2, trim, V(0.32 * sd, 1.32, -0.05), V(0.5 * sd, 0.55, 1))); }   // shoulder caps with blade-like spikes
+    // two long ribbed pipes on the back sweeping past the skull, two short ones, each ending in an open mouth with a red glow
+    for (const sd of [-1, 1]) {
+      const pp = [V(0.28 * sd, 1.42, 0.25), V(0.37 * sd, 1.7, 0.7), V(0.33 * sd, 1.8, 1.2), V(0.26 * sd, 1.68, 1.75)], pc = new THREE.CatmullRomCurve3(pp);
+      body.add(tube(pp, 0.06, 0.05, pipe, undefined, 22, 8));
+      for (let k = 0.12; k < 0.97; k += 0.17) body.add(ring(pc.getPoint(k), pc.getTangent(k), 0.062, 0.011, trim));
+      body.add(ring(pc.getPoint(1), pc.getTangent(1), 0.052, 0.014, trim)); const mo = ball(0.034, glowM, pc.getPoint(1)); body.add(mo);
+      const ps = [V(0.2 * sd, 1.3, 0.55), V(0.28 * sd, 1.5, 0.95), V(0.22 * sd, 1.5, 1.35)]; body.add(tube(ps, 0.045, 0.037, pipe, undefined, 14, 7)); body.add(ball(0.03, glowM, ps[2]));
+    }
+    // the tail: a long segmented whip that sways, ending in a steel blade (pivot at the pelvis)
+    const tail = new THREE.Group(); tail.position.set(0, 1.0, 0.95); body.add(tail);
+    { const tl = [V(0, 0, 0), V(0, -0.12, 0.65), V(0, -0.1, 1.25), V(0, 0.2, 1.75), V(0, 0.6, 1.98)], tcv = new THREE.CatmullRomCurve3(tl);
+      tail.add(tube(tl, 0.125, 0.014, hide, undefined, 30, 8));
+      for (let k = 0.04; k < 0.97; k += 0.07) { const r = 0.125 + (0.014 - 0.125) * k; tail.add(ring(tcv.getPoint(k), tcv.getTangent(k), r * 1.06, 0.01, trim)); }
+      for (let k = 0.08; k < 0.82; k += 0.1) { const c = tcv.getPoint(k), r = 0.125 + (0.014 - 0.125) * k; tail.add(sp(0.022 * (1 - k * 0.6), 0.12, plate, c.clone().add(V(0, r, 0)), V(0, 1, 0.4))); }
+      const bl = sp(0.06, 0.62, steel, tcv.getPoint(0.97), tcv.getTangent(1).add(V(0, 0.15, 0))); bl.scale.x = 0.3; tail.add(bl); tail.add(ball(0.02, glowM, tcv.getPoint(0.97))); }
+    // arms: long, bent, with four long fingers; the stage rocks them about the shoulder, so they are built to reach the floor after that turn
+    for (const sd of [-1, 1]) {
+      const arm = new THREE.Group(); arm.position.set(0.32 * sd, 1.25, -0.15);
+      arm.add(tube([V(0, 0, 0), V(0.06 * sd, -0.22, -0.08), V(0.12 * sd, -0.4, -0.2)], 0.125, 0.085, hide, (k) => 1 + 0.25 * Math.sin(k * 3), 12, 10));
+      arm.add(ball(0.065, plate, V(0.12 * sd, -0.4, -0.2))); arm.add(sp(0.02, 0.12, trim, V(0.12 * sd, -0.4, -0.2), V(0.5 * sd, 0.2, 1)));
+      arm.add(tube([V(0.12 * sd, -0.4, -0.2), V(0.12 * sd, -0.52, -0.42), V(0.1 * sd, -0.62, -0.66)], 0.085, 0.055, plate, undefined, 12, 8));
+      arm.add(ball(0.05, hide, V(0.1 * sd, -0.62, -0.66), 1, 0.8, 1.2));
+      for (const k of [-1.5, -0.5, 0.5, 1.5]) arm.add(tube([V(0.1 * sd + k * 0.03, -0.62, -0.66), V(0.1 * sd + k * 0.045, -0.76, -0.78), V(0.1 * sd + k * 0.06, -0.9, -0.86)], 0.02, 0.005, trim, undefined, 8, 5));
+      body.add(arm); arms.push(arm);
+    }
+    // digitigrade hind legs: thigh forward and down to the knee, shin back to the ankle, a long foot forward to three toes on the floor
+    for (const sd of [-1, 1]) {
+      const lg = new THREE.Group(); lg.position.set(0.32 * sd, 1.02, 0.92);
+      lg.add(tube([V(0, 0, 0), V(0.05 * sd, -0.2, -0.2), V(0.1 * sd, -0.4, -0.45)], 0.18, 0.1, hide, (k) => 1 + 0.35 * Math.sin(k * 3), 14, 12));
+      lg.add(ball(0.1, plate, V(0.1 * sd, -0.4, -0.45))); lg.add(sp(0.03, 0.14, trim, V(0.12 * sd, -0.4, -0.5), V(0.7 * sd, 0.2, -0.5)));
+      lg.add(tube([V(0.1 * sd, -0.4, -0.45), V(0.08 * sd, -0.55, -0.1), V(0.05 * sd, -0.72, 0.2)], 0.1, 0.055, plate, undefined, 12, 8));
+      lg.add(sp(0.02, 0.12, trim, V(0.05 * sd, -0.72, 0.22), V(0, 0.2, 1)));
+      lg.add(tube([V(0.05 * sd, -0.72, 0.2), V(0.03 * sd, -0.88, -0.1), V(0.02 * sd, -0.97, -0.4)], 0.055, 0.04, hide, undefined, 12, 8));
+      for (const k of [-1, 0, 1]) lg.add(sp(0.016, 0.16, bone, V(0.02 * sd + k * 0.045, -0.98, -0.42), V(k * 0.12, -0.35, -1)));
+      g.add(lg); legs.push(lg);
+    }
+    (g as any).userData.tick = (t: number) => { tail.rotation.y = Math.sin(t * 1.6) * 0.22; tail.rotation.x = Math.sin(t * 1.1) * 0.05; inner.position.z = -0.76 - 0.07 * (0.5 + 0.5 * Math.sin(t * 3.1)); (glowM as any).emissiveIntensity = 1.1 + 0.5 * Math.sin(t * 2.3); };
+  } else if (kind === "xenodrone") {   // Night Drone: an upright black biomech hunter (own design in the mood of the classic film creature). FRONT IS -z like every other species: long ridged skull swept back, outer + inner jaw, ribbed chest, dorsal pipes, digitigrade legs, segmented bladed tail
+    const skin = skinFor(XENO);
+    const M = (c: number, o: any = {}) => mk(CHIT(c, { map: skin, bumpMap: skin, bumpScale: 1.5, roughness: 0.26, metalness: 0.45, clearcoat: 0.8, clearcoatRoughness: 0.2, emissive: 0x0a1620, emissiveIntensity: 0.5, envMapIntensity: 1, ...o }));
+    const bl = M(0x0c1117), bl2 = M(0x182530), bl3 = M(0x2c3f50, { roughness: 0.34 }), pipe = M(0x131b23, { metalness: 0.7, roughness: 0.3 });
+    const bone = new THREE.MeshStandardMaterial({ color: 0xd2dade, roughness: 0.3, metalness: 0.75, emissive: 0x3a4650, emissiveIntensity: 0.6 });
+    const ring = (c: THREE.Vector3, d: THREE.Vector3, R: number, t: number, m: THREE.Material, sx = 1, arc = Math.PI * 2) => { const o = new THREE.Mesh(new THREE.TorusGeometry(R, t, 5, arc < 6 ? 12 : 22, arc), m); o.position.copy(c); o.quaternion.setFromUnitVectors(V(0, 0, 1), d.clone().normalize()); o.scale.set(sx, 1, 1); return o; };
+    const sp = (r: number, h: number, m: THREE.Material, p: THREE.Vector3, d: THREE.Vector3) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 5), m); c.position.copy(p).addScaledVector(d.clone().normalize(), h * 0.5); c.quaternion.setFromUnitVectors(V(0, 1, 0), d.clone().normalize()); return c; };
+    const ball = (r: number, m: THREE.Material, p: THREE.Vector3, sx = 1, sy = 1, sz = 1) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 9), m); s.position.copy(p); s.scale.set(sx, sy, sz); return s; };
+    // the long ridged skull: no eyes, swept back over the shoulders, widest behind the middle
+    const skP = [V(0, 1.5, -0.66), V(0, 1.66, -0.58), V(0, 1.88, -0.3), V(0, 2.02, 0.15), V(0, 2.02, 0.62), V(0, 1.9, 0.98)], skC = new THREE.CatmullRomCurve3(skP);
+    const skProf = (k: number) => k < 0.5 ? 0.5 + 0.5 * Math.sin(k / 0.5 * Math.PI / 2) : 1 - 0.82 * Math.pow((k - 0.5) / 0.5, 1.4);
+    const skull = tube(skP, 0.21, 0.21, bl, skProf, 40, 14); skull.scale.x = 0.76; body.add(skull);
+    body.add(ball(0.105, bl, skP[0], 0.76, 1, 1)); body.add(ball(0.04, bl, skP[5], 0.76, 1, 1));
+    for (let k = 0.34; k < 0.92; k += 0.065) { const c = skC.getPoint(k), d = skC.getTangent(k); body.add(ring(c, d, 0.21 * skProf(k) * 1.04, 0.0075, bl3, 0.76, Math.PI)); }   // ridges over the back of the dome
+    body.add(tube([V(0, 1.4, -0.26), V(0, 1.52, -0.42), V(0, 1.6, -0.5)], 0.11, 0.1, bl2, undefined, 8, 8));   // neck joining the skull
+    for (const sd of [-1, 1]) body.add(tube([V(0.09 * sd, 1.36, -0.18), V(0.1 * sd, 1.5, -0.4), V(0.07 * sd, 1.6, -0.52)], 0.02, 0.016, pipe, undefined, 8, 6));   // cables at the neck
+    // outer jaw: teeth under the face, a lower jaw with its own row, an inner jaw that pulses out between them
+    for (const sd of [-1, 1]) for (let i = 0; i < 5; i++) body.add(sp(0.015, 0.075 + 0.03 * (i % 2), bone, V(0.052 * sd, 1.42, -0.66 + i * 0.075), V(0.12 * sd, -1, -0.1)));
+    const jawC = new THREE.CatmullRomCurve3([V(0, 1.44, -0.2), V(0, 1.33, -0.42), V(0, 1.29, -0.64)]);
+    const jaw = tube(jawC.getPoints(2), 0.085, 0.05, bl2, undefined, 14, 10); jaw.scale.x = 0.9; body.add(jaw);
+    for (const sd of [-1, 1]) for (let i = 0; i < 4; i++) { const p = jawC.getPoint(0.35 + i * 0.19); body.add(sp(0.012, 0.06 + 0.02 * (i % 2), bone, V(0.034 * sd, p.y + 0.045, p.z), V(-0.1 * sd, 1, -0.1))); }
+    const inner = new THREE.Group(); inner.position.set(0, 1.385, -0.3); inner.scale.z = 0.8; body.add(inner);
+    inner.add(tube([V(0, 0.01, 0), V(0, 0, -0.28), V(0, -0.01, -0.52)], 0.05, 0.034, M(0x1a232b, { roughness: 0.2 }), undefined, 12, 8));
+    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2; inner.add(sp(0.008, 0.05, bone, V(Math.cos(a) * 0.026, -0.01 + Math.sin(a) * 0.026, -0.53), V(0, 0, -1))); }
+    inner.add(ball(0.016, GLOW(0xff4a3a), V(0, -0.01, -0.54)));
+    for (const x of [-0.03, 0, 0.03]) { const dm = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.1 + Math.abs(x) * -1, 4), DRIP); dm.position.set(x, 1.24, -0.62 + Math.abs(x) * 2); body.add(dm); }
+    // the ribbed, narrow chest: a leaning spine of rings, shoulders, a ridge of back spines
+    const tP = [V(0, 0.98, 0.18), V(0, 1.2, 0.0), V(0, 1.42, -0.25)], tC = new THREE.CatmullRomCurve3(tP), tProf = (k: number) => 0.85 + 0.3 * Math.sin(k * Math.PI * 0.9);
+    const torso = tube(tP, 0.225, 0.225, bl2, tProf, 24, 12); torso.scale.x = 0.95; body.add(torso);
+    for (let k = 0.2; k < 0.98; k += 0.13) body.add(ring(tC.getPoint(k), tC.getTangent(k), 0.225 * tProf(k) * 1.04, 0.011, bl3, 0.95));
+    { const ribM = new THREE.MeshStandardMaterial({ color: 0x56636e, roughness: 0.32, metalness: 0.65, emissive: 0x16222c, emissiveIntensity: 0.6 });   // exposed ribs across the front of the chest + a sternum ridge, as in the film creature
+      for (let k = 0.08; k < 0.97; k += 0.1) { const c = tC.getPoint(k), d = tC.getTangent(k).normalize(), fw = V(0, 0, -1).addScaledVector(d, d.z), rr = 0.225 * tProf(k) * 1.05; fw.normalize(); const pts: THREE.Vector3[] = [];
+        for (let a = -0.15; a <= Math.PI + 0.15; a += 0.3) pts.push(c.clone().addScaledVector(V(1, 0, 0), Math.cos(a) * rr * 0.95).addScaledVector(fw, Math.sin(a) * rr * 0.98));
+        body.add(tube(pts, 0.013, 0.013, ribM, undefined, 12, 5)); }
+      body.add(tube([V(0, 1.0, -0.05), V(0, 1.2, -0.25), V(0, 1.4, -0.5)], 0.017, 0.017, ribM, undefined, 10, 5)); }
+    for (let k = 0.12; k < 0.95; k += 0.2) { const c = tC.getPoint(k), n = V(0, 0.83, 0.55); body.add(sp(0.017, 0.09, bl3, c.clone().addScaledVector(n, 0.2), n)); }
+    for (const sd of [-1, 1]) { body.add(ball(0.125, bl2, V(0.28 * sd, 1.4, -0.2), 1, 0.85, 1.05)); body.add(sp(0.03, 0.2, bl3, V(0.3 * sd, 1.46, -0.12), V(0.5 * sd, 0.6, 1))); body.add(sp(0.022, 0.14, bl3, V(0.32 * sd, 1.38, -0.06), V(0.8 * sd, 0.1, 1))); }   // shoulder caps with blade-like scapula spikes
+    body.add(ball(0.215, bl2, V(0, 0.98, 0.17), 1.1, 0.85, 1.05));   // pelvis
+    for (let k = 0; k < 7; k++) { const y = 1.45 - k * 0.07, z = -0.3 + k * 0.07; body.add(ball(0.024, bl3, V(0, y + 0.2, z + 0.18 + 0.16 * Math.max(0, k - 4) / 3), 1, 0.8, 1)); }   // vertebra knobs between the dorsal pipes
+    const caps: THREE.Mesh[] = [];
+    // dorsal pipes: two long ones sweeping back past the skull, two short ones lower, each ribbed and capped
+    for (const sd of [-1, 1]) {
+      const pp = [V(0.1 * sd, 1.5, -0.04), V(0.17 * sd, 1.76, 0.34), V(0.23 * sd, 1.8, 0.86)], pc = new THREE.CatmullRomCurve3(pp);
+      body.add(tube(pp, 0.045, 0.036, pipe, undefined, 18, 8)); body.add(ring(pp[2], V(0, -0.05, 1), 0.038, 0.012, bl3)); { const cap = ball(0.034, GLOW(0x3a8ab0), V(pp[2].x, pp[2].y, pp[2].z + 0.03)); caps.push(cap); body.add(cap); }
+      for (let k = 0.2; k < 0.95; k += 0.2) body.add(ring(pc.getPoint(k), pc.getTangent(k), 0.049, 0.007, bl3));
+      const p2 = [V(0.09 * sd, 1.34, 0.1), V(0.15 * sd, 1.5, 0.4), V(0.17 * sd, 1.46, 0.72)]; body.add(tube(p2, 0.038, 0.03, pipe, undefined, 14, 8)); body.add(ball(0.03, pipe, p2[2]));
+    }
+    // the segmented whip tail with its blade, pivoting at the hips so it can sway
+    const tail = new THREE.Group(), piv = V(0, 0.98, 0.3); tail.position.copy(piv); body.add(tail);
+    const tlP = [V(0, 1.0, 0.3), V(0, 0.88, 0.85), V(0, 0.8, 1.45), V(0, 0.95, 2.0), V(0, 1.35, 2.42), V(0, 1.72, 2.62)].map(p => p.sub(piv)), tlC = new THREE.CatmullRomCurve3(tlP), tlProf = (k: number) => 1 - 0.12 * k;
+    tail.add(tube(tlP, 0.12, 0.012, bl, tlProf, 40, 8));
+    for (let k = 0.08; k < 0.92; k += 0.085) { const c = tlC.getPoint(k), d = tlC.getTangent(k), r = (0.12 + (0.012 - 0.12) * k) * tlProf(k); tail.add(ring(c, d, r * 1.06, 0.009, bl3)); tail.add(sp(r * 0.28, r * 0.9, bl3, c.clone().add(V(0, r * 0.9, 0)), V(0, 1, 0.5))); }
+    { const e = tlC.getPoint(1), d = tlC.getTangent(1), bld = sp(0.05, 0.5, M(0x3a4e60, { metalness: 0.85, roughness: 0.18 }), e, d); bld.scale.set(1, 1, 0.3); tail.add(bld); }
+    // long arms with four long fingers (built in the pose they should show, tilted back by the 0.5 rad the animation adds)
+    const c5 = Math.cos(0.5), s5 = Math.sin(0.5), R = (x: number, y: number, z: number) => V(x, y * c5 - z * s5, y * s5 + z * c5);
+    for (const sd of [-1, 1]) {
+      const arm = new THREE.Group(); arm.position.set(0.28 * sd, 1.4, -0.22);
+      const el = R(0.13 * sd, -0.4, -0.1), wr = R(0.07 * sd, -0.55, -0.6);
+      arm.add(tube([R(0, 0, 0), R(0.09 * sd, -0.2, -0.04), el], 0.09, 0.062, bl2, k => 1 + 0.3 * Math.sin(k * 3), 12, 8));
+      arm.add(ball(0.05, bl2, el)); arm.add(sp(0.025, 0.12, bl3, el, R(0.5 * sd, 0.1, 1)));
+      arm.add(tube([el, R(0.1 * sd, -0.5, -0.35), wr], 0.058, 0.034, bl, undefined, 12, 8));
+      arm.add(ball(0.03, bl3, wr));
+      for (let f = 0; f < 4; f++) { const dx = (f - 1.5) * 0.034 * sd, tip = R(0.07 * sd + dx * 1.4, -0.72, -1.05 - (f === 0 || f === 3 ? 0 : 0.1)); arm.add(tube([wr, R(0.07 * sd + dx, -0.6, -0.78), tip], 0.016, 0.004, bl3, undefined, 8, 5)); arm.add(sp(0.006, 0.05, bone, tip, V(0, -0.4, -1))); }
+      body.add(arm); arms.push(arm);
+    }
+    // digitigrade legs: thigh forward, shin back to a high hock, a long foot with three toes
+    for (const sd of [-1, 1]) {
+      const lg = new THREE.Group(); lg.position.set(0.2 * sd, 0.98, 0.15);
+      const kn = V(0.05 * sd, -0.36, -0.3), an = V(0.06 * sd, -0.72, 0.02), ft = V(0.06 * sd, -0.97, -0.34);
+      lg.add(tube([V(0, 0, 0), V(0.03 * sd, -0.18, -0.16), kn], 0.135, 0.078, bl2, k => 1 + 0.45 * Math.sin(k * 3), 14, 10));
+      lg.add(ball(0.09, bl3, kn)); lg.add(sp(0.025, 0.1, bl3, kn, V(0.4 * sd, 0.4, -1)));
+      lg.add(tube([kn, V(0.06 * sd, -0.55, -0.13), an], 0.07, 0.04, bl, undefined, 12, 8));
+      lg.add(ball(0.04, bl3, an)); lg.add(sp(0.02, 0.1, bl3, an, V(0, 0.2, 1)));
+      lg.add(tube([an, V(0.06 * sd, -0.86, -0.12), ft], 0.042, 0.026, bl2, undefined, 10, 6));
+      for (const k of [-1, 0, 1]) { const tip = V(ft.x + k * 0.07, -0.975, -0.58); lg.add(tube([ft, V(ft.x + k * 0.035, -0.975, -0.44), tip], 0.016, 0.006, bl3, undefined, 6, 5)); lg.add(sp(0.007, 0.05, bone, tip, V(k * 0.2, -0.1, -1))); }
+      g.add(lg); legs.push(lg);
+    }
+    (g as any).userData.tick = (t: number) => { tail.rotation.y = Math.sin(t * 1.5) * 0.14; tail.rotation.x = Math.sin(t * 1.1 + 1) * 0.04; inner.scale.z = 0.78 + 0.22 * Math.max(0, Math.sin(t * 2.3)); const pu = 1 + 0.35 * Math.max(0, Math.sin(t * 3.1)); for (const c of caps) c.scale.setScalar(pu); };
+  } else if (kind === "huntsman") {   // a masked trophy hunter (own design in the mood of the classic film hunter): a tall, hunched, mesh-suited humanoid in dark layered plate, a steel-and-bronze mask with a tall crest, glowing eye slits and four hooked mandibles, thick ringed dreadlocks that fan out and fall over the chest, a shoulder cannon with a three-dot laser sight, a wrist computer, twin wrist blades, a spear across the back, a skull trophy at the hip; knees bent forward, long boots
+    const NETM = { map: HUNT_NET, bumpMap: HUNT_NET, bumpScale: 1.4, roughness: 0.62, metalness: 0.02, clearcoat: 0.12 }, PLT = { map: HUNT_PLATE, bumpMap: HUNT_PLATE, bumpScale: 0.5 };
+    const sk = mk(CHIT(0x86834f, NETM)), sk2 = mk(CHIT(0x44432c, NETM)), dr = mk(CHIT(0x2a271b, { map: HUNT_NET, bumpMap: HUNT_NET, bumpScale: 2, roughness: 0.75, metalness: 0, clearcoat: 0 }));
+    const ar = mk(CHIT(0x5e6772, { ...PLT, roughness: 0.3, metalness: 0.85, clearcoat: 0.7 })), mb = mk(CHIT(0x8c7438, { ...PLT, roughness: 0.34, metalness: 0.9, clearcoat: 0.55 })), br = mk(CHIT(0xe0bc58, { ...PLT, roughness: 0.24, metalness: 0.95, clearcoat: 0.6 }));
+    const bn2 = mk(CHIT(0xc4b690, { map: null, roughness: 0.4, metalness: 0.05 })), bl = mk(CHIT(0xe4eaf0, { map: null, roughness: 0.1, metalness: 1, clearcoat: 1 })), dk2 = mk(CHIT(0x14171b, { map: null, roughness: 0.35, metalness: 0.7 }));
+    (ar as any).side = THREE.DoubleSide;
+    const gAmb = GLOW(0xffd83a), gRed = GLOW(0xff2a1a), gGrn = GLOW(0x3affc0);
+    const ball = (r: number, m: THREE.Material, sx = 1, sy = 1, sz = 1, seg = 14) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(8, seg - 4)), m); o.scale.set(sx, sy, sz); return o; };
+    const put = <T extends THREE.Object3D>(o: T, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0): T => { o.position.set(x, y, z); o.rotation.set(rx, ry, rz); return o; };
+    const fit = <T extends THREE.Object3D>(o: T, a: THREE.Vector3, b: THREE.Vector3, axis = V(0, 0, 1)): T => { o.position.copy(a).add(b).multiplyScalar(0.5); o.quaternion.setFromUnitVectors(axis, b.clone().sub(a).normalize()); return o; };
+    const band = (parent: THREE.Object3D, pts: THREE.Vector3[], k: number, r: number, t: number, m: THREE.Material) => { const c = new THREE.CatmullRomCurve3(pts), o = new THREE.Mesh(new THREE.TorusGeometry(r, t, 6, 18), m); o.position.copy(c.getPoint(k)); o.quaternion.setFromUnitVectors(V(0, 0, 1), c.getTangent(k)); parent.add(o); return o; };
+    /* the upper body leans forward a little about the waist: the hunter's hunch */
+    const up = new THREE.Group(); { const la = 0.13; up.rotation.x = la; up.position.set(0, 1.15 * (1 - Math.cos(la)), -1.15 * Math.sin(la)); body.add(up); }
+    const arc = (r: number, h: number, a: number, m: THREE.Material, y: number, sx: number, sz: number, z = 0) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.04, h, 20, 1, true, -a, a * 2), m); o.scale.set(sx, 1, sz); o.position.set(0, y, z); up.add(o); return o; };
+    /* torso: mesh-suited pelvis, waist and a broad chest, plated in front */
+    body.add(tube([V(0, 0.92, 0), V(0, 1.1, 0), V(0, 1.26, 0)], 0.2, 0.2, sk2, undefined, 8, 14));
+    { const abd = tube([V(0, 1.2, 0), V(0, 1.45, 0.01), V(0, 1.7, 0)], 0.2, 0.27, sk, k => 1 + 0.06 * Math.sin(k * 3.1), 12, 14); abd.scale.set(1.05, 1, 0.78); up.add(abd); }
+    { const ch = tube([V(0, 1.65, 0), V(0, 1.85, 0.02), V(0, 2.03, 0)], 0.27, 0.3, sk, k => 1 + 0.12 * Math.sin(k * 3.14), 12, 18); ch.scale.set(1.36, 1, 0.85); up.add(ch); }
+    arc(0.36, 0.38, 1.05, ar, 1.86, 1.36, 0.85); arc(0.37, 0.05, 1.08, mb, 2.05, 1.36, 0.85); arc(0.37, 0.04, 1.08, mb, 1.68, 1.36, 0.85);
+    for (let i = 0; i < 3; i++) arc(0.285 - i * 0.012, 0.085, 0.8, ar, 1.58 - i * 0.1, 1.05, 0.78);
+    up.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.028), dk2), 0, 1.76, 0.31, -0.12));   // the dark seam down the plate
+    up.add(put(ball(0.022, gGrn, 1, 1, 1, 8), 0, 1.99, 0.335)); up.add(put(ball(0.016, gRed, 1, 1, 1, 8), 0, 1.5, 0.285));
+    up.add(put(new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.05, 8, 22), mb), 0, 2.04, 0.01, Math.PI / 2));   // the gorget
+    up.add(tube([V(0, 1.98, 0), V(0, 2.1, 0.04), V(0, 2.22, 0.07)], 0.1, 0.085, sk2, undefined, 6, 10));
+    { const pk = new THREE.Group(); pk.position.set(0, 1.75, -0.31); pk.add(new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.16), ar)); for (let i = 0; i < 3; i++) pk.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.026, 0.02), gGrn), 0, 0.13 - i * 0.1, -0.09)); for (const sd of [-1, 1]) pk.add(put(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.54, 8), mb), 0.14 * sd, 0.02, -0.02)); up.add(pk); }   // power pack with glowing vents
+    /* the spear carried across the back */
+    up.add(tube([V(-0.24, 1.15, -0.43), V(0, 1.95, -0.47), V(0.24, 2.7, -0.5)], 0.018, 0.016, mb, undefined, 8, 6)); up.add(cone(0.045, 0.3, bl, V(0.255, 2.84, -0.505), [0.05, 0, -0.3]));
+    /* belt, loincloth and a skull trophy */
+    body.add(put(new THREE.Mesh(new THREE.TorusGeometry(0.225, 0.04, 8, 24), br), 0, 1.12, 0, Math.PI / 2));
+    body.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.045), mb), 0, 1.1, 0.225)); body.add(put(ball(0.02, gRed, 1, 1, 1, 8), 0, 1.1, 0.25));
+    body.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.34, 0.03), dk2), 0, 0.94, 0.215, 0.1)); body.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.03, 0.035), br), 0, 0.775, 0.235, 0.1));
+    body.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.4, 0.03), dk2), 0, 0.92, -0.215, -0.1));
+    body.add(tube([V(-0.24, 1.1, 0.12), V(-0.28, 1.0, 0.15), V(-0.29, 0.95, 0.16)], 0.01, 0.01, dk2, undefined, 6, 5));
+    { const sull = new THREE.Group(); sull.position.set(-0.29, 0.9, 0.16); sull.add(ball(0.055, bn2, 1, 1.08, 1.1, 12)); sull.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.025, 0.05), bn2), 0, -0.06, 0.02)); for (const sd of [-1, 1]) sull.add(put(ball(0.014, dk2, 1, 1, 0.6, 6), 0.02 * sd, 0.01, 0.05)); body.add(sull); }
+    /* shoulders: layered pauldrons, and the cannon with its laser sight on the left */
+    for (const sd of [-1, 1]) { up.add(put(ball(0.19, ar, 1.2, 0.7, 1.1, 18), 0.5 * sd, 1.99, 0, 0, 0, -0.22 * sd)); up.add(put(ball(0.14, mb, 1.15, 0.5, 1.05, 14), 0.5 * sd, 2.05, 0, 0, 0, -0.22 * sd)); up.add(put(new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.014, 6, 24), mb), 0.52 * sd, 1.92, 0, Math.PI / 2, 0, -0.22 * sd)); }
+    const can = new THREE.Group(); can.position.set(-0.54, 2.3, 0.02); up.add(can);
+    up.add(put(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.075, 0.12, 10), br), -0.54, 2.19, 0.02));
+    can.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.14, 0.4), ar), 0, 0, 0.0)); can.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.03, 0.24), br), 0, 0.085, -0.02)); can.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.152, 0.02, 0.1), gGrn), 0, 0.01, 0.12));
+    can.add(tube([V(0, 0, 0.16), V(0, 0, 0.36), V(0, 0, 0.58)], 0.05, 0.04, mb, undefined, 8, 10)); can.add(band(can, [V(0, 0, 0.16), V(0, 0, 0.36), V(0, 0, 0.58)], 0.7, 0.055, 0.012, br)); can.add(put(ball(0.036, gGrn, 1, 1, 1, 10), 0, 0, 0.6));
+    can.add(tube([V(0, 0.03, 0.58), V(0, 0.03, 1.3), V(0, 0.03, 2.1)], 0.006, 0.006, gRed, undefined, 3, 5)); for (const [dx, dy] of [[0, 0.05], [-0.04, 0], [0.04, 0]]) can.add(put(ball(0.022, gRed, 1, 1, 1, 8), dx, dy + 0.0, 2.1));   // the laser sight: three red dots
+    /* arms: bare mesh sleeve, bracers; the right wrist carries two blades, the left a glowing computer */
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.016, 0.15), gGrn);
+    for (const sd of [-1, 1]) {
+      const arm = new THREE.Group(); arm.position.set(0.5 * sd, 1.98, 0); arm.add(tube([V(0, 0, 0), V(0.06 * sd, -0.3, 0), V(0.1 * sd, -0.58, 0.03)], 0.105, 0.075, sk, k => 1 + 0.18 * Math.sin(k * 3.1), 12, 12));
+      arm.add(put(ball(0.085, ar, 1, 1, 1, 10), 0.1 * sd, -0.6, 0.0));
+      const fa = [V(0.1 * sd, -0.6, 0.03), V(0.11 * sd, -0.82, 0.2), V(0.1 * sd, -0.98, 0.42)];
+      arm.add(tube(fa, 0.07, 0.055, sk2, undefined, 10, 10)); arm.add(tube([V(0.1 * sd, -0.66, 0.08), V(0.11 * sd, -0.82, 0.2), V(0.1 * sd, -0.95, 0.38)], 0.1, 0.088, ar, k => 1 + 0.14 * Math.sin(k * 3.1), 10, 12));
+      band(arm, fa, 0.25, 0.1, 0.014, mb); band(arm, fa, 0.78, 0.09, 0.014, mb);
+      const hand = new THREE.Group(); hand.position.set(0.1 * sd, -1.0, 0.44); hand.add(ball(0.055, sk2, 1.1, 0.8, 1.2, 10));
+      for (let f = 0; f < 4; f++) hand.add(tube([V((f - 1.5) * 0.026, -0.01, 0.04), V((f - 1.5) * 0.03, -0.04, 0.1 + (f === 1 || f === 2 ? 0.015 : 0)), V((f - 1.5) * 0.032, -0.1, 0.14)], 0.014, 0.008, dk2, undefined, 5, 5));
+      hand.add(tube([V(0.04 * sd, 0, 0.0), V(0.075 * sd, -0.03, 0.05), V(0.08 * sd, -0.07, 0.09)], 0.016, 0.009, dk2, undefined, 5, 5)); arm.add(hand);
+      if (sd > 0) {
+        arm.add(fit(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.055, 0.34), mb), V(0.1, -0.74, 0.2), V(0.1, -0.9, 0.44)));
+        for (const o of [-0.04, 0.04]) { const bd = V(0.03 * (o > 0 ? 1 : -1), -0.35, 0.93).normalize(), bs = V(0.1 + o, -0.83, 0.38), blade = new THREE.Mesh(new THREE.ConeGeometry(0.05, 1.3, 8), bl); blade.scale.set(1, 1, 0.2); blade.position.copy(bs).addScaledVector(bd, 0.65); blade.quaternion.setFromUnitVectors(V(0, 1, 0), bd); arm.add(blade); }
+      } else { const pn = panel; fit(pn, V(-0.1, -0.78, 0.22), V(-0.1, -0.92, 0.42)); pn.translateY(0.075); arm.add(pn); arm.add(put(ball(0.012, gAmb, 1, 1, 1, 6), -0.13, -0.84, 0.3)); arm.add(put(ball(0.012, gRed, 1, 1, 1, 6), -0.07, -0.86, 0.33)); }
+      up.add(arm); arms.push(arm);
+    }
+    /* head: a tall helmet, a steel-and-bronze face mask with a heavy brow and a nose ridge, angry amber eye slits, cheek plates, a ridged crest and ear pods, four hooked mandibles around the mouth, breather hoses */
+    const head = new THREE.Group(); head.position.set(0, 2.38, 0.07); head.scale.setScalar(1.16); up.add(head);
+    head.add(put(ball(0.2, ar, 0.9, 1.4, 1.2, 20), 0, 0.06, -0.05)); head.add(put(ball(0.15, mb, 0.82, 1.25, 0.6, 18), 0, -0.02, 0.135));
+    head.add(tube([V(0, 0.2, 0.05), V(0, 0.1, 0.2), V(0, -0.02, 0.245), V(0, -0.11, 0.2)], 0.034, 0.022, br, undefined, 12, 8));
+    head.add(tube([V(-0.19, 0.12, 0.05), V(-0.09, 0.115, 0.2), V(0, 0.09, 0.235), V(0.09, 0.115, 0.2), V(0.19, 0.12, 0.05)], 0.036, 0.036, ar, undefined, 14, 8));
+    { const cr = tube([V(0, 0.22, 0.04), V(0, 0.38, -0.06), V(0, 0.4, -0.22), V(0, 0.22, -0.36)], 0.055, 0.016, br, undefined, 12, 8); cr.scale.x = 0.55; head.add(cr); for (let i = 0; i < 4; i++) head.add(put(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.1, 0.02), mb), 0, 0.42 - Math.abs(i - 1.2) * 0.04, -0.04 - i * 0.1, 0.0, 0, 0)); }
+    head.add(eyes(gAmb, 0.05, 0.2, 0.075, 0.018));
+    const mand: { g: THREE.Group; sd: number; ph: number }[] = [];
+    for (const sd of [-1, 1]) {
+      head.add(put(ball(0.042, gAmb, 1.55, 0.5, 0.5, 10), 0.075 * sd, 0.05, 0.2, 0, 0, 0.35 * sd)); head.add(put(ball(0.1, ar, 0.6, 1.0, 0.7, 12), 0.165 * sd, -0.07, 0.08, 0, 0, 0.15 * sd));
+      head.add(put(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 12), mb), 0.205 * sd, 0.03, -0.03, 0, 0, Math.PI / 2)); head.add(put(ball(0.016, gRed, 1, 1, 1, 6), 0.232 * sd, 0.03, -0.03));
+      for (let r = 0; r < 2; r++) { const m = new THREE.Group(); m.position.set((0.04 + r * 0.03) * sd, -0.14 - r * 0.04, 0.2); m.add(tube([V(0, 0, 0), V(0.05 * sd, -0.05, 0.08), V((0.11 + r * 0.02) * sd, -0.14 - r * 0.02, 0.07), V((0.15 + r * 0.03) * sd, -0.22 - r * 0.03, 0.0)], 0.032, 0.005, bn2, undefined, 10, 6)); head.add(m); mand.push({ g: m, sd, ph: r * 1.7 + (sd > 0 ? 0.9 : 0) }); }
+      head.add(tube([V(0.09 * sd, -0.15, 0.17), V(0.15 * sd, -0.26, 0.1), V(0.21 * sd, -0.4, 0.0), V(0.25 * sd, -0.55, -0.06)], 0.02, 0.02, dk2, undefined, 10, 6));
+    }
+    head.add(put(ball(0.06, dk2, 1.3, 0.7, 0.6, 8), 0, -0.145, 0.2)); head.add(put(ball(0.02, gRed, 1.3, 0.7, 0.6, 6), 0, -0.145, 0.228));
+    /* thick ringed dreadlocks: a back curtain that fans out past the body (it sways), and four that fall over the chest */
+    const dreads = new THREE.Group(); up.add(dreads);
+    for (let i = 0; i < 8; i++) {
+      const sd = i % 2 ? 1 : -1, c = i >> 1, r = c % 3, dp = [V(sd * (0.05 + 0.03 * c), 2.42 - 0.02 * r, -0.12), V(sd * (0.12 + 0.05 * c), 2.28, -0.3), V(sd * (0.2 + 0.07 * c), 1.95 - 0.1 * r, -0.4 - 0.02 * r), V(sd * (0.25 + 0.08 * c), 1.55 - 0.12 * r, -0.4), V(sd * (0.27 + 0.09 * c), 1.15 - 0.14 * r, -0.34)];
+      dreads.add(tube(dp, 0.05, 0.022, dr, k => 1 + 0.1 * Math.sin(k * 55), 16, 6)); if (c % 2 === 0) { band(dreads, dp, 0.5, 0.055, 0.012, mb); band(dreads, dp, 0.82, 0.045, 0.011, mb); }
+    }
+    for (let i = 0; i < 4; i++) {
+      const sd = i % 2 ? 1 : -1, c = i >> 1, dp = [V(sd * 0.13, 2.38, 0.02), V(sd * (0.22 + 0.02 * c), 2.22, 0.17), V(sd * (0.27 + 0.02 * c), 1.98, 0.33), V(sd * (0.29 + 0.03 * c), 1.7, 0.35), V(sd * (0.29 + 0.03 * c), 1.42 - 0.06 * c, 0.31)];
+      up.add(tube(dp, 0.042, 0.02, dr, k => 1 + 0.1 * Math.sin(k * 50), 14, 6)); band(up, dp, 0.45, 0.048, 0.012, mb); if (c === 0) band(up, dp, 0.8, 0.04, 0.011, mb);
+    }
+    /* legs: thigh in mesh running forward to a plated knee, a shin that slants back to the ankle, a heavy boot with a heel spur; the hip is the pivot the game swings */
+    for (const sd of [-1, 1]) {
+      const lg = new THREE.Group(); lg.position.set(0.19 * sd, 1.06, 0); lg.add(tube([V(0, 0.04, 0), V(0.025 * sd, -0.26, 0.08), V(0.05 * sd, -0.5, 0.17)], 0.16, 0.115, sk, k => 1 + 0.12 * Math.sin(k * 3), 12, 14));
+      lg.add(put(ball(0.12, ar, 1, 1.05, 1.0, 12), 0.05 * sd, -0.54, 0.21)); lg.add(cone(0.032, 0.12, mb, V(0.05 * sd, -0.54, 0.35), [Math.PI / 2, 0, 0])); band(lg, [V(0.045 * sd, -0.46, 0.15), V(0.05 * sd, -0.56, 0.18), V(0.05 * sd, -0.66, 0.15)], 0.5, 0.118, 0.014, mb);
+      lg.add(tube([V(0.05 * sd, -0.58, 0.17), V(0.045 * sd, -0.77, 0.08), V(0.035 * sd, -0.94, -0.02)], 0.1, 0.07, sk2, undefined, 8, 10));
+      lg.add(tube([V(0.05 * sd, -0.64, 0.18), V(0.045 * sd, -0.8, 0.1), V(0.038 * sd, -0.95, 0.0)], 0.135, 0.098, ar, k => 1 + 0.1 * Math.sin(k * 3.1), 10, 14));
+      band(lg, [V(0.045 * sd, -0.78, 0.1), V(0.04 * sd, -0.9, 0.04), V(0.036 * sd, -0.98, 0.0)], 0.35, 0.102, 0.013, mb);
+      lg.add(put(ball(0.11, ar, 0.95, 0.55, 1.9, 14), 0.03 * sd, -0.99, 0.1)); lg.add(put(ball(0.07, mb, 1, 0.5, 0.9, 10), 0.03 * sd, -0.97, 0.3)); lg.add(cone(0.03, 0.14, br, V(0.03 * sd, -1.0, -0.15), [-Math.PI / 2, 0, 0]));
+      g.add(lg); legs.push(lg);
+    }
+    (g as any).userData.tick = (t: number) => { head.rotation.y = Math.sin(t * 0.8) * 0.14; head.rotation.x = Math.sin(t * 1.3) * 0.03; can.rotation.y = Math.sin(t * 1.1 + 1) * 0.1; for (const m of mand) m.g.rotation.y = m.sd * (0.05 + Math.sin(t * 2.6 + m.ph) * 0.1); (gGrn as any).emissiveIntensity = 1.8 + 0.9 * Math.sin(t * 3); (gAmb as any).emissiveIntensity = 2.2 + 0.5 * Math.sin(t * 1.7); { const a = Math.sin(t * 1.4) * 0.05, Y = 2.4, Z = -0.12; dreads.rotation.x = a; dreads.position.set(0, Y - (Y * Math.cos(a) - Z * Math.sin(a)), Z - (Y * Math.sin(a) + Z * Math.cos(a))); } };
   } else if (kind === "greyling") {   // the classic big-headed grey visitor: thin limbs, huge smooth head, black almond eyes
-    const sk = mk(CHIT(0x9aa4a0, { roughness: 0.5, metalness: 0.05, clearcoat: 0.4 })), sk2 = mk(CHIT(0x6e7874, { roughness: 0.5 }));
-    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.34, 22, 16), sk); hd.scale.set(0.95, 1.2, 0.95); hd.position.set(0, 2.1, 0); body.add(hd);
-    for (const sd of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), GLOW(0x05060a)); e.scale.set(1.3, 0.55, 0.5); e.position.set(0.15 * sd, 2.08, 0.28); e.rotation.z = -0.5 * sd; body.add(e); }
-    body.add(tube([V(0, 1.78, 0), V(0, 1.55, 0.02), V(0, 1.1, 0)], 0.07, 0.14, sk2)); body.add(tube([V(0, 1.55, 0), V(0, 1.2, 0.02), V(0, 0.9, 0)], 0.16, 0.12, sk, k => 1 + 0.2 * Math.sin(k * 3)));
-    for (const sd of [-1, 1]) { const arm = new THREE.Group(); arm.position.set(0.14 * sd, 1.5, 0); arm.add(tube([V(0, 0, 0), V(0.12 * sd, -0.5, 0.05), V(0.14 * sd, -1.0, 0.25)], 0.04, 0.025, sk2)); body.add(arm); arms.push(arm); const lg = new THREE.Group(); lg.position.set(0.1 * sd, 0.9, 0); lg.add(tube([V(0, 0, 0), V(0.03 * sd, -0.45, 0.04), V(0.05 * sd, -0.9, 0)], 0.06, 0.035, sk2)); g.add(lg); legs.push(lg); }
-    body.add(new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.012, 6, 28), GLOW(0x8affc0)).translateY(2.6).rotateX(Math.PI / 2));   // a psychic halo
+    /* reference checklist: a big smooth inverted-egg skull on a spindly neck, two huge glossy black almond eyes that slant up and wrap round the sides, only nostril dots and a thin slit of a mouth,
+       narrow sloping shoulders, a slim ribcage with a small belly, long thin arms ending in four long bulb-tipped fingers, thin legs with a soft knee, smooth mottled grey skin with a faint sheen */
+    const skinTex = ((buildAlien as any)._greyTex ||= canvasTex(128, 128, gx => {
+      gx.fillStyle = "#e4e9e6"; gx.fillRect(0, 0, 128, 128);
+      for (let i = 0; i < 46; i++) { const x = Math.random() * 128, y = Math.random() * 128, r = 10 + Math.random() * 26, gr = gx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, Math.random() < 0.5 ? "rgba(80,100,96,.11)" : "rgba(255,255,255,.13)"); gr.addColorStop(1, "rgba(0,0,0,0)"); gx.fillStyle = gr; gx.fillRect(x - r, y - r, r * 2, r * 2); }
+      noise(gx, 128, 128, 700, 0.05);
+    }, 1));
+    const skin = (c: number) => mk(CHIT(c, { map: skinTex, roughness: 0.48, metalness: 0, clearcoat: 0.3, clearcoatRoughness: 0.4, sheen: 0.7, sheenColor: new THREE.Color(0xa8e0d0), sheenRoughness: 0.45 }));
+    const sk = skin(0xa2aca8), sk2 = skin(0x889390), dkm = mk(CHIT(0x1c2222, { map: null, roughness: 0.55, clearcoat: 0 }));
+    const HY = 2.06, HH = 0.45, HW = 0.345, HD = 0.325;   // head centre, half height / width / depth
+    const sst = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    const headPt = (ux: number, uy: number, uz: number) => { const f = 0.62 + 0.38 * sst(-1, 0.15, uy), zs = 1.1 - 0.2 * sst(-0.7, 0.7, uz) - 0.1 * (1 - sst(-0.6, 0.4, uy)) * sst(0, 0.8, uz); return V(ux * HW * f, HY + uy * HH, uz * HD * f * zs); };   // a unit direction -> the skull surface: a wide cranium, a flatter face, a small chin
+    const dirOf = (az: number, el: number) => V(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+    const onHead = (az: number, el: number, lift = 0) => { const d = dirOf(az, el); return headPt(d.x, d.y, d.z).addScaledVector(d, lift); };
+    const hg = new THREE.Group(); body.add(hg);   // everything on the skull, so it can sway on the neck
+    { const hgeo = new THREE.SphereGeometry(1, 40, 28), hp = hgeo.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < hp.count; i++) { const p = headPt(hp.getX(i), hp.getY(i), hp.getZ(i)); hp.setXYZ(i, p.x, p.y, p.z); }
+      hgeo.computeVertexNormals();
+      const nn = hgeo.attributes.normal as THREE.BufferAttribute, grp = new Map<string, number[]>();   // the sphere's seam and poles repeat points: average their normals so no crease shows
+      for (let i = 0; i < hp.count; i++) { const key = hp.getX(i).toFixed(4) + "," + hp.getY(i).toFixed(4) + "," + hp.getZ(i).toFixed(4); const a = grp.get(key); if (a) a.push(i); else grp.set(key, [i]); }
+      grp.forEach(ids => { if (ids.length < 2) return; const s = V(0, 0, 0); ids.forEach(i => s.add(V(nn.getX(i), nn.getY(i), nn.getZ(i)))); s.normalize(); ids.forEach(i => nn.setXYZ(i, s.x, s.y, s.z)); });
+      hg.add(new THREE.Mesh(hgeo, sk)); }
+    // the eyes: a patch of the skull's own surface in an almond outline, outer corner raised, bulging a little so it gleams
+    const eyeGeo = (sd: number, s: number, lift: number, bulge: number) => {
+      const NX = 18, NY = 8, pos: number[] = [], idx: number[] = [];
+      for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) {
+        const a = i / NX * 2 - 1, t = j / NY * 2 - 1, h = Math.pow(Math.max(0, 1 - a * a), 0.7), u = (a + 1) / 2;
+        const az = 0.62 + (0.17 + u * 0.91 - 0.62) * s, el = -0.1 + t * h * 0.2 * s + (u - 0.5) * 0.34 * s;
+        const p = onHead(az, el, lift + bulge * h * (1 - t * t)); pos.push(p.x * sd, p.y, p.z);
+      }
+      for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { const a = j * (NX + 1) + i, b = a + 1, c = a + NX + 1, d = c + 1; if (sd > 0) idx.push(a, b, c, b, d, c); else idx.push(a, c, b, b, c, d); }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); return geo;
+    };
+    const eyeM = new THREE.MeshPhysicalMaterial({ color: 0x040506, roughness: 0.1, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.03, emissive: 0x04161c, emissiveIntensity: 0.7 });   // not in mats: the hit flash must not wash the eyes out
+    const rimM = mk(CHIT(0x6c7773, { map: skinTex, roughness: 0.6, clearcoat: 0.1 })), glintM = new THREE.MeshBasicMaterial({ color: 0xdff6ff, transparent: true, opacity: 0.85 });
+    for (const sd of [-1, 1]) {
+      hg.add(new THREE.Mesh(eyeGeo(sd, 1.12, 0.002, 0.004), rimM)); hg.add(new THREE.Mesh(eyeGeo(sd, 1, 0.006, 0.014), eyeM));
+      const gl = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), glintM); const gp = onHead(0.5, 0.0, 0.026); gl.position.set(gp.x * sd, gp.y, gp.z); gl.scale.set(0.034, 0.009, 0.012); gl.rotation.z = -0.3 * sd; hg.add(gl);   // a wet glint on the upper-front of each eye
+      const gl2 = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 5), glintM); const gq = onHead(0.9, -0.14, 0.02); gl2.position.set(gq.x * sd, gq.y, gq.z); gl2.scale.setScalar(0.009); hg.add(gl2);
+      const nos = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), dkm); const np = onHead(0.1, -0.56, 0.0); nos.position.set(np.x * sd, np.y, np.z); nos.scale.set(0.008, 0.013, 0.006); nos.rotation.z = 0.35 * sd; hg.add(nos);   // nostril slits
+      const ear = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), dkm); const ep = onHead(1.52, -0.12, 0.0); ear.position.set(ep.x * sd, ep.y, ep.z); ear.scale.set(0.006, 0.02, 0.014); hg.add(ear);   // the tiny ear opening
+    }
+    hg.add(tube([onHead(-0.85, -0.94), onHead(-0.4, -0.97), onHead(0, -0.98), onHead(0.4, -0.97), onHead(0.85, -0.94)], 0.0055, 0.0055, dkm, undefined, 16, 6));   // a thin slit of a mouth
+    const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0x6affc8, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); aura.scale.setScalar(1.15); aura.position.set(0, HY, -0.15); hg.add(aura);   // a faint telepathic glow behind the skull
+    // neck, collar line, torso, belly and hips
+    body.add(tube([V(0, 1.7, 0.0), V(0, 1.55, 0.02), V(0, 1.38, 0.0)], 0.045, 0.062, sk2, k => 1 - 0.12 * Math.sin(k * Math.PI), 14, 10));
+    body.add(tube([V(-0.17, 1.36, 0.0), V(0, 1.41, -0.01), V(0.17, 1.36, 0.0)], 0.03, 0.03, sk2, undefined, 14, 8));
+    { const tr = tube([V(0, 1.38, 0.0), V(0, 1.2, 0.012), V(0, 0.97, 0.02)], 0.118, 0.088, sk, k => 1 + 0.22 * Math.sin(k * Math.PI * 0.9), 20, 14); tr.scale.z = 0.72; body.add(tr); }
+    { const bl = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), sk); bl.position.set(0, 1.04, 0.04); bl.scale.set(0.088, 0.11, 0.07); body.add(bl); const pv = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), sk2); pv.position.set(0, 0.95, 0.0); pv.scale.set(0.115, 0.075, 0.085); body.add(pv); }
+    const sph = (r: number, m: THREE.Material, x: number, y: number, z: number) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), m); s.position.set(x, y, z); return s; };
+    for (const sd of [-1, 1]) {
+      // arm: long and thin, elbow behind, wrist forward, a small hand with four long bulb-tipped fingers and a short thumb
+      const arm = new THREE.Group(); arm.position.set(0.155 * sd, 1.37, 0); body.add(arm); arms.push(arm);
+      arm.add(sph(0.04, sk2, 0, 0, 0)); arm.add(tube([V(0, 0, 0), V(0.04 * sd, -0.36, -0.03), V(0.06 * sd, -0.74, 0.09)], 0.034, 0.021, sk2, k => 1 + 0.16 * Math.sin(k * Math.PI), 18, 10)); arm.add(sph(0.026, sk2, 0.04 * sd, -0.36, -0.03));
+      const palm = sph(1, sk, 0.06 * sd, -0.8, 0.1); palm.scale.set(0.03, 0.05, 0.015); arm.add(palm);
+      [0.13, 0.16, 0.16, 0.12].forEach((len, k) => { const dx = (k - 1.5) * 0.013 * sd; arm.add(tube([V(0.06 * sd + dx, -0.83, 0.1), V(0.06 * sd + dx * 1.25, -0.83 - len * 0.55, 0.115), V(0.06 * sd + dx * 1.45, -0.83 - len, 0.15)], 0.0085, 0.0045, sk2, undefined, 8, 6)); arm.add(sph(0.0072, sk, 0.06 * sd + dx * 1.45, -0.83 - len, 0.15)); });
+      arm.add(tube([V(0.045 * sd, -0.8, 0.1), V(0.015 * sd, -0.87, 0.12), V(0.0 * sd, -0.93, 0.15)], 0.009, 0.005, sk2, undefined, 8, 6));
+      // leg: thin, with a soft knee and a small flat foot with four toes
+      const lg = new THREE.Group(); lg.position.set(0.085 * sd, 0.94, 0); g.add(lg); legs.push(lg);
+      lg.add(tube([V(0, 0, 0), V(0.01 * sd, -0.24, 0.015), V(0.015 * sd, -0.47, 0.04), V(0.015 * sd, -0.7, 0.0), V(0.015 * sd, -0.88, -0.01)], 0.056, 0.026, sk2, k => 1 + 0.1 * Math.sin(k * 6.3), 20, 10));
+      lg.add(sph(0.03, sk2, 0.015 * sd, -0.47, 0.04));
+      const ft = sph(1, sk, 0.015 * sd, -0.905, 0.05); ft.scale.set(0.045, 0.028, 0.11); lg.add(ft);
+      for (let k = 0; k < 4; k++) { const toe = sph(1, sk, 0.015 * sd + (k - 1.5) * 0.024, -0.914, 0.16 - Math.abs(k - 1.5) * 0.008); toe.scale.set(0.012, 0.012, 0.024); lg.add(toe); }
+    }
+    { const Pv = 1.62, tmp = V(0, 0, 0); (g as any).userData.tick = (t: number) => { hg.rotation.set(Math.sin(t * 1.1) * 0.03, Math.sin(t * 0.7) * 0.14, Math.sin(t * 0.9 + 1) * 0.04); tmp.set(0, Pv, 0).applyEuler(hg.rotation); hg.position.set(0, Pv, 0).sub(tmp); (aura.material as THREE.SpriteMaterial).opacity = 0.22 + 0.1 * Math.sin(t * 2.2); }; }
   } else if (kind === "hydraling") {   // a swarm serpent-beast: segmented body, raised scythe arms, a hooded spitting head
     const m = mk(CHIT(0x5a2a6a, { roughness: 0.3 })), m2 = mk(CHIT(0xb0a060, { roughness: 0.3 })), m3 = mk(CHIT(0x2a1a3a));
     body.add(tube([V(0, 0.2, 1.3), V(0, 0.35, 0.5), V(0, 0.9, -0.1), V(0, 1.6, -0.2)], 0.3, 0.18, m, k => 1 + 0.2 * Math.sin(k * 14)));
@@ -449,7 +835,6 @@ function buildAlien(kind0: AlienKind, tint = 0): Rig {
     const fing = (a: THREE.Object3D, m: THREE.Material, n: number, len: number, th: number, y: number, z: number, sd: number) => { for (let k = 0; k < n; k++) { const dx = (k - (n - 1) / 2) * th * 2.4; a.add(tube([V(dx * sd, y, z), V(dx * sd * 1.2, y - len * 0.5, z + len * 0.35), V(dx * sd * 1.3, y - len * 0.75, z + len * 0.8)], th, th * 0.3, m)); } };
     const studs = (cnt: number, r: number, y0: number, dy: number, zc: number, m: THREE.Material) => { for (let i = 0; i < cnt; i++) { const a = i / cnt * Math.PI * 2, s = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 5), m); s.position.set(Math.cos(a) * r, y0 + Math.sin(i * 1.7) * dy, zc + Math.sin(a) * r); body.add(s); } };
     const dots = (pts: THREE.Vector3[], c: number, r = 0.014) => { const gm = GLOW(c); for (const p of pts) { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 6, 5), gm); s.position.copy(p); body.add(s); } };
-    if (kind === "greyling") { arms.forEach((a, i) => fing(a, mk(CHIT(0x6e7874)), 3, 0.2, 0.012, -1.0, 0.25, i ? 1 : -1)); body.add(tube([V(-0.05, 1.93, 0.28), V(0, 1.9, 0.3), V(0.05, 1.93, 0.28)], 0.012, 0.012, dk)); for (const sd of [-1, 1]) body.add(cone(0.008, 0.04, dk, V(0.025 * sd, 2.0, 0.32), [Math.PI / 2, 0, 0])); for (let i = 0; i < 5; i++) body.add(new THREE.Mesh(new THREE.TorusGeometry(0.12 - i * 0.008, 0.006, 5, 14, Math.PI), mt).translateY(1.5 - i * 0.1).translateZ(0.02).rotateX(Math.PI / 2)); dots([V(0.16, 2.1, 0.3), V(-0.16, 2.1, 0.3)], 0xffffff, 0.012); }
     if (kind === "hydraling") { for (let i = 0; i < 6; i++) body.add(tube([V(0, 0.4 + i * 0.2, 0.45 - i * 0.12), V(0, 0.65 + i * 0.2, 0.3 - i * 0.12), V(0, 0.78 + i * 0.2, 0.42 - i * 0.12)], 0.015, 0.004, mk(CHIT(0xb0a060)))); const sac = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), GLOW(0x9aff3a)); sac.scale.set(1, 0.8, 1.2); sac.position.set(0, 1.55, -0.55); body.add(sac); for (const sd of [-1, 1]) { for (let k = 0; k < 4; k++) body.add(cone(0.02, 0.14, bn, V(0.1 * sd, 1.65, -0.5 - k * 0.04), [Math.PI, 0, 0.3 * sd])); } dots([V(0.15, 1.8, -0.5), V(-0.15, 1.8, -0.5), V(0, 0.9, 0.2), V(0, 0.7, 0.4)], 0xff6a3a); }
     if (kind === "warbug") { for (let i = 0; i < 9; i++) { const a = (i / 9 - 0.5) * 2.2; body.add(cone(0.05, 0.28, dk, V(Math.sin(a) * 0.55, 1.6 - Math.abs(a) * 0.15, 0.2 + Math.cos(a) * 0.1), [0.3, 0, -a])); } for (let i = 0; i < 6; i++) body.add(cone(0.02, 0.1, bn, V((i - 2.5) * 0.06, 1.2, -1.05), [Math.PI, 0, 0])); dots([V(0.3, 1.3, 0.8), V(-0.3, 1.3, 0.8), V(0, 1.3, 1.0)], 0xffaa2a, 0.04); arms.forEach((a, i) => fing(a, bn, 3, 0.25, 0.018, 0.4, -1.4, i ? 1 : -1)); }
     if (kind === "saberlord") { body.add(tube([V(0, 2.62, 0.1), V(0, 2.8, -0.1), V(0, 2.75, -0.4)], 0.025, 0.06, mt)); const belt = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 8, 22), mt); belt.position.set(0, 1.25, 0); belt.rotation.x = Math.PI / 2; body.add(belt); for (const sd of [-1, 1]) { for (let k = 0; k < 3; k++) body.add(cone(0.035, 0.22, mt, V(0.5 * sd, 2.14 + k * 0.06, -0.05 * k), [0, 0, -0.9 * sd])); const kn = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), mt); kn.position.set(0.28 * sd, 0.55, 0.22); body.add(kn); } const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.03, 18), GLOW(0x66ccff)); sh.rotation.x = Math.PI / 2; sh.position.set(-0.62, 1.4, 0.4); sh.scale.set(0.7, 1, 1.2); body.add(sh); dots([V(0, 1.9, 0.33), V(0, 1.7, 0.33), V(0, 1.5, 0.33)], 0x66ccff, 0.025); arms.forEach((a, i) => fing(a, mt, 4, 0.2, 0.014, -0.95, 0.35, i ? 1 : -1)); }
@@ -457,8 +842,7 @@ function buildAlien(kind0: AlienKind, tint = 0): Rig {
     if (kind === "leviathan") { for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; body.add(tube([V(Math.cos(a) * 0.35, 2.3, Math.sin(a) * 0.35), V(Math.cos(a) * 0.5, 2.0, Math.sin(a) * 0.5 + 0.2), V(Math.cos(a) * 0.45, 1.6, Math.sin(a) * 0.45 + 0.4)], 0.02, 0.006, dk)); } for (let i = 0; i < 6; i++) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), GLOW(0xff3a2a)); e.position.set((i - 2.5) * 0.14, 2.5, 0.5 + Math.abs(i - 2.5) * -0.05); body.add(e); } for (const sd of [-1, 1]) body.add(tube([V(0.5 * sd, 2.3, 0.1), V(0.9 * sd, 2.6, -0.3), V(0.8 * sd, 3.0, -0.8)], 0.08, 0.015, mt)); dots([V(0, 2.9, -0.4), V(0.2, 2.7, -0.1), V(-0.2, 2.7, -0.1)], 0xff5a2a, 0.03); }
     if (kind === "tripod") { for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2, s = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 5), mt); s.position.set(Math.cos(a) * 0.68, 3.2, Math.sin(a) * 0.55); body.add(s); } for (let k = 0; k < 3; k++) body.add(tube([V((k - 1) * 0.2, 2.8, 0.2), V((k - 1) * 0.5, 2.2, 0.7), V((k - 1) * 0.8, 1.5, 1.1), V((k - 1) * 0.9, 0.9, 1.0)], 0.035, 0.012, dk)); const dish = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.25, 16, 1, true), mt); dish.position.set(0, 2.95, -1.45); dish.rotation.x = -Math.PI / 2; body.add(dish); for (let i = 0; i < 6; i++) dots([V((i - 2.5) * 0.18, 2.78, -0.2)], 0xffd84a, 0.03); body.add(tube([V(0, 3.9, 0), V(0, 4.2, 0), V(0.1, 4.45, 0)], 0.02, 0.01, mt)); }
     if (kind === "carapace") { for (let i = 0; i < 8; i++) body.add(cone(0.04, 0.3, bn, V(0, 1.7 + Math.sin(i / 8 * 3) * 0.15, 0.6 - i * 0.2), [-0.3, 0, 0])); body.add(tube([V(0, 1.1, 0.7), V(0, 0.9, 1.4), V(0, 1.2, 2.0), V(0, 1.7, 2.3)], 0.12, 0.012, mk(CHIT(0x6a2a4a)))); body.add(cone(0.05, 0.4, bn, V(0, 1.78, 2.4), [-2.0, 0, 0])); for (const sd of [-1, 1]) { body.add(tube([V(0.3 * sd, 1.3, -0.5), V(0.45 * sd, 1.0, -0.8), V(0.4 * sd, 0.8, -1.1)], 0.06, 0.015, mk(CHIT(0x6a2a4a)))); for (let k = 0; k < 4; k++) body.add(cone(0.015, 0.1, bn, V(0.07 * sd, 1.8, -1.05 - k * 0.03), [Math.PI, 0, 0])); } dots([V(0.3, 1.5, 0.3), V(-0.3, 1.5, 0.3), V(0, 1.45, 0.0)], 0xff2a6a, 0.03); }
-    if (kind === "xenodrone") { for (let i = 0; i < 7; i++) body.add(cone(0.02, 0.14, dk, V(0, 1.4 - i * 0.09, -0.35 - i * 0.04), [-0.4, 0, 0])); for (const sd of [-1, 1]) for (let k = 0; k < 6; k++) body.add(cone(0.01, 0.07, mt, V(0.04 * sd, 1.47, 0.06 + k * 0.05), [Math.PI, 0, 0])); arms.forEach((a, i) => fing(a, dk, 3, 0.35, 0.016, -0.9, 0.7, i ? 1 : -1)); for (let k = 0; k < 6; k++) { const dm = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.25, 4), DRIP); dm.position.set((k - 2.5) * 0.015, 1.2, 0.1); body.add(dm); } }
-    if (kind === "huntsman") { for (let i = 0; i < 5; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.007, 5, 22), mt); r.position.set(0, 1.45 + i * 0.1, 0); r.rotation.x = Math.PI / 2; body.add(r); } const belt = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.05, 8, 22), mt); belt.position.set(0, 1.08, 0); belt.rotation.x = Math.PI / 2; body.add(belt); body.add(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.05), mt).translateY(0.95).translateZ(0.3)); body.add(tube([V(0, 2.18, 0.2), V(0, 2.3, 0.26), V(0, 2.4, 0.2)], 0.012, 0.012, GLOW(0xff3a1a))); body.add(tube([V(0, 2.55, 0.0), V(0, 2.7, -0.1), V(0, 2.65, -0.3)], 0.02, 0.05, mt)); for (const sd of [-1, 1]) { const kn = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), mt); kn.position.set(0.24 * sd, 0.55, 0.12); body.add(kn); } dots([V(0.62, 1.3, 0.35), V(0.62, 1.35, 0.4)], 0x3affc0, 0.02); for (const sd of [-1, 1]) { const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.085, 0.55, 12), dk); sh.position.set(0.23 * sd, 0.2, 0.0); body.add(sh); for (let k = 0; k < 3; k++) body.add(cone(0.02, 0.1, bn, V(0.23 * sd + (k - 1) * 0.06 * sd, -0.02, 0.28), [Math.PI / 2, 0, 0])); } const lz = tube([V(-0.42, 2.27, 0.1), V(-0.42, 2.27, 1.5)], 0.004, 0.004, GLOW(0xff2a1a)); lz.visible = true; body.add(lz); }
+    // (the hunter's small parts are built inside its own branch above)
   }
   if (FAMILY[kind0] && VARIANT[kind0]) { const [vx, vy, vz] = VARIANT[kind0]; g.children.forEach(c => c.scale.set(c.scale.x * vx, c.scale.y * vy, c.scale.z * vz)); }
   if (kind === "skitter" || kind === "charger") { const sm = mk(CHIT(0x2a1a0e)); const n = kind === "charger" ? 7 : 5; for (let i = 0; i < n; i++) body.add(cone(kind === "charger" ? 0.1 : 0.05, kind === "charger" ? 0.5 : 0.28, sm, V((i % 2 ? 0.25 : -0.25) * (kind === "charger" ? 1.6 : 0.8), kind === "charger" ? 1.15 : 0.7, (kind === "charger" ? -0.9 : -0.35) + i * (kind === "charger" ? 0.34 : 0.22)), [-0.25, 0, (i % 2 ? -0.5 : 0.5)])); }
@@ -466,7 +850,7 @@ function buildAlien(kind0: AlienKind, tint = 0): Rig {
   {   // neon edge lines on the armour plates: a cyber-biomech look, drawn once per alien
     const nc = tint ? tint : kind === "spitter" ? 0x7dff3a : kind === "skyeye" ? 0xc06aff : kind === "flarecaster" ? 0xff8a2a : kind === "charger" ? 0xff3a3a : kind === "mantis" ? 0x2affd0 : 0x35c8ff;
     const P = REFPAL[kind0] || REFPAL.xeno;   // colours taken from the owner's three reference pictures (2026-10-29)
-    if (!NOEMB.has(kind0) && kind0 !== "carapace" && kind0 !== "hydraling") mats.forEach((mm, i) => { const c0 = mm.color, lum = Math.min(1, (c0.r + c0.g + c0.b) / 2); (mm as any).emissiveIntensity = 0.45; mm.color.setHex(i % 3 === 2 ? P[2] : i % 2 ? P[1] : P[0]); mm.color.multiplyScalar(0.8 + 0.5 * lum); { const sm = mm as any, sk = skinFor(P); if (sm.isMeshPhysicalMaterial || sm.isMeshStandardMaterial) { sm.map = sk; sm.bumpMap = sk; sm.bumpScale = P === XENO ? 1.6 : 1.0; sm.needsUpdate = true; if (P === XENO) { sm.roughness = 0.3; sm.clearcoat = 0.6; sm.clearcoatRoughness = 0.2; sm.envMapIntensity = 0.6; } } } if (tint) mm.color.lerp(new THREE.Color(tint), 0.1); });
+    if (!NOEMB.has(kind0) && kind0 !== "carapace" && kind0 !== "hydraling") mats.forEach((mm, i) => { if (mm.userData && mm.userData.keep) return; const c0 = mm.color, lum = Math.min(1, (c0.r + c0.g + c0.b) / 2); (mm as any).emissiveIntensity = 0.45; mm.color.setHex(i % 3 === 2 ? P[2] : i % 2 ? P[1] : P[0]); mm.color.multiplyScalar(0.8 + 0.5 * lum); { const sm = mm as any, sk = skinFor(P); if (sm.isMeshPhysicalMaterial || sm.isMeshStandardMaterial) { sm.map = sk; sm.bumpMap = sk; sm.bumpScale = P === XENO ? 1.6 : 1.0; sm.needsUpdate = true; if (P === XENO) { sm.roughness = 0.3; sm.clearcoat = 0.6; sm.clearcoatRoughness = 0.2; sm.envMapIntensity = 0.6; } } } if (tint) mm.color.lerp(new THREE.Color(tint), 0.1); });
   }
   try { embellish(kind0, g, tint); } catch (err) { /* the base model still stands */ }
   g.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; } });
@@ -482,12 +866,12 @@ const DRIP = new THREE.MeshStandardMaterial({ color: 0x9aff5a, roughness: 0.05, 
 const GRANDC = new Set<string>(["warden", "matriarch", "walker", "titan", "lumawarden", "flarecaster", "skyeye", "wisp", "veilmaw", "behemoth", "drone"]);
 const TRIBEC = new Set<string>(["capling", "manthood", "domestalker", "xenodrone", "huntsman", "spiker", "bloater", "hound", "sporecaster"]);
 const ACCENT: Record<string, number> = { warden: 0xff7a2a, matriarch: 0xff3a8a, walker: 0xff2a2a, titan: 0xff5a1a, lumawarden: 0x7affd0, flarecaster: 0xff8a2a, skyeye: 0xc06aff, wisp: 0x6affff, veilmaw: 0x6a9aff, behemoth: 0xffaa3a, drone: 0x3ad6ff, capling: 0xff8a3a, manthood: 0xb06aff, domestalker: 0xff3a3a, xenodrone: 0xff3a3a, huntsman: 0x3affc0, greyling: 0x8affc0, hydraling: 0xff4a2a, warbug: 0xff5a1a, saberlord: 0x66ccff, skyfolk: 0x66ffee, leviathan: 0xff3a2a, tripod: 0xff5a2a, carapace: 0xff2a6a, spiker: 0xff5a2a, bloater: 0x9aff3a, hound: 0x3affe0, sporecaster: 0xff6aff };
-const NOEMB = new Set<string>(["greyling", "skyfolk", "saberlord", "huntsman", "tripod"]);   // humanoid and machine designs keep their own look: no fangs, maw or spikes added
+const NOEMB = new Set<string>(["manthood", "domestalker", "xenodrone", "greyling", "skyfolk", "saberlord", "huntsman", "tripod"]);   // humanoid and machine designs keep their own look: no fangs, maw or spikes added
 function embellish(kind: AlienKind, g: THREE.Group, tint: number) {
   if (NOEMB.has(kind)) return;
   const cat = GRANDC.has(kind) ? "grand" : TRIBEC.has(kind) ? "tribe" : "bug", acc = tint || ACCENT[kind] || 0xff2a1a;
   g.updateMatrixWorld(true);
-  const meshes: THREE.Object3D[] = []; g.traverse(o => { if ((o as THREE.Mesh).isMesh) meshes.push(o); });
+  const meshes: THREE.Object3D[] = []; g.traverse(o => { if ((o as THREE.Mesh).isMesh && (o as THREE.Mesh).geometry.type !== "CircleGeometry") meshes.push(o); });   // (the floor glow disc is not a surface: rays that missed the body used to land on it and stand spikes on the ground)
   const bb = new THREE.Box3().setFromObject(g), h = Math.max(0.6, bb.max.y), wd = Math.max(0.5, bb.max.x - bb.min.x), dp = Math.max(0.5, bb.max.z - bb.min.z);
   const u = Math.min(wd * 0.5, h * 0.42), rc = new THREE.Raycaster(), hit = (o: THREE.Vector3, d: THREE.Vector3) => { rc.set(o, d.clone().normalize()); const r = rc.intersectObjects(meshes, false)[0]; return r ? r.point.clone() : null; };
   const gm = GLOW(acc), add = (o: THREE.Object3D) => { g.add(o); return o; };
@@ -520,7 +904,7 @@ function embellish(kind: AlienKind, g: THREE.Group, tint: number) {
       for (const sd of [-1, 1]) { const hs = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: acc, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); hs.scale.setScalar(u * 0.45); hs.position.set(face.x + sd * u * 0.14, face.y + u * 0.16, face.z - 0.02); add(hs); }
     }
     ridge(8, wd * 0.2, CHIT(0x14100c));
-    const whips: THREE.Group[] = []; for (const sd of [-1, 1]) for (let k = 0; k < 2; k++) { const w = new THREE.Group(); w.position.set(sd * wd * 0.3, h * (0.62 - k * 0.14), dp * 0.05); let p = V(0, 0, 0); for (let j = 0; j < 6; j++) { const q = p.clone().add(V(sd * 0.1, -0.12 - j * 0.015, 0.1)); w.add(limb(p, q, wd * 0.016 * (1 - j / 7), wd * 0.014 * (1 - j / 7), CHIT(0x1a1410))); p = q; } w.add(spike(p, wd * 0.08, wd * 0.012, V(0, -1, 0.3), gm) as any); g.add(w); whips.push(w); } tickers.push(t => whips.forEach((w, i) => { w.rotation.z = Math.sin(t * 2.2 + i) * 0.35; w.rotation.x = Math.cos(t * 1.7 + i * 2) * 0.25; }));
+    const whips: THREE.Group[] = []; if (kind !== "capling") for (const sd of [-1, 1]) for (let k = 0; k < 2; k++) { const w = new THREE.Group(); w.position.set(sd * wd * 0.3, h * (0.62 - k * 0.14), dp * 0.05); let p = V(0, 0, 0); for (let j = 0; j < 6; j++) { const q = p.clone().add(V(sd * 0.1, -0.12 - j * 0.015, 0.1)); w.add(limb(p, q, wd * 0.016 * (1 - j / 7), wd * 0.014 * (1 - j / 7), CHIT(0x1a1410))); p = q; } { const wt = new THREE.Mesh(new THREE.ConeGeometry(wd * 0.012, wd * 0.08, 8), gm); wt.position.copy(p).add(V(0, -wd * 0.03, 0.01)); wt.rotation.x = Math.PI; w.add(wt); } g.add(w); whips.push(w); } tickers.push(t => whips.forEach((w, i) => { w.rotation.z = Math.sin(t * 2.2 + i) * 0.35; w.rotation.x = Math.cos(t * 1.7 + i * 2) * 0.25; }));
   }
   for (const m of meshes) { const mm = m as THREE.Mesh; const mt = mm.material as any; if (mt && mt.isMeshPhysicalMaterial) { mt.clearcoat = 1; mt.envMapIntensity = 1.4; } }
   (g as any).userData.tick = (t: number) => { for (const f of tickers) f(t); };
