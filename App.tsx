@@ -12430,7 +12430,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // A home-screen icon is one of the biggest levers for people actually opening
   // the app again — so the ask needs to land the moment they're happiest, not later.
   const [installBannerSeen, setInstallBannerSeen] = useState(() => { try { return localStorage.getItem("tg_install_banner_seen") === "1"; } catch (e) { return false; } });
-  const showInstallBanner = !!installEvt && !installBannerSeen && getCoins() > 0;
+  const showInstallBanner = APK_PROMO_ENABLED && !!installEvt && !installBannerSeen && getCoins() > 0;   // the "install the app" pop-up is off with the rest of the app promo (owner, 2026-10-31)
   function dismissInstallBanner() {
     setInstallBannerSeen(true);
     try { localStorage.setItem("tg_install_banner_seen", "1"); } catch (e) {}
