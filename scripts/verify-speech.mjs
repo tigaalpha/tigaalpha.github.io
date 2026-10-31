@@ -280,5 +280,29 @@ async function load() {
   check("a-clip-without-onended-still-finishes", finished, "onDone fired (watchdog)");
 }
 
+// 10. what one request carries is counted in SECONDS of speech, so a minute of Thai or Chinese is never one clip (owner 2026-10-31:
+//     "อ่านไม่เต็มประโยค"), and the text sent to the voice has no list marks or run-on bullets
+{
+  freshWorld();
+  const S = await load();
+  for (const lang of ["th", "en", "zh"]) {
+    const L = S.ttsChunkLimits(lang), cps = { th: 11, en: 15, zh: 4.5 }[lang];
+    check("limits-" + lang + "-later-clip-is-about-24s", L.max / cps <= 25 && L.max / cps >= 15 || L.max === 90, lang + " max " + L.max + " = " + (L.max / cps).toFixed(1) + " s");
+    check("limits-" + lang + "-first-clip-is-short", L.first < L.max && L.first / cps <= 12, lang + " first " + L.first + " = " + (L.first / cps).toFixed(1) + " s");
+  }
+  const zh = "这是一个很长的中文句子用来测试语音分块是否会把一分钟的朗读拆成合适的小段。".repeat(30);
+  const Lz = S.ttsChunkLimits("zh"), cz = S.ttsChunks(zh, Lz.max, Lz.first);
+  check("chinese-answer-is-cut-into-short-clips", cz.every((c, i) => c.length <= (i === 0 ? Lz.first : Lz.max)) && cz.length >= 6, cz.length + " clips, longest " + Math.max(...cz.map(c => c.length)));
+  const zc = S.ttsChunks("一二三四五六七八九十，".repeat(12) + "结束。", 60, 50); check("a-long-sentence-is-cut-at-a-comma", zc.slice(0, -1).every(c => /，$/.test(c)), JSON.stringify(zc.map(c => c.slice(-1))));
+  const md = S.cleanForTTS("# หัวข้อ\n- ข้อแรก\n- ข้อสอง\n1. ขั้นที่หนึ่ง\n2) ขั้นที่สอง\nจบแล้ว.");
+  check("list-marks-are-not-read", !/[#]|(^|\s)-\s|\d[.)]\s/.test(md), md);
+  check("bullets-get-a-pause-between-them", md.includes("ข้อแรก.") && md.includes("ข้อสอง."), md);
+  check("normal-punctuation-is-not-doubled", S.cleanForTTS("Hello there.\nHow are you?") === "Hello there. How are you?", S.cleanForTTS("Hello there.\nHow are you?"));
+  const sr = 24000, d = new Float32Array(sr * 2); for (let i = sr * 0.5; i < sr * 1.4; i++) d[i] = 0.3 * Math.sin(i / 9);
+  const [a, b] = S.ttsAudibleSpan({ getChannelData: () => d, sampleRate: sr, duration: 2 });
+  check("silence-around-a-clip-is-trimmed", a > 0.4 && a < 0.5 && b > 1.4 && b < 1.6, a.toFixed(2) + " to " + b.toFixed(2) + " of 2.00 s");
+  check("a-silent-clip-is-left-whole", S.ttsAudibleSpan({ getChannelData: () => new Float32Array(sr), sampleRate: sr, duration: 1 })[1] === 1);
+}
+
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

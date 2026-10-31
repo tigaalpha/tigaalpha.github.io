@@ -1701,6 +1701,7 @@ export function createMonoDetector(sampleRate, onDetect, getDb, opts: any = {}) 
   /* the level of the last three frames: a note that rings only ever FADES, so a frame that is clearly louder than the quietest of them is a new
      attack even when the player did not lift the key long enough for the level to fall to a "low point" (a repeated note played legato) */
   const lv = [];
+  const reStrike = opts.reStrike || 1.15;   // how much louder than the quietest of the last three frames counts as the same key struck again (a test can override it)
   return function feed(input) {
     let buf = input;
     if (lp) { if (!work || work.length !== input.length) work = new Float32Array(input.length); lp(input, work); buf = work; }
@@ -1722,7 +1723,7 @@ export function createMonoDetector(sampleRate, onDetect, getDb, opts: any = {}) 
     if (held && note) {
       const c = Math.abs(1200 * Math.log2(f / held.f)) % 1200, samePC = Math.min(c, 1200 - c) < 60;
       if (samePC) {
-        const strike = _pg.clarity >= 0.8 && (rms >= Math.max(0.012, held.rmsLow * 2) || (held.age >= 7 && rms >= Math.max(0.012, lvMin * 1.15) && lv[2] > lv[1] * 1.03));
+        const strike = _pg.clarity >= 0.8 && (rms >= Math.max(0.012, held.rmsLow * 2) || (held.age >= 7 && rms >= Math.max(0.012, lvMin * reStrike) && lv[2] > lv[1] * 1.03));
         if (!strike) { silence = 0; return; }      // the same note, still ringing (or an echo of it)
         held = null; last = f; stable = 1; fired = false; recent.length = 0; recent.push(f);   // struck again
         return;

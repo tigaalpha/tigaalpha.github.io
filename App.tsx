@@ -11151,10 +11151,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const { premium, setPremium, plan, setPlan, pricingOpen, setPricingOpen, checkout, setCheckout, schoolCheckout, setSchoolCheckout, billCycle, setBillCycle, payCfg, stripeReturn, schoolPayReturn, choosePlan, startCheckout, activatePremium } = usePayment({ profile, session, setProfile, lang, mascot, requireLogin });
   /* The chat's read-aloud (owner, 2026-10-01) is for Max and Max Family — and the owner's own admin account, as Voice Tutor
      already allows. Everyone else sees the button with a lock, and a tap opens the plans.
-     SUSPENDED (owner, 2026-10-02: "ปิดระบบ t2s ในฟีเจอร์ tiga chat ทั้งหมด ซ่อนไว้ก่อน เทคโนโลยียังไม่พร้อม"):
-     CHAT_TTS_ENABLED is false, so the whole chat reads "off" and Msg renders no
-     speaker anywhere. The rule below is unchanged — it starts working again on its own
-     the day that flag goes back to true. */
+     Switched back ON 2026-10-31 (owner: "เปิดปุ่มลำโพงกลับมา แก้ให้อ่านครบ ลื่นไหล รวดเร็ว"); the whole chat
+     reads "off" again if CHAT_TTS_ENABLED goes back to false. */
   const speakMode = !CHAT_TTS_ENABLED ? "off" : ((isMaxPlan(plan) || (profile && profile.is_admin)) ? "on" : "locked");
   const onSpeakLocked = useCallback(() => { playUi("click"); setPricingOpen(true); }, [setPricingOpen]);
   /* Conversion funnel (owner decision 2026-10-04): one trial-stage popup at a
