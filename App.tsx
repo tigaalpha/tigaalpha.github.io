@@ -11153,7 +11153,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      already allows. Everyone else sees the button with a lock, and a tap opens the plans.
      Switched back ON 2026-10-31 (owner: "เปิดปุ่มลำโพงกลับมา แก้ให้อ่านครบ ลื่นไหล รวดเร็ว"); the whole chat
      reads "off" again if CHAT_TTS_ENABLED goes back to false. */
-  const speakMode = !CHAT_TTS_ENABLED ? "off" : ((isMaxPlan(plan) || (profile && profile.is_admin)) ? "on" : "locked");
+  const speakMode = !CHAT_TTS_ENABLED ? "off" : (profile && profile.is_admin) ? "admin" : isMaxPlan(plan) ? "on" : "locked";
   const onSpeakLocked = useCallback(() => { playUi("click"); setPricingOpen(true); }, [setPricingOpen]);
   /* Conversion funnel (owner decision 2026-10-04): one trial-stage popup at a
      time on the SEVEN-DAY Max trial — welcome (d1-3), first-week proof (d5-6),

@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
-import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsEstSeconds, ttsBudgetSpend, ttsBudgetRefund, CHAT_TTS_RATE } from "./speech";
+import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, CHAT_TTS_RATE } from "./speech";
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
 import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUEST_GOAL, QUEST_EXP, readQuest } from "./chat-store";
 
@@ -38,6 +38,7 @@ export const CHAT_TTS_ENABLED = true;
 export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId, setActiveId, mode, onLocked }) {
   const lc = L[lang];
   const isOn = activeId === id;
+  const unlimited = mode === "admin";               // the owner's own account is not held to the daily round
   const [busy, setBusy] = useState(false);          // asked for, no sound yet
   const [note, setNote] = useState("");             // a few words beside the button: today's AI voice is used up
   const ticket = useRef(0);                         // a stop, a new tap or another message taking over makes an older run's callbacks stale
@@ -65,6 +66,9 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
     setNote(""); setActiveId(id); setBusy(true);
     const device = (budget, rest) => {
       if (!live()) return;                          // stopped, or another message took over, while the cloud was answering
+      // today's one read-aloud is spent and nothing of THIS message was read yet: say so and stay quiet (the device voice is not
+      // a way round the limit). A message that already started in the cloud voice is always finished, by the device if need be.
+      if (budget && !rest) { setNote(lc.spkDaily); setBusy(false); setActiveId(null); return; }
       if (budget) setNote(lc.spkLimit);
       setBusy(false);
       // `rest` is what the cloud did not get to: the cloud voice already read the
@@ -78,7 +82,7 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
       done,
       (e) => device(!!(e && e.budget), e && e.rest),
       CHAT_TTS_RATE,
-      { src: "chat", spend: (s) => ttsBudgetSpend(ttsEstSeconds(s, said)), refund: (s) => ttsBudgetRefund(ttsEstSeconds(s, said)) });
+      { src: "chat", spend: unlimited ? () => true : () => ttsRoundSpend(), refund: unlimited ? () => {} : () => ttsRoundRefund() });
   }
 
   const locked = mode === "locked";
