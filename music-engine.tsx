@@ -1722,7 +1722,7 @@ export function createMonoDetector(sampleRate, onDetect, getDb, opts: any = {}) 
     if (held && note) {
       const c = Math.abs(1200 * Math.log2(f / held.f)) % 1200, samePC = Math.min(c, 1200 - c) < 60;
       if (samePC) {
-        const strike = _pg.clarity >= 0.8 && (rms >= Math.max(0.012, held.rmsLow * 2) || (held.age >= 7 && rms >= Math.max(0.012, lvMin * 1.2) && lv[2] > lv[1] * 1.03));
+        const strike = _pg.clarity >= 0.8 && (rms >= Math.max(0.012, held.rmsLow * 2) || (held.age >= 7 && rms >= Math.max(0.012, lvMin * 1.15) && lv[2] > lv[1] * 1.03));
         if (!strike) { silence = 0; return; }      // the same note, still ringing (or an echo of it)
         held = null; last = f; stable = 1; fired = false; recent.length = 0; recent.push(f);   // struck again
         return;
