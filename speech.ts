@@ -610,6 +610,30 @@ export function ttsBudgetSpend(seconds) {
   try { localStorage.setItem(TTS_DAY_KEY, JSON.stringify(r)); } catch (e) {}
   return true;
 }
+/* ── One read-aloud a day (owner, 2026-10-31: "กดฟังเสียงได้ไม่เกินวันละ 1 รอบ ไม่งั้นต้นทุนแบกไม่ไหว") ──
+   The cloud voice costs real money per word, so a paying device may have ONE message read in it per day. The round is taken
+   when the first clip of a message is paid for (once per message, see speakCloud's `charged`) and given back when no sound came
+   of it. A message that is already in the clip cache costs nothing and so never asks: replaying today's message is free.
+   Counted on the device (localStorage), like the seconds allowance above; a server-side count would need a table and a deploy. */
+export const TTS_DAILY_ROUNDS = 1;
+const TTS_ROUND_KEY = "tg_tts_round";
+function ttsRoundRead() {
+  try { const r = JSON.parse(localStorage.getItem(TTS_ROUND_KEY) || "null"); if (r && r.d === ttsDayKey()) return r; } catch (e) {}
+  return { d: ttsDayKey(), n: 0 };
+}
+export function ttsRoundsLeft() { return Math.max(0, TTS_DAILY_ROUNDS - ttsRoundRead().n); }
+export function ttsRoundSpend() {
+  const r = ttsRoundRead();
+  if (r.n >= TTS_DAILY_ROUNDS) return false;
+  r.n++;
+  try { localStorage.setItem(TTS_ROUND_KEY, JSON.stringify(r)); } catch (e) {}
+  return true;
+}
+export function ttsRoundRefund() {
+  const r = ttsRoundRead();
+  r.n = Math.max(0, r.n - 1);
+  try { localStorage.setItem(TTS_ROUND_KEY, JSON.stringify(r)); } catch (e) {}
+}
 /* Gives `seconds` back — a clip that was paid for but never came. */
 export function ttsBudgetRefund(seconds) {
   const r = ttsDayRead();
