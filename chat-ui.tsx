@@ -1,7 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
-import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDeviceSpeech, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, CHAT_TTS_RATE } from "./speech";
+import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDeviceSpeech, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, ttsRoundsLeft, ttsFree, prewarmTts, TTS_DAILY_ROUNDS, CHAT_TTS_RATE } from "./speech";
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
 import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUEST_GOAL, QUEST_EXP, readQuest } from "./chat-store";
 
@@ -38,52 +39,66 @@ export const CHAT_TTS_ENABLED = true;
 export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId, setActiveId, mode, onLocked }) {
   const lc = L[lang];
   const isOn = activeId === id;
-  const unlimited = mode === "admin";               // the owner's own account is not held to the daily round
   const [busy, setBusy] = useState(false);          // asked for, no sound yet
-  const [note, setNote] = useState("");             // a few words beside the button: today's AI voice is used up
+  const [note, setNote] = useState("");             // a few words beside the button
+  const [limitOpen, setLimitOpen] = useState(false); // the pop-up: today's one read-aloud is used
   const ticket = useRef(0);                         // a stop, a new tap or another message taking over makes an older run's callbacks stale
+  const paid = useRef(false);                       // this tap took today's round and has not given it back
+  const started = useRef(false);                    // the cloud voice has begun to sound
   useEffect(() => { if (!isOn) { ticket.current++; setBusy(false); } }, [isOn]);
   useEffect(() => () => { ticket.current++; }, []);
+  useEffect(() => { if (mode !== "locked") prewarmTts(); }, [mode]);   // wake the voice service before the tap: a cold start is a second of waiting
   useEffect(() => {
     if (!note) return;
     const t = setTimeout(() => setNote(""), 5000);
     return () => clearTimeout(t);
   }, [note]);
+  useEffect(() => {
+    if (!limitOpen) return;
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") setLimitOpen(false); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [limitOpen]);
 
+  /* Today's read-alouds (TTS_DAILY_ROUNDS, owner 2026-10-31) is taken at the TAP, whatever the message — a clip that is already in the cache would otherwise let a
+     player listen to as many messages as they like — and given back only if no cloud sound came of it (a failure, or a stop before it began). */
+  function giveBack() { if (paid.current) { paid.current = false; ttsRoundRefund(); } }
   function stop() {
     ticket.current++;
     stopSpeaking(); stopCloudTTS();
+    if (!started.current) giveBack();
     setBusy(false); setActiveId(null);
   }
   function tap() {
     if (mode === "locked") { if (onLocked) onLocked(); return; }
     if (isOn) { stop(); return; }
+    const free = ttsFree();                         // a device flag for the owner's own testing; everyone else, admin included, has the limit
+    if (!free && ttsRoundsLeft() === 0) { setLimitOpen(true); return; }   // the second tap of the day: a clear pop-up, no request, no sound
     getAC();                                        // unlock audio inside the tap (iOS Safari)
     unlockDeviceSpeech();                           // and the device voice, which may have to take over later from a callback outside the tap
+    if (!free) { ttsRoundSpend(); paid.current = true; }
+    started.current = false;
     const said = detectSpeechLang(text, lang);
     const t = ++ticket.current;
     const live = () => t === ticket.current;
     const done = () => { if (live()) { setBusy(false); setActiveId(null); } };
     setNote(""); setActiveId(id); setBusy(true);
-    const device = (budget, rest) => {
+    const device = (rest) => {
       if (!live()) return;                          // stopped, or another message took over, while the cloud was answering
-      // today's one read-aloud is spent and nothing of THIS message was read yet: say so and stay quiet (the device voice is not
-      // a way round the limit). A message that already started in the cloud voice is always finished, by the device if need be.
-      if (budget && !rest) { setNote(lc.spkDaily); setBusy(false); setActiveId(null); return; }
-      if (budget) setNote(lc.spkLimit);
+      // the cloud gave nothing: the day's round is not used up by that
+      if (!rest) giveBack();
       setBusy(false);
       // `rest` is what the cloud did not get to: the cloud voice already read the
       // first part, so the device voice continues from there instead of repeating
-      // the whole message. Without it (first chunk failed, or the day's allowance
-      // was short) `rest` is empty and the device reads everything, as before.
+      // the whole message. Without it (the first clip failed) `rest` is empty and the device reads everything.
       speakDeviceOrNative(rest || text, said, done, done).catch(done);
     };
     speakCloud(text, said,
-      () => { if (live()) setBusy(false); },
+      () => { started.current = true; if (live()) setBusy(false); },
       done,
-      (e) => device(!!(e && e.budget), e && e.rest),
+      (e) => device(e && e.rest),
       CHAT_TTS_RATE,
-      { src: "chat", spend: unlimited ? () => true : () => ttsRoundSpend(), refund: unlimited ? () => {} : () => ttsRoundRefund() });
+      { src: "chat" });
   }
 
   const locked = mode === "locked";
@@ -112,6 +127,18 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
           </span>
         )}
       </button>
+      {limitOpen && createPortal(
+        <div data-spk-limit="1" role="dialog" aria-modal="true" aria-label={lc.spkDailyTitle} onClick={() => setLimitOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 100000, background: "rgba(20,14,10,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 340, background: "var(--card, #fff)", color: "var(--text, #2a211b)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 20, padding: "22px 20px 18px", boxShadow: "0 18px 50px rgba(0,0,0,.35)", textAlign: "center" }}>
+            <div aria-hidden="true" style={{ fontSize: 34, lineHeight: 1, marginBottom: 10 }}>🔊</div>
+            <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>{lc.spkDailyTitle}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--text2, #6b5a4c)", marginBottom: 16 }}>{String(lc.spkDailyBody).replace("{n}", String(TTS_DAILY_ROUNDS))}</div>
+            <button type="button" autoFocus onClick={() => setLimitOpen(false)}
+              style={{ minHeight: 44, minWidth: 140, border: "none", borderRadius: 999, background: "var(--clay, #d97757)", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", padding: "0 22px" }}>{lc.spkDailyOk}</button>
+          </div>
+        </div>, document.body)}
     </>
   );
 });
