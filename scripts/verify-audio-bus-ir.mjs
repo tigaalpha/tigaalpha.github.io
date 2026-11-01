@@ -33,7 +33,7 @@
    Run: node scripts/verify-audio-bus-ir.mjs           (table + PASS/FAIL)
         node scripts/verify-audio-bus-ir.mjs --json    (machine-readable) */
 
-import { convolve, SR, db } from "./band-audio-lab.mjs";
+import { convolve, fft, SR, db, busImpulseStereo, limit, BUS_PARTS } from "./band-audio-lab.mjs";
 
 function mkRnd(seed) {
   let s = seed >>> 0;
@@ -79,9 +79,15 @@ export function ir_shaped(rnd, { preMs = 0, decay = 2.6, sec = 1.5 } = {}) {
    edge than this app's other material deserves. */
 export function candidates() {
   const mk = (build) => build(mkRnd(777));
+  /* The two rows before the last are history (the bus as it was, and as it was with only the pre-delay): kept so the
+     new room is always judged against them. The last two rows are the bus NOW, each ear of it, built by the very
+     function the browser calls (bus-master.ts, bundled by the lab). */
+  const [irL, irR] = busImpulseStereo();
   return [
-    { name: "SHIPPED: decay only, wet 0.13", wet: 0.13, ir: mk(ir_shipped), shipped: true },
-    { name: "SHIPP THAT: + 18 ms pre-delay", wet: 0.13, ir: mk((r) => ir_shaped(r, { preMs: 18 })), ship: true },
+    { name: "WAS: decay only, wet 0.13", wet: 0.13, ir: mk(ir_shipped), shipped: true },
+    { name: "WAS: + 18 ms pre-delay", wet: 0.13, ir: mk((r) => ir_shaped(r, { preMs: 18 })), was: true },
+    { name: "NOW: room, left ear (bus-master.ts)", wet: BUS_PARTS.BUS_WET, ir: irL, ship: true },
+    { name: "NOW: room, right ear (bus-master.ts)", wet: BUS_PARTS.BUS_WET, ir: irR, ship: true, right: true },
   ];
 }
 
@@ -129,11 +135,10 @@ function centroidHz(buf, sr) {
    thing we are trying to measure. So the two probes below use different lengths:
    the long one for how loud the bus really plays (peak, clipping, total level),
    the short one for what the room is left holding once the note has gone. */
-function dryNote(dur) {
+function dryNote(dur, f = 440) {
   const n = Math.floor(SR * 3.4);
   const d = new Float32Array(n);
   const start = Math.floor(0.01 * SR);
-  const f = 440;
   for (const [mul, amp, dscale] of [[1, 1.0, 1.0], [2, 0.5, 0.72], [3, 0.26, 0.52], [4, 0.13, 0.4], [6, 0.07, 0.3]]) {
     if (f * mul > 12000) continue;
     const w = 2 * Math.PI * f * mul;
@@ -147,12 +152,42 @@ function dryNote(dur) {
   return d;
 }
 
+/* Properties of the response ITSELF, which a single sine probe cannot show (a noise response convolved with one note's four
+   partials is Rayleigh-lucky or Rayleigh-unlucky: two realisations of the same room differ by 1-2 dB). */
+function irFacts(ir) {
+  const e = (a, z) => { let s = 0; for (let i = Math.floor(a * SR); i < Math.min(ir.length, Math.floor(z * SR)); i++) s += ir[i] * ir[i]; return s; };
+  const total = e(0, 9);
+  // centroid of the late tail, 0.8-1.5 s, by FFT
+  const N = 16384, re = new Float32Array(N), im = new Float32Array(N);
+  const a0 = Math.floor(0.8 * SR);
+  for (let i = 0; i < N && a0 + i < ir.length; i++) re[i] = ir[a0 + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1)));
+  fft(re, im);
+  let num = 0, den = 0;
+  for (let k = 1; k < N / 2; k++) { const f = k * SR / N, p = re[k] * re[k] + im[k] * im[k]; num += f * p; den += p; }
+  return { erShare: e(0.024, 0.11) / total, lateHz: Math.round(num / den) };
+}
+
+/* Six notes, not one. A noise response seen through one note's four partials is a lucky or unlucky draw (Rayleigh: the
+   same recipe measures 1-2 dB apart from one realisation, or one ear, to the next, and its tail at +1 s up to 7 dB), so the
+   level the gates act on is the power average over G3, C4, E4, A4, D5, G5 — the notes the melody actually spends its time on. */
+function sixNotes(ir, wet, NOTE_END, TAIL, half) {
+  let pw = 0, pd = 0, pt = 0;
+  for (const f of [196, 262, 330, 440, 587, 784]) {
+    const dn = dryNote(0.7, f), wn = convolve(dn, ir);
+    pw += Math.pow(rms(wn, 0, NOTE_END) * wet, 2); pd += Math.pow(rms(dn, 0, NOTE_END), 2);
+    const sp = convolve(dryNote(0.22, f), ir);
+    let t = 0; for (let i = TAIL; i < Math.min(sp.length, TAIL + half); i++) t += Math.pow(sp[i] * wet, 2);
+    pt += t / half;
+  }
+  return { pw, pd, pt };
+}
+
 export function measureCandidate(c) {
   /* Probe 1 — a full-length note: how loud does the app actually play? */
   const dry = dryNote(0.7);
   const wetOnly = convolve(dry, c.ir);
   const out = new Float32Array(dry.length);
-  for (let i = 0; i < dry.length; i++) out[i] = dry[i] * 0.9 + wetOnly[i] * c.wet;
+  for (let i = 0; i < dry.length; i++) out[i] = limit(dry[i] * 0.9 + wetOnly[i] * c.wet);
 
   const NOTE_END = Math.floor(SR * 1.6);
   const dryRms = rms(dry, 0, NOTE_END);
@@ -184,15 +219,26 @@ export function measureCandidate(c) {
   for (let i = onsetEnd; i < lateEnd; i++) e2 += wetSig[i] * wetSig[i];
   const onsetShareDb = +(10 * Math.log10(Math.max(1e-12, e1) / Math.max(1e-12, e2))).toFixed(1);
 
+  /* the early-reflection window: energy 50-110 ms after the note against the first 50 ms */
+  let eER = 0;
+  for (let i = Math.floor(0.05 * SR); i < Math.floor(0.11 * SR); i++) eER += wetSig[i] * wetSig[i];
+
   let energy = 0;
   for (let i = 0; i < c.ir.length; i++) energy += c.ir[i] * c.ir[i];
+
+  const six = sixNotes(c.ir, c.wet, NOTE_END, TAIL, half);
 
   return {
     name: c.name,
     shipped: !!c.shipped,
     ship: !!c.ship,
+    was: !!c.was,
     wet: c.wet,
+    ...irFacts(c.ir),
     irEnergy: +energy.toFixed(3),
+    wetDry6Db: +(10 * Math.log10(six.pw / six.pd)).toFixed(1),
+    hiss6Db: +(10 * Math.log10(six.pt / 6) - db(pk)).toFixed(1),
+    six,
     wetDryDb: +(db(rms(wetOnly, 0, NOTE_END) * c.wet) - db(dryRms)).toFixed(1),
     totalDb: +(db(rms(out, 0, NOTE_END)) - db(dryRms)).toFixed(1),
     hissFloorDb: +(db(rms(tailWindow)) - db(pk)).toFixed(1),
@@ -200,6 +246,7 @@ export function measureCandidate(c) {
     tailHz: Math.round(centroidHz(tailWindow, SR)),
     noteHz: Math.round(centroidHz(dry.subarray(0, NOTE_END), SR)),
     onsetShareDb,
+    erDb: +(10 * Math.log10(Math.max(1e-12, eER))).toFixed(1),
     peakDbfs: +db(pk).toFixed(1),
     clip,
   };
@@ -207,8 +254,15 @@ export function measureCandidate(c) {
 
 /* ── run ────────────────────────────────────────────────────────────────── */
 const rows = candidates().map(measureCandidate);
+/* The old room was drawn from Math.random on every page load, so "the old level" is not one number: the row above is one
+   draw. Measured over 20 draws (six notes, unity gain, the same probe): the old room added 0.1 dB wet-over-dry in the
+   music's range on average, with a spread of 0.9 dB (one page load -1.4, another +2.8). With the wet gain of 0.13 that is
+   -17.6 dB, and that average is what the new, seeded room has to match. */
+const OLD_ROOM = { unityDb: 0.1, wetDry6Db: +(0.1 + 20 * Math.log10(0.13)).toFixed(1) };
 const proposed = rows.filter((r) => !r.shipped);
 const chosen = rows.find((r) => r.ship);
+const now = rows.filter((r) => r.ship);
+const wasPre = rows.find((r) => r.was);
 
 /* With the browser normalising, wet/dry should land near the wet gain itself, so
    the level assertions are about "the room stays under the note" rather than about
@@ -217,11 +271,19 @@ const chosen = rows.find((r) => r.ship);
    decoration and should not ship. */
 const CHECKS = [
   ["every candidate is unit-energy", proposed.every((r) => Math.abs(r.irEnergy - 1) < 0.01)],
-  ["wet/dry at or under -12 dB", proposed.every((r) => r.wetDryDb <= -12)],
-  ["hiss floor at or under -45 dB", proposed.every((r) => r.hissFloorDb <= -45)],
+  ["wet/dry at or under -12 dB (power average of six notes)", proposed.every((r) => r.wetDry6Db <= -12)],
+  ["hiss floor at or under -45 dB (power average of six notes)", proposed.every((r) => r.hiss6Db <= -45)],
   ["peak under -1 dBFS, nothing clips", proposed.every((r) => r.peakDbfs <= -1 && r.clip === 0)],
-  ["pre-delay takes reverb off the attack by 3 dB or more", chosen.onsetShareDb <= rows[0].onsetShareDb - 3],
-  ["shipped response is NOT too loud (retracts the earlier +17 dB claim)", rows[0].wetDryDb <= -12],
+  ["pre-delay takes reverb off the attack by 3 dB or more (both ears of the new room vs the old flat tail)", now.every((r) => r.onsetShareDb <= rows[0].onsetShareDb - 3)],
+  ["shipped response is NOT too loud (retracts the earlier +17 dB claim)", rows[0].wetDry6Db <= -12],
+  /* P09 · the bus now ends in a ceiling: it must be invisible on ordinary play and only act when sounds stack */
+  ["P09 · peak with the ceiling in the path stays at or under the old -7.9 dBFS (it is transparent below -3.6)", now.every((r) => r.peakDbfs <= -7.7)],
+  [`P09 · wet/dry of the new room within 0.5 dB of the OLD room's average over 20 random draws (${OLD_ROOM.wetDry6Db} dB; six-note average)`, now.every((r) => Math.abs(r.wetDry6Db - OLD_ROOM.wetDry6Db) <= 0.5)],
+  ["new room · the hiss between notes stays under -46 dB (the old room's draw measures -49; the gate on any room is -45)", now.every((r) => r.hiss6Db <= -46)],
+  ["new room · the late tail (0.8-1.5 s) is DARKER than the old white one: centroid at least 35 % lower (damping)", now.every((r) => r.lateHz <= rows[0].lateHz * 0.65)],
+  ["new room · its attack is no more smeared than the plain pre-delay was (within 1.5 dB)", now.every((r) => r.onsetShareDb <= wasPre.onsetShareDb + 1.5)],
+  ["new room · the early reflections are there: 24-110 ms holds at least 1.25 x the share of energy the old response had", now.every((r) => r.erShare >= wasPre.erShare * 1.25)],
+  ["P09 · twenty loud sounds stacked: the ceiling keeps every sample under 0.95 and below it nothing moves", (() => { let worst = 0, moved = 0; for (let k = 0; k < 20000; k++) { const x = Math.sin(k * 0.013) * 0.12 * 20 * Math.sin(k * 0.0007); worst = Math.max(worst, Math.abs(limit(x))); if (Math.abs(x) < 0.66 && limit(x) !== x) moved++; } return worst < 0.95 && moved === 0; })()],
 ];
 
 if (process.argv.includes("--json")) {
@@ -231,17 +293,20 @@ if (process.argv.includes("--json")) {
   console.log(`app master bus reverb — sr ${SR}, one playPianoNote A4 then silence`);
   console.log(`(convolver normalised, as ConvolverNode.normalize=true does in every browser)\n`);
   console.log(
-    L("response", 38) + L("wetDry", 9) + L("total", 9) + L("hiss", 9) + L("peak", 9) + L("tailHz", 8) + L("onset", 9) + "clip",
+    L("response", 38) + L("wetDry", 9) + L("wetDry x6", 11) + L("total", 9) + L("hiss", 9) + L("hiss x6", 9) + L("peak", 9) + L("tailHz", 8) + L("onset", 9) + L("ER dB", 8) + "clip",
   );
   for (const r of rows) {
     console.log(
       L(r.name, 38) +
         L(r.wetDryDb.toFixed(1) + " dB", 9) +
+        L(r.wetDry6Db.toFixed(1) + " dB", 11) +
         L(r.totalDb.toFixed(1) + " dB", 9) +
         L(r.hissFloorDb.toFixed(1) + " dB", 9) +
+        L(r.hiss6Db.toFixed(1) + " dB", 9) +
         L(r.peakDbfs.toFixed(1) + " dB", 9) +
         L(r.tailHz + "Hz", 8) +
         L(r.onsetShareDb.toFixed(1) + " dB", 9) +
+        L(r.erDb.toFixed(1), 8) +
         r.clip,
     );
   }

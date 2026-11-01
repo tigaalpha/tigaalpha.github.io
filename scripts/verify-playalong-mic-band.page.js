@@ -14,6 +14,9 @@ const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 const CH = { C: [0, 4, 7], F: [5, 9, 0], G: [7, 11, 2], Am: [9, 0, 4] };
 const ROOT = { C: 0, F: 5, G: 7, Am: 9 };
 function rng(seed) { let s = (seed >>> 0) || 1; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+/* a generator whose HIGH frequencies are as white as a browser's Math.random (the LCG above is not: high-passed or band-passed at 7-9 kHz its
+   samples are correlated, which showed as 3x too-high peaks on a quiet hat tick). Mulberry32. Used for the Math.random the app's noise comes from. */
+function rngWhite(seed) { let a = (seed >>> 0) || 1; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function fft(re, im) {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
@@ -53,6 +56,9 @@ window.__run = async function (cfg) {
     spGain = 0,                 // the phone's volume at the microphone
     pianoRms = 0.05, noise = 0.0008, drive = 1,
     seed = 7, measure = false,  // measure: play the game alone and only report how loud the speaker is at the mic
+    dropEvery = 0,              // the player does not play every Nth note (a miss: the miss thud and the band's dip sound at its late edge)
+    off = [],                   // switch single new sounds off ("ding", "sting", "crowd", "miss", "tick") to find which one a problem comes from
+    plain = false,              // the old sounds only (no graded ding, no stingers, crowd or miss dip): a reference to compare the new ones against
   } = cfg;
   const total = seconds;
   const real = new OfflineAudioContext(1, Math.round(SR * total), SR);
@@ -75,10 +81,10 @@ window.__run = async function (cfg) {
   // the player and the piano
   const spb = 60 / bpm, lead = 2.4;
   const prand = rng(seed + 5);
-  const notes = melody.map((m, i) => ({ i, midi: m.midi, name: NOTE_NAME(m.midi), pc: NOTE_PC[m.midi % 12], due: lead + m.beat * spb, press: lead + m.beat * spb + (prand() - 0.5) * 0.05, len: Math.min(m.len || 0.5, 0.55), skip: !!m.skip, hit: false, missed: false, beat: m.beat }));
+  const notes = melody.map((m, i) => ({ i, midi: m.midi, name: NOTE_NAME(m.midi), pc: NOTE_PC[m.midi % 12], due: lead + m.beat * spb, press: lead + m.beat * spb + (prand() - 0.5) * 0.05, len: Math.min(m.len || 0.5, 0.55), skip: !!m.skip, drop: !!(dropEvery && (i + 1) % dropEvery === 0), hit: false, missed: false, beat: m.beat }));
   const piano = new Float32Array(Math.round(SR * total));
-  if (input === "mic") { const pr = rng(seed + 9); for (const n of notes) if (!n.skip) pianoNote(piano, mtof(n.midi), n.press, n.press + n.len, 1, pr); }
-  let pr2 = 0, pc = 0; for (const n of notes) { if (n.skip) continue; const a = Math.floor(n.press * SR), b = a + Math.floor(0.3 * SR); for (let i = a; i < Math.min(b, piano.length); i++) { pr2 += piano[i] ** 2; pc++; } }
+  if (input === "mic") { const pr = rng(seed + 9); for (const n of notes) if (!n.skip && !n.drop) pianoNote(piano, mtof(n.midi), n.press, n.press + n.len, 1, pr); }
+  let pr2 = 0, pc = 0; for (const n of notes) { if (n.skip || n.drop) continue; const a = Math.floor(n.press * SR), b = a + Math.floor(0.3 * SR); for (let i = a; i < Math.min(b, piano.length); i++) { pr2 += piano[i] ** 2; pc++; } }
   const gp = input === "mic" && pc && pianoRms > 0 ? pianoRms / Math.sqrt(pr2 / pc) : 0;
   const pianoBuf = real.createBuffer(1, piano.length, SR); pianoBuf.copyToChannel(piano, 0);
   const pianoSrc = real.createBufferSource(); pianoSrc.buffer = pianoBuf; const pg = real.createGain(); pg.gain.value = gp; pianoSrc.connect(pg); pg.connect(micMix); pianoSrc.start(0);
@@ -90,6 +96,7 @@ window.__run = async function (cfg) {
   const endBeat = Math.max(...notes.map(n => n.beat)) + 2;
   const band = B.createBand({ bars, beatsPerBar: bpb, pickup: 0, spb, lead, endBeat, hand, level: accomp === "track" ? level : 0 });
   const totalNotes = notes.filter(n => !n.skip).length;
+  const dropped = notes.filter(n => n.drop).length;
   const st = { combo: 0, fever: false, lastSrc: "tap", tapped: false, hits: 0, wrong: 0, wrongList: [], strays: [], missed: 0, micHits: 0, dets: 0, micSafeFrames: 0, frames: 0 };
   const feverAt = Math.max(10, Math.ceil(totalNotes * 0.3)), megaAt = Math.max(20, Math.ceil(totalNotes * 0.6));
   const marks = new Set([0.25, 0.5, 0.75, 1].map(f => Math.max(1, Math.ceil(totalNotes * f))));
@@ -99,10 +106,21 @@ window.__run = async function (cfg) {
   const soundHit = (n, src) => {                                // what hitNote does, sound-wise
     ME.playWhoosh();
     later.push([ac.currentTime + 0.17, () => ME.playBoom(false)]);
-    B.playChordDing(band.chordAt(n.beat || 0), st.combo);
-    if (!st.fever && st.combo >= feverAt) { st.fever = true; ME.playUi("levelup"); }
-    else if (st.fever && st.combo === megaAt) ME.playUi("levelup");
-    if (marks.has(st.combo)) ME.playUi("levelup");
+    if (plain) {
+      if (!ME._micSafe) B.playChordDing(band.chordAt(n.beat || 0), st.combo);       // the old ding said nothing at all to a pianist
+      if (!st.fever && st.combo >= feverAt) { st.fever = true; ME.playUi("levelup"); }
+      else if (st.fever && st.combo === megaAt) ME.playUi("levelup");
+      if (marks.has(st.combo)) ME.playUi("levelup");
+      return;
+    }
+    // what use-play-along's hitNote does: a graded ding, then ONE milestone sound (ignition > combo mark > every ten)
+    if (off.includes("ding")) { if (!ME._micSafe) B.playChordDing(band.chordAt(n.beat || 0), st.combo); } else B.playChordDing(band.chordAt(n.beat || 0), st.combo, 1, ["perfect", "great", "good"][n.i % 3]);
+    const sting = (k, x) => { if (!off.includes("sting")) band.stinger(k, x); else ME.playUi("levelup"); }, crowd = (l) => { if (!off.includes("crowd")) ME.playCrowd(l); };
+    let stung = false;
+    if (!st.fever && st.combo >= feverAt) { st.fever = true; stung = true; sting("fever"); crowd(1); }
+    else if (st.fever && st.combo === megaAt) { stung = true; sting("mega"); crowd(3); }
+    if (marks.has(st.combo)) { const full = st.combo >= totalNotes; if (!stung) { stung = true; sting(full ? "mark100" : "mark"); } if (full) crowd(2); }
+    if (!stung && st.combo % 10 === 0 && !off.includes("sting")) band.stinger("ten", st.combo);
   };
   const press = (name, src, tnow) => {                          // handleSongInput, as far as scoring goes
     const pcn = name.replace(/-?\d+$/, "");
@@ -141,12 +159,12 @@ window.__run = async function (cfg) {
     analyser.getFloatTimeDomainData(buf);
     if (measure && tnow > lead - 0.2 && tnow < lead + endBeat * spb) { for (let i = N - 800; i < N; i++) spSumSq += buf[i] * buf[i]; spCnt += 800; }
     // taps: the app plays its own note for the player
-    if (input === "tap") while (tapIdx < notes.length && notes[tapIdx].press <= tnow + 0.03) { const n = notes[tapIdx++]; if (n.skip) continue; ME.playPianoNote(n.name, 0.7); press(n.name, "tap", Math.max(tnow, n.press)); }
+    if (input === "tap") while (tapIdx < notes.length && notes[tapIdx].press <= tnow + 0.03) { const n = notes[tapIdx++]; if (n.skip || n.drop) continue; ME.playPianoNote(n.name, 0.7); press(n.name, "tap", Math.max(tnow, n.press)); }
     if (!measure) feed(buf);                                    // the microphone
     // a note whose window has passed
-    for (const n of notes) if (!n.hit && !n.missed && tnow > n.due + winOf(st.lastSrc)) { n.missed = true; if (!n.skip) st.missed++; st.combo = 0; st.fever = false; ME.playMiss(); }
+    for (const n of notes) if (!n.hit && !n.missed && tnow > n.due + winOf(st.lastSrc)) { n.missed = true; if (!n.skip) st.missed++; st.combo = 0; st.fever = false; ME.playMiss(false); if (!plain && !off.includes("miss")) band.miss(); }
     while (later.length && later[0][0] <= tnow) later.shift()[1]();
-    for (const c of clicks) if (!c.done && c.t - 0.05 <= tnow) { c.done = true; ME.playClickAt(c.t, c.acc); }
+    for (const c of clicks) if (!c.done && c.t - 0.05 <= tnow) { c.done = true; ME.playClickAt(c.t, c.acc); if (!plain && !off.includes("tick")) ME.playClickAt(c.t + spb / 2, false, 0.7, true); }
     // the band, every ~60 ms, for whoever the game takes the player to be (use-play-along.ts bandPump)
     if (tnow - lastPump >= 0.06) {
       lastPump = tnow;
@@ -160,7 +178,7 @@ window.__run = async function (cfg) {
   }
   await done;
   if (measure) return { spRms: Math.sqrt(spSumSq / Math.max(1, spCnt)) };
-  return { notes: totalNotes, hits: st.hits, micHits: st.micHits, wrong: st.wrong, wrongList: st.wrongList, strays: st.strays, missed: st.missed, dets: st.dets, micSafeFrames: st.micSafeFrames, frames: st.frames };
+  return { notes: totalNotes, dropped, hits: st.hits, micHits: st.micHits, wrong: st.wrong, wrongList: st.wrongList, strays: st.strays, missed: st.missed, dets: st.dets, micSafeFrames: st.micSafeFrames, frames: st.frames };
 };
 
 /* The detector on its own: a piano through createMonoDetector, frame by frame. */
@@ -208,4 +226,66 @@ window.__unit = function () {
     if (n === 1) once++;
   }
   return { scaleRight: right, scaleTotal: 37, scaleMissed: scale, again, againTotal: 7, once, onceTotal: 6, bursts };
+};
+
+/* ── the game's own musical sounds, one render at a time (scripts/verify-playalong-sfx.mjs) ──
+   The REAL music-engine and the REAL band on an OfflineAudioContext, through the app's real bus (compressor-free: the reverb tail,
+   normalised the way a browser normalises it). `events` fire at their time on the audio clock: a graded ding, a stinger, the crowd,
+   a miss, the result jingle, a metronome click, a count-in stick. `band` (optional) runs the band underneath, pumped every 60 ms. The
+   answer is the peak, the clipped samples and, per requested window, the level and how much of the energy sits under 2.6 kHz — the
+   pitch detector's own ceiling, so a mic-safe sound must keep almost all of it above. */
+window.__sfx = async function (cfg) {
+  const { seconds = 5, mic = false, events = [], band: bcfg = null, bpm = 100, windows = [], seed = 3 } = cfg;
+  const real = new OfflineAudioContext(1, Math.round(SR * seconds), SR);
+  const ac = new Proxy(real, { get(t, k) { if (k === "state") return "running"; if (k === "resume") return () => Promise.resolve(); const v = t[k]; return typeof v === "function" ? v.bind(t) : v; } });
+  window.AudioContext = function () { return ac; };
+  window.requestIdleCallback = undefined;
+  const seedR = rngWhite(seed * 17 + 1); Math.random = () => seedR();
+  let simNow = 0; Date.now = () => T0 + simNow * 1000;
+  ME.setMicSafe(!!mic);
+  const spb = 60 / bpm, lead = 0.5, bars = [];
+  { let at = 0; for (const name of ["C", "F", "G", "C", "F", "G", "Am", "C"]) { bars.push({ at, len: 4, root: ROOT[name], quality: "maj", pcs: CH[name] }); at += 4; } }
+  const band = bcfg ? B.createBand({ bars, beatsPerBar: 4, pickup: 0, spb, lead, endBeat: 32, hand: "right", level: 2, bpm, solo: bcfg.solo }) : null;
+  const chordNow = (t) => { const beat = Math.max(0, (t - lead) / spb); let c = bars[0]; for (const b of bars) { if (b.at <= beat) c = b; else break; } return c; };
+  const fire = (ev) => {
+    const t = real.currentTime;
+    if (ev.fn === "ding") B.playChordDing(chordNow(t), ev.combo || 1, 1, ev.grade);
+    else if (ev.fn === "stinger") { if (band) band.stinger(ev.kind, ev.n || 0); else B.playStinger(ev.kind, chordNow(t), t + 0.02, ev.n || 0); }
+    else if (ev.fn === "crowd") ME.playCrowd(ev.level, ev.secs);
+    else if (ev.fn === "miss") { ME.playMiss(!!ev.soft); if (band && !ev.noBand) band.miss(); }
+    else if (ev.fn === "jingle") B.playResultJingle(ev.stars, chordNow(t), { medals: ev.medals || 0 });
+    else if (ev.fn === "click") ME.playClickAt(t + 0.01, !!ev.acc, 1, !!ev.off);
+    else if (ev.fn === "stick") band.stick(t + 0.2, !!ev.acc, !!ev.last);
+    else if (ev.fn === "levelup") ME.playUi("levelup");
+    else if (ev.fn === "duck") { if (band) band.duck(ev.db || 2, ev.ms || 110); }
+  };
+  const dt = 1 / 60, nFrames = Math.floor(seconds / dt) - 1;
+  const ps = []; for (let k = 1; k <= nFrames; k++) ps.push(real.suspend(Math.round(k * dt * SR / 128) * 128 / SR));
+  const done = real.startRendering();
+  let lastPump = -1;
+  const todo = events.map(e => ({ ...e, done: false }));
+  for (let k = 0; k < nFrames; k++) {
+    await ps[k];
+    const tnow = real.currentTime; simNow = tnow;
+    if (band && tnow - lastPump >= 0.06) {
+      lastPump = tnow;
+      band.setState({ combo: bcfg.combo == null ? 12 : bcfg.combo, fever: !!bcfg.fever, mega: !!bcfg.mega, pitched: !mic, soft: !!mic, micOpen: true });
+      band.pump(tnow, (x) => x, 1, 0);
+    }
+    for (const ev of todo) if (!ev.done && ev.t <= tnow) { ev.done = true; fire(ev); }
+    real.resume();
+  }
+  const out = await done;
+  const x = out.getChannelData(0);
+  let peak = 0, clipped = 0; for (let i = 0; i < x.length; i++) { const a = Math.abs(x[i]); if (a > peak) peak = a; if (a >= 0.999) clipped++; }
+  const win = windows.map(([a, b]) => {
+    const i0 = Math.max(0, Math.floor(a * SR)), i1 = Math.min(x.length, Math.floor(b * SR));
+    let s2 = 0, pk = 0; for (let i = i0; i < i1; i++) { s2 += x[i] * x[i]; pk = Math.max(pk, Math.abs(x[i])); }
+    const N = 131072, re = new Float32Array(N), im = new Float32Array(N), n = Math.min(N, i1 - i0);
+    for (let i = 0; i < n; i++) re[i] = x[i0 + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / Math.max(1, n - 1)));
+    fft(re, im);
+    let lo = 0, tot = 0; for (let k = 1; k < N / 2; k++) { const e = re[k] * re[k] + im[k] * im[k], f = k * SR / N; tot += e; if (f < 2600) lo += e; }
+    return { rms: Math.sqrt(s2 / Math.max(1, i1 - i0)), peak: pk, below2600: tot ? lo / tot : 0 };
+  });
+  return { peak, clipped, win, log: band ? band.log.map(e => ({ beat: e.beat, when: e.when, drum: e.drum, parts: e.parts, extras: e.extras })) : [] };
 };

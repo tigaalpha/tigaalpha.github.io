@@ -41,6 +41,15 @@ import { mkdirSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
+/* bus-master.ts is the app's own master-bus maths (the room, the ceiling): bundled once, here, so the lab and the browser
+   call the same functions. It lives in its own folder because loadBand() wipes node_modules/.tmp-band/lab on every call. */
+const BUS = await (async () => {
+  const dir = "node_modules/.tmp-band/bus";
+  mkdirSync(dir, { recursive: true });
+  execSync(`npx esbuild bus-master.ts --bundle --outfile=${dir}/bus-master.js --format=esm --platform=node`, { stdio: "pipe" });
+  return await import(pathToFileURL(join(process.cwd(), dir, "bus-master.js")).href + "?" + Date.now());
+})();
+
 export const SR = 44100;
 const BLOCK = 256;
 
@@ -105,34 +114,54 @@ export function convolve(x, ir) {
 
 /* ── AudioParam ── */
 class Param {
-  constructor(v = 0) { this.value = v; this.ev = []; }
-  setValueAtTime(v, t) { this.ev.push({ t, v, k: "set" }); return this; }
-  exponentialRampToValueAtTime(v, t) { this.ev.push({ t, v, k: "exp" }); return this; }
-  linearRampToValueAtTime(v, t) { this.ev.push({ t, v, k: "lin" }); return this; }
-  setTargetAtTime(v, t, tau) { this.ev.push({ t, v, k: "tgt", tau }); return this; }
-  cancelScheduledValues(t) { this.ev = this.ev.filter((e) => e.t > t); return this; }
+  constructor(v = 0) { this.value = v; this.ev = []; this.ver = 0; this._ver = -1; this._lt = -Infinity; this._i = 0; this._v = v; this._tt = -Infinity; }
+  setValueAtTime(v, t) { this.ev.push({ t, v, k: "set" }); this.ver++; return this; }
+  exponentialRampToValueAtTime(v, t) { this.ev.push({ t, v, k: "exp" }); this.ver++; return this; }
+  linearRampToValueAtTime(v, t) { this.ev.push({ t, v, k: "lin" }); this.ver++; return this; }
+  setTargetAtTime(v, t, tau) { this.ev.push({ t, v, k: "tgt", tau }); this.ver++; return this; }
+  /* the spec: every event at or AFTER t is removed, the history before it stays (this used to keep only what came after, which
+     deleted the past and kept the future — the opposite — and made any automation that cancels and re-books look like it had no history) */
+  cancelScheduledValues(t) { this.ev = this.ev.filter((e) => e.t < t); this.ver++; return this; }
   /* A ramp's time is when it ENDS: the value between the previous event and
      `t` is the interpolation, which is what the exponentialRamp in
-     play-along-band.ts means when it writes "0.0001 at when + 0.22". */
+     play-along-band.ts means when it writes "0.0001 at when + 0.22".
+
+     The renderer asks for one time per sample, always moving forward, so the
+     walk down the event list resumes where the last question stopped (a duck
+     that is automated once per kick has a few hundred events, and starting from
+     the first for every sample of a 20 s render was most of the render time).
+     The cursor is dropped whenever an event is added or removed, or time goes
+     backwards. A setTarget runs on until the NEXT event starts (it used to be
+     evaluated from the previous value at the asked time, which is wrong as soon
+     as a second event follows it). */
   at(t) {
-    let v = this.value, tt = -Infinity;
-    for (const e of this.ev) {
+    if (this._ver !== this.ver || t < this._lt) { this._i = 0; this._v = this.value; this._tt = -Infinity; this._ver = this.ver; }
+    this._lt = t;
+    const ev = this.ev;
+    let i = this._i, v = this._v, tt = this._tt, ret = null;
+    for (; i < ev.length; i++) {
+      const e = ev[i];
       if (e.k === "set") {
         if (t >= e.t) { v = e.v; tt = e.t; continue; }
-        return v;
+        break;
       }
       if (e.k === "tgt") {
-        if (t >= e.t) { v = e.v + (v - e.v) * Math.exp(-(t - e.t) / (e.tau || 0.01)); tt = t; continue; }
-        return v;
+        if (t < e.t) break;
+        const tn = i + 1 < ev.length ? ev[i + 1].t : Infinity;
+        const f = (x) => e.v + (v - e.v) * Math.exp(-(x - e.t) / (e.tau || 0.01));
+        if (t < tn) { ret = f(t); break; }
+        v = f(tn); tt = tn; continue;
       }
       const v0 = v, T = e.t - tt, dt = t - tt;
       if (t >= e.t) { v = e.v; tt = e.t; continue; }
-      if (T <= 1e-9) return e.v;
-      if (e.k === "lin") return v0 + (e.v - v0) * Math.max(0, dt) / T;
-      if (v0 <= 1e-9 || e.v <= 1e-9) return Math.max(1e-6, e.v);
-      return Math.max(1e-6, v0 * Math.pow(e.v / v0, Math.max(0, dt) / T));
+      if (T <= 1e-9) { ret = e.v; break; }
+      if (e.k === "lin") { ret = v0 + (e.v - v0) * Math.max(0, dt) / T; break; }
+      if (v0 <= 1e-9 || e.v <= 1e-9) { ret = Math.max(1e-6, e.v); break; }
+      ret = Math.max(1e-6, v0 * Math.pow(e.v / v0, Math.max(0, dt) / T));
+      break;
     }
-    return v;
+    this._i = i; this._v = v; this._tt = tt;
+    return ret === null ? v : ret;
   }
 }
 
@@ -143,13 +172,18 @@ class N {
     this.ctx = ctx; this.kind = kind; this.id = UID++;
     this.src = []; this.dst = [];
     this.buf = new Float32Array(BLOCK);
+    /* A node is STEREO when a panner is upstream of it (see StereoPanner): it then keeps a second buffer for the right
+       channel and is run once per channel (ch 0 = left, 1 = right), with its own filter / delay state for each. The mono
+       graph — no panner anywhere — never allocates any of this and renders exactly as it always did. */
+    this.stereo = false; this.bufR = null; this.ch = 0; this.linked = false;
     this.from = Infinity; this.until = -Infinity;
   }
+  get out() { return this.ch === 1 ? this.bufR : this.buf; }
   // an LFO wired into an AudioParam (the band's vibrato) is a modulation of a few cents: it does not change level or spectrum
   // balance, so the lab accepts the connection and does not render it
   connect(n) { if (n instanceof Param) return n; n.src.push(this); this.dst.push(n); return n; }
   disconnect() { for (const n of this.src) n.dst = n.dst.filter((d) => d !== this); this.src = []; }
-  in(i) { let s = 0; for (const n of this.src) s += n.buf[i]; return s; }
+  in(i) { let s = 0; const r = this.ch === 1; for (const n of this.src) s += (r && n.bufR) ? n.bufR[i] : n.buf[i]; return s; }
   /* when this node can still make a sound — lets the renderer skip the ~95 %
      of nodes that are asleep at any moment */
   bounds() {
@@ -164,7 +198,7 @@ class N {
 class Gain extends N {
   constructor(ctx) { super(ctx, "gain"); this.gain = new Param(1); }
   run(t0) {
-    const b = this.buf, g = this.gain;
+    const b = this.out, g = this.gain;
     b.fill(0);
     for (let i = 0; i < BLOCK; i++) b[i] = this.in(i) * g.at(t0 + i / SR);
   }
@@ -175,7 +209,7 @@ class Biquad extends N {
     super(ctx, "filter");
     this.frequency = new Param(350); this.Q = new Param(1); this.gain = new Param(0);
     this.filterType = "lowpass";
-    this.x1 = 0; this.x2 = 0; this.y1 = 0; this.y2 = 0; this.c = [0, 0, 0, 0, 0];
+    this.s = [{ x1: 0, x2: 0, y1: 0, y2: 0 }, { x1: 0, x2: 0, y1: 0, y2: 0 }]; this.c = [0, 0, 0, 0, 0];
   }
   /* the band writes f.type = "lowpass" — the DOM property name, which the node
      kind ("filter") would otherwise shadow */
@@ -202,15 +236,15 @@ class Biquad extends N {
     this.c = [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0];
   }
   run(t0) {
-    const b = this.buf, CH = 64;
+    const b = this.out, CH = 64, st = this.s[this.ch];
     b.fill(0);
     for (let s0 = 0; s0 < BLOCK; s0 += CH) {
       this.coeffs(this.frequency.at(t0 + s0 / SR), this.Q.at(t0 + s0 / SR));
       const c = this.c, b0 = c[0], b1 = c[1], b2 = c[2], a1 = c[3], a2 = c[4];
       for (let s = 0; s < CH; s++) {
         const i = s0 + s, x = this.in(i);
-        const y = b0 * x + b1 * this.x1 + b2 * this.x2 - a1 * this.y1 - a2 * this.y2;
-        this.x2 = this.x1; this.x1 = x; this.y2 = this.y1; this.y1 = y;
+        const y = b0 * x + b1 * st.x1 + b2 * st.x2 - a1 * st.y1 - a2 * st.y2;
+        st.x2 = st.x1; st.x1 = x; st.y2 = st.y1; st.y1 = y;
         b[i] = y;
       }
     }
@@ -222,24 +256,30 @@ class Delay extends N {
     super(ctx, "delay");
     this.delayTime = new Param(0);
     this.L = Math.ceil(maxSec * SR) + 8;
-    this.line = new Float32Array(this.L);
+    this.lines = [new Float32Array(this.L), null];
     this.w = 0;
     this.from = 0;                             // always live: the loop feeds it
   }
   _d() { return Math.min(this.L - 2, Math.max(0, Math.round(this.delayTime.at(this.ctx.currentTime) * SR))); }
   run() {
-    const b = this.buf, ds = this._d();
-    for (let i = 0; i < BLOCK; i++) b[i] = this.line[(((this.w - ds) % this.L) + this.L) % this.L];
+    const b = this.out, ds = this._d(), line = this.lines[this.ch] || this.lines[0];
+    for (let i = 0; i < BLOCK; i++) b[i] = line[(((this.w - ds) % this.L) + this.L) % this.L];
   }
   /* the feedback is summed after the rest of the block has run, so the echo
      loop closes one block late (5.8 ms) */
   flush() {
-    const b = this.buf, ds = this._d();
-    for (let i = 0; i < BLOCK; i++) {
-      this.line[this.w] = this.in(i);
-      this.w = (this.w + 1) % this.L;
-      b[i] = this.line[(((this.w - ds) % this.L) + this.L) % this.L];
+    const ds = this._d(), w0 = this.w;
+    for (let ch = 0; ch < (this.stereo ? 2 : 1); ch++) {
+      if (ch === 1 && !this.lines[1]) this.lines[1] = new Float32Array(this.L);
+      this.ch = ch; this.w = w0;
+      const b = this.out, line = this.lines[ch];
+      for (let i = 0; i < BLOCK; i++) {
+        line[this.w] = this.in(i);
+        this.w = (this.w + 1) % this.L;
+        b[i] = line[(((this.w - ds) % this.L) + this.L) % this.L];
+      }
     }
+    this.ch = 0;
   }
 }
 
@@ -248,22 +288,25 @@ class Compressor extends N {
     super(ctx, "comp");
     this.threshold = new Param(-24); this.knee = new Param(30);
     this.ratio = new Param(12); this.attack = new Param(0.003); this.release = new Param(0.25);
-    this.env = 0;
+    this.env = 0; this.linked = true;   // a stereo compressor listens to the louder of its two channels and turns both down together, as the browser's does
   }
   run(t0) {
-    const b = this.buf, thr = this.threshold.at(t0), knee = this.knee.at(t0),
+    const b = this.buf, bR = this.stereo ? this.bufR : null, thr = this.threshold.at(t0), knee = this.knee.at(t0),
       ratio = this.ratio.at(t0), atk = this.attack.at(t0), rel = this.release.at(t0);
     const ca = atk > 0 ? 1 - Math.exp(-1 / (atk * SR)) : 1, cr = rel > 0 ? 1 - Math.exp(-1 / (rel * SR)) : 1;
     b.fill(0);
     for (let i = 0; i < BLOCK; i++) {
-      const x = this.in(i), a = Math.abs(x);
+      this.ch = 0; const x = this.in(i); let a = Math.abs(x), xr = 0;
+      if (bR) { this.ch = 1; xr = this.in(i); this.ch = 0; a = Math.max(a, Math.abs(xr)); }
       this.env = a > this.env ? this.env + (a - this.env) * ca : this.env + (a - this.env) * cr;
       const over = 20 * Math.log10(this.env + 1e-9) - thr;
       let gr = 0;                                       // dB of REDUCTION, positive
       if (knee > 0 && over > -knee / 2 && over < knee / 2) gr = (1 - 1 / ratio) * (over + knee / 2) * (over + knee / 2) / (2 * knee);
       else if (over >= 0) gr = over * (1 - 1 / ratio);
       this.grDb = gr; this.envDb = 20 * Math.log10(this.env + 1e-9);
-      b[i] = x * Math.pow(10, -gr / 20);
+      const gm = Math.pow(10, -gr / 20);
+      b[i] = x * gm;
+      if (bR) bR[i] = xr * gm;
     }
   }
 }
@@ -271,13 +314,40 @@ class Compressor extends N {
 class Shaper extends N {
   constructor(ctx) { super(ctx, "shaper"); this.curve = new Float32Array(2049).fill(0); this.k = 1; this.oversample = "none"; }
   run() {
-    const b = this.buf, c = this.curve, n = c.length - 1;
+    const b = this.out, c = this.curve, n = c.length - 1;
     b.fill(0);
     for (let i = 0; i < BLOCK; i++) {
       const x = this.in(i) * this.k;
       let p = ((Math.max(-1, Math.min(1, x)) + 1) / 2) * n;
       const i0 = Math.max(0, Math.min(n - 1, Math.floor(p)));
       b[i] = c[i0] + (c[i0 + 1] - c[i0]) * (p - i0);
+    }
+  }
+}
+
+/* StereoPannerNode, the equal-power law of the Web Audio spec. A mono input is placed with
+     x = (pan + 1) / 2,   L = in · cos(x · π/2),   R = in · sin(x · π/2)
+   (pan 0 puts cos(π/4) = 0.707 in each ear, -3 dB a side, the same power as before); a stereo input is balanced
+   (pan ≤ 0:  L = inL + inR · cos(x · π/2), R = inR · sin(x · π/2), with x = pan + 1; pan > 0 mirrors it). It makes
+   everything downstream of it stereo. */
+class Panner extends N {
+  constructor(ctx) { super(ctx, "pan"); this.pan = new Param(0); this.stereo = true; this.linked = true; this.bufR = new Float32Array(BLOCK); }
+  run(t0) {
+    const L = this.buf, R = this.bufR, both = this.src.some((n) => n.bufR);
+    for (let i = 0; i < BLOCK; i++) {
+      const p = Math.max(-1, Math.min(1, this.pan.at(t0 + i / SR)));
+      let inL = 0, inR = 0;
+      for (const n of this.src) { inL += n.buf[i]; inR += n.bufR ? n.bufR[i] : n.buf[i]; }
+      if (!both) {
+        const x = (p + 1) / 2;
+        L[i] = inL * Math.cos(x * Math.PI / 2); R[i] = inL * Math.sin(x * Math.PI / 2);
+      } else if (p <= 0) {
+        const x = p + 1;
+        L[i] = inL + inR * Math.cos(x * Math.PI / 2); R[i] = inR * Math.sin(x * Math.PI / 2);
+      } else {
+        const x = p;
+        L[i] = inL * Math.cos(x * Math.PI / 2); R[i] = inR + inL * Math.sin(x * Math.PI / 2);
+      }
     }
   }
 }
@@ -337,16 +407,20 @@ class Noise extends N {
 }
 
 /* ── the context ── */
-export function makeContext(seed = 12345) {
+export function makeContext(seed = 12345, opts = {}) {
   let s = seed >>> 0;
   const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296) * 2 - 1;
   const ctx = {
-    sampleRate: SR, currentTime: 0, nodes: [],
+    sampleRate: SR, currentTime: 0, nodes: [], stereo: !!opts.stereo,
     createGain: () => ctx._add(new Gain(ctx)),
     createBiquadFilter: () => ctx._add(new Biquad(ctx)),
     createDelay: (max = 2) => ctx._add(new Delay(ctx, max)),
     createDynamicsCompressor: () => ctx._add(new Compressor(ctx)),
     createWaveShaper: () => ctx._add(new Shaper(ctx)),
+    /* only a context made with { stereo: true } has a panner: without it the band feature-detects the lack and plays
+       every voice unpanned, which is how every number in tigamodel/docs/23 and 24 was measured and what the mono
+       analysis keeps measuring (the conservative case for the melody mask: the band is not moved off-centre) */
+    ...(opts.stereo ? { createStereoPanner: () => ctx._add(new Panner(ctx)) } : {}),
     createOscillator: () => ctx._add(new Osc(ctx)),
     createBufferSource: () => ctx._add(new Noise(ctx, ctx.noiseTable)),
     createBuffer: (ch, len) => ({ length: len, getChannelData: () => new Float32Array(len) }),
@@ -362,6 +436,19 @@ export function makeContext(seed = 12345) {
    the edges that close the echo loop dropped, so the delay is read before the
    filter and gain that feed it back. */
 export function render(ctx, seconds) {
+  const { L, R } = renderChannels(ctx, seconds);
+  if (!R) return L;
+  /* a stereo graph asked for ONE channel's worth of numbers: the mono fold, (L + R) / 2 — what a phone's single speaker plays */
+  const m = new Float32Array(L.length);
+  for (let i = 0; i < m.length; i++) m[i] = (L[i] + R[i]) / 2;
+  return m;
+}
+/* the two channels of a stereo graph ({ L, R }); a mono graph returns the same array twice */
+export function renderStereo(ctx, seconds) {
+  const { L, R } = renderChannels(ctx, seconds);
+  return { L, R: R || L };
+}
+function renderChannels(ctx, seconds) {
   const total = Math.ceil(seconds * SR);
   const out = new Float32Array(total);
   const order = [], seen = new Set();
@@ -376,20 +463,25 @@ export function render(ctx, seconds) {
      puts every source before the node it feeds — so two passes carry "when am I
      awake" the whole way from a source up to the master */
   for (let p = 0; p < 2; p++) for (const n of order) n.bounds();
+  /* the same two passes carry "am I stereo": anything downstream of a panner is */
+  for (let p = 0; p < 3; p++) for (const n of order) if (!n.stereo && n.src.some((s) => s.stereo)) { n.stereo = true; if (!n.bufR) n.bufR = new Float32Array(BLOCK); }
   const dest = ctx.outNode || ctx.destination;
   dest.from = 0;
+  const outR = dest.stereo ? new Float32Array(total) : null;
   for (let b = 0; b * BLOCK < total; b++) {
     const t0 = (b * BLOCK) / SR;
     ctx.currentTime = t0;
     for (const n of order) {
-      if (t0 < n.from - 1e-3 || t0 > n.until) { if (n.kind !== "delay") n.buf.fill(0); continue; }
-      n.run(t0);
+      if (t0 < n.from - 1e-3 || t0 > n.until) { if (n.kind !== "delay") { n.buf.fill(0); if (n.bufR) n.bufR.fill(0); } continue; }
+      n.ch = 0; n.run(t0);
+      if (n.stereo && !n.linked) { n.ch = 1; n.run(t0); n.ch = 0; }
     }
     for (const n of order) if (n.kind === "delay") n.flush();
     const o = b * BLOCK, len = Math.min(BLOCK, total - o), d = dest.buf;
     for (let i = 0; i < len; i++) out[o + i] = d[i];
+    if (outR) for (let i = 0; i < len; i++) outR[o + i] = dest.bufR[i];
   }
-  return out;
+  return { L: out, R: outR };
 }
 
 /* the app's own bus: gain 0.9, then the 1.5 s reverb tail it builds off the
@@ -409,34 +501,36 @@ export function render(ctx, seconds) {
    "scaled RMS-power analysis". Browsers differ by a small constant on top of
    this (the exact normalisation is implementation-defined), so treat absolute
    bus level as +/- a dB or so and every RATIO measured through here as solid. */
-export function appBus(dry, seed = 777) {
-  let s = seed >>> 0;
-  const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296) * 2 - 1;
+export function appBus(dry, seed = BUS.BUS_SEED) {
+  /* ONE ear's worth: the dry signal and the left-ear tail, through the ceiling. A mono analysis stands for what each ear
+     gets from a centred source (the band unpanned, the player's own note), so the left channel of the room is as good as the right. */
   const ir = busImpulse(seed);
   const wet = convolve(dry, ir);
   const out = new Float32Array(dry.length);
-  for (let i = 0; i < dry.length; i++) out[i] = dry[i] * 0.9 + wet[i] * 0.13;
+  for (let i = 0; i < dry.length; i++) out[i] = limit(dry[i] * 0.9 + wet[i] * BUS.BUS_WET);
   return out;
 }
 
-/* The impulse response audioBus() builds, in the shape it builds it after the
-   fix: a short pre-delay so the piano's own attack stays clean, then the noise
-   tail under the same (1 - i/len)^2.6 decay, then unit energy — the last step is
-   redundant in a browser (normalising an already-normalised response is a no-op)
-   but it is what makes the offline number equal the browser's. */
-export function busImpulse(seed = 777) {
-  let s = seed >>> 0;
-  const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296) * 2 - 1;
-  const len = Math.floor(SR * 1.5);
-  const pre = Math.round(SR * 0.018);
-  const ir = new Float32Array(pre + len);
-  for (let i = 0; i < len; i++) ir[pre + i] = rnd() * Math.pow(1 - i / len, 2.6);
-  let e = 0;
-  for (let i = 0; i < ir.length; i++) e += ir[i] * ir[i];
-  const k = e > 0 ? 1 / Math.sqrt(e) : 0;
-  for (let i = 0; i < ir.length; i++) ir[i] *= k;
-  return ir;
+/* The same bus for a stereo signal: each ear's channel through the room's response for that ear (the two tails are
+   independent noise, which is what makes the room wide), then the ceiling. Returns { L, R }. */
+export function appBusStereo(dryL, dryR, seed = BUS.BUS_SEED) {
+  const [irL, irR] = busImpulseStereo(seed);
+  const wL = convolve(dryL, irL), wR = convolve(dryR, irR);
+  const L = new Float32Array(dryL.length), R = new Float32Array(dryL.length);
+  for (let i = 0; i < L.length; i++) { L[i] = limit(dryL[i] * 0.9 + wL[i] * BUS.BUS_WET); R[i] = limit(dryR[i] * 0.9 + wR[i] * BUS.BUS_WET); }
+  return { L, R };
 }
+
+/* The impulse response audioBus() builds — the SAME function the browser calls (bus-master.ts, bundled below), so this
+   cannot drift from the source the way the hand-copied version it replaces could. */
+export function busImpulseStereo(seed = BUS.BUS_SEED) {
+  return BUS.buildBusImpulse(SR, BUS.busRnd(seed));
+}
+export function busImpulse(seed = BUS.BUS_SEED) { return busImpulseStereo(seed)[0]; }
+
+/* the ceiling every game sound ends in (bus-master.ts) */
+export function limit(x) { return BUS.limitOne(x); }
+export const BUS_PARTS = BUS;
 
 /* ── the band itself ──────────────────────────────────────────────────────
    Bundles the REAL play-along-band.ts against a music-engine stub wired to this
@@ -452,6 +546,8 @@ export let _sfxMuted = false, _micSafe = false;
 export function audioBus() { const L = globalThis.__LAB; return { ac: L.ac, bus: L.bus }; }
 export function _accMarkSuppress() {}
 export function _accNoise(ac) { return ac.noiseTable; }
+export function hfPing() {}
+export function playCrowd() {}
 `);
   writeFileSync(join(OUT, "p", "play-along-band.ts"), SRC);
   execSync(`npx esbuild ${OUT}/p/play-along-band.ts --bundle --outfile=${OUT}/band.js --format=esm --platform=node`, { stdio: "pipe" });
@@ -463,21 +559,33 @@ export function renderBand(band, cfg) {
   const {
     bars, bpb, pickup = 0, bpm, style = "", hand = "right", level = 2,
     combo = 12, fever = false, mega = false, lead = 0, tail = 2.5, mel = null,
-    feverBars = null, extra = {},
+    feverBars = null, extra = {}, stereo = false, hits = null,
   } = cfg;
   const spb = 60 / bpm;
   const endBeat = bars.length ? bars[bars.length - 1].at + bars[bars.length - 1].len : 8;
-  const ctx = makeContext();
+  const ctx = makeContext(12345, { stereo });
   const dest = ctx.createGain();
   ctx.outNode = dest;
   globalThis.__LAB = { ac: ctx, bus: dest };
   const b = band.createBand({ bars, beatsPerBar: bpb, pickup, spb, lead, endBeat, hand, level, bpm, style, mel, feverBars, ...extra });
   b.setState({ combo, fever, mega, pitched: true, soft: false, micOpen: true });
   const songLen = lead + (endBeat + 1) * spb;
-  for (let c = 0; c <= songLen; c += 1 / 90) { ctx.currentTime = c; b.pump(c, (t) => t, 1); }
+  /* `hits`: times (s) at which the game would call band.duck() — a Perfect, a stinger, a crowd swell */
+  const hq = hits ? hits.slice().sort((x, y) => x - y) : [];
+  for (let c = 0; c <= songLen; c += 1 / 90) {
+    ctx.currentTime = c;
+    while (hq.length && hq[0] <= c) { hq.shift(); if (b.duck) b.duck(); }
+    b.pump(c, (t) => t, 1);
+  }
   /* cut() is deliberately NOT called: in the game it happens when the player
      stops, and calling it here would fade the master at t=0 and silence the
      whole render. */
+  if (stereo) {
+    const { L, R } = renderStereo(ctx, songLen + tail);
+    const bus = appBusStereo(L, R);
+    const fold = (x, y) => { const m = new Float32Array(x.length); for (let i = 0; i < m.length; i++) m[i] = (x[i] + y[i]) / 2; return m; };
+    return { dry: fold(L, R), wet: fold(bus.L, bus.R), dryL: L, dryR: R, wetL: bus.L, wetR: bus.R, sr: SR, band: b, ctx, songLen, spb, bpb };
+  }
   const dry = render(ctx, songLen + tail);
   return { dry, wet: appBus(dry), sr: SR, band: b, ctx, songLen, spb, bpb };
 }
@@ -518,6 +626,31 @@ export function renderMelodyRef(mel, spb, { lead = 0, velocity = 1 } = {}) {
 
 /* ── measurement ── */
 export const db = (x) => 20 * Math.log10(Math.max(1e-9, x));
+
+/* Stereo, measured. `corr` is the Pearson correlation of the two channels (1 = the same signal, 0 = unrelated or one side
+   silent, -1 = opposed). `monoLossDb` is what a phone's single speaker does to the mix: the energy of the mono fold
+   ((L + R) / sqrt 2) against the energy that was in the two channels, 10 log10(sum fold^2 / sum (L^2 + R^2)).
+   Read it as three zones: 0 dB = the channels are the same signal (a centred mix), about -3.0 dB = the channels are
+   unrelated or on opposite sides (a wide mix, the healthy case: the fold is the power sum), BELOW -3.0 dB = parts of the
+   mix cancel on a mono speaker and are lost (the bad case; minus infinity when the channels are exact opposites).
+   `balanceDb` is right over left (energy). */
+export function stereoStats(L, R) {
+  let sl = 0, sr_ = 0, sll = 0, srr = 0, slr = 0, sf = 0;
+  const n = Math.min(L.length, R.length);
+  for (let i = 0; i < n; i++) {
+    const l = L[i], r = R[i];
+    sl += l; sr_ += r; sll += l * l; srr += r * r; slr += l * r;
+    const f = (l + r) / Math.SQRT2; sf += f * f;
+  }
+  const ml = sl / n, mr = sr_ / n;
+  const vl = sll / n - ml * ml, vr = srr / n - mr * mr, cv = slr / n - ml * mr;
+  const corr = vl > 1e-14 && vr > 1e-14 ? cv / Math.sqrt(vl * vr) : 0;
+  return {
+    corr,
+    monoLossDb: 10 * Math.log10(Math.max(1e-30, sf) / Math.max(1e-30, sll + srr)),
+    balanceDb: 10 * Math.log10(Math.max(1e-30, srr) / Math.max(1e-30, sll)),
+  };
+}
 
 export function measure(buf, sr = SR) {
   let peak = 0, sum = 0, clip = 0;

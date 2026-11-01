@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import {
-  getAC, playPianoNote, playMiss, playUi, playWhoosh, playBoom, playClickAt,
+  getAC, playPianoNote, playMiss, playUi, playWhoosh, playBoom, playClickAt, playCrowd,
   pcOf, stopPracticeListeners, startMidiListener, startMicListener, laneHue, roundRect,
   SONG_LEAD, SONG_DEBOUNCE_MS, SONG_ECHO_MS, setMicSafe, _micSafe,
   expandSong, normalizeSeq, noteKeyFrac, _PC, _PCI, playBackingChord, songTonic, pickupBeatsOf, songChordBars,
@@ -22,7 +22,7 @@ import { queuedUntilTiga, tigaNow } from "./tiga-gateway";   // tigamodel loads 
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 import { createGameStore } from "./play-along-store";
 import { refreshWeekly, submitWeekly, submitGhost, prefetchGhost, ghostFor } from "./play-along-online";
-import { createBand, playChordDing } from "./play-along-band";
+import { createBand, playChordDing, playResultJingle } from "./play-along-band";
 import { paintWorld, getWorld, composeStage, drawStageFx, rollStageTheme } from "./play-along-stage";
 import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt, replayExp } from "./play-along-judge";
 import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday, songPlayCount, bumpPlayCount } from "./play-along-progress";
@@ -551,6 +551,9 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   songFxRef.current = songFx;
   function setSongFx(v) { const nv = !!(typeof v === "function" ? v(songFxRef.current) : v); songFxRef.current = nv; setSongFxState(nv); lsSet("tg_pa_fx", nv ? "1" : "0"); }
   const fx = (f) => { if (songFxRef.current) f(); };
+  /* A milestone sound in the song's key, landing on the band's next eighth (play-along-band stinger); the old fixed C-major cue
+     only if there is no band to ask. kind: fever · mega · mark · mark100 · ten · boss. */
+  const sting = (kind, n = 0) => fx(() => { const b = bandRef.current; if (!(b && b.stinger(kind, n))) playUi("levelup"); });
   function setSongBand(v) {
     const nv = Math.max(0, Math.min(3, Math.round(typeof v === "function" ? v(songBandRef.current) : v)));
     songBandRef.current = nv; setSongBandState(nv); lsSet("tg_pa_band", String(nv));
@@ -579,6 +582,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   const songMaxComboRef = useRef(0);
   const songHitsRef = useRef(0);
   const songMissRef = useRef(0);
+  const songRecentRef = useRef(1);   // P08 · how the last judgements went, 0..1, for the band only (a slip x0.75, a hit closes 15 % of the gap): never read by the scoring
   // The grades of this run (or this drill pass) and the presses that cost.
   const songGradesRef = useRef({ perfect: 0, great: 0, good: 0, wrong: 0, mash: 0 });
   const pressTimesRef = useRef([]);        // real seconds of recent presses, for the mash rule
@@ -816,7 +820,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }
 
   function resetRunCounters() {
-    tappedRef.current = false;
+    tappedRef.current = false; songRecentRef.current = 1;
     songHitsRef.current = 0; songMissRef.current = 0; songPerfectsRef.current = 0;
     songGradesRef.current = { perfect: 0, great: 0, good: 0, wrong: 0, mash: 0 };
     pressTimesRef.current = [];
@@ -890,7 +894,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const micOpen = !!(src && src.type === "mic");
     const onPiano = micOpen && !(lastSrcRef.current === "tap" && tappedRef.current);
     setMicSafe(onPiano);
-    b.setState({ combo: songComboRef.current, fever: !!songFeverRef.current, mega: !!songFeverRef.current && songComboRef.current >= megaAt(songTotalRef.current), pitched: !onPiano, soft: onPiano, micOpen });
+    b.setState({ combo: songComboRef.current, fever: !!songFeverRef.current, mega: !!songFeverRef.current && songComboRef.current >= megaAt(songTotalRef.current), pitched: !onPiano, soft: onPiano, micOpen, recent: songRecentRef.current });
     const tempo = songTempoRef.current || 1, clock = songStartClockRef.current;
     const dr = drillRef.current;
     b.pump(songTime, st => clock + st / tempo, tempo, dr ? (dr.firstHit || 0) : 0);
@@ -1269,7 +1273,9 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
           const accent = (((k - pickupRef.current) % bpb) + bpb) % bpb === 0;
           const when = songStartClockRef.current + bt / tempo;
           // the count-in is the band's drum sticks; the click when there is no band
-          if (!(countIn && bandRef.current && bandRef.current.stick(when, accent))) playClickAt(when, accent, countIn ? 1 : 0.7);
+          const lastCount = countIn && bt + spb >= countInEnd - 1e-3;      // the final count-in beat: the "go"
+          if (!(countIn && bandRef.current && bandRef.current.stick(when, accent, lastCount))) playClickAt(when, accent, countIn ? 1 : 0.7);
+          if (!countIn) playClickAt(when + (spb / 2) / tempo, false, 0.7, true);     // metronome mode: the off-beat tick, so the half-beat is felt
           const cl = clickLogRef.current;
           cl.push({ beat: k, countIn });
           if (cl.length > 200) cl.shift();
@@ -1537,10 +1543,10 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (n.skip) continue; // outside the section being practised: not drawn, not graded
       const hitAt = n.t + SONG_LEAD;
       if (!pr && !n.hit && !n.missed && songTime > hitAt + lateEdge) {
-        n.missed = true; songComboRef.current = 0; songMissRef.current++;
+        n.missed = true; songComboRef.current = 0; songMissRef.current++; songRecentRef.current *= 0.75;
         if (songFeverRef.current) { songFeverRef.current = false; setSongFever(false); }
         songLaneFlashRef.current[n.lane] = { ok: false, until: now + 220 };
-        fx(playMiss); flashJudge("miss", null, n.lane);
+        fx(() => playMiss(songKindRef.current)); if (bandRef.current) bandRef.current.miss(); flashJudge("miss", null, n.lane);
         // the melody guide: in kind mode the right note sounds, softly, so a
         // beginner hears what it should have been (playPianoNote keeps it out
         // of the mic's hearing)
@@ -1878,6 +1884,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     fx(playWhoosh); // 🚀 lift-off
     songHitsRef.current++;
     songComboRef.current++;
+    songRecentRef.current += (1 - songRecentRef.current) * 0.15;
     const combo = songComboRef.current;
     if (combo > songMaxComboRef.current) songMaxComboRef.current = combo;
     if (perfect) songPerfectsRef.current++;
@@ -1899,14 +1906,15 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       if (src === "midi") { playPianoNote(best.note, 0.5); songEchoRef.current[pcOf(best.note)] = performance.now(); }
       return;
     }
-    if (!songFeverRef.current && combo >= feverAt(totalNotes)) { songFeverRef.current = true; setSongFever(true); fx(() => playUi("levelup")); triggerShake(); announce("🔥 FEVER!"); }
-    else if (songFeverRef.current && combo === megaAt(totalNotes)) { triggerShake(); spawnBurst("combo"); spawnBurst("combo"); fx(() => playUi("levelup")); announce("🔥🔥 MEGA FEVER!"); }
+    let stung = false;       // one milestone sound per hit: ignition > combo mark > every-ten
+    if (!songFeverRef.current && combo >= feverAt(totalNotes)) { songFeverRef.current = true; setSongFever(true); stung = true; sting("fever"); fx(() => playCrowd(1)); triggerShake(); announce("🔥 FEVER!"); }
+    else if (songFeverRef.current && combo === megaAt(totalNotes)) { triggerShake(); spawnBurst("combo"); spawnBurst("combo"); stung = true; sting("mega"); fx(() => playCrowd(3)); announce("🔥🔥 MEGA FEVER!"); }
     const feverMult = songFeverRef.current ? 2 : 1;
     const gained = Math.round(POINTS[grade] * comboMultOf(combo) * feverMult);
     songScoreRef.current += gained;
     pushPop("+" + gained, perfect, best.lane);     // the score, rising off the lane
-    fx(() => playChordDing(bandRef.current ? bandRef.current.chordAt(best.beat || 0) : null, combo)); // a chord tone, climbing with the combo
-    if (perfect) spawnBurst("perfect", best.lane);
+    fx(() => playChordDing(bandRef.current ? bandRef.current.chordAt(best.beat || 0) : null, combo, 1, grade)); // a chord tone, climbing with the combo, graded (and a noise ping for a pianist on the mic)
+    if (perfect) { spawnBurst("perfect", best.lane); fx(() => { if (bandRef.current && bandRef.current.duck) bandRef.current.duck(2, 110); }); }   // P05: the band steps back ~2 dB for ~110 ms under a Perfect, so the ding and the player's note cut through
     // combo-tier shout-outs
     if (combo % 10 === 0) { triggerShake(); spawnBurst("combo", best.lane); announce(comboWord(combo)); }
     if (!practice) {
@@ -1921,9 +1929,12 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
         const pct = Math.round(combo / Math.max(1, totalNotes) * 100);
         setSongBonus({ id: Date.now(), text: `🎯 ${pct >= 100 ? "100%" : "x" + combo} +${bonusXp} EXP!` });
         clearTimeout(songBonusT.current); songBonusT.current = setTimeout(() => setSongBonus(null), 1500);
-        fx(() => playUi("levelup"));
+        const full = combo >= totalNotes;
+        if (!stung) { stung = true; sting(full ? "mark100" : "mark"); }
+        if (full) fx(() => playCrowd(2));
       }
     }
+    if (!stung && combo % 10 === 0) sting("ten", combo);       // every ten in a row: a small two-note ping in the key
     songLaneFlashRef.current[best.lane] = { ok: true, until: now + 220 };
     flashJudge(grade, perfect ? null : off < 0 ? "early" : "late", best.lane);
     // Voice the hit only for a silent MIDI controller. A tap already sounded via
@@ -1946,7 +1957,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       flashJudge("wrong", null, lane >= 0 ? lane : null);
       return;
     }
-    songComboRef.current = 0;
+    songComboRef.current = 0; songRecentRef.current *= 0.75;
     if (songFeverRef.current) { songFeverRef.current = false; setSongFever(false); }
     const lane = songLanesRef.current.findIndex(x => pcOf(x) === inPC);
     if (lane >= 0) songLaneFlashRef.current[lane] = { ok: false, until: now + 150 };
@@ -1967,7 +1978,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     bossHpRef.current = Math.max(0, bossHpRef.current - dmg);
     setBossHp(bossHpRef.current);
     if (bossHpRef.current <= 0) {
-      bossFlash("defeat"); fx(() => playUi("levelup"));
+      bossFlash("defeat"); sting("boss"); fx(() => playCrowd(2));
       if (!bossVerdictRef.current) {   // plan 2.4: one engine verdict per boss
         const hub = tigaNow();
         const hits = songHitsRef.current || 0, miss = songMissRef.current || 0;
@@ -2394,6 +2405,9 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       songLoopRetryT.current = setTimeout(() => { setSongLoopRecap(null); againViaRef.current = "loop"; startSongPlay(); }, 1800);
     } else {
       if (setlistDone) { songSetlistRef.current = null; setSongSetlistPos(null); }
+      // the result's own sound: count-up ticks, a ping for each star on the song's last chord, applause, a bell for a new medal
+      // (the card's stars appear 0.15 s + 0.28 s each after it mounts, and the sound is timed to them)
+      fx(() => playResultJingle(stars, bandRef.current ? bandRef.current.chordAt(1e9) : null, { medals: medal.gained ? medal.gained.length : 0 }));
       setSongPhase("done");
     }
   }
