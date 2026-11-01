@@ -7,7 +7,7 @@ export type WeaponId = "pistol" | "rifle" | "shotgun" | "launcher" | "laser" | "
 export type AlienKind = "skitter" | "mantis" | "spitter" | "flarecaster" | "charger" | "skyeye" | "scarab" | "behemoth" | "wisp" | "drone" | "stalker" | "warden" | "matriarch" | "walker" | "glowbug" | "thornback" | "sporecaster" | "hound" | "lumawarden" | "leaper" | "spiker" | "veilmaw" | "bloater" | "razor" | "titan" | "capling" | "manthood" | "domestalker" | "xenodrone" | "huntsman" | "greyling" | "hydraling" | "warbug" | "saberlord" | "skyfolk" | "leviathan" | "tripod" | "carapace";
 export type Enemy = { id: number; kind: AlienKind; x: number; z: number; hp: number; max: number; yaw: number; t: number; cd: number; dead: number; flash: number; leap: number; side?: number; sideT?: number; gt?: number; tele?: number; rush?: number; stun?: number; dx?: number; dz?: number; slow?: number; bt?: number; vt?: number; mt?: number };
 export type Acid = { rt?: "plasma" | "rpg" | "salvo"; id: number; x: number; y: number; z: number; vx: number; vz: number; vy: number; life: number; g?: number; dmg?: number; big?: number; col?: number };
-export type Ev = { k: "shot" | "hit" | "kill" | "head" | "hurt" | "reload" | "empty" | "spit" | "wave" | "tune" | "win" | "lose" | "swap" | "station" | "dig" | "strike"; x?: number; y?: number; z?: number; n?: number; w?: string; p?: number[] };
+export type Ev = { k: "shot" | "hit" | "kill" | "head" | "hurt" | "reload" | "empty" | "spit" | "wave" | "tune" | "win" | "lose" | "swap" | "station" | "dig" | "strike"; x?: number; y?: number; z?: number; n?: number; w?: string; a?: string; p?: number[] };   // a: the kind of alien a "hit" landed on (its pain voice)
 
 export const ARENA = 34;   // half size
 export const EYE = 1.65;
@@ -185,7 +185,7 @@ function explode(s: State, x: number, y: number, z: number, R = BOOM_R, D = 130,
   let any = false;
   for (const e of s.enemies) {
     if (e.dead !== 0) continue; const d = Math.hypot(e.x - x, e.z - z); if (d > R + ALIENS[e.kind].r) continue;
-    const dmg = D * mul * Math.max(0.25, 1 - d / (R + 1)) * (1 + s.boost); e.hp -= dmg; e.flash = 0.15; any = true; s.ev.push({ k: "hit", x: e.x, y: 1, z: e.z, n: dmg });
+    const dmg = D * mul * Math.max(0.25, 1 - d / (R + 1)) * (1 + s.boost); e.hp -= dmg; e.flash = 0.15; any = true; s.ev.push({ k: "hit", x: e.x, y: 1, z: e.z, n: dmg, a: e.kind });
     if (e.hp <= 0) { e.dead = 0.9; s.kills++; s.coins += coinOf(s, e.kind); s.streak++; s.best = Math.max(s.best, s.streak); s.score += Math.round(ALIENS[e.kind].score * (1 + Math.min(s.streak, 10) * 0.1)); s.ev.push({ k: "kill", x: e.x, z: e.z, w: e.kind }); }
   }
   if (any) s.hitsLanded++;
@@ -209,7 +209,7 @@ export function spawnPickup(s: State, w: WeaponId | "ammo", nearX?: number, near
 const unowned = (s: State) => s.gunPool.filter(w => !s.owned[w]);
 /** one hit on an alien: damage, kill bookkeeping and a chance to drop something to pick up */
 function hurtAlien(s: State, e: Enemy, dmg: number, head: boolean, hy?: number) {
-  const A = ALIENS[e.kind]; e.hp -= dmg; e.flash = 0.12; s.ev.push({ k: "hit", x: e.x, y: hy !== undefined ? hy : bodyY(e.kind), z: e.z, n: dmg, w: s.weapon });
+  const A = ALIENS[e.kind]; e.hp -= dmg; e.flash = 0.12; s.ev.push({ k: "hit", x: e.x, y: hy !== undefined ? hy : bodyY(e.kind), z: e.z, n: dmg, w: s.weapon, a: e.kind });
   if (e.hp <= 0 && e.dead === 0) {
     e.dead = 0.9; s.kills++; s.coins += coinOf(s, e.kind); s.streak++; s.best = Math.max(s.best, s.streak); if (head) s.heads++;
     s.score += Math.round(A.score * (head ? 1.5 : 1) * (1 + Math.min(s.streak, 10) * 0.1)); s.ev.push({ k: head ? "head" : "kill", x: e.x, z: e.z, w: e.kind });
