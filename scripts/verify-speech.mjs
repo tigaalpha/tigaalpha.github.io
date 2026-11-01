@@ -413,7 +413,7 @@ async function load() {
 
 // 15. prefetch of the head of a message (owner, 2026-10-31: first sound even faster)
 {
-  freshWorld(); fakeTts({ delay: 30 });
+  freshWorld(); fakeTts({ delay: 30 }); const listener = () => localStorage.setItem("tg_tts_aff", JSON.stringify({ n: 1, d: Math.floor(Date.now() / 86400000) })); listener();
   const S = await load();
   const text = "The C major scale has eight notes and follows a whole whole half pattern, so keep your wrist loose and play slowly. Start with the right hand and place your thumb on middle C.";
   const lang = "en";
@@ -431,7 +431,7 @@ async function load() {
   check("prefetch-first-sound-is-immediate", tStart > 0 && tStart < 25, tStart + " ms");
 
   // a tap while the prefetch is still running waits for it: nothing is requested twice
-  freshWorld(); fakeTts({ delay: 150 });
+  freshWorld(); fakeTts({ delay: 150 }); listener();
   const S2 = await load();
   S2.prefetchTtsHead(text, lang);
   await sleep(20);
@@ -440,7 +440,7 @@ async function load() {
   check("prefetch-tap-during-prefetch-no-duplicate", new Set(seen).size === seen.length, seen.length + " requests, " + new Set(seen).size + " distinct");
 
   // off switch, short text, daily cap
-  freshWorld(); fakeTts({ delay: 10 });
+  freshWorld(); fakeTts({ delay: 10 }); listener();
   const S3 = await load();
   localStorage.setItem("tg_tts_pf", "0");
   check("prefetch-off-switch", S3.prefetchTtsHead(text, lang) === false);
@@ -448,6 +448,21 @@ async function load() {
   check("prefetch-short-text-skipped", S3.prefetchTtsHead("Hi there", lang) === false);
   localStorage.setItem("tg_tts_pf_day", JSON.stringify({ d: new Date().toISOString().slice(0, 10), n: S3.TTS_PREFETCH_DAY }));
   check("prefetch-daily-cap", S3.prefetchTtsHead(text, lang) === false);
+  check("prefetch-daily-cap-is-12", S3.TTS_PREFETCH_DAY === 12);
+
+  // a device that never pressed the speaker costs nothing; a tap makes it a listener; two weeks of silence ends it
+  freshWorld(); fakeTts({ delay: 10 });
+  const S4 = await load();
+  check("prefetch-never-listened-no-head-start", S4.prefetchTtsHead(text, lang) === false && globalThis.__fetches.length === 0);
+  await S4.speakCloud(text, lang, () => {}, () => {}, () => {}, 1, { src: "chat" });
+  check("a-tap-makes-the-device-a-listener", S4.ttsListener() === true);
+  freshWorld(); fakeTts({ delay: 10 });
+  const S5 = await load();
+  localStorage.setItem("tg_tts_aff", JSON.stringify({ n: 3, d: Math.floor(Date.now() / 86400000) - 20 }));
+  check("prefetch-stale-listener-no-head-start", S5.ttsListener() === false && S5.prefetchTtsHead(text, lang) === false);
+  localStorage.setItem("tg_tts_aff", JSON.stringify({ n: 3, d: Math.floor(Date.now() / 86400000) - 5 }));
+  check("prefetch-recent-listener-runs", S5.ttsListener() === true && S5.prefetchTtsHead(text, lang) === true);
+  check("a-prefetch-is-not-a-tap (the listener stamp is untouched)", JSON.parse(localStorage.getItem("tg_tts_aff")).n === 3);
 }
 
 console.log(`\n${pass}/${pass + fail} passed`);
