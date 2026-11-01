@@ -22,7 +22,8 @@ import { queuedUntilTiga, tigaNow } from "./tiga-gateway";   // tigamodel loads 
 import { logPractice, scoreDynamics, logGame, canUse, bumpUsage } from "./App";
 import { createGameStore } from "./play-along-store";
 import { refreshWeekly, submitWeekly, submitGhost, prefetchGhost, ghostFor } from "./play-along-online";
-import { createBand, playChordDing, playResultJingle } from "./play-along-band";
+import { createBand, playChordDing, playResultJingle, preloadBandSamples } from "./play-along-band";
+import { _stats as _bandSampleStats } from "./band-samples";
 import { paintWorld, getWorld, composeStage, drawStageFx, rollStageTheme } from "./play-along-stage";
 import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt, replayExp } from "./play-along-judge";
 import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday, songPlayCount, bumpPlayCount } from "./play-along-progress";
@@ -515,6 +516,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     if (nv === songAccompRef.current) return;
     songAccompRef.current = nv; setSongAccompState(nv); lsSet("tg_pa_accomp", nv);
     if (bandRef.current) bandRef.current.setLevel(nv === "track" ? songBandRef.current : 0);
+    try { const m = songMetaRef.current; if (nv === "track" && m) preloadBandSamples(getAC(), SONG_GENRES[m.id] || m.sty || ""); } catch (e) {}   // the player just chose the backing track: fetch its instruments now
     if (songRunRef.current) announce(nv === "track" ? "🎼 Backing track" : "⏱ Metronome");
   }
   /* How the song is shown (owner, 2026-09-30): "fall" — gems falling to the keys, the staff above — or "sheet": no falling
@@ -722,6 +724,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     songDataRef.current = expandSong(meta, playAlongHand);
     songMetaRef.current = meta;
     setSongMeta(meta); try { prefetchGhost(songIdOf(meta), 1); refreshWeekly(); } catch (e) {}
+    try { if (meta && songAccompRef.current === "track") preloadBandSamples(getAC(), SONG_GENRES[meta.id] || meta.sty || ""); } catch (e) {}   // the real instruments for this style, fetched while the ready screen is up; the synth plays if they are late
     setSongResult(null); setSongTigaTip(null);
     setSongAnalysis(null);
     setDrillPlan(null); drillPlanRef.current = null; setDrillCleared([]);
@@ -1231,6 +1234,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
       view: () => ({ pref: songViewRef.current, sheet: sheetOn() }),
       setView: (v) => setSongView(v),
       gems: () => gemsDrawnRef.current,
+      samples: () => ({ played: _bandSampleStats.played, by: { ..._bandSampleStats.by } }),
       band: () => bandRef.current ? { log: bandRef.current.log.slice(), state: { ...bandRef.current.state }, clock: songStartClockRef.current, tempo: songTempoRef.current, lead: SONG_LEAD, spb: 60 / ((songMetaRef.current && songMetaRef.current.bpm) || 90), audioNow: getAC().currentTime } : null,
       setSrc: (type) => setSongSrc(type ? { type } : null),
       clicks: () => clickLogRef.current.slice(),

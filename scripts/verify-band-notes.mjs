@@ -53,6 +53,7 @@ const SRC = readFileSync("play-along-band.ts", "utf8");
 if (!SRC.includes('from "./music-engine"')) { console.error("play-along-band.ts no longer imports ./music-engine"); process.exit(1); }
 writeFileSync(`${OUT}/p/music-engine.ts`, STUB);
 writeFileSync(`${OUT}/p/play-along-band.ts`, SRC);
+writeFileSync(`${OUT}/p/band-samples.ts`, readFileSync("band-samples.ts", "utf8"));   // the band imports it
 execSync(`npx esbuild ${OUT}/p/play-along-band.ts --bundle --outfile=${OUT}/band.js --format=esm --platform=node`, { stdio: "pipe" });
 execSync(`npx esbuild music-engine.tsx --bundle --format=esm --platform=node --external:react --outfile=${OUT}/me.js`, { stdio: "pipe" });
 execSync(`npx esbuild songs-data.ts --bundle --format=esm --platform=node --outfile=${OUT}/songs.js`, { stdio: "pipe" });

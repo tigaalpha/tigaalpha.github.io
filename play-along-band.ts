@@ -40,6 +40,7 @@
    All sound goes through the app's sound bus, so the app-wide mute silences
    the band too. ── */
 import { audioBus, _accMarkSuppress, _accNoise, _sfxMuted, _micSafe, hfPing, playCrowd } from "./music-engine";
+import { loadBandSamples, sampleReady, sampleRange, playSample } from "./band-samples";
 
 export const BAND_LEVELS = [0, 0.55, 1, 1.35];   // off, soft, normal, full
 const LOOKAHEAD = 0.35;
@@ -93,6 +94,24 @@ export const BAND_STYLES = {
   neosoul:       { drums: "soft",    lead: "epiano",      pad: "pad",       extra: ["vibes", "sax"], fill: "flam", bass: "push" },
 };
 const styleOf = (s) => BAND_STYLES[s] || null;      // null = the default rock band
+/* ── real instruments (owner, 2026-10-31/11-01: "the backing track must be as good as Flowkey / Simply Piano"): a styled song plays its bass, its string pad, its flute and its Fever brass from
+   real instrument samples (band-samples.ts) once they are loaded. Everything else about the voice stays: the same pitches, the same filter and envelope, the same suppress() for the mic, the same
+   level rules. A sample that is not loaded (still fetching, offline, a browser that cannot decode it) plays the old synthesised voice, and a song with no style (the default band) never uses a
+   sample at all, so "a style the table does not know plays exactly the old band" still holds. SAMPLE_K matches each instrument's level to the synthesised voice it replaces
+   (calibrated by scripts/verify-band-sampled.mjs against the layer levels and the 12 dB rule). */
+const SAMPLE_SINE = 1.9;
+const SAMPLE_K = { acoustic_bass: 2.5, electric_bass_finger: 2.5, string_ensemble_1: 1.1, flute: 1, brass_section: 1.1 };
+const bassSampleFor = (kit) => (kit && (kit.bass === "walk" || kit.bass === "pedal" || kit.bass === "bossa") ? "acoustic_bass" : "electric_bass_finger");
+export function bandSampleNames(style) {
+  const kit = styleOf(style); if (!kit) return [];
+  const out = [bassSampleFor(kit), "brass_section"];
+  if (kit.pad === "strings") out.push("string_ensemble_1");
+  if ((kit.extra || []).includes("flute")) out.push("flute");
+  return out;
+}
+/** Fetch and decode the instruments a style uses (call when the ready screen opens, never in the middle of a song). Resolves true when all are ready; false is fine: the synth plays. */
+export function preloadBandSamples(ctx, style) { const n = bandSampleNames(style); return n.length ? loadBandSamples(ctx, n) : Promise.resolve(true); }
+const inReach = (name, m) => { const r = sampleRange(name); return !!r && m >= r[0] && m <= r[1]; };
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 // a chord's notes as MIDI numbers, stacked upward from the root at `oct`:
 // root, third, fifth, root an octave up (C3 = 48)
@@ -108,7 +127,7 @@ function stack(c, oct) {
    density, never the pitch), style (a key of BAND_STYLES). */
 export function createBand(opts) {
   const { bars, beatsPerBar: bpb, pickup, spb, lead, endBeat, hand } = opts;
-  const kit = styleOf(opts.style);
+  const kit = styleOf(opts.style), bassInst = bassSampleFor(kit), padInst = kit && kit.pad === "strings" ? "string_ensemble_1" : null;
   /* The mix-and-master stage (P05 · P14 · P18). All on; `opts.mix` switches one off, which is how the offline lab
      measures each of them against the band without it (scripts/analyze-band-sound.mjs --ab). The game never passes it. */
   const MX: any = { duck: true, kick: true, exciter: true, bassEnh: true, excDrive: EXC_DRIVE, excBlend: EXC_BLEND, h2: BASS_H2, h3: BASS_H3, fund: BASS_FUND, ...(opts.mix || {}) };
@@ -546,8 +565,13 @@ export function createBand(opts) {
       lfo.connect(lg); lfo.start(when); lfo.stop(end + 0.05);
       vib = lg;
     }
+    const smp = kit && o.sample && sampleReady(o.sample) && midis.every((m) => inReach(o.sample, m)) ? o.sample : null;   // all the notes or none: a chord is never half sample, half synth
     for (const m of midis) {
       const fr = mtof(m);
+      if (smp) {   // the same filter and the same envelope as the synthesised voice (f -> g above); the sample only replaces the oscillators
+        playSample(ac, f, smp, m, when, dur + r + 0.05, o.v * SECT * (SAMPLE_K[smp] || 1), { attack: 0.003, release: 0.04 });
+        suppress(fr, when, dur, o.partials || 3); continue;
+      }
       for (const d of det ? [-det, det] : [0]) {
         const osc = ac.createOscillator(), vg = ac.createGain();
         osc.type = o.type || "sawtooth"; osc.frequency.value = fr; osc.detune.value = d;
@@ -588,6 +612,7 @@ export function createBand(opts) {
   // sing: the soul voice — no saw edge, more sine under it, a slower filter.
   function bass(when, m, dur, v, sing = false) {
     const { ac } = audioBus(), fr = mtof(m);
+    const smp = kit && sampleReady(bassInst) && inReach(bassInst, m);   // a real bass supplies the body (its pluck and its harmonics); the synthesised sine still carries the weight under it
     const g = ac.createGain(), f = ac.createBiquadFilter();
     f.type = "lowpass"; f.Q.value = 1.1;
     /* M9 · the bass closed at 280 Hz, which threw away every harmonic above it
@@ -602,9 +627,11 @@ export function createBand(opts) {
     g.gain.setValueAtTime(v, when + dur * 0.7);
     g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
     const a = ac.createOscillator(), b = ac.createOscillator(), bg = ac.createGain();
-    a.type = sing ? "triangle" : "sawtooth"; a.frequency.value = fr; b.type = "sine"; b.frequency.value = fr; bg.gain.value = (sing ? 1.2 : 0.75) * (MX.bassEnh ? MX.fund : 1);
-    a.connect(f); b.connect(bg); bg.connect(f); f.connect(g); g.connect(panTo("b"));
-    a.start(when); b.start(when); a.stop(when + dur + 0.03); b.stop(when + dur + 0.03);
+    a.type = sing ? "triangle" : "sawtooth"; a.frequency.value = fr; b.type = "sine"; b.frequency.value = fr; bg.gain.value = (sing ? 1.2 : 0.75) * (MX.bassEnh ? MX.fund : 1) * (smp ? SAMPLE_SINE : 1);   // the saw's own fundamental is gone, the sine takes its weight
+    if (!smp) a.connect(f); b.connect(bg); bg.connect(f); f.connect(g); g.connect(panTo("b"));
+    if (smp) playSample(ac, f, bassInst, m, when, dur + 0.03, SAMPLE_K[bassInst] || 1, { attack: 0.004, release: 0.02 });   // through the same closing low-pass and envelope as the saw it replaces
+    else a.start(when);
+    b.start(when); if (!smp) a.stop(when + dur + 0.03); b.stop(when + dur + 0.03);   // an oscillator that never started cannot be stopped
     /* P18 · a psychoacoustic bass: the 2nd and 3rd harmonic of the note as sines of their own (past the low-pass, under the note's
        own envelope), with the fundamental trimmed about 0.9 dB to pay for them. A phone speaker that cannot play 60–120 Hz
        still plays 130–400 Hz, and the ear rebuilds the low pitch from them. All under suppress()'s three partials below. */
@@ -687,7 +714,7 @@ export function createBand(opts) {
   function windLine(when, m, dur, v, kind) {
     const { ac } = audioBus();
     const rich = kind === "oboe" ? 0.55 : 0.3;
-    section(when, [m], dur, { v: v * 0.9, type: "triangle", attack: kind === "flute" ? 0.07 : 0.05, release: 0.25, cutoff: kind === "oboe" ? 3200 : 4200, q: 0.5, detune: 0, vib: { rate: 5.4, depth: kind === "flute" ? 14 : 11, delay: 0.3 }, shimmer: [[2, rich]], shimmerType: "sine", partials: 3, echo: 0.2, pan: "w" });
+    section(when, [m], dur, { sample: kind === "flute" ? "flute" : null, v: v * 0.9, type: "triangle", attack: kind === "flute" ? 0.07 : 0.05, release: 0.25, cutoff: kind === "oboe" ? 3200 : 4200, q: 0.5, detune: 0, vib: { rate: 5.4, depth: kind === "flute" ? 14 : 11, delay: 0.3 }, shimmer: [[2, rich]], shimmerType: "sine", partials: 3, echo: 0.2, pan: "w" });
     // the breath: a quick burst of air above the pitch at the start (noise, so the pitch detector rejects it)
     try {
       noiseHit(when, 0.012 * v / 0.05, "bandpass", Math.min(8000, mtof(m) * 3), 1.4, 0.07);
@@ -989,12 +1016,12 @@ export function createBand(opts) {
         if (finale) {
           /* P13 · the hit, then the hall: the full chord strikes and lets go, and the swell blooms in under the echo after it —
              the pad ducks after the hit and breathes back, instead of one flat sustain */
-          section(when, notes, beatSec * 0.5, { ...pad, v: pad.v * A, type: "sawtooth", attack: 0.03, release: 0.25, q: 0.7, detune: 7, partials: 3, echo: 0.4, pan: "c", shimmer: [[4, 0.13], [6, 0.07]] });
-          section(when + 0.2, notes, Math.max(dur * 1.6, beatSec * 3, 3), { ...pad, v: pad.v * A, type: "sawtooth", attack: 0.6, release: 1.6, q: 0.7, detune: 7, partials: 3, echo: 0.5, pan: "c", shimmer: [[4, 0.13], [6, 0.07]] });
+          section(when, notes, beatSec * 0.5, { ...pad, sample: padInst, v: pad.v * A, type: "sawtooth", attack: 0.03, release: 0.25, q: 0.7, detune: 7, partials: 3, echo: 0.4, pan: "c", shimmer: [[4, 0.13], [6, 0.07]] });
+          section(when + 0.2, notes, Math.max(dur * 1.6, beatSec * 3, 3), { ...pad, sample: padInst, v: pad.v * A, type: "sawtooth", attack: 0.6, release: 1.6, q: 0.7, detune: 7, partials: 3, echo: 0.5, pan: "c", shimmer: [[4, 0.13], [6, 0.07]] });
           note(entry, notes, "chord");
         } else {
           const pn = voice(c, "pad", low ? 48 : 60, low ? 65 : 77, melDuring(c));          // the triad voiced to move as little as possible from the last one, and away from the notes the player is about to play (measured: a plain voice-led pad up to F4 sat inside the tune and took the kids style to -11.1 dB under the player's note)
-          section(when, pn, dur * 0.98, { ...pad, v: pad.v * A, type: "sawtooth", attack: 0.16, release: 0.4, q: 0.7, detune: 7, partials: 3, echo: 0.1, pan: "c", shimmer: [[2, 0.2], [4, 0.13], [6, 0.07]] });   // [2, .2]: the octave above, the body the voice-led pad lost when it moved down out of the tune's way
+          section(when, pn, dur * 0.98, { ...pad, sample: padInst, v: pad.v * A, type: "sawtooth", attack: 0.16, release: 0.4, q: 0.7, detune: 7, partials: 3, echo: 0.1, pan: "c", shimmer: [[2, 0.2], [4, 0.13], [6, 0.07]] });   // [2, .2]: the octave above, the body the voice-led pad lost when it moved down out of the tune's way
           note(entry, pn, "chord");
         }
         entry.parts += "c";
@@ -1015,7 +1042,7 @@ export function createBand(opts) {
       }
       if ((fever || finale) && on("x") && !brk) {                                      // brass stabs on the chord changes
         const br = voice(c, "x", melHere ? 48 : 57, melHere ? 65 : 74);       // voice-led, so the stabs move by step from chord to chord
-        section(when, br, beatSec * (finale ? 1.2 : 0.34), { v: 0.045 * A, type: "sawtooth", attack: 0.012, release: 0.14, cutoff: 3600, cutoff2: 950, sweep: 0.13, q: 0.8, detune: 6, echo: finale ? 0.6 : 0.3, partials: 3, pan: "x" });
+        section(when, br, beatSec * (finale ? 1.2 : 0.34), { sample: "brass_section", v: 0.045 * A, type: "sawtooth", attack: 0.012, release: 0.14, cutoff: 3600, cutoff2: 950, sweep: 0.13, q: 0.8, detune: 6, echo: finale ? 0.6 : 0.3, partials: 3, pan: "x" });
         entry.parts += "x"; note(entry, br, "chord");
       }
       /* M7 · the run into the end: the bar before the last chord lifts, so the

@@ -13704,6 +13704,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             catch (e) { window.alert(lang === "th" ? "ลบบัญชีไม่สำเร็จ ลองใหม่หรือติดต่อเจ้าของแอป" : lang === "zh" ? "删除账号失败，请重试或联系我们。" : "Could not delete the account. Try again or contact us."); }
           }}><span className="drawericon"><Ico e="🗑" size={20} /></span><span className="drawerlabel">{lang === "th" ? "ลบบัญชี" : lang === "zh" ? "删除账号" : "Delete account"}</span></button>}
         </div>
+        {/* the credit the instrument samples of the Play Along band require (CC BY 3.0; see public/band-samples/CREDITS.md) */}
+        <div className="drawercredit" style={{ padding: "8px 18px 16px", fontSize: 10.5, lineHeight: 1.45, opacity: 0.6 }}>{lang === "th" ? "เสียงเครื่องดนตรีของวงแบ็คกิ้ง: FluidR3_GM soundfont ผ่าน gleitz/midi-js-soundfonts (CC BY 3.0)" : lang === "zh" ? "伴奏乐队的乐器音色：FluidR3_GM 音色库，经 gleitz/midi-js-soundfonts 提供（CC BY 3.0）" : "Backing-band instrument samples: FluidR3_GM soundfont via gleitz/midi-js-soundfonts (CC BY 3.0)"}</div>
       </nav>
 
       {/* MODAL (sensei expanded) */}

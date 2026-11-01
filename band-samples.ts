@@ -64,7 +64,11 @@ export function sampleRange(name: string): [number, number] | null { const i = _
 /* For tests: put already decoded buffers in (name -> midi -> buffer) without any fetch. */
 export function _setBandSamples(name: string, bufs: Map<number, AudioBuffer>) { _insts.set(name, { notes: [...bufs.keys()].sort((a, b) => a - b), bufs }); }
 export function _clearBandSamples() { _insts.clear(); _loading.clear(); _manifest = null; }
+/* For tests: forget one instrument, so a run can measure what each one adds. */
+export function _unloadBandSample(name: string) { _insts.delete(name); }
 
+/** for the tests: how many notes were played from a sample (and which instrument) */
+export const _stats: { played: number; by: Record<string, number> } = { played: 0, by: {} };
 export type SampleNote = { stop: (when?: number) => void; nodes: AudioNode[] };
 /* One note: `midi` pitch, starting at `when` on the audio clock, held for `dur` seconds, `vel` 0..1 loudness (linear gain), sent to `dest`.
    attack / release in seconds. Returns null when the instrument is not loaded or the pitch is out of reach. */
@@ -76,6 +80,7 @@ export function playSample(ctx: BaseAudioContext, dest: AudioNode, name: string,
   if (d > 1.5) return null;
   const buf = inst.bufs.get(best);
   if (!buf) return null;
+  _stats.played++; _stats.by[name] = (_stats.by[name] || 0) + 1;
   const src = ctx.createBufferSource();
   src.buffer = buf;
   src.playbackRate.value = Math.pow(2, (midi - best) / 12);
