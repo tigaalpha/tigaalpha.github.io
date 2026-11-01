@@ -531,7 +531,7 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
   // 5. the owner's admin account hears it too; the Voice-Tutor rule
   // 6b. the head of the newest answer is fetched before anyone taps, so the tap needs no wait (and asks for nothing twice)
   {
-    const P = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "ok", reply: "The C major scale has eight notes and follows a whole whole half pattern, so keep your wrist loose and play slowly." });
+    const P = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "ok", ls: { tg_tts_aff: { n: 2, d: Math.floor(Date.now() / 86400000) - 1 } }, reply: "The C major scale has eight notes and follows a whole whole half pattern, so keep your wrist loose and play slowly." });
     await openChat(P.page);
     await ask(P.page, "Teach me the C major scale"); await settle(P.page); await P.page.waitForTimeout(3500);
     const pre = P.state.tts.length;
@@ -544,6 +544,16 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
     const dup = after.filter((t, i) => after.indexOf(t) !== i).length;
     check("speak-prefetch-tap-asks-nothing-twice", dup === 0, after.length + " requests, " + dup + " repeated");
     await P.ctx.close();
+  }
+  // 6c. a device that has never pressed the speaker is not charged for a head start (owner, 2026-11-01), and its first tap makes it a listener
+  {
+    const N = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "ok", reply: "The C major scale has eight notes and follows a whole whole half pattern, so keep your wrist loose and play slowly." });
+    await openChat(N.page);
+    await ask(N.page, "Teach me the C major scale"); await settle(N.page); await N.page.waitForTimeout(3500);
+    check("speak-no-prefetch-for-a-device-that-never-listened", N.state.tts.length === 0, "requests before any tap: " + N.state.tts.length);
+    await N.page.click(".mov .mmsgs .msg.a .bspk"); await N.page.waitForTimeout(1500);
+    check("speak-first-tap-makes-a-listener", await N.page.evaluate(() => { try { return JSON.parse(localStorage.getItem("tg_tts_aff")).n >= 1; } catch (e) { return false; } }));
+    await N.ctx.close();
   }
   const A = await newLearner({ lang: "en", plan: "free", admin: true, jev: "off", tts: "ok", ls: { tg_tts_pf: "0" } });
   await openChat(A.page);

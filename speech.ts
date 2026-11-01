@@ -782,12 +782,19 @@ export function prewarmTts() {
    none of the daily read-aloud rounds (those are taken at the tap) and is capped per day (TTS_PREFETCH_DAY) so a long chat cannot run up a bill.
    tg_tts_pf = 0 switches it off. */
 export const TTS_PREFETCH_CLIPS = 3;
-export const TTS_PREFETCH_DAY = 25;
+export const TTS_PREFETCH_DAY = 12;   // was 25: the head start is only worth paying for on a device that really listens (see ttsListener)
+const TTS_LISTENER_DAYS = 14;
+/* Does this device actually use the speaker? A tap on it (speakCloud with src "chat") stamps `tg_tts_aff`; the prefetch only runs for a device whose last tap was within TTS_LISTENER_DAYS.
+   A player who has never pressed the speaker therefore costs nothing (owner, 2026-11-01: "make the speaker cheaper"); a first-ever tap waits the usual 2-3 s, every later answer is ready. */
+const _dayNo = () => Math.floor(Date.now() / 86400000);
+export function ttsNoteListen() { try { let st = null; try { st = JSON.parse(localStorage.getItem("tg_tts_aff") || "null"); } catch (_e) {} localStorage.setItem("tg_tts_aff", JSON.stringify({ n: Math.min(999, ((st && st.n) || 0) + 1), d: _dayNo() })); } catch (_e) {} }
+export function ttsListener() { try { const st = JSON.parse(localStorage.getItem("tg_tts_aff") || "null"); return !!st && st.n >= 1 && _dayNo() - st.d <= TTS_LISTENER_DAYS; } catch (_e) { return false; } }
 const _pfSeen = new Set();
 export function prefetchTtsHead(text, lang) {
   try {
     if (typeof window === "undefined" || typeof fetch !== "function") return false;
     if (localStorage.getItem("tg_tts_pf") === "0") return false;
+    if (!ttsListener()) return false;                       // never pressed the speaker (or not for two weeks): no head start is paid for
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
     const nav = typeof navigator !== "undefined" ? navigator : null;
     if (nav && nav.connection && (nav.connection.saveData || /(^|-)2g$/.test(String(nav.connection.effectiveType || "")))) return false;
@@ -833,6 +840,7 @@ export function ttsAudibleSpan(buf) {
 }
 
 export async function speakCloud(text, lang, onStart, onDone, onError, rateMul = 1, opts = null) {
+  if (opts && opts.src === "chat" && !opts.prefetch) ttsNoteListen();
   stopCloudTTS();
   _ttsCancelled = false;
   // stopCloudTTS() just gave this call its number. _ttsCancelled alone cannot tell an old call from this one — the next
