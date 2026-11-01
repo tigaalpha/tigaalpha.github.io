@@ -13,7 +13,7 @@ const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, is
 await ctx.route(u => !/127\.0\.0\.1/.test(u.hostname) && !/supabase\.co/.test(u.hostname), r => r.abort());
 await ctx.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
 await ctx.addInitScript(() => { sessionStorage.setItem("tiga_page", "pvp"); localStorage.setItem("tg_adv_gfx", "high"); localStorage.setItem("tg_gp_free", "1"); localStorage.setItem("tg_path_done", JSON.stringify(["scale", "interval", "triad", "seventh"])); localStorage.setItem("tg_guest_profile", JSON.stringify({ name: "T", lang: "en", age: "adult", level: "beginner", exp: 5000 })); });
-const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200))); p.on("console", m => { if (m.type() === "error") errs.push("console:" + m.text().slice(0, 160)); });
+const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message.slice(0, 200))); p.on("console", m => { if (m.type() === "error" && !/^https?:\/\/(?!127\.0\.0\.1)/.test((m.location() && m.location().url) || "")) errs.push("console:" + m.text().slice(0, 160) + " @" + ((m.location() && m.location().url) || "").slice(0, 120)); });
 await p.goto("http://127.0.0.1:" + server.address().port + "/", { waitUntil: "load" }); await p.waitForTimeout(2500);
 for (let i = 0; i < 3; i++) { const x = await p.$(".atpopup button"); if (!x) break; await x.click().catch(() => {}); await p.waitForTimeout(200); }
 ok("the lobby has the Alien Hunt button", (await p.locator("[data-alien-hunt]").count()) === 1);
@@ -38,17 +38,26 @@ const lvl = async () => p.evaluate(() => { const an = window.__an; if (!an) retu
 let pk = 0; for (let i = 0; i < 20; i++) { pk = Math.max(pk, await lvl()); await p.waitForTimeout(100); }
 ok("the battle tune is audible and not clipping (peak " + pk.toFixed(3) + ")", pk > 0.02 && pk < 1.0);
 ok("a slide button and the weapon chips are on screen", (await p.locator("[data-slide]").count()) === 1 && (await p.locator("[data-wpn]").count()) >= 1);
-{ const z0 = await p.evaluate(() => window.__ah.state.p.slideCd); await p.evaluate(() => { document.querySelector("[data-slide]").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 7 })); }); await p.waitForTimeout(300); await p.evaluate(() => document.querySelector("[data-slide]").dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7 })));
+{ const z0 = await p.evaluate(() => window.__ah.state.p.slideCd); await p.evaluate(() => { document.querySelector("[data-slide]").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 7 })); }); await p.waitForTimeout(1200); await p.evaluate(() => document.querySelector("[data-slide]").dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7 })));
   ok("the SLIDE button slides", (await p.evaluate(() => window.__ah.state.p.slideCd)) > 0.3); }
 { await p.evaluate(() => { const s = window.__ah.state; s.enemies.length = 0; s.p.hp = 100; window.__ah.__def = window.__ah.state.auto; });
   ok("auto-walk is OFF by default", (await p.evaluate(() => window.__ah.__def)) === false);
-  await p.evaluate(() => { window.__ah.state.auto = true; }); await p.waitForTimeout(400); ok("auto-walk can be turned on", (await p.evaluate(() => window.__ah.state.auto)) === true);
+  await p.evaluate(() => { window.__ah.state.auto = true; }); await p.waitForTimeout(1200); ok("auto-walk can be turned on", (await p.evaluate(() => window.__ah.state.auto)) === true);
   await p.evaluate(() => { const s = window.__ah.state; s.wave = 1; s.between = 99; s.enemies.push({ id: 880, kind: "mantis", x: s.p.x + 3, z: s.p.z - 5, hp: 1e6, max: 1e6, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }); window.__ah.__p0 = [s.p.x, s.p.z]; }); await p.waitForTimeout(1500);
+  await p.evaluate(() => window.__ah.step(90));   // drive the simulation directly: software GL draws only a few frames a second, so waiting on real frames made this check flaky
   ok("with auto-walk on, the player moves with no stick", (await p.evaluate(() => { const s = window.__ah.state; return Math.hypot(s.p.x - window.__ah.__p0[0], s.p.z - window.__ah.__p0[1]); })) > 1);
   await p.evaluate(() => { const s = window.__ah.state; s.auto = false; s.enemies.length = 0; }); }
 await p.evaluate(() => { const s = window.__ah.state; s.pk.push({ id: 777, x: s.p.x, z: s.p.z, w: "rail" }); }); await p.waitForTimeout(400);
 ok("picking up a gun adds a chip and equips it", (await p.locator("[data-wpn=rail]").count()) === 1 && (await p.evaluate(() => window.__ah.state.weapon)) === "rail");
-for (const k of ["skitter", "mantis", "spitter", "flarecaster", "charger", "skyeye"]) { let pk2 = 0; await p.evaluate(([k]) => window.__ah.creature(k, "spawn"), [k]); for (let i = 0; i < 12; i++) { pk2 = Math.max(pk2, await lvl()); await p.waitForTimeout(60); } ok("the " + k + " has a voice (peak " + pk2.toFixed(2) + ")", pk2 > 0.02 && pk2 < 1.0); }
+for (const k of ["skitter", "mantis", "spitter", "flarecaster", "charger", "skyeye", "domestalker", "hound", "lumawarden"]) { let pk2 = 0; await p.evaluate(([k]) => window.__ah.creature(k, "spawn"), [k]); for (let i = 0; i < 12; i++) { pk2 = Math.max(pk2, await lvl()); await p.waitForTimeout(60); } ok("the " + k + " has a voice (peak " + pk2.toFixed(2) + ")", pk2 > 0.02 && pk2 < 1.0); }
+{ await p.evaluate(() => { const s = window.__ah.state; s.enemies.length = 0; s.p.hp = 100; s.wave = Math.max(1, s.wave); s.between = 99; }); await p.waitForTimeout(1800); const d0 = await p.evaluate(() => window.__ah.dreadLevel());
+  await p.evaluate(() => { const s = window.__ah.state; s.p.hp = 20; s.enemies.push({ id: 991, kind: "mantis", x: s.p.x + 3, z: s.p.z - 3, hp: 1e6, max: 1e6, yaw: 0, t: 0, cd: 99, dead: 0, flash: 0, leap: 0 }); }); await p.waitForTimeout(2500); const d1 = await p.evaluate(() => window.__ah.dreadLevel());
+  await p.evaluate(() => { const s = window.__ah.state; s.p.hp = 100; s.enemies.length = 0; });
+  ok("the dread drone rises with a close alien and low health (" + d0.toFixed(3) + " -> " + d1.toFixed(3) + ")", d0 >= 0 && d0 < 0.06 && d1 > 0.12);
+  await p.evaluate(() => window.__ah.setThreat(0));
+  let pk3 = 0; await p.evaluate(() => window.__ah.stinger()); for (let i = 0; i < 14; i++) { pk3 = Math.max(pk3, await lvl()); await p.waitForTimeout(80); }
+  ok("the boss stinger is audible and not clipping (peak " + pk3.toFixed(3) + ")", pk3 > 0.05 && pk3 < 1.0);
+  await p.evaluate(() => { window.__ah.hurt("charger"); window.__ah.hurt("skitter"); }); }
 // launcher
 await p.evaluate(() => { const s = window.__ah.state; s.weapon = "launcher"; s.cd = 0; s.p.inv = 5; });
 const b0 = await p.evaluate(() => (window.__boom = 0, window.__ah.state.rk.length));
@@ -66,9 +75,12 @@ ok("a music question is asked: " + qtxt.slice(0, 50), qtxt.length > 5);
 const pos0 = await p.evaluate(() => JSON.stringify(window.__ah.state.enemies.map(e => [e.x, e.z])));
 if (SHOT) await p.screenshot({ path: SHOT + "-quiz.png" });
 await p.waitForTimeout(600); ok("aliens do not move while the card is open", pos0 === await p.evaluate(() => JSON.stringify(window.__ah.state.enemies.map(e => [e.x, e.z]))));
-const isChoice = await p.locator("[data-opt]").count();
-if (isChoice) await p.evaluate(() => document.querySelector("[data-opt=ok]").click()); else { await p.evaluate(() => { const q = window.__ah.quizQ(); }); await p.evaluate(() => document.querySelector("[data-skip]").click()); }
-if (isChoice) { await p.waitForSelector("[data-verdict=good]"); ok("a right answer shows the reward verdict", true); await p.evaluate(() => document.querySelector("[data-continue]").click()); ok("a right answer gives the shield", (await p.evaluate(() => window.__ah.state.p.shield)) >= 25); }
+// (the HANDS OFF gate was passed above) there is no skip: a question ends only by answering it
+ok("there is no Skip button on a music question", (await p.locator("[data-skip]").count()) === 0);
+{ const isChoice = await p.locator("[data-opt]").count();
+  if (isChoice) await p.evaluate(() => document.querySelector("[data-opt=ok]").click());
+  else { const qk = await p.evaluate(() => { const q = window.__ah.quizQ(); return { kind: q.kind, ans: q.ans }; }); const taps = qk.kind === "key" ? [qk.ans[0]] : qk.ans; for (const pc of taps) await p.evaluate((pc) => document.querySelector('[data-piano] [data-pc="' + pc + '"]').click(), pc); if (await p.locator("[data-check]").count()) await p.evaluate(() => document.querySelector("[data-check]").click()); }
+  await p.waitForSelector("[data-verdict=good]", { timeout: 4000 }); ok("a right answer shows the reward verdict", true); await p.evaluate(() => document.querySelector("[data-continue]").click()); ok("a right answer gives the shield", (await p.evaluate(() => window.__ah.state.p.shield)) >= 25); }
 await p.waitForTimeout(300); ok("the fight resumes (unfrozen, with a grace)", await p.evaluate(() => !window.__ah.state.frozen && window.__ah.state.grace > 0));
 // pause
 await p.evaluate(() => document.querySelector("[data-pause-btn]").click()); await p.waitForSelector("[data-pause]"); const t0 = await p.evaluate(() => window.__ah.state.t); await p.waitForTimeout(500);

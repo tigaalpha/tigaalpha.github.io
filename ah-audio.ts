@@ -3,6 +3,7 @@
 import type { Ev } from "./ah-engine";
 
 let ctx: AudioContext | null = null, master: GainNode, musicBus: GainNode, musicLp: BiquadFilterNode, sfxBus: GainNode, noiseBuf: AudioBuffer;
+let tailIn: GainNode | null = null;
 const KEY = "tg_ah_snd";
 export const soundOn = (): boolean => { try { return localStorage.getItem(KEY) !== "0"; } catch (e) { return true; } };
 export const setSoundOn = (v: boolean) => { try { localStorage.setItem(KEY, v ? "1" : "0"); } catch (e) {} if (master && ctx) master.gain.value = v ? 0.6 : 0; };
@@ -17,6 +18,7 @@ export function warm(): AudioContext | null {
       const lim = c.createDynamicsCompressor(); lim.threshold.value = -9; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.15;
       master.connect(lim); lim.connect(c.destination);
       sfxBus = c.createGain(); sfxBus.gain.value = 1; sfxBus.connect(master);
+      { tailIn = c.createGain(); const dl = c.createDelay(0.6), fb = c.createGain(), lp = c.createBiquadFilter(), out = c.createGain(); dl.delayTime.value = 0.13; fb.gain.value = 0.38; lp.type = "lowpass"; lp.frequency.value = 2300; out.gain.value = 0.5; tailIn.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(out); out.connect(sfxBus); }   // a short cave-like echo that only the big creature sounds are sent to
       musicLp = c.createBiquadFilter(); musicLp.type = "lowpass"; musicLp.frequency.value = 18000; musicBus = c.createGain(); musicBus.gain.value = 0.5; musicBus.connect(musicLp); musicLp.connect(master);
       noiseBuf = c.createBuffer(1, c.sampleRate * 1.5, c.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
@@ -84,36 +86,109 @@ export function sfx(kind: string, w?: string) {
   }
 }
 
-/** creature voices (owner, 2026-10-18: scary monster sounds): every alien has a spawn roar, an idle growl (quieter the farther it is), a bite sound and a death scream */
-const VOICE_OF: Record<string, string> = { scarab: "skitter", behemoth: "charger", wisp: "skyeye", drone: "spitter", stalker: "mantis", warden: "charger", matriarch: "flarecaster", walker: "skyeye", leaper: "skitter", spiker: "flarecaster", veilmaw: "skyeye", bloater: "spitter", razor: "mantis", titan: "charger", capling: "flarecaster", manthood: "mantis", domestalker: "stalker", xenodrone: "mantis", huntsman: "flarecaster", greyling: "flarecaster", hydraling: "flarecaster", warbug: "charger", saberlord: "charger", skyfolk: "mantis", leviathan: "charger", tripod: "flarecaster", carapace: "mantis" };
+/** creature voices (owner, 2026-10-18: scary monster sounds; round 2 on 2026-11-01: "more frightening and exciting in a fight"): every alien has a spawn roar, an idle growl (quieter the farther it is),
+    a bite sound and a death scream, built from a throaty formant growl, a piercing FM shriek and a wet slime layer; the big ones are also sent through a short cave echo, a boss arrives with a stinger,
+    and `setThreat` (the nearest alien, the player's health) drives a low dread drone and a heartbeat under the battle tune. Everything is generated, nothing is downloaded. */
+const VOICE_OF: Record<string, string> = { scarab: "skitter", behemoth: "charger", wisp: "skyeye", drone: "spitter", stalker: "mantis", warden: "charger", matriarch: "flarecaster", walker: "skyeye", leaper: "skitter", spiker: "flarecaster", veilmaw: "skyeye", bloater: "spitter", razor: "mantis", titan: "charger", capling: "flarecaster", manthood: "mantis", domestalker: "stalker", xenodrone: "mantis", glowbug: "skitter", thornback: "charger", sporecaster: "spitter", hound: "hound", lumawarden: "charger", huntsman: "flarecaster", greyling: "flarecaster", hydraling: "flarecaster", warbug: "charger", saberlord: "charger", skyfolk: "mantis", leviathan: "charger", tripod: "flarecaster", carapace: "mantis" };
+const BOSS_KINDS = new Set(["warden", "matriarch", "lumawarden", "titan", "walker"]);
+const VOWEL: Record<string, [number, number]> = { aa: [800, 1200], oo: [320, 870], ee: [270, 2300], uh: [520, 1150] };   // the first two formants of a vowel
+let shapeCurve: Float32Array | null = null;
+const shaper = (c: AudioContext, k = 4) => { const s = c.createWaveShaper(); if (!shapeCurve) { const n = 512, cu = new Float32Array(n); for (let i = 0; i < n; i++) cu[i] = Math.tanh((i / (n - 1) * 2 - 1) * 4); shapeCurve = cu; } s.curve = shapeCurve; s.oversample = "2x"; return s; };
+/** a throaty vocal growl: a rough saw and a sub square through distortion, two moving formant filters (vowel a -> vowel b) and an irregular rattle */
+function growlF(t: number, dur: number, f0: number, f1: number, vol: number, v0: string, v1: string, bus: AudioNode, rattle = 34) {
+  const c = ctx as AudioContext, o = c.createOscillator(), o2 = c.createOscillator(), l = c.createOscillator(), lg = c.createGain(), lg2 = c.createGain(), mix = c.createGain(), g2 = c.createGain(), sh = shaper(c), out = c.createGain();
+  o.type = "sawtooth"; o2.type = "square"; o2.detune.value = 9; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(25, f1), t + dur); o2.frequency.setValueAtTime(f0 * 0.5, t); o2.frequency.exponentialRampToValueAtTime(Math.max(20, f1 * 0.5), t + dur);
+  l.frequency.value = rattle; lg.gain.value = f0 * 0.09; lg2.gain.value = f0 * 0.045; l.connect(lg); l.connect(lg2); lg.connect(o.frequency); lg2.connect(o2.frequency); g2.gain.value = 0.5; o.connect(mix); o2.connect(g2); g2.connect(mix); mix.connect(sh);
+  for (let i = 0; i < 2; i++) { const bp = c.createBiquadFilter(), bg = c.createGain(); bp.type = "bandpass"; bp.Q.value = 5 - i * 2; bp.frequency.setValueAtTime(VOWEL[v0][i], t); bp.frequency.linearRampToValueAtTime(VOWEL[v1][i], t + dur); bg.gain.value = i ? 0.8 : 1.5; sh.connect(bp); bp.connect(bg); bg.connect(out); }
+  out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.06, dur * 0.2)); out.gain.setValueAtTime(vol, t + dur * 0.55); out.gain.exponentialRampToValueAtTime(0.0008, t + dur); out.connect(bus);
+  o.start(t); o2.start(t); l.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05); l.stop(t + dur + 0.05);
+}
+/** a piercing shriek: two detuned saws with inharmonic FM, a steep pitch glide and a rasp of noise */
+function screech(t: number, dur: number, f0: number, f1: number, vol: number, bus: AudioNode, rasp = 0.4) {
+  const c = ctx as AudioContext, out = c.createGain(), hp = c.createBiquadFilter(), sh = shaper(c);
+  for (const d of [-14, 11]) { const o = c.createOscillator(), m = c.createOscillator(), mg = c.createGain(); o.type = "sawtooth"; o.detune.value = d; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t + dur); m.frequency.setValueAtTime(f0 * 1.51, t); m.frequency.exponentialRampToValueAtTime(Math.max(40, f1 * 1.51), t + dur); mg.gain.setValueAtTime(f0 * 0.5, t); mg.gain.exponentialRampToValueAtTime(Math.max(20, f1 * 0.5), t + dur); m.connect(mg); mg.connect(o.frequency); o.connect(sh); o.start(t); m.start(t); o.stop(t + dur + 0.05); m.stop(t + dur + 0.05); }
+  hp.type = "highpass"; hp.frequency.value = 500; sh.connect(hp); hp.connect(out); out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(vol, t + 0.015); out.gain.setValueAtTime(vol, t + dur * 0.5); out.gain.exponentialRampToValueAtTime(0.0008, t + dur); out.connect(bus);
+  if (rasp > 0) noise(t, dur, "bandpass", Math.max(800, f0 * 1.5), Math.max(600, f1 * 1.5), vol * rasp, bus, 2);
+}
+/** wet gore: a handful of falling bubble blips and a squelch of band noise */
+const slime = (t: number, vol: number, bus: AudioNode, n = 5) => { for (let i = 0; i < n; i++) { const f = 260 + Math.random() * 520; tone(t + i * 0.04 + Math.random() * 0.03, 0.05 + Math.random() * 0.06, "sine", f, f * 0.35, vol * (0.5 + Math.random() * 0.5), bus); } noise(t, 0.28, "bandpass", 1100, 320, vol * 0.7, bus, 2.4); };
+const wet = (b: GainNode, amt: number) => { if (!tailIn || !ctx) return; const s = (ctx as AudioContext).createGain(); s.gain.value = amt; b.connect(s); s.connect(tailIn); };
 export function creature(kind0: string, mode: "spawn" | "growl" | "bite" | "die", dist = 0) {
-  const kind = VOICE_OF[kind0] || kind0;
-  if (!ctx || !soundOn()) return; const c = ctx as AudioContext, t = c.currentTime + 0.001;
-  const vol = mode === "growl" ? Math.max(0.12, 1 - dist / 32) * 0.7 : mode === "spawn" ? 0.95 : 1;
+  const kind = VOICE_OF[kind0] || kind0, boss = BOSS_KINDS.has(kind0);
+  if (!ctx || !soundOn()) return; const c = ctx as AudioContext, t = c.currentTime + 0.001, r = 0.92 + Math.random() * 0.16;   // r: every voice is a little different each time
+  const vol = (mode === "growl" ? Math.max(0.12, 1 - dist / 32) * 0.7 : mode === "spawn" ? 0.95 : 1) * 0.6;   // 0.6: the richer layers below stack up, and a voice must stay a little under the stinger and clear of the limiter
   const b = c.createGain(); b.gain.value = vol; b.connect(sfxBus);
   const wob = (f: number, dur: number, type: OscillatorType, depth: number, rate: number, v: number, f1 = f) => { const o = c.createOscillator(), l = c.createOscillator(), lg = c.createGain(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur); l.frequency.value = rate; lg.gain.value = depth; l.connect(lg); lg.connect(o.frequency); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0008, t + dur); o.connect(g); g.connect(b); o.start(t); l.start(t); o.stop(t + dur + 0.05); l.stop(t + dur + 0.05); };
   const long = mode === "spawn" ? 1.1 : mode === "die" ? 0.9 : mode === "bite" ? 0.25 : 0.7;
+  if ((mode === "spawn" || mode === "die") && (boss || kind === "charger" || kind === "stalker" || kind === "flarecaster")) wet(b, 0.45);
   switch (kind) {
-    case "skitter": // chittering hiss and rapid clicks
+    case "skitter": // chittering hiss and rapid clicks, a thin shriek over them
       noise(t, long, "highpass", 5000, 3000, 0.35, b); for (let i = 0; i < (mode === "growl" ? 6 : 10); i++) tone(t + i * 0.05 + Math.random() * 0.02, 0.03, "square", 2200 + Math.random() * 1400, 1500, 0.12, b);
-      if (mode === "die") wob(1800, 0.7, "sawtooth", 300, 40, 0.22, 250); if (mode === "spawn") wob(900, 0.9, "sawtooth", 200, 22, 0.2, 1700); break;
+      if (mode === "die") { wob(1800, 0.7, "sawtooth", 300, 40, 0.22, 250); screech(t, 0.6, 3200 * r, 380, 0.15, b, 0.3); } if (mode === "spawn") { wob(900, 0.9, "sawtooth", 200, 22, 0.2, 1700); screech(t + 0.1, 0.5, 2400 * r, 1100, 0.1, b, 0.25); } break;
     case "mantis": // a rising shriek over clicking mandibles
       wob(mode === "growl" ? 380 : 700, long, "sawtooth", 160, 14, 0.3, mode === "die" ? 120 : mode === "spawn" ? 1500 : 520); noise(t, long, "bandpass", 2500, 4000, 0.18, b, 3);
-      for (let i = 0; i < 5; i++) tone(t + i * 0.07, 0.03, "square", 1800, 900, 0.1, b); break;
-    case "spitter": // a wet gurgle
-      wob(mode === "die" ? 260 : 150, long, "sine", 60, 11, 0.35, mode === "die" ? 60 : 110); noise(t, long, "bandpass", 700, 300, 0.3, b, 2); for (let i = 0; i < 6; i++) tone(t + i * 0.09, 0.07, "sine", 300 + Math.random() * 200, 100, 0.16, b); break;
-    case "flarecaster": // an eerie detuned chant
-      wob(220, long * 1.2, "sawtooth", 8, 6, 0.2, mode === "die" ? 90 : 235); wob(226, long * 1.2, "sawtooth", 8, 5, 0.16, mode === "die" ? 95 : 240); wob(330, long * 1.2, "triangle", 12, 7, 0.12, 310); break;
-    case "charger": // a deep bestial roar
-      wob(mode === "growl" ? 70 : 90, long * 1.3, "sawtooth", 30, 18, 0.5, mode === "die" ? 35 : 60); noise(t, long, "lowpass", 900, 200, 0.5, b, 0.8); tone(t, long, "sine", 55, 35, 0.6, b); break;
-    case "skyeye": // a thin otherworldly warble
-      wob(900, long * 1.1, "sine", 300, 9, 0.22, mode === "die" ? 200 : 1100); wob(1350, long, "triangle", 200, 13, 0.1, 1500); break;
+      for (let i = 0; i < 5; i++) tone(t + i * 0.07, 0.03, "square", 1800, 900, 0.1, b);
+      if (mode === "spawn") screech(t, 0.8, 1300 * r, 2900, 0.15, b, 0.35); if (mode === "die") screech(t, 0.9, 2600 * r, 240, 0.17, b, 0.35); break;
+    case "spitter": // a wet gurgle with a bubbling growl under it
+      wob(mode === "die" ? 260 : 150, long, "sine", 60, 11, 0.35, mode === "die" ? 60 : 110); noise(t, long, "bandpass", 700, 300, 0.3, b, 2); for (let i = 0; i < 6; i++) tone(t + i * 0.09, 0.07, "sine", 300 + Math.random() * 200, 100, 0.16, b);
+      growlF(t, long, 125 * r, 70, 0.4, "oo", "uh", b, 22); if (mode === "die") slime(t, 0.3, b, 8); break;
+    case "flarecaster": // an eerie detuned chant over a dark undertone
+      wob(220, long * 1.2, "sawtooth", 8, 6, 0.2, mode === "die" ? 90 : 235); wob(226, long * 1.2, "sawtooth", 8, 5, 0.16, mode === "die" ? 95 : 240); wob(330, long * 1.2, "triangle", 12, 7, 0.12, 310);
+      growlF(t, long * 1.1, 140 * r, mode === "die" ? 50 : 100, 0.4, "uh", "oo", b, 8); if (mode === "die") screech(t, 0.8, 900, 150, 0.1, b, 0.2); break;
+    case "charger": // a deep bestial roar, throat and chest
+      wob(mode === "growl" ? 70 : 90, long * 1.3, "sawtooth", 30, 18, 0.5, mode === "die" ? 35 : 60); noise(t, long, "lowpass", 900, 200, 0.5, b, 0.8); tone(t, long, "sine", 55, 35, 0.6, b);
+      growlF(t, long * 1.3, (mode === "growl" ? 75 : 115) * r, mode === "die" ? 38 : 48, 0.9, "aa", "oo", b, 26); break;
+    case "skyeye": // a thin otherworldly warble with a keening wail
+      wob(900, long * 1.1, "sine", 300, 9, 0.22, mode === "die" ? 200 : 1100); wob(1350, long, "triangle", 200, 13, 0.1, 1500); screech(t, long, 1500 * r, mode === "die" ? 260 : 800, 0.07, b, 0); break;
+    case "hound": // a snarling predator: a rough bark, a low snarl, a yelp when it dies
+      if (mode === "growl") growlF(t, 0.7, 130 * r, 100, 0.6, "uh", "oo", b, 46); else if (mode === "die") { screech(t, 0.45, 1500 * r, 300, 0.2, b, 0.1); growlF(t + 0.1, 0.6, 150, 60, 0.5, "aa", "oo", b, 40); }
+      else { growlF(t, mode === "spawn" ? 0.8 : 0.3, 190 * r, 120, 0.85, "aa", "uh", b, 40); if (mode === "spawn") growlF(t + 0.5, 0.5, 170 * r, 110, 0.7, "aa", "uh", b, 44); } break;
+    case "stalker": // the dome-headed hunter: a long hiss, a metallic shriek, inner-jaw snaps and a falling scream
+      if (mode === "spawn") { noise(t, 1.1, "highpass", 2500, 9000, 0.4, b, 0.7); screech(t + 0.15, 1.0, 800 * r, 2800, 0.2, b, 0.4); for (let i = 0; i < 6; i++) tone(t + 0.1 + i * 0.09, 0.03, "square", 2600 + Math.random() * 900, 1500, 0.1, b); }
+      else if (mode === "growl") { noise(t, 0.3, "highpass", 3500, 7500, 0.3, b, 0.8); noise(t + 0.4, 0.3, "highpass", 3500, 7500, 0.25, b, 0.8); growlF(t, 0.7, 95 * r, 70, 0.4, "uh", "aa", b, 50); }
+      else if (mode === "bite") { tone(t, 0.06, "square", 260, 70, 0.5, b); noise(t, 0.12, "highpass", 3000, 1500, 0.4, b, 1); }
+      else { screech(t, 1.1, 2600 * r, 160, 0.24, b, 0.45); noise(t + 0.2, 0.8, "highpass", 3000, 8000, 0.2, b, 0.7); } break;
   }
-  if (mode === "bite") noise(t, 0.18, "bandpass", 1800, 600, 0.5, b, 1.5);
+  // layers every creature shares
+  if (mode === "bite") { noise(t, 0.18, "bandpass", 1800, 600, 0.5, b, 1.5); slime(t, 0.18, b, 3); }
+  if (mode === "spawn") noise(t, 0.9, "lowpass", 260, 70, 0.45, b, 0.9);   // the ground splits
+  if (mode === "die") { slime(t + 0.04, 0.22, b); tone(t + 0.14, 0.3, "sine", 95, 40, 0.5, b); }   // a splat and a body falling
+  if (boss && mode === "spawn") stinger();
+  if (boss && mode === "die") { tone(t, 2.0, "sine", 58, 22, 0.7, b); growlF(t, 1.6, 90, 28, 0.7, "aa", "oo", b, 16); }
 }
+let lastHurt = -9;
+/** a pain cry when a shot lands (rate-limited so a shotgun or minigun does not pile them up) */
+export function hurtVoice(kind0?: string) {
+  if (!ctx || !soundOn() || !kind0) return; const c = ctx as AudioContext, t = c.currentTime + 0.001; if (t - lastHurt < 0.1) return; lastHurt = t;
+  const k = VOICE_OF[kind0] || kind0, big = BOSS_KINDS.has(kind0) || k === "charger", f = (big ? 150 : k === "skyeye" ? 1200 : k === "skitter" ? 2200 : k === "stalker" ? 1800 : 700) * (0.9 + Math.random() * 0.2);
+  const b = c.createGain(); b.gain.value = 0.55; b.connect(sfxBus); if (big) growlF(t, 0.28, f, f * 0.6, 0.45, "aa", "oo", b, 30); else screech(t, 0.2, f, f * 0.45, 0.14, b, 0.2); slime(t, 0.12, b, 2);
+}
+/** a boss arrives: a sub boom, a swelling brass-like drone, a riser and a hard hit with a shriek */
+export function stinger() {
+  if (!ctx || !soundOn()) return; const c = ctx as AudioContext, t = c.currentTime + 0.01, b = c.createGain(); b.gain.value = 0.6; b.connect(sfxBus); wet(b, 0.5);
+  tone(t, 2.2, "sine", 62, 24, 0.85, b);
+  for (const [f, d] of [[55, -8], [55.9, 7], [82.4, 0]]) { const o = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain(); o.type = "sawtooth"; o.frequency.value = f; o.detune.value = d; lp.type = "lowpass"; lp.frequency.setValueAtTime(180, t); lp.frequency.exponentialRampToValueAtTime(2200, t + 1.3); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.22, t + 1.3); g.gain.exponentialRampToValueAtTime(0.0008, t + 2.1); o.connect(lp); lp.connect(g); g.connect(b); o.start(t); o.stop(t + 2.2); }
+  noise(t, 1.3, "bandpass", 250, 6000, 0.35, b, 1.6); screech(t + 1.1, 1.0, 1000, 2600, 0.14, b, 0.3);
+  noise(t + 1.25, 0.9, "lowpass", 3500, 150, 0.6, b, 0.8); tone(t + 1.25, 0.9, "sine", 110, 28, 0.9, b);
+}
+/* the dread bed: a very low beating drone and a heartbeat that speeds up and gets louder as `threat` (0..1) rises; silent at 0, and while a question is open */
+let threat = 0, dread: { g: GainNode; lp: BiquadFilterNode; srcs: AudioScheduledSourceNode[] } | null = null, hbTimer: any = 0, hbNext = 0;
+export function setThreat(v: number) { threat = Math.max(0, Math.min(1, v)); }
+export const dreadLevel = (): number => (dread ? dread.g.gain.value : -1);   // for the tests
+function dreadStart() {
+  if (!ctx || dread) return; const c = ctx as AudioContext, g = c.createGain(), lp = c.createBiquadFilter(), a = c.createOscillator(), a2 = c.createOscillator(), s = c.createBufferSource(), nf = c.createBiquadFilter(), ng = c.createGain();
+  g.gain.value = 0; lp.type = "lowpass"; lp.frequency.value = 140; a.frequency.value = 41; a2.frequency.value = 43.4; s.buffer = noiseBuf; s.loop = true; nf.type = "lowpass"; nf.frequency.value = 90; ng.gain.value = 0.9;
+  a.connect(lp); a2.connect(lp); s.connect(nf); nf.connect(ng); ng.connect(lp); lp.connect(g); g.connect(sfxBus); a.start(); a2.start(); s.start(); dread = { g, lp, srcs: [a, a2, s] }; hbNext = c.currentTime + 0.3;
+  hbTimer = setInterval(() => {
+    if (!ctx || !dread) return; const now = (ctx as AudioContext).currentTime, th = ducked ? 0 : threat;
+    dread.g.gain.setTargetAtTime(th * 0.3, now, 0.35); dread.lp.frequency.setTargetAtTime(120 + th * 520, now, 0.4);
+    if (th > 0.12) { if (hbNext < now) hbNext = now + 0.02; if (hbNext < now + 0.3) { const beat = 60 / (64 + th * 80), v = 0.2 + th * 0.3; tone(hbNext, 0.14, "sine", 78, 38, v, sfxBus); tone(hbNext + beat * 0.28, 0.12, "sine", 66, 34, v * 0.7, sfxBus); noise(hbNext, 0.05, "lowpass", 300, 120, v * 0.3, sfxBus); hbNext += beat; } } else hbNext = now + 0.2;
+  }, 100);
+}
+function dreadStop() { clearInterval(hbTimer); if (dread) { const d = dread; dread = null; try { d.g.gain.setTargetAtTime(0, (ctx as AudioContext).currentTime, 0.1); setTimeout(() => { for (const x of d.srcs) try { x.stop(); } catch (e) {} try { d.g.disconnect(); } catch (e) {} }, 500); } catch (e) {} } threat = 0; }
 export function events(ev: Ev[]) {
   for (const e of ev) {
-    if (e.k === "shot") sfx("shot", e.w); else if (e.k === "boom") sfx(((e.n as number) || 1) >= 2 ? "rboom" : ((e.n as number) || 1) < 1 ? "sboom" : "boom"); else if (e.k === "hit") sfx("hit"); else if (e.k === "head") { sfx("head"); sfx("kill"); creature(e.w as string, "die"); }
+    if (e.k === "shot") sfx("shot", e.w); else if (e.k === "boom") sfx(((e.n as number) || 1) >= 2 ? "rboom" : ((e.n as number) || 1) < 1 ? "sboom" : "boom"); else if (e.k === "hit") { sfx("hit"); hurtVoice(e.a); } else if (e.k === "head") { sfx("head"); sfx("kill"); creature(e.w as string, "die"); }
     else if (e.k === "spawn") creature(e.w as string, "spawn"); else if (e.k === "growl") creature(e.w as string, "growl", e.n || 0); else if (e.k === "bite") creature(e.w as string, "bite"); else if (e.k === "kill") { creature(e.w as string, "die"); sfx(e.w === "mantis" || e.w === "charger" ? "bigkill" : "kill"); } else if (e.k === "hurt") sfx("hurt"); else if (e.k === "reload") sfx("reload"); else if (e.k === "empty") sfx("empty");
     else if (e.k === "station") sfx("tuneok"); else if (e.k === "strike") { sfx("rboom"); sfx("rboom"); } else if (e.k === "dig") sfx("hit");
     else if (e.k === "swap") sfx("swap"); else if (e.k === "pickup") sfx("pickup"); else if (e.k === "slide") sfx("slide"); else if (e.k === "spit") sfx((VOICE_OF[e.w as string] || e.w) === "flarecaster" ? "flare" : (VOICE_OF[e.w as string] || e.w) === "skyeye" ? "bolt" : "spit"); else if (e.k === "charge") sfx("charge"); else if (e.k === "wave") sfx("wave"); else if (e.k === "tune") sfx("tune"); else if (e.k === "win") sfx("win"); else if (e.k === "lose") sfx("lose");
@@ -148,8 +223,8 @@ function pump() {
   if (!ctx || !running) return; const c = ctx; if (nextT < c.currentTime) nextT = c.currentTime + 0.05;
   while (nextT < c.currentTime + 0.5) { if (!ducked) sched(nextT, step16); else if (step16 % 16 === 0) { tone(nextT, S16 * 15, "triangle", mf(ROOTS[Math.floor(step16 / 16) % 4] - 12), mf(ROOTS[Math.floor(step16 / 16) % 4] - 12), 0.18, musicBus); } nextT += S16; step16++; }
 }
-export function musicStart() { if (!ctx || running) return; running = true; step16 = 0; nextT = ctx.currentTime + 0.1; timer = setInterval(pump, 120); pump(); }
-export function musicStop() { running = false; clearInterval(timer); }
+export function musicStart() { if (!ctx || running) return; running = true; step16 = 0; nextT = ctx.currentTime + 0.1; timer = setInterval(pump, 120); pump(); dreadStart(); }
+export function musicStop() { running = false; clearInterval(timer); dreadStop(); }
 export function setIntensity(n: number) { intensity = Math.max(1, Math.min(3, n)); }
 /** a question is open: the tune thins to a soft drone and goes dull; false brings it back */
 export function setDucked(v: boolean) { ducked = v; if (!ctx) return; const t = ctx.currentTime; musicLp.frequency.cancelScheduledValues(t); musicLp.frequency.linearRampToValueAtTime(v ? 700 : 18000, t + 0.25); musicBus.gain.cancelScheduledValues(t); musicBus.gain.linearRampToValueAtTime(v ? 0.22 : 0.5, t + 0.25); }
@@ -171,4 +246,4 @@ function mSched(t: number, i: number) {
 function mPump() { if (!ctx || !mRun) return; const c = ctx; if (mNext < c.currentTime) mNext = c.currentTime + 0.05; while (mNext < c.currentTime + 0.6) { mSched(mNext, mStep); mNext += M8; mStep++; } }
 export function menuStart() { if (!ctx || mRun) return; mRun = true; mStep = 0; mNext = ctx.currentTime + 0.1; mBus = ctx.createGain(); mBus.gain.value = 0.55; mBus.connect(master); mTimer = setInterval(mPump, 150); mPump(); }
 export function menuStop() { mRun = false; clearInterval(mTimer); try { if (mBus && ctx) { mBus.gain.setTargetAtTime(0, ctx.currentTime, 0.15); const b = mBus; setTimeout(() => { try { b.disconnect(); } catch (e) {} }, 800); } } catch (e) {} mBus = null; }
-export function dispose() { musicStop(); menuStop(); try { master && master.disconnect(); } catch (e) {} ctx = null; }
+export function dispose() { musicStop(); menuStop(); try { master && master.disconnect(); } catch (e) {} ctx = null; tailIn = null; shapeCurve = null; lastHurt = -9; }
