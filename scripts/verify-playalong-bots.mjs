@@ -660,7 +660,7 @@ if (want("band")) {
   rec("band-on-beat", r.log.length > 20 && worst < 6, `${r.log.length} drum steps booked, furthest from the beat grid ${worst.toFixed(1)} ms (a 300 ms stall in the middle)`);
   rec("band-4-4", kicks.length > 4 && kicks.every(p => p === 0 || p === 2), `4/4 kicks on beats ${[...new Set(kicks)].map(p => p + 1).join(",")}`);
   rec("band-layers", /b/.test(layers) && /c/.test(layers) && /a/.test(layers), `layers heard with a clean combo: ${layers} (b bass, c strings, a Fever arpeggio)`);
-  rec("band-grand", /d/.test(layers) && /x/.test(layers) && /o/.test(extras) && /f/.test(extras), `the rest of the arrangement: ${layers} + ${extras} (d drone, x brass stabs in Fever, o the opening crash, f the tom fill at the end of a fourth bar)`);
+  rec("band-grand", /d/.test(layers) && /x/.test(layers) && /o/.test(extras) && /[fg]/.test(extras), `the rest of the arrangement: ${layers} + ${extras} (d drone, x brass stabs in Fever, o the opening crash, f the tom fill or g the genre's own fill at the end of a fourth bar, P17)`);
   await done(s);
   const w = await session();
   await openList(w.p); await openSong(w.p, "Jazz Waltz"); await start(w.p); await bot(w.p);
