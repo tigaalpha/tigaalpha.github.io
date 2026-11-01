@@ -59,6 +59,14 @@ export function __setContext(ac, path) {
 export function audioBus() { return { ac: _ac, bus: _bus }; }
 export const __marks = [];
 export function _accMarkSuppress(freq, tol, until) { __marks.push({ freq, tol }); }
+export function hfPing(ac, dest, t0, f, vol, tail) {
+  const src = ac.createBufferSource(); src.buffer = _accNoise(ac); src.loop = true;
+  const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = f; bp.Q.value = 6;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + tail);
+  src.connect(bp); bp.connect(g); g.connect(dest); src.start(t0); src.stop(t0 + tail + 0.03);
+}
+export function playCrowd() {}
 let _buf = null;
 export function _accNoise(ac) {
   if (_buf) return _buf;

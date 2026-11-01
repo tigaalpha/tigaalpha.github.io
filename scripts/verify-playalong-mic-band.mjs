@@ -94,6 +94,29 @@ for (const [accomp, label] of [["track", "the backing track"], ["metro", "the me
 const taps = await Promise.all(Object.keys(MELODIES).map(k => play(k, { input: "tap", accomp: "track", spGain: gainFor(k, 12) }).then(r => ({ k, ...r }))));
 ok(taps.every(r => r.hits === r.notes && r.wrong === 0) && taps.every(r => r.micSafeFrames / r.frames < 0.2), `a player tapping the screen, the full band, the phone 12 dB over the piano: ${taps.map(r => r.hits + "/" + r.notes + " hit, " + r.wrong + " wrong, " + r.dets + " mic readings").join(" · ")}`);
 
+/* The game's own musical sounds now play inside these runs: a graded ding on every hit (a bell for a tapper, a noise ping far above
+   the piano for a pianist), a stinger on Fever / Mega / the combo marks / every ten, the crowd, the metronome's wood block and
+   off-beat tick, and — with a note skipped every fifth one — the miss thud and the band's dip. Each run is compared with the
+   old sounds (plain: true) so a wrong key that appears only with the new ones is visible. */
+{
+  const jobs = [];
+  for (const k of Object.keys(MELODIES)) for (const plain of [true, false]) jobs.push({ k, plain });
+  const rs = await Promise.all(jobs.map(j => play(j.k, { input: "mic", accomp: "track", spGain: gainFor(j.k, 12), dropEvery: 5, plain: j.plain }).then(r => ({ ...j, ...r }))));
+  for (const plain of [true, false]) {
+    const g = rs.filter(r => r.plain === plain), want = g.reduce((a, r) => a + r.notes - r.dropped, 0), hits = g.reduce((a, r) => a + r.hits, 0), wrong = g.reduce((a, r) => a + r.wrong, 0);
+    ok(hits >= want - 1 && wrong <= 1, `a pianist playing the band's song with a note skipped every fifth, the phone 12 dB over the piano, ${plain ? "the OLD sounds" : "the NEW sounds (graded pings, stingers, crowd, miss thud + band dip)"}: ${hits}/${want} hit, ${wrong} wrong key${wrong === 1 ? "" : "s"}${wrong ? " (" + g.flatMap(r => r.wrongList).join(", ") + ")" : ""}`);
+  }
+  const mj = [];
+  for (const k of Object.keys(MELODIES)) for (const plain of [true, false]) mj.push({ k, plain });
+  const ms = await Promise.all(mj.map(j => play(j.k, { input: "mic", accomp: "metro", spGain: gainFor(j.k, 12), dropEvery: 7, plain: j.plain }).then(r => ({ ...j, ...r }))));
+  for (const plain of [true, false]) {
+    const g = ms.filter(r => r.plain === plain), want = g.reduce((a, r) => a + r.notes - r.dropped, 0), hits = g.reduce((a, r) => a + r.hits, 0), wrong = g.reduce((a, r) => a + r.wrong, 0);
+    ok(hits >= want - 1 && wrong <= 1, `a pianist with the metronome (${plain ? "old square click" : "NEW wood block + off-beat tick"}), a note skipped every seventh, the phone 12 dB over the piano: ${hits}/${want} hit, ${wrong} wrong key${wrong === 1 ? "" : "s"}`);
+  }
+  const ts = await Promise.all(Object.keys(MELODIES).map(k => play(k, { input: "tap", accomp: "track", spGain: gainFor(k, 12), dropEvery: 5 }).then(r => ({ k, ...r }))));
+  ok(ts.every(r => r.hits === r.notes - r.dropped && r.wrong === 0), `a player tapping the screen, the full band with the new bells, stingers and crowd and a note skipped every fifth, the phone 12 dB over the piano: ${ts.map(r => r.hits + "/" + (r.notes - r.dropped) + " hit, " + r.wrong + " wrong").join(" · ")}`);
+}
+
 const u = await inPage(() => window.__unit());
 ok(u.scaleRight >= 35, `the detector on its own: ${u.scaleRight}/${u.scaleTotal} keys from C3 to C6 found${u.scaleMissed.length ? " (missed " + u.scaleMissed.join(",") + ")" : ""}`);
 ok(u.again === u.againTotal, `the same key pressed twice is heard twice: ${u.again}/${u.againTotal}`);
