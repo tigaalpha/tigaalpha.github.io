@@ -550,6 +550,7 @@ export function hfPing() {}
 export function playCrowd() {}
 `);
   writeFileSync(join(OUT, "p", "play-along-band.ts"), SRC);
+writeFileSync(join(OUT, "p", "band-samples.ts"), readFileSync("band-samples.ts", "utf8"));   // the band imports it
   execSync(`npx esbuild ${OUT}/p/play-along-band.ts --bundle --outfile=${OUT}/band.js --format=esm --platform=node`, { stdio: "pipe" });
   return await import(pathToFileURL(join(process.cwd(), OUT, "band.js")).href);
 }

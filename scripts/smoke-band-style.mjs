@@ -80,6 +80,7 @@ const SRC = readFileSync("play-along-band.ts", "utf8");
 if (!SRC.includes('from "./music-engine"')) { console.error("play-along-band.ts no longer imports ./music-engine — update this stub"); process.exit(1); }
 ioSync(`${OUT}/p4/music-engine.ts`, STUB);
 ioSync(`${OUT}/p4/play-along-band.ts`, SRC);
+ioSync(`${OUT}/p4/band-samples.ts`, readFileSync("band-samples.ts", "utf8"));   // the band imports it
 execSync(`npx esbuild ${OUT}/p4/play-along-band.ts --bundle --outfile=${OUT}/p4/band.js --format=esm --platform=node`, { stdio: "pipe" });
 const band = await import(pathToFileURL(`${OUT}/p4/band.js`).href);
 const REC = () => globalThis.__BAND_REC;

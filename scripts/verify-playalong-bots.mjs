@@ -1057,6 +1057,19 @@ if (want("sheet")) {
 }
 // ── 19. the running light is on the keys in every mode (owner, 2026-10-01: "in Metronome mode too — the light must be in every mode on the
 //        piano keys"): falling or sheet, backing track or metronome, practice, each hand ──
+// ── the band's real instruments: a styled song with the backing track loads its samples on the ready screen and plays from them ──
+if (want("samples")) {
+  const s = await session();
+  const reqs = []; s.p.on("request", (r) => { if (/band-samples\//.test(r.url())) reqs.push(r.url()); });
+  await openList(s.p); await openSong(s.p, "Twinkle");          // Twinkle is a kids song: electric bass, flute, brass
+  await s.p.waitForTimeout(3500);
+  rec("samples-fetched-on-the-ready-screen", reqs.some(u => /manifest\.json/.test(u)) && reqs.some(u => /electric_bass_finger\/\d+\.mp3/.test(u)), reqs.length + " requests, e.g. " + (reqs[1] || "none").split("/").slice(-2).join("/"));
+  await start(s.p); await bot(s.p); await s.p.waitForTimeout(9000);
+  const r = await s.p.evaluate(() => window.__paTest.samples());
+  await stopBot(s.p);
+  rec("samples-played-by-the-band", r.played > 5 && (r.by.electric_bass_finger || 0) > 0, JSON.stringify(r));
+  await done(s);
+}
 if (want("light")) {
   const box = `const box = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), b: Math.round(b.bottom), w: Math.round(b.width), h: Math.round(b.height) }; };`;
   const probe = (p) => p.evaluate((boxSrc) => {
