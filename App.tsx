@@ -145,7 +145,7 @@ import {
   readLandingOrigin, clearLandingOrigin, anonId,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync } from "./cloud-sync";
-import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone } from "./app-shell";
+import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser } from "./app-shell";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
@@ -11717,6 +11717,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     let host = ""; try { host = location.hostname.toLowerCase(); } catch (e) {}
     const onDomain = host === "tigaalpha.com" || host.endsWith(".tigaalpha.com"); let forced = false; try { forced = localStorage.getItem("tg_test_forcelogin") === "1"; } catch (e) {}
     if (onDomain || forced) raiseGate("wall");
+  }, [isGuest]);
+  /* A reader of a blog article who tapped "Continue with Google" in that page's pop-up (scripts/build-blog-pages.mjs) arrives with ?go=google: start the Google sign-in at once
+     instead of making them find the same button on the login card. Once per arrival (the parameter is removed); a webview that Google refuses (Facebook, LINE...) keeps the
+     card, which explains that and offers the e-mail link. */
+  useEffect(() => {
+    if (!isGuest) return;
+    let go = ""; try { go = new URLSearchParams(window.location.search).get("go") || ""; } catch (e) {}
+    if (go !== "google") return;
+    try { const u = new URL(window.location.href); u.searchParams.delete("go"); window.history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) {}
+    if (inAppBrowser()) return;
+    saveGuestProfile(profile); signInWith("google");
   }, [isGuest]);
   /* The 10-second guest trial is gone (owner 2026-10-31): new people arrive through the landing page and sign in; the login card is for returning members. */
   // Only actually raise the gate on a fresh top-level navigation, never mid-exercise

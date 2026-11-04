@@ -402,7 +402,7 @@ const CSS = `
 .ah-map{position:absolute;right:10px;top:8px;width:116px;height:116px;border-radius:10px;pointer-events:none}
 .ah-stick{position:absolute;left:11%;bottom:20%;width:56px;height:56px;margin:-28px;border-radius:50%;background:#ffffff22;border:2px solid #ffffff55;pointer-events:none}
 .ah-btns{position:absolute;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(3,52px);grid-auto-rows:52px;gap:8px;direction:rtl}.ah-btns button{width:52px;height:52px;border-radius:50%;border:2px solid #ffffff66;background:#0009;font-weight:900;font-size:13px;direction:ltr}
-.ah-btns .fire{grid-column:span 1;width:64px;height:64px;margin:-6px;border-color:#ff6a3a;background:#ff4a2a99}
+.ah-btns .fire{grid-column:span 1;width:70px;height:70px;margin:-9px;border-color:#ff6a3a;background:#ff4a2a99}
 .ah-quiz{overflow:auto}.ah-pause,.ah-quiz{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#05030acc;backdrop-filter:blur(5px);z-index:5;padding:10px}
 .ah-card{display:flex;flex-direction:column;align-items:center;gap:9px;max-width:min(560px,94vw);max-height:96vh;overflow:auto;padding:16px 20px;border-radius:26px;background:linear-gradient(160deg,#241a32,#120c1c);border:1px solid #ffffff2a;text-align:center}.ah-card.wide{width:min(720px,96vw)}
 .ah-card p{margin:0;font-size:13px;opacity:.85}.ah-ic{font-size:30px}.ah-q{font-size:clamp(16px,3.4vw,22px);line-height:1.35}
