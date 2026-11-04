@@ -523,7 +523,8 @@ function LoginWall({ profile, onGoogleLogin }) {
   const [inApp] = useState(() => inAppBrowser());
   const lg = (() => { const p = profile && profile.lang; if (p === "th" || p === "en" || p === "zh") return p; try { const n = (navigator.language || "").toLowerCase(); return n.startsWith("th") ? "th" : n.startsWith("zh") ? "zh" : "en"; } catch (e) { return "en"; } })();
   const t = WALL_T[lg];
-  const [mode, setMode] = useState("login");
+  /* ?wall=signup | ?wall=login opens the card on that tab: the blog pop-up (scripts/build-blog-pages.mjs) sends "sign up free" and "log in" here */
+  const [mode, setMode] = useState(() => { try { return new URLSearchParams(window.location.search).get("wall") === "signup" ? "signup" : "login"; } catch (e) { return "login"; } });
   const [name, setName] = useState(""), [email, setEmail] = useState(""), [pass, setPass] = useState("");
   const [agree, setAgree] = useState(false), [show, setShow] = useState(false), [busy, setBusy] = useState(false), [err, setErr] = useState(""), [ok, setOk] = useState("");
   const signup = mode === "signup";
