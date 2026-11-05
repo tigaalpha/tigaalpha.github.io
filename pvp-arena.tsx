@@ -33,13 +33,17 @@ import { MODEL_CLASS, TIER_LABEL, classOf, classKeyOf, skillsOf } from "./model-
 import { ItemArt, holdOf, hatMountOf, accMountOf } from "./item-art";
 import { petBonusOf, petById, petLevel, petStage, readPet, allPets, carryPet, PetArt, PetThumb, PET_TYPES, typeMatchup, TYPE_CMD } from "./pet-lab";
 import { hasSprite } from "./sprite";
-import { FigurePic, prepareFigures, pauseFigures, FIGURES_OK } from "./figure-cache";
+import { FigurePic, prepareFigures, pauseFigures, figuresEager, FIGURES_OK } from "./figure-cache";
+import { useGfx, resolveGfx, setGfx, gfxChosen } from "./pvp-gfx";
+import { GfxGear } from "./pvp-gfx-ui";
 import { createArenaAudio, useArenaFx, pickStage, warmArenaAudio, STAGES } from "./arena-fx";
 import { SpaceStage, wantsRoom, prefetchSpace, isLowEnd } from "./space-stage";
 /* touch devices (iPad, phones) and weak machines fight in "lite": the
    fighters' idle SVG animations, drop-shadows, reflections and the blur
-   behind the pads each forced a full repaint of ~3,000 SVG nodes per frame */
-const LITE_FIGHT = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
+   behind the pads each forced a full repaint of ~3,000 SVG nodes per frame.
+   Whether THIS fight is lite is no longer a constant read at import: it comes
+   from the PvP graphics level (pvp-gfx.ts, the gear button), inside the
+   lobby and the fight, so a change applies without a reload. */
 /* ── fighters as pictures ── (figure-cache.tsx)
    With the idle animations off, a lite fighter is a still between pose
    changes, and a still can be a picture: each pose is drawn once on the
@@ -47,7 +51,6 @@ const LITE_FIGHT = typeof window !== "undefined" && (isLowEnd() || !!(window.mat
    The pictures are keyed by everything that changes the drawing — the art
    itself (__ART__, fingerprinted at build time), model, pose, turn, colours
    and gear — so a picture is only ever reused for exactly what it shows. */
-const PICS = LITE_FIGHT && FIGURES_OK;
 const ART_KEY = typeof __ART__ !== "undefined" ? __ART__ : "dev";
 const BOT_VB = "-20 -16 160 416", PET_VB = "-12 -18 144 156";
 /* every pose and turn a fight puts a fighter in, the most seen first: the
@@ -1228,6 +1231,9 @@ export const PvpPage = memo(function PvpPage({
   ownedModels = null, onPickModel = null, onOpenShop = null, modelCost = null, adminTier = 0,
 }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const gfx = useGfx();                                  // "low" | "high": the gear button
+  const gfxPlan = useMemo(() => resolveGfx(gfx), [gfx]);
+  const PICS = gfxPlan.liteFight && FIGURES_OK;           // fighters as stored pictures
   const [phase, setPhase] = useState("lobby");    // lobby | fight | result
   const [tier, setTier] = useState(BOT_TIERS[3]);  // veteran/"Medium" - the bot-fight default, and also the fixed baseline a player-vs-player duel scores against
   const [oppKind, setOppKind] = useState("bot");  // bot | player
@@ -1366,7 +1372,7 @@ export const PvpPage = memo(function PvpPage({
       prepareFigures(jobs);
     }, 1200);
     return () => clearTimeout(t);
-  }, [phase, me, colorwayKey, squadUsed, lobbyGearSig, petNow && petNow.species, petLvNow]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [PICS, phase, me, colorwayKey, squadUsed, lobbyGearSig, petNow && petNow.species, petLvNow]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // GAME POWER: a fight costs power, which only learning earns (game-power.ts). blockedFight() is the check that runs BEFORE the screen goes full size.
   const [powerSheet, setPowerSheet] = useState<any>(null);
@@ -1631,12 +1637,14 @@ export const PvpPage = memo(function PvpPage({
               {lobbyFs ? "⤡" : "⛶"}
             </button>
           )}
+          {/* the graphics level (Low / High), far right of the header (owner, 2026-11-05) */}
+          <GfxGear lang={lang} className="pvpgfxbtn-hdr" />
         </div>
 
         {/* ── the hero ── the robot, on its plinth in the room, and the few
             numbers that say who it is. Everything else scrolls up over it. */}
         <section className="pvphero">
-          <SpaceStage variant="lobby" anchor={heroFig} scroller={lobbyRoot} />
+          <SpaceStage variant="lobby" anchor={heroFig} scroller={lobbyRoot} gfx={gfx} />
           <div className={`pvphero-fig${squadUsed === "pet" ? " petonly" : ""}`} ref={heroFig} data-foot="0.018">
           <div className="pvptabs pvptabs-hero" role="tablist">
             {[["fight", T("สู้", "Fight", "对战")], ["friends", T("เพื่อน", "Friends", "好友")], ["me", T("หุ่นของฉัน", "My Robot", "我的机器人")]].filter(([k]) => k !== "friends" || PVP_FRIENDS_TAB).map(([k, lb]) => (
@@ -2635,6 +2643,14 @@ const Bot = memo(CyberAvatar);
 
 const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: myRankIn, tier, oppKind, oppName, onDone, onBack, playUi, initHpFrac = 1, sp = null, colorway = null, practice = false, objectives = [], squad = "both" }) {
   const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  /* the PvP graphics level (pvp-gfx.ts, the gear in the header) turns into the
+     switches this fight runs on; a change applies live, with the clock held
+     while the card is open */
+  const gfx = useGfx();
+  const gfxPlan = useMemo(() => resolveGfx(gfx), [gfx]);
+  const LITE_FIGHT = gfxPlan.liteFight;
+  const PICS = LITE_FIGHT && FIGURES_OK;
+  const gfxHoldRef = useRef(false);                  // true while the graphics card is open: the fight's clock and the bot stand still
   /* ── who is fighting ──
      squad: "bot" the robot alone (no pet at all) · "pet" the pet alone, in the
      robot's place · "both" the robot with the pet at its heel. Read once at
@@ -2649,7 +2665,8 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   const fx = CLASS_FX[myCls] || CLASS_FX.striker;
   const clsInfo = MODEL_CLASS[myCls] || MODEL_CLASS.striker;
   const myGlow = (colorway && colorway.glow) || "#00b8d4", myAccent = (colorway && colorway.accent) || "#7c4dff";
-  const oppModel = useRef(chassisFor(oppKind === "player" ? oppName : tier.key + "-" + Math.floor(Math.random() * 999))).current;
+  /* the values below were `useRef(expr).current`: an initial-value expression is evaluated on EVERY render, and this fight renders about 30 times a second, so each one (and the stage pick, which also wrote to localStorage each time) ran for nothing. A lazy initialiser runs once; same hook, same order. */
+  const oppModel = useState(() => chassisFor(oppKind === "player" ? oppName : tier.key + "-" + Math.floor(Math.random() * 999)))[0];
   const oppCls = classKeyOf(oppModel);
   // a small, honest nudge from the class ring (+10%/-10%), not a hard counter
   const matchup = classMatchup(myCls, oppCls);
@@ -2661,7 +2678,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
      small combat trade-off (SFX) feeds the HP pools below. */
   // a random future city / lab / station each fight, never the same one twice running (owner, 2026-10-10).
   // A duel against another player keeps the seeded stage so both sides fight in the same room.
-  const ARENA = useRef((() => {
+  const ARENA = useState(() => {
     if (oppKind === "player") return pickStage(String(oppName).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 7));
     try { const f = localStorage.getItem("tg_pvp_stage_force"); if (f != null && f !== "") return STAGES[(parseInt(f, 10) || 0) % STAGES.length]; } catch (e) {}   // for the screenshot bots
     let last = -1; try { last = parseInt(localStorage.getItem("tg_pvp_stage") || "-1", 10); } catch (e) {}
@@ -2669,23 +2686,23 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     if (i === last) i = (i + 1 + Math.floor(Math.random() * (STAGES.length - 1))) % STAGES.length;
     try { localStorage.setItem("tg_pvp_stage", String(i)); } catch (e) {}
     return STAGES[i];
-  })()).current;
+  })[0];
   const SFX = stageFx(ARENA);
 
   // the robot's own level stats (pet-only fights have none); all-zero points change nothing
-  const RPG = useRef(rpgMods(petOnly ? null : rpgOf(me).pts)).current;
-  const A = useRef((() => {
+  const RPG = useState(() => rpgMods(petOnly ? null : rpgOf(me).pts))[0];
+  const A = useState(() => {
     const a = petOnly ? petFighterFrom(petPic, petSpec, myRank) : fighterFrom(me, gear, myRank);
     return { ...a, dmg: a.dmg * RPG.dmg, follow: Math.min(0.6, a.follow + RPG.crit), charge: a.charge * RPG.charge };
-  })()).current;
-  const B = useRef(fighterFrom(oppModel, [], 5)).current;
+  })[0];
+  const B = useState(() => fighterFrom(oppModel, [], 5))[0];
   // every equipped item's archetype effect, aggregated once for the fight
-  const itemFx = useRef(itemEffectsOf(gear)).current;
+  const itemFx = useState(() => itemEffectsOf(gear))[0];
   /* ── the pet ──
      Read once, at the start of the fight, so a fight cannot change its own
      terms halfway through. A pet under 50% happiness returns null and does
      nothing at all — the care loop is what buys the bonus. */
-  const PET = useRef(squad === "bot" ? null : petBonusOf()).current;
+  const PET = useState(() => (squad === "bot" ? null : petBonusOf()))[0];
   const petDmg = (PET && PET.k === "dmg" ? 1 + PET.v : 1);
   const petGuard = PET && PET.k === "guard" ? 1 - PET.v : 1;
   const petSp = PET && PET.k === "sp" ? 1 + PET.v : 1;
@@ -2695,7 +2712,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
      the same matchup. Your pet's type is then read against the wheel: a nudge
      the same size as the class ring, not a hard counter. */
   const ELEMS = ["volt", "ember", "frost", "flora", "steel", "aether"];
-  const oppElem = useRef(ELEMS[Math.abs(String(oppModel).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 11)) % 6]).current;
+  const oppElem = useState(() => ELEMS[Math.abs(String(oppModel).split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 11)) % 6])[0];
   const petMatch = petSpec ? typeMatchup(petSpec.type, oppElem) : 0;
   /* ── the beast round ──
      A best-of-three that reaches 1-1 is the moment a match is actually
@@ -2764,16 +2781,22 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     el: () => <PetArt species={petPic.species} level={petLv} mood={sad ? 20 : 80} /> });
   useEffect(() => {
     if (!PICS) return;
+    /* the opponent is the one side the lobby could not draw: its six most seen
+       poses go first, and the intro does not wait for a quiet page (nobody is
+       touching the screen while FIGHT! is announced) — otherwise the fight
+       starts on ~1,400 live SVG nodes and the pictures are made mid-round */
     const jobs = [];
+    FIGHT_SHOTS.slice(0, 6).forEach(([pose, yaw]) => jobs.push(opShot(pose, -yaw)));
     if (petPic) jobs.push(petShot(petPic.mood < 35));
-    for (const [pose, yaw] of FIGHT_SHOTS) {
+    FIGHT_SHOTS.forEach(([pose, yaw], i) => {
       if (!petOnly) jobs.push(meShot(pose, yaw));
-      jobs.push(opShot(pose, -yaw));
-    }
-    prepareFigures(jobs);
+      if (i >= 6) jobs.push(opShot(pose, -yaw));
+    });
+    figuresEager(4500);
+    prepareFigures(jobs, true);
     // whatever the fight left paused, the pages after it may carry on
     return () => pauseFigures(false);
-  }, []);
+  }, [PICS]);   // eslint-disable-line react-hooks/exhaustive-deps
   const gearLv = (wpn ? itemLv(wpn.id) : 0) + (myHat ? itemLv(myHat.id) : 0)
     + (myAcc ? itemLv(myAcc.id) : 0)
     + ((gear || []).filter(g => g && g.id && String(g.id).startsWith("out-")).reduce((a, g) => a + itemLv(g.id), 0));
@@ -2992,10 +3015,40 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   /* plain: the arena is a real 3D room now (SpaceStage, below), so the FX
      canvas no longer paints a skyline behind the fighters — only what the
      fight leaves on the floor */
-  const G = useArenaFx(ARENA, { plain: wantsRoom("arena") });
+  const G = useArenaFx(ARENA, { plain: wantsRoom("arena", gfx), plan: gfxPlan });
   const [room3d, setRoom3d] = useState(false);
   const onRoomReady = useCallback(() => setRoom3d(true), []);
   const onRoomLost = useCallback(() => { setRoom3d(false); try { G.setPlain(false); } catch (e) {} }, []);
+  // the level changed while the fight is open: new effect rules, and the room comes or goes
+  useEffect(() => {
+    try { G.setFx(gfxPlan); } catch (e) {}
+    const want = wantsRoom("arena", gfx);
+    try { G.setPlain(want); } catch (e) {}
+    if (!want) setRoom3d(false);
+  }, [gfxPlan]);   // eslint-disable-line react-hooks/exhaustive-deps
+  /* A device that was left on "high" (nothing chosen by hand) and cannot keep
+     up steps itself down: the average frame over 90 live frames must be over
+     31 ms twice in a row (about six seconds; one slow window is a shader
+     compile, not a verdict). It writes "low" and says so in the card; it never
+     goes back up by itself, and a level the player picked is never touched. */
+  const [gfxToast, setGfxToast] = useState(false);
+  useEffect(() => {
+    if (gfx !== "high" || gfxChosen()) return undefined;
+    let raf = 0, last = 0, n = 0, sum = 0, bad = 0;
+    const loop = (t) => {
+      raf = requestAnimationFrame(loop);
+      const dt = last ? t - last : 0; last = t;
+      if (dt <= 0 || dt > 250 || !liveRef.current || gfxHoldRef.current || hitstopRef.current > Date.now()) return;
+      n++; sum += dt;
+      if (n >= 90) {
+        bad = sum / n > 31 ? bad + 1 : 0; n = 0; sum = 0;
+        if (bad >= 2) { setGfx("low", "auto"); setGfxToast(true); }
+      }
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [gfx]);
+  useEffect(() => { if (!gfxToast) return undefined; const id = setTimeout(() => setGfxToast(false), 5200); return () => clearTimeout(id); }, [gfxToast]);
   /* the room's two hologram read-outs carry the fight's real numbers */
   const holo = useRef({});
   const audioRef = useRef(null);
@@ -3942,7 +3995,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       const now0 = Date.now();
       // HITSTOP: the frame a blow connects, nothing moves — not the fighters,
       // not the bot's brain, not the round clock. Everything resumes together.
-      if (hitstopRef.current > now0) return;
+      if (hitstopRef.current > now0 || gfxHoldRef.current) return;
       const dt = 0.06;
       /* The pet trails the robot at a fixed heel-distance, springing rather
          than snapping — a companion that matched position exactly would look
@@ -4241,7 +4294,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
     let el = 0;
     const id = setInterval(() => {
       if (doneRef.current) return;
-      if (!liveRef.current) return;
+      if (!liveRef.current || gfxHoldRef.current) return;
       el += 100;
       /* the bar moves every 100ms but React only hears about whole seconds:
          this alone was 10 re-renders of the fight a second */
@@ -4593,7 +4646,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
       </div>
   );
   return (
-    <div className={`pvppage x3 fight${land ? " land" : ""}${LITE_FIGHT ? " lite" : ""}${fpv ? " fpv" : ""}`}>
+    <div className={`pvppage x3 fight${land ? " land" : ""}${LITE_FIGHT ? " lite" : ""}${fpv ? " fpv" : ""}`} data-gfx={gfx}>
       <div className="pvphdr">
         <button className="stgback" onClick={onBack} aria-label="back">←</button>
         <span className="pvphdr-t">{T("ยก", "Wave", "波次")} {Math.min(wave, WAVES.length)}/{WAVES.length}</span>
@@ -4608,7 +4661,10 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
             {fullscreen ? "⤡" : "⛶"}
           </button>
         )}
+        {/* the graphics level (Low / High), where the first-person button was (owner, 2026-11-05) */}
+        <GfxGear lang={lang} className="pvpgfxbtn-fight" onOpenChange={(o) => { gfxHoldRef.current = o; }} />
       </div>
+      {gfxToast && <div className="pvpgfx-toast" role="status" data-gfx-toast>{T("เกมลดคุณภาพกราฟิกให้อัตโนมัติ เพื่อให้ลื่น", "The game lowered the graphics quality to keep it smooth", "游戏已自动降低画质以保持流畅")}</div>}
 
       {/* The stage carries the round on its own class: the light drops and the
           room tightens in round 2, and the decider burns. Nothing has to say
@@ -4621,9 +4677,11 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
           };
           return null;
         })()}
-        <SpaceStage variant="arena" stage={ARENA.id} bus={G.bus} data={holo} onReady={onRoomReady} onLost={onRoomLost} />
+        <SpaceStage variant="arena" stage={ARENA.id} bus={G.bus} data={holo} onReady={onRoomReady} onLost={onRoomLost} gfx={gfx} />
         <canvas ref={G.bgRef} className="pvpbg" />
       <canvas ref={G.canvasRef} className="pvpfx" />
+        {/* hit-stop brightening and the round's tone are a thin overlay whose opacity changes, not a CSS filter on the whole stage (a filter there made the room, both canvases, the fighters and the HUD render through an offscreen surface) */}
+        <span className="pvptone" aria-hidden="true" />
         {/* the two walls, lit only for whoever has their back to one */}
         <span className="pvpwall l" /><span className="pvpwall r" />
         <div className="pvphps">
