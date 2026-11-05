@@ -144,7 +144,7 @@ import {
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
   readLandingOrigin, clearLandingOrigin, anonId,
 } from "./shared-infra";
-import { startCloudSync, stopCloudSync } from "./cloud-sync";
+import { startCloudSync, stopCloudSync, cloudSyncReady, onCloudPulled } from "./cloud-sync";
 import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser } from "./app-shell";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
@@ -2543,6 +2543,8 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   // E4: Event countdown
   const [eventOpen, setEventOpen] = useState(false);
   const [eventData, setEventData] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_event") || "null"); } catch (_) { return null; } });
+  // the goal set on another device arrives after this page mounted: re-read it (read only, nothing is written back)
+  useEffect(() => onCloudPulled((ks) => { if (ks.includes("tg_event")) { try { setEventData(JSON.parse(localStorage.getItem("tg_event") || "null")); } catch (_) {} } }), []);
   const [evName, setEvName] = useState("");
   const [evDate, setEvDate] = useState("");
 
@@ -3970,6 +3972,13 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
     return next;
   });
   const [mySongs, setMySongs] = useState(() => { try { return JSON.parse(localStorage.getItem("tg_mysongs") || "[]"); } catch (e) { return []; } });
+  // favourites / own songs changed on another device: re-read them (read only, nothing is written back)
+  useEffect(() => onCloudPulled((ks) => {
+    try {
+      if (ks.includes("tg_favs")) setFavs(JSON.parse(localStorage.getItem("tg_favs") || "[]"));
+      if (ks.includes("tg_mysongs")) setMySongs(JSON.parse(localStorage.getItem("tg_mysongs") || "[]"));
+    } catch (e) {}
+  }), []);
   // "AI Create Song" card on the song list: OFF (owner request 2026-10-02, from a
   // screenshot: the card sat between the era note and "Continue", pushing the songs
   // themselves below the fold on a phone). Nothing else on the page changed — the
@@ -10941,13 +10950,15 @@ export default function App() {
           try { localStorage.setItem(stitchKey, "1"); } catch (e) {}
         }
       }
+      /* cloud-sync: everything that belongs to the player (progress, games, cosmetics, saved songs, settings) follows the account to
+         any device. It starts BEFORE the app is painted: a different account on this browser has the previous account's data
+         removed first, and the first pull gets up to 2.5 s to land so the first paint already shows this player's own state (a slower
+         pull arrives later as a 'tiga:cloud-pulled' event the screens re-read). Fire-and-forget on failure; no-op until
+         supabase-cloud-state-sync-migration.sql is applied. */
+      startCloudSync(uid);
+      try { await cloudSyncReady(2500); } catch (e) {}
       setProfile(finalData || null);
       setProfileReady(true);
-      // cloud-sync: two-way sync of the learner's localStorage learning state
-      // (pathway progress, SRS, memory, best scores, activity log...) so it
-      // survives device switches. Pull-merge happens inside, fire-and-forget;
-      // no-op until supabase-cloud-state-sync-migration.sql is applied.
-      startCloudSync(uid);
       // Supabase is the authoritative subscription now — sync it to localStorage so
       // the freemium gates can't be unlocked by editing localStorage. Admins always
       // get full access; a paid plan counts only while plan_until is in the future.
@@ -12529,6 +12540,32 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // plan 28 · C1: "detailed" density for adults (accuracy %, misses, full finger numbers); kid mode always wins and stays simple
   const [detailPref, setDetailPref] = useState(() => readDetailPref());
   const detailOn = detailPref && !kidOn;
+  /* cloud-sync pulled newer data from another device while this screen was open: every value PianoApp keeps in React state
+     but reads from storage at mount is read again here. READ ONLY: nothing below writes storage, otherwise a stale state would
+     be stamped newer than the cloud copy and overwrite it on the next push. Pages that mount later read storage themselves. */
+  const [, setSyncTick] = useState(0);
+  useEffect(() => onCloudPulled((ks) => {
+    const has = (...names: string[]) => ks.some((k) => names.includes(k));
+    try {
+      if (has("tg_owned")) setOwned(getOwned());
+      if (has("tg_skin")) setSkin(getEquip("skin", "aqua"));
+      if (has("tg_theme")) setTheme(getEquip("theme", "midnight"));
+      if (has("tg_frame")) setFrame(getEquip("frame", "fr-none"));
+      if (has("tg_keyboard")) setKeyboard(getEquip("keyboard", "kb-classic"));
+      if (has("tg_sticker")) setSticker(getEquip("sticker", "st-star"));
+      if (has("tg_charModel")) setCharModelState(normalizeModel(getEquip("charModel", getEquip("charGender", "vanguard"))));
+      if (has("tg_charHat")) setCharHat(getEquip("charHat", "hat-straw"));
+      if (has("tg_charOutfit")) setCharOutfit(getEquip("charOutfit", "out-tshirt"));
+      if (has("tg_charWeapon")) setCharWeapon(getEquip("charWeapon", "wpn-stick"));
+      if (has("tg_charAccessory")) setCharAccessory(getEquip("charAccessory", "acc-shield"));
+      if (has("tg_charModelSet")) setModelChosen(localStorage.getItem("tg_charModelSet") === "1");
+      if (has("tg_exam")) setExamProgress(JSON.parse(localStorage.getItem("tg_exam") || "{}"));
+      if (has("tg_welcomed")) setWelcomeOpen(false);
+      if (has("tg_kid")) setKidPrefState(readKidPref());
+      if (has("tg_detail")) setDetailPref(readDetailPref());
+    } catch (e) {}
+    setSyncTick((t) => t + 1);   // the rest of the screen is computed from storage while rendering
+  }), []);
   function toggleDetail() { const next = !detailPref; writeDetailPref(next); setDetailPref(next); try { logUsage("nav", "detail:" + (next ? "on" : "off")); } catch (e) {} }
   function toggleKid() { const next = !kidOn; writeKidPref(next); setKidPrefState(next ? "1" : "0"); try { logUsage("nav", "kid:" + (next ? "on" : "off")); } catch (e) {} }
   const marketingOn = !!(profile && profile.marketing_consent);
