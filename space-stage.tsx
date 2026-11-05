@@ -120,24 +120,31 @@ export function createSpaceBus() {
    data:    a ref holding hologram read-outs, updated without re-rendering */
 /* Will this page get the real-time room (and so own its backdrop), or the still one? The arena
    draws its own 2D scene when the answer is no (owner, 2026-10-10: ten hand-drawn places). */
-export function wantsRoom(variant) {
+export function wantsRoom(variant, gfx = null) {
   let light = false;
   try { light = document.documentElement.dataset.theme !== "dark"; } catch (e) {}
   if (light) return false;
+  // PvP's own graphics setting (pvp-gfx.ts) decides for the arena and the lobby: "low" never builds the room, "high" builds it at the best tier the device supports
+  if ((variant === "arena" || variant === "lobby") && gfx) return gfx === "high" && spaceTier() > 0;
   return !((variant === "arena" || variant === "lobby") && isLowEnd()) && spaceTier() > 0;
 }
-export const SpaceStage = memo(function SpaceStage({ variant = "lobby", anchor = null, scroller = null, bus = null, stage = null, className = "", data = null, quiet = null, onReady = null, onLost = null }) {
+export const SpaceStage = memo(function SpaceStage({ variant = "lobby", anchor = null, scroller = null, bus = null, stage = null, className = "", data = null, quiet = null, onReady = null, onLost = null, gfx = null }) {
   // PvP (lobby and fight) on a struggling phone keeps the still backdrop
   // the 3D rooms are obsidian: in light mode the page keeps its light still
-  // backdrop instead, and PvP on a struggling phone does the same
-  const [tier] = useState(() => {
+  // backdrop instead, and PvP on a struggling phone does the same.
+  // `gfx` is PvP's own setting ("low" | "high", pvp-gfx.ts): it replaces the
+  // device guess for the arena and the lobby and can change while the page is open.
+  const tier = (() => {
     let light = false;
     try { light = document.documentElement.dataset.theme !== "dark"; } catch (e) {}
     if (light) return 0;
+    if ((variant === "arena" || variant === "lobby") && gfx) return gfx === "high" ? spaceTier() : 0;
     return (variant === "arena" || variant === "lobby") && isLowEnd() ? 0 : spaceTier();
-  });
+  })();
   const [ready, setReady] = useState(false);
   const [dead, setDead] = useState(false);
+  // the setting can switch the room off while the page is open: the still backdrop comes back until a new room has drawn
+  useEffect(() => { if (tier === 0) setReady(false); }, [tier]);
   const alive = tier > 0 && !dead;
   const [reduced] = useState(() => spaceReduced());
   /* the page paints first: the room is only asked for once the browser is

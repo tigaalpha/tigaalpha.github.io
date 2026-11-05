@@ -2,7 +2,21 @@ import { isLowEnd } from "./space-stage";
 /* touch screens (iPad, phones) and weak machines: 1x canvases, and the backdrop
    painted once instead of cleared and redrawn every frame — two full-screen
    canvases at 2x density were the bulk of each fight frame on an iPad */
-const LITE = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
+const LITE0 = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
+/* The effect settings the PvP graphics level (pvp-gfx.ts) turns into. They were
+   one constant read at import time; they are a small mutable record now so a
+   change in the gear card applies to the running fight. Defaults are what the
+   game did before the setting existed. `lite` = the separate backdrop canvas
+   keeps its static bake; `dprCap` = pixel ratio ceiling of both canvases;
+   `pk` = particle / debris count multiplier; `hz` = effects pass rate (0 =
+   every frame); `motes` = ambient dust specks; `lobN` = rockets in a salvo. */
+const FXC = { lite: LITE0, dprCap: LITE0 ? 1 : 2, pk: 1, hz: 0, motes: isLowEnd() ? 8 : 22, lobN: LITE0 ? 4 : 6 };
+export function applyFxPlan(pl) {
+  if (!pl) return false;
+  const was = FXC.lite + "|" + FXC.dprCap;
+  FXC.lite = !!pl.liteFight; FXC.dprCap = pl.dprCap; FXC.pk = pl.pk; FXC.hz = pl.hz; FXC.motes = pl.motes; FXC.lobN = pl.lobN;
+  return was !== FXC.lite + "|" + FXC.dprCap;
+}
 /* ── arena-fx.tsx ──
    Sound and picture for the PvP arena, and nowhere else in the app.
 
@@ -1214,6 +1228,8 @@ export function useArenaFx(stage, opts = {}) {
   const busRef = useRef(null);
   if (!busRef.current) busRef.current = createSpaceBus();
   const bus = busRef.current;
+  // the PvP graphics level's effect rules (pvp-gfx.ts), in force before the first fit
+  if (opts.plan && !stateRef.current) applyFxPlan(opts.plan);
 
   useEffect(() => {
     const cv = canvasRef.current;
@@ -1257,10 +1273,10 @@ export function useArenaFx(stage, opts = {}) {
     const fit = (cw, chh) => {
       let w = cw, h = chh;
       if (w == null || h == null) { const r = cv.getBoundingClientRect(); w = r.width; h = r.height; }
-      const dpr = LITE ? 1 : Math.min(2, window.devicePixelRatio || 1);
+      const dpr = Math.min(FXC.dprCap, window.devicePixelRatio || 1);
       w = Math.max(1, w); h = Math.max(1, h);
       if (dpr === S.dpr && Math.abs(w - S.w) < 0.5 && Math.abs(h - S.h) < 0.5) return;
-      S.dpr = dpr; S.w = w; S.h = h;
+      S.dpr = dpr; S.w = w; S.h = h; S.idleDone = false; S.bgDone = null; S.bgCleared = false;
       cv.width = Math.round(S.w * S.dpr); cv.height = Math.round(S.h * S.dpr);
       fxctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
       if (bg && bgctx) {
@@ -1275,12 +1291,23 @@ export function useArenaFx(stage, opts = {}) {
       } catch (e) { S.floorY = S.h * 0.9; }
       if (!S.sprites && S.plain) { try { S.sprites = floorSprites(); } catch (e) { S.sprites = null; } }
       // ambient dust, so the arena has air in it even between hits
-      S.motes = Array.from({ length: soft ? 0 : isLowEnd() ? 8 : 22 }, () => ({
+      S.motes = Array.from({ length: soft ? 0 : FXC.motes }, () => ({
         x: Math.random() * S.w, y: Math.random() * S.h,
         r: 0.6 + Math.random() * 1.5, vy: -(4 + Math.random() * 12), a: 0.1 + Math.random() * 0.25,
       }));
     };
     fit();
+    // a change of level re-reads the size rules (the pixel ratio, the dust) and repaints
+    S.refit = () => {
+      if (S.motes.length !== (soft ? 0 : FXC.motes)) {
+        S.motes = Array.from({ length: soft ? 0 : FXC.motes }, () => ({
+          x: Math.random() * S.w, y: Math.random() * S.h,
+          r: 0.6 + Math.random() * 1.5, vy: -(4 + Math.random() * 12), a: 0.1 + Math.random() * 0.25,
+        }));
+      }
+      S.dpr = -1; S.idleDone = false; S.bgDone = null; S.bgCleared = false; S.bake = null;
+      fit();
+    };
     const ro = new ResizeObserver((entries) => {
       const cr = entries && entries[0] && entries[0].contentRect;
       fit(cr ? cr.width : null, cr ? cr.height : null);
@@ -1288,18 +1315,36 @@ export function useArenaFx(stage, opts = {}) {
     ro.observe(cv);
 
     let last = performance.now();
+    S.lastDraw = 0;
     const frame = (now) => {
+      /* the effects pass can run at a lower rate (30 Hz in "low"): a frame that
+         comes early is skipped without touching `last`, so the next one covers
+         both and nothing runs slower, it is just drawn half as often */
+      if (FXC.hz && now - S.lastDraw < 1000 / FXC.hz - 3) { S.raf = requestAnimationFrame(frame); return; }
+      S.lastDraw = now;
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       S.t += dt;
+      /* nothing alive and nothing moved since the last empty frame: the canvases
+         are already clear, so do not clear and upload them again (a layer that
+         is rewritten every frame is recomposited every frame, even when empty) */
+      const anyFx = S.parts.length || S.beams.length || S.rings.length || S.lasers.length || S.lobs.length || S.balls.length
+        || S.smoke.length || S.flares.length || S.debris.length || S.embers.length || S.scorch.length || S.shock.length
+        || S.swipes.length || S.stars.length || S.dust.length || S.lines.length || S.rays.length || S.pools.length
+        || S.ripples.length || S.hexes.length || S.flash;
+      const sig = S.pos.me + S.pos.op * 3.1 + (S.air.me || 0) * 7.7 + (S.air.op || 0) * 13.3;
+      if (!anyFx && S.idleDone && S.sig === sig && (S.plain ? true : (FXC.lite && !S.motes.length && S.bgDone === (S.bake && S.bake.key)))) {
+        S.raf = requestAnimationFrame(frame); return;
+      }
+      S.idleDone = !anyFx; S.sig = sig;
       /* lite + the room behind (S.plain): the backdrop canvas has nothing
          static to keep, so everything goes on the fx canvas and the backdrop
          canvas is cleared once and never uploaded again */
-      const liteFlat = LITE && S.plain && bgctx;
+      const liteFlat = FXC.lite && S.plain && bgctx;
       if (liteFlat && !S.bgCleared) { bgctx.clearRect(0, 0, S.w, S.h); S.bgCleared = true; }
       if (!liteFlat) S.bgCleared = false;
       ctx = liteFlat ? fxctx : (bgctx || fxctx);           // the backdrop pass
       // lite: a separate backdrop canvas keeps its static bake between frames
-      const bgStill = liteFlat || (LITE && bgctx && !S.plain && S.bgDone === (S.bake && S.bake.key) && !S.scorch.length);
+      const bgStill = liteFlat || (FXC.lite && bgctx && !S.plain && S.bgDone === (S.bake && S.bake.key) && !S.scorch.length);
       if (!bgStill) ctx.clearRect(0, 0, S.w, S.h);
       if (bgctx) fxctx.clearRect(0, 0, S.w, S.h);
 
@@ -1327,9 +1372,9 @@ export function useArenaFx(stage, opts = {}) {
       if (!S.plain && !bgStill) {
         if (S.bake.cv) ctx.drawImage(S.bake.cv, 0, 0, S.w, S.h);
         ctx.save();
-        if (!(LITE && bgctx)) liveBackdrop(ctx, S, SG, hz, S.bake);
+        if (!(FXC.lite && bgctx)) liveBackdrop(ctx, S, SG, hz, S.bake);
         ctx.restore();
-        if (LITE && bgctx) S.bgDone = S.scorch.length ? null : S.bake.key;
+        if (FXC.lite && bgctx) S.bgDone = S.scorch.length ? null : S.bake.key;
       }
 
       // ── scorch marks: painted on the floor before anything else, so the
@@ -1377,7 +1422,7 @@ export function useArenaFx(stage, opts = {}) {
       }
 
       // lite keeps the backdrop canvas still, so the drifting motes go on the fx layer
-      if (!S.plain) { const mc = LITE && bgctx ? fxctx : ctx; for (const m of S.motes) {
+      if (!S.plain) { const mc = FXC.lite && bgctx ? fxctx : ctx; for (const m of S.motes) {
         m.y += m.vy * dt; if (m.y < 0) { m.y = S.h; m.x = Math.random() * S.w; }
         mc.beginPath(); mc.arc(m.x, m.y, m.r, 0, 7); mc.fillStyle = `rgba(${SG.mote},${m.a * 1.5})`; mc.fill();
       } }
@@ -1732,7 +1777,7 @@ export function useArenaFx(stage, opts = {}) {
         ctx.globalAlpha = a2 * 0.9; ctx.strokeStyle = h2.c; ctx.lineWidth = 2; ctx.stroke();
         ctx.clip();
         ctx.lineWidth = 1.1;
-        for (let row = -8; row <= 8; row++) {
+        for (let row = -8; FXC.pk >= 1 && row <= 8; row++) {
           for (let col = -5; col <= 5; col++) {
             const cx2 = h2.x + (col + (row & 1) * 0.5) * cell * 1.73, cy2 = h2.y + row * cell * 1.5;
             const d = Math.hypot((cx2 - h2.hx) / RX, (cy2 - h2.hy) / RY);
@@ -1861,14 +1906,14 @@ export function useArenaFx(stage, opts = {}) {
     S.balls.push({ x, y, r: 15 + 16 * power, p: 0, dur: 0.16 });
     if (power > 1.2) S.shock.push({ x, y, r0: 6, r1: 90 * power, p: 0, dur: 0.26 });
     if (reduced()) return;
-    for (let i = 0; i < Math.round(5 * power); i++) {
+    for (let i = 0, nd = Math.round(5 * power * FXC.pk); i < nd; i++) {
       const a2 = Math.random() * Math.PI * 2, sp = 90 + Math.random() * 240 * power;
       S.debris.push({ x, y, vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp - 150,
         w: 1.6 + Math.random() * 3.4, h: 1.6 + Math.random() * 3,
         rot: Math.random() * 7, spin: (Math.random() - 0.5) * 20,
         life: 0.6 + Math.random() * 0.5, c: ["#3b3f4a", "#5a5f6d"][Math.floor(Math.random() * 2)] });
     }
-    const n = Math.min(38, Math.round(16 + 16 * power));
+    const n = Math.max(4, Math.round(Math.min(38, Math.round(16 + 16 * power)) * FXC.pk));
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 90 + Math.random() * 320 * power;
       S.parts.push({
@@ -1905,13 +1950,13 @@ export function useArenaFx(stage, opts = {}) {
     S.shock.push({ x: b.x, y: b.y, r0: 4, r1: 54 + w * 5, p: 0, dur: 0.3 });
     if (!reduced()) {
       const back = Math.atan2(a.y - b.y, a.x - b.x);
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0, ne = Math.round(12 * FXC.pk); i < ne; i++) {
         const sp = back + (Math.random() - 0.5) * 1.5, v = 90 + Math.random() * 190;
         S.embers.push({ x: b.x, y: b.y, vx: Math.cos(sp) * v, vy: Math.sin(sp) * v - 40,
           r: 0.8 + Math.random() * 1.3, life: 0.3 + Math.random() * 0.4, max: 0.7,
           fl: 34 + Math.random() * 26, ph: Math.random() * 7 });
       }
-      S.scorch.push({ x: b.x, y: S.h * 0.86, r: 22 + w * 2, p: 0, dur: 1.5 });
+      if (FXC.pk >= 1) S.scorch.push({ x: b.x, y: S.h * 0.86, r: 22 + w * 2, p: 0, dur: 1.5 });
     }
   }, []);
 
@@ -1926,7 +1971,7 @@ export function useArenaFx(stage, opts = {}) {
     S.balls.push({ x, y, r: 17, p: 0, dur: 0.14 });
     S.flares.push({ x, y, r: 54, p: 0, dur: 0.16, c: colour });
     if (reduced()) return;
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0, nm = Math.round(8 * FXC.pk); i < nm; i++) {
       const a = (Math.random() - 0.5) * 1.1 + (from === "me" ? 0 : Math.PI), sp = 120 + Math.random() * 220;
       S.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30, r: 1 + Math.random() * 1.6,
         life: 0.16 + Math.random() * 0.14, max: 0.3, c: "#ffffff" });
@@ -1958,28 +2003,28 @@ export function useArenaFx(stage, opts = {}) {
     S.balls.push({ x: x + 8 * power, y: y + 22, r: 30 * power, p: -0.44, dur: 0.7 });
     [[0.34, 78], [0.5, 128], [0.72, 190]].forEach(([d, r]) =>
       S.rings.push({ x, y, r0: 8, r1: r * power, dur: d, c: colour }));
-    S.scorch.push({ x, y: S.h * 0.9, r: 40 * power, p: 0, dur: 3.4 });
+    if (FXC.pk >= 1) S.scorch.push({ x, y: S.h * 0.9, r: 40 * power, p: 0, dur: 3.4 });
     if (reduced()) return;
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0, n70 = Math.round(70 * FXC.pk); i < n70; i++) {
       const a = Math.random() * Math.PI * 2, sp = 140 + Math.random() * 680 * power;
       S.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 130,
         r: 1 + Math.random() * 2.6, life: 0.45 + Math.random() * 0.7, max: 1.15,
         c: [colour, "#ffffff", "#ffd23f"][Math.floor(Math.random() * 3)] });
     }
-    for (let i = 0; i < Math.round(14 * power); i++) {
+    for (let i = 0, n14 = Math.round(14 * power * FXC.pk); i < n14; i++) {
       const a = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 360 * power;
       S.debris.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 220,
         w: 2 + Math.random() * 5, h: 2 + Math.random() * 4,
         rot: Math.random() * 7, spin: (Math.random() - 0.5) * 22,
         life: 0.9 + Math.random() * 0.8, c: ["#3b3f4a", "#5a5f6d", "#2b2f38"][Math.floor(Math.random() * 3)] });
     }
-    for (let i = 0; i < Math.round(18 * power); i++) {
+    for (let i = 0, n18 = Math.round(18 * power * FXC.pk); i < n18; i++) {
       const a = Math.random() * Math.PI * 2, sp = 30 + Math.random() * 150 * power;
       S.embers.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 90,
         r: 0.8 + Math.random() * 1.8, life: 0.9 + Math.random() * 1.3, max: 2.2,
         fl: 18 + Math.random() * 26, ph: Math.random() * 7 });
     }
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0, ns = Math.round(14 * FXC.pk); i < ns; i++) {
       const a = Math.random() * Math.PI * 2;
       S.smoke.push({ x: x + Math.cos(a) * 14, y: y + Math.sin(a) * 10,
         vx: Math.cos(a) * (26 + Math.random() * 50), vy: -(26 + Math.random() * 46),
@@ -2075,13 +2120,13 @@ export function useArenaFx(stage, opts = {}) {
     if (reduced()) return;
     // sparks in a forward cone rather than a sphere
     const base = dir > 0 ? 0 : Math.PI;
-    for (let i = 0; i < Math.round(26 * power); i++) {
+    for (let i = 0, n26 = Math.round(26 * power * FXC.pk); i < n26; i++) {
       const a2 = base + (Math.random() - 0.5) * 1.5, sp = 180 + Math.random() * 520 * power;
       S.parts.push({ x, y, vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp - 120,
         r: 1 + Math.random() * 2.2, life: 0.3 + Math.random() * 0.4, max: 0.7,
         c: Math.random() < 0.45 ? "#ffffff" : colour });
     }
-    for (let i = 0; i < Math.round(7 * power); i++) {
+    for (let i = 0, n7 = Math.round(7 * power * FXC.pk); i < n7; i++) {
       const a2 = base + (Math.random() - 0.5) * 1.7, sp = 140 + Math.random() * 340 * power;
       S.debris.push({ x, y, vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp - 180,
         w: 1.8 + Math.random() * 3.6, h: 1.8 + Math.random() * 3,
@@ -2108,7 +2153,7 @@ export function useArenaFx(stage, opts = {}) {
        rockets on fanned arcs, launched a beat apart, each blowing up where it
        lands. Only the LAST one carries onLand, so the fight's damage and
        timing are exactly what they were — this is spectacle, not balance. */
-    const N = LITE ? 4 : 6;
+    const N = FXC.lobN;
     for (let k = 0; k < N; k++) {
       const last = k === N - 1, t = k / Math.max(1, N - 1);
       S.lobs.push({
@@ -2136,7 +2181,19 @@ export function useArenaFx(stage, opts = {}) {
   }, []);
 
   /** Stop (or resume) painting the 2D backdrop — the 3D room is behind it. */
-  const setPlain = useCallback((v) => { const S = stateRef.current; if (S) S.plain = !!v; }, []);
+  const setPlain = useCallback((v) => {
+    const S = stateRef.current; if (!S) return;
+    S.plain = !!v; S.idleDone = false; S.bgCleared = false; S.bgDone = null;
+    if (S.plain && !S.sprites) { try { S.sprites = floorSprites(); } catch (e) { S.sprites = null; } }
+  }, []);
 
-  return { canvasRef, bgRef, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, shield, beam: bolt, bus, setPlain };
+  /** A change of PvP graphics level: take the new effect rules and re-fit the canvases. */
+  const setFx = useCallback((pl) => {
+    const S = stateRef.current;
+    const changed = applyFxPlan(pl);
+    if (S && S.refit && changed) S.refit();
+    if (S) S.idleDone = false;
+  }, []);
+
+  return { canvasRef, bgRef, setFx, burst, bolt, laser, muzzle, boom, lob, flash, setPos, setStage, swipe, impact, shield, beam: bolt, bus, setPlain };
 }

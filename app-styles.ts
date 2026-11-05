@@ -4152,6 +4152,43 @@ ${UX2_CSS}
 .pvpshop-hdr:active{transform:scale(.95)}
 .pvpshop-hdr+.gpbar-hdr{margin-left:0}
 .gpbar-hdrp{flex:none;width:136px;height:40px;margin-bottom:2px;display:flex;align-items:center;margin-left:auto}.gpbar-hdrp .gpbar{position:static!important;width:100%!important}.gpbar-hdrp .gpbar{padding:0 8px 0 5px!important;gap:5px;border-radius:18px;height:38px!important;min-height:0;max-height:none;box-sizing:border-box;align-items:center;overflow:visible;box-shadow:0 3px 8px -4px #6a3dd8,0 0 10px -4px #38d6ff,inset 0 1px 0 rgba(255,255,255,.14)}.gpbar-hdrp .gpbar-main{gap:1px}.gpbar-hdrp .gpbar-v{line-height:1;display:flex;align-items:baseline;gap:2px}.gpbar-hdrp .gpbar-v u,.gpbar-hdrp .gpbar-k i{display:none!important}.gpbar-hdrp .gpbar-k{font-size:9px;letter-spacing:.3px;line-height:1;text-transform:none}.gpbar-hdrp .gpbar-ic{width:18px;height:18px;font-size:10px;flex:none}.gpbar-hdrp .gpbar-segs b{height:5px}.gpbar-hdrp .gpbar-v b{font-size:12px}.gpbar-hdrp .gpbar-v em{font-size:9px}
+/* ═══ PvP graphics level: the gear, its card, and what Low / High switch off (pvp-gfx.ts, owner 2026-11-05) ═══ */
+.pvpgfxbtn{width:44px;height:44px;flex:none;margin:-5px 0 -5px 2px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--hair2,rgba(255,255,255,.18));background:var(--gl2,rgba(255,255,255,.08));color:var(--ti1,#e8eefc);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.pvpgfxbtn:active{transform:scale(.94)}
+.pvpgfxbtn.on,.pvpgfxbtn:hover{border-color:#d97757;color:#d97757}
+.pvppage.land .pvpgfxbtn{background:rgba(255,255,255,.14);border-color:#ffffff2e;color:#e8eefc}
+/* in the fight the header floats over the scene (light or dark), so the gear carries its own dark backing and stays readable on any of them */
+.pvppage.fight .pvpgfxbtn{background:rgba(12,16,30,.66);color:#fff;border-color:rgba(255,255,255,.42);box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.pvppage.fight .pvpgfxbtn.on,.pvppage.fight .pvpgfxbtn:hover{border-color:#d97757;color:#ffb08a}
+html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card2,#f3efe8);color:var(--text,#2b2620);border-color:var(--bd1,#d9d2c6)}
+.pvpgfx-back{position:fixed;inset:0;z-index:99990;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(3,6,14,.64);animation:pvpgfxIn .14s ease}
+@keyframes pvpgfxIn{from{opacity:0}to{opacity:1}}
+.pvpgfx-card{width:min(380px,100%);max-height:calc(100vh - 20px);overflow:auto;box-sizing:border-box;border-radius:30px;padding:16px 14px 12px;background:#0f1626;color:#e8eefc;border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 50px -12px #000;font-family:var(--f-app,system-ui,sans-serif);display:flex;flex-direction:column;gap:9px}
+.pvpgfx-h{font-size:17px;font-weight:800;text-align:center;letter-spacing:.2px}
+.pvpgfx-rows{display:flex;flex-direction:column;gap:8px}
+.pvpgfx-row{display:flex;align-items:center;gap:12px;min-height:62px;padding:9px 16px 9px 12px;border-radius:34px;border:2px solid rgba(255,255,255,.16);background:#18213a;color:inherit;text-align:left;cursor:pointer;font:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.pvpgfx-row.on{border-color:#d97757;background:rgba(217,119,87,.16)}
+.pvpgfx-dot{width:28px;height:28px;flex:none;border-radius:50%;border:2px solid rgba(255,255,255,.3);display:inline-flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff}
+.pvpgfx-row.on .pvpgfx-dot{background:#d97757;border-color:#d97757}
+.pvpgfx-t{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.pvpgfx-t b{font-size:16px;font-weight:800}
+.pvpgfx-t i{font-style:normal;font-size:12.5px;opacity:.78;line-height:1.25}
+.pvpgfx-row u{text-decoration:none;flex:none;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;background:#d97757;color:#fff}
+.pvpgfx-auto{font-size:12.5px;text-align:center;color:#ffd9a8;background:rgba(217,119,87,.14);border-radius:18px;padding:8px 12px;line-height:1.3}
+.pvpgfx-x{min-height:44px;border-radius:999px;border:0;background:#d97757;color:#fff;font:inherit;font-size:15px;font-weight:800;cursor:pointer;touch-action:manipulation}
+.pvpgfx-toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:9000;max-width:min(92vw,420px);padding:9px 18px;border-radius:999px;background:rgba(15,22,38,.94);color:#ffd9a8;border:1px solid rgba(217,119,87,.6);font-size:13px;font-weight:700;text-align:center;pointer-events:none;box-shadow:0 8px 24px -8px #000}
+@media (max-height:420px){.pvpgfx-card{gap:6px;padding:10px 12px 8px;border-radius:26px}.pvpgfx-row{min-height:50px;padding:6px 14px 6px 10px}.pvpgfx-t i{font-size:11.5px}.pvpgfx-x{min-height:40px}.pvpgfx-h{font-size:15px}}
+/* hit-stop brightening and the round-two tone were a CSS filter on the whole stage, which made the 3D room, both canvases, both fighters and the HUD render through an offscreen surface for every frame it was on. They are a thin overlay now: only its opacity changes. */
+.pvpstage .pvptone{position:absolute;inset:0;z-index:5;pointer-events:none;background:#000;opacity:0}
+.pvpstage.r2 .pvptone{opacity:.07}
+.pvpstage.hitstop .pvptone{background:#fff;opacity:.11}
+.pvppage[data-gfx] .pvpstage.hitstop,.pvppage[data-gfx] .pvpstage.r2{filter:none!important}
+/* Low: no shake of the whole stage, no endless glow animations on it, no blur anywhere */
+.pvppage[data-gfx="low"] .pvpstage{animation:none!important}
+.pvppage[data-gfx="low"] .pvpstage.od::after,.pvppage[data-gfx="low"] .pvpstage.comeback::before{animation:none!important}
+.pvppage[data-gfx="low"] *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+/* High: the header and the pad keep their look without the blur layer behind each of them (nothing to see through over a dark stage) */
+.pvppage[data-gfx="high"] .pvphdr,.pvppage[data-gfx="high"] .pvpdir,.pvppage[data-gfx="high"] .pvpact{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 `;
 
 export function useInjectCSS() {

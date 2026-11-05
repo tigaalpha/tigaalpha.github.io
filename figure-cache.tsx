@@ -207,6 +207,11 @@ const idle = (f) => (typeof requestIdleCallback === "function" ? requestIdleCall
    while someone is reading rather than while they are doing something */
 const QUIET_MS = 700;
 let lastInput = 0;
+/* the fight's own intro is the one time the wait for a quiet page is skipped:
+   the opponent's stills are needed in seconds, and nobody is touching the
+   screen while FIGHT! is announced */
+let eagerUntil = 0;
+export const figuresEager = (ms) => { eagerUntil = performance.now() + ms; };
 if (FIGURES_OK) for (const ev of ["pointerdown", "touchstart", "wheel", "keydown", "scroll"])
   window.addEventListener(ev, () => { lastInput = performance.now(); }, { passive: true, capture: true });
 function pump() {
@@ -215,7 +220,7 @@ function pump() {
   const next = () => {
     if (paused) { pumping = false; return; }
     const calm = performance.now() - lastInput;
-    if (calm < QUIET_MS) { setTimeout(() => idle(next), QUIET_MS - calm + 40); return; }
+    if (calm < QUIET_MS && performance.now() > eagerUntil) { setTimeout(() => idle(next), QUIET_MS - calm + 40); return; }
     const job = queue.shift();
     if (!job) { pumping = false; return; }
     if (done.has(job.key)) { next(); return; }
