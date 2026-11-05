@@ -2,5 +2,8 @@ node_modules
 bos
 .claude
 *.txt
+# keep the AI-crawler files: without these two lines /llms.txt is never uploaded and Vercel serves the app's index.html instead
+!public/llms.txt
+!public/llms-full.txt
 /payqr
 studio

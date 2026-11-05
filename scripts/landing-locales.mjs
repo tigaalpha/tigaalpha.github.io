@@ -77,6 +77,12 @@ for (const [lang, L] of Object.entries(LOCALES)) {
 
   out = swapOnce(out, landingJsonLd("th"), landingJsonLd(lang), "JSON-LD");
 
+  const canon = lang === "zh" ? "https://www.tigaalpha.com/landing-zh/" : "https://www.tigaalpha.com/landing-en/";
+  out = swapOnce(out, '<link rel="canonical" href="https://www.tigaalpha.com/landing/" />',
+    `<link rel="canonical" href="${canon}" />`, "canonical");
+  out = swapOnce(out, '<meta property="og:url" content="https://www.tigaalpha.com/landing/" />',
+    `<meta property="og:url" content="${canon}" />`, "og:url");
+
   // One bundle for all three. These sit one directory across from /landing/,
   // so the same relative depth with a different folder name.
   const nested = out.replaceAll('"./bundle/', '"../landing/bundle/');

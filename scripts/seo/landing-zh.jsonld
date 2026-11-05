@@ -1,0 +1,201 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://www.tigaalpha.com/landing-zh/#webpage",
+      "url": "https://www.tigaalpha.com/landing-zh/",
+      "name": "和 AI 钢琴老师试上一课 — TIGA ALPHA AI钢琴教学App",
+      "inLanguage": "zh-Hans",
+      "isPartOf": {
+        "@id": "https://www.tigaalpha.com/#site"
+      },
+      "about": {
+        "@id": "https://www.tigaalpha.com/#app"
+      },
+      "publisher": {
+        "@id": "https://www.tigaalpha.com/#org"
+      },
+      "relatedLink": [
+        "https://www.tigastudio.net/",
+        "https://www.tigaalpha.com/"
+      ]
+    },
+    {
+      "@type": [
+        "SoftwareApplication",
+        "WebApplication"
+      ],
+      "@id": "https://www.tigaalpha.com/#app",
+      "name": "TIGA ALPHA",
+      "applicationCategory": "EducationalApplication",
+      "applicationSubCategory": "AI piano teaching app",
+      "operatingSystem": "Web browser (Android, iOS, Windows, macOS)",
+      "browserRequirements": "Requires a modern web browser with JavaScript",
+      "url": "https://www.tigaalpha.com/",
+      "image": "https://www.tigaalpha.com/og-card.png",
+      "inLanguage": [
+        "th",
+        "en",
+        "zh"
+      ],
+      "countryOfOrigin": {
+        "@type": "Country",
+        "name": "Thailand"
+      },
+      "description": "TIGA ALPHA 是泰国团队打造的AI钢琴教学App：用泰语、英语或普通话在线学钢琴。创始人兼CEO Aum 老师拥有20年钢琴教学经验。",
+      "keywords": "钢琴教学, 学钢琴, 钢琴学习课程, 弹钢琴, 演奏音乐, 音乐教学, 钢琴课程, 在线学钢琴, 学音乐, 在线钢琴教学应用, 用AI教钢琴, 钢琴教学App, 在线钢琴教学App, AI钢琴教学App, AI在线钢琴课程",
+      "featureList": [
+        "AI piano teacher that explains and plays the answer on the keyboard",
+        "Teaches in Thai, English and Mandarin Chinese",
+        "Play-along songs, scales, chords and a learning pathway",
+        "Sight-reading and ear training",
+        "Works with on-screen keys, a real piano via microphone, or a MIDI piano"
+      ],
+      "creator": {
+        "@id": "https://www.tigaalpha.com/#org"
+      },
+      "publisher": {
+        "@id": "https://www.tigaalpha.com/#org"
+      },
+      "author": {
+        "@id": "https://www.tigaalpha.com/#teacher-aum"
+      },
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "高级版 (7-day free trial)",
+          "price": "0",
+          "priceCurrency": "THB",
+          "eligibleDuration": {
+            "@type": "QuantitativeValue",
+            "value": 7,
+            "unitCode": "DAY"
+          },
+          "description": "高级版免费使用7天，之后每月799泰铢",
+          "url": "https://www.tigaalpha.com/",
+          "availability": "https://schema.org/InStock"
+        },
+        {
+          "@type": "Offer",
+          "name": "高级版",
+          "price": "799",
+          "priceCurrency": "THB",
+          "description": "高级版免费使用7天，之后每月799泰铢",
+          "url": "https://www.tigaalpha.com/",
+          "availability": "https://schema.org/InStock",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "799",
+            "priceCurrency": "THB",
+            "billingDuration": "P1M",
+            "unitCode": "MON",
+            "referenceQuantity": {
+              "@type": "QuantitativeValue",
+              "value": 1,
+              "unitCode": "MON"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://www.tigaalpha.com/#org",
+      "name": "TIGA ALPHA",
+      "url": "https://www.tigaalpha.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.tigaalpha.com/og-card.png"
+      },
+      "image": "https://www.tigaalpha.com/og-card.png",
+      "description": "TIGA ALPHA is a Thai high-tech AI education company that makes an AI piano teaching app teaching in Thai, English and Mandarin.",
+      "foundingLocation": {
+        "@type": "Place",
+        "name": "Thailand"
+      },
+      "areaServed": "Worldwide",
+      "knowsLanguage": [
+        "th",
+        "en",
+        "zh"
+      ],
+      "founder": {
+        "@id": "https://www.tigaalpha.com/#teacher-aum"
+      },
+      "sameAs": [
+        "https://www.tigastudio.net/",
+        "https://tigaalpha.github.io/landing/"
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://www.tigaalpha.com/#teacher-aum",
+      "name": "Teacher Aum",
+      "alternateName": [
+        "ครูอั้ม",
+        "Aum 老师"
+      ],
+      "jobTitle": "Founder & CEO, TIGA ALPHA",
+      "description": "Founder and CEO of TIGA ALPHA. Piano teacher with 20 years of experience.",
+      "worksFor": {
+        "@id": "https://www.tigaalpha.com/#org"
+      },
+      "affiliation": {
+        "@id": "https://www.tigastudio.net/#organization"
+      },
+      "knowsAbout": [
+        "Piano teaching",
+        "Music education",
+        "AI piano teaching"
+      ],
+      "knowsLanguage": [
+        "th",
+        "en",
+        "zh"
+      ],
+      "nationality": {
+        "@type": "Country",
+        "name": "Thailand"
+      }
+    },
+    {
+      "@type": [
+        "EducationalOrganization",
+        "LocalBusiness"
+      ],
+      "@id": "https://www.tigastudio.net/#organization",
+      "name": "TIGA Studio",
+      "url": "https://www.tigastudio.net/",
+      "telephone": "+66-84-111-9531",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "หมู่บ้านเมืองเอกรังสิต โครงการ 4",
+        "addressLocality": "Rangsit",
+        "addressRegion": "Pathum Thani",
+        "addressCountry": "TH"
+      },
+      "founder": {
+        "@id": "https://www.tigaalpha.com/#teacher-aum"
+      },
+      "sameAs": [
+        "https://www.tiktok.com/@tiga.piano_studio",
+        "https://www.youtube.com/@tiga.studio"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.tigaalpha.com/#site",
+      "url": "https://www.tigaalpha.com/",
+      "name": "TIGA ALPHA",
+      "inLanguage": [
+        "th",
+        "en",
+        "zh"
+      ],
+      "publisher": {
+        "@id": "https://www.tigaalpha.com/#org"
+      }
+    }
+  ]
+}
