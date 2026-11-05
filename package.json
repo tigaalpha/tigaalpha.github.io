@@ -15,6 +15,7 @@
     "sprites": "node scripts/bake-sprites.mjs",
     "songs:originals": "node songs-src/tools/gen_originals.mjs --count=100000 && node scripts/verify-originals.mjs songs-src/originals && node scripts/build-originals.mjs",
     "songs:jazz": "node songs-src/tools/gen_originals_jazz.mjs --count=500 && node scripts/verify-originals.mjs songs-src/originals && node scripts/build-originals.mjs",
+    "verify:cloudsync": "node scripts/smoke-cloud-sync-registry.mjs && node scripts/smoke-cloud-sync-all.mjs",
     "verify:promo": "node scripts/verify-promo-max.mjs && node scripts/verify-conversion.mjs",
     "verify:landing": "node scripts/smoke-landing-three-langs.mjs",
     "verify:chat-free": "node scripts/smoke-chat-free-pause.mjs",
