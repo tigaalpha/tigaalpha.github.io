@@ -64,7 +64,7 @@ const meKey = (me, pose, yaw, glow, accent, gsig) => `${ART_KEY}|me|${me}|${pose
 const opKey = (model, pose, yaw) => `${ART_KEY}|op|${model}|${pose}|${yaw}`;
 const petKey = (species, lv, sad) => `${ART_KEY}|pet|${species}|${lv}|${sad ? 1 : 0}`;
 import { AnswerReveal } from "./note-reveal";
-import { useFpv, FpvButton, FpvVisor, FpvFightHands } from "./fpv";
+import { FpvVisor, FpvFightHands } from "./fpv";
 import { GamePowerBar, PowerSheet, usePlayDrain } from "./game-power-ui";
 import { enterGame, COST as POWER_COST } from "./game-power";
 import { learnedTopics, readDone } from "./quiz-quest";
@@ -2813,7 +2813,7 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
   const [asked, setAsked] = useState(0);
   const [score, setScore] = useState(0);
   const [myPose, setMyPose] = useState("ready");
-  const [fpv, flipFpv] = useFpv();   // first-person view (owner, 2026-10-12): your own fighter is hidden, you see your weapon and the rival up close
+  const fpv = false;   // first-person view (owner, 2026-10-12) is switched off in the fight and its header button is gone (owner, 2026-11-05); a device that had it saved no longer gets stuck in it. fpv.tsx keeps the code
   const [opPose, setOpPose] = useState("ready");
   const [flash, setFlash] = useState(null);
   const [locked, setLocked] = useState(false);
@@ -4608,7 +4608,6 @@ const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: my
             {fullscreen ? "⤡" : "⛶"}
           </button>
         )}
-        <FpvButton lang={lang} on={fpv} onClick={flipFpv} />
       </div>
 
       {/* The stage carries the round on its own class: the light drops and the
