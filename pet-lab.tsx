@@ -99,7 +99,7 @@ export const PET_SPECIES = [
     sw: ["#ffc23d", "#4c3400"], food: "pf-cell",
     th: "แซปพอว์", en: "Zapaw", zh: "雷爪兽", bonus: "dmg",
     dth: "อุ้งเท้าปล่อยประกาย วิ่งเร็วจนเห็นเป็นเส้น", den: "Sparks off its paws and runs fast enough to blur.", dzh: "爪下带电，跑起来只剩残影。" },
-  { id: "pyrix", pw: 1.1, ph: 0.92, phr: 0.94,    code: "PT-08", type: "ember", look: "cool", build: "biped", paw: "claw", head: "boxy",   ear: "horn",  tail: "flame", eye: "visor", mark: "flame",
+  { id: "pyrix", pw: 1.1, ph: 0.92, phr: 0.94,    code: "PT-08", type: "ember", look: "cool", build: "biped", paw: "claw", head: "crest",   ear: "horn",  tail: "flame", eye: "visor", mark: "flame",
     sw: ["#ff5330", "#4c0d00"], food: "pf-coal",
     th: "ไพริกซ์", en: "Pyrix", zh: "熔炉兽", bonus: "dmg",
     dth: "เตาหลอมเดินได้ อุ่นมือได้ในหน้าหนาว", den: "A walking furnace. Excellent to hold in winter.", dzh: "会走路的熔炉，冬天抱着正好。" },
@@ -111,7 +111,7 @@ export const PET_SPECIES = [
     sw: ["#a8cf62", "#2c3c10"], food: "pf-seed",
     th: "มอสเซล", en: "Mossel", zh: "苔壳兽", bonus: "heal",
     dth: "ก้อนมอสอบอุ่น ชอบนอนกลางแดดอ่อน", den: "A warm lump of moss that sleeps in soft light.", dzh: "温暖的苔藓球，爱在柔光下打盹。" },
-  { id: "cogsy", pw: 1.06, ph: 0.96, phr: 0.98,    code: "PT-11", type: "steel", look: "cute", build: "quad", paw: "tread", head: "boxy",  ear: "bolt",  tail: "gear",  eye: "starry", mark: "band",
+  { id: "cogsy", pw: 1.06, ph: 0.96, phr: 0.98,    code: "PT-11", type: "steel", look: "cute", build: "quad", paw: "tread", head: "soft",  ear: "bolt",  tail: "gear",  eye: "starry", mark: "band",
     sw: ["#e0d6c2", "#4a3c21"], food: "pf-bolt",
     th: "ค็อกซี่", en: "Cogsy", zh: "齿轮兽", bonus: "sp",
     dth: "เฟืองน้อยขยัน หมุนตัวเองเวลาตื่นเต้น", den: "A busy little cog that spins itself when excited.", dzh: "勤劳的小齿轮，兴奋时自转。" },
@@ -140,7 +140,7 @@ export const PET_SPECIES = [
     sw: ["#eef2f8", "#152338"], food: "pf-bolt",
     th: "บีโป", en: "Beepo", zh: "哔波兽", bonus: "sp",
     dth: "หุ่นจิ๋วพูดได้คำเดียว ส่ายเสาอากาศเวลาดีใจ", den: "A tiny bot with one word in its vocabulary. Waggles its antennae when pleased.", dzh: "只会说一个字的小机器人，开心时天线乱晃。" },
-  { id: "tofu", pw: 0.94, ph: 1.02, phr: 1.12, code: "PT-16", type: "flora", look: "cute", build: "quad", paw: "root", head: "moon", ear: "flop", tail: "puff", eye: "sleepy", mark: "patch",
+  { id: "tofu", pw: 0.94, ph: 1.02, phr: 1.12, code: "PT-16", type: "flora", look: "cute", build: "quad", paw: "pad", head: "moon", ear: "flop", tail: "puff", eye: "sleepy", mark: "patch",
     sw: ["#e2f0a8", "#37420a"], food: "pf-seed",
     th: "เต้าหู้", en: "Tofu", zh: "豆腐兽", bonus: "heal",
     dth: "ก้อนนุ่มสี่ขา เดินช้ามากแต่ไม่เคยหยุด", den: "A soft four-legged block. Very slow, and it never once stops.", dzh: "软软的四脚方块，走得极慢却从不停下。" },
@@ -180,7 +180,7 @@ export const PET_SPECIES = [
     sw: ["#f5a623", "#492f03"], food: "pf-cell",
     th: "ไรจิน", en: "Raijin", zh: "雷神兽", bonus: "dmg",
     dth: "เดินมาพร้อมเสียงฟ้าร้อง ขนลุกทั้งห้องก่อนมันจะถึง", den: "Arrives with the thunder. The room's hair stands up before it does.", dzh: "伴着雷声而来，它到之前满屋汗毛先立。" },
-  { id: "obsidian", pw: 1.2, ph: 0.88, phr: 0.86, code: "PT-25", type: "steel", look: "cool", build: "quad", paw: "hoof", head: "boxy", ear: "crown", tail: "gear", eye: "visor", mark: "band",
+  { id: "obsidian", pw: 1.2, ph: 0.88, phr: 0.86, code: "PT-25", type: "steel", look: "cool", build: "quad", paw: "hoof", head: "jaw", ear: "crown", tail: "gear", eye: "visor", mark: "band",
     sw: ["#6b7386", "#2c323f"], food: "pf-bolt",
     th: "ออบซิเดียน", en: "Obsidian", zh: "黑曜兽", bonus: "guard",
     dth: "หนักที่สุดในรุ่น ยืนขวางแล้วไม่มีอะไรผ่าน", den: "The heaviest thing in the line. Puts itself in the way and nothing gets past.", dzh: "同批最重的一只，往那一站什么都过不去。" },
@@ -200,7 +200,7 @@ export const PET_SPECIES = [
     sw: ["#d05cff", "#36004c"], food: "pf-prism",
     th: "วอยดร้า", en: "Voidra", zh: "虚空兽", bonus: "sp",
     dth: "แสงรอบตัวมันโค้งงอ มองตรงๆ ไม่ค่อยติด", den: "Light bends around it, so looking straight at it never quite works.", dzh: "周围的光会拐弯，直视它总是看不真切。" },
-  { id: "ferrox", pw: 1.18, ph: 0.9, phr: 0.87, code: "PT-30", type: "steel", look: "cool", build: "biped", paw: "tread", head: "boxy", ear: "wing", tail: "blade", eye: "visor", mark: "stripe",
+  { id: "ferrox", pw: 1.18, ph: 0.9, phr: 0.87, code: "PT-30", type: "steel", look: "cool", build: "biped", paw: "tread", head: "chamfer", ear: "wing", tail: "blade", eye: "visor", mark: "stripe",
     sw: ["#c8a898", "#492f22"], food: "pf-bolt",
     th: "เฟอร์ร็อกซ์", en: "Ferrox", zh: "铁爪兽", bonus: "guard",
     dth: "กรงเล็บเหล็กกล้า ขูดกำแพงเป็นรอยลึก", den: "Steel claws. Leaves grooves in a wall it only meant to lean on.", dzh: "钢铁利爪，靠一下墙都留下深痕。" },
@@ -434,6 +434,8 @@ export const PET_ARTLV = 20;                 // the level the body finishes grow
 const lerp = (a, b, t) => a + (b - a) * t;
 const hx = (c) => { const h = String(c).replace("#", ""); const n = parseInt(h.length === 3 ? h.split("").map(x => x + x).join("") : h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 /** Blend two hex colours. A grown pet runs hotter in its own element. */
+/** Push a colour away from its own grey: the gloss passes lift every coat toward cream, this puts the pigment back. */
+const satc = (c, k) => { const [r, g, b] = hx(c), l = .3 * r + .59 * g + .11 * b; return "#" + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(l + (v - l) * k))).toString(16).padStart(2, "0")).join(""); };
 const mixc = (a, b, t) => { const x = hx(a), y = hx(b); return "#" + [0, 1, 2].map(i => Math.round(lerp(x[i], y[i], t)).toString(16).padStart(2, "0")).join(""); };
 /** Read the three keyframes at a growth position 0..1. */
 const mix3 = (k, g) => {
@@ -506,6 +508,12 @@ const HEADS = {
   blob:  (x, y, r) => `M${x} ${y - r * .88} C${x + r * .78} ${y - r * .92} ${x + r * 1.04} ${y - r * .16} ${x + r * .97} ${y + r * .38} C${x + r * .9} ${y + r * .9} ${x + r * .5} ${y + r * 1.02} ${x} ${y + r * 1.02} C${x - r * .5} ${y + r * 1.02} ${x - r * .9} ${y + r * .9} ${x - r * .97} ${y + r * .38} C${x - r * 1.04} ${y - r * .16} ${x - r * .78} ${y - r * .92} ${x} ${y - r * .88} Z`,
   sharp: (x, y, r) => `M${x} ${y - r} C${x + r * .46} ${y - r} ${x + r * .8} ${y - r * .78} ${x + r * .95} ${y - r * .36} L${x + r * 1.02} ${y + r * .1} C${x + r * .84} ${y + r * .74} ${x + r * .42} ${y + r * 1.02} ${x} ${y + r * 1.02} C${x - r * .42} ${y + r * 1.02} ${x - r * .84} ${y + r * .74} ${x - r * 1.02} ${y + r * .1} L${x - r * .95} ${y - r * .36} C${x - r * .8} ${y - r * .78} ${x - r * .46} ${y - r} ${x} ${y - r} Z`,
   boxy:  (x, y, r) => rr(x, y, r * 2, r * 1.94, r * .34),
+  /* three more plates for the machine family, so a shelf of steel pets is not
+     one box in three paints: a cut-corner helm, a heavy-jawed wedge and a
+     soft-cornered case */
+  chamfer: (x, y, r) => `M${x - r * .55} ${y - r * .98} H${x + r * .55} L${x + r} ${y - r * .5} V${y + r * .5} L${x + r * .6} ${y + r * .98} H${x - r * .6} L${x - r} ${y + r * .5} V${y - r * .5} Z`,
+  jaw:   (x, y, r) => `M${x - r * .8} ${y - r * .96} Q${x} ${y - r * 1.1} ${x + r * .8} ${y - r * .96} L${x + r * 1.06} ${y + r * .44} Q${x + r * 1.02} ${y + r * .96} ${x + r * .56} ${y + r * .98} H${x - r * .56} Q${x - r * 1.02} ${y + r * .96} ${x - r * 1.06} ${y + r * .44} Z`,
+  soft:  (x, y, r) => rr(x, y, r * 2, r * 1.9, r * .66),
   /* narrow crown, wide low cheeks — the whole trick of drawing something as
      young is putting the width UNDER the eyeline rather than over it */
   moon:  (x, y, r) => `M${x} ${y - r} C${x + r * .62} ${y - r} ${x + r * .86} ${y - r * .54} ${x + r * .94} ${y - r * .02} C${x + r * 1.04} ${y + r * .62} ${x + r * .66} ${y + r * 1.04} ${x} ${y + r * 1.04} C${x - r * .66} ${y + r * 1.04} ${x - r * 1.04} ${y + r * .62} ${x - r * .94} ${y - r * .02} C${x - r * .86} ${y - r * .54} ${x - r * .62} ${y - r} ${x} ${y - r} Z`,
@@ -538,6 +546,15 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   const T = PET_TYPES[sp.type] || PET_TYPES.steel;
   const sad = mood < 35;
   const KD = PET_KIND[sp.id] || null;
+  /* ── what the animal is MADE of ──
+     Every species used to share one glossy-bubble recipe, so gold, ruby, steel
+     and jelly differed only by hue. The element decides the finish now: steel
+     and volt are metal (hard reflection bands, a dark core, a narrow streak),
+     frost and aether are crystal (deep colour, light bounced back in at the
+     rim), flora is matte rubber (a soft sheen and no streak), ember stays
+     clear-coat enamel. */
+  const MAT = sp.type === "steel" || (sp.type === "volt" && (sp.look === "cool" || sp.id === "sparkit")) ? "metal" : sp.type === "volt" ? "rubber" : sp.type === "frost" || sp.type === "aether" ? "crystal" : sp.type === "flora" ? "rubber" : "enamel";
+  const MG = { metal: { gl: .16, st: 1.9 }, crystal: { gl: .85, st: 1.25 }, rubber: { gl: .5, st: 0 }, enamel: { gl: 1, st: 1 } }[MAT];
   /* a fish swims and a ball rolls — neither stands on legs, whatever the
      species' old build said */
   const build = KD === "fish" || KD === "ball" ? "float" : sp.build;
@@ -572,7 +589,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
      already carried by the rim, the aura and the eye, so the body only needs
      a hint of it — the animal's own coat does the rest. */
   const A2 = mixc(A, T.c, g * 0.15);
-  const rim = 0.1 + g * 0.5;
+  const rim = (0.1 + g * 0.5) * (MAT === "crystal" ? 1.5 : 1);
 
   /* ── turning it round ──
      A pet used to be one drawing, face-on, so the shop could show you the
@@ -590,6 +607,20 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   const Yp = ((((Number(yaw) || 0) + 180) % 360) + 360) % 360 - 180;
   const th = Yp * Math.PI / 180, c3 = Math.cos(th), s3 = Math.sin(th);
   const T0 = Math.abs(Yp) < 0.01;
+  /* ── fitting the grown animal in its frame ──
+     The grown forms are bigger than the box they are drawn in (the viewBox is fixed: the thumbnails and the arena crop
+     depend on it), so the top of a tall pair of ears or a halo, and the tail of a long quadruped turned side-on, used
+     to run off the edge. The scale is capped from the highest part this species and level carry, never below a
+     hatchling's size, and anything that still sticks out (the ears) is shortened to the room that is left. */
+  const earF = { bolt: 1.86, horn: 1.74, fin: 1.16, leaf: 2.0, halo: 1.7, bunny: 2.5, wing: 1.3, antenna: 2.6, crown: 2.0, flop: .7 }[sp.ear] || 1.6;
+  const topF = Math.max(earF, has(19) ? 2.1 : 0, has(17) ? 1.55 : 0, has(13) ? 2.0 : 0, 1.2);
+  const yLim = -13;
+  const SCf = Math.min(SC, Math.max(.93, (GROUND - yLim) / (GROUND - (hy - hr * topF))));
+  const earTopMax = GROUND - (GROUND - yLim) / SCf;
+  const earK = Math.min(1, Math.max(.55, ((hy - hr * .7) - earTopMax) / (hr * (earF - .7))));
+  const SCq = build === "quad" ? 1 - Math.abs(Math.sin(Yp * Math.PI / 180)) * g * .15 : 1;
+  const fitDx = build === "quad" ? Math.sin(Yp * Math.PI / 180) * g * 8 : 0;
+  const FIT = `translate(${fitDx.toFixed(2)} 0) translate(60 ${GROUND}) scale(${(SCf * SCq).toFixed(3)}) translate(-60 -${GROUND})`;
   const clampP = (v, a, b) => Math.max(a, Math.min(b, v));
   const f2 = (n) => n.toFixed(2);
   const L3 = build === "quad" ? bw * 1.5 : bw;            // front-to-back depth of the body
@@ -605,13 +636,25 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
     const p0 = Math.asin(clampP((x0 - cx) / R, -0.98, 0.98)), p = p0 + th, cp = Math.cos(p);
     return {
       tf: `translate(${f2(cx + baseDx + R * Math.sin(p))} ${f2(ay)}) scale(${Math.max(0.02, cp / Math.cos(p0)).toFixed(3)} 1) translate(${f2(-x0)} ${f2(-ay)})`,
-      op: clampP((cp - 0.02) / 0.22, 0, 1),
+      op: clampP((cp - 0.14) / 0.2, 0, 1),
     };
   };
-  const onHead = (x0, ay) => onR(x0, ay, hr * 1.04, hdx);
+  /* a plated head does not turn like a sphere: its face slides across a box that stays put, so the
+     face may only travel as far as the flat front has room for */
+  const FLATH = sp.head === "boxy" || sp.head === "chamfer" || sp.head === "jaw";
+  const onHead = FLATH
+    ? (x0, ay) => {
+      if (T0) return { tf: undefined, op: 1 };
+      /* the face is a plane on the front of a box: it slides across, foreshortened, and never leaves the plate */
+      const kk = Math.max(.3, c3), X = cx + hdx + (x0 - cx) * kk + hr * .8 * s3;
+      return { tf: `translate(${f2(X - x0)} 0) translate(${f2(x0)} ${f2(ay)}) scale(${kk.toFixed(3)} 1) translate(${f2(-x0)} ${f2(-ay)})`, op: clampP((c3 + .25) / .3, 0, 1) };
+    }
+    : (x0, ay) => onR(x0, ay, hr * (sp.head === "soft" ? .86 : 1.04), hdx);
   // the flat edge-on squeeze a forward-facing plate (an ear, a wing) takes
   const edgeK = 0.4 + 0.6 * Math.abs(c3);
-  const earT = (k, reach = .7) => mv(k * hr * reach * (c3 - 1), cx + k * hr * reach, hy - hr * .8, edgeK);
+  /* seen side-on the two ears used to land on the same spot and read as one
+     spike: the near one comes forward a little and the far one goes back */
+  const earT = (k, reach = .7) => mv(k * hr * reach * (c3 - 1) - k * s3 * hr * .5, cx + k * hr * reach, hy - hr * .8, edgeK);
   // the body's width at this angle: a loaf is longer than it is wide
   const bodyK = Math.sqrt(c3 * c3 + (L3 / bw) * (L3 / bw) * s3 * s3);
   // a part stuck on the front half of the body fades as it goes round the back
@@ -629,6 +672,11 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   const Bm = mixc(B, "#101826", .45);           // steel takes a cooler contour
   // vinyl's contour: the coat's own darkest tone, not a navy ink line
   const Bv = mixc(B, A, .12);
+  /* one key light for the whole animal: it is warm where it lands and the
+     shadow side drifts toward the cool of the room, so every part of a
+     pet shares a lighting story with the arena floor under it */
+  const WARM = "#ffe2b0", COOL = "#2b2f6e";
+  const termOp = T0 ? 0 : clampP(Math.abs(s3) * (s3 > 0 ? .9 : 1.05), 0, .85);
   /* fill → form shadow → key highlight → outline, same five-pass rig as the
      robots and the gear */
   const P = (d, f, o = {}) => (
@@ -641,9 +689,23 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
     <g>
       <path d={d} fill={f} />
       <path d={d} fill={`url(#${uid}-occ)`} opacity={o.occ == null ? 1 : o.occ} />
-      <path d={d} fill={`url(#${uid}-gloss)`} opacity={o.spec == null ? 1 : Math.min(1, o.spec * 1.2)} />
+      <path d={d} fill={`url(#${uid}-gloss)`} opacity={(o.spec == null ? 1 : Math.min(1, o.spec * 1.2)) * MG.gl} />
       <path d={d} fill={`url(#${uid}-rim)`} />
-      <path d={d} fill="none" stroke={Bv} strokeWidth={o.lw || 1.7} strokeLinejoin="round" opacity={o.lineOp == null ? .95 : o.lineOp} />
+      {/* clear-coat: a narrow hard-edged reflection of the key light, the cue a
+          moulded shell has and soft vinyl does not */}
+      {MG.st > 0 && <path d={d} fill={`url(#${uid}-streak)`} opacity={Math.min(1, (o.spec == null ? 1 : o.spec) * MG.st)} />}
+      {/* terminator: turn the animal and the shaded side comes round with it,
+          so a head seen side-on is lit on one cheek and dark on the other */}
+      {termOp > 0 && <path d={d} fill={`url(#${uid}-term)`} opacity={termOp} />}
+      {/* the contour is lit like the form: lighter where the key lands, almost
+          black on the shaded side, instead of one ink line all the way round */}
+      {/* the material: a fine moulded grain on the two big shells, so a
+          large flat colour has a surface to catch light on */}
+      <path d={d} fill="none" stroke={`url(#${uid}-line)`} strokeWidth={o.lw || 1.7} strokeLinejoin="round" opacity={o.lineOp == null ? .95 : o.lineOp} />
+      {/* edge light: the cool back-light that skims the lower right of every
+          shell, inside the contour, the cue that separates a form from the
+          dark it stands in front of */}
+      <path d={d} fill="none" stroke={`url(#${uid}-edge)`} strokeWidth={Math.max(.7, (o.lw || 1.7) * .5)} strokeLinejoin="round" opacity={o.edge == null ? .8 : o.edge} transform="translate(-.5 -.5)" />
     </g>
   );
   const seam = (d, o = .45) => <path d={d} fill="none" stroke={B} strokeWidth="1.2" strokeLinecap="round" opacity={o} />;
@@ -663,25 +725,25 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
     bolt: <>{[-1, 1].map(k => (
       <g key={k} transform={earT(k)}>
         <path d={`M${cx + k * hr * .5} ${hy - hr * .78} L${cx + k * hr * .3} ${hy - hr * 1.86} L${cx + k * hr * 1.32} ${hy - hr * 1.42} L${cx + k * hr * .82} ${hy - hr * 1.38} L${cx + k * hr * 1.2} ${hy - hr * .74} Z`}
-          fill={S} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />
+          fill={S} stroke={B} strokeWidth="1.15" strokeLinejoin="round" />
         {/* inner ear — an ear with one flat colour is a paper cut-out */}
         <path d={`M${cx + k * hr * .56} ${hy - hr * .86} L${cx + k * hr * .44} ${hy - hr * 1.58} L${cx + k * hr * 1.0} ${hy - hr * 1.34} Z`} fill={T.c} opacity=".38" />
       </g>))}</>,
     horn: <>{[-1, 1].map(k => (
       <g key={k} transform={earT(k)}>
         <path d={`M${cx + k * hr * .58} ${hy - hr * .7} C${cx + k * hr * .68} ${hy - hr * 1.42} ${cx + k * hr * 1.3} ${hy - hr * 1.74} ${cx + k * hr * 1.62} ${hy - hr * 1.64} C${cx + k * hr * 1.32} ${hy - hr * 1.3} ${cx + k * hr * 1.24} ${hy - hr * .82} ${cx + k * hr * 1.06} ${hy - hr * .5} Z`}
-          fill={S} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />
+          fill={S} stroke={B} strokeWidth="1.15" strokeLinejoin="round" />
         <ellipse cx={cx + k * hr} cy={hy - hr * 1.05} rx={hr * .15} ry={hr * .28} fill={T.c} opacity=".3" transform={`rotate(${k * 22} ${cx + k * hr} ${hy - hr * 1.05})`} />
       </g>))}</>,
     fin:  <>{[-1, 1].map(k => (
       <g key={k} transform={earT(k)}>
         <path d={`M${cx + k * hr * .62} ${hy - hr * .5} C${cx + k * hr * 1.3} ${hy - hr * 1.16} ${cx + k * hr * 1.96} ${hy - hr * 1.02} ${cx + k * hr * 2.04} ${hy - hr * .44} C${cx + k * hr * 1.6} ${hy - hr * .18} ${cx + k * hr * 1.06} ${hy + hr * .06} ${cx + k * hr * .78} ${hy + hr * .18} Z`}
-          fill={S} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />
+          fill={S} stroke={B} strokeWidth="1.15" strokeLinejoin="round" />
         <path d={`M${cx + k * hr * .96} ${hy - hr * .48} L${cx + k * hr * 1.72} ${hy - hr * .56}`} stroke={B} strokeWidth="1.1" opacity=".45" />
       </g>))}</>,
     leaf: <>{[-1, 1].map(k => (
       <path key={k} transform={earT(k)} d={`M${cx + k * hr * .24} ${hy - hr * .82} C${cx + k * hr * .3} ${hy - hr * 1.8} ${cx + k * hr * 1.06} ${hy - hr * 2.0} ${cx + k * hr * 1.5} ${hy - hr * 1.78} C${cx + k * hr * 1.16} ${hy - hr * 1.42} ${cx + k * hr * .8} ${hy - hr * 1.06} ${cx + k * hr * .52} ${hy - hr * .78} Z`}
-        fill={S} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />))}
+        fill={S} stroke={B} strokeWidth="1.15" strokeLinejoin="round" />))}
       {seam(`M${cx} ${hy - hr * .9} V${hy - hr * 1.7}`, .4)}</>,
     halo: <>
       <ellipse cx={cx} cy={hy - hr * 1.42} rx={hr * .96} ry={hr * .28} fill="none" stroke={A} strokeWidth="4.2" opacity=".92" />
@@ -692,7 +754,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
     bunny: <>{[-1, 1].map(k => (
       <g key={k} transform={earT(k)}>
         <path d={`M${cx + k * hr * .42} ${hy - hr * .72} C${cx + k * hr * .18} ${hy - hr * 1.7} ${cx + k * hr * .62} ${hy - hr * 2.5} ${cx + k * hr * 1.02} ${hy - hr * 2.42} C${cx + k * hr * 1.24} ${hy - hr * 1.72} ${cx + k * hr * 1.06} ${hy - hr} ${cx + k * hr * .86} ${hy - hr * .62} Z`}
-          fill={S} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />
+          fill={S} stroke={B} strokeWidth="1.15" strokeLinejoin="round" />
         <path d={`M${cx + k * hr * .58} ${hy - hr * .84} C${cx + k * hr * .44} ${hy - hr * 1.6} ${cx + k * hr * .74} ${hy - hr * 2.14} ${cx + k * hr * .96} ${hy - hr * 2.08} C${cx + k * hr * 1.06} ${hy - hr * 1.6} ${cx + k * hr * .92} ${hy - hr * 1.06} ${cx + k * hr * .8} ${hy - hr * .8} Z`}
           fill={T.c} opacity=".34" />
       </g>))}</>,
@@ -718,14 +780,14 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
     /* a spiked band across the crown, tallest in the middle */
     crown: <>
       <path d={`M${cx - hr * .98} ${hy - hr * .78} L${cx - hr * .72} ${hy - hr * 1.66} L${cx - hr * .38} ${hy - hr} L${cx} ${hy - hr * 1.98} L${cx + hr * .38} ${hy - hr} L${cx + hr * .72} ${hy - hr * 1.66} L${cx + hr * .98} ${hy - hr * .78} Z`}
-        fill={S} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />
+        fill={S} stroke={B} strokeWidth="1.15" strokeLinejoin="round" />
       <circle cx={cx} cy={hy - hr * 1.7} r={hr * .16} fill={T.c} /></>,
     /* hound ears, hanging DOWN past the jaw — the only pair here that adds
        width at the bottom of the head instead of height at the top */
     flop: <>{[-1, 1].map(k => (
       <g key={k} transform={earT(k)}>
         <path d={`M${cx + k * hr * .72} ${hy - hr * .66} C${cx + k * hr * 1.5} ${hy - hr * .5} ${cx + k * hr * 1.66} ${hy + hr * .36} ${cx + k * hr * 1.3} ${hy + hr * 1.04} C${cx + k * hr} ${hy + hr * 1.5} ${cx + k * hr * .52} ${hy + hr * 1.2} ${cx + k * hr * .6} ${hy + hr * .5} Z`}
-          fill={S} stroke={B} strokeWidth="1.5" strokeLinejoin="round" />
+          fill={S} stroke={B} strokeWidth="1.15" strokeLinejoin="round" />
         <path d={`M${cx + k * hr * .88} ${hy - hr * .38} C${cx + k * hr * 1.34} ${hy - hr * .18} ${cx + k * hr * 1.4} ${hy + hr * .44} ${cx + k * hr * 1.14} ${hy + hr * .86}`}
           fill="none" stroke={T.c} strokeWidth="1.6" opacity=".32" />
       </g>))}</>,
@@ -810,18 +872,26 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         <circle cx={cx + k * ex + er * .3} cy={ey + ry * .4} r={er * .17} fill="#fff" opacity=".85" />
       </g>);
     })}</>,
-    sharp: <>{[-1, 1].map(k => (
+    sharp: <>{[-1, 1].map(k => {
+      /* a cat-eye almond, outer corner lifted: it reads as confident, where the old black wedge read as angry */
+      const ix = cx + k * (ex - er * .84), iy = ey + er * .16, ox = cx + k * (ex + er * .86), oy = ey - er * (sad ? .02 : .24);
+      const up = sad ? .5 : .82;
+      const almond = `M${ix} ${iy} C${cx + k * (ex - er * .5)} ${ey - er * up * .95} ${cx + k * (ex + er * .4)} ${ey - er * up * 1.12} ${ox} ${oy} C${cx + k * (ex + er * .5)} ${ey + er * .82} ${cx + k * (ex - er * .4)} ${ey + er * .9} ${ix} ${iy} Z`;
+      return (
       <g key={k} transform={onHead(cx + k * ex, ey).tf} opacity={onHead(cx + k * ex, ey).op}>
-        <path d={`M${cx + k * (ex + er * .95)} ${ey - er * (sad ? .1 : .55)} L${cx + k * (ex - er * .8)} ${ey - er * .1} L${cx + k * (ex + er * .85)} ${ey + er * .72} Z`} fill="#0d1424" />
-        <circle cx={cx + k * ex} cy={ey + er * .06} r={er * .34} fill={T.c} />
-      </g>))}</>,
+        <path d={almond} fill="#0d1424" />
+        <path d={ell(cx + k * (ex + er * .04), ey + er * .04, er * .52, er * (sad ? .36 : .52))} fill={`url(#${uid}-iris)`} />
+        <circle cx={cx + k * (ex - er * .1)} cy={ey - er * .2} r={er * .17} fill="#fff" />
+        <path d={`M${ix} ${iy} C${cx + k * (ex - er * .5)} ${ey - er * up * .95} ${cx + k * (ex + er * .4)} ${ey - er * up * 1.12} ${ox} ${oy} l${k * er * .3} ${-er * .16}`} fill="none" stroke="#0d1424" strokeWidth={Math.max(1.6, er * .2)} strokeLinecap="round" strokeLinejoin="round" />
+      </g>);
+    })}</>,
     sleepy: <>{[-1, 1].map(k => (
       <path key={k} transform={onHead(cx + k * ex, ey).tf} opacity={onHead(cx + k * ex, ey).op} d={`M${cx + k * (ex + er * .95)} ${ey - er * .1} C${cx + k * ex} ${ey + er * .86} ${cx + k * (ex - er * .95)} ${ey + er * .6} ${cx + k * (ex - er * .95)} ${ey - er * .12}`}
         fill="none" stroke="#0d1424" strokeWidth="3" strokeLinecap="round" />))}</>,
     visor: <g transform={onHead(cx, ey).tf} opacity={onHead(cx, ey).op}>
       <path d={rr(cx, ey, hr * 1.62, er * 1.5, er * .5)} fill="#0d1424" />
       <path d={rr(cx, ey - er * .12, hr * 1.42, er * .72, er * .3)} fill={T.c} opacity={sad ? .45 : .9} />
-      <path d={`M${cx - hr * .74} ${ey - er * .5} L${cx - hr * .3} ${ey - er * .5} L${cx - hr * .52} ${ey + er * .5} L${cx - hr * .92} ${ey + er * .5} Z`} fill="#fff" opacity=".3" />
+      <path d={`M${cx - hr * .62} ${ey - er * .5} L${cx - hr * .24} ${ey - er * .5} L${cx - hr * .42} ${ey + er * .5} L${cx - hr * .74} ${ey + er * .5} Z`} fill="#fff" opacity=".26" />
       <circle cx={cx - hr * .5} cy={ey + er * .36} r={er * .2} fill="#fff" opacity=".85" /></g>,
     starry: <>{[-1, 1].map(k => (
       <g key={k} transform={onHead(cx + k * ex, ey).tf} opacity={onHead(cx + k * ex, ey).op}>
@@ -872,8 +942,8 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       <path d={rr(cx, ey, hr * 1.16, er * 1.62, er * .8)} fill="#0d1424" />
       <path d={ell(cx, ey, hr * .46, er * (sad ? .42 : .74))} fill={T.c} opacity=".95" />
       <path d={ell(cx, ey, hr * .2, er * (sad ? .26 : .46))} fill="#fff" opacity=".9" />
-      <path d={`M${cx - hr * .96} ${ey - er * .5} L${cx - hr * .5} ${ey - er * .5} L${cx - hr * .72} ${ey + er * .46} L${cx - hr * 1.12} ${ey + er * .46} Z`}
-        fill="#fff" opacity=".22" /></g>,
+      <path d={`M${cx - hr * .5} ${ey - er * .6} L${cx - hr * .24} ${ey - er * .6} L${cx - hr * .38} ${ey + er * .5} L${cx - hr * .64} ${ey + er * .5} Z`}
+        fill="#fff" opacity=".2" /></g>,
   };
 
   /* ── the kind's face ── (see PET_KIND)
@@ -896,7 +966,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {/* whiskers first, so the muzzle sits over their roots */}
         {[-1, 1].map(k => at(cx + k * hr * .62, nY + hr * .06, <g opacity=".7">
           {[-.1, .04, .18].map((d, j) => (
-            <path key={j} d={`M${cx + k * hr * .3} ${nY + hr * (.02 + d * .3)} Q${cx + k * hr * .66} ${nY + hr * (d - .02)} ${cx + k * hr * 1.02} ${nY + hr * (d * 1.9 - .06)}`}
+            <path key={j} d={`M${cx + k * hr * .3} ${nY + hr * (.02 + d * .3)} Q${cx + k * hr * .6} ${nY + hr * (d - .02)} ${cx + k * hr * .88} ${nY + hr * (d * 1.7 - .06)}`}
               fill="none" stroke={ink} strokeWidth={lw * .55} strokeLinecap="round" />))}
         </g>, "w" + k))}
         {at(cx, nY, <>
@@ -1033,6 +1103,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
     const lw = Math.max(8, bw * .28);
     [-1, 1].forEach(k => LP.push({ k: "a" + k, X: k * (bw / 2 + 2), Z: 0, bias: -.6, el: (
       <g transform={`rotate(${k * 12} ${cx + k * (bw / 2 - 1)} ${bTop + bh * .34})`}>
+        <ellipse cx={cx + k * (bw / 2 - 3.6)} cy={bTop + bh * .34 + L.arm * .5} rx="7.4" ry={L.arm * .82} fill={`url(#${uid}-ao)`} opacity=".85" />
         {P(rr(cx + k * (bw / 2 + 2), bTop + bh * .34 + L.arm / 2, 9.5, L.arm, 4.6), S, { spec: .85, lw: 1.3 })}
         {/* the shoulder joint: one small machined ring where the limb meets */}
         {P(ell(cx + k * (bw / 2 + 2), bTop + bh * .34 + 2, 4.4, 3.4), M, { spec: 1, occ: .8, lw: 1 })}
@@ -1044,6 +1115,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       </g>) }));
     [-1, 1].forEach(k => LP.push({ k: "l" + k, X: k * bw * .26, Z: 0, bias: .6, el: (
       <g>
+        <ellipse cx={cx + k * bw * .26} cy={bBot - 1} rx={lw * .78} ry="5" fill={`url(#${uid}-ao)`} opacity=".8" />
         {P(rr(cx + k * bw * .26, legTop + legH / 2, lw, legH, lw * .42), S, { spec: .85, lw: 1.3 })}
         {P(ell(cx + k * bw * .26, legTop + 1.6, lw * .42, 3), M, { spec: 1, occ: .8, lw: 1 })}
         {paw(cx + k * bw * .28, GROUND - 3.5, lw * .72, 4.6, F)}
@@ -1062,6 +1134,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
       </g>) }));
     [-1, 1].forEach(k => LP.push({ k: "f" + k, X: k * bw * .2, Z: L3 * .28, bias: .6, el: (
       <g>
+        <ellipse cx={cx + k * bw * .2 - k * 3} cy={bBot + 3} rx="9" ry="9" fill={`url(#${uid}-ao)`} opacity=".8" />
         {P(rr(cx + k * bw * .2, bBot - 1, 10.5, GROUND - 4 - bBot + 2, 5), S, { spec: .85, lw: 1.3 })}
         {P(ell(cx + k * bw * .2, bBot + 1.5, 4.6, 3.2), M, { spec: 1, occ: .8, lw: 1 })}
         {paw(cx + k * bw * .21, GROUND - 3, 8, 5, F)}
@@ -1145,7 +1218,10 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
      partner instead of pasting over it. At yaw 0 only the bias decides, which
      is the old order exactly. */
   {
-    const LPz = LP.map(q => { const a = at3(q.X, q.Z); return { ...q, dx: a.dx, z: a.z + q.bias }; });
+    /* seen side-on the legs of one pair land on the same spot and the far one vanishes behind the near one: the far
+       legs step forward a little and the near ones back, so a side view shows a stride instead of two stumps */
+    const gait = Math.abs(s3) * bw * .12;
+    const LPz = LP.map(q => { const a = at3(q.X, q.Z); const leg = /^[lfb]-?1$/.test(q.k); return { ...q, dx: a.dx + (leg ? (a.z >= 0 ? -1 : 1) * (s3 >= 0 ? 1 : -1) * gait : 0), z: a.z + q.bias }; });
     const put = (q) => <g key={q.k} transform={mv(q.dx)}>{q.el}</g>;
     limbs.back = <>{LPz.filter(q => q.z < 0).sort((a, b) => a.z - b.z).map(put)}</>;
     limbs.front = <>{LPz.filter(q => q.z >= 0).sort((a, b) => a.z - b.z).map(put)}</>;
@@ -1174,6 +1250,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           {tailArt}
         </g>)}
       {tailArt}
+      <ellipse cx={tx - 1} cy={ty + 6} rx="8" ry="8" fill={`url(#${uid}-ao)`} opacity=".8" />
       {/* L11 — the tail lights up */}
       {has(11) && <circle cx={tx + 16} cy={ty - 4} r={7} fill={`url(#${uid}-glow)`} opacity=".85" />}
     </g>));
@@ -1188,27 +1265,35 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             ))}
           </g>))}
         {/* L9 — wings, and L10 grows them */}
-        {(has(9) || KD === "dragon") && [-1, 1].map(k => {
+        {((has(9) && KD !== "bird") || KD === "dragon") && [-1, 1].map(k => {
           const young = !has(9);
           const sp1 = has(10) ? 1.1 : young ? .74 : .9, sp2 = has(10) ? 1.42 : young ? .98 : 1.18, lift = has(10) ? 32 : young ? 17 : 24;
-          const wd = `M${cx + k * bw * .32} ${bTop + 4} C${cx + k * bw * sp1} ${bTop - lift} ${cx + k * bw * sp2} ${bTop - 2} ${cx + k * bw * .56} ${bTop + 20} Z`;
+          /* a wing is as long as the animal is big, but never wider than the frame it has to fit in */
+          const w1 = Math.min(bw * sp1, 34), w2 = Math.min(bw * sp2, 42);
+          /* a metal pet has hard-edged panel wings, the rest have a swept membrane */
+          const wd = MAT === "metal"
+            ? `M${cx + k * bw * .32} ${bTop + 4} L${cx + k * w1 * .96} ${bTop - lift} L${cx + k * w2} ${bTop - lift * .4} L${cx + k * w2 * .9} ${bTop + 3} L${cx + k * w2 * .74} ${bTop + 1} L${cx + k * bw * .56} ${bTop + 20} Z`
+            : `M${cx + k * bw * .32} ${bTop + 4} C${cx + k * w1} ${bTop - lift} ${cx + k * w2} ${bTop - 2} ${cx + k * bw * .56} ${bTop + 20} Z`;
           const wc = `${uid}-w${k > 0 ? "r" : "l"}`;
           const wa = at3(k * bw * .32, -bw * .15);
+          const wrx = cx + k * bw * .34, wry = bTop + 8;
+          const wingDark = mixc(mixc(T.c, B, .62), "#05080f", .3);
           return (
             <g key={k} transform={mv(wa.dx, cx + k * bw * .32, bTop + 4, .3 + .7 * Math.abs(c3))}>
               <clipPath id={wc}><path d={wd} /></clipPath>
-              <path d={wd} fill={T.c} opacity=".82" />
-              <path d={wd} fill={`url(#${uid}-occ)`} opacity=".8" />
-              <path d={wd} fill="none" stroke={B} strokeWidth="1.3" strokeLinejoin="round" />
-              {/* a wing is a membrane stretched on ribs. Without them it is a
-                  coloured blob, and the blob is what made these read as cut
-                  paper. Clipped to the wing so a rib can never leave it. */}
+              {/* two layers: a dark, thick back layer and the lit membrane inset on it, so the wing has an edge and
+                  depth instead of being a tinted film laid over the body */}
+              <path d={wd} fill={wingDark} />
+              <path d={wd} fill={`url(#${uid}-wing)`} transform={`translate(${wrx} ${wry}) scale(.9) translate(${-wrx} ${-wry})`} />
+              <path d={wd} fill={`url(#${uid}-occ)`} opacity=".5" />
+              <path d={wd} fill="none" stroke={B} strokeWidth="1" strokeLinejoin="round" />
               <g clipPath={`url(#${wc})`}>
-                <ellipse cx={cx + k * bw * .78} cy={bTop - 4} rx={bw * .5} ry={lift * .5} fill="#ffffff" opacity=".16" />
                 {[.42, .68, .94].map(t => (
-                  <path key={t} fill="none" stroke={B} strokeWidth=".9" opacity=".24" strokeLinecap="round"
-                    d={`M${cx + k * bw * .34} ${bTop + 6} Q${cx + k * bw * sp1 * t} ${bTop - lift * t * .7} ${cx + k * bw * sp2 * t} ${bTop + 16 - lift * t * .34}`} />))}
-                <path d={wd} fill="none" stroke="#ffffff" strokeWidth="2.4" opacity=".34" strokeLinejoin="round" />
+                  <path key={t} fill="none" stroke={wingDark} strokeWidth=".9" opacity=".55" strokeLinecap="round"
+                    d={`M${cx + k * bw * .34} ${bTop + 6} Q${cx + k * w1 * t} ${bTop - lift * t * .7} ${cx + k * w2 * t} ${bTop + 16 - lift * t * .34}`} />))}
+                {/* the leading edge catches the key light; the root folds into shadow */}
+                <path d={`M${cx + k * bw * .32} ${bTop + 4} C${cx + k * w1} ${bTop - lift} ${cx + k * w2} ${bTop - 2} ${cx + k * w2 * .96} ${bTop - 1}`} fill="none" stroke="#ffffff" strokeWidth="1.6" opacity=".6" strokeLinecap="round" />
+                <ellipse cx={cx + k * bw * .4} cy={bTop + 10} rx={bw * .24} ry="11" fill={`url(#${uid}-ao)`} opacity=".9" />
               </g>
             </g>);
         })}
@@ -1220,6 +1305,36 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
   const coreY = build === "quad" ? by - bh * .1 : KD === "ball" ? by + bh * .1 : by - bh * .06;
   // the chest: on the front of the barrel, or on the breast of a quad's loaf
   const chestF = onR(cx, coreY, build === "quad" ? L3 * .45 : bw * .5);
+
+  /* the coat, as gradient stops, per material. Metal is built the way chrome
+     is lit: a bright sky band, a hard dark horizon, a pale band below it and
+     a coloured bounce from the floor, so it has a dark core and edges that
+     are hard instead of a pale glaze. */
+  const stopsOf = (kind) => {
+    const hiK = kind === "body" ? .26 : kind === "soft" ? .16 : .1;
+    if (MAT === "metal") {
+      /* chrome is lit like a room reflected in a mirror: a bright sky band, a HARD dark horizon, a pale band under it
+         and a coloured bounce from the floor. The dark core is what separates it from milk glass. */
+      const cool = sp.type === "steel";
+      const dk = cool ? mixc(A2, "#070d18", .74) : mixc(mixc(A2, "#4a1c00", .74), B, .22);
+      const hi = mixc(A, "#ffffff", cool ? hiK * 3 : hiK * 2.3);
+      return [[0, hi], [13, mixc(A, "#ffffff", hiK * 1.3)], [29, A2], [30, mixc(A2, dk, cool ? .5 : .66)], [49, mixc(A2, dk, cool ? .4 : .52)], [50, mixc(A2, "#ffffff", cool ? .16 : .24)],
+        [66, mixc(A2, dk, .14)], [84, mixc(A2, dk, .74)], [100, mixc(mixc(A2, dk, .3), T.c, .4)]];
+    }
+    if (MAT === "crystal") {
+      return [[0, mixc(A, "#ffffff", hiK * 1.8)], [24, satc(A2, 1.2)], [58, satc(mixc(A2, B, .22), 1.45)], [84, satc(mixc(A2, B, .5), 1.5)],
+        [93, mixc(satc(mixc(A2, B, .4), 1.3), T.c, .35)], [100, mixc(mixc(A2, "#ffffff", .25), T.c, .4)]];
+    }
+    if (MAT === "rubber") {
+      return [[0, mixc(A, "#ffffff", hiK * .5)], [40, mixc(A, "#ffffff", .02)], [68, satc(A2, 1.1)], [100, mixc(satc(mixc(A2, B, .4), 1.3), COOL, .1)]];
+    }
+    return kind === "body"
+      ? [[0, mixc(mixc(A, "#ffffff", .26), WARM, .1)], [38, mixc(mixc(A, "#ffffff", .06), WARM, .05)], [66, satc(A2, 1.18)], [90, mixc(satc(mixc(A2, B, .34), 1.45), COOL, .08)], [100, mixc(satc(mixc(A2, B, .5), 1.45), COOL, .16)]]
+      : kind === "soft"
+        ? [[0, mixc(A, "#ffffff", .16)], [34, mixc(A, "#ffffff", .05)], [60, satc(A2, 1.15)], [100, mixc(satc(mixc(A2, B, .44), 1.4), COOL, .12)]]
+        : [[0, mixc(A2, "#ffffff", .12)], [46, A2], [100, mixc(satc(mixc(A2, B, .44), 1.4), COOL, .12)]];
+  };
+  const stopEls = (kind) => stopsOf(kind).map(([o, c], i) => <stop key={i} offset={o + "%"} stopColor={c} />);
 
   return (
     <svg className={`pa pa-${build} ${className}`} viewBox="-12 -18 144 156" width={size || "100%"} height={size || "100%"} aria-hidden="true">
@@ -1236,19 +1351,14 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {/* vinyl: the coat's own colour, lit and turning into its own
             shadow — no white edge, no step back up. The gloss pass does the
             shine. */}
-        <linearGradient id={`${uid}-body`} x1="0.18" y1="0" x2="0.8" y2="1">
-          <stop offset="0%" stopColor={mixc(A, "#ffffff", .26)} />
-          <stop offset="38%" stopColor={mixc(A, "#ffffff", .06)} />
-          <stop offset="66%" stopColor={A2} />
-          <stop offset="90%" stopColor={mixc(A2, B, .42)} />
-          <stop offset="100%" stopColor={mixc(A2, B, .58)} />
-        </linearGradient>
+        <linearGradient id={`${uid}-body`} x1={MAT === "metal" ? ".3" : ".18"} y1="0" x2={MAT === "metal" ? ".66" : ".8"} y2="1">{stopEls("body")}</linearGradient>
         {KD === "fish" && (
           <linearGradient id={`${uid}-fin`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor={mixc(mixc(A, T.c, .45), "#ffffff", .3)} />
             <stop offset="100%" stopColor={mixc(A2, T.c, .5)} />
           </linearGradient>
         )}
+        <clipPath id={`${uid}-tc`}><path d={torso} transform={mv(0, cx, by, bodyK)} /></clipPath>
         <clipPath id={hcId}><path d={(HEADS[sp.head] || HEADS.round)(cx, hy, hr)} transform={mv(hdx)} /></clipPath>
         {/* one broad soft gloss where the key lands, with a tighter hot core:
             a moulded toy, not a lamp */}
@@ -1271,17 +1381,8 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           <stop offset="58%" stopColor={mixc(A, "#fffaf2", .3)} stopOpacity=".9" />
           <stop offset="100%" stopColor={mixc(A, "#fffaf2", .26)} stopOpacity="0" />
         </radialGradient>
-        <linearGradient id={`${uid}-soft`} x1="0.2" y1="0" x2="0.78" y2="1">
-          <stop offset="0%" stopColor={mixc(A, "#ffffff", .16)} />
-          <stop offset="34%" stopColor={mixc(A, "#ffffff", .05)} />
-          <stop offset="60%" stopColor={A2} />
-          <stop offset="100%" stopColor={mixc(A2, B, .52)} />
-        </linearGradient>
-        <linearGradient id={`${uid}-limb`} x1="0.2" y1="0" x2="0.8" y2="1">
-          <stop offset="0%" stopColor={mixc(A2, "#ffffff", .12)} />
-          <stop offset="46%" stopColor={A2} />
-          <stop offset="100%" stopColor={mixc(A2, B, .5)} />
-        </linearGradient>
+        <linearGradient id={`${uid}-soft`} x1={MAT === "metal" ? ".3" : ".2"} y1="0" x2={MAT === "metal" ? ".66" : ".78"} y2="1">{stopEls("soft")}</linearGradient>
+        <linearGradient id={`${uid}-limb`} x1={MAT === "metal" ? ".3" : ".2"} y1="0" x2={MAT === "metal" ? ".66" : ".8"} y2="1">{stopEls("limb")}</linearGradient>
         {/* ── the second material ──
             Half creature, half machine only reads if the machine half is made
             of something else. Every part of these was one hue at one value,
@@ -1309,10 +1410,49 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           <stop offset="40%" stopColor={T.c} stopOpacity=".85" />
           <stop offset="100%" stopColor={T.c} stopOpacity="0" />
         </radialGradient>
-        <linearGradient id={`${uid}-occ`} x1="0.12" y1="0" x2="0.88" y2="1">
+        <linearGradient id={`${uid}-line`} x1="0.05" y1="0" x2="0.95" y2="1">
+          <stop offset="0%" stopColor={mixc(Bv, A, .5)} />
+          <stop offset="55%" stopColor={Bv} />
+          <stop offset="100%" stopColor={mixc(B, "#000000", .5)} />
+        </linearGradient>
+        <linearGradient id={`${uid}-edge`} x1="0.1" y1="0.1" x2="0.9" y2="0.95">
+          <stop offset="0%" stopColor={T.c} stopOpacity="0" />
+          <stop offset="52%" stopColor={T.c} stopOpacity="0" />
+          <stop offset="80%" stopColor={mixc(T.c, "#ffffff", .5)} stopOpacity=".75" />
+          <stop offset="100%" stopColor={mixc(T.c, "#ffffff", .7)} stopOpacity=".95" />
+        </linearGradient>
+        {/* a wing is lit membrane: bright where the key crosses its leading
+            edge, deep where it folds toward the body */}
+        <linearGradient id={`${uid}-wing`} x1="0" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stopColor={mixc(T.c, "#ffffff", .5)} />
+          <stop offset="45%" stopColor={T.c} />
+          <stop offset="100%" stopColor={mixc(satc(mixc(T.c, B, .4), 1.3), COOL, .3)} />
+        </linearGradient>
+        <linearGradient id={`${uid}-streak`} x1="0.04" y1="0.02" x2="0.62" y2="0.7">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="20%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="27%" stopColor="#ffffff" stopOpacity=".34" />
+          <stop offset="33%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="41%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="44%" stopColor="#ffffff" stopOpacity=".16" />
+          <stop offset="47%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${uid}-term`} x1="0" y1="0" x2="1" y2="0.15">
           <stop offset="0%" stopColor="#000814" stopOpacity="0" />
-          <stop offset="52%" stopColor="#000814" stopOpacity=".08" />
-          <stop offset="100%" stopColor="#000814" stopOpacity=".46" />
+          <stop offset="34%" stopColor="#000814" stopOpacity="0" />
+          <stop offset="66%" stopColor={mixc(B, "#000814", .5)} stopOpacity=".5" />
+          <stop offset="100%" stopColor={mixc(B, "#000814", .6)} stopOpacity=".96" />
+        </linearGradient>
+        {/* ambient occlusion: a soft dark pool that fades to nothing, put where one part sits against another */}
+        <radialGradient id={`${uid}-ao`}>
+          <stop offset="0%" stopColor="#000814" stopOpacity=".72" />
+          <stop offset="50%" stopColor="#000814" stopOpacity=".3" />
+          <stop offset="100%" stopColor="#000814" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`${uid}-occ`} x1="0.12" y1="0" x2="0.88" y2="1">
+          <stop offset="0%" stopColor={mixc(B, COOL, .4)} stopOpacity="0" />
+          <stop offset="52%" stopColor={mixc(B, COOL, .4)} stopOpacity=".1" />
+          <stop offset="100%" stopColor={mixc(B, COOL, .45)} stopOpacity=".5" />
         </linearGradient>
       </defs>
 
@@ -1325,15 +1465,21 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
           dark CONTACT where the feet actually meet the floor and a soft
           spread around it, and the difference between those two is most of
           what makes a drawing sit down rather than hover. */}
+      <g transform={FIT}>
       <g className="pa-floor" transform={mv(0, cx, GROUND, bodyK)}>
       <ellipse cx={cx} cy={GROUND + 1} rx={bw * .84} ry="6.4" fill="#0b1526"
         opacity={build === "float" ? .09 : .13} />
       <ellipse cx={cx} cy={GROUND + 1} rx={bw * .5} ry="3.8" fill="#0b1526"
-        opacity={build === "float" ? .07 : .2} />
+        opacity={build === "float" ? .22 : .34} />
+      {build === "float" && <ellipse cx={cx} cy={GROUND + 1} rx={bw * .26} ry="2.2" fill="#000814" opacity=".3" />}
       {/* a warm pool of its own colour on the floor underneath it */}
       <ellipse cx={cx} cy={GROUND - 1} rx={bw * .62} ry="4" fill={T.c} opacity={.1 + g * .16} />
       </g>
-
+      {/* a dark contact patch under every foot that is on the floor, placed where the foot lands at this turn */}
+      {build !== "float" && (build === "biped" ? [[-1, .26, 0, 1], [1, .26, 0, 1]] : [[-1, .2, .28, 1], [1, .2, .28, 1], [-1, .42, -.28, .6], [1, .42, -.28, .6]]).map(([k, f, zf, dm], i) => {
+        const xx = cx + k * bw * f * c3 + zf * L3 * s3;
+        return <ellipse key={"ft" + i} cx={xx} cy={GROUND + .6} rx={bw * .15} ry="2.3" fill="#05080f" opacity={.34 * dm} />;
+      })}
       {/* L20 — a rune sigil burning behind it. Drawn first, so the creature
           stands IN FRONT of its own power rather than wearing it as a badge. */}
       {has(20) && <g opacity=".5">
@@ -1346,18 +1492,26 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         })}
       </g>}
 
-      {/* L12 — an aura ring on the floor, the last thing it earns */}
-      {has(12) && <>
-        <ellipse cx={cx} cy={GROUND - 2} rx={bw * .95} ry="9" fill="none" stroke={T.c} strokeWidth="2" opacity=".45" />
-        <ellipse cx={cx} cy={GROUND - 2} rx={bw * .7} ry="6.4" fill="none" stroke="#fff" strokeWidth="1" opacity=".3" />
-      </>}
+      {/* L12 — an aura ring on the floor, the last thing it earns. It is a ring lying on the floor: the far half is
+          dimmer than the near half, the light pools inside it, and it never stretches with a long body */}
+      {has(12) && (() => {
+        const rk = mv(0, cx, GROUND - 2, Math.min(bodyK, 1.2)), rx0 = Math.min(bw * .95, 50);
+        return (
+          <g transform={rk}>
+            <ellipse cx={cx} cy={GROUND - 2} rx={rx0} ry="9" fill={`url(#${uid}-glow)`} opacity=".2" />
+            <path d={`M${cx - rx0} ${GROUND - 2} A${rx0} 9 0 0 1 ${cx + rx0} ${GROUND - 2}`} fill="none" stroke={T.c} strokeWidth="1.1" opacity=".22" />
+            <path d={`M${cx - rx0} ${GROUND - 2} A${rx0} 9 0 0 0 ${cx + rx0} ${GROUND - 2}`} fill="none" stroke={T.c} strokeWidth="1.8" opacity=".55" />
+            <ellipse cx={cx} cy={GROUND - 2} rx={bw * .7} ry="6.4" fill="none" stroke="#fff" strokeWidth=".8" opacity=".2" />
+          </g>);
+      })()}
+      </g>
 
-      <g transform={"translate(60 " + GROUND + ") scale(" + SC.toFixed(3) + ") translate(-60 -" + GROUND + ")"}>
+      <g transform={FIT}>
       <g className={sad ? "pa-sag" : "pa-bob"}>
         {tailEl(false)}
         {limbs.back}
         {backKit(false)}
-        <g transform={mv(0, cx, by, bodyK)}>{P(torso, F, { spec: .62, bev: .2 })}</g>
+        <g transform={mv(0, cx, by, bodyK)}>{P(torso, F, { spec: .55, bev: .2 })}</g>
         {/* ── the belly ──
             A pale front is how almost every animal is marked, and it is the
             cheapest thing that turns a coloured lozenge into a body. It goes
@@ -1369,6 +1523,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             of stripes, a scale row, a flame licking up the belly. Every one is
             drawn in the same belly gradient, so it still reads as fur catching
             the light rather than as a decal stuck on. */}
+        <g clipPath={T0 ? undefined : `url(#${uid}-tc)`}>
         <g transform={chestF.tf} opacity={chestF.op}>
         {(() => {
           const q = build === "quad";
@@ -1419,7 +1574,19 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             bright iris, a white hot centre — and a catchlight on the lens. */}
         {(() => {
           const cr = Math.max(3, cw * .11);
-          if (!has(2)) return <circle cx={cx} cy={coreY} r={cr} fill={B} stroke={B} strokeWidth="1.2" opacity=".7" />;
+          /* an unlit core is still a socket with depth: a dark well, a faint
+             ember of the element at the bottom of it, a lit lip on the near
+             edge — not a brown disc */
+          if (!has(2)) return (
+            <g>
+              <circle cx={cx} cy={coreY} r={cr * 2.1} fill={`url(#${uid}-glow)`} opacity=".3" />
+              {/* a machined bezel, a dark well, and a lens with the element's colour burning at the bottom of it */}
+              <circle cx={cx} cy={coreY} r={cr * 1.5} fill={M} stroke={Bm} strokeWidth="1" />
+              <circle cx={cx} cy={coreY} r={cr * 1.14} fill="#050a16" />
+              <circle cx={cx} cy={coreY + cr * .12} r={cr * .98} fill={`url(#${uid}-glow)`} opacity=".92" />
+              <circle cx={cx} cy={coreY} r={cr * .34} fill="#ffffff" opacity=".9" />
+              <path d={`M${cx - cr * 1.3} ${coreY - cr * .2} A${cr * 1.3} ${cr * 1.3} 0 0 1 ${cx + cr * .2} ${coreY - cr * 1.3}`} fill="none" stroke="#ffffff" strokeWidth=".9" strokeLinecap="round" opacity=".7" />
+            </g>);
           return (
             <g>
               <circle cx={cx} cy={coreY} r={cr * 1.9} fill={T.c} opacity=".22" />
@@ -1431,11 +1598,12 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             </g>);
         })()}
         </g>
+        </g>
         {/* L3 — shoulder studs; L10 — full pauldrons over them */}
         {has(3) && [-1, 1].map(k => (
           <path key={k} transform={mv(at3(k * bw * .45, 0).dx)} opacity={sideOp(k * bw * .45, 0)} d={`M${cx + k * bw * .3} ${bTop + 2} L${cx + k * bw * .62} ${bTop - 8} L${cx + k * bw * .58} ${bTop + 6} Z`}
             fill={A2} stroke={B} strokeWidth="1.3" strokeLinejoin="round" />))}
-        {has(10) && build !== "quad" && [-1, 1].map(k => (
+        {has(10) && build !== "quad" && KD !== "bird" && [-1, 1].map(k => (
           <g key={k} transform={mv(at3(k * bw * .45, 0).dx)} opacity={sideOp(k * bw * .45, 0)}>{P(
           `M${cx + k * bw * .16} ${bTop - 2} C${cx + k * bw * .62} ${bTop - 7} ${cx + k * bw * .76} ${bTop + 4} ${cx + k * bw * .66} ${bTop + 13} L${cx + k * bw * .2} ${bTop + 9} Z`, F, { spec: .85, lw: 1.4 })}</g>))}
         {limbs.front}
@@ -1453,7 +1621,7 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
         {build !== "float" && <g transform={mv(hdx * .6)}>{P(rr(cx, bTop - 3, bw * .4, 7, 3), M, { spec: 1, lw: 1.3 })}</g>}
         {/* the head drops a shadow on the chest under it. Flat vector figures
             read as decals precisely because this is missing. */}
-        <ellipse cx={cx} cy={bTop + 3} rx={hr * .7} ry="5" fill="#00060f" opacity=".2" transform={mv(hdx * .6)} />
+        <ellipse cx={cx} cy={bTop + 4} rx={hr * .88} ry="7.5" fill={`url(#${uid}-ao)`} opacity=".95" transform={mv(hdx * .6)} />
         {/* L14 — a ruff around the neck. Fills the gap between a big head and
             a small body, which is the join these builds have always been
             weakest at. */}
@@ -1471,10 +1639,12 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             <g transform={mv(hdx * .7)}>
               {[-1.15, -.78, -.4, 0, .4, .78, 1.15].map((t, i) => (
                 <ellipse key={i} cx={cx + t * hr * .74} cy={ny + Math.abs(t) * hr * .12}
-                  rx={hr * .3} ry={hr * .24} fill={lobe} opacity=".95"
+                  rx={hr * .3} ry={hr * .24} fill={S} stroke={B} strokeWidth=".9" strokeOpacity=".55" opacity=".98"
                   transform={`rotate(${t * 26} ${cx + t * hr * .74} ${ny})`} />
               ))}
-              <ellipse cx={cx} cy={ny - hr * .06} rx={hr * .86} ry={hr * .2} fill={lobe} />
+              <ellipse cx={cx} cy={ny - hr * .06} rx={hr * .86} ry={hr * .2} fill={S} stroke={B} strokeWidth=".9" strokeOpacity=".5" />
+              {/* the fur takes the key light along its top edge and the head's shadow under the chin */}
+              <path d={`M${cx - hr * .7} ${ny - hr * .14} Q${cx} ${ny - hr * .34} ${cx + hr * .7} ${ny - hr * .14}`} fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" opacity=".38" />
               <ellipse cx={cx} cy={ny - hr * .1} rx={hr * .66} ry={hr * .12} fill={T.c} opacity=".42" />
             </g>);
         })()}
@@ -1488,14 +1658,19 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             <path fill={T.c} opacity=".55"
               d={`M${cx + k * hr * .56} ${hy - hr * .66} C${cx + k * hr * .9} ${hy - hr * 1.06} ${cx + k * hr * .94} ${hy - hr * 1.54} ${cx + k * hr * .74} ${hy - hr * 1.86} C${cx + k * hr * .82} ${hy - hr * 1.36} ${cx + k * hr * .68} ${hy - hr * .98} ${cx + k * hr * .42} ${hy - hr * .82} Z`} />
           </g>))}
-        <g transform={mv(hdx)}>{EARS[sp.ear]}</g>
+        {/* the head throws its shadow down onto the shoulders: without it the head is a ball resting on a box */}
+        <g clipPath={`url(#${uid}-tc)`}><ellipse cx={cx + hdx * .8} cy={hy + hr * (build === "quad" ? .8 : 1.02)} rx={hr * .98} ry={hr * .44} fill={`url(#${uid}-ao)`} opacity=".9" /></g>
+        <g transform={mv(hdx)}><g transform={earK < .999 ? `translate(0 ${hy - hr * .7}) scale(1 ${earK.toFixed(3)}) translate(0 ${-(hy - hr * .7)})` : undefined}>{EARS[sp.ear]}</g>
+          {sp.ear !== "halo" && sp.ear !== "crown" && [-1, 1].map(k => (
+            <ellipse key={"ea" + k} cx={cx + k * hr * .66} cy={hy - hr * .78} rx={hr * .46} ry={hr * .34} fill={`url(#${uid}-ao)`} opacity=".75" transform={earT(k)} />))}
+        </g>
         {/* The head took the full five-pass treatment every armour plate gets:
             a broad specular sweep and a white bevel lip right round the crown.
             On a flat plate that is a machined edge; on a big sphere it is the
             highlight you see on a GLASS BAUBLE, which is what these looked
             like. Half the sweep and a quarter of the lip, and it goes back to
             being a face. */}
-        <g transform={mv(hdx)}>{P((HEADS[sp.head] || HEADS.round)(cx, hy, hr), F, { spec: .5, bev: .12 })}</g>
+        <g transform={mv(hdx)}>{P((HEADS[sp.head] || HEADS.round)(cx, hy, hr), F, { spec: .4, bev: .12 })}</g>
         {/* ── the face has to have MASS in it ──
             A big smooth sphere with two dots on it reads as a balloon however
             well it is lit, because a gradient describes a surface and not a
@@ -1503,20 +1678,14 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             brow casts down over the eye line, and the muzzle — the lump that
             carries the mouth, caught a little warmer because it is the part
             of the face nearest the light. */}
+        <g clipPath={T0 ? undefined : `url(#${hcId})`}>
         <g transform={onHead(cx, hy).tf} opacity={onHead(cx, hy).op}>
-        <ellipse cx={cx} cy={hy - hr * .34} rx={hr * .9} ry={hr * .46} fill="#00060f" opacity=".07" />
         <ellipse cx={cx} cy={hy + hr * .4} rx={hr * .6} ry={hr * .38}
           fill={`url(#${uid}-belly)`} opacity=".52" />
         {/* where the skull turns under toward the jaw */}
         <path d={`M${cx - hr * .78} ${hy + hr * .5} Q${cx} ${hy + hr * 1.02} ${cx + hr * .78} ${hy + hr * .5}`}
           fill="none" stroke="#00060f" strokeWidth={hr * .1} opacity=".07" strokeLinecap="round" />
         </g>
-        <g transform={onHead(cx + hr * .76, hy + hr * .5).tf} opacity={onHead(cx + hr * .76, hy + hr * .5).op}>
-        {[0, 1, 2].map(j => <g key={j}>{seam(`M${cx + hr * .62} ${hy + hr * .42 + j * 4} h${hr * .3}`, .4)}</g>)}
-        </g>
-        {/* the panel line down the temple, faint — at .32 it read as a crack */}
-        <g transform={onHead(cx - hr * .42, hy - hr * .4).tf} opacity={onHead(cx - hr * .42, hy - hr * .4).op}>
-        {seam(`M${cx - hr * .34} ${hy - hr * .96} C${cx - hr * .5} ${hy - hr * .5} ${cx - hr * .5} ${hy - hr * .2} ${cx - hr * .42} ${hy + hr * .1}`, .16)}
         </g>
         {/* L6 — a crest between the ears */}
         {has(6) && <g transform={mv(hdx, cx, hy, .55 + .45 * Math.abs(c3))}>{[-1, 0, 1].map(k => (
@@ -1526,17 +1695,60 @@ export const PetArt = memo(function PetArt({ species, level, stage, mood = 80, s
             <circle cx={cx + k * hr * .3 - hr * .05} cy={hy - hr * (k === 0 ? 1.13 : 1.0)} r={hr * .05} fill="#fff" opacity=".8" />
           </g>))}</g>}
         {/* L17 — a crown, and L19 the halo over it */}
-        {has(17) && (
-          <g transform={mv(hdx)}>
-            <path fill={T.c} stroke={B} strokeWidth="1.2" strokeLinejoin="round" opacity=".95"
-              d={`M${cx - hr * .62} ${hy - hr * .86} L${cx - hr * .62} ${hy - hr * 1.34} L${cx - hr * .3} ${hy - hr * 1.06} L${cx} ${hy - hr * 1.5} L${cx + hr * .3} ${hy - hr * 1.06} L${cx + hr * .62} ${hy - hr * 1.34} L${cx + hr * .62} ${hy - hr * .86} Z`} />
-            {[-.44, 0, .44].map(t => <circle key={t} cx={cx + t * hr} cy={hy - hr * .98} r="2.2" fill="#fff" opacity=".9" />)}
-          </g>)}
+        {has(17) && (() => {
+          /* three crown shapes, picked by species, so a shelf of grown pets is not one tiara in thirty-two paints */
+          const hid = [...sp.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 3;
+          const base = hy - hr * .86;
+          if (hid === 2) return (
+            <g transform={mv(hdx)}>
+              <path d={rr(cx, base - hr * .08, hr * 1.3, hr * .2, hr * .08)} fill={T.c} stroke={B} strokeWidth="1.2" opacity=".95" />
+              <path d={`M${cx} ${hy - hr * 1.62} L${cx + hr * .2} ${hy - hr * 1.2} L${cx} ${hy - hr * .94} L${cx - hr * .2} ${hy - hr * 1.2} Z`} fill={mixc(T.c, "#ffffff", .35)} stroke={B} strokeWidth="1.2" strokeLinejoin="round" />
+              <path d={`M${cx} ${hy - hr * 1.62} L${cx - hr * .2} ${hy - hr * 1.2} L${cx} ${hy - hr * 1.2} Z`} fill="#fff" opacity=".45" />
+              {[-.5, .5].map(t => <circle key={t} cx={cx + t * hr} cy={base - hr * .08} r="1.9" fill="#fff" opacity=".9" />)}
+            </g>);
+          const n = hid === 1 ? 5 : 3, x0 = -hr * .64, st = hr * 1.28 / (n - 1);
+          const pts = [`M${cx + x0} ${base}`, `L${cx + x0} ${hy - hr * 1.3}`];
+          for (let q = 0; q < n; q++) {
+            const x = cx + x0 + q * st, tall = q === (n - 1) / 2 ? 1.52 : n === 5 ? 1.34 + (q % 2) * .08 : 1.34;
+            if (q) pts.push(`L${x} ${hy - hr * tall}`);
+            if (q < n - 1) pts.push(`L${x + st / 2} ${hy - hr * 1.06}`);
+          }
+          pts.push(`L${cx - x0} ${base} Z`);
+          return (
+            <g transform={mv(hdx)}>
+              <path fill={T.c} stroke={B} strokeWidth="1.2" strokeLinejoin="round" opacity=".95" d={pts.join(" ")} />
+              {[...Array(n)].map((_, q) => <circle key={q} cx={cx + x0 + q * st} cy={base - hr * .08} r={hid === 1 ? 1.6 : 2.2} fill="#fff" opacity=".9" />)}
+              <path d={`M${cx + x0} ${hy - hr * 1.3} L${cx + x0 + st / 2} ${hy - hr * 1.06} L${cx + x0 + st * .06} ${hy - hr * .9} Z`} fill="#fff" opacity=".3" />
+              <path d={`M${cx - hr * .6} ${base} H${cx + hr * .6}`} stroke="#00060f" strokeWidth="2.2" opacity=".18" />
+            </g>);
+        })()}
         {has(19) && <g transform={mv(hdx)}>
           <ellipse cx={cx} cy={hy - hr * 1.86} rx={hr * .84} ry={hr * .22} fill="none" stroke={T.c} strokeWidth="3.2" opacity=".8" />
           <ellipse cx={cx} cy={hy - hr * 1.86} rx={hr * .84} ry={hr * .22} fill="none" stroke="#fff" strokeWidth="1.2" opacity=".65" />
         </g>}
-        {EYES[sp.eye]}
+        {FLATH && !T0 ? onSkin(EYES[sp.eye]) : EYES[sp.eye]}
+        {/* a plated head turned side-on is a profile too: the visor housing and sensor stand proud of the plate */}
+        {FLATH && !T0 && Math.abs(s3) > .5 && (() => {
+          const a = clampP((Math.abs(s3) - .5) / .35, 0, 1), dir = s3 > 0 ? 1 : -1, mx = cx + hdx + dir * hr * (.88 + .12 * a), my2 = hy + hr * .16;
+          return (
+            <g opacity={a}>
+              {P(rr(mx, my2, hr * .36, hr * .64, hr * .12), M, { spec: 1, occ: .6, lw: 1.2 })}
+              <path d={rr(mx + dir * hr * .05, my2 - hr * .06, hr * .15, hr * .34, hr * .07)} fill={T.c} opacity=".92" />
+              <path d={rr(mx + dir * hr * .02, my2 - hr * .2, hr * .08, hr * .06, hr * .03)} fill="#fff" opacity=".8" />
+            </g>);
+        })()}
+        {/* seen side-on a face is a profile: a muzzle and a nose break the silhouette, so a head turned
+            away from us is still somebody and not an egg with one eye on its edge */}
+        {!T0 && !FLATH && Math.abs(s3) > .6 && (() => {
+          const a = clampP((Math.abs(s3) - .6) / .3, 0, 1), dir = s3 > 0 ? 1 : -1, mx = cx + hdx + dir * hr * .96, my2 = hy + hr * .3;
+          return (
+            <g opacity={a}>
+              <ellipse cx={mx} cy={my2} rx={hr * .3} ry={hr * .24} fill={S} stroke={Bv} strokeWidth="1.1" />
+              <ellipse cx={mx - dir * hr * .08} cy={my2 - hr * .1} rx={hr * .13} ry={hr * .06} fill="#fff" opacity=".42" />
+              <ellipse cx={mx + dir * hr * .2} cy={my2 - hr * .1} rx={hr * .09} ry={hr * .065} fill="#0d1424" />
+              <path d={`M${mx + dir * hr * .26} ${my2 + hr * .08} Q${mx} ${my2 + hr * .2} ${mx - dir * hr * .16} ${my2 + hr * .1}`} fill="none" stroke={Bv} strokeWidth=".9" strokeLinecap="round" opacity=".7" />
+            </g>);
+        })()}
         {/* blush — the single cheapest thing that reads as cute, and the one
             piece of the face that is not machinery */}
         {!sad && onSkin([-1, 1].map(k => (
