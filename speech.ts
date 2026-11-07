@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { TTS_URL, apiHeaders } from "./ai-backend";
-import { getAC } from "./music-engine";
+import { getAC, _ac as _liveAc } from "./music-engine";
 
 /* ── speech.ts ──
    TTS/STT sub-engine: Web Speech API wrappers, cloud-TTS (backend-synthesized
@@ -624,11 +624,24 @@ const TTS_DEC_MAX = 6;          // two answers' heads: a decoded clip is a few M
 function decPut(key, buf) { if (!buf) return; _decMem.delete(key); _decMem.set(key, buf); if (_decMem.size > TTS_DEC_MAX) _decMem.delete(_decMem.keys().next().value); }
 /* A decode-only context: it never plays, so no autoplay rule applies and it can run before any tap. null where the browser has none (the clip is then
    only stored, and decoded at the tap as before). */
-let _decCtx = null;
+let _decCtx = null, _decRate = 0;
 function decoderCtx() {
-  if (_decCtx) return _decCtx;
-  try { const C = (typeof window !== "undefined") && (window.OfflineAudioContext || window.webkitOfflineAudioContext); if (C) _decCtx = new C(1, 1, 44100); } catch (_e) { _decCtx = null; }
+  // the same rate as the live context when there is one (a clip is then resampled once, not twice), else 48 kHz
+  const rate = (_liveAc && _liveAc.sampleRate) || 48000;
+  if (_decCtx && _decRate === rate) return _decCtx;
+  try { const C = (typeof window !== "undefined") && (window.OfflineAudioContext || window.webkitOfflineAudioContext); _decCtx = C ? new C(1, 1, rate) : null; _decRate = rate; } catch (_e) { _decCtx = null; }
   return _decCtx;
+}
+/* The decode used by the head-of-message prefetch. It NEVER throws and never waits for ever: an engine with only the callback form of decodeAudioData (Safari before
+   14.1), one that rejects, or one that never answers all give null after at most TTS_DECODE_MS, and the clip (already stored in the cache) is decoded at the tap
+   instead. A throw here used to be counted as a failed attempt by ttsFetchRetry, which would have asked for a PAID clip a second time. */
+const TTS_DECODE_MS = 3500;
+function decodeOffline(dc, b) {
+  return new Promise((resolve) => {
+    let done = false; const fin = (v) => { if (!done) { done = true; clearTimeout(to); resolve(v || null); } };
+    const to = setTimeout(() => fin(null), TTS_DECODE_MS);
+    try { const r = dc.decodeAudioData(b, (buf) => fin(buf), () => fin(null)); if (r && typeof r.then === "function") r.then(fin, () => fin(null)); } catch (_e) { fin(null); }
+  });
 }
 const _pfInflight = new Map();   // clip key -> the head-of-message prefetch still running for it, so a tap on the same clip waits for it instead of asking twice
 export async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000, opts = null) {
@@ -662,9 +675,12 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
     if (_ttsCancelled && !(opts && (opts.src === "clip" || opts.prefetch))) throw new Error("cancelled");
     if (opts && opts.dead && opts.dead()) throw new Error("cancelled");
     await ttsThrottle(n === 0 && opts && opts.gapMs ? opts.gapMs : TTS_MIN_GAP_MS);
+    // the wait may have been long enough for a twin of this request (a tap and a prefetch of the same clip) to finish: use its result, do not pay twice
+    { const dh = _decMem.get(key); if (dh) return dh; const mh = _ttsMem.get(key); if (mh) { try { const o = await ac.decodeAudioData(mh.slice(0)); if (o) return o; } catch (_e) {} } }
     // the throttle may have waited a second or more: a stop in the meantime must not still send (and pay for) the request
     if (_ttsCancelled && !(opts && (opts.src === "clip" || opts.prefetch))) throw new Error("cancelled");
     if (opts && opts.dead && opts.dead()) throw new Error("cancelled");
+    if (opts && opts.onNet) { try { opts.onNet(); } catch (_e) {} }
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -677,7 +693,7 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
       if (!res.ok) {
         let detail = "";
         try { const j = await res.json(); detail = j && j.error ? j.error : ""; } catch (e) {}
-        throw new Error(detail || ("TTS HTTP " + res.status));
+        throw Object.assign(new Error(detail || ("TTS HTTP " + res.status)), { status: res.status });
       }
       const data = await res.json();
       if (!data || !data.audio) throw new Error("no audio");
@@ -689,6 +705,7 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
     } catch (e) {
       lastErr = e;
       if (_ttsCancelled && !(opts && (opts.src === "clip" || opts.prefetch))) throw e;
+      if (opts && opts.prefetch && e && (e.status === 401 || e.status === 403)) throw e;   // not entitled: asking again cannot change the answer
     } finally { clearTimeout(to); }
   }
   throw lastErr || new Error("TTS failed");
@@ -800,8 +817,11 @@ export function prewarmTts() {
    none of the daily read-aloud rounds (those are taken at the tap) and is capped per day (TTS_PREFETCH_DAY) so a long chat cannot run up a bill.
    tg_tts_pf = 0 switches it off. */
 export const TTS_PREFETCH_CLIPS = 3;
-export const TTS_PREFETCH_DAY = 30;         // a device that has pressed the speaker (see ttsListener): up to this many answers a day get their head fetched
-export const TTS_PREFETCH_DAY_NEW = 8;      // a device that has not yet: the FIRST press must be instant too (owner, 2026-11-07), but a player who never uses it costs at most this much a day
+/* The caps follow what a player can ever hear: TTS_DAILY_ROUNDS messages a day. A listener's head start is for 3x that (the answer they pick is not always the newest), a device that has
+   not pressed the speaker yet gets exactly that many, so its FIRST press is instant too (owner, 2026-11-07) and a player who never uses it costs at most TTS_DAILY_ROUNDS x 3 requests a day
+   (review 2026-11-07: caps of 8 and 30 bought speech that at most 2 messages a day could ever play). */
+export const TTS_PREFETCH_DAY = 3 * TTS_DAILY_ROUNDS;
+export const TTS_PREFETCH_DAY_NEW = TTS_DAILY_ROUNDS;
 const TTS_LISTENER_DAYS = 14;
 /* Does this device actually use the speaker? A tap on it (speakCloud with src "chat") stamps `tg_tts_aff`; a device whose last tap was within TTS_LISTENER_DAYS is a
    "listener" and gets a bigger daily head-start allowance. 2026-11-01 the head start was paid for listeners ONLY (the cost cut); 2026-11-07 the owner asked for
@@ -821,11 +841,16 @@ export function prefetchTtsHead(text, lang) {
     if (!clean || clean.length < 12) return false;
     const sig = lang + "|" + clean;
     if (_pfSeen.has(sig)) return false;
-    const day = new Date().toISOString().slice(0, 10);
+    const day = ttsDayKey();                                // the same day boundary as the daily read-aloud rounds
+    try { if (localStorage.getItem("tg_tts_denied") === day) return false; } catch (_e) {}   // the server refused this device today (not entitled): nothing more is asked
     let st = null; try { st = JSON.parse(localStorage.getItem("tg_tts_pf_day") || "null"); } catch (_e) {}
     if (!st || st.d !== day) st = { d: day, n: 0 };
     if (st.n >= (ttsListener() ? TTS_PREFETCH_DAY : TTS_PREFETCH_DAY_NEW)) return false;
+    // the unit is reserved HERE, before anything is awaited, so a burst of calls cannot all pass the cap; it is given back if no request had to be made (a head already in the cache costs nothing)
     st.n += 1; try { localStorage.setItem("tg_tts_pf_day", JSON.stringify(st)); } catch (_e) {}
+    let usedNet = false;
+    const onNet = () => { usedNet = true; };
+    const giveBackUnit = () => { let c = null; try { c = JSON.parse(localStorage.getItem("tg_tts_pf_day") || "null"); } catch (_e) {} if (c && c.d === day && c.n > 0) { c.n -= 1; try { localStorage.setItem("tg_tts_pf_day", JSON.stringify(c)); } catch (_e) {} } };
     _pfSeen.add(sig); if (_pfSeen.size > 60) _pfSeen.delete(_pfSeen.values().next().value);
     const lim = ttsChunkLimits(lang);
     const chunks = ttsChunks(clean, lim.max, lim.first, lim.ramp).slice(0, TTS_PREFETCH_CLIPS);
@@ -833,16 +858,25 @@ export function prefetchTtsHead(text, lang) {
     // The clips are decoded here too, on a decode-only context (no autoplay rule applies), so the tap that follows finds an AudioBuffer in memory.
     // Where there is no such context the clip is only stored, and decoded at the tap as before.
     const dc = decoderCtx();
-    // (a browser that cannot decode here just stores the clip: a failed decode must not make a PAID clip be fetched again)
-    const bytesOnly = dc ? { decodeAudioData: (b) => dc.decodeAudioData(b).catch(() => null) } : { decodeAudioData: async () => null };
+    const bytesOnly = dc ? { decodeAudioData: (b) => decodeOffline(dc, b) } : { decodeAudioData: async () => null };
+    const all = [];
     chunks.forEach((c, k) => {
       const key = ttsKey(c, lang, voice);
       if (_pfInflight.has(key)) return;
-      const p = ttsFetchBuffer(c, lang, bytesOnly, k === 0 ? 2 : 1, 30000, { src: "chat", prefetch: true, keepDecoded: !!dc, gapMs: TTS_OPEN_GAP_MS });
-      _pfInflight.set(key, p);
+      const p = ttsFetchBuffer(c, lang, bytesOnly, k === 0 ? 2 : 1, 30000, { src: "chat", prefetch: true, keepDecoded: !!dc, gapMs: TTS_OPEN_GAP_MS, onNet });
+      _pfInflight.set(key, p); all.push(p);
       const clear = () => { if (_pfInflight.get(key) === p) _pfInflight.delete(key); };
       p.then(clear, clear);
     });
+    // every request of it failed (a rate limit, no connection): the message may be prepared again later, instead of being marked as done
+    const settle = (rs) => {
+      if (!usedNet) { giveBackUnit(); return; }
+      // a refusal for lack of entitlement (401 / 403) is final for today: no retry, nothing more asked from this device
+      if (rs.some((r) => r.status === "rejected" && r.reason && (r.reason.status === 403 || r.reason.status === 401))) { try { localStorage.setItem("tg_tts_denied", day); } catch (_e) {} return; }
+      // every request failed (a rate limit, no connection): the message may be prepared again later, instead of being marked as done
+      if (rs.every((r) => r.status === "rejected")) _pfSeen.delete(sig);
+    };
+    if (all.length) Promise.allSettled(all).then(settle); else giveBackUnit();
     return true;
   } catch (_e) { return false; }
 }

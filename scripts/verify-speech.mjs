@@ -21,7 +21,7 @@ const { build } = await import(pathToFileURL(path.join(ROOT, "node_modules/esbui
 
 // ── the world speech.ts talks to ──
 const STUBS = {
-  "./music-engine": `export function getAC() { return globalThis.__ac; }`,
+  "./music-engine": `export function getAC() { return globalThis.__ac; } export const _ac = null;`,
   "./native-stt": `export const nativeSTTAvailable = () => false; export class NativeSpeechRecognition {}`,
   "./ai-backend": `export const TTS_URL = "https://stub/piano-tts"; export function apiHeaders() { return { "Content-Type": "application/json" }; }`,
   "@capacitor/core": `export const Capacitor = { isNativePlatform: () => false };`,
@@ -38,6 +38,7 @@ fs.mkdirSync(path.dirname(tmp), { recursive: true });
 
 let pass = 0, fail = 0;
 const check = (name, ok, detail = "") => { if (ok) pass++; else fail++; console.log((ok ? "PASS " : "FAIL ") + name + (detail ? " — " + detail : "")); };
+const dayKey = () => { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 function freshWorld() {
@@ -431,7 +432,7 @@ async function load() {
   await S.speakCloud(text, lang, () => { tStart = Date.now() - t0; }, () => {}, () => {}, 1, { src: "chat" });
   const nAfter = globalThis.__fetches.length - nPre;
   check("prefetch-tap-asks-only-for-the-rest", nAfter === chunks.length - nPre, nAfter + " new requests, expected " + (chunks.length - nPre));
-  check("prefetch-first-sound-is-immediate", tStart > 0 && tStart < 25, tStart + " ms");
+  check("prefetch-first-sound-is-immediate", tStart >= 0 && tStart < 25, tStart + " ms");
 
   // a tap while the prefetch is still running waits for it: nothing is requested twice
   freshWorld(); fakeTts({ delay: 150 }); listener();
@@ -449,9 +450,9 @@ async function load() {
   check("prefetch-off-switch", S3.prefetchTtsHead(text, lang) === false);
   localStorage.removeItem("tg_tts_pf");
   check("prefetch-short-text-skipped", S3.prefetchTtsHead("Hi there", lang) === false);
-  localStorage.setItem("tg_tts_pf_day", JSON.stringify({ d: new Date().toISOString().slice(0, 10), n: S3.TTS_PREFETCH_DAY }));
+  localStorage.setItem("tg_tts_pf_day", JSON.stringify({ d: dayKey(), n: S3.TTS_PREFETCH_DAY }));
   check("prefetch-daily-cap", S3.prefetchTtsHead(text, lang) === false);
-  check("prefetch-daily-caps (30 for a listener, 8 before the first press)", S3.TTS_PREFETCH_DAY === 30 && S3.TTS_PREFETCH_DAY_NEW === 8);
+  check("prefetch-daily-caps follow the daily rounds (3x for a listener, 1x before the first press)", S3.TTS_PREFETCH_DAY === 3 * S3.TTS_DAILY_ROUNDS && S3.TTS_PREFETCH_DAY_NEW === S3.TTS_DAILY_ROUNDS);
 
   // owner 2026-11-07: the FIRST press is instant too, so a device that never pressed the speaker gets its head fetched as well, with a smaller daily cap
   freshWorld(); fakeTts({ delay: 10 });
@@ -460,7 +461,7 @@ async function load() {
   check("prefetch-first-press-is-prepared-too", S4.prefetchTtsHead(text, lang) === true);
   await sleep(1300);
   check("prefetch-new-device-requests-made", globalThis.__fetches.length >= 1, globalThis.__fetches.length + " requests");
-  localStorage.setItem("tg_tts_pf_day", JSON.stringify({ d: new Date().toISOString().slice(0, 10), n: S4.TTS_PREFETCH_DAY_NEW }));
+  localStorage.setItem("tg_tts_pf_day", JSON.stringify({ d: dayKey(), n: S4.TTS_PREFETCH_DAY_NEW }));
   check("prefetch-new-device-daily-cap", S4.prefetchTtsHead(text + " Another sentence so the text differs.", lang) === false);
   await S4.speakCloud(text, lang, () => {}, () => {}, () => {}, 1, { src: "chat" });
   check("a-tap-makes-the-device-a-listener", S4.ttsListener() === true);
@@ -485,6 +486,56 @@ async function load() {
   const restN = globalThis.__fetches.length - headN;
   check("tap-decodes-only-the-rest", globalThis.__acDecodes - acBefore === restN, (globalThis.__acDecodes - acBefore) + " decoded at the tap, rest is " + restN);
   check("tap-first-sound-within-a-frame-or-two", tS >= 0 && tS < 20, tS + " ms");
+  // review fixes (2026-11-07): a callback-only decoder, a decoder that never answers, a failed head that may be tried again, the day count per network use
+  await sleep(1500);
+  freshWorld(); fakeTts({ delay: 10 });
+  globalThis.OfflineAudioContext = class { decodeAudioData(buf, ok) { globalThis.__offDecodes++; setTimeout(() => ok && ok({ id: buf.byteLength, duration: 0.06 }), 5); } };   // old Safari: callback form, returns undefined
+  const S8 = await load();
+  S8.prefetchTtsHead(text, lang); await sleep(1300);
+  const n8 = globalThis.__fetches.length;
+  check("callback-only-decoder-does-not-refetch-paid-clips", n8 === headN, n8 + " requests for " + headN + " clips");
+  await sleep(300);
+  freshWorld(); fakeTts({ delay: 10 });
+  globalThis.OfflineAudioContext = class { decodeAudioData() { return new Promise(() => {}); } };   // never answers
+  const S9 = await load();
+  S9.prefetchTtsHead(text, lang); await sleep(1300);
+  let s9 = false; const t9 = Date.now(); await S9.speakCloud(text, lang, () => { s9 = Date.now() - t9; }, () => {}, () => {}, 1, { src: "chat" });
+  check("hung-decoder-never-blocks-the-tap", s9 !== false && s9 < 5500, s9 + " ms");
+  await sleep(300);
+  freshWorld(); fakeTts({ fail: true, delay: 5 });
+  const S10 = await load();
+  check("failed-head-starts", S10.prefetchTtsHead(text, lang) === true);
+  await sleep(5000);
+  check("failed-head-may-be-prepared-again", S10.prefetchTtsHead(text, lang) === true);
+  await sleep(1500);
+  // a head already in the cache costs nothing and is not counted against the day
+  freshWorld(); fakeTts({ delay: 5 });
+  const S11 = await load();
+  S11.prefetchTtsHead(text, lang); await sleep(1300);
+  const c1 = JSON.parse(localStorage.getItem("tg_tts_pf_day")).n;
+  check("day-count-is-one-per-message-that-asked-the-network", c1 === 1, "n=" + c1);
+  // the cap is reserved at once: a burst of calls cannot all pass it
+  freshWorld(); fakeTts({ delay: 5 });
+  const S12 = await load();
+  let acc12 = 0; for (let i = 0; i < 20; i++) if (S12.prefetchTtsHead("Message number " + i + " has its own opening words, so its first clips are not the same as any other. " + text, lang)) acc12++;
+  check("burst-cannot-pass-the-cap", acc12 === S12.TTS_PREFETCH_DAY_NEW, acc12 + " accepted, cap " + S12.TTS_PREFETCH_DAY_NEW);
+  await sleep(2500);
+  // a head that is all in the cache asks nothing and gives its unit back (the same opening, a different ending)
+  freshWorld(); fakeTts({ delay: 5 });
+  const S13 = await load();
+  S13.prefetchTtsHead(text, lang); await sleep(1500);
+  const f13 = globalThis.__fetches.length;
+  S13.prefetchTtsHead(text + " And one more closing sentence that was not in the first answer.", lang); await sleep(800);
+  check("cached-head-asks-nothing", globalThis.__fetches.length === f13, globalThis.__fetches.length + " vs " + f13);
+  check("cached-head-gives-the-unit-back", JSON.parse(localStorage.getItem("tg_tts_pf_day")).n === 1, localStorage.getItem("tg_tts_pf_day"));
+  // a 403 (not entitled) is final for the day: no retry of clip 0, no more heads
+  freshWorld(); globalThis.__fetches = [];
+  globalThis.fetch = async (url, init) => { globalThis.__fetches.push(JSON.parse(init.body)); return { ok: false, status: 403, json: async () => ({ error: "premium only" }) }; };
+  const S14 = await load();
+  S14.prefetchTtsHead(text, lang); await sleep(3000);
+  check("403-is-not-retried", globalThis.__fetches.length <= S14.TTS_PREFETCH_CLIPS, globalThis.__fetches.length + " requests");
+  check("403-stops-the-device-for-the-day", localStorage.getItem("tg_tts_denied") === dayKey() && S14.prefetchTtsHead(text + " again", lang) === false);
+
   // no decode-only context in the browser: the head is stored and decoded at the tap, exactly as before
   freshWorld(); delete globalThis.OfflineAudioContext; fakeTts({ delay: 20 });
   const S7 = await load();

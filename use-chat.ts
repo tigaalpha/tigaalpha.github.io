@@ -497,7 +497,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
             setMsgs(prev => {
               const last = prev[prev.length - 1];
               if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) return prev;
-              return [...prev, { role: "ai", text: "", live: true }];
+              return [...prev, { role: "ai", text: "", live: true, fresh: Date.now() }];
             });
             setLoading(false);
           },
@@ -577,7 +577,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         setMsgs(prev => {
           const last = prev[prev.length - 1];
           if (last && last.role === "ai" && (!String(last.text || "").trim() || last.retrying)) return prev;
-          return [...prev, { role: "ai", text: "", live: true }];
+          return [...prev, { role: "ai", text: "", live: true, fresh: Date.now() }];
         });
       }
       flush(); // final flush with the complete text
