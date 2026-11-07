@@ -40,6 +40,15 @@ export function BlogBody({ text }: { text: string }) {
 }
 const fmtDate = (d: string, lang: string) => { try { return new Date(d).toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "short", day: "numeric" }); } catch (e) { return ""; } };
 
+/* Reader counts (owner 2026-11-07, supabase-blog-views-migration.sql): opening an article counts one view per device per day (public.blog_hit, the same call the static pages make) and the
+   number is shown beside the date; the list shows it on every card. A random id of this browser (tg_blog_vid, never an account) is the "device". Every call fails soft: until the migration
+   is applied no number shows. */
+const blogVid = () => {
+  try { let v = localStorage.getItem("tg_blog_vid") || ""; if (!/^[A-Za-z0-9_-]{8,64}$/.test(v)) { v = Array.from({ length: 20 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]).join(""); localStorage.setItem("tg_blog_vid", v); } return v; }
+  catch (e) { return "anon" + Math.random().toString(36).slice(2, 12); }
+};
+const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US") + " " + (lang === "th" ? "ยอดวิว" : lang === "zh" ? "次浏览" : "views");
+
 export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }) {
   const T = (th: string, en: string, zh: string) => lang === "th" ? th : lang === "zh" ? zh : en;
   const [posts, setPosts] = useState<BlogPost[] | null>(null);
@@ -47,6 +56,18 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
   const [err, setErr] = useState(false);
   const [cat, setCat] = useState<string>("all");
   const [tab, setTab] = useState<string>(lang === "th" || lang === "zh" ? lang : "en");
+  const [counts, setCounts] = useState<Record<string, number>>({});   // "lang|slug" -> all-time views
+  const [openViews, setOpenViews] = useState<number | null>(null);
+  useEffect(() => {
+    let off = false;
+    (sb as any).rpc("blog_view_counts", { p_lang: tab }).then(({ data, error }: any) => { if (off || error || !Array.isArray(data)) return; setCounts(c => { const n = { ...c }; data.forEach((r: any) => { n[tab + "|" + r.slug] = Number(r.views) || 0; }); return n; }); }, () => {});
+    return () => { off = true; };
+  }, [tab]);
+  useEffect(() => {
+    setOpenViews(null); if (!open) return; let off = false;
+    (sb as any).rpc("blog_hit", { p_lang: open.lang, p_slug: open.slug, p_vid: blogVid(), p_kind: "view" }).then(({ data, error }: any) => { if (!off && !error && typeof data === "number" && data >= 1) setOpenViews(data); }, () => {});
+    return () => { off = true; };
+  }, [open && open.id]);
   useEffect(() => {
     let off = false; setPosts(null); setErr(false);
     sb.from("blog_posts").select("*").eq("published", true).order("created_at", { ascending: false }).limit(100)
@@ -81,7 +102,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
             <button className="songbtn ghost" onClick={() => setOpen(null)} style={{ marginBottom: 12 }}>← {T("กลับ", "Back", "返回")}</button>
             {open.cover_url && safeUrl(open.cover_url) && <img src={safeUrl(open.cover_url)} alt="" style={{ width: "100%", borderRadius: 14, marginBottom: 12 }} />}
             <h1 style={{ fontSize: 26, lineHeight: 1.3, margin: "4px 0 6px" }}>{open.title}</h1>
-            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>{catName(open.category || "tips", open.lang)} · {fmtDate(open.created_at, open.lang)} · {readMins(open.body)} {open.lang === "th" ? "นาที" : open.lang === "zh" ? "分钟" : "min read"}</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>{catName(open.category || "tips", open.lang)} · {fmtDate(open.created_at, open.lang)} · {readMins(open.body)} {open.lang === "th" ? "นาที" : open.lang === "zh" ? "分钟" : "min read"}{openViews ? <span data-blog-views> · {viewsText(openViews, open.lang)}</span> : null}</div>
             <BlogBody text={open.body} />
           </article>
         ) : posts === null ? (
@@ -93,7 +114,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
             {p.cover_url && safeUrl(p.cover_url) && <img src={safeUrl(p.cover_url)} alt="" loading="lazy" style={{ width: "100%", borderRadius: 10, marginBottom: 10 }} />}
             <div style={{ fontWeight: 800, fontSize: 17, lineHeight: 1.35 }}>{p.title}</div>
             {p.excerpt && <div style={{ fontSize: 14, color: "var(--text2, #6b5d52)", margin: "6px 0 8px", lineHeight: 1.55 }}>{p.excerpt}</div>}
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>{catName(p.category || "tips", tab)} · {fmtDate(p.created_at, tab)} · {readMins(p.body)} {tab === "th" ? "นาที" : tab === "zh" ? "分钟" : "min"}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>{catName(p.category || "tips", tab)} · {fmtDate(p.created_at, tab)} · {readMins(p.body)} {tab === "th" ? "นาที" : tab === "zh" ? "分钟" : "min"}{counts[tab + "|" + p.slug] ? <span data-blog-views> · {viewsText(counts[tab + "|" + p.slug], tab)}</span> : null}</div>
           </button>
         ))}
       </div>

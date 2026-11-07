@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { sb } from "./supabase-client";
 import { BlogBody, BlogPost, BLOG_CATS, catName } from "./BlogPage";
+import { BlogStatsCard } from "./AdminBlogStats";
 
 /* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin, with a category, a cover picture, pictures inside the text and links.
    Rendered only for admin_tier >= 3 (App.tsx); the table's and the image bucket's RLS (public.is_top_admin()) refuse anyone else even if this screen were reached. */
@@ -71,6 +72,7 @@ export function AdminBlog({ lang }: { lang: string }) {
       <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 10 }}>📝 {T("บล็อก", "Blog", "博客")}</div>
       {msg && <div role="status" style={{ background: msg.ok ? "#e7f5ec" : "#fdecea", color: msg.ok ? "#1e6b3a" : "#b3261e", borderRadius: 10, padding: "9px 12px", fontSize: 14, marginBottom: 12 }}>{msg.t}</div>}
       {!f ? (<>
+        <BlogStatsCard lang={lang} range="30" own />
         <button className="songbtn" data-blog-new onClick={() => { setF({ ...EMPTY }); setPrev(false); setMsg(null); }} style={{ marginBottom: 12, width: "100%", padding: "14px 0", fontSize: 16 }}>＋ {T("เขียนบทความใหม่", "Write a new article", "写新文章")}</button>
         <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
           {([["all", T("ทั้งหมด", "All", "全部")], ["th", "ไทย"], ["en", "English"], ["zh", "中文"]] as const).map(([l, n]) => <button key={l} type="button" onClick={() => setFilt(l)} className={filt === l ? "songbtn" : "songbtn ghost"} style={{ flex: 1, padding: "8px 0" }}>{n}</button>)}

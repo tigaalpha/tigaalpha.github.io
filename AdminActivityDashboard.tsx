@@ -3,6 +3,7 @@ import { sb } from "./supabase-client";
 import { GUEST_TRIAL_MS } from "./shared-infra";
 import { AdminLearningData } from "./AdminLearningData";
 import { CampaignFunnelCard } from "./AdminCampaignFunnel";
+import { BlogStatsCard } from "./AdminBlogStats";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ADMIN ACTIVITY ANALYTICS — visible ONLY to admin_tier >= 3 (the owner).
@@ -984,6 +985,9 @@ function ActivityBody({ lang, onOpenAnon }) {
           numbers rather than inside them — landing rows are kind='land', which
           every panel above now excludes. */}
       <LandingFunnelCard f={landing} T={T} />
+
+      {/* blog readers: views, 30-second readers, log-in pop-ups shown and tapped (owner 2026-11-07), on the same range as this page */}
+      <BlogStatsCard lang={lang} range={range} />
 
       {/* the same funnel cut by campaign / ad set / creative / browser / variant /
           language / region / in-app escape — computed from raw events, loaded on
