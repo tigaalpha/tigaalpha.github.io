@@ -17,7 +17,7 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
     let off = false; setSt("load");
     (sb as any).rpc("blog_stats", { p_days: days }).then(({ data, error }: any) => {
       if (off) return;
-      if (error) { setSt(/blog_stats|schema cache|does not exist|PGRST202|42883/i.test(String(error.message || "") + String(error.code || "")) ? "missing" : "err"); setD(null); return; }
+      if (error) { setSt(error.code === "PGRST202" || error.code === "42883" || /Could not find the function/i.test(String(error.message || "")) ? "missing" : "err"); setD(null); return; }
       setD(data as Stats); setSt("ok");
     }, () => { if (!off) setSt("err"); });
     return () => { off = true; };
@@ -32,11 +32,19 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
   );
   const t = d && d.totals;
   const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) + "%" : "—");
-  const maxDay = d ? Math.max(1, ...(d.daily || []).map(x => x.views)) : 1;
+  // the chart: the last 60 days as one bar each, days with no reader drawn as an empty slot, the scale taken from the days that are drawn
+  const bars = (() => {
+    if (!d || !d.daily || d.daily.length < 2) return [] as { day: string; views: number }[];
+    const by: Record<string, number> = {}; d.daily.forEach(x => { by[x.day] = x.views; });
+    const out: { day: string; views: number }[] = []; const last = new Date(d.daily[d.daily.length - 1].day + "T00:00:00Z"); const first = new Date(d.daily[0].day + "T00:00:00Z");
+    for (let t = last.getTime(); t >= first.getTime() && out.length < 60; t -= 86400000) { const k = new Date(t).toISOString().slice(0, 10); out.unshift({ day: k, views: by[k] || 0 }); }
+    return out;
+  })();
+  const maxDay = Math.max(1, ...bars.map(x => x.views));
   return (
     <div data-blog-stats style={box}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        <div style={{ fontWeight: 800, fontSize: 16, flex: 1 }}>📝 {T("ผู้อ่านบล็อก", "Blog readers", "博客读者")}</div>
+        <div style={{ fontWeight: 800, fontSize: 16, flex: 1 }}>📝 {T("ผู้อ่านบล็อก", "Blog readers", "博客读者")}{days === 1 ? <span style={{ fontWeight: 400, fontSize: 12, color: "var(--muted)" }}> · {T("วันนี้ (เวลาไทย)", "today (Bangkok)", "今天（曼谷时间）")}</span> : null}</div>
         {own && (
           <div className="billtoggle">
             {[["7", T("7 วัน", "7d", "7天")], ["30", T("30 วัน", "30d", "30天")], ["all", T("ทั้งหมด", "All", "全部")]].map(([v, l]) => (
@@ -50,15 +58,15 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
       {st === "err" && <div style={{ color: "#b3261e", fontSize: 14 }}>{T("โหลดสถิติไม่สำเร็จ", "Could not load the statistics", "统计加载失败")}</div>}
       {st === "ok" && t && (<>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {tile(T("ยอดวิว", "Views", "浏览"), nf(t.views), T("เครื่องละครั้งต่อวัน", "one per device per day", "每设备每天一次"))}
+          {tile(T("ยอดวิว", "Views", "浏览"), nf(t.views), T("เครื่องละครั้งต่อบทความต่อวัน", "one per device per article per day", "每设备每篇每天一次"))}
           {tile(T("อ่านนาน 30 วินาที", "Read 30 s", "阅读满30秒"), nf(t.readers), pct(t.readers, t.views) + " " + T("ของยอดวิว", "of views", "占浏览"))}
           {tile(T("ป๊อปอัปเด้ง", "Pop-up shown", "弹窗显示"), nf(t.gates))}
           {tile(T("กดสมัคร/ล็อกอิน", "Tapped sign-up / log-in", "点击注册/登录"), nf(t.clicks), pct(t.clicks, t.gates) + " " + T("ของที่เด้ง", "of shown", "占显示"))}
           {tile(T("จำนวนเครื่อง", "Devices", "设备数"), nf(t.devices))}
         </div>
-        {d && d.daily && d.daily.length > 1 && (
+        {bars.length > 1 && (
           <div data-blog-daily style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 56, margin: "12px 0 4px" }} aria-label={T("ยอดวิวรายวัน", "Views per day", "每日浏览")}>
-            {d.daily.slice(-60).map(x => <div key={x.day} title={x.day + " · " + nf(x.views)} style={{ flex: 1, minWidth: 2, height: Math.max(2, Math.round((x.views / maxDay) * 52)), background: "var(--clay, #d97757)", borderRadius: 2, opacity: 0.85 }} />)}
+            {bars.map(x => <div key={x.day} title={x.day + " · " + nf(x.views)} style={{ flex: 1, minWidth: 2, height: Math.max(2, Math.round((x.views / maxDay) * 52)), background: "var(--clay, #d97757)", borderRadius: 2, opacity: 0.85 }} />)}
           </div>
         )}
         {d && d.rows && d.rows.length > 0 ? (

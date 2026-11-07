@@ -17,8 +17,10 @@ execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: {
 const pwm = await import("playwright").catch(async () => import(pathToFileURL(path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "playwright/index.js")).href)); const pw = pwm.chromium ? pwm : pwm.default;
 const browser = await pw.chromium.launch({ executablePath: process.env.CHROMIUM_PATH || (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined) });
 const errs = [];
-async function open(lang, { ms = 1500, session = false, w = 1000, h = 720, hidden = false, ua = null, rpc = null } = {}) {
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, ...(ua ? { userAgent: ua } : {}) });
+// HeadlessChrome is in the page's crawler list on purpose (a prerender or an audit must not inflate the numbers), so every reader here is an ordinary Chrome
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+async function open(lang, { ms = 1500, session = false, w = 1000, h = 720, hidden = false, ua = UA, rpc = null } = {}) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, userAgent: ua });
   const calls = await stubRpc(ctx, rpc || {});
   await ctx.addInitScript(([s, hid]) => { try { localStorage.setItem("tg_test_hook", "1"); if (s) localStorage.setItem("sb-abcdefgh-auth-token", JSON.stringify({ access_token: "x" })); } catch (e) {} if (hid) Object.defineProperty(document, "hidden", { get: () => true, configurable: true }); }, [session, hidden]);
   const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
@@ -100,7 +102,7 @@ console.log("who does not see it");
   await ctx.close();
 }
 {
-  const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 } });
+  const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 }, userAgent: UA });
   const page = await ctx.newPage(); await page.goto(`${ORIGIN}/blog/en/piano-posture.html`); await page.waitForTimeout(1800);
   ok(!(await vis(page)), "without the test door the wait is not shortened (still hidden at 1.8 s)");
   await ctx.close();
@@ -156,7 +158,7 @@ for (const [lang, unit] of [["th", "ยอดวิว"], ["en", "views"], ["zh"
   await ctx.close();
 }
 {
-  const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 } }); const calls = await stubRpc(ctx);
+  const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 }, userAgent: UA }); const calls = await stubRpc(ctx);
   const a = await ctx.newPage(); await a.goto(`${ORIGIN}/blog/en/piano-posture.html`); await a.waitForTimeout(400);
   const vid1 = await a.evaluate(() => localStorage.getItem("tg_blog_vid"));
   const b = await ctx.newPage(); await b.goto(`${ORIGIN}/blog/en/piano-posture.html`); await b.waitForTimeout(400);
@@ -187,13 +189,76 @@ for (const [lang, unit] of [["th", "ยอดวิว"], ["en", "views"], ["zh"
   await ctx.close();
 }
 {
-  const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 } });
+  const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 }, userAgent: UA });
   const calls = await stubRpc(ctx, { counts: [{ slug: "piano-posture", views: 55 }, { slug: "other", views: 7 }] });
   const page = await ctx.newPage(); await page.goto(`${ORIGIN}/blog/zh/`); await page.waitForTimeout(500);
   const t = await page.$$eval("a.card .tg-cv", n => n.map(x => x.textContent));
   ok(t.length === 1 && t[0].includes("55") && t[0].includes("次浏览"), "the list page shows the number on the article's card (" + t[0] + ")");
   ok(calls.some(c => c.name === "blog_view_counts" && c.p_lang === "zh"), "one call per list");
   await ctx.close();
+}
+console.log("review fixes (2026-11-07): what is and is not counted");
+{
+  // a tab opened in the background and never looked at is not a view; the view is sent once, when the tab becomes visible
+  const { ctx, page, calls } = await open("en", { ms: 5000, hidden: true });
+  await page.waitForTimeout(700);
+  ok(!calls.some(c => c.p_kind === "view"), "a page loaded in a hidden tab sends no view");
+  await page.evaluate(() => { Object.defineProperty(document, "hidden", { get: () => false, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await page.waitForTimeout(500);
+  ok(calls.filter(c => c.p_kind === "view").length === 1, "...and exactly one view when the tab is looked at");
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))); await page.waitForTimeout(300);
+  ok(calls.filter(c => c.p_kind === "view").length === 1, "...switching tabs again does not count it again");
+  await ctx.close();
+}
+{
+  // the wait before the second pop-up survives a move to another article in the same tab
+  const { ctx, page } = await open("en", { ms: 600 });
+  await page.waitForTimeout(1500); ok(await vis(page), "(first pop-up shown)");
+  await page.keyboard.press("Escape");
+  await page.goto(`${ORIGIN}/blog/th/piano-posture.html?gate_ms=600`);
+  await page.waitForTimeout(1300); ok(!(await vis(page)), "on the next article the pop-up does not come back right away (the wait carries over)");
+  await page.waitForTimeout(3300); ok(await vis(page), "...and it does come once the wait is over");
+  await ctx.close();
+}
+{
+  // a 404 from the database (migration not applied) is remembered: the next article in the tab makes no calls at all
+  const { ctx, page, calls } = await open("en", { ms: 5000, rpc: { missing: true } });
+  await page.waitForTimeout(700); const first = calls.length;
+  ok(first >= 1 && (await page.evaluate(() => sessionStorage.getItem("tg_blog_rpc_off"))) === "1", "the first page asks once and notes that the function is missing");
+  await page.goto(`${ORIGIN}/blog/th/piano-posture.html?gate_ms=5000`); await page.waitForTimeout(700);
+  ok(calls.length === first, "the next article in the same tab sends nothing");
+  await ctx.close();
+}
+for (const [name, ua, counted] of [
+  ["Googlebot", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", false],
+  ["HeadlessChrome (audits, prerender)", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/126.0.0.0 Safari/537.36", false],
+  ["a phone called Cubot (not a crawler)", "Mozilla/5.0 (Linux; Android 12; CUBOT KINGKONG) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36", true],
+]) {
+  const { ctx, page, calls } = await open("en", { ms: 600, ua });
+  await page.waitForTimeout(1000);
+  ok((calls.length > 0) === counted, name + (counted ? ": is counted" : ": is not counted and sends nothing"));
+  await ctx.close();
+}
+{
+  // without any storage (private mode, blocked cookies) one tab is still one device, not one per article
+  const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 }, userAgent: UA }); const calls = await stubRpc(ctx);
+  await ctx.addInitScript(() => { const bad = { get() { throw new Error("denied"); } }; try { Object.defineProperty(window, "localStorage", bad); } catch (e) {} });
+  const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
+  await page.goto(`${ORIGIN}/blog/en/piano-posture.html`); await page.waitForTimeout(500);
+  const v = calls.filter(c => c.p_kind === "view");
+  ok(v.length === 1 && /^[A-Za-z0-9_-]{8,64}$/.test(v[0].p_vid), "with local storage blocked the page still counts, with a valid id, and does not throw");
+  await ctx.close();
+}
+{
+  // the sitemap: running the generator again must not add the blog urls a second time
+  const root = path.join(tmp, "root"); fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
+  fs.copyFileSync(path.join(ROOT, "scripts/build-blog-pages.mjs"), path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts"));
+  fs.writeFileSync(path.join(root, "sitemap.xml"), '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n<url><loc>https://x.test/songs/th/a.html</loc></url>\n</urlset>\n');
+  const run = () => execFileSync("node", [path.join(root, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_FIXTURE: path.join(tmp, "posts.json"), SITE_URL: "https://x.test" }, stdio: "pipe" });
+  run(); const n1 = (fs.readFileSync(path.join(root, "sitemap.xml"), "utf8").match(/\/blog\//g) || []).length; run();
+  const sm2 = fs.readFileSync(path.join(root, "sitemap.xml"), "utf8"); const n2 = (sm2.match(/\/blog\//g) || []).length;
+  ok(n1 > 0 && n1 === n2, "the sitemap holds the blog urls once after two runs (" + n1 + " then " + n2 + ")");
+  ok(sm2.includes("/songs/th/a.html") && sm2.trim().endsWith("</urlset>"), "...and keeps the other urls and a closed file");
 }
 console.log("pages kept from an earlier build are brought up to date");
 {

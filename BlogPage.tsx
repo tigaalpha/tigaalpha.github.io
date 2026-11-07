@@ -43,9 +43,12 @@ const fmtDate = (d: string, lang: string) => { try { return new Date(d).toLocale
 /* Reader counts (owner 2026-11-07, supabase-blog-views-migration.sql): opening an article counts one view per device per day (public.blog_hit, the same call the static pages make) and the
    number is shown beside the date; the list shows it on every card. A random id of this browser (tg_blog_vid, never an account) is the "device". Every call fails soft: until the migration
    is applied no number shows. */
+let memVid = "";
 const blogVid = () => {
-  try { let v = localStorage.getItem("tg_blog_vid") || ""; if (!/^[A-Za-z0-9_-]{8,64}$/.test(v)) { v = Array.from({ length: 20 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]).join(""); localStorage.setItem("tg_blog_vid", v); } return v; }
-  catch (e) { return "anon" + Math.random().toString(36).slice(2, 12); }
+  const mk = () => Array.from({ length: 20 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]).join("");
+  const okId = (v: string) => /^[A-Za-z0-9_-]{8,64}$/.test(v || "");
+  try { let v = localStorage.getItem("tg_blog_vid") || ""; if (!okId(v)) { v = memVid || mk(); localStorage.setItem("tg_blog_vid", v); } memVid = v; return v; }
+  catch (e) { if (!okId(memVid)) memVid = mk(); return memVid; }   // no storage: one id for this tab, so a reader is one device, not one per article
 };
 const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US") + " " + (lang === "th" ? "ยอดวิว" : lang === "zh" ? "次浏览" : "views");
 
@@ -65,8 +68,14 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
   }, [tab]);
   useEffect(() => {
     setOpenViews(null); if (!open) return; let off = false;
-    (sb as any).rpc("blog_hit", { p_lang: open.lang, p_slug: open.slug, p_vid: blogVid(), p_kind: "view" }).then(({ data, error }: any) => { if (!off && !error && typeof data === "number" && data >= 1) setOpenViews(data); }, () => {});
-    return () => { off = true; };
+    const key = open.lang + "|" + open.slug;
+    (sb as any).rpc("blog_hit", { p_lang: open.lang, p_slug: open.slug, p_vid: blogVid(), p_kind: "view" }).then(({ data, error }: any) => {
+      if (off || error || typeof data !== "number" || data < 1) return;
+      setOpenViews(data); setCounts(c => ({ ...c, [key]: data }));   // the list shows the same number when the reader goes back
+    }, () => {});
+    // thirty seconds with the article open is a "read" (the static pages count the same), so the percentage in the admin card compares like with like
+    const t = setTimeout(() => { (sb as any).rpc("blog_hit", { p_lang: open.lang, p_slug: open.slug, p_vid: blogVid(), p_kind: "read" }).then(() => {}, () => {}); }, 30000);
+    return () => { off = true; clearTimeout(t); };
   }, [open && open.id]);
   useEffect(() => {
     let off = false; setPosts(null); setErr(false);

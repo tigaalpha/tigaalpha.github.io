@@ -12,9 +12,15 @@ let fetched = false;
 if (process.env.BLOG_OFFLINE) console.log("build-blog-pages: offline (BLOG_OFFLINE), keeping the pages in " + OUT);
 else if (process.env.BLOG_FIXTURE) { posts = JSON.parse(fs.readFileSync(process.env.BLOG_FIXTURE, "utf8")); fetched = true; }
 else try {
-  const r = await fetch(`${URL_}/rest/v1/blog_posts?select=*&published=eq.true&order=created_at.desc&limit=500`, { headers: { apikey: KEY, Authorization: "Bearer " + KEY }, signal: AbortSignal.timeout(20000) });
-  if (r.ok) { const data = await r.json(); if (Array.isArray(data)) { posts = data; fetched = true; } }
-  else console.log("build-blog-pages: no posts (" + r.status + ")");
+  // page through the API (the old single request was capped at 500 rows, so past 500 published rows the oldest articles would have been deleted from the deploy)
+  const PAGE = 500; let off = 0, all = [], okAll = true;
+  for (let guard = 0; guard < 40; guard++) {
+    const r = await fetch(`${URL_}/rest/v1/blog_posts?select=*&published=eq.true&order=created_at.desc,id.asc&limit=${PAGE}&offset=${off}`, { headers: { apikey: KEY, Authorization: "Bearer " + KEY }, signal: AbortSignal.timeout(20000) });
+    if (!r.ok) { console.log("build-blog-pages: no posts (" + r.status + ")"); okAll = false; break; }
+    const data = await r.json(); if (!Array.isArray(data)) { okAll = false; break; }
+    all = all.concat(data); if (data.length < PAGE) break; off += PAGE;
+  }
+  if (okAll) { posts = all; fetched = true; }
 } catch (e) { console.log("build-blog-pages: skipped (" + (e && e.message) + ")"); }
 if (fetched) fs.rmSync(OUT, { recursive: true, force: true });
 else console.log("build-blog-pages: fetch failed, leaving the existing blog pages in place");
@@ -90,35 +96,43 @@ function gateHtml(lang, slug) {
   const T = GATE_T[lang] || GATE_T.en;
   const base = `${SITE}/?utm_source=blog&utm_medium=seo&utm_campaign=${encodeURIComponent(slug)}&lg=${lang}`;
   const L = (x) => esc(`${base}&${x}`);
-  const js = `(function(){var D=document,W=window,LS=null,SS=null,MS=30000,AGAIN=180000,SHOW=0,READ=0,OPEN=false,GOAL,AUTH=false,SENT=0,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},SLUG=${J(slug)},VID="",BOT=false,LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)},badge=null;
+  const js = `(function(){var D=document,W=window,LS=null,SS=null,MS=30000,AGAIN=180000,SHOW=0,READ=0,OPEN=false,GOAL,SENT=0,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},SLUG=${J(slug)},VID="",BOT=false,OFF=false,LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)},badge=null,MEM=null;
 try{LS=W.localStorage}catch(e){}try{SS=W.sessionStorage}catch(e){}
-try{BOT=/bot|crawl|spider|slurp|lighthouse|preview/i.test(navigator.userAgent||"")}catch(e){}
-try{if(LS)for(var i=0;i<LS.length;i++){var k=LS.key(i);if(k&&/^sb-.*-auth-token$/.test(k)&&LS.getItem(k)){AUTH=true;break}}}catch(e){}
+try{BOT=/googlebot|bingbot|baiduspider|yandex|duckduckbot|applebot|slurp|crawler|spider|lighthouse|headlesschrome|prerender|facebookexternalhit|ahrefsbot|semrushbot|gptbot|claudebot|petalbot|bytespider/i.test(navigator.userAgent||"")}catch(e){}
+function isAuth(){try{if(LS)for(var i=0;i<LS.length;i++){var k=LS.key(i);if(k&&/^sb-.*-auth-token$/.test(k)&&LS.getItem(k))return true}}catch(e){}return false}
 try{if(LS&&LS.getItem("tg_test_hook")==="1"){var q=/[?&]gate_ms=(\\d+)/.exec(location.search);if(q){MS=+q[1];AGAIN=MS*6}}}catch(e){}
 try{SHOW=+(SS&&SS.getItem("tg_blog_gate"))||0}catch(e){}GOAL=MS;
+try{var at=+(SS&&SS.getItem("tg_blog_gate_at"))||0;if(SHOW>=1&&at){var w=AGAIN-(Date.now()-at);if(w>MS)GOAL=w}}catch(e){}
+try{OFF=!!(SS&&SS.getItem("tg_blog_rpc_off"))}catch(e){}
 function rnd(){var s="",c="abcdefghijklmnopqrstuvwxyz0123456789",n=20,j;try{var a=new Uint8Array(n);W.crypto.getRandomValues(a);for(j=0;j<n;j++)s+=c.charAt(a[j]%36)}catch(e){s="";for(j=0;j<n;j++)s+=c.charAt(Math.floor(Math.random()*36))}return s}
+function okId(v){return /^[A-Za-z0-9_-]{8,64}$/.test(v||"")}
 try{VID=(LS&&LS.getItem("tg_blog_vid"))||""}catch(e){}
-if(!/^[A-Za-z0-9_-]{8,64}$/.test(VID)){VID=rnd();try{LS&&LS.setItem("tg_blog_vid",VID)}catch(e){}}
+if(!okId(VID)){try{VID=(SS&&SS.getItem("tg_blog_vid"))||""}catch(e){}}
+if(!okId(VID)){VID=rnd();try{LS&&LS.setItem("tg_blog_vid",VID)}catch(e){try{SS&&SS.setItem("tg_blog_vid",VID)}catch(e2){}}}
 function ev(n,p){try{if(W.gtag)W.gtag("event",n,p)}catch(e){}}
-function rpc(name,body,cb){if(BOT)return;try{W.fetch(API+"/rest/v1/rpc/"+name,{method:"POST",keepalive:true,headers:{apikey:KEY,Authorization:"Bearer "+KEY,"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){return r.ok?r.json():null}).then(function(j){if(cb)cb(j)},function(){})}catch(e){}}
-function hit(kind,cb){rpc("blog_hit",{p_lang:LANG,p_slug:SLUG,p_vid:VID,p_kind:kind},cb)}
+function rpc(name,body,cb,ka){if(BOT||OFF)return;var o={method:"POST",headers:{apikey:KEY,Authorization:"Bearer "+KEY,"Content-Type":"application/json"},body:JSON.stringify(body)};if(ka)o.keepalive=true;try{W.fetch(API+"/rest/v1/rpc/"+name,o).then(function(r){if(r.status===404){OFF=true;try{SS&&SS.setItem("tg_blog_rpc_off","1")}catch(e){}}return r.ok?r.json():null}).then(function(j){if(cb)cb(j)},function(){})}catch(e){}}
+function hit(kind,cb,ka){rpc("blog_hit",{p_lang:LANG,p_slug:SLUG,p_vid:VID,p_kind:kind},cb,ka)}
 function badgeEl(){if(badge)return badge;var t=D.querySelector("article time");if(!t||!t.parentNode)return null;badge=D.createElement("span");badge.className="tg-views";badge.setAttribute("data-nosnippet","");badge.hidden=true;t.parentNode.appendChild(badge);return badge}
 function show(n){if(typeof n!=="number"||!(n>=1))return;var b=badgeEl();if(!b)return;var s;try{s=n.toLocaleString(LANG==="th"?"th-TH":LANG==="zh"?"zh-CN":"en-US")}catch(e){s=String(n)}b.textContent=" \\u00b7 \\ud83d\\udc41 "+s+" "+LBL;b.hidden=false}
-hit("view",show);
+/* the view is counted once the page is really in front of the reader: not while it is only prerendered, not in a tab that was opened in the background and never looked at */
+var VIEWED=0;function view(){if(VIEWED)return;if(D.prerendering||D.hidden)return;VIEWED=1;hit("view",show)}
+if(D.prerendering)D.addEventListener("prerenderingchange",view);D.addEventListener("visibilitychange",function(){last=Date.now();view()});view();
 var el=D.getElementById("tg-gate");
 function closeIt(){if(!OPEN)return;OPEN=false;el.hidden=true;D.documentElement.style.overflow=el._ov||"";if(SHOW<2)GOAL=READ+AGAIN}
-function openIt(){OPEN=true;SHOW++;try{SS&&SS.setItem("tg_blog_gate",String(SHOW))}catch(e){}el._ov=D.documentElement.style.overflow;D.documentElement.style.overflow="hidden";el.hidden=false;ev("blog_gate_shown",{slug:SLUG,n:SHOW});hit("gate");var b=el.querySelector("[data-gate=google]");if(b&&b.focus)try{b.focus({preventScroll:true})}catch(e){}}
-var last=Date.now();setInterval(function(){var n=Date.now(),d=n-last;last=n;if(D.hidden||OPEN||d>5000)return;READ+=d;if(!SENT&&READ>=MS){SENT=1;hit("read");ev("blog_read",{slug:SLUG,seconds:Math.round(READ/1000)})}if(el&&!AUTH&&SHOW<2&&READ>=GOAL)openIt()},500);
+function openIt(){OPEN=true;SHOW++;try{SS&&SS.setItem("tg_blog_gate",String(SHOW));SS&&SS.setItem("tg_blog_gate_at",String(Date.now()))}catch(e){}el._ov=D.documentElement.style.overflow;D.documentElement.style.overflow="hidden";el.hidden=false;ev("blog_gate_shown",{slug:SLUG,n:SHOW});hit("gate");var b=el.querySelector("[data-gate=google]");if(b&&b.focus)try{b.focus({preventScroll:true})}catch(e){}}
+/* the reading clock: a gap of more than 1.5 s between two 500 ms ticks means the page was frozen or throttled (another app, a locked phone), and that time is not reading */
+var last=Date.now();setInterval(function(){var n=Date.now(),d=n-last;last=n;if(D.hidden||d>1500||d<0)return;if(OPEN){if(isAuth())closeIt();return}READ+=d;if(!SENT&&READ>=MS){SENT=1;hit("read");ev("blog_read",{slug:SLUG,seconds:Math.round(READ/1000)})}if(el&&SHOW<2&&READ>=GOAL&&!isAuth())openIt()},500);
+W.addEventListener("pageshow",function(e){last=Date.now();if(e&&e.persisted&&OPEN&&isAuth())closeIt()});
 if(!el)return;
-el.addEventListener("click",function(e){var t=e.target;if(t===el){closeIt();return}while(t&&t!==el){if(t.getAttribute&&t.getAttribute("data-gate-close")!==null){closeIt();return}if(t.getAttribute&&t.getAttribute("data-gate")){ev("blog_gate_click",{method:t.getAttribute("data-gate"),slug:SLUG});hit("click");try{if(LS){var p=JSON.parse(LS.getItem("tg_guest_profile")||"{}")||{};p.lang=LANG;LS.setItem("tg_guest_profile",JSON.stringify(p))}}catch(e){}return}t=t.parentNode}});
+el.addEventListener("click",function(e){var t=e.target;if(t===el){closeIt();return}while(t&&t!==el){if(t.getAttribute&&t.getAttribute("data-gate-close")!==null){closeIt();return}if(t.getAttribute&&t.getAttribute("data-gate")){ev("blog_gate_click",{method:t.getAttribute("data-gate"),slug:SLUG});hit("click",null,true);try{if(LS){var p=JSON.parse(LS.getItem("tg_guest_profile")||"{}")||{};p.lang=LANG;LS.setItem("tg_guest_profile",JSON.stringify(p))}}catch(e){}return}t=t.parentNode}});
 D.addEventListener("keydown",function(e){if(e.key==="Escape")closeIt()});
-if(W.__tgGate===undefined)W.__tgGate={open:function(){if(!OPEN&&!AUTH)openIt()},state:function(){return{open:OPEN,read:READ,shown:SHOW,auth:AUTH}}};})();`;
+if(W.__tgGate===undefined)W.__tgGate={open:function(){if(!OPEN&&!isAuth())openIt()},state:function(){return{open:OPEN,read:READ,shown:SHOW,auth:isAuth()}}};})();`;
   return `${GATE_MARK}<style>${GATE_CSS}${VIEWS_CSS}</style><div id="tg-gate" role="dialog" aria-modal="true" aria-labelledby="tg-gate-t" data-nosnippet hidden><div class="tg-g-card"><button type="button" class="tg-g-x" aria-label="${esc(T.close)}" data-gate-close>&times;</button><div class="tg-g-badge">TIGA ALPHA</div><h2 id="tg-gate-t">${esc(T.title)}</h2><p>${esc(T.sub)}</p><a class="tg-g-btn tg-g-google" data-gate="google" rel="nofollow" href="${L("go=google")}">${GMARK}${esc(T.google)}</a><a class="tg-g-btn tg-g-signup" data-gate="signup" rel="nofollow" href="${L("wall=signup")}">${esc(T.signup)}</a><a class="tg-g-login" data-gate="login" rel="nofollow" href="${L("wall=login")}">${esc(T.login)}</a><button type="button" class="tg-g-later" data-gate-close>${esc(T.later)}</button></div></div><script>${js}</script>${GATE_END}`;
 }
 /* The article lists show the same number on every card (one call per list). Patched into kept pages like the gate. */
 const IDX_MARK = "<!--tg-idx:v1-->", IDX_END = "<!--/tg-idx-->";
 function idxHtml(lang) {
-  const js = `(function(){var W=window,D=document,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)};try{if(/bot|crawl|spider|slurp|lighthouse|preview/i.test(navigator.userAgent||""))return}catch(e){}
+  const js = `(function(){var W=window,D=document,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)};try{if(/googlebot|bingbot|baiduspider|yandex|duckduckbot|applebot|slurp|crawler|spider|lighthouse|headlesschrome|prerender|facebookexternalhit|ahrefsbot|semrushbot|gptbot|claudebot|petalbot|bytespider/i.test(navigator.userAgent||""))return}catch(e){}
 var cards=D.querySelectorAll("a.card");if(!cards.length)return;
 try{W.fetch(API+"/rest/v1/rpc/blog_view_counts",{method:"POST",headers:{apikey:KEY,Authorization:"Bearer "+KEY,"Content-Type":"application/json"},body:JSON.stringify({p_lang:LANG})}).then(function(r){return r.ok?r.json():null}).then(function(rows){if(!rows||!rows.length)return;var m={},i;for(i=0;i<rows.length;i++)m[rows[i].slug]=rows[i].views;for(i=0;i<cards.length;i++){var h=cards[i].getAttribute("href")||"",s;try{s=decodeURIComponent(h.replace(/^.*\\/blog\\/[a-z]+\\//,"").replace(/\\.html$/,""))}catch(e){continue}var n=m[s];if(typeof n==="number"&&n>=1){var sp=D.createElement("span");sp.className="tg-cv";sp.setAttribute("data-nosnippet","");var t;try{t=n.toLocaleString(LANG==="th"?"th-TH":LANG==="zh"?"zh-CN":"en-US")}catch(e){t=String(n)}sp.textContent="\\ud83d\\udc41 "+t+" "+LBL;cards[i].appendChild(sp)}}},function(){})}catch(e){}})();`;
   return `${IDX_MARK}<style>${VIEWS_CSS}</style><script>${js}</script>${IDX_END}`;
@@ -171,8 +185,9 @@ if (!fetched) {
   }
 }
 const sm = path.join(ROOT, "sitemap.xml");
-if (urls.length && fs.existsSync(sm) && !process.env.BLOG_OUT) {
+if (urls.length && fs.existsSync(sm) && !process.env.BLOG_OUT && !process.env.BLOG_OFFLINE) {   // an offline patch run only knows the pages on disk (no dates, no alternates): it must not rewrite the sitemap
   const add = urls.map(([u, alts, d]) => `<url><loc>${u}</loc>${d ? `<lastmod>${d}</lastmod>` : ""}${alts.map(([l, h]) => `<xhtml:link rel="alternate" hreflang="${l}" href="${h}"/>`).join("")}</url>`).join("\n");
-  fs.writeFileSync(sm, fs.readFileSync(sm, "utf8").replace("</urlset>", add + "\n</urlset>"));
+  // blog entries already in the file (a second run without build-song-pages.mjs in front of it) are dropped first, so the append never duplicates them
+  fs.writeFileSync(sm, fs.readFileSync(sm, "utf8").replace(/<url><loc>[^<]*\/blog\/[^<]*<\/loc>[\s\S]*?<\/url>\n?/g, "").replace("</urlset>", add + "\n</urlset>"));
 }
 console.log(`build-blog-pages: ${posts.length} posts, ${urls.length} urls  (${SITE})`);
