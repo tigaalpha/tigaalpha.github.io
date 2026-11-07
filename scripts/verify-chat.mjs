@@ -545,12 +545,12 @@ if (want("speak") && process.env.SPEAK === "1") {   // SUSPENDED: CHAT_TTS_ENABL
     check("speak-prefetch-tap-asks-nothing-twice", dup === 0, after.length + " requests, " + dup + " repeated");
     await P.ctx.close();
   }
-  // 6c. a device that has never pressed the speaker is not charged for a head start (owner, 2026-11-01), and its first tap makes it a listener
+  // 6c. a device that has never pressed the speaker gets its head fetched too (owner, 2026-11-07: the FIRST press must be instant), and its first tap makes it a listener
   {
     const N = await newLearner({ lang: "en", plan: "max", jev: "off", tts: "ok", reply: "The C major scale has eight notes and follows a whole whole half pattern, so keep your wrist loose and play slowly." });
     await openChat(N.page);
     await ask(N.page, "Teach me the C major scale"); await settle(N.page); await N.page.waitForTimeout(3500);
-    check("speak-no-prefetch-for-a-device-that-never-listened", N.state.tts.length === 0, "requests before any tap: " + N.state.tts.length);
+    check("speak-first-press-is-prepared-too", N.state.tts.length >= 1 && N.state.tts.length <= 3, "requests before any tap: " + N.state.tts.length);
     await N.page.click(".mov .mmsgs .msg.a .bspk"); await N.page.waitForTimeout(1500);
     check("speak-first-tap-makes-a-listener", await N.page.evaluate(() => { try { return JSON.parse(localStorage.getItem("tg_tts_aff")).n >= 1; } catch (e) { return false; } }));
     await N.ctx.close();

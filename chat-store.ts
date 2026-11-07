@@ -56,7 +56,8 @@ export const readMsgs = (id: string): any[] => { const m = rd(MSG + id); return 
 export const getActive = (): string | null => { try { return localStorage.getItem(ACTIVE) || null; } catch (e) { return null; } };
 export const setActive = (id: string | null) => { try { id ? localStorage.setItem(ACTIVE, id) : localStorage.removeItem(ACTIVE); } catch (e) {} };
 
-const clean = (msgs: any[]) => msgs.slice(-MAX_MSGS).map(m => ({ ...m, text: typeof m.text === "string" ? m.text.slice(0, MAX_TEXT) : m.text }));
+// `fresh` (when a live answer arrived in THIS page session) is in memory only: a stored thread must not look newly answered when it is opened, or its voice would be fetched again
+const clean = (msgs: any[]) => msgs.slice(-MAX_MSGS).map(m => { const { fresh: _fresh, ...rest } = m || {}; return { ...rest, text: typeof m.text === "string" ? m.text.slice(0, MAX_TEXT) : m.text }; });
 const firstUser = (msgs: any[]) => (msgs.find(m => m && m.role === "user" && typeof m.text === "string") || {}).text || "";
 const titleOf = (t: string) => { const s = String(t).replace(/\s+/g, " ").trim(); return s.length > 44 ? s.slice(0, 43) + "…" : s; };
 

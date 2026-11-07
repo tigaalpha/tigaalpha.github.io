@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { L } from "./i18n";
 import { extractNotes, getAC } from "./music-engine";
+import { logUsage } from "./shared-infra";
 import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDeviceSpeech, detectSpeechLang, ttsRoundSpend, ttsRoundRefund, ttsRoundsLeft, ttsFree, prewarmTts, prefetchTtsHead, TTS_DAILY_ROUNDS, CHAT_TTS_RATE } from "./speech";
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
 import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUEST_GOAL, QUEST_EXP, readQuest } from "./chat-store";
@@ -47,13 +48,28 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
   const started = useRef(false);                    // the cloud voice has begun to sound
   useEffect(() => { if (!isOn) { ticket.current++; setBusy(false); } }, [isOn]);
   useEffect(() => () => { ticket.current++; }, []);
-  useEffect(() => { if (mode !== "locked") prewarmTts(); }, [mode]);   // wake the voice service before the tap: a cold start is a second of waiting
+  useEffect(() => {
+    if (mode === "locked" || mode === "off") return;
+    prewarmTts();                                  // wake the voice service before the tap: a cold start is a second of waiting
+    // and create / resume the shared audio context on the learner's first touch in the chat: a phone only lets that happen inside a gesture, and waiting for it at the speaker's tap
+    // is the slowest part of a press that finds its sound already prepared (an iPhone takes 100-300 ms to start a context)
+    const wake = () => { try { getAC(); } catch (_e) {} };
+    window.addEventListener("pointerdown", wake, { once: true, passive: true, capture: true });
+    return () => window.removeEventListener("pointerdown", wake, true);
+  }, [mode]);
   /* The newest live answer: its first clips are fetched while the learner reads it (once the text has stopped changing), so the tap that follows is heard at once.
      Not for a message that has already been listened to up to the day's limit: that tap only opens the pop-up. */
+  const tapped = useRef(false);                     // this message has been tapped: its head is being fetched by the tap itself
   useEffect(() => {
     if (!prefetch || mode === "locked" || mode === "off") return;
-    const t = setTimeout(() => { if (ttsFree() || ttsRoundsLeft() > 0) prefetchTtsHead(text, detectSpeechLang(text, lang)); }, 900);
-    return () => clearTimeout(t);
+    let t = 0;
+    const go = () => { if (!tapped.current && (ttsFree() || ttsRoundsLeft() > 0) && prefetchTtsHead(text, detectSpeechLang(text, lang))) logUsage("tts", "pf"); };
+    const arm = () => { clearTimeout(t); t = setTimeout(go, 250); };
+    arm();
+    // an answer that finished while the tab was hidden is prepared when the learner comes back to it
+    const vis = () => { if (document.visibilityState === "visible") arm(); };
+    document.addEventListener("visibilitychange", vis);
+    return () => { clearTimeout(t); document.removeEventListener("visibilitychange", vis); };
   }, [prefetch, mode, text, lang]);
   useEffect(() => {
     if (!note) return;
@@ -81,6 +97,8 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
     if (isOn) { stop(); return; }
     const free = ttsFree();                         // a device flag for the owner's own testing; everyone else, admin included, has the limit
     if (!free && ttsRoundsLeft() === 0) { setLimitOpen(true); return; }   // the second tap of the day: a clear pop-up, no request, no sound
+    tapped.current = true;
+    logUsage("tts", "tap");                           // with the "pf" rows above: how many prepared answers are really listened to
     getAC();                                        // unlock audio inside the tap (iOS Safari)
     unlockDeviceSpeech();                           // and the device voice, which may have to take over later from a callback outside the tap
     if (!free) { ttsRoundSpend(); paid.current = true; }
@@ -281,6 +299,9 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
      already this app's sign for "thinking" and a second, different count would
      be a second sign for the same thing. */
   const waiting = m.role === "ai" && !m.text && !m.img;
+  // an answer that arrived in THIS page session (`fresh`, kept in memory only and stamped when it started) is a new answer; a restored thread's last answer is also marked
+  // `live` in storage, and must not have its voice paid for again every time the chat opens
+  const isFresh = !!m.fresh && Date.now() - m.fresh < 180000;
   /* The tutor's [? … ] check line is markup, not prose: it is split out here so
      the bubble shows the explanation and the buttons show the question. Pure
      and cheap (a regex over the last lines), so it costs nothing per token
@@ -311,7 +332,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
         {canSpeak && (
           <div className="bblf">
             <BubbleSpeak text={String(m.role === "ai" ? bodyText : m.text)} lang={lang} id={idx} activeId={activeSpk} setActiveId={setActiveSpk}
-              mode={speakMode} onLocked={onSpeakLocked} prefetch={m.role === "ai" && !!m.live && !!onMore && !waiting && !m.error} />
+              mode={speakMode} onLocked={onSpeakLocked} prefetch={m.role === "ai" && !!m.live && isFresh && !!onMore && !waiting && !m.error} />
           </div>
         )}
       </div>
