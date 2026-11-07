@@ -52,7 +52,7 @@ export const BubbleSpeak = memo(function BubbleSpeak({ text, lang, id, activeId,
      Not for a message that has already been listened to up to the day's limit: that tap only opens the pop-up. */
   useEffect(() => {
     if (!prefetch || mode === "locked" || mode === "off") return;
-    const t = setTimeout(() => { if (ttsFree() || ttsRoundsLeft() > 0) prefetchTtsHead(text, detectSpeechLang(text, lang)); }, 900);
+    const t = setTimeout(() => { if (ttsFree() || ttsRoundsLeft() > 0) prefetchTtsHead(text, detectSpeechLang(text, lang)); }, 250);
     return () => clearTimeout(t);
   }, [prefetch, mode, text, lang]);
   useEffect(() => {

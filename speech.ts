@@ -616,13 +616,29 @@ export function withTimeout(p, ms, tag) {
   });
 }
 
+/* Decoded clips, kept in memory (owner, 2026-11-07: "press the speaker and it comes almost at once"). A tap used to read the clip from IndexedDB and
+   decode it first (tens to a few hundred ms on a phone); the head-of-message prefetch now decodes the clips it fetched into this small LRU, so a tap finds
+   an AudioBuffer ready and schedules it straight away. An AudioBuffer belongs to no context, so one decoded here plays on the shared AudioContext. */
+const _decMem = new Map();
+const TTS_DEC_MAX = 6;          // two answers' heads: a decoded clip is a few MB, so the memory held is bounded
+function decPut(key, buf) { if (!buf) return; _decMem.delete(key); _decMem.set(key, buf); if (_decMem.size > TTS_DEC_MAX) _decMem.delete(_decMem.keys().next().value); }
+/* A decode-only context: it never plays, so no autoplay rule applies and it can run before any tap. null where the browser has none (the clip is then
+   only stored, and decoded at the tap as before). */
+let _decCtx = null;
+function decoderCtx() {
+  if (_decCtx) return _decCtx;
+  try { const C = (typeof window !== "undefined") && (window.OfflineAudioContext || window.webkitOfflineAudioContext); if (C) _decCtx = new C(1, 1, 44100); } catch (_e) { _decCtx = null; }
+  return _decCtx;
+}
 const _pfInflight = new Map();   // clip key -> the head-of-message prefetch still running for it, so a tap on the same clip waits for it instead of asking twice
 export async function ttsFetchBuffer(s, lang, ac, tries = 3, timeoutMs = 30000, opts = null) {
   const voice = (opts && opts.voice) || getVmVoiceName();   // a caller may name its own prebuilt voice (the concept clips use a narrator)
   const key = ttsKey(s, lang, voice);
   if (!(opts && opts.prefetch)) { const pf = _pfInflight.get(key); if (pf) { try { await pf; } catch (_e) {} } }
+  const dec = _decMem.get(key);                         // decoded already (by the head-of-message prefetch): nothing to read or decode at the tap
+  if (dec) { _decMem.delete(key); _decMem.set(key, dec); return dec; }
   const cached = await ttsCacheGet(key);                // free, instant, offline-safe
-  if (cached) { try { return await ac.decodeAudioData(cached); } catch (e) {} }
+  if (cached) { try { const out = await ac.decodeAudioData(cached); if (opts && opts.keepDecoded && out) decPut(key, out); return out; } catch (e) {} }
   // a clip that has to be paid for first asks the caller's allowance (the chat's read-aloud has one, see ttsBudgetSpend);
   // a cached clip never reaches here, so a repeat listen is always free
   if (opts && opts.spend && !opts.spend(s)) throw Object.assign(new Error("tts-budget"), { budget: true });
@@ -667,7 +683,9 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
       if (!data || !data.audio) throw new Error("no audio");
       const bytes = b64ToArrayBuffer(data.audio);
       ttsCachePut(key, bytes);                           // copies first; safe before decode
-      return await ac.decodeAudioData(bytes);
+      const out = await ac.decodeAudioData(bytes);
+      if (opts && opts.keepDecoded && out) decPut(key, out);
+      return out;
     } catch (e) {
       lastErr = e;
       if (_ttsCancelled && !(opts && (opts.src === "clip" || opts.prefetch))) throw e;
@@ -782,10 +800,12 @@ export function prewarmTts() {
    none of the daily read-aloud rounds (those are taken at the tap) and is capped per day (TTS_PREFETCH_DAY) so a long chat cannot run up a bill.
    tg_tts_pf = 0 switches it off. */
 export const TTS_PREFETCH_CLIPS = 3;
-export const TTS_PREFETCH_DAY = 12;   // was 25: the head start is only worth paying for on a device that really listens (see ttsListener)
+export const TTS_PREFETCH_DAY = 30;         // a device that has pressed the speaker (see ttsListener): up to this many answers a day get their head fetched
+export const TTS_PREFETCH_DAY_NEW = 8;      // a device that has not yet: the FIRST press must be instant too (owner, 2026-11-07), but a player who never uses it costs at most this much a day
 const TTS_LISTENER_DAYS = 14;
-/* Does this device actually use the speaker? A tap on it (speakCloud with src "chat") stamps `tg_tts_aff`; the prefetch only runs for a device whose last tap was within TTS_LISTENER_DAYS.
-   A player who has never pressed the speaker therefore costs nothing (owner, 2026-11-01: "make the speaker cheaper"); a first-ever tap waits the usual 2-3 s, every later answer is ready. */
+/* Does this device actually use the speaker? A tap on it (speakCloud with src "chat") stamps `tg_tts_aff`; a device whose last tap was within TTS_LISTENER_DAYS is a
+   "listener" and gets a bigger daily head-start allowance. 2026-11-01 the head start was paid for listeners ONLY (the cost cut); 2026-11-07 the owner asked for
+   the press to be instant, the first one included, so every device that can use the speaker now gets its head fetched, with a small daily cap until it has pressed it. */
 const _dayNo = () => Math.floor(Date.now() / 86400000);
 export function ttsNoteListen() { try { let st = null; try { st = JSON.parse(localStorage.getItem("tg_tts_aff") || "null"); } catch (_e) {} localStorage.setItem("tg_tts_aff", JSON.stringify({ n: Math.min(999, ((st && st.n) || 0) + 1), d: _dayNo() })); } catch (_e) {} }
 export function ttsListener() { try { const st = JSON.parse(localStorage.getItem("tg_tts_aff") || "null"); return !!st && st.n >= 1 && _dayNo() - st.d <= TTS_LISTENER_DAYS; } catch (_e) { return false; } }
@@ -794,7 +814,6 @@ export function prefetchTtsHead(text, lang) {
   try {
     if (typeof window === "undefined" || typeof fetch !== "function") return false;
     if (localStorage.getItem("tg_tts_pf") === "0") return false;
-    if (!ttsListener()) return false;                       // never pressed the speaker (or not for two weeks): no head start is paid for
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
     const nav = typeof navigator !== "undefined" ? navigator : null;
     if (nav && nav.connection && (nav.connection.saveData || /(^|-)2g$/.test(String(nav.connection.effectiveType || "")))) return false;
@@ -805,17 +824,21 @@ export function prefetchTtsHead(text, lang) {
     const day = new Date().toISOString().slice(0, 10);
     let st = null; try { st = JSON.parse(localStorage.getItem("tg_tts_pf_day") || "null"); } catch (_e) {}
     if (!st || st.d !== day) st = { d: day, n: 0 };
-    if (st.n >= TTS_PREFETCH_DAY) return false;
+    if (st.n >= (ttsListener() ? TTS_PREFETCH_DAY : TTS_PREFETCH_DAY_NEW)) return false;
     st.n += 1; try { localStorage.setItem("tg_tts_pf_day", JSON.stringify(st)); } catch (_e) {}
     _pfSeen.add(sig); if (_pfSeen.size > 60) _pfSeen.delete(_pfSeen.values().next().value);
     const lim = ttsChunkLimits(lang);
     const chunks = ttsChunks(clean, lim.max, lim.first, lim.ramp).slice(0, TTS_PREFETCH_CLIPS);
     const voice = getVmVoiceName();
-    const bytesOnly = { decodeAudioData: async () => null };      // the clip is only stored here; decoding happens at the tap
+    // The clips are decoded here too, on a decode-only context (no autoplay rule applies), so the tap that follows finds an AudioBuffer in memory.
+    // Where there is no such context the clip is only stored, and decoded at the tap as before.
+    const dc = decoderCtx();
+    // (a browser that cannot decode here just stores the clip: a failed decode must not make a PAID clip be fetched again)
+    const bytesOnly = dc ? { decodeAudioData: (b) => dc.decodeAudioData(b).catch(() => null) } : { decodeAudioData: async () => null };
     chunks.forEach((c, k) => {
       const key = ttsKey(c, lang, voice);
       if (_pfInflight.has(key)) return;
-      const p = ttsFetchBuffer(c, lang, bytesOnly, k === 0 ? 2 : 1, 30000, { src: "chat", prefetch: true, gapMs: TTS_OPEN_GAP_MS });
+      const p = ttsFetchBuffer(c, lang, bytesOnly, k === 0 ? 2 : 1, 30000, { src: "chat", prefetch: true, keepDecoded: !!dc, gapMs: TTS_OPEN_GAP_MS });
       _pfInflight.set(key, p);
       const clear = () => { if (_pfInflight.get(key) === p) _pfInflight.delete(key); };
       p.then(clear, clear);
