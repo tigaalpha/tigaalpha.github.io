@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-/* smoke-blog-gate.mjs — the reading gate on the static blog pages (owner 2026-11-04: anyone may read an article; after 30 seconds of reading (a minute until 2026-11-07) a pop-up in the middle of the
-   screen invites the reader to log in or sign up free for the TIGA AI app; the page also counts and shows the readers).
+/* smoke-blog-gate.mjs — the reading wall on the static blog pages (owner 2026-11-04: anyone may read an article; after 30 seconds of reading (a minute until 2026-11-07) a pop-up in the middle of the
+   screen asks the reader to log in or sign up free for the TIGA AI app; since 2026-11-07 (third version) it CANNOT be closed: to read on you have to log in; the page also counts and shows the readers).
    No network and no repo files touched: scripts/build-blog-pages.mjs is run with BLOG_FIXTURE / BLOG_OUT / SITE_URL into a temp folder, served locally and driven in Chromium.
    The real 30-second wait is shortened through the test door (localStorage.tg_test_hook = "1" + ?gate_ms=<ms>).
      node scripts/smoke-blog-gate.mjs */
@@ -50,6 +50,8 @@ ok(/id="tg-gate"[^>]*data-nosnippet[^>]*hidden/.test(html), "the pop-up is in th
 ok(html.includes("utm_source=blog") && html.includes("utm_campaign=piano-posture") && html.includes("go=google") && html.includes("wall=signup") && html.includes("wall=login"), "links carry the blog attribution, go=google, wall=signup, wall=login");
 ok(!fs.readFileSync(path.join(tmp, "blog", "th", "index.html"), "utf8").includes("tg-gate"), "the article index has no pop-up");
 ok(/MS=30000/.test(html), "the reading time is 30 seconds");
+ok(!/data-gate-close|tg-g-x|tg-g-later/.test(html) && !/Escape/.test(html), "the wall has no close button, no 'maybe later' and no Esc handler");
+ok(html.includes('"isAccessibleForFree":false') && html.includes('"cssSelector":"article"'), "the article's JSON-LD says the article is gated (isAccessibleForFree false, cssSelector article)");
 
 for (const lang of ["th", "en", "zh"]) {
   console.log(`${lang}: timing, position, text`);
@@ -61,33 +63,46 @@ for (const lang of ["th", "en", "zh"]) {
   const r = await page.evaluate(() => { const c = document.querySelector(".tg-g-card").getBoundingClientRect(); return { cx: c.left + c.width / 2, cy: c.top + c.height / 2, w: window.innerWidth, h: window.innerHeight }; });
   ok(Math.abs(r.cx - r.w / 2) < 3 && Math.abs(r.cy - r.h / 2) < 40, "the card is in the middle of the screen");
   const txt = await page.evaluate(() => document.getElementById("tg-gate").innerText);
-  const want = { th: ["อยากอ่านต่อใช่ไหม", "ล็อกอินด้วย Google", "สมัครสมาชิกฟรี", "เข้าสู่ระบบ", "ไว้ทีหลัง"], en: ["Want to keep reading", "Continue with Google", "Sign up free", "Log in", "Maybe later"], zh: ["想继续阅读吗", "使用 Google 继续", "免费注册", "登录", "稍后再说"] }[lang];
+  const want = { th: ["ล็อกอินเพื่ออ่านต่อ", "ล็อกอินด้วย Google", "สมัครสมาชิกฟรี", "เข้าสู่ระบบ"], en: ["Log in to keep reading", "Continue with Google", "Sign up free", "Log in"], zh: ["登录后继续阅读", "使用 Google 继续", "免费注册", "登录"] }[lang];
   ok(want.every(x => txt.includes(x)), "text is in the page's language (" + want[0] + ")");
   ok(txt.includes("TIGA AI"), "it names the TIGA AI app");
   const hrefs = await page.$$eval("#tg-gate a[data-gate]", as => as.map(a => [a.dataset.gate, a.getAttribute("href")]));
   ok(hrefs.length === 3 && hrefs.every(([, h]) => h.startsWith(ORIGIN + "/?") && h.includes("lg=" + lang)), "three links into the app with the page language");
   ok((await page.evaluate(() => document.documentElement.style.overflow)) === "hidden", "the page behind does not scroll while it is open");
+  ok((await page.$$eval("#tg-gate button", b => b.length)) === 0, "there is no button in it at all, only the three links into the app");
   await ctx.close();
 }
 
-console.log("closing and coming back");
+console.log("the wall cannot be closed");
 {
   const { ctx, page } = await open("en", { ms: 1000 });
-  await page.waitForTimeout(1700); ok(await vis(page), "first showing");
-  await page.click(".tg-g-later"); ok(!(await vis(page)), "'maybe later' closes it");
-  ok((await page.evaluate(() => document.documentElement.style.overflow)) !== "hidden", "scrolling is given back");
-  await page.waitForTimeout(2000); ok(!(await vis(page)), "it does not nag straight away");
-  await page.waitForTimeout(6000); ok(await vis(page), "it returns once after three more 'minutes' of reading (six times the first wait)");
-  await page.keyboard.press("Escape"); ok(!(await vis(page)), "Escape closes it");
-  await page.waitForTimeout(9000); ok(!(await vis(page)), "never a third time in the session");
-  ok((await page.evaluate(() => sessionStorage.getItem("tg_blog_gate"))) === "2", "the session count stops at two");
+  await page.waitForTimeout(1700); ok(await vis(page), "shown after the reading time");
+  await page.keyboard.press("Escape"); ok(await vis(page), "Escape does not close it");
+  await page.mouse.click(6, 6); await page.waitForTimeout(100); ok(await vis(page), "a tap on the dimmed backdrop does not close it");
+  await page.click(".tg-g-card h2"); ok(await vis(page), "a tap on the card's own text does not close it");
+  for (let i = 0; i < 6; i++) await page.keyboard.press("Tab");
+  ok(await page.evaluate(() => !!document.activeElement && !!document.activeElement.closest("#tg-gate")), "the keyboard cannot leave the wall (the page behind is inert)");
+  ok(await page.evaluate(() => document.querySelector("main").hasAttribute("inert") && document.querySelector("header.top").hasAttribute("inert")), "the article and the header behind it are inert");
+  ok((await page.evaluate(() => document.documentElement.style.overflow)) === "hidden", "scrolling is locked");
+  await page.waitForTimeout(6000); ok(await vis(page), "still there after many more seconds");
+  // the only way out: a session appears in this browser (the reader logged in, even in another tab)
+  await page.evaluate(() => localStorage.setItem("sb-abcdefgh-auth-token", JSON.stringify({ access_token: "x" })));
+  await page.waitForTimeout(900);
+  ok(!(await vis(page)), "it lifts by itself once a session appears");
+  ok((await page.evaluate(() => document.documentElement.style.overflow)) !== "hidden" && (await page.evaluate(() => !document.querySelector("main").hasAttribute("inert"))), "...scrolling and the page behind are given back");
   await ctx.close();
 }
 {
-  const { ctx, page } = await open("th", { ms: 800 });
-  await page.waitForTimeout(1500); ok(await vis(page), "shown (backdrop test)");
-  await page.mouse.click(6, 6); await page.waitForTimeout(100); ok(!(await vis(page)), "a tap on the dimmed backdrop closes it");
+  // met the wall once: a reload or another article is no way round (24 hours, this browser)
+  const { ctx, page } = await open("en", { ms: 600 });
+  await page.waitForTimeout(1500); ok(await vis(page), "(first time: shown after the reading time)");
+  await page.goto(`${ORIGIN}/blog/th/piano-posture.html?gate_ms=60000`);
+  await page.waitForTimeout(1500); ok(await vis(page), "another article in the same browser meets the wall at once");
+  await page.reload(); await page.waitForTimeout(1500); ok(await vis(page), "a reload meets it at once too");
   await ctx.close();
+  const fresh = await open("en", { ms: 60000 });
+  await fresh.page.waitForTimeout(1500); ok(!(await vis(fresh.page)), "a browser that never met it still gets the free reading time first");
+  await fresh.ctx.close();
 }
 
 console.log("who does not see it");
@@ -105,6 +120,12 @@ console.log("who does not see it");
   const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 }, userAgent: UA });
   const page = await ctx.newPage(); await page.goto(`${ORIGIN}/blog/en/piano-posture.html`); await page.waitForTimeout(1800);
   ok(!(await vis(page)), "without the test door the wait is not shortened (still hidden at 1.8 s)");
+  await ctx.close();
+}
+
+{
+  const { ctx, page } = await open("en", { ms: 600, ua: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" });
+  await page.waitForTimeout(2000); ok(!(await vis(page)), "a crawler is never walled (it reads the whole article)");
   await ctx.close();
 }
 
@@ -211,16 +232,6 @@ console.log("review fixes (2026-11-07): what is and is not counted");
   await ctx.close();
 }
 {
-  // the wait before the second pop-up survives a move to another article in the same tab
-  const { ctx, page } = await open("en", { ms: 600 });
-  await page.waitForTimeout(1500); ok(await vis(page), "(first pop-up shown)");
-  await page.keyboard.press("Escape");
-  await page.goto(`${ORIGIN}/blog/th/piano-posture.html?gate_ms=600`);
-  await page.waitForTimeout(1300); ok(!(await vis(page)), "on the next article the pop-up does not come back right away (the wait carries over)");
-  await page.waitForTimeout(3300); ok(await vis(page), "...and it does come once the wait is over");
-  await ctx.close();
-}
-{
   // a 404 from the database (migration not applied) is remembered: the next article in the tab makes no calls at all
   const { ctx, page, calls } = await open("en", { ms: 5000, rpc: { missing: true } });
   await page.waitForTimeout(700); const first = calls.length;
@@ -265,12 +276,13 @@ console.log("pages kept from an earlier build are brought up to date");
   const keep = path.join(tmp, "keep"); fs.mkdirSync(path.join(keep, "th"), { recursive: true });
   const cur = fs.readFileSync(path.join(tmp, "blog", "th", "piano-posture.html"), "utf8");
   const oldGate = '<style>#tg-gate{position:fixed}</style><div id="tg-gate" hidden><div class="tg-g-card"><a data-gate="google">x</a></div></div><script>var OLD_ONE_MINUTE=60000;</script>';
-  fs.writeFileSync(path.join(keep, "th", "piano-posture.html"), cur.replace(/<!--tg-gate:v3-->[\s\S]*<!--\/tg-gate-->/, oldGate));
+  fs.writeFileSync(path.join(keep, "th", "piano-posture.html"), cur.replace(/<!--tg-gate:v\d+-->[\s\S]*<!--\/tg-gate-->/, oldGate).replace(/"isAccessibleForFree":false,"hasPart":\{"@type":"WebPageElement","isAccessibleForFree":false,"cssSelector":"article"\},/, ""));
   fs.writeFileSync(path.join(keep, "th", "index.html"), fs.readFileSync(path.join(tmp, "blog", "th", "index.html"), "utf8").replace(/<!--tg-idx:v1-->[\s\S]*<!--\/tg-idx-->/, ""));
   ok(fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8").includes("OLD_ONE_MINUTE"), "(fixture: a page with the one-minute gate and no counter)");
   execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN }, stdio: "pipe" });
   const k = fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8");
   ok(!k.includes("OLD_ONE_MINUTE") && k.includes("MS=30000") && k.includes("blog_hit") && (k.match(/id="tg-gate"/g) || []).length === 1, "the old gate is replaced by the current one (30 s, view counter), once");
+  ok(!k.includes("data-gate-close") && (k.match(/"isAccessibleForFree"/g) || []).length === 2, "the kept page is also made uncloseable and gets the gated-content markup (once, not twice)");
   ok(fs.readFileSync(path.join(keep, "th", "index.html"), "utf8").includes("blog_view_counts"), "the list page gets the counter script");
   execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN }, stdio: "pipe" });
   ok(fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8") === k, "running it again changes nothing");
