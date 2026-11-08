@@ -34,6 +34,13 @@
     { "source": "/blog/", "destination": "/blog/th/", "permanent": true }
   ],
   "rewrites": [
-    { "source": "/((?!sw\\.js|manifest\\.webmanifest|icon\\.svg|updates/|llms\\.txt$|llms-full\\.txt$).*)", "destination": "/index.html" }
-  ]
+    { "source": "/sitemap-blog.xml", "destination": "/api/blog-sitemap" },
+    { "source": "/blog/:lang/:rest*", "destination": "/api/blog-page?lang=:lang&rest=:rest*" },
+    { "source": "/blog/:slug", "destination": "/api/blog-page?slug=:slug" },
+    { "source": "/((?!sw\\.js|manifest\\.webmanifest|icon\\.svg|updates/|api/|llms\\.txt$|llms-full\\.txt$|sitemap-blog\\.xml$).*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/blog-page.js": { "includeFiles": "supabase-client.ts" },
+    "api/blog-sitemap.js": { "includeFiles": "supabase-client.ts" }
+  }
 }

@@ -210,5 +210,5 @@ fs.writeFileSync(path.join(ROOT, "sitemap.xml"), xml.join("\n") + "\n");
 // One group: * plus the named crawlers share Allow: / and the existing /updates/ block.
 // A bot-only group would replace these rules, so the names stay in this record.
 const BOTS = ["*", "GPTBot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot", "Claude-SearchBot", "Google-Extended", "Bingbot", "Applebot", "meta-externalagent"];
-fs.writeFileSync(path.join(ROOT, "robots.txt"), `${BOTS.map(b => `User-agent: ${b}`).join("\n")}\nAllow: /\nDisallow: /updates/\n\nSitemap: ${SITE}/sitemap.xml\n`);
+fs.writeFileSync(path.join(ROOT, "robots.txt"), `${BOTS.map(b => `User-agent: ${b}`).join("\n")}\nAllow: /\nDisallow: /updates/\n\nSitemap: ${SITE}/sitemap.xml\nSitemap: ${SITE}/sitemap-blog.xml\n`);
 console.log(`build-song-pages: ${songs.length} songs x 3 languages = ${pages} pages + 3 indexes, sitemap.xml (${URLS.length + 6 + GUIDES.length * 3} urls), robots.txt  (${SITE})`);
