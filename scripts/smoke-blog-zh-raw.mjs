@@ -16,6 +16,12 @@ const kept = path.join(ROOT, "blog/zh/music-event-sponsorship-proposal-zh.html")
 const before = fs.statSync(kept).mtimeMs;
 const old = fs.readFileSync(kept, "utf8");
 ok("old committed page is Chinese HTML", /<html lang="zh-Hans">/.test(old) && old.includes("BlogPosting") && /<h1>/.test(old) && !old.includes('id="root"'));
+const keptTh = path.join(ROOT, "blog/th/tiga-alpha-a440-concert-pitch.html");
+const keptEn = path.join(ROOT, "blog/en/what-is-tiga-alpha.html");
+const oldTh = fs.readFileSync(keptTh, "utf8");
+const oldEn = fs.readFileSync(keptEn, "utf8");
+ok("old Thai page is Thai HTML", /<html lang="th">/.test(oldTh) && oldTh.includes("BlogPosting") && !oldTh.includes('id="root"'));
+ok("old English page is English HTML", /<html lang="en">/.test(oldEn) && oldEn.includes("BlogPosting") && !oldEn.includes('id="root"'));
 
 const zh = {
   lang: "zh", slug: "mechanical-music-box-how-it-plays-zh", published: true, category: "theory",
@@ -35,6 +41,11 @@ ok("BlogPosting in Chinese", /"@type":"BlogPosting"/.test(html) && html.includes
 ok("not the app shell", !html.includes('id="root"') && !html.includes("<html lang=\"en\">"));
 ok("english alternate is linked", html.includes('hreflang="en" href="https://www.tigaalpha.com/blog/en/mechanical-music-box-how-it-plays-zh.html"'));
 ok("same bytes whoever asks", articleHtml(zh, { zh }) === articleHtml(zh, { zh }));
+const thPost = { lang: "th", slug: "tiga-alpha-a440-concert-pitch", published: true, category: "story", title: "ความถี่มาตรฐาน A440", excerpt: "โน้ตลา", body: "โน้ตลาอยู่ที่ 440 เฮิรตซ์\n", created_at: "2026-01-01T00:00:00+00:00", updated_at: "2026-01-01T00:00:00+00:00", cover_url: "" };
+const thHtml = articleHtml(thPost, { th: thPost });
+ok("thai fixture is Thai HTML", /<html lang="th">/.test(thHtml) && thHtml.includes("BlogPosting") && thHtml.includes("โน้ตลาอยู่ที่ 440") && !thHtml.includes('id="root"'));
+const enHtml = articleHtml(en, { en });
+ok("english fixture is English HTML", /<html lang="en">/.test(enHtml) && enHtml.includes("BlogPosting") && enHtml.includes("How a mechanical music box plays") && !enHtml.includes('id="root"'));
 
 ok("short address keeps the full slug and hints Chinese", (() => {
   const p = parseBlogPath("/blog/mechanical-music-box-how-it-plays-zh");
@@ -77,6 +88,7 @@ execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: {
 const baked = fs.readFileSync(path.join(tmp, "out/zh/mechanical-music-box-how-it-plays-zh.html"), "utf8");
 ok("on-demand html matches the static builder", baked === html);
 ok("import did not rewrite the committed Chinese page", fs.statSync(kept).mtimeMs === before && fs.readFileSync(kept, "utf8") === old);
+ok("import did not rewrite the committed Thai or English page", fs.readFileSync(keptTh, "utf8") === oldTh && fs.readFileSync(keptEn, "utf8") === oldEn);
 
 const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, "vercel.json"), "utf8"));
 const sources = vercel.rewrites.map(r => r.source);

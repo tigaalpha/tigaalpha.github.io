@@ -65,6 +65,9 @@ hookSrc = hookSrc
   .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`)   // pure, dependency-free (Practice Mode v4)
   .replace('from "./jev"', `from "${process.cwd()}/${OUT}/jev-stub.js"`)   // jev calls ai-backend (network) — never ok in jsdom, the hook's fallback path is what runs
   .replace('from "./game-power"', `from "${process.cwd()}/game-power.ts"`)   // pure acc multiplier, zero imports — real module (was missing from this list and the whole script died on module-not-found)
+  .replace('from "./learn-plan"', `from "${process.cwd()}/learn-plan.ts"`)   // pure ranking helpers — real module (same miss as game-power: the temp copy cannot see a sibling at the repo root)
+  .replace('from "./plan-store"', `from "${process.cwd()}/plan-store.ts"`)   // local tempo memory; its own import of learn-plan resolves beside the real file
+  .replace('from "./supabase-client"', `from "${process.cwd()}/${OUT}/supabase-client.js"`)   // same double the copied web.js tree already uses — a guest has no session, so the teaching-outcome insert never leaves the machine
   .replace('from "./learning-data"', `from "${process.cwd()}/${OUT}/learning-data-stub.js"`);   // the real module drags supabase-client + the session gate into jsdom — recorder double, same spirit as the App stubs
 writeFileSync(`${OUT}/jev-stub.js`, `/* jev stub: every task reports not-ok so the hook's pre-Jev fallback path runs —
    same behavior as a device with no Jev key configured */
@@ -108,6 +111,7 @@ export function getSR() { return null; }
    paths — those resolve fine from the repo root (esbuild runs there), no stubs needed */
 writeFileSync(`${OUT}/infra-stub.js`, `/* shared-infra / ai-chat-context / ai-backend pieces the hook uses */
 export function logActivity() {}
+export function readActLog() { return []; }   // the hook passes the previous rounds into planRecordRound; an empty log is a fresh device
 export function logUsage() {}   // usage analytics — a no-op in the harness
 export function dayKey(d) { const x = d || new Date(); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); }
 export function recordMemory(label, acc) { try { const m = JSON.parse(localStorage.getItem("tg_memory") || "null") || { recent: [] }; m.recent = [{ label, acc, t: dayKey() }, ...(m.recent || []).filter(r => r.label !== label)].slice(0, 12); localStorage.setItem("tg_memory", JSON.stringify(m)); } catch (e) {} }
@@ -119,7 +123,7 @@ export async function fetchChatCompletion() { return ""; }
    relative location (OUT/supabase-client.js) before bundling. Same for the
    tiga-strategy-labels shim: web.js (plan v3 1.5) imports the split-out light
    vocabulary module from the project root, which doesn't exist inside OUT/. */
-writeFileSync(`${OUT}/supabase-client.js`, `export const sb = { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }) }), auth: { getSession: async () => ({ data: { session: null } }) } };
+writeFileSync(`${OUT}/supabase-client.js`, `export const sb = { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }), insert: () => Promise.resolve({ data: null, error: null }) }), auth: { getSession: async () => ({ data: { session: null } }), getUser: async () => ({ data: { user: null } }) } };
 export default sb;\n`);
 writeFileSync(`${OUT}/tiga-strategy-labels.js`, `export const TIGA_STRATEGY_LABELS = {};
 export function tigaStrategyLabel() { return null; }\n`);
@@ -142,6 +146,7 @@ execSync(
     .replace('from "./use-practice-coach"', `from "${process.cwd()}/use-practice-coach.ts"`)
     .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`)
     .replace('from "./shared-infra"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)   // overlay only uses logUsage from it (no supabase pull in jsdom)
+    .replace('from "./learn-plan"', `from "${process.cwd()}/learn-plan.ts"`)   // pctOf — real pure module, same resolution miss as the hook
     .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`)
     .replace('from "./retention"', `from "${process.cwd()}/retention.ts"`)   // importless pure module (retention S1) — the real file, same reason as practice-spot
     .replace('from "./ai-chat-context"', `from "${process.cwd()}/${OUT}/infra-stub.js"`);   // readMemory double (the real module drags shared-infra → supabase into jsdom)
@@ -403,7 +408,14 @@ console.log(`  (practiceResult via server probe: ${api.practiceResult ? "set" : 
 
     /* ── 4. the overlay renders the verdict markup ── */
     const lc = { practiceResultTitle: "เยี่ยมมาก!", practiceNewBest: "สถิติใหม่!", practiceAcc: "ความแม่นยำ", practiceStreakLbl: "คอมโบสูงสุด", practiceCoachSays: "ครู TIGA พูดว่า", practiceRestart: "เริ่มใหม่", practiceExit: "ออก", close: "ปิด", memoryStreakLbl: "สตรีคความจำ", memoryStreakTierUp: "เลื่อนขั้น!", pathUnlockedTitle: "ปลดล็อก!", bossDefeatedTitle: "ชนะบอส!" };
-    const html = renderToStaticMarkup(React.createElement(PracticeOverlay, {
+    /* The teacher's-tips sheet is a createPortal to document.body. The server
+       renderer throws on any portal, so the verdict (which lives inside that
+       sheet) never reached the string checks. A client mount is the same
+       component; the assertions below are unchanged. */
+    const overlayMount = globalThis.document.createElement("div");
+    globalThis.document.body.appendChild(overlayMount);
+    const overlayRoot = createRoot(overlayMount);
+    overlayRoot.render(React.createElement(PracticeOverlay, {
       practiceModeRef: { current: "scale" }, chordStyle: "broken",
       practiceTarget: [], practiceHitIdxs: [], practiceFingers: [], lang: "th",
       practiceLabel: r2.label, exitPractice: () => {}, practiceSrc: null, practiceTune: null,
@@ -414,7 +426,11 @@ console.log(`  (practiceResult via server probe: ${api.practiceResult ? "set" : 
       metroBpm: 100, onSetTempo: () => {}, onTipUpdate: () => {},
       onKeepGoing: () => {}, showKeepGoing: false,
     }));
-    ok("overlay renders result title", html.includes("เยี่ยมมาก!"));
+    await new Promise(r => setTimeout(r, 40));
+    const html = overlayMount.innerHTML + globalThis.document.body.innerHTML;
+    overlayRoot.unmount();
+    overlayMount.remove();
+    ok("overlay renders result title", html.includes("เก่งมาก!"));
     ok("overlay shows score 100%", html.includes("100%"));
     ok("overlay renders TIGA verdict header", html.includes("ครู TIGA AI วิเคราะห์") || html.includes("TIGA Model วิเคราะห์"), "markup: " + html.slice(0, 300));
     ok("overlay renders verdict text", r2.tigaTip && html.includes(r2.tigaTip.text.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -444,7 +460,7 @@ console.log(`  (practiceResult via server probe: ${api.practiceResult ? "set" : 
       let text = "";
       for (let i = 0; i < 40; i++) {
         await new Promise(res => setTimeout(res, 50));
-        const card = mount.querySelector(".pcoach");
+        const card = mount.querySelector(".pcoach") || globalThis.document.querySelector(".pcoach");
         text = card ? card.textContent : "";
         if (text.length > 40) break;
       }
