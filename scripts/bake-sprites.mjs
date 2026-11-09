@@ -103,7 +103,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CyberAvatar, CHAR_MODELS } from ${JSON.stringify(join(ROOT, "cyber-avatar.tsx"))};
 import { PetArt, PET_SPECIES } from ${JSON.stringify(join(ROOT, "pet-lab.tsx"))};
-import { CSS } from ${JSON.stringify(join(ROOT, "app-styles.ts"))};
+import { CSS } from ${JSON.stringify(join(ROOT, "app-css.ts"))};
 const h = React.createElement;
 export { CSS };
 export const specs = [

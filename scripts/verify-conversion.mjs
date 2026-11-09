@@ -237,7 +237,7 @@ const APP = readFileSync("App.tsx", "utf8");
 ok(/convPopup\.kind === "closing"\s*&&\s*c\.loss\s*&&/.test(APP),
   "App renders the day-7 loss line inside the closing popup");
 ok(APP.includes("convpop-loss"), "App uses the .convpop-loss class");
-ok(readFileSync("app-styles.ts", "utf8").includes(".convpop-loss{"), "app-styles.ts defines .convpop-loss");
+ok(readFileSync("app-css.ts", "utf8").includes(".convpop-loss{"), "app-css.ts defines .convpop-loss");
 
 // ── the copy selector picks the right table, and so does the checkout tier ──
 // A hardcoded "max" checkout would send a post-cap member to a plan page for

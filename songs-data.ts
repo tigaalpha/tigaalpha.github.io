@@ -1,5 +1,3 @@
-import { CLASSICAL_SONGS, CLASSICAL_ERAS, CLASSICAL_TIMESIG } from "./songs-classical";
-
 export const SONGS = [
   { id: "scale", diff: 1, bpm: 90,
     th: "สเกล C เมเจอร์", en: "C Major Scale", zh: "C大调音阶",
@@ -1408,10 +1406,20 @@ export const SONGS = [
           ["G4",0.5],["F4",0.5],["E4",1],["D4",1],["D4",2]] },
 ];
 // the public-domain classical pieces (songs-src/classical → scripts/build-songs.mjs → songs-classical.ts) follow, in the
-// order of the sources, so the song order every "next song" walk uses is: these, then the classical ones
-SONGS.push(...CLASSICAL_SONGS);
+// order of the sources, so the song order every "next song" walk uses is: these, then the classical ones.
+// The notes live in their own chunk. Node imports attach them before this module finishes; the browser
+// entry awaits loadClassicalSongs() before it renders, so a page never reads a half list.
+let classicalReady = false;
 /** the ids of those pieces: the features that pick a song at random for a quiz or a quick session keep to the songs people know */
-export const CLASSICAL_IDS: Set<string> = new Set(CLASSICAL_SONGS.map(s => s.id));
+export const CLASSICAL_IDS: Set<string> = new Set();
+function attachClassical(CLASSICAL_SONGS, CLASSICAL_ERAS, CLASSICAL_TIMESIG) {
+  if (classicalReady) return;
+  SONGS.push(...CLASSICAL_SONGS);
+  for (const s of CLASSICAL_SONGS) CLASSICAL_IDS.add(s.id);
+  Object.assign(SONG_GENRES, CLASSICAL_ERAS);
+  Object.assign(SONG_TIMESIG, CLASSICAL_TIMESIG);
+  classicalReady = true;
+}
 
 export const SONG_GENRES: Record<string, string> = {
   // 👶 Kids — nursery rhymes & children's songs
@@ -1515,10 +1523,6 @@ export const SONG_TIMESIG: Record<string, string> = {
   "gymnopedié": "3/4", down_valley: "3/4", sleeping_b: "3/4",
 };
 
-// the classical pieces' own era and time signature, merged with the ones above (songs-classical.ts is generated)
-Object.assign(SONG_GENRES, CLASSICAL_ERAS);
-Object.assign(SONG_TIMESIG, CLASSICAL_TIMESIG);
-
 /* The four eras the classical repertoire is divided into on the song list (owner, 2026-10-01). Each is also a value of
    SONG_GENRES, so the era chips use the same filter as the genre chips; `span` and `who` are the line shown under the chips
    when one is chosen. */
@@ -1532,3 +1536,15 @@ export const SONG_ERAS = [
   { code: "impressionism", icon: "🌊", span: "1890–1920", th: "อิมเพรสชันนิสม์", en: "Impressionism", zh: "印象派",
     who: { th: "เดอบูว์ซี · ซาตี · ลีลี บูล็องเฌร์",   en: "Debussy · Satie · Lili Boulanger", zh: "德彪西 · 萨蒂 · 莉莉·布朗热" } },
 ];
+
+export function loadClassicalSongs() {
+  if (classicalReady) return Promise.resolve();
+  return import("./songs-classical").then(m => attachClassical(m.CLASSICAL_SONGS, m.CLASSICAL_ERAS, m.CLASSICAL_TIMESIG));
+}
+
+// A Node script (song pages, the band checks) imports this module and reads SONGS
+// immediately. The browser has a window, so it waits for the entry to call loadClassicalSongs.
+if (typeof window === "undefined") {
+  const m = await import("./songs-classical");
+  attachClassical(m.CLASSICAL_SONGS, m.CLASSICAL_ERAS, m.CLASSICAL_TIMESIG);
+}
