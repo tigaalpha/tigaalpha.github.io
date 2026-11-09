@@ -13,3 +13,4 @@ Allow: /
 Disallow: /updates/
 
 Sitemap: https://www.tigaalpha.com/sitemap.xml
+Sitemap: https://www.tigaalpha.com/sitemap-blog.xml
