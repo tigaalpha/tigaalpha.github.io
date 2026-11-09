@@ -33,7 +33,17 @@ const files = () => {
   try { return fs.readdirSync("bundle").filter(f => f.startsWith("index.template-") && f.endsWith(".js")); }
   catch (e) { return []; }
 };
-const bundleFile = files()[0] || null;
+/* The phone downloads the script index.html names. swap-bundle keeps the
+   previous entry files so an old tab can still load, and those leftovers are
+   not the chunk a new visit parses. The 3.0 MB bar below is unchanged. */
+const entryFile = (() => {
+  try {
+    const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+    const m = html.match(/bundle\/(index\.template-[A-Za-z0-9_-]+\.js)/);
+    return m ? m[1] : null;
+  } catch (e) { return null; }
+})();
+const bundleFile = (entryFile && files().includes(entryFile) ? entryFile : null) || files()[0] || null;
 const bundleBytes = bundleFile ? fs.statSync(path.join("bundle", bundleFile)).size : null;
 
 /* every lazy chunk with its size (plan v3.3 5.5: per-chunk reporting, so a

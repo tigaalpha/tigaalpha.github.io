@@ -12,11 +12,16 @@ import { logUsage } from "./shared-infra";
 // never waits on it, and nothing user-facing can fail because of it.
 import { initLearningData } from "./learning-data";
 import { adoptHandoff, attributionEvent } from "./local-identity";
+import { loadClassicalSongs } from "./songs-data";
 /* A visitor who tapped "open in your browser" inside Facebook/Instagram arrives
    carrying their anon id; it must be adopted before anything below reads it
    (the first read fixes the id for the device). See local-identity.handoffUrl. */
 const arrival = adoptHandoff();
 initLearningData();
+// The classical tunes are a separate chunk. The boot screen stays up until they
+// are on the same list the rest of the app reads, so the daily song cannot
+// re-pick because its id was missing.
+await loadClassicalSongs();
 
 /* Was this tab ever in the background before the app finished painting?
    It matters because the boot measurement below sits inside requestAnimationFrame,

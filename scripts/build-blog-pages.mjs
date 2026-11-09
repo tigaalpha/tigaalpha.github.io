@@ -7,23 +7,8 @@ const SITE = (process.env.SITE_URL || "https://www.tigaalpha.com").replace(/\/+$
 const OUT = path.resolve(process.env.BLOG_OUT || path.join(ROOT, "blog"));   // BLOG_OUT / BLOG_FIXTURE exist for scripts/smoke-blog-gate.mjs (no network, no repo files touched)
 const src = fs.readFileSync(path.join(ROOT, "supabase-client.ts"), "utf8");
 const URL_ = (/SUPABASE_URL = "([^"]+)"/.exec(src) || [])[1], KEY = (/SUPABASE_ANON_KEY = "([^"]+)"/.exec(src) || [])[1];
-let posts = [];
-let fetched = false;
-if (process.env.BLOG_OFFLINE) console.log("build-blog-pages: offline (BLOG_OFFLINE), keeping the pages in " + OUT);
-else if (process.env.BLOG_FIXTURE) { posts = JSON.parse(fs.readFileSync(process.env.BLOG_FIXTURE, "utf8")); fetched = true; }
-else try {
-  // page through the API (the old single request was capped at 500 rows, so past 500 published rows the oldest articles would have been deleted from the deploy)
-  const PAGE = 500; let off = 0, all = [], okAll = true;
-  for (let guard = 0; guard < 40; guard++) {
-    const r = await fetch(`${URL_}/rest/v1/blog_posts?select=*&published=eq.true&order=created_at.desc,id.asc&limit=${PAGE}&offset=${off}`, { headers: { apikey: KEY, Authorization: "Bearer " + KEY }, signal: AbortSignal.timeout(20000) });
-    if (!r.ok) { console.log("build-blog-pages: no posts (" + r.status + ")"); okAll = false; break; }
-    const data = await r.json(); if (!Array.isArray(data)) { okAll = false; break; }
-    all = all.concat(data); if (data.length < PAGE) break; off += PAGE;
-  }
-  if (okAll) { posts = all; fetched = true; }
-} catch (e) { console.log("build-blog-pages: skipped (" + (e && e.message) + ")"); }
-if (fetched) fs.rmSync(OUT, { recursive: true, force: true });
-else console.log("build-blog-pages: fetch failed, leaving the existing blog pages in place");
+// Importing this file (the on-demand page does) must not fetch or delete blog/. Only `node scripts/build-blog-pages.mjs` writes pages.
+const IS_MAIN = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const safeUrl = (u) => /^https:\/\/[^\s"'<>]+$/i.test(u) ? u : "";
 const LG = { th: { name: "บล็อก", sub: "บทความเรื่องการเรียนเปียโนและดนตรี", cta: "เริ่มเรียนฟรีที่ TIGA ALPHA", back: "ทุกบทความ", loc: "th_TH", html: "th" }, en: { name: "Blog", sub: "Articles on learning piano and music", cta: "Start learning free on TIGA ALPHA", back: "All articles", loc: "en_US", html: "en" }, zh: { name: "博客", sub: "钢琴与音乐学习文章", cta: "在 TIGA ALPHA 免费开始学习", back: "全部文章", loc: "zh_CN", html: "zh-Hans" } };
@@ -144,19 +129,43 @@ try{W.fetch(API+"/rest/v1/rpc/blog_view_counts",{method:"POST",headers:{apikey:K
 const OLD_GATE = /<!--tg-gate:v\d+-->[\s\S]*?<!--\/tg-gate-->|<style>#tg-gate\{[\s\S]*?<\/style><div id="tg-gate"[\s\S]*?<\/div><\/div><script>[\s\S]*?<\/script>/g;
 const OLD_IDX = /<!--tg-idx:v\d+-->[\s\S]*?<!--\/tg-idx-->/g;
 const lastBody = /<\/body>(?![\s\S]*<\/body>)/;
-const urls = [], bySlug = {};
-for (const p of posts) { (bySlug[p.slug] = bySlug[p.slug] || {})[p.lang] = p; }
-for (const p of posts) {
-  if (!LG[p.lang] || !p.slug) continue;
-  const L = LG[p.lang], canon = `${SITE}/blog/${p.lang}/${encodeURIComponent(p.slug)}.html`, set = bySlug[p.slug];
+// One article page. `set` is the same slug in every language that exists ({ th, en, zh }). Used by the static build and by the on-demand page, so both emit the same raw HTML.
+export function articleHtml(p, set) {
+  const L = LG[p.lang], canon = `${SITE}/blog/${p.lang}/${encodeURIComponent(p.slug)}.html`;
   const alts = Object.keys(set).map(l => `<link rel="alternate" hreflang="${LG[l].html}" href="${SITE}/blog/${l}/${encodeURIComponent(p.slug)}.html">`).join("") + `<link rel="alternate" hreflang="x-default" href="${SITE}/blog/${set.en ? "en" : p.lang}/${encodeURIComponent(p.slug)}.html">\n`;
   const desc = p.excerpt || String(p.body || "").replace(/[#*\[\]()!>-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 155);
   const ld = { "@context": "https://schema.org", "@graph": [
     { "@type": "BlogPosting", "@id": canon + "#article", isAccessibleForFree: false, hasPart: { "@type": "WebPageElement", isAccessibleForFree: false, cssSelector: "article" }, headline: p.title, keywords: KW[p.lang], isPartOf: { "@id": `${SITE}/blog/${p.lang}/#blog` }, about: { "@id": SITE + "/#app" }, articleSection: (CATN[p.category || "tips"] || {})[p.lang] || undefined, description: desc, inLanguage: L.html, datePublished: p.created_at, dateModified: p.updated_at || p.created_at, mainEntityOfPage: { "@type": "WebPage", "@id": canon }, url: canon, image: { "@type": "ImageObject", url: safeUrl(p.cover_url || "") || `${SITE}/og-card.png` }, author: { "@id": SITE + "/#org" }, publisher: { "@id": SITE + "/#org" } },
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "TIGA ALPHA", item: SITE + "/" }, { "@type": "ListItem", position: 2, name: L.name, item: `${SITE}/blog/${p.lang}/` }, { "@type": "ListItem", position: 3, name: p.title, item: canon }] }, ORG] };
   const d = new Date(p.created_at).toISOString().slice(0, 10);
+  return head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">← ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta">${esc(CATN[p.category || "tips"] ? CATN[p.category || "tips"][p.lang] : "")} · <time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(p.title)}">` : ""}${body(p.body)}<p><a class="cta" href="${SITE}/">${L.cta}</a></p></article></main>${gateHtml(p.lang, p.slug)}</body></html>\n`;
+}
+async function writeBlog() {
+let posts = [];
+let fetched = false;
+if (process.env.BLOG_OFFLINE) console.log("build-blog-pages: offline (BLOG_OFFLINE), keeping the pages in " + OUT);
+else if (process.env.BLOG_FIXTURE) { posts = JSON.parse(fs.readFileSync(process.env.BLOG_FIXTURE, "utf8")); fetched = true; }
+else try {
+  // page through the API (the old single request was capped at 500 rows, so past 500 published rows the oldest articles would have been deleted from the deploy)
+  const PAGE = 500; let off = 0, all = [], okAll = true;
+  for (let guard = 0; guard < 40; guard++) {
+    const r = await fetch(`${URL_}/rest/v1/blog_posts?select=*&published=eq.true&order=created_at.desc,id.asc&limit=${PAGE}&offset=${off}`, { headers: { apikey: KEY, Authorization: "Bearer " + KEY }, signal: AbortSignal.timeout(20000) });
+    if (!r.ok) { console.log("build-blog-pages: no posts (" + r.status + ")"); okAll = false; break; }
+    const data = await r.json(); if (!Array.isArray(data)) { okAll = false; break; }
+    all = all.concat(data); if (data.length < PAGE) break; off += PAGE;
+  }
+  if (okAll) { posts = all; fetched = true; }
+} catch (e) { console.log("build-blog-pages: skipped (" + (e && e.message) + ")"); }
+if (fetched) fs.rmSync(OUT, { recursive: true, force: true });
+else console.log("build-blog-pages: fetch failed, leaving the existing blog pages in place");
+const urls = [], bySlug = {};
+for (const p of posts) { (bySlug[p.slug] = bySlug[p.slug] || {})[p.lang] = p; }
+for (const p of posts) {
+  if (!LG[p.lang] || !p.slug) continue;
+  const canon = `${SITE}/blog/${p.lang}/${encodeURIComponent(p.slug)}.html`, set = bySlug[p.slug];
+  const d = new Date(p.created_at).toISOString().slice(0, 10);
   fs.mkdirSync(path.join(OUT, p.lang), { recursive: true });
-  fs.writeFileSync(path.join(OUT, p.lang, p.slug + ".html"), head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">← ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta">${esc(CATN[p.category || "tips"] ? CATN[p.category || "tips"][p.lang] : "")} · <time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(p.title)}">` : ""}${body(p.body)}<p><a class="cta" href="${SITE}/">${L.cta}</a></p></article></main>${gateHtml(p.lang, p.slug)}</body></html>\n`);
+  fs.writeFileSync(path.join(OUT, p.lang, p.slug + ".html"), articleHtml(p, set));
   urls.push([canon, Object.keys(set).map(l => [LG[l].html, `${SITE}/blog/${l}/${encodeURIComponent(p.slug)}.html`]), d]);
 }
 for (const lang of Object.keys(LG)) {
@@ -195,3 +204,5 @@ if (urls.length && fs.existsSync(sm) && !process.env.BLOG_OUT && !process.env.BL
   fs.writeFileSync(sm, fs.readFileSync(sm, "utf8").replace(/<url><loc>[^<]*\/blog\/[^<]*<\/loc>[\s\S]*?<\/url>\n?/g, "").replace("</urlset>", add + "\n</urlset>"));
 }
 console.log(`build-blog-pages: ${posts.length} posts, ${urls.length} urls  (${SITE})`);
+}
+if (IS_MAIN) await writeBlog();
