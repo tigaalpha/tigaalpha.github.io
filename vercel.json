@@ -47,7 +47,6 @@
   "rewrites": [
     { "source": "/sitemap-blog.xml", "destination": "/api/blog-sitemap" },
     { "source": "/ads.txt", "destination": "/api/plain-404" },
-    { "source": "/indexnow-key.txt", "destination": "/api/plain-404" },
     { "source": "/blog/:lang/", "destination": "/api/blog-page?lang=:lang" },
     { "source": "/blog/:lang/:rest*", "destination": "/api/blog-page?lang=:lang&rest=:rest*" },
     { "source": "/blog/:slug", "destination": "/api/blog-page?slug=:slug" },
