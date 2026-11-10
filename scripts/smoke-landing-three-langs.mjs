@@ -173,10 +173,10 @@ for (const lang of ["th", "en", "zh"]) {
 
 /* ── the three URLs exist, carry the right lang, and share one bundle ── */
 console.log("== the three landing URLs ==");
-for (const [f, want] of [["landing/index.html", "th"], ["landing-en/index.html", "en"], ["landing-zh/index.html", "zh"]]) {
+for (const [f, want] of [["landing/index.html", "th"], ["landing-en/index.html", "en"], ["landing-zh/index.html", "zh-Hans"]]) {
   if (!existsSync(f)) { no(`${f} exists`); continue; }
   const h = readFileSync(f, "utf8");
-  const m = h.match(/<html lang="([a-z]+)"/);
+  const m = h.match(/<html lang="([a-zA-Z-]+)"/);
   if (m && m[1] === want) ok(`${f}: <html lang="${m[1]}"> matches its directory`);
   else no(`${f}: html lang`, m ? `says "${m[1]}", directory is ${want}` : "no lang attribute");
   /* the en/zh pages live one level down, so they reach the shared copy via ../ */
