@@ -75,7 +75,10 @@ const missing = await serveBlog({ slug: "zzz-nonexistent" }, fakeFetch);
 ok("fake url is a real 404, not the app", missing.status === 404 && missing.body === notFoundHtml() && !missing.body.includes('id="root"') && missing.headers["x-robots-tag"] === "noindex");
 const down = await serveBlog({ slug: "mechanical-music-box-how-it-plays-zh" }, async () => { throw new Error("offline"); });
 ok("a failed read is 503 and not the app shell", down.status === 503 && !down.body.includes('id="root"'));
-ok("language index redirects to the static index", (await serveBlog({ slug: "zh" }, fakeFetch)).status === 308 && (await serveBlog({ slug: "zh" }, fakeFetch)).headers.location === "/blog/zh/");
+const indexFetch = async () => ({ ok: true, json: async () => [zh, en, { ...zh, slug: "second-zh-piece", title: "第二篇", excerpt: "อีกเรื่อง" }] });
+const idx = await serveBlog({ slug: "zh" }, indexFetch);
+ok("language index lists every published post in that language", idx.status === 200 && idx.body.includes("/blog/zh/mechanical-music-box-how-it-plays-zh.html") && idx.body.includes("/blog/zh/second-zh-piece.html") && !idx.body.includes("How a mechanical music box plays") && !idx.body.includes('id="root"') && idx.headers["content-language"] === "zh-Hans");
+ok("a feed is real rss", (await serveBlog({ lang: "zh", rest: "feed.xml" }, indexFetch)).status === 200 && (await serveBlog({ lang: "zh", rest: "feed.xml" }, indexFetch)).headers["content-type"].includes("rss"));
 
 const sm = await serveBlogSitemap(async () => ({ ok: true, json: async () => [zh, en] }));
 ok("fresh sitemap names the Chinese canonical url", sm.status === 200 && sm.body.includes("https://www.tigaalpha.com/blog/zh/mechanical-music-box-how-it-plays-zh.html") && sm.body.includes("<lastmod>2026-11-08</lastmod>"));

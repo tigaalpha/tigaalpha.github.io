@@ -8,6 +8,10 @@ export function parseBlogPath(raw) {
   let path = String(raw || "").split("?")[0];
   try { path = decodeURIComponent(path); } catch { return { kind: "bad" }; }
   if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+  const feed = path.match(/^\/blog\/(th|en|zh)\/feed\.xml$/);
+  if (feed) return { kind: "feed", lang: feed[1] };
+  const paged = path.match(/^\/blog\/(th|en|zh)\/page\/(\d+)$/);
+  if (paged) return { kind: "index", lang: paged[1], page: Math.max(1, Number(paged[2]) || 1) };
   const two = path.match(/^\/blog\/([^/]+)\/([^/]+)$/);
   if (two) {
     const lang = two[1], file = two[2];
@@ -31,10 +35,12 @@ export function parseBlogPath(raw) {
 export function fromQuery(q) {
   const query = q || {};
   const rest = Array.isArray(query.rest) ? query.rest.join("/") : (query.rest || "");
-  if (query.lang && rest) return parseBlogPath(`/blog/${query.lang}/${rest}`);
-  if (query.slug) return parseBlogPath(`/blog/${query.slug}`);
-  if (query.lang) return parseBlogPath(`/blog/${query.lang}`);
-  return { kind: "bad" };
+  let parsed = { kind: "bad" };
+  if (query.lang && rest) parsed = parseBlogPath(`/blog/${query.lang}/${rest}`);
+  else if (query.slug) parsed = parseBlogPath(`/blog/${query.slug}`);
+  else if (query.lang) parsed = parseBlogPath(`/blog/${query.lang}`);
+  if (parsed.kind === "index" && query.page && !parsed.page) parsed.page = Math.max(1, Number(query.page) || 1);
+  return parsed;
 }
 
 export function pickPost(rows, lang, hint) {

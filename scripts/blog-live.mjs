@@ -1,6 +1,6 @@
 // On-demand blog HTML. Reads published rows only. Never writes a post, a slug, or a queue.
 import fs from "node:fs";
-import { articleHtml } from "./build-blog-pages.mjs";
+import { articleHtml, feedXml, indexHtml, relatedPosts } from "./build-blog-pages.mjs";
 import { fromQuery, notFoundHtml, pickPost, sitemapBlogXml } from "./blog-paths.mjs";
 
 const src = fs.readFileSync(new URL("../supabase-client.ts", import.meta.url), "utf8");
@@ -24,6 +24,22 @@ export async function fetchSlug(slug, fetchImpl) {
   return data;
 }
 
+export async function fetchLangRows(lang, fetchImpl) {
+  const page = 500;
+  let off = 0, all = [];
+  for (let guard = 0; guard < 40; guard++) {
+    const url = `${BLOG_API_URL}/rest/v1/blog_posts?select=slug,lang,title,excerpt,category,created_at,updated_at,published&published=eq.true&lang=eq.${encodeURIComponent(lang)}&order=created_at.desc,id.asc&limit=${page}&offset=${off}`;
+    const r = await fetchImpl(url, { headers: { apikey: BLOG_API_KEY, Authorization: "Bearer " + BLOG_API_KEY, Accept: "application/json" } });
+    if (!r.ok) throw new Error("blog list " + r.status);
+    const data = await r.json();
+    if (!Array.isArray(data)) throw new Error("blog list shape");
+    all = all.concat(data);
+    if (data.length < page) break;
+    off += page;
+  }
+  return all;
+}
+
 export async function fetchPublishedMeta(fetchImpl) {
   const page = 500;
   let off = 0, all = [];
@@ -43,8 +59,24 @@ export async function fetchPublishedMeta(fetchImpl) {
 // Same HTML for every caller. The user agent is not an input.
 export async function serveBlog(query, fetchImpl) {
   const parsed = fromQuery(query);
-  if (parsed.kind === "index") {
-    return result(308, "", { location: `/blog/${parsed.lang}/`, "cache-control": "public, max-age=300", "x-blog-source": "live" });
+  if (parsed.kind === "index" || parsed.kind === "feed") {
+    let list;
+    try { list = await fetchLangRows(parsed.lang, fetchImpl); }
+    catch { return result(503, notFoundHtml(), MISS); }
+    if (parsed.kind === "feed") {
+      return result(200, feedXml(parsed.lang, list), {
+        "content-type": "application/rss+xml; charset=utf-8",
+        "cache-control": "public, max-age=120, s-maxage=120",
+        "x-blog-source": "live",
+      });
+    }
+    const html = indexHtml(parsed.lang, list, parsed.page || 1);
+    return result(200, html, {
+      "content-type": HTML,
+      "content-language": parsed.lang === "zh" ? "zh-Hans" : parsed.lang,
+      "cache-control": "public, max-age=120, s-maxage=120",
+      "x-blog-source": "live",
+    });
   }
   if (parsed.kind !== "article") return result(404, notFoundHtml(), MISS);
   let rows;
@@ -54,7 +86,10 @@ export async function serveBlog(query, fetchImpl) {
   if (!post) return result(404, notFoundHtml(), MISS);
   const set = {};
   for (const row of rows) if (row.lang === "th" || row.lang === "en" || row.lang === "zh") set[row.lang] = row;
-  const html = articleHtml(post, set);
+  let related = [];
+  try { related = relatedPosts(await fetchLangRows(post.lang, fetchImpl), post); }
+  catch { related = []; }
+  const html = articleHtml(post, set, related);
   return result(200, html, {
     "content-type": HTML,
     "content-language": post.lang === "zh" ? "zh-Hans" : post.lang,
