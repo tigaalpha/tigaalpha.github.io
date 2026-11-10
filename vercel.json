@@ -51,7 +51,7 @@
     { "source": "/blog/:lang/", "destination": "/api/blog-page?lang=:lang" },
     { "source": "/blog/:lang/:rest*", "destination": "/api/blog-page?lang=:lang&rest=:rest*" },
     { "source": "/blog/:slug", "destination": "/api/blog-page?slug=:slug" },
-    { "source": "/((?!sw\\.js|manifest\\.webmanifest|icon\\.svg|updates/|api/|llms\\.txt$|llms-full\\.txt$|humans\\.txt$|8f3c1a9e6b274d05a1c8e7f04b2d6a91\\.txt$|sitemap-blog\\.xml$).*)", "destination": "/index.html" }
+    { "source": "/((?!sw\\.js|manifest\\.webmanifest|icon\\.svg|updates/|api/|llms\\.txt$|llms-full\\.txt$|sitemap-blog\\.xml$).*)", "destination": "/index.html" }
   ],
   "functions": {
     "api/blog-page.js": { "includeFiles": "supabase-client.ts" },
