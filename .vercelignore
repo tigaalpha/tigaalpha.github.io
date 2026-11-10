@@ -5,5 +5,7 @@ bos
 # keep the AI-crawler files: without these two lines /llms.txt is never uploaded and Vercel serves the app's index.html instead
 !public/llms.txt
 !public/llms-full.txt
+!public/humans.txt
+!public/8f3c1a9e6b274d05a1c8e7f04b2d6a91.txt
 /payqr
 studio
