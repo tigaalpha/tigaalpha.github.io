@@ -8,7 +8,7 @@ for (const x of ["songs", "blog", "landing", "landing-en", "landing-zh", "landin
   fs.cpSync(from, path.join(DIST, x), { recursive: true, force: true }); n++;
 }
 // Vite copies public/ into dist, but these two must exist as text/plain even if a later step is the one that places them.
-for (const x of ["llms.txt", "llms-full.txt"]) {
+for (const x of ["llms.txt", "llms-full.txt", "humans.txt", "8f3c1a9e6b274d05a1c8e7f04b2d6a91.txt"]) {
   const from = path.join(ROOT, "public", x);
   if (!fs.existsSync(from)) { console.error("copy-seo-to-dist: missing public/" + x); process.exit(1); }
   fs.copyFileSync(from, path.join(DIST, x)); n++;
