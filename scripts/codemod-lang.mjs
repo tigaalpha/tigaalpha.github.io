@@ -27,6 +27,20 @@ function findEdits(text) {
   const claimed = new Set();
   const walk = (n, parent, key) => {
     if (!n || typeof n.type !== "string") return;
+    // obj[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"]  ->  by(obj, lang)   (the property is a language code picked by a chain)
+    if (n.type === "MemberExpression" && n.computed && n.property.type === "ConditionalExpression" && isLangTest(n.property.test) && !n.optional) {
+      let cur = n.property, ok = true; const chain = [];
+      while (cur.type === "ConditionalExpression" && isLangTest(cur.test)) {
+        chain.push(cur);
+        if (cur.consequent.type !== "StringLiteral" || !/^(th|zh|en)$/.test(cur.consequent.value)) { ok = false; break; }
+        cur = cur.alternate;
+      }
+      if (ok && cur.type === "StringLiteral" && /^(th|zh|en)$/.test(cur.value)) {
+        chain.forEach(c => claimed.add(c));
+        edits.push({ start: n.start, end: n.end, text: `by(${src(n.object)}, ${squash(n.property.test.left)})`, kind: "m" });
+        return;
+      }
+    }
     if (n.type === "ConditionalExpression" && !claimed.has(n) && isLangTest(n.test)) {
       const who = squash(n.test.left);
       const codes = []; let cur = n; let enBranch = null;
@@ -82,7 +96,7 @@ for (const f of files) {
     if (m) out = out.replace(m[0], `import {${m[1].replace(/\s+$/, "")}, ${need.join(", ")} } from "./lang-extra";`);
     else {
       const all = [...out.matchAll(/^import[^;]*;\s*$/gm)];
-      const e = all.length ? all[all.length - 1].end : 0;
+      const e = all.length ? all[all.length - 1].index + all[all.length - 1][0].length : 0;
       out = out.slice(0, e) + `\nimport { ${need.join(", ")} } from "./lang-extra";` + out.slice(e);
     }
   }
