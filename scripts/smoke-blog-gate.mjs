@@ -282,12 +282,12 @@ console.log("pages kept from an earlier build are brought up to date");
   fs.writeFileSync(path.join(keep, "th", "piano-posture.html"), cur.replace(/<!--tg-gate:v\d+-->[\s\S]*<!--\/tg-gate-->/, oldGate).replace(/"isAccessibleForFree":false,"hasPart":\{"@type":"WebPageElement","isAccessibleForFree":false,"cssSelector":"article"\},/, ""));
   fs.writeFileSync(path.join(keep, "th", "index.html"), fs.readFileSync(path.join(tmp, "blog", "th", "index.html"), "utf8").replace(/<!--tg-idx:v1-->[\s\S]*<!--\/tg-idx-->/, ""));
   ok(fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8").includes("OLD_ONE_MINUTE"), "(fixture: a page with the one-minute gate and no counter)");
-  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN }, stdio: "pipe" });
+  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
   const k = fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8");
   ok(!k.includes("OLD_ONE_MINUTE") && k.includes("MS=30000") && k.includes("blog_hit") && (k.match(/id="tg-gate"/g) || []).length === 1, "the old gate is replaced by the current one (30 s, view counter), once");
   ok(!k.includes("data-gate-close") && (k.match(/"isAccessibleForFree"/g) || []).length === 2, "the kept page is also made uncloseable and gets the gated-content markup (once, not twice)");
   ok(fs.readFileSync(path.join(keep, "th", "index.html"), "utf8").includes("blog_view_counts"), "the list page gets the counter script");
-  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN }, stdio: "pipe" });
+  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
   ok(fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8") === k, "running it again changes nothing");
 }
 
