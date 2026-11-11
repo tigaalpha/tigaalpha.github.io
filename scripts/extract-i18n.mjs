@@ -11,7 +11,7 @@ import { parse } from "@babel/parser";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const SKIP = /^(Admin|Tigamodel|tigamodel|bos|studio|dist|node_modules|bundle|landing\/bundle|songs-src|supabase|server|updates|android|public)/;
-const CALLEES = new Set(["T", "T3"]);
+const CALLEES = new Set(["T", "T3", "HT", "T2"]);
 // property names whose string values are identifiers, colours, glyphs or routes: not display text (same list as NOTRANS in lang-extra.ts)
 const NOTRANS = /^(id|ids|key|keys|kind|type|color|colour|bg|fg|border|icon|emoji|glyph|group|topic|skill|mode|step|route|page|src|href|url|slug|code|cat|feature|action|tag|cls|className|font|sound|voice|stage|target|nav|tab|view|lang|locale|unit|ref|name_en)$/i;
 
@@ -27,6 +27,16 @@ function strOf(node) {
   if (node.type === "BinaryExpression" && node.operator === "+") {
     const a = strOf(node.left), b = strOf(node.right);
     if (a && b) return { s: a.s + b.s, dyn: a.dyn || b.dyn };
+    // "text " + EXPR + " text": the expression becomes a {n} hole, matched at run time like a template literal
+    const parts = [];
+    const flat = n => { if (n.type === "BinaryExpression" && n.operator === "+") { flat(n.left); flat(n.right); } else parts.push(n); };
+    flat(node);
+    if (parts.some(p => strOf(p) === null && p.type !== "StringLiteral") && parts.some(p => p.type === "StringLiteral" || p.type === "TemplateLiteral")) {
+      let i = 0, s = "";
+      for (const p of parts) { const v = strOf(p); if (v && !v.dyn) s += v.s; else if (v) s += v.s.replace(/\{\d+\}/g, () => "{" + i++ + "}"); else s += "{" + i++ + "}"; }
+      const fixed = s.replace(/\{\d+\}/g, "").replace(/[^\p{L}]/gu, "");
+      if (i > 0 && fixed.length >= 6 && /[A-Za-z]{3,}/.test(fixed)) return { s, dyn: true };
+    }
   }
   return null;
 }
@@ -64,8 +74,9 @@ for (const rel of files) {
     }
     // xl(lang, <English>): the English branch of a hand-written `lang === "th" ? .. : lang === "zh" ? .. : <English>` ternary (scripts/codemod-lang.mjs)
     if (node.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "xl" && node.arguments.length === 2) {
-      const en = strOf(node.arguments[1]);
-      if (en && !/^(en|th|zh|ja|ko|ru)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn);
+      // a ternary between two English strings (xl(lang, n === 1 ? "octave" : "octaves")) holds both
+      const pickStrs = n => (n && n.type === "ConditionalExpression") ? [...pickStrs(n.consequent), ...pickStrs(n.alternate)] : (strOf(n) ? [strOf(n)] : []);
+      for (const en of pickStrs(node.arguments[1])) if (!/^(en|th|zh|ja|ko|ru)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn);
     }
     // { th: {..}, en: {..}, zh: {..} } dictionaries (a whole table per language, read back as MAP[lang]): every string leaf of the English table
     if (node.type === "ObjectExpression") {
