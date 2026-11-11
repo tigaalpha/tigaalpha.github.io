@@ -81,6 +81,7 @@ const items = (ev, kind) => ev.filter(e => e.kind === kind).map(e => e.item_id);
   const attr = items(events, "attr")[0] || "";
   ok(/v=b/.test(attr) && /c=nov/.test(attr), "attr row carries the variant", attr);
   await cta.click({ noWaitAfter: true }).catch(() => {});
+  await p.waitForTimeout(600);   // the row is a keepalive fetch answered by the route stub: read it after it lands, not in the same tick as the click
   ok(items(events, "land").includes("hero:firstsong"), "tapping the button logs hero:firstsong");
   ok(errs.length === 0, "no page errors", errs.join("|"));
   await ctx.close();

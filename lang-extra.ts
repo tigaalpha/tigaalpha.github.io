@@ -106,16 +106,19 @@ export const xl = (lang: string, en: any) => (typeof en === "string" && isExtraL
    (a string, an array of strings or an object of strings, to any depth), else the English entry. Replaces `map[lang]`, which was
    undefined for a language the map does not list and threw on the first property read. */
 const deepMemo: Record<string, WeakMap<object, { v: number; o: any }>> = {};
-function xdeep(lang: string, v: any): any {
-  if (typeof v === "string") return xlate(lang, v);
+/* property names whose string values are identifiers, colours, glyphs or routes, never display text: a table's { id: "foundation" } must stay "foundation"
+   (keep in step with NOTRANS in scripts/extract-i18n.mjs, which leaves the same values out of the catalog) */
+const NOTRANS = /^(id|ids|key|keys|kind|type|color|colour|bg|fg|border|icon|emoji|glyph|group|topic|skill|mode|step|route|page|src|href|url|slug|code|cat|feature|action|tag|cls|className|font|sound|voice|stage|target|nav|tab|view|lang|locale|unit|ref|name_en)$/i;
+function xdeep(lang: string, v: any, key?: string): any {
+  if (typeof v === "string") return key && NOTRANS.test(key) ? v : xlate(lang, v);
   if (!v || typeof v !== "object") return v;
   let wm = deepMemo[lang];
   if (!wm) wm = deepMemo[lang] = new WeakMap();
   const hit = wm.get(v);
   if (hit && hit.v === ver) return hit.o;
   let out: any;
-  if (Array.isArray(v)) out = v.map(x => xdeep(lang, x));
-  else if (Object.getPrototypeOf(v) === Object.prototype) { out = {}; for (const k of Object.keys(v)) out[k] = xdeep(lang, v[k]); }
+  if (Array.isArray(v)) out = v.map(x => xdeep(lang, x, key));
+  else if (Object.getPrototypeOf(v) === Object.prototype) { out = {}; for (const k of Object.keys(v)) out[k] = xdeep(lang, v[k], k); }
   else return v;   // React elements, class instances, functions inside: untouched
   wm.set(v, { v: ver, o: out });
   return out;

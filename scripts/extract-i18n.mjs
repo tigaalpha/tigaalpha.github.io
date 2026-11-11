@@ -12,6 +12,8 @@ import { parse } from "@babel/parser";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const SKIP = /^(Admin|Tigamodel|tigamodel|bos|studio|dist|node_modules|bundle|landing\/bundle|songs-src|supabase|server|updates|android|public)/;
 const CALLEES = new Set(["T", "T3"]);
+// property names whose string values are identifiers, colours, glyphs or routes: not display text (same list as NOTRANS in lang-extra.ts)
+const NOTRANS = /^(id|ids|key|keys|kind|type|color|colour|bg|fg|border|icon|emoji|glyph|group|topic|skill|mode|step|route|page|src|href|url|slug|code|cat|feature|action|tag|cls|className|font|sound|voice|stage|target|nav|tab|view|lang|locale|unit|ref|name_en)$/i;
 
 function strOf(node) {
   if (!node) return null;
@@ -66,7 +68,7 @@ for (const rel of files) {
       if (en && !/^(en|th|zh|ja|ko|ru)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn);
     }
     // { th: {..}, en: {..}, zh: {..} } dictionaries (a whole table per language, read back as MAP[lang]): every string leaf of the English table
-    if (node.type === "ObjectExpression" && rel !== "i18n.ts") {
+    if (node.type === "ObjectExpression") {
       let hasTh = false, hasZh = false, enNode = null;
       for (const p of node.properties) {
         if (p.type !== "ObjectProperty") continue;
@@ -74,13 +76,16 @@ for (const rel of files) {
         if (k === "th") hasTh = true; else if (k === "zh") hasZh = true; else if (k === "en") enNode = p.value;
       }
       if (hasTh && hasZh && enNode && (enNode.type === "ObjectExpression" || enNode.type === "ArrayExpression")) {
-        const leaves = n => {
+        const leaves = (n, key) => {
           if (!n) return;
-          if (n.type === "ObjectExpression") for (const q of n.properties) { if (q.type === "ObjectProperty") leaves(q.value); }
-          else if (n.type === "ArrayExpression") for (const el of n.elements) leaves(el);
-          else { const v = strOf(n); if (v && v.s.length >= 2) add(v.s, rel + "#table", v.dyn); }
+          if (n.type === "ObjectExpression") for (const q of n.properties) { if (q.type === "ObjectProperty") leaves(q.value, keyOf(q)); }
+          else if (n.type === "ArrayExpression") for (const el of n.elements) leaves(el, key);
+          else {
+            const v = strOf(n);
+            if (v && v.s.length >= 2 && !(key && NOTRANS.test(key)) && !/^(#[0-9a-fA-F]{3,8}|rgba?\(|https?:|\/|[a-z]+_[a-z_]+$)/.test(v.s)) add(v.s, rel + "#table", v.dyn);
+          }
         };
-        leaves(enNode);
+        leaves(enNode, undefined);
       }
     }
     if (node.type === "ObjectExpression") {

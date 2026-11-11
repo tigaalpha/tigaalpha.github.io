@@ -224,7 +224,7 @@ export function landingVariant() {
   } catch (e) { return "a"; }
 }
 /* Returns the item_id to log under kind "attr", or null when there is nothing
-   new to say. `lg` is the page language (landing: th|en|zh, app: "app"). */
+   new to say. `lg` is the page language (landing: th|en|zh|ja|ko|ru, app: "app"). */
 export function attributionEvent(lg = "") {
   try {
     const cur = urlTags();
@@ -319,7 +319,7 @@ export function adoptHandoff() {
       adopted = true;
     }
     // the account this link is about to create is a landing sign-up of that language
-    if (fresh && mail && (lg === "th" || lg === "en" || lg === "zh")) stampLandingOrigin(lg);
+    if (fresh && mail && LAND_LANGS.test(lg)) stampLandingOrigin(lg);
     ["hid", "hat", "hsrc", "hua", "hlg", "hvia"].forEach(k => q.delete(k));
     window.history.replaceState(window.history.state, "", url.pathname + (q.toString() ? "?" + q.toString() : "") + url.hash);
     return { aid, src, ua, adopted };

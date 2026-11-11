@@ -186,8 +186,8 @@ ${body}
 }
 
 // sitemap.xml — home, the three landing pages (hreflang + lastmod), privacy, then every song page
-const LANDING = [["th", `${SITE}/landing/`], ["en", `${SITE}/landing-en/`], ["zh", `${SITE}/landing-zh/`]];
-const HREFLANG = { th: "th", en: "en", zh: "zh-Hans" };
+const LANDING = [["th", `${SITE}/landing/`], ["en", `${SITE}/landing-en/`], ["zh", `${SITE}/landing-zh/`], ["ja", `${SITE}/landing-ja/`], ["ko", `${SITE}/landing-ko/`], ["ru", `${SITE}/landing-ru/`]];
+const HREFLANG = { th: "th", en: "en", zh: "zh-Hans", ja: "ja", ko: "ko", ru: "ru" };
 const landingAlts = LANDING.map(([l, h]) => `<xhtml:link rel="alternate" hreflang="${HREFLANG[l] || l}" href="${h}"/>`).join("")
   + `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}/landing-en/"/>`;
 const lastmod = new Date().toISOString().slice(0, 10);

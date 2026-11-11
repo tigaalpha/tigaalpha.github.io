@@ -63,7 +63,7 @@ function collectHooks(ast) {
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "dist-landing",
   "bundle", "android", "ios", "updates", "public", "songs", "landing",
-  "landing-en", "landing-zh", "studio", "payqr", "img", "assets", "fonts",
+  "landing-en", "landing-zh", "landing-ja", "landing-ko", "landing-ru", "studio", "payqr", "img", "assets", "fonts",
   "docs", ".claude", ".github"]);
 
 function filesIn(dir, out = []) {
