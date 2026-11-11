@@ -14,6 +14,7 @@
 
 import { memo, useEffect, useMemo, useRef } from "react";
 
+import { pickT } from "./lang-extra";
 const LET = ["C", "D", "E", "F", "G", "A", "B"];
 const LET_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 /* Which white key each black key sits after, and how it is spelled either
@@ -261,7 +262,7 @@ const Keys = memo(function Keys({ notes, hi, bad }) {
     by elimination and being right by knowing look identical on a scoreboard
     and are not the same thing. */
 export const AnswerReveal = memo(function AnswerReveal({ q, chosen, lang, onNext, nextLabel }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const teach = (q && q.teach) || { notes: [q && q.ans].filter(Boolean), hi: [q && q.ans].filter(Boolean) };
   const notes = useMemo(() => layout(teach.notes), [teach.notes]);
   const hi = teach.hi || [];

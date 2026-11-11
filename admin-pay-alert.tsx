@@ -8,7 +8,8 @@
 import { useEffect, useRef, useState } from "react";
 import { sb } from "./supabase-client";
 
-const T = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T = (lang, th, en, zh) => pickT(lang, th, en, zh);
 const SEEN = "tg_admin_pay_seen";
 const readSeen = (): string[] => { try { const v = JSON.parse(localStorage.getItem(SEEN) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const writeSeen = (ids: string[]) => { try { localStorage.setItem(SEEN, JSON.stringify(ids.slice(-300))); } catch (e) {} };

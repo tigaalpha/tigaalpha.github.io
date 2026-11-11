@@ -7,7 +7,8 @@ import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
 import { readArk, arkStats } from "./adventure-ark";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 const W = 960, H = 480, BOSS_AT = 55, LAUNCH_T = 38, ORE_GOAL = 16;
 const mg = (x: CanvasRenderingContext2D, y0: number, y1: number, base: string) => { const g = x.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "rgba(255,255,255,.5)"); g.addColorStop(0.2, base); g.addColorStop(1, "#06080e"); return g; };
 const pl = (x: CanvasRenderingContext2D, pts: number[][]) => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0], pts[i][1]); x.closePath(); };

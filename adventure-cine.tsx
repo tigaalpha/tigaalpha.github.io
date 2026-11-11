@@ -11,7 +11,8 @@ import { speakNarration, stopSpeaking } from "./speech";
 import { logUsage } from "./shared-infra";
 import { gfxHigh } from "./adv-gfx";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 const COMMON = {

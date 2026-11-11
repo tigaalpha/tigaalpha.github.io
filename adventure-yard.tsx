@@ -7,7 +7,8 @@ import { createAdvSfx } from "./adventure-sfx";
 import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 type L3 = [string, string, string];
 type Mod = { id: string; icon: string; mass: number; name: L3; why: L3 };
 export const YARD_MODS: Mod[] = [

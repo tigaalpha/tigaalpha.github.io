@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { readPower, POWER_MAX, COST, POWER_DAILY_EARN_CAP, DRAIN_SECS, drainPower } from "./game-power";
 
+import { pickT } from "./lang-extra";
 /* The GAME POWER bar and its "how do I charge it" sheet (owner, 2026-10-17). The numbers live in game-power.ts; this file only draws them.
    Neon capsule (cyan to violet, the arena's palette) because it sits on the arena's dark hero in both app themes. */
 export function usePower(): number {
@@ -23,7 +24,7 @@ export function usePlayDrain(active: boolean, adminTier: number, onEmpty: () => 
 }
 const SEGS = 10;
 export function GamePowerBar({ lang, onOpen }: { lang: string; onOpen: () => void }) {
-  const v = usePower(), T = (th: string, en: string, zh: string) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const v = usePower(), T = (th, en, zh) => pickT(lang, th, en, zh);
   const lit = Math.ceil((v / POWER_MAX) * SEGS), low = v < COST.adventure;
   return (
     <button type="button" className={`gpbar${low ? " low" : ""}`} data-gpbar={v} onClick={onOpen} aria-label={T("พลังเกม", "Game power", "游戏能量") + " " + v + "/" + POWER_MAX}>
@@ -37,7 +38,7 @@ export function GamePowerBar({ lang, onOpen }: { lang: string; onOpen: () => voi
   );
 }
 export function PowerSheet({ lang, need = 0, onClose, onLearn }: { lang: string; need?: number; onClose: () => void; onLearn?: () => void }) {
-  const v = usePower(), T = (th: string, en: string, zh: string) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const v = usePower(), T = (th, en, zh) => pickT(lang, th, en, zh);
   const go = () => { onClose(); if (onLearn) onLearn(); else { try { window.dispatchEvent(new CustomEvent("tg:goto", { detail: { page: "pathway" } })); } catch (e) {} } };
   const rows: [string, string, string, string][] = [
     ["🧠", "+20", "เรียนเรื่องใหม่ (บทเรียนใหม่)", "Learn something new"], ["🔁", "+12", "ทบทวนบทเรียนเก่า", "Review an old lesson"],

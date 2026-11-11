@@ -72,6 +72,7 @@ import { GamePowerBar, PowerSheet, usePlayDrain } from "./game-power-ui";
 import { enterGame, COST as POWER_COST } from "./game-power";
 import { learnedTopics, readDone } from "./quiz-quest";
 
+import { pickT } from "./lang-extra";
 /* ══════════════════════ Skill EXP ══════════════════════ */
 
 const SP_KEY = "tg_skillsp";
@@ -629,7 +630,7 @@ function petSkillsOf(spec) {
     wherever it deserves to be seen, and given the glow/pulse treatment that
     makes it the thing the eye lands on first. */
 export const PvpBanner = memo(function PvpBanner({ lang, onOpenPvp }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   return (
     <button className="profpvp" onClick={onOpenPvp}>
       <span className="profpvp-ic">⚔</span>
@@ -655,7 +656,7 @@ export const SkillTrack = memo(function SkillTrack({ lang, charModel }) {
   const mine = classKeyOf(normalizeModel(charModel));
   const cls = MODEL_CLASS[mine] || MODEL_CLASS.striker;
   const r = skillRank(sp[mine] || 0);
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
 
   return (
     <div className="skilltrack">
@@ -1230,7 +1231,7 @@ export const PvpPage = memo(function PvpPage({
   lang, charModel = "vanguard", gear = [], onBack, onReward, coinApi = null, playUi, friends = null, onChallenge, duels = null, onRespondDuel, onShare, onApplyLoadout, onPracticeWeakness = null,
   ownedModels = null, onPickModel = null, onOpenShop = null, modelCost = null, adminTier = 0,
 }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const gfx = useGfx();                                  // "low" | "high": the gear button
   const gfxPlan = useMemo(() => resolveGfx(gfx), [gfx]);
   const PICS = gfxPlan.liteFight && FIGURES_OK;           // fighters as stored pictures
@@ -2642,7 +2643,7 @@ const X_MIN = 0.08, X_MAX = 0.92, GAP_MIN = 0.16;
 const Bot = memo(CyberAvatar);
 
 const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: myRankIn, tier, oppKind, oppName, onDone, onBack, playUi, initHpFrac = 1, sp = null, colorway = null, practice = false, objectives = [], squad = "both" }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   /* the PvP graphics level (pvp-gfx.ts, the gear in the header) turns into the
      switches this fight runs on; a change applies live, with the clock held
      while the card is open */

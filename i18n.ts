@@ -1,4 +1,5 @@
 import { PATHWAY } from "./pathway-data";
+import { isExtraLang, xlate, LANG_META, replyInstruction, catalogVersion } from "./lang-extra";
 import { INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL, progressionChordLabels } from "./music-engine";
 
 /* ── i18n.ts ──
@@ -1085,6 +1086,8 @@ export const STAGES_BY_GROUP = PATHWAY.reduce((acc, s) => {
 export function tr(field, lang) {
   if (field == null) return "";
   if (typeof field === "string") return field;
+  // ja / ko / ru: the object's own entry when it has one, else the catalog's translation of its English
+  if (isExtraLang(lang)) return field[lang] || (field.en ? xlate(lang, field.en) : "") || field.th || Object.values(field)[0] || "";
   return field[lang] || field.en || field.th || Object.values(field)[0] || "";
 }
 
@@ -1613,16 +1616,34 @@ const _L_RAW = {
 /* L[lang] must NEVER be undefined: a bad/persisted lang value used to make
    const lc = L[lang] undefined and crash every overlay at render. The Proxy
    below falls back to th then en for any unknown key instead. */
+/* Japanese, Korean and Russian are built from the English dictionary through their catalog (lang-extra.ts), once per catalog version.
+   The two long AI prompts stay English plus a line telling the model which language to answer in. */
+const _extraL: Record<string, { v: number; o: any }> = {};
+function extraL(lang) {
+  const v = catalogVersion(), c = _extraL[lang];
+  if (c && c.v === v) return c.o;
+  const en = _L_RAW.en, o = {};
+  for (const k of Object.keys(en)) {
+    const val = en[k];
+    o[k] = (k === "sys" || k === "vmSys") ? val + replyInstruction(lang)
+      : typeof val === "string" ? xlate(lang, val)
+      : Array.isArray(val) ? val.map(x => (typeof x === "string" ? xlate(lang, x) : x))
+      : val;
+  }
+  _extraL[lang] = { v, o };
+  return o;
+}
 export const L = new Proxy(_L_RAW, {
   get(target, prop) {
     if (typeof prop !== "string") return target[prop];
     if (Object.prototype.hasOwnProperty.call(target, prop)) return target[prop];
+    if (isExtraLang(prop)) return extraL(prop);
     return target.th || target.en;
   },
 });
 
-export const FLAGS = { th: "🇹🇭", en: "🇬🇧", zh: "🇨🇳" };
-export const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文" };
+export const FLAGS = Object.fromEntries(Object.entries(LANG_META).map(([k, m]) => [k, m.flag]));
+export const FLAG_NAMES = Object.fromEntries(Object.entries(LANG_META).map(([k, m]) => [k, m.name]));
 
 export const COACH_FEATURE_LABELS = {
   sight_reading: { th: "ฝึกอ่านโน้ต (Sight-Reading)", en: "Sight-Reading practice", zh: "识谱练习（Sight-Reading）" },

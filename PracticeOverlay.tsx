@@ -12,6 +12,7 @@ import { sttSupported, getSR } from "./speech";
 import { selfReportFromTranscript } from "./tiga-gateway";   // via the lazy gateway
 import { usePracticeCoach } from "./use-practice-coach";
 import { SPOT_CAP_NOTES } from "./practice-spot";
+import { pickT, localeOf } from "./lang-extra";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -180,7 +181,7 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
       {/* Result page, one screen (owner plan 2026-10-22): my result -> where I slipped -> one thing to do next.
           Everything else (Jev, AI analysis, poll, coach, teacher text) is still rendered, folded under one <details>, so nothing stops recording. */}
       {(() => {
-        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const T3 = (th, en, zh) => pickT(lang, th, en, zh);
         const acc = r.accuracy, stars = starsOf(acc);
         const col = acc >= 85 ? "var(--ok,#2f9e6b)" : acc >= 60 ? "#d99a1a" : "#d2493f";
         const pcOf2 = (n) => String(n).replace(/-?\d+$/, "");
@@ -216,7 +217,7 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
         </>;
       })()}
       {(() => {
-        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const T3 = (th, en, zh) => pickT(lang, th, en, zh);
         const acc = r.accuracy, prev = r.prevBest && r.prevBest.accuracy;
         // plan 28 · D3: two clean rounds in a row earns ONE next step, offered only on that evidence (never from thin data)
         const hist = (r.prevBest && Array.isArray(r.prevBest.hist)) ? r.prevBest.hist : [];
@@ -526,7 +527,7 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
   const [answered, setAnswered] = useState(null);
   const [busy, setBusy] = useState(false);
   const q = SR_Q[lang] || SR_Q.th;
-  const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T3 = (th, en, zh) => pickT(lang, th, en, zh);
   useEffect(() => { setAnswered(null); }, [practiceResult && practiceResult.label]);
   async function answer(choice) {
     if (busy || answered) return;
@@ -559,7 +560,7 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
       if (!SR) return;
       setListening(true);
       const rec = new SR();
-      rec.lang = lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US";
+      rec.lang = localeOf(lang);
       rec.maxAlternatives = 1;
       rec.onresult = (ev) => {
         try {
@@ -609,7 +610,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
     profile: typeof window !== "undefined" ? (window.__tigaProfile || null) : null,   // plan 2.1: age band for the W adapter (window.__tigaProfile set by PianoApp)
   });
   if (!data) return null;
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const L = lang || "th";
   const tempo = data.tempo;
   const recap = data.recap;

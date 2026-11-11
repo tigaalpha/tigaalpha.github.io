@@ -13,7 +13,8 @@ import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
 import { bigDome, drawBuilding, drawTube, drawSkyline, groundFill, PALS } from "./adventure-colony-art";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 type L3 = [string, string, string];
 // owner, 2026-10-15: "SimCity BuildIt has 5 speed levels" — slow(0) / normal(1, the default) / fast(2) as before, plus faster(3) and max(4)
 const SPEEDS = [0.5, 1, 2, 3, 5];   // index into this

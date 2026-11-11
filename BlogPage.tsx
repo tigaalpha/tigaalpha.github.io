@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { sb } from "./supabase-client";
 
+import { pickT } from "./lang-extra";
 /* Blog (owner 2026-10-31): articles in Thai, English and Mandarin, written only by the top admin (AdminBlog.tsx) and stored in public.blog_posts.
    The body is plain text with a tiny markup: "# " / "## " headings, "- " bullets, **bold**, [text](https://link) and ![alt](https://image) — rendered as React elements, never as HTML. */
 export const BLOG_CATS: { id: string; icon: string; th: string; en: string; zh: string }[] = [
@@ -53,7 +54,7 @@ const blogVid = () => {
 const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US") + " " + (lang === "th" ? "ยอดวิว" : lang === "zh" ? "次浏览" : "views");
 
 export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }) {
-  const T = (th: string, en: string, zh: string) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [posts, setPosts] = useState<BlogPost[] | null>(null);
   const [open, setOpen] = useState<BlogPost | null>(null);
   const [err, setErr] = useState(false);

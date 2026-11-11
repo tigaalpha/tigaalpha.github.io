@@ -27,6 +27,7 @@ import { ItemArt } from "./item-art";
 import { SpaceStage, prefetchSpace } from "./space-stage";
 import { Sprite } from "./sprite";
 
+import { pickT } from "./lang-extra";
 /* ══════════════════════ species ══════════════════════ */
 
 /* ── the type wheel ──
@@ -2053,7 +2054,7 @@ export function daysSincePractice() {
 /** What the pet has to say about your practising, if anything. */
 export function practiceMood(lang) {
   const d = daysSincePractice();
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   if (d === null) return null;
   if (d === 0) return { good: true, text: T("วันนี้คุณซ้อมแล้ว — มันดูมีความสุขมาก", "You practised today — it is delighted", "你今天练琴了 — 它很开心") };
   if (d === 1) return { good: true, text: T("มันรอคุณซ้อมอยู่วันนี้", "It is waiting for you to practise today", "它在等你今天练琴") };
@@ -2138,7 +2139,7 @@ export const PetPod = memo(function PetPod({ lang, onOpen }) {
     const t = setInterval(sync, 60000);
     return () => { window.removeEventListener("tg-pet", sync); window.removeEventListener("focus", sync); clearInterval(t); };
   }, []);
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
 
   if (!pet) {
     return (
@@ -2245,7 +2246,7 @@ export function usePetTurn(onTap, start = -18) {
 }
 
 export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onReward, onBack, playUi = () => {} }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [pet, setPet] = useState(() => readPet());
   const [bag, setBag] = useState(() => readPetBag());
   const [tray, setTray] = useState(false);

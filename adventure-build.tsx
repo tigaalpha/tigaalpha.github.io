@@ -10,7 +10,8 @@ import { GearButton, SettingsPopup } from "./adventure-settings";
 import { nextQuestion } from "./quiz-quest";
 import { enterFs } from "./pvp-arena";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 type L3 = [string, string, string];
 type Part = { icon: string; name: L3; gain: L3; x: number; y: number };
 type Scn = { icon: string; title: L3; out: L3; unit: string; per: number; parts: Part[]; sky: string[] };

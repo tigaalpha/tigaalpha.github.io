@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { getTigamodel, initTigamodelWeb, ensureTigamodelWeb, getUniversitySources } from "./tigamodel/web.js";
 
+import { pickT } from "./lang-extra";
 /* ── tigamodel-lab-graph.tsx ──
    "แผนที่ความรู้ของโมเดล" — the sub-page the owner asked for (2026-09-17):
    shows what the TIGA piano-intelligence model actually knows, as
@@ -397,7 +398,7 @@ function DetailCard({ node, edges, nodes, setFocusId, T, S }) {
 
 /* ── the exported sub-page ── */
 export function KnowledgeGraphView({ lang = "th", S }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [mode, setMode] = useState("graph"); // graph | outline
   const [focusId, setFocusId] = useState(null);
   // sync build on first render (found via owner screenshot 2026-09-17 17:34:

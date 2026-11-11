@@ -9,6 +9,7 @@ import { logActivity, logUsage, LINE_OA_URL } from "./shared-infra";
 import { nextStarGoal } from "./play-along-judge";
 import { useWeekly } from "./play-along-online";
 
+import { pickT } from "./lang-extra";
 /** "Song of the week" line for the ready screen: shown only when the chosen song is this week's, with the top of the board. Honour only, pays nothing. */
 function WeeklyLine({ songId, T }: { songId: string; T: (th: string, en: string, zh: string) => string }) {
   const w = useWeekly();
@@ -32,7 +33,7 @@ function WeeklyLine({ songId, T }: { songId: string; T: (th: string, en: string,
    Every screen has one job and one big button: the ready screen starts the
    song, the result screen plays it again. Everything else is folded away
    until it is wanted, and every button leads somewhere inside Play Along. ── */
-const T3 = (lang) => (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+const T3 = (lang) => (th, en, zh) => pickT(lang, th, en, zh);
 
 /* ── PLAN v3.8 ระลอก 12 (12.1) — the share signal JoyIndex reads ──
    One row into the unified activity journal (k="share") from the result

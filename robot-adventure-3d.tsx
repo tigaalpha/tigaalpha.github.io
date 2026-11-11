@@ -15,10 +15,11 @@ import { logUsage } from "./shared-infra";
 import { openAdvRoom, MAX_PILOTS, type Net, type Peer } from "./adv-online";
 import type { ShopW } from "./ah-engine";
 
+import { pickT } from "./lang-extra";
 const AlienHuntPage = lazy(() => import("./alien-hunt").then(m => ({ default: m.AlienHuntPage })));
 const RaShipPage = lazy(() => import("./ra-cockpit"));
 const AdventureCine = lazy(() => import("./adventure-cine"));
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const markDone = (id: string) => { try { const d = readDone(); if (!d.includes(id)) { d.push(id); localStorage.setItem("tg_adv_done", JSON.stringify(d)); } } catch (e) {} };
 const PARTS: [string, string, string, string][] = [["prep", "ภาค 0 · เตรียมออกเดินทาง", "Part 0 · Liftoff", "第0部 · 启程"], ["solar", "ภาค 1 · ออกจากโลก", "Part 1 · Leaving Earth", "第1部 · 离开地球"], ["space", "ภาค 2 · ไททันและอาร์ก", "Part 2 · Titan & Ark", "第2部 · 土卫六与方舟"], ["ground", "ภาค 3 · โลกใหม่", "Part 3 · New worlds", "第3部 · 新世界"], ["act2", "ภาค 4 · ผู้เก็บเกี่ยว", "Part 4 · The Harvesters", "第4部 · 收割者"]];

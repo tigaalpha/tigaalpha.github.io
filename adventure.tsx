@@ -34,6 +34,7 @@ import { createAdvMusic, renderPreview, warmAudio } from "./adventure-music";
 import { recordMemory } from "./ai-chat-context";
 import { nextQuestion, nextSpell, judgeKeys, recordAnswer, readLadder, learnedTopics } from "./quiz-quest";
 
+import { pickT } from "./lang-extra";
 const VH = 360, GROUND = 300, WORLD = 5200, TILE = 960;
 const readDone = (): string[] => { try { const v = JSON.parse(localStorage.getItem("tg_adv_done") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const readBest = (): any => { try { return JSON.parse(localStorage.getItem("tg_adv_best") || "{}") || {}; } catch (e) { return {}; } };
@@ -932,7 +933,7 @@ radial-gradient(1px 1px at 42% 20%,#fff,transparent),radial-gradient(1px 1px at 
 type Gfx = "standard" | "high";
 function defaultGfx(): Gfx { try { const v = localStorage.getItem("tg_adv_gfx"); if (v === "standard" || v === "high") return v; } catch (e) {} return (isLowEnd() || spaceTier() <= 1) ? "standard" : "high"; }
 
-const T3 = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 
 /** The page: a planet menu, then the run itself. */
 export const AdventurePage = memo(function AdventurePage({ onReward = null, lang, me, colorway, held = null, hat = null, acc = null, petNow = null, onBack, playUi = null, online = false, adminTier = 0, coinApi = null, shopMul = 1 }: any) {

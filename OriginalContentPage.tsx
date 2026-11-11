@@ -23,6 +23,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { loadOriginalManifest, loadOriginalPage, loadOriginalSong, resetOriginalCache, ORIGINAL_SHELF } from "./originals-store";
 import type { OriginalMeta } from "./originals-store";
 
+import { pickT } from "./lang-extra";
 /* ── the families ────────────────────────────────────────────────────────────
    Chosen so that every piece lands in exactly one family per axis and no
    family can be empty: the modes are grouped by how they sound, not listed one
@@ -74,7 +75,7 @@ const PAGE_ROWS = 500;
 const SLICE0 = 60, SLICE = 120;
 
 export default function OriginalContentPage({ lang, onBack, onPlay, level = 1, exp = 0, premium = false }) {
-  const T = (th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [manifest, setManifest] = useState<{ n: number; indexPer: number } | null>(null);
   const [rows, setRows] = useState<OriginalMeta[] | null>(null);
   const [pages, setPages] = useState(0);

@@ -1341,7 +1341,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
    TodayPage and the Teacher tab count). Nothing is recomputed here, so My Class, Daily Mentor and the popup cannot disagree. When the day's plan
    is finished it sends the learner on to the Learning Pathway. */
 const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onLearn, onRead, onSong, onReviewStage, onNavigate, onGoStep, onPathway, onMentor, onReward }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const TT = TODAY_TAGS[lang];
   const [, setTick] = useState(0);
   const [gpSheet, setGpSheet] = useState(false);
@@ -2449,7 +2449,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack, premium = f
   async function saveCert(g) {
     if (busy) return; setBusy(true); playUi("reward");
     try {
-      const url = await renderCertificatePNG({ name, course: g.icon + " " + g.label, dateStr: new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "long", day: "numeric" }), lang });
+      const url = await renderCertificatePNG({ name, course: g.icon + " " + g.label, dateStr: new Date().toLocaleDateString(dateLocale(lang), { year: "numeric", month: "long", day: "numeric" }), lang });
       downloadDataURL(url, "tiga-certificate-" + g.id + ".png");
     } catch (e) {}
     setBusy(false);
@@ -2512,7 +2512,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
   battlePickOpen = false, setBattlePickOpen, battleData = null, setBattleData, songPhase = "ready", startSongPlay,
   mysteryChest = null, setMysteryChest, luckyToast = null, onSchoolJoined = null, onReviewStage = null }) {
   const lc = L[lang];
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const isMax = isMaxPlan(plan);
 
   // B3: Quick 3-min modal
@@ -2595,7 +2595,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     if (!lesson) return;
     setCommuteIdx(idx);
     const utt = new SpeechSynthesisUtterance(lesson.title + ". " + lesson.text);
-    utt.lang = lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US";
+    utt.lang = localeOf(lang);
     utt.rate = 0.9;
     utt.onend = () => setCommutePlaying(false);
     utt.onerror = () => setCommutePlaying(false);
@@ -3607,7 +3607,7 @@ function shareVideo(s, lang) {
   }
 }
 function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [faved, setFaved] = useState(() => readVidFav(s.key));
   const [subLang, setSubLang] = useState(() => readVidSubLang());
   const [subOpen, setSubOpen] = useState(false);
@@ -3718,6 +3718,8 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   );
 }
 import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
+import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale } from "./lang-extra";
+import { useCatalog } from "./use-catalog";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
   const [flagOpen, setFlagOpen] = useState(false);
@@ -3954,7 +3956,7 @@ const SEC_LABEL: Record<string, { th: string; en: string; zh: string }> = {
 };
 const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 1, exp = 0, premium = false, onUpsell, onRequireLogin, plan = "", initialCat = "songs", onOpenOriginal }) {
   const lc = L[lang];
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   /* Today's song is still picked here, once a day, though its card is gone: the
      ready screen's "Today's song" line and finishSong's payout both read the
      pick from the saved day state, and nothing else would write it. */
@@ -6506,7 +6508,7 @@ export async function downloadGroupCert(g, lang, userName, certBusy, setCertBusy
     const url = await renderCertificatePNG({
       name,
       course: g.icon + " " + g.label,
-      dateStr: new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "long", day: "numeric" }),
+      dateStr: new Date().toLocaleDateString(dateLocale(lang), { year: "numeric", month: "long", day: "numeric" }),
       lang,
     });
     downloadDataURL(url, "tiga-certificate-" + g.id + ".png");
@@ -6557,7 +6559,7 @@ function downloadCertificate(lang, name, gainExp, earnCoins) {
     if (line) lines.push(line);
     lines.forEach((ln, i) => x.fillText(ln, W / 2, 390 + i * 36));
     // Date
-    const dateStr = new Date().toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US", { year: "numeric", month: "long", day: "numeric" });
+    const dateStr = new Date().toLocaleDateString(localeOf(lang), { year: "numeric", month: "long", day: "numeric" });
     x.fillStyle = "#8f8b82"; x.font = "20px Arial"; x.fillText(dateStr, W / 2, 520);
     // Signature line
     x.fillStyle = "#8f8b82"; x.fillRect(W / 2 - 100, 590, 200, 1);
@@ -6925,7 +6927,7 @@ const CharacterStage = memo(function CharacterStage({ lang, model, charHat, char
       held={heldG} hat={hatG} acc={accG} hand="right" /></span>
   );
 
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
 
   return (
     <div className={`charstage rar-${best}`} style={{ "--keyA": keyA, "--keyB": keyB }}>
@@ -7025,7 +7027,7 @@ function ShopStage({ shot, figRef, turn, foot, deg, hint, children }) {
    its element and what it does in a fight named, and bought behind a button
    that says the price — never off a thumbnail in one tap. */
 const PetDetailModal = memo(function PetDetailModal({ lang, item, have, here, coins, onAct, onClose }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const fig = useRef(null);
   const turn = usePetTurn(null, -28);
   useEffect(() => { prefetchSpace(); }, []);
@@ -7075,7 +7077,7 @@ const PetDetailModal = memo(function PetDetailModal({ lang, item, have, here, co
    the showroom plinth. What the piece adds to the fight is stated plainly
    under it. */
 const GearDetailModal = memo(function GearDetailModal({ lang, item, kind, model, worn, own, eq, lv, coins, rarityLabel, onAct, onClose }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const lc = L[lang];
   const fig = useRef(null);
   const turn = usePetTurn(null, 18);
@@ -7164,7 +7166,7 @@ const ModelDetailModal = memo(function ModelDetailModal({ lang, item, owned, run
     return () => cancelAnimationFrame(raf);
   }, [spin]);
   if (!item) return null;
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const lc = L[lang];
   const model = item.model;
   const st = MODEL_COMBAT[model] || MODEL_COMBAT.vanguard;
@@ -7312,7 +7314,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
    coins' worth of things you do not own. Categories you have nothing in are
    still listed, with the count, because an empty shelf is information too. */
 const StoragePage = memo(function StoragePage({ lang, coins, owned = [], cats, equipped, charModel, onEquip, onBack, onOpenShop }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const lc = L[lang];
   const RARITY_LABEL = { common: lc.shopRareC, rare: lc.shopRareR, epic: lc.shopRareE, legendary: lc.shopRareL, mythic: lang === "th" ? "มหาเทพ" : lang === "zh" ? "神话" : "Mythic" };
   const RARITY_RANK = { common: 0, rare: 1, epic: 2, legendary: 3 };
@@ -7975,7 +7977,7 @@ function actWhyBase(act, T) {
 }
 
 const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate, onGoStep, onUpsell, gainExp, earnCoins, onOpenAiReport }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const isMax = isMaxPlan(plan) || (profile && profile.is_admin);
   const [, setTick] = useState(0);   // bumped when a skip / claim writes localStorage
   const stats = useMemo(() => computeCoachStats(profile, lang), [profile, lang]);
@@ -8577,7 +8579,7 @@ function numFieldProps(val, set) {
 }
 function AdminStudents({ lang, viewerTier }) {
   const tier = viewerTier || 0;
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   /* What the learner ACTUALLY has right now, not what the column says.
      The list used to render profiles.plan directly, so a member inside
      their 7-day Max trial — whose stored plan is still "free", because the
@@ -8869,7 +8871,7 @@ function avgAccRecent(pr, days) {
   } catch (e) { return null; }
 }
 const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const lc = L[lang];
   const schoolId = profile.school_id;
   const [tab, setTab] = useState("roster");
@@ -9043,7 +9045,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
         {struggles.length > 0 && <><div className="admstu-sec">{T("ต้องฝึกเพิ่ม", "Needs work", "需加强")}</div><div className="pd-tags">{struggles.map((s, i) => <span key={i} className="pd-tag focus">{s.label || s}</span>)}</div></>}
         {mastered.length > 0 && <><div className="admstu-sec">{T("ทำได้ดีแล้ว", "Mastered", "已掌握")}</div><div className="pd-tags">{mastered.map((s, i) => <span key={i} className="pd-tag good">{s}</span>)}</div></>}
         {sel.role === "student" && (() => {
-          const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+          const T3 = (th, en, zh) => pickT(lang, th, en, zh);
           const rep = buildParentReportData(pr, { lang });
           return (
             <div className="admmg" style={{ marginTop: 12 }}>
@@ -9129,7 +9131,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
           the same data school_roster already shows, plus the TIGA layer:
           risk flags, the coach's diagnosis, and a 30-min lesson plan. ── */}
       {tab === "tiga" && (() => {
-        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const T3 = (th, en, zh) => pickT(lang, th, en, zh);
         const students = rows.filter(r => r.role === "student");
         const advs = teacherAdvs;   // [] until the lazy model loads — the effect above fills it
         const flagged = advs.filter(({ adv }) => adv && adv.flags.some(f => !f.positive)); // positive "ready" flags are good news, not a problem
@@ -9233,7 +9235,7 @@ const SchoolDashboard = memo(function SchoolDashboard({ lang, profile, onBack })
    (same floor as plan changes there). ── */
 function AdminSchools({ lang, viewerTier }) {
   const tier = viewerTier || 0;
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -9465,7 +9467,7 @@ function AdminSchools({ lang, viewerTier }) {
 
 /* ── Admin: payment review — PromptPay config, slip list, AI slip read, approve ── */
 function AdminPayments({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [rows, setRows] = useState(null);
   const [sel, setSel] = useState(null);
   const [cfg, setCfg] = useState({ promptpay: "", name: "", bank: "", stripe: false, alipay_qr: "", wechat_qr: "", bank_account: "", bank_swift: "" });
@@ -9645,7 +9647,7 @@ function AdminPayments({ lang }) {
 
 /* ── Admin: upload + manage vertical teaching videos ── */
 function AdminVideos({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [rows, setRows] = useState(null);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -9728,7 +9730,7 @@ function AdminVideos({ lang }) {
 /* ── Admin: usage analytics — which Pathway topics / nav buttons / pages get
    used most, so development effort can follow real usage. ── */
 function AdminAnalytics({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [range, setRange] = useState("all"); // '7' | '30' | 'all'
   const [stats, setStats] = useState(null);
   /* Measured before this switch existed: 307 of the rows this panel counted
@@ -9841,7 +9843,7 @@ function AdminAnalytics({ lang }) {
 
 /* ── Admin: Auto Teaching platform-default interval (tier ≥2) ── */
 function AdminAutoTeach({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [min, setMin] = useState(null);   // null = loading
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -9884,7 +9886,7 @@ function AdminAutoTeach({ lang }) {
    default (the function no-ops until this flips to true) so shipping the
    cron schedule itself is inert until an admin deliberately turns it on. ── */
 function AdminWeeklyReport({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [enabled, setEnabled] = useState(null); // null = loading
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -9928,7 +9930,7 @@ function AdminWeeklyReport({ lang }) {
    wherever they are in the app, on demand — a one-off push, not a recurring schedule
    like Auto Teaching. ── */
 function AdminBroadcast({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [cur, setCur] = useState(undefined); // undefined = loading, null = never sent one, object = current
   const [msg, setMsg] = useState("");
   const [img, setImg] = useState("");
@@ -10132,7 +10134,7 @@ const SPOTLIGHT_FEATURES = [
    temporary EXP/coin multipliers instead of a popup message. See the activeEvent
    poll + gainExp/earnCoins in PianoApp for how the client consumes this. ── */
 function AdminEvent({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [cur, setCur] = useState(undefined); // undefined = loading, null = none, object = current
   const [nameTh, setNameTh] = useState("");
   const [nameEn, setNameEn] = useState("");
@@ -10225,7 +10227,7 @@ function AdminEvent({ lang }) {
 /* ── Admin chat (free-form AI + web search + image/link learning) ── */
 /* ── Admin: manage Music Games list (stored in app_settings key "music_games") ── */
 function AdminGames({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [games, setGames] = useState<any[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -10514,7 +10516,7 @@ function AdminGames({ lang }) {
 
 /* ── Music Games page — shows game cards loaded from admin-managed list ── */
 const GamesPage = memo(function GamesPage({ lang, earnCoins, gainExp }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [games, setGames] = useState<any[] | null>(null);
   const [paid, setPaid] = useState(() => gamesPaidToday());
   const payFor = (id) => {
@@ -11105,12 +11107,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      choice persists — profiles.lang for an account, the local guest profile
      otherwise — so this only decides what someone sees before they choose. */
   const [lang, setLangState] = useState(profile.lang || "th");
+  useCatalog(lang);   // ja / ko / ru: loads the catalog of the chosen language and re-renders this tree when it arrives
   /* The document says which language it is in. Screen readers pick their
      voice from it, the browser picks Thai- or CJK-appropriate fallback fonts
      from it, and the game rooms use it (:lang) to keep letter-spacing off
      Thai, where spacing out the letters pulls vowels and tone marks away
      from the consonants they sit on. */
-  useEffect(() => { try { document.documentElement.lang = lang === "zh" ? "zh-CN" : lang; } catch (e) {} }, [lang]);
+  useEffect(() => { try { document.documentElement.lang = (LANG_META[lang] || LANG_META.en).html; } catch (e) {} }, [lang]);
   // First-time language picker: SUSPENDED (owner request 2026-09) - the popup
   // felt like a wall between a new user and the piano. The state/JSX are kept
   // intact for a future re-enable: flip LANG_PICKER_ENABLED back to true and
@@ -11129,7 +11132,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setProfile(p => ({ ...p, lang: lg }));
   }
   const lc = L[lang];
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
 
   const { litNote, setLitNote, litSet, setLitSet, fingerMap, setFingerMap, fingerChart, setFingerChart, chordStyle, setChordStyle, seqIsChord, setSeqIsChord, hand, setHand, pianoOct, setPianoOct, recording, setRecording, hasClip, setHasClip, playingClip, setPlayingClip, hasSeq, setHasSeq, seqPlaying, setSeqPlaying, seqTimers, lastSeq, recordingRef, recStartRef, recEventsRef, clipRef, clipTimersRef, clearSeq, playSequence, togglePlayPause, toggleChordStyle, replayLast, handleMainKey, stopClip, toggleRecord, playClip } = useKeyboard();
   const [flagOpen, setFlagOpen] = useState(false);
@@ -13444,7 +13447,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             </button>
             {flagOpen && (
               <div className="flagmenu">
-                {["th", "en", "zh"].map(lg => (
+                {ALL_LANGS.map(lg => (
                   <button key={lg}
                     className={`flagitem${lang === lg ? " active" : ""}`}
                     onClick={() => { setLang(lg); setFlagOpen(false); }}>
@@ -13961,7 +13964,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 {(() => {
                   const rep = buildParentReport({ days: 14, lang });
                   if (!rep) return null;
-                  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+                  const T = (th, en, zh) => pickT(lang, th, en, zh);
                   const bars = rep.series.filter(d => d.acc != null);
                   /* plan v3.4 6.10 — the long-term-value story for the parent,
                      grounded in the education-market KB (honest-null until the
@@ -14177,7 +14180,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
            instead of scrolling, so every category is on screen at once, and
            "everything at once" is no longer one of them — it moved to its own
            control in the top right, where a view switch belongs. */
-        const T2 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const T2 = (th, en, zh) => pickT(lang, th, en, zh);
         /* ── Consolidated categories: 4 main tabs instead of 15 ── */
         const shopIntroSeen = eduSeen("shopIntro");
         const shopIntro = !shopIntroSeen;
@@ -14338,7 +14341,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           option is shown as the head it actually selects, with its class, and
           the consequence is stated on the button before it is pressed. */}
       {modelPickOpen && (() => {
-        const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const T = (th, en, zh) => pickT(lang, th, en, zh);
         const sel = modelPickSel || charModel;
         const selM = CHAR_MODELS.find(m => m.id === sel) || CHAR_MODELS[0];
         return (

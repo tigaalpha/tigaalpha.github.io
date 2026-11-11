@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { sb } from "./supabase-client";
 
+import { pickT } from "./lang-extra";
 /* Blog readers for the admin analytics (owner 2026-11-07): views, people who stayed 30 seconds, log-in pop-ups shown and tapped, per article and per day.
    Data: public.blog_stats() from supabase-blog-views-migration.sql (top admin only). Until that migration is applied the card says so instead of showing zeros. Shown on the
    Analytics page (it follows that page's range) and at the top of the Blog admin (its own range). A "view" is one device per article per day, a "reader" one that stayed 30 s. */
 type Stats = { totals: { views: number; readers: number; gates: number; clicks: number; devices: number }; rows: any[]; daily: { day: string; views: number; readers: number }[]; allTime: number };
 const nf = (n: number) => (Number(n) || 0).toLocaleString("en-US");
 export function BlogStatsCard({ lang, range = "30", own = false }: { lang: string; range?: string; own?: boolean }) {
-  const T = (th: string, en: string, zh: string) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [r, setR] = useState(range);
   const days = r === "all" ? 0 : Number(r) || 30;
   const [d, setD] = useState<Stats | null>(null);

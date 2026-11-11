@@ -28,6 +28,7 @@ import { paintWorld, getWorld, composeStage, drawStageFx, rollStageTheme } from 
 import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt, replayExp } from "./play-along-judge";
 import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday, songPlayCount, bumpPlayCount } from "./play-along-progress";
 
+import { pickT } from "./lang-extra";
 /* ── PLAN v3.8 ระลอก 12 (12.1) — the share signal JoyIndex reads ──
    One row into the unified journal (k="share") from the same shared-
    infrastructure every other mode reports to, plus a usage event. Called
@@ -2103,7 +2104,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const acc = accuracyOf({ ...g, total, kind: songKindRef.current });
     dr.passes++;
     const id = songIdOf(songMetaRef.current);
-    const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+    const T = (th, en, zh) => pickT(lang, th, en, zh);
     if (acc >= 90) {
       gainExp(10, { reason: "pa-drill" });
       logPa(`drill:${id}:${dr.seg.idx}:${Math.round(dr.rung * 100)}`);

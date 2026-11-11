@@ -12,7 +12,7 @@ import { getAC, _ac as _liveAc } from "./music-engine";
 
 
 /* ── TTS ── */
-export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN" };
+export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU" };
 export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92 };
 /* ── เร็วขึ้น (เจ้าของ 2026-10-02: "มันอ่านช้า") ──
    ค่าเดิมคือ 1 = ได้ยิ้ตามจังหวะที่โมเดลพูด และเส้นทางสำรองของเครื่องยิ่งช้าลง

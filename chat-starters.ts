@@ -13,6 +13,7 @@
    Pure and synchronous; the only inputs are the learner's memory and the day. */
 import { tr } from "./i18n";
 
+import { pickT } from "./lang-extra";
 export type ChatAsk = { key: string; icon: string; label: string; q: string; personal: boolean };
 type Tri = { th: string; en: string; zh: string };
 
@@ -45,7 +46,7 @@ export function personalAsks(memory: any, lang: string): ChatAsk[] {
   const out: ChatAsk[] = [];
   const struggle = labelOf(memory && memory.struggles && memory.struggles[0]);
   const recent = labelOf(memory && memory.recent && memory.recent[0]);
-  const L = (th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const L = (th, en, zh) => pickT(lang, th, en, zh);
   if (struggle) {
     out.push({
       key: "p-struggle", icon: "🧠", personal: true,

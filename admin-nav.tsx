@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 
+import { pickT } from "./lang-extra";
 const ADMIN_NAV_GROUPS = [
   { id: "ai", icon: "🤖", th: "AI และคอนเทนต์", en: "AI & Content", zh: "AI 与内容", items: [
     { id: "ai", icon: "🤖", tier: 3, th: "สอน AI", en: "Teach AI", zh: "训练 AI" },
@@ -41,7 +42,7 @@ const ADMIN_NAV_GROUPS = [
 ];
 
 export function AdminNav({ lang, tier, adminTab, setAdminTab }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [open, setOpen] = useState(false);
   const flat = ADMIN_NAV_GROUPS.flatMap(g => g.items);
   const cur = flat.find(i => i.id === adminTab) || flat[0];

@@ -3,13 +3,14 @@ import { sb } from "./supabase-client";
 import { BlogBody, BlogPost, BLOG_CATS, catName } from "./BlogPage";
 import { BlogStatsCard } from "./AdminBlogStats";
 
+import { pickT } from "./lang-extra";
 /* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin, with a category, a cover picture, pictures inside the text and links.
    Rendered only for admin_tier >= 3 (App.tsx); the table's and the image bucket's RLS (public.is_top_admin()) refuse anyone else even if this screen were reached. */
 const slugOf = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 const EMPTY = { id: "", lang: "th", category: "tips", slug: "", title: "", excerpt: "", body: "", cover_url: "", published: false };
 const BUCKET = "blog-images";
 export function AdminBlog({ lang }: { lang: string }) {
-  const T = (th: string, en: string, zh: string) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [rows, setRows] = useState<BlogPost[] | null>(null);
   const [f, setF] = useState<any>(null);
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null), [prev, setPrev] = useState(false), [up, setUp] = useState(false);

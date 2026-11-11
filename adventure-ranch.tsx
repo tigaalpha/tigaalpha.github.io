@@ -13,7 +13,8 @@ import { HELPER_COINS, readOwnedHelpers, saveOwnedHelpers, HELPER_COST, HELPER_I
 import { gfxHigh } from "./adv-gfx";
 import { isoBg, isoFg, drawIsoPlot, drawIsoHouse, drawIsoWindmill, drawIsoPad, drawIsoAnimal, drawIsoAmbient, PLOT_POS, PLOT_FREE, SLOT_POS, PAD, WW, WH, MILL, TW, TH, OX, OY, VW as ISO_VW, COLS as ISO_COLS, FX, FY, USE3D_R, setUse3DR } from "./adventure-ranch-iso";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 type L3 = [string, string, string];
 let VW = 800; const VH = 450;   // the view is VH tall and as wide as the screen needs, so a wide phone shows more farm instead of black bars
 const QUOTA: Record<string, number> = { moon: 260, mars: 300, titan: 340, proxima: 400 }, TIMEMUL: Record<string, number> = { moon: 1, mars: 1.1, titan: 1.25, proxima: 0.9 };   // a harsher world: a bigger quota and slower crops

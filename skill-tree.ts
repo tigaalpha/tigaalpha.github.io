@@ -1,3 +1,4 @@
+import { pickT } from "./lang-extra";
 /* Skill careers for robots and pets (owner, 2026-10-11: "every robot class is a career with its own skill line, at least 10 skills per
    robot, pets too; every skill has its own special effect and sound effect; skills can be upgraded").
    Pure data + small pure functions, no React, no storage except the two small helpers at the bottom (levels and the equipped slots).
@@ -98,7 +99,7 @@ export function skillSound(s: Skill) { const h = hashOf(s.id); return { h, pitch
 
 /* ── descriptions, built from the archetype and the real numbers ── */
 export function skillDesc(s: Skill, lv: number, lang: string): string {
-  const p = powerAt(s, lv), t = (th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en), pc = (v: number) => Math.round(v * 100) + "%", r = Math.round(s.r);
+  const p = powerAt(s, lv), t = (th, en, zh) => pickT(lang, th, en, zh), pc = (v: number) => Math.round(v * 100) + "%", r = Math.round(s.r);
   switch (s.a) {
     case "volley": return t(`ยิง ${r} นัด นัดละ ${pc(p)} ของดาเมจ`, `Fires ${r} bolts at ${pc(p)} damage each`, `发射 ${r} 发，每发 ${pc(p)} 伤害`);
     case "nova": return t(`คลื่นรอบตัว รัศมี ${r} ดาเมจ ${pc(p)}`, `A ring around you, radius ${r}, ${pc(p)} damage`, `周身冲击环，半径 ${r}，${pc(p)} 伤害`);

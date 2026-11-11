@@ -15,7 +15,8 @@ import { addRpgExp } from "./pvp-rpg";
 import { logUsage } from "./shared-infra";
 import type { RaLevel } from "./ra-data";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 const PCN = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const PC_OF: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const pcOfName = (n: string) => { const m = /^([A-G])([#b♯♭]?)/.exec(n); if (!m) return -1; return (PC_OF[m[1]] + (m[2] === "#" || m[2] === "♯" ? 1 : m[2] ? -1 : 0) + 12) % 12; };

@@ -5,6 +5,7 @@ import { AdminLearningData } from "./AdminLearningData";
 import { CampaignFunnelCard } from "./AdminCampaignFunnel";
 import { BlogStatsCard } from "./AdminBlogStats";
 
+import { pickT } from "./lang-extra";
 /* ═══════════════════════════════════════════════════════════════════════════
    ADMIN ACTIVITY ANALYTICS — visible ONLY to admin_tier >= 3 (the owner).
 
@@ -372,7 +373,7 @@ function DeviceMixCards({ devMix, devWidths, T }) {
 }
 
 export function AdminAnonVisitors({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   /* Owner request 2026-10-03: this is the screen they open the admin console
      for — "เวลาเข้าระบบ admin อยากให้เห็นหน้านี้แบบ 1 วัน เป็น preset ... เพราะดูบ่อย".
      The console already lands here (App.tsx opens `anonvisit` for tier >= 3) and
@@ -786,7 +787,7 @@ export function AdminAnonVisitors({ lang }) {
 
 /* ═══════════════ 1. ACTIVITY DASHBOARD ═══════════════ */
 export function AdminActivity({ lang, onOpenAnon }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   // Learning Data sub-tab (owner request 2026-09-23): the learning-system
   // dashboard lives HERE on the analysis page — one toggle to switch between
   // "กิจกรรมผู้ใช้" (raw events) and "ข้อมูลผู้เรียน" (the §1-§21 loop), so
@@ -810,7 +811,7 @@ export function AdminActivity({ lang, onOpenAnon }) {
 /* The original activity dashboard body — unchanged, now wrapped by the
    Learning-Data toggle above (owner request 2026-09-23). */
 function ActivityBody({ lang, onOpenAnon }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   // Preset 1d: the owner reads this page every day and only ever asks about
   // today, so the first thing on screen must be today. 1d/7d/30d/All still work.
   const [range, setRange] = useState("1");
@@ -1209,7 +1210,7 @@ function ActivityBody({ lang, onOpenAnon }) {
 
 /* ═══════════════ 2. DEMO-BOT CONTROL (admin-only) ═══════════════ */
 export function AdminSimBots({ lang }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [cfg, setCfg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
