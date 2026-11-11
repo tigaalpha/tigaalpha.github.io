@@ -3,6 +3,7 @@ import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { TTS_URL, apiHeaders } from "./ai-backend";
 import { getAC, _ac as _liveAc } from "./music-engine";
 
+import { xl, by } from "./lang-extra";
 /* ── speech.ts ──
    TTS/STT sub-engine: Web Speech API wrappers, cloud-TTS (backend-synthesized
    voice) with an IndexedDB cache, chunking/throttling, and the Voice Mentor
@@ -13,7 +14,7 @@ import { getAC, _ac as _liveAc } from "./music-engine";
 
 /* ── TTS ── */
 export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU" };
-export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92 };
+export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92, ja: 0.95, ko: 0.95, ru: 0.95 };
 /* ── เร็วขึ้น (เจ้าของ 2026-10-02: "มันอ่านช้า") ──
    ค่าเดิมคือ 1 = ได้ยิ้ตามจังหวะที่โมเดลพูด และเส้นทางสำรองของเครื่องยิ่งช้าลง
    (TTS_RATE ไทย 0.9 = ช้ากว่าปกติอยู่แล้ว) ผู้เรียนกดฟังแล้วต้องรอนานและอ่านยาว
@@ -166,7 +167,7 @@ export function speakRobust(text, lang, onDone, onBlocked, rateMul = 1) {
 
     const locale = TTS_LOCALES[lang] || "en-US";
     const voice = bestVoice(locale);
-    const rate = Math.max(0.5, Math.min(2, (TTS_RATE[lang] || 0.95) * (rateMul || 1)));
+    const rate = Math.max(0.5, Math.min(2, (by(TTS_RATE, lang) || 0.95) * (rateMul || 1)));
     const chunks = chunkText(clean);
 
     let idx = 0;
@@ -243,7 +244,7 @@ export async function speakDeviceOrNative(text, lang, onDone, onBlocked, rateMul
       const clean = cleanForTTS(text);
       if (!clean) { if (onDone) onDone(); return true; }
       const langCode = TTS_LOCALES[lang] || "en-US";
-      const rate = Math.max(0.5, Math.min(2, (TTS_RATE[lang] || 0.95) * (rateMul || 1)));
+      const rate = Math.max(0.5, Math.min(2, (by(TTS_RATE, lang) || 0.95) * (rateMul || 1)));
       await TextToSpeech.speak({ text: clean, lang: langCode, rate, pitch: 1.0, category: "ambient" });
       if (onDone) onDone();
       return true;
@@ -294,9 +295,9 @@ export function narratorVoice(locale, strictMale = false) {
 export function narrationText(text, lang) {
   let t = cleanForTTS(String(text || ""));
   t = t.replace(/\s*[—–]\s*/g, ", ").replace(/\s*·\s*/g, ", ").replace(/[()（）]/g, ", ").replace(/:\s+/g, ", ").replace(/\s*[「」『』"“”]/g, " ");
-  t = t.replace(/(\d+)\s*%/g, lang === "zh" ? "百分之$1" : lang === "th" ? "$1 เปอร์เซ็นต์" : "$1 percent");
-  t = t.replace(/\bTIGA\b/g, lang === "th" ? "ทีก้า" : lang === "zh" ? "提加" : "Teega").replace(/\bAI\b/g, lang === "en" ? "A I" : "AI");
-  t = t.replace(/\bHe-3\b/g, lang === "en" ? "helium three" : "He-3").replace(/\bTV\b/g, "T V");
+  t = t.replace(/(\d+)\s*%/g, lang === "zh" ? "百分之$1" : lang === "th" ? "$1 เปอร์เซ็นต์" : xl(lang, "$1 percent"));
+  t = t.replace(/\bTIGA\b/g, lang === "th" ? "ทีก้า" : lang === "zh" ? "提加" : xl(lang, "Teega")).replace(/\bAI\b/g, lang === "en" ? xl(lang, "A I") : "AI");
+  t = t.replace(/\bHe-3\b/g, lang === "en" ? xl(lang, "helium three") : "He-3").replace(/\bTV\b/g, "T V");
   return t.replace(/(,\s*){2,}/g, ", ").replace(/^,\s*/, "").replace(/\s+/g, " ").trim();
 }
 function narrationChunks(t, lang) {
@@ -304,7 +305,7 @@ function narrationChunks(t, lang) {
   for (const p of parts) {
     const q = p.trim(); if (!q) continue;
     if (q.length <= 110) { out.push(q); continue; }
-    let cur = ""; for (const w of q.split(lang === "zh" ? /(?<=[，、；,;])/ : /(?<=[,;]|\s)/)) { if ((cur + w).length > 100 && cur) { out.push(cur.trim()); cur = w; } else cur += w; }
+    let cur = ""; for (const w of q.split(lang === "zh" ? /(?<=[，、；,;])/ : xl(lang, /(?<=[,;]|\s)/))) { if ((cur + w).length > 100 && cur) { out.push(cur.trim()); cur = w; } else cur += w; }
     if (cur.trim()) out.push(cur.trim());
   }
   return out;
@@ -312,7 +313,7 @@ function narrationChunks(t, lang) {
 const NARR_RATE = { th: 0.88, en: 0.9, zh: 0.9 }, NARR_PITCH = { th: 0.93, en: 0.86, zh: 0.9 };
 export async function speakNarration(text, lang, onDone, onBlocked, rateMul = 1, absRate = 0, strictMale = false) {
   const clean = narrationText(text, lang); if (!clean) { if (onDone) onDone(); return true; }
-  const locale = TTS_LOCALES[lang] || "en-US", rate = absRate ? Math.max(0.6, Math.min(1.5, absRate)) : Math.max(0.6, Math.min(1.5, (NARR_RATE[lang] || 0.9) * (rateMul || 1))), pitch = NARR_PITCH[lang] || 0.9;
+  const locale = TTS_LOCALES[lang] || "en-US", rate = absRate ? Math.max(0.6, Math.min(1.5, absRate)) : Math.max(0.6, Math.min(1.5, (by(NARR_RATE, lang) || 0.9) * (rateMul || 1))), pitch = by(NARR_PITCH, lang) || 0.9;
   if (Capacitor.isNativePlatform()) {
     try {
       const { TextToSpeech } = await import("@capacitor-community/text-to-speech");
@@ -495,7 +496,7 @@ export function vmStyleFor(lang, mood) {
     },
   };
   const set = D[m] || D.warm;
-  return set[lang] || set.en;
+  return by(set, lang) || set.en;
 }
 // wrap one chunk with the (mood-aware) tone direction (quoted so the directive isn't spoken)
 export function styleTTS(s, lang) { return vmStyleFor(lang) + "\n\n\"" + String(s).replace(/"/g, "'") + "\""; }
@@ -718,13 +719,20 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
    speech: estimated from the text, since Thai, English and Chinese carry very different amounts of speech per character.
    Past it the button falls back to the device's own voice instead of going silent. */
 export function detectSpeechLang(text, fallback = "en") {
-  let th = 0, zh = 0, la = 0;
+  let th = 0, zh = 0, la = 0, ja = 0, ko = 0, ru = 0;
   for (const ch of String(text || "")) {
     const c = ch.codePointAt(0);
     if (c >= 0x0E00 && c <= 0x0E7F) th++;
+    else if ((c >= 0x3040 && c <= 0x30FF) || (c >= 0x31F0 && c <= 0x31FF)) ja++;              // kana: only Japanese has it
+    else if ((c >= 0xAC00 && c <= 0xD7AF) || (c >= 0x1100 && c <= 0x11FF)) ko++;                // hangul
+    else if (c >= 0x0400 && c <= 0x04FF) ru++;                                                  // cyrillic
     else if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF)) zh++;
     else if ((c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)) la++;
   }
+  // a script of its own wins over a few Latin terms (note names, product names) mixed into the text
+  if (ja && ja + zh > th && ja + zh > ko && ja + zh > ru) return "ja";
+  if (ko && ko > th && ko > ru) return "ko";
+  if (ru && ru > th && ru > zh) return "ru";
   // a Chinese character is a whole syllable, a Latin letter a fraction of one: weigh them so that a Thai or Chinese answer
   // with a few English terms in it is still Thai or Chinese, and an English answer with one Thai word is still English
   const sTh = th, sZh = zh * 2, sEn = la / 4;
@@ -732,8 +740,8 @@ export function detectSpeechLang(text, fallback = "en") {
   if (sEn > sTh + sZh) return "en";
   return sZh > sTh ? "zh" : "th";
 }
-const TTS_CHARS_PER_SEC = { th: 11, en: 15, zh: 4.5 };
-export function ttsEstSeconds(text, lang) { return String(text || "").length / (TTS_CHARS_PER_SEC[lang] || 12); }
+const TTS_CHARS_PER_SEC = { th: 11, en: 15, zh: 4.5, ja: 6.5, ko: 7.5, ru: 13 };
+export function ttsEstSeconds(text, lang) { return String(text || "").length / (by(TTS_CHARS_PER_SEC, lang) || 12); }
 export const TTS_DAILY_SECONDS = 300;                   // five minutes of cloud speech a day on a device (about ฿2.5 at today's price)
 const TTS_DAY_KEY = "tg_tts_day";
 function ttsDayKey() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
@@ -794,7 +802,7 @@ export const TTS_CHUNK_SECS = 20;
 export const TTS_FIRST_SECS = 1.4;
 export const TTS_RAMP_SECS = [2.4, 4, 7, 12];
 export function ttsChunkLimits(lang) {
-  const cps = TTS_CHARS_PER_SEC[lang] || 12;
+  const cps = by(TTS_CHARS_PER_SEC, lang) || 12;
   return {
     max: Math.max(90, Math.min(TTS_CHUNK_CHARS, Math.round(cps * TTS_CHUNK_SECS))),
     first: Math.max(6, Math.min(TTS_FIRST_CHUNK_CHARS, Math.round(cps * TTS_FIRST_SECS))),

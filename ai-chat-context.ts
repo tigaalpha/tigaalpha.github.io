@@ -1,4 +1,5 @@
 import { dayKey } from "./shared-infra";
+import { xl } from "./lang-extra";
 /* ── ai-chat-context.ts ──
    Cross-session learner memory (struggles/mastered/recent, spaced-review
    due dates) and assigned-homework tracking, folded into the AI chat's
@@ -56,19 +57,19 @@ export function memoryContext(lang) {
   // passed (recordMemory above) — falls back to the old flat 2-day rule for
   // entries recorded before this existed (no `interval` field yet).
   const due = (m.struggles || []).filter(s => s.last && (now - s.last) >= (s.interval || 2) * 86400000).slice(0, 3);
-  if (due.length) parts.push((lang === "th" ? "⏰ ครบกำหนดทบทวน (แทรกการทบทวนสั้น ๆ ให้เขาแบบเนียน ๆ): " : lang === "zh" ? "⏰ 到复习时间（自然地带入简短回顾）：" : "⏰ Due for spaced review (weave in a quick revisit): ") + due.map(s => `${s.label} (${dAgo(s.last)}d)`).join(", "));
-  if (m.struggles && m.struggles.length) parts.push((lang === "th" ? "เคยติด: " : lang === "zh" ? "曾困难: " : "Struggled with: ") + m.struggles.slice(0, 3).map(s => s.label).join(", "));
-  if (m.mastered && m.mastered.length) parts.push((lang === "th" ? "ทำได้ดีแล้ว: " : lang === "zh" ? "已掌握: " : "Mastered: ") + m.mastered.slice(0, 3).join(", "));
+  if (due.length) parts.push((lang === "th" ? "⏰ ครบกำหนดทบทวน (แทรกการทบทวนสั้น ๆ ให้เขาแบบเนียน ๆ): " : lang === "zh" ? "⏰ 到复习时间（自然地带入简短回顾）：" : xl(lang, "⏰ Due for spaced review (weave in a quick revisit): ")) + due.map(s => `${s.label} (${dAgo(s.last)}d)`).join(", "));
+  if (m.struggles && m.struggles.length) parts.push((lang === "th" ? "เคยติด: " : lang === "zh" ? "曾困难: " : xl(lang, "Struggled with: ")) + m.struggles.slice(0, 3).map(s => s.label).join(", "));
+  if (m.mastered && m.mastered.length) parts.push((lang === "th" ? "ทำได้ดีแล้ว: " : lang === "zh" ? "已掌握: " : xl(lang, "Mastered: ")) + m.mastered.slice(0, 3).join(", "));
   if (m.recent && m.recent.length) {
     // Gap #9 (2026-09-17 round 2): include the ACCURACY of the last attempts,
     // not just labels — "เพลงที่เธอซ้อมอยู่เมื่อวานได้ 72%" lets the teacher
     // reference real progress like a human does, and pick up where it hurt.
-    const recentLabel = lang === "th" ? "ฝึกล่าสุด" : lang === "zh" ? "最近练习" : "Recently practiced";
+    const recentLabel = lang === "th" ? "ฝึกล่าสุด" : lang === "zh" ? "最近练习" : xl(lang, "Recently practiced");
     parts.push(recentLabel + ": " + m.recent.slice(0, 3).map(r => `${r.label} ${r.acc != null ? r.acc + "%" : ""}`.trim()).join(", "));
   }
   const gap = dAgo(m.lastSession);
-  if (gap != null && gap >= 1) parts.push((lang === "th" ? "ห่างหายไป " + gap + " วัน (ทักทายอบอุ่นแบบคิดถึง)" : lang === "zh" ? "已隔 " + gap + " 天（温暖地问候，像想念他）" : "Returning after " + gap + " days (greet warmly like you missed them)"));
-  return parts.length ? ("\n\n[" + (lang === "th" ? "ความจำผู้เรียน (อ้างถึงเพื่อความต่อเนื่อง + ทบทวนตามจังหวะ)" : lang === "zh" ? "学员记忆（用于连贯与按时复习）" : "Learner memory (use for continuity + spaced review)") + ": " + parts.join(" · ") + "]") : "";
+  if (gap != null && gap >= 1) parts.push((lang === "th" ? "ห่างหายไป " + gap + " วัน (ทักทายอบอุ่นแบบคิดถึง)" : lang === "zh" ? "已隔 " + gap + " 天（温暖地问候，像想念他）" : xl(lang, "Returning after " + gap + " days (greet warmly like you missed them)")));
+  return parts.length ? ("\n\n[" + (lang === "th" ? "ความจำผู้เรียน (อ้างถึงเพื่อความต่อเนื่อง + ทบทวนตามจังหวะ)" : lang === "zh" ? "学员记忆（用于连贯与按时复习）" : xl(lang, "Learner memory (use for continuity + spaced review)")) + ": " + parts.join(" · ") + "]") : "";
 }
 
 /* ── homework + lesson plan (assigned by the AI, tracked across sessions) ── */
@@ -77,7 +78,7 @@ export function setHomeworkLS(h) { try { h ? localStorage.setItem("tg_homework",
 export function homeworkContext(lang) {
   const h = readHomework();
   if (!h || !h.text) return "";
-  const lbl = lang === "th" ? "การบ้านที่คุณสั่งไว้คราวก่อน (ถามว่าเขาฝึกหรือยัง แล้วตรวจ/ให้ฟีดแบ็ก)" : lang === "zh" ? "你上次布置的作业（先问他练了没，然后检查/反馈）" : "Homework you assigned last time (ask if they did it, then check and give feedback)";
+  const lbl = lang === "th" ? "การบ้านที่คุณสั่งไว้คราวก่อน (ถามว่าเขาฝึกหรือยัง แล้วตรวจ/ให้ฟีดแบ็ก)" : lang === "zh" ? "你上次布置的作业（先问他练了没，然后检查/反馈）" : xl(lang, "Homework you assigned last time (ask if they did it, then check and give feedback)");
   return "\n\n[" + lbl + ": " + h.text + "]";
 }
 
@@ -113,18 +114,18 @@ export function learnerSignalContext(lang, signal) {
     const why = na.evidence && na.evidence[0] && na.evidence[0].n
       ? ` (${na.evidence[0].n} ครั้ง)`
       : "";
-    parts.push((lang === "th" ? "ควรให้ความสำคัญตอนนี้: " : lang === "zh" ? "现在该关注： " : "Focus right now: ") + asPlain(na.label) + why);
+    parts.push((lang === "th" ? "ควรให้ความสำคัญตอนนี้: " : lang === "zh" ? "现在该关注： " : xl(lang, "Focus right now: ")) + asPlain(na.label) + why);
   }
   // only skills that are genuinely weak — a strong skill is not an instruction
   const bad = weak.filter(x => x.score != null && x.score < 55).sort((a, b) => a.score - b.score).slice(0, 2);
   if (bad.length) {
-    parts.push((lang === "th" ? "ทักษะที่ยังไม่แน่น: " : lang === "zh" ? "还不稳的技能： " : "Still weak: ")
+    parts.push((lang === "th" ? "ทักษะที่ยังไม่แน่น: " : lang === "zh" ? "还不稳的技能： " : xl(lang, "Still weak: "))
       + bad.map(x => `${asPlain(x.skill)} ${x.score}%`).join(", "));
   }
   if (!parts.length) return "";
   const head = lang === "th" ? "สัญญาณจากการฝึกของเขา (ใช้เล็งเฉพาะตรงนี้ ไม่ต้องย้ำเรื่องที่เขาทำได้แล้ว)"
     : lang === "zh" ? "来自他练习的信号（只针对这里，不用重复他已经会的）"
-    : "Signals from their practice (aim here; do not repeat what they already do well)";
+    : xl(lang, "Signals from their practice (aim here; do not repeat what they already do well)");
   return "\n\n[" + head + ": " + parts.join(" · ") + "]";
 }
 

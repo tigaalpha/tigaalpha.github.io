@@ -3,7 +3,7 @@ import qrcode from "qrcode-generator";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { apiHeaders } from "./ai-backend";
 
-import { pickT } from "./lang-extra";
+import { pickT, by } from "./lang-extra";
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
    No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
 function _ppTLV(id, val) { const l = String(val.length).padStart(2, "0"); return id + l + val; }
@@ -283,7 +283,7 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
   // before the first render commits; a ref updates synchronously so it closes that gap
   const submittingRef = useRef(false);
   const amountThb = checkout.amount;                        // always THB (for slip DB record)
-  const cur = checkout.cur || CURRENCY_BY_LANG[lang] || "thb";
+  const cur = checkout.cur || by(CURRENCY_BY_LANG, lang) || "thb";
   const dispAmt = checkout.disp != null ? checkout.disp : amountThb;
   const planLabel = PLAN_LABEL[checkout.plan] || checkout.plan;
   const cnySt = checkout.cycle === "year" ? yearPriceByCur("cny", checkout.plan) : planPriceByCur("cny", checkout.plan);

@@ -13,6 +13,7 @@ import { tigaNow } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { jevTask, jevNoul } from "./jev";
 import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRecommendationHint, actTopicLabel } from "./App";
+import { xl } from "./lang-extra";
 /* ── use-chat.ts ──
    Owns the main AI-sensei chat panel: the message list + typed-input box
    + streaming Claude call (send/callClaude), the [play:]-tag reply
@@ -702,7 +703,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
         if (pc && pc.spam != null && pc.spam >= 0.9) {
           const refuse = lang === "th" ? "ขอโทษนะ ฉันช่วยเรื่องการเรียนเปียโนได้อย่างเดียวเลย ลองถามเรื่องการซ้อม ทฤษฎีดนตรี หรือเพลงดูสิ 🎹"
             : lang === "zh" ? "抱歉，我只能帮忙学钢琴相关的问题。试试问练习、乐理或歌曲吧 🎹"
-            : "Sorry — I can only help with piano learning. Try asking about practice, theory, or songs 🎹";
+            : xl(lang, "Sorry — I can only help with piano learning. Try asking about practice, theory, or songs 🎹");
           setMsgs(prev => [...prev, { role: "ai", text: refuse }]);
           return;
         }

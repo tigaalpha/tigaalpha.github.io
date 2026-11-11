@@ -13,7 +13,7 @@ import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
 import { bigDome, drawBuilding, drawTube, drawSkyline, groundFill, PALS } from "./adventure-colony-art";
 
-import { pickT } from "./lang-extra";
+import { pickT, xl } from "./lang-extra";
 const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 type L3 = [string, string, string];
 // owner, 2026-10-15: "SimCity BuildIt has 5 speed levels" — slow(0) / normal(1, the default) / fast(2) as before, plus faster(3) and max(4)
@@ -335,7 +335,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
       <div className="adv-top">
         <button className="adv-btn" onClick={() => onExit()} aria-label="map">←</button>
         <div className="adv-hud">
-          <div className="adv-lv">{site.icon} {T3(lang, site.name[0], site.name[1], site.name[2])} · {t("วันที่ ", "Day ", "第 ")}{S.days}{lang === "zh" ? " 天" : ""} · 👥 {Math.floor(S.pop)}/{homes} {t("ที่พัก", "homes", "住房")}</div>
+          <div className="adv-lv">{site.icon} {T3(lang, site.name[0], site.name[1], site.name[2])} · {t("วันที่ ", "Day ", "第 ")}{S.days}{lang === "zh" ? " 天" : xl(lang, "")} · 👥 {Math.floor(S.pop)}/{homes} {t("ที่พัก", "homes", "住房")}</div>
           <div className="adv-bar adv-hp"><i style={{ width: pct + "%" }} /><b>{t("ประชากร ", "Population ", "人口 ")}{Math.floor(S.pop)}/{site.target}</b></div>
         </div>
         <GearButton onClick={openGear} />
@@ -351,7 +351,7 @@ export default function AdventureColony({ P, lang, onWin, onExit, onRetry, net }
         {RES.map(r => (<span key={r.k} className={"ac2-r cb-pill" + (S.stock[r.k] <= 0.5 && r.k !== "sc" && r.k !== "ma" ? " low" : "")} data-res={r.k} {...(r.k === "ma" ? { "data-fund": "1" } : {})}><i>{r.icon}</i><b>{Math.floor(S.stock[r.k])}</b><small className={S.rate[r.k] < -0.01 ? "neg" : "pos"}>{S.rate[r.k] < -0.01 ? "▼" : S.rate[r.k] > 0.01 ? "▲" : "·"}</small></span>))}
       </div>
       {(S.hz > 0 || S.msg) && <div className="cb-alert" data-hazard={S.hz > 0 ? "1" : undefined}>{S.hz > 0 ? "⚠ " + T3(lang, site.hz[0], site.hz[1], site.hz[2]) : ""}{S.msg ? " ⚠ " + t("ขาดแคลน ", "Shortage ", "短缺 ") + S.msg : ""}</div>}
-      {S.news[0] && <div className="cb-news" data-news="1" key={S.news.length}><b>📰</b><span className="sc-tick">{(lang === "th" ? "วันที่ " : lang === "zh" ? "第" : "Day ") + S.news[0].d + (lang === "zh" ? "天" : "") + ": " + T3(lang, NEWS[S.news[0].k][0], NEWS[S.news[0].k][1], NEWS[S.news[0].k][2])}</span></div>}
+      {S.news[0] && <div className="cb-news" data-news="1" key={S.news.length}><b>📰</b><span className="sc-tick">{(lang === "th" ? "วันที่ " : lang === "zh" ? "第" : xl(lang, "Day ")) + S.news[0].d + (lang === "zh" ? "天" : xl(lang, "")) + ": " + T3(lang, NEWS[S.news[0].k][0], NEWS[S.news[0].k][1], NEWS[S.news[0].k][2])}</span></div>}
       <div className="cb-fab" data-fab="1">
         <button className={"cb-round" + (S.tool === "query" ? " on" : "")} data-tool="query" aria-label="query" onClick={() => { S.tool = S.tool === "query" ? "build" : "query"; S.info = -1; setTick(x => x + 1); }}>🔍</button>
         <button className={"cb-round" + (S.tool === "bulldoze" ? " on" : "")} data-tool="bulldoze" aria-label="bulldoze" onClick={() => { S.tool = S.tool === "bulldoze" ? "build" : "bulldoze"; setTick(x => x + 1); }}>🚧</button>

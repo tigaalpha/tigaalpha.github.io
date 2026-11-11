@@ -7,7 +7,7 @@ import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDevi
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
 import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUEST_GOAL, QUEST_EXP, readQuest } from "./chat-store";
 
-import { pickT, dateLocale } from "./lang-extra";
+import { pickT, dateLocale, xl } from "./lang-extra";
 /* ── chat-ui.tsx ──
    Chat UI atoms shared by every chat surface (Sensei page, expanded chat
    modal): the message bubble (Msg), typing indicator (Typing), text input
@@ -324,7 +324,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
         {m.img && <img src={m.img} alt="" className="adminimg" />}
         {waiting
           ? <div className="typing" role="status" aria-live="polite"
-                 aria-label={lang === "th" ? "กำลังคิดคำตอบ" : lang === "zh" ? "正在思考" : "Thinking"}>
+                 aria-label={lang === "th" ? "กำลังคิดคำตอบ" : lang === "zh" ? "正在思考" : xl(lang, "Thinking")}>
               <div className="tdd" /><div className="tdd" /><div className="tdd" />
             </div>
           : (m.role === "ai" && RICH_MARKS.test(bodyText))
@@ -344,7 +344,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
       {m.role === "ai" && m.error && onRetry && (
         <div className="mact">
           <button className="retrybtn" onClick={onRetry}>
-            <span>↻</span><span>{lang === "th" ? "ลองส่งใหม่" : lang === "zh" ? "重试" : "Retry"}</span>
+            <span>↻</span><span>{lang === "th" ? "ลองส่งใหม่" : lang === "zh" ? "重试" : xl(lang, "Retry")}</span>
           </button>
         </div>
       )}
@@ -368,7 +368,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
         <div className="mact">
           {parsed && (
             <button className="playbtn" onClick={() => onPlay(parsed)}>
-              <span>▶</span><span>{lang === "th" ? "เล่นโน้ต" : lang === "zh" ? "演奏" : "PLAY"}</span>
+              <span>▶</span><span>{lang === "th" ? "เล่นโน้ต" : lang === "zh" ? "演奏" : xl(lang, "PLAY")}</span>
             </button>
           )}
           {parsed && <span className="nlbl">{parsed.label}</span>}
@@ -388,7 +388,7 @@ export const Typing = memo(function Typing({ slow, lang }) {
     ? "ยังเชื่อมต่ออยู่ — กำลังลองใหม่อัตโนมัติ…"
     : lang === "zh"
     ? "仍在连接中 — 正在自动重试…"
-    : "Still connecting — retrying automatically…";
+    : xl(lang, "Still connecting — retrying automatically…");
   return (
     <div className="msg a">
       <div className="bbl">

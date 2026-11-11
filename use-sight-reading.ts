@@ -10,6 +10,7 @@ import { logActivity, recordNoteMisses } from "./shared-infra";
 import { recordMemory } from "./ai-chat-context";
 import { tigaNow } from "./tiga-gateway";   // Capability Hub via the lazy gateway (plan v3 1.5)
 import { readMemory } from "./ai-chat-context";
+import { xl } from "./lang-extra";
 import { jevTask, jevScore } from "./jev"; // sight-adaptive: Jev scores the NEXT round's difficulty (admin-toggleable; ok:false = stay as-is)
 
 // Belt ranking — a cumulative, all-time count of correct reads across every
@@ -272,7 +273,7 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWee
     });
     logPractice(acc);
     logActivity("read", "sight-" + sightClefRef.current, correct, miss, 90);
-    recordMemory(lang === "th" ? "อ่านโน้ตฉับพลัน" : lang === "zh" ? "视奏" : "Sight-reading", acc);
+    recordMemory(lang === "th" ? "อ่านโน้ตฉับพลัน" : lang === "zh" ? "视奏" : xl(lang, "Sight-reading"), acc);
     // Jev sight-adaptive (admin ⚡ toggle): after a round ends, one ~70-500ms
     // call scores the NEXT round step-down/stay/step-up from this round's real
     // numbers + the lifetime belt line. When it lands, the result card's clef

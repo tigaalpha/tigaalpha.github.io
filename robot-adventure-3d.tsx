@@ -15,7 +15,7 @@ import { logUsage } from "./shared-infra";
 import { openAdvRoom, MAX_PILOTS, type Net, type Peer } from "./adv-online";
 import type { ShopW } from "./ah-engine";
 
-import { pickT } from "./lang-extra";
+import { pickT, xl } from "./lang-extra";
 const AlienHuntPage = lazy(() => import("./alien-hunt").then(m => ({ default: m.AlienHuntPage })));
 const RaShipPage = lazy(() => import("./ra-cockpit"));
 const AdventureCine = lazy(() => import("./adventure-cine"));
@@ -164,7 +164,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
       </div>
       <aside className="ra-card" data-ra-card="1">
         <b>{shortName(T3(lang, cur.th, cur.en, cur.zh))}</b>
-        <small>{t("ตอน ", "Ep. ", "第")}{curIdx + 1}{lang === "zh" ? "集" : ""} · {t("ความยาก ", "Hardness ", "难度 ")}{cur.hard}</small>
+        <small>{t("ตอน ", "Ep. ", "第")}{curIdx + 1}{lang === "zh" ? "集" : xl(lang, "")} · {t("ความยาก ", "Hardness ", "难度 ")}{cur.hard}</small>
         <p>{brief ? T3(lang, ...brief) : playable(cur.id) ? "" : t("ด่านนี้กำลังสร้างเป็น 3D — เล่นแบบ 2D ได้ที่โหมด Adventure", "This map is being built in 3D — play it in 2D in Adventure for now.", "这张地图的3D版正在制作中——目前可在Adventure中玩2D版。")}</p>
         {cur.boss && cur.boss[0] !== "-" && <small>👹 {T3(lang, cur.boss[0], cur.boss[1], cur.boss[2])}</small>}
         <button className="ra-go" data-ra-play="1" disabled={!playable(cur.id) || !open(curIdx)} onClick={() => go(cur.id)}>{!open(curIdx) ? t("🔒 เคลียร์ด่านก่อนหน้า", "🔒 Clear the map before", "🔒 先通关前一关") : playable(cur.id) ? t("▶ เล่น", "▶ PLAY", "▶ 开始") : t("เร็วๆ นี้", "Coming soon", "即将推出")}</button>

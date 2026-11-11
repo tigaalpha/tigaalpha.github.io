@@ -4,6 +4,7 @@ import {
   fmtPrice, planPriceByCur, yearPriceByCur, b2bPriceByCur, b2bYearPriceByCur,
   CURRENCY_BY_LANG, trialDaysLeft, isTrialPlan, canonicalPlan,
 } from "./payment";
+import { xl, by } from "./lang-extra";
 /* ── PricingOverlay ──
    The "Choose Your Plan" modal (pricingOpen), extracted from PianoApp's inline
    JSX as part of Phase 2 componentization. Pricing/currency helpers import
@@ -39,7 +40,7 @@ export function PricingOverlay({ plan: rawPlan, profile, billCycle, setBillCycle
               <p className="pr-sub">{lc.prSub}</p>
               {(() => {
                 const yr = billCycle === "year";
-                const cur = CURRENCY_BY_LANG[lang] || "thb";
+                const cur = by(CURRENCY_BY_LANG, lang) || "thb";
                 const dispMo = (tier) => fmtPrice(cur, planPriceByCur(cur, tier));
                 const dispYr = (tier) => fmtPrice(cur, yearPriceByCur(cur, tier));
                 const dispPerMoFromYr = (tier) => {
@@ -79,7 +80,7 @@ export function PricingOverlay({ plan: rawPlan, profile, billCycle, setBillCycle
                       {/* ── B2B PLUS (Max-equivalent) ── */}
                       <div className="prtier max" style={{ position: "relative", marginTop: 6 }}>
                         <div style={{ position: "absolute", top: -10, right: 12, background: "rgba(217,119,87,.15)", border: "1px solid #d97757", color: "var(--clay-ink)", padding: "2px 10px", borderRadius: 12, fontSize: "10px", fontWeight: 800 }}>
-                          ⚡ {lang === "th" ? "แนะนำ" : lang === "zh" ? "推荐" : "Recommended"}
+                          ⚡ {lang === "th" ? "แนะนำ" : lang === "zh" ? "推荐" : xl(lang, "Recommended")}
                         </div>
                         <div className="prtier-top">
                           <div>
@@ -124,14 +125,14 @@ export function PricingOverlay({ plan: rawPlan, profile, billCycle, setBillCycle
                     <div className={`prtier max${plan === "premium" ? " cur" : ""}`}
                       style={{ border: "2.5px solid #d97757", position: "relative", marginTop: 24, paddingTop: 14 }}>
                       <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "var(--clay-btn)", color: "#fff", padding: "4px 16px", borderRadius: 20, fontSize: "11.5px", fontWeight: 500, whiteSpace: "nowrap" }}>
-                        {lang === "th" ? "⚡ ครบทุกฟีเจอร์" : lang === "zh" ? "⚡ 解锁全部功能" : "⚡ Everything unlocked"}
+                        {lang === "th" ? "⚡ ครบทุกฟีเจอร์" : lang === "zh" ? "⚡ 解锁全部功能" : xl(lang, "⚡ Everything unlocked")}
                       </div>
                       <div className="prtier-top">
                         <span className="prtier-nm">⭐ Premium</span>
                         <div style={{ textAlign: "right" }}>
                           {priceBlk("premium")}
                           <div style={{ fontSize: "9px", color: "var(--clay-ink)", fontWeight: 800, marginTop: 2 }}>
-                            ≈ {perPerson}/{lang === "th" ? "คน/เดือน" : lang === "zh" ? "人/月" : "person/mo"}
+                            ≈ {perPerson}/{lang === "th" ? "คน/เดือน" : lang === "zh" ? "人/月" : xl(lang, "person/mo")}
                           </div>
                         </div>
                       </div>
@@ -153,7 +154,7 @@ export function PricingOverlay({ plan: rawPlan, profile, billCycle, setBillCycle
                         ? <button className="songbtn" disabled>✓ {lc.prCurrent}</button>
                         : <button className="songbtn go" style={{ fontWeight: 900 }} onClick={() => startCheckout("premium", yr ? "year" : "month")}>
                             {(plan === "free" || isTrialPlan(plan))
-                              ? (lang === "th" ? "🚀 สมัคร Premium เลย" : lang === "zh" ? "🚀 立即订阅 Premium" : "🚀 Get Premium Now")
+                              ? (lang === "th" ? "🚀 สมัคร Premium เลย" : lang === "zh" ? "🚀 立即订阅 Premium" : xl(lang, "🚀 Get Premium Now"))
                               : lc.prSwitch}
                           </button>}
                     </div>

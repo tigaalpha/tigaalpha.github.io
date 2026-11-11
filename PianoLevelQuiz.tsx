@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { xl, by } from "./lang-extra";
 /* ── PianoLevelQuiz.tsx ──
    Interactive lead magnet: "What's your piano level?"
    Visitors answer 8 music-related questions → get personalized result →
@@ -175,7 +176,7 @@ function calculateResult(answers: QuizAnswer[], lang: string): QuizResult {
     ],
   };
 
-  const levels = results[lang] || results.th;
+  const levels = by(results, lang) || results.th;
   const result = levels.find((r) => totalScore >= r.range[0] && totalScore <= r.range[1]) || levels[0];
   return result;
 }
@@ -189,7 +190,7 @@ export function PianoLevelQuiz({ lang = "th" }: { lang?: string }) {
   const [leadEmail, setLeadEmail] = useState("");
   const [result, setResult] = useState<QuizResult | null>(null);
 
-  const questions = lang === "en" ? QUESTIONS_EN : QUESTIONS_TH;
+  const questions = lang === "en" ? xl(lang, QUESTIONS_EN) : QUESTIONS_TH;
   const t = {
     th: {
       title: "ทดสอบระดับเปียโนของคุณ",
@@ -229,7 +230,7 @@ export function PianoLevelQuiz({ lang = "th" }: { lang?: string }) {
     },
   };
 
-  const c = t[lang] || t.th;
+  const c = by(t, lang) || t.th;
 
   function selectAnswer(a: number) {
     const newAnswers = [...answers.filter((x) => x.q !== currentQ), { q: currentQ, a }];

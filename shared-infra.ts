@@ -1,6 +1,7 @@
 import { powerFromActivity } from "./game-power";
 import { sb } from "./supabase-client";
 import { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY, readLandingOrigin, clearLandingOrigin } from "./local-identity";
+import { xl } from "./lang-extra";
 export { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY, readLandingOrigin, clearLandingOrigin };
 /* anonId/trafficSource/uaKind and the skip-onboard flag moved VERBATIM to
    local-identity.ts, which imports nothing — the landing bundle needs them
@@ -338,5 +339,5 @@ export function kidPromptBlock(lang: string): string {
     ? "\n\n[โหมดเด็ก: ผู้เรียนอาจอายุเพียง 6 ขวบ — ใช้คำง่ายมาก ประโยคสั้น ๆ ไม่เกิน 2 ประโยค ห้ามใช้ศัพท์ทฤษฎีโดยไม่อธิบายด้วยของใกล้ตัว ใช้ชื่อโน้ต โด เร มี ฟา ซอล ลา ที คู่กับตัวอักษร และชวนให้ลองกดคีย์ทีละอย่าง ใจดีและให้กำลังใจเสมอ]"
     : lang === "zh"
     ? "\n\n[儿童模式：学习者可能只有 6 岁——用很简单的词，句子很短，最多 2 句；不解释就不用理论术语，用身边的东西打比方；音名用 Do Re Mi 加字母；一次只让他按一个键；永远温柔、多鼓励]"
-    : "\n\n[Kid mode: the learner may be only 6 years old — use very simple words and short sentences, at most 2; never use a theory word without explaining it with something from daily life; name notes Do Re Mi next to their letters; ask for one key at a time; always kind and encouraging]";
+    : xl(lang, "\n\n[Kid mode: the learner may be only 6 years old — use very simple words and short sentences, at most 2; never use a theory word without explaining it with something from daily life; name notes Do Re Mi next to their letters; ask for one key at a time; always kind and encouraging]");
 }

@@ -9,7 +9,7 @@ import { logActivity, logUsage, LINE_OA_URL } from "./shared-infra";
 import { nextStarGoal } from "./play-along-judge";
 import { useWeekly } from "./play-along-online";
 
-import { pickT } from "./lang-extra";
+import { pickT, xl, by } from "./lang-extra";
 /** "Song of the week" line for the ready screen: shown only when the chosen song is this week's, with the top of the board. Honour only, pays nothing. */
 function WeeklyLine({ songId, T }: { songId: string; T: (th: string, en: string, zh: string) => string }) {
   const w = useWeekly();
@@ -193,7 +193,7 @@ const PaBoss = memo(function PaBoss({ store, bossMax, lang }) {
       {/* plan 2.4: the engine's verdict when the boss falls — real run numbers, 3 languages; hides honestly when no engine answered */}
       {hp <= 0 && verdict && <div className="tigatipbar song" key={verdict.id}>
         <span className="tigatipbadge">🧠 TIGA</span>
-        <span>{verdict.text[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || verdict.text.en}</span>
+        <span>{by(verdict.text, lang) || verdict.text.en}</span>
       </div>}
     </>
   );
@@ -242,7 +242,7 @@ const FINGER_NAME = { th: ["", "นิ้วโป้ง", "นิ้วชี�
 const PaHands = memo(function PaHands({ store, handMode, lang }) {
   const hf = useGameField(store, "songHandFingers") || { right: null, left: null };
   const hands = handMode === "both" ? ["left", "right"] : [handMode === "left" ? "left" : "right"];
-  const names = FINGER_NAME[lang] || FINGER_NAME.en;
+  const names = by(FINGER_NAME, lang) || FINGER_NAME.en;
   return (
     <div className={"pl-hands" + (hands.length > 1 ? " two" : hands[0] === "right" ? " rt" : " lf")} aria-hidden="true">
       {hands.map(h => (
@@ -404,7 +404,7 @@ function MedalRow({ tier = 0, gained = [], lang }) {
       {[1, 2, 3, 4].map(t => (
         <span key={t} className={"pl-medalslot" + (t <= tier ? " on" : "") + (gained.includes(t) ? " new" : "")} style={gained.includes(t) ? { animationDelay: (0.9 + gained.indexOf(t) * 0.35) + "s" } : undefined}>
           <i className={"pl-medal m" + t} />
-          <small>{(MEDAL_NAME[lang] || MEDAL_NAME.en)[t]}</small>
+          <small>{(by(MEDAL_NAME, lang) || MEDAL_NAME.en)[t]}</small>
         </span>
       ))}
     </div>
@@ -703,11 +703,11 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                   : T("เป้าหมายถัดไป: แม่น 50% ได้ 1 ดาว", "Next goal: 50% accuracy for your first star", "下一个目标：准确率 50% 得第一颗星")}
             </div>
             {songTigaTip && songTigaTip.tip && (
-              <div className="pl-tip"><span className="pl-tip-badge">TIGA</span> {songTigaTip.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || songTigaTip.tip.en}</div>
+              <div className="pl-tip"><span className="pl-tip-badge">TIGA</span> {by(songTigaTip.tip, lang) || songTigaTip.tip.en}</div>
             )}
             {/* plan v3.4 6.3 — KB-grounded next-song advice (one step up + a real weak-spot tip) */}
             {songTigaTip && songTigaTip.nextSong && songTigaTip.nextSong.tip && (
-              <div className="pl-tip"><span className="pl-tip-badge">TIGA</span> {songTigaTip.nextSong.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || songTigaTip.nextSong.tip.en}</div>
+              <div className="pl-tip"><span className="pl-tip-badge">TIGA</span> {by(songTigaTip.nextSong.tip, lang) || songTigaTip.nextSong.tip.en}</div>
             )}
             {worstSeg && !drillCleared.includes(worstSeg.idx) && (
               <button className="pl-drillbtn" onClick={() => startDrill(worstSeg)}>
@@ -782,7 +782,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
                     ? `🏆 ฉันทำได้ ${songResult.acc}% ใน "${tr(songMeta, lang)}" บน TIGA ALPHA — แกสู้ได้ไหม? ${link}`
                     : lang === "zh"
                     ? `🏆 我在TIGA ALPHA弹 "${tr(songMeta, lang)}" 得了 ${songResult.acc}%，你能超过我吗？${link}`
-                    : `🏆 I scored ${songResult.acc}% on "${tr(songMeta, lang)}" in TIGA ALPHA — can you beat me? ${link}`;
+                    : xl(lang, `🏆 I scored ${songResult.acc}% on "${tr(songMeta, lang)}" in TIGA ALPHA — can you beat me? ${link}`);
                   try { navigator.clipboard.writeText(txt); } catch (_) {}
                   shareLine(txt);
                 }}>
@@ -841,7 +841,7 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
               {Array.isArray(kShelf) && kShelf.length ? kShelf.map((k, i) => (
                 <div key={i} className="kshelf-item">
                   <span className="kshelf-key">{k.pc}</span>
-                  <span className="kshelf-txt">{lang === "th" ? (k.th || k.text) : lang === "zh" ? (k.zh || k.text) : (k.en || k.text)}</span>
+                  <span className="kshelf-txt">{lang === "th" ? (k.th || k.text) : lang === "zh" ? (k.zh || k.text) : (xl(lang, k.en || k.text))}</span>
                 </div>
               )) : <div className="kshelf-empty">{T("เล่นให้แม่นเพื่อเก็บการ์ดความรู้!", "Nail perfect hits to collect fact cards!", "弹得准就能收集知识卡片！")}</div>}
             </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 
+import { by } from "./lang-extra";
 /* ── ReferralDashboard.tsx ──
    Referral program UI for existing Tiga Studio students.
    Students get a unique referral code → share with friends → 
@@ -102,7 +103,7 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
     },
   };
 
-  const c = t[lang] || t.th;
+  const c = by(t, lang) || t.th;
 
   useEffect(() => {
     // Load or generate referral code

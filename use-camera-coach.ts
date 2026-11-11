@@ -8,6 +8,7 @@ import { queuedUntilTiga } from "./tiga-gateway";   // tigamodel loads lazy (pla
 import { freshGameState, gameStep, missionView, missionSolvedPraise, scoreRank, comboTier, praiseFor, rankUpPraise } from "./camera-coach-game";
 import { API_MODEL } from "./App";
 import { speakCloud, speakDeviceOrNative, stopSpeaking, stopCloudTTS } from "./speech";
+import { xl } from "./lang-extra";
 import { jevTask, jevChoice } from "./jev"; // coach-focus: Jev picks the critique's lead cue (admin-toggleable; ok:false = built-in priority)
 /* ── use-camera-coach.ts ──
    Owns the hand-posture camera coach: live MediaPipe hand-landmark
@@ -192,7 +193,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
         ? "คุณคือครูเปียโนผู้เชี่ยวชาญ ดูรูปมือ/ท่านั่งของผู้เรียนที่กำลังเล่นเปียโน แล้วให้คำแนะนำสั้นๆ อบอุ่น 2-4 ข้อ เรื่องท่ามือ การวางนิ้ว ข้อมือ ท่านั่ง ชมสิ่งที่ดีก่อนแล้วบอกจุดที่ควรปรับ นอกจากภาพแล้วคุณจะได้ตัวเลขความโค้งของนิ้ว ระดับข้อมือ และนิ้วโป้งที่วัดจากกล้องแบบเรียลไทม์ด้วย ใช้ประกอบกับสิ่งที่เห็นในภาพ ตอบเป็นภาษาไทย ห้ามใช้มาร์กดาวน์"
         : lang === "zh"
         ? "你是专业钢琴老师。看学员弹琴的手型/坐姿照片，给出2-4条简短温暖的建议：手型、指法、手腕、坐姿。先表扬再指出可改进处。除了照片，你还会收到摄像头实时测得的手指弯曲度、手腕水平度和拇指位置数据，请结合两者判断。用中文回答，不要markdown"
-        : "You are an expert piano teacher. Look at this photo of the learner's hands/posture at the piano and give 2-4 short, warm tips on hand shape, finger placement, wrist and posture. Praise first, then what to adjust. Alongside the photo you'll also get real-time finger-curl, wrist-level, and thumb-position measurements from the camera — use them together with what you see in the image. Reply in plain text, no markdown.";
+        : xl(lang, "You are an expert piano teacher. Look at this photo of the learner's hands/posture at the piano and give 2-4 short, warm tips on hand shape, finger placement, wrist and posture. Praise first, then what to adjust. Alongside the photo you'll also get real-time finger-curl, wrist-level, and thumb-position measurements from the camera — use them together with what you see in the image. Reply in plain text, no markdown.");
       const { hands: handCount, avgRoundness, wristDroop: wd, thumbTuck } = camLastRoundRef.current;
       // Jev coach-focus (admin ⚡ toggle): instead of the hardcoded roundness >
       // wrist > thumb priority, one ~70-500ms call picks which measured signal
@@ -215,13 +216,13 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
         if (f === "roundness" || f === "wrist" || f === "thumb" || f === "praise") jevFocus = f;
       }
       const geomTxt = !handCount
-        ? (lang === "th" ? "ข้อมูลกล้องเรียลไทม์: ไม่พบมือในเฟรมล่าสุด" : lang === "zh" ? "实时摄像头数据：最近一帧未检测到手" : "Real-time camera data: no hand detected in the latest frame")
+        ? (lang === "th" ? "ข้อมูลกล้องเรียลไทม์: ไม่พบมือในเฟรมล่าสุด" : lang === "zh" ? "实时摄像头数据：最近一帧未检测到手" : xl(lang, "Real-time camera data: no hand detected in the latest frame"))
         : (lang === "th" ? `ข้อมูลกล้องเรียลไทม์: พบ ${handCount} มือ, คะแนนความโค้งนิ้วเฉลี่ย ${avgRoundness.toFixed(2)}/1.00 (0=นิ้วเหยียดแบน, 1=โค้งดี), ข้อมือ${wd > 0.15 ? "ตกลงเล็กน้อย" : "อยู่ในระดับดี"}, นิ้วโป้ง${thumbTuck ? "หุบเข้าไปหน่อย" : "ผ่อนคลายดี"}`
           : lang === "zh" ? `实时摄像头数据：检测到${handCount}只手，平均手指弯曲度 ${avgRoundness.toFixed(2)}/1.00（0=手指伸直平放，1=弯曲良好），手腕${wd > 0.15 ? "略微下垂" : "水平良好"}，拇指${thumbTuck ? "收得有点紧" : "放松良好"}`
-          : `Real-time camera data: ${handCount} hand(s) detected, average finger-curl score ${avgRoundness.toFixed(2)}/1.00 (0 = flat, 1 = well-curved), wrist ${wd > 0.15 ? "drooping slightly" : "at a good level"}, thumb ${thumbTuck ? "tucked in a bit" : "relaxed"}`);
-      const body = { model: API_MODEL, max_tokens: 500, system: sys + THEORY_REF + (jevFocus ? (lang === "th" ? `\n\n[ระบบตัดสินใจ Jev ชี้ว่าคำติชมนี้ควรเริ่มจากประเด็น "${jevFocus}" ก่อน — อธิบายประเด็นนี้เป็นข้อแรก สั้นและชัด]` : lang === "zh" ? `\n\n[Jev 决策指出这条点评应首先聚焦 "${jevFocus}"——把这一点放在第一条建议]` : `\n\n[Jev's decision layer says this critique should LEAD with the "${jevFocus}" cue — make it your first, shortest, clearest point.]`) : ""), feature: "camera", messages: [{ role: "user", content: [
+          : xl(lang, `Real-time camera data: ${handCount} hand(s) detected, average finger-curl score ${avgRoundness.toFixed(2)}/1.00 (0 = flat, 1 = well-curved), wrist ${wd > 0.15 ? "drooping slightly" : "at a good level"}, thumb ${thumbTuck ? "tucked in a bit" : "relaxed"}`));
+      const body = { model: API_MODEL, max_tokens: 500, system: sys + THEORY_REF + (jevFocus ? (lang === "th" ? `\n\n[ระบบตัดสินใจ Jev ชี้ว่าคำติชมนี้ควรเริ่มจากประเด็น "${jevFocus}" ก่อน — อธิบายประเด็นนี้เป็นข้อแรก สั้นและชัด]` : lang === "zh" ? `\n\n[Jev 决策指出这条点评应首先聚焦 "${jevFocus}"——把这一点放在第一条建议]` : xl(lang, `\n\n[Jev's decision layer says this critique should LEAD with the "${jevFocus}" cue — make it your first, shortest, clearest point.]`)) : ""), feature: "camera", messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
-        { type: "text", text: geomTxt + "\n\n" + (lang === "th" ? "ดูมือผมแล้วแนะนำหน่อยครับ" : lang === "zh" ? "看看我的手，给点建议" : "Check my hands and give feedback.") }
+        { type: "text", text: geomTxt + "\n\n" + (lang === "th" ? "ดูมือผมแล้วแนะนำหน่อยครับ" : lang === "zh" ? "看看我的手，给点建议" : xl(lang, "Check my hands and give feedback.")) }
       ] }] };
       const reply = (await fetchChatCompletion(body)).trim();
       const text = reply || lc.err;
@@ -333,10 +334,10 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
         if (!cancelled) {
           // say WHY: the overlay used to show one generic line for a refused camera, a missing camera and a model that could not be downloaded
           const n = e && e.name || "";
-          const why = n === "NotAllowedError" || n === "SecurityError" ? (lang === "th" ? "ยังไม่ได้อนุญาตให้ใช้กล้อง — เปิดสิทธิ์กล้องของเบราว์เซอร์สำหรับเว็บนี้แล้วกดลองใหม่" : lang === "zh" ? "尚未允许使用摄像头——请在浏览器中为本网站开启摄像头权限后重试" : "Camera permission is not allowed — enable the camera for this site in your browser, then try again")
-            : n === "NotFoundError" ? (lang === "th" ? "ไม่พบกล้องในเครื่องนี้" : lang === "zh" ? "未找到摄像头" : "No camera was found on this device")
-            : n === "NotReadableError" ? (lang === "th" ? "กล้องถูกแอปอื่นใช้อยู่ — ปิดแอปนั้นแล้วลองใหม่" : lang === "zh" ? "摄像头正被其他应用占用——请关闭后重试" : "The camera is in use by another app — close it and try again")
-            : (lang === "th" ? "โหลดโมเดลตรวจมือไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วกดลองใหม่" : lang === "zh" ? "手部模型下载失败——请检查网络后重试" : "The hand model could not be downloaded — check your connection and try again");
+          const why = n === "NotAllowedError" || n === "SecurityError" ? (lang === "th" ? "ยังไม่ได้อนุญาตให้ใช้กล้อง — เปิดสิทธิ์กล้องของเบราว์เซอร์สำหรับเว็บนี้แล้วกดลองใหม่" : lang === "zh" ? "尚未允许使用摄像头——请在浏览器中为本网站开启摄像头权限后重试" : xl(lang, "Camera permission is not allowed — enable the camera for this site in your browser, then try again"))
+            : n === "NotFoundError" ? (lang === "th" ? "ไม่พบกล้องในเครื่องนี้" : lang === "zh" ? "未找到摄像头" : xl(lang, "No camera was found on this device"))
+            : n === "NotReadableError" ? (lang === "th" ? "กล้องถูกแอปอื่นใช้อยู่ — ปิดแอปนั้นแล้วลองใหม่" : lang === "zh" ? "摄像头正被其他应用占用——请关闭后重试" : xl(lang, "The camera is in use by another app — close it and try again"))
+            : (lang === "th" ? "โหลดโมเดลตรวจมือไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วกดลองใหม่" : lang === "zh" ? "手部模型下载失败——请检查网络后重试" : xl(lang, "The hand model could not be downloaded — check your connection and try again"));
           try { console.warn("hand coach:", n, e && e.message); } catch (e2) {}
           setCamMsg(why); camMsgRef.current = why; setCamStatus("error");
         }

@@ -27,7 +27,7 @@ import { ItemArt } from "./item-art";
 import { SpaceStage, prefetchSpace } from "./space-stage";
 import { Sprite } from "./sprite";
 
-import { pickT } from "./lang-extra";
+import { pickT, xl } from "./lang-extra";
 /* ══════════════════════ species ══════════════════════ */
 
 /* ── the type wheel ──
@@ -2109,7 +2109,7 @@ const STAT_TEXT = {
   mood:   { th: "อารมณ์", en: "Mood", zh: "心情" },
 };
 
-const tr3 = (o, lang) => (o ? (lang === "th" ? o.th : lang === "zh" ? o.zh : o.en) : "");
+const tr3 = (o, lang) => (o ? (lang === "th" ? o.th : lang === "zh" ? o.zh : xl(lang, o.en)) : "");
 
 /** A small burst of emoji at the pet, so a tap always produces something. */
 function useCareFx() {
@@ -2424,7 +2424,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
               <span className="pcf-art"><PetThumb species={sel.id} px={74} /></span>
               <div className="pcf-b">
                 <b>{tr3(sel, lang)}</b>
-                <p>{lang === "th" ? sel.dth : lang === "zh" ? sel.dzh : sel.den}</p>
+                <p>{lang === "th" ? sel.dth : lang === "zh" ? sel.dzh : xl(lang, sel.den)}</p>
                 <div className="pcf-tags">
                   <span style={{ "--tc": PET_TYPES[sel.type].c }}>{tr3(PET_TYPES[sel.type], lang)}</span>
                   <span>{T("ของโปรด", "Favourite", "最爱")}: {tr3(foodById(sel.food), lang)}</span>

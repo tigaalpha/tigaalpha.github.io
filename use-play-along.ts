@@ -28,7 +28,7 @@ import { paintWorld, getWorld, composeStage, drawStageFx, rollStageTheme } from 
 import { receiveWindow, judgeOffset, accuracyOf, starsFor, nextStarGoal, pressIsMash, calibrate, comboMult as comboMultOf, bossHp as bossHpOf, bossHit, POINTS, WEIGHT, MASH_WINDOW, CALIB_HITS, feverAt, comboMarkExp, medalOf, MEDAL_REWARD, runCoins, RUN_COIN_RUNS, chestChance, runPlayed, megaAt, replayExp } from "./play-along-judge";
 import { recordSongResult, songStars, songBestAcc, claimDaily, readDailyState, DAILY_SONG_REWARD, beatsPerBarOf, nextSongAfter, recordMedal, countRunToday, songPlayCount, bumpPlayCount } from "./play-along-progress";
 
-import { pickT } from "./lang-extra";
+import { pickT, xl, by } from "./lang-extra";
 /* ── PLAN v3.8 ระลอก 12 (12.1) — the share signal JoyIndex reads ──
    One row into the unified journal (k="share") from the same shared-
    infrastructure every other mode reports to, plus a usage event. Called
@@ -194,7 +194,7 @@ function textSprite(key, lines, dpr) {
   return sp;
 }
 function judgeSprite(kind, el, lang, dpr) {
-  const words = JUDGE_WORD[lang] || JUDGE_WORD.en;
+  const words = by(JUDGE_WORD, lang) || JUDGE_WORD.en;
   const [color, glow] = JUDGE_COLOR[kind] || JUDGE_COLOR.good;
   const lines = [{ text: words[kind] || kind, size: kind === "perfect" ? 20 : 17, color, glow }];
   if (el) lines.push({ text: words[el], size: 11, weight: 600, color: el === "early" ? "#8ff3ff" : "#ffb38f" });
@@ -755,7 +755,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     setSongIntro(null);
     if (next) {
       chooseSong(next, { noIntro: true });
-      announce(lang === "th" ? "เก่งมาก! ต่อด้วยเพลงจริงเลย" : lang === "zh" ? "太棒了！来弹真的歌吧" : "Nice! Now the real song");
+      announce(lang === "th" ? "เก่งมาก! ต่อด้วยเพลงจริงเลย" : lang === "zh" ? "太棒了！来弹真的歌吧" : xl(lang, "Nice! Now the real song"));
     } else exitSong();
   }
   // Setlist / Concert mode — queue up 2-5 songs and land on the first one's

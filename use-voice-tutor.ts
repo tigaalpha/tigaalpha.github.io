@@ -17,6 +17,7 @@ import { jevTask, jevChoice, jevNoul } from "./jev";
 import { dayKey, logActivity } from "./shared-infra";
 import { SONGS } from "./songs-data";
 import { curriculumContext, songRecommendationHint, setLessonPlanLS, buildAlternatingHistory, levelInfo, vmDisplayText } from "./App";
+import { xl, by } from "./lang-extra";
 /* ── use-voice-tutor.ts ──
    Owns the AI Voice Tutor: the turn-based, hands-free voice lesson.
    Originally Android-app-only (openVoice()/startVoiceSession() gated on
@@ -251,7 +252,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   async function prefetchFillers() {
     vmFillersRef.current = [];
     if (vmFastRef.current || vmCloudDeadRef.current) return;   // device voice: skip (no cached clips)
-    const list = VM_FILLERS[lang] || VM_FILLERS.en;
+    const list = by(VM_FILLERS, lang) || VM_FILLERS.en;
     for (const t of list) {
       try { const clips = await fetchCloudClips(t, lang); if (clips && clips[0]) vmFillersRef.current.push({ buf: clips[0], text: t }); } catch (e) {}
       if (!vmActiveRef.current) return;
@@ -294,7 +295,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     if (vmIdleNudgedRef.current) return;
     if (Date.now() - vmLastActivityRef.current < VM_IDLE_MS) return;
     vmIdleNudgedRef.current = true;
-    const list = VM_IDLE_NUDGE[lang] || VM_IDLE_NUDGE.en;
+    const list = by(VM_IDLE_NUDGE, lang) || VM_IDLE_NUDGE.en;
     const line = list[Math.floor(Math.random() * list.length)];
     // the recognizer stays live through this (still "listening") — mute its
     // results while our own voice is in the air, plus a short tail for echo/reverb
@@ -455,7 +456,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     const s = (t || "").trim().toLowerCase().replace(/[.,!?…。！？]+$/g, "");
     if (!s) return false;
     const lg = langRef.current;
-    const list = VM_HESIT[lg] || VM_HESIT.en;
+    const list = by(VM_HESIT, lg) || VM_HESIT.en;
     if (lg === "en") { const last = s.split(/\s+/).pop(); return list.includes(last); }
     return list.some(w => s.endsWith(w));
   }
@@ -600,19 +601,19 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     const meta = (session && session.user && session.user.user_metadata) || {};
     const nm = (profile && profile.full_name) || meta.full_name || meta.name || "";
     const lg = langRef.current;
-    const tierName = li.tier[lg] || li.tier.en;
+    const tierName = by(li.tier, lg) || li.tier.en;
     const ld = (profile && profile.lessons_done) || 0;
-    const lbl = lg === "th" ? "ข้อมูลผู้เรียน" : lg === "zh" ? "学员信息" : "Student profile";
+    const lbl = lg === "th" ? "ข้อมูลผู้เรียน" : lg === "zh" ? "学员信息" : xl(lg, "Student profile");
     const parts = [];
-    if (nm) parts.push((lg === "th" ? "ชื่อ: " : lg === "zh" ? "姓名: " : "Name: ") + nm);
-    parts.push((lg === "th" ? "ระดับ: " : lg === "zh" ? "等级: " : "Level: ") + li.level + " (" + tierName + ")");
-    parts.push((lg === "th" ? "เรียนจบ " : lg === "zh" ? "已完成 " : "Lessons done: ") + ld + (lg === "th" ? " บท" : lg === "zh" ? " 节" : ""));
+    if (nm) parts.push((lg === "th" ? "ชื่อ: " : lg === "zh" ? "姓名: " : xl(lg, "Name: ")) + nm);
+    parts.push((lg === "th" ? "ระดับ: " : lg === "zh" ? "等级: " : xl(lg, "Level: ")) + li.level + " (" + tierName + ")");
+    parts.push((lg === "th" ? "เรียนจบ " : lg === "zh" ? "已完成 " : xl(lg, "Lessons done: ")) + ld + (lg === "th" ? " บท" : lg === "zh" ? " 节" : xl(lg, "")));
     // live lesson stats — a human teacher keeps score of the whole session, not just the last attempt
     const ok = vmTallyOkRef.current, ms = vmTallyMissRef.current;
-    if (ok + ms > 0) parts.push((lg === "th" ? "คาบนี้เล่นถูก " + ok + " / พลาด " + ms + " โน้ต" : lg === "zh" ? "本课已弹对 " + ok + " 音 / 弹错 " + ms + " 音" : "This session: " + ok + " correct / " + ms + " missed notes"));
+    if (ok + ms > 0) parts.push((lg === "th" ? "คาบนี้เล่นถูก " + ok + " / พลาด " + ms + " โน้ต" : lg === "zh" ? "本课已弹对 " + ok + " 音 / 弹错 " + ms + " 音" : xl(lg, "This session: " + ok + " correct / " + ms + " missed notes")));
     // the lesson clock — lets the teacher pace the session and wrap up on time
     const mins = vmSessionStartRef.current ? Math.floor((Date.now() - vmSessionStartRef.current) / 60000) : 0;
-    if (mins >= 1) parts.push(lg === "th" ? "เวลาเรียนผ่านไป " + mins + " นาที" : lg === "zh" ? "本课已进行 " + mins + " 分钟" : "Lesson running " + mins + " min");
+    if (mins >= 1) parts.push(lg === "th" ? "เวลาเรียนผ่านไป " + mins + " นาที" : lg === "zh" ? "本课已进行 " + mins + " 分钟" : xl(lg, "Lesson running " + mins + " min"));
     return "\n\n[" + lbl + ": " + parts.join(" · ") + "]";
   }
   // stream the reply; call onSentence(chunk) as soon as each complete sentence

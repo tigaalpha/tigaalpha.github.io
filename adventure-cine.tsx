@@ -11,7 +11,7 @@ import { speakNarration, stopSpeaking } from "./speech";
 import { logUsage } from "./shared-infra";
 import { gfxHigh } from "./adv-gfx";
 
-import { pickT } from "./lang-extra";
+import { pickT, by } from "./lang-extra";
 const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
@@ -378,7 +378,7 @@ export function cinePlan(P: any, short?: boolean): CineShot[] {
   const p = basePlan(P, short).map((q: any) => {
     if (q.kind === "objective") return q;
     let need = 0; const PP = P.finale ? { ...P, __theme: q.theme } : P;
-    for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / SPEAK_CPS[lg] + 0.3); } catch (e) {} }
+    for (const lg of ["th", "en", "zh"]) { try { const c = captionFor(PP, q.kind, lg); if (c) need = Math.max(need, c.length / by(SPEAK_CPS, lg) + 0.3); } catch (e) {} }
     return { ...q, dur: Math.round(Math.max(need > 0 ? 0 : q.dur * 0.6, 1.8, need) * 10) / 10 };
   });
   // Players who saw the opening film before it taught the controls still get the how-to shot once, in their next map's film.

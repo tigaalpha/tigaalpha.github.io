@@ -29,6 +29,7 @@
 
 import { trialLenDays, isTrialPlan, canonicalPlan, PLAN_PRICE, yearPrice } from "./payment";
 
+import { by } from "./lang-extra";
 /* ══ WHICH COPY A TRIAL GETS ══════════════════════════════════════════════
    There is one answer now. The funnel used to split on the promotion cohort —
    first 10,000 signups were quoted Max at ฿3,999, everyone after the cap was
@@ -55,7 +56,7 @@ export function trialYearPriceThb(_plan) { return fmtThb(yearPrice("premium")); 
 export function trialTierName(_plan) { return "Premium"; }
 /* The plan the closing CTA should open checkout for — the only sellable tier. */
 export function convCheckoutTier(_plan) { return "premium"; }
-export function convCopyFor(lang, _plan) { return CONV_COPY[lang] || CONV_COPY.en; }
+export function convCopyFor(lang, _plan) { return by(CONV_COPY, lang) || CONV_COPY.en; }
 
 /* ── the funnel copy, built from the tier ──────────────────────────────────
 

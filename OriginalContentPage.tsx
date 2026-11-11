@@ -23,7 +23,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { loadOriginalManifest, loadOriginalPage, loadOriginalSong, resetOriginalCache, ORIGINAL_SHELF } from "./originals-store";
 import type { OriginalMeta } from "./originals-store";
 
-import { pickT } from "./lang-extra";
+import { pickT, xl, by } from "./lang-extra";
 /* ── the families ────────────────────────────────────────────────────────────
    Chosen so that every piece lands in exactly one family per axis and no
    family can be empty: the modes are grouped by how they sound, not listed one
@@ -167,7 +167,7 @@ export default function OriginalContentPage({ lang, onBack, onPlay, level = 1, e
       <button key={s.id} className="songcard" style={{ "--sc": `hsl(${hue},70%,56%)` } as any} onClick={() => play(s)}>
         <div className="songcard-ic">{loading ? "⏳" : s.sty ? "🎷" : "✨"}</div>
         <div className="songcard-body">
-          <div className="songcard-nm">{s[lang] || s.en}</div>
+          <div className="songcard-nm">{by(s, lang) || s.en}</div>
           <div className="songcard-meta">
             <span className="songcard-got">{"★".repeat(4 - s.diff)}{"☆".repeat(s.diff - 1)}</span>
             <span className="songcard-lv">{T("ระดับ", "Lv", "难度")} {s.diff}</span>
@@ -231,7 +231,7 @@ export default function OriginalContentPage({ lang, onBack, onPlay, level = 1, e
           ? `หมวดนี้ในหน้านี้ ${list.length.toLocaleString()} เพลง (จากที่โหลดมา ${rows.length.toLocaleString()} จากทั้งหมด ${total.toLocaleString()})`
           : lang === "zh"
             ? `本页此分类 ${list.length.toLocaleString()} 首（已加载 ${rows.length.toLocaleString()} / 共 ${total.toLocaleString()}）`
-            : `${list.length.toLocaleString()} here (from ${rows.length.toLocaleString()} of ${total.toLocaleString()} loaded)`}
+            : xl(lang, `${list.length.toLocaleString()} here (from ${rows.length.toLocaleString()} of ${total.toLocaleString()} loaded)`)}
       </div>}
 
       <div className="songgrid">

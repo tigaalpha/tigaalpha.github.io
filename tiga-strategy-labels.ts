@@ -1,4 +1,5 @@
-/* ── tiga-strategy-labels.ts — split out of tigamodel/web.js (plan v3 1.5) ──
+
+import { by } from "./lang-extra";/* ── tiga-strategy-labels.ts — split out of tigamodel/web.js (plan v3 1.5) ──
    The Practice result screen reads the strategy badge DURING RENDER, which
    used to pin the whole ~1.18 MB tigamodel tree into the main chunk. The
    vocabulary is pure data + one pure function, so it lives here as a light
@@ -18,5 +19,5 @@ export const TIGA_STRATEGY_LABELS = {
 };
 export function tigaStrategyLabel(id, lang) {
   const t = TIGA_STRATEGY_LABELS[id];
-  return t ? (t[lang] || t.en) : null;
+  return t ? (by(t, lang) || t.en) : null;
 }

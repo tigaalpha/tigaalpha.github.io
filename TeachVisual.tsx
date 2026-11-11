@@ -1,5 +1,6 @@
 import { memo } from "react";
 
+import { xl } from "./lang-extra";
 /* ── TeachVisual.tsx — Auto Teaching 2.0 visual engine (plan §4.3) ──
    All-SVG, zero dependencies, theme-aware via the app's CSS variables
    (light/dark safe — same approach as TigamodelLab). Two families:
@@ -65,7 +66,7 @@ function KeyboardBase({ miss = {}, highlights = [] }) {
 
 const MiniKeyboard = memo(function MiniKeyboard({ miss, lang }) {
   const total = Object.values(miss || {}).reduce((a, b) => a + (b || 0), 0);
-  const cap = lang === "th" ? `โน้ตที่พลาดบ่อย (ทั้งหมด ${total} ครั้ง)` : lang === "zh" ? `常错音（共${total}次）` : `Most-missed notes (${total} total)`;
+  const cap = lang === "th" ? `โน้ตที่พลาดบ่อย (ทั้งหมด ${total} ครั้ง)` : lang === "zh" ? `常错音（共${total}次）` : xl(lang, `Most-missed notes (${total} total)`);
   return <Svg label={cap}><KeyboardBase miss={miss} /></Svg>;
 });
 
@@ -98,7 +99,7 @@ const AccuracyBars = memo(function AccuracyBars({ days, lang }) {
 const DonutProgress = memo(function DonutProgress({ pct, label, lang }) {
   const R = 30, CIRC = 2 * Math.PI * R;
   const v = Math.max(0, Math.min(100, pct || 0));
-  const cap = lang === "th" ? "ความคืบหน้า" : lang === "zh" ? "进度" : "Progress";
+  const cap = lang === "th" ? "ความคืบหน้า" : lang === "zh" ? "进度" : xl(lang, "Progress");
   return (
     <Svg label={cap}>
       <circle cx={46} cy={46} r={R} fill="none" stroke={C.line} strokeWidth={9} />
@@ -115,8 +116,8 @@ const BeforeAfter = memo(function BeforeAfter({ before, after, label, lang }) {
   const b = Math.max(0, Math.min(100, before ?? 0));
   const a = Math.max(0, Math.min(100, after ?? 0));
   const delta = Math.round(a - b);
-  const cap = lang === "th" ? "ก่อน" : lang === "zh" ? "之前" : "Before";
-  const cap2 = lang === "th" ? "หลังซ้อมตามคำแนะนำ" : lang === "zh" ? "按建议练习后" : "After coaching";
+  const cap = lang === "th" ? "ก่อน" : lang === "zh" ? "之前" : xl(lang, "Before");
+  const cap2 = lang === "th" ? "หลังซ้อมตามคำแนะนำ" : lang === "zh" ? "按建议练习后" : xl(lang, "After coaching");
   return (
     <Svg label="before after">
       <text x={0} y={16} fontSize={9.5} fill={C.muted}>{cap}</text>
@@ -159,7 +160,7 @@ const RhythmGrid = memo(function RhythmGrid({ beats, lang }) {
         );
       })}
       <text x={320} y={86} textAnchor="end" fontSize={8.5} fill={C.muted}>
-        {lang === "th" ? "ตัวหนา = จังหวะหนัก" : lang === "zh" ? "深色 = 重拍" : "dark = strong beat"}
+        {lang === "th" ? "ตัวหนา = จังหวะหนัก" : lang === "zh" ? "深色 = 重拍" : xl(lang, "dark = strong beat")}
       </text>
     </Svg>
   );
@@ -183,10 +184,10 @@ const HalfSteps = memo(function HalfSteps({ notes, lang }) {
       <text x={x0 + W + 46 + W / 2} y={48} textAnchor="middle" fontSize={17} fontWeight={800} fill={C.text}>{b}</text>
       <text x={x0 + W + 23} y={48} textAnchor="middle" fontSize={15} fontWeight={800} fill={C.accent}>½</text>
       <text x={x0 + W + 23} y={64} textAnchor="middle" fontSize={8} fill={C.muted}>
-        {lang === "th" ? "ไม่มีดำคั่น" : lang === "zh" ? "无黑键" : "no black key"}
+        {lang === "th" ? "ไม่มีดำคั่น" : lang === "zh" ? "无黑键" : xl(lang, "no black key")}
       </text>
       <text x={160} y={88} textAnchor="middle" fontSize={8.5} fill={C.muted}>
-        {lang === "th" ? "คู่เดียวกัน: B–C" : lang === "zh" ? "另一对: B–C" : "the other pair: B–C"}
+        {lang === "th" ? "คู่เดียวกัน: B–C" : lang === "zh" ? "另一对: B–C" : xl(lang, "the other pair: B–C")}
       </text>
     </Svg>
   );

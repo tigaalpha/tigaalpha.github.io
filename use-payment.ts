@@ -3,6 +3,7 @@ import { isPremium, getPlan, effectivePlan, setPlanLS, setPremiumLS, CURRENCY_BY
 import { getAC, playUi } from "./music-engine";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { apiHeaders } from "./ai-backend";
+import { by } from "./lang-extra";
 /* ── use-payment.ts ──
    Owns PianoApp's payment/plan state and handlers: the live premium/plan
    (kept in sync with the server-authoritative profile), the pricing-modal
@@ -105,7 +106,7 @@ export function usePayment({ profile, session, setProfile, lang, mascot, require
     if (requireLogin()) return; // buying a plan means tying it to a real account
     playUi("click"); setPricingOpen(false);
     const yr = cycle === "year";
-    const cur = CURRENCY_BY_LANG[lang] || "thb";
+    const cur = by(CURRENCY_BY_LANG, lang) || "thb";
     const disp = yr ? yearPriceByCur(cur, planId) : planPriceByCur(cur, planId);
     setCheckout({ plan: planId, amount: yr ? yearPrice(planId) : (PLAN_PRICE[planId] || 0), disp, cur, cycle, days: yr ? 365 : 30 });
   }

@@ -42,6 +42,11 @@ export const CREAM_CSS = FACES + `
 :root{--muted:#6e6a60;
   --f-app:"Prompt","Noto Sans Thai","Sukhumvit Set","Thonburi","Leelawadee UI",system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
   --f-num:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Prompt","Noto Sans Thai",monospace}
+/* ja / ko / ru (owner 2026-11-11): Japanese kanji and Korean hangul get their own system faces first, so a kanji is not drawn in its Simplified-Chinese form
+   and the Prompt face (Thai + Latin only) does not stand in front of Cyrillic. The document language comes from <html lang>. */
+:root:lang(ja){--f-app:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic","Noto Sans JP","Meiryo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+:root:lang(ko){--f-app:"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR","Nanum Gothic",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+:root:lang(ru){--f-app:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
 .tg{
   --clay:#d97757;--clay-d:#c4623f;--clay-ink:#a8502f;
   /* buttons: a shade richer than the brand terracotta so a white label on them can be read */

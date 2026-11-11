@@ -2,6 +2,7 @@ import { L, FLAGS, FLAG_NAMES } from "./i18n";
 import { tigaTherapyDisclaimer } from "./tiga-gateway"; // plan v3.4 11.4 — lazy-safe forward, null until tigamodel lands
 import { GamePiano, StaffNotes, playUi, getAC } from "./music-engine";
 import { VM_VOICES } from "./speech";
+import { xl, by } from "./lang-extra";
 /* ── VoiceTutorOverlay ──
    The AI Voice Tutor full-screen overlay (vmOpen), extracted verbatim from
    PianoApp's inline JSX as part of Phase 2 componentization — no logic
@@ -17,7 +18,7 @@ export function VoiceTutorOverlay({ lang, setLang, vmLangOpen, setVmLangOpen, ex
      likely to hear something heavier than a lesson, so it carries the
      KB-grounded trilingual disclaimer (honest-null until the model loads). */
   const vtDisclaimer = tigaTherapyDisclaimer(lang);
-  const backLbl = lang === "th" ? "กลับหน้า Studio" : lang === "zh" ? "返回工作室" : "Back to Studio";
+  const backLbl = lang === "th" ? "กลับหน้า Studio" : lang === "zh" ? "返回工作室" : xl(lang, "Back to Studio");
   return (
         <div className="songov vmov">
           <div className="songhdr">
@@ -86,7 +87,7 @@ export function VoiceTutorOverlay({ lang, setLang, vmLangOpen, setVmLangOpen, ex
                         <span className="vmspeed-lbl">{lc.vmVoiceLbl}</span>
                         {VM_VOICES.map(v => (
                           <button key={v.k} className={`vmspeed-b${vmVoice === v.k ? " on" : ""}`}
-                            onClick={() => { setVmVoice(v.k); try { localStorage.setItem("tg_vmvoice", v.k); } catch (e) {} playUi("click"); }}>{v[lang] || v.en}</button>
+                            onClick={() => { setVmVoice(v.k); try { localStorage.setItem("tg_vmvoice", v.k); } catch (e) {} playUi("click"); }}>{by(v, lang) || v.en}</button>
                         ))}
                       </div>
                       <button className="vmvoicetgl" onClick={() => { const v = !vmFast; setVmFast(v); vmFastRef.current = v; if (!v) vmCloudDeadRef.current = false; }}>
@@ -112,7 +113,7 @@ export function VoiceTutorOverlay({ lang, setLang, vmLangOpen, setVmLangOpen, ex
                   <button className="vmtextsend" type="submit" aria-label="send">➤</button>
                 </form>
                 {vtDisclaimer && (
-                  <div className="songsrcbar" style={{ color: "var(--text2)" }}>{vtDisclaimer[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || vtDisclaimer.en}</div>
+                  <div className="songsrcbar" style={{ color: "var(--text2)" }}>{by(vtDisclaimer, lang) || vtDisclaimer.en}</div>
                 )}
                 <div className="songsrcbar">{lc.vmHint}</div>
                 <button className={`vmbig${vmState !== "idle" && vmState !== "error" ? " stop" : ""}`} onClick={vmToggle}>

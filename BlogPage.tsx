@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { sb } from "./supabase-client";
 
-import { pickT } from "./lang-extra";
+import { pickT, xl } from "./lang-extra";
 /* Blog (owner 2026-10-31): articles in Thai, English and Mandarin, written only by the top admin (AdminBlog.tsx) and stored in public.blog_posts.
    The body is plain text with a tiny markup: "# " / "## " headings, "- " bullets, **bold**, [text](https://link) and ![alt](https://image) — rendered as React elements, never as HTML. */
 export const BLOG_CATS: { id: string; icon: string; th: string; en: string; zh: string }[] = [
@@ -11,7 +11,7 @@ export const BLOG_CATS: { id: string; icon: string; th: string; en: string; zh: 
   { id: "news", icon: "📣", th: "ข่าวและประกาศ", en: "News", zh: "新闻公告" },
   { id: "story", icon: "✨", th: "เรื่องราว", en: "Stories", zh: "故事" },
 ];
-export const catName = (id: string, lang: string) => { const c = BLOG_CATS.find(x => x.id === id) || BLOG_CATS[0]; return c.icon + " " + (lang === "th" ? c.th : lang === "zh" ? c.zh : c.en); };
+export const catName = (id: string, lang: string) => { const c = BLOG_CATS.find(x => x.id === id) || BLOG_CATS[0]; return c.icon + " " + (lang === "th" ? c.th : lang === "zh" ? c.zh : xl(lang, c.en)); };
 export const readMins = (t: string) => Math.max(1, Math.round(((t || "").length) / (/[\u0E00-\u0E7F\u4E00-\u9FFF]/.test(t || "") ? 450 : 1100)));
 export type BlogPost = { id: string; lang: string; slug: string; category?: string; title: string; excerpt: string; body: string; cover_url: string | null; published: boolean; created_at: string; updated_at: string };
 const safeUrl = (u: string) => /^https:\/\/[^\s"'<>]+$/i.test(u) ? u : "";
@@ -39,7 +39,7 @@ export function BlogBody({ text }: { text: string }) {
   }
   flush(); return <div>{els}</div>;
 }
-const fmtDate = (d: string, lang: string) => { try { return new Date(d).toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { year: "numeric", month: "short", day: "numeric" }); } catch (e) { return ""; } };
+const fmtDate = (d: string, lang: string) => { try { return new Date(d).toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : xl(lang, "en-GB"), { year: "numeric", month: "short", day: "numeric" }); } catch (e) { return ""; } };
 
 /* Reader counts (owner 2026-11-07, supabase-blog-views-migration.sql): opening an article counts one view per device per day (public.blog_hit, the same call the static pages make) and the
    number is shown beside the date; the list shows it on every card. A random id of this browser (tg_blog_vid, never an account) is the "device". Every call fails soft: until the migration
@@ -51,7 +51,7 @@ const blogVid = () => {
   try { let v = localStorage.getItem("tg_blog_vid") || ""; if (!okId(v)) { v = memVid || mk(); localStorage.setItem("tg_blog_vid", v); } memVid = v; return v; }
   catch (e) { if (!okId(memVid)) memVid = mk(); return memVid; }   // no storage: one id for this tab, so a reader is one device, not one per article
 };
-const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US") + " " + (lang === "th" ? "ยอดวิว" : lang === "zh" ? "次浏览" : "views");
+const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : xl(lang, "en-US")) + " " + (lang === "th" ? "ยอดวิว" : lang === "zh" ? "次浏览" : xl(lang, "views"));
 
 export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }) {
   const T = (th, en, zh) => pickT(lang, th, en, zh);
@@ -112,7 +112,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
             <button className="songbtn ghost" onClick={() => setOpen(null)} style={{ marginBottom: 12 }}>← {T("กลับ", "Back", "返回")}</button>
             {open.cover_url && safeUrl(open.cover_url) && <img src={safeUrl(open.cover_url)} alt="" style={{ width: "100%", borderRadius: 14, marginBottom: 12 }} />}
             <h1 style={{ fontSize: 26, lineHeight: 1.3, margin: "4px 0 6px" }}>{open.title}</h1>
-            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>{catName(open.category || "tips", open.lang)} · {fmtDate(open.created_at, open.lang)} · {readMins(open.body)} {open.lang === "th" ? "นาที" : open.lang === "zh" ? "分钟" : "min read"}{openViews ? <span data-blog-views> · {viewsText(openViews, open.lang)}</span> : null}</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>{catName(open.category || "tips", open.lang)} · {fmtDate(open.created_at, open.lang)} · {readMins(open.body)} {open.lang === "th" ? "นาที" : open.lang === "zh" ? "分钟" : xl(open.lang, "min read")}{openViews ? <span data-blog-views> · {viewsText(openViews, open.lang)}</span> : null}</div>
             <BlogBody text={open.body} />
           </article>
         ) : posts === null ? (

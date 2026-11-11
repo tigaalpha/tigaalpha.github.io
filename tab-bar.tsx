@@ -22,6 +22,7 @@ import { memo } from "react";
 import { BookOpen, Piano, Sparkles, Swords } from "lucide-react";
 import { RobotGlyph } from "./cyber-avatar";
 
+import { xl } from "./lang-extra";
 export const TABS = [
   { k: "learn", page: "pathway", Icon: BookOpen, th: "เส้นทาง", en: "Pathway", zh: "学习路径" },
   { k: "practice", page: "studio", Icon: Piano, th: "ฝึกซ้อม", en: "Practice", zh: "练习" },
@@ -41,9 +42,9 @@ export const tabFor = (page) => FAMILY[page] || null;
 export const TabBar = memo(function TabBar({ page, lang, onGo }) {
   const cur = tabFor(page);
   if (!cur) return null;
-  const L = (t) => (lang === "th" ? t.th : lang === "zh" ? t.zh : t.en);
+  const L = (t) => (lang === "th" ? t.th : lang === "zh" ? t.zh : xl(lang, t.en));
   return (
-    <nav className="tabbar" aria-label={lang === "th" ? "เมนูหลัก" : lang === "zh" ? "主导航" : "Main"}>
+    <nav className="tabbar" aria-label={lang === "th" ? "เมนูหลัก" : lang === "zh" ? "主导航" : xl(lang, "Main")}>
       {TABS.map((t) => {
         const on = cur === t.k;
         return (
