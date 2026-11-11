@@ -13,7 +13,7 @@
 -- unknown articles and malformed ids, but no anonymous endpoint can stop a determined script, so it is a vanity counter and nothing may pay for it.
 
 create table if not exists public.blog_hits (
-  lang  text not null check (lang in ('th','en','zh')),
+  lang  text not null check (lang in ('th','en','zh','ja','ko','ru')),
   slug  text not null check (char_length(slug) between 1 and 200),
   vid   text not null check (vid ~ '^[A-Za-z0-9_-]{8,64}$'),
   day   date not null default ((now() at time zone 'Asia/Bangkok')::date),
@@ -27,7 +27,7 @@ alter table public.blog_hits enable row level security;       -- no policy on pu
 
 -- the all-time number shown on the page, kept as one row per article so a page load never has to count thousands of rows
 create table if not exists public.blog_view_totals (
-  lang  text not null check (lang in ('th','en','zh')),
+  lang  text not null check (lang in ('th','en','zh','ja','ko','ru')),
   slug  text not null,
   views bigint not null default 0,
   primary key (lang, slug)
@@ -45,6 +45,13 @@ create table if not exists public.blog_day_budget (
 );
 alter table public.blog_day_budget enable row level security;
 
+-- Japanese, Korean and Russian (owner, 2026-11-11): the language checks above allow six languages. If this file was applied BEFORE that date the two tables already exist with the old
+-- three-language check (create table if not exists does not touch them), so the checks are replaced here; on a fresh run this is a no-op in effect. Re-runnable.
+alter table public.blog_hits drop constraint if exists blog_hits_lang_check;
+alter table public.blog_hits add constraint blog_hits_lang_check check (lang in ('th','en','zh','ja','ko','ru'));
+alter table public.blog_view_totals drop constraint if exists blog_view_totals_lang_check;
+alter table public.blog_view_totals add constraint blog_view_totals_lang_check check (lang in ('th','en','zh','ja','ko','ru'));
+
 -- the tables are reached only through the functions below: take every direct grant away (RLS has no policy, this also closes TRUNCATE)
 revoke all on public.blog_hits, public.blog_view_totals, public.blog_day_budget from anon, authenticated;
 
@@ -54,7 +61,7 @@ returns bigint
 language plpgsql security definer set search_path = '' as $$
 declare n bigint; added int; spent int; today date := ((now() at time zone 'Asia/Bangkok')::date);
 begin
-  if p_lang is null or p_lang not in ('th','en','zh') then return -1; end if;
+  if p_lang is null or p_lang not in ('th','en','zh','ja','ko','ru') then return -1; end if;
   if p_kind is null or p_kind not in ('view','read','gate','click') then return -1; end if;
   if p_slug is null or char_length(p_slug) not between 1 and 200 then return -1; end if;
   if p_vid is null or p_vid !~ '^[A-Za-z0-9_-]{8,64}$' then return -1; end if;
@@ -85,7 +92,7 @@ create or replace function public.blog_view_counts(p_lang text)
 returns table (slug text, views bigint)
 language sql stable security definer set search_path = '' as $$
   select v.slug, v.views from public.blog_view_totals v
-   where v.lang = p_lang and p_lang in ('th','en','zh')
+   where v.lang = p_lang and p_lang in ('th','en','zh','ja','ko','ru')
      and exists (select 1 from public.blog_posts b where b.lang = v.lang and b.slug = v.slug and b.published);   -- a take-down article's slug and number are not listed
 $$;
 revoke all on function public.blog_view_counts(text) from public;

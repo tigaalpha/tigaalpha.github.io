@@ -30,7 +30,12 @@
   --key-w: #ffffff;
   --key-w-bd: #d4cfc5;
   --key-b: #1b1917;
-  --font: "Noto Sans Thai", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Japanese and Korean faces sit after the Latin / Thai stack and before the
+     generic fallback (2026-11-11): the <html lang> already steers a phone to
+     its own CJK font, but Windows and desktop Linux would otherwise fall back
+     to whichever CJK font they happen to list first. Cyrillic needs nothing —
+     every system font in the stack carries it. */
+  --font: "Noto Sans Thai", system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
   --mark: "Orbitron", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
@@ -98,22 +103,29 @@ body {
 }
 .lp-kicker { font-size: 11.5px; color: var(--muted); letter-spacing: .04em; }
 
-/* ── the three-flag language switcher, top right ──
-   All three are always visible rather than hidden behind a menu: the point of
-   a flag is that you spot your own at a glance, which a dropdown defeats. Same
-   three flags as the app's settings panel, so a returning visitor recognises
-   the control instantly. */
+/* ── the six-flag language switcher ──
+   All six are always visible rather than hidden behind a menu: the point of a
+   flag is that you spot your own at a glance, which a dropdown defeats. Same
+   six flags as the app's settings panel, so a returning visitor recognises the
+   control instantly.
+
+   With three pills this sat top right on the brand's row. Six do not fit there
+   on any phone (measured: a 320 px screen scrolled sideways), so the control
+   now owns the row under the brand: six equal segments across the full width,
+   flag and short name side by side, or stacked on a phone narrower than
+   420 px. .lp-top wraps for it; the "open in browser" button keeps the brand's
+   row. */
 .lp-langs {
-  margin-left: auto; display: flex; gap: 2px; padding: 2px;
+  order: 3; flex: 1 0 100%; min-width: 0;
+  display: flex; gap: 2px; padding: 2px;
   background: var(--card2); border: 1px solid var(--line); border-radius: 999px;
 }
 
 /* ── "open in browser" ──
-   Sits under the flags on the right, so the top row keeps the brand on the
-   left and every control on the right. .lp-top wraps for it rather than the
-   button competing with the flags for the same line on a narrow phone. */
+   Sits at the right end of the brand's row, above the language segments, so
+   the button never competes with the six language pills for one line. */
 .lp-openbtn {
-  order: 4; margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+  order: 2; margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
   font: inherit; font-size: 12px; font-weight: 600; line-height: 1;
   padding: 7px 11px; border-radius: 999px; cursor: pointer;
   background: var(--card2); color: var(--muted);
@@ -148,10 +160,12 @@ body {
 }
 .lp-lang {
   border: 0; background: transparent; cursor: pointer;
-  /* 42x32 rather than the 38x26 this started at — a flag is a thumb target on
+  /* Six equal segments, each at least 32 px tall — a flag is a thumb target on
      a phone, not a desktop menu item. */
-  padding: 8px 11px; border-radius: 999px; line-height: 1;
-  font-size: 16px; opacity: .45; transition: opacity .15s, background .15s;
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  padding: 8px 4px; border-radius: 999px; line-height: 1;
+  font: inherit; font-size: 16px; opacity: .45; transition: opacity .15s, background .15s;
 }
 .lp-lang:hover { opacity: .8; }
 .lp-lang.on { opacity: 1; background: var(--card); box-shadow: 0 1px 3px #0000001f; }
@@ -472,9 +486,24 @@ a.lp-btn { text-decoration: none; }  /* the first-song button is a real link */
 .lp-askfree, .lp-chiphint { font-size: 13px; color: var(--text2); }
 .lp-sub { font-size: 15px; }
 .lp-proof { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 16px; margin: 18px 0 0; }
-.lp-proof div { flex: 0 0 auto; padding: 0; border: 0; background: none; border-radius: 0; display: flex; align-items: baseline; gap: 5px; }
+/* flex-shrink / min-width: a long caption (English at 320 px, Russian and Korean
+   at 320-360 px) used to push the page wider than the screen; it now wraps
+   inside the strip instead of scrolling sideways. */
+.lp-proof div { flex: 0 1 auto; min-width: 0; max-width: 100%; padding: 0; border: 0; background: none; border-radius: 0; display: flex; align-items: baseline; gap: 5px; }
 .lp-proof b { display: inline; font-size: 15px; }
-.lp-proof span { font-size: 13px; color: var(--text2); }
-.lp-langcode { font-size: 11px; margin-left: 3px; color: var(--text2); }
-.lp-top{flex-wrap:nowrap}
+.lp-proof span { font-size: 13px; color: var(--text2); min-width: 0; }
+.lp-langcode { font-size: 11px; color: var(--text2); white-space: nowrap; }
+.lp-top{flex-wrap:wrap;gap:8px}
 @media (max-width:480px){.lp-top .lp-kicker{display:none}}
+/* Phones narrower than 420 px: flag over its name, so "日本語" and "한국어" fit
+   six across even at 320 px. */
+@media (max-width:420px){
+  .lp-lang { flex-direction: column; gap: 3px; padding: 6px 1px 5px; border-radius: 16px; }
+  .lp-langcode { font-size: 10.5px; }
+  .lp-langs { border-radius: 20px; }
+}
+/* Korean wraps between words, never inside one (the default would break a
+   word mid-syllable-run at a line end); Japanese breaks at natural phrases
+   where the browser supports it. Both only change where a line is cut. */
+:lang(ko) .lp { word-break: keep-all; }
+:lang(ja) .lp-h1, :lang(ja) .lp-sub { word-break: auto-phrase; }
