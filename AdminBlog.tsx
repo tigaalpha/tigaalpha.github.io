@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { sb } from "./supabase-client";
-import { BlogBody, BlogPost, BLOG_CATS, catName } from "./BlogPage";
+import { BlogBody, BlogPost, BLOG_CATS, catName, catLabel } from "./BlogPage";
 import { BlogStatsCard } from "./AdminBlogStats";
 
-import { pickT } from "./lang-extra";
-/* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin, with a category, a cover picture, pictures inside the text and links.
+import { pickT, ALL_LANGS, LANG_META } from "./lang-extra";
+/* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin / Japanese / Korean / Russian (the last three need supabase-blog-ja-ko-ru-migration.sql, otherwise the table refuses them), with a category, a cover picture, pictures inside the text and links.
    Rendered only for admin_tier >= 3 (App.tsx); the table's and the image bucket's RLS (public.is_top_admin()) refuse anyone else even if this screen were reached. */
 const slugOf = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 const EMPTY = { id: "", lang: "th", category: "tips", slug: "", title: "", excerpt: "", body: "", cover_url: "", published: false };
@@ -59,7 +59,7 @@ export function AdminBlog({ lang }: { lang: string }) {
       const row: any = { lang: f.lang, category: f.category, slug, title: f.title.trim(), excerpt: f.excerpt.trim(), body: f.body, cover_url: f.cover_url.trim() || null, published: publish === undefined ? f.published : publish, updated_at: new Date().toISOString() };
       const q = f.id ? sb.from("blog_posts").update(row).eq("id", f.id) : sb.from("blog_posts").insert({ ...row, author_id: u && u.user ? u.user.id : null });
       const { error } = await q;
-      if (error) { say(/duplicate|unique/i.test(error.message) ? T("มีบทความภาษานี้ที่ใช้ลิงก์สั้นนี้แล้ว ลองเปลี่ยนลิงก์สั้น", "An article in this language already uses this slug — change the slug", "该语言下已有相同链接名的文章，请更换") : error.message); return; }
+      if (error) { say(/blog_posts_lang_check/i.test(error.message) ? T("ฐานข้อมูลยังไม่รองรับภาษานี้ — รัน supabase-blog-ja-ko-ru-migration.sql ก่อน", "The database does not accept this language yet — run supabase-blog-ja-ko-ru-migration.sql first", "数据库尚未支持该语言 — 请先运行 supabase-blog-ja-ko-ru-migration.sql") : /duplicate|unique/i.test(error.message) ? T("มีบทความภาษานี้ที่ใช้ลิงก์สั้นนี้แล้ว ลองเปลี่ยนลิงก์สั้น", "An article in this language already uses this slug — change the slug", "该语言下已有相同链接名的文章，请更换") : error.message); return; }
       say(publish ? T("เผยแพร่แล้ว ✓", "Published ✓", "已发布 ✓") : T("บันทึกแล้ว ✓", "Saved ✓", "已保存 ✓"), true); setF(null); await load();
     } catch (e: any) { say(String(e && e.message || e)); } finally { setBusy(false); }
   }
@@ -75,8 +75,8 @@ export function AdminBlog({ lang }: { lang: string }) {
       {!f ? (<>
         <BlogStatsCard lang={lang} range="30" own />
         <button className="songbtn" data-blog-new onClick={() => { setF({ ...EMPTY }); setPrev(false); setMsg(null); }} style={{ marginBottom: 12, width: "100%", padding: "14px 0", fontSize: 16 }}>＋ {T("เขียนบทความใหม่", "Write a new article", "写新文章")}</button>
-        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-          {([["all", T("ทั้งหมด", "All", "全部")], ["th", "ไทย"], ["en", "English"], ["zh", "中文"]] as const).map(([l, n]) => <button key={l} type="button" onClick={() => setFilt(l)} className={filt === l ? "songbtn" : "songbtn ghost"} style={{ flex: 1, padding: "8px 0" }}>{n}</button>)}
+        <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+          {([["all", T("ทั้งหมด", "All", "全部")], ...ALL_LANGS.map(l => [l, LANG_META[l].name])] as [string, string][]).map(([l, n]) => <button key={l} type="button" data-blog-filter={l} onClick={() => setFilt(l)} className={filt === l ? "songbtn" : "songbtn ghost"} style={{ flex: "1 0 auto", padding: "8px 10px" }}>{n}</button>)}
         </div>
         {rows === null ? "…" : shownRows.length === 0 ? <div style={{ color: "var(--muted)", padding: 16, textAlign: "center" }}>{T("ยังไม่มีบทความ กด “เขียนบทความใหม่” เพื่อเริ่ม", "No articles yet — tap “Write a new article” to start", "暂无文章，点“写新文章”开始")}</div> : shownRows.map(r => (
           <div key={r.id} data-blog-row style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--card)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 12, padding: "10px 12px", marginBottom: 8 }}>
@@ -92,12 +92,12 @@ export function AdminBlog({ lang }: { lang: string }) {
       </>) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={lab}>1 · {T("ภาษาของบทความ", "Article language", "文章语言")}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {["th", "en", "zh"].map(l => <button key={l} type="button" data-blog-setlang={l} onClick={() => set("lang", l)} className={f.lang === l ? "songbtn" : "songbtn ghost"} style={{ flex: 1 }}>{l === "th" ? "ไทย" : l === "en" ? "English" : "中文"}</button>)}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {ALL_LANGS.map(l => <button key={l} type="button" data-blog-setlang={l} onClick={() => set("lang", l)} className={f.lang === l ? "songbtn" : "songbtn ghost"} style={{ flex: "1 0 auto" }}>{LANG_META[l].name}</button>)}
           </div>
           <div style={lab}>2 · {T("หมวดหมู่", "Category", "分类")}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {BLOG_CATS.map(c => <button key={c.id} type="button" onClick={() => set("category", c.id)} className={f.category === c.id ? "songbtn" : "songbtn ghost"} style={{ padding: "8px 12px" }}>{c.icon} {lang === "th" ? c.th : lang === "zh" ? c.zh : c.en}</button>)}
+            {BLOG_CATS.map(c => <button key={c.id} type="button" onClick={() => set("category", c.id)} className={f.category === c.id ? "songbtn" : "songbtn ghost"} style={{ padding: "8px 12px" }}>{c.icon} {catLabel(c, lang)}</button>)}
           </div>
           <div style={lab}>3 · {T("หัวข้อ", "Title", "标题")}</div>
           <input style={{ ...inp, fontSize: 18, fontWeight: 700 }} placeholder={T("หัวข้อบทความ", "Article title", "文章标题")} value={f.title} onChange={e => set("title", e.target.value)} />

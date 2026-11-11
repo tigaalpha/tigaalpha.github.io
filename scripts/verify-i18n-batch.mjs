@@ -44,7 +44,8 @@ for (const row of src) {
     if (digits(row.en) && digits(t) !== digits(row.en) && !/[０-９]/.test(t)) wrn(row.k, lg, `digits ${digits(row.en)} -> ${digits(t)}`);
     // the English was not just copied back, unless it is a name/number/symbol string
     if (letters && !SCRIPT[lg].test(t)) {
-      const allKeep = KEEP.some(w => row.en.trim() === w) || /^[\W\d_A-Z]{1,6}$/.test(row.en.trim());
+      const bare = row.en.replace(/[^\p{L}\d ]/gu, "").trim().toLowerCase();
+      const allKeep = KEEP.some(w => bare === w.toLowerCase()) || /^[\W\d_A-Z]{1,6}$/.test(row.en.trim());   // a product name (with or without an emoji) stays Latin
       if (!allKeep) bad(row.k, lg, "not written in " + lg);
     }
     for (const w of KEEP) if (w.length > 3 && row.en.includes(w) && !t.includes(w)) wrn(row.k, lg, `brand "${w}" missing`);

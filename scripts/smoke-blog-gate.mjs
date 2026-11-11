@@ -13,7 +13,10 @@ fs.writeFileSync(path.join(tmp, "posts.json"), JSON.stringify(posts));
 const server = http.createServer((q, s) => { let f = path.join(tmp, decodeURIComponent(q.url.split("?")[0])); if (fs.existsSync(f) && fs.statSync(f).isDirectory()) f = path.join(f, "index.html"); if (!fs.existsSync(f)) { s.writeHead(404); return s.end("nf"); } s.writeHead(200, { "content-type": f.endsWith(".html") ? "text/html; charset=utf-8" : "text/plain" }); s.end(fs.readFileSync(f)); });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
 const ORIGIN = "http://127.0.0.1:" + server.address().port;
-execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_FIXTURE: path.join(tmp, "posts.json"), BLOG_OUT: out, SITE_URL: ORIGIN }, stdio: "pipe" });
+execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_FIXTURE: path.join(tmp, "posts.json"), BLOG_OUT: out, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
+// Since 43e18595a the generator no longer bakes the th / en / zh index pages (the on-demand function renders them from the database), so this test writes them the same way the function does.
+{ process.env.SITE_URL = ORIGIN; const { indexHtml } = await import(pathToFileURL(path.join(ROOT, "scripts/build-blog-pages.mjs")).href + "?idx=" + Date.now());
+  for (const lang of ["th", "en", "zh"]) fs.writeFileSync(path.join(out, lang, "index.html"), indexHtml(lang, posts)); }
 const pwm = await import("playwright").catch(async () => import(pathToFileURL(path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "playwright/index.js")).href)); const pw = pwm.chromium ? pwm : pwm.default;
 const browser = await pw.chromium.launch({ executablePath: process.env.CHROMIUM_PATH || (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined) });
 const errs = [];

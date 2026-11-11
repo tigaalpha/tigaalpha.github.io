@@ -10,7 +10,7 @@ import { pickT } from "./lang-extra";
 const LET = ["C", "D", "E", "F", "G", "A", "B"] as const;
 const NPC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const NAMES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-export type Lang = "th" | "en" | "zh";
+export type Lang = "th" | "en" | "zh" | "ja" | "ko" | "ru";
 const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 
 /** A note spelled from a root and a number of semitones, with the right letter for its degree. */

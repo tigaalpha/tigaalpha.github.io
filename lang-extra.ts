@@ -62,6 +62,14 @@ export function setCatalog(lang: string, cat: Cat) {
   subs.forEach(f => { try { f(); } catch (e) {} });
 }
 
+/* what goes into a {n} hole: a value the code wrote in English that has a fixed local form (1st, 2nd, 3rd ... -> 1番目 / 1번째 / 1-й) */
+function holeText(lang: string, v: string): string {
+  const m = /^(\d+)(st|nd|rd|th)$/.exec(v);
+  if (m) return lang === "ja" ? m[1] + "番目" : lang === "ko" ? m[1] + "번째" : m[1] + "-й";
+  if (v === "s" || v === "es") return "";   // the English plural suffix: ja / ko / ru have no such ending, and their translation puts the hole where it would have been
+  return v;
+}
+
 /* the English text -> the text in `lang`, or the English itself when the catalog has no entry */
 export function xlate(lang: string, en: string): string {
   if (typeof en !== "string" || !isExtraLang(lang)) return en;
@@ -79,7 +87,7 @@ export function xlate(lang: string, en: string): string {
     const p = list[i], r = p.re.exec(en);
     if (!r) continue;
     const byHole: Record<number, string> = {};
-    p.holes.forEach((h, j) => { byHole[h] = r[j + 1]; });
+    p.holes.forEach((h, j) => { byHole[h] = holeText(lang, r[j + 1]); });
     out = p.to.replace(/\{(\d+)\}/g, (_x, n) => (byHole[+n] !== undefined ? byHole[+n] : "{" + n + "}"));
     break;
   }

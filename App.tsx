@@ -3718,7 +3718,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   );
 }
 import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
-import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, by } from "./lang-extra";
+import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog } from "./lang-extra";
 import { useCatalog } from "./use-catalog";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
@@ -11122,14 +11122,19 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // setLang(), which persists the choice.
   const LANG_PICKER_ENABLED = false;
   const [langPickerOpen, setLangPickerOpen] = useState(LANG_PICKER_ENABLED && !profile.lang);
+  useEffect(() => { try { localStorage.setItem("tg_lang_hint", lang); } catch (e) {} }, [lang]);
   function setLang(lg) {
-    setLangState(lg);
-    if (session && session.user && session.user.id) {
-      sb.from("profiles").update({ lang: lg }).eq("id", session.user.id).then(() => {}, () => {});
-    } else {
-      saveGuestProfile({ ...profile, lang: lg });
-    }
-    setProfile(p => ({ ...p, lang: lg }));
+    // a Japanese / Korean / Russian catalog is a lazy chunk: the language switches once it is here, so nothing is drawn from English first
+    const apply = () => {
+      setLangState(lg);
+      if (session && session.user && session.user.id) {
+        sb.from("profiles").update({ lang: lg }).eq("id", session.user.id).then(() => {}, () => {});
+      } else {
+        saveGuestProfile({ ...profile, lang: lg });
+      }
+      setProfile(p => ({ ...p, lang: lg }));
+    };
+    if (isExtraLang(lg)) loadCatalog(lg).then(apply, apply); else apply();
   }
   const lc = L[lang];
   const T = (th, en, zh) => pickT(lang, th, en, zh);

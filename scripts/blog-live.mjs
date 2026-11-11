@@ -1,7 +1,7 @@
 // On-demand blog HTML. Reads published rows only. Never writes a post, a slug, or a queue.
 import fs from "node:fs";
 import { articleHtml, feedXml, indexHtml, relatedPosts } from "./build-blog-pages.mjs";
-import { fromQuery, notFoundHtml, pickPost, sitemapBlogXml } from "./blog-paths.mjs";
+import { BLOG_LANGS, STATIC_BLOG_LANGS, fromQuery, notFoundHtml, pickPost, sitemapBlogXml } from "./blog-paths.mjs";
 
 const src = fs.readFileSync(new URL("../supabase-client.ts", import.meta.url), "utf8");
 export const BLOG_API_URL = (/SUPABASE_URL = "([^"]+)"/.exec(src) || [])[1];
@@ -56,6 +56,12 @@ export async function fetchPublishedMeta(fetchImpl) {
   return all;
 }
 
+/* ja / ko / ru (owner 2026-11-11): their articles are committed files (blog-src/), NOT database rows, until supabase-blog-ja-ko-ru-migration.sql is applied.
+   The build therefore writes a real blog/<lang>/index.html, page/N/index.html and feed.xml for them, and Vercel serves a file in dist/ BEFORE any rewrite, so this function is never asked for
+   those URLs while the files exist. This function does NOT read blog-src at runtime on purpose: it is a serverless bundle that only includes supabase-client.ts (vercel.json "functions"),
+   and a file that is not in the bundle cannot be read there. What it does if it IS reached for one of these indexes or feeds (a build that wrote no file, or a page number past the files):
+   it lists the database rows, and when there are none it answers 404 + noindex, never an empty 200 list that search engines could keep in place of the real page.
+   An article published in the database after the last build is still served here like any other language; the static index shows it at the next deploy. */
 // Same HTML for every caller. The user agent is not an input.
 export async function serveBlog(query, fetchImpl) {
   const parsed = fromQuery(query);
@@ -63,6 +69,7 @@ export async function serveBlog(query, fetchImpl) {
     let list;
     try { list = await fetchLangRows(parsed.lang, fetchImpl); }
     catch { return result(503, notFoundHtml(), MISS); }
+    if (!list.length && STATIC_BLOG_LANGS.includes(parsed.lang)) return result(404, notFoundHtml(), MISS);
     if (parsed.kind === "feed") {
       return result(200, feedXml(parsed.lang, list), {
         "content-type": "application/rss+xml; charset=utf-8",
@@ -85,7 +92,7 @@ export async function serveBlog(query, fetchImpl) {
   const post = pickPost(rows, parsed.lang, parsed.hint);
   if (!post) return result(404, notFoundHtml(), MISS);
   const set = {};
-  for (const row of rows) if (row.lang === "th" || row.lang === "en" || row.lang === "zh") set[row.lang] = row;
+  for (const row of rows) if (BLOG_LANGS.includes(row.lang)) set[row.lang] = row;
   let related = [];
   try { related = relatedPosts(await fetchLangRows(post.lang, fetchImpl), post); }
   catch { related = []; }

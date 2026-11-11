@@ -99,14 +99,15 @@ export const GUEST_PROFILE_KEY = "tg_guest_profile";
    usage_events row ("signed_up_landing", item_id "landing-en" …), then
    clears it — one-shot, so re-logins never overwrite the original answer.
    Lives in this module (imports nothing) so the landing bundle can use it
-   without dragging supabase-js in. Value: "th" | "en" | "zh" only. */
+   without dragging supabase-js in. Value: one of th, en, zh, ja, ko, ru. */
 export const LANDING_ORIGIN_KEY = "tg_landing_origin";
+const LAND_LANGS = /^(th|en|zh|ja|ko|ru)$/;   // ja / ko / ru joined th / en / zh on 2026-11-11
 export function stampLandingOrigin(lg) {
-  if (lg !== "th" && lg !== "en" && lg !== "zh") return;
+  if (!LAND_LANGS.test(String(lg))) return;
   try { localStorage.setItem(LANDING_ORIGIN_KEY, lg); } catch (e) {}
 }
 export function readLandingOrigin() {
-  try { const v = localStorage.getItem(LANDING_ORIGIN_KEY); return (v === "th" || v === "en" || v === "zh") ? v : null; } catch (e) { return null; }
+  try { const v = localStorage.getItem(LANDING_ORIGIN_KEY); return LAND_LANGS.test(String(v)) ? v : null; } catch (e) { return null; }
 }
 export function clearLandingOrigin() { try { localStorage.removeItem(LANDING_ORIGIN_KEY); } catch (e) {} }
 

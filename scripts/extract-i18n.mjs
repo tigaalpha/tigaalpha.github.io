@@ -60,6 +60,29 @@ for (const rel of files) {
       const en = a.length >= 4 ? strOf(a[2]) : strOf(a[1]);
       if (en) add(en.s, rel, en.dyn);
     }
+    // xl(lang, <English>): the English branch of a hand-written `lang === "th" ? .. : lang === "zh" ? .. : <English>` ternary (scripts/codemod-lang.mjs)
+    if (node.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "xl" && node.arguments.length === 2) {
+      const en = strOf(node.arguments[1]);
+      if (en && !/^(en|th|zh|ja|ko|ru)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn);
+    }
+    // { th: {..}, en: {..}, zh: {..} } dictionaries (a whole table per language, read back as MAP[lang]): every string leaf of the English table
+    if (node.type === "ObjectExpression" && rel !== "i18n.ts") {
+      let hasTh = false, hasZh = false, enNode = null;
+      for (const p of node.properties) {
+        if (p.type !== "ObjectProperty") continue;
+        const k = keyOf(p);
+        if (k === "th") hasTh = true; else if (k === "zh") hasZh = true; else if (k === "en") enNode = p.value;
+      }
+      if (hasTh && hasZh && enNode && (enNode.type === "ObjectExpression" || enNode.type === "ArrayExpression")) {
+        const leaves = n => {
+          if (!n) return;
+          if (n.type === "ObjectExpression") for (const q of n.properties) { if (q.type === "ObjectProperty") leaves(q.value); }
+          else if (n.type === "ArrayExpression") for (const el of n.elements) leaves(el);
+          else { const v = strOf(n); if (v && v.s.length >= 2) add(v.s, rel + "#table", v.dyn); }
+        };
+        leaves(enNode);
+      }
+    }
     if (node.type === "ObjectExpression") {
       let th = null, en = null, zh = null;
       for (const p of node.properties) {

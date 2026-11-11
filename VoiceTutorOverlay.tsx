@@ -2,7 +2,7 @@ import { L, FLAGS, FLAG_NAMES } from "./i18n";
 import { tigaTherapyDisclaimer } from "./tiga-gateway"; // plan v3.4 11.4 — lazy-safe forward, null until tigamodel lands
 import { GamePiano, StaffNotes, playUi, getAC } from "./music-engine";
 import { VM_VOICES } from "./speech";
-import { xl, by } from "./lang-extra";
+import { xl, by, ALL_LANGS } from "./lang-extra";
 /* ── VoiceTutorOverlay ──
    The AI Voice Tutor full-screen overlay (vmOpen), extracted verbatim from
    PianoApp's inline JSX as part of Phase 2 componentization — no logic
@@ -35,7 +35,7 @@ export function VoiceTutorOverlay({ lang, setLang, vmLangOpen, setVmLangOpen, ex
                 </button>
                 {vmLangOpen && (
                   <div className="flagmenu">
-                    {["th", "en", "zh"].map(lg => (
+                    {ALL_LANGS.map(lg => (
                       <button key={lg} className={`flagitem${lang === lg ? " active" : ""}`}
                         onClick={() => { setLang(lg); setVmLangOpen(false); playUi("click"); }}>
                         <span>{FLAGS[lg]}</span>

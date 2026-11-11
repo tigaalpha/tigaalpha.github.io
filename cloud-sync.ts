@@ -138,7 +138,7 @@ const LOCAL_WHY: Record<string, string> = {
   tg_ah_snd: "device sound", tg_col3d: "test / gfx switch", tg_ranch3d: "test / gfx switch", tg_fpv: "device view mode", tg_ux2: "device ui switch",
   tg_mode: "light / dark of this screen", tg_chat_piano: "device ui", tg_chat_active: "view state", tg_adv_sector: "view state",
   tg_admin_pay_seen: "the admin device in hand must still see a payment", tg_adv_raid: "display copy of a server counter",
-  tg_adv_recent: "other people's names", tg_blog_vid: "random id of this browser for the blog reader count, never an account", tg_pvp_gfx: "device gfx", tg_pvp_gfx_auto: "device gfx", tg_tts_denied: "per-device cost guard for the read-aloud head start", tg_adv_crash: "test door", tg_adv_nocine: "test door", tg_adv_nogate: "test door",
+  tg_adv_recent: "other people's names", tg_blog_vid: "random id of this browser for the blog reader count, never an account", tg_lang_hint: "which language catalog to fetch before the first paint on this device (the language itself follows the account in profiles.lang)", tg_pvp_gfx: "device gfx", tg_pvp_gfx_auto: "device gfx", tg_tts_denied: "per-device cost guard for the read-aloud head start", tg_adv_crash: "test door", tg_adv_nocine: "test door", tg_adv_nogate: "test door",
   tg_adv_unlockall: "test door", tg_ah_unlockall: "test door", tg_gp_free: "test door", tg_msd: "test door", tg_fullscore: "test door",
   tg_pa_testhook: "test door", tg_pa_stage_force: "test door", tg_test_forcelogin: "test door", tg_test_hook: "test door",
   tg_test_myclass_done: "test door", tg_tts_free: "test door", tg_tts_round: "this device's paid read-aloud rounds (a per-device cost limit, not a player state)", tg_tts_pf: "test door",

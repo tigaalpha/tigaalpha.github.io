@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { sb } from "./supabase-client";
 
-import { pickT } from "./lang-extra";
+import { pickT, ALL_LANGS, LANG_META } from "./lang-extra";
 /* Blog readers for the admin analytics (owner 2026-11-07): views, people who stayed 30 seconds, log-in pop-ups shown and tapped, per article and per day.
    Data: public.blog_stats() from supabase-blog-views-migration.sql (top admin only). Until that migration is applied the card says so instead of showing zeros. Shown on the
    Analytics page (it follows that page's range) and at the top of the Blog admin (its own range). A "view" is one device per article per day, a "reader" one that stayed 30 s. */
@@ -13,6 +13,7 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
   const days = r === "all" ? 0 : Number(r) || 30;
   const [d, setD] = useState<Stats | null>(null);
   const [st, setSt] = useState<"load" | "ok" | "missing" | "err">("load");
+  const [fl, setFl] = useState("all");   // language filter of the per-article table (th en zh ja ko ru)
   useEffect(() => { if (!own) setR(range); }, [range, own]);
   useEffect(() => {
     let off = false; setSt("load");
@@ -70,7 +71,14 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
             {bars.map(x => <div key={x.day} title={x.day + " · " + nf(x.views)} style={{ flex: 1, minWidth: 2, height: Math.max(2, Math.round((x.views / maxDay) * 52)), background: "var(--clay, #d97757)", borderRadius: 2, opacity: 0.85 }} />)}
           </div>
         )}
-        {d && d.rows && d.rows.length > 0 ? (
+        {d && d.rows && d.rows.length > 0 && (
+          <div data-blog-stats-langs style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+            {([["all", T("ทุกภาษา", "All languages", "全部语言")], ...ALL_LANGS.map(l => [l, LANG_META[l].name])] as [string, string][]).map(([l, n]) => (
+              <button key={l} type="button" data-blog-stats-lang={l} onClick={() => setFl(l)} className={fl === l ? "songbtn" : "songbtn ghost"} style={{ padding: "4px 10px", fontSize: 12 }}>{n}</button>
+            ))}
+          </div>
+        )}
+        {d && d.rows && d.rows.filter((x: any) => fl === "all" || x.lang === fl).length > 0 ? (
           <div style={{ marginTop: 8, overflowX: "auto" }}>
             <table data-blog-stats-table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead><tr style={{ textAlign: "left", color: "var(--muted)" }}>
@@ -80,7 +88,7 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
                 <th style={{ padding: "4px 6px", textAlign: "right" }}>{T("กด", "Taps", "点击")}</th>
                 <th style={{ padding: "4px 6px", textAlign: "right" }}>{T("รวมทั้งหมด", "All time", "累计")}</th>
               </tr></thead>
-              <tbody>{d.rows.slice(0, 40).map((x: any) => (
+              <tbody>{d.rows.filter((x: any) => fl === "all" || x.lang === fl).slice(0, 40).map((x: any) => (
                 <tr key={x.lang + x.slug} style={{ borderTop: "1px solid var(--bd, #eadfd4)" }}>
                   <td style={{ padding: "6px", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><b style={{ fontSize: 11, color: "var(--muted)" }}>{String(x.lang).toUpperCase()}</b> {x.title}</td>
                   <td style={{ padding: "6px", textAlign: "right", fontWeight: 700 }}>{nf(x.views)}</td>

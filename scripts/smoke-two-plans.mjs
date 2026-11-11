@@ -54,6 +54,8 @@ globalThis.window = globalThis;
 // make this test depend on a live client and a working network for zero extra
 // coverage. The functions under test are pure — plan strings in, answers out.
 writeFileSync(`${OUT}/payment.tsx`, readFileSync("payment.tsx", "utf8"));
+writeFileSync(`${OUT}/lang-extra.ts`, readFileSync("lang-extra.ts", "utf8"));
+for (const l of ["ja", "ko", "ru"]) writeFileSync(`${OUT}/i18n-${l}.ts`, "export default {};\n");   // catalogs are lazy chunks: empty stand-ins keep the bundler happy
 writeFileSync(`${OUT}/supabase-client.ts`, `export const sb = null; export const SUPABASE_URL = "";\n`);
 writeFileSync(`${OUT}/ai-backend.ts`, `export const apiHeaders = () => ({});\n`);
 writeFileSync(`${OUT}/entry.mjs`, `

@@ -19,15 +19,39 @@ import { anonId } from "../local-identity";
 export const LANDING_CHAT_URL =
   "https://gsaqgbracxnucdmtmcxz.supabase.co/functions/v1/landing-chat";
 
+/* ── which languages the DEPLOYED landing-chat knows ──
+   The function whitelists `lang` (supabase/functions/landing-chat/index.ts:
+   `["th","en","zh"].includes(body.lang) ? body.lang : "th"`), so an unknown
+   code silently becomes "th" and a Japanese visitor gets a Thai system prompt
+   and a Thai answer. Until that function is redeployed with ja / ko / ru
+   prompts, those three are sent as "en" (an English system prompt that tells
+   the model to answer in English) and the question carries a short, last-word
+   instruction to answer in the visitor's language instead. When the function
+   learns the three languages, add them here and the instruction stops being
+   sent — nothing else changes. */
+export const SERVER_LANGS = ["th", "en", "zh"];
+const REPLY_IN = { ja: "Japanese (日本語)", ko: "Korean (한국어)", ru: "Russian (русский)" };
+/* The function cuts the question at 500 characters, and a cut would take the
+   instruction first if it sat at the end — so the visitor's own text is trimmed
+   to leave room for it. */
+const MAX_QUESTION = 500;
+export function wireLang(lang, question) {
+  if (SERVER_LANGS.includes(lang)) return { lang, question };
+  const note = "\n\n[Reply in " + (REPLY_IN[lang] || "the visitor's language") +
+    ". This overrides the English-only rule above. Keep note names and chord symbols as written.]";
+  return { lang: "en", question: String(question).slice(0, MAX_QUESTION - note.length) + note };
+}
+
 /* Resolves once the answer is complete. onChunk gets the WHOLE answer so far,
    not the delta, so the caller just assigns it. Throws { limit: true } when the
    free allowance is gone, so the page can show the sign-up card rather than an
    error. */
 export async function askLandingAI({ question, history = [], lang = "th", signal, onChunk }) {
+  const wire = wireLang(lang, question);
   const res = await fetch(LANDING_CHAT_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, history, lang, anon_id: anonId() }),
+    body: JSON.stringify({ question: wire.question, history, lang: wire.lang, anon_id: anonId() }),
     signal,
   });
 

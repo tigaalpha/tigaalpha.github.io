@@ -17,13 +17,39 @@ import { Component } from "react";
    the duplication cheaper than the import. Nothing here may import from the
    app (that is the entire point of this file). ── */
 
-/* ── VERBATIM from app-shell.tsx ErrorBoundary ── */
+/* ── ErrorBoundary: VERBATIM from app-shell.tsx for th / en / zh, plus ja / ko / ru ──
+   The fallback is read before anything else on the page can help, so it picks
+   its wording from <html lang> directly instead of from landing-copy. Thai +
+   English stays the default for every other language, exactly as before. */
+const CRASH_COPY = {
+  ja: { title: "問題が発生しました · Something went wrong", sub: "ご不便をおかけして申し訳ありません。ページを再読み込みしてください。", btn: "再読み込み · Reload" },
+  ko: { title: "문제가 발생했어요 · Something went wrong", sub: "불편을 드려 죄송해요. 페이지를 다시 불러와 주세요.", btn: "다시 불러오기 · Reload" },
+  ru: { title: "Что-то пошло не так · Something went wrong", sub: "Приносим извинения. Пожалуйста, перезагрузите страницу.", btn: "Перезагрузить · Reload" },
+};
+function crashCopy() {
+  try {
+    const l = (document.documentElement.getAttribute("lang") || "").slice(0, 2).toLowerCase();
+    return CRASH_COPY[l] || null;
+  } catch (e) { return null; }
+}
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(error, info) { if (isChunkLoadError(error)) reloadForNewBuild(); console.error("Uncaught render error:", error, info); }
   render() {
     if (!this.state.hasError) return this.props.children;
+    const cc = crashCopy();
+    if (cc) return (
+      <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
+        <div className="scan" />
+        <div className="banscreen">
+          <div style={{ fontSize: 52 }}>🎹</div>
+          <div className="locktitle">{cc.title}</div>
+          <div className="locksub">{cc.sub}</div>
+          <button className="lockbtn" onClick={() => window.location.reload()}>{cc.btn}</button>
+        </div>
+      </div>
+    );
     return (
       <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
         <div className="scan" />
@@ -38,9 +64,38 @@ export class ErrorBoundary extends Component {
   }
 }
 
-/* ── VERBATIM from app-shell.tsx friendlyAuthError ── */
-export function friendlyAuthError(msg) {
+/* ── friendlyAuthError: VERBATIM from app-shell.tsx for th / en / zh; ja / ko / ru
+   get the same sentences in their language, followed by the English one, the
+   same "native · English" shape the Thai text already has ── */
+const AUTH_ERR = {
+  ja: {
+    exists: "このメールアドレスは登録済みです — 代わりにログインしてください · This email is already registered — try logging in instead",
+    creds: "メールアドレスまたはパスワードが正しくありません · Incorrect email or password",
+    net: "接続できませんでした。もう一度お試しください · Couldn't connect — please try again",
+    other: "エラーが発生しました。もう一度お試しください · Something went wrong — please try again",
+  },
+  ko: {
+    exists: "이미 가입된 이메일이에요 — 대신 로그인해 주세요 · This email is already registered — try logging in instead",
+    creds: "이메일 또는 비밀번호가 올바르지 않아요 · Incorrect email or password",
+    net: "연결하지 못했어요. 다시 시도해 주세요 · Couldn't connect — please try again",
+    other: "문제가 발생했어요. 다시 시도해 주세요 · Something went wrong — please try again",
+  },
+  ru: {
+    exists: "Этот e-mail уже зарегистрирован — попробуйте войти · This email is already registered — try logging in instead",
+    creds: "Неверный e-mail или пароль · Incorrect email or password",
+    net: "Не удалось подключиться — попробуйте ещё раз · Couldn't connect — please try again",
+    other: "Что-то пошло не так — попробуйте ещё раз · Something went wrong — please try again",
+  },
+};
+export function friendlyAuthError(msg, lang = "") {
   const m = msg || "";
+  const L = AUTH_ERR[lang];
+  if (L) {
+    if (/already registered|already exists/i.test(m)) return L.exists;
+    if (/invalid login credentials/i.test(m)) return L.creds;
+    if (/fetch|network|internet|offline/i.test(m)) return L.net;
+    return m || L.other;
+  }
   if (/already registered|already exists/i.test(m)) return "อีเมลนี้สมัครไว้แล้ว — ลองเข้าสู่ระบบแทน · This email is already registered — try logging in instead";
   if (/invalid login credentials/i.test(m)) return "อีเมลหรือรหัสผ่านไม่ถูกต้อง · Incorrect email or password";
   if (/fetch|network|internet|offline/i.test(m)) return "เชื่อมต่อไม่ได้ ลองอีกครั้ง · Couldn't connect — please try again";
