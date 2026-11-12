@@ -7,7 +7,7 @@ import { pickT, ALL_LANGS, LANG_META } from "./lang-extra";
 /* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin / Japanese / Korean / Russian (the last three need supabase-blog-ja-ko-ru-migration.sql, otherwise the table refuses them), with a category, a cover picture, pictures inside the text and links.
    Rendered only for admin_tier >= 3 (App.tsx); the table's and the image bucket's RLS (public.is_top_admin()) refuse anyone else even if this screen were reached. */
 const slugOf = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
-const EMPTY = { id: "", lang: "th", category: "tips", slug: "", title: "", excerpt: "", body: "", cover_url: "", published: false };
+const EMPTY = { id: "", lang: "th", category: "tips", slug: "", title: "", excerpt: "", body: "", cover_url: "", cover_alt: "", coverAltOn: false, published: false };
 const BUCKET = "blog-images";
 export function AdminBlog({ lang }: { lang: string }) {
   const T = (th, en, zh) => pickT(lang, th, en, zh);
@@ -57,10 +57,22 @@ export function AdminBlog({ lang }: { lang: string }) {
       const { data: u } = await sb.auth.getUser();
       let slug = (f.slug.trim() ? slugOf(f.slug) : slugOf(f.title)) || "post-" + Date.now().toString(36);
       const row: any = { lang: f.lang, category: f.category, slug, title: f.title.trim(), excerpt: f.excerpt.trim(), body: f.body, cover_url: f.cover_url.trim() || null, published: publish === undefined ? f.published : publish, updated_at: new Date().toISOString() };
-      const q = f.id ? sb.from("blog_posts").update(row).eq("id", f.id) : sb.from("blog_posts").insert({ ...row, author_id: u && u.user ? u.user.id : null });
-      const { error } = await q;
+      const alt = (f.cover_alt || "").trim();
+      // cover_alt is optional. Send it when the table already has the column, or when the editor typed one. A missing column must not block Publish.
+      if (f.coverAltOn || alt) row.cover_alt = alt || null;
+      const write = (payload: any) => f.id ? sb.from("blog_posts").update(payload).eq("id", f.id) : sb.from("blog_posts").insert({ ...payload, author_id: u && u.user ? u.user.id : null });
+      let { error } = await write(row);
+      let altSkipped = false;
+      if (error && Object.prototype.hasOwnProperty.call(row, "cover_alt") && /cover_alt/i.test(error.message)) {
+        const { cover_alt: _drop, ...rest } = row;
+        const again = await write(rest);
+        error = again.error;
+        altSkipped = !error;
+      }
       if (error) { say(/blog_posts_lang_check/i.test(error.message) ? T("ฐานข้อมูลยังไม่รองรับภาษานี้ — รัน supabase-blog-ja-ko-ru-migration.sql ก่อน", "The database does not accept this language yet — run supabase-blog-ja-ko-ru-migration.sql first", "数据库尚未支持该语言 — 请先运行 supabase-blog-ja-ko-ru-migration.sql") : /duplicate|unique/i.test(error.message) ? T("มีบทความภาษานี้ที่ใช้ลิงก์สั้นนี้แล้ว ลองเปลี่ยนลิงก์สั้น", "An article in this language already uses this slug — change the slug", "该语言下已有相同链接名的文章，请更换") : error.message); return; }
-      say(publish ? T("เผยแพร่แล้ว ✓", "Published ✓", "已发布 ✓") : T("บันทึกแล้ว ✓", "Saved ✓", "已保存 ✓"), true); setF(null); await load();
+      const done = publish ? T("เผยแพร่แล้ว ✓", "Published ✓", "已发布 ✓") : T("บันทึกแล้ว ✓", "Saved ✓", "已保存 ✓");
+      const note = altSkipped ? " " + T("(คำอธิบายรูปปกยังไม่ถูกบันทึก — คอลัมน์ cover_alt ยังไม่มี)", "(cover description was not saved — the cover_alt column is not there yet)", "（封面说明尚未保存——还没有 cover_alt 列）") : "";
+      say(done + note, true); setF(null); await load();
     } catch (e: any) { say(String(e && e.message || e)); } finally { setBusy(false); }
   }
   async function del(id: string) {
@@ -86,7 +98,7 @@ export function AdminBlog({ lang }: { lang: string }) {
               <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.lang.toUpperCase()} · {catName(r.category || "tips", lang)}</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: r.published ? "#1e6b3a" : "#a8651a" }}>{r.published ? "● " + T("เผยแพร่แล้ว", "Published", "已发布") : "○ " + T("ฉบับร่าง", "Draft", "草稿")}</div>
             </div>
-            <button className="songbtn ghost" onClick={() => { setF({ ...EMPTY, ...r, category: r.category || "tips", cover_url: r.cover_url || "" }); setPrev(false); setMsg(null); }}>{T("แก้ไข", "Edit", "编辑")}</button>
+            <button className="songbtn ghost" onClick={() => { setF({ ...EMPTY, ...r, category: r.category || "tips", cover_url: r.cover_url || "", cover_alt: r.cover_alt || "", coverAltOn: Object.prototype.hasOwnProperty.call(r, "cover_alt") }); setPrev(false); setMsg(null); }}>{T("แก้ไข", "Edit", "编辑")}</button>
           </div>
         ))}
       </>) : (
@@ -110,6 +122,7 @@ export function AdminBlog({ lang }: { lang: string }) {
             {f.cover_url && <button type="button" style={tb} onClick={() => set("cover_url", "")}>✕</button>}
             <input ref={coverRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={e => pick(e, "cover")} />
           </div>
+          <input data-blog-cover-alt style={inp} maxLength={180} placeholder={T("คำอธิบายรูปปก สำหรับผู้ที่มองไม่เห็นรูป (ไม่บังคับ)", "Cover description, for people who cannot see the picture (optional)", "封面说明，给看不到图片的人（可选）")} value={f.cover_alt || ""} onChange={e => set("cover_alt", e.target.value)} />
           <div style={lab}>6 · {T("เนื้อหา", "Content", "正文")}</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button type="button" style={tb} onClick={() => insert("\n# ", "\n", T("หัวข้อใหญ่", "Heading", "大标题"))}>H1</button>

@@ -56,20 +56,90 @@ export async function fetchPublishedMeta(fetchImpl) {
   return all;
 }
 
-/* ja / ko / ru (owner 2026-11-11): their articles are committed files (blog-src/), NOT database rows, until supabase-blog-ja-ko-ru-migration.sql is applied.
-   The build therefore writes a real blog/<lang>/index.html, page/N/index.html and feed.xml for them, and Vercel serves a file in dist/ BEFORE any rewrite, so this function is never asked for
-   those URLs while the files exist. This function does NOT read blog-src at runtime on purpose: it is a serverless bundle that only includes supabase-client.ts (vercel.json "functions"),
-   and a file that is not in the bundle cannot be read there. What it does if it IS reached for one of these indexes or feeds (a build that wrote no file, or a page number past the files):
-   it lists the database rows, and when there are none it answers 404 + noindex, never an empty 200 list that search engines could keep in place of the real page.
-   An article published in the database after the last build is still served here like any other language; the static index shows it at the next deploy. */
+/* ja / ko / ru articles that shipped in blog-src/ are real HTML files, so Vercel serves /blog/<lang>/<slug>.html before this function.
+   Their index.html, feed.xml and page/N are left in the repo (GitHub Pages) but stripped from dist/ (scripts/copy-seo-to-dist.mjs), so on
+   tigaalpha.com those three URLs reach here. The function does not read blog-src (the bundle cannot hold the bodies). It reads
+   api/blog-live-catalog.json — titles only, written by the build — and merges it with published rows: a database row wins on the same
+   (lang, slug), a slug that exists only as a file is still listed, and a slug published after the build (no file yet) is served as HTML
+   for the .html address, the address without .html, and the trailing-slash form, the same as th / en / zh.
+   With no catalog and no rows, a ja / ko / ru index is 404 + noindex, never an empty 200 list. */
+const CATALOG_FILE = new URL("../api/blog-live-catalog.json", import.meta.url);
+const SLUG_OK = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const byTime = (a, b) => (new Date(b.created_at) - new Date(a.created_at)) || String(a.slug).localeCompare(String(b.slug));
+
+export function readLiveCatalog(file = CATALOG_FILE) {
+  try {
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!Array.isArray(data)) return [];
+    return data.filter(p => p && STATIC_BLOG_LANGS.includes(p.lang) && typeof p.slug === "string" && SLUG_OK.test(p.slug) && p.published !== false);
+  } catch { return []; }
+}
+
+// Tests pass opts.catalog. On Vercel the build's catalog is read. Anywhere else an empty list keeps the old "no rows → 404" behaviour.
+export function activeCatalog(opts) {
+  if (opts && Array.isArray(opts.catalog)) return opts.catalog;
+  if (opts && opts.catalog === false) return [];
+  if (process.env.BLOG_LIVE_CATALOG === "0") return [];
+  if (process.env.BLOG_LIVE_CATALOG) return readLiveCatalog(process.env.BLOG_LIVE_CATALOG);
+  if (process.env.VERCEL) return readLiveCatalog();
+  return [];
+}
+
+export function rowsForLang(lang, dbRows, catalog) {
+  const db = (dbRows || []).filter(p => p && p.lang === lang && p.published !== false && p.slug);
+  const have = new Set(db.map(p => p.slug));
+  const extra = (catalog || []).filter(p => p && p.lang === lang && p.slug && p.published !== false && !have.has(p.slug));
+  return db.concat(extra).sort(byTime);
+}
+
+export function mergeLiveRows(dbRows, catalog) {
+  const db = (dbRows || []).filter(p => p && p.published !== false && p.slug && p.lang);
+  const have = new Set(db.map(p => p.lang + "/" + p.slug));
+  const extra = (catalog || []).filter(p => p && p.lang && p.slug && p.published !== false && !have.has(p.lang + "/" + p.slug));
+  return db.concat(extra);
+}
+
+function contentLanguage(lang) {
+  if (lang === "zh") return "zh-Hans";
+  if (BLOG_LANGS.includes(lang)) return lang;
+  return "";
+}
+function miss(lang) {
+  const h = { ...MISS };
+  const cl = contentLanguage(lang);
+  if (cl) h["content-language"] = cl;
+  return h;
+}
+function catalogHit(catalog, parsed) {
+  if (!parsed || !parsed.lang || !parsed.slug) return null;
+  return (catalog || []).find(c => c.lang === parsed.lang && c.slug === parsed.slug) || null;
+}
+function redirectToFile(lang, slug) {
+  return result(301, "", {
+    location: `${BLOG_SITE}/blog/${lang}/${encodeURIComponent(slug)}.html`,
+    "cache-control": "no-store",
+    "x-blog-source": "live",
+  });
+}
+function siblingSet(rows, post, catalog) {
+  const set = {};
+  for (const row of rows || []) if (row && row.slug === post.slug && BLOG_LANGS.includes(row.lang)) set[row.lang] = row;
+  for (const c of catalog || []) if (c && c.slug === post.slug && BLOG_LANGS.includes(c.lang) && !set[c.lang]) set[c.lang] = c;
+  if (!set[post.lang]) set[post.lang] = post;
+  return set;
+}
+
 // Same HTML for every caller. The user agent is not an input.
-export async function serveBlog(query, fetchImpl) {
+export async function serveBlog(query, fetchImpl, opts) {
+  const catalog = activeCatalog(opts);
   const parsed = fromQuery(query);
   if (parsed.kind === "index" || parsed.kind === "feed") {
-    let list;
-    try { list = await fetchLangRows(parsed.lang, fetchImpl); }
-    catch { return result(503, notFoundHtml(), MISS); }
-    if (!list.length && STATIC_BLOG_LANGS.includes(parsed.lang)) return result(404, notFoundHtml(), MISS);
+    let db = [], failed = false;
+    try { db = await fetchLangRows(parsed.lang, fetchImpl); }
+    catch { failed = true; }
+    const list = rowsForLang(parsed.lang, failed ? [] : db, catalog);
+    if (!list.length && failed) return result(503, notFoundHtml(parsed.lang), miss(parsed.lang));
+    if (!list.length && STATIC_BLOG_LANGS.includes(parsed.lang)) return result(404, notFoundHtml(parsed.lang), miss(parsed.lang));
     if (parsed.kind === "feed") {
       return result(200, feedXml(parsed.lang, list), {
         "content-type": "application/rss+xml; charset=utf-8",
@@ -80,34 +150,42 @@ export async function serveBlog(query, fetchImpl) {
     const html = indexHtml(parsed.lang, list, parsed.page || 1);
     return result(200, html, {
       "content-type": HTML,
-      "content-language": parsed.lang === "zh" ? "zh-Hans" : parsed.lang,
+      "content-language": contentLanguage(parsed.lang),
       "cache-control": "public, max-age=120, s-maxage=120",
       "x-blog-source": "live",
     });
   }
-  if (parsed.kind !== "article") return result(404, notFoundHtml(), MISS);
+  if (parsed.kind !== "article") return result(404, notFoundHtml(parsed.lang), miss(parsed.lang));
   let rows;
   try { rows = await fetchSlug(parsed.slug, fetchImpl); }
-  catch { return result(503, notFoundHtml(), MISS); }
+  catch {
+    if (!parsed.html && catalogHit(catalog, parsed)) return redirectToFile(parsed.lang, parsed.slug);
+    return result(503, notFoundHtml(parsed.lang), miss(parsed.lang));
+  }
   const post = pickPost(rows, parsed.lang, parsed.hint);
-  if (!post) return result(404, notFoundHtml(), MISS);
-  const set = {};
-  for (const row of rows) if (BLOG_LANGS.includes(row.lang)) set[row.lang] = row;
+  if (!post) {
+    // A committed article has no database row yet. Send the extension-less address to the file Vercel already has.
+    // The .html address itself is not redirected: that file is served before this function, and a redirect would loop if it were missing.
+    if (!parsed.html && catalogHit(catalog, parsed)) return redirectToFile(parsed.lang, parsed.slug);
+    return result(404, notFoundHtml(parsed.lang), miss(parsed.lang));
+  }
+  const set = siblingSet(rows, post, catalog);
   let related = [];
-  try { related = relatedPosts(await fetchLangRows(post.lang, fetchImpl), post); }
-  catch { related = []; }
+  try { related = relatedPosts(rowsForLang(post.lang, await fetchLangRows(post.lang, fetchImpl), catalog), post); }
+  catch { related = relatedPosts(rowsForLang(post.lang, [], catalog), post); }
   const html = articleHtml(post, set, related);
   return result(200, html, {
     "content-type": HTML,
-    "content-language": post.lang === "zh" ? "zh-Hans" : post.lang,
+    "content-language": contentLanguage(post.lang),
     "cache-control": "public, max-age=120, s-maxage=120",
     "x-blog-source": "live",
   });
 }
 
-export async function serveBlogSitemap(fetchImpl) {
+export async function serveBlogSitemap(fetchImpl, opts) {
+  const catalog = activeCatalog(opts);
   try {
-    const posts = await fetchPublishedMeta(fetchImpl);
+    const posts = mergeLiveRows(await fetchPublishedMeta(fetchImpl), catalog);
     return result(200, sitemapBlogXml(posts, BLOG_SITE), {
       "content-type": "application/xml; charset=utf-8",
       "cache-control": "public, max-age=120, s-maxage=120",
