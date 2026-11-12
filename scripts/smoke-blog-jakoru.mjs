@@ -54,7 +54,7 @@ ok(/\(\d+ from blog-src\)/.test(r1.out), "the build reports how many posts came 
 
 console.log("article pages in ja / ko / ru");
 const wall = { ja: ["続きを読むにはログイン", "Googleで続ける", "無料で会員登録", "ログイン"], ko: ["계속 읽으려면 로그인하세요", "Google로 계속하기", "무료로 가입하기", "로그인"], ru: ["Войдите, чтобы читать дальше", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"] };
-const LOC = { ja: "ja_JP", ko: "ko_KR", ru: "ru_RU" }, AUM = { ja: "アウム先生", ko: "아움 선생님", ru: "Учитель Аум" }, CAT = { ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки" }, BACK = { ja: "すべての記事", ko: "모든 글", ru: "Все статьи" }, CTA = { ja: "TIGA ALPHAで無料で始めよう", ko: "TIGA ALPHA에서 무료로 시작하기", ru: "Начните учиться бесплатно в TIGA ALPHA" }, WORDS = { ja: "回閲覧", ko: "회 조회", ru: "просмотров" };
+const LOC = { ja: "ja_JP", ko: "ko_KR", ru: "ru_RU" }, AUM = { ja: "アウム先生", ko: "아움 선생님", ru: "Учитель Aum" }, CAT = { ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки" }, BACK = { ja: "すべての記事", ko: "모든 글", ru: "Все статьи" }, CTA = { ja: "TIGA ALPHAで無料で始めよう", ko: "TIGA ALPHA에서 무료로 시작하기", ru: "Начните учиться бесплатно в TIGA ALPHA" }, WORDS = { ja: "回閲覧", ko: "회 조회", ru: "просмотров" };
 for (const lang of ["ja", "ko", "ru"]) {
   const f = path.join(OUT, lang, "piano-posture.html"); ok(fs.existsSync(f), lang + ": the page is written from blog-src");
   const h = rd(f);
