@@ -1,10 +1,10 @@
 -- Blog reader counts (owner, 2026-11-07): how many people read each article, shown on the article page and in the admin analytics.
--- WRITTEN, NOT APPLIED: the owner runs it (or approves it) in the Supabase SQL editor. Additive and re-runnable; nothing existing is changed.
+-- The owner approved running it on 2026-11-12 (see AGENTS.md for whether it has been applied). Additive and re-runnable; nothing existing is changed.
 -- Until it is applied every client call below fails soft: the article page simply shows no number and the admin card says the migration is missing.
 --
 -- What is counted, and how:
 --   kind 'view'  = the article page was opened          (one row per device per article per day)
---   kind 'read'  = the reader stayed 30 seconds          (one row per device per article per day)
+--   kind 'read'  = the reader stayed 15 seconds (30 until 2026-11-12; the same moment the log-in wall opens)  (one row per device per article per day)
 --   kind 'gate'  = the log-in pop-up was shown
 --   kind 'click' = the reader tapped Google / sign up / log in in it
 -- A device is a random id the page makes for itself (localStorage `tg_blog_vid`), never an account, an IP or a name. The primary key makes every counter
@@ -148,7 +148,7 @@ begin
   return n;
 end $$;
 revoke all on function public.blog_purge(int) from public, anon, authenticated;
--- select cron.schedule('blog-purge', '17 20 * * *', $$select public.blog_purge(120)$$);   -- 03:17 Bangkok, every night
+select cron.schedule('blog-purge', '17 20 * * *', $$select public.blog_purge(120)$$);   -- 03:17 Bangkok, every night (scheduled with the owner's approval, 2026-11-12; stop it with: select cron.unschedule('blog-purge'))
 
 -- Verification (read-only, run after applying):
 --   select public.blog_view_counts('th');                       -- empty list at first, no error

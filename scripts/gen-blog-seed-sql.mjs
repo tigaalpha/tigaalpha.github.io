@@ -46,6 +46,16 @@ for (const p of posts) {
 }
 const sql = out.join("\n");
 
+/* --json: the same rows as one JSON array. The SQL file is too big to paste into a SQL tool call (about 300 kB), so a deploy can instead let the database fetch this file itself
+   (pg_net) and insert the rows with the same "on conflict (lang, slug) do nothing". Written next to the SQL file; not read by the app. */
+if (process.argv.includes("--json")) {
+  const jf = OUT.replace(/\.sql$/, "-rows.json");
+  const rows = posts.map(p => ({ lang: p.lang, slug: p.slug, title: p.title, excerpt: p.excerpt || "", body: p.body, category: p.category, cover_url: p.cover_url || null, published: true, created_at: p.created_at, updated_at: p.updated_at || p.created_at }));
+  fs.writeFileSync(jf, JSON.stringify(rows));
+  console.log(`gen-blog-seed-sql: wrote ${path.basename(jf)} (${rows.length} rows, ${fs.statSync(jf).size} bytes)`);
+  process.exit(0);
+}
+
 if (process.argv.includes("--check")) {
   let cur = null; try { cur = fs.readFileSync(OUT, "utf8"); } catch (e) {}
   if (cur === sql) { console.log(`gen-blog-seed-sql: ${path.basename(OUT)} is current (${posts.length} articles)`); process.exit(0); }
