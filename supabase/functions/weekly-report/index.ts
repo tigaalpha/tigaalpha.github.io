@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
 
   let sent = 0, pruned = 0, failed = 0, notified = 0;
   for (const u of users) {
-    const lang = u.lang === "en" || u.lang === "zh" ? u.lang : "th";
+    // ja / ko / ru learners (2026-11-11) get the English report rather than a Thai one; no lang at all stays Thai as before
+    const lang = u.lang === "zh" ? "zh" : (!u.lang || u.lang === "th") ? "th" : "en";
     const m = MSG[lang];
     const title = m.t, body = m.b(u.streak || 0);
 

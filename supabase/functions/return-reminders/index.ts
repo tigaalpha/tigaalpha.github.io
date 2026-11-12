@@ -98,7 +98,8 @@ Deno.serve(async (req) => {
       if (busy.has(uid)) { totals.skippedActive++; continue; }
       const subs = subsBy.get(uid) || [];
       if (!subs.length) { totals.skippedNoPush++; continue; }
-      const lang: Lang = p.lang === "en" || p.lang === "zh" ? p.lang : "th";
+      // ja / ko / ru learners (2026-11-11) get the English push rather than a Thai one; no lang at all stays Thai as before
+      const lang: Lang = p.lang === "zh" ? "zh" : (!p.lang || p.lang === "th") ? "th" : "en";
       const m = MSG[d][lang];
       const tag = `return-d${d}`;
 

@@ -92,7 +92,7 @@ const ELEVEN_DEFAULT_VOICE = Deno.env.get("ELEVEN_TTS_VOICE") ?? "pNInz6obpgDQGc
 const MAX_RETRIES = 2;
 
 // BCP-47 hint per client lang key (zh → Mandarin). Gemini TTS names its languages with the full tag.
-const LANG_CODE: Record<string, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN" };
+const LANG_CODE: Record<string, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU" };
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
