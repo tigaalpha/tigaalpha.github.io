@@ -1,4 +1,5 @@
 import { L, FLAGS, FLAG_NAMES } from "./i18n";
+import { ALL_LANGS } from "./lang-extra";
 /* ── LanguageSettings ──
    The language-picker row from the settings panel, extracted verbatim from
    PianoApp's inline JSX as part of the Phase 2.6 settings-panel split — no
@@ -9,7 +10,7 @@ export function LanguageSettings({ lang, setLang }) {
               <div className="setrow col">
                 <label>🌐 {lc.setLang}</label>
                 <div className="setlangs">
-                  {["th", "en", "zh"].map(lg => (
+                  {ALL_LANGS.map(lg => (
                     <button key={lg} className={`setlangbtn${lang === lg ? " on" : ""}`} onClick={() => setLang(lg)}>{FLAGS[lg]} {FLAG_NAMES[lg]}</button>
                   ))}
                 </div>

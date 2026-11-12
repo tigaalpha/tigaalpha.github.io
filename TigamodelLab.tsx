@@ -11,6 +11,7 @@ import { AI_PROVIDERS } from "./AdminAIModels";
 import { pickTeachCard, cardSourceInfo, TEACH_CARDS } from "./tigamodel/knowledge/teach-cards.js";
 import TeachVisual from "./TeachVisual";
 
+import { pickT } from "./lang-extra";
 /* ── TigamodelLab.tsx ──
    Admin-only "TIGA Model Lab" (tab: tigamodel, tier >= 3): the owner's
    hands-on surface for the tigamodel/ intelligence layer.
@@ -41,7 +42,7 @@ import TeachVisual from "./TeachVisual";
    app_settings.ai_models — the same resolution piano-chat does). ── */
 
 export function TigamodelLab({ lang = "th" }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
 
   /* theme-aware style tokens, resolved once per render */
   const S = {
@@ -1612,7 +1613,7 @@ function RoadmapPanel({ lang, S, T }) {
 
 /* ── Knowledge panel: university-sourced entries + their real source links ── */
 function KnowledgePanel({ lang, S }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const tiga = getTigamodel();
   const { sources } = getUniversitySources();
   const [openId, setOpenId] = useState(null);

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <script>/* the old addresses send visitors to the main domain, INCLUDING an OAuth return: sign-in always starts on www.tigaalpha.com (the code verifier lives in that origin's storage), so a "?code=" that Supabase sends back to the old Site URL only completes when forwarded here */try{var h=location;if(h.hostname==="tigaalpha.github.io"||h.hostname==="tigaalpha-github-io.vercel.app"){h.replace("https://www.tigaalpha.com"+h.pathname+h.search+h.hash)}}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#faf9f5" />
+    <!-- Declares the scheme for the boot markup below, which paints before any
+         stylesheet loads. An in-app browser (Messenger, LINE, IG) in dark mode
+         will otherwise algorithmically darken it — the bug that made the app's
+         own auth screen unreadable at 1.06:1. The stylesheet sets the real
+         per-theme scheme afterwards and overrides this. -->
+    <meta name="color-scheme" content="light" />
+    <title>AI 선생님과 피아노 레슨 체험 — TIGA ALPHA</title>
+    <meta name="description" content="AI 피아노 선생님께 질문하면 답을 진짜 건반으로 직접 쳐서 보여줘요. 스케일, 코드, 3화음을 설명과 연주로 배워 보세요. 가입 없이 바로 무료로 체험할 수 있어요." />
+    <link rel="canonical" href="https://www.tigaalpha.com/landing-ko/" />
+    <link rel="alternate" hreflang="th" href="https://www.tigaalpha.com/landing/" />
+    <link rel="alternate" hreflang="en" href="https://www.tigaalpha.com/landing-en/" />
+    <link rel="alternate" hreflang="zh-Hans" href="https://www.tigaalpha.com/landing-zh/" />
+    <link rel="alternate" hreflang="ja" href="https://www.tigaalpha.com/landing-ja/" />
+    <link rel="alternate" hreflang="ko" href="https://www.tigaalpha.com/landing-ko/" />
+    <link rel="alternate" hreflang="ru" href="https://www.tigaalpha.com/landing-ru/" />
+    <link rel="alternate" hreflang="x-default" href="https://www.tigaalpha.com/landing-en/" />
+    <!-- verification: google-site-verification, msvalidate.01, baidu-site-verification — add the real code when it exists; do not invent one -->
+    <meta property="og:url" content="https://www.tigaalpha.com/landing-ko/" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+
+    <!-- Ads and chat apps render this card, so it is written for a feed, not a
+         search result. The image is a PNG on purpose: Facebook, Instagram and
+         LINE refuse SVG previews, and the old icon.svg og:image rendered as an
+         empty box in every feed. Regenerate with scripts/make-og-image.mjs. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content="AI 선생님과 피아노 레슨 체험 — TIGA ALPHA" />
+    <meta property="og:description" content="지금 바로 건반을 눌러 보고 AI 선생님께 질문해 보세요. 답을 손가락 하나하나 쳐서 보여줘요. 가입도 설치도 필요 없어요." />
+    <meta property="og:image" content="https://www.tigaalpha.com/og-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://www.tigaalpha.com/og-card.png" />
+
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.googletagmanager.com 'unsafe-inline' 'unsafe-eval' data: blob: https://*.supabase.co; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:;" />
+
+    <style>
+      html, body, #root { height: 100%; margin: 0; background: #faf9f5; }
+      /* Same reasoning as the app's boot screen: this markup has no script
+         behind it, so it is in the first frame, and the bundle streams in
+         behind it instead of in front of it. */
+      #boot {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 22px; background: #faf9f5; color: #1a1a1a;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        transition: opacity .28s ease;
+      }
+      #boot.gone { opacity: 0; pointer-events: none; }
+      #boot .mark { font-size: 40px; font-weight: 700; letter-spacing: .22em; padding-left: .22em; }
+      #boot .say { font-size: 14px; opacity: .62; }
+      /* The boot screen is the FIRST FRAME 81% of bounced visitors saw — the
+         old one was a spinner with no pitch in it. Now it sells while it
+         loads: the promise in one line, and a piano drawn in raw CSS so it
+         needs no font, no image and no JS. If the bundle never arrives (the
+         visitor list is full of 0-event sessions), this is still the ad. */
+      #boot h1 { margin: 0; font-size: clamp(19px, 5.4vw, 26px); font-weight: 700;
+                 letter-spacing: -.01em; text-align: center; padding: 0 24px;
+                 color: #1a1a1a; }
+      #boot h1 em { font-style: normal; color: #d97757; }
+      #boot .keys { display: flex; gap: 2px; width: min(340px, 76vw); height: 92px;
+                    margin-top: 4px; }
+      #boot .keys i { flex: 1 1 0; background: #fff; border: 1px solid #d4cfc5;
+                      border-radius: 0 0 4px 4px; }
+      #boot .keys i.b { background: #1b1917; border-color: #000; height: 58%;
+                        flex: 0 0 7.5%; margin: 0 -3.75% -0px; z-index: 1;
+                        align-self: flex-start; border-radius: 0 0 3px 3px; }
+      #boot .keys i.lit { background: #d97757; border-color: #d97757;
+                          animation: bootlit 1.15s ease-in-out infinite; }
+      @keyframes bootlit { 0%,100% { filter: brightness(1) } 50% { filter: brightness(1.25) } }
+      @media (prefers-reduced-motion: reduce) { #boot .keys i.lit { animation: none } }
+      #boot .bar { width: 152px; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(26,26,26,.1); }
+      #boot .bar i { display: block; height: 100%; width: 40%; border-radius: 3px; background: #1a1a1a; animation: bootslide 1.15s ease-in-out infinite; }
+      @keyframes bootslide { 0% { transform: translateX(-105%) } 100% { transform: translateX(305%) } }
+      @media (prefers-reduced-motion: reduce) { #boot .bar i { animation: none; width: 100%; opacity: .35 } }
+      @media (prefers-color-scheme: dark) {
+        html, body, #root, #boot { background: #0d0d0c; }
+        #boot { color: #faf9f5; }
+        #boot h1 { color: #faf9f5; }
+        #boot .keys i { background: #f2efe9; border-color: #4a453e; }
+        #boot .keys i.b { background: #0a0908; border-color: #000; }
+        #boot .bar { background: rgba(250,249,245,.14); }
+        #boot .bar i { background: #faf9f5; }
+      }
+    </style>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://www.tigaalpha.com/landing-ko/#webpage","url":"https://www.tigaalpha.com/landing-ko/","name":"AI 선생님과 피아노 레슨 체험 — TIGA ALPHA, AI 피아노 학습 앱","inLanguage":"ko","isPartOf":{"@id":"https://www.tigaalpha.com/#site"},"about":{"@id":"https://www.tigaalpha.com/#app"},"publisher":{"@id":"https://www.tigaalpha.com/#org"},"relatedLink":["https://www.tigastudio.net/","https://www.tigaalpha.com/"]},{"@type":["SoftwareApplication","WebApplication"],"@id":"https://www.tigaalpha.com/#app","name":"TIGA ALPHA","applicationCategory":"EducationalApplication","applicationSubCategory":"AI piano teaching app","operatingSystem":"Web browser (Android, iOS, Windows, macOS)","browserRequirements":"Requires a modern web browser with JavaScript","url":"https://www.tigaalpha.com/","image":"https://www.tigaalpha.com/og-card.png","inLanguage":["th","en","zh","ja","ko","ru"],"countryOfOrigin":{"@type":"Country","name":"Thailand"},"description":"TIGA ALPHA는 태국에서 만든 AI 피아노 학습 앱이에요. 태국어, 영어, 중국어, 일본어, 한국어, 러시아어로 AI 선생님과 온라인에서 피아노를 배울 수 있어요. 창립자 Aum 선생님은 20년 경력의 피아노 강사예요.","keywords":"피아노 레슨, 피아노 배우기, 피아노 강좌, 피아노 연주, 음악 레슨, 피아노 코스, 온라인 피아노 레슨, 음악 배우기, 피아노 학습 앱, AI 피아노 레슨, 피아노 교육 앱, 온라인 피아노 레슨 앱, AI 피아노 앱, AI 온라인 피아노 강좌","featureList":["AI piano teacher that explains and plays the answer on the keyboard","Teaches in Thai, English, Mandarin Chinese, Japanese, Korean and Russian","Play-along songs, scales, chords and a learning pathway","Sight-reading and ear training","Works with on-screen keys, a real piano via microphone, or a MIDI piano"],"creator":{"@id":"https://www.tigaalpha.com/#org"},"publisher":{"@id":"https://www.tigaalpha.com/#org"},"author":{"@id":"https://www.tigaalpha.com/#teacher-aum"},"offers":[{"@type":"Offer","name":"7일 무료 체험","price":"0","priceCurrency":"THB","eligibleDuration":{"@type":"QuantitativeValue","value":7,"unitCode":"DAY"},"description":"7일 무료, 이후 월 799바트","url":"https://www.tigaalpha.com/","availability":"https://schema.org/InStock"},{"@type":"Offer","name":"월 구독","price":"799","priceCurrency":"THB","description":"7일 무료, 이후 월 799바트","url":"https://www.tigaalpha.com/","availability":"https://schema.org/InStock","priceSpecification":{"@type":"UnitPriceSpecification","price":"799","priceCurrency":"THB","billingDuration":"P1M","unitCode":"MON","referenceQuantity":{"@type":"QuantitativeValue","value":1,"unitCode":"MON"}}}]},{"@type":"Organization","@id":"https://www.tigaalpha.com/#org","name":"TIGA ALPHA","url":"https://www.tigaalpha.com/","logo":{"@type":"ImageObject","url":"https://www.tigaalpha.com/og-card.png"},"image":"https://www.tigaalpha.com/og-card.png","description":"TIGA ALPHA is a Thai high-tech AI education company that makes an AI piano teaching app teaching in Thai, English, Mandarin, Japanese, Korean and Russian.","foundingLocation":{"@type":"Place","name":"Thailand"},"areaServed":"Worldwide","knowsLanguage":["th","en","zh","ja","ko","ru"],"founder":{"@id":"https://www.tigaalpha.com/#teacher-aum"},"sameAs":["https://www.tigastudio.net/","https://tigaalpha.github.io/landing/"]},{"@type":"Person","@id":"https://www.tigaalpha.com/#teacher-aum","name":"Teacher Aum","alternateName":["ครูอั้ม","Aum 老师","Aum 선생님"],"jobTitle":"Founder & CEO, TIGA ALPHA","description":"Founder and CEO of TIGA ALPHA. Piano teacher with 20 years of experience.","worksFor":{"@id":"https://www.tigaalpha.com/#org"},"affiliation":{"@id":"https://www.tigastudio.net/#organization"},"knowsAbout":["Piano teaching","Music education","AI piano teaching"],"knowsLanguage":["th","en","zh","ja","ko","ru"],"nationality":{"@type":"Country","name":"Thailand"}},{"@type":["EducationalOrganization","LocalBusiness"],"@id":"https://www.tigastudio.net/#organization","name":"TIGA Studio","url":"https://www.tigastudio.net/","telephone":"+66-84-111-9531","address":{"@type":"PostalAddress","streetAddress":"หมู่บ้านเมืองเอกรังสิต โครงการ 4","addressLocality":"Rangsit","addressRegion":"Pathum Thani","addressCountry":"TH"},"founder":{"@id":"https://www.tigaalpha.com/#teacher-aum"},"sameAs":["https://www.tiktok.com/@tiga.piano_studio","https://www.youtube.com/@tiga.studio"]},{"@type":"WebSite","@id":"https://www.tigaalpha.com/#site","url":"https://www.tigaalpha.com/","name":"TIGA ALPHA","inLanguage":["th","en","zh","ja","ko","ru"],"publisher":{"@id":"https://www.tigaalpha.com/#org"}}]}</script>
+      <!-- Google tag (gtag.js) — Consent Mode: storage denied until the visitor accepts the banner (public/ga.js); measured only on the real domain -->
+    <script defer src="https://www.googletagmanager.com/gtag/js?id=G-5JW3ZGS88V"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      var __h = location.hostname.toLowerCase(), __ok = (__h === "www.tigaalpha.com" || __h === "tigaalpha.com"), __c = "";
+      try { __c = localStorage.getItem("tg_ga") || ""; } catch (e) {}
+      gtag('consent', 'default', { analytics_storage: __c === "0" ? "denied" : "granted", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied", wait_for_update: 500 });
+      gtag('js', new Date());
+      if (__ok) gtag('config', 'G-5JW3ZGS88V', { anonymize_ip: true, allow_google_signals: false });
+    </script>
+    <script src="/ga.js" defer></script>
+  <script type="module" crossorigin src="./landing/bundle/index.template-ByIKHcrZ.js"></script>
+  <link rel="stylesheet" crossorigin href="./landing/bundle/index-QA8rY4YW.css">
+</head>
+  <body>
+    <div id="boot">
+      <div class="mark">TIGA ALPHA</div>
+      <h1>AI 피아노 선생님께 물어보세요 — <em>답을 쳐서 보여줘요</em></h1>
+      <div class="keys" aria-hidden="true">
+        <i></i><i></i><i class="b"></i><i></i><i class="lit"></i><i class="b"></i><i></i><i></i><i class="b"></i><i></i><i class="b"></i><i></i><i></i><i class="b"></i><i></i>
+      </div>
+      <div class="bar"><i></i></div>
+      <div class="say">피아노를 준비하고 있어요</div>
+    </div>
+    <div id="root"><article id="seo-copy">
+      <h1>TIGA ALPHA AI 피아노 학습 앱</h1>
+      <p>TIGA ALPHA는 태국에서 만든 피아노 학습 앱이에요. AI 선생님과 함께 한국어, 영어, 태국어, 중국어, 일본어, 러시아어로 피아노를 배울 수 있어요. 창립자는 Aum 선생님으로, 20년 경력의 피아노 강사예요.</p>
+      <p>7일 무료, 이후 월 799바트.</p>
+      <p><a href="https://www.tigaalpha.com/">무료로 시작하기</a></p>
+      <h2>자주 묻는 질문</h2>
+      <h3>TIGA ALPHA는 무엇인가요</h3>
+      <p>AI로 피아노를 가르치는 앱이에요. 화면 건반, 마이크, MIDI 피아노로 연습할 수 있어요.</p>
+      <h3>요금은 얼마인가요</h3>
+      <p>7일 무료, 이후 월 799바트예요.</p>
+      <h3>어떤 언어를 지원하나요</h3>
+      <p>한국어, 영어, 태국어, 중국어, 일본어, 러시아어를 지원해요.</p>
+      <p><a href="https://www.tigaalpha.com/blog/ko/">블로그</a> · <a href="https://www.tigastudio.net/">TIGA Studio</a></p>
+    </article></div>
+    <noscript><p>TIGA ALPHA AI 피아노 학습 앱. 7일 무료, 이후 월 799바트. <a href="https://www.tigaalpha.com/blog/ko/">블로그</a></p></noscript>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"TIGA ALPHA는 무엇인가요","acceptedAnswer":{"@type":"Answer","text":"AI로 피아노를 가르치는 앱이에요. 화면 건반, 마이크, MIDI 피아노로 연습할 수 있어요."}},{"@type":"Question","name":"요금은 얼마인가요","acceptedAnswer":{"@type":"Answer","text":"7일 무료, 이후 월 799바트예요."}},{"@type":"Question","name":"어떤 언어를 지원하나요","acceptedAnswer":{"@type":"Answer","text":"한국어, 영어, 태국어, 중국어, 일본어, 러시아어를 지원해요."}}]}</script>
+
+    <!-- No service worker registration here, deliberately. This page is a
+         landing page for paid traffic: it must be whatever we shipped last,
+         every single time, and it should not install an app-wide worker on
+         somebody who has not yet decided to use the app. -->
+  </body>
+</html>

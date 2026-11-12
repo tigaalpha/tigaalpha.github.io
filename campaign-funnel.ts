@@ -82,7 +82,7 @@ export function buildVisitors(rows: Array<{ anon_id?: string | null; kind: strin
       if (g.v && !v.v) v.v = g.v;
       if (g.tz && !v.tz) v.tz = g.tz;
       if (g.oua && !v.oua) v.oua = g.oua;
-      if (g.lg && !v.lg && /^(th|en|zh)$/.test(g.lg)) v.lg = g.lg;
+      if (g.lg && !v.lg && /^(th|en|zh|ja|ko|ru)$/.test(g.lg)) v.lg = g.lg;
       if (g.s && it.startsWith("first;") && (!v.src || v.src === "direct")) v.src = g.s;
       continue;
     }

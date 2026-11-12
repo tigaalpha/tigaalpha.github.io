@@ -8,7 +8,8 @@ import { createAdvMusic } from "./adventure-music";
 import { GearButton, SettingsPopup } from "./adventure-settings";
 import { readArk } from "./adventure-ark";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 type L3 = [string, string, string];
 type Kind = { icon: string; res: { k: string; icon: string; name: L3 }[]; types: { id: string; icon: string; name: L3; time: number; yield: number; use: number }[]; tech: { id: string; name: L3; cost: number; text: L3 }[]; facts: L3[]; sick: L3 };
 const KINDS: Record<string, Kind> = {

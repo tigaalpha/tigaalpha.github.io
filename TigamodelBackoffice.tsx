@@ -6,6 +6,7 @@ import { ensureTigamodelWeb, getTigamodel, evaluateAllProviders, loadChatSession
 import { readAutoTeachOutcomes } from "./use-autoteach";
 import { MULTIMODAL_REGISTRY, multimodalSummary } from "./tigamodel/multimodal/interfaces.js";
 
+import { pickT } from "./lang-extra";
 /* ── TigamodelBackoffice.tsx ──
    TIGA's own back office (แยกจากหลังบ้านทั่วไปของแอป): the single surface
    for managing the tigamodel/ intelligence layer.
@@ -42,7 +43,7 @@ const TASK_TYPES = [
 ];
 
 export function TigamodelBackoffice({ lang = "th" }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
 
   const S = {
     card: { background: "var(--card)", border: "1px solid var(--bd2)", borderRadius: 14, padding: 16, marginBottom: 14 },

@@ -1,4 +1,5 @@
 import { L } from "./i18n";
+import { xl } from "./lang-extra";
 /* ── CameraCoachOverlay ──
    The hand-posture camera coach full-screen overlay (camOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -56,8 +57,8 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
                   <span className="cammission-lbl">🎯 {lc.camMissionLbl}</span>
                   <span className="cammission-timer" style={{ fontFamily: "var(--f-num, monospace)" }}>{camMission.secLeft}s</span>
                 </div>
-                <div className="cammission-txt">{lang === "th" ? camMission.ch.th : lang === "zh" ? camMission.ch.zh : camMission.ch.en}</div>
-                <div className="cammission-how">{lang === "th" ? camMission.ch.how.th : lang === "zh" ? camMission.ch.how.zh : camMission.ch.how.en}</div>
+                <div className="cammission-txt">{lang === "th" ? camMission.ch.th : lang === "zh" ? camMission.ch.zh : xl(lang, camMission.ch.en)}</div>
+                <div className="cammission-how">{lang === "th" ? camMission.ch.how.th : lang === "zh" ? camMission.ch.how.zh : xl(lang, camMission.ch.how.en)}</div>
                 <div className="cammission-bar"><div className="cammission-fill" style={{ width: `${Math.round(camMission.prog * 100)}%` }} /></div>
               </div>
             )}
@@ -99,8 +100,8 @@ export function CameraCoachOverlay({ lang, exitCamera, camVideoRef, camCanvasRef
                 {camRecap.stars > 0 && (
                   <div className="camrecap-game">
                     <span>⭐ {camRecap.stars}</span>
-                    {camRecap.solved > 0 && <span>🎯 {lang === "th" ? `ภารกิจสำเร็จ ${camRecap.solved}` : lang === "zh" ? `完成任务 ${camRecap.solved}` : `missions ${camRecap.solved}`}</span>}
-                    {camRecap.bestCombo >= 3 && <span>🔥 {lang === "th" ? "คอมโบสูงสุด" : lang === "zh" ? "最高连击" : "best combo"} {camRecap.bestCombo}</span>}
+                    {camRecap.solved > 0 && <span>🎯 {lang === "th" ? `ภารกิจสำเร็จ ${camRecap.solved}` : lang === "zh" ? `完成任务 ${camRecap.solved}` : xl(lang, `missions ${camRecap.solved}`)}</span>}
+                    {camRecap.bestCombo >= 3 && <span>🔥 {lang === "th" ? "คอมโบสูงสุด" : lang === "zh" ? "最高连击" : xl(lang, "best combo")} {camRecap.bestCombo}</span>}
                   </div>
                 )}
                 <button className="cbtn" onClick={closeCameraAfterRecap}>{lc.camRecapClose}</button>

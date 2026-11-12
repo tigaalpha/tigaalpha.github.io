@@ -1,0 +1,214 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://www.tigaalpha.com/landing-ko/#webpage",
+      "url": "https://www.tigaalpha.com/landing-ko/",
+      "name": "AI 선생님과 피아노 레슨 체험 — TIGA ALPHA, AI 피아노 학습 앱",
+      "inLanguage": "ko",
+      "isPartOf": {
+        "@id": "https://www.tigaalpha.com/#site"
+      },
+      "about": {
+        "@id": "https://www.tigaalpha.com/#app"
+      },
+      "publisher": {
+        "@id": "https://www.tigaalpha.com/#org"
+      },
+      "relatedLink": [
+        "https://www.tigastudio.net/",
+        "https://www.tigaalpha.com/"
+      ]
+    },
+    {
+      "@type": [
+        "SoftwareApplication",
+        "WebApplication"
+      ],
+      "@id": "https://www.tigaalpha.com/#app",
+      "name": "TIGA ALPHA",
+      "applicationCategory": "EducationalApplication",
+      "applicationSubCategory": "AI piano teaching app",
+      "operatingSystem": "Web browser (Android, iOS, Windows, macOS)",
+      "browserRequirements": "Requires a modern web browser with JavaScript",
+      "url": "https://www.tigaalpha.com/",
+      "image": "https://www.tigaalpha.com/og-card.png",
+      "inLanguage": [
+        "th",
+        "en",
+        "zh",
+        "ja",
+        "ko",
+        "ru"
+      ],
+      "countryOfOrigin": {
+        "@type": "Country",
+        "name": "Thailand"
+      },
+      "description": "TIGA ALPHA는 태국에서 만든 AI 피아노 학습 앱이에요. 태국어, 영어, 중국어, 일본어, 한국어, 러시아어로 AI 선생님과 온라인에서 피아노를 배울 수 있어요. 창립자 Aum 선생님은 20년 경력의 피아노 강사예요.",
+      "keywords": "피아노 레슨, 피아노 배우기, 피아노 강좌, 피아노 연주, 음악 레슨, 피아노 코스, 온라인 피아노 레슨, 음악 배우기, 피아노 학습 앱, AI 피아노 레슨, 피아노 교육 앱, 온라인 피아노 레슨 앱, AI 피아노 앱, AI 온라인 피아노 강좌",
+      "featureList": [
+        "AI piano teacher that explains and plays the answer on the keyboard",
+        "Teaches in Thai, English, Mandarin Chinese, Japanese, Korean and Russian",
+        "Play-along songs, scales, chords and a learning pathway",
+        "Sight-reading and ear training",
+        "Works with on-screen keys, a real piano via microphone, or a MIDI piano"
+      ],
+      "creator": {
+        "@id": "https://www.tigaalpha.com/#org"
+      },
+      "publisher": {
+        "@id": "https://www.tigaalpha.com/#org"
+      },
+      "author": {
+        "@id": "https://www.tigaalpha.com/#teacher-aum"
+      },
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "7일 무료 체험",
+          "price": "0",
+          "priceCurrency": "THB",
+          "eligibleDuration": {
+            "@type": "QuantitativeValue",
+            "value": 7,
+            "unitCode": "DAY"
+          },
+          "description": "7일 무료, 이후 월 799바트",
+          "url": "https://www.tigaalpha.com/",
+          "availability": "https://schema.org/InStock"
+        },
+        {
+          "@type": "Offer",
+          "name": "월 구독",
+          "price": "799",
+          "priceCurrency": "THB",
+          "description": "7일 무료, 이후 월 799바트",
+          "url": "https://www.tigaalpha.com/",
+          "availability": "https://schema.org/InStock",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "799",
+            "priceCurrency": "THB",
+            "billingDuration": "P1M",
+            "unitCode": "MON",
+            "referenceQuantity": {
+              "@type": "QuantitativeValue",
+              "value": 1,
+              "unitCode": "MON"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://www.tigaalpha.com/#org",
+      "name": "TIGA ALPHA",
+      "url": "https://www.tigaalpha.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.tigaalpha.com/og-card.png"
+      },
+      "image": "https://www.tigaalpha.com/og-card.png",
+      "description": "TIGA ALPHA is a Thai high-tech AI education company that makes an AI piano teaching app teaching in Thai, English, Mandarin, Japanese, Korean and Russian.",
+      "foundingLocation": {
+        "@type": "Place",
+        "name": "Thailand"
+      },
+      "areaServed": "Worldwide",
+      "knowsLanguage": [
+        "th",
+        "en",
+        "zh",
+        "ja",
+        "ko",
+        "ru"
+      ],
+      "founder": {
+        "@id": "https://www.tigaalpha.com/#teacher-aum"
+      },
+      "sameAs": [
+        "https://www.tigastudio.net/",
+        "https://tigaalpha.github.io/landing/"
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://www.tigaalpha.com/#teacher-aum",
+      "name": "Teacher Aum",
+      "alternateName": [
+        "ครูอั้ม",
+        "Aum 老师",
+        "Aum 선생님"
+      ],
+      "jobTitle": "Founder & CEO, TIGA ALPHA",
+      "description": "Founder and CEO of TIGA ALPHA. Piano teacher with 20 years of experience.",
+      "worksFor": {
+        "@id": "https://www.tigaalpha.com/#org"
+      },
+      "affiliation": {
+        "@id": "https://www.tigastudio.net/#organization"
+      },
+      "knowsAbout": [
+        "Piano teaching",
+        "Music education",
+        "AI piano teaching"
+      ],
+      "knowsLanguage": [
+        "th",
+        "en",
+        "zh",
+        "ja",
+        "ko",
+        "ru"
+      ],
+      "nationality": {
+        "@type": "Country",
+        "name": "Thailand"
+      }
+    },
+    {
+      "@type": [
+        "EducationalOrganization",
+        "LocalBusiness"
+      ],
+      "@id": "https://www.tigastudio.net/#organization",
+      "name": "TIGA Studio",
+      "url": "https://www.tigastudio.net/",
+      "telephone": "+66-84-111-9531",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "หมู่บ้านเมืองเอกรังสิต โครงการ 4",
+        "addressLocality": "Rangsit",
+        "addressRegion": "Pathum Thani",
+        "addressCountry": "TH"
+      },
+      "founder": {
+        "@id": "https://www.tigaalpha.com/#teacher-aum"
+      },
+      "sameAs": [
+        "https://www.tiktok.com/@tiga.piano_studio",
+        "https://www.youtube.com/@tiga.studio"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.tigaalpha.com/#site",
+      "url": "https://www.tigaalpha.com/",
+      "name": "TIGA ALPHA",
+      "inLanguage": [
+        "th",
+        "en",
+        "zh",
+        "ja",
+        "ko",
+        "ru"
+      ],
+      "publisher": {
+        "@id": "https://www.tigaalpha.com/#org"
+      }
+    }
+  ]
+}

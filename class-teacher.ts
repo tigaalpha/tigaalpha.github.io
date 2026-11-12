@@ -1,4 +1,5 @@
-/* class-teacher.ts — the voice and the first path of My Class (owner, 2026-10-17: "act like a teacher: update progress, say what is wrong and how to
+
+import { xl } from "./lang-extra";/* class-teacher.ts — the voice and the first path of My Class (owner, 2026-10-17: "act like a teacher: update progress, say what is wrong and how to
    fix it, build discipline, encourage; and teach a brand-new learner well even with no data").
    Pure (no localStorage, no network, no React) so a script can import the real file. Everything it says is derived from the learner's own
    activity log, so nothing here can claim progress that did not happen. It never decides WHAT to practise once there is evidence — that stays
@@ -9,7 +10,7 @@ export const WEEK_GOAL_DAYS = 4;      // a realistic habit target: four practice
 const DAY = 86400000;
 
 type L3 = { th: string; en: string; zh: string };
-const pick = (o: L3, lang: string) => (lang === "th" ? o.th : lang === "zh" ? o.zh : o.en);
+const pick = (o: L3, lang: string) => (lang === "th" ? o.th : lang === "zh" ? o.zh : xl(lang, o.en));
 
 /* ── the foundation path ──
    Each step names ONE existing destination: a feature key `handleCoachNavigate` knows, or Pathway stages (opened as a lesson).

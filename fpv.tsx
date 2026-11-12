@@ -4,6 +4,7 @@
    a cockpit, PvP hides your own fighter and shows your weapon), this file only holds the switch and the common look. */
 import { useEffect, useState } from "react";
 
+import { pickT } from "./lang-extra";
 const KEY = "tg_fpv";
 export const readFpv = (): boolean => { try { return localStorage.getItem(KEY) === "1"; } catch (e) { return false; } };
 const writeFpv = (on: boolean) => { try { localStorage.setItem(KEY, on ? "1" : "0"); } catch (e) {} };
@@ -58,7 +59,7 @@ export const FPV_CSS = `
 @media (prefers-reduced-motion:reduce){.fpv-hurt{transition:none}.fpv-fh.act .fpv-fh-rig,.fpv-fh.hit .fpv-fh-rig{animation:none}}
 `;
 
-const T = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+const T = (lang, th, en, zh) => pickT(lang, th, en, zh);
 
 /** The round button for the top right corner. */
 export function FpvButton({ lang, on, onClick }: { lang: string; on: boolean; onClick: () => void }) {

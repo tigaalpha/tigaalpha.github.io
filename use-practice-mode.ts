@@ -18,6 +18,7 @@ import { queuedUntilTiga } from "./tiga-gateway";   // tigamodel loads lazy (pla
 import { recordNoteMisses, recordTipOutcome, weightedStruggles } from "./use-autoteach";
 import { sb } from "./supabase-client";
 import { learningIntervene, learningPractice } from "./learning-data";
+import { xl } from "./lang-extra";
 import { jevTask, jevChoice } from "./jev"; // practice-next: Jev picks the result screen's next-step nudge (admin-toggleable)
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
@@ -1022,7 +1023,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
         ? `ผู้เรียนเพิ่งฝึกเล่น "${label}" บนเปียโน เล่นถูกครบ ${total} โน้ต ความแม่นยำ ${accuracy}% (เล่นผิดระหว่างทาง ${miss} ครั้ง) คอมโบสูงสุด ${bestStreak} โน้ตติด ในฐานะครูเปียโน TiGA ช่วยชมและให้กำลังใจสั้นๆ อบอุ่น แล้วแนะนำ 1-2 จุดที่ควรฝึกต่อให้ดีขึ้น ตอบกระชับเป็นภาษาไทย ไม่ต้องระบุชื่อโน้ต${loopCtx}`
         : lang === "zh"
         ? `学员刚在钢琴上练习了"${label}"，完成全部 ${total} 个音，准确率 ${accuracy}%（中途失误 ${miss} 次），最高连击 ${bestStreak} 个音。作为 TiGA 钢琴老师，请简短温暖地表扬鼓励，并给出 1-2 个可继续提升的小建议。简洁中文回答，不要列音名${loopCtx}`
-        : `The learner just practiced "${label}" on piano, completing all ${total} notes at ${accuracy}% accuracy (${miss} wrong notes along the way), with a best combo of ${bestStreak} notes in a row. As TiGA the piano teacher, give a short, warm word of praise and encouragement, then 1-2 tips to improve next. Be concise; no note names needed.${loopCtx}`;
+        : xl(lang, `The learner just practiced "${label}" on piano, completing all ${total} notes at ${accuracy}% accuracy (${miss} wrong notes along the way), with a best combo of ${bestStreak} notes in a row. As TiGA the piano teacher, give a short, warm word of praise and encouragement, then 1-2 tips to improve next. Be concise; no note names needed.${loopCtx}`);
       fetchChatCompletion({ message: fb, conversationHistory: [], system: THEORY_REF, stream: false, feature: "practice-tip" })
         .then(txt => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiText: txt || null, aiLoading: false } : prev)))
         .catch(() => setPracticeResult(prev => (prev && prev.label === label ? { ...prev, aiLoading: false } : prev)));

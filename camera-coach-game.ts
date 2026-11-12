@@ -1,4 +1,5 @@
-/* ── camera-coach-game.ts ──
+
+import { by } from "./lang-extra";/* ── camera-coach-game.ts ──
    GAME LAYER for the hand-posture camera coach (owner request: "หาทางทำ
    หน้าสอนเรื่องนี้ให้สนุกขึ้น ใส่ความเป็นเกมเข้าไปเพิ่มมากว่านี้อีก").
 
@@ -183,8 +184,8 @@ export function praiseFor(combo, lang) {
   return null;
 }
 export function rankUpPraise(rank, lang) {
-  return { th: `${rank.icon} ขึ้นระดับ: ${rank.th}!`, en: `${rank.icon} Rank up: ${rank.en}!`, zh: `${rank.icon} 升级：${rank.zh}！` }[lang] || rank.en;
+  return by({ th: `${rank.icon} ขึ้นระดับ: ${rank.th}!`, en: `${rank.icon} Rank up: ${rank.en}!`, zh: `${rank.icon} 升级：${rank.zh}！` }, lang) || rank.en;
 }
 export function missionSolvedPraise(lang) {
-  return { th: "🎯 ภารกิจสำเร็จ! +⭐⭐⭐", en: "🎯 Mission complete! +⭐⭐⭐", zh: "🎯 任务完成！+⭐⭐⭐" }[lang] || "🎯 Mission complete!";
+  return by({ th: "🎯 ภารกิจสำเร็จ! +⭐⭐⭐", en: "🎯 Mission complete! +⭐⭐⭐", zh: "🎯 任务完成！+⭐⭐⭐" }, lang) || "🎯 Mission complete!";
 }

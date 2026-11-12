@@ -72,6 +72,7 @@ import { GamePowerBar, PowerSheet, usePlayDrain } from "./game-power-ui";
 import { enterGame, COST as POWER_COST } from "./game-power";
 import { learnedTopics, readDone } from "./quiz-quest";
 
+import { pickT, xl, by } from "./lang-extra";
 /* ══════════════════════ Skill EXP ══════════════════════ */
 
 const SP_KEY = "tg_skillsp";
@@ -170,7 +171,7 @@ const DEGREE_ORD = ["", "1", "2", "3", "4", "5", "6", "7"];
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const shuffle = (a) => { const c = a.slice(); for (let i = c.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [c[i], c[j]] = [c[j], c[i]]; } return c; };
-const tr3 = (o, lang) => (o && (o[lang] || o.en)) || "";
+const tr3 = (o, lang) => (o && (by(o, lang) || o.en)) || "";
 
 /** Three distractors that are plausible for THIS question — other notes from
     the same scale, or the same interval off a neighbour — rather than three
@@ -220,7 +221,7 @@ function makeBuild(lang) {
     teach: { notes: sp.chord ? notes : notes.concat([notes[0]]), hi: notes, label: `${root} ${tr3(sp.q, "en")}` },
     q: lang === "th" ? `${kindWord} ${root} ${quality} มีโน้ตอะไรบ้าง? กดบนคีย์ให้ครบ ${count} ตัว${sp.chord ? "" : " (ตัวที่ 8 คือโน้ตเริ่มซ้ำ)"}`
       : lang === "zh" ? `${root} ${quality}${kindWord}有哪些音？在琴键上点齐 ${count} 个${sp.chord ? "" : "（第 8 个是主音的重复）"}`
-      : `Which notes make the ${root} ${quality} ${kindWord}? Tap all ${count} on the keys${sp.chord ? "" : " (the 8th is the root again)"}.`,
+      : xl(lang, `Which notes make the ${root} ${quality} ${kindWord}? Tap all ${count} on the keys${sp.chord ? "" : " (the 8th is the root again)"}.`),
     opts: [], ans: notes.join(" – "),
   };
 }
@@ -243,7 +244,7 @@ export function makeQuestion(lang, forceKind) {
       teach: { notes: [root, ans], hi: [ans], label: tr3(iv, lang) },
       q: lang === "th" ? `ขั้นคู่ ${tr3(iv, "th")} เหนือ ${root} คือโน้ตอะไร?`
         : lang === "zh" ? `${root} 上方的${tr3(iv, "zh")}是哪个音？`
-        : `Which note is a ${tr3(iv, "en")} above ${root}?`,
+        : xl(lang, `Which note is a ${tr3(iv, "en")} above ${root}?`),
       opts: shuffle([ans, ...wrong]), ans,
     };
   }
@@ -257,7 +258,7 @@ export function makeQuestion(lang, forceKind) {
       teach: { notes, hi: [ans], label: `${root} major` },
       q: lang === "th" ? `โน้ตตัวที่ ${DEGREE_ORD[d]} ของบันไดเสียง ${root} เมเจอร์ คือโน้ตอะไร?`
         : lang === "zh" ? `${root} 大调音阶的第 ${d} 级是什么音？`
-        : `What is note ${d} of the ${root} major scale?`,
+        : xl(lang, `What is note ${d} of the ${root} major scale?`),
       opts: shuffle([ans, ...wrong]), ans,
     };
   }
@@ -273,7 +274,7 @@ export function makeQuestion(lang, forceKind) {
       teach: { notes: notes.concat([ans]).sort((a, b) => ((LETTERS.indexOf(a[0]) - LETTERS.indexOf(root[0]) + 7) % 7) - ((LETTERS.indexOf(b[0]) - LETTERS.indexOf(root[0]) + 7) % 7)), hi: [ans], bad: [ans], label: `${root} major` },
       q: lang === "th" ? `โน้ตใดไม่ได้อยู่ในบันไดเสียง ${root} เมเจอร์?`
         : lang === "zh" ? `哪个音不在 ${root} 大调音阶中？`
-        : `Which note is NOT in the ${root} major scale?`,
+        : xl(lang, `Which note is NOT in the ${root} major scale?`),
       opts: shuffle([ans, ...wrong]), ans,
       // every key outside the scale is a right answer, not only the one the
       // question happened to name (owner, 2026-10-10)
@@ -289,7 +290,7 @@ export function makeQuestion(lang, forceKind) {
     teach: { notes, hi: notes, label: `${root} ${tr3(t, "en")}` },
     q: lang === "th" ? `โน้ต ${notes.join(" – ")} รวมกันเป็นคอร์ดชนิดใด?`
       : lang === "zh" ? `${notes.join(" – ")} 组成什么和弦？`
-      : `${notes.join(" – ")} together make which chord?`,
+      : xl(lang, `${notes.join(" – ")} together make which chord?`),
     opts: shuffle([ans, ...wrong]), ans,
   };
 }
@@ -445,7 +446,7 @@ export function shopWeaponOf(gear, lang) {
   const w = (gear || []).find(g => g && g.id && String(g.id).startsWith("wpn-")); if (!w) return null;
   const a = wpnArchetype(w.art); if (!a || !SHOP_GUN[a]) return null;
   const col = parseInt(String((w.sw && w.sw[0]) || "#ffffff").replace("#", ""), 16) || 0xffffff;
-  return { as: SHOP_GUN[a], m: 1 + effRarityPts(w) * 0.07, name: (lang === "th" ? w.th : lang === "zh" ? w.zh : w.en) || w.en || w.id, col };
+  return { as: SHOP_GUN[a], m: 1 + effRarityPts(w) * 0.07, name: (lang === "th" ? w.th : lang === "zh" ? w.zh : xl(lang, w.en)) || w.en || w.id, col };
 }
 const OUT_ARCHETYPE = {
   "out-tshirt": "light", "out-hoodie": "light", "out-alloy": "light", "out-carbon": "light",
@@ -629,7 +630,7 @@ function petSkillsOf(spec) {
     wherever it deserves to be seen, and given the glow/pulse treatment that
     makes it the thing the eye lands on first. */
 export const PvpBanner = memo(function PvpBanner({ lang, onOpenPvp }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   return (
     <button className="profpvp" onClick={onOpenPvp}>
       <span className="profpvp-ic">⚔</span>
@@ -655,7 +656,7 @@ export const SkillTrack = memo(function SkillTrack({ lang, charModel }) {
   const mine = classKeyOf(normalizeModel(charModel));
   const cls = MODEL_CLASS[mine] || MODEL_CLASS.striker;
   const r = skillRank(sp[mine] || 0);
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
 
   return (
     <div className="skilltrack">
@@ -1230,7 +1231,7 @@ export const PvpPage = memo(function PvpPage({
   lang, charModel = "vanguard", gear = [], onBack, onReward, coinApi = null, playUi, friends = null, onChallenge, duels = null, onRespondDuel, onShare, onApplyLoadout, onPracticeWeakness = null,
   ownedModels = null, onPickModel = null, onOpenShop = null, modelCost = null, adminTier = 0,
 }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const gfx = useGfx();                                  // "low" | "high": the gear button
   const gfxPlan = useMemo(() => resolveGfx(gfx), [gfx]);
   const PICS = gfxPlan.liteFight && FIGURES_OK;           // fighters as stored pictures
@@ -2642,7 +2643,7 @@ const X_MIN = 0.08, X_MAX = 0.92, GAP_MIN = 0.16;
 const Bot = memo(CyberAvatar);
 
 const ArenaFight = memo(function ArenaFight({ lang, me, gear: gearIn, myRank: myRankIn, tier, oppKind, oppName, onDone, onBack, playUi, initHpFrac = 1, sp = null, colorway = null, practice = false, objectives = [], squad = "both" }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   /* the PvP graphics level (pvp-gfx.ts, the gear in the header) turns into the
      switches this fight runs on; a change applies live, with the clock held
      while the card is open */

@@ -3,6 +3,7 @@ import { useState, useEffect, Component } from "react";
 import { sb } from "./supabase-client";
 import { saveGuestProfile, setSkipOnboard, logUsage } from "./shared-infra";
 import { handoffUrl } from "./local-identity";
+import { by } from "./lang-extra";
 /* ── app-shell.tsx ──
    Small presentational components clustered around the App() root: the
    membership-gate screens (Splash/BannedScreen/GuestGateScreen/ProfileForm,
@@ -522,7 +523,7 @@ const WALL_T: Record<string, Record<string, string>> = {
 function LoginWall({ profile, onGoogleLogin }) {
   const [inApp] = useState(() => inAppBrowser());
   const lg = (() => { const p = profile && profile.lang; if (p === "th" || p === "en" || p === "zh") return p; try { const n = (navigator.language || "").toLowerCase(); return n.startsWith("th") ? "th" : n.startsWith("zh") ? "zh" : "en"; } catch (e) { return "en"; } })();
-  const t = WALL_T[lg];
+  const t = by(WALL_T, lg);
   /* ?wall=signup | ?wall=login opens the card on that tab: the blog pop-up (scripts/build-blog-pages.mjs) sends "sign up free" and "log in" here */
   const [mode, setMode] = useState(() => { try { return new URLSearchParams(window.location.search).get("wall") === "signup" ? "signup" : "login"; } catch (e) { return "login"; } });
   const [name, setName] = useState(""), [email, setEmail] = useState(""), [pass, setPass] = useState("");

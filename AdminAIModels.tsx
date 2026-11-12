@@ -3,6 +3,7 @@ import { useTiga } from "./tiga-gateway"; // Capability Hub via the lazy gateway
 import { sb } from "./supabase-client";
 import { playUi } from "./music-engine";
 
+import { pickT } from "./lang-extra";
 /* ── Admin: per-feature AI model manager + grouped admin nav ──
    Every product surface that calls an LLM/TTS is listed in AI_FEATURES with
    the providers it can run on. The config lives in the app_settings
@@ -111,7 +112,7 @@ function providerLabel(p, lang) {
    per-feature voice id for the TTS engine, reset-to-default per feature). ── */
 export function AdminAIModels({ lang }) {
   const tiga = useTiga(m => m);   // hub status table fills in when the lazy model lands
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [cfg, setCfg] = useState(null);          // null = loading; { default: {provider,model}, "<feature>": {...} }
   const [drafts, setDrafts] = useState({});       // feature -> { provider, model, voice }
   const [busyKey, setBusyKey] = useState("");     // feature currently saving
@@ -407,7 +408,7 @@ export const JEV_TASKS = [
 ];
 
 export function AdminJevTasks({ lang }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [cfg, setCfg] = useState(null);   // null = loading; { "<task>": { enabled } }
   const [busy, setBusy] = useState("");
   const [saved, setSaved] = useState("");
@@ -507,7 +508,7 @@ const ADMIN_NAV_GROUPS = [
 ];
 
 export function AdminNav({ lang, tier, adminTab, setAdminTab }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [open, setOpen] = useState(false);
   const flat = ADMIN_NAV_GROUPS.flatMap(g => g.items);
   const cur = flat.find(i => i.id === adminTab) || flat[0];

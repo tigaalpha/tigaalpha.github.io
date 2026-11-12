@@ -1,5 +1,6 @@
 import { L } from "./i18n";
 import { Piano, StaffSVG, pcOf } from "./music-engine";
+import { xl, by } from "./lang-extra";
 /* ── SightReadingOverlay ──
    The sight-reading practice full-screen overlay (sightOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -19,7 +20,7 @@ export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGH
   const lc = L[lang];
   const belt = (() => { let b = sightBelts[0]; for (const x of sightBelts) if (sightTotalRead >= x.need) b = x; return b; })();
   const nextBelt = sightBelts.find(b => b.need > sightTotalRead) || null;
-  const beltLabel = (b) => b ? (lang === "th" ? b.th : lang === "zh" ? b.zh : b.en) : "";
+  const beltLabel = (b) => b ? (lang === "th" ? b.th : lang === "zh" ? b.zh : xl(lang, b.en)) : "";
   return (
         <div className="practiceov sightov">
           <div className="practicehdr">
@@ -61,8 +62,8 @@ export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGH
                     onClick={() => { pickSightClef(sightDone.jevNudge === "up" ? (sightClef === "treble" ? "bass" : "both") : (sightClef === "bass" ? "treble" : (sightClef === "both" ? "bass" : "treble"))); openSight("round"); }}>
                     <span className="tigatipbadge">⚡ Jev</span>
                     <span>{sightDone.jevNudge === "up"
-                      ? (lang === "th" ? "Jev แนะนำ: รอบหน้าลองยากขึ้น — แตะเพื่อเริ่มเลย" : lang === "zh" ? "Jev 建议：下一轮可以更难 — 点击开始" : "Jev suggests: try a harder next round — tap to start")
-                      : (lang === "th" ? "Jev แนะนำ: รอบหน้าค่อย ๆ ไป — แตะเพื่อเริ่มเลย" : lang === "zh" ? "Jev 建议：下一轮先稳一稳 — 点击开始" : "Jev suggests: take it easier next round — tap to start")}</span>
+                      ? (lang === "th" ? "Jev แนะนำ: รอบหน้าลองยากขึ้น — แตะเพื่อเริ่มเลย" : lang === "zh" ? "Jev 建议：下一轮可以更难 — 点击开始" : xl(lang, "Jev suggests: try a harder next round — tap to start"))
+                      : (lang === "th" ? "Jev แนะนำ: รอบหน้าค่อย ๆ ไป — แตะเพื่อเริ่มเลย" : lang === "zh" ? "Jev 建议：下一轮先稳一稳 — 点击开始" : xl(lang, "Jev suggests: take it easier next round — tap to start"))}</span>
                   </button>
                 )}
                 {/* belt progress — the exact numbers captured when this round ended,
@@ -110,7 +111,7 @@ export function SightReadingOverlay({ lang, exitSight, sightDone, sightIdx, SIGH
                 {sightTip && sightTip.tip && (
                   <div className="tigatipbar">
                     <span className="tigatipbadge">🧠 TIGA</span>
-                    <span>{sightTip.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || sightTip.tip.en}</span>
+                    <span>{by(sightTip.tip, lang) || sightTip.tip.en}</span>
                   </div>
                 )}
                 <div className={`staffwrap${sightFeedback ? (sightFeedback.ok ? " ok" + (sightFeedback.phraseClean ? " phraseclean" : "") : " bad") : ""}`}>

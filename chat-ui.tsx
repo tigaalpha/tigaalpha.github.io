@@ -7,6 +7,7 @@ import { stopSpeaking, stopCloudTTS, speakCloud, speakDeviceOrNative, unlockDevi
 import { askQuestionOf, splitAskLine, nextActionOf } from "./chat-coach";
 import { CATS, CAT_ICON, catLevel, readKnow, catPoints, BADGES, readBadges, QUEST_GOAL, QUEST_EXP, readQuest } from "./chat-store";
 
+import { pickT, dateLocale, xl } from "./lang-extra";
 /* ── chat-ui.tsx ──
    Chat UI atoms shared by every chat surface (Sensei page, expanded chat
    modal): the message bubble (Msg), typing indicator (Typing), text input
@@ -323,7 +324,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
         {m.img && <img src={m.img} alt="" className="adminimg" />}
         {waiting
           ? <div className="typing" role="status" aria-live="polite"
-                 aria-label={lang === "th" ? "กำลังคิดคำตอบ" : lang === "zh" ? "正在思考" : "Thinking"}>
+                 aria-label={lang === "th" ? "กำลังคิดคำตอบ" : lang === "zh" ? "正在思考" : xl(lang, "Thinking")}>
               <div className="tdd" /><div className="tdd" /><div className="tdd" />
             </div>
           : (m.role === "ai" && RICH_MARKS.test(bodyText))
@@ -343,7 +344,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
       {m.role === "ai" && m.error && onRetry && (
         <div className="mact">
           <button className="retrybtn" onClick={onRetry}>
-            <span>↻</span><span>{lang === "th" ? "ลองส่งใหม่" : lang === "zh" ? "重试" : "Retry"}</span>
+            <span>↻</span><span>{lang === "th" ? "ลองส่งใหม่" : lang === "zh" ? "重试" : xl(lang, "Retry")}</span>
           </button>
         </div>
       )}
@@ -367,7 +368,7 @@ export const Msg = memo(function Msg({ m, idx, lang, activeSpk, setActiveSpk, on
         <div className="mact">
           {parsed && (
             <button className="playbtn" onClick={() => onPlay(parsed)}>
-              <span>▶</span><span>{lang === "th" ? "เล่นโน้ต" : lang === "zh" ? "演奏" : "PLAY"}</span>
+              <span>▶</span><span>{lang === "th" ? "เล่นโน้ต" : lang === "zh" ? "演奏" : xl(lang, "PLAY")}</span>
             </button>
           )}
           {parsed && <span className="nlbl">{parsed.label}</span>}
@@ -387,7 +388,7 @@ export const Typing = memo(function Typing({ slow, lang }) {
     ? "ยังเชื่อมต่ออยู่ — กำลังลองใหม่อัตโนมัติ…"
     : lang === "zh"
     ? "仍在连接中 — 正在自动重试…"
-    : "Still connecting — retrying automatically…";
+    : xl(lang, "Still connecting — retrying automatically…");
   return (
     <div className="msg a">
       <div className="bbl">
@@ -426,7 +427,7 @@ export function Input({ val, onChange, onSend, loading, ph, note = null, noteOut
    conversation as a card, filed under six categories that each level up as questions are asked in
    them, with search, pin and delete. The categories and levels are computed on the device from what
    the learner asked: nothing here costs a model call, an EXP point or a coin. */
-const HT = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+const HT = (lang, th, en, zh) => pickT(lang, th, en, zh);
 const CAT_NAME = { theory: ["ทฤษฎี", "Theory", "乐理"], technique: ["เทคนิค", "Technique", "技巧"], ear: ["ฝึกหู", "Ear", "听力"], reading: ["อ่านโน้ต", "Reading", "读谱"], songs: ["เพลง", "Songs", "歌曲"], other: ["อื่น ๆ", "Other", "其他"] };
 const catName = (c, lang) => { const n = CAT_NAME[c] || CAT_NAME.other; return HT(lang, n[0], n[1], n[2]); };
 function whenOf(ts, lang) {
@@ -435,7 +436,7 @@ function whenOf(ts, lang) {
   if (d < m * 60) return Math.round(d / m) + HT(lang, " นาทีที่แล้ว", " min ago", " 分钟前");
   if (d < m * 60 * 24) return Math.round(d / (m * 60)) + HT(lang, " ชม.ที่แล้ว", " h ago", " 小时前");
   if (d < m * 60 * 24 * 7) return Math.round(d / (m * 60 * 24)) + HT(lang, " วันที่แล้ว", " d ago", " 天前");
-  try { return new Date(ts).toLocaleDateString(lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-GB", { day: "numeric", month: "short" }); } catch (e) { return ""; }
+  try { return new Date(ts).toLocaleDateString(dateLocale(lang), { day: "numeric", month: "short" }); } catch (e) { return ""; }
 }
 export function ChatHistoryButtons({ lang, onHistory, onNew, count = 0 }) {
   return (

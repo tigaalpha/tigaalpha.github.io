@@ -1,3 +1,4 @@
+import { pickT } from "./lang-extra";
 /* ── quiz-quest.ts ── review questions for Adventure Mode (owner, 2026-10-12) ──
    Questions come ONLY from what this learner has already studied (the Pathway topics they finished,
    `tg_path_done`), so two learners get different questions. They climb from easy to hard: the level
@@ -9,8 +10,8 @@
 const LET = ["C", "D", "E", "F", "G", "A", "B"] as const;
 const NPC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const NAMES_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-export type Lang = "th" | "en" | "zh";
-const T3 = (lang: Lang, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+export type Lang = "th" | "en" | "zh" | "ja" | "ko" | "ru";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 
 /** A note spelled from a root and a number of semitones, with the right letter for its degree. */
 function spell(rootLetter: number, rootAcc: number, degree: number, semis: number) {

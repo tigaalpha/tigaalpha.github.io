@@ -1,6 +1,6 @@
 /* One gear button for every Adventure run (owner, 2026-10-12): it opens a pop-up with Resume, the graphics quality, sound and "back to the map". Opening it pauses
    the run (in an online room only this player's own game stops: the others keep playing). Shared by the ground runs and the ship maps. */
-const T = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+const T = (lang, th, en, zh) => pickT(lang, th, en, zh);
 
 export function GearButton({ onClick }: { onClick: () => void }) {
   return <button className="adv-btn adv-gear" onClick={onClick} aria-label="settings">⚙</button>;
@@ -33,6 +33,7 @@ export function SettingsPopup({ lang, high, onGfx, musicOn, onMusic, online, onR
    error text (so a screenshot tells us what it was), writes it to usage_events as adv "err:<map>:<message>", and offers Retry and Back to the map. */
 import { Component } from "react";
 import { logUsage } from "./shared-infra";
+import { pickT } from "./lang-extra";
 export class AdvGuard extends Component<any, any> {
   state: any = { err: null, n: 0 };
   static getDerivedStateFromError(err: any) { return { err }; }

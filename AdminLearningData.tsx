@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { sb } from "./supabase-client";
 
+import { pickT } from "./lang-extra";
 /* ═══════════════════════════════════════════════════════════════════════════
    ADMIN LEARNING DATA — ระบบสะสมและเรียนรู้ข้อมูลผู้เรียน รุ่นที่ 1 (owner spec)
 
@@ -362,7 +363,7 @@ function SessionsView({ T }) {
 
 /* ── the exported panel: three sub-tabs ─────────────────────────────────────── */
 export function AdminLearningData({ lang }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [tab, setTab] = useState("overview");
   return (
     <div className="adminpay" style={{ display: "flex", flexDirection: "column", gap: 10 }}>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { xl, by } from "./lang-extra";
 /* ── LeadLandingPage.tsx ──
    Public-facing landing page for Tiga Studio piano school.
    Designed to capture leads: visitors see the page → click CTA → 
@@ -126,7 +127,7 @@ export function LeadLandingPage({ lang = "th" }: { lang?: string }) {
     },
   };
 
-  const c = t[lang] || t.th;
+  const c = by(t, lang) || t.th;
 
   async function handleSubmit() {
     if (!formData.name.trim() || !formData.phone.trim()) return;
@@ -178,7 +179,7 @@ export function LeadLandingPage({ lang = "th" }: { lang?: string }) {
           <p style={{ fontSize: 16, opacity: 0.8, marginBottom: 32 }}>
             {lang === "th" 
               ? "ระหว่างรอ ลองแชทกับ AI ของเราได้เลย เขาจะแนะนำคอร์สที่เหมาะกับคุณ"
-              : "While you wait, try chatting with our AI — it'll recommend the perfect course for you"}
+              : xl(lang, "While you wait, try chatting with our AI — it'll recommend the perfect course for you")}
           </p>
           <button
             onClick={openLineOA}
@@ -312,7 +313,7 @@ export function LeadLandingPage({ lang = "th" }: { lang?: string }) {
         borderTop: "1px solid rgba(255,255,255,0.1)",
       }}>
         <h2 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>
-          🎹 {lang === "th" ? "พร้อมเริ่มเรียน?" : "Ready to Start?"}
+          🎹 {lang === "th" ? "พร้อมเริ่มเรียน?" : xl(lang, "Ready to Start?")}
         </h2>
         <button
           onClick={() => setFormOpen(true)}

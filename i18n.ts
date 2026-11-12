@@ -1,4 +1,5 @@
 import { PATHWAY } from "./pathway-data";
+import { isExtraLang, xlate, LANG_META, replyInstruction, catalogVersion, xl, by } from "./lang-extra";
 import { INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL, progressionChordLabels } from "./music-engine";
 
 /* ── i18n.ts ──
@@ -25,7 +26,7 @@ import { INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL, progressionChordLabels } from 
    AI as the fallback, never the only option. */
 export function degreeLabel(i, lang) {
   const TH = ["ราก (Root)", "3rd", "5th", "7th"], EN = ["Root", "3rd", "5th", "7th"], ZH = ["根音 (Root)", "三音", "五音", "七音"];
-  const arr = lang === "th" ? TH : lang === "zh" ? ZH : EN;
+  const arr = lang === "th" ? TH : lang === "zh" ? ZH : xl(lang, EN);
   return arr[i] || `#${i + 1}`;
 }
 // stage/key/type → ready-made lesson text, or null (→ caller falls through to the live AI)
@@ -72,18 +73,18 @@ export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes,
       en: `🧭 ${fullTitle} · ${keyLabel}\n\nProgression: ${romans}\nNotes: ${notesTxt}\nChord names: ${degs}\n\n💡 Play one chord at a time, broken (bottom-up), with a short breath between chords. Memorize the Roman numerals (the universal formula), then try another key — learn one shape, play all 12 keys!`,
       zh: `🧭 ${fullTitle} · ${keyLabel}\n\n进行：${romans}\n音符：${notesTxt}\n和弦名：${degs}\n\n💡 一次弹一个和弦，分解（从下往上），和弦之间稍作停顿。记住罗马数字（通用公式），然后试试其他调 — 学会一个形状，12个调都能弹！`,
     };
-    return T[lang] || T.en;
+    return by(T, lang) || T.en;
   }
   if (stage.demoMode === "scale" && stage.types) {
     const info = SCALE_TYPE_INFO[scaleType] || SCALE_TYPE_INFO.major;
     const isMel = scaleType === "melodic_minor";
-    const body = info[lang] || info.en;
+    const body = by(info, lang) || info.en;
     const T = {
       th: `🎼 ${fullTitle} · ${keyLabel}\n\nโน้ตทั้งหมด: ${notesTxt}\nสูตรระยะห่าง (W=เสียงเต็ม, H=ครึ่งเสียง, A2=augmented 2nd): ${info.steps}${isMel ? "\nขาลง: W-W-H-W-W-H-W (กลับเป็นไมเนอร์ธรรมชาติ)" : ""}\n\n${body}\n\n💡 ฝึกแยกมือก่อน ไล่ขึ้น-ลงช้า ๆ ให้จังหวะสม่ำเสมอ นิ้วโป้งสอดลอดใต้ฝ่ามืออย่างนุ่มนวลโดยไม่ยกข้อมือ (ดูเลขนิ้วในผังด้านล่าง) พอแม่นแล้วค่อยเพิ่มความเร็ว`,
       en: `🎼 ${fullTitle} · ${keyLabel}\n\nAll notes: ${notesTxt}\nStep formula (W=whole, H=half, A2=augmented 2nd): ${info.steps}${isMel ? "\nComing down: W-W-H-W-W-H-W (back to natural minor)" : ""}\n\n${body}\n\n💡 Practise hands separately first, slow and even in both directions. The thumb passes smoothly under the palm without lifting the wrist (finger numbers are in the chart below). Add speed only once it is accurate.`,
       zh: `🎼 ${fullTitle} · ${keyLabel}\n\n所有音符：${notesTxt}\n音程公式（W=全音，H=半音，A2=增二度）：${info.steps}${isMel ? "\n下行：W-W-H-W-W-H-W（还原为自然小调）" : ""}\n\n${body}\n\n💡 先分手练习，上下行都要慢而均匀。大拇指平顺地穿到手掌下方，手腕不要抬起（指法见下方图表）。准确之后再加速。`,
     };
-    return T[lang] || T.en;
+    return by(T, lang) || T.en;
   }
   if (stage.demoMode === "scale" && !stage.types) {
     const T = {
@@ -91,7 +92,7 @@ export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes,
       en: `🎼 ${fullTitle} · ${keyLabel}\n\nAll notes: ${notesTxt}\nStep formula: W-W-H-W-W-W-H (Whole-Whole-Half-Whole-Whole-Whole-Half)\n\nThis is the major scale — that exact step pattern is identical in every key, you just shift the starting note. It sounds bright and stable, and it's the foundation under most music you already know.\n\n💡 Practice hands separately first, slow and even up and down. The thumb should tuck smoothly under the palm without lifting the wrist (see the fingering chart below) — only speed up once it's steady.`,
       zh: `🎼 ${fullTitle} · ${keyLabel}\n\n所有音符：${notesTxt}\n音程公式：W-W-H-W-W-W-H（全-全-半-全-全-全-半）\n\n这是大调音阶——这个公式在每个调都完全一样，只是起始音不同。听起来明亮稳定，是你熟悉的大多数音乐的基础。\n\n💡 先分手练习，上下行都要慢而均匀。大拇指要平顺地穿到手掌下方，不要抬起手腕（参考下方指法图），稳了再加速。`,
     };
-    return T[lang] || T.en;
+    return by(T, lang) || T.en;
   }
   if (chordType && INTERVAL_FEEL[chordType.id]) {
     const f = INTERVAL_FEEL[chordType.id];
@@ -100,7 +101,7 @@ export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes,
       en: `📏 ${fullTitle} · ${keyLabel}\n\nNotes: ${notesTxt} (${degreeLabel(0, lang)} → ${chordType.symbol})\nCharacter: ${f.en}\n\n💡 Play both notes together and listen to that color, then try them broken (one at a time) to compare. See if you can spot this interval in a song you like.`,
       zh: `📏 ${fullTitle} · ${keyLabel}\n\n音符：${notesTxt}（${degreeLabel(0, lang)} → ${chordType.symbol}）\n音色：${f.zh}\n\n💡 同时按下这两个音感受它的色彩，再分开弹（broken）比较一下。试试在喜欢的歌里找找这个音程。`,
     };
-    return T[lang] || T.en;
+    return by(T, lang) || T.en;
   }
   if (chordType && TRIAD_FEEL[chordType.id]) {
     const f = TRIAD_FEEL[chordType.id];
@@ -110,7 +111,7 @@ export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes,
       en: `🔺 ${fullTitle} · ${keyLabel}\n\nFormula: ${f.formula}\nNotes: ${notesTxt} (${degs})\nCharacter: ${f.en}\n\n💡 Play all 3 notes together as a block chord first and get used to the color, then try it broken (arpeggiated) from the bottom up.`,
       zh: `🔺 ${fullTitle} · ${keyLabel}\n\n公式：${f.formula}\n音符：${notesTxt}（${degs}）\n音色：${f.zh}\n\n💡 先把3个音同时按下作为块状和弦，熟悉它的音色，再从下往上分解弹奏（琶音）。`,
     };
-    return T[lang] || T.en;
+    return by(T, lang) || T.en;
   }
   if (chordType && SEVENTH_FEEL[chordType.id]) {
     const f = SEVENTH_FEEL[chordType.id];
@@ -120,7 +121,7 @@ export function localPathwayLesson(stage, keyId, keyLabel, chordType, demoNotes,
       en: `7️⃣ ${fullTitle} · ${keyLabel}\n\nFormula: ${f.formula}\nNotes: ${notesTxt} (${degs})\nCharacter: ${f.en}\n\n💡 Play it as a block first, then roll it from the bottom up. 7th chords show up constantly in jazz, soul and funk.`,
       zh: `7️⃣ ${fullTitle} · ${keyLabel}\n\n公式：${f.formula}\n音符：${notesTxt}（${degs}）\n音色：${f.zh}\n\n💡 先同时按下听听，再从下往上分解弹奏。七和弦在爵士、灵魂乐和放克中非常常见。`,
     };
-    return T[lang] || T.en;
+    return by(T, lang) || T.en;
   }
   return null; // no local template for this combo — ask the live AI (2nd tier)
 }
@@ -1085,7 +1086,9 @@ export const STAGES_BY_GROUP = PATHWAY.reduce((acc, s) => {
 export function tr(field, lang) {
   if (field == null) return "";
   if (typeof field === "string") return field;
-  return field[lang] || field.en || field.th || Object.values(field)[0] || "";
+  // ja / ko / ru: the object's own entry when it has one, else the catalog's translation of its English
+  if (isExtraLang(lang)) return by(field, lang) || (field.en ? xlate(lang, field.en) : "") || field.th || Object.values(field)[0] || "";
+  return by(field, lang) || field.en || field.th || Object.values(field)[0] || "";
 }
 
 const _L_RAW = {
@@ -1613,16 +1616,34 @@ const _L_RAW = {
 /* L[lang] must NEVER be undefined: a bad/persisted lang value used to make
    const lc = L[lang] undefined and crash every overlay at render. The Proxy
    below falls back to th then en for any unknown key instead. */
+/* Japanese, Korean and Russian are built from the English dictionary through their catalog (lang-extra.ts), once per catalog version.
+   The two long AI prompts stay English plus a line telling the model which language to answer in. */
+const _extraL: Record<string, { v: number; o: any }> = {};
+function extraL(lang) {
+  const v = catalogVersion(), c = _extraL[lang];
+  if (c && c.v === v) return c.o;
+  const en = _L_RAW.en, o = {};
+  for (const k of Object.keys(en)) {
+    const val = en[k];
+    o[k] = (k === "sys" || k === "vmSys") ? val + replyInstruction(lang)
+      : typeof val === "string" ? xlate(lang, val)
+      : Array.isArray(val) ? val.map(x => (typeof x === "string" ? xlate(lang, x) : x))
+      : val;
+  }
+  _extraL[lang] = { v, o };
+  return o;
+}
 export const L = new Proxy(_L_RAW, {
   get(target, prop) {
     if (typeof prop !== "string") return target[prop];
     if (Object.prototype.hasOwnProperty.call(target, prop)) return target[prop];
+    if (isExtraLang(prop)) return extraL(prop);
     return target.th || target.en;
   },
 });
 
-export const FLAGS = { th: "🇹🇭", en: "🇬🇧", zh: "🇨🇳" };
-export const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文" };
+export const FLAGS = Object.fromEntries(Object.entries(LANG_META).map(([k, m]) => [k, m.flag]));
+export const FLAG_NAMES = Object.fromEntries(Object.entries(LANG_META).map(([k, m]) => [k, m.name]));
 
 export const COACH_FEATURE_LABELS = {
   sight_reading: { th: "ฝึกอ่านโน้ต (Sight-Reading)", en: "Sight-Reading practice", zh: "识谱练习（Sight-Reading）" },

@@ -15,7 +15,8 @@ import { addRpgExp } from "./pvp-rpg";
 import { logUsage } from "./shared-infra";
 import type { RaLevel } from "./ra-data";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT, xl } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 const PCN = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const PC_OF: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const pcOfName = (n: string) => { const m = /^([A-G])([#b♯♭]?)/.exec(n); if (!m) return -1; return (PC_OF[m[1]] + (m[2] === "#" || m[2] === "♯" ? 1 : m[2] ? -1 : 0) + 12) % 12; };
@@ -117,7 +118,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
   };
   const begin = (level = 0) => {
     if (!enterGame(POWER_COST.adventure, adminTier)) { setPowerNeed(POWER_COST.adventure); return; }
-    if (playUi) playUi("click"); enterFs(); const lt = learnedTopics(readDone()); setLearned(lt); tuneLog.current = []; const cc = readCamp(); S.current = newState(Date.now() & 0xffff, readTune(), level, level && !ra ? gunsAfter(unlockAll ? LEVELS.length : Math.min(cc.cleared, level - 1)) : [], shopWeapon, ra ? ra.data.level : null); setCurLv(level); if (level) { const L = ra ? ra.data.level : LEVELS[level - 1]; setBanner(t("ด่าน ", "LEVEL ", "第") + level + (lang === "zh" ? "关" : "") + " · " + T3(lang, ...L.name) + " — " + T3(lang, ...L.race)); bannerT.current = 3.2; if (ra) { setBanner(T3(lang, ...ra.data.brief)); bannerT.current = 4.5; } } AU.menuStop(); AU.warm(); AU.setDucked(false); AU.musicStart(); AU.sfx("go"); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
+    if (playUi) playUi("click"); enterFs(); const lt = learnedTopics(readDone()); setLearned(lt); tuneLog.current = []; const cc = readCamp(); S.current = newState(Date.now() & 0xffff, readTune(), level, level && !ra ? gunsAfter(unlockAll ? LEVELS.length : Math.min(cc.cleared, level - 1)) : [], shopWeapon, ra ? ra.data.level : null); setCurLv(level); if (level) { const L = ra ? ra.data.level : LEVELS[level - 1]; setBanner(t("ด่าน ", "LEVEL ", "第") + level + (lang === "zh" ? "关" : xl(lang, "")) + " · " + T3(lang, ...L.name) + " — " + T3(lang, ...L.race)); bannerT.current = 3.2; if (ra) { setBanner(T3(lang, ...ra.data.brief)); bannerT.current = 4.5; } } AU.menuStop(); AU.warm(); AU.setDucked(false); AU.musicStart(); AU.sfx("go"); setRes(null); setQuiz(null); setPaused(false); setPhase("play");
     try { logUsage(ra ? "ra" : "ah", `start:L${level}:${gfxHigh() ? "hd" : "sd"}:${S.current.tuneEvery}s`); } catch (e) {}
   };
 
@@ -150,7 +151,7 @@ export function AlienHuntPage({ lang, me, adminTier = 0, onBack, playUi, onRewar
         const ev = s.ev; s.ev = []; r.events(ev); AU.events(ev);
         for (const e of ev) {
           if (e.k === "hit") { hitT.current = 0.15; setHitM(1); } else if (e.k === "hurt") { hurtT.current = 0.4; setHurt(1); if (navigator.vibrate) try { navigator.vibrate(30); } catch (x) {} }
-          else if (e.k === "wave") { setBanner(t("คลื่นที่ ", "WAVE ", "第") + e.n + (lang === "zh" ? "波" : "")); bannerT.current = 2.2; { const rl = ra && ra.data.radio.find(x => x.wave === e.n); if (rl) setTimeout(() => { setBanner("📡 " + T3(lang, ...rl.line)); bannerT.current = 4.2; }, 2300); } }
+          else if (e.k === "wave") { setBanner(t("คลื่นที่ ", "WAVE ", "第") + e.n + (lang === "zh" ? "波" : xl(lang, ""))); bannerT.current = 2.2; { const rl = ra && ra.data.radio.find(x => x.wave === e.n); if (rl) setTimeout(() => { setBanner("📡 " + T3(lang, ...rl.line)); bannerT.current = 4.2; }, 2300); } }
           else if (e.k === "tune") { openQuiz(); if (document.pointerLockElement) try { document.exitPointerLock(); } catch (x) {} }
           else if (e.k === "win") finish(true); else if (e.k === "lose") finish(false);
         }

@@ -65,7 +65,8 @@ hookSrc = hookSrc
   .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`)   // pure, dependency-free (Practice Mode v4)
   .replace('from "./jev"', `from "${process.cwd()}/${OUT}/jev-stub.js"`)   // jev calls ai-backend (network) — never ok in jsdom, the hook's fallback path is what runs
   .replace('from "./game-power"', `from "${process.cwd()}/game-power.ts"`)   // pure acc multiplier, zero imports — real module (was missing from this list and the whole script died on module-not-found)
-  .replace('from "./learn-plan"', `from "${process.cwd()}/learn-plan.ts"`)   // pure ranking helpers — real module (same miss as game-power: the temp copy cannot see a sibling at the repo root)
+  .replace('from "./learn-plan"', `from "${process.cwd()}/learn-plan.ts"`)
+  .replace('from "./lang-extra"', `from "${process.cwd()}/lang-extra.ts"`)   // pure language helpers — real module   // pure ranking helpers — real module (same miss as game-power: the temp copy cannot see a sibling at the repo root)
   .replace('from "./plan-store"', `from "${process.cwd()}/plan-store.ts"`)   // local tempo memory; its own import of learn-plan resolves beside the real file
   .replace('from "./supabase-client"', `from "${process.cwd()}/${OUT}/supabase-client.js"`)   // same double the copied web.js tree already uses — a guest has no session, so the teaching-outcome insert never leaves the machine
   .replace('from "./learning-data"', `from "${process.cwd()}/${OUT}/learning-data-stub.js"`);   // the real module drags supabase-client + the session gate into jsdom — recorder double, same spirit as the App stubs
@@ -147,6 +148,7 @@ execSync(
     .replace('from "./music-engine"', `from "${process.cwd()}/${OUT}/music-engine-stub.js"`)
     .replace('from "./shared-infra"', `from "${process.cwd()}/${OUT}/infra-stub.js"`)   // overlay only uses logUsage from it (no supabase pull in jsdom)
     .replace('from "./learn-plan"', `from "${process.cwd()}/learn-plan.ts"`)   // pctOf — real pure module, same resolution miss as the hook
+    .replace('from "./lang-extra"', `from "${process.cwd()}/lang-extra.ts"`)   // pure language helpers (T, xl, by) — real module
     .replace('from "./practice-spot"', `from "${process.cwd()}/practice-spot.ts"`)
     .replace('from "./retention"', `from "${process.cwd()}/retention.ts"`)   // importless pure module (retention S1) — the real file, same reason as practice-spot
     .replace('from "./ai-chat-context"', `from "${process.cwd()}/${OUT}/infra-stub.js"`);   // readMemory double (the real module drags shared-infra → supabase into jsdom)

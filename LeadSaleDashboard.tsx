@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { sb } from "./supabase-client";
 
+import { xl, by } from "./lang-extra";
 /* ── LeadSaleDashboard.tsx ──
    Lead management dashboard organized by 3 product types:
    1. Private Live Course (1-on-1) — ฿27,000
@@ -138,7 +139,7 @@ export function LeadSaleDashboard({ lang = "th" }: { lang?: string }) {
     },
   };
 
-  const c = t[lang] || t.th;
+  const c = by(t, lang) || t.th;
 
   useEffect(() => {
     // Load stats from localStorage (placeholder — will connect to Supabase later)
@@ -195,7 +196,7 @@ export function LeadSaleDashboard({ lang = "th" }: { lang?: string }) {
               }}>
                 <div style={{ fontSize: 36 }}>{product.icon}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 17, fontWeight: 700 }}>{lang === "th" ? product.nameTh : lang === "zh" ? product.nameZh : product.nameEn}</div>
+                  <div style={{ fontSize: 17, fontWeight: 700 }}>{lang === "th" ? product.nameTh : lang === "zh" ? product.nameZh : xl(lang, product.nameEn)}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                     <span style={{
                       fontSize: 20, fontWeight: 800, color: product.color,

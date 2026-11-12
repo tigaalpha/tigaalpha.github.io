@@ -10,7 +10,8 @@ import { GearButton, SettingsPopup } from "./adventure-settings";
 import { nextQuestion } from "./quiz-quest";
 import { enterFs } from "./pvp-arena";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT, xl } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 type L3 = [string, string, string];
 type Part = { icon: string; name: L3; gain: L3; x: number; y: number };
 type Scn = { icon: string; title: L3; out: L3; unit: string; per: number; parts: Part[]; sky: string[] };
@@ -66,7 +67,7 @@ function makeAsk(lang: string, used: Set<string>): Ask {
   // level regardless of this player's own ladder — a returning player's harder level belongs in the beacons later, not here.
   if (Math.random() < 0.5) { try { const r = nextQuestion(lang as any, { level: 1 }); if (r && r.q && r.q.kind === "choice" && r.q.opts && r.q.opts.length >= 2 && !used.has(r.q.id + r.q.q)) { used.add(r.q.id + r.q.q); return { q: r.q.q, opts: r.q.opts.map(o => ({ label: o.label, ok: o.ok })), why: r.q.teach.why, tier: r.q.tier }; } } catch (e) {} }
   const pool = BANK.filter((_, i) => !used.has("b" + i)); const list = pool.length ? pool : BANK; const q = rngPick(list); used.add("b" + BANK.indexOf(q));
-  const li = lang === "th" ? 0 : lang === "zh" ? 2 : 1;
+  const li = lang === "th" ? 0 : lang === "zh" ? 2 : xl(lang, 1);
   return { q: q.q[li], opts: shuffle(q.o.map((o, i) => ({ label: o[li], ok: i === 0 }))), why: q.why[li], tier: 1 };
 }
 
@@ -166,7 +167,7 @@ export default function AdventureBuild({ P, lang, onWin, onExit, onRetry }: any)
       {S.phase === "build" && <div className="af-bar ab-prog"><i style={{ width: S.bp + "%" }} /></div>}
       {(S.phase === "ask" || S.phase === "teach") && !S.won && (
         <div className="ab-q" data-ask="1">
-          <div className="ab-qh">🎵 {t("คำถามดนตรี", "MUSIC QUESTION", "音乐问题")} · {t("ชิ้นส่วนที่ ", "part ", "第 ")}{S.built + 1}{lang === "zh" ? " 个部件" : ""}</div>
+          <div className="ab-qh">🎵 {t("คำถามดนตรี", "MUSIC QUESTION", "音乐问题")} · {t("ชิ้นส่วนที่ ", "part ", "第 ")}{S.built + 1}{lang === "zh" ? " 个部件" : xl(lang, "")}</div>
           <div className="ab-qq">{S.ask.q}</div>
           <div className="ab-opts">{S.ask.opts.map((o: any, i: number) => (<button key={i} data-opt={i} className={"adv-qopt" + (S.phase === "teach" ? (o.ok ? " ok" : S.picked === i ? " no" : "") : "")} disabled={S.phase === "teach"} onClick={() => pick(i)}>{o.label}</button>))}</div>
           {S.phase === "teach" && <div className="adv-qres bad" data-teach="1"><b>{t("ยังไม่ใช่ — มาเรียนรู้กัน", "Not quite — let us learn it", "不对——我们来学一学")}</b><br />{S.ask.why}<br /><button className="adv-qgo" data-again="1" onClick={again}>{t("ต่อ — เริ่มประกอบ", "Continue — start building", "继续——开始组装")}</button></div>}

@@ -15,6 +15,7 @@ import { dailyPriority, pickLang, resumeHint, streakState } from "./retention";
 let sdLogged = "";
 import { sb } from "./supabase-client";
 import { SONGS } from "./songs-data";
+import { xl, by } from "./lang-extra";
 /* ── ProfileDashboardPanel ──
    The page==="profile" inline render block, extracted verbatim from
    PianoApp's inline JSX as part of Phase 2 componentization — no logic
@@ -61,7 +62,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, chestLo
                     <div className="dh-actions">
                       {(sInfo.freezes || 0) > 0 && <span className="dh-freeze">🛡️ {sInfo.freezes}{isMaxPlan(plan) ? " · Premium" : ""}</span>}
                       {(sInfo.freezes || 0) === 0 && (isMaxPlan(plan)
-                        ? <span className="dh-freeze" style={{ opacity: 0.65, fontSize: "10px" }}>🛡️ {lang === "th" ? "รับ 4 ใบ/เดือน · Premium" : lang === "zh" ? "每月4次 · Premium" : "4 free/month · Premium"}</span>
+                        ? <span className="dh-freeze" style={{ opacity: 0.65, fontSize: "10px" }}>🛡️ {lang === "th" ? "รับ 4 ใบ/เดือน · Premium" : lang === "zh" ? "每月4次 · Premium" : xl(lang, "4 free/month · Premium")}</span>
                         : <button className="dh-buyfreeze" onClick={buyFreeze}>🛡️ {lc.dhFreeze} 120🪙</button>)}
                     </div>
                   </div>
@@ -115,8 +116,8 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, chestLo
             const summ = tiga ? tiga.tigaHub.learnerSummary(readMemory(), readPracticeLog(), profile) : null;
             const ds = dailySong(levelInfo((profile && profile.exp) || 0).level, plan);
             const hint = tiga ? tiga.tigaHub.nextQuestHint(readMemory(), profile, { dailySong: ds ? tr(ds, lang) : null }) : null;
-            const line = summ && summ.line ? (summ.line[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || summ.line.en) : null;
-            const htip = hint && hint.tip ? (hint.tip[lang === "th" ? "th" : lang === "zh" ? "zh" : "en"] || hint.tip.en) : null;
+            const line = summ && summ.line ? (by(summ.line, lang) || summ.line.en) : null;
+            const htip = hint && hint.tip ? (by(hint.tip, lang) || hint.tip.en) : null;
             if (!line && !htip) return null;
             return (
               <div className="tigatipbar prof">

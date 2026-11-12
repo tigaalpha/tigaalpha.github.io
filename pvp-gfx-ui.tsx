@@ -7,7 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useGfx, useGfxAuto, setGfx, type PvpGfx } from "./pvp-gfx";
 
-const tr = (lang, th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const tr = (lang, th, en, zh) => pickT(lang, th, en, zh);
 
 /** A gear that draws on every phone (an SVG, not an emoji). */
 export function GearIcon({ size = 22 }) {

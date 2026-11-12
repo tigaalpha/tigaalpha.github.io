@@ -1,5 +1,6 @@
 import { L } from "./i18n";
 import { pushSupported } from "./shared-infra";
+import { xl } from "./lang-extra";
 /* ── SfxMetronomeSettings ──
    The sound/haptics cluster from the settings panel (SFX volume/mute,
    ambient toggle, metronome toggle + BPM/tap-tempo advanced disclosure,
@@ -65,7 +66,7 @@ export function SfxMetronomeSettings({
                   e-mail sign-ups were never asked at all (2 of 70 accounts had said yes). */}
               {marketing && (
                 <div className="setrow">
-                  <label>{lang === "th" ? "รับข่าวและเพลงประจำวันทางอีเมล (ไม่บังคับ)" : lang === "zh" ? "接收邮件通知与每日歌曲（可选）" : "Email me news and the daily song (optional)"}</label>
+                  <label>{lang === "th" ? "รับข่าวและเพลงประจำวันทางอีเมล (ไม่บังคับ)" : lang === "zh" ? "接收邮件通知与每日歌曲（可选）" : xl(lang, "Email me news and the daily song (optional)")}</label>
                   <button className={`settoggle${marketing.on ? " on" : ""}`} onClick={marketing.toggle}>
                     {marketing.on ? lc.setOn : lc.setOff}
                   </button>

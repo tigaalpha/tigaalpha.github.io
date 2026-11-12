@@ -4,7 +4,7 @@ import { logLand } from "./land-log";
 import { GUEST_PROFILE_KEY, setSkipOnboard, stampLandingOrigin, attributionEvent, handoffUrl, landingVariant } from "../local-identity";
 import { inAppBrowser, openInRealBrowser, escapeUrl, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
 import { LESSONS } from "./landing-lessons";
-import { C, LANGS, FLAGS, FLAG_NAMES, pickLang } from "./landing-copy";
+import { C, LANGS, FLAGS, FLAG_NAMES, LANG_SHORT, pickLang } from "./landing-copy";
 import { askLandingAI } from "./landing-ai";
 import "./landing.css";
 
@@ -79,6 +79,14 @@ async function startGoogleAuth() {
      source of truth — not from any component's state. */
   const pgLang = (typeof document !== "undefined" && document.documentElement && document.documentElement.lang) || "";
   stampLandingOrigin(pgLang);
+  /* And the same moment writes the language the visitor is READING into the
+     guest profile (2026-11-11). Until then it was written only when somebody
+     tapped a language pill, so a visitor who simply arrived on /landing-ja/
+     and signed up opened the app in the default language (Thai) — the app
+     starts from `profile.lang || "th"` and its first-run picker is off. The
+     page still never READS this back, so it cannot override another landing's
+     URL. */
+  storeLang(pgLang.slice(0, 2).toLowerCase());
   const sb = await getSb();
   await sb.auth.signInWithOAuth({
     provider: "google",
@@ -95,6 +103,7 @@ async function startGoogleAuth() {
    landing page override the URL of another, so the English and Chinese links
    opened in Thai. Which page you are on is decided by the page, above. */
 function storeLang(lg) {
+  if (!LANGS.includes(lg)) return;
   try {
     const p = JSON.parse(localStorage.getItem(GUEST_PROFILE_KEY) || "{}") || {};
     localStorage.setItem(GUEST_PROFILE_KEY, JSON.stringify({ ...p, lang: lg }));
@@ -110,7 +119,7 @@ function rich(text) {
   );
 }
 
-/* Which of the three landing URLs this is. Each variant ships with its own
+/* Which of the six landing URLs this is. Each variant ships with its own
    <html lang>, so the page reads its campaign language straight out of the
    document rather than needing a separate mechanism. Read once, before the
    effect below starts writing to the same attribute. */
@@ -664,7 +673,7 @@ export default function LandingPage1() {
       <header className="lp-top">
         <span className="lp-mark">TIGA ALPHA</span>
         <span className="lp-kicker">{t.kicker}</span>
-        {/* The same three flags as the app's settings panel, so somebody who
+        {/* The same six flags as the app's settings panel, so somebody who
             already knows the product recognises the control instantly. */}
         <nav className="lp-langs" aria-label={FLAG_NAMES[lang]}>
           {LANGS.map(lg => (
@@ -675,7 +684,7 @@ export default function LandingPage1() {
               title={FLAG_NAMES[lg]}
               lang={lg}>
               <span aria-hidden="true">{FLAGS[lg]}</span>
-              <span className="lp-langcode">{lg === "th" ? "ไทย" : lg === "zh" ? "中文" : "EN"}</span>
+              <span className="lp-langcode">{LANG_SHORT[lg]}</span>
             </button>
           ))}
         </nav>
@@ -859,7 +868,7 @@ export default function LandingPage1() {
       </div>
 
       {signup
-        ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} timeUp={signup.timeUp} t={t} /></div>
+        ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} timeUp={signup.timeUp} t={t} lang={lang} /></div>
         : (
           <div className="lp-proof" role="list">
             <div><b>{t.proofSongs}</b><span>{t.proof1}</span></div>
@@ -932,7 +941,7 @@ export default function LandingPage1() {
    they were just given and what the account adds. The auth calls themselves
    are the app's, unchanged — same PDPA consent record, same metadata, same
    friendly errors — because there must be exactly one way an account is made. */
-function SignupCard({ q, quota, timeUp, t }) {
+function SignupCard({ q, quota, timeUp, t, lang }) {
   const [inApp] = useState(() => inAppBrowser());
   /* "pick" = Google + the ONE-field e-mail link, "email" = the full name/e-mail/
      password/consent form. In-app visitors used to start on the full form — the
@@ -957,7 +966,7 @@ function SignupCard({ q, quota, timeUp, t }) {
       // job by the time the OAuth round trip returns.
       await startGoogleAuth();
     } catch (e) {
-      setErr(friendlyAuthError(e && e.message));
+      setErr(friendlyAuthError(e && e.message, lang));
       setBusy(false);
     }
   }
@@ -980,7 +989,7 @@ function SignupCard({ q, quota, timeUp, t }) {
         options: { redirectTo: window.location.origin + "/" },
       });
     } catch (e) {
-      setErr(friendlyAuthError(e && e.message));
+      setErr(friendlyAuthError(e && e.message, lang));
       setBusy(false);
     }
   }
@@ -1002,6 +1011,7 @@ function SignupCard({ q, quota, timeUp, t }) {
     land("try:email-otp");
     setBusy(true);
     setSkipOnboard();
+    storeLang(lang);   // the app opens in the language this page is being read in
     try {
       const sb = await getSb();
       const { error } = await sb.auth.signInWithOtp({
@@ -1018,11 +1028,11 @@ function SignupCard({ q, quota, timeUp, t }) {
           data: { pdpa_version: PDPA_VERSION, marketing_consent: !!marketing, via: "landing-otp" },
         },
       });
-      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      if (error) { setErr(friendlyAuthError(error.message, lang)); return; }
       land("signup:email-otp");
       setDone(t.otpDone);
     } catch (e2) {
-      setErr(friendlyAuthError(e2 && e2.message));
+      setErr(friendlyAuthError(e2 && e2.message, lang));
     } finally {
       setBusy(false);
     }
@@ -1039,6 +1049,7 @@ function SignupCard({ q, quota, timeUp, t }) {
     land("try:email");
     setBusy(true);
     setSkipOnboard();
+    storeLang(lang);
     try {
       const sb = await getSb();
       const { data, error } = await sb.auth.signUp({
@@ -1055,12 +1066,12 @@ function SignupCard({ q, quota, timeUp, t }) {
           },
         },
       });
-      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      if (error) { setErr(friendlyAuthError(error.message, lang)); return; }
       land("signup:email");
       if (data && data.session) { window.location.href = APP_URL; return; }
       setDone(t.done);
     } catch (e2) {
-      setErr(friendlyAuthError(e2 && e2.message));
+      setErr(friendlyAuthError(e2 && e2.message, lang));
     } finally {
       setBusy(false);
     }

@@ -12,6 +12,7 @@ import { sttSupported, getSR } from "./speech";
 import { selfReportFromTranscript } from "./tiga-gateway";   // via the lazy gateway
 import { usePracticeCoach } from "./use-practice-coach";
 import { SPOT_CAP_NOTES } from "./practice-spot";
+import { pickT, localeOf, xl, by } from "./lang-extra";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -28,7 +29,7 @@ import { SPOT_CAP_NOTES } from "./practice-spot";
 // plan 27 · P1-1: the note's sung name under the letter, so a child who cannot read C D E can still tell which key is meant
 const SOLFEGE_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา", G: "ซอล", A: "ลา", B: "ที" };
 const SOLFEGE_EN = { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Ti" };
-function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : SOLFEGE_EN; return (m[base] || "") + (String(pc || "").includes("♭") ? "♭" : String(pc || "").length > 1 ? "♯" : ""); }
+function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : xl(lang, SOLFEGE_EN); return (m[base] || "") + (String(pc || "").includes("♭") ? "♭" : String(pc || "").length > 1 ? "♯" : ""); }
 // plan 27 · P1-3: a hand that points at the finger to use — a child sees "this one", not a number to decode.
 // A right hand seen from above has the thumb on the left; a left hand is its mirror image.
 export function FingerHand({ finger, hand }) {
@@ -120,10 +121,10 @@ function TomorrowBridge({ lang, restartPractice }) {
     if (prom && prom.label) logUsage("next_intent", prom.label); // fire-and-forget analytics; failure is silent by design
   }, [prom && prom.label]);
   if (!prom || !blocks.length) return null;
-  const unit = lang === "th" ? "นาที" : lang === "zh" ? "分钟" : "min";
+  const unit = lang === "th" ? "นาที" : lang === "zh" ? "分钟" : xl(lang, "min");
   return (
     <div className="presultai" style={{ borderColor: "#8ad4ff" }}>
-      <div className="presultai-h">🗓 {lang === "th" ? "พรุ่งนี้ของเรา" : lang === "zh" ? "我们的明天" : "Tomorrow"} · {prom.minutes} {unit}</div>
+      <div className="presultai-h">🗓 {lang === "th" ? "พรุ่งนี้ของเรา" : lang === "zh" ? "我们的明天" : xl(lang, "Tomorrow")} · {prom.minutes} {unit}</div>
       <div className="presultai-tx">{pickLang(prom.text, lang)}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
         {blocks.map(b => (
@@ -131,7 +132,7 @@ function TomorrowBridge({ lang, restartPractice }) {
         ))}
       </div>
       <button className="practicerestart" style={{ width: "100%" }} onClick={restartPractice}>
-        ▶ {lang === "th" ? `มีเวลา ${prom.minutes} นาทีตอนนี้ — เริ่มเลย` : lang === "zh" ? `现在有 ${prom.minutes} 分钟 —— 直接开始` : `Got ${prom.minutes} minutes now — start`}
+        ▶ {lang === "th" ? `มีเวลา ${prom.minutes} นาทีตอนนี้ — เริ่มเลย` : lang === "zh" ? `现在有 ${prom.minutes} 分钟 —— 直接开始` : xl(lang, `Got ${prom.minutes} minutes now — start`)}
       </button>
     </div>
   );
@@ -180,7 +181,7 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
       {/* Result page, one screen (owner plan 2026-10-22): my result -> where I slipped -> one thing to do next.
           Everything else (Jev, AI analysis, poll, coach, teacher text) is still rendered, folded under one <details>, so nothing stops recording. */}
       {(() => {
-        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const T3 = (th, en, zh) => pickT(lang, th, en, zh);
         const acc = r.accuracy, stars = starsOf(acc);
         const col = acc >= 85 ? "var(--ok,#2f9e6b)" : acc >= 60 ? "#d99a1a" : "#d2493f";
         const pcOf2 = (n) => String(n).replace(/-?\d+$/, "");
@@ -216,7 +217,7 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
         </>;
       })()}
       {(() => {
-        const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+        const T3 = (th, en, zh) => pickT(lang, th, en, zh);
         const acc = r.accuracy, prev = r.prevBest && r.prevBest.accuracy;
         // plan 28 · D3: two clean rounds in a row earns ONE next step, offered only on that evidence (never from thin data)
         const hist = (r.prevBest && Array.isArray(r.prevBest.hist)) ? r.prevBest.hist : [];
@@ -252,24 +253,24 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
       })()}
       {startSpotPractice && spotN > 0 && !spotCleared ? (
         <button className="atpopup-ok prbig" data-prgo="spot" onClick={startSpotPractice}>
-          🎯 {lang === "th" ? `ซ้อมแค่ ${spotN} โน้ตนี้` : lang === "zh" ? `只练这 ${spotN} 个音` : `Practise just these ${spotN} notes`}
+          🎯 {lang === "th" ? `ซ้อมแค่ ${spotN} โน้ตนี้` : lang === "zh" ? `只练这 ${spotN} 个音` : xl(lang, `Practise just these ${spotN} notes`)}
         </button>
       ) : null}
       {/* §2.5 practiceSpotDone: a just-finished SPOT round says so — the
           learner knows the small loop paid off and the full drill is next. */}
       {r.spotUsed && <div className="presultsub" style={{ color: "#34c759" }}>✓ {lc.practiceSpotDone}</div>}
 
-      <button className="prtipsbtn" data-prtips="1" onClick={() => setTipsOpen(true)}>💡 {lang === "th" ? "ดูคำแนะนำจากครู" : lang === "zh" ? "查看老师建议" : "See the teacher's tips"}</button>
+      <button className="prtipsbtn" data-prtips="1" onClick={() => setTipsOpen(true)}>💡 {lang === "th" ? "ดูคำแนะนำจากครู" : lang === "zh" ? "查看老师建议" : xl(lang, "See the teacher's tips")}</button>
       {/* The teacher's tips live in a pop-up sheet (owner 2026-10-22). It stays MOUNTED while closed (display:none) so the poll, coach and AI loops keep recording. */}
       {createPortal(
       <div className="prsheet" data-prmore="1" style={{ display: tipsOpen ? "flex" : "none" }} onClick={() => setTipsOpen(false)}>
         <div className="prsheet-in" onClick={e => e.stopPropagation()}>
           <button className="prsheet-x" aria-label="close" onClick={() => setTipsOpen(false)}>✕</button>
-          <div className="prsheet-tt">💡 {lang === "th" ? "ดูคำแนะนำจากครู" : lang === "zh" ? "查看老师建议" : "See the teacher's tips"}</div>
+          <div className="prsheet-tt">💡 {lang === "th" ? "ดูคำแนะนำจากครู" : lang === "zh" ? "查看老师建议" : xl(lang, "See the teacher's tips")}</div>
       {/* Conversion pill (strategy phase 2): only for free-plan learners and
           only after a genuinely good run (accuracy gate passed via prop) —
           the exact peak moment where an upgrade feels earned, not gated. */}
-      {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA AI ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA AI老师保持下去" : "🔥 You're on a roll — keep it going with Teacher TIGA AI daily"}</button>}
+      {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA AI ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA AI老师保持下去" : xl(lang, "🔥 You're on a roll — keep it going with Teacher TIGA AI daily")}</button>}
 
       {/* Jev practice-next (admin ⚡ toggle): the decision model's next-step
           suggestion from this round's real signals, wired to the matching
@@ -278,14 +279,14 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
           about the screen is otherwise identical. */}
       {r.jevNext && (
         <div className="presultai" style={{ borderColor: "#8b5cf6" }}>
-          <div className="presultai-h">⚡ Jev {lang === "th" ? "แนะนำก้าวถัดไป" : lang === "zh" ? "下一步建议" : "suggests the next step"}</div>
+          <div className="presultai-h">⚡ Jev {lang === "th" ? "แนะนำก้าวถัดไป" : lang === "zh" ? "下一步建议" : xl(lang, "suggests the next step")}</div>
           <div className="presultai-tx">
-            {r.jevNext === "replay" ? (lang === "th" ? "ซ้ำ drill เดิมอีกครั้ง — ความแม่นยำยังต่ำกว่าที่ควรจะเป็น" : lang === "zh" ? "再练一次本条——准确率还没到位" : "Replay this drill — accuracy isn't at the bar yet")
-             : r.jevNext === "next_stage" ? (lang === "th" ? "ไปขั้นถัดไปได้แล้ว — ผ่านสบาย" : lang === "zh" ? "可以进入下一关了——这条已轻松通过" : "Move on to the next stage — this one is comfortably passed")
-             : r.jevNext === "boss" ? (lang === "th" ? "ลองโจทย์บอสของกลุ่มนี้ — พร้อมแล้ว" : lang === "zh" ? "挑战本组Boss——你已准备好" : "Attempt this group's Boss Challenge — you're ready")
-             : (lang === "th" ? "เปิดโค้ชให้ครูวางแผนให้ — สัญญาณผสมกันเล็กน้อย" : lang === "zh" ? "打开教练让老师做规划——信号有些混杂" : "Open the Coach for a teacher's plan — the signals are mixed")}
+            {r.jevNext === "replay" ? (lang === "th" ? "ซ้ำ drill เดิมอีกครั้ง — ความแม่นยำยังต่ำกว่าที่ควรจะเป็น" : lang === "zh" ? "再练一次本条——准确率还没到位" : xl(lang, "Replay this drill — accuracy isn't at the bar yet"))
+             : r.jevNext === "next_stage" ? (lang === "th" ? "ไปขั้นถัดไปได้แล้ว — ผ่านสบาย" : lang === "zh" ? "可以进入下一关了——这条已轻松通过" : xl(lang, "Move on to the next stage — this one is comfortably passed"))
+             : r.jevNext === "boss" ? (lang === "th" ? "ลองโจทย์บอสของกลุ่มนี้ — พร้อมแล้ว" : lang === "zh" ? "挑战本组Boss——你已准备好" : xl(lang, "Attempt this group's Boss Challenge — you're ready"))
+             : (lang === "th" ? "เปิดโค้ชให้ครูวางแผนให้ — สัญญาณผสมกันเล็กน้อย" : lang === "zh" ? "打开教练让老师做规划——信号有些混杂" : xl(lang, "Open the Coach for a teacher's plan — the signals are mixed"))}
           </div>
-          {r.jevNext === "replay" && <button className="songbtn ghost" style={{ marginTop: 8 }} onClick={restartPractice}>↻ {lang === "th" ? "เริ่ม drill เดิม" : lang === "zh" ? "重练本条" : "Replay drill"}</button>}
+          {r.jevNext === "replay" && <button className="songbtn ghost" style={{ marginTop: 8 }} onClick={restartPractice}>↻ {lang === "th" ? "เริ่ม drill เดิม" : lang === "zh" ? "重练本条" : xl(lang, "Replay drill")}</button>}
         </div>
       )}
 
@@ -296,7 +297,7 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
       {r.tigaTip && r.tigaTip.text && (
         <div className="presultai" style={{ borderColor: "#d97757" }}>
           {/* Owner: the teacher is "ครู TIGA AI" everywhere on this screen. */}
-          <div className="presultai-h">🧠 {lang === "th" ? "ครู TIGA AI วิเคราะห์" : lang === "zh" ? "TIGA AI模型分析" : "Teacher TIGA AI analysis"}{tigaStrategyLabel(r.tigaTip.strategyId, lang) ? ` · ${tigaStrategyLabel(r.tigaTip.strategyId, lang)}` : ""}</div>
+          <div className="presultai-h">🧠 {lang === "th" ? "ครู TIGA AI วิเคราะห์" : lang === "zh" ? "TIGA AI模型分析" : xl(lang, "Teacher TIGA AI analysis")}{tigaStrategyLabel(r.tigaTip.strategyId, lang) ? ` · ${tigaStrategyLabel(r.tigaTip.strategyId, lang)}` : ""}</div>
           <div className="presultai-tx">{r.tigaTip.text}</div>
         </div>
       )}
@@ -321,7 +322,7 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
               needs a moment, and "รอครู TIGA AI ประมวลผลสักครู่…" tells the
               learner (and their parent watching) exactly what's happening. */}
           {r.aiLoading
-            ? <div className="presultai-loading">{lang === "th" ? "⏳ รอครู TIGA AI ประมวลผลสักครู่…" : lang === "zh" ? "⏳ 等待TIGA AI老师分析中…" : "⏳ Teacher TIGA AI is analyzing, one moment…"}</div>
+            ? <div className="presultai-loading">{lang === "th" ? "⏳ รอครู TIGA AI ประมวลผลสักครู่…" : lang === "zh" ? "⏳ 等待TIGA AI老师分析中…" : xl(lang, "⏳ Teacher TIGA AI is analyzing, one moment…")}</div>
             : <div className="presultai-tx">{r.aiText}</div>}
         </div>
       )}
@@ -457,7 +458,7 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
               <div className="practicehelp" role="status">{(lang === "th"
                 ? (practiceHelp.level === 3 ? "👂 ฟังสองโน้ตนี้ แล้วลองใหม่นะ" : "👂 ฟังโน้ตนี้ แล้วลองกดตามนะ")
                 : lang === "zh" ? (practiceHelp.level === 3 ? "👂 听这两个音，再试一次" : "👂 先听这个音，再按")
-                : (practiceHelp.level === 3 ? "👂 Listen to these two notes, then try again" : "👂 Listen to this note, then press it"))}</div>
+                : (xl(lang, practiceHelp.level === 3 ? "👂 Listen to these two notes, then try again" : "👂 Listen to this note, then press it")))}</div>
             )}
             <div className={"practicenow" + (practiceHeard ? "" : " solo")}>
               <div className="practicenow-box">
@@ -495,12 +496,12 @@ export function PracticeOverlay({ practiceHelp = null, kid = false, detail = fal
             </div>
             <div className="practicestats">
               {!kid && <span>{lc.practiceAcc}: <b>{(practiceIdx + practiceMiss) >= 3 ? pctOf(practiceIdx, practiceIdx + practiceMiss) + "%" : "–"}</b></span>}
-              {detail && <span>{lang === "th" ? "พลาด" : lang === "zh" ? "错误" : "Misses"}: <b>{practiceMiss}</b></span>}
+              {detail && <span>{lang === "th" ? "พลาด" : lang === "zh" ? "错误" : xl(lang, "Misses")}: <b>{practiceMiss}</b></span>}
               <span>✓ <b>{practiceIdx}</b> / {practiceTarget.length}</span>
               {comboBadge(practiceStreak) && <span key={practiceStreak} className="sightstreak practicecombo">{comboBadge(practiceStreak)}</span>}
             </div>
 
-            <div className="practicetip">{kid ? (lang === "th" ? "กดคีย์สีส้ม 👆" : lang === "zh" ? "按橙色的键 👆" : "Press the orange key 👆") : lc.practiceHint}<details className="practicetip-more"><summary aria-label="info">ⓘ</summary>{lc.practiceMicTip}</details></div>
+            <div className="practicetip">{kid ? (lang === "th" ? "กดคีย์สีส้ม 👆" : lang === "zh" ? "按橙色的键 👆" : xl(lang, "Press the orange key 👆")) : lc.practiceHint}<details className="practicetip-more"><summary aria-label="info">ⓘ</summary>{lc.practiceMicTip}</details></div>
           </div>
           <div className="practicefoot">
             <button className="practicerestart" onClick={restartPractice}>↻ {lc.practiceRestart}</button>
@@ -525,8 +526,8 @@ const SR_Q = {
 function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
   const [answered, setAnswered] = useState(null);
   const [busy, setBusy] = useState(false);
-  const q = SR_Q[lang] || SR_Q.th;
-  const T3 = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const q = by(SR_Q, lang) || SR_Q.th;
+  const T3 = (th, en, zh) => pickT(lang, th, en, zh);
   useEffect(() => { setAnswered(null); }, [practiceResult && practiceResult.label]);
   async function answer(choice) {
     if (busy || answered) return;
@@ -559,7 +560,7 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
       if (!SR) return;
       setListening(true);
       const rec = new SR();
-      rec.lang = lang === "th" ? "th-TH" : lang === "zh" ? "zh-CN" : "en-US";
+      rec.lang = localeOf(lang);
       rec.maxAlternatives = 1;
       rec.onresult = (ev) => {
         try {
@@ -609,7 +610,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
     profile: typeof window !== "undefined" ? (window.__tigaProfile || null) : null,   // plan 2.1: age band for the W adapter (window.__tigaProfile set by PianoApp)
   });
   if (!data) return null;
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const L = lang || "th";
   const tempo = data.tempo;
   const recap = data.recap;

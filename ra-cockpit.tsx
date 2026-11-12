@@ -12,7 +12,8 @@ import { gfxHigh } from "./adv-gfx";
 import { addRpgExp } from "./pvp-rpg";
 import { logUsage } from "./shared-infra";
 
-const T3 = (lang: string, th: string, en: string, zh: string) => (lang === "th" ? th : lang === "zh" ? zh : en);
+import { pickT } from "./lang-extra";
+const T3 = (lang, th, en, zh) => pickT(lang, th, en, zh);
 const prettyN = (n: string) => n.replace(/##/g, "𝄪").replace(/bb/g, "𝄫").replace(/#/g, "♯").replace(/b/g, "♭");   // spelled name with real signs
 const PCN = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const WHITE = [0, 2, 4, 5, 7, 9, 11], BLACK: [number, number][] = [[1, 0], [3, 1], [6, 3], [8, 4], [10, 5]];

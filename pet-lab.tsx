@@ -27,6 +27,7 @@ import { ItemArt } from "./item-art";
 import { SpaceStage, prefetchSpace } from "./space-stage";
 import { Sprite } from "./sprite";
 
+import { pickT, xl } from "./lang-extra";
 /* ══════════════════════ species ══════════════════════ */
 
 /* ── the type wheel ──
@@ -2053,7 +2054,7 @@ export function daysSincePractice() {
 /** What the pet has to say about your practising, if anything. */
 export function practiceMood(lang) {
   const d = daysSincePractice();
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   if (d === null) return null;
   if (d === 0) return { good: true, text: T("วันนี้คุณซ้อมแล้ว — มันดูมีความสุขมาก", "You practised today — it is delighted", "你今天练琴了 — 它很开心") };
   if (d === 1) return { good: true, text: T("มันรอคุณซ้อมอยู่วันนี้", "It is waiting for you to practise today", "它在等你今天练琴") };
@@ -2108,7 +2109,7 @@ const STAT_TEXT = {
   mood:   { th: "อารมณ์", en: "Mood", zh: "心情" },
 };
 
-const tr3 = (o, lang) => (o ? (lang === "th" ? o.th : lang === "zh" ? o.zh : o.en) : "");
+const tr3 = (o, lang) => (o ? (lang === "th" ? o.th : lang === "zh" ? o.zh : xl(lang, o.en)) : "");
 
 /** A small burst of emoji at the pet, so a tap always produces something. */
 function useCareFx() {
@@ -2138,7 +2139,7 @@ export const PetPod = memo(function PetPod({ lang, onOpen }) {
     const t = setInterval(sync, 60000);
     return () => { window.removeEventListener("tg-pet", sync); window.removeEventListener("focus", sync); clearInterval(t); };
   }, []);
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
 
   if (!pet) {
     return (
@@ -2245,7 +2246,7 @@ export function usePetTurn(onTap, start = -18) {
 }
 
 export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onReward, onBack, playUi = () => {} }) {
-  const T = (th, en, zh) => (lang === "th" ? th : lang === "zh" ? zh : en);
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [pet, setPet] = useState(() => readPet());
   const [bag, setBag] = useState(() => readPetBag());
   const [tray, setTray] = useState(false);
@@ -2423,7 +2424,7 @@ export const PetPage = memo(function PetPage({ lang, coins = 0, onSpend, onRewar
               <span className="pcf-art"><PetThumb species={sel.id} px={74} /></span>
               <div className="pcf-b">
                 <b>{tr3(sel, lang)}</b>
-                <p>{lang === "th" ? sel.dth : lang === "zh" ? sel.dzh : sel.den}</p>
+                <p>{lang === "th" ? sel.dth : lang === "zh" ? sel.dzh : xl(lang, sel.den)}</p>
                 <div className="pcf-tags">
                   <span style={{ "--tc": PET_TYPES[sel.type].c }}>{tr3(PET_TYPES[sel.type], lang)}</span>
                   <span>{T("ของโปรด", "Favourite", "最爱")}: {tr3(foodById(sel.food), lang)}</span>

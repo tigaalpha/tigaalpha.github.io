@@ -3,6 +3,7 @@ import qrcode from "qrcode-generator";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { apiHeaders } from "./ai-backend";
 
+import { pickT, by } from "./lang-extra";
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
    No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
 function _ppTLV(id, val) { const l = String(val.length).padStart(2, "0"); return id + l + val; }
@@ -82,7 +83,7 @@ export const WECHAT_QR = "./payqr/wechat.png";
 export function PayQrImg({ src, alt, lang }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => { setBroken(false); }, [src]);
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   if (broken) {
     return (
       <div className="aicreate-err" style={{ textAlign: "center", lineHeight: 1.6 }}>
@@ -264,7 +265,7 @@ export function planBadge(p) {
 
 /* ── Checkout modal — multi-gateway: Stripe (th+en), PromptPay (th), Alipay+WeChat (zh) ── */
 export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClose, playUi }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [st, setSt] = useState("idle");   // idle · uploading · done · error · stripe-err
   const [cfg, setCfg] = useState(payCfg);
   const [savingCfg, setSavingCfg] = useState(false);
@@ -282,7 +283,7 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
   // before the first render commits; a ref updates synchronously so it closes that gap
   const submittingRef = useRef(false);
   const amountThb = checkout.amount;                        // always THB (for slip DB record)
-  const cur = checkout.cur || CURRENCY_BY_LANG[lang] || "thb";
+  const cur = checkout.cur || by(CURRENCY_BY_LANG, lang) || "thb";
   const dispAmt = checkout.disp != null ? checkout.disp : amountThb;
   const planLabel = PLAN_LABEL[checkout.plan] || checkout.plan;
   const cnySt = checkout.cycle === "year" ? yearPriceByCur("cny", checkout.plan) : planPriceByCur("cny", checkout.plan);
@@ -557,7 +558,7 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
    behavioral consistency, but writes to a separate school_payment_requests table
    rather than touching the existing consumer `payments` table at all. ── */
 export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onClose, playUi }) {
-  const T = (th, en, zh) => lang === "th" ? th : lang === "zh" ? zh : en;
+  const T = (th, en, zh) => pickT(lang, th, en, zh);
   const tier = schoolCheckout.tier === "plus" ? "school_plus" : "school_standard";
   const tierLabel = schoolCheckout.tier === "plus" ? "Plus" : "Standard";
   /* Deliberately THB regardless of app language. school_submit_payment_request()

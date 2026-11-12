@@ -1,16 +1,19 @@
 // Path rules for a public blog URL. Pure: no network, no files, no article text.
 // The stable address the static build already publishes is /blog/<lang>/<slug>.html.
 // A one-segment /blog/<slug> is the short address some links use; the slug is kept whole (a trailing -zh is only a language hint).
-const LANGS = new Set(["th", "en", "zh"]);
+export const BLOG_LANGS = ["th", "en", "zh", "ja", "ko", "ru"];
+const LANGS = new Set(BLOG_LANGS);
+// ja / ko / ru ship as committed source files (blog-src/) and get a REAL index.html, page/N/index.html and feed.xml from the build, so they never depend on the database being filled in.
+export const STATIC_BLOG_LANGS = ["ja", "ko", "ru"];
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function parseBlogPath(raw) {
   let path = String(raw || "").split("?")[0];
   try { path = decodeURIComponent(path); } catch { return { kind: "bad" }; }
   if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-  const feed = path.match(/^\/blog\/(th|en|zh)\/feed\.xml$/);
+  const feed = path.match(/^\/blog\/(th|en|zh|ja|ko|ru)\/feed\.xml$/);
   if (feed) return { kind: "feed", lang: feed[1] };
-  const paged = path.match(/^\/blog\/(th|en|zh)\/page\/(\d+)$/);
+  const paged = path.match(/^\/blog\/(th|en|zh|ja|ko|ru)\/page\/(\d+)$/);
   if (paged) return { kind: "index", lang: paged[1], page: Math.max(1, Number(paged[2]) || 1) };
   const two = path.match(/^\/blog\/([^/]+)\/([^/]+)$/);
   if (two) {
@@ -26,7 +29,7 @@ export function parseBlogPath(raw) {
     const slug = one[1];
     if (LANGS.has(slug)) return { kind: "index", lang: slug };
     if (!SLUG.test(slug)) return { kind: "bad" };
-    const suf = slug.match(/-(zh|en|th)$/);
+    const suf = slug.match(/-(zh|en|th|ja|ko|ru)$/);
     return { kind: "article", lang: suf ? suf[1] : null, slug, hint: true };
   }
   return { kind: "ignore" };
@@ -63,13 +66,13 @@ export function notFoundHtml() {
 <h1>找不到这篇文章</h1>
 <p>这篇公开文章不存在，或还没有发布。</p>
 <p>This article is not published.</p>
-<p><a href="https://www.tigaalpha.com/blog/zh/">中文博客</a> · <a href="https://www.tigaalpha.com/blog/en/">English</a> · <a href="https://www.tigaalpha.com/blog/th/">ไทย</a></p>
+<p><a href="https://www.tigaalpha.com/blog/zh/">中文博客</a> · <a href="https://www.tigaalpha.com/blog/en/">English</a> · <a href="https://www.tigaalpha.com/blog/th/">ไทย</a> · <a href="https://www.tigaalpha.com/blog/ja/">日本語</a> · <a href="https://www.tigaalpha.com/blog/ko/">한국어</a> · <a href="https://www.tigaalpha.com/blog/ru/">Русский</a></p>
 </main>
 </body></html>
 `;
 }
 
-const HTML_LANG = { th: "th", en: "en", zh: "zh-Hans" };
+const HTML_LANG = { th: "th", en: "en", zh: "zh-Hans", ja: "ja", ko: "ko", ru: "ru" };
 
 export function sitemapBlogXml(posts, site) {
   const list = (posts || []).filter(p => p && p.published !== false && SLUG.test(p.slug || "") && LANGS.has(p.lang));
@@ -87,7 +90,7 @@ export function sitemapBlogXml(posts, site) {
       lines.push(`<url><loc>${loc}</loc>${/^\d{4}-\d{2}-\d{2}$/.test(day) ? `<lastmod>${day}</lastmod>` : ""}${alts}<xhtml:link rel="alternate" hreflang="x-default" href="${site}/blog/${xd}/${encodeURIComponent(slug)}.html"/></url>`);
     }
   }
-  for (const lang of ["th", "en", "zh"]) {
+  for (const lang of BLOG_LANGS) {
     const rows = list.filter(p => p.lang === lang);
     if (!rows.length) continue;
     const newest = rows.map(p => String(p.updated_at || p.created_at || "").slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();

@@ -1,6 +1,7 @@
 import { readMemory } from "./ai-chat-context";
 import { tigaNow } from "./tiga-gateway"; // one shared learner memory across ALL model surfaces (lazy gateway, plan v3 1.5)
 import { validateTip } from "./use-autoteach";
+import { xl, by } from "./lang-extra";
 import { withAiCache } from "./ai-cache";   // plan 3.2: an identical song-run analysis (same song + acc bucket + top misses + lang) is a repeat request — cache it
 
 /* ── song-analysis.ts — วิเคราะห์จบเพลงด้วย TIGA Piano Model (Play Along plan #7)
@@ -23,7 +24,7 @@ const STRATEGY = {
 };
 function strategyLine(strategyId, modelText, lang) {
   const s = STRATEGY[strategyId];
-  const line = s ? (s[lang] || s.en) : (strategyId || null);
+  const line = s ? (by(s, lang) || s.en) : (strategyId || null);
   if (!line && !modelText) return null;
   return modelText ? `${line || ""} — ${modelText}` : line;
 }
@@ -57,7 +58,7 @@ export function buildSongFallback(lang, label, result) {
       ? [`慢速练 "${top}" 3 次，再连整段`, "用 0.8x 速度完整跑一遍"]
       : ["用 1.2x 速度挑战一次", "试试左手模式"],
   };
-  const c = lang === "th" ? th : lang === "zh" ? zh : en;
+  const c = lang === "th" ? th : lang === "zh" ? zh : xl(lang, en);
   return { weakness: c.weakness, steps: c.steps, fallback: true };
 }
 
@@ -68,7 +69,7 @@ export function buildSongFallback(lang, label, result) {
    Returns {weakness, steps, strategy?} — never throws; on total failure the
    caller still gets the real-data fallback so the card is never empty. */
 export async function analyzeSongRun(lang, label, result, loopFn, askAi, profile) {
-  const L3 = lang === "th" ? "th" : lang === "zh" ? "zh" : "en";
+  const L3 = lang === "th" ? "th" : lang === "zh" ? "zh" : xl(lang, "en");
   const buildSys = (stratLine) => ({
     th: `คุณคือ "ครู TiGA" ผู้เชี่ยวชาญสอนผู้เริ่มต้น ชมก่อนแล้วค่อยแนะนำ เจาะจงเสมอ ห้ามพูดกว้าง ๆ เช่น "ฝึกสม่ำเสมอ" ไม่แนะนำทฤษฎีขั้นสูง ตอบ JSON เท่านั้น {"weakness":"...","steps":["...","...","..."]} — weakness ไม่เกิน 15 คำ, steps 2-3 ข้อ ข้อละไม่เกิน 20 คำ${stratLine ? `\nกลยุทธ์ที่โมเดลสอนเลือก (ต้องทำตาม ห้ามขัด): ${stratLine}` : ""}`,
     zh: `你是"TiGA老师"，专教零基础学员。先表扬再建议，必须具体，禁止"多练习"这类空话，不提高阶乐理。只回JSON {"weakness":"...","steps":["...","...","..."]} — weakness≤15字，steps 2-3条每条≤20字${stratLine ? `\n模型已选教学策略（必须遵循）：${stratLine}` : ""}`,

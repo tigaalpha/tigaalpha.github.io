@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-/* smoke-blog-gate.mjs — the reading wall on the static blog pages (owner 2026-11-04: anyone may read an article; after 30 seconds of reading (a minute until 2026-11-07) a pop-up in the middle of the
+/* smoke-blog-gate.mjs — the reading wall on the static blog pages (owner 2026-11-04: anyone may read an article; after 15 seconds of reading (a minute until 2026-11-07, 30 seconds until 2026-11-12) a pop-up in the middle of the
    screen asks the reader to log in or sign up free for the TIGA AI app; since 2026-11-07 (third version) it CANNOT be closed: to read on you have to log in; the page also counts and shows the readers).
    No network and no repo files touched: scripts/build-blog-pages.mjs is run with BLOG_FIXTURE / BLOG_OUT / SITE_URL into a temp folder, served locally and driven in Chromium.
-   The real 30-second wait is shortened through the test door (localStorage.tg_test_hook = "1" + ?gate_ms=<ms>).
+   The real 15-second wait is shortened through the test door (localStorage.tg_test_hook = "1" + ?gate_ms=<ms>).
      node scripts/smoke-blog-gate.mjs */
 import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import http from "node:http"; import { execSync, execFileSync } from "node:child_process"; import { pathToFileURL, fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -13,7 +13,10 @@ fs.writeFileSync(path.join(tmp, "posts.json"), JSON.stringify(posts));
 const server = http.createServer((q, s) => { let f = path.join(tmp, decodeURIComponent(q.url.split("?")[0])); if (fs.existsSync(f) && fs.statSync(f).isDirectory()) f = path.join(f, "index.html"); if (!fs.existsSync(f)) { s.writeHead(404); return s.end("nf"); } s.writeHead(200, { "content-type": f.endsWith(".html") ? "text/html; charset=utf-8" : "text/plain" }); s.end(fs.readFileSync(f)); });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
 const ORIGIN = "http://127.0.0.1:" + server.address().port;
-execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_FIXTURE: path.join(tmp, "posts.json"), BLOG_OUT: out, SITE_URL: ORIGIN }, stdio: "pipe" });
+execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_FIXTURE: path.join(tmp, "posts.json"), BLOG_OUT: out, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
+// Since 43e18595a the generator no longer bakes the th / en / zh index pages (the on-demand function renders them from the database), so this test writes them the same way the function does.
+{ process.env.SITE_URL = ORIGIN; const { indexHtml } = await import(pathToFileURL(path.join(ROOT, "scripts/build-blog-pages.mjs")).href + "?idx=" + Date.now());
+  for (const lang of ["th", "en", "zh"]) fs.writeFileSync(path.join(out, lang, "index.html"), indexHtml(lang, posts)); }
 const pwm = await import("playwright").catch(async () => import(pathToFileURL(path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "playwright/index.js")).href)); const pw = pwm.chromium ? pwm : pwm.default;
 const browser = await pw.chromium.launch({ executablePath: process.env.CHROMIUM_PATH || (fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined) });
 const errs = [];
@@ -49,7 +52,7 @@ const html = fs.readFileSync(path.join(tmp, "blog", "th", "piano-posture.html"),
 ok(/id="tg-gate"[^>]*data-nosnippet[^>]*hidden/.test(html), "the pop-up is in the page, hidden and marked data-nosnippet");
 ok(html.includes("utm_source=blog") && html.includes("utm_campaign=piano-posture") && html.includes("go=google") && html.includes("wall=signup") && html.includes("wall=login"), "links carry the blog attribution, go=google, wall=signup, wall=login");
 ok(!fs.readFileSync(path.join(tmp, "blog", "th", "index.html"), "utf8").includes("tg-gate"), "the article index has no pop-up");
-ok(/MS=30000/.test(html), "the reading time is 30 seconds");
+ok(/MS=15000/.test(html) && !/MS=30000/.test(html), "the reading time is 15 seconds");
 ok(!/data-gate-close|tg-g-x|tg-g-later/.test(html) && !/Escape/.test(html), "the wall has no close button, no 'maybe later' and no Esc handler");
 ok(html.includes('"isAccessibleForFree":false') && html.includes('"cssSelector":"article"'), "the article's JSON-LD says the article is gated (isAccessibleForFree false, cssSelector article)");
 
@@ -170,7 +173,7 @@ for (const [lang, unit] of [["th", "ยอดวิว"], ["en", "views"], ["zh"
   const { ctx, page, calls } = await open("en", { ms: 1000 });
   await page.waitForTimeout(600); ok(!calls.some(c => c.p_kind === "read" || c.p_kind === "gate"), "no 'read' or 'gate' before the reading time");
   await page.waitForTimeout(1200);
-  ok(calls.some(c => c.p_kind === "read"), "a 'read' is sent when the reader stays the reading time (30 s in production)");
+  ok(calls.some(c => c.p_kind === "read"), "a 'read' is sent when the reader stays the reading time (15 s in production)");
   ok(calls.some(c => c.p_kind === "gate"), "a 'gate' is sent when the pop-up opens");
   await page.route("**/*", route => { const u = route.request().url(); if (route.request().isNavigationRequest() && !u.includes("/blog/")) return route.fulfill({ status: 200, contentType: "text/html", body: "<title>app</title>" }); route.fallback(); });
   await page.click("[data-gate=google]"); await page.waitForTimeout(500);
@@ -279,12 +282,12 @@ console.log("pages kept from an earlier build are brought up to date");
   fs.writeFileSync(path.join(keep, "th", "piano-posture.html"), cur.replace(/<!--tg-gate:v\d+-->[\s\S]*<!--\/tg-gate-->/, oldGate).replace(/"isAccessibleForFree":false,"hasPart":\{"@type":"WebPageElement","isAccessibleForFree":false,"cssSelector":"article"\},/, ""));
   fs.writeFileSync(path.join(keep, "th", "index.html"), fs.readFileSync(path.join(tmp, "blog", "th", "index.html"), "utf8").replace(/<!--tg-idx:v1-->[\s\S]*<!--\/tg-idx-->/, ""));
   ok(fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8").includes("OLD_ONE_MINUTE"), "(fixture: a page with the one-minute gate and no counter)");
-  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN }, stdio: "pipe" });
+  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
   const k = fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8");
-  ok(!k.includes("OLD_ONE_MINUTE") && k.includes("MS=30000") && k.includes("blog_hit") && (k.match(/id="tg-gate"/g) || []).length === 1, "the old gate is replaced by the current one (30 s, view counter), once");
+  ok(!k.includes("OLD_ONE_MINUTE") && k.includes("MS=15000") && k.includes("blog_hit") && (k.match(/id="tg-gate"/g) || []).length === 1, "the old gate is replaced by the current one (15 s, view counter), once");
   ok(!k.includes("data-gate-close") && (k.match(/"isAccessibleForFree"/g) || []).length === 2, "the kept page is also made uncloseable and gets the gated-content markup (once, not twice)");
   ok(fs.readFileSync(path.join(keep, "th", "index.html"), "utf8").includes("blog_view_counts"), "the list page gets the counter script");
-  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN }, stdio: "pipe" });
+  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
   ok(fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8") === k, "running it again changes nothing");
 }
 

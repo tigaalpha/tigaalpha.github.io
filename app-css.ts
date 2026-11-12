@@ -501,6 +501,12 @@ html, body, #root{background:var(--bg)}
 .pgbar{width:4px;height:34px;border-radius:3px;flex-shrink:0;box-shadow:0 0 10px currentColor}
 .pgicon{font-size:21px;line-height:1;flex-shrink:0}
 .pginfo{flex:1;min-width:0}
+/* Japanese and Korean may break a line between any two characters, so without a floor the header text collapses to one character wide beside the mentor and upgrade pills */
+:root:lang(ja) .pginfo,:root:lang(ko) .pginfo,:root:lang(ru) .pginfo{min-width:7.5em}
+/* the Russian pill labels are long too: the header wraps instead of pushing the pills over the text */
+:root:lang(ja) .pgrouphdr,:root:lang(ko) .pgrouphdr,:root:lang(ru) .pgrouphdr{flex-wrap:wrap;row-gap:8px}
+:root:lang(ja) .hdr button,:root:lang(ko) .hdr button,:root:lang(ru) .hdr button{white-space:nowrap}
+:root:lang(ja) .pgmentor,:root:lang(ko) .pgmentor,:root:lang(ru) .pgmentor,:root:lang(ja) .pgupgrade,:root:lang(ko) .pgupgrade,:root:lang(ru) .pgupgrade{white-space:nowrap}
 .pglabel{font-family:var(--f-app);font-size:13px;font-weight:700;color:var(--text);letter-spacing:2px;line-height:1.2}
 .pgdesc{font-size:11px;color:var(--muted);font-family:var(--f-app);margin-top:2px}
 .pgstep{font-family:var(--f-num);font-size:9px;color:var(--muted);letter-spacing:1px;flex-shrink:0}

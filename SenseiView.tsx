@@ -4,6 +4,7 @@ import { OctaveStage, OCTAVE_CSS, spellNames, TeacherStaff } from "./OctaveStage
 import { Piano, playUi, playPianoNote } from "./music-engine";
 import { Msg, Typing, Input, ChatProgress, ChatHistoryButtons } from "./chat-ui";
 import { FingerHand } from "./PracticeOverlay";
+import { xl, by } from "./lang-extra";
 /* ── SenseiView ──
    The default page (page==="sensei"), extracted verbatim from PianoApp's
    inline JSX as part of Phase 2 componentization — no logic changes. The
@@ -20,11 +21,11 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
   const [octaves, setOctaves] = useState(1);
   useEffect(() => { if (octaves > 1 && stopDemo) stopDemo(); }, [octaves]);   // opening the landscape octave page ends the portrait page's demo (its timers would keep sounding and lighting keys)
   const tt = todayTags || {};
-  const TT = {
+  const TT = by({
     th: { doneTitle: "ครบทุกข้อของวันนี้แล้ว", lastDrill: "เล่นซ้ำ", missed: "พลาดบ่อย 7 วันนี้", now: "ตอนนี้", start: "ฝึก", more: "เพิ่มเติม", notes: "โน้ต", min: "นาที", listen: "ฟังตัวอย่างก่อน" },
     en: { doneTitle: "Today's plan is done", lastDrill: "Play again", missed: "Missed most this week", now: "Now", start: "Practice", more: "More", notes: "notes", min: "min", listen: "Listen to the demo first" },
     zh: { doneTitle: "今日计划已完成", lastDrill: "再练一次", missed: "本周最常错", now: "现在", start: "练习", more: "更多", notes: "个音", min: "分钟", listen: "先听示范" },
-  }[lang];
+  }, lang);
   const planNext = todayPlan && todayPlan.next;
   const merged = !!(hasSeq || (fingerChart && fingerChart.notes));
   const nowEl = (() => {
@@ -169,8 +170,8 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
                 🎓 {lc.recCritique}
               </button>}
               {recording && <span className="recdot">● REC</span>}
-              <label className="octsel"><select value={octaves} onChange={e => setOctaves(parseInt(e.target.value, 10))} aria-label={lang === "th" ? "ช่วงเสียง" : lang === "zh" ? "音域" : "Range"}>
-                {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n} {lang === "th" ? "ออกเทฟ" : lang === "zh" ? "个八度" : n === 1 ? "octave" : "octaves"}</option>)}
+              <label className="octsel"><select value={octaves} onChange={e => setOctaves(parseInt(e.target.value, 10))} aria-label={lang === "th" ? "ช่วงเสียง" : lang === "zh" ? "音域" : xl(lang, "Range")}>
+                {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n} {lang === "th" ? "ออกเทฟ" : lang === "zh" ? "个八度" : xl(lang, n === 1 ? "octave" : "octaves")}</option>)}
               </select></label>
 
                 <button className="replaybtn" onClick={replayLast} title={lc.replay} aria-label={lc.replay}>

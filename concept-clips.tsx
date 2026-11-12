@@ -10,6 +10,7 @@ import { finishLook } from "./cg-finish";
 import { gfxHigh } from "./adv-gfx";
 import { MORE_EN, MORE_ZH, MORE_SCENES } from "./concept-clips-more";
 
+import { xl, by } from "./lang-extra";
 type Slide = { ic: string; h: string; b: string };
 export type Clip = { id: string; title: string; sub: string; hue: number; slides: Slide[] };
 
@@ -471,14 +472,14 @@ const NARR: Record<string, string> = {
 let _clipMan: Promise<any> | null = null, _clipAud: HTMLAudioElement | null = null;
 function clipFile(key: string, lang: string): Promise<string | null> {
   if (!_clipMan) _clipMan = fetch("./audio/clips/manifest.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  return _clipMan.then((m) => (m && m[lang] && m[lang][key] ? (m.base || "./audio/clips") + "/" + lang + "/" + key + "." + m[lang][key] : null));
+  return _clipMan.then((m) => (m && by(m, lang) && by(m, lang)[key] ? (m.base || "./audio/clips") + "/" + lang + "/" + key + "." + by(m, lang)[key] : null));
 }
 let _clipSrc: AudioBufferSourceNode | null = null;
 const _clipPre = new Map<string, Promise<AudioBuffer>>();
 /* one shared promise per line, so a prefetch and the real play never fetch (or pay for) it twice */
 function clipBuf(text: string, lang: string, ac: AudioContext): Promise<AudioBuffer> {
   const key = lang + "|" + text; let p = _clipPre.get(key);
-  if (!p) { p = ttsFetchBuffer(text, lang, ac, 6, 40000, { src: "clip", voice: "Charon", style: NARR[lang] }) as Promise<AudioBuffer>; p.catch(() => { _clipPre.delete(key); }); _clipPre.set(key, p); }
+  if (!p) { p = ttsFetchBuffer(text, lang, ac, 6, 40000, { src: "clip", voice: "Charon", style: by(NARR, lang) }) as Promise<AudioBuffer>; p.catch(() => { _clipPre.delete(key); }); _clipPre.set(key, p); }
   return p;
 }
 /* the part of a clip that is really sound: the model leaves a fraction of a second of silence at both ends, which showed up as a gap between lines */
@@ -500,7 +501,7 @@ function Reel({ clip, active, lang, paused, onEnded, peek }: { clip: Clip; activ
        every clip is trimmed, so one line runs straight into the next */
     const startWords = (durSec: number) => { tms.forEach(clearTimeout); tms.length = 0; const w = words.map((x) => x.length + 1.5), tot = w.reduce((a, b) => a + b, 0); let acc = 0; setWi(0); w.forEach((x, k) => { acc += x; if (k + 1 < words.length) tms.push(setTimeout(() => setWi(k + 1), (acc / tot) * durSec * 1000)); }); };
     const after = () => { tms.forEach(clearTimeout); go(); };
-    const device = (rest?: string) => { if (dead) return; startWords((text.length / (lang === "zh" ? 5.6 : 15.5)) * 1.05); try { speakNarration(rest || text, lang, after, () => { setTimeout(go, 6500); }, 0.95, 0, true); } catch { setTimeout(go, 6500); } };
+    const device = (rest?: string) => { if (dead) return; startWords((text.length / (lang === "zh" ? 5.6 : xl(lang, 15.5))) * 1.05); try { speakNarration(rest || text, lang, after, () => { setTimeout(go, 6500); }, 0.95, 0, true); } catch { setTimeout(go, 6500); } };
     const nextText = i + 1 < n ? clip.slides[i + 1].b : peek || "";
     const at = setTimeout(() => {
       /* a line rendered ahead of time (scripts/render-clip-voice.mjs -> public/audio/clips) plays first: free, the same voice for everybody, offline-safe */
