@@ -104,7 +104,7 @@ const CATN = { tips: { th: "เทคนิคการฝึก", en: "Practice
    no way round. Crawlers are never walled (BOT) and the article's JSON-LD says isAccessibleForFree false with the article as the gated part, which is Google's
    way of telling a login wall from cloaking. The SEO cost of an uncloseable wall (Google's intrusive-interstitial rule) is the owner's accepted trade-off;
    the text is data-nosnippet so it never replaces the article's snippet. The test door: with
-   localStorage.tg_test_hook = "1" the page reads ?gate_ms=<ms> instead of 30000. */
+   localStorage.tg_test_hook = "1" the page reads ?gate_ms=<ms> instead of 15000. */
 const GATE_T = {
   th: { title: "ล็อกอินเพื่ออ่านต่อ", sub: "ล็อกอินหรือสมัครสมาชิกฟรีเพื่ออ่านบทความนี้ต่อ แล้วเริ่มเรียนเปียโนฟรีผ่านแอป TIGA AI ได้ทันที", google: "ล็อกอินด้วย Google", signup: "สมัครสมาชิกฟรี", login: "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ" },
   en: { title: "Log in to keep reading", sub: "Log in or sign up free to read the rest of this article, then start learning piano for free with the TIGA AI app.", google: "Continue with Google", signup: "Sign up free", login: "Already a member? Log in" },
@@ -131,16 +131,16 @@ const VIEWS_LBL = { th: "ยอดวิว", en: "views", zh: "次浏览", ja: 
 const VIEWS_SEP = (lang) => lang === "ja" || lang === "ko" ? "" : " ";
 const LOC_JS = (lang) => ["th", "en", "zh"].includes(lang) ? `LANG==="th"?"th-TH":LANG==="zh"?"zh-CN":"en-US"` : J(({ ja: "ja-JP", ko: "ko-KR", ru: "ru-RU" })[lang] || "en-US");
 /* The reader script of an article page (owner 2026-11-07): one shared reading clock does three jobs. (1) It counts the visit and shows the number of readers beside the date
-   ("👁 1,234 views"): public.blog_hit() (supabase-blog-views-migration.sql) counts one view per device per article per day and returns the all-time number. (2) After 30 seconds of
-   reading it records a "read" and, for someone with no session in this browser, opens the log-in pop-up (it was one minute until 2026-11-07). (3) It records when the pop-up was shown and
+   ("👁 1,234 views"): public.blog_hit() (supabase-blog-views-migration.sql) counts one view per device per article per day and returns the all-time number. (2) After 15 seconds of
+   reading it records a "read" and, for someone with no session in this browser, opens the log-in pop-up (one minute until 2026-11-07, 30 seconds until 2026-11-12 — owner: "15 seconds, in every language, so more people sign up"). (3) It records when the pop-up was shown and
    tapped. Every call fails soft: before the migration is applied the page shows no number and nothing else changes. Crawlers are not counted. A page kept from an earlier build is re-patched
    between the two markers, so the committed pages follow the generator. */
-const GATE_MARK = "<!--tg-gate:v4-->", GATE_END = "<!--/tg-gate-->";
+const GATE_MARK = "<!--tg-gate:v5-->", GATE_END = "<!--/tg-gate-->";
 function gateHtml(lang, slug) {
   const T = GATE_T[lang] || GATE_T.en;
   const base = `${SITE}/?utm_source=blog&utm_medium=seo&utm_campaign=${encodeURIComponent(slug)}&lg=${lang}`;
   const L = (x) => esc(`${base}&${x}`);
-  const js = `(function(){var D=document,W=window,LS=null,SS=null,MS=30000,READ=0,OPEN=false,GOAL,SENT=0,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},SLUG=${J(slug)},VID="",BOT=false,OFF=false,LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)},badge=null,MEM=null;
+  const js = `(function(){var D=document,W=window,LS=null,SS=null,MS=15000,READ=0,OPEN=false,GOAL,SENT=0,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},SLUG=${J(slug)},VID="",BOT=false,OFF=false,LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)},badge=null,MEM=null;
 try{LS=W.localStorage}catch(e){}try{SS=W.sessionStorage}catch(e){}
 try{BOT=/googlebot|bingbot|baiduspider|yandex|duckduckbot|applebot|slurp|crawler|spider|lighthouse|headlesschrome|prerender|facebookexternalhit|ahrefsbot|semrushbot|gptbot|claudebot|petalbot|bytespider/i.test(navigator.userAgent||"")}catch(e){}
 function isAuth(){try{if(LS)for(var i=0;i<LS.length;i++){var k=LS.key(i);if(k&&/^sb-.*-auth-token$/.test(k)&&LS.getItem(k))return true}}catch(e){}return false}
@@ -330,7 +330,7 @@ if (!fetched) {
       if (!f.endsWith(".html") || f === "index.html") continue;
       if (emitted.has(lang + "/" + f.slice(0, -5))) continue;   // written a moment ago from a source file: already current
       urls.push([`${SITE}/blog/${lang}/${encodeURIComponent(f.slice(0, -5))}.html`, [], null]);
-      // the pages kept from an earlier build are brought up to the current reader script (gate after 30 s, view count) in place
+      // the pages kept from an earlier build are brought up to the current reader script (gate after 15 s, view count) in place
       const fp = path.join(dir, f), h0 = fs.readFileSync(fp, "utf8");
       if (h0.includes("</body>")) {
         let h1 = h0.replace(OLD_GATE, "").replace(lastBody, () => gateHtml(lang, f.slice(0, -5)) + "</body>");
