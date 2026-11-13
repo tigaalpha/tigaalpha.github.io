@@ -8,7 +8,7 @@ const [, , enFile, trFile, lang] = process.argv;
 const en = JSON.parse(fs.readFileSync(enFile, "utf8"));
 let tr;
 try { tr = JSON.parse(fs.readFileSync(trFile, "utf8")); } catch (e) { console.log("FAIL cannot read " + trFile + ": " + e.message); process.exit(1); }
-const SCRIPT = { ja: /[぀-ヿ㐀-鿿]/g, ko: /[가-힯]/g, ru: /[Ѐ-ӿ]/g, hi: /[ऀ-ॿ]/g }[lang];   // es / fr are Latin: judged by function words below
+const SCRIPT = { ja: /[぀-ヿ㐀-鿿]/g, ko: /[가-힯]/g, ru: /[Ѐ-ӿ]/g, hi: /[ऀ-ॿ]/g, ar: /[\u0600-\u06FF]/g }[lang];   // es / fr are Latin: judged by function words below
 const LATIN = {
   es: "de la que el en y a los se del las un por con no una su para es al lo como más pero sus le ya o este sí porque esta entre cuando muy sin sobre también me hasta hay donde quien desde todo nos durante tu te mi tus mis vez puedes puede ver hacer tiene tienes cada nuevo nueva primer".split(" "),
   fr: "de la le les des du un une et en que qui dans pour pas est sur avec ce se ne vous tu nous mon ton son ses au aux plus mais ou où par comme votre vos ta tes ma mes cette ces il elle être avoir fait faire chaque nouveau nouvelle premier".split(" "),
@@ -44,7 +44,7 @@ for (const [name, re] of Object.entries(kinds)) {
   if (a !== b) bad(`${name}: English ${a}, translation ${b}`);
 }
 const urls = s => (String(s).match(/https?:\/\/[^\s)]+/g) || []).sort().join("\n");
-const mapUrl = u => u.replace(/\/landing-(en|zh|ja|ko|ru|hi|es|fr)\//g, `/landing-${lang}/`).replace(/\/landing\/(?=[?#]|$)/g, `/landing-${lang}/`).replace(/([?&])lg=(en|zh|th|ja|ko|ru|hi|es|fr)\b/g, `$1lg=${lang}`);
+const mapUrl = u => u.replace(/\/landing-(en|zh|ja|ko|ru|hi|es|fr|ar)\//g, `/landing-${lang}/`).replace(/\/landing\/(?=[?#]|$)/g, `/landing-${lang}/`).replace(/([?&])lg=(en|zh|th|ja|ko|ru|hi|es|fr|ar)\b/g, `$1lg=${lang}`);
 if (urls(b0).split("\n").map(mapUrl).sort().join("\n") !== urls(b1)) bad("URLs differ from the English (only /landing-en/ -> /landing-" + lang + "/ and lg=" + lang + " may change)");
 if (SCRIPT) {
   const scriptChars = count(b1, SCRIPT);
@@ -65,5 +65,7 @@ if (/[가-힯]/.test(b1) && lang !== "ko") bad("hangul in a non-Korean article")
 if (/[Ѐ-ӿ]/.test(b1) && lang !== "ru") bad("cyrillic in a non-Russian article");
 if (/[ऀ-ॿ]/.test(b1) && lang !== "hi") bad("Devanagari in a non-Hindi article");
 if (/[०-९]/.test(b1)) bad("Devanagari digits (the app writes digits 0-9)");
+if (/[\u0660-\u0669\u06F0-\u06F9]/.test(b1)) bad("Arabic-Indic digits (the app writes digits 0-9)");
+if (/[\u0600-\u06FF]/.test(b1) && lang !== "ar") bad("Arabic script in a non-Arabic article");
 console.log(`${lang}/${tr.slug}: ${fail ? fail + " problem(s)" : "ok"}  (${b1.length} chars, ratio ${ratio.toFixed(2)})`);
 process.exit(fail ? 1 : 0);
