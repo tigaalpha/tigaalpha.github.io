@@ -2595,7 +2595,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     if (!lesson) return;
     setCommuteIdx(idx);
     const utt = new SpeechSynthesisUtterance(lesson.title + ". " + lesson.text);
-    utt.lang = localeOf(lang);
+    utt.lang = TTS_LOCALES[lang] || localeOf(lang);   // the speech tag (ar-SA for Arabic; the same tag localeOf gives every other language)
     utt.rate = 0.9;
     utt.onend = () => setCommutePlaying(false);
     utt.onerror = () => setCommutePlaying(false);
@@ -3718,7 +3718,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   );
 }
 import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
-import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog } from "./lang-extra";
+import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog, dirOf } from "./lang-extra";
 import { useCatalog } from "./use-catalog";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
@@ -11113,7 +11113,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      from it, and the game rooms use it (:lang) to keep letter-spacing off
      Thai, where spacing out the letters pulls vowels and tone marks away
      from the consonants they sit on. */
-  useEffect(() => { try { document.documentElement.lang = (LANG_META[lang] || LANG_META.en).html; } catch (e) {} }, [lang]);
+  useEffect(() => {
+    /* dir follows the language on every change (Arabic is right-to-left). Pianos, staffs and game canvases stay left-to-right by the html[dir="rtl"] block in app-css.ts. */
+    try { const el = document.documentElement; el.lang = (LANG_META[lang] || LANG_META.en).html; el.dir = dirOf(lang); } catch (e) {}
+  }, [lang]);
   // First-time language picker: SUSPENDED (owner request 2026-09) - the popup
   // felt like a wall between a new user and the piano. The state/JSX are kept
   // intact for a future re-enable: flip LANG_PICKER_ENABLED back to true and

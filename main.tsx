@@ -12,7 +12,7 @@ import { logUsage } from "./shared-infra";
 // never waits on it, and nothing user-facing can fail because of it.
 import { initLearningData } from "./learning-data";
 import { adoptHandoff, attributionEvent } from "./local-identity";
-import { isExtraLang, loadCatalog } from "./lang-extra";
+import { isExtraLang, loadCatalog, LANG_META, dirOf } from "./lang-extra";
 import { loadClassicalSongs } from "./songs-data";
 /* A visitor who tapped "open in your browser" inside Facebook/Instagram arrives
    carrying their anon id; it must be adopted before anything below reads it
@@ -27,6 +27,8 @@ await loadClassicalSongs();
 // built from English and then kept. A slow network does not hold the app: after 2.5 s it starts and the catalog joins when it arrives.
 try {
   const hint = localStorage.getItem("tg_lang_hint");
+  // document language and direction before the first paint (App sets them again on every change): an Arabic reader's first frame is already right-to-left
+  if (hint && LANG_META[hint]) { const el = document.documentElement; el.lang = LANG_META[hint].html; el.dir = dirOf(hint); }
   if (isExtraLang(hint)) await Promise.race([loadCatalog(hint), new Promise(r => setTimeout(r, 2500))]);
 } catch (e) {}
 

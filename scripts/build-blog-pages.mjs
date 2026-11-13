@@ -1,7 +1,8 @@
-// Static, crawlable blog: one HTML page per published article (th / en / zh / ja / ko / ru), an index per language, and the article URLs appended to sitemap.xml.
+// Static, crawlable blog: one HTML page per published article (th / en / zh / ja / ko / ru / hi / es / fr / ar), an index per language, and the article URLs appended to sitemap.xml.
 // Reads public.blog_posts through the public REST API with the anon key (RLS only returns published rows). Fails soft: no table / no network = no blog pages, build continues.
-// Japanese, Korean and Russian (owner 2026-11-11) are ALSO read from committed source files, blog-src/<ja|ko|ru>/<slug>.json (see readStaticPosts): the table does not allow those
-// languages until supabase-blog-ja-ko-ru-migration.sql is applied, so the articles must be able to ship without it. A database row wins over a source file with the same (lang, slug).
+// Japanese, Korean and Russian (owner 2026-11-11), then Hindi, Spanish, French and Arabic (owner 2026-11-13) are ALSO read from committed source files, blog-src/<lang>/<slug>.json (see readStaticPosts):
+// the table does not allow those languages until supabase-blog-ja-ko-ru-migration.sql / supabase-blog-hi-es-fr-ar-migration.sql are applied, so the articles must be able to ship without them.
+// A database row wins over a source file with the same (lang, slug). A language whose blog-src folder is missing or empty is simply skipped. Arabic is right-to-left: its pages carry dir="rtl".
 // Run by `npm run build` after build-song-pages.mjs (it appends to that script's sitemap.xml). SITE_URL overrides the domain.
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -16,9 +17,17 @@ const safeUrl = (u) => /^https:\/\/[^\s"'<>]+$/i.test(u) ? u : "";
 const LG = { th: { name: "บล็อก", sub: "บทความเรื่องการเรียนเปียโนและดนตรี", cta: "เริ่มเรียนฟรีที่ TIGA ALPHA", back: "ทุกบทความ", loc: "th_TH", html: "th" }, en: { name: "Blog", sub: "Articles on learning piano and music", cta: "Start learning free on TIGA ALPHA", back: "All articles", loc: "en_US", html: "en" }, zh: { name: "博客", sub: "钢琴与音乐学习文章", cta: "在 TIGA ALPHA 免费开始学习", back: "全部文章", loc: "zh_CN", html: "zh-Hans" },
   ja: { name: "ブログ", sub: "ピアノと音楽の学習に役立つ記事", cta: "TIGA ALPHAで無料で始めよう", back: "すべての記事", loc: "ja_JP", html: "ja" },
   ko: { name: "블로그", sub: "피아노와 음악 학습에 관한 글", cta: "TIGA ALPHA에서 무료로 시작하기", back: "모든 글", loc: "ko_KR", html: "ko" },
-  ru: { name: "Блог", sub: "Статьи об обучении игре на фортепиано и музыке", cta: "Начните учиться бесплатно в TIGA ALPHA", back: "Все статьи", loc: "ru_RU", html: "ru" } };
+  ru: { name: "Блог", sub: "Статьи об обучении игре на фортепиано и музыке", cta: "Начните учиться бесплатно в TIGA ALPHA", back: "Все статьи", loc: "ru_RU", html: "ru" },
+  hi: { name: "ब्लॉग", sub: "पियानो और संगीत सीखने पर लेख", cta: "TIGA ALPHA पर मुफ़्त में शुरू करें", back: "सभी लेख", loc: "hi_IN", html: "hi" },
+  es: { name: "Blog", sub: "Artículos para aprender piano y música", cta: "Empieza gratis en TIGA ALPHA", back: "Todos los artículos", loc: "es_ES", html: "es" },
+  fr: { name: "Blog", sub: "Articles pour apprendre le piano et la musique", cta: "Commencez gratuitement sur TIGA ALPHA", back: "Tous les articles", loc: "fr_FR", html: "fr" },
+  ar: { name: "المدونة", sub: "مقالات عن تعلّم البيانو والموسيقى", cta: "ابدأ التعلّم مجانًا على TIGA ALPHA", back: "كل المقالات", loc: "ar_AR", html: "ar" } };
+// Right-to-left languages (keep in step with LANG_META in lang-extra.ts: this file is plain node and imports no TypeScript). Their pages get dir="rtl", a font stack of their own and a few direction rules.
+const RTL_LANGS = new Set(["ar"]);
+export const dirOf = (lang) => (RTL_LANGS.has(lang) ? "rtl" : "ltr");
 // Languages whose articles ship as committed files under blog-src/ and whose index and feed are therefore BUILT as real files (see writeBlog). th / en / zh keep the database-rendered index.
-export const STATIC_LANGS = ["ja", "ko", "ru"];
+// The index pages of hi / es / fr / ar are only listed as hreflang alternates once that language has an article (see INDEX_LANGS below), so no alternate ever points at a 404.
+export const STATIC_LANGS = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
 const STATIC_CATS = ["tips", "theory", "songs", "news", "story"], STATIC_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, STATIC_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 const SRC_DIR = path.resolve(process.env.BLOG_SRC || path.join(ROOT, "blog-src"));   // BLOG_SRC lets the tests point at a temp folder
 // blog-src/<lang>/<slug>.json = { lang, slug, category, title, excerpt, body, created_at, published } -> a published post of that language. A malformed file is skipped with a warning (never fails the build).
@@ -69,17 +78,26 @@ function body(text) {
 }
 const FONT_STACK = `system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans SC",sans-serif`;
 // Japanese and Korean pages name their own faces BEFORE "Noto Sans SC": a Chinese face listed first would draw kanji in Chinese glyph shapes on a machine that has it. th / en / zh / ru keep the stack byte for byte.
-const FONT_LANG = { ja: `"Hiragino Sans","Yu Gothic","Noto Sans JP"`, ko: `"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR"` };
-const fontFor = (lang) => FONT_LANG[lang] ? FONT_STACK.replace(`"Noto Sans SC"`, FONT_LANG[lang] + `,"Noto Sans SC"`) : FONT_STACK;
-const forLang = (css, lang) => FONT_LANG[lang] ? css.split(FONT_STACK).join(fontFor(lang)) : css;
+// Hindi names the Devanagari faces the same way (Noto Sans Devanagari on Android / ChromeOS, Nirmala UI on Windows, Mangal as the older Windows face). Arabic has a stack of its own (FONT_FULL):
+// Naskh first for body text, then Noto Sans Arabic, Tahoma (on every Windows) and the system faces.
+const FONT_LANG = { ja: `"Hiragino Sans","Yu Gothic","Noto Sans JP"`, ko: `"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR"`, hi: `"Noto Sans Devanagari","Nirmala UI","Mangal"` };
+const FONT_FULL = { ar: `"Noto Naskh Arabic","Noto Sans Arabic",Tahoma,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif` };
+const fontFor = (lang) => FONT_FULL[lang] ? FONT_FULL[lang] : FONT_LANG[lang] ? FONT_STACK.replace(`"Noto Sans SC"`, FONT_LANG[lang] + `,"Noto Sans SC"`) : FONT_STACK;
+const forLang = (css, lang) => (FONT_FULL[lang] || FONT_LANG[lang]) ? css.split(FONT_STACK).join(fontFor(lang)) : css;
 const CSS = `body{margin:0;background:#faf6f1;color:#2a211b;font:17px/1.75 ${FONT_STACK}}main{max-width:720px;margin:0 auto;padding:24px 18px 60px}header.top{border-bottom:1px solid #eadfd4;background:#fff}header.top div{max-width:720px;margin:0 auto;padding:12px 18px;display:flex;justify-content:space-between;align-items:center}header.top a{color:#d97757;font-weight:800;text-decoration:none;letter-spacing:.05em}h1{font-size:30px;line-height:1.3;margin:.3em 0}h2{font-size:23px;margin:1.6em 0 .4em}h3{font-size:19px;margin:1.4em 0 .3em}img{max-width:100%;border-radius:12px}a{color:#c2552d}.meta{color:#7a6a5e;font-size:14px}.card{display:block;background:#fff;border:1px solid #eadfd4;border-radius:14px;padding:14px 16px;margin:0 0 12px;text-decoration:none;color:inherit}.card b{font-size:18px}.card span{display:block;color:#6b5d52;font-size:15px;margin-top:4px}.cta{display:inline-block;background:#d97757;color:#fff!important;padding:12px 22px;border-radius:10px;font-weight:800;text-decoration:none;margin-top:28px}`;
+/* Right-to-left rules (only written into a page whose language is RTL; every other page is byte for byte what it was). The base CSS has no physical left/right property, so what is left is
+   reading rhythm (Arabic needs a taller line), lists and quotes by logical property, and letter-spacing: it would break the joined Arabic letters, so only the Latin brand name keeps it. */
+const RTL_CSS = `[dir=rtl] body{line-height:1.85}[dir=rtl] h1{line-height:1.5}[dir=rtl] h2,[dir=rtl] h3{line-height:1.6}[dir=rtl] .card b,[dir=rtl] .card span{line-height:1.7}[dir=rtl] header.top a:not(:first-child){letter-spacing:0}[dir=rtl] ul,[dir=rtl] ol{padding-inline-start:1.6em;padding-inline-end:0}[dir=rtl] blockquote{margin-inline:0;padding-inline-start:14px;padding-inline-end:0;border-inline-start:3px solid #eadfd4;border-inline-end:0}[dir=rtl] .meta,[dir=rtl] .card,[dir=rtl] .rel,[dir=rtl] .pager{text-align:start}`;
+const rtlCss = (lang) => (dirOf(lang) === "rtl" ? RTL_CSS : "");
+const dirAttr = (lang) => (dirOf(lang) === "rtl" ? ` dir="rtl"` : "");
+const arrowBack = (lang) => (dirOf(lang) === "rtl" ? "→" : "←");
 const head = (lang, title, desc, canon, extra, ld) => `<!doctype html>
-<html lang="${LG[lang].html}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="${LG[lang].html}"${dirAttr(lang)}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${canon}">
 ${extra}<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:type" content="article"><meta property="og:url" content="${canon}"><meta property="og:image" content="${SITE}/og-card.png"><meta property="og:locale" content="${LG[lang].loc}">
 <meta name="twitter:card" content="summary_large_image"><link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="alternate" type="application/rss+xml" title="${esc(LG[lang].name)}" href="${SITE}/blog/${lang}/feed.xml">
-<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script><style>${forLang(CSS, lang)}.rel{margin-top:28px}.rel a{display:block;margin:6px 0}.pager{display:flex;gap:16px;margin:18px 0}</style><script src="/ga.js" defer></script></head>
+<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script><style>${forLang(CSS, lang)}.rel{margin-top:28px}.rel a{display:block;margin:6px 0}.pager{display:flex;gap:16px;margin:18px 0}${rtlCss(lang)}</style><script src="/ga.js" defer></script></head>
 `;
 const topbar = (lang) => `<header class="top"><div><a href="${SITE}/">TIGA ALPHA</a><a href="${SITE}/blog/${lang}/" style="font-weight:600">${LG[lang].name}</a></div></header>`;
 const KW = { th: "สอนเปียโน, เรียนเปียโน, คอร์สเรียนเปียโน, เล่นเปียโน, เล่นดนตรี, สอนดนตรี, คอร์สเปียโน, เรียนเปียโนออนไลน์, เรียนดนตรี, แอปพลิเคชันสอนเปียโนออนไลน์, สอนเปียโนด้วยเอไอ, แอปสอนเปียโน, แอปสอนเปียโนออนไลน์, แอปสอนเปียโน AI, คอร์สเรียนเปียโนออนไลน์ AI", en: "piano teaching, learn piano, piano learning course, play piano, play music, music teaching, piano course, learn piano online, learn music, online piano teaching application, piano teaching with AI, piano teaching app, online piano lessons app, AI piano teaching app, AI online piano course", zh: "钢琴教学, 学钢琴, 钢琴学习课程, 弹钢琴, 演奏音乐, 音乐教学, 钢琴课程, 在线学钢琴, 学音乐, 在线钢琴教学应用, 用AI教钢琴, 钢琴教学App, 在线钢琴教学App, AI钢琴教学App, AI在线钢琴课程",
