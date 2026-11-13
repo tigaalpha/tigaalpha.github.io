@@ -1,17 +1,17 @@
 /* ── lang-extra.ts ──
-   Japanese, Korean and Russian (owner, 2026-11-11). The app was written in three languages through inline idioms:
+   Japanese, Korean and Russian (owner, 2026-11-11), then Hindi, Spanish and French (owner, 2026-11-13). The app was written in three languages through inline idioms:
    T(th, en, zh), { th, en, zh } objects and `lang === "th" ? .. : lang === "zh" ? .. : <English>`. Instead of adding a
    fourth, fifth and sixth argument to thousands of call sites, a new language is ONE English-keyed catalog
-   (i18n-ja.ts, i18n-ko.ts, i18n-ru.ts: { "English text": "translation" }) and the English argument of every idiom is looked up in it.
+   (i18n-ja.ts, i18n-ko.ts, i18n-ru.ts, i18n-hi.ts, i18n-es.ts, i18n-fr.ts: { "English text": "translation" }) and the English argument of every idiom is looked up in it.
    A string with no entry shows its English, so a new or untranslated string is never blank.
    - Keys written with {0} {1} holes stand for template literals (`${n} songs`): the final English string is matched against them.
    - Catalogs are lazy chunks (the React hook that reloads a root lives in use-catalog.ts), loaded when the language is chosen, so Thai, English and Chinese users download none of it.
    - This file imports nothing from the app (i18n.ts and every screen import it), so it can never take part in an import cycle. ── */
 
-export type ExtraLang = "ja" | "ko" | "ru";
-export const EXTRA_LANGS: ExtraLang[] = ["ja", "ko", "ru"];
-export const ALL_LANGS = ["th", "en", "zh", "ja", "ko", "ru"];
-export const isExtraLang = (l: any): l is ExtraLang => l === "ja" || l === "ko" || l === "ru";
+export type ExtraLang = "ja" | "ko" | "ru" | "hi" | "es" | "fr";
+export const EXTRA_LANGS: ExtraLang[] = ["ja", "ko", "ru", "hi", "es", "fr"];
+export const ALL_LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr"];
+export const isExtraLang = (l: any): l is ExtraLang => l === "ja" || l === "ko" || l === "ru" || l === "hi" || l === "es" || l === "fr";
 
 /* one row per language: the flag and native name for pickers, the BCP-47 tag speech engines and date formatters want,
    the <html lang>, and the name the AI tutor is told to answer in */
@@ -22,6 +22,9 @@ export const LANG_META: Record<string, { flag: string; name: string; locale: str
   ja: { flag: "🇯🇵", name: "日本語", locale: "ja-JP", html: "ja", ai: "Japanese" },
   ko: { flag: "🇰🇷", name: "한국어", locale: "ko-KR", html: "ko", ai: "Korean" },
   ru: { flag: "🇷🇺", name: "Русский", locale: "ru-RU", html: "ru", ai: "Russian" },
+  hi: { flag: "🇮🇳", name: "हिन्दी", locale: "hi-IN", html: "hi", ai: "Hindi" },
+  es: { flag: "🇪🇸", name: "Español", locale: "es-ES", html: "es", ai: "Spanish" },
+  fr: { flag: "🇫🇷", name: "Français", locale: "fr-FR", html: "fr", ai: "French" },
 };
 export const localeOf = (lang: string) => (LANG_META[lang] || LANG_META.en).locale;
 /* day-month-year order for dates in English is the British one the app already used */
@@ -65,8 +68,16 @@ export function setCatalog(lang: string, cat: Cat) {
 /* what goes into a {n} hole: a value the code wrote in English that has a fixed local form (1st, 2nd, 3rd ... -> 1番目 / 1번째 / 1-й) */
 function holeText(lang: string, v: string): string {
   const m = /^(\d+)(st|nd|rd|th)$/.exec(v);
-  if (m) return lang === "ja" ? m[1] + "番目" : lang === "ko" ? m[1] + "번째" : m[1] + "-й";
-  if (v === "s" || v === "es") return "";   // the English plural suffix: ja / ko / ru have no such ending, and their translation puts the hole where it would have been
+  if (m) {
+    const n = +m[1];
+    if (lang === "ja") return m[1] + "番目";
+    if (lang === "ko") return m[1] + "번째";
+    if (lang === "hi") return n === 1 ? "पहला" : n === 2 ? "दूसरा" : n === 3 ? "तीसरा" : n === 4 ? "चौथा" : m[1] + "वाँ";
+    if (lang === "es") return m[1] + ".º";
+    if (lang === "fr") return n === 1 ? "1er" : m[1] + "e";
+    return m[1] + "-й";
+  }
+  if (v === "s" || v === "es") return "";   // the English plural suffix: these languages have no such ending, and their translation puts the hole where it would have been
   return v;
 }
 
@@ -135,6 +146,9 @@ const loaders: Record<string, () => Promise<{ default: Cat }>> = {
   ja: () => import("./i18n-ja"),
   ko: () => import("./i18n-ko"),
   ru: () => import("./i18n-ru"),
+  hi: () => import("./i18n-hi"),
+  es: () => import("./i18n-es"),
+  fr: () => import("./i18n-fr"),
 };
 export function loadCatalog(lang: string): Promise<void> {
   if (!isExtraLang(lang) || cats[lang]) return Promise.resolve();
