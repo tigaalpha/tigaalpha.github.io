@@ -99,9 +99,9 @@ export const GUEST_PROFILE_KEY = "tg_guest_profile";
    usage_events row ("signed_up_landing", item_id "landing-en" …), then
    clears it — one-shot, so re-logins never overwrite the original answer.
    Lives in this module (imports nothing) so the landing bundle can use it
-   without dragging supabase-js in. Value: one of th, en, zh, ja, ko, ru, hi, es, fr. */
+   without dragging supabase-js in. Value: one of th, en, zh, ja, ko, ru, hi, es, fr, ar. */
 export const LANDING_ORIGIN_KEY = "tg_landing_origin";
-const LAND_LANGS = /^(th|en|zh|ja|ko|ru|hi|es|fr)$/;   // ja / ko / ru joined th / en / zh on 2026-11-11, hi / es / fr on 2026-11-13
+const LAND_LANGS = /^(th|en|zh|ja|ko|ru|hi|es|fr|ar)$/;   // ja / ko / ru joined th / en / zh on 2026-11-11, hi / es / fr / ar on 2026-11-13
 export function stampLandingOrigin(lg) {
   if (!LAND_LANGS.test(String(lg))) return;
   try { localStorage.setItem(LANDING_ORIGIN_KEY, lg); } catch (e) {}
@@ -224,7 +224,7 @@ export function landingVariant() {
   } catch (e) { return "a"; }
 }
 /* Returns the item_id to log under kind "attr", or null when there is nothing
-   new to say. `lg` is the page language (landing: th|en|zh|ja|ko|ru|hi|es|fr, app: "app"). */
+   new to say. `lg` is the page language (landing: th|en|zh|ja|ko|ru|hi|es|fr|ar, app: "app"). */
 export function attributionEvent(lg = "") {
   try {
     const cur = urlTags();

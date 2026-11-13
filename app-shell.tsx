@@ -3,7 +3,7 @@ import { useState, useEffect, Component } from "react";
 import { sb } from "./supabase-client";
 import { saveGuestProfile, setSkipOnboard, logUsage } from "./shared-infra";
 import { handoffUrl } from "./local-identity";
-import { by } from "./lang-extra";
+import { by, ALL_LANGS, LANG_META } from "./lang-extra";
 /* ── app-shell.tsx ──
    Small presentational components clustered around the App() root: the
    membership-gate screens (Splash/BannedScreen/GuestGateScreen/ProfileForm,
@@ -939,11 +939,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
 // ask again. Each option is self-labeled in its own script, so — unlike
 // every other string on these pre-login screens — this one genuinely has no
 // language to translate itself into yet.
-const LANG_CHOICES = [
-  { code: "th", flag: "🇹🇭", label: "ไทย" },
-  { code: "en", flag: "🇬🇧", label: "English" },
-  { code: "zh", flag: "🇨🇳", label: "中文" },
-];
+const LANG_CHOICES = ALL_LANGS.map(code => ({ code, flag: LANG_META[code].flag, label: LANG_META[code].name }));   // all ten languages, flag + native name (this screen is not mounted today; see LANG_PICKER_ENABLED in App.tsx)
 export function LangPickerScreen({ session, profile, setProfile }) {
   const [saving, setSaving] = useState(null); // which code is currently being saved
   async function pick(code) {
@@ -968,7 +964,7 @@ export function LangPickerScreen({ session, profile, setProfile }) {
           จะใช้ภาษานี้ทุกครั้งที่เข้ามา เปลี่ยนได้ทีหลังในตั้งค่า<br />
           This will be used every time you come back — change it later in Settings anytime.
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 300, marginTop: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 300, marginTop: 6, maxHeight: "min(52vh, 420px)", overflowY: "auto" }}>
           {LANG_CHOICES.map(o => (
             <button key={o.code} className="lockbtn" disabled={!!saving} style={{ width: "100%" }} onClick={() => pick(o.code)}>
               {saving === o.code ? "..." : `${o.flag}  ${o.label}`}
