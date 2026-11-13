@@ -1134,6 +1134,14 @@
   "ko": "아르페지오",
   "ru": "Арпеджио"
  },
+ "Article language": {
+  "ja": "記事の言語",
+  "ko": "기사 언어",
+  "ru": "Язык статей",
+  "hi": "लेख की भाषा",
+  "es": "Idioma del artículo",
+  "fr": "Langue des articles"
+ },
  "Articles on learning piano and music": {
   "ja": "ピアノと音楽の学びに関する記事",
   "ko": "피아노와 음악 학습에 관한 글",

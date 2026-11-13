@@ -1,16 +1,18 @@
-// Builds the English-keyed catalogs of the new app languages (i18n-ja.ts, i18n-ko.ts, i18n-ru.ts) from i18n-src/catalog.json.
-//   node scripts/build-i18n-catalogs.mjs                       write the three .ts files
+// Builds the English-keyed catalogs of the extra app languages (i18n-ja/ko/ru/hi/es/fr.ts) from i18n-src/catalog.json.
+//   node scripts/build-i18n-catalogs.mjs                       write the .ts files
 //   node scripts/build-i18n-catalogs.mjs --check               exit 1 when a .ts file is stale
-//   node scripts/build-i18n-catalogs.mjs --merge=DIR           fold DIR/in/batch-NN.json + DIR/out/batch-NN.json into i18n-src/catalog.json first
+//   node scripts/build-i18n-catalogs.mjs --merge=DIR [--langs=hi,es,fr]
+//                                                              fold DIR/in/batch-NN.json + DIR/out/batch-NN.json into i18n-src/catalog.json first
+//                                                              (--langs: only these languages are read from the output files and set; the others stay as they are)
 //   node scripts/build-i18n-catalogs.mjs --coverage            list English strings the code uses that the catalog does not have
-// catalog.json: { "<English text>": { "ja": "...", "ko": "...", "ru": "..." } }. A new language is a new column and a new line in LANGS below.
+// catalog.json: { "<English text>": { "ja": "...", "ko": "...", "ru": "...", "hi": "...", "es": "...", "fr": "..." } }. A new language is a new column and a new line in LANGS below.
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const CAT = path.join(ROOT, "i18n-src", "catalog.json");
-const LANGS = ["ja", "ko", "ru"];
+const LANGS = ["ja", "ko", "ru", "hi", "es", "fr"];
 const arg = n => (process.argv.find(a => a.startsWith("--" + n + "=")) || "").slice(n.length + 3);
 const flag = n => process.argv.includes("--" + n);
 
@@ -18,20 +20,29 @@ let catalog = {};
 try { catalog = JSON.parse(fs.readFileSync(CAT, "utf8")); } catch (e) { /* first run */ }
 
 const mergeDir = arg("merge");
+const mergeLangs = (arg("langs") ? arg("langs").split(",") : LANGS).filter(l => LANGS.includes(l));
 if (mergeDir) {
-  let added = 0, replaced = 0, files = 0;
-  for (const f of fs.readdirSync(path.join(mergeDir, "in")).filter(f => /^batch-\d+\.json$/.test(f)).sort()) {
-    const inFile = path.join(mergeDir, "in", f), outFile = path.join(mergeDir, "out", f);
-    if (!fs.existsSync(outFile)) { console.log("no output yet for " + f); continue; }
-    const src = JSON.parse(fs.readFileSync(inFile, "utf8"));
-    const out = JSON.parse(fs.readFileSync(outFile, "utf8"));
+  let added = 0, replaced = 0, files = 0, partial = 0;
+  for (const f of fs.readdirSync(path.join(mergeDir, "in")).filter(f => /^batch-[\w]+\.json$/.test(f)).sort()) {
+    const src = JSON.parse(fs.readFileSync(path.join(mergeDir, "in", f), "utf8"));
+    // one output file per language (out-hi/, out-es/, out-fr/) or the old combined out/ folder
+    const outs = {};
+    for (const lg of mergeLangs) {
+      const per = path.join(mergeDir, "out-" + lg, f), all = path.join(mergeDir, "out", f);
+      const file = fs.existsSync(per) ? per : fs.existsSync(all) ? all : null;
+      if (file) outs[lg] = JSON.parse(fs.readFileSync(file, "utf8"));
+    }
+    if (!Object.keys(outs).length) { console.log("no output yet for " + f); continue; }
     files++;
     for (const row of src) {
-      const o = out[row.k];
-      if (!o) continue;
-      const entry = {};
-      for (const lg of LANGS) if (typeof o[lg] === "string" && o[lg].trim()) entry[lg] = o[lg];
-      if (LANGS.some(lg => !entry[lg])) continue;   // a half-translated row is not merged
+      const have = catalog[row.en] || {};
+      const entry = { ...have };
+      for (const lg of mergeLangs) {
+        const o = outs[lg] && outs[lg][row.k];
+        const t = o && (typeof o === "string" ? o : o[lg]);
+        if (typeof t === "string" && t.trim()) entry[lg] = t;
+      }
+      if (mergeLangs.some(lg => !entry[lg])) { partial++; continue; }   // a half-translated row is not merged
       if (catalog[row.en]) replaced++; else added++;
       catalog[row.en] = entry;
     }
@@ -40,7 +51,7 @@ if (mergeDir) {
   const sorted = Object.fromEntries(Object.keys(catalog).sort().map(k => [k, catalog[k]]));
   fs.writeFileSync(CAT, JSON.stringify(sorted, null, 1) + "\n");
   catalog = sorted;
-  console.log(`merged ${files} batch files: ${added} added, ${replaced} replaced, ${Object.keys(catalog).length} in the catalog`);
+  console.log(`merged ${files} batch files (${mergeLangs.join(",")}): ${added} added, ${replaced} updated, ${partial} rows skipped for a missing language, ${Object.keys(catalog).length} in the catalog`);
 }
 
 if (flag("prune")) {

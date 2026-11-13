@@ -32,7 +32,7 @@ async function mount(el) { const host = document.createElement("div"); document.
 {
   const { host } = await mount(M.h(M.BlogStatsCard, { lang: "en", range: "30" }));
   const t = host.textContent;
-  ok("admin card: views, readers, pop-ups and taps are shown", /Views/.test(t) && /120/.test(t) && /Read 15 s/.test(t) && /Pop-up shown/.test(t) && /Tapped sign-up/.test(t), t.slice(0, 120));
+  ok("admin card: views, readers, pop-ups and taps are shown", /Views/.test(t) && /120/.test(t) && /Read 5 s/.test(t) && /Pop-up shown/.test(t) && /Tapped sign-up/.test(t), t.slice(0, 120));
   ok("admin card: reader rate and tap rate are worked out (60 of 120 = 50%, 10 of 40 = 25%)", /50% of views/.test(t) && /25% of shown/.test(t));
   ok("admin card: one row per article with its all-time number", host.querySelectorAll("[data-blog-stats-table] tbody tr").length === 2 && /500/.test(t));
   ok("admin card: a bar per day", host.querySelectorAll("[data-blog-daily] > div").length === 2);

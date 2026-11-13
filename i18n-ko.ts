@@ -228,6 +228,7 @@ const cat: Record<string, string> = {
   "Ark Hydroponic Farm · grow food for the settlers": "아크 수경 농장 · 정착민을 위한 식량 재배",
   "Ark Livestock Farm · gene-edited animals": "아크 목장 · 유전자 편집 동물",
   "Arpeggios": "아르페지오",
+  "Article language": "기사 언어",
   "Articles on learning piano and music": "피아노와 음악 학습에 관한 글",
   "Ascend Kick": "어센드 킥",
   "Ascendant": "각성",

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* smoke-blog-gate.mjs — the reading wall on the static blog pages (owner 2026-11-04: anyone may read an article; after 15 seconds of reading (a minute until 2026-11-07, 30 seconds until 2026-11-12) a pop-up in the middle of the
+/* smoke-blog-gate.mjs — the reading wall on the static blog pages (owner 2026-11-04: anyone may read an article; after 5 seconds of reading (a minute until 2026-11-07, 30 seconds until 2026-11-12, 15 until 2026-11-13) a pop-up in the middle of the
    screen asks the reader to log in or sign up free for the TIGA AI app; since 2026-11-07 (third version) it CANNOT be closed: to read on you have to log in; the page also counts and shows the readers).
    No network and no repo files touched: scripts/build-blog-pages.mjs is run with BLOG_FIXTURE / BLOG_OUT / SITE_URL into a temp folder, served locally and driven in Chromium.
    The real 15-second wait is shortened through the test door (localStorage.tg_test_hook = "1" + ?gate_ms=<ms>).
@@ -52,7 +52,7 @@ const html = fs.readFileSync(path.join(tmp, "blog", "th", "piano-posture.html"),
 ok(/id="tg-gate"[^>]*data-nosnippet[^>]*hidden/.test(html), "the pop-up is in the page, hidden and marked data-nosnippet");
 ok(html.includes("utm_source=blog") && html.includes("utm_campaign=piano-posture") && html.includes("go=google") && html.includes("wall=signup") && html.includes("wall=login"), "links carry the blog attribution, go=google, wall=signup, wall=login");
 ok(!fs.readFileSync(path.join(tmp, "blog", "th", "index.html"), "utf8").includes("tg-gate"), "the article index has no pop-up");
-ok(/MS=15000/.test(html) && !/MS=30000/.test(html), "the reading time is 15 seconds");
+ok(/MS=5000/.test(html) && !/MS=15000|MS=30000/.test(html), "the reading time is 5 seconds");
 ok(!/data-gate-close|tg-g-x|tg-g-later/.test(html) && !/Escape/.test(html), "the wall has no close button, no 'maybe later' and no Esc handler");
 ok(html.includes('"isAccessibleForFree":false') && html.includes('"cssSelector":"article"'), "the article's JSON-LD says the article is gated (isAccessibleForFree false, cssSelector article)");
 
@@ -173,7 +173,7 @@ for (const [lang, unit] of [["th", "ยอดวิว"], ["en", "views"], ["zh"
   const { ctx, page, calls } = await open("en", { ms: 1000 });
   await page.waitForTimeout(600); ok(!calls.some(c => c.p_kind === "read" || c.p_kind === "gate"), "no 'read' or 'gate' before the reading time");
   await page.waitForTimeout(1200);
-  ok(calls.some(c => c.p_kind === "read"), "a 'read' is sent when the reader stays the reading time (15 s in production)");
+  ok(calls.some(c => c.p_kind === "read"), "a 'read' is sent when the reader stays the reading time (5 s in production)");
   ok(calls.some(c => c.p_kind === "gate"), "a 'gate' is sent when the pop-up opens");
   await page.route("**/*", route => { const u = route.request().url(); if (route.request().isNavigationRequest() && !u.includes("/blog/")) return route.fulfill({ status: 200, contentType: "text/html", body: "<title>app</title>" }); route.fallback(); });
   await page.click("[data-gate=google]"); await page.waitForTimeout(500);
@@ -284,7 +284,7 @@ console.log("pages kept from an earlier build are brought up to date");
   ok(fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8").includes("OLD_ONE_MINUTE"), "(fixture: a page with the one-minute gate and no counter)");
   execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
   const k = fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8");
-  ok(!k.includes("OLD_ONE_MINUTE") && k.includes("MS=15000") && k.includes("blog_hit") && (k.match(/id="tg-gate"/g) || []).length === 1, "the old gate is replaced by the current one (15 s, view counter), once");
+  ok(!k.includes("OLD_ONE_MINUTE") && k.includes("MS=5000") && k.includes("blog_hit") && (k.match(/id="tg-gate"/g) || []).length === 1, "the old gate is replaced by the current one (5 s, view counter), once");
   ok(!k.includes("data-gate-close") && (k.match(/"isAccessibleForFree"/g) || []).length === 2, "the kept page is also made uncloseable and gets the gated-content markup (once, not twice)");
   ok(fs.readFileSync(path.join(keep, "th", "index.html"), "utf8").includes("blog_view_counts"), "the list page gets the counter script");
   execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });

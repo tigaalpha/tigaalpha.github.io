@@ -228,6 +228,7 @@ const cat: Record<string, string> = {
   "Ark Hydroponic Farm · grow food for the settlers": "Гидропонная ферма Ковчега · вырастите еду для поселенцев",
   "Ark Livestock Farm · gene-edited animals": "Животноводческая ферма Ковчега · животные с отредактированными генами",
   "Arpeggios": "Арпеджио",
+  "Article language": "Язык статей",
   "Articles on learning piano and music": "Статьи об изучении фортепиано и музыки",
   "Ascend Kick": "Восходящий удар ногой",
   "Ascendant": "Вознёсшийся",
