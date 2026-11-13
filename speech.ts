@@ -13,8 +13,8 @@ import { xl, by } from "./lang-extra";
 
 
 /* ── TTS ── */
-export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR" };
-export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92, ja: 0.95, ko: 0.95, ru: 0.95, hi: 0.95, es: 0.95, fr: 0.95 };
+export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar-SA" };   // ar: the voice lookup in bestVoice() matches on the "ar" prefix, so any Arabic voice the device has is a candidate
+export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92, ja: 0.95, ko: 0.95, ru: 0.95, hi: 0.95, es: 0.95, fr: 0.95, ar: 0.92 };
 /* ── เร็วขึ้น (เจ้าของ 2026-10-02: "มันอ่านช้า") ──
    ค่าเดิมคือ 1 = ได้ยิ้ตามจังหวะที่โมเดลพูด และเส้นทางสำรองของเครื่องยิ่งช้าลง
    (TTS_RATE ไทย 0.9 = ช้ากว่าปกติอยู่แล้ว) ผู้เรียนกดฟังแล้วต้องรอนานและอ่านยาว
@@ -102,7 +102,7 @@ export function cleanForTTS(t) {
     .replace(/[*_`~]/g, "")
     // a line that ends with no punctuation (a bullet, a heading) gets a full stop, so the voice pauses there instead of
     // running one item into the next as a single breathless sentence
-    .replace(/([^\s.!?。！？…:;,，、：；])[ \t]*\n+/g, "$1. ")
+    .replace(/([^\s.!?。！？।؟…:;,，、：；،؛])[ \t]*\n+/g, "$1. ")
     .replace(/\n{2,}/g, ". ").replace(/\n/g, " ")
     .replace(/\s+/g, " ").trim();
 }
@@ -132,12 +132,12 @@ export function stopResumeKeepAlive() {
 
 // split long text into <=180 char chunks at sentence boundaries (avoids 15s cutoff)
 export function chunkText(text, max = 180) {
-  const sentences = text.match(/[^.!?。！？]+[.!?。！？]*/g) || [text];
+  const sentences = text.match(/[^.!?。！？।؟]+[.!?。！？।؟]*/g) || [text];   // । is the Hindi full stop, ؟ the Arabic question mark
   // a sentence longer than the budget (Thai has no full stops) is cut at a clause mark or a space, never mid-word, so no utterance runs long
   const parts = [];
   for (let p of sentences) {
     while (p.length > max) {
-      let cut = -1; for (const m of ["，", "、", "；", "：", ",", ";", " "]) cut = Math.max(cut, p.lastIndexOf(m, max - 1));
+      let cut = -1; for (const m of ["，", "、", "；", "：", ",", ";", "،", "؛", " "]) cut = Math.max(cut, p.lastIndexOf(m, max - 1));
       if (cut < max * 0.4) cut = max; else cut += 1;
       parts.push(p.slice(0, cut)); p = p.slice(cut);
     }
@@ -301,7 +301,7 @@ export function narrationText(text, lang) {
   return t.replace(/(,\s*){2,}/g, ", ").replace(/^,\s*/, "").replace(/\s+/g, " ").trim();
 }
 function narrationChunks(t, lang) {
-  const parts = t.match(/[^.!?。！？]+[.!?。！？]*/g) || [t]; const out = [];
+  const parts = t.match(/[^.!?。！？।؟]+[.!?。！？।؟]*/g) || [t]; const out = [];
   for (const p of parts) {
     const q = p.trim(); if (!q) continue;
     if (q.length <= 110) { out.push(q); continue; }
@@ -403,7 +403,7 @@ export function ttsChunks(text, max = 130, firstMax = 0, ramp = []) {
   // which is the whole difference between "it loads" and "it hangs". The clips after it GROW (`ramp`, then `max`) while the first one plays, so each is
   // ready before the one before it ends.
   const limitFor = (i) => (firstMax > 0 && i === 0 ? Math.min(firstMax, max) : (ramp[i - 1] > 0 ? Math.min(ramp[i - 1], max) : max));
-  const CLAUSE = ["，", "、", "；", "：", ",", ";"];
+  const CLAUSE = ["，", "、", "；", "：", ",", ";", "،", "؛"];   // ، ؛ are the Arabic comma and semicolon
   // Where to end a clip that has `lim` characters of room: at a clause mark (so the voice stops where a person would pause), then at a space, then — for
   // Thai, which has no spaces — at a word boundary, and only then hard. The first clip may run only a little past its limit (it is the one being waited for).
   const cutAt = (s, lim, first) => {
@@ -425,7 +425,7 @@ export function ttsChunks(text, max = 130, firstMax = 0, ramp = []) {
       const c = text[k], nx = text[k + 1];
       cur += c;
       if (c === "\n") { sentences.push(cur); cur = ""; }
-      else if ("。！？".indexOf(c) >= 0) { if (nx === undefined || "。！？.!?".indexOf(nx) < 0) { sentences.push(cur); cur = ""; } }
+      else if ("。！？।؟".indexOf(c) >= 0) { if (nx === undefined || "。！？।؟.!?".indexOf(nx) < 0) { sentences.push(cur); cur = ""; } }
       else if (".!?".indexOf(c) >= 0 && (nx === undefined || /\s/.test(nx))) { sentences.push(cur); cur = ""; }
     }
     if (cur.trim()) sentences.push(cur);
@@ -719,7 +719,7 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
    speech: estimated from the text, since Thai, English and Chinese carry very different amounts of speech per character.
    Past it the button falls back to the device's own voice instead of going silent. */
 export function detectSpeechLang(text, fallback = "en") {
-  let th = 0, zh = 0, la = 0, ja = 0, ko = 0, ru = 0, hi = 0;
+  let th = 0, zh = 0, la = 0, ja = 0, ko = 0, ru = 0, hi = 0, ar = 0;
   for (const ch of String(text || "")) {
     const c = ch.codePointAt(0);
     if (c >= 0x0E00 && c <= 0x0E7F) th++;
@@ -727,6 +727,7 @@ export function detectSpeechLang(text, fallback = "en") {
     else if ((c >= 0xAC00 && c <= 0xD7AF) || (c >= 0x1100 && c <= 0x11FF)) ko++;                // hangul
     else if (c >= 0x0400 && c <= 0x04FF) ru++;                                                  // cyrillic
     else if (c >= 0x0900 && c <= 0x097F) hi++;                                                  // devanagari (Hindi)
+    else if ((c >= 0x0600 && c <= 0x06FF) || (c >= 0x0750 && c <= 0x077F)) ar++;                // arabic script (Arabic; Persian and Urdu share it, the app has no such language)
     else if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF)) zh++;
     else if ((c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)) la++;
   }
@@ -734,7 +735,8 @@ export function detectSpeechLang(text, fallback = "en") {
   // Spanish and French share the Latin script with English, so NO text can be told apart from English by its letters (owner 2026-11-13: left to the app
   // language). The caller passes the app language as `fallback`; when that is "es" or "fr" a Latin-only text is taken to be written in it, for every other
   // fallback a Latin text is "en" exactly as before. A learner of an "es"/"fr" app who writes English gets the Spanish/French voice: the cost of not guessing.
-  if (hi && hi > th && hi > zh && hi >= ja && hi >= ko && hi >= ru) return "hi";
+  if (hi && hi > th && hi > zh && hi >= ja && hi >= ko && hi >= ru && hi >= ar) return "hi";
+  if (ar && ar > th && ar > zh && ar > ja && ar > ko && ar > ru && ar >= hi) return "ar";
   const latin = fallback === "es" || fallback === "fr" ? fallback : "en";
   // a script of its own wins over a few Latin terms (note names, product names) mixed into the text
   if (ja && ja + zh > th && ja + zh > ko && ja + zh > ru) return "ja";
@@ -747,7 +749,7 @@ export function detectSpeechLang(text, fallback = "en") {
   if (sEn > sTh + sZh) return latin;
   return sZh > sTh ? "zh" : "th";
 }
-const TTS_CHARS_PER_SEC = { th: 11, en: 15, zh: 4.5, ja: 6.5, ko: 7.5, ru: 13, hi: 9, es: 14, fr: 14 };
+const TTS_CHARS_PER_SEC = { th: 11, en: 15, zh: 4.5, ja: 6.5, ko: 7.5, ru: 13, hi: 9, es: 14, fr: 14, ar: 12 };
 export function ttsEstSeconds(text, lang) { return String(text || "").length / (by(TTS_CHARS_PER_SEC, lang) || 12); }
 export const TTS_DAILY_SECONDS = 300;                   // five minutes of cloud speech a day on a device (about ฿2.5 at today's price)
 const TTS_DAY_KEY = "tg_tts_day";

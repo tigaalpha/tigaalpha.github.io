@@ -19,7 +19,7 @@
 // admin "AI Models" panel, alongside the original Gemini path.
 //
 // WIRE CONTRACT (confirmed from speech.ts):
-//   Request:  POST { text: string, lang: "th"|"en"|"zh", voice?: string, src?: "chat" }
+//   Request:  POST { text: string, lang: "th"|"en"|"zh"|"ja"|"ko"|"ru"|"hi"|"es"|"fr"|"ar", voice?: string, src?: "chat" }
 //             — src:"chat" is the chat bubbles' read-aloud button (Max / Max
 //               Family / admin only): the plan is checked HERE, from the
 //               caller's own profile, so the button's lock is not the only gate.
@@ -92,7 +92,9 @@ const ELEVEN_DEFAULT_VOICE = Deno.env.get("ELEVEN_TTS_VOICE") ?? "pNInz6obpgDQGc
 const MAX_RETRIES = 2;
 
 // BCP-47 hint per client lang key (zh → Mandarin). Gemini TTS names its languages with the full tag.
-const LANG_CODE: Record<string, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU" };
+const LANG_CODE: Record<string, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar-EG" };
+// hi / es / fr / ar (2026-11-13, repo copy only, NOT deployed). Gemini TTS documents Arabic as ar-EG (written from memory, not re-checked); a tag the model does not know
+// answers 400 and synthOnce below speaks again without the hint, so a wrong guess costs one extra round trip, not the feature.
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
