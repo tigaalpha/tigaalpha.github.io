@@ -19,7 +19,7 @@ export const readMins = (t: string) => Math.max(1, Math.round(((t || "").length)
 // "3 min" in the language of the article; `long` is the form beside the date in an open article
 const MIN_TXT: Record<string, [string, string]> = { th: ["นาที", "นาที"], zh: ["分钟", "分钟"], ja: ["分", "分で読めます"], ko: ["분", "분이면 읽어요"], ru: ["мин", "мин чтения"] };
 export const minsText = (n: number, lang: string, long = false) => { const u = MIN_TXT[lang]; return u ? (lang === "ja" || lang === "ko" ? "" + n : n + " ") + u[long ? 1 : 0] : n + " " + (long ? xl(lang, "min read") : "min"); };
-export type BlogPost = { id: string; lang: string; slug: string; category?: string; title: string; excerpt: string; body: string; cover_url: string | null; published: boolean; created_at: string; updated_at: string };
+export type BlogPost = { id: string; lang: string; slug: string; category?: string; title: string; excerpt: string; body: string; cover_url: string | null; cover_alt?: string | null; published: boolean; created_at: string; updated_at: string };
 const safeUrl = (u: string) => /^https:\/\/[^\s"'<>]+$/i.test(u) ? u : "";
 function inline(s: string, k: string) {
   const out: any[] = []; const re = /(\*\*[^*]+\*\*|!\[[^\]]*\]\([^)\s]+\)|\[[^\]]+\]\([^)\s]+\))/g; let last = 0, m: RegExpExecArray | null, i = 0;
@@ -126,7 +126,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
         {open ? (
           <article data-blog-post>
             <button className="songbtn ghost" onClick={() => setOpen(null)} style={{ marginBottom: 12 }}>← {T("กลับ", "Back", "返回")}</button>
-            {open.cover_url && safeUrl(open.cover_url) && <img src={safeUrl(open.cover_url)} alt="" style={{ width: "100%", borderRadius: 14, marginBottom: 12 }} />}
+            {open.cover_url && safeUrl(open.cover_url) && <img src={safeUrl(open.cover_url)} alt={open.cover_alt || ""} style={{ width: "100%", borderRadius: 14, marginBottom: 12 }} />}
             <h1 style={{ fontSize: 26, lineHeight: 1.3, margin: "4px 0 6px" }}>{open.title}</h1>
             <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>{catName(open.category || "tips", open.lang)} · {fmtDate(open.created_at, open.lang)} · {minsText(readMins(open.body), open.lang, true)}{openViews ? <span data-blog-views> · {viewsText(openViews, open.lang)}</span> : null}</div>
             <BlogBody text={open.body} />
@@ -137,7 +137,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
           STATIC_LANGS.includes(tab) ? null : <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{err ? T("โหลดบทความไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't load articles — please try again", "文章加载失败，请重试") : tab === "th" ? "ยังไม่มีบทความภาษาไทย โปรดรอติดตาม" : tab === "zh" ? "暂无中文文章，敬请期待" : "No English articles yet — check back soon"}</div>
         ) : shown.map(p => (
           <button key={p.id} data-blog-card onClick={() => setOpen(p)} style={{ display: "block", width: "100%", textAlign: "left", background: "var(--card)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 16, padding: 14, margin: "0 0 12px", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
-            {p.cover_url && safeUrl(p.cover_url) && <img src={safeUrl(p.cover_url)} alt="" loading="lazy" style={{ width: "100%", borderRadius: 10, marginBottom: 10 }} />}
+            {p.cover_url && safeUrl(p.cover_url) && <img src={safeUrl(p.cover_url)} alt={p.cover_alt || ""} loading="lazy" style={{ width: "100%", borderRadius: 10, marginBottom: 10 }} />}
             <div style={{ fontWeight: 800, fontSize: 17, lineHeight: 1.35 }}>{p.title}</div>
             {p.excerpt && <div style={{ fontSize: 14, color: "var(--text2, #6b5d52)", margin: "6px 0 8px", lineHeight: 1.55 }}>{p.excerpt}</div>}
             <div style={{ fontSize: 12, color: "var(--muted)" }}>{catName(p.category || "tips", tab)} · {fmtDate(p.created_at, tab)} · {minsText(readMins(p.body), tab)}{counts[tab + "|" + p.slug] ? <span data-blog-views> · {viewsText(counts[tab + "|" + p.slug], tab)}</span> : null}</div>

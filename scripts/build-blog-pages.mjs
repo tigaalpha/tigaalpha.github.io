@@ -214,7 +214,8 @@ export function articleHtml(p, set, related = []) {
     { "@type": "Person", "@id": SITE + "/#teacher-aum", name: AUM[p.lang], jobTitle: "Founder & CEO, TIGA ALPHA", worksFor: { "@id": SITE + "/#org" }, sameAs: ["https://www.tigastudio.net/", "https://www.tigaalpha.com/"] },
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "TIGA ALPHA", item: SITE + "/" }, { "@type": "ListItem", position: 2, name: L.name, item: `${SITE}/blog/${p.lang}/` }, { "@type": "ListItem", position: 3, name: p.title, item: canon }] }, ORG] };
   const d = new Date(p.created_at).toISOString().slice(0, 10);
-  return head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">← ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta">${esc(CATN[p.category || "tips"] ? CATN[p.category || "tips"][p.lang] : "")} · <time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(p.title)}">` : ""}${body(p.body)}${relatedHtml(p.lang, related)}<p><a class="cta" href="${SITE}/">${L.cta}</a></p></article></main>${gateHtml(p.lang, p.slug)}</body></html>\n`;
+  const coverAlt = String(p.cover_alt || "").trim() || p.title;
+  return head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">← ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta">${esc(CATN[p.category || "tips"] ? CATN[p.category || "tips"][p.lang] : "")} · <time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(coverAlt)}">` : ""}${body(p.body)}${relatedHtml(p.lang, related)}<p><a class="cta" href="${SITE}/">${L.cta}</a></p></article></main>${gateHtml(p.lang, p.slug)}</body></html>\n`;
 }
 export const INDEX_PAGE = 48;
 const MORE = { th: "หน้าถัดไป", en: "Next page", zh: "下一页", ja: "次のページ", ko: "다음 페이지", ru: "Следующая страница" };
@@ -263,9 +264,10 @@ function staticSitemapXml(posts, bySlug) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${lines.join("\n")}\n</urlset>\n`;
 }
 const newestFirst = (a, b) => (new Date(b.created_at) - new Date(a.created_at)) || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
-// Index, further pages and feed of a language that ships as source files, written as REAL files. th / en / zh delete their index.html on purpose so that Vercel's rewrite sends /blog/<lang>/ to the
-// on-demand function, which lists the database as it is now. That cannot work here: the database has no ja / ko / ru rows until the seed SQL is applied, so a function-rendered index would be an
-// EMPTY list. A file in dist/ is served before any rewrite, so these files win and the function is never asked (see scripts/blog-live.mjs for what it does if it is).
+// Index, further pages and feed of a language that ships as source files, written as REAL files into blog/ (what GitHub Pages serves, and what the tests read).
+// th / en / zh delete their index.html so the on-demand function lists the database. ja / ko / ru keep a file here for the same reason they always did (a checkout with no function still has a list),
+// but scripts/copy-seo-to-dist.mjs removes index.html, feed.xml and page/ from dist/ only. On tigaalpha.com those URLs hit scripts/blog-live.mjs, which merges api/blog-live-catalog.json with
+// published rows, so an article saved in the admin after this build is on the index and in the feed without another build. The article HTML files stay, so a database row with the same slug does not replace the file until the next build.
 function writeStaticIndex(lang, list) {
   const rows = list.slice().sort(newestFirst), dir = path.join(OUT, lang), pages = Math.max(1, Math.ceil(rows.length / INDEX_PAGE));
   fs.mkdirSync(dir, { recursive: true });
@@ -361,5 +363,19 @@ if (urls.length && fs.existsSync(sm) && !process.env.BLOG_OUT && !process.env.BL
   }
 }
 console.log(`build-blog-pages: ${posts.length} posts (${statics.length} from blog-src), ${urls.length} urls  (${SITE})`);
+// Titles of the committed ja / ko / ru articles, for the on-demand index / feed / sitemap. Bodies stay in the HTML files.
+// Written only by a real build (BLOG_OUT is the test door): Vercel bundles api/blog-live-catalog.json into the function.
+if (!process.env.BLOG_OUT) {
+  const cat = liveCatalogRows(statics);
+  fs.mkdirSync(path.join(ROOT, "api"), { recursive: true });
+  fs.writeFileSync(path.join(ROOT, "api/blog-live-catalog.json"), JSON.stringify(cat));
+  console.log(`build-blog-pages: live catalog ${cat.length} static ja/ko/ru rows`);
+}
+}
+export function liveCatalogRows(posts) {
+  return (posts || []).filter(p => STATIC_LANGS.includes(p.lang) && p && p.slug && p.published !== false).map(p => ({
+    lang: p.lang, slug: p.slug, title: p.title || "", excerpt: typeof p.excerpt === "string" ? p.excerpt : "",
+    category: p.category || "tips", published: true, created_at: p.created_at, updated_at: p.updated_at || p.created_at,
+  }));
 }
 if (IS_MAIN) await writeBlog();

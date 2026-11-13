@@ -17,3 +17,6 @@ supabase/.temp/
 
 # Python bytecode from songs-src/tools
 __pycache__/
+
+# Titles of the committed ja/ko/ru articles, written by scripts/build-blog-pages.mjs and bundled into the blog function. Not source.
+api/blog-live-catalog.json
