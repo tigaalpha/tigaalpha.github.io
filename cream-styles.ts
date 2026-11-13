@@ -47,6 +47,14 @@ export const CREAM_CSS = FACES + `
 :root:lang(ja){--f-app:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic","Noto Sans JP","Meiryo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 :root:lang(ko){--f-app:"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR","Nanum Gothic",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 :root:lang(ru){--f-app:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+/* hi / es / fr / ar (owner 2026-11-13). Spanish and French are Latin script with accents (all inside the Prompt face's Latin range), so they keep the default stack.
+   Hindi gets a Devanagari-capable stack first (Prompt has no Devanagari glyphs, so it would only ever supply the Latin letters) and a generous line-height: a
+   matra above the line or a conjunct below it is clipped by any box with overflow:hidden and a tight line-height. Arabic is written right to left (see the RTL block at
+   the end of app-css.ts) and needs a Naskh / Arabic-capable face and the tallest line-height, for the marks above and below the letters. */
+:root:lang(hi){--f-app:"Noto Sans Devanagari","Nirmala UI","Mukta",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+:root:lang(ar){--f-app:"Noto Naskh Arabic","Noto Sans Arabic","Segoe UI",Tahoma,system-ui,-apple-system,sans-serif}
+:root:lang(hi) .tg{line-height:1.55}
+:root:lang(ar) .tg{line-height:1.7}
 .tg{
   --clay:#d97757;--clay-d:#c4623f;--clay-ink:#a8502f;
   /* buttons: a shade richer than the brand terracotta so a white label on them can be read */
@@ -69,7 +77,7 @@ html[data-theme="dark"] .tg{
 }
 .tg input,.tg textarea,.tg select{font-family:var(--f-app)}
 /* Thai and Chinese are set solid; letter-spacing is for Latin */
-html:is([lang="th"],[lang^="zh"]) .tg *{letter-spacing:normal!important}
+html:is([lang="th"],[lang^="zh"],[lang="hi"],[lang="ar"]) .tg *{letter-spacing:normal!important}   /* hi / ar: spacing the letters pulls Devanagari matras off their consonant and breaks the joins of Arabic letters, as it does Thai vowels */
 .tg ::selection{background:rgba(217,119,87,.24)}
 .tg ::-webkit-scrollbar-thumb{background:var(--bd5);border-radius:3px}
 .tg *{scrollbar-color:var(--bd5) transparent}
