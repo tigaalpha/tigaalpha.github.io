@@ -20,16 +20,14 @@ export const LANDING_CHAT_URL =
   "https://gsaqgbracxnucdmtmcxz.supabase.co/functions/v1/landing-chat";
 
 /* ── which languages the DEPLOYED landing-chat knows ──
-   The function whitelists `lang` (supabase/functions/landing-chat/index.ts:
-   `["th","en","zh"].includes(body.lang) ? body.lang : "th"`), so an unknown
-   code silently becomes "th" and a Japanese visitor gets a Thai system prompt
-   and a Thai answer. Until that function is redeployed with ja / ko / ru
-   prompts, those three are sent as "en" (an English system prompt that tells
-   the model to answer in English) and the question carries a short, last-word
-   instruction to answer in the visitor's language instead. When the function
-   learns the three languages, add them here and the instruction stops being
-   sent — nothing else changes. */
-export const SERVER_LANGS = ["th", "en", "zh"];
+   The function whitelists `lang` (supabase/functions/landing-chat/index.ts), so an
+   unknown code silently becomes "th" and a visitor would get a Thai answer.
+   Deployed 2026-11-13 with prompts for all six landing languages, so every
+   language is sent as itself. The fallback below stays for a language the
+   function does not know (and for a future seventh page that ships before the
+   function does): it is sent as "en" with a last-word instruction to reply in
+   the visitor's language instead. */
+export const SERVER_LANGS = ["th", "en", "zh", "ja", "ko", "ru"];
 const REPLY_IN = { ja: "Japanese (日本語)", ko: "Korean (한국어)", ru: "Russian (русский)" };
 /* The function cuts the question at 500 characters, and a cut would take the
    instruction first if it sat at the end — so the visitor's own text is trimmed

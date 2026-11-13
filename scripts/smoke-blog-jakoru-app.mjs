@@ -50,23 +50,30 @@ ok("category names in ja / ko / ru", M.catName("tips", "ja") === "💡 練習の
 const jaText = "ピアノは毎日少しずつ練習するのが大切です。".repeat(60), ruText = "Занимайтесь каждый день понемногу. ".repeat(60);
 ok("reading speed: kana / hangul count as characters (450 a minute), Cyrillic as Latin", M.readMins(jaText) === Math.round(jaText.length / 450) && M.readMins("한국어 글입니다. ".repeat(100)) === Math.round(("한국어 글입니다. ".repeat(100)).length / 450) && M.readMins(ruText) === Math.max(1, Math.round(ruText.length / 1100)));
 
-console.log("the page: six tabs, the tab follows the app language, the link to the static pages");
+console.log("the page: one flag button with a menu of six languages, the language follows the app, the link to the static pages");
 globalThis.__posts = [];
 for (const lang of ["ja", "ko", "ru"]) {
   const { host } = await mount(M.h(M.BlogPage, { lang }));
+  const flagBtn = host.querySelector("[data-blog-langbtn]");
+  ok(lang + ": ONE flag button (no row of tabs), the menu starts closed", !!flagBtn && host.querySelectorAll("[data-blog-langbtn]").length === 1 && !host.querySelector("[data-blog-langmenu]") && host.querySelectorAll("[data-blog-lang]").length === 0, flagBtn && flagBtn.textContent);
+  const flagOf = { ja: "🇯🇵", ko: "🇰🇷", ru: "🇷🇺" }[lang];
+  ok(lang + ": the button shows the flag of the app language", !!flagBtn && flagBtn.textContent.includes(flagOf) && !/日本語|한국어|Русский/.test(flagBtn.textContent), flagBtn && flagBtn.textContent);
+  await M.act(async () => { flagBtn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); await sleep(40); });
   const tabs = [...host.querySelectorAll("[data-blog-lang]")].map(b => b.getAttribute("data-blog-lang") + ":" + b.textContent);
-  ok(lang + ": six language tabs with flag and native name", tabs.length === 6 && tabs.includes("ja:🇯🇵 日本語") && tabs.includes("ko:🇰🇷 한국어") && tabs.includes("ru:🇷🇺 Русский") && tabs.includes("th:🇹🇭 ไทย") && tabs.includes("en:🇬🇧 English") && tabs.includes("zh:🇨🇳 中文"), tabs.join(" | "));
-  const active = [...host.querySelectorAll("[data-blog-lang]")].find(b => /var\(--card, #fff\)/.test(b.getAttribute("style") || "") && /box-shadow/.test(b.getAttribute("style") || "") && !/box-shadow: none/.test(b.getAttribute("style") || ""));
-  ok(lang + ": the tab opens on the app language", !!active && active.getAttribute("data-blog-lang") === lang, active && active.getAttribute("data-blog-lang"));
-  const link = host.querySelector(`[data-blog-static="${lang}"]`);
-  ok(lang + ": with no database rows a card links to the static pages /blog/" + lang + "/", !!link && link.getAttribute("href") === `https://www.tigaalpha.com/blog/${lang}/` && link.getAttribute("target") === "_blank" && /rel="?noopener/.test(link.outerHTML) || (!!link && /noopener/.test(link.getAttribute("rel") || "")));
-  ok(lang + ": ...and shows no English 'no articles' line", !/No English articles/.test(host.textContent));
+  ok(lang + ": the menu lists six languages with flag and native name", tabs.length === 6 && tabs.some(t => t.startsWith("ja:") && t.includes("🇯🇵") && t.includes("日本語")) && tabs.some(t => t.startsWith("ko:") && t.includes("한국어")) && tabs.some(t => t.startsWith("ru:") && t.includes("Русский")) && tabs.some(t => t.startsWith("th:") && t.includes("ไทย")) && tabs.some(t => t.startsWith("en:") && t.includes("English")) && tabs.some(t => t.startsWith("zh:") && t.includes("中文")), tabs.join(" | "));
+  const active = [...host.querySelectorAll("[data-blog-lang]")].find(b => b.getAttribute("aria-selected") === "true");
+  ok(lang + ": the menu marks the app language as the current one", !!active && active.getAttribute("data-blog-lang") === lang, active && active.getAttribute("data-blog-lang"));
+  await M.act(async () => { dom.window.document.body.dispatchEvent(new dom.window.Event("pointerdown", { bubbles: true })); await sleep(40); });
+  ok(lang + ": a tap outside closes the menu", !host.querySelector("[data-blog-langmenu]"));
+  ok(lang + ": no external link card (the owner wants the articles themselves, not another tap)", !host.querySelector("[data-blog-static]") && !host.querySelector('a[href*="tigaalpha.com/blog"]'));
+  ok(lang + ": with no rows the list says so (this test does not load the catalog, so the English key shows; never the English-tab line)", /No articles in this language yet|この言語の記事|아직 이 언어|Статей на этом языке/.test(host.textContent) && !/No English articles/.test(host.textContent), host.textContent.slice(-120));
 }
 {
   const { host } = await mount(M.h(M.BlogPage, { lang: "en" }));
   ok("en: opens on English and shows its own empty line, no static card", /No English articles yet/.test(host.textContent) && !host.querySelector("[data-blog-static]"));
+  await M.act(async () => { host.querySelector("[data-blog-langbtn]").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); await sleep(40); });
   await M.act(async () => { host.querySelector('[data-blog-lang="ru"]').dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); await sleep(60); });
-  ok("en: tapping the Russian tab shows the Russian link card", !!host.querySelector('[data-blog-static="ru"]'));
+  ok("en: choosing Russian in the menu closes the menu and shows the Russian list straight away (no link card)", !host.querySelector('[data-blog-static]') && !host.querySelector("[data-blog-langmenu]") && host.querySelector("[data-blog-langbtn]").textContent.includes("🇷🇺"));
 }
 {
   const { host } = await mount(M.h(M.BlogPage, { lang: "fr" }));
@@ -80,12 +87,12 @@ for (const [lang, views, cat, minutes] of [["ja", "1,500回閲覧", "練習の�
   const card = host.querySelector("[data-blog-card]");
   const t = card ? norm(card.textContent) : "";
   ok(lang + ": the article card shows title, category, read time and the view number", !!card && t.includes("T-" + lang) && t.includes(cat) && t.includes(minutes) && t.includes(views), t);
-  ok(lang + ": the link card is still offered under the list (the database may hold only some of the articles)", !!host.querySelector(`[data-blog-static="${lang}"]`));
+  ok(lang + ": the articles are the list itself, with no link card under it", !host.querySelector("[data-blog-static]"));
   await M.act(async () => { card.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); await sleep(80); });
   const meta = host.querySelector("[data-blog-post] div");
   const mt = norm(host.querySelector("[data-blog-post]").textContent);
   ok(lang + ": the open article shows the long read time and its view number beside the date", mt.includes({ ja: "1分で読めます", ko: "1분이면 읽어요", ru: "1 мин чтения" }[lang]) && mt.includes({ ja: "1,234回閲覧", ko: "1,234회 조회", ru: "1 234 просмотров" }[lang]), mt);
-  ok(lang + ": the language tabs are hidden while an article is open", !host.querySelector("[data-blog-langs]") && !host.querySelector("[data-blog-static]"));
+  ok(lang + ": the language button is hidden while an article is open", !host.querySelector("[data-blog-langs]") && !host.querySelector("[data-blog-static]"));
 }
 {
   globalThis.__calls.length = 0; globalThis.__posts = [post("ja")];
