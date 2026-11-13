@@ -61,14 +61,6 @@ const blogVid = () => {
 // the same words the static pages use: "1,234回閲覧" and "1,234회 조회" sit straight against the number, the others have a space
 const VIEWS_UNIT: Record<string, string> = { th: "ยอดวิว", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров" };
 export const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(localeOf(lang)) + (lang === "ja" || lang === "ko" ? "" : " ") + (VIEWS_UNIT[lang] || xl(lang, "views"));
-// ja / ko / ru articles are also committed as static pages (blog-src/ -> /blog/<lang>/) that exist before the database has any row in those languages
-const STATIC_LANGS = ["ja", "ko", "ru"];
-const STATIC_HOME: Record<string, { t: string; b: string }> = {
-  ja: { t: "日本語の記事はこちらからお読みいただけます", b: "ブログの全記事を見る →" },
-  ko: { t: "한국어 글은 여기에서 읽을 수 있어요", b: "블로그 전체 글 보기 →" },
-  ru: { t: "Статьи на русском языке доступны на странице блога", b: "Все статьи блога →" },
-};
-
 export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }) {
   const T = (th, en, zh) => pickT(lang, th, en, zh);
   const [posts, setPosts] = useState<BlogPost[] | null>(null);
@@ -155,7 +147,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
         ) : posts === null ? (
           <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>…</div>
         ) : shown.length === 0 ? (
-          STATIC_LANGS.includes(tab) ? null : <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{err ? T("โหลดบทความไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't load articles — please try again", "文章加载失败，请重试") : tab === "th" ? "ยังไม่มีบทความภาษาไทย โปรดรอติดตาม" : tab === "zh" ? "暂无中文文章，敬请期待" : "No English articles yet — check back soon"}</div>
+          <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{err ? T("โหลดบทความไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't load articles — please try again", "文章加载失败，请重试") : tab === "th" ? "ยังไม่มีบทความภาษาไทย โปรดรอติดตาม" : tab === "zh" ? "暂无中文文章，敬请期待" : tab === "en" ? "No English articles yet — check back soon" : xl(tab, "No articles in this language yet — check back soon")}</div>
         ) : shown.map(p => (
           <button key={p.id} data-blog-card onClick={() => setOpen(p)} style={{ display: "block", width: "100%", textAlign: "left", background: "var(--card)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 16, padding: 14, margin: "0 0 12px", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
             {p.cover_url && safeUrl(p.cover_url) && <img src={safeUrl(p.cover_url)} alt={p.cover_alt || ""} loading="lazy" style={{ width: "100%", borderRadius: 10, marginBottom: 10 }} />}
@@ -164,12 +156,6 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
             <div style={{ fontSize: 12, color: "var(--muted)" }}>{catName(p.category || "tips", tab)} · {fmtDate(p.created_at, tab)} · {minsText(readMins(p.body), tab)}{counts[tab + "|" + p.slug] ? <span data-blog-views> · {viewsText(counts[tab + "|" + p.slug], tab)}</span> : null}</div>
           </button>
         ))}
-        {!open && posts !== null && STATIC_LANGS.includes(tab) && (
-          <a data-blog-static={tab} href={"https://www.tigaalpha.com/blog/" + tab + "/"} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "var(--card)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 16, padding: shown.length ? 12 : 22, margin: "0 0 12px", color: "var(--text)" }}>
-            <div style={{ fontWeight: 800, fontSize: 16, lineHeight: 1.4 }}>{STATIC_HOME[tab].t}</div>
-            <div style={{ fontSize: 14, color: "var(--clay, #d97757)", fontWeight: 700, marginTop: 6 }}>{STATIC_HOME[tab].b}</div>
-          </a>
-        )}
       </div>
     </div>
   );

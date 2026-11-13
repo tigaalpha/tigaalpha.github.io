@@ -1560,6 +1560,7 @@ const cat: Record<string, string> = {
   "No account yet?": "Нет аккаунта?",
   "No accuracy data yet": "Данных о точности пока нет",
   "No active quest right now": "Сейчас нет активных квестов",
+  "No articles in this language yet — check back soon": "Статей на этом языке пока нет — загляните позже",
   "No bank account number on file — buyers don’t see the “Bank transfer” option at all. Add it in Admin › Payment channel settings › Direct bank transfer.": "Номер банковского счёта не указан — покупатели вообще не видят вариант «Банковский перевод». Добавьте его в разделе Админ › Настройки способов оплаты › Прямой банковский перевод.",
   "No chats yet — ask something and it will be kept here": "Чатов пока нет — задайте вопрос, и он сохранится здесь",
   "No clock — take your time. Answering inside 1.5s still fills the gauge.": "Таймера нет — не спешите. Ответ быстрее чем за 1.5 с по-прежнему заполняет шкалу.",

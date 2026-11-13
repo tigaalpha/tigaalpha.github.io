@@ -65,16 +65,15 @@ for (const lang of ["ja", "ko", "ru"]) {
   ok(lang + ": the menu marks the app language as the current one", !!active && active.getAttribute("data-blog-lang") === lang, active && active.getAttribute("data-blog-lang"));
   await M.act(async () => { dom.window.document.body.dispatchEvent(new dom.window.Event("pointerdown", { bubbles: true })); await sleep(40); });
   ok(lang + ": a tap outside closes the menu", !host.querySelector("[data-blog-langmenu]"));
-  const link = host.querySelector(`[data-blog-static="${lang}"]`);
-  ok(lang + ": with no database rows a card links to the static pages /blog/" + lang + "/", !!link && link.getAttribute("href") === `https://www.tigaalpha.com/blog/${lang}/` && link.getAttribute("target") === "_blank" && /rel="?noopener/.test(link.outerHTML) || (!!link && /noopener/.test(link.getAttribute("rel") || "")));
-  ok(lang + ": ...and shows no English 'no articles' line", !/No English articles/.test(host.textContent));
+  ok(lang + ": no external link card (the owner wants the articles themselves, not another tap)", !host.querySelector("[data-blog-static]") && !host.querySelector('a[href*="tigaalpha.com/blog"]'));
+  ok(lang + ": with no rows the list says so (this test does not load the catalog, so the English key shows; never the English-tab line)", /No articles in this language yet|この言語の記事|아직 이 언어|Статей на этом языке/.test(host.textContent) && !/No English articles/.test(host.textContent), host.textContent.slice(-120));
 }
 {
   const { host } = await mount(M.h(M.BlogPage, { lang: "en" }));
   ok("en: opens on English and shows its own empty line, no static card", /No English articles yet/.test(host.textContent) && !host.querySelector("[data-blog-static]"));
   await M.act(async () => { host.querySelector("[data-blog-langbtn]").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); await sleep(40); });
   await M.act(async () => { host.querySelector('[data-blog-lang="ru"]').dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); await sleep(60); });
-  ok("en: choosing Russian in the menu shows the Russian link card and closes the menu", !!host.querySelector('[data-blog-static="ru"]') && !host.querySelector("[data-blog-langmenu]") && host.querySelector("[data-blog-langbtn]").textContent.includes("🇷🇺"));
+  ok("en: choosing Russian in the menu closes the menu and shows the Russian list straight away (no link card)", !host.querySelector('[data-blog-static]') && !host.querySelector("[data-blog-langmenu]") && host.querySelector("[data-blog-langbtn]").textContent.includes("🇷🇺"));
 }
 {
   const { host } = await mount(M.h(M.BlogPage, { lang: "fr" }));
@@ -88,7 +87,7 @@ for (const [lang, views, cat, minutes] of [["ja", "1,500回閲覧", "練習の�
   const card = host.querySelector("[data-blog-card]");
   const t = card ? norm(card.textContent) : "";
   ok(lang + ": the article card shows title, category, read time and the view number", !!card && t.includes("T-" + lang) && t.includes(cat) && t.includes(minutes) && t.includes(views), t);
-  ok(lang + ": the link card is still offered under the list (the database may hold only some of the articles)", !!host.querySelector(`[data-blog-static="${lang}"]`));
+  ok(lang + ": the articles are the list itself, with no link card under it", !host.querySelector("[data-blog-static]"));
   await M.act(async () => { card.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); await sleep(80); });
   const meta = host.querySelector("[data-blog-post] div");
   const mt = norm(host.querySelector("[data-blog-post]").textContent);

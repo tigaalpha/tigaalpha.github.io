@@ -7794,6 +7794,11 @@
   "ko": "지금 진행 중인 퀘스트가 없어요",
   "ru": "Сейчас нет активных квестов"
  },
+ "No articles in this language yet — check back soon": {
+  "ja": "この言語の記事はまだありません。もうしばらくお待ちください",
+  "ko": "아직 이 언어로 된 글이 없어요. 곧 만나요",
+  "ru": "Статей на этом языке пока нет — загляните позже"
+ },
  "No bank account number on file — buyers don’t see the “Bank transfer” option at all. Add it in Admin › Payment channel settings › Direct bank transfer.": {
   "ja": "銀行口座番号が登録されていません。購入者には「銀行振込」の選択肢がまったく表示されません。管理 › 支払いチャネル設定 › 銀行への直接振込 で追加してください。",
   "ko": "등록된 은행 계좌번호가 없어요. 구매자에게 “계좌이체” 옵션이 아예 표시되지 않습니다. 관리 › 결제 채널 설정 › 은행 직접 이체에서 추가해 주세요.",

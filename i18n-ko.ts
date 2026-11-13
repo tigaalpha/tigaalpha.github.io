@@ -1560,6 +1560,7 @@ const cat: Record<string, string> = {
   "No account yet?": "아직 계정이 없나요?",
   "No accuracy data yet": "정확도 데이터가 아직 없어요",
   "No active quest right now": "지금 진행 중인 퀘스트가 없어요",
+  "No articles in this language yet — check back soon": "아직 이 언어로 된 글이 없어요. 곧 만나요",
   "No bank account number on file — buyers don’t see the “Bank transfer” option at all. Add it in Admin › Payment channel settings › Direct bank transfer.": "등록된 은행 계좌번호가 없어요. 구매자에게 “계좌이체” 옵션이 아예 표시되지 않습니다. 관리 › 결제 채널 설정 › 은행 직접 이체에서 추가해 주세요.",
   "No chats yet — ask something and it will be kept here": "아직 채팅이 없어요 — 질문하면 여기에 저장돼요",
   "No clock — take your time. Answering inside 1.5s still fills the gauge.": "제한 시간은 없어요. 천천히 생각하세요. 1.5초 안에 답하면 게이지가 가득 차요.",
