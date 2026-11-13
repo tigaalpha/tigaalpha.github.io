@@ -74,7 +74,7 @@ for (const lang of ["ja", "ko", "ru"]) {
   ok(wall[lang].slice(0, 3).every(w => h.includes(w)) && h.includes("TIGA AI"), lang + ": the wall copy is in " + lang + " and names the TIGA AI app");
   ok(h.includes(`lg=${lang}`) && h.includes("utm_campaign=piano-posture") && h.includes("go=google") && h.includes("wall=signup") && h.includes("wall=login"), lang + ": wall links carry lg=" + lang + ", the attribution and the three entry points");
   ok(h.includes(`LANG="${lang}"`) && h.includes(`LBL="${WORDS[lang]}"`), lang + ": the reader script knows its language and the unit '" + WORDS[lang] + "'");
-  ok(h.includes("MS=15000") && !/data-gate-close|tg-g-x|tg-g-later/.test(h), lang + ": the wall is the same uncloseable 15 second wall");
+  ok(h.includes("MS=5000") && !/data-gate-close|tg-g-x|tg-g-later/.test(h), lang + ": the wall is the same uncloseable 5 second wall");
   ok(/id="tg-gate"[^>]*data-nosnippet[^>]*hidden/.test(h), lang + ": the pop-up is hidden and marked data-nosnippet");
   ok(h.includes("<time datetime=\"2026-11-11\">2026-11-11</time>"), lang + ": a plain date string in created_at gives a valid date");
   ok(/class="tg-views"|\.tg-views\{/.test(h), lang + ": the view counter styles are in");

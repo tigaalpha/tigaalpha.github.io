@@ -90,8 +90,8 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
       if (off || error || typeof data !== "number" || data < 1) return;
       setOpenViews(data); setCounts(c => ({ ...c, [key]: data }));   // the list shows the same number when the reader goes back
     }, () => {});
-    // fifteen seconds with the article open is a "read" (30 until 2026-11-12) (the static pages count the same), so the percentage in the admin card compares like with like
-    const t = setTimeout(() => { (sb as any).rpc("blog_hit", { p_lang: open.lang, p_slug: open.slug, p_vid: blogVid(), p_kind: "read" }).then(() => {}, () => {}); }, 15000);
+    // five seconds with the article open is a "read" (30 until 2026-11-12, 15 until 2026-11-13) (the static pages count the same), so the percentage in the admin card compares like with like
+    const t = setTimeout(() => { (sb as any).rpc("blog_hit", { p_lang: open.lang, p_slug: open.slug, p_vid: blogVid(), p_kind: "read" }).then(() => {}, () => {}); }, 5000);
     return () => { off = true; clearTimeout(t); };
   }, [open && open.id]);
   useEffect(() => {
@@ -111,7 +111,8 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px 90px" }}>
         {!open && (
           /* ONE round flag button at the right edge (the thumb's side), a drop-down under it: the row of six tabs ran off the screen and every language added would have made it worse */
-          <div data-blog-langs style={{ position: "relative", display: "flex", justifyContent: "flex-end", margin: "4px 0 14px" }}>
+          <div data-blog-langs style={{ position: "relative", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, margin: "4px 0 14px" }}>
+            <span data-blog-langlbl style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>{T("ภาษาบทความ", "Article language", "文章语言")}</span>
             <button type="button" data-blog-langbtn aria-haspopup="listbox" aria-expanded={langOpen} aria-label={T("เลือกภาษา", "Choose language", "选择语言")} onClick={() => setLangOpen(o => !o)} style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 64, minHeight: 46, padding: "0 14px", border: "1.5px solid var(--bd, #e2d8cf)", borderRadius: 999, background: "var(--card, #fff)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit", fontSize: 24, lineHeight: 1, boxShadow: "0 1px 4px rgba(0,0,0,.08)" }}>
               <span aria-hidden="true">{(LANG_META[tab] || LANG_META.en).flag}</span>
               <span aria-hidden="true" style={{ fontSize: 11, color: "var(--muted)", transform: langOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▼</span>

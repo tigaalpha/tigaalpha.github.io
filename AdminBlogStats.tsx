@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { sb } from "./supabase-client";
 
 import { pickT, ALL_LANGS, LANG_META } from "./lang-extra";
-/* Blog readers for the admin analytics (owner 2026-11-07): views, people who stayed 15 seconds (30 until 2026-11-12: the number before that date counts a longer stay, so compare across the change with care), log-in pop-ups shown and tapped, per article and per day.
+/* Blog readers for the admin analytics (owner 2026-11-07): views, people who stayed 5 seconds (30 until 2026-11-12, 15 until 2026-11-13: the numbers before those dates count a longer stay, so compare across the changes with care), log-in pop-ups shown and tapped, per article and per day.
    Data: public.blog_stats() from supabase-blog-views-migration.sql (top admin only). Until that migration is applied the card says so instead of showing zeros. Shown on the
-   Analytics page (it follows that page's range) and at the top of the Blog admin (its own range). A "view" is one device per article per day, a "reader" one that stayed 15 s. */
+   Analytics page (it follows that page's range) and at the top of the Blog admin (its own range). A "view" is one device per article per day, a "reader" one that stayed 5 s. */
 type Stats = { totals: { views: number; readers: number; gates: number; clicks: number; devices: number }; rows: any[]; daily: { day: string; views: number; readers: number }[]; allTime: number };
 const nf = (n: number) => (Number(n) || 0).toLocaleString("en-US");
 export function BlogStatsCard({ lang, range = "30", own = false }: { lang: string; range?: string; own?: boolean }) {
@@ -61,7 +61,7 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
       {st === "ok" && t && (<>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {tile(T("ยอดวิว", "Views", "浏览"), nf(t.views), T("เครื่องละครั้งต่อบทความต่อวัน", "one per device per article per day", "每设备每篇每天一次"))}
-          {tile(T("อ่านนาน 15 วินาที", "Read 15 s", "阅读满15秒"), nf(t.readers), pct(t.readers, t.views) + " " + T("ของยอดวิว", "of views", "占浏览"))}
+          {tile(T("อ่านนาน 5 วินาที", "Read 5 s", "阅读满5秒"), nf(t.readers), pct(t.readers, t.views) + " " + T("ของยอดวิว", "of views", "占浏览"))}
           {tile(T("ป๊อปอัปเด้ง", "Pop-up shown", "弹窗显示"), nf(t.gates))}
           {tile(T("กดสมัคร/ล็อกอิน", "Tapped sign-up / log-in", "点击注册/登录"), nf(t.clicks), pct(t.clicks, t.gates) + " " + T("ของที่เด้ง", "of shown", "占显示"))}
           {tile(T("จำนวนเครื่อง", "Devices", "设备数"), nf(t.devices))}
@@ -84,7 +84,7 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
               <thead><tr style={{ textAlign: "left", color: "var(--muted)" }}>
                 <th style={{ padding: "4px 6px" }}>{T("บทความ", "Article", "文章")}</th>
                 <th style={{ padding: "4px 6px", textAlign: "right" }}>{T("วิว", "Views", "浏览")}</th>
-                <th style={{ padding: "4px 6px", textAlign: "right" }}>15s</th>
+                <th style={{ padding: "4px 6px", textAlign: "right" }}>5s</th>
                 <th style={{ padding: "4px 6px", textAlign: "right" }}>{T("กด", "Taps", "点击")}</th>
                 <th style={{ padding: "4px 6px", textAlign: "right" }}>{T("รวมทั้งหมด", "All time", "累计")}</th>
               </tr></thead>
