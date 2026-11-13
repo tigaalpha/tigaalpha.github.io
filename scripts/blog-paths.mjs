@@ -22,7 +22,7 @@ export function parseBlogPath(raw) {
     if (file === "index.html") return { kind: "index", lang };
     const slug = file.endsWith(".html") ? file.slice(0, -5) : file;
     if (!SLUG.test(slug)) return { kind: "bad" };
-    return { kind: "article", lang, slug, hint: false };
+    return { kind: "article", lang, slug, hint: false, html: file.endsWith(".html") };
   }
   const one = path.match(/^\/blog\/([^/]+)$/);
   if (one) {
@@ -30,7 +30,7 @@ export function parseBlogPath(raw) {
     if (LANGS.has(slug)) return { kind: "index", lang: slug };
     if (!SLUG.test(slug)) return { kind: "bad" };
     const suf = slug.match(/-(zh|en|th|ja|ko|ru)$/);
-    return { kind: "article", lang: suf ? suf[1] : null, slug, hint: true };
+    return { kind: "article", lang: suf ? suf[1] : null, slug, hint: true, html: false };
   }
   return { kind: "ignore" };
 }
@@ -56,17 +56,29 @@ export function pickPost(rows, lang, hint) {
   return list.length === 1 ? list[0] : null;
 }
 
-export function notFoundHtml() {
+// A path with no language keeps the original Chinese page (callers and tests compare it byte for byte).
+// A ja / ko / ru (or th / en) path must not claim zh-Hans: the tag, title and first line are that language.
+const NOT_FOUND = {
+  zh: { html: "zh-Hans", title: "找不到这篇文章", line: "这篇公开文章不存在，或还没有发布。" },
+  th: { html: "th", title: "ไม่พบบทความนี้", line: "บทความนี้ยังไม่มี หรือยังไม่ได้เผยแพร่" },
+  en: { html: "en", title: "This article was not found", line: "This article is not published." },
+  ja: { html: "ja", title: "この記事は見つかりません", line: "この記事は公開されていないか、まだありません。" },
+  ko: { html: "ko", title: "이 글을 찾을 수 없습니다", line: "공개되지 않았거나 없는 글입니다." },
+  ru: { html: "ru", title: "Статья не найдена", line: "Этой статьи нет или она ещё не опубликована." },
+};
+const NOT_FOUND_LINKS = `<a href="https://www.tigaalpha.com/blog/zh/">中文博客</a> · <a href="https://www.tigaalpha.com/blog/en/">English</a> · <a href="https://www.tigaalpha.com/blog/th/">ไทย</a> · <a href="https://www.tigaalpha.com/blog/ja/">日本語</a> · <a href="https://www.tigaalpha.com/blog/ko/">한국어</a> · <a href="https://www.tigaalpha.com/blog/ru/">Русский</a>`;
+export function notFoundHtml(lang) {
+  const L = NOT_FOUND[lang] || NOT_FOUND.zh;
   return `<!doctype html>
-<html lang="zh-Hans"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>找不到这篇文章 | TIGA ALPHA</title>
+<html lang="${L.html}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${L.title} | TIGA ALPHA</title>
 <meta name="robots" content="noindex">
 </head><body>
 <main style="max-width:640px;margin:40px auto;font:17px/1.6 system-ui,sans-serif">
-<h1>找不到这篇文章</h1>
-<p>这篇公开文章不存在，或还没有发布。</p>
+<h1>${L.title}</h1>
+<p>${L.line}</p>
 <p>This article is not published.</p>
-<p><a href="https://www.tigaalpha.com/blog/zh/">中文博客</a> · <a href="https://www.tigaalpha.com/blog/en/">English</a> · <a href="https://www.tigaalpha.com/blog/th/">ไทย</a> · <a href="https://www.tigaalpha.com/blog/ja/">日本語</a> · <a href="https://www.tigaalpha.com/blog/ko/">한국어</a> · <a href="https://www.tigaalpha.com/blog/ru/">Русский</a></p>
+<p>${NOT_FOUND_LINKS}</p>
 </main>
 </body></html>
 `;

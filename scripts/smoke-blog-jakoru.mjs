@@ -54,7 +54,7 @@ ok(/\(\d+ from blog-src\)/.test(r1.out), "the build reports how many posts came 
 
 console.log("article pages in ja / ko / ru");
 const wall = { ja: ["続きを読むにはログイン", "Googleで続ける", "無料で会員登録", "ログイン"], ko: ["계속 읽으려면 로그인하세요", "Google로 계속하기", "무료로 가입하기", "로그인"], ru: ["Войдите, чтобы читать дальше", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"] };
-const LOC = { ja: "ja_JP", ko: "ko_KR", ru: "ru_RU" }, AUM = { ja: "アウム先生", ko: "아움 선생님", ru: "Учитель Аум" }, CAT = { ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки" }, BACK = { ja: "すべての記事", ko: "모든 글", ru: "Все статьи" }, CTA = { ja: "TIGA ALPHAで無料で始めよう", ko: "TIGA ALPHA에서 무료로 시작하기", ru: "Начните учиться бесплатно в TIGA ALPHA" }, WORDS = { ja: "回閲覧", ko: "회 조회", ru: "просмотров" };
+const LOC = { ja: "ja_JP", ko: "ko_KR", ru: "ru_RU" }, AUM = { ja: "アウム先生", ko: "아움 선생님", ru: "Учитель Aum" }, CAT = { ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки" }, BACK = { ja: "すべての記事", ko: "모든 글", ru: "Все статьи" }, CTA = { ja: "TIGA ALPHAで無料で始めよう", ko: "TIGA ALPHA에서 무료로 시작하기", ru: "Начните учиться бесплатно в TIGA ALPHA" }, WORDS = { ja: "回閲覧", ko: "회 조회", ru: "просмотров" };
 for (const lang of ["ja", "ko", "ru"]) {
   const f = path.join(OUT, lang, "piano-posture.html"); ok(fs.existsSync(f), lang + ": the page is written from blog-src");
   const h = rd(f);
@@ -250,7 +250,7 @@ console.log("vercel.json and the redirect rules");
   ok(v.rewrites.some(r => r.source === "/blog/:lang/" && r.destination.includes("api/blog-page")) && v.rewrites.some(r => r.source === "/blog/:lang/:rest*"), "the generic /blog/:lang rewrites (any language, after the filesystem) are still there");
   ok(v.redirects.some(r => r.source === "/blog/" && r.destination === "/blog/th/") && v.redirects.some(r => r.source === "/th"), "old redirects unchanged");
   ok(v.headers.some(h => h.source === "/blog/(ja|ko|ru)/feed.xml" && /application\/rss\+xml/.test(JSON.stringify(h.headers))), "the static ja / ko / ru feeds are served as RSS");
-  ok(v.functions["api/blog-page.js"].includeFiles === "supabase-client.ts", "the function bundle is unchanged: it does not read blog-src at run time");
+  ok(v.functions["api/blog-page.js"].includeFiles === "{supabase-client.ts,api/blog-live-catalog.json}" && v.functions["api/blog-sitemap.js"].includeFiles === v.functions["api/blog-page.js"].includeFiles, "the function bundle includes the title catalog, not blog-src");
   const E = await import(pathToFileURL(path.join(ROOT, "scripts/edge-redirect.mjs")).href);
   ok(E.redirectTarget("https://www.tigaalpha.com/blog/ja/", "www.tigaalpha.com", "https") === null && E.redirectTarget("https://www.tigaalpha.com/blog/ru/x.html", "www.tigaalpha.com", "https") === null, "edge redirects leave /blog/ja|ru/ alone");
   ok(E.redirectTarget("http://www.tigaalpha.com/blog/ko/", "www.tigaalpha.com", "http") === "https://www.tigaalpha.com/blog/ko/", "http -> https works for the new blogs too");

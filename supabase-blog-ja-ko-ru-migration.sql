@@ -3,6 +3,8 @@
 -- (node scripts/gen-blog-seed-sql.mjs --check fails when this file is stale).
 --
 -- What it changes:
+--   0. First statement, before anything else: create table if not exists public.blog_posts_backup_20261113 as table public.blog_posts.
+--      A full copy of the live table, so this file can be undone. A second run does not replace that backup.
 --   1. public.blog_posts: the language check blog_posts_lang_check allowed only ('th','en','zh'); it now allows ('th','en','zh','ja','ko','ru'). Existing rows are untouched and all satisfy it.
 --   2. Inserts the 36 source articles (ja 12, ko 12, ru 12) as PUBLISHED rows. "on conflict (lang, slug) do nothing": a row that already exists, e.g. one the admin wrote in the app, is never overwritten,
 --      and running this file again changes nothing.
@@ -15,12 +17,14 @@
 --   select lang, count(*) from public.blog_posts group by lang order by lang;     -- ja / ko / ru appear with the counts above (plus any rows already there)
 --   select lang, slug, published from public.blog_posts where lang in ('ja','ko','ru') order by lang, slug;
 
+create table if not exists public.blog_posts_backup_20261113 as table public.blog_posts;
+
 alter table public.blog_posts drop constraint if exists blog_posts_lang_check;
 alter table public.blog_posts add constraint blog_posts_lang_check check (lang in ('th','en','zh','ja','ko','ru'));
 
 -- ja/best-piano-app-comparison
 insert into public.blog_posts (lang, slug, title, excerpt, body, category, published, created_at, updated_at)
-values ('ja', 'best-piano-app-comparison', $b1$ピアノアプリはどれがいい？選ぶ5つのチェックポイントと、TIGA ALPHAをSimply Piano・flowkeyと比較$b1$, $b2$自宅でピアノを始めたいけれど、どのアプリにするか迷っていませんか？選ぶ前に確認したい5つのポイントと、それぞれでTIGA ALPHAが提供するものを紹介します。$b2$, $b3$家でピアノを習いたいけれど、アプリが多すぎて選べない？結論から言うと、**普段考えるときに使っている言語で説明してくれて、つまずいた場所を具体的に教えてくれて、本当に弾きたい曲があるアプリ**を選びましょう。ここでは5つのチェックポイントと、TIGA ALPHAがそれぞれにどう応えるかを正直にご紹介します。
+values ('ja', 'best-piano-app-comparison', $b1$ピアノアプリの選び方：5つのチェックポイントと、TIGA ALPHAとほかのアプリ$b1$, $b2$自宅でピアノを始めたいけれど、どのアプリにするか迷っていませんか？選ぶ前に確認したい5つのポイントと、それぞれでTIGA ALPHAが提供するものを紹介します。$b2$, $b3$家でピアノを習いたいけれど、アプリが多すぎて選べない？結論から言うと、**普段考えるときに使っている言語で説明してくれて、つまずいた場所を具体的に教えてくれて、本当に弾きたい曲があるアプリ**を選びましょう。ここでは5つのチェックポイントと、TIGA ALPHAがそれぞれにどう応えるかを正直にご紹介します。
 
 # 1. 自分が理解できる言語で教えてくれる？
 音楽用語が分かりにくくてやめてしまう初心者は少なくありません。TIGA ALPHAはタイ語・英語・中国語（普通話）の3言語で教えます。AI先生は、あなたが入力した言語で答えます。
@@ -37,8 +41,8 @@ values ('ja', 'best-piano-app-comparison', $b1$ピアノアプリはどれがい
 # 5. 初心者にやさしい価格？
 どなたでも**Premiumを7日間無料**でお使いいただけます。その後は月額799 THBです。決める前にシステム全体をお試しいただけます。
 
-# Simply Pianoやflowkeyと比べるとどう？
-アプリにはそれぞれ異なる強みがあります。ご自身で判断できるよう、詳しい比較ページを用意しました：[TIGA ALPHA vs Simply Piano](https://www.tigaalpha.com/compare/simply-piano/en/)と[TIGA ALPHA vs flowkey](https://www.tigaalpha.com/compare/flowkey/en/)。
+# ほかのアプリと比べるとどう？
+アプリにはそれぞれ異なる強みがあります。同じ基準で見比べて、ご自身で判断してください。
 
 # TIGA ALPHAはこんな人に
 - タイ語・英語・中国語（普通話）で学びたい人
@@ -876,7 +880,7 @@ on conflict (lang, slug) do nothing;
 
 -- ko/best-piano-app-comparison
 insert into public.blog_posts (lang, slug, title, excerpt, body, category, published, created_at, updated_at)
-values ('ko', 'best-piano-app-comparison', $b37$피아노 앱 뭐가 좋을까? 고르는 5가지 체크리스트와 TIGA ALPHA vs Simply Piano·flowkey 비교$b37$, $b38$집에서 피아노를 시작하고 싶은데 어떤 앱을 골라야 할지 모르겠나요? 결정하기 전에 확인할 5가지와, 각 항목에서 TIGA ALPHA가 제공하는 것을 소개해요.$b38$, $b39$집에서 피아노를 배우고 싶은데 앱이 너무 많아서 막막한가요? 짧게 답하면, **내가 생각할 때 쓰는 언어로 설명해 주고, 어디서 틀렸는지 정확히 알려 주고, 정말 치고 싶은 곡이 있는 앱**을 고르세요. 아래에 5가지 체크리스트와, 각 항목에 TIGA ALPHA가 어떻게 답하는지 솔직하게 정리했어요.
+values ('ko', 'best-piano-app-comparison', $b37$피아노 앱을 고르는 5가지 체크리스트와 TIGA ALPHA와 다른 앱 비교$b37$, $b38$집에서 피아노를 시작하고 싶은데 어떤 앱을 골라야 할지 모르겠나요? 결정하기 전에 확인할 5가지와, 각 항목에서 TIGA ALPHA가 제공하는 것을 소개해요.$b38$, $b39$집에서 피아노를 배우고 싶은데 앱이 너무 많아서 막막한가요? 짧게 답하면, **내가 생각할 때 쓰는 언어로 설명해 주고, 어디서 틀렸는지 정확히 알려 주고, 정말 치고 싶은 곡이 있는 앱**을 고르세요. 아래에 5가지 체크리스트와, 각 항목에 TIGA ALPHA가 어떻게 답하는지 솔직하게 정리했어요.
 
 # 1. 내가 이해하는 언어로 가르쳐 주나요?
 음악 용어를 따라가기 어려워서 포기하는 초보자가 많아요. TIGA ALPHA는 태국어, 영어, 중국어(만다린) 세 가지 언어로 가르쳐요. AI 선생님은 입력한 언어로 답해요.
@@ -893,8 +897,8 @@ values ('ko', 'best-piano-app-comparison', $b37$피아노 앱 뭐가 좋을까? 
 # 5. 초보자에게 부담 없는 가격인가요?
 누구나 **Premium을 7일 동안 무료**로 쓸 수 있고, 그 뒤에는 월 799 THB예요. 결정하기 전에 전체 시스템을 써 볼 수 있어요.
 
-# Simply Piano, flowkey와 비교하면 어떤가요?
-앱마다 강점이 달라요. 직접 판단할 수 있도록 자세한 비교 페이지를 만들었어요: [TIGA ALPHA vs Simply Piano](https://www.tigaalpha.com/compare/simply-piano/en/)와 [TIGA ALPHA vs flowkey](https://www.tigaalpha.com/compare/flowkey/en/).
+# 다른 앱과 비교하면 어떤가요?
+앱마다 강점이 달라요. 같은 기준으로 직접 비교해 보시면 됩니다.
 
 # TIGA ALPHA는 어떤 분께 맞을까요?
 - 태국어, 영어 또는 중국어(만다린)로 공부하고 싶은 학습자
@@ -1732,7 +1736,7 @@ on conflict (lang, slug) do nothing;
 
 -- ru/best-piano-app-comparison
 insert into public.blog_posts (lang, slug, title, excerpt, body, category, published, created_at, updated_at)
-values ('ru', 'best-piano-app-comparison', $b73$Приложение для фортепиано: 5 пунктов выбора и TIGA ALPHA против Simply Piano и flowkey$b73$, $b74$Хотите начать учиться игре на фортепиано дома, но не знаете, какое приложение выбрать? Пять пунктов, которые стоит проверить перед выбором, и что предлагает TIGA ALPHA по каждому из них.$b74$, $b75$Хотите научиться играть на фортепиано дома, но запутались в обилии приложений? Если коротко: выбирайте приложение, которое **объясняет на языке, на котором вы думаете, точно показывает, где вы ошиблись, и предлагает песни, которые вам действительно хочется играть.** Ниже — чек-лист из пяти пунктов и честный взгляд на то, как TIGA ALPHA отвечает на каждый из них.
+values ('ru', 'best-piano-app-comparison', $b73$Приложение для фортепиано: 5 пунктов выбора и TIGA ALPHA среди других приложений$b73$, $b74$Хотите начать учиться игре на фортепиано дома, но не знаете, какое приложение выбрать? Пять пунктов, которые стоит проверить перед выбором, и что предлагает TIGA ALPHA по каждому из них.$b74$, $b75$Хотите научиться играть на фортепиано дома, но запутались в обилии приложений? Если коротко: выбирайте приложение, которое **объясняет на языке, на котором вы думаете, точно показывает, где вы ошиблись, и предлагает песни, которые вам действительно хочется играть.** Ниже — чек-лист из пяти пунктов и честный взгляд на то, как TIGA ALPHA отвечает на каждый из них.
 
 # 1. Учит ли приложение на понятном вам языке?
 Многие новички бросают занятия, потому что музыкальные термины трудно понять. TIGA ALPHA учит на трёх языках: тайском, английском и китайском (мандарин). ИИ-учитель отвечает на том языке, на котором вы пишете.
@@ -1749,8 +1753,8 @@ values ('ru', 'best-piano-app-comparison', $b73$Приложение для фо
 # 5. Подходит ли цена для новичка?
 Каждый получает **7 дней Premium бесплатно**, а затем 799 THB в месяц. Вы можете попробовать всю систему, прежде чем решать.
 
-# Как это соотносится с Simply Piano и flowkey?
-У каждого приложения свои сильные стороны. Мы подготовили подробные страницы сравнения, чтобы вы могли решить сами: [TIGA ALPHA vs Simply Piano](https://www.tigaalpha.com/compare/simply-piano/en/) и [TIGA ALPHA vs flowkey](https://www.tigaalpha.com/compare/flowkey/en/).
+# Как это соотносится с другими приложениями?
+У каждого приложения свои сильные стороны. Сравнивайте их по одним и тем же пунктам и решайте сами.
 
 # Для кого подходит TIGA ALPHA?
 - Для тех, кто хочет учиться на тайском, английском или китайском (мандарин)

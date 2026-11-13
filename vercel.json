@@ -63,7 +63,7 @@
     { "source": "/((?!sw\\.js|manifest\\.webmanifest|icon\\.svg|updates/|api/|llms\\.txt$|llms-full\\.txt$|sitemap-blog\\.xml$).*)", "destination": "/index.html" }
   ],
   "functions": {
-    "api/blog-page.js": { "includeFiles": "supabase-client.ts" },
-    "api/blog-sitemap.js": { "includeFiles": "supabase-client.ts" }
+    "api/blog-page.js": { "includeFiles": "{supabase-client.ts,api/blog-live-catalog.json}" },
+    "api/blog-sitemap.js": { "includeFiles": "{supabase-client.ts,api/blog-live-catalog.json}" }
   }
 }

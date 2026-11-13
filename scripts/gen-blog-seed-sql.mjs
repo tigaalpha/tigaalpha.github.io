@@ -23,6 +23,8 @@ out.push(`-- Blog in Japanese, Korean and Russian (owner, 2026-11-11): lets publ
 -- (node scripts/gen-blog-seed-sql.mjs --check fails when this file is stale).
 --
 -- What it changes:
+--   0. First statement, before anything else: create table if not exists public.blog_posts_backup_20261113 as table public.blog_posts.
+--      A full copy of the live table, so this file can be undone. A second run does not replace that backup.
 --   1. public.blog_posts: the language check blog_posts_lang_check allowed only ('th','en','zh'); it now allows ('th','en','zh','ja','ko','ru'). Existing rows are untouched and all satisfy it.
 --   2. Inserts the ${posts.length} source articles (${per}) as PUBLISHED rows. "on conflict (lang, slug) do nothing": a row that already exists, e.g. one the admin wrote in the app, is never overwritten,
 --      and running this file again changes nothing.
@@ -34,6 +36,8 @@ out.push(`-- Blog in Japanese, Korean and Russian (owner, 2026-11-11): lets publ
 -- After applying, check (read-only):
 --   select lang, count(*) from public.blog_posts group by lang order by lang;     -- ja / ko / ru appear with the counts above (plus any rows already there)
 --   select lang, slug, published from public.blog_posts where lang in ('ja','ko','ru') order by lang, slug;
+
+create table if not exists public.blog_posts_backup_20261113 as table public.blog_posts;
 
 alter table public.blog_posts drop constraint if exists blog_posts_lang_check;
 alter table public.blog_posts add constraint blog_posts_lang_check check (lang in ('th','en','zh','ja','ko','ru'));
