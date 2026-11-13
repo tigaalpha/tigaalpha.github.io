@@ -13,8 +13,8 @@ import { xl, by } from "./lang-extra";
 
 
 /* ── TTS ── */
-export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU" };
-export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92, ja: 0.95, ko: 0.95, ru: 0.95 };
+export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR" };
+export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92, ja: 0.95, ko: 0.95, ru: 0.95, hi: 0.95, es: 0.95, fr: 0.95 };
 /* ── เร็วขึ้น (เจ้าของ 2026-10-02: "มันอ่านช้า") ──
    ค่าเดิมคือ 1 = ได้ยิ้ตามจังหวะที่โมเดลพูด และเส้นทางสำรองของเครื่องยิ่งช้าลง
    (TTS_RATE ไทย 0.9 = ช้ากว่าปกติอยู่แล้ว) ผู้เรียนกดฟังแล้วต้องรอนานและอ่านยาว
@@ -719,16 +719,23 @@ async function ttsFetchRetry(s, lang, ac, tries, timeoutMs, opts, voice, key) {
    speech: estimated from the text, since Thai, English and Chinese carry very different amounts of speech per character.
    Past it the button falls back to the device's own voice instead of going silent. */
 export function detectSpeechLang(text, fallback = "en") {
-  let th = 0, zh = 0, la = 0, ja = 0, ko = 0, ru = 0;
+  let th = 0, zh = 0, la = 0, ja = 0, ko = 0, ru = 0, hi = 0;
   for (const ch of String(text || "")) {
     const c = ch.codePointAt(0);
     if (c >= 0x0E00 && c <= 0x0E7F) th++;
     else if ((c >= 0x3040 && c <= 0x30FF) || (c >= 0x31F0 && c <= 0x31FF)) ja++;              // kana: only Japanese has it
     else if ((c >= 0xAC00 && c <= 0xD7AF) || (c >= 0x1100 && c <= 0x11FF)) ko++;                // hangul
     else if (c >= 0x0400 && c <= 0x04FF) ru++;                                                  // cyrillic
+    else if (c >= 0x0900 && c <= 0x097F) hi++;                                                  // devanagari (Hindi)
     else if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF)) zh++;
     else if ((c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)) la++;
   }
+  // Hindi (Devanagari) is told by its script like the others; guarded by `hi &&`, so a text with no Devanagari takes the old path unchanged.
+  // Spanish and French share the Latin script with English, so NO text can be told apart from English by its letters (owner 2026-11-13: left to the app
+  // language). The caller passes the app language as `fallback`; when that is "es" or "fr" a Latin-only text is taken to be written in it, for every other
+  // fallback a Latin text is "en" exactly as before. A learner of an "es"/"fr" app who writes English gets the Spanish/French voice: the cost of not guessing.
+  if (hi && hi > th && hi > zh && hi >= ja && hi >= ko && hi >= ru) return "hi";
+  const latin = fallback === "es" || fallback === "fr" ? fallback : "en";
   // a script of its own wins over a few Latin terms (note names, product names) mixed into the text
   if (ja && ja + zh > th && ja + zh > ko && ja + zh > ru) return "ja";
   if (ko && ko > th && ko > ru) return "ko";
@@ -736,11 +743,11 @@ export function detectSpeechLang(text, fallback = "en") {
   // a Chinese character is a whole syllable, a Latin letter a fraction of one: weigh them so that a Thai or Chinese answer
   // with a few English terms in it is still Thai or Chinese, and an English answer with one Thai word is still English
   const sTh = th, sZh = zh * 2, sEn = la / 4;
-  if (!th && !zh) return la ? "en" : fallback;
-  if (sEn > sTh + sZh) return "en";
+  if (!th && !zh) return la ? latin : fallback;
+  if (sEn > sTh + sZh) return latin;
   return sZh > sTh ? "zh" : "th";
 }
-const TTS_CHARS_PER_SEC = { th: 11, en: 15, zh: 4.5, ja: 6.5, ko: 7.5, ru: 13 };
+const TTS_CHARS_PER_SEC = { th: 11, en: 15, zh: 4.5, ja: 6.5, ko: 7.5, ru: 13, hi: 9, es: 14, fr: 14 };
 export function ttsEstSeconds(text, lang) { return String(text || "").length / (by(TTS_CHARS_PER_SEC, lang) || 12); }
 export const TTS_DAILY_SECONDS = 300;                   // five minutes of cloud speech a day on a device (about ฿2.5 at today's price)
 const TTS_DAY_KEY = "tg_tts_day";
