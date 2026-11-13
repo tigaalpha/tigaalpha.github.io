@@ -4,7 +4,7 @@
 // piano-chat/index.ts next door.
 //
 // The AI behind the question box on marketing landing page 1, which ships as
-// three URLs: /landing/ (Thai), /landing-en/, /landing-zh/.
+// six URLs: /landing/ (Thai), /landing-en/, /landing-zh/, /landing-ja/, /landing-ko/, /landing-ru/.
 //
 // verify_jwt is FALSE here, and every protection is in this file:
 //   1. This function owns the system prompt. The client cannot supply one.

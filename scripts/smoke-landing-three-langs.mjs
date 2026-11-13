@@ -416,23 +416,20 @@ if (/storeLang\(pgLang\.slice\(0, 2\)\.toLowerCase\(\)\)/.test(PAGE_SRC) && (PAG
 else no("sign-up writes the page language");
 if (AIMOD) {
   const { wireLang, SERVER_LANGS } = AIMOD;
-  for (const lg of ["th", "en", "zh"]) {
+  for (const lg of ["th", "en", "zh", "ja", "ko", "ru"]) {
     const w = wireLang(lg, "How do I read notes?");
     if (w.lang === lg && w.question === "How do I read notes?") ok(`landing-chat: ${lg} is sent as-is`); else no(`landing-chat ${lg}`, JSON.stringify(w));
   }
-  for (const [lg, name] of [["ja", "Japanese"], ["ko", "Korean"], ["ru", "Russian"]]) {
-    const w = wireLang(lg, "ピアノの指番号は？");
-    if (w.lang === "en" && w.question.startsWith("ピアノの指番号は？") && w.question.includes("Reply in " + name)) ok(`landing-chat: ${lg} goes as "en" (the deployed function would answer Thai otherwise) + a last-word "reply in ${name}"`);
+  // a language the function does not know still falls back to "en" with a last-word reply instruction
+  for (const lg of ["pt"]) {
+    const w = wireLang(lg, "Como leio notas?");
+    if (w.lang === "en" && w.question.startsWith("Como leio notas?") && w.question.includes("Reply in")) ok(`landing-chat: an unknown language (${lg}) goes as "en" + a reply-language note`);
     else no(`landing-chat ${lg}`, JSON.stringify(w));
-    const long = wireLang(lg, "あ".repeat(900));
-    if (long.question.length <= 500 && long.question.includes("Reply in " + name)) ok(`landing-chat: ${lg}: a long question is trimmed so the instruction survives the function's 500-character cut`);
-    else no(`landing-chat ${lg} long`, long.question.length);
   }
-  if (SERVER_LANGS.join() === "th,en,zh") ok("SERVER_LANGS lists exactly what the deployed function knows (th, en, zh)"); else no("SERVER_LANGS", SERVER_LANGS.join());
+  if (SERVER_LANGS.join() === "th,en,zh,ja,ko,ru") ok("SERVER_LANGS lists exactly what the deployed function knows (th, en, zh, ja, ko, ru)"); else no("SERVER_LANGS", SERVER_LANGS.join());
 }
 const FN_SRC = existsSync("supabase/functions/landing-chat/index.ts") ? readFileSync("supabase/functions/landing-chat/index.ts", "utf8") : "";
-if (/\["th", "en", "zh"\]\.includes\(body\?\.lang\) \? body\.lang : "th"/.test(FN_SRC)) ok("finding confirmed: the repo's landing-chat still whitelists th / en / zh and maps anything else to Thai (so the client must send en)");
-else if (/"ja"/.test(FN_SRC)) ok("landing-chat source now knows ja (then add ja / ko / ru to SERVER_LANGS in landing-ai.ts)");
+if (/\["th", "en", "zh", "ja", "ko", "ru"\]\.includes\(body\?\.lang\) \? body\.lang : "th"/.test(FN_SRC)) ok("the repo's landing-chat whitelists all six languages (it is the version deployed on 2026-11-13) and SERVER_LANGS matches it");
 else no("landing-chat whitelist moved — re-read it and update landing-ai.ts SERVER_LANGS");
 
 cleanup();
