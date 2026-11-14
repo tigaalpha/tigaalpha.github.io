@@ -4206,5 +4206,80 @@ html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card
 .pvppage[data-gfx="low"] *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 /* High: the header and the pad keep their look without the blur layer behind each of them (nothing to see through over a dark stage) */
 .pvppage[data-gfx="high"] .pvphdr,.pvppage[data-gfx="high"] .pvpdir,.pvppage[data-gfx="high"] .pvpact{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-`;
 
+/* ══════════ language pickers with ten languages (owner 2026-11-13: a picker must never fall off the screen) ══════════
+   One pattern in every picker: flag + native name (LANG_META in lang-extra.ts), and the LIST scrolls inside a max-height tied to the viewport, so on a 320 x 568 phone or a
+   landscape phone it stays reachable instead of running past the bottom edge. The header flag menu and the Voice Tutor's menu are both .flagmenu; the settings row is
+   .setlangs.setlangs-all (LanguageSettings.tsx), a two-column grid (three from 520 px) that scrolls inside its own max-height. The first-run chooser and the sign-in
+   gate chooser (App.tsx, app-shell.tsx) carry the same max-height inline. */
+.flagmenu,.tg .flagmenu{max-height:min(440px,calc(100vh - 130px));max-height:min(440px,calc(100dvh - 130px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;min-width:150px}
+.flagitem{white-space:nowrap}
+.flagitem .fn{overflow:hidden;text-overflow:ellipsis}
+.setlangs.setlangs-all{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-height:min(264px,42vh);max-height:min(264px,42dvh);overflow-y:auto;overscroll-behavior:contain}
+.setlangs-all .setlangbtn{flex:none;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:9px 8px}
+@media (min-width:520px){.setlangs.setlangs-all{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* ══════════ RIGHT-TO-LEFT: Arabic (owner 2026-11-13). ONE BLOCK: keep it at the very end of this string, after every other rule ══════════
+   <html dir="rtl"> is set by main.tsx (first paint, from tg_lang_hint) and by App.tsx (on every language change), both through dirOf() in lang-extra.ts. With it, ordinary pages flow
+   right to left by themselves: flex rows and grids start on the right, text-align:start|end follows the direction, chat bubbles flip sides. This block does three things:
+   (1) pins what is left-to-right BY NATURE to direction:ltr (pianos, staves, note lanes, game screens and canvases, progress bars, sliders, SVG) and isolates it for the
+       bidi algorithm, so a row of keys is C D E F G A B from the left for everyone and a score like "12 / 40" is not reordered by the Arabic text around it;
+   (2) mirrors UI chrome that was written with physical left / right (the drawer and where it slides in from, menus, close buttons, card corners, accent edges, list bullets,
+       auto-margin pushes, text-align) , a curated list and NOT every pixel: what is not mirrored is listed in docs/agents-history.md;
+   (3) makes "back" / "next" arrows point the other way (scaleX(-1) on the icon, never on a box that holds text).
+   New rules use logical properties (margin-inline, inset-inline, text-align:start|end). Nothing here applies to a left-to-right language. */
+html[dir="rtl"] :is(
+  .kr,.kr-sm,.gpwrap,.gpscroll,.gprow,.prkeys,.pvpkeys,.noteheat-keys,.pathpiano,.pcardkeys,.loginpiano,.keygrid,.kshelf-key,.ost-kbwrap,.ost-kb,.ost-keywrap,.ost-keys,.nrv-keyswrap,.ah-piano,.ah-keys,.rs-piano,.adv-qpiano,
+  .staffwrap,.staffsvg,.songstaffwrap,.pastaff,.nrv-staffwrap,.ost-staff,.tstaff,.vmstaff,.ah-staff,.songlanes,.songlane,.lane,.songcanvas,.camcanvas,.t-ranger,.clefsel,
+  .expbar,.practicebar,.questbar,.tdbar,.cqbar,.wkbar,.pb-bar,.todaybar-track,.songprog,.beltprog-bar,.gpbar-segs,
+  .songov,.adv,.ah-root,.ra-hub,.ra-load,.rs-root,.ost,.pvppage,.pvpstage,
+  [class^="pvp"],[class*=" pvp"],[class^="adv-"],[class*=" adv-"],[class^="pl-"],[class*=" pl-"],[class^="ah-"],[class*=" ah-"],[class^="ra-"],[class*=" ra-"],[class^="rs-"],[class*=" rs-"],
+  [class^="ost-"],[class*=" ost-"],[class^="ac-"],[class*=" ac-"],[class^="ac2-"],[class*=" ac2-"],[class^="fpv"],[class*=" fpv"],[class^="as-"],[class*=" as-"],[class^="ar-"],[class*=" ar-"],
+  [class^="af-"],[class*=" af-"],[class^="sp3-"],[class*=" sp3-"]
+){direction:ltr;unicode-bidi:isolate}
+html[dir="rtl"] :is(svg,canvas,input[type="range"],progress,meter,input[type="email"],input[type="url"],input[type="tel"]){direction:ltr}
+/* a back arrow inside a pinned left-to-right screen keeps pointing left */
+html[dir="rtl"] :is(.songov,.adv,.ah-root,.ra-hub,.rs-root,.ost,.pvppage,.pvpstage) :is(.stgback,.vmback,.pet-back,.rtlflip){transform:none}
+
+/* (2) chrome */
+html[dir="rtl"] .drawer,html[dir="rtl"] .tg .drawer{left:auto;right:0;border-right:0;border-left:1px solid var(--bd2);box-shadow:-24px 0 60px -30px rgba(20,20,19,.5);transform:translateX(105%)}
+html[dir="rtl"] .drawer.open,html[dir="rtl"] .tg .drawer.open{transform:translateX(0)}
+html[dir="rtl"] :is(.flagmenu,.vmmenu){right:auto;left:0}
+html[dir="rtl"] .vmmorewrap{right:auto;left:10px}
+html[dir="rtl"] :is(.pcarddone,.pcardhere){right:auto;left:9px}
+html[dir="rtl"] .pcardglow{right:auto;left:-30px}
+html[dir="rtl"] :is(.apkpop-x,.notifevt .atpopup-x){right:auto;left:12px}
+html[dir="rtl"] .prsheet-x{right:auto;left:10px}
+html[dir="rtl"] .studioback{left:auto;right:12px}
+html[dir="rtl"] .trial-expired{border-left:0;border-inline-start:3px solid #d97757}
+html[dir="rtl"] :is(.draweritem,.mrec,.starterchip-tx,.vidsub-opt,.pcard,.nowcard,.nowcard-sub,.presultbars,.presultai,.shopintro,.songcard,.songanalysis,.songocbtn,.atpopup-step,.frsongpick,.dailyrec,.todaybar-btn,.resumebar,.wlc-tip,.pspot,.chhcard-main,.chhmove button,.extask,.iosinstall-warn,.iosinstall-steps,.iosinstall-benefits,.pathhero,.pathhero .pathh1,.battlecard-soon.as-btn){text-align:start}
+html[dir="rtl"] :is(.fchart-notes,.presultbar-pct,.questcount,.statval,.anrow-hits,.camgame-num,.ps-n,.prbar b,.bspk-note,.bosshud-pct){text-align:end}
+/* "push to the far end" auto margins: a physical margin-left:auto would push the element to the wrong side */
+html[dir="rtl"] :is(.shopintro-x,.pcoach-btn,.songcard-pb,.songfiltbtn,.songocbtn-sub,.lbmine,.studio-max-unlock,.chhundo button,.tg .warmup-banner-btn){margin-inline:auto 0}
+html[dir="rtl"] :is(.skt-ttl,.profpvp-b,.mdv-ttl,.shop-hdr-t){margin-inline:0 auto}
+html[dir="rtl"] .chhbtns{margin-inline:auto 6px}
+html[dir="rtl"] .octctl{margin-inline:auto 8px}
+html[dir="rtl"] .tg .pgmentor{margin-inline:auto 0}
+html[dir="rtl"] .tg .pgupgrade{margin-inline:auto 8px}
+html[dir="rtl"] .tg .pgmentor+.pgupgrade{margin-inline-start:0}
+html[dir="rtl"] :is(.readbest,.camstreak-badge){margin-inline:8px 0}
+html[dir="rtl"] :is(.schoolrole-badge,.songfiltdot,.camrecap-tierup-tag){margin-inline:6px 0}
+html[dir="rtl"] :is(.handtoggle .handswap,.combostat .comboflame,.clefbest){margin-inline:2px 0}
+html[dir="rtl"] :is(.camgame-combo small,.chhcat i){margin-inline:4px 0}
+html[dir="rtl"] .songcard-badge{margin-inline:7px 0}
+html[dir="rtl"] .todaydone-acc em{margin-inline:5px 0}
+html[dir="rtl"] .tg .hdr .hdr-pvp{margin-inline:8px 0}
+html[dir="rtl"] .presultstars-lbl{margin-inline:0 8px}
+html[dir="rtl"] .paychan-ic{margin-inline:0 3px}
+html[dir="rtl"] .vmspeed-lbl{margin-inline:0 2px}
+/* list bullets sit on the start side */
+html[dir="rtl"] .pcoach-steps{padding-inline:20px 0}
+html[dir="rtl"] .songanalysis-steps{padding-inline:18px 0}
+
+/* (3) arrows: ← ‹ › → ▶ drawn as a glyph or a Lucide chevron point the other way. .rtlflip wraps a bare arrow glyph that sits next to text (JSX: <span className="rtlflip">←</span>) */
+html[dir="rtl"] :is(.stgback,.vmback,.pet-back){transform:scaleX(-1)}
+html[dir="rtl"] :is(.rtlflip,.todaydone-arrow,.senseiback span:first-child){display:inline-block;transform:scaleX(-1)}
+html[dir="rtl"] .studioback .uxi{transform:scaleX(-1)}
+html[dir="rtl"] .pcardarrow{display:inline-flex;align-items:center;transform:scaleX(-1)}
+html[dir="rtl"] .pcard:hover .pcardarrow{transform:scaleX(-1) translateX(4px)}
+`;

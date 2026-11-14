@@ -23,7 +23,7 @@ initLearningData();
 // are on the same list the rest of the app reads, so the daily song cannot
 // re-pick because its id was missing.
 await loadClassicalSongs();
-// Japanese / Korean / Russian: the chosen language's catalog is loaded before the first paint (App remembers it in tg_lang_hint), so nothing is
+// Japanese / Korean / Russian / Hindi / Spanish / French / Arabic: the chosen language's catalog is loaded before the first paint (App remembers it in tg_lang_hint), so nothing is
 // built from English and then kept. A slow network does not hold the app: after 2.5 s it starts and the catalog joins when it arrives.
 try {
   const hint = localStorage.getItem("tg_lang_hint");

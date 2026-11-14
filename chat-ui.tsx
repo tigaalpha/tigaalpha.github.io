@@ -31,7 +31,7 @@ export const CHAT_TTS_ENABLED = true;
 
 /* ── The read-aloud button on a chat bubble (owner, 2026-10-01) ──
    A small speaker at the bottom-right end of every message — the learner's and the tutor's — that says it aloud in one soft,
-   natural male voice, in the language the message is written in (Thai, English or Mandarin: detectSpeechLang). It is a paid
+   natural male voice, in the language the message is written in (all ten languages: detectSpeechLang tells th / zh / ja / ko / ru / hi / ar by script; Spanish and French share the Latin script with English, so for them the app language decides). It is a paid
    feature: Max and Max Family (and the owner's admin account) hear it; everyone else sees the button with a small lock and a
    tap opens the plans (mode "locked").
    The voice is Gemini TTS through the piano-tts function — real money per word — so a clip heard before comes from the local

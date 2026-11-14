@@ -187,7 +187,7 @@ export default function OriginalContentPage({ lang, onBack, onPlay, level = 1, e
        (owner, 2026-10-04). */
     <div className="pathpage songpage">
       <div className="songtop">
-        <button className="studioback" onClick={onBack}>‹ {T("ย้อนกลับ", "Back", "返回")}</button>
+        <button className="studioback" onClick={onBack}><span className="rtlflip">‹</span> {T("ย้อนกลับ", "Back", "返回")}</button>
         <h1 className="songh1">✨ {T("Original Content", "Original Content", "Original Content 原创内容")}</h1>
       </div>
 

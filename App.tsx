@@ -1267,7 +1267,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
           className="pageback">
-          ← {L[lang].navStudio}
+          <span className="rtlflip">←</span> {L[lang].navStudio}
         </button>
       )}
       <div className="v12hero">
@@ -1811,7 +1811,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       {onBack && !ladderOn && (
         <button onClick={() => { playUi("click"); onBack(); }}
           className="pageback">
-          ← {L[lang].navStudio}
+          <span className="rtlflip">←</span> {L[lang].navStudio}
         </button>
       )}
       <div className="v12hero">
@@ -2146,7 +2146,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
         {onBack && (
           <button onClick={() => { playUi("click"); onBack(); }}
             className="pageback">
-            ← {L[lang].navStudio}
+            <span className="rtlflip">←</span> {L[lang].navStudio}
           </button>
         )}
         <div className="v12hero"><div className="v12title">🎼 {T.title}</div><div className="v12sub">{T.sub}</div></div>
@@ -2324,7 +2324,7 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
           className="pageback">
-          ← {L[lang].navProfile}
+          <span className="rtlflip">←</span> {L[lang].navProfile}
         </button>
       )}
       <div className="v12hero"><div className="v12title">📊 {T.title}</div><div className="v12sub">{T.sub}</div></div>
@@ -2459,7 +2459,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack, premium = f
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
           className="pageback">
-          ← {L[lang].navProfile}
+          <span className="rtlflip">←</span> {L[lang].navProfile}
         </button>
       )}
       <div className="v12hero"><div className="v12title">🏅 {T.title}</div><div className="v12sub">{T.sub}</div></div>
