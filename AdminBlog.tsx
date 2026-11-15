@@ -5,8 +5,17 @@ import { BlogStatsCard } from "./AdminBlogStats";
 
 import { pickT, ALL_LANGS, LANG_META } from "./lang-extra";
 /* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin / Japanese / Korean / Russian (the last three need supabase-blog-ja-ko-ru-migration.sql, otherwise the table refuses them), with a category, a cover picture, pictures inside the text and links.
-   Rendered only for admin_tier >= 3 (App.tsx); the table's and the image bucket's RLS (public.is_top_admin()) refuse anyone else even if this screen were reached. */
+   Rendered only for admin_tier >= 3 (App.tsx); the table's and the image bucket's RLS (public.is_top_admin()) refuse anyone else even if this screen were reached.
+   The list is paged on the server (BLOG_ADMIN_PAGE rows, newest first) for the language chip that is on, with a debounced ilike on slug and title. A single limit() over every language hid anything older than that window. */
 const slugOf = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+export const BLOG_ADMIN_PAGE = 50;
+/* PostgREST `.or()` is a raw filter: "," splits clauses and ". : ( )" are grammar, so a search box must not send them.
+   "%" "_" "\" are LIKE wildcards. What remains is matched against slug and title. Null means "no search". */
+export function blogSearchOr(raw: string): string | null {
+  const q = String(raw || "").replace(/[%_\\,.:()"]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+  if (!q) return null;
+  return `slug.ilike.%${q}%,title.ilike.%${q}%`;
+}
 const EMPTY = { id: "", lang: "th", category: "tips", slug: "", title: "", excerpt: "", body: "", cover_url: "", cover_alt: "", coverAltOn: false, published: false };
 const BUCKET = "blog-images";
 export function AdminBlog({ lang }: { lang: string }) {
@@ -15,10 +24,46 @@ export function AdminBlog({ lang }: { lang: string }) {
   const [f, setF] = useState<any>(null);
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null), [prev, setPrev] = useState(false), [up, setUp] = useState(false);
   const [filt, setFilt] = useState("all");
+  const [q, setQ] = useState("");
+  const [deb, setDeb] = useState("");
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState<number | null>(null);
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  const [tick, setTick] = useState(0);
   const taRef = useRef<HTMLTextAreaElement>(null), coverRef = useRef<HTMLInputElement>(null), imgRef = useRef<HTMLInputElement>(null);
+  const reqRef = useRef(0);
   const say = (t: string, ok = false) => setMsg({ t, ok });
-  const load = () => sb.from("blog_posts").select("*").order("created_at", { ascending: false }).limit(300).then(({ data, error }: any) => { if (error) say(error.message.includes("blog_posts") ? T("ยังไม่มีตารางบล็อกในฐานข้อมูล — รัน supabase-blog-migration.sql ก่อน", "The blog table does not exist yet — run supabase-blog-migration.sql first", "数据库中还没有博客表 — 请先运行 supabase-blog-migration.sql") : error.message); setRows(data || []); }, (e: any) => { say(String(e && e.message || e)); setRows([]); });
-  useEffect(() => { load(); }, []);
+  // 300 ms after the last keystroke. The page resets in render when `deb` changes, so the fetch below sees page 0 once.
+  useEffect(() => { const t = setTimeout(() => setDeb(q.trim()), 300); return () => clearTimeout(t); }, [q]);
+  const scope = filt + "\0" + deb;
+  const [seen, setSeen] = useState(scope);
+  if (scope !== seen) { setSeen(scope); setPage(0); setRows(null); setTotal(null); }
+  useEffect(() => {
+    const gen = ++reqRef.current;
+    let alive = true;
+    let req: any = sb.from("blog_posts").select("*", { count: "exact" });
+    if (filt !== "all") req = req.eq("lang", filt);
+    const or = blogSearchOr(deb);
+    if (or) req = req.or(or);
+    const from = page * BLOG_ADMIN_PAGE;
+    req.order("created_at", { ascending: false }).order("id", { ascending: false }).range(from, from + BLOG_ADMIN_PAGE - 1).then(({ data, error, count }: any) => {
+      if (!alive || gen !== reqRef.current) return;
+      if (error) { say(error.message.includes("blog_posts") ? T("ยังไม่มีตารางบล็อกในฐานข้อมูล — รัน supabase-blog-migration.sql ก่อน", "The blog table does not exist yet — run supabase-blog-migration.sql first", "数据库中还没有博客表 — 请先运行 supabase-blog-migration.sql") : error.message); setRows([]); setTotal(0); return; }
+      setRows(data || []); setTotal(typeof count === "number" ? count : null);
+    }, (e: any) => { if (!alive || gen !== reqRef.current) return; say(String(e && e.message || e)); setRows([]); setTotal(0); });
+    return () => { alive = false; };
+  }, [filt, deb, page, tick]);
+  // One head count per language. Cheap (no rows) and the same RLS as the list. A missing table fails soft: the list query already says so.
+  useEffect(() => {
+    let alive = true;
+    Promise.all(ALL_LANGS.map((l) => sb.from("blog_posts").select("id", { count: "exact", head: true }).eq("lang", l).then(({ count, error }: any) => (error || typeof count !== "number" ? null : [l, count] as const), () => null))).then((pairs) => {
+      if (!alive) return;
+      const o: Record<string, number> = {}; let any = false;
+      for (const p of pairs) { if (p) { o[p[0]] = p[1]; any = true; } }
+      if (any) setCounts(o);
+    }, () => {});
+    return () => { alive = false; };
+  }, [tick]);
   const set = (k: string, v: any) => setF((x: any) => ({ ...x, [k]: v }));
   const inp: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "11px 12px", borderRadius: 10, border: "1.5px solid var(--bd, #e2d8cf)", background: "var(--card)", color: "var(--text)", fontSize: 15, fontFamily: "inherit" };
   const lab: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: "var(--text2, #6b5d52)", margin: "4px 0 -4px" };
@@ -72,14 +117,21 @@ export function AdminBlog({ lang }: { lang: string }) {
       if (error) { say(/blog_posts_lang_check/i.test(error.message) ? T("ฐานข้อมูลยังไม่รองรับภาษานี้ — รัน supabase-blog-ja-ko-ru-migration.sql ก่อน", "The database does not accept this language yet — run supabase-blog-ja-ko-ru-migration.sql first", "数据库尚未支持该语言 — 请先运行 supabase-blog-ja-ko-ru-migration.sql") : /duplicate|unique/i.test(error.message) ? T("มีบทความภาษานี้ที่ใช้ลิงก์สั้นนี้แล้ว ลองเปลี่ยนลิงก์สั้น", "An article in this language already uses this slug — change the slug", "该语言下已有相同链接名的文章，请更换") : error.message); return; }
       const done = publish ? T("เผยแพร่แล้ว ✓", "Published ✓", "已发布 ✓") : T("บันทึกแล้ว ✓", "Saved ✓", "已保存 ✓");
       const note = altSkipped ? " " + T("(คำอธิบายรูปปกยังไม่ถูกบันทึก — คอลัมน์ cover_alt ยังไม่มี)", "(cover description was not saved — the cover_alt column is not there yet)", "（封面说明尚未保存——还没有 cover_alt 列）") : "";
-      say(done + note, true); setF(null); await load();
+      say(done + note, true); setF(null); setTick(t => t + 1);
     } catch (e: any) { say(String(e && e.message || e)); } finally { setBusy(false); }
   }
   async function del(id: string) {
     if (!window.confirm(T("ลบบทความนี้ถาวร?", "Delete this article for good?", "永久删除这篇文章？"))) return;
-    const { error } = await sb.from("blog_posts").delete().eq("id", id); if (error) say(error.message); else { setF(null); say(T("ลบแล้ว", "Deleted", "已删除"), true); load(); }
+    const { error } = await sb.from("blog_posts").delete().eq("id", id); if (error) say(error.message); else { setF(null); say(T("ลบแล้ว", "Deleted", "已删除"), true); setTick(t => t + 1); }
   }
-  const shownRows = (rows || []).filter(r => filt === "all" || r.lang === filt);
+  const countOf = (l: string): number | null => {
+    if (!counts) return null;
+    if (l === "all") { let s = 0; for (const x of ALL_LANGS) { if (typeof counts[x] !== "number") return null; s += counts[x]; } return s; }
+    return typeof counts[l] === "number" ? counts[l] : null;
+  };
+  const fromN = rows && rows.length ? page * BLOG_ADMIN_PAGE + 1 : 0;
+  const toN = rows ? page * BLOG_ADMIN_PAGE + rows.length : 0;
+  const more = total == null ? !!(rows && rows.length === BLOG_ADMIN_PAGE) : (page + 1) * BLOG_ADMIN_PAGE < total;
   return (
     <div className="adminscroll" data-admin-blog style={{ padding: 14, maxWidth: 760, margin: "0 auto" }}>
       <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 10 }}>📝 {T("บล็อก", "Blog", "博客")}</div>
@@ -88,14 +140,22 @@ export function AdminBlog({ lang }: { lang: string }) {
         <BlogStatsCard lang={lang} range="30" own />
         <button className="songbtn" data-blog-new onClick={() => { setF({ ...EMPTY }); setPrev(false); setMsg(null); }} style={{ marginBottom: 12, width: "100%", padding: "14px 0", fontSize: 16 }}>＋ {T("เขียนบทความใหม่", "Write a new article", "写新文章")}</button>
         <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-          {([["all", T("ทั้งหมด", "All", "全部")], ...ALL_LANGS.map(l => [l, LANG_META[l].name])] as [string, string][]).map(([l, n]) => <button key={l} type="button" data-blog-filter={l} onClick={() => setFilt(l)} className={filt === l ? "songbtn" : "songbtn ghost"} style={{ flex: "1 0 auto", padding: "8px 10px" }}>{n}</button>)}
+          {([["all", T("ทั้งหมด", "All", "全部")], ...ALL_LANGS.map(l => [l, LANG_META[l].name])] as [string, string][]).map(([l, n]) => { const c = countOf(l); return <button key={l} type="button" data-blog-filter={l} data-blog-n={c == null ? "" : String(c)} onClick={() => setFilt(l)} className={filt === l ? "songbtn" : "songbtn ghost"} style={{ flex: "1 0 auto", padding: "8px 10px" }}>{n}{c == null ? "" : " · " + c}</button>; })}
         </div>
-        {rows === null ? "…" : shownRows.length === 0 ? <div style={{ color: "var(--muted)", padding: 16, textAlign: "center" }}>{T("ยังไม่มีบทความ กด “เขียนบทความใหม่” เพื่อเริ่ม", "No articles yet — tap “Write a new article” to start", "暂无文章，点“写新文章”开始")}</div> : shownRows.map(r => (
-          <div key={r.id} data-blog-row style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--card)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 12, padding: "10px 12px", marginBottom: 8 }}>
+        <input data-blog-search value={q} onChange={e => setQ(e.target.value)} autoComplete="off" aria-label={T("ค้นหาลิงก์สั้นหรือหัวข้อ", "Search slug or title", "搜索链接名或标题")} placeholder={filt === "all" ? T("ค้นหาลิงก์สั้นหรือหัวข้อ ทุกภาษา", "Search slug or title, all languages", "搜索链接名或标题（全部语言）") : T("ค้นหาลิงก์สั้นหรือหัวข้อ ในภาษานี้", "Search slug or title in this language", "在此语言中搜索链接名或标题")} style={{ ...inp, marginBottom: 10 }} />
+        {rows !== null && <div data-blog-pager style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", margin: "0 0 10px", fontSize: 13, color: "var(--muted)" }}>
+          <span data-blog-range>{T(`${fromN}–${toN} จาก ${total == null ? "…" : total}`, `${fromN}–${toN} of ${total == null ? "…" : total}`, `${fromN}–${toN} / 共 ${total == null ? "…" : total}`)}</span>
+          <span style={{ display: "flex", gap: 6 }}>
+            <button type="button" data-blog-prev className="songbtn ghost" style={{ padding: "6px 12px" }} disabled={page <= 0} onClick={() => setPage(p => Math.max(0, p - 1))}>{T("ก่อนหน้า", "Previous", "上一页")}</button>
+            <button type="button" data-blog-next className="songbtn ghost" style={{ padding: "6px 12px" }} disabled={!more} onClick={() => setPage(p => p + 1)}>{T("ถัดไป", "Next", "下一页")}</button>
+          </span>
+        </div>}
+        {rows === null ? "…" : rows.length === 0 ? <div style={{ color: "var(--muted)", padding: 16, textAlign: "center" }}>{deb ? T("ไม่พบบทความที่ตรงกับคำค้น", "No articles match that search", "没有符合搜索的文章") : T("ยังไม่มีบทความ กด “เขียนบทความใหม่” เพื่อเริ่ม", "No articles yet — tap “Write a new article” to start", "暂无文章，点“写新文章”开始")}</div> : rows.map(r => (
+          <div key={r.id} data-blog-row data-blog-slug={r.slug} style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--card)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 12, padding: "10px 12px", marginBottom: 8 }}>
             {r.cover_url ? <img src={r.cover_url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8 }} /> : <div style={{ width: 52, height: 52, borderRadius: 8, background: "var(--card2, #f4ece4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.lang.toUpperCase()} · {catName(r.category || "tips", lang)}</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.lang.toUpperCase()} · {r.slug} · {catName(r.category || "tips", lang)}</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: r.published ? "#1e6b3a" : "#a8651a" }}>{r.published ? "● " + T("เผยแพร่แล้ว", "Published", "已发布") : "○ " + T("ฉบับร่าง", "Draft", "草稿")}</div>
             </div>
             <button className="songbtn ghost" onClick={() => { setF({ ...EMPTY, ...r, category: r.category || "tips", cover_url: r.cover_url || "", cover_alt: r.cover_alt || "", coverAltOn: Object.prototype.hasOwnProperty.call(r, "cover_alt") }); setPrev(false); setMsg(null); }}>{T("แก้ไข", "Edit", "编辑")}</button>
