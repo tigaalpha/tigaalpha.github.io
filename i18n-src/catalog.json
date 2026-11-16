@@ -4256,6 +4256,15 @@
   "fr": "Bach",
   "ar": "باخ"
  },
+ "Bach · Handel · Vivaldi": {
+  "ja": "バッハ · ヘンデル · ヴィヴァルディ",
+  "ko": "바흐 · 헨델 · 비발디",
+  "ru": "Бах · Гендель · Вивальди",
+  "hi": "बाख · हैंडल · विवाल्डी",
+  "es": "Bach · Händel · Vivaldi",
+  "fr": "Bach · Haendel · Vivaldi",
+  "ar": "باخ · هاندل · فيفالدي"
+ },
  "Back": {
   "ja": "戻る",
   "ko": "뒤로",
@@ -4507,6 +4516,15 @@
   "es": "Escudo de corteza",
   "fr": "Bouclier d'écorce",
   "ar": "درع اللحاء"
+ },
+ "Baroque": {
+  "ja": "バロック",
+  "ko": "바로크",
+  "ru": "Барокко",
+  "hi": "बारोक",
+  "es": "Barroco",
+  "fr": "Baroque",
+  "ar": "الباروك"
  },
  "Based on your real data:": {
   "ja": "実際のデータに基づく結果:",
@@ -7127,6 +7145,15 @@
   "hi": "Chopin और Pleyel: पियानो बना घर की चीज़",
   "ar": "Chopin وPleyel: البيانو يصبح منتجًا منزليًا"
  },
+ "Chopin · Schumann · Tchaikovsky": {
+  "ja": "ショパン · シューマン · チャイコフスキー",
+  "ko": "쇼팽 · 슈만 · 차이콥스키",
+  "ru": "Шопен · Шуман · Чайковский",
+  "hi": "शोपिन · शूमान · चाइकोव्स्की",
+  "es": "Chopin · Schumann · Chaikovski",
+  "fr": "Chopin · Schumann · Tchaïkovski",
+  "ar": "شوبان · شومان · تشايكوفسكي"
+ },
  "Chord Mood Board": {
   "ja": "コードムードボード",
   "ko": "코드 무드보드",
@@ -7360,6 +7387,15 @@
   "es": "Clásico · 5 oleadas",
   "fr": "Classique · 5 vagues",
   "ar": "كلاسيكي · 5 موجات"
+ },
+ "Classical": {
+  "ja": "古典派",
+  "ko": "고전주의",
+  "ru": "Классицизм",
+  "hi": "क्लासिकल",
+  "es": "Clasicismo",
+  "fr": "Classique",
+  "ar": "الكلاسيكي"
  },
  "Classical, jazz, and pieces we wrote ourselves — over 100,000 in all": {
   "ja": "クラシック、ジャズ、そして私たちが書いた曲まで ― 合計100,000曲以上",
@@ -9457,6 +9493,15 @@
   "fr": "Inflige 20 % de leurs PV max",
   "hi": "उनके अधिकतम HP का 20% डैमेज दें",
   "ar": "أوقع 20% من أقصى HP للخصم"
+ },
+ "Debussy · Satie · Lili Boulanger": {
+  "ja": "ドビュッシー · サティ · リリ・ブーランジェ",
+  "ko": "드뷔시 · 사티 · 릴리 불랑제",
+  "ru": "Дебюсси · Сати · Лили Буланже",
+  "hi": "देबुसी · सैटी · लीली बुलांजे",
+  "es": "Debussy · Satie · Lili Boulanger",
+  "fr": "Debussy · Satie · Lili Boulanger",
+  "ar": "ديبوسي · ساتي · ليلي بولانجيه"
  },
  "Deck the Halls": {
   "ja": "ひいらぎ飾ろう",
@@ -17099,6 +17144,15 @@
   "hi": "इम्पैक्ट ड्राइवर",
   "ar": "مثقاب الصدمة"
  },
+ "Impressionism": {
+  "ja": "印象派",
+  "ko": "인상주의",
+  "ru": "Импрессионизм",
+  "hi": "इम्प्रेशनिज़्म",
+  "es": "Impresionismo",
+  "fr": "Impressionnisme",
+  "ar": "الانطباعية"
+ },
  "Improving since the last round — keep repeating until it holds steady": {
   "ja": "前回より上がっています。安定するまで繰り返しましょう",
   "ko": "지난 회차보다 좋아지고 있어요 — 안정될 때까지 계속 반복해 보세요",
@@ -21958,6 +22012,15 @@
   "fr": "Mozart devient indépendant",
   "hi": "Mozart बने फ़्रीलांसर",
   "ar": "Mozart يعمل مستقلًا"
+ },
+ "Mozart · Haydn · Beethoven": {
+  "ja": "モーツァルト · ハイドン · ベートーヴェン",
+  "ko": "모차르트 · 하이든 · 베토벤",
+  "ru": "Моцарт · Гайдн · Бетховен",
+  "hi": "मोज़ार्ट · हेडन · बीथोवन",
+  "es": "Mozart · Haydn · Beethoven",
+  "fr": "Mozart · Haydn · Beethoven",
+  "ar": "موتسارت · هايدن · بيتهوفن"
  },
  "Multi-Tool Rig": {
   "ja": "マルチツールリグ",
@@ -30058,6 +30121,15 @@
   "fr": "Unité roulante",
   "hi": "रोलिंग यूनिट",
   "ar": "وحدة متدحرجة"
+ },
+ "Romantic": {
+  "ja": "ロマン派",
+  "ko": "낭만주의",
+  "ru": "Романтизм",
+  "hi": "रोमांटिक",
+  "es": "Romanticismo",
+  "fr": "Romantique",
+  "ar": "الرومانسي"
  },
  "Room code": {
   "ja": "ルームコード",
@@ -45935,6 +46007,15 @@
   "fr": "🇻🇪 El Sistema : d'un garage à 1,2 million d'enfants\n\nEn 1975, l'économiste, musicien et militant vénézuélien José Antonio Abreu réunit seulement 11 élèves dans un parking abandonné de Caracas et commence à répéter avec eux. Il appelle son idée « la musique pour le changement social » et, point décisif, la fait financer non par le ministère de la Culture, mais par celui de l'Action sociale. Le message était clair dès le premier jour : il ne s'agissait pas vraiment de former des pianistes de concert. Il s'agissait d'offrir aux enfants les plus pauvres du Venezuela ce qu'un étui à violon peut contenir et qu'un gang rival ne peut pas leur enlever : la discipline, un sentiment d'appartenance et une raison de venir chaque jour.\n\nCinquante ans plus tard, El Sistema (officiellement FESNOJIV) touche environ 1,2 million d'enfants dans tout le Venezuela, contre quelque 60 000 lorsque Eduardo Méndez en est devenu directeur exécutif en 2008. Son diplômé le plus célèbre est Gustavo Dudamel : il a commencé le violon enfant au sein d'El Sistema et il est aujourd'hui directeur musical et artistique à la fois du Los Angeles Philharmonic et de l'Orchestre symphonique Simón Bolívar du Venezuela, l'orchestre même vers lequel le programme l'avait conduit. Dudamel a ensuite fondé YOLA (Youth Orchestra Los Angeles) aux États-Unis, en transposant le modèle d'El Sistema (instruments gratuits, répétition de groupe quotidienne, élèves plus âgés qui enseignent aux plus jeunes) dans certains des quartiers les plus pauvres de Los Angeles.\n\nL'idée s'est révélée exportable : des programmes comparables, « inspirés d'El Sistema », existent aujourd'hui dans plus de 70 pays, dont au moins 80 programmes distincts rien qu'aux États-Unis.\n\n💡 Leçon : El Sistema n'a pas réussi en enseignant la théorie musicale plus vite. Il a réussi parce que la musique d'ensemble (venir, s'écouter les uns les autres, jouer sa partie pour que tout le groupe sonne juste) enseigne discrètement les compétences sociales dont les communautés en difficulté ont le plus besoin : discipline, travail d'équipe, estime de soi. La vraie invention d'Abreu n'était pas un programme d'enseignement : c'était de financer la musique comme une politique sociale, et non comme une politique culturelle.",
   "ar": "🇻🇪 El Sistema — من مرأب سيارات إلى 1.2 مليون طفل\n\nفي عام 1975، جمع الاقتصادي والموسيقي والناشط الفنزويلي خوسيه أنطونيو أبريو 11 طالبًا فقط في مرأب مهجور للسيارات في كاراكاس، وبدأوا التدريب معًا. أطلق على فكرته اسم «الموسيقى من أجل التغيير الاجتماعي»، والأهم أنها لم تُمَوَّل من وزارة الفنون، بل من وزارة الرعاية الاجتماعية. كانت الرسالة واضحة منذ اليوم الأول: الهدف لم يكن أبدًا تخريج عازفي بيانو للحفلات الكبرى، بل منح أفقر أطفال فنزويلا شيئًا تحمله حقيبة الكمان ولا تستطيع عصابة منافسة أن تسلبه منهم: الانضباط والانتماء وسببًا للحضور كل يوم.\n\nبعد خمسين عامًا، يصل El Sistema (واسمه الرسمي FESNOJIV) إلى نحو 1.2 مليون طفل في أنحاء فنزويلا، بعد أن كان العدد نحو 60,000 حين تولى إدواردو ميندس منصب المدير التنفيذي عام 2008. أشهر خريجيه هو غوستافو دوداميل، الذي بدأ العزف على الكمان طفلًا في El Sistema، وهو اليوم المدير الموسيقي والفني لأوركسترا لوس أنجلوس الفيلهارمونية وأيضًا لأوركسترا سيمون بوليفار السيمفونية في فنزويلا، وهي الأوركسترا التي أعدّه البرنامج للوصول إليها. ثم أسس دوداميل لاحقًا YOLA (أوركسترا شباب لوس أنجلوس) في الولايات المتحدة، ناقلًا نموذج El Sistema، من آلات مجانية وتدريب جماعي يومي وطلاب أكبر يعلّمون الأصغر، إلى بعض أفقر أحياء لوس أنجلوس.\n\nوثبت أن الفكرة قابلة للتصدير: توجد اليوم برامج مماثلة «مستوحاة من El Sistema» في أكثر من 70 دولة، منها 80 برنامجًا منفصلًا على الأقل في الولايات المتحدة وحدها.\n\n💡 الدرس: لم ينجح El Sistema لأنه علّم نظرية الموسيقى بسرعة أكبر، بل لأن العزف الجماعي، أي الحضور والإصغاء لبعضنا وعزف دورك ليبدو الجميع متناغمين، يعلّم بهدوء المهارات الاجتماعية التي تحتاجها المجتمعات المتعثرة أكثر من غيرها: الانضباط والعمل بروح الفريق وتقدير الذات. اختراع أبريو الحقيقي لم يكن منهجًا دراسيًا، بل تمويل الموسيقى كسياسة اجتماعية لا كسياسة فنية."
  },
+ "🌊 Impressionism": {
+  "ja": "🌊 印象派",
+  "ko": "🌊 인상주의",
+  "ru": "🌊 Импрессионизм",
+  "hi": "🌊 इम्प्रेशनिज़्म",
+  "es": "🌊 Impresionismo",
+  "fr": "🌊 Impressionnisme",
+  "ar": "🌊 الانطباعية"
+ },
  "🌌 In 2004 Arcade Fire released 'Funeral' on tiny indie label Merge — no ad budget — but serious small-venue touring plus pure word of mouth carried it onto front pages worldwide, and critics later called it one of the decade's defining debuts.\n\nSix years later they proved it again with 'The Wilderness Downtown' (2010): an interactive HTML5 video that pulled *your own* childhood home from Google Street View into the film — a classic early case of tech media writing about a music act as much as music media.\n\n💡 Lesson: no budget, still headlines — if you try the new format first and the story is sincere enough to pass along.": {
   "ja": "🌌 2004年、アーケイド・ファイアは小さなインディーレーベルMergeから'Funeral'をリリースしました。広告予算はゼロでしたが、小規模会場での地道なツアーと純粋な口コミによって世界中の紙面を飾り、のちに批評家から10年を代表するデビュー作の一つと呼ばれました。\n\n6年後、彼らは'The Wilderness Downtown'（2010年）でそれをもう一度証明します。Googleストリートビューから*あなた自身の*子どもの頃の家を映像の中に取り込むインタラクティブなHTML5ビデオで、音楽メディアと同じくらいテックメディアが音楽アーティストについて書いた、先駆的な事例でした。\n\n💡 教訓：予算がなくても見出しは飾れる。新しい形式を誰よりも先に試し、人に伝えたくなるほど誠実なストーリーがあれば。",
   "ko": "🌌 2004년 아케이드 파이어는 작은 인디 레이블 Merge에서 'Funeral'을 발표했어요. 광고 예산은 없었지만, 소규모 공연장을 도는 진지한 투어와 순수한 입소문 덕분에 전 세계 지면을 장식했고, 비평가들은 훗날 이 앨범을 그 10년을 대표하는 데뷔작 중 하나로 꼽았어요.\n\n6년 후 그들은 'The Wilderness Downtown'(2010)으로 이를 다시 증명했어요. Google 스트리트 뷰에서 *여러분 자신의* 어린 시절 집을 영상 속으로 불러온 인터랙티브 HTML5 비디오로, 음악 매체만큼이나 IT 매체가 한 음악 팀에 대해 기사를 쓴 초기의 대표적인 사례였죠.\n\n💡 교훈: 예산이 없어도 헤드라인을 장식할 수 있어요. 새로운 형식을 가장 먼저 시도하고, 이야기가 퍼뜨리고 싶을 만큼 진솔하다면요.",
@@ -46015,6 +46096,15 @@
   "fr": "🌟 Franz Liszt (1811-1886) : la « Lisztomanie » fut la première économie de fans au monde\n\nDans les années 1840, les villes européennes ont connu ce que le critique Heinrich Heine a appelé la « Lisztomanie » : des femmes se disputaient ses mouchoirs, ses cheveux et ses bouts de cigare comme souvenirs ; des broches à son effigie sont devenues des biens de consommation courants, c'est l'invention du produit dérivé d'artiste. Les organisateurs ont compris qu'une apparition de Liszt pouvait vendre des billets à prix fort ET des produits dérivés à la fois.\n\nC'est le modèle de l'économie de fans actuelle : la transformation systématique de l'amour des fans en produits, en médias et en statut social.\n\n💡 Leçon : quand les fans « veulent faire partie de l'artiste », le marketing peut monétiser ce sentiment par couches, bien au-delà du billet lui-même.",
   "hi": "🌟 Franz Liszt (1811-1886) — \"Lisztomania\" दुनिया की पहली फ़ैन इकोनॉमी थी\n\n1840 के दशक में यूरोप के शहरों ने वह देखा जिसे आलोचक Heinrich Heine ने \"Lisztomania\" नाम दिया: महिलाएँ उनके रूमाल, बाल और सिगार के टुकड़े निशानी के तौर पर पाने के लिए आपस में भिड़ जाती थीं; उनकी तस्वीर वाले ब्रोच आम उपभोक्ता वस्तु बन गए — कलाकार की मर्चेंडाइज़ का आविष्कार। कॉन्सर्ट प्रमोटरों ने सीखा कि Liszt का आना प्रीमियम टिकट और मर्चेंडाइज़ दोनों एक साथ बेच सकता है।\n\nआज की फ़ैन इकोनॉमी का यही ढाँचा है: फ़ैन के प्यार को उत्पादों, मीडिया और सामाजिक रुतबे में व्यवस्थित ढंग से बदलना।\n\n💡 सबक: जब फ़ैन \"कलाकार का हिस्सा बनना\" चाहते हैं, तो मार्केटिंग उस भावना को परतों में भुना सकती है — टिकट से कहीं आगे।",
   "ar": "🌟 Franz Liszt (1811-1886) — «هوس ليست» كان أول اقتصاد معجبين في العالم\n\nفي أربعينيات القرن التاسع عشر شهدت مدن أوروبا ما سمّاه الناقد Heinrich Heine «Lisztomania»: تقاتلت النساء على مناديله وخصلات شعره وأعقاب سجائره تذكارات؛ وصارت الدبابيس التي تحمل صورته سلعًا استهلاكية شائعة — وهكذا وُلدت منتجات الفنانين. وتعلّم منظمو الحفلات أن ظهور Liszt يبيع التذاكر المميزة والمنتجات معًا.\n\nهذا هو النموذج الذي يقوم عليه اقتصاد المعجبين اليوم: تحويل حب المعجبين بشكل منهجي إلى منتجات وإعلام ومكانة اجتماعية.\n\n💡 الدرس: حين «يريد المعجبون أن يكونوا جزءًا من الفنان»، يستطيع التسويق تحويل هذا الشعور إلى دخل على طبقات — أبعد بكثير من التذكرة نفسها."
+ },
+ "🌹 Romantic": {
+  "ja": "🌹 ロマン派",
+  "ko": "🌹 낭만주의",
+  "ru": "🌹 Романтизм",
+  "hi": "🌹 रोमांटिक",
+  "es": "🌹 Romanticismo",
+  "fr": "🌹 Romantique",
+  "ar": "🌹 الرومانسي"
  },
  "🌿 Folk": {
   "ja": "🌿 フォーク",
@@ -46619,6 +46709,15 @@
   "hi": "🎻 एक वाद्य जिसे कभी \"युद्ध का हथियार\" माना गया\n• स्कॉटिश पाइपर सैनिकों को युद्ध में आगे ले जाते थे — अपनों में जोश भरते, दुश्मन को डराते\n• पाइप की आवाज़ गोलीबारी के शोर को चीरकर सैनिकों को पंक्ति में रखती थी\n• एक ब्रिटिश अदालत ने कभी इन्हें \"युद्ध का साधन\" माना था\n💡 संगीत = युद्धभूमि में हौसले की ठोस ताकत।",
   "ar": "🎻 آلة اعتُبرت يومًا «سلاح حرب»\n• قاد عازفو المزمار الاسكتلنديون الجنود إلى المعركة — يشجعون رفاقهم ويرعبون العدو\n• كان صوت المزمار يخترق أصوات الرصاص ويحافظ على تماسك صفوف الجنود\n• ذات مرة اعتبرته محكمة بريطانية «أداة حرب»\n💡 الموسيقى = معنويات حقيقية في ساحة المعركة."
  },
+ "🎻 Baroque": {
+  "ja": "🎻 バロック",
+  "ko": "🎻 바로크",
+  "ru": "🎻 Барокко",
+  "hi": "🎻 बारोक",
+  "es": "🎻 Barroco",
+  "fr": "🎻 Baroque",
+  "ar": "🎻 الباروك"
+ },
  "🎻 Niccolò Paganini (1782-1840) — the man who proved stardom itself could be sold\n\nIn the early 1800s most European violinists were court employees at standardized rates. Paganini refused that system: he toured himself, priced tickets several multiples above ordinary concerts, and seeded the (false) legend that he had sold his soul to the devil for his impossible technique. He deliberately limited the number of performances to manufacture scarcity — earning roughly ten times a typical musician's fee per night. His estate was so vast that his son had to publish the rates for hiring ghost-Paganinis.\n\nHis playbook is the same one behind every global tour since: scarcity + a story + the belief that \"you had to see it to believe it.\"\n\n💡 Lesson: scarcity marketing and supernatural product mythology have a complete prototype in music from two centuries before Instagram existed.": {
   "ja": "🎻 ニコロ・パガニーニ（1782〜1840）— 「スターであること」そのものが売れると証明した人物\n\n1800年代初頭、ヨーロッパのヴァイオリニストの多くは、決まった報酬で働く宮廷の雇われ人でした。パガニーニはその仕組みを拒み、自分でツアーを組み、チケットを通常の演奏会の何倍もの値段に設定し、「人間離れした技巧のために悪魔に魂を売った」という（事実ではない）伝説を広めました。さらに公演数をわざと絞って希少性を演出し、一晩で一般的な音楽家の約十倍の報酬を稼ぎました。遺産はあまりに莫大で、息子は「ゴースト・パガニーニ」を雇う際の料金表を公表しなければならなかったほどです。\n\n彼の戦術は、以来すべての世界ツアーの裏にあるものと同じです。希少性＋物語＋「見なければ信じられない」という思い。\n\n💡 学び：希少性マーケティングと、超自然的な商品神話の完全な原型は、Instagramが生まれる二世紀も前の音楽の世界にありました。",
   "ko": "🎻 니콜로 파가니니(1782~1840) — 스타라는 존재 자체를 팔 수 있다는 걸 증명한 사람\n\n1800년대 초, 유럽 바이올리니스트 대부분은 정해진 보수를 받는 궁정 소속 직원이었어요. 파가니니는 그 제도를 거부하고 직접 투어를 다니며, 티켓 가격을 보통 연주회의 몇 배로 매기고, 불가능해 보이는 기교를 얻으려고 악마에게 영혼을 팔았다는 (거짓) 전설을 퍼뜨렸어요. 일부러 공연 횟수를 제한해 희소성을 만들었고, 하룻밤에 보통 음악가의 약 열 배 출연료를 벌었어요. 재산이 어찌나 컸는지, 그의 아들이 “가짜 파가니니”를 고용하는 요금표를 공개해야 할 정도였죠.\n\n그의 공식은 이후 모든 월드 투어의 바탕과 같아요. 희소성 + 이야기 + “직접 봐야 믿는다”는 믿음이에요.\n\n💡 교훈: 희소성 마케팅과 초자연적인 상품 신화의 완전한 원형은 인스타그램이 생기기 두 세기 전, 음악에 이미 있었어요.",
@@ -46771,6 +46870,15 @@
   "fr": "🏙️ Motown Records (1959-1972, Détroit) : la preuve qu'une « usine à chansons » peut créer un tout nouveau marché\n\nBerry Gordy est parti d'un prêt de 800 $ et a appliqué la logique de la chaîne de montage de Ford : écriture de chansons en interne (Holland-Dozier-Holland), un groupe maison (les Funk Brothers) et une formation Artist Development (chorégraphie, tenue, savoir se comporter en interview). Résultat : des dizaines de numéros 1 américains en 15 ans, vendus AUSSI BIEN au public noir qu'au public blanc, que l'ancienne industrie croyait séparés, brisant les barrières raciales du spectacle tout en dégageant des bénéfices.\n\nLe modèle du « tout sous le même toit » est l'ancêtre direct que les critiques citent pour le système d'usine de la K-pop actuelle.\n\n💡 Leçon : un système interne garantit une qualité constante, un faible coût unitaire et un contrôle total de l'identité des artistes, le même principe en musique et dans l'industrie.",
   "hi": "🏙️ Motown Records (1959-1972, Detroit) — सबूत कि \"गानों की फ़ैक्टरी\" एक पूरा नया बाज़ार बना सकती है\n\nBerry Gordy ने $800 के कर्ज़ से शुरुआत की और Ford की असेंबली-लाइन का तर्क अपनाया: अपने गीतकार (Holland-Dozier-Holland), अपना हाउस बैंड (Funk Brothers), और आर्टिस्ट डेवलपमेंट प्रशिक्षण (नृत्य-निर्देशन, पहनावा, इंटरव्यू के तौर-तरीके)। नतीजा: 15 सालों में दर्जनों अमेरिकी #1 — अश्वेत और श्वेत, दोनों श्रोताओं को बेचे गए, जिन्हें पुराना उद्योग अलग बाज़ार मानता था; मनोरंजन की नस्ली दीवारें टूटीं और मुनाफ़ा भी हुआ।\n\n\"सब कुछ एक छत के नीचे\" वाला मॉडल आज के K-pop फ़ैक्टरी सिस्टम का सीधा पूर्वज माना जाता है, जैसा आलोचक बताते हैं।\n\n💡 सीख: अपनी व्यवस्था से लगातार गुणवत्ता + कम इकाई लागत + कलाकार की पहचान पर पूरा नियंत्रण मिलता है — संगीत और विनिर्माण में एक ही सिद्धांत।",
   "ar": "🏙️ Motown Records (1959-1972، ديترويت) — دليل على أن «مصنع الأغاني» يخلق سوقًا جديدة بالكامل\n\nبدأ Berry Gordy بقرض قدره 800 دولار وبنى منطق خط إنتاج Ford: تأليف داخلي (Holland-Dozier-Holland)، وفرقة ثابتة (Funk Brothers)، وتدريب لتطوير الفنانين (الرقص والأزياء وآداب المقابلات). النتيجة: عشرات أغاني المركز الأول في أمريكا خلال 15 عامًا — بيعت لجمهور من السود والبيض معًا، كانت الصناعة القديمة تراهما سوقين منفصلين، فكسرت الحواجز العرقية في الترفيه وحققت ربحًا.\n\nنموذج «كل شيء تحت سقف واحد» هو السلف المباشر الذي يذكره النقاد لنظام مصانع K-pop اليوم.\n\n💡 الدرس: النظام الداخلي يمنح جودة ثابتة + تكلفة وحدة منخفضة + تحكمًا كاملًا بهوية الفنان — المبدأ نفسه في الموسيقى والصناعة."
+ },
+ "🏛️ Classical": {
+  "ja": "🏛️ 古典派",
+  "ko": "🏛️ 고전주의",
+  "ru": "🏛️ Классицизм",
+  "hi": "🏛️ क्लासिकल",
+  "es": "🏛️ Clasicismo",
+  "fr": "🏛️ Classique",
+  "ar": "🏛️ الكلاسيكي"
  },
  "🏠 Full-screen app": {
   "ja": "🏠 全画面アプリ",
