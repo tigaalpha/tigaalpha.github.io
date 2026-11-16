@@ -78,7 +78,7 @@ export function ProfileDashboardPanel({ lang, profile, plan, chestAvail, chestLo
                 {(() => {
                   const res = resumeHint(readMemory());
                   const pri = dailyPriority({ atRisk, chestAvail, questDone: qT >= QUEST_GOAL, hasResume: !!res });
-                  const txt = pickLang(pri.cta, lang) + (pri.kind === "resume" && res ? " · " + res.label : "");
+                  const txt = pickLang(pri.cta, lang, s => xl(lang, s)) + (pri.kind === "resume" && res ? " · " + res.label : "");
                   const go = pri.kind === "chest" ? openChestNow
                     : pri.kind === "resume" ? () => { logUsage("nav", "daily-resume"); setPage("studio"); setStudioView("songs"); }
                     : () => { logUsage("nav", "daily-priority"); setPage("studio"); setStudioView("menu"); };

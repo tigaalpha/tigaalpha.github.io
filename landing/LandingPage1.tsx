@@ -4,7 +4,7 @@ import { logLand } from "./land-log";
 import { GUEST_PROFILE_KEY, setSkipOnboard, stampLandingOrigin, attributionEvent, handoffUrl, landingVariant } from "../local-identity";
 import { inAppBrowser, openInRealBrowser, escapeUrl, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
 import { LESSONS } from "./landing-lessons";
-import { C, LANGS, FLAGS, FLAG_NAMES, LANG_SHORT, pickLang } from "./landing-copy";
+import { C, LANGS, FLAGS, FLAG_NAMES, LANG_SHORT, pickLang, dirOf } from "./landing-copy";
 import { askLandingAI } from "./landing-ai";
 import "./landing.css";
 
@@ -27,6 +27,10 @@ import "./landing.css";
      3. one ask, placed after the value, not in front of it.  ── */
 
 const APP_URL = "/";
+
+/* The static song pages (/songs/<lang>/) exist in th, en and zh only (scripts/build-song-pages.mjs), so every other
+   language's "All songs" link goes to the English index instead of to a page that is not there. */
+const SONG_PAGE_LANGS = ["th", "en", "zh"];
 
 /* How many real AI answers a stranger gets before being asked for an account.
    Three is enough to prove the thing works on THEIR question — which is the
@@ -119,10 +123,11 @@ function rich(text) {
   );
 }
 
-/* Which of the six landing URLs this is. Each variant ships with its own
-   <html lang>, so the page reads its campaign language straight out of the
-   document rather than needing a separate mechanism. Read once, before the
-   effect below starts writing to the same attribute. */
+/* Which of the ten landing URLs this is. Each variant ships with its own
+   <html lang> (and, for Arabic, dir="rtl"), so the page reads its campaign
+   language straight out of the document rather than needing a separate
+   mechanism. Read once, before the effect below starts writing to the same
+   attribute. */
 function presetLang() {
   try {
     const l = (document.documentElement.getAttribute("lang") || "").slice(0, 2).toLowerCase();
@@ -308,9 +313,13 @@ export default function LandingPage1() {
   }, []);
 
   // Keep the document itself honest about what language it is in — screen
-  // readers, translate prompts and Thai line-breaking all read this.
+  // readers, translate prompts and Thai line-breaking all read this — and which
+  // way it reads: dir="rtl" for Arabic (landing.css mirrors the page from it),
+  // "ltr" again the moment somebody taps another flag. The generated /landing-ar/
+  // page already ships dir="rtl", so Arabic never paints left to right first.
   useEffect(() => {
     document.documentElement.lang = lang;
+    document.documentElement.dir = dirOf(lang);
     document.title = t.htmlTitle;
   }, [lang, t.htmlTitle]);
 
@@ -673,8 +682,9 @@ export default function LandingPage1() {
       <header className="lp-top">
         <span className="lp-mark">TIGA ALPHA</span>
         <span className="lp-kicker">{t.kicker}</span>
-        {/* The same six flags as the app's settings panel, so somebody who
-            already knows the product recognises the control instantly. */}
+        {/* The same ten flags as the app's settings panel, so somebody who
+            already knows the product recognises the control instantly. Two rows
+            of five (landing.css): ten in one row do not fit a 320 px phone. */}
         <nav className="lp-langs" aria-label={FLAG_NAMES[lang]}>
           {LANGS.map(lg => (
             <button key={lg}
@@ -800,7 +810,10 @@ export default function LandingPage1() {
         {msgs.map((m, i) => (
           <div className={`lp-row${m.who === "me" ? " me" : ""}`} key={i}>
             {m.who === "tiga" && <div className="lp-av">TIGA<br />AI</div>}
-            <div className="lp-bub" onClick={msgDone(m) ? undefined : finishTyping}>
+            {/* What the visitor typed and what the live AI wrote can be in any language, so those two bubbles take their direction
+                from their own first letter (dir="auto"): an English question on the Arabic page keeps its question mark at the
+                end of the sentence. The four canned lessons are written in the page's language and follow the page. */}
+            <div className="lp-bub" dir={m.raw != null || m.ai ? "auto" : undefined} onClick={msgDone(m) ? undefined : finishTyping}>
               {rich(msgText(m))}
               {!msgDone(m) && <i className="lp-caret" />}
             </div>
@@ -879,7 +892,7 @@ export default function LandingPage1() {
 
       <p className="lp-foot">
         {t.footTag}<br />
-        <a href={APP_URL}>{t.enterApp}</a> · <a href={"/songs/" + lang + "/"}>{t.allSongs}</a> · <a href="/privacy-policy.html">{t.privacy}</a>
+        <a href={APP_URL}>{t.enterApp}</a> · <a href={"/songs/" + (SONG_PAGE_LANGS.includes(lang) ? lang : "en") + "/"}>{t.allSongs}</a> · <a href="/privacy-policy.html">{t.privacy}</a>
       </p>
 
       {sticky && !signup && !gate && !returningUser && (
@@ -1082,7 +1095,8 @@ function SignupCard({ q, quota, timeUp, t, lang }) {
       <h2>{timeUp ? t.askTimeTitle : quota ? t.askQuotaTitle : q ? t.signupTitleQ : t.signupTitle}</h2>
       <p>{timeUp ? t.askTimeBody : t.signupBody}</p>
 
-      {q && <div className="lp-q"><span>{t.qLabel}</span>{q}</div>}
+      {/* <bdi>: the visitor's own words take their own direction, whatever the page's */}
+      {q && <div className="lp-q"><span>{t.qLabel}</span><bdi>{q}</bdi></div>}
 
       {err && <div className="lp-err">{err}</div>}
       {done && <div className="lp-ok">{done}</div>}

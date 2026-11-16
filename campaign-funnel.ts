@@ -11,7 +11,7 @@
    browser and sign up at 0.12% against 2.2% elsewhere) took a hand-written SQL
    session to find. The rows it reads:
 
-     kind "land"  item_id: page:th|en|zh · view · hero:seen · piano · aha:heard ·
+     kind "land"  item_id: page:<lang> (th|en|zh|ja|ko|ru|hi|es|fr|ar) · view · hero:seen · piano · aha:heard ·
                   ask · gate:shown · gate:inapp · openreal-top · openreal ·
                   escape:arrived[-known]:<browser> · try:* · signup:* ·
                   signed_up_landing:<lg> · signed_up_from:<anon_id>

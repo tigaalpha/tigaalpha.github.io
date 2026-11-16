@@ -22,13 +22,15 @@ export const LANDING_CHAT_URL =
 /* ── which languages the DEPLOYED landing-chat knows ──
    The function whitelists `lang` (supabase/functions/landing-chat/index.ts), so an
    unknown code silently becomes "th" and a visitor would get a Thai answer.
-   Deployed 2026-11-13 with prompts for all six landing languages, so every
-   language is sent as itself. The fallback below stays for a language the
-   function does not know (and for a future seventh page that ships before the
-   function does): it is sent as "en" with a last-word instruction to reply in
-   the visitor's language instead. */
-export const SERVER_LANGS = ["th", "en", "zh", "ja", "ko", "ru"];
-const REPLY_IN = { ja: "Japanese (日本語)", ko: "Korean (한국어)", ru: "Russian (русский)" };
+   The first six (th, en, zh, ja, ko, ru) were deployed on 2026-11-13. hi, es, fr
+   and ar have their prompts in this repo's copy of the function, which has to be
+   deployed BEFORE a build that lists them here is released (it answers the old six
+   exactly as before, so deploying first breaks nothing). Every listed language is
+   sent as itself. The fallback below stays for a language the function does not
+   know (and for an eleventh page that ships before the function does): it is sent
+   as "en" with a last-word instruction to reply in the visitor's language instead. */
+export const SERVER_LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
+const REPLY_IN = { ja: "Japanese (日本語)", ko: "Korean (한국어)", ru: "Russian (русский)", hi: "Hindi (हिन्दी)", es: "Spanish (español)", fr: "French (français)", ar: "Arabic (العربية)" };
 /* The function cuts the question at 500 characters, and a cut would take the
    instruction first if it sat at the end — so the visitor's own text is trimmed
    to leave room for it. */

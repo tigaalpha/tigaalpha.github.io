@@ -1,6 +1,6 @@
 /* ── landing/landing-lessons.ts ──
    The four lessons behind the four example questions on marketing landing
-   page 1, in all six languages (th, en, zh, ja, ko, ru).
+   page 1, in all ten languages (th, en, zh, ja, ko, ru, hi, es, fr, ar).
 
    These answers are canned, not generated, and that is a deliberate product
    decision rather than a shortcut. Three reasons:
@@ -28,10 +28,13 @@ export const LESSONS = [
   {
     id: "cmajor",
     chip: { th: "🎼 สอน C major scale", en: "🎼 The C major scale", zh: "🎼 讲讲 C 大调音阶",
-      ja: "🎼 Cメジャー・スケール", ko: "🎼 C 메이저 스케일", ru: "🎼 Гамма до мажор (C)" },
+      ja: "🎼 Cメジャー・スケール", ko: "🎼 C 메이저 스케일", ru: "🎼 Гамма до мажор (C)",
+      hi: "🎼 C मेजर स्केल", es: "🎼 La escala de Do mayor", fr: "🎼 La gamme de Do majeur", ar: "🎼 سلم C ماجور" },
     ask: { th: "สอน C major scale หน่อย", en: "Teach me the C major scale", zh: "教我 C 大调音阶",
-      ja: "Cメジャー・スケールを教えて", ko: "C 메이저 스케일을 알려 주세요", ru: "Научите меня гамме до мажор" },
-    demoLabel: { th: "C MAJOR SCALE", en: "C MAJOR SCALE", zh: "C 大调音阶", ja: "Cメジャー・スケール", ko: "C 메이저 스케일", ru: "ГАММА ДО МАЖОР" },
+      ja: "Cメジャー・スケールを教えて", ko: "C 메이저 스케일을 알려 주세요", ru: "Научите меня гамме до мажор",
+      hi: "मुझे C मेजर स्केल सिखाइए", es: "Enséñame la escala de Do mayor", fr: "Apprenez-moi la gamme de Do majeur", ar: "علّمني سلم C ماجور" },
+    demoLabel: { th: "C MAJOR SCALE", en: "C MAJOR SCALE", zh: "C 大调音阶", ja: "Cメジャー・スケール", ko: "C 메이저 스케일", ru: "ГАММА ДО МАЖОР",
+      hi: "C मेजर स्केल", es: "ESCALA DE DO MAYOR", fr: "GAMME DE DO MAJEUR", ar: "سلم C ماجور" },
     answer: {
       th:
 `**C major scale** คือบันไดเสียงพื้นฐานที่สุด และเป็นอันเดียวที่ **ใช้คีย์ขาวล้วน** ไม่มีคีย์ดำสักอัน
@@ -117,6 +120,62 @@ Look at the keyboard above — I'm playing it for you, one finger at a time 👆
 Правая рука: **1-2-3**, затем **подведите большой палец под ладонь**, чтобы взять F, и дальше **1-2-3-4-5**
 
 Посмотрите на клавиатуру выше — я играю для вас по одному пальцу за раз 👆`,
+      hi:
+`**C मेजर स्केल** सबसे बुनियादी स्केल है, और अकेला ऐसा स्केल जो पूरी तरह **सफ़ेद कीज़** पर बजता है — इसमें एक भी काली की नहीं है।
+
+आठ नोट: **C D E F G A B C**
+(डो रे मी फा सो ला सी डो)
+
+एक तरकीब है जो इसे उम्र भर के लिए याद करा देती है — नोटों के बीच की दूरियाँ इस क्रम में चलती हैं
+**होल–होल–हाफ़–होल–होल–होल–हाफ़**
+
+ये दोनों हाफ़ स्टेप ठीक **E→F** और **B→C** पर आते हैं — पूरे कीबोर्ड पर बस यही दो जोड़े हैं जिनके बीच कोई काली की नहीं होती। इसलिए रटने की ज़रूरत ही नहीं: बस देखिए, साफ़ दिख जाता है।
+
+दायाँ हाथ: **1-2-3**, फिर F तक पहुँचने के लिए **अँगूठे को हथेली के नीचे से ले जाइए**, और आगे **1-2-3-4-5**
+
+ऊपर का कीबोर्ड देखिए — मैं एक-एक उँगली से बजाकर दिखा रहा हूँ 👆`,
+      es:
+`La **escala de Do mayor** es la escala más básica que existe y la única que se toca solo con **teclas blancas**: no lleva ni una sola tecla negra.
+
+Ocho notas: **C D E F G A B C**
+(do re mi fa sol la si do)
+
+Este es el truco para no olvidarla nunca. Las distancias entre notas seguidas siguen este patrón:
+**tono–tono–semitono–tono–tono–tono–semitono**
+
+Esos dos semitonos caen justo en **E→F** y **B→C**, los dos únicos pares de teclas vecinas de todo el teclado sin tecla negra en medio. Así que no hay nada que memorizar: se ve a simple vista.
+
+Mano derecha: **1-2-3**, luego **pasa el pulgar por debajo de la palma** para llegar a F, y sigue con **1-2-3-4-5**
+
+Mira el teclado de arriba: te la estoy tocando, un dedo a la vez 👆`,
+      fr:
+`La **gamme de Do majeur (C major)** est la gamme la plus fondamentale qui soit, et la seule qui se joue entièrement sur les **touches blanches**\u00a0: pas une seule touche noire.
+
+Huit notes\u00a0: **C D E F G A B C**
+(do ré mi fa sol la si do)
+
+Voici l'astuce pour ne plus jamais l'oublier\u00a0: les écarts entre les notes suivent ce schéma
+**ton–ton–demi-ton–ton–ton–ton–demi-ton**
+
+Les deux demi-tons tombent exactement sur **E→F** et **B→C**, les deux seules paires de touches blanches de tout le clavier sans touche noire entre elles. Rien à apprendre par cœur\u00a0: il suffit de regarder.
+
+Main droite\u00a0: **1-2-3**, puis **passez le pouce sous la paume** pour atteindre F, et continuez avec **1-2-3-4-5**
+
+Regardez le clavier ci-dessus\u00a0: je vous la joue, un doigt à la fois 👆`,
+      ar:
+`**سلم C ماجور** هو أكثر السلالم أساسيةً، والوحيد الذي يُعزف كله على **المفاتيح البيضاء** — ولا مفتاح أسود واحد فيه.
+
+ثماني نوتات: **C D E F G A B C**
+(دو ري مي فا صول لا سي دو)
+
+وإليك الحيلة التي تثبّته في ذاكرتك مدى الحياة — المسافات بين النوتات تسير هكذا:
+**نغمة–نغمة–نصف–نغمة–نغمة–نغمة–نصف**
+
+ويقع نصف النغمة في موضعين بالضبط: عند **E→F** وعند **B→C**، وهما الزوجان الوحيدان على لوحة المفاتيح كلها اللذان لا يفصل بينهما مفتاح أسود. لذلك لا تحتاج إلى حفظ شيء، يكفي أن تراه بعينك.
+
+اليد اليمنى: **1-2-3**، ثم **مرّر إبهامك تحت راحة يدك** لتصل إلى F، وتابع **1-2-3-4-5**
+
+انظر إلى لوحة المفاتيح أعلاه — أنا أعزفه لك إصبعًا إصبعًا 👆`,
     },
     demo: [
       { n: ["C4"], d: 400, f: { C4: 1 } },
@@ -133,10 +192,13 @@ Look at the keyboard above — I'm playing it for you, one finger at a time 👆
   {
     id: "chords",
     chip: { th: "🎸 สอนคอร์ดพื้นฐาน", en: "🎸 The four chords", zh: "🎸 最基础的和弦",
-      ja: "🎸 基本の4つのコード", ko: "🎸 기본 4가지 코드", ru: "🎸 Четыре главных аккорда" },
+      ja: "🎸 基本の4つのコード", ko: "🎸 기본 4가지 코드", ru: "🎸 Четыре главных аккорда",
+      hi: "🎸 चार कॉर्ड", es: "🎸 Los cuatro acordes", fr: "🎸 Les quatre accords", ar: "🎸 الأكوردات الأربعة" },
     ask: { th: "สอนคอร์ดพื้นฐานหน่อย", en: "Teach me the basic chords", zh: "教我最基础的和弦",
-      ja: "基本のコードを教えて", ko: "기본 코드를 알려 주세요", ru: "Научите меня основным аккордам" },
-    demoLabel: { th: "C · G · Am · F", en: "C · G · Am · F", zh: "C · G · Am · F", ja: "C · G · Am · F", ko: "C · G · Am · F", ru: "C · G · Am · F" },
+      ja: "基本のコードを教えて", ko: "기본 코드를 알려 주세요", ru: "Научите меня основным аккордам",
+      hi: "मुझे बेसिक कॉर्ड सिखाइए", es: "Enséñame los acordes básicos", fr: "Apprenez-moi les accords de base", ar: "علّمني الأكوردات الأساسية" },
+    demoLabel: { th: "C · G · Am · F", en: "C · G · Am · F", zh: "C · G · Am · F", ja: "C · G · Am · F", ko: "C · G · Am · F", ru: "C · G · Am · F",
+      hi: "C · G · Am · F", es: "C · G · Am · F", fr: "C · G · Am · F", ar: "C · G · Am · F" },
     answer: {
       th:
 `มีคอร์ดอยู่ **4 ตัว** ที่ถ้าเล่นได้ คุณจะเล่นเพลงป็อปได้เป็นพัน ๆ เพลง:
@@ -216,6 +278,58 @@ And look closely: **Am is simply C shifted up by one note**. Watch while I play 
 Одно наблюдение, которое очень помогает: все четыре аккорда играются **только на белых клавишах**, потому что все они принадлежат тональности до мажор (C). Чёрных клавиш вы не касаетесь вовсе.
 
 И присмотритесь: **Am — это просто C, в котором нота G поднята до A.** Ноты C и E остаются теми же. Смотрите, как я играю их выше 👆`,
+      hi:
+`**चार कॉर्ड** ऐसे हैं कि इन्हें सीख लेने पर आप हज़ारों पॉप गाने बजा सकते हैं:
+
+**C** = C–E–G
+**G** = G–B–D
+**Am** = A–C–E
+**F** = F–A–C
+
+इन्हें इसी क्रम में बारी-बारी से बजाइए — **C → G → Am → F** — और फिर दोहराइए। यही कॉर्ड प्रोग्रेशन अनगिनत हिट गानों में मौजूद है: Let It Be से लेकर आज सुबह कैफ़े में बज रहे गाने तक।
+
+एक बात जो बहुत काम आती है: चारों कॉर्ड **सिर्फ़ सफ़ेद कीज़ पर बजते हैं**, क्योंकि चारों C मेजर स्केल के ही नोटों से बने हैं। काली कीज़ को छूने की नौबत ही नहीं आती।
+
+और ज़रा ग़ौर से देखिए: **Am दरअसल C ही है, बस G को एक नोट ऊपर खिसकाकर A कर दिया गया है।** C और E वही रहते हैं। ऊपर मैं इन्हें बजाकर दिखा रहा हूँ — देखिए 👆`,
+      es:
+`Hay **cuatro acordes** que, cuando los dominas, te abren la puerta a miles de canciones pop:
+
+**C** = C–E–G
+**G** = G–B–D
+**Am** = A–C–E
+**F** = F–A–C
+
+Tócalos en este orden, **C → G → Am → F**, y vuelve a empezar. Es la progresión que se esconde en una cantidad asombrosa de éxitos, desde Let It Be hasta lo que sonaba esta mañana en la cafetería.
+
+Una observación que ayuda muchísimo: los cuatro se tocan **solo con teclas blancas**, porque todos pertenecen a la tonalidad de Do. No tocas ninguna tecla negra.
+
+Y fíjate bien: **Am es simplemente C con la nota G subida hasta A**. C y E se quedan igual. Mira cómo los toco arriba 👆`,
+      fr:
+`Il y a **quatre accords** qui, dès que vous savez les jouer, ouvrent la porte à des milliers de chansons pop\u00a0:
+
+**C** = C–E–G
+**G** = G–B–D
+**Am** = A–C–E
+**F** = F–A–C
+
+Enchaînez-les dans cet ordre — **C → G → Am → F** — puis repartez du début. Cette progression se cache derrière un nombre incroyable de tubes, de Let It Be à la chanson qui passait ce matin au café.
+
+Une remarque qui aide énormément\u00a0: les quatre se jouent **uniquement sur les touches blanches**, car ils appartiennent tous à la tonalité de Do majeur. Vous ne touchez jamais une touche noire.
+
+Et observez bien\u00a0: **Am, c'est simplement C dont la note G monte jusqu'à A.** C et E ne bougent pas. Regardez-moi les jouer sur le clavier ci-dessus 👆`,
+      ar:
+`هناك **أربعة أكوردات** إذا أتقنت عزفها فتحت لك الباب إلى آلاف أغاني البوب:
+
+**C** = C–E–G
+**G** = G–B–D
+**Am** = A–C–E
+**F** = F–A–C
+
+اعزفها بهذا الترتيب — **C → G → Am → F** — ثم ابدأ من جديد. هذا التتابع موجود في عدد هائل من الأغاني الناجحة، من Let It Be إلى الأغنية التي كانت تُسمع في المقهى هذا الصباح.
+
+ملاحظة تفيدك كثيرًا: الأكوردات الأربعة كلها **تُعزف على المفاتيح البيضاء فقط**، لأنها جميعًا من درجة C. فلن تلمس أي مفتاح أسود أبدًا.
+
+وانظر جيدًا: **Am هو ببساطة C بعد رفع نوتة G إلى A**. تبقى النوتتان C و E كما هما. شاهدني أعزفها أعلاه 👆`,
     },
     demo: [
       { n: ["C4", "E4", "G4"], d: 900, say: "C" },
@@ -227,10 +341,13 @@ And look closely: **Am is simply C shifted up by one note**. Watch while I play 
   {
     id: "basics",
     chip: { th: "🎹 สอน Piano ขั้นพื้นฐาน", en: "🎹 Piano from scratch", zh: "🎹 钢琴入门基础",
-      ja: "🎹 ピアノの基礎から", ko: "🎹 피아노 기초부터", ru: "🎹 Пианино с нуля" },
+      ja: "🎹 ピアノの基礎から", ko: "🎹 피아노 기초부터", ru: "🎹 Пианино с нуля",
+      hi: "🎹 शुरू से पियानो", es: "🎹 Piano desde cero", fr: "🎹 Le piano de zéro", ar: "🎹 البيانو من الصفر" },
     ask: { th: "สอน Piano ขั้นพื้นฐานให้หน่อย", en: "Teach me the piano basics", zh: "教我钢琴的基础",
-      ja: "ピアノの基礎を教えて", ko: "피아노 기초를 알려 주세요", ru: "Научите меня основам игры на пианино" },
-    demoLabel: { th: "5-FINGER POSITION", en: "5-FINGER POSITION", zh: "五指位置", ja: "5本指ポジション", ko: "다섯 손가락 자리", ru: "ПЯТИПАЛАЯ ПОЗИЦИЯ" },
+      ja: "ピアノの基礎を教えて", ko: "피아노 기초를 알려 주세요", ru: "Научите меня основам игры на пианино",
+      hi: "मुझे पियानो की बुनियादी बातें सिखाइए", es: "Enséñame lo básico del piano", fr: "Apprenez-moi les bases du piano", ar: "علّمني أساسيات البيانو" },
+    demoLabel: { th: "5-FINGER POSITION", en: "5-FINGER POSITION", zh: "五指位置", ja: "5本指ポジション", ko: "다섯 손가락 자리", ru: "ПЯТИПАЛАЯ ПОЗИЦИЯ",
+      hi: "5 उँगलियों की पोज़ीशन", es: "POSICIÓN DE 5 DEDOS", fr: "POSITION DES 5 DOIGTS", ar: "وضعية 5 أصابع" },
     answer: {
       th:
 `เริ่มจากสิ่งเดียวที่ต้องจำให้ได้ก่อนเลยครับ: **หา C ให้เจอ**
@@ -310,6 +427,58 @@ Try it along with me 👆`,
 **Форма руки:** мягко округлите пальцы, будто держите в ладони маленький мячик. Ладонь ни в коем случае не должна быть плоской. Нажимайте подушечками пальцев, запястье держите свободным.
 
 Попробуйте вместе со мной 👆`,
+      hi:
+`सबसे पहले वह एक बात, जो हर चीज़ से पहले पता होनी चाहिए: **C ढूँढना**।
+
+**दो काली कीज़** का एक जोड़ा खोजिए, जो साथ-साथ हों। उनके **ठीक बाईं ओर** वाली सफ़ेद की हमेशा **C** होती है — पूरे कीबोर्ड पर, बिना किसी अपवाद के। पियानो के बीच के पास वाली C को **मिडिल C (middle C)** कहते हैं।
+
+अब अपना दायाँ हाथ **C D E F G** पर रखिए। यह है **पाँच उँगलियों की पोज़ीशन**, और इसी से सैकड़ों आसान धुनें हाथ को एक बार भी हिलाए बिना बजाई जा सकती हैं।
+
+**उँगलियों के नंबर** (दोनों हाथों में एक जैसे, हमेशा अँगूठे से बाहर की ओर गिने जाते हैं):
+**1** अँगूठा · **2** तर्जनी · **3** मध्यमा · **4** अनामिका · **5** कनिष्ठा
+
+**हाथ का आकार:** उँगलियों को हल्का-सा मोड़िए, जैसे हथेली में छोटी गेंद पकड़ी हो। हथेली को कभी सपाट न होने दीजिए। उँगलियों के सिरों से कीज़ दबाइए और कलाई ढीली रखिए।
+
+मेरे साथ-साथ बजाकर देखिए 👆`,
+      es:
+`Empieza por lo único que tienes que saber antes que nada: **encontrar C**.
+
+Busca un grupo de **dos teclas negras** juntas. La tecla blanca **justo a su izquierda** es siempre **C**, en todo el teclado y sin excepciones. La que está cerca del centro del piano se llama **Do central (middle C)**.
+
+Ahora apoya la mano derecha sobre **C D E F G**. Esta es la **posición de cinco dedos**, y desde ella se pueden tocar cientos de piezas sencillas sin mover la mano ni una sola vez.
+
+**Números de los dedos** (iguales en las dos manos, siempre se cuentan desde el pulgar hacia fuera):
+**1** pulgar · **2** índice · **3** corazón · **4** anular · **5** meñique
+
+**Forma de la mano:** curva los dedos con suavidad, como si sostuvieras una pelota pequeña en la palma. Nunca dejes la palma plana. Toca con la yema de los dedos y mantén la muñeca relajada.
+
+Pruébalo conmigo 👆`,
+      fr:
+`Commençons par la seule chose à savoir avant toute autre\u00a0: **trouver le Do (C)**.
+
+Repérez un groupe de **deux touches noires** côte à côte. La touche blanche **juste à leur gauche** est toujours un **C** («\u00a0do\u00a0»), partout sur le clavier, sans exception. Celui qui se trouve vers le milieu du piano s'appelle le **Do central (middle C)**.
+
+Maintenant, posez la main droite sur **C D E F G**. C'est la **position des cinq doigts**, et des centaines de morceaux simples se jouent à partir de cette position, sans jamais bouger la main.
+
+**Numéros des doigts** (les mêmes aux deux mains, toujours comptés à partir du pouce)\u00a0:
+**1** pouce · **2** index · **3** médius · **4** annulaire · **5** auriculaire
+
+**Position de la main\u00a0:** arrondissez doucement les doigts, comme si vous teniez une petite balle au creux de la paume. Ne laissez jamais la paume s'aplatir. Jouez avec le bout des doigts et gardez le poignet souple.
+
+Essayez avec moi 👆`,
+      ar:
+`ابدأ بالشيء الوحيد الذي يجب أن تعرفه قبل أي شيء آخر: **اعثر على C**.
+
+ابحث عن مجموعة من **مفتاحين أسودين** متجاورين. المفتاح الأبيض **على يسارهما مباشرةً** هو دائمًا **C** — في كل مكان على لوحة المفاتيح، بلا استثناء. ويُسمّى المفتاح الذي يقع قرب منتصف البيانو **C الوسطى (middle C)**.
+
+الآن ضع يدك اليمنى على **C D E F G**. هذه هي **وضعية الأصابع الخمسة**، ويمكن عزف مئات المقطوعات البسيطة انطلاقًا منها دون تحريك يدك ولو مرة واحدة.
+
+**أرقام الأصابع** (هي نفسها في اليدين، وتُعدّ دائمًا من الإبهام إلى الخارج):
+**1** الإبهام · **2** السبابة · **3** الوسطى · **4** البنصر · **5** الخنصر
+
+**شكل اليد:** قوّس أصابعك برفق كأنك تمسك كرة صغيرة في راحة يدك. لا تدع راحة يدك تنبسط أبدًا. اضغط بأطراف الأصابع وأبقِ المعصم مرتخيًا.
+
+جرّب معي 👆`,
     },
     demo: [
       { n: ["C4"], d: 480, f: { C4: 1 } },
@@ -323,10 +492,13 @@ Try it along with me 👆`,
   {
     id: "triad",
     chip: { th: "🎵 สอน Triad", en: "🎵 What a triad is", zh: "🎵 什么是三和弦",
-      ja: "🎵 三和音とは", ko: "🎵 3화음이란", ru: "🎵 Что такое трезвучие" },
+      ja: "🎵 三和音とは", ko: "🎵 3화음이란", ru: "🎵 Что такое трезвучие",
+      hi: "🎵 ट्रायड क्या होता है", es: "🎵 Qué es una tríada", fr: "🎵 Ce qu'est une triade", ar: "🎵 ما هو الأكورد الثلاثي" },
     ask: { th: "สอน Triad หน่อย", en: "Teach me what a triad is", zh: "教我什么是三和弦",
-      ja: "三和音とは何か教えて", ko: "3화음이 뭔지 알려 주세요", ru: "Объясните, что такое трезвучие" },
-    demoLabel: { th: "MAJOR → MINOR", en: "MAJOR → MINOR", zh: "大三 → 小三", ja: "メジャー → マイナー", ko: "메이저 → 마이너", ru: "МАЖОР → МИНОР" },
+      ja: "三和音とは何か教えて", ko: "3화음이 뭔지 알려 주세요", ru: "Объясните, что такое трезвучие",
+      hi: "मुझे सिखाइए कि ट्रायड क्या होता है", es: "Enséñame qué es una tríada", fr: "Apprenez-moi ce qu'est une triade", ar: "علّمني ما هو الأكورد الثلاثي" },
+    demoLabel: { th: "MAJOR → MINOR", en: "MAJOR → MINOR", zh: "大三 → 小三", ja: "メジャー → マイナー", ko: "메이저 → 마이너", ru: "МАЖОР → МИНОР",
+      hi: "मेजर → माइनर", es: "MAYOR → MENOR", fr: "MAJEUR → MINEUR", ar: "ماجور ← مينور" },
     answer: {
       th:
 `**Triad** คือคอร์ด 3 เสียง สร้างจากการวาง "คู่สาม" ซ้อนกันสองชั้น
@@ -406,6 +578,58 @@ Remember these two lines and you can build a triad in all 12 keys:
 Запомните две строки — и сможете построить трезвучие в любой из 12 тональностей:
 **4 + 3 = мажор** (светлое звучание)
 **3 + 4 = минор** (грустное звучание)`,
+      hi:
+`**ट्रायड** तीन नोट का कॉर्ड होता है, जो दो “थर्ड” को एक के ऊपर एक रखकर बनता है।
+
+**C मेजर ट्रायड = C – E – G**
+· **C** है **रूट**
+· **E** है **थर्ड** — C से **4 सेमीटोन** ऊपर
+· **G** है **फ़िफ़्थ** — E से और **3 सेमीटोन** ऊपर
+
+अब मज़े की बात: **थर्ड को सिर्फ़ एक सेमीटोन नीचे कर दीजिए** (E बन जाता है **E♭**) और यह उसी पल **C माइनर** बन जाता है। आवाज़ का उदास हो जाना साफ़ सुनाई देता है। ऊपर मैंने जो दो कॉर्ड बजाए, उनकी तुलना कीजिए।
+
+ये दो पंक्तियाँ याद रखिए, और आप सभी 12 नोटों से शुरू करके ट्रायड बना सकते हैं:
+**4 + 3 = मेजर** (उजला)
+**3 + 4 = माइनर** (उदास)`,
+      es:
+`Una **tríada** es un acorde de tres notas que se forma apilando dos «terceras» una sobre otra.
+
+**Tríada de Do mayor = C – E – G**
+· **C** es la **fundamental**
+· **E** es la **tercera**: **4 semitonos** por encima de C
+· **G** es la **quinta**: otros **3 semitonos** por encima de E
+
+Ahora viene lo divertido: **baja la tercera un solo semitono** (E pasa a ser **E♭**) y se convierte al instante en **Do menor**. Se oye cómo se vuelve triste. Compara los dos acordes que acabo de tocar arriba.
+
+Recuerda estas dos líneas y podrás formar una tríada en las 12 tonalidades:
+**4 + 3 = mayor** (brillante)
+**3 + 4 = menor** (triste)`,
+      fr:
+`Une **triade** est un accord de trois notes, construit en empilant deux «\u00a0tierces\u00a0» l'une sur l'autre.
+
+**Triade de Do majeur = C – E – G**
+· **C** est la **fondamentale**
+· **E** est la **tierce** — **4\u00a0demi-tons** au-dessus de C
+· **G** est la **quinte** — encore **3\u00a0demi-tons** au-dessus de E
+
+Voici la partie amusante\u00a0: **baissez la tierce d'un seul demi-ton** (E devient **E♭**) et vous obtenez aussitôt un accord de **Do mineur**. On entend tout de suite qu'il devient triste. Comparez les deux accords que je viens de jouer ci-dessus.
+
+Retenez ces deux lignes et vous saurez construire une triade dans les 12\u00a0tonalités\u00a0:
+**4 + 3 = majeur** (lumineux)
+**3 + 4 = mineur** (triste)`,
+      ar:
+`**الأكورد الثلاثي** هو أكورد من ثلاث نوتات، يُبنى بوضع «ثالثتين» إحداهما فوق الأخرى.
+
+**الأكورد الثلاثي C ماجور = C – E – G**
+· **C** هي **الجذر**
+· **E** هي **الثالثة** — فوق C بمقدار **4 أنصاف نغمة**
+· **G** هي **الخامسة** — فوق E بمقدار **3 أنصاف نغمة** أخرى
+
+والآن الجزء الممتع: **اخفض الثالثة نصف نغمة واحدة فقط** (تصبح E هي **E♭\u200e**) فيتحوّل الأكورد فورًا إلى **C مينور**. ستسمعه يصير حزينًا. قارن بين الأكوردين اللذين عزفتهما لك للتو أعلاه.
+
+تذكّر هذين السطرين وستتمكن من بناء أكورد ثلاثي في الدرجات كلها، وعددها 12:
+**4 + 3 = ماجور** (مشرق)
+**3 + 4 = مينور** (حزين)`,
     },
     demo: [
       { n: ["C4", "E4", "G4"], d: 1100, f: { C4: 1, E4: 3, G4: 5 }, say: "C MAJOR" },

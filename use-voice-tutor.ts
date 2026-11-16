@@ -453,11 +453,14 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     zh: ["嗯", "呃", "那个", "这个", "就是", "然后", "还有", "但是", "所以", "因为", "和", "跟", "我想", "我要", "可以", "帮我"],
   };
   function vmTrailingHesitation(t) {
-    const s = (t || "").trim().toLowerCase().replace(/[.,!?…。！？]+$/g, "");
+    const s = (t || "").trim().toLowerCase().replace(/[.,!?…。！？।؟،]+$/g, "");   // । is the Hindi full stop, ؟ and ، the Arabic question mark and comma
     if (!s) return false;
     const lg = langRef.current;
     const list = by(VM_HESIT, lg) || VM_HESIT.en;
     if (lg === "en") { const last = s.split(/\s+/).pop(); return list.includes(last); }
+    // ru / hi / es / fr / ar put spaces between words, so a trailing hesitation is a whole word (or phrase) at the end, never just the same last letters: endsWith("a") called every Spanish
+    // sentence that ends in "la escala" a trailing "a" and made the tutor wait 850 ms longer. th / zh / ja / ko have no word gaps (or glue particles on), so their tail is compared as before.
+    if (lg !== "th" && lg !== "zh" && lg !== "ja" && lg !== "ko") return list.some(w => { const v = String(w).toLowerCase(); return s === v || s.endsWith(" " + v); });
     return list.some(w => s.endsWith(w));
   }
   function vmStartListen() {

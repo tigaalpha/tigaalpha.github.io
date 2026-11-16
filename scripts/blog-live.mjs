@@ -56,13 +56,13 @@ export async function fetchPublishedMeta(fetchImpl) {
   return all;
 }
 
-/* ja / ko / ru articles that shipped in blog-src/ are real HTML files, so Vercel serves /blog/<lang>/<slug>.html before this function.
+/* ja / ko / ru / hi / es / fr / ar articles that shipped in blog-src/ (STATIC_BLOG_LANGS) are real HTML files, so Vercel serves /blog/<lang>/<slug>.html before this function.
    Their index.html, feed.xml and page/N are left in the repo (GitHub Pages) but stripped from dist/ (scripts/copy-seo-to-dist.mjs), so on
    tigaalpha.com those three URLs reach here. The function does not read blog-src (the bundle cannot hold the bodies). It reads
    api/blog-live-catalog.json — titles only, written by the build — and merges it with published rows: a database row wins on the same
    (lang, slug), a slug that exists only as a file is still listed, and a slug published after the build (no file yet) is served as HTML
    for the .html address, the address without .html, and the trailing-slash form, the same as th / en / zh.
-   With no catalog and no rows, a ja / ko / ru index is 404 + noindex, never an empty 200 list. */
+   With no catalog and no rows, the index of a static language is 404 + noindex, never an empty 200 list. Arabic pages come out right-to-left (dir="rtl") from the same page code. */
 const CATALOG_FILE = new URL("../api/blog-live-catalog.json", import.meta.url);
 const SLUG_OK = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const byTime = (a, b) => (new Date(b.created_at) - new Date(a.created_at)) || String(a.slug).localeCompare(String(b.slug));

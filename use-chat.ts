@@ -13,7 +13,7 @@ import { tigaNow } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5
 import { streamChatCompletion, fetchChatCompletion } from "./ai-backend";
 import { jevTask, jevNoul } from "./jev";
 import { EXP, EARN, takeEarn, buildAlternatingHistory, curriculumContext, songRecommendationHint, actTopicLabel } from "./App";
-import { xl } from "./lang-extra";
+import { xl, modelLang } from "./lang-extra";
 /* ── use-chat.ts ──
    Owns the main AI-sensei chat panel: the message list + typed-input box
    + streaming Claude call (send/callClaude), the [play:]-tag reply
@@ -335,7 +335,7 @@ export function useChat({ lang, hand, playSequence, seqTimers, gainExp, earnCoin
     try {
       const hub = tigaNow();
       if (!hub || !hub.kbFallbackFor) return null;
-      const fb = hub.kbFallbackFor(q, lang);
+      const fb = hub.kbFallbackFor(q, modelLang(lang));   // the fallback lead lines exist in th / en / zh; an extra language reads as English (not Thai)
       return fb && fb.text ? fb.text : null;
     } catch (e) { return null; }
   }

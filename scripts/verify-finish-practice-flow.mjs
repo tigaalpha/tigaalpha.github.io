@@ -107,6 +107,7 @@ export function Piano() { return null; }
 writeFileSync(`${OUT}/speech-stub.js`, `/* speech pieces PracticeOverlay reads (real Web Speech APIs are browser-only) */
 export const sttSupported = false;
 export function getSR() { return null; }
+export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN" };   /* PracticeOverlay's recogniser tag (2026-11-13); the overlay falls back to localeOf() for a language the table lacks */
 `);
 /* use-practice-coach imports tigamodel/web + use-autoteach at ITS project-root
    paths — those resolve fine from the repo root (esbuild runs there), no stubs needed */

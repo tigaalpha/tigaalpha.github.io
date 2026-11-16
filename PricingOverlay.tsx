@@ -2,9 +2,9 @@ import { L } from "./i18n";
 import { CHAT_TTS_ENABLED } from "./chat-ui";
 import {
   fmtPrice, planPriceByCur, yearPriceByCur, b2bPriceByCur, b2bYearPriceByCur,
-  CURRENCY_BY_LANG, trialDaysLeft, isTrialPlan, canonicalPlan,
+  currencyOf, trialDaysLeft, isTrialPlan, canonicalPlan,
 } from "./payment";
-import { xl, by } from "./lang-extra";
+import { xl } from "./lang-extra";
 /* ── PricingOverlay ──
    The "Choose Your Plan" modal (pricingOpen), extracted from PianoApp's inline
    JSX as part of Phase 2 componentization. Pricing/currency helpers import
@@ -40,7 +40,7 @@ export function PricingOverlay({ plan: rawPlan, profile, billCycle, setBillCycle
               <p className="pr-sub">{lc.prSub}</p>
               {(() => {
                 const yr = billCycle === "year";
-                const cur = by(CURRENCY_BY_LANG, lang) || "thb";
+                const cur = currencyOf(lang) || "thb";
                 const dispMo = (tier) => fmtPrice(cur, planPriceByCur(cur, tier));
                 const dispYr = (tier) => fmtPrice(cur, yearPriceByCur(cur, tier));
                 const dispPerMoFromYr = (tier) => {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-/* smoke-blog-gate.mjs — the reading wall on the static blog pages (owner 2026-11-04: anyone may read an article; after 3 seconds of reading (a minute until 2026-11-07, 30 seconds until 2026-11-12, 15 until 2026-11-13, 5 until 2026-11-16) a pop-up in the middle of the
+/* smoke-blog-gate.mjs — the reading wall on the static blog pages in th / en / zh and, since 2026-11-13, Hindi, Spanish, French and Arabic (right-to-left) too
+   (owner 2026-11-04: anyone may read an article; after 3 seconds of reading (a minute until 2026-11-07, 30 seconds until 2026-11-12, 15 until 2026-11-13, 5 until 2026-11-16) a pop-up in the middle of the
    screen asks the reader to log in or sign up free for the TIGA AI app; since 2026-11-07 (third version) it CANNOT be closed: to read on you have to log in; the page also counts and shows the readers).
    No network and no repo files touched: scripts/build-blog-pages.mjs is run with BLOG_FIXTURE / BLOG_OUT / SITE_URL into a temp folder, served locally and driven in Chromium.
    The real 3-second wait is shortened through the test door (localStorage.tg_test_hook = "1" + ?gate_ms=<ms>).
@@ -8,7 +9,11 @@ import fs from "node:fs"; import os from "node:os"; import path from "node:path"
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let pass = 0, fail = 0; const ok = (c, m) => { if (c) { pass++; console.log("  ✓", m); } else { fail++; console.log("  ✗ FAIL:", m); } };
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "blog-gate-")); const out = path.join(tmp, "blog");
-const posts = ["th", "en", "zh"].map((lang) => ({ id: "p-" + lang, lang, slug: "piano-posture", category: "tips", title: { th: "ท่านั่งเล่นเปียโน", en: "Piano posture", zh: "钢琴坐姿" }[lang], excerpt: "x", body: "# H\n" + "para ".repeat(200) + "\n\n" + "more ".repeat(400), cover_url: null, published: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" }));
+// th / en / zh are database rows in production; the page code is the same for ja / ko / ru / hi / es / fr / ar, which ship as source files, so the same fixture rows give their pages here (the generator writes their index itself).
+// All ten languages have a row, so every page carries the full hreflang cluster of ten.
+const LANGS7 = ["th", "en", "zh", "hi", "es", "fr", "ar"], NEWL = ["hi", "es", "fr", "ar"], ALL10 = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
+const TITLES = { th: "ท่านั่งเล่นเปียโน", en: "Piano posture", zh: "钢琴坐姿", ja: "ピアノの姿勢と座り方", ko: "피아노 자세와 앉는 법", ru: "Посадка за фортепиано", hi: "पियानो बजाते समय बैठने का सही तरीका", es: "Postura correcta al sentarse al piano", fr: "La bonne posture au piano", ar: "وضعية الجلوس الصحيحة: 15 دقيقة في TIGA ALPHA" };
+const posts = ALL10.map((lang) => ({ id: "p-" + lang, lang, slug: "piano-posture", category: "tips", title: TITLES[lang], excerpt: "x", body: "# H\n" + "para ".repeat(200) + "\n\n" + "more ".repeat(400), cover_url: null, published: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" }));
 fs.writeFileSync(path.join(tmp, "posts.json"), JSON.stringify(posts));
 const server = http.createServer((q, s) => { let f = path.join(tmp, decodeURIComponent(q.url.split("?")[0])); if (fs.existsSync(f) && fs.statSync(f).isDirectory()) f = path.join(f, "index.html"); if (!fs.existsSync(f)) { s.writeHead(404); return s.end("nf"); } s.writeHead(200, { "content-type": f.endsWith(".html") ? "text/html; charset=utf-8" : "text/plain" }); s.end(fs.readFileSync(f)); });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
@@ -57,8 +62,23 @@ ok(html.includes("<!--tg-gate:v7-->") && /<p class="tg-g-trial">[^<]*7[^<]*<\/p>
 ok(/openIt\(\)\},250\);/.test(html), "the reading clock ticks every 250 ms, so the wall opens within a quarter second of the reading time");
 ok(!/data-gate-close|tg-g-x|tg-g-later/.test(html) && !/Escape/.test(html), "the wall has no close button, no 'maybe later' and no Esc handler");
 ok(html.includes('"isAccessibleForFree":false') && html.includes('"cssSelector":"article"'), "the article's JSON-LD says the article is gated (isAccessibleForFree false, cssSelector article)");
+ok(html.includes("<!--tg-gate:v7-->") && html.includes("<!--/tg-gate-->"), "the wall block carries the marker <!--tg-gate:v7-->");
+for (const l of NEWL) {
+  const h = fs.readFileSync(path.join(tmp, "blog", l, "piano-posture.html"), "utf8");
+  ok(/MS=3000/.test(h) && !/MS=5000|MS=15000|MS=30000/.test(h) && h.includes("<!--tg-gate:v7-->") && h.includes("<!--/tg-gate-->") && (h.match(/id="tg-gate"/g) || []).length === 1, l + ": one wall, marker <!--tg-gate:v7-->, the reading time is 3 seconds (MS=3000)");
+  ok(/id="tg-gate"[^>]*data-nosnippet[^>]*hidden/.test(h) && !/data-gate-close|tg-g-x|tg-g-later/.test(h) && !/Escape/.test(h) && h.includes("utm_source=blog") && h.includes("utm_campaign=piano-posture") && h.includes("lg=" + l) && h.includes("go=google") && h.includes("wall=signup") && h.includes("wall=login"), l + ": hidden and data-nosnippet, no close button or Esc handler, links carry the blog attribution and lg=" + l);
+  ok(h.includes('"isAccessibleForFree":false') && h.includes('"cssSelector":"article"') && h.includes(`"inLanguage":"${l}"`), l + ": the JSON-LD says the article is gated and its language is " + l);
+  ok(h.includes(`<html lang="${l}"${l === "ar" ? ' dir="rtl"' : ""}>`) && (l === "ar") === /\[dir=rtl\]/.test(h), l + (l === "ar" ? ': <html lang="ar" dir="rtl"> and the right-to-left rules' : ": no dir attribute, no right-to-left rule"));
+  const alts = [...h.matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)">/g)].map(m => m[1]);
+  ok(alts.length === 11 && ["th", "en", "zh-Hans", "ja", "ko", "ru", "hi", "es", "fr", "ar"].every(x => alts.includes(x)) && alts.includes("x-default") && h.includes(`hreflang="x-default" href="${ORIGIN}/blog/en/piano-posture.html"`), l + ": the hreflang cluster lists all ten languages and x-default (English)");
+}
+{
+  const ix = fs.readFileSync(path.join(tmp, "blog", "ar", "index.html"), "utf8");
+  ok(ix.includes('<html lang="ar" dir="rtl">') && !ix.includes("tg-gate") && ix.includes("blog_view_counts") && ix.includes('toLocaleString("ar-u-nu-latn")'), "ar: the index is right-to-left, has no wall, and its card counter formats with Western digits (ar-u-nu-latn)");
+  ok(NEWL.every(l => fs.existsSync(path.join(tmp, "blog", l, "feed.xml")) && fs.readFileSync(path.join(tmp, "blog", l, "feed.xml"), "utf8").includes(`<language>${l}</language>`)), "hi / es / fr / ar: each has a feed with its own <language> tag");
+}
 
-for (const lang of ["th", "en", "zh"]) {
+for (const lang of LANGS7) {
   console.log(`${lang}: timing, position, text`);
   const { ctx, page } = await open(lang, { ms: 1500 });
   await page.waitForTimeout(700);
@@ -67,10 +87,13 @@ for (const lang of ["th", "en", "zh"]) {
   ok(await vis(page), "shown after the reading time");
   const r = await page.evaluate(() => { const c = document.querySelector(".tg-g-card").getBoundingClientRect(); return { cx: c.left + c.width / 2, cy: c.top + c.height / 2, w: window.innerWidth, h: window.innerHeight }; });
   ok(Math.abs(r.cx - r.w / 2) < 3 && Math.abs(r.cy - r.h / 2) < 40, "the card is in the middle of the screen");
-  const txt = await page.evaluate(() => document.getElementById("tg-gate").innerText);
-  const want = { th: ["ล็อกอินเพื่ออ่านต่อ", "ล็อกอินด้วย Google", "สมัครสมาชิกฟรี", "เข้าสู่ระบบ", "ทดลองเรียนเปียโนฟรี 7 วัน", "ไม่ต้องใช้บัตรเครดิต"], en: ["Log in to keep reading", "Continue with Google", "Sign up free", "Log in", "free for 7 days", "no credit card needed"], zh: ["登录后继续阅读", "使用 Google 继续", "免费注册", "登录", "免费试学钢琴 7 天", "无需信用卡"] }[lang];
+  const txt = (await page.evaluate(() => document.getElementById("tg-gate").innerText)).replace(/\u00a0/g, " ");   // hi / es / fr / ar keep "TIGA AI" (and es "Inicia sesión") together with a no-break space
+  const want = { th: ["ล็อกอินเพื่ออ่านต่อ", "ล็อกอินด้วย Google", "สมัครสมาชิกฟรี", "เข้าสู่ระบบ", "ทดลองเรียนเปียโนฟรี 7 วัน", "ไม่ต้องใช้บัตรเครดิต"], en: ["Log in to keep reading", "Continue with Google", "Sign up free", "Log in", "free for 7 days", "no credit card needed"], zh: ["登录后继续阅读", "使用 Google 继续", "免费注册", "登录", "免费试学钢琴 7 天", "无需信用卡"],
+    hi: ["आगे पढ़ने के लिए लॉग इन करें", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "लॉग इन करें", "7 दिन तक पियानो के पाठ मुफ़्त", "क्रेडिट कार्ड की ज़रूरत नहीं"], es: ["Inicia sesión para seguir leyendo", "Continuar con Google", "Regístrate gratis", "Inicia sesión", "gratis durante 7 días", "sin tarjeta de crédito"],
+    fr: ["Connectez-vous pour continuer à lire", "Continuer avec Google", "S'inscrire gratuitement", "Se connecter", "gratuitement pendant 7 jours", "sans carte bancaire"], ar: ["سجّل الدخول لمواصلة القراءة", "المتابعة باستخدام Google", "إنشاء حساب مجاني", "تسجيل الدخول", "مجانًا لمدة 7 أيام", "بطاقة ائتمان"] }[lang];
   ok(want.every(x => txt.includes(x)), "text is in the page's language (" + want[0] + ")");
   ok(txt.includes("TIGA AI"), "it names the TIGA AI app");
+  ok((await page.evaluate(() => getComputedStyle(document.documentElement).direction)) === (lang === "ar" ? "rtl" : "ltr") && (await page.evaluate(() => getComputedStyle(document.querySelector(".tg-g-card")).textAlign)) === "center", "text direction " + (lang === "ar" ? "rtl (dir=\"rtl\")" : "ltr") + ", the card's text is centred");
   const hrefs = await page.$$eval("#tg-gate a[data-gate]", as => as.map(a => [a.dataset.gate, a.getAttribute("href")]));
   ok(hrefs.length === 3 && hrefs.every(([, h]) => h.startsWith(ORIGIN + "/?") && h.includes("lg=" + lang)), "three links into the app with the page language");
   ok((await page.evaluate(() => document.documentElement.style.overflow)) === "hidden", "the page behind does not scroll while it is open");
@@ -120,10 +143,37 @@ console.log("the wall cannot be closed");
   await fresh.ctx.close();
 }
 
+{
+  // the same wall in Arabic (right-to-left): nothing about it depends on the language
+  const { ctx, page } = await open("ar", { ms: 1000 });
+  await page.waitForTimeout(1700); ok(await vis(page), "ar: shown after the reading time");
+  await page.keyboard.press("Escape"); ok(await vis(page), "ar: Escape does not close it");
+  await page.mouse.click(6, 6); await page.waitForTimeout(100); ok(await vis(page), "ar: a tap on the dimmed backdrop does not close it");
+  await page.click(".tg-g-card h2"); ok(await vis(page), "ar: a tap on the card's own text does not close it");
+  for (let i = 0; i < 6; i++) await page.keyboard.press("Tab");
+  ok(await page.evaluate(() => !!document.activeElement && !!document.activeElement.closest("#tg-gate")), "ar: the keyboard cannot leave the wall (the page behind is inert)");
+  ok(await page.evaluate(() => document.querySelector("main").hasAttribute("inert") && document.querySelector("header.top").hasAttribute("inert")) && (await page.evaluate(() => document.documentElement.style.overflow)) === "hidden", "ar: the article and the header behind it are inert, scrolling is locked");
+  await page.evaluate(() => localStorage.setItem("sb-abcdefgh-auth-token", JSON.stringify({ access_token: "x" })));
+  await page.waitForTimeout(900);
+  ok(!(await vis(page)), "ar: it lifts by itself once a session appears");
+  ok((await page.evaluate(() => document.documentElement.style.overflow)) !== "hidden" && (await page.evaluate(() => !document.querySelector("main").hasAttribute("inert"))), "ar: ...scrolling and the page behind are given back");
+  await ctx.close();
+}
+
 console.log("who does not see it");
 {
   const { ctx, page } = await open("th", { ms: 600, session: true });
   await page.waitForTimeout(2000); ok(!(await vis(page)), "a member (a session in this browser) never sees it");
+  await ctx.close();
+}
+for (const lang of NEWL) {
+  const { ctx, page } = await open(lang, { ms: 600, session: true });
+  await page.waitForTimeout(2000); ok(!(await vis(page)), lang + ": a member never sees it");
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open("ar", { ms: 600, ua: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" });
+  await page.waitForTimeout(2000); ok(!(await vis(page)), "ar: a crawler is never walled (it reads the whole article)");
   await ctx.close();
 }
 {
@@ -145,15 +195,15 @@ console.log("who does not see it");
 }
 
 console.log("clicking through");
-{
-  const { ctx, page } = await open("zh", { ms: 600 });
+for (const lgx of ["zh", "hi", "es", "fr", "ar"]) {
+  const { ctx, page } = await open(lgx, { ms: 600 });
   await page.waitForTimeout(1300);
   let target = "";
   await page.route("**/*", route => { const u = route.request().url(); if (route.request().isNavigationRequest() && !u.includes("/blog/")) { target = u; return route.fulfill({ status: 200, contentType: "text/html", body: "<title>app</title>" }); } route.continue(); });
   await page.click("[data-gate=signup]"); await page.waitForTimeout(500);
-  ok(target.includes("wall=signup") && target.includes("utm_source=blog") && target.includes("lg=zh"), "sign up opens the app on its sign-up tab with the attribution");
+  ok(target.includes("wall=signup") && target.includes("utm_source=blog") && target.includes("lg=" + lgx), lgx + ": sign up opens the app on its sign-up tab with the attribution");
   const lang = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("tg_guest_profile") || "{}").lang; } catch (e) { return null; } });
-  ok(lang === "zh", "the app is told to open in the page's language (guest profile lang = zh)");
+  ok(lang === lgx, lgx + ": the app is told to open in the page's language (guest profile lang = " + lang + ")");
   await ctx.close();
 }
 
@@ -168,14 +218,26 @@ console.log("a phone");
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + "-phone.png" });
   await ctx.close();
 }
+for (const lang of NEWL) {
+  // the smallest phone (320 x 568): the card fits with no scrolling of its own, no label is cut off, the buttons are at least 44 px tall
+  const { ctx, page } = await open(lang, { ms: 600, w: 320, h: 568 });
+  await page.waitForTimeout(1500); const shown = await vis(page);
+  const m = await page.evaluate(() => { const card = document.querySelector(".tg-g-card"), c = card.getBoundingClientRect(), links = [...document.querySelectorAll("#tg-gate a.tg-g-btn, #tg-gate a.tg-g-login")]; return { l: c.left, r: c.right, t: c.top, b: c.bottom, w: innerWidth, h: innerHeight, hs: links.map(b => Math.round(b.getBoundingClientRect().height)), cut: links.filter(b => b.scrollWidth > b.clientWidth + 1).length, inner: card.scrollHeight - card.clientHeight, sx: document.documentElement.scrollWidth > innerWidth }; });
+  ok(shown && m.l >= 0 && m.r <= m.w && m.t >= 0 && m.b <= m.h && !m.sx && m.cut === 0 && m.inner <= 1, lang + ": shown on a 320x568 phone, the card fits with no scrolling of its own and no cut-off label (card " + Math.round(m.b - m.t) + " px high)");
+  ok(m.hs.slice(0, 2).every(x => x >= 44), lang + ": the Google and sign-up buttons are at least 44 px tall at 320 px (" + m.hs.join("/") + ")");
+  if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + "-" + lang + "-320.png" });
+  await ctx.close();
+}
 if (process.env.SHOT) { const { ctx, page } = await open("th", { ms: 600 }); await page.waitForTimeout(1400); await page.screenshot({ path: process.env.SHOT + "-desktop.png" }); await ctx.close(); }
 
 console.log("reader count (owner 2026-11-07)");
-for (const [lang, unit] of [["th", "ยอดวิว"], ["en", "views"], ["zh", "次浏览"]]) {
+// the number is formatted in the page's own locale (hi-IN / es-ES / fr-FR / ar with Western digits): es-ES does not group four digits, fr-FR groups with a narrow no-break space
+const NUMRE = { th: /1,234/, en: /1,234/, zh: /1,234/, hi: /1,234/, es: /(^|[^\d.,])1234(?!\d)/, fr: /1[\s\u00a0\u202f]234/, ar: /1,234/ };
+for (const [lang, unit] of [["th", "ยอดวิว"], ["en", "views"], ["zh", "次浏览"], ["hi", "व्यूज़"], ["es", "visualizaciones"], ["fr", "vues"], ["ar", "مشاهدة"]]) {
   const { ctx, page, calls } = await open(lang, { ms: 1200, rpc: { views: 1234 } });
-  await page.waitForTimeout(500);
+  await page.waitForFunction(() => { const e = document.querySelector(".tg-views"); return !!e && !e.hidden; }, null, { timeout: 4000 }).catch(() => {});
   const b = await page.evaluate(() => { const e = document.querySelector(".tg-views"); return e ? { text: e.textContent, hidden: e.hidden, inMeta: !!e.closest("article .meta") } : null; });
-  ok(b && !b.hidden && /1,234/.test(b.text) && b.text.includes(unit) && b.inMeta, lang + ": the number of readers shows beside the date (" + (b && b.text.trim()) + ")");
+  ok(b && !b.hidden && NUMRE[lang].test(b.text) && b.text.includes(unit) && b.inMeta, lang + ": the number of readers shows beside the date (" + (b && b.text.trim()) + ")");
   const v = calls.find(c => c.name === "blog_hit" && c.p_kind === "view");
   ok(v && v.p_lang === lang && v.p_slug === "piano-posture" && /^[A-Za-z0-9_-]{8,64}$/.test(v.p_vid), lang + ": one view is sent with the language, the article and a device id");
   ok(!JSON.stringify(calls).match(/email|user_id|@/), lang + ": nothing personal is sent");
@@ -231,6 +293,15 @@ for (const [lang, unit] of [["th", "ยอดวิว"], ["en", "views"], ["zh"
   const t = await page.$$eval("a.card .tg-cv", n => n.map(x => x.textContent));
   ok(t.length === 1 && t[0].includes("55") && t[0].includes("次浏览"), "the list page shows the number on the article's card (" + t[0] + ")");
   ok(calls.some(c => c.name === "blog_view_counts" && c.p_lang === "zh"), "one call per list");
+  await ctx.close();
+}
+{
+  const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 }, userAgent: UA });
+  const calls = await stubRpc(ctx, { counts: [{ slug: "piano-posture", views: 55 }, { slug: "other", views: 7 }] });
+  const page = await ctx.newPage(); await page.goto(`${ORIGIN}/blog/ar/`); await page.waitForFunction(() => document.querySelectorAll("a.card .tg-cv").length > 0, null, { timeout: 4000 }).catch(() => {});
+  const t = await page.$$eval("a.card .tg-cv", n => n.map(x => x.textContent));
+  ok(t.length === 1 && t[0].includes("55") && t[0].includes("مشاهدة") && !t[0].includes("مشاهدات"), "ar: the list page shows the number on the article's card (" + t[0] + ")");
+  ok(calls.some(c => c.name === "blog_view_counts" && c.p_lang === "ar") && (await page.evaluate(() => getComputedStyle(document.documentElement).direction)) === "rtl", "ar: one call per list, for ar, in a right-to-left page");
   await ctx.close();
 }
 console.log("review fixes (2026-11-07): what is and is not counted");
@@ -301,6 +372,18 @@ console.log("pages kept from an earlier build are brought up to date");
   ok(fs.readFileSync(path.join(keep, "th", "index.html"), "utf8").includes("blog_view_counts"), "the list page gets the counter script");
   execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
   ok(fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8") === k, "running it again changes nothing");
+}
+{
+  // a kept Arabic page (right-to-left) gets the current wall in Arabic too, and stays right-to-left
+  const keep = path.join(tmp, "keep-ar"); fs.mkdirSync(path.join(keep, "ar"), { recursive: true });
+  const cur = fs.readFileSync(path.join(tmp, "blog", "ar", "piano-posture.html"), "utf8");
+  const oldGate = '<style>#tg-gate{position:fixed}</style><div id="tg-gate" hidden><div class="tg-g-card"><a data-gate="google">x</a></div></div><script>var OLD_ONE_MINUTE=60000;</script>';
+  fs.writeFileSync(path.join(keep, "ar", "piano-posture.html"), cur.replace(/<!--tg-gate:v\d+-->[\s\S]*<!--\/tg-gate-->/, oldGate));
+  ok(fs.readFileSync(path.join(keep, "ar", "piano-posture.html"), "utf8").includes("OLD_ONE_MINUTE"), "(fixture: an Arabic page with the one-minute gate)");
+  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
+  const k = fs.readFileSync(path.join(keep, "ar", "piano-posture.html"), "utf8");
+  ok(!k.includes("OLD_ONE_MINUTE") && k.includes("MS=3000") && k.includes("<!--tg-gate:v7-->") && (k.match(/id="tg-gate"/g) || []).length === 1 && k.includes('<html lang="ar" dir="rtl">') && k.includes("سجّل الدخول لمواصلة القراءة"), "ar: the old gate is replaced by the current Arabic one (3 s), once, and the page stays right-to-left");
+  ok(k === cur, "...byte for byte the page the generator writes");
 }
 
 ok(errs.length === 0, "no page errors" + (errs.length ? ": " + [...new Set(errs)].slice(0, 3).join(" | ") : ""));

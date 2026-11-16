@@ -1,4 +1,4 @@
-// Drives the BUILT landing page (/landing/) in headless Chromium with every Supabase call stubbed
+// Drives the BUILT landing pages (/landing/, and /landing-hi|es|fr|ar/ for the four languages added on 2026-11-13) in headless Chromium with every Supabase call stubbed
 // (nothing is written): the campaign tags reach the "attr" row, ?v=b serves the variant (headline, lit keys,
 // first-song button), the escape from an in-app browser carries the visitor across, and the magic-link
 // redirect carries the visit. Run after `npm run build`:   node scripts/verify-landing-attribution.mjs
@@ -7,7 +7,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execSync } from "node:child_process";
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = process.env.LANDING_ROOT ? path.resolve(process.env.LANDING_ROOT) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");   // LANDING_ROOT: a folder laid out like the repo root (landing/bundle, landing-xx/index.html), e.g. a build into a temp folder
 let pwm;
 try { pwm = await import("playwright"); } catch (e) { pwm = await import(pathToFileURL(path.join(execSync("npm root -g", { encoding: "utf8" }).trim(), "playwright/index.js")).href); }
 const pw = pwm.chromium ? pwm : pwm.default;
@@ -144,6 +144,43 @@ const items = (ev, kind) => ev.filter(e => e.kind === kind).map(e => e.item_id);
   ok(items(events, "land").includes("signup:email-otp"), "signup:email-otp is still logged at submit");
   ok(errs.length === 0, "no page errors", errs.join("|"));
   await ctx.close();
+}
+
+/* 5. hi / es / fr / ar (2026-11-13): each page logs its own language, opens in it with its own direction, and the sign-up card's
+   magic link carries that language across (hlg=<lang>), so an account made on /landing-ar/ is filed under Arabic */
+for (const [lg, dir] of [["hi", "ltr"], ["es", "ltr"], ["fr", "ltr"], ["ar", "rtl"]]) {
+  {
+    const { ctx, p, events, errs } = await newPage(CHROME_UA);
+    await p.goto(BASE + "/landing-" + lg + "/?utm_source=fb&utm_campaign=nov", { waitUntil: "load" });
+    await p.waitForTimeout(1800);
+    const attr = items(events, "attr")[0] || "";
+    ok(new RegExp("lg=" + lg + "(;|$)").test(attr) && /c=nov/.test(attr), `${lg}: the attr row carries lg=${lg} and the campaign`, attr);
+    ok(items(events, "land").includes("view") && items(events, "land").includes("page:" + lg), `${lg}: view + page:${lg} logged`);
+    const st = await p.evaluate(() => ({ lang: document.documentElement.lang, dir: document.documentElement.dir, h1: (document.querySelector(".lp-h1") || {}).textContent || "" }));
+    ok(st.lang === lg && st.dir === dir, `${lg}: <html lang="${lg}" dir="${dir}"> once the page is up`, JSON.stringify(st));
+    ok(st.h1.length > 10 && !/[฀-๿]/.test(st.h1), `${lg}: the headline is in ${lg}, not Thai`, st.h1);
+    ok((await p.$$(".lp-lang")).length === 10, `${lg}: ten language pills`);
+    ok(errs.length === 0, `${lg}: no page errors`, errs.join("|"));
+    await ctx.close();
+  }
+  {
+    const { ctx, p, otp, errs } = await newPage(FB_UA);
+    await p.goto(BASE + "/landing-" + lg + "/?utm_source=fb&utm_campaign=nov", { waitUntil: "load" });
+    await p.waitForTimeout(1200);
+    await p.click(".lp-herocta .lp-btn.primary");
+    await p.waitForTimeout(400);
+    await p.click(".lp-escfull .lp-btn.ghost");
+    await p.waitForSelector(".lp-otp input[type=email]", { timeout: 4000 });
+    await p.fill(".lp-otp input[type=email]", "someone@example.com");
+    await p.click(".lp-otp button[type=submit]");
+    await p.waitForTimeout(1500);
+    const redirect = otp[0] ? new URL(otp[0]).searchParams.get("redirect_to") || "" : "";
+    const r = redirect ? new URL(redirect) : null;
+    ok(!!r && r.searchParams.get("hlg") === lg && r.searchParams.get("hvia") === "mail" && r.searchParams.get("hsrc") === "fb", `${lg}: the magic link's redirect_to carries hlg=${lg}, hvia=mail and the source`, redirect.slice(0, 200));
+    ok((await p.evaluate(() => { try { return JSON.parse(localStorage.getItem("tg_guest_profile") || "{}").lang || ""; } catch (e) { return "?"; } })) === lg, `${lg}: the page's language is written to the guest profile at e-mail sign-up (the app opens in it)`);
+    ok(errs.length === 0, `${lg}: no page errors on the sign-up card`, errs.join("|"));
+    await ctx.close();
+  }
 }
 
 await b.close(); server.close();

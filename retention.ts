@@ -145,9 +145,11 @@ export function warmReturnBlocks(budget: any): PlanBlock[] {
 
 /* Copy picker shared by the surfaces that render the above (the app has three
    languages everywhere; a missing one falls back to English, never to blank). */
-export function pickLang(obj: { th?: string; en?: string; zh?: string } | null, lang: string): string {
+/* `tx` (optional) turns the English line into the learner's language through the catalog of an extra language (callers pass s => xl(lang, s)); this module stays importless on purpose
+   (the retention smoke tests load the file as it is), so the translator comes in as an argument. Without it, or for th / en / zh, nothing changes. */
+export function pickLang(obj: { th?: string; en?: string; zh?: string } | null, lang: string, tx?: (en: string) => string): string {
   if (!obj) return "";
   if (lang === "th") return obj.th || obj.en || "";
   if (lang === "zh") return obj.zh || obj.en || "";
-  return obj.en || obj.th || "";
+  return (obj.en && tx ? tx(obj.en) : obj.en) || obj.th || "";
 }

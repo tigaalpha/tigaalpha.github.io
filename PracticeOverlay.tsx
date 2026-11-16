@@ -12,7 +12,7 @@ import { sttSupported, getSR, TTS_LOCALES } from "./speech";
 import { selfReportFromTranscript } from "./tiga-gateway";   // via the lazy gateway
 import { usePracticeCoach } from "./use-practice-coach";
 import { SPOT_CAP_NOTES } from "./practice-spot";
-import { pickT, localeOf, xl, by } from "./lang-extra";
+import { pickT, localeOf, xl, by, modelLang } from "./lang-extra";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -125,10 +125,10 @@ function TomorrowBridge({ lang, restartPractice }) {
   return (
     <div className="presultai" style={{ borderColor: "#8ad4ff" }}>
       <div className="presultai-h">🗓 {lang === "th" ? "พรุ่งนี้ของเรา" : lang === "zh" ? "我们的明天" : xl(lang, "Tomorrow")} · {prom.minutes} {unit}</div>
-      <div className="presultai-tx">{pickLang(prom.text, lang)}</div>
+      <div className="presultai-tx">{pickLang(prom.text, lang, s => xl(lang, s))}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
         {blocks.map(b => (
-          <span key={b.key} className="dailyrec-lbl">{pickLang(b.label, lang)} · {b.minutes}′</span>
+          <span key={b.key} className="dailyrec-lbl">{pickLang(b.label, lang, s => xl(lang, s))} · {b.minutes}′</span>
         ))}
       </div>
       <button className="practicerestart" style={{ width: "100%" }} onClick={restartPractice}>
@@ -523,6 +523,9 @@ const SR_Q = {
   en: { h: "Teacher TiGA asks directly (worth more than guessing)", opts: [["understand", "Got it ✓"], ["confused", "Still confused"], ["too_easy", "Too easy"], ["too_hard", "Too hard"], ["retry", "Want to retry"], ["frustrated", "Frustrated"], ["great", "Fun! 😄"]], done: "Thanks — the lesson adapted ✓" },
   zh: { h: "TIGA 老师直接提问（比猜测更可靠）", opts: [["understand", "明白了 ✓"], ["confused", "还有点懵"], ["too_easy", "太简单"], ["too_hard", "太难"], ["retry", "想再试一次"], ["frustrated", "有点烦躁"], ["great", "很有趣 😄"]], done: "谢谢——已为你调整教学 ✓" },
 };
+/* The answer CODES (what the model understands) are read from the English table by position, never from the table `by()` returns: for an extra language by() runs every string of the English
+   table through that language's catalog, codes included ("too_easy" became "demasiado fácil"), the model refused the unknown code and the learner's answer changed nothing. th / en / zh keep one order. */
+const SR_CODES = SR_Q.en.opts.map(o => o[0]);
 function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
   const [answered, setAnswered] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -533,7 +536,7 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
     if (busy || answered) return;
     setAnswered(choice); setBusy(true);
     try {
-      const fb = newStudentFeedback({ question: q.h, answer: (q.opts.find(o => o[0] === choice) || [])[1] || choice, feedbackType: choice === "understand" || choice === "confused" ? "understanding" : choice === "great" ? "enjoyment" : choice === "retry" ? "confidence" : "difficulty" });
+      const fb = newStudentFeedback({ question: q.h, answer: (q.opts[SR_CODES.indexOf(choice)] || [])[1] || choice, feedbackType: choice === "understand" || choice === "confused" ? "understanding" : choice === "great" ? "enjoyment" : choice === "retry" ? "confidence" : "difficulty" });
       try {
         const list = JSON.parse(localStorage.getItem("tg_self_reports") || "[]");
         list.push(fb); localStorage.setItem("tg_self_reports", JSON.stringify(list.slice(-30)));
@@ -544,7 +547,7 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
         repeatedErrors: r.miss >= 2 ? r.miss : 0,
         pauses: 0, rhythmScore: r.rhythm ? pctOf(r.rhythm.ok, r.rhythm.ok + r.rhythm.miss) : null,
         label: r.label,
-      }, choice, lang);   // lang (owner plan 1.2): the rerun verdict must speak the app's current language
+      }, choice, modelLang(lang));   // lang (owner plan 1.2): the rerun verdict must speak the app's current language (an extra language reads as English: the loop's tables are th/en/zh)
       if (loop && loop.response && onTipUpdate) {
         onTipUpdate({ text: loop.response.text, strategyId: loop.decision ? loop.decision.strategy_id : null, states: loop.states });
       }
@@ -581,8 +584,8 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
         <div className="presultai-tx">✅ {q.done}</div>
       ) : (
         <div className="psr-opts">
-          {q.opts.map(([k, label]) => (
-            <button key={k} className={`psr-btn${answered === k ? " on" : ""}`} disabled={busy} onClick={() => answer(k)}>{label}</button>
+          {q.opts.map(([, label], i) => (
+            <button key={SR_CODES[i]} className={`psr-btn${answered === SR_CODES[i] ? " on" : ""}`} disabled={busy} onClick={() => answer(SR_CODES[i])}>{label}</button>
           ))}
           {canSTT && (
             <button className="psr-btn" disabled={busy || listening} title={T3("กดแล้วพูดตอบได้เลย", "Tap and speak your answer", "按下后语音回答")} onClick={listenOnce}>{listening ? "🔴" : "🎙"}</button>
@@ -616,7 +619,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
   const recap = data.recap;
   const ex = data.exercise;
   const boredom = data.boredom;   // 12.4: high-risk plan swap w/ KB citations, or null = do as before
-  const tx = (o) => (o ? (typeof o === "string" ? o : (o[L] || o.en || o.th)) : null);
+  const tx = (o) => (o ? (typeof o === "string" ? o : (o[L] || xl(L, o.en) || o.th)) : null);   // an extra language: the English line through its catalog, as everywhere else (xl is a no-op for th / en / zh)
   return (
     <div className="presultai pcoach" style={{ borderColor: "#8ad4ff" }}>
       <div className="presultai-h">🎯 {T("ครู TIGA Practice Coach", "Teacher TIGA Practice Coach", "TIGA 练习教练")}</div>

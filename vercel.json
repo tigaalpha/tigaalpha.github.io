@@ -21,7 +21,7 @@
       ]
     },
     {
-      "source": "/blog/(ja|ko|ru)/feed.xml",
+      "source": "/blog/(ja|ko|ru|hi|es|fr|ar)/feed.xml",
       "headers": [{ "key": "Content-Type", "value": "application/rss+xml; charset=utf-8" }]
     },
     {
@@ -48,6 +48,14 @@
     { "source": "/ko/", "destination": "/landing-ko/", "permanent": true },
     { "source": "/ru", "destination": "/landing-ru/", "permanent": true },
     { "source": "/ru/", "destination": "/landing-ru/", "permanent": true },
+    { "source": "/hi", "destination": "/landing-hi/", "permanent": true },
+    { "source": "/hi/", "destination": "/landing-hi/", "permanent": true },
+    { "source": "/es", "destination": "/landing-es/", "permanent": true },
+    { "source": "/es/", "destination": "/landing-es/", "permanent": true },
+    { "source": "/fr", "destination": "/landing-fr/", "permanent": true },
+    { "source": "/fr/", "destination": "/landing-fr/", "permanent": true },
+    { "source": "/ar", "destination": "/landing-ar/", "permanent": true },
+    { "source": "/ar/", "destination": "/landing-ar/", "permanent": true },
     { "source": "/feed.xml", "destination": "/blog/th/feed.xml", "permanent": true },
     { "source": "/rss.xml", "destination": "/blog/th/feed.xml", "permanent": true },
     { "source": "/atom.xml", "destination": "/blog/th/feed.xml", "permanent": true },

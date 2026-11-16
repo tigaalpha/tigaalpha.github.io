@@ -3,7 +3,7 @@ import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { TTS_URL, apiHeaders } from "./ai-backend";
 import { getAC, _ac as _liveAc } from "./music-engine";
 
-import { xl, by } from "./lang-extra";
+import { xl, by, isExtraLang } from "./lang-extra";
 /* ── speech.ts ──
    TTS/STT sub-engine: Web Speech API wrappers, cloud-TTS (backend-synthesized
    voice) with an IndexedDB cache, chunking/throttling, and the Voice Mentor
@@ -296,8 +296,8 @@ export function narrationText(text, lang) {
   let t = cleanForTTS(String(text || ""));
   t = t.replace(/\s*[—–]\s*/g, ", ").replace(/\s*·\s*/g, ", ").replace(/[()（）]/g, ", ").replace(/:\s+/g, ", ").replace(/\s*[「」『』"“”]/g, " ");
   t = t.replace(/(\d+)\s*%/g, lang === "zh" ? "百分之$1" : lang === "th" ? "$1 เปอร์เซ็นต์" : xl(lang, "$1 percent"));
-  t = t.replace(/\bTIGA\b/g, lang === "th" ? "ทีก้า" : lang === "zh" ? "提加" : xl(lang, "Teega")).replace(/\bAI\b/g, lang === "en" ? xl(lang, "A I") : "AI");
-  t = t.replace(/\bHe-3\b/g, lang === "en" ? xl(lang, "helium three") : "He-3").replace(/\bTV\b/g, "T V");
+  t = t.replace(/\bTIGA\b/g, lang === "th" ? "ทีก้า" : lang === "zh" ? "提加" : xl(lang, "Teega")).replace(/\bAI\b/g, lang === "en" || isExtraLang(lang) ? xl(lang, "A I") : "AI");   // the catalogs hold how each extra language says the letters (xl was inert behind a bare lang === "en")
+  t = t.replace(/\bHe-3\b/g, lang === "en" || isExtraLang(lang) ? xl(lang, "helium three") : "He-3").replace(/\bTV\b/g, "T V");
   return t.replace(/(,\s*){2,}/g, ", ").replace(/^,\s*/, "").replace(/\s+/g, " ").trim();
 }
 function narrationChunks(t, lang) {

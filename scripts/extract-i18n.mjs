@@ -72,11 +72,23 @@ for (const rel of files) {
       const en = a.length >= 4 ? strOf(a[2]) : strOf(a[1]);
       if (en) add(en.s, rel, en.dyn);
     }
+    // Local aliases of the three-language idiom (const t = (th, en, zh) => T3(lang, th, en, zh); const L = ...; tr(lang, th, en, zh); skill-tree's R(a, p, r, cd, th, en, zh) rows):
+    // whatever the name, a call whose arguments are Thai text, English text and Han text (in that order, optionally after a lang / 4 numbers) carries one English source string.
+    // (2026-11-16: ~300 such strings were never extracted, so they showed English in every extra language.)
+    if (node.type === "CallExpression" && node.callee.type === "Identifier" && !CALLEES.has(node.callee.name) && node.callee.name !== "xl") {
+      const a = node.arguments;
+      const th = n => { const v = n && strOf(n); return !!v && /[\u0E00-\u0E7F]/.test(v.s); }, han = n => { const v = n && strOf(n); return !!v && /[\u3400-\u9FFF]/.test(v.s); }, lat = n => { const v = n && strOf(n); return !!v && /[A-Za-z]/.test(v.s); };
+      let en = null;
+      if (a.length === 3 && th(a[0]) && lat(a[1]) && han(a[2])) en = strOf(a[1]);
+      else if (a.length === 4 && th(a[1]) && lat(a[2]) && han(a[3])) en = strOf(a[2]);
+      else if (a.length === 7 && th(a[4]) && lat(a[5]) && han(a[6])) en = strOf(a[5]);
+      if (en) add(en.s, rel + "#alias", en.dyn);
+    }
     // xl(lang, <English>): the English branch of a hand-written `lang === "th" ? .. : lang === "zh" ? .. : <English>` ternary (scripts/codemod-lang.mjs)
     if (node.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "xl" && node.arguments.length === 2) {
       // a ternary between two English strings (xl(lang, n === 1 ? "octave" : "octaves")) holds both
       const pickStrs = n => (n && n.type === "ConditionalExpression") ? [...pickStrs(n.consequent), ...pickStrs(n.alternate)] : (strOf(n) ? [strOf(n)] : []);
-      for (const en of pickStrs(node.arguments[1])) if (!/^(en|th|zh|ja|ko|ru)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn);
+      for (const en of pickStrs(node.arguments[1])) if (!/^(en|th|zh|ja|ko|ru|hi|es|fr|ar)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn);   // a language tag ("en", "es-ES", "ar-SA") is a code, not text to translate: keep this list in step with ALL_LANGS in lang-extra.ts
     }
     // { th: {..}, en: {..}, zh: {..} } dictionaries (a whole table per language, read back as MAP[lang]): every string leaf of the English table
     if (node.type === "ObjectExpression") {

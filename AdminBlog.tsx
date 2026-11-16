@@ -3,8 +3,11 @@ import { sb } from "./supabase-client";
 import { BlogBody, BlogPost, BLOG_CATS, catName, catLabel } from "./BlogPage";
 import { BlogStatsCard } from "./AdminBlogStats";
 
-import { pickT, ALL_LANGS, LANG_META } from "./lang-extra";
-/* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin / Japanese / Korean / Russian (the last three need supabase-blog-ja-ko-ru-migration.sql, otherwise the table refuses them), with a category, a cover picture, pictures inside the text and links.
+import { pickT, ALL_LANGS, LANG_META, dirOf } from "./lang-extra";
+/* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin / Japanese / Korean / Russian / Hindi / Spanish / French / Arabic (ja ko ru need supabase-blog-ja-ko-ru-migration.sql and hi es fr ar need
+   supabase-blog-hi-es-fr-ar-migration.sql, otherwise the table refuses them), with a category, a cover picture, pictures inside the text and links. The language buttons and the filter are ALL_LANGS driven (ten, native names).
+   The articles of ja ko ru hi es fr ar that ship as committed files (blog-src/, shown in the app from blog-data/) are not rows of the table until that migration seeds them, so they do not appear in this list before it.
+   The screen's own words stay Thai / English / Chinese (admin screens are not translated); the fields an Arabic article is typed into are right-to-left (dir), the rest of the screen is not.
    Rendered only for admin_tier >= 3 (App.tsx); the table's and the image bucket's RLS (public.is_top_admin()) refuse anyone else even if this screen were reached.
    The list is paged on the server (BLOG_ADMIN_PAGE rows, newest first) for the language chip that is on, with a debounced ilike on slug and title. A single limit() over every language hid anything older than that window. */
 const slugOf = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
@@ -114,7 +117,9 @@ export function AdminBlog({ lang }: { lang: string }) {
         error = again.error;
         altSkipped = !error;
       }
-      if (error) { say(/blog_posts_lang_check/i.test(error.message) ? T("ฐานข้อมูลยังไม่รองรับภาษานี้ — รัน supabase-blog-ja-ko-ru-migration.sql ก่อน", "The database does not accept this language yet — run supabase-blog-ja-ko-ru-migration.sql first", "数据库尚未支持该语言 — 请先运行 supabase-blog-ja-ko-ru-migration.sql") : /duplicate|unique/i.test(error.message) ? T("มีบทความภาษานี้ที่ใช้ลิงก์สั้นนี้แล้ว ลองเปลี่ยนลิงก์สั้น", "An article in this language already uses this slug — change the slug", "该语言下已有相同链接名的文章，请更换") : error.message); return; }
+      // the file that widens blog_posts_lang_check for the language being saved: ja / ko / ru, or (2026-11-13) hi / es / fr / ar
+      const mig = ["hi", "es", "fr", "ar"].includes(f.lang) ? "supabase-blog-hi-es-fr-ar-migration.sql" : "supabase-blog-ja-ko-ru-migration.sql";
+      if (error) { say(/blog_posts_lang_check/i.test(error.message) ? T(`ฐานข้อมูลยังไม่รองรับภาษานี้ — รัน ${mig} ก่อน`, `The database does not accept this language yet — run ${mig} first`, `数据库尚未支持该语言 — 请先运行 ${mig}`) : /duplicate|unique/i.test(error.message) ? T("มีบทความภาษานี้ที่ใช้ลิงก์สั้นนี้แล้ว ลองเปลี่ยนลิงก์สั้น", "An article in this language already uses this slug — change the slug", "该语言下已有相同链接名的文章，请更换") : error.message); return; }
       const done = publish ? T("เผยแพร่แล้ว ✓", "Published ✓", "已发布 ✓") : T("บันทึกแล้ว ✓", "Saved ✓", "已保存 ✓");
       const note = altSkipped ? " " + T("(คำอธิบายรูปปกยังไม่ถูกบันทึก — คอลัมน์ cover_alt ยังไม่มี)", "(cover description was not saved — the cover_alt column is not there yet)", "（封面说明尚未保存——还没有 cover_alt 列）") : "";
       say(done + note, true); setF(null); setTick(t => t + 1);
@@ -172,9 +177,9 @@ export function AdminBlog({ lang }: { lang: string }) {
             {BLOG_CATS.map(c => <button key={c.id} type="button" onClick={() => set("category", c.id)} className={f.category === c.id ? "songbtn" : "songbtn ghost"} style={{ padding: "8px 12px" }}>{c.icon} {catLabel(c, lang)}</button>)}
           </div>
           <div style={lab}>3 · {T("หัวข้อ", "Title", "标题")}</div>
-          <input style={{ ...inp, fontSize: 18, fontWeight: 700 }} placeholder={T("หัวข้อบทความ", "Article title", "文章标题")} value={f.title} onChange={e => set("title", e.target.value)} />
+          <input dir={dirOf(f.lang)} style={{ ...inp, fontSize: 18, fontWeight: 700 }} placeholder={T("หัวข้อบทความ", "Article title", "文章标题")} value={f.title} onChange={e => set("title", e.target.value)} />
           <div style={lab}>4 · {T("คำโปรยสั้น ๆ (แสดงในรายการและ Google)", "Short summary (shown in the list and on Google)", "简短摘要（显示在列表和 Google 中）")}</div>
-          <input style={inp} maxLength={200} value={f.excerpt} onChange={e => set("excerpt", e.target.value)} />
+          <input dir={dirOf(f.lang)} style={inp} maxLength={200} value={f.excerpt} onChange={e => set("excerpt", e.target.value)} />
           <div style={lab}>5 · {T("รูปปก", "Cover picture", "封面图")}</div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {f.cover_url ? <img src={f.cover_url} alt="" style={{ width: 96, height: 64, objectFit: "cover", borderRadius: 8 }} /> : <div style={{ width: 96, height: 64, borderRadius: 8, background: "var(--card2, #f4ece4)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 12 }}>{T("ไม่มีรูป", "No picture", "无图片")}</div>}
@@ -193,12 +198,12 @@ export function AdminBlog({ lang }: { lang: string }) {
             <button type="button" data-blog-img style={tb} disabled={up} onClick={() => imgRef.current && imgRef.current.click()}>🖼 {T("ใส่รูป", "Picture", "图片")}</button>
             <input ref={imgRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={e => pick(e, "body")} />
           </div>
-          <textarea ref={taRef} data-blog-body style={{ ...inp, minHeight: 300, lineHeight: 1.7 }} placeholder={T("พิมพ์บทความที่นี่ — ใช้ปุ่มด้านบนเพื่อใส่หัวข้อ ตัวหนา ลิงก์ และรูปตรงตำแหน่งเคอร์เซอร์", "Write here — use the buttons above for headings, bold, links and pictures at the cursor", "在此写作 — 用上方按钮在光标处插入标题、加粗、链接和图片")} value={f.body} onChange={e => set("body", e.target.value)} />
+          <textarea ref={taRef} data-blog-body dir={dirOf(f.lang)} style={{ ...inp, minHeight: 300, lineHeight: 1.7 }} placeholder={T("พิมพ์บทความที่นี่ — ใช้ปุ่มด้านบนเพื่อใส่หัวข้อ ตัวหนา ลิงก์ และรูปตรงตำแหน่งเคอร์เซอร์", "Write here — use the buttons above for headings, bold, links and pictures at the cursor", "在此写作 — 用上方按钮在光标处插入标题、加粗、链接和图片")} value={f.body} onChange={e => set("body", e.target.value)} />
           <div style={lab}>7 · {T("ลิงก์สั้นของบทความ (ไม่ต้องกรอกก็ได้)", "Article web address (optional)", "文章网址名（可选）")}</div>
           <input style={inp} placeholder="piano-posture" value={f.slug} onChange={e => set("slug", e.target.value)} />
           <div style={{ fontSize: 12, color: "var(--muted)", marginTop: -6 }}>{T("ใช้ตัวอักษรอังกฤษ ตัวเลข และ - เท่านั้น ถ้าเขียนบทความเดียวกันหลายภาษา ให้ใช้ลิงก์สั้นเดียวกัน ระบบจะเชื่อมภาษาให้อัตโนมัติ", "Letters, numbers and - only. Use the same address for the same article in other languages and they link up for search engines.", "仅限字母、数字和 -。同一篇文章的不同语言版本请使用相同网址名，搜索引擎会自动关联。")}</div>
           <label style={{ fontSize: 14, display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={prev} onChange={e => setPrev(e.target.checked)} style={{ width: 18, height: 18 }} /> 👁 {T("ดูตัวอย่างบทความ", "Preview the article", "预览文章")}</label>
-          {prev && <div data-blog-preview style={{ border: "1px dashed var(--bd, #e2d8cf)", borderRadius: 12, padding: 14, background: "var(--card)" }}>{f.cover_url && <img src={f.cover_url} alt="" style={{ width: "100%", borderRadius: 10, marginBottom: 8 }} />}<h2 style={{ marginTop: 0 }}>{f.title}</h2><BlogBody text={f.body} /></div>}
+          {prev && <div data-blog-preview dir={dirOf(f.lang)} style={{ border: "1px dashed var(--bd, #e2d8cf)", borderRadius: 12, padding: 14, background: "var(--card)" }}>{f.cover_url && <img src={f.cover_url} alt="" style={{ width: "100%", borderRadius: 10, marginBottom: 8 }} />}<h2 style={{ marginTop: 0 }}>{f.title}</h2><BlogBody text={f.body} /></div>}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "sticky", bottom: 0, background: "var(--bg, #faf6f1)", padding: "10px 0" }}>
             <button className="songbtn" disabled={busy || up} data-blog-publish onClick={() => save(true)} style={{ flex: 2 }}>{f.published ? T("อัปเดตและเผยแพร่", "Update & publish", "更新并发布") : T("เผยแพร่เลย", "Publish now", "立即发布")}</button>
             <button className="songbtn ghost" disabled={busy || up} data-blog-draft onClick={() => save(false)} style={{ flex: 1 }}>{T("เก็บเป็นฉบับร่าง", "Save draft", "存草稿")}</button>

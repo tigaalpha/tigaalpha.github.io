@@ -3718,13 +3718,16 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   );
 }
 import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
-import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog, dirOf } from "./lang-extra";
+import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog, dirOf, applyDigitRule } from "./lang-extra";
 import { useCatalog } from "./use-catalog";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
   const [flagOpen, setFlagOpen] = useState(false);
-  const [vtab, setVtab] = useState(lang === "en" || lang === "zh" ? lang : "th");   // th = the YouTube series; en / zh = the drawn clip feed; the flag button top right picks it (and the app language)
-  useEffect(() => { setVtab(lang === "en" || lang === "zh" ? lang : "th"); }, [lang]);   // th = the YouTube series; en / zh = the drawn concept clips
+  /* th = the YouTube series (Thai); en / zh = the drawn clip feed; the flag button top right picks it (and the app language). The two series exist in th / en / zh only: the seven extra languages open on the
+     English clips (the flag the button shows for them is the English one), not on a Thai video. */
+  const vtabOf = (l) => (l === "en" || l === "zh" ? l : isExtraLang(l) ? "en" : "th");
+  const [vtab, setVtab] = useState(vtabOf(lang));
+  useEffect(() => { setVtab(vtabOf(lang)); }, [lang]);
   const [categories, setCategories] = useState(null);  // null = loading; each row is one published lesson_videos entry
   const [activeCat, setActiveCat] = useState(null);     // lesson_videos.id of the selected category
   const [slides, setSlides] = useState(null);           // null = loading this category's videos
@@ -11106,7 +11109,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      them. Anyone can switch in one tap from the flag in the header, and that
      choice persists — profiles.lang for an account, the local guest profile
      otherwise — so this only decides what someone sees before they choose. */
-  const [lang, setLangState] = useState(profile.lang || "th");
+  const [lang, setLangState] = useState(() => { const l0 = profile.lang || "th"; applyDigitRule(l0); return l0; });   // applyDigitRule: Arabic prints Western digits from the very first render (lang-extra.ts)
   useCatalog(lang);   // ja / ko / ru / hi / es / fr / ar: loads the catalog of the chosen language and re-renders this tree when it arrives
   /* The document says which language it is in. Screen readers pick their
      voice from it, the browser picks Thai- or CJK-appropriate fallback fonts
@@ -11115,7 +11118,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      from the consonants they sit on. */
   useEffect(() => {
     /* dir follows the language on every change (Arabic is right-to-left). Pianos, staffs and game canvases stay left-to-right by the html[dir="rtl"] block in app-css.ts. */
-    try { const el = document.documentElement; el.lang = (LANG_META[lang] || LANG_META.en).html; el.dir = dirOf(lang); } catch (e) {}
+    try { const el = document.documentElement; el.lang = (LANG_META[lang] || LANG_META.en).html; el.dir = dirOf(lang); applyDigitRule(lang); } catch (e) {}
   }, [lang]);
   // First-time language picker: SUSPENDED (owner request 2026-09) - the popup
   // felt like a wall between a new user and the piano. The state/JSX are kept
@@ -11129,6 +11132,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   function setLang(lg) {
     // a ja / ko / ru / hi / es / fr / ar catalog is a lazy chunk: the language switches once it is here, so nothing is drawn from English first
     const apply = () => {
+      applyDigitRule(lg);   // before the render that shows the new language: its first frame already prints Western digits for Arabic
       setLangState(lg);
       if (session && session.user && session.user.id) {
         sb.from("profiles").update({ lang: lg }).eq("id", session.user.id).then(() => {}, () => {});
@@ -14856,10 +14860,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           navigates straight to the feature — plan rule 3. */}
       {eduTip && !convPopup && !broadcast && !autoTeachTip && (() => {
         const ec = (by(EDU_COPY, lang) || EDU_COPY.en)[eduTip.kind];
+        const dest = EDU_COPY.en[eduTip.kind].go;   // the destination CODE comes from the English table: by() runs every string of it through an extra language's catalog ("pet" -> "mascota"), which sent the pet and shop tips to the profile page
         const go = () => {
           playUi("click"); dismissEduTip();
-          if (ec.go === "pet") { logUsage("nav", "pet"); setPage("pet"); }
-          else if (ec.go === "shop") { logUsage("nav", "shop"); setShopOpen(true); }
+          if (dest === "pet") { logUsage("nav", "pet"); setPage("pet"); }
+          else if (dest === "shop") { logUsage("nav", "shop"); setShopOpen(true); }
           else { setPage("profile"); }
         };
         return (
