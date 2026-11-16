@@ -139,7 +139,7 @@ const CATN = { tips: { th: "เทคนิคการฝึก", en: "Practice
    the text is data-nosnippet so it never replaces the article's snippet. The test door: with
    localStorage.tg_test_hook = "1" the page reads ?gate_ms=<ms> instead of 5000. */
 // hi / es / fr / ar (owner 2026-11-13): hi "aap", es "tú", fr "vous", ar Modern Standard with masculine-singular imperatives; the button words follow the app's catalog ("Continue with Google", "Log in", "Sign up"). The product name "TIGA AI" (and, in es,
-// "Inicia sesión") carries a no-break space ( ), so a 320 px phone never splits the name over two lines or leaves one word of the log-in link alone.
+// "Inicia sesión") carries a no-break space (U+00A0, written \u00a0 in the strings), so a 320 px phone never splits the name over two lines or leaves one word of the log-in link alone.
 const GATE_T = {
   th: { title: "ล็อกอินเพื่ออ่านต่อ", sub: "ล็อกอินหรือสมัครสมาชิกฟรีเพื่ออ่านบทความนี้ต่อ แล้วเริ่มเรียนเปียโนฟรีผ่านแอป TIGA AI ได้ทันที", google: "ล็อกอินด้วย Google", signup: "สมัครสมาชิกฟรี", login: "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ" },
   en: { title: "Log in to keep reading", sub: "Log in or sign up free to read the rest of this article, then start learning piano for free with the TIGA AI app.", google: "Continue with Google", signup: "Sign up free", login: "Already a member? Log in" },
@@ -147,10 +147,10 @@ const GATE_T = {
   ja: { title: "続きを読むにはログイン", sub: "無料でログインまたは会員登録すると、この記事の続きを読めます。そのままTIGA AIアプリで、ピアノを無料で学び始められます。", google: "Googleで続ける", signup: "無料で会員登録", login: "アカウントをお持ちの方はログイン" },
   ko: { title: "계속 읽으려면 로그인하세요", sub: "무료로 로그인하거나 가입하면 이 글의 나머지를 읽을 수 있고, 바로 TIGA AI 앱에서 피아노를 무료로 배우기 시작할 수 있어요.", google: "Google로 계속하기", signup: "무료로 가입하기", login: "이미 회원이신가요? 로그인" },
   ru: { title: "Войдите, чтобы читать дальше", sub: "Войдите или зарегистрируйтесь бесплатно, чтобы дочитать эту статью, а затем начните бесплатно учиться играть на фортепиано в приложении TIGA AI.", google: "Продолжить через Google", signup: "Зарегистрироваться бесплатно", login: "Уже есть аккаунт? Войти" },
-  hi: { title: "आगे पढ़ने के लिए लॉग इन करें", sub: "इस लेख का बाकी हिस्सा पढ़ने के लिए मुफ़्त में लॉग इन करें या साइन अप करें, फिर TIGA AI ऐप से मुफ़्त में पियानो सीखना शुरू करें।", google: "Google से जारी रखें", signup: "मुफ़्त में साइन अप करें", login: "पहले से सदस्य हैं? लॉग इन करें" },
-  es: { title: "Inicia sesión para seguir leyendo", sub: "Inicia sesión o regístrate gratis para leer el resto de este artículo y empieza a aprender piano gratis con la app TIGA AI.", google: "Continuar con Google", signup: "Regístrate gratis", login: "¿Ya eres miembro? Inicia sesión" },
-  fr: { title: "Connectez-vous pour continuer à lire", sub: "Connectez-vous ou inscrivez-vous gratuitement pour lire la suite de cet article, puis commencez à apprendre le piano gratuitement avec l'application TIGA AI.", google: "Continuer avec Google", signup: "S'inscrire gratuitement", login: "Déjà membre\u00a0? Se connecter" },
-  ar: { title: "سجّل الدخول لمواصلة القراءة", sub: "سجّل الدخول أو أنشئ حسابًا مجانًا لقراءة بقية هذا المقال، ثم ابدأ تعلّم البيانو مجانًا عبر تطبيق TIGA AI.", google: "المتابعة باستخدام Google", signup: "إنشاء حساب مجاني", login: "لديك حساب بالفعل؟ تسجيل الدخول" },
+  hi: { title: "आगे पढ़ने के लिए लॉग इन करें", sub: "इस लेख का बाकी हिस्सा पढ़ने के लिए मुफ़्त में लॉग इन करें या साइन अप करें, फिर TIGA\u00a0AI ऐप से मुफ़्त में पियानो सीखना शुरू करें।", google: "Google से जारी रखें", signup: "मुफ़्त में साइन अप करें", login: "पहले से सदस्य हैं? लॉग इन करें" },
+  es: { title: "Inicia sesión para seguir leyendo", sub: "Inicia sesión o regístrate gratis para leer el resto de este artículo y empieza a aprender piano gratis con la app TIGA\u00a0AI.", google: "Continuar con Google", signup: "Regístrate gratis", login: "¿Ya eres miembro? Inicia\u00a0sesión" },
+  fr: { title: "Connectez-vous pour continuer à lire", sub: "Connectez-vous ou inscrivez-vous gratuitement pour lire la suite de cet article, puis commencez à apprendre le piano gratuitement avec l'application TIGA\u00a0AI.", google: "Continuer avec Google", signup: "S'inscrire gratuitement", login: "Déjà membre\u00a0? Se connecter" },
+  ar: { title: "سجّل الدخول لمواصلة القراءة", sub: "سجّل الدخول أو أنشئ حسابًا مجانًا لقراءة بقية هذا المقال، ثم ابدأ تعلّم البيانو مجانًا عبر تطبيق TIGA\u00a0AI.", google: "المتابعة باستخدام Google", signup: "إنشاء حساب مجاني", login: "لديك حساب بالفعل؟ تسجيل الدخول" },
 };
 const GATE_CSS = `#tg-gate{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(34,26,21,.95);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);overscroll-behavior:contain;animation:tgGf .22s ease-out}#tg-gate[hidden]{display:none}
 .tg-g-card{position:relative;box-sizing:border-box;width:100%;max-width:400px;max-height:calc(100vh - 32px);overflow:auto;background:#fff;color:#2a211b;border:1px solid #eee3d8;border-radius:18px;padding:28px 22px 14px;text-align:center;box-shadow:0 18px 60px rgba(60,30,10,.35);font:16px/1.5 ${FONT_STACK};animation:tgGu .28s cubic-bezier(.2,.8,.2,1)}
@@ -330,7 +330,7 @@ function staticSitemapXml(posts, bySlug) {
 }
 const newestFirst = (a, b) => (new Date(b.created_at) - new Date(a.created_at)) || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
 // Index, further pages and feed of a language that ships as source files, written as REAL files into blog/ (what GitHub Pages serves, and what the tests read).
-// th / en / zh delete their index.html so the on-demand function lists the database. ja / ko / ru keep a file here for the same reason they always did (a checkout with no function still has a list),
+// th / en / zh delete their index.html so the on-demand function lists the database. ja / ko / ru / hi / es / fr / ar keep a file here for the same reason ja / ko / ru always did (a checkout with no function still has a list),
 // but scripts/copy-seo-to-dist.mjs removes index.html, feed.xml and page/ from dist/ only. On tigaalpha.com those URLs hit scripts/blog-live.mjs, which merges api/blog-live-catalog.json with
 // published rows, so an article saved in the admin after this build is on the index and in the feed without another build. The article HTML files stay, so a database row with the same slug does not replace the file until the next build.
 function writeStaticIndex(lang, list) {
@@ -366,7 +366,7 @@ else console.log("build-blog-pages: fetch failed, leaving the existing blog page
 const urls = [], bySlug = {}, emitted = new Set(), emittedIndex = new Set();
 for (const p of posts) { (bySlug[p.slug] = bySlug[p.slug] || {})[p.lang] = p; }
 if (!fetched) {
-  // Offline, the th / en / zh page of the same article is on disk but not in `posts`; it still counts as a language of the article, or the x-default and the alternates of a ja / ko / ru page would be wrong.
+  // Offline, the th / en / zh page of the same article is on disk but not in `posts`; it still counts as a language of the article, or the x-default and the alternates of a source-file page (ja / ko / ru / hi / es / fr / ar) would be wrong; the kept th / en / zh page itself is given the alternates it lacks (addAlternates).
   for (const p of posts) for (const l of Object.keys(LG)) if (!STATIC_LANGS.includes(l) && !bySlug[p.slug][l] && fs.existsSync(path.join(OUT, l, p.slug + ".html"))) bySlug[p.slug][l] = { lang: l, slug: p.slug, published: true };
 }
 for (const p of posts) {

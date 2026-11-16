@@ -18,7 +18,7 @@ import { queuedUntilTiga } from "./tiga-gateway";   // tigamodel loads lazy (pla
 import { recordNoteMisses, recordTipOutcome, weightedStruggles } from "./use-autoteach";
 import { sb } from "./supabase-client";
 import { learningIntervene, learningPractice } from "./learning-data";
-import { xl } from "./lang-extra";
+import { xl, modelLang } from "./lang-extra";
 import { jevTask, jevChoice } from "./jev"; // practice-next: Jev picks the result screen's next-step nudge (admin-toggleable)
 /* ── use-practice-mode.ts ──
    Owns the "listen to the learner play and grade it against a target
@@ -948,7 +948,7 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
       rhythmScore: rhythmPct,
       speedRatio: null,
       weekAgoAccuracy,
-    }, { lang }));   // verdict speaks the app's current language (th/en/zh) — queuedUntilTiga(fn) wraps runTeachingLoopForPractice(stats, opts)
+    }, { lang: modelLang(lang) }));   // verdict speaks the app's current language (th/en/zh; any extra language is read as English: the loop's own tables are th/en/zh and an unknown language fell back to Thai) — queuedUntilTiga(fn) wraps runTeachingLoopForPractice(stats, opts)
     /* runTeachingLoopForPractice is now properly async (the same bug was
        found independently by verify-autoteach on main and by this branch's
        e2e) — awaited above, so tigaTip is the REAL resolved loop result. */

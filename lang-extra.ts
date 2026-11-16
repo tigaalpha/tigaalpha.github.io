@@ -1,8 +1,8 @@
 /* ── lang-extra.ts ──
-   Japanese, Korean and Russian (owner, 2026-11-11), then Hindi, Spanish and French (owner, 2026-11-13). The app was written in three languages through inline idioms:
+   Japanese, Korean and Russian (owner, 2026-11-11), then Hindi, Spanish, French and Arabic (owner, 2026-11-13). The app was written in three languages through inline idioms:
    T(th, en, zh), { th, en, zh } objects and `lang === "th" ? .. : lang === "zh" ? .. : <English>`. Instead of adding a
    fourth, fifth and sixth argument to thousands of call sites, a new language is ONE English-keyed catalog
-   (i18n-ja.ts, i18n-ko.ts, i18n-ru.ts, i18n-hi.ts, i18n-es.ts, i18n-fr.ts: { "English text": "translation" }) and the English argument of every idiom is looked up in it.
+   (i18n-ja.ts, i18n-ko.ts, i18n-ru.ts, i18n-hi.ts, i18n-es.ts, i18n-fr.ts, i18n-ar.ts: { "English text": "translation" }) and the English argument of every idiom is looked up in it.
    A string with no entry shows its English, so a new or untranslated string is never blank.
    - Keys written with {0} {1} holes stand for template literals (`${n} songs`): the final English string is matched against them.
    - Catalogs are lazy chunks (the React hook that reloads a root lives in use-catalog.ts), loaded when the language is chosen, so Thai, English and Chinese users download none of it.
@@ -25,14 +25,45 @@ export const LANG_META: Record<string, { flag: string; name: string; locale: str
   hi: { flag: "🇮🇳", name: "हिन्दी", locale: "hi-IN", html: "hi", ai: "Hindi" },
   es: { flag: "🇪🇸", name: "Español", locale: "es-ES", html: "es", ai: "Spanish" },
   fr: { flag: "🇫🇷", name: "Français", locale: "fr-FR", html: "fr", ai: "French" },
-  ar: { flag: "🇸🇦", name: "العربية", locale: "ar", html: "ar", ai: "Arabic", rtl: true },   // locale "ar" (not ar-SA): Western digits 0-9 in Intl and a neutral Modern Standard Arabic voice
+  ar: { flag: "🇸🇦", name: "العربية", locale: "ar", html: "ar", ai: "Arabic", rtl: true },   // locale "ar" (not ar-SA): a neutral Modern Standard Arabic; localeOf() below adds -u-nu-latn so Intl prints Western digits 0-9
 };
 /* right-to-left languages: the page gets dir="rtl"; pianos, staffs, game canvases and anything drawn with fixed left/right geometry stay direction:ltr (see the RTL block in app-css.ts) */
 export const isRtl = (lang: string) => !!(LANG_META[lang] && LANG_META[lang].rtl);
 export const dirOf = (lang: string): "rtl" | "ltr" => (isRtl(lang) ? "rtl" : "ltr");
-export const localeOf = (lang: string) => (LANG_META[lang] || LANG_META.en).locale;
+/* Arabic prints Western digits 0-9 (owner rule, 2026-11-13). A bare "ar" prints Arabic-Indic digits in engines older than CLDR 42 (older Android WebViews), "ar-SA" and "ar-EG" in every engine
+   (and "ar-SA" also switches to the Hijri calendar), so the tag Intl gets for Arabic names the numbering system itself, the way the static blog pages do. Hindi is deliberately NOT touched:
+   "hi" / "hi-IN" print Latin digits by default, and nothing in the app may ever force "-u-nu-deva". */
+const LATN_AR = "ar-u-nu-latn";
+/* the tag for Intl number and date formatting (toLocaleString, toLocaleDateString ...). A speech engine takes TTS_LOCALES in speech.ts instead. */
+export const localeOf = (lang: string) => { const loc = (LANG_META[lang] || LANG_META.en).locale; return loc === "ar" ? LATN_AR : loc; };
 /* day-month-year order for dates in English is the British one the app already used */
 export const dateLocale = (lang: string) => (lang === "en" ? "en-GB" : localeOf(lang));
+/* The ~50 plain `n.toLocaleString()` calls (EXP, coins, scores, ranks) name no locale at all, so they follow the DEVICE, and on an ar-SA / ar-EG phone they print Arabic-Indic digits beside the
+   Western ones everywhere else. While the app language is Arabic, a call that names no locale gets LATN_AR; in every other language the engine's own methods are left exactly as they are
+   (nothing is replaced for th / en / zh / ja / ko / ru / hi / es / fr). Called before the first paint (main.tsx, from tg_lang_hint) and on every language change (App.tsx).
+   The originals are kept on globalThis, so a second copy of this module (a hot reload, a test) restores the real ones, never a wrapper. */
+const NAT: any = (globalThis as any).__tgNativeLocaleFns || ((globalThis as any).__tgNativeLocaleFns = {
+  n: Number.prototype.toLocaleString, d: Date.prototype.toLocaleString, dd: Date.prototype.toLocaleDateString, dt: Date.prototype.toLocaleTimeString,
+});
+let digitsFixed = false;
+export function applyDigitRule(lang: string): boolean {
+  try {
+    const want = lang === "ar";
+    if (want === digitsFixed) return digitsFixed;
+    const wrap = (fn: any) => function (this: any, locales?: any, options?: any) { return fn.call(this, locales === undefined ? LATN_AR : locales, options); };
+    const N: any = Number.prototype, D: any = Date.prototype;
+    N.toLocaleString = want ? wrap(NAT.n) : NAT.n;
+    D.toLocaleString = want ? wrap(NAT.d) : NAT.d;
+    D.toLocaleDateString = want ? wrap(NAT.dd) : NAT.dd;
+    D.toLocaleTimeString = want ? wrap(NAT.dt) : NAT.dt;
+    digitsFixed = want;
+  } catch (e) {}
+  return digitsFixed;
+}
+/* The TIGA model (tigamodel/) and a few prompts keep their own text in th / en / zh only, and an unknown language falls back to THAI there (teaching-loop.js, coach.js, provider-budget.js):
+   a Japanese or Spanish learner would read Thai. Every call that hands the app language to such a module passes it through here, so an extra language is read as English there.
+   th / en / zh (and anything that is not an extra language) pass through unchanged. */
+export const modelLang = (lang: string) => (isExtraLang(lang) ? "en" : lang);
 /* the English the chat and voice tutor prompts get for an extra language (their base prompt stays English) */
 export const replyInstruction = (lang: string) => isExtraLang(lang)
   ? `\n\nIMPORTANT: The learner uses ${LANG_META[lang].ai}. Write every reply in natural ${LANG_META[lang].ai} (musical terms such as note names C D E and chord symbols stay as written). Do not answer in English or Thai unless the learner writes in it.`

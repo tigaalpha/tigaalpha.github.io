@@ -76,7 +76,7 @@ for (const rel of files) {
     if (node.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "xl" && node.arguments.length === 2) {
       // a ternary between two English strings (xl(lang, n === 1 ? "octave" : "octaves")) holds both
       const pickStrs = n => (n && n.type === "ConditionalExpression") ? [...pickStrs(n.consequent), ...pickStrs(n.alternate)] : (strOf(n) ? [strOf(n)] : []);
-      for (const en of pickStrs(node.arguments[1])) if (!/^(en|th|zh|ja|ko|ru)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn);
+      for (const en of pickStrs(node.arguments[1])) if (!/^(en|th|zh|ja|ko|ru|hi|es|fr|ar)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn);   // a language tag ("en", "es-ES", "ar-SA") is a code, not text to translate: keep this list in step with ALL_LANGS in lang-extra.ts
     }
     // { th: {..}, en: {..}, zh: {..} } dictionaries (a whole table per language, read back as MAP[lang]): every string leaf of the English table
     if (node.type === "ObjectExpression") {

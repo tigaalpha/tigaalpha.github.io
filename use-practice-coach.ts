@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { tigaNow, tigaPromise, useTiga } from "./tiga-gateway";   // tigamodel loads lazy (plan v3 1.5)
 import { readAutoTeachOutcomes } from "./use-autoteach";
 
-import { xl } from "./lang-extra";
+import { xl, modelLang } from "./lang-extra";
 /* ── lazy model access (plan v3 1.5): this module used to statically import
    tigamodel/web — the edge that pinned the whole ~1.18 MB engine into the
    main chunk, because App.tsx and PracticeOverlay import it at module top.
@@ -178,7 +178,7 @@ export function buildPracticeCoachData(args) {
       worstSpotLabel: worst,
     };
     const nextSkill = nextSkillNode();
-    const recap = coachRecap({ session, nextSkill, tempo: tempo ? tempo.bpm : null, lang });
+    const recap = coachRecap({ session, nextSkill, tempo: tempo ? tempo.bpm : null, lang: modelLang(lang) });   // coach.recap() writes th / en / zh only and read anything else as Thai
 
     /* 3) NEXT EXERCISE — three honest signals compose:
        (a) what went wrong in THIS drill (signals → topic),
@@ -340,7 +340,7 @@ export function buildParentReport({ days = 14, lang = "th" } = {}) {
          was no session today (honest-null — ข้อมูลไม่พอ = ซ่อน). ── */
       joyToday: getJoyToday(),
       focus: diag ? { label: diag.what ? diag.what.label : null, acc: diag.what ? diag.what.acc : null, why: diag.why || [], how: diag.how || [], bpm: diag.meta ? diag.meta.bpm : null } : null,
-      homeworkNote: topMiss ? (lang === "zh" ? `专练音符 ${topMiss.label} — 每天慢速完整弹 3 遍` : lang === "en" ? xl(lang, `Focus on the note ${topMiss.label} — play it slowly 3× perfectly every day`) : `โฟกัสโน้ต ${topMiss.label} — เล่นช้า 3 รอบให้สมบูรณ์ทุกวัน`) : null,
+      homeworkNote: topMiss ? (lang === "th" ? `โฟกัสโน้ต ${topMiss.label} — เล่นช้า 3 รอบให้สมบูรณ์ทุกวัน` : lang === "zh" ? `专练音符 ${topMiss.label} — 每天慢速完整弹 3 遍` : xl(lang, `Focus on the note ${topMiss.label} — play it slowly 3× perfectly every day`)) : null,   // th / zh / English (the catalog for an extra language): the old chain tested lang === "en" last and sent every extra language to the Thai line
     };
   } catch (e) { return null; }
 }

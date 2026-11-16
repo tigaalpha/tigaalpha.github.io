@@ -55,7 +55,8 @@ globalThis.window = globalThis;
 // coverage. The functions under test are pure — plan strings in, answers out.
 writeFileSync(`${OUT}/payment.tsx`, readFileSync("payment.tsx", "utf8"));
 writeFileSync(`${OUT}/lang-extra.ts`, readFileSync("lang-extra.ts", "utf8"));
-for (const l of ["ja", "ko", "ru"]) writeFileSync(`${OUT}/i18n-${l}.ts`, "export default {};\n");   // catalogs are lazy chunks: empty stand-ins keep the bundler happy
+// catalogs are lazy chunks: empty stand-ins keep the bundler happy. One for every catalog lang-extra.ts can load (read from its loaders, so a language added later cannot break this test again)
+for (const m of readFileSync("lang-extra.ts", "utf8").matchAll(/import\("\.\/i18n-([a-z]{2,3})"\)/g)) writeFileSync(`${OUT}/i18n-${m[1]}.ts`, "export default {};\n");
 writeFileSync(`${OUT}/supabase-client.ts`, `export const sb = null; export const SUPABASE_URL = "";\n`);
 writeFileSync(`${OUT}/ai-backend.ts`, `export const apiHeaders = () => ({});\n`);
 writeFileSync(`${OUT}/entry.mjs`, `

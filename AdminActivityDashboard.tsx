@@ -5,7 +5,7 @@ import { AdminLearningData } from "./AdminLearningData";
 import { CampaignFunnelCard } from "./AdminCampaignFunnel";
 import { BlogStatsCard } from "./AdminBlogStats";
 
-import { pickT } from "./lang-extra";
+import { pickT, LANG_META } from "./lang-extra";
 /* ═══════════════════════════════════════════════════════════════════════════
    ADMIN ACTIVITY ANALYTICS — visible ONLY to admin_tier >= 3 (the owner).
 
@@ -1147,7 +1147,7 @@ function ActivityBody({ lang, onOpenAnon }) {
                         nothing); ❔ marks a genuinely unknown origin. */}
                     {u.signup_landing != null && (
                       <span title={"signup_landing: " + u.signup_landing} style={{ marginLeft: 6, fontSize: 11 }}>
-                        {u.signup_landing === "th" ? "🇹🇭" : u.signup_landing === "en" ? "🇬🇧" : u.signup_landing === "zh" ? "🇨🇳" : "❔"}
+                        {(LANG_META[u.signup_landing] || { flag: "❔" }).flag}
                       </span>
                     )}
                   </span>
@@ -1169,7 +1169,7 @@ function ActivityBody({ lang, onOpenAnon }) {
                 {sel.simulated ? "🤖" : "👤"} {sel.display_name} — {T("รายละเอียด", "Detail", "详情")}
                 {sel.signup_landing != null && (
                   <span title={"signup_landing: " + sel.signup_landing} style={{ marginLeft: 8, fontSize: 12, fontWeight: 400 }}>
-                    {T("มาจากแลนดิ้ง", "via landing", "来自落地页")} {sel.signup_landing === "th" ? "🇹🇭 th" : sel.signup_landing === "en" ? "🇬🇧 en" : sel.signup_landing === "zh" ? "🇨🇳 zh" : "❔"}
+                    {T("มาจากแลนดิ้ง", "via landing", "来自落地页")} {LANG_META[sel.signup_landing] ? LANG_META[sel.signup_landing].flag + " " + sel.signup_landing : "❔"}
                   </span>
                 )}
                 <button onClick={() => setSel(null)} style={{ float: "right", background: "none", border: "none", fontSize: 16 }}>✕</button>

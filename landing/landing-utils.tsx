@@ -17,7 +17,7 @@ import { Component } from "react";
    the duplication cheaper than the import. Nothing here may import from the
    app (that is the entire point of this file). ── */
 
-/* ── ErrorBoundary: VERBATIM from app-shell.tsx for th / en / zh, plus ja / ko / ru ──
+/* ── ErrorBoundary: VERBATIM from app-shell.tsx for th / en / zh, plus ja / ko / ru / hi / es / fr / ar ──
    The fallback is read before anything else on the page can help, so it picks
    its wording from <html lang> directly instead of from landing-copy. Thai +
    English stays the default for every other language, exactly as before. */
@@ -25,6 +25,10 @@ const CRASH_COPY = {
   ja: { title: "問題が発生しました · Something went wrong", sub: "ご不便をおかけして申し訳ありません。ページを再読み込みしてください。", btn: "再読み込み · Reload" },
   ko: { title: "문제가 발생했어요 · Something went wrong", sub: "불편을 드려 죄송해요. 페이지를 다시 불러와 주세요.", btn: "다시 불러오기 · Reload" },
   ru: { title: "Что-то пошло не так · Something went wrong", sub: "Приносим извинения. Пожалуйста, перезагрузите страницу.", btn: "Перезагрузить · Reload" },
+  hi: { title: "कुछ गड़बड़ हो गई · Something went wrong", sub: "असुविधा के लिए खेद है। कृपया पेज को दोबारा लोड करें।", btn: "दोबारा लोड करें · Reload" },
+  es: { title: "Algo salió mal · Something went wrong", sub: "Perdona las molestias. Recarga la página para continuar.", btn: "Recargar · Reload" },
+  fr: { title: "Une erreur s'est produite · Something went wrong", sub: "Toutes nos excuses. Veuillez recharger la page.", btn: "Recharger · Reload" },
+  ar: { title: "حدث خطأ ما · Something went wrong", sub: "نعتذر عن الإزعاج. يرجى إعادة تحميل الصفحة.", btn: "إعادة التحميل · Reload" },
 };
 function crashCopy() {
   try {
@@ -64,7 +68,7 @@ export class ErrorBoundary extends Component {
   }
 }
 
-/* ── friendlyAuthError: VERBATIM from app-shell.tsx for th / en / zh; ja / ko / ru
+/* ── friendlyAuthError: VERBATIM from app-shell.tsx for th / en / zh; ja / ko / ru / hi / es / fr / ar
    get the same sentences in their language, followed by the English one, the
    same "native · English" shape the Thai text already has ── */
 const AUTH_ERR = {
@@ -85,6 +89,30 @@ const AUTH_ERR = {
     creds: "Неверный e-mail или пароль · Incorrect email or password",
     net: "Не удалось подключиться — попробуйте ещё раз · Couldn't connect — please try again",
     other: "Что-то пошло не так — попробуйте ещё раз · Something went wrong — please try again",
+  },
+  hi: {
+    exists: "इस ईमेल से अकाउंट पहले से बना हुआ है — इसके बजाय लॉग इन करें · This email is already registered — try logging in instead",
+    creds: "ईमेल या पासवर्ड ग़लत है · Incorrect email or password",
+    net: "कनेक्ट नहीं हो सका — कृपया फिर से कोशिश करें · Couldn't connect — please try again",
+    other: "कुछ गड़बड़ हो गई — कृपया फिर से कोशिश करें · Something went wrong — please try again",
+  },
+  es: {
+    exists: "Este correo ya está registrado — intenta iniciar sesión · This email is already registered — try logging in instead",
+    creds: "Correo o contraseña incorrectos · Incorrect email or password",
+    net: "No se pudo conectar — inténtalo de nuevo · Couldn't connect — please try again",
+    other: "Algo salió mal — inténtalo de nuevo · Something went wrong — please try again",
+  },
+  fr: {
+    exists: "Cette adresse e-mail est déjà enregistrée — essayez plutôt de vous connecter · This email is already registered — try logging in instead",
+    creds: "E-mail ou mot de passe incorrect · Incorrect email or password",
+    net: "Connexion impossible — veuillez réessayer · Couldn't connect — please try again",
+    other: "Une erreur est survenue — veuillez réessayer · Something went wrong — please try again",
+  },
+  ar: {
+    exists: "هذا البريد الإلكتروني مسجّل بالفعل — جرّب تسجيل الدخول بدلًا من ذلك · This email is already registered — try logging in instead",
+    creds: "البريد الإلكتروني أو كلمة المرور غير صحيحة · Incorrect email or password",
+    net: "تعذّر الاتصال — حاول مرة أخرى · Couldn't connect — please try again",
+    other: "حدث خطأ ما — حاول مرة أخرى · Something went wrong — please try again",
   },
 };
 export function friendlyAuthError(msg, lang = "") {

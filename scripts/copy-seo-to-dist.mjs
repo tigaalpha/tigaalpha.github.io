@@ -14,7 +14,7 @@ export function stripLiveBlogShell(blogDir) {
 }
 function copySeo() {
 let n = 0;
-for (const x of ["songs", "blog", "landing", "landing-en", "landing-zh", "landing-ja", "landing-ko", "landing-ru", "landing.html", "landing-en.html", "landing-zh.html", "landing-ja.html", "landing-ko.html", "landing-ru.html", "sitemap.xml", "sitemap-pages.xml", "sitemap-songs.xml", "robots.txt", "privacy-policy.html", "knowledge-sources.html"]) {
+for (const x of ["songs", "blog", "landing", "landing-en", "landing-zh", "landing-ja", "landing-ko", "landing-ru", "landing-hi", "landing-es", "landing-fr", "landing-ar", "landing.html", "landing-en.html", "landing-zh.html", "landing-ja.html", "landing-ko.html", "landing-ru.html", "landing-hi.html", "landing-es.html", "landing-fr.html", "landing-ar.html", "sitemap.xml", "sitemap-pages.xml", "sitemap-songs.xml", "robots.txt", "privacy-policy.html", "knowledge-sources.html"]) {
   const from = path.join(ROOT, x); if (!fs.existsSync(from)) continue;
   fs.cpSync(from, path.join(DIST, x), { recursive: true, force: true }); n++;
 }

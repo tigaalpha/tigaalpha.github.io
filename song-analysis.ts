@@ -69,7 +69,9 @@ export function buildSongFallback(lang, label, result) {
    Returns {weakness, steps, strategy?} — never throws; on total failure the
    caller still gets the real-data fallback so the card is never empty. */
 export async function analyzeSongRun(lang, label, result, loopFn, askAi, profile) {
-  const L3 = lang === "th" ? "th" : lang === "zh" ? "zh" : xl(lang, "en");
+  // the code the model and the prompt tables are keyed by: th / zh / en. It was xl(lang, "en") for the others, which asks the CATALOG for the word "en" (Spanish answers "es"): the Spanish run indexed
+  // the prompts by "es", sent the AI no system prompt and a message that began with the word "undefined", and gave the loop a language it does not know (it answers in Thai).
+  const L3 = lang === "th" || lang === "zh" ? lang : "en";
   const buildSys = (stratLine) => ({
     th: `คุณคือ "ครู TiGA" ผู้เชี่ยวชาญสอนผู้เริ่มต้น ชมก่อนแล้วค่อยแนะนำ เจาะจงเสมอ ห้ามพูดกว้าง ๆ เช่น "ฝึกสม่ำเสมอ" ไม่แนะนำทฤษฎีขั้นสูง ตอบ JSON เท่านั้น {"weakness":"...","steps":["...","...","..."]} — weakness ไม่เกิน 15 คำ, steps 2-3 ข้อ ข้อละไม่เกิน 20 คำ${stratLine ? `\nกลยุทธ์ที่โมเดลสอนเลือก (ต้องทำตาม ห้ามขัด): ${stratLine}` : ""}`,
     zh: `你是"TiGA老师"，专教零基础学员。先表扬再建议，必须具体，禁止"多练习"这类空话，不提高阶乐理。只回JSON {"weakness":"...","steps":["...","...","..."]} — weakness≤15字，steps 2-3条每条≤20字${stratLine ? `\n模型已选教学策略（必须遵循）：${stratLine}` : ""}`,
@@ -123,19 +125,19 @@ export async function analyzeSongRun(lang, label, result, loopFn, askAi, profile
   // the injected askAi closure does its own auth gate anyway)
   if (askAi) {
     try {
-      const sys = buildSys(stratLine)[L3];
+      const sys = by(buildSys(stratLine), lang);   // th / en / zh: their own prompt; an extra language: the English prompt through its catalog (the catalogs hold all three prompts), so the analysis comes back in that language
       // StudentContext block (model layer spec §13): the SAME memory the
       // teaching loop and coach see now personalizes the external AI too —
       // appended to the message; empty for brand-new students (honest gap).
       const hub = tigaNow();
-      const msg = buildMsg(stratLine)[L3] + (hub ? (hub.getStudentContextBlock() || "") : "");   // model lazy → empty block until loaded (same honest gap as a brand-new learner)
+      const msg = by(buildMsg(stratLine), lang) + (hub ? (hub.getStudentContextBlock() || "") : "");   // model lazy → empty block until loaded (same honest gap as a brand-new learner)
       // plan 3.2: content-addressed cache — the prompt bakes in label/acc/missed
       // notes, but tiny acc jitter (87% vs 88%) would bust the hash, so the key
       // quantizes acc to 5% buckets and keeps only the top-3 missed notes.
       // Distinct from the "play-along composition" exclusion in ai-cache.ts's
       // header: analysis of the SAME performance is deterministic advice, not a
       // fresh creative artifact.
-      const txt = await withAiCache("songAnalysis", { label, accBucket: Math.round((result.acc || 0) / 5) * 5, missed: (result.missedNotes || []).slice(0, 3), lang: L3 }, 24 * 60 * 60 * 1000, () => askAi({ system: sys, message: msg }));
+      const txt = await withAiCache("songAnalysis", { label, accBucket: Math.round((result.acc || 0) / 5) * 5, missed: (result.missedNotes || []).slice(0, 3), lang: lang || L3 }, 24 * 60 * 60 * 1000, () => askAi({ system: sys, message: msg }));
       const jm = typeof txt === "string" && txt.match(/\{[\s\S]*\}/);
       if (jm) {
         const obj = JSON.parse(jm[0]);

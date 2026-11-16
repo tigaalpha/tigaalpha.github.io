@@ -3,7 +3,8 @@ import { useState, useEffect, Component } from "react";
 import { sb } from "./supabase-client";
 import { saveGuestProfile, setSkipOnboard, logUsage } from "./shared-infra";
 import { handoffUrl } from "./local-identity";
-import { by, ALL_LANGS, LANG_META } from "./lang-extra";
+import { by, ALL_LANGS, LANG_META, isRtl } from "./lang-extra";
+import { useCatalog } from "./use-catalog";
 /* ── app-shell.tsx ──
    Small presentational components clustered around the App() root: the
    membership-gate screens (Splash/BannedScreen/GuestGateScreen/ProfileForm,
@@ -522,7 +523,9 @@ const WALL_T: Record<string, Record<string, string>> = {
 };
 function LoginWall({ profile, onGoogleLogin }) {
   const [inApp] = useState(() => inAppBrowser());
-  const lg = (() => { const p = profile && profile.lang; if (p === "th" || p === "en" || p === "zh") return p; try { const n = (navigator.language || "").toLowerCase(); return n.startsWith("th") ? "th" : n.startsWith("zh") ? "zh" : "en"; } catch (e) { return "en"; } })();
+  /* the language the learner already chose (any of the ten; the card used to honour th / en / zh only and showed English to someone who had picked Spanish); a visitor who chose none gets the browser's, as before */
+  const lg = (() => { const p = profile && profile.lang; if (ALL_LANGS.includes(p)) return p; try { const n = (navigator.language || "").toLowerCase(); return n.startsWith("th") ? "th" : n.startsWith("zh") ? "zh" : "en"; } catch (e) { return "en"; } })();
+  useCatalog(lg);   // an extra language's catalog is a lazy chunk: this loads it if main.tsx did not, and the card redraws when it arrives
   const t = by(WALL_T, lg);
   /* ?wall=signup | ?wall=login opens the card on that tab: the blog pop-up (scripts/build-blog-pages.mjs) sends "sign up free" and "log in" here */
   const [mode, setMode] = useState(() => { try { return new URLSearchParams(window.location.search).get("wall") === "signup" ? "signup" : "login"; } catch (e) { return "login"; } });
@@ -551,7 +554,7 @@ function LoginWall({ profile, onGoogleLogin }) {
   }
   const clay = "#d97757", inp: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "13px 14px", borderRadius: 10, border: "1.5px solid #e2d8cf", background: "#fff", color: "#2a211b", fontSize: 16, outline: "none", fontFamily: "inherit" };
   return (
-    <div data-login-wall style={{ position: "fixed", inset: 0, zIndex: 100000, overflowY: "auto", background: "#faf6f1", color: "#2a211b", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "28px 16px", boxSizing: "border-box" }}>
+    <div data-login-wall dir={isRtl(lg) ? "rtl" : undefined} style={{ position: "fixed", inset: 0, zIndex: 100000, overflowY: "auto", background: "#faf6f1", color: "#2a211b", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "28px 16px", boxSizing: "border-box" }}>
       <div style={{ width: "100%", maxWidth: 400, background: "#fff", borderRadius: 18, padding: "26px 22px 22px", boxShadow: "0 10px 40px rgba(120,70,40,.14)", border: "1px solid #eee3d8" }}>
         <div style={{ textAlign: "center", marginBottom: 18 }}>
           <div style={{ display: "inline-block", border: "2px solid " + clay, color: clay, borderRadius: 12, padding: "6px 16px", fontWeight: 800, fontSize: 22, letterSpacing: 1 }}>TIGA ALPHA</div>

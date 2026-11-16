@@ -3,7 +3,7 @@ import qrcode from "qrcode-generator";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { apiHeaders } from "./ai-backend";
 
-import { pickT, by } from "./lang-extra";
+import { pickT } from "./lang-extra";
 /* ── PromptPay QR (EMVCo) — generate a payable QR straight to the owner's bank.
    No gateway, no fees: money goes directly to the configured PromptPay ID. ── */
 function _ppTLV(id, val) { const l = String(val.length).padStart(2, "0"); return id + l + val; }
@@ -149,6 +149,10 @@ export const PLAN_PRICE     = { premium: 799,   family: 799,   max: 799,    maxf
 export const PLAN_PRICE_USD = { premium: 24.99, family: 24.99, max: 24.99,  maxfamily: 24.99 }; // USD
 export const PLAN_PRICE_CNY = { premium: 176,   family: 176,   max: 176,    maxfamily: 176   }; // CNY
 export const CURRENCY_BY_LANG: Record<string,string> = { th: "thb", en: "usd", zh: "cny" };
+/* The display + checkout currency of an app language: Thai baht, Chinese yuan, and US dollars for every other language (the seven extra ones included, as English).
+   NOT by(CURRENCY_BY_LANG, lang): by() runs the English value it finds for an extra language through that language's catalog, and the catalogs hold the WORD "usd"
+   ("米ドル", "अमेरिकी डॉलर", "دولار" ...), which is no currency code: the price fell silently to baht and stripe-checkout was sent a currency it does not know. */
+export const currencyOf = (lang: string): string => CURRENCY_BY_LANG[lang] || CURRENCY_BY_LANG.en;
 export const PLAN_LABEL = { premium: "⭐ Premium", family: "⭐ Premium", max: "⭐ Premium", maxfamily: "⭐ Premium" };
 /* Only these two are sellable. Kept as an explicit list rather than inferred
    from the price keys, because the price keys still carry the legacy ids (an
@@ -283,7 +287,7 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
   // before the first render commits; a ref updates synchronously so it closes that gap
   const submittingRef = useRef(false);
   const amountThb = checkout.amount;                        // always THB (for slip DB record)
-  const cur = checkout.cur || by(CURRENCY_BY_LANG, lang) || "thb";
+  const cur = checkout.cur || currencyOf(lang) || "thb";
   const dispAmt = checkout.disp != null ? checkout.disp : amountThb;
   const planLabel = PLAN_LABEL[checkout.plan] || checkout.plan;
   const cnySt = checkout.cycle === "year" ? yearPriceByCur("cny", checkout.plan) : planPriceByCur("cny", checkout.plan);

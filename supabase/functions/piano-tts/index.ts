@@ -92,9 +92,11 @@ const ELEVEN_DEFAULT_VOICE = Deno.env.get("ELEVEN_TTS_VOICE") ?? "pNInz6obpgDQGc
 const MAX_RETRIES = 2;
 
 // BCP-47 hint per client lang key (zh → Mandarin). Gemini TTS names its languages with the full tag.
-const LANG_CODE: Record<string, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar-EG" };
-// hi / es / fr / ar (2026-11-13, repo copy only, NOT deployed). Gemini TTS documents Arabic as ar-EG (written from memory, not re-checked); a tag the model does not know
-// answers 400 and synthOnce below speaks again without the hint, so a wrong guess costs one extra round trip, not the feature.
+const LANG_CODE: Record<string, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR" };
+// hi / es / fr (2026-11-13, repo copy only, NOT deployed; the tags are from memory and could not be checked against the live API from the session that wrote them: ai.google.dev was
+// not reachable). A tag the model does not know answers 400 and synthOnce below speaks again without the hint, so a wrong guess costs one extra round trip per clip, not the feature.
+// ar has NO entry on purpose: the speech-generation table lists Arabic only as Egyptian (ar-EG), a dialect, and the app speaks Modern Standard Arabic; the model recognises Arabic from the
+// text itself (the hint is optional: `if (langCode && withLang)` in synthOnce), which is also the path every language took before hints existed. Add one only after reading the docs.
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

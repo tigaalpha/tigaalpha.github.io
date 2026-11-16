@@ -23,7 +23,7 @@ const ALL_CHIP: Cat = { id: "all", icon: "📚", th: "ทั้งหมด", en
 export const catLabel = (c: Cat, lang: string): string => lang === "th" ? c.th : lang === "zh" ? c.zh : (isExtraLang(lang) && (c as any)[lang]) || xl(lang, c.en);
 export const catName = (id: string, lang: string) => { const c = BLOG_CATS.find(x => x.id === id) || BLOG_CATS[0]; return c.icon + " " + catLabel(c, lang); };
 // Thai, the CJK scripts and kana are written without spaces (450 characters a minute); every other script here, Devanagari and Arabic included, is read like Latin text (1100)
-export const readMins = (t: string) => Math.max(1, Math.round(((t || "").length) / (/[฀-๿぀-ヿ㐀-鿿가-힯]/.test(t || "") ? 450 : 1100)));
+export const readMins = (t: string) => Math.max(1, Math.round(((t || "").length) / (/[\u0E00-\u0E7F\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]/.test(t || "") ? 450 : 1100)));
 // "3 min" in the language of the article; `long` is the form beside the date in an open article
 const MIN_TXT: Record<string, [string, string]> = { th: ["นาที", "นาที"], zh: ["分钟", "分钟"], ja: ["分", "分で読めます"], ko: ["분", "분이면 읽어요"], ru: ["мин", "мин чтения"], hi: ["मिनट", "मिनट में पढ़ें"], es: ["min", "min de lectura"], fr: ["min", "min de lecture"] };
 // Arabic counts its minutes with a different word for 1, 2, 3-10 and 11 or more
@@ -61,8 +61,9 @@ export function BlogBody({ text }: { text: string }) {
 }
 // Arabic asks for Latin digits and the Gregorian calendar, as the static pages do (LOC_JS in scripts/build-blog-pages.mjs): a bare "ar" prints Arabic-Indic digits in some engines
 const latnAr = (loc: string, lang: string) => lang === "ar" ? "ar-u-nu-latn" : loc;
-// th-TH, zh-CN, ja-JP, ko-KR, ru-RU, hi-IN, es-ES, fr-FR, ar for their own readers, en-GB for English (dateLocale in lang-extra.ts)
-export const fmtDate = (d: string, lang: string) => { try { return new Date(d).toLocaleDateString(latnAr(dateLocale(lang), lang), { year: "numeric", month: "short", day: "numeric" }); } catch (e) { return ""; } };
+// th-TH, zh-CN, ja-JP, ko-KR, ru-RU, hi-IN, es-ES, fr-FR, ar for their own readers, en-GB for English (dateLocale in lang-extra.ts).
+// A plain calendar date ("2026-11-13", what the committed articles carry) is read in UTC, like the static pages do: in the device's own zone, west of Greenwich, it would show the day before. A full timestamp keeps the reader's zone, as before.
+export const fmtDate = (d: string, lang: string) => { try { return new Date(d).toLocaleDateString(latnAr(dateLocale(lang), lang), { year: "numeric", month: "short", day: "numeric", ...(/^\d{4}-\d{2}-\d{2}$/.test(d) ? { timeZone: "UTC" } : {}) }); } catch (e) { return ""; } };
 
 /* Reader counts (owner 2026-11-07, supabase-blog-views-migration.sql): opening an article counts one view per device per day (public.blog_hit, the same call the static pages make) and the
    number is shown beside the date; the list shows it on every card. A random id of this browser (tg_blog_vid, never an account) is the "device". Every call fails soft: until the migration
@@ -75,9 +76,12 @@ const blogVid = () => {
   catch (e) { if (!okId(memVid)) memVid = mk(); return memVid; }   // no storage: one id for this tab, so a reader is one device, not one per article
 };
 const isStaticId = (id: string) => typeof id === "string" && id.startsWith("static:");
-// the same words the static pages use (VIEWS_LBL in scripts/build-blog-pages.mjs): "1,234回閲覧" and "1,234회 조회" sit straight against the number, the others have a space
-const VIEWS_UNIT: Record<string, string> = { th: "ยอดวิว", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров", hi: "बार देखा गया", es: "visualizaciones", fr: "vues", ar: "مشاهدة" };
-export const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(latnAr(localeOf(lang), lang)) + (lang === "ja" || lang === "ko" ? "" : " ") + (VIEWS_UNIT[lang] || xl(lang, "views"));
+// the same words the static pages use (VIEWS_LBL, VIEWS_ONE and UNIT_JS in scripts/build-blog-pages.mjs; Hindi is also the UI catalog's word for "views"): "1,234回閲覧" and "1,234회 조회" sit straight against the number, the others have a space
+const VIEWS_UNIT: Record<string, string> = { th: "ยอดวิว", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров", hi: "व्यूज़", es: "visualizaciones", fr: "vues", ar: "مشاهدة" };
+// one view is singular in es / fr ("1 visualización", "1 vue") and Arabic gives 1, 2, 3-10 and 11+ each its own form, as the static pages do; a count is only shown from 1 up. The other languages keep their one unit.
+const VIEWS_ONE: Record<string, string> = { es: "visualización", fr: "vue" };
+const viewsUnit = (n: number, lang: string) => lang === "ar" ? (n === 2 ? "مشاهدتان" : n >= 3 && n <= 10 ? "مشاهدات" : VIEWS_UNIT.ar) : (n === 1 && VIEWS_ONE[lang]) || VIEWS_UNIT[lang] || xl(lang, "views");
+export const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(latnAr(localeOf(lang), lang)) + (lang === "ja" || lang === "ko" ? "" : " ") + viewsUnit(n, lang);
 
 /* The committed articles: one lazy chunk per language (a literal path each, so the bundler can see every file). th / en / zh have none: their articles live only in the table. */
 const STATIC_LOADERS: Record<string, () => Promise<{ default: BlogPost[] }>> = {
@@ -90,9 +94,9 @@ export const mergeRows = (db: BlogPost[], files: BlogPost[]): BlogPost[] => {
   return (db || []).concat((files || []).filter(p => !have.has(p.lang + "/" + p.slug)))
     .map((p, i) => ({ p, i, t: Date.parse(p.created_at) || 0 })).sort((a, b) => b.t - a.t || a.i - b.i).map(x => x.p);
 };
-// "no articles in this language yet", written in the language of the list (the app's own catalog may not be the one that is loaded)
+// "no articles in this language yet" for the seven catalog languages, written in the language of the LIST (the app's own catalog may not be the one that is loaded). th / zh / en keep their lines in the JSX below:
+// an object holding th + en + zh would be read by scripts/extract-i18n.mjs as a { th, en, zh } triple and put the English-tab line into the catalog.
 const EMPTY_TXT: Record<string, string> = {
-  th: "ยังไม่มีบทความภาษาไทย โปรดรอติดตาม", zh: "暂无中文文章，敬请期待", en: "No English articles yet — check back soon",
   ja: "この言語の記事はまだありません。もうしばらくお待ちください", ko: "아직 이 언어로 된 글이 없어요. 곧 만나요", ru: "Статей на этом языке пока нет — загляните позже",
   hi: "इस भाषा में अभी कोई लेख नहीं है — जल्द ही दोबारा देखें", es: "Aún no hay artículos en este idioma — vuelve pronto", fr: "Pas encore d'articles dans cette langue — reviens bientôt", ar: "لا توجد مقالات بهذه اللغة بعد — عاود الزيارة قريبًا",
 };
@@ -204,7 +208,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
               <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>…</div>
             ) : shown.length === 0 ? (
               err ? <div dir={appDir} style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{T("โหลดบทความไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't load articles — please try again", "文章加载失败，请重试")}</div>
-                : <div data-blog-empty style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{EMPTY_TXT[tab] || xl(tab, "No articles in this language yet — check back soon")}</div>
+                : <div data-blog-empty style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{tab === "th" ? "ยังไม่มีบทความภาษาไทย โปรดรอติดตาม" : tab === "zh" ? "暂无中文文章，敬请期待" : tab === "en" ? "No English articles yet — check back soon" : EMPTY_TXT[tab] || xl(tab, "No articles in this language yet — check back soon")}</div>
             ) : shown.map(p => (
               <button key={p.id} data-blog-card data-blog-slug={p.slug} onClick={() => setOpen(p)} style={{ display: "block", width: "100%", textAlign: "start", background: "var(--card)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 16, padding: 14, margin: "0 0 12px", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
                 {p.cover_url && safeUrl(p.cover_url) && <img src={safeUrl(p.cover_url)} alt={p.cover_alt || ""} loading="lazy" style={{ width: "100%", borderRadius: 10, marginBottom: 10 }} />}

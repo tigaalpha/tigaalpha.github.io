@@ -12,7 +12,7 @@ import { sttSupported, getSR, TTS_LOCALES } from "./speech";
 import { selfReportFromTranscript } from "./tiga-gateway";   // via the lazy gateway
 import { usePracticeCoach } from "./use-practice-coach";
 import { SPOT_CAP_NOTES } from "./practice-spot";
-import { pickT, localeOf, xl, by } from "./lang-extra";
+import { pickT, localeOf, xl, by, modelLang } from "./lang-extra";
 /* ── PracticeOverlay ──
    The active practice-session full-screen overlay (practiceOpen), extracted
    verbatim from PianoApp's inline JSX as part of Phase 2 componentization —
@@ -125,10 +125,10 @@ function TomorrowBridge({ lang, restartPractice }) {
   return (
     <div className="presultai" style={{ borderColor: "#8ad4ff" }}>
       <div className="presultai-h">🗓 {lang === "th" ? "พรุ่งนี้ของเรา" : lang === "zh" ? "我们的明天" : xl(lang, "Tomorrow")} · {prom.minutes} {unit}</div>
-      <div className="presultai-tx">{pickLang(prom.text, lang)}</div>
+      <div className="presultai-tx">{pickLang(prom.text, lang, s => xl(lang, s))}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
         {blocks.map(b => (
-          <span key={b.key} className="dailyrec-lbl">{pickLang(b.label, lang)} · {b.minutes}′</span>
+          <span key={b.key} className="dailyrec-lbl">{pickLang(b.label, lang, s => xl(lang, s))} · {b.minutes}′</span>
         ))}
       </div>
       <button className="practicerestart" style={{ width: "100%" }} onClick={restartPractice}>
@@ -544,7 +544,7 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
         repeatedErrors: r.miss >= 2 ? r.miss : 0,
         pauses: 0, rhythmScore: r.rhythm ? pctOf(r.rhythm.ok, r.rhythm.ok + r.rhythm.miss) : null,
         label: r.label,
-      }, choice, lang);   // lang (owner plan 1.2): the rerun verdict must speak the app's current language
+      }, choice, modelLang(lang));   // lang (owner plan 1.2): the rerun verdict must speak the app's current language (an extra language reads as English: the loop's tables are th/en/zh)
       if (loop && loop.response && onTipUpdate) {
         onTipUpdate({ text: loop.response.text, strategyId: loop.decision ? loop.decision.strategy_id : null, states: loop.states });
       }
@@ -616,7 +616,7 @@ function PracticeCoachCard({ lang, lc, practiceResult, rhythmPct, dynPct, practi
   const recap = data.recap;
   const ex = data.exercise;
   const boredom = data.boredom;   // 12.4: high-risk plan swap w/ KB citations, or null = do as before
-  const tx = (o) => (o ? (typeof o === "string" ? o : (o[L] || o.en || o.th)) : null);
+  const tx = (o) => (o ? (typeof o === "string" ? o : (o[L] || xl(L, o.en) || o.th)) : null);   // an extra language: the English line through its catalog, as everywhere else (xl is a no-op for th / en / zh)
   return (
     <div className="presultai pcoach" style={{ borderColor: "#8ad4ff" }}>
       <div className="presultai-h">🎯 {T("ครู TIGA Practice Coach", "Teacher TIGA Practice Coach", "TIGA 练习教练")}</div>

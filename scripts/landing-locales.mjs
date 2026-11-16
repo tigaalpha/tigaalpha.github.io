@@ -1,5 +1,5 @@
 /* ── scripts/landing-locales.mjs ──
-   Marketing landing page 1 ships as SIX URLs so each foreign-market campaign
+   Marketing landing page 1 ships as TEN URLs so each foreign-market campaign
    can be advertised, and measured, on its own link:
 
      /landing/      Thai      (canonical — built by vite into landing/)
@@ -8,25 +8,31 @@
      /landing-ja/   Japanese  (2026-11-11)
      /landing-ko/   Korean    (2026-11-11)
      /landing-ru/   Russian   (2026-11-11)
+     /landing-hi/   Hindi     (2026-11-13)
+     /landing-es/   Spanish   (2026-11-13)
+     /landing-fr/   French    (2026-11-13)
+     /landing-ar/   Arabic    (2026-11-13, right to left: <html lang="ar" dir="rtl">)
 
    They are the same page. This takes the ONE built HTML and rewrites only the
    parts a search result, a shared link preview and a screen reader read — the
-   <html lang>, the title, the description, the Open Graph card (og:locale
-   included), the canonical, and the line under the boot logo — none of which
-   React ever gets to touch, because they
+   <html lang> (and dir, for a right-to-left language), the title, the
+   description, the Open Graph card (og:locale included), the canonical, and the
+   line under the boot logo — none of which React ever gets to touch, because they
    are read before (and sometimes instead of) the page running at all.
 
    Everything else, including the bundle, is shared: the variants point back at
-   ../landing/bundle/, so there is one copy of the code and the three pages
+   ../landing/bundle/, so there is one copy of the code and the ten pages
    cannot drift apart. The page picks its language up from the <html lang>
-   written here.
+   written here (and sets dir from it, see dirOf in landing/landing-copy.ts).
 
-   The six pages reference each other: the template carries one hreflang set
-   (th, en, zh-Hans, ja, ko, ru, x-default = /landing-en/) that every variant
-   keeps unchanged, so each page lists all six including itself.
+   The ten pages reference each other: the template carries one hreflang set
+   (th, en, zh-Hans, ja, ko, ru, hi, es, fr, ar, x-default = /landing-en/) that
+   every variant keeps unchanged, so each page lists all ten including itself.
+   The set lives in landing/index.template.html and is checked against LOCALES
+   below, so a language added to one and not the other stops the build.
 
    Generating rather than hand-maintaining more HTML files is the whole
-   point: an edit to the real template reaches all six on the next build.
+   point: an edit to the real template reaches all ten on the next build.
 
    LANDING_SRC / LANDING_OUT (env) point the script at another template and
    another output folder, so it can be run and checked without touching the
@@ -62,7 +68,7 @@ const LOCALES = {
     bootHeadB: "它弹给你看",
     html: "zh-Hans", ogLocale: "zh_CN",
   },
-  /* ja / ko / ru: written as native marketing copy, not translated word for
+  /* ja / ko / ru (and hi / es / fr / ar below): written as native marketing copy, not translated word for
      word. Japanese and Korean read shorter than English, so their descriptions
      are about 80-100 characters, the same weight as the 110-160 an English or
      Russian one carries. No double quotes, ampersands or dollar signs in any
@@ -100,9 +106,71 @@ const LOCALES = {
     bootHeadB: "он сыграет ответ",
     html: "ru", ogLocale: "ru_RU",
   },
+  /* hi / es / fr / ar (2026-11-13): native marketing copy again, same rules (no double quotes, ampersands or
+     dollar signs: these strings are written into HTML attributes verbatim). htmlDir is the optional text direction of
+     the page: only Arabic has one, and it makes the generated root <html lang="ar" dir="rtl"> (the folder name is dir,
+     so the direction needed another key). */
+  hi: {
+    dir: "landing-hi",
+    title: "AI शिक्षक के साथ पियानो का एक पाठ आज़माएँ — TIGA ALPHA",
+    desc: "AI पियानो शिक्षक से कुछ भी पूछिए और देखिए कि वह जवाब असली कीबोर्ड पर बजाकर दिखाता है — स्केल, कॉर्ड, ट्रायड, सब समझाकर और बजाकर। बिना साइन अप आज़माएँ।",
+    ogTitle: "AI शिक्षक के साथ पियानो का एक पाठ आज़माएँ — TIGA ALPHA",
+    ogDesc: "अभी कीबोर्ड पर टैप करें, AI शिक्षक से पूछें और देखें कि वह जवाब उँगली-दर-उँगली बजाकर दिखाता है। न साइन अप, न इंस्टॉल।",
+    boot: "आपका पियानो तैयार हो रहा है",
+    bootHeadA: "AI पियानो शिक्षक से पूछिए — ",
+    bootHeadB: "वह जवाब बजाकर दिखाएगा",
+    html: "hi", ogLocale: "hi_IN",
+  },
+  /* es: native marketing copy, neutral Latin-American Spanish with "tú". No double
+     quotes, ampersands or dollar signs: these strings are written into HTML attributes verbatim. */
+  es: {
+    dir: "landing-es",
+    title: "Prueba una clase de piano con un profesor IA — TIGA ALPHA",
+    desc: "Pregunta a un profesor de piano con IA y mira cómo te toca la respuesta en un teclado de verdad: escalas, acordes y tríadas. Pruébalo sin registrarte.",
+    ogTitle: "Prueba una clase de piano con un profesor IA — TIGA ALPHA",
+    ogDesc: "Toca las teclas ahora mismo, pregunta al profesor IA y mira cómo te toca la respuesta, dedo por dedo. Sin registro y sin instalar nada.",
+    boot: "Preparando tu piano",
+    bootHeadA: "Pregunta a un profesor de piano con IA — ",
+    bootHeadB: "te responde tocando",
+    html: "es", ogLocale: "es_ES",
+  },
+  fr: {
+    dir: "landing-fr",
+    title: "Essayez une leçon de piano avec un prof IA — TIGA ALPHA",
+    desc: "Posez une question à un prof de piano IA et regardez-le jouer la réponse sur un vrai clavier\u00a0: gammes, accords, triades. Essayez sans inscription.",
+    ogTitle: "Essayez une leçon de piano avec un prof IA — TIGA ALPHA",
+    ogDesc: "Appuyez sur les touches dès maintenant, posez une question au prof IA et regardez-le jouer la réponse, doigt par doigt. Sans inscription ni installation.",
+    boot: "Nous préparons votre piano",
+    bootHeadA: "Demandez à un prof de piano IA — ",
+    bootHeadB: "il vous joue la réponse",
+    html: "fr", ogLocale: "fr_FR",
+  },
+  /* ar: native marketing copy in simple Modern Standard Arabic (right to left). No double quotes,
+     ampersands or dollar signs: these strings are written into HTML attributes verbatim. */
+  ar: {
+    dir: "landing-ar",
+    title: "جرّب درس بيانو مع معلّم AI — TIGA ALPHA",
+    desc: "اسأل معلّم بيانو بالذكاء الاصطناعي وشاهده يعزف لك الإجابة على لوحة مفاتيح حقيقية: السلالم والأكوردات والأكوردات الثلاثية، بالشرح والعزف. جرّب دون إنشاء حساب.",
+    ogTitle: "جرّب درس بيانو مع معلّم AI — TIGA ALPHA",
+    ogDesc: "المس المفاتيح الآن، واسأل معلّم AI، وشاهده يعزف لك الإجابة إصبعًا إصبعًا. دون إنشاء حساب ودون تثبيت أي شيء.",
+    boot: "نجهّز لك البيانو",
+    bootHeadA: "اسأل معلّم بيانو بالذكاء الاصطناعي — ",
+    bootHeadB: "يعزف لك الإجابة",
+    html: "ar", htmlDir: "rtl", ogLocale: "ar_AR",
+  },
 };
 
 const src = readFileSync(SRC, "utf8");
+
+/* The hreflang cluster is written once, in the template, and every variant keeps it: th, then each language in
+   LOCALES, then x-default = the English page. If the template and LOCALES disagree (a language added to one and
+   not the other) say so now, rather than ship a cluster that points at a page that is not there or leaves one out. */
+{
+  const want = [["th", `${SITE}/landing/`], ...Object.values(LOCALES).map((L) => [L.html, `${SITE}/${L.dir}/`]), ["x-default", `${SITE}/landing-en/`]];
+  const have = [...src.matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+  if (JSON.stringify(have) !== JSON.stringify(want))
+    throw new Error("landing-locales: the template's hreflang set is not th + every LOCALES entry + x-default:\n  template: " + have.map((x) => x.join(" ")).join(", ") + "\n  expected: " + want.map((x) => x.join(" ")).join(", "));
+}
 
 // Fail loudly rather than silently shipping a Thai page on an English URL:
 // every one of these must match exactly once, or the template has moved.
@@ -114,8 +182,8 @@ function swapOnce(html, find, replace, what) {
 
 /* The visible-to-crawlers block inside #root (replaced by React once the page
    runs), the <noscript> line and the FAQ JSON-LD, per language. en and zh are
-   the approved originals and still say "Premium"; ja / ko / ru name the offer
-   by its 7 days and its price only, the same rule the landing copy follows. */
+   the approved originals and still say "Premium"; ja / ko / ru / hi / es / fr / ar
+   name the offer by its 7 days and its price only, the same rule the landing copy follows. */
 const faqLd = (qa) => `<script type="application/ld+json">${JSON.stringify({
   "@context": "https://schema.org", "@type": "FAQPage",
   mainEntity: qa.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
@@ -164,11 +232,51 @@ const SEO_NEW = {
       ["На каких языках можно учиться", "На русском, английском, тайском, китайском, японском и корейском."],
     ],
   }),
+  hi: seoBlock({
+    blogDir: "hi", h1: "TIGA ALPHA — AI से पियानो सिखाने वाला ऐप",
+    intro: "TIGA ALPHA थाईलैंड में बना पियानो सिखाने वाला ऐप है। AI शिक्षक के साथ आप हिन्दी, अंग्रेज़ी, थाई, चीनी, जापानी, कोरियाई, रूसी, स्पेनिश, फ़्रेंच और अरबी में पियानो सीख सकते हैं। संस्थापक शिक्षक Aum हैं, जिन्हें पियानो सिखाने का 20 साल का अनुभव है।",
+    price: "7 दिन मुफ़्त, फिर 799 THB प्रति माह।", cta: "मुफ़्त शुरू करें", faqHead: "अक्सर पूछे जाने वाले सवाल", blog: "ब्लॉग",
+    qa: [
+      ["TIGA ALPHA क्या है?", "ऐसा ऐप जिसमें AI पियानो सिखाता है। आप ऑन-स्क्रीन कीबोर्ड, माइक्रोफ़ोन या MIDI पियानो से अभ्यास कर सकते हैं।"],
+      ["इसकी कीमत क्या है?", "7 दिन मुफ़्त, फिर 799 THB प्रति माह।"],
+      ["किन भाषाओं में सीख सकते हैं?", "हिन्दी, अंग्रेज़ी, थाई, चीनी, जापानी, कोरियाई, रूसी, स्पेनिश, फ़्रेंच और अरबी में।"],
+    ],
+  }),
+  es: seoBlock({
+    blogDir: "es", h1: "TIGA ALPHA — app para aprender piano con IA",
+    intro: "TIGA ALPHA es una app para aprender piano creada en Tailandia. Aprende con un profesor IA en español, inglés, tailandés, chino, japonés, coreano, ruso, hindi, francés y árabe. Fue fundada por Aum, docente de piano con 20 años de experiencia.",
+    price: "7 días gratis, luego 799 THB al mes.", cta: "Empezar gratis", faqHead: "Preguntas frecuentes", blog: "Blog",
+    qa: [
+      ["¿Qué es TIGA ALPHA?", "Una app en la que una IA te enseña piano. Puedes practicar con el teclado en pantalla, con el micrófono o con un piano MIDI."],
+      ["¿Cuánto cuesta?", "7 días gratis, luego 799 THB al mes."],
+      ["¿En qué idiomas puedo aprender?", "En español, inglés, tailandés, chino, japonés, coreano, ruso, hindi, francés y árabe."],
+    ],
+  }),
+  fr: seoBlock({
+    blogDir: "fr", h1: "TIGA ALPHA — l'application pour apprendre le piano avec un prof IA",
+    intro: "TIGA ALPHA est une application pour apprendre le piano, conçue en Thaïlande. Apprenez avec un prof IA en thaï, en anglais, en chinois, en japonais, en coréen, en russe, en hindi, en espagnol, en français et en arabe. TIGA ALPHA a été fondée par Aum, professeur de piano avec 20\u00a0ans d'expérience.",
+    price: "7\u00a0jours d'essai gratuit, puis 799\u00a0THB par mois.", cta: "Commencer gratuitement", faqHead: "Questions fréquentes", blog: "Blog",
+    qa: [
+      ["Qu'est-ce que TIGA ALPHA\u00a0?", "Une application où une IA enseigne le piano. Entraînez-vous sur le clavier à l'écran, avec le micro de votre appareil ou sur un piano MIDI."],
+      ["Combien ça coûte\u00a0?", "7\u00a0jours d'essai gratuit, puis 799\u00a0THB par mois."],
+      ["Dans quelles langues peut-on apprendre\u00a0?", "En thaï, en anglais, en chinois, en japonais, en coréen, en russe, en hindi, en espagnol, en français et en arabe."],
+    ],
+  }),
+  ar: seoBlock({
+    blogDir: "ar", h1: "TIGA ALPHA — تطبيق لتعلّم البيانو بالذكاء الاصطناعي",
+    intro: "TIGA ALPHA تطبيق لتعلّم البيانو صُنع في تايلاند. يمكنك أن تتعلّم مع معلّم يعمل بالذكاء الاصطناعي بإحدى اللغات الآتية: العربية والإنجليزية والتايلندية والصينية واليابانية والكورية والروسية والهندية والإسبانية والفرنسية. تأسس التطبيق على يد Aum، وتمتد خبرة Aum في تدريس البيانو 20 عامًا.",
+    price: "7 أيام مجانًا، ثم 799 THB شهريًا.", cta: "ابدأ مجانًا", faqHead: "الأسئلة الشائعة", blog: "المدوّنة",
+    qa: [
+      ["ما هو TIGA ALPHA؟", "تطبيق يعلّمك فيه الذكاء الاصطناعي العزف على البيانو. يمكنك التدرّب على المفاتيح التي تظهر على الشاشة، أو باستخدام الميكروفون، أو على بيانو MIDI."],
+      ["كم التكلفة؟", "7 أيام مجانًا، ثم 799 THB شهريًا."],
+      ["ما اللغات المتاحة للتعلّم؟", "العربية والإنجليزية والتايلندية والصينية واليابانية والكورية والروسية والهندية والإسبانية والفرنسية."],
+    ],
+  }),
 };
 
 for (const [lang, L] of Object.entries(LOCALES)) {
   let out = src;
-  out = swapOnce(out, '<html lang="th">', `<html lang="${L.html}">`, "html lang");
+  out = swapOnce(out, '<html lang="th">', `<html lang="${L.html}"${L.htmlDir ? ` dir="${L.htmlDir}"` : ""}>`, "html lang");
   out = swapOnce(out, "<title>ลองเรียนเปียโนกับครู AI — TIGA ALPHA</title>", `<title>${L.title}</title>`, "title");
   out = swapOnce(out,
     'content="ถามครูเปียโน AI แล้วดูมันเล่นให้ดูบนคีย์บอร์ดจริง — สเกล คอร์ด ทรัยแอด อธิบายพร้อมเล่นให้ฟัง ลองได้ทันทีไม่ต้องสมัคร"',

@@ -12,13 +12,13 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bja-"));
 const dom = new JSDOM("<!doctype html><div id=root></div>", { url: "https://x.test/", pretendToBeVisual: true });
 for (const k of ["window", "document", "navigator", "localStorage", "HTMLElement", "Node", "Event", "MouseEvent"]) { try { Object.defineProperty(globalThis, k, { value: dom.window[k], configurable: true, writable: true }); } catch (e) {} }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-globalThis.__posts = []; globalThis.__calls = []; globalThis.__eqs = []; globalThis.__dbError = false; globalThis.__writes = []; globalThis.__writeError = null; globalThis.__stats = null;
+globalThis.__posts = []; globalThis.__calls = []; globalThis.__eqs = []; globalThis.__dbError = false; globalThis.__dbDelay = 0; globalThis.__writes = []; globalThis.__writeError = null; globalThis.__stats = null;
 // the in-app article counts a "read" after 5 seconds: shorten exactly that timer so the test can see it (and see that a committed article never sends one)
 const realSetTimeout = globalThis.setTimeout; globalThis.setTimeout = (fn, ms, ...a) => realSetTimeout(fn, ms === 5000 ? 40 : ms, ...a);
 const stub = `
 export const sb = {
   from(table) { const q = { select() { return q; }, eq(c, v) { globalThis.__eqs.push([c, v]); return q; }, order() { return q; }, limit() { return q; },
-      then(a, b) { return Promise.resolve(globalThis.__dbError ? { data: null, error: { message: "boom" } } : { data: globalThis.__posts, error: null }).then(a, b); } };
+      then(a, b) { return new Promise(r => setTimeout(r, globalThis.__dbDelay || 0)).then(() => globalThis.__dbError ? { data: null, error: { message: "boom" } } : { data: globalThis.__posts, error: null }).then(a, b); } };
     q.insert = (row) => { globalThis.__writes.push({ table, op: "insert", row }); return Promise.resolve({ error: globalThis.__writeError }); };
     q.update = (row) => { globalThis.__writes.push({ table, op: "update", row }); const r = { eq() { return Promise.resolve({ error: globalThis.__writeError }); } }; return r; };
     return q; },
@@ -46,7 +46,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const live = [];
 async function mount(el, X = M) { const host = document.createElement("div"); document.body.appendChild(host); const root = X.createRoot(host); live.push({ root, host, X }); await X.act(async () => { root.render(el); }); await X.act(async () => { await sleep(60); }); return { host, root }; }
 // unmount everything of the section before: a pending timer of an article opened earlier must not send its call into the next section
-async function reset() { for (const l of live.splice(0)) { await l.X.act(async () => { l.root.unmount(); }); l.host.remove(); } globalThis.__calls.length = 0; globalThis.__eqs.length = 0; globalThis.__writes.length = 0; globalThis.__dbError = false; globalThis.__writeError = null; globalThis.__posts = []; globalThis.__stats = null; }
+async function reset() { for (const l of live.splice(0)) { await l.X.act(async () => { l.root.unmount(); }); l.host.remove(); } globalThis.__calls.length = 0; globalThis.__eqs.length = 0; globalThis.__writes.length = 0; globalThis.__dbError = false; globalThis.__dbDelay = 0; globalThis.__writeError = null; globalThis.__posts = []; globalThis.__stats = null; }
 const click = async (el, X = M, wait = 60) => { await X.act(async () => { el.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); await sleep(wait); }); };
 const typeInto = async (el, v, X = M) => { await X.act(async () => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "value").set.call(el, v); el.dispatchEvent(new dom.window.Event("input", { bubbles: true })); await sleep(10); }); };
 const post = (lang, extra = {}) => ({ id: "p-" + lang, lang, slug: "piano-posture", category: "tips", title: "T-" + lang, excerpt: "x", body: "# Hi\nbody text", cover_url: null, published: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z", ...extra });
@@ -139,7 +139,7 @@ ok("reading speed: kana / hangul count as characters (450 a minute), Cyrillic as
 
 console.log("helpers: hi / es / fr / ar");
 const D = "2026-10-01T00:00:00Z";
-ok("hi views: 1,234 बार देखा गया", norm(M.viewsText(1234, "hi")) === "👁 1,234 बार देखा गया", M.viewsText(1234, "hi"));
+ok("hi views: 1,234 व्यूज़ (the word of the static pages and of the UI catalog)", norm(M.viewsText(1234, "hi")) === "👁 1,234 व्यूज़", M.viewsText(1234, "hi"));
 ok("es views: 1234 visualizaciones (Spanish writes a four-digit number without a separator)", /^👁 1[.\s]?234 visualizaciones$/.test(norm(M.viewsText(1234, "es"))), M.viewsText(1234, "es"));
 ok("fr views: 1 234 vues (French grouping)", norm(M.viewsText(1234, "fr")) === "👁 1 234 vues", M.viewsText(1234, "fr"));
 ok("ar views: 1,234 مشاهدة (Latin digits, as on the static pages)", norm(M.viewsText(1234, "ar")) === "👁 1,234 مشاهدة", M.viewsText(1234, "ar"));
@@ -149,6 +149,27 @@ ok("fr date is French (1 oct. 2026)", /^1 oct\.? 2026$/.test(norm(M.fmtDate(D, "
 ok("ar date is Arabic month name with Latin digits and the Gregorian year", /^1 [؀-ۿ]+ 2026$/.test(norm(M.fmtDate(D, "ar"))) && !/[٠-٩]/.test(M.fmtDate(D, "ar")), M.fmtDate(D, "ar"));
 ok("read time in hi / es / fr", M.minsText(3, "hi") === "3 मिनट" && M.minsText(3, "hi", true) === "3 मिनट में पढ़ें" && M.minsText(3, "es") === "3 min" && M.minsText(3, "es", true) === "3 min de lectura" && M.minsText(3, "fr") === "3 min" && M.minsText(3, "fr", true) === "3 min de lecture");
 ok("read time in ar: the noun agrees with the number (1, 2, 3-10, 11+)", M.minsText(1, "ar") === "دقيقة واحدة" && M.minsText(2, "ar") === "دقيقتان" && M.minsText(3, "ar") === "3 دقائق" && M.minsText(10, "ar") === "10 دقائق" && M.minsText(11, "ar") === "11 دقيقة" && M.minsText(5, "ar", true) === "5 دقائق للقراءة" && M.minsText(1, "ar", true) === "دقيقة واحدة للقراءة");
+{
+  // the unit follows the number where the language needs it (one view is singular in es / fr, Arabic has 1 / 2 / 3-10 / 11+): the same forms as the static pages (UNIT_JS in scripts/build-blog-pages.mjs)
+  const V = (n, l) => norm(M.viewsText(n, l));
+  ok("es / fr: one view is singular, two or more plural", V(1, "es") === "👁 1 visualización" && V(2, "es") === "👁 2 visualizaciones" && V(1, "fr") === "👁 1 vue" && V(2, "fr") === "👁 2 vues" && V(1234, "fr") === "👁 1 234 vues", [V(1, "es"), V(2, "es"), V(1, "fr"), V(2, "fr")].join(" | "));
+  ok("ar: 1 مشاهدة, 2 مشاهدتان, 3-10 مشاهدات, 11 and more مشاهدة (Latin digits)", V(1, "ar") === "👁 1 مشاهدة" && V(2, "ar") === "👁 2 مشاهدتان" && V(3, "ar") === "👁 3 مشاهدات" && V(10, "ar") === "👁 10 مشاهدات" && V(11, "ar") === "👁 11 مشاهدة" && V(100, "ar") === "👁 100 مشاهدة" && V(1234, "ar") === "👁 1,234 مشاهدة", [1, 2, 3, 10, 11, 100].map(n => V(n, "ar")).join(" | "));
+  ok("every other language has ONE unit, whatever the number (th zh en ja ko ru hi: as before for the first six)", V(1, "th") === "👁 1 ยอดวิว" && V(1, "zh") === "👁 1 次浏览" && V(1, "en") === "👁 1 views" && V(1, "ja") === "👁 1回閲覧" && V(1, "ko") === "👁 1회 조회" && V(1, "ru") === "👁 1 просмотров" && V(1, "hi") === "👁 1 व्यूज़" && V(2, "hi") === "👁 2 व्यूज़");
+  const gen = fs.readFileSync(path.join(ROOT, "scripts/build-blog-pages.mjs"), "utf8");
+  const grab = (name) => { const m = new RegExp("const " + name + " = (\\{[^}]*\\});").exec(gen); try { return m ? vm.runInNewContext("(" + m[1] + ")") : null; } catch (e) { return null; } };
+  const LBL = grab("VIEWS_LBL"), ONE = grab("VIEWS_ONE"), arForms = /n===2\?\$\{J\("([^"]+)"\)\}:n<=10\?\$\{J\("([^"]+)"\)\}:LBL/.exec(gen);
+  ok("the generator's unit tables could be read (VIEWS_LBL, VIEWS_ONE, the Arabic forms of UNIT_JS)", !!LBL && !!ONE && !!arForms && LANGS.every(l => typeof LBL[l] === "string"));
+  ok("the unit of every language is the static pages' word (VIEWS_LBL), the singular of es / fr is theirs (VIEWS_ONE), and so are the two Arabic forms", !!LBL && !!ONE && !!arForms && LANGS.every(l => V(1234, l).endsWith(LBL[l])) && V(1, "es").endsWith(ONE.es) && V(1, "fr").endsWith(ONE.fr) && V(2, "ar").endsWith(arForms[1]) && V(5, "ar").endsWith(arForms[2]), LBL ? LANGS.filter(l => !V(1234, l).endsWith(LBL[l])).join(" ") : "");
+}
+{
+  const tz0 = process.env.TZ;   // a committed article's date is a plain calendar date: it must stay on its own day for a reader west of Greenwich (the static pages print it in UTC)
+  try {
+    process.env.TZ = "America/Los_Angeles";
+    ok("a plain date (2026-11-13) shows as 13 in Los Angeles, in every language; a full timestamp still follows the reader's zone (12 there)", M.fmtDate("2026-11-13", "en") === "13 Nov 2026" && /^13 nov\.? 2026$/i.test(norm(M.fmtDate("2026-11-13", "es"))) && /13/.test(M.fmtDate("2026-11-13", "ar")) && /13/.test(M.fmtDate("2026-11-13", "hi")) && M.fmtDate("2026-11-13T00:00:00Z", "en") === "12 Nov 2026", [M.fmtDate("2026-11-13", "en"), M.fmtDate("2026-11-13T00:00:00Z", "en")].join(" | "));
+    process.env.TZ = "Pacific/Kiritimati";
+    ok("and on the far side (UTC+14) it is still the 13th", M.fmtDate("2026-11-13", "en") === "13 Nov 2026" && M.fmtDate("2026-11-13", "fr").startsWith("13 "));
+  } finally { if (tz0 === undefined) delete process.env.TZ; else process.env.TZ = tz0; }
+}
 const hiText = "पियानो का अभ्यास हर दिन थोड़ा थोड़ा करना ज़रूरी है। ".repeat(60), arText = "التدريب على البيانو كل يوم قليلًا قليلًا مهم جدًا. ".repeat(60);
 ok("reading speed: Devanagari and Arabic are space-separated scripts, read like Latin (1100 a minute)", M.readMins(hiText) === Math.max(1, Math.round(hiText.length / 1100)) && M.readMins(arText) === Math.max(1, Math.round(arText.length / 1100)) && M.readMins("") === 1);
 // the category names are the words of the static pages: read CATN out of the generator and compare every language and category
@@ -280,6 +301,22 @@ console.log("the database and the committed articles together");
   ok("an older database-only row sorts below the newer committed articles (newest first across both)", titles.length === M.ja.length + 1 && titles[titles.length - 1] === "piano-posture", titles.join());
 }
 
+console.log("a slow database: the committed articles are on screen before it answers, and stay when it fails");
+{
+  const s = M.hi[2];
+  await reset(); globalThis.__dbDelay = 450; globalThis.__posts = [post("hi", { id: "db-slow", slug: s.slug, title: "DB-SLOW-" + s.slug, created_at: s.created_at + "T00:00:00Z" })];
+  const { host } = await mount(M.h(M.BlogPage, { lang: "hi" })), early = [...host.querySelectorAll("[data-blog-card]")];
+  ok("hi: the database has not answered yet and the list already shows all " + M.hi.length + " committed articles (no '...', no empty line, no error line)", early.length === M.hi.length && !/DB-SLOW/.test(host.textContent) && !host.querySelector("[data-blog-empty]") && host.textContent.includes(s.title), early.length + " cards");
+  await M.act(async () => { await sleep(550); });
+  const late = [...host.querySelectorAll("[data-blog-card]")];
+  ok("when the slow database answers, its row replaces the committed copy of the same slug: still one card per article, the database title shows", late.length === M.hi.length && host.textContent.includes("DB-SLOW-" + s.slug) && !host.textContent.includes(s.title), late.length + " cards");
+  await reset(); globalThis.__dbDelay = 450; globalThis.__dbError = true;
+  const f = await mount(M.h(M.BlogPage, { lang: "ar" }));
+  ok("ar: before a database that is going to fail answers, the list shows all committed articles", f.host.querySelectorAll("[data-blog-card]").length === M.ar.length);
+  await M.act(async () => { await sleep(550); });
+  ok("ar: after that database failed the committed articles are still all there, with no error line", f.host.querySelectorAll("[data-blog-card]").length === M.ar.length && !/Couldn't load|تعذّر/.test(f.host.textContent));
+}
+
 console.log("view counting: a database article counts, a committed one sends nothing");
 {
   await reset();
@@ -317,7 +354,7 @@ const EXPECT = {
   ja: { cat: "練習のコツ", min: "1分", views: /1,500回閲覧/, long: "1分で読めます", openViews: /1,234回閲覧/ },
   ko: { cat: "연습 팁", min: "1분", views: /1,500회 조회/, long: "1분이면 읽어요", openViews: /1,234회 조회/ },
   ru: { cat: "Советы по занятиям", min: "1 мин", views: /1 500 просмотров/, long: "1 мин чтения", openViews: /1 234 просмотров/ },
-  hi: { cat: "अभ्यास के टिप्स", min: "1 मिनट", views: /1,500 बार देखा गया/, long: "1 मिनट में पढ़ें", openViews: /1,234 बार देखा गया/ },
+  hi: { cat: "अभ्यास के टिप्स", min: "1 मिनट", views: /1,500 व्यूज़/, long: "1 मिनट में पढ़ें", openViews: /1,234 व्यूज़/ },
   es: { cat: "Consejos de práctica", min: "1 min", views: /1[.\s]?500 visualizaciones/, long: "1 min de lectura", openViews: /1[.\s]?234 visualizaciones/ },
   fr: { cat: "Conseils de pratique", min: "1 min", views: /1 500 vues/, long: "1 min de lecture", openViews: /1 234 vues/ },
   ar: { cat: "نصائح للتدريب", min: "دقيقة واحدة", views: /1,500 مشاهدة/, long: "دقيقة واحدة للقراءة", openViews: /1,234 مشاهدة/ },
