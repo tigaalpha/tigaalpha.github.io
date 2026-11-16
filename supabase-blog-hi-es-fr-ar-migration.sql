@@ -3,7 +3,7 @@
 -- (node scripts/gen-blog-seed-sql.mjs --set hi-es-fr-ar --check fails when this file or supabase-blog-hi-es-fr-ar-migration-rows.json is stale).
 --
 -- Needs supabase-blog-views-migration.sql applied first (it was, 2026-11-13; PART A stops with a clear message if it is not) and the pg_net extension (the ja / ko / ru seed was fetched with it on 2026-11-13).
--- ORDER MATTERS: supabase-blog-views-migration.sql and supabase-blog-ja-ko-ru-migration.sql still write the six-language list. Never run either of them AFTER this file: it would stop on the first hi / es / fr / ar row
+-- ORDER MATTERS: supabase-blog-ja-ko-ru-migration.sql still writes the six-language list (and so did supabase-blog-views-migration.sql until 2026-11-16, so a copy of it applied before that did too). Never run either AFTER this file: it would stop on the first hi / es / fr / ar row
 -- or, with none, narrow the checks and the two functions back to six; if one ever has to be re-run, run PART A of this file again afterwards.
 -- THIS COMMITTED COPY HAS THE PLACEHOLDER __PINNED_SHA__ AND PART A REFUSES IT. The release copy replaces it with the commit that holds supabase-blog-hi-es-fr-ar-migration-rows.json:
 --   node scripts/gen-blog-seed-sql.mjs --set hi-es-fr-ar --sha <that commit, 40 hex> --out <release.sql>      (the generator asks git whether the commit holds exactly these rows)
@@ -189,5 +189,5 @@ select p.lang, count(*) as articles, count(*) filter (where p.published) as publ
 --
 -- Undo, only if the owner asks (nothing below is run by this file), in this order:
 --   1. delete from public.blog_hits where lang in ('hi','es','fr','ar');  delete from public.blog_view_totals where lang in ('hi','es','fr','ar');  delete from public.blog_posts where lang in ('hi','es','fr','ar');
---   2. the three alter table statements of A.2 with ('th','en','zh','ja','ko','ru') instead of the ten languages; re-run supabase-blog-views-migration.sql for the two functions.
+--   2. the three alter table statements of A.2 with ('th','en','zh','ja','ko','ru') instead of the ten languages; the two functions of A.3 again with ('th','en','zh','ja','ko','ru') in their bodies (supabase-blog-views-migration.sql as it was at commit 4e0e201e7 holds that text).
 --   3. public.blog_posts_backup_hi_es_fr_ar holds the whole table as it was before PART A.

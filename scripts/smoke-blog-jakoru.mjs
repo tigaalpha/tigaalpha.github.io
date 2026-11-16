@@ -363,7 +363,7 @@ console.log("pagination of the static index");
 console.log("sitemap index gets one more entry (what build-song-pages.mjs writes), once");
 {
   const root = path.join(tmp, "root"); fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-  fs.copyFileSync(GEN, path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts")); fs.cpSync(S, path.join(root, "blog-src"), { recursive: true });
+  fs.copyFileSync(GEN, path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "scripts/blog-paths.mjs"), path.join(root, "scripts/blog-paths.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts")); fs.cpSync(S, path.join(root, "blog-src"), { recursive: true });
   const idx = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<sitemap><loc>${SITE}/sitemap-pages.xml</loc><lastmod>2026-11-10</lastmod></sitemap>\n<sitemap><loc>${SITE}/sitemap-blog.xml</loc><lastmod>2026-11-10</lastmod></sitemap>\n</sitemapindex>\n`;
   W(path.join(root, "sitemap.xml"), idx);
   const run = () => gen({ __script: path.join(root, "scripts/build-blog-pages.mjs"), BLOG_FIXTURE: path.join(tmp, "posts.json") }, { cwd: root });
@@ -503,7 +503,7 @@ console.log("SQL");
   W(path.join(S3, "ja", "added.json"), src("ja", "added"));
   ok(spawnSync("node", [path.join(ROOT, "scripts/gen-blog-seed-sql.mjs"), "--check"], { env, encoding: "utf8" }).status === 1, "--check fails again once an article is added (stale)");
   const views = rd(path.join(ROOT, "supabase-blog-views-migration.sql"));
-  ok(!/in \('th','en','zh'\)/.test(views) && (views.match(/'th','en','zh','ja','ko','ru'/g) || []).length >= 6, "the reader-count migration allows six languages everywhere (no three-language check left)");
+  ok(!/in \('th','en','zh'\)/.test(views) && (views.match(/'th','en','zh','ja','ko','ru','hi','es','fr','ar'/g) || []).length >= 6, "the reader-count migration allows all ten languages (no three-language check left)");
   ok(/create or replace function public\.blog_hit/.test(views) && /create or replace function public\.blog_view_counts/.test(views) && /create or replace function public\.blog_stats/.test(views) && /blog_purge/.test(views), "...and is otherwise intact (four functions)");
 }
 

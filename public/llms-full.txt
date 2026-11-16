@@ -30,6 +30,10 @@ TIGA ALPHA runs in the web browser on phone, tablet or computer. Learners can pl
 - [Blog in Thai](https://www.tigaalpha.com/blog/th/): บทความเรียนเปียโน สอนเปียโน และเรียนดนตรี
 - [Blog in English](https://www.tigaalpha.com/blog/en/): articles on how to learn piano and music
 - [Blog in Chinese](https://www.tigaalpha.com/blog/zh/): 学钢琴、钢琴教学与音乐学习文章
+- [Blog in Hindi](https://www.tigaalpha.com/blog/hi/): पियानो और संगीत सीखने पर लेख
+- [Blog in Spanish](https://www.tigaalpha.com/blog/es/): artículos para aprender piano y música
+- [Blog in French](https://www.tigaalpha.com/blog/fr/): articles pour apprendre le piano et la musique
+- [Blog in Arabic](https://www.tigaalpha.com/blog/ar/): مقالات عن تعلّم البيانو والموسيقى
 - [What is TIGA ALPHA? (English)](https://www.tigaalpha.com/blog/en/what-is-tiga-alpha.html)
 - [TIGA ALPHA是什么？(Chinese)](https://www.tigaalpha.com/blog/zh/what-is-tiga-alpha-zh.html)
 

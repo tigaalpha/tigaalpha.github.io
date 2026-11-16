@@ -5,6 +5,8 @@
 // A database row wins over a source file with the same (lang, slug). A language whose blog-src folder is missing or empty is simply skipped. Arabic is right-to-left: its pages carry dir="rtl".
 // Run by `npm run build` after build-song-pages.mjs (it appends to that script's sitemap.xml). SITE_URL overrides the domain.
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
+import { STATIC_BLOG_LANGS as STATIC_LANGS } from "./blog-paths.mjs";
+export { STATIC_LANGS };
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = (process.env.SITE_URL || "https://www.tigaalpha.com").replace(/\/+$/, "");
 const OUT = path.resolve(process.env.BLOG_OUT || path.join(ROOT, "blog"));   // BLOG_OUT / BLOG_FIXTURE exist for scripts/smoke-blog-gate.mjs (no network, no repo files touched)
@@ -27,7 +29,7 @@ const RTL_LANGS = new Set(["ar"]);
 export const dirOf = (lang) => (RTL_LANGS.has(lang) ? "rtl" : "ltr");
 // Languages whose articles ship as committed files under blog-src/ and whose index and feed are therefore BUILT as real files (see writeBlog). th / en / zh keep the database-rendered index.
 // The index pages of hi / es / fr / ar are only listed as hreflang alternates once that language has an article (see INDEX_LANGS below), so no alternate ever points at a 404.
-export const STATIC_LANGS = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
+// (STATIC_LANGS is STATIC_BLOG_LANGS of blog-paths.mjs, imported above: one list, so the page generator and the live function cannot disagree)
 const STATIC_CATS = ["tips", "theory", "songs", "news", "story"], STATIC_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, STATIC_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 const SRC_DIR = path.resolve(process.env.BLOG_SRC || path.join(ROOT, "blog-src"));   // BLOG_SRC lets the tests point at a temp folder
 // blog-src/<lang>/<slug>.json = { lang, slug, category, title, excerpt, body, created_at, published } -> a published post of that language. A malformed file is skipped with a warning (never fails the build).

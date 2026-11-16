@@ -349,7 +349,7 @@ for (const [name, ua, counted] of [
 {
   // the sitemap: running the generator again must not add the blog urls a second time
   const root = path.join(tmp, "root"); fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-  fs.copyFileSync(path.join(ROOT, "scripts/build-blog-pages.mjs"), path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts"));
+  fs.copyFileSync(path.join(ROOT, "scripts/build-blog-pages.mjs"), path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "scripts/blog-paths.mjs"), path.join(root, "scripts/blog-paths.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts"));   // the generator imports the language list from blog-paths.mjs
   fs.writeFileSync(path.join(root, "sitemap.xml"), '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n<url><loc>https://x.test/songs/th/a.html</loc></url>\n</urlset>\n');
   const run = () => execFileSync("node", [path.join(root, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_FIXTURE: path.join(tmp, "posts.json"), SITE_URL: "https://x.test" }, stdio: "pipe" });
   run(); const n1 = (fs.readFileSync(path.join(root, "sitemap.xml"), "utf8").match(/\/blog\//g) || []).length; run();

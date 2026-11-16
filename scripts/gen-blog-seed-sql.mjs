@@ -115,9 +115,11 @@ function viewsFunction(src, name) {
   if (start < 0) die(`supabase-blog-views-migration.sql has no "create or replace function public.${name}("`);
   const g = new RegExp(`^grant execute on function public\\.${name}\\([^\\n]*\\n`, "m").exec(src.slice(start));
   if (!g) die(`supabase-blog-views-migration.sql: no "grant execute on function public.${name}(" line after the function`);
-  const block = src.slice(start, start + g.index + g[0].length), parts = block.split(list(SIX));
-  if (parts.length !== 2) die(`public.${name} in supabase-blog-views-migration.sql holds the six-language list ${parts.length - 1} times, expected exactly once (was the file changed? then update this generator)`);
-  return parts.join(list(TEN));
+  // the reader-counter migration said six languages until 2026-11-16 and says ten since (main widened it): either text gives the same ten-language body
+  const block = src.slice(start, start + g.index + g[0].length), six = block.split(list(SIX)), ten = block.split(list(TEN));
+  if (six.length === 2 && ten.length === 1) return six.join(list(TEN));
+  if (ten.length === 2 && six.length === 1) return block;
+  die(`public.${name} in supabase-blog-views-migration.sql holds the six-language list ${six.length - 1} times and the ten-language list ${ten.length - 1} times, expected exactly one of them once (was the file changed? then update this generator)`);
 }
 /* problems the table or jsonb would only report at insert time: a NUL or a lone surrogate cannot be stored, a title or body cannot be empty, a (lang, slug) cannot repeat */
 function rowProblems(rows, langs) {
@@ -161,7 +163,7 @@ function fetchSql({ posts, langs, rowsText, pinned }) {
 -- (node scripts/gen-blog-seed-sql.mjs --set hi-es-fr-ar --check fails when this file or ${rowsFile} is stale).
 --
 -- Needs supabase-blog-views-migration.sql applied first (it was, 2026-11-13; PART A stops with a clear message if it is not) and the pg_net extension (the ja / ko / ru seed was fetched with it on 2026-11-13).
--- ORDER MATTERS: supabase-blog-views-migration.sql and supabase-blog-ja-ko-ru-migration.sql still write the six-language list. Never run either of them AFTER this file: it would stop on the first hi / es / fr / ar row
+-- ORDER MATTERS: supabase-blog-ja-ko-ru-migration.sql still writes the six-language list (and so did supabase-blog-views-migration.sql until 2026-11-16, so a copy of it applied before that did too). Never run either AFTER this file: it would stop on the first hi / es / fr / ar row
 -- or, with none, narrow the checks and the two functions back to six; if one ever has to be re-run, run PART A of this file again afterwards.
 -- ${pinned ? `RELEASE COPY. Pinned commit: ${pinned}. The database fetches ${url}${pinned}/${rowsFile}` : `THIS COMMITTED COPY HAS THE PLACEHOLDER ${PLACEHOLDER} AND PART A REFUSES IT. The release copy replaces it with the commit that holds ${rowsFile}:
 --   node scripts/gen-blog-seed-sql.mjs --set hi-es-fr-ar --sha <that commit, 40 hex> --out <release.sql>      (the generator asks git whether the commit holds exactly these rows)`}
@@ -309,7 +311,7 @@ select p.lang, count(*) as articles, count(*) filter (where p.published) as publ
 --
 -- Undo, only if the owner asks (nothing below is run by this file), in this order:
 --   1. delete from public.blog_hits where lang in ${lt};  delete from public.blog_view_totals where lang in ${lt};  delete from public.blog_posts where lang in ${lt};
---   2. the three alter table statements of A.2 with ${sixL} instead of the ten languages; re-run supabase-blog-views-migration.sql for the two functions.
+--   2. the three alter table statements of A.2 with ${sixL} instead of the ten languages; the two functions of A.3 again with ${sixL} in their bodies (supabase-blog-views-migration.sql as it was at commit 4e0e201e7 holds that text).
 --   3. public.blog_posts_backup_hi_es_fr_ar holds the whole table as it was before PART A.
 `;
   return { header, partA, partB, footer, text: [header, partA, partB, footer].join("\n"), md5, bytes, per, rows };
