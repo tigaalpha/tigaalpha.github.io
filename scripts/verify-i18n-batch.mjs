@@ -2,7 +2,7 @@
 //   node scripts/verify-i18n-batch.mjs <in.json> <out.json> [langs=ja,ko,ru]
 // in.json  : [{ k, en, file }]
 // out.json : { "<k>": { "<lang>": "..." }, ... }   (one language per file is fine: pass only that language in the third argument)
-// Languages: ja ko ru hi ar (own script) and es fr (Latin script: told apart from English by function words, see LATIN below).
+// Languages: ja ko ru hi ar zh (own script) and es fr (Latin script: told apart from English by function words, see LATIN below).
 // A string passes when it keeps the English text's structure: the same {0} {1} holes, the same line breaks, the same **bold** pairs,
 // the same emoji and the same digits and Latin brand words, and it is written in the target script.
 // Exit code 0 only when nothing fails.
@@ -16,6 +16,7 @@ try { out = JSON.parse(fs.readFileSync(outFile, "utf8")); } catch (e) { console.
 
 const SCRIPT = {
   ja: /[぀-ヿ㐀-鿿]/,
+  zh: /[㐀-鿿]/,
   ko: /[가-힯]/,
   ru: /[Ѐ-ӿ]/,
   hi: /[ऀ-ॿ]/,

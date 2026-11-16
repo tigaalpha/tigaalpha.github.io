@@ -931,7 +931,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
               )}
               {gi === 0 && onUpgrade && (
                 <button type="button" className="pgupgrade" onClick={onUpgrade}>
-                  <span className="pgupgrade-crown" aria-hidden="true">👑</span> <span>{xl(lang, "Upgrade Premium")}</span>
+                  <span className="pgupgrade-crown" aria-hidden="true">👑</span> <span>{pickT(lang, "อัปเกรด Premium", "Upgrade Premium", "升级 Premium")}</span>
                 </button>
               )}
               {!(gi === 0 && onMentor) && <span className="pgstep">{lc.stepLabel.replace("{n}", String(gi + 1))}</span>}
@@ -1257,10 +1257,23 @@ const DX_EN = {
   "มือแยกก่อน ข้างละ # นาที แล้วค่อยรวม": (a) => `Hands separately first, ${a} minutes each, then together`,
   "เป้าหมายรอบนี้: เล่นถูก # ครั้งติดกันในความเร็วเดียวกัน": (a) => `Goal this round: ${a} correct plays in a row at the same speed`,
 };
+/* the same eight sentences in Chinese (round 3, 2026-11-16: an English or Chinese learner read the Thai too) */
+const DX_ZH = {
+  "เป็นปัญหาซ้ำ — กลับมาฝึกแล้ว # ครั้ง ยังอยู่ที่ #%": (a, b) => `反复出现的问题 — 已练习 ${a} 次，正确率仍是 ${b}%`,
+  "ผลล่าสุด #% — ต่ำกว่าเกณฑ์เล่นต่อได้ (#%)": (a, b) => `最近一次 ${a}% — 低于继续前进所需的 ${b}%`,
+  "แนวโน้มแย่ลงเมื่อเทียบรอบก่อน — มักจากการซ้อมเร็วเกินตัว": () => "比上一轮更差 — 常因为练得比自己能掌握的更快",
+  "กำลังดีขึ้นเมื่อเทียบรอบก่อน — ต้องซ้ำให้ถึงจุดคงตัว": () => "比上一轮有进步 — 继续重复，直到稳定下来",
+  "ผลยังไม่ขยับ — วิธีเดิมยังไม่โดนจุด ควรเปลี่ยนมุมการฝึก": () => "还没有变化 — 原来的方法没有抓住要点，换个角度练练",
+  "ซ้อมช้าที่ # BPM — ตัดเฉพาะช่วงที่พัง ไม่เล่นผ่านทั้งเพลง": (a) => `用 ${a} BPM 慢慢练 — 只截出出错的那一段，不要整首弹下来`,
+  "มือแยกก่อน ข้างละ # นาที แล้วค่อยรวม": (a) => `先分手练，每只手 ${a} 分钟，再合起来`,
+  "เป้าหมายรอบนี้: เล่นถูก # ครั้งติดกันในความเร็วเดียวกัน": (a) => `本轮目标：用同样的速度连续弹对 ${a} 次`,
+};
 function dxLine(s, lang) {
-  if (!isExtraLang(lang) || typeof s !== "string" || !/[\u0E00-\u0E7F]/.test(s)) return s;
-  const f = DX_EN[s.replace(/\d+/g, "#")];
-  return f ? xl(lang, f(...(s.match(/\d+/g) || []))) : "";
+  if (lang === "th" || typeof s !== "string" || !/[\u0E00-\u0E7F]/.test(s)) return s;
+  const key = s.replace(/\d+/g, "#"), nums = s.match(/\d+/g) || [];
+  if (lang === "zh") { const g = DX_ZH[key]; return g ? g(...nums) : ""; }   // a Thai line this table does not know is left out, never shown to a Chinese learner
+  const f = DX_EN[key];
+  return f ? xl(lang, f(...nums)) : "";
 }
 
 const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate, onReviewStage }) {
@@ -1430,7 +1443,7 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
               {dx.how[0] && dxLine(dx.how[0], lang) && <div style={{ fontSize: 11.5, color: "var(--text2)", marginTop: 2, lineHeight: 1.45 }}><b style={{ color: "var(--clay-ink)" }}>{T("วิธีฝึก", "How to fix", "怎么练")}:</b> {dxLine(dx.how[0], lang)}</div>}
             </div>
           )}
-          <button className="songbtn go" style={{ width: "100%", marginTop: 10, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 800 }} data-start="1" onClick={start}>{"▶ " + xl(lang, "Play")}</button>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 10, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 800 }} data-start="1" onClick={start}>{"▶ " + pickT(lang, "เล่น", "Play", "弹奏")}</button>
         </div>
       )}
       <div className="v12card" data-plan="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
@@ -7336,7 +7349,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
         if (!error) { playUi("reward"); load(); }
       }}
       onShare={(res) => shareCard({
-        title: res.win ? xl(lang, "Victory!") : xl(lang, "Defeat"),
+        title: res.win ? pickT(lang, "ชัยชนะ!", "Victory!", "胜利！") : pickT(lang, "พ่ายแพ้", "Defeat", "失败"),
         big: Math.round(res.score).toLocaleString(),
         sub: res.tier ? (lang === "th" ? res.tier.th : lang === "zh" ? res.tier.zh : xl(lang, res.tier.en)) : "",
         lines: [
@@ -7670,7 +7683,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         const struggles = (readMemory().struggles || []).slice(0, 5);
         return (
           <div className="profsec">
-            <div className="profsec-h">{"🎯 " + xl(lang, "Auto Teaching")}</div>
+            <div className="profsec-h">{"🎯 " + pickT(lang, "Auto Teaching", "Auto Teaching", "自动教学")}</div>
             {struggles.length > 0 && (
               <div className="pd-tags">{struggles.map((s, i) => <button key={i} className="pd-tag focus" onClick={() => onAskStruggle(s)}>💬 {s.label}</button>)}</div>
             )}
@@ -10580,7 +10593,7 @@ const GamesPage = memo(function GamesPage({ lang, earnCoins, gainExp }) {
         <div className="profavwrap">
           <div style={{ fontSize: 36 }}>🎮</div>
         </div>
-        <div className="profname">{xl(lang, "Music Games")}</div>
+        <div className="profname">{pickT(lang, "เกมดนตรี", "Music Games", "音乐游戏")}</div>
         <div className="profxp-lbl" style={{ color: "var(--muted)", fontSize: 13 }}>
           {T(`เกมดนตรีจากทั่วโลก — เล่นเกมไหนก็ได้ 🪙 +${EARN.game} (เกมละครั้งต่อวัน)`,
               `Music games from around the world — every game pays 🪙 +${EARN.game}, once each per day`,
@@ -13469,7 +13482,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         <div className="hdr-r">
           {isGuest && (
-            <button className="guestloginpill" onClick={() => setLoginModalOpen(true)} title={xl(lang, "Login or sign up")}>
+            <button className="guestloginpill" onClick={() => setLoginModalOpen(true)} title={pickT(lang, "เข้าสู่ระบบหรือสมัครสมาชิก", "Login or sign up", "登录或注册")}>
               <span className="oauthico">G</span> {T("ล็อกอิน", "Login", "登录")}
             </button>
           )}
@@ -13759,7 +13772,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           // stays the page underneath; its back/close returns to SenseiView.
           { p: "sensei", chat: true, ic: "◈", c: "#d97757", t: lc.navSensei },
           // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
-          { p: "coach", ic: "🎯", c: "#d97757", t: xl(lang, "AI Daily Mentor") },
+          { p: "coach", ic: "🎯", c: "#d97757", t: pickT(lang, "AI Daily Mentor", "AI Daily Mentor", "AI 每日导师") },
           // the profile row is where your character lives, so it wears a
           // humanoid android rather than the rank emoji it used to borrow.
           // It sits high in the list because the character — and the pet pod
@@ -14157,7 +14170,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="setdiv" />
               {premium && (
                 <div className="setrow col">
-                  <label>{"🎯 " + xl(lang, "Auto Teaching")}</label>
+                  <label>{"🎯 " + pickT(lang, "Auto Teaching", "Auto Teaching", "自动教学")}</label>
                   <div className="setlangs">
                     <button className={`setlangbtn${profile.auto_teach_interval_min === 0 ? " on" : ""}`}
                       onClick={() => saveAutoTeachInterval(0)}>{lang === "th" ? "ปิด" : lang === "zh" ? "关闭" : xl(lang, "Off")}</button>
@@ -14476,7 +14489,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <>
                 <div className="chestbig open">🎁</div>
                 <div className={`chesttitle${chestReward.kind === "jackpot" ? " jackpot" : ""}`}>
-                  {chestReward.kind === "jackpot" ? "🎉 " + xl(lang, "JACKPOT!") + " 🎉" : chestReward.kind === "big" ? "✨ " + lc.chestBig + " ✨" : lc.chestGot}
+                  {chestReward.kind === "jackpot" ? "🎉 " + pickT(lang, "แจ็คพอต!", "JACKPOT!", "大奖！") + " 🎉" : chestReward.kind === "big" ? "✨ " + lc.chestBig + " ✨" : lc.chestGot}
                 </div>
                 <div className="chestrewards">
                   <span>🪙 +{chestReward.coins}</span>

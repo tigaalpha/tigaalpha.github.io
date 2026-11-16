@@ -501,12 +501,12 @@ html, body, #root{background:var(--bg)}
 .pgbar{width:4px;height:34px;border-radius:3px;flex-shrink:0;box-shadow:0 0 10px currentColor}
 .pgicon{font-size:21px;line-height:1;flex-shrink:0}
 .pginfo{flex:1;min-width:0}
-/* Japanese and Korean may break a line between any two characters, so without a floor the header text collapses to one character wide beside the mentor and upgrade pills */
-:root:lang(ja) .pginfo,:root:lang(ko) .pginfo,:root:lang(ru) .pginfo,:root:lang(hi) .pginfo,:root:lang(es) .pginfo,:root:lang(fr) .pginfo,:root:lang(ar) .pginfo{min-width:7.5em}
+/* Japanese, Korean and Chinese may break a line between any two characters, so without a floor the header text collapses to one character wide beside the mentor and upgrade pills (Chinese did: "从这里开始" ran down the screen one character per line, 2026-11-16) */
+:root:lang(zh) .pginfo,:root:lang(ja) .pginfo,:root:lang(ko) .pginfo,:root:lang(ru) .pginfo,:root:lang(hi) .pginfo,:root:lang(es) .pginfo,:root:lang(fr) .pginfo,:root:lang(ar) .pginfo{min-width:7.5em}
 /* the Russian pill labels are long too (and Spanish / French run 15-30 % longer than English, Hindi is wider): the header wraps instead of pushing the pills over the text */
-:root:lang(ja) .pgrouphdr,:root:lang(ko) .pgrouphdr,:root:lang(ru) .pgrouphdr,:root:lang(hi) .pgrouphdr,:root:lang(es) .pgrouphdr,:root:lang(fr) .pgrouphdr,:root:lang(ar) .pgrouphdr{flex-wrap:wrap;row-gap:8px}
-:root:lang(ja) .hdr button,:root:lang(ko) .hdr button,:root:lang(ru) .hdr button,:root:lang(hi) .hdr button,:root:lang(es) .hdr button,:root:lang(fr) .hdr button,:root:lang(ar) .hdr button{white-space:nowrap}
-:root:lang(ja) .pgmentor,:root:lang(ko) .pgmentor,:root:lang(ru) .pgmentor,:root:lang(ja) .pgupgrade,:root:lang(ko) .pgupgrade,:root:lang(ru) .pgupgrade,:root:lang(hi) .pgmentor,:root:lang(es) .pgmentor,:root:lang(fr) .pgmentor,:root:lang(ar) .pgmentor,:root:lang(hi) .pgupgrade,:root:lang(es) .pgupgrade,:root:lang(fr) .pgupgrade,:root:lang(ar) .pgupgrade{white-space:nowrap}
+:root:lang(zh) .pgrouphdr,:root:lang(ja) .pgrouphdr,:root:lang(ko) .pgrouphdr,:root:lang(ru) .pgrouphdr,:root:lang(hi) .pgrouphdr,:root:lang(es) .pgrouphdr,:root:lang(fr) .pgrouphdr,:root:lang(ar) .pgrouphdr{flex-wrap:wrap;row-gap:8px}
+:root:lang(zh) .hdr button,:root:lang(ja) .hdr button,:root:lang(ko) .hdr button,:root:lang(ru) .hdr button,:root:lang(hi) .hdr button,:root:lang(es) .hdr button,:root:lang(fr) .hdr button,:root:lang(ar) .hdr button{white-space:nowrap}
+:root:lang(zh) .pgmentor,:root:lang(zh) .pgupgrade,:root:lang(ja) .pgmentor,:root:lang(ko) .pgmentor,:root:lang(ru) .pgmentor,:root:lang(ja) .pgupgrade,:root:lang(ko) .pgupgrade,:root:lang(ru) .pgupgrade,:root:lang(hi) .pgmentor,:root:lang(es) .pgmentor,:root:lang(fr) .pgmentor,:root:lang(ar) .pgmentor,:root:lang(hi) .pgupgrade,:root:lang(es) .pgupgrade,:root:lang(fr) .pgupgrade,:root:lang(ar) .pgupgrade{white-space:nowrap}
 /* hi / es / fr / ar (2026-11-13), the places where text length decides whether a box holds: a word longer than its box breaks (it never widens the box; break-word does not
    change the min-content width, so flex items do not collapse), the header's right-hand group may shrink, the guest login pill ("Iniciar sesión", "Se connecter") keeps one line
    and gives way before it pushes the flag off a 320 px screen, the tab labels keep one line with an ellipsis (ux2-styles.ts) and Devanagari / Arabic get a taller line box in

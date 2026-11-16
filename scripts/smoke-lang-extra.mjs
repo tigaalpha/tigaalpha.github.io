@@ -272,5 +272,29 @@ eq(/tg_lang_hint:/.test(rd("cloud-sync.ts")), true, "cloud-sync: tg_lang_hint (t
   eq(/"lang": "en"/.test(rd("public/manifest.webmanifest")) && rd("public/manifest.webmanifest") === rd("manifest.webmanifest"), true, "manifest.webmanifest: one neutral manifest (lang en), the root copy equals public/");
 }
 
+// ── (j) the early screens (app-shell.tsx) in English and Chinese (round 3, 2026-11-16) ──
+// en and zh read their own language there (they used to get the "Thai · English" pair); only th keeps it. Chinese comes from early-zh.ts, a table keyed by the English literal, so
+// every English literal app-shell.tsx sends through xl() must have its Chinese, or a Chinese learner reads English where the table has a gap.
+{
+  const shell = rd("app-shell.tsx");
+  eq([/const ownLang = \(lg: string\) => lg === "en" \|\| lg === "zh" \|\| isExtraLang\(lg\);/.test(shell), /const pair = \([^)]*\) => \(ownLang\(lg\) \? en : th \+ sep \+ en\);/.test(shell)], [true, true], "app-shell.tsx: en, zh and the extras read their own language, th keeps the pair");
+  const zjs = esbuild.transformSync(rd("early-zh.ts"), { loader: "ts", format: "esm" }).code;
+  const Z = await import("data:text/javascript;base64," + Buffer.from(zjs).toString("base64"));
+  const lits = new Set();
+  for (const m of shell.matchAll(/\bxl\((?:lg|lang), ("(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)\)/g)) {
+    let t = m[1];
+    t = t[0] === "`" ? t.slice(1, -1).replace(/\$\{PDPA_VERSION\}/g, "{0}") : JSON.parse(t);
+    if (/[A-Za-z]{2}/.test(t)) lits.add(t);   // the doc comments of app-shell.tsx write xl(lg, "...")
+  }
+  const missing = [...lits].filter(t => Z.default[t] === undefined);
+  eq([lits.size > 80, missing], [true, []], "early-zh.ts has the Chinese of every English literal app-shell.tsx sends through xl() (" + lits.size + " literals)");
+  const THAI = /[฀-๿]/, HAN = /[㐀-鿿]/;
+  const bad = Object.entries(Z.default).filter(([k, v]) => THAI.test(v) || (/[A-Za-z]{3,}/.test(k) && !HAN.test(v)) || (k.match(/\[\[/g) || []).length !== (v.match(/\[\[/g) || []).length || (k.match(/\{\d\}/g) || []).join() !== (v.match(/\{\d\}/g) || []).join()).map(([k]) => k);
+  eq(bad, [], "early-zh.ts: every value is Chinese, none is Thai, [[ ]] and {0} are kept");
+  const ver = Z.zhEarly("By signing up you accept the [[Privacy Policy]] (version 2026-09-11)");
+  eq([HAN.test(ver), ver.includes("2026-09-11"), (ver.match(/\[\[/g) || []).length], [true, true, 1], "zhEarly fills the privacy-policy version into the Chinese sentence");
+  eq(Z.zhEarly("A sentence the table does not have"), "A sentence the table does not have", "zhEarly shows the English, never Thai, for a gap");
+}
+
 console.log(`${pass} passed, ${fails.length} failed`);
 process.exit(fails.length ? 1 : 0);

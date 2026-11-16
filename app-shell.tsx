@@ -3,7 +3,8 @@ import { useState, useEffect, Component } from "react";
 import { sb } from "./supabase-client";
 import { saveGuestProfile, setSkipOnboard, logUsage } from "./shared-infra";
 import { handoffUrl } from "./local-identity";
-import { by, ALL_LANGS, LANG_META, isRtl, isExtraLang, xl, hasCatalog, loadCatalog } from "./lang-extra";
+import { by, ALL_LANGS, LANG_META, isRtl, isExtraLang, xl as xlBase, hasCatalog, loadCatalog } from "./lang-extra";
+import { zhEarly } from "./early-zh";
 import { useCatalog } from "./use-catalog";
 /* ── app-shell.tsx ──
    Small presentational components clustered around the App() root: the
@@ -29,11 +30,16 @@ function screenLang(profile?: any): string {
   const p = profile && profile.lang;
   return ALL_LANGS.includes(p) ? p : deviceLang();
 }
-/* "Thai · English" for th / en / zh (sep "\n" for the two-line ones), the translated English alone for the extra languages. `en` is the xl(lg, "...") the caller writes, so the extractor sees the
+/* English and Chinese read their own language on these screens too (round 3, 2026-11-16). They used to get the owner's "Thai · English" pair, so an English or Chinese learner read Thai while signing up.
+   Only Thai (and a first-time visitor whose language is not known yet: deviceLang() is "") keeps the pair. The screens load before any catalog, so Chinese comes from a plain table (early-zh.ts)
+   keyed by the English text: this local xl() shadows the catalog one for zh only and is the identity for en. The extractor still sees every English literal. */
+const ownLang = (lg: string) => lg === "en" || lg === "zh" || isExtraLang(lg);
+const xl = (lg: string, en: any) => (lg === "zh" && typeof en === "string" ? zhEarly(en) : xlBase(lg, en));
+/* "Thai · English" for Thai (and a visitor whose language is not known yet), the language's own text alone for English, Chinese and the seven extra languages (sep "\n" for the two-line ones). `en` is the xl(lg, "...") the caller writes, so the extractor sees the
    English literal; for th / en / zh xl hands it back untouched, which is what keeps their text byte for byte what it was. solo() is the same for a text that has no English half (or whose English
    half is a different sentence from the one the extra languages translate). */
-const pair = (lg: string, th: string, en: string, sep = " · ") => (isExtraLang(lg) ? en : th + sep + en);
-const solo = (lg: string, th: string, en: string) => (isExtraLang(lg) ? en : th);
+const pair = (lg: string, th: string, en: string, sep = " · ") => (ownLang(lg) ? en : th + sep + en);
+const solo = (lg: string, th: string, en: string) => (ownLang(lg) ? en : th);
 
 /* ════ ERROR BOUNDARY (crash safety net) ════ */
 
@@ -66,8 +72,8 @@ export class SafeZone extends Component {
   componentDidCatch(error, info) { if (isChunkLoadError(error)) reloadForNewBuild(); console.error("SafeZone caught:", error, info && info.componentStack); }
   render() {
     if (!this.state.failed) return this.props.children;
-    const lg = deviceLang(), ext = isExtraLang(lg);
-    /* the call sites hand in Thai text; an extra language never reads Thai, so a prop with Thai in it gives way to the translated default */
+    const lg = deviceLang(), ext = ownLang(lg);
+    /* the call sites hand in Thai text; English, Chinese and the extra languages never read Thai, so a prop with Thai in it gives way to the translated default */
     const own = (s) => (ext && s && /[\u0E00-\u0E7F]/.test(s) ? "" : s);
     return (
       <div className="presultai" style={{ borderColor: "#e55" }}>
@@ -122,7 +128,7 @@ export class ErrorBoundary extends Component {
     // screenshot away instead of a dead end — every session of debugging this
     // app has started with "เกิดข้อผิดพลาด" and zero information about where.
     const report = (this.state.errStack || this.state.errText || "unknown").slice(0, 1200);
-    const lg = deviceLang(), ext = isExtraLang(lg);   // the crash screen cannot use a hook: the language is read straight from the device
+    const lg = deviceLang(), ext = ownLang(lg);   // the crash screen cannot use a hook: the language is read straight from the device
     return (
       <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
         <div className="scan" />
@@ -158,7 +164,7 @@ export function Splash() {
 }
 
 export function BannedScreen({ onSignOut, profile }) {   // profile is optional: when the caller hands it in, its lang decides; otherwise the device's last language
-  const lg = screenLang(profile), ext = isExtraLang(lg);
+  const lg = screenLang(profile), ext = ownLang(lg);
   useCatalog(lg);
   return (
     <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
@@ -181,8 +187,8 @@ export function BannedScreen({ onSignOut, profile }) {   // profile is optional:
 // mapping or a plain "Failed to fetch" can leak straight to the screen.
 export function friendlyAuthError(msg, lang = "") {
   const m = msg || "";
-  if (isExtraLang(lang)) {
-    // ja ko ru hi es fr ar: their own language only (the Thai · English pairs below stay for Thai, English and Chinese). A message the server wrote that we do not know is shown as it came, as it is for the three.
+  if (ownLang(lang)) {
+    // en, zh, ja ko ru hi es fr ar: their own language only (the Thai · English pairs below stay for Thai and for a caller that passes no language). A message the server wrote that we do not know is shown as it came, as it is for Thai.
     if (/already registered|already exists/i.test(m)) return xl(lang, "This email is already registered — try logging in instead");
     if (/invalid login credentials/i.test(m)) return xl(lang, "Incorrect email or password");
     if (/email not confirmed/i.test(m)) return xl(lang, "Please confirm your email first — check your inbox");
@@ -201,10 +207,10 @@ export function friendlyAuthError(msg, lang = "") {
 // a Google account specifically, since a student who's a child may not have
 // one yet. Shared by GuestGateScreen (embedded inline, no dismiss) and
 // LoginModal below (the corner pill's dismissable version). Bilingual
-// Thai · English for Thai, English and Chinese, matching every other string on
-// these screens; the seven extra languages read their own language only (see
-// screenLang / pair / solo at the top of this file — `lang` is PianoApp-local
-// state, so each root here reads profile.lang or the device's last language).
+// Thai · English for Thai (and for a visitor whose language is not known yet);
+// English, Chinese and the seven extra languages read their own language only
+// (see screenLang / ownLang / pair / solo at the top of this file — `lang` is
+// PianoApp-local state, so each root here reads profile.lang or the device's last language).
 /* ════ IN-APP BROWSER DETECTION ════
    2026-09-11, found by reading auth logs against a live ad campaign: real
    visitors WERE tapping "Continue with Google" — Supabase logged
@@ -300,7 +306,7 @@ function GoogleMark() {
    account" — so someone with no Google account, or in a WebView where Google
    refuses to work at all, saw no way to create one. */
 function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of the caller (LoginModal / GuestGateScreen read it once and use the catalog hook)
-  const ext = isExtraLang(lg);
+  const ext = ownLang(lg);
   const [inApp] = useState(() => inAppBrowser());
   const [mode, setMode] = useState("signup"); // signup | login
   const [copied, setCopied] = useState(false);
@@ -543,7 +549,7 @@ export function LoginModal({ profile, onGoogleLogin, onClose }) {
    door at the top. The link is opened later and usually in another browser, so
    it carries the visit across (local-identity.handoffUrl) like the landing's. */
 function MagicLinkForm({ profile, lg }) {
-  const ext = isExtraLang(lg);
+  const ext = ownLang(lg);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -694,7 +700,7 @@ function LoginWall({ profile, onGoogleLogin }) {
 }
 
 export function GuestGateScreen({ reason, profile, onLogin }) {
-  const lg = screenLang(profile), ext = isExtraLang(lg);
+  const lg = screenLang(profile), ext = ownLang(lg);
   useCatalog(lg);   // PianoApp already holds the catalog of profile.lang; this keeps the gate right if it is ever mounted on its own
   const [gateInApp] = useState(() => inAppBrowser());
   const [showSignup, setShowSignup] = useState(false);
@@ -1045,7 +1051,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
 // language to translate itself into yet.
 const LANG_CHOICES = ALL_LANGS.map(code => ({ code, flag: LANG_META[code].flag, label: LANG_META[code].name }));   // all ten languages, flag + native name (this screen is not mounted today; see LANG_PICKER_ENABLED in App.tsx)
 export function LangPickerScreen({ session, profile, setProfile }) {
-  const lg = screenLang(profile), ext = isExtraLang(lg);   // a device that last used an extra language is asked in it; a first-time visitor keeps the three-language title
+  const lg = screenLang(profile), ext = ownLang(lg);   // a device that last used an extra language is asked in it; a first-time visitor keeps the three-language title
   useCatalog(lg);
   const [saving, setSaving] = useState(null); // which code is currently being saved
   async function pick(code) {
