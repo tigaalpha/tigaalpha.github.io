@@ -4643,6 +4643,15 @@
   "hi": "किसी गाने से चैलेंज करें",
   "ar": "تحدٍّ بأغنية"
  },
+ "Challenge yourself once at 1.2x tempo": {
+  "ja": "テンポ1.2倍で1回チャレンジしましょう",
+  "ko": "1.2배 속도로 한 번 도전해 보세요",
+  "ru": "Бросьте себе вызов: один раз в темпе 1.2x",
+  "es": "Rétate una vez a 1.2x del tempo",
+  "fr": "Relève le défi une fois à 1.2x du tempo",
+  "hi": "एक बार 1.2x टेम्पो पर खुद को चुनौती दें",
+  "ar": "تحدَّ نفسك مرة واحدة بسرعة 1.2x"
+ },
  "Challenges waiting": {
   "ja": "待機中のチャレンジ",
   "ko": "대기 중인 도전",
@@ -8368,6 +8377,15 @@
   "fr": "Chaque châssis totalise {0}. Aucun n'est plus fort : ils excellent chacun dans un domaine différent.",
   "hi": "हर चेसिस का कुल योग {0} है। कोई भी ज़्यादा ताकतवर नहीं — सब अलग-अलग चीज़ों में माहिर हैं।",
   "ar": "مجموع كل هيكل {0}. لا يوجد هيكل أقوى — كل منها جيد في أمر مختلف."
+ },
+ "Every note hit — now build confidence and steadier timing": {
+  "ja": "すべての音が弾けました — あとは自信とリズムの安定を育てましょう",
+  "ko": "모든 음을 쳤어요 — 이제 자신감과 안정적인 박자를 키워 봐요",
+  "ru": "Все ноты сыграны — теперь стоит укрепить уверенность и ровность ритма",
+  "es": "Tocaste todas las notas: ahora gana confianza y un pulso más estable",
+  "fr": "Toutes les notes sont jouées : renforce maintenant ta confiance et la régularité du rythme",
+  "hi": "सारे नोट सही बजे — अब आत्मविश्वास और ताल की स्थिरता पर काम करें",
+  "ar": "تم عزف كل النوتات — الآن عزّز ثقتك واجعل إيقاعك أكثر ثباتًا"
  },
  "Every upgrade line is maxed": {
   "ja": "すべての強化ラインが最大です",
@@ -21995,6 +22013,15 @@
   "hi": "खंडहर की सफ़ाई",
   "ar": "كنس الأطلال"
  },
+ "Run the full song once at 0.8x tempo": {
+  "ja": "テンポ0.8倍で曲全体を1回通して弾きましょう",
+  "ko": "0.8배 속도로 곡 전체를 한 번 연주해 보세요",
+  "ru": "Сыграйте всю песню один раз в темпе 0.8x",
+  "es": "Toca la canción completa una vez a 0.8x del tempo",
+  "fr": "Joue le morceau en entier une fois à 0.8x du tempo",
+  "hi": "पूरा गाना एक बार 0.8x टेम्पो पर बजाएँ",
+  "ar": "اعزف الأغنية كاملة مرة واحدة بسرعة 0.8x"
+ },
  "Run the lesson along this syllabus, always open with a short warm-up matched to the current stage, and before ending set next lesson's plan with [plan: ...]": {
   "ja": "このシラバスに沿ってレッスンを進め、毎回、現在のステージに合った短いウォームアップから始め、終わる前に [plan: ...] で次のレッスンの計画を設定すること",
   "ko": "이 커리큘럼에 따라 레슨을 진행하고, 항상 현재 단계에 맞는 짧은 워밍업으로 시작하며, 끝내기 전에 [plan: ...]으로 다음 레슨 계획을 정하세요",
@@ -23740,6 +23767,15 @@
   "fr": "Mode lent — idéal pour débuter",
   "hi": "धीमा मोड — शुरुआती लोगों के लिए बढ़िया",
   "ar": "الوضع البطيء — ممتاز للمبتدئين"
+ },
+ "Slow-drill \"{0}\" 3 times, then join the whole phrase": {
+  "ja": "「{0}」をゆっくり3回くり返してから、フレーズ全体につなげましょう",
+  "ko": "\"{0}\" 구간을 천천히 3번 연습한 뒤 프레이즈 전체로 이어 보세요",
+  "ru": "Сыграйте «{0}» медленно 3 раза, затем соедините со всей фразой",
+  "es": "Practica «{0}» despacio 3 veces y luego únelo con toda la frase",
+  "fr": "Travaille « {0} » lentement 3 fois, puis enchaîne avec toute la phrase",
+  "hi": "\"{0}\" को धीमी गति से 3 बार दोहराएँ, फिर पूरे वाक्यांश से जोड़ें",
+  "ar": "تمرّن على «{0}» ببطء ثلاث مرات، ثم صِله بالجملة الموسيقية كاملة"
  },
  "Slows enemies within {0} for {1} s": {
   "ja": "{0}以内の敵を{1}秒間スローにする",
@@ -26180,6 +26216,15 @@
   "fr": "C'était la dernière carte ouverte",
   "ar": "كانت تلك آخر خريطة مفتوحة"
  },
+ "The \"{0}\" section is shaky — {1} of {2} notes missed": {
+  "ja": "「{0}」の部分がまだ不安定です — {2}音中{1}音をミスしました",
+  "ko": "\"{0}\" 구간이 아직 불안해요 — {2}개 음 중 {1}개를 놓쳤어요",
+  "ru": "Фрагмент «{0}» пока неуверенный — пропущено нот: {1} из {2}",
+  "es": "El pasaje «{0}» aún no está firme — fallaste {1} de {2} notas",
+  "fr": "Le passage « {0} » n'est pas encore sûr — {1} notes manquées sur {2}",
+  "hi": "\"{0}\" वाला हिस्सा अभी पक्का नहीं है — {2} में से {1} नोट छूट गए",
+  "ar": "مقطع «{0}» ما زال غير ثابت — فاتت {1} نوتات من أصل {2}"
+ },
  "The **C major scale** is the most fundamental scale there is, and the only one played entirely on **white keys** — not a single black key in it.\n\nEight notes: **C D E F G A B C**\n(do re mi fa sol la ti do)\n\nHere is the trick that makes it stick for life — the gaps between the notes go\n**whole–whole–half–whole–whole–whole–half**\n\nThose two half steps land exactly on **E→F** and **B→C**, the only two pairs on the whole keyboard with no black key between them. So there is nothing to memorise: you can simply see it.\n\nRight hand: **1-2-3**, then **tuck your thumb under your palm** to reach F, and carry on **1-2-3-4-5**\n\nLook at the keyboard above — I'm playing it for you, one finger at a time 👆": {
   "ja": "**Cメジャースケール**は最も基本的なスケールで、**白鍵だけ**で弾ける唯一のスケールです。黒鍵はひとつも出てきません。\n\n八つの音：**C D E F G A B C**\n（ドレミファソラシド）\n\n一生忘れないためのコツがあります。音と音の間隔は\n**全音–全音–半音–全音–全音–全音–半音**\n\nこの二つの半音は、ちょうど **E→F** と **B→C** にあたります。鍵盤全体で、間に黒鍵がないのはこの二組だけ。覚えることは何もなく、目で見れば分かります。\n\n右手：**1-2-3**、そのあと **手のひらの下へ親指をくぐらせて** F に届かせ、**1-2-3-4-5** と続けます\n\n上の鍵盤を見てください。私が一本ずつ指を使って弾いてみせます 👆",
   "ko": "**C 메이저 스케일**은 가장 기본이 되는 스케일이고, 오직 **흰 건반**만으로 연주하는 유일한 스케일이에요. 검은 건반이 하나도 없어요.\n\n여덟 개의 음: **C D E F G A B C**\n(도 레 미 파 솔 라 시 도)\n\n평생 기억에 남게 해 주는 비결이 있어요. 음과 음 사이의 간격은 이렇게 흘러가요.\n**온음–온음–반음–온음–온음–온음–반음**\n\n두 개의 반음은 정확히 **E→F**와 **B→C**에 있어요. 건반 전체에서 사이에 검은 건반이 없는 곳은 이 두 곳뿐이에요. 외울 것 없이 눈으로 보면 돼요.\n\n오른손: **1-2-3**, 그다음 **엄지를 손바닥 밑으로 넣어서** F에 닿고, **1-2-3-4-5**로 이어가요\n\n위의 건반을 보세요. 제가 손가락 하나씩 쳐서 들려드릴게요 👆",
@@ -27691,6 +27736,15 @@
   "fr": "Essayer →",
   "hi": "आज़माएँ →",
   "ar": "جرّبه ←"
+ },
+ "Try left-hand mode for a new challenge": {
+  "ja": "左手モードで新しいチャレンジに挑戦しましょう",
+  "ko": "왼손 모드로 새로운 도전을 해 보세요",
+  "ru": "Попробуйте режим левой руки — это новый вызов",
+  "es": "Prueba el modo de mano izquierda para un nuevo reto",
+  "fr": "Essaie le mode main gauche pour un nouveau défi",
+  "hi": "नई चुनौती के लिए बाएँ हाथ का मोड आज़माएँ",
+  "ar": "جرّب وضع اليد اليسرى لتحدٍّ جديد"
  },
  "Try sight reading": {
   "ja": "初見演奏を試す",

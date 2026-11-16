@@ -623,7 +623,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   // arrives (bracket-aware so [play:…] tags never get split) — lets us start
   // speaking almost immediately instead of waiting for the whole reply.
   async function vmFetchAI(message, history, onSentence) {
-    const TERM = ".!?…\n。！？";
+    const TERM = ".!?…\n。！？।؟";   // । is the Hindi full stop and ؟ the Arabic question mark: without them a Hindi reply (statements end in ।) was spoken only after the whole stream had arrived, as one chunk
     const body = { message, conversationHistory: history, system: L[langRef.current].vmSys + FINGERING_REF + THEORY_REF + (tigaNow() ? tigaNow().getKBContext(message) : "") + (tigaNow() ? (tigaNow().getStudentContextBlock() || "") : "") + vmStudentContext() + memoryContext(langRef.current) + homeworkContext(langRef.current) + curriculumContext(langRef.current) + songRecommendationHint(langRef.current), feature: "voice" };   // plan 2.4: the voice teacher knows this learner's practice history too (honest-empty until the lazy model lands)
     let lastErr;
     // Try up to twice. On a weak signal a stall watchdog aborts a frozen stream;
@@ -866,7 +866,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
   // a longer one after a question/exclamation so it lands before the next thought.
   // Pauses shrink when the learner asks for a faster pace (never a wall of words).
   function vmBreath(text) {
-    const ends = /[?!。！？]$/.test((text || "").trim());
+    const ends = /[?!。！？؟]$/.test((text || "").trim());
     const base = ends ? 520 : 240;
     const sp = Math.max(0.75, Math.min(2, vmSpeedRef.current || 1));
     return vmWait(base / sp);

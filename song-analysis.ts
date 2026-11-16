@@ -42,13 +42,14 @@ export function buildSongFallback(lang, label, result) {
       ? [`ซ้อมโน้ต "${top}" ช้า ๆ 3 ครั้ง ก่อนรวมทั้งท่อน`, "เปิดเท็มโป 0.8x ซ้อมทั้งเพลงอีก 1 รอบ"]
       : ["เปิดเท็มโป 1.2x ท้าตัวเองอีก 1 รอบ", "ลองโหมดมือซ้ายเพิ่มความท้าทาย"],
   };
+  // each English line goes through the catalog on its own (xl on the whole object is inert: it only translates a string), so ja ko ru hi es fr ar read their own language; en keeps the English
   const en = {
     weakness: missed.length
-      ? `The "${top}" section is shaky — ${missed.length} of ${result.total} notes missed`
-      : "Every note hit — now build confidence and steadier timing",
+      ? xl(lang, `The "${top}" section is shaky — ${missed.length} of ${result.total} notes missed`)
+      : xl(lang, "Every note hit — now build confidence and steadier timing"),
     steps: missed.length
-      ? [`Slow-drill "${top}" 3 times, then join the whole phrase`, "Run the full song once at 0.8x tempo"]
-      : ["Challenge yourself once at 1.2x tempo", "Try left-hand mode for a new challenge"],
+      ? [xl(lang, `Slow-drill "${top}" 3 times, then join the whole phrase`), xl(lang, "Run the full song once at 0.8x tempo")]
+      : [xl(lang, "Challenge yourself once at 1.2x tempo"), xl(lang, "Try left-hand mode for a new challenge")],
   };
   const zh = {
     weakness: missed.length
@@ -58,7 +59,7 @@ export function buildSongFallback(lang, label, result) {
       ? [`慢速练 "${top}" 3 次，再连整段`, "用 0.8x 速度完整跑一遍"]
       : ["用 1.2x 速度挑战一次", "试试左手模式"],
   };
-  const c = lang === "th" ? th : lang === "zh" ? zh : xl(lang, en);
+  const c = lang === "th" ? th : lang === "zh" ? zh : en;
   return { weakness: c.weakness, steps: c.steps, fallback: true };
 }
 

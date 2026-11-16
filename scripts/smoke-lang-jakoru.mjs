@@ -71,6 +71,7 @@ const count = (s, re) => (s.match(re) || []).length;
 const lines = s => s.split("\n").map(x => x.trim()).filter(Boolean);
 const open = async (page, qs = "?ux=2") => { await page.goto(BASE + qs, { waitUntil: "domcontentloaded" }); await page.waitForSelector(".flagbtn", { timeout: 30000 }); await page.waitForTimeout(1200); await closePops(page); };
 const pick = async (page, lg) => {
+  await closePops(page);   // a pop-up (the education tip, 2.5 s after the first screen) can sit over the flag button
   await page.click(".flagbtn");
   await page.locator(".flagitem", { hasText: NAME[lg] }).click();
   await page.waitForFunction(l => document.documentElement.lang === l, lg === "zh" ? "zh-CN" : lg, { timeout: 15000 });
@@ -106,7 +107,7 @@ let EN = null;
   ok(menu.names.length === 10, "the header language menu lists ten languages (" + menu.names.length + ")");
   ok(JSON.stringify(menu.names) === JSON.stringify(ORDER.map(l => NAME[l])), "...in registry order, each in its own script: " + menu.names.join(" | "));
   ok(menu.r[0] >= 0 && menu.r[1] >= 0 && menu.r[2] <= menu.vw + 0.5 && menu.r[3] <= menu.vh + 0.5, `...and the menu stays inside the ${menu.vw} x ${menu.vh} viewport (${menu.r.map(Math.round).join(",")})`);
-  await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+  await page.click(".flagbtn"); await page.waitForTimeout(200);   // the menu closes on a click (there is no Escape handler); an open menu would sit over the Upgrade pill on a narrow screen
   const thPrice = await priceOf(page);
   ok(thPrice && /^฿799/.test(thPrice[0]), "Thai: the pricing card quotes baht (" + (thPrice && thPrice[0]) + ")");
   ok(errors.length === 0, "no page error on the default language: " + errors.join(" ; "));
