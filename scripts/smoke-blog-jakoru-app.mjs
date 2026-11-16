@@ -190,7 +190,16 @@ for (const lang of LANGS) {
 {
   await reset();
   const { host } = await mount(M.h(M.BlogPage, { lang: "en" }));
+  const scrolls = [], proto = dom.window.Element.prototype;
+  proto.scrollIntoView = function (o) { scrolls.push({ menu: this.hasAttribute("data-blog-langmenu"), o }); };   // jsdom has none; every run above went through the "no scrollIntoView" path
   await click(host.querySelector("[data-blog-langbtn]"), M, 40);
+  ok("opening the menu scrolls the page just far enough to show all of it (scrollIntoView block nearest on the menu, once)", scrolls.length === 1 && scrolls[0].menu && scrolls[0].o && scrolls[0].o.block === "nearest", JSON.stringify(scrolls));
+  await click(host.querySelector("[data-blog-langbtn]"), M, 40);
+  ok("closing the menu scrolls nothing", scrolls.length === 1);
+  proto.scrollIntoView = function () { throw new Error("not allowed here"); };
+  await click(host.querySelector("[data-blog-langbtn]"), M, 40);
+  ok("a scrollIntoView that throws does not break the menu", !!host.querySelector("[data-blog-langmenu]") && host.querySelectorAll("[data-blog-lang]").length === 10);
+  delete proto.scrollIntoView;
   await M.act(async () => { document.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(40); });
   ok("Escape closes the menu", !host.querySelector("[data-blog-langmenu]"));
   await click(host.querySelector("[data-blog-langbtn]"), M, 40); await click(host.querySelector('[data-blog-lang="ru"]'), M, 80);

@@ -109,7 +109,10 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
   const [counts, setCounts] = useState<Record<string, number>>({});   // "lang|slug" -> all-time views
   const [openViews, setOpenViews] = useState<number | null>(null);
   const [langOpen, setLangOpen] = useState(false);
-  const asked = useRef<Record<string, boolean>>({}), fileAsked = useRef<Record<string, boolean>>({});
+  const asked = useRef<Record<string, boolean>>({}), fileAsked = useRef<Record<string, boolean>>({}), menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {   // a short screen (a 320 x 568 phone with the tab bar under the page, a landscape phone): scroll the page just far enough that the whole menu is on screen, never further
+    const el = menuRef.current; if (langOpen && el && el.scrollIntoView) { try { el.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch (e) {} }
+  }, [langOpen]);
   useEffect(() => {   // the language menu closes on a tap anywhere else, on Escape and when an article opens
     if (!langOpen) return;
     const away = (e: Event) => { const t = e.target as Element | null; if (!t || !t.closest || !t.closest("[data-blog-langs]")) setLangOpen(false); };
@@ -165,7 +168,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
               <span aria-hidden="true" style={{ fontSize: 11, color: "var(--muted)", transform: langOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▼</span>
             </button>
             {langOpen && (
-              <div role="listbox" data-blog-langmenu style={{ position: "absolute", top: "calc(100% + 6px)", ...(appDir === "rtl" ? { left: 0 } : { right: 0 }), zIndex: 30, minWidth: 190, maxHeight: "min(60vh, 420px)", overflowY: "auto", background: "var(--card, #fff)", border: "1px solid var(--bd, #e2d8cf)", borderRadius: 16, padding: 6, boxShadow: "0 10px 30px rgba(0,0,0,.18)" }}>
+              <div role="listbox" data-blog-langmenu ref={menuRef} style={{ position: "absolute", top: "calc(100% + 6px)", ...(appDir === "rtl" ? { left: 0 } : { right: 0 }), zIndex: 30, minWidth: 190, maxHeight: "min(60vh, 420px)", overflowY: "auto", background: "var(--card, #fff)", border: "1px solid var(--bd, #e2d8cf)", borderRadius: 16, padding: 6, boxShadow: "0 10px 30px rgba(0,0,0,.18)" }}>
                 {ALL_LANGS.map(l => (
                   <button key={l} type="button" role="option" aria-selected={tab === l} data-blog-lang={l} onClick={() => { setTab(l); setCat("all"); setLangOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", minHeight: 48, padding: "0 12px", border: "none", borderRadius: 12, cursor: "pointer", fontFamily: "inherit", fontSize: 15, fontWeight: tab === l ? 800 : 600, textAlign: "start", background: tab === l ? "var(--card2, #f4ece4)" : "transparent", color: tab === l ? "var(--clay, #d97757)" : "var(--text)" }}>
                     <span aria-hidden="true" style={{ fontSize: 22 }}>{LANG_META[l].flag}</span>
