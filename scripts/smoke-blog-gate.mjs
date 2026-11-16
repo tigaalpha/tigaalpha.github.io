@@ -9,10 +9,11 @@ import fs from "node:fs"; import os from "node:os"; import path from "node:path"
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let pass = 0, fail = 0; const ok = (c, m) => { if (c) { pass++; console.log("  ✓", m); } else { fail++; console.log("  ✗ FAIL:", m); } };
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "blog-gate-")); const out = path.join(tmp, "blog");
-// th / en / zh are database rows in production; the page code is the same for hi / es / fr / ar, which ship as source files, so the same fixture rows give their pages here (the generator writes their index itself)
+// th / en / zh are database rows in production; the page code is the same for ja / ko / ru / hi / es / fr / ar, which ship as source files, so the same fixture rows give their pages here (the generator writes their index itself).
+// All ten languages have a row, so every page carries the full hreflang cluster of ten.
 const LANGS7 = ["th", "en", "zh", "hi", "es", "fr", "ar"], NEWL = ["hi", "es", "fr", "ar"], ALL10 = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
-const TITLES = { th: "ท่านั่งเล่นเปียโน", en: "Piano posture", zh: "钢琴坐姿", hi: "पियानो बजाते समय बैठने का सही तरीका", es: "Postura correcta al sentarse al piano", fr: "La bonne posture au piano", ar: "وضعية الجلوس الصحيحة: 15 دقيقة في TIGA ALPHA" };
-const posts = LANGS7.map((lang) => ({ id: "p-" + lang, lang, slug: "piano-posture", category: "tips", title: TITLES[lang], excerpt: "x", body: "# H\n" + "para ".repeat(200) + "\n\n" + "more ".repeat(400), cover_url: null, published: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" }));
+const TITLES = { th: "ท่านั่งเล่นเปียโน", en: "Piano posture", zh: "钢琴坐姿", ja: "ピアノの姿勢と座り方", ko: "피아노 자세와 앉는 법", ru: "Посадка за фортепиано", hi: "पियानो बजाते समय बैठने का सही तरीका", es: "Postura correcta al sentarse al piano", fr: "La bonne posture au piano", ar: "وضعية الجلوس الصحيحة: 15 دقيقة في TIGA ALPHA" };
+const posts = ALL10.map((lang) => ({ id: "p-" + lang, lang, slug: "piano-posture", category: "tips", title: TITLES[lang], excerpt: "x", body: "# H\n" + "para ".repeat(200) + "\n\n" + "more ".repeat(400), cover_url: null, published: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" }));
 fs.writeFileSync(path.join(tmp, "posts.json"), JSON.stringify(posts));
 const server = http.createServer((q, s) => { let f = path.join(tmp, decodeURIComponent(q.url.split("?")[0])); if (fs.existsSync(f) && fs.statSync(f).isDirectory()) f = path.join(f, "index.html"); if (!fs.existsSync(f)) { s.writeHead(404); return s.end("nf"); } s.writeHead(200, { "content-type": f.endsWith(".html") ? "text/html; charset=utf-8" : "text/plain" }); s.end(fs.readFileSync(f)); });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
