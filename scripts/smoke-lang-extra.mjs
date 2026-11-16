@@ -278,6 +278,13 @@ eq(/tg_lang_hint:/.test(rd("cloud-sync.ts")), true, "cloud-sync: tg_lang_hint (t
 {
   const shell = rd("app-shell.tsx");
   eq([/const ownLang = \(lg: string\) => lg === "en" \|\| lg === "zh" \|\| isExtraLang\(lg\);/.test(shell), /const pair = \([^)]*\) => \(ownLang\(lg\) \? en : th \+ sep \+ en\);/.test(shell)], [true, true], "app-shell.tsx: en, zh and the extras read their own language, th keeps the pair");
+  // deviceLang() (the language of a screen that has no profile yet): index.html ships <html lang="en"> before any language is known, so a bare "en" there must NOT count as the visitor's English
+  // (a Thai first-time visitor would read the sign-up / crash screen in English only); only the hint PianoApp writes, or the profile, can say "English"
+  const dl = /function deviceLang\(\): string \{[\s\S]*?\n\}/.exec(shell);
+  const dlCode = dl ? esbuild.transformSync(dl[0], { loader: "ts" }).code : "";
+  const dlRun = (hint, html) => new Function("localStorage", "document", "ALL_LANGS", dlCode + "\nreturn deviceLang();")({ getItem: () => { if (hint === "THROW") throw new Error("blocked"); return hint; } }, { documentElement: { getAttribute: () => html } }, M.ALL_LANGS);
+  eq(dl ? [dlRun(null, "en"), dlRun(null, "th"), dlRun(null, "zh-CN"), dlRun(null, "ja"), dlRun("en", "en"), dlRun("ja", "en"), dlRun("THROW", "ko"), dlRun("THROW", "en"), dlRun("xx", "")] : null,
+     ["", "th", "zh", "ja", "en", "ja", "ko", "", ""], "app-shell.tsx deviceLang(): the static <html lang=\"en\"> is not the visitor's English; the hint and any other app-set lang are");
   const zjs = esbuild.transformSync(rd("early-zh.ts"), { loader: "ts", format: "esm" }).code;
   const Z = await import("data:text/javascript;base64," + Buffer.from(zjs).toString("base64"));
   const lits = new Set();

@@ -17,13 +17,14 @@ import { useCatalog } from "./use-catalog";
 
 /* ── the language of the early screens (2026-11-16) ──
    Everything below mounts before PianoApp has a `lang` (the gate screens), beside it (the sign-up card, the corner Login modal) or after it has died (the two crash fallbacks).
-   Thai, English and Chinese read exactly what they always read: Thai-only text, or the owner's bilingual "Thai · English" pair. The seven extra languages (ja ko ru hi es fr ar) read ONLY their
-   own language: the English half goes through the catalog (xl) and the Thai half is never shown, so a Japanese learner no longer reads Thai + English.
+   Thai keeps the owner's bilingual "Thai · English" pair. English, Chinese and the seven extra languages (ja ko ru hi es fr ar) read ONLY their own language: the English goes through
+   the catalog (xl) or, for Chinese, early-zh.ts, and the Thai half is never shown (round 2 did it for the seven, round 3 for English and Chinese).
    Where the language comes from: profile.lang when the learner has chosen one (any of the ten); else the language this device used last (tg_lang_hint: PianoApp writes it on every change and main.tsx
-   loads that catalog before the first paint); else nothing, which means the Thai / English text. LoginWall keeps its own rule (the browser's language as the last resort), it only ever needs the three. */
+   loads that catalog before the first paint); else the <html lang> the app set; else nothing, which means the Thai / English pair. index.html ships lang="en" before any language is known, so a bare "en"
+   from <html lang> proves nothing (a Thai first-time visitor reads the pair, not English only): only the hint or the profile can say "English". LoginWall keeps its own rule (the browser's language as the last resort). */
 function deviceLang(): string {
   try { const h = localStorage.getItem("tg_lang_hint"); if (h && ALL_LANGS.includes(h)) return h; } catch (e) {}
-  try { const l = (document.documentElement.getAttribute("lang") || "").slice(0, 2).toLowerCase(); if (ALL_LANGS.includes(l)) return l; } catch (e) {}
+  try { const l = (document.documentElement.getAttribute("lang") || "").slice(0, 2).toLowerCase(); if (l !== "en" && ALL_LANGS.includes(l)) return l; } catch (e) {}
   return "";
 }
 function screenLang(profile?: any): string {
