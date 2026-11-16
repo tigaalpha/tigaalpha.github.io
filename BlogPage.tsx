@@ -90,8 +90,8 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
       if (off || error || typeof data !== "number" || data < 1) return;
       setOpenViews(data); setCounts(c => ({ ...c, [key]: data }));   // the list shows the same number when the reader goes back
     }, () => {});
-    // five seconds with the article open is a "read" (30 until 2026-11-12, 15 until 2026-11-13) (the static pages count the same), so the percentage in the admin card compares like with like
-    const t = setTimeout(() => { (sb as any).rpc("blog_hit", { p_lang: open.lang, p_slug: open.slug, p_vid: blogVid(), p_kind: "read" }).then(() => {}, () => {}); }, 5000);
+    // three seconds with the article open is a "read" (30 until 2026-11-12, 15 until 2026-11-13, 5 until 2026-11-16) (the static pages count the same), so the percentage in the admin card compares like with like
+    const t = setTimeout(() => { (sb as any).rpc("blog_hit", { p_lang: open.lang, p_slug: open.slug, p_vid: blogVid(), p_kind: "read" }).then(() => {}, () => {}); }, 3000);
     return () => { off = true; clearTimeout(t); };
   }, [open && open.id]);
   useEffect(() => {

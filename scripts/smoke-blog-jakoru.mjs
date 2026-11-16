@@ -54,6 +54,7 @@ ok(/\(\d+ from blog-src\)/.test(r1.out), "the build reports how many posts came 
 
 console.log("article pages in ja / ko / ru");
 const wall = { ja: ["続きを読むにはログイン", "Googleで続ける", "無料で会員登録", "ログイン"], ko: ["계속 읽으려면 로그인하세요", "Google로 계속하기", "무료로 가입하기", "로그인"], ru: ["Войдите, чтобы читать дальше", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"] };
+const trialWords = { ja: ["7日間無料", "クレジットカードは不要"], ko: ["7일 동안 무료", "신용카드는 필요 없어요"], ru: ["7 дней бесплатно", "банковская карта не нужна"] };
 const LOC = { ja: "ja_JP", ko: "ko_KR", ru: "ru_RU" }, AUM = { ja: "アウム先生", ko: "아움 선생님", ru: "Учитель Aum" }, CAT = { ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки" }, BACK = { ja: "すべての記事", ko: "모든 글", ru: "Все статьи" }, CTA = { ja: "TIGA ALPHAで無料で始めよう", ko: "TIGA ALPHA에서 무료로 시작하기", ru: "Начните учиться бесплатно в TIGA ALPHA" }, WORDS = { ja: "回閲覧", ko: "회 조회", ru: "просмотров" };
 for (const lang of ["ja", "ko", "ru"]) {
   const f = path.join(OUT, lang, "piano-posture.html"); ok(fs.existsSync(f), lang + ": the page is written from blog-src");
@@ -74,7 +75,8 @@ for (const lang of ["ja", "ko", "ru"]) {
   ok(wall[lang].slice(0, 3).every(w => h.includes(w)) && h.includes("TIGA AI"), lang + ": the wall copy is in " + lang + " and names the TIGA AI app");
   ok(h.includes(`lg=${lang}`) && h.includes("utm_campaign=piano-posture") && h.includes("go=google") && h.includes("wall=signup") && h.includes("wall=login"), lang + ": wall links carry lg=" + lang + ", the attribution and the three entry points");
   ok(h.includes(`LANG="${lang}"`) && h.includes(`LBL="${WORDS[lang]}"`), lang + ": the reader script knows its language and the unit '" + WORDS[lang] + "'");
-  ok(h.includes("MS=5000") && !/data-gate-close|tg-g-x|tg-g-later/.test(h), lang + ": the wall is the same uncloseable 5 second wall");
+  ok(h.includes("MS=3000") && !/data-gate-close|tg-g-x|tg-g-later/.test(h), lang + ": the wall is the same uncloseable 3 second wall");
+  ok(trialWords[lang].every(w => h.includes(w)) && h.includes("<!--tg-gate:v7-->"), lang + ": the pop-up says the 7-day trial needs no credit card, in " + lang, trialWords[lang].join(" / "));
   ok(/id="tg-gate"[^>]*data-nosnippet[^>]*hidden/.test(h), lang + ": the pop-up is hidden and marked data-nosnippet");
   ok(h.includes("<time datetime=\"2026-11-11\">2026-11-11</time>"), lang + ": a plain date string in created_at gives a valid date");
   ok(/class="tg-views"|\.tg-views\{/.test(h), lang + ": the view counter styles are in");
